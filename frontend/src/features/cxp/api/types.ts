@@ -663,7 +663,8 @@ export const EstadoAnticipoLabels: Record<EstadoAnticipo, string> = {
 
 export interface AnticipoListItem {
   id: string;
-  uuidCfdi: string;
+  origen?: 1 | 2;
+  uuidCfdi: string | null;
   proveedorId: string;
   serie: string;
   folioProveedor: string | null;

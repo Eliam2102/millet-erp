@@ -1,3 +1,4 @@
+import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
 import { EmpleadoSelector } from '@/components/erp/selectors/EmpleadoSelector';
 import { Dim3Picker } from '@/features/centros-costo/components/Dim3Picker';
 import { useState } from 'react';
@@ -28,64 +29,76 @@ export function CustodiaFields({
 }) {
   const [empleado, setEmpleado] = useState(false);
   return (
-    <fieldset className="grid grid-cols-2 gap-4">
-      <legend className="mb-3 font-semibold">Custodia</legend>
-      <label className="space-y-1 text-xs">
-        Sucursal *
-        <SucursalSelector
-          value={value.sucursalId || null}
-          onChange={(id) => onChange({ ...value, sucursalId: id ?? '' })}
-        />
-      </label>
-      <label className="space-y-1 text-xs">
-        Responsable{' '}
-        <input
-          type="checkbox"
-          aria-label="Responsable es empleado"
-          checked={empleado}
-          onChange={(e) => {
-            setEmpleado(e.target.checked);
-            onChange({ ...value, responsableId: vacio });
-          }}
-        />{' '}
-        Empleado
-        {empleado ? (
-          <EmpleadoSelector
-            value={value.responsableId === vacio ? null : value.responsableId}
-            onChange={(id) => onChange({ ...value, responsableId: id ?? vacio })}
-          />
-        ) : (
-          <UsuarioSelector
-            value={value.responsableId === vacio ? null : value.responsableId}
-            onChange={(id) => onChange({ ...value, responsableId: id ?? vacio })}
-          />
-        )}
-      </label>
-      <label className="space-y-1 text-xs">
-        Ubicación física
-        <Input
-          value={value.ubicacion}
-          onChange={(e) => onChange({ ...value, ubicacion: e.target.value })}
-        />
-      </label>
-      <label className="space-y-1 text-xs">
-        Centro de costo
-        <Dim3Picker
-          endpoint="/api/v1/activos-fijos/centros"
-          value={value.centroCostoId === vacio ? null : value.centroCostoId}
-          onChange={(id) => onChange({ ...value, centroCostoId: id ?? vacio })}
-          ariaLabel="Centro de costo"
-        />
-      </label>
-      <label className="space-y-1 text-xs">
-        Equipo (opcional)
-        <Dim3Picker
-          endpoint="/api/v1/activos-fijos/equipos"
-          value={value.equipoId}
-          onChange={(id) => onChange({ ...value, equipoId: id })}
-          ariaLabel="Equipo"
-        />
-      </label>
+    <fieldset className="space-y-3">
+      <legend className="text-sm font-semibold">1. Custodia</legend>
+      <FormGrid>
+        <FormCampo>
+          <label className="space-y-1 text-xs">
+            Sucursal *
+            <SucursalSelector
+              value={value.sucursalId || null}
+              onChange={(id) => onChange({ ...value, sucursalId: id ?? '' })}
+            />
+          </label>
+        </FormCampo>
+        <FormCampo>
+          <label className="space-y-1 text-xs">
+            Responsable{' '}
+            <input
+              type="checkbox"
+              aria-label="Responsable es empleado"
+              checked={empleado}
+              onChange={(e) => {
+                setEmpleado(e.target.checked);
+                onChange({ ...value, responsableId: vacio });
+              }}
+            />{' '}
+            Empleado
+            {empleado ? (
+              <EmpleadoSelector
+                value={value.responsableId === vacio ? null : value.responsableId}
+                onChange={(id) => onChange({ ...value, responsableId: id ?? vacio })}
+              />
+            ) : (
+              <UsuarioSelector
+                value={value.responsableId === vacio ? null : value.responsableId}
+                onChange={(id) => onChange({ ...value, responsableId: id ?? vacio })}
+              />
+            )}
+          </label>
+        </FormCampo>
+        <FormCampo>
+          <label className="space-y-1 text-xs">
+            Ubicación física
+            <Input
+              value={value.ubicacion}
+              onChange={(e) => onChange({ ...value, ubicacion: e.target.value })}
+            />
+          </label>
+        </FormCampo>
+        <FormCampo>
+          <label className="space-y-1 text-xs">
+            Centro de costo
+            <Dim3Picker
+              endpoint="/api/v1/activos-fijos/centros"
+              value={value.centroCostoId === vacio ? null : value.centroCostoId}
+              onChange={(id) => onChange({ ...value, centroCostoId: id ?? vacio })}
+              ariaLabel="Centro de costo"
+            />
+          </label>
+        </FormCampo>
+        <FormCampo>
+          <label className="space-y-1 text-xs">
+            Equipo (opcional)
+            <Dim3Picker
+              endpoint="/api/v1/activos-fijos/equipos"
+              value={value.equipoId}
+              onChange={(id) => onChange({ ...value, equipoId: id })}
+              ariaLabel="Equipo"
+            />
+          </label>
+        </FormCampo>
+      </FormGrid>
     </fieldset>
   );
 }

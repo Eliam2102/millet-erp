@@ -168,9 +168,9 @@ public static class CalculoDepreciacion
     public static CustodiaActivo CustodiaAFecha(Activo a, DateOnly corte)
     {
         var custodia = a.Custodia();
-        var zona = TimeZoneInfo.FindSystemTimeZoneById("America/Merida");
-        foreach (var t in a.Traslados.Where(x => x.AceptadoEn != null).OrderByDescending(x => x.AceptadoEn))
-            if (DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(t.AceptadoEn!.Value, zona).DateTime) > corte) custodia = t.Origen;
+        foreach (var t in a.Traslados.Where(x => x.AceptadoEn != null)
+            .OrderByDescending(x => x.FechaEfectiva).ThenByDescending(x => x.RegistradoEn).ThenByDescending(x => x.Id))
+            if (t.FechaEfectiva > corte) custodia = t.Origen;
         return custodia;
     }
 

@@ -1,3 +1,4 @@
+import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
 import { DepreciacionActivo } from '../components/DepreciacionActivo';
 import { ImprimirEtiquetas } from '../components/ImprimirEtiquetas';
 import { DocumentosActivo } from '../components/DocumentosActivo';
@@ -6,6 +7,15 @@ import { DocumentoProveedorSelector } from '../components/DocumentoProveedorSele
 import { useState } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetBody,
+  SheetFooter,
+} from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -220,31 +230,33 @@ export function ActivoDetallePage() {
               {a.traslados.map((t) => (
                 <div key={t.id} className="border-b border-line-row py-3">
                   <p>
-                    {t.registradoEn} ·{' '}
-                    {t.aceptadoEn ? `Aceptado: ${t.aceptadoEn}` : 'Pendiente de aceptación'}
+                    {t.fechaEfectiva} · {t.motivo}
                   </p>
                   <p>
-                    Origen: {t.origen.ubicacion} · Sucursal:{' '}
-                    {t.origenDescripcion?.sucursal ?? 'Sin registrar'} · Equipo:{' '}
-                    {t.origenDescripcion?.equipo ?? 'Sin equipo'}
+                    {t.origen.ubicacion} ({t.origenDescripcion?.sucursal ?? 'Sin registrar'}){' → '}
+                    {t.destino.ubicacion} ({t.destinoDescripcion?.sucursal ?? 'Sin registrar'})
                   </p>
                   <p>
-                    Destino: {t.destino.ubicacion} · Sucursal:{' '}
-                    {t.destinoDescripcion?.sucursal ?? 'Sin registrar'} · Equipo:{' '}
+                    Responsable: {t.origenDescripcion?.responsable ?? 'Sin registrar'}
+                    {' → '}
+                    {t.destinoDescripcion?.responsable ?? 'Sin registrar'} · Centro de costo:{' '}
+                    {t.origenDescripcion?.centroCosto ?? 'Sin registrar'}
+                    {' → '}
+                    {t.destinoDescripcion?.centroCosto ?? 'Sin registrar'}
+                  </p>
+                  <p>
+                    Equipo: {t.origenDescripcion?.equipo ?? 'Sin equipo'}
+                    {' → '}
                     {t.destinoDescripcion?.equipo ?? 'Sin equipo'}
                   </p>
-                  {trasladar && !t.aceptadoEn && a.puedeAceptarTraslado && (
-                    <Button onClick={() => accion('aceptar', { trasladoId: t.id })}>
-                      Aceptar custodia
-                    </Button>
-                  )}
+                  <p className="text-xs text-ink-muted">
+                    Registró: {t.registradoPorNombre ?? t.registradoPor} · {t.registradoEn}
+                  </p>
                 </div>
               ))}
               {trasladar && a.estado === 1 && (
                 <Button
                   variant="outline"
-                  disabled={a.enTraslado}
-                  title={a.enTraslado ? 'Debe aceptarse el traslado pendiente' : undefined}
                   onClick={() =>
                     setDestino({
                       responsableId: a.responsableId,
@@ -255,21 +267,104 @@ export function ActivoDetallePage() {
                     })
                   }
                 >
-                  Registrar traslado
+                  Trasladar
                 </Button>
               )}
-              {destino && (
-                <form
-                  className="space-y-3"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    accion('trasladar', { destino });
-                  }}
-                >
-                  <CustodiaFields value={destino} onChange={setDestino} />
-                  <Button type="submit">Solicitar aceptación</Button>
-                </form>
+              {a.traslados.length === 0 && (
+                <p className="text-ink-muted">Sin traslados registrados.</p>
               )}
+              <Sheet
+                open={destino !== null}
+                onOpenChange={(open) => {
+                  if (
+                    !open &&
+                    !guardar.isPending &&
+                    window.confirm('¿Cerrar el traslado y descartar la captura?')
+                  )
+                    setDestino(null);
+                }}
+              >
+                <SheetContent size="lg">
+                  <SheetHeader>
+                    <SheetTitle>Trasladar activo</SheetTitle>
+                    <SheetDescription>
+                      El Contador General registra el cambio de custodia directamente.
+                    </SheetDescription>
+                  </SheetHeader>
+                  {destino && (
+                    <form
+                      className="flex min-h-0 flex-1 flex-col"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const f = new FormData(e.currentTarget);
+                        accion('trasladar', {
+                          destino,
+                          motivo: String(f.get('motivo')).trim(),
+                          fechaEfectiva: f.get('fechaEfectiva'),
+                        });
+                      }}
+                    >
+                      <SheetBody className="space-y-5">
+                        <CustodiaFields value={destino} onChange={setDestino} />
+                        <fieldset className="space-y-3">
+                          <legend className="text-sm font-semibold">2. Fecha y motivo</legend>
+                          <FormGrid>
+                            <FormCampo>
+                              <label className="space-y-1 text-xs">
+                                Fecha efectiva *
+                                <Input
+                                  name="fechaEfectiva"
+                                  type="date"
+                                  required
+                                  min={[
+                                    a.inicioUso ?? a.fechaAdquisicion,
+                                    ...a.traslados.map((t) => t.fechaEfectiva),
+                                  ]
+                                    .sort()
+                                    .at(-1)}
+                                  max={new Intl.DateTimeFormat('en-CA', {
+                                    timeZone: 'America/Merida',
+                                  }).format(new Date())}
+                                  defaultValue={new Intl.DateTimeFormat('en-CA', {
+                                    timeZone: 'America/Merida',
+                                  }).format(new Date())}
+                                />
+                              </label>
+                            </FormCampo>
+                            <FormCampo>
+                              <label className="space-y-1 text-xs">
+                                Motivo *
+                                <Input name="motivo" required maxLength={300} pattern=".*\S.*" />
+                              </label>
+                            </FormCampo>
+                          </FormGrid>
+                        </fieldset>
+                        {guardar.error && (
+                          <p role="alert" className="text-danger-fg">
+                            {guardar.error.message}
+                          </p>
+                        )}
+                      </SheetBody>
+                      <SheetFooter>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={guardar.isPending}
+                          onClick={() => {
+                            if (window.confirm('¿Cerrar el traslado y descartar la captura?'))
+                              setDestino(null);
+                          }}
+                        >
+                          Cancelar
+                        </Button>
+                        <Button type="submit" disabled={guardar.isPending}>
+                          Registrar traslado
+                        </Button>
+                      </SheetFooter>
+                    </form>
+                  )}
+                </SheetContent>
+              </Sheet>
             </div>
           </TabsContent>
           <TabsContent value="depreciacion">

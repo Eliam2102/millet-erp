@@ -19,7 +19,7 @@ public sealed class SucursalNcP6bTests
         var orden = Guid.NewGuid();
         var anticipo = Anticipo.Capturar(a.Current!.Value, null, Guid.NewGuid().ToString(), a.Proveedor,
             "FANT", "Prueba ficticia P6b", a.UtcNow, "MXN", null, 100m, conOc ? orden : null, null, a.UtcNow);
-        var nc = NuevaNc(a, TipoRelacionCfdi.AmortizacionAnticipo, anticipo.UuidCfdi, null);
+        var nc = NuevaNc(a, TipoRelacionCfdi.AmortizacionAnticipo, anticipo.UuidCfdi!, null);
         if (vinculada) nc.VincularAnticipoOrigen(anticipo.Id, a.UtcNow);
         a.Db.AddRange(anticipo, nc); await a.Db.SaveChangesAsync();
         var lector = new CxpSucursalReadAdapter(a.Db, new Ordenes(orden, a.Sucursal));

@@ -9,6 +9,8 @@ namespace Millet.CuentasPorPagar.Domain.AnticipoProveedor;
 /// proveedor que documenta el anticipo. Se amortiza contra facturas
 /// finales vía <c>AplicarAnticipoAFacturaCommand</c>.
 /// </summary>
+public enum OrigenAnticipo { Cfdi = 1, SaldoComercioExterior = 2 }
+
 public sealed class AnticipoProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRelevante, IAuditable
 {
     /// <summary>
@@ -21,7 +23,9 @@ public sealed class AnticipoProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalm
     /// <summary>FK al CFDI origen en CxP.</summary>
     public Guid? CfdiRecibidoId { get; private set; }
 
-    public string UuidCfdi { get; private set; } = default!;
+    public string? UuidCfdi { get; private set; }
+    public OrigenAnticipo Origen { get; private set; } = OrigenAnticipo.Cfdi;
+    public string? ReferenciaOrigen { get; private set; }
     public Guid ProveedorId { get; private set; }
 
     /// <summary>Serie del CFDI — debe ser <see cref="SerieEstandar"/> (FANT).</summary>
@@ -50,6 +54,23 @@ public sealed class AnticipoProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalm
     public Guid? CapturadoPor { get; private set; }
 
     private AnticipoProveedor() { }
+
+    public static AnticipoProveedor DesdeSaldoComercioExterior(Guid empresa, Guid agente, decimal importe,
+        DateOnly fecha, string folioExpediente, string referenciaOrigen, DateTimeOffset ahora)
+    {
+        if (empresa == Guid.Empty || agente == Guid.Empty || importe <= 0 || importe > 999_999_999_999m || decimal.Round(importe, 2) != importe ||
+            fecha == default || string.IsNullOrWhiteSpace(folioExpediente) || folioExpediente.Length > 40 ||
+            string.IsNullOrWhiteSpace(referenciaOrigen) || referenciaOrigen.Length > 100)
+            throw new BusinessRuleException("ANTICIPO_ORIGEN_CE_INVALIDO", "Revise empresa, agente, importe, fecha y referencia de Comercio Exterior.");
+        return new AnticipoProveedor
+        {
+            Id = Guid.CreateVersion7(), EmpresaId = empresa, ProveedorId = agente,
+            Origen = OrigenAnticipo.SaldoComercioExterior, ReferenciaOrigen = referenciaOrigen,
+            Serie = "CE", FolioProveedor = folioExpediente, Moneda = "MXN",
+            FechaCfdi = new DateTimeOffset(fecha.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)),
+            MontoEntregado = importe, Estado = EstadoAnticipo.Abierto, FechaCaptura = ahora,
+        };
+    }
 
     public static AnticipoProveedor Capturar(
         Guid empresaId,

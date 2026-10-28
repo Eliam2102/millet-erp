@@ -208,9 +208,20 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("orden_compra_id");
 
+                    b.Property<short>("Origen")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint")
+                        .HasDefaultValue((short)1)
+                        .HasColumnName("origen");
+
                     b.Property<Guid>("ProveedorId")
                         .HasColumnType("uuid")
                         .HasColumnName("proveedor_id");
+
+                    b.Property<string>("ReferenciaOrigen")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("referencia_origen");
 
                     b.Property<string>("Serie")
                         .IsRequired()
@@ -232,7 +243,6 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnName("updated_by");
 
                     b.Property<string>("UuidCfdi")
-                        .IsRequired()
                         .HasMaxLength(36)
                         .HasColumnType("character varying(36)")
                         .HasColumnName("uuid_cfdi");
@@ -253,6 +263,11 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("ux_anticipos_proveedor_uuid");
 
+                    b.HasIndex("EmpresaId", "ReferenciaOrigen")
+                        .IsUnique()
+                        .HasDatabaseName("ix_anticipos_proveedor_empresa_id_referencia_origen")
+                        .HasFilter("referencia_origen IS NOT NULL");
+
                     b.HasIndex("ProveedorId", "Estado")
                         .HasDatabaseName("ix_anticipos_proveedor_estado");
 
@@ -261,6 +276,8 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                             t.HasCheckConstraint("ck_anticipo_monto_amortizado_valido", "monto_amortizado >= 0 AND monto_amortizado <= monto_entregado");
 
                             t.HasCheckConstraint("ck_anticipo_monto_entregado_positivo", "monto_entregado > 0");
+
+                            t.HasCheckConstraint("ck_anticipo_origen", "(origen = 1 AND uuid_cfdi IS NOT NULL AND referencia_origen IS NULL) OR (origen = 2 AND uuid_cfdi IS NULL AND cfdi_recibido_id IS NULL AND referencia_origen IS NOT NULL)");
                         });
                 });
 

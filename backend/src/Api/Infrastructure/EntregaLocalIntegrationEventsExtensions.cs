@@ -58,12 +58,13 @@ public static class EntregaLocalIntegrationEventsExtensions
 
         // Los listeners se registran como consumidores locales (no como
         // HostedService): sin ServiceBusClient, solo se usa su ProcessAsync.
-        // 15 workers con Service Bus → 16 consumidores locales (ComprasActivoWorker
+        // 16 workers con Service Bus → 17 consumidores locales (ComprasActivoWorker
         // aporta dos, uno por topic). AwDropWorker queda fuera a propósito: es el
         // adaptador hacia A+W, no consume eventos internos.
         Consumidor<Millet.Almacen.Infrastructure.Workers.CxpEventListenerWorker>(services, (c, f, l) => new(c, f, l));
         Consumidor<Millet.CuentasPorPagar.Infrastructure.Workers.AlmacenEventListenerWorker>(services, (c, f, l) => new(c, f, l));
         Consumidor<Millet.CuentasPorPagar.Infrastructure.Workers.TesoreriaEventListenerWorker>(services, (c, f, l) => new(c, f, l));
+        Consumidor<Millet.CuentasPorPagar.Infrastructure.Workers.ComercioExteriorEventListenerWorker>(services, (c, f, l) => new(c, f, l));
         Consumidor<Millet.CuentasPorPagar.Infrastructure.Workers.ComprasEventListenerWorker>(services, (c, f, l) => new(c, f, l));
         Consumidor<Millet.Compras.Infrastructure.Workers.CxpEventListenerWorker>(services, (c, f, l) => new(c, f, l));
         Consumidor<Millet.Compras.Infrastructure.Workers.AlmacenEventListenerWorker>(services, (c, f, l) => new(c, f, l));
