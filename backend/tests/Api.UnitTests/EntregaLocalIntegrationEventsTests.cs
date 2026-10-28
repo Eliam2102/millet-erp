@@ -34,7 +34,7 @@ public sealed class EntregaLocalIntegrationEventsTests
     }
 
     [Fact]
-    public void En_Development_con_la_opcion_activa_registra_el_sender_local_y_los_16_consumidores()
+    public void En_Development_con_la_opcion_activa_registra_el_sender_local_y_los_17_consumidores()
     {
         var services = new ServiceCollection().AddLogging();
 
@@ -44,13 +44,15 @@ public sealed class EntregaLocalIntegrationEventsTests
         using var sp = services.BuildServiceProvider();
         Assert.IsType<LocalDispatchIntegrationEventBusSender>(sp.GetRequiredService<IIntegrationEventBusSender>());
         var consumidores = sp.GetServices<ILocalIntegrationEventConsumer>().ToList();
-        // 15 workers con Service Bus; ComprasActivoWorker aporta uno por topic.
-        Assert.Equal(16, consumidores.Count);
-        Assert.Equal(16, consumidores.Select(c => c.GetType()).Distinct().Count());
+        // 16 workers con Service Bus (P14: CxP escucha a Comercio Exterior); ComprasActivoWorker aporta uno por topic.
+        Assert.Equal(17, consumidores.Count);
+        Assert.Equal(17, consumidores.Select(c => c.GetType()).Distinct().Count());
         Assert.Equal(
             TopicsEsperados,
             consumidores.Select(c => c.TopicName).Distinct().Order().ToArray());
         Assert.Contains(consumidores, c => c is Millet.Almacen.Infrastructure.Workers.ComercioExteriorEventListenerWorker
+            && c.TopicName == "comercio-exterior-events");
+        Assert.Contains(consumidores, c => c is Millet.CuentasPorPagar.Infrastructure.Workers.ComercioExteriorEventListenerWorker
             && c.TopicName == "comercio-exterior-events");
         Assert.Contains(consumidores, c => c is Millet.ActivosFijos.Infrastructure.Workers.ComprasActivoAlmacenLocalConsumer
             && c.TopicName == "almacen-events");
