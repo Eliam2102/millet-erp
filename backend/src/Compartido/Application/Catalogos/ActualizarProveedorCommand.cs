@@ -48,7 +48,9 @@ public sealed record ActualizarProveedorCommand(
     string? Estado = null,
     string? CodigoPostal = null,
     string? Pais = null,
-    string? TaxId = null) : IRequest;
+    string? TaxId = null,
+    int? ClaveAw = null,
+    bool LimpiarClaveAw = false) : IRequest;
 
 public sealed class ActualizarProveedorValidator : AbstractValidator<ActualizarProveedorCommand>
 {
@@ -73,6 +75,8 @@ public sealed class ActualizarProveedorValidator : AbstractValidator<ActualizarP
         // Vacío es válido aquí: en un proveedor extranjero equivale al RFC genérico (lo resuelve el handler).
         RuleFor(c => c.Rfc!).Length(12, 13).When(c => !string.IsNullOrWhiteSpace(c.Rfc));
         RuleFor(c => c.TipoPersona).IsInEnum().When(c => c.TipoPersona.HasValue);
+        RuleFor(c => c.ClaveAw).GreaterThan(0).When(c => c.ClaveAw.HasValue)
+            .WithErrorCode("PROVEEDOR_CLAVE_AW_INVALIDA").WithMessage("La clave de A+W es un número entero mayor que cero.");
         RuleFor(c => c.CondicionesPagoDias).InclusiveBetween((short)0, (short)365)
             .When(c => c.CondicionesPagoDias.HasValue);
         RuleFor(c => c.Email!).EmailAddress().MaximumLength(254)
@@ -141,6 +145,9 @@ public sealed class ActualizarProveedorHandler : IRequestHandler<ActualizarProve
             }
         }
 
+        if (request.ClaveAw is int claveAw && claveAw != proveedor.ClaveAw)
+            await ClaveAwProveedor.ValidarUnicaAsync(_db, claveAw, proveedor.Id, cancellationToken);
+
         // 86e3pdmee: cambiar el tipo de persona no puede dejar un régimen que ya no le corresponde.
         if (request.TipoPersona is { } nuevoTipo && nuevoTipo != proveedor.TipoPersona)
             await ClasificacionFiscalProveedor.ValidarRegimenAsync(
@@ -160,6 +167,9 @@ public sealed class ActualizarProveedorHandler : IRequestHandler<ActualizarProve
             limpiarMonedaPreferida: request.LimpiarMonedaPreferida,
             limpiarEmail: request.LimpiarEmail,
             limpiarTelefono: request.LimpiarTelefono);
+
+        if (request.ClaveAw is not null) proveedor.AsignarClaveAw(request.ClaveAw);
+        else if (request.LimpiarClaveAw) proveedor.AsignarClaveAw(null);
 
         proveedor.ActualizarDomicilioFiscal(request.Calle, request.NumeroExterior, request.NumeroInterior, request.Colonia, request.Ciudad, request.Municipio, request.Estado, request.CodigoPostal, request.Pais, request.TaxId);
         await _db.SaveChangesAsync(cancellationToken);

@@ -164,6 +164,56 @@ public class CrudCatalogosEndpointsTests : IClassFixture<StubsWebApplicationFact
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
+    // --- Clave de A+W (86e3wyjz3 · ALM-APP-1) ---
+
+    [Fact]
+    public async Task ProveedorClaveAw_AltaEdicionDetalleYLista_Y_Duplicada_Retorna_409()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var claveAw = Random.Shared.Next(100_000, int.MaxValue);
+
+        var alta = await client.PostAsJsonAsync("/api/v1/catalogos/proveedores", BuildProveedorBody() with { ClaveAw = claveAw });
+        alta.EnsureSuccessStatusCode();
+        var altaJson = await ReadJsonAsync(alta);
+        var id = altaJson.GetProperty("id").GetGuid();
+        var clave = altaJson.GetProperty("clave").GetString();
+
+        var detalle = await ReadJsonAsync(await client.GetAsync($"/api/v1/catalogos/proveedores/{id}"));
+        Assert.Equal(claveAw, detalle.GetProperty("claveAw").GetInt32());
+        var detalleDm = await ReadJsonAsync(await client.GetAsync($"/api/v1/datos-maestros/proveedores/{id}"));
+        Assert.Equal(claveAw, detalleDm.GetProperty("claveAw").GetInt32());
+        var lista = await ReadJsonAsync(await client.GetAsync($"/api/v1/catalogos/proveedores?clave={clave}"));
+        Assert.Equal(claveAw, lista.GetProperty("items")[0].GetProperty("claveAw").GetInt32());
+        var listaDm = await ReadJsonAsync(await client.GetAsync($"/api/v1/datos-maestros/proveedores?q={clave}"));
+        Assert.Equal(claveAw, listaDm.GetProperty("items")[0].GetProperty("claveAw").GetInt32());
+
+        // Otra alta con la misma clave de A+W → 409.
+        var repetida = await client.PostAsJsonAsync("/api/v1/catalogos/proveedores", BuildProveedorBody() with { ClaveAw = claveAw });
+        Assert.Equal(HttpStatusCode.Conflict, repetida.StatusCode);
+        Assert.Equal("PROVEEDOR_CLAVE_AW_DUPLICADA", (await ReadJsonAsync(repetida)).GetProperty("code").GetString());
+
+        // Editar otro proveedor hacia la misma clave → 409; editar el propio con su clave no choca.
+        var otro = await client.PostAsJsonAsync("/api/v1/catalogos/proveedores", BuildProveedorBody());
+        var otroId = (await ReadJsonAsync(otro)).GetProperty("id").GetGuid();
+        var choque = await client.PatchAsJsonAsync($"/api/v1/catalogos/proveedores/{otroId}", new { ClaveAw = claveAw });
+        Assert.Equal(HttpStatusCode.Conflict, choque.StatusCode);
+        (await client.PatchAsJsonAsync($"/api/v1/catalogos/proveedores/{id}", new { ClaveAw = claveAw })).EnsureSuccessStatusCode();
+
+        // Limpiar la deja libre para el otro.
+        (await client.PatchAsJsonAsync($"/api/v1/catalogos/proveedores/{id}", new { LimpiarClaveAw = true })).EnsureSuccessStatusCode();
+        var limpio = await ReadJsonAsync(await client.GetAsync($"/api/v1/catalogos/proveedores/{id}"));
+        Assert.Equal(JsonValueKind.Null, limpio.GetProperty("claveAw").ValueKind);
+        (await client.PatchAsJsonAsync($"/api/v1/catalogos/proveedores/{otroId}", new { ClaveAw = claveAw })).EnsureSuccessStatusCode();
+    }
+
+    [Fact]
+    public async Task ProveedorClaveAw_CeroONegativa_Retorna_400()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var resp = await client.PostAsJsonAsync("/api/v1/catalogos/proveedores", BuildProveedorBody() with { ClaveAw = 0 });
+        Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
+    }
+
     // --- RFC único (F1-ADM-05) ---
 
     [Fact]
@@ -638,7 +688,8 @@ public class CrudCatalogosEndpointsTests : IClassFixture<StubsWebApplicationFact
         short? CondicionesPagoDias,
         Guid? MonedaPreferidaId,
         string? Email,
-        string? Telefono);
+        string? Telefono,
+        int? ClaveAw = null);
 
     private sealed record ArticuloBody(
         string Clave,
