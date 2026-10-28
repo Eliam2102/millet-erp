@@ -97,7 +97,7 @@ public class OperacionesComprasOutboxTests : IClassFixture<StubsWebApplicationFa
         await using var factory = _factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<IGenerarPdfOrdenCompraPort>();
-            services.AddSingleton<IGenerarPdfOrdenCompraPort, PdfQueVerificaPersistencia>();
+            services.AddSingleton<IGenerarPdfOrdenCompraPort>(sp => new PdfQueVerificaPersistencia(sp));
             services.RemoveAll<IAlmacenarBlobPort>();
             services.AddSingleton<IAlmacenarBlobPort, BlobEnMemoria>();
         }));
@@ -108,6 +108,7 @@ public class OperacionesComprasOutboxTests : IClassFixture<StubsWebApplicationFa
             using var bypass = sp.GetRequiredService<ICurrentEmpresaContext>().Bypass();
             var oc = await CrearOcAsync(sp.GetRequiredService<ComprasDbContext>());
             id = oc.Id;
+            ((PdfQueVerificaPersistencia)factory.Services.GetRequiredService<IGenerarPdfOrdenCompraPort>()).OcId = id;
             await AutorizarAsync(sp, id);
         }
         await VerificarAsync(factory.Services, id, "autorizada", EstadoOrdenCompra.Autorizada);
@@ -194,10 +195,13 @@ public class OperacionesComprasOutboxTests : IClassFixture<StubsWebApplicationFa
 
     private sealed class PdfQueVerificaPersistencia(IServiceProvider services) : IGenerarPdfOrdenCompraPort
     {
-        public async Task<PdfOrdenCompraGenerado> GenerarAsync(OrdenCompra oc, CancellationToken cancellationToken)
+        // El modelo de impresión no lleva ids: la prueba indica qué OC se está autorizando.
+        public Guid OcId { get; set; }
+
+        public async Task<PdfOrdenCompraGenerado> GenerarAsync(OrdenCompraImpresion modelo, string? marca, CancellationToken cancellationToken)
         {
             // Otra conexión: el PDF solo se ejecuta cuando estado y outbox ya son visibles.
-            await VerificarAsync(services, oc.Id, "autorizada", EstadoOrdenCompra.Autorizada);
+            await VerificarAsync(services, OcId, "autorizada", EstadoOrdenCompra.Autorizada);
             return new PdfOrdenCompraGenerado([1, 2, 3], "application/pdf", "prueba.pdf");
         }
     }
@@ -213,7 +217,7 @@ public class OperacionesComprasOutboxTests : IClassFixture<StubsWebApplicationFa
 
     private sealed class PdfQueFalla : IGenerarPdfOrdenCompraPort
     {
-        public Task<PdfOrdenCompraGenerado> GenerarAsync(OrdenCompra oc, CancellationToken cancellationToken)
+        public Task<PdfOrdenCompraGenerado> GenerarAsync(OrdenCompraImpresion modelo, string? marca, CancellationToken cancellationToken)
             => throw new InvalidOperationException("Fallo de PDF simulado");
     }
 }
