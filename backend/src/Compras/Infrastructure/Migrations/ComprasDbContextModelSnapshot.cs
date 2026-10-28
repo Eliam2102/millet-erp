@@ -475,6 +475,14 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<int?>("AltoMm")
+                        .HasColumnType("integer")
+                        .HasColumnName("alto_mm");
+
+                    b.Property<int?>("AnchoMm")
+                        .HasColumnType("integer")
+                        .HasColumnName("ancho_mm");
+
                     b.Property<Guid>("ArticuloId")
                         .HasColumnType("uuid")
                         .HasColumnName("articulo_id");
@@ -567,6 +575,10 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
                         .HasColumnName("notas");
+
+                    b.Property<int?>("Piezas")
+                        .HasColumnType("integer")
+                        .HasColumnName("piezas");
 
                     b.Property<short>("Posicion")
                         .HasColumnType("smallint")
@@ -2537,6 +2549,11 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("smallint")
                         .HasColumnName("folio_anio");
 
+                    b.Property<string>("FolioExterno")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("folio_externo");
+
                     b.Property<Guid?>("MotivoTerminacionId")
                         .HasColumnType("uuid")
                         .HasColumnName("motivo_terminacion_id");
@@ -2617,6 +2634,11 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("ix_requisiciones_empresa_id_folio_anio_folio");
 
+                    b.HasIndex("EmpresaId", "Origen", "FolioExterno")
+                        .IsUnique()
+                        .HasDatabaseName("ix_requisiciones_empresa_id_origen_folio_externo")
+                        .HasFilter("folio_externo IS NOT NULL");
+
                     b.HasIndex("EmpresaId", "RequisitanteId", "FechaSolicitud")
                         .IsDescending(false, false, true)
                         .HasDatabaseName("ix_requisiciones_empresa_id_requisitante_id_fecha_solicitud");
@@ -2631,7 +2653,7 @@ namespace Millet.Compras.Infrastructure.Migrations
 
                             t.HasCheckConstraint("ck_requisiciones_estado", "estado BETWEEN 0 AND 9");
 
-                            t.HasCheckConstraint("ck_requisiciones_origen", "origen BETWEEN 0 AND 1");
+                            t.HasCheckConstraint("ck_requisiciones_origen", "origen BETWEEN 0 AND 2");
 
                             t.HasCheckConstraint("ck_requisiciones_prioridad", "prioridad BETWEEN 0 AND 2");
                         });
