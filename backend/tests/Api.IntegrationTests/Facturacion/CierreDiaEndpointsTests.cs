@@ -23,8 +23,8 @@ namespace Millet.Api.IntegrationTests.Facturacion;
 /// compartida con otras suites: se busca la factura propia, no se cuentan filas.
 /// Datos ficticios.
 /// </summary>
+[Collection(ApiCompartida.Nombre)]
 public sealed class CierreDiaEndpointsTests(WebApplicationFactory<Program> factory)
-    : IClassFixture<WebApplicationFactory<Program>>
 {
     private const string Base = "/api/v1/facturacion/reportes";
     private static readonly Guid Empresa = Guid.Parse("00000003-0000-0000-0000-000000000001");

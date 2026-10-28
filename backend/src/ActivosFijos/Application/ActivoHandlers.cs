@@ -15,6 +15,7 @@ public sealed class CrearActivoHandler(ActivosFijosDbContext db, ActivoServicio 
         await servicio.SucursalAsync(request.Datos.Custodia.SucursalId, true, cancellationToken);
         await catalogos.ValidarCustodiaAsync(request.Datos.Custodia, false, cancellationToken);
         var clase = await servicio.ClaseAsync(request.Datos.ClaseId, cancellationToken);
+        await servicio.ValidarTasasActivoAsync(request.Datos, null, cancellationToken);
         await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
         // Serializa el consecutivo por empresa y clase; el índice único protege también la carga histórica.
         var llave = clase.Id.ToString();
@@ -65,7 +66,7 @@ public sealed class MutarActivoHandler(ActivosFijosDbContext db, ActivoServicio 
             case "editar":
                 var datos = request.Datos ?? throw new BusinessRuleException("AF_DATOS_REQUERIDOS", "Capture los datos.");
                 await servicio.SucursalAsync(datos.Custodia.SucursalId, true, cancellationToken);
-                await catalogos.ValidarCustodiaAsync(datos.Custodia, false, cancellationToken); await servicio.ClaseAsync(datos.ClaseId, cancellationToken); a.Completar(datos); break;
+                await catalogos.ValidarCustodiaAsync(datos.Custodia, false, cancellationToken); await servicio.ClaseAsync(datos.ClaseId, cancellationToken); await servicio.ValidarTasasActivoAsync(datos, a.Id, cancellationToken); a.Completar(datos); break;
             case "capitalizar":
                 if (a.Estado == EstadoActivo.Activo) break;
                 a.ValidarCapitalizacion(); await catalogos.ValidarCustodiaAsync(a.Custodia(), true, cancellationToken);
@@ -121,7 +122,7 @@ public sealed class GuardarClaseHandler(ActivosFijosDbContext db, ActivoServicio
             : new ClaseActivo(Guid.CreateVersion7(), empresa.Current ?? throw new UnauthorizedAccessException(), d.Clave, d.Nombre, d.TasaFiscalAnual);
         if (request.Id != null && c.Version != request.Version) throw new ConcurrencyException("ClaseActivo", c.Id);
         if (await db.Clases.AnyAsync(x => x.Clave == c.Clave && x.Id != c.Id, cancellationToken)) throw new BusinessRuleException("AF_CLAVE_DUPLICADA", "Ya existe esta clave.");
-        c.Editar(d.Nombre, d.TasaFiscalAnual, d.CuentaActivoId, d.CuentaDepreciacionId, d.CuentaGastoId, d.CuentaPuenteId, d.Activa, d.Depreciable, d.TasaConfirmada);
+        c.Editar(d.Nombre, d.TasaFiscalAnual, d.CuentaActivoId, d.CuentaDepreciacionId, d.CuentaGastoId, d.CuentaPuenteId, d.Activa, d.Depreciable, d.TasaConfirmada, d.TasaContableAnual);
         if (request.Id == null) db.Clases.Add(c);
         await db.SaveChangesAsync(cancellationToken); return c;
     }

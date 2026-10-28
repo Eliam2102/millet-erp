@@ -115,6 +115,8 @@ export function EmpleadoInlineForm({
           clave: empleado.clave,
           nombre: empleado.nombre,
           email: empleado.email ?? '',
+          telefono: empleado.telefono ?? '',
+          extension: empleado.extension ?? '',
           puestoId: empleado.puestoId ?? '',
           jefeDirectoId: empleado.jefeDirectoId ?? '',
           sucursalId: empleado.sucursalId ?? '',
@@ -132,6 +134,8 @@ export function EmpleadoInlineForm({
         clave: empleado.clave,
         nombre: empleado.nombre,
         email: empleado.email ?? '',
+        telefono: empleado.telefono ?? '',
+        extension: empleado.extension ?? '',
         puestoId: empleado.puestoId ?? '',
         jefeDirectoId: empleado.jefeDirectoId ?? '',
         sucursalId: empleado.sucursalId ?? '',
@@ -820,6 +824,39 @@ export function EmpleadoInlineForm({
           )}
         </FormCampo>
 
+        {esEditar && (
+          <>
+            <FormCampo span={6}>
+              <Field
+                label="Teléfono"
+                htmlFor="empleado-telefono"
+                error={form.formState.errors.telefono?.message}
+              >
+                <Input
+                  id="empleado-telefono"
+                  maxLength={20}
+                  aria-invalid={!!form.formState.errors.telefono}
+                  {...form.register('telefono')}
+                />
+              </Field>
+            </FormCampo>
+            <FormCampo span={6}>
+              <Field
+                label="Extensión"
+                htmlFor="empleado-extension"
+                error={form.formState.errors.extension?.message}
+              >
+                <Input
+                  id="empleado-extension"
+                  maxLength={10}
+                  aria-invalid={!!form.formState.errors.extension}
+                  {...form.register('extension')}
+                />
+              </Field>
+            </FormCampo>
+          </>
+        )}
+
         <FormCampo span={6}>
           <Field
             label="Código de nómina"
@@ -1346,6 +1383,8 @@ function payloadPatch(
 
   return {
     nombre: values.nombre,
+    telefono: values.telefono,
+    extension: values.extension,
     email: email.valor,
     limpiarEmail: email.limpiar,
     puestoId: puesto.valor,
@@ -1365,16 +1404,20 @@ function payloadPatch(
 
 interface FieldProps {
   label: string;
+  htmlFor?: string;
   required?: boolean;
   error?: string;
   className?: string;
   children: React.ReactNode;
 }
 
-function Field({ label, required, error, className, children }: FieldProps) {
+function Field({ label, htmlFor, required, error, className, children }: FieldProps) {
   return (
     <div className={cn('space-y-1', className)}>
-      <label className="flex items-center gap-1 text-xs font-medium text-ink-muted">
+      <label
+        htmlFor={htmlFor}
+        className="flex items-center gap-1 text-xs font-medium text-ink-muted"
+      >
         {label}
         {required && (
           <span aria-hidden="true" className="text-danger-fg">

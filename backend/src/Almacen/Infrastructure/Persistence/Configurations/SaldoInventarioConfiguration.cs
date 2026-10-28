@@ -6,8 +6,9 @@ namespace Millet.Almacen.Infrastructure.Persistence.Configurations;
 
 /// <summary>
 /// Configuración EF Core de <see cref="SaldoInventario"/> (F2-PR1).
-/// Tabla materializada <c>almacen.saldos_inventario</c>. PK compuesto
-/// <c>(sub_almacen_id, articulo_id)</c>.
+/// Tabla materializada <c>almacen.saldos_inventario</c>. PK sustituto
+/// <c>id</c> + índice único <c>(ubicacion_id, articulo_id, producto_aw_variante_id, lote)</c> con
+/// <c>NULLS NOT DISTINCT</c> (F1-MP-01 / E07 §5.2; variante NULL = artículo sin medida).
 ///
 /// <para>
 /// <b>Columnas generadas STORED</b>:
@@ -35,7 +36,10 @@ public sealed class SaldoInventarioConfiguration : IEntityTypeConfiguration<Sald
         {
             t.HasCheckConstraint("ck_saldos_cantidad_no_negativa", "cantidad >= 0");
         });
-        builder.HasKey(x => new { x.UbicacionId, x.ArticuloId });
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+        builder.Property(x => x.ProductoAwVarianteId);
+        builder.Property(x => x.Lote).HasMaxLength(50);
 
         builder.Property(x => x.UbicacionId).IsRequired();
         // SubAlmacenId denormalizado: se conserva junto a UbicacionId durante
@@ -61,7 +65,11 @@ public sealed class SaldoInventarioConfiguration : IEntityTypeConfiguration<Sald
         // Índices §5.2 del 01-diseno.
         builder.HasIndex(x => new { x.SubAlmacenId, x.ArticuloId })
             .HasDatabaseName("ix_saldos_sub_almacen");
-        builder.HasIndex(x => new { x.ArticuloId, x.SubAlmacenId })
+        builder.HasIndex(x => new { x.UbicacionId, x.ArticuloId, x.ProductoAwVarianteId, x.Lote })
+            .IsUnique()
+            .AreNullsDistinct(false)
+            .HasDatabaseName("ux_saldos_ubic_art_var");
+        builder.HasIndex(x => new { x.ArticuloId, x.ProductoAwVarianteId, x.SubAlmacenId })
             .HasDatabaseName("ix_saldos_con_stock")
             .HasFilter("cantidad > 0");
 

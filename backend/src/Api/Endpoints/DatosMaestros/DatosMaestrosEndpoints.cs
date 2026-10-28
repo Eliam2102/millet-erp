@@ -105,7 +105,7 @@ public static class DatosMaestrosEndpoints
                 p.Rfc, p.TipoPersona, p.CondicionesPagoDias, p.MonedaPreferidaId,
                 p.Email, p.Telefono, p.Estatus,
                 p.ValidadoPorId, p.ValidadoEn, p.MotivoRechazo, p.ToleranciaFacturaContraOcMxn,
-                p.Origen, p.RegimenFiscalCodigo, p.ConceptoRetencion, p.ValidadoConMatrizVersion));
+                p.Origen, p.RegimenFiscalCodigo, p.ConceptoRetencion, p.ValidadoConMatrizVersion, p.Calle, p.NumeroExterior, p.NumeroInterior, p.Colonia, p.Ciudad, p.Municipio, p.Estado, p.CodigoPostal, p.Pais, p.TaxId));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresGestionar)
         .WithName("ObtenerProveedorDatosMaestros")
@@ -383,7 +383,7 @@ public static class DatosMaestrosEndpoints
                 a.Id, a.Clave, a.ClaveLegacy, a.Nombre, a.DescripcionLarga,
                 a.UnidadMedidaDefault, a.UnidadMedidaId, a.Naturaleza, a.Categoria,
                 a.CategoriaId,
-                a.PrecioReferenciaMonto, a.PrecioReferenciaMoneda, a.Estatus));
+                a.PrecioReferenciaMonto, a.PrecioReferenciaMoneda, a.Estatus, a.ProductoAwId));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosArticulosGestionar)
         .WithName("ObtenerArticuloDatosMaestros")
@@ -654,7 +654,7 @@ public static class DatosMaestrosEndpoints
                 p.FraccionArancelaria, p.UnidadAduana, p.PesoUnitarioKg, p.Origen,
                 p.DatosFiscalesCompletos, p.Estatus, p.FechaBaja,
                 p.Variantes.OrderBy(v => v.ClaveVariante)
-                    .Select(v => new ProductoAwVarianteDato(v.ClaveVariante, v.AltoMm, v.AnchoMm, v.EspesorMm, v.Composicion))
+                    .Select(v => new ProductoAwVarianteDetalle(v.Id, v.ClaveVariante, v.AltoMm, v.AnchoMm, v.EspesorMm, v.Composicion))
                     .ToList(),
                 p.CodigoModelo, p.Grupo, p.Tipo, p.Wgr, p.WgrDescripcion,
                 p.Componentes.OrderBy(c => c.Orden)
@@ -865,6 +865,10 @@ public static class DatosMaestrosEndpoints
         bool? LimpiarDomicilioExtranjeroEstado = null,
         bool? LimpiarDomicilioExtranjeroCodigoPostal = null, Guid? ClasificacionId = null);
 
+    /// <summary>Variante con su Id (E07 D3: el Id viaja a líneas de movimiento y saldo).</summary>
+    public sealed record ProductoAwVarianteDetalle(
+        Guid Id, string ClaveVariante, decimal? AltoMm, decimal? AnchoMm, decimal? EspesorMm, string? Composicion);
+
     public sealed record ProductoAwDetalle(
         Guid Id,
         string ReferenciaExterna,
@@ -885,7 +889,7 @@ public static class DatosMaestrosEndpoints
         bool DatosFiscalesCompletos,
         EstatusCatalogo Estatus,
         DateTime? FechaBaja,
-        IReadOnlyList<ProductoAwVarianteDato> Variantes,
+        IReadOnlyList<ProductoAwVarianteDetalle> Variantes,
         string? CodigoModelo,
         string? Grupo,
         string? Tipo,
@@ -952,7 +956,17 @@ public static class DatosMaestrosEndpoints
         OrigenProveedor? Origen = null,
         string? RegimenFiscalCodigo = null,
         string? ConceptoRetencion = null,
-        int? ValidadoConMatrizVersion = null);
+        int? ValidadoConMatrizVersion = null,
+        string? Calle = null,
+        string? NumeroExterior = null,
+        string? NumeroInterior = null,
+        string? Colonia = null,
+        string? Ciudad = null,
+        string? Municipio = null,
+        string? Estado = null,
+        string? CodigoPostal = null,
+        string? Pais = null,
+        string? TaxId = null);
 
     public sealed record ActualizarClasificacionFiscalRequest(
         OrigenProveedor? Origen, string? RegimenFiscalCodigo, string? ConceptoRetencion);

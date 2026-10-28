@@ -1,4 +1,5 @@
 using System.Data;
+using Microsoft.AspNetCore.Http.Metadata;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
@@ -184,6 +185,11 @@ public sealed class IdempotencyMiddleware
 
     private static async Task<string> ReadAndHashRequestBodyAsync(HttpContext context, int maxBytes)
     {
+        // El hash lee antes del endpoint: respeta su límite para no almacenar una subida excesiva.
+        var limite = context.GetEndpoint()?.Metadata.GetMetadata<IRequestSizeLimitMetadata>()?.MaxRequestBodySize;
+        if (limite.HasValue) maxBytes = (int)Math.Min(maxBytes, limite.Value);
+        if (context.Request.ContentLength > maxBytes)
+            throw new BadHttpRequestException("El cuerpo excede el tamaño permitido.", StatusCodes.Status413PayloadTooLarge);
         // EnableBuffering permite que el handler downstream lea el body
         // después de que nosotros lo consumamos para el hash.
         context.Request.EnableBuffering(maxBytes);

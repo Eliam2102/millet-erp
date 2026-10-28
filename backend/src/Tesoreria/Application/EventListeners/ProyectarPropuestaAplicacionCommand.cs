@@ -52,6 +52,12 @@ public sealed class ProyectarPropuestaAplicacionHandler : IRequestHandler<Proyec
             // emitir el REPP automático (queda el endpoint manual).
             var facturas = p.Facturas ?? [];
 
+            // C7.4: CxC identificó un depósito sin identificar; se preselecciona solo si
+            // el movimiento existe aquí (la columna tiene FK al movimiento bancario).
+            var sugerido = p.MovimientoBancarioId is Guid movimientoId
+                && await _db.MovimientosBancarios.AsNoTracking().AnyAsync(m => m.Id == movimientoId, cancellationToken)
+                ? p.MovimientoBancarioId : null;
+
             _db.DepositosConfirmacion.Add(DepositoConfirmacion.CrearDesdePropuesta(
                 empresaId: p.EmpresaId,
                 propuestaCxcId: p.PropuestaId,
@@ -60,7 +66,8 @@ public sealed class ProyectarPropuestaAplicacionHandler : IRequestHandler<Proyec
                 montoDeposito: p.MontoDeposito,
                 moneda: p.Moneda,
                 facturasJson: JsonSerializer.Serialize(facturas, FacturasJsonOpts),
-                propuestoPor: p.PropuestoPor, saldoAFavorPorIdentificar: p.SaldoAFavorPorIdentificar));
+                propuestoPor: p.PropuestoPor, saldoAFavorPorIdentificar: p.SaldoAFavorPorIdentificar,
+                movimientoSugeridoId: sugerido));
         }
 
         _db.EventosProcesados.Add(new EventoProcesado(

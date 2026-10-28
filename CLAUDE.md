@@ -59,8 +59,10 @@ Owner del proyecto: **Eduardo Paredes** — `eduardo.paredes@tiglass.net`.
    de requisiciones; órdenes de compra, recepciones.
 6. **Almacén** (`Millet.Almacen`) — inventario físico bajo responsabilidad
    del Jefe Almacén: insumos/refacciones + materiales directos de producción
-   no-vidrio (interlayer, silicones, sellantes, pinturas). **Solo el vidrio
-   crudo queda fuera** (continúa en A+W). Reemplaza al Portal Millet
+   no-vidrio (interlayer, silicones, sellantes, pinturas). **El vidrio crudo
+   también se compra y se recibe en el ERP** (Fase 1: toda la materia prima;
+   cuestionario 02, E07 §0, PR #215), con existencia por medida de hoja; en
+   el interín se avisa a A+W hasta que opere el Portal de Almacenes. Reemplaza al Portal Millet
    (`PortalSap`) completo: Requisiciones (ya implementado), Salidas de
    mercancía, Reportes. Cinco submódulos: Entradas (dos variantes — factura
    para insumos, packing list para materiales directos), Salidas (normal +
@@ -454,5 +456,10 @@ estructura de ventanas.
   de hacer cambios, reporta qué hiciste y espera instrucción para commitear.
 - **Idioma:** documentación, comentarios de negocio y nombres de módulos
   en **español**. Código, comandos y nombres técnicos en inglés.
+- **Pruebas de integración y PR limpios:** sigue
+  [`docs/qa/gate-integracion.md`](docs/qa/gate-integracion.md). Pruebas
+  nuevas de API en `[Collection(ApiCompartida.Nombre)]`, todo
+  `WithWebHostBuilder` con `await using`, CE/AF con `Escenario.CrearAsync()`.
+  Nunca subas `RESUMEN_*.md`, logs, TRX ni carpetas `outputs/`.
 - **Convenciones de Git:** ramas con prefijo `feature/`, `fix/`, `chore/`,
   `docs/`. Nunca trabajar directo en `main`.

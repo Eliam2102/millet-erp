@@ -31,18 +31,25 @@ public sealed record ExistenciaMpCnkFila(
     // frontend cae al id crudo. SubAlmacenNombre viene por JOIN; Articulo* por batch.
     string? SubAlmacenNombre,
     string? ArticuloClave,
-    string? ArticuloDescripcion);
+    string? ArticuloDescripcion,
+    // F1-MP-01: una fila por medida de hoja; Medida = «2440 × 3660 mm · 20 hojas» (null = artículo sin medida).
+    Guid? ProductoAwVarianteId = null,
+    string? Medida = null,
+    // S4b: una fila por lote del proveedor (null = sin lote / apertura).
+    string? Lote = null);
 
 public sealed class ExistenciaMpCnkHandler
     : IRequestHandler<ExistenciaMpCnkQuery, ReporteResponse<ExistenciaMpCnkFila>>
 {
     private readonly AlmacenDbContext _db;
     private readonly IArticuloReadPort _articulos;
+    private readonly IVarianteVidrioReadPort? _variantes; // opcional solo para pruebas unitarias sin medidas
 
-    public ExistenciaMpCnkHandler(AlmacenDbContext db, IArticuloReadPort articulos)
+    public ExistenciaMpCnkHandler(AlmacenDbContext db, IArticuloReadPort articulos, IVarianteVidrioReadPort? variantes = null)
     {
         _db = db;
         _articulos = articulos;
+        _variantes = variantes;
     }
 
     /// <summary>
@@ -57,6 +64,8 @@ public sealed class ExistenciaMpCnkHandler
         new("subAlmacenNombre", "Sub-almacén", "texto"),
         new("articuloClave", "Artículo", "texto"),
         new("articuloDescripcion", "Descripción", "texto"),
+        new("medida", "Medida", "texto"),
+        new("lote", "Lote", "texto"),
         new("cantidad", "Cantidad", "numero", "right"),
         new("cantidadDisponible", "Disponible", "numero", "right"),
         new("costoPromedioMxn", "Costo prom.", "moneda", "right"),
@@ -105,18 +114,20 @@ public sealed class ExistenciaMpCnkHandler
                         && (request.SubAlmacenId == null || s.SubAlmacenId == request.SubAlmacenId)
                         && (request.SucursalesPermitidas == null
                             || AlcanceSucursalAlmacen.SubAlmacenesPermitidos(_db, request.SucursalesPermitidas).Contains(s.SubAlmacenId))
-                     select new { s.SubAlmacenId, s.ArticuloId, s.Cantidad, s.CantidadDisponible, s.ValorInventarioMxn, SubAlmacenNombre = sa.Nombre })
-            .GroupBy(x => new { x.SubAlmacenId, x.ArticuloId, x.SubAlmacenNombre })
+                     select new { s.SubAlmacenId, s.ArticuloId, s.ProductoAwVarianteId, s.Lote, s.Cantidad, s.CantidadDisponible, s.ValorInventarioMxn, SubAlmacenNombre = sa.Nombre })
+            .GroupBy(x => new { x.SubAlmacenId, x.ArticuloId, x.ProductoAwVarianteId, x.Lote, x.SubAlmacenNombre })
             .Select(g => new
             {
                 g.Key.SubAlmacenId,
                 g.Key.ArticuloId,
+                g.Key.ProductoAwVarianteId,
+                g.Key.Lote,
                 g.Key.SubAlmacenNombre,
                 Cantidad = g.Sum(x => x.Cantidad),
                 CantidadDisponible = g.Sum(x => x.CantidadDisponible),
                 ValorInventarioMxn = g.Sum(x => x.ValorInventarioMxn),
             })
-            .OrderBy(x => x.SubAlmacenId).ThenBy(x => x.ArticuloId);
+            .OrderBy(x => x.SubAlmacenId).ThenBy(x => x.ArticuloId).ThenBy(x => x.ProductoAwVarianteId).ThenBy(x => x.Lote);
 
         var crudas = await query.ToListAsync(cancellationToken);
         var filas = crudas
@@ -126,8 +137,12 @@ public sealed class ExistenciaMpCnkHandler
                 x.Cantidad > 0 ? Math.Round(x.ValorInventarioMxn / x.Cantidad, 4) : 0m,
                 x.ValorInventarioMxn,
                 // Articulo* nulos aquí, se enriquecen en batch abajo.
-                x.SubAlmacenNombre, null, null))
+                x.SubAlmacenNombre, null, null, x.ProductoAwVarianteId, null, x.Lote))
             .ToList();
+        var medidas = _variantes is null ? new Dictionary<Guid, VarianteVidrioLectura>()
+            : await _variantes.ObtenerPorIdsAsync(
+                filas.Where(f => f.ProductoAwVarianteId != null).Select(f => f.ProductoAwVarianteId!.Value).Distinct().ToArray(), cancellationToken);
+        filas = filas.Select(f => f with { Medida = MedidaReporte.Texto(f.ProductoAwVarianteId, f.Cantidad, medidas) }).ToList();
 
         // Enriquecimiento de artículo (clave/descripción) en batch sobre los
         // ArticuloId distintos (ADR-0042, anti-N+1); fallback a null cuando el

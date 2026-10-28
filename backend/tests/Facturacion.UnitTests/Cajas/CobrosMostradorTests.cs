@@ -356,6 +356,7 @@ public sealed class CobrosMostradorTests
     [Theory]
     [InlineData("04", null)]
     [InlineData("28", "  ")]
+    [InlineData("29", null)] // 86e3tfdvt: tarjeta de servicios también exige el voucher
     public async Task Registrar_tarjeta_sin_referencia_del_voucher_falla(string forma, string? referencia)
     {
         // FIX-12: el corte adjunta los comprobantes de la terminal (Manual de
@@ -373,6 +374,49 @@ public sealed class CobrosMostradorTests
 
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "COBRO_TARJETA_SIN_REFERENCIA");
         (await db.CobrosMostrador.CountAsync()).Should().Be(0);
+    }
+
+    // 86e3tfdvt: el voucher se identifica por su número de autorización; un
+    // número de tarjeta completo nunca se guarda (criterio PAN de CxP/ADR-0006).
+    [Theory]
+    [InlineData("04", "4111111111111111")]
+    [InlineData("28", "4111 1111 1111 1111")]
+    [InlineData("29", "4111-1111-1111-1111")]
+    [InlineData("04", "12")]
+    [InlineData("04", "AB$123")]
+    public async Task Registrar_tarjeta_con_autorizacion_invalida_falla_sin_guardar(string forma, string referencia)
+    {
+        using var db = NewDb();
+        await SembrarSesionAsync(db);
+        var factura = FacturaTimbrada(300m);
+        db.FacturasVenta.Add(factura);
+        await db.SaveChangesAsync();
+
+        var act = () => RegistrarHandler(db).Handle(new RegistrarCobroMostradorCommand(
+            factura.Id, [new CobroFormaPagoInput(forma, 300m, referencia)]),
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "COBRO_TARJETA_AUTORIZACION_INVALIDA");
+        (await db.CobrosMostrador.CountAsync()).Should().Be(0);
+    }
+
+    [Theory]
+    [InlineData("123456")]
+    [InlineData("AUT-77")]
+    [InlineData(" A1B2C3 ")]
+    public async Task Registrar_tarjeta_con_autorizacion_valida_se_guarda(string referencia)
+    {
+        using var db = NewDb();
+        await SembrarSesionAsync(db);
+        var factura = FacturaTimbrada(300m);
+        db.FacturasVenta.Add(factura);
+        await db.SaveChangesAsync();
+
+        await RegistrarHandler(db).Handle(new RegistrarCobroMostradorCommand(
+            factura.Id, [new CobroFormaPagoInput("04", 300m, referencia)]),
+            CancellationToken.None);
+
+        (await db.CobrosMostrador.CountAsync()).Should().Be(1);
     }
 
     [Fact]

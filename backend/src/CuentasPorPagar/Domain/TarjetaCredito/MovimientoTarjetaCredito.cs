@@ -54,6 +54,9 @@ public sealed class MovimientoTarjetaCredito : BaseEntity, IPerteneceAEmpresa, I
     public Guid? ProveedorId { get; private set; }
     public string ConceptoContable { get; private set; } = default!;
 
+    /// <summary>Clave de <c>ClasificacionNoDeducible</c> (P8.6). Obligatoria sin CFDI; null = deducible.</summary>
+    public string? ClasificacionNoDeducible { get; private set; }
+
     // Refund (F7-PR5/PR6)
     public Guid? MovimientoOriginalId { get; private set; }
 
@@ -87,7 +90,8 @@ public sealed class MovimientoTarjetaCredito : BaseEntity, IPerteneceAEmpresa, I
         Guid cfdiRecibidoId,
         Guid facturaProveedorId,
         Guid proveedorId,
-        string conceptoContable)
+        string conceptoContable,
+        string? clasificacionNoDeducible = null)
     {
         if (cfdiRecibidoId == Guid.Empty)
             throw new BusinessRuleException("TC_MOV_CFDI_VACIO",
@@ -108,6 +112,8 @@ public sealed class MovimientoTarjetaCredito : BaseEntity, IPerteneceAEmpresa, I
         mov.CfdiRecibidoId = cfdiRecibidoId;
         mov.FacturaProveedorId = facturaProveedorId;
         mov.ProveedorId = proveedorId;
+        mov.ClasificacionNoDeducible = string.IsNullOrWhiteSpace(clasificacionNoDeducible)
+            ? null : clasificacionNoDeducible.Trim().ToUpperInvariant();
         return mov;
     }
 
@@ -126,7 +132,8 @@ public sealed class MovimientoTarjetaCredito : BaseEntity, IPerteneceAEmpresa, I
         string merchantRaw,
         string? descripcionLibre,
         string conceptoContable,
-        string? ticketBlobRef)
+        string? ticketBlobRef,
+        string? clasificacionNoDeducible = null)
     {
         var mov = CrearBase(
             empresaId, tarjeta, usuarioQueUsoId, fechaMovimiento,
@@ -135,6 +142,8 @@ public sealed class MovimientoTarjetaCredito : BaseEntity, IPerteneceAEmpresa, I
             merchantRaw, descripcionLibre, conceptoContable);
 
         mov.TicketBlobRef = ticketBlobRef;
+        mov.ClasificacionNoDeducible = string.IsNullOrWhiteSpace(clasificacionNoDeducible)
+            ? null : clasificacionNoDeducible.Trim().ToUpperInvariant();
         return mov;
     }
 

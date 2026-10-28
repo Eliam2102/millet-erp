@@ -450,6 +450,9 @@ builder.Services.AddScoped<
     Millet.Compras.Infrastructure.PublicAdapters.AlmacenReadAdapter>();
 
 // === ADR-0042: enriquecer DTOs de requisiciones con nombres cross-módulo ===
+builder.Services.AddScoped<
+    Millet.Compras.Domain.Ports.Catalogos.ICatalogoSatReadPort,
+    Millet.Compras.Infrastructure.Catalogos.CatalogoSatReadAdapter>();
 // IUsuarioReadPort lee identidad.usuarios (nombre del requisitante);
 // IDepartamentoReadPort lee compartido.departamentos (clave + nombre).
 // Adapters en Compras.Infrastructure.PublicAdapters (mismo patrón que arriba).
@@ -630,6 +633,10 @@ builder.Services
 builder.Services.AddScoped<
     Millet.Compartido.Application.Ports.IExpedienteProveedorReadPort,
     Millet.Compartido.Infrastructure.PublicAdapters.ExpedienteProveedorReadAdapter>();
+// Guarda de desligado A+W: Datos Maestros pregunta a Compras si hay línea de OC abierta con medida.
+builder.Services.AddScoped<
+    Millet.Compartido.Application.Ports.IOcLineaAbiertaConMedidaReadPort,
+    Millet.Compras.Infrastructure.PublicAdapters.OcLineaAbiertaConMedidaReadAdapter>();
 builder.Services.AddSingleton<
     Millet.SharedKernel.Application.Adjuntos.IAdjuntoEnlaceTokenService,
     Millet.Compartido.Infrastructure.Adjuntos.AdjuntoEnlaceTokenService>();
@@ -829,6 +836,9 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.IArticuloReadPort,
     Millet.Compartido.Infrastructure.PublicAdapters.ArticuloReadAdapter>();
+builder.Services.AddScoped<
+    Millet.Almacen.Domain.Ports.IVarianteVidrioReadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.VarianteVidrioReadAdapter>();
 builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.IEmpleadoReadPort,
     Millet.Compartido.Infrastructure.PublicAdapters.EmpleadoReadAdapter>();
@@ -1093,6 +1103,8 @@ builder.Services.AddScoped<Millet.Identidad.Infrastructure.TransaccionColaborado
 // Camino B "Cuenta Microsoft nueva" (plan 15, F4): el sandbox de Development
 // captura el correo solo en loopback; fuera de él el worker sigue apagado por
 // defecto hasta configurar adaptadores reales.
+// Avisos SLA de CxP por Graph: independientes del alta de colaboradores.
+builder.Services.AddGraphAvisosRevisionCxp(builder.Configuration);
 var proveedorColaboradores = builder.Configuration["Entra:Proveedor"] ?? "Simulado";
 if (proveedorColaboradores.Equals("Graph", StringComparison.OrdinalIgnoreCase))
     builder.Services.AddGraphColaboradores(builder.Configuration, builder.Environment.IsDevelopment());
@@ -1213,7 +1225,7 @@ builder.Services.AddCors(options =>
                   // Sin esto el browser NO puede leer ETag cross-origin
                   // (Access-Control-Expose-Headers) y el If-Match de las
                   // mutaciones nunca se envía (ADR-0012).
-                  .WithExposedHeaders(Microsoft.Net.Http.Headers.HeaderNames.ETag);
+                  .WithExposedHeaders(Microsoft.Net.Http.Headers.HeaderNames.ETag, "X-Oc-Impresion");
         }
         // Si AllowedOrigins está vacío, la policy queda sin orígenes
         // permitidos — preflight siempre falla. Comportamiento secure-by-default.
@@ -1534,6 +1546,7 @@ Millet.Api.Endpoints.Contabilidad.ContabilidadDimensionesEndpoints.MapContabilid
 Millet.Api.Endpoints.Contabilidad.ContabilidadPeriodosEndpoints.MapContabilidadPeriodosEndpoints(app);
 Millet.Api.Endpoints.Contabilidad.ContabilidadPolizasEndpoints.MapContabilidadPolizasEndpoints(app);
 Millet.Api.Endpoints.Contabilidad.ContabilidadRecurrentesEndpoints.MapContabilidadRecurrentesEndpoints(app);
+Millet.Api.Endpoints.Contabilidad.ContabilidadMotorEndpoints.MapContabilidadMotorEndpoints(app, app.Environment);
 
 // === Almacén — CRUD asignación artículo→ubicación (OITW, ADR-0047 PR3) ===
 Millet.Api.Endpoints.Almacen.Asignaciones.AlmacenAsignacionesEndpoints.MapAlmacenAsignacionesEndpoints(app);
@@ -1741,7 +1754,7 @@ Millet.Api.Endpoints.Facturacion.ReppEndpoints.MapFacturacionReppEndpoints(app);
 // === Facturación — Carta Porte 3.1: emisión + siguiente tramo + catálogos (F8) ===
 Millet.Api.Endpoints.Facturacion.CartaPorteEndpoints.MapFacturacionCartaPorteEndpoints(app);
 
-// === Facturación — Activos fijos: autorización Contador General (F9) ===
+// === Facturación — Activos fijos: autorización Director de Administración y Finanzas (F9) ===
 Millet.Api.Endpoints.Facturacion.ActivosEndpoints.MapFacturacionActivosEndpoints(app);
 
 // === Facturación — Reportes: liquidación caja + anticipos + CFDIs por obra (F11) ===

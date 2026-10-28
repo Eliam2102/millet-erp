@@ -12,6 +12,7 @@ const tipos = [
 
 const base = {
   camposPorCapturar: [],
+  usoCfdiClave: 'G03', metodoPago: 'PPD', formaPagoClave: '99',
   lineas: [{ posicion: 1, precioUnitario: 10 }],
   adjuntos: [{ tipoDocumentoId: 't-cot' }],
   sinRequisicionPrevia: false,
@@ -36,7 +37,7 @@ describe('calcularRevisionPrevia', () => {
     const r = calcularRevisionPrevia(oc({ camposPorCapturar: ['proveedor', 'usoPrincipal'] }), tipos);
     expect(req(r, 'cabecera')).toMatchObject({
       ok: false,
-      detalle: 'Falta: proveedor, uso principal.',
+      detalle: 'Falta: proveedor, uso interno de la compra.',
       destino: { tab: 'informacion' },
     });
   });
@@ -96,5 +97,34 @@ describe('motivoTransmisionBloqueada', () => {
       'Faltan 2 de 5 requisitos · ver revisión previa',
     );
     expect(motivoTransmisionBloqueada({ pendientes: 0, total: 5 })).toBeUndefined();
+  });
+});
+
+describe('calcularRevisionPrevia · medida de hoja', () => {
+  it('línea de vidrio sin medida bloquea y apunta a esa línea', () => {
+    const r = calcularRevisionPrevia(
+      oc({ lineas: [{ posicion: 1, precioUnitario: 10, requiereMedida: true }, { posicion: 2, precioUnitario: 10 }] }),
+      tipos,
+    );
+    expect(r.pendientes).toBe(1);
+    expect(req(r, 'medidaHoja')).toMatchObject({
+      ok: false,
+      detalle: 'Falta la medida de la línea 1.',
+      destino: { tab: 'lineas', etiqueta: 'Ir a línea 1' },
+    });
+  });
+});
+
+describe('datos para la factura del proveedor', () => {
+  it.each([
+    ['usoCfdiClave', 'uso de CFDI'],
+    ['metodoPago', 'método de pago'],
+    ['formaPagoClave', 'forma de pago'],
+  ] as const)('bloquea el envío sin %s y explica qué capturar', (campo, etiqueta) => {
+    const revision = calcularRevisionPrevia(oc({ [campo]: null }), tipos);
+    const cabecera = revision.requisitos.find(r => r.id === 'cabecera');
+    expect(cabecera?.ok).toBe(false);
+    expect(cabecera?.detalle).toContain(etiqueta);
+    expect(cabecera?.destino?.tab).toBe('informacion');
   });
 });

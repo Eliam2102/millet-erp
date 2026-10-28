@@ -8,8 +8,8 @@ namespace Millet.Api.IntegrationTests.Web;
 /// UX-F3-05: los conteos por estado de cada bandeja (tabs) deben sumar el total del listado
 /// con los mismos filtros (alcance por sucursal incluido) y respetar el filtro <c>q</c>.
 /// </summary>
+[Collection(ApiCompartida.Nombre)]
 public sealed class ConteosPorEstadoBandejasTests(WebApplicationFactory<Program> factory)
-    : IClassFixture<WebApplicationFactory<Program>>
 {
     [Theory]
     [InlineData("/api/v1/almacen/recepciones")]

@@ -6,6 +6,8 @@ import {
 } from '@/features/almacen/api/keys';
 import { ordenesKeys } from '@/features/compras/ordenes/api/keys';
 import type {
+  CancelarRecepcionCommand,
+  CancelarRecepcionResponse,
   PagedResponse,
   CfdisParaRecepcion,
   LineaRecibible,
@@ -202,6 +204,26 @@ export function useSubirPackingListBlob() {
         },
       );
       return data;
+    },
+  });
+}
+
+/** Cancela con motivo una recepción mal capturada (86e3tabdp). Lleva Idempotency-Key. */
+export function useCancelarRecepcion(recepcionId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { command: CancelarRecepcionCommand; idempotencyKey: string }) => {
+      const { data } = await apiRequest<CancelarRecepcionResponse>(
+        `/api/v1/almacen/recepciones/${recepcionId}/cancelar`,
+        { method: 'POST', body: args.command, idempotencyKey: args.idempotencyKey },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: almacenKeys.recepciones() });
+      queryClient.invalidateQueries({ queryKey: almacenKeys.recepcionById(recepcionId) });
+      queryClient.invalidateQueries({ queryKey: ['almacen', 'recepcion-recibibles'] });
+      queryClient.invalidateQueries({ queryKey: ['compras', 'ordenes'] });
     },
   });
 }

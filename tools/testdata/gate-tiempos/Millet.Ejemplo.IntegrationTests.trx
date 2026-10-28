@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- EJEMPLO FICTICIO: no representa pruebas ejecutadas del ERP Millet. -->
+<TestRun xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <TestDefinitions>
+    <UnitTest id="1" name="Aprueba"><TestMethod className="Ejemplo.Compras" name="Aprueba" /></UnitTest>
+    <UnitTest id="2" name="Falla"><TestMethod className="Ejemplo.Compras" name="Falla" /></UnitTest>
+    <UnitTest id="3" name="Omite"><TestMethod className="Ejemplo.Almacen" name="Omite" /></UnitTest>
+    <UnitTest id="4" name="Aprueba"><TestMethod className="Ejemplo.Almacen" name="Aprueba" /></UnitTest>
+    <UnitTest id="5" name="Falla"><TestMethod className="Ejemplo.Almacen" name="Falla" /></UnitTest>
+  </TestDefinitions>
+  <Results>
+    <UnitTestResult testId="1" testName="Aprueba" outcome="Passed" duration="00:00:02.5000000" />
+    <UnitTestResult testId="2" testName="Falla" outcome="Failed" duration="00:00:03.5000000" />
+    <UnitTestResult testId="3" testName="Omite" outcome="NotExecuted" />
+    <UnitTestResult testId="4" testName="Aprueba" outcome="Passed" duration="00:00:01.2500000" />
+    <UnitTestResult testId="5" testName="Falla" outcome="Failed" duration="00:00:00.7500000" />
+  </Results>
+</TestRun>

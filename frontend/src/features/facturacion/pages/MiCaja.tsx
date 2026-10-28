@@ -46,8 +46,10 @@ import {
 import { CancelarCobroDialog } from '@/features/facturacion/components/CancelarCobroDialog';
 import { PorCobrarCaja } from '@/features/facturacion/components/PorCobrarCaja';
 import {
+  autorizacionVoucherInvalida,
   esFormaTarjeta,
-  faltaVoucherTarjeta,
+  MENSAJE_VOUCHER,
+  voucherIncompleto,
   formasPagoCaja,
   formasPagoVigentes,
 } from '@/features/facturacion/lib/formas-pago-caja';
@@ -74,6 +76,7 @@ const ETIQUETA_FORMA: Record<string, string> = {
   '03': 'Transferencia',
   '04': 'Tarjeta de crédito',
   '28': 'Tarjeta de débito',
+  '29': 'Tarjeta de servicios',
 };
 
 function nombreForma(clave: string): string {
@@ -100,8 +103,17 @@ function toastError(error: unknown, fallback: string) {
  * operación hasta su cierre extemporáneo.
  */
 export function MiCaja() {
-  const query = useSesionActual();
+  const puedeOperar = useHasPermission(PermisosCanonicos.FacturacionCajaOperar);
+  // Sin permiso de operar no se consulta la sesión (el endpoint respondería 403).
+  const query = useSesionActual({ enabled: puedeOperar });
   const puedeSupervisar = useHasPermission(PermisosCanonicos.FacturacionCajaSupervisar);
+  // 86e3tfdwu: enlace «Cobrar en caja» (?cobrar=…&folio=…) que llega con la caja sin abrir.
+  const [folioCobro] = useState(() => {
+    const search = new URLSearchParams(window.location.search);
+    return search.has('cobrar') ? (search.get('folio') ?? '') : null;
+  });
+  const cajaNoAbierta =
+    query.isSuccess && (query.data.sesion?.estado !== 'Abierta' || query.data.diaAnteriorPendiente);
 
   return (
     <div className="space-y-5">
@@ -110,7 +122,20 @@ export function MiCaja() {
         descripcion="Abre tu sesión, registra cobros y movimientos, y realiza el arqueo de caja."
       />
 
-      {query.isLoading ? (
+      {folioCobro != null && cajaNoAbierta && (
+        <div
+          role="status"
+          className="flex items-start gap-2 rounded-md border border-line bg-warning-note-bg p-3 text-sm text-warning-note-fg"
+        >
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>
+            La caja no está abierta: no se puede cobrar {folioCobro || 'el comprobante'} hasta que
+            haya una sesión abierta del día.
+          </p>
+        </div>
+      )}
+
+      {!puedeOperar ? null : query.isLoading ? (
         <TableSkeleton rows={4} columns={[{ width: 'w-full' }]} />
       ) : query.isError ? (
         <ErrorState
@@ -428,7 +453,7 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
     disponibles,
   );
   const total = seleccionados.reduce((s, c) => s + c.total, 0);
-  const sinVoucher = faltaVoucherTarjeta(
+  const sinVoucher = voucherIncompleto(
     seleccionados.map((c) => ({
       formaPago: seleccion[c.comprobanteId],
       referencia: vouchers[c.comprobanteId],
@@ -454,7 +479,7 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
       return;
     }
     if (sinVoucher) {
-      toast.error('Captura el voucher de cada comprobante cobrado con tarjeta.');
+      toast.error(MENSAJE_VOUCHER);
       return;
     }
     liquidar.mutate(
@@ -592,8 +617,15 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
                           onChange={(e) =>
                             setVouchers((prev) => ({ ...prev, [c.comprobanteId]: e.target.value }))
                           }
-                          placeholder="Voucher (obligatorio)"
-                          aria-label={`Voucher de ${c.folio}`}
+                          placeholder="Autorización del voucher"
+                          maxLength={100}
+                          aria-label={`Número de autorización del voucher de ${c.folio}`}
+                          aria-invalid={
+                            (vouchers[c.comprobanteId] ?? '').trim() === '' ||
+                            autorizacionVoucherInvalida([
+                              { formaPago: seleccion[c.comprobanteId], referencia: vouchers[c.comprobanteId] },
+                            ])
+                          }
                           aria-required
                         />
                       )}
@@ -623,7 +655,7 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
             !vigentes
               ? 'Selecciona formas de pago SAT activas.'
               : sinVoucher
-                ? 'Captura el voucher de cada pago con tarjeta.'
+                ? MENSAJE_VOUCHER
                 : undefined
           }
         >

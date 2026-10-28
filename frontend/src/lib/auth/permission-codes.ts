@@ -238,6 +238,7 @@ export const PermisosCanonicos = {
   AlmacenDevolucionesProveedorIniciar: 'almacen.devoluciones-proveedor.iniciar',
   AlmacenDevolucionesProveedorAutorizar: 'almacen.devoluciones-proveedor.autorizar',
   AlmacenCuarentenaDictaminar: 'almacen.cuarentena.dictaminar',
+  AlmacenRecepcionesCancelar: 'almacen.recepciones.cancelar',
   AlmacenDevolucionesProveedorRegistrar: 'almacen.devoluciones-proveedor.registrar',
 
   AlmacenInventariosLeer: 'almacen.inventarios.leer',
@@ -476,6 +477,10 @@ export const PermisosCanonicos = {
   ContabilidadRecurrentesLeer: 'contabilidad.recurrentes.leer',
   ContabilidadRecurrentesAdministrar: 'contabilidad.recurrentes.administrar',
   ContabilidadRecurrentesAutorizar: 'contabilidad.recurrentes.autorizar',
+  // C1.4: motor de pólizas desde eventos.
+  ContabilidadMotorLeer: 'contabilidad.motor.leer',
+  ContabilidadRolesCuentaAdministrar: 'contabilidad.roles-cuenta.administrar',
+  ContabilidadRechazosGestionar: 'contabilidad.rechazos.gestionar',
   ComercioExteriorGastosRegistrar: 'comercio_exterior.gastos.registrar',
   ComercioExteriorGastosDistribuir: 'comercio_exterior.gastos.distribuir',
   ComercioExteriorAnticiposGestionar: 'comercio_exterior.anticipos.gestionar',

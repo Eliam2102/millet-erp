@@ -26,7 +26,8 @@ using Millet.CuentasPorPagar.Domain.NotaCargo;
 namespace Millet.Api.IntegrationTests.CuentasPorPagar;
 
 /// <summary>PostgreSQL desechable. Solo datos FIX-P8; no escribe maestros ni modifica el calendario operativo.</summary>
-public sealed class P8EndpointsTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public sealed class P8EndpointsTests(WebApplicationFactory<Program> factory)
 {
     private static readonly int[] MesesFixture = [1, 2];
     private const string Cxp = "/api/v1/cuentas-por-pagar";
@@ -36,7 +37,8 @@ public sealed class P8EndpointsTests(WebApplicationFactory<Program> factory) : I
     {
         var anio = Random.Shared.Next(2300, 2900);
         var puertos = new PuertosFixture();
-        using var app = factory.ConEmpresa(EmpresaBootstrapId).WithWebHostBuilder(b => b.ConfigureTestServices(s => {
+        await using var enEmpresa = factory.ConEmpresa(EmpresaBootstrapId);
+        await using var app = enEmpresa.WithWebHostBuilder(b => b.ConfigureTestServices(s => {
             s.RemoveAll<IProveedorReadPort>(); s.AddSingleton<IProveedorReadPort>(puertos);
             s.RemoveAll<IComprasOcReadPort>(); s.AddSingleton<IComprasOcReadPort>(puertos);
             // Fecha de operaciones sin fecha explícita (anticipo/NC/cargo): se consulta el mes FIX aislado,
@@ -44,7 +46,7 @@ public sealed class P8EndpointsTests(WebApplicationFactory<Program> factory) : I
             s.RemoveAll<IPeriodoContablePort>();
             s.AddScoped<IPeriodoContablePort>(sp => new PeriodoFixturePort(sp.GetRequiredService<IPeriodoContableConsultaPort>(), new(anio, 1, 9)));
         }));
-        var admin = await LoginAsync(app);
+        using var admin = await LoginAsync(app);
         Guid? ejercicioId = null;
         try
         {
@@ -152,11 +154,12 @@ public sealed class P8EndpointsTests(WebApplicationFactory<Program> factory) : I
     public async Task Reportes_HTTP_reconstruyen_corte_pasado_en_PostgreSQL_con_monedas_obra_y_anticipo_amortizado()
     {
         var puertos = new PuertosFixture();
-        using var app = factory.ConEmpresa(EmpresaBootstrapId).WithWebHostBuilder(b => b.ConfigureTestServices(services => {
+        await using var enEmpresa = factory.ConEmpresa(EmpresaBootstrapId);
+        await using var app = enEmpresa.WithWebHostBuilder(b => b.ConfigureTestServices(services => {
             services.RemoveAll<IProveedorReadPort>(); services.AddSingleton<IProveedorReadPort>(puertos);
             services.RemoveAll<IPeriodoContablePort>(); services.AddSingleton<IPeriodoContablePort, PeriodoAbiertoFixture>();
         }));
-        var admin = await LoginAsync(app);
+        using var admin = await LoginAsync(app);
         try
         {
             using (var scope = app.Services.CreateScope())

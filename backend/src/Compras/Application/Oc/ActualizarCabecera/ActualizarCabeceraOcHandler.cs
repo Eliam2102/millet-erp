@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.Compras.Domain.Ports.Catalogos;
 using Millet.Compras.Application.Proveedores;
 using Microsoft.EntityFrameworkCore;
 using Millet.Compras.Domain.Oc;
@@ -21,12 +22,14 @@ namespace Millet.Compras.Application.Oc.ActualizarCabecera;
 /// </summary>
 public sealed class ActualizarCabeceraOcHandler : IRequestHandler<ActualizarCabeceraOcCommand>
 {
+    private readonly ICatalogoSatReadPort _catalogos;
     private readonly ComprasDbContext _db;
     private readonly CompartidoDbContext _compartido;
 
-    public ActualizarCabeceraOcHandler(ComprasDbContext db, CompartidoDbContext compartido)
+    public ActualizarCabeceraOcHandler(ComprasDbContext db, ICatalogoSatReadPort catalogos, CompartidoDbContext compartido)
     {
         _db = db;
+        _catalogos = catalogos;
         _compartido = compartido;
     }
 
@@ -37,6 +40,8 @@ public sealed class ActualizarCabeceraOcHandler : IRequestHandler<ActualizarCabe
             ?? throw new EntityNotFoundException(
                 "ORDEN_COMPRA_NO_ENCONTRADA",
                 $"No se encontró orden de compra con id '{command.OrdenCompraId}' en la empresa actual.");
+
+        await DatosFacturaOcGuard.ValidarAsync(_catalogos, command.UsoCfdiClave, command.FormaPagoClave, cancellationToken);
 
         // D1: con cotización elegida, proveedor y moneda quedan fijos a los de la cotización.
         var cambiaProveedor = command.ProveedorId is Guid pid && pid != oc.ProveedorId;
@@ -85,6 +90,7 @@ public sealed class ActualizarCabeceraOcHandler : IRequestHandler<ActualizarCabe
             limpiarDescuentoGlobal: command.LimpiarDescuentoGlobal,
             limpiarTipoCambio: command.LimpiarTipoCambio);
 
+        oc.ActualizarDatosFactura(command.UsoCfdiClave, command.MetodoPago, command.FormaPagoClave);
         await _db.SaveChangesAsync(cancellationToken);
     }
 }

@@ -18,7 +18,8 @@ namespace Millet.Api.IntegrationTests.Compras;
 /// (stub con DefaultRatio=1.0) y la RQ termina en <c>Cerrada</c> porque
 /// el stub cubre toda la cantidad solicitada.
 /// </summary>
-public class AutorizacionesEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class AutorizacionesEndpointsTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string SinPermisosOid = "test-no-perms";

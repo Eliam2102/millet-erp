@@ -94,7 +94,9 @@ public sealed class ADM08DepartamentoEndpointsTests(WebApplicationFactory<Progra
             await permisos.SetAsync(usuario, empresa, permisosSinAlcance);
             var contexto = await client.GetFromJsonAsync<CentroCostoCaptura>($"/api/v1/compras/requisiciones/{rqId}/lineas/centro-costo-captura");
             Assert.NotNull(contexto); Assert.False(contexto.PuedeElegir); Assert.Equal(area, contexto.Heredado!.Id);
-            var articulo = await org.Articulos.FirstAsync(x => x.Estatus == Millet.Catalogos.Domain.EstatusCatalogo.Activo);
+            // Desde #169 la RQ solo acepta artículos de su tipo: se elige uno que aplique a la clasificación de la RQ.
+            var articulo = await org.Articulos.Where(x => x.Estatus == Millet.Catalogos.Domain.EstatusCatalogo.Activo)
+                .Where(ArticulosPorClasificacion.Filtro(rq.Clasificacion)).FirstAsync();
             var rutaLineas = $"/api/v1/compras/requisiciones/{rqId}/lineas";
             object Body(Guid? cc) => new { articuloId = articulo.Id, cantidad = 1m, unidadMedida = articulo.UnidadMedidaDefault,
                 precioEstimadoMonto = 10m, precioEstimadoMoneda = "MXN", centroCostoId = cc };

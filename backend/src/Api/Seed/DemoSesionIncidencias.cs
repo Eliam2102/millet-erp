@@ -39,7 +39,7 @@ public sealed partial class DemoSesionSeedHostedService
             if (rectificacion)
             {
                 e.RegistrarDocumento(Id(clave + "/DOCUMENTO"), requisito, archivos[0], null, CapturistaComprasDemoId, "DEMO-PED-ORIGINAL");
-                e.RegistrarPedimentoExportacion("DEMO-PED-ORIGINAL", "A1", hoy, hoy);
+                e.RegistrarPedimentoExportacion("DEMO-PED-ORIGINAL", "A1", hoy, hoy, "16");
             }
             var incidencia = Id(clave + "/INCIDENCIA");
             e.AbrirIncidencia(incidencia, new(rectificacion ? TipoIncidencia.RectificacionPedimento : TipoIncidencia.MercanciaDanada, hoy, CapturistaComprasDemoId,

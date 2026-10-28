@@ -6,6 +6,7 @@ import { Plus, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Sheet,
+  SheetBody,
   SheetContent,
   SheetDescription,
   SheetFooter,
@@ -32,6 +33,7 @@ import type {
 } from '@/features/cxp/api/types';
 import { CfdiPorProcesarPicker } from '@/features/cxp/components/CfdiPorProcesarPicker';
 import { CargarCfdiSheet } from '@/features/cxp/components/CargarCfdiSheet';
+import { ClasificacionNoDeducibleCampo } from '@/features/cxp/components/ClasificacionNoDeducibleCampo';
 import { useProveedor } from '@/features/catalogos/api';
 import { Field, ProveedorSelector } from '@/components/erp';
 import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
@@ -103,6 +105,7 @@ function defaultLinea(moneda: string) {
     moneda,
     concepto: '',
     esTicketNoFiscal: false,
+    clasificacionNoDeducible: null,
   };
 }
 
@@ -210,7 +213,8 @@ function Form({ solicitud, onCancel, onCaptured, onDirtyChange }: FormProps) {
   }
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 px-4">
+    <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+      <SheetBody className="space-y-4">
       <section className="space-y-2">
         <header className="flex items-center justify-between">
           <h3 className="text-sm font-medium">
@@ -248,8 +252,9 @@ function Form({ solicitud, onCancel, onCaptured, onDirtyChange }: FormProps) {
           </p>
         )}
       </section>
+      </SheetBody>
 
-      <SheetFooter className="px-0">
+      <SheetFooter>
         <Button
           type="button"
           variant="ghost"
@@ -347,7 +352,7 @@ function LineaInline({
           </Field>
         </div>
         <div className="col-span-full">
-          <Field label="UUID CFDI" optional>
+          <Field label="UUID CFDI" required={!esTicketNoFiscal} optional={esTicketNoFiscal}>
             <Input
               placeholder="00000000-…"
               readOnly={!!cfdiRecibidoId}
@@ -357,7 +362,7 @@ function LineaInline({
           </Field>
         </div>
         <div className="col-span-full sm:col-span-2">
-          <Field label="Proveedor" optional>
+          <Field label="Proveedor" required={!esTicketNoFiscal} optional={esTicketNoFiscal} error={lineaErrors?.proveedorId?.message}>
             {(control) => (
               <Controller
                 control={form.control}
@@ -439,6 +444,21 @@ function LineaInline({
           <label htmlFor={`ticketNoFiscal-${index}`} className="text-xs">
             Ticket no fiscal (sin CFDI)
           </label>
+        </div>
+        <div className="col-span-full">
+          <Controller
+            control={form.control}
+            name={`lineas.${index}.clasificacionNoDeducible` as const}
+            render={({ field }) => (
+              <ClasificacionNoDeducibleCampo
+                id={`noDeducible-${index}`}
+                value={field.value}
+                onChange={field.onChange}
+                obligatoria={esTicketNoFiscal}
+                error={lineaErrors?.clasificacionNoDeducible?.message}
+              />
+            )}
+          />
         </div>
         <div className="flex items-end justify-end">
           <Button

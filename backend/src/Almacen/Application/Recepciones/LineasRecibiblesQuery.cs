@@ -21,17 +21,24 @@ public sealed record LineaRecibibleDto(
     decimal CantidadSolicitada,
     decimal CantidadRecibida,
     decimal Pendiente,
-    decimal MaximoRecibible);
+    decimal MaximoRecibible,
+    // F1-MP-01 (E1): medida de hoja que fijó la OC en esta línea (null = línea sin medida). No se elige al recibir.
+    MedidaLineaOcDto? Medida = null,
+    // Artículo ligado a A+W y línea sin medida (OC anterior a la migración): no se puede recibir hasta corregirla en Compras.
+    bool RequiereMedida = false);
+
+public sealed record MedidaLineaOcDto(Guid VarianteId, decimal AnchoMm, decimal AltoMm, decimal AreaHojaM2);
 
 public sealed class LineasRecibiblesHandler : IRequestHandler<LineasRecibiblesQuery, IReadOnlyList<LineaRecibibleDto>>
 {
     private readonly AlmacenDbContext _db;
     private readonly IComprasOcReadPort _ordenesCompra;
     private readonly IConversionUnidadPort _conversion;
+    private readonly IArticuloReadPort _articulos;
 
-    public LineasRecibiblesHandler(
-        AlmacenDbContext db, IComprasOcReadPort ordenesCompra, IConversionUnidadPort conversion)
+    public LineasRecibiblesHandler(AlmacenDbContext db, IComprasOcReadPort ordenesCompra, IConversionUnidadPort conversion, IArticuloReadPort articulos)
     {
+        _articulos = articulos;
         _db = db;
         _ordenesCompra = ordenesCompra;
         _conversion = conversion;
@@ -43,6 +50,10 @@ public sealed class LineasRecibiblesHandler : IRequestHandler<LineasRecibiblesQu
             ?? throw new EntityNotFoundException("RECEPCION_OC_NO_ENCONTRADA", "La orden de compra no existe; selecciona una orden autorizada.");
 
         var propio = await RecibidoPorLineaOc.CalcularAsync(_db, _conversion, oc, cancellationToken);
+        var sinMedida = oc.Lineas.Where(l => l.ProductoAwVarianteId is null).Select(l => l.ArticuloId).Distinct().ToList();
+        var ligados = sinMedida.Count == 0
+            ? new Dictionary<Guid, ArticuloLectura>()
+            : (await _articulos.ObtenerPorIdsAsync(sinMedida, cancellationToken)).Where(kv => kv.Value.ProductoAwId is not null).ToDictionary(kv => kv.Key, kv => kv.Value);
 
         return oc.Lineas.Select(l =>
         {
@@ -54,7 +65,9 @@ public sealed class LineasRecibiblesHandler : IRequestHandler<LineasRecibiblesQu
                 l.CantidadSolicitada,
                 recibida,
                 Math.Max(0m, l.CantidadSolicitada - recibida),
-                Math.Max(0m, RecepcionOcGuard.Limite(l.CantidadSolicitada, l.CantidadRecibida, propio.GetValueOrDefault(l.LineaId))));
+                Math.Max(0m, RecepcionOcGuard.Limite(l.CantidadSolicitada, l.CantidadRecibida, propio.GetValueOrDefault(l.LineaId))),
+                l is { ProductoAwVarianteId: { } v, AnchoMm: { } ancho, AltoMm: { } alto } ? new MedidaLineaOcDto(v, ancho, alto, AreaHoja.M2(ancho, alto)) : null,
+                RequiereMedida: l.ProductoAwVarianteId is null && ligados.ContainsKey(l.ArticuloId));
         }).ToList();
     }
 }

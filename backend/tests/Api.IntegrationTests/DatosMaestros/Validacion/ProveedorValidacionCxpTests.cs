@@ -20,16 +20,30 @@ namespace Millet.Api.IntegrationTests.DatosMaestros.Validacion;
 /// - 200 OK y transición a 'Activo' cuando el expediente está completo (CA2.1/CA2.2).
 /// - 200 OK y transición a 'Inactivo' con motivo al rechazar (G1.1-e).
 /// </summary>
-public class ProveedorValidacionCxpTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class ProveedorValidacionCxpTests : IClassFixture<ProveedorValidacionCxpTests.Servidor>
 {
     private readonly WebApplicationFactory<Program> _base;
 
-    public ProveedorValidacionCxpTests(WebApplicationFactory<Program> factory) => _base = factory;
+    private readonly AdjuntosProveedorAmbiente _ambiente;
+    public ProveedorValidacionCxpTests(Servidor fixture)
+    {
+        _base = fixture;
+        _ambiente = fixture.Ambiente;
+        _ambiente.Blob.Reiniciar();
+        _ambiente.Reloj.UtcNow = DateTimeOffset.UtcNow;
+    }
+
+    public sealed class Servidor : WebApplicationFactory<Program>
+    {
+        public AdjuntosProveedorAmbiente Ambiente { get; }
+        public Servidor() => Ambiente = new AdjuntosProveedorAmbiente(this);
+    }
 
     [Fact]
     public async Task G11a_Alta_Proveedor_Nace_En_Estado_EnRevision()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
+        var amb = _ambiente;
         var admin = await amb.SuperAdminAsync();
 
         var clave = $"PRV{Guid.NewGuid():N}"[..12].ToUpperInvariant();
@@ -59,7 +73,7 @@ public class ProveedorValidacionCxpTests : IClassFixture<WebApplicationFactory<P
     [Fact]
     public async Task G11c_Sin_Permiso_Validar_Responde_403_En_Validar_Y_Rechazar()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
+        var amb = _ambiente;
         var prov = await amb.SeedProveedorAsync(TipoPersonaProveedor.Moral, EstatusCatalogo.EnRevision);
 
         // Usuario con permisos de Compras/Gestión de proveedores pero SIN datos_maestros.proveedores.validar
@@ -77,7 +91,7 @@ public class ProveedorValidacionCxpTests : IClassFixture<WebApplicationFactory<P
     [Fact]
     public async Task G11d_Validar_Con_Expediente_Incompleto_Responde_422()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
+        var amb = _ambiente;
         var prov = await amb.SeedProveedorAsync(TipoPersonaProveedor.Moral, EstatusCatalogo.EnRevision);
 
         var (cxpClient, _) = await amb.ClienteConPermisosAsync(
@@ -95,7 +109,7 @@ public class ProveedorValidacionCxpTests : IClassFixture<WebApplicationFactory<P
     [Fact]
     public async Task G11d_Validar_Con_Expediente_Completo_Pasa_A_Activo()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
+        var amb = _ambiente;
         var prov = await amb.SeedProveedorAsync(TipoPersonaProveedor.Moral, EstatusCatalogo.EnRevision);
 
         var admin = await amb.SuperAdminAsync();
@@ -134,7 +148,7 @@ public class ProveedorValidacionCxpTests : IClassFixture<WebApplicationFactory<P
     [Fact]
     public async Task G11e_Rechazar_Con_Motivo_Valido_Pasa_A_Inactivo()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
+        var amb = _ambiente;
         var prov = await amb.SeedProveedorAsync(TipoPersonaProveedor.Moral, EstatusCatalogo.EnRevision);
 
         var (cxpClient, _) = await amb.ClienteConPermisosAsync(
@@ -159,7 +173,7 @@ public class ProveedorValidacionCxpTests : IClassFixture<WebApplicationFactory<P
     [InlineData("1234")]
     public async Task G11e_Rechazar_Con_Motivo_Invalido_Responde_400_O_422(string motivoInvalido)
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
+        var amb = _ambiente;
         var prov = await amb.SeedProveedorAsync(TipoPersonaProveedor.Moral, EstatusCatalogo.EnRevision);
 
         var (cxpClient, _) = await amb.ClienteConPermisosAsync(

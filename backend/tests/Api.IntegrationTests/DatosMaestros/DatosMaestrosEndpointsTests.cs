@@ -16,7 +16,8 @@ namespace Millet.Api.IntegrationTests.DatosMaestros;
 /// soportaba: filtro por rfc, razonSocial, tipoPersona, naturaleza,
 /// unidadMedida).
 /// </summary>
-public class DatosMaestrosEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class DatosMaestrosEndpointsTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private static readonly Guid EmpresaBootstrapId = Guid.Parse("00000003-0000-0000-0000-000000000001");

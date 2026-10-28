@@ -22,7 +22,8 @@ namespace Millet.Api.IntegrationTests.Almacen;
 /// el command evalúe todas las configs activas. El test cross-ciclo usa el write-port
 /// REAL para ejercitar el feedback de "lo vivo".</para>
 /// </summary>
-public class GenerarBorradoresReordenTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class GenerarBorradoresReordenTests
 {
     private readonly WebApplicationFactory<Program> _base;
 

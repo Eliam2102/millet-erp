@@ -13,7 +13,8 @@ namespace Millet.Api.IntegrationTests.Web;
 /// requests autenticados sin header con <c>400 MISSING_IDEMPOTENCY_KEY</c>.
 /// Smoke check del wireado de la decoración + middleware.
 /// </summary>
-public class IdempotencyEnforcementTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class IdempotencyEnforcementTests
 {
     private const string SuperAdminOid = "dev-superadmin";
 

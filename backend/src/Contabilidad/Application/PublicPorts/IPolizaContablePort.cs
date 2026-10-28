@@ -29,6 +29,6 @@ public interface IPolizaContablePort
 /// </summary>
 public sealed record SolicitudPolizaAutomatica(
     string TipoClave, DateOnly Fecha, string Concepto, DocumentoOrigenPoliza Documento, string LlaveIdempotencia,
-    IReadOnlyList<PartidaRequest> Partidas, OrigenMovimiento OrigenCuentas = OrigenMovimiento.Manual);
+    IReadOnlyList<PartidaRequest> Partidas, OrigenMovimiento OrigenCuentas = OrigenMovimiento.Manual, Guid? EmpresaId = null);
 
 public sealed record PolizaRegistrada(Guid Id, string Folio, EstadoPoliza Estado, bool Idempotente);

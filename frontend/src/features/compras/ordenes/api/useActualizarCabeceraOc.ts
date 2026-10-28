@@ -12,6 +12,12 @@ export interface ActualizarCabeceraOcCommand {
   proveedorId?: string;
   condicionesPagoId?: string;
   usoPrincipalId?: string;
+  usoCfdiClave?: string;
+  metodoPago?: string;
+  formaPagoClave?: string;
+  moneda?: string;
+  tipoCambio?: number | null;
+  limpiarTipoCambio?: boolean;
 }
 
 export interface ActualizarCabeceraOcMutationArgs {
@@ -27,7 +33,7 @@ export function useActualizarCabeceraOc() {
 
   return useMutation<void, Error, ActualizarCabeceraOcMutationArgs>({
     mutationFn: async ({ ordenCompraId, command, idempotencyKey }) => {
-      const body: ActualizarCabeceraOcCommand = {};
+      const body: ActualizarCabeceraOcCommand = { ...command };
       if (command.proveedorId !== undefined) body.proveedorId = command.proveedorId;
       if (command.condicionesPagoId !== undefined) body.condicionesPagoId = command.condicionesPagoId;
       if (command.usoPrincipalId !== undefined) body.usoPrincipalId = command.usoPrincipalId;

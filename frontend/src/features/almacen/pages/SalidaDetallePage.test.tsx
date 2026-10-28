@@ -135,7 +135,7 @@ describe('<SalidaDetallePage> — nombres resueltos', () => {
     expect(screen.queryByText('Revisar holgura del rack')).not.toBeInTheDocument();
   });
 
-  it('cae a los ids crudos cuando el backend no resuelve nombres', async () => {
+  it('no pinta ids crudos cuando el backend no resuelve nombres (guion)', async () => {
     mswServer.use(
       http.get('*/api/v1/almacen/salidas/s-1', () =>
         HttpResponse.json({
@@ -157,11 +157,9 @@ describe('<SalidaDetallePage> — nombres resueltos', () => {
 
     render(<SalidaDetallePage />, { wrapper: createQueryWrapper() });
 
-    await waitFor(() =>
-      expect(screen.getByText(SUB_ID)).toBeInTheDocument(),
-    );
-    expect(screen.getByText(RQ_ID)).toBeInTheDocument();
-    expect(screen.getByText(PERSONA_ID)).toBeInTheDocument();
-    expect(screen.getByText(ART_ID)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Sub-almacén')).toBeInTheDocument());
+    for (const id of [SUB_ID, RQ_ID, PERSONA_ID, ART_ID]) {
+      expect(screen.queryByText(id)).not.toBeInTheDocument();
+    }
   });
 });

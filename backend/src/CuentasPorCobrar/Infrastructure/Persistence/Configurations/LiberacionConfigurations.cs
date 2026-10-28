@@ -11,11 +11,23 @@ public sealed class DecisionLiberacionConfiguration : IEntityTypeConfiguration<D
         builder.ToTable("decision_liberacion", t =>
         {
             t.HasCheckConstraint("ck_decision_liberacion_monto_positivo", "monto_pedido > 0");
-            t.HasCheckConstraint("ck_decision_liberacion_resultado", "resultado IN (1, 2, 3)");
-            t.HasCheckConstraint("ck_decision_liberacion_regla", "regla_aplicada IN (1, 2, 3)");
+            // C7.3: 4 = PendienteAutorizacion (resultado) / Cobertura (regla).
+            t.HasCheckConstraint("ck_decision_liberacion_resultado", "resultado IN (1, 2, 3, 4)");
+            t.HasCheckConstraint("ck_decision_liberacion_regla", "regla_aplicada IN (1, 2, 3, 4)");
             t.HasCheckConstraint(
                 "ck_decision_liberacion_override_consistente",
                 "(resultado = 3 AND override_id IS NOT NULL) OR (resultado != 3 AND override_id IS NULL)");
+            t.HasCheckConstraint(
+                "ck_decision_liberacion_cobertura_rango",
+                "porcentaje_cobertura IS NULL OR (porcentaje_cobertura >= 0 AND porcentaje_cobertura <= 100)");
+            t.HasCheckConstraint(
+                "ck_decision_liberacion_pendiente_cobertura",
+                "resultado != 4 OR (regla_aplicada = 4 AND porcentaje_cobertura >= 50 AND porcentaje_cobertura < 100)");
+            // C7.3: la resolución de una pendiente (autorizar → 1/2/3 según
+            // el crédito recalculado; rechazar → 2) nunca es otra pendiente.
+            t.HasCheckConstraint(
+                "ck_decision_liberacion_origen_resolucion",
+                "decision_origen_id IS NULL OR resultado IN (1, 2, 3)");
         });
 
         builder.HasKey(e => e.Id);
@@ -33,6 +45,9 @@ public sealed class DecisionLiberacionConfiguration : IEntityTypeConfiguration<D
         builder.Property(e => e.OverrideId);
         builder.Property(e => e.DecididoPor).IsRequired();
         builder.Property(e => e.DecididoEn).IsRequired();
+        builder.Property(e => e.PorcentajeCobertura).HasPrecision(5, 2);
+        builder.Property(e => e.DecisionOrigenId);
+        builder.Property(e => e.Motivo).HasMaxLength(254);
 
         // §5.1 del 01-diseño.
         builder.HasIndex(e => e.PedidoRef)
@@ -40,6 +55,16 @@ public sealed class DecisionLiberacionConfiguration : IEntityTypeConfiguration<D
 
         builder.HasIndex(e => new { e.ClienteId, e.DecididoEn })
             .HasDatabaseName("ix_decision_liberacion_cliente_fecha");
+
+        // C7.3: bandeja filtrada por resultado (p. ej. pendientes) ordenada por fecha.
+        builder.HasIndex(e => new { e.Resultado, e.DecididoEn })
+            .HasDatabaseName("ix_decision_liberacion_resultado_fecha");
+
+        // C7.3: una pendiente se resuelve una sola vez (la carrera → 23505 → 409).
+        builder.HasIndex(e => e.DecisionOrigenId)
+            .HasDatabaseName("ux_decision_liberacion_origen")
+            .IsUnique()
+            .HasFilter("decision_origen_id IS NOT NULL");
     }
 }
 

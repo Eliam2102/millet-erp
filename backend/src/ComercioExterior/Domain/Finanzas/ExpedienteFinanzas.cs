@@ -74,10 +74,13 @@ public sealed partial class Expediente
         {
             var total = totales.GetValueOrDefault(p.PartidaId);
             var delta = total - (anterior?.Partidas.SingleOrDefault(a => a.PartidaId == p.PartidaId)?.ImporteMxn ?? 0);
-            var inventario = Tipo == TipoExpediente.Importacion ? decimal.Round(delta * Math.Clamp(p.Existencia / p.Cantidad, 0, 1), 2, MidpointRounding.AwayFromZero) : 0;
+            // Millet, 26-oct-2026, Opción A: con salidas, todo el ajuste va a gastos de importación.
+            var tieneSalidas = Tipo == TipoExpediente.Importacion && p.Existencia < p.Cantidad;
+            var inventario = Tipo == TipoExpediente.Importacion && !tieneSalidas ? delta : 0;
             return new CostoPartidaDistribuido(p.PartidaId, p.Descripcion, p.ClienteId, p.OcId, p.RecepcionId,
                 p.ArticuloId, p.UbicacionId, p.Cantidad, total, delta, inventario, Tipo == TipoExpediente.Importacion ? delta - inventario : 0,
-                p.CostoPromedioMxn, p.CostoPromedioMxn + (p.ExistenciaTotal > 0 ? inventario / p.ExistenciaTotal : 0));
+                p.CostoPromedioMxn, p.CostoPromedioMxn + (p.ExistenciaTotal > 0 ? inventario / p.ExistenciaTotal : 0))
+                { TieneSalidas = tieneSalidas };
         }).ToArray();
         if (Tipo == TipoExpediente.Importacion)
             costos = costos.Select(c =>

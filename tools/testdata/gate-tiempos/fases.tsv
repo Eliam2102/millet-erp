@@ -1,0 +1,9 @@
+fase	segundos	resultado
+contenedor_o_base	2	ok
+tool_restore	1	ok
+restore	3	ok
+build	8	ok
+migracion:EjemploContext	4	ok
+fixture_sql	0	ok
+test:Millet.Ejemplo.IntegrationTests	12	1
+total	30	1

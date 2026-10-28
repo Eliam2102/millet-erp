@@ -9,7 +9,8 @@ using static Millet.Api.IntegrationTests.DatosMaestros.Adjuntos.AdjuntosProveedo
 namespace Millet.Api.IntegrationTests.DatosMaestros.Adjuntos;
 
 /// <summary>86e3pdmee · ADM-01: matriz por tipo de proveedor y excepción con permiso y motivo.</summary>
-public class ExpedienteMatrizTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class ExpedienteMatrizTests
 {
     private readonly WebApplicationFactory<Program> _factory;
     public ExpedienteMatrizTests(WebApplicationFactory<Program> factory) => _factory = factory;
@@ -20,8 +21,8 @@ public class ExpedienteMatrizTests : IClassFixture<WebApplicationFactory<Program
     [Fact]
     public async Task Extranjero_no_pide_constancia_y_la_excepcion_completa_el_expediente()
     {
-        var amb = new AdjuntosProveedorAmbiente(_factory);
-        var admin = await amb.SuperAdminAsync();
+        await using var amb = new AdjuntosProveedorAmbiente(_factory);
+        using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync(TipoPersonaProveedor.Moral, EstatusCatalogo.EnRevision);
 
         var put = await admin.PutAsJsonAsync($"{Base}/{prov}/clasificacion-fiscal",
@@ -46,7 +47,7 @@ public class ExpedienteMatrizTests : IClassFixture<WebApplicationFactory<Program
     [Fact]
     public async Task Configurar_la_matriz_requiere_permiso()
     {
-        var amb = new AdjuntosProveedorAmbiente(_factory);
+        await using var amb = new AdjuntosProveedorAmbiente(_factory);
         var (cxp, _) = await amb.ClienteConPermisosAsync(PermisosCanonicos.DatosMaestrosProveedoresGestionar);
         var tipos = await LeerAsync(await cxp.GetAsync($"{Base}/expediente/tipos"));
         Assert.Contains("opinion_cumplimiento", tipos.EnumerateArray().Select(t => t.GetProperty("codigo").GetString()));
