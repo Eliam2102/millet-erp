@@ -1723,6 +1723,7 @@ Millet.Api.Endpoints.CuentasPorPagar.ReportesEndpoints.MapReportesEndpoints(app)
 // Idempotency-Key requerido en todos los POST.
 Millet.Api.Endpoints.IntegracionesAw.IntegracionesAwEndpoints.MapIntegracionesAwEndpoints(app);
 Millet.Api.Endpoints.IntegracionesAw.AwOrigenEndpoints.MapAwOrigenEndpoints(app);
+Millet.Api.Endpoints.Almacen.AlmacenesAppMensajesEndpoint.MapAlmacenesAppMensajesEndpoint(app);
 
 // === Endpoints del módulo Integraciones.Fiscal (PR-4) ===
 // 6 endpoints bajo /api/v1/integraciones/fiscal/* (GET/PUT configuración
