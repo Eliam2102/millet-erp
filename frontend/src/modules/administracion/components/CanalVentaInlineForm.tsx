@@ -158,7 +158,7 @@ export function CanalVentaInlineForm({ canal, onCancel, onSaved }: CanalVentaInl
             error={form.formState.errors.nombre?.message}
             className="md:col-span-8"
           >
-            <Input maxLength={254} placeholder="Mostrador Cancún" {...form.register('nombre')} />
+            <Input maxLength={254} placeholder="Sucursal Cancún" {...form.register('nombre')} />
           </Field>
         </FormCampo>
 

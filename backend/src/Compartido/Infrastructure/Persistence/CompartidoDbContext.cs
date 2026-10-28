@@ -1721,9 +1721,9 @@ public sealed class CompartidoDbContext : BaseDbContext
 
         var seedTime = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
         canal.HasData(
-            SeedCanalVenta(1, "Tienda Cancún", "Ventas Cancun", seedTime),
-            SeedCanalVenta(2, "Tienda Circuito", "Ventas Circuito", seedTime),
-            SeedCanalVenta(3, "Tienda Chichí Suárez", null, seedTime),
+            SeedCanalVenta(1, "Sucursal Cancún", "Ventas Cancun", seedTime),
+            SeedCanalVenta(2, "Sucursal Circuito", "Ventas Circuito", seedTime),
+            SeedCanalVenta(3, "Sucursal Chichí Suárez", null, seedTime),
             SeedCanalVenta(4, "CC Mérida", "CC Mérida", seedTime),
             SeedCanalVenta(5, "CC Q.Roo", null, seedTime),
             SeedCanalVenta(6, "CC Municipios", null, seedTime),

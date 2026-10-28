@@ -98,9 +98,10 @@ public sealed partial class DemoSesionSeedHostedService
         await db.SaveChangesAsync(ct);
         await SembrarSedesMilletAsync(db, ct);
         await SembrarSeriesVentaDirectaAsync(db, ct);
-        // Solo etiquetas históricas; conservar ID y ClaveAw para pedidos existentes.
-        foreach (var canal in await db.CanalesVenta.Where(c => c.Nombre.StartsWith("Tienda ")).ToListAsync(ct))
-            canal.ActualizarDatos(nombre: canal.Nombre.Replace("Tienda ", "Mostrador "));
+        // Solo etiquetas históricas («Tienda …» y el «Mostrador …» de demos anteriores) pasan a
+        // «Sucursal …», como pidió Millet; conservar ID y ClaveAw para pedidos existentes.
+        foreach (var canal in await db.CanalesVenta.Where(c => c.Nombre.StartsWith("Tienda ") || c.Nombre.StartsWith("Mostrador ")).ToListAsync(ct))
+            canal.ActualizarDatos(nombre: "Sucursal " + canal.Nombre[(canal.Nombre.IndexOf(' ') + 1)..]);
         await db.SaveChangesAsync(ct);
         // Completa sólo las asignaciones DEMO faltantes, sin reemplazar puestos operados.
         var sucursalesDemo = await db.Sucursales.Where(s => s.EmpresaId == EmpresaId && ClavesSedesDemo.Contains(s.Clave)).Select(s => s.Id).ToArrayAsync(ct);

@@ -67,7 +67,7 @@ function pedido(estado: string) {
     clienteNombre: 'Cliente Demo SA',
     // FAC-ING-PR3: id + nombre del catálogo compartido.canales_venta.
     canalVentaId: 1,
-    canalVenta: 'Tienda Cancún',
+    canalVenta: 'Sucursal Cancún',
     comportamientoFiscal: 'MostradorInmediato',
     // F6.1: pedido manual clasificado como venta directa.
     claseManual: 'VentaDirecta' as string | null,
@@ -285,7 +285,7 @@ describe('<DetallePedido> — smoke', () => {
     // FAC-ING-PR3: viaja el id del catálogo + el nombre para conservar
     // la opción si el canal fue desactivado.
     expect(arg.canalVenta).toBe(1);
-    expect(arg.canalVentaNombre).toBe('Tienda Cancún');
+    expect(arg.canalVentaNombre).toBe('Sucursal Cancún');
     expect(arg.lineas[0].descripcion).toBe('Vidrio templado 6mm');
     expect(arg.lineas[0].valorUnitario).toBe(100);
     // FAC-UX-PR3: datos fiscales del master viajan en el prefill.
