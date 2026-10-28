@@ -51,4 +51,34 @@ public sealed partial class P6SucursalEndpointsTests
         using var lectura = await datos.Operativo.GetAsync(Ruta("factura", datos.Propios["factura"]));
         Assert.Equal(HttpStatusCode.OK, lectura.StatusCode);
     }
+    [Fact]
+    public async Task Catalogo_de_no_deducibles_pide_cualquiera_de_los_permisos_de_lectura_que_lo_usan()
+    {
+        await using var datos = await PrepararAsync();
+        string[] lecturas =
+        [
+            PermisosCanonicos.CuentasPorPagarFacturasLeer, PermisosCanonicos.CuentasPorPagarTcLeer,
+            PermisosCanonicos.CuentasPorPagarComprobacionesLeer, PermisosCanonicos.CuentasPorPagarViaticosLeer,
+        ];
+        const string ruta = "/api/v1/cuentas-por-pagar/catalogos/clasificaciones-no-deducibles";
+
+        async Task DejarSoloAsync(string? permiso)
+        {
+            using var scope = factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
+            var quitar = lecturas.Where(c => c != permiso).ToArray();
+            var ids = await db.Permisos.Where(p => quitar.Contains(p.Codigo)).Select(p => p.Id).ToListAsync();
+            db.RolPermisos.RemoveRange(await db.RolPermisos.Where(p => p.RolId == datos.RolId && ids.Contains(p.PermisoId)).ToListAsync());
+            await db.SaveChangesAsync();
+            await scope.ServiceProvider.GetRequiredService<IPermissionCache>().InvalidateAllForUserAsync(datos.UsuarioId);
+        }
+
+        // Con solo viáticos (quien captura una comprobación de viaje) basta.
+        await DejarSoloAsync(PermisosCanonicos.CuentasPorPagarViaticosLeer);
+        Assert.Equal(HttpStatusCode.OK, (await datos.Operativo.GetAsync(ruta)).StatusCode);
+
+        // Sin ninguno de los cuatro, 403.
+        await DejarSoloAsync(null);
+        Assert.Equal(HttpStatusCode.Forbidden, (await datos.Operativo.GetAsync(ruta)).StatusCode);
+    }
 }
