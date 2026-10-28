@@ -41,7 +41,6 @@ export interface Activo extends Omit<DatosActivo, 'custodia'>, Custodia {
   valorEnLibros: number;
   depreciacionAcumulada: number;
   enTraslado: boolean;
-  puedeAceptarTraslado?: boolean;
   ordenCompraId: string | null;
   recepcionId: string | null;
   facturaProveedorId: string | null;
@@ -61,6 +60,10 @@ export interface Activo extends Omit<DatosActivo, 'custodia'>, Custodia {
     origen: Custodia;
     destino: Custodia;
     registradoEn: string;
+    registradoPor: string;
+    registradoPorNombre?: string | null;
+    motivo: string;
+    fechaEfectiva: string;
     aceptadoEn: string | null;
   }[];
 }

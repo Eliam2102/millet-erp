@@ -40,7 +40,7 @@ public sealed partial class ActivosFijosDbContext(DbContextOptions<ActivosFijosD
         a.HasOne<Activo>().WithMany().HasForeignKey(x => x.ActivoMejoradoId).OnDelete(DeleteBehavior.Restrict);
         a.HasOne<ClaseActivo>().WithMany().HasForeignKey(x => x.ClaseId).OnDelete(DeleteBehavior.Restrict);
         a.Property(x => x.Numero).HasMaxLength(60); a.Property(x => x.Descripcion).HasMaxLength(500); a.Property(x => x.MotivoBaja).HasMaxLength(500);
-        a.Ignore(x => x.ValorEnLibros); a.Ignore(x => x.EnTraslado); a.Ignore(x => x.PuedeAceptarTraslado);
+        a.Ignore(x => x.ValorEnLibros); a.Ignore(x => x.EnTraslado);
         a.Property(x => x.Estado).HasConversion<string>(); a.Property(x => x.Importacion).HasConversion<string>();
         a.HasMany(x => x.Historial).WithOne().HasForeignKey(x => x.ActivoId).OnDelete(DeleteBehavior.Restrict);
         a.HasMany(x => x.Traslados).WithOne().HasForeignKey(x => x.ActivoId).OnDelete(DeleteBehavior.Restrict);
@@ -49,6 +49,7 @@ public sealed partial class ActivosFijosDbContext(DbContextOptions<ActivosFijosD
         h.HasIndex(x => new { x.ActivoId, x.DocumentoId }).IsUnique();
         var t = modelBuilder.Entity<TrasladoActivo>();
         t.ToTable("traslados"); t.HasKey(x => x.Id); t.Property(x => x.Id).ValueGeneratedNever();
+        t.Property(x => x.Motivo).HasMaxLength(300).IsRequired();
         t.OwnsOne(x => x.Origen); t.OwnsOne(x => x.Destino);
         t.HasIndex(x => x.ActivoId).IsUnique().HasFilter("aceptado_en IS NULL");
         var corrida = modelBuilder.Entity<CorridaDepreciacion>();
