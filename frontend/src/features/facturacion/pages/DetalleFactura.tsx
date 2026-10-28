@@ -46,6 +46,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 
 const BASE = '/api/v1/facturacion/facturas';
+const NC_BASE = '/api/v1/facturacion/notas-credito';
 
 /**
  * <c>Detalle del comprobante</c> (FE-F2). Cabecera fiscal + conceptos +
@@ -86,6 +87,7 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
   const puedeReembolsar = useHasPermission(
     PermisosCanonicos.FacturacionNotasCreditoReembolsoSolicitar,
   );
+  const puedeVerNc = useHasPermission(PermisosCanonicos.FacturacionNotasCreditoLeer);
   const [reembolsoNc, setReembolsoNc] = useState<
     NonNullable<typeof f.notasCreditoAplicadas>[number] | null
   >(null);
@@ -105,6 +107,15 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
       } else {
         await descargarArchivo(`${BASE}/${f.id}/pdf?formato=termica`, `${f.folio}-termica.pdf`);
       }
+    } catch (error) {
+      toast.error(esApiError(error) ? error.problem.title : 'No se pudo descargar el archivo.');
+    }
+  }
+
+  // FMT-4: XML y PDF (formato de Millet) de cada NC aplicada, como en el detalle del anticipo.
+  async function descargarNc(ncId: string, folio: string, tipo: 'xml' | 'pdf') {
+    try {
+      await descargarArchivo(`${NC_BASE}/${ncId}/${tipo}`, `${folio}.${tipo}`);
     } catch (error) {
       toast.error(esApiError(error) ? error.problem.title : 'No se pudo descargar el archivo.');
     }
@@ -337,6 +348,9 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
                         <TableHead className="px-3 py-2 text-left">UUID</TableHead>
                         <TableHead className="px-3 py-2 text-right tabular-nums">Total</TableHead>
                         <TableHead className="px-3 py-2 text-left">Reembolso</TableHead>
+                        <TableHead className="px-3 py-2 text-right" data-print="hidden">
+                          Archivos
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -367,6 +381,30 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
                                 Solicitar reembolso
                               </Button>
                             ) : null}
+                          </TableCell>
+                          <TableCell className="px-3 py-2 text-right" data-print="hidden">
+                            {puedeVerNc && nc.uuid ? (
+                              <span className="inline-flex gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  aria-label={`XML de la nota de crédito ${nc.folio}`}
+                                  onClick={() => descargarNc(nc.id, nc.folio, 'xml')}
+                                >
+                                  XML
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  aria-label={`PDF de la nota de crédito ${nc.folio}`}
+                                  onClick={() => descargarNc(nc.id, nc.folio, 'pdf')}
+                                >
+                                  PDF
+                                </Button>
+                              </span>
+                            ) : (
+                              <span className="text-xs text-ink-muted">—</span>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}
