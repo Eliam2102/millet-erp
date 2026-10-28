@@ -41,7 +41,8 @@ public sealed class ComprasOcReadAdapter : IComprasOcReadPort, IComprasRecepcion
                 CantidadRecibida: l.CantidadRecibida,
                 PrecioUnitarioMxn: Math.Round(l.PrecioUnitario * conversionMxn, 4),
                 CentroCostoId: l.CentroCostoId,
-                CantidadFacturada: l.CantidadFacturada, EsActivoFijo: l.EsActivoFijo, ClaseActivoId: l.ClaseActivoId, FraccionArancelaria: l.FraccionArancelaria))
+                CantidadFacturada: l.CantidadFacturada, EsActivoFijo: l.EsActivoFijo, ClaseActivoId: l.ClaseActivoId, FraccionArancelaria: l.FraccionArancelaria,
+                ProductoAwVarianteId: l.ProductoAwVarianteId, AnchoMm: l.AnchoMm, AltoMm: l.AltoMm))
             .ToList();
 
         return new OcLectura(

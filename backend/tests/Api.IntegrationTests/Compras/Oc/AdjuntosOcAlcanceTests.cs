@@ -16,7 +16,8 @@ namespace Millet.Api.IntegrationTests.Compras.Oc;
 /// Pruebas de integración para el alcance por sucursal (ADR-0051) de adjuntos de órdenes de compra (F1-ADM-11).
 /// Comprueba que la autorización se derive del documento padre (OrdenCompra.SucursalDestinoId).
 /// </summary>
-public class AdjuntosOcAlcanceTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class AdjuntosOcAlcanceTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string EndpointBase = "/api/v1/compras/ordenes";
@@ -431,5 +432,8 @@ public class AdjuntosOcAlcanceTests : IClassFixture<WebApplicationFactory<Progra
         string? MotivoSinRequisicion,
         DateOnly? FechaEntregaEsperada,
         Guid? EncargadoComprasId,
-        Guid? OcOrigenId);
+        Guid? OcOrigenId,
+        string? UsoCfdiClave = "G03",
+        string? MetodoPago = "PPD",
+        string? FormaPagoClave = "99");
 }

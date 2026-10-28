@@ -1,3 +1,4 @@
+import { etiquetaMedidaMm, hojasDe } from '@/features/almacen/lib/medida-hoja';
 import { IndicadorAlmacenBadge } from '../components/IndicadorAlmacenBadge';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useRef, useState } from 'react';
@@ -282,11 +283,22 @@ function FilaCaptura({
   onGuardar: (valor: number) => void;
   guardando: boolean;
 }) {
+  // F1-MP-01: el vidrio por medida se cuenta en hojas enteras; el servidor guarda m².
+  const porMedida = !!linea.productoAwVarianteId;
+  const hojasCapturadas =
+    porMedida && linea.cantidadRealCapturada != null
+      ? hojasDe(linea.cantidadRealCapturada, linea.areaHojaM2)
+      : null;
   const [valor, setValor] = useState<string>(
-    linea.cantidadRealCapturada != null ? String(linea.cantidadRealCapturada) : '',
+    hojasCapturadas != null
+      ? String(Math.round(hojasCapturadas))
+      : linea.cantidadRealCapturada != null && !porMedida
+        ? String(linea.cantidadRealCapturada)
+        : '',
   );
 
-  const decimales = useDecimalesUnidad().porCodigo(linea.unidadMedida);
+  const decimalesUnidad = useDecimalesUnidad().porCodigo(linea.unidadMedida);
+  const decimales = porMedida ? 0 : decimalesUnidad;
 
   function intentarGuardar() {
     const numero = Number(valor);
@@ -296,9 +308,11 @@ function FilaCaptura({
     }
     if (decimales != null && !cabeEnDecimales(numero, decimales)) {
       toast.error(
-        decimales === 0
-          ? `${linea.unidadMedida} se cuenta en enteros`
-          : `${linea.unidadMedida} admite hasta ${decimales} decimales`,
+        porMedida
+          ? 'Con medida, captura la cantidad en hojas enteras.'
+          : decimales === 0
+            ? `${linea.unidadMedida} se cuenta en enteros`
+            : `${linea.unidadMedida} admite hasta ${decimales} decimales`,
       );
       return;
     }
@@ -331,6 +345,12 @@ function FilaCaptura({
           clave={linea.articuloClave}
           descripcion={linea.articuloDescripcion}
         />
+        {porMedida && (
+          <div className="text-xs tabular-nums text-ink-muted">
+            Medida {etiquetaMedidaMm(linea.anchoMm, linea.altoMm) ?? '—'}
+          </div>
+        )}
+        {linea.lote && <div className="text-xs text-ink-muted">Lote {linea.lote}</div>}
       </TableCell>
       <TableCell>
         <EtiquetaSubAlmacen subAlmacenId={linea.subAlmacenId} clave={linea.subAlmacenClave} />
@@ -350,7 +370,7 @@ function FilaCaptura({
             onKeyDown={onKeyDown}
             className="w-32 text-right font-mono"
             disabled={guardando}
-            aria-label={`Cantidad real partida ${index + 1}`}
+            aria-label={porMedida ? `Hojas contadas partida ${index + 1}` : `Cantidad real partida ${index + 1}`}
           />
           <Button
             type="button"
@@ -369,7 +389,7 @@ function FilaCaptura({
         </div>
       </TableCell>
       <TableCell className="font-mono text-xs text-ink-muted">
-        {linea.unidadMedida ?? '—'}
+        {porMedida ? 'HOJA' : (linea.unidadMedida ?? '—')}
       </TableCell>
       <TableCell>
         {capturada ? (

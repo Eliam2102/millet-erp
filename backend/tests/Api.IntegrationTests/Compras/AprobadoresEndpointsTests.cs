@@ -11,7 +11,8 @@ namespace Millet.Api.IntegrationTests.Compras;
 /// designar / listar vigentes / revocar / histórico. Comparten BD con
 /// otros tests; usan <c>departamentoId</c> generado por test para aislar.
 /// </summary>
-public class AprobadoresEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class AprobadoresEndpointsTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string SinPermisosOid = "test-no-perms";

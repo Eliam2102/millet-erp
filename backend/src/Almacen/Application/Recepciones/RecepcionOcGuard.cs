@@ -19,6 +19,16 @@ internal static class RecepcionOcGuard
     public static decimal Limite(decimal solicitada, decimal recibidaCompras, decimal recibidaPropia)
         => solicitada - Math.Max(recibidaCompras, recibidaPropia);
 
+    /// <summary>Mismo texto que la pantalla; con medida el pendiente se dice en hojas (los m² no los capturó la persona).</summary>
+    internal static string MensajeExcede(OcLineaLectura linea, decimal limite)
+    {
+        var pendiente = Math.Max(0m, limite);
+        var texto = linea is { AnchoMm: { } ancho, AltoMm: { } alto }
+            ? $"{Math.Floor(pendiente / AreaHoja.M2(ancho, alto) + 1e-6m).ToString(CultureInfo.InvariantCulture)} hojas"
+            : pendiente.ToString("0.####", CultureInfo.InvariantCulture);
+        return $"Excede lo pendiente de la orden de compra ({texto}). Almacén recibe exacto.";
+    }
+
     public static async Task<RecepcionOcValidada> ValidarAsync(
         OcLectura? oc, IReadOnlyList<RegistrarRecepcionLineaInput> entradas,
         IReadOnlyDictionary<Guid, decimal> recibidoPropio, CancellationToken ct)
@@ -52,8 +62,7 @@ internal static class RecepcionOcGuard
             var propio = recibidoPropio.GetValueOrDefault(grupo.Key);
             var limite = Limite(origen.CantidadSolicitada, origen.CantidadRecibida, propio);
             if (grupo.Sum(l => l.Cantidad) > limite)
-                throw new BusinessRuleException("RECEPCION_EXCEDE_PENDIENTE",
-                    $"La cantidad supera lo pendiente de la orden de compra ({Math.Max(0m, limite).ToString("0.####", CultureInfo.InvariantCulture)}). Almacén recibe exacto.");
+                throw new BusinessRuleException("RECEPCION_EXCEDE_PENDIENTE", MensajeExcede(origen, limite));
             recibidos[grupo.Key] = Math.Max(origen.CantidadRecibida, propio);
         }
         return new RecepcionOcValidada(lineas, recibidos);

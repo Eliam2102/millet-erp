@@ -20,7 +20,8 @@ namespace Millet.Api.IntegrationTests.CentrosCosto;
 /// ediciones del catálogo sembrado. El usuario es un Guid aleatorio: sus
 /// filas de <c>asignaciones</c> no chocan con nadie.
 /// </summary>
-public class AlcanceTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class AlcanceTests
 {
     private readonly WebApplicationFactory<Program> _factory;
 

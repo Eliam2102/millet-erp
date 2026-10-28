@@ -31,6 +31,12 @@
 #                       tarda ~12 min en un solo job (jsdom por archivo es
 #                       CPU-bound). Cada shard corre ~1/4. Nombre de check
 #                       variable ("Test frontend shard (1)"...).
+#   - integration-backend: gate de integración (tools/validate-integration-
+#                       isolated.sh) repartido en 3 partes por namespace, cada
+#                       una con su PostgreSQL desechable (docker run en el
+#                       runner). Agregador de nombre fijo "Integration backend".
+#   - archivos-trabajo   : rechaza archivos de trabajo (RESUMEN_*.md, logs,
+#                       TRX, outputs/...). Regla en docs/qa/gate-integracion.md.
 #   - test-frontend-gate : agregador de nombre FIJO "Test frontend" que reúne
 #                       los shards en UN check (corre siempre; success si los
 #                       shards pasan o se saltan). OJO: aún NO está en los
@@ -38,7 +44,6 @@
 #                       suite quede verde de forma estable.
 #
 # NO incluye:
-#   - Integration tests con Testcontainers (TODO — PR siguiente)
 #   - Validación de tipos OpenAPI sincronizados (TODO — depende de
 #     implementación de ADR-0017; cuando exista npm run codegen, agregarlo
 #     aquí + git diff --exit-code para detectar drift. OJO: ese job deberá
@@ -330,3 +335,103 @@ jobs:
             echo "Test frontend shards → $result"
             exit 1
           fi
+
+  # Gate de integración (docs/qa/gate-integracion.md). Tres partes en paralelo
+  # balanceadas por tiempo medido el 27-oct-2026 (≈ 1/3 cada una). La parte 3
+  # es el COMPLEMENTO de las otras dos: un namespace nuevo cae ahí solo y
+  # ninguna prueba queda fuera. Las partes 1 y 2 no tienen pruebas en Compras
+  # ni en A+W (VSTest sale con 0 cuando el filtro no coincide).
+  integration-backend:
+    name: Integration backend parte ${{ matrix.parte }}
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - parte: 1
+            filtro: FullyQualifiedName~Millet.Api.IntegrationTests.DatosMaestros.|FullyQualifiedName~Millet.Api.IntegrationTests.ActivosFijos.|FullyQualifiedName~Millet.Api.IntegrationTests.CentrosCosto.
+          - parte: 2
+            filtro: FullyQualifiedName~Millet.Api.IntegrationTests.ComercioExterior.|FullyQualifiedName~Millet.Api.IntegrationTests.Administracion.|FullyQualifiedName~Millet.Api.IntegrationTests.Contabilidad.|FullyQualifiedName~Millet.Api.IntegrationTests.Identidad.
+          - parte: 3
+            filtro: FullyQualifiedName!~Millet.Api.IntegrationTests.DatosMaestros.&FullyQualifiedName!~Millet.Api.IntegrationTests.ActivosFijos.&FullyQualifiedName!~Millet.Api.IntegrationTests.CentrosCosto.&FullyQualifiedName!~Millet.Api.IntegrationTests.ComercioExterior.&FullyQualifiedName!~Millet.Api.IntegrationTests.Administracion.&FullyQualifiedName!~Millet.Api.IntegrationTests.Contabilidad.&FullyQualifiedName!~Millet.Api.IntegrationTests.Identidad.
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('backend/**/*.csproj', 'backend/Directory.Packages.props') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Gate de integración (parte ${{ matrix.parte }})
+        env:
+          MILLET_GATE_TIEMPOS_DIR: ${{ runner.temp }}/gate-tiempos
+        run: ./tools/validate-integration-isolated.sh --filter "${{ matrix.filtro }}"
+
+      - name: Resumen de tiempos
+        if: always()
+        run: |
+          if [ -f "${{ runner.temp }}/gate-tiempos/fases.tsv" ]; then
+            python3 tools/gate-tiempos.py "${{ runner.temp }}/gate-tiempos"
+            python3 tools/gate-tiempos.py "${{ runner.temp }}/gate-tiempos" --fallas
+          fi
+
+  # Agregador de nombre FIJO para branch protection (mismo patrón que
+  # "Test frontend"): success si las 3 partes pasan o se saltan (PR sin
+  # cambios de backend).
+  integration-backend-gate:
+    name: Integration backend
+    needs: integration-backend
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Verificar resultado de las partes
+        run: |
+          result="${{ needs.integration-backend.result }}"
+          if [ "$result" = "success" ] || [ "$result" = "skipped" ]; then
+            echo "Integration backend ($result) → OK"
+          else
+            echo "Integration backend partes → $result"
+            exit 1
+          fi
+
+  # Archivos de trabajo que no deben entrar al repositorio (resúmenes de
+  # agentes, logs, TRX, salidas locales, restos de merge). Revisa sólo lo que
+  # el PR agrega, modifica o renombra (salvo ejemplos en tools/testdata/).
+  # Regla: docs/qa/gate-integracion.md §6.
+  archivos-trabajo:
+    name: Archivos de trabajo
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Buscar archivos de trabajo en el PR
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          patron='(^|/)(RESUMEN[_-][^/]*\.md|NOTAS_[^/]*\.md|nohup\.out|\.DS_Store)$|(^|/)(outputs|logs|TestResults)/|\.(log|trx|orig|rej)$|^\.claude/(scheduled_tasks\.lock|worktrees/)'
+          # tools/testdata/ guarda ejemplos versionados a propósito (p. ej. un TRX de muestra).
+          encontrados=$(git diff --name-only --diff-filter=AMR "origin/$BASE_REF...HEAD" | grep -Ev '^tools/testdata/' | grep -E "$patron" || true)
+          if [ -n "$encontrados" ]; then
+            echo "El PR trae archivos de trabajo que no van en el repositorio:"
+            echo "$encontrados" | sed 's/^/  - /'
+            echo "Quítalos (git rm --cached <archivo>) y vuelve a subir. Ver docs/qa/gate-integracion.md §6."
+            exit 1
+          fi
+          echo "Sin archivos de trabajo."

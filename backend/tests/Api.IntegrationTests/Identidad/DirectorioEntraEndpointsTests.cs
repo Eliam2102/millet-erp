@@ -14,7 +14,8 @@ namespace Millet.Api.IntegrationTests.Identidad;
 /// simulado (plan 15, F2). Usa las cuentas semilla y los dominios de
 /// <c>appsettings.Development.json</c> (<c>Entra</c>).
 /// </summary>
-public class DirectorioEntraEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class DirectorioEntraEndpointsTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string SinPermisosOid = "test-no-perms";

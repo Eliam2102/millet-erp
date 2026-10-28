@@ -6,8 +6,9 @@ namespace Millet.Almacen.Domain.Conteos;
 /// <summary>
 /// Línea de un <see cref="ConteoInventario"/>. Tabla
 /// <c>almacen.lineas_conteo</c>. UNIQUE
-/// <c>(conteo_id, articulo_id, ubicacion_id)</c> (ADR-0047 C7.2c — el conteo
-/// baja a nivel rack; el índice espeja la PK de saldos por ubicación).
+/// <c>(conteo_id, articulo_id, ubicacion_id, producto_aw_variante_id)</c> con
+/// <c>NULLS NOT DISTINCT</c> (ADR-0047 C7.2c — el conteo baja a nivel rack; el índice
+/// espeja la llave natural de saldos, que desde F1-MP-01 incluye la variante de medida).
 /// <c>SubAlmacenId</c> se conserva denormalizado (lo usa el bloqueo Anual).
 ///
 /// <para>
@@ -30,6 +31,10 @@ public sealed class LineaConteo : BaseEntity, IAuditable
     public Guid ArticuloId { get; private set; }
     public Guid SubAlmacenId { get; private set; }
     public Guid UbicacionId { get; private set; }
+    /// <summary>Variante de medida de la fila de saldo contada; NULL = artículo sin medida.</summary>
+    public Guid? ProductoAwVarianteId { get; private set; }
+    /// <summary>S4b: lote de la fila de saldo contada; NULL = sin lote («apertura»).</summary>
+    public string? Lote { get; private set; }
     public decimal CantidadTeorica { get; private set; }
     public decimal CostoPromedioSnapshot { get; private set; }
     public decimal? CantidadRealCapturada { get; private set; }
@@ -48,7 +53,9 @@ public sealed class LineaConteo : BaseEntity, IAuditable
         Guid subAlmacenId,
         Guid ubicacionId,
         decimal cantidadTeorica,
-        decimal costoPromedioSnapshot) : base(id)
+        decimal costoPromedioSnapshot,
+        Guid? productoAwVarianteId = null,
+        string? lote = null) : base(id)
     {
         if (conteoId == Guid.Empty)
             throw new BusinessRuleException("LINEA_CONTEO_SIN_CONTEO",
@@ -73,6 +80,8 @@ public sealed class LineaConteo : BaseEntity, IAuditable
         ArticuloId = articuloId;
         SubAlmacenId = subAlmacenId;
         UbicacionId = ubicacionId;
+        ProductoAwVarianteId = productoAwVarianteId;
+        Lote = Movimientos.LineaMovimiento.NormalizarLote(lote);
         CantidadTeorica = cantidadTeorica;
         CostoPromedioSnapshot = costoPromedioSnapshot;
     }

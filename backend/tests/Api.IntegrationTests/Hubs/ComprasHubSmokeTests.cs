@@ -26,7 +26,8 @@ namespace Millet.Api.IntegrationTests.Hubs;
 /// levanta para cualquier request a <c>/hubs/*</c>.
 /// </para>
 /// </summary>
-public class ComprasHubSmokeTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class ComprasHubSmokeTests
 {
     private const string HubPath = "/hubs/compras";
     private const string SuperAdminOid = "dev-superadmin";

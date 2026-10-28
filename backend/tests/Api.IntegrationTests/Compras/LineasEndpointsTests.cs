@@ -24,7 +24,8 @@ namespace Millet.Api.IntegrationTests.Compras;
 /// El SucursalId es fijo para que folio_secuencias incremente
 /// secuenciales y no haya colisiones de folio.
 /// </summary>
-public class LineasEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class LineasEndpointsTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string SinPermisosOid = "test-no-perms";

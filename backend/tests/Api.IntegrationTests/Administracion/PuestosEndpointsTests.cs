@@ -13,7 +13,8 @@ namespace Millet.Api.IntegrationTests.Administracion;
 /// Fase 4) el test de aislamiento cross-sucursal del filtro opcional
 /// <c>?sucursalId=</c>, que hasta ahora no tenía cobertura explícita.
 /// </summary>
-public class PuestosEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class PuestosEndpointsTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string EndpointBase = "/api/v1/admin/puestos";

@@ -30,6 +30,10 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid?>("ActivoMejoradoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("activo_mejorado_id");
+
                     b.Property<decimal>("AcumuladaCarga")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
@@ -218,8 +222,15 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("version");
 
+                    b.Property<int?>("VidaUtilMeses")
+                        .HasColumnType("integer")
+                        .HasColumnName("vida_util_meses");
+
                     b.HasKey("Id")
                         .HasName("pk_activos");
+
+                    b.HasIndex("ActivoMejoradoId")
+                        .HasDatabaseName("ix_activos_activo_mejorado_id");
 
                     b.HasIndex("ClaseId")
                         .HasDatabaseName("ix_activos_clase_id");
@@ -450,9 +461,14 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("tasa_confirmada");
 
+                    b.Property<decimal?>("TasaContableAnual")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("tasa_contable_anual");
+
                     b.Property<decimal?>("TasaFiscalAnual")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
                         .HasColumnName("tasa_fiscal_anual");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
@@ -489,7 +505,8 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                             Metodo = "LineaRecta",
                             Nombre = "TERRENOS",
                             RequiereRevision = false,
-                            TasaConfirmada = false,
+                            TasaConfirmada = true,
+                            TasaContableAnual = 0m,
                             TasaFiscalAnual = 0m,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             Version = 1
@@ -505,7 +522,8 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                             Metodo = "LineaRecta",
                             Nombre = "EDIFICIOS",
                             RequiereRevision = false,
-                            TasaConfirmada = false,
+                            TasaConfirmada = true,
+                            TasaContableAnual = 5m,
                             TasaFiscalAnual = 5m,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             Version = 1
@@ -521,7 +539,8 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                             Metodo = "LineaRecta",
                             Nombre = "MAQUINARIA Y EQUIPO",
                             RequiereRevision = false,
-                            TasaConfirmada = false,
+                            TasaConfirmada = true,
+                            TasaContableAnual = 10m,
                             TasaFiscalAnual = 10m,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             Version = 1
@@ -537,7 +556,8 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                             Metodo = "LineaRecta",
                             Nombre = "AUTOMOVILES AUTOBUSES CAM DE CARGA MONTAC Y REMOLQUES",
                             RequiereRevision = false,
-                            TasaConfirmada = false,
+                            TasaConfirmada = true,
+                            TasaContableAnual = 25m,
                             TasaFiscalAnual = 25m,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             Version = 1
@@ -553,7 +573,8 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                             Metodo = "LineaRecta",
                             Nombre = "MOBILIARIO Y EQUIPO DE OFICINA",
                             RequiereRevision = false,
-                            TasaConfirmada = false,
+                            TasaConfirmada = true,
+                            TasaContableAnual = 10m,
                             TasaFiscalAnual = 10m,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             Version = 1
@@ -569,8 +590,9 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                             Metodo = "LineaRecta",
                             Nombre = "EQUIPO DE COMPUTO",
                             RequiereRevision = false,
-                            TasaConfirmada = false,
-                            TasaFiscalAnual = 30m,
+                            TasaConfirmada = true,
+                            TasaContableAnual = 33m,
+                            TasaFiscalAnual = 33m,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             Version = 1
                         },
@@ -585,7 +607,9 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                             Metodo = "LineaRecta",
                             Nombre = "EQUIPO DE COMUNICACION",
                             RequiereRevision = false,
-                            TasaConfirmada = false,
+                            TasaConfirmada = true,
+                            TasaContableAnual = 10m,
+                            TasaFiscalAnual = 10m,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             Version = 1
                         },
@@ -600,7 +624,7 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                             Metodo = "LineaRecta",
                             Nombre = "OBRAS EN PROCESO DE ACTIVOS FIJOS",
                             RequiereRevision = false,
-                            TasaConfirmada = false,
+                            TasaConfirmada = true,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             Version = 1
                         },
@@ -615,7 +639,7 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                             Metodo = "LineaRecta",
                             Nombre = "OTROS ACTIVOS FIJOS",
                             RequiereRevision = false,
-                            TasaConfirmada = false,
+                            TasaConfirmada = true,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             Version = 1
                         },
@@ -630,7 +654,9 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                             Metodo = "LineaRecta",
                             Nombre = "EQUIPO DE COMUNICACIONES TELEFONICAS",
                             RequiereRevision = false,
-                            TasaConfirmada = false,
+                            TasaConfirmada = true,
+                            TasaContableAnual = 10m,
+                            TasaFiscalAnual = 10m,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             Version = 1
                         },
@@ -645,7 +671,9 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                             Metodo = "LineaRecta",
                             Nombre = "EQUIPO DE COMUNICACION SATELITAL",
                             RequiereRevision = false,
-                            TasaConfirmada = false,
+                            TasaConfirmada = true,
+                            TasaContableAnual = 10m,
+                            TasaFiscalAnual = 10m,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             Version = 1
                         },
@@ -660,7 +688,9 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                             Metodo = "LineaRecta",
                             Nombre = "OTRA MAQUINARIA Y EQUIPO",
                             RequiereRevision = false,
-                            TasaConfirmada = false,
+                            TasaConfirmada = true,
+                            TasaContableAnual = 10m,
+                            TasaFiscalAnual = 10m,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             Version = 1
                         },
@@ -675,7 +705,7 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                             Metodo = "LineaRecta",
                             Nombre = "ADAPTACIONES Y MEJORAS",
                             RequiereRevision = false,
-                            TasaConfirmada = false,
+                            TasaConfirmada = true,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             Version = 1
                         });
@@ -1189,6 +1219,67 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                     b.ToTable("facturas_conciliadas", "activos_fijos");
                 });
 
+            modelBuilder.Entity("Millet.ActivosFijos.Domain.InpcMensual", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Anio")
+                        .HasColumnType("integer")
+                        .HasColumnName("anio");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<int>("Mes")
+                        .HasColumnType("integer")
+                        .HasColumnName("mes");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<decimal>("Valor")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("numeric(18,6)")
+                        .HasColumnName("valor");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_inpc_mensual");
+
+                    b.HasIndex("EmpresaId", "Anio", "Mes")
+                        .IsUnique()
+                        .HasDatabaseName("ix_inpc_mensual_empresa_id_anio_mes");
+
+                    b.ToTable("inpc_mensual", "activos_fijos", t =>
+                        {
+                            t.HasCheckConstraint("ck_inpc_valido", "anio BETWEEN 1 AND 9998 AND mes BETWEEN 1 AND 12 AND valor > 0");
+                        });
+                });
+
             modelBuilder.Entity("Millet.ActivosFijos.Domain.MantenimientoActivo", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1601,6 +1692,16 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("registrado_en");
 
+                    b.Property<DateOnly>("FechaEfectiva")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_efectiva");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("motivo");
+
                     b.Property<Guid>("RegistradoPor")
                         .HasColumnType("uuid")
                         .HasColumnName("registrado_por");
@@ -1749,6 +1850,12 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Millet.ActivosFijos.Domain.Activo", b =>
                 {
+                    b.HasOne("Millet.ActivosFijos.Domain.Activo", null)
+                        .WithMany()
+                        .HasForeignKey("ActivoMejoradoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_activos_activos_activo_mejorado_id");
+
                     b.HasOne("Millet.ActivosFijos.Domain.ClaseActivo", null)
                         .WithMany()
                         .HasForeignKey("ClaseId")

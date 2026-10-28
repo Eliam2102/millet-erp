@@ -8,6 +8,13 @@ namespace Millet.Almacen.UnitTests.TestSupport;
 /// </summary>
 public sealed class CfdiFake(CfdiRecibidoLectura? cfdi) : ICxpDocumentosReadPort
 {
+    /// <summary>Facturas que el fake responde como ligadas a la recepción (86e3tabdp).</summary>
+    public List<FacturaLigadaRecepcionLectura> FacturasLigadas { get; } = [];
+
+    public Task<IReadOnlyList<FacturaLigadaRecepcionLectura>> ObtenerFacturasLigadasRecepcionAsync(
+        IReadOnlyCollection<Guid> recepcionIds, IReadOnlyCollection<Guid> facturaIds, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<FacturaLigadaRecepcionLectura>>(FacturasLigadas);
+
     /// <summary>CFDI válido (PorProcesar/Ingreso) del RFC indicado; el id es aleatorio y el handler no lo compara.</summary>
     public static CfdiFake Valido(string rfc = "AAA010101AAA") =>
         new(new CfdiRecibidoLectura(Guid.NewGuid(), rfc, "PorProcesar", "Ingreso"));

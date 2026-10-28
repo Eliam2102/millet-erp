@@ -25,7 +25,8 @@ namespace Millet.Api.IntegrationTests.Administracion;
 /// test falla.
 /// </para>
 /// </summary>
-public class SucursalDepartamentosAuthMetadataTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class SucursalDepartamentosAuthMetadataTests
 {
     private static readonly string LeerPolicy =
         PermissionPolicyProvider.Prefix + PermisosCanonicos.CompartidoCatalogosLeer;

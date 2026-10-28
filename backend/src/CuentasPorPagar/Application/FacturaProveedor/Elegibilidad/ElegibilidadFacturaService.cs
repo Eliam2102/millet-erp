@@ -12,7 +12,8 @@ public sealed class ElegibilidadFacturaService(CuentasPorPagarDbContext db, ICom
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
-    public async Task<ResultadoElegibilidad> CalcularAsync(Factura factura, CancellationToken ct, bool considerarRecepcionesLocales = false)
+    public async Task<ResultadoElegibilidad> CalcularAsync(Factura factura, CancellationToken ct, bool considerarRecepcionesLocales = false,
+        IReadOnlyDictionary<Guid, decimal>? recibidoVigente = null)
     {
         var neto = factura.Total - factura.NcAplicadasTotal - factura.CargosAplicadosTotal;
         if (factura.Estado == EstadoPasivo.Cancelada) return new(0, 0, 0);
@@ -35,6 +36,10 @@ public sealed class ElegibilidadFacturaService(CuentasPorPagarDbContext db, ICom
             disponible = oc.Lineas.ToDictionary(l => l.Id,
                 l => Math.Max(l.CantidadRecibida, recibidoLocal.GetValueOrDefault(l.Id)));
         }
+        // 86e3tabdp: tras cancelar una recepción, lo recibido vigente de esas líneas lo fija Almacén (ya sin la cancelada). Se toma tal
+        // cual, sin restar nada a lo de Compras: así el resultado no depende de si Compras ya procesó la cancelación.
+        foreach (var (lineaOcId, cantidad) in recibidoVigente ?? new Dictionary<Guid, decimal>())
+            if (disponible.ContainsKey(lineaOcId)) disponible[lineaOcId] = cantidad;
         // La metadata de creación no es editable por el proveedor. UUID desempata capturas simultáneas.
         var previas = await db.FacturasProveedor.Include(f => f.Lineas)
             .Where(f => f.OrdenCompraId == ocId && f.Estado != EstadoPasivo.Cancelada &&

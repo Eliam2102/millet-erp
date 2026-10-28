@@ -253,7 +253,7 @@ public sealed class Tarjeta : BaseEntity, IPerteneceAEmpresa, IAuditable
         {
             throw new BusinessRuleException(
                 "TC_USR_NO_AUTORIZADO",
-                $"El empleado {empleadoId} no está autorizado a usar esta tarjeta el {fechaMovimiento:O}.");
+                $"Esta persona no está autorizada a usar la tarjeta el {fechaMovimiento:dd/MM/yyyy}. Pide que la den de alta como usuario autorizado de la tarjeta.");
         }
     }
 }

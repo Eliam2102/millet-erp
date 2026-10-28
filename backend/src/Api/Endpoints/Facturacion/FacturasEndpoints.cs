@@ -1,3 +1,5 @@
+using System.Globalization;
+using Millet.Facturacion.Application.Facturas.EditarDatosCliente;
 using System.Text;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -47,6 +49,20 @@ public static class FacturasEndpoints
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        group.MapPut("/{id:guid}/datos-cliente", async (
+            Guid id, DatosClienteRequest body, [FromHeader(Name = "If-Match")] string? ifMatch,
+            IMediator mediator, CancellationToken cancellationToken) =>
+        {
+            if (!int.TryParse(ifMatch?.Trim('"'), NumberStyles.None, CultureInfo.InvariantCulture, out var version))
+                return Results.Problem(statusCode: StatusCodes.Status428PreconditionRequired,
+                    title: "Recarga la factura antes de guardar sus datos para el cliente.");
+            var nuevaVersion = await mediator.Send(new EditarDatosClienteCommand(id, version,
+                body.OrdenCompraCliente, body.ReferenciaCliente, body.CondicionesPago, body.Proforma, body.Observaciones), cancellationToken);
+            return Results.Ok(new { Version = nuevaVersion });
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionFacturasEmitir)
+        .WithName("EditarDatosClienteFactura");
 
         // GET: bandeja de facturas (F1-PR2). CAJAS-PR2: filtrada por la Capa A;
         // ?alcance=sin-asignar restringe al bucket (solo caja.leer-todas).
@@ -173,6 +189,9 @@ public static class FacturasEndpoints
 
         return app;
     }
+
+    public sealed record DatosClienteRequest(string? OrdenCompraCliente, string? ReferenciaCliente,
+        string? CondicionesPago, string? Proforma, string? Observaciones);
 
     /// <summary>Body del reenvío de CFDI por correo.</summary>
     public sealed record ReenviarCfdiCorreoRequest(string Destinatario);

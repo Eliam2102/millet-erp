@@ -13,7 +13,8 @@ using Fix = Millet.Contabilidad.UnitTests.Fixtures.FixturesCatalogo;
 namespace Millet.Api.IntegrationTests.Contabilidad;
 
 /// <summary>Contrato P9 real: HTTP 202, catálogo vigente, DAF, segregación y bitácora; sin autoautorizar respuestas.</summary>
-public sealed class P9SolicitudesHttpTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>, IAsyncLifetime
+[Collection(ApiCompartida.Nombre)]
+public sealed class P9SolicitudesHttpTests(WebApplicationFactory<Program> factory) : IAsyncLifetime
 {
     private readonly List<HttpClient> _clientes = [];
     public Task InitializeAsync() => Task.CompletedTask;

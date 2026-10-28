@@ -12,7 +12,8 @@ namespace Millet.Api.IntegrationTests.Administracion;
 /// RedondeoMonetario, IdiomaDefault) llegan de la migración
 /// <c>20260514175731_ParametrosGlobales</c>.
 /// </summary>
-public class ParametrosEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class ParametrosEndpointsTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string EndpointBase = "/api/v1/admin/parametros";

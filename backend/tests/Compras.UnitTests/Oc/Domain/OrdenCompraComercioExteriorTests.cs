@@ -24,7 +24,7 @@ public class OrdenCompraComercioExteriorTests
         fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime),
         esImportacion: esImportacion,
         sinRequisicionPrevia: true,
-        motivoSinRequisicion: "Test comercio exterior");
+        motivoSinRequisicion: "Test comercio exterior", usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
 
     private static LineaOrdenCompra AgregarLinea(OrdenCompra oc, string? fraccion = null) =>
         oc.AgregarLineaManual(

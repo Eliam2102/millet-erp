@@ -149,6 +149,16 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
                     StatusCodes.Status409Conflict,
                     httpContext,
                     traceId),
+            // F1-MP-01: dos ligas concurrentes del mismo producto A+W; el índice único es la autoridad.
+            DbUpdateException { InnerException: PostgresException pg }
+                when pg.SqlState == PostgresErrorCodes.UniqueViolation
+                    && pg.ConstraintName == "ux_articulos_producto_aw_id"
+                => CreateProblem(
+                    "ARTICULO_PRODUCTO_AW_YA_LIGADO",
+                    "El producto A+W ya está ligado a otro artículo.",
+                    StatusCodes.Status422UnprocessableEntity,
+                    httpContext,
+                    traceId),
             ForbiddenException fe => CreateProblem(fe.Code, fe.Message, StatusCodes.Status403Forbidden, httpContext, traceId),
             CrossTenantViolationException cte => CreateProblem(cte.Code, cte.Message, StatusCodes.Status403Forbidden, httpContext, traceId),
             MissingEmpresaContextException mece => CreateProblem(mece.Code, mece.Message, StatusCodes.Status500InternalServerError, httpContext, traceId),
@@ -168,6 +178,9 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
             // Sincronización de productos A+W (ADM-07): mismos códigos estables, prefijo AW_PRODUCTOS_.
             Millet.Integraciones.Aw.Application.Productos.AwProductosSyncException apse
                 => CreateProblem("AW_PRODUCTOS_" + apse.Code.ToUpperInvariant(), apse.Message, AwClientesStatus(apse.Code), httpContext, traceId),
+            BadHttpRequestException { StatusCode: StatusCodes.Status413PayloadTooLarge }
+                when httpContext.GetEndpoint()?.Metadata.GetMetadata<Microsoft.AspNetCore.Routing.IEndpointNameMetadata>()?.EndpointName == "SubirLogoEmpresa"
+                => CreateProblem("EMPRESA_LOGO_TAMANO", "El logo excede 1 MB. Selecciona una imagen más pequeña.", StatusCodes.Status413PayloadTooLarge, httpContext, traceId),
             BadHttpRequestException bhre => CreateProblem("BAD_REQUEST", bhre.Message, bhre.StatusCode, httpContext, traceId),
             DomainException de => CreateProblem(de.Code, de.Message, StatusCodes.Status400BadRequest, httpContext, traceId),
             _ => CreateProblem(

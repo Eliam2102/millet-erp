@@ -41,6 +41,17 @@ public class RecepcionOcGuardPendienteTests
         Assert.Equal("RECEPCION_EXCEDE_PENDIENTE", ex.Code);
     }
 
+    [Fact]
+    public void Mensaje_de_exceso_dice_hojas_con_medida_y_la_cantidad_sin_ella()
+    {
+        var conMedida = new OcLineaLectura(LineaId, ArticuloId, "M2", 178.608m, 0m, 10m, ProductoAwVarianteId: Guid.NewGuid(), AnchoMm: 2440m, AltoMm: 3660m);
+        RecepcionOcGuard.MensajeExcede(conMedida, 178.608m)
+            .Should().Be("Excede lo pendiente de la orden de compra (20 hojas). Almacén recibe exacto.");
+        var sinMedida = new OcLineaLectura(LineaId, ArticuloId, "PZA", 10m, 0m, 10m);
+        RecepcionOcGuard.MensajeExcede(sinMedida, 10m)
+            .Should().Be("Excede lo pendiente de la orden de compra (10). Almacén recibe exacto.");
+    }
+
     [Theory]
     [InlineData(10, 0)]
     [InlineData(4, 6)]

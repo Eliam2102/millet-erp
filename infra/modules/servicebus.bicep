@@ -268,6 +268,7 @@ resource comprasEventsCxpSubscriptionFilter 'Microsoft.ServiceBus/namespaces/top
 // EventTypes publicados (al 2026-05):
 //   - almacen.oc_recepcion.registrada.v1
 //   - almacen.oc_devolucion.registrada.v1
+//   - almacen.recepcion_oc.cancelada.v1          (86e3tabdp; Compras y CxP)
 //   - almacen.saldo.proyectado.v1                (informativo)
 //   - almacen.entrada-inventario.valorada.v1     (informativo)
 //   - almacen.salida-inventario.aplicada.v1      (informativo)
@@ -311,7 +312,7 @@ resource almacenEventsCxpSubscriptionFilter 'Microsoft.ServiceBus/namespaces/top
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'almacen.oc_recepcion.registrada.v1\', \'almacen.oc_devolucion.registrada.v1\', \'almacen.recepcion_activo.anulada.v1\')'
+      sqlExpression: 'user.EventType IN (\'almacen.oc_recepcion.registrada.v1\', \'almacen.oc_devolucion.registrada.v1\', \'almacen.recepcion_oc.cancelada.v1\', \'almacen.recepcion_activo.anulada.v1\')'
       compatibilityLevel: 20
     }
   }
@@ -342,7 +343,7 @@ resource almacenEventsComprasSubscriptionFilter 'Microsoft.ServiceBus/namespaces
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'almacen.oc_recepcion.registrada.v1\', \'almacen.oc_devolucion.registrada.v1\', \'almacen.salida_requisicion.registrada.v1\', \'almacen.recepcion_activo.anulada.v1\')'
+      sqlExpression: 'user.EventType IN (\'almacen.oc_recepcion.registrada.v1\', \'almacen.oc_devolucion.registrada.v1\', \'almacen.recepcion_oc.cancelada.v1\', \'almacen.salida_requisicion.registrada.v1\', \'almacen.recepcion_activo.anulada.v1\')'
       compatibilityLevel: 20
     }
   }
@@ -357,7 +358,7 @@ resource almacenEventsComprasSubscriptionFilter 'Microsoft.ServiceBus/namespaces
 //     Aplica `cuentas_por_pagar.factura.registrada.v1` al sub-estado Facturación
 //     de OC (RegistrarFacturacionLinea por línea). Los demás EventTypes (cancelada,
 //     autorizada, rechazada, diferencia-precio, nota-credito, nota-cargo, anticipo,
-//     pasivo, estado-cuenta-tc) llegan como informativos: el worker los marca
+//     pasivo, estado-cuenta-tc, gasto.registrado) llegan como informativos: el worker los marca
 //     idempotentes pero no dispatcha command. Excepción: `factura.pago-aplicado`
 //     (#613/#614) actualiza el sub-estado Pago de la OC y dispara su cierre.
 //   - CxpEventListenerWorker (Almacén, F3-PR1) — sub `almacen-subscription`.
@@ -409,7 +410,7 @@ resource cxpEventsComprasSubscriptionFilter 'Microsoft.ServiceBus/namespaces/top
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'cuentas_por_pagar.factura.registrada.v1\', \'cuentas_por_pagar.factura.cancelada.v1\', \'cuentas_por_pagar.factura.autorizada.v1\', \'cuentas_por_pagar.factura.pago-aplicado.v1\', \'cuentas_por_pagar.factura.rechazada-por-tolerancia.v1\', \'cuentas_por_pagar.factura.diferencia-precio-detectada.v1\', \'cuentas_por_pagar.nota-credito.registrada.v1\', \'cuentas_por_pagar.nota-cargo.autorizada.v1\', \'cuentas_por_pagar.anticipo.capturado.v1\', \'cuentas_por_pagar.pasivo.autorizado-para-pago.v1\', \'cuentas_por_pagar.estado-cuenta-tc.cerrado.v1\')'
+      sqlExpression: 'user.EventType IN (\'cuentas_por_pagar.factura.registrada.v1\', \'cuentas_por_pagar.factura.cancelada.v1\', \'cuentas_por_pagar.factura.autorizada.v1\', \'cuentas_por_pagar.factura.pago-aplicado.v1\', \'cuentas_por_pagar.factura.rechazada-por-tolerancia.v1\', \'cuentas_por_pagar.factura.diferencia-precio-detectada.v1\', \'cuentas_por_pagar.nota-credito.registrada.v1\', \'cuentas_por_pagar.nota-cargo.autorizada.v1\', \'cuentas_por_pagar.anticipo.capturado.v1\', \'cuentas_por_pagar.pasivo.autorizado-para-pago.v1\', \'cuentas_por_pagar.estado-cuenta-tc.cerrado.v1\', \'cuentas_por_pagar.gasto.registrado.v1\')'
       compatibilityLevel: 20
     }
   }
@@ -876,6 +877,31 @@ resource comercioExteriorAlmacenFilter 'Microsoft.ServiceBus/namespaces/topics/s
     filterType: 'SqlFilter'
     sqlFilter: {
       sqlExpression: 'user.EventType = \'comercio_exterior.expediente.costo-distribuido.v1\''
+      compatibilityLevel: 20
+    }
+  }
+}
+
+// P14: saldo por aplicar en la cuenta del agente aduanal.
+resource comercioExteriorCxpSubscription 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
+  parent: comercioExteriorEventsTopic
+  name: 'cuentas-por-pagar-ce-sub'
+  properties: {
+    deadLetteringOnMessageExpiration: true
+    deadLetteringOnFilterEvaluationExceptions: true
+    maxDeliveryCount: 5
+    defaultMessageTimeToLive: 'P1D'
+    lockDuration: 'PT1M'
+    enableBatchedOperations: true
+  }
+}
+resource comercioExteriorCxpFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01' = {
+  parent: comercioExteriorCxpSubscription
+  name: 'EventTypeFilter'
+  properties: {
+    filterType: 'SqlFilter'
+    sqlFilter: {
+      sqlExpression: 'user.EventType = \'comercio_exterior.anticipo-agente.saldo-transferido.v1\''
       compatibilityLevel: 20
     }
   }

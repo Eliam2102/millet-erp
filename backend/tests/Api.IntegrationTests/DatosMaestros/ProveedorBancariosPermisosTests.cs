@@ -18,7 +18,8 @@ namespace Millet.Api.IntegrationTests.DatosMaestros;
 /// - Sin permiso no se ve ni se captura; sin <c>cuentas-administrar</c> el número va enmascarado.
 /// - La bitácora nunca lleva la CLABE completa.
 /// </summary>
-public class ProveedorBancariosPermisosTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class ProveedorBancariosPermisosTests
 {
     private const string Clabe = "012180000000001234";
     private static readonly Guid TipoEstadoCuenta = Guid.Parse("00000011-0001-0000-0000-000000000006");
@@ -39,7 +40,7 @@ public class ProveedorBancariosPermisosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task Tesoreria_captura_por_validar_y_otro_administrador_valida_con_estado_de_cuenta()
     {
-        var amb = new AdjuntosProveedorAmbiente(_factory);
+        await using var amb = new AdjuntosProveedorAmbiente(_factory);
         var provId = await amb.SeedProveedorAsync(TipoPersonaProveedor.Moral, EstatusCatalogo.Activo);
         var (tesoreria, _) = await amb.ClienteConPermisosAsync(
             PermisosCanonicos.DatosMaestrosProveedoresBancariosVer,
@@ -61,7 +62,7 @@ public class ProveedorBancariosPermisosTests : IClassFixture<WebApplicationFacto
         var lista = await AdjuntosProveedorAmbiente.LeerAsync(await tesoreria.GetAsync(Cuentas(provId)));
         Assert.Matches(@"^\*+1234$", lista[0].GetProperty("numero").GetString()!);
 
-        var admin = await amb.SuperAdminAsync();
+        using var admin = await amb.SuperAdminAsync();
         var documento = await AdjuntosProveedorAmbiente.SubirOkAsync(admin, provId, TipoEstadoCuenta);
         var (validador, _) = await amb.ClienteConPermisosAsync(
             PermisosCanonicos.DatosMaestrosProveedoresBancariosVer,
@@ -83,9 +84,9 @@ public class ProveedorBancariosPermisosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task Quien_capturo_no_valida_aunque_sea_administrador()
     {
-        var amb = new AdjuntosProveedorAmbiente(_factory);
+        await using var amb = new AdjuntosProveedorAmbiente(_factory);
         var provId = await amb.SeedProveedorAsync(TipoPersonaProveedor.Moral, EstatusCatalogo.Activo);
-        var admin = await amb.SuperAdminAsync();
+        using var admin = await amb.SuperAdminAsync();
         var alta = await AdjuntosProveedorAmbiente.LeerAsync(await admin.PostAsJsonAsync(Cuentas(provId),
             new { banco = "Banorte", clabe = "072180000000004569", moneda = "MXN", titular = "Proveedor SA" }));
         var documento = await AdjuntosProveedorAmbiente.SubirOkAsync(admin, provId, TipoEstadoCuenta);
@@ -99,7 +100,7 @@ public class ProveedorBancariosPermisosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task Compras_sin_permisos_bancarios_responde_403_al_ver_y_al_capturar()
     {
-        var amb = new AdjuntosProveedorAmbiente(_factory);
+        await using var amb = new AdjuntosProveedorAmbiente(_factory);
         var provId = await amb.SeedProveedorAsync(TipoPersonaProveedor.Moral, EstatusCatalogo.Activo);
         var (compras, _) = await amb.ClienteConPermisosAsync(PermisosCanonicos.DatosMaestrosProveedoresGestionar);
 
@@ -111,7 +112,7 @@ public class ProveedorBancariosPermisosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task Tesoreria_con_bancarios_editar_no_puede_marcar_predeterminada_responde_403()
     {
-        var amb = new AdjuntosProveedorAmbiente(_factory);
+        await using var amb = new AdjuntosProveedorAmbiente(_factory);
         var provId = await amb.SeedProveedorAsync(TipoPersonaProveedor.Moral, EstatusCatalogo.Activo);
         var (tesoreria, _) = await amb.ClienteConPermisosAsync(
             PermisosCanonicos.DatosMaestrosProveedoresBancariosVer,

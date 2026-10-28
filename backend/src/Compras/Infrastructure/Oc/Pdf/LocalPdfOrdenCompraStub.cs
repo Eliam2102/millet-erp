@@ -50,10 +50,10 @@ public sealed class LocalPdfOrdenCompraStub : IGenerarPdfOrdenCompraPort
         sb.AppendLine("Líneas (agrupadas por artículo §3.bis.4):");
 
         var agrupadas = oc.Lineas
-            .GroupBy(l => l.ArticuloId)
+            .GroupBy(l => (l.ArticuloId, l.ProductoAwVarianteId)) // F1-MP-01: cada medida de hoja es su propio renglón
             .Select(g => new
             {
-                ArticuloId = g.Key,
+                ArticuloId = g.Key.ArticuloId + (g.First().AnchoMm is { } a && g.First().AltoMm is { } h ? $" {a:0.##}x{h:0.##} mm" : ""),
                 CantidadTotal = g.Sum(l => l.Cantidad),
                 Unidad = g.First().UnidadMedida,
                 PrecioUnitario = g.First().PrecioUnitario,

@@ -16,8 +16,8 @@ using Millet.SharedKernel.Application;
 namespace Millet.Api.IntegrationTests.Almacen;
 
 /// <summary>PostgreSQL desechable. Verifica el contrato JSON camelCase de <c>evaluar-variaciones</c> (M-207).</summary>
+[Collection(ApiCompartida.Nombre)]
 public sealed class EvaluarVariacionesConteoEndpointTests(WebApplicationFactory<Program> factory)
-    : IClassFixture<WebApplicationFactory<Program>>
 {
     [Fact]
     public async Task Evaluar_variaciones_responde_lineasMarcadasParaRecuento_camelCase()

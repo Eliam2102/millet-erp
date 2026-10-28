@@ -24,6 +24,13 @@ public sealed class FacturaVentaConfiguration : IEntityTypeConfiguration<Factura
             .HasConversion(v => v == null ? null : System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
                 v => v == null ? null : System.Text.Json.JsonSerializer.Deserialize<DatosEmbarqueCe>(v, (System.Text.Json.JsonSerializerOptions?)null));
         builder.Property(e => e.PedidoFacturableId);
+        builder.Property(e => e.OrdenCompraCliente).HasMaxLength(60);
+        builder.Property(e => e.ReferenciaCliente).HasMaxLength(60);
+        builder.Property(e => e.CondicionesPago).HasMaxLength(60);
+        builder.Property(e => e.Proforma).HasMaxLength(40);
+        builder.Ignore(e => e.TotalKg);
+        builder.Ignore(e => e.TotalPie2);
+        builder.Ignore(e => e.TotalPiezas);
         builder.Property(e => e.ObraId);
         builder.Property(e => e.ObraNombre).HasMaxLength(200);
         builder.Property(e => e.FacturaAgrupada).IsRequired();

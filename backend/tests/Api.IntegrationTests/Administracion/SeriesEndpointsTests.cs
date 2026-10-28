@@ -32,7 +32,8 @@ namespace Millet.Api.IntegrationTests.Administracion;
 /// <c>Auth:Bootstrap:EmpresaInicial</c> configurada).
 /// </para>
 /// </summary>
-public class SeriesEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class SeriesEndpointsTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string EndpointBase = "/api/v1/admin/series";

@@ -55,7 +55,7 @@ public sealed partial class DemoSesionSeedHostedService
                 if (!e.Participantes.Any(p => p.ClienteId == cliente))
                     e.AgregarParticipante(Id($"DEMO-CE/{clave}/CLIENTE-{i}"), $"Distribuidora de Cristales del Exterior {i}", TipoParticipante.Cliente, null, PapelParticipante.Captura, null, cliente);
             }
-            e.RegistrarPedimentoExportacion($"DEMO-PEDIMENTO-{clave}", clave, new(2026, 10, 12), new(2026, 10, 16));
+            e.RegistrarPedimentoExportacion($"DEMO-PEDIMENTO-{clave}", clave, new(2026, 10, 12), new(2026, 10, 16), "16");
             for (var i = 1; i <= (clave == "A1" ? 2 : 1); i++)
             {
                 var cid = Id($"DEMO-CE/{clave}/CONT-{i}");

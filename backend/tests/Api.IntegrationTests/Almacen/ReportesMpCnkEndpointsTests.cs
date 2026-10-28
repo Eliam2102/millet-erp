@@ -21,7 +21,8 @@ namespace Millet.Api.IntegrationTests.Almacen;
 /// al shape del reporte (NO conteos ni valores) → robustos a datos, no tocan
 /// el ruido frágil-por-datos de <c>millet_dev</c> poblada.</para>
 /// </summary>
-public class ReportesMpCnkEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class ReportesMpCnkEndpointsTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private readonly WebApplicationFactory<Program> _factory;

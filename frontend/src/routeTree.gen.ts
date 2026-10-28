@@ -19,6 +19,8 @@ import { Route as AppActivosFijosConfiguracionLibroRouteImport } from './routes/
 import { Route as AppActivosFijosConteosRouteImport } from './routes/_app/activos-fijos/conteos';
 import { Route as AppActivosFijosDepreciacionRouteImport } from './routes/_app/activos-fijos/depreciacion';
 import { Route as AppActivosFijosLibroRouteImport } from './routes/_app/activos-fijos/libro';
+import { Route as AppActivosFijosDepreciacionFiscalRouteImport } from './routes/_app/activos-fijos/depreciacion-fiscal';
+import { Route as AppActivosFijosInpcRouteImport } from './routes/_app/activos-fijos/inpc';
 import { Route as AppActivosFijosPorCapitalizarRouteImport } from './routes/_app/activos-fijos/por-capitalizar';
 import { Route as AppActivosFijosPorVencerRouteImport } from './routes/_app/activos-fijos/por-vencer';
 import { Route as AppAdminIndexRouteImport } from './routes/_app/admin/index';
@@ -44,6 +46,7 @@ import { Route as AppComprasAyudaRouteImport } from './routes/_app/compras/ayuda
 import { Route as AppComprasConfiguracionRouteImport } from './routes/_app/compras/configuracion';
 import { Route as AppContabilidadDimensionesRouteImport } from './routes/_app/contabilidad/dimensiones';
 import { Route as AppContabilidadImportacionRouteImport } from './routes/_app/contabilidad/importacion';
+import { Route as AppContabilidadMotorRouteImport } from './routes/_app/contabilidad/motor';
 import { Route as AppContabilidadMovimientosPruebaRouteImport } from './routes/_app/contabilidad/movimientos-prueba';
 import { Route as AppContabilidadPeriodosRouteImport } from './routes/_app/contabilidad/periodos';
 import { Route as AppCxcIndexRouteImport } from './routes/_app/cxc/index';
@@ -261,6 +264,16 @@ const AppActivosFijosLibroRoute = AppActivosFijosLibroRouteImport.update({
   path: '/activos-fijos/libro',
   getParentRoute: () => AppRoute,
 } as any);
+const AppActivosFijosDepreciacionFiscalRoute = AppActivosFijosDepreciacionFiscalRouteImport.update({
+  id: '/activos-fijos/depreciacion-fiscal',
+  path: '/activos-fijos/depreciacion-fiscal',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppActivosFijosInpcRoute = AppActivosFijosInpcRouteImport.update({
+  id: '/activos-fijos/inpc',
+  path: '/activos-fijos/inpc',
+  getParentRoute: () => AppRoute,
+} as any);
 const AppActivosFijosPorCapitalizarRoute =
   AppActivosFijosPorCapitalizarRouteImport.update({
     id: '/activos-fijos/por-capitalizar',
@@ -395,6 +408,11 @@ const AppContabilidadImportacionRoute =
     path: '/contabilidad/importacion',
     getParentRoute: () => AppRoute,
   } as any);
+const AppContabilidadMotorRoute = AppContabilidadMotorRouteImport.update({
+  id: '/contabilidad/motor',
+  path: '/contabilidad/motor',
+  getParentRoute: () => AppRoute,
+} as any);
 const AppContabilidadMovimientosPruebaRoute =
   AppContabilidadMovimientosPruebaRouteImport.update({
     id: '/contabilidad/movimientos-prueba',
@@ -1315,6 +1333,8 @@ export interface FileRoutesByFullPath {
   '/activos-fijos/conteos': typeof AppActivosFijosConteosRoute;
   '/activos-fijos/depreciacion': typeof AppActivosFijosDepreciacionRoute;
   '/activos-fijos/libro': typeof AppActivosFijosLibroRoute;
+  '/activos-fijos/depreciacion-fiscal': typeof AppActivosFijosDepreciacionFiscalRoute;
+  '/activos-fijos/inpc': typeof AppActivosFijosInpcRoute;
   '/activos-fijos/por-capitalizar': typeof AppActivosFijosPorCapitalizarRoute;
   '/activos-fijos/por-vencer': typeof AppActivosFijosPorVencerRoute;
   '/admin/mi-empresa': typeof AppAdminMiEmpresaRoute;
@@ -1336,6 +1356,7 @@ export interface FileRoutesByFullPath {
   '/compras/configuracion': typeof AppComprasConfiguracionRoute;
   '/contabilidad/dimensiones': typeof AppContabilidadDimensionesRoute;
   '/contabilidad/importacion': typeof AppContabilidadImportacionRoute;
+  '/contabilidad/motor': typeof AppContabilidadMotorRoute;
   '/contabilidad/movimientos-prueba': typeof AppContabilidadMovimientosPruebaRoute;
   '/contabilidad/periodos': typeof AppContabilidadPeriodosRoute;
   '/cxp/anticipos': typeof AppCxpAnticiposRoute;
@@ -1514,6 +1535,8 @@ export interface FileRoutesByTo {
   '/activos-fijos/conteos': typeof AppActivosFijosConteosRoute;
   '/activos-fijos/depreciacion': typeof AppActivosFijosDepreciacionRoute;
   '/activos-fijos/libro': typeof AppActivosFijosLibroRoute;
+  '/activos-fijos/depreciacion-fiscal': typeof AppActivosFijosDepreciacionFiscalRoute;
+  '/activos-fijos/inpc': typeof AppActivosFijosInpcRoute;
   '/activos-fijos/por-capitalizar': typeof AppActivosFijosPorCapitalizarRoute;
   '/activos-fijos/por-vencer': typeof AppActivosFijosPorVencerRoute;
   '/admin/mi-empresa': typeof AppAdminMiEmpresaRoute;
@@ -1535,6 +1558,7 @@ export interface FileRoutesByTo {
   '/compras/configuracion': typeof AppComprasConfiguracionRoute;
   '/contabilidad/dimensiones': typeof AppContabilidadDimensionesRoute;
   '/contabilidad/importacion': typeof AppContabilidadImportacionRoute;
+  '/contabilidad/motor': typeof AppContabilidadMotorRoute;
   '/contabilidad/movimientos-prueba': typeof AppContabilidadMovimientosPruebaRoute;
   '/contabilidad/periodos': typeof AppContabilidadPeriodosRoute;
   '/cxp/anticipos': typeof AppCxpAnticiposRoute;
@@ -1715,6 +1739,8 @@ export interface FileRoutesById {
   '/_app/activos-fijos/conteos': typeof AppActivosFijosConteosRoute;
   '/_app/activos-fijos/depreciacion': typeof AppActivosFijosDepreciacionRoute;
   '/_app/activos-fijos/libro': typeof AppActivosFijosLibroRoute;
+  '/_app/activos-fijos/depreciacion-fiscal': typeof AppActivosFijosDepreciacionFiscalRoute;
+  '/_app/activos-fijos/inpc': typeof AppActivosFijosInpcRoute;
   '/_app/activos-fijos/por-capitalizar': typeof AppActivosFijosPorCapitalizarRoute;
   '/_app/activos-fijos/por-vencer': typeof AppActivosFijosPorVencerRoute;
   '/_app/admin/mi-empresa': typeof AppAdminMiEmpresaRoute;
@@ -1736,6 +1762,7 @@ export interface FileRoutesById {
   '/_app/compras/configuracion': typeof AppComprasConfiguracionRoute;
   '/_app/contabilidad/dimensiones': typeof AppContabilidadDimensionesRoute;
   '/_app/contabilidad/importacion': typeof AppContabilidadImportacionRoute;
+  '/_app/contabilidad/motor': typeof AppContabilidadMotorRoute;
   '/_app/contabilidad/movimientos-prueba': typeof AppContabilidadMovimientosPruebaRoute;
   '/_app/contabilidad/periodos': typeof AppContabilidadPeriodosRoute;
   '/_app/cxp/anticipos': typeof AppCxpAnticiposRoute;
@@ -1916,6 +1943,8 @@ export interface FileRouteTypes {
     | '/activos-fijos/conteos'
     | '/activos-fijos/depreciacion'
     | '/activos-fijos/libro'
+    | '/activos-fijos/depreciacion-fiscal'
+    | '/activos-fijos/inpc'
     | '/activos-fijos/por-capitalizar'
     | '/activos-fijos/por-vencer'
     | '/admin/mi-empresa'
@@ -1937,6 +1966,7 @@ export interface FileRouteTypes {
     | '/compras/configuracion'
     | '/contabilidad/dimensiones'
     | '/contabilidad/importacion'
+    | '/contabilidad/motor'
     | '/contabilidad/movimientos-prueba'
     | '/contabilidad/periodos'
     | '/cxp/anticipos'
@@ -2115,6 +2145,8 @@ export interface FileRouteTypes {
     | '/activos-fijos/conteos'
     | '/activos-fijos/depreciacion'
     | '/activos-fijos/libro'
+    | '/activos-fijos/depreciacion-fiscal'
+    | '/activos-fijos/inpc'
     | '/activos-fijos/por-capitalizar'
     | '/activos-fijos/por-vencer'
     | '/admin/mi-empresa'
@@ -2136,6 +2168,7 @@ export interface FileRouteTypes {
     | '/compras/configuracion'
     | '/contabilidad/dimensiones'
     | '/contabilidad/importacion'
+    | '/contabilidad/motor'
     | '/contabilidad/movimientos-prueba'
     | '/contabilidad/periodos'
     | '/cxp/anticipos'
@@ -2315,6 +2348,8 @@ export interface FileRouteTypes {
     | '/_app/activos-fijos/conteos'
     | '/_app/activos-fijos/depreciacion'
     | '/_app/activos-fijos/libro'
+    | '/_app/activos-fijos/depreciacion-fiscal'
+    | '/_app/activos-fijos/inpc'
     | '/_app/activos-fijos/por-capitalizar'
     | '/_app/activos-fijos/por-vencer'
     | '/_app/admin/mi-empresa'
@@ -2336,6 +2371,7 @@ export interface FileRouteTypes {
     | '/_app/compras/configuracion'
     | '/_app/contabilidad/dimensiones'
     | '/_app/contabilidad/importacion'
+    | '/_app/contabilidad/motor'
     | '/_app/contabilidad/movimientos-prueba'
     | '/_app/contabilidad/periodos'
     | '/_app/cxp/anticipos'
@@ -2582,6 +2618,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppActivosFijosLibroRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/activos-fijos/depreciacion-fiscal': {
+      id: '/_app/activos-fijos/depreciacion-fiscal';
+      path: '/activos-fijos/depreciacion-fiscal';
+      fullPath: '/activos-fijos/depreciacion-fiscal';
+      preLoaderRoute: typeof AppActivosFijosDepreciacionFiscalRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/activos-fijos/inpc': {
+      id: '/_app/activos-fijos/inpc';
+      path: '/activos-fijos/inpc';
+      fullPath: '/activos-fijos/inpc';
+      preLoaderRoute: typeof AppActivosFijosInpcRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/activos-fijos/por-capitalizar': {
       id: '/_app/activos-fijos/por-capitalizar';
       path: '/activos-fijos/por-capitalizar';
@@ -2755,6 +2805,13 @@ declare module '@tanstack/react-router' {
       path: '/contabilidad/importacion';
       fullPath: '/contabilidad/importacion';
       preLoaderRoute: typeof AppContabilidadImportacionRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/contabilidad/motor': {
+      id: '/_app/contabilidad/motor';
+      path: '/contabilidad/motor';
+      fullPath: '/contabilidad/motor';
+      preLoaderRoute: typeof AppContabilidadMotorRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/contabilidad/movimientos-prueba': {
@@ -3927,6 +3984,8 @@ interface AppRouteChildren {
   AppActivosFijosConteosRoute: typeof AppActivosFijosConteosRoute;
   AppActivosFijosDepreciacionRoute: typeof AppActivosFijosDepreciacionRoute;
   AppActivosFijosLibroRoute: typeof AppActivosFijosLibroRoute;
+  AppActivosFijosDepreciacionFiscalRoute: typeof AppActivosFijosDepreciacionFiscalRoute;
+  AppActivosFijosInpcRoute: typeof AppActivosFijosInpcRoute;
   AppActivosFijosPorCapitalizarRoute: typeof AppActivosFijosPorCapitalizarRoute;
   AppActivosFijosPorVencerRoute: typeof AppActivosFijosPorVencerRoute;
   AppAdminMiEmpresaRoute: typeof AppAdminMiEmpresaRoute;
@@ -3948,6 +4007,7 @@ interface AppRouteChildren {
   AppComprasConfiguracionRoute: typeof AppComprasConfiguracionRoute;
   AppContabilidadDimensionesRoute: typeof AppContabilidadDimensionesRoute;
   AppContabilidadImportacionRoute: typeof AppContabilidadImportacionRoute;
+  AppContabilidadMotorRoute: typeof AppContabilidadMotorRoute;
   AppContabilidadMovimientosPruebaRoute: typeof AppContabilidadMovimientosPruebaRoute;
   AppContabilidadPeriodosRoute: typeof AppContabilidadPeriodosRoute;
   AppCxpAnticiposRoute: typeof AppCxpAnticiposRoute;
@@ -4125,6 +4185,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppActivosFijosConteosRoute: AppActivosFijosConteosRoute,
   AppActivosFijosDepreciacionRoute: AppActivosFijosDepreciacionRoute,
   AppActivosFijosLibroRoute: AppActivosFijosLibroRoute,
+  AppActivosFijosDepreciacionFiscalRoute: AppActivosFijosDepreciacionFiscalRoute,
+  AppActivosFijosInpcRoute: AppActivosFijosInpcRoute,
   AppActivosFijosPorCapitalizarRoute: AppActivosFijosPorCapitalizarRoute,
   AppActivosFijosPorVencerRoute: AppActivosFijosPorVencerRoute,
   AppAdminMiEmpresaRoute: AppAdminMiEmpresaRoute,
@@ -4146,6 +4208,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppComprasConfiguracionRoute: AppComprasConfiguracionRoute,
   AppContabilidadDimensionesRoute: AppContabilidadDimensionesRoute,
   AppContabilidadImportacionRoute: AppContabilidadImportacionRoute,
+  AppContabilidadMotorRoute: AppContabilidadMotorRoute,
   AppContabilidadMovimientosPruebaRoute: AppContabilidadMovimientosPruebaRoute,
   AppContabilidadPeriodosRoute: AppContabilidadPeriodosRoute,
   AppCxpAnticiposRoute: AppCxpAnticiposRoute,

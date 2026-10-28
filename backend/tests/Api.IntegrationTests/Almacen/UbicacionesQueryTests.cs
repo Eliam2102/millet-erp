@@ -16,7 +16,8 @@ namespace Millet.Api.IntegrationTests.Almacen;
 ///
 /// <para>Nivel BD; siembra un fixture aislado por GUIDs y limpia al final.</para>
 /// </summary>
-public class UbicacionesQueryTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class UbicacionesQueryTests
 {
     private readonly WebApplicationFactory<Program> _factory;
 

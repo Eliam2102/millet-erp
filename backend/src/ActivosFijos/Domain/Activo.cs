@@ -9,13 +9,15 @@ public sealed record CustodiaActivo(Guid ResponsableId, Guid SucursalId, string 
 public sealed record CustodiaDescripcion(string? Responsable, string? Sucursal, string? CentroCosto, string? Equipo);
 public sealed record DatosActivo(string Descripcion, Guid ClaseId, string? Marca, string? Modelo, string? NumeroSerie,
     DateOnly FechaAdquisicion, DateOnly? InicioUso, decimal ValorMonedaOriginal, string Moneda, decimal TipoCambio,
-    CustodiaActivo Custodia, TipoImportacionActivo Importacion, string? Pedimento, bool Arrendado, string? DocumentoSoporte);
+    CustodiaActivo Custodia, TipoImportacionActivo Importacion, string? Pedimento, bool Arrendado, string? DocumentoSoporte, Guid? ActivoMejoradoId = null, int? VidaUtilMeses = null);
 
 public sealed partial class Activo : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
     public string Numero { get; private set; } = "";
     public string Descripcion { get; private set; } = "";
+    public Guid? ActivoMejoradoId { get; private set; }
+    public int? VidaUtilMeses { get; private set; }
     public Guid ClaseId { get; private set; }
     public string? Marca { get; private set; }
     public string? Modelo { get; private set; }
@@ -50,7 +52,6 @@ public sealed partial class Activo : BaseEntity, IPerteneceAEmpresa, IAuditable
     public CustodiaDescripcion? CustodiaDescripcion { get; set; }
     public DateTimeOffset? UltimaImpresionEn { get; private set; }
     public void RegistrarImpresion(DateTimeOffset ahora) => UltimaImpresionEn = ahora;
-    public bool PuedeAceptarTraslado { get; set; }
     public bool EnTraslado => Traslados.Any(x => x.AceptadoEn == null);
     public List<MovimientoValorActivo> Historial { get; private set; } = [];
     public List<TrasladoActivo> Traslados { get; private set; } = [];
@@ -70,10 +71,12 @@ public sealed partial class Activo : BaseEntity, IPerteneceAEmpresa, IAuditable
             || (OrdenCompraId == null && string.IsNullOrWhiteSpace(d.DocumentoSoporte))
             || d.ValorMonedaOriginal < 0 || d.TipoCambio <= 0 || d.Moneda.Length != 3 || (d.Moneda == "MXN" && d.TipoCambio != 1)
             || !Enum.IsDefined(d.Importacion) || (d.Importacion != TipoImportacionActivo.No && string.IsNullOrWhiteSpace(d.Pedimento))
+            || d.VidaUtilMeses is < 1 or > 600 || d.ActivoMejoradoId == Guid.Empty || d.ActivoMejoradoId == Id
             || d.FechaAdquisicion == default || d.InicioUso < d.FechaAdquisicion)
             throw new BusinessRuleException("AF_DATOS_INVALIDOS", "Revise descripción, clase, sucursal, fechas, valor, moneda, tipo de cambio y pedimento.");
         if (FacturaProveedorId != null && (ValorMonedaOriginal != d.ValorMonedaOriginal || Moneda != d.Moneda || TipoCambio != d.TipoCambio))
             throw new BusinessRuleException("AF_VALOR_FACTURA", "El valor conciliado se modifica desde la factura de proveedor.");
+        ActivoMejoradoId = d.ActivoMejoradoId; VidaUtilMeses = d.VidaUtilMeses;
         Descripcion = d.Descripcion.Trim(); ClaseId = d.ClaseId; Marca = d.Marca; Modelo = d.Modelo; NumeroSerie = d.NumeroSerie;
         FechaAdquisicion = d.FechaAdquisicion; InicioUso = d.InicioUso; ValorMonedaOriginal = d.ValorMonedaOriginal;
         Moneda = d.Moneda; TipoCambio = d.TipoCambio; ValorOriginal = decimal.Round(d.ValorMonedaOriginal * d.TipoCambio, 2); ValorActual = ValorOriginal;
@@ -117,18 +120,17 @@ public sealed partial class Activo : BaseEntity, IPerteneceAEmpresa, IAuditable
         Historial.Add(new MovimientoValorActivo(Guid.CreateVersion7(), EmpresaId, Id, documento, factura, fecha, credito ? -importe : importe, descripcion, poliza));
         ValorActual += credito ? -importe : importe;
     }
-    public void Trasladar(Guid id, CustodiaActivo destino, Guid actor, DateTimeOffset fecha)
+    public void Trasladar(Guid id, CustodiaActivo destino, string motivo, DateOnly fechaEfectiva, Guid actor, DateTimeOffset ahora)
     {
-        if (Estado != EstadoActivo.Activo || EnTraslado || destino.ResponsableId == Guid.Empty || destino.SucursalId == Guid.Empty || destino.CentroCostoId == Guid.Empty)
-            throw new BusinessRuleException("AF_TRASLADO_INVALIDO", "El activo debe estar activo, sin traslado pendiente y con destino completo.");
-        Traslados.Add(new TrasladoActivo(id, EmpresaId, Id, Custodia(), destino, actor, fecha));
-    }
-    public void AceptarTraslado(Guid id, Guid actor, DateTimeOffset fecha)
-    {
-        var traslado = Traslados.SingleOrDefault(x => x.Id == id) ?? throw new BusinessRuleException("AF_TRASLADO_NO_EXISTE", "No existe el traslado.");
-        if (actor != traslado.Destino.ResponsableId) throw new ForbiddenException("AF_RECEPTOR_REQUERIDO", "Solo el responsable receptor puede aceptar.");
-        if (traslado.AceptadoEn != null) return;
-        traslado.Aceptar(fecha); AplicarCustodia(traslado.Destino);
+        var hoy = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(ahora, TimeZoneInfo.FindSystemTimeZoneById("America/Merida")).DateTime);
+        if (Estado != EstadoActivo.Activo || destino.ResponsableId == Guid.Empty || destino.SucursalId == Guid.Empty
+            || destino.CentroCostoId == Guid.Empty || destino.EquipoId == Guid.Empty || string.IsNullOrWhiteSpace(destino.Ubicacion)
+            || destino == Custodia() || string.IsNullOrWhiteSpace(motivo) || motivo.Length > 300 || actor == Guid.Empty
+            || fechaEfectiva > hoy || fechaEfectiva < (InicioUso ?? FechaAdquisicion) || fechaEfectiva < FechaAdquisicion
+            || Traslados.Any(x => x.FechaEfectiva > fechaEfectiva))
+            throw new BusinessRuleException("AF_TRASLADO_INVALIDO", "Revise estado activo, destino distinto y completo, motivo de hasta 300 caracteres y fecha efectiva entre el alta/último traslado y hoy.");
+        Traslados.Add(new TrasladoActivo(id, EmpresaId, Id, Custodia(), destino, motivo.Trim(), fechaEfectiva, actor, ahora));
+        AplicarCustodia(destino);
     }
     public CustodiaActivo Custodia() => new(ResponsableId, SucursalId, Ubicacion, CentroCostoId, EquipoId);
     private void AplicarCustodia(CustodiaActivo c) { ResponsableId = c.ResponsableId; SucursalId = c.SucursalId; Ubicacion = c.Ubicacion; CentroCostoId = c.CentroCostoId; EquipoId = c.EquipoId; }
@@ -161,8 +163,11 @@ public sealed class TrasladoActivo : BaseEntity, IPerteneceAEmpresa, IAuditable
     public Guid RegistradoPor { get; private set; }
     public DateTimeOffset RegistradoEn { get; private set; }
     public DateTimeOffset? AceptadoEn { get; private set; }
+    public string Motivo { get; private set; } = "";
+    public DateOnly FechaEfectiva { get; private set; }
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public string? RegistradoPorNombre { get; set; }
     private TrasladoActivo() { }
-    internal TrasladoActivo(Guid id, Guid empresa, Guid activo, CustodiaActivo origen, CustodiaActivo destino, Guid actor, DateTimeOffset fecha) : base(id)
-    { EmpresaId = empresa; ActivoId = activo; Origen = origen; Destino = destino; RegistradoPor = actor; RegistradoEn = fecha; }
-    internal void Aceptar(DateTimeOffset fecha) => AceptadoEn = fecha;
+    internal TrasladoActivo(Guid id, Guid empresa, Guid activo, CustodiaActivo origen, CustodiaActivo destino, string motivo, DateOnly fechaEfectiva, Guid actor, DateTimeOffset fecha) : base(id)
+    { EmpresaId = empresa; ActivoId = activo; Origen = origen; Destino = destino; RegistradoPor = actor; RegistradoEn = fecha; AceptadoEn = fecha; Motivo = motivo; FechaEfectiva = fechaEfectiva; }
 }

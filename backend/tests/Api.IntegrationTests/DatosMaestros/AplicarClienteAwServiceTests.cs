@@ -17,7 +17,8 @@ namespace Millet.Api.IntegrationTests.DatosMaestros;
 /// migración ClienteSincronizacionAw). Datos 100 % sintéticos; cada test usa
 /// una referencia única para no depender del orden ni del estado previo.
 /// </summary>
-public class AplicarClienteAwServiceTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class AplicarClienteAwServiceTests
 {
     private const string Rfc = "XAXX010101000";
     private readonly WebApplicationFactory<Program> _factory;

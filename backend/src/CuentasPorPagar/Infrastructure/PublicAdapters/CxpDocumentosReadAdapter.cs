@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Domain.Ports;
+using Millet.CuentasPorPagar.Domain.FacturaProveedor;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 
@@ -112,9 +113,40 @@ public sealed class CxpDocumentosReadAdapter : ICxpDocumentosReadPort
             .Select(c => new { c.Id, c.RfcEmisor, c.Estado, c.Tipo })
             .FirstOrDefaultAsync(cancellationToken);
 
-        return fila is null
-            ? null
-            : new CfdiRecibidoLectura(fila.Id, fila.RfcEmisor.Valor, fila.Estado.ToString(), fila.Tipo.ToString());
+        if (fila is null) return null;
+        var ocLibre = await _db.FacturasProveedor.AsNoTracking()
+            .Where(f => f.CfdiRecibidoId == cfdiRecibidoId && f.Estado != EstadoPasivo.Cancelada && f.RecepcionId == null)
+            .Select(f => f.OrdenCompraId).FirstOrDefaultAsync(cancellationToken);
+        return new CfdiRecibidoLectura(fila.Id, fila.RfcEmisor.Valor, fila.Estado.ToString(), fila.Tipo.ToString(), ocLibre);
+    }
+
+    public async Task<IReadOnlyList<FacturaLigadaRecepcionLectura>> ObtenerFacturasLigadasRecepcionAsync(
+        IReadOnlyCollection<Guid> recepcionIds,
+        IReadOnlyCollection<Guid> facturaIds,
+        CancellationToken cancellationToken)
+    {
+        var recepciones = recepcionIds.Distinct().ToArray();
+        var facturas = facturaIds.Distinct().ToArray();
+        if (recepciones.Length == 0 && facturas.Length == 0) return [];
+
+        // Lectura operativa: respeta el filtro de empresa (sin Bypass()).
+        // ImporteSaldado es calculado en el dominio: se proyectan sus sumandos y se suma en memoria.
+        var filas = await _db.FacturasProveedor
+            .AsNoTracking()
+            .Where(f => f.Estado != EstadoPasivo.Cancelada
+                && ((f.RecepcionId != null && recepciones.Contains(f.RecepcionId.Value)) || facturas.Contains(f.Id)))
+            .Select(f => new
+            {
+                f.Id, f.SerieProveedor, f.FolioProveedor, f.Estado,
+                f.ImportePagado, f.AnticipoAplicadoTotal, f.NcAplicadasTotal, f.CargosAplicadosTotal,
+            })
+            .ToListAsync(cancellationToken);
+
+        return filas
+            .Select(f => new FacturaLigadaRecepcionLectura(
+                f.Id, FormatearFolio(f.SerieProveedor, f.FolioProveedor), f.Estado.ToString(),
+                f.ImportePagado + f.AnticipoAplicadoTotal + f.NcAplicadasTotal + f.CargosAplicadosTotal))
+            .ToList();
     }
 
     private static string? FormatearFolio(string? serie, string? folio)

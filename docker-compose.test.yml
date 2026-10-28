@@ -1,0 +1,23 @@
+# PostgreSQL de pruebas de integración para `--shared-db`
+# (tools/validate-integration-isolated.sh). Igual en Linux y macOS:
+#   docker compose -f docker-compose.test.yml up -d
+# Guía: docs/qa/gate-integracion.md. Datos desechables: cada corrida crea y
+# borra su propia base; no apuntes aquí nada que no sea prueba.
+services:
+  postgres-test:
+    image: postgres:17-alpine
+    # Nombre fijo: es el que el gate busca por omisión.
+    container_name: millet-erp-postgres-test-1
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    # 5435 para no chocar con el Postgres de desarrollo (docker-compose.dev.yml)
+    # ni con otro proyecto en 5432. El gate lee el puerto real con `docker port`.
+    ports:
+      - "127.0.0.1:5435:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10

@@ -26,17 +26,15 @@ public sealed class ActivoServicio(ActivosFijosDbContext db, ICurrentUserContext
         if (seleccion is Guid id) { await SucursalAsync(id, false, ct); return [id]; }
         return await permisos.TieneAsync(PermisosCanonicos.ActivosFijosLeerTodasSucursales, ct) ? null : await sucursales.ListarIdsAsync(Actor, ct);
     }
-    public async Task<Activo> CargarAsync(Guid id, bool escribir, CancellationToken ct, bool aceptar = false)
+    public async Task<Activo> CargarAsync(Guid id, bool escribir, CancellationToken ct)
     {
         var a = await db.Activos.Include(x => x.Historial).Include(x => x.Traslados).AsSplitQuery().SingleOrDefaultAsync(x => x.Id == id, ct)
             ?? throw new EntityNotFoundException("AF_NO_EXISTE", "No existe el activo.");
-        var responsables = await catalogos.ResponsablesAsync(Actor, ct);
-        var entrada = a.Traslados.SingleOrDefault(x => x.AceptadoEn == null && responsables.Contains(x.Destino.ResponsableId));
-        a.PuedeAceptarTraslado = entrada != null;
-        await SucursalAsync(aceptar && entrada != null ? entrada.Destino.SucursalId : a.SucursalId, escribir, ct);
+        await SucursalAsync(a.SucursalId, escribir, ct);
         a.CustodiaDescripcion = await catalogos.DescribirAsync(a.Custodia(), ct);
         foreach (var traslado in a.Traslados)
         {
+            traslado.RegistradoPorNombre = (await catalogos.DescribirAsync(traslado.Origen with { ResponsableId = traslado.RegistradoPor }, ct)).Responsable;
             traslado.OrigenDescripcion = await catalogos.DescribirAsync(traslado.Origen, ct);
             traslado.DestinoDescripcion = await catalogos.DescribirAsync(traslado.Destino, ct);
         }
@@ -44,6 +42,21 @@ public sealed class ActivoServicio(ActivosFijosDbContext db, ICurrentUserContext
     }
     public async Task<ClaseActivo> ClaseAsync(Guid id, CancellationToken ct) => await db.Clases.SingleOrDefaultAsync(x => x.Id == id && x.Activa, ct)
         ?? throw new BusinessRuleException("AF_CLASE_INACTIVA", "Seleccione una clase activa.");
+    public async Task ValidarTasasActivoAsync(DatosActivo datos, Guid? id, CancellationToken ct)
+    {
+        var clase = await ClaseAsync(datos.ClaseId, ct);
+        if ((datos.VidaUtilMeses != null && clase.Clave != "160") || datos.VidaUtilMeses is < 1 or > 600
+            || (datos.ActivoMejoradoId != null && clase.Clave != "170"))
+            throw new BusinessRuleException("AF_TASA_ACTIVO_INVALIDA", "Vida útil de 1 a 600 meses sólo para clase 160; activo mejorado sólo para clase 170.");
+        if (datos.ActivoMejoradoId is Guid mejorado)
+        {
+            var destino = await db.Activos.Join(db.Clases, a => a.ClaseId, c => c.Id, (a, c) => new { Activo = a, c.Clave })
+                .SingleOrDefaultAsync(x => x.Activo.Id == mejorado && x.Activo.Estado == EstadoActivo.Activo && x.Clave != "170", ct);
+            if (mejorado == id || destino == null)
+                throw new BusinessRuleException("AF_MEJORADO_INVALIDO", "Seleccione otro activo vigente de la misma empresa que no sea una mejora.");
+            await SucursalAsync(destino.Activo.SucursalId, false, ct);
+        }
+    }
     public async Task ValidarCuentasAsync(ClaseActivoDatos d, CancellationToken ct)
     {
         foreach (var id in new[] { d.CuentaActivoId, d.CuentaDepreciacionId, d.CuentaGastoId, d.CuentaPuenteId }.OfType<Guid>())

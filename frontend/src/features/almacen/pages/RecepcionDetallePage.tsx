@@ -4,6 +4,8 @@ import { PageHeader } from '@/components/erp/PageHeader';
 import { formatCcMaquinaLabel } from '@/features/centros-costo/lib/cc-maquina-label';
 import { TrazabilidadComprasDialog } from '@/components/erp/trazabilidad/TrazabilidadComprasDialog';
 import { TipoDocumentoTrazabilidad } from '@/components/erp/trazabilidad/types';
+import { useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { Link, useParams } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -20,13 +22,17 @@ import {
 } from '@/components/ui/table';
 import { ActivosRecibidosOc } from '@/features/almacen/components/ActivosRecibidosOc';
 import { useRecepcion } from '@/features/almacen/api/useRecepciones';
-import {} from '@/features/almacen/api/types';
+import { EstadoMovimiento, MOTIVOS_CANCELACION_RECEPCION } from '@/features/almacen/api/types';
 import { esApiError } from '@/lib/api';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { formatCantidad } from '@/lib/format-cantidad';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { useDecimalesUnidad } from '@/components/erp/forms/useDecimalesUnidad';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { CancelarRecepcionDialog } from '@/features/almacen/components/CancelarRecepcionDialog';
+import { NuevaRecepcionSheet } from '@/features/almacen/components/NuevaRecepcionSheet';
 
 /**
  * <c>P2 — Detalle de recepción</c> (doc 07 §FE-F2-PR1). Vista de solo
@@ -42,10 +48,22 @@ import { useDecimalesUnidad } from '@/components/erp/forms/useDecimalesUnidad';
  */
 const FROM = '/_app/almacen/recepciones/$id' as const;
 
+/** El servidor guarda «CODIGO: texto»; se muestra la etiqueta del motivo en lugar del código. */
+function motivoLegible(motivo: string) {
+  const [codigo, ...resto] = motivo.split(': ');
+  const etiqueta = MOTIVOS_CANCELACION_RECEPCION.find((m) => m.codigo === codigo)?.etiqueta;
+  return etiqueta && resto.length ? `${etiqueta} — ${resto.join(': ')}` : motivo;
+}
+
 export function RecepcionDetallePage() {
   const { id } = useParams({ from: FROM });
   const query = useRecepcion(id);
   const decimalesUnidad = useDecimalesUnidad();
+  const puedeCancelarPermiso = useHasPermission(PermisosCanonicos.AlmacenRecepcionesCancelar);
+  const puedeRegistrar = useHasPermission(PermisosCanonicos.AlmacenEntradasRegistrar);
+  const [cancelarAbierto, setCancelarAbierto] = useState(false);
+  const botonCancelar = useRef<HTMLButtonElement>(null);
+  const [capturaAbierta, setCapturaAbierta] = useState(false);
   const lineasEnRevision = query.data?.lineas.filter((l) => l.enRevision).length ?? 0;
 
   return (
@@ -90,7 +108,34 @@ export function RecepcionDetallePage() {
               </>
             }
             acciones={
-              <TrazabilidadComprasDialog tipo={TipoDocumentoTrazabilidad.Recepcion} id={id} />
+              <>
+                {puedeCancelarPermiso &&
+                  query.data.estado === EstadoMovimiento.Registrado &&
+                  query.data.registradaPorOtroUsuario === true && (
+                    <Button
+                      ref={botonCancelar}
+                      variant="secondary-danger"
+                      onClick={() => setCancelarAbierto(true)}
+                    >
+                      Cancelar recepción
+                    </Button>
+                  )}
+                {puedeCancelarPermiso &&
+                  query.data.estado === EstadoMovimiento.Registrado &&
+                  query.data.registradaPorOtroUsuario === false && (
+                    <p className="text-xs text-ink-muted">
+                      Tú registraste esta recepción: la cancela otra persona con permiso.
+                    </p>
+                  )}
+                {puedeRegistrar &&
+                  query.data.estado === EstadoMovimiento.Cancelado &&
+                  query.data.ordenCompraId && (
+                    <Button onClick={() => setCapturaAbierta(true)}>
+                      Capturar la recepción correcta
+                    </Button>
+                  )}
+                <TrazabilidadComprasDialog tipo={TipoDocumentoTrazabilidad.Recepcion} id={id} />
+              </>
             }
             mono
           />
@@ -103,9 +148,8 @@ export function RecepcionDetallePage() {
                   ? query.data.subAlmacenClave
                     ? `${query.data.subAlmacenClave} · ${query.data.subAlmacenNombre}`
                     : query.data.subAlmacenNombre
-                  : query.data.subAlmacenId
+                  : '—'
               }
-              mono={!query.data.subAlmacenNombre}
             />
             {query.data.ordenCompraId ? (
               <div>
@@ -116,7 +160,7 @@ export function RecepcionDetallePage() {
                     params={{ id: query.data.ordenCompraId }}
                     className="font-mono text-sm text-brand hover:underline"
                   >
-                    {query.data.ordenCompraFolio ?? query.data.ordenCompraId}
+                    {query.data.ordenCompraFolio ?? 'Ver orden de compra'}
                   </Link>
                 </dd>
               </div>
@@ -128,19 +172,13 @@ export function RecepcionDetallePage() {
                 al id truncado (nunca el GUID interno completo). */}
             <Campo
               label="CFDI recibido (folio fiscal)"
-              valor={
-                query.data.cfdiUuidFiscal ??
-                (query.data.cfdiRecibidoId ? `${query.data.cfdiRecibidoId.slice(0, 8)}…` : '—')
-              }
+              valor={query.data.cfdiUuidFiscal ?? '—'}
               mono
             />
             <Campo
               label="Factura proveedor"
-              valor={
-                query.data.facturaFolio ??
-                (query.data.facturaId ? `${query.data.facturaId.slice(0, 8)}…` : '—')
-              }
-              mono={!query.data.facturaFolio}
+              valor={query.data.facturaFolio ?? '—'}
+              mono={!!query.data.facturaFolio}
             />
             {query.data.importacion && (
               <>
@@ -170,6 +208,47 @@ export function RecepcionDetallePage() {
               </div>
             )}
           </dl>
+
+          {(query.data.canceladaAt || query.data.registradoPorNombre) && (
+            <section
+              aria-labelledby="bitacora-recepcion"
+              className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat"
+            >
+              <h2
+                id="bitacora-recepcion"
+                className="text-sm font-semibold uppercase tracking-wide text-ink-muted"
+              >
+                Bitácora
+              </h2>
+              <dl className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+                {query.data.registradoPorNombre && (
+                  <Campo label="Registró" valor={query.data.registradoPorNombre} />
+                )}
+                {query.data.canceladaAt && (
+                  <>
+                    <Campo label="Canceló" valor={query.data.canceladaPorNombre ?? '—'} />
+                    <div>
+                      <dt className="text-xs text-ink-muted">Fecha de cancelación</dt>
+                      <dd className="text-sm">
+                        <DateTimeDisplay value={query.data.canceladaAt} variant="media" />
+                      </dd>
+                    </div>
+                    <Campo
+                      label="Movimientos de cancelación"
+                      valor={(query.data.foliosCancelacion ?? []).join(', ') || '—'}
+                      mono
+                    />
+                    <div className="sm:col-span-4">
+                      <dt className="text-xs text-ink-muted">Motivo</dt>
+                      <dd className="whitespace-pre-wrap break-words text-sm">
+                        {query.data.motivoCancelacion ? motivoLegible(query.data.motivoCancelacion) : '—'}
+                      </dd>
+                    </div>
+                  </>
+                )}
+              </dl>
+            </section>
+          )}
 
           <section className="space-y-2">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">
@@ -218,13 +297,21 @@ export function RecepcionDetallePage() {
                           )}
                         </TableCell>
                       ) : (
-                        <TableCell className="font-mono text-xs">{l.articuloId}</TableCell>
+                        <TableCell className="font-mono text-xs">{l.articuloClave ?? '—'}</TableCell>
                       )}
                       <TableCell className="text-right tabular-nums">
                         {formatCantidad(l.cantidad, decimalesUnidad.porCodigo(l.unidadMedida))}
                       </TableCell>
                       <TableCell>
                         {l.unidadMedida}
+                        {l.anchoMm != null && l.altoMm != null && (
+                          <span className="block text-xs tabular-nums text-ink-muted">
+                            Medida {l.anchoMm} × {l.altoMm} mm
+                          </span>
+                        )}
+                        {l.lote && (
+                          <span className="block text-xs text-ink-muted">Lote {l.lote}</span>
+                        )}
                         {l.unidadCapturada && (
                           <span className="block text-xs text-ink-muted">
                             Captura: {l.cantidadCapturada} {l.unidadCapturada}
@@ -263,6 +350,28 @@ export function RecepcionDetallePage() {
           </section>
           {query.data.ordenCompraId && (
             <ActivosRecibidosOc ordenCompraId={query.data.ordenCompraId} />
+          )}
+
+          <CancelarRecepcionDialog
+            recepcion={query.data}
+            open={cancelarAbierto}
+            onOpenChange={(abierto) => {
+              setCancelarAbierto(abierto);
+              // Sin DialogTrigger, Radix no regresa el foco al botón que abrió el diálogo.
+              if (!abierto) requestAnimationFrame(() => botonCancelar.current?.focus());
+            }}
+            onCancelada={() => {
+              toast.success(
+                puedeRegistrar ? 'Recepción cancelada. Ya puedes capturar la correcta.' : 'Recepción cancelada.',
+              );
+            }}
+          />
+          {capturaAbierta && (
+            <NuevaRecepcionSheet
+              open
+              onOpenChange={setCapturaAbierta}
+              ordenCompraIdInicial={query.data.ordenCompraId ?? undefined}
+            />
           )}
         </div>
       )}
