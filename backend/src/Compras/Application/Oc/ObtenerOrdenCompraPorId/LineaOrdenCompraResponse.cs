@@ -71,4 +71,6 @@ public sealed record LineaOrdenCompraResponse(
     // F1-MP-01 (E1): medida de la hoja (vidrio crudo). Cantidad sigue en m²; AreaHojaM2 = m² por hoja (hojas = Cantidad / AreaHojaM2).
     Guid? ProductoAwVarianteId = null, decimal? AnchoMm = null, decimal? AltoMm = null, decimal? AreaHojaM2 = null,
     // El artículo es vidrio crudo (ligado a A+W) y la línea aún no tiene medida; lo puebla el handler con el artículo.
-    bool RequiereMedida = false);
+    bool RequiereMedida = false,
+    // F1-MP-05 (A4.2): lote que declara el proveedor (opcional; lo lee C3.2 para COMPRA_RECIBIDA).
+    string? LoteProveedor = null);

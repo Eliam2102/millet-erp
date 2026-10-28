@@ -411,7 +411,8 @@ public static class OrdenesCompraEndpoints
                     FechaEntregaLinea: body.FechaEntregaLinea,
                     CentroCostoId: body.CentroCostoId,
                     TextoAdicional: body.TextoAdicional, EsActivoFijo: body.EsActivoFijo, ClaseActivoId: body.ClaseActivoId,
-                    ProductoAwVarianteId: body.ProductoAwVarianteId),
+                    ProductoAwVarianteId: body.ProductoAwVarianteId,
+                    LoteProveedor: body.LoteProveedor),
                 cancellationToken);
             return Results.Created($"/api/v1/compras/ordenes/{id}/lineas/{response.LineaId}", response);
         })
@@ -468,7 +469,9 @@ public static class OrdenesCompraEndpoints
                     LimpiarFraccionArancelaria: body.LimpiarFraccionArancelaria ?? false,
                     EsActivoFijo: body.EsActivoFijo,
                     ClaseActivoId: body.ClaseActivoId,
-                    ProductoAwVarianteId: body.ProductoAwVarianteId),
+                    ProductoAwVarianteId: body.ProductoAwVarianteId,
+                    LoteProveedor: body.LoteProveedor,
+                    LimpiarLoteProveedor: body.LimpiarLoteProveedor ?? false),
                 cancellationToken);
             return Results.NoContent();
         })
@@ -1936,7 +1939,9 @@ public static class OrdenesCompraEndpoints
         Guid? CentroCostoId,
         string? TextoAdicional, bool EsActivoFijo = false, Guid? ClaseActivoId = null,
         // F1-MP-01 (E1): medida de la hoja; obligatoria si el artículo es vidrio crudo (liga A+W), prohibida si no.
-        Guid? ProductoAwVarianteId = null);
+        Guid? ProductoAwVarianteId = null,
+        // F1-MP-05 (A4.2): lote del proveedor, opcional.
+        string? LoteProveedor = null);
 
     /// <summary>Body del PATCH lineas (F2-PR2).</summary>
     public sealed record ActualizarLineaOcRequest(
@@ -1960,7 +1965,10 @@ public static class OrdenesCompraEndpoints
         bool? LimpiarFraccionArancelaria = null,
         bool? EsActivoFijo = null, Guid? ClaseActivoId = null,
         // F1-MP-01 (E1): null = conservar la medida actual.
-        Guid? ProductoAwVarianteId = null);
+        Guid? ProductoAwVarianteId = null,
+        // F1-MP-05 (A4.2): null = no tocar; LimpiarLoteProveedor = true → null.
+        string? LoteProveedor = null,
+        bool? LimpiarLoteProveedor = null);
 
     /// <summary>Body del PATCH texto-adicional (F2-PR2).</summary>
     public sealed record ActualizarTextoAdicionalRequest(string? TextoAdicional);
