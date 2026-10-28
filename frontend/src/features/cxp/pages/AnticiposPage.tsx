@@ -59,7 +59,7 @@ export function AnticiposPage() {
     <div className="space-y-4">
       <PageHeader
         titulo="Anticipos"
-        descripcion="Anticipos a proveedores (CFDI serie FANT). Se amortizan contra facturas finales desde el detalle de la factura."
+        descripcion="Anticipos a proveedores y saldos de Comercio Exterior. Se amortizan contra facturas finales desde el detalle de la factura."
         acciones={
           <>
             {puedeCapturar && (
@@ -172,7 +172,7 @@ export function AnticiposPage() {
               {items.map((a) => (
                 <tr key={a.id} className="border-t hover:bg-muted/30">
                   <td className="px-3 py-2 font-mono text-xs">
-                    {abreviar(a.uuidCfdi)}
+                    {a.origen === 2 ? `Saldo de Comercio Exterior · ${a.folioProveedor}` : abreviar(a.uuidCfdi ?? '')}
                   </td>
                   <td className="max-w-56 truncate px-3 py-2">
                     {a.proveedorNombre ?? (

@@ -295,7 +295,7 @@ public sealed partial class P6SucursalEndpointsTests
             {
                 var factura = (await db.FacturasProveedor.FindAsync(mapa["factura"]))!;
                 var anticipo = (await db.AnticiposProveedor.FindAsync(mapa["anticipo"]))!;
-                var nc07 = NuevaNcP6b(anticipo.UuidCfdi, null, TipoRelacionCfdi.AmortizacionAnticipo);
+                var nc07 = NuevaNcP6b(anticipo.UuidCfdi!, null, TipoRelacionCfdi.AmortizacionAnticipo);
                 nc07.VincularAnticipoOrigen(anticipo.Id, DateTimeOffset.UtcNow);
                 var nc03 = NuevaNcP6b(factura.UuidCfdi!, factura.Id, TipoRelacionCfdi.Devolucion);
                 mapa["nc07"] = nc07.Id; mapa["nc03"] = nc03.Id;

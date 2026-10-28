@@ -12,6 +12,7 @@ export interface Concepto {
 }
 export interface Gasto {
   id: string;
+  anticipoAgenteId?: string | null;
   conceptoId: string;
   concepto: string;
   proveedorId: string;
@@ -68,6 +69,7 @@ export interface Distribucion {
   }[];
 }
 export interface Anticipo {
+  cuentaPeca?: boolean;
   id: string;
   agenteId: string;
   pedimento: string;
