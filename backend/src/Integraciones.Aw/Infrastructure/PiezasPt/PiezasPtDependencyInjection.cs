@@ -28,6 +28,7 @@ public static class PiezasPtDependencyInjection
 
         services.AddScoped<IPiezasPtOrigenReader, PiezasPtOrigenSelector>();
         services.AddScoped<IPtSucursalPorClaveAwPort, PtSucursalPorClaveAwAdapter>();
+        services.AddHostedService<PiezasPtEntradaWorker>();
         return services;
     }
 

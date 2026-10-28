@@ -1018,6 +1018,7 @@ if (!string.IsNullOrWhiteSpace(awIntegracionDb)
 builder.Services.AddIntegracionesAwClientes(builder.Configuration);
 builder.Services.AddIntegracionesAwProductos(builder.Configuration);
 builder.Services.AddIntegracionesAwCambios(builder.Configuration);
+Millet.Integraciones.Aw.Infrastructure.PiezasPt.PiezasPtDependencyInjection.AddAwPiezasPt(builder.Services, builder.Configuration);
 // U1.8b: reporte de diferencias fiscales A+W vs ERP (solo lee A+W; worker semanal apagado por defecto).
 Millet.Integraciones.Aw.Infrastructure.DiferenciasFiscales.DiferenciasFiscalesDependencyInjection.AddIntegracionesAwDiferenciasFiscales(builder.Services, builder.Configuration);
 Millet.Integraciones.Aw.Infrastructure.Origen.OrigenDependencyInjection.AddIntegracionesAwOrigen(builder.Services, builder.Configuration);
