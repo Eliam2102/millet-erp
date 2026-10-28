@@ -99,6 +99,7 @@ public sealed class ComprasOcReadPortAdapter : IComprasOcReadPort
                 CantidadFacturada: l.CantidadFacturada,
                 CantidadRecibida: l.CantidadRecibida,
                 CentroCostoId: l.CentroCostoId,
+                EsServicio: l.EsServicio,
                 BaseNetaUnitaria: l.Cantidad == 0 ? 0 : l.SubtotalLinea / l.Cantidad *
                     (totales.SubtotalAntesDescuento == 0 ? 1 :
                         1 - totales.DescuentoGlobalAplicado / totales.SubtotalAntesDescuento)))
