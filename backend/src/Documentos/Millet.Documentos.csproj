@@ -8,4 +8,9 @@
     <PackageReference Include="QuestPDF" />
     <PackageReference Include="QRCoder" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Carlito (SIL OFL 1.1, ver Fuentes/OFL-Carlito.txt): misma métrica que Calibri, incrustada
+         porque el servidor Linux de Azure no tiene Calibri ni Arial. -->
+    <EmbeddedResource Include="Fuentes\*.ttf" />
+  </ItemGroup>
 </Project>
