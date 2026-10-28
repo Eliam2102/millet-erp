@@ -83,8 +83,9 @@ SELECT
         ISNULL(C.NAME1, N'') + N' ' + ISNULL(C.NAME2, N''))))
                                                             AS cliente_nombre,
     dbo.fn_solo_alfanumerico(C.UST_ID)                      AS rfc_cliente,
-    -- VALIDAR: regla exportación (AH_KOPF='Interfaz EDI' o GRUPPE='Ventas
-    -- Internacionales') → 'S01'; si no, KA_LIEFERBED.FREMD_KEY.
+    -- Canal (TI, 27 y 28-oct): grupo del vendedor OR_BEARBEITER → KA_FIRMA_MITARB.GRUPPE;
+    -- AH_KOPF='Interfaz EDI' es 'Ventas Internacionales'. No usar OR_GRUPPE.
+    -- Exportación → 'S01'; si no, KA_LIEFERBED.FREMD_KEY.
     -- OJO (2026-07-06): FREMD_KEY real trae valores numéricos ('1','17'...),
     -- no claves SAT 'G01' — confirmar mapeo con equipo A+W (gap G6).
     CASE WHEN dbo.fn_limpia(K.AH_KOPF) = N'Interfaz EDI'
@@ -235,9 +236,9 @@ SELECT
     dbo.fn_limpia(D.LEVEL2)                                 AS almacen_nivel_2,
     dbo.fn_limpia(D.LEVEL3)                                 AS almacen_nivel_3,
     dbo.fn_limpia(D.LEVEL4)                                 AS almacen_nivel_4,
-    P.PROD_LAGERORT                                         AS almacen_id_ubicacion,
-    -- Gap G5: origen del pedimento por posición sin definir en A+W.
-    CAST(NULL AS bit)                                       AS requiere_pedimento
+    P.PROD_LAGERORT                                         AS almacen_id_ubicacion
+    -- requiere_pedimento se retiró (TI, 27-oct, punto 15): A+W no maneja pedimento;
+    -- el ERP lo toma de su expediente de comercio exterior.
 FROM MILMAIN.SYSADM.BW_AUFTR_POS AS P
 JOIN MILMAIN.SYSADM.BW_AUFTR_KOPF AS K ON K.ID = P.ID
 LEFT JOIN MILMAIN.SYSADM.BA_PRODUKTE  AS BP ON BP.BA_PRODUKT = P.PROD_ID

@@ -19,7 +19,8 @@
          una segunda Alta
        - ya avisado y vuelve a 15/42 → operacion 2 (Modificación)
          (nuevo evento en BW_AUFTR_HIST posterior al último avisado)
-     Pedidos internos Serie 9000 (ID 90000000–99999999): no se avisan.
+     Pedidos de almacén, prefijos 9000 y 9100 (ID 90000000–99999999): no se avisan.
+     El filtro va por rango de folio (TI, 27-oct, punto 6); no por OR_GRUPPE ni AH_MCODE.
      Pedido cancelado (STATUS 900 o 999; arquitectura A+W §4):
        - ya avisado (por el job o por el botón) y no cancelado
                                      → operacion 3 (Cancelación)
