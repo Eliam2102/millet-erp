@@ -1,7 +1,7 @@
 # 01 · Diseño E08 — Producto Terminado por pieza y sucursal
 
 > **Ticket:** ClickUp 86e3vrh7t (E08). **Habilita:** F1-PT-01 (86e3jvuk2, PT5.1), F1-PT-02 (86e3jvuka, PT5.2), F1-PT-04 (86e3jvukj, PT5.9), PT5.5 (86e3ke339), U1.5 (86e3jvv6z).
-> **Estado:** propuesta para validar con Eliam antes de programar. Lo que no confirma Millet o el código va marcado **SUPUESTO**.
+> **Estado:** **aprobado por Eliam el 27-oct-2026 con ajustes** (Rev. 2, ya aplicados). Lo que no confirma Millet o el código va marcado **SUPUESTO**.
 > **Parte de:** nuestro borrador del 24-oct, ajustado a la ficha PT-01 del 26-oct y al plano 1.7.1 «09 · Producto terminado, salida y entrega» (cuando chocan, manda el plano).
 > **Verificado contra:** `develop` 3c834939.
 
@@ -18,7 +18,8 @@
 | E1 | La pieza entra a PT en **69** (entrada física). El **70** es la liberación financiera. «69 no significa 70». | V11 cerrada 10-oct; plano 1.7.1 §6 y Regla 2 |
 | E2 | El PT se controla **por pieza y sucursal**, no como stock de catálogo. No usa la variante de medida de MP-01 (E07 D4 limita las variantes al vidrio crudo). | Registro 16, 10-oct; Jorge 7-oct |
 | E3 | Identidad de la pieza = **pedido + posición + número de pieza**. No se crea existencia anónima. | Plano 1.7.1 §6 y §8 |
-| E4 | El pedido queda cubierto por sus anticipos timbrados ligados, los cobros de sus facturas y los anticipos previos ligados con #208. Las notas de crédito reducen el total. Uziel expone el saldo por pedido en un puerto de Facturación. Mientras tanto usamos un adaptador provisional marcado. La ruta REPARTO (crédito 24 h) libera sin verificar pago. | Decisión E4 |
+| E4 | El pedido queda cubierto por sus anticipos timbrados ligados, los cobros de sus facturas y los anticipos previos ligados con #208. Las notas de crédito reducen el total. Uziel expone el saldo por pedido en un puerto de Facturación. Mientras tanto usamos un adaptador provisional marcado (en Demo, uno con saldo de prueba). La ruta REPARTO (crédito 24 h) libera sin verificar pago ni completitud. | Decisión E4; Eliam 27-oct |
+| E6 | La liberación a 70 es **por dinero, no por completitud**: un pedido parcial puede pasar a 70. Si está completo se revisa en la carga (PT5.4); sacar un pedido incompleto pide autorización ahí. | Eliam 27-oct; plano 1.7.1 «Actualizar completitud» → «Verificar saldo»; ficha PT5.2 (8 de 10 pasa a 70 al cobrar) |
 | E5 | Lectura de A+W por lotes, sin CDC hasta los servidores nuevos. El formato real del aviso solo bloquea encender el canal real (A+W-QA-7). | Jorge 7-oct; P-005; P-006 |
 
 ## 2. Módulo, esquema y fronteras
@@ -46,7 +47,7 @@
   - Proyecto `backend/src/ProductoTerminado/Millet.ProductoTerminado.csproj` (nuevo) con carpetas Domain/Application/Infrastructure.
   - `ProductoTerminadoDbContext` con `SchemaName = "producto_terminado"`, outbox propio y topic `producto-terminado-events`.
   - Alternativa descartada: meterlo en Almacén (su kardex es de insumos y su saldo es por artículo y ubicación) o en Facturación.
-- **D2. Sin FK entre esquemas.** `pedido_facturable_id` y `sucursal_id` son `uuid` planos (ADR-0005: sin FK entre esquemas; ADR-0030: un `DbContext` por módulo). El pedido se lee por un puerto `IPedidosPtReadPort` definido en PT (`Application/Ports`) e implementado en `backend/src/Facturacion/Infrastructure/PublicAdapters/PedidosPtReadAdapter.cs` (nuevo), mismo molde que `PedidosEmbarcablesReadAdapter`. Devuelve cabecera (id, número, sucursal, estado, `CondicionPagoOrigen`, versión de origen) y líneas (posición, producto, descripción, cantidad, unidad SAT).
+- **D2. Sin FK entre esquemas.** `pedido_facturable_id` y `sucursal_id` son `uuid` planos (ADR-0005: sin FK entre esquemas; ADR-0030: un `DbContext` por módulo). El pedido se lee por un puerto `IPedidosPtReadPort` definido en PT (`Application/Ports`) e implementado en `backend/src/Facturacion/Infrastructure/PublicAdapters/PedidosPtReadAdapter.cs` (nuevo), mismo molde que `PedidosEmbarcablesReadAdapter`. Devuelve cabecera (id, número, sucursal, estado, `CondicionPagoOrigen`, cliente, moneda, total, versión de origen) y líneas (posición, producto, descripción, cantidad, unidad SAT). Cliente, moneda y total viajan en el evento de retención para que CxC decida sin volver a leer el pedido (§6).
 - **D3. Solo Integraciones.Aw toca A+W.** El lector de escaneos y el futuro retorno de estatus viven en `Integraciones.Aw`. PT no abre conexiones a `MILLET_INTEGRACION`.
 - **D4. PT es dueño de la existencia por pieza y del estado retenido/liberado del pedido.** Facturación es dueña del saldo, CxC de la decisión de crédito y A+W del estatus visible para ventas.
 
@@ -93,7 +94,7 @@ PT-01 solo construye `EnPT`. Los demás estados son el contrato para las tareas 
 | cargadas / entregadas | piezas en `Cargada`+`Embarcada` / `Entregada` (en 0 hasta PT5.4 y PT5.6) |
 | backorder | esperadas − terminadas |
 | avance físico | `SinPiezas` (0), `Parcial`, `Completo` (terminadas = esperadas) |
-| liberación | `Retenido` (69) o `Liberado` (70), guardado en `pedidos_pt`; independiente del avance físico |
+| liberación | `Retenido` (69) o `Liberado` (70), guardado en `pedidos_pt`; **independiente del avance físico** (E6): un `Parcial` puede estar `Liberado` |
 
 ## 5. Entrada desde A+W
 
@@ -102,8 +103,9 @@ PT-01 solo construye `EnPT`. Los demás estados son el contrato para las tareas 
 | Columna | Regla |
 |---|---|
 | `evento_id` varchar(100) PK | Id del evento de A+W. Si A+W no tiene uno, TI lo arma como `pedido|posición|pieza|tipo_evento` (S5). **Llave de idempotencia.** |
-| `tipo_evento` | `ALTA_PT` (otros tipos se agregan en PT5.8 o PT-04) |
-| `numero_pedido`, `numero_posicion`, `numero_pieza` | identidad de la pieza; `numero_pieza` ≥ 1 |
+| `tipo_evento` | `ALTA_PT` (una pieza) o `ALTA_PT_PEDIDO` (taller de sucursal, **SUPUESTO** S8). Otros tipos se agregan en PT5.8 o PT-04 |
+| `numero_pedido`, `numero_posicion`, `numero_pieza` | identidad de la pieza; `numero_pieza` ≥ 1. En `ALTA_PT_PEDIDO`, `numero_pieza` va nulo y `numero_posicion` es opcional (nulo = todas las posiciones) |
+| `cantidad_piezas` | solo `ALTA_PT_PEDIDO`: cuántas piezas da de alta el aviso; nulo = todas las faltantes |
 | `codigo_barras` | opcional, para cotejo físico |
 | `sucursal_clave_aw` | sede donde se escaneó |
 | `estatus_aw` | 69 |
@@ -140,26 +142,50 @@ flowchart LR
 - **Configuración:** sección `IntegracionesAw:PiezasPt` (`EntradaHabilitada=false`, `EmpresaId`, `IntervalSeconds=30`, `BatchSize=200`, `MaxIntentos=5`, `PospuestoHoras=24`, `ContratoI134Firmado=false`). Real solo se registra con contrato firmado y cadena `AwIntegracionDb`. Demo nunca en Production.
 - **Quién reintenta:** la fila del puente se acusa con el resultado del primer intento. Los `Pospuesto` se reintentan desde `producto_terminado.escaneos`, no volviendo a leer SQL Server, para no cargar SER-DATA.
 - **Bandeja:** una persona con permiso puede `Reintentar` o `Descartar` con motivo (molde `DescartarReppPendienteCommand(Id, Motivo)` en `backend/src/Facturacion/Application/Repp/Pendientes/ReppPendienteCommands.cs:15`). Ninguna acción crea pieza fuera del comando.
-- **Identidad incompleta:** un evento sin `numero_pieza` o de un pedido `Cancelado` va a `Excepcion`. No creamos existencia anónima (plano §6).
+- **Identidad incompleta:** un evento `ALTA_PT` sin `numero_pieza` o de un pedido `Cancelado` va a `Excepcion`. No creamos existencia anónima (plano §6).
+- **Alta por pedido (taller de sucursal, SUPUESTO S8).** El taller marca 69 por pedido (vidrio al corte, hojas de call center), no por pieza. Un aviso `ALTA_PT_PEDIDO` da de alta las N piezas del pedido, o de la posición si viene:
+  - Asigna los números faltantes más bajos de cada posición (1..`piezas_esperadas` sin fila en `piezas`), en orden de posición.
+  - Cada pieza queda con identidad completa (pedido + posición + número), su `Alta` y su `pieza.ingresada.v1`. No hay existencia anónima.
+  - Si `cantidad_piezas` supera las faltantes, da de alta las faltantes y el resto queda como `Excepcion PT_PIEZA_EXCEDE_POSICION`.
+  - La idempotencia sigue por `evento_id`: repetir el aviso devuelve el resultado previo.
+  - Cómo llega ese aviso desde A+W se le pregunta a Jorge (Q4). Mientras contesta se construye con este formato.
 - **Fuera de orden:** se conserva y nunca retrocede una pieza ya avanzada (plano §12).
 - **Capacidad:** 200 filas cada 30 s son 24,000 por hora, muy por encima del pico de 2,500 al día.
 
 ## 6. 69 → 70: contrato y eventos
 
-**Regla (PT-02).** El pedido pasa de `Retenido` (69) a `Liberado` (70) cuando su avance es `Completo` (P-096) y además se cumple una de estas condiciones:
+**Regla (PT-02).** El pedido entra a `Retenido` (69) con su primera pieza en PT. Pasa a `Liberado` (70) **por dinero, sin exigir pedido completo** (E6), cuando se cumple una de estas condiciones. PT registra la liberación directo, con su motivo (Q3):
 
-1. **Saldo cubierto.** `ISaldoPedidoReadPort.ObtenerAsync(empresaId, numeroPedido)` devuelve saldo ≤ 0. Ese saldo es el total menos notas de crédito, menos anticipos timbrados ligados, menos cobros de facturas y menos anticipos previos ligados (#208) (decisión E4). El puerto lo define PT y lo implementa Uziel en `Facturacion/Infrastructure/PublicAdapters`. Mientras no exista, `SaldoPedidoProvisionalAdapter` devuelve «no cubierto», con `PLATFORM-TODO(<SaldoPorPedidoFacturacion>)`. Así nunca liberamos por error; solo liberan REPARTO y CxC.
-2. **REPARTO.** `CondicionPagoOrigen = 'REPARTO'` (crédito 24 h) libera sin verificar pago.
-3. **Decisión de CxC.** Llega `cuentas_por_cobrar.decision-liberacion.emitida.v1` con `Resultado` `Liberado` o `LiberadoConOverride` para ese `PedidoRef` (S10). Si llega antes de completar el pedido, se guarda y aplica al completarse.
+1. **Saldo cubierto** (`SaldoCubierto`). `ISaldoPedidoReadPort.ObtenerAsync(empresaId, numeroPedido)` devuelve saldo ≤ 0. Ese saldo es el total menos notas de crédito, menos anticipos timbrados ligados, menos cobros de facturas y menos anticipos previos ligados (#208) (decisión E4). El puerto lo define PT y lo implementa Uziel en `Facturacion/Infrastructure/PublicAdapters`. Mientras no exista:
+   - **Real:** `SaldoPedidoProvisionalAdapter` devuelve «no cubierto», con `PLATFORM-TODO(<SaldoPorPedidoFacturacion>)`. Nunca libera por error; solo liberan REPARTO y CxC.
+   - **Demo:** `SaldoPedidoDemoAdapter` guarda un saldo de prueba por pedido (tabla `producto_terminado.saldos_demo`, arranca en el total del pedido). Un endpoint solo de Demo, `PUT /api/v1/producto-terminado/demo/pedidos/{numero}/saldo`, lo pone en 0 (simula el cobro de caja) y dispara la reevaluación. Así se demuestra el caso de 8 de 10 piezas que se libera al cobrar. Se elige por `AwOrigenSesion` (Demo/Real), como el lector de escaneos, y nunca se registra en Production.
+2. **REPARTO** (`Reparto`). `CondicionPagoOrigen = 'REPARTO'` (crédito 24 h) libera sin verificar pago ni completitud (Q2).
+3. **Decisión de CxC** (`DecisionCxc`). Llega `cuentas_por_cobrar.decision-liberacion.emitida.v1` con `Resultado` `Liberado` o `LiberadoConOverride` para ese `PedidoRef` (S10). Aplica al recibirse, aunque el pedido esté incompleto.
 
-La salida de un pedido incompleto con autorización (Tema 57, P-110) queda fuera de PT-02.
+**Quién le pide la decisión a CxC (reglas por serie).** CxC ya tiene reglas por serie de folio (5000 y 7000 siempre liberan; 3000, 4000 y 8000 nunca) en `DecidirLiberacionCommand`, pero hoy solo se dispara a mano. El disparo queda así:
+
+- Al entrar a 69, PT evalúa primero saldo y REPARTO. Si libera, publica directo `Liberado` y CxC no interviene.
+- Si queda `Retenido`, publica `pedido.estado-cambiado.v1` con `estado = Retenido`, cliente, moneda y total del pedido.
+- CxC consume ese evento con un handler nuevo, `SolicitarDecisionAlRetenerHandler`, en `CuentasPorCobrar/Application/Liberacion`. Ese handler llama `DecidirLiberacionCommand(PedidoRef, ClienteId, Moneda, MontoPedido, OverrideId: null)` como usuario de sistema.
+- La cascada serie → crédito → override decide. Su `decision-liberacion.emitida.v1` regresa a PT (condición 3). Las series 5000/7000 se liberan solas y las demás siguen la regla de crédito.
+- Idempotencia: una decisión automática por `(PedidoRef, entrada a 69)`. Si el pedido vuelve a evaluarse, CxC no repite la decisión automática. Las autorizaciones manuales siguen por su endpoint.
+
+**Cuándo se reevalúa un pedido `Retenido`** (`EvaluarLiberacion`):
+- al dar de alta piezas;
+- al llegar una decisión de CxC;
+- al poner el saldo de prueba en 0 (Demo);
+- con un barrido cada 15 min de los pedidos retenidos, porque Facturación no publica un evento de cobro. Cuando Uziel publique cambio de saldo, el barrido se reemplaza por ese evento.
+
+Si el pedido está completo se revisa en la carga (PT5.4). La salida de un pedido incompleto con autorización (Tema 57, P-110) queda fuera de PT-02.
 
 | Evento | Emite | Cuándo | Consume |
 |---|---|---|---|
 | `producto_terminado.pieza.ingresada.v1` | PT (PT-01) | pieza a `EnPT` | PT-02; Contabilidad/PT5.12 (entrada a PT y salida de producción en proceso, agrupado por día y sede) |
-| `producto_terminado.pedido.estado-cambiado.v1` | PT (PT-02) | entra a 69 o pasa a 70 (con `motivo`: SaldoCubierto, Reparto, DecisionCxc) | U1.5 (escribe 70 en `aw_retorno`); CxC (liberado sin factura) |
+| `producto_terminado.pedido.estado-cambiado.v1` | PT (PT-02) | entra a 69 (`Retenido`, con cliente, moneda y total) o pasa a 70 (`Liberado`, con `motivo`: SaldoCubierto, Reparto, DecisionCxc) | U1.5 (escribe 70 en `aw_retorno`); CxC (pide su decisión al recibir `Retenido`; se entera de la liberación) |
 | `cuentas_por_cobrar.decision-liberacion.emitida.v1` | CxC (existe) | CxC decide | PT-02 |
 | saldo por pedido (puerto, no evento) | Facturación (Uziel) | consulta al evaluar | PT-02 |
+
+**Nombre del evento.** La ficha PT5.2 decía `producto_terminado.pedido.liberado.v1`. Nos quedamos con `pedido.estado-cambiado.v1`, porque también lleva la entrada a 69 que dispara la decisión de CxC. Eliam actualiza la ficha.
 
 Entrega local de eventos (C1.8, `backend/src/Api/Infrastructure/EntregaLocalIntegrationEventsExtensions.cs`) mientras no exista el topic en `infra/modules/servicebus.bicep`.
 
@@ -169,7 +195,7 @@ Plano 1.7.1 §11: «sin acuse no afirmar liberado en A+W». El estado `Liberado`
 
 | Tarea | Interfaz |
 |---|---|
-| PT-02 (PT5.2) | Consulta `EstadoPedidoPt(numeroPedido)` con los indicadores de §4 por sucursal; comando `EvaluarLiberacion(pedidoPtId)`; columnas de liberación en `pedidos_pt`. |
+| PT-02 (PT5.2) | Consulta `EstadoPedidoPt(numeroPedido)` con los indicadores de §4 por sucursal; comando `EvaluarLiberacion(pedidoPtId)` con los disparos de §6; columnas de liberación en `pedidos_pt`; adaptador de saldo Demo; handler de CxC `SolicitarDecisionAlRetenerHandler`. |
 | PT-04 (PT5.9) | Movimientos `TrasladoSalida` y `TrasladoRecepcion` con `referencia = traspaso_id`; estado `EnTransito`; la pieza conserva su costo de origen. La recepción parcial deja tránsito pendiente. Nada de esto se construye en PT-01: el modelo ya separa sede física de sede de entrega. |
 | PT5.5 (albarán, 71) | `RegistrarSalida(albaranId, piezaIds)`, idempotente por `(pieza, Salida, albaranId)`, que solo acepta piezas `Cargada`. El 71 lo genera A+W o el ERP según P-021. Si es A+W, la lectura del 71 es otro tipo de evento en el mismo patrón de puente. |
 | U1.5 (retorno a A+W) | Consume `pedido.estado-cambiado.v1` y escribe en `aw_retorno` (P-007), desde Integraciones.Aw. PT no escribe en A+W. |
@@ -188,20 +214,21 @@ Plano 1.7.1 §11: «sin acuse no afirmar liberado en A+W». El estado `Liberado`
 |---|---|---|
 | 1 | Proyecto, `ProductoTerminadoDbContext`, migración `ProductoTerminadoEsquemaInicial` (tablas de §3 sin columnas de liberación) | `backend/src/ProductoTerminado/` (nuevo) |
 | 2 | Registro de `DbContext` con `OutboxSaveChangesInterceptor`, outbox `producto-terminado-events` y tipo en `MigrationsHealthCheckOptions`, que revisa `MigrationsAppliedHealthCheck` | `backend/src/Api/Program.cs` (molde l.957-960, 1390-1394 y 1411-1432) |
-| 3 | Agregar `ProductoTerminadoDbContext` al bucle de migraciones con su `case`. Aprovechamos para agregar `ComercioExteriorDbContext` y `ActivosFijosDbContext`, que hoy faltan en el bucle aunque el health check los revisa. | `.github/workflows/deploy-app-dev.yml:212` |
+| 3 | Agregar `ProductoTerminadoDbContext` al bucle de migraciones con su `case`. `ComercioExteriorDbContext` y `ActivosFijosDbContext`, que hoy faltan en el bucle aunque el health check los revisa, van en un PR aparte a develop, no dentro de PT. | `.github/workflows/deploy-app-dev.yml:212` |
 | 4 | Permisos y asignación al rol | `PermisosCanonicos.cs` y semilla de roles |
 | 5 | Puerto de pedido y su adaptador en Facturación | §2 D2 |
 | 6 | Puente: scripts SQL sin ejecutar, tabla y `piezas.sql` en el origen demo, guía de prueba | §5; `docs/operacion/aw-canal-demo-pruebas.md` |
 | 7 | Worker, selector y opciones `IntegracionesAw:PiezasPt` | `backend/src/Integraciones.Aw/Infrastructure/PiezasPt/` (nuevo) |
 | 8 | Bandeja (API y pantalla mínima: piezas por pedido y sucursal, excepciones) | `backend/src/Api/Endpoints/ProductoTerminado/`, `frontend/src/features/producto-terminado/` (nuevos) |
-| 9 (PT-02) | Columnas de liberación, `ISaldoPedidoReadPort` con adaptador provisional, consumo del evento de CxC | §6 |
+| 9 (PT-02) | Columnas de liberación, `ISaldoPedidoReadPort` con adaptador provisional (Real) y de saldo de prueba (Demo, tabla `saldos_demo`), consumo del evento de CxC, handler de CxC que pide la decisión al retener, barrido de retenidos | §6 |
 
 ### Dependencias de plataforma pendientes (ADR-0031)
 
 | Pieza | Ticket | NoOp en uso | Cómo se conecta |
 |---|---|---|---|
 | Canal real del puente | A+W-QA-7 / I13.4 | `ContratoI134Firmado=false`; solo Demo | Jorge ejecuta los scripts 10 y 11 y se firma el contrato |
-| Saldo por pedido | Facturación (Uziel) | `SaldoPedidoProvisionalAdapter` «no cubierto» | `PLATFORM-TODO(<SaldoPorPedidoFacturacion>)` |
+| Saldo por pedido | Facturación (Uziel) | Real: `SaldoPedidoProvisionalAdapter` «no cubierto». Demo: `SaldoPedidoDemoAdapter` con saldo de prueba | `PLATFORM-TODO(<SaldoPorPedidoFacturacion>)` |
+| Evento de cambio de saldo | Facturación (Uziel) | barrido de retenidos cada 15 min | se cambia el barrido por la suscripción |
 | Topic `producto-terminado-events` | infra | entrega local C1.8 | `infra/modules/servicebus.bicep` |
 | Retorno 70 a A+W | U1.5 | ninguno (PT solo publica) | `aw_retorno`, P-007 |
 
@@ -214,7 +241,13 @@ Plano 1.7.1 §11: «sin acuse no afirmar liberado en A+W». El estado `Liberado`
 - Evento distinto para la misma pieza da `Duplicado`.
 - `numero_pieza` mayor que `piezas_esperadas` da excepción.
 - Indicadores de §4 con datos parciales.
-- Regla 69→70 (PT-02): completo con saldo ≤ 0; REPARTO; decisión CxC antes y después de completar; incompleto no libera; adaptador provisional no libera.
+- Alta por pedido (`ALTA_PT_PEDIDO`): asigna los números faltantes más bajos; un aviso repetido no duplica; un exceso va a excepción.
+- Regla 69→70 (PT-02):
+  - un parcial con saldo ≤ 0 libera (`SaldoCubierto`);
+  - REPARTO libera incompleto y sin pago;
+  - una decisión de CxC libera un parcial;
+  - el adaptador provisional Real nunca libera.
+- Disparo a CxC: `Retenido` pide una sola decisión automática. La serie 5000 libera y la 3000 retiene (reglas de `ReglasLiberacionSerie`).
 
 **Worker** (`backend/tests/Integraciones.Aw.UnitTests/PiezasPt/PiezasPtWorkersTests.cs`, molde `Exportacion/OtrWorkersTests.cs`): sin `ContratoI134Firmado`, Real no se registra ni abre conexión; candado por empresa; acuse best-effort.
 
@@ -229,6 +262,8 @@ Plano 1.7.1 §11: «sin acuse no afirmar liberado en A+W». El estado `Liberado`
 | PT5.1-d | origen Real con contrato sin firmar → lector real sin registrar; Demo funciona |
 | CA5.14 (parcial) | 2,500 eventos con 10 % repetidos → 2,250 piezas, cero pérdidas; se reporta el tiempo |
 | Plano caso 1 | 8 de 10 → 8 en PT, backorder 2, reenvío sin efecto |
+| PT5.2 (PT-02, Demo) | 8 de 10 en PT, pedido `Retenido`; saldo de prueba en 0 → `Liberado` con motivo `SaldoCubierto` y evento `pedido.estado-cambiado.v1` |
+| Taller (PT-01, S8) | aviso `ALTA_PT_PEDIDO` de un pedido de 3 piezas → 3 piezas 1..3 en PT, sin excepción |
 
 ## 11. Supuestos a validar
 
@@ -239,22 +274,38 @@ Plano 1.7.1 §11: «sin acuse no afirmar liberado en A+W». El estado `Liberado`
 5. **S5** Si A+W no da un id de evento, TI lo arma con pedido, posición, pieza y tipo.
 6. **S6** `Pospuesto` reintenta durante 24 h y luego pasa a `Excepcion`.
 7. **S7** Frecuencia de lectura: 30 s con lotes de 200 (mismo ritmo que pedidos, P-005). Va en la lista de A+W-QA-8.
-8. **S8** El taller de sucursal que marca 69 por pedido y no por pieza (P-057) va a excepción hasta que Jorge confirme cómo llega.
-9. **S9** El adaptador provisional de saldo nunca libera.
+8. **S8** El taller de sucursal que marca 69 por pedido y no por pieza (P-057) manda un aviso `ALTA_PT_PEDIDO` al mismo puente, con pedido, posición opcional y cantidad. El ERP le asigna los números de pieza (§5). Se construye así mientras Jorge confirma cómo llega (Q4).
+9. **S9** En Real, el adaptador provisional de saldo nunca libera. En Demo, el saldo de prueba arranca en el total del pedido y solo cambia por el endpoint de Demo.
 10. **S10** `PedidoRef` del evento de CxC es el número de pedido de A+W.
 11. **S11** Medidas y m² de la pieza no entran en PT-01; se leen por puerto cuando las necesiten PT5.5 y PT5.12.
+12. **S12** CxC decide automáticamente una sola vez por entrada a 69, como usuario de sistema y sin override.
 
 ## 12. Preguntas abiertas
 
 Ya registradas: P-006 (formato del aviso, Jorge), P-057 (quién escanea por pieza), P-007 (`aw_retorno`), P-021 (quién genera 71 y 72), P-110 (salida incompleta), P-156 (permisos por rol y sede), P-005 (frecuencia).
 
-Nuevas:
+Respondidas por Eliam (27-oct):
 
-| # | Para | Pregunta | ¿Bloquea? |
-|---|---|---|---|
-| Q1 | Jorge | ¿Qué campo de A+W dice la sede que entrega cuando es distinta de la sede de venta (venta intersucursal)? | PT-04, no PT-01 |
-| Q2 | Eliam / Millet | ¿REPARTO libera aunque el pedido esté incompleto, o también exige 100 % de piezas en PT (P-096)? | PT-02 |
-| Q3 | Eliam | ¿La liberación por saldo cubierto pasa por `DecidirLiberacionCommand` de CxC (como sugiere el plano, §7.3 p2), o PT la registra directo con su motivo (este diseño)? | PT-02 |
+| # | Pregunta | Respuesta |
+|---|---|---|
+| Q2 | ¿REPARTO libera aunque el pedido esté incompleto? | Sí. REPARTO libera sin verificar pago ni completitud (E6). |
+| Q3 | ¿La liberación por saldo pasa por CxC o la registra PT? | La registra PT directo, con su motivo. CxC queda para crédito y autorizaciones manuales y se entera por el evento de PT. |
+
+La condición «Completo (P-096)» que tenía la Rev. 1 se quitó (E6); no encontramos fuente de P-096 que la exija.
+
+Pendientes para Jorge (no frenan PT-01):
+
+| # | Pregunta | ¿Bloquea? |
+|---|---|---|
+| Q1 | ¿Qué campo de A+W dice la sede que entrega cuando es distinta de la sede de venta (venta intersucursal)? Mientras tanto, S3. | PT-04 |
+| Q4 | El taller de sucursal marca 69 por pedido (vidrio al corte, hojas de call center): ¿cómo llega ese aviso desde A+W? ¿Trae pedido y posición? ¿Trae cuántas piezas o da todo el pedido por terminado? Mientras tanto, S8. | Canal real del taller |
 
 ---
 Rev. 1 · 26-oct-2026 · Primera versión sobre el borrador del 24-oct, la ficha PT-01 del 26-oct y el plano 1.7.1.
+Rev. 2 · 27-oct-2026 · Aprobado por Eliam con ajustes:
+- liberación por dinero, sin exigir completo (E6);
+- saldo de prueba en Demo;
+- disparo de la decisión de CxC al retener;
+- alta por pedido del taller (S8, Q4);
+- nombre del evento confirmado;
+- migraciones de CE y AF en un PR aparte.
