@@ -100,17 +100,56 @@ public sealed partial class LibroHttpTests
         using var captura=await e.ClienteAsync(true,permisosCe:false,permisosAf:true);
         using var autorizador=await e.ClienteAsync(true,permisosCe:false,permisosAf:true);
         var activo=await captura.GetFromJsonAsync<JsonElement>($"{Base}/activos/{id}");var version=activo.GetProperty("version").GetInt32();
-        using var sinEvidencia=await Post(captura,$"activos/{id}/operaciones",new {tipo="Baja",fecha="2027-02-01",importe=0,motivo="Siniestro",evidencia=(string?)null},version);
+        using var sinEvidencia=await Post(captura,$"activos/{id}/operaciones",new {tipo="Baja",solicitadoPor="Área DEMO",fecha="2027-02-01",importe=0,motivo="Siniestro",evidencia=(string?)null},version);
         Assert.Equal(HttpStatusCode.UnprocessableEntity,sinEvidencia.StatusCode);
         using var revaluar=await Post(captura,$"activos/{id}/operaciones",new {tipo="Revalorizacion",fecha="2027-02-01",importe=100,motivo="FIX ajuste",evidencia=(string?)null},version);
         Assert.Equal(HttpStatusCode.UnprocessableEntity,revaluar.StatusCode);
-        using var registro=await Post(captura,$"activos/{id}/operaciones",new {tipo="Baja",fecha="2027-02-01",importe=0,motivo="Siniestro",evidencia="data:application/pdf;base64,JVBERi0xLjc="},version);
+        using var registro=await Post(captura,$"activos/{id}/operaciones",new {tipo="Baja",solicitadoPor="Área DEMO",fecha="2027-02-01",importe=0,motivo="Siniestro",evidencia="data:application/pdf;base64,JVBERi0xLjc="},version);
         registro.EnsureSuccessStatusCode();var op=await registro.Content.ReadFromJsonAsync<JsonElement>();var ruta=$"operaciones/{op.GetProperty("id").GetGuid()}/autorizar";var v=op.GetProperty("version").GetInt32();
         using var misma=await Post(captura,ruta,new{},v);Assert.Equal(HttpStatusCode.UnprocessableEntity,misma.StatusCode);
         using var otra=await Post(autorizador,ruta,new{},v);otra.EnsureSuccessStatusCode();
         using var ver=e.Scope();using var bypass=ver.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
         Assert.Equal(EstadoActivo.DadoDeBaja,(await ver.ServiceProvider.GetRequiredService<ActivosFijosDbContext>().Activos.SingleAsync(x=>x.Id==id)).Estado);
         var poliza=await ver.ServiceProvider.GetRequiredService<ContabilidadDbContext>().Polizas.Include(x=>x.Partidas).SingleAsync(x=>x.OrigenTipo=="Baja");Assert.Equal(500000,poliza.TotalCargos);Assert.Equal(poliza.TotalCargos,poliza.TotalAbonos);
+    }
+    [Fact] public async Task P12_Reporte_fiscal_totaliza_por_clase_sin_crear_polizas_e_INPC_duplicado_se_rechaza()
+    {
+        await using var e = await ExpedientesHttpTests.Escenario.CrearAsync();
+        var id = await Preparar(e, false);
+        using var cliente = await e.ClienteAsync(true, permisosCe: false, permisosAf: true);
+        using (var scope = e.Scope())
+        {
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var db = scope.ServiceProvider.GetRequiredService<ActivosFijosDbContext>();
+            var a = await db.Activos.SingleAsync(x => x.Id == id);
+            var c = await db.Clases.SingleAsync(x => x.Id == a.ClaseId);
+            c.Editar(c.Nombre, 25, c.CuentaActivoId, c.CuentaDepreciacionId, c.CuentaGastoId, c.CuentaPuenteId, true, depreciable: true, tasaConfirmada: false, tasaContable: 10);
+            await db.SaveChangesAsync();
+        }
+        using var enero = await Post(cliente, "inpc", new { anio = 2027, mes = 1, valor = 100.000m }); enero.EnsureSuccessStatusCode();
+        using var junio = await Post(cliente, "inpc", new { anio = 2027, mes = 6, valor = 103.000m }); junio.EnsureSuccessStatusCode();
+        using var duplicado = await Post(cliente, "inpc", new { anio = 2027, mes = 6, valor = 104.000m });
+        Assert.Contains(duplicado.StatusCode, new[] { HttpStatusCode.Conflict, HttpStatusCode.UnprocessableEntity });
+        var reporte = await cliente.GetFromJsonAsync<ReporteFiscal>($"{Base}/reportes/depreciacion-fiscal?ejercicio=2027&mesCorte=12");
+        var fila = reporte!.Filas.Single(x => x.ActivoId == id);
+        Assert.Equal(114583.33m, fila.DeduccionHistorica); Assert.Equal(118020.83m, fila.DeduccionActualizada);
+        Assert.Equal(114583.33m, reporte.Totales["154.deduccionHistorica"]);
+        using var ver = e.Scope(); using var lectura = ver.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        Assert.Empty(await ver.ServiceProvider.GetRequiredService<ContabilidadDbContext>().Polizas.Where(p => p.OrigenModulo == "ActivosFijos").ToListAsync());
+        Assert.Empty(await ver.ServiceProvider.GetRequiredService<ActivosFijosDbContext>().Set<CorridaDepreciacion>().ToListAsync());
+    }
+    [Fact] public async Task P12_Migracion_conserva_tasas_confirmadas_del_usuario()
+    {
+        await using var e = await ExpedientesHttpTests.Escenario.CrearAsync();
+        using var scope = e.Scope(); using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var db = scope.ServiceProvider.GetRequiredService<ActivosFijosDbContext>();
+        var c = await db.Clases.SingleAsync(x => x.EmpresaId == DemoSesionSeedHostedService.EmpresaId && x.Clave == "156");
+        c.Editar(c.Nombre, 37, null, null, null, null, true, depreciable: true, tasaConfirmada: true, tasaContable: 37);
+        await db.SaveChangesAsync();
+        var migracion = new Millet.ActivosFijos.Infrastructure.Persistence.Migrations.P12TasasFiscalInpc();
+        foreach (var sql in migracion.UpOperations.OfType<Microsoft.EntityFrameworkCore.Migrations.Operations.SqlOperation>())
+            await db.Database.ExecuteSqlRawAsync(sql.Sql);
+        await db.Entry(c).ReloadAsync(); Assert.Equal(37, c.TasaFiscalAnual); Assert.Equal(37, c.TasaContableAnual); Assert.True(c.TasaConfirmada);
     }
     private sealed class VentaFixture:IVentaActivoReadPort
     {

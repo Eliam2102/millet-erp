@@ -68,7 +68,9 @@ public sealed class DecidirLiberacionHandlerTests
         await AgregarLinea(db, limite: 100_000m);
         await AgregarFacturaAbierta(db, total: 70_000m);
 
-        var (response, _) = await Handle(db, Comando(pedidoRef: "9000002", monto: 50_000m));
+        // C7.3: 30,000 / 70,000 = 42 % (< 50 %) → retenido. Con 50,000 ahora
+        // sería 60 % → PendienteAutorizacion (CoberturaLiberacionHandlerTests).
+        var (response, _) = await Handle(db, Comando(pedidoRef: "9000002", monto: 70_000m));
 
         response.Resultado.Should().Be(ResultadoLiberacion.Retenido);
         response.ReglaAplicada.Should().Be(ReglaAplicadaLiberacion.Credito);

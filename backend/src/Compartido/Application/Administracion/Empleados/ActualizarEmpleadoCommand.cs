@@ -29,13 +29,15 @@ public sealed record ActualizarEmpleadoCommand(
     string? CodigoNomina = null,
     bool LimpiarCodigoNomina = false,
     string? EmailContacto = null,
-    bool LimpiarEmailContacto = false) : IRequest<EmpleadoResponse>;
+    bool LimpiarEmailContacto = false, string? Telefono = null, string? Extension = null) : IRequest<EmpleadoResponse>;
 
 public sealed class ActualizarEmpleadoValidator : AbstractValidator<ActualizarEmpleadoCommand>
 {
     public ActualizarEmpleadoValidator()
     {
         RuleFor(c => c.Id).NotEmpty();
+        RuleFor(c => c.Telefono).MaximumLength(20).Matches(@"^[0-9 ()+\-]*$").WithMessage("Escribe un teléfono válido de hasta 20 caracteres.");
+        RuleFor(c => c.Extension).MaximumLength(10);
         RuleFor(c => c.Nombre!).NotEmpty().MaximumLength(254)
             .When(c => c.Nombre is not null);
         RuleFor(c => c.Email!).NotEmpty().EmailAddress().MaximumLength(254)
@@ -125,7 +127,7 @@ public sealed class ActualizarEmpleadoHandler
             codigoNomina: command.CodigoNomina,
             limpiarCodigoNomina: command.LimpiarCodigoNomina,
             emailContacto: command.EmailContacto,
-            limpiarEmailContacto: command.LimpiarEmailContacto);
+            limpiarEmailContacto: command.LimpiarEmailContacto, telefono: command.Telefono, extension: command.Extension);
         await _db.SaveChangesAsync(cancellationToken);
 
         return CrearEmpleadoHandler.Mapear(empleado);

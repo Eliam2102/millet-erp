@@ -21,7 +21,8 @@ namespace Millet.Api.IntegrationTests.Almacen;
 /// real vacía, una real con saldo, una default) y ejercita los handlers vía
 /// mediator.</para>
 /// </summary>
-public class UbicacionBajaGuardrailTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class UbicacionBajaGuardrailTests
 {
     private readonly WebApplicationFactory<Program> _factory;
 

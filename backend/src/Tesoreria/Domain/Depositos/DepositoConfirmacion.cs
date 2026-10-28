@@ -32,7 +32,17 @@ public sealed class DepositoConfirmacion : BaseEntity, IPerteneceAEmpresa, IAudi
     public Guid? PropuestoPor { get; private set; }
     public decimal SaldoAFavorPorIdentificar { get; private set; }
 
+    /// <summary>
+    /// Movimiento bancario ligado. Confirmada: el que confirmó el depósito.
+    /// Pendiente (C7.4): el depósito sin identificar que CxC identificó desde su
+    /// bandeja — solo es la sugerencia que la UI preselecciona
+    /// (<see cref="MovimientoSugeridoId"/>); el rechazo la borra.
+    /// </summary>
     public Guid? MovimientoId { get; private set; }
+
+    /// <summary>C7.4: movimiento identificado por CxC mientras la propuesta espera confirmación.</summary>
+    public Guid? MovimientoSugeridoId => Estado == EstadoDepositoConfirmacion.Pendiente ? MovimientoId : null;
+
     public Guid? PropuestaCxcId { get; private set; }
 
     /// <summary>Cliente de la propuesta CxC; null en expectativas de Caja.</summary>
@@ -83,7 +93,8 @@ public sealed class DepositoConfirmacion : BaseEntity, IPerteneceAEmpresa, IAudi
         string depositoRef,
         decimal montoDeposito,
         string moneda,
-        string facturasJson, Guid? propuestoPor = null, decimal saldoAFavorPorIdentificar = 0)
+        string facturasJson, Guid? propuestoPor = null, decimal saldoAFavorPorIdentificar = 0,
+        Guid? movimientoSugeridoId = null)
     {
         if (propuestaCxcId == Guid.Empty)
             throw new BusinessRuleException("DEP_PROPUESTA_VACIA", "La propuesta de CxC es obligatoria.");
@@ -105,6 +116,7 @@ public sealed class DepositoConfirmacion : BaseEntity, IPerteneceAEmpresa, IAudi
             Moneda = moneda,
             FacturasJson = string.IsNullOrWhiteSpace(facturasJson) ? "[]" : facturasJson,
             Estado = EstadoDepositoConfirmacion.Pendiente,
+            MovimientoId = movimientoSugeridoId,
         };
     }
 
@@ -171,12 +183,21 @@ public sealed class DepositoConfirmacion : BaseEntity, IPerteneceAEmpresa, IAudi
 
     /// <summary>
     /// RN-6: confirmar = ligar un movimiento bancario de INGRESO
-    /// identificado. Para propuestas el monto/moneda deben coincidir
-    /// exactos (la discrepancia se resuelve rechazando para que CxC
-    /// re-proponga); para expectativas de Caja el monto es aproximado y
-    /// solo se exige la moneda.
+    /// identificado. Para propuestas de CxC el monto debe coincidir con lo
+    /// DISPONIBLE del movimiento (C7.4: monto menos lo ya confirmado; en un
+    /// movimiento sin aplicar es su monto completo). Si CxC identificó este
+    /// mismo movimiento desde su bandeja, la propuesta puede cubrir solo una
+    /// parte y el resto sigue por identificar. La discrepancia se resuelve
+    /// rechazando para que CxC re-proponga. Las expectativas de Caja y
+    /// viáticos ligan el movimiento completo (monto aproximado; solo se exige
+    /// la moneda).
     /// </summary>
-    public void Confirmar(MovimientoBancario movimiento, Guid usuarioId, DateTimeOffset ahora)
+    /// <param name="disponible">
+    /// Lo que falta por aplicar del movimiento según las confirmaciones previas
+    /// (lo calcula el handler). <c>null</c> = el movimiento completo si aún no
+    /// se ha aplicado.
+    /// </param>
+    public void Confirmar(MovimientoBancario movimiento, Guid usuarioId, DateTimeOffset ahora, decimal? disponible = null)
     {
         AsegurarPendiente();
         if (usuarioId == Guid.Empty)
@@ -191,22 +212,50 @@ public sealed class DepositoConfirmacion : BaseEntity, IPerteneceAEmpresa, IAudi
         if (movimiento.ContramovimientoDe is not null)
             throw new BusinessRuleException("DEP_MOVIMIENTO_ES_REVERSA",
                 "Un contramovimiento de reversa no puede confirmar un depósito.");
-        if (movimiento.EstadoAplicacion != EstadoAplicacionMovimiento.NoAplicado)
+        // E8 (ficha 26-oct): la propuesta que CxC ligó a un ingreso se confirma contra ese
+        // mismo movimiento. Sin liga sigue la regla anterior (cualquier ingreso disponible).
+        if (PropuestaCxcId is not null && MovimientoId is Guid ligado && movimiento.Id != ligado)
+            throw new BusinessRuleException("DEP_MOVIMIENTO_DISTINTO_AL_LIGADO",
+                "Esta propuesta de CxC está ligada a otro ingreso bancario. Confírmala contra ese movimiento o recházala para que CxC re-proponga.");
+
+        var porAplicar = movimiento.EstadoAplicacion switch
+        {
+            EstadoAplicacionMovimiento.Aplicado => 0m,
+            EstadoAplicacionMovimiento.NoAplicado => disponible ?? movimiento.Monto,
+            _ => disponible ?? 0m,
+        };
+        // Caja y viáticos ligan el movimiento completo: no se confirman contra un sobrante.
+        if (porAplicar <= 0 || (PropuestaCxcId is null && movimiento.EstadoAplicacion != EstadoAplicacionMovimiento.NoAplicado))
             throw new BusinessRuleException("DEP_MOVIMIENTO_YA_APLICADO",
                 "El movimiento ya está aplicado a otro documento.");
         if (Moneda is not null && movimiento.Moneda != Moneda)
             throw new BusinessRuleException("DEP_MONEDA_DISTINTA",
                 $"El movimiento es {movimiento.Moneda} y el depósito esperado es {Moneda}.");
-        if (PropuestaCxcId is not null && MontoEsperado is decimal esperado && movimiento.Monto != esperado)
+        if (PropuestaCxcId is not null && MontoEsperado is decimal esperado && esperado != porAplicar
+            && !(MovimientoId == movimiento.Id && esperado < porAplicar))
             throw new BusinessRuleException("DEP_MONTO_NO_COINCIDE",
-                $"El movimiento ({movimiento.Monto:0.00}) no coincide con el depósito propuesto ({esperado:0.00}); " +
-                "si el banco recibió otro importe, rechaza la propuesta para que CxC re-proponga.");
+                porAplicar == movimiento.Monto
+                    ? $"El movimiento ({movimiento.Monto:0.00}) no coincide con el depósito propuesto ({esperado:0.00}); " +
+                      "si el banco recibió otro importe, rechaza la propuesta para que CxC re-proponga."
+                    : $"Lo disponible del movimiento ({porAplicar:0.00} de {movimiento.Monto:0.00}) no coincide con el depósito propuesto ({esperado:0.00}); " +
+                      "si el banco recibió otro importe, rechaza la propuesta para que CxC re-proponga.");
 
         MovimientoId = movimiento.Id;
         Estado = EstadoDepositoConfirmacion.Confirmada;
         ResueltaPor = usuarioId;
         ResueltaEn = ahora;
     }
+
+    /// <summary>
+    /// Importe del movimiento que esta confirmación aplica (C7.4). Propuesta de
+    /// CxC: el depósito propuesto menos el saldo a favor por identificar (ese
+    /// sobrante sigue disponible en el movimiento). Caja y viáticos: el
+    /// movimiento completo.
+    /// </summary>
+    public decimal ImporteAplicadoDe(decimal montoMovimiento) =>
+        PropuestaCxcId is not null && MontoEsperado is decimal esperado
+            ? Math.Min(montoMovimiento, Math.Max(0m, esperado - SaldoAFavorPorIdentificar))
+            : montoMovimiento;
 
     public void Rechazar(string motivo, Guid usuarioId, DateTimeOffset ahora)
     {
@@ -218,6 +267,7 @@ public sealed class DepositoConfirmacion : BaseEntity, IPerteneceAEmpresa, IAudi
 
         Estado = EstadoDepositoConfirmacion.Rechazada;
         MotivoRechazo = motivo.Trim();
+        MovimientoId = null; // la sugerencia de CxC (C7.4) deja de aplicar
         ResueltaPor = usuarioId;
         ResueltaEn = ahora;
     }

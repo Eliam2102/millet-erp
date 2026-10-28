@@ -51,7 +51,7 @@ public sealed class P2SaldoHandlersTests
             var rq = new Requisicion(Guid.NewGuid(), empresa, Millet.Compras.Domain.Folio.Parse("MID2026-000901"), 2026,
                 Clasificacion.MateriaPrima, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Prioridad.Normal, DateTimeOffset.UtcNow, null);
             var oc = new OrdenCompra(Guid.NewGuid(), empresa, Millet.Compras.Domain.Oc.Folio.Parse("OC-MID2026-000901"), 2026,
-                Guid.NewGuid(), rq.SucursalId, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), new DateOnly(2026, 10, 9));
+                Guid.NewGuid(), rq.SucursalId, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), new DateOnly(2026, 10, 9), usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
             var f = new Fixture { Db = db, Rq = rq, Oc = oc };
             var l = rq.AgregarLinea(Guid.NewGuid(), Guid.NewGuid(), 10, "PZA", Money.Mxn(100), centroCostoId: f.Ceco);
             rq.EnviarAAutorizacion(DateTimeOffset.UtcNow);

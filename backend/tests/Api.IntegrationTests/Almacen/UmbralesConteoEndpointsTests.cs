@@ -21,8 +21,8 @@ using Millet.SharedKernel.Domain.Audit;
 namespace Millet.Api.IntegrationTests.Almacen;
 
 /// <summary>PostgreSQL desechable. Catálogos propios con limpieza y restauración de parámetros en finally.</summary>
+[Collection(ApiCompartida.Nombre)]
 public sealed class UmbralesConteoEndpointsTests(WebApplicationFactory<Program> factory)
-    : IClassFixture<WebApplicationFactory<Program>>
 {
     [Fact]
     public async Task Parametros_auditoria_foto_y_aprobacion_por_nivel_con_outbox()

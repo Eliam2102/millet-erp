@@ -49,9 +49,10 @@ public sealed class QuestPdfOrdenCompraGenerator : IGenerarPdfOrdenCompraPort
     {
         var totales = oc.CalcularTotales();
         var lineasAgrupadas = oc.Lineas
-            .GroupBy(l => l.ArticuloId)
+            .GroupBy(l => (l.ArticuloId, l.ProductoAwVarianteId)) // F1-MP-01: cada medida de hoja es su propio renglón
             .Select(g => new LineaPdf(
-                ArticuloId: g.Key,
+                ArticuloId: g.Key.ArticuloId,
+                Medida: g.First().AnchoMm is { } a && g.First().AltoMm is { } h ? $" {a:0.##} × {h:0.##} mm" : "",
                 Cantidad: g.Sum(l => l.Cantidad),
                 UnidadMedida: g.First().UnidadMedida,
                 PrecioUnitario: g.First().PrecioUnitario,
@@ -130,7 +131,7 @@ public sealed class QuestPdfOrdenCompraGenerator : IGenerarPdfOrdenCompraPort
 
                         foreach (var l in lineasAgrupadas)
                         {
-                            table.Cell().Padding(4).Text(l.ArticuloId.ToString());
+                            table.Cell().Padding(4).Text(l.ArticuloId + l.Medida);
                             table.Cell().Padding(4).Text($"{l.Cantidad} {l.UnidadMedida}");
                             table.Cell().Padding(4).Text($"{l.PrecioUnitario:F2}");
                             table.Cell().Padding(4).Text($"{l.Subtotal:F2}");
@@ -191,6 +192,7 @@ public sealed class QuestPdfOrdenCompraGenerator : IGenerarPdfOrdenCompraPort
 
     private sealed record LineaPdf(
         Guid ArticuloId,
+        string Medida,
         decimal Cantidad,
         string UnidadMedida,
         decimal PrecioUnitario,

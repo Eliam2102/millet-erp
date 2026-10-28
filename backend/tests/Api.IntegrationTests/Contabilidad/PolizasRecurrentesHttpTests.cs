@@ -17,7 +17,8 @@ namespace Millet.Api.IntegrationTests.Contabilidad;
 /// idempotencia del generador, pendiente cuando el periodo no existe, y reclasificación ligada al origen en ambos sentidos (K10.4-a).
 /// Las plantillas usan un año pasado propio (todos sus meses ya llegaron) y se borra al terminar.
 /// </summary>
-public class PolizasRecurrentesHttpTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class PolizasRecurrentesHttpTests(WebApplicationFactory<Program> factory)
 {
     private const string Polizas = Base + "/polizas";
     private const string Recurrentes = Base + "/polizas-recurrentes";

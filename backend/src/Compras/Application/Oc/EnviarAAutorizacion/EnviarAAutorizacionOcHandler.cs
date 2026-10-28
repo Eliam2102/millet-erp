@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.Compras.Domain.Ports.Catalogos;
 using Millet.Compras.Application.Oc;
 using Millet.Compras.Application.Proveedores;
 using Microsoft.EntityFrameworkCore;
@@ -41,6 +42,7 @@ public sealed class EnviarAAutorizacionOcHandler : IRequestHandler<EnviarAAutori
 {
     private static readonly string[] ClavesNecesarias = ["cotizacion", "ficha_tecnica", "correo_autorizacion"];
 
+    private readonly ICatalogoSatReadPort _catalogos;
     private readonly ComprasDbContext _db;
     private readonly CompartidoDbContext _compartido;
     private readonly IClock _clock;
@@ -48,13 +50,14 @@ public sealed class EnviarAAutorizacionOcHandler : IRequestHandler<EnviarAAutori
     private readonly EvaluadorNivelOc _evaluadorNivel;
 
     public EnviarAAutorizacionOcHandler(
-        ComprasDbContext db,
+        ComprasDbContext db, ICatalogoSatReadPort catalogos,
         CompartidoDbContext compartido,
         IClock clock,
         IPublisher publisher,
         EvaluadorNivelOc evaluadorNivel)
     {
         _db = db;
+        _catalogos = catalogos;
         _compartido = compartido;
         _clock = clock;
         _publisher = publisher;
@@ -70,6 +73,9 @@ public sealed class EnviarAAutorizacionOcHandler : IRequestHandler<EnviarAAutori
             ?? throw new EntityNotFoundException(
                 "ORDEN_COMPRA_NO_ENCONTRADA",
                 $"No se encontró orden de compra con id '{command.OrdenCompraId}'.");
+
+        oc.ValidarDatosFacturaParaEnviar();
+        await DatosFacturaOcGuard.ValidarAsync(_catalogos, oc.UsoCfdiClave, oc.FormaPagoClave, cancellationToken);
 
         // Resolver IDs del catálogo de tipos de documento por clave.
         var tipos = await _db.TiposDocumentoOc
@@ -152,7 +158,13 @@ public sealed class EnviarAAutorizacionOcHandler : IRequestHandler<EnviarAAutori
         // Transición + emisión de evento.
         // Matriz de nivel (menor cuantía = solo N1). Se fija en cada ciclo de envío.
         var requiereNivel2 = await _evaluadorNivel.RequiereNivel2Async(oc, cancellationToken);
-        var evento = oc.EnviarAAutorizacion(_clock.UtcNow, requiereNivel2);
+        // F1-MP-01 (E1): artículos de vidrio crudo (ligados a A+W) de la OC; el dominio exige la medida de sus líneas.
+        var idsArticulos = oc.Lineas.Select(l => l.ArticuloId).Distinct().ToList();
+        var articulosVidrio = (await _compartido.Articulos.AsNoTracking()
+            .Where(a => idsArticulos.Contains(a.Id) && a.ProductoAwId != null)
+            .Select(a => a.Id)
+            .ToListAsync(cancellationToken)).ToHashSet();
+        var evento = oc.EnviarAAutorizacion(_clock.UtcNow, requiereNivel2, articulosVidrio);
         await _publisher.Publish(evento, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
     }

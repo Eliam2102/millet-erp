@@ -18,7 +18,8 @@ namespace Millet.Api.IntegrationTests.Identidad;
 /// con los roles del bootstrap (super-admin).
 /// </para>
 /// </summary>
-public class RolesEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class RolesEndpointsTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string RolesEndpoint = "/api/v1/identidad/roles";

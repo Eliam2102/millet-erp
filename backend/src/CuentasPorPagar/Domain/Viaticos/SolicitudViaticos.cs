@@ -255,7 +255,8 @@ public sealed class SolicitudViaticos : BaseEntity, IPerteneceAEmpresa, IAuditab
                 total: input.Total,
                 moneda: input.Moneda,
                 concepto: input.Concepto,
-                esTicketNoFiscal: input.EsTicketNoFiscal);
+                esTicketNoFiscal: input.EsTicketNoFiscal,
+                clasificacionNoDeducible: input.ClasificacionNoDeducible);
             _lineas.Add(linea);
         }
 
@@ -301,4 +302,5 @@ public sealed record LineaComprobacionViaticosInput(
     decimal Total,
     string Moneda,
     string Concepto,
-    bool EsTicketNoFiscal);
+    bool EsTicketNoFiscal,
+    string? ClasificacionNoDeducible = null);

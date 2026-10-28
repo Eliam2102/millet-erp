@@ -21,7 +21,8 @@ namespace Millet.Api.IntegrationTests.Almacen;
 /// <para>Fixture aislado por GUIDs vía SQL crudo, cleanup en <c>finally</c>,
 /// mismo molde que <see cref="TriggerBinExplicitoTests"/>.</para>
 /// </summary>
-public class Pr6aNotNullYMultiSubalmacenTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class Pr6aNotNullYMultiSubalmacenTests
 {
     private readonly WebApplicationFactory<Program> _factory;
 

@@ -6,6 +6,8 @@ export interface Custodia {
   equipoId: string | null;
 }
 export interface DatosActivo {
+  activoMejoradoId?: string | null;
+  vidaUtilMeses?: number | null;
   descripcion: string;
   claseId: string;
   marca: string | null;
@@ -68,6 +70,7 @@ export interface Clase {
   clave: string;
   nombre: string;
   tasaFiscalAnual: number | null;
+  tasaContableAnual?: number | null;
   depreciable: boolean;
   tasaConfirmada: boolean;
   requiereRevision: boolean;

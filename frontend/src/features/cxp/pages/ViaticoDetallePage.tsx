@@ -15,6 +15,7 @@ import { Campo, Importe } from '@/features/cxp/components/DetalleCampos';
 import {
   formatearFechaHora,
 } from '@/features/cxp/lib/formato';
+import { NoDeducibleBadge } from '@/features/cxp/components/NoDeducibleBadge';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 
@@ -95,18 +96,15 @@ export function ViaticoDetallePage() {
           <dl className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 @xl:grid-cols-2 @3xl:grid-cols-4 @5xl:grid-cols-6">
             <Campo
               label="Empleado"
-              valor={query.data.empleadoNombre ?? query.data.empleadoId}
-              mono={query.data.empleadoNombre == null}
+              valor={query.data.empleadoNombre ?? '—'}
             />
             <Campo
               label="Puesto"
-              valor={query.data.puestoNombre ?? query.data.puestoId}
-              mono={query.data.puestoNombre == null}
+              valor={query.data.puestoNombre ?? '—'}
             />
             <Campo
               label="Jefe directo"
-              valor={query.data.jefeDirectoNombre ?? query.data.jefeDirectoId}
-              mono={query.data.jefeDirectoNombre == null}
+              valor={query.data.jefeDirectoNombre ?? '—'}
             />
             <Campo label="Moneda" valor={query.data.moneda} />
             {query.data.justificacionExceso != null && (
@@ -114,7 +112,7 @@ export function ViaticoDetallePage() {
                 <dt className="text-xs text-muted-foreground">
                   Justificación del exceso
                 </dt>
-                <dd className="text-sm">{query.data.justificacionExceso}</dd>
+                <dd className="text-sm [overflow-wrap:anywhere]">{query.data.justificacionExceso}</dd>
               </div>
             )}
           </dl>
@@ -212,8 +210,7 @@ export function ViaticoDetallePage() {
               />
               <Campo
                 label="Rechazado por"
-                valor={query.data.rechazadoPor ?? '—'}
-                mono={query.data.rechazadoPor != null}
+                valor="—"
               />
               <Campo
                 label="Motivo rechazo"
@@ -263,6 +260,13 @@ export function ViaticoDetallePage() {
                         </td>
                         <td className="max-w-64 truncate px-3 py-2">
                           {l.concepto}
+                          <div>
+                            <NoDeducibleBadge
+                              clasificacion={l.clasificacionNoDeducible}
+                              ivaNoAcreditable={l.ivaNoAcreditable}
+                              moneda={l.moneda}
+                            />
+                          </div>
                         </td>
                         <td className="py-2 pl-3 pr-4 text-right tabular-nums">
                           <MoneyDisplay amount={l.subtotal} currency={l.moneda} strong />

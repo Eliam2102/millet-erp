@@ -7,4 +7,7 @@ export const IngresoSchema = z.object({
   fechaValor: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Selecciona la fecha valor.'),
   referenciaBancaria: z.string().max(120).optional(),
   conceptoId: zId().optional(),
+  /** C7.4: «Cobro de cliente» = BeneficiarioTipo.Cliente (2); el cliente es opcional (depósito sin identificar). */
+  beneficiarioTipo: z.literal(2).optional(),
+  beneficiarioRef: zId().optional(),
 });

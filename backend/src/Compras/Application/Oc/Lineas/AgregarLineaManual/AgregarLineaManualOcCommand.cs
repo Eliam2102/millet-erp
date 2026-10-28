@@ -26,4 +26,6 @@ public sealed record AgregarLineaManualOcCommand(
     // PR3.1 — el validador lo exige (LINEA_OC_MANUAL_CENTRO_COSTO_REQUERIDO).
     // Sigue siendo Guid? en la firma para que el 400 lo dé el validador con
     // código de error, no un fallo de deserialización.
-    Guid? CentroCostoId = null, bool EsActivoFijo = false, Guid? ClaseActivoId = null) : IRequest<AgregarLineaManualOcResponse>;
+    Guid? CentroCostoId = null, bool EsActivoFijo = false, Guid? ClaseActivoId = null,
+    // F1-MP-01 (E1): medida de la hoja (variante A+W) de un artículo de vidrio crudo; el handler fija ancho y alto desde A+W.
+    Guid? ProductoAwVarianteId = null) : IRequest<AgregarLineaManualOcResponse>;

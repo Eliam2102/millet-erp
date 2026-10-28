@@ -31,13 +31,24 @@ export const ETIQUETA_RESULTADO_LIBERACION: Record<ResultadoLiberacion, string> 
   [ResultadoLiberacion.Liberado]: 'Liberado',
   [ResultadoLiberacion.Retenido]: 'Retenido',
   [ResultadoLiberacion.LiberadoConOverride]: 'Liberado con override',
+  [ResultadoLiberacion.PendienteAutorizacion]: 'Pendiente de autorización',
 };
 
 export const ETIQUETA_REGLA_LIBERACION: Record<ReglaAplicadaLiberacion, string> = {
   [ReglaAplicadaLiberacion.Serie]: 'Regla por serie',
   [ReglaAplicadaLiberacion.Credito]: 'Crédito disponible',
   [ReglaAplicadaLiberacion.Override]: 'Override autorizado',
+  [ReglaAplicadaLiberacion.Cobertura]: 'Cobertura parcial',
 };
+
+/**
+ * C7.3 supuesto (b): la cobertura se guarda con 2 decimales truncados y
+ * se muestra como entero truncado (66.66 → «Cobertura 66 %»).
+ */
+export function formatoCobertura(porcentaje: number | null | undefined): string | null {
+  if (porcentaje == null) return null;
+  return `Cobertura ${Math.trunc(porcentaje)} %`;
+}
 
 export const ETIQUETA_ESTADO_AUTORIZACION: Record<EstadoAutorizacionCredito, string> = {
   [EstadoAutorizacionCredito.Autorizada]: 'Vigente',

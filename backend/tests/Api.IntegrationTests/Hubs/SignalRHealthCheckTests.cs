@@ -9,7 +9,8 @@ namespace Millet.Api.IntegrationTests.Hubs;
 /// devuelve OK en el ambiente de tests (Development sin connection string,
 /// in-process backplane).
 /// </summary>
-public class SignalRHealthCheckTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class SignalRHealthCheckTests
 {
     private readonly WebApplicationFactory<Program> _factory;
 

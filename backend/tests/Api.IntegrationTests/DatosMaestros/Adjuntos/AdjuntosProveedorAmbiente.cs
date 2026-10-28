@@ -37,6 +37,15 @@ public sealed class BlobGrabador : IBlobStoragePort
     /// <summary>Se ejecuta tras subir el blob y antes de que el handler escriba en BD.</summary>
     public Func<Task>? DespuesDeSubir { get; set; }
 
+    public void Reiniciar()
+    {
+        Blobs.Clear();
+        Eliminaciones.Clear();
+        _subidas = 0;
+        FallarAlSubir = false;
+        DespuesDeSubir = null;
+    }
+
     public async Task SubirAsync(string clave, Stream contenido, string contentType, CancellationToken cancellationToken)
     {
         Interlocked.Increment(ref _subidas);
@@ -65,7 +74,7 @@ public sealed class BlobGrabador : IBlobStoragePort
 }
 
 /// <summary>Soporte común de las pruebas de adjuntos de proveedor (F1-ADM-11 G1.2).</summary>
-public sealed class AdjuntosProveedorAmbiente
+public sealed class AdjuntosProveedorAmbiente : IAsyncDisposable
 {
     public const string Base = "/api/v1/datos-maestros/proveedores";
     public static readonly Guid EmpresaInicialId = Guid.Parse("00000003-0000-0000-0000-000000000001");
@@ -86,6 +95,7 @@ public sealed class AdjuntosProveedorAmbiente
     public BlobGrabador Blob { get; } = new();
     public TestClock Reloj { get; } = new();
     public WebApplicationFactory<Program> Factory { get; }
+    public ValueTask DisposeAsync() => Factory.DisposeAsync();
 
     public AdjuntosProveedorAmbiente(
         WebApplicationFactory<Program> baseFactory, Action<IServiceCollection>? configurar = null, bool blobReal = false)

@@ -18,6 +18,10 @@ public sealed class LineaMovimientoConfiguration : IEntityTypeConfiguration<Line
         {
             t.HasCheckConstraint("ck_lineas_cantidad_positiva", "cantidad > 0");
             t.HasCheckConstraint("ck_lineas_costo_no_negativo", "costo_unitario_mxn >= 0");
+            // F1-MP-01 (E07 §5.3): variante y snapshot de medida van juntos.
+            t.HasCheckConstraint("ck_lineas_variante_medida",
+                "(producto_aw_variante_id IS NULL AND ancho_mm IS NULL AND alto_mm IS NULL) OR " +
+                "(producto_aw_variante_id IS NOT NULL AND ancho_mm IS NOT NULL AND ancho_mm > 0 AND alto_mm IS NOT NULL AND alto_mm > 0)");
         });
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).ValueGeneratedNever();
@@ -51,7 +55,12 @@ public sealed class LineaMovimientoConfiguration : IEntityTypeConfiguration<Line
         builder.Property(x => x.UbicacionId);
 
         builder.HasIndex(x => x.MovimientoId);
-        builder.HasIndex(x => x.ArticuloId);
+        builder.Property(x => x.ProductoAwVarianteId);
+        builder.Property(x => x.AnchoMm).HasPrecision(12, 3);
+        builder.Property(x => x.AltoMm).HasPrecision(12, 3);
+        builder.Property(x => x.Lote).HasMaxLength(50);
+        // Prefijo (articulo_id) cubre las búsquedas por artículo que antes usaban ix_lineas_movimiento_articulo_id.
+        builder.HasIndex(x => new { x.ArticuloId, x.ProductoAwVarianteId });
         builder.HasIndex(x => x.UbicacionId);
 
         // FK física a almacen.ubicaciones (mismo esquema). Restrict: no borrar

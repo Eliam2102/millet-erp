@@ -1,3 +1,4 @@
+import { etiquetaMedidaMm } from '@/features/almacen/lib/medida-hoja';
 import { IndicadorAlmacenBadge } from '../components/IndicadorAlmacenBadge';
 import { SheetBody } from '@/components/ui/sheet';
 import { useState } from 'react';
@@ -170,6 +171,12 @@ export function MaterialEnRevisionPage() {
                           </span>
                           {i.articuloDescripcion ? ` · ${i.articuloDescripcion}` : ''}
                         </div>
+                        {etiquetaMedidaMm(i.anchoMm, i.altoMm) && (
+                          <div className="text-xs tabular-nums text-ink-muted">
+                            Medida {etiquetaMedidaMm(i.anchoMm, i.altoMm)}
+                          </div>
+                        )}
+                        {i.lote && <div className="text-xs text-ink-muted">Lote {i.lote}</div>}
                         {i.motivoDano && (
                           <div className="text-xs text-ink-muted">{i.motivoDano}</div>
                         )}

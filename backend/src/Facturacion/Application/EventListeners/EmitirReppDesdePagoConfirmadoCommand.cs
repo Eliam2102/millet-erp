@@ -28,14 +28,17 @@ public sealed class EmitirReppDesdePagoConfirmadoHandler(FacturacionDbContext db
         if (await db.EventosProcesados.AnyAsync(e => e.EventoId == command.EventoId && e.EventoTipo == EventType, cancellationToken))
             return;
         var p = command.Payload;
-        if (!await db.ReppPendientes.AnyAsync(r => r.MovimientoBancarioId == p.MovimientoBancarioId, cancellationToken))
+        // C7.4: un pendiente por cobro confirmado (propuesta de CxC), no por movimiento:
+        // un depósito identificado en partes (sobrante) genera un REP por cada propuesta.
+        if (!await db.ReppPendientes.AnyAsync(r => r.MovimientoBancarioId == p.MovimientoBancarioId
+                && r.PropuestaId == p.PropuestaId, cancellationToken))
             db.ReppPendientes.Add(new ReppPendiente(p.EmpresaId, p.ClienteId, p.MovimientoBancarioId,
                 p.CuentaBancariaId, p.PropuestaId, p.Monto - p.SaldoAFavorPorIdentificar, p.Moneda, p.FechaValor, p.Referencia,
                 p.Facturas?.Select(f => new RelacionRepp(f.FacturaVentaId, f.ImporteAplicado)) ?? []));
 
         // Pendiente y dedupe se confirman juntos. Nunca se invoca al PAC desde el evento.
         db.EventosProcesados.Add(new EventoProcesado(command.EventoId, EventType, clock.UtcNow,
-            $"pendiente REP; movimiento={p.MovimientoBancarioId}"));
+            $"pendiente REP; movimiento={p.MovimientoBancarioId} propuesta={p.PropuestaId}"));
         await db.SaveChangesAsync(cancellationToken);
     }
 }

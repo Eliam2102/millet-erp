@@ -68,11 +68,12 @@ public static class SaldosEndpoints
         group.MapGet("/por-ubicacion", async (
             [FromQuery] Guid articuloId,
             [FromQuery] Guid? subAlmacenId,
+            [FromQuery] Guid? varianteId,
             IMediator mediator,
             CancellationToken ct) =>
         {
             var response = await mediator.Send(
-                new SaldosPorUbicacionQuery(articuloId, subAlmacenId), ct);
+                new SaldosPorUbicacionQuery(articuloId, subAlmacenId, varianteId), ct);
             return Results.Ok(response);
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenAlmacenesRead)

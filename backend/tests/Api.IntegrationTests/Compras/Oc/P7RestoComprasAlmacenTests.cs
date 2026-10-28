@@ -52,7 +52,7 @@ public partial class OrdenesCompraEndpointsTests
         // La BD exige motivo por CHECK. Simula el dato incompleto sólo en el
         // agregado rastreado que lee el handler, sin persistir un estado inválido.
         if (caso == "motivo") db.Entry(oc).Property(o => o.MotivoSinRequisicion).CurrentValue = null;
-        var handler = new EnviarAAutorizacionOcHandler(db, sp.GetRequiredService<CompartidoDbContext>(), sp.GetRequiredService<IClock>(), sp.GetRequiredService<IPublisher>(), new Millet.Compras.Application.Oc.EvaluadorNivelOc(db, sp.GetRequiredService<IClock>()));
+        var handler = new EnviarAAutorizacionOcHandler(db, sp.GetRequiredService<Millet.Compras.Domain.Ports.Catalogos.ICatalogoSatReadPort>(), sp.GetRequiredService<CompartidoDbContext>(), sp.GetRequiredService<IClock>(), sp.GetRequiredService<IPublisher>(), new Millet.Compras.Application.Oc.EvaluadorNivelOc(db, sp.GetRequiredService<IClock>()));
         try
         {
             if (codigo is not null)
@@ -237,6 +237,7 @@ public partial class OrdenesCompraEndpointsTests
             ocId = (await ReadJsonAsync(creada)).GetProperty("ordenCompraId").GetGuid();
             var oc = await db.OrdenesCompra.Include(o => o.Lineas).SingleAsync(o => o.Id == ocId);
             Assert.Equal("DEMO Obra P7", oc.Obra);
+            oc.ActualizarDatosFactura("G03", "PPD", "99");
             oc.EnviarAAutorizacion(DateTimeOffset.UtcNow);
             oc.Autorizar(Guid.NewGuid(), NivelAutorizacion.Nivel1, Guid.NewGuid(), DateTimeOffset.UtcNow);
             oc.Autorizar(Guid.NewGuid(), NivelAutorizacion.Nivel2, Guid.NewGuid(), DateTimeOffset.UtcNow);

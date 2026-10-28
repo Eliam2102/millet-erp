@@ -87,12 +87,13 @@ export function useSaldosTotales(filtros: Omit<ListarSaldosFiltros, 'offset' | '
 export function saldosPorUbicacionQueryOptions(
   articuloId: string | null | undefined,
   subAlmacenId: string | null | undefined,
+  varianteId?: string | null,
 ) {
   return {
-    queryKey: almacenKeys.saldosPorUbicacion(articuloId ?? '', subAlmacenId ?? ''),
+    queryKey: almacenKeys.saldosPorUbicacion(articuloId ?? '', subAlmacenId ?? '', varianteId ?? ''),
     enabled: !!articuloId,
     queryFn: async ({ signal }: { signal?: AbortSignal }) => {
-      const query = buildQuery({ articuloId, subAlmacenId });
+      const query = buildQuery({ articuloId, subAlmacenId, varianteId });
       const { data } = await apiRequest<SaldoUbicacionItem[]>(
         `/api/v1/almacen/saldos/por-ubicacion?${query}`,
         { signal },
@@ -105,8 +106,9 @@ export function saldosPorUbicacionQueryOptions(
 export function useSaldosPorUbicacion(
   articuloId: string | null | undefined,
   subAlmacenId: string | null | undefined,
+  varianteId?: string | null,
 ) {
-  return useQuery(saldosPorUbicacionQueryOptions(articuloId, subAlmacenId));
+  return useQuery(saldosPorUbicacionQueryOptions(articuloId, subAlmacenId, varianteId));
 }
 
 /**

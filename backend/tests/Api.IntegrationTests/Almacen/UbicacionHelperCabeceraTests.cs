@@ -22,7 +22,8 @@ namespace Millet.Api.IntegrationTests.Almacen;
 /// toca <c>saldos_inventario</c> — aísla la cabecera, que es lo que PR4
 /// cambia.</para>
 /// </summary>
-public class UbicacionHelperCabeceraTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class UbicacionHelperCabeceraTests
 {
     private readonly WebApplicationFactory<Program> _factory;
 

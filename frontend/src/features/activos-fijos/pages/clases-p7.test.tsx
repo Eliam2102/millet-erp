@@ -38,7 +38,7 @@ it('muestra cuentas, tasa pendiente y revisión sin transformar una tasa vacía 
   expect(screen.getByText('Tasa por confirmar')).toBeInTheDocument();
   expect(screen.getByText('Revisar clase anterior')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
-  const tasa = screen.getByLabelText('Tasa anual (sugerencia hasta confirmar)');
+  const tasa = screen.getByLabelText('Tasa fiscal anual (sólo reporte)');
   fireEvent.change(tasa, { target: { value: '10' } });
   fireEvent.change(tasa, { target: { value: '' } });
   expect(screen.getByLabelText(/Tasa confirmada con Millet/)).toBeDisabled();
@@ -63,6 +63,24 @@ it('inicia mes siguiente por confirmar y permite guardar mismo mes confirmado', 
         depreciarMismoMes: true,
         inicioDepreciacionConfirmado: true,
       }),
+    }),
+    expect.anything(),
+  );
+});
+
+it('guarda tasas contable y fiscal diferentes', () => {
+  render(<ClasesPage />);
+  fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+  fireEvent.change(screen.getByLabelText('Tasa contable anual (genera póliza)'), {
+    target: { value: '33' },
+  });
+  fireEvent.change(screen.getByLabelText('Tasa fiscal anual (sólo reporte)'), {
+    target: { value: '30' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Guardar clase' }));
+  expect(state.mutate).toHaveBeenCalledWith(
+    expect.objectContaining({
+      body: expect.objectContaining({ tasaContableAnual: 33, tasaFiscalAnual: 30 }),
     }),
     expect.anything(),
   );

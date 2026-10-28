@@ -23,7 +23,8 @@ namespace Millet.Api.IntegrationTests.Administracion;
 /// dejados por tests previos en la misma DB compartida.
 /// </para>
 /// </summary>
-public class EmpresasEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class EmpresasEndpointsTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string EndpointBase = "/api/v1/admin/empresas";

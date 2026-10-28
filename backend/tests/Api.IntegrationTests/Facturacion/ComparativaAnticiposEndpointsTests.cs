@@ -18,8 +18,8 @@ namespace Millet.Api.IntegrationTests.Facturacion;
 /// adapters reales (nombre de sucursal desde compartido.sucursales, Capa A) +
 /// PostgreSQL desechable. Todos los datos son ficticios.
 /// </summary>
+[Collection(ApiCompartida.Nombre)]
 public sealed class ComparativaAnticiposEndpointsTests(WebApplicationFactory<Program> factory)
-    : IClassFixture<WebApplicationFactory<Program>>
 {
     private const string Ruta = "/api/v1/facturacion/reportes/comparativa-anticipos";
     private static readonly Guid Empresa = Guid.Parse("00000003-0000-0000-0000-000000000001");

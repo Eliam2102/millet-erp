@@ -21,7 +21,8 @@ namespace Millet.Api.IntegrationTests.Administracion;
 /// simulado. Cada test crea su propia cuenta en el simulador y su propia
 /// sucursal/departamento/puesto para no chocar con otros tests.
 /// </summary>
-public class ColaboradoresEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class ColaboradoresEndpointsTests
 {
     internal const string SuperAdminOid = "dev-superadmin";
     private const string SinPermisosOid = "test-no-perms-colab";

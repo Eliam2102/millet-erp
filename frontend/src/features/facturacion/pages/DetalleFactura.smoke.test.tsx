@@ -60,6 +60,21 @@ const detalle = {
 };
 
 describe('<DetalleFactura> — smoke', () => {
+  it.each([
+    { pesoKg: null, areaPie2: null, totalKg: 0, totalPie2: 0, kg: '—', area: '—' },
+    { pesoKg: 1234.5, areaPie2: 2500.25, totalKg: 1234.5, totalPie2: 2500.25, kg: '1,234.5', area: '2,500.25' },
+    { pesoKg: 0, areaPie2: 0, totalKg: 0, totalPie2: 0, kg: '0', area: '0' },
+  ])('formatea totales físicos y distingue medidas ausentes: $kg', async (datos) => {
+    mswServer.use(http.get('*/api/v1/facturacion/facturas/f-1', () => HttpResponse.json({
+      ...detalle, totalKg: datos.totalKg, totalPie2: datos.totalPie2,
+      lineas: [{ ...detalle.lineas[0], pesoKg: datos.pesoKg, areaPie2: datos.areaPie2 }],
+    })));
+    render(<DetalleFactura />, { wrapper: createQueryWrapper() });
+    await screen.findByText('A-1');
+    expect(screen.getByText('Total de kilos').nextElementSibling).toHaveTextContent(datos.kg);
+    expect(screen.getByText('Total de pies²').nextElementSibling).toHaveTextContent(datos.area);
+  });
+
   it('renderiza folio, conceptos, cadena de relaciones y bitácora de envío', async () => {
     mswServer.use(
       http.get('*/api/v1/facturacion/facturas/f-1', () => HttpResponse.json(detalle)),

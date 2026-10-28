@@ -96,6 +96,7 @@ public sealed partial class DemoSesionSeedHostedService
                     oc.AdjuntarDocumento(Id(nombre), tipo.Id, nombre, url, "application/pdf", bytes.Length, Fecha, CapturistaComprasDemoId);
                 }
                 oc.RecalcularImpuestos();
+                oc.ActualizarDatosFactura("G03", "PPD", "99");
                 oc.EnviarAAutorizacion(Fecha);
                 oc.Autorizar(Id(clave + "/N1"), NivelAutorizacion.Nivel1, JefeComprasDemoId, Fecha, "Autorización de Compras");
                 var autorizacion = oc.Autorizar(Id(clave + "/N2"), NivelAutorizacion.Nivel2, DireccionDemoId, Fecha, "Autorización de Dirección");

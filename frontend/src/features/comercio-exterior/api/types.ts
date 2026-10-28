@@ -171,6 +171,8 @@ export type DatosContenedor = Omit<
   'id' | 'fechaEmbarqueReal' | 'estado' | 'motivoCancelacion'
 >;
 export interface PedimentoExportacion {
+  aduana?: string | null;
+  aduanaNombre?: string | null;
   numero: string;
   clave: string;
   fecha: string;
@@ -209,6 +211,7 @@ export interface PedidoEmbarcable {
   facturaUuid: string | null;
 }
 export interface ContenedoresDetalle {
+  aduanas: Record<string, string>;
   version: number;
   pedimento: PedimentoExportacion | null;
   contenedores: Contenedor[];
@@ -216,6 +219,8 @@ export interface ContenedoresDetalle {
   pedidos: PedidoEmbarcable[];
 }
 export interface EmbarqueCe {
+  aduana?: string | null;
+  aduanaNombre?: string | null;
   ligado: boolean;
   expedienteId: string | null;
   sucursalId: string | null;
@@ -230,6 +235,8 @@ export interface EmbarqueCe {
   contenedores: { id: string; numero: string; blGuia: string; fechaEmbarqueReal: string }[] | null;
 }
 export interface DatosEmbarqueCe {
+  aduana?: string | null;
+  aduanaNombre?: string | null;
   folioExpediente: string;
   numeroPedimento: string;
   clavePedimento: string;

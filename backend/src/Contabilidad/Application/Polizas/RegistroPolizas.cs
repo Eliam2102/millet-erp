@@ -18,7 +18,19 @@ public sealed record PartidaRequest(
     Guid CuentaId, string? Concepto, decimal Cargo, decimal Abono, Guid SucursalId,
     Guid? Dim1Id = null, Guid? Dim2Id = null, Guid? Dim3Id = null, string? Proyecto = null,
     Guid? ClienteId = null, Guid? ProveedorId = null, Guid? CuentaBancariaId = null,
-    string? Moneda = null, decimal? TipoCambio = null, decimal? ImporteOriginal = null);
+    string? Moneda = null, decimal? TipoCambio = null, decimal? ImporteOriginal = null,
+    OrigenMovimiento? Origen = null, ReferenciaPuente? Puente = null);
+
+/// <summary>Documento que mueve la cuenta puente (K10.5). Fijo por ABI: agregar al final.</summary>
+[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]
+public enum TipoDocumentoPuente : short { Recepcion = 0, Factura = 1, Devolucion = 2, NotaCargo = 3, NotaCredito = 4, CapitalizacionAf = 5, Anulacion = 6 }
+
+/// <summary>
+/// Referencia de una partida a la cuenta puente (C1.4 ↔ K10.5): el motor la llena en las líneas con el rol
+/// MERCANCIA_RECIBIDA_POR_FACTURAR; no se guarda en la póliza: la recibe <see cref="PublicPorts.IPolizaAutomaticaObservador"/>.
+/// </summary>
+public sealed record ReferenciaPuente(Guid OrdenCompraId, Guid? LineaOcId, TipoDocumentoPuente TipoDocumento, Guid DocumentoId,
+    Guid? DocumentoOrigenFacturaId = null);
 
 /// <summary>Partidas ya validadas y los ids de las reglas de dimensión que las validaron (para registrar su uso).</summary>
 public sealed record PartidasValidadas(IReadOnlyList<DatosPartida> Partidas, IReadOnlyList<Guid> ReglasAplicadas);
@@ -113,8 +125,9 @@ public sealed class RegistroPolizas(
             estado = new(anio, numero, actual ?? EstadoPeriodo.NoAbierto, actual is not null);
         }
         else estado = await periodos.ConsultarAsync(anio, numero, ct);
+        // C1.4: la automática se valida con su propio origen (antes se disfrazaba de AuxiliarCxP).
         return VerificadorPeriodoContable.Rechazo(estado,
-            origen == OrigenPoliza.Manual ? OrigenMovimiento.Manual : OrigenMovimiento.AuxiliarCxP) is { } rechazo
+            origen == OrigenPoliza.Manual ? OrigenMovimiento.Manual : OrigenMovimiento.Automatica) is { } rechazo
             ? new BusinessRuleException(rechazo.Code, rechazo.Message.Replace("movimientos", "pólizas"))
             : null;
     }
@@ -141,8 +154,9 @@ public sealed class RegistroPolizas(
         {
             var p = partidas[i];
             var proyecto = string.IsNullOrWhiteSpace(p.Proyecto) ? null : p.Proyecto.Trim();
+            // C1.4: cada partida puede declarar su origen (el motor: AuxiliarCxC/AuxiliarCxP según el auxiliar, Automatica si no).
             var v = await validador.ValidarAsync(new MovimientoDimensionado(p.CuentaId, tipoOperacionId, fecha, p.SucursalId,
-                p.Dim1Id, p.Dim2Id, p.Dim3Id, origen, proyecto, p.ClienteId, p.ProveedorId, p.CuentaBancariaId), ct);
+                p.Dim1Id, p.Dim2Id, p.Dim3Id, p.Origen ?? origen, proyecto, p.ClienteId, p.ProveedorId, p.CuentaBancariaId), ct);
             // El tipo se reporta una sola vez en el encabezado (TipoAsync), no en cada partida.
             errores.AddRange(v.Errores.Where(e => e.Campo != "tipoDocumentoId")
                 .Select(e => new ValidationError($"partidas[{i}].{e.Campo}", e.Codigo, $"Partida {i + 1}: {e.Mensaje}")));
@@ -182,7 +196,8 @@ public sealed class RegistroPolizas(
         var referencia = poliza.Id.ToString();
         foreach (var cuentaId in poliza.Partidas.Select(x => x.CuentaId).Distinct())
         {
-            if (empresa.Current is not null)
+            // Dentro de un request: el comando de siempre. Fuera (recurrentes, motor desde un listener): misma regla con la empresa de la póliza.
+            if (empresa.Current is not null && empresa.Current == poliza.EmpresaId)
             {
                 await mediator.Send(new RegistrarUsoCuentaCommand(cuentaId, ConsumidorPoliza, referencia), ct);
                 continue;

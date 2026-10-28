@@ -21,7 +21,8 @@ namespace Millet.Api.IntegrationTests.Compras;
 /// (2) no-regresión con 1 solo almacén = el saldo de ese almacén; (3) sucursal
 /// sin stock = 0 (cae a compra en la bifurcación).</para>
 /// </summary>
-public class CubrimientoStockPorSucursalRollupTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class CubrimientoStockPorSucursalRollupTests
 {
     private readonly WebApplicationFactory<Program> _factory;
 

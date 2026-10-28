@@ -108,7 +108,7 @@ function ListaHijos({ nodoTipo, nodoId, articuloId, incluirVacios, nivel }: List
     <>
       {hijos.map((nodo) => (
         <FilaNodo
-          key={`${nodo.tipo}-${nodo.id}`}
+          key={`${nodo.tipo}-${nodo.id}-${nodo.productoAwVarianteId ?? ''}`}
           nodo={nodo}
           nivel={nivel}
           articuloId={articuloId}

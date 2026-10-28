@@ -2,7 +2,9 @@
 namespace Millet.DatosMaestros.Application.ProductosAw;
 
 public sealed record ProductoAwVarianteContratoV1(
-    string ClaveVariante, decimal? AltoMm, decimal? AnchoMm, decimal? EspesorMm, string? Composicion);
+    string ClaveVariante, decimal? AltoMm, decimal? AnchoMm, decimal? EspesorMm, string? Composicion,
+    // Aditivo (E07 D3): Id de la variante, para ligar líneas de movimiento y saldo a la medida.
+    Guid Id = default);
 
 /// <summary>
 /// Contrato de lectura estable del producto A+W (doc integration/06 §9). Cambios aditivos no suben

@@ -317,6 +317,10 @@ public class ObtenerRecepcionPorIdHandlerTests
         public Task<CfdiRecibidoLectura?> ObtenerCfdiAsync(Guid cfdiRecibidoId, CancellationToken cancellationToken) =>
             Task.FromResult<CfdiRecibidoLectura?>(null);
 
+        public Task<IReadOnlyList<FacturaLigadaRecepcionLectura>> ObtenerFacturasLigadasRecepcionAsync(
+            IReadOnlyCollection<Guid> recepcionIds, IReadOnlyCollection<Guid> facturaIds, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<FacturaLigadaRecepcionLectura>>([]);
+
         private static Task<IReadOnlyDictionary<Guid, string>> Filtrar(
             Dictionary<Guid, string> fuente, IReadOnlyCollection<Guid> ids) =>
             Task.FromResult<IReadOnlyDictionary<Guid, string>>(

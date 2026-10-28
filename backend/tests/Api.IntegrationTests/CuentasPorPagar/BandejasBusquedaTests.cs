@@ -18,7 +18,8 @@ using Cargo = Millet.CuentasPorPagar.Domain.NotaCargo.NotaCargo;
 namespace Millet.Api.IntegrationTests.CuentasPorPagar;
 
 /// <summary>UX-F2-CXP-03: <c>q</c> server-side (con comodines escapados) y RFC del proveedor en las bandejas. Datos FIX, se limpian al final.</summary>
-public sealed class BandejasBusquedaTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public sealed class BandejasBusquedaTests(WebApplicationFactory<Program> factory)
 {
     private const string Cxp = "/api/v1/cuentas-por-pagar";
 
@@ -28,7 +29,8 @@ public sealed class BandejasBusquedaTests(WebApplicationFactory<Program> factory
         var proveedorId = Guid.NewGuid();
         var sucursalId = Guid.NewGuid();
         var token = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
-        using var app = factory.ConEmpresa(EmpresaBootstrapId).WithWebHostBuilder(b => b.ConfigureTestServices(s =>
+        await using var enEmpresa = factory.ConEmpresa(EmpresaBootstrapId);
+        await using var app = enEmpresa.WithWebHostBuilder(b => b.ConfigureTestServices(s =>
         {
             s.RemoveAll<IProveedorReadPort>();
             s.AddSingleton<IProveedorReadPort>(new Proveedor(proveedorId));
@@ -36,7 +38,7 @@ public sealed class BandejasBusquedaTests(WebApplicationFactory<Program> factory
             s.RemoveAll<IPeriodoContablePort>();
             s.AddSingleton<IPeriodoContablePort>(new PeriodoAbierto());
         }));
-        var admin = await LoginAsync(app);
+        using var admin = await LoginAsync(app);
         var fecha = DateTimeOffset.UtcNow;
         try
         {

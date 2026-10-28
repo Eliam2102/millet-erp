@@ -158,7 +158,7 @@ public class OperacionesComprasOutboxTests : IClassFixture<StubsWebApplicationFa
             Millet.Compras.Domain.Oc.Folio.Parse("OC-MID2026-000001"), 2026,
             Guid.Parse("00000005-0001-0000-0000-000000000001"), Guid.CreateVersion7(),
             Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), Usuario.UserId!.Value,
-            new DateOnly(2026, 10, 7), sinRequisicionPrevia: true, motivoSinRequisicion: "Prueba ficticia outbox");
+            new DateOnly(2026, 10, 7), sinRequisicionPrevia: true, motivoSinRequisicion: "Prueba ficticia outbox", usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
         oc.AgregarLineaManual(Guid.CreateVersion7(), Guid.CreateVersion7(), 1m, "PZA", 100m, Guid.CreateVersion7());
         var ahora = DateTimeOffset.UtcNow;
         oc.EnviarAAutorizacion(ahora);

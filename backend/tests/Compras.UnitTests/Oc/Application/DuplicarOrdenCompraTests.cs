@@ -28,7 +28,7 @@ public class DuplicarOrdenCompraTests
             fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime),
             sinRequisicionPrevia: true,
             motivoSinRequisicion: "Duplicada de OC-MID2026-000100",
-            ocOrigenId: origenId);
+            ocOrigenId: origenId, usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
 
         Assert.Equal(origenId, nueva.OcOrigenId);
         Assert.Equal(EstadoOrdenCompra.Borrador, nueva.Estado);
@@ -58,7 +58,7 @@ public class DuplicarOrdenCompraTests
                 fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime),
                 sinRequisicionPrevia: true,
                 motivoSinRequisicion: "loop",
-                ocOrigenId: miId));
+                ocOrigenId: miId, usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99"));
         Assert.Equal("OC_ORIGEN_AUTOREFERENCIA", ex.Code);
     }
 
@@ -80,7 +80,7 @@ public class DuplicarOrdenCompraTests
             encargadoComprasId: Guid.CreateVersion7(),
             fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime),
             sinRequisicionPrevia: true,
-            motivoSinRequisicion: "Duplicada");
+            motivoSinRequisicion: "Duplicada", usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
 
         nueva.AgregarLineaManual(
             lineaId: Guid.CreateVersion7(),

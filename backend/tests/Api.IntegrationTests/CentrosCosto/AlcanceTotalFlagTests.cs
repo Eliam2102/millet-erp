@@ -19,7 +19,8 @@ namespace Millet.Api.IntegrationTests.CentrosCosto;
 /// inexistente (el loader devuelve permisos vacíos). Sin sembrar rol ni
 /// permiso custom.</para>
 /// </summary>
-public class AlcanceTotalFlagTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class AlcanceTotalFlagTests
 {
     private const string SuperAdminOid = "dev-superadmin";
 

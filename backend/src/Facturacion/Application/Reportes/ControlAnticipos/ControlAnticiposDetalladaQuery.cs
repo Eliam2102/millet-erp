@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.Facturacion.Application.Anticipos.Queries;
 using Millet.Facturacion.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 
@@ -33,7 +34,9 @@ public sealed record AnticipoEstadoCuenta(
     // (el AnticipoPicker excluye anticipos cuyo CFDI no está Timbrado).
     Guid FacturaAnticipoId,
     string EstadoCfdi,
-    IReadOnlyList<AnticipoVinculacionDetalle> Vinculaciones);
+    IReadOnlyList<AnticipoVinculacionDetalle> Vinculaciones,
+    // 86e3tfd6n: pedido de A+W ya importado con el número del anticipo y del mismo cliente (null = pendiente o sin pedido).
+    PedidoLigadoAnticipo? PedidoLigado = null);
 
 public sealed record AnticipoVinculacionDetalle(
     Guid FacturaVentaId,
@@ -77,6 +80,8 @@ public sealed class ControlAnticiposDetalladaHandler
         var facturaPorId = facturas.ToDictionary(f => f.Id, f => f.Folio);
         var ncPorId = ncs.ToDictionary(n => n.Id, n => n);
         var cfdiAnticipoPorId = folioAnticipos.ToDictionary(f => f.Id, f => f);
+        var ligados = await AnticipoPedidoLigado.ResolverAsync(
+            _db, anticipos.Select(a => (a.ClienteId, a.PedidoOrigenRef)), cancellationToken);
 
         var estados = anticipos.Select(a => new AnticipoEstadoCuenta(
             a.Id,
@@ -92,7 +97,8 @@ public sealed class ControlAnticiposDetalladaHandler
                     v.FacturaVentaId, facturaPorId.GetValueOrDefault(v.FacturaVentaId), v.Importe,
                     v.NcAmortizacionId, nc?.Folio,
                     nc is not null && nc.Estado == Domain.Comprobantes.EstadoTimbrado.Timbrado);
-            }).ToList()))
+            }).ToList(),
+            a.PedidoOrigenRef is { } numero ? ligados.GetValueOrDefault((a.ClienteId, numero)) : null))
             .ToList();
 
         return new ControlAnticiposDetalladaResponse(

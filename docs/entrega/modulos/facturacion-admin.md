@@ -12,7 +12,7 @@
 | `facturacion.carta-porte.emitir` / `.leer` | Facturista de traslados (incl. catálogos vehículo/operador) |
 | `facturacion.repp.emitir` | Facturista |
 | `facturacion.cancelaciones.solicitar` / `.consultar` | Facturista senior |
-| `facturacion.activos.autorizar` | **Contador General** (venta de activos fijos) |
+| `facturacion.activos.autorizar` | **Director de Administración y Finanzas** (venta de activos fijos) |
 | `facturacion.caja.operar` | Cajero (abrir sesión propia, cobrar, arquear) |
 | `facturacion.caja.liquidar` | Cajero autorizado / supervisor (cierre) |
 | `facturacion.caja.supervisar` | Supervisor (apertura ajena, reabrir, cancelar cobros) |

@@ -116,7 +116,7 @@ public class ComprasOcReadAdapterIntegrationTests : IClassFixture<StubsWebApplic
             encargadoComprasId: Guid.CreateVersion7(),
             fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime),
             sinRequisicionPrevia: true,
-            motivoSinRequisicion: "Test CA2.10");
+            motivoSinRequisicion: "Test CA2.10", usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
 
         var deptoId = Guid.CreateVersion7();
         foreach (var l in lineasConfig)

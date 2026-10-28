@@ -21,8 +21,12 @@ public sealed class LibroServicio(ActivosFijosDbContext db, ActivoServicio acces
     {
         var mismoMes = await MismoMesAsync(ct);
         var activos = await db.Activos.Where(x => x.Estado == EstadoActivo.Activo && x.InicioUso != null)
-            .Join(db.Clases.Where(c => c.Depreciable && c.TasaFiscalAnual != null && c.TasaFiscalAnual > 0), a => a.ClaseId, c => c.Id, (a, c) => a).ToListAsync(ct);
-        return activos.Select(a => (DateOnly?)CalculoDepreciacion.PrimerMes(a, mismoMes)).Min();
+            .Join(db.Clases.Where(c => c.Depreciable && (c.TasaContableAnual > 0 || c.Clave == "160" || c.Clave == "170")), a => a.ClaseId, c => c.Id, (a, c) => a).ToListAsync(ct);
+        var clases = await db.Clases.ToDictionaryAsync(c => c.Id, ct);
+        var todos = await db.Activos.ToDictionaryAsync(a => a.Id, ct);
+        return activos.Where(a => TasasActivo.Resolver(a, clases[a.ClaseId],
+            a.ActivoMejoradoId is Guid id && todos.TryGetValue(id, out var mejorado) ? clases[mejorado.ClaseId] : null).Contable > 0)
+            .Select(a => (DateOnly?)CalculoDepreciacion.PrimerMes(a, mismoMes)).Min();
     }
     public async Task BloquearAsync(CancellationToken ct)
     {
@@ -102,7 +106,8 @@ public sealed class LibroServicio(ActivosFijosDbContext db, ActivoServicio acces
         var clases = await db.Clases.ToDictionaryAsync(x => x.Id, ct);
         var ajustes = await db.Set<OperacionLibro>().Where(x => x.Tipo == "Revalorizacion" && x.PolizaId != null && !x.Anulada && x.Fecha < CalculoDepreciacion.Mes(periodo)).ToListAsync(ct);
         var mismoMes = await MismoMesAsync(ct);
-        var filas = activos.Select(a => CalculoDepreciacion.Calcular(a, clases[a.ClaseId], periodo, ajustes.Where(x => x.ActivoId == a.Id).Sum(x => x.Importe), mismoMes)).ToList();
+        var todos = await db.Activos.AsNoTracking().ToDictionaryAsync(a => a.Id, ct);
+        var filas = activos.Select(a => CalculoDepreciacion.Calcular(a, clases[a.ClaseId], periodo, ajustes.Where(x => x.ActivoId == a.Id).Sum(x => x.Importe), mismoMes, a.ActivoMejoradoId is Guid id && todos.TryGetValue(id, out var mejorado) ? clases[mejorado.ClaseId] : null)).ToList();
         if (alcance) foreach (var sucursal in filas.Select(x => x.SucursalId).Distinct()) await acceso.SucursalAsync(sucursal, escribir, ct);
         if (catalogos != null) foreach (var f in filas)
         {

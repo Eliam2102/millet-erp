@@ -1,3 +1,4 @@
+import { CampoFacturaOc } from '../components/CampoFacturaOc';
 import { DialogBody } from '@/components/ui/dialog';
 import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -577,7 +578,38 @@ export function SheetNuevaOC({
           </FormCampo>
         </FormGrid>
 
-        {/* Sección comercial (condiciones + uso + moneda + TC) */}
+        <FormGrid>
+          <FormCampo span={6}>
+            <Controller
+              control={form.control}
+              name="usoPrincipalId"
+              render={({ field, fieldState }) => (
+                <Field label="Uso interno de la compra" error={fieldState.error?.message}>
+                  {(c) => (
+                    <>
+                      <p className="text-xs text-ink-muted">No se imprime en la orden de compra</p>
+                      <UsoPrincipalSelector
+                        triggerProps={c}
+                        value={field.value || null}
+                        onChange={(v) => field.onChange(v ?? '')}
+                      />
+                    </>
+                  )}
+                </Field>
+              )}
+            />
+          </FormCampo>
+        </FormGrid>
+        <section aria-label="Datos para la factura del proveedor" className="space-y-3">
+          <h3 className="text-sm font-semibold">Datos para la factura del proveedor</h3>
+          <p className="text-xs text-ink-muted">Uso de CFDI, método y forma de pago son obligatorios al enviar a autorización.</p>
+          <FormGrid>{(['usoCfdiClave', 'metodoPago', 'formaPagoClave'] as const).map(campo => (
+            <FormCampo key={campo} span={4}>
+              <Controller control={form.control} name={campo} render={({ field, fieldState }) => (
+                <CampoFacturaOc campo={campo} value={field.value} onChange={field.onChange} error={fieldState.error?.message} />
+              )} />
+            </FormCampo>
+          ))}</FormGrid>
         <FormGrid>
           <FormCampo span={6}>
             <Controller
@@ -599,25 +631,6 @@ export function SheetNuevaOC({
             />
           </FormCampo>
 
-          <FormCampo span={6}>
-            <Controller
-              control={form.control}
-              name="usoPrincipalId"
-              render={({ field, fieldState }) => (
-                <Field label="Uso principal" error={fieldState.error?.message}>
-                  {(c) => (
-                    <>
-                      <UsoPrincipalSelector
-                        triggerProps={c}
-                        value={field.value || null}
-                        onChange={(v) => field.onChange(v ?? '')}
-                      />
-                    </>
-                  )}
-                </Field>
-              )}
-            />
-          </FormCampo>
         </FormGrid>
 
         <FormGrid>
@@ -648,6 +661,9 @@ export function SheetNuevaOC({
             />
           </FormCampo>
 
+        </FormGrid>
+        </section>
+        <FormGrid>
           <FormCampo span={6}>
             <Controller
               control={form.control}

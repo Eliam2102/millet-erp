@@ -1,3 +1,4 @@
+using Millet.Compras.Domain.Oc;
 using Millet.CentrosCosto.Application.PublicPorts;
 using Millet.Compras.Application.Oc.ObtenerOrdenCompraPorId;
 using Millet.Compras.Domain.Ports.DatosMaestros;
@@ -24,6 +25,32 @@ namespace Millet.Compras.UnitTests.Oc.Application;
 /// </summary>
 public class ObtenerOrdenCompraPorIdHandlerTests
 {
+    private static readonly string[] CamposFactura = ["usoCfdiClave", "metodoPago", "formaPagoClave"];
+
+    [Theory]
+    [InlineData(EstadoOrdenCompra.Borrador, true)]
+    [InlineData(EstadoOrdenCompra.Rechazada, true)]
+    [InlineData(EstadoOrdenCompra.Autorizada, false)]
+    [InlineData(EstadoOrdenCompra.Cerrada, false)]
+    [InlineData(EstadoOrdenCompra.Cancelada, false)]
+    [InlineData(EstadoOrdenCompra.CancelacionSolicitada, false)]
+    [InlineData(EstadoOrdenCompra.EnAutorizacionJefeCompras, false)]
+    [InlineData(EstadoOrdenCompra.EnAutorizacionDireccion, false)]
+    public void DatosFacturaFaltantes_SoloSeAvisanEnEstadosEditables(EstadoOrdenCompra estado, bool editable)
+    {
+        var oc = new OrdenCompra(Guid.NewGuid(), Guid.NewGuid(), Folio.Parse("OC-MID2026-000001"), 2026,
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            new DateOnly(2026, 10, 22));
+        // Simula una OC histórica que no capturó los nuevos datos fiscales.
+        typeof(OrdenCompra).GetProperty(nameof(OrdenCompra.Estado))!.SetValue(oc, estado);
+
+        var campos = ObtenerOrdenCompraPorIdHandler.CalcularCamposPorCapturar(oc);
+
+        campos.Should().BeEquivalentTo(editable
+            ? CamposFactura
+            : Array.Empty<string>());
+    }
+
     private static readonly Guid RqA = Guid.CreateVersion7();
     private static readonly Guid RqB = Guid.CreateVersion7();
 

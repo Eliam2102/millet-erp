@@ -23,6 +23,7 @@ import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccion
 import { UbicacionBinSelector } from '@/components/erp/selectors/UbicacionBinSelector';
 import { applyServerErrors, esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { hoyLocalISO } from '@/lib/datetime';
+import { areaHojaDe, textoMedida } from '@/features/almacen/lib/medida-hoja';
 import { useDictaminarMaterialEnRevision } from '@/features/almacen/api/useMaterialEnRevision';
 import {
   ResultadoDictamen,
@@ -62,6 +63,12 @@ function crearSchema(pendiente: number) {
 }
 type FormValues = z.infer<ReturnType<typeof crearSchema>>;
 
+/** « (2140 × 3300 mm · 6 hojas)» para el vidrio por medida; vacío si la línea no tiene medida. */
+function conMedida(item: MaterialEnRevisionItem, cantidad: number): string {
+  const t = textoMedida({ ...item, areaHojaM2: areaHojaDe(item.anchoMm, item.altoMm) }, cantidad);
+  return t ? ` (${t})` : '';
+}
+
 export interface DictamenRevisionSheetProps {
   item: MaterialEnRevisionItem | null;
   onOpenChange: (open: boolean) => void;
@@ -85,7 +92,7 @@ export function DictamenRevisionSheet({
           <SheetTitle>Dictaminar material en revisión</SheetTitle>
           <SheetDescription>
             {item
-              ? `Recepción ${item.recepcionFolio} · ${item.articuloClave ?? ''} · pendiente ${item.cantidadPendiente} ${item.unidadMedida}`
+              ? `Recepción ${item.recepcionFolio} · ${item.articuloClave ?? ''} · pendiente ${item.cantidadPendiente} ${item.unidadMedida}${conMedida(item, item.cantidadPendiente)}`
               : ''}
           </SheetDescription>
         </SheetHeader>
@@ -349,7 +356,8 @@ function Cuerpo({
         resumen={
           <p>
             {verbo} {form.getValues('cantidad')} {item.unidadMedida} de{' '}
-            {item.articuloClave ?? 'este artículo'}.{' '}
+            {item.articuloClave ?? 'este artículo'}
+            {conMedida(item, Number(form.getValues('cantidad')))}.{' '}
             {resultado === ResultadoDictamen.Rechazar
               ? 'Se abre una devolución al proveedor para autorización de Dirección; esta acción no se puede deshacer.'
               : 'Esta acción mueve inventario y no se puede deshacer.'}

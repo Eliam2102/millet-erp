@@ -128,6 +128,7 @@ public sealed class MovimientoTarjetaCreditoConfiguration : IEntityTypeConfigura
         builder.Property(e => e.FacturaProveedorId);
         builder.Property(e => e.ProveedorId);
         builder.Property(e => e.ConceptoContable).HasMaxLength(120).IsRequired();
+        builder.Property(e => e.ClasificacionNoDeducible).HasMaxLength(40);
 
         builder.Property(e => e.MovimientoOriginalId);
 

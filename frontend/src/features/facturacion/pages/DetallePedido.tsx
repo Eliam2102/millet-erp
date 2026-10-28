@@ -18,6 +18,7 @@ import { useGenerarProforma, useUltimaProforma } from '@/features/facturacion/ap
 import type { ProformaPedidoResponse } from '@/features/facturacion/api/types';
 import { ClasePedidoBadge } from '@/features/facturacion/components/ClasePedidoBadge';
 import { BadgeCredito } from '@/features/facturacion/components/BadgeCredito';
+import { AvisoCobrarEnCaja } from '@/features/facturacion/components/CobrarEnCajaLink';
 import { EmitirFacturaForm } from '@/features/facturacion/components/emitir-factura/EmitirFacturaForm';
 import { EstadoFacturacionBadge } from '@/features/facturacion/components/EstadoFacturacionBadge';
 import { ProformaPedidoCard } from '@/features/facturacion/components/ProformaPedidoCard';
@@ -104,6 +105,7 @@ function Contenido({
   const queryClient = useQueryClient();
   const nuevoPedido = useNuevoPedido();
   const [modoEmision, setModoEmision] = useState(false);
+  const [emitida, setEmitida] = useState<{ id: string; folio: string } | null>(null);
   const puedeEmitir = useHasPermission(PermisosCanonicos.FacturacionFacturasEmitir);
   const puedeEditar = useHasPermission(PermisosCanonicos.FacturacionPedidosCapturar);
   const puedeLeerFacturas = useHasPermission(PermisosCanonicos.FacturacionFacturasLeer);
@@ -199,6 +201,9 @@ function Contenido({
               ComportamientoFiscal[p.comportamientoFiscal as keyof typeof ComportamientoFiscal],
             moneda: p.moneda,
             obraNombre: p.obraNombre,
+            referenciaCliente: p.numeroPedido,
+            observaciones: p.comentarios,
+            condicionesPago: p.condicionPagoOrigen,
             lineas: p.lineas.map((l) => ({
               productoId: l.productoId,
               claveProdServSat: l.claveProdServSat ?? '',
@@ -223,7 +228,8 @@ function Contenido({
                 }
               : undefined
           }
-          onSuccess={() => {
+          onSuccess={(res) => {
+            if (res.uuid) setEmitida({ id: res.id, folio: res.folio });
             void queryClient.invalidateQueries({
               queryKey: facturacionKeys.pedidos(),
             });
@@ -236,6 +242,7 @@ function Contenido({
 
   return (
     <div className="space-y-5">
+      {emitida && <AvisoCobrarEnCaja comprobanteId={emitida.id} folio={emitida.folio} />}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-3">
@@ -432,6 +439,41 @@ function Contenido({
           Los impuestos y el total fiscal se calculan al preparar la factura.
         </p>
       </section>
+
+      {(p.anticiposLigados?.length ?? 0) > 0 && (
+        <section className="space-y-2">
+          <h2 className="text-sm font-medium">Anticipos del pedido ({p.anticiposLigados!.length})</h2>
+          <p className="text-xs text-ink-muted">
+            Cobrados con este número de pedido de A+W antes de que llegara al ERP; se aplican al facturar.
+          </p>
+          <div className="overflow-x-auto rounded-md border border-line">
+            <Table className="w-full text-sm">
+              <TableHeader className="bg-surface-muted/50">
+                <TableRow>
+                  <TableHead className="px-3 py-2 text-left">Folio</TableHead>
+                  <TableHead className="px-3 py-2 text-right tabular-nums">Cobrado</TableHead>
+                  <TableHead className="px-3 py-2 text-right tabular-nums">Saldo</TableHead>
+                  <TableHead className="px-3 py-2 text-left">Estado</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {p.anticiposLigados!.map((a) => (
+                  <TableRow key={a.anticipoId} className="border-t border-line">
+                    <TableCell className="px-3 py-2 font-mono text-xs">{a.folio}</TableCell>
+                    <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
+                      {a.montoCobrado.toFixed(2)}
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
+                      {a.saldo.toFixed(2)}
+                    </TableCell>
+                    <TableCell className="px-3 py-2">{a.estado}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </section>
+      )}
 
       <section className="space-y-2">
         <h2 className="text-sm font-medium">Historial de comprobantes ({comprobantes.length})</h2>

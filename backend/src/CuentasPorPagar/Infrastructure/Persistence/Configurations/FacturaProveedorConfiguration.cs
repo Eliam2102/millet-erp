@@ -68,6 +68,10 @@ public sealed class FacturaProveedorConfiguration : IEntityTypeConfiguration<Fac
         // TES-PR8 [T-G11]: PUE/PPD copiado del CFDI ligado en la captura.
         builder.Property(e => e.MetodoPago).HasMaxLength(3);
 
+        // P8.6: IvaNoAcreditable es calculado, no se persiste.
+        builder.Property(e => e.ClasificacionNoDeducible).HasMaxLength(40);
+        builder.Ignore(e => e.IvaNoAcreditable);
+
         // G1.6 (P2): desglose de retenciones del CFDI.
         builder.Property(e => e.RetencionesDetalle)
             .HasColumnType("jsonb")

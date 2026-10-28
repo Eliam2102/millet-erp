@@ -27,7 +27,7 @@ public class LocalPdfOrdenCompraStubTests
             encargadoComprasId: Guid.CreateVersion7(),
             fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime),
             sinRequisicionPrevia: true,
-            motivoSinRequisicion: "Manual test");
+            motivoSinRequisicion: "Manual test", usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
 
         oc.AgregarLineaManual(
             lineaId: Guid.CreateVersion7(),

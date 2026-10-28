@@ -16,6 +16,7 @@ import { SucursalSelector } from '@/components/erp/selectors/SucursalSelector';
 import { UsuarioSelector } from '@/components/erp/selectors/UsuarioSelector';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { useClasesActivo, useGuardarActivo } from '../api/hooks';
+import { ActivoMejoradoSelector } from './ActivoMejoradoSelector';
 import type { Activo, Custodia, DatosActivo } from '../api/types';
 const vacio = '00000000-0000-0000-0000-000000000000';
 export function CustodiaFields({
@@ -184,7 +185,9 @@ export function ActivoForm({ activo, onClose }: { activo?: Activo; onClose: () =
                   required
                   className="h-ctl-xl w-full rounded-md border border-line-control bg-surface-card px-3"
                   value={d.claseId}
-                  onChange={(e) => set({ claseId: e.target.value })}
+                  onChange={(e) =>
+                    set({ claseId: e.target.value, activoMejoradoId: null, vidaUtilMeses: null })
+                  }
                 >
                   <option value="">Seleccione clase</option>
                   {clases.data
@@ -196,6 +199,33 @@ export function ActivoForm({ activo, onClose }: { activo?: Activo; onClose: () =
                     ))}
                 </select>
               </label>
+              {clases.data?.find((c) => c.id === d.claseId)?.clave === '170' && (
+                <label className="space-y-1 text-xs">
+                  Activo que mejora
+                  <ActivoMejoradoSelector
+                    value={d.activoMejoradoId ?? null}
+                    excluirId={activo?.id}
+                    onChange={(id) => set({ activoMejoradoId: id })}
+                  />
+                  <span>Sin vínculo no se calcula depreciación.</span>
+                </label>
+              )}
+              {clases.data?.find((c) => c.id === d.claseId)?.clave === '160' && (
+                <label className="space-y-1 text-xs">
+                  Vida útil en meses
+                  <Input
+                    type="number"
+                    min="1"
+                    max="600"
+                    step="1"
+                    value={d.vidaUtilMeses ?? ''}
+                    onChange={(e) =>
+                      set({ vidaUtilMeses: e.target.value === '' ? null : Number(e.target.value) })
+                    }
+                  />
+                  <span>De 1 a 600 meses. Sin vida útil no se calcula depreciación.</span>
+                </label>
+              )}
               {(['marca', 'modelo', 'numeroSerie', 'documentoSoporte', 'pedimento'] as const).map(
                 (k, i) => (
                   <label key={k} className="space-y-1 text-xs">

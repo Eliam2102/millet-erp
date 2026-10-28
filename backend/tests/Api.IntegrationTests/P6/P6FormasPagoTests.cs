@@ -16,19 +16,20 @@ using Millet.SharedKernel.Infrastructure.Persistence;
 
 namespace Millet.Api.IntegrationTests.P6;
 
-public sealed class P6FormasPagoTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public sealed class P6FormasPagoTests(WebApplicationFactory<Program> factory)
 {
     [Fact]
     public async Task Desactivar_02_audita_el_cambio_la_oculta_y_Caja_y_Facturacion_rechazan()
     {
         // Esta prueba mide el catálogo de formas de pago; el candado de periodo se prueba aparte
         // (antes dependía de que el mes actual estuviera abierto en la BD de prueba).
-        var app = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s =>
+        await using var app = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s =>
         {
             s.RemoveAll<Millet.Facturacion.Domain.Ports.IPeriodoContablePort>();
             s.AddScoped<Millet.Facturacion.Domain.Ports.IPeriodoContablePort, PeriodoFacturacionAbierto>();
         }));
-        var client = app.CreateClientWithIdempotency();
+        using var client = app.CreateClientWithIdempotency();
         var loginRes = await client.PostAsJsonAsync("/api/dev/fake-login", new { EntraOid = "dev-superadmin", Email = "superadmin@dev.local", Nombre = "Super Admin Dev" });
         loginRes.EnsureSuccessStatusCode();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", (await loginRes.Content.ReadFromJsonAsync<LoginResponse>())!.AccessToken);

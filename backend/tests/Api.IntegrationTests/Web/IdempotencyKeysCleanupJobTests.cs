@@ -16,7 +16,8 @@ namespace Millet.Api.IntegrationTests.Web;
 /// completed/failed) se aplica correctamente y que el advisory lock
 /// previene corridas concurrentes.
 /// </summary>
-public class IdempotencyKeysCleanupJobTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class IdempotencyKeysCleanupJobTests
 {
     private readonly WebApplicationFactory<Program> _factory;
 

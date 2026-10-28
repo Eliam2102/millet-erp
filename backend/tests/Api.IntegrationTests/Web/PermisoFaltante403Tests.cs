@@ -13,7 +13,8 @@ namespace Millet.Api.IntegrationTests.Web;
 /// canónico faltante en <c>detail</c> y <c>permisosFaltantes[]</c> — antes
 /// respondía body vacío y el frontend mostraba "HTTP 403" sin pista.
 /// </summary>
-public class PermisoFaltante403Tests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class PermisoFaltante403Tests
 {
     private const string SinPermisosOid = "test-no-perms";
 

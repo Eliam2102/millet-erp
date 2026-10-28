@@ -48,6 +48,7 @@ import { useRecepcion } from '@/features/almacen/api/useRecepciones';
 import type { RecepcionLineaItem } from '@/features/almacen/api/types';
 import { RecepcionPicker } from '@/features/almacen/components/RecepcionPicker';
 import { Field } from '@/features/almacen/components/internal/Field';
+import { cantidadM2, medidaDe } from '@/features/almacen/lib/medida-hoja';
 
 export interface NuevaDevolucionProveedorSheetProps {
   open: boolean;
@@ -174,7 +175,9 @@ function FormBody({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: ()
     if (!linea) return;
     const opts = { shouldDirty: true, shouldValidate: true } as const;
     form.setValue(`lineas.${index}.articuloId`, linea.articuloId, opts);
-    form.setValue(`lineas.${index}.cantidad`, linea.cantidad, opts);
+    // F1-MP-01: con medida la cantidad se captura en hojas enteras (la devolución hereda la medida de la partida origen).
+    const medida = medidaDe(linea);
+    form.setValue(`lineas.${index}.cantidad`, medida ? medida.hojas : linea.cantidad, opts);
     form.setValue(`lineas.${index}.unidadMedida`, linea.unidadMedida, opts);
     form.setValue(`lineas.${index}.costoUnitarioMxn`, linea.costoUnitarioMxn, opts);
   }
@@ -185,6 +188,22 @@ function FormBody({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: ()
     // Advisory: decimales por unidad (string→código; backend autoritativo).
     let decimalesMal = false;
     values.lineas.forEach((l, i) => {
+      const medida = medidaDe(
+        recepcionQuery.data?.lineas.find((o) => o.id === l.lineaRecepcionOrigenId),
+      );
+      if (medida) {
+        // Hojas enteras y no más de las recibidas; los m² derivados no se revisan contra los decimales de la unidad (D8).
+        if (!Number.isInteger(l.cantidad) || l.cantidad > medida.hojas) {
+          form.setError(`lineas.${i}.cantidad` as Parameters<typeof form.setError>[0], {
+            type: 'hojas',
+            message: Number.isInteger(l.cantidad)
+              ? `Solo se recibieron ${medida.hojas} hojas de esta medida.`
+              : 'Con medida, captura la cantidad en hojas enteras.',
+          });
+          decimalesMal = true;
+        }
+        return;
+      }
       // Solo 'invalidos' bloquea; 'no-resoluble' avisa (sin bloquear) en la línea.
       if (
         evaluarDecimalesFila(lookup, {
@@ -199,7 +218,10 @@ function FormBody({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: ()
         decimalesMal = true;
       }
     });
-    if (decimalesMal) return;
+    if (decimalesMal) {
+      toast.error(MENSAJE_REVISA_CAMPOS);
+      return;
+    }
     iniciar.mutate(
       {
         command: {
@@ -211,7 +233,8 @@ function FormBody({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: ()
           subAlmacenOrigenId: values.subAlmacenOrigenId ?? null,
           lineas: values.lineas.map((l) => ({
             articuloId: l.articuloId,
-            cantidad: l.cantidad,
+            // Con medida: hojas × m² por hoja (el área ya viene a 4 decimales); el servidor exige hojas enteras.
+            cantidad: cantidadM2(l, recepcionQuery.data?.lineas),
             unidadMedida: l.unidadMedida,
             costoUnitarioMxn: l.costoUnitarioMxn,
             lineaRecepcionOrigenId: l.lineaRecepcionOrigenId ?? null,
@@ -253,7 +276,7 @@ function FormBody({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: ()
       <SheetBody>
         <form
           id="nueva-devolucion-proveedor-form"
-          onSubmit={form.handleSubmit(onSubmit)}
+          onSubmit={form.handleSubmit(onSubmit, () => toast.error(MENSAJE_REVISA_CAMPOS))}
           noValidate
           className="space-y-4"
         >
@@ -439,10 +462,12 @@ interface LineaErrors {
 /** Sentinel para "sin línea origen" — shadcn Select no acepta value="". */
 const SIN_LINEA = '__ninguna__';
 
+const MENSAJE_REVISA_CAMPOS = 'Revisa los campos marcados en rojo antes de crear la devolución.';
+
 function etiquetaLinea(l: RecepcionLineaItem): string {
   const articulo = l.articuloClave ?? `${l.articuloId.slice(0, 8)}…`;
   const desc = l.articuloDescripcion ? ` · ${l.articuloDescripcion}` : '';
-  return `#${l.posicion} · ${articulo}${desc} · ${l.cantidad} ${l.unidadMedida}`;
+  return `#${l.posicion} · ${articulo}${desc} · ${medidaDe(l)?.texto ?? `${l.cantidad} ${l.unidadMedida}`}`;
 }
 
 function LineaForm({
@@ -466,9 +491,11 @@ function LineaForm({
     control,
     name: `lineas.${index}.unidadMedida` as const,
   });
+  const origenId = useWatch({ control, name: `lineas.${index}.lineaRecepcionOrigenId` as const });
+  const medida = medidaDe(lineasRecepcion?.find((o) => o.id === origenId));
   const decResuelto = lookupLinea.porCodigo(umCodigo);
   const decimalesLinea = decResuelto ?? DECIMALES_FALLBACK;
-  const unidadNoResoluble = decResuelto == null;
+  const unidadNoResoluble = decResuelto == null && !medida;
   return (
     <div className="rounded-md border border-dashed border-brand/40 bg-brand/5 p-3 space-y-2">
       <div className="flex items-start justify-between gap-2">
@@ -542,7 +569,11 @@ function LineaForm({
         </FormCampo>
 
         <FormCampo span={6}>
-          <Field label="Cantidad" required error={errors?.cantidad?.message}>
+          <Field
+            label={medida ? 'Cantidad (hojas)' : 'Cantidad'}
+            required
+            error={errors?.cantidad?.message}
+          >
             <Controller
               name={`lineas.${index}.cantidad` as const}
               control={control}
@@ -550,8 +581,9 @@ function LineaForm({
                 <Input
                   type="number"
                   inputMode="decimal"
-                  step={stepParaDecimales(decimalesLinea)}
+                  step={medida ? 1 : stepParaDecimales(decimalesLinea)}
                   min="0"
+                  max={medida?.hojas}
                   value={field.value ?? ''}
                   onChange={(e) =>
                     field.onChange(e.target.value === '' ? '' : Number(e.target.value))
@@ -559,6 +591,7 @@ function LineaForm({
                 />
               )}
             />
+            {medida && <p className="mt-1 text-xs text-ink-muted">{medida.texto}</p>}
             <AvisoUnidadNoResoluble visible={unidadNoResoluble} />
           </Field>
         </FormCampo>
