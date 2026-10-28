@@ -35,6 +35,7 @@ public static class DependencyInjection
         services.AddScoped<IUsuarioServicioReadPort, NoOpUsuarioServicioReadPort>();
         services.AddScoped<IComprasCrearRqSistemaPort, NoOpComprasCrearRqSistemaPort>();
         services.AddScoped<IArticuloReadPort, NoOpArticuloReadPort>();
+        services.AddScoped<IVarianteVidrioReadPort, NoOpVarianteVidrioReadPort>();
         services.AddScoped<IProveedorReadPort, NoOpProveedorReadPort>();
         services.AddScoped<IAdjuntosEntidadReadPort, NoOpAdjuntosEntidadReadPort>();
         services.AddScoped<ICxpDocumentosReadPort, NoOpCxpDocumentosReadPort>();

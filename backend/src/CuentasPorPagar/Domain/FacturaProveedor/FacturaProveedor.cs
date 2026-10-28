@@ -100,6 +100,20 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
     public decimal Retenciones { get; private set; }
     public decimal Total { get; private set; }
 
+    /// <summary>Clave de <c>ClasificacionNoDeducible</c> (P8.6). Null = deducible.</summary>
+    public string? ClasificacionNoDeducible { get; private set; }
+
+    /// <summary>IVA que no se acredita: todo el IVA trasladado cuando el gasto es no deducible (no se persiste).</summary>
+    public decimal IvaNoAcreditable => ClasificacionNoDeducible is null ? 0m : ImpuestosTrasladados;
+
+    public void MarcarNoDeducible(string clasificacion)
+    {
+        AsegurarMutable("marcar como no deducible");
+        if (string.IsNullOrWhiteSpace(clasificacion) || clasificacion.Trim().Length > 40)
+            throw new BusinessRuleException("CXP_CLASIFICACION_NO_DEDUCIBLE_INVALIDA", "La clasificación de gasto no deducible no es válida.");
+        ClasificacionNoDeducible = clasificacion.Trim().ToUpperInvariant();
+    }
+
     /// <summary>OC asociada (opcional — null si es factura directa).</summary>
     public Guid? OrdenCompraId { get; private set; }
 
@@ -112,6 +126,24 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
         if (recepcionId == Guid.Empty)
             throw new BusinessRuleException("RECEPCION_ID_VACIO", "La recepción elegida no es válida.");
         RecepcionId = recepcionId;
+    }
+
+    /// <summary>
+    /// 86e3tabdp: Almacén canceló la recepción que esta factura había elegido. Idempotente y sin <c>AsegurarMutable</c>:
+    /// es un hecho de Almacén que no depende del estado de la factura (no genera nota de cargo).
+    /// </summary>
+    public void DesligarRecepcion(Guid recepcionId)
+    {
+        if (RecepcionId == recepcionId) RecepcionId = null;
+    }
+
+    /// <summary>
+    /// 86e3tabdp: la recepción correcta de la misma OC y CFDI toma el lugar de la cancelada. Solo si la factura quedó sin recepción;
+    /// sin <c>AsegurarMutable</c> por el mismo motivo que <see cref="DesligarRecepcion"/> (hecho de Almacén, la factura puede estar Autorizada).
+    /// </summary>
+    public void LigarRecepcionCorrecta(Guid recepcionId)
+    {
+        if (RecepcionId is null && recepcionId != Guid.Empty) RecepcionId = recepcionId;
     }
 
     /// <summary>Encargado de compras snapshot desde la OC al momento de captura.</summary>

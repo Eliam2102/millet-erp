@@ -145,6 +145,9 @@ export function valoresIniciales(
       ? prefill.embarqueCe.clavePedimento
       : base.cceClaveDePedimento,
     moneda: prefill.moneda ?? base.moneda,
+    condicionesPago: prefill.condicionesPago,
+    referenciaCliente: prefill.referenciaCliente,
+    observaciones: prefill.observaciones,
     obraNombre: prefill.obraNombre ?? null,
     lineas,
   };

@@ -26,7 +26,8 @@ namespace Millet.Api.IntegrationTests.Almacen;
 /// (cualquier GUID = artículo activo), para no depender del seed de artículos de
 /// millet_dev.</para>
 /// </summary>
-public class AsignacionArticuloUbicacionTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class AsignacionArticuloUbicacionTests
 {
     private readonly WebApplicationFactory<Program> _base;
 

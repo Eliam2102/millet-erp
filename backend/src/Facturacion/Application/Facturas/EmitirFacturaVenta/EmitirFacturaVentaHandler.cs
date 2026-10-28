@@ -52,6 +52,7 @@ public sealed class EmitirFacturaVentaHandler
     private readonly ICurrentUserContext _user;
     private readonly IClock _clock;
     private readonly IProductosReadPort? _productos;
+    private readonly IPlazoCreditoClienteReadPort? _plazoCredito;
     private readonly IEmbarqueExportacionReadPort? _embarques;
     private readonly ILogger<EmitirFacturaVentaHandler>? _logger;
 
@@ -72,7 +73,8 @@ public sealed class EmitirFacturaVentaHandler
         // romper composiciones existentes (sin puerto, TipoProducto = null).
         IProductosReadPort? productos = null,
         IEmbarqueExportacionReadPort? embarques = null,
-        ILogger<EmitirFacturaVentaHandler>? logger = null)
+        ILogger<EmitirFacturaVentaHandler>? logger = null,
+        IPlazoCreditoClienteReadPort? plazoCredito = null)
     {
         _receptorFiscal = receptorFiscal;
         _db = db;
@@ -88,6 +90,7 @@ public sealed class EmitirFacturaVentaHandler
         _user = user;
         _clock = clock;
         _productos = productos;
+        _plazoCredito = plazoCredito;
         _embarques = embarques;
         _logger = logger;
     }
@@ -127,7 +130,7 @@ public sealed class EmitirFacturaVentaHandler
                 if (string.IsNullOrWhiteSpace(embarque.Incoterm))
                     throw new BusinessRuleException("CE_INCOTERM_REQUERIDO", "Seleccione un Incoterm vigente en el expediente.");
                 copiaCe = new(embarque.FolioExpediente!, embarque.NumeroPedimento!, embarque.ClavePedimento!, embarque.FechaPedimento!.Value,
-                    embarque.Incoterm, Array.AsReadOnly(embarque.Contenedores!.Select(c => new ContenedorFacturaCe(c.Numero, c.BlGuia, c.FechaEmbarqueReal)).ToArray()));
+                    embarque.Incoterm, Array.AsReadOnly(embarque.Contenedores!.Select(c => new ContenedorFacturaCe(c.Numero, c.BlGuia, c.FechaEmbarqueReal)).ToArray()), embarque.Aduana, embarque.AduanaNombre);
                 if (embarque.ClavePedimento == "RT")
                 {
                     command = command with { Cce = null };
@@ -185,7 +188,7 @@ public sealed class EmitirFacturaVentaHandler
         // directa subtipo Activo fuerza el comportamiento VentaActivoFijo y, con
         // él, la autorización del Director de Administración y Finanzas (CA6.12). Un pedido manual
         // legacy (sin clase) se rechaza aquí.
-        var pedido = await CargarYValidarPedidoAsync(command, copiaCe is not null, cancellationToken);
+        var pedido = await CargarYValidarPedidoAsync(command, true, cancellationToken);
 
         // 3.ter F9: venta de activo fijo exige autorización del Director de Administración y Finanzas
         // (no se timbra sin ella). Se valida antes de reservar folio.
@@ -232,6 +235,25 @@ public sealed class EmitirFacturaVentaHandler
                 DateOnly.FromDateTime(ahora.UtcDateTime)),
             cancellationToken);
 
+        var partidasPedido = pedido?.Lineas.OrderBy(l => l.Posicion).ToArray();
+        var lineasImpresion = new List<EmitirFacturaVentaLinea>();
+        for (var indice = 0; indice < command.Lineas.Count; indice++)
+        {
+            var linea = command.Lineas[indice];
+            // La posición y el producto identifican el origen incluso en una factura parcial.
+            var origen = partidasPedido is not null && indice < partidasPedido.Length
+                && partidasPedido[indice].ProductoId == linea.ProductoId ? partidasPedido[indice] : null;
+            var proporcion = origen is { Cantidad: > 0 } ? linea.Cantidad / origen.Cantidad : 0m;
+            var peso = linea.PesoKg ?? origen?.PesoKg * proporcion;
+            if (peso is null && linea.ProductoId is Guid productoId && _productos is not null)
+                peso = (await _productos.ObtenerAsync(productoId, cancellationToken))?.PesoUnitarioKg * linea.Cantidad;
+            lineasImpresion.Add(linea with {
+                Referencia = linea.Referencia ?? origen?.Referencia,
+                PesoKg = peso, AreaPie2 = linea.AreaPie2 ?? origen?.AreaPie2 * proporcion
+            });
+        }
+        command = command with { Lineas = lineasImpresion };
+
         // 5. Construir la factura (borrador) + líneas + totales + CCE (5.bis
         // F7-PR1). U1.8a: armado compartido con la proforma del pedido para que
         // importes, impuestos y redondeos sean idénticos.
@@ -241,7 +263,20 @@ public sealed class EmitirFacturaVentaHandler
 
         // 86e3tfdw2: observaciones del cajero (solo PDF, nunca XML). Antes de
         // cualquier cambio de estado (retención por pedimento / timbrado).
-        factura.FijarObservaciones(command.Observaciones);
+        var condicionesPago = command.CondicionesPago ?? pedido?.CondicionPagoOrigen;
+        if (condicionesPago is null && command.MetodoPago == "PPD"
+            && (command.ClienteId ?? pedido?.ClienteId) is Guid clienteCreditoId && _plazoCredito is not null)
+        {
+            // El bloqueo de crédito no cambia el plazo pactado con el cliente.
+            var plazo = await _plazoCredito.ObtenerPlazoDiasAsync(clienteCreditoId, command.Moneda, cancellationToken);
+            if (plazo > 0) condicionesPago = $"{plazo} DIAS";
+        }
+        if (condicionesPago is null && command.MetodoPago == "PUE") condicionesPago = "CONTADO";
+
+        factura.EditarDatosCliente(command.OrdenCompraCliente,
+            command.ReferenciaCliente ?? pedido?.NumeroPedido,
+            condicionesPago,
+            command.Proforma, command.Observaciones ?? pedido?.Comentarios);
 
         if (copiaCe is not null) factura.TomarEmbarqueCe(copiaCe);
 

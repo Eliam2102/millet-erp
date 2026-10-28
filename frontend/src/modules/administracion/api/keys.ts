@@ -59,6 +59,7 @@ export const adminKeys = {
   empresasList: (filtros: ListarEmpresasFiltros) =>
     [...adminKeys.empresas(), 'list', filtros] as const,
   empresa: (id: string) => [...adminKeys.empresas(), 'detail', id] as const,
+  logoEmpresa: (id: string) => [...adminKeys.empresa(id), 'logo'] as const,
 
   series: () => [...adminKeys.all, 'series'] as const,
   seriesList: (filtros: ListarSeriesFiltros) =>

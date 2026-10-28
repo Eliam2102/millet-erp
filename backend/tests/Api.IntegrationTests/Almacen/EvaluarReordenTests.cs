@@ -23,7 +23,8 @@ namespace Millet.Api.IntegrationTests.Almacen;
 /// empresa: el adapter bypasea el query filter, así que EvaluarReorden funciona sin
 /// contexto de empresa.</para>
 /// </summary>
-public class EvaluarReordenTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class EvaluarReordenTests
 {
     private readonly WebApplicationFactory<Program> _factory;
 

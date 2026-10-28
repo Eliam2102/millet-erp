@@ -18,8 +18,8 @@ namespace Millet.Api.IntegrationTests.Facturacion;
 /// (translate() no corre en memoria): todas las palabras, en cualquier orden y
 /// sin acentos, en los buscadores de Facturación, CxC y caja. Datos ficticios.
 /// </summary>
+[Collection(ApiCompartida.Nombre)]
 public sealed class BusquedaClientesPorPalabrasTests(WebApplicationFactory<Program> factory)
-    : IClassFixture<WebApplicationFactory<Program>>
 {
     private static readonly Guid Empresa = Guid.Parse("00000003-0000-0000-0000-000000000001");
     private static readonly DatosFiscalesEmisor Emisor = new("BBB010101BBB", "Emisor ficticio 86e3tfdx8", "601", "97000");

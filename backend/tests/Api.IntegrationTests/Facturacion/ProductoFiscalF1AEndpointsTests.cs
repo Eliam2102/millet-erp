@@ -20,8 +20,8 @@ using Millet.SharedKernel.Application;
 
 namespace Millet.Api.IntegrationTests.Facturacion;
 
+[Collection(ApiCompartida.Nombre)]
 public sealed class ProductoFiscalF1AEndpointsTests(WebApplicationFactory<Program> factory)
-    : IClassFixture<WebApplicationFactory<Program>>
 {
     private static readonly Guid EmpresaId = Guid.Parse("00000003-0000-0000-0000-000000000001");
 

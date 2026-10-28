@@ -818,6 +818,9 @@ export interface PedidoFacturableResponse {
  * persiste) — null si el producto no está en el master.
  */
 export interface PedidoFacturableLineaDetalle {
+  referencia?: string | null;
+  pesoKg?: number | null;
+  areaPie2?: number | null;
   posicion: number;
   productoId: string | null;
   productoDescripcion: string;
@@ -1035,6 +1038,11 @@ export interface EmitirFacturaVentaLinea {
 
 /** Comando de emisión de factura de venta (subset F1 — sin CCE/anticipos). */
 export interface EmitirFacturaVentaCommand {
+  ordenCompraCliente?: string | null;
+  referenciaCliente?: string | null;
+  condicionesPago?: string | null;
+  proforma?: string | null;
+
   clienteId?: string | null;
   sucursalId: string;
   receptorRfc: string;
@@ -1150,6 +1158,9 @@ export interface FacturaBandejaItem extends ClasificacionPedidoLectura {
 
 /** Línea del detalle de un comprobante. */
 export interface ComprobanteLineaDetalle {
+  referencia?: string | null;
+  pesoKg?: number | null;
+  areaPie2?: number | null;
   posicion: number;
   claveProdServSat: string;
   descripcion: string;
@@ -1172,6 +1183,17 @@ export interface RelacionCfdiDetalle {
 
 /** Detalle completo de un comprobante (GET /facturas/{id}). */
 export interface ComprobanteDetalleResponse {
+  ordenCompraCliente?: string | null;
+  referenciaCliente?: string | null;
+  condicionesPago?: string | null;
+  proforma?: string | null;
+  observaciones?: string | null;
+  totalKg?: number;
+  totalPie2?: number;
+  totalPiezas?: number;
+  noCertificadoEmisor?: string | null;
+  cadenaOriginalTimbre?: string | null;
+
   datosEmbarqueCe?: import('@/features/comercio-exterior/api/types').DatosEmbarqueCe | null;
   id: string;
   tipo: string;

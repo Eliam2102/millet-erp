@@ -39,7 +39,10 @@ public sealed record PropuestaAplicacionCreadaPayload(
     string Moneda,
     decimal AjusteNoFiscal,
     int NumeroFacturas,
-    IReadOnlyList<PropuestaFacturaPayload>? Facturas, Guid? PropuestoPor = null, decimal SaldoAFavorPorIdentificar = 0)
+    IReadOnlyList<PropuestaFacturaPayload>? Facturas, Guid? PropuestoPor = null, decimal SaldoAFavorPorIdentificar = 0,
+    // C7.4 (aditivo): movimiento bancario que CxC identificó desde su bandeja de
+    // depósitos sin identificar; Tesorería lo preselecciona al confirmar.
+    Guid? MovimientoBancarioId = null)
 {
     public const string EventType = "cuentas_por_cobrar.propuesta-aplicacion.creada.v1";
 }

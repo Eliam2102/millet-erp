@@ -59,8 +59,10 @@ Owner del proyecto: **Eduardo Paredes** — `eduardo.paredes@tiglass.net`.
    de requisiciones; órdenes de compra, recepciones.
 6. **Almacén** (`Millet.Almacen`) — inventario físico bajo responsabilidad
    del Jefe Almacén: insumos/refacciones + materiales directos de producción
-   no-vidrio (interlayer, silicones, sellantes, pinturas). **Solo el vidrio
-   crudo queda fuera** (continúa en A+W). Reemplaza al Portal Millet
+   no-vidrio (interlayer, silicones, sellantes, pinturas). **El vidrio crudo
+   también se compra y se recibe en el ERP** (Fase 1: toda la materia prima;
+   cuestionario 02, E07 §0, PR #215), con existencia por medida de hoja; en
+   el interín se avisa a A+W hasta que opere el Portal de Almacenes. Reemplaza al Portal Millet
    (`PortalSap`) completo: Requisiciones (ya implementado), Salidas de
    mercancía, Reportes. Cinco submódulos: Entradas (dos variantes — factura
    para insumos, packing list para materiales directos), Salidas (normal +
@@ -129,7 +131,8 @@ los tres levantamientos como conjunto:
 |---|---|---|---|
 | `ComprasEventListenerWorker` (en CxP) | `compras-events` | `cuentas-por-pagar-subscription` | ✅ #285 — inbound Compras → CxP |
 | `AlmacenEventListenerWorker` (en CxP) | `almacen-events` | `cuentas-por-pagar-almacen-sub` | ✅ F6-PR3 — recepciones + devoluciones |
-| `OutboxPublisherWorker<ComercioExteriorDbContext>` | `comercio-exterior-events` | Sin consumidor de negocio | CE-01a — apertura y cancelación |
+| `OutboxPublisherWorker<ComercioExteriorDbContext>` | `comercio-exterior-events` | CxP: `cuentas-por-pagar-ce-sub` | CE-01a — apertura y cancelación; P14 — saldo del agente |
+| `ComercioExteriorEventListenerWorker` (en CxP) | `comercio-exterior-events` | `cuentas-por-pagar-ce-sub` | P14 — saldo del agente a anticipo amortizable |
 | `TesoreriaEventListenerWorker` (en CxP) | `tesoreria-events` | `cuentas-por-pagar-tesoreria-sub` | ✅ F9-PR1 — pagos + REPP |
 | `CxpEventListenerWorker` (en Almacén) | `cuentas-por-pagar-events` | `almacen-subscription` | ✅ F3-PR1 — variante B + diferencia precio |
 | `CxpEventListenerWorker` (en Compras) | `cuentas-por-pagar-events` | `compras-subscription` | ✅ #288 — sub-estado Facturación de OC; #613/#614 — sub-estado Pago vía `factura.pago-aplicado.v1` (acumulado por OC calculado por CxP) + cierre/reapertura automática de la OC |
@@ -454,5 +457,10 @@ estructura de ventanas.
   de hacer cambios, reporta qué hiciste y espera instrucción para commitear.
 - **Idioma:** documentación, comentarios de negocio y nombres de módulos
   en **español**. Código, comandos y nombres técnicos en inglés.
+- **Pruebas de integración y PR limpios:** sigue
+  [`docs/qa/gate-integracion.md`](docs/qa/gate-integracion.md). Pruebas
+  nuevas de API en `[Collection(ApiCompartida.Nombre)]`, todo
+  `WithWebHostBuilder` con `await using`, CE/AF con `Escenario.CrearAsync()`.
+  Nunca subas `RESUMEN_*.md`, logs, TRX ni carpetas `outputs/`.
 - **Convenciones de Git:** ramas con prefijo `feature/`, `fix/`, `chore/`,
   `docs/`. Nunca trabajar directo en `main`.

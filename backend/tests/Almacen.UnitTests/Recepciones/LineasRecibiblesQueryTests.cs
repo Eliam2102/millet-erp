@@ -49,6 +49,44 @@ public class LineasRecibiblesQueryTests
         lineas[1].MaximoRecibible.Should().Be(100m);
     }
 
+    [Fact]
+    public async Task Devuelve_la_medida_de_la_linea_de_OC_y_null_si_no_la_tiene()
+    {
+        var variante = Guid.NewGuid();
+        var oc = NuevaOc() with
+        {
+            Lineas =
+            [
+                new OcLineaLectura(LineaA, ArticuloA, "M2", 178.608m, 0m, 10m, ProductoAwVarianteId: variante, AnchoMm: 2440m, AltoMm: 3660m),
+                new OcLineaLectura(LineaB, ArticuloB, "PZA", 100m, 0m, 10m),
+            ],
+        };
+
+        var lineas = await NuevoHandler(NuevaDb(), oc).Handle(new LineasRecibiblesQuery(OcId), CancellationToken.None);
+
+        lineas[0].Medida.Should().Be(new MedidaLineaOcDto(variante, 2440m, 3660m, 8.9304m));
+        lineas[1].Medida.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Linea_de_articulo_ligado_a_AW_sin_medida_pide_medida_y_la_que_la_tiene_o_no_aplica_no()
+    {
+        var variante = Guid.NewGuid();
+        var oc = NuevaOc() with
+        {
+            Lineas =
+            [
+                new OcLineaLectura(LineaA, ArticuloA, "M2", 17.8608m, 0m, 10m), // vidrio legado sin medida
+                new OcLineaLectura(LineaB, ArticuloA, "M2", 178.608m, 0m, 10m, ProductoAwVarianteId: variante, AnchoMm: 2440m, AltoMm: 3660m),
+                new OcLineaLectura(LineaC, ArticuloB, "PZA", 100m, 0m, 10m), // insumo
+            ],
+        };
+
+        var lineas = await NuevoHandler(NuevaDb(), oc).Handle(new LineasRecibiblesQuery(OcId), CancellationToken.None);
+
+        lineas.Select(l => l.RequiereMedida).Should().Equal(true, false, false);
+    }
+
     private static readonly Guid OcId = Guid.NewGuid();
 
     private static OcLectura NuevaOc() => new(
@@ -65,7 +103,7 @@ public class LineasRecibiblesQueryTests
         ]);
 
     private static LineasRecibiblesHandler NuevoHandler(InMemoryAlmacenDbContext db, OcLectura oc)
-        => new(db, new FakeCompras(oc), new P7Support.Conversion());
+        => new(db, new FakeCompras(oc), new P7Support.Conversion(), new FakeArticulos());
 
     private static InMemoryAlmacenDbContext NuevaDb()
     {
@@ -84,6 +122,18 @@ public class LineasRecibiblesQueryTests
         mov.Registrar(FolioMovimiento.Construir(TipoMovimiento.EntradaCompra, 2026, 1), UserId);
         db.Movimientos.Add(mov);
         await db.SaveChangesAsync();
+    }
+
+    /// <summary>ArticuloA es vidrio ligado a A+W; los demás no.</summary>
+    private sealed class FakeArticulos : IArticuloReadPort
+    {
+        public Task<ArticuloLectura?> ObtenerAsync(Guid articuloId, CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+
+        public Task<IReadOnlyDictionary<Guid, ArticuloLectura>> ObtenerPorIdsAsync(
+            IReadOnlyCollection<Guid> articuloIds, CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyDictionary<Guid, ArticuloLectura>>(articuloIds.ToDictionary(
+                id => id, id => new ArticuloLectura(id, "A", "A", "PZA", null, true, ProductoAwId: id == ArticuloA ? Guid.NewGuid() : null)));
     }
 
     private sealed class FakeCompras(OcLectura oc) : IComprasOcReadPort

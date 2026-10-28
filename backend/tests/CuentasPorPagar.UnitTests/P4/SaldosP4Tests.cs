@@ -47,7 +47,7 @@ public sealed class SaldosP4Tests
     public async Task UUID_no_puede_reutilizarse_entre_tipos(int tipo)
     {
         await using var a = new P8Fixture(); var anticipo = NuevoAnticipo(a); a.Db.Add(anticipo); await a.Db.SaveChangesAsync();
-        if (tipo == 1) a.Db.Add(Nc.Capturar(a.Current!.Value, null, anticipo.UuidCfdi.ToLowerInvariant(), a.Proveedor, "FIX", null, a.UtcNow, "MXN", null, 100, 0, 0, 100, TipoNotaCredito.Descuento, TipoRelacionCfdi.NotaCredito, Guid.NewGuid().ToString(), null, null, a.UtcNow));
+        if (tipo == 1) a.Db.Add(Nc.Capturar(a.Current!.Value, null, anticipo.UuidCfdi!.ToLowerInvariant(), a.Proveedor, "FIX", null, a.UtcNow, "MXN", null, 100, 0, 0, 100, TipoNotaCredito.Descuento, TipoRelacionCfdi.NotaCredito, Guid.NewGuid().ToString(), null, null, a.UtcNow));
         else { var f = Domain.FacturaProveedor.FacturaProveedor.CapturarSinOc(a.Current!.Value,null,anticipo.UuidCfdi,a.Proveedor,a.Sucursal,"FIX",null,a.UtcNow,a.UtcNow,new(2026,11,1),"MXN",null,100,0,0,0,100,"FIX",a.UtcNow); a.Db.Add(f); }
         Func<Task> guardar = async () => await a.Db.SaveChangesAsync();
         await guardar.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "CXP_UUID_DUPLICADO");
@@ -85,7 +85,7 @@ public sealed class SaldosP4Tests
     public async Task NC_07_amortiza_anticipo_sin_duplicar_la_aplicacion_interna(bool aplicadaInternamente)
     {
         await using var a=new P8Fixture(); var anticipo=NuevoAnticipo(a);
-        var nc=Nc.Capturar(a.Current!.Value,null,Guid.NewGuid().ToString(),a.Proveedor,"FIX",null,a.UtcNow,"MXN",null,100,0,0,100,TipoNotaCredito.Descuento,TipoRelacionCfdi.AmortizacionAnticipo,anticipo.UuidCfdi,null,null,a.UtcNow);
+        var nc=Nc.Capturar(a.Current!.Value,null,Guid.NewGuid().ToString(),a.Proveedor,"FIX",null,a.UtcNow,"MXN",null,100,0,0,100,TipoNotaCredito.Descuento,TipoRelacionCfdi.AmortizacionAnticipo,anticipo.UuidCfdi!,null,null,a.UtcNow);
         if (aplicadaInternamente) anticipo.Amortizar(100,a.UtcNow);
         a.Db.AddRange(anticipo,nc); await a.Db.SaveChangesAsync();
         await new AmortizarAnticipoConNcHandler(a.Db,a).Handle(new(anticipo.Id,anticipo.Version,nc.Id,nc.Version,100),default);

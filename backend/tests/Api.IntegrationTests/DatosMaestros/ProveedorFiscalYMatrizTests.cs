@@ -17,7 +17,8 @@ namespace Millet.Api.IntegrationTests.DatosMaestros;
 /// 86e3pdmee · ADM-01 (cierre de auditoría): RFC del extranjero, régimen contra tipo de persona,
 /// matriz por tipo de persona y origen, validación sin clasificar y mensaje con nombres de documento.
 /// </summary>
-public class ProveedorFiscalYMatrizTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class ProveedorFiscalYMatrizTests
 {
     private const string Catalogo = "/api/v1/catalogos/proveedores";
     private readonly WebApplicationFactory<Program> _factory;
@@ -38,8 +39,8 @@ public class ProveedorFiscalYMatrizTests : IClassFixture<WebApplicationFactory<P
     [Fact]
     public async Task Alta_de_extranjero_persona_fisica_sin_rfc_guarda_el_generico_y_la_clasificacion_en_el_mismo_POST()
     {
-        var amb = new AdjuntosProveedorAmbiente(_factory);
-        var admin = await amb.SuperAdminAsync();
+        await using var amb = new AdjuntosProveedorAmbiente(_factory);
+        using var admin = await amb.SuperAdminAsync();
 
         var alta = await admin.PostAsJsonAsync(Catalogo, new
         {
@@ -74,8 +75,8 @@ public class ProveedorFiscalYMatrizTests : IClassFixture<WebApplicationFactory<P
     [Fact]
     public async Task Alta_nacional_con_regimen_de_otra_naturaleza_se_rechaza_y_con_el_correcto_se_guarda()
     {
-        var amb = new AdjuntosProveedorAmbiente(_factory);
-        var admin = await amb.SuperAdminAsync();
+        await using var amb = new AdjuntosProveedorAmbiente(_factory);
+        using var admin = await amb.SuperAdminAsync();
         var rfc = $"RG{Guid.NewGuid():N}"[..13].ToUpperInvariant();
 
         var mal = await admin.PostAsJsonAsync(Catalogo, new
@@ -99,8 +100,8 @@ public class ProveedorFiscalYMatrizTests : IClassFixture<WebApplicationFactory<P
     [InlineData(TipoPersonaProveedor.Moral, "612")]
     public async Task Clasificar_con_regimen_que_no_corresponde_al_tipo_de_persona_responde_422(TipoPersonaProveedor tipo, string regimen)
     {
-        var amb = new AdjuntosProveedorAmbiente(_factory);
-        var admin = await amb.SuperAdminAsync();
+        await using var amb = new AdjuntosProveedorAmbiente(_factory);
+        using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync(tipo, EstatusCatalogo.EnRevision, clasificar: false);
 
         var put = await admin.PutAsJsonAsync($"{Base}/{prov}/clasificacion-fiscal",
@@ -113,8 +114,8 @@ public class ProveedorFiscalYMatrizTests : IClassFixture<WebApplicationFactory<P
     [Fact]
     public async Task Validar_sin_clasificar_responde_422_clasificacion_pendiente()
     {
-        var amb = new AdjuntosProveedorAmbiente(_factory);
-        var admin = await amb.SuperAdminAsync();
+        await using var amb = new AdjuntosProveedorAmbiente(_factory);
+        using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync(TipoPersonaProveedor.Moral, EstatusCatalogo.EnRevision, clasificar: false);
 
         var r = await admin.PostAsync($"{Base}/{prov}/validar", null);
@@ -126,8 +127,8 @@ public class ProveedorFiscalYMatrizTests : IClassFixture<WebApplicationFactory<P
     [Fact]
     public async Task Validar_con_faltante_nombra_el_documento_y_con_excepcion_otorgada_valida_y_registra_la_version_de_la_matriz()
     {
-        var amb = new AdjuntosProveedorAmbiente(_factory);
-        var admin = await amb.SuperAdminAsync();
+        await using var amb = new AdjuntosProveedorAmbiente(_factory);
+        using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync(TipoPersonaProveedor.Moral, EstatusCatalogo.EnRevision);
         var unMes = DateTime.UtcNow.AddMonths(1).ToString("yyyy-MM-dd");
         await SubirOkAsync(admin, prov, TipoConstancia, vigenteHasta: unMes);
@@ -162,8 +163,8 @@ public class ProveedorFiscalYMatrizTests : IClassFixture<WebApplicationFactory<P
     [Fact]
     public async Task Matriz_por_tipo_de_persona_y_origen_nacional_moral_completa_y_extranjero_fisico_tiene_la_suya()
     {
-        var amb = new AdjuntosProveedorAmbiente(_factory);
-        var admin = await amb.SuperAdminAsync();
+        await using var amb = new AdjuntosProveedorAmbiente(_factory);
+        using var admin = await amb.SuperAdminAsync();
 
         // Nacional persona moral con régimen: los cinco documentos de siempre.
         var pm = await amb.SeedProveedorAsync(TipoPersonaProveedor.Moral, EstatusCatalogo.EnRevision);
@@ -197,8 +198,8 @@ public class ProveedorFiscalYMatrizTests : IClassFixture<WebApplicationFactory<P
     [Fact]
     public async Task Cambiar_la_matriz_por_tipo_de_persona_cambia_el_expediente_y_sube_la_version()
     {
-        var amb = new AdjuntosProveedorAmbiente(_factory);
-        var admin = await amb.SuperAdminAsync();
+        await using var amb = new AdjuntosProveedorAmbiente(_factory);
+        using var admin = await amb.SuperAdminAsync();
         var pf = await amb.SeedProveedorAsync(TipoPersonaProveedor.Fisica, EstatusCatalogo.EnRevision);
 
         var tipos = await LeerAsync(await admin.GetAsync($"{Base}/expediente/tipos"));

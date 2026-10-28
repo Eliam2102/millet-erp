@@ -20,7 +20,8 @@ namespace Millet.Api.IntegrationTests.Compras.Oc;
 /// Verifica que las validaciones de acceso y archivo ocurran antes de escribir el blob físico,
 /// y que cualquier fallo en la persistencia compense eliminando el blob huérfano.
 /// </summary>
-public class AdjuntosOcSubidaTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class AdjuntosOcSubidaTests : IClassFixture<AdjuntosOcSubidaTests.Servidor>
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string EndpointBase = "/api/v1/compras/ordenes";
@@ -33,9 +34,23 @@ public class AdjuntosOcSubidaTests : IClassFixture<WebApplicationFactory<Program
 
     private readonly WebApplicationFactory<Program> _factory;
 
-    public AdjuntosOcSubidaTests(WebApplicationFactory<Program> factory)
+    private readonly WebApplicationFactory<Program> _compartida;
+    private readonly GrabadorBlobPort _grabador;
+    public AdjuntosOcSubidaTests(Servidor fixture)
     {
-        _factory = factory;
+        _factory = fixture;
+        _compartida = fixture.Aplicacion;
+        _grabador = fixture.Grabador;
+        _grabador.Subidas.Clear();
+        _grabador.Eliminaciones.Clear();
+    }
+
+    public sealed class Servidor : WebApplicationFactory<Program>
+    {
+        public GrabadorBlobPort Grabador { get; } = new();
+        public WebApplicationFactory<Program> Aplicacion { get; }
+        public Servidor() => Aplicacion = WithWebHostBuilder(b =>
+            b.ConfigureServices(s => s.AddSingleton<IAlmacenarBlobPort>(Grabador)));
     }
 
     /// <summary>
@@ -73,14 +88,8 @@ public class AdjuntosOcSubidaTests : IClassFixture<WebApplicationFactory<Program
     [Fact]
     public async Task Formato_O_Mime_No_Permitido_Retorna_422_Sin_Subir_Blob_Y_Cero_Filas()
     {
-        var grabador = new GrabadorBlobPort();
-        await using var customFactory = _factory.WithWebHostBuilder(b =>
-        {
-            b.ConfigureServices(services =>
-            {
-                services.AddSingleton<IAlmacenarBlobPort>(grabador);
-            });
-        });
+        var grabador = _grabador;
+        var customFactory = _compartida;
 
         var sucursalId = await CrearSucursalAsync(customFactory);
         var admin = await CreateSuperAdminClientAsync(customFactory);
@@ -152,14 +161,8 @@ public class AdjuntosOcSubidaTests : IClassFixture<WebApplicationFactory<Program
     [Fact]
     public async Task TipoDocumento_Inexistente_Compensa_Eliminando_Blob_Y_Deja_Cero_Filas()
     {
-        var grabador = new GrabadorBlobPort();
-        await using var customFactory = _factory.WithWebHostBuilder(b =>
-        {
-            b.ConfigureServices(services =>
-            {
-                services.AddSingleton<IAlmacenarBlobPort>(grabador);
-            });
-        });
+        var grabador = _grabador;
+        var customFactory = _compartida;
 
         var sucursalId = await CrearSucursalAsync(customFactory);
         var admin = await CreateSuperAdminClientAsync(customFactory);
@@ -193,14 +196,8 @@ public class AdjuntosOcSubidaTests : IClassFixture<WebApplicationFactory<Program
     [Fact]
     public async Task Oc_En_Estado_Terminal_Compensa_Eliminando_Blob()
     {
-        var grabador = new GrabadorBlobPort();
-        await using var customFactory = _factory.WithWebHostBuilder(b =>
-        {
-            b.ConfigureServices(services =>
-            {
-                services.AddSingleton<IAlmacenarBlobPort>(grabador);
-            });
-        });
+        var grabador = _grabador;
+        var customFactory = _compartida;
 
         var sucursalId = await CrearSucursalAsync(customFactory);
         var admin = await CreateSuperAdminClientAsync(customFactory);
@@ -240,14 +237,8 @@ public class AdjuntosOcSubidaTests : IClassFixture<WebApplicationFactory<Program
     [Fact]
     public async Task Reintento_Tras_Fallo_Crea_Exactamente_Una_Fila_Y_Un_Blob_Vivo()
     {
-        var grabador = new GrabadorBlobPort();
-        await using var customFactory = _factory.WithWebHostBuilder(b =>
-        {
-            b.ConfigureServices(services =>
-            {
-                services.AddSingleton<IAlmacenarBlobPort>(grabador);
-            });
-        });
+        var grabador = _grabador;
+        var customFactory = _compartida;
 
         var sucursalId = await CrearSucursalAsync(customFactory);
         var admin = await CreateSuperAdminClientAsync(customFactory);
@@ -287,14 +278,8 @@ public class AdjuntosOcSubidaTests : IClassFixture<WebApplicationFactory<Program
     [Fact]
     public async Task Mismo_IdempotencyKey_Reenviado_No_Duplica()
     {
-        var grabador = new GrabadorBlobPort();
-        await using var customFactory = _factory.WithWebHostBuilder(b =>
-        {
-            b.ConfigureServices(services =>
-            {
-                services.AddSingleton<IAlmacenarBlobPort>(grabador);
-            });
-        });
+        var grabador = _grabador;
+        var customFactory = _compartida;
 
         var sucursalId = await CrearSucursalAsync(customFactory);
         var admin = await CreateSuperAdminClientAsync(customFactory);
@@ -447,5 +432,8 @@ public class AdjuntosOcSubidaTests : IClassFixture<WebApplicationFactory<Program
         string? MotivoSinRequisicion,
         DateOnly? FechaEntregaEsperada,
         Guid? EncargadoComprasId,
-        Guid? OcOrigenId);
+        Guid? OcOrigenId,
+        string? UsoCfdiClave = "G03",
+        string? MetodoPago = "PPD",
+        string? FormaPagoClave = "99");
 }

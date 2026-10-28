@@ -10,8 +10,15 @@ import { ordenesKeys } from '@/features/compras/ordenes/api/keys';
 import type { RegistrarRespuestaProveedorValues } from '@/features/compras/ordenes/schemas/respuesta-proveedor';
 
 // Usar archivos y multipart de Node juntos; jsdom no implementa el stream del archivo.
-beforeEach(() => { vi.stubGlobal('FormData', NativeFormData); vi.stubGlobal('Response', NativeResponse); vi.stubGlobal('File', NodeFile); vi.stubGlobal('Blob', NodeBlob); });
-afterEach(() => vi.unstubAllGlobals());
+// Desde undici 7, FormData.append exige `instanceof` del Blob que había al cargar undici (el de jsdom):
+// mientras corre la prueba, el Blob de Node hereda de ese prototipo para que su File pase la revisión.
+const protoOriginal = Object.getPrototypeOf(NodeBlob.prototype) as object;
+const BlobJsdom = globalThis.Blob;
+beforeEach(() => {
+  Object.setPrototypeOf(NodeBlob.prototype, BlobJsdom.prototype);
+  vi.stubGlobal('FormData', NativeFormData); vi.stubGlobal('Response', NativeResponse); vi.stubGlobal('File', NodeFile); vi.stubGlobal('Blob', NodeBlob);
+});
+afterEach(() => { vi.unstubAllGlobals(); Object.setPrototypeOf(NodeBlob.prototype, protoOriginal); });
 
 const COMMAND: RegistrarRespuestaProveedorValues = {
   archivo: new NodeFile(["%PDF-1.4 DEMO ficticio"], "DEMO.pdf", { type: "application/pdf" }) as unknown as File,

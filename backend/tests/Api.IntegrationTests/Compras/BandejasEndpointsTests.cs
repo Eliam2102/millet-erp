@@ -24,7 +24,8 @@ namespace Millet.Api.IntegrationTests.Compras;
 /// filtros y orden. Comparten DB con otros tests, por eso filtran por
 /// <c>departamentoId</c> recién generado para aislar el set.
 /// </summary>
-public class BandejasEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class BandejasEndpointsTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string SinPermisosOid = "test-no-perms";

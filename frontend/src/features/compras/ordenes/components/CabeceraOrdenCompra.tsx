@@ -1,3 +1,4 @@
+import { CampoFacturaOc } from './CampoFacturaOc';
 import { FormCampo } from '@/components/erp/forms/FormGrid';
 import { FormGrid } from '@/components/erp/forms/FormGrid';
 import { useState } from 'react';
@@ -12,7 +13,7 @@ import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialo
 import { CondicionesPagoSelector } from '@/components/erp/selectors/CondicionesPagoSelector';
 import { ProveedorSelector } from '@/components/erp/selectors/ProveedorSelector';
 import { UsoPrincipalSelector } from '@/components/erp/selectors/UsoPrincipalSelector';
-import type { OrdenCompraDetalleResponse } from '@/features/compras/ordenes/api/types';
+import { EstadoOrdenCompra, type OrdenCompraDetalleResponse } from '@/features/compras/ordenes/api/types';
 import {
   useActualizarCabeceraOc,
   type ActualizarCabeceraOcCommand,
@@ -69,7 +70,7 @@ export function CabeceraOrdenCompra({ oc, resolverNombre }: CabeceraOrdenCompraP
         </div>
       )}
 
-      {pendientes.length > 0 && (
+      {(oc.estado === EstadoOrdenCompra.Borrador || oc.estado === EstadoOrdenCompra.Rechazada) && pendientes.length > 0 && (
         <AvisoEnLinea tono="advertencia">
           {`Falta ${listarFaltantes(pendientes)}. Captúralos para poder enviar la OC a autorización.`}
           {!puedeEditar && ' Pide a un comprador con permiso de crear OC que los capture.'}
@@ -95,11 +96,10 @@ export function CabeceraOrdenCompra({ oc, resolverNombre }: CabeceraOrdenCompraP
           {nombreUsuarioOGuion(resolverNombre(oc.encargadoComprasId))}
         </Item>
         <Item label="Sucursal destino">{resolverNombre(oc.sucursalDestinoId)}</Item>
-        <Item label="Condiciones de pago">
-          {valor('condicionesPago', resolverNombre(oc.condicionesPagoId))}
-        </Item>
-        <Item label="Uso principal">
+
+        <Item label="Uso interno de la compra">
           {valor('usoPrincipal', resolverNombre(oc.usoPrincipalId))}
+          <p className="text-xs text-ink-muted">No se imprime en la orden de compra</p>
         </Item>
         {oc.cotizacionElegida && (
           <Item label="Cotización elegida">
@@ -118,10 +118,7 @@ export function CabeceraOrdenCompra({ oc, resolverNombre }: CabeceraOrdenCompraP
             )}
           </Item>
         )}
-        <Item label="Moneda" mono>
-          {oc.moneda}
-          {oc.tipoCambio != null ? ` @ ${oc.tipoCambio}` : ''}
-        </Item>
+
         <Item label="Fecha contabilización">
           <DateTimeDisplay value={oc.fechaContabilizacion} />
         </Item>
@@ -132,6 +129,22 @@ export function CabeceraOrdenCompra({ oc, resolverNombre }: CabeceraOrdenCompraP
           v{oc.version}
         </Item>
       </dl>
+
+      <section aria-label="Datos para la factura del proveedor" className="space-y-3">
+        <h3 className="text-sm font-semibold">Datos para la factura del proveedor</h3>
+        <dl className="grid gap-3 text-sm @lg:grid-cols-2">
+          <Item label="Uso de CFDI">{oc.usoCfdiClave ? `${oc.usoCfdiClave} – ${oc.usoCfdiDescripcion ?? 'Sin descripción'}` : 'Por capturar'}</Item>
+          <Item label="Método de pago">{oc.metodoPago === 'PUE' ? 'PUE – Pago en una sola exhibición' : oc.metodoPago === 'PPD' ? 'PPD – Pago en parcialidades o diferido' : 'Por capturar'}</Item>
+          <Item label="Forma de pago">{oc.formaPagoClave ? `${oc.formaPagoClave} – ${oc.formaPagoDescripcion ?? 'Sin descripción'}` : 'Por capturar'}</Item>
+          <Item label="Condiciones de pago">
+            {valor('condicionesPago', resolverNombre(oc.condicionesPagoId))}
+          </Item>
+          <Item label="Moneda" mono>
+            {oc.moneda}
+            {oc.tipoCambio != null ? ` @ ${oc.tipoCambio}` : ''}
+          </Item>
+        </dl>
+      </section>
 
       {/* Banners de naturalezas especiales — visibles solo cuando aplican. */}
       <div className="flex flex-wrap gap-1.5 text-xs">
@@ -198,7 +211,10 @@ export function CabeceraOrdenCompra({ oc, resolverNombre }: CabeceraOrdenCompraP
 const ETIQUETA_CAMPO = {
   proveedor: 'proveedor',
   condicionesPago: 'condiciones de pago',
-  usoPrincipal: 'uso principal',
+  usoPrincipal: 'uso interno de la compra',
+  usoCfdiClave: 'uso de CFDI',
+  metodoPago: 'método de pago',
+  formaPagoClave: 'forma de pago',
 } as const;
 
 function listarFaltantes(campos: readonly string[]): string {
@@ -212,6 +228,9 @@ interface CabeceraValues {
   proveedorId: string;
   condicionesPagoId: string;
   usoPrincipalId: string;
+  usoCfdiClave: string;
+  metodoPago: string;
+  formaPagoClave: string;
 }
 
 /** Formulario de edición de proveedor, condiciones de pago y uso principal. */
@@ -225,6 +244,9 @@ function FormularioCabecera({
   const pendientes = oc.camposPorCapturar ?? [];
   // Un campo en TBD arranca vacío: el id sentinel no es un valor elegible.
   const inicial: CabeceraValues = {
+    usoCfdiClave: oc.usoCfdiClave ?? '',
+    metodoPago: oc.metodoPago ?? '',
+    formaPagoClave: oc.formaPagoClave ?? '',
     proveedorId: pendientes.includes('proveedor') ? '' : oc.proveedorId,
     condicionesPagoId: pendientes.includes('condicionesPago') ? '' : oc.condicionesPagoId,
     usoPrincipalId: pendientes.includes('usoPrincipal') ? '' : oc.usoPrincipalId,
@@ -243,6 +265,9 @@ function FormularioCabecera({
       command.condicionesPagoId = values.condicionesPagoId;
     if (values.usoPrincipalId && values.usoPrincipalId !== inicial.usoPrincipalId)
       command.usoPrincipalId = values.usoPrincipalId;
+    for (const campo of ['usoCfdiClave', 'metodoPago', 'formaPagoClave'] as const) {
+      if (values[campo] !== inicial[campo]) command[campo] = values[campo];
+    }
     if (Object.keys(command).length === 0) {
       onClose();
       return;
@@ -277,7 +302,7 @@ function FormularioCabecera({
             return;
           }
           toast.error(
-            esApiError(err) ? err.problem.title : 'Error inesperado al guardar la cabecera.',
+            esApiError(err) ? err.problem.detail ?? err.problem.title : 'Error inesperado al guardar la cabecera.',
           );
         },
       },
@@ -311,32 +336,15 @@ function FormularioCabecera({
             )}
           />
         </FormCampo>
-        <FormCampo span={4}>
-          <Controller
-            control={form.control}
-            name="condicionesPagoId"
-            render={({ field, fieldState }) => (
-              <Field label="Condiciones de pago" error={fieldState.error?.message}>
-                {(c) => (
-                  <div role="group" aria-label="Condiciones de pago" id={c.id}>
-                    <CondicionesPagoSelector
-                      value={field.value || null}
-                      onChange={(v) => field.onChange(v ?? '')}
-                    />
-                  </div>
-                )}
-              </Field>
-            )}
-          />
-        </FormCampo>
+
         <FormCampo span={4}>
           <Controller
             control={form.control}
             name="usoPrincipalId"
             render={({ field, fieldState }) => (
-              <Field label="Uso principal" error={fieldState.error?.message}>
+              <Field label="Uso interno de la compra" error={fieldState.error?.message}>
                 {(c) => (
-                  <div role="group" aria-label="Uso principal" id={c.id}>
+                  <div role="group" aria-label="Uso interno de la compra" id={c.id}>
                     <UsoPrincipalSelector
                       value={field.value || null}
                       onChange={(v) => field.onChange(v ?? '')}
@@ -348,6 +356,37 @@ function FormularioCabecera({
           />
         </FormCampo>
       </FormGrid>
+      <section aria-label="Datos para la factura del proveedor" className="space-y-3">
+        <h3 className="text-sm font-semibold">Datos para la factura del proveedor</h3>
+        <p className="text-xs text-ink-muted">Completa estos datos antes de enviar a autorización.</p>
+        <FormGrid>
+          {(['usoCfdiClave', 'metodoPago', 'formaPagoClave'] as const).map(campo => (
+            <FormCampo key={campo} span={4}>
+              <Controller control={form.control} name={campo} render={({ field, fieldState }) => (
+                <CampoFacturaOc campo={campo} value={field.value} onChange={field.onChange} error={fieldState.error?.message} />
+              )} />
+            </FormCampo>
+          ))}
+          <FormCampo span={4}>
+            <Controller
+              control={form.control}
+              name="condicionesPagoId"
+              render={({ field, fieldState }) => (
+                <Field label="Condiciones de pago" error={fieldState.error?.message}>
+                  {(c) => (
+                    <div role="group" aria-label="Condiciones de pago" id={c.id}>
+                      <CondicionesPagoSelector
+                        value={field.value || null}
+                        onChange={(v) => field.onChange(v ?? '')}
+                      />
+                    </div>
+                  )}
+                </Field>
+              )}
+            />
+          </FormCampo>
+        </FormGrid>
+      </section>
       <div className="flex justify-end gap-2">
         <Button type="button" variant="ghost" onClick={onClose} disabled={mutation.isPending}>
           Cancelar

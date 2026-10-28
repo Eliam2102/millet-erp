@@ -27,6 +27,8 @@ public sealed class DepositoConfirmacionConfiguration : IEntityTypeConfiguration
         builder.Property(e => e.PropuestoPor);
         builder.Property(e => e.SaldoAFavorPorIdentificar).HasPrecision(18, 2);
         builder.Property(e => e.MovimientoId);
+        // C7.4: derivado de MovimientoId mientras la confirmación está Pendiente (sin columna).
+        builder.Ignore(e => e.MovimientoSugeridoId);
         builder.Property(e => e.PropuestaCxcId);
         builder.Property(e => e.ClienteId);
         builder.Property(e => e.Estado).HasConversion<short>().IsRequired();

@@ -5,7 +5,8 @@ using Microsoft.Extensions.Configuration;
 
 namespace Millet.Api.IntegrationTests.Identidad;
 
-public class DevAuthModeGuardTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class DevAuthModeGuardTests
 {
     private readonly WebApplicationFactory<Program> _factory;
 

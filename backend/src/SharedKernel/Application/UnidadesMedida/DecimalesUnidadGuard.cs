@@ -13,7 +13,8 @@ public sealed class DecimalesUnidadGuard : IDecimalesUnidadGuard
         IEnumerable<CantidadAValidar> cantidades,
         CancellationToken cancellationToken)
     {
-        var lineas = cantidades as IReadOnlyCollection<CantidadAValidar> ?? cantidades.ToList();
+        var lineas = (cantidades as IReadOnlyCollection<CantidadAValidar> ?? cantidades.ToList())
+            .Where(l => !l.Derivada).ToList();
         if (lineas.Count == 0)
         {
             return;

@@ -28,6 +28,9 @@
 - [ ] Migraciones/configuración documentadas.
 - [ ] Evidencia visual o técnica adjunta.
 - [ ] Sin secretos, certificados, dumps ni datos reales.
+- [ ] Si toca `backend/`: pruebas de integración de mi módulo en verde (y gate completo si toqué algo compartido). Ver `docs/qa/gate-integracion.md`.
+- [ ] Sin archivos de trabajo: `RESUMEN_*.md`, logs, TRX, `outputs/`, `.orig`, capturas sueltas.
+- [ ] Sólo cambios de esta tarea; sin pruebas desactivadas ni código de depuración.
 
 ## Notas de despliegue y evidencia
 

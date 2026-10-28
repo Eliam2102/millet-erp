@@ -18,7 +18,8 @@ namespace Millet.Api.IntegrationTests.CentrosCosto;
 /// <see cref="IDim3ReadPort"/> para el display heredado (batch, sin alcance,
 /// incluye inactivas). Ver ADR-0050.
 /// </summary>
-public class SelectorAbiertoYReadPortTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class SelectorAbiertoYReadPortTests
 {
     private readonly WebApplicationFactory<Program> _factory;
 

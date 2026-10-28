@@ -11,8 +11,8 @@ using static Millet.Api.IntegrationTests.Contabilidad.ContabTestKit;
 namespace Millet.Api.IntegrationTests.Facturacion;
 
 /// <summary>P11: ejecutar solamente con PostgreSQL desechable. El lector de activo usa una muestra explícita.</summary>
+[Collection(ApiCompartida.Nombre)]
 public sealed class AutorizacionActivoDafTests(WebApplicationFactory<Program> factory)
-    : IClassFixture<WebApplicationFactory<Program>>
 {
     [Theory]
     [InlineData(true, HttpStatusCode.Created)]

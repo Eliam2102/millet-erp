@@ -10,7 +10,8 @@ public sealed record PedidoLigadoAnticipo(Guid PedidoFacturableId, string Numero
 /// <summary>
 /// 86e3tfd6n — ligado calculado (sin columna nueva): un anticipo con número de pedido de A+W queda ligado en cuanto la
 /// ingesta importa ese pedido (estatus 15/42 o liberado por el vendedor) para el MISMO cliente. Se liga por número, sin
-/// versión: el anticipo sigue al pedido vigente. Un pedido del mismo número pero de otro cliente no liga.
+/// versión: el anticipo sigue al pedido vigente. Un pedido del mismo número pero de otro cliente no liga, y un pedido
+/// cancelado en A+W tampoco: el anticipo vuelve a verse libre para cualquier factura del cliente.
 /// </summary>
 public static class AnticipoPedidoLigado
 {
@@ -22,7 +23,7 @@ public static class AnticipoPedidoLigado
         var numeros = buscados.Select(b => b.NumeroPedido).Distinct().ToList();
         var clientes = buscados.Select(b => b.ClienteId).Distinct().ToList();
         var pedidos = await db.PedidosFacturables.AsNoTracking()
-            .Where(p => p.Origen == OrigenPedido.Aw && p.NumeroPedido != null && numeros.Contains(p.NumeroPedido) && clientes.Contains(p.ClienteId))
+            .Where(p => p.Origen == OrigenPedido.Aw && p.Estado != EstadoPedidoFacturable.Cancelado && p.NumeroPedido != null && numeros.Contains(p.NumeroPedido) && clientes.Contains(p.ClienteId))
             .Select(p => new { p.Id, p.ClienteId, NumeroPedido = p.NumeroPedido!, p.Estado })
             .ToListAsync(ct);
         return pedidos

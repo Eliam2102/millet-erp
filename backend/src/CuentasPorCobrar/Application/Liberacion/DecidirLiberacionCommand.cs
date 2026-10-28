@@ -3,9 +3,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.CuentasPorCobrar.Application.Common;
 using Millet.CuentasPorCobrar.Application.Integration;
-using Millet.CuentasPorCobrar.Domain.Cartera;
 using Millet.CuentasPorCobrar.Domain.Liberacion;
-using Millet.CuentasPorCobrar.Domain.LineaCredito;
 using Millet.CuentasPorCobrar.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
@@ -23,6 +21,16 @@ namespace Millet.CuentasPorCobrar.Application.Liberacion;
 //   3. EvaluaCredito (default): línea Activa del (cliente, moneda) con
 //      disponible ≥ monto del pedido → Liberado (regla Credito); si no,
 //      Retenido salvo override → LiberadoConOverride.
+//   C7.3 (ClickUp 86e3jvv6n) parte la regla 3 por COBERTURA (disponible ÷
+//   monto, ver CoberturaCredito): ≥100 % libera; 50–99.99 % queda
+//   PendienteAutorizacion (regla Cobertura) salvo override vigente del
+//   MISMO pedido; <50 % retiene y RECHAZA el override (supuesto C7.3 d —
+//   solo en la regla de crédito; la serie NuncaLibera sigue aceptándolo).
+//   Sin línea activa o línea bloqueada → Retenido (supuesto e) y SIN
+//   aceptar override (CXC_SIN_LINEA_ACTIVA). Las series NuncaLibera
+//   aceptan override con o sin línea (C7.2 sin cambio).
+//   E10: el override es POR PEDIDO — su ClienteOPedidoRef debe ser el
+//   folio exacto del pedido (AutorizacionCredito.Consumir).
 // La decisión SIEMPRE persiste el snapshot del crédito disponible; el
 // override se consume en la MISMA transacción (§4.2). Sin write-back a
 // A+W (CXC-PR9).
@@ -39,14 +47,49 @@ public sealed record DecisionLiberacionResponse(
     ReglaAplicadaLiberacion ReglaAplicada,
     Guid? OverrideId,
     Guid DecididoPor,
-    DateTimeOffset DecididoEn);
+    DateTimeOffset DecididoEn,
+    decimal? PorcentajeCobertura = null,
+    Guid? DecisionOrigenId = null,
+    Guid? ResolucionId = null,
+    string? Motivo = null);
 
 internal static class DecisionLiberacionMapper
 {
-    public static DecisionLiberacionResponse ToResponse(DecisionLiberacion d) =>
+    /// <param name="resolucionId">C7.3: decisión que resolvió esta pendiente (si la hay).</param>
+    public static DecisionLiberacionResponse ToResponse(DecisionLiberacion d, Guid? resolucionId = null) =>
         new(d.Id, d.PedidoRef, d.ClienteId, d.Moneda, d.MontoPedido,
             d.CreditoDisponibleSnapshot, d.Resultado, d.ReglaAplicada,
-            d.OverrideId, d.DecididoPor, d.DecididoEn);
+            d.OverrideId, d.DecididoPor, d.DecididoEn,
+            d.PorcentajeCobertura, d.DecisionOrigenId, resolucionId, d.Motivo);
+
+    public static DecisionLiberacionEmitidaEvent ToEvent(DecisionLiberacion d) =>
+        new(EmpresaId: d.EmpresaId,
+            OcurridoEn: d.DecididoEn,
+            DecisionId: d.Id,
+            PedidoRef: d.PedidoRef,
+            ClienteId: d.ClienteId,
+            Moneda: d.Moneda,
+            MontoPedido: d.MontoPedido,
+            Resultado: d.Resultado.ToString(),
+            ReglaAplicada: d.ReglaAplicada.ToString(),
+            CreditoDisponibleSnapshot: d.CreditoDisponibleSnapshot,
+            OverrideId: d.OverrideId,
+            DecididoPor: d.DecididoPor,
+            PorcentajeCobertura: d.PorcentajeCobertura,
+            DecisionOrigenId: d.DecisionOrigenId,
+            Motivo: d.Motivo);
+
+    /// <summary>Mapa decisión pendiente → decisión que la resolvió (C7.3).</summary>
+    public static async Task<Dictionary<Guid, Guid>> ResolucionesAsync(
+        CuentasPorCobrarDbContext db, IReadOnlyCollection<Guid> pendientes, CancellationToken ct)
+    {
+        if (pendientes.Count == 0) return [];
+        var pares = await db.DecisionesLiberacion.AsNoTracking()
+            .Where(x => x.DecisionOrigenId != null && pendientes.Contains(x.DecisionOrigenId.Value))
+            .Select(x => new { Origen = x.DecisionOrigenId!.Value, x.Id })
+            .ToListAsync(ct);
+        return pares.ToDictionary(p => p.Origen, p => p.Id);
+    }
 }
 
 // --------------------------------------------------- Decidir
@@ -102,8 +145,8 @@ public sealed class DecidirLiberacionHandler : IRequestHandler<DecidirLiberacion
 
         // Snapshot de crédito: SIEMPRE se calcula, incluso si la serie decide
         // sola — la auditoría de "cuánto crédito había" vale en ambos casos.
-        var snapshot = await CalcularCreditoDisponibleAsync(
-            command.ClienteId, command.Moneda, cancellationToken);
+        var snapshot = await CreditoLiberacion.CalcularAsync(
+            _db, command.ClienteId, command.Moneda, cancellationToken);
 
         // Cascada 1: regla por serie (match por prefijo más largo activo).
         var comportamiento = await ResolverComportamientoSerieAsync(
@@ -111,38 +154,68 @@ public sealed class DecidirLiberacionHandler : IRequestHandler<DecidirLiberacion
 
         ResultadoLiberacion resultado;
         ReglaAplicadaLiberacion regla;
+        decimal? porcentaje = null;
 
         if (comportamiento == ComportamientoSerie.SiempreLibera)
         {
             resultado = ResultadoLiberacion.Liberado;
             regla = ReglaAplicadaLiberacion.Serie;
         }
-        else
+        else if (comportamiento == ComportamientoSerie.EvaluaCredito && snapshot.LineaActiva)
         {
-            // Cascada 2: crédito (solo si la serie no bloquea).
-            var liberaPorCredito = comportamiento == ComportamientoSerie.EvaluaCredito
-                && snapshot.LineaActiva
-                && snapshot.Disponible >= command.MontoPedido;
+            // Cascada 2 con cobertura (C7.3).
+            porcentaje = CoberturaCredito.Porcentaje(snapshot.Disponible, command.MontoPedido);
+            var tramo = CoberturaCredito.Evaluar(snapshot.Disponible, command.MontoPedido);
 
-            if (liberaPorCredito)
+            if (tramo == TramoCobertura.Plena)
             {
                 resultado = ResultadoLiberacion.Liberado;
                 regla = ReglaAplicadaLiberacion.Credito;
             }
-            else if (command.OverrideId is Guid overrideId)
+            else if (tramo == TramoCobertura.Insuficiente)
             {
-                // Cascada 3: override consumible — se valida y consume abajo,
-                // en la misma transacción que la decisión.
+                // CA7.3 + supuesto (d): con <50 % no se ofrece autorización
+                // parcial; un override explícito se rechaza (no se consume).
+                if (command.OverrideId is not null)
+                    throw new BusinessRuleException("CXC_COBERTURA_INSUFICIENTE",
+                        $"La línea de crédito solo cubre el {CoberturaCredito.PorcentajeEntero(porcentaje.Value)} % del pedido; " +
+                        "con menos del 50 % no procede la autorización de CxC y el pedido queda retenido.");
+                resultado = ResultadoLiberacion.Retenido;
+                regla = ReglaAplicadaLiberacion.Credito;
+            }
+            else if (command.OverrideId is not null)
+            {
                 resultado = ResultadoLiberacion.LiberadoConOverride;
                 regla = ReglaAplicadaLiberacion.Override;
             }
             else
             {
-                resultado = ResultadoLiberacion.Retenido;
-                regla = comportamiento == ComportamientoSerie.NuncaLibera
-                    ? ReglaAplicadaLiberacion.Serie
-                    : ReglaAplicadaLiberacion.Credito;
+                resultado = ResultadoLiberacion.PendienteAutorizacion;
+                regla = ReglaAplicadaLiberacion.Cobertura;
             }
+        }
+        else if (comportamiento == ComportamientoSerie.EvaluaCredito)
+        {
+            // Supuesto (e): sin línea activa (o bloqueada) se retiene y no
+            // procede autorización de CxC; el override no se consume.
+            if (command.OverrideId is not null)
+                throw new BusinessRuleException("CXC_SIN_LINEA_ACTIVA",
+                    $"El cliente no tiene línea de crédito activa en {command.Moneda} (no existe o está bloqueada); " +
+                    "el pedido queda retenido y no procede la autorización de CxC.");
+            resultado = ResultadoLiberacion.Retenido;
+            regla = ReglaAplicadaLiberacion.Credito;
+        }
+        else if (command.OverrideId is not null)
+        {
+            // Serie NuncaLibera: override consumible con o sin línea
+            // (supuesto d: la regla de serie no cambia con C7.3).
+            resultado = ResultadoLiberacion.LiberadoConOverride;
+            regla = ReglaAplicadaLiberacion.Override;
+        }
+        else
+        {
+            resultado = ResultadoLiberacion.Retenido;
+            regla = ReglaAplicadaLiberacion.Serie;
         }
 
         var decision = DecisionLiberacion.Emitir(
@@ -156,7 +229,8 @@ public sealed class DecidirLiberacionHandler : IRequestHandler<DecidirLiberacion
             reglaAplicada: regla,
             overrideId: resultado == ResultadoLiberacion.LiberadoConOverride ? command.OverrideId : null,
             decididoPor: usuarioId,
-            decididoEn: ahora);
+            decididoEn: ahora,
+            porcentajeCobertura: porcentaje);
 
         if (resultado == ResultadoLiberacion.LiberadoConOverride)
         {
@@ -164,50 +238,15 @@ public sealed class DecidirLiberacionHandler : IRequestHandler<DecidirLiberacion
                 .FirstOrDefaultAsync(a => a.Id == command.OverrideId, cancellationToken)
                 ?? throw new EntityNotFoundException("AC_NO_ENCONTRADA",
                     $"No se encontró la autorización '{command.OverrideId}'.");
-            autorizacion.Consumir(decision.Id, usuarioId, ahora);
+            autorizacion.Consumir(decision.Id, usuarioId, ahora, command.PedidoRef);
         }
 
         _db.DecisionesLiberacion.Add(decision);
 
-        await _eventos.PublishAsync(new DecisionLiberacionEmitidaEvent(
-            EmpresaId: empresaId,
-            OcurridoEn: ahora,
-            DecisionId: decision.Id,
-            PedidoRef: decision.PedidoRef,
-            ClienteId: decision.ClienteId,
-            Moneda: decision.Moneda,
-            MontoPedido: decision.MontoPedido,
-            Resultado: decision.Resultado.ToString(),
-            ReglaAplicada: decision.ReglaAplicada.ToString(),
-            CreditoDisponibleSnapshot: decision.CreditoDisponibleSnapshot,
-            OverrideId: decision.OverrideId,
-            DecididoPor: decision.DecididoPor), cancellationToken);
+        await _eventos.PublishAsync(DecisionLiberacionMapper.ToEvent(decision), cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
         return DecisionLiberacionMapper.ToResponse(decision);
-    }
-
-    private async Task<(bool LineaActiva, decimal Disponible)> CalcularCreditoDisponibleAsync(
-        Guid clienteId, string moneda, CancellationToken cancellationToken)
-    {
-        var linea = await _db.LineasCredito.AsNoTracking()
-            .FirstOrDefaultAsync(l => l.ClienteId == clienteId
-                                   && l.Moneda == moneda
-                                   && l.Estado == EstadoLineaCredito.Activa,
-                cancellationToken);
-        if (linea is null) return (false, 0m);
-
-        // Mismo cálculo que CreditoDisponibleQuery: saldo pendiente de las
-        // facturas Abierta/Parcial. `liberado_sin_factura` sigue en 0
-        // (PLATFORM-TODO(<CreditoLiberadoSinFactura>), gap G1).
-        var facturado = await _db.FacturasCartera.AsNoTracking()
-            .Where(f => f.ClienteId == clienteId
-                     && f.Moneda == moneda
-                     && (f.Estado == EstadoFacturaCartera.Abierta
-                      || f.Estado == EstadoFacturaCartera.Parcial))
-            .SumAsync(f => f.Total - f.MontoPagado - f.MontoNc, cancellationToken);
-
-        return (true, linea.Limite - facturado);
     }
 
     private async Task<ComportamientoSerie> ResolverComportamientoSerieAsync(
@@ -259,8 +298,14 @@ public sealed class ListarDecisionesLiberacionHandler
             .Skip(offset).Take(limit)
             .ToListAsync(cancellationToken);
 
+        var resoluciones = await DecisionLiberacionMapper.ResolucionesAsync(
+            _db,
+            items.Where(d => d.Resultado == ResultadoLiberacion.PendienteAutorizacion).Select(d => d.Id).ToList(),
+            cancellationToken);
+
         return new PagedResponse<DecisionLiberacionResponse>(
-            items.Select(DecisionLiberacionMapper.ToResponse).ToList(),
+            items.Select(d => DecisionLiberacionMapper.ToResponse(
+                d, resoluciones.TryGetValue(d.Id, out var r) ? r : null)).ToList(),
             offset, limit, total);
     }
 }
@@ -280,6 +325,10 @@ public sealed class ObtenerDecisionLiberacionHandler
             .FirstOrDefaultAsync(x => x.Id == query.Id, cancellationToken)
             ?? throw new EntityNotFoundException("DL_NO_ENCONTRADA",
                 $"No se encontró la decisión '{query.Id}'.");
-        return DecisionLiberacionMapper.ToResponse(d);
+        var resoluciones = d.Resultado == ResultadoLiberacion.PendienteAutorizacion
+            ? await DecisionLiberacionMapper.ResolucionesAsync(_db, new[] { d.Id }, cancellationToken)
+            : new Dictionary<Guid, Guid>();
+        return DecisionLiberacionMapper.ToResponse(
+            d, resoluciones.TryGetValue(d.Id, out var r) ? r : null);
     }
 }

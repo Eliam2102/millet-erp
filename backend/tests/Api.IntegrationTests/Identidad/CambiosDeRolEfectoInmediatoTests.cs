@@ -16,7 +16,8 @@ namespace Millet.Api.IntegrationTests.Identidad;
 /// efecto en la siguiente petición (403), con la caché ya caliente y sin
 /// esperar el TTL de 5 minutos.
 /// </summary>
-public class CambiosDeRolEfectoInmediatoTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class CambiosDeRolEfectoInmediatoTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string UsuariosEndpoint = "/api/v1/identidad/usuarios";

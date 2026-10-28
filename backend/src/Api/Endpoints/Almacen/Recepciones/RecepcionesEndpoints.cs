@@ -106,7 +106,7 @@ public static class RecepcionesEndpoints
             var oc = await ocPort.ObtenerAsync(ordenCompraId, ct)
                 ?? throw new EntityNotFoundException("RECEPCION_OC_NO_ENCONTRADA", "La orden de compra no existe; selecciona una orden autorizada.");
             var rfc = (await proveedores.ObtenerAsync(oc.ProveedorId, ct))?.Rfc;
-            var response = await mediator.Send(new ListarCfdisParaRecepcionQuery(rfc), ct);
+            var response = await mediator.Send(new ListarCfdisParaRecepcionQuery(rfc, ordenCompraId), ct);
             return Results.Ok(response);
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenEntradasRegistrar)
@@ -222,8 +222,31 @@ public static class RecepcionesEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        // --- Cancelar con motivo una recepción mal capturada (86e3tabdp) ---
+        group.MapPost("/{id:guid}/cancelar", async (
+            Guid id,
+            CancelarRecepcionRequest body,
+            DocumentoSucursalScope documentos,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            await documentos.VerificarAsync("recepcion", id, PermisosCanonicos.AlmacenEntradasGestionarTodasSucursales, ct);
+            return Results.Ok(await mediator.Send(new CancelarRecepcionCommand(id, body.MotivoCodigo, body.MotivoTexto), ct));
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenRecepcionesCancelar)
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .WithName("CancelarRecepcion")
+        .WithSummary("Cancelar con motivo una recepción mal capturada: revierte inventario y costo, devuelve lo pendiente a la OC")
+        .Produces<CancelarRecepcionResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         return app;
     }
+
+    public sealed record CancelarRecepcionRequest(string MotivoCodigo, string MotivoTexto);
 
     private static (int off, int lim) NormalizePaging(int? offset, int? limit)
     {

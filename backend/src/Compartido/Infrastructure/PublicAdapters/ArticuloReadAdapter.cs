@@ -59,7 +59,8 @@ public sealed class ArticuloReadAdapter : IArticuloReadPort
                 a.Estatus == EstatusCatalogo.Activo,
                 a.PrecioReferenciaMonto,
                 a.PrecioReferenciaMoneda,
-                Categoria: a.Categoria))
+                Categoria: a.Categoria,
+                ProductoAwId: a.ProductoAwId))
             .FirstOrDefaultAsync(cancellationToken);
 
         return articulo;
@@ -90,7 +91,8 @@ public sealed class ArticuloReadAdapter : IArticuloReadPort
                 a.Estatus == EstatusCatalogo.Activo,
                 a.PrecioReferenciaMonto,
                 a.PrecioReferenciaMoneda,
-                Categoria: a.Categoria))
+                Categoria: a.Categoria,
+                ProductoAwId: a.ProductoAwId))
             .ToDictionaryAsync(a => a.Id, cancellationToken);
     }
 }

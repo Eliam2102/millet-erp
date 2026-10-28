@@ -27,6 +27,7 @@ public interface IArticuloReadPort
 /// bandera <see cref="EsServicio"/> (GAP-9): los servicios no se reciben
 /// en Almacén, así que las líneas de OC de servicio se excluyen del
 /// sub-estado de Recepción. Default <c>false</c> para no romper callers
-/// que solo necesitan la etiqueta.
+/// que solo necesitan la etiqueta. <see cref="TieneProductoAw"/> (F1-MP-01): vidrio crudo ligado a un producto A+W,
+/// así que su línea de OC lleva medida de hoja.
 /// </summary>
-public sealed record ArticuloLectura(Guid Id, string Clave, string Nombre, bool EsServicio = false);
+public sealed record ArticuloLectura(Guid Id, string Clave, string Nombre, bool EsServicio = false, bool TieneProductoAw = false);

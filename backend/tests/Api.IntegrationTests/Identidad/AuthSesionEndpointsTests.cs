@@ -26,7 +26,8 @@ namespace Millet.Api.IntegrationTests.Identidad;
 ///   <item>Respuesta 401 Unauthorized ante tokens vacíos o nulos.</item>
 /// </list>
 /// </summary>
-public class AuthSesionEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class AuthSesionEndpointsTests
 {
     private const string Endpoint = "/api/auth/sesion";
     private const string SuperAdminOid = "dev-superadmin";
@@ -56,14 +57,15 @@ public class AuthSesionEndpointsTests : IClassFixture<WebApplicationFactory<Prog
             throw new UnauthorizedAccessException("Token no reconocido");
         });
 
-        var client = _factory.WithWebHostBuilder(builder =>
+        await using var host = _factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureTestServices(services =>
             {
                 services.RemoveAll<IEntraTokenValidator>();
                 services.AddScoped<IEntraTokenValidator>(_ => fakeValidator);
             });
-        }).CreateClient();
+        });
+        using var client = host.CreateClient();
 
         var request = new LoginRequest(
             EntraToken: "token-entra-superadmin-valido",
@@ -111,14 +113,15 @@ public class AuthSesionEndpointsTests : IClassFixture<WebApplicationFactory<Prog
             throw new UnauthorizedAccessException("Token desconocido");
         });
 
-        var client = _factory.WithWebHostBuilder(builder =>
+        await using var host = _factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureTestServices(services =>
             {
                 services.RemoveAll<IEntraTokenValidator>();
                 services.AddScoped<IEntraTokenValidator>(_ => fakeValidator);
             });
-        }).CreateClient();
+        });
+        using var client = host.CreateClient();
 
         var request = new LoginRequest(
             EntraToken: "token-usuario-nuevo",
@@ -155,7 +158,8 @@ public class AuthSesionEndpointsTests : IClassFixture<WebApplicationFactory<Prog
         var oid = Guid.NewGuid().ToString();
         var id = Guid.CreateVersion7();
         await CrearUsuarioPendienteAsync(id, email, enProvision: false);
-        var client = CrearClienteConClaims(oid, email);
+        await using var host = CrearHostConClaims(oid, email);
+        using var client = host.CreateClient();
 
         try
         {
@@ -184,7 +188,8 @@ public class AuthSesionEndpointsTests : IClassFixture<WebApplicationFactory<Prog
         var oid = Guid.NewGuid().ToString();
         var id = Guid.CreateVersion7();
         await CrearUsuarioPendienteAsync(id, email, enProvision: true);
-        var client = CrearClienteConClaims(oid, email);
+        await using var host = CrearHostConClaims(oid, email);
+        using var client = host.CreateClient();
 
         try
         {
@@ -212,7 +217,7 @@ public class AuthSesionEndpointsTests : IClassFixture<WebApplicationFactory<Prog
 
         try
         {
-            var client = _factory.CreateClient();
+            using var client = _factory.CreateClient();
             var response = await client.PostAsJsonAsync("/api/dev/fake-login",
                 new FakeLoginRequest("oid-distinto", email, "Suplantador", null));
             response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
@@ -239,7 +244,7 @@ public class AuthSesionEndpointsTests : IClassFixture<WebApplicationFactory<Prog
         await db.SaveChangesAsync();
     }
 
-    private HttpClient CrearClienteConClaims(string oid, string email)
+    private WebApplicationFactory<Program> CrearHostConClaims(string oid, string email)
     {
         var fakeValidator = new FakeEntraTokenValidator(_ =>
             new EntraTokenClaims(oid, email, "Usuario Pendiente"));
@@ -250,7 +255,7 @@ public class AuthSesionEndpointsTests : IClassFixture<WebApplicationFactory<Prog
                 services.RemoveAll<IEntraTokenValidator>();
                 services.AddScoped<IEntraTokenValidator>(_ => fakeValidator);
             });
-        }).CreateClient();
+        });
     }
 
     [Fact]
@@ -260,14 +265,15 @@ public class AuthSesionEndpointsTests : IClassFixture<WebApplicationFactory<Prog
         var fakeValidator = new FakeEntraTokenValidator(_ =>
             throw new UnauthorizedAccessException("Firma de token Microsoft Entra inválida."));
 
-        var client = _factory.WithWebHostBuilder(builder =>
+        await using var host = _factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureTestServices(services =>
             {
                 services.RemoveAll<IEntraTokenValidator>();
                 services.AddScoped<IEntraTokenValidator>(_ => fakeValidator);
             });
-        }).CreateClient();
+        });
+        using var client = host.CreateClient();
 
         var request = new LoginRequest(
             EntraToken: "token-falso-o-expirado",
@@ -293,14 +299,15 @@ public class AuthSesionEndpointsTests : IClassFixture<WebApplicationFactory<Prog
             return new EntraTokenClaims("oid", "email", "name");
         });
 
-        var client = _factory.WithWebHostBuilder(builder =>
+        await using var host = _factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureTestServices(services =>
             {
                 services.RemoveAll<IEntraTokenValidator>();
                 services.AddScoped<IEntraTokenValidator>(_ => fakeValidator);
             });
-        }).CreateClient();
+        });
+        using var client = host.CreateClient();
 
         var request = new LoginRequest(
             EntraToken: string.Empty,
@@ -343,14 +350,15 @@ public class AuthSesionEndpointsTests : IClassFixture<WebApplicationFactory<Prog
             throw new UnauthorizedAccessException("Token desconocido");
         });
 
-        var client = _factory.WithWebHostBuilder(builder =>
+        await using var host = _factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureTestServices(services =>
             {
                 services.RemoveAll<IEntraTokenValidator>();
                 services.AddScoped<IEntraTokenValidator>(_ => fakeValidator);
             });
-        }).CreateClient();
+        });
+        using var client = host.CreateClient();
 
         var request = new LoginRequest(
             EntraToken: "token-usuario-inactivo",
@@ -406,14 +414,15 @@ public class AuthSesionEndpointsTests : IClassFixture<WebApplicationFactory<Prog
             throw new UnauthorizedAccessException();
         });
 
-        var client = _factory.WithWebHostBuilder(builder =>
+        await using var host = _factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureTestServices(services =>
             {
                 services.RemoveAll<IEntraTokenValidator>();
                 services.AddScoped<IEntraTokenValidator>(_ => fakeValidator);
             });
-        }).CreateClient();
+        });
+        using var client = host.CreateClient();
 
         var loginRes = await client.PostAsJsonAsync(Endpoint, new LoginRequest("token-superadmin", null));
         loginRes.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -503,14 +512,15 @@ public class AuthSesionEndpointsTests : IClassFixture<WebApplicationFactory<Prog
             throw new UnauthorizedAccessException();
         });
 
-        var client = _factory.WithWebHostBuilder(builder =>
+        await using var host = _factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureTestServices(services =>
             {
                 services.RemoveAll<IEntraTokenValidator>();
                 services.AddScoped<IEntraTokenValidator>(_ => fakeValidator);
             });
-        }).CreateClient();
+        });
+        using var client = host.CreateClient();
 
         // 1. Login exitoso
         // La bitácora es compartida: acotar la consulta a esta ejecución.
@@ -540,14 +550,15 @@ public class AuthSesionEndpointsTests : IClassFixture<WebApplicationFactory<Prog
             throw new UnauthorizedAccessException();
         });
 
-        var client2 = _factory.WithWebHostBuilder(builder =>
+        await using var host2 = _factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureTestServices(services =>
             {
                 services.RemoveAll<IEntraTokenValidator>();
                 services.AddScoped<IEntraTokenValidator>(_ => fakeValidator2);
             });
-        }).CreateClient();
+        });
+        using var client2 = host2.CreateClient();
 
         try
         {

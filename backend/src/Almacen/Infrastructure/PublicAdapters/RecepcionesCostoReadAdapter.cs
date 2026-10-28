@@ -19,11 +19,11 @@ public sealed class RecepcionesCostoReadAdapter(AlmacenDbContext db, ILogger<Rec
         foreach (var entrada in entradas)
         {
             var l = entrada.Linea;
-            var saldo = await db.SaldosInventario.AsNoTracking().SingleOrDefaultAsync(s => s.UbicacionId == l.UbicacionId && s.ArticuloId == l.ArticuloId, ct);
+            var saldo = await db.SaldosInventario.AsNoTracking().SingleOrDefaultAsync(s => s.UbicacionId == l.UbicacionId && s.ArticuloId == l.ArticuloId && s.ProductoAwVarianteId == l.ProductoAwVarianteId && s.Lote == l.Lote, ct);
             var remanentes = await RemanentesAsync(db, empresa, l.Id, l.ArticuloId, logger, ct);
             var destinos = remanentes.Keys.ToList();
             var saldos = await db.SaldosInventario.AsNoTracking()
-                .Where(s => s.ArticuloId == l.ArticuloId && destinos.Contains(s.UbicacionId)).ToListAsync(ct);
+                .Where(s => s.ArticuloId == l.ArticuloId && s.ProductoAwVarianteId == l.ProductoAwVarianteId && s.Lote == l.Lote && destinos.Contains(s.UbicacionId)).ToListAsync(ct);
             var remanente = saldos.Sum(s => Math.Min(s.Cantidad, remanentes[s.UbicacionId]));
             // Existencia y costo de donde está hoy la partida; sin remanente, los de la ubicación de recepción.
             if (saldos.Count == 0 && saldo is not null) saldos = [saldo];
@@ -38,8 +38,12 @@ public sealed class RecepcionesCostoReadAdapter(AlmacenDbContext db, ILogger<Rec
     public static async Task<IReadOnlyDictionary<Guid, decimal>> RemanentesAsync(
         AlmacenDbContext db, Guid empresa, Guid partida, Guid articulo, ILogger logger, CancellationToken ct)
     {
+        // MP-01: el remanente es de la medida y el lote de la partida; otras medidas o lotes del mismo artículo no la diluyen.
+        var origen = await db.LineasMovimiento.AsNoTracking().Where(x => x.Id == partida).Select(x => new { x.ProductoAwVarianteId, x.Lote }).SingleOrDefaultAsync(ct);
+        var variante = origen?.ProductoAwVarianteId;
+        var lote = origen?.Lote;
         var historial = await (from m in db.Movimientos.AsNoTracking() join l in db.LineasMovimiento on m.Id equals l.MovimientoId
-            where m.EmpresaId == empresa && m.Estado == EstadoMovimiento.Registrado && l.UbicacionId != null && l.ArticuloId == articulo
+            where m.EmpresaId == empresa && m.Estado == EstadoMovimiento.Registrado && l.UbicacionId != null && l.ArticuloId == articulo && l.ProductoAwVarianteId == variante && l.Lote == lote
             orderby m.FechaRegistro, m.Id, l.Posicion
             select new { l.Id, l.MovimientoId, l.Posicion, l.UbicacionId, l.Cantidad, m.Tipo, m.SalidaOrigenId }).ToListAsync(ct);
         var salidasTraslado = historial.Where(h => h.Tipo.EsTraslado()).Select(h => (Guid?)h.MovimientoId).Distinct().ToList();
@@ -57,7 +61,8 @@ public sealed class RecepcionesCostoReadAdapter(AlmacenDbContext db, ILogger<Rec
         HashSet<Guid> entradasTrasladadas = [];
         foreach (var h in historial)
         {
-            if (h.Tipo == TipoMovimiento.AjustePrecioFactura || entradasTrasladadas.Contains(h.Id)) continue;
+            // La recepción cancelada ya no entra al historial (solo Registrado): su CEN tampoco debe restar al remanente de las demás.
+            if (h.Tipo is TipoMovimiento.AjustePrecioFactura or TipoMovimiento.CancelacionEntradaCompra || entradasTrasladadas.Contains(h.Id)) continue;
             var ubicacion = h.UbicacionId!.Value;
             var existencia = existencias.GetValueOrDefault(ubicacion);
             var remanente = remanentes.GetValueOrDefault(ubicacion);

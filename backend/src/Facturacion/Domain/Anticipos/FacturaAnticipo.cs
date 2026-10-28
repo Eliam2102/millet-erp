@@ -32,7 +32,7 @@ public sealed class FacturaAnticipo : Comprobante
 
     // ---- Concepto único del anticipo (§4.3) — el XML real lo arma F12 ----
     public string ClaveProdServSat { get; private set; } = "84111506";
-    public string ClaveUnidadSat { get; private set; } = "E48"; // Unidad de servicio
+    public string ClaveUnidadSat { get; private set; } = "ACT"; // Actividad
     public string Descripcion { get; private set; } = "Anticipo de clientes";
 
     private FacturaAnticipo() { }
@@ -137,7 +137,7 @@ public sealed class FacturaAnticipo : Comprobante
             pedidoFacturableId: pedidoFacturableId,
             anticipoId: anticipoId,
             claveProdServSat: "84111506",
-            claveUnidadSat: "E48",
+            claveUnidadSat: "ACT",
             descripcion: string.IsNullOrWhiteSpace(descripcion) ? "Anticipo de clientes" : descripcion!);
 
         var iva = ivaDesglosado

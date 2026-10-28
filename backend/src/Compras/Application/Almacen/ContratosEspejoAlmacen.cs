@@ -98,6 +98,25 @@ public sealed record OcDevolucionRegistradaAlmacenPayload(
     decimal MontoTotalMxn,
     IReadOnlyList<LineaDevolucionAlmacenPayload> Lineas);
 
+/// <summary>
+/// Espejo de <c>almacen.recepcion_oc.cancelada.v1</c> (86e3tabdp). Compras devuelve a pendiente lo recibido de
+/// cada línea de OC. <c>CantidadDocumento</c> viene en unidad de la OC.
+/// </summary>
+public sealed record OcRecepcionCanceladaAlmacenPayload(
+    Guid EmpresaId,
+    DateTimeOffset OcurridoEn,
+    Guid RecepcionId,
+    string FolioRecepcion,
+    Guid OrdenCompraId,
+    IReadOnlyList<LineaRecepcionCanceladaAlmacenPayload> Lineas);
+
+public sealed record LineaRecepcionCanceladaAlmacenPayload(
+    Guid LineaRecepcionId,
+    Guid? LineaOcId,
+    Guid ArticuloId,
+    decimal Cantidad,
+    decimal CantidadDocumento);
+
 public sealed record LineaDevolucionAlmacenPayload(
     Guid LineaDevolucionId,
     Guid? LineaRecepcionOrigenId,

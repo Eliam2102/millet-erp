@@ -12,7 +12,8 @@ using static Millet.Api.IntegrationTests.Contabilidad.ContabTestKit;
 namespace Millet.Api.IntegrationTests.Contabilidad;
 
 /// <summary>Cuentas: CRUD, reglas R1–R9, concurrencia, idempotencia y permisos (§12). HTTP real + Postgres real. Datos FIX-*.</summary>
-public class CatalogoHttpTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class CatalogoHttpTests(WebApplicationFactory<Program> factory)
 {
     [Fact]
     public async Task Alta_de_titulo_e_hijas_calcula_nivel_y_marca_pendiente_si_faltan_naturaleza_o_tipo()

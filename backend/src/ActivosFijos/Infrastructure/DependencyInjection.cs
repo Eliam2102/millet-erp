@@ -10,6 +10,7 @@ public static class DependencyInjection
     {
         services.AddScoped<ActivoServicio>();
         services.AddScoped<LibroServicio>();
+        services.AddScoped<FiscalServicio>();
         services.AddScoped<CargaLibroServicio>();
         services.AddScoped<ReportesLibroServicio>();
         services.AddScoped<OperacionesLibroServicio>();

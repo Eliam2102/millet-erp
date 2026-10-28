@@ -19,7 +19,8 @@ namespace Millet.Api.IntegrationTests.DatosMaestros;
 /// carreras, permisos, límites del servidor y resolución desde Facturación. Cada prueba usa
 /// RFC ficticios propios y limpia lo que crea en <c>finally</c>.
 /// </summary>
-public sealed class ClientesAltaManualEndpointsTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public sealed class ClientesAltaManualEndpointsTests(WebApplicationFactory<Program> factory)
 {
     private const string Clasificacion = "00000012-0001-0000-0000-000000000001";
     private const string Base = "/api/v1/datos-maestros/clientes";

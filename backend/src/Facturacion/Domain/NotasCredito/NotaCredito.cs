@@ -25,7 +25,7 @@ public sealed class NotaCredito : Comprobante
 
     // ---- Concepto único (el XML real lo arma F12) ----
     public string ClaveProdServSat { get; private set; } = "84111506";
-    public string ClaveUnidadSat { get; private set; } = "E48";
+    public string ClaveUnidadSat { get; private set; } = "ACT";
     public string Descripcion { get; private set; } = "Aplicación de anticipo";
 
     /// <summary>Momento en que se pidió a Tesorería el reembolso en dinero de esta NC (null = no solicitado).</summary>
@@ -144,7 +144,7 @@ public sealed class NotaCredito : Comprobante
             anticipoOrigenId: anticipoOrigenId,
             facturaRelacionadaId: facturaRelacionadaId,
             claveProdServSat: "84111506",
-            claveUnidadSat: "E48",
+            claveUnidadSat: "ACT",
             descripcion: "Aplicación de anticipo");
 
         DesglosarTotales(nc, montoTotal, tasaIva);
@@ -201,7 +201,7 @@ public sealed class NotaCredito : Comprobante
             anticipoOrigenId: null,
             facturaRelacionadaId: facturaRelacionadaId,
             claveProdServSat: "84111506",
-            claveUnidadSat: "E48",
+            claveUnidadSat: "ACT",
             descripcion: string.IsNullOrWhiteSpace(descripcion) ? "Bonificación" : descripcion!);
 
         DesglosarTotales(nc, montoTotal, tasaIva);
@@ -260,7 +260,7 @@ public sealed class NotaCredito : Comprobante
             anticipoOrigenId: null,
             facturaRelacionadaId: facturaRelacionadaId,
             claveProdServSat: "84111506",
-            claveUnidadSat: "E48",
+            claveUnidadSat: "ACT",
             descripcion: descripcion);
 
         DesglosarTotales(nc, montoTotal, tasaIva);

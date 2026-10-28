@@ -36,7 +36,8 @@ namespace Millet.Api.IntegrationTests.Compras;
 /// Los listeners de Service Bus se ejecutan con sus clases reales (ProcessAsync) alimentados desde
 /// el outbox de cada modulo: sin mocks de negocio.
 /// </summary>
-public sealed class CompraAPagoDemoTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public sealed class CompraAPagoDemoTests(WebApplicationFactory<Program> factory)
 {
     private static Guid Articulo; // articulo nuevo por corrida: el stock de Almacen persiste y cubriria la RQ en re-corridas
     internal static readonly Guid Proveedor = Guid.Parse("00000005-0001-0000-0000-000000000001"); // PROV-EST, RFC SES010101AAA
@@ -47,7 +48,7 @@ public sealed class CompraAPagoDemoTests(WebApplicationFactory<Program> factory)
     [Fact]
     public async Task Rq_A_autoriza_B_oc_recepcion_factura_pasivo_pago_y_regreso_de_eventos()
     {
-        var app = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s =>
+        await using var app = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s =>
         {
             // El stub de stock con ratio 1 cubre todo con almacen; ratio 0 = "no hay existencia" => se genera OC por el faltante.
             s.PostConfigure<ComprasStubsOptions>(o => o.Stubs.Stock.DefaultRatio = 0m);
@@ -65,9 +66,9 @@ public sealed class CompraAPagoDemoTests(WebApplicationFactory<Program> factory)
 
         // ---------- usuarios ----------
         var todos = PermisosCanonicos.Todos.Select(p => p.Codigo).ToArray();
-        var a = await ClienteConPermisosAsync(app, "compras.requisiciones.crear", "compras.requisiciones.leer", "compras.requisiciones.editar", "centros_costo.dim3.leer-todos",
+        using var a = await ClienteConPermisosAsync(app, "compras.requisiciones.crear", "compras.requisiciones.leer", "compras.requisiciones.editar", "centros_costo.dim3.leer-todos",
             "compras.ordenes.crear", "compras.ordenes.leer", "compras.ordenes.adjuntar");
-        var b = await ClienteConPermisosAsync(app, todos);
+        using var b = await ClienteConPermisosAsync(app, todos);
         await AsociarSucursalAsync(app, a);
         var idA = await UserIdAsync(a); var idB = await UserIdAsync(b);
         Assert.NotEqual(idA, idB);
@@ -95,7 +96,7 @@ public sealed class CompraAPagoDemoTests(WebApplicationFactory<Program> factory)
         var ocResp = await a.PostAsJsonAsync("/api/v1/compras/ordenes/desde-requisicion", new
         {
             RequisicionId = rqId, SucursalCodigo = "MID", FolioAnio = (short)hoy.Year, ProveedorId = Proveedor,
-            CondicionesPagoId = Guid.NewGuid(), UsoPrincipalId = Guid.NewGuid(), FechaDocumento = hoy,
+            CondicionesPagoId = Guid.NewGuid(), UsoPrincipalId = Guid.NewGuid(), UsoCfdiClave = "G03", MetodoPago = "PPD", FormaPagoClave = "99", FechaDocumento = hoy,
         });
         await Ok(ocResp, "A crea OC desde RQ (faltante)");
         var ocTxt = await ocResp.Content.ReadAsStringAsync();

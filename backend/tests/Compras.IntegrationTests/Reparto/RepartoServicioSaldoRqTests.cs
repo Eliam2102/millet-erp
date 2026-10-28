@@ -130,7 +130,7 @@ public class RepartoServicioSaldoRqTests : IClassFixture<StubsWebApplicationFact
             FolioAnio = TestComprasFixtures.FolioAnioDefault,
             ProveedorId = ProveedorActivoId,
             CondicionesPagoId = Guid.NewGuid(),
-            UsoPrincipalId = Guid.NewGuid(),
+            UsoPrincipalId = Guid.NewGuid(), UsoCfdiClave = "G03", MetodoPago = "PPD", FormaPagoClave = "99",
             FechaDocumento = new DateOnly(2026, 10, 15),
         });
         crear.EnsureSuccessStatusCode();

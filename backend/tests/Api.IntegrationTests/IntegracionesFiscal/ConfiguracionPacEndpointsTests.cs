@@ -18,7 +18,7 @@ using Millet.SharedKernel.Application;
 
 namespace Millet.Api.IntegrationTests.IntegracionesFiscal;
 
-public sealed class ConfiguracionPacEndpointsTests : IClassFixture<WebApplicationFactory<Program>>, IAsyncLifetime
+public sealed class ConfiguracionPacEndpointsTests : IClassFixture<ConfiguracionPacEndpointsTests.Servidor>, IAsyncLifetime
 {
     private static readonly Guid EmpresaId = Guid.Parse("00000003-0000-0000-0000-000000000001");
     private const string Base = "/api/v1/integraciones/fiscal/configuracion";
@@ -26,36 +26,41 @@ public sealed class ConfiguracionPacEndpointsTests : IClassFixture<WebApplicatio
     private readonly HashSet<string> _usuariosTemporales = [];
     private readonly HashSet<Guid> _rolesTemporales = [];
 
-    public ConfiguracionPacEndpointsTests(WebApplicationFactory<Program> factory)
-        => _factory = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
+    public ConfiguracionPacEndpointsTests(Servidor fixture)
+    {
+        _factory = fixture.Factory;
+        fixture.Reiniciar();
+    }
+
+    public sealed class Servidor : IDisposable
+    {
+        private readonly WebApplicationFactory<Program> _raiz = new();
+        public WebApplicationFactory<Program> Factory { get; }
+        public Servidor() => Factory = _raiz.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
         {
             services.RemoveAll<IPacCandidatoProbe>();
             services.AddSingleton<IPacCandidatoProbe>(new StubSdk());
         }));
+        public void Reiniciar() => ((StubSdk)Factory.Services.GetRequiredService<IPacCandidatoProbe>()).Reiniciar();
+        public void Dispose() => _raiz.Dispose();
+    }
 
     public Task InitializeAsync() => Task.CompletedTask;
 
     public async Task DisposeAsync()
     {
-        try
-        {
-            if (_usuariosTemporales.Count == 0) return;
-            using var scope = _factory.Services.CreateScope();
-            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
-            var db = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
-            var oids = _usuariosTemporales.ToArray();
-            var roles = _rolesTemporales.ToArray();
-            var usuarios = await db.Usuarios.Where(u => oids.Contains(u.EntraOid)).Select(u => u.Id).ToArrayAsync();
-            await db.UsuarioEmpresaRoles.Where(x => usuarios.Contains(x.UsuarioId)).ExecuteDeleteAsync();
-            await db.UsuarioPreferencias.Where(x => usuarios.Contains(x.UsuarioId)).ExecuteDeleteAsync();
-            await db.Usuarios.Where(x => usuarios.Contains(x.Id)).ExecuteDeleteAsync();
-            await db.RolPermisos.Where(x => roles.Contains(x.RolId)).ExecuteDeleteAsync();
-            await db.Roles.Where(x => roles.Contains(x.Id)).ExecuteDeleteAsync();
-        }
-        finally
-        {
-            await _factory.DisposeAsync();
-        }
+        if (_usuariosTemporales.Count == 0) return;
+        using var scope = _factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var db = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
+        var oids = _usuariosTemporales.ToArray();
+        var roles = _rolesTemporales.ToArray();
+        var usuarios = await db.Usuarios.Where(u => oids.Contains(u.EntraOid)).Select(u => u.Id).ToArrayAsync();
+        await db.UsuarioEmpresaRoles.Where(x => usuarios.Contains(x.UsuarioId)).ExecuteDeleteAsync();
+        await db.UsuarioPreferencias.Where(x => usuarios.Contains(x.UsuarioId)).ExecuteDeleteAsync();
+        await db.Usuarios.Where(x => usuarios.Contains(x.Id)).ExecuteDeleteAsync();
+        await db.RolPermisos.Where(x => roles.Contains(x.RolId)).ExecuteDeleteAsync();
+        await db.Roles.Where(x => roles.Contains(x.Id)).ExecuteDeleteAsync();
     }
 
     [Fact]
@@ -420,6 +425,11 @@ public sealed class ConfiguracionPacEndpointsTests : IClassFixture<WebApplicatio
         {
             PingCount++;
             return Task.FromResult(Resultado);
+        }
+        public void Reiniciar()
+        {
+            PingCount = 0;
+            Resultado = new(true, 200, "Conexión disponible", 7, DateTimeOffset.UtcNow);
         }
         public int PingCount { get; private set; }
         public PingResultDto Resultado { get; set; } = new(true, 200, "Conexión disponible", 7, DateTimeOffset.UtcNow);
