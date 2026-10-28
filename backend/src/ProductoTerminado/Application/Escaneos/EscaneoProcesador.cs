@@ -44,7 +44,12 @@ public sealed class EscaneoProcesador(ProductoTerminadoDbContext db, IPedidosPtR
             e.Intentar(maxIntentos);
             return;
         }
-        // P-11: pedido cancelado
+        // (3b) pedido cancelado en el origen: no se reciben piezas
+        if (string.Equals(origen.Estado, "Cancelado", StringComparison.OrdinalIgnoreCase))
+        {
+            e.MarcarExcepcion(MotivosPt.PedidoCancelado);
+            return;
+        }
 
         // (4) PedidoPt local
         var pedido = await db.PedidosPt.Include(x => x.Posiciones)
@@ -56,7 +61,11 @@ public sealed class EscaneoProcesador(ProductoTerminadoDbContext db, IPedidosPtR
             pedido.ActualizarPosiciones(origen.VersionOrigen, lineas);
             db.PedidosPt.Add(pedido);
         }
-        // P-11: refresco por versión de origen
+        else if (origen.VersionOrigen is { } v && v > (pedido.VersionOrigen ?? long.MinValue))
+        {
+            // Refresco por versión de origen: solo agrega/actualiza posiciones, nunca elimina piezas ni baja conteos.
+            pedido.ActualizarPosiciones(v, lineas);
+        }
 
         // (5) posición
         var pos = pedido.Posiciones.FirstOrDefault(p => p.Posicion == posicion);
@@ -65,7 +74,12 @@ public sealed class EscaneoProcesador(ProductoTerminadoDbContext db, IPedidosPtR
             e.MarcarExcepcion(MotivosPt.PosicionInexistente);
             return;
         }
-        // P-11: cantidad no entera
+        // (5b) cantidad no entera: no se pueden derivar piezas esperadas
+        if (pos.CantidadNoEntera)
+        {
+            e.MarcarExcepcion(MotivosPt.CantidadNoEntera);
+            return;
+        }
 
         // (6) exceso
         if (numeroPieza > pos.PiezasEsperadas)
@@ -73,7 +87,19 @@ public sealed class EscaneoProcesador(ProductoTerminadoDbContext db, IPedidosPtR
             e.MarcarExcepcion(MotivosPt.PiezaExcedePosicion);
             return;
         }
-        // P-11: reposición y ranura duplicada
+        // (6b) reposición: la etiqueta ya está en PT; no crea pieza, movimiento ni evento (el avance nunca supera lo esperado)
+        var etiqueta = e.Etiqueta.Trim();
+        if (await db.Piezas.AnyAsync(x => x.EmpresaId == e.EmpresaId && x.Etiqueta == etiqueta, ct))
+        {
+            e.MarcarReposicion();
+            return;
+        }
+        // (6c) otra etiqueta ya ocupa la misma ranura (pedido, posición, número de pieza)
+        if (await db.Piezas.AnyAsync(x => x.EmpresaId == e.EmpresaId && x.PedidoPtId == pedido.Id && x.Posicion == posicion && x.NumeroPieza == numeroPieza, ct))
+        {
+            e.MarcarExcepcion(MotivosPt.PiezaDuplicada);
+            return;
+        }
 
         // (7) alta
         var ahora = clock.UtcNow;
