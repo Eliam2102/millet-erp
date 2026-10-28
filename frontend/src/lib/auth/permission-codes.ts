@@ -500,6 +500,10 @@ export const PermisosCanonicos = {
   ComercioExteriorExpedientesAdjuntosBaja: 'comercio_exterior.expedientes.adjuntos-baja',
   ComercioExteriorDocumentosLeerTodasSucursales: 'comercio_exterior.documentos.leer-todas-sucursales',
   ComercioExteriorDocumentosGestionarTodasSucursales: 'comercio_exterior.documentos.gestionar-todas-sucursales',
+  ProductoTerminadoPiezasVer: 'producto_terminado.piezas.ver',
+  ProductoTerminadoPiezasVerTodasSucursales: 'producto_terminado.piezas.ver-todas-sucursales',
+  ProductoTerminadoExcepcionesGestionar: 'producto_terminado.excepciones.gestionar',
+  ProductoTerminadoExcepcionesGestionarTodasSucursales: 'producto_terminado.excepciones.gestionar-todas-sucursales',
 } as const;
 
 /** Tipo unión de todos los códigos de permiso conocidos (autocompletado en IDE). */
