@@ -117,7 +117,7 @@ public static class ReppEndpoints
         pendientes.MapPut("/{id:guid}", async (Guid id, RevisarReppPendienteBody body, IMediator mediator, CancellationToken ct) =>
         {
             await mediator.Send(new RevisarReppPendienteCommand(id, body.FormaPago, body.Facturas,
-                body.CuentaOrdenante, body.CuentaBeneficiaria), ct);
+                body.CuentaOrdenante, body.CuentaBeneficiaria, body.LimpiarCuentaOrdenante), ct);
             return Results.NoContent();
         }).RequireAuthorization(emitir).WithName("RevisarReppPendiente");
         // 86e3tfdve: body opcional con las cuentas del pago; sin body, la beneficiaria
@@ -143,6 +143,6 @@ public static class ReppEndpoints
 }
 
 public sealed record RevisarReppPendienteBody(string FormaPago, IReadOnlyList<RelacionRepp> Facturas,
-    string? CuentaOrdenante = null, string? CuentaBeneficiaria = null);
+    string? CuentaOrdenante = null, string? CuentaBeneficiaria = null, bool LimpiarCuentaOrdenante = false);
 public sealed record EmitirReppPendienteBody(string? CuentaOrdenante = null, string? CuentaBeneficiaria = null);
 public sealed record DescartarReppPendienteBody(string Motivo);

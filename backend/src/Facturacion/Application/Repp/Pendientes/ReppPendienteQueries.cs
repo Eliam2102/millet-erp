@@ -22,7 +22,9 @@ public sealed record ReppPendienteDto(Guid Id, Guid ClienteId, string ClienteNom
     string? MotivoDescarte, IReadOnlyList<ReppPendienteFacturaDto> Facturas, IReadOnlyList<string> Bloqueos,
     // 86e3tfdve: cuenta de Millet donde entró el depósito (banco + «•••• 1234») y
     // beneficiaria que se usará al emitir con la forma actual (enmascarada; null si no aplica).
-    string? CuentaBancariaEtiqueta = null, string? CuentaBeneficiariaSugerida = null);
+    string? CuentaBancariaEtiqueta = null, string? CuentaBeneficiariaSugerida = null,
+    // Opción A: ordenante guardada (la del ingreso o la corregida al revisar), enmascarada.
+    string? CuentaOrdenante = null);
 
 public sealed class ReppPendienteQueryHandler(FacturacionDbContext db, ReppPendienteServicio servicio,
     IClientesReadPort clientes, IReppBancarioReadPort bancario, IClock clock, ICuentaBancariaMilletReadPort cuentasMillet)
@@ -91,6 +93,6 @@ public sealed class ReppPendienteQueryHandler(FacturacionDbContext db, ReppPendi
             PlazoRepp.Alerta(p.FechaLimite, clock.UtcNow), tc, p.Moneda != "MXN" && tc is null,
             p.ReciboPagoId, p.IntentoReciboPagoId, p.UltimoErrorCodigo, p.UltimoErrorMensaje, p.MotivoDescarte,
             p.Facturas.Select(f => new ReppPendienteFacturaDto(f.FacturaVentaId, folios.GetValueOrDefault(f.FacturaVentaId), f.Importe)).ToArray(), bloqueos,
-            etiqueta, sugerida);
+            etiqueta, sugerida, CuentasPagoSat.Enmascarar(p.CuentaOrdenante));
     }
 }

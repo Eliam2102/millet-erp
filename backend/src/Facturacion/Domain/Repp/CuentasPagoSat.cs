@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.SharedKernel.Domain.Bancos;
 
 namespace Millet.Facturacion.Domain.Repp;
 
@@ -31,8 +32,7 @@ namespace Millet.Facturacion.Domain.Repp;
 /// </list>
 ///
 /// <para>
-/// Fuera de alcance (decisión pendiente de Eliam): <c>RfcEmisorCtaOrd</c>,
-/// <c>NomBancoOrdExt</c> y <c>RfcEmisorCtaBen</c>.
+/// Fuera de alcance: <c>RfcEmisorCtaOrd</c>, <c>NomBancoOrdExt</c> y <c>RfcEmisorCtaBen</c>.
 /// </para>
 /// </summary>
 public static class CuentasPagoSat
@@ -49,9 +49,7 @@ public static class CuentasPagoSat
     /// <summary>Regla de una forma de pago bancarizada; <c>null</c> = no admite esa cuenta.</summary>
     public sealed record ReglaCuentas(string Clave, string Nombre, FormatoCuenta? Ordenante, FormatoCuenta? Beneficiaria);
 
-    private static readonly FormatoCuenta Generico = new(
-        "[0-9]{10,11}|[0-9]{15,16}|[0-9]{18}|[A-Z0-9_]{10,50}",
-        "10, 11, 15, 16 o 18 dígitos, o de 10 a 50 caracteres alfanuméricos");
+    private static readonly FormatoCuenta Generico = new(CuentaPagoSat.PatronGeneral, CuentaPagoSat.DescripcionGeneral);
 
     public static readonly IReadOnlyDictionary<string, ReglaCuentas> Reglas = new Dictionary<string, ReglaCuentas>
     {
@@ -69,12 +67,10 @@ public static class CuentasPagoSat
     public static bool AdmiteBeneficiaria(string? formaPago) => Regla(formaPago)?.Beneficiaria is not null;
 
     /// <summary>Quita espacios y guiones de captura; vacío = sin cuenta.</summary>
-    public static string? Normalizar(string? cuenta)
-    {
-        if (string.IsNullOrWhiteSpace(cuenta)) return null;
-        var limpia = new string(cuenta.Where(c => !char.IsWhiteSpace(c) && c != '-').ToArray()).ToUpperInvariant();
-        return limpia.Length == 0 ? null : limpia;
-    }
+    public static string? Normalizar(string? cuenta) => CuentaPagoSat.Normalizar(cuenta);
+
+    /// <summary>¿La ordenante (normalizada) cumple el patrón de la forma de pago? Falso si la forma no la admite.</summary>
+    public static bool OrdenanteCumple(string? formaPago, string cuenta) => Regla(formaPago)?.Ordenante?.Cumple(cuenta) == true;
 
     /// <summary>
     /// Valida ambas cuentas (ya normalizadas o no) contra la forma de pago.
@@ -101,12 +97,7 @@ public static class CuentasPagoSat
     }
 
     /// <summary>Enmascarado para mostrar (ADR-0006): «•••• 1234».</summary>
-    public static string? Enmascarar(string? cuenta)
-    {
-        var v = cuenta?.Trim();
-        if (string.IsNullOrEmpty(v)) return null;
-        return v.Length <= 4 ? "••••" : $"•••• {v[^4..]}";
-    }
+    public static string? Enmascarar(string? cuenta) => CuentaPagoSat.Enmascarar(cuenta);
 
     private static ReglaCuentas? Regla(string? formaPago) =>
         formaPago is not null && Reglas.TryGetValue(formaPago.Trim(), out var r) ? r : null;
