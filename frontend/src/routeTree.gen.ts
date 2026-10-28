@@ -18,9 +18,9 @@ import { Route as AppActivosFijosConciliacionRouteImport } from './routes/_app/a
 import { Route as AppActivosFijosConfiguracionLibroRouteImport } from './routes/_app/activos-fijos/configuracion-libro';
 import { Route as AppActivosFijosConteosRouteImport } from './routes/_app/activos-fijos/conteos';
 import { Route as AppActivosFijosDepreciacionRouteImport } from './routes/_app/activos-fijos/depreciacion';
-import { Route as AppActivosFijosLibroRouteImport } from './routes/_app/activos-fijos/libro';
 import { Route as AppActivosFijosDepreciacionFiscalRouteImport } from './routes/_app/activos-fijos/depreciacion-fiscal';
 import { Route as AppActivosFijosInpcRouteImport } from './routes/_app/activos-fijos/inpc';
+import { Route as AppActivosFijosLibroRouteImport } from './routes/_app/activos-fijos/libro';
 import { Route as AppActivosFijosPorCapitalizarRouteImport } from './routes/_app/activos-fijos/por-capitalizar';
 import { Route as AppActivosFijosPorVencerRouteImport } from './routes/_app/activos-fijos/por-vencer';
 import { Route as AppAdminIndexRouteImport } from './routes/_app/admin/index';
@@ -57,6 +57,7 @@ import { Route as AppCxpRevisionRouteImport } from './routes/_app/cxp/revision';
 import { Route as AppFacturacionIndexRouteImport } from './routes/_app/facturacion/index';
 import { Route as AppFacturacionAyudaRouteImport } from './routes/_app/facturacion/ayuda';
 import { Route as AppFacturacionCajaRouteImport } from './routes/_app/facturacion/caja';
+import { Route as AppProductoTerminadoPiezasRouteImport } from './routes/_app/producto-terminado/piezas';
 import { Route as AppSistemaDisenoIndexRouteImport } from './routes/_app/sistema-diseno/index';
 import { Route as AppTesoreriaIndexRouteImport } from './routes/_app/tesoreria/index';
 import { Route as AppActivosFijosActivosIndexRouteImport } from './routes/_app/activos-fijos/activos/index';
@@ -259,19 +260,20 @@ const AppActivosFijosDepreciacionRoute =
     path: '/activos-fijos/depreciacion',
     getParentRoute: () => AppRoute,
   } as any);
-const AppActivosFijosLibroRoute = AppActivosFijosLibroRouteImport.update({
-  id: '/activos-fijos/libro',
-  path: '/activos-fijos/libro',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppActivosFijosDepreciacionFiscalRoute = AppActivosFijosDepreciacionFiscalRouteImport.update({
-  id: '/activos-fijos/depreciacion-fiscal',
-  path: '/activos-fijos/depreciacion-fiscal',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppActivosFijosDepreciacionFiscalRoute =
+  AppActivosFijosDepreciacionFiscalRouteImport.update({
+    id: '/activos-fijos/depreciacion-fiscal',
+    path: '/activos-fijos/depreciacion-fiscal',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppActivosFijosInpcRoute = AppActivosFijosInpcRouteImport.update({
   id: '/activos-fijos/inpc',
   path: '/activos-fijos/inpc',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppActivosFijosLibroRoute = AppActivosFijosLibroRouteImport.update({
+  id: '/activos-fijos/libro',
+  path: '/activos-fijos/libro',
   getParentRoute: () => AppRoute,
 } as any);
 const AppActivosFijosPorCapitalizarRoute =
@@ -464,6 +466,12 @@ const AppFacturacionCajaRoute = AppFacturacionCajaRouteImport.update({
   path: '/facturacion/caja',
   getParentRoute: () => AppRoute,
 } as any);
+const AppProductoTerminadoPiezasRoute =
+  AppProductoTerminadoPiezasRouteImport.update({
+    id: '/producto-terminado/piezas',
+    path: '/producto-terminado/piezas',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppSistemaDisenoIndexRoute = AppSistemaDisenoIndexRouteImport.update({
   id: '/sistema-diseno/',
   path: '/sistema-diseno/',
@@ -1332,9 +1340,9 @@ export interface FileRoutesByFullPath {
   '/activos-fijos/configuracion-libro': typeof AppActivosFijosConfiguracionLibroRoute;
   '/activos-fijos/conteos': typeof AppActivosFijosConteosRoute;
   '/activos-fijos/depreciacion': typeof AppActivosFijosDepreciacionRoute;
-  '/activos-fijos/libro': typeof AppActivosFijosLibroRoute;
   '/activos-fijos/depreciacion-fiscal': typeof AppActivosFijosDepreciacionFiscalRoute;
   '/activos-fijos/inpc': typeof AppActivosFijosInpcRoute;
+  '/activos-fijos/libro': typeof AppActivosFijosLibroRoute;
   '/activos-fijos/por-capitalizar': typeof AppActivosFijosPorCapitalizarRoute;
   '/activos-fijos/por-vencer': typeof AppActivosFijosPorVencerRoute;
   '/admin/mi-empresa': typeof AppAdminMiEmpresaRoute;
@@ -1364,6 +1372,7 @@ export interface FileRoutesByFullPath {
   '/cxp/revision': typeof AppCxpRevisionRoute;
   '/facturacion/ayuda': typeof AppFacturacionAyudaRoute;
   '/facturacion/caja': typeof AppFacturacionCajaRoute;
+  '/producto-terminado/piezas': typeof AppProductoTerminadoPiezasRoute;
   '/admin/': typeof AppAdminIndexRoute;
   '/almacen/': typeof AppAlmacenIndexRoute;
   '/centros-costo/': typeof AppCentrosCostoIndexRoute;
@@ -1534,9 +1543,9 @@ export interface FileRoutesByTo {
   '/activos-fijos/configuracion-libro': typeof AppActivosFijosConfiguracionLibroRoute;
   '/activos-fijos/conteos': typeof AppActivosFijosConteosRoute;
   '/activos-fijos/depreciacion': typeof AppActivosFijosDepreciacionRoute;
-  '/activos-fijos/libro': typeof AppActivosFijosLibroRoute;
   '/activos-fijos/depreciacion-fiscal': typeof AppActivosFijosDepreciacionFiscalRoute;
   '/activos-fijos/inpc': typeof AppActivosFijosInpcRoute;
+  '/activos-fijos/libro': typeof AppActivosFijosLibroRoute;
   '/activos-fijos/por-capitalizar': typeof AppActivosFijosPorCapitalizarRoute;
   '/activos-fijos/por-vencer': typeof AppActivosFijosPorVencerRoute;
   '/admin/mi-empresa': typeof AppAdminMiEmpresaRoute;
@@ -1566,6 +1575,7 @@ export interface FileRoutesByTo {
   '/cxp/revision': typeof AppCxpRevisionRoute;
   '/facturacion/ayuda': typeof AppFacturacionAyudaRoute;
   '/facturacion/caja': typeof AppFacturacionCajaRoute;
+  '/producto-terminado/piezas': typeof AppProductoTerminadoPiezasRoute;
   '/admin': typeof AppAdminIndexRoute;
   '/almacen': typeof AppAlmacenIndexRoute;
   '/centros-costo': typeof AppCentrosCostoIndexRoute;
@@ -1738,9 +1748,9 @@ export interface FileRoutesById {
   '/_app/activos-fijos/configuracion-libro': typeof AppActivosFijosConfiguracionLibroRoute;
   '/_app/activos-fijos/conteos': typeof AppActivosFijosConteosRoute;
   '/_app/activos-fijos/depreciacion': typeof AppActivosFijosDepreciacionRoute;
-  '/_app/activos-fijos/libro': typeof AppActivosFijosLibroRoute;
   '/_app/activos-fijos/depreciacion-fiscal': typeof AppActivosFijosDepreciacionFiscalRoute;
   '/_app/activos-fijos/inpc': typeof AppActivosFijosInpcRoute;
+  '/_app/activos-fijos/libro': typeof AppActivosFijosLibroRoute;
   '/_app/activos-fijos/por-capitalizar': typeof AppActivosFijosPorCapitalizarRoute;
   '/_app/activos-fijos/por-vencer': typeof AppActivosFijosPorVencerRoute;
   '/_app/admin/mi-empresa': typeof AppAdminMiEmpresaRoute;
@@ -1770,6 +1780,7 @@ export interface FileRoutesById {
   '/_app/cxp/revision': typeof AppCxpRevisionRoute;
   '/_app/facturacion/ayuda': typeof AppFacturacionAyudaRoute;
   '/_app/facturacion/caja': typeof AppFacturacionCajaRoute;
+  '/_app/producto-terminado/piezas': typeof AppProductoTerminadoPiezasRoute;
   '/_app/admin/': typeof AppAdminIndexRoute;
   '/_app/almacen/': typeof AppAlmacenIndexRoute;
   '/_app/centros-costo/': typeof AppCentrosCostoIndexRoute;
@@ -1942,9 +1953,9 @@ export interface FileRouteTypes {
     | '/activos-fijos/configuracion-libro'
     | '/activos-fijos/conteos'
     | '/activos-fijos/depreciacion'
-    | '/activos-fijos/libro'
     | '/activos-fijos/depreciacion-fiscal'
     | '/activos-fijos/inpc'
+    | '/activos-fijos/libro'
     | '/activos-fijos/por-capitalizar'
     | '/activos-fijos/por-vencer'
     | '/admin/mi-empresa'
@@ -1974,6 +1985,7 @@ export interface FileRouteTypes {
     | '/cxp/revision'
     | '/facturacion/ayuda'
     | '/facturacion/caja'
+    | '/producto-terminado/piezas'
     | '/admin/'
     | '/almacen/'
     | '/centros-costo/'
@@ -2144,9 +2156,9 @@ export interface FileRouteTypes {
     | '/activos-fijos/configuracion-libro'
     | '/activos-fijos/conteos'
     | '/activos-fijos/depreciacion'
-    | '/activos-fijos/libro'
     | '/activos-fijos/depreciacion-fiscal'
     | '/activos-fijos/inpc'
+    | '/activos-fijos/libro'
     | '/activos-fijos/por-capitalizar'
     | '/activos-fijos/por-vencer'
     | '/admin/mi-empresa'
@@ -2176,6 +2188,7 @@ export interface FileRouteTypes {
     | '/cxp/revision'
     | '/facturacion/ayuda'
     | '/facturacion/caja'
+    | '/producto-terminado/piezas'
     | '/admin'
     | '/almacen'
     | '/centros-costo'
@@ -2347,9 +2360,9 @@ export interface FileRouteTypes {
     | '/_app/activos-fijos/configuracion-libro'
     | '/_app/activos-fijos/conteos'
     | '/_app/activos-fijos/depreciacion'
-    | '/_app/activos-fijos/libro'
     | '/_app/activos-fijos/depreciacion-fiscal'
     | '/_app/activos-fijos/inpc'
+    | '/_app/activos-fijos/libro'
     | '/_app/activos-fijos/por-capitalizar'
     | '/_app/activos-fijos/por-vencer'
     | '/_app/admin/mi-empresa'
@@ -2379,6 +2392,7 @@ export interface FileRouteTypes {
     | '/_app/cxp/revision'
     | '/_app/facturacion/ayuda'
     | '/_app/facturacion/caja'
+    | '/_app/producto-terminado/piezas'
     | '/_app/admin/'
     | '/_app/almacen/'
     | '/_app/centros-costo/'
@@ -2611,13 +2625,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppActivosFijosDepreciacionRouteImport;
       parentRoute: typeof AppRoute;
     };
-    '/_app/activos-fijos/libro': {
-      id: '/_app/activos-fijos/libro';
-      path: '/activos-fijos/libro';
-      fullPath: '/activos-fijos/libro';
-      preLoaderRoute: typeof AppActivosFijosLibroRouteImport;
-      parentRoute: typeof AppRoute;
-    };
     '/_app/activos-fijos/depreciacion-fiscal': {
       id: '/_app/activos-fijos/depreciacion-fiscal';
       path: '/activos-fijos/depreciacion-fiscal';
@@ -2630,6 +2637,13 @@ declare module '@tanstack/react-router' {
       path: '/activos-fijos/inpc';
       fullPath: '/activos-fijos/inpc';
       preLoaderRoute: typeof AppActivosFijosInpcRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/activos-fijos/libro': {
+      id: '/_app/activos-fijos/libro';
+      path: '/activos-fijos/libro';
+      fullPath: '/activos-fijos/libro';
+      preLoaderRoute: typeof AppActivosFijosLibroRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/activos-fijos/por-capitalizar': {
@@ -2882,6 +2896,13 @@ declare module '@tanstack/react-router' {
       path: '/facturacion/caja';
       fullPath: '/facturacion/caja';
       preLoaderRoute: typeof AppFacturacionCajaRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/producto-terminado/piezas': {
+      id: '/_app/producto-terminado/piezas';
+      path: '/producto-terminado/piezas';
+      fullPath: '/producto-terminado/piezas';
+      preLoaderRoute: typeof AppProductoTerminadoPiezasRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/sistema-diseno/': {
@@ -3983,9 +4004,9 @@ interface AppRouteChildren {
   AppActivosFijosConfiguracionLibroRoute: typeof AppActivosFijosConfiguracionLibroRoute;
   AppActivosFijosConteosRoute: typeof AppActivosFijosConteosRoute;
   AppActivosFijosDepreciacionRoute: typeof AppActivosFijosDepreciacionRoute;
-  AppActivosFijosLibroRoute: typeof AppActivosFijosLibroRoute;
   AppActivosFijosDepreciacionFiscalRoute: typeof AppActivosFijosDepreciacionFiscalRoute;
   AppActivosFijosInpcRoute: typeof AppActivosFijosInpcRoute;
+  AppActivosFijosLibroRoute: typeof AppActivosFijosLibroRoute;
   AppActivosFijosPorCapitalizarRoute: typeof AppActivosFijosPorCapitalizarRoute;
   AppActivosFijosPorVencerRoute: typeof AppActivosFijosPorVencerRoute;
   AppAdminMiEmpresaRoute: typeof AppAdminMiEmpresaRoute;
@@ -4015,6 +4036,7 @@ interface AppRouteChildren {
   AppCxpRevisionRoute: typeof AppCxpRevisionRoute;
   AppFacturacionAyudaRoute: typeof AppFacturacionAyudaRoute;
   AppFacturacionCajaRoute: typeof AppFacturacionCajaRoute;
+  AppProductoTerminadoPiezasRoute: typeof AppProductoTerminadoPiezasRoute;
   AppAdminIndexRoute: typeof AppAdminIndexRoute;
   AppAlmacenIndexRoute: typeof AppAlmacenIndexRoute;
   AppCentrosCostoIndexRoute: typeof AppCentrosCostoIndexRoute;
@@ -4184,9 +4206,10 @@ const AppRouteChildren: AppRouteChildren = {
     AppActivosFijosConfiguracionLibroRoute,
   AppActivosFijosConteosRoute: AppActivosFijosConteosRoute,
   AppActivosFijosDepreciacionRoute: AppActivosFijosDepreciacionRoute,
-  AppActivosFijosLibroRoute: AppActivosFijosLibroRoute,
-  AppActivosFijosDepreciacionFiscalRoute: AppActivosFijosDepreciacionFiscalRoute,
+  AppActivosFijosDepreciacionFiscalRoute:
+    AppActivosFijosDepreciacionFiscalRoute,
   AppActivosFijosInpcRoute: AppActivosFijosInpcRoute,
+  AppActivosFijosLibroRoute: AppActivosFijosLibroRoute,
   AppActivosFijosPorCapitalizarRoute: AppActivosFijosPorCapitalizarRoute,
   AppActivosFijosPorVencerRoute: AppActivosFijosPorVencerRoute,
   AppAdminMiEmpresaRoute: AppAdminMiEmpresaRoute,
@@ -4216,6 +4239,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppCxpRevisionRoute: AppCxpRevisionRoute,
   AppFacturacionAyudaRoute: AppFacturacionAyudaRoute,
   AppFacturacionCajaRoute: AppFacturacionCajaRoute,
+  AppProductoTerminadoPiezasRoute: AppProductoTerminadoPiezasRoute,
   AppAdminIndexRoute: AppAdminIndexRoute,
   AppAlmacenIndexRoute: AppAlmacenIndexRoute,
   AppCentrosCostoIndexRoute: AppCentrosCostoIndexRoute,
