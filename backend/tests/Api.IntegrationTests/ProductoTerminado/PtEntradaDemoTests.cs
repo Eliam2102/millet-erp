@@ -421,9 +421,9 @@ public class PtEntradaDemoTests(WebApplicationFactory<Program> factory, ITestOut
         // Llave de la consulta de referencia de TI: auftnr + pos + u_pos + teile_nr + bearb_nr.
         await Sql("""
             INSERT INTO dbo.pool_bearbeit (auftnr,pos,u_pos,teile_nr,bearb_nr,text1) VALUES (@a,1,0,'1',3,'Corte'),(@a,1,0,'1',7,'PT Conkal'),(@a,1,0,'2',7,'Otra pieza');
-            """, new("a", n));
+            """, new NpgsqlParameter("a", n));
         await Escaneo(n, Etq(n, 1), 1, Ahora());
-        await Sql("UPDATE dbo.awbar_bearbeit SET bearb_nr = 7 WHERE auftnr = @a", new("a", n));
+        await Sql("UPDATE dbo.awbar_bearbeit SET bearb_nr = 7 WHERE auftnr = @a", new NpgsqlParameter("a", n));
         await using var f = Host();
         await Ciclo(f);
         Assert.Equal(1, await Escaneos(n));
