@@ -32,7 +32,7 @@ public partial class OrdenesCompraEndpointsTests
         var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
         var n = Guid.NewGuid().ToString("N").ToUpperInvariant();
         var claveAw = Random.Shared.Next(1_000_000, 2_000_000_000);
-        var prov = new Proveedor(Guid.CreateVersion7(), $"APP-{n[..10]}", $"Proveedor app {n[..6]}", "AAA010101AAA",
+        var prov = new Proveedor(Guid.CreateVersion7(), $"APP-{n[..10]}", $"Proveedor app {n[..6]}", $"APP{n[..9]}",
             TipoPersonaProveedor.Moral, EstatusCatalogo.Activo);
         prov.AsignarClaveAw(claveAw);
         var refAw = $"APP{n[..12]}";
@@ -86,6 +86,16 @@ public partial class OrdenesCompraEndpointsTests
             .SingleOrDefaultAsync(r => r.Origen == OrigenRequisicion.AlmacenesApp && r.FolioExterno == folioExterno);
     }
 
+    /// <summary>La app no manda centro de costo: lo captura Compras en el ERP antes de la OC.</summary>
+    private async Task AsignarCentroCostoAsync(Guid rqId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        await scope.ServiceProvider.GetRequiredService<ComprasDbContext>().LineaRequisiciones
+            .Where(l => l.RequisicionId == rqId)
+            .ExecuteUpdateAsync(u => u.SetProperty(l => l.CentroCostoId, CentroCostoSeedId));
+    }
+
     [Fact]
     public async Task AlmApp5_Nueva_crea_RQ_EnSurtido_con_folio_y_la_OC_sale_con_el_mismo_proveedor()
     {
@@ -108,6 +118,7 @@ public partial class OrdenesCompraEndpointsTests
         Assert.Equal("Torre Norte", l.Proyecto);
         Assert.Equal(new DateOnly(2026, 10, 13), l.FechaRequerida);
 
+        await AsignarCentroCostoAsync(rq.Id);
         var client = await CreateSuperAdminClientAsync();
         var oc = await client.PostAsJsonAsync($"{EndpointBase}/desde-requisicion", DesdeRqP2(rq.Id) with { ProveedorId = s.ProveedorId });
         Assert.True(oc.IsSuccessStatusCode, await oc.Content.ReadAsStringAsync());
@@ -121,8 +132,9 @@ public partial class OrdenesCompraEndpointsTests
         await EnviarRqAppAsync(ClienteMensajesApp(), Guid.NewGuid().ToString(), folioExt, s.ClaveAw, s.ArticuloAw);
         var rq = await RqPorFolioExternoAsync(folioExt);
 
+        await AsignarCentroCostoAsync(rq!.Id);
         var client = await CreateSuperAdminClientAsync();
-        var oc = await client.PostAsJsonAsync($"{EndpointBase}/desde-requisicion", DesdeRqP2(rq!.Id)); // ProveedorActivoId ≠ proveedor de la RQ
+        var oc = await client.PostAsJsonAsync($"{EndpointBase}/desde-requisicion", DesdeRqP2(rq.Id)); // ProveedorActivoId ≠ proveedor de la RQ
         await AssertCodigoP2(oc, System.Net.HttpStatusCode.UnprocessableEntity, "OC_PROVEEDOR_FIJO_APP");
     }
 
