@@ -15,7 +15,8 @@ public sealed class PiezasPtOrigenAdapter(Func<DbConnection> fabrica, bool postg
     internal const string Desde =
         "FROM dbo.awbar_bearbeit b " +
         "LEFT JOIN dbo.pool_pos p ON p.auftnr = b.auftnr AND p.pos = b.pos AND p.u_pos = b.u_pos " +
-        "LEFT JOIN dbo.pool_bearbeit pb ON pb.auftnr = b.auftnr AND pb.pos = b.pos AND pb.u_pos = b.u_pos AND pb.esnr = b.esnr_ist";
+        // Llave de la consulta de referencia de TI (27-oct): pieza (teile_nr) y operación (bearb_nr); un renglón de awbar_bearbeit = una fila.
+        "LEFT JOIN dbo.pool_bearbeit pb ON pb.auftnr = b.auftnr AND pb.pos = b.pos AND pb.u_pos = b.u_pos AND pb.teile_nr = b.teile_nr AND pb.bearb_nr = b.bearb_nr";
     // Solo Demo: en Real la clave de sucursal vive en MILMAIN OR_AVBEREICH (otra instancia).
     internal const string DesdeClaveDemo = " LEFT JOIN dbo.or_avbereich o ON o.auftnr = b.auftnr";
     internal const string Filtro = " WHERE b.fertig = 1 AND b.bearb_zeit >= @desde";

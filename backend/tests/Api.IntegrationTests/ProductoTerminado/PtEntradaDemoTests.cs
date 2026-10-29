@@ -376,6 +376,24 @@ public class PtEntradaDemoTests(WebApplicationFactory<Program> factory, ITestOut
     }
 
     [Fact]
+    public async Task Area_sale_de_la_operacion_del_renglon_y_varias_operaciones_de_la_pieza_no_duplican_el_escaneo()
+    {
+        await using var ctx = await PrepararAsync();
+        var n = Numero();
+        await _d.FacturacionAsync(n, ctx.A, 5);
+        // Llave de la consulta de referencia de TI: auftnr + pos + u_pos + teile_nr + bearb_nr.
+        await Sql("""
+            INSERT INTO dbo.pool_bearbeit (auftnr,pos,u_pos,teile_nr,bearb_nr,text1) VALUES (@a,1,0,'1',3,'Corte'),(@a,1,0,'1',7,'PT Conkal'),(@a,1,0,'2',7,'Otra pieza');
+            """, new("a", n));
+        await Escaneo(n, Etq(n, 1), 1, Ahora());
+        await Sql("UPDATE dbo.awbar_bearbeit SET bearb_nr = 7 WHERE auftnr = @a", new("a", n));
+        await using var f = Host();
+        await Ciclo(f);
+        Assert.Equal(1, await Escaneos(n));
+        Assert.Equal(1, await Cuenta("SELECT count(*) FROM producto_terminado.escaneos WHERE area = 'PT Conkal' AND numero_pedido LIKE @p || '%'", n));
+    }
+
+    [Fact]
     public async Task M24_Si_falla_el_guardado_del_outbox_no_queda_pieza_movimiento_ni_escaneo_y_el_siguiente_ciclo_lo_procesa()
     {
         await using var ctx = await PrepararAsync();
