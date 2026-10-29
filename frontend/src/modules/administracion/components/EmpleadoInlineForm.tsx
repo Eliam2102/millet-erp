@@ -44,6 +44,7 @@ import {
 } from '@/components/erp';
 import { cn } from '@/lib/utils';
 import { DOMINIOS_CORPORATIVOS } from '@/modules/administracion/dominios-corporativos';
+import { AvisoCuentaFueraDeDominio } from '@/modules/administracion/components/AvisoCuentaFueraDeDominio';
 
 export interface EmpleadoInlineFormProps {
   empleado?: EmpleadoListItem | null;
@@ -387,7 +388,8 @@ export function EmpleadoInlineForm({
           toast.error('No se pudo verificar el correo corporativo con Microsoft Entra ID.');
           return;
         }
-        if (!validacion.data?.dominioPermitido) {
+        // 86e3x6cpw: el dominio sólo se exige si la cuenta no existe todavía.
+        if (!validacion.data?.dominioPermitido && !validacion.data?.cuentaEntra) {
           toast.error(
             `El dominio del correo no está permitido. Dominios autorizados: ${DOMINIOS_CORPORATIVOS.join(', ')}`,
           );
@@ -518,12 +520,13 @@ export function EmpleadoInlineForm({
       (correoValidable !== values.email?.trim() ||
         validacion.isPending ||
         validacion.isError ||
-        !validacion.data?.dominioPermitido ||
+        // 86e3x6cpw: la lista de dominios protege sólo la cuenta nueva; una
+        // cuenta existente se liga tal cual (puedeVincular ya no exige dominio).
         (acceso === 1
           ? !validacion.data?.puedeVincularCuentaExistente
-          : !validacion.data?.puedeCrearCuentaNueva))
+          : !validacion.data?.dominioPermitido || !validacion.data?.puedeCrearCuentaNueva))
     ) {
-      if (validacion.data && !validacion.data.dominioPermitido) {
+      if (acceso !== 1 && validacion.data && !validacion.data.dominioPermitido) {
         toast.error(
           `El dominio del correo no está permitido. Dominios permitidos: ${DOMINIOS_CORPORATIVOS.join(', ')}`,
         );
@@ -933,7 +936,7 @@ export function EmpleadoInlineForm({
                   <span>No se pudo verificar el correo contra Microsoft Entra ID.</span>
                 </div>
               ) : validacion.data ? (
-                !validacion.data.dominioPermitido ? (
+                !validacion.data.dominioPermitido && !validacion.data.cuentaEntra ? (
                   <div className="flex items-start gap-2 text-danger-fg">
                     <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
                     <div>
@@ -996,14 +999,17 @@ export function EmpleadoInlineForm({
                       </div>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2 font-medium text-success-fg ">
-                      <CheckCircle2 className="h-4 w-4 shrink-0" />
-                      <span>
-                        Cuenta Microsoft encontrada en Entra ID:{' '}
-                        <strong className="font-semibold">
-                          {validacion.data.cuentaEntra.nombreMostrado}
-                        </strong>
-                      </span>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 font-medium text-success-fg ">
+                        <CheckCircle2 className="h-4 w-4 shrink-0" />
+                        <span>
+                          Cuenta Microsoft encontrada en Entra ID:{' '}
+                          <strong className="font-semibold">
+                            {validacion.data.cuentaEntra.nombreMostrado}
+                          </strong>
+                        </span>
+                      </div>
+                      {!validacion.data.dominioPermitido && <AvisoCuentaFueraDeDominio />}
                     </div>
                   )
                 ) : (
@@ -1172,7 +1178,7 @@ export function EmpleadoInlineForm({
                     <span>No se pudo verificar el correo contra Microsoft Entra ID.</span>
                   </div>
                 ) : validacion.data ? (
-                  !validacion.data.dominioPermitido ? (
+                  acceso !== 1 && !validacion.data.dominioPermitido ? (
                     <div className="flex items-start gap-2 text-danger-fg">
                       <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
                       <div>
@@ -1188,19 +1194,23 @@ export function EmpleadoInlineForm({
                     </div>
                   ) : acceso === 1 ? (
                     validacion.data.puedeVincularCuentaExistente ? (
-                      <div className="flex items-center gap-2 font-medium text-success-fg ">
-                        <CheckCircle2 className="h-4 w-4 shrink-0" />
-                        <span>
-                          Cuenta Microsoft encontrada:{' '}
-                          <strong className="font-semibold">
-                            {validacion.data.cuentaEntra?.nombreMostrado}
-                          </strong>
-                          {validacion.data.usuarioErp && (
-                            <span className="ml-1 text-xs opacity-85 font-normal">
-                              (se vinculará al usuario existente del ERP)
-                            </span>
-                          )}
-                        </span>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 font-medium text-success-fg ">
+                          <CheckCircle2 className="h-4 w-4 shrink-0" />
+                          <span>
+                            Cuenta Microsoft encontrada:{' '}
+                            <strong className="font-semibold">
+                              {validacion.data.cuentaEntra?.nombreMostrado ??
+                                validacion.data.usuarioErp?.nombre}
+                            </strong>
+                            {validacion.data.usuarioErp && (
+                              <span className="ml-1 text-xs opacity-85 font-normal">
+                                (se vinculará al usuario existente del ERP)
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                        {!validacion.data.dominioPermitido && <AvisoCuentaFueraDeDominio />}
                       </div>
                     ) : validacion.data.empleadoVinculado ? (
                       <div className="flex items-start gap-2 text-danger-fg">
