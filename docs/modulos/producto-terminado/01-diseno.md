@@ -100,7 +100,7 @@ PT-01 solo construye `EnPT`. Los demás estados son el contrato para las tareas 
 
 **(Rev. 3) No hay tabla puente ni aviso.** Jorge (27-oct, E08-1 y punto 19): A+W Production no admite disparadores ni personalizaciones que escriban hacia afuera, y no hace falta, porque el escaneo ya existe como renglón en **`alcimdb.dbo.awbar_bearbeit`**, instancia **`192.168.1.8\AWPRODUCTION`**. Se retiran los scripts 10 y 11 del Rev. 2 (`aw_pieza_escaneo`); nunca se enviaron a ejecutar.
 
-**Qué renglón es «pieza terminada»:** `awbar_bearbeit.fertig = 1` y `awbar_bearbeit.esnr_ist` dentro de la lista de estaciones de PT (hoy 2821–2840, 3201–3315 y 3501–3509). **La lista va en configuración** (`IntegracionesAw:PiezasPt:EstacionesPt`), no fija en código: si TI da de alta estaciones, se cambia sin desplegar (lo pide Jorge).
+**Qué renglón es «pieza terminada»:** `awbar_bearbeit.fertig = 1` y `awbar_bearbeit.esnr_ist` dentro de la lista de estaciones de PT (hoy 2821–2831, 2840, 3201–3315 y 3501–3509, según la consulta de referencia de TI del 27-oct; 2832–2839 no son de PT). **La lista va en configuración** (`IntegracionesAw:PiezasPt:EstacionesPt`), no fija en código: si TI da de alta estaciones, se cambia sin desplegar (lo pide Jorge).
 
 | Dato | Origen (consulta de referencia de Jorge, anexo del 27-oct) |
 |---|---|

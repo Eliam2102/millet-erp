@@ -103,7 +103,7 @@ solo las lee; nunca escribe en ellas.
    `IntegracionesAw__PiezasPt__EntradaHabilitada=true`, `IntegracionesAw__PiezasPt__EmpresaId=<guid>` e
    `IntegracionesAw__OrigenDemo__Permitido=true`.
 3. La lista de estaciones de pieza terminada es configuración, no código: clave
-   `IntegracionesAw:PiezasPt:EstacionesPt` (rangos `"2821-2840"` o números `"2900"`). Con la lista vacía no se
+   `IntegracionesAw:PiezasPt:EstacionesPt` (rangos `"2821-2831"` o números `"2840"`). Con la lista vacía no se
    admite ningún escaneo; para que la estación 2900 de la muestra entre, agréguela a la lista.
 4. El origen Real requiere `ContratoI134Firmado` y `ConnectionStrings:AwProduccionDb` (A+W-QA-7, no disponible
    todavía). Mientras tanto solo funciona el origen Demo.

@@ -22,6 +22,21 @@ public sealed class PiezasPtOrigenTests
         Assert.Throws<ArgumentException>(() => EstacionesPtFiltro.Parse(["10-5"]));
     }
 
+    [Fact]
+    public void Estaciones_configuradas_son_las_de_la_consulta_de_referencia_de_TI()
+    {
+        // Anexo de Jorge (27-oct): 2821–2831, 2840, 3201–3315 y 3501–3509; 2832–2839 no son de producto terminado.
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (!File.Exists(Path.Combine(dir!.FullName, "backend", "src", "Api", "appsettings.json"))) dir = dir.Parent;
+        using var json = System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(dir.FullName, "backend", "src", "Api", "appsettings.json")),
+            new System.Text.Json.JsonDocumentOptions { CommentHandling = System.Text.Json.JsonCommentHandling.Skip, AllowTrailingCommas = true });
+        var lista = json.RootElement.GetProperty("IntegracionesAw").GetProperty("PiezasPt").GetProperty("EstacionesPt")
+            .EnumerateArray().Select(x => x.GetString()!).ToArray();
+        var f = EstacionesPtFiltro.Parse(lista);
+        var esperadas = Enumerable.Range(2821, 11).Append(2840).Concat(Enumerable.Range(3201, 115)).Concat(Enumerable.Range(3501, 9)).ToHashSet();
+        foreach (var n in Enumerable.Range(2800, 800)) Assert.Equal(esperadas.Contains(n), f.Contiene(n));
+    }
+
     [Theory][InlineData(true)][InlineData(false)]
     public void Sql_es_solo_lectura(bool postgres)
     {

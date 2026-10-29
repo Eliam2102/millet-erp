@@ -177,7 +177,7 @@ public class PtEntradaDemoTests(WebApplicationFactory<Program> factory, ITestOut
 
     private static Task<int> Ciclo(WebApplicationFactory<Program> f, bool i134 = false)
     {
-        var opts = new PiezasPtOptions { EntradaHabilitada = true, EmpresaId = PtDatos.Empresa, EstacionesPt = ["2821-2840"], ContratoI134Firmado = i134 };
+        var opts = new PiezasPtOptions { EntradaHabilitada = true, EmpresaId = PtDatos.Empresa, EstacionesPt = ["2821-2831", "2840"], ContratoI134Firmado = i134 };
         var w = new PiezasPtEntradaWorker(f.Services.GetRequiredService<IServiceScopeFactory>(), Options.Create(opts), NullLogger<PiezasPtEntradaWorker>.Instance);
         return w.CorrerUnaVezAsync(CancellationToken.None);
     }
