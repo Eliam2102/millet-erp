@@ -361,6 +361,43 @@ public class PtEntradaDemoTests(WebApplicationFactory<Program> factory, ITestOut
     }
 
     [Fact]
+    public async Task Ejemplo_corregido_de_TI_avance_por_posicion_sin_69_y_sucursal_del_pedido()
+    {
+        // Jorge, 27-oct: 10 piezas, se escanean 8 → 8 terminadas y 2 faltantes, el pedido no está en 69; el mismo
+        // registro leído dos veces no cambia nada; la pieza 3 repuesta es un hecho nuevo; con las 10, A+W pone el 69 (no el ERP).
+        await using var ctx = await PrepararAsync();
+        var n = Numero();
+        await _d.FacturacionAsync(n, ctx.A, 10);
+        for (var i = 1; i <= 8; i++) await Escaneo(n, Etq(n, i), i, Ahora(i), clave: null);
+        await using var f = Host();
+        await Ciclo(f);
+        await Ciclo(f); // el traslape vuelve a leer los mismos renglones
+        Assert.Equal(8, await Escaneos(n));
+        using var http = await _d.ClienteAsync([PermisosCanonicos.ProductoTerminadoPiezasVer, PermisosCanonicos.ProductoTerminadoPiezasVerTodasSucursales]);
+        async Task<(int Terminadas, int Faltantes, string[] Campos)> Avance()
+        {
+            var json = await http.GetFromJsonAsync<JsonElement>($"/api/v1/producto-terminado/piezas?pedido={n}&pageSize=200");
+            var a = Assert.Single(json.GetProperty("avance").EnumerateArray());
+            var campos = a.EnumerateObject().Concat(json.GetProperty("items").EnumerateArray().SelectMany(i => i.EnumerateObject())).Select(c => c.Name).Distinct().ToArray();
+            return (a.GetProperty("terminadas").GetInt32(), a.GetProperty("faltantes").GetInt32(), campos);
+        }
+        var ocho = await Avance();
+        Assert.Equal((8, 2), (ocho.Terminadas, ocho.Faltantes));
+        Assert.DoesNotContain(ocho.Campos, c => c.Contains("estatus", StringComparison.OrdinalIgnoreCase) || c.Contains("status", StringComparison.OrdinalIgnoreCase));
+
+        await Escaneo(n, Etq(n, 3), 3, Ahora(500), clave: null); // pieza 3 rota y repuesta
+        await Ciclo(f);
+        Assert.Equal(1, await EscaneosConResultado(n, "Reposicion"));
+        Assert.Equal(1, await Cuenta("SELECT count(*) FROM producto_terminado.movimientos_pieza m JOIN producto_terminado.piezas z ON z.id = m.pieza_id WHERE m.tipo = 'Reposicion' AND z.etiqueta LIKE @p || '%'", n));
+
+        for (var i = 9; i <= 10; i++) await Escaneo(n, Etq(n, i), i, Ahora(600 + i), clave: null);
+        await Ciclo(f);
+        var diez = await Avance();
+        Assert.Equal((10, 0), (diez.Terminadas, diez.Faltantes));
+        Assert.Equal(10, await Cuenta("SELECT count(*) FROM producto_terminado.piezas z JOIN producto_terminado.pedidos_pt p ON p.id = z.pedido_pt_id WHERE z.sucursal_id = '" + ctx.A + "' AND p.numero_pedido LIKE @p || '%'", n));
+    }
+
+    [Fact]
     public async Task M19_Clave_de_sucursal_sin_resolver_deja_Excepcion_PT_SUCURSAL_SIN_CLAVE_AW()
     {
         await using var ctx = await PrepararAsync();
