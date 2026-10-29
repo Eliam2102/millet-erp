@@ -133,4 +133,18 @@ public sealed class ClienteReadPortAdapter : IClienteReadPort
             .ToListAsync(cancellationToken);
 #pragma warning restore CA1304, CA1311, CA1862
     }
+
+    public async Task<IReadOnlyList<ClienteGrupoMiembroDto>> ObtenerGrupoAsync(Guid clienteId, CancellationToken cancellationToken)
+    {
+        using var bypass = _empresaContext.Bypass();
+        var principalId = await _db.Clientes.AsNoTracking().Where(c => c.Id == clienteId)
+            .Select(c => c.UnificadoEnClienteId ?? c.Id).FirstOrDefaultAsync(cancellationToken);
+        if (principalId == Guid.Empty) return [];
+        var miembros = await _db.Clientes.AsNoTracking()
+            .Where(c => c.Id == principalId || c.UnificadoEnClienteId == principalId)
+            .OrderBy(c => c.Clave)
+            .Select(c => new ClienteGrupoMiembroDto(c.Id, c.Clave, c.RazonSocial, c.Id == principalId))
+            .ToListAsync(cancellationToken);
+        return miembros.Count < 2 ? [] : [.. miembros.OrderByDescending(m => m.EsPrincipal)];
+    }
 }
