@@ -6,9 +6,11 @@ using Microsoft.Extensions.Logging;
 namespace Millet.Integraciones.Aw.Infrastructure.Adapters;
 
 /// <summary>
-/// Confianza en el certificado público de SER-DATA (ADR-0048): SqlClient solo verifica contra el
-/// almacén de confianza, así que el PEM (<c>IntegracionesAw:SqlTls:CertificadoServidorPem</c>, KV
-/// <c>aw-sql-server-certificate</c>) se agrega una vez a <c>CurrentUser\Root</c>. Nunca se registra el PEM.
+/// Confianza en el certificado público de SER-DATA (ADR-0048). El PEM (<c>IntegracionesAw:SqlTls:CertificadoServidorPem</c>,
+/// KV <c>aw-sql-server-certificate</c>) se escribe en un archivo local y cada conexión lo fija con <c>ServerCertificate</c>
+/// (<see cref="AwSqlTls.Validar"/>). No se usa <c>CurrentUser\Root</c>: en App Service Linux vive en <c>/home</c>, un
+/// recurso compartido cifs cuyo dueño no es el proceso, y .NET no deja escribir ahí (CryptographicException, 29-oct).
+/// Nunca se registra el PEM.
 /// </summary>
 public sealed class AwSqlCertificadoServidor
 {
@@ -16,20 +18,26 @@ public sealed class AwSqlCertificadoServidor
     public static readonly TimeSpan AvisoVencimiento = TimeSpan.FromDays(60);
 
     public X509Certificate2? Certificado { get; private set; }
+    public string? Ruta { get; private set; }
     public string? Error { get; private set; }
 
-    /// <summary>Parsea el PEM y lo instala en el almacén si falta (idempotente). No lanza: el estado queda en <see cref="Error"/>.</summary>
-    public static AwSqlCertificadoServidor Instalar(string pem, StoreLocation ubicacion = StoreLocation.CurrentUser)
+    /// <summary>
+    /// Parsea el PEM, lo escribe en <paramref name="directorio"/> (por omisión, el temporal local del contenedor) y lo
+    /// deja como certificado fijado de las conexiones A+W (idempotente). No lanza: el estado queda en <see cref="Error"/>.
+    /// </summary>
+    public static AwSqlCertificadoServidor Instalar(string pem, string? directorio = null)
     {
         var r = new AwSqlCertificadoServidor();
         try
         {
             var cert = X509Certificate2.CreateFromPem(pem);
-            using var store = new X509Store(StoreName.Root, ubicacion);
-            store.Open(OpenFlags.ReadWrite);
-            if (store.Certificates.Find(X509FindType.FindByThumbprint, cert.Thumbprint, validOnly: false).Count == 0)
-                store.Add(cert);
+            var dir = directorio ?? Path.Combine(Path.GetTempPath(), "millet-aw-tls");
+            Directory.CreateDirectory(dir);
+            var ruta = Path.Combine(dir, "ser-data.pem");
+            File.WriteAllText(ruta, cert.ExportCertificatePem());
+            AwSqlTls.CertificadoServidorRuta = ruta;
             r.Certificado = cert;
+            r.Ruta = ruta;
         }
         catch (Exception ex)
         {
