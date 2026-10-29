@@ -185,6 +185,81 @@ public sealed class GraphDirectorioColaboradores : IEntraDirectorioPort
         return contrasena;
     }
 
+    public async Task<IReadOnlyList<CuentaEntra>> ListarCuentasAsync(string? texto, int top, CancellationToken ct)
+    {
+        // Las comillas dobles delimitan cada término de $search; no se aceptan en el texto.
+        var filtro = texto?.Replace("\"", string.Empty).Trim();
+        try
+        {
+            // userType en $filter es consulta avanzada: exige ConsistencyLevel=eventual y $count.
+            var respuesta = await _graph.Users.GetAsync(r =>
+            {
+                r.QueryParameters.Filter = "accountEnabled eq true and userType eq 'Member'";
+                r.QueryParameters.Select = ["id", "userPrincipalName", "displayName", "accountEnabled"];
+                r.QueryParameters.Top = Math.Clamp(top, 1, 999);
+                r.QueryParameters.Count = true;
+                if (string.IsNullOrEmpty(filtro))
+                    r.QueryParameters.Orderby = ["displayName"];
+                else
+                    r.QueryParameters.Search =
+                        $"\"displayName:{filtro}\" OR \"mail:{filtro}\" OR \"userPrincipalName:{filtro}\"";
+                r.Headers.Add("ConsistencyLevel", "eventual");
+            }, ct);
+            return (respuesta?.Value ?? [])
+                .Where(u => u.Id is not null && _options.CurrentValue.PermiteCorreo(u.UserPrincipalName ?? string.Empty))
+                .Select(Convertir)
+                .ToList();
+        }
+        catch (ODataError ex) when (ex.ResponseStatusCode == 403 || string.Equals(ex.Error?.Code, "Authorization_RequestDenied", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new BusinessRuleException(
+                "ENTRA_PERMISOS_INSUFICIENTES",
+                "Microsoft Entra ID rechazó la consulta del directorio. La aplicación requiere el permiso 'User.Read.All'.");
+        }
+    }
+
+    public async Task AgregarAGrupoAccesoAsync(string grupoId, string objectId, CancellationToken ct)
+    {
+        try
+        {
+            await _graph.Groups[grupoId].Members.Ref.PostAsync(new ReferenceCreate
+            {
+                OdataId = $"https://graph.microsoft.com/v1.0/directoryObjects/{objectId}",
+            }, cancellationToken: ct);
+        }
+        catch (ODataError ex) when (ex.ResponseStatusCode == 400 &&
+            (ex.Error?.Message ?? ex.Message).Contains("already exist", StringComparison.OrdinalIgnoreCase))
+        {
+            // Ya era miembro: la operación es idempotente.
+        }
+    }
+
+    public async Task QuitarDeGrupoAccesoAsync(string grupoId, string objectId, CancellationToken ct)
+    {
+        try
+        {
+            await _graph.Groups[grupoId].Members[objectId].Ref.DeleteAsync(cancellationToken: ct);
+        }
+        catch (ODataError ex) when (ex.ResponseStatusCode == 404)
+        {
+            // No era miembro: la operación es idempotente.
+        }
+    }
+
+    public async Task<bool> EsMiembroDeGrupoAccesoAsync(string grupoId, string objectId, CancellationToken ct)
+    {
+        // El OID va dentro de $filter: sólo se acepta con forma de GUID.
+        if (!Guid.TryParse(objectId, out var oid)) return false;
+        var respuesta = await _graph.Groups[grupoId].Members.GetAsync(r =>
+        {
+            r.QueryParameters.Filter = $"id eq '{oid:D}'";
+            r.QueryParameters.Select = ["id"];
+            r.QueryParameters.Count = true;
+            r.Headers.Add("ConsistencyLevel", "eventual");
+        }, ct);
+        return respuesta?.Value?.Count > 0;
+    }
+
     private async Task<User?> BuscarUsuarioCompletoAsync(string upn, CancellationToken ct)
     {
         try

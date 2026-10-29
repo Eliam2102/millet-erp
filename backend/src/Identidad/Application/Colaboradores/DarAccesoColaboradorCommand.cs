@@ -53,6 +53,7 @@ public sealed class DarAccesoColaboradorHandler : IRequestHandler<DarAccesoColab
     private readonly IAuditLogWriter _auditWriter;
     private readonly ICurrentUserContext _currentUser;
     private readonly IAuditCorrelationContext _correlacion;
+    private readonly GrupoAccesoErpSincronizador _grupoAcceso;
 
     public DarAccesoColaboradorHandler(
         IMediator mediator,
@@ -63,8 +64,10 @@ public sealed class DarAccesoColaboradorHandler : IRequestHandler<DarAccesoColab
         IOptionsMonitor<EntraDirectorioOptions> options,
         IAuditLogWriter auditWriter,
         ICurrentUserContext currentUser,
-        IAuditCorrelationContext correlacion)
+        IAuditCorrelationContext correlacion,
+        GrupoAccesoErpSincronizador grupoAcceso)
     {
+        _grupoAcceso = grupoAcceso;
         _mediator = mediator;
         _identidad = identidad;
         _compartido = compartido;
@@ -259,6 +262,10 @@ public sealed class DarAccesoColaboradorHandler : IRequestHandler<DarAccesoColab
             cambios: JsonSerializer.Serialize(new { snapshot = snapshotObj }),
             metadatos: JsonSerializer.Serialize(metadatosObj),
             cancellationToken: ct);
+
+        // Fuera de la transacción: Graph no participa del commit (86e3x6cpw, B2).
+        if (response.Acceso is { } acceso)
+            await _grupoAcceso.SincronizarAsync(acceso.UsuarioId, ct);
 
         return response;
     }

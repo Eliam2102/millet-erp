@@ -158,6 +158,7 @@ public sealed class AltaColaboradorHandler
     private readonly IAuditLogWriter _auditWriter;
     private readonly ICurrentUserContext _currentUser;
     private readonly ICurrentEmpresaContext _empresaContext;
+    private readonly GrupoAccesoErpSincronizador _grupoAcceso;
 
     public AltaColaboradorHandler(
         IMediator mediator,
@@ -169,8 +170,10 @@ public sealed class AltaColaboradorHandler
         IAuditCorrelationContext correlacion,
         IAuditLogWriter auditWriter,
         ICurrentUserContext currentUser,
-        ICurrentEmpresaContext empresaContext)
+        ICurrentEmpresaContext empresaContext,
+        GrupoAccesoErpSincronizador grupoAcceso)
     {
+        _grupoAcceso = grupoAcceso;
         _mediator = mediator;
         _identidad = identidad;
         _compartido = compartido;
@@ -349,6 +352,10 @@ public sealed class AltaColaboradorHandler
             cambios: JsonSerializer.Serialize(new { snapshot = snapshotObj }),
             metadatos: JsonSerializer.Serialize(metadatosObj),
             cancellationToken: cancellationToken);
+
+        // Fuera de la transacción: Graph no participa del commit (86e3x6cpw, B2).
+        if (response.Acceso is { } acceso)
+            await _grupoAcceso.SincronizarAsync(acceso.UsuarioId, cancellationToken);
 
         return response;
     }

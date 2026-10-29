@@ -1109,6 +1109,7 @@ builder.Services
 // Transacción compartida Identidad + Compartido del alta de colaborador
 // (plan 15, F3; validada en el spike F0).
 builder.Services.AddScoped<Millet.Identidad.Infrastructure.TransaccionColaborador>();
+builder.Services.AddScoped<Millet.Identidad.Application.Colaboradores.GrupoAccesoErpSincronizador>();
 // Camino B "Cuenta Microsoft nueva" (plan 15, F4): el sandbox de Development
 // captura el correo solo en loopback; fuera de él el worker sigue apagado por
 // defecto hasta configurar adaptadores reales.
