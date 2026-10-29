@@ -123,7 +123,7 @@ public static class CatalogosEndpoints
                 .Skip(off).Take(lim)
                 .Select(p => new ProveedorListItem(
                     p.Id, p.Clave, p.RazonSocial, p.NombreComercial, p.Rfc,
-                    p.TipoPersona, p.CondicionesPagoDias, p.MonedaPreferidaId, p.Estatus))
+                    p.TipoPersona, p.CondicionesPagoDias, p.MonedaPreferidaId, p.Estatus, p.ClaveAw))
                 .ToListAsync(ct);
 
             return Results.Ok(new PagedCatalogoResponse<ProveedorListItem>(items, off, lim, total));
@@ -158,7 +158,7 @@ public static class CatalogosEndpoints
             return Results.Ok(new ProveedorDetalle(
                 p.Id, p.Clave, p.ClaveLegacy, p.RazonSocial, p.NombreComercial, p.Rfc,
                 p.TipoPersona, p.CondicionesPagoDias, p.MonedaPreferidaId,
-                p.Email, p.Telefono, p.Estatus));
+                p.Email, p.Telefono, p.Estatus, p.ClaveAw));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CompartidoCatalogosLeer)
         .WithName("ObtenerProveedorPorId")
@@ -369,7 +369,8 @@ public static class CatalogosEndpoints
                     Estado: request.Estado,
                     CodigoPostal: request.CodigoPostal,
                     Pais: request.Pais,
-                    TaxId: request.TaxId),
+                    TaxId: request.TaxId,
+                    ClaveAw: request.ClaveAw),
                 cancellationToken);
             return Results.Created($"/api/v1/catalogos/proveedores/{response.Id}", response);
         })
@@ -385,7 +386,9 @@ public static class CatalogosEndpoints
             "social que otro proveedor no se rechaza: se crea en " +
             "`EnRevision` con `posibleDuplicadoDeId`. Si llega " +
             "`monedaPreferidaId`, validación cross-table contra " +
-            "`compartido.monedas` (404 si no existe). Header " +
+            "`compartido.monedas` (404 si no existe). `claveAw` " +
+            "(clave del proveedor en A+W) única → 409 " +
+            "`PROVEEDOR_CLAVE_AW_DUPLICADA`. Header " +
             "`Idempotency-Key` obligatorio.")
         .Produces<CrearProveedorResponse>(StatusCodes.Status201Created)
         .ProducesValidationProblem()
@@ -427,7 +430,9 @@ public static class CatalogosEndpoints
                     Estado: body.Estado,
                     CodigoPostal: body.CodigoPostal,
                     Pais: body.Pais,
-                    TaxId: body.TaxId),
+                    TaxId: body.TaxId,
+                    ClaveAw: body.ClaveAw,
+                    LimpiarClaveAw: body.LimpiarClaveAw ?? false),
                 cancellationToken);
             return Results.NoContent();
         })
@@ -440,7 +445,9 @@ public static class CatalogosEndpoints
             "nullable `null` = no tocar; flag `limpiarX = true` = " +
             "setear nullable a null. Inmutables: `id`, `clave`, " +
             "`claveLegacy`. Si `rfc` viene y cambia, único salvo " +
-            "genéricos SAT → 409 `PROVEEDOR_RFC_DUPLICADO`. Header " +
+            "genéricos SAT → 409 `PROVEEDOR_RFC_DUPLICADO`. `claveAw` " +
+            "(clave del proveedor en A+W) única → 409 " +
+            "`PROVEEDOR_CLAVE_AW_DUPLICADA`. Header " +
             "`Idempotency-Key` obligatorio.")
         .Produces(StatusCodes.Status204NoContent)
         .ProducesValidationProblem()
@@ -606,7 +613,8 @@ public static class CatalogosEndpoints
         string? Estado = null,
         string? CodigoPostal = null,
         string? Pais = null,
-        string? TaxId = null);
+        string? TaxId = null,
+        int? ClaveAw = null);
 
     /// <summary>Body del PATCH /proveedores/{id} (B.5). Todos opcionales; las cuentas bancarias van por /datos-maestros/proveedores/{id}/cuentas-bancarias.</summary>
     public sealed record ActualizarProveedorRequest(
@@ -632,7 +640,9 @@ public static class CatalogosEndpoints
         string? Estado = null,
         string? CodigoPostal = null,
         string? Pais = null,
-        string? TaxId = null);
+        string? TaxId = null,
+        int? ClaveAw = null,
+        bool? LimpiarClaveAw = null);
 
     /// <summary>Body del POST /articulos (B.5).</summary>
     public sealed record CrearArticuloRequest(
@@ -678,7 +688,8 @@ public sealed record ProveedorListItem(
     TipoPersonaProveedor TipoPersona,
     short? CondicionesPagoDias,
     Guid? MonedaPreferidaId,
-    EstatusCatalogo Estatus);
+    EstatusCatalogo Estatus,
+    int? ClaveAw = null);
 
 public sealed record ProveedorDetalle(
     Guid Id,
@@ -692,7 +703,8 @@ public sealed record ProveedorDetalle(
     Guid? MonedaPreferidaId,
     string? Email,
     string? Telefono,
-    EstatusCatalogo Estatus);
+    EstatusCatalogo Estatus,
+    int? ClaveAw = null);
 
 public sealed record ArticuloListItem(
     Guid Id,

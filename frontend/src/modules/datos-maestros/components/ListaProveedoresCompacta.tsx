@@ -79,6 +79,9 @@ function ItemCompacto({ item, activo }: ItemCompactoProps) {
             </div>
           </div>
           <div className="mt-1 truncate text-xs text-ink-muted">{item.razonSocial}</div>
+          {item.claveAw != null && (
+            <div className="mt-0.5 font-mono text-xs text-ink-muted">A+W {item.claveAw}</div>
+          )}
         </Link>
       </TableCell>
     </TableRow>

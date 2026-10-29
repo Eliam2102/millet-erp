@@ -92,6 +92,9 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
 
     public Guid? ProveedorSugeridoId { get; private set; }
 
+    /// <summary>Folio de la RQ en el sistema de origen (app de Almacenes). Único por origen; null en RQ manual/sistema.</summary>
+    public string? FolioExterno { get; private set; }
+
     public EstadoRequisicion Estado { get; private set; }
 
     /// <summary>
@@ -200,6 +203,52 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         Descripcion = descripcion;
         Estado = EstadoRequisicion.Borrador;
         Origen = origen;
+    }
+
+    /// <summary>
+    /// RQ nacida en la app de Almacenes: ya viene autorizada en origen (nace
+    /// <see cref="EstadoRequisicion.Autorizada"/>, sin pasar por la matriz) y fija el
+    /// proveedor de la OC que la surta. La unicidad de <paramref name="folioExterno"/>
+    /// por origen la garantiza el índice único filtrado.
+    /// </summary>
+    public static Requisicion CrearDesdeAlmacenesApp(
+        Guid id, Guid empresaId, Folio folio, short folioAnio, Guid sucursalId, Guid departamentoId,
+        Guid? almacenDestinoId, Guid requisitanteId, Guid creadorId, DateTimeOffset fechaSolicitud,
+        string folioExterno, Guid proveedorSugeridoId,
+        IReadOnlyCollection<LineaAppRequisicion> lineas, string? descripcion = null)
+    {
+        if (string.IsNullOrWhiteSpace(folioExterno) || folioExterno.Length > 64)
+            throw new BusinessRuleException("RQ_FOLIO_EXTERNO_INVALIDO", "El folio externo es requerido y no puede exceder 64 caracteres.");
+        EnsureNotEmpty(proveedorSugeridoId, nameof(proveedorSugeridoId));
+        if (lineas.Count == 0)
+            throw new BusinessRuleException("RQ_APP_SIN_LINEAS", "La RQ de la app requiere al menos una línea.");
+
+        var rq = new Requisicion(id, empresaId, folio, folioAnio, Clasificacion.OrdenCompra, sucursalId,
+            departamentoId, almacenDestinoId, requisitanteId, creadorId, Prioridad.Normal, fechaSolicitud,
+            proveedorSugeridoId: proveedorSugeridoId, descripcion: descripcion,
+            origen: OrigenRequisicion.AlmacenesApp);
+        rq.FolioExterno = folioExterno.Trim();
+        foreach (var l in lineas)
+        {
+            var linea = rq.AgregarLinea(Guid.CreateVersion7(), l.ArticuloId, l.Cantidad, l.UnidadMedida, l.PrecioEstimado);
+            linea.AsignarMedidaApp(l.Piezas, l.AnchoMm, l.AltoMm);
+        }
+        rq.Estado = EstadoRequisicion.Autorizada;
+        return rq;
+    }
+
+    /// <summary>
+    /// Proveedor fijo de la RQ de la app: la OC que la surte debe ser del
+    /// <see cref="ProveedorSugeridoId"/>. No-op en RQ de otro origen o si la OC aún
+    /// tiene el proveedor TBD (se valida al completarlo).
+    /// </summary>
+    public void ExigirProveedorFijo(Guid ocProveedorId)
+    {
+        if (Origen != OrigenRequisicion.AlmacenesApp
+            || ocProveedorId == Oc.OrdenCompraTbdSentinels.Proveedor
+            || ocProveedorId == ProveedorSugeridoId) return;
+        throw new BusinessRuleException("OC_PROVEEDOR_FIJO_APP",
+            $"La RQ '{Folio.Valor}' viene de la app de Almacenes y su OC debe ser del proveedor sugerido.");
     }
 
     // --- Métodos de manipulación de líneas (F2-PR1) ---

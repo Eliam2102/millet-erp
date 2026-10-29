@@ -358,3 +358,14 @@ public sealed class FakeFiscalUuidsSecuenciales(DateTimeOffset fecha) : ICfdiTim
     public Task<EstatusCfdiResultado> ConsultarEstatusAsync(EstatusCfdiSolicitud solicitud, CancellationToken cancellationToken) =>
         Task.FromResult(new EstatusCfdiResultado(true, "Vigente", true, null));
 }
+
+/// <summary>FMT-4: datos de impresión del emisor fijos (domicilio, logo y catálogos) para el PDF.</summary>
+public sealed class FakeDatosImpresionCfdi(DatosImpresionCfdi? datos = null) : IDatosImpresionCfdiReadPort
+{
+    public Task<DatosImpresionCfdi> ObtenerAsync(Guid empresaId, CancellationToken cancellationToken) =>
+        Task.FromResult(datos ?? DatosImpresionCfdi.Vacio);
+
+    public Task<IReadOnlyDictionary<Guid, string>> CodigosArticuloAsync(
+        IReadOnlyCollection<Guid> productoIds, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
+}

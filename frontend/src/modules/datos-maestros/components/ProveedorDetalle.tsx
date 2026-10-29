@@ -290,6 +290,10 @@ export function ProveedorDetalle() {
           <dd className="font-mono text-sm">{proveedor.rfc ?? '—'}</dd>
         </div>
         <div>
+          <dt className="text-xs text-ink-muted">Clave de A+W</dt>
+          <dd className="font-mono text-sm">{proveedor.claveAw ?? '—'}</dd>
+        </div>
+        <div>
           <dt className="text-xs text-ink-muted">Días de crédito</dt>
           <dd className="font-mono text-sm">{proveedor.condicionesPagoDias ?? '—'}</dd>
         </div>

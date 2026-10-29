@@ -274,4 +274,79 @@ public class OrdenCompraLineasEdicionTests
             Guid.CreateVersion7(), esServicio: true, centroCostoId: Guid.CreateVersion7(), esActivoFijo: true, claseActivoId: Guid.CreateVersion7()));
         Assert.Equal("OC_ACTIVO_SERVICIO", ex.Code);
     }
+
+    // --- F1-MP-05 (A4.2): lote del proveedor ---
+
+    [Fact]
+    public void LoteProveedor_se_recorta_y_vacio_queda_null()
+    {
+        var oc = NewOcConLinea(out var linea);
+        oc.ActualizarLinea(linea.Id, loteProveedor: " L-7781 ");
+        Assert.Equal("L-7781", linea.LoteProveedor);
+
+        oc.ActualizarLinea(linea.Id, loteProveedor: "   ");
+        Assert.Null(linea.LoteProveedor);
+    }
+
+    [Fact]
+    public void LoteProveedor_de_50_caracteres_pasa_y_de_51_lanza()
+    {
+        var oc = NewOcConLinea(out var linea);
+        oc.ActualizarLinea(linea.Id, loteProveedor: new string('L', 50));
+        Assert.Equal(50, linea.LoteProveedor!.Length);
+
+        var ex = Assert.Throws<BusinessRuleException>(() => oc.ActualizarLinea(linea.Id, loteProveedor: new string('L', 51)));
+        Assert.Equal("LINEA_OC_LOTE_LARGO", ex.Code);
+        Assert.Equal(50, linea.LoteProveedor!.Length);
+    }
+
+    [Fact]
+    public void LoteProveedor_limpiar_lo_deja_null_y_sin_tocar_lo_conserva()
+    {
+        var oc = NewOcConLinea(out var linea);
+        oc.ActualizarLinea(linea.Id, loteProveedor: "L-1");
+        oc.ActualizarLinea(linea.Id, cantidad: 12m);
+        Assert.Equal("L-1", linea.LoteProveedor);
+
+        oc.ActualizarLinea(linea.Id, limpiarLoteProveedor: true);
+        Assert.Null(linea.LoteProveedor);
+    }
+
+    [Fact]
+    public void LoteProveedor_al_agregar_linea_manual_se_normaliza_y_valida()
+    {
+        var oc = NewOcConLinea(out _);
+        var nueva = oc.AgregarLineaManual(Guid.CreateVersion7(), Guid.CreateVersion7(), 1m, "PZA", 10m,
+            Guid.CreateVersion7(), centroCostoId: Guid.CreateVersion7(), loteProveedor: "  A-9 ");
+        Assert.Equal("A-9", nueva.LoteProveedor);
+
+        var ex = Assert.Throws<BusinessRuleException>(() => oc.AgregarLineaManual(Guid.CreateVersion7(), Guid.CreateVersion7(), 1m, "PZA", 10m,
+            Guid.CreateVersion7(), centroCostoId: Guid.CreateVersion7(), loteProveedor: new string('L', 51)));
+        Assert.Equal("LINEA_OC_LOTE_LARGO", ex.Code);
+    }
+
+    [Theory]
+    [InlineData(EstadoOrdenCompra.Autorizada)]
+    [InlineData(EstadoOrdenCompra.Cancelada)]
+    public void LoteProveedor_no_se_edita_fuera_de_Borrador_o_Rechazada(EstadoOrdenCompra estado)
+    {
+        var oc = NewOcConLinea(out var linea);
+        oc.ActualizarLinea(linea.Id, loteProveedor: "L-1");
+        typeof(OrdenCompra).GetProperty(nameof(OrdenCompra.Estado))!.SetValue(oc, estado);
+
+        var ex = Assert.Throws<BusinessRuleException>(() => oc.ActualizarLinea(linea.Id, loteProveedor: "L-2"));
+        Assert.Equal("OC_LINEAS_SOLO_EN_BORRADOR_O_RECHAZADA", ex.Code);
+        ex = Assert.Throws<BusinessRuleException>(() => oc.ActualizarLinea(linea.Id, limpiarLoteProveedor: true));
+        Assert.Equal("OC_LINEAS_SOLO_EN_BORRADOR_O_RECHAZADA", ex.Code);
+        Assert.Equal("L-1", linea.LoteProveedor);
+    }
+
+    [Fact]
+    public void LoteProveedor_se_edita_en_Rechazada()
+    {
+        var oc = NewOcConLinea(out var linea);
+        typeof(OrdenCompra).GetProperty(nameof(OrdenCompra.Estado))!.SetValue(oc, EstadoOrdenCompra.Rechazada);
+        oc.ActualizarLinea(linea.Id, loteProveedor: "R-1");
+        Assert.Equal("R-1", linea.LoteProveedor);
+    }
 }
