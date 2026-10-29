@@ -141,7 +141,63 @@ public class CuentasSinEmpleadoTests : IClassFixture<CuentasSinEmpleadoTests.Hos
         Assert.Equal("Pendiente", await GrupoAccesoAsync(admin, empleadoId));
     }
 
+    // --- Fix PR #270: la cuenta existente se liga sin exigir dominio permitido ---
+
+    [Fact]
+    public async Task Crear_Empleado_Con_Cuenta_Que_Ya_Entro_De_Otro_Dominio_La_Liga()
+    {
+        var admin = await CreateSuperAdminClientAsync();
+        var (correo, usuarioId) = await EntrarSinEmpleadoAsync("gmail.com");
+        var org = await CrearOrganizacionAsync(admin);
+
+        var alta = await PostAltaAsync(admin, org, acceso: 1, correo, org.RolId);
+
+        Assert.Equal(HttpStatusCode.Created, alta.StatusCode);
+        var acceso = (await ReadJsonAsync(alta)).GetProperty("acceso");
+        Assert.Equal(usuarioId, acceso.GetProperty("usuarioId").GetGuid());
+        Assert.True(acceso.GetProperty("usuarioReutilizado").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Ligar_Empleado_Existente_A_Cuenta_De_Otro_Dominio_Funciona()
+    {
+        var admin = await CreateSuperAdminClientAsync();
+        var (correo, usuarioId) = await EntrarSinEmpleadoAsync("vilostudio.ai");
+        var org = await CrearOrganizacionAsync(admin);
+        var sinAcceso = await PostAltaAsync(admin, org, acceso: 0, correo: null, rolId: null);
+        var empleadoId = (await ReadJsonAsync(sinAcceso)).GetProperty("empleado").GetProperty("id").GetGuid();
+
+        var response = await admin.PostAsJsonAsync($"{ColaboradoresEndpoint}/{empleadoId}/acceso",
+            new { Acceso = 1, CorreoCorporativo = correo, RolId = org.RolId });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(usuarioId, (await ReadJsonAsync(response)).GetProperty("acceso").GetProperty("usuarioId").GetGuid());
+    }
+
+    [Fact]
+    public async Task Cuenta_Nueva_Con_Dominio_No_Permitido_Retorna_422()
+    {
+        var admin = await CreateSuperAdminClientAsync();
+        var org = await CrearOrganizacionAsync(admin);
+
+        var alta = await PostAltaAsync(admin, org, acceso: 2, $"nueva-{RandomSufijo()}@gmail.com", org.RolId);
+
+        await AssertProblemAsync(alta, HttpStatusCode.UnprocessableEntity, "ENTRA_DOMINIO_NO_PERMITIDO");
+    }
+
     // --- Helpers ---
+
+    /// <summary>Cuenta de otro dominio que entra al ERP sin empleado (JIT, como una invitada).</summary>
+    private async Task<(string Correo, Guid UsuarioId)> EntrarSinEmpleadoAsync(string dominio)
+    {
+        var oid = Guid.NewGuid().ToString();
+        var correo = $"invitada-{RandomSufijo()}@{dominio}";
+        await FakeLoginAsync(_host.Factory.CreateClientWithIdempotency(), oid, correo, "Cuenta Invitada");
+        using var scope = _host.Factory.Services.CreateScope();
+        var usuarioId = await scope.ServiceProvider.GetRequiredService<IdentidadDbContext>().Usuarios
+            .IgnoreQueryFilters().Where(u => u.EntraOid == oid).Select(u => u.Id).SingleAsync();
+        return (correo, usuarioId);
+    }
 
     private async Task<CuentaEntra> CrearCuentaAsync(string nombre)
     {

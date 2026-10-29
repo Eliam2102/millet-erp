@@ -413,29 +413,11 @@ public sealed class AltaColaboradorHandler
 
     /// <summary>
     /// Vuelve a validar el correo contra el directorio (no se confía en la
-    /// validación en línea del wizard).
+    /// validación en línea del wizard). Una cuenta existente no exige dominio
+    /// permitido (fix PR #270).
     /// </summary>
-    private async Task<CuentaEntra> ResolverCuentaEntraAsync(string correo, CancellationToken ct)
-    {
-        if (!_entraOptions.CurrentValue.PermiteCorreo(correo))
-        {
-            throw new BusinessRuleException(
-                "ENTRA_DOMINIO_NO_PERMITIDO",
-                $"El dominio de '{correo}' no está permitido para cuentas corporativas.");
-        }
-
-        var cuenta = await _directorio.BuscarPorCorreoAsync(correo, ct)
-            ?? throw new BusinessRuleException(
-                "ENTRA_CUENTA_NO_ENCONTRADA",
-                $"No existe una cuenta Microsoft con el correo '{correo}'.");
-        if (!cuenta.Habilitada)
-        {
-            throw new BusinessRuleException(
-                "ENTRA_CUENTA_DESHABILITADA",
-                $"La cuenta Microsoft '{correo}' está deshabilitada.");
-        }
-        return cuenta;
-    }
+    private Task<CuentaEntra> ResolverCuentaEntraAsync(string correo, CancellationToken ct) =>
+        CuentaExistenteColaborador.ResolverAsync(correo, _directorio, _identidad, _entraOptions.CurrentValue, ct);
 
     /// <summary>
     /// Usuario del ERP con ese correo o con el OID de la cuenta, si se puede

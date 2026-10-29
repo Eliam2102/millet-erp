@@ -107,7 +107,8 @@ public sealed class DarAccesoColaboradorHandler : IRequestHandler<DarAccesoColab
                 "Asigna departamento y puesto antes de dar acceso.");
 
         var correo = request.CorreoCorporativo.Trim();
-        if (!_options.CurrentValue.PermiteCorreo(correo))
+        // Los dominios permitidos protegen sólo la cuenta nueva; una existente se liga tal cual.
+        if (request.Acceso == TipoAccesoColaborador.CuentaNueva && !_options.CurrentValue.PermiteCorreo(correo))
             throw new BusinessRuleException("ENTRA_DOMINIO_NO_PERMITIDO", "El dominio corporativo no está permitido.");
         var contacto = request.EmailContacto?.Trim() ?? empleado.EmailContacto;
         if (request.Acceso == TipoAccesoColaborador.CuentaNueva && string.IsNullOrWhiteSpace(contacto))
@@ -121,10 +122,8 @@ public sealed class DarAccesoColaboradorHandler : IRequestHandler<DarAccesoColab
         Usuario? reutilizable = null;
         if (request.Acceso == TipoAccesoColaborador.CuentaExistente)
         {
-            cuenta = await _directorio.BuscarPorCorreoAsync(correo, ct)
-                ?? throw new BusinessRuleException("ENTRA_CUENTA_NO_ENCONTRADA", "La cuenta Microsoft no existe.");
-            if (!cuenta.Habilitada)
-                throw new BusinessRuleException("ENTRA_CUENTA_DESHABILITADA", "La cuenta Microsoft está deshabilitada.");
+            cuenta = await CuentaExistenteColaborador.ResolverAsync(
+                correo, _directorio, _identidad, _options.CurrentValue, ct);
             var candidatos = await _identidad.Usuarios.IgnoreQueryFilters()
                 .Where(u => u.Email == correo || u.EntraOid == cuenta.ObjectId).ToListAsync(ct);
             if (candidatos.Count > 1)
