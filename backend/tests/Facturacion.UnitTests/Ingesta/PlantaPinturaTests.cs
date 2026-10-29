@@ -230,6 +230,14 @@ public sealed class PlantaPinturaTests
     }
 
     [Fact]
+    public async Task Worker_no_acusa_si_queda_pospuesta_sin_pedido_ni_motivo()
+    {
+        var reader = await TickConAsync(() => new(ResultadoSolicitudAw.Pospuesta, null, null));
+
+        reader.Acuses.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task Worker_acusa_error_si_el_envio_lanza_BusinessRuleException()
     {
         var reader = await TickConAsync(() => throw new Millet.SharedKernel.Application.Exceptions.BusinessRuleException("X", "regla rota"));

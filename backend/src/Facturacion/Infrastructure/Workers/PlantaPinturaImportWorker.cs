@@ -92,9 +92,11 @@ public sealed class PlantaPinturaImportWorker : BackgroundService
                 procesadas++;
                 if (resp.PedidoFacturableId is { } pedidoId)
                     await AcusarAsync(reader, pedido.NumeroPedido, ResultadoAcusePlantaPintura.Creado, pedidoId, null, cancellationToken);
-                else
+                else if (resp.MotivoExcepcion is { } motivo)
                     await AcusarAsync(reader, pedido.NumeroPedido, ResultadoAcusePlantaPintura.Error, null,
-                        resp.Detalle ?? $"Rechazada: {resp.MotivoExcepcion}", cancellationToken);
+                        resp.Detalle ?? $"Rechazada: {motivo}", cancellationToken);
+                else
+                    _logger.LogDebug("[PlantaPinturaImportWorker] Pedido {Pedido} pospuesto sin pedido ni motivo — sin acuse.", pedido.NumeroPedido);
             }
             catch (BusinessRuleException ex)
             {
