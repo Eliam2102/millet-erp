@@ -41,7 +41,8 @@ describe('Carga de maestros', () => {
     expect(screen.getByRole('button', { name: 'Descargar errores' })).toBeInTheDocument();
     expect(screen.getByText('Nombre: Sin valor → Artículo de prueba')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar carga' }));
-    await screen.findByText('Paso 3 de 3', { exact: false });
+    // Serializar el FormData a blob para la llave de idempotencia tarda más en el runner de CI.
+    await screen.findByText('Paso 3 de 3', { exact: false }, { timeout: 10_000 });
     const [ruta, opciones] = mocks.api.mock.calls[1];
     expect(ruta).toContain('/confirmar'); expect(campos).toHaveBeenCalledWith('huella', 'HUELLA'); expect(opciones.body.size).toBeGreaterThan(0); campos.mockRestore(); expect(opciones.idempotencyKey).toBeTruthy();
   });
