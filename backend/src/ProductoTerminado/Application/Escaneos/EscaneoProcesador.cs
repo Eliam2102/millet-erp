@@ -90,10 +90,13 @@ public sealed class EscaneoProcesador(ProductoTerminadoDbContext db, IPedidosPtR
             e.MarcarExcepcion(MotivosPt.PiezaExcedePosicion);
             return;
         }
-        // (6b) reposición: la etiqueta ya está en PT; no crea pieza, movimiento ni evento (el avance nunca supera lo esperado)
+        // (6b) reposición: la etiqueta ya está en PT; deja movimiento en la pieza, sin pieza nueva ni evento (el avance nunca supera lo esperado).
+        // ponytail: PT-01 no tiene baja por rotura (P3, Jorge); cuando exista, aquí la pieza vuelve a EnPT y el avance sube.
         var etiqueta = e.Etiqueta.Trim();
-        if (await db.Piezas.AnyAsync(x => x.EmpresaId == e.EmpresaId && x.Etiqueta == etiqueta, ct))
+        var existente = await db.Piezas.FirstOrDefaultAsync(x => x.EmpresaId == e.EmpresaId && x.Etiqueta == etiqueta, ct);
+        if (existente is not null)
         {
+            db.Movimientos.Add(MovimientoPieza.Reposicion(existente, e.Id.ToString(), clock.UtcNow));
             e.MarcarReposicion();
             return;
         }

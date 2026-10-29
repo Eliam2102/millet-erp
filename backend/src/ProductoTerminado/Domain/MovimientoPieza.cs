@@ -19,13 +19,13 @@ public sealed class MovimientoPieza : BaseEntity, IAuditable, IPerteneceAEmpresa
 
     private MovimientoPieza() { }
 
-    private MovimientoPieza(PiezaPt pieza, string referencia, DateTimeOffset ocurridoAt) : base(Guid.CreateVersion7())
+    private MovimientoPieza(PiezaPt pieza, TipoMovimientoPieza tipo, string? estadoAnterior, string referencia, DateTimeOffset ocurridoAt) : base(Guid.CreateVersion7())
     {
         EmpresaId = pieza.EmpresaId;
         PiezaId = pieza.Id;
-        Tipo = TipoMovimientoPieza.Alta;
+        Tipo = tipo;
         SucursalDestinoId = pieza.SucursalId;
-        EstadoAnterior = null;
+        EstadoAnterior = estadoAnterior;
         EstadoNuevo = EstadoPieza.EnPT.ToString();
         Referencia = referencia;
         OcurridoAt = ocurridoAt;
@@ -33,5 +33,9 @@ public sealed class MovimientoPieza : BaseEntity, IAuditable, IPerteneceAEmpresa
     }
 
     public static MovimientoPieza Alta(PiezaPt pieza, string referencia, DateTimeOffset ocurridoAt)
-        => new(pieza, referencia, ocurridoAt);
+        => new(pieza, TipoMovimientoPieza.Alta, null, referencia, ocurridoAt);
+
+    /// <summary>La pieza se volvió a terminar en A+W con la misma etiqueta (rota y repuesta): es un hecho nuevo y queda en su historia (Jorge E08-2).</summary>
+    public static MovimientoPieza Reposicion(PiezaPt pieza, string referencia, DateTimeOffset ocurridoAt)
+        => new(pieza, TipoMovimientoPieza.Reposicion, pieza.Estado.ToString(), referencia, ocurridoAt);
 }

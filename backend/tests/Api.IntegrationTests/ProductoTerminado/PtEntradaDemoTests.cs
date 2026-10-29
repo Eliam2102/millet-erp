@@ -428,7 +428,7 @@ public class PtEntradaDemoTests(WebApplicationFactory<Program> factory, ITestOut
         salida.WriteLine($"CA5.14: {pedidos * (piezasPorPedido + repetidas)} filas leídas en {ciclos} ciclo(s), {reloj.Elapsed.TotalSeconds:F1} s.");
 
         Assert.Equal(pedidos * piezasPorPedido, await Piezas(raiz));
-        Assert.Equal(pedidos * piezasPorPedido, await Movimientos(raiz));
+        Assert.Equal(pedidos * (piezasPorPedido + repetidas), await Movimientos(raiz)); // altas + reposiciones
         Assert.Equal(pedidos * piezasPorPedido, await Eventos(raiz));
         Assert.Equal(pedidos * repetidas, await EscaneosConResultado(raiz, "Reposicion"));
         Assert.Equal(pedidos * (piezasPorPedido + repetidas), await Escaneos(raiz));

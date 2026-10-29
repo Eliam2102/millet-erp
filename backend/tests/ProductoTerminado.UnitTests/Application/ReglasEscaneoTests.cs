@@ -9,7 +9,7 @@ public sealed class ReglasEscaneoTests
     private static DateTime Hora(int minuto) => new(2026, 10, 28, 8, minuto, 0, DateTimeKind.Unspecified);
 
     [Fact]
-    public async Task Etiqueta_conocida_con_otra_hora_es_reposicion_sin_pieza_ni_evento()
+    public async Task Etiqueta_conocida_con_otra_hora_es_reposicion_con_movimiento_sin_pieza_ni_evento()
     {
         using var t = new EntornoPt();
         t.AgregarPedido("P1", 1, 3);
@@ -17,7 +17,7 @@ public sealed class ReglasEscaneoTests
         var r = await t.Escanear("E1", at: Hora(5));
         r.Resultado.Should().Be("Reposicion");
         (await t.Db.Piezas.CountAsync()).Should().Be(1);
-        (await t.Db.Movimientos.CountAsync()).Should().Be(1);
+        (await t.Db.Movimientos.Select(m => m.Tipo).ToListAsync()).Should().BeEquivalentTo([TipoMovimientoPieza.Alta, TipoMovimientoPieza.Reposicion]);
         t.Eventos.Eventos.Should().HaveCount(1);
     }
 
