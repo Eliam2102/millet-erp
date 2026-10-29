@@ -37,7 +37,11 @@ export const ETIQUETA_ORIGEN_PEDIDO: Record<string, string> = {
 // selects consumen useCanalesVenta() (catálogo administrable) y los
 // detalles muestran el `canalVenta` (nombre) que devuelve el backend.
 
-/** Opciones de comportamiento fiscal para selects. */
+/**
+ * Opciones de comportamiento fiscal para selects de documentos nuevos.
+ * «Traslado (Carta Porte)» ya no se ofrece: la Carta Porte es un complemento
+ * con su propia pantalla, no un comportamiento de la venta (86e3wzcn4).
+ */
 export const OPCIONES_COMPORTAMIENTO_FISCAL: ReadonlyArray<{
   value: number;
   label: string;
@@ -45,13 +49,28 @@ export const OPCIONES_COMPORTAMIENTO_FISCAL: ReadonlyArray<{
   { value: ComportamientoFiscal.MostradorInmediato, label: 'Mostrador inmediato' },
   { value: ComportamientoFiscal.ConAnticipo, label: 'Con anticipo' },
   { value: ComportamientoFiscal.ExportacionConCce, label: 'Exportación (CCE)' },
-  {
-    value: ComportamientoFiscal.TrasladoConCartaPorte,
-    label: 'Traslado (Carta Porte)',
-  },
   { value: ComportamientoFiscal.VentaActivoFijo, label: 'Venta de activo fijo' },
   { value: ComportamientoFiscal.Administrativa, label: 'Administrativa' },
 ];
+
+/**
+ * Opciones del select según el valor que ya trae el documento: un pedido o
+ * factura guardado con «Traslado (Carta Porte)» la conserva para no cambiarle
+ * el dato en silencio; los nuevos no la ven.
+ */
+export function opcionesComportamientoFiscal(
+  actual?: number | null,
+): ReadonlyArray<{ value: number; label: string }> {
+  return actual === ComportamientoFiscal.TrasladoConCartaPorte
+    ? [
+        ...OPCIONES_COMPORTAMIENTO_FISCAL,
+        { value: ComportamientoFiscal.TrasladoConCartaPorte, label: 'Traslado (Carta Porte)' },
+      ]
+    : OPCIONES_COMPORTAMIENTO_FISCAL;
+}
+
+/** Aviso junto al selector: la Carta Porte tiene su propia pantalla. */
+export const AVISO_CARTA_PORTE = 'La Carta Porte se emite desde Facturación › Carta Porte.';
 
 /** Etiqueta de comportamiento fiscal por NOMBRE de enum. */
 export const ETIQUETA_COMPORTAMIENTO_FISCAL: Record<string, string> = {

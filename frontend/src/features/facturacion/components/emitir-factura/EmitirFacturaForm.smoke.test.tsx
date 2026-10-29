@@ -244,6 +244,35 @@ describe('<EmitirFacturaForm> — smoke (FAC-UX-PR2/PR3)', () => {
     expect(container.querySelector('[name="comportamientoFiscal"]')).toHaveValue('3');
   });
 
+  it('86e3wzcn4: factura nueva sin «Traslado (Carta Porte)» y con aviso de la pantalla de Carta Porte', async () => {
+    const p = pedido('11111111-1111-4111-8111-111111111111', 'DEMO', 100);
+    p.comportamientoFiscal = 1;
+    const { container } = render(
+      <EmitirFacturaForm prefill={p} onSuccess={vi.fn()} onCancel={() => {}} />,
+      { wrapper: createQueryWrapper() },
+    );
+    expect(
+      await screen.findByText('La Carta Porte se emite desde Facturación › Carta Porte.'),
+    ).toBeInTheDocument();
+    const select = container.querySelector<HTMLSelectElement>('[name="comportamientoFiscal"]')!;
+    const etiquetas = Array.from(select.options).map((o) => o.textContent);
+    expect(etiquetas).not.toContain('Traslado (Carta Porte)');
+    expect(etiquetas).toContain('Mostrador inmediato');
+  });
+
+  it('86e3wzcn4: un pedido guardado con «Traslado (Carta Porte)» conserva su valor', async () => {
+    const p = pedido('11111111-1111-4111-8111-111111111111', 'DEMO', 100);
+    p.comportamientoFiscal = 4;
+    const { container } = render(
+      <EmitirFacturaForm prefill={p} onSuccess={vi.fn()} onCancel={() => {}} />,
+      { wrapper: createQueryWrapper() },
+    );
+    await screen.findByText('La Carta Porte se emite desde Facturación › Carta Porte.');
+    const select = container.querySelector<HTMLSelectElement>('[name="comportamientoFiscal"]')!;
+    expect(select).toHaveValue('4');
+    expect(select.selectedOptions[0]?.textContent).toBe('Traslado (Carta Porte)');
+  });
+
   it('emite un pedido A1 listo con los datos del expediente en lectura', async () => {
     const p = pedido('11111111-1111-4111-8111-111111111111', 'DEMO', 100);
     p.comportamientoFiscal = 3;
