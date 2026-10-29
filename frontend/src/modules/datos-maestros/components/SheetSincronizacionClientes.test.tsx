@@ -11,7 +11,7 @@ const URL_LISTA = '*/clientes/sincronizacion/ejecuciones';
 
 const ej = (estado: string, extra = {}) => ({
   id: 'e-1', tipo: 'Barrido', estado, leidos: 5, creados: 1, actualizados: 2,
-  sinCambios: 1, pendientes: 0, conflictos: 1, errores: 1,
+  sinCambios: 1, pendientes: 0, conflictos: 1, errores: 1, unificados: 3,
   iniciadaEnUtc: '2026-09-01T10:00:00Z', terminadaEnUtc: null, actor: 'admin',
   reintentoDeId: null, errorGeneral: null, ...extra,
 });
@@ -113,6 +113,16 @@ describe('<SheetSincronizacionClientes>', () => {
     expect(await screen.findByText('Moneda sin equivalencia')).toBeInTheDocument();
     expect(screen.getByText(/Configura el mapeo de moneda y reintenta/)).toBeInTheDocument();
     expect(screen.getByText(/solo los primeros errores/)).toBeInTheDocument();
+  });
+
+  it('el detalle muestra cuántos grupos de RFC repetido unificó el barrido', async () => {
+    mswServer.use(
+      http.get(URL_LISTA, () => lista([ej('Completa')])),
+      http.get(`${URL_LISTA}/e-1`, () => HttpResponse.json({ ejecucion: ej('Completa'), errores: [], erroresTruncados: false })),
+    );
+    abrir();
+    (await screen.findByText('Completa')).closest('button')!.click();
+    expect((await screen.findByText('Unificados')).nextElementSibling).toHaveTextContent('3');
   });
 
   it('reintentar por fila envía la referencia al endpoint de reintentos', async () => {

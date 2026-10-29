@@ -209,6 +209,12 @@ public sealed class AwClientesSincronizador
     private async Task UnificarSinHistorialAsync(AwClientesEjecucion ejec, CancellationToken ct)
     {
         if (!_options.UnificacionAutomaticaHabilitada || _sp.GetService<ISender>() is not { } sender) return;
+        // Simulado/Demo no leen el historial real (AwClientesPedidosVacio dice "sin historial"): unificaría grupos con pedidos.
+        if (ejec.Origen != nameof(AwClientesOrigenTipo.Sql))
+        {
+            _logger.LogInformation("Unificación automática omitida en {EjecucionId}: el origen {Origen} no tiene historial real de A+W.", ejec.Id, ejec.Origen);
+            return;
+        }
         try
         {
             ejec.RegistrarUnificados(await sender.Send(new UnificarRfcRepetidosAutomaticoCommand("sistema:unificacion-automatica"), ct));

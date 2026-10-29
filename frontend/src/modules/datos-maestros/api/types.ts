@@ -445,6 +445,8 @@ export interface EjecucionSyncResumen {
   pendientes: number;
   conflictos: number;
   errores: number;
+  /** Grupos de RFC repetido sin historial que el barrido unificó automáticamente (86e3x4g77). */
+  unificados: number;
   iniciadaEnUtc: string | null;
   terminadaEnUtc: string | null;
   actor: string | null;

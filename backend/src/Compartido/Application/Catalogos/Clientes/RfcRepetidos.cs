@@ -43,7 +43,7 @@ public sealed record ListarRfcRepetidosResponse(int Total, int Offset, int Limit
 
 /// <summary>Miembro de un grupo con sus conteos; insumo de las reglas puras.</summary>
 public sealed record MiembroRfcRepetido(
-    Guid Id, string? ReferenciaAw, bool TieneRfc, bool Unificado, int PedidosAw, DateTime? UltimoPedidoAw, int PedidosErp, int CotizacionesAw = 0);
+    Guid Id, string? ReferenciaAw, bool TieneRfc, bool Unificado, int PedidosAw, DateTime? UltimoPedidoAw, int PedidosErp, int CotizacionesAw = 0, DateTime? UltimaCotizacionAw = null);
 
 /// <summary>Reglas de propuesta (pendientes de validar con Millet): principal sugerido y acción por secundario.</summary>
 public static class RfcRepetidosReglas
@@ -54,13 +54,16 @@ public static class RfcRepetidosReglas
         if (c.Count == 0) throw new InvalidOperationException("El grupo no tiene clientes sin unificar.");
         if (c.Count == 1) return (c[0].Id, "Es el cliente en el que ya se unificaron los demás.");
         if (c.FirstOrDefault(m => m.TieneRfc) is { } conRfc) return (conRfc.Id, "Ya tiene el RFC en el ERP.");
-        if (c.Any(m => m.UltimoPedidoAw is not null))
-            return (c.OrderByDescending(m => m.UltimoPedidoAw).ThenByDescending(m => m.PedidosErp).ThenBy(Orden).First().Id,
-                "Tiene el pedido más reciente en A+W.");
+        if (c.Any(m => UltimaActividadAw(m) is not null))
+            return (c.OrderByDescending(UltimaActividadAw).ThenByDescending(m => m.PedidosErp).ThenBy(Orden).First().Id,
+                "Tiene la actividad más reciente en A+W (pedido o cotización).");
         if (c.Any(m => m.PedidosErp > 0))
             return (c.OrderByDescending(m => m.PedidosErp).ThenBy(Orden).First().Id, "Tiene más pedidos en el ERP.");
         return (c.OrderBy(Orden).First().Id, "Es la referencia más baja de A+W.");
     }
+
+    private static DateTime? UltimaActividadAw(MiembroRfcRepetido m) =>
+        m.UltimoPedidoAw is { } p && m.UltimaCotizacionAw is { } q ? (p > q ? p : q) : m.UltimoPedidoAw ?? m.UltimaCotizacionAw;
 
     /// <summary>Fusionar solo sin pedidos ni cotizaciones en A+W ni pedidos en el ERP; con historial se Agrupa.</summary>
     public static bool ConHistorial(MiembroRfcRepetido m) => m.PedidosAw > 0 || m.CotizacionesAw > 0 || m.PedidosErp > 0;
@@ -129,7 +132,7 @@ internal static class RfcRepetidosGrupos
                 var c = porId[id];
                 var a = c.ReferenciaExterna is not null && pedidosAw.TryGetValue(c.ReferenciaExterna, out var v) ? v : null;
                 return new MiembroRfcRepetido(id, c.ReferenciaExterna, RfcCliente.Normalizar(c.Rfc) == g.Rfc,
-                    c.UnificadoEnClienteId is not null, a?.Pedidos ?? 0, a?.Ultimo, pedidosErp.GetValueOrDefault(id), a?.Cotizaciones ?? 0);
+                    c.UnificadoEnClienteId is not null, a?.Pedidos ?? 0, a?.Ultimo, pedidosErp.GetValueOrDefault(id), a?.Cotizaciones ?? 0, a?.UltimaCotizacion);
             }).ToList();
             var (principal, motivo) = RfcRepetidosReglas.SugerirPrincipal(miembros);
             // Grupo ya unificado: el principal es el elegido, no el que sugeriría la regla hoy.
@@ -145,8 +148,7 @@ internal static class RfcRepetidosGrupos
                     var accion = m.Unificado ? (c.UnificacionConHistorial ? "Agrupar" : "Fusionar")
                         : RfcRepetidosReglas.AccionSugerida(m, principal);
                     return new RfcRepetidoClienteDto(m.Id, c.ReferenciaExterna, c.RazonSocial, m.TieneRfc, c.Estatus.ToString(),
-                        c.UnificadoEnClienteId, m.PedidosAw, m.UltimoPedidoAw, m.PedidosErp, accion, m.CotizacionesAw,
-                        c.ReferenciaExterna is not null && pedidosAw.TryGetValue(c.ReferenciaExterna, out var q) ? q.UltimaCotizacion : null);
+                        c.UnificadoEnClienteId, m.PedidosAw, m.UltimoPedidoAw, m.PedidosErp, accion, m.CotizacionesAw, m.UltimaCotizacionAw);
                 }).ToList();
             return new RfcRepetidoGrupoDto(g.Rfc, principal, motivo, miembros.Count(m => !m.Unificado) == 1, dtos);
         }).ToList();
@@ -223,7 +225,7 @@ public sealed class UnificarRfcRepetidosAutomaticoHandler(
 }
 
 /// <summary>Unifica todos los demás clientes del grupo del RFC en el principal elegido.</summary>
-/// <summary><c>Automatica</c>: lo dispara la sincronización (sin usuario); los conflictos quedan resueltos por <c>Guid.Empty</c> (sistema).</summary>
+/// <summary><c>Automatica</c>: lo dispara la sincronización (sin usuario); los conflictos quedan resueltos por <see cref="CambioMaestroAw.UsuarioSistemaId"/>.</summary>
 public sealed record UnificarRfcRepetidoCommand(string Rfc, Guid PrincipalClienteId, string Motivo, string Actor, bool Automatica = false)
     : IRequest<RfcRepetidoGrupoDto>;
 
@@ -273,7 +275,7 @@ public sealed class UnificarRfcRepetidoHandler(
         var refsGrupo = clientes.Where(c => c.ReferenciaExterna is not null).Select(c => c.ReferenciaExterna!).ToList();
         var conflictos = await db.CambiosMaestrosAw.Where(c => c.TipoEntidad == "Cliente" && c.Tipo == TipoCambioMaestroAw.RfcCompartido
             && c.Estado == EstadoCambioMaestroAw.Pendiente && c.ValorDespues == rfc && refsGrupo.Contains(c.ReferenciaExterna)).ToListAsync(ct);
-        foreach (var c in conflictos) c.Resolver("Unificado", user.UserId ?? (request.Automatica ? Guid.Empty : throw new ForbiddenException("USUARIO_REQUERIDO", "Inicia sesión para unificar.")), ahora);
+        foreach (var c in conflictos) c.Resolver("Unificado", user.UserId ?? (request.Automatica ? CambioMaestroAw.UsuarioSistemaId : throw new ForbiddenException("USUARIO_REQUERIDO", "Inicia sesión para unificar.")), ahora);
         await db.SaveChangesAsync(ct);
         await scope.ConfirmarAsync(ct);
 
