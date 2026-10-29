@@ -60,6 +60,8 @@ public sealed partial class DemoSesionSeedHostedService(
                 await SembrarComercioExteriorAsync(sp, ct);
                 await SembrarActivosFijosAsync(sp, ct);
             }, cancellationToken);
+        // K10.5: fuera del bypass (el motor de pólizas necesita la empresa del contexto); ver DemoSesionCuentaPuente.cs.
+        await SembrarCuentaPuenteAsync(cancellationToken);
         logger.LogInformation("DEMO: preparación terminada. Los usuarios ausentes requieren iniciar sesión y reiniciar el API.");
     }
 
