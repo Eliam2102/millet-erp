@@ -228,7 +228,8 @@ public sealed class RegistroPolizas(
                 $"La póliza ya tiene su reversa automática {Poliza.FormatearFolio(reversa.TipoClave, reversa.Numero!.Value)}: anule primero la reversa.");
         var tipo = await db.TiposDocumento.AsNoTracking().FirstAsync(t => t.Id == original.TipoOperacionId, ct);
         var periodoOriginal = (original.PeriodoAnio, original.PeriodoNumero);
-        var rechazoOriginal = await RechazoPeriodoAsync(original.PeriodoAnio, original.PeriodoNumero, original.Origen, ct);
+        // C1.5: un listener anula sin request (Bypass): periodo y consecutivo se consultan con la empresa de la póliza original.
+        var rechazoOriginal = await RechazoPeriodoAsync(original.PeriodoAnio, original.PeriodoNumero, original.Origen, ct, original.EmpresaId);
         DateOnly fecha;
         (int Anio, int Numero) periodo;
         if (rechazoOriginal is null)
@@ -244,13 +245,17 @@ public sealed class RegistroPolizas(
             if (destino is not { } d)
                 throw new BusinessRuleException("CONTAB_POLIZA_ANULACION_REQUIERE_PERIODO",
                     $"{rechazoOriginal.Message} Indique el periodo abierto en que se registra la anulación.");
-            await VerificarPeriodoAsync(d.Anio, d.Numero, original.Origen, ct);
+            await VerificarPeriodoAsync(d.Anio, d.Numero, original.Origen, ct, original.EmpresaId);
             periodo = d;
             fecha = FechaEnPeriodo(d.Anio, d.Numero, hoy);
         }
-        var numero = await ReservarNumeroAsync(original.TipoOperacionId, periodo.Anio, ct);
+        var numero = await ReservarNumeroAsync(original.TipoOperacionId, periodo.Anio, ct, original.EmpresaId);
         var anulacion = original.Anular(Guid.CreateVersion7(), tipo, fecha, periodo.Anio, periodo.Numero, numero, motivo,
             usuarioId, usuarioNombre, ahora);
+        // C1.5: sin request (listener con Bypass) el interceptor no fija la empresa; la anulación es de la empresa de la original,
+        // y así también llega con empresa al observador de C1.4/K10.5.
+        anulacion.EmpresaId = original.EmpresaId;
+        foreach (var partida in anulacion.Partidas) partida.EmpresaId = original.EmpresaId;
         db.Polizas.Add(anulacion);
         return anulacion;
     }
