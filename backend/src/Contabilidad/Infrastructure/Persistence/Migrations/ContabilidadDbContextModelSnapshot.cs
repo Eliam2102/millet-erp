@@ -627,6 +627,164 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                     b.ToTable("movimientos_dimension_prueba", "contabilidad");
                 });
 
+            modelBuilder.Entity("Millet.Contabilidad.Domain.MovimientoPuente", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Abono")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("abono");
+
+                    b.Property<decimal>("Cargo")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("cargo");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<Guid>("CuentaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cuenta_id");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("DocumentoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("documento_id");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<bool>("EsReversa")
+                        .HasColumnType("boolean")
+                        .HasColumnName("es_reversa");
+
+                    b.Property<Guid?>("FacturaOrigenId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("factura_origen_id");
+
+                    b.Property<DateOnly>("Fecha")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha");
+
+                    b.Property<decimal?>("ImporteOriginal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("importe_original");
+
+                    b.Property<Guid?>("LineaOcId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("linea_oc_id");
+
+                    b.Property<string>("Moneda")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("moneda");
+
+                    b.Property<Guid?>("MovimientoRevertidoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("movimiento_revertido_id");
+
+                    b.Property<string>("OrdenCompraFolio")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("orden_compra_folio");
+
+                    b.Property<Guid>("OrdenCompraId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("orden_compra_id");
+
+                    b.Property<string>("PolizaFolio")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("poliza_folio");
+
+                    b.Property<Guid>("PolizaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("poliza_id");
+
+                    b.Property<Guid>("PolizaPartidaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("poliza_partida_id");
+
+                    b.Property<Guid?>("ProveedorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("proveedor_id");
+
+                    b.Property<Guid>("SucursalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sucursal_id");
+
+                    b.Property<decimal>("TipoCambio")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("numeric(18,6)")
+                        .HasColumnName("tipo_cambio");
+
+                    b.Property<short>("TipoDocumento")
+                        .HasColumnType("smallint")
+                        .HasColumnName("tipo_documento");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_movimientos_puente");
+
+                    b.HasIndex("CuentaId")
+                        .HasDatabaseName("ix_movimientos_puente_cuenta_id");
+
+                    b.HasIndex("MovimientoRevertidoId")
+                        .HasDatabaseName("ix_movimientos_puente_movimiento_revertido_id");
+
+                    b.HasIndex("PolizaId")
+                        .HasDatabaseName("ix_movimientos_puente_poliza");
+
+                    b.HasIndex("EmpresaId", "Fecha")
+                        .HasDatabaseName("ix_movimientos_puente_fecha");
+
+                    b.HasIndex("PolizaPartidaId", "EsReversa")
+                        .IsUnique()
+                        .HasDatabaseName("ux_movimientos_puente_partida");
+
+                    b.HasIndex("EmpresaId", "OrdenCompraId", "Fecha")
+                        .HasDatabaseName("ix_movimientos_puente_oc_fecha");
+
+                    b.HasIndex("EmpresaId", "TipoDocumento", "DocumentoId")
+                        .HasDatabaseName("ix_movimientos_puente_documento");
+
+                    b.ToTable("movimientos_puente", "contabilidad", t =>
+                        {
+                            t.HasCheckConstraint("ck_movimientos_puente_reversa", "(es_reversa AND movimiento_revertido_id IS NOT NULL) OR (NOT es_reversa AND movimiento_revertido_id IS NULL)");
+
+                            t.HasCheckConstraint("ck_movimientos_puente_tipo_cambio", "tipo_cambio > 0");
+
+                            t.HasCheckConstraint("ck_movimientos_puente_un_lado", "cargo >= 0 AND abono >= 0 AND (cargo = 0) <> (abono = 0)");
+                        });
+                });
+
             modelBuilder.Entity("Millet.Contabilidad.Domain.PeriodoContable", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2143,6 +2301,29 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_movimientos_dimension_prueba_tipos_documento_tipo_documento");
+                });
+
+            modelBuilder.Entity("Millet.Contabilidad.Domain.MovimientoPuente", b =>
+                {
+                    b.HasOne("Millet.Contabilidad.Domain.CuentaContable", null)
+                        .WithMany()
+                        .HasForeignKey("CuentaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_movimientos_puente_cuentas_contables_cuenta_id");
+
+                    b.HasOne("Millet.Contabilidad.Domain.MovimientoPuente", null)
+                        .WithMany()
+                        .HasForeignKey("MovimientoRevertidoId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("fk_movimientos_puente_movimientos_puente_movimiento_revertido_");
+
+                    b.HasOne("Millet.Contabilidad.Domain.Poliza", null)
+                        .WithMany()
+                        .HasForeignKey("PolizaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_movimientos_puente_polizas_poliza_id");
                 });
 
             modelBuilder.Entity("Millet.Contabilidad.Domain.PeriodoContable", b =>
