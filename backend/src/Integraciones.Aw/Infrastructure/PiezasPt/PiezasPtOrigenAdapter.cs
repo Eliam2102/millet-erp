@@ -27,7 +27,7 @@ public sealed class PiezasPtOrigenAdapter(Func<DbConnection> fabrica, bool postg
     {
         var sql = new System.Text.StringBuilder("SELECT ");
         if (!postgres) sql.Append("TOP (@max) ");
-        // PLATFORM-TODO(A+W-QA-7): clave de sucursal desde MILMAIN OR_AVBEREICH (otra instancia / consulta pendiente de Jorge)
+        // Real sin clave de sucursal: alcimdb no la tiene; PT usa la del pedido, importada de MILMAIN OR_AVBEREICH (Jorge E08-4).
         sql.Append(Columnas).Append(postgres ? ", o.avbereich " : ", NULL AS avbereich ").Append(Desde);
         if (postgres) sql.Append(DesdeClaveDemo);
         sql.Append(Filtro).Append(" AND (")

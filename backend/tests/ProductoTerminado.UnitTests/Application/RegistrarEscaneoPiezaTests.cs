@@ -77,6 +77,25 @@ public sealed class RegistrarEscaneoPiezaTests
     }
 
     [Fact]
+    public async Task Sin_clave_de_sucursal_toma_la_sucursal_del_pedido()
+    {
+        using var t = new EntornoPt();
+        t.AgregarPedido("P1", 1, 4);
+        var r = await t.Escanear("E1", clave: null);
+        r.Resultado.Should().Be("Alta");
+        (await t.Db.Piezas.SingleAsync()).SucursalId.Should().Be(EntornoPt.Sucursal);
+    }
+
+    [Fact]
+    public async Task Sin_clave_y_sin_pedido_queda_pospuesto()
+    {
+        using var t = new EntornoPt();
+        var r = await t.Escanear("E1", clave: null);
+        r.Resultado.Should().Be("Pospuesto");
+        r.Motivo.Should().Be(MotivosPt.PedidoInexistente);
+    }
+
+    [Fact]
     public async Task Etiqueta_con_espacios_equivale_a_la_recortada()
     {
         using var t = new EntornoPt();

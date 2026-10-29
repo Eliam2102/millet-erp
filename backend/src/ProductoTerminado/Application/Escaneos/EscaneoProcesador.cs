@@ -23,18 +23,18 @@ public sealed class EscaneoProcesador(ProductoTerminadoDbContext db, IPedidosPtR
         }
         var posicion = e.Posicion.Value;
 
-        // (2) sucursal
-        if (e.SucursalId is null && !string.IsNullOrWhiteSpace(e.ClaveSucursalAw))
+        // (2) sucursal por clave A+W, si el escaneo la trae (Demo)
+        var conClave = !string.IsNullOrWhiteSpace(e.ClaveSucursalAw);
+        if (e.SucursalId is null && conClave)
         {
-            var id = await sucursales.ResolverAsync(e.ClaveSucursalAw.Trim(), ct);
+            var id = await sucursales.ResolverAsync(e.ClaveSucursalAw!.Trim(), ct);
             if (id is not null) e.AsignarSucursal(id.Value);
         }
-        if (e.SucursalId is null)
+        if (e.SucursalId is null && conClave)
         {
             e.MarcarExcepcion(MotivosPt.SucursalSinClaveAw);
             return;
         }
-        var sucursalId = e.SucursalId.Value;
 
         // (3) pedido
         var origen = await pedidos.ObtenerPorNumeroAsync(e.EmpresaId, e.NumeroPedido, ct);
@@ -44,6 +44,9 @@ public sealed class EscaneoProcesador(ProductoTerminadoDbContext db, IPedidosPtR
             e.Intentar(maxIntentos);
             return;
         }
+        // (3a) sin clave en el escaneo (Real: alcimdb no trae sucursal): la del pedido, que ya viene de MILMAIN OR_AVBEREICH (Jorge E08-4)
+        if (e.SucursalId is null) e.AsignarSucursal(origen.SucursalId);
+        var sucursalId = e.SucursalId!.Value;
         // (3b) pedido cancelado en el origen: no se reciben piezas
         if (string.Equals(origen.Estado, "Cancelado", StringComparison.OrdinalIgnoreCase))
         {
