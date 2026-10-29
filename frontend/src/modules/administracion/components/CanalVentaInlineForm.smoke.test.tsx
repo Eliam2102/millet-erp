@@ -7,7 +7,7 @@ import { CanalVentaInlineForm } from '@/modules/administracion/components/CanalV
 
 const canalExistente = {
   id: 1,
-  nombre: 'Tienda Cancún',
+  nombre: 'Sucursal Cancún',
   estatus: 0,
   version: 1,
   claveAw: 'CANCUN',
@@ -39,7 +39,7 @@ describe('<CanalVentaInlineForm> — smoke (FAC-ING-PR3)', () => {
       screen.getByRole('button', { name: /guardar cambios/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('form', { name: /editar canal tienda cancún/i }),
+      screen.getByRole('form', { name: /editar canal sucursal cancún/i }),
     ).toBeInTheDocument();
     const form = container.querySelector('form');
     expect(form?.className).toMatch(/border-warning/);
@@ -53,7 +53,7 @@ describe('<CanalVentaInlineForm> — smoke (FAC-ING-PR3)', () => {
         bodyVisto = await request.json();
         return HttpResponse.json({
           id: 1,
-          nombre: 'Tienda Cancún',
+          nombre: 'Sucursal Cancún',
           estatus: 0,
           version: 2,
           claveAw: null,
@@ -77,7 +77,7 @@ describe('<CanalVentaInlineForm> — smoke (FAC-ING-PR3)', () => {
 
     await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
     expect(bodyVisto).toMatchObject({
-      nombre: 'Tienda Cancún',
+      nombre: 'Sucursal Cancún',
       claveAw: null,
       limpiarClaveAw: true,
     });

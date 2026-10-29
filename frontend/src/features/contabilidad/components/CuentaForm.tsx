@@ -251,22 +251,25 @@ export function CuentaForm({ cuenta, padreActual, onGuardada, onCancelar, onDirt
           </Field>
         </FormCampo>
 
-        <FormCampo span={6}>
+        {/* Tipo y Cuenta colectiva comparten fila; el rubro no tiene colectiva y Tipo ocupa la fila. */}
+        <FormCampo span={esRubro ? 12 : 6}>
           <Field label="Tipo" htmlFor="cta-tipo">
-            <Input
+            {/* Valor fijo (lo calcula el sistema): texto, no recuadro de captura. */}
+            <output
               id="cta-tipo"
-              readOnly
               aria-describedby="cta-tipo-ayuda"
-              value={esRubro ? 'Rubro de reporte' : ETIQUETA_TIPO[tipoMostrado]}
-            />
+              className="text-sm font-medium text-ink"
+            >
+              {esRubro ? 'Rubro de reporte' : ETIQUETA_TIPO[tipoMostrado]}
+            </output>
             <p id="cta-tipo-ayuda" className="text-xs text-ink-muted">
               {ayudaTipo}
             </p>
           </Field>
         </FormCampo>
 
-        <FormCampo span={12}>
-          {!esRubro && (
+        {!esRubro && (
+          <FormCampo span={6}>
             <Field
               label="Cuenta colectiva"
               htmlFor="cta-control"
@@ -289,8 +292,8 @@ export function CuentaForm({ cuenta, padreActual, onGuardada, onCancelar, onDirt
                 el detalle por persona.
               </p>
             </Field>
-          )}
-        </FormCampo>
+          </FormCampo>
+        )}
 
         <FormCampo span={12}>
           <div className="flex items-center gap-2 ">
@@ -309,8 +312,8 @@ export function CuentaForm({ cuenta, padreActual, onGuardada, onCancelar, onDirt
           </div>
         </FormCampo>
 
-        <FormCampo span={12}>
-          {conRubro && (
+        {conRubro && (
+          <FormCampo span={12}>
             <Field
               label="Rubro de reporte"
               opcional
@@ -343,8 +346,8 @@ export function CuentaForm({ cuenta, padreActual, onGuardada, onCancelar, onDirt
                 sola vez.
               </p>
             </Field>
-          )}
-        </FormCampo>
+          </FormCampo>
+        )}
 
         <FormCampo span={6}>
           <Field

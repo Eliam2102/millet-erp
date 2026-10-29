@@ -141,7 +141,9 @@ public sealed class ActualizarLineaOcHandler : IRequestHandler<ActualizarLineaOc
             // Solo si el PATCH trae medida; sin ella el dominio conserva (o limpia al cambiar de artículo) y revalida hojas enteras.
             productoAwVarianteId: command.ProductoAwVarianteId is null ? null : medida?.VarianteId,
             anchoMm: command.ProductoAwVarianteId is null ? null : medida?.AnchoMm,
-            altoMm: command.ProductoAwVarianteId is null ? null : medida?.AltoMm);
+            altoMm: command.ProductoAwVarianteId is null ? null : medida?.AltoMm,
+            loteProveedor: command.LoteProveedor,
+            limpiarLoteProveedor: command.LimpiarLoteProveedor);
 
         await _db.SaveChangesAsync(cancellationToken);
         if (tx is not null) await tx.CommitAsync(cancellationToken);

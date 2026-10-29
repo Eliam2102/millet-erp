@@ -25,7 +25,8 @@ public sealed record ListarProductosAwQuery(
     int Limit = 50,
     string? Tipo = null,
     string? Grupo = null,
-    string? Wgr = null) : IRequest<ListarProductosAwResponse>;
+    string? Wgr = null,
+    bool? EsServicioRecubrimiento = null) : IRequest<ListarProductosAwResponse>;
 
 public sealed record ProductoAwItem(
     Guid Id,
@@ -50,7 +51,8 @@ public sealed record ProductoAwItem(
     int NumComponentes,
     string? Grupo,
     string? Wgr,
-    string? WgrDescripcion);
+    string? WgrDescripcion,
+    bool EsServicioRecubrimiento);
 
 public sealed record ListarProductosAwResponse(
     IReadOnlyList<ProductoAwItem> Items,
@@ -97,6 +99,8 @@ public sealed class ListarProductosAwHandler
                 : q.Where(p => p.ClaveProdServSat != null && p.ClaveUnidadSat != null && p.ObjetoImp != null && p.TasaIvaTraslado != null && p.EstadoFiscal != EstadoFiscalProducto.FiscalPendiente);
         }
 
+        if (query.EsServicioRecubrimiento is bool sr)
+            q = q.Where(p => p.EsServicioRecubrimiento == sr);
         if (!string.IsNullOrWhiteSpace(query.Tipo))
             q = q.Where(p => p.Tipo == query.Tipo);
         if (!string.IsNullOrWhiteSpace(query.Grupo))
@@ -119,7 +123,7 @@ public sealed class ListarProductosAwHandler
                 p.ClaveUnidadSat, p.ObjetoImp, p.TasaIvaTraslado,
                 p.FraccionArancelaria, p.UnidadAduana, p.PesoUnitarioKg, p.Origen,
                 p.ClaveProdServSat != null && p.ClaveUnidadSat != null && p.ObjetoImp != null && p.TasaIvaTraslado != null,
-                p.Estatus, p.FechaBaja, p.Variantes.Count, p.Tipo, p.Componentes.Count, p.Grupo, p.Wgr, p.WgrDescripcion))
+                p.Estatus, p.FechaBaja, p.Variantes.Count, p.Tipo, p.Componentes.Count, p.Grupo, p.Wgr, p.WgrDescripcion, p.EsServicioRecubrimiento))
             .ToListAsync(cancellationToken);
 
         return new ListarProductosAwResponse(items, offset, limit, total);

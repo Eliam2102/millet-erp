@@ -94,7 +94,8 @@ describe('<CuentaDetallePage>', () => {
     expect(screen.getByTestId('aviso-usada')).toHaveTextContent(/ya tiene movimientos/);
     expect(screen.getByLabelText('Naturaleza')).toBeDisabled();
     // P19: el tipo es informativo (lo calcula el sistema): solo lectura siempre.
-    expect(screen.getByLabelText('Tipo')).toHaveAttribute('readonly');
+    expect(screen.getByLabelText('Tipo').tagName).toBe('OUTPUT');
+    expect(screen.queryByRole('textbox', { name: 'Tipo' })).not.toBeInTheDocument();
     expect(screen.getByLabelText('Cuenta padre')).toBeDisabled();
     expect(screen.getByLabelText(/Nombre/)).toBeEnabled(); // el nombre sí se puede editar
   });
@@ -177,5 +178,13 @@ describe('<CuentaDetallePage>', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Solicitar autorización' }));
     expect(await screen.findByText('Tiene hijas activas.')).toBeInTheDocument();
     expect(toast.success).not.toHaveBeenCalled();
+  });
+  it('rubro: sin Cuenta colectiva, Tipo ocupa la fila completa', async () => {
+    instalar(cuenta({ clase: 'Rubro', tipo: null, naturaleza: null, padreId: null }));
+    await abrirEdicion();
+    const tipo = screen.getByLabelText('Tipo');
+    expect(tipo).toHaveTextContent('Rubro de reporte');
+    expect(tipo.closest('.col-span-12')).toHaveClass('sm:col-span-12');
+    expect(screen.queryByLabelText('Cuenta colectiva')).not.toBeInTheDocument();
   });
 });

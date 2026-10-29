@@ -134,7 +134,7 @@ describe('usePedido', () => {
           clienteId: '22222222-2222-4222-8222-222222222222',
           clienteNombre: 'Cliente Demo',
           canalVentaId: 1,
-          canalVenta: 'Tienda Cancún',
+          canalVenta: 'Sucursal Cancún',
           comportamientoFiscal: 'MostradorInmediato',
           moneda: 'MXN',
           obraId: null,

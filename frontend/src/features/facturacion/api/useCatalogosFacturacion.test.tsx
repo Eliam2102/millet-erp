@@ -12,7 +12,7 @@ describe('useCanalesVenta (FAC-ING-PR3)', () => {
     mswServer.use(
       http.get(`${BASE}/canales-venta`, () =>
         HttpResponse.json([
-          { id: 1, nombre: 'Tienda Cancún' },
+          { id: 1, nombre: 'Sucursal Cancún' },
           { id: 7, nombre: 'Proyectos y Obras' },
         ]),
       ),
@@ -24,7 +24,7 @@ describe('useCanalesVenta (FAC-ING-PR3)', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toHaveLength(2);
-    expect(result.current.data?.[0]).toEqual({ id: 1, nombre: 'Tienda Cancún' });
+    expect(result.current.data?.[0]).toEqual({ id: 1, nombre: 'Sucursal Cancún' });
   });
 
   it('enabled: false no dispara la query', () => {

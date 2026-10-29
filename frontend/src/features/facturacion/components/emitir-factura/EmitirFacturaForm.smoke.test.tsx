@@ -108,7 +108,7 @@ beforeEach(() => {
     // FAC-ING-PR3: el selector de canal consume el lookup del catálogo.
     http.get('*/api/v1/facturacion/catalogos/canales-venta', () =>
       HttpResponse.json([
-        { id: 1, nombre: 'Tienda Cancún' },
+        { id: 1, nombre: 'Sucursal Cancún' },
         { id: 8, nombre: 'Exportación' },
       ]),
     ),

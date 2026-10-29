@@ -7,7 +7,7 @@ namespace Millet.Administracion.Domain;
 /// <summary>
 /// Canal de venta del catálogo cross-empresa <c>compartido.canales_venta</c>
 /// (FAC-ING-PR2). Eje <b>organizacional</b> de la facturación: de dónde
-/// viene la venta (tiendas, centros comerciales, exportación, etc.).
+/// viene la venta (sucursales, centros comerciales, exportación, etc.).
 /// Reemplaza al enum hardcodeado <c>Facturacion.Domain.Facturas.CanalVenta</c>
 /// — dimensión puramente organizacional, sin lógica fiscal (esa vive en
 /// <c>ComportamientoFiscal</c>, que sigue siendo enum).

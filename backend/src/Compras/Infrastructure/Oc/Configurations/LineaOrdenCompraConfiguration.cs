@@ -153,6 +153,9 @@ public sealed class LineaOrdenCompraConfiguration : IEntityTypeConfiguration<Lin
         // PLATFORM-TODO(F1-COM-06): supuesto Vilo, confirmar con lista de Millet.
         builder.Property(l => l.FraccionArancelaria).HasMaxLength(10);
 
+        // F1-MP-05 (A4.2): lote del proveedor, opcional.
+        builder.Property(l => l.LoteProveedor).HasMaxLength(LineaOrdenCompra.LoteProveedorMaxLength);
+
         // F1-MP-01 (E1): medida de la hoja de vidrio crudo. Sin FK (A+W vive en otro esquema, ADR-0030).
         builder.Property(l => l.ProductoAwVarianteId);
         builder.Property(l => l.AnchoMm).HasPrecision(12, 3);

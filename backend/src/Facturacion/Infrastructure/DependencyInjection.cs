@@ -102,6 +102,8 @@ public static class DependencyInjection
 
         // --- F2-PR2: PDF (real, QuestPDF) + notificación por correo [stub] ---
         services.AddSingleton<IGenerarPdfFacturaPort, QuestPdfFacturaGenerator>();
+        // FMT-4: domicilio, logo y catálogos del emisor para el PDF con formato de Millet.
+        services.AddScoped<IDatosImpresionCfdiReadPort, DatosMaestros.DatosImpresionCfdiReadAdapter>();
         // PLATFORM-TODO(<EnvioCfdiCliente>)
         services.AddSingleton<INotificacionService, NoOpNotificacionService>();
         services.AddSingleton<Millet.SharedKernel.Application.Correo.ICorreoDocumentoService, NoOpNotificacionService>();

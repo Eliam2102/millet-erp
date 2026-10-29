@@ -400,6 +400,11 @@ function FilaLinea({
             {textoMedida(linea, linea.cantidad)}
           </p>
         )}
+        {linea.loteProveedor && (
+          <p className="mt-0.5 text-xs text-ink-muted" data-testid="oc-linea-lote">
+            Lote {linea.loteProveedor}
+          </p>
+        )}
         {linea.descripcionExtendida && (
           <p className="mt-1 text-xs text-ink-muted line-clamp-1">{linea.descripcionExtendida}</p>
         )}

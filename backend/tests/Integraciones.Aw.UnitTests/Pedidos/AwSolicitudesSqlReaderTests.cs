@@ -24,7 +24,7 @@ public class AwSolicitudesSqlReaderTests
     private static readonly Guid SucursalId =
         Guid.Parse("00000000-0000-0000-0000-00000000c1c0");
 
-    // Canal ya resuelto por el caller (2 = "Tienda Circuito" del seed).
+    // Canal ya resuelto por el caller (2 = "Sucursal Circuito" del seed).
     private const short CanalVentaId = 2;
 
     // Override operativo de clase (escape hatch); el camino por defecto es

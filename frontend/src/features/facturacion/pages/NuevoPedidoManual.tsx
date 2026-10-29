@@ -72,7 +72,7 @@ const VALORES_INICIALES: PedidoManualValues = {
   sucursalId: '',
   clienteId: '',
   clienteNombre: '',
-  // Canal id 1 (seed histórico "Tienda Cancún"); si ya no existe en el
+  // Canal id 1 (seed "Sucursal Cancún"); si ya no existe en el
   // catálogo, <CanalVentaSelector/> lo normaliza al primer canal activo.
   canalVenta: 1,
   comportamientoFiscal: ComportamientoFiscal.MostradorInmediato,
