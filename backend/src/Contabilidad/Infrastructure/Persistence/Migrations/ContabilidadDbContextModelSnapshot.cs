@@ -73,6 +73,54 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                     b.ToTable("centros_corporativos", "contabilidad");
                 });
 
+            modelBuilder.Entity("Millet.Contabilidad.Domain.CobroEfectivoCaja", b =>
+                {
+                    b.Property<Guid>("CobroId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cobro_id");
+
+                    b.Property<Guid>("CajaSesionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("caja_sesion_id");
+
+                    b.Property<Guid?>("ClienteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cliente_id");
+
+                    b.Property<DateTimeOffset>("CobradoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cobrado_en");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<short>("Estado")
+                        .HasColumnType("smallint")
+                        .HasColumnName("estado");
+
+                    b.Property<decimal>("Importe")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("importe");
+
+                    b.Property<Guid?>("PolizaLiquidacionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("poliza_liquidacion_id");
+
+                    b.Property<Guid?>("SucursalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sucursal_id");
+
+                    b.HasKey("CobroId")
+                        .HasName("pk_cobros_efectivo_caja");
+
+                    b.HasIndex("EmpresaId", "CajaSesionId", "Estado")
+                        .HasDatabaseName("ix_cobros_efectivo_caja_sesion");
+
+                    b.ToTable("cobros_efectivo_caja", "contabilidad");
+                });
+
             modelBuilder.Entity("Millet.Contabilidad.Domain.ConsecutivoPoliza", b =>
                 {
                     b.Property<Guid>("EmpresaId")
@@ -101,6 +149,50 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("ck_consecutivos_poliza_numero", "ultimo_numero BETWEEN 1 AND 999999");
                         });
+                });
+
+            modelBuilder.Entity("Millet.Contabilidad.Domain.ConsumoContabilizado", b =>
+                {
+                    b.Property<Guid>("LineaSalidaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("linea_salida_id");
+
+                    b.Property<Guid>("ArticuloId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("articulo_id");
+
+                    b.Property<Guid?>("CentroCostoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("centro_costo_id");
+
+                    b.Property<Guid>("CuentaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cuenta_id");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<decimal>("Monto")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("monto");
+
+                    b.Property<Guid>("PolizaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("poliza_id");
+
+                    b.Property<Guid>("SalidaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("salida_id");
+
+                    b.HasKey("LineaSalidaId")
+                        .HasName("pk_consumos_contabilizados");
+
+                    b.HasIndex("EmpresaId", "SalidaId")
+                        .HasDatabaseName("ix_consumos_contabilizados_salida");
+
+                    b.ToTable("consumos_contabilizados", "contabilidad");
                 });
 
             modelBuilder.Entity("Millet.Contabilidad.Domain.CuentaContable", b =>
@@ -414,6 +506,27 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("ck_ejercicios_contables_anio", "anio BETWEEN 2000 AND 2999");
                         });
+                });
+
+            modelBuilder.Entity("Millet.Contabilidad.Domain.EventoContableProcesado", b =>
+                {
+                    b.Property<Guid>("EventoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("evento_id");
+
+                    b.Property<string>("EventoTipo")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("evento_tipo");
+
+                    b.Property<DateTimeOffset>("ProcesadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("procesado_en");
+
+                    b.HasKey("EventoId", "EventoTipo")
+                        .HasName("pk_eventos_procesados");
+
+                    b.ToTable("eventos_procesados", "contabilidad");
                 });
 
             modelBuilder.Entity("Millet.Contabilidad.Domain.ImportacionCatalogo", b =>
@@ -2183,6 +2296,8 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
 
                             b1.Property<string>("Rol")
                                 .IsRequired();
+
+                            b1.Property<bool>("RolPorClasificador");
 
                             b1.Property<bool?>("SoloServicios");
 
