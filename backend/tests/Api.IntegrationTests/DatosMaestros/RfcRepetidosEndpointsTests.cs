@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Millet.Catalogos.Domain;
 using Millet.Api.IntegrationTests.Fixtures;
@@ -257,5 +258,32 @@ public sealed class RfcRepetidosEndpointsTests(WebApplicationFactory<Program> fa
             .AplicarAsync(Snap(refB, rfc) with { BloqueoOrigenCrudo = 0, LeidoEnUtc = DateTime.UtcNow.AddMinutes(5) }, CancellationToken.None);
 
         Assert.Equal(("Inactivo", (Guid?)a), await EstadoAsync(b));
+    }
+
+    private sealed class AwConCotizaciones(string referencia) : IAwClientesPedidosOrigen
+    {
+        public Task<IReadOnlyDictionary<string, AwPedidosCliente>> ContarAsync(IReadOnlyCollection<string> referencias, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyDictionary<string, AwPedidosCliente>>(referencias.Contains(referencia)
+                ? new Dictionary<string, AwPedidosCliente> { [referencia] = new(0, null, 2, new DateTime(2026, 10, 1)) }
+                : new Dictionary<string, AwPedidosCliente>());
+    }
+
+    [Fact]
+    public async Task Una_cotizacion_en_a_w_cuenta_como_historial_y_el_secundario_se_agrupa()
+    {
+        var (a, b, _, refB, rfc) = await DosAsync();
+        await using var f = factory.WithWebHostBuilder(h => h.ConfigureServices(sv =>
+        {
+            sv.RemoveAll<IAwClientesPedidosOrigen>();
+            sv.AddSingleton<IAwClientesPedidosOrigen>(new AwConCotizaciones(refB));
+        }));
+        var http = await UsuariosAwHttp.SuperAdminAsync(f);
+
+        var g = await BuscarGrupoAsync(http, rfc);
+        Assert.Equal(2, Cliente(g!.Value, b).GetProperty("cotizacionesAw").GetInt32());
+
+        // Con a de principal, b (solo cotizaciones) no se fusiona: sigue activo.
+        Assert.Equal(HttpStatusCode.OK, (await Unificar(http, rfc, a)).StatusCode);
+        Assert.Equal(("Activo", (Guid?)a), await EstadoAsync(b));
     }
 }

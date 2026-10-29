@@ -265,4 +265,14 @@ public sealed class AwClientesOrigenTests
         p.Filas.Select(f => (f.Bonitaet, f.RegimenFiscalOrigen)).Should().Equal(
             ("MORAL DEMO", "601"), ("SIN CATALOGO", null), (null, null));
     }
+
+    [Fact]
+    public void Historial_de_clientes_lee_pedidos_y_cotizaciones_solo_select_y_parametrizado()
+    {
+        var sql = AwClientesPedidosSqlOrigen.Sql(2);
+        Assert.Contains("SYSADM.BW_AUFTR_KOPF", sql);
+        Assert.Contains("SYSADM.BW_ANGEB_KOPF", sql);
+        Assert.Equal(4, Regex.Count(sql, "@p[01]"));
+        Assert.DoesNotMatch(new Regex("INSERT|UPDATE|DELETE|MERGE|EXEC", RegexOptions.IgnoreCase), sql);
+    }
 }

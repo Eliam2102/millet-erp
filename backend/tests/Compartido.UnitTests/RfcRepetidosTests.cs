@@ -57,8 +57,8 @@ public sealed class RfcRepetidosTests
         Assert.Equal(EstatusCatalogo.Activo, g.Estatus);
     }
 
-    private static MiembroRfcRepetido M(string r, bool rfc = false, int aw = 0, DateTime? ultimo = null, int erp = 0, bool unificado = false) =>
-        new(Guid.NewGuid(), r, rfc, unificado, aw, ultimo, erp);
+    private static MiembroRfcRepetido M(string r, bool rfc = false, int aw = 0, DateTime? ultimo = null, int erp = 0, bool unificado = false, int cot = 0) =>
+        new(Guid.NewGuid(), r, rfc, unificado, aw, ultimo, erp, cot);
 
     [Fact]
     public void Principal_sugerido_sigue_el_orden_rfc_en_erp_pedido_aw_reciente_mas_pedidos_erp_referencia_baja()
@@ -82,5 +82,13 @@ public sealed class RfcRepetidosTests
         Assert.Equal("Fusionar", RfcRepetidosReglas.AccionSugerida(sin, p.Id));
         Assert.Equal("Agrupar", RfcRepetidosReglas.AccionSugerida(conAw, p.Id));
         Assert.Equal("Agrupar", RfcRepetidosReglas.AccionSugerida(conErp, p.Id));
+    }
+
+    [Fact]
+    public void Una_cotizacion_en_a_w_cuenta_como_historial()
+    {
+        var p = M("1"); var soloCotizacion = M("2", cot: 1);
+        Assert.True(RfcRepetidosReglas.ConHistorial(soloCotizacion));
+        Assert.Equal("Agrupar", RfcRepetidosReglas.AccionSugerida(soloCotizacion, p.Id));
     }
 }
