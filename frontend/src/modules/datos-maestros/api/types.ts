@@ -62,6 +62,8 @@ export type Naturaleza = (typeof Naturaleza)[keyof typeof Naturaleza];
 // ─── Proveedores ───────────────────────────────────────────────────
 
 export interface ProveedorItem {
+  expedienteCompleto: boolean;
+  documentosFaltantes: number;
   id: string;
   clave: string;
   razonSocial: string;
@@ -85,6 +87,8 @@ export interface ListarProveedoresResponse {
 }
 
 export interface ProveedorDetalle {
+  origenCarga?: string | null;
+  documentosPendientes?: string[];
   calle?: string | null;
   numeroExterior?: string | null;
   numeroInterior?: string | null;

@@ -1,3 +1,4 @@
+import { useReactivarArticulo } from '../api/articulos';
 import { estadoUi } from '../lib/estados-ui';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
@@ -42,6 +43,7 @@ export function ArticuloDetalle() {
   // destino y su GET del conteo — sin él, ni el botón ni la query existen.
   const canVerUbicaciones = useHasPermission(PermisosCanonicos.AlmacenAsignacionesRead);
   const desactivar = useDesactivarArticulo();
+  const reactivar = useReactivarArticulo();
 
   if (articuloQuery.isError) {
     const problem = esApiError(articuloQuery.error) ? articuloQuery.error.problem : undefined;
@@ -105,6 +107,11 @@ export function ArticuloDetalle() {
                 articuloId={articulo.id}
                 etiqueta={`${articulo.clave} · ${articulo.nombre}`}
               />
+            )}
+            {canDesactivar && articulo.estatus === EstatusCatalogo.Inactivo && (
+              <Button variant="ghost" size="sm" disabled={reactivar.isPending} onClick={() => reactivar.mutate({ id: articulo.id, idempotencyKey: crypto.randomUUID() }, { onError: e => toast.error(e.message) })}>
+                {reactivar.isPending ? 'Reactivando…' : 'Reactivar'}
+              </Button>
             )}
             {canDesactivar && activo && (
               <Button

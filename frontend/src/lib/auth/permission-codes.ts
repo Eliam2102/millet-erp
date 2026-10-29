@@ -8,6 +8,12 @@
  * Uso: <c>useHasPermission(PermisosCanonicos.IdentidadUsuariosCrear)</c>.
  */
 export const PermisosCanonicos = {
+  DatosMaestrosClientesCargar: 'datos_maestros.clientes.cargar',
+  DatosMaestrosArticulosCargar: 'datos_maestros.articulos.cargar',
+  DatosMaestrosProveedoresCargar: 'datos_maestros.proveedores.cargar',
+  DatosMaestrosProductosAwFiscalCargar: 'datos_maestros.productos-aw-fiscal.cargar',
+  CentrosCostoCatalogoCargar: 'centros_costo.catalogo.cargar',
+
   ActivosFijosDepreciacionCorrer: 'activos_fijos.depreciacion.correr',
   ActivosFijosDepreciacionAnular: 'activos_fijos.depreciacion.anular',
   ActivosFijosBajasRegistrar: 'activos_fijos.bajas.registrar',

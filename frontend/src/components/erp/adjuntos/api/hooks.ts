@@ -33,6 +33,9 @@ export const adjuntosKeys = {
 };
 
 function invalidar(qc: QueryClient, base: string) {
+  if (base.startsWith('/api/v1/datos-maestros/proveedores/')) {
+    void qc.invalidateQueries({ queryKey: ['datos-maestros', 'proveedores'] });
+  }
   return qc.invalidateQueries({ queryKey: adjuntosKeys.base(base) });
 }
 

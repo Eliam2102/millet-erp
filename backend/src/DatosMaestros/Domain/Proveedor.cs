@@ -22,6 +22,7 @@ public sealed class Proveedor : BaseEntity, IAuditable
 {
     public string Clave { get; private set; } = string.Empty;
     public string? ClaveLegacy { get; private set; }
+    public string? OrigenCarga { get; private set; }
     public string RazonSocial { get; private set; } = string.Empty;
     public string? NombreComercial { get; private set; }
     public string Rfc { get; private set; } = string.Empty;
@@ -177,7 +178,8 @@ public sealed class Proveedor : BaseEntity, IAuditable
         short? condicionesPagoDias = null,
         Guid? monedaPreferidaId = null,
         string? email = null,
-        string? telefono = null) : base(id)
+        string? telefono = null,
+        string? origenCarga = null) : base(id)
     {
         if (string.IsNullOrWhiteSpace(clave) || clave.Length > 20)
             throw new BusinessRuleException("PROVEEDOR_CLAVE_INVALIDA",
@@ -198,6 +200,7 @@ public sealed class Proveedor : BaseEntity, IAuditable
 
         Clave = clave;
         ClaveLegacy = claveLegacy;
+        OrigenCarga = origenCarga;
         RazonSocial = razonSocial;
         NombreComercial = nombreComercial;
         Rfc = rfcNormalizado;

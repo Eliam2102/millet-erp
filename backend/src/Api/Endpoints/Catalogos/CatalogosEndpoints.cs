@@ -475,7 +475,7 @@ public static class CatalogosEndpoints
             "ya está Inactivo, retorna 204 sin cambios. Las RQs " +
             "históricas siguen funcionando con el id; las nuevas RQs " +
             "se bloquean por la validación cross-table de F7-PR1. " +
-            "Para reactivar, usar PATCH (cuando se necesite).")
+            "Para reactivar, usar POST /{id}/reactivar.")
         .Produces(StatusCodes.Status204NoContent)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -578,6 +578,26 @@ public static class CatalogosEndpoints
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound);
+
+        articulos.MapPost("/{id:guid}/reactivar", async (Guid id, IMediator mediator, CancellationToken ct) =>
+        {
+            await mediator.Send(new ReactivarArticuloCommand(id), ct);
+            return Results.NoContent();
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CompartidoCatalogosAdministrar)
+        .WithName("ReactivarArticulo")
+        .WithSummary("Reactivar articulo");
+
+        proveedores.MapPost("/{id:guid}/reactivar", async (Guid id, IMediator mediator, CancellationToken ct) =>
+        {
+            await mediator.Send(new ReactivarProveedorCommand(id), ct);
+            return Results.NoContent();
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CompartidoCatalogosAdministrar)
+        .WithName("ReactivarProveedor")
+        .WithSummary("Reactivar proveedor");
 
         return app;
     }
