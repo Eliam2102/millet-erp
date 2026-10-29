@@ -812,6 +812,10 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.IComprasCrearRqSistemaPort,
     Millet.Compras.Infrastructure.PublicAdapters.ComprasCrearRqSistemaAdapter>();
+// ALM-APP-5: write-port que crea la RQ del mensaje REQUISICION_ENVIADA de la app de Almacenes.
+builder.Services.AddScoped<
+    Millet.Almacen.Domain.Ports.IComprasCrearRqAppPort,
+    Millet.Compras.Infrastructure.PublicAdapters.ComprasCrearRqAppAdapter>();
 // Fase E PR5: display del CC-Máquina en salidas. El adapter delega en
 // CentrosCosto.IDim3ReadPort (Almacén no puede referenciar CentrosCosto —
 // ciclo vía Compartido). Reemplaza NoOpCentroCostoReadPort de Almacén.

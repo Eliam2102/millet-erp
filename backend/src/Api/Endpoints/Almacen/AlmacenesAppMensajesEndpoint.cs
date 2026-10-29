@@ -22,7 +22,8 @@ public static class AlmacenesAppMensajesEndpoint
     public static IEndpointRouteBuilder MapAlmacenesAppMensajesEndpoint(this IEndpointRouteBuilder app)
     {
         app.MapPost("/api/v1/integraciones/almacenes/mensajes", async (
-            HttpRequest request, IConfiguration configuration, AlmacenDbContext db, CancellationToken ct) =>
+            HttpRequest request, IConfiguration configuration, AlmacenDbContext db,
+            Millet.Almacen.Domain.Ports.IComprasCrearRqAppPort rqApp, CancellationToken ct) =>
         {
             var keyConfigurada = configuration["Integraciones:AlmacenesApp:ApiKey"];
             if (string.IsNullOrWhiteSpace(keyConfigurada))
@@ -67,11 +68,16 @@ public static class AlmacenesAppMensajesEndpoint
                     .FirstOrDefaultAsync(m => m.MensajeId == mensajeId, ct);
                 if (previo is null)
                 {
-                    // Punto de enchufe de handlers futuros: un case por tipo.
+                    // Punto de enchufe de handlers: un case por tipo.
                     var (estado, folio, error) = tipo switch
                     {
+                        "REQUISICION_ENVIADA" => await AlmacenesAppRequisicionEnviada.ManejarAsync(datos, rqApp, ct),
                         _ => ("ERROR", (string?)null, (string?)"tipo aún no soportado"),
                     };
+                    // Un ERROR de datos de la RQ (proveedor/artículo sin dar de alta) se corrige en el ERP
+                    // y la app reenvía el mismo mensajeId: no se guarda para que el reenvío se procese.
+                    if (tipo == "REQUISICION_ENVIADA" && estado == "ERROR")
+                        return Results.Json(new Acuse(mensajeId, estado, folio, error));
                     var referencia = Str("referencia");
                     db.MensajesApp.Add(new MensajeApp(mensajeId, tipo,
                         referencia?.Length > 100 ? referencia[..100] : referencia,
