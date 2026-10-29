@@ -63,7 +63,7 @@
 | `outbox` | patrón existente | Eventos de §6. |
 
 - **D5. No guardamos piezas «esperadas» como filas.** Las esperadas salen de `pedido_pt_posiciones` y las faltantes son los números 1..N que no tienen fila en `piezas`. Así evitamos unas 900 mil filas al año que solo dicen «todavía no». Alternativa descartada: crear una pieza `Esperada` por unidad (borrador del 24-oct).
-- **D6. Idempotencia en dos niveles (Rev. 3).** (1) Por renglón de origen: el mismo `(etiqueta, registrado_at)` reutiliza su resultado (CA5.9); así, leer dos veces el mismo renglón no cuenta doble. (2) Por pieza: **un renglón nuevo de una etiqueta que ya está en PT no se descarta**. Jorge: si una pieza se rompe después de entrar a PT y se vuelve a producir, la misma etiqueta vuelve a quedar terminada, y descartarla perdería la reposición. Queda como `Reposicion` en la bandeja, visible y sin crear una segunda pieza ni subir el avance por encima de las esperadas. La baja por rotura y su dictamen son de PT5.8. Plano 7.1 p2: «un evento repetido reutiliza resultado».
+- **D6. Idempotencia en dos niveles (Rev. 3).** (1) Por renglón de origen: el mismo `(etiqueta, registrado_at)` reutiliza su resultado (CA5.9); así, leer dos veces el mismo renglón no cuenta doble. (2) Por pieza: **un renglón nuevo de una etiqueta que ya está en PT no se descarta**. Jorge: si una pieza se rompe después de entrar a PT y se vuelve a producir, la misma etiqueta vuelve a quedar terminada, y descartarla perdería la reposición. Queda como `Reposicion` en la bandeja y como movimiento `Reposicion` en la historia de la pieza, sin crear una segunda pieza. **(Rev. 4, 28-oct)** Lo que se le respondió a TI: el avance cuenta las etiquetas terminadas hoy; si la pieza se rompe, el avance baja, y al reponerse vuelve a subir. En PT-01 no hay baja por rotura, porque falta saber cómo marca A+W el «no hecho» (pregunta a Jorge). Cuando exista (PT5.8), la reposición vuelve a poner la pieza en `EnPT`. Plano 7.1 p2: «un evento repetido reutiliza resultado».
 - Volumen: unas 900 mil piezas al año. Sin particionar; lo revisamos con datos reales.
 
 ## 4. Estados de la pieza y del pedido
@@ -111,7 +111,7 @@ PT-01 solo construye `EnPT`. Los demás estados son el contrato para las tareas 
 | registrado_at | `awbar_bearbeit.bearb_zeit` |
 | área | `pool_bearbeit.text1` |
 | piezas esperadas | `pool_pos.menge` (E08-3: la cantidad de la posición es el número de piezas) |
-| sucursal | **no está en `alcimdb`**: sale de MILMAIN `OR_AVBEREICH` del pedido (E08-4), resuelta con `ISucursalPorClaveAwResolver` |
+| sucursal | **no está en `alcimdb`**: sale de MILMAIN `OR_AVBEREICH` del pedido (E08-4). El pedido importado ya la trae (`docs/integration/04-ingesta-pedidos-facturacion.md`, `numero_sucursal`), así que el canal Real usa la sucursal del pedido. La demo trae además una clave por escaneo, que se resuelve con `ISucursalPorClaveAwResolver` |
 
 Lo que **no** viene: el estatus 69 (es del pedido) y el usuario.
 
@@ -120,9 +120,9 @@ Lo que **no** viene: el estatus 69 (es del pedido) y el usuario.
 ```mermaid
 flowchart LR
   AW[(awbar_bearbeit<br/>Demo PG o Real AWPRODUCTION)] -->|lote cada 30 s por bearb_zeit| W[PiezasPtEntradaWorker<br/>Integraciones.Aw]
-  W -->|candado por empresa| R{¿sucursal del pedido<br/>OR_AVBEREICH resuelve?}
-  R -->|no| EX[Excepcion PT_SUCURSAL_SIN_CLAVE_AW]
-  R -->|sí| C[RegistrarEscaneoPieza<br/>ProductoTerminado]
+  W -->|candado por empresa| R{¿el escaneo trae clave<br/>y no se resuelve? solo Demo}
+  R -->|sí| EX[Excepcion PT_SUCURSAL_SIN_CLAVE_AW]
+  R -->|no| C[RegistrarEscaneoPieza<br/>ProductoTerminado<br/>sin clave: sucursal del pedido]
   C --> K{¿mismo etiqueta + bearb_zeit?}
   K -->|sí| RES[devuelve resultado previo]
   K -->|no| P{¿pedido en Facturación?}
@@ -130,7 +130,7 @@ flowchart LR
   P -->|sí| V{¿posición y número válidos?}
   V -->|no| EX2[Excepcion PT_POSICION_INEXISTENTE<br/>o PT_PIEZA_EXCEDE_POSICION]
   V -->|sí| D{¿etiqueta ya en PT?}
-  D -->|sí| REP[Reposicion a bandeja,<br/>sin segunda pieza]
+  D -->|sí| REP[Reposicion a bandeja y movimiento<br/>en la pieza, sin segunda pieza]
   D -->|no| OK[Pieza EnPT + Alta + outbox<br/>misma transacción]
 ```
 
@@ -251,14 +251,15 @@ Plano 1.7.1 §11: «sin acuse no afirmar liberado en A+W». El estado `Liberado`
 | Caso | Prueba |
 |---|---|
 | CA5.9 | 900101 posición 1; el mismo evento de la pieza 1 dos veces → una pieza, un movimiento, un evento; el segundo queda como resultado previo |
-| PT5.1-a | piezas 1 y 2 → 2 en PT en Circuito con hora de escaneo y estatus 69; 2 eventos `pieza.ingresada` |
+| PT5.1-a | piezas 1 y 2 → 2 en PT en Circuito con hora de escaneo; ninguna pieza lleva estatus de A+W (el 69 es del pedido); 2 eventos `pieza.ingresada` |
 | PT5.1-b | pedido 900199 → `Pospuesto`; se ingiere el pedido y se reintenta → entra una vez |
 | PT5.1-c | número de pieza mayor que la cantidad de la posición → `Excepcion PT_PIEZA_EXCEDE_POSICION` |
 | PT5.1-d | origen Real con contrato sin firmar → lector real sin registrar; Demo funciona |
 | CA5.14 (parcial) | 2,500 eventos con 10 % repetidos → 2,250 piezas, cero pérdidas; se reporta el tiempo |
 | Plano caso 1 | 8 de 10 → 8 en PT, backorder 2, reenvío sin efecto |
 | PT5.2 (PT-02, Demo) | 8 de 10 en PT, pedido `Retenido`; saldo de prueba en 0 → `Liberado` con motivo `SaldoCubierto` y evento `pedido.estado-cambiado.v1` |
-| Reposición (Rev. 3) | pieza 3 en PT; llega otro renglón de su etiqueta con hora nueva → `Reposicion` en bandeja, sigue 1 pieza y el avance no cambia |
+| Reposición (Rev. 4) | pieza 3 en PT; llega otro renglón de su etiqueta con hora nueva → `Reposicion` en bandeja y movimiento `Reposicion` en la pieza; sigue 1 pieza |
+| Ejemplo corregido de TI (Rev. 4) | 10 piezas, 8 escaneadas → 8 y 2 faltantes, sin estatus; la relectura no cambia nada; la pieza 3 repuesta deja `Reposicion`; con las 10 queda completo; sin clave, la sucursal es la del pedido |
 | Estaciones (Rev. 3) | renglón con `esnr_ist` fuera de la lista configurada o `fertig = 0` → se ignora |
 
 ## 11. Supuestos a validar
