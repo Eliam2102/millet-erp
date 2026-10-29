@@ -204,4 +204,23 @@ public class ProveedorTests
         var ex = Assert.Throws<BusinessRuleException>(() => p.Rechazar(Guid.CreateVersion7(), "Motivo de rechazo válido", DateTimeOffset.UtcNow));
         Assert.Equal("PROVEEDOR_NO_EN_REVISION", ex.Code);
     }
+
+    [Fact]
+    public void ClaveAw_SeAsignaYSeLimpia()
+    {
+        var p = Crear();
+        p.AsignarClaveAw(1234);
+        Assert.Equal(1234, p.ClaveAw);
+        p.AsignarClaveAw(null);
+        Assert.Null(p.ClaveAw);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-5)]
+    public void ClaveAw_CeroONegativa_Throws(int clave)
+    {
+        var ex = Assert.Throws<BusinessRuleException>(() => Crear().AsignarClaveAw(clave));
+        Assert.Equal("PROVEEDOR_CLAVE_AW_INVALIDA", ex.Code);
+    }
 }

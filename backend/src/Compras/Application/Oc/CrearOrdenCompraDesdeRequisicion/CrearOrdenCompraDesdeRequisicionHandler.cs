@@ -226,6 +226,8 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
             throw ProveedorNoUtilizable.Error(proveedor.Clave, proveedor.Estatus, $"El proveedor '{proveedor.Clave}' está {proveedor.Estatus}.");
         }
 
+        rq.ExigirProveedorFijo(command.ProveedorId);
+
         // Folio atómico.
         var siguiente = await GetNextFolioSequenceAsync(
             empresaId, rq.SucursalId, command.FolioAnio, cancellationToken);

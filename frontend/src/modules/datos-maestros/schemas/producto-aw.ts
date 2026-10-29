@@ -80,6 +80,7 @@ export const CrearProductoAwSchema = z.object({
   categoriaId: z.string().nullable(),
   claveProdServSat: claveProdServOpcional,
   claveUnidadSat: claveUnidadOpcional,
+  esServicioRecubrimiento: z.boolean(),
 });
 
 export type CrearProductoAwValues = z.infer<typeof CrearProductoAwSchema>;
@@ -107,6 +108,7 @@ export const ActualizarProductoAwSchema = z.object({
   fraccionArancelaria: fraccionAduanaOpcional,
   unidadAduana: unidadAduanaOpcional,
   pesoUnitarioKg: pesoOpcional,
+  esServicioRecubrimiento: z.boolean(),
 });
 
 export type ActualizarProductoAwValues = z.infer<

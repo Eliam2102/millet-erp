@@ -81,6 +81,20 @@ public sealed class Proveedor : BaseEntity, IAuditable
     public string? Pais { get; private set; }
     public string? TaxId { get; private set; }
 
+    /// <summary>
+    /// Clave del proveedor en A+W (86e3wyjz3 · ALM-APP-1). La app de Almacenes manda el
+    /// proveedor con esta clave y la OC regresa con la misma, porque de ella A+W toma la moneda.
+    /// Única entre proveedores cuando existe.
+    /// </summary>
+    public int? ClaveAw { get; private set; }
+
+    public void AsignarClaveAw(int? claveAw)
+    {
+        if (claveAw <= 0)
+            throw new BusinessRuleException("PROVEEDOR_CLAVE_AW_INVALIDA", "La clave de A+W es un número entero mayor que cero.");
+        ClaveAw = claveAw;
+    }
+
     public void ActualizarDomicilioFiscal(string? calle = null,
         string? numeroExterior = null,
         string? numeroInterior = null,

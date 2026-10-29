@@ -24,7 +24,7 @@ describe('useCanalesVentaAdmin', () => {
         return HttpResponse.json([
           {
             id: 1,
-            nombre: 'Tienda Cancún',
+            nombre: 'Sucursal Cancún',
             estatus: 0,
             version: 1,
             claveAw: 'CANCUN',
@@ -62,7 +62,7 @@ describe('useCrearCanalVenta', () => {
         return HttpResponse.json(
           {
             id: 11,
-            nombre: 'Tienda Playa',
+            nombre: 'Sucursal Playa',
             estatus: 0,
             version: 1,
             claveAw: 'PLAYA',
@@ -80,14 +80,14 @@ describe('useCrearCanalVenta', () => {
     });
 
     result.current.mutate({
-      command: { nombre: 'Tienda Playa', claveAw: 'PLAYA' },
+      command: { nombre: 'Sucursal Playa', claveAw: 'PLAYA' },
       idempotencyKey: 'idem-1',
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.id).toBe(11);
     expect(idemVisto).toBe('idem-1');
-    expect(bodyVisto).toMatchObject({ nombre: 'Tienda Playa', claveAw: 'PLAYA' });
+    expect(bodyVisto).toMatchObject({ nombre: 'Sucursal Playa', claveAw: 'PLAYA' });
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: adminKeys.canalesVenta(),
     });
@@ -121,7 +121,7 @@ describe('useCrearCanalVenta', () => {
     });
 
     result.current.mutate({
-      command: { nombre: 'Tienda Cancún' },
+      command: { nombre: 'Sucursal Cancún' },
       idempotencyKey: 'idem-2',
     });
 
@@ -140,7 +140,7 @@ describe('useActualizarCanalVenta', () => {
         bodyVisto = await request.json();
         return HttpResponse.json({
           id: 1,
-          nombre: 'Tienda Cancún Centro',
+          nombre: 'Sucursal Cancún Centro',
           estatus: 0,
           version: 2,
           claveAw: null,
@@ -154,14 +154,14 @@ describe('useActualizarCanalVenta', () => {
 
     result.current.mutate({
       id: 1,
-      payload: { nombre: 'Tienda Cancún Centro', limpiarClaveAw: true },
+      payload: { nombre: 'Sucursal Cancún Centro', limpiarClaveAw: true },
       idempotencyKey: 'idem-3',
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.version).toBe(2);
     expect(bodyVisto).toEqual({
-      nombre: 'Tienda Cancún Centro',
+      nombre: 'Sucursal Cancún Centro',
       limpiarClaveAw: true,
     });
   });

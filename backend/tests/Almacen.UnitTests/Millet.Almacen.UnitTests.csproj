@@ -25,4 +25,8 @@
     <ProjectReference Include="..\..\src\Almacen\Millet.Almacen.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="../Documentos.UnitTests/Recursos/logo-millet.jpg" LogicalName="logo-millet.jpg" />
+  </ItemGroup>
+
 </Project>

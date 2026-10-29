@@ -163,6 +163,7 @@ function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps)
       email: null,
       telefono: null,
       condicionesPagoDias: null,
+      claveAw: null,
     },
   });
 
@@ -195,6 +196,7 @@ function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps)
           email: values.email,
           telefono: values.telefono,
           condicionesPagoDias: values.condicionesPagoDias,
+          claveAw: values.claveAw,
           monedaPreferidaId: null,
           origen: fiscal.origen,
           regimenFiscalCodigo: fiscal.regimenFiscalCodigo,
@@ -236,6 +238,13 @@ function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps)
               setErroresFiscal(
                 erroresDeClasificacion(error.code, error.problem.detail ?? error.problem.title),
               );
+              return;
+            }
+            if (error.code === 'PROVEEDOR_CLAVE_AW_DUPLICADA') {
+              form.setError('claveAw', {
+                type: error.code,
+                message: error.problem.detail ?? 'Ya existe un proveedor con esa clave de A+W.',
+              });
               return;
             }
             if (error.code === 'PROVEEDOR_RFC_DUPLICADO') {
@@ -389,6 +398,33 @@ function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps)
                     value={field.value ?? ''}
                     onChange={(e) =>
                       field.onChange(e.target.value.length > 0 ? e.target.value : null)
+                    }
+                  />
+                )}
+              />
+            </FormRow>
+          </FormCampo>
+
+          <FormCampo span={6}>
+            <FormRow
+              label="Clave de A+W"
+              hint="Clave del proveedor en A+W. La usa la aplicación de Almacenes."
+              error={form.formState.errors.claveAw?.message}
+            >
+              <Controller
+                name="claveAw"
+                control={form.control}
+                render={({ field }) => (
+                  <Input
+                    type="number"
+                    min={1}
+                    step={1}
+                    inputMode="numeric"
+                    aria-label="Clave de A+W"
+                    className="font-mono"
+                    value={field.value ?? ''}
+                    onChange={(e) =>
+                      field.onChange(e.target.value === '' ? null : Number(e.target.value))
                     }
                   />
                 )}

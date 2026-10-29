@@ -276,13 +276,15 @@ public static class OrdenesCompraEndpoints
             HttpResponse response,
             IMediator mediator,
             ComprasDbContext db,
-            Millet.Compras.Domain.Ports.Blob.IAlmacenarBlobPort blobPort,
+            Millet.Compras.Application.Oc.Pdf.ImpresionOrdenCompraService impresion,
+            IClock clock,
             ICurrentUserContext scopeUser,
             ICurrentUserPermissions scopePermisos,
             IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
             await OcSucursalScope.VerificarAsync(id, db, scopeUser, scopePermisos, scopeSucursales, cancellationToken);
+            // La fila existe solo si la OC se autorizó; también lleva el contador de impresiones.
             var pdf = await db.OrdenCompraPdfs
                 .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.OrdenCompraId == id, cancellationToken)
@@ -290,34 +292,35 @@ public static class OrdenesCompraEndpoints
                     "OC_PDF_NO_ENCONTRADO",
                     $"La OC '{id}' aún no tiene PDF generado. Se genera al autorizar N2.");
 
-            var stream = await blobPort.ObtenerStreamAsync(pdf.BlobUrl, cancellationToken);
-            try
+            // El PDF se dibuja al momento con los datos vigentes; el blob guardado es solo la foto de la autorización.
+            response.Headers.CacheControl = "no-store";
+            if (vistaPrevia == true)
             {
-                if (vistaPrevia != true)
-                {
-                    var numero = await mediator.Send(
-                        new Millet.Compras.Application.Oc.RegistrarImpresion.RegistrarImpresionOcCommand(id, pdf.Id), cancellationToken);
-                    response.Headers["X-Oc-Impresion"] = numero.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                }
-                response.Headers.CacheControl = "no-store";
+                var previa = await impresion.RenderizarAsync(id, null, cancellationToken);
+                return Results.File(previa.Contenido, previa.ContentType, previa.NombreSugerido);
             }
-            catch
-            {
-                await stream.DisposeAsync();
-                throw;
-            }
-            return Results.File(
-                fileStream: stream,
-                contentType: pdf.ContentType,
-                fileDownloadName: $"OC-{id:N}.pdf");
+
+            // Se dibuja antes de contar: si el dibujo falla, la impresión no se gasta y el ORIGINAL sigue disponible.
+            var hoy = FechaContable.HoyLocal(clock.UtcNow);
+            var previsto = pdf.Impresiones + 1;
+            var generado = await impresion.RenderizarAsync(
+                id, Millet.Compras.Application.Oc.Pdf.ImpresionOrdenCompraService.Marca(previsto, hoy), cancellationToken);
+            var numero = await mediator.Send(
+                new Millet.Compras.Application.Oc.RegistrarImpresion.RegistrarImpresionOcCommand(id, pdf.Id), cancellationToken);
+            response.Headers["X-Oc-Impresion"] = numero.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (numero != previsto) // otra descarga se adelantó: se redibuja con el número que quedó registrado
+                generado = await impresion.RenderizarAsync(
+                    id, Millet.Compras.Application.Oc.Pdf.ImpresionOrdenCompraService.Marca(numero, hoy), cancellationToken);
+            return Results.File(generado.Contenido, generado.ContentType, generado.NombreSugerido);
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesLeer)
         .WithName("ObtenerOrdenCompraPdf")
         .WithSummary("Consultar o descargar PDF de orden de compra")
         .WithDescription(
-            "Devuelve el PDF guardado. Cada descarga registra una impresión y devuelve " +
-            "X-Oc-Impresion: 1 es original; 2 y posteriores son copias. " +
-            "Con vistaPrevia=true no registra impresión. 404 si aún no existe PDF.")
+            "Devuelve el PDF de la OC dibujado al momento con los datos vigentes. Cada descarga registra una " +
+            "impresión y devuelve X-Oc-Impresion: 1 es ORIGINAL; 2 y posteriores son COPIA n. " +
+            "Con vistaPrevia=true no registra impresión ni lleva marca. El archivo se llama como el folio. " +
+            "404 si aún no existe PDF.")
         .Produces(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -408,7 +411,8 @@ public static class OrdenesCompraEndpoints
                     FechaEntregaLinea: body.FechaEntregaLinea,
                     CentroCostoId: body.CentroCostoId,
                     TextoAdicional: body.TextoAdicional, EsActivoFijo: body.EsActivoFijo, ClaseActivoId: body.ClaseActivoId,
-                    ProductoAwVarianteId: body.ProductoAwVarianteId),
+                    ProductoAwVarianteId: body.ProductoAwVarianteId,
+                    LoteProveedor: body.LoteProveedor),
                 cancellationToken);
             return Results.Created($"/api/v1/compras/ordenes/{id}/lineas/{response.LineaId}", response);
         })
@@ -465,7 +469,9 @@ public static class OrdenesCompraEndpoints
                     LimpiarFraccionArancelaria: body.LimpiarFraccionArancelaria ?? false,
                     EsActivoFijo: body.EsActivoFijo,
                     ClaseActivoId: body.ClaseActivoId,
-                    ProductoAwVarianteId: body.ProductoAwVarianteId),
+                    ProductoAwVarianteId: body.ProductoAwVarianteId,
+                    LoteProveedor: body.LoteProveedor,
+                    LimpiarLoteProveedor: body.LimpiarLoteProveedor ?? false),
                 cancellationToken);
             return Results.NoContent();
         })
@@ -1933,7 +1939,9 @@ public static class OrdenesCompraEndpoints
         Guid? CentroCostoId,
         string? TextoAdicional, bool EsActivoFijo = false, Guid? ClaseActivoId = null,
         // F1-MP-01 (E1): medida de la hoja; obligatoria si el artículo es vidrio crudo (liga A+W), prohibida si no.
-        Guid? ProductoAwVarianteId = null);
+        Guid? ProductoAwVarianteId = null,
+        // F1-MP-05 (A4.2): lote del proveedor, opcional.
+        string? LoteProveedor = null);
 
     /// <summary>Body del PATCH lineas (F2-PR2).</summary>
     public sealed record ActualizarLineaOcRequest(
@@ -1957,7 +1965,10 @@ public static class OrdenesCompraEndpoints
         bool? LimpiarFraccionArancelaria = null,
         bool? EsActivoFijo = null, Guid? ClaseActivoId = null,
         // F1-MP-01 (E1): null = conservar la medida actual.
-        Guid? ProductoAwVarianteId = null);
+        Guid? ProductoAwVarianteId = null,
+        // F1-MP-05 (A4.2): null = no tocar; LimpiarLoteProveedor = true → null.
+        string? LoteProveedor = null,
+        bool? LimpiarLoteProveedor = null);
 
     /// <summary>Body del PATCH texto-adicional (F2-PR2).</summary>
     public sealed record ActualizarTextoAdicionalRequest(string? TextoAdicional);

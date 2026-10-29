@@ -6,6 +6,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import {
   SheetBody,
@@ -127,6 +128,7 @@ function NuevoProductoAwForm({ onClose, onDirtyChange }: NuevoProductoAwFormProp
       categoriaId: null,
       claveProdServSat: null,
       claveUnidadSat: null,
+      esServicioRecubrimiento: false,
     },
   });
 
@@ -146,6 +148,7 @@ function NuevoProductoAwForm({ onClose, onDirtyChange }: NuevoProductoAwFormProp
           categoriaId: values.categoriaId,
           claveProdServSat: values.claveProdServSat,
           claveUnidadSat: values.claveUnidadSat,
+          esServicioRecubrimiento: values.esServicioRecubrimiento,
           objetoImp: null,
           tasaIvaTraslado: null,
           tasaRetencionIva: null,
@@ -344,6 +347,18 @@ function NuevoProductoAwForm({ onClose, onDirtyChange }: NuevoProductoAwFormProp
                 </FormRow>
               </FormCampo>
             </FormGrid>
+          </FormCampo>
+          <FormCampo span={12}>
+            <Controller
+              name="esServicioRecubrimiento"
+              control={form.control}
+              render={({ field }) => (
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <Checkbox checked={field.value} onCheckedChange={(c) => field.onChange(c === true)} />
+                  Servicio de recubrimiento
+                </label>
+              )}
+            />
           </FormCampo>
         </FormSeccion>
       </SheetBody>
