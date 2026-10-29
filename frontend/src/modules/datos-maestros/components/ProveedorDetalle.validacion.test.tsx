@@ -277,3 +277,38 @@ describe('<ProveedorDetalle> — Validación y Rechazo de CxP (G1.1)', () => {
     expect(btnConfirmarRechazo).toBeEnabled();
   });
 });
+
+it.each(['CargaSap', null])('avisa expediente incompleto del activo y distingue origen %s', async (origenCarga) => {
+  mswServer.use(
+    http.get('*/api/v1/datos-maestros/proveedores/p-rev', () => HttpResponse.json({
+      ...PROVEEDOR_EN_REVISION, estatus: EstatusCatalogo.Activo, origenCarga,
+    })),
+    http.get('*/api/v1/datos-maestros/proveedores/p-rev/expediente', () => HttpResponse.json({
+      completo: false, documentos: [{ codigo: 'contrato', nombre: 'Contrato' }],
+      faltantes: ['contrato'], vencidos: [], porVencer: [],
+    })),
+  );
+  // El aviso usa la consulta; el editor documental se prueba en su propia suite.
+  useAuthStore.setState({ permisos: [PermisosCanonicos.DatosMaestrosProveedoresValidar] });
+  render(<ProveedorDetalle />, { wrapper: createQueryWrapper() });
+  const aviso = await screen.findByRole('alert');
+  expect(aviso).toHaveTextContent('Expediente incompleto: faltan 1 documentos (Contrato).');
+  expect(aviso).toHaveClass('bg-warning-note-bg');
+  expect(screen.getByRole('link', { name: 'Ver expediente' })).toHaveAttribute('href', '#expediente-proveedor');
+  expect(aviso.textContent?.includes('Cargado desde SAP sin documentos.')).toBe(origenCarga === 'CargaSap');
+});
+
+it('muestra el aviso desde el detalle sin permiso de adjuntos y lo oculta al completar', async () => {
+  useAuthStore.setState({ permisos: [PermisosCanonicos.DatosMaestrosProveedoresGestionar] });
+  let pendientes = ['Contrato'];
+  mswServer.use(http.get('*/api/v1/datos-maestros/proveedores/p-rev', () => HttpResponse.json({
+    ...PROVEEDOR_EN_REVISION, estatus: EstatusCatalogo.Activo, origenCarga: 'CargaSap', documentosPendientes: pendientes,
+  })));
+  const vista = render(<ProveedorDetalle />, { wrapper: createQueryWrapper() });
+  expect(await screen.findByRole('alert')).toHaveTextContent('Contrato');
+  vista.unmount();
+  pendientes = [];
+  render(<ProveedorDetalle />, { wrapper: createQueryWrapper() });
+  await screen.findByText('PROV-REV-01');
+  expect(screen.queryByText(/Expediente incompleto:/)).not.toBeInTheDocument();
+});

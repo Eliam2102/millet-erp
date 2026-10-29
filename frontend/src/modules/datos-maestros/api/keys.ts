@@ -20,6 +20,7 @@ import type {
 } from '@/modules/datos-maestros/api/types';
 
 export interface ListarProveedoresFiltros {
+  soloExpedienteIncompleto?: boolean;
   /** Caja única: clave, RFC, razón social o nombre comercial (parcial). */
   q?: string;
   rfc?: string;

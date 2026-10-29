@@ -13,13 +13,19 @@ public sealed record FichaFiscalProducto(string? ClaveProdServSat, string? Clave
         string.IsNullOrWhiteSpace(ClaveUnidadSat) ? "Clave de unidad SAT" : null,
         string.IsNullOrWhiteSpace(ObjetoImp) ? "Objeto de impuesto" : null,
         TasaIvaTraslado is null ? "Tasa de IVA" : null }.OfType<string>().ToArray();
+    public string? CampoInvalido(bool completa)
+    {
+        if ((completa && string.IsNullOrWhiteSpace(ClaveProdServSat)) || (ClaveProdServSat is not null && !Regex.IsMatch(ClaveProdServSat, "^[0-9]{8}$"))) return "Clave de producto SAT";
+        if ((completa && string.IsNullOrWhiteSpace(ClaveUnidadSat)) || (ClaveUnidadSat is not null && !Regex.IsMatch(ClaveUnidadSat, "^[A-Z0-9]{1,5}$"))) return "Clave de unidad SAT";
+        if ((completa && string.IsNullOrWhiteSpace(ObjetoImp)) || (ObjetoImp is not null && !Regex.IsMatch(ObjetoImp, "^0[1-8]$"))) return "Objeto de impuesto";
+        if ((completa && TasaIvaTraslado is null) || TasaIvaTraslado is < 0 or > 1) return "Tasa IVA";
+        if (TasaRetencionIva is < 0 or > 1) return "Retención IVA";
+        if (TasaRetencionIsr is < 0 or > 1) return "Retención ISR";
+        return null;
+    }
     public void Validar(bool completa)
     {
-        if ((completa && Faltantes.Count > 0)
-            || (ClaveProdServSat is not null && !Regex.IsMatch(ClaveProdServSat, "^[0-9]{8}$"))
-            || (ClaveUnidadSat is not null && !Regex.IsMatch(ClaveUnidadSat, "^[A-Z0-9]{1,5}$"))
-            || (ObjetoImp is not null && !Regex.IsMatch(ObjetoImp, "^0[1-8]$"))
-            || TasaIvaTraslado is < 0 or > 1 || TasaRetencionIva is < 0 or > 1 || TasaRetencionIsr is < 0 or > 1)
+        if (CampoInvalido(completa) is not null)
             throw new BusinessRuleException("FICHA_FISCAL_INVALIDA", "Indica clave de producto SAT de ocho dígitos, unidad SAT, objeto de impuesto 01–08 y tasas entre 0 y 1. " + string.Join(", ", Faltantes));
     }
 }
