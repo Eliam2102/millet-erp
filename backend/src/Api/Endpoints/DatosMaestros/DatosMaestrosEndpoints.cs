@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.Compartido.Application.Adjuntos;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -66,6 +67,7 @@ public static class DatosMaestrosEndpoints
             [FromQuery] string? rfc,
             [FromQuery] string? razonSocial,
             [FromQuery] string? q,
+            [FromQuery] bool? soloExpedienteIncompleto,
             [FromQuery] TipoPersonaProveedor? tipoPersona,
             [FromQuery] EstatusCatalogo? estatus,
             [FromQuery] int? offset,
@@ -81,7 +83,8 @@ public static class DatosMaestrosEndpoints
                     Estatus: estatus,
                     Offset: offset ?? 0,
                     Limit: limit ?? 50,
-                    Q: q),
+                    Q: q,
+                    SoloExpedienteIncompleto: soloExpedienteIncompleto ?? false),
                 ct);
             return Results.Ok(response);
         })
@@ -93,19 +96,25 @@ public static class DatosMaestrosEndpoints
         .ProducesProblem(StatusCodes.Status403Forbidden);
 
         proveedores.MapGet("/{id:guid}", async (
-            Guid id, CompartidoDbContext db, CancellationToken ct) =>
+            Guid id, CompartidoDbContext db, IClock clock, CancellationToken ct) =>
         {
             var p = await db.Proveedores.AsNoTracking()
                 .FirstOrDefaultAsync(x => x.Id == id, ct)
                 ?? throw new EntityNotFoundException(
                     "PROVEEDOR_NO_ENCONTRADO",
                     $"No existe proveedor con id '{id}'.");
+            var pendientes = ExpedienteAdjuntos.PendientesProveedores(db, clock).Where(x => x.ProveedorId == id);
+            var nombresPendientes = await (from pendiente in pendientes
+                join tipo in db.AdjuntoTiposDocumento on pendiente.Codigo equals tipo.Codigo
+                where tipo.TipoEntidad == "proveedor"
+                orderby tipo.Orden
+                select tipo.Nombre).ToListAsync(ct);
             return Results.Ok(new ProveedorDetalle(
                 p.Id, p.Clave, p.ClaveLegacy, p.RazonSocial, p.NombreComercial,
                 p.Rfc, p.TipoPersona, p.CondicionesPagoDias, p.MonedaPreferidaId,
                 p.Email, p.Telefono, p.Estatus,
                 p.ValidadoPorId, p.ValidadoEn, p.MotivoRechazo, p.ToleranciaFacturaContraOcMxn,
-                p.Origen, p.RegimenFiscalCodigo, p.ConceptoRetencion, p.ValidadoConMatrizVersion, p.Calle, p.NumeroExterior, p.NumeroInterior, p.Colonia, p.Ciudad, p.Municipio, p.Estado, p.CodigoPostal, p.Pais, p.TaxId, p.ClaveAw));
+                p.Origen, p.RegimenFiscalCodigo, p.ConceptoRetencion, p.ValidadoConMatrizVersion, p.Calle, p.NumeroExterior, p.NumeroInterior, p.Colonia, p.Ciudad, p.Municipio, p.Estado, p.CodigoPostal, p.Pais, p.TaxId, p.ClaveAw, p.OrigenCarga, nombresPendientes));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresGestionar)
         .WithName("ObtenerProveedorDatosMaestros")
@@ -974,7 +983,9 @@ public static class DatosMaestrosEndpoints
         string? CodigoPostal = null,
         string? Pais = null,
         string? TaxId = null,
-        int? ClaveAw = null);
+        int? ClaveAw = null,
+        string? OrigenCarga = null,
+        IReadOnlyList<string>? DocumentosPendientes = null);
 
     public sealed record ActualizarClasificacionFiscalRequest(
         OrigenProveedor? Origen, string? RegimenFiscalCodigo, string? ConceptoRetencion);

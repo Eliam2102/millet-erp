@@ -1201,6 +1201,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         proveedor.HasKey(x => x.Id);
         proveedor.Property(x => x.Clave).HasMaxLength(20).IsRequired();
         proveedor.Property(x => x.ClaveLegacy).HasMaxLength(20);
+        proveedor.Property(x => x.OrigenCarga).HasMaxLength(20);
         proveedor.Property(x => x.RazonSocial).HasMaxLength(254).IsRequired();
         proveedor.Property(x => x.NombreComercial).HasMaxLength(254);
         proveedor.Property(x => x.Rfc).HasMaxLength(13).IsRequired();
