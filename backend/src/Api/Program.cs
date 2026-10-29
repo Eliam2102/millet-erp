@@ -873,6 +873,10 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.ISucursalReadPort,
     Millet.Compartido.Infrastructure.PublicAdapters.SucursalReadAdapter>();
+// 86e3tferp: encabezado de empresa (con logo) del comprobante de salida.
+builder.Services.AddScoped<
+    Millet.Almacen.Domain.Ports.IEmpresaImpresionReadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.EmpresaImpresionReadAdapter>();
 // C1.2: TC de Almacén desde compartido.tipos_cambio; reemplaza el
 // NoOpTipoCambioReadPort (PLATFORM-TODO <TipoCambioReadAdapter> cerrado).
 builder.Services.AddScoped<

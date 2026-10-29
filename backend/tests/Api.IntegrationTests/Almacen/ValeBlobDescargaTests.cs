@@ -72,6 +72,40 @@ public sealed class ValeBlobDescargaTests : IClassFixture<ValeBlobDescargaFactor
         }
     }
 
+    [Fact]
+    public async Task Comprobante_de_salida_responde_pdf_con_el_formato_de_millet()
+    {
+        var client = await LoginSuperAdminAsync();
+        var (salidaId, _) = await SembrarValeAsync();
+        try
+        {
+            using var respuesta = await client.GetAsync($"/api/v1/almacen/salidas/{salidaId}/comprobante");
+
+            Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+            Assert.Equal("application/pdf", respuesta.Content.Headers.ContentType?.MediaType);
+            using var pdf = UglyToad.PdfPig.PdfDocument.Open(await respuesta.Content.ReadAsByteArrayAsync());
+            var texto = System.Text.RegularExpressions.Regex.Replace(
+                string.Join(" ", pdf.GetPages().Select(p => p.Text)), @"\s+", "");
+            Assert.Contains("SALIDADEMERCANCIA", texto);
+            Assert.Contains("VALEURGENTE", texto);
+            Assert.Contains("Huella", texto);
+        }
+        finally
+        {
+            await LimpiarAsync(salidaId);
+        }
+    }
+
+    [Fact]
+    public async Task Comprobante_de_salida_inexistente_responde_404()
+    {
+        var client = await LoginSuperAdminAsync();
+
+        using var respuesta = await client.GetAsync($"/api/v1/almacen/salidas/{Guid.NewGuid()}/comprobante");
+
+        Assert.Equal(HttpStatusCode.NotFound, respuesta.StatusCode);
+    }
+
     /// <summary>Sube un vale real al stub y deja una salida por vale que lo referencia.</summary>
     private async Task<(Guid SalidaId, string BlobUrl)> SembrarValeAsync()
     {
