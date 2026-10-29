@@ -23,7 +23,7 @@ namespace Millet.Api.IntegrationTests.Contabilidad;
 /// el outbox) entregados por la entrada local (C1.8). Un caso por criterio de la ficha 86e3kdw33 §5 (C1.5-a … C1.5-i). Cada prueba
 /// mapea los roles a cuentas FIX propias y restaura el mapeo al terminar. Datos ficticios.
 /// </summary>
-public sealed class ListenersContabilidadTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+public sealed partial class ListenersContabilidadTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
 {
     private static readonly DateTimeOffset Ahora = DateTimeOffset.UtcNow;
     private static DateOnly Hoy() => Millet.SharedKernel.Application.FechaContable.HoyLocal(Ahora);
