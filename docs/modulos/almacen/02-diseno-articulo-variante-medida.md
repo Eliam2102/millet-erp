@@ -202,3 +202,23 @@ Compras y Almacén pueden construirse en paralelo después del paso 1; el paso 4
 8. **S8** Alta de `HOJA` como unidad de captura en el catálogo.
 9. **S9** Sin particionado de saldos; revisar tras datos reales.
 10. **S10** El texto del levantamiento de Almacén (vidrio fuera de alcance) se actualiza; confirma Eliam que el cuestionario 02 manda.
+
+### 11.1 Lote del proveedor tras el acuerdo de Almacenes (28-oct)
+
+Fuentes: `ACUERDO-almacenes-28oct` (reglas 2, 4 y 7), contrato de mensajes v6 de Jorge (§7.1 grupos, §8.2 ENTRADA_ALMACEN, §9 COMPRA_RECIBIDA) y respuesta a TI del 28-oct §5. Tarea 86e3jvujm (F1-MP-05 · A4.2). Esta nota fija lo que C3.2 debe construir; no cambia código de Almacén.
+
+1. **S7 queda superado por la regla 2 del acuerdo.** El ERP lleva existencia y costo promedio por artículo A+W y almacén general, no por lote, rack ni hoja. El lote es detalle del movimiento, solo consulta. La llave del saldo de #236 `(ubicacion_id, articulo_id, producto_aw_variante_id, lote)` (`SaldoInventarioConfiguration.cs:68`) y el trigger que la usa siguen en develop hasta que se resuelva la revisión de #236; esta tarea no los toca.
+2. **COMPRA_RECIBIDA, `lineas[].lote`.** C3.2 lo toma de `LineaOrdenCompra.LoteProveedor` (detalle de la OC, `LineaOrdenCompraResponse.LoteProveedor`) solo cuando el comprador lo capturó antes de autorizar. Es opcional en el contrato (v6 §9: «Trazabilidad del material»): vidrio y cualquier otro material de A+W pueden ir sin lote. `pedimento` y `etiqueta` viajan en `null` hasta responder Q2; el ERP no los tiene en la OC. Si el almacenista captura otro lote en la app, su captura manda.
+3. **ENTRADA_ALMACEN, `lineas[].grupos`.** Se guarda tal cual llega en una columna `grupos jsonb` de `almacen.lineas_movimiento`, que **construye C3.2** (Q4). Forma (v6 §7.1; el ejemplo de Jorge no lleva `costo` en la entrada):
+
+   ```json
+   [{ "articuloAw": 100006, "articuloAlmacenAw": 501, "ancho": 3302, "alto": 6100,
+      "lote": "L-1", "pedimento": "26 47 3456 6001234", "etiqueta": "E-7",
+      "piezas": 12, "m2": 241.9 }]
+   ```
+
+   - Propuesta por confirmar con Jorge (el v6 no lo dice): la suma de `piezas` de los grupos debe ser igual a `lineas[].piezas`; si no, el acuse es `ERROR`.
+   - `lineas_movimiento.lote` queda en NULL en estas líneas: ni el trigger ni la llave del saldo ven el lote.
+   - Solo consulta. Índice GIN únicamente cuando alguien pida una consulta «por lote».
+   - Por qué columna y no la tabla/columna `lote` existente: `lote` guarda un solo valor y alimenta la llave del saldo (migración `20261026233414_AlmacenVarianteMedida`); los grupos son varios por línea. Mismo patrón que `PedidoFacturableLineaConfiguration.cs:40`.
+4. **Lote de apertura.** La existencia heredada sin lote se guarda con lote NULL y se muestra «Lote de apertura». La frontera de C3.2 normaliza a NULL un lote vacío o «APERTURA» (en cualquier combinación de mayúsculas, sin espacios sobrantes), para que no existan dos formas del mismo lote. Etiquetas en develop sin alinear (código de #236, no se tocan aquí): «Sin lote (apertura)» en `LoteSalidaSelect.tsx:49`, «—» en `SaldosPage.tsx:362`.

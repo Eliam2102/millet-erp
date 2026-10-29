@@ -1410,6 +1410,11 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("linea_requisicion_id");
 
+                    b.Property<string>("LoteProveedor")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("lote_proveedor");
+
                     b.Property<Guid>("OrdenCompraId")
                         .HasColumnType("uuid")
                         .HasColumnName("orden_compra_id");

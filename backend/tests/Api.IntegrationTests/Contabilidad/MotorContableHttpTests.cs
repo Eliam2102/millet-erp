@@ -175,6 +175,68 @@ public sealed class MotorContableHttpTests(WebApplicationFactory<Program> factor
     }
 
     [Fact]
+    public async Task E6_el_centro_de_la_linea_va_en_la_dimension_de_su_nivel_ubicacion_ceco_o_equipo()
+    {
+        Cuentas? c = null; Dictionary<string, Guid?>? previo = null; (Guid D1, Guid D2, Guid D3, Guid G2, Guid G3)? cc = null;
+        try
+        {
+            c = await PrepararAsync();
+            // ADM-08: la línea de OC trae un centro de cualquier nivel. Ubicación ligada a la sucursal (K10.2, V49).
+            using (var scope = factory.Services.CreateScope())
+            {
+                var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+                var g2 = await mediator.Send(new Millet.CentrosCosto.Application.Catalogo.CrearGrupoDim2Command($"FIX G2 {c.Suf}"));
+                var g3 = await mediator.Send(new Millet.CentrosCosto.Application.Catalogo.CrearGrupoDim3Command($"FIX G3 {c.Suf}"));
+                var d1 = await mediator.Send(new Millet.CentrosCosto.Application.Catalogo.CrearDim1Command($"U{c.Suf}", $"FIX Ubicación {c.Suf}"));
+                var d2 = await mediator.Send(new Millet.CentrosCosto.Application.Catalogo.CrearDim2Command(d1.Id, $"A{c.Suf}", "FIX Área", g2.Id));
+                var d3 = await mediator.Send(new Millet.CentrosCosto.Application.Catalogo.CrearDim3Command(d2.Id, $"Q{c.Suf}", "FIX Equipo", g3.Id));
+                cc = (d1.Id, d2.Id, d3.Id, g2.Id, g3.Id);
+            }
+            (await c.Admin.PutAsJsonAsync($"{Base}/ubicaciones-sucursal/{cc.Value.D1}", new { sucursalId = c.Sucursal })).EnsureSuccessStatusCode();
+            var gastos = Id(await CrearCuenta(c.Admin, Codigo(c.Suf, "5"), "FIX gastos"));
+            var gasto = Id(await CrearCuenta(c.Admin, Codigo(c.Suf, "5.1"), "FIX gasto por servicio", gastos));
+            previo = await MapearAsync(c, gasto: gasto);
+            var evento = new Millet.CuentasPorPagar.Application.Integration.FacturaProveedorRegistradaIntegrationEvent(
+                EmpresaBootstrapId, new DateTimeOffset(Hoy().ToDateTime(new TimeOnly(12, 0)), TimeSpan.FromHours(-6)), Guid.NewGuid(), Guid.NewGuid(), 696m,
+                [
+                    new(Guid.NewGuid(), Guid.NewGuid(), 1m, 100m, CentroCostoId: cc.Value.D1, EsServicio: true),
+                    new(Guid.NewGuid(), Guid.NewGuid(), 1m, 200m, CentroCostoId: cc.Value.D2, EsServicio: true),
+                    new(Guid.NewGuid(), Guid.NewGuid(), 1m, 300m, CentroCostoId: cc.Value.D3, EsServicio: true),
+                ], [],
+                ProveedorId: c.Proveedor, Uuid: Guid.NewGuid().ToString().ToUpperInvariant(), Subtotal: 600m, Iva: 96m, RetencionesTotal: 0m,
+                Moneda: "MXN", TipoCambio: 1m, SucursalId: c.Sucursal);
+
+            var r = await Ok(await Procesar(c.Admin, Tipo, Guid.NewGuid(), JsonSerializer.SerializeToElement(evento)));
+            Assert.True(r.GetProperty("generada").GetBoolean(), r.ToString());
+
+            var p = await Json(await c.Admin.GetAsync($"/api/v1/contabilidad/polizas/{PolizaId(r)}"));
+            var gastoPorImporte = p.GetProperty("partidas").EnumerateArray()
+                .Where(x => x.GetProperty("cuentaId").GetGuid() == gasto).ToDictionary(x => x.GetProperty("cargo").GetDecimal());
+            Guid? Dim(JsonElement x, string d) => x.GetProperty(d).ValueKind == JsonValueKind.Null ? null : x.GetProperty(d).GetProperty("id").GetGuid();
+            // Ubicación en Dim1; el CeCo en Dim2 con su ubicación derivada; el equipo en Dim3 con sus dos superiores.
+            Assert.Equal((cc.Value.D1, (Guid?)null, (Guid?)null), (Dim(gastoPorImporte[100m], "dim1")!.Value, Dim(gastoPorImporte[100m], "dim2"), Dim(gastoPorImporte[100m], "dim3")));
+            Assert.Equal((cc.Value.D1, cc.Value.D2, (Guid?)null), (Dim(gastoPorImporte[200m], "dim1")!.Value, Dim(gastoPorImporte[200m], "dim2")!.Value, Dim(gastoPorImporte[200m], "dim3")));
+            Assert.Equal((cc.Value.D1, cc.Value.D2, cc.Value.D3), (Dim(gastoPorImporte[300m], "dim1")!.Value, Dim(gastoPorImporte[300m], "dim2")!.Value, Dim(gastoPorImporte[300m], "dim3")!.Value));
+        }
+        finally
+        {
+            await RestaurarAsync(previo, c);
+            if (cc is { } x)
+            {
+                using var scope = factory.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<ContabilidadDbContext>();
+                await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.ubicaciones_sucursal WHERE dim1_id = {0}", x.D1);
+                var centros = scope.ServiceProvider.GetRequiredService<Millet.CentrosCosto.Infrastructure.Persistence.CentrosCostoDbContext>();
+                await centros.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM centros_costo.dim3 WHERE id = {x.D3}");
+                await centros.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM centros_costo.dim2 WHERE id = {x.D2}");
+                await centros.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM centros_costo.dim1 WHERE id = {x.D1}");
+                await centros.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM centros_costo.grupos_dim2 WHERE id = {x.G2}");
+                await centros.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM centros_costo.grupos_dim3 WHERE id = {x.G3}");
+            }
+        }
+    }
+
+    [Fact]
     public async Task C14a_el_mismo_evento_dos_veces_y_en_paralelo_da_una_sola_poliza()
     {
         Cuentas? c = null; Dictionary<string, Guid?>? previo = null;
