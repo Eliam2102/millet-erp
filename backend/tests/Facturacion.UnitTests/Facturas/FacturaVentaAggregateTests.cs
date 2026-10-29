@@ -34,6 +34,38 @@ public sealed class FacturaVentaAggregateTests
             tasaIvaTraslado: 0.16m, tasaRetencionIva: null, tasaRetencionIsr: null);
 
     [Fact]
+    public void Datos_cliente_y_medidas_son_informativos_e_inmutables_tras_timbrar()
+    {
+        var f = Borrador();
+        f.EditarDatosCliente("PO DEMO", "REF DEMO", "45 DIAS", "PRO DEMO", "Comentario ficticio");
+        f.AgregarLinea(null, "01010101", "Vidrio DEMO", "H87", 2, 100, 0, "02", .16m, null, null,
+            referencia: "ITEM.1 REF: DEMO", pesoKg: 10.123m, areaPie2: 20.456m);
+        f.AgregarLinea(null, "01010101", "Vidrio DEMO 2", "H87", 3, 100, 0, "02", .16m, null, null);
+        Assert.Equal(10.123m, f.TotalKg);
+        Assert.Equal(20.456m, f.TotalPie2);
+        Assert.Equal(5, f.TotalPiezas);
+        f.MarcarTimbradoEnProceso();
+        Assert.Throws<BusinessRuleException>(() => f.EditarDatosCliente(null, null, null, null, null));
+        f.MarcarTimbrado("DEMO-UUID", null, null, null, new(2026, 10, 20, 12, 0, 0, TimeSpan.Zero), null, null);
+        Assert.Throws<BusinessRuleException>(() => f.EditarDatosCliente(null, null, null, null, null));
+        Assert.Equal("PO DEMO", f.OrdenCompraCliente);
+    }
+
+    [Theory]
+    [InlineData(61, 0, 0, 0, 0)]
+    [InlineData(0, 61, 0, 0, 0)]
+    [InlineData(0, 0, 61, 0, 0)]
+    [InlineData(0, 0, 0, 41, 0)]
+    [InlineData(0, 0, 0, 0, 1001)]
+    public void Datos_cliente_rechazan_longitudes_sin_mutar(int oc, int referencia, int pago, int proforma, int comentarios)
+    {
+        var f = Borrador();
+        Assert.Throws<BusinessRuleException>(() => f.EditarDatosCliente(new('x', oc), new('x', referencia),
+            new('x', pago), new('x', proforma), new('x', comentarios)));
+        Assert.Null(f.OrdenCompraCliente);
+    }
+
+    [Fact]
     public void CrearBorrador_arranca_en_Borrador_tipo_Ingreso()
     {
         var f = Borrador();

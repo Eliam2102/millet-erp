@@ -365,3 +365,21 @@ public sealed class NoOpActivoRecepcionReadPort : IActivoRecepcionReadPort
         => throw new Millet.SharedKernel.Application.Exceptions.BusinessRuleException(
             "RECEPCION_ACTIVO_ESTADO_NO_VERIFICABLE", "No se pudo verificar el estado de los activos de la recepción; intenta de nuevo más tarde.");
 }
+
+/// <summary>
+/// Falla cerrado sin el adapter real (<c>VarianteVidrioReadAdapter</c>, Compartido): ninguna medida se
+/// puede validar, así que ninguna se acepta.
+/// </summary>
+public sealed class NoOpVarianteVidrioReadPort : IVarianteVidrioReadPort
+{
+    public Task<VarianteVidrioLectura> ObtenerAsync(Guid articuloId, Guid varianteId, CancellationToken cancellationToken)
+        => throw new Millet.SharedKernel.Application.Exceptions.BusinessRuleException(
+            "VARIANTE_NO_PERTENECE_AL_ARTICULO", "No se pudo validar la medida del artículo.");
+
+    public Task<IReadOnlyList<VarianteVidrioLectura>> ListarPorArticuloAsync(Guid articuloId, CancellationToken cancellationToken)
+        => Task.FromResult<IReadOnlyList<VarianteVidrioLectura>>([]);
+
+    public Task<IReadOnlyDictionary<Guid, VarianteVidrioLectura>> ObtenerPorIdsAsync(
+        IReadOnlyCollection<Guid> varianteIds, CancellationToken cancellationToken)
+        => Task.FromResult<IReadOnlyDictionary<Guid, VarianteVidrioLectura>>(new Dictionary<Guid, VarianteVidrioLectura>());
+}

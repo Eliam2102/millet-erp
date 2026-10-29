@@ -53,6 +53,7 @@ public sealed class OcMapsterConfig : IRegister
             // tras el map (batch IArticuloReadPort). Null explícito.
             .Map(dest => dest.ArticuloClave, src => (string?)null)
             .Map(dest => dest.ArticuloNombre, src => (string?)null)
+            .Map(dest => dest.RequiereMedida, src => false)
             // Fase E PR3: CentroCostoId lo mapea Mapster por nombre; Clave/Nombre
             // los resuelve el handler tras el map (batch IDim3ReadPort). Null explícito.
             .Map(dest => dest.CentroCostoClave, src => (string?)null)

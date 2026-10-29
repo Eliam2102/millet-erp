@@ -143,4 +143,26 @@ public sealed class EventosContablesG16Tests
         e.CentroCostoId.Should().BeNull();
         e.Lineas[0].CentroCostoId.Should().BeNull();
     }
+
+    [Fact]
+    public async Task EsServicio_por_linea_se_propaga_viaja_en_JSON_y_JSON_antiguo_es_false()
+    {
+        var publisher = new CapturingPublisher();
+        await new FacturaProveedorRegistradaMapper(publisher).Handle(new FacturaProveedorRegistradaDomainEvent(
+            EmpresaId: Guid.NewGuid(), FacturaProveedorId: Guid.NewGuid(), OrdenCompraId: Guid.NewGuid(),
+            TotalFactura: 2320m,
+            Lineas: [new LineaFacturada(Guid.NewGuid(), Guid.NewGuid(), 1m, 1000m, EsServicio: true),
+                     new LineaFacturada(Guid.NewGuid(), Guid.NewGuid(), 1m, 1000m)],
+            LineasAcumuladasOc: [], OcurridoEn: DateTimeOffset.UtcNow), CancellationToken.None);
+
+        var e = publisher.Published.Should().BeOfType<FacturaProveedorRegistradaIntegrationEvent>().Subject;
+        e.Lineas.Select(l => l.EsServicio).Should().Equal(true, false);
+
+        var json = JsonSerializer.Serialize(e);
+        JsonSerializer.Deserialize<FacturaProveedorRegistradaIntegrationEvent>(json)!
+            .Lineas.Select(l => l.EsServicio).Should().Equal(true, false);
+
+        var viejo = """{"LineaFacturaId":"00000000-0000-0000-0000-000000000001","LineaOcId":null,"Cantidad":1,"Importe":1000}""";
+        JsonSerializer.Deserialize<LineaFacturadaPayload>(viejo)!.EsServicio.Should().BeFalse();
+    }
 }

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Millet.SharedKernel.Domain;
 using Millet.ComercioExterior.Application;
 using Millet.ComercioExterior.Application.Ports;
 using Millet.ComercioExterior.Application.PublicPorts;
@@ -27,6 +28,7 @@ public sealed class EmbarqueExportacionReadAdapter(ComercioExteriorDbContext db,
         if (string.IsNullOrWhiteSpace(incoterm))
             bloqueo = ("CE_INCOTERM_REQUERIDO", "Seleccione un Incoterm vigente en el expediente.");
         return new(true, e.Id, e.SucursalId, bloqueo.Codigo is null, bloqueo.Codigo, bloqueo.Motivo, e.Folio,
-            e.NumeroPedimentoExportacion, e.ClavePedimento, e.FechaPedimento, incoterm, contenedores);
+            e.NumeroPedimentoExportacion, e.ClavePedimento, e.FechaPedimento, incoterm, contenedores, e.AduanaPedimentoExportacion,
+            e.AduanaPedimentoExportacion is { } aduana ? CatalogoAduanas.Aduanas.GetValueOrDefault(aduana) : null);
     }
 }

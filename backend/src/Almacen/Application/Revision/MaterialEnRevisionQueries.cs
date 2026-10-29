@@ -28,7 +28,11 @@ public sealed record MaterialEnRevisionItem(
     Guid? UbicacionDisponibleSugeridaId, DateTimeOffset? FechaLimite, bool Vencida,
     // true = sin calendario de días hábiles configurado: no se pudo calcular FechaLimite (la UI lo avisa).
     bool PlazoNoCalculable,
-    IReadOnlyList<DictamenRevisionItem> Dictamenes);
+    IReadOnlyList<DictamenRevisionItem> Dictamenes,
+    // F1-MP-01: medida de la hoja en revisión (snapshot de la línea de recepción).
+    Guid? ProductoAwVarianteId = null, decimal? AnchoMm = null, decimal? AltoMm = null,
+    // S4b: lote del proveedor de la línea en revisión (null = sin lote).
+    string? Lote = null);
 
 public sealed record DictamenRevisionItem(
     Guid Id, ResultadoDictamen Resultado, decimal Cantidad, string Motivo, Guid DictaminadoPor,
@@ -46,7 +50,9 @@ public sealed record ListarMaterialEnRevisionQuery(bool SoloPendientes = true, s
 public sealed record LineaRevisionInfo(
     Guid LineaRevisionId, Guid MovimientoRevisionId, Guid EmpresaId, Guid SucursalId, Guid SubAlmacenRevisionId,
     Guid UbicacionRevisionId, Guid ArticuloId, string UnidadMedida, decimal Cantidad, decimal CostoUnitarioMxn,
-    Guid? LineaOcId, Guid? OrdenCompraId, string? MotivoDano, string Etiqueta);
+    Guid? LineaOcId, Guid? OrdenCompraId, string? MotivoDano, string Etiqueta,
+    // F1-MP-01: medida de la hoja en revisión; el dictamen la hereda en salida, baja y devolución.
+    Guid? ProductoAwVarianteId = null, decimal? AnchoMm = null, decimal? AltoMm = null, string? Lote = null);
 
 public sealed record ObtenerLineaRevisionQuery(Guid LineaRevisionId) : IRequest<LineaRevisionInfo?>;
 
@@ -144,7 +150,7 @@ public sealed class ListarMaterialEnRevisionHandler(
             }
 
             var sugerida = o.Linea.LineaOcId is Guid lineaOc
-                ? principal?.Lineas.FirstOrDefault(x => x.LineaOcId == lineaOc)?.UbicacionId
+                ? principal?.Lineas.FirstOrDefault(x => x.LineaOcId == lineaOc && x.ProductoAwVarianteId == o.Linea.ProductoAwVarianteId && x.Lote == o.Linea.Lote)?.UbicacionId
                 : null;
             var limite = limites.GetValueOrDefault(fechaRecepcion);
             items.Add(new MaterialEnRevisionItem(
@@ -156,7 +162,8 @@ public sealed class ListarMaterialEnRevisionHandler(
                 limite is null,
                 historial.Select(d => new DictamenRevisionItem(
                     d.Id, d.Resultado, d.Cantidad, d.Motivo, d.DictaminadoPor, d.DictaminadoAt,
-                    d.DevolucionAProveedorId)).ToList()));
+                    d.DevolucionAProveedorId)).ToList(),
+                o.Linea.ProductoAwVarianteId, o.Linea.AnchoMm, o.Linea.AltoMm, o.Linea.Lote));
         }
         return items.OrderBy(i => i.FechaRecepcion).ThenBy(i => i.RecepcionFolio).ToList();
     }
@@ -185,6 +192,7 @@ public sealed class ObtenerLineaRevisionHandler(AlmacenDbContext db)
         return new LineaRevisionInfo(
             r.Linea.Id, r.Linea.MovimientoId, r.EmpresaId, sucursalId.Value, r.SubAlmacenId, r.UbicacionId,
             r.Linea.ArticuloId, r.Linea.UnidadMedida, r.Linea.Cantidad, r.Linea.CostoUnitarioMxn,
-            r.Linea.LineaOcId, r.OcId, r.Linea.ComentarioLinea, $"{r.Folio} · línea {r.Linea.Posicion}");
+            r.Linea.LineaOcId, r.OcId, r.Linea.ComentarioLinea, $"{r.Folio} · línea {r.Linea.Posicion}",
+            r.Linea.ProductoAwVarianteId, r.Linea.AnchoMm, r.Linea.AltoMm, r.Linea.Lote);
     }
 }

@@ -51,6 +51,10 @@ public sealed class FacturaVentaLinea : BaseEntity, IBelongsToAggregate, IAudita
     public DateOnly? FechaDocAduanero { get; private set; }
     public string? IdentificacionMercancia { get; private set; }
 
+    public string? Referencia { get; private set; }
+    public decimal? PesoKg { get; private set; }
+    public decimal? AreaPie2 { get; private set; }
+
     public Guid AggregateRootId => FacturaVentaId;
 
     private FacturaVentaLinea() { }
@@ -70,7 +74,7 @@ public sealed class FacturaVentaLinea : BaseEntity, IBelongsToAggregate, IAudita
         decimal? tasaIvaTraslado,
         decimal? tasaRetencionIva,
         decimal? tasaRetencionIsr,
-        bool requierePedimento = false) : base(id)
+        bool requierePedimento = false, string? referencia = null, decimal? pesoKg = null, decimal? areaPie2 = null) : base(id)
     {
         if (posicion <= 0)
             throw new BusinessRuleException("LINEA_POSICION_INVALIDA", "La posición debe ser >= 1.");
@@ -110,6 +114,9 @@ public sealed class FacturaVentaLinea : BaseEntity, IBelongsToAggregate, IAudita
         TasaRetencionIsr = tasaRetencionIsr;
         RetencionTotalImporte = Math.Round(baseGravable * ((tasaRetencionIva ?? 0m) + (tasaRetencionIsr ?? 0m)), 2, MidpointRounding.AwayFromZero);
         RequierePedimento = requierePedimento;
+        Referencia = DatosImpresion.Texto(referencia, 80, "Referencia de la partida");
+        PesoKg = DatosImpresion.Medida(pesoKg);
+        AreaPie2 = DatosImpresion.Medida(areaPie2);
     }
 
     /// <summary>

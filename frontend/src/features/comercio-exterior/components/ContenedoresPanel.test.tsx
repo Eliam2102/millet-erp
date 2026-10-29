@@ -77,6 +77,7 @@ beforeEach(() => {
   useAuthStore.setState({ permisos: [P.ComercioExteriorContenedoresGestionar] });
   state.data = {
     version: 1,
+    aduanas: { '16': 'Manzanillo', '43': 'Veracruz' },
     pedimento: { numero: 'DEMO-PED', clave: 'A1', fecha: '2026-10-12' },
     contenedores: [
       {
@@ -126,6 +127,41 @@ beforeEach(() => {
   };
 });
 describe('Contenedores de exportación', () => {
+  it('exige una aduana del backend y la envía al registrar el pedimento', async () => {
+    render(<ContenedoresPanel data={data} />);
+    const selector = screen.getByRole('combobox', { name: 'Aduana' });
+    expect(selector).toBeRequired();
+    expect(selector).toBeInvalid();
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar pedimento' }));
+    expect(state.mutar).not.toHaveBeenCalled();
+    fireEvent.change(selector, { target: { value: '16' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar pedimento' }));
+    await waitFor(() =>
+      expect(state.mutar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ruta: 'pedimento-exportacion',
+          body: expect.objectContaining({ aduana: '16' }),
+        }),
+      ),
+    );
+  });
+  it.each([true, false])('muestra aduana sólo cuando la copia la contiene (%s)', (presente) => {
+    render(
+      <EmbarqueCeResumen
+        datos={{
+          folioExpediente: 'CE-DEMO',
+          numeroPedimento: 'DEMO',
+          clavePedimento: 'A1',
+          fechaPedimento: '2026-10-12',
+          incoterm: 'DDP',
+          contenedores: [],
+          ...(presente ? { aduana: '16', aduanaNombre: 'Manzanillo' } : {}),
+        }}
+      />,
+    );
+    if (presente) expect(screen.getByText('Aduana: 16 · Manzanillo')).toBeInTheDocument();
+    else expect(screen.queryByText(/Aduana:/)).not.toBeInTheDocument();
+  });
   it('muestra partidas liberadas como historial y no permite mutarlas', () => {
     state.data!.partidas[0].estado = 3;
     render(<ContenedoresPanel data={{ ...data, expediente: { ...data.expediente, estado: 2 } }} />);

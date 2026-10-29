@@ -403,7 +403,7 @@ function PedimentoForm({
   documentos: ExpedienteDetalle;
 }) {
   const [p, setP] = useState(
-    d.pedimento ?? { numero: '', clave: 'A1', fecha: '', documentoId: null },
+    d.pedimento ?? { numero: '', clave: 'A1', fecha: '', documentoId: null, aduana: '' },
   );
   const mutar = useMutarContenedor(id);
   const tipoId = documentos.requisitos.find((r) => r.codigo === 'EXP_PEDIMENTO')?.id;
@@ -467,6 +467,22 @@ function PedimentoForm({
               >
                 <option value="A1">A1 · Con CCE</option>
                 <option value="RT">RT · Sin CCE</option>
+              </select>
+            </Campo>
+            <Campo label="Aduana" id="ce-ped-aduana">
+              <select
+                id="ce-ped-aduana"
+                className={selectClass}
+                required
+                value={p.aduana ?? ''}
+                onChange={(e) => setP({ ...p, aduana: e.target.value })}
+              >
+                <option value="">Seleccione una aduana</option>
+                {Object.entries(d.aduanas).map(([clave, nombre]) => (
+                  <option key={clave} value={clave}>
+                    {clave} · {nombre}
+                  </option>
+                ))}
               </select>
             </Campo>
             <Campo label="Fecha del pedimento" id="ce-ped-fecha">

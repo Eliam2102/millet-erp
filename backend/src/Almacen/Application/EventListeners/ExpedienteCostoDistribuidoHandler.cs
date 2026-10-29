@@ -49,15 +49,15 @@ public sealed class ExpedienteCostoDistribuidoHandler(AlmacenDbContext db, IInte
         // El orden común entre partidas evita invertir locks cuando comparten artículo y ubicaciones.
         foreach (var articulo in p.Partidas.Select(x => x.ArticuloId).Distinct().Order())
         {
-            HashSet<Guid> bloqueadas = [];
+            HashSet<(Guid, Guid?, string?)> bloqueadas = [];
             bool nuevas;
             do
             {
                 nuevas = false;
-                var saldos = await db.SaldosInventario.FromSqlInterpolated($"SELECT * FROM almacen.saldos_inventario WHERE articulo_id = {articulo} ORDER BY ubicacion_id FOR UPDATE").ToListAsync(cancellationToken);
+                var saldos = await db.SaldosInventario.FromSqlInterpolated($"SELECT * FROM almacen.saldos_inventario WHERE articulo_id = {articulo} ORDER BY ubicacion_id, producto_aw_variante_id, lote FOR UPDATE").ToListAsync(cancellationToken);
                 foreach (var saldo in saldos)
                 {
-                    nuevas |= bloqueadas.Add(saldo.UbicacionId);
+                    nuevas |= bloqueadas.Add((saldo.UbicacionId, saldo.ProductoAwVarianteId, saldo.Lote));
                     await db.Entry(saldo).ReloadAsync(cancellationToken);
                 }
                 // Un traslado que terminó mientras esperábamos pudo crear un saldo destino nuevo.
@@ -71,14 +71,14 @@ public sealed class ExpedienteCostoDistribuidoHandler(AlmacenDbContext db, IInte
             var anteriores = await ajustes.Where(x => x.NumeroVersion == p.NumeroVersion - 1).ToListAsync(cancellationToken);
             if (l.ImporteMxn - anteriores.Sum(x => x.AcumuladoMxn) != l.DiferenciaMxn)
                 throw new BusinessRuleException("CE_VERSION_COSTO_PENDIENTE", "Falta aplicar una versión anterior o el acumulado no cuadra.");
-            var valida = await (from m in db.Movimientos join linea in db.LineasMovimiento on m.Id equals linea.MovimientoId
+            var partida = await (from m in db.Movimientos join linea in db.LineasMovimiento on m.Id equals linea.MovimientoId
                 join u in db.Ubicaciones on linea.UbicacionId equals u.Id join sub in db.SubAlmacenes on u.SubAlmacenId equals sub.Id
                 join a in db.Almacenes on sub.AlmacenId equals a.Id
                 where m.EmpresaId == p.EmpresaId && a.SucursalId == p.SucursalId && m.Id == l.RecepcionId && m.OcId == l.OcId &&
                     m.Tipo == TipoMovimiento.EntradaCompra && m.Estado == EstadoMovimiento.Registrado && linea.Id == l.PartidaId &&
                     linea.ArticuloId == l.ArticuloId && linea.UbicacionId == l.UbicacionId && linea.Cantidad == l.CantidadRecibida
-                select linea.Id).AnyAsync(cancellationToken);
-            if (!valida) throw new BusinessRuleException("CE_RECEPCION_INVALIDA", "La partida no corresponde a una recepción de la empresa y sucursal.");
+                select new { linea.ProductoAwVarianteId, linea.Lote }).FirstOrDefaultAsync(cancellationToken);
+            if (partida is null) throw new BusinessRuleException("CE_RECEPCION_INVALIDA", "La partida no corresponde a una recepción de la empresa y sucursal.");
             var remanentes = await RecepcionesCostoReadAdapter.RemanentesAsync(db, p.EmpresaId, l.PartidaId, l.ArticuloId, logger, cancellationToken);
             // Millet, 26-oct-2026, Opción A: un traslado conserva existencia; con salidas, todo va a gasto.
             // Mismo criterio que la vista previa de CE: remanente acotado por el saldo de cada ubicación.
@@ -94,7 +94,7 @@ public sealed class ExpedienteCostoDistribuidoHandler(AlmacenDbContext db, IInte
             decimal diferenciaRestante = l.DiferenciaMxn, cantidadRestante = l.CantidadRecibida;
             foreach (var ubicacion in ubicaciones)
             {
-                var saldo = await db.SaldosInventario.SingleAsync(s => s.UbicacionId == ubicacion && s.ArticuloId == l.ArticuloId, cancellationToken);
+                var saldo = await db.SaldosInventario.SingleAsync(s => s.UbicacionId == ubicacion && s.ArticuloId == l.ArticuloId && s.ProductoAwVarianteId == partida.ProductoAwVarianteId && s.Lote == partida.Lote, cancellationToken);
                 var cantidad = Math.Min(saldo.Cantidad, remanentes.GetValueOrDefault(ubicacion));
                 // Reparto sobre el resto para conservar los centavos incluso si todo sigue en existencia.
                 var inventario = !tieneSalidas && cantidadRestante > 0

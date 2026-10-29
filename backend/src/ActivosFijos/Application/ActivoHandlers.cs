@@ -15,6 +15,7 @@ public sealed class CrearActivoHandler(ActivosFijosDbContext db, ActivoServicio 
         await servicio.SucursalAsync(request.Datos.Custodia.SucursalId, true, cancellationToken);
         await catalogos.ValidarCustodiaAsync(request.Datos.Custodia, false, cancellationToken);
         var clase = await servicio.ClaseAsync(request.Datos.ClaseId, cancellationToken);
+        await servicio.ValidarTasasActivoAsync(request.Datos, null, cancellationToken);
         await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
         // Serializa el consecutivo por empresa y clase; el índice único protege también la carga histórica.
         var llave = clase.Id.ToString();
@@ -24,14 +25,13 @@ public sealed class CrearActivoHandler(ActivosFijosDbContext db, ActivoServicio 
         db.Activos.Add(a); await db.SaveChangesAsync(cancellationToken); await tx.CommitAsync(cancellationToken); return a;
     }
 }
-public sealed class ListarActivosHandler(ActivosFijosDbContext db, ActivoServicio servicio, ICatalogosActivoReadPort catalogos) : IRequestHandler<ListarActivosQuery, ActivosPagina>
+public sealed class ListarActivosHandler(ActivosFijosDbContext db, ActivoServicio servicio) : IRequestHandler<ListarActivosQuery, ActivosPagina>
 {
     public async Task<ActivosPagina> Handle(ListarActivosQuery request, CancellationToken cancellationToken)
     {
         await servicio.PermisoAsync(PermisosCanonicos.ActivosFijosActivosVer, cancellationToken);
         var ids = await servicio.SucursalesAsync(request.SucursalId, cancellationToken);
-        var responsables = await catalogos.ResponsablesAsync(servicio.Actor, cancellationToken);
-        var q = db.Activos.AsNoTracking().Where(x => ids == null || ids.Contains(x.SucursalId) || x.Traslados.Any(t => t.AceptadoEn == null && responsables.Contains(t.Destino.ResponsableId) && ids.Contains(t.Destino.SucursalId)));
+        var q = db.Activos.AsNoTracking().Where(x => ids == null || ids.Contains(x.SucursalId));
         if (request.ClaseId != null) q = q.Where(x => x.ClaseId == request.ClaseId);
         if (request.Estado != null) q = q.Where(x => x.Estado == request.Estado);
         if (request.ResponsableId != null) q = q.Where(x => x.ResponsableId == request.ResponsableId);
@@ -42,14 +42,14 @@ public sealed class ListarActivosHandler(ActivosFijosDbContext db, ActivoServici
 public sealed class ObtenerActivoHandler(ActivoServicio servicio) : IRequestHandler<ObtenerActivoQuery, Activo>
 {
     public async Task<Activo> Handle(ObtenerActivoQuery request, CancellationToken cancellationToken)
-    { await servicio.PermisoAsync(PermisosCanonicos.ActivosFijosActivosVer, cancellationToken); return await servicio.CargarAsync(request.Id, false, cancellationToken, aceptar: true); }
+    { await servicio.PermisoAsync(PermisosCanonicos.ActivosFijosActivosVer, cancellationToken); return await servicio.CargarAsync(request.Id, false, cancellationToken); }
 }
 public sealed class MutarActivoHandler(ActivosFijosDbContext db, ActivoServicio servicio, ICatalogosActivoReadPort catalogos, IClock clock, Millet.CuentasPorPagar.Application.PublicPorts.ICapitalizacionProveedorReadPort proveedores, ITransaccionPolizaActivo transaccionPoliza) : IRequestHandler<MutarActivoCommand, Activo>
 {
     public async Task<Activo> Handle(MutarActivoCommand request, CancellationToken cancellationToken)
     {
         var permiso = request.Accion switch { "capitalizar" or "mejora" or "nota-credito" => PermisosCanonicos.ActivosFijosCapitalizar,
-            "trasladar" or "aceptar" => PermisosCanonicos.ActivosFijosTrasladosGestionar, "editar" => PermisosCanonicos.ActivosFijosActivosGestionar,
+            "trasladar" => PermisosCanonicos.ActivosFijosTrasladosGestionar, "editar" => PermisosCanonicos.ActivosFijosActivosGestionar,
             _ => throw new BusinessRuleException("AF_ACCION_INVALIDA", "Acción desconocida.") };
         await servicio.PermisoAsync(permiso, cancellationToken);
         await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
@@ -58,14 +58,14 @@ public sealed class MutarActivoHandler(ActivosFijosDbContext db, ActivoServicio 
         var llave = request.Id.ToString();
         await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({llave}, 0))", cancellationToken);
         await using var enlaceContable = request.Accion is "capitalizar" or "mejora" or "nota-credito" ? await transaccionPoliza.VincularAsync(cancellationToken) : null;
-        var a = await servicio.CargarAsync(request.Id, true, cancellationToken, aceptar: request.Accion == "aceptar");
+        var a = await servicio.CargarAsync(request.Id, true, cancellationToken);
         if (a.Version != request.Version) throw new ConcurrencyException("Activo", a.Id);
         switch (request.Accion)
         {
             case "editar":
                 var datos = request.Datos ?? throw new BusinessRuleException("AF_DATOS_REQUERIDOS", "Capture los datos.");
                 await servicio.SucursalAsync(datos.Custodia.SucursalId, true, cancellationToken);
-                await catalogos.ValidarCustodiaAsync(datos.Custodia, false, cancellationToken); await servicio.ClaseAsync(datos.ClaseId, cancellationToken); a.Completar(datos); break;
+                await catalogos.ValidarCustodiaAsync(datos.Custodia, false, cancellationToken); await servicio.ClaseAsync(datos.ClaseId, cancellationToken); await servicio.ValidarTasasActivoAsync(datos, a.Id, cancellationToken); a.Completar(datos); break;
             case "capitalizar":
                 if (a.Estado == EstadoActivo.Activo) break;
                 a.ValidarCapitalizacion(); await catalogos.ValidarCustodiaAsync(a.Custodia(), true, cancellationToken);
@@ -100,13 +100,10 @@ public sealed class MutarActivoHandler(ActivosFijosDbContext db, ActivoServicio 
                     credito ? -ajuste.Importe : ajuste.Importe, $"AF-{(credito ? "NC" : "MEJ")}-{a.Id}-{ajuste.DocumentoId}", ajuste.Descripcion, cancellationToken);
                 a.Ajustar(ajuste.DocumentoId, ajuste.FacturaId, ajuste.Fecha, ajuste.Importe, credito, ajuste.Descripcion, poliza); break;
             case "trasladar":
-                var destino = request.Destino ?? throw new BusinessRuleException("AF_DESTINO_REQUERIDO", "Capture el destino.");
-                await catalogos.ValidarCustodiaAsync(destino, true, cancellationToken);
-                a.Trasladar(Guid.CreateVersion7(), destino, servicio.Actor, clock.UtcNow); break;
-            case "aceptar":
-                var receptor = a.Traslados.SingleOrDefault(x => x.Id == request.TrasladoId)?.Destino.ResponsableId ?? Guid.Empty;
-                if (!(await catalogos.ResponsablesAsync(servicio.Actor, cancellationToken)).Contains(receptor)) throw new ForbiddenException("AF_RECEPTOR_REQUERIDO", "Solo el receptor puede aceptar la custodia.");
-                a.AceptarTraslado(request.TrasladoId ?? Guid.Empty, receptor, clock.UtcNow); break;
+                var destino = request.Destino ?? throw new BusinessRuleException("AF_TRASLADO_INVALIDO", "Capture el destino completo.");
+                a.Trasladar(Guid.CreateVersion7(), destino, request.Motivo ?? "", request.FechaEfectiva ?? default, servicio.Actor, clock.UtcNow);
+                await servicio.SucursalAsync(destino.SucursalId, true, cancellationToken);
+                await catalogos.ValidarCustodiaAsync(destino, true, cancellationToken); break;
         }
         await db.SaveChangesAsync(cancellationToken); await tx.CommitAsync(cancellationToken); return a;
     }
@@ -121,7 +118,7 @@ public sealed class GuardarClaseHandler(ActivosFijosDbContext db, ActivoServicio
             : new ClaseActivo(Guid.CreateVersion7(), empresa.Current ?? throw new UnauthorizedAccessException(), d.Clave, d.Nombre, d.TasaFiscalAnual);
         if (request.Id != null && c.Version != request.Version) throw new ConcurrencyException("ClaseActivo", c.Id);
         if (await db.Clases.AnyAsync(x => x.Clave == c.Clave && x.Id != c.Id, cancellationToken)) throw new BusinessRuleException("AF_CLAVE_DUPLICADA", "Ya existe esta clave.");
-        c.Editar(d.Nombre, d.TasaFiscalAnual, d.CuentaActivoId, d.CuentaDepreciacionId, d.CuentaGastoId, d.CuentaPuenteId, d.Activa, d.Depreciable, d.TasaConfirmada);
+        c.Editar(d.Nombre, d.TasaFiscalAnual, d.CuentaActivoId, d.CuentaDepreciacionId, d.CuentaGastoId, d.CuentaPuenteId, d.Activa, d.Depreciable, d.TasaConfirmada, d.TasaContableAnual);
         if (request.Id == null) db.Clases.Add(c);
         await db.SaveChangesAsync(cancellationToken); return c;
     }

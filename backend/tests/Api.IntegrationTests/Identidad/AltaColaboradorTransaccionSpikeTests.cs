@@ -19,7 +19,8 @@ namespace Millet.Api.IntegrationTests.Identidad;
 /// agregan los interceptores (auditoría) siguen el commit/rollback de esa
 /// transacción.
 /// </summary>
-public class AltaColaboradorTransaccionSpikeTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class AltaColaboradorTransaccionSpikeTests
 {
     private readonly WebApplicationFactory<Program> _factory;
 

@@ -37,6 +37,7 @@ etc. siguiendo la numeración.
 | 8 | Activos Fijos | — | pendiente | pendiente | pendiente |
 | 9 | Contabilidad | — | pendiente | pendiente | pendiente |
 | 10 | Reportes y BI | — | pendiente | pendiente | pendiente |
+| 11 | Producto Terminado | [producto-terminado/](producto-terminado/) | — | ✅ borrador (E08, por validar con Eliam) | pendiente |
 
 > Compras tiene varios submódulos. **Requisiciones** es el primero;
 > seguirán Órdenes de Compra y Recepciones, cada uno en su propia

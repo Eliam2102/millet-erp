@@ -16,8 +16,34 @@ using Millet.SharedKernel.Application;
 namespace Millet.Api.IntegrationTests.CuentasPorPagar;
 
 /// <summary>86e3kdwng · P8.6 no deducibles e IVA no acreditable.</summary>
-public sealed class NoDeduciblesEndpointsTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public sealed class NoDeduciblesEndpointsTests : IClassFixture<NoDeduciblesEndpointsTests.Servidor>
 {
+    private readonly Servidor factory;
+    public NoDeduciblesEndpointsTests(Servidor fixture)
+    {
+        factory = fixture;
+        fixture.SinPeriodo.Blob.Reiniciar();
+        fixture.ConPeriodo.Blob.Reiniciar();
+        fixture.SinPeriodo.Reloj.UtcNow = DateTimeOffset.UtcNow;
+        fixture.ConPeriodo.Reloj.UtcNow = DateTimeOffset.UtcNow;
+    }
+
+    public sealed class Servidor : WebApplicationFactory<Program>
+    {
+        public AdjuntosProveedorAmbiente SinPeriodo { get; }
+        public AdjuntosProveedorAmbiente ConPeriodo { get; }
+        public Servidor()
+        {
+            SinPeriodo = new AdjuntosProveedorAmbiente(this);
+            ConPeriodo = new AdjuntosProveedorAmbiente(this, s =>
+            {
+                s.RemoveAll<Millet.CuentasPorPagar.Domain.Ports.Contabilidad.IPeriodoContablePort>();
+                s.AddSingleton<Millet.CuentasPorPagar.Domain.Ports.Contabilidad.IPeriodoContablePort, PeriodoAbierto>();
+            });
+        }
+    }
+
     private const string Cxp = "/api/v1/cuentas-por-pagar";
     private static readonly Guid Empresa = AdjuntosProveedorAmbiente.EmpresaInicialId;
 
@@ -25,11 +51,7 @@ public sealed class NoDeduciblesEndpointsTests(WebApplicationFactory<Program> fa
 
     private async Task<(HttpClient Cliente, Guid TarjetaId, Guid TitularId)> AmbienteAsync()
     {
-        var amb = new AdjuntosProveedorAmbiente(factory, s =>
-        {
-            s.RemoveAll<Millet.CuentasPorPagar.Domain.Ports.Contabilidad.IPeriodoContablePort>();
-            s.AddSingleton<Millet.CuentasPorPagar.Domain.Ports.Contabilidad.IPeriodoContablePort, PeriodoAbierto>();
-        });
+        var amb = factory.ConPeriodo;
         var (cliente, usuarioId) = await amb.ClienteConPermisosAsync(
             PermisosCanonicos.CuentasPorPagarTcRegistrarMovimiento, PermisosCanonicos.CuentasPorPagarTcLeer,
             PermisosCanonicos.CuentasPorPagarDocumentosGestionarTodasSucursales, PermisosCanonicos.CuentasPorPagarDocumentosLeerTodasSucursales,
@@ -73,9 +95,9 @@ public sealed class NoDeduciblesEndpointsTests(WebApplicationFactory<Program> fa
     };
 
     [Fact]
-    public async Task Catalogo_clasificaciones_lista_DEMO_a_cualquier_sesion_y_401_sin_sesion()
+    public async Task Catalogo_clasificaciones_lista_DEMO_con_permiso_de_la_pantalla_403_sin_el_y_401_sin_sesion()
     {
-        var amb = new AdjuntosProveedorAmbiente(factory, _ => { });
+        var amb = factory.SinPeriodo;
         // Quien solo comprueba viáticos (sin permiso de tarjeta) también necesita el catálogo para sus tickets.
         var (conPermiso, _) = await amb.ClienteConPermisosAsync(PermisosCanonicos.CuentasPorPagarViaticosCapturarComprobacion);
 
@@ -84,6 +106,10 @@ public sealed class NoDeduciblesEndpointsTests(WebApplicationFactory<Program> fa
         var filas = (await Json(ok)).EnumerateArray().ToList();
         Assert.Contains(filas, f => f.GetProperty("clave").GetString() == "COMIDAS" && f.GetProperty("descripcion").GetString() == "DEMO · Comidas");
         Assert.True(filas.Count >= 6);
+
+        // Una sesión sin permiso de ninguna pantalla que lo usa ya no lo ve (ADM-03b, barrido de compra a pago).
+        var (sinPermiso, _) = await amb.ClienteConPermisosAsync(PermisosCanonicos.ComprasRequisicionesLeer);
+        Assert.Equal(HttpStatusCode.Forbidden, (await sinPermiso.GetAsync(Cxp + "/catalogos/clasificaciones-no-deducibles")).StatusCode);
 
         Assert.Equal(HttpStatusCode.Unauthorized, (await factory.CreateClient().GetAsync(Cxp + "/catalogos/clasificaciones-no-deducibles")).StatusCode);
     }
@@ -163,11 +189,7 @@ public sealed class NoDeduciblesEndpointsTests(WebApplicationFactory<Program> fa
 
     private async Task<(HttpClient Cliente, AdjuntosProveedorAmbiente Amb)> ClienteComprobacionesAsync()
     {
-        var amb = new AdjuntosProveedorAmbiente(factory, s =>
-        {
-            s.RemoveAll<Millet.CuentasPorPagar.Domain.Ports.Contabilidad.IPeriodoContablePort>();
-            s.AddSingleton<Millet.CuentasPorPagar.Domain.Ports.Contabilidad.IPeriodoContablePort, PeriodoAbierto>();
-        });
+        var amb = factory.ConPeriodo;
         var (cliente, _) = await amb.ClienteConPermisosAsync(
             PermisosCanonicos.CuentasPorPagarComprobacionesCapturar, PermisosCanonicos.CuentasPorPagarComprobacionesLeer,
             PermisosCanonicos.CuentasPorPagarComprobacionesAprobarNivel1,

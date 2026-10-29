@@ -6,6 +6,7 @@ namespace Millet.CuentasPorCobrar.UnitTests.Liberacion;
 public class AutorizacionCreditoAggregateTests
 {
     private static readonly DateTimeOffset Ahora = new(2026, 7, 14, 9, 0, 0, TimeSpan.Zero);
+    private const string Folio = "3000123";
 
     private static AutorizacionCredito Crear(
         Guid? supervisor = null,
@@ -16,7 +17,7 @@ public class AutorizacionCreditoAggregateTests
             supervisorUsuarioId: supervisor ?? Guid.NewGuid(),
             beneficiarioUsuarioId: beneficiario ?? Guid.NewGuid(),
             motivo: "Cliente estratégico con promesa de pago",
-            clienteOPedidoRef: "3000123",
+            clienteOPedidoRef: Folio,
             ahora: Ahora,
             vigencia: vigencia ?? TimeSpan.FromHours(24));
 
@@ -51,12 +52,12 @@ public class AutorizacionCreditoAggregateTests
         var a = Crear(beneficiario: beneficiario);
         var decisionId = Guid.NewGuid();
 
-        a.Consumir(decisionId, beneficiario, Ahora.AddHours(1));
+        a.Consumir(decisionId, beneficiario, Ahora.AddHours(1), Folio);
 
         a.Estado.Should().Be(EstadoAutorizacionCredito.Usada);
         a.DecisionLiberacionId.Should().Be(decisionId);
 
-        var act = () => a.Consumir(Guid.NewGuid(), beneficiario, Ahora.AddHours(2));
+        var act = () => a.Consumir(Guid.NewGuid(), beneficiario, Ahora.AddHours(2), Folio);
         act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "AC_NO_DISPONIBLE");
     }
 
@@ -66,7 +67,7 @@ public class AutorizacionCreditoAggregateTests
         var beneficiario = Guid.NewGuid();
         var a = Crear(beneficiario: beneficiario, vigencia: TimeSpan.FromHours(1));
 
-        var act = () => a.Consumir(Guid.NewGuid(), beneficiario, Ahora.AddHours(2));
+        var act = () => a.Consumir(Guid.NewGuid(), beneficiario, Ahora.AddHours(2), Folio);
         act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "AC_VENCIDA");
     }
 
@@ -74,8 +75,61 @@ public class AutorizacionCreditoAggregateTests
     public void Consumir_rechaza_beneficiario_distinto()
     {
         var a = Crear();
-        var act = () => a.Consumir(Guid.NewGuid(), Guid.NewGuid(), Ahora);
+        var act = () => a.Consumir(Guid.NewGuid(), Guid.NewGuid(), Ahora, Folio);
         act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "AC_BENEFICIARIO_DISTINTO");
+    }
+
+    // C7.3 · E10 (Eliam, 26-oct) — la autorización es POR PEDIDO: solo se
+    // consume con el folio exacto (tras Trim, ordinal).
+    [Fact]
+    public void Consumir_rechaza_folio_de_otro_pedido_sin_consumir()
+    {
+        var beneficiario = Guid.NewGuid();
+        var a = Crear(beneficiario: beneficiario);
+
+        var act = () => a.Consumir(Guid.NewGuid(), beneficiario, Ahora, "3000999");
+
+        act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "AC_REFERENCIA_DISTINTA");
+        a.Estado.Should().Be(EstadoAutorizacionCredito.Autorizada);
+    }
+
+    [Fact]
+    public void Consumir_acepta_el_folio_exacto_con_espacios_sobrantes()
+    {
+        var beneficiario = Guid.NewGuid();
+        var a = Crear(beneficiario: beneficiario);
+
+        a.Consumir(Guid.NewGuid(), beneficiario, Ahora, " 3000123 ");
+
+        a.Estado.Should().Be(EstadoAutorizacionCredito.Usada);
+    }
+
+    [Theory]
+    [InlineData("VGL860910IU4")]          // otorgada al RFC del cliente
+    [InlineData("VIDRIOS DEL GOLFO SA")]  // otorgada a la razón social
+    [InlineData("610090")]                // folio que solo es prefijo
+    public void Consumir_ya_no_acepta_referencia_por_cliente_ni_folio_parecido(string referenciaOtorgada)
+    {
+        var beneficiario = Guid.NewGuid();
+        var a = AutorizacionCredito.Crear(
+            Guid.NewGuid(), Guid.NewGuid(), beneficiario, "Motivo", referenciaOtorgada, Ahora, TimeSpan.FromHours(1));
+
+        var act = () => a.Consumir(Guid.NewGuid(), beneficiario, Ahora, "6100901");
+
+        act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "AC_REFERENCIA_DISTINTA");
+        a.Estado.Should().Be(EstadoAutorizacionCredito.Autorizada);
+    }
+
+    [Fact]
+    public void Consumir_distingue_mayusculas_del_folio()
+    {
+        var beneficiario = Guid.NewGuid();
+        var a = AutorizacionCredito.Crear(
+            Guid.NewGuid(), Guid.NewGuid(), beneficiario, "Motivo", "QA-C73-01", Ahora, TimeSpan.FromHours(1));
+
+        var act = () => a.Consumir(Guid.NewGuid(), beneficiario, Ahora, "qa-c73-01");
+
+        act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "AC_REFERENCIA_DISTINTA");
     }
 
     [Fact]
@@ -83,7 +137,7 @@ public class AutorizacionCreditoAggregateTests
     {
         var beneficiario = Guid.NewGuid();
         var a = Crear(beneficiario: beneficiario);
-        a.Consumir(Guid.NewGuid(), beneficiario, Ahora);
+        a.Consumir(Guid.NewGuid(), beneficiario, Ahora, Folio);
 
         var act = a.Cancelar;
         act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "AC_NO_DISPONIBLE");

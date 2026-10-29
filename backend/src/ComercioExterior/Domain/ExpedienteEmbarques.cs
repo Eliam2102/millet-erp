@@ -1,9 +1,11 @@
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.SharedKernel.Domain;
 
 namespace Millet.ComercioExterior.Domain;
 public sealed partial class Expediente
 {
     public string? NumeroPedimentoExportacion { get; private set; }
+    public string? AduanaPedimentoExportacion { get; private set; }
     public string? ClavePedimento { get; private set; }
     public DateOnly? FechaPedimento { get; private set; }
     public Guid? DocumentoPedimentoExportacionId { get; private set; }
@@ -37,9 +39,11 @@ public sealed partial class Expediente
         foreach (var p in afectadas) p.RequerirRevision();
         if (afectadas.Length > 0) RevisionContenido++;
     }
-    public void RegistrarPedimentoExportacion(string numero, string clave, DateOnly fecha, DateOnly hoy, Guid? documentoId = null)
+    public void RegistrarPedimentoExportacion(string numero, string clave, DateOnly fecha, DateOnly hoy, string? aduana, Guid? documentoId = null)
     {
         ExigirExportacion();
+        if (aduana is null || !CatalogoAduanas.Aduanas.ContainsKey(aduana))
+            throw new BusinessRuleException("CE_ADUANA_INVALIDA", "Seleccione una aduana del catálogo");
         if (clave is not ("A1" or "RT") || fecha == default || fecha > hoy)
             throw new BusinessRuleException("CE_PEDIMENTO_INVALIDO", "Capture número (máximo 100 caracteres), clave A1 o RT y fecha no futura.");
         if (documentoId is Guid id)
@@ -51,6 +55,7 @@ public sealed partial class Expediente
         if (string.IsNullOrWhiteSpace(numero) || numero.Trim().Length > 100)
             throw new BusinessRuleException("CE_PEDIMENTO_INVALIDO", "Capture el número del pedimento (máximo 100 caracteres).");
         NumeroPedimentoExportacion = numero.Trim(); ClavePedimento = clave; FechaPedimento = fecha;
+        AduanaPedimentoExportacion = aduana;
         DocumentoPedimentoExportacionId = documentoId;
         RevisionPendiente = true; RevisadoPorId = null; RevisionContenido++;
     }
@@ -138,6 +143,8 @@ public sealed partial class Expediente
             return ("CE_PARTIDA_REQUIERE_REVISION", "Revisión: pedido modificado en A+W. Confirme de nuevo sus partidas en Comercio Exterior.");
         if (Estado != EstadoExpediente.Abierto || !PedimentoExportacionVigente(adjuntos))
             return ("FAC_PEDIDO_NO_EMBARCADO", "El expediente debe estar abierto y tener pedimento de exportación vigente.");
+        if (AduanaPedimentoExportacion is null)
+            return ("CE_PEDIMENTO_SIN_ADUANA", "Capture la aduana del pedimento de exportación en Comercio Exterior.");
         if (!pedido.EsExportacion || !_participantes.Any(p => p.ClienteId == pedido.ClienteId) || partidas.Any(p => p.ClienteId != pedido.ClienteId || pedido.Lineas.All(l => l.Posicion != p.Posicion)))
             return ("FAC_PEDIDO_NO_EMBARCADO", "El cliente o las posiciones del pedido ya no corresponden al expediente; revise la asignación.");
         var faltas = pedido.Lineas.Select(l => new { Linea = l, Embarcado = partidas.Where(p => p.Posicion == l.Posicion && p.Unidad == l.Unidad && Contenedor(p.ContenedorId).FechaEmbarqueReal != null).Sum(p => p.Cantidad) })

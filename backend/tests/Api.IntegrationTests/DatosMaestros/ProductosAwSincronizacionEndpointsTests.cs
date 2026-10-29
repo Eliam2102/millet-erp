@@ -17,13 +17,25 @@ namespace Millet.Api.IntegrationTests.DatosMaestros;
 /// cross-empresa sin alcance por sucursal: la autorización es solo el permiso (no hay caso "otra sucursal").
 /// </summary>
 // El catálogo UnidadMedida sembrado no trae M2; el fixture usa PZA (sembrada) para que la unidad resuelva.
-public class ProductosAwSincronizacionEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class ProductosAwSincronizacionEndpointsTests : IClassFixture<ProductosAwSincronizacionEndpointsTests.Servidor>
 {
     private const string Base = "/api/v1/datos-maestros/productos-aw";
     private static readonly Guid EmpresaBootstrapId = Guid.Parse("00000003-0000-0000-0000-000000000001");
     private readonly WebApplicationFactory<Program> _factory;
 
-    public ProductosAwSincronizacionEndpointsTests(WebApplicationFactory<Program> factory) => _factory = factory;
+    public ProductosAwSincronizacionEndpointsTests(Servidor fixture)
+    {
+        _factory = fixture;
+        _apagado = fixture.Apagado;
+    }
+
+    private readonly WebApplicationFactory<Program> _apagado;
+    public sealed class Servidor : WebApplicationFactory<Program>
+    {
+        public WebApplicationFactory<Program> Apagado { get; }
+        public Servidor() => Apagado = WithWebHostBuilder(b => b.UseSetting("IntegracionesAw:Productos:OrigenHabilitado", "false"));
+    }
 
     private static string Json(string referencia, string descripcion) => $$$"""
         {"origen":{"vw_erp_articulo":[{"producto_ref":"{{{referencia}}}","descripcion":"{{{descripcion}}}","unidad_medida":"PZA",
@@ -57,7 +69,7 @@ public class ProductosAwSincronizacionEndpointsTests : IClassFixture<WebApplicat
     [Fact]
     public async Task Sin_permiso_gestionar_da_403_en_todos_los_endpoints()
     {
-        await using var f = Host(null);
+        var f = _apagado;
         var c = await ClienteConPermisosAsync(f, PermisosCanonicos.DatosMaestrosClientesGestionar);
 
         Assert.Equal(HttpStatusCode.Forbidden, (await c.PostAsync($"{Base}/sincronizacion", null)).StatusCode);
@@ -69,7 +81,7 @@ public class ProductosAwSincronizacionEndpointsTests : IClassFixture<WebApplicat
     [Fact]
     public async Task Post_sin_Idempotency_Key_da_400()
     {
-        await using var f = Host(null);
+        var f = _apagado;
         var conKey = await ClienteConPermisosAsync(f, PermisosCanonicos.DatosMaestrosProductosAwGestionar);
         var sinKey = f.CreateDefaultClient();
         sinKey.DefaultRequestHeaders.Authorization = conKey.DefaultRequestHeaders.Authorization;
@@ -80,7 +92,7 @@ public class ProductosAwSincronizacionEndpointsTests : IClassFixture<WebApplicat
     [Fact]
     public async Task Origen_apagado_da_503_problem_details()
     {
-        await using var f = Host(null);
+        var f = _apagado;
         var c = await ClienteConPermisosAsync(f, PermisosCanonicos.DatosMaestrosProductosAwGestionar);
 
         var r = await c.PostAsync($"{Base}/sincronizacion", null);
@@ -142,7 +154,7 @@ public class ProductosAwSincronizacionEndpointsTests : IClassFixture<WebApplicat
     public async Task Patch_manual_valida_If_Match_viejo_409_vigente_204_y_sin_header_204()
     {
         var referencia = $"DEMO-{Guid.NewGuid():N}"[..20];
-        await using var f = Host(null);
+        var f = _apagado;
         var id = await SembrarAsync(f, referencia);
         var c = await ClienteConPermisosAsync(f, PermisosCanonicos.DatosMaestrosProductosAwGestionar);
 
@@ -173,7 +185,7 @@ public class ProductosAwSincronizacionEndpointsTests : IClassFixture<WebApplicat
     public async Task Contrato_devuelve_inactivo_con_estatus()
     {
         var referencia = $"DEMO-{Guid.NewGuid():N}"[..20];
-        await using var f = Host(null);
+        var f = _apagado;
         await SembrarAsync(f, referencia, baja: true);
         var c = await ClienteConPermisosAsync(f, PermisosCanonicos.DatosMaestrosProductosAwGestionar);
 

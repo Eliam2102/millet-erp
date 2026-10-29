@@ -11,6 +11,7 @@ public sealed class AnticipoProveedorConfiguration : IEntityTypeConfiguration<An
         builder.ToTable("anticipos_proveedor", t =>
         {
             t.HasCheckConstraint("ck_anticipo_monto_entregado_positivo", "monto_entregado > 0");
+            t.HasCheckConstraint("ck_anticipo_origen", "(origen = 1 AND uuid_cfdi IS NOT NULL AND referencia_origen IS NULL) OR (origen = 2 AND uuid_cfdi IS NULL AND cfdi_recibido_id IS NULL AND referencia_origen IS NOT NULL)");
             t.HasCheckConstraint("ck_anticipo_monto_amortizado_valido",
                 "monto_amortizado >= 0 AND monto_amortizado <= monto_entregado");
         });
@@ -21,7 +22,10 @@ public sealed class AnticipoProveedorConfiguration : IEntityTypeConfiguration<An
         builder.Property(e => e.EmpresaId).IsRequired();
         builder.Property(e => e.CfdiRecibidoId);
 
-        builder.Property(e => e.UuidCfdi).HasMaxLength(36).IsRequired();
+        builder.Property(e => e.UuidCfdi).HasMaxLength(36);
+        builder.Property(e => e.Origen).HasConversion<short>().HasDefaultValue(OrigenAnticipo.Cfdi);
+        builder.Property(e => e.ReferenciaOrigen).HasMaxLength(100);
+        builder.HasIndex(e => new { e.EmpresaId, e.ReferenciaOrigen }).IsUnique().HasFilter("referencia_origen IS NOT NULL");
         builder.Property(e => e.ProveedorId).IsRequired();
         builder.Property(e => e.Serie).HasMaxLength(25).IsRequired();
         builder.Property(e => e.FolioProveedor).HasMaxLength(40);

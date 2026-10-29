@@ -19,7 +19,8 @@ namespace Millet.Api.IntegrationTests.CentrosCosto;
 /// compartido. GUIDs/claves aislados + teardown en finally (molde
 /// UbicacionCrudTests).</para>
 /// </summary>
-public class CatalogoCrudTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class CatalogoCrudTests
 {
     private readonly WebApplicationFactory<Program> _factory;
 

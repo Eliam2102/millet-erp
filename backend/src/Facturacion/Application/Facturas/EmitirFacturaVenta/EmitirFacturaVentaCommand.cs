@@ -50,7 +50,9 @@ public sealed record EmitirFacturaVentaCommand(
     Guid? ClienteId = null,
     // Observaciones (86e3tfdw2): nota libre del cajero, prellenada en el FE con
     // los anticipos aplicados. Se imprime en el PDF; NUNCA va al XML del CFDI.
-    string? Observaciones = null) : IRequest<EmitirFacturaVentaResponse>;
+    string? Observaciones = null,
+    string? OrdenCompraCliente = null, string? ReferenciaCliente = null,
+    string? CondicionesPago = null, string? Proforma = null) : IRequest<EmitirFacturaVentaResponse>;
 
 /// <summary>Anticipo a amortizar contra la factura final, con el importe a aplicar.</summary>
 public sealed record AnticipoAAmortizar(Guid AnticipoId, decimal Importe);
@@ -96,7 +98,7 @@ public sealed record EmitirFacturaVentaLinea(
     decimal? TasaRetencionIsr,
     // §3.bis.5: producto de importación en su primera venta → la factura se retiene
     // en PendientePedimento hasta aplicar el pedimento (F7-PR2).
-    bool RequierePedimento = false);
+    bool RequierePedimento = false, string? Referencia = null, decimal? PesoKg = null, decimal? AreaPie2 = null);
 
 public sealed record EmitirFacturaVentaResponse(
     Guid Id,

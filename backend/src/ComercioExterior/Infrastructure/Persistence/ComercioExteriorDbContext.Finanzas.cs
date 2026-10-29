@@ -37,6 +37,7 @@ public sealed partial class ComercioExteriorDbContext
         g.HasIndex(x => new { x.EmpresaId, x.OrdenServicioId, x.ExpedienteId });
         g.Property(x => x.OrdenServicioFolio).HasMaxLength(40);
         g.Property(x => x.OrdenServicioMoneda).HasMaxLength(3);
+        g.HasOne<AnticipoAgente>().WithMany().HasForeignKey(x => x.AnticipoAgenteId).OnDelete(DeleteBehavior.Restrict);
         g.Ignore(x => x.AggregateRootId); g.Ignore(x => x.Diferencia);
         g.HasOne<ConceptoGasto>().WithMany().HasForeignKey(x => x.ConceptoId).OnDelete(DeleteBehavior.Restrict);
         Json(g.Property(x => x.ImportesDirectos));

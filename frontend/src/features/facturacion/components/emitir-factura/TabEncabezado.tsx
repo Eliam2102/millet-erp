@@ -1,3 +1,5 @@
+import { DatosClienteCampos } from '../DatosClienteCampos';
+import { camposDatosCliente } from '../../lib/datos-cliente';
 import { FormaPagoSelector, SucursalSelector, UsoCfdiSelector } from '@/components/erp';
 import { ClaveSatSelector } from '@/components/erp/selectors/ClaveSatSelector';
 import { MonedaSelector } from '@/components/erp/selectors/MonedaSelector';
@@ -36,6 +38,7 @@ import { numeroONull } from './valores';
  */
 export interface TabEncabezadoProps {
   form: UseFormReturn<EmitirFacturaValues>;
+  onObservacionesChange: (texto: string) => void;
   /** Datos fiscales del emisor (empresa) — informativos, no editables. */
   emisor: EmisorDefaultsResponse;
   /**
@@ -69,6 +72,7 @@ export interface TabEncabezadoProps {
 
 export function TabEncabezado({
   form,
+  onObservacionesChange,
   emisor,
   puedeCorregirEnCatalogo,
   receptorBloqueado,
@@ -84,6 +88,8 @@ export function TabEncabezado({
   clienteFijo,
   canalVentaNombre,
 }: TabEncabezadoProps) {
+  const [ordenCompraCliente, referenciaCliente, condicionesPago, proforma, observaciones] = useWatch({ control: form.control, name: ['ordenCompraCliente', 'referenciaCliente', 'condicionesPago', 'proforma', 'observaciones'] });
+  const datosCliente = { ordenCompraCliente, referenciaCliente, condicionesPago, proforma, observaciones };
   const moneda = useWatch({ control: form.control, name: 'moneda' });
   const metodoPago = useWatch({ control: form.control, name: 'metodoPago' });
   const [receptorRfc, receptorNombre, receptorRegimen, receptorCp] = useWatch({
@@ -314,6 +320,9 @@ export function TabEncabezado({
           </Campo>
         </div>
       </Seccion>
+
+      <DatosClienteCampos errors={Object.fromEntries(camposDatosCliente.map(([campo]) => [campo, form.formState.errors[campo]?.message]))} datos={datosCliente} condicionesPagoPlaceholder={metodoPago === 'PUE' ? 'CONTADO' : undefined}
+        onChange={(campo, valor) => campo === 'observaciones' ? onObservacionesChange(valor) : form.setValue(campo, valor, { shouldDirty: true, shouldValidate: true })} />
 
       {/* ── Comercio Exterior (CCE) — solo exportación ───────────── */}
       {esCce && (

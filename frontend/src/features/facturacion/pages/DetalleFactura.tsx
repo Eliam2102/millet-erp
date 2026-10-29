@@ -1,3 +1,5 @@
+import { formatCantidad } from '@/lib/format-cantidad';
+import { DatosClienteFactura } from '../components/DatosClienteFactura';
 import { ErrorState } from '@/components/erp';
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { PageHeader } from '@/components/erp/PageHeader';
@@ -110,6 +112,16 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
 
   return (
     <div className="space-y-5">
+      <DatosClienteFactura factura={f} puedeEditar={puedeEmitir} />
+      {(f.noCertificadoEmisor || f.cadenaOriginalTimbre) && <dl className="space-y-2 text-sm">
+        <div><dt>Certificado del emisor</dt><dd className="font-mono">{f.noCertificadoEmisor ?? '—'}</dd></div>
+        <div><dt>Cadena original del timbre</dt><dd className="break-all font-mono text-xs">{f.cadenaOriginalTimbre ?? '—'}</dd></div>
+      </dl>}
+      <dl className="flex flex-wrap gap-5 text-sm tabular-nums">
+        <div><dt>Total de kilos</dt><dd>{f.lineas.some(l => l.pesoKg != null) ? formatCantidad(f.totalKg) : '—'}</dd></div>
+        <div><dt>Total de pies²</dt><dd>{f.lineas.some(l => l.areaPie2 != null) ? formatCantidad(f.totalPie2) : '—'}</dd></div>
+        <div><dt>Total de piezas</dt><dd>{formatCantidad(f.totalPiezas)}</dd></div>
+      </dl>
       {f.datosEmbarqueCe && <EmbarqueCeResumen datos={f.datosEmbarqueCe} />}
       {/* ── Sub-topbar de acciones (§6.5, no se imprime): sticky con
           cerrar (X) que vuelve a la bandeja preservando filtros ──── */}
@@ -264,7 +276,10 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
                   {f.lineas.map((l) => (
                     <TableRow key={l.posicion} className="border-t border-line">
                       <TableCell className="px-3 py-2 text-ink-muted">{l.posicion}</TableCell>
-                      <TableCell className="px-3 py-2">{l.descripcion}</TableCell>
+                      <TableCell className="px-3 py-2">{l.descripcion}
+                        {l.referencia && <p className="text-xs text-ink-muted">{l.referencia}</p>}
+                        {(l.pesoKg != null || l.areaPie2 != null) && <p className="text-xs text-ink-muted tabular-nums">Peso: {l.pesoKg ?? '—'} kg · Área: {l.areaPie2 ?? '—'} pies²</p>}
+                      </TableCell>
                       <TableCell className="px-3 py-2 font-mono text-xs">
                         {l.claveProdServSat} · {l.claveUnidadSat}
                       </TableCell>

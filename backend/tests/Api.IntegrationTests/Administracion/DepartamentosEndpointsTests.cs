@@ -10,7 +10,8 @@ namespace Millet.Api.IntegrationTests.Administracion;
 /// Tests integration del CRUD de Departamentos (F-Admin-PR2.3).
 /// Endpoint: <c>/api/v1/admin/departamentos</c>.
 /// </summary>
-public class DepartamentosEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class DepartamentosEndpointsTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string EndpointBase = "/api/v1/admin/departamentos";

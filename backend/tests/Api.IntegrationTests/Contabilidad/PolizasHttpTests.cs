@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Millet.Contabilidad.Application.Polizas;
@@ -18,7 +19,8 @@ namespace Millet.Api.IntegrationTests.Contabilidad;
 /// sin huecos ni duplicados (K10.9-a/b/c) y anulación en negativo (CA10.5, K10.3-a/b, periodo cerrado, motor por documento). Datos
 /// FIX con tipos de prueba propios: el consecutivo de cada prueba arranca en 1. Las pruebas que cierran periodos usan un año lejano.
 /// </summary>
-public class PolizasHttpTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class PolizasHttpTests(WebApplicationFactory<Program> factory)
 {
     private const string Polizas = Base + "/polizas";
     private const string Motivo = "FIX importe capturado con error";
@@ -492,6 +494,49 @@ public class PolizasHttpTests(WebApplicationFactory<Program> factory) : IClassFi
             Assert.All(guardada.Partidas, x => Assert.Equal(EmpresaBootstrapId, x.EmpresaId));
         }
         finally { await LimpiarAsync(e); }
+    }
+
+    [Fact]
+    public async Task C14_lo_que_agrega_el_observador_al_registrar_queda_guardado_con_la_poliza()
+    {
+        // Hallazgo de K10.5 en #235: el observador se avisaba después del último SaveChanges y su entidad no se persistía.
+        Escenario? e = null;
+        var codigo = $"FIX_OBS_{Sufijo()}";
+        try
+        {
+            e = await CrearEscenarioAsync();
+            using var conObservador = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s =>
+                s.AddScoped<IPolizaAutomaticaObservador>(sp => new ObservadorQueAgregaRol(sp.GetRequiredService<ContabilidadDbContext>(), codigo))));
+            using var scope = conObservador.Services.CreateScope();
+            using var bypass = scope.ServiceProvider.GetRequiredService<Millet.SharedKernel.Application.ICurrentEmpresaContext>().Bypass();
+            var puerto = scope.ServiceProvider.GetRequiredService<IPolizaContablePort>();
+
+            var p = await puerto.RegistrarAutomaticaAsync(Automatica(e, Hoy(), Guid.NewGuid()) with { EmpresaId = EmpresaBootstrapId }, default);
+
+            using var lectura = factory.Services.CreateScope();
+            var db = lectura.ServiceProvider.GetRequiredService<ContabilidadDbContext>();
+            Assert.True(await db.Polizas.IgnoreQueryFilters().AnyAsync(x => x.Id == p.Id));
+            Assert.True(await db.RolesCuenta.IgnoreQueryFilters().AnyAsync(r => r.Codigo == codigo), "El rol que agregó el observador no quedó guardado.");
+        }
+        finally
+        {
+            using (var scope = factory.Services.CreateScope())
+                await scope.ServiceProvider.GetRequiredService<ContabilidadDbContext>().RolesCuenta.IgnoreQueryFilters()
+                    .Where(r => r.Codigo == codigo).ExecuteDeleteAsync();
+            await LimpiarAsync(e);
+        }
+    }
+
+    /// <summary>Observador de prueba: escribe en el mismo contexto, como hará el auxiliar de la cuenta puente (K10.5).</summary>
+    private sealed class ObservadorQueAgregaRol(ContabilidadDbContext db, string codigo) : IPolizaAutomaticaObservador
+    {
+        public Task PolizaRegistradaAsync(PolizaAutomaticaRegistrada poliza, CancellationToken ct)
+        {
+            var rol = RolCuenta.Crear(Guid.CreateVersion7(), codigo, "FIX rol del observador", null, null, null, poliza.Fecha);
+            rol.EmpresaId = poliza.EmpresaId;
+            db.RolesCuenta.Add(rol);
+            return Task.CompletedTask;
+        }
     }
 
     [Fact]

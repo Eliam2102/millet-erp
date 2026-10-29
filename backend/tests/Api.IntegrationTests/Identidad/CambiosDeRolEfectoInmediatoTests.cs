@@ -3,6 +3,11 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Millet.Identidad.Domain;
+using Millet.Identidad.Infrastructure;
+using Millet.SharedKernel.Application;
 
 namespace Millet.Api.IntegrationTests.Identidad;
 
@@ -11,7 +16,8 @@ namespace Millet.Api.IntegrationTests.Identidad;
 /// efecto en la siguiente petición (403), con la caché ya caliente y sin
 /// esperar el TTL de 5 minutos.
 /// </summary>
-public class CambiosDeRolEfectoInmediatoTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class CambiosDeRolEfectoInmediatoTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string UsuariosEndpoint = "/api/v1/identidad/usuarios";
@@ -21,6 +27,8 @@ public class CambiosDeRolEfectoInmediatoTests : IClassFixture<WebApplicationFact
     // Ids deterministas del seed de PermisosCanonicos (Identidad).
     private static readonly Guid UsuariosLeer = Guid.Parse("00000002-0002-0000-0000-000000000001");
     private static readonly Guid RolesLeer = Guid.Parse("00000002-0002-0000-0000-000000000004");
+
+    private static readonly byte[] ContenidoPdf = "%PDF-1.4 Millet ERP Test Adjunto"u8.ToArray();
 
     private readonly WebApplicationFactory<Program> _factory;
 
@@ -67,6 +75,81 @@ public class CambiosDeRolEfectoInmediatoTests : IClassFixture<WebApplicationFact
         Assert.Equal(HttpStatusCode.NoContent, del.StatusCode);
 
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(UsuariosEndpoint)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Quitar_compras_ordenes_leer_corta_la_descarga_de_adjunto_de_OC_con_la_misma_sesion()
+    {
+        var (leer, todas) = await PermisoIdsAsync(
+            PermisosCanonicos.ComprasOrdenesLeer, PermisosCanonicos.ComprasOrdenesLeerTodasSucursales);
+        var admin = await ClientDeAsync(SuperAdminOid);
+        var rolId = await CrearRolAsync(admin, leer, todas);
+        var u = await CrearUsuarioConRolAsync(admin, rolId);
+        var client = await ClientDeAsync(u.Oid);
+
+        var ocId = await CrearOrdenCompraAsync(admin);
+        var adjuntoId = await SubirAdjuntoAsync(admin, ocId);
+        var ruta = $"/api/v1/compras/ordenes/{ocId}/adjuntos/{adjuntoId}/contenido";
+
+        // Calienta la caché de permisos con la descarga permitida.
+        var antes = await client.GetAsync(ruta);
+        Assert.Equal(HttpStatusCode.OK, antes.StatusCode);
+        Assert.Equal(ContenidoPdf, await antes.Content.ReadAsByteArrayAsync());
+
+        var put = await admin.PutAsJsonAsync($"{RolesEndpoint}/{rolId}/permisos", new { PermisoIds = new[] { todas } });
+        put.EnsureSuccessStatusCode();
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(ruta)).StatusCode);
+    }
+
+    private async Task<(Guid, Guid)> PermisoIdsAsync(string a, string b)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        return (await db.Permisos.Where(p => p.Codigo == a).Select(p => p.Id).SingleAsync(),
+            await db.Permisos.Where(p => p.Codigo == b).Select(p => p.Id).SingleAsync());
+    }
+
+    // Sucursal sembrada y proveedor activo del seed; el admin no depende de asociación a sucursal.
+    private static async Task<Guid> CrearOrdenCompraAsync(HttpClient admin)
+    {
+        var response = await admin.PostAsJsonAsync("/api/v1/compras/ordenes", new
+        {
+            SucursalDestinoId = Guid.Parse("00000005-0003-0000-0000-000000000001"),
+            SucursalCodigo = "PAA",
+            FolioAnio = (short)2026,
+            ProveedorId = Guid.Parse("00000005-0001-0000-0000-000000000001"),
+            CondicionesPagoId = Guid.CreateVersion7(),
+            UsoPrincipalId = Guid.CreateVersion7(),
+            FechaDocumento = DateOnly.FromDateTime(DateTime.UtcNow),
+            Moneda = "MXN",
+            TipoCambio = (decimal?)null,
+            SinRequisicionPrevia = false,
+            EsImportacion = false,
+            CotizacionExcepcionada = false,
+            Observaciones = "OC cambio de rol",
+            MotivoSinRequisicion = (string?)null,
+            FechaEntregaEsperada = (DateOnly?)null,
+            EncargadoComprasId = (Guid?)null,
+            OcOrigenId = (Guid?)null,
+        });
+        response.EnsureSuccessStatusCode();
+        return (await ReadJsonAsync(response)).GetProperty("id").GetGuid();
+    }
+
+    private static async Task<Guid> SubirAdjuntoAsync(HttpClient admin, Guid ocId)
+    {
+        using var form = new MultipartFormDataContent
+        {
+            { new StringContent("00000003-0003-0010-0000-000000000001"), "tipoDocumentoId" },
+        };
+        var archivo = new ByteArrayContent(ContenidoPdf);
+        archivo.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
+        form.Add(archivo, "archivo", "cotizacion.pdf");
+        var response = await admin.PostAsync($"/api/v1/compras/ordenes/{ocId}/adjuntos", form);
+        response.EnsureSuccessStatusCode();
+        return (await ReadJsonAsync(response)).GetProperty("adjuntoId").GetGuid();
     }
 
     private sealed record UsuarioPrueba(string Oid, Guid Id, Guid AsignacionId);

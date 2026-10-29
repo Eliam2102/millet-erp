@@ -21,8 +21,8 @@ namespace Millet.Api.IntegrationTests.CuentasPorCobrar;
 /// desechable. Siembra anticipo → factura final → egreso 07 timbrado. Todos
 /// los datos son ficticios.
 /// </summary>
+[Collection(ApiCompartida.Nombre)]
 public sealed class AnticiposAplicacionesEndpointsTests(WebApplicationFactory<Program> factory)
-    : IClassFixture<WebApplicationFactory<Program>>
 {
     private const string Ruta = "/api/v1/cuentas-por-cobrar/anticipos/aplicaciones";
     private static readonly Guid Empresa = Guid.Parse("00000003-0000-0000-0000-000000000001");

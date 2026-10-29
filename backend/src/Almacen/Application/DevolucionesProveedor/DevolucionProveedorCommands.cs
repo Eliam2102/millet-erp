@@ -96,7 +96,11 @@ public sealed class IniciarDevolucionAProveedorHandler
         // ADR-0046 Etapa 2: valida los decimales de cada línea contra la unidad
         // del artículo (FK NULL → no valida). Batch, un solo round-trip.
         await _decimalesGuard.ValidarAsync(
-            request.Lineas.Select(l => new CantidadAValidar(l.ArticuloId, l.Cantidad, l.UnidadMedida)),
+            request.Lineas.Select(l =>
+            {
+                var o = recepcion.Lineas.Single(x => x.Id == l.LineaRecepcionOrigenId);
+                return Recepciones.RecepcionVariante.Cantidad(l.ArticuloId, l.Cantidad, l.UnidadMedida, o.ProductoAwVarianteId, o.AnchoMm, o.AltoMm);
+            }).ToList(), // eager: la regla de hojas enteras corre aunque el guard no enumere
             cancellationToken);
 
         var id = Guid.CreateVersion7();
@@ -450,7 +454,9 @@ public sealed class RegistrarSalidaDevolucionAProveedorHandler
                 cantidad: linea.Cantidad,
                 unidadMedida: linea.UnidadMedida,
                 costoUnitarioMxn: origen.CostoUnitarioMxn, // Costo histórico verificado contra la recepción.
-                ubicacionId: ubicacionLinea);
+                ubicacionId: ubicacionLinea,
+                // F1-MP-01: la devolución hereda la medida de la línea de recepción original.
+                productoAwVarianteId: origen.ProductoAwVarianteId, anchoMm: origen.AnchoMm, altoMm: origen.AltoMm, lote: origen.Lote);
             movimiento.AgregarLinea(movLinea);
 
             payload.Add(new LineaDevolucionProveedorPayload(

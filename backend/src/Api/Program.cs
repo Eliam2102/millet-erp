@@ -260,6 +260,7 @@ if (!string.IsNullOrWhiteSpace(outboxConnString))
     // F9-PR1 CxP: listener Service Bus para eventos de Tesorería
     // (pagos, reversas, REPP, cancelaciones).
     builder.Services.AddHostedService<Millet.CuentasPorPagar.Infrastructure.Workers.TesoreriaEventListenerWorker>();
+    builder.Services.AddHostedService<Millet.CuentasPorPagar.Infrastructure.Workers.ComercioExteriorEventListenerWorker>();
 
     // Triada: listener Service Bus para eventos de Compras
     // (OC autorizada, OC cancelada). Cierra inbound Compras → CxP
@@ -633,6 +634,10 @@ builder.Services
 builder.Services.AddScoped<
     Millet.Compartido.Application.Ports.IExpedienteProveedorReadPort,
     Millet.Compartido.Infrastructure.PublicAdapters.ExpedienteProveedorReadAdapter>();
+// Guarda de desligado A+W: Datos Maestros pregunta a Compras si hay línea de OC abierta con medida.
+builder.Services.AddScoped<
+    Millet.Compartido.Application.Ports.IOcLineaAbiertaConMedidaReadPort,
+    Millet.Compras.Infrastructure.PublicAdapters.OcLineaAbiertaConMedidaReadAdapter>();
 builder.Services.AddSingleton<
     Millet.SharedKernel.Application.Adjuntos.IAdjuntoEnlaceTokenService,
     Millet.Compartido.Infrastructure.Adjuntos.AdjuntoEnlaceTokenService>();
@@ -832,6 +837,9 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.IArticuloReadPort,
     Millet.Compartido.Infrastructure.PublicAdapters.ArticuloReadAdapter>();
+builder.Services.AddScoped<
+    Millet.Almacen.Domain.Ports.IVarianteVidrioReadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.VarianteVidrioReadAdapter>();
 builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.IEmpleadoReadPort,
     Millet.Compartido.Infrastructure.PublicAdapters.EmpleadoReadAdapter>();

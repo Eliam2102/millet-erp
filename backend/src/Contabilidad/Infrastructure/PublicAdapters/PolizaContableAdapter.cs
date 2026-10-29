@@ -44,6 +44,8 @@ public sealed class PolizaContableAdapter(ContabilidadDbContext db, RegistroPoli
                 await db.SaveChangesAsync(t);
                 await registro.RegistrarUsosAsync(poliza, partidas.ReglasAplicadas, t);
                 await NotificarAsync(poliza, null, [.. s.Partidas.Select(x => x.Puente)], t);
+                // Lo que agregue el observador (K10.5) se guarda en la misma transacción que la póliza.
+                await db.SaveChangesAsync(t);
             }, ct);
         }
         catch (DbUpdateException e) when (e.InnerException is Npgsql.PostgresException { SqlState: Npgsql.PostgresErrorCodes.UniqueViolation, ConstraintName: "ux_polizas_llave_idempotencia" })

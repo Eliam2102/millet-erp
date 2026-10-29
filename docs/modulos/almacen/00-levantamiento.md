@@ -44,7 +44,7 @@
 El `CLAUDE.md` del proyecto describe este módulo como "Almacén de no-producción — inventario de consumibles e insumos indirectos (no incluye inventario productivo, eso lo lleva A+W)". La aclaración de Carlos durante el levantamiento **amplía el scope**:
 
 - **Sí entran** los materiales directos de producción no-vidrio: interlayer, silicones, sellantes, pinturas (todo lo que hoy se gestiona en SAP bajo responsabilidad del Jefe Almacén).
-- **Solo el vidrio crudo** queda fuera (continúa en A+W, consistente con Strangler Fig).
+- **El vidrio crudo también entra** (Fase 1: toda la materia prima, incluido el vidrio crudo, se compra y se recibe en el ERP; cuestionario 02, E07 §0, PR #215). En el interín, mientras no opere el Portal de Almacenes, la recepción sigue el flujo RQ-OC-recepción con aviso a A+W.
 - El nombre del módulo es **`Almacen`** (no `Almacen-no-prod` como aparece en el módulo Administración — ver inconsistencia documentada al cierre).
 
 > **Nota:** el módulo Administración tiene una entidad `Almacen` mínima (MVP-light en `DatosMaestros/Almacen` con su DbContext propio) que se [Diferido] re-mover a este módulo cuando exista. Este levantamiento sustituye al placeholder.
@@ -68,7 +68,7 @@ Todo lo que hoy se gestiona en SAP B1 bajo responsabilidad de Almacén:
 
 ### Qué NO hace
 
-- **No gestiona vidrio crudo.** El vidrio sigue en A+W y queda fuera del proyecto Millet ERP en esta fase.
+- **Sí gestiona vidrio crudo** (compra y recepción en el ERP, existencia por medida de hoja; E07 §0). Lo que sigue en A+W es la producción; en el interín se le avisa de cada recepción.
 - **No implementa consumo automático contra orden de producción, BOM ni explosión de materiales.** Aunque los materiales directos son conceptualmente MP, se gestionan con el mismo modelo funcional que los insumos: entrada por documento de proveedor, salida por requisición.
 - **No emite Requisiciones de Compra.** Cuando el almacén detecta desabasto, crea una requisición que vive en el módulo Requisiciones (ya implementado).
 - **No emite Órdenes de Compra ni gestiona proveedores.** Esos artefactos viven en el módulo Compras.
@@ -90,7 +90,7 @@ Todo lo que hoy se gestiona en SAP B1 bajo responsabilidad de Almacén:
 | **Producción / Mantenimiento** | Catálogo de Máquinas (referencia opcional en salidas) | — |
 | **RH** | Catálogo de Empleados / Personas (destinatarios de salidas) | — |
 | **Identidad** | Roles y permisos canónicos `almacen.*` | — |
-| **A+W** (sistema externo) | — (vidrio fuera de alcance; sin integración directa con A+W desde Almacén) | — |
+| **A+W** (sistema externo) | — (el vidrio crudo se recibe en Almacén; en el interín se avisa a A+W de cada recepción) | — |
 
 ---
 
@@ -650,7 +650,7 @@ El Jefe Almacén ejecuta el cierre del módulo Almacén el primer día hábil de
 
 | # | Decisión | Justificación |
 |---|---|---|
-| 1 | Alcance: todo lo que está en SAP (insumos + materiales directos). Vidrio queda en A+W. | Aclaración de Carlos. |
+| 1 | Alcance: todo lo que está en SAP (insumos + materiales directos) y, en Fase 1, también el vidrio crudo (toda la MP se compra en el ERP). | Aclaración de Carlos; cuestionario 02 y E07 §0 lo amplían al vidrio crudo. |
 | 2 | Modelo operativo unificado: insumos y materiales directos siguen el mismo flujo funcional. No hay BOM ni consumo automático contra orden de producción. | Decisión del proyecto. |
 | 3 | Portal Millet deprecado al cerrar este módulo: el ERP asume Requisiciones, Salidas y Reportes. | Decisión del proyecto. |
 | 4 | Reportes en motor nativo del ERP, no Crystal embebido. | Decisión del proyecto. |
@@ -772,7 +772,7 @@ Cada submódulo incluye: backend + frontend + pruebas de integración + document
 - **Three-way match** — Conciliación clásica: OC + Recepción + Factura. Almacén entrega Recepción; CxP entrega Factura; Compras valida OC.
 - **Cierre de mes** — Proceso del primer día hábil del mes siguiente para sellar movimientos del mes anterior.
 - **Portal Millet / PortalSap** — Web actual del Jefe Almacén en `192.168.1.38/PortalSap/`. Se deprecate completo al cerrar este módulo.
-- **A+W** — Sistema externo que gestiona vidrio crudo. Fuera de scope.
+- **A+W** — Sistema externo de producción de vidrio; el vidrio crudo se compra y se recibe en el ERP (aviso a A+W en el interín).
 - **ALFAK** — Nombre legacy de un reporte SAP. Se conserva por reconocimiento del usuario; el reporte se recompila en motor nativo (§9.2).
 - **MP-CNK** — Sub-almacén de materiales directos no-vidrio (interlayer, silicones, pinturas). Posible variante de nombre `VP-CNK` en levantamiento original; a validar en SAP.
 

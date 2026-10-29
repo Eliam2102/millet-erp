@@ -63,6 +63,8 @@ export const ActualizarArticuloSchema = z.object({
   // FK del catálogo de categorías (ADR-0046 PR2). null = sin categoría / no
   // reconciliado. El nombre legacy viaja en el read DTO (para el cold value).
   categoriaId: z.string().nullable(),
+  // Familia A+W del vidrio crudo (E07 D5). null = sin vínculo.
+  productoAwId: z.string().nullable().optional(),
   precioReferenciaMonto: z
     .number()
     .min(0, 'Mínimo 0')

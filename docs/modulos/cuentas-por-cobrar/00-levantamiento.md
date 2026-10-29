@@ -94,8 +94,24 @@ Reglas (de ambos levantamientos):
 - Un pedido se libera solo si: el cliente tiene crédito activo (SOLUNION o interno), no excede su línea, y pagó o tiene promesa de pago válida.
 - **Reglas por serie de folio** (catálogo `regla_liberacion_serie`): folios que inician en `5000`/`7000` **siempre** liberan; folios `3000`/`4000`/`8000` **nunca** liberan.
 - Clientes bloqueados por falta de pago no se liberan.
-- Clientes sin línea de crédito: solo con override de gerente (autorización consumible).
-- Exceder el límite: solo con override de gerente.
+- Clientes sin línea de crédito activa (no existe o está bloqueada): en series que evalúan crédito se **retienen sin aceptar autorización** (C7.3, supuesto e); en series que nunca liberan (3000/4000/8000) siguen liberándose solo con override de gerente.
+- Exceder el límite: según la cobertura (C7.3, abajo); con 50 %–99.99 % se libera con autorización de CxC.
+
+**Cobertura parcial — C7.3 (ClickUp 86e3jvv6n).** Fuentes: cuestionario 04 R3 («si la línea de crédito solo cubre entre el 50 % y el 99 % se podría solicitar autorización manual del depto. de CxC»), Matriz I7 (autorización consumible, un solo uso, vigencia corta, motivo obligatorio, sin autoconsumo) y R5 (autoriza el gerente de área, Néstor Prida).
+- **Cobertura** = crédito **disponible** ÷ monto del pedido (no anticipos). Se guarda en `decision_liberacion.porcentaje_cobertura`.
+- Con línea activa y serie que evalúa crédito: **≥ 100 %** → `Liberado` (regla Crédito); **50 %–99.99 %** → `PendienteAutorizacion` (regla `Cobertura`), salvo override vigente otorgado para ese pedido → `LiberadoConOverride`; **< 50 %** → `Retenido` y no se acepta autorización (un override explícito se rechaza con `CXC_COBERTURA_INSUFICIENTE`, 422).
+- Serie que evalúa crédito **sin línea activa o con la línea bloqueada** → `Retenido` (regla Crédito) y no se acepta autorización: un override explícito se rechaza con `CXC_SIN_LINEA_ACTIVA` (422) y no se consume.
+- **Autorizar una pendiente** (`POST /api/v1/cuentas-por-cobrar/liberaciones/{id}/autorizar`, permiso `cuentas_por_cobrar.liberacion.override`, motivo obligatorio): el sistema **recalcula** la línea activa y el disponible con el mismo cálculo de la decisión y emite una **nueva** decisión con `decision_origen_id` = la pendiente (la pendiente es inmutable), con el snapshot y el porcentaje nuevos y el motivo:
+  - sin línea activa o línea bloqueada → `Retenido` (regla Crédito);
+  - cobertura ≥ 100 % → `Liberado` (regla Crédito), sin crear ni consumir autorización;
+  - cobertura < 50 % → `Retenido` (regla Crédito);
+  - 50 %–99.99 % → se crea una `AutorizacionCredito` (supervisor = quien autoriza, beneficiario = quien registró la pendiente, referencia = folio del pedido), se consume en el acto y la decisión es `LiberadoConOverride`.
+- **Rechazar una pendiente** (`POST /api/v1/cuentas-por-cobrar/liberaciones/{id}/rechazar`, mismo permiso, motivo obligatorio): emite una **nueva** decisión `Retenido` (regla `Cobertura`) con `decision_origen_id` = la pendiente, decidida por quien rechaza, con el snapshot y la cobertura de la pendiente y el motivo; no crea autorización.
+- Autorizar y rechazar comparten validaciones: quien registró la pendiente no puede resolverla (`DL_AUTOCONSUMO`, 422); solo se resuelven decisiones pendientes (`DL_NO_PENDIENTE`, 422); una pendiente se resuelve una sola vez (`DL_PENDIENTE_YA_RESUELTA`, 409; índice único parcial sobre `decision_origen_id`); si después hubo otra decisión del mismo pedido, la pendiente quedó superada (`DL_PENDIENTE_SUPERADA`, 409). El motivo se guarda en `decision_liberacion.motivo` y viaja en el evento `DecisionLiberacionEmitidaEvent`.
+- **Autorización por pedido (E10, 26-oct):** una autorización sirve para un solo pedido. `cliente_o_pedido_ref` debe ser **exactamente** el folio del pedido que se decide (tras recortar espacios, distinguiendo mayúsculas); ya no se acepta por id, RFC ni razón social del cliente (`AC_REFERENCIA_DISTINTA`, 422). Siguen vigentes: un solo uso (`AC_NO_DISPONIBLE`), vencida > 24 h (`AC_VENCIDA`), solo el beneficiario la consume (`AC_BENEFICIARIO_DISTINTO`).
+- `liberado_sin_factura` sigue en 0 (dependencia C7.1): hasta entonces el disponible solo descuenta lo facturado.
+
+> **Supuestos C7.3 (por confirmar con Eliam):** (a) 50 % exacto = pendiente; (b) el porcentaje se trunca a 2 decimales para guardar y a entero para mostrar (66.66 → «Cobertura 66 %»), acotado a [0, 100]; (c) la decisión pendiente no vence; si cambia el crédito se decide de nuevo y la nueva decisión deja sin efecto a la pendiente; (d) con menos de 50 % se retiene y no se acepta autorización — **solo** en las series que evalúan crédito; la regla de serie que exige autorización (3000/4000/8000) no cambia; (e) sin línea activa o con la línea bloqueada → `Retenido` sin aceptar autorización (en series que evalúan crédito; las series 3000/4000/8000 siguen aceptando override con o sin línea).
 
 > **Pendiente — sugerencia:** el catálogo de reglas por serie proviene del documento internacional (§8.3). Confirmar con Prida si la cartera **nacional** comparte exactamente esas series (`3000/4000/5000/7000/8000`) o maneja otras. Propuesta: modelarlo como catálogo versionado (seed) `regla_liberacion_serie(prefijo, comportamiento)` para que ambas carteras compartan la tabla y difieran solo en filas.
 
@@ -211,9 +227,12 @@ Outbox → Service Bus (topic `cuentas-por-cobrar-events`).
 | `pedido_ref` | text | folio/ref de A+W |
 | `cliente_id` | uuid | |
 | `credito_disponible_snapshot` | numeric | foto al momento de decidir |
-| `resultado` | text | `Liberado` / `Retenido` / `LiberadoConOverride` |
-| `regla_aplicada` | text | crédito / serie / override |
+| `resultado` | text | `Liberado` / `Retenido` / `LiberadoConOverride` / `PendienteAutorizacion` (C7.3) |
+| `regla_aplicada` | text | crédito / serie / override / cobertura (C7.3) |
 | `override_id` | uuid? | FK a `autorizacion_credito` |
+| `porcentaje_cobertura` | numeric(5,2)? | C7.3: disponible ÷ monto, truncado, 0–100; null si no se evaluó crédito |
+| `decision_origen_id` | uuid? | C7.3: pendiente que esta decisión resolvió (autorizar o rechazar; único) |
+| `motivo` | varchar(254)? | C7.3: motivo de quien autorizó o rechazó la pendiente |
 | `decidido_por` | uuid | usuario |
 | `decidido_en` | timestamptz | |
 
@@ -244,6 +263,8 @@ Outbox → Service Bus (topic `cuentas-por-cobrar-events`).
 
 **`cuentas_por_cobrar.autorizacion_credito`** — réplica del patrón consumible (calco de `AutorizacionAperturaCaja`)
 | `id`, `empresa_id`, `supervisor_usuario_id`, `beneficiario_usuario_id`, `motivo`, `cliente_o_pedido_ref`, `estado` (`Autorizada`/`Usada`/`Cancelada`), `vigente_hasta`, `decision_liberacion_id?` (consumo) |
+
+> C7.3 · E10: `cliente_o_pedido_ref` conserva su nombre histórico, pero guarda el **folio del pedido** (la autorización es para un solo pedido).
 
 **`cuentas_por_cobrar.factura_cartera`** — proyección local de comprobantes cobrables
 | Columna | Tipo | Nota |

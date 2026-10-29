@@ -16,13 +16,21 @@ using static Millet.Api.IntegrationTests.Contabilidad.ContabTestKit;
 namespace Millet.Api.IntegrationTests.CuentasPorPagar;
 
 /// <summary>HTTP y PostgreSQL desechable. Limpia los registros propios y usa el catálogo existente para áreas.</summary>
-public sealed class PrubObservacionesEndpointsTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public sealed class PrubObservacionesEndpointsTests(PrubObservacionesEndpointsTests.Servidor factory) : IClassFixture<PrubObservacionesEndpointsTests.Servidor>
 {
+    public sealed class Servidor : WebApplicationFactory<Program>
+    {
+        public WebApplicationFactory<Program> Empresa { get; }
+        public Servidor() => Empresa = this.ConEmpresa(EmpresaBootstrapId);
+    }
+
     [Fact]
     public async Task Proveedor_en_revision_conserva_motivo_y_no_se_puede_usar_en_compras()
     {
-        using var app = factory.ConEmpresa(EmpresaBootstrapId);
-        var client = await LoginAsync(app);
+        Sobre.Value = EmpresaBootstrapId;
+        var app = factory.Empresa;
+        using var client = await LoginAsync(app);
         var id = Guid.CreateVersion7();
         try
         {
@@ -59,8 +67,9 @@ public sealed class PrubObservacionesEndpointsTests(WebApplicationFactory<Progra
     [Fact]
     public async Task Areas_revisoras_del_endpoint_corresponden_a_departamentos_activos()
     {
-        using var app = factory.ConEmpresa(EmpresaBootstrapId);
-        var client = await LoginAsync(app);
+        Sobre.Value = EmpresaBootstrapId;
+        var app = factory.Empresa;
+        using var client = await LoginAsync(app);
         var res = await client.GetAsync("/api/v1/cuentas-por-pagar/catalogos/dependencias-revisoras");
         Assert.Equal(HttpStatusCode.OK, res.StatusCode);
         using var scope = app.Services.CreateScope();
@@ -77,10 +86,11 @@ public sealed class PrubObservacionesEndpointsTests(WebApplicationFactory<Progra
     public async Task Beneficiario_de_credito_se_valida_al_crear_y_en_el_selector(bool permitido)
     {
         var port = new Beneficiarios(permitido);
-        using var app = factory.ConEmpresa(EmpresaBootstrapId).WithWebHostBuilder(b => b.ConfigureTestServices(s => {
+        await using var enEmpresa = factory.ConEmpresa(EmpresaBootstrapId);
+        await using var app = enEmpresa.WithWebHostBuilder(b => b.ConfigureTestServices(s => {
             s.RemoveAll<IBeneficiarioCreditoReadPort>(); s.AddSingleton<IBeneficiarioCreditoReadPort>(port);
         }));
-        var client = await LoginAsync(app);
+        using var client = await LoginAsync(app);
         var referencia = "FIX-PRUB-" + Sufijo();
         try
         {

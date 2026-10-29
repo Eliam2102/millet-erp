@@ -35,6 +35,36 @@ public sealed class CfdiEmisionBuilderTests
             pedidoFacturableId: null, obraId: null, obraNombre: null, facturaAgrupada: false);
 
     [Fact]
+    public void Amortizacion_y_ranura_usan_ACT_y_conservan_descripcion()
+    {
+        var nc = NotaCredito.CrearAmortizacion(Guid.NewGuid(), "NC-DEMO-1", 1, Guid.NewGuid(), null, null,
+            Receptor, Emisor, "01", "MXN", null, 2026, 10, 1, Guid.NewGuid(), Guid.NewGuid(), 116, .16m);
+        var concepto = CfdiEmisionBuilder.DesdeNotaCredito(nc, AhoraUtc).Conceptos.Single();
+        Assert.Equal("ACT", concepto.ClaveUnidad);
+        Assert.Equal("Aplicación de anticipo", concepto.Descripcion);
+        var ranura = NotaCredito.CrearRanura(Guid.NewGuid(), "NC-DEMO-2", 2, Guid.NewGuid(), null, null,
+            Receptor, Emisor, "01", "MXN", null, 2026, 10, 1, Guid.NewGuid(), 116, .16m, "Ranura ficticia");
+        var conceptoRanura = CfdiEmisionBuilder.DesdeNotaCredito(ranura, AhoraUtc).Conceptos.Single();
+        Assert.Equal("ACT", conceptoRanura.ClaveUnidad);
+        Assert.Equal("Ranura ficticia", conceptoRanura.Descripcion);
+    }
+
+    [Fact]
+    public void Datos_para_cliente_no_se_envian_al_contrato_fiscal()
+    {
+        var f = Factura();
+        f.AgregarLinea(null, "01010101", "Vidrio ficticio", "H87", 1, 100, 0, "02", .16m, null, null,
+            referencia: "REFERENCIA SECRETA DEMO", pesoKg: 50, areaPie2: 60);
+        f.RecalcularTotales();
+        var antes = System.Text.Json.JsonSerializer.Serialize(CfdiEmisionBuilder.DesdeFacturaVenta(f, AhoraUtc));
+        f.EditarDatosCliente("OC SECRETA DEMO", "CLIENTE DEMO", "45 DIAS", "PROFORMA DEMO", "COMENTARIO SECRETO DEMO");
+        var despues = System.Text.Json.JsonSerializer.Serialize(CfdiEmisionBuilder.DesdeFacturaVenta(f, AhoraUtc));
+        Assert.Equal(antes, despues);
+        Assert.DoesNotContain("SECRETA", despues);
+        Assert.DoesNotContain("SECRETO", despues);
+    }
+
+    [Fact]
     public void FechaFiscal_convierte_a_zona_de_Mexico()
     {
         var local = CfdiEmisionBuilder.FechaFiscal(AhoraUtc);
@@ -219,6 +249,7 @@ public sealed class CfdiEmisionBuilderTests
         e.Folio.Should().Be("9");
         var concepto = e.Conceptos.Single();
         concepto.ClaveProdServ.Should().Be("84111506");
+        concepto.ClaveUnidad.Should().Be("ACT");
         concepto.Importe.Should().Be(nc.Subtotal);
         var iva = concepto.Impuestos.Single();
         iva.TipoFactor.Should().Be("Tasa");
@@ -226,8 +257,10 @@ public sealed class CfdiEmisionBuilderTests
         iva.Importe.Should().Be(nc.ImpuestosTrasladados);
     }
 
-    [Fact]
-    public void DesdeFacturaAnticipo_es_ingreso_con_concepto_84111506()
+    [Theory]
+    [InlineData(null, "Anticipo de clientes")]
+    [InlineData("Anticipo ficticio explícito", "Anticipo ficticio explícito")]
+    public void DesdeFacturaAnticipo_es_ingreso_con_concepto_84111506(string? descripcion, string esperada)
     {
         var fa = FacturaAnticipo.CrearBorrador(
             empresaId: Guid.NewGuid(), folio: "FANT-000002", folioNumero: 2,
@@ -236,14 +269,16 @@ public sealed class CfdiEmisionBuilderTests
             formaPago: "03", moneda: "MXN", tipoCambio: null,
             periodoAnio: 2026, periodoMes: 7,
             tipoAnticipo: TipoAnticipo.ClientesMxp, pedidoFacturableId: null,
-            anticipoId: Guid.NewGuid(), montoBase: 1000m, tasaIvaTraslado: 0.16m);
+            anticipoId: Guid.NewGuid(), montoBase: 1000m, tasaIvaTraslado: 0.16m, descripcion: descripcion);
 
         var e = CfdiEmisionBuilder.DesdeFacturaAnticipo(fa, AhoraUtc);
 
         e.Tipo.Should().Be(TipoCfdi.Ingreso);
         e.Serie.Should().Be("FANT");
+        e.Conceptos.Single().Descripcion.Should().Be(esperada);
         var concepto = e.Conceptos.Single();
         concepto.ClaveProdServ.Should().Be("84111506");
+        concepto.ClaveUnidad.Should().Be("ACT");
         concepto.Impuestos.Single().TasaOCuota.Should().Be(0.16m);
     }
 
@@ -299,6 +334,7 @@ public sealed class CfdiEmisionBuilderTests
         e.Receptor.UsoCfdi.Should().Be("CP01");
         var concepto = e.Conceptos.Single();
         concepto.ClaveProdServ.Should().Be("84111506");
+        concepto.ClaveUnidad.Should().Be("ACT");
         concepto.ClaveUnidad.Should().Be("ACT");
         concepto.ValorUnitario.Should().Be(0m);
         concepto.ObjetoImp.Should().Be("01");

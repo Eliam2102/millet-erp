@@ -22,8 +22,8 @@ namespace Millet.Api.IntegrationTests.Contabilidad;
 /// C1.2: adapters reales de periodo y tipo de cambio sobre PostgreSQL. Usa una moneda FIX propia
 /// y un ejercicio FIX propio (2096); no toca USD ni el calendario de 2026.
 /// </summary>
+[Collection(ApiCompartida.Nombre)]
 public sealed class C12AdaptadoresRealesTests(WebApplicationFactory<Program> factory)
-    : IClassFixture<WebApplicationFactory<Program>>
 {
     private static readonly DateOnly Dia = new(2096, 10, 15);
 
@@ -84,7 +84,7 @@ public sealed class C12AdaptadoresRealesTests(WebApplicationFactory<Program> fac
     {
         var (monedaId, codigo) = await SembrarMonedaAsync(18.25m);
         var oc = new OcMoneda(codigo);
-        var ambiente = new AdjuntosProveedorAmbiente(factory, services =>
+        await using var ambiente = new AdjuntosProveedorAmbiente(factory, services =>
         {
             services.AddSingleton<IComprasOcReadPort>(oc);
             // Mide el TC, no el candado de periodo: el periodo se da por abierto.
@@ -94,7 +94,7 @@ public sealed class C12AdaptadoresRealesTests(WebApplicationFactory<Program> fac
         oc.ProveedorId = proveedorId;
         try
         {
-            var admin = await ambiente.SuperAdminAsync();
+            using var admin = await ambiente.SuperAdminAsync();
             CapturarFacturaConOcCommand Comando(DateOnly fecha, decimal? tipoCambio)
             {
                 var ocId = Guid.NewGuid();

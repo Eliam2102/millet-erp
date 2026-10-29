@@ -19,7 +19,8 @@ namespace Millet.Api.IntegrationTests.Administracion;
 /// <c>/api/v1/admin/empresas/sucursales/{sucursalId}/usuarios</c>.
 /// Sigue el patrón de <see cref="SucursalDepartamentosEndpointsTests"/>.
 /// </summary>
-public class SucursalUsuariosEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class SucursalUsuariosEndpointsTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string SinPermisosOid = "test-no-perms-sxu";

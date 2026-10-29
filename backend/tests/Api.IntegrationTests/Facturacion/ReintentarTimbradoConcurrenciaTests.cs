@@ -21,8 +21,8 @@ namespace Millet.Api.IntegrationTests.Facturacion;
 /// deben llamar al PAC una sola vez (un solo UUID, mismo folio interno, una
 /// sola fila nueva de bitácora). El perdedor recibe un código claro.
 /// </summary>
+[Collection(ApiCompartida.Nombre)]
 public sealed class ReintentarTimbradoConcurrenciaTests(WebApplicationFactory<Program> factory)
-    : IClassFixture<WebApplicationFactory<Program>>
 {
     private static readonly Guid EmpresaId = Guid.Parse("00000003-0000-0000-0000-000000000001");
     private static readonly TimeSpan Espera = TimeSpan.FromSeconds(15);

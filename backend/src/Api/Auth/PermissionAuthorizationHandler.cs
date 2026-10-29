@@ -78,7 +78,7 @@ public sealed class PermissionAuthorizationHandler : AuthorizationHandler<Permis
             // pueden cambiar en BD pero el handler los lee fresh por
             // request → ya considerados al construir el principal).
             var spHasPermission = context.User.FindAll(MilletClaimTypes.Permission)
-                .Any(c => string.Equals(c.Value, requirement.Code, StringComparison.Ordinal));
+                .Any(c => requirement.Codes.Contains(c.Value, StringComparer.Ordinal));
 
             if (spHasPermission)
             {
@@ -95,7 +95,7 @@ public sealed class PermissionAuthorizationHandler : AuthorizationHandler<Permis
             await _cache.SetAsync(userId, empresaId, permisos, CancellationToken.None);
         }
 
-        if (permisos.Contains(requirement.Code))
+        if (requirement.Codes.Any(permisos.Contains))
         {
             context.Succeed(requirement);
         }

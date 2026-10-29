@@ -18,7 +18,8 @@ namespace Millet.Api.IntegrationTests.CentrosCosto;
 /// <para>Fixture 100%% local al esquema (el árbol se construye por
 /// commands) con teardown en finally.</para>
 /// </summary>
-public class BajaCascadaTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class BajaCascadaTests
 {
     private readonly WebApplicationFactory<Program> _factory;
 

@@ -6,7 +6,8 @@ using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace Millet.Api.IntegrationTests.Catalogos;
 
-public sealed class ImpuestosEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public sealed class ImpuestosEndpointsTests
 {
     private const string Base = "/api/v1/catalogos/impuestos";
     private readonly WebApplicationFactory<Program> _factory;

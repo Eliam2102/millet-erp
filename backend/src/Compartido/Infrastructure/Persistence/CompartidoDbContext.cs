@@ -1332,6 +1332,16 @@ public sealed class CompartidoDbContext : BaseDbContext
             .WithMany()
             .HasForeignKey(x => x.CategoriaId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // E07 D5 (SUPUESTO): vínculo 1:1 artículo ↔ familia A+W. FK dentro del mismo esquema;
+        // índice único filtrado (los artículos sin vínculo no chocan).
+        articulo.HasIndex(x => x.ProductoAwId).IsUnique()
+            .HasFilter("producto_aw_id IS NOT NULL")
+            .HasDatabaseName("ux_articulos_producto_aw_id");
+        articulo.HasOne<ProductoAw>()
+            .WithMany()
+            .HasForeignKey(x => x.ProductoAwId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 
     /// <summary>

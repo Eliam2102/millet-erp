@@ -27,7 +27,7 @@ function Formulario({ factura, tipo, onClose }: { factura: FacturaDetalle; tipo:
   const idempotencyKey = useFormIdempotencyKey();
   const [documentoId, setDocumentoId] = useState(''); const [importe, setImporte] = useState('');
   const documentos = tipo === 'anticipo'
-    ? (anticipos.data?.items ?? []).map(a => ({ id: a.id, folio: `${a.serie}-${a.folioProveedor ?? a.uuidCfdi}`, moneda: a.moneda, saldo: a.saldoAmortizable, version: a.version, reconocido: 0 }))
+    ? (anticipos.data?.items ?? []).map(a => ({ id: a.id, folio: a.origen === 2 ? `Saldo de Comercio Exterior · ${a.folioProveedor}` : `${a.serie}-${a.folioProveedor ?? a.uuidCfdi}`, moneda: a.moneda, saldo: a.saldoAmortizable, version: a.version, reconocido: 0 }))
     : (notas.data?.items ?? []).map(n => ({ id: n.id, folio: n.folioProveedor ?? n.uuidCfdi, moneda: n.moneda, saldo: n.saldoPorAplicar, version: n.version, reconocido: n.cargoReconocidoPendiente ?? 0 }));
   const documento = documentos.find(d => d.id === documentoId);
   const preview = calcularAplicacion(factura.saldoPendiente, documento?.saldo ?? 0, Number(importe), factura.moneda, documento?.moneda ?? '', documento?.reconocido ?? 0);

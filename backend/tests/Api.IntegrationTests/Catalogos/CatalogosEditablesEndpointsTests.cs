@@ -11,7 +11,8 @@ namespace Millet.Api.IntegrationTests.Catalogos;
 /// CondicionesPago, Incoterms, Transportistas, UsosPrincipales.
 /// Happy paths CRUD + desactivar.
 /// </summary>
-public class CatalogosEditablesEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class CatalogosEditablesEndpointsTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private readonly WebApplicationFactory<Program> _factory;

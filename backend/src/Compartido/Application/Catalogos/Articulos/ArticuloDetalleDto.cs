@@ -36,4 +36,5 @@ public sealed record ArticuloDetalle(
     Guid? CategoriaId,
     decimal? PrecioReferenciaMonto,
     string? PrecioReferenciaMoneda,
-    EstatusCatalogo Estatus);
+    EstatusCatalogo Estatus,
+    Guid? ProductoAwId = null);
