@@ -48,6 +48,18 @@ public sealed class AwClientesOrigenTests
         (s.VersionContrato, s.VersionMapeo).Should().Be(("1", "0-borrador"));
     }
 
+    [Fact]
+    public void Campos_reutilizados_de_Millet_razon_calle_colonia_y_rfc_con_guiones()
+    {
+        // TI 16-oct: NAME1+NAME2 = razón social, NAME3 = calle, STRASSE = colonia, UST_ID con guiones y puntos.
+        var f = Fila(ust: "ABC-010101.XY1") with { Name2 = "Y ASOCIADOS", Name3 = "CALLE 60 NO. 1", Strasse = "CENTRO" };
+        var s = AwClienteSnapshotMapper.Mapear(f, SinMapeo, Ahora, aplicarFiscalesDeOrigen: true).Snapshot!;
+        s.RazonSocial.Should().Be("CLIENTE DEMO 001 Y ASOCIADOS");
+        s.NombreComercialOrigen.Should().Be("CLIENTE DEMO 001 Y ASOCIADOS");
+        s.DomicilioCalle.Should().Be("CALLE 60 NO. 1, CENTRO");
+        s.Rfc.Should().Be("ABC010101XY1");
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("   ")]

@@ -40,6 +40,7 @@ public static class DependencyInjection
         services.AddScoped<IAdjuntosEntidadReadPort, NoOpAdjuntosEntidadReadPort>();
         services.AddScoped<ICxpDocumentosReadPort, NoOpCxpDocumentosReadPort>();
         services.AddScoped<ISucursalReadPort, NoOpSucursalReadPort>();
+        services.AddScoped<IEmpresaImpresionReadPort, NoOpEmpresaImpresionReadPort>();
         // Estado de capitalización de los activos de una recepción; lo reemplaza AddActivosFijosModule.
         services.AddScoped<IActivoRecepcionReadPort, NoOpActivoRecepcionReadPort>();
         // IEmpleadoReadPort se registra en Program.cs con el adapter real

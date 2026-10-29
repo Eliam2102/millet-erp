@@ -45,7 +45,9 @@ public static class AwClienteSnapshotMapper
         bool aplicarFiscalesDeOrigen = false)
     {
         var referencia = f.Id.ToString(CultureInfo.InvariantCulture);
-        var razonSocial = Limpiar(f.Name1);
+        // Millet reutiliza campos de KU_KUNDEN (TI, 16-oct): razón social = NAME1 + NAME2, NAME3 = calle,
+        // STRASSE = colonia, UST_ID = RFC con guiones y puntos. Mismo mapeo que vw_erp_cliente.
+        var razonSocial = Limpiar(string.Join(' ', new[] { Limpiar(f.Name1), Limpiar(f.Name2) }.OfType<string>()));
         if (razonSocial is null || Faltantes(f) is [_, ..])
             return new(null, $"{Faltantes(f)[0].Campo} vacío (referencia {referencia}).");
 
@@ -56,8 +58,9 @@ public static class AwClienteSnapshotMapper
             ? Limpiar(iso) ?? MonedaPorOmision
             : MonedaPorOmision;
 
-        var nombreComercial = string.Join(' ',
-            new[] { Limpiar(f.Name1), Limpiar(f.Name2), Limpiar(f.Name3) }.OfType<string>());
+        var nombreComercial = razonSocial;
+        // ponytail: sin columna de colonia en el cliente; va junto a la calle hasta que el maestro la tenga.
+        var calle = Limpiar(string.Join(", ", new[] { Limpiar(f.Name3), Limpiar(f.Strasse) }.OfType<string>()));
 
         var snapshot = new AplicarClienteAwSnapshot(
             referencia, razonSocial, leidoEnUtc, VersionContrato, VersionMapeo,
@@ -68,7 +71,7 @@ public static class AwClienteSnapshotMapper
             Email: Limpiar(f.Mail),
             MandantOrigen: f.Mandant,
             NombreComercialOrigen: nombreComercial,
-            DomicilioCalle: Limpiar(f.Strasse),
+            DomicilioCalle: calle,
             DomicilioCiudad: Limpiar(f.Ort),
             DomicilioCp: Limpiar(f.Plz),
             DomicilioProvincia: Limpiar(f.Provinz),
@@ -94,8 +97,10 @@ public static class AwClienteSnapshotMapper
     }
 
     // RFC de 12 (moral) o 13 (física) posiciones; mayúsculas, con Ñ y & permitidos.
+    // UST_ID trae guiones, puntos y espacios (TI, 16-oct): se quitan antes de validar.
     private static string? RfcValido(string? v) =>
-        Limpiar(v)?.ToUpperInvariant() is { } r && Regex.IsMatch(r, "^[A-ZÑ&0-9]{12,13}$") ? r : null;
+        Limpiar(v) is { } c && Regex.Replace(c, @"[\s.\-]", "").ToUpperInvariant() is var r
+            && Regex.IsMatch(r, "^[A-ZÑ&0-9]{12,13}$") ? r : null;
 
     private static string? CpValido(string? v) =>
         Limpiar(v) is { } c && Regex.IsMatch(c, @"^\d{5}$") ? c : null;

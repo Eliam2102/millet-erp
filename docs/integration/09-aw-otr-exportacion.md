@@ -153,8 +153,8 @@ y `AwOrigenPgDb`; requiere `IntegracionesAw:OrigenDemo:Permitido`, y nunca en Pr
 No hay autenticación simulada: HTTP conserva EntraId + JWT del API y filtro territorial CE.
 Ver requiere `expedientes.leer`; gestionar usa `otr.gestionar` y alcance CE por sucursal.
 
-Scripts para Jorge: [07](../operacion/aw-integracion-scripts/07_create_otr_tables.sql) y
-[08](../operacion/aw-integracion-scripts/08_grant_otr.sql). Login ERP existente
+Scripts para Jorge: [12](../operacion/aw-integracion-scripts/12_create_otr_tables.sql) y
+[13](../operacion/aw-integracion-scripts/13_grant_otr.sql). Login ERP existente
 `millet_erp_integracion`; login propuesto A+W `aw_otr`, por confirmar. No ejecutar scripts
 sin acuerdo; no conceden permisos sobre tablas internas del proveedor.
 
