@@ -239,12 +239,18 @@ Todas las conexiones A+W (pedidos, clientes, productos, cambios, flujo 1 y OTR) 
 `AwSqlTls.Validar`: `Encrypt=True;TrustServerCertificate=False`, con host `aw-sql-onprem`
 (en el SAN del certificado de SER-DATA). Se rechazan `Encrypt=False/Optional` y
 `TrustServerCertificate=True`. El certificado público de SER-DATA vive en Key Vault
-(`aw-sql-server-certificate`) y la app lo agrega una vez a `CurrentUser\Root` al arrancar
-(`IntegracionesAw:SqlTls:CertificadoServidorPem`), con health check de vencimiento.
+(`aw-sql-server-certificate`, config `IntegracionesAw:SqlTls:CertificadoServidorPem`). Al arrancar,
+la app lo escribe en un archivo local (`/tmp/millet-aw-tls/ser-data.pem`) y `AwSqlTls.Validar` lo
+fija en cada conexión con `ServerCertificate=`. Tiene health check de vencimiento.
 
-- **Por qué no `ServerCertificate=`:** SqlClient 5.2.2 solo lo respeta con `Encrypt=Strict`;
-  con `Encrypt=True` falla con UntrustedRoot (verificado por VPN contra SER-DATA).
+- **Enmienda 29-oct-2026: `ServerCertificate=` en lugar de `CurrentUser\Root`.** En App Service
+  Linux el almacén `CurrentUser\Root` vive en `/home`, un recurso compartido cifs cuyo dueño no es
+  el proceso: .NET no deja escribir ahí (`CryptographicException`) y ninguna conexión A+W abría
+  (UntrustedRoot). Con SqlClient 6.0.2, `ServerCertificate=` sí se respeta con `Encrypt=True`
+  (verificado por VPN contra SER-DATA, 29-oct). Con 5.2.2 solo se respetaba con `Encrypt=Strict`,
+  por eso antes se usaba el almacén.
 - **Por qué se rechaza `Strict`:** el SQL Server 2016 de SER-DATA no soporta TDS 8.
-- Evidencia: pruebas opt-in `Category=SerDataVpn` (sin certificado confiado falla, con
-  certificado conecta, `HostNameInCertificate` equivocado falla; solo `SELECT` sobre
-  `MILLET_INTEGRACION_DEV`).
+- Evidencia: pruebas opt-in `Category=SerDataVpn` (sin certificado confiado falla, con el
+  certificado fijado conecta, con otro certificado fijado falla; solo `SELECT` sobre
+  `MILLET_INTEGRACION_DEV`). Con `ServerCertificate=` SqlClient exige el certificado exacto, por
+  eso ya no se prueba `HostNameInCertificate`.
