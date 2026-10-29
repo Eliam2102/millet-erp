@@ -33,6 +33,17 @@ const permisos: Record<Catalogo, string> = {
 };
 const etiquetas: Record<Estado, string> = { Nuevo: 'Nuevo', Actualiza: 'Se actualiza', SinCambio: 'Sin cambios', Error: 'Con error' };
 const tonos = { Nuevo: 'success', Actualiza: 'info', SinCambio: 'neutral', Error: 'danger' } as const;
+// Cuerpo multipart con frontera fija: un reintento con la misma llave de idempotencia envía los mismos bytes.
+function multipartFijo(archivo: File, huella: string) {
+  const frontera = `----CargaMaestros${huella.slice(0, 32)}`; // RFC 2046: máximo 70 caracteres.
+  const nombre = archivo.name.replace(/["\r\n]/g, '_');
+  return new Blob([
+    `--${frontera}\r\nContent-Disposition: form-data; name="huella"\r\n\r\n${huella}\r\n`,
+    `--${frontera}\r\nContent-Disposition: form-data; name="archivo"; filename="${nombre}"\r\nContent-Type: ${archivo.type || 'application/octet-stream'}\r\n\r\n`,
+    archivo, `\r\n--${frontera}--\r\n`,
+  ], { type: `multipart/form-data; boundary=${frontera}` });
+}
+
 function descargar(blob: Blob, nombre: string) {
   const url = URL.createObjectURL(blob); const enlace = document.createElement('a');
   enlace.href = url; enlace.download = nombre; enlace.click(); URL.revokeObjectURL(url);
@@ -74,7 +85,7 @@ function ContenidoCarga({ catalogo, cerrar, ocupado, setOcupado }: { catalogo: C
       const form = new FormData(); form.set('archivo', archivo);
       if (confirmar) form.set('huella', resultado!.huella);
       const respuesta = await apiRequest<ResultadoCargaMaestros>(`${base}/${confirmar ? 'confirmar' : 'previa'}`, {
-        method: 'POST', body: confirmar ? (cuerpoConfirmar.current ??= await new Response(form).blob()) : form, idempotencyKey: confirmar ? llave.current : undefined,
+        method: 'POST', body: confirmar ? (cuerpoConfirmar.current ??= multipartFijo(archivo, resultado!.huella)) : form, idempotencyKey: confirmar ? llave.current : undefined,
       });
       setResultado(respuesta.data); setPagina(0);
       if (confirmar) {
