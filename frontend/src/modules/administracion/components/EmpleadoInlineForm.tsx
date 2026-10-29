@@ -49,6 +49,11 @@ export interface EmpleadoInlineFormProps {
   empleado?: EmpleadoListItem | null;
   sucursalIdInicial?: string;
   sucursalFija?: boolean;
+  /**
+   * 86e3x6cpw: alta desde «Cuentas sin empleado». Precarga nombre y correo de la
+   * cuenta y fija el acceso en «Ya tiene cuenta Microsoft»; no usa borrador.
+   */
+  cuentaExistente?: { nombre: string; correo: string } | null;
   onCancel: () => void;
   onSaved?: () => void;
 }
@@ -71,6 +76,7 @@ export function EmpleadoInlineForm({
   empleado,
   sucursalIdInicial,
   sucursalFija = false,
+  cuentaExistente = null,
   onCancel,
   onSaved,
 }: EmpleadoInlineFormProps) {
@@ -87,14 +93,14 @@ export function EmpleadoInlineForm({
   );
   const roles = useRoles({ soloActivos: true, limit: 200 }, !esEditar && canDarAcceso);
   const [paso, setPaso] = useState(0);
-  const [acceso, setAcceso] = useState<0 | 1 | 2>(0);
+  const [acceso, setAcceso] = useState<0 | 1 | 2>(cuentaExistente ? 1 : 0);
   const [emailContacto, setEmailContacto] = useState(() => empleado?.emailContacto ?? '');
   const [rolId, setRolId] = useState('');
   const [correoValidable, setCorreoValidable] = useState('');
   const [borradorCargado, setBorradorCargado] = useState(false);
 
   // Dominio y prefijo de correo corporativo para facilitar input
-  const emailInicial = empleado?.email ?? '';
+  const emailInicial = empleado?.email ?? cuentaExistente?.correo ?? '';
   const [emailPrefix, setEmailPrefix] = useState(() => {
     if (!emailInicial) return '';
     const at = emailInicial.indexOf('@');
@@ -124,7 +130,12 @@ export function EmpleadoInlineForm({
           usuarioId: '',
           codigoNomina: empleado.codigoNomina ?? '',
         }
-      : { ...VALORES_INICIALES, sucursalId: sucursalIdInicial ?? '' },
+      : {
+          ...VALORES_INICIALES,
+          nombre: cuentaExistente?.nombre ?? '',
+          email: cuentaExistente?.correo ?? '',
+          sucursalId: sucursalIdInicial ?? '',
+        },
   });
 
   // Sincronizar campos al cambiar el empleado en modo edición
@@ -175,6 +186,7 @@ export function EmpleadoInlineForm({
       return;
     }
     form.setFocus('nombre');
+    if (cuentaExistente) return;
 
     try {
       const raw = sessionStorage.getItem(DRAFT_STORAGE_KEY);
@@ -199,7 +211,7 @@ export function EmpleadoInlineForm({
 
   // Auto-guardado de borrador
   useEffect(() => {
-    if (esEditar) return;
+    if (esEditar || cuentaExistente) return;
     const values = form.getValues();
     if (
       values.clave ||
@@ -222,7 +234,17 @@ export function EmpleadoInlineForm({
         }),
       );
     }
-  }, [esEditar, form, paso, acceso, emailContacto, rolId, emailPrefix, emailDomain]);
+  }, [
+    esEditar,
+    cuentaExistente,
+    form,
+    paso,
+    acceso,
+    emailContacto,
+    rolId,
+    emailPrefix,
+    emailDomain,
+  ]);
 
   const puestoSeleccionado = form.watch('puestoId');
   const sucursalSeleccionada = form.watch('sucursalId');
@@ -1014,6 +1036,7 @@ export function EmpleadoInlineForm({
                 aria-label="Acceso al ERP"
                 className="h-9 w-full rounded-md border bg-surface-page px-3 text-sm"
                 value={acceso}
+                disabled={cuentaExistente != null}
                 onChange={(e) => setAcceso(Number(e.target.value) as 0 | 1 | 2)}
               >
                 <option value={0}>Sin acceso</option>
@@ -1078,41 +1101,52 @@ export function EmpleadoInlineForm({
               error={form.formState.errors.email?.message}
               className="md:col-span-12"
             >
-              <div className="flex items-center w-full">
+              {cuentaExistente ? (
                 <Input
-                  maxLength={100}
-                  placeholder="juana.perez"
-                  value={emailPrefix}
-                  onChange={(e) => handleEmailPrefixChange(e.target.value)}
-                  className="flex-1 min-w-0 rounded-r-none border-r-0 focus:z-10"
+                  aria-label="Correo corporativo de la cuenta"
+                  value={cuentaExistente.correo}
+                  readOnly
+                  className="font-mono"
                 />
-                <div className="flex h-9 shrink-0 items-center rounded-r-md border border-l-0 bg-surface-muted px-3 text-xs text-ink-muted">
-                  <span className="mr-1.5 font-semibold text-ink">@</span>
-                  <select
-                    value={
-                      DOMINIOS_CORPORATIVOS.includes(emailDomain)
-                        ? emailDomain
-                        : DOMINIOS_CORPORATIVOS[0]
-                    }
-                    onChange={(e) => handleEmailDomainChange(e.target.value)}
-                    className="cursor-pointer bg-transparent text-xs font-medium text-ink outline-none"
-                    aria-label="Dominio corporativo"
-                  >
-                    {DOMINIOS_CORPORATIVOS.map((d) => (
-                      <option key={d} value={d}>
-                        {d}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              {emailPrefix.trim() && (
-                <p className="mt-1 text-xs text-ink-muted">
-                  Correo resultante:{' '}
-                  <span className="font-mono font-medium text-ink">
-                    {emailPrefix.trim()}@{emailDomain}
-                  </span>
-                </p>
+              ) : (
+                <>
+                  <div className="flex items-center w-full">
+                    <Input
+                      maxLength={100}
+                      placeholder="juana.perez"
+                      value={emailPrefix}
+                      onChange={(e) => handleEmailPrefixChange(e.target.value)}
+                      className="flex-1 min-w-0 rounded-r-none border-r-0 focus:z-10"
+                    />
+                    <div className="flex h-9 shrink-0 items-center rounded-r-md border border-l-0 bg-surface-muted px-3 text-xs text-ink-muted">
+                      <span className="mr-1.5 font-semibold text-ink">@</span>
+                      <select
+                        value={
+                          DOMINIOS_CORPORATIVOS.includes(emailDomain)
+                            ? emailDomain
+                            : DOMINIOS_CORPORATIVOS[0]
+                        }
+                        onChange={(e) => handleEmailDomainChange(e.target.value)}
+                        className="cursor-pointer bg-transparent text-xs font-medium text-ink outline-none"
+                        aria-label="Dominio corporativo"
+                      >
+                        {DOMINIOS_CORPORATIVOS.map((d) => (
+                          <option key={d} value={d}>
+                            {d}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  {emailPrefix.trim() && (
+                    <p className="mt-1 text-xs text-ink-muted">
+                      Correo resultante:{' '}
+                      <span className="font-mono font-medium text-ink">
+                        {emailPrefix.trim()}@{emailDomain}
+                      </span>
+                    </p>
+                  )}
+                </>
               )}
             </Field>
           </FormCampo>
