@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Contabilidad.Application.Polizas;
+using Millet.Contabilidad.Application.Ports;
 using Millet.Contabilidad.Application.PublicPorts;
 using Millet.Contabilidad.Domain;
 using Millet.Contabilidad.Infrastructure.Persistence;
@@ -36,7 +37,8 @@ public sealed class RechazoMotorException(CausaRechazoContable causa, string? de
     public string? Detalle { get; } = detalle;
 }
 
-public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IPolizaContablePort puerto, IClock clock)
+public sealed class GenerarPolizaDesdeEventoHandler(
+    ContabilidadDbContext db, IPolizaContablePort puerto, IClock clock, ICentroCostoContabilidadPort centros)
     : IRequestHandler<GenerarPolizaDesdeEventoCommand, ResultadoMotor>
 {
     public async Task<ResultadoMotor> Handle(GenerarPolizaDesdeEventoCommand request, CancellationToken cancellationToken)
@@ -75,6 +77,7 @@ public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IP
         var codigos = plantilla.Lineas.Select(l => l.Rol).Distinct().ToList();
         var roles = await db.RolesCuenta.IgnoreQueryFilters().AsNoTracking()
             .Where(r => r.EmpresaId == e.EmpresaId && codigos.Contains(r.Codigo) && r.DeletedAt == null).ToListAsync(ct);
+        var niveles = plantilla.Lineas.Any(l => l.ConCentroCosto) ? await NivelesAsync(e, ct) : new Dictionary<Guid, DimensionContable>();
 
         var partidas = new List<PartidaRequest>();
         foreach (var l in plantilla.Lineas.OrderBy(x => x.Orden))
@@ -95,8 +98,9 @@ public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IP
                 var cargo = l.Lado == LadoPartida.Cargo ? mxn : 0m;
                 var abono = l.Lado == LadoPartida.Abono ? mxn : 0m;
                 if (mxn < 0) (cargo, abono) = (-abono, -cargo);
+                var (dim1, dim2, dim3) = l.ConCentroCosto ? Dimensiones(centro, niveles) : (null, null, null);
                 partidas.Add(new PartidaRequest(cuenta.Value, l.Concepto, cargo, abono, sucursal,
-                    Dim3Id: l.ConCentroCosto ? centro : null, ClienteId: auxiliar.Cliente, ProveedorId: auxiliar.Proveedor,
+                    Dim1Id: dim1, Dim2Id: dim2, Dim3Id: dim3, ClienteId: auxiliar.Cliente, ProveedorId: auxiliar.Proveedor,
                     Moneda: e.Moneda, TipoCambio: tc, ImporteOriginal: e.Moneda == Poliza.MonedaNacional ? null : importe,
                     Origen: auxiliar.Origen, Puente: l.Rol == PolizaContableMotor.RolPuente ? puente : null));
             }
@@ -134,6 +138,31 @@ public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IP
         }
         foreach (var x in lineas)
             yield return (x.Importe, x.CentroCostoId ?? e.CentroCostoId, Puente(e, x.LineaOcId));
+    }
+
+    /// <summary>Nivel de cada centro del evento (cabecera y líneas), leído de CentrosCosto en un solo viaje.</summary>
+    private async Task<IReadOnlyDictionary<Guid, DimensionContable>> NivelesAsync(EventoContable e, CancellationToken ct)
+    {
+        var ids = e.Lineas.Select(x => x.CentroCostoId).Append(e.CentroCostoId).OfType<Guid>().Distinct().ToList();
+        if (ids.Count == 0) return new Dictionary<Guid, DimensionContable>();
+        var nodos = await centros.ObtenerAsync(ids, ct);
+        return nodos.ToDictionary(n => n.Key, n => n.Value.Nivel);
+    }
+
+    /// <summary>
+    /// ADM-08: el centro de la línea de OC puede ser de cualquier nivel (Dim1 ubicación, Dim2 CeCo, Dim3 equipo); va en la dimensión de
+    /// su nivel y el validador de K10.2 deriva los superiores. Un centro que no está en el catálogo va en Dim3 para que el validador lo
+    /// rechace como inexistente.
+    /// </summary>
+    private static (Guid? Dim1, Guid? Dim2, Guid? Dim3) Dimensiones(Guid? centro, IReadOnlyDictionary<Guid, DimensionContable> niveles)
+    {
+        if (centro is not { } id) return (null, null, null);
+        return niveles.GetValueOrDefault(id) switch
+        {
+            DimensionContable.Dim1 => (id, null, null),
+            DimensionContable.Dim2 => (null, id, null),
+            _ => (null, null, id),
+        };
     }
 
     private static ReferenciaPuente? Puente(EventoContable e, Guid? lineaOcId) =>
