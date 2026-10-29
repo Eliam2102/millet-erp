@@ -21,7 +21,7 @@ public sealed record EventoContable(
 }
 
 /// <summary>
-/// Línea del documento (importe antes de impuestos). <see cref="EsServicio"/> llega con 86e3vrh7u (E6); mientras, false.
+/// Línea del documento (importe antes de impuestos). <see cref="EsServicio"/> viene de la línea de OC (86e3vrh7u); sin dato, false.
 /// C1.5 (aditivo): <see cref="ClienteId"/> = auxiliar por línea (liquidación de efectivo: un abono por cobro y su cliente);
 /// <see cref="Clasificador"/> = sufijo de rol por línea (ventas por tipo de producto); <see cref="CuentaId"/> = cuenta fija de la línea
 /// (devolución interna: la misma cuenta de la póliza de consumo, V64).
