@@ -70,6 +70,8 @@ export interface ProveedorItem {
   tipoPersona: TipoPersonaProveedor;
   condicionesPagoDias: number | null;
   monedaPreferidaId: string | null;
+  /** Clave del proveedor en A+W (la usa la app de Almacenes). */
+  claveAw: number | null;
   estatus: EstatusCatalogo;
   validadoEn?: string | null;
   motivoRechazo?: string | null;
@@ -102,6 +104,7 @@ export interface ProveedorDetalle {
   tipoPersona: TipoPersonaProveedor;
   condicionesPagoDias: number | null;
   monedaPreferidaId: string | null;
+  claveAw: number | null;
   email: string | null;
   telefono: string | null;
   estatus: EstatusCatalogo;
@@ -147,6 +150,7 @@ export interface CrearProveedorPayload {
   monedaPreferidaId: string | null;
   email: string | null;
   telefono: string | null;
+  claveAw?: number | null;
   /** Clasificación fiscal en la misma transacción del alta (86e3pdmee). */
   origen?: OrigenProveedor | null;
   regimenFiscalCodigo?: string | null;
@@ -177,6 +181,8 @@ export interface ActualizarProveedorPayload {
   limpiarMonedaPreferida?: boolean | null;
   limpiarEmail?: boolean | null;
   limpiarTelefono?: boolean | null;
+  claveAw?: number | null;
+  limpiarClaveAw?: boolean | null;
 }
 
 export interface CrearProveedorResponse {
@@ -621,6 +627,8 @@ export interface ProductoAwItem {
   tipo?: string | null;
   /** Piezas del árbol de composición (0 = sin composición). */
   numComponentes?: number;
+  /** PIN-2: marca explícita «Servicio de recubrimiento» (dato del ERP; A+W no la sobrescribe). */
+  esServicioRecubrimiento?: boolean;
 }
 
 export interface ListarProductosAwResponse {
@@ -656,6 +664,8 @@ export interface ProductoAwDetalle {
   datosFiscalesCompletos: boolean;
   estatus: EstatusCatalogo;
   fechaBaja?: string | null;
+  /** PIN-2: marca «Servicio de recubrimiento». */
+  esServicioRecubrimiento?: boolean;
   variantes?: ProductoAwVariante[];
   /** Clasificación de A+W (dueño A+W; null = sin dato). Familia de negocio = tipo → grupo; wgr = grupo de mercancía (`KA_WGR`). */
   codigoModelo?: string | null;
@@ -749,6 +759,7 @@ export interface CrearProductoAwPayload {
   fraccionArancelaria?: string | null;
   unidadAduana?: string | null;
   pesoUnitarioKg?: number | null;
+  esServicioRecubrimiento?: boolean;
 }
 
 export interface ActualizarProductoAwPayload {
@@ -766,6 +777,8 @@ export interface ActualizarProductoAwPayload {
   fraccionArancelaria?: string | null;
   unidadAduana?: string | null;
   pesoUnitarioKg?: number | null;
+  /** null/ausente = sin cambio. */
+  esServicioRecubrimiento?: boolean | null;
   limpiarCategoria?: boolean | null;
   limpiarTasaIvaTraslado?: boolean | null;
   limpiarTasaRetencionIva?: boolean | null;

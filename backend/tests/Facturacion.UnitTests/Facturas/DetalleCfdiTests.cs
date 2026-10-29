@@ -176,7 +176,7 @@ public sealed class DetalleCfdiTests
         db.FacturasVenta.Add(fv);
         await db.SaveChangesAsync();
 
-        var pdf = await new ComprobantePdfHandler(db, new FakeAlcanceCajaEvaluator(), new QuestPdfFacturaGenerator())
+        var pdf = await new ComprobantePdfHandler(db, new FakeAlcanceCajaEvaluator(), new QuestPdfFacturaGenerator(), new FakeDatosImpresionCfdi())
             .Handle(new ComprobantePdfQuery(fv.Id, FormatoPdfFactura.Bilingue, FamiliaComprobante.FacturaVenta), CancellationToken.None);
 
         pdf.Contenido.Should().NotBeEmpty();
