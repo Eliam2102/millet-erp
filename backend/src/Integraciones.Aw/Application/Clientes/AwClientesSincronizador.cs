@@ -1,3 +1,4 @@
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Millet.Integraciones.Aw.Application.Origen;
@@ -116,11 +117,12 @@ public sealed class AwClientesSincronizador
             ejec.AvanzarCursor(pagina.SiguienteCursor ?? ejec.CursorActual);
             if (pagina.SiguienteCursor is null || pagina.Filas.Count == 0)
             {
+                await UnificarSinHistorialAsync(ejec, ct);
                 ejec.Finalizar(_time.GetUtcNow());
                 await _db.SaveChangesAsync(ct);
                 _logger.LogInformation(
-                    "Barrido de clientes {EjecucionId} terminó en {Estado}. leidos={Leidos} creados={Creados} actualizados={Actualizados} sinCambios={SinCambios} pendientes={Pendientes} conflictos={Conflictos} errores={Errores}",
-                    ejec.Id, ejec.Estado, ejec.Leidos, ejec.Creados, ejec.Actualizados, ejec.SinCambios, ejec.Pendientes, ejec.Conflictos, ejec.Errores);
+                    "Barrido de clientes {EjecucionId} terminó en {Estado}. leidos={Leidos} creados={Creados} actualizados={Actualizados} sinCambios={SinCambios} pendientes={Pendientes} conflictos={Conflictos} errores={Errores} unificados={Unificados}",
+                    ejec.Id, ejec.Estado, ejec.Leidos, ejec.Creados, ejec.Actualizados, ejec.SinCambios, ejec.Pendientes, ejec.Conflictos, ejec.Errores, ejec.Unificados);
                 return;
             }
             await _db.SaveChangesAsync(ct); // progreso durable por lote
@@ -201,6 +203,21 @@ public sealed class AwClientesSincronizador
             // Solo código estable + tipo: ex.Message puede traer datos personales o secretos.
             ejec.RegistrarError(referencia, "aplicacion_fallida", $"No se pudo aplicar el cliente ({ex.GetType().Name})", ahora);
         }
+    }
+
+    /// <summary>Un fallo aquí no tumba el barrido: los grupos sin unificar siguen pendientes y se reintentan en el siguiente.</summary>
+    private async Task UnificarSinHistorialAsync(AwClientesEjecucion ejec, CancellationToken ct)
+    {
+        if (!_options.UnificacionAutomaticaHabilitada || _sp.GetService<ISender>() is not { } sender) return;
+        try
+        {
+            ejec.RegistrarUnificados(await sender.Send(new UnificarRfcRepetidosAutomaticoCommand("sistema:unificacion-automatica"), ct));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning("Unificación automática de RFC repetido falló en {EjecucionId} ({Tipo}).", ejec.Id, ex.GetType().Name);
+        }
+        _compartidoDb.ChangeTracker.Clear();
     }
 
     private static AwClientesFilaResultado Reducir(AplicarClienteAwResultado r) => r.Accion switch

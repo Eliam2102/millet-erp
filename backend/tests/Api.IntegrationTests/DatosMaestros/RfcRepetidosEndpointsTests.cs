@@ -286,4 +286,39 @@ public sealed class RfcRepetidosEndpointsTests(WebApplicationFactory<Program> fa
         Assert.Equal(HttpStatusCode.OK, (await Unificar(http, rfc, a)).StatusCode);
         Assert.Equal(("Activo", (Guid?)a), await EstadoAsync(b));
     }
+
+    [Fact]
+    public async Task Automatica_unifica_solo_los_grupos_sin_historial_y_es_idempotente()
+    {
+        var (a, b, _, _, rfc) = await DosAsync();
+        var (c, d, _, _, rfcConHistorial) = await DosAsync();
+        using (var scope = factory.Services.CreateScope())
+        {
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var fac = scope.ServiceProvider.GetRequiredService<FacturacionDbContext>();
+            fac.Add(PedidoFacturable.CrearManual(Empresa, $"FIX-UNI-{Guid.NewGuid():N}", TestComprasFixtures.SucursalMid, d, "Cliente ficticio",
+                1, ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, null, ClasePedidoManual.VentaDirecta, SubtipoVentaDirecta.Servicio, null, null));
+            await fac.SaveChangesAsync();
+        }
+
+        async Task<int> Correr()
+        {
+            using var scope = factory.Services.CreateScope();
+            return await scope.ServiceProvider.GetRequiredService<MediatR.ISender>()
+                .Send(new UnificarRfcRepetidosAutomaticoCommand("sistema:test"));
+        }
+
+        Assert.True(await Correr() >= 1);
+        var estados = new[] { await EstadoAsync(a), await EstadoAsync(b) };
+        Assert.Single(estados, e => e.UnificadoEn is not null);
+        Assert.Single(estados, e => e is { Estatus: "Inactivo", UnificadoEn: not null }); // sin historial: Fusionar
+        Assert.Equal((null, null), ((await EstadoAsync(c)).UnificadoEn, (await EstadoAsync(d)).UnificadoEn)); // con historial: queda para una persona
+        var http = await UsuariosAwHttp.SuperAdminAsync(factory);
+        Assert.Null(await BuscarGrupoAsync(http, rfc));
+        Assert.NotNull(await BuscarGrupoAsync(http, rfcConHistorial));
+
+        await Correr(); // idempotente: no vuelve a tocar lo unificado ni el grupo con historial
+        Assert.Equal(estados, new[] { await EstadoAsync(a), await EstadoAsync(b) });
+        Assert.NotNull(await BuscarGrupoAsync(http, rfcConHistorial));
+    }
 }

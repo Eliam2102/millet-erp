@@ -101,6 +101,14 @@ internal static class RfcRepetidosGrupos
         return new(grupos.Where(g => g.Value.Count >= 2).ToDictionary(g => g.Key, g => g.Value), StringComparer.Ordinal);
     }
 
+    /// <summary>Pendiente = más de un cliente sin unificar (resuelto = a lo más uno).</summary>
+    public static async Task<SortedDictionary<string, HashSet<Guid>>> SoloPendientesAsync(
+        CompartidoDbContext db, SortedDictionary<string, HashSet<Guid>> grupos, CancellationToken ct)
+    {
+        var unificados = (await db.Clientes.AsNoTracking().Where(c => c.UnificadoEnClienteId != null).Select(c => c.Id).ToListAsync(ct)).ToHashSet();
+        return new(grupos.Where(g => g.Value.Count(id => !unificados.Contains(id)) > 1).ToDictionary(g => g.Key, g => g.Value), StringComparer.Ordinal);
+    }
+
     public static async Task<List<RfcRepetidoGrupoDto>> ConstruirAsync(
         CompartidoDbContext db, IAwClientesPedidosOrigen aw, IPedidosErpPorClienteReadPort erp,
         IReadOnlyList<(string Rfc, HashSet<Guid> Ids)> grupos, CancellationToken ct)
@@ -159,12 +167,7 @@ public sealed class ListarRfcRepetidosHandler(
         var off = Math.Max(0, request.Offset);
         var lim = Math.Clamp(request.Limit, 1, 100);
         var grupos = await RfcRepetidosGrupos.CargarAsync(db, ct);
-        if (request.SoloPendientes)
-        {
-            // Resuelto = a lo más un cliente sin unificar.
-            var unificados = (await db.Clientes.AsNoTracking().Where(c => c.UnificadoEnClienteId != null).Select(c => c.Id).ToListAsync(ct)).ToHashSet();
-            grupos = new(grupos.Where(g => g.Value.Count(id => !unificados.Contains(id)) > 1).ToDictionary(g => g.Key, g => g.Value), StringComparer.Ordinal);
-        }
+        if (request.SoloPendientes) grupos = await RfcRepetidosGrupos.SoloPendientesAsync(db, grupos, ct);
         var pagina = grupos.Skip(off).Take(lim).Select(g => (g.Key, g.Value)).ToList();
         return new(grupos.Count, off, lim, await RfcRepetidosGrupos.ConstruirAsync(db, aw, erp, pagina, ct));
     }
@@ -186,8 +189,42 @@ public sealed class ObtenerRfcRepetidoHandler(
     }
 }
 
+/// <summary>
+/// Unificación automática (acuerdo Millet 27-oct): los grupos donde NINGÚN cliente sin unificar tiene historial
+/// (pedidos o cotizaciones en A+W, pedidos en el ERP) se unifican en el principal sugerido, con las mismas reglas del
+/// comando manual. Los grupos con historial se dejan pendientes para que una persona elija. Idempotente. Devuelve cuántos grupos unificó.
+/// </summary>
+public sealed record UnificarRfcRepetidosAutomaticoCommand(string Actor) : IRequest<int>;
+
+public sealed class UnificarRfcRepetidosAutomaticoHandler(
+    CompartidoDbContext db, IAwClientesPedidosOrigen aw, IPedidosErpPorClienteReadPort erp, ISender sender)
+    : IRequestHandler<UnificarRfcRepetidosAutomaticoCommand, int>
+{
+    public const string Motivo = "Unificación automática: sin pedidos ni cotizaciones";
+
+    public async Task<int> Handle(UnificarRfcRepetidosAutomaticoCommand request, CancellationToken cancellationToken)
+    {
+        var ct = cancellationToken;
+        var pendientes = await RfcRepetidosGrupos.SoloPendientesAsync(db, await RfcRepetidosGrupos.CargarAsync(db, ct), ct);
+        var grupos = await RfcRepetidosGrupos.ConstruirAsync(db, aw, erp, pendientes.Select(g => (g.Key, g.Value)).ToList(), ct);
+        var unificados = 0;
+        foreach (var g in grupos.Where(g => g.Clientes.Where(c => c.UnificadoEnClienteId is null)
+                     .All(c => c.PedidosAw == 0 && c.CotizacionesAw == 0 && c.PedidosErp == 0)))
+        {
+            try
+            {
+                await sender.Send(new UnificarRfcRepetidoCommand(g.Rfc, g.PrincipalSugeridoId, Motivo, request.Actor, Automatica: true), ct);
+                unificados++;
+            }
+            catch (BusinessRuleException) { } // el grupo no cumple una regla del comando: queda pendiente para una persona
+        }
+        return unificados;
+    }
+}
+
 /// <summary>Unifica todos los demás clientes del grupo del RFC en el principal elegido.</summary>
-public sealed record UnificarRfcRepetidoCommand(string Rfc, Guid PrincipalClienteId, string Motivo, string Actor)
+/// <summary><c>Automatica</c>: lo dispara la sincronización (sin usuario); los conflictos quedan resueltos por <c>Guid.Empty</c> (sistema).</summary>
+public sealed record UnificarRfcRepetidoCommand(string Rfc, Guid PrincipalClienteId, string Motivo, string Actor, bool Automatica = false)
     : IRequest<RfcRepetidoGrupoDto>;
 
 public sealed class UnificarRfcRepetidoHandler(
@@ -236,7 +273,7 @@ public sealed class UnificarRfcRepetidoHandler(
         var refsGrupo = clientes.Where(c => c.ReferenciaExterna is not null).Select(c => c.ReferenciaExterna!).ToList();
         var conflictos = await db.CambiosMaestrosAw.Where(c => c.TipoEntidad == "Cliente" && c.Tipo == TipoCambioMaestroAw.RfcCompartido
             && c.Estado == EstadoCambioMaestroAw.Pendiente && c.ValorDespues == rfc && refsGrupo.Contains(c.ReferenciaExterna)).ToListAsync(ct);
-        foreach (var c in conflictos) c.Resolver("Unificado", user.UserId ?? throw new ForbiddenException("USUARIO_REQUERIDO", "Inicia sesión para unificar."), ahora);
+        foreach (var c in conflictos) c.Resolver("Unificado", user.UserId ?? (request.Automatica ? Guid.Empty : throw new ForbiddenException("USUARIO_REQUERIDO", "Inicia sesión para unificar.")), ahora);
         await db.SaveChangesAsync(ct);
         await scope.ConfirmarAsync(ct);
 
