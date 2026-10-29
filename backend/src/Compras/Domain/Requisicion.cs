@@ -230,7 +230,8 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         rq.FolioExterno = folioExterno.Trim();
         foreach (var l in lineas)
         {
-            var linea = rq.AgregarLinea(Guid.CreateVersion7(), l.ArticuloId, l.Cantidad, l.UnidadMedida, l.PrecioEstimado);
+            var linea = rq.AgregarLinea(Guid.CreateVersion7(), l.ArticuloId, l.Cantidad, l.UnidadMedida, l.PrecioEstimado,
+                proyecto: l.Obra, fechaRequerida: l.FechaRequerida);
             linea.AsignarMedidaApp(l.Piezas, l.AnchoMm, l.AltoMm);
         }
         rq.Estado = EstadoRequisicion.Autorizada;
