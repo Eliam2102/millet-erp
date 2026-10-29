@@ -44,6 +44,8 @@ describe('Carga de maestros', () => {
     await screen.findByText('Paso 3 de 3', { exact: false });
     const [ruta, opciones] = mocks.api.mock.calls[1];
     expect(ruta).toContain('/confirmar'); expect(campos).toHaveBeenCalledWith('huella', 'HUELLA'); expect(opciones.body.size).toBeGreaterThan(0); campos.mockRestore(); expect(opciones.idempotencyKey).toBeTruthy();
+    // El navegador baja a minúsculas el type del Blob: el boundary ya debe ir en minúsculas para coincidir con el cuerpo.
+    expect(opciones.body.type).toBe('multipart/form-data; boundary=----cargamaestroshuella');
   });
   it('deshabilita confirmar si ningún renglón cambia', async () => {
     mocks.api.mockResolvedValue({ data: { ...previa, nuevos: 0, actualiza: 0 } });

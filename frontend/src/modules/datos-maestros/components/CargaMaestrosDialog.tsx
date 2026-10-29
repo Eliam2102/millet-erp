@@ -35,7 +35,9 @@ const etiquetas: Record<Estado, string> = { Nuevo: 'Nuevo', Actualiza: 'Se actua
 const tonos = { Nuevo: 'success', Actualiza: 'info', SinCambio: 'neutral', Error: 'danger' } as const;
 // Cuerpo multipart con frontera fija: un reintento con la misma llave de idempotencia envía los mismos bytes.
 function multipartFijo(archivo: File, huella: string) {
-  const frontera = `----CargaMaestros${huella.slice(0, 32)}`; // RFC 2046: máximo 70 caracteres.
+  // En minúsculas: el navegador baja a minúsculas el type del Blob (y con él el boundary del encabezado); la huella
+  // viene en hex mayúsculas y el cuerpo no coincidía con el encabezado («No se pudo leer el formulario»).
+  const frontera = `----cargamaestros${huella.slice(0, 32).toLowerCase()}`; // RFC 2046: máximo 70 caracteres.
   const nombre = archivo.name.replace(/["\r\n]/g, '_');
   return new Blob([
     `--${frontera}\r\nContent-Disposition: form-data; name="huella"\r\n\r\n${huella}\r\n`,
