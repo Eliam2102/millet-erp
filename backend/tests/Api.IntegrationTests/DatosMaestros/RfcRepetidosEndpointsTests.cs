@@ -321,4 +321,20 @@ public sealed class RfcRepetidosEndpointsTests(WebApplicationFactory<Program> fa
         Assert.Equal(estados, new[] { await EstadoAsync(a), await EstadoAsync(b) });
         Assert.NotNull(await BuscarGrupoAsync(http, rfcConHistorial));
     }
+
+    [Fact]
+    public async Task Grupo_de_cxc_devuelve_principal_primero_desde_cualquier_miembro_y_vacio_sin_grupo()
+    {
+        var (a, b, _, _, rfc) = await DosAsync();
+        var suelto = await CrearAsync(NuevaRef(), NuevoRfc());
+        var http = await UsuariosAwHttp.SuperAdminAsync(factory);
+        Assert.Equal(HttpStatusCode.OK, (await Unificar(http, rfc, a)).StatusCode);
+
+        using var scope = factory.Services.CreateScope();
+        var puerto = scope.ServiceProvider.GetRequiredService<Millet.CuentasPorCobrar.Domain.Ports.DatosMaestros.IClienteReadPort>();
+        foreach (var desde in new[] { a, b })
+            Assert.Equal([a, b], (await puerto.ObtenerGrupoAsync(desde, CancellationToken.None)).Select(m => m.Id));
+        Assert.True((await puerto.ObtenerGrupoAsync(a, CancellationToken.None))[0].EsPrincipal);
+        Assert.Empty(await puerto.ObtenerGrupoAsync(suelto, CancellationToken.None));
+    }
 }
