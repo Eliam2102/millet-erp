@@ -14,13 +14,20 @@ public sealed record EventoContable(
     string Tipo, Guid EventoId, Guid EmpresaId, DateOnly FechaContable, DocumentoOrigenPoliza Documento,
     Guid? SucursalId, Guid? ProveedorId, Guid? ClienteId, Guid? CentroCostoId, Guid? OrdenCompraId,
     string Moneda, decimal? TipoCambio, IReadOnlyDictionary<string, decimal?> Importes, IReadOnlyList<LineaEventoContable> Lineas,
-    string Payload)
+    string Payload, TipoDocumentoPuente TipoPuente = TipoDocumentoPuente.Factura, Guid? FacturaOrigenId = null, string? LlaveOverride = null)
 {
-    public string Llave => $"{Tipo}:{EventoId}";
+    /// <summary>C1.5: una reversa derivada (p. ej. cobro en efectivo cancelado ya liquidado) usa su propia llave.</summary>
+    public string Llave => LlaveOverride ?? $"{Tipo}:{EventoId}";
 }
 
-/// <summary>Línea del documento (importe antes de impuestos). <see cref="EsServicio"/> llega con 86e3vrh7u (E6); mientras, false.</summary>
-public sealed record LineaEventoContable(Guid? LineaOcId, decimal Importe, Guid? CentroCostoId, bool EsServicio);
+/// <summary>
+/// Línea del documento (importe antes de impuestos). <see cref="EsServicio"/> llega con 86e3vrh7u (E6); mientras, false.
+/// C1.5 (aditivo): <see cref="ClienteId"/> = auxiliar por línea (liquidación de efectivo: un abono por cobro y su cliente);
+/// <see cref="Clasificador"/> = sufijo de rol por línea (ventas por tipo de producto); <see cref="CuentaId"/> = cuenta fija de la línea
+/// (devolución interna: la misma cuenta de la póliza de consumo, V64).
+/// </summary>
+public sealed record LineaEventoContable(Guid? LineaOcId, decimal Importe, Guid? CentroCostoId, bool EsServicio,
+    Guid? ClienteId = null, string? Clasificador = null, Guid? CuentaId = null);
 
 /// <summary>El payload no se puede leer como el contrato del tipo (no es rechazo de negocio: es un evento corrupto).</summary>
 public sealed class EventoIlegibleException(string mensaje) : Exception(mensaje);
@@ -31,7 +38,7 @@ public sealed class EventoIlegibleException(string mensaje) : Exception(mensaje)
 /// Un tipo desconocido se normaliza con lo mínimo (empresa y fecha) para que el motor lo mande a la bandeja con
 /// <see cref="CausaRechazoContable.SinPlantilla"/> y no se pierda (C1.4-d).
 /// </summary>
-public static class NormalizadorEventos
+public static partial class NormalizadorEventos
 {
     public const string FacturaProveedorRegistrada = "cuentas_por_pagar.factura.registrada.v1";
 
@@ -41,7 +48,8 @@ public static class NormalizadorEventos
     {
         try
         {
-            return tipo == FacturaProveedorRegistrada ? FacturaProveedor(eventoId, payload) : Generico(tipo, eventoId, payload);
+            return tipo == FacturaProveedorRegistrada ? FacturaProveedor(eventoId, payload)
+                : NormalizarC15(tipo, eventoId, payload) ?? Generico(tipo, eventoId, payload);
         }
         catch (JsonException e)
         {
