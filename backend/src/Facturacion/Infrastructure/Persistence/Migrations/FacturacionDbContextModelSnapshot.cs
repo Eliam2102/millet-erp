@@ -390,6 +390,12 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("nombre");
 
+                    b.Property<int>("UltimoFolioVale")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("ultimo_folio_vale");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -549,6 +555,10 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid?>("CajaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("caja_id");
+
                     b.Property<Guid>("CajaSesionId")
                         .HasColumnType("uuid")
                         .HasColumnName("caja_sesion_id");
@@ -578,6 +588,10 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("EmpresaId")
                         .HasColumnType("uuid")
                         .HasColumnName("empresa_id");
+
+                    b.Property<int?>("FolioVale")
+                        .HasColumnType("integer")
+                        .HasColumnName("folio_vale");
 
                     b.Property<string>("FormaPago")
                         .IsRequired()
@@ -631,6 +645,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                     b.HasIndex("CobroMostradorId")
                         .HasDatabaseName("ix_caja_movimiento_cobro")
                         .HasFilter("cobro_mostrador_id IS NOT NULL");
+
+                    b.HasIndex("CajaId", "FolioVale")
+                        .IsUnique()
+                        .HasDatabaseName("ux_caja_movimiento_folio_vale")
+                        .HasFilter("folio_vale IS NOT NULL");
 
                     b.ToTable("caja_movimiento", "facturacion");
                 });

@@ -24,6 +24,7 @@ public sealed class CajaConfiguration : IEntityTypeConfiguration<Caja>
         builder.Property(e => e.Nombre).HasMaxLength(100).IsRequired();
         builder.Property(e => e.Descripcion).HasMaxLength(254);
         builder.Property(e => e.Estatus).HasConversion<short>().IsRequired();
+        builder.Property(e => e.UltimoFolioVale).HasDefaultValue(0).IsRequired();
 
         builder.HasIndex(e => new { e.EmpresaId, e.Nombre })
             .IsUnique()

@@ -100,6 +100,8 @@ public sealed class CajaMovimientoConfiguration : IEntityTypeConfiguration<CajaM
         builder.Property(e => e.Referencia).HasMaxLength(100);
         builder.Property(e => e.Descripcion).HasMaxLength(254).IsRequired();
         builder.Property(e => e.UsuarioId).IsRequired();
+        builder.Property(e => e.CajaId);
+        builder.Property(e => e.FolioVale);
 
         builder.HasOne<CajaSesion>()
             .WithMany()
@@ -110,6 +112,11 @@ public sealed class CajaMovimientoConfiguration : IEntityTypeConfiguration<CajaM
         builder.HasIndex(e => e.CobroMostradorId)
             .HasDatabaseName("ix_caja_movimiento_cobro")
             .HasFilter("cobro_mostrador_id IS NOT NULL");
+        // Vale de Caja (86e3ww6tw): el folio no se repite dentro de una caja.
+        builder.HasIndex(e => new { e.CajaId, e.FolioVale })
+            .IsUnique()
+            .HasDatabaseName("ux_caja_movimiento_folio_vale")
+            .HasFilter("folio_vale IS NOT NULL");
     }
 }
 

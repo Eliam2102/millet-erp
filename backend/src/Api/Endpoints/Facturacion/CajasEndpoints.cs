@@ -5,6 +5,7 @@ using Millet.Api.Auth;
 using Millet.Api.Web;
 using Millet.Facturacion.Application.Cajas;
 using Millet.Facturacion.Application.Cajas.Sesiones;
+using Millet.Facturacion.Application.Cajas.Vales;
 using Millet.Facturacion.Application.Reportes.CorteCaja;
 using Millet.Facturacion.Domain.Cajas;
 using Millet.Identidad.Domain;
@@ -349,6 +350,24 @@ public static class CajasEndpoints
         .WithSummary("Registra un depósito o retiro manual en la sesión")
         .Produces<CajaMovimientoRegistradoResponse>(StatusCodes.Status201Created)
         .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // GET: Vale de Caja de un retiro (86e3ww6tw). El cajero de la sesión o
+        // supervisar ∨ administrar ∨ liquidar (OR en el handler, como el corte).
+        group.MapGet("/movimientos/{id:guid}/vale.pdf", async (
+            Guid id,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var pdf = await mediator.Send(new ValeCajaPdfQuery(id), cancellationToken);
+            return Results.File(pdf.Contenido, pdf.ContentType, pdf.NombreSugerido);
+        })
+        .RequireAuthorization()
+        .WithName("ValeCajaPdf")
+        .WithSummary("PDF del Vale de Caja de un retiro (mismo folio al reimprimir)")
+        .Produces(StatusCodes.Status200OK, contentType: "application/pdf")
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
