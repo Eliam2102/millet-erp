@@ -70,7 +70,6 @@ public sealed class DescartarComprobanteHandler
                             .FirstOrDefaultAsync(c => c.PedidoFacturableId == pedido.Id, cancellationToken);
                         if (control is not null)
                         {
-                            control.SolicitarWriteBackEstado("SinFacturar", uuid: null, _clock.UtcNow);
                             control.CambiarEstado(EstadoIngesta.Importado);
                         }
                     }

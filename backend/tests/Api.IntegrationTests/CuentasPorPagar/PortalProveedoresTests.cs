@@ -141,7 +141,7 @@ public sealed class PortalProveedoresTests(WebApplicationFactory<Program> factor
             Assert.All(items, i => Assert.StartsWith("FIXA", i.GetProperty("folio").GetString()));
             var detenida = items.Single(i => i.GetProperty("folio").GetString() == $"FIXA1-{e.Sufijo}");
             Assert.True(detenida.GetProperty("detenida").GetBoolean());
-            Assert.Contains("Falta el complemento de pago", detenida.GetProperty("estado").GetString());
+            Assert.Contains("falta el complemento de pago", detenida.GetProperty("estado").GetString());
             Assert.Contains("Falta el complemento de pago de la factura", detenida.GetProperty("motivo").GetString());
         }
         finally { await LimpiarAsync(e); }

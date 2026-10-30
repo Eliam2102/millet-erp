@@ -635,6 +635,12 @@ public static class PermisosCanonicos
     public const string ComercioExteriorDocumentosLeerTodasSucursales = "comercio_exterior.documentos.leer-todas-sucursales";
     public const string ComercioExteriorDocumentosGestionarTodasSucursales = "comercio_exterior.documentos.gestionar-todas-sucursales";
 
+    // Producto Terminado (entrada de piezas): ver / gestionar excepciones, con bypass por sucursal (ADR-0051).
+    public const string ProductoTerminadoPiezasVer = "producto_terminado.piezas.ver";
+    public const string ProductoTerminadoPiezasVerTodasSucursales = "producto_terminado.piezas.ver-todas-sucursales";
+    public const string ProductoTerminadoExcepcionesGestionar = "producto_terminado.excepciones.gestionar";
+    public const string ProductoTerminadoExcepcionesGestionarTodasSucursales = "producto_terminado.excepciones.gestionar-todas-sucursales";
+
     /// <summary>
     /// Catálogo completo: <c>(Id determinista, Codigo, Descripcion)</c>.
     /// Usado por la migration de seed y por el bootstrap del SuperAdmin
@@ -998,6 +1004,10 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000e-0001-0000-0000-00000000000a"), ComercioExteriorExpedientesAdjuntosBaja, "Baja lógica con motivo"),
         (Guid.Parse("0000000e-0002-0000-0000-000000000001"), ComercioExteriorDocumentosLeerTodasSucursales, "Consultar todas las sucursales"),
         (Guid.Parse("0000000e-0002-0000-0000-000000000002"), ComercioExteriorDocumentosGestionarTodasSucursales, "Operar todas las sucursales"),
+        (Guid.Parse("00000010-0001-0000-0000-000000000001"), ProductoTerminadoPiezasVer, "Consultar las piezas de producto terminado de las sucursales asociadas"),
+        (Guid.Parse("00000010-0001-0000-0000-000000000002"), ProductoTerminadoPiezasVerTodasSucursales, "Consultar las piezas de producto terminado de todas las sucursales"),
+        (Guid.Parse("00000010-0002-0000-0000-000000000001"), ProductoTerminadoExcepcionesGestionar, "Gestionar la bandeja de excepciones de entrada de piezas (reintentar, descartar, marcar revisada) de las sucursales asociadas"),
+        (Guid.Parse("00000010-0002-0000-0000-000000000002"), ProductoTerminadoExcepcionesGestionarTodasSucursales, "Gestionar la bandeja de excepciones de entrada de piezas de todas las sucursales"),
         (Guid.Parse("0000000f-0001-0000-0000-000000000008"), ActivosFijosDepreciacionCorrer, "Activos fijos: depreciacion.correr"),
         (Guid.Parse("0000000f-0001-0000-0000-000000000009"), ActivosFijosDepreciacionAnular, "Activos fijos: depreciacion.anular"),
         (Guid.Parse("0000000f-0001-0000-0000-000000000010"), ActivosFijosBajasRegistrar, "Activos fijos: bajas.registrar"),

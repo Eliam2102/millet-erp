@@ -8,6 +8,8 @@ using Millet.Integraciones.Aw.Application.Clientes;
 using Millet.Integraciones.Aw.Application.Productos;
 using Millet.Integraciones.Aw.Application.Pedidos;
 using Millet.Integraciones.Aw.Application.Origen;
+using Millet.Integraciones.Aw.Application.Retorno;
+using Millet.Integraciones.Aw.Infrastructure.Retorno;
 using Millet.Integraciones.Aw.Infrastructure.Clientes;
 using Millet.Integraciones.Aw.Infrastructure.OrigenPg;
 using Millet.Integraciones.Aw.Infrastructure.Pedidos;
@@ -27,6 +29,8 @@ public static class OrigenDependencyInjection
         ConservarReal<IAwProductosOrigen>(services);
         ConservarReal<IAwSolicitudesReader>(services);
         ConservarReal<IAwWriteBackPort>(services);
+        ConservarReal<IAwRetornoPort>(services);
+        services.AddScoped<AwRetornoDocumentoService>();
         ConservarReal<IAwClientesReader>(services);
         ConservarReal<IAwArticulosReader>(services);
         ConservarReal<IMasterProvisioningPort>(services);
@@ -49,6 +53,9 @@ public static class OrigenDependencyInjection
         services.AddKeyedScoped<IAwWriteBackPort>("Demo", (sp, _) => new AwWriteBackPgAdapter(
             sp.GetRequiredKeyedService<IIntegracionSqlConnectionFactory>("Demo"), sp.GetRequiredService<IOptions<AwPedidosOptions>>(),
             sp.GetRequiredService<ILogger<AwWriteBackPgAdapter>>()));
+        services.AddKeyedScoped<IAwRetornoPort>("Demo", (sp, _) => new AwRetornoAdapter(
+            sp.GetRequiredKeyedService<IIntegracionSqlConnectionFactory>("Demo"), sp.GetRequiredService<IOptions<AwPedidosOptions>>(),
+            AwRetornoAdapter.CandadoPostgres));
         services.AddKeyedScoped<IAwClientesReader>("Demo", (sp, _) => new AwClientesPgReader(
             sp.GetRequiredKeyedService<IIntegracionSqlConnectionFactory>("Demo"), sp.GetRequiredService<IOptions<AwPedidosOptions>>(),
             sp.GetRequiredService<ILogger<AwClientesPgReader>>()));
