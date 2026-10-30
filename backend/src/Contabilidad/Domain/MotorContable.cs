@@ -110,6 +110,11 @@ public sealed class LineaPlantillaContable
     /// <summary>Lleva el centro de costo del evento o de la línea (dimensión Dim3).</summary>
     public bool ConCentroCosto { get; set; }
     public string? Concepto { get; set; }
+    /// <summary>
+    /// C1.5: con <see cref="PorLinea"/>, usa el rol <c>{Rol}_{clasificador de la línea}</c> si existe con cuenta (p. ej. VENTAS_PT por
+    /// tipo de producto); si no, el rol base. Contabilidad agrega el rol específico cuando lo necesita, sin cambiar la plantilla.
+    /// </summary>
+    public bool RolPorClasificador { get; set; }
 }
 
 /// <summary>

@@ -317,6 +317,13 @@ if (!string.IsNullOrWhiteSpace(outboxConnString))
     // TR-01: factura timbrada → fila Documento de aw_retorno. Subscription
     // `integraciones-aw-subscription` en `facturacion-events` (Bicep en el mismo PR).
     builder.Services.AddHostedService<Millet.Integraciones.Aw.Infrastructure.Retorno.FacturacionRetornoListenerWorker>();
+
+    // C1.5: cuatro listeners de Contabilidad (pólizas automáticas #1–#15 sobre el motor de C1.4). Subscriptions
+    // `contabilidad-{facturacion,cuentas-por-pagar,tesoreria,almacen}-sub` con EventTypeFilter (Bicep y emulador en el mismo PR).
+    builder.Services.AddHostedService<Millet.Contabilidad.Infrastructure.Workers.FacturacionContabilidadListenerWorker>();
+    builder.Services.AddHostedService<Millet.Contabilidad.Infrastructure.Workers.CuentasPorPagarContabilidadListenerWorker>();
+    builder.Services.AddHostedService<Millet.Contabilidad.Infrastructure.Workers.TesoreriaContabilidadListenerWorker>();
+    builder.Services.AddHostedService<Millet.Contabilidad.Infrastructure.Workers.AlmacenContabilidadListenerWorker>();
 }
 // C1.8: sin conexión, `ServiceBus:EntregaLocal:Habilitada=true` (solo Development)
 // entrega los eventos del outbox en el mismo proceso a los listeners de arriba;
