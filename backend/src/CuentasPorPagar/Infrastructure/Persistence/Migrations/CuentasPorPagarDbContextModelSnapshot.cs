@@ -1846,6 +1846,10 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(25)")
                         .HasColumnName("serie_proveedor");
 
+                    b.Property<Guid?>("SolicitanteRevisionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("solicitante_revision_id");
+
                     b.Property<decimal>("Subtotal")
                         .HasPrecision(18, 4)
                         .HasColumnType("numeric(18,4)")

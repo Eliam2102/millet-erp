@@ -36,7 +36,9 @@ public sealed record FacturaListItemResponse(
     int Version,
     // Etiqueta resuelta server-side vía read port (ADR-0042); null si el
     // id no resuelve — el FE indica Por confirmar.
-    string? ProveedorNombre = null, string? UuidCfdi = null, string? OrdenCompraFolio = null, string? ProveedorRfc = null);
+    string? ProveedorNombre = null, string? UuidCfdi = null, string? OrdenCompraFolio = null, string? ProveedorRfc = null,
+    // 86e3tactf: aviso «Proveedor bloqueado» (bloqueo total); la factura se captura y valida, no se paga.
+    bool ProveedorBloqueado = false, string? ProveedorMotivoBloqueo = null);
 
 /// <summary>
 /// Filtros de la bandeja salvo el estado, compartidos por el listado y por los conteos
@@ -130,7 +132,7 @@ public sealed class ListarFacturasHandler : IRequestHandler<ListarFacturasQuery,
                 f.Version,
                 // Null explícito: expression trees no aceptan args opcionales
                 // omitidos (CS0854). Se puebla abajo vía read port.
-                null, f.UuidCfdi, null, null))
+                null, f.UuidCfdi, null, null, false, null))
             .ToListAsync(cancellationToken);
 
         // Enriquecer etiqueta del proveedor en batch sobre los ids DISTINTOS
@@ -140,11 +142,14 @@ public sealed class ListarFacturasHandler : IRequestHandler<ListarFacturasQuery,
         {
             var nombres = await _proveedores.ObtenerNombresPorIdsAsync(proveedorIds, cancellationToken);
             var rfcs = await _proveedores.ObtenerRfcsPorIdsAsync(proveedorIds, cancellationToken);
+            var bloqueados = await _proveedores.ObtenerBloqueadosPorIdsAsync(proveedorIds, cancellationToken);
             items = items
                 .Select(i => i with
                 {
                     ProveedorNombre = nombres.GetValueOrDefault(i.ProveedorId),
                     ProveedorRfc = rfcs.GetValueOrDefault(i.ProveedorId),
+                    ProveedorBloqueado = bloqueados.ContainsKey(i.ProveedorId),
+                    ProveedorMotivoBloqueo = bloqueados.GetValueOrDefault(i.ProveedorId),
                 })
                 .ToList();
         }
