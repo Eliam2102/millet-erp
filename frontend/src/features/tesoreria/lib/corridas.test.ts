@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { PasivoParaCorridaResponse } from '../api/types';
-import { faltaParaAutorizar, totalesSeleccion } from './corridas';
+import { faltaParaAutorizar, pagosPendientes, totalesSeleccion } from './corridas';
+
+describe('pagosPendientes', () => {
+  it('agrupa por proveedor solo lo no ejecutado (600 de 1,000 deja 400 pendientes)', () => {
+    const l = (f: string, p: string, neto: number, ejecutada: boolean) => ({ facturaProveedorId: f, proveedorId: p, neto, ejecutada });
+    const r = pagosPendientes([l('a', 'p1', 600, true), l('b', 'p2', 150.1, false), l('c', 'p2', 249.9, false)]);
+    expect(r).toEqual([{ proveedorId: 'p2', facturas: ['b', 'c'], neto: 400 }]);
+  });
+});
 
 const pasivo = (id: string, proveedorId: string, bruto: number, retenciones: number, neto: number): PasivoParaCorridaResponse => ({
   facturaProveedorId: id, proveedorId, proveedorRazonSocial: null, folioProveedor: null,

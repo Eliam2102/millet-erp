@@ -430,6 +430,10 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("factura_proveedor_id");
 
+                    b.Property<DateOnly?>("FechaEjecucion")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_ejecucion");
+
                     b.Property<decimal>("ImporteProgramado")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
@@ -438,6 +442,11 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("ProveedorId")
                         .HasColumnType("uuid")
                         .HasColumnName("proveedor_id");
+
+                    b.Property<string>("ReferenciaBancaria")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("referencia_bancaria");
 
                     b.Property<decimal>("Retenciones")
                         .HasPrecision(18, 2)

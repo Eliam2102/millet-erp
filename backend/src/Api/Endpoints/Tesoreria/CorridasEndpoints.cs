@@ -106,6 +106,32 @@ public static class CorridasEndpoints
             .RequireAuthorization(P + PermisosCanonicos.TesoreriaCorridasCrear)
             .WithName("CancelarCorridaPago").Produces<CorridaResponse>();
 
+        // T9.1-B: oficio solo de la corrida autorizada (el servidor valida el estado); el PDF se arma en el cliente (ADR-0036).
+        corridas.MapPost("/{id:guid}/oficio", async (Guid id, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new GenerarOficioCorridaCommand(id), ct)))
+            .RequireAuthorization(P + PermisosCanonicos.TesoreriaPasivosVer)
+            .WithName("GenerarOficioCorridaPago").Produces<Millet.Tesoreria.Application.Reportes.Comun.ReporteJsonResponse>()
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        corridas.MapPost("/{id:guid}/ejecucion", async (Guid id, [FromHeader(Name = "X-Expected-Version")] int? v,
+            [FromBody] EjecucionBody body, IMediator mediator, DocumentoSucursalScope scope, CancellationToken ct) =>
+        {
+            if (v is not int version) return SinVersion();
+            await VerificarSucursalesAsync(scope, body.Pagos?.SelectMany(p => p.Facturas ?? []), ct);
+            return Results.Ok(await mediator.Send(new RegistrarEjecucionCorridaCommand(id, body.Pagos ?? [], version), ct));
+        })
+            .WithMetadata(new RequireIdempotencyKeyAttribute())
+            .RequireAuthorization(P + PermisosCanonicos.TesoreriaCorridasEjecutar)
+            .WithName("RegistrarEjecucionCorridaPago").Produces<CorridaResponse>()
+            .ProducesProblem(StatusCodes.Status409Conflict).ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        corridas.MapPost("/{id:guid}/cerrar", async (Guid id, [FromHeader(Name = "X-Expected-Version")] int? v,
+            IMediator mediator, CancellationToken ct) =>
+            v is not int version ? SinVersion() : Results.Ok(await mediator.Send(new CerrarCorridaCommand(id, version), ct)))
+            .WithMetadata(new RequireIdempotencyKeyAttribute())
+            .RequireAuthorization(P + PermisosCanonicos.TesoreriaCorridasEjecutar)
+            .WithName("CerrarCorridaPago").Produces<CorridaResponse>();
+
         corridas.MapGet("/politica-firmas", async (IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(new ObtenerPoliticaFirmasQuery(), ct)))
             .RequireAuthorization(P + PermisosCanonicos.TesoreriaPasivosVer)
@@ -131,5 +157,6 @@ public static class CorridasEndpoints
 
     public sealed record AgregarPasivosBody(IReadOnlyList<Guid> Facturas);
     public sealed record MotivoBody(string Motivo);
+    public sealed record EjecucionBody(IReadOnlyList<PagoCorridaItem>? Pagos);
     public sealed record PoliticaBody(IReadOnlyList<EscalonFirmaItem> Escalones);
 }

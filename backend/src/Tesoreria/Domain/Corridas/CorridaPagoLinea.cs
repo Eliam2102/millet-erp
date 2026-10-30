@@ -39,5 +39,19 @@ public sealed class CorridaPagoLinea : BaseEntity, IAuditable
         (Bruto, Retenciones) = pasivo.Desglose(pasivo.SaldoPendiente);
     }
 
+    /// <summary>Referencia bancaria y fecha del pago que cubrió la línea (T9.1-B).</summary>
+    public string? ReferenciaBancaria { get; private set; }
+    public DateOnly? FechaEjecucion { get; private set; }
+
     internal void Liberar() => Viva = false;
+
+    internal void MarcarEjecutada(string referencia, DateOnly fecha)
+    {
+        Ejecutada = true; ReferenciaBancaria = referencia; FechaEjecucion = fecha;
+    }
+
+    internal void RevertirEjecucion()
+    {
+        Ejecutada = false; ReferenciaBancaria = null; FechaEjecucion = null;
+    }
 }

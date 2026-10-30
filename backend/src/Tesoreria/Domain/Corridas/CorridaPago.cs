@@ -127,6 +127,65 @@ public sealed class CorridaPago : BaseEntity, IPerteneceAEmpresa, IAuditable
         Cerrar(EstadoCorridaPago.Rechazada, motivo);
     }
 
+    public decimal Ejecutado => _lineas.Where(l => l.Ejecutada).Sum(l => l.ImporteProgramado);
+    public decimal Pendiente => Total - Ejecutado;
+
+    /// <summary>El oficio solo existe para la versión autorizada (y la que ya se ejecuta o cerró).</summary>
+    public void RegistrarOficio(DateTimeOffset ahora)
+    {
+        if (Estado is not (EstadoCorridaPago.Autorizada or EstadoCorridaPago.Ejecutada or EstadoCorridaPago.Cerrada))
+            throw new BusinessRuleException("CORRIDA_OFICIO_NO_AUTORIZADA",
+                $"El oficio solo se genera de una corrida autorizada; esta está en {Estado}.");
+        OficioGeneradoEn ??= ahora;
+    }
+
+    /// <summary>
+    /// Marca ejecutadas las líneas pagadas con <paramref name="referencia"/> (un pago de un solo proveedor). Devuelve las
+    /// líneas por pagar; vacío si es un reintento de la misma referencia (no se suma dos veces). Ejecución parcial permitida:
+    /// la corrida pasa a <c>Ejecutada</c> con el resto pendiente.
+    /// </summary>
+    public IReadOnlyList<CorridaPagoLinea> RegistrarEjecucion(IReadOnlyCollection<Guid> facturas, string referencia, DateOnly fecha)
+    {
+        if (Estado is not (EstadoCorridaPago.Autorizada or EstadoCorridaPago.Ejecutada))
+            throw new BusinessRuleException("CORRIDA_ESTADO_INVALIDO", $"No se puede registrar la ejecución de una corrida en estado {Estado}.");
+        if (string.IsNullOrWhiteSpace(referencia))
+            throw new BusinessRuleException("CORRIDA_REFERENCIA_VACIA", "La referencia bancaria es obligatoria.");
+        referencia = referencia.Trim();
+        var lineas = facturas.Select(f => _lineas.FirstOrDefault(l => l.FacturaProveedorId == f)
+            ?? throw new BusinessRuleException("CORRIDA_LINEA_NO_ENCONTRADA", $"El pasivo {f} no está en la corrida.")).ToList();
+        if (lineas.Count == 0)
+            throw new BusinessRuleException("CORRIDA_LINEA_NO_ENCONTRADA", "Indica al menos un pasivo de la corrida.");
+        if (lineas.Select(l => l.ProveedorId).Distinct().Count() > 1)
+            throw new BusinessRuleException("CORRIDA_PAGO_MULTIPROVEEDOR", "Un pago cubre pasivos de un solo proveedor; registra un pago por proveedor.");
+
+        var mismaRef = (string? r) => string.Equals(r, referencia, StringComparison.OrdinalIgnoreCase);
+        if (lineas.All(l => l.Ejecutada && mismaRef(l.ReferenciaBancaria))) return [];
+        if (lineas.Any(l => l.Ejecutada))
+            throw new BusinessRuleException("CORRIDA_LINEA_YA_EJECUTADA", "Alguno de los pasivos ya se ejecutó con otra referencia.");
+        if (_lineas.Any(l => l.Ejecutada && mismaRef(l.ReferenciaBancaria)))
+            throw new BusinessRuleException("CORRIDA_REFERENCIA_REPETIDA", $"La referencia '{referencia}' ya se registró en esta corrida para otros pasivos.");
+
+        foreach (var l in lineas) l.MarcarEjecutada(referencia, fecha);
+        Estado = EstadoCorridaPago.Ejecutada;
+        return lineas;
+    }
+
+    /// <summary>La reversa de un pago de la corrida deja su línea pendiente otra vez (el contramovimiento lo crea el pago).</summary>
+    public void RevertirEjecucion(Guid facturaProveedorId)
+    {
+        _lineas.FirstOrDefault(l => l.FacturaProveedorId == facturaProveedorId)?.RevertirEjecucion();
+        if (Estado == EstadoCorridaPago.Ejecutada && _lineas.All(l => !l.Ejecutada)) Estado = EstadoCorridaPago.Autorizada;
+    }
+
+    /// <summary>Cierra la corrida ejecutada; lo que quedó sin pagar se libera para otra corrida.</summary>
+    public void CerrarEjecucion()
+    {
+        if (Estado != EstadoCorridaPago.Ejecutada)
+            throw new BusinessRuleException("CORRIDA_ESTADO_INVALIDO", "Solo se cierra una corrida con pagos ejecutados.");
+        Estado = EstadoCorridaPago.Cerrada;
+        foreach (var l in _lineas) l.Liberar();
+    }
+
     public void Cancelar(string motivo)
     {
         if (Estado is not (EstadoCorridaPago.Borrador or EstadoCorridaPago.EnAutorizacion))

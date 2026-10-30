@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Millet.Api.IntegrationTests.DatosMaestros.Adjuntos;
 using Millet.Catalogos.Domain;
@@ -122,6 +123,37 @@ public sealed class CorridasPagoTests(WebApplicationFactory<Program> factory)
 
         Assert.Equal(HttpStatusCode.UnprocessableEntity, r.StatusCode);
         Assert.Contains("CORRIDA_MISMO_USUARIO", await r.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task T91B_el_oficio_y_la_ejecucion_exigen_corrida_autorizada()
+    {
+        await using var e = await SembrarAsync();
+        var c = await AdjuntosProveedorAmbiente.LeerAsync(await Crear(e, e.Pasivo1));
+        var id = c.GetProperty("id").GetGuid();
+        var version = c.GetProperty("version").GetInt32();
+
+        var oficio = await Post(e.Admin, $"{Base}/{id}/oficio");
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, oficio.StatusCode);
+        Assert.Contains("CORRIDA_OFICIO_NO_AUTORIZADA", await oficio.Content.ReadAsStringAsync());
+
+        var ejecucion = await Post(e.Admin, $"{Base}/{id}/ejecucion",
+            new { pagos = new[] { new { facturas = new[] { e.Pasivo1 }, referenciaBancaria = "REF-1", fechaValor = DateOnly.FromDateTime(DateTime.Today) } } }, version);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, ejecucion.StatusCode);
+        Assert.Contains("CORRIDA_ESTADO_INVALIDO", await ejecucion.Content.ReadAsStringAsync());
+
+        // Autorizada (estado forzado: la segunda firma se prueba en las pruebas unitarias) → el oficio sale con el desglose.
+        using (var scope = e.Amb.Factory.Services.CreateScope())
+        {
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            await scope.ServiceProvider.GetRequiredService<TesoreriaDbContext>().CorridasPago.Where(x => x.Id == id)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.Estado, Millet.Tesoreria.Domain.Corridas.EstadoCorridaPago.Autorizada));
+        }
+        var ok = await Post(e.Admin, $"{Base}/{id}/oficio");
+        Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
+        var reporte = await AdjuntosProveedorAmbiente.LeerAsync(ok);
+        Assert.Equal(1_053.33m, reporte.GetProperty("totales").GetProperty("neto").GetDecimal());
+        Assert.Equal(106.67m, reporte.GetProperty("totales").GetProperty("retenciones").GetDecimal());
     }
 
     [Fact]
