@@ -1085,6 +1085,33 @@ const comercioExterior: NavModulo = {
   ],
 };
 
+const productoTerminado: NavModulo = {
+  moduloId: 'producto-terminado',
+  label: 'Producto Terminado',
+  icon: Boxes,
+  secciones: [
+    {
+      label: 'Operación',
+      cards: [
+        {
+          label: 'Piezas',
+          description: 'Piezas en producto terminado por pedido y sucursal, con avance por posición.',
+          to: '/producto-terminado/piezas',
+          icon: Boxes,
+          permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
+        },
+        {
+          label: 'Excepciones de entrada',
+          description: 'Escaneos que no se pudieron dar de alta: reintentar, descartar o marcar revisados.',
+          to: '/producto-terminado/excepciones',
+          icon: Boxes,
+          permission: PermisosCanonicos.ProductoTerminadoExcepcionesGestionar,
+        },
+      ],
+    },
+  ],
+};
+
 const activosFijos: NavModulo = {
   moduloId: 'activos-fijos',
   label: 'Activos fijos',
@@ -1194,6 +1221,7 @@ const modulos: readonly NavModulo[] = [
   moduloContabilidad,
   placeholderModulo('reportes', 'Reportes', LineChart),
   comercioExterior,
+  productoTerminado,
 ];
 
 /**
