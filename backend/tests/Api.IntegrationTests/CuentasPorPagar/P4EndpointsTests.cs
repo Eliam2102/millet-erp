@@ -53,7 +53,7 @@ public sealed class P4EndpointsTests(WebApplicationFactory<Program> factory)
             }
             Assert.Equal(HttpStatusCode.OK,(await Post(client,$"/notas-cargo/{cargoId}/aplicar",new {},cargoV)).StatusCode);
             Assert.Equal(HttpStatusCode.NoContent,(await Post(client,$"/notas-cargo/{cargoId}/formalizar",new {notaCreditoId=ncId},await Version(app,cargoId,true))).StatusCode);
-            Assert.Equal(HttpStatusCode.OK,(await Post(client,$"/facturas/{fId}/aplicar-nc",new {notaCreditoId=ncId,notaCreditoVersionEsperada=ncV,monto=10000},await Version(app,fId))).StatusCode);
+            // Regla fiscal 30-oct: la NC 03 sustituye a la nota de cargo al formalizar (queda aplicada); ya no se aplica a mano.
             Assert.Equal(HttpStatusCode.OK,(await Post(client,$"/facturas/{fId}/aplicar-anticipo",new {anticipoId=antiId,anticipoVersionEsperada=antiV,monto=100},await Version(app,fId))).StatusCode);
             Assert.Equal(HttpStatusCode.NoContent,(await Post(client,$"/anticipos/{anti07Id}/amortizar-nc",new {notaCreditoId=nc07Id,ncVersionEsperada=nc07V,monto=100},anti07V)).StatusCode);
             var mismatch=await Post(client,$"/notas-credito/{ncManualId}/vincular-factura",new {facturaOrigenId=fId},ncManualV);
@@ -64,7 +64,7 @@ public sealed class P4EndpointsTests(WebApplicationFactory<Program> factory)
             Assert.Equal("FANTP4",(await Json(await client.GetAsync(Cxp+$"/anticipos/serie/{p.Proveedor}"))).GetProperty("serie").GetString());
             using var verificar=app.Services.CreateScope();var final=verificar.ServiceProvider.GetRequiredService<CuentasPorPagarDbContext>();
             var factura=await final.FacturasProveedor.FindAsync(fId);Assert.Equal(39900,factura!.SaldoPendiente);Assert.Equal(10000,factura.CargosAplicadosTotal);Assert.Equal(0,factura.NcAplicadasTotal);
-            Assert.Equal(EstadoNotaCargo.Formalizada,(await final.NotasCargo.FindAsync(cargoId))!.Estado);
+            Assert.Equal(EstadoNotaCargo.Formalizada,(await final.NotasCargo.FindAsync(cargoId))!.Estado);Assert.Equal(EstadoNotaCredito.Aplicada,(await final.NotasCreditoProveedor.FindAsync(ncId))!.Estado);
             var eventos=await final.OutboxEntries.Where(o=>o.EventType=="cuentas_por_pagar.pasivo.autorizado-para-pago.v1").ToListAsync();
             Assert.Contains(eventos,o=>o.Payload.Contains(fId.ToString(),StringComparison.Ordinal));
         } finally {await Limpiar(app,p);}

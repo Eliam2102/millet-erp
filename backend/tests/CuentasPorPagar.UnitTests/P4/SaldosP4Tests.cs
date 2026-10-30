@@ -5,6 +5,7 @@ using Millet.CuentasPorPagar.UnitTests.P8;
 using Millet.CuentasPorPagar.Application.NotaCargo;
 using Millet.CuentasPorPagar.Application.FacturaProveedor.RevisionRepp;
 using Millet.CuentasPorPagar.Application.FacturaProveedor.AplicarAnticipo;
+using Millet.CuentasPorPagar.Application.FacturaProveedor.AplicarNotaCredito;
 using Millet.CuentasPorPagar.Application.Integration.Mappers;
 using Millet.CuentasPorPagar.Application.FacturaProveedor.Elegibilidad;
 using Millet.CuentasPorPagar.Application.EventListeners;
@@ -31,8 +32,29 @@ public sealed class SaldosP4Tests
         f.SaldoPendiente.Should().Be(40000); cargo.Estado.Should().Be(EstadoNotaCargo.Aplicada);
         eventos.Items.OfType<Application.Integration.PasivoAutorizadoParaPagoIntegrationEvent>().Single().SaldoPendiente.Should().Be(40000);
         var nc = NuevaNc(a, f.Id, 10000); a.Db.Add(nc); await a.Db.SaveChangesAsync();
-        await new FormalizacionNotaCargoService(a.Db, new Notificaciones()).IntentarAsync(nc, a.UtcNow, default);
+        await Servicio(a).IntentarAsync(nc, a.UtcNow, default);
         cargo.Estado.Should().Be(EstadoNotaCargo.Formalizada); f.SaldoPendiente.Should().Be(40000);
+    }
+    [Fact]
+    public async Task Cargo_por_devolucion_nace_aplicado_sin_usuario_y_publica_pasivo_y_cargo()
+    {
+        await using var a = new P8Fixture(); var f = a.Nueva(total: 15080); f.Autorizar(null, a.UtcNow);
+        var cargo = NuevoCargoDevolucion(a, f.Id, 1300); a.Db.AddRange(f, cargo); await a.Db.SaveChangesAsync();
+        var eventos = new Eventos(); var notificaciones = new Notificaciones();
+        (await Servicio(a, eventos, notificaciones).AplicarPorDevolucionAsync(cargo, a.UtcNow, default)).Should().BeTrue();
+        cargo.Estado.Should().Be(EstadoNotaCargo.Aplicada); cargo.AutorizadoPor.Should().BeNull(); cargo.FechaAplicacion.Should().Be(a.UtcNow);
+        f.SaldoPendiente.Should().Be(13780); f.CargosAplicadosTotal.Should().Be(1300);
+        eventos.Items.OfType<Application.Integration.PasivoAutorizadoParaPagoIntegrationEvent>().Single().SaldoPendiente.Should().Be(13780);
+        notificaciones.Items.OfType<Domain.NotaCargo.Events.NotaCargoAutorizadaDomainEvent>().Single().Monto.Should().Be(1300);
+    }
+    [Theory] [InlineData(EstadoPasivo.Pagada)] [InlineData(EstadoPasivo.Cancelada)]
+    public async Task Cargo_por_devolucion_sin_factura_vigente_se_queda_en_borrador(EstadoPasivo estado)
+    {
+        await using var a = new P8Fixture(); var f = a.Nueva(total: 15080);
+        if (estado == EstadoPasivo.Pagada) { f.Autorizar(null, a.UtcNow); f.RegistrarPago(15080, a.UtcNow, "FIX"); } else f.Cancelar(MotivoCancelacion.ErrorCaptura, null, null, a.UtcNow);
+        var cargo = NuevoCargoDevolucion(a, f.Id, 1300); a.Db.AddRange(f, cargo); await a.Db.SaveChangesAsync();
+        (await Servicio(a).AplicarPorDevolucionAsync(cargo, a.UtcNow, default)).Should().BeFalse();
+        cargo.Estado.Should().Be(EstadoNotaCargo.Borrador); f.CargosAplicadosTotal.Should().Be(0);
     }
     [Fact]
     public async Task Cargo_por_devolucion_sin_IVA_se_formaliza_con_NC_03_que_trae_IVA()
@@ -44,8 +66,80 @@ public sealed class SaldosP4Tests
         var nc = Nc.Capturar(a.Current!.Value, null, Guid.NewGuid().ToString(), a.Proveedor, "FIX", null, a.UtcNow, "MXN", null,
             1300, 208, 0, 1508, TipoNotaCredito.Devolucion, TipoRelacionCfdi.Devolucion, Guid.NewGuid().ToString(), f.Id, null, a.UtcNow);
         a.Db.Add(nc); await a.Db.SaveChangesAsync();
-        await new FormalizacionNotaCargoService(a.Db, new Notificaciones()).IntentarAsync(nc, a.UtcNow, default);
+        await Servicio(a).IntentarAsync(nc, a.UtcNow, default);
         cargo.Estado.Should().Be(EstadoNotaCargo.Formalizada);
+        // La NC sustituye al cargo: 15,080 − 1,508 = 13,572 (no 15,080 − 1,300 − 1,508).
+        f.SaldoPendiente.Should().Be(13572); f.CargosAplicadosTotal.Should().Be(1300); f.NcAplicadasTotal.Should().Be(208);
+        nc.Estado.Should().Be(EstadoNotaCredito.Aplicada); nc.SaldoPorAplicar.Should().Be(0);
+        // Ya no puede aplicarse a mano otra vez.
+        var mapper = new PasivoAutorizadoParaPagoMapper(new Eventos(), a.Db, new ElegibilidadFacturaService(a.Db, a));
+        var doble = async () => await new AplicarNotaCreditoAFacturaHandler(a.Db, mapper, a, new(new Eventos(), a.Db)).Handle(new(f.Id, f.Version, nc.Id, nc.Version, 1508), default);
+        await doble.Should().ThrowAsync<BusinessRuleException>();
+        f.SaldoPendiente.Should().Be(13572);
+    }
+    [Fact]
+    public async Task NC_03_capturada_antes_de_la_salida_formaliza_sola_cuando_nace_el_cargo()
+    {
+        await using var a = new P8Fixture(); var f = a.Nueva(total: 15080); f.Autorizar(null, a.UtcNow);
+        var nc = NuevaNc03(a, f.Id, 1300, 208); var cargo = NuevoCargoDevolucion(a, f.Id, 1300);
+        a.Db.AddRange(f, nc); await a.Db.SaveChangesAsync();
+        a.Db.Add(cargo);
+        await Servicio(a).IntentarAsync(nc, a.UtcNow, default); // sin cargo todavía: no pasa nada
+        f.EnRevision.Should().BeFalse(); nc.MontoAplicado.Should().Be(0);
+        (await Servicio(a).AplicarPorDevolucionAsync(cargo, a.UtcNow, default)).Should().BeTrue();
+        cargo.Estado.Should().Be(EstadoNotaCargo.Formalizada); cargo.NotaCreditoProveedorId.Should().Be(nc.Id);
+        f.SaldoPendiente.Should().Be(13572); nc.Estado.Should().Be(EstadoNotaCredito.Aplicada);
+    }
+    [Fact]
+    public async Task Varias_NC_03_con_el_mismo_subtotal_dejan_la_eleccion_al_usuario()
+    {
+        await using var a = new P8Fixture(); var f = a.Nueva(total: 15080); f.Autorizar(null, a.UtcNow);
+        var cargo = NuevoCargoDevolucion(a, f.Id, 1300); a.Db.AddRange(f, NuevaNc03(a, f.Id, 1300, 208), NuevaNc03(a, f.Id, 1300, 208), cargo); await a.Db.SaveChangesAsync();
+        (await Servicio(a).AplicarPorDevolucionAsync(cargo, a.UtcNow, default)).Should().BeTrue();
+        cargo.Estado.Should().Be(EstadoNotaCargo.Aplicada); cargo.NotaCreditoProveedorId.Should().BeNull(); f.EnRevision.Should().BeFalse(); f.SaldoPendiente.Should().Be(13780);
+    }
+    [Fact]
+    public async Task NC_03_con_subtotal_distinto_al_nacer_el_cargo_manda_la_factura_a_revision_DEVOLUCION_PENDIENTE()
+    {
+        await using var a = new P8Fixture(); var f = a.Nueva(total: 15080); f.Autorizar(null, a.UtcNow);
+        var cargo = NuevoCargoDevolucion(a, f.Id, 1300); a.Db.AddRange(f, NuevaNc03(a, f.Id, 1000, 160), cargo); await a.Db.SaveChangesAsync();
+        await Servicio(a).AplicarPorDevolucionAsync(cargo, a.UtcNow, default);
+        cargo.Estado.Should().Be(EstadoNotaCargo.Aplicada); f.EnRevision.Should().BeTrue(); f.MotivoRevisionId.Should().Be(FormalizacionNotaCargoService.MotivoDevolucionPendienteId);
+    }
+    [Fact]
+    public async Task NC_03_que_llega_con_subtotal_distinto_al_del_cargo_de_devolucion_manda_la_factura_a_revision()
+    {
+        await using var a = new P8Fixture(); var f = a.Nueva(total: 15080); f.Autorizar(null, a.UtcNow);
+        var cargo = NuevoCargoDevolucion(a, f.Id, 1300); a.Db.AddRange(f, cargo); await a.Db.SaveChangesAsync();
+        var servicio = Servicio(a); await servicio.AplicarPorDevolucionAsync(cargo, a.UtcNow, default);
+        var nc = NuevaNc03(a, f.Id, 1000, 160); a.Db.Add(nc); await a.Db.SaveChangesAsync();
+        await servicio.IntentarAsync(nc, a.UtcNow, default);
+        cargo.Estado.Should().Be(EstadoNotaCargo.Aplicada); f.MotivoRevisionId.Should().Be(FormalizacionNotaCargoService.MotivoDevolucionPendienteId);
+    }
+    [Fact]
+    public async Task NC_03_sin_nota_de_cargo_no_se_aplica_a_mano()
+    {
+        await using var a = new P8Fixture(); var f = a.Nueva(total: 15080); f.Autorizar(null, a.UtcNow);
+        var nc = Nc.Capturar(a.Current!.Value, null, Guid.NewGuid().ToString(), a.Proveedor, "FIX", null, a.UtcNow, "MXN", null,
+            1300, 208, 0, 1508, TipoNotaCredito.Devolucion, TipoRelacionCfdi.Devolucion, Guid.NewGuid().ToString(), f.Id, null, a.UtcNow);
+        a.Db.AddRange(f, nc); await a.Db.SaveChangesAsync();
+        var mapper = new PasivoAutorizadoParaPagoMapper(new Eventos(), a.Db, new ElegibilidadFacturaService(a.Db, a));
+        var aplicar = async () => await new AplicarNotaCreditoAFacturaHandler(a.Db, mapper, a, new(new Eventos(), a.Db)).Handle(new(f.Id, f.Version, nc.Id, nc.Version, 1508), default);
+        await aplicar.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "NC03_SIN_NOTA_CARGO");
+        f.SaldoPendiente.Should().Be(15080);
+    }
+    [Fact]
+    public async Task NC_03_no_formaliza_si_la_factura_ya_esta_pagada()
+    {
+        await using var a = new P8Fixture(); var f = a.Nueva(total: 15080); f.Autorizar(null, a.UtcNow);
+        var cargo = NuevoCargoDevolucion(a, f.Id, 1300); a.Db.AddRange(f, cargo); await a.Db.SaveChangesAsync();
+        var servicio = Servicio(a); (await servicio.AplicarPorDevolucionAsync(cargo, a.UtcNow, default)).Should().BeTrue();
+        f.RegistrarPago(f.SaldoPendiente, a.UtcNow, "FIX");
+        var nc = Nc.Capturar(a.Current!.Value, null, Guid.NewGuid().ToString(), a.Proveedor, "FIX", null, a.UtcNow, "MXN", null,
+            1300, 208, 0, 1508, TipoNotaCredito.Devolucion, TipoRelacionCfdi.Devolucion, Guid.NewGuid().ToString(), f.Id, null, a.UtcNow);
+        a.Db.Add(nc); await a.Db.SaveChangesAsync();
+        (await servicio.FormalizarAsync(cargo, nc, a.UtcNow, default)).Should().BeFalse();
+        cargo.Estado.Should().Be(EstadoNotaCargo.Aplicada); nc.MontoAplicado.Should().Be(0);
     }
     [Fact]
     public async Task Anticipo_USD_en_factura_MXN_se_rechaza_sin_amortizar()
@@ -117,7 +211,10 @@ public sealed class SaldosP4Tests
     private static Cargo NuevoCargo(P8Fixture a,Guid f,decimal monto) { var n=Cargo.Crear(a.Current!.Value,FolioInternoNotaCargo.FromAnioSecuencial(2026,1),a.Proveedor,a.Sucursal,"FIX",null,monto,"MXN",null,f,null,null,a.UtcNow); n.Autorizar(Guid.NewGuid(),a.UtcNow); return n; }
     private static Nc NuevaNc(P8Fixture a,Guid? f,decimal monto)=>Nc.Capturar(a.Current!.Value,null,Guid.NewGuid().ToString(),a.Proveedor,"FIX",null,a.UtcNow,"MXN",null,monto,0,0,monto,TipoNotaCredito.Devolucion,TipoRelacionCfdi.Devolucion,Guid.NewGuid().ToString(),f,null,a.UtcNow);
     private sealed class Eventos:IIntegrationEventPublisher { public List<object> Items{get;}=[]; public Task PublishAsync(object e,CancellationToken ct=default){Items.Add(e);return Task.CompletedTask;} }
-    private sealed class Notificaciones:IPublisher { public Task Publish(object e,CancellationToken ct=default)=>Task.CompletedTask; public Task Publish<T>(T e,CancellationToken ct=default) where T:INotification=>Task.CompletedTask; }
+    private sealed class Notificaciones:IPublisher { public List<object> Items{get;}=[]; public Task Publish(object e,CancellationToken ct=default){Items.Add(e);return Task.CompletedTask;} public Task Publish<T>(T e,CancellationToken ct=default) where T:INotification{Items.Add(e!);return Task.CompletedTask;} }
+    private static FormalizacionNotaCargoService Servicio(P8Fixture a,Eventos? eventos=null,IPublisher? publisher=null){ eventos??=new(); return new(a.Db,publisher??new Notificaciones(),new PasivoAutorizadoParaPagoMapper(eventos,a.Db,new ElegibilidadFacturaService(a.Db,a)),new(eventos,a.Db),new UnitTests.FacturaProveedor.DependenciasFake(),NullLogger<FormalizacionNotaCargoService>.Instance); }
+    private static Nc NuevaNc03(P8Fixture a,Guid f,decimal subtotal,decimal iva)=>Nc.Capturar(a.Current!.Value,null,Guid.NewGuid().ToString(),a.Proveedor,"FIX",null,a.UtcNow,"MXN",null,subtotal,iva,0,subtotal+iva,TipoNotaCredito.Devolucion,TipoRelacionCfdi.Devolucion,Guid.NewGuid().ToString(),f,null,a.UtcNow);
+    private static Cargo NuevoCargoDevolucion(P8Fixture a,Guid f,decimal monto)=>Cargo.Crear(a.Current!.Value,FolioInternoNotaCargo.FromAnioSecuencial(2026,1),a.Proveedor,null,"Devolución FIX",null,monto,"MXN",null,f,Guid.NewGuid(),null,a.UtcNow);
     private sealed class Calendario:ICalendarioHabil {
         public Task<int> ContarDiasAsync(DateOnly desde,DateOnly hasta,CancellationToken ct)=>Task.FromResult(CalendarioHabil.ContarDias(desde,hasta,new HashSet<DateOnly>{new(2026,9,16)}));
         public Task<DateTimeOffset> SumarHorasAsync(DateOnly fecha,int horas,CancellationToken ct)=>throw new NotSupportedException(); }

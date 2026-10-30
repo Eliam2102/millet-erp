@@ -264,6 +264,29 @@ public sealed class P3FacturaConOcTests
     }
 
     [Fact]
+    public async Task Devolucion_con_nota_de_cargo_retiene_el_IVA_esperado_y_la_NC_03_lo_libera_sin_descontar_dos_veces()
+    {
+        // Factura de 10 × 20 + 32 de IVA = 232; se devuelven 2 pzas: recibido 8, cargo de 40 (sin IVA), NC 03 de 40 + 6.40.
+        await using var a = new Ambiente(recibido: 8);
+        var captura = await a.Handler.Handle(a.Command(10, 20, 232, 32), default);
+        var factura = await a.Db.FacturasProveedor.SingleAsync(f => f.Id == captura.Id);
+        factura.Autorizar(null, a.Ahora);
+        var cargo = Domain.NotaCargo.NotaCargo.Crear(a.Current!.Value, Domain.NotaCargo.FolioInternoNotaCargo.FromAnioSecuencial(2026, 1), factura.ProveedorId,
+            null, "Devolución FIX", null, 40, "MXN", null, factura.Id, Guid.NewGuid(), null, a.Ahora);
+        a.Db.NotasCargo.Add(cargo);
+        factura.AplicarNotaCargo(40, cargo.Id, new(2026, 10, 9)); cargo.AplicarPorDevolucion(a.Ahora);
+        var conCargo = await a.Elegibilidad.CalcularAsync(factura, default);
+        conCargo.ElegiblePendiente.Should().Be(185.6m); conCargo.Retenido.Should().Be(6.4m); // neto 192; (192 + 40) × 0.8 = 185.6
+        var nc = Domain.NotaCreditoProveedor.NotaCreditoProveedor.Capturar(a.Current!.Value, null, Guid.NewGuid().ToString(), factura.ProveedorId, "NC-03-FIX", null,
+            a.Ahora, "MXN", null, 40, 6.4m, 0, 46.4m, Domain.NotaCreditoProveedor.TipoNotaCredito.Devolucion,
+            Domain.NotaCreditoProveedor.TipoRelacionCfdi.Devolucion, Guid.NewGuid().ToString(), factura.Id, null, a.Ahora);
+        a.Db.NotasCreditoProveedor.Add(nc); await a.Db.SaveChangesAsync();
+        cargo.Formalizar(nc.Id, a.Ahora); nc.AplicarMonto(46.4m); factura.AplicarNotaCredito(6.4m, new(2026, 10, 9), nc.Id);
+        var conNc = await a.Elegibilidad.CalcularAsync(factura, default);
+        conNc.ElegibleTotal.Should().Be(185.6m); conNc.Retenido.Should().Be(0);
+    }
+
+    [Fact]
     public async Task No_permite_alterar_impuestos_del_XML_aunque_el_neto_capturado_cuadre()
     {
         await using var a = new Ambiente();

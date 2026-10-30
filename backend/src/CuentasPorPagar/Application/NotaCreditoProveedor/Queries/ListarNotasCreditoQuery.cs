@@ -38,7 +38,9 @@ public sealed record NotaCreditoListItemResponse(
     EstadoNotaCredito Estado,
     int Version,
     // Etiqueta resuelta server-side vía read port (ADR-0042).
-    string? ProveedorNombre = null, decimal CargoReconocidoPendiente = 0, string? ProveedorRfc = null);
+    string? ProveedorNombre = null, decimal CargoReconocidoPendiente = 0, string? ProveedorRfc = null,
+    // La NC 03 formaliza la nota de cargo por subtotal (la nota nace sin IVA).
+    decimal Subtotal = 0);
 
 /// <summary>
 /// Filtros de la bandeja salvo el estado, compartidos por el listado y por los conteos
@@ -135,7 +137,7 @@ public sealed class ListarNotasCreditoHandler
                 n.Version,
                 // Null explícito: expression trees no aceptan args opcionales
                 // omitidos (CS0854). Se puebla abajo vía read port.
-                null, 0, null))
+                null, 0, null, n.Subtotal))
             .ToListAsync(cancellationToken);
 
         // Etiqueta del proveedor en batch sobre los ids distintos de la

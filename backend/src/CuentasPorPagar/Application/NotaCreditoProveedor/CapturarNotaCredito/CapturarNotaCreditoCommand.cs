@@ -74,16 +74,18 @@ public sealed class CapturarNotaCreditoHandler
     private readonly Domain.Ports.DatosMaestros.IProveedorReadPort _proveedores;
     private readonly Domain.Cfdi.ICfdiBlobStorage _blob;
     private readonly Domain.Cfdi.IXmlCfdiParser _parser;
+    private readonly NotaCargo.FormalizacionNotaCargoService _formalizacion;
 
     public CapturarNotaCreditoHandler(
         CuentasPorPagarDbContext db,
         ICurrentEmpresaContext currentEmpresa,
         ICurrentUserContext currentUser,
         IMediator mediator,
-        IClock clock, Domain.Ports.DatosMaestros.IProveedorReadPort proveedores, Domain.Cfdi.ICfdiBlobStorage blob, Domain.Cfdi.IXmlCfdiParser parser)
+        IClock clock, Domain.Ports.DatosMaestros.IProveedorReadPort proveedores, Domain.Cfdi.ICfdiBlobStorage blob, Domain.Cfdi.IXmlCfdiParser parser,
+        NotaCargo.FormalizacionNotaCargoService formalizacion)
     {
         _db = db; _currentEmpresa = currentEmpresa; _currentUser = currentUser;
-        _mediator = mediator; _clock = clock; _proveedores = proveedores; _blob = blob; _parser = parser;
+        _mediator = mediator; _clock = clock; _proveedores = proveedores; _blob = blob; _parser = parser; _formalizacion = formalizacion;
     }
 
     public async Task<CapturarNotaCreditoResponse> Handle(
@@ -175,7 +177,7 @@ public sealed class CapturarNotaCreditoHandler
             Moneda: nc.Moneda,
             TipoCambio: nc.TipoCambio), cancellationToken);
 
-        await new NotaCargo.FormalizacionNotaCargoService(_db, _mediator).IntentarAsync(nc, ahora, cancellationToken);
+        await _formalizacion.IntentarAsync(nc, ahora, cancellationToken);
         if (nc.TipoRelacionCfdi == TipoRelacionCfdi.AmortizacionAnticipo)
         {
             var anticipo = await _db.AnticiposProveedor.FirstOrDefaultAsync(a => a.UuidCfdi == uuidRelacionNormalizado &&
