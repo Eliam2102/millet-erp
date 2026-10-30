@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Millet.CuentasPorPagar.Domain.Ports.Contabilidad;
 using Millet.CuentasPorPagar.Domain.Ports.DatosMaestros;
 using Millet.CuentasPorPagar.Domain.Ports.Portal;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
@@ -39,6 +40,11 @@ public sealed class PortalProveedoresTests(WebApplicationFactory<Program> factor
         public DateTimeOffset UtcNow => DateTimeOffset.UtcNow + Adelanto;
     }
 
+    private sealed class PeriodoAbierto : IPeriodoContablePort
+    {
+        public Task<bool> AdmiteMovimientosAsync(DateOnly fecha, CancellationToken ct) => Task.FromResult(true);
+    }
+
     private sealed class Proveedores(params Guid[] activos) : IProveedorReadPort
     {
         public Task<ProveedorDto?> ObtenerAsync(Guid p, CancellationToken ct) =>
@@ -60,6 +66,8 @@ public sealed class PortalProveedoresTests(WebApplicationFactory<Program> factor
         {
             s.RemoveAll<IPortalCorreoPort>(); s.AddSingleton<IPortalCorreoPort>(correo);
             s.RemoveAll<IClock>(); s.AddSingleton<IClock>(reloj);
+            // Siembra directa en BD: el período contable real no es el objeto de esta prueba.
+            s.RemoveAll<IPeriodoContablePort>(); s.AddSingleton<IPeriodoContablePort>(new PeriodoAbierto());
             s.RemoveAll<IProveedorReadPort>(); s.AddSingleton<IProveedorReadPort>(new Proveedores(a, b));
         }));
         return new Entorno(app, correo, reloj, a, b, Guid.NewGuid().ToString("N")[..8]);
