@@ -217,6 +217,8 @@ public static class PermisosCanonicos
     public const string AdminAuditoriaLeer                             = "admin.auditoria.leer";
     /// <summary>ADM-03 / ADR-0051: bypass de sucursal de la bitácora; sin él solo se ven las sucursales del usuario.</summary>
     public const string AdminAuditoriaLeerTodasSucursales              = "admin.auditoria.leer-todas-sucursales";
+    /// <summary>ADM-BIT (86e3xd4ut): exportar la bitácora, separado de consultarla; sin él la exportación responde 403.</summary>
+    public const string AdminAuditoriaExportar                         = "admin.auditoria.exportar";
 
     // ----- Administración — Empresas + Sucursales + Departamentos (F-Admin-PR2.3) -----
     // CRUD completo del catálogo organizacional. Convención kebab-case
@@ -746,6 +748,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000005-0001-0000-0000-000000000005"), AdminEmpresasSucursalesGestionar,             "Crear, editar y desactivar sucursales del catálogo organizacional"),
         (Guid.Parse("00000005-0002-0000-0000-000000000001"), AdminAuditoriaLeer,                           "Consultar la bitácora consolidada de auditoría (mínimo del andamio /admin)"),
         (Guid.Parse("00000005-0002-0000-0000-000000000002"), AdminAuditoriaLeerTodasSucursales,            "Consultar la bitácora de todas las sucursales de la empresa"),
+        (Guid.Parse("00000005-0002-0000-0000-000000000003"), AdminAuditoriaExportar,                       "Exportar la bitácora de auditoría a CSV con renglón de control"),
         (Guid.Parse("00000005-0003-0000-0000-000000000001"), AdminDepartamentosGestionar,                  "Crear, editar y desactivar departamentos del catálogo organizacional"),
         (Guid.Parse("00000005-0003-0000-0000-000000000002"), AdminDepartamentosLeer,                       "Consultar departamentos del catálogo organizacional"),
         (Guid.Parse("00000005-0004-0000-0000-000000000001"), AdminSeriesGestionar,                         "Crear, editar y desactivar series de folios cross-módulo (OC, CFDI, póliza)"),
