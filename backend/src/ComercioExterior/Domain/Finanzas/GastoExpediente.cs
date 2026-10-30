@@ -38,7 +38,8 @@ public sealed class ConceptoGasto : BaseEntity, IPerteneceAEmpresa, IAuditable
 
 public sealed record DatosGasto(Guid ConceptoId, Guid ProveedorId, string Factura, string Moneda, decimal Importe,
     DateOnly FechaFactura, string? Pedimento = null, decimal? Cotizado = null, Guid? ContenedorId = null,
-    Guid? FacturaProveedorId = null, IReadOnlyDictionary<Guid, decimal>? ImportesDirectos = null, Guid? OrdenServicioId = null, decimal? ImporteAsignado = null);
+    Guid? FacturaProveedorId = null, IReadOnlyDictionary<Guid, decimal>? ImportesDirectos = null, Guid? OrdenServicioId = null, decimal? ImporteAsignado = null,
+    decimal? TipoCambioUsado = null, string? FuenteTipoCambio = null, string? NotaTipoCambio = null);
 
 public sealed record OrdenServicioCopia(Guid Id, string Folio, decimal Total, string Moneda, decimal Asignado, decimal TipoCambio);
 
@@ -60,6 +61,10 @@ public sealed class GastoExpediente : BaseEntity, IPerteneceAEmpresa, IAuditable
     public decimal TipoCambio { get; private set; }
     public string FuenteTipoCambio { get; private set; } = "";
     public decimal ImporteMxn { get; private set; }
+    public decimal? TipoCambioSugerido { get; private set; }
+    public decimal? DiferenciaTipoCambioPct { get; private set; }
+    public string? NotaTipoCambio { get; private set; }
+    public Guid? TipoCambioModificadoPor { get; private set; }
     public DateOnly FechaFactura { get; private set; }
     public string? Pedimento { get; private set; }
     public Guid? OrdenServicioId { get; private set; }
@@ -75,7 +80,7 @@ public sealed class GastoExpediente : BaseEntity, IPerteneceAEmpresa, IAuditable
     internal void AsignarOrdenServicio(decimal importe) => OrdenServicioAsignado = importe;
     private GastoExpediente() { }
     internal GastoExpediente(Guid id, Guid empresa, Guid expediente) : base(id) { EmpresaId = empresa; ExpedienteId = expediente; }
-    internal void Editar(DatosGasto d, ConceptoGasto concepto, decimal tc, string fuente, OrdenServicioCopia? orden = null)
+    internal void Editar(DatosGasto d, ConceptoGasto concepto, decimal tc, string fuente, OrdenServicioCopia? orden = null, decimal? sugerido = null, string? nota = null, Guid? usuario = null)
     {
         if (AnticipoAgenteId != null)
             throw new BusinessRuleException("CE_GASTO_YA_APLICADO", "No se puede editar un gasto aplicado a un anticipo.");
@@ -93,6 +98,12 @@ public sealed class GastoExpediente : BaseEntity, IPerteneceAEmpresa, IAuditable
             throw new BusinessRuleException("CE_GASTO_INVALIDO", "Revise proveedor, factura, moneda, fecha e importe positivo a centavos.");
         if (d.ImportesDirectos?.Any(x => x.Key == Guid.Empty || x.Value < 0 || decimal.Round(x.Value, 2) != x.Value) == true)
             throw new BusinessRuleException("CE_DIRECTO_INVALIDO", "Los importes directos son MXN a centavos y no negativos.");
+        var manual = fuente is not ("MXN" or "Banxico");
+        if (manual && (fuente is not ("Negociado" or "CFDI" or "Pedimento") || (nota?.Trim().Length ?? 0) is < 10 or > 500 || sugerido is not > 0 || usuario is null))
+            throw new BusinessRuleException("CE_TIPO_CAMBIO_NOTA_REQUERIDA", "Elija la fuente (Negociado, CFDI o Pedimento) y capture una nota de 10 caracteres o más.");
+        TipoCambioSugerido = d.Moneda == "MXN" ? null : sugerido ?? tc;
+        DiferenciaTipoCambioPct = TipoCambioSugerido is decimal s ? decimal.Round((tc - s) / s * 100, 2, MidpointRounding.AwayFromZero) : null;
+        NotaTipoCambio = manual ? nota!.Trim() : null; TipoCambioModificadoPor = manual ? usuario : null;
         ConceptoId = concepto.Id; Concepto = concepto.Nombre; ExcluidoDelCosto = concepto.EsIvaImportacion;
         ProveedorId = d.ProveedorId; Factura = d.Factura.Trim(); FacturaProveedorId = d.FacturaProveedorId;
         Moneda = d.Moneda; Importe = d.Importe; TipoCambio = tc; FuenteTipoCambio = fuente;
