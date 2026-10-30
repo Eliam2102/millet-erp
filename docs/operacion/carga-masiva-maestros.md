@@ -33,6 +33,14 @@ filtrar **Sólo expediente incompleto**. Los documentos vencidos también cuenta
 como pendientes. El alta individual del ERP conserva su flujo de revisión habitual.
 La variante de claves por prefijo del runbook de producción no se activa con esta carga.
 
+Para artículos, la vista previa (sin insertar) incluye un **Resumen**: totales por
+grupo SAP y por tipo (Servicio/Estándar), duplicados en el archivo, unidades sin
+equivalencia (p. ej. CAJA, PAQ, ROLLO) y posibles A+W (grupos 142–147). Ese resumen
+es el reporte de la prueba en seco; sustituye la corrida manual de
+`02_load_articulos_local.sql` en servidores de pruebas. Repetir la carga confirmada
+da 0 nuevos. Corrida: Datos maestros → Artículos → Cargar desde Excel, con el CSV
+de `01_extract_articulos.sql`; ver el resumen, confirmar y adjuntar el resumen a la tarea.
+
 Los artículos conservan `ItemCode` como clave y clave legacy; `invnt_item = N`
 representa Servicio. Las referencias de productos o componentes A+W y los grupos
 SAP 142–147 se reportan para revisión y no se incorporan por este flujo.

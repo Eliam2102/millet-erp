@@ -105,6 +105,19 @@ public sealed class AdaptadoresMaestrosTests
         await ProbarDuplicadosAsync(adaptador, fila);
     }
     [Fact]
+    public async Task Articulos_previa_reporta_grupos_tipos_duplicados_unidades_y_posible_aw_sin_insertar()
+    {
+        await using var db = Compartido();
+        db.Add(new UnidadMedida(Guid.NewGuid(), "PZA", "Pieza", DimensionUnidad.Conteo, 1, 0, true)); await db.SaveChangesAsync();
+        var motor = new CargaMaestrosServicio([new ArticulosCarga(db)], null!, new ServiceCollection().BuildServiceProvider());
+        var csv = "item_code,nombre,unidad_medida,invnt_item,grupo_cod\nA1,Uno,PZA,Y,101\nA2,Dos,PZA,N,101\nA3,Tres,CAJA,Y,115\nA4,Cuatro,PZA,Y,143\nA5,Cinco,PZA,Y,101\nA5,Cinco bis,PZA,Y,101";
+        var r = await motor.EjecutarAsync("articulos", Encoding.UTF8.GetBytes(csv), "sap.csv", false, null, default);
+        int T(string s, string k) => r.Resumen!.SingleOrDefault(c => c.Seccion == s && c.Clave == k)?.Total ?? 0;
+        Assert.Equal(4, T("Grupo", "101")); Assert.Equal(1, T("Grupo", "115")); Assert.Equal(1, T("Tipo", "Servicio")); Assert.Equal(5, T("Tipo", "Estándar"));
+        Assert.Equal(2, T("Duplicado", "A5")); Assert.Equal(1, T("Unidad sin equivalencia", "CAJA")); Assert.Equal(1, T("Posible A+W", "A4"));
+        Assert.Empty(db.Articulos); Assert.False(db.ChangeTracker.HasChanges());
+    }
+    [Fact]
     public async Task Proveedores_acepta_csv_exacto_sap_sin_bancarios()
     {
         await using var db = Compartido(); var adaptador = new ProveedoresCarga(db);
