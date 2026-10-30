@@ -207,7 +207,8 @@ public sealed class CfdiMilletDocument(CfdiPdfModel m) : IDocument
             foreach (var c in m.Conceptos)
             {
                 tabla.Cell().Element(Renglon).Text(Codigo(c));
-                tabla.Cell().Element(Renglon).AlignCenter().Column(d =>
+                // Descripción y «ITEM.n REF» van en una sola pieza: nunca se parten entre páginas.
+                tabla.Cell().Element(Renglon).ShowEntire().AlignCenter().Column(d =>
                 {
                     d.Item().AlignCenter().Text(c.Descripcion);
                     if (!string.IsNullOrWhiteSpace(c.LineaReferencia))
