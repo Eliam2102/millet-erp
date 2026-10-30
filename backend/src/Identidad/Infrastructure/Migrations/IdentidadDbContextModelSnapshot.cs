@@ -4415,6 +4415,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("0000000b-000c-0000-0000-000000000001"),
+                            Accion = "autorizar",
+                            Codigo = "tesoreria.diferencias-corte.autorizar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar o rechazar el faltante o sobrante del corte de caja (Tesorería; el cajero del corte no puede autorizar el suyo)",
+                            Modulo = "tesoreria",
+                            Recurso = "diferencias-corte",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("0000000c-0001-0000-0000-000000000001"),
                             Accion = "leer",
                             Codigo = "centros_costo.catalogo.leer",

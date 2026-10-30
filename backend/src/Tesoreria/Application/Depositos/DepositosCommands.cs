@@ -50,7 +50,12 @@ public sealed record DepositoConfirmacionResponse(
     int Version, Guid? PropuestoPor = null, decimal SaldoAFavorPorIdentificar = 0,
     Guid? MovimientoSugeridoId = null,
     decimal? SaldoPorDepositar = null,
-    IReadOnlyList<DepositoFichaResponse>? Fichas = null);
+    IReadOnlyList<DepositoFichaResponse>? Fichas = null,
+    // 86e3vr1tj: solo cortes de caja. El corte no se concilia mientras su diferencia no esté autorizada
+    // (el depósito sí se puede registrar). Importe con signo: negativo faltante, positivo sobrante.
+    EstadoDiferenciaCorte? DiferenciaEstado = null,
+    decimal? DiferenciaImporte = null,
+    bool? Conciliado = null);
 
 public sealed record DepositoFichaResponse(
     Guid Id, Guid MovimientoId, decimal Importe, DateOnly FechaFicha, string? NumeroFicha,
@@ -76,7 +81,8 @@ internal static class DepositoMapper
     }
 
     public static DepositoConfirmacionResponse ToResponse(
-        DepositoConfirmacion d, string? clienteClave = null, string? clienteRazonSocial = null) =>
+        DepositoConfirmacion d, string? clienteClave = null, string? clienteRazonSocial = null,
+        DiferenciaCorte? diferencia = null) =>
         new(d.Id, d.PropuestaCxcId, d.CajaSesionId, d.ClienteId, clienteClave, clienteRazonSocial,
             d.DepositoRef, d.MontoEsperado, d.Moneda, d.Estado, d.MotivoRechazo, d.ReppTimbrado,
             // Pendiente: MovimientoId es solo la sugerencia de CxC (va en MovimientoSugeridoId).
@@ -85,7 +91,9 @@ internal static class DepositoMapper
             d.SaldoPorDepositar,
             d.CajaSesionId is null ? null : d.Fichas.OrderBy(f => f.ConfirmadaEn)
                 .Select(f => new DepositoFichaResponse(f.Id, f.MovimientoId, f.Importe, f.FechaFicha, f.NumeroFicha,
-                    f.SoporteTipo, f.SoporteFolio, f.ConfirmadaEn)).ToList());
+                    f.SoporteTipo, f.SoporteFolio, f.ConfirmadaEn)).ToList(),
+            diferencia?.Estado, diferencia?.Importe,
+            d.CajaSesionId is null ? null : d.Estado == EstadoDepositoConfirmacion.Confirmada && (diferencia is null || diferencia.Autorizada));
 }
 
 // --------------------------------------------------- Confirmar
@@ -210,7 +218,8 @@ public sealed class ConfirmarDepositoHandler
                 CorteCompleto: deposito.Estado == EstadoDepositoConfirmacion.Confirmada,
                 ConfirmadaPor: usuarioId), cancellationToken);
             await _db.SaveChangesAsync(cancellationToken);
-            return DepositoMapper.ToResponse(deposito);
+            return DepositoMapper.ToResponse(deposito, diferencia: await _db.DiferenciasCorte.AsNoTracking()
+                .FirstOrDefaultAsync(x => x.CajaSesionId == deposito.CajaSesionId, cancellationToken));
         }
 
         // RN-6 + cotejo monto/moneda contra lo disponible, validados en el dominio.

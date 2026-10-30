@@ -1159,6 +1159,106 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Millet.Tesoreria.Domain.Depositos.DiferenciaCorte", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CajaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("caja_id");
+
+                    b.Property<Guid>("CajaSesionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("caja_sesion_id");
+
+                    b.Property<Guid>("CajeroId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cajero_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<DateOnly>("DiaCorte")
+                        .HasColumnType("date")
+                        .HasColumnName("dia_corte");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<short>("Estado")
+                        .HasColumnType("smallint")
+                        .HasColumnName("estado");
+
+                    b.Property<decimal>("Importe")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("importe");
+
+                    b.Property<decimal>("ImporteDevuelto")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("importe_devuelto");
+
+                    b.Property<string>("MotivoRechazo")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("motivo_rechazo");
+
+                    b.Property<DateTimeOffset?>("ResueltaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resuelta_en");
+
+                    b.Property<Guid?>("ResueltaPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("resuelta_por");
+
+                    b.Property<Guid>("SucursalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sucursal_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_diferencia_corte");
+
+                    b.HasIndex("CajaSesionId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_diferencia_corte_caja_sesion");
+
+                    b.HasIndex("EmpresaId", "Estado")
+                        .HasDatabaseName("ix_diferencia_corte_empresa_estado");
+
+                    b.ToTable("diferencia_corte", "tesoreria", t =>
+                        {
+                            t.HasCheckConstraint("ck_diferencia_corte_estado", "estado IN (1, 2, 3, 4, 5)");
+
+                            t.HasCheckConstraint("ck_diferencia_corte_importe", "importe <> 0");
+                        });
+                });
+
             modelBuilder.Entity("Millet.Tesoreria.Domain.Devoluciones.DevolucionCliente", b =>
                 {
                     b.Property<Guid>("Id")

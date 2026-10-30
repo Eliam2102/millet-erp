@@ -23,6 +23,12 @@ public enum TipoCajaMovimiento : short
 
     /// <summary>Fondo declarado al abrir la sesión.</summary>
     FondoApertura = 6,
+
+    /// <summary>
+    /// El cajero devuelve en efectivo el faltante de un corte anterior (junta 19-oct); obliga el corte de
+    /// origen (<c>CorteOrigenSesionId</c>). Entra al efectivo del corte actual como depósito.
+    /// </summary>
+    DevolucionFaltante = 7,
 }
 
 /// <summary>
@@ -49,6 +55,9 @@ public sealed class CajaMovimiento : BaseEntity, IPerteneceAEmpresa, IAuditable
     /// <summary>Cobro que originó el movimiento (CAJAS-PR4); null en manuales/fondo.</summary>
     public Guid? CobroMostradorId { get; private set; }
 
+    /// <summary>Corte (sesión cerrada) cuyo faltante devuelve este movimiento; solo en <c>DevolucionFaltante</c>.</summary>
+    public Guid? CorteOrigenSesionId { get; private set; }
+
     public string? Referencia { get; private set; }
     public string Descripcion { get; private set; } = string.Empty;
 
@@ -66,8 +75,9 @@ public sealed class CajaMovimiento : BaseEntity, IPerteneceAEmpresa, IAuditable
     private CajaMovimiento(
         Guid id, Guid empresaId, Guid cajaSesionId, TipoCajaMovimiento tipo, string formaPago,
         decimal importe, string moneda, Guid? cobroMostradorId, string? referencia,
-        string descripcion, Guid usuarioId) : base(id)
+        string descripcion, Guid usuarioId, Guid? corteOrigenSesionId) : base(id)
     {
+        CorteOrigenSesionId = corteOrigenSesionId;
         EmpresaId = empresaId;
         CajaSesionId = cajaSesionId;
         Tipo = tipo;
@@ -93,8 +103,22 @@ public sealed class CajaMovimiento : BaseEntity, IPerteneceAEmpresa, IAuditable
         string descripcion,
         string? referencia = null,
         Guid? cobroMostradorId = null,
-        string moneda = "MXN")
+        string moneda = "MXN",
+        Guid? corteOrigenSesionId = null)
     {
+        if (tipo == TipoCajaMovimiento.DevolucionFaltante)
+        {
+            if (corteOrigenSesionId is null || corteOrigenSesionId == Guid.Empty)
+                throw new BusinessRuleException("MOVIMIENTO_CORTE_ORIGEN_REQUERIDO",
+                    "La devolución de faltante exige elegir el corte de origen.");
+            if (formaPago?.Trim() != CajaSesion.FormaPagoEfectivo)
+                throw new BusinessRuleException("MOVIMIENTO_DEVOLUCION_SOLO_EFECTIVO",
+                    "El faltante del corte es de efectivo; solo se devuelve en efectivo.");
+        }
+        else if (corteOrigenSesionId is not null)
+            throw new BusinessRuleException("MOVIMIENTO_CORTE_ORIGEN_NO_APLICA",
+                "Solo la devolución de faltante lleva corte de origen.");
+
         if (cajaSesionId == Guid.Empty)
             throw new BusinessRuleException("MOVIMIENTO_SESION_INVALIDA", "La sesión es obligatoria.");
         if (string.IsNullOrWhiteSpace(formaPago) || formaPago.Trim().Length > 2)
@@ -115,7 +139,8 @@ public sealed class CajaMovimiento : BaseEntity, IPerteneceAEmpresa, IAuditable
         var signoValido = tipo switch
         {
             TipoCajaMovimiento.Retiro => importe < 0,
-            TipoCajaMovimiento.Deposito or TipoCajaMovimiento.FondoApertura or TipoCajaMovimiento.CobroCliente => importe > 0,
+            TipoCajaMovimiento.Deposito or TipoCajaMovimiento.FondoApertura or TipoCajaMovimiento.CobroCliente
+                or TipoCajaMovimiento.DevolucionFaltante => importe > 0,
             _ => true, // AjusteCorreccion / ReversaCobro llevan el signo del origen
         };
         if (!signoValido)
@@ -125,7 +150,7 @@ public sealed class CajaMovimiento : BaseEntity, IPerteneceAEmpresa, IAuditable
 
         return new CajaMovimiento(
             Guid.CreateVersion7(), empresaId, cajaSesionId, tipo, formaPago.Trim(), importe,
-            moneda, cobroMostradorId, Normalizar(referencia), descripcion.Trim(), usuarioId);
+            moneda, cobroMostradorId, Normalizar(referencia), descripcion.Trim(), usuarioId, corteOrigenSesionId);
     }
 
     /// <summary>Asigna el folio del Vale de Caja reservado con <see cref="Caja.SiguienteFolioVale"/>.</summary>

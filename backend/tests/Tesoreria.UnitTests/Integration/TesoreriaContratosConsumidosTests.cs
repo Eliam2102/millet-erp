@@ -191,9 +191,31 @@ public sealed class TesoreriaContratosConsumidosTests
 
         espejo.Should().BeEquivalentTo(new CajaSesionCerradaPayload(
             evento.EmpresaId, evento.OcurridoEn, evento.CajaSesionId, evento.CajaId,
-            evento.SucursalId, evento.DiaOperacion, evento.EfectivoDeclarado, evento.ResponsableUsuarioId));
+            evento.SucursalId, evento.DiaOperacion, evento.EfectivoDeclarado, evento.ResponsableUsuarioId,
+            evento.Diferencia));
 
         evento.EventType.Should().Be(CajaSesionCerradaPayload.EventType);
+    }
+
+    [Fact]
+    public void CajaFaltanteDevuelto_v1_es_compatible_con_el_espejo()
+    {
+        var evento = new CajaFaltanteDevueltoIntegrationEvent(
+            EmpresaId: EmpresaId,
+            OcurridoEn: OcurridoEn,
+            CajaMovimientoId: Guid.NewGuid(),
+            CajaSesionId: Guid.NewGuid(),
+            CorteOrigenSesionId: Guid.NewGuid(),
+            CajeroId: Guid.NewGuid(),
+            Importe: 50m);
+
+        var espejo = RoundTrip<CajaFaltanteDevueltoPayload>(evento);
+
+        espejo.Should().BeEquivalentTo(new CajaFaltanteDevueltoPayload(
+            evento.EmpresaId, evento.OcurridoEn, evento.CajaMovimientoId, evento.CajaSesionId,
+            evento.CorteOrigenSesionId, evento.CajeroId, evento.Importe));
+
+        evento.EventType.Should().Be(CajaFaltanteDevueltoPayload.EventType);
     }
 
     [Fact]

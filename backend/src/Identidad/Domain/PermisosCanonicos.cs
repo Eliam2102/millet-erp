@@ -547,6 +547,8 @@ public static class PermisosCanonicos
     public const string TesoreriaDevolucionesSolicitar          = "tesoreria.devoluciones.solicitar";
     public const string TesoreriaDevolucionesAutorizar          = "tesoreria.devoluciones.autorizar";
     public const string TesoreriaDevolucionesPagar              = "tesoreria.devoluciones.pagar";
+    // 86e3vr1tj (Millet 23-oct): Tesorería autoriza o rechaza el faltante/sobrante del corte de caja (y ve la bandeja).
+    public const string TesoreriaDiferenciasCorteAutorizar      = "tesoreria.diferencias-corte.autorizar";
 
     // ----- Centros de Costo (CECO-A1; modelo Dim desde CECO-PR4) -----
     // Namespace GUID 0000000c-* reservado para el módulo Centros de Costo.
@@ -958,6 +960,7 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000b-000b-0000-0000-000000000002"), TesoreriaDevolucionesSolicitar, "Solicitar, editar y cancelar devoluciones de dinero a clientes por depósito erróneo"),
         (Guid.Parse("0000000b-000b-0000-0000-000000000003"), TesoreriaDevolucionesAutorizar, "Autorizar o rechazar devoluciones de dinero a clientes (Gerente o Jefe de Tesorería)"),
         (Guid.Parse("0000000b-000b-0000-0000-000000000004"), TesoreriaDevolucionesPagar, "Registrar el pago de devoluciones autorizadas con su contramovimiento ligado"),
+        (Guid.Parse("0000000b-000c-0000-0000-000000000001"), TesoreriaDiferenciasCorteAutorizar, "Autorizar o rechazar el faltante o sobrante del corte de caja (Tesorería; el cajero del corte no puede autorizar el suyo)"),
 
         // Centros de Costo (CECO-A1; modelo Dim desde CECO-PR4). Namespace 0000000c-*.
         (Guid.Parse("0000000c-0001-0000-0000-000000000001"), CentrosCostoCatalogoLeer,                "Consultar el catálogo de centros de costo (árboles, niveles y grupos)"),

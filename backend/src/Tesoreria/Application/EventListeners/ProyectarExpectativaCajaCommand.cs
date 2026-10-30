@@ -55,6 +55,15 @@ public sealed class ProyectarExpectativaCajaHandler : IRequestHandler<ProyectarE
             }
         }
 
+        // Millet 23-oct (86e3vr1tj): toda diferencia distinta de $0.00 (sin tolerancia) pasa por Tesorería,
+        // aunque el efectivo declarado sea 0 (no hay expectativa de depósito pero sí faltante).
+        if (p.Diferencia != 0 && p.ResponsableUsuarioId is Guid cajero
+            && !await _db.DiferenciasCorte.AsNoTracking().AnyAsync(d => d.CajaSesionId == p.CajaSesionId, cancellationToken))
+        {
+            _db.DiferenciasCorte.Add(DiferenciaCorte.Crear(
+                p.EmpresaId, p.CajaSesionId, p.CajaId, p.SucursalId, cajero, p.DiaOperacion, p.Diferencia));
+        }
+
         _db.EventosProcesados.Add(new EventoProcesado(
             command.EventoId, EventType, ahora,
             detalle: $"cajaSesion={p.CajaSesionId} efectivo={p.EfectivoDeclarado} dia={p.DiaOperacion:yyyy-MM-dd}"));
