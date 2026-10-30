@@ -24,6 +24,11 @@ public sealed class RetirarPasivoDePagoHandler(TesoreriaDbContext db, IClock clo
             db.PasivosPendientesPago.Add(pasivo);
         }
         pasivo.RetirarDePago(p.Motivo, p.OcurridoEn);
+        // T9.1-A: el pasivo sale de las corridas vivas (borrador/autorización) con aviso; en las autorizadas solo se avisa.
+        if (pasivo.PagoBloqueado)
+            foreach (var corrida in await db.CorridasPago.Include(x => x.Lineas).Include(x => x.Firmas)
+                         .Where(x => x.Lineas.Any(l => l.Viva && l.FacturaProveedorId == p.FacturaProveedorId)).ToListAsync(cancellationToken))
+                corrida.RetirarPasivo(p.FacturaProveedorId, p.Motivo);
         db.EventosProcesados.Add(new EventoProcesado(c.EventoId, PasivoRetiradoDePagoPayload.EventType, clock.UtcNow));
         await db.SaveChangesAsync(cancellationToken);
     }
