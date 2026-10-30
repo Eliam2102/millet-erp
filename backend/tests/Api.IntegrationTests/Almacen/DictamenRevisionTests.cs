@@ -141,7 +141,7 @@ public class DictamenRevisionTests : IClassFixture<WebApplicationFactory<Program
                 using var sinEvidencia = await admin.PostAsJsonAsync(Ruta(lineaId), cuerpo);
                 Assert.Equal(HttpStatusCode.UnprocessableEntity, sinEvidencia.StatusCode);
                 Assert.Equal("DICTAMEN_RECHAZO_SIN_EVIDENCIA", await ContabTestKit.Code(sinEvidencia));
-                Assert.Equal(0, await db.DevolucionesProveedor.CountAsync());
+                Assert.Equal(0, await db.DevolucionesProveedor.CountAsync(d => d.EmpresaId == ctx.EmpresaId));
 
                 using var contenido = new MultipartFormDataContent();
                 var archivo = new ByteArrayContent(Png);
