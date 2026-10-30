@@ -122,7 +122,7 @@ public sealed partial class DemoSesionSeedHostedService
 
             var cobro = CobroMostrador.Registrar(EmpresaId, sesion.Id, mid.Id, factura.CanalVentaId, factura.Id,
                 OrigenCobroMostrador.Mostrador, fecha, CajeraDemoId,
-                [.. c.Pagos.Select(p => (p.Forma, p.Importe, p.Referencia, (string?)null, (string?)null))]);
+                [.. c.Pagos.Select(p => (p.Forma, p.Importe, p.Referencia, (string?)null, (string?)null, (string?)null))]);
             facturas.Add(factura);
             cobros.Add(cobro);
             movimientos.AddRange(cobro.FormasPago.Select(f => (CajaMovimiento.Crear(EmpresaId, sesion.Id,

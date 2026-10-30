@@ -50,6 +50,10 @@ public sealed class CajaMovimiento : BaseEntity, IPerteneceAEmpresa, IAuditable
     public Guid? CobroMostradorId { get; private set; }
 
     public string? Referencia { get; private set; }
+
+    /// <summary>Últimos 4 dígitos de la tarjeta del voucher en cobros con tarjeta (86e3tfdvt).</summary>
+    public string? TarjetaUltimos4 { get; private set; }
+
     public string Descripcion { get; private set; } = string.Empty;
 
     /// <summary>Quien capturó/originó el movimiento.</summary>
@@ -87,7 +91,8 @@ public sealed class CajaMovimiento : BaseEntity, IPerteneceAEmpresa, IAuditable
         string descripcion,
         string? referencia = null,
         Guid? cobroMostradorId = null,
-        string moneda = "MXN")
+        string moneda = "MXN",
+        string? tarjetaUltimos4 = null)
     {
         if (cajaSesionId == Guid.Empty)
             throw new BusinessRuleException("MOVIMIENTO_SESION_INVALIDA", "La sesión es obligatoria.");
@@ -119,7 +124,10 @@ public sealed class CajaMovimiento : BaseEntity, IPerteneceAEmpresa, IAuditable
 
         return new CajaMovimiento(
             Guid.CreateVersion7(), empresaId, cajaSesionId, tipo, formaPago.Trim(), importe,
-            moneda, cobroMostradorId, Normalizar(referencia), descripcion.Trim(), usuarioId);
+            moneda, cobroMostradorId, Normalizar(referencia), descripcion.Trim(), usuarioId)
+        {
+            TarjetaUltimos4 = Normalizar(tarjetaUltimos4),
+        };
     }
 
     private static string? Normalizar(string? valor) =>

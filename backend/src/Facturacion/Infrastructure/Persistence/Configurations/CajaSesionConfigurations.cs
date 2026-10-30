@@ -98,6 +98,7 @@ public sealed class CajaMovimientoConfiguration : IEntityTypeConfiguration<CajaM
         builder.Property(e => e.Moneda).HasMaxLength(3).IsRequired();
         builder.Property(e => e.CobroMostradorId);
         builder.Property(e => e.Referencia).HasMaxLength(100);
+        builder.Property(e => e.TarjetaUltimos4).HasMaxLength(4);
         builder.Property(e => e.Descripcion).HasMaxLength(254).IsRequired();
         builder.Property(e => e.UsuarioId).IsRequired();
 

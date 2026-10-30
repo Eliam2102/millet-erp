@@ -601,6 +601,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("referencia");
 
+                    b.Property<string>("TarjetaUltimos4")
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)")
+                        .HasColumnName("tarjeta_ultimos4");
+
                     b.Property<short>("Tipo")
                         .HasColumnType("smallint")
                         .HasColumnName("tipo");
@@ -1052,6 +1057,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
                         .HasColumnName("referencia");
+
+                    b.Property<string>("TarjetaUltimos4")
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)")
+                        .HasColumnName("tarjeta_ultimos4");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
