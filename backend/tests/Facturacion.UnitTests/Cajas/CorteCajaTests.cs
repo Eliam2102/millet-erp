@@ -104,7 +104,7 @@ public sealed class CorteCajaTests
         var f2 = FacturaTimbrada(2510m, "FA-2");
         db.FacturasVenta.AddRange(f1, f2);
         await db.SaveChangesAsync();
-        await CobrarAsync(db, f1.Id, new("01", 2000m, null), new("04", 3000m, "VOUCHER"));
+        await CobrarAsync(db, f1.Id, new("01", 2000m, null), new("04", 3000m, "VOUCHER", TarjetaUltimos4: "3000"));
         await CobrarAsync(db, f2.Id, new CobroFormaPagoInput("03", 2510m, "TRANSFERENCIA"));
         db.ChangeTracker.Clear();
         var corte = await Corte(db).Handle(new(sesion.Id), default);
@@ -153,8 +153,8 @@ public sealed class CorteCajaTests
 
         var neto = factura.Total - 116m;
         await CobrarAsync(db, factura.Id,
-            new CobroFormaPagoInput("01", neto - 400m), new CobroFormaPagoInput("04", 400m, "AUT-77"));
-        await CobrarAsync(db, anticipo.Id, new CobroFormaPagoInput("28", anticipo.Total, "AUT-88"));
+            new CobroFormaPagoInput("01", neto - 400m), new CobroFormaPagoInput("04", 400m, "AUT-77", TarjetaUltimos4: "1234"));
+        await CobrarAsync(db, anticipo.Id, new CobroFormaPagoInput("28", anticipo.Total, "AUT-88", TarjetaUltimos4: "5678"));
         await CobrarAsync(db, repp.Id, new CobroFormaPagoInput("01", 750m));
         db.ChangeTracker.Clear();
 
@@ -177,9 +177,9 @@ public sealed class CorteCajaTests
         porForma["04"].MontoSistema.Should().Be(400m);
         porForma["28"].MontoSistema.Should().Be(anticipo.Total);
 
-        // Vouchers de la terminal visibles en el corte.
+        // Vouchers de la terminal visibles en el corte: autorización y últimos 4 (86e3tfdvt).
         r.Reporte.Filas.Where(f => f.Referencia != null).Select(f => f.Referencia)
-            .Should().BeEquivalentTo(["AUT-77", "AUT-88"]);
+            .Should().BeEquivalentTo(["AUT-77 · **** 1234", "AUT-88 · **** 5678"]);
 
         // Total del CFDI y NC: una sola vez por cobro (informativos, no son dinero).
         var filasFactura = r.Reporte.Filas.Where(f => f.Comprobante == "Factura F-1").ToList();
@@ -230,7 +230,7 @@ public sealed class CorteCajaTests
         await db.SaveChangesAsync();
 
         await CobrarAsync(db, ranura.Id, new CobroFormaPagoInput("01", ranura.Total - 116m));
-        await CobrarAsync(db, anticipo.Id, new CobroFormaPagoInput("04", anticipo.Total, "482913"));
+        await CobrarAsync(db, anticipo.Id, new CobroFormaPagoInput("04", anticipo.Total, "482913", TarjetaUltimos4: "0417"));
         db.ChangeTracker.Clear();
 
         var r = await Corte(db).Handle(new CorteCajaSesionQuery(sesion.Id), CancellationToken.None);

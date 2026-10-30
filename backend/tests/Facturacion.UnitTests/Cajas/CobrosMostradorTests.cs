@@ -104,7 +104,7 @@ public sealed class CobrosMostradorTests
 
         var eventos = new FakeIntegrationEventPublisher();
         var response = await RegistrarHandler(db, eventos).Handle(new RegistrarCobroMostradorCommand(
-            factura.Id, [new CobroFormaPagoInput("01", 600m), new CobroFormaPagoInput("04", 400m, "AUTH-77")]),
+            factura.Id, [new CobroFormaPagoInput("01", 600m), new CobroFormaPagoInput("04", 400m, "AUTH-77", TarjetaUltimos4: "1234")]),
             CancellationToken.None);
 
         response.Total.Should().Be(1000m);
@@ -413,7 +413,94 @@ public sealed class CobrosMostradorTests
         await db.SaveChangesAsync();
 
         await RegistrarHandler(db).Handle(new RegistrarCobroMostradorCommand(
-            factura.Id, [new CobroFormaPagoInput("04", 300m, referencia)]),
+            factura.Id, [new CobroFormaPagoInput("04", 300m, referencia, TarjetaUltimos4: "1234")]),
+            CancellationToken.None);
+
+        (await db.CobrosMostrador.CountAsync()).Should().Be(1);
+    }
+
+    // 86e3tfdvt (Millet, 30-oct): del voucher se capturan la autorización y los
+    // últimos 4 dígitos de la tarjeta; nunca el número completo.
+    [Theory]
+    [InlineData("04", null)]
+    [InlineData("28", "  ")]
+    public async Task Registrar_tarjeta_sin_ultimos4_falla_sin_guardar(string forma, string? ultimos4)
+    {
+        using var db = NewDb();
+        await SembrarSesionAsync(db);
+        var factura = FacturaTimbrada(300m);
+        db.FacturasVenta.Add(factura);
+        await db.SaveChangesAsync();
+
+        var act = () => RegistrarHandler(db).Handle(new RegistrarCobroMostradorCommand(
+            factura.Id, [new CobroFormaPagoInput(forma, 300m, "123456", TarjetaUltimos4: ultimos4)]),
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "COBRO_TARJETA_SIN_ULTIMOS4");
+        (await db.CobrosMostrador.CountAsync()).Should().Be(0);
+    }
+
+    [Theory]
+    [InlineData("123")]
+    [InlineData("12345")]
+    [InlineData("12a4")]
+    [InlineData("1 34")]
+    public async Task Registrar_tarjeta_con_ultimos4_invalidos_falla_sin_guardar(string ultimos4)
+    {
+        using var db = NewDb();
+        await SembrarSesionAsync(db);
+        var factura = FacturaTimbrada(300m);
+        db.FacturasVenta.Add(factura);
+        await db.SaveChangesAsync();
+
+        var act = () => RegistrarHandler(db).Handle(new RegistrarCobroMostradorCommand(
+            factura.Id, [new CobroFormaPagoInput("04", 300m, "123456", TarjetaUltimos4: ultimos4)]),
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "COBRO_TARJETA_ULTIMOS4_INVALIDOS");
+        (await db.CobrosMostrador.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Registrar_pago_mixto_con_dos_tarjetas_guarda_un_voucher_por_tarjeta()
+    {
+        using var db = NewDb();
+        await SembrarSesionAsync(db);
+        var factura = FacturaTimbrada(300m);
+        db.FacturasVenta.Add(factura);
+        await db.SaveChangesAsync();
+
+        await RegistrarHandler(db).Handle(new RegistrarCobroMostradorCommand(
+            factura.Id,
+            [
+                new CobroFormaPagoInput("01", 50m, TarjetaUltimos4: "9999"),
+                new CobroFormaPagoInput("04", 100m, "AUT-01", TarjetaUltimos4: " 1234 "),
+                new CobroFormaPagoInput("28", 150m, "AUT-02", TarjetaUltimos4: "5678"),
+            ]),
+            CancellationToken.None);
+        db.ChangeTracker.Clear();
+
+        var formas = (await db.CobrosMostrador.Include(c => c.FormasPago).SingleAsync()).FormasPago;
+        formas.Select(f => (f.FormaPago, f.Referencia, f.TarjetaUltimos4)).Should().BeEquivalentTo(
+            [("01", (string?)null, (string?)null), ("04", "AUT-01", "1234"), ("28", "AUT-02", "5678")]);
+        var movimientos = await db.CajaMovimientos.Where(m => m.Tipo == TipoCajaMovimiento.CobroCliente).ToListAsync();
+        movimientos.Select(m => (m.FormaPago, m.Referencia, m.TarjetaUltimos4)).Should().BeEquivalentTo(
+            [("01", (string?)null, (string?)null), ("04", "AUT-01", "1234"), ("28", "AUT-02", "5678")]);
+    }
+
+    [Fact]
+    public async Task Registrar_tarjeta_de_servicios_29_sigue_pidiendo_solo_la_autorizacion()
+    {
+        // 86e3tfdvt: Millet no habilita la 29 en caja; mientras se excluye
+        // (tarea aparte), conserva la regla del PR #228 sin últimos 4 dígitos.
+        using var db = NewDb();
+        await SembrarSesionAsync(db);
+        var factura = FacturaTimbrada(300m);
+        db.FacturasVenta.Add(factura);
+        await db.SaveChangesAsync();
+
+        await RegistrarHandler(db).Handle(new RegistrarCobroMostradorCommand(
+            factura.Id, [new CobroFormaPagoInput("29", 300m, "123456")]),
             CancellationToken.None);
 
         (await db.CobrosMostrador.CountAsync()).Should().Be(1);
@@ -511,7 +598,7 @@ public sealed class CobrosMostradorTests
             new CancelarCobroMostradorCommand(primero.Id, "Error de captura"), CancellationToken.None);
 
         var segundo = await RegistrarHandler(db).Handle(new RegistrarCobroMostradorCommand(
-            factura.Id, [new CobroFormaPagoInput("04", 200m, "AUT-0042")]), CancellationToken.None);
+            factura.Id, [new CobroFormaPagoInput("04", 200m, "AUT-0042", TarjetaUltimos4: "0042")]), CancellationToken.None);
 
         segundo.Estado.Should().Be("Registrado");
         (await db.CobrosMostrador.CountAsync()).Should().Be(2);
@@ -546,7 +633,7 @@ public sealed class CobrosMostradorTests
 
         var importeCero = () => CobroMostrador.Registrar(
             Empresa, Guid.NewGuid(), SucursalId, 1, Guid.NewGuid(),
-            OrigenCobroMostrador.Mostrador, Ahora, Cajero, [("01", 0m, null, null, null)]);
+            OrigenCobroMostrador.Mostrador, Ahora, Cajero, [("01", 0m, null, null, null, null)]);
         importeCero.Should().Throw<BusinessRuleException>().Where(e => e.Code == "COBRO_IMPORTE_INVALIDO");
     }
 }

@@ -58,7 +58,7 @@ public sealed class DetalleCobroTests
 
         var cobro = CobroMostrador.Registrar(empresa, sesion.Id, f.SucursalId, 1, f.Id,
             OrigenCobroMostrador.Mostrador, Ahora, usuario,
-            [("01", 60m, null, null, null), ("04", 40m, "AUT-FICTICIA", null, null)]);
+            [("01", 60m, null, null, null, null), ("04", 40m, "AUT-FICTICIA", null, null, null)]);
         db.Add(cobro);
         await db.SaveChangesAsync();
         var despues = await Detalle(db, f.Id);
@@ -82,7 +82,7 @@ public sealed class DetalleCobroTests
         cancelado.TotalPorCobrar.Should().Be(100m);
 
         var nuevo = CobroMostrador.Registrar(empresa, sesion.Id, f.SucursalId, 1, f.Id,
-            OrigenCobroMostrador.Mostrador, Ahora.AddMinutes(1), usuario, [("01", 100m, null, null, null)]);
+            OrigenCobroMostrador.Mostrador, Ahora.AddMinutes(1), usuario, [("01", 100m, null, null, null, null)]);
         db.Add(nuevo);
         await db.SaveChangesAsync();
         (await Detalle(db, f.Id)).CobroMostrador!.Id.Should().Be(nuevo.Id);
