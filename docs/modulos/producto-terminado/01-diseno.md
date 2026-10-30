@@ -136,7 +136,7 @@ flowchart LR
 
 - **Lectura incremental:** marca de agua por `bearb_zeit` con una ventana de traslape (**SUPUESTO** S7: 10 min) para no perder renglones que A+W escriba con hora atrasada; el traslape no duplica gracias a D6.
 - **Canal:** `PiezasPtOrigenSelector` en `backend/src/Integraciones.Aw/Infrastructure/PiezasPt/` (nuevo), copia de `OtrOrigenSelector` (`backend/src/Integraciones.Aw/Infrastructure/Exportacion/DependencyInjection.cs:37`): claves `Demo`/`Real` según `AwOrigenSesion`. Demo: tablas `awbar_bearbeit`, `pool_bearbeit` y `pool_pos` mínimas en `tools/aw-origen-demo/schema.sql` y datos en `tools/aw-origen-demo/piezas.sql` (nuevo), con los mismos nombres de columna que la consulta de Jorge.
-- **Real:** cadena propia `AwProduccionDb` (otra instancia, no `AwIntegracionDb`) y usuario de solo lectura sobre esas tablas. **Pendiente de Jorge y Eliam** (A+W-QA-7): la conexión híbrida actual llega a AWBUSINESS y no ve `alcimdb`. El adaptador Real se deja escrito y probado contra el sandbox, pero solo se registra con `ContratoI134Firmado` y la cadena configurada.
+- **Real (SRC-114, 29-oct):** la conexión de clientes (`AwClientesDb`, login `millet_erp_lector_aw`) y el servidor vinculado `[AWPROD_ERP].alcimdb` con `OPENQUERY`; sin cadena propia ni tercera conexión híbrida. Pieza terminada = `fertig = 1 AND bruch_flag = 0 AND LEN(etikettnr) = 9`. Solo se registra con `ContratoI134Firmado`, `EntradaHabilitada` y la cadena configurada; sigue apagado.
 - **Configuración:** sección `IntegracionesAw:PiezasPt` (`EntradaHabilitada=false`, `EmpresaId`, `IntervalSeconds=30`, `BatchSize=200`, `MaxIntentos=5`, `PospuestoHoras=24`, `TraslapeMinutos=10`, `EstacionesPt`, `ContratoI134Firmado=false`). Demo nunca en Production.
 - **Quién reintenta:** los `Pospuesto` se reintentan desde `producto_terminado.escaneos`, no volviendo a leer SQL Server, para no cargar AWPRODUCTION. A A+W no se le escribe ningún acuse.
 - **Bandeja:** una persona con permiso puede `Reintentar` o `Descartar` con motivo (molde `DescartarReppPendienteCommand(Id, Motivo)` en `backend/src/Facturacion/Application/Repp/Pendientes/ReppPendienteCommands.cs:15`). Las `Reposicion` solo se marcan como revisadas hasta que PT5.8 dé la baja por rotura. Ninguna acción crea pieza fuera del comando.
@@ -221,7 +221,7 @@ Plano 1.7.1 §11: «sin acuse no afirmar liberado en A+W». El estado `Liberado`
 
 | Pieza | Ticket | NoOp en uso | Cómo se conecta |
 |---|---|---|---|
-| Canal real (AWPRODUCTION) | A+W-QA-7 / I13.4 | `ContratoI134Firmado=false`; solo Demo | Conexión a `192.168.1.8\AWPRODUCTION` (puerto fijo y conexión híbrida propia), usuario de solo lectura sobre `alcimdb` y cadena `AwProduccionDb` |
+| Canal real (AWPRODUCTION) | A+W-QA-7 / I13.4 | `ContratoI134Firmado=false`; solo Demo | Encender el canal Real: servidor vinculado `AWPROD_ERP` por la conexión de clientes (`AwClientesDb`); sin conexión híbrida propia |
 | Saldo por pedido | Facturación (Uziel) | Real: `SaldoPedidoProvisionalAdapter` «no cubierto». Demo: `SaldoPedidoDemoAdapter` con saldo de prueba | `PLATFORM-TODO(<SaldoPorPedidoFacturacion>)` |
 | Evento de cambio de saldo | Facturación (Uziel) | barrido de retenidos cada 15 min | se cambia el barrido por la suscripción |
 | Topic `producto-terminado-events` | infra | entrega local C1.8 | `infra/modules/servicebus.bicep` |

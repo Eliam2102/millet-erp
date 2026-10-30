@@ -35,7 +35,7 @@ case "${1:-}" in
       -v cliente_numero_aw="${OTR_CLIENTE_NUMERO_AW:-DEMO-CLI-EXP-1}" < otr.sql
     pg -d "$DB" < piezas.sql
     pg -d "$DB" < pinturas.sql
-    echo "origen demo listo: BD $DB en $C (62 clientes, 47 productos, 3 pedidos, 2 envíos OTR/3 versiones, 8 escaneos de pieza PT)" ;;
+    echo "origen demo listo: BD $DB en $C (62 clientes, 47 productos, 3 pedidos, 2 envíos OTR/3 versiones, 9 escaneos de pieza PT)" ;;
   reseed) pg -d "$DB" < seed.sql ;;
   importar)
     AWDB="${AW_DB:-AW_DEMO}"

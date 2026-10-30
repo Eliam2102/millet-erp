@@ -114,12 +114,12 @@ public class PtEntradaDemoTests(WebApplicationFactory<Program> factory, ITestOut
 
     private static string Numero() => Prefijo + Guid.NewGuid().ToString("N");
 
-    private Task<int> Escaneo(string pedido, string etiqueta, int pieza, DateTime tiempo, string? clave = ClaveA, int estacion = 2821) => Sql("""
+    private Task<int> Escaneo(string pedido, string etiqueta, int pieza, DateTime tiempo, string? clave = ClaveA, int estacion = 2821, int bruch = 0) => Sql("""
         INSERT INTO dbo.pool_pos (auftnr,pos,u_pos,ae_intpos,menge) VALUES (@a,1,0,1,100) ON CONFLICT DO NOTHING;
         INSERT INTO dbo.or_avbereich (auftnr,avbereich) SELECT @a,@c WHERE @c IS NOT NULL ON CONFLICT DO NOTHING;
-        INSERT INTO dbo.awbar_bearbeit (etikettnr,bearb_zeit,auftnr,pos,u_pos,teile_nr,fertig,esnr_ist) VALUES (@e,@t,@a,1,0,@n,1,@s);
+        INSERT INTO dbo.awbar_bearbeit (etikettnr,bearb_zeit,auftnr,pos,u_pos,teile_nr,fertig,esnr_ist,bruch_flag) VALUES (@e,@t,@a,1,0,@n,1,@s,@b);
         """, new("a", pedido), new("c", (object?)clave ?? DBNull.Value) { NpgsqlDbType = NpgsqlDbType.Varchar }, new("e", etiqueta),
-        new("t", NpgsqlDbType.Timestamp) { Value = tiempo }, new("n", pieza.ToString()), new("s", estacion));
+        new("t", NpgsqlDbType.Timestamp) { Value = tiempo }, new("n", pieza.ToString()), new("s", estacion), new("b", bruch));
 
     private sealed class Contexto(PtEntradaDemoTests t, Guid a, Guid b, string? claveA, string? claveB) : IAsyncDisposable
     {
@@ -138,8 +138,10 @@ public class PtEntradaDemoTests(WebApplicationFactory<Program> factory, ITestOut
         const string like = Prefijo + "%";
         var p = () => new NpgsqlParameter("l", like);
         await Sql("DELETE FROM producto_terminado.integration_events_outbox WHERE payload::text LIKE '%" + Prefijo + "%'");
-        await Sql("DELETE FROM producto_terminado.movimientos_pieza WHERE pieza_id IN (SELECT id FROM producto_terminado.piezas WHERE etiqueta LIKE @l)", p());
-        await Sql("DELETE FROM producto_terminado.piezas WHERE etiqueta LIKE @l", p());
+        // Las etiquetas son de 9 caracteres (SRC-114) y no llevan el prefijo: se borra por el pedido.
+        const string delPedido = "(SELECT z.id FROM producto_terminado.piezas z JOIN producto_terminado.pedidos_pt p ON p.id = z.pedido_pt_id WHERE p.numero_pedido LIKE @l)";
+        await Sql("DELETE FROM producto_terminado.movimientos_pieza WHERE pieza_id IN " + delPedido, p());
+        await Sql("DELETE FROM producto_terminado.piezas WHERE id IN " + delPedido, p());
         await Sql("DELETE FROM producto_terminado.escaneos WHERE numero_pedido LIKE @l", p());
         await Sql("DELETE FROM producto_terminado.pedido_pt_posiciones WHERE pedido_pt_id IN (SELECT id FROM producto_terminado.pedidos_pt WHERE numero_pedido LIKE @l)", p());
         await Sql("DELETE FROM producto_terminado.pedidos_pt WHERE numero_pedido LIKE @l", p());
@@ -182,7 +184,9 @@ public class PtEntradaDemoTests(WebApplicationFactory<Program> factory, ITestOut
         return w.CorrerUnaVezAsync(CancellationToken.None);
     }
 
-    private static string Etq(string pedido, int i) => $"{pedido}-E{i}";
+    // Etiqueta de 9 caracteres (SRC-114), determinista por (pedido, pieza); en SQL: substr(encode(sha256(convert_to(pedido || '-' || pieza, 'UTF8')), 'hex'), 1, 9).
+    private static string Etq(string pedido, int i) =>
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes($"{pedido}-{i}")))[..9].ToLowerInvariant();
 
     // ---------- casos ----------
 
@@ -313,6 +317,22 @@ public class PtEntradaDemoTests(WebApplicationFactory<Program> factory, ITestOut
     }
 
     [Fact]
+    public async Task SRC114_Pieza_rota_etiqueta_mas_01_con_bruch_flag_no_cuenta_ni_entra_a_PT()
+    {
+        await using var ctx = await PrepararAsync();
+        var n = Numero();
+        await _d.FacturacionAsync(n, ctx.A, 3);
+        await Escaneo(n, Etq(n, 1), 1, Ahora());
+        await Escaneo(n, Etq(n, 1) + "01", 1, Ahora(10), bruch: 1);   // registro de la rotura: fertig = 1, bruch_flag = 1, 11 caracteres
+        await Escaneo(n, Etq(n, 2) + "01", 2, Ahora(20));              // etiqueta de 11 caracteres aunque bruch_flag = 0: tampoco es pieza
+        await using var f = Host();
+        await Ciclo(f);
+        Assert.Equal("Alta", Assert.Single(await Resultados(n)).Resultado);
+        Assert.Equal(1, await Piezas(n));
+        Assert.Equal(1, await Eventos(n));
+    }
+
+    [Fact]
     public async Task M06_PT5_1_d_Sin_contrato_I13_4_no_hay_lector_Real_y_el_ciclo_no_escribe_nada_pero_Demo_funciona()
     {
         await using var ctx = await PrepararAsync();
@@ -388,7 +408,7 @@ public class PtEntradaDemoTests(WebApplicationFactory<Program> factory, ITestOut
         await Escaneo(n, Etq(n, 3), 3, Ahora(500), clave: null); // pieza 3 rota y repuesta
         await Ciclo(f);
         Assert.Equal(1, await EscaneosConResultado(n, "Reposicion"));
-        Assert.Equal(1, await Cuenta("SELECT count(*) FROM producto_terminado.movimientos_pieza m JOIN producto_terminado.piezas z ON z.id = m.pieza_id WHERE m.tipo = 'Reposicion' AND z.etiqueta LIKE @p || '%'", n));
+        Assert.Equal(1, await Cuenta("SELECT count(*) FROM producto_terminado.movimientos_pieza m JOIN producto_terminado.piezas z ON z.id = m.pieza_id WHERE m.tipo = 'Reposicion' AND (SELECT numero_pedido FROM producto_terminado.pedidos_pt WHERE id = z.pedido_pt_id) LIKE @p || '%'", n));
 
         for (var i = 9; i <= 10; i++) await Escaneo(n, Etq(n, i), i, Ahora(600 + i), clave: null);
         await Ciclo(f);
@@ -468,9 +488,9 @@ public class PtEntradaDemoTests(WebApplicationFactory<Program> factory, ITestOut
                 INSERT INTO dbo.pool_pos (auftnr,pos,u_pos,ae_intpos,menge) VALUES (@a,1,0,1,90);
                 INSERT INTO dbo.or_avbereich (auftnr,avbereich) VALUES (@a,@c);
                 INSERT INTO dbo.awbar_bearbeit (etikettnr,bearb_zeit,auftnr,pos,u_pos,teile_nr,fertig,esnr_ist)
-                SELECT @a || '-E' || g, @t + ((@o * @pp + g) * interval '1 millisecond'), @a, 1, 0, g::text, 1, 2821 FROM generate_series(1, @pp) g;
+                SELECT substr(encode(sha256(convert_to(@a || '-' || g, 'UTF8')), 'hex'), 1, 9), @t + ((@o * @pp + g) * interval '1 millisecond'), @a, 1, 0, g::text, 1, 2821 FROM generate_series(1, @pp) g;
                 INSERT INTO dbo.awbar_bearbeit (etikettnr,bearb_zeit,auftnr,pos,u_pos,teile_nr,fertig,esnr_ist)
-                SELECT @a || '-E' || g, @t + ((@np + @o * @rep + g) * interval '1 millisecond'), @a, 1, 0, g::text, 1, 2821 FROM generate_series(1, @rep) g;
+                SELECT substr(encode(sha256(convert_to(@a || '-' || g, 'UTF8')), 'hex'), 1, 9), @t + ((@np + @o * @rep + g) * interval '1 millisecond'), @a, 1, 0, g::text, 1, 2821 FROM generate_series(1, @rep) g;
                 """, new("a", n), new("c", ClaveA), new("t", NpgsqlDbType.Timestamp) { Value = t0 }, new("o", o), new("pp", piezasPorPedido),
                 new("np", pedidos * piezasPorPedido), new("rep", repetidas));
         }

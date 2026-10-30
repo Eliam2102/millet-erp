@@ -1,6 +1,7 @@
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Millet.Integraciones.Aw.Application.Clientes;
 using Millet.Integraciones.Aw.Application.PiezasPt;
 using Millet.Integraciones.Aw.Infrastructure.Adapters;
 using Millet.Integraciones.Aw.Infrastructure.Origen;
@@ -22,9 +23,11 @@ public static class PiezasPtDependencyInjection
 
         services.AddKeyedScoped<IPiezasPtOrigenReader>("Demo", (_, _) => new PiezasPtOrigenAdapter(() => new AwOrigenPg.Fabrica(config).CreateConnection(), true));
         // Real solo con contrato I13.4 firmado, conexión configurada y bandera de entrada; no abre nada al registrarse.
-        if (options.ContratoI134Firmado && !string.IsNullOrWhiteSpace(config.GetConnectionString("AwProduccionDb")) && options.EntradaHabilitada)
+        // Misma conexión de clientes (millet_erp_lector_aw); alcimdb se alcanza por el servidor vinculado AWPROD_ERP (SRC-114), sin cadena propia.
+        const string cadena = AwClientesOptions.ConnectionStringName;
+        if (options.ContratoI134Firmado && !string.IsNullOrWhiteSpace(config.GetConnectionString(cadena)) && options.EntradaHabilitada)
             services.AddKeyedScoped<IPiezasPtOrigenReader>("Real", (_, _) => new PiezasPtOrigenAdapter(
-                () => new SqlConnection(AwSqlTls.Validar(config.GetConnectionString("AwProduccionDb")!, "AwProduccionDb")), false));
+                () => new SqlConnection(AwSqlTls.Validar(config.GetConnectionString(cadena)!, cadena)), false));
 
         services.AddScoped<IPiezasPtOrigenReader, PiezasPtOrigenSelector>();
         services.AddScoped<IPtSucursalPorClaveAwPort, PtSucursalPorClaveAwAdapter>();

@@ -224,6 +224,7 @@ CREATE TABLE IF NOT EXISTS dbo.awbar_bearbeit (
     fertig smallint NOT NULL,
     esnr_ist int NOT NULL,
     bearb_nr int NOT NULL DEFAULT 0,
+    bruch_flag smallint NOT NULL DEFAULT 0,
     PRIMARY KEY (etikettnr, bearb_zeit)
 );
 CREATE TABLE IF NOT EXISTS dbo.pool_pos (
@@ -246,6 +247,7 @@ CREATE TABLE IF NOT EXISTS dbo.pool_bearbeit (
 );
 -- BD demo creadas antes del 28-oct: pasar a la llave nueva sin recrearlas.
 ALTER TABLE dbo.awbar_bearbeit ADD COLUMN IF NOT EXISTS bearb_nr int NOT NULL DEFAULT 0;
+ALTER TABLE dbo.awbar_bearbeit ADD COLUMN IF NOT EXISTS bruch_flag smallint NOT NULL DEFAULT 0;
 ALTER TABLE dbo.pool_bearbeit ADD COLUMN IF NOT EXISTS teile_nr varchar(50) NOT NULL DEFAULT '';
 ALTER TABLE dbo.pool_bearbeit ADD COLUMN IF NOT EXISTS bearb_nr int NOT NULL DEFAULT 0;
 ALTER TABLE dbo.pool_bearbeit DROP COLUMN IF EXISTS esnr;

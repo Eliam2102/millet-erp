@@ -19,12 +19,22 @@ public sealed class PiezasPtOrigenAdapter(Func<DbConnection> fabrica, bool postg
         "LEFT JOIN dbo.pool_bearbeit pb ON pb.auftnr = b.auftnr AND pb.pos = b.pos AND pb.u_pos = b.u_pos AND pb.teile_nr = b.teile_nr AND pb.bearb_nr = b.bearb_nr";
     // Solo Demo: en Real la clave de sucursal vive en MILMAIN OR_AVBEREICH (otra instancia).
     internal const string DesdeClaveDemo = " LEFT JOIN dbo.or_avbereich o ON o.auftnr = b.auftnr";
-    internal const string Filtro = " WHERE b.fertig = 1 AND b.bearb_zeit >= @desde";
+    // Jorge (SRC-114, 29-oct): pieza terminada = etiqueta de 9 caracteres con fertig = 1 y bruch_flag = 0 (la rotura entra como etiqueta+01 con bruch_flag = 1).
+    internal const string Filtro = " WHERE b.fertig = 1 AND b.bruch_flag = 0 AND LEN(b.etikettnr) = 9 AND b.bearb_zeit >= @desde";
+    // Real: servidor vinculado de TI (SRC-114), OPENQUERY para que el filtro se resuelva en producción. OPENQUERY no admite parámetros.
+    internal const string ServidorVinculado = "AWPROD_ERP";
     internal const string Orden = " ORDER BY b.bearb_zeit, b.etikettnr";
 
     public Task<string> OrigenActualAsync(CancellationToken ct) => Task.FromResult(postgres ? "Demo" : "Real");
 
     internal static string ConstruirSql(bool postgres, int rangos, bool cursor)
+    {
+        var sql = ConstruirSqlLocal(postgres, rangos, cursor);
+        // PostgreSQL no tiene LEN().
+        return postgres ? sql.Replace("LEN(", "length(") : sql;
+    }
+
+    private static string ConstruirSqlLocal(bool postgres, int rangos, bool cursor)
     {
         var sql = new System.Text.StringBuilder("SELECT ");
         if (!postgres) sql.Append("TOP (@max) ");
@@ -42,6 +52,35 @@ public sealed class PiezasPtOrigenAdapter(Func<DbConnection> fabrica, bool postg
         return sql.ToString();
     }
 
+    /// <summary>
+    /// SQL del canal Real: la misma consulta, con los valores como literales validados (OPENQUERY no admite parámetros)
+    /// y los objetos calificados con alcimdb. Solo SELECT.
+    /// </summary>
+    internal static string ConstruirSqlReal(DateTime desde, (DateTime Tiempo, string Etiqueta)? despuesDe,
+        IReadOnlyList<(int Desde, int Hasta)> estaciones, int max)
+    {
+        var valores = new Dictionary<string, string>
+        {
+            ["desde"] = Fecha(desde), ["max"] = max.ToString(CultureInfo.InvariantCulture),
+        };
+        for (var i = 0; i < estaciones.Count; i++)
+        {
+            valores[$"d{i}"] = estaciones[i].Desde.ToString(CultureInfo.InvariantCulture);
+            valores[$"h{i}"] = estaciones[i].Hasta.ToString(CultureInfo.InvariantCulture);
+        }
+        if (despuesDe is { } cur)
+        {
+            if (!System.Text.RegularExpressions.Regex.IsMatch(cur.Etiqueta, "^[A-Za-z0-9]{1,50}$"))
+                throw new ArgumentException("Etiqueta de cursor inválida.", nameof(despuesDe));
+            valores["t"] = Fecha(cur.Tiempo); valores["e"] = $"'{cur.Etiqueta}'";
+        }
+        var interna = System.Text.RegularExpressions.Regex.Replace(ConstruirSqlLocal(false, estaciones.Count, despuesDe is not null), @"@(\w+)", m => valores[m.Groups[1].Value]);
+        interna = System.Text.RegularExpressions.Regex.Replace(interna, @"\bdbo\.", "alcimdb.dbo.");
+        return $"SELECT * FROM OPENQUERY([{ServidorVinculado}], '{interna.Replace("'", "''")}')";
+    }
+
+    private static string Fecha(DateTime t) => $"'{t.ToString("yyyy-MM-ddTHH:mm:ss.fff", CultureInfo.InvariantCulture)}'";
+
     public async Task<IReadOnlyList<EscaneoOrigen>> LeerAsync(DateTime desde, (DateTime Tiempo, string Etiqueta)? despuesDe,
         IReadOnlyList<(int Desde, int Hasta)> estaciones, int max, CancellationToken ct)
     {
@@ -49,12 +88,16 @@ public sealed class PiezasPtOrigenAdapter(Func<DbConnection> fabrica, bool postg
         await using var c = fabrica();
         await c.OpenAsync(ct);
         await using var cmd = c.CreateCommand();
-        cmd.CommandText = ConstruirSql(postgres, estaciones.Count, despuesDe is not null);
         cmd.CommandTimeout = 30;
-        void Param(string n, object v) { var p = cmd.CreateParameter(); p.ParameterName = n; p.Value = v; cmd.Parameters.Add(p); }
-        Param("desde", desde); Param("max", max);
-        for (var i = 0; i < estaciones.Count; i++) { Param($"d{i}", estaciones[i].Desde); Param($"h{i}", estaciones[i].Hasta); }
-        if (despuesDe is { } cur) { Param("t", cur.Tiempo); Param("e", cur.Etiqueta); }
+        if (postgres)
+        {
+            cmd.CommandText = ConstruirSql(true, estaciones.Count, despuesDe is not null);
+            void Param(string n, object v) { var p = cmd.CreateParameter(); p.ParameterName = n; p.Value = v; cmd.Parameters.Add(p); }
+            Param("desde", desde); Param("max", max);
+            for (var i = 0; i < estaciones.Count; i++) { Param($"d{i}", estaciones[i].Desde); Param($"h{i}", estaciones[i].Hasta); }
+            if (despuesDe is { } cur) { Param("t", cur.Tiempo); Param("e", cur.Etiqueta); }
+        }
+        else cmd.CommandText = ConstruirSqlReal(desde, despuesDe, estaciones, max);
 
         var filas = new List<EscaneoOrigen>();
         await using var reader = await cmd.ExecuteReaderAsync(ct);

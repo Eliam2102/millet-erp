@@ -106,14 +106,12 @@ solo las lee; nunca escribe en ellas.
    `IntegracionesAw:PiezasPt:EstacionesPt` (rangos `"2821-2831"` o números `"2840"`). Con la lista vacía no se
    admite ningún escaneo. La lista es la de la consulta de referencia de TI (27-oct): 2821–2831, 2840, 3201–3315 y
    3501–3509. La muestra trae un escaneo en la 2835 para comprobar que se ignora.
-4. El origen Real requiere `ContratoI134Firmado`, `EntradaHabilitada` y `ConnectionStrings:AwProduccionDb` (A+W-QA-7,
-   no disponible todavía). Mientras tanto solo funciona el origen Demo. Para encenderlo:
-   - TI corre `docs/operacion/aw-integracion-scripts/15_create_login_lector_produccion.sql` en
-     `192.168.1.8\AWPRODUCTION`: crea `millet_erp_lector_produccion`, con solo lectura sobre `awbar_bearbeit`,
-     `pool_bearbeit`, `pool_teile`, `pool_pos` y `pool_glasart`.
-   - Eliam da de alta la conexión híbrida `hc-aw-production-sql` hacia el puerto fijo de AWPRODUCTION. La conexión
-     actual `hc-aw-business-sql` no ve `alcimdb`.
-   - La cadena del lector va como secreto de Key Vault en `ConnectionStrings:AwProduccionDb`. Nunca va en el repo.
+4. El origen Real requiere `ContratoI134Firmado`, `EntradaHabilitada` y `ConnectionStrings:AwClientesDb` (la conexión de
+   clientes, login `millet_erp_lector_aw`; sin cadena ni conexión híbrida propias). Sigue apagado por configuración.
+   Jorge (29-oct, SRC-114) dejó el script 15 corrido y el servidor vinculado `AWPROD_ERP`:
+   - El lector consulta `[AWPROD_ERP].alcimdb.dbo.…` con `OPENQUERY`, para que el filtro se resuelva en producción.
+   - Pieza terminada = `fertig = 1 AND bruch_flag = 0 AND LEN(etikettnr) = 9` (la rotura entra como etiqueta + `01` con
+     `bruch_flag = 1` y no cuenta). La muestra demo incluye una rotura para comprobarlo.
    - La sucursal no se lee de AWPRODUCTION: la pieza toma la del pedido, que ya viene de MILMAIN `OR_AVBEREICH`.
 
 ## Riesgos

@@ -47,13 +47,46 @@ public sealed class PiezasPtOrigenTests
         Assert.StartsWith("SELECT", sql);
     }
 
+    [Theory][InlineData(true)][InlineData(false)]
+    public void Pieza_terminada_es_fertig_1_sin_rotura_y_etiqueta_de_9_caracteres(bool postgres)
+    {
+        // SRC-114: la rotura entra como etiqueta + "01" con bruch_flag = 1 y fertig = 1; no cuenta.
+        var sql = PiezasPtOrigenAdapter.ConstruirSql(postgres, 1, false);
+        Assert.Contains("b.fertig = 1", sql);
+        Assert.Contains("b.bruch_flag = 0", sql);
+        Assert.Contains(postgres ? "length(b.etikettnr) = 9" : "LEN(b.etikettnr) = 9", sql);
+    }
+
+    [Fact]
+    public void Real_lee_por_OPENQUERY_del_servidor_vinculado_con_el_filtro_y_sin_parametros()
+    {
+        var sql = PiezasPtOrigenAdapter.ConstruirSqlReal(new DateTime(2026, 10, 30, 8, 0, 0), (new DateTime(2026, 10, 30, 9, 0, 0), "028280856"),
+            [(2821, 2831), (2840, 2840)], 200);
+        Assert.StartsWith("SELECT * FROM OPENQUERY([AWPROD_ERP], '", sql);
+        Assert.DoesNotContain("@", sql);
+        Assert.Contains("TOP (200)", sql);
+        Assert.Contains("bruch_flag = 0", sql);
+        Assert.Contains("LEN(b.etikettnr) = 9", sql);
+        Assert.Contains("alcimdb.dbo.awbar_bearbeit", sql);
+        Assert.Contains("esnr_ist BETWEEN 2821 AND 2831 OR b.esnr_ist BETWEEN 2840 AND 2840", sql);
+        Assert.Contains("''028280856''", sql);   // literal escapado dentro de la cadena de OPENQUERY
+        foreach (var prohibida in new[] { "INSERT", "UPDATE", "DELETE", "EXEC ", "MERGE" })
+            Assert.DoesNotContain(prohibida, sql, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Real_rechaza_una_etiqueta_de_cursor_con_comillas()
+    {
+        Assert.Throws<ArgumentException>(() => PiezasPtOrigenAdapter.ConstruirSqlReal(DateTime.UtcNow, (DateTime.UtcNow, "x' OR 1=1 --"), [(1, 2)], 10));
+    }
+
     private static (ServiceProvider Sp, int Aperturas) Armar(bool firmado, string? cs, bool entrada)
     {
         var cfg = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["IntegracionesAw:PiezasPt:ContratoI134Firmado"] = firmado.ToString(),
             ["IntegracionesAw:PiezasPt:EntradaHabilitada"] = entrada.ToString(),
-            ["ConnectionStrings:AwProduccionDb"] = cs,
+            ["ConnectionStrings:AwClientesDb"] = cs,
         }).Build();
         var services = new ServiceCollection();
         services.AddSingleton<IAwOrigenActivo>(new OrigenReal());
