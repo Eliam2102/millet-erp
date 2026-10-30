@@ -1452,6 +1452,8 @@ export interface CajaMovimientoDto {
   cobroMostradorId: string | null;
   usuarioId: string;
   createdAt: string;
+  /** Folio del Vale de Caja, consecutivo por caja; solo en retiros (86e3ww6tw). */
+  folioVale?: number | null;
 }
 
 export interface CajaSesionDetalleResponse {
@@ -1494,6 +1496,8 @@ export interface CajaMovimientoRegistradoResponse {
   id: string;
   sesionId: string;
   importe: number;
+  /** Folio del Vale de Caja del retiro (86e3ww6tw); null en depósitos. */
+  folioVale?: number | null;
 }
 
 export interface AutorizacionAperturaResponse {
