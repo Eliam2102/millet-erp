@@ -41,6 +41,10 @@ public interface IAwRetornoPort
 public sealed record FacturaTimbradaRetornoPayload(
     string Uuid, decimal Total, string Folio, string? NumeroPedidoAw = null, long? VersionPedidoAw = null);
 
+/// <summary>Cancelación de una factura (comprobante.cancelado). Propuesta de VILO: fila Documento tipo «Cancelacion» con el UUID cancelado.</summary>
+public sealed record CancelacionRetornoPayload(
+    string Uuid, string? Folio = null, decimal? Total = null, string? NumeroPedidoAw = null, long? VersionPedidoAw = null);
+
 public sealed record AwRetornoConciliacion(int Reemplazadas, int Esperando, int Detenidas);
 
 /// <summary>TR-01: arma las filas Documento y concilia el acuse. Con el canal sin configurar no hace nada.</summary>
@@ -48,6 +52,7 @@ public sealed class AwRetornoDocumentoService(
     IAwRetornoPort retorno, IAwVersionPedidoReadPort versiones, ILogger<AwRetornoDocumentoService> logger)
 {
     public const string TipoFacturaFinal = "FacturaFinal";
+    public const string TipoCancelacion = "Cancelacion";
 
     /// <summary>Devuelve la secuencia asignada, o null si no aplica (pedido no A+W), ya existía o el canal está apagado.</summary>
     public async Task<int?> RegistrarFacturaAsync(FacturaTimbradaRetornoPayload factura, CancellationToken ct)
@@ -55,6 +60,14 @@ public sealed class AwRetornoDocumentoService(
         if (factura.NumeroPedidoAw is null || factura.VersionPedidoAw is null) return null;
         return await SinCanalApagadoAsync(() => retorno.AgregarDocumentoAsync(new AwRetornoDocumento(
             factura.NumeroPedidoAw, TipoFacturaFinal, factura.VersionPedidoAw.Value, factura.Folio, factura.Uuid, factura.Total), ct));
+    }
+
+    /// <summary>Fila nueva de cancelación (idempotente por UUID + tipo); la fila de la factura no se toca.</summary>
+    public async Task<int?> RegistrarCancelacionAsync(CancelacionRetornoPayload c, CancellationToken ct)
+    {
+        if (c.NumeroPedidoAw is null || c.VersionPedidoAw is null) return null;
+        return await SinCanalApagadoAsync(() => retorno.AgregarDocumentoAsync(new AwRetornoDocumento(
+            c.NumeroPedidoAw, TipoCancelacion, c.VersionPedidoAw.Value, c.Folio, c.Uuid, c.Total ?? 0m), ct));
     }
 
     /// <summary>

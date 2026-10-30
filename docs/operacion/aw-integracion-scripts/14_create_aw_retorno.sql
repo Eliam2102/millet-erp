@@ -58,7 +58,7 @@ BEGIN
         saldo               decimal(18, 2)    NULL,      -- 0 = liquidado
 
         -- tipo 3 y estatus 115
-        tipo_documento      nvarchar(20)      NULL,      -- FacturaFinal | NotaCredito
+        tipo_documento      nvarchar(20)      NULL,      -- FacturaFinal | NotaCredito | Cancelacion (propuesta VILO, pendiente de Jorge)
         folio               nvarchar(30)      NULL,
         [uuid]              nvarchar(36)      NULL,
         importe             decimal(18, 2)    NULL,      -- tipo 4: suma del grupo folio + forma_pago + moneda
@@ -87,7 +87,7 @@ BEGIN
             (ISNULL(estatus_destino, 0) = 70 AND ISNULL(origen, 0) IN (1, 2)) OR (ISNULL(estatus_destino, 0) <> 70 AND origen IS NULL)),
         CONSTRAINT CK_awr_usuario_libera    CHECK (origen <> 2 OR usuario_libera IS NOT NULL),
         CONSTRAINT CK_awr_saldo             CHECK (tipo <> 2 OR saldo IS NOT NULL),
-        CONSTRAINT CK_awr_documento         CHECK (tipo <> 3 OR ([uuid] IS NOT NULL AND tipo_documento IN (N'FacturaFinal', N'NotaCredito'))),
+        CONSTRAINT CK_awr_documento         CHECK (tipo <> 3 OR ([uuid] IS NOT NULL AND tipo_documento IN (N'FacturaFinal', N'NotaCredito', N'Cancelacion'))),
         CONSTRAINT CK_awr_pago              CHECK (tipo <> 4 OR (folio IS NOT NULL AND forma_pago IS NOT NULL AND moneda IS NOT NULL AND importe IS NOT NULL))
     );
     PRINT 'dbo.aw_retorno creada.';
@@ -107,6 +107,14 @@ IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_awr_tipo'
 BEGIN
     ALTER TABLE dbo.aw_retorno DROP CONSTRAINT CK_awr_tipo;
     ALTER TABLE dbo.aw_retorno ADD CONSTRAINT CK_awr_tipo CHECK (tipo IN (1, 2, 3, 4));
+END
+-- Cancelación (propuesta): el CHECK de documento admite tipo_documento = 'Cancelacion' con el UUID cancelado.
+IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_awr_documento'
+           AND parent_object_id = OBJECT_ID('dbo.aw_retorno') AND definition NOT LIKE '%Cancelacion%')
+BEGIN
+    ALTER TABLE dbo.aw_retorno DROP CONSTRAINT CK_awr_documento;
+    ALTER TABLE dbo.aw_retorno ADD CONSTRAINT CK_awr_documento
+        CHECK (tipo <> 3 OR ([uuid] IS NOT NULL AND tipo_documento IN (N'FacturaFinal', N'NotaCredito', N'Cancelacion')));
 END
 IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_awr_pago'
                AND parent_object_id = OBJECT_ID('dbo.aw_retorno'))

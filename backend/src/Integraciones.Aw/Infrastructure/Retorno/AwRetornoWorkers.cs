@@ -10,8 +10,8 @@ using Millet.SharedKernel.Application.Integration;
 namespace Millet.Integraciones.Aw.Infrastructure.Retorno;
 
 /// <summary>
-/// TR-01: escucha <c>facturacion.factura-venta.timbrada.v1</c> (topic facturacion-events) y deja la fila
-/// Documento de la factura en <c>aw_retorno</c>. La idempotencia vive en la tabla (UUID + tipo, candado por
+/// TR-01: escucha <c>facturacion.factura-venta.timbrada.v1</c> y <c>facturacion.comprobante.cancelado.v1</c>
+/// (topic facturacion-events) y deja la fila Documento (FacturaFinal / Cancelacion) en <c>aw_retorno</c>. La idempotencia vive en la tabla (UUID + tipo, candado por
 /// pedido), no en una marca de evento: una reentrega no duplica. Nota de crédito: fuera de TR-01 (el evento
 /// no trae folio ni pedido). Mismo patrón que <c>FacturacionEventListenerWorker</c> de CxC.
 /// </summary>
@@ -20,6 +20,7 @@ public sealed class FacturacionRetornoListenerWorker : BackgroundService, ILocal
     public const string TopicName = "facturacion-events";
     public const string SubscriptionName = "integraciones-aw-subscription";
     public const string EventTypeFacturaTimbrada = "facturacion.factura-venta.timbrada.v1";
+    public const string EventTypeComprobanteCancelado = "facturacion.comprobante.cancelado.v1";
 
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
 
@@ -78,15 +79,19 @@ public sealed class FacturacionRetornoListenerWorker : BackgroundService, ILocal
     {
         try
         {
-            if (eventType == EventTypeFacturaTimbrada)
+            if (eventType is EventTypeFacturaTimbrada or EventTypeComprobanteCancelado)
             {
-                var payload = JsonSerializer.Deserialize<FacturaTimbradaRetornoPayload>(body, JsonOpts)
-                    ?? throw new JsonException("Payload null.");
                 using var scope = _scopeFactory.CreateScope();
                 var sp = scope.ServiceProvider;
                 using var origin = sp.GetRequiredService<IAuditOriginContext>().SetOrigin(nameof(FacturacionRetornoListenerWorker));
                 using var bypass = sp.GetRequiredService<ICurrentEmpresaContext>().Bypass();
-                await sp.GetRequiredService<AwRetornoDocumentoService>().RegistrarFacturaAsync(payload, ct);
+                var servicio = sp.GetRequiredService<AwRetornoDocumentoService>();
+                if (eventType == EventTypeFacturaTimbrada)
+                    await servicio.RegistrarFacturaAsync(JsonSerializer.Deserialize<FacturaTimbradaRetornoPayload>(body, JsonOpts)
+                        ?? throw new JsonException("Payload null."), ct);
+                else
+                    await servicio.RegistrarCancelacionAsync(JsonSerializer.Deserialize<CancelacionRetornoPayload>(body, JsonOpts)
+                        ?? throw new JsonException("Payload null."), ct);
             }
             if (sb is not null) await sb.CompleteMessageAsync(sb.Message, ct);
         }

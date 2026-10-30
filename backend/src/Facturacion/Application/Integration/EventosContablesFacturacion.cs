@@ -54,6 +54,15 @@ public static class EventosContablesFacturacion
             NumeroPedidoAw: pedido is { Origen: OrigenPedido.Aw } ? pedido.NumeroPedido : null,
             VersionPedidoAw: pedido is { Origen: OrigenPedido.Aw } ? pedido.VersionOrigen : null);
 
+    public static ComprobanteCanceladoIntegrationEvent ComprobanteCancelado(
+        Comprobante c, DateTimeOffset ocurridoEn, PedidoFacturable? pedido = null)
+    {
+        var aw = c is FacturaVenta && pedido is { Origen: OrigenPedido.Aw };
+        return new(c.EmpresaId, ocurridoEn, c.Id, c.Tipo.ToString(), c.Uuid ?? string.Empty,
+            NumeroPedidoAw: aw ? pedido!.NumeroPedido : null, VersionPedidoAw: aw ? pedido!.VersionOrigen : null,
+            Folio: c.Folio, Total: c.Total);
+    }
+
     public static FacturaAnticipoTimbradaIntegrationEvent FacturaAnticipoTimbrada(
         FacturaAnticipo f, DateTimeOffset ocurridoEn, Guid? clienteId = null) =>
         new(

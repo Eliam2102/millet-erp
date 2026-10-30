@@ -75,8 +75,8 @@ public sealed class SolicitarCancelacionHandler
                 solicitud.MarcarAceptada(resultado.EstatusSat, ahora);
                 await AplicarEfectosCancelacionAsync(comprobante, cancellationToken);
                 // F10-PR1: evento de comprobante cancelado (reversa fiscal/financiera).
-                await _eventos.PublishAsync(new ComprobanteCanceladoIntegrationEvent(
-                    comprobante.EmpresaId, ahora, comprobante.Id, comprobante.Tipo.ToString(), comprobante.Uuid ?? string.Empty),
+                await _eventos.PublishAsync(EventosContablesFacturacion.ComprobanteCancelado(
+                    comprobante, ahora, await PedidoDeAsync(comprobante, cancellationToken)),
                     cancellationToken);
                 break;
 
@@ -102,6 +102,11 @@ public sealed class SolicitarCancelacionHandler
             EstadoSolicitud: solicitud.Estado.ToString(),
             EstatusSat: solicitud.EstatusSat);
     }
+
+    private async Task<PedidoFacturable?> PedidoDeAsync(Comprobante c, CancellationToken ct) =>
+        c is FacturaVenta { PedidoFacturableId: { } id }
+            ? await _db.PedidosFacturables.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id, ct)
+            : null;
 
     /// <summary>
     /// Si el comprobante es una factura de anticipo, bloquea la cancelación cuando

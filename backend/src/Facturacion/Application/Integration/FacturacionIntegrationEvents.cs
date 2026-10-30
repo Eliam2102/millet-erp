@@ -159,7 +159,12 @@ public sealed record ComprobanteCanceladoIntegrationEvent(
     DateTimeOffset OcurridoEn,
     Guid ComprobanteId,
     string TipoComprobante,
-    string Uuid)
+    string Uuid,
+    // TR-01: facturas de pedidos A+W (null en lo demás); Integraciones.Aw deja la fila Cancelacion.
+    string? NumeroPedidoAw = null,
+    long? VersionPedidoAw = null,
+    string? Folio = null,
+    decimal? Total = null)
     : IntegrationEvent("facturacion.comprobante.cancelado.v1", EmpresaId, OcurridoEn);
 
 // ---- Sesión de caja abierta (CAJAS-PR3, 12-cajas.md §10) ----

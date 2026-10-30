@@ -117,7 +117,7 @@ CREATE TABLE IF NOT EXISTS dbo.aw_retorno (
     CHECK ((COALESCE(estatus_destino, 0) = 70 AND COALESCE(origen, 0) IN (1, 2)) OR (COALESCE(estatus_destino, 0) <> 70 AND origen IS NULL)),
     CHECK (origen IS DISTINCT FROM 2 OR usuario_libera IS NOT NULL),
     CHECK (tipo <> 2 OR saldo IS NOT NULL),
-    CHECK (tipo <> 3 OR (uuid IS NOT NULL AND tipo_documento IN ('FacturaFinal', 'NotaCredito'))),
+    CHECK (tipo <> 3 OR (uuid IS NOT NULL AND tipo_documento IN ('FacturaFinal', 'NotaCredito', 'Cancelacion'))),
     CHECK (tipo <> 4 OR (folio IS NOT NULL AND forma_pago IS NOT NULL AND moneda IS NOT NULL AND importe IS NOT NULL))
 );
 

@@ -114,6 +114,61 @@ public class AwRetornoPgTests(WebApplicationFactory<Program> factory)
         (await FilasAsync("900303")).Should().Equal("1|3|4|FacturaFinal|F-77|UUID-EVT|2320.00|-|0");
     }
 
+    private (ILocalIntegrationEventConsumer Listener, ServiceProvider Sp) ListenerConServicio()
+    {
+        var servicios = new ServiceCollection();
+        servicios.AddSingleton<IAuditOriginContext, AuditOriginContext>();
+        servicios.AddSingleton<ICurrentEmpresaContext>(new EmpresaBypass());
+        servicios.AddScoped(_ => Servicio());
+        var sp = servicios.BuildServiceProvider();
+        return (new FacturacionRetornoListenerWorker(null!, sp.GetRequiredService<IServiceScopeFactory>(),
+            NullLogger<FacturacionRetornoListenerWorker>.Instance), sp);
+    }
+
+    private static string Timbrada(string uuid, string folio, string pedido, long version) => JsonSerializer.Serialize(
+        new Millet.Facturacion.Application.Integration.FacturaVentaTimbradaIntegrationEvent(
+            Guid.NewGuid(), DateTimeOffset.UtcNow, Guid.NewGuid(), uuid, 580m, "MXN", Guid.NewGuid(),
+            "XAXX010101000", "Cliente", folio, "PPD", DateTimeOffset.UtcNow, NumeroPedidoAw: pedido, VersionPedidoAw: version));
+
+    private static string Cancelada(string uuid, string folio, string pedido, long version) => JsonSerializer.Serialize(
+        new Millet.Facturacion.Application.Integration.ComprobanteCanceladoIntegrationEvent(
+            Guid.NewGuid(), DateTimeOffset.UtcNow, Guid.NewGuid(), "FacturaVenta", uuid,
+            NumeroPedidoAw: pedido, VersionPedidoAw: version, Folio: folio, Total: 580m));
+
+    // ===== Criterio 3 (ficha): cancelar A deja fila nueva de A; B no cambia; repetir el evento no duplica =====
+    [Fact]
+    public async Task Cancelar_la_factura_A_deja_una_fila_Cancelacion_de_A_y_la_de_B_no_cambia()
+    {
+        var (listener, sp) = ListenerConServicio();
+        await using var _ = sp;
+        await listener.ConsumirLocalAsync(FacturacionRetornoListenerWorker.EventTypeFacturaTimbrada, Guid.NewGuid(), Timbrada("UUID-A", "F-A", "900101", 2), default);
+        await listener.ConsumirLocalAsync(FacturacionRetornoListenerWorker.EventTypeFacturaTimbrada, Guid.NewGuid(), Timbrada("UUID-B", "F-B", "900101", 2), default);
+        var antes = await FilasAsync("900101");
+
+        var cancelacion = Cancelada("UUID-A", "F-A", "900101", 2);
+        await listener.ConsumirLocalAsync(FacturacionRetornoListenerWorker.EventTypeComprobanteCancelado, Guid.NewGuid(), cancelacion, default);
+        await listener.ConsumirLocalAsync(FacturacionRetornoListenerWorker.EventTypeComprobanteCancelado, Guid.NewGuid(), cancelacion, default); // reentrega
+        await listener.ConsumirLocalAsync(FacturacionRetornoListenerWorker.EventTypeComprobanteCancelado, Guid.NewGuid(),
+            JsonSerializer.Serialize(new { Uuid = "UUID-X", TipoComprobante = "FacturaAnticipo" }), default); // no es de pedido A+W
+
+        (await FilasAsync("900101")).Should().Equal(antes[0], antes[1], "3|3|2|Cancelacion|F-A|UUID-A|580.00|-|0");
+    }
+
+    // ===== Criterio 5 (ficha): demo encendido, se timbra una parcialidad → la fila aparece en < 1 min =====
+    [Fact]
+    public async Task En_el_canal_demo_la_fila_de_la_parcialidad_timbrada_aparece_en_menos_de_un_minuto()
+    {
+        var (listener, sp) = ListenerConServicio();
+        await using var _ = sp;
+        var reloj = System.Diagnostics.Stopwatch.StartNew();
+
+        await listener.ConsumirLocalAsync(FacturacionRetornoListenerWorker.EventTypeFacturaTimbrada, Guid.NewGuid(), Timbrada("UUID-P1", "F-P1", "900404", 1), default);
+        while ((await FilasAsync("900404")).Count == 0 && reloj.Elapsed < TimeSpan.FromSeconds(60)) await Task.Delay(200);
+
+        (await FilasAsync("900404")).Should().HaveCount(1);
+        reloj.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(60));
+    }
+
     private sealed class EmpresaBypass : ICurrentEmpresaContext
     {
         public Guid? Current => null;
