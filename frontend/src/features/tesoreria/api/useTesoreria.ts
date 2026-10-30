@@ -32,6 +32,7 @@ import type {
   ReporteTesoreriaBackend,
   ReppPendienteResponse,
   ReppRecibidoResponse,
+  LayoutCorridaResponse,
 } from './types';
 
 const BASE = '/api/v1/tesoreria';
@@ -1046,4 +1047,28 @@ export function useCancelarCorrida() {
     path: '/cancelar',
     body: { motivo: a.motivo },
   }));
+}
+
+/** T9.3 (86e3ke5ck): Generar layout de pago en lote por banco (BBVA primero). */
+export async function generarLayoutCorrida(
+  id: string,
+  banco: string = 'BBVA',
+  tipoPago: string = 'NacionalSpei',
+): Promise<LayoutCorridaResponse> {
+  const { data } = await apiRequest<LayoutCorridaResponse>(
+    `${BASE}/corridas/${id}/layout?banco=${encodeURIComponent(banco)}&tipoPago=${encodeURIComponent(tipoPago)}`,
+    { method: 'POST', body: {} },
+  );
+  return data;
+}
+
+export function useGenerarLayoutCorrida() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, banco, tipoPago }: { id: string; banco?: string; tipoPago?: string }) =>
+      generarLayoutCorrida(id, banco, tipoPago),
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ['tesoreria', 'corridas', vars.id] });
+    },
+  });
 }

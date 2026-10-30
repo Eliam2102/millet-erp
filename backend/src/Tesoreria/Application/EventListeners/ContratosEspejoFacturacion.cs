@@ -26,9 +26,27 @@ public sealed record CajaSesionCerradaPayload(
     Guid SucursalId,
     DateOnly DiaOperacion,
     decimal EfectivoDeclarado,
-    Guid? ResponsableUsuarioId = null)
+    Guid? ResponsableUsuarioId = null,
+    // Faltante (−) o sobrante (+) del efectivo; de él nace la diferencia pendiente de Tesorería.
+    decimal Diferencia = 0m)
 {
     public const string EventType = "facturacion.caja-sesion.cerrada.v1";
+}
+
+/// <summary>
+/// Espejo (subset) de <c>facturacion.caja-faltante.devuelto.v1</c>: el cajero devolvió (todo o parte de)
+/// el faltante de un corte anterior como depósito en Mi caja. Tesorería lo abona a la diferencia.
+/// </summary>
+public sealed record CajaFaltanteDevueltoPayload(
+    Guid EmpresaId,
+    DateTimeOffset OcurridoEn,
+    Guid CajaMovimientoId,
+    Guid CajaSesionId,
+    Guid CorteOrigenSesionId,
+    Guid CajeroId,
+    decimal Importe)
+{
+    public const string EventType = "facturacion.caja-faltante.devuelto.v1";
 }
 
 /// <summary>Desglose por factura del REPP (espejo de <c>ReppFacturaPagadaDetalle</c>).</summary>

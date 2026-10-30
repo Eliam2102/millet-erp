@@ -27,6 +27,7 @@ import {
   useCorrida,
   useEnviarCorridaAAutorizacion,
   useRechazarCorrida,
+  useGenerarLayoutCorrida,
 } from '@/features/tesoreria/api/useTesoreria';
 import type { CorridaResponse } from '@/features/tesoreria/api/types';
 import { MotivoDialog } from '@/features/tesoreria/components/MotivoDialog';
@@ -53,8 +54,10 @@ export function DetalleCorrida({ id }: { id: string }) {
   const rechazar = useRechazarCorrida();
   const cancelar = useCancelarCorrida();
   const cerrar = useCerrarCorrida();
+  const generarLayout = useGenerarLayoutCorrida();
   const puedeEjecutar = useHasPermission(PermisosCanonicos.TesoreriaCorridasEjecutar);
   const [descargando, setDescargando] = useState(false);
+  const [generandoArchivo, setGenerandoArchivo] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
   const [rechazando, setRechazando] = useState(false);
   const [cancelando, setCancelando] = useState(false);
@@ -123,6 +126,38 @@ export function DetalleCorrida({ id }: { id: string }) {
       alError(e, 'No se pudo generar el oficio.');
     } finally {
       setDescargando(false);
+    }
+  }
+
+  /** T9.3: Genera y descarga el archivo de layout de pago por banco (BBVA primero). */
+  async function handleGenerarArchivo() {
+    setAviso(null);
+    setGenerandoArchivo(true);
+    try {
+      const res = await generarLayout.mutateAsync({ id: c.id, banco: 'BBVA', tipoPago: 'NacionalSpei' });
+      const blob = new Blob([res.contenido], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = res.nombreArchivo;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      if (res.esReimpresion) {
+        toast.info('Archivo descargado (Reimpresión)');
+      } else {
+        toast.success(`Archivo generado con ${res.lineasValidas} líneas`);
+      }
+
+      if (res.lineasExcluidas > 0) {
+        toast.warning(`${res.lineasExcluidas} pasivos quedaron fuera por inconsistencias bancarias (ver excepciones)`);
+      }
+    } catch (e) {
+      alError(e, 'No se pudo generar el archivo de layout.');
+    } finally {
+      setGenerandoArchivo(false);
     }
   }
 
@@ -218,6 +253,16 @@ export function DetalleCorrida({ id }: { id: string }) {
         {(c.estado === 'Autorizada' || c.estado === 'Ejecutada' || c.estado === 'Cerrada') && (
           <Button variant="outline" size="sm" disabled={descargando} onClick={descargarOficio}>
             {descargando ? 'Generando…' : 'Descargar oficio'}
+          </Button>
+        )}
+        {(c.estado === 'Autorizada' || c.estado === 'Ejecutada') && puedeEjecutar && (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={generandoArchivo || generarLayout.isPending}
+            onClick={handleGenerarArchivo}
+          >
+            {generandoArchivo ? 'Generando archivo…' : 'Generar archivo'}
           </Button>
         )}
         {c.estado === 'Ejecutada' && puedeEjecutar && (

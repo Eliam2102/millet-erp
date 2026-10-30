@@ -1,10 +1,13 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Millet.Almacen.Domain.Catalogo;
+using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Domain.Ports;
 using Millet.Almacen.Domain.Ports.Externos;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.Catalogos.Domain;
+using Millet.SharedKernel.Application;
 
 namespace Millet.Almacen.Application.Reorden;
 
@@ -33,7 +36,14 @@ public sealed record FaltanteReorden(
     decimal ExistenciaFisica,
     decimal Vivo,
     decimal Faltante,
-    bool AutoRequisicion);
+    bool AutoRequisicion,
+    decimal PuntoReorden = 0m,
+    decimal Minimo = 0m,
+    decimal Maximo = 0m,
+    decimal ConsumoDiario = 0m,
+    decimal? CoberturaDias = null,
+    decimal? MinimoSugerido = null,
+    decimal? MaximoSugerido = null);
 
 public sealed class EvaluarReordenHandler
     : IRequestHandler<EvaluarReordenQuery, IReadOnlyList<FaltanteReorden>>
@@ -41,15 +51,21 @@ public sealed class EvaluarReordenHandler
     private readonly AlmacenDbContext _db;
     private readonly IAlmacenSaldoQueryPort _saldos;
     private readonly IComprasPedidoVivoReadPort _pedidoVivo;
+    private readonly IClock _clock;
+    private readonly ReordenConsumoOptions _consumo;
 
     public EvaluarReordenHandler(
         AlmacenDbContext db,
         IAlmacenSaldoQueryPort saldos,
-        IComprasPedidoVivoReadPort pedidoVivo)
+        IComprasPedidoVivoReadPort pedidoVivo,
+        IClock clock,
+        IOptions<ReordenConsumoOptions> consumo)
     {
         _db = db;
         _saldos = saldos;
         _pedidoVivo = pedidoVivo;
+        _clock = clock;
+        _consumo = consumo.Value;
     }
 
     public async Task<IReadOnlyList<FaltanteReorden>> Handle(
@@ -92,6 +108,22 @@ public sealed class EvaluarReordenHandler
             c.Nivel == NivelReorden.Sucursal ? c.EntidadId : sucursalPorAlmacen[c.EntidadId])).Distinct().ToList();
         var manual = await _pedidoVivo.ObtenerVivoManualAsync(clavesManual, cancellationToken);
 
+        // F1-ALM-10: salidas de los últimos DiasHistoria días por (artículo, almacén), agregadas en SQL.
+        var articulos = configs.Select(c => c.ArticuloId).Distinct().ToList();
+        var desde = DateOnly.FromDateTime(_clock.UtcNow.UtcDateTime).AddDays(-_consumo.DiasHistoria);
+        var salidas = (await (
+            from l in _db.LineasMovimiento.AsNoTracking()
+            join m in _db.Movimientos.AsNoTracking() on l.MovimientoId equals m.Id
+            join u in _db.Ubicaciones.AsNoTracking() on l.UbicacionId equals (Guid?)u.Id
+            join sa in _db.SubAlmacenes.AsNoTracking() on u.SubAlmacenId equals sa.Id
+            where m.Estado == EstadoMovimiento.Registrado
+               && (m.Tipo == TipoMovimiento.SalidaConsumo || m.Tipo == TipoMovimiento.SalidaPorVale)
+               && m.FechaMovimiento >= desde && articulos.Contains(l.ArticuloId)
+            group l by new { l.ArticuloId, sa.AlmacenId } into g
+            select new { g.Key.ArticuloId, g.Key.AlmacenId, Total = g.Sum(x => x.Cantidad) })
+            .ToListAsync(cancellationToken))
+            .ToDictionary(x => new PedidoVivoClave(x.ArticuloId, x.AlmacenId), x => x.Total);
+
         // NOTA: la existencia se resuelve por config (N+1 sobre el puerto de saldos).
         // El motor (5.D) corre por ciclo con un universo acotado de configs; si crece,
         // batchear ConsultarDisponibilidad* es la optimización natural.
@@ -123,9 +155,15 @@ public sealed class EvaluarReordenHandler
             vivoTotal += manual.GetValueOrDefault(new PedidoVivoSucursalClave(c.ArticuloId,
                 c.Nivel == NivelReorden.Sucursal ? c.EntidadId : sucursalPorAlmacen[c.EntidadId]));
             var faltante = c.CalcularReposicion(existencia, vivoTotal);
+            var consumoDiario = ConsumoReorden.Diario(
+                AlmacenesEnScope(c, almacenesPorSucursal).Sum(alm => salidas.GetValueOrDefault(new PedidoVivoClave(c.ArticuloId, alm))),
+                _consumo.DiasHistoria);
+            var sugerido = ConsumoReorden.Sugerencia(consumoDiario, _consumo.DiasEntrega, _consumo.DiasColchon);
             resultado.Add(new FaltanteReorden(
                 c.Id, c.ArticuloId, c.Nivel, c.EntidadId, c.Objetivo,
-                objetivo, existencia, vivoTotal, faltante, c.AutoRequisicion));
+                objetivo, existencia, vivoTotal, faltante, c.AutoRequisicion,
+                c.PuntoReorden, c.Minimo, c.Maximo, consumoDiario,
+                ConsumoReorden.Cobertura(existencia, consumoDiario), sugerido?.Minimo, sugerido?.Maximo));
         }
 
         return resultado;
@@ -136,4 +174,25 @@ public sealed class EvaluarReordenHandler
         => config.Nivel == NivelReorden.Almacen
             ? [config.EntidadId]
             : almacenesPorSucursal.GetValueOrDefault(config.EntidadId) ?? [];
+}
+
+// F1-ALM-10: reporte «propuesta de reposición» para la pantalla/exportación. Mismo cálculo del motor,
+// recortado a las configuraciones que el usuario puede ver (mismo scope que el listado de reorden).
+public sealed record PropuestaReposicionQuery(Guid? ArticuloId = null, Guid? EntidadId = null)
+    : IRequest<IReadOnlyList<FaltanteReorden>>, IDocumentoScopedQuery
+{
+    public string TipoDocumento => "reorden";
+    public string PermisoTodasSucursales => "almacen.reorden.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
+
+public sealed class PropuestaReposicionHandler(IMediator mediator)
+    : IRequestHandler<PropuestaReposicionQuery, IReadOnlyList<FaltanteReorden>>
+{
+    public async Task<IReadOnlyList<FaltanteReorden>> Handle(PropuestaReposicionQuery request, CancellationToken cancellationToken)
+    {
+        var todos = await mediator.Send(new EvaluarReordenQuery(request.ArticuloId, request.EntidadId), cancellationToken);
+        return request.DocumentosPermitidos is { } permitidos ? todos.Where(f => permitidos.Contains(f.ConfiguracionId)).ToList() : todos;
+    }
 }

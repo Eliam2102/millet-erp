@@ -71,6 +71,18 @@ public sealed class P3ReglasTests
     }
 
     [Fact]
+    public void Devolucion_OC302_cargo_1300_retiene_208_de_IVA_y_la_NC_1508_lo_libera_sin_descuento_doble()
+    {
+        var id = Guid.NewGuid(); var recibido = new Dictionary<Guid, decimal> { [id] = 18 };
+        var conCargo = ElegibilidadPago.Calcular([new(id, 20, 650)], recibido, totalNeto: 13780, anticipos: 0, pagado: 0, descontadoPorDevolucion: 1300);
+        conCargo.ElegiblePendiente.Should().Be(13572); conCargo.Retenido.Should().Be(208);
+        var conNc = ElegibilidadPago.Calcular([new(id, 20, 650)], recibido, 13572, 0, 0, 1508);
+        conNc.ElegiblePendiente.Should().Be(13572); conNc.Retenido.Should().Be(0);
+        // Sin devolución (nota manual) la fórmula no cambia: 13780 × 0.9.
+        ElegibilidadPago.Calcular([new(id, 20, 650)], recibido, 13780, 0, 0).ElegiblePendiente.Should().Be(12402);
+    }
+
+    [Fact]
     public void Xml_lee_descuento_de_cabecera()
     {
         var xml = """

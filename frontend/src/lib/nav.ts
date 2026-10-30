@@ -1,5 +1,6 @@
 import {
   AlertTriangle,
+  ArrowLeftRight,
   ArrowRightLeft,
   Banknote,
   BarChart3,
@@ -1038,6 +1039,19 @@ const moduloContabilidad: NavModulo = {
           to: '/contabilidad/motor',
           icon: Workflow,
           permission: PermisosCanonicos.ContabilidadMotorLeer,
+        },
+      ],
+    },
+    {
+      label: 'Reportes',
+      cards: [
+        {
+          label: 'Cuenta puente recepción–factura',
+          description:
+            'Saldo de la cuenta puente por orden de compra al corte: facturado sin recibir, recibido sin facturar, antigüedad y cuadre contra la balanza.',
+          to: '/contabilidad/reportes/cuenta-puente',
+          icon: ArrowLeftRight,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
         },
       ],
     },
