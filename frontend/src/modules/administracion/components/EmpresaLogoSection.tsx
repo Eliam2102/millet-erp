@@ -73,7 +73,7 @@ export function EmpresaLogoSection({ empresaId }: { empresaId: string }) {
     >
       <h2 className="text-lg font-semibold">Logo para documentos impresos</h2>
       <p className="text-xs text-ink-muted">
-        PNG o JPG de hasta 1 MB. Se usa en órdenes de compra, facturas y notas de crédito.
+        PNG o JPG de hasta 1 MB. Se usa en órdenes de compra, facturas, notas de crédito y salidas de almacén.
       </p>
       <p className="text-xs text-ink-muted">Ancho mínimo: 200 píxeles.</p>
       {logo.isPending ? (

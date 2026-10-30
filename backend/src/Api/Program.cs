@@ -643,12 +643,12 @@ builder.Services.AddSingleton<
     Millet.Compartido.Infrastructure.Adjuntos.AdjuntoEnlaceTokenService>();
 
 // === Compras OC: PDF real con QuestPDF (F6-PR3) ===
-// Reemplaza LocalPdfOrdenCompraStub por QuestPdfOrdenCompraGenerator con
-// layout institucional. El stub se conserva en el assembly para fixtures
-// de test rápidos, pero el wiring de producción usa QuestPDF.
+// QuestPdfOrdenCompraGenerator dibuja el formato Millet (FMT-2); el servicio arma el modelo
+// de impresión con los datos vigentes y lo usan el listener, el endpoint y el envío.
 builder.Services.AddSingleton<
     Millet.Compras.Domain.Ports.Pdf.IGenerarPdfOrdenCompraPort,
     Millet.Compras.Infrastructure.Oc.Pdf.QuestPdfOrdenCompraGenerator>();
+builder.Services.AddScoped<Millet.Compras.Application.Oc.Pdf.ImpresionOrdenCompraService>();
 
 // === Compras: evaluator de matriz multidimensional (F9-PR2) ===
 // Implementación productiva con las 3 capas del §3.bis.2:
@@ -812,6 +812,10 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.IComprasCrearRqSistemaPort,
     Millet.Compras.Infrastructure.PublicAdapters.ComprasCrearRqSistemaAdapter>();
+// ALM-APP-5: write-port que crea la RQ del mensaje REQUISICION_ENVIADA de la app de Almacenes.
+builder.Services.AddScoped<
+    Millet.Almacen.Domain.Ports.IComprasCrearRqAppPort,
+    Millet.Compras.Infrastructure.PublicAdapters.ComprasCrearRqAppAdapter>();
 // Fase E PR5: display del CC-Máquina en salidas. El adapter delega en
 // CentrosCosto.IDim3ReadPort (Almacén no puede referenciar CentrosCosto —
 // ciclo vía Compartido). Reemplaza NoOpCentroCostoReadPort de Almacén.
@@ -873,6 +877,10 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.ISucursalReadPort,
     Millet.Compartido.Infrastructure.PublicAdapters.SucursalReadAdapter>();
+// 86e3tferp: encabezado de empresa (con logo) del comprobante de salida.
+builder.Services.AddScoped<
+    Millet.Almacen.Domain.Ports.IEmpresaImpresionReadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.EmpresaImpresionReadAdapter>();
 // C1.2: TC de Almacén desde compartido.tipos_cambio; reemplaza el
 // NoOpTipoCambioReadPort (PLATFORM-TODO <TipoCambioReadAdapter> cerrado).
 builder.Services.AddScoped<
@@ -1104,6 +1112,7 @@ builder.Services
 // Transacción compartida Identidad + Compartido del alta de colaborador
 // (plan 15, F3; validada en el spike F0).
 builder.Services.AddScoped<Millet.Identidad.Infrastructure.TransaccionColaborador>();
+builder.Services.AddScoped<Millet.Identidad.Application.Colaboradores.GrupoAccesoErpSincronizador>();
 // Camino B "Cuenta Microsoft nueva" (plan 15, F4): el sandbox de Development
 // captura el correo solo en loopback; fuera de él el worker sigue apagado por
 // defecto hasta configurar adaptadores reales.
@@ -1314,6 +1323,15 @@ builder.Services.AddOptions<Millet.DatosMaestros.Application.Clientes.MapeoEstat
     .Validate(o => o.EsValido, "El mapeo de estatus de clientes A+W requiere una versión de 1 a 8 caracteres alfanuméricos, guion o guion bajo.")
     .ValidateOnStart();
 builder.Services.AddScoped<Millet.DatosMaestros.Application.Clientes.AplicarClienteAwService>();
+builder.Services.AddScoped<Millet.DatosMaestros.Application.Cargas.CargaMaestrosServicio>();
+builder.Services.AddScoped<Millet.DatosMaestros.Application.Cargas.IAdaptadorCargaMaestros, Millet.DatosMaestros.Application.Cargas.ClientesCarga>();
+builder.Services.AddScoped<Millet.DatosMaestros.Application.Cargas.IAdaptadorCargaMaestros, Millet.DatosMaestros.Application.Cargas.ArticulosCarga>();
+builder.Services.AddScoped<Millet.DatosMaestros.Application.Cargas.IAdaptadorCargaMaestros, Millet.DatosMaestros.Application.Cargas.ProveedoresCarga>();
+builder.Services.AddScoped<Millet.DatosMaestros.Application.Cargas.IAdaptadorCargaMaestros, Millet.DatosMaestros.Application.Cargas.ProductosAwFiscalCarga>();
+foreach (var dimension in new[] { 1, 2, 3 })
+    builder.Services.AddScoped<Millet.DatosMaestros.Application.Cargas.IAdaptadorCargaMaestros>(sp =>
+        new Millet.Api.Endpoints.DatosMaestros.Cargas.CentrosCostoCarga(sp.GetRequiredService<Millet.CentrosCosto.Infrastructure.Persistence.CentrosCostoDbContext>(), dimension));
+
 builder.Services.AddScoped<Millet.DatosMaestros.Application.ProductosAw.AplicarProductoAwService>();
 builder.Services.AddScoped<Millet.DatosMaestros.Application.ProductosAw.IProductoAwContratoReadPort, Millet.Compartido.Infrastructure.PublicAdapters.ProductoAwContratoReadAdapter>();
 builder.Services.AddDbContext<CoreDbContext>((sp, opts) => ConfigureMilletDbContext(opts, sp));
@@ -1662,6 +1680,7 @@ Millet.Api.Endpoints.Catalogos.CatalogosSatFiscalApiEndpoints.MapCatalogosSatFis
 
 // === Datos Maestros — queries enriquecidas (F-Admin-PR4.5) ===
 Millet.Api.Endpoints.DatosMaestros.DatosMaestrosEndpoints.MapDatosMaestrosEndpoints(app);
+Millet.Api.Endpoints.DatosMaestros.Cargas.CargasMaestrosEndpoints.MapCargasMaestrosEndpoints(app);
 Millet.Api.Endpoints.DatosMaestros.F1AEndpoints.MapF1AEndpoints(app);
 Millet.Api.Endpoints.DatosMaestros.SincronizacionAwEndpoints.MapSincronizacionAwEndpoints(app);
 Millet.Api.Endpoints.DatosMaestros.ClientesSincronizacionEndpoints.MapClientesSincronizacionEndpoints(app);
@@ -1726,6 +1745,7 @@ Millet.Api.Endpoints.CuentasPorPagar.ReportesEndpoints.MapReportesEndpoints(app)
 // Idempotency-Key requerido en todos los POST.
 Millet.Api.Endpoints.IntegracionesAw.IntegracionesAwEndpoints.MapIntegracionesAwEndpoints(app);
 Millet.Api.Endpoints.IntegracionesAw.AwOrigenEndpoints.MapAwOrigenEndpoints(app);
+Millet.Api.Endpoints.Almacen.AlmacenesAppMensajesEndpoint.MapAlmacenesAppMensajesEndpoint(app);
 
 // === Endpoints del módulo Integraciones.Fiscal (PR-4) ===
 // 6 endpoints bajo /api/v1/integraciones/fiscal/* (GET/PUT configuración

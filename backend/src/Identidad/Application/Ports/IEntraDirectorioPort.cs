@@ -51,6 +51,29 @@ public interface IEntraDirectorioPort
     /// <c>ENTRA_CUENTA_NO_ENCONTRADA</c> si no hay cuenta con ese OID.
     /// </exception>
     Task<string> RestablecerContrasenaTemporalAsync(string objectId, CancellationToken ct);
+
+    /// <summary>
+    /// Cuentas habilitadas, miembros (no invitados) y de dominio permitido,
+    /// para la vista «Cuentas sin empleado» (86e3x6cpw, B1). Con
+    /// <paramref name="texto"/> filtra por nombre o correo. Máximo
+    /// <paramref name="top"/> cuentas.
+    /// </summary>
+    Task<IReadOnlyList<CuentaEntra>> ListarCuentasAsync(string? texto, int top, CancellationToken ct);
+
+    /// <summary>
+    /// Agrega la cuenta al grupo de acceso del ERP (86e3x6cpw, B2).
+    /// Idempotente: si ya es miembro no hace nada.
+    /// </summary>
+    Task AgregarAGrupoAccesoAsync(string grupoId, string objectId, CancellationToken ct);
+
+    /// <summary>
+    /// Quita la cuenta del grupo de acceso del ERP. Idempotente: si no es
+    /// miembro no hace nada.
+    /// </summary>
+    Task QuitarDeGrupoAccesoAsync(string grupoId, string objectId, CancellationToken ct);
+
+    /// <summary>¿La cuenta es miembro directo del grupo de acceso?</summary>
+    Task<bool> EsMiembroDeGrupoAccesoAsync(string grupoId, string objectId, CancellationToken ct);
 }
 
 /// <summary>

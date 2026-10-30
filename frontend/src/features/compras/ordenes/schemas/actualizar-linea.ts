@@ -54,6 +54,9 @@ export const ActualizarLineaSchema = z
       .regex(/^\d{8}(\d{2})?$/, 'La fracción arancelaria debe tener 8 o 10 dígitos.')
       .nullish(),
     limpiarFraccionArancelaria: z.boolean().nullish(),
+    // F1-MP-05: lote del proveedor (máx. 50, igual que el API).
+    loteProveedor: z.string().trim().max(50, 'Máximo 50 caracteres.').nullish(),
+    limpiarLoteProveedor: z.boolean().nullish(),
     esActivoFijo: z.boolean().nullish(),
     claseActivoId: z.string().nullish(),
   })

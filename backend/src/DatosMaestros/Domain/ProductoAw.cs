@@ -76,6 +76,12 @@ public sealed class ProductoAw : BaseEntity, IAuditable
     /// <summary>Peso unitario en kg — base para <c>CantidadAduana</c> cuando la UMT es de peso.</summary>
     public decimal? PesoUnitarioKg { get; private set; }
 
+    /// <summary>
+    /// Marca de negocio: el producto es un servicio de recubrimiento. Dato del ERP (no viene de A+W):
+    /// la sincronización/auto-provisión nunca lo asigna ni lo pisa; solo se edita a mano.
+    /// </summary>
+    public bool EsServicioRecubrimiento { get; private set; }
+
     public OrigenMaster Origen { get; private set; } = OrigenMaster.Aw;
     public EstatusCatalogo Estatus { get; private set; } = EstatusCatalogo.Activo;
 
@@ -154,7 +160,8 @@ public sealed class ProductoAw : BaseEntity, IAuditable
         decimal? tasaRetencionIsr = null,
         string? fraccionArancelaria = null,
         string? unidadAduana = null,
-        decimal? pesoUnitarioKg = null) : base(id)
+        decimal? pesoUnitarioKg = null,
+        bool esServicioRecubrimiento = false) : base(id)
     {
         if (string.IsNullOrWhiteSpace(referenciaExterna) || referenciaExterna.Length > 50)
             throw new BusinessRuleException("PRODUCTO_AW_REFERENCIA_INVALIDA",
@@ -183,6 +190,7 @@ public sealed class ProductoAw : BaseEntity, IAuditable
         FraccionArancelaria = fraccionArancelaria;
         UnidadAduana = unidadAduana;
         PesoUnitarioKg = pesoUnitarioKg;
+        EsServicioRecubrimiento = esServicioRecubrimiento;
         Origen = origen;
         Estatus = estatus;
     }
@@ -252,7 +260,8 @@ public sealed class ProductoAw : BaseEntity, IAuditable
         string? descripcion = null,
         string? unidadMedida = null,
         Guid? categoriaId = null,
-        bool limpiarCategoria = false)
+        bool limpiarCategoria = false,
+        bool? esServicioRecubrimiento = null)
     {
         if (descripcion is not null)
         {
@@ -270,6 +279,7 @@ public sealed class ProductoAw : BaseEntity, IAuditable
         }
         if (categoriaId is Guid c) CategoriaId = c;
         else if (limpiarCategoria) CategoriaId = null;
+        if (esServicioRecubrimiento is bool r) EsServicioRecubrimiento = r;
     }
 
     /// <summary>Asigna la unidad del catálogo (ADR-0046): FK + sincroniza el snapshot.</summary>

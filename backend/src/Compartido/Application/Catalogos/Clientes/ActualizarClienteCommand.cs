@@ -104,23 +104,7 @@ public sealed class ActualizarClienteHandler : IRequestHandler<ActualizarCliente
                 $"No existe cliente con id '{request.ClienteId}'.");
 
         await ClasificacionClienteGuard.ValidarAsync(_db, request.ClasificacionId, cliente.ClasificacionId, cancellationToken);
-        // F1-ADM-06 D3: en clientes de origen A+W, cambiar un fiscal ya
-        // poblado (o limpiarlo) requiere fiscal-editar; completar vacíos no.
-        static bool Cambia(string? nuevo, string? actual) => !string.IsNullOrEmpty(nuevo) && nuevo != actual;
-        if (cliente.Origen == OrigenMaster.Aw
-            && (Cambia(request.RazonSocial, cliente.RazonSocial)
-                || (Cambia(request.Rfc, cliente.Rfc) && !string.IsNullOrEmpty(cliente.Rfc))
-                || (Cambia(request.RegimenFiscal, cliente.RegimenFiscal) && !string.IsNullOrEmpty(cliente.RegimenFiscal))
-                || (Cambia(request.CodigoPostalFiscal, cliente.CodigoPostalFiscal) && !string.IsNullOrEmpty(cliente.CodigoPostalFiscal))
-                || (request.LimpiarRfc && !string.IsNullOrEmpty(cliente.Rfc))
-                || (request.LimpiarRegimenFiscal && !string.IsNullOrEmpty(cliente.RegimenFiscal))
-                || (request.LimpiarCodigoPostalFiscal && !string.IsNullOrEmpty(cliente.CodigoPostalFiscal)))
-            && !await _permissions.TieneAsync(PermisoFiscalEditar, cancellationToken))
-        {
-            throw new ForbiddenException(
-                "CLIENTE_FISCAL_AW_SIN_PERMISO",
-                "No tiene permiso para modificar los datos fiscales de un cliente con origen A+W.");
-        }
+        await ValidarPermisoFiscalAsync(cliente, request, _permissions, cancellationToken);
 
         var rfc = RfcCliente.Normalizar(request.Rfc ?? cliente.Rfc);
         await using var scope = await ClienteRfcScope.AbrirAsync(_db, rfc, cancellationToken);
@@ -166,4 +150,26 @@ public sealed class ActualizarClienteHandler : IRequestHandler<ActualizarCliente
         await _db.SaveChangesAsync(cancellationToken);
         await scope.ConfirmarAsync(cancellationToken);
     }
+    internal static async Task ValidarPermisoFiscalAsync(Cliente cliente, ActualizarClienteCommand request, ICurrentUserPermissions permissions, CancellationToken cancellationToken)
+    {
+        // F1-ADM-06 D3: en clientes de origen A+W, cambiar un fiscal ya
+        // poblado (o limpiarlo) requiere fiscal-editar; completar vacíos no.
+        static bool Cambia(string? nuevo, string? actual) => !string.IsNullOrEmpty(nuevo) && nuevo != actual;
+        if (cliente.Origen == OrigenMaster.Aw
+            && (Cambia(request.RazonSocial, cliente.RazonSocial)
+                || (Cambia(request.Rfc, cliente.Rfc) && !string.IsNullOrEmpty(cliente.Rfc))
+                || (Cambia(request.RegimenFiscal, cliente.RegimenFiscal) && !string.IsNullOrEmpty(cliente.RegimenFiscal))
+                || (Cambia(request.CodigoPostalFiscal, cliente.CodigoPostalFiscal) && !string.IsNullOrEmpty(cliente.CodigoPostalFiscal))
+                || (request.LimpiarRfc && !string.IsNullOrEmpty(cliente.Rfc))
+                || (request.LimpiarRegimenFiscal && !string.IsNullOrEmpty(cliente.RegimenFiscal))
+                || (request.LimpiarCodigoPostalFiscal && !string.IsNullOrEmpty(cliente.CodigoPostalFiscal)))
+            && !await permissions.TieneAsync(PermisoFiscalEditar, cancellationToken))
+        {
+            throw new ForbiddenException(
+                "CLIENTE_FISCAL_AW_SIN_PERMISO",
+                "No tiene permiso para modificar los datos fiscales de un cliente con origen A+W.");
+        }
+
+    }
+
 }

@@ -20,7 +20,7 @@ const conflicto: CambioMaestroAw = {
   causa: 'Dos o más clientes de A+W con la misma clave fiscal ABC010101AB1: AW-5027 y AW-5028.', versionEvento: 'h',
   versionMatriz: 'v', ejecucionId: null, ocurridoEnUtc: '2026-10-17T10:00:00Z', resolucion: null, resueltoEnUtc: null, version: 3,
 };
-const base = { tieneRfc: true, estatus: 'Activo', unificadoEnClienteId: null, ultimoPedidoAw: null };
+const base = { tieneRfc: true, estatus: 'Activo', unificadoEnClienteId: null, ultimoPedidoAw: null, cotizacionesAw: 0, ultimaCotizacionAw: null };
 const grupo = {
   rfc: 'ABC010101AB1', principalSugeridoId: 'c-1', motivoSugerencia: 'Ya tiene el RFC en el ERP.', resuelto: false,
   clientes: [
@@ -29,8 +29,8 @@ const grupo = {
   ],
 };
 
-function montar(onClose = vi.fn()) {
-  mswServer.use(http.get('*/clientes/rfc-repetidos/ABC010101AB1', () => HttpResponse.json(grupo)));
+function montar(onClose = vi.fn(), g: unknown = grupo) {
+  mswServer.use(http.get('*/clientes/rfc-repetidos/ABC010101AB1', () => HttpResponse.json(g)));
   render(<UnificarClientesRfcSheet conflicto={conflicto} onClose={onClose} />, { wrapper: createQueryWrapper() });
   return onClose;
 }
@@ -45,6 +45,19 @@ describe('<UnificarClientesRfcSheet>', () => {
     expect(screen.getByRole('group', { name: 'Cliente principal' })).toBeInTheDocument();
     expect(screen.getByText('Se fusiona')).toBeInTheDocument();
     expect(screen.getByText(/A\+W no se modifica\. Los pedidos/)).toBeInTheDocument();
+  });
+
+  it('un cliente con solo cotizaciones en A+W se agrupa, no se fusiona', async () => {
+    montar(vi.fn(), {
+      ...grupo,
+      clientes: [
+        grupo.clientes[0],
+        { ...base, clienteId: 'c-3', referenciaAw: '5029', razonSocial: 'Vidrios Tres', pedidosAw: 0, pedidosErp: 0, cotizacionesAw: 3, ultimaCotizacionAw: '2026-10-05T00:00:00Z', accionSugerida: 'Agrupar' },
+      ],
+    });
+    expect(await screen.findByText('Se agrupa')).toBeInTheDocument();
+    expect(screen.queryByText('Se fusiona')).not.toBeInTheDocument();
+    expect(screen.getByText(/Cotizaciones A\+W: 3 \(última/)).toBeInTheDocument();
   });
 
   it('unifica con rfc, principal y motivo y envía Idempotency-Key; cierra al terminar', async () => {

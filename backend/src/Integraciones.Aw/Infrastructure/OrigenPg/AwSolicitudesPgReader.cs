@@ -180,7 +180,7 @@ public sealed class AwSolicitudesPgReader : IAwSolicitudesReader
             SELECT numero_posicion, producto_ref, descripcion, detalle_procesos,
                    cantidad, unidad_medida, importe_pieza, descuento_porcentaje,
                    descuento, almacen_nivel_1, almacen_nivel_2, almacen_nivel_3,
-                   almacen_nivel_4, almacen_id_ubicacion, requiere_pedimento
+                   almacen_nivel_4, almacen_id_ubicacion
               FROM dbo.vw_erp_pedido_linea
              WHERE numero_pedido = @np
              ORDER BY numero_posicion
@@ -206,8 +206,7 @@ public sealed class AwSolicitudesPgReader : IAwSolicitudesReader
                 AlmacenNivel2: GetStringOrNull(reader, 10),
                 AlmacenNivel3: GetStringOrNull(reader, 11),
                 AlmacenNivel4: GetStringOrNull(reader, 12),
-                AlmacenIdUbicacion: reader.IsDBNull(13) ? null : Convert.ToInt64(reader.GetValue(13)),
-                RequierePedimento: reader.IsDBNull(14) ? null : reader.GetBoolean(14)));
+                AlmacenIdUbicacion: reader.IsDBNull(13) ? null : Convert.ToInt64(reader.GetValue(13))));
         }
         return rows;
     }

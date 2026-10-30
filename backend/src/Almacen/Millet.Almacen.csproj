@@ -28,6 +28,7 @@
       pasa por una interfaz, evitando la dependencia de proyecto.
     -->
     <ProjectReference Include="..\SharedKernel\Millet.SharedKernel.csproj" />
+    <ProjectReference Include="..\Documentos\Millet.Documentos.csproj" />
     <ProjectReference Include="..\Catalogos\Millet.Catalogos.csproj" />
     <!-- C1.2: consulta de periodos por el puerto público, sin acceso a tablas ajenas. -->
     <ProjectReference Include="..\Contabilidad\Millet.Contabilidad.csproj" />

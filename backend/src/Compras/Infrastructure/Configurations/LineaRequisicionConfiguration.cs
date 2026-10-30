@@ -99,6 +99,9 @@ public sealed class LineaRequisicionConfiguration : IEntityTypeConfiguration<Lin
         builder.Property(l => l.Proyecto).HasMaxLength(200);
         builder.Property(l => l.FechaRequerida);
         builder.Property(l => l.Notas).HasMaxLength(500);
+        builder.Property(l => l.Piezas);
+        builder.Property(l => l.AnchoMm);
+        builder.Property(l => l.AltoMm);
 
         builder.Property(l => l.CantidadDeAlmacen)
             .HasColumnName("cant_de_almacen")

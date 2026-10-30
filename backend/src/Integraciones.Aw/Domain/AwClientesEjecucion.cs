@@ -37,6 +37,8 @@ public sealed class AwClientesEjecucion : BaseEntity, INotAudited
     public int Pendientes { get; private set; }
     public int Conflictos { get; private set; }
     public int Errores { get; private set; }
+    /// <summary>Grupos de RFC repetido sin historial que el barrido unificó automáticamente.</summary>
+    public int Unificados { get; private set; }
     public DateTimeOffset IniciadaEnUtc { get; private set; }
     public DateTimeOffset? TerminadaEnUtc { get; private set; }
     public string Actor { get; private set; } = string.Empty;
@@ -95,6 +97,8 @@ public sealed class AwClientesEjecucion : BaseEntity, INotAudited
         Conflictos++;
         _errores.Add(new AwClientesEjecucionError(Id, referencia, codigo, mensaje, ahora));
     }
+
+    public void RegistrarUnificados(int grupos) => Unificados += grupos;
 
     public void AvanzarCursor(string? cursor) => CursorActual = cursor;
 

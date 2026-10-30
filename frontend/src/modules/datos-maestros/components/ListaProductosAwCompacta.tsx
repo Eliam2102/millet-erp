@@ -93,6 +93,9 @@ function ItemCompacto({ item, activo }: ItemCompactoProps) {
               UC {item.unidadMedida}
               {(item.numVariantes ?? 0) > 1 ? ` · ${item.numVariantes} medidas` : ''}
             </span>
+            {item.esServicioRecubrimiento && (
+              <span className="text-2xs font-medium text-brand">Servicio de recubrimiento</span>
+            )}
             {(item.numComponentes ?? 0) > 0 && (
               <span className="text-2xs text-ink-muted">{item.numComponentes} piezas</span>
             )}
