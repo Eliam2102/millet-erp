@@ -7,7 +7,7 @@ namespace Millet.Tesoreria.Domain.Conciliaciones;
 /// <summary>
 /// Línea importada de un extracto bancario (§5 DDL extracto_linea).
 /// </summary>
-public sealed class ExtractoLinea : BaseEntity
+public sealed class ExtractoLinea : BaseEntity, IAuditable
 {
     public Guid ConciliacionId { get; private set; }
     public int NumeroLinea { get; private set; }

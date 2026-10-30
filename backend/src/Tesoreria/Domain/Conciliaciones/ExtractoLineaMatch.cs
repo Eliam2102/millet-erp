@@ -6,7 +6,7 @@ namespace Millet.Tesoreria.Domain.Conciliaciones;
 /// Vínculo de emparejamiento entre una línea de extracto y un movimiento bancario interno.
 /// Soporta matching 1 a 1 y varios a 1 (varios movimientos internos cubiertos por una sola línea de extracto).
 /// </summary>
-public sealed class ExtractoLineaMatch : BaseEntity
+public sealed class ExtractoLineaMatch : BaseEntity, IAuditable
 {
     public Guid ExtractoLineaId { get; private set; }
     public Guid MovimientoBancarioId { get; private set; }

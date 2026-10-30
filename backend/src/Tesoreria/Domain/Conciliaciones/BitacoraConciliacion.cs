@@ -7,7 +7,7 @@ namespace Millet.Tesoreria.Domain.Conciliaciones;
 /// Bitácora inmutable de eventos de conciliación: desemparejamientos (T9.2-a / CA9.5),
 /// reaperturas, y cambios con motivo y auditoría.
 /// </summary>
-public sealed class BitacoraConciliacion : BaseEntity
+public sealed class BitacoraConciliacion : BaseEntity, IAuditable
 {
     public Guid ConciliacionId { get; private set; }
     public Guid? ExtractoLineaId { get; private set; }
