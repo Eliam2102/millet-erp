@@ -24,6 +24,18 @@ public sealed class ArticulosCarga(CompartidoDbContext db) : IAdaptadorCargaMaes
     {
         return new[] { fila.Texto("Clave"), fila.Texto("Clave legacy") }.OfType<string>().Select(x => "clave:" + x).ToList();
     }
+    // Reporte de la prueba en seco: totales por grupo y tipo, duplicados, unidades sin equivalencia y posibles A+W.
+    public IReadOnlyList<ConteoMaestros>? Resumir(IReadOnlyList<RenglonMaestros> renglones)
+    {
+        static string V(RenglonMaestros r, string c, string vacio) => r.Valores.TryGetValue(c, out var v) && !string.IsNullOrWhiteSpace(v) ? v.Trim() : vacio;
+        static IEnumerable<ConteoMaestros> Contar(string seccion, IEnumerable<string> claves) =>
+            claves.GroupBy(k => k).OrderBy(g => g.Key, StringComparer.Ordinal).Select(g => new ConteoMaestros(seccion, g.Key, g.Count()));
+        return [.. Contar("Grupo", renglones.Select(r => V(r, "Código de grupo", "(sin grupo)"))),
+            .. Contar("Tipo", renglones.Select(r => V(r, "Inventariable", "(vacío)") == "N" ? "Servicio" : "Estándar")),
+            .. Contar("Duplicado", renglones.Where(r => r.Errores.Any(e => e.Codigo == "DUPLICADO_EN_ARCHIVO")).Select(r => V(r, "Clave", "(sin clave)"))),
+            .. Contar("Unidad sin equivalencia", renglones.Where(r => r.Errores.Any(e => e.Columna == "Unidad de medida")).Select(r => V(r, "Unidad de medida", "(vacía)"))),
+            .. Contar("Posible A+W", renglones.Where(r => r.Errores.Any(e => e.Mensaje.Contains("A+W", StringComparison.Ordinal))).Select(r => V(r, "Clave", "(sin clave)")))];
+    }
     public async Task<PlanMaestros> PrepararAsync(FilaMaestros fila, CancellationToken ct)
     {
         var f = fila;
