@@ -15,6 +15,13 @@ vi.mock('@/features/compras/ordenes/api/useCrearOrdenCompraDesdeRequisicion', ()
 vi.mock('@/features/compras/ordenes/api/useSucursalesPermitidas', () => ({
   useSucursalesPermitidas: () => ({ data: [{ id: 's-1', clave: 'MID', nombre: 'Mérida' }] }),
 }));
+vi.mock('@/features/compras/ordenes/components/CampoFacturaOc', () => ({
+  CampoFacturaOc: ({ campo, onChange }: { campo: string; onChange: (v: string) => void }) => (
+    <button type="button" onClick={() => onChange({ usoCfdiClave: 'G03', metodoPago: 'PUE', formaPagoClave: '03' }[campo]!)}>
+      elegir {campo}
+    </button>
+  ),
+}));
 vi.mock('@/components/erp', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/components/erp')>()),
   CondicionesPagoSelector: ({ onChange }: { onChange: (v: string) => void }) => (
@@ -66,6 +73,9 @@ describe('GenerarOcCotizacionDialog', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'elegir condiciones' }));
     fireEvent.click(screen.getByRole('button', { name: 'elegir uso' }));
+    for (const campo of ['usoCfdiClave', 'metodoPago', 'formaPagoClave']) {
+      fireEvent.click(screen.getByRole('button', { name: `elegir ${campo}` }));
+    }
     fireEvent.click(generar);
 
     await waitFor(() => expect(mocks.mutateAsync).toHaveBeenCalledTimes(1));
@@ -80,6 +90,9 @@ describe('GenerarOcCotizacionDialog', () => {
       motivoEleccion: 'Menor precio y entrega',
       condicionesPagoId: 'cp-1',
       usoPrincipalId: 'uso-1',
+      usoCfdiClave: 'G03',
+      metodoPago: 'PUE',
+      formaPagoClave: '03',
     });
     await waitFor(() =>
       expect(mocks.navigate).toHaveBeenCalledWith({ to: '/compras/ordenes/$id', params: { id: 'oc-1' } }),
