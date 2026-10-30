@@ -46,7 +46,7 @@ public sealed class ProveedorBancoReadPortAdapter : IProveedorBancoReadPort
         using var bypass = _empresaContext.Bypass();
         var proveedores = await _db.Proveedores.AsNoTracking()
             .Where(p => proveedorIds.Contains(p.Id))
-            .Select(p => new { p.Id, p.Clave, p.RazonSocial, p.Estatus, p.Rfc })
+            .Select(p => new { p.Id, p.Clave, p.RazonSocial, p.Estatus, p.Rfc, p.Bloqueado, p.MotivoBloqueo })
             .ToListAsync(cancellationToken);
         var cuentas = (await _db.CuentasBancariasProveedor.AsNoTracking()
                 .Where(c => proveedorIds.Contains(c.ProveedorId) && c.Estado != EstadoCuentaBancariaProveedor.Rechazada)
@@ -56,6 +56,6 @@ public sealed class ProveedorBancoReadPortAdapter : IProveedorBancoReadPort
                 c.Estado.ToString()));
         return proveedores.ToDictionary(p => p.Id, p => new ProveedorBancoDto(
             p.Id, p.Clave, p.RazonSocial, cuentas[p.Id].ToList(),
-            p.Estatus == EstatusCatalogo.Activo, p.Estatus == EstatusCatalogo.EnRevision, p.Rfc));
+            p.Estatus == EstatusCatalogo.Activo, p.Estatus == EstatusCatalogo.EnRevision, p.Rfc, p.Bloqueado, p.MotivoBloqueo));
     }
 }

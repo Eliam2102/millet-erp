@@ -5818,6 +5818,20 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<bool>("Bloqueado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("bloqueado");
+
+                    b.Property<DateTimeOffset?>("BloqueadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("bloqueado_en");
+
+                    b.Property<Guid?>("BloqueadoPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("bloqueado_por_id");
+
                     b.Property<string>("Calle")
                         .HasMaxLength(254)
                         .HasColumnType("character varying(254)")
@@ -5891,6 +5905,11 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                     b.Property<Guid?>("MonedaPreferidaId")
                         .HasColumnType("uuid")
                         .HasColumnName("moneda_preferida_id");
+
+                    b.Property<string>("MotivoBloqueo")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo_bloqueo");
 
                     b.Property<string>("MotivoRechazo")
                         .HasMaxLength(500)

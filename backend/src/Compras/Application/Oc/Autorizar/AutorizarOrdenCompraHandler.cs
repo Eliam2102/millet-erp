@@ -78,6 +78,7 @@ public sealed class AutorizarOrdenCompraHandler : IRequestHandler<AutorizarOrden
         {
             throw ProveedorNoUtilizable.Error(proveedor.Clave, proveedor.Estatus, $"El proveedor '{proveedor.Clave}' está {proveedor.Estatus} y no puede autorizar OCs.");
         }
+        ProveedorNoUtilizable.RechazarSiBloqueado(proveedor);
 
         var resultado = oc.Autorizar(
             autorizacionId: Guid.CreateVersion7(),

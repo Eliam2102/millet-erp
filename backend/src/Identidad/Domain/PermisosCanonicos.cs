@@ -187,7 +187,10 @@ public static class PermisosCanonicos
     public const string DatosMaestrosProveedoresToleranciaEditar       = "datos_maestros.proveedores.tolerancia-editar";
     // F1-ADM-05 G1.1: validación y activación del proveedor por CxP.
     public const string DatosMaestrosProveedoresValidar                = "datos_maestros.proveedores.validar";
-    public const string DatosMaestrosArticulosGestionar                = "datos_maestros.articulos.gestionar";
+    // 86e3tactf: bloqueo total del proveedor (bloquear y desbloquear) y reemplazo de quien liberaría un bloqueo ajeno.
+    public const string DatosMaestrosProveedoresBloquear               = "datos_maestros.proveedores.bloquear";
+    public const string CuentasPorPagarBloqueosLiberarEnLugar          = "cuentas_por_pagar.bloqueos.liberar-en-lugar";
+    public const string DatosMaestrosArticulosGestionar               = "datos_maestros.articulos.gestionar";
     // ADR-0048: masters nuevos para la ingesta de pedidos A+W → Facturación.
     // Clientes (D6) y ProductoAw (D5, master de venta separado de articulos).
     public const string DatosMaestrosClientesGestionar                 = "datos_maestros.clientes.gestionar";
@@ -1029,5 +1032,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000004-0090-0000-0000-000000000003"), DatosMaestrosProveedoresCargar, "Cargar desde Excel o CSV: proveedores"),
         (Guid.Parse("00000004-0090-0000-0000-000000000004"), DatosMaestrosProductosAwFiscalCargar, "Cargar desde Excel o CSV: productos-aw-fiscal"),
         (Guid.Parse("00000004-0090-0000-0000-000000000005"), CentrosCostoCatalogoCargar, "Cargar desde Excel o CSV: catalogo"),
+        (Guid.Parse("00000004-0091-0000-0000-000000000001"), DatosMaestrosProveedoresBloquear, "Bloquear y desbloquear al proveedor completo (sin pagos ni OC nuevas)"),
+        (Guid.Parse("00000004-0091-0000-0000-000000000002"), CuentasPorPagarBloqueosLiberarEnLugar, "Liberar un bloqueo (proveedor o factura) en lugar de quien lo pidió, con motivo"),
     };
 }
