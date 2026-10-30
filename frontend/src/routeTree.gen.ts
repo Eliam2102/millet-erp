@@ -237,41 +237,46 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any);
-const AppActivosFijosCargaInicialRoute = AppActivosFijosCargaInicialRouteImport.update({
-  id: '/activos-fijos/carga-inicial',
-  path: '/activos-fijos/carga-inicial',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppActivosFijosCargaInicialRoute =
+  AppActivosFijosCargaInicialRouteImport.update({
+    id: '/activos-fijos/carga-inicial',
+    path: '/activos-fijos/carga-inicial',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppActivosFijosClasesRoute = AppActivosFijosClasesRouteImport.update({
   id: '/activos-fijos/clases',
   path: '/activos-fijos/clases',
   getParentRoute: () => AppRoute,
 } as any);
-const AppActivosFijosConciliacionRoute = AppActivosFijosConciliacionRouteImport.update({
-  id: '/activos-fijos/conciliacion',
-  path: '/activos-fijos/conciliacion',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppActivosFijosConfiguracionLibroRoute = AppActivosFijosConfiguracionLibroRouteImport.update({
-  id: '/activos-fijos/configuracion-libro',
-  path: '/activos-fijos/configuracion-libro',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppActivosFijosConciliacionRoute =
+  AppActivosFijosConciliacionRouteImport.update({
+    id: '/activos-fijos/conciliacion',
+    path: '/activos-fijos/conciliacion',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppActivosFijosConfiguracionLibroRoute =
+  AppActivosFijosConfiguracionLibroRouteImport.update({
+    id: '/activos-fijos/configuracion-libro',
+    path: '/activos-fijos/configuracion-libro',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppActivosFijosConteosRoute = AppActivosFijosConteosRouteImport.update({
   id: '/activos-fijos/conteos',
   path: '/activos-fijos/conteos',
   getParentRoute: () => AppRoute,
 } as any);
-const AppActivosFijosDepreciacionRoute = AppActivosFijosDepreciacionRouteImport.update({
-  id: '/activos-fijos/depreciacion',
-  path: '/activos-fijos/depreciacion',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppActivosFijosDepreciacionFiscalRoute = AppActivosFijosDepreciacionFiscalRouteImport.update({
-  id: '/activos-fijos/depreciacion-fiscal',
-  path: '/activos-fijos/depreciacion-fiscal',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppActivosFijosDepreciacionRoute =
+  AppActivosFijosDepreciacionRouteImport.update({
+    id: '/activos-fijos/depreciacion',
+    path: '/activos-fijos/depreciacion',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppActivosFijosDepreciacionFiscalRoute =
+  AppActivosFijosDepreciacionFiscalRouteImport.update({
+    id: '/activos-fijos/depreciacion-fiscal',
+    path: '/activos-fijos/depreciacion-fiscal',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppActivosFijosInpcRoute = AppActivosFijosInpcRouteImport.update({
   id: '/activos-fijos/inpc',
   path: '/activos-fijos/inpc',
@@ -282,16 +287,18 @@ const AppActivosFijosLibroRoute = AppActivosFijosLibroRouteImport.update({
   path: '/activos-fijos/libro',
   getParentRoute: () => AppRoute,
 } as any);
-const AppActivosFijosPorCapitalizarRoute = AppActivosFijosPorCapitalizarRouteImport.update({
-  id: '/activos-fijos/por-capitalizar',
-  path: '/activos-fijos/por-capitalizar',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppActivosFijosPorVencerRoute = AppActivosFijosPorVencerRouteImport.update({
-  id: '/activos-fijos/por-vencer',
-  path: '/activos-fijos/por-vencer',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppActivosFijosPorCapitalizarRoute =
+  AppActivosFijosPorCapitalizarRouteImport.update({
+    id: '/activos-fijos/por-capitalizar',
+    path: '/activos-fijos/por-capitalizar',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppActivosFijosPorVencerRoute =
+  AppActivosFijosPorVencerRouteImport.update({
+    id: '/activos-fijos/por-vencer',
+    path: '/activos-fijos/por-vencer',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppAdminIndexRoute = AppAdminIndexRouteImport.update({
   id: '/admin/',
   path: '/admin/',
@@ -337,11 +344,12 @@ const AppAlmacenSaldosRoute = AppAlmacenSaldosRouteImport.update({
   path: '/almacen/saldos',
   getParentRoute: () => AppRoute,
 } as any);
-const AppAlmacenSaldosJerarquiaRoute = AppAlmacenSaldosJerarquiaRouteImport.update({
-  id: '/almacen/saldos-jerarquia',
-  path: '/almacen/saldos-jerarquia',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppAlmacenSaldosJerarquiaRoute =
+  AppAlmacenSaldosJerarquiaRouteImport.update({
+    id: '/almacen/saldos-jerarquia',
+    path: '/almacen/saldos-jerarquia',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppAlmacenSubAlmacenesRoute = AppAlmacenSubAlmacenesRouteImport.update({
   id: '/almacen/sub-almacenes',
   path: '/almacen/sub-almacenes',
@@ -357,31 +365,35 @@ const AppCentrosCostoIndexRoute = AppCentrosCostoIndexRouteImport.update({
   path: '/centros-costo/',
   getParentRoute: () => AppRoute,
 } as any);
-const AppCentrosCostoAsignacionesRoute = AppCentrosCostoAsignacionesRouteImport.update({
-  id: '/centros-costo/asignaciones',
-  path: '/centros-costo/asignaciones',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppCentrosCostoConfiguracionRoute = AppCentrosCostoConfiguracionRouteImport.update({
-  id: '/centros-costo/configuracion',
-  path: '/centros-costo/configuracion',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppComercioExteriorIncidenciasRoute = AppComercioExteriorIncidenciasRouteImport.update({
-  id: '/comercio-exterior/incidencias',
-  path: '/comercio-exterior/incidencias',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppCentrosCostoAsignacionesRoute =
+  AppCentrosCostoAsignacionesRouteImport.update({
+    id: '/centros-costo/asignaciones',
+    path: '/centros-costo/asignaciones',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppCentrosCostoConfiguracionRoute =
+  AppCentrosCostoConfiguracionRouteImport.update({
+    id: '/centros-costo/configuracion',
+    path: '/centros-costo/configuracion',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppComercioExteriorIncidenciasRoute =
+  AppComercioExteriorIncidenciasRouteImport.update({
+    id: '/comercio-exterior/incidencias',
+    path: '/comercio-exterior/incidencias',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppComercioExteriorOtrRoute = AppComercioExteriorOtrRouteImport.update({
   id: '/comercio-exterior/otr',
   path: '/comercio-exterior/otr',
   getParentRoute: () => AppRoute,
 } as any);
-const AppComercioExteriorRelacionIvaRoute = AppComercioExteriorRelacionIvaRouteImport.update({
-  id: '/comercio-exterior/relacion-iva',
-  path: '/comercio-exterior/relacion-iva',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppComercioExteriorRelacionIvaRoute =
+  AppComercioExteriorRelacionIvaRouteImport.update({
+    id: '/comercio-exterior/relacion-iva',
+    path: '/comercio-exterior/relacion-iva',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppComprasIndexRoute = AppComprasIndexRouteImport.update({
   id: '/compras/',
   path: '/compras/',
@@ -397,26 +409,29 @@ const AppComprasConfiguracionRoute = AppComprasConfiguracionRouteImport.update({
   path: '/compras/configuracion',
   getParentRoute: () => AppRoute,
 } as any);
-const AppContabilidadDimensionesRoute = AppContabilidadDimensionesRouteImport.update({
-  id: '/contabilidad/dimensiones',
-  path: '/contabilidad/dimensiones',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppContabilidadImportacionRoute = AppContabilidadImportacionRouteImport.update({
-  id: '/contabilidad/importacion',
-  path: '/contabilidad/importacion',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppContabilidadDimensionesRoute =
+  AppContabilidadDimensionesRouteImport.update({
+    id: '/contabilidad/dimensiones',
+    path: '/contabilidad/dimensiones',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppContabilidadImportacionRoute =
+  AppContabilidadImportacionRouteImport.update({
+    id: '/contabilidad/importacion',
+    path: '/contabilidad/importacion',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppContabilidadMotorRoute = AppContabilidadMotorRouteImport.update({
   id: '/contabilidad/motor',
   path: '/contabilidad/motor',
   getParentRoute: () => AppRoute,
 } as any);
-const AppContabilidadMovimientosPruebaRoute = AppContabilidadMovimientosPruebaRouteImport.update({
-  id: '/contabilidad/movimientos-prueba',
-  path: '/contabilidad/movimientos-prueba',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppContabilidadMovimientosPruebaRoute =
+  AppContabilidadMovimientosPruebaRouteImport.update({
+    id: '/contabilidad/movimientos-prueba',
+    path: '/contabilidad/movimientos-prueba',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppContabilidadPeriodosRoute = AppContabilidadPeriodosRouteImport.update({
   id: '/contabilidad/periodos',
   path: '/contabilidad/periodos',
@@ -462,16 +477,18 @@ const AppFacturacionCajaRoute = AppFacturacionCajaRouteImport.update({
   path: '/facturacion/caja',
   getParentRoute: () => AppRoute,
 } as any);
-const AppProductoTerminadoExcepcionesRoute = AppProductoTerminadoExcepcionesRouteImport.update({
-  id: '/producto-terminado/excepciones',
-  path: '/producto-terminado/excepciones',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppProductoTerminadoPiezasRoute = AppProductoTerminadoPiezasRouteImport.update({
-  id: '/producto-terminado/piezas',
-  path: '/producto-terminado/piezas',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppProductoTerminadoExcepcionesRoute =
+  AppProductoTerminadoExcepcionesRouteImport.update({
+    id: '/producto-terminado/excepciones',
+    path: '/producto-terminado/excepciones',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppProductoTerminadoPiezasRoute =
+  AppProductoTerminadoPiezasRouteImport.update({
+    id: '/producto-terminado/piezas',
+    path: '/producto-terminado/piezas',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppSistemaDisenoIndexRoute = AppSistemaDisenoIndexRouteImport.update({
   id: '/sistema-diseno/',
   path: '/sistema-diseno/',
@@ -482,16 +499,18 @@ const AppTesoreriaIndexRoute = AppTesoreriaIndexRouteImport.update({
   path: '/tesoreria/',
   getParentRoute: () => AppRoute,
 } as any);
-const AppActivosFijosActivosIndexRoute = AppActivosFijosActivosIndexRouteImport.update({
-  id: '/activos-fijos/activos/',
-  path: '/activos-fijos/activos/',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppActivosFijosActivosIdRoute = AppActivosFijosActivosIdRouteImport.update({
-  id: '/activos-fijos/activos/$id',
-  path: '/activos-fijos/activos/$id',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppActivosFijosActivosIndexRoute =
+  AppActivosFijosActivosIndexRouteImport.update({
+    id: '/activos-fijos/activos/',
+    path: '/activos-fijos/activos/',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppActivosFijosActivosIdRoute =
+  AppActivosFijosActivosIdRouteImport.update({
+    id: '/activos-fijos/activos/$id',
+    path: '/activos-fijos/activos/$id',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppAdminModuloSettingsRoute = AppAdminModuloSettingsRouteImport.update({
   id: '/admin/$modulo/settings',
   path: '/admin/$modulo/settings',
@@ -502,21 +521,24 @@ const AppAdminAuditoriaIndexRoute = AppAdminAuditoriaIndexRouteImport.update({
   path: '/admin/auditoria/',
   getParentRoute: () => AppRoute,
 } as any);
-const AppAdminCanalesVentaIndexRoute = AppAdminCanalesVentaIndexRouteImport.update({
-  id: '/admin/canales-venta/',
-  path: '/admin/canales-venta/',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppAdminCartaPorteCatalogosIndexRoute = AppAdminCartaPorteCatalogosIndexRouteImport.update({
-  id: '/admin/carta-porte-catalogos/',
-  path: '/admin/carta-porte-catalogos/',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppAdminDepartamentosIndexRoute = AppAdminDepartamentosIndexRouteImport.update({
-  id: '/admin/departamentos/',
-  path: '/admin/departamentos/',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppAdminCanalesVentaIndexRoute =
+  AppAdminCanalesVentaIndexRouteImport.update({
+    id: '/admin/canales-venta/',
+    path: '/admin/canales-venta/',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppAdminCartaPorteCatalogosIndexRoute =
+  AppAdminCartaPorteCatalogosIndexRouteImport.update({
+    id: '/admin/carta-porte-catalogos/',
+    path: '/admin/carta-porte-catalogos/',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppAdminDepartamentosIndexRoute =
+  AppAdminDepartamentosIndexRouteImport.update({
+    id: '/admin/departamentos/',
+    path: '/admin/departamentos/',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppAdminEmpleadosIndexRoute = AppAdminEmpleadosIndexRouteImport.update({
   id: '/admin/empleados/',
   path: '/admin/empleados/',
@@ -582,26 +604,29 @@ const AppAdminUsuariosIdRoute = AppAdminUsuariosIdRouteImport.update({
   path: '/admin/usuarios/$id',
   getParentRoute: () => AppRoute,
 } as any);
-const AppAlmacenDevolucionesIndexRoute = AppAlmacenDevolucionesIndexRouteImport.update({
-  id: '/almacen/devoluciones/',
-  path: '/almacen/devoluciones/',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppAlmacenInventariosIndexRoute = AppAlmacenInventariosIndexRouteImport.update({
-  id: '/almacen/inventarios/',
-  path: '/almacen/inventarios/',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppAlmacenDevolucionesIndexRoute =
+  AppAlmacenDevolucionesIndexRouteImport.update({
+    id: '/almacen/devoluciones/',
+    path: '/almacen/devoluciones/',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppAlmacenInventariosIndexRoute =
+  AppAlmacenInventariosIndexRouteImport.update({
+    id: '/almacen/inventarios/',
+    path: '/almacen/inventarios/',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppAlmacenInventariosIdRoute = AppAlmacenInventariosIdRouteImport.update({
   id: '/almacen/inventarios/$id',
   path: '/almacen/inventarios/$id',
   getParentRoute: () => AppRoute,
 } as any);
-const AppAlmacenRecepcionesIndexRoute = AppAlmacenRecepcionesIndexRouteImport.update({
-  id: '/almacen/recepciones/',
-  path: '/almacen/recepciones/',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppAlmacenRecepcionesIndexRoute =
+  AppAlmacenRecepcionesIndexRouteImport.update({
+    id: '/almacen/recepciones/',
+    path: '/almacen/recepciones/',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppAlmacenRecepcionesIdRoute = AppAlmacenRecepcionesIdRouteImport.update({
   id: '/almacen/recepciones/$id',
   path: '/almacen/recepciones/$id',
@@ -612,11 +637,12 @@ const AppAlmacenReportesIndexRoute = AppAlmacenReportesIndexRouteImport.update({
   path: '/almacen/reportes/',
   getParentRoute: () => AppRoute,
 } as any);
-const AppAlmacenReportesAlfakHistorialRoute = AppAlmacenReportesAlfakHistorialRouteImport.update({
-  id: '/almacen/reportes/alfak-historial',
-  path: '/almacen/reportes/alfak-historial',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppAlmacenReportesAlfakHistorialRoute =
+  AppAlmacenReportesAlfakHistorialRouteImport.update({
+    id: '/almacen/reportes/alfak-historial',
+    path: '/almacen/reportes/alfak-historial',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppAlmacenReportesMpCnkRoute = AppAlmacenReportesMpCnkRouteImport.update({
   id: '/almacen/reportes/mp-cnk',
   path: '/almacen/reportes/mp-cnk',
@@ -638,16 +664,18 @@ const AppComercioExteriorExpedientesIndexRoute =
     path: '/comercio-exterior/expedientes/',
     getParentRoute: () => AppRoute,
   } as any);
-const AppComercioExteriorExpedientesIdRoute = AppComercioExteriorExpedientesIdRouteImport.update({
-  id: '/comercio-exterior/expedientes/$id',
-  path: '/comercio-exterior/expedientes/$id',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppComprasAdminAprobadoresRoute = AppComprasAdminAprobadoresRouteImport.update({
-  id: '/compras/admin/aprobadores',
-  path: '/compras/admin/aprobadores',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppComercioExteriorExpedientesIdRoute =
+  AppComercioExteriorExpedientesIdRouteImport.update({
+    id: '/comercio-exterior/expedientes/$id',
+    path: '/comercio-exterior/expedientes/$id',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppComprasAdminAprobadoresRoute =
+  AppComprasAdminAprobadoresRouteImport.update({
+    id: '/compras/admin/aprobadores',
+    path: '/compras/admin/aprobadores',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppComprasOrdenesIndexRoute = AppComprasOrdenesIndexRouteImport.update({
   id: '/compras/ordenes/',
   path: '/compras/ordenes/',
@@ -658,22 +686,24 @@ const AppComprasOrdenesIdRoute = AppComprasOrdenesIdRouteImport.update({
   path: '/compras/ordenes/$id',
   getParentRoute: () => AppRoute,
 } as any);
-const AppComprasOrdenesPartidasAbiertasRoute = AppComprasOrdenesPartidasAbiertasRouteImport.update({
-  id: '/compras/ordenes/partidas-abiertas',
-  path: '/compras/ordenes/partidas-abiertas',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppComprasOrdenesPartidasAbiertasRoute =
+  AppComprasOrdenesPartidasAbiertasRouteImport.update({
+    id: '/compras/ordenes/partidas-abiertas',
+    path: '/compras/ordenes/partidas-abiertas',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppComprasOrdenesPendientesAutorizacionRoute =
   AppComprasOrdenesPendientesAutorizacionRouteImport.update({
     id: '/compras/ordenes/pendientes-autorizacion',
     path: '/compras/ordenes/pendientes-autorizacion',
     getParentRoute: () => AppRoute,
   } as any);
-const AppComprasPendientesIndexRoute = AppComprasPendientesIndexRouteImport.update({
-  id: '/compras/pendientes/',
-  path: '/compras/pendientes/',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppComprasPendientesIndexRoute =
+  AppComprasPendientesIndexRouteImport.update({
+    id: '/compras/pendientes/',
+    path: '/compras/pendientes/',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppComprasPendientesIdRoute = AppComprasPendientesIdRouteImport.update({
   id: '/compras/pendientes/$id',
   path: '/compras/pendientes/$id',
@@ -685,41 +715,48 @@ const AppComprasReportesAnalisisProveedoresRoute =
     path: '/compras/reportes/analisis-proveedores',
     getParentRoute: () => AppRoute,
   } as any);
-const AppComprasRequisicionesIndexRoute = AppComprasRequisicionesIndexRouteImport.update({
-  id: '/compras/requisiciones/',
-  path: '/compras/requisiciones/',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppComprasRequisicionesIdRoute = AppComprasRequisicionesIdRouteImport.update({
-  id: '/compras/requisiciones/$id',
-  path: '/compras/requisiciones/$id',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppContabilidadCatalogoIndexRoute = AppContabilidadCatalogoIndexRouteImport.update({
-  id: '/contabilidad/catalogo/',
-  path: '/contabilidad/catalogo/',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppContabilidadCatalogoIdRoute = AppContabilidadCatalogoIdRouteImport.update({
-  id: '/contabilidad/catalogo/$id',
-  path: '/contabilidad/catalogo/$id',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppContabilidadPolizasIndexRoute = AppContabilidadPolizasIndexRouteImport.update({
-  id: '/contabilidad/polizas/',
-  path: '/contabilidad/polizas/',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppContabilidadPolizasIdRoute = AppContabilidadPolizasIdRouteImport.update({
-  id: '/contabilidad/polizas/$id',
-  path: '/contabilidad/polizas/$id',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppContabilidadPolizasSaldosRoute = AppContabilidadPolizasSaldosRouteImport.update({
-  id: '/contabilidad/polizas/saldos',
-  path: '/contabilidad/polizas/saldos',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppComprasRequisicionesIndexRoute =
+  AppComprasRequisicionesIndexRouteImport.update({
+    id: '/compras/requisiciones/',
+    path: '/compras/requisiciones/',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppComprasRequisicionesIdRoute =
+  AppComprasRequisicionesIdRouteImport.update({
+    id: '/compras/requisiciones/$id',
+    path: '/compras/requisiciones/$id',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppContabilidadCatalogoIndexRoute =
+  AppContabilidadCatalogoIndexRouteImport.update({
+    id: '/contabilidad/catalogo/',
+    path: '/contabilidad/catalogo/',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppContabilidadCatalogoIdRoute =
+  AppContabilidadCatalogoIdRouteImport.update({
+    id: '/contabilidad/catalogo/$id',
+    path: '/contabilidad/catalogo/$id',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppContabilidadPolizasIndexRoute =
+  AppContabilidadPolizasIndexRouteImport.update({
+    id: '/contabilidad/polizas/',
+    path: '/contabilidad/polizas/',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppContabilidadPolizasIdRoute =
+  AppContabilidadPolizasIdRouteImport.update({
+    id: '/contabilidad/polizas/$id',
+    path: '/contabilidad/polizas/$id',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppContabilidadPolizasSaldosRoute =
+  AppContabilidadPolizasSaldosRouteImport.update({
+    id: '/contabilidad/polizas/saldos',
+    path: '/contabilidad/polizas/saldos',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppContabilidadReportesCuentaPuenteRoute =
   AppContabilidadReportesCuentaPuenteRouteImport.update({
     id: '/contabilidad/reportes/cuenta-puente',
@@ -766,11 +803,12 @@ const AppCxcLiberacionesIndexRoute = AppCxcLiberacionesIndexRouteImport.update({
   path: '/cxc/liberaciones/',
   getParentRoute: () => AppRoute,
 } as any);
-const AppCxcLineasCreditoIndexRoute = AppCxcLineasCreditoIndexRouteImport.update({
-  id: '/cxc/lineas-credito/',
-  path: '/cxc/lineas-credito/',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppCxcLineasCreditoIndexRoute =
+  AppCxcLineasCreditoIndexRouteImport.update({
+    id: '/cxc/lineas-credito/',
+    path: '/cxc/lineas-credito/',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppCxcLineasCreditoIdRoute = AppCxcLineasCreditoIdRouteImport.update({
   id: '/cxc/lineas-credito/$id',
   path: '/cxc/lineas-credito/$id',
@@ -781,11 +819,12 @@ const AppCxpAdminAprobadoresRoute = AppCxpAdminAprobadoresRouteImport.update({
   path: '/cxp/admin/aprobadores',
   getParentRoute: () => AppRoute,
 } as any);
-const AppCxpAdminPoliticasViaticosRoute = AppCxpAdminPoliticasViaticosRouteImport.update({
-  id: '/cxp/admin/politicas-viaticos',
-  path: '/cxp/admin/politicas-viaticos',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppCxpAdminPoliticasViaticosRoute =
+  AppCxpAdminPoliticasViaticosRouteImport.update({
+    id: '/cxp/admin/politicas-viaticos',
+    path: '/cxp/admin/politicas-viaticos',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppCxpAdminReposicionesRoute = AppCxpAdminReposicionesRouteImport.update({
   id: '/cxp/admin/reposiciones',
   path: '/cxp/admin/reposiciones',
@@ -796,11 +835,12 @@ const AppCxpAdminRetencionesRoute = AppCxpAdminRetencionesRouteImport.update({
   path: '/cxp/admin/retenciones',
   getParentRoute: () => AppRoute,
 } as any);
-const AppCxpComprobacionesIndexRoute = AppCxpComprobacionesIndexRouteImport.update({
-  id: '/cxp/comprobaciones/',
-  path: '/cxp/comprobaciones/',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppCxpComprobacionesIndexRoute =
+  AppCxpComprobacionesIndexRouteImport.update({
+    id: '/cxp/comprobaciones/',
+    path: '/cxp/comprobaciones/',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppCxpComprobacionesIdRoute = AppCxpComprobacionesIdRouteImport.update({
   id: '/cxp/comprobaciones/$id',
   path: '/cxp/comprobaciones/$id',
@@ -836,16 +876,18 @@ const AppCxpNotasCreditoIdRoute = AppCxpNotasCreditoIdRouteImport.update({
   path: '/cxp/notas-credito/$id',
   getParentRoute: () => AppRoute,
 } as any);
-const AppCxpReportesAntiguedadRoute = AppCxpReportesAntiguedadRouteImport.update({
-  id: '/cxp/reportes/antiguedad',
-  path: '/cxp/reportes/antiguedad',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppCxpReportesAntiguedadAnticiposRoute = AppCxpReportesAntiguedadAnticiposRouteImport.update({
-  id: '/cxp/reportes/antiguedad-anticipos',
-  path: '/cxp/reportes/antiguedad-anticipos',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppCxpReportesAntiguedadRoute =
+  AppCxpReportesAntiguedadRouteImport.update({
+    id: '/cxp/reportes/antiguedad',
+    path: '/cxp/reportes/antiguedad',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppCxpReportesAntiguedadAnticiposRoute =
+  AppCxpReportesAntiguedadAnticiposRouteImport.update({
+    id: '/cxp/reportes/antiguedad-anticipos',
+    path: '/cxp/reportes/antiguedad-anticipos',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppCxpReportesAuxiliarRoute = AppCxpReportesAuxiliarRouteImport.update({
   id: '/cxp/reportes/auxiliar',
   path: '/cxp/reportes/auxiliar',
@@ -856,21 +898,23 @@ const AppCxpReportesCarteraRoute = AppCxpReportesCarteraRouteImport.update({
   path: '/cxp/reportes/cartera',
   getParentRoute: () => AppRoute,
 } as any);
-const AppCxpReportesPasivosObrasRoute = AppCxpReportesPasivosObrasRouteImport.update({
-  id: '/cxp/reportes/pasivos-obras',
-  path: '/cxp/reportes/pasivos-obras',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppCxpReportesPasivosObrasRoute =
+  AppCxpReportesPasivosObrasRouteImport.update({
+    id: '/cxp/reportes/pasivos-obras',
+    path: '/cxp/reportes/pasivos-obras',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppCxpReportesTcRoute = AppCxpReportesTcRouteImport.update({
   id: '/cxp/reportes/tc',
   path: '/cxp/reportes/tc',
   getParentRoute: () => AppRoute,
 } as any);
-const AppCxpReportesTcPendientesRoute = AppCxpReportesTcPendientesRouteImport.update({
-  id: '/cxp/reportes/tc-pendientes',
-  path: '/cxp/reportes/tc-pendientes',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppCxpReportesTcPendientesRoute =
+  AppCxpReportesTcPendientesRouteImport.update({
+    id: '/cxp/reportes/tc-pendientes',
+    path: '/cxp/reportes/tc-pendientes',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppCxpTcIndexRoute = AppCxpTcIndexRouteImport.update({
   id: '/cxp/tc/',
   path: '/cxp/tc/',
@@ -901,76 +945,88 @@ const AppCxpViaticosIdRoute = AppCxpViaticosIdRouteImport.update({
   path: '/cxp/viaticos/$id',
   getParentRoute: () => AppRoute,
 } as any);
-const AppFacturacionActivosIndexRoute = AppFacturacionActivosIndexRouteImport.update({
-  id: '/facturacion/activos/',
-  path: '/facturacion/activos/',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppFacturacionAnticiposIndexRoute = AppFacturacionAnticiposIndexRouteImport.update({
-  id: '/facturacion/anticipos/',
-  path: '/facturacion/anticipos/',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppFacturacionAnticiposClienteIdRoute = AppFacturacionAnticiposClienteIdRouteImport.update({
-  id: '/facturacion/anticipos/$clienteId',
-  path: '/facturacion/anticipos/$clienteId',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppFacturacionCajasIndexRoute = AppFacturacionCajasIndexRouteImport.update({
-  id: '/facturacion/cajas/',
-  path: '/facturacion/cajas/',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppFacturacionActivosIndexRoute =
+  AppFacturacionActivosIndexRouteImport.update({
+    id: '/facturacion/activos/',
+    path: '/facturacion/activos/',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppFacturacionAnticiposIndexRoute =
+  AppFacturacionAnticiposIndexRouteImport.update({
+    id: '/facturacion/anticipos/',
+    path: '/facturacion/anticipos/',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppFacturacionAnticiposClienteIdRoute =
+  AppFacturacionAnticiposClienteIdRouteImport.update({
+    id: '/facturacion/anticipos/$clienteId',
+    path: '/facturacion/anticipos/$clienteId',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppFacturacionCajasIndexRoute =
+  AppFacturacionCajasIndexRouteImport.update({
+    id: '/facturacion/cajas/',
+    path: '/facturacion/cajas/',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppFacturacionCajasIdRoute = AppFacturacionCajasIdRouteImport.update({
   id: '/facturacion/cajas/$id',
   path: '/facturacion/cajas/$id',
   getParentRoute: () => AppRoute,
 } as any);
-const AppFacturacionCartaPorteIndexRoute = AppFacturacionCartaPorteIndexRouteImport.update({
-  id: '/facturacion/carta-porte/',
-  path: '/facturacion/carta-porte/',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppFacturacionCartaPorteIdRoute = AppFacturacionCartaPorteIdRouteImport.update({
-  id: '/facturacion/carta-porte/$id',
-  path: '/facturacion/carta-porte/$id',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppFacturacionFacturasIndexRoute = AppFacturacionFacturasIndexRouteImport.update({
-  id: '/facturacion/facturas/',
-  path: '/facturacion/facturas/',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppFacturacionFacturasIdRoute = AppFacturacionFacturasIdRouteImport.update({
-  id: '/facturacion/facturas/$id',
-  path: '/facturacion/facturas/$id',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppFacturacionFacturasNuevaRoute = AppFacturacionFacturasNuevaRouteImport.update({
-  id: '/facturacion/facturas/nueva',
-  path: '/facturacion/facturas/nueva',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppFacturacionPedidosIndexRoute = AppFacturacionPedidosIndexRouteImport.update({
-  id: '/facturacion/pedidos/',
-  path: '/facturacion/pedidos/',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppFacturacionCartaPorteIndexRoute =
+  AppFacturacionCartaPorteIndexRouteImport.update({
+    id: '/facturacion/carta-porte/',
+    path: '/facturacion/carta-porte/',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppFacturacionCartaPorteIdRoute =
+  AppFacturacionCartaPorteIdRouteImport.update({
+    id: '/facturacion/carta-porte/$id',
+    path: '/facturacion/carta-porte/$id',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppFacturacionFacturasIndexRoute =
+  AppFacturacionFacturasIndexRouteImport.update({
+    id: '/facturacion/facturas/',
+    path: '/facturacion/facturas/',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppFacturacionFacturasIdRoute =
+  AppFacturacionFacturasIdRouteImport.update({
+    id: '/facturacion/facturas/$id',
+    path: '/facturacion/facturas/$id',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppFacturacionFacturasNuevaRoute =
+  AppFacturacionFacturasNuevaRouteImport.update({
+    id: '/facturacion/facturas/nueva',
+    path: '/facturacion/facturas/nueva',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppFacturacionPedidosIndexRoute =
+  AppFacturacionPedidosIndexRouteImport.update({
+    id: '/facturacion/pedidos/',
+    path: '/facturacion/pedidos/',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppFacturacionPedidosIdRoute = AppFacturacionPedidosIdRouteImport.update({
   id: '/facturacion/pedidos/$id',
   path: '/facturacion/pedidos/$id',
   getParentRoute: () => AppRoute,
 } as any);
-const AppFacturacionPedidosExcepcionesRoute = AppFacturacionPedidosExcepcionesRouteImport.update({
-  id: '/facturacion/pedidos/excepciones',
-  path: '/facturacion/pedidos/excepciones',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppFacturacionReportesCierreDiaRoute = AppFacturacionReportesCierreDiaRouteImport.update({
-  id: '/facturacion/reportes/cierre-dia',
-  path: '/facturacion/reportes/cierre-dia',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppFacturacionPedidosExcepcionesRoute =
+  AppFacturacionPedidosExcepcionesRouteImport.update({
+    id: '/facturacion/pedidos/excepciones',
+    path: '/facturacion/pedidos/excepciones',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppFacturacionReportesCierreDiaRoute =
+  AppFacturacionReportesCierreDiaRouteImport.update({
+    id: '/facturacion/reportes/cierre-dia',
+    path: '/facturacion/reportes/cierre-dia',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppFacturacionReportesComparativaAnticiposRoute =
   AppFacturacionReportesComparativaAnticiposRouteImport.update({
     id: '/facturacion/reportes/comparativa-anticipos',
@@ -999,71 +1055,83 @@ const AppFacturacionReppIdRoute = AppFacturacionReppIdRouteImport.update({
   path: '/facturacion/repp/$id',
   getParentRoute: () => AppRoute,
 } as any);
-const AppFacturacionReppPendientesRoute = AppFacturacionReppPendientesRouteImport.update({
-  id: '/facturacion/repp/pendientes',
-  path: '/facturacion/repp/pendientes',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppTesoreriaConciliacionIndexRoute = AppTesoreriaConciliacionIndexRouteImport.update({
-  id: '/tesoreria/conciliacion/',
-  path: '/tesoreria/conciliacion/',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppTesoreriaCorridasIndexRoute = AppTesoreriaCorridasIndexRouteImport.update({
-  id: '/tesoreria/corridas/',
-  path: '/tesoreria/corridas/',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppFacturacionReppPendientesRoute =
+  AppFacturacionReppPendientesRouteImport.update({
+    id: '/facturacion/repp/pendientes',
+    path: '/facturacion/repp/pendientes',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppTesoreriaConciliacionIndexRoute =
+  AppTesoreriaConciliacionIndexRouteImport.update({
+    id: '/tesoreria/conciliacion/',
+    path: '/tesoreria/conciliacion/',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppTesoreriaCorridasIndexRoute =
+  AppTesoreriaCorridasIndexRouteImport.update({
+    id: '/tesoreria/corridas/',
+    path: '/tesoreria/corridas/',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppTesoreriaCorridasIdRoute = AppTesoreriaCorridasIdRouteImport.update({
   id: '/tesoreria/corridas/$id',
   path: '/tesoreria/corridas/$id',
   getParentRoute: () => AppRoute,
 } as any);
-const AppTesoreriaCorridasNuevaRoute = AppTesoreriaCorridasNuevaRouteImport.update({
-  id: '/tesoreria/corridas/nueva',
-  path: '/tesoreria/corridas/nueva',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppTesoreriaCuentasIndexRoute = AppTesoreriaCuentasIndexRouteImport.update({
-  id: '/tesoreria/cuentas/',
-  path: '/tesoreria/cuentas/',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppTesoreriaDepositosIndexRoute = AppTesoreriaDepositosIndexRouteImport.update({
-  id: '/tesoreria/depositos/',
-  path: '/tesoreria/depositos/',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppTesoreriaDevolucionesIndexRoute = AppTesoreriaDevolucionesIndexRouteImport.update({
-  id: '/tesoreria/devoluciones/',
-  path: '/tesoreria/devoluciones/',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppTesoreriaDevolucionesIdRoute = AppTesoreriaDevolucionesIdRouteImport.update({
-  id: '/tesoreria/devoluciones/$id',
-  path: '/tesoreria/devoluciones/$id',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppTesoreriaDiferenciasCorteIndexRoute = AppTesoreriaDiferenciasCorteIndexRouteImport.update({
-  id: '/tesoreria/diferencias-corte/',
-  path: '/tesoreria/diferencias-corte/',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppTesoreriaMovimientosIndexRoute = AppTesoreriaMovimientosIndexRouteImport.update({
-  id: '/tesoreria/movimientos/',
-  path: '/tesoreria/movimientos/',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppTesoreriaMovimientosIdRoute = AppTesoreriaMovimientosIdRouteImport.update({
-  id: '/tesoreria/movimientos/$id',
-  path: '/tesoreria/movimientos/$id',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppTesoreriaPagosCuentaIndexRoute = AppTesoreriaPagosCuentaIndexRouteImport.update({
-  id: '/tesoreria/pagos-cuenta/',
-  path: '/tesoreria/pagos-cuenta/',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppTesoreriaCorridasNuevaRoute =
+  AppTesoreriaCorridasNuevaRouteImport.update({
+    id: '/tesoreria/corridas/nueva',
+    path: '/tesoreria/corridas/nueva',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppTesoreriaCuentasIndexRoute =
+  AppTesoreriaCuentasIndexRouteImport.update({
+    id: '/tesoreria/cuentas/',
+    path: '/tesoreria/cuentas/',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppTesoreriaDepositosIndexRoute =
+  AppTesoreriaDepositosIndexRouteImport.update({
+    id: '/tesoreria/depositos/',
+    path: '/tesoreria/depositos/',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppTesoreriaDevolucionesIndexRoute =
+  AppTesoreriaDevolucionesIndexRouteImport.update({
+    id: '/tesoreria/devoluciones/',
+    path: '/tesoreria/devoluciones/',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppTesoreriaDevolucionesIdRoute =
+  AppTesoreriaDevolucionesIdRouteImport.update({
+    id: '/tesoreria/devoluciones/$id',
+    path: '/tesoreria/devoluciones/$id',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppTesoreriaDiferenciasCorteIndexRoute =
+  AppTesoreriaDiferenciasCorteIndexRouteImport.update({
+    id: '/tesoreria/diferencias-corte/',
+    path: '/tesoreria/diferencias-corte/',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppTesoreriaMovimientosIndexRoute =
+  AppTesoreriaMovimientosIndexRouteImport.update({
+    id: '/tesoreria/movimientos/',
+    path: '/tesoreria/movimientos/',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppTesoreriaMovimientosIdRoute =
+  AppTesoreriaMovimientosIdRouteImport.update({
+    id: '/tesoreria/movimientos/$id',
+    path: '/tesoreria/movimientos/$id',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppTesoreriaPagosCuentaIndexRoute =
+  AppTesoreriaPagosCuentaIndexRouteImport.update({
+    id: '/tesoreria/pagos-cuenta/',
+    path: '/tesoreria/pagos-cuenta/',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppTesoreriaPagosIndexRoute = AppTesoreriaPagosIndexRouteImport.update({
   id: '/tesoreria/pagos/',
   path: '/tesoreria/pagos/',
@@ -1075,11 +1143,12 @@ const AppTesoreriaReportesAuxiliarBancosRoute =
     path: '/tesoreria/reportes/auxiliar-bancos',
     getParentRoute: () => AppRoute,
   } as any);
-const AppTesoreriaReportesFlujoEfectivoRoute = AppTesoreriaReportesFlujoEfectivoRouteImport.update({
-  id: '/tesoreria/reportes/flujo-efectivo',
-  path: '/tesoreria/reportes/flujo-efectivo',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppTesoreriaReportesFlujoEfectivoRoute =
+  AppTesoreriaReportesFlujoEfectivoRouteImport.update({
+    id: '/tesoreria/reportes/flujo-efectivo',
+    path: '/tesoreria/reportes/flujo-efectivo',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppTesoreriaReppIndexRoute = AppTesoreriaReppIndexRouteImport.update({
   id: '/tesoreria/repp/',
   path: '/tesoreria/repp/',
@@ -1097,31 +1166,36 @@ const AppAdminCatalogosCondicionesPagoIndexRoute =
     path: '/admin/catalogos/condiciones-pago/',
     getParentRoute: () => AppRoute,
   } as any);
-const AppAdminCatalogosFormasPagoIndexRoute = AppAdminCatalogosFormasPagoIndexRouteImport.update({
-  id: '/admin/catalogos/formas-pago/',
-  path: '/admin/catalogos/formas-pago/',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppAdminCatalogosImpuestosIndexRoute = AppAdminCatalogosImpuestosIndexRouteImport.update({
-  id: '/admin/catalogos/impuestos/',
-  path: '/admin/catalogos/impuestos/',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppAdminCatalogosIncotermsIndexRoute = AppAdminCatalogosIncotermsIndexRouteImport.update({
-  id: '/admin/catalogos/incoterms/',
-  path: '/admin/catalogos/incoterms/',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppAdminCatalogosMonedasIndexRoute = AppAdminCatalogosMonedasIndexRouteImport.update({
-  id: '/admin/catalogos/monedas/',
-  path: '/admin/catalogos/monedas/',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppAdminCatalogosMonedasIdRoute = AppAdminCatalogosMonedasIdRouteImport.update({
-  id: '/admin/catalogos/monedas/$id',
-  path: '/admin/catalogos/monedas/$id',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppAdminCatalogosFormasPagoIndexRoute =
+  AppAdminCatalogosFormasPagoIndexRouteImport.update({
+    id: '/admin/catalogos/formas-pago/',
+    path: '/admin/catalogos/formas-pago/',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppAdminCatalogosImpuestosIndexRoute =
+  AppAdminCatalogosImpuestosIndexRouteImport.update({
+    id: '/admin/catalogos/impuestos/',
+    path: '/admin/catalogos/impuestos/',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppAdminCatalogosIncotermsIndexRoute =
+  AppAdminCatalogosIncotermsIndexRouteImport.update({
+    id: '/admin/catalogos/incoterms/',
+    path: '/admin/catalogos/incoterms/',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppAdminCatalogosMonedasIndexRoute =
+  AppAdminCatalogosMonedasIndexRouteImport.update({
+    id: '/admin/catalogos/monedas/',
+    path: '/admin/catalogos/monedas/',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppAdminCatalogosMonedasIdRoute =
+  AppAdminCatalogosMonedasIdRouteImport.update({
+    id: '/admin/catalogos/monedas/$id',
+    path: '/admin/catalogos/monedas/$id',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppAdminCatalogosRegimenesFiscalesIndexRoute =
   AppAdminCatalogosRegimenesFiscalesIndexRouteImport.update({
     id: '/admin/catalogos/regimenes-fiscales/',
@@ -1140,11 +1214,12 @@ const AppAdminCatalogosUnidadesMedidaIndexRoute =
     path: '/admin/catalogos/unidades-medida/',
     getParentRoute: () => AppRoute,
   } as any);
-const AppAdminCatalogosUsosCfdiIndexRoute = AppAdminCatalogosUsosCfdiIndexRouteImport.update({
-  id: '/admin/catalogos/usos-cfdi/',
-  path: '/admin/catalogos/usos-cfdi/',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppAdminCatalogosUsosCfdiIndexRoute =
+  AppAdminCatalogosUsosCfdiIndexRouteImport.update({
+    id: '/admin/catalogos/usos-cfdi/',
+    path: '/admin/catalogos/usos-cfdi/',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppAdminCatalogosUsosPrincipalesIndexRoute =
   AppAdminCatalogosUsosPrincipalesIndexRouteImport.update({
     id: '/admin/catalogos/usos-principales/',
@@ -1157,22 +1232,24 @@ const AppAdminDatosMaestrosArticulosIndexRoute =
     path: '/admin/datos-maestros/articulos/',
     getParentRoute: () => AppRoute,
   } as any);
-const AppAdminDatosMaestrosArticulosIdRoute = AppAdminDatosMaestrosArticulosIdRouteImport.update({
-  id: '/admin/datos-maestros/articulos/$id',
-  path: '/admin/datos-maestros/articulos/$id',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppAdminDatosMaestrosArticulosIdRoute =
+  AppAdminDatosMaestrosArticulosIdRouteImport.update({
+    id: '/admin/datos-maestros/articulos/$id',
+    path: '/admin/datos-maestros/articulos/$id',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppAdminDatosMaestrosClientesIndexRoute =
   AppAdminDatosMaestrosClientesIndexRouteImport.update({
     id: '/admin/datos-maestros/clientes/',
     path: '/admin/datos-maestros/clientes/',
     getParentRoute: () => AppRoute,
   } as any);
-const AppAdminDatosMaestrosClientesIdRoute = AppAdminDatosMaestrosClientesIdRouteImport.update({
-  id: '/admin/datos-maestros/clientes/$id',
-  path: '/admin/datos-maestros/clientes/$id',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppAdminDatosMaestrosClientesIdRoute =
+  AppAdminDatosMaestrosClientesIdRouteImport.update({
+    id: '/admin/datos-maestros/clientes/$id',
+    path: '/admin/datos-maestros/clientes/$id',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRoute =
   AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRouteImport.update({
     id: '/admin/datos-maestros/diferencias-fiscales-aw/',
@@ -1221,26 +1298,30 @@ const AppAdminDatosMaestrosSincronizacionAwIdRoute =
     path: '/admin/datos-maestros/sincronizacion-aw/$id',
     getParentRoute: () => AppRoute,
   } as any);
-const AppAdminIntegracionesFiscalIndexRoute = AppAdminIntegracionesFiscalIndexRouteImport.update({
-  id: '/admin/integraciones/fiscal/',
-  path: '/admin/integraciones/fiscal/',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppAlmacenDevolucionesProveedorIdRoute = AppAlmacenDevolucionesProveedorIdRouteImport.update({
-  id: '/almacen/devoluciones/proveedor/$id',
-  path: '/almacen/devoluciones/proveedor/$id',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppAlmacenInventariosIdAprobacionRoute = AppAlmacenInventariosIdAprobacionRouteImport.update({
-  id: '/aprobacion',
-  path: '/aprobacion',
-  getParentRoute: () => AppAlmacenInventariosIdRoute,
-} as any);
-const AppAlmacenInventariosIdCapturaRoute = AppAlmacenInventariosIdCapturaRouteImport.update({
-  id: '/captura',
-  path: '/captura',
-  getParentRoute: () => AppAlmacenInventariosIdRoute,
-} as any);
+const AppAdminIntegracionesFiscalIndexRoute =
+  AppAdminIntegracionesFiscalIndexRouteImport.update({
+    id: '/admin/integraciones/fiscal/',
+    path: '/admin/integraciones/fiscal/',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppAlmacenDevolucionesProveedorIdRoute =
+  AppAlmacenDevolucionesProveedorIdRouteImport.update({
+    id: '/almacen/devoluciones/proveedor/$id',
+    path: '/almacen/devoluciones/proveedor/$id',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppAlmacenInventariosIdAprobacionRoute =
+  AppAlmacenInventariosIdAprobacionRouteImport.update({
+    id: '/aprobacion',
+    path: '/aprobacion',
+    getParentRoute: () => AppAlmacenInventariosIdRoute,
+  } as any);
+const AppAlmacenInventariosIdCapturaRoute =
+  AppAlmacenInventariosIdCapturaRouteImport.update({
+    id: '/captura',
+    path: '/captura',
+    getParentRoute: () => AppAlmacenInventariosIdRoute,
+  } as any);
 const AppComprasArticulosIdHistorialComprasRoute =
   AppComprasArticulosIdHistorialComprasRouteImport.update({
     id: '/compras/articulos/$id/historial-compras',
@@ -1253,11 +1334,12 @@ const AppComprasRequisicionesIdCotizacionesRoute =
     path: '/compras/requisiciones/$id/cotizaciones',
     getParentRoute: () => AppRoute,
   } as any);
-const AppComprasTrazabilidadOcIdRoute = AppComprasTrazabilidadOcIdRouteImport.update({
-  id: '/compras/trazabilidad/oc/$id',
-  path: '/compras/trazabilidad/oc/$id',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppComprasTrazabilidadOcIdRoute =
+  AppComprasTrazabilidadOcIdRouteImport.update({
+    id: '/compras/trazabilidad/oc/$id',
+    path: '/compras/trazabilidad/oc/$id',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppContabilidadPolizasRecurrentesIndexRoute =
   AppContabilidadPolizasRecurrentesIndexRouteImport.update({
     id: '/contabilidad/polizas/recurrentes/',
@@ -1276,16 +1358,18 @@ const AppFacturacionAnticiposFacturasIndexRoute =
     path: '/facturacion/anticipos/facturas/',
     getParentRoute: () => AppRoute,
   } as any);
-const AppFacturacionAnticiposFacturasIdRoute = AppFacturacionAnticiposFacturasIdRouteImport.update({
-  id: '/facturacion/anticipos/facturas/$id',
-  path: '/facturacion/anticipos/facturas/$id',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppFacturacionCajaCorteSesionIdRoute = AppFacturacionCajaCorteSesionIdRouteImport.update({
-  id: '/facturacion/caja_/corte/$sesionId',
-  path: '/facturacion/caja/corte/$sesionId',
-  getParentRoute: () => AppRoute,
-} as any);
+const AppFacturacionAnticiposFacturasIdRoute =
+  AppFacturacionAnticiposFacturasIdRouteImport.update({
+    id: '/facturacion/anticipos/facturas/$id',
+    path: '/facturacion/anticipos/facturas/$id',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppFacturacionCajaCorteSesionIdRoute =
+  AppFacturacionCajaCorteSesionIdRouteImport.update({
+    id: '/facturacion/caja_/corte/$sesionId',
+    path: '/facturacion/caja/corte/$sesionId',
+    getParentRoute: () => AppRoute,
+  } as any);
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute;
@@ -4019,14 +4103,17 @@ interface AppAlmacenInventariosIdRouteChildren {
   AppAlmacenInventariosIdCapturaRoute: typeof AppAlmacenInventariosIdCapturaRoute;
 }
 
-const AppAlmacenInventariosIdRouteChildren: AppAlmacenInventariosIdRouteChildren = {
-  AppAlmacenInventariosIdAprobacionRoute: AppAlmacenInventariosIdAprobacionRoute,
-  AppAlmacenInventariosIdCapturaRoute: AppAlmacenInventariosIdCapturaRoute,
-};
+const AppAlmacenInventariosIdRouteChildren: AppAlmacenInventariosIdRouteChildren =
+  {
+    AppAlmacenInventariosIdAprobacionRoute:
+      AppAlmacenInventariosIdAprobacionRoute,
+    AppAlmacenInventariosIdCapturaRoute: AppAlmacenInventariosIdCapturaRoute,
+  };
 
-const AppAlmacenInventariosIdRouteWithChildren = AppAlmacenInventariosIdRoute._addFileChildren(
-  AppAlmacenInventariosIdRouteChildren,
-);
+const AppAlmacenInventariosIdRouteWithChildren =
+  AppAlmacenInventariosIdRoute._addFileChildren(
+    AppAlmacenInventariosIdRouteChildren,
+  );
 
 interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute;
@@ -4239,10 +4326,12 @@ const AppRouteChildren: AppRouteChildren = {
   AppActivosFijosCargaInicialRoute: AppActivosFijosCargaInicialRoute,
   AppActivosFijosClasesRoute: AppActivosFijosClasesRoute,
   AppActivosFijosConciliacionRoute: AppActivosFijosConciliacionRoute,
-  AppActivosFijosConfiguracionLibroRoute: AppActivosFijosConfiguracionLibroRoute,
+  AppActivosFijosConfiguracionLibroRoute:
+    AppActivosFijosConfiguracionLibroRoute,
   AppActivosFijosConteosRoute: AppActivosFijosConteosRoute,
   AppActivosFijosDepreciacionRoute: AppActivosFijosDepreciacionRoute,
-  AppActivosFijosDepreciacionFiscalRoute: AppActivosFijosDepreciacionFiscalRoute,
+  AppActivosFijosDepreciacionFiscalRoute:
+    AppActivosFijosDepreciacionFiscalRoute,
   AppActivosFijosInpcRoute: AppActivosFijosInpcRoute,
   AppActivosFijosLibroRoute: AppActivosFijosLibroRoute,
   AppActivosFijosPorCapitalizarRoute: AppActivosFijosPorCapitalizarRoute,
@@ -4300,15 +4389,19 @@ const AppRouteChildren: AppRouteChildren = {
   AppComercioExteriorExpedientesIdRoute: AppComercioExteriorExpedientesIdRoute,
   AppComprasAdminAprobadoresRoute: AppComprasAdminAprobadoresRoute,
   AppComprasOrdenesIdRoute: AppComprasOrdenesIdRoute,
-  AppComprasOrdenesPartidasAbiertasRoute: AppComprasOrdenesPartidasAbiertasRoute,
-  AppComprasOrdenesPendientesAutorizacionRoute: AppComprasOrdenesPendientesAutorizacionRoute,
+  AppComprasOrdenesPartidasAbiertasRoute:
+    AppComprasOrdenesPartidasAbiertasRoute,
+  AppComprasOrdenesPendientesAutorizacionRoute:
+    AppComprasOrdenesPendientesAutorizacionRoute,
   AppComprasPendientesIdRoute: AppComprasPendientesIdRoute,
-  AppComprasReportesAnalisisProveedoresRoute: AppComprasReportesAnalisisProveedoresRoute,
+  AppComprasReportesAnalisisProveedoresRoute:
+    AppComprasReportesAnalisisProveedoresRoute,
   AppComprasRequisicionesIdRoute: AppComprasRequisicionesIdRoute,
   AppContabilidadCatalogoIdRoute: AppContabilidadCatalogoIdRoute,
   AppContabilidadPolizasIdRoute: AppContabilidadPolizasIdRoute,
   AppContabilidadPolizasSaldosRoute: AppContabilidadPolizasSaldosRoute,
-  AppContabilidadReportesCuentaPuenteRoute: AppContabilidadReportesCuentaPuenteRoute,
+  AppContabilidadReportesCuentaPuenteRoute:
+    AppContabilidadReportesCuentaPuenteRoute,
   AppCxcAplicacionesIdRoute: AppCxcAplicacionesIdRoute,
   AppCxcLineasCreditoIdRoute: AppCxcLineasCreditoIdRoute,
   AppCxpAdminAprobadoresRoute: AppCxpAdminAprobadoresRoute,
@@ -4320,7 +4413,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppCxpNotasCargoIdRoute: AppCxpNotasCargoIdRoute,
   AppCxpNotasCreditoIdRoute: AppCxpNotasCreditoIdRoute,
   AppCxpReportesAntiguedadRoute: AppCxpReportesAntiguedadRoute,
-  AppCxpReportesAntiguedadAnticiposRoute: AppCxpReportesAntiguedadAnticiposRoute,
+  AppCxpReportesAntiguedadAnticiposRoute:
+    AppCxpReportesAntiguedadAnticiposRoute,
   AppCxpReportesAuxiliarRoute: AppCxpReportesAuxiliarRoute,
   AppCxpReportesCarteraRoute: AppCxpReportesCarteraRoute,
   AppCxpReportesPasivosObrasRoute: AppCxpReportesPasivosObrasRoute,
@@ -4338,17 +4432,22 @@ const AppRouteChildren: AppRouteChildren = {
   AppFacturacionPedidosIdRoute: AppFacturacionPedidosIdRoute,
   AppFacturacionPedidosExcepcionesRoute: AppFacturacionPedidosExcepcionesRoute,
   AppFacturacionReportesCierreDiaRoute: AppFacturacionReportesCierreDiaRoute,
-  AppFacturacionReportesComparativaAnticiposRoute: AppFacturacionReportesComparativaAnticiposRoute,
-  AppFacturacionReportesEstadosAnticiposRoute: AppFacturacionReportesEstadosAnticiposRoute,
-  AppFacturacionReportesLiquidacionCajaRoute: AppFacturacionReportesLiquidacionCajaRoute,
+  AppFacturacionReportesComparativaAnticiposRoute:
+    AppFacturacionReportesComparativaAnticiposRoute,
+  AppFacturacionReportesEstadosAnticiposRoute:
+    AppFacturacionReportesEstadosAnticiposRoute,
+  AppFacturacionReportesLiquidacionCajaRoute:
+    AppFacturacionReportesLiquidacionCajaRoute,
   AppFacturacionReppIdRoute: AppFacturacionReppIdRoute,
   AppFacturacionReppPendientesRoute: AppFacturacionReppPendientesRoute,
   AppTesoreriaCorridasIdRoute: AppTesoreriaCorridasIdRoute,
   AppTesoreriaCorridasNuevaRoute: AppTesoreriaCorridasNuevaRoute,
   AppTesoreriaDevolucionesIdRoute: AppTesoreriaDevolucionesIdRoute,
   AppTesoreriaMovimientosIdRoute: AppTesoreriaMovimientosIdRoute,
-  AppTesoreriaReportesAuxiliarBancosRoute: AppTesoreriaReportesAuxiliarBancosRoute,
-  AppTesoreriaReportesFlujoEfectivoRoute: AppTesoreriaReportesFlujoEfectivoRoute,
+  AppTesoreriaReportesAuxiliarBancosRoute:
+    AppTesoreriaReportesAuxiliarBancosRoute,
+  AppTesoreriaReportesFlujoEfectivoRoute:
+    AppTesoreriaReportesFlujoEfectivoRoute,
   AppActivosFijosActivosIndexRoute: AppActivosFijosActivosIndexRoute,
   AppAdminAuditoriaIndexRoute: AppAdminAuditoriaIndexRoute,
   AppAdminCanalesVentaIndexRoute: AppAdminCanalesVentaIndexRoute,
@@ -4367,7 +4466,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppAlmacenRecepcionesIndexRoute: AppAlmacenRecepcionesIndexRoute,
   AppAlmacenReportesIndexRoute: AppAlmacenReportesIndexRoute,
   AppAlmacenSalidasIndexRoute: AppAlmacenSalidasIndexRoute,
-  AppComercioExteriorExpedientesIndexRoute: AppComercioExteriorExpedientesIndexRoute,
+  AppComercioExteriorExpedientesIndexRoute:
+    AppComercioExteriorExpedientesIndexRoute,
   AppComprasOrdenesIndexRoute: AppComprasOrdenesIndexRoute,
   AppComprasPendientesIndexRoute: AppComprasPendientesIndexRoute,
   AppComprasRequisicionesIndexRoute: AppComprasRequisicionesIndexRoute,
@@ -4399,7 +4499,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppTesoreriaCuentasIndexRoute: AppTesoreriaCuentasIndexRoute,
   AppTesoreriaDepositosIndexRoute: AppTesoreriaDepositosIndexRoute,
   AppTesoreriaDevolucionesIndexRoute: AppTesoreriaDevolucionesIndexRoute,
-  AppTesoreriaDiferenciasCorteIndexRoute: AppTesoreriaDiferenciasCorteIndexRoute,
+  AppTesoreriaDiferenciasCorteIndexRoute:
+    AppTesoreriaDiferenciasCorteIndexRoute,
   AppTesoreriaMovimientosIndexRoute: AppTesoreriaMovimientosIndexRoute,
   AppTesoreriaPagosCuentaIndexRoute: AppTesoreriaPagosCuentaIndexRoute,
   AppTesoreriaPagosIndexRoute: AppTesoreriaPagosIndexRoute,
@@ -4407,38 +4508,60 @@ const AppRouteChildren: AppRouteChildren = {
   AppAdminCatalogosMonedasIdRoute: AppAdminCatalogosMonedasIdRoute,
   AppAdminDatosMaestrosArticulosIdRoute: AppAdminDatosMaestrosArticulosIdRoute,
   AppAdminDatosMaestrosClientesIdRoute: AppAdminDatosMaestrosClientesIdRoute,
-  AppAdminDatosMaestrosProductosAwIdRoute: AppAdminDatosMaestrosProductosAwIdRoute,
-  AppAdminDatosMaestrosProveedoresIdRoute: AppAdminDatosMaestrosProveedoresIdRoute,
-  AppAdminDatosMaestrosProveedoresExpedienteRoute: AppAdminDatosMaestrosProveedoresExpedienteRoute,
-  AppAdminDatosMaestrosSincronizacionAwIdRoute: AppAdminDatosMaestrosSincronizacionAwIdRoute,
-  AppAlmacenDevolucionesProveedorIdRoute: AppAlmacenDevolucionesProveedorIdRoute,
-  AppComprasArticulosIdHistorialComprasRoute: AppComprasArticulosIdHistorialComprasRoute,
-  AppComprasRequisicionesIdCotizacionesRoute: AppComprasRequisicionesIdCotizacionesRoute,
+  AppAdminDatosMaestrosProductosAwIdRoute:
+    AppAdminDatosMaestrosProductosAwIdRoute,
+  AppAdminDatosMaestrosProveedoresIdRoute:
+    AppAdminDatosMaestrosProveedoresIdRoute,
+  AppAdminDatosMaestrosProveedoresExpedienteRoute:
+    AppAdminDatosMaestrosProveedoresExpedienteRoute,
+  AppAdminDatosMaestrosSincronizacionAwIdRoute:
+    AppAdminDatosMaestrosSincronizacionAwIdRoute,
+  AppAlmacenDevolucionesProveedorIdRoute:
+    AppAlmacenDevolucionesProveedorIdRoute,
+  AppComprasArticulosIdHistorialComprasRoute:
+    AppComprasArticulosIdHistorialComprasRoute,
+  AppComprasRequisicionesIdCotizacionesRoute:
+    AppComprasRequisicionesIdCotizacionesRoute,
   AppComprasTrazabilidadOcIdRoute: AppComprasTrazabilidadOcIdRoute,
-  AppContabilidadPolizasRecurrentesIdRoute: AppContabilidadPolizasRecurrentesIdRoute,
-  AppFacturacionAnticiposFacturasIdRoute: AppFacturacionAnticiposFacturasIdRoute,
+  AppContabilidadPolizasRecurrentesIdRoute:
+    AppContabilidadPolizasRecurrentesIdRoute,
+  AppFacturacionAnticiposFacturasIdRoute:
+    AppFacturacionAnticiposFacturasIdRoute,
   AppFacturacionCajaCorteSesionIdRoute: AppFacturacionCajaCorteSesionIdRoute,
-  AppAdminCatalogosCategoriasArticuloIndexRoute: AppAdminCatalogosCategoriasArticuloIndexRoute,
-  AppAdminCatalogosCondicionesPagoIndexRoute: AppAdminCatalogosCondicionesPagoIndexRoute,
+  AppAdminCatalogosCategoriasArticuloIndexRoute:
+    AppAdminCatalogosCategoriasArticuloIndexRoute,
+  AppAdminCatalogosCondicionesPagoIndexRoute:
+    AppAdminCatalogosCondicionesPagoIndexRoute,
   AppAdminCatalogosFormasPagoIndexRoute: AppAdminCatalogosFormasPagoIndexRoute,
   AppAdminCatalogosImpuestosIndexRoute: AppAdminCatalogosImpuestosIndexRoute,
   AppAdminCatalogosIncotermsIndexRoute: AppAdminCatalogosIncotermsIndexRoute,
   AppAdminCatalogosMonedasIndexRoute: AppAdminCatalogosMonedasIndexRoute,
-  AppAdminCatalogosRegimenesFiscalesIndexRoute: AppAdminCatalogosRegimenesFiscalesIndexRoute,
-  AppAdminCatalogosTransportistasIndexRoute: AppAdminCatalogosTransportistasIndexRoute,
-  AppAdminCatalogosUnidadesMedidaIndexRoute: AppAdminCatalogosUnidadesMedidaIndexRoute,
+  AppAdminCatalogosRegimenesFiscalesIndexRoute:
+    AppAdminCatalogosRegimenesFiscalesIndexRoute,
+  AppAdminCatalogosTransportistasIndexRoute:
+    AppAdminCatalogosTransportistasIndexRoute,
+  AppAdminCatalogosUnidadesMedidaIndexRoute:
+    AppAdminCatalogosUnidadesMedidaIndexRoute,
   AppAdminCatalogosUsosCfdiIndexRoute: AppAdminCatalogosUsosCfdiIndexRoute,
-  AppAdminCatalogosUsosPrincipalesIndexRoute: AppAdminCatalogosUsosPrincipalesIndexRoute,
-  AppAdminDatosMaestrosArticulosIndexRoute: AppAdminDatosMaestrosArticulosIndexRoute,
-  AppAdminDatosMaestrosClientesIndexRoute: AppAdminDatosMaestrosClientesIndexRoute,
+  AppAdminCatalogosUsosPrincipalesIndexRoute:
+    AppAdminCatalogosUsosPrincipalesIndexRoute,
+  AppAdminDatosMaestrosArticulosIndexRoute:
+    AppAdminDatosMaestrosArticulosIndexRoute,
+  AppAdminDatosMaestrosClientesIndexRoute:
+    AppAdminDatosMaestrosClientesIndexRoute,
   AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRoute:
     AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRoute,
-  AppAdminDatosMaestrosProductosAwIndexRoute: AppAdminDatosMaestrosProductosAwIndexRoute,
-  AppAdminDatosMaestrosProveedoresIndexRoute: AppAdminDatosMaestrosProveedoresIndexRoute,
-  AppAdminDatosMaestrosSincronizacionAwIndexRoute: AppAdminDatosMaestrosSincronizacionAwIndexRoute,
+  AppAdminDatosMaestrosProductosAwIndexRoute:
+    AppAdminDatosMaestrosProductosAwIndexRoute,
+  AppAdminDatosMaestrosProveedoresIndexRoute:
+    AppAdminDatosMaestrosProveedoresIndexRoute,
+  AppAdminDatosMaestrosSincronizacionAwIndexRoute:
+    AppAdminDatosMaestrosSincronizacionAwIndexRoute,
   AppAdminIntegracionesFiscalIndexRoute: AppAdminIntegracionesFiscalIndexRoute,
-  AppContabilidadPolizasRecurrentesIndexRoute: AppContabilidadPolizasRecurrentesIndexRoute,
-  AppFacturacionAnticiposFacturasIndexRoute: AppFacturacionAnticiposFacturasIndexRoute,
+  AppContabilidadPolizasRecurrentesIndexRoute:
+    AppContabilidadPolizasRecurrentesIndexRoute,
+  AppFacturacionAnticiposFacturasIndexRoute:
+    AppFacturacionAnticiposFacturasIndexRoute,
 };
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren);
