@@ -227,6 +227,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'cuentas_por_pagar.cfdis.leer',
   'cuentas_por_pagar.cfdis.cargar-manual',
   'cuentas_por_pagar.cfdis.descartar',
+  'cuentas_por_pagar.portal.administrar',
   'cuentas_por_pagar.reposiciones.leer',
   'cuentas_por_pagar.reposiciones.administrar',
   // Integraciones.Fiscal — admin de PAC + RFCs receptores (PR-2 del
