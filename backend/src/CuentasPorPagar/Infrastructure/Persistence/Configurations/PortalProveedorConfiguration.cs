@@ -28,3 +28,16 @@ public sealed class CodigoPortalConfiguration : IEntityTypeConfiguration<CodigoP
         builder.HasIndex(e => new { e.AccesoId, e.CreatedAt });
     }
 }
+
+public sealed class AvisoPagoPortalConfiguration : IEntityTypeConfiguration<AvisoPagoPortal>
+{
+    public void Configure(EntityTypeBuilder<AvisoPagoPortal> builder)
+    {
+        builder.ToTable("aviso_pago_portal");
+        builder.HasKey(e => e.Id);
+        builder.Property(e => e.Id).ValueGeneratedNever();
+        builder.Property(e => e.Monto).HasPrecision(18, 4);
+        builder.HasIndex(e => new { e.EmpresaId, e.PagoId }).IsUnique().HasDatabaseName("ux_aviso_pago_portal_empresa_pago");
+        builder.HasIndex(e => e.EnviadoEn);
+    }
+}

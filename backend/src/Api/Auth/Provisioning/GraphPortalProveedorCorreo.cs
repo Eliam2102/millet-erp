@@ -35,6 +35,19 @@ public sealed class GraphPortalProveedorCorreo(GraphServiceClient graph, string 
         GraphCorreoColaboradores.EnviarHtmlAsync(graph, sender, [destinatario], "Tu código de acceso al portal de proveedores de Millet",
             ConstruirHtml(codigo), cancellationToken);
 
+    public Task EnviarAvisoPagoAsync(string destinatario, AvisoPagoCorreo aviso, CancellationToken cancellationToken) =>
+        GraphCorreoColaboradores.EnviarHtmlAsync(graph, sender, [destinatario], "Millet te realizó un pago",
+            ConstruirHtmlPago(aviso), cancellationToken);
+
+    public static string ConstruirHtmlPago(AvisoPagoCorreo a)
+    {
+        static string E(string? s) => System.Net.WebUtility.HtmlEncode(s ?? string.Empty);
+        return "<div style='font-family:Arial,sans-serif;max-width:600px;margin:auto'>" +
+               "<h2>Pago aplicado a tu factura</h2>" +
+               $"<p>Registramos un pago de <strong>{a.Monto:N2} {E(a.Moneda)}</strong> el {a.FechaPago:dd/MM/yyyy} a la factura <strong>{E(a.FolioFactura ?? "sin folio")}</strong>.</p>" +
+               "<p>Si la factura es de pago en parcialidades o diferido, recuerda subir tu complemento de pago en el portal de proveedores.</p></div>";
+    }
+
     public static string ConstruirHtml(string codigo) =>
         "<div style='font-family:Arial,sans-serif;max-width:600px;margin:auto'>" +
         "<h2>Portal de proveedores Millet</h2>" +

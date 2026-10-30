@@ -4,7 +4,12 @@ namespace Millet.CuentasPorPagar.Domain.Ports.Portal;
 public interface IPortalCorreoPort
 {
     Task EnviarCodigoAsync(string destinatario, string codigo, CancellationToken cancellationToken);
+
+    /// <summary>Aviso automático de que Tesorería pagó una factura del proveedor.</summary>
+    Task EnviarAvisoPagoAsync(string destinatario, AvisoPagoCorreo aviso, CancellationToken cancellationToken);
 }
+
+public sealed record AvisoPagoCorreo(string? FolioFactura, decimal Monto, string Moneda, DateOnly FechaPago);
 
 /// <summary>Emite el token propio del portal (audiencia distinta a la del ERP, sin permisos del ERP). Lo implementa el Api.</summary>
 public interface IPortalTokenEmisor

@@ -11,6 +11,7 @@ import {
   listarPagos,
   PortalSesionExpirada,
   solicitarCodigo,
+  subirCfdi,
   tokenPortal,
 } from './portal-api';
 
@@ -97,10 +98,10 @@ function Acceso({ alEntrar }: { alEntrar: () => void }) {
 }
 
 function MisDocumentos({ alExpirar }: { alExpirar: () => void }) {
-  const [vista, setVista] = useState<'facturas' | 'pagos'>('facturas');
+  const [vista, setVista] = useState<'facturas' | 'pagos' | 'subir'>('facturas');
   const facturas = useQuery({ queryKey: ['portal-facturas'], queryFn: listarFacturas, retry: false });
   const pagos = useQuery({ queryKey: ['portal-pagos'], queryFn: listarPagos, retry: false, enabled: vista === 'pagos' });
-  const activa = vista === 'facturas' ? facturas : pagos;
+  const activa = vista === 'pagos' ? pagos : facturas;
 
   if (activa.error instanceof PortalSesionExpirada) {
     alExpirar();
@@ -117,11 +118,15 @@ function MisDocumentos({ alExpirar }: { alExpirar: () => void }) {
           <Button role="tab" aria-selected={vista === 'pagos'} variant={vista === 'pagos' ? 'default' : 'ghost'} onClick={() => setVista('pagos')}>
             Pagos y complementos que debo
           </Button>
+          <Button role="tab" aria-selected={vista === 'subir'} variant={vista === 'subir' ? 'default' : 'ghost'} onClick={() => setVista('subir')}>
+            Subir factura o complemento
+          </Button>
         </div>
         <Button variant="ghost" onClick={() => { cerrarSesionPortal(); alExpirar(); }}>Salir</Button>
       </div>
-      {activa.isPending && <p className="text-sm text-ink-muted">Cargando…</p>}
-      {activa.isError && <Alert variant="destructive"><AlertDescription>{activa.error.message}</AlertDescription></Alert>}
+      {vista === 'subir' && <SubirDocumento alExpirar={alExpirar} />}
+      {vista !== 'subir' && activa.isPending && <p className="text-sm text-ink-muted">Cargando…</p>}
+      {vista !== 'subir' && activa.isError && <Alert variant="destructive"><AlertDescription>{activa.error.message}</AlertDescription></Alert>}
       {vista === 'facturas' && facturas.data && (
         facturas.data.length === 0 ? <p className="text-sm text-ink-muted">Todavía no tenemos facturas tuyas.</p> : (
           <table className="w-full text-sm">
@@ -164,5 +169,48 @@ function MisDocumentos({ alExpirar }: { alExpirar: () => void }) {
         )
       )}
     </div>
+  );
+}
+
+function SubirDocumento({ alExpirar }: { alExpirar: () => void }) {
+  const [xml, setXml] = useState<File | null>(null);
+  const [pdf, setPdf] = useState<File | null>(null);
+  const [ocupado, setOcupado] = useState(false);
+  const [mensaje, setMensaje] = useState<{ ok: boolean; texto: string } | null>(null);
+
+  async function enviar(event: React.FormEvent) {
+    event.preventDefault();
+    if (!xml) return;
+    setOcupado(true);
+    setMensaje(null);
+    try {
+      const r = await subirCfdi(xml, pdf);
+      setMensaje({ ok: true, texto: r.resultado === 'YaLoTeniamos' ? 'Ya lo teníamos.' : 'Recibimos tu documento.' });
+      setXml(null);
+      setPdf(null);
+    } catch (e) {
+      if (e instanceof PortalSesionExpirada) return alExpirar();
+      setMensaje({ ok: false, texto: e instanceof Error ? e.message : 'Intenta de nuevo.' });
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  return (
+    <form className="max-w-sm space-y-4" onSubmit={(e) => void enviar(e)}>
+      <p className="text-sm text-ink-muted">Sube tu factura (tipo Ingreso) o tu complemento de pago (tipo Pago) en XML. El PDF es opcional.</p>
+      <div>
+        <Label htmlFor="portal-xml">Archivo XML</Label>
+        <Input id="portal-xml" type="file" accept=".xml,text/xml,application/xml" onChange={(e) => setXml(e.target.files?.[0] ?? null)} />
+      </div>
+      <div>
+        <Label htmlFor="portal-pdf">Archivo PDF (opcional)</Label>
+        <Input id="portal-pdf" type="file" accept=".pdf,application/pdf" onChange={(e) => setPdf(e.target.files?.[0] ?? null)} />
+      </div>
+      {mensaje && (
+        <Alert variant={mensaje.ok ? 'default' : 'destructive'}><AlertDescription>{mensaje.texto}</AlertDescription></Alert>
+      )}
+      <Button type="submit" disabled={!xml || ocupado}>{ocupado ? 'Subiendo…' : 'Subir documento'}</Button>
+    </form>
   );
 }
