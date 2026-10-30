@@ -141,6 +141,20 @@ public sealed class ValeCajaTests
         ValeCajaDocument.Fecha(new DateOnly(2026, 7, 5)).Should().Be("05 / 07 / 2026");
     }
 
+    [Fact]
+    public void Con_logo_la_plantilla_incrusta_la_imagen_y_conserva_el_nombre_de_la_empresa()
+    {
+        var logo = Convert.FromBase64String(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==");
+        var conLogo = Modelo(Retiro("01", 3000m, folio: 1), Expedicion) with { Logo = logo };
+
+        var sinLogo = Encoding.Latin1.GetString(new QuestPdfValeCajaGenerator().Generar(conLogo with { Logo = null }).Contenido);
+        var texto = Encoding.Latin1.GetString(new QuestPdfValeCajaGenerator().Generar(conLogo).Contenido);
+
+        texto.Should().Contain("/Subtype /Image");
+        sinLogo.Should().NotContain("/Subtype /Image");
+    }
+
     private static CajaMovimiento Retiro(string formaPago, decimal importe, int folio)
     {
         var retiro = CajaMovimiento.Crear(

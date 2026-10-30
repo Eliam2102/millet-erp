@@ -100,7 +100,9 @@ public sealed class ValeCajaDocument(ValeCajaPdfModel m) : IDocument
             t.Span(m.Cajero).Bold();
             t.Span(" la cantidad de $ ").Bold();
             t.Span(Importe);
-            t.Span(" M.N. ").Bold();
+            // El formato corta el renglón después de «M.N.»: la letra y el concepto van abajo.
+            t.Span(" M.N.").Bold();
+            t.Span("\n");
             t.Span($"({m.ImporteEnLetra})").Bold();
             t.Span(" por concepto de ").Bold();
             t.Span(m.Concepto).Bold();
@@ -120,9 +122,10 @@ public sealed class ValeCajaDocument(ValeCajaPdfModel m) : IDocument
             fila.AutoItem().AlignMiddle().PaddingLeft(3).Text("Cheque");
             fila.ConstantItem(12);
             fila.AutoItem().AlignMiddle().Element(c => Casilla(c, m.FormaPago == FormaPagoVale.Otro));
-            fila.AutoItem().AlignMiddle().PaddingLeft(3).Text("Otro: ");
+            fila.AutoItem().AlignMiddle().PaddingLeft(3).Text("Otro:");
+            fila.ConstantItem(EstilosValeCaja.OtroSeparacion);
             fila.ConstantItem(EstilosValeCaja.OtroAncho).AlignBottom().BorderBottom(EstilosValeCaja.Linea)
-                .BorderColor(EstilosValeCaja.Negro).Text(m.FormaPagoOtro ?? string.Empty);
+                .BorderColor(EstilosValeCaja.Negro).PaddingLeft(EstilosValeCaja.OtroSeparacion).Text(m.FormaPagoOtro ?? string.Empty);
         });
     }
 
@@ -149,8 +152,8 @@ public sealed class ValeCajaDocument(ValeCajaPdfModel m) : IDocument
         container.AlignCenter().Width(EstilosValeCaja.FirmaAncho).Column(col =>
         {
             col.Item().BorderBottom(EstilosValeCaja.Linea).BorderColor(EstilosValeCaja.Negro).Height(1);
-            col.Item().PaddingTop(4).AlignCenter().Text(titulo).Bold().FontSize(EstilosValeCaja.Firma);
-            col.Item().PaddingTop(2).AlignCenter().Text(pie).FontSize(EstilosValeCaja.Firma);
+            col.Item().PaddingTop(EstilosValeCaja.FirmaEtiqueta).AlignCenter().Text(titulo).Bold().FontSize(EstilosValeCaja.Firma);
+            col.Item().PaddingTop(4).AlignCenter().Text(pie).FontSize(EstilosValeCaja.Firma);
         });
     }
 
