@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
-import { http, HttpResponse } from 'msw';
+import { http, HttpResponse, type JsonBodyType } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
 import { useAuthStore } from '@/lib/auth/auth-store';
@@ -987,7 +987,7 @@ describe('<EmitirFacturaForm> — diferencias contra la proforma (U1.8a)', () =>
     return emitidas;
   }
 
-  function mockComparar(respuesta: unknown, status = 200) {
+  function mockComparar(respuesta: JsonBodyType, status = 200) {
     const comparadas: unknown[] = [];
     mswServer.use(
       http.post(

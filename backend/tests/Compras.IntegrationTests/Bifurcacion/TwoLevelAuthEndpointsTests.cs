@@ -8,6 +8,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Millet.Compras.Domain;
 using Millet.Compras.Domain.Matriz;
+using Millet.Compras.IntegrationTests.Autorizacion;
+using Millet.Identidad.Domain;
 
 using Millet.Compras.IntegrationTests.Fixtures;
 
@@ -58,7 +60,9 @@ public class TwoLevelAuthEndpointsTests : IClassFixture<StubsWebApplicationFacto
 
         // N2: matriz satisfecha → bifurcación + cubrimiento. ADR-0043 #3: el
         // cubrimiento YA NO cierra (ni el path 100% stock) → queda EnSurtido.
-        var n2 = await client.PostAsJsonAsync(
+        // N2 lo firma otra persona: la misma que firmó N1 no puede (AUTORIZACION_FIRMA_MISMA_PERSONA).
+        var n2Client = await CreateAutorizadorN2Async(twoLevelFactory);
+        var n2 = await n2Client.PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{rqId}/autorizaciones",
             new { Nivel = 2, Notas = (string?)null });
         n2.EnsureSuccessStatusCode();
@@ -82,7 +86,9 @@ public class TwoLevelAuthEndpointsTests : IClassFixture<StubsWebApplicationFacto
         var afterN1 = await ReadJsonAsync(await client.GetAsync($"/api/v1/compras/requisiciones/{rqId}"));
         Assert.Equal((int)EstadoRequisicion.EnAutorizacion, afterN1.GetProperty("estado").GetInt32());
 
-        var n2 = await client.PostAsJsonAsync(
+        // N2 lo firma otra persona: la misma que firmó N1 no puede (AUTORIZACION_FIRMA_MISMA_PERSONA).
+        var n2Client = await CreateAutorizadorN2Async(twoLevelFactory);
+        var n2 = await n2Client.PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{rqId}/autorizaciones",
             new { Nivel = 2, Notas = (string?)null });
         n2.EnsureSuccessStatusCode();
@@ -108,6 +114,14 @@ public class TwoLevelAuthEndpointsTests : IClassFixture<StubsWebApplicationFacto
     }
 
     // --- Helpers ---
+
+    private static async Task<HttpClient> CreateAutorizadorN2Async(WebApplicationFactory<Program> factory) =>
+        (await AutorizacionTestSeeding.CreateUsuarioConPermisosAsync(
+            factory,
+            PermisosCanonicos.ComprasRequisicionesLeer,
+            PermisosCanonicos.ComprasRequisicionesLeerTodasSucursales,
+            PermisosCanonicos.ComprasRequisicionesAutorizarNivel2,
+            PermisosCanonicos.ComprasRequisicionesGestionarTodasSucursales)).Client;
 
     private static async Task<HttpClient> CreateSuperAdminClientAsync(WebApplicationFactory<Program> factory)
     {

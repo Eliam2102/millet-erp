@@ -246,7 +246,7 @@ resource comprasEventsCxpSubscriptionFilter 'Microsoft.ServiceBus/namespaces/top
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'compras.orden-compra.autorizada.v1\', \'compras.orden-compra.cancelada.v1\')'
+      sqlExpression: 'user.EventType IN (\'compras.orden-compra.autorizada.v1\', \'compras.orden-compra.cancelada.v1\', \'compras.orden-compra.servicio-confirmado.v1\')'
       compatibilityLevel: 20
     }
   }
