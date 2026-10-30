@@ -87,6 +87,19 @@ public sealed class CartaPortePdfTests
     }
 
     [Fact]
+    public void Traslado_sin_impuestos_oculta_la_tabla_y_sin_timbre_no_dice_que_es_representacion_impresa()
+    {
+        var traslado = new CfdiMilletDocument(CfdiPdfModelBuilder.DesdeCartaPorte(CartaPorteDemo(TipoComprobante.Traslado), Camion, Chofer, Datos));
+        var ingreso = new CfdiMilletDocument(CfdiPdfModelBuilder.DesdeCartaPorte(CartaPorteDemo(TipoComprobante.Ingreso), Camion, Chofer, Datos));
+        var sinTimbrar = new CfdiMilletDocument(CfdiPdfModelBuilder.DesdeCartaPorte(CartaPorteDemo(TipoComprobante.Traslado, timbrar: false), Camion, Chofer, Datos));
+
+        traslado.MuestraImpuestos.Should().BeFalse();
+        ingreso.MuestraImpuestos.Should().BeTrue();
+        traslado.MuestraLeyenda.Should().BeTrue();
+        sinTimbrar.MuestraLeyenda.Should().BeFalse();
+    }
+
+    [Fact]
     public void La_seccion_imprime_rotulos_bilingues_del_tramo_y_del_transporte()
     {
         var m = CfdiPdfModelBuilder.DesdeCartaPorte(CartaPorteDemo(TipoComprobante.Traslado), Camion, Chofer, Datos);

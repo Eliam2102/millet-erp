@@ -59,8 +59,11 @@ public sealed class CfdiMilletDocument(CfdiPdfModel m) : IDocument
             page.Footer().Row(fila =>
             {
                 fila.ConstantItem(80);
-                fila.RelativeItem().AlignCenter().Text(Leyenda).Bold().Italic()
-                    .FontSize(EstilosCfdiMillet.Leyenda).FontColor(EstilosCfdiMillet.AzulLeyenda);
+                if (MuestraLeyenda)
+                    fila.RelativeItem().AlignCenter().Text(Leyenda).Bold().Italic()
+                        .FontSize(EstilosCfdiMillet.Leyenda).FontColor(EstilosCfdiMillet.AzulLeyenda);
+                else
+                    fila.RelativeItem();
                 fila.ConstantItem(80).AlignRight().AlignBottom().Text(t =>
                 {
                     t.DefaultTextStyle(x => x.FontSize(EstilosCfdiMillet.Pie));
@@ -227,6 +230,11 @@ public sealed class CfdiMilletDocument(CfdiPdfModel m) : IDocument
                 medidas.RelativeItem().Text($"Total Pie².:{(t.Pie2 is null ? "" : Medida(t.Pie2.Value))}");
                 medidas.RelativeItem().Text($"Total Qty.:{t.Piezas.ToString("#,##0.##", Numeros)}");
             });
+            if (!MuestraImpuestos)
+            {
+                fila.RelativeItem();
+                return;
+            }
             fila.RelativeItem().Table(tabla =>
             {
                 tabla.ColumnsDefinition(c =>
@@ -298,6 +306,12 @@ public sealed class CfdiMilletDocument(CfdiPdfModel m) : IDocument
 
     /// <summary>El CFDI de traslado no lleva método ni forma de pago: la Carta Porte tipo T omite «Datos de pago».</summary>
     internal bool MuestraDatosDePago => !(m.CartaPorte is not null && m.TipoComprobante == "Traslado");
+
+    /// <summary>La Carta Porte de traslado no lleva impuestos: no se imprime el encabezado de la tabla vacía.</summary>
+    internal bool MuestraImpuestos => m.CartaPorte is null || m.Impuestos.Count > 0;
+
+    /// <summary>Sin timbre el PDF es una vista previa, no la representación impresa de un CFDI.</summary>
+    internal bool MuestraLeyenda => m.Timbre is not null;
 
     /// <summary>Complemento Carta Porte: tramo, autotransporte, operador y mercancías con barras grises como la factura.</summary>
     private void CartaPorte(IContainer container)
@@ -372,7 +386,7 @@ public sealed class CfdiMilletDocument(CfdiPdfModel m) : IDocument
         container.Border(EstilosCfdiMillet.Linea).BorderColor(EstilosCfdiMillet.Borde).Column(col =>
         {
             col.Item().Background(EstilosCfdiMillet.Gris).PaddingVertical(2).PaddingHorizontal(6)
-                .Text(titulo).Bold().FontSize(EstilosCfdiMillet.Seccion);
+                .Text(titulo).Bold().Italic().FontSize(EstilosCfdiMillet.Detalle);
             col.Item().PaddingVertical(4).PaddingHorizontal(6).Column(datos =>
             {
                 datos.Spacing(2);
