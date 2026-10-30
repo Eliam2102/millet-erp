@@ -3,6 +3,7 @@ using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Infrastructure.Outbox;
 using Millet.SharedKernel.Infrastructure.Persistence;
 using Millet.Tesoreria.Domain.Corridas;
+using Millet.Tesoreria.Domain.Conciliaciones;
 using Millet.Tesoreria.Domain.Cuentas;
 using Millet.Tesoreria.Domain.Depositos;
 using Millet.Tesoreria.Domain.Devoluciones;
@@ -68,6 +69,12 @@ public sealed class TesoreriaDbContext : BaseDbContext
     public DbSet<ReppPagoProveedor> ReppPagosProveedor => Set<ReppPagoProveedor>();
     public DbSet<ReppProveedorRecibido> ReppsProveedorRecibidos => Set<ReppProveedorRecibido>();
 
+    /// <summary>Conciliación bancaria mensual por cuenta (T9.2).</summary>
+    public DbSet<Conciliacion> Conciliaciones => Set<Conciliacion>();
+    public DbSet<ExtractoLinea> ExtractoLineas => Set<ExtractoLinea>();
+    public DbSet<ExtractoLineaMatch> ExtractoLineaMatches => Set<ExtractoLineaMatch>();
+    public DbSet<BitacoraConciliacion> BitacorasConciliacion => Set<BitacoraConciliacion>();
+
     /// <summary>Marcas de idempotencia para integration events consumidos (PR-3/PR-7).</summary>
     public DbSet<EventoProcesado> EventosProcesados => Set<EventoProcesado>();
 
@@ -104,6 +111,10 @@ public sealed class TesoreriaDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new DevolucionClienteConfiguration());
         modelBuilder.ApplyConfiguration(new FolioSecuenciaDevolucionClienteConfiguration());
         modelBuilder.ApplyConfiguration(new ReppProveedorRecibidoConfiguration());
+        modelBuilder.ApplyConfiguration(new ConciliacionConfiguration());
+        modelBuilder.ApplyConfiguration(new ExtractoLineaConfiguration());
+        modelBuilder.ApplyConfiguration(new ExtractoLineaMatchConfiguration());
+        modelBuilder.ApplyConfiguration(new BitacoraConciliacionConfiguration());
         modelBuilder.Entity<ReppPagoProveedor>(b =>
         {
             b.ToTable("repp_pagos_proveedor"); b.HasKey(x => x.Id); b.Property(x => x.Id).ValueGeneratedNever();
