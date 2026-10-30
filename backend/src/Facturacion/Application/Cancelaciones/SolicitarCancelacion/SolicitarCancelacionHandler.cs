@@ -75,8 +75,8 @@ public sealed class SolicitarCancelacionHandler
                 solicitud.MarcarAceptada(resultado.EstatusSat, ahora);
                 await AplicarEfectosCancelacionAsync(comprobante, cancellationToken);
                 // F10-PR1: evento de comprobante cancelado (reversa fiscal/financiera).
-                await _eventos.PublishAsync(new ComprobanteCanceladoIntegrationEvent(
-                    comprobante.EmpresaId, ahora, comprobante.Id, comprobante.Tipo.ToString(), comprobante.Uuid ?? string.Empty),
+                await _eventos.PublishAsync(EventosContablesFacturacion.ComprobanteCancelado(
+                    comprobante, ahora, await PedidoDeAsync(comprobante, cancellationToken)),
                     cancellationToken);
                 break;
 
@@ -102,6 +102,11 @@ public sealed class SolicitarCancelacionHandler
             EstadoSolicitud: solicitud.Estado.ToString(),
             EstatusSat: solicitud.EstatusSat);
     }
+
+    private async Task<PedidoFacturable?> PedidoDeAsync(Comprobante c, CancellationToken ct) =>
+        c is FacturaVenta { PedidoFacturableId: { } id }
+            ? await _db.PedidosFacturables.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id, ct)
+            : null;
 
     /// <summary>
     /// Si el comprobante es una factura de anticipo, bloquea la cancelación cuando
@@ -143,16 +148,13 @@ public sealed class SolicitarCancelacionHandler
                 var pedido = await _db.PedidosFacturables.FirstOrDefaultAsync(p => p.Id == pedidoId, cancellationToken);
                 pedido?.RevertirAFacturable();
 
-                // ADR-0048 D3 (PR5): un pedido A+W re-facturable avisa de
-                // vuelta a la tabla-puente (estado SinFacturar; el uuid del
-                // CFDI cancelado se conserva en la fila — COALESCE del adapter).
+                // TR-01: sin write-back por pedido; la cancelación hacia A+W es otro tipo de fila (fuera de TR-01).
                 if (pedido?.Origen == OrigenPedido.Aw)
                 {
                     var control = await _db.IngestaControles
                         .FirstOrDefaultAsync(c => c.PedidoFacturableId == pedido.Id, cancellationToken);
                     if (control is not null)
                     {
-                        control.SolicitarWriteBackEstado("SinFacturar", uuid: null, _clock.UtcNow);
                         control.CambiarEstado(EstadoIngesta.Importado);
                     }
                 }
