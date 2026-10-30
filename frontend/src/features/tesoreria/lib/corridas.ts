@@ -24,6 +24,25 @@ export function faltaParaAutorizar(c: Pick<CorridaResponse, 'estado' | 'firmasRe
   return partes.length > 0 ? partes.join('; ') : null;
 }
 
+export interface PagoPendiente {
+  proveedorId: string;
+  facturas: string[];
+  neto: number;
+}
+
+/** Líneas aún sin pagar agrupadas por proveedor: cada grupo es un pago en la banca (un pago = un proveedor). */
+export function pagosPendientes(lineas: Pick<CorridaResponse['lineas'][number], 'facturaProveedorId' | 'proveedorId' | 'neto' | 'ejecutada'>[]): PagoPendiente[] {
+  const mapa = new Map<string, PagoPendiente>();
+  for (const l of lineas) {
+    if (l.ejecutada) continue;
+    const g = mapa.get(l.proveedorId) ?? { proveedorId: l.proveedorId, facturas: [], neto: 0 };
+    g.facturas.push(l.facturaProveedorId);
+    g.neto = Math.round((g.neto + l.neto) * 100) / 100;
+    mapa.set(l.proveedorId, g);
+  }
+  return [...mapa.values()];
+}
+
 export interface TotalesSeleccion {
   bruto: number;
   retenciones: number;

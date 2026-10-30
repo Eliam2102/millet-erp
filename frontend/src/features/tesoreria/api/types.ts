@@ -556,6 +556,8 @@ export interface CorridaLineaResponse {
   retenciones: number;
   neto: number;
   ejecutada: boolean;
+  referenciaBancaria: string | null;
+  fechaEjecucion: string | null;
 }
 
 export interface CorridaResumenResponse {
@@ -593,4 +595,7 @@ export interface CorridaResponse {
   proveedores: CorridaProveedorResponse[];
   lineas: CorridaLineaResponse[];
   firmas: { usuarioId: string; roles: string; firmadaEn: string }[];
+  ejecutado: number;
+  pendiente: number;
+  oficioGeneradoEn: string | null;
 }

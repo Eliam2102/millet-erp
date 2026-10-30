@@ -17,7 +17,11 @@ import { AvisoEnLinea, ConfirmarAccionDialog, ErrorState, TableSkeleton } from '
 import { PageHeader } from '@/components/erp/PageHeader';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
+import { EjecucionCorrida } from '@/features/tesoreria/components/EjecucionCorrida';
+import { adaptarReporteTesoreria } from '@/features/tesoreria/lib/reporte-tesoreria-adapter';
 import {
+  obtenerOficioCorrida,
+  useCerrarCorrida,
   useAutorizarCorrida,
   useCancelarCorrida,
   useCorrida,
@@ -48,6 +52,9 @@ export function DetalleCorrida({ id }: { id: string }) {
   const autorizar = useAutorizarCorrida();
   const rechazar = useRechazarCorrida();
   const cancelar = useCancelarCorrida();
+  const cerrar = useCerrarCorrida();
+  const puedeEjecutar = useHasPermission(PermisosCanonicos.TesoreriaCorridasEjecutar);
+  const [descargando, setDescargando] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
   const [rechazando, setRechazando] = useState(false);
   const [cancelando, setCancelando] = useState(false);
@@ -99,6 +106,32 @@ export function DetalleCorrida({ id }: { id: string }) {
           alError(e, 'No se pudo completar la acción.');
         },
       },
+    );
+  }
+
+  /** El servidor solo entrega el oficio de la versión autorizada; el PDF usa el kit de reportes (ADR-0036). */
+  async function descargarOficio() {
+    setAviso(null);
+    setDescargando(true);
+    try {
+      const reporte = adaptarReporteTesoreria(await obtenerOficioCorrida(c.id));
+      if (reporte) {
+        const { descargarReportePdf } = await import('@/components/erp/reportes/exporters/reporte-pdf-exporter');
+        await descargarReportePdf(reporte, `oficio-${c.nombre}`);
+      }
+    } catch (e) {
+      alError(e, 'No se pudo generar el oficio.');
+    } finally {
+      setDescargando(false);
+    }
+  }
+
+  function cerrarCorrida() {
+    setAviso(null);
+    const body = { id: c.id, versionEsperada: c.version };
+    cerrar.mutate(
+      { ...body, idempotencyKey: keyFor({ accion: 'cerrar', ...body }) },
+      { onSuccess: () => toast.success('Corrida cerrada'), onError: (e) => alError(e, 'No se pudo cerrar la corrida.') },
     );
   }
 
@@ -182,6 +215,16 @@ export function DetalleCorrida({ id }: { id: string }) {
             )}
           </>
         )}
+        {(c.estado === 'Autorizada' || c.estado === 'Ejecutada' || c.estado === 'Cerrada') && (
+          <Button variant="outline" size="sm" disabled={descargando} onClick={descargarOficio}>
+            {descargando ? 'Generando…' : 'Descargar oficio'}
+          </Button>
+        )}
+        {c.estado === 'Ejecutada' && puedeEjecutar && (
+          <Button variant="outline" size="sm" disabled={cerrar.isPending} onClick={cerrarCorrida}>
+            Cerrar corrida
+          </Button>
+        )}
         {abierta && puedeCrear && (
           <Button variant="outline" size="sm" onClick={() => setCancelando(true)}>
             Cancelar corrida
@@ -201,6 +244,19 @@ export function DetalleCorrida({ id }: { id: string }) {
           {falta && <p className="text-xs text-warning-fg">Para autorizar: {falta}.</p>}
         </Dato>
       </section>
+
+      {(c.estado === 'Autorizada' || c.estado === 'Ejecutada' || c.estado === 'Cerrada') && (
+        <section className="space-y-3">
+          <h2 className="text-md font-semibold">Ejecución</h2>
+          <p className="text-sm text-ink-secondary">
+            Pagado <MoneyDisplay amount={c.ejecutado} currency={c.moneda} strong /> · Pendiente{' '}
+            <MoneyDisplay amount={c.pendiente} currency={c.moneda} strong />
+          </p>
+          {puedeEjecutar && (c.estado === 'Autorizada' || c.estado === 'Ejecutada') && (
+            <EjecucionCorrida corrida={c} onError={(m) => setAviso(m || null)} />
+          )}
+        </section>
+      )}
 
       <section className="space-y-3">
         <h2 className="text-md font-semibold">Por proveedor</h2>
@@ -244,6 +300,7 @@ export function DetalleCorrida({ id }: { id: string }) {
                   <TableHead className="text-right">Bruto</TableHead>
                   <TableHead className="text-right">Retenciones</TableHead>
                   <TableHead className="text-right">Neto</TableHead>
+                  <TableHead>Pago</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -254,6 +311,19 @@ export function DetalleCorrida({ id }: { id: string }) {
                     <TableCell className="text-right"><MoneyDisplay amount={l.bruto} currency={c.moneda} /></TableCell>
                     <TableCell className="text-right"><MoneyDisplay amount={l.retenciones} currency={c.moneda} /></TableCell>
                     <TableCell className="text-right"><MoneyDisplay amount={l.neto} currency={c.moneda} /></TableCell>
+                    <TableCell className="text-xs">
+                      {l.ejecutada ? (
+                        <>
+                          <Badge variant="success">Pagada</Badge>{' '}
+                          <span className="font-mono">{l.referenciaBancaria}</span>
+                          {l.fechaEjecucion ? ` · ${formatoFecha(l.fechaEjecucion)}` : ''}
+                        </>
+                      ) : c.estado === 'Ejecutada' || c.estado === 'Autorizada' ? (
+                        <Badge variant="warning">Pendiente</Badge>
+                      ) : (
+                        '—'
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
