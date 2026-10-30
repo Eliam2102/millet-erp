@@ -81,6 +81,16 @@ public sealed class ReciboPagoTimbradoHandler : IRequestHandler<ReciboPagoTimbra
                 ?? throw new EntityNotFoundException("FC_NO_PROYECTADA",
                     $"La factura {fp.FacturaVentaId} del REPP {p.ReciboPagoId} no está en cartera todavía — retry.");
 
+            // FAC-03: un complemento se aplica una sola vez por factura, aunque llegue
+            // con otro EventId (índice único ux_movimiento_cartera_origen_factura_tipo).
+            if (await _db.MovimientosCartera.AnyAsync(m => m.OrigenComprobanteId == p.ReciboPagoId
+                    && m.FacturaCarteraId == factura.Id && m.Tipo == TipoMovimientoCartera.Pago, cancellationToken))
+            {
+                _logger.LogWarning("[ReciboPagoTimbrado] REPP {ReppId} ya aplicado a la factura {FacturaId} — se ignora.",
+                    p.ReciboPagoId, fp.FacturaVentaId);
+                continue;
+            }
+
             factura.AplicarPago(fp.ImportePagado);
             _db.MovimientosCartera.Add(new MovimientoCartera(
                 empresaId: p.EmpresaId,
