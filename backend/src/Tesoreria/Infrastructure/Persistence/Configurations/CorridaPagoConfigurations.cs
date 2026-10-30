@@ -79,6 +79,8 @@ public sealed class CorridaPagoLineaConfiguration : IEntityTypeConfiguration<Cor
         builder.Property(e => e.Retenciones).HasPrecision(18, 2).IsRequired();
         builder.Property(e => e.Ejecutada).IsRequired();
         builder.Property(e => e.Viva).IsRequired();
+        builder.Property(e => e.ReferenciaBancaria).HasMaxLength(120);
+        builder.Property(e => e.FechaEjecucion);
 
         builder.HasIndex(e => new { e.CorridaId, e.FacturaProveedorId })
             .HasDatabaseName("ux_corrida_pago_linea_factura")

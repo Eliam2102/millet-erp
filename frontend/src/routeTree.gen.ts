@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root';
 import { Route as AppRouteImport } from './routes/_app';
 import { Route as LoginRouteImport } from './routes/login';
+import { Route as PortalProveedoresRouteImport } from './routes/portal-proveedores';
 import { Route as AppIndexRouteImport } from './routes/_app/index';
 import { Route as AppActivosFijosCargaInicialRouteImport } from './routes/_app/activos-fijos/carga-inicial';
 import { Route as AppActivosFijosClasesRouteImport } from './routes/_app/activos-fijos/clases';
@@ -223,6 +224,11 @@ const AppRoute = AppRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any);
+const PortalProveedoresRoute = PortalProveedoresRouteImport.update({
+  id: '/portal-proveedores',
+  path: '/portal-proveedores',
   getParentRoute: () => rootRouteImport,
 } as any);
 const AppIndexRoute = AppIndexRouteImport.update({
@@ -1360,6 +1366,7 @@ const AppFacturacionCajaCorteSesionIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute;
   '/login': typeof LoginRoute;
+  '/portal-proveedores': typeof PortalProveedoresRoute;
   '/activos-fijos/carga-inicial': typeof AppActivosFijosCargaInicialRoute;
   '/activos-fijos/clases': typeof AppActivosFijosClasesRoute;
   '/activos-fijos/conciliacion': typeof AppActivosFijosConciliacionRoute;
@@ -1566,6 +1573,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute;
+  '/portal-proveedores': typeof PortalProveedoresRoute;
   '/': typeof AppIndexRoute;
   '/activos-fijos/carga-inicial': typeof AppActivosFijosCargaInicialRoute;
   '/activos-fijos/clases': typeof AppActivosFijosClasesRoute;
@@ -1775,6 +1783,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   '/_app': typeof AppRouteWithChildren;
   '/login': typeof LoginRoute;
+  '/portal-proveedores': typeof PortalProveedoresRoute;
   '/_app/': typeof AppIndexRoute;
   '/_app/activos-fijos/carga-inicial': typeof AppActivosFijosCargaInicialRoute;
   '/_app/activos-fijos/clases': typeof AppActivosFijosClasesRoute;
@@ -1985,6 +1994,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/portal-proveedores'
     | '/activos-fijos/carga-inicial'
     | '/activos-fijos/clases'
     | '/activos-fijos/conciliacion'
@@ -2191,6 +2201,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo;
   to:
     | '/login'
+    | '/portal-proveedores'
     | '/'
     | '/activos-fijos/carga-inicial'
     | '/activos-fijos/clases'
@@ -2399,6 +2410,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_app'
     | '/login'
+    | '/portal-proveedores'
     | '/_app/'
     | '/_app/activos-fijos/carga-inicial'
     | '/_app/activos-fijos/clases'
@@ -2608,6 +2620,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren;
   LoginRoute: typeof LoginRoute;
+  PortalProveedoresRoute: typeof PortalProveedoresRoute;
 }
 
 declare module '@tanstack/react-router' {
@@ -2624,6 +2637,13 @@ declare module '@tanstack/react-router' {
       path: '/login';
       fullPath: '/login';
       preLoaderRoute: typeof LoginRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    '/portal-proveedores': {
+      id: '/portal-proveedores';
+      path: '/portal-proveedores';
+      fullPath: '/portal-proveedores';
+      preLoaderRoute: typeof PortalProveedoresRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     '/_app/': {
@@ -4524,6 +4544,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren);
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
+  PortalProveedoresRoute: PortalProveedoresRoute,
 };
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

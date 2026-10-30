@@ -281,6 +281,8 @@ export interface MovimientoBancarioResponse {
   destinoNumeroCuenta?: string | null;
   destinoTitular?: string | null;
   fondosVerificados?: boolean | null;
+  /** 86e3tfdve: cuenta ordenante del cliente (enmascarada salvo permiso PII). */
+  cuentaOrdenante?: string | null;
   creadoPor: string;
   creadoEn: string;
   version: number;
@@ -556,6 +558,8 @@ export interface CorridaLineaResponse {
   retenciones: number;
   neto: number;
   ejecutada: boolean;
+  referenciaBancaria: string | null;
+  fechaEjecucion: string | null;
 }
 
 export interface CorridaResumenResponse {
@@ -593,4 +597,7 @@ export interface CorridaResponse {
   proveedores: CorridaProveedorResponse[];
   lineas: CorridaLineaResponse[];
   firmas: { usuarioId: string; roles: string; firmadaEn: string }[];
+  ejecutado: number;
+  pendiente: number;
+  oficioGeneradoEn: string | null;
 }

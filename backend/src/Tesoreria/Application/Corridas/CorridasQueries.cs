@@ -80,7 +80,7 @@ public sealed class PasivosParaCorridaHandler(TesoreriaDbContext db, IProveedorB
 
 public sealed record CorridaProveedorResponse(Guid ProveedorId, string? ProveedorRazonSocial, int Facturas, decimal Bruto, decimal Retenciones, decimal Neto);
 public sealed record CorridaLineaResponse(Guid FacturaProveedorId, Guid ProveedorId, string? FolioProveedor, DateOnly? FechaVencimiento,
-    decimal Bruto, decimal Retenciones, decimal Neto, bool Ejecutada);
+    decimal Bruto, decimal Retenciones, decimal Neto, bool Ejecutada, string? ReferenciaBancaria, DateOnly? FechaEjecucion);
 public sealed record CorridaFirmaResponse(Guid UsuarioId, string Roles, DateTimeOffset FirmadaEn);
 
 public sealed record CorridaResponse(
@@ -91,7 +91,8 @@ public sealed record CorridaResponse(
     string? MotivoCierre, string? Avisos, int Version,
     IReadOnlyList<CorridaProveedorResponse> Proveedores,
     IReadOnlyList<CorridaLineaResponse> Lineas,
-    IReadOnlyList<CorridaFirmaResponse> Firmas);
+    IReadOnlyList<CorridaFirmaResponse> Firmas,
+    decimal Ejecutado, decimal Pendiente, DateTimeOffset? OficioGeneradoEn);
 
 internal static class CorridaLectura
 {
@@ -107,7 +108,7 @@ internal static class CorridaLectura
         {
             pasivos.TryGetValue(l.FacturaProveedorId, out var p);
             return new CorridaLineaResponse(l.FacturaProveedorId, l.ProveedorId, p?.FolioProveedor, p?.FechaVencimiento,
-                l.Bruto, l.Retenciones, l.ImporteProgramado, l.Ejecutada);
+                l.Bruto, l.Retenciones, l.ImporteProgramado, l.Ejecutada, l.ReferenciaBancaria, l.FechaEjecucion);
         }).ToList();
         var porProveedor = c.Lineas.GroupBy(l => l.ProveedorId).Select(g =>
             new CorridaProveedorResponse(g.Key, info.TryGetValue(g.Key, out var pv) ? pv.RazonSocial : null, g.Count(),
@@ -116,7 +117,8 @@ internal static class CorridaLectura
             c.Lineas.Sum(l => l.Bruto), c.Lineas.Sum(l => l.Retenciones), c.Total,
             c.SolicitadaPor, c.AutorizadaPor, c.AutorizadaEn, c.CreadaEn,
             c.FirmasRequeridas, c.FirmasRecibidas, c.RolRequerido, c.MotivoCierre, c.Avisos, c.Version,
-            porProveedor, lineas, c.Firmas.Select(f => new CorridaFirmaResponse(f.UsuarioId, f.Roles, f.FirmadaEn)).ToList());
+            porProveedor, lineas, c.Firmas.Select(f => new CorridaFirmaResponse(f.UsuarioId, f.Roles, f.FirmadaEn)).ToList(),
+            c.Ejecutado, c.Pendiente, c.OficioGeneradoEn);
     }
 }
 

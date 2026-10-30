@@ -325,8 +325,9 @@ public sealed partial class DemoSesionSeedTests
             Assert.True(p.CerradoEn <= DateTimeOffset.UtcNow, "El cierre del sembrador no debe tener una fecha futura.");
         });
         Assert.Equal(EstadoPeriodo.Abierto, periodos.Single(p => p.Numero == 10).Estado);
-        // 7 del catálogo DEMO + 4 de la cuenta puente K10.5 (DEMO-PUENTE, inventario, proveedores e IVA pendiente).
-        Assert.Equal(11, await contabilidad.Cuentas.CountAsync(c => c.Nombre.StartsWith("DEMO")));
+        // 7 del catálogo DEMO + 19 de los roles contables de C1.5 (990.10–990.27 y DEMO-PUENTE; 990.01/.02/.03/.05 se reutilizan)
+        // + 3 de la cuenta puente K10.5 (DEMO-INVENTARIO, DEMO-PROVEEDORES, DEMO-IVA-PEND); DEMO-PUENTE es la misma cuenta en ambos.
+        Assert.Equal(29, await contabilidad.Cuentas.CountAsync(c => c.Nombre.StartsWith("DEMO")));
         // K10.5: OC-DEMO-K105-01..04 en la puente; saldadas 01 y 04, deudora 02 (+5,000) y acreedora 03 (−3,000). Requiere la migración K105MovimientosPuente.
         var puente = await contabilidad.MovimientosPuente.ToListAsync();
         Assert.Equal(4, puente.Select(m => m.OrdenCompraFolio).Distinct().Count());

@@ -317,6 +317,13 @@ if (!string.IsNullOrWhiteSpace(outboxConnString))
     // TR-01: factura timbrada → fila Documento de aw_retorno. Subscription
     // `integraciones-aw-subscription` en `facturacion-events` (Bicep en el mismo PR).
     builder.Services.AddHostedService<Millet.Integraciones.Aw.Infrastructure.Retorno.FacturacionRetornoListenerWorker>();
+
+    // C1.5: cuatro listeners de Contabilidad (pólizas automáticas #1–#15 sobre el motor de C1.4). Subscriptions
+    // `contabilidad-{facturacion,cuentas-por-pagar,tesoreria,almacen}-sub` con EventTypeFilter (Bicep y emulador en el mismo PR).
+    builder.Services.AddHostedService<Millet.Contabilidad.Infrastructure.Workers.FacturacionContabilidadListenerWorker>();
+    builder.Services.AddHostedService<Millet.Contabilidad.Infrastructure.Workers.CuentasPorPagarContabilidadListenerWorker>();
+    builder.Services.AddHostedService<Millet.Contabilidad.Infrastructure.Workers.TesoreriaContabilidadListenerWorker>();
+    builder.Services.AddHostedService<Millet.Contabilidad.Infrastructure.Workers.AlmacenContabilidadListenerWorker>();
 }
 // C1.8: sin conexión, `ServiceBus:EntregaLocal:Habilitada=true` (solo Development)
 // entrega los eventos del outbox en el mismo proceso a los listeners de arriba;
@@ -961,6 +968,9 @@ builder.Services.AddScoped<Millet.CuentasPorPagar.Domain.Ports.Tesoreria.IPagosP
 builder.Services.AddScoped<Millet.Contabilidad.Application.CuentaPuente.IOrdenCompraPuentePort, Millet.Api.Infrastructure.Adapters.OrdenCompraPuenteAdapter>();
 // FIX-12: nombre del cajero en el corte y la liquidación de caja (Facturación no referencia Identidad).
 builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.IUsuariosReadPort, Millet.Api.Infrastructure.Adapters.FacturacionUsuariosReadAdapter>();
+// 86e3tfdve: cuenta beneficiaria del complemento de pago desde la cuenta bancaria de Millet (dueño: Tesorería).
+builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.ICuentaBancariaMilletReadPort, Millet.Api.Infrastructure.Adapters.CuentaBancariaMilletReadAdapter>();
+builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.ICuentaOrdenanteMovimientoReadPort, Millet.Api.Infrastructure.Adapters.CuentaOrdenanteMovimientoReadAdapter>();
 
 // === Módulo Centros de Costo (CECO-A1) ===
 // Cimiento: catálogo jerárquico Sucursal→Departamento→Equipo + dimensiones
@@ -1133,6 +1143,7 @@ builder.Services.AddScoped<Millet.Identidad.Application.Colaboradores.GrupoAcces
 // defecto hasta configurar adaptadores reales.
 // Avisos SLA de CxP por Graph: independientes del alta de colaboradores.
 builder.Services.AddGraphAvisosRevisionCxp(builder.Configuration);
+builder.Services.AddGraphPortalProveedorCorreo(builder.Configuration);
 var proveedorColaboradores = builder.Configuration["Entra:Proveedor"] ?? "Simulado";
 if (proveedorColaboradores.Equals("Graph", StringComparison.OrdinalIgnoreCase))
     builder.Services.AddGraphColaboradores(builder.Configuration, builder.Environment.IsDevelopment());
@@ -1728,6 +1739,9 @@ Millet.Api.Endpoints.CuentasPorPagar.CfdisEndpoints.MapCfdisEndpoints(app);
 
 // === Cuentas por Pagar — Facturas con OC (F3-PR1 + revisión F4-PR1) ===
 Millet.Api.Endpoints.CuentasPorPagar.FacturasEndpoints.MapFacturasEndpoints(app);
+
+// === Portal de proveedores (P8.3): entrada aparte, esquema propio ===
+Millet.Api.Endpoints.CuentasPorPagar.PortalProveedoresEndpoints.MapPortalProveedoresEndpoints(app);
 
 // === Cuentas por Pagar — Catálogos read-only (F4-PR1) ===
 Millet.Api.Endpoints.CuentasPorPagar.CatalogosCxpEndpoints.MapCatalogosCxpEndpoints(app);

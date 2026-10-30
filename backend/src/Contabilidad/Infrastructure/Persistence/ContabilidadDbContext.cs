@@ -50,6 +50,9 @@ public sealed class ContabilidadDbContext : BaseDbContext
     public DbSet<RolCuentaCambio> RolesCuentaCambios => Set<RolCuentaCambio>();
     public DbSet<PlantillaContable> PlantillasContables => Set<PlantillaContable>();
     public DbSet<RechazoContable> RechazosContables => Set<RechazoContable>();
+    public DbSet<EventoContableProcesado> EventosProcesados => Set<EventoContableProcesado>();
+    public DbSet<CobroEfectivoCaja> CobrosEfectivoCaja => Set<CobroEfectivoCaja>();
+    public DbSet<ConsumoContabilizado> ConsumosContabilizados => Set<ConsumoContabilizado>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

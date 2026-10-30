@@ -47,7 +47,9 @@ public sealed record RegistrarPagoProveedorCommand(
     string? ReferenciaBancaria = null,
     Guid? ConceptoId = null,
     // 86e3pdmee: cuenta del proveedor elegida (null = la predeterminada activa de la moneda).
-    Guid? CuentaProveedorId = null) : IRequest<PagoProveedorResponse>;
+    Guid? CuentaProveedorId = null,
+    // T9.1-B: corrida de pagos que origina el pago (liga la aplicación con la corrida).
+    Guid? CorridaId = null) : IRequest<PagoProveedorResponse>;
 
 public sealed class RegistrarPagoProveedorValidator : AbstractValidator<RegistrarPagoProveedorCommand>
 {
@@ -230,7 +232,8 @@ public sealed class RegistrarPagoProveedorHandler
                 facturaProveedorId: item.FacturaProveedorId,
                 proveedorId: proveedorId,
                 importeAplicado: item.Importe,
-                creadoEn: ahora);
+                creadoEn: ahora,
+                corridaId: command.CorridaId);
             aplicaciones.Add(aplicacion);
             _db.AplicacionesPagoProveedor.Add(aplicacion);
 
@@ -373,6 +376,11 @@ public sealed class RevertirPagoProveedorHandler
                 "La reversa de pagos de pasivos internos (reposición/viáticos) no está soportada; corrígelo en el módulo de origen.");
 
         pasivo?.RevertirPago(aplicacion.ImporteAplicado);
+
+        // T9.1-B: el pago venía de una corrida → su línea vuelve a quedar pendiente (misma transacción).
+        if (aplicacion.CorridaId is Guid corridaId)
+            (await _db.CorridasPago.Include(c => c.Lineas).FirstOrDefaultAsync(c => c.Id == corridaId, cancellationToken))
+                ?.RevertirEjecucion(aplicacion.FacturaProveedorId);
 
         await _publisher.PublishAsync(new PagoFacturaProveedorRevertidoIntegrationEvent(
             EmpresaId: empresaId,

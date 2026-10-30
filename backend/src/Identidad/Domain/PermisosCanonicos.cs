@@ -399,6 +399,9 @@ public static class PermisosCanonicos
     public const string CuentasPorPagarCfdisCargarManual               = "cuentas_por_pagar.cfdis.cargar-manual";
     public const string CuentasPorPagarCfdisDescartar                  = "cuentas_por_pagar.cfdis.descartar";
 
+    // P8.3: dar o quitar acceso al portal de proveedores desde la ficha del proveedor.
+    public const string CuentasPorPagarPortalAdministrar               = "cuentas_por_pagar.portal.administrar";
+
     public const string CuentasPorPagarReposicionesLeer                = "cuentas_por_pagar.reposiciones.leer";
     public const string CuentasPorPagarReposicionesAdministrar         = "cuentas_por_pagar.reposiciones.administrar";
 
@@ -832,6 +835,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000007-0009-0000-0000-000000000001"), CuentasPorPagarCfdisLeer,                    "Consultar CFDIs recibidos"),
         (Guid.Parse("00000007-0009-0000-0000-000000000002"), CuentasPorPagarCfdisCargarManual,            "Cargar CFDI manualmente (canal de respaldo)"),
         (Guid.Parse("00000007-0009-0000-0000-000000000003"), CuentasPorPagarCfdisDescartar,               "Descartar CFDI por duplicado o error"),
+        (Guid.Parse("00000007-0011-0000-0000-000000000001"), CuentasPorPagarPortalAdministrar,            "Administrar el acceso de un proveedor al portal de proveedores (correos autorizados)"),
         (Guid.Parse("00000007-0010-0000-0000-000000000001"), CuentasPorPagarReposicionesLeer,             "Consultar reposiciones de caja chica y saldos por reponer"),
         (Guid.Parse("00000007-0010-0000-0000-000000000002"), CuentasPorPagarReposicionesAdministrar,      "Configurar mínimo de reposición por sucursal y emitir cortes manuales"),
         // Integración A+W (PR A). Namespace 00000006-*.

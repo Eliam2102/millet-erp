@@ -457,6 +457,8 @@ export function useRegistrarMovimientoIngreso() {
         conceptoId?: string;
         beneficiarioTipo?: BeneficiarioTipo;
         beneficiarioRef?: string;
+        /** 86e3tfdve: CtaOrdenante del REP; solo patrón general del SAT. */
+        cuentaOrdenante?: string;
       };
       idempotencyKey: string;
     }) => {
@@ -1017,6 +1019,26 @@ export function useRechazarCorrida() {
     path: '/rechazar',
     body: { motivo: a.motivo },
   }));
+}
+
+/** T9.1-B: un pago por proveedor, con su referencia bancaria y fecha. Repetir la misma referencia no suma. */
+export function useRegistrarEjecucionCorrida() {
+  return useTransicionCorrida(
+    (a: TransicionCorrida & { pagos: { facturas: string[]; referenciaBancaria: string; fechaValor: string }[] }) => ({
+      path: '/ejecucion',
+      body: { pagos: a.pagos },
+    }),
+  );
+}
+
+export function useCerrarCorrida() {
+  return useTransicionCorrida<TransicionCorrida>(() => ({ path: '/cerrar' }));
+}
+
+/** Oficio de la corrida autorizada (reporte ADR-0036; el PDF se arma en el cliente). */
+export async function obtenerOficioCorrida(id: string): Promise<ReporteTesoreriaBackend> {
+  const { data } = await apiRequest<ReporteTesoreriaBackend>(`${BASE}/corridas/${id}/oficio`, { method: 'POST', body: {} });
+  return data;
 }
 
 export function useCancelarCorrida() {

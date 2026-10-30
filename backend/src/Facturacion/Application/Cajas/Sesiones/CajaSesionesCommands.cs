@@ -246,7 +246,8 @@ public sealed record RegistrarCajaMovimientoCommand(
     string Descripcion,
     string? Referencia = null) : IRequest<CajaMovimientoRegistradoResponse>;
 
-public sealed record CajaMovimientoRegistradoResponse(Guid Id, Guid SesionId, decimal Importe);
+/// <param name="FolioVale">Folio del Vale de Caja (solo retiros, 86e3ww6tw).</param>
+public sealed record CajaMovimientoRegistradoResponse(Guid Id, Guid SesionId, decimal Importe, int? FolioVale = null);
 
 public sealed class RegistrarCajaMovimientoValidator : AbstractValidator<RegistrarCajaMovimientoCommand>
 {
@@ -316,9 +317,25 @@ public sealed class RegistrarCajaMovimientoHandler
             empresaId, sesion.Id, command.Tipo, command.FormaPago, importe,
             usuarioId, command.Descripcion, command.Referencia);
 
+        // Vale de Caja (86e3ww6tw): el retiro toma su folio consecutivo por caja con
+        // la fila de la caja bloqueada hasta el commit.
+        await using var tx = command.Tipo == TipoCajaMovimiento.Retiro && _db.Database.IsRelational()
+            ? await _db.Database.BeginTransactionAsync(cancellationToken)
+            : null;
+        if (command.Tipo == TipoCajaMovimiento.Retiro)
+        {
+            var cajas = _db.Database.IsRelational()
+                ? _db.Cajas.FromSqlInterpolated($"SELECT * FROM facturacion.caja WHERE id = {sesion.CajaId} FOR UPDATE")
+                : _db.Cajas;
+            var caja = await cajas.SingleOrDefaultAsync(c => c.Id == sesion.CajaId, cancellationToken)
+                ?? throw new EntityNotFoundException("CAJA_NO_ENCONTRADA", $"No existe la caja '{sesion.CajaId}'.");
+            movimiento.AsignarFolioVale(caja.Id, caja.SiguienteFolioVale());
+        }
+
         _db.CajaMovimientos.Add(movimiento);
         await _db.SaveChangesAsync(cancellationToken);
-        return new CajaMovimientoRegistradoResponse(movimiento.Id, sesion.Id, movimiento.Importe);
+        if (tx is not null) await tx.CommitAsync(cancellationToken);
+        return new CajaMovimientoRegistradoResponse(movimiento.Id, sesion.Id, movimiento.Importe, movimiento.FolioVale);
     }
 }
 
