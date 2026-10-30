@@ -32,7 +32,9 @@ public sealed record OrdenCompraDto(
     decimal Total,
     string Estado,
     IReadOnlyList<LineaOcDto> Lineas,
-    string Moneda = "MXN", string? Obra = null);
+    string Moneda = "MXN", string? Obra = null,
+    // 86e3tacbn: el área solicitante confirmó el servicio de la OC; sin esto sus líneas de servicio no cuentan como recibidas.
+    bool ServicioConfirmado = false);
 
 public sealed record LineaOcDto(
     Guid Id,

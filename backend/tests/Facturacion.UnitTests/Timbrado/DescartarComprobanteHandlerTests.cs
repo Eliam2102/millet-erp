@@ -128,9 +128,7 @@ public sealed class DescartarComprobanteHandlerTests
 
         pedido.Estado.Should().Be(EstadoPedidoFacturable.Importado);
         control.Estado.Should().Be(EstadoIngesta.Importado);
-        control.WriteBackPendiente.Should().BeTrue();
-        control.WriteBackEstado.Should().Be("SinFacturar");
-        control.WriteBackUuid.Should().BeNull(); // nunca hubo CFDI
+        control.WriteBackPendiente.Should().BeFalse(); // TR-01: ya no hay write-back por pedido (B6)
     }
 
     [Fact]

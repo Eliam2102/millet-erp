@@ -23,7 +23,7 @@ export const ESTADOS_UI = {
   sentido: mapa(SENTIDO_MOVIMIENTO_LABELS, { 1: 'success', 2: 'danger' }),
   aplicacion: mapa(ESTADO_APLICACION_LABELS, { 1: 'neutral', 2: 'info', 3: 'success' }),
   conciliacion: mapa(ESTADO_CONCILIACION_LABELS, { 1: 'warning', 2: 'success' }),
-  deposito: mapa(ESTADO_DEPOSITO_LABELS, { 1: 'warning', 2: 'success', 3: 'danger' }),
+  deposito: mapa(ESTADO_DEPOSITO_LABELS, { 1: 'warning', 2: 'success', 3: 'danger', 4: 'info' }),
   devolucion: mapa(ESTADO_DEVOLUCION_LABELS, {
     1: 'warning',
     2: 'info',

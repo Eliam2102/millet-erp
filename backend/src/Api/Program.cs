@@ -3,6 +3,7 @@ using Millet.ActivosFijos.Infrastructure.Persistence;
 using Millet.ComercioExterior.Application;
 using Millet.ComercioExterior.Infrastructure;
 using Millet.ComercioExterior.Infrastructure.Persistence;
+using Millet.ProductoTerminado.Infrastructure;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using HealthChecks.NpgSql;
 using Microsoft.AspNetCore.DataProtection;
@@ -312,6 +313,10 @@ if (!string.IsNullOrWhiteSpace(outboxConnString))
     // Subscription `facturacion-tesoreria-sub` en topic `tesoreria-events`
     // (Bicep en el mismo PR; deploy de infra manual con what-if).
     builder.Services.AddHostedService<Millet.Facturacion.Infrastructure.Workers.TesoreriaEventListenerWorker>();
+
+    // TR-01: factura timbrada → fila Documento de aw_retorno. Subscription
+    // `integraciones-aw-subscription` en `facturacion-events` (Bicep en el mismo PR).
+    builder.Services.AddHostedService<Millet.Integraciones.Aw.Infrastructure.Retorno.FacturacionRetornoListenerWorker>();
 
     // C1.5: cuatro listeners de Contabilidad (pólizas automáticas #1–#15 sobre el motor de C1.4). Subscriptions
     // `contabilidad-{facturacion,cuentas-por-pagar,tesoreria,almacen}-sub` con EventTypeFilter (Bicep y emulador en el mismo PR).
@@ -743,7 +748,8 @@ builder.Services.AddMilletApplication(
     CentrosCostoAssemblyMarker.Assembly,
     typeof(CrearExpedienteCommand).Assembly,
     typeof(Millet.ActivosFijos.Application.CrearActivoCommand).Assembly,
-    ContabilidadAssemblyMarker.Assembly);
+    ContabilidadAssemblyMarker.Assembly,
+    Millet.ProductoTerminado.Application.AssemblyMarker.Assembly);
 
 // === Módulo Integraciones.Aw ===
 // PR B foundation: IntegracionesAwOptions + repositorio + DbContext.
@@ -969,6 +975,7 @@ builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.IUsuariosReadPort, Mi
 builder.Services.AddCentrosCostoModule();
 builder.Services.AddComprasReadPorts();
 builder.Services.AddComercioExteriorModule();
+builder.Services.AddProductoTerminadoModule();
 builder.Services.AddScoped<Millet.CuentasPorPagar.Application.PublicPorts.IFacturaGastoReadPort, Millet.CuentasPorPagar.Infrastructure.PublicAdapters.FacturaGastoReadAdapter>();
 builder.Services.AddOptions<Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorkerOptions>()
     .Bind(builder.Configuration.GetSection(Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorkerOptions.SectionName))
@@ -984,6 +991,11 @@ builder.Services.AddOptions<OutboxPublisherOptions>(nameof(ComercioExteriorDbCon
     .Configure(o => o.ServiceBusTopicName = "comercio-exterior-events")
     .Bind(builder.Configuration.GetSection("ComercioExterior:Outbox"));
 builder.Services.AddHostedService<OutboxPublisherWorker<ComercioExteriorDbContext>>();
+
+builder.Services.AddOptions<OutboxPublisherOptions>(nameof(Millet.ProductoTerminado.Infrastructure.Persistence.ProductoTerminadoDbContext))
+    .Configure(o => o.ServiceBusTopicName = "producto-terminado-events")
+    .Bind(builder.Configuration.GetSection("ProductoTerminado:Outbox"));
+builder.Services.AddHostedService<OutboxPublisherWorker<Millet.ProductoTerminado.Infrastructure.Persistence.ProductoTerminadoDbContext>>();
 
 // === Módulo Contabilidad (F1-CON-01): catálogo contable ===
 // Esquema `contabilidad`, ContabilidadDbContext abajo. Config de formato en Contabilidad:Catalogo (ValidateOnStart).
@@ -1025,6 +1037,7 @@ if (!string.IsNullOrWhiteSpace(awIntegracionDb)
 builder.Services.AddIntegracionesAwClientes(builder.Configuration);
 builder.Services.AddIntegracionesAwProductos(builder.Configuration);
 builder.Services.AddIntegracionesAwCambios(builder.Configuration);
+Millet.Integraciones.Aw.Infrastructure.PiezasPt.PiezasPtDependencyInjection.AddAwPiezasPt(builder.Services, builder.Configuration);
 // U1.8b: reporte de diferencias fiscales A+W vs ERP (solo lee A+W; worker semanal apagado por defecto).
 Millet.Integraciones.Aw.Infrastructure.DiferenciasFiscales.DiferenciasFiscalesDependencyInjection.AddIntegracionesAwDiferenciasFiscales(builder.Services, builder.Configuration);
 Millet.Integraciones.Aw.Infrastructure.Origen.OrigenDependencyInjection.AddIntegracionesAwOrigen(builder.Services, builder.Configuration);
@@ -1046,15 +1059,18 @@ builder.Services
         Millet.Facturacion.Infrastructure.Workers.AwSolicitudesOptions.SectionName));
 builder.Services.AddHostedService<Millet.Facturacion.Infrastructure.Workers.AwSolicitudesWorker>();
 
-// PR5 (ADR-0048 D3): worker que drena los write-backs pendientes de
-// ingesta_control hacia la tabla-puente (uuid+estado al timbrar/cancelar y
-// reintentos del write-back síncrono que falló). Inerte con los stubs (sin
-// ingesta real no hay pendientes); real con el toggle AwIntegracionDb.
+// PR5 (ADR-0048 D3): worker que drena los reintentos del write-back síncrono por
+// solicitud (ingesta_control → tabla-puente). TR-01: ya NO escribe uuid/estado por
+// pedido (B6); la factura la deja el listener de aw_retorno. Inerte con los stubs;
+// real con el toggle AwIntegracionDb.
 builder.Services
     .AddOptions<Millet.Facturacion.Infrastructure.Workers.AwWriteBackOptions>()
     .Bind(builder.Configuration.GetSection(
         Millet.Facturacion.Infrastructure.Workers.AwWriteBackOptions.SectionName));
 builder.Services.AddHostedService<Millet.Facturacion.Infrastructure.Workers.WriteBackResultadoWorker>();
+
+// TR-01: lee el acuse de aw_retorno (desfasadas → fila nueva; 3 rechazos → aviso). Sin canal configurado no hace nada.
+builder.Services.AddHostedService<Millet.Integraciones.Aw.Infrastructure.Retorno.AwRetornoAcuseWorker>();
 
 // F5-PR2: poller de cancelaciones SAT (resuelve las SolicitudCancelacion
 // EnProceso consultando el estatus del CFDI; stub reporta vigente en dev).
@@ -1431,6 +1447,12 @@ builder.Services.AddDbContext<ComercioExteriorDbContext>((sp, opts) =>
     opts.AddInterceptors(sp.GetRequiredService<OutboxSaveChangesInterceptor>());
 });
 
+builder.Services.AddDbContext<Millet.ProductoTerminado.Infrastructure.Persistence.ProductoTerminadoDbContext>((sp, opts) =>
+{
+    ConfigureMilletDbContext(opts, sp);
+    opts.AddInterceptors(sp.GetRequiredService<OutboxSaveChangesInterceptor>());
+});
+
 builder.Services.AddActivosFijosModule();
 builder.Services.AddDbContext<ActivosFijosDbContext>((sp, opts) => ConfigureMilletDbContext(opts, sp));
 
@@ -1466,6 +1488,7 @@ builder.Services.AddSingleton(new MigrationsHealthCheckOptions
         typeof(ContabilidadDbContext),
         typeof(ComercioExteriorDbContext),
         typeof(ActivosFijosDbContext),
+        typeof(Millet.ProductoTerminado.Infrastructure.Persistence.ProductoTerminadoDbContext),
     },
 });
 
@@ -1827,6 +1850,7 @@ Millet.Api.Endpoints.Inicio.ResumenesInicioEndpoints.MapResumenesInicioEndpoints
 Millet.Api.Endpoints.ComercioExterior.ExpedientesEndpoints.MapExpedientesCe(app);
 Millet.Api.Endpoints.ActivosFijos.ActivosEndpoints.MapActivosFijos(app);
 Millet.Api.Endpoints.ComercioExterior.OtrEndpoints.MapOtrCe(app);
+Millet.Api.Endpoints.ProductoTerminado.ProductoTerminadoEndpoints.MapProductoTerminado(app);
 
 Millet.Api.Endpoints.Tesoreria.CuentasEndpoints.MapTesoreriaCuentasEndpoints(app);
 Millet.Api.Endpoints.Tesoreria.ConceptosEndpoints.MapTesoreriaConceptosEndpoints(app);

@@ -8,13 +8,14 @@ using Millet.SharedKernel.Application.Exceptions;
 using Cargo = Millet.CuentasPorPagar.Domain.NotaCargo.NotaCargo;
 using Nc = Millet.CuentasPorPagar.Domain.NotaCreditoProveedor.NotaCreditoProveedor;
 namespace Millet.CuentasPorPagar.Application.NotaCargo;
+// La nota de cargo por devolución nace sin IVA (cantidad × costo); se compara contra el subtotal de la NC 03 (decisión 30-oct).
 public sealed class FormalizacionNotaCargoService(CuentasPorPagarDbContext db, IPublisher publisher)
 {
     public async Task IntentarAsync(Nc nc, DateTimeOffset ahora, CancellationToken ct)
     {
         if (nc.TipoRelacionCfdi != TipoRelacionCfdi.Devolucion || nc.FacturaOrigenId is null || nc.Estado == EstadoNotaCredito.Cancelada || nc.MontoAplicado > 0) return;
         var cargos = await db.NotasCargo.Where(n => n.EmpresaId == nc.EmpresaId && n.FacturaOrigenId == nc.FacturaOrigenId &&
-            n.ProveedorId == nc.ProveedorId && n.Moneda == nc.Moneda && n.Monto == nc.Total &&
+            n.ProveedorId == nc.ProveedorId && n.Moneda == nc.Moneda && n.Monto == nc.Subtotal &&
             n.Estado == EstadoNotaCargo.Aplicada && n.NotaCreditoProveedorId == null).ToListAsync(ct);
         // Un match ambiguo requiere elección explícita; nunca se toma el primero por fecha.
         if (cargos.Count == 1 && !await db.NotasCargo.AnyAsync(n => n.NotaCreditoProveedorId == nc.Id, ct))
@@ -24,7 +25,7 @@ public sealed class FormalizacionNotaCargoService(CuentasPorPagarDbContext db, I
     {
         if (nc.TipoRelacionCfdi != TipoRelacionCfdi.Devolucion || nc.Estado == EstadoNotaCredito.Cancelada ||
             nc.ProveedorId != cargo.ProveedorId || nc.EmpresaId != cargo.EmpresaId || nc.Moneda != cargo.Moneda ||
-            nc.Total != cargo.Monto || nc.FacturaOrigenId != cargo.FacturaOrigenId || cargo.FacturaOrigenId is null)
+            nc.Subtotal != cargo.Monto || nc.FacturaOrigenId != cargo.FacturaOrigenId || cargo.FacturaOrigenId is null)
             throw new BusinessRuleException("NCG_NC_NO_COINCIDE", "La NC fiscal tipo 03 debe corresponder a la factura, proveedor, moneda e importe de la nota de cargo.");
         if (await db.NotasCargo.AnyAsync(n => n.NotaCreditoProveedorId == nc.Id && n.Id != cargo.Id, ct))
             throw new BusinessRuleException("NCG_NC_YA_VINCULADA", "La NC ya formaliza otra nota de cargo.");

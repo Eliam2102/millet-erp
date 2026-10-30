@@ -20,6 +20,7 @@ public sealed class IntegrationEventSchemaRoutingTests
     [InlineData("tesoreria.pago-factura-proveedor.aplicado.v1", "tesoreria")]
     [InlineData("integraciones.aw.cotizacion.recibida.v1", "integraciones_aw")]
     [InlineData("integraciones.fiscal.configuracion-actualizada.v1", "integraciones_fiscal")]
+    [InlineData("producto_terminado.pieza.ingresada.v1", "producto_terminado")]
     [InlineData("admin.empresa.creada.v1", "compartido")]
     public void Resuelve_ElSchemaDelModuloDueño(string eventType, string schemaEsperado)
     {

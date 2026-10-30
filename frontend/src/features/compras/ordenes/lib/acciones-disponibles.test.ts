@@ -102,6 +102,13 @@ function makeOc(
     infoLogisticaTransportistaTexto: null,
     infoLogisticaNumeroGuia: null,
     infoLogisticaInstrucciones: null,
+    infoImportTipoOperacion: null,
+    infoImportNumeroBl: null,
+    infoImportTipoTransporte: null,
+    infoImportAgenteAduanalNaviera: null,
+    infoImportPuertoAduanaEntrada: null,
+    infoImportFechaEstimadaArribo: null,
+    infoImportCertificadoOrigen: false,
     infoImportIncotermId: null,
     infoImportPaisOrigen: null,
     infoImportNumeroContenedor: null,
@@ -507,7 +514,7 @@ describe('Bloque 5 — cancelación + duplicación', () => {
 function lineaParaDuplicar(lineaRequisicionId: string, cantidadRecibida: number): OrdenCompraDetalleResponse['lineas'][number] {
   return {
     id: 'linea-oc', posicion: 1, articuloId: 'articulo', articuloClave: null, articuloNombre: null,
-    descripcionExtendida: null, cantidad: 10, unidadMedida: 'PZA', precioUnitario: 100,
+    descripcionExtendida: null, fraccionArancelaria: null, cantidad: 10, unidadMedida: 'PZA', precioUnitario: 100,
     ivaImporte: 0, retencionIsr: null, subtotalLinea: 1000, departamentoSolicitanteId: 'departamento',
     centroCostoId: 'ceco', centroCostoClave: null, centroCostoNombre: null, requisicionId: 'rq',
     lineaRequisicionId, requisicionFolio: null, fechaEntregaLinea: null, cantidadRecibida,

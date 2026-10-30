@@ -353,6 +353,29 @@
                 ]
               },
               {
+                "Name": "integraciones-aw-subscription",
+                "Properties": {
+                  "DeadLetteringOnMessageExpiration": false,
+                  "DefaultMessageTimeToLive": "PT1H",
+                  "LockDuration": "PT1M",
+                  "MaxDeliveryCount": 10,
+                  "ForwardDeadLetteredMessagesTo": "",
+                  "ForwardTo": "",
+                  "RequiresSession": false
+                },
+                "Rules": [
+                  {
+                    "Name": "EventTypeFilter",
+                    "Properties": {
+                      "FilterType": "Sql",
+                      "SqlFilter": {
+                        "SqlExpression": "user.EventType IN ('facturacion.factura-venta.timbrada.v1', 'facturacion.comprobante.cancelado.v1')"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
                 "Name": "tesoreria-subscription",
                 "Properties": {
                   "DeadLetteringOnMessageExpiration": false,

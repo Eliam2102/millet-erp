@@ -509,6 +509,15 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
                 "Nivel2 requiere que primero exista Nivel1.");
         }
 
+        // Misma regla que la OC (OC_FIRMA_MISMA_PERSONA): dos niveles = dos personas.
+        if (nivel == NivelAutorizacion.Nivel2
+            && _autorizaciones.Any(a => a.Nivel == NivelAutorizacion.Nivel1 && a.UsuarioId == usuarioId))
+        {
+            throw new BusinessRuleException(
+                "AUTORIZACION_FIRMA_MISMA_PERSONA",
+                "La segunda firma debe ser de una persona distinta a la que firmó el primer nivel.");
+        }
+
         var autorizacion = new Autorizacion(
             id: autorizacionId,
             requisicionId: Id,
