@@ -469,6 +469,7 @@ public static class PermisosCanonicos
     public const string FacturacionNotasCreditoBonificacion    = "facturacion.notas-credito.bonificacion-emitir";
     public const string FacturacionNotasCreditoLeer            = "facturacion.notas-credito.leer";
     public const string FacturacionNotasCreditoReembolsoSolicitar = "facturacion.notas-credito.reembolso-solicitar";
+    public const string FacturacionNotasCreditoAutorizar       = "facturacion.notas-credito.autorizar";
     public const string FacturacionCartaPorteEmitir            = "facturacion.carta-porte.emitir";
     public const string FacturacionCartaPorteLeer              = "facturacion.carta-porte.leer";
     public const string FacturacionReppEmitir                  = "facturacion.repp.emitir";
@@ -901,6 +902,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000009-0004-0000-0000-000000000001"), FacturacionNotasCreditoBonificacion,    "Emitir notas de crédito por bonificación (relación 01)"),
         (Guid.Parse("00000009-0004-0000-0000-000000000002"), FacturacionNotasCreditoLeer,            "Consultar notas de crédito emitidas"),
         (Guid.Parse("00000009-0004-0000-0000-000000000003"), FacturacionNotasCreditoReembolsoSolicitar, "Solicitar a Tesorería el reembolso en dinero de una nota de crédito timbrada"),
+        (Guid.Parse("00000009-0004-0000-0000-000000000004"), FacturacionNotasCreditoAutorizar,       "Autorizar y timbrar notas de crédito de clientes que llegan de A+W (propuesta: Gerente de Sucursal, manual §2.3; la reemplaza la cadena por monto F6.4)"),
         (Guid.Parse("00000009-0005-0000-0000-000000000001"), FacturacionCartaPorteEmitir,            "Emitir Carta Porte 3.1 (CFDI tipo T o I), incluyendo tramos siguientes"),
         (Guid.Parse("00000009-0005-0000-0000-000000000002"), FacturacionCartaPorteLeer,              "Consultar Carta Portes emitidas"),
         (Guid.Parse("00000009-0006-0000-0000-000000000001"), FacturacionReppEmitir,                  "Emitir complementos de pago (REPP / Pago 2.0)"),

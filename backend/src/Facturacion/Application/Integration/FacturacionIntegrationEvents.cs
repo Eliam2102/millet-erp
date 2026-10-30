@@ -103,7 +103,12 @@ public sealed record NotaCreditoTimbradaIntegrationEvent(
     Guid? ClienteId = null,
     string? Moneda = null,
     decimal? TipoCambio = null,
-    DateOnly? FechaContable = null)
+    DateOnly? FechaContable = null,
+    // 86e3wjt5r (mismo patrón que TR-01 en la factura): solo las notas que llegaron de A+W traen pedido
+    // y versión; con ellos Integraciones.Aw deja la fila NotaCredito en aw_retorno.
+    string? NumeroPedidoAw = null,
+    long? VersionPedidoAw = null,
+    string? Folio = null)
     : IntegrationEvent("facturacion.nota-credito.timbrada.v1", EmpresaId, OcurridoEn);
 
 // ---- Reembolso de NC solicitado a Tesorería (T9.6 · CA6.17; supuesto E11: viaja por facturacion-events) ----

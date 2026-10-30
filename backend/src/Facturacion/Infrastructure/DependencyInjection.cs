@@ -55,6 +55,7 @@ public static class DependencyInjection
         // Deuda <DatosMaestrosFiscal> cerrada (ADR-0048 PR2).
         services.AddScoped<IClientesReadPort, DatosMaestros.ClientesReadAdapter>();
         services.AddScoped<IPlazoCreditoClienteReadPort, CuentasPorCobrar.PlazoCreditoClienteReadAdapter>();
+        services.AddScoped<ISaldoFacturaReadPort, CuentasPorCobrar.SaldoFacturaReadAdapter>();
         services.AddScoped<IProductosReadPort, DatosMaestros.ProductosReadAdapter>();
         services.AddScoped<Millet.DatosMaestros.Application.Clientes.IPedidosErpPorClienteReadPort, PublicAdapters.PedidosErpPorClienteReadAdapter>();
 
@@ -119,6 +120,7 @@ public static class DependencyInjection
         // write-back sigue pendiente (<PlantaPinturaOrigenes>).
         services.AddScoped<IAwSolicitudesReader, StubAwSolicitudesReader>();
         services.AddScoped<IAwWriteBackPort, StubAwWriteBackPort>();
+        services.AddScoped<IAwNotasCreditoPort, StubAwNotasCreditoPort>();
         services.AddScoped<IAwVersionPedidoReadPort, AwVersionPedidoReadAdapter>();
 
         // --- F3-PR2: auto-provisión de master A+W — stub hasta DatosMaestros ---

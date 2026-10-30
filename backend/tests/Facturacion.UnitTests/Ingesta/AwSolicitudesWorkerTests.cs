@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Millet.Facturacion.Application.Ingesta.ProcesarNotaCreditoAw;
 using Millet.Facturacion.Application.Ingesta.ProcesarSolicitudAw;
 using Millet.Facturacion.Domain.Ingesta;
 using Millet.Facturacion.Domain.Ports;
@@ -37,6 +38,25 @@ public sealed class AwSolicitudesWorkerTests
         {
             lock (Procesados) Procesados.Add($"{request.Solicitud.NumeroPedido}/v{request.Solicitud.Version}");
             return Task.FromResult(new ProcesarSolicitudAwResponse(ResultadoSolicitudAw.Aplicada, Guid.NewGuid(), null));
+        }
+    }
+
+    private sealed class FakeNotas(IReadOnlyList<SolicitudNotaCreditoAw> pendientes) : IAwNotasCreditoPort
+    {
+        public Task<IReadOnlyList<SolicitudNotaCreditoAw>> LeerNotasPendientesAsync(int max, CancellationToken cancellationToken) =>
+            Task.FromResult(pendientes);
+        public Task EscribirAcuseAsync(AcuseNotaCreditoAw acuse, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    public sealed class FakeProcesarNotaHandler : IRequestHandler<ProcesarNotaCreditoAwCommand, ProcesarNotaCreditoAwResponse>
+    {
+        public static readonly List<string> Procesadas = [];
+
+        public Task<ProcesarNotaCreditoAwResponse> Handle(ProcesarNotaCreditoAwCommand request, CancellationToken cancellationToken)
+        {
+            lock (Procesadas) Procesadas.Add($"{request.Solicitud.NumeroNota}/v{request.Solicitud.Version}");
+            if (request.Solicitud.NumeroNota == "NC-FALLA") throw new InvalidOperationException("falla de prueba");
+            return Task.FromResult(new ProcesarNotaCreditoAwResponse(ResultadoSolicitudAw.Aplicada, Guid.NewGuid(), null));
         }
     }
 
@@ -96,5 +116,31 @@ public sealed class AwSolicitudesWorkerTests
         logger.Mensajes.Should().Contain(m => m.Contains("Pedido 5001 v1") && m.Contains("latencia cola→ERP 12000 ms"));
         logger.Mensajes.Should().Contain(m => m.Contains("Pedido 5002 v1") && m.Contains("latencia cola→ERP 20000 ms"));
         logger.Mensajes.Should().Contain(m => m.Contains("promedio 12000 ms") && m.Contains("máxima 20000 ms"));
+    }
+
+    [Fact]
+    public async Task Tick_de_notas_de_credito_procesa_en_orden_y_una_que_falla_no_frena_las_demas()
+    {
+        SolicitudNotaCreditoAw Nota(string numero, long version) =>
+            new(Guid.NewGuid(), numero, version, "AW-1", null, "CLI-1", "Bonificacion", 100m, null, Ahora);
+        var notas = new List<SolicitudNotaCreditoAw> { Nota("NC-2", 1), Nota("NC-FALLA", 1), Nota("NC-1", 2), Nota("NC-1", 1) };
+
+        var services = new ServiceCollection();
+        services.AddSingleton<ICurrentEmpresaContext>(new FakeEmpresaContext(null));
+        services.AddSingleton<IAuditOriginContext, AuditOriginContext>();
+        services.AddSingleton<IAwNotasCreditoPort>(new FakeNotas(notas));
+        services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<FakeProcesarNotaHandler>());
+        var sp = services.BuildServiceProvider();
+
+        using var signal = new AwSolicitudesTickSignal();
+        var worker = new AwSolicitudesWorker(
+            sp.GetRequiredService<IServiceScopeFactory>(),
+            new MonitorFijo(new AwSolicitudesOptions { EmpresaId = Guid.NewGuid() }), signal, new CapturaLogger());
+
+        FakeProcesarNotaHandler.Procesadas.Clear();
+        var procesadas = await worker.TickNotasCreditoAsync(CancellationToken.None);
+
+        procesadas.Should().Be(3);
+        FakeProcesarNotaHandler.Procesadas.Should().Equal("NC-1/v1", "NC-1/v2", "NC-2/v1", "NC-FALLA/v1");
     }
 }
