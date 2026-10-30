@@ -14,17 +14,20 @@ import { useRepp } from '@/features/facturacion/api/useRepp';
 import { IntentosTimbradoPanel } from '@/features/facturacion/components/IntentosTimbradoPanel';
 import { TimbradoFallidoBanner } from '@/features/facturacion/components/TimbradoFallidoBanner';
 import { TrazabilidadFacturacion } from '@/features/facturacion/components/TrazabilidadFacturacion';
+import { descargarArchivo } from '@/features/facturacion/lib/descargas';
 import type { ReppSearch } from '@/features/facturacion/lib/repp-search-schema';
 import { esApiError } from '@/lib/api';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
-import { X } from 'lucide-react';
+import { Download, FileCode, X } from 'lucide-react';
+import { toast } from 'sonner';
 import { EstadoFacturacionBadge } from '../components/EstadoFacturacionBadge';
 import { enmascararCuenta } from '../lib/cuentas-pago-sat';
 
 /**
  * <c>Detalle de un REPP</c> (FE-F6). Cabecera del pago + bandeja de
  * facturas cubiertas (parcialidad, importe, saldo insoluto, ganancia/
- * pérdida cambiaria), con enlace a cada factura.
+ * pérdida cambiaria), con enlace a cada factura. Descarga el XML timbrado y
+ * el PDF con el formato de Millet (86e3tfdx0).
  */
 export function DetalleRepp() {
   const { id } = useParams({ from: '/_app/facturacion/repp/$id' });
@@ -64,7 +67,19 @@ export function DetalleRepp() {
   );
 }
 
+const BASE = '/api/v1/facturacion/repp';
+
 function Contenido({ r }: { r: NonNullable<ReturnType<typeof useRepp>['data']> }) {
+  const timbrado = r.estado === 'Timbrado' || r.estado === 'Cancelado';
+
+  async function descargar(tipo: 'xml' | 'pdf') {
+    try {
+      await descargarArchivo(`${BASE}/${r.id}/${tipo}`, `${r.folio}.${tipo}`);
+    } catch (error) {
+      toast.error(esApiError(error) ? error.problem.title : 'No se pudo descargar el archivo.');
+    }
+  }
+
   return (
     <div className="space-y-5">
       <TimbradoFallidoBanner
@@ -81,6 +96,23 @@ function Contenido({ r }: { r: NonNullable<ReturnType<typeof useRepp>['data']> }
             titulo={<>{r.folio}</>}
             descripcion={<>{r.receptorNombre}</>}
             estado={<EstadoFacturacionBadge entidad="rep" estado={r.estado} />}
+            acciones={
+              <div className="flex flex-wrap items-center gap-2" data-print="hidden">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => descargar('xml')}
+                  disabled={!timbrado}
+                >
+                  <FileCode className="mr-1 h-4 w-4" />
+                  XML
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => descargar('pdf')}>
+                  <Download className="mr-1 h-4 w-4" />
+                  PDF
+                </Button>
+              </div>
+            }
           />
         </div>
         {r.uuid && <p className="font-mono text-xs text-ink-muted">UUID {r.uuid}</p>}

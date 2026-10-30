@@ -7,6 +7,7 @@ using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Domain.Facturas;
 using Millet.Facturacion.Domain.NotasCredito;
 using Millet.Facturacion.Domain.Ports;
+using Millet.Facturacion.Domain.Repp;
 using Millet.Facturacion.Infrastructure.Persistence;
 using Millet.SharedKernel.Application.Exceptions;
 
@@ -15,9 +16,9 @@ namespace Millet.Facturacion.Application.Comprobantes.Queries;
 /// <summary>
 /// PDF de un <see cref="Comprobante"/> (13-B/13-C — generaliza la query de
 /// facturas de venta): factura de venta (bilingüe o térmica), factura de
-/// anticipo y nota de crédito (bilingüe de concepto único; el formato se
-/// ignora). REPP y carta porte no tienen representación PDF propia →
-/// 422 <c>PDF_NO_SOPORTADO</c>. Aplica alcance de cajas y familia esperada,
+/// anticipo, nota de crédito (bilingüe de concepto único; el formato se
+/// ignora) y complemento de pago (REPP, 86e3tfdx0, con el diseño de la factura).
+/// Carta porte no tiene representación PDF propia → 422 <c>PDF_NO_SOPORTADO</c>. Aplica alcance de cajas y familia esperada,
 /// igual que <see cref="ComprobanteXmlQuery"/>.
 /// </summary>
 public sealed record ComprobantePdfQuery(
@@ -58,6 +59,7 @@ public sealed class ComprobantePdfHandler : IRequestHandler<ComprobantePdfQuery,
                 var fv = await _db.FacturasVenta.AsNoTracking()
                     .Include(f => f.Lineas)
                     .Include(f => f.Relaciones)
+                    .Include(f => f.ComplementoCce!).ThenInclude(cce => cce.Lineas)
                     .FirstAsync(f => f.Id == query.ComprobanteId, cancellationToken);
                 if (query.Formato == FormatoPdfFactura.TermicaSimplificada)
                     return _pdf.Generar(fv, query.Formato);
@@ -75,6 +77,18 @@ public sealed class ComprobantePdfHandler : IRequestHandler<ComprobantePdfQuery,
                     .Include(n => n.Relaciones)
                     .FirstAsync(n => n.Id == query.ComprobanteId, cancellationToken);
                 return _pdf.Generar(CfdiPdfModelBuilder.DesdeNotaCredito(nc, await DatosAsync(nc, cancellationToken)));
+
+            case ReciboPago:
+                var rp = await _db.RecibosPago.AsNoTracking()
+                    .Include(r => r.FacturasPagadas)
+                    .Include(r => r.Relaciones)
+                    .FirstAsync(r => r.Id == query.ComprobanteId, cancellationToken);
+                var facturaIds = rp.FacturasPagadas.Select(f => f.FacturaVentaId).Distinct().ToList();
+                var folios = await _db.FacturasVenta.AsNoTracking()
+                    .Where(f => facturaIds.Contains(f.Id))
+                    .Select(f => new { f.Id, f.Folio })
+                    .ToDictionaryAsync(f => f.Id, f => f.Folio, cancellationToken);
+                return _pdf.Generar(CfdiPdfModelBuilder.DesdeReciboPago(rp, await DatosAsync(rp, cancellationToken), folios));
 
             default:
                 throw new BusinessRuleException(
