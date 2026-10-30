@@ -110,6 +110,7 @@ public sealed class CrearOrdenCompraVaciaHandler
         {
             throw ProveedorNoUtilizable.Error(proveedor.Clave, proveedor.Estatus, $"El proveedor '{proveedor.Clave}' está {proveedor.Estatus} y no puede usarse en OCs nuevas.");
         }
+        ProveedorNoUtilizable.RechazarSiBloqueado(proveedor);
 
         // F-Admin-PR6.2: intentar reservar el folio via el nuevo sistema
         // de Series. Si no hay Serie configurada para
