@@ -18,4 +18,7 @@ public interface IUsuarioReadPort
     Task<IReadOnlyDictionary<Guid, string>> ObtenerNombresAsync(
         IReadOnlyCollection<Guid> usuarioIds,
         CancellationToken cancellationToken);
+
+    /// <summary>Departamento del usuario (<c>Usuario.DepartamentoId</c>); null si no tiene.</summary>
+    Task<Guid?> ObtenerDepartamentoAsync(Guid usuarioId, CancellationToken cancellationToken);
 }
