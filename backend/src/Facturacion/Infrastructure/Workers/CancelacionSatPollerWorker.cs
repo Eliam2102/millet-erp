@@ -144,7 +144,6 @@ public sealed class CancelacionSatPollerWorker : BackgroundService
                         .FirstOrDefaultAsync(c => c.PedidoFacturableId == pedido.Id, cancellationToken);
                     if (control is not null)
                     {
-                        control.SolicitarWriteBackEstado("SinFacturar", uuid: null, ahora);
                         control.CambiarEstado(Domain.Ingesta.EstadoIngesta.Importado);
                     }
                 }

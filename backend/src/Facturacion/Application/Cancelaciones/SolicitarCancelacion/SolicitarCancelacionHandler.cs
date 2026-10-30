@@ -143,16 +143,13 @@ public sealed class SolicitarCancelacionHandler
                 var pedido = await _db.PedidosFacturables.FirstOrDefaultAsync(p => p.Id == pedidoId, cancellationToken);
                 pedido?.RevertirAFacturable();
 
-                // ADR-0048 D3 (PR5): un pedido A+W re-facturable avisa de
-                // vuelta a la tabla-puente (estado SinFacturar; el uuid del
-                // CFDI cancelado se conserva en la fila — COALESCE del adapter).
+                // TR-01: sin write-back por pedido; la cancelación hacia A+W es otro tipo de fila (fuera de TR-01).
                 if (pedido?.Origen == OrigenPedido.Aw)
                 {
                     var control = await _db.IngestaControles
                         .FirstOrDefaultAsync(c => c.PedidoFacturableId == pedido.Id, cancellationToken);
                     if (control is not null)
                     {
-                        control.SolicitarWriteBackEstado("SinFacturar", uuid: null, _clock.UtcNow);
                         control.CambiarEstado(EstadoIngesta.Importado);
                     }
                 }
