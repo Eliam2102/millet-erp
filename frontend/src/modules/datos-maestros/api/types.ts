@@ -77,6 +77,9 @@ export interface ProveedorItem {
   estatus: EstatusCatalogo;
   validadoEn?: string | null;
   motivoRechazo?: string | null;
+  /** Bloqueo total (86e3tactf): marca aparte del estatus de alta. */
+  bloqueado?: boolean;
+  motivoBloqueo?: string | null;
 }
 
 export interface ListarProveedoresResponse {
@@ -122,6 +125,11 @@ export interface ProveedorDetalle {
   conceptoRetencion: string | null;
   /** Versión de la matriz del expediente con la que se validó el proveedor. */
   validadoConMatrizVersion?: number | null;
+  /** Bloqueo total (86e3tactf): sin pagos ni OC nuevas. */
+  bloqueado?: boolean;
+  motivoBloqueo?: string | null;
+  bloqueadoPorId?: string | null;
+  bloqueadoEn?: string | null;
 }
 
 export const OrigenProveedor = { Nacional: 0, Extranjero: 1 } as const;

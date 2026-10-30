@@ -48,6 +48,7 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { ProveedorDatosForm } from '@/modules/datos-maestros/components/ProveedorDatosForm';
 import { ProveedorCuentasBancariasSection } from '@/modules/datos-maestros/components/ProveedorCuentasBancariasSection';
 import { ProveedorExpedienteSection } from '@/modules/datos-maestros/components/ProveedorExpedienteSection';
+import { ProveedorBloqueo } from '@/modules/datos-maestros/components/ProveedorBloqueo';
 
 /**
  * Detalle de proveedor (P3 del patrón cross-módulo). Header en flow
@@ -241,6 +242,7 @@ export function ProveedorDetalle() {
         estado={
           <>
             <EstatusBadge estatus={proveedor.estatus} />
+            {proveedor.bloqueado === true && <Badge variant="danger">Bloqueado</Badge>}
           </>
         }
         acciones={
@@ -322,6 +324,7 @@ export function ProveedorDetalle() {
       </dl>
 
       <div className="space-y-5">
+        <ProveedorBloqueo proveedor={proveedor} />
         {/* Banner informativo de En Revisión */}
         {enRevision && (
           <div className="mb-4 rounded-md bg-warning-note-bg p-3 text-warning-note-fg">
