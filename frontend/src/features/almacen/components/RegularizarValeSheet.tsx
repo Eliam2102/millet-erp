@@ -131,7 +131,9 @@ function FormBody({
       <SheetBody>
         <form
           id="regularizar-vale-form"
-          onSubmit={form.handleSubmit(onSubmit)}
+          onSubmit={form.handleSubmit(onSubmit, () =>
+            toast.error('Revisa los campos marcados antes de regularizar el vale.'),
+          )}
           noValidate
           className="space-y-4"
         >
