@@ -96,6 +96,37 @@ public sealed class ReppPendientesTests : IClassFixture<ReppPendientesTests.Serv
         Assert.Equal(1, await db.Set<Millet.Facturacion.Domain.Repp.ReciboPagoFactura>().CountAsync(f => f.FacturaVentaId == facturaId));
     }
 
+    // 86e3qddce · FAC-03 criterio 1: $10,000 con dos complementos simultáneos de $6,000 (manual + bandeja).
+    [Fact]
+    public async Task Rep_manual_y_de_bandeja_simultaneos_de_6000_sobre_10000_timbra_uno_y_rechaza_el_otro()
+    {
+        var client = await Login(); var facturaId = await CrearFacturaPpd(10_000m);
+        var pendiente = await CrearPendienteSobre(facturaId, 6_000m);
+        var respuestas = await Task.WhenAll(Post(client, $"{Base}/{pendiente}/emitir", new { }), EmitirManual(client, facturaId, 6_000m));
+        var recibos = await Recibos(facturaId);
+        Assert.Single(recibos);
+        Assert.Equal((1, 4_000m), recibos[0]);
+        // La bandeja aísla el error en su resultado (200 con emitido=false); el manual responde 201 o 422.
+        var manual = respuestas[1];
+        var bandeja = await respuestas[0].Content.ReadFromJsonAsync<JsonElement>();
+        var bandejaEmitio = bandeja.GetProperty("emitido").GetBoolean();
+        Assert.True(bandejaEmitio ^ manual.StatusCode == HttpStatusCode.Created);
+        if (!bandejaEmitio) Assert.Equal(HttpStatusCode.Created, manual.StatusCode);
+        else Assert.Equal(HttpStatusCode.UnprocessableEntity, manual.StatusCode);
+    }
+
+    // FAC-03 criterio 2: dos complementos simultáneos de $4,000 → parcialidades 1 y 2, saldo final $2,000.
+    [Fact]
+    public async Task Dos_rep_manuales_simultaneos_de_4000_numeran_parcialidades_1_y_2_y_dejan_saldo_2000()
+    {
+        var client = await Login(); var facturaId = await CrearFacturaPpd(10_000m);
+        var respuestas = await Task.WhenAll(EmitirManual(client, facturaId, 4_000m), EmitirManual(client, facturaId, 4_000m));
+        Assert.All(respuestas, r => Assert.Equal(HttpStatusCode.Created, r.StatusCode));
+        var recibos = await Recibos(facturaId);
+        Assert.Equal([1, 2], recibos.Select(r => r.Parcialidad));
+        Assert.Equal(2_000m, recibos.Min(r => r.Saldo));
+    }
+
     [Fact]
     public async Task PUT_con_suma_distinta_retorna_422_y_conserva_monto()
     {
@@ -139,6 +170,12 @@ public sealed class ReppPendientesTests : IClassFixture<ReppPendientesTests.Serv
 
     private async Task<(Guid, Guid)> CrearPendiente(bool relacionar = true)
     {
+        var facturaId = await CrearFacturaPpd(100m);
+        return (await CrearPendienteSobre(facturaId, 100m, relacionar), facturaId);
+    }
+
+    private async Task<Guid> CrearFacturaPpd(decimal total)
+    {
         using var scope = _factory.Services.CreateScope();
         using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
         var db = scope.ServiceProvider.GetRequiredService<FacturacionDbContext>();
@@ -146,17 +183,42 @@ public sealed class ReppPendientesTests : IClassFixture<ReppPendientesTests.Serv
             new DatosFiscalesReceptor("AAA010101AAA", "Cliente ficticio U1.1", "601", "97000", "G03", "MEX", false),
             new DatosFiscalesEmisor("BBB010101BBB", "Emisor ficticio U1.1", "601", "97000"), "PPD", "99", "MXN", null,
             2026, 10, 7, ComportamientoFiscal.MostradorInmediato, null, null, null, false);
-        f.AgregarLinea(null, "01010101", "Prueba U1.1", "E48", 1m, 100m, 0m, "01", null, null, null);
+        f.AgregarLinea(null, "01010101", "Prueba U1.1", "E48", 1m, total, 0m, "01", null, null, null);
         f.RecalcularTotales(); f.MarcarTimbradoEnProceso();
         f.MarcarTimbrado(Guid.NewGuid().ToString(), null, null, null, DateTimeOffset.UtcNow, null, null);
         db.FacturasVenta.Add(f); await db.SaveChangesAsync();
+        return f.Id;
+    }
+
+    private async Task<Guid> CrearPendienteSobre(Guid facturaId, decimal monto, bool relacionar = true)
+    {
+        using var scope = _factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var db = scope.ServiceProvider.GetRequiredService<FacturacionDbContext>();
         var payload = new PagoClienteConfirmadoPayload(Empresa, DateTimeOffset.UtcNow, null, Cliente, Guid.NewGuid(), Guid.NewGuid(),
-            100m, "MXN", new(2026, 10, 28), "U11 ficticio", relacionar ? [new(f.Id, 100m)] : []);
+            monto, "MXN", new(2026, 10, 28), "U11 ficticio", relacionar ? [new(facturaId, monto)] : []);
         var sender = scope.ServiceProvider.GetRequiredService<ISender>();
         var command = new EmitirReppDesdePagoConfirmadoCommand(Guid.NewGuid(), payload);
         await sender.Send(command); await sender.Send(command);
-        return ((await db.ReppPendientes.SingleAsync(p => p.MovimientoBancarioId == payload.MovimientoBancarioId)).Id, f.Id);
+        return (await db.ReppPendientes.SingleAsync(p => p.MovimientoBancarioId == payload.MovimientoBancarioId)).Id;
     }
+
+    private static Task<HttpResponseMessage> EmitirManual(HttpClient client, Guid facturaId, decimal importe) =>
+        Post(client, "/api/v1/facturacion/repp", new
+        {
+            sucursalId = Guid.Parse("40000000-0000-0000-0000-000000000012"), fechaPago = new DateTimeOffset(2026, 10, 28, 12, 0, 0, TimeSpan.Zero),
+            monedaPago = "MXN", formaPagoReal = "01", facturas = new[] { new { facturaVentaId = facturaId, importePagado = importe } }
+        });
+
+    private async Task<List<(int Parcialidad, decimal Saldo)>> Recibos(Guid facturaId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var db = scope.ServiceProvider.GetRequiredService<FacturacionDbContext>();
+        return (await db.Set<Millet.Facturacion.Domain.Repp.ReciboPagoFactura>().Where(f => f.FacturaVentaId == facturaId).ToListAsync())
+            .Select(f => (f.NumParcialidad, f.SaldoInsoluto)).OrderBy(x => x.NumParcialidad).ToList();
+    }
+
     private async Task<HttpClient> Login(string oid = "dev-superadmin")
     {
         var client = _factory.CreateClient();
