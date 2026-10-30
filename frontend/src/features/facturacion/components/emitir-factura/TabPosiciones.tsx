@@ -355,7 +355,7 @@ function ConceptoInline({
               >
                 {OBJETOS_IMP.map((o) => (
                   <option key={o.value} value={o.value}>
-                    {o.value}
+                    {o.label}
                   </option>
                 ))}
               </select>

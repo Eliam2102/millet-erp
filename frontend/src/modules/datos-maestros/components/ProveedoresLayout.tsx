@@ -54,6 +54,7 @@ export function ProveedoresLayout({ idActivo, detalle }: ProveedoresLayoutProps)
   const [tipoPersona, setTipoPersona] = useState<string>('');
   const [estatus, setEstatus] = useState<string>('');
   const [soloIncompleto, setSoloIncompleto] = useState(false);
+  const [soloBloqueados, setSoloBloqueados] = useState(false);
 
   const busquedaDebounced = useDebouncedValue(busquedaInput, 300);
 
@@ -63,9 +64,10 @@ export function ProveedoresLayout({ idActivo, detalle }: ProveedoresLayoutProps)
       tipoPersona: tipoPersona !== '' ? (Number(tipoPersona) as TipoPersonaProveedor) : undefined,
       estatus: estatus !== '' ? (Number(estatus) as EstatusCatalogo) : undefined,
       soloExpedienteIncompleto: soloIncompleto || undefined,
+      bloqueado: soloBloqueados || undefined,
       limit: 200,
     }),
-    [busquedaDebounced, tipoPersona, estatus, soloIncompleto],
+    [busquedaDebounced, tipoPersona, estatus, soloIncompleto, soloBloqueados],
   );
 
   const proveedoresQuery = useProveedores(filtros);
@@ -101,6 +103,8 @@ export function ProveedoresLayout({ idActivo, detalle }: ProveedoresLayoutProps)
             <FiltrosBloque
               soloIncompleto={soloIncompleto}
               onSoloIncompleto={setSoloIncompleto}
+              soloBloqueados={soloBloqueados}
+              onSoloBloqueados={setSoloBloqueados}
               busqueda={busquedaInput}
               onBusqueda={setBusquedaInput}
               tipoPersona={tipoPersona}
@@ -138,6 +142,8 @@ export function ProveedoresLayout({ idActivo, detalle }: ProveedoresLayoutProps)
 interface FiltrosBloqueProps {
   soloIncompleto: boolean;
   onSoloIncompleto: (v: boolean) => void;
+  soloBloqueados: boolean;
+  onSoloBloqueados: (v: boolean) => void;
   busqueda: string;
   onBusqueda: (v: string) => void;
   tipoPersona: string;
@@ -149,6 +155,8 @@ interface FiltrosBloqueProps {
 function FiltrosBloque({
   soloIncompleto,
   onSoloIncompleto,
+  soloBloqueados,
+  onSoloBloqueados,
   busqueda,
   onBusqueda,
   tipoPersona,
@@ -161,6 +169,10 @@ function FiltrosBloque({
       <label className="flex items-center gap-2 text-xs text-ink">
         <Checkbox checked={soloIncompleto} onCheckedChange={(checked) => onSoloIncompleto(checked === true)} />
         Sólo expediente incompleto
+      </label>
+      <label className="flex items-center gap-2 text-xs text-ink">
+        <Checkbox checked={soloBloqueados} onCheckedChange={(checked) => onSoloBloqueados(checked === true)} />
+        Sólo proveedores bloqueados
       </label>
 
       <Input

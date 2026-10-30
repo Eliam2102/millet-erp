@@ -221,6 +221,18 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
     public EstadoComercialProveedorOc EstadoComercialProveedor { get; private set; }
     public DateOnly? FechaCompromisoProveedor { get; private set; }
 
+    // 86e3tacbn: conformidad del servicio por OC (una confirmación aplica a todas sus líneas de servicio).
+    // Mientras ServicioConfirmadoEn sea nulo, CxP no cuenta las líneas de servicio como recibidas.
+    public DateTimeOffset? ServicioConfirmadoEn { get; private set; }
+    public Guid? ServicioConfirmadoPorId { get; private set; }
+    public string? ServicioConfirmadoComentario { get; private set; }
+    public DateTimeOffset? ServicioNoConformeEn { get; private set; }
+    public Guid? ServicioNoConformePorId { get; private set; }
+    public string? ServicioNoConformeMotivo { get; private set; }
+    public DateTimeOffset? ServicioConfirmacionRevocadaEn { get; private set; }
+    public Guid? ServicioConfirmacionRevocadaPorId { get; private set; }
+    public string? ServicioConfirmacionRevocadaMotivo { get; private set; }
+
     // --- F2-PR3: referencia proveedor + contacto + logística + importación ---
 
     /// <summary>Folio externo del proveedor (§4.4). Indexado para búsqueda. Normalizado a uppercase + trim.</summary>
@@ -1652,6 +1664,21 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
     }
 
     /// <summary>
+    /// Registra el acumulado acreditado por devoluciones conciliadas con NC fiscal 03 para una línea.
+    /// Lo acreditado deja de esperarse (decisión del owner, 30-oct): la OC puede cerrarse sin reposición.
+    /// </summary>
+    public RecalcularSubEstadosResultado RegistrarAcreditacionLinea(
+        Guid lineaId,
+        decimal cantidadAcumulada,
+        DateTimeOffset ocurridoEn)
+    {
+        ValidarEstadoParaRegistrarMovimiento();
+        var linea = BuscarLineaOLanzar(lineaId);
+        linea.SetCantidadAcreditada(cantidadAcumulada);
+        return RecalcularSubEstadosYAjustarEstado(ocurridoEn);
+    }
+
+    /// <summary>
     /// Registra (set) el monto pagado acumulado a nivel cabecera. Los
     /// pagos viven en Tesorería y se aplican a facturas; el agregado
     /// solo mantiene el denormalizado para derivar el sub-estado de pago
@@ -1690,9 +1717,11 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             return;
         }
 
-        var cantidadTotal = _lineas.Sum(l => l.Cantidad);
+        // Objetivo = pedido − acreditado por devolución (lo acreditado ya no se espera); facturado neto de esas NC.
+        var cantidadTotal = _lineas.Sum(l => l.CantidadObjetivo);
         // igual que Recepción: el excedente facturado de una línea no completa a otra
-        var facturadoTotal = _lineas.Sum(l => Math.Min(l.CantidadFacturada, l.Cantidad));
+        var facturadoTotal = _lineas.Sum(l => Math.Min(l.CantidadFacturadaNeta, l.CantidadObjetivo));
+        var acreditadoTotal = _lineas.Sum(l => l.CantidadAcreditada);
 
         // GAP-9: los servicios no se reciben en Almacén — el sub-estado de
         // Recepción se calcula SOLO sobre las líneas físicas (!EsServicio).
@@ -1701,12 +1730,15 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         // cancelación sin recepciones depende de SinRecepcion). Facturación
         // y Pago siguen calculándose sobre todas las líneas.
         var lineasFisicas = _lineas.Where(l => !l.EsServicio).ToList();
-        var cantidadFisicaTotal = lineasFisicas.Sum(l => l.Cantidad);
+        var cantidadFisicaTotal = lineasFisicas.Sum(l => l.CantidadObjetivo);
+        var acreditadoFisico = lineasFisicas.Sum(l => l.CantidadAcreditada);
         // defensivo: el excedente de una línea (histórico, de cuando había tolerancia) no completa a otra
-        var recibidoTotal = lineasFisicas.Sum(l => Math.Min(l.CantidadRecibida, l.Cantidad));
+        var recibidoTotal = lineasFisicas.Sum(l => Math.Min(l.CantidadRecibida, l.CantidadObjetivo));
 
+        // Devolución total acreditada: no queda nada por esperar, la línea se da por completa.
         SubEstadoRecepcion = recibidoTotal switch
         {
+            _ when cantidadFisicaTotal == 0m && acreditadoFisico > 0m => SubEstadoRecepcion.Completa,
             0m => SubEstadoRecepcion.SinRecepcion,
             var r when r >= cantidadFisicaTotal => SubEstadoRecepcion.Completa,
             _ => SubEstadoRecepcion.Parcial,
@@ -1714,6 +1746,7 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
 
         SubEstadoFacturacion = facturadoTotal switch
         {
+            _ when cantidadTotal == 0m && acreditadoTotal > 0m => SubEstadoFacturacion.Completa,
             0m => SubEstadoFacturacion.SinFactura,
             var f when f >= cantidadTotal => SubEstadoFacturacion.Completa,
             _ => SubEstadoFacturacion.Parcial,
@@ -1809,6 +1842,74 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             CompradorTitularId: CompradorTitularId,
             OcurridoEn: ocurridoEn);
     }
+
+    /// <summary>
+    /// 86e3tacbn: el área que pidió el servicio declara «servicio realizado y recibido a satisfacción». Una por OC.
+    /// Solo un usuario del departamento solicitante de alguna línea de servicio puede hacerlo.
+    /// </summary>
+    public Events.OrdenCompraServicioConfirmadoEvent ConfirmarServicio(
+        Guid usuarioId, Guid? departamentoUsuarioId, string? comentario, DateTimeOffset ahora)
+    {
+        ValidarServicioEditable(departamentoUsuarioId);
+        if (ServicioConfirmadoEn is not null)
+            throw new BusinessRuleException("OC_SERVICIO_YA_CONFIRMADO", "El servicio de esta OC ya está confirmado.");
+        ServicioConfirmadoEn = ahora;
+        ServicioConfirmadoPorId = usuarioId;
+        ServicioConfirmadoComentario = string.IsNullOrWhiteSpace(comentario) ? null : comentario.Trim();
+        ServicioNoConformeEn = null;
+        ServicioNoConformePorId = null;
+        ServicioNoConformeMotivo = null;
+        return EventoServicio(true, usuarioId, ServicioConfirmadoComentario, ahora);
+    }
+
+    /// <summary>Deshace la confirmación con motivo; no se puede si la OC ya tiene un pago aplicado.</summary>
+    public Events.OrdenCompraServicioConfirmadoEvent RevocarConfirmacionServicio(
+        Guid usuarioId, Guid? departamentoUsuarioId, string motivo, DateTimeOffset ahora)
+    {
+        ValidarServicioEditable(departamentoUsuarioId);
+        if (ServicioConfirmadoEn is null)
+            throw new BusinessRuleException("OC_SERVICIO_SIN_CONFIRMAR", "El servicio de esta OC no está confirmado.");
+        if (MontoPagado > 0m)
+            throw new BusinessRuleException("OC_SERVICIO_CONFIRMACION_CON_PAGO",
+                "No se puede deshacer la confirmación: la OC ya tiene una factura pagada.");
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new BusinessRuleException("OC_SERVICIO_MOTIVO_REQUERIDO", "Indica el motivo para deshacer la confirmación.");
+        ServicioConfirmadoEn = null;
+        ServicioConfirmadoPorId = null;
+        ServicioConfirmadoComentario = null;
+        ServicioConfirmacionRevocadaEn = ahora;
+        ServicioConfirmacionRevocadaPorId = usuarioId;
+        ServicioConfirmacionRevocadaMotivo = motivo.Trim();
+        return EventoServicio(false, usuarioId, ServicioConfirmacionRevocadaMotivo, ahora);
+    }
+
+    /// <summary>«No quedé conforme»: deja el motivo visible para Compras. No confirma ni bloquea otra cosa.</summary>
+    public void MarcarServicioNoConforme(Guid usuarioId, Guid? departamentoUsuarioId, string motivo, DateTimeOffset ahora)
+    {
+        ValidarServicioEditable(departamentoUsuarioId);
+        if (ServicioConfirmadoEn is not null)
+            throw new BusinessRuleException("OC_SERVICIO_YA_CONFIRMADO", "Deshaz primero la confirmación del servicio.");
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new BusinessRuleException("OC_SERVICIO_MOTIVO_REQUERIDO", "Indica por qué no quedaste conforme.");
+        ServicioNoConformeEn = ahora;
+        ServicioNoConformePorId = usuarioId;
+        ServicioNoConformeMotivo = motivo.Trim();
+    }
+
+    private void ValidarServicioEditable(Guid? departamentoUsuarioId)
+    {
+        if (Estado != EstadoOrdenCompra.Autorizada)
+            throw new BusinessRuleException("OC_SERVICIO_ESTADO_INCORRECTO",
+                $"La conformidad del servicio solo aplica a una OC Autorizada (actual: {Estado}).");
+        var servicios = _lineas.Where(l => l.EsServicio).ToList();
+        if (servicios.Count == 0)
+            throw new BusinessRuleException("OC_SERVICIO_SIN_LINEAS_SERVICIO", "La OC no tiene líneas de servicio.");
+        if (departamentoUsuarioId is not Guid depto || servicios.All(l => l.DepartamentoSolicitanteId != depto))
+            throw new ForbiddenException("OC_SERVICIO_DEPARTAMENTO_NO_SOLICITANTE", "Solo el departamento que pidió el servicio puede confirmarlo.");
+    }
+
+    private Events.OrdenCompraServicioConfirmadoEvent EventoServicio(bool confirmado, Guid usuarioId, string? texto, DateTimeOffset ahora) =>
+        new(Id, EmpresaId, Folio.Valor, confirmado, usuarioId, texto, ahora);
 
     private void ValidarEstadoParaRegistrarMovimiento()
     {

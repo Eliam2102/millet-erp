@@ -1,7 +1,14 @@
 import { TabsContabilidad } from './TabsContabilidad';
 import { ESTADOS_SOLICITUD } from '../lib/estados-ui';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
-import { BarraFiltros, PaginacionTabla } from '@/components/erp';
+import {
+  BarraFiltros,
+  PaginacionTabla,
+  EmptyState,
+  ErrorState,
+  TableSkeleton,
+} from '@/components/erp';
+import { esApiError } from '@/lib/api';
 import {
   Table,
   TableHeader,
@@ -64,16 +71,17 @@ export function SolicitudesCatalogo() {
           />
         }
       >
-        {consulta.isPending && <p role="status">Cargando solicitudes…</p>}
+        {consulta.isPending && <TableSkeleton rows={3} />}
         {consulta.isError && (
-          <p role="alert">
-            No se pudieron cargar las solicitudes.{' '}
-            <Button variant="ghost" onClick={() => void consulta.refetch()}>
-              Reintentar
-            </Button>
-          </p>
+          <ErrorState
+            title="No se pudieron cargar las solicitudes"
+            problem={esApiError(consulta.error) ? consulta.error.problem : undefined}
+            onRetry={() => void consulta.refetch()}
+          />
         )}
-        {consulta.data?.items.length === 0 && <p>No hay solicitudes en este estado.</p>}
+        {consulta.data?.items.length === 0 && (
+          <EmptyState title="No hay solicitudes en este estado." />
+        )}
         {consulta.data?.items.map((s) => (
           <Solicitud key={s.id} solicitud={s} />
         ))}

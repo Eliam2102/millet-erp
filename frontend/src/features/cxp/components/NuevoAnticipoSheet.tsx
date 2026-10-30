@@ -51,7 +51,7 @@ export function NuevoAnticipoSheet({
 }: NuevoAnticipoSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-md">
+      <SheetContent side="right" size="form">
         <SheetHeader>
           <SheetTitle>Capturar anticipo a proveedor</SheetTitle>
           <SheetDescription>

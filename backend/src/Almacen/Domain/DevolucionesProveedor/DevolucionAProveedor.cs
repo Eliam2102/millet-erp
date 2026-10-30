@@ -173,8 +173,8 @@ public sealed class DevolucionAProveedor : BaseEntity, IPerteneceAEmpresa, IAudi
     /// <summary>
     /// Cierra el ciclo bidireccional: CxP confirmó NC fiscal tipo CFDI 03
     /// vinculada a esta devolución. El listener
-    /// <c>NotaCreditoProveedorRegistradaHandler</c> invoca este método
-    /// cuando recibe el evento de CxP con <c>TipoRelacionCfdi=3</c>.
+    /// <c>NcFiscalDevolucionRecibidaHandler</c> invoca este método
+    /// con el Id exacto que trae <c>cuentas_por_pagar.nc-fiscal-devolucion.recibida.v1</c>.
     /// </summary>
     public void ConciliarConNcFiscal(Guid notaCreditoFiscalId)
     {

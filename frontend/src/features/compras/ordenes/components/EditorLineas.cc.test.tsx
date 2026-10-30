@@ -156,7 +156,7 @@ describe('<EditorLineas> (OC) — columna CC-Máquina (Fase E PR3)', () => {
   });
 
   it('partida sin CC → "—"', () => {
-    render(<EditorLineas oc={makeOc([makeLinea()])} />, {
+    render(<EditorLineas oc={makeOc([makeLinea({ articuloClave: 'ART-1' })])} />, {
       wrapper: createQueryWrapper(),
     });
     expect(screen.getByText('—')).toBeInTheDocument();

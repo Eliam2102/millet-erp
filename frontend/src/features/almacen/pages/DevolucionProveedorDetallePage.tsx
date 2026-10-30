@@ -139,7 +139,7 @@ export function DevolucionProveedorDetallePage() {
                 resolvió, cae al id truncado (nunca el GUID completo). */}
             <Campo
               label="Proveedor"
-              valor={query.data.proveedorNombre ?? `${query.data.proveedorId.slice(0, 8)}…`}
+              valor={query.data.proveedorNombre ?? '—'}
               mono={!query.data.proveedorNombre}
             />
             <Campo
@@ -217,7 +217,7 @@ export function DevolucionProveedorDetallePage() {
               <Campo
                 label="NC fiscal vinculada"
                 valor={
-                  query.data.notaCreditoFolio ?? `${query.data.notaCreditoFiscalId.slice(0, 8)}…`
+                  query.data.notaCreditoFolio ?? '—'
                 }
                 mono={!query.data.notaCreditoFolio}
               />
@@ -270,7 +270,7 @@ export function DevolucionProveedorDetallePage() {
                             </>
                           ) : (
                             <code className="font-mono text-xs" title={l.articuloId}>
-                              {l.articuloId.slice(0, 8)}…
+                              —
                             </code>
                           )}
                           {medida && <div className="text-xs text-ink-muted">{medida}</div>}

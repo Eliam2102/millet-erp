@@ -106,7 +106,8 @@ public sealed class FacturasEnRevisionPorAreaTests : IDisposable
             ordenCompraId: Guid.NewGuid(), encargadoComprasSnapshot: null,
             tolerancia: Tolerancia.MontoAbsoluto(0.99m),
             diferenciaContraOc: 0m, redondeoAplicado: 0m, ahora: Entrada);
-        f.EnviarARevision(motivoId, dependenciaId, null, Entrada);
+        // 86e3tactf: el motivo 13 exige saber quién pidió no pagar.
+        f.EnviarARevision(motivoId, dependenciaId, null, Entrada, solicitanteId: Guid.NewGuid());
         _db.FacturasProveedor.Add(f);
         await _db.SaveChangesAsync();
         return f;

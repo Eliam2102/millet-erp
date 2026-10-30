@@ -70,7 +70,7 @@ public sealed class OcDevolucionEnAlmacenHandler
             var lineasOc = await _db.OrdenesCompra
                 .AsNoTracking()
                 .Where(o => o.Id == ordenCompraId)
-                .SelectMany(o => o.Lineas.Select(l => new { l.Id, l.ArticuloId, l.EsServicio, l.CantidadRecibida, l.CantidadFacturada }))
+                .SelectMany(o => o.Lineas.Select(l => new { l.Id, l.ArticuloId, l.EsServicio, l.Cantidad, l.CantidadRecibida, l.CantidadFacturada, l.CantidadAcreditada }))
                 .ToListAsync(cancellationToken);
 
             if (lineasOc.Count == 0)
@@ -81,7 +81,8 @@ public sealed class OcDevolucionEnAlmacenHandler
             // Saldo corriente por línea de OC: varias devoluciones sobre la misma línea
             // se descuentan en secuencia (cada evento lleva el acumulado post-descuento anterior).
             var saldo = lineasOc.ToDictionary(l => l.Id, l => l.CantidadRecibida);
-            var facturada = lineasOc.ToDictionary(l => l.Id, l => l.CantidadFacturada);
+            var facturada = lineasOc.ToDictionary(l => l.Id, l => l.CantidadFacturada - l.CantidadAcreditada);
+            var pedida = lineasOc.ToDictionary(l => l.Id, l => l.Cantidad);
 
             // Resolver todas las líneas antes de publicar: el listener hace SaveChanges
             // por evento, así que una excepción a mitad del bucle dejaría líneas aplicadas
@@ -123,9 +124,9 @@ public sealed class OcDevolucionEnAlmacenHandler
 
                 // CantidadDocumento = unidad de la OC (M-170); eventos viejos caen a Cantidad.
                 var nuevoSaldo = saldoActual - (linea.CantidadDocumento ?? linea.Cantidad);
-                if (nuevoSaldo < facturada[lineaOcId])
+                if (facturada[lineaOcId] > Math.Max(pedida[lineaOcId], nuevoSaldo))
                 {
-                    // Recibido no puede quedar bajo lo facturado (check de BD): Almacén ya lo bloquea; si llega
+                    // Check de BD ck_oc_lineas_facturada_max: facturada <= MAX(cantidad, recibida). Almacén ya lo bloquea; si llega
                     // (evento viejo / carrera) se omite la línea y se marca procesado para no entrar en dead-letter.
                     _logger.LogError(
                         "[OcDevolucionEnAlmacenHandler] Devolución {DevolucionId} omitida en línea {LineaOcId}: dejaría recibido ({Saldo}) bajo lo facturado ({Facturada}).",

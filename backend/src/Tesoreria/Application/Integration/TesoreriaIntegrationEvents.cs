@@ -169,6 +169,38 @@ public sealed record PagoClienteConfirmadoIntegrationEvent(
 }
 
 /// <summary>
+/// <c>tesoreria.deposito-caja.confirmado.v1</c> — una ficha de depósito cubrió (todo o parte de)
+/// un corte de caja. Un evento por ficha. Contabilidad arma UNA póliza por liquidación (día del
+/// corte + sucursal): agrupa por <c>DiaCorte</c> + <c>SucursalId</c> y cierra con <c>CorteCompleto</c>.
+/// Tesorería no genera asientos. <c>DiaCorte</c> es el día de operación de la sesión, no el de la ficha.
+/// </summary>
+public sealed record DepositoCajaConfirmadoIntegrationEvent(
+    Guid EmpresaId,
+    DateTimeOffset OcurridoEn,
+    Guid DepositoId,
+    Guid FichaId,
+    Guid CajaSesionId,
+    DateOnly? DiaCorte,
+    Guid? SucursalId,
+    Guid? CajeroId,
+    Guid MovimientoBancarioId,
+    Guid CuentaBancariaId,
+    decimal Importe,
+    string Moneda,
+    DateOnly FechaFicha,
+    string? NumeroFicha,
+    string? SoporteTipo,
+    string? SoporteFolio,
+    decimal ImporteCorte,
+    decimal SaldoPorDepositar,
+    bool CorteCompleto,
+    Guid ConfirmadaPor)
+    : IntegrationEvent(WireEventType, EmpresaId, OcurridoEn)
+{
+    public const string WireEventType = "tesoreria.deposito-caja.confirmado.v1";
+}
+
+/// <summary>
 /// <c>tesoreria.propuesta-aplicacion.rechazada.v1</c> — Tesorería rechazó
 /// la propuesta (depósito no aparece, monto no coincide) para que CxC
 /// re-proponga. CxC consume el evento y libera las reservas de la propuesta.

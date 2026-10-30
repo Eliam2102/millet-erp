@@ -234,6 +234,9 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
     public Guid? MotivoRevisionId { get; private set; }
     public Guid? DependenciaRevisoraId { get; private set; }
     public DateTimeOffset? FechaEntradaRevision { get; private set; }
+    /// <summary>86e3tactf: usuario que pidió no pagar (motivo 13); solo él la libera, salvo el permiso de reemplazo.</summary>
+    public Guid? SolicitanteRevisionId { get; private set; }
+    public static readonly Guid MotivoIndicacionExpresaId = Guid.Parse("00000007-1001-0000-0000-00000000000d");
 
     private readonly List<LineaFacturaProveedor> _lineas = [];
     public IReadOnlyCollection<LineaFacturaProveedor> Lineas => _lineas.AsReadOnly();
@@ -537,7 +540,8 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
         Guid motivoRevisionId,
         Guid dependenciaRevisoraId,
         Guid? usuarioId,
-        DateTimeOffset ahora)
+        DateTimeOffset ahora,
+        Guid? solicitanteId = null)
     {
         if (Estado == EstadoPasivo.Cancelada || (Estado == EstadoPasivo.Pagada &&
             (motivoRevisionId != MotivoFaltaReppId || MetodoPago != "PPD" || ImportePagado <= 0 || ReppRecibido)))
@@ -546,6 +550,11 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
                 "FACTURA_NO_ENVIABLE_A_REVISION",
                 $"Una factura en estado {Estado} no puede enviarse a revisión.");
         }
+        // 86e3tactf: «Instrucción de no pagar» (motivo 13): se guarda quién la pidió; por omisión, quien la registra.
+        Guid? solicitante = null;
+        if (motivoRevisionId == MotivoIndicacionExpresaId)
+            solicitante = solicitanteId ?? usuarioId
+                ?? throw new BusinessRuleException("FACTURA_SOLICITANTE_REQUERIDO", "Indica quién pidió no pagar la factura.");
 
         var anterior = Estado;
         Estado = EstadoPasivo.EnRevision;
@@ -553,9 +562,11 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
         MotivoRevisionId = motivoRevisionId;
         DependenciaRevisoraId = dependenciaRevisoraId;
         FechaEntradaRevision = ahora;
+        SolicitanteRevisionId = solicitante;
 
         RegistrarTransicion(anterior, EstadoPasivo.EnRevision, ahora,
-            $"Enviada a revisión motivo={motivoRevisionId} dep={dependenciaRevisoraId}", usuarioId);
+            $"Enviada a revisión motivo={motivoRevisionId} dep={dependenciaRevisoraId}"
+            + (solicitante is null ? "" : $" solicitante={solicitante}"), usuarioId);
     }
 
     /// <summary>
@@ -564,7 +575,7 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
     /// va a Autorizada). Solo aplica desde
     /// <see cref="EstadoPasivo.EnRevision"/>.
     /// </summary>
-    public void LiberarRevision(string accionTomada, Guid? usuarioId, DateTimeOffset ahora)
+    public void LiberarRevision(string accionTomada, Guid? usuarioId, DateTimeOffset ahora, bool puedeReemplazarSolicitante = false)
     {
         if (Estado != EstadoPasivo.EnRevision)
         {
@@ -581,15 +592,20 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
 
         if (MotivoRevisionId == MotivoFaltaReppId && !ReppRecibido)
             throw new BusinessRuleException("FACTURA_FALTA_REPP", "Registra y valida los complementos pendientes en Tesorería antes de liberar este motivo.");
+        // 86e3tactf: sin plazo; solo la libera quien la pidió (o quien tenga el permiso de reemplazo).
+        var solicitante = SolicitanteRevisionId;
+        if (MotivoRevisionId == MotivoIndicacionExpresaId && solicitante != usuarioId && !puedeReemplazarSolicitante)
+            throw new ForbiddenException("SOLO_LIBERA_SOLICITANTE", "Solo quien pidió no pagar esta factura puede liberarla.");
         var anterior = Estado;
         Estado = SaldoPendiente == 0 && ImportePagado > 0 ? EstadoPasivo.Pagada : EstadoPasivo.Capturada;
         EnRevision = false;
         MotivoRevisionId = null;
         DependenciaRevisoraId = null;
         FechaEntradaRevision = null;
+        SolicitanteRevisionId = null;
 
         RegistrarTransicion(anterior, EstadoPasivo.Capturada, ahora,
-            $"Liberada de revisión: {accionTomada}", usuarioId);
+            $"Liberada de revisión: {accionTomada}" + (solicitante is null ? "" : $" (solicitó {solicitante})"), usuarioId);
     }
 
     /// <summary>

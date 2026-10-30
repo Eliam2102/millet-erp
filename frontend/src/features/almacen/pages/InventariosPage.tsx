@@ -300,7 +300,7 @@ function TablaConteos({
       items.map((c) => ({
         ...c,
         subAlmacen: c.subAlmacenId
-          ? (subAlmacenesMap.get(c.subAlmacenId)?.clave ?? c.subAlmacenId)
+          ? (subAlmacenesMap.get(c.subAlmacenId)?.clave ?? '—')
           : '(todos)',
         capturadas: c.cantidadCapturadas,
       })),

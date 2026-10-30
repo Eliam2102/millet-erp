@@ -55,7 +55,11 @@ public sealed record PasivoAutorizadoParaPagoIntegrationEvent(
     string? TipoBeneficiario = null,
     Guid? BeneficiarioId = null,
     string? OrigenTipo = null,
-    Guid? OrigenId = null)
+    Guid? OrigenId = null,
+    // T9.1-A: extensión ADITIVA — desglose del CFDI para la corrida de pagos de Tesorería.
+    decimal? Subtotal = null,
+    decimal? ImpuestosTrasladados = null,
+    decimal? Retenciones = null)
     : IntegrationEvent("cuentas_por_pagar.pasivo.autorizado-para-pago.v1", EmpresaId, OcurridoEn)
 {
     public const string BeneficiarioProveedor = "Proveedor";

@@ -137,6 +137,11 @@ export function FacturaDetallePage() {
             estado={
               <>
                 <EstadoPasivoChip estado={query.data.estado} />
+                {query.data.proveedorBloqueado === true && (
+                  <Badge variant="danger" title={query.data.proveedorMotivoBloqueo ?? undefined}>
+                    Proveedor bloqueado
+                  </Badge>
+                )}
                 <ToleranciaIndicator
                   diferencia={query.data.diferenciaContraOc}
                   cancelada={query.data.estado === EstadoPasivo.Cancelada}

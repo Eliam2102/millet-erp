@@ -391,13 +391,9 @@ function TablaDevoluciones({ items }: { items: readonly DevolucionProveedorListI
                     params={{ id: d.id }}
                     onClick={(e) => e.stopPropagation()}
                     className="text-brand hover:underline"
-                    aria-label={`Abrir devolución a proveedor ${d.proveedorNombre ?? truncarId(d.proveedorId)}`}
+                    aria-label={`Abrir devolución a proveedor ${d.proveedorNombre ?? 'sin nombre'}`}
                   >
-                    {d.proveedorNombre ?? (
-                      <span className="font-mono text-xs" title={d.proveedorId}>
-                        {truncarId(d.proveedorId)}
-                      </span>
-                    )}
+                    {d.proveedorNombre ?? 'Ver'}
                   </Link>
                 </TableCell>
                 <TableCell>
@@ -419,8 +415,4 @@ function TablaDevoluciones({ items }: { items: readonly DevolucionProveedorListI
       </Table>
     </TableContainer>
   );
-}
-
-function truncarId(id: string): string {
-  return id.length > 12 ? `${id.slice(0, 8)}…` : id;
 }

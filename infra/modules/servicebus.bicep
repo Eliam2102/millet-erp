@@ -246,7 +246,7 @@ resource comprasEventsCxpSubscriptionFilter 'Microsoft.ServiceBus/namespaces/top
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'compras.orden-compra.autorizada.v1\', \'compras.orden-compra.cancelada.v1\')'
+      sqlExpression: 'user.EventType IN (\'compras.orden-compra.autorizada.v1\', \'compras.orden-compra.cancelada.v1\', \'compras.orden-compra.servicio-confirmado.v1\')'
       compatibilityLevel: 20
     }
   }
@@ -343,7 +343,7 @@ resource almacenEventsComprasSubscriptionFilter 'Microsoft.ServiceBus/namespaces
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'almacen.oc_recepcion.registrada.v1\', \'almacen.oc_devolucion.registrada.v1\', \'almacen.recepcion_oc.cancelada.v1\', \'almacen.salida_requisicion.registrada.v1\', \'almacen.recepcion_activo.anulada.v1\')'
+      sqlExpression: 'user.EventType IN (\'almacen.oc_recepcion.registrada.v1\', \'almacen.oc_devolucion.registrada.v1\', \'almacen.oc_devolucion.conciliada.v1\', \'almacen.recepcion_oc.cancelada.v1\', \'almacen.salida_requisicion.registrada.v1\', \'almacen.recepcion_activo.anulada.v1\')'
       compatibilityLevel: 20
     }
   }
@@ -444,7 +444,7 @@ resource cxpEventsAlmacenSubscriptionFilter 'Microsoft.ServiceBus/namespaces/top
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'cuentas_por_pagar.factura.registrada.v1\', \'cuentas_por_pagar.factura.diferencia-precio-detectada.v1\', \'cuentas_por_pagar.cfdi.ingresado.v1\', \'cuentas_por_pagar.nota-credito.registrada.v1\')'
+      sqlExpression: 'user.EventType IN (\'cuentas_por_pagar.factura.registrada.v1\', \'cuentas_por_pagar.factura.diferencia-precio-detectada.v1\', \'cuentas_por_pagar.cfdi.ingresado.v1\', \'cuentas_por_pagar.nota-credito.registrada.v1\', \'cuentas_por_pagar.nc-fiscal-devolucion.recibida.v1\')'
       compatibilityLevel: 20
     }
   }
@@ -542,6 +542,34 @@ resource facturacionEventsCxcSubscriptionFilter 'Microsoft.ServiceBus/namespaces
     filterType: 'SqlFilter'
     sqlFilter: {
       sqlExpression: 'user.EventType IN (\'facturacion.factura-venta.timbrada.v1\', \'facturacion.recibo-pago.timbrado.v1\', \'facturacion.cobro-mostrador.registrado.v1\', \'facturacion.cobro-mostrador.cancelado.v1\', \'facturacion.nota-credito.timbrada.v1\', \'facturacion.comprobante.cancelado.v1\', \'facturacion.factura-anticipo.timbrada.v1\')'
+      compatibilityLevel: 20
+    }
+  }
+}
+
+// Subscription consumida por Integraciones.Aw FacturacionRetornoListenerWorker
+// (TR-01): factura-venta timbrada → fila Documento de aw_retorno.
+// Referencia: backend/src/Integraciones.Aw/Infrastructure/Retorno/AwRetornoWorkers.cs
+resource facturacionEventsAwSubscription 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
+  parent: facturacionEventsTopic
+  name: 'integraciones-aw-subscription'
+  properties: {
+    deadLetteringOnMessageExpiration: true
+    deadLetteringOnFilterEvaluationExceptions: true
+    maxDeliveryCount: 5
+    defaultMessageTimeToLive: 'P1D'
+    lockDuration: 'PT1M'
+    enableBatchedOperations: true
+  }
+}
+
+resource facturacionEventsAwSubscriptionFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01' = {
+  parent: facturacionEventsAwSubscription
+  name: 'EventTypeFilter'
+  properties: {
+    filterType: 'SqlFilter'
+    sqlFilter: {
+      sqlExpression: 'user.EventType IN (\'facturacion.factura-venta.timbrada.v1\', \'facturacion.comprobante.cancelado.v1\', \'facturacion.nota-credito.timbrada.v1\')'
       compatibilityLevel: 20
     }
   }

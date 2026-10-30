@@ -289,6 +289,47 @@ public sealed class Proveedor : BaseEntity, IAuditable
         Estatus = EstatusCatalogo.EnRevision;
     }
 
+    // ----- Bloqueo total (86e3tactf) -----
+    // Marca aparte del estatus de alta: no paga ninguna factura ni se levantan OC nuevas.
+    public bool Bloqueado { get; private set; }
+    public string? MotivoBloqueo { get; private set; }
+    /// <summary>Usuario del ERP que pidió el bloqueo; solo él (o quien tenga el permiso de reemplazo) lo libera.</summary>
+    public Guid? BloqueadoPorId { get; private set; }
+    public DateTimeOffset? BloqueadoEn { get; private set; }
+
+    public void Bloquear(Guid usuarioId, string motivo, DateTimeOffset ahora)
+    {
+        if (Bloqueado)
+            throw new BusinessRuleException("PROVEEDOR_YA_BLOQUEADO", "El proveedor ya está bloqueado.");
+        MotivoBloqueo = MotivoBloqueoValido(motivo);
+        Bloqueado = true;
+        BloqueadoPorId = usuarioId;
+        BloqueadoEn = ahora;
+    }
+
+    /// <summary>Solo desbloquea quien lo pidió, o quien tenga el permiso de reemplazo (<paramref name="puedeReemplazar"/>).</summary>
+    public void Desbloquear(Guid usuarioId, string motivo, bool puedeReemplazar)
+    {
+        if (!Bloqueado)
+            throw new BusinessRuleException("PROVEEDOR_NO_BLOQUEADO", "El proveedor no está bloqueado.");
+        if (BloqueadoPorId != usuarioId && !puedeReemplazar)
+            throw new ForbiddenException("SOLO_DESBLOQUEA_SOLICITANTE",
+                "Solo quien pidió el bloqueo puede desbloquear al proveedor.");
+        MotivoBloqueoValido(motivo);
+        Bloqueado = false;
+        MotivoBloqueo = null;
+        BloqueadoPorId = null;
+        BloqueadoEn = null;
+    }
+
+    private static string MotivoBloqueoValido(string motivo)
+    {
+        var m = motivo?.Trim() ?? string.Empty;
+        if (m.Length is < 10 or > 500)
+            throw new BusinessRuleException("PROVEEDOR_MOTIVO_BLOQUEO_INVALIDO", "Indica el motivo (de 10 a 500 caracteres).");
+        return m;
+    }
+
     /// <summary>
     /// Valida el proveedor en revisión tras comprobar la completitud de su expediente (F1-ADM-05 G1.1).
     /// Pasa de EnRevision a Activo.

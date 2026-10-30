@@ -280,7 +280,7 @@ function Tabla({ items }: { items: readonly EstadoCuentaTc[] }) {
       .then(
         (res) => {
           toast.success(
-            `Cerrado. Factura proveedor: ${res.facturaProveedorId.slice(0, 8)}… (${res.totalBancoMxn.toFixed(2)} MXN)`,
+            `Cerrado. Total banco: ${res.totalBancoMxn.toFixed(2)} MXN`,
           );
         },
         (error) => {

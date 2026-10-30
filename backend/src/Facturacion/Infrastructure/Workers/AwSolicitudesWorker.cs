@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Millet.Facturacion.Application.Ingesta.ProcesarNotaCreditoAw;
 using Millet.Facturacion.Application.Ingesta.ProcesarSolicitudAw;
 using Millet.Facturacion.Domain.Ports;
 using Millet.SharedKernel.Application;
@@ -56,6 +57,16 @@ public sealed class AwSolicitudesWorker : BackgroundService
 
             try
             {
+                await TickNotasCreditoAsync(stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[AwSolicitudesWorker] Error inesperado en notas de crédito.");
+            }
+
+            try
+            {
                 // Espera el intervalo de polling O un nudge (endpoint
                 // /integraciones/aw/pedidos/nudge, disparado por la
                 // customización A+W tras insertar en la tabla-puente) —
@@ -68,6 +79,40 @@ public sealed class AwSolicitudesWorker : BackgroundService
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
         }
+    }
+
+    /// <summary>
+    /// 86e3wjt5r: lee las notas de crédito pendientes de la tabla puente de A+W y procesa cada una (queda «Por
+    /// autorizar», o excepción). Una nota que falla no frena las demás: se relee en el siguiente barrido.
+    /// Internal para tests.
+    /// </summary>
+    internal async Task<int> TickNotasCreditoAsync(CancellationToken cancellationToken)
+    {
+        var opts = _options.CurrentValue;
+        if (opts.EmpresaId == Guid.Empty) return 0;
+
+        using var scope = _scopeFactory.CreateScope();
+        var sp = scope.ServiceProvider;
+        using var origin = sp.GetRequiredService<IAuditOriginContext>().SetOrigin(nameof(AwSolicitudesWorker));
+        using var bypass = sp.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+
+        var pendientes = (await sp.GetRequiredService<IAwNotasCreditoPort>().LeerNotasPendientesAsync(opts.BatchSize, cancellationToken))
+            .OrderBy(n => n.NumeroNota).ThenBy(n => n.Version).ToList();
+        var sender = sp.GetRequiredService<ISender>();
+        var procesadas = 0;
+        foreach (var nota in pendientes)
+        {
+            try
+            {
+                await sender.Send(new ProcesarNotaCreditoAwCommand(opts.EmpresaId, nota), cancellationToken);
+                procesadas++;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "[AwSolicitudesWorker] Nota de crédito {Nota} v{Version} falló", nota.NumeroNota, nota.Version);
+            }
+        }
+        return procesadas;
     }
 
     /// <summary>Internal para tests.</summary>

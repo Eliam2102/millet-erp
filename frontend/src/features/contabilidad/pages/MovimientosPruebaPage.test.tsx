@@ -114,7 +114,7 @@ describe('<MovimientosPruebaPage>', () => {
     fireEvent.change(screen.getByLabelText('Fecha contable'), { target: { value: '2026-10-04' } });
     expect(registrar).toBeEnabled();
     fireEvent.click(registrar);
-    expect(await screen.findByRole('status')).toHaveTextContent('Movimiento de prueba registrado');
+    expect(await screen.findByText(/Movimiento de prueba registrado/)).toBeInTheDocument();
   });
 
   it('el selector de centros consulta solo los de la sucursal elegida y lo explica si no hay', async () => {

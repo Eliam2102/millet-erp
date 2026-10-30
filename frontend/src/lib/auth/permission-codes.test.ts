@@ -14,6 +14,7 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'datos_maestros.clientes.cargar', 'datos_maestros.articulos.cargar', 'datos_maestros.proveedores.cargar',
   'datos_maestros.productos-aw-fiscal.cargar', 'centros_costo.catalogo.cargar',
+  'datos_maestros.proveedores.bloquear', 'cuentas_por_pagar.bloqueos.liberar-en-lugar',
   'activos_fijos.depreciacion.correr',
   'activos_fijos.depreciacion.anular',
   'activos_fijos.bajas.registrar',
@@ -88,6 +89,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'compras.ordenes.reportes-analisis-proveedores',
   'compras.ordenes.registrar-respuesta-proveedor',
   'compras.ordenes.registrar-incidencia-proveedor',
+  'compras.ordenes.confirmar-servicio',
   // Compras — Configuración (PR-A 2026-05-13, setting AutoGenerarOcAlAutorizar).
   'compras.configuracion.leer',
   'compras.configuracion.editar',
@@ -287,6 +289,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'facturacion.notas-credito.bonificacion-emitir',
   'facturacion.notas-credito.leer',
   'facturacion.notas-credito.reembolso-solicitar',
+  'facturacion.notas-credito.autorizar',
   'facturacion.carta-porte.emitir',
   'facturacion.carta-porte.leer',
   'facturacion.repp.emitir',
@@ -340,6 +343,11 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'admin.puestos.gestionar',
   'admin.empleados.gestionar',
   'admin.empleados.gestionar-todas-sucursales',
+  // Producto Terminado.
+  'producto_terminado.piezas.ver',
+  'producto_terminado.piezas.ver-todas-sucursales',
+  'producto_terminado.excepciones.gestionar',
+  'producto_terminado.excepciones.gestionar-todas-sucursales',
   // Comercio Exterior CE-01a.
   'comercio_exterior.otr.gestionar',
   'comercio_exterior.expedientes.leer',
@@ -377,11 +385,11 @@ describe('PermisosCanonicos — coincidencia con backend', () => {
     }
   });
 
-  it('el módulo Compras aporta exactamente 33 permisos (14 de RQ + 1 de aprobadores + 13 de OC + 2 de cotizaciones + 2 de configuración + 1 de catálogos.leer)', () => {
+  it('el módulo Compras aporta exactamente 34 permisos (14 de RQ + 1 de aprobadores + 14 de OC + 2 de cotizaciones + 2 de configuración + 1 de catálogos.leer)', () => {
     const delModulo = codigos.filter(
       (c) => c.startsWith('compras.') || c === 'compartido.catalogos.leer',
     );
-    expect(delModulo).toHaveLength(33);
+    expect(delModulo).toHaveLength(34);
   });
 
   it('formato canónico, con capitalizar de P3 como excepción explícita', () => {

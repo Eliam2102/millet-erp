@@ -136,6 +136,8 @@ public static class PermisosCanonicos
     public const string ComprasOrdenesRegistrarIncidenciaProveedor     = "compras.ordenes.registrar-incidencia-proveedor";
     // F1-COM-13 (86e3jvu98): análisis de compras, saldos pendientes y cumplimiento de proveedores.
     public const string ComprasOrdenesReportesAnalisisProveedores     = "compras.ordenes.reportes-analisis-proveedores";
+    // 86e3tacbn: el área que pidió el servicio lo confirma «realizado y recibido a satisfacción» (sin eso la factura no pasa a pago).
+    public const string ComprasOrdenesConfirmarServicio               = "compras.ordenes.confirmar-servicio";
 
     // ----- Compras — Cotizaciones (F1-COM-02, 86e3jvu2a). Namespace GUID 00000003-0005-* -----
     public const string ComprasCotizacionesLeer                        = "compras.cotizaciones.leer";
@@ -185,7 +187,10 @@ public static class PermisosCanonicos
     public const string DatosMaestrosProveedoresToleranciaEditar       = "datos_maestros.proveedores.tolerancia-editar";
     // F1-ADM-05 G1.1: validación y activación del proveedor por CxP.
     public const string DatosMaestrosProveedoresValidar                = "datos_maestros.proveedores.validar";
-    public const string DatosMaestrosArticulosGestionar                = "datos_maestros.articulos.gestionar";
+    // 86e3tactf: bloqueo total del proveedor (bloquear y desbloquear) y reemplazo de quien liberaría un bloqueo ajeno.
+    public const string DatosMaestrosProveedoresBloquear               = "datos_maestros.proveedores.bloquear";
+    public const string CuentasPorPagarBloqueosLiberarEnLugar          = "cuentas_por_pagar.bloqueos.liberar-en-lugar";
+    public const string DatosMaestrosArticulosGestionar               = "datos_maestros.articulos.gestionar";
     // ADR-0048: masters nuevos para la ingesta de pedidos A+W → Facturación.
     // Clientes (D6) y ProductoAw (D5, master de venta separado de articulos).
     public const string DatosMaestrosClientesGestionar                 = "datos_maestros.clientes.gestionar";
@@ -464,6 +469,7 @@ public static class PermisosCanonicos
     public const string FacturacionNotasCreditoBonificacion    = "facturacion.notas-credito.bonificacion-emitir";
     public const string FacturacionNotasCreditoLeer            = "facturacion.notas-credito.leer";
     public const string FacturacionNotasCreditoReembolsoSolicitar = "facturacion.notas-credito.reembolso-solicitar";
+    public const string FacturacionNotasCreditoAutorizar       = "facturacion.notas-credito.autorizar";
     public const string FacturacionCartaPorteEmitir            = "facturacion.carta-porte.emitir";
     public const string FacturacionCartaPorteLeer              = "facturacion.carta-porte.leer";
     public const string FacturacionReppEmitir                  = "facturacion.repp.emitir";
@@ -630,6 +636,12 @@ public static class PermisosCanonicos
     public const string ComercioExteriorDocumentosLeerTodasSucursales = "comercio_exterior.documentos.leer-todas-sucursales";
     public const string ComercioExteriorDocumentosGestionarTodasSucursales = "comercio_exterior.documentos.gestionar-todas-sucursales";
 
+    // Producto Terminado (entrada de piezas): ver / gestionar excepciones, con bypass por sucursal (ADR-0051).
+    public const string ProductoTerminadoPiezasVer = "producto_terminado.piezas.ver";
+    public const string ProductoTerminadoPiezasVerTodasSucursales = "producto_terminado.piezas.ver-todas-sucursales";
+    public const string ProductoTerminadoExcepcionesGestionar = "producto_terminado.excepciones.gestionar";
+    public const string ProductoTerminadoExcepcionesGestionarTodasSucursales = "producto_terminado.excepciones.gestionar-todas-sucursales";
+
     /// <summary>
     /// Catálogo completo: <c>(Id determinista, Codigo, Descripcion)</c>.
     /// Usado por la migration de seed y por el bootstrap del SuperAdmin
@@ -715,6 +727,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000003-0003-0000-0000-00000000000d"), ComprasOrdenesRegistrarRespuestaProveedor,   "Registrar la confirmación o el rechazo del proveedor sobre una orden de compra autorizada, con fechas prometidas y evidencia"),
         (Guid.Parse("00000003-0003-0000-0000-00000000000e"), ComprasOrdenesRegistrarIncidenciaProveedor,  "Registrar, reprogramar y cerrar incidencias del proveedor (faltante, dañado o atraso) por línea de una orden de compra"),
         (Guid.Parse("00000003-0003-0000-0000-00000000000f"), ComprasOrdenesReportesAnalisisProveedores,  "Consultar el análisis de compras, saldos pendientes y cumplimiento de proveedores"),
+        (Guid.Parse("00000003-0003-0000-0000-000000000010"), ComprasOrdenesConfirmarServicio,              "Confirmar (o deshacer, o marcar no conforme) el servicio de una orden de compra del área que lo pidió"),
         (Guid.Parse("00000003-0004-0000-0000-000000000001"), ComprasConfiguracionLeer,                     "Leer la configuración del módulo Compras de la empresa actual"),
         (Guid.Parse("00000003-0004-0000-0000-000000000002"), ComprasConfiguracionEditar,                   "Editar la configuración del módulo Compras de la empresa actual"),
         (Guid.Parse("00000003-0005-0000-0000-000000000001"), ComprasCotizacionesLeer,                      "Consultar cotizaciones y el comparativo de una requisición"),
@@ -889,6 +902,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000009-0004-0000-0000-000000000001"), FacturacionNotasCreditoBonificacion,    "Emitir notas de crédito por bonificación (relación 01)"),
         (Guid.Parse("00000009-0004-0000-0000-000000000002"), FacturacionNotasCreditoLeer,            "Consultar notas de crédito emitidas"),
         (Guid.Parse("00000009-0004-0000-0000-000000000003"), FacturacionNotasCreditoReembolsoSolicitar, "Solicitar a Tesorería el reembolso en dinero de una nota de crédito timbrada"),
+        (Guid.Parse("00000009-0004-0000-0000-000000000004"), FacturacionNotasCreditoAutorizar,       "Autorizar y timbrar notas de crédito de clientes que llegan de A+W (propuesta: Gerente de Sucursal, manual §2.3; la reemplaza la cadena por monto F6.4)"),
         (Guid.Parse("00000009-0005-0000-0000-000000000001"), FacturacionCartaPorteEmitir,            "Emitir Carta Porte 3.1 (CFDI tipo T o I), incluyendo tramos siguientes"),
         (Guid.Parse("00000009-0005-0000-0000-000000000002"), FacturacionCartaPorteLeer,              "Consultar Carta Portes emitidas"),
         (Guid.Parse("00000009-0006-0000-0000-000000000001"), FacturacionReppEmitir,                  "Emitir complementos de pago (REPP / Pago 2.0)"),
@@ -991,6 +1005,10 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000e-0001-0000-0000-00000000000a"), ComercioExteriorExpedientesAdjuntosBaja, "Baja lógica con motivo"),
         (Guid.Parse("0000000e-0002-0000-0000-000000000001"), ComercioExteriorDocumentosLeerTodasSucursales, "Consultar todas las sucursales"),
         (Guid.Parse("0000000e-0002-0000-0000-000000000002"), ComercioExteriorDocumentosGestionarTodasSucursales, "Operar todas las sucursales"),
+        (Guid.Parse("00000010-0001-0000-0000-000000000001"), ProductoTerminadoPiezasVer, "Consultar las piezas de producto terminado de las sucursales asociadas"),
+        (Guid.Parse("00000010-0001-0000-0000-000000000002"), ProductoTerminadoPiezasVerTodasSucursales, "Consultar las piezas de producto terminado de todas las sucursales"),
+        (Guid.Parse("00000010-0002-0000-0000-000000000001"), ProductoTerminadoExcepcionesGestionar, "Gestionar la bandeja de excepciones de entrada de piezas (reintentar, descartar, marcar revisada) de las sucursales asociadas"),
+        (Guid.Parse("00000010-0002-0000-0000-000000000002"), ProductoTerminadoExcepcionesGestionarTodasSucursales, "Gestionar la bandeja de excepciones de entrada de piezas de todas las sucursales"),
         (Guid.Parse("0000000f-0001-0000-0000-000000000008"), ActivosFijosDepreciacionCorrer, "Activos fijos: depreciacion.correr"),
         (Guid.Parse("0000000f-0001-0000-0000-000000000009"), ActivosFijosDepreciacionAnular, "Activos fijos: depreciacion.anular"),
         (Guid.Parse("0000000f-0001-0000-0000-000000000010"), ActivosFijosBajasRegistrar, "Activos fijos: bajas.registrar"),
@@ -1016,5 +1034,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000004-0090-0000-0000-000000000003"), DatosMaestrosProveedoresCargar, "Cargar desde Excel o CSV: proveedores"),
         (Guid.Parse("00000004-0090-0000-0000-000000000004"), DatosMaestrosProductosAwFiscalCargar, "Cargar desde Excel o CSV: productos-aw-fiscal"),
         (Guid.Parse("00000004-0090-0000-0000-000000000005"), CentrosCostoCatalogoCargar, "Cargar desde Excel o CSV: catalogo"),
+        (Guid.Parse("00000004-0091-0000-0000-000000000001"), DatosMaestrosProveedoresBloquear, "Bloquear y desbloquear al proveedor completo (sin pagos ni OC nuevas)"),
+        (Guid.Parse("00000004-0091-0000-0000-000000000002"), CuentasPorPagarBloqueosLiberarEnLugar, "Liberar un bloqueo (proveedor o factura) en lugar de quien lo pidió, con motivo"),
     };
 }

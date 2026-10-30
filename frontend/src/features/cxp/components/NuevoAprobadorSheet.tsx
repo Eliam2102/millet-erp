@@ -62,7 +62,7 @@ export function NuevoAprobadorSheet({
 }: NuevoAprobadorSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-md">
+      <SheetContent side="right" size="form">
         <SheetHeader>
           <SheetTitle>Nuevo aprobador con límite</SheetTitle>
           <SheetDescription>

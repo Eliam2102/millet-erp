@@ -36,6 +36,9 @@ public sealed class PasivoPendientePagoConfiguration : IEntityTypeConfiguration<
         builder.Property(e => e.FolioProveedor).HasMaxLength(60);
         builder.Property(e => e.MetodoPago).HasMaxLength(3);
         builder.Property(e => e.RecibidoEn).IsRequired();
+        builder.Property(e => e.Subtotal).HasPrecision(18, 2);
+        builder.Property(e => e.ImpuestosTrasladados).HasPrecision(18, 2);
+        builder.Property(e => e.Retenciones).HasPrecision(18, 2);
 
         // GI-PR2 (doc 12): pasivos internos. Backfill en la migration:
         // Proveedor/Factura para las filas existentes.

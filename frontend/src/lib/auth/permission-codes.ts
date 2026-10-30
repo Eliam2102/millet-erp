@@ -106,6 +106,7 @@ export const PermisosCanonicos = {
     'compras.ordenes.reportes-analisis-proveedores',
   ComprasOrdenesRegistrarRespuestaProveedor: 'compras.ordenes.registrar-respuesta-proveedor',
   ComprasOrdenesRegistrarIncidenciaProveedor: 'compras.ordenes.registrar-incidencia-proveedor',
+  ComprasOrdenesConfirmarServicio: 'compras.ordenes.confirmar-servicio',
 
   // Compras — Cotizaciones (F1-COM-02)
   ComprasCotizacionesLeer: 'compras.cotizaciones.leer',
@@ -167,6 +168,9 @@ export const PermisosCanonicos = {
     'datos_maestros.proveedores.tolerancia-editar',
   DatosMaestrosProveedoresValidar:
     'datos_maestros.proveedores.validar',
+  // 86e3tactf: bloqueo total del proveedor y reemplazo de quien lo libera.
+  DatosMaestrosProveedoresBloquear: 'datos_maestros.proveedores.bloquear',
+  CuentasPorPagarBloqueosLiberarEnLugar: 'cuentas_por_pagar.bloqueos.liberar-en-lugar',
   DatosMaestrosProveedoresExpedienteConfigurar:
     'datos_maestros.proveedores.expediente-configurar',
   DatosMaestrosArticulosGestionar: 'datos_maestros.articulos.gestionar',
@@ -429,6 +433,7 @@ export const PermisosCanonicos = {
     'facturacion.notas-credito.bonificacion-emitir',
   FacturacionNotasCreditoLeer: 'facturacion.notas-credito.leer',
   FacturacionNotasCreditoReembolsoSolicitar: 'facturacion.notas-credito.reembolso-solicitar',
+  FacturacionNotasCreditoAutorizar: 'facturacion.notas-credito.autorizar',
   FacturacionCartaPorteEmitir: 'facturacion.carta-porte.emitir',
   FacturacionCartaPorteLeer: 'facturacion.carta-porte.leer',
   FacturacionReppEmitir: 'facturacion.repp.emitir',
@@ -506,6 +511,10 @@ export const PermisosCanonicos = {
   ComercioExteriorExpedientesAdjuntosBaja: 'comercio_exterior.expedientes.adjuntos-baja',
   ComercioExteriorDocumentosLeerTodasSucursales: 'comercio_exterior.documentos.leer-todas-sucursales',
   ComercioExteriorDocumentosGestionarTodasSucursales: 'comercio_exterior.documentos.gestionar-todas-sucursales',
+  ProductoTerminadoPiezasVer: 'producto_terminado.piezas.ver',
+  ProductoTerminadoPiezasVerTodasSucursales: 'producto_terminado.piezas.ver-todas-sucursales',
+  ProductoTerminadoExcepcionesGestionar: 'producto_terminado.excepciones.gestionar',
+  ProductoTerminadoExcepcionesGestionarTodasSucursales: 'producto_terminado.excepciones.gestionar-todas-sucursales',
 } as const;
 
 /** Tipo unión de todos los códigos de permiso conocidos (autocompletado en IDE). */

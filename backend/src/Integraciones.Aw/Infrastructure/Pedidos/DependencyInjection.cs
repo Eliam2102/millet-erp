@@ -1,7 +1,11 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Millet.Facturacion.Domain.Ports;
+using Microsoft.Extensions.Options;
 using Millet.Integraciones.Aw.Application.Pedidos;
+using Millet.Integraciones.Aw.Application.Retorno;
+using Millet.Integraciones.Aw.Infrastructure.NotasCredito;
+using Millet.Integraciones.Aw.Infrastructure.Retorno;
 
 namespace Millet.Integraciones.Aw.Infrastructure.Pedidos;
 
@@ -35,6 +39,12 @@ public static class PedidosDependencyInjection
         services.AddScoped<ICanalVentaPorClaveAwResolver, CanalVentaPorClaveAwResolver>();
         services.AddScoped<IAwSolicitudesReader, AwSolicitudesSqlReader>();
         services.AddScoped<IAwWriteBackPort, AwWriteBackSqlAdapter>();
+        // 86e3wjt5r: notas de crédito de A+W (tabla puente aw_solicitud_nota_credito).
+        services.AddScoped<IAwNotasCreditoPort, AwNotasCreditoAdapter>();
+        // TR-01: filas Documento de aw_retorno (único escritor hacia A+W por factura).
+        services.AddScoped<IAwRetornoPort>(sp => new AwRetornoAdapter(
+            sp.GetRequiredService<IIntegracionSqlConnectionFactory>(), sp.GetRequiredService<IOptions<AwPedidosOptions>>(),
+            AwRetornoAdapter.CandadoSqlServer));
 
         // PR4 — auto-provisión de masters (cierra <MasterProvisioningAw>):
         // readers de vw_erp_cliente/vw_erp_articulo + bridge que delega el

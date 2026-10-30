@@ -29,6 +29,56 @@ public interface IAwWriteBackPort
     Task EscribirResultadoAsync(AwWriteBack writeBack, CancellationToken cancellationToken);
 }
 
+/// <summary>
+/// TR-01: versión del pedido A+W que el ERP ya aplicó. Integraciones.Aw la usa para
+/// reemplazar una fila de <c>aw_retorno</c> desfasada (SRC-114 3a) sin leer tablas de Facturación.
+/// </summary>
+public interface IAwVersionPedidoReadPort
+{
+    Task<long?> VersionAplicadaAsync(string numeroPedido, CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// 86e3wjt5r: tabla puente de notas de crédito de A+W (<c>aw_solicitud_nota_credito</c>, script 17, en
+/// MILLET_INTEGRACION). A+W (un job, por confirmar con TI) escribe la nota; el ERP lee las pendientes y
+/// escribe el acuse. Dueño real: <c>Integraciones.Aw</c>; sin canal configurado, un stub que devuelve vacío.
+/// </summary>
+public interface IAwNotasCreditoPort
+{
+    /// <summary>Notas sin acuse, en orden por (número de nota, versión).</summary>
+    Task<IReadOnlyList<SolicitudNotaCreditoAw>> LeerNotasPendientesAsync(int max, CancellationToken cancellationToken);
+
+    Task EscribirAcuseAsync(AcuseNotaCreditoAw acuse, CancellationToken cancellationToken);
+}
+
+/// <summary>Saldo por cobrar de una factura (dueño: CuentasPorCobrar). Null = la cartera aún no la proyecta.</summary>
+public interface ISaldoFacturaReadPort
+{
+    Task<decimal?> ObtenerSaldoAsync(Guid facturaVentaId, CancellationToken cancellationToken);
+}
+
+/// <param name="Motivo">«Bonificacion» o «Devolucion».</param>
+/// <param name="Importe">Total de la nota con IVA.</param>
+/// <param name="FacturaFolio">Folio de la factura origen; vacío = la del pedido.</param>
+public sealed record SolicitudNotaCreditoAw(
+    Guid SolicitudId,
+    string NumeroNota,
+    long Version,
+    string NumeroPedido,
+    string? FacturaFolio,
+    string ClienteRef,
+    string Motivo,
+    decimal Importe,
+    string? Descripcion,
+    DateTimeOffset CreadaAt);
+
+public sealed record AcuseNotaCreditoAw(
+    Guid SolicitudId,
+    Guid? ErpNotaCreditoId,
+    string? Estado,
+    ResultadoSolicitudAw Resultado,
+    string? Motivo);
+
 public sealed record SolicitudAw(
     Guid SolicitudId,
     string NumeroPedido,

@@ -45,6 +45,31 @@ export interface ProblemDetails {
 }
 
 /**
+ * El backend manda <c>errores[]</c> como <c>{ field, code, message }</c> y
+ * <c>detail</c> genérico. Se completan las llaves en español (conservando las
+ * originales) y, en <c>VALIDATION_ERROR</c>, el detail pasa a ser los mensajes.
+ */
+function normalizarErrores(problem: ProblemDetails): ProblemDetails {
+  if (!problem.errores?.length) return problem;
+  const errores = problem.errores.map((e) => ({
+    ...e,
+    campo: e.campo ?? e.field,
+    codigo: e.codigo ?? e.code,
+    mensaje: e.mensaje ?? e.message,
+  }));
+  const generico = !problem.detail || problem.detail === problem.title || problem.detail === 'Errores de validación';
+  const mensajes = errores.map((e) => e.mensaje).filter(Boolean);
+  return {
+    ...problem,
+    errores,
+    detail:
+      problem.code === 'VALIDATION_ERROR' && generico && mensajes.length > 0
+        ? mensajes.join('; ')
+        : problem.detail,
+  };
+}
+
+/**
  * Error tipado que el cliente HTTP lanza ante cualquier respuesta con
  * <c>!response.ok</c>. La UI lo captura y decide qué hacer en función
  * de <c>status</c> + <c>code</c>.
@@ -72,7 +97,7 @@ export class ApiError extends Error {
     super(problem.title || `HTTP ${status}`);
     this.name = 'ApiError';
     this.status = status;
-    this.problem = problem;
+    this.problem = normalizarErrores(problem);
     this.retryAfterSeconds = retryAfterSeconds;
 
     // Restaura el prototype tras llamar al super-constructor (necesario en

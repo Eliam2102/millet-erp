@@ -205,7 +205,10 @@ public sealed class ReintentarTimbradoHandler
         {
             await _eventos.PublishAsync(EventosContablesFacturacion.FacturaVentaTimbrada(
                 factura, ahora, clienteId: await ClienteContableFacturacion.ResolverAsync(_db, factura, ct),
-                tiposProducto: await EventosContablesFacturacion.TiposProductoAsync(_productos, factura, ct)),
+                tiposProducto: await EventosContablesFacturacion.TiposProductoAsync(_productos, factura, ct),
+                pedido: factura.PedidoFacturableId is Guid pedidoEvt
+                    ? await _db.PedidosFacturables.AsNoTracking().FirstOrDefaultAsync(p => p.Id == pedidoEvt, ct)
+                    : null),
                 ct);
             await _contabilidad.RegistrarAsientoAsync(new AsientoContableSolicitud(
                 factura.Id, "FacturaVenta", $"Factura {factura.Folio}", factura.Total, factura.Moneda,
@@ -233,7 +236,6 @@ public sealed class ReintentarTimbradoHandler
                     .FirstOrDefaultAsync(c => c.PedidoFacturableId == pedido.Id, ct);
                 if (control is not null)
                 {
-                    control.SolicitarWriteBackEstado("Facturado", factura.Uuid, _clock.UtcNow);
                     control.CambiarEstado(EstadoIngesta.Facturado);
                 }
             }

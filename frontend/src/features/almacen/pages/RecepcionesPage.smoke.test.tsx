@@ -108,7 +108,7 @@ describe('<RecepcionesPage> — smoke', () => {
     );
   });
 
-  it('columna OC muestra el folio resuelto; cae al id truncado si no hay folio', async () => {
+  it('columna OC muestra el folio resuelto; muestra «—» si no hay folio', async () => {
     const OC_ID_SIN_FOLIO = '019e5ba8-41b2-7ee8-8f40-4435f4808968';
     mswServer.use(
       http.get('*/api/v1/almacen/recepciones', () =>
@@ -149,8 +149,8 @@ describe('<RecepcionesPage> — smoke', () => {
     await waitFor(() =>
       expect(screen.getByText('OC-MID2026-000050')).toBeInTheDocument(),
     );
-    // Fila sin folio: cae al id truncado (nunca el GUID completo).
-    expect(screen.getByText('019e5ba8…')).toBeInTheDocument();
+    // Fila sin folio: «—», nunca el GUID.
+    expect(screen.queryByText('019e5ba8…')).not.toBeInTheDocument();
     expect(screen.queryByText(OC_ID_SIN_FOLIO)).not.toBeInTheDocument();
   });
 

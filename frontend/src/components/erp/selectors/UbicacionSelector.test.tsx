@@ -36,7 +36,7 @@ vi.mock('@/features/almacen/api/useUbicaciones', () => ({
 }));
 
 describe('<UbicacionSelector>', () => {
-  it('el trigger muestra la ruta del padre para distinguir las "ÚNICA"', () => {
+  it('el trigger muestra la ruta del padre para distinguir los "Almacén general"', () => {
     // Dos ubicaciones con la MISMA clave "ÚNICA"; el value apunta a la de ALM-A.
     render(<UbicacionSelector value="ub-a" onChange={() => {}} />);
 
@@ -44,7 +44,7 @@ describe('<UbicacionSelector>', () => {
       name: /Seleccionar ubicación/i,
     });
     // Se distingue por almacén › sub-almacén, no solo "ÚNICA".
-    expect(trigger).toHaveTextContent('ALM-A › INS-A · ÚNICA');
+    expect(trigger).toHaveTextContent('ALM-A › INS-A · Almacén general');
     expect(trigger).not.toHaveTextContent('ALM-B');
   });
 

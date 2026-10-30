@@ -183,7 +183,7 @@ export function BandejaDevoluciones() {
                           to="/tesoreria/devoluciones/$id"
                           params={{ id: d.id }}
                           className="font-mono text-xs text-brand hover:underline"
-                          aria-label={`Abrir devolución ${d.folio} de ${d.clienteRazonSocial ?? d.clienteId}`}
+                          aria-label={`Abrir devolución ${d.folio} de ${d.clienteRazonSocial ?? 'cliente'}`}
                         >
                           {d.folio}
                         </Link>

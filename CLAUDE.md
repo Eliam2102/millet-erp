@@ -101,6 +101,7 @@ los tres levantamientos como conjunto:
 | `OrdenCompraAutorizadaEvent` | Compras | Almacén, CxP | Habilita OC para recepción y conciliación de factura |
 | `OrdenCompraCanceladaEvent` | Compras | Almacén, CxP, Requisiciones | Cancelación de OC; libera RQs comprometidas |
 | `OrdenCompraCerradaEvent` | Compras | Almacén (informativo), Requisiciones (cubrimiento) | Cuando los 3 sub-estados (Recepción + Facturación + Pago) llegan a Completa. Compras calcula el cierre — no lo emiten ni Almacén ni CxP |
+| `OrdenCompraServicioConfirmadoEvent` (`compras.orden-compra.servicio-confirmado.v1`) | Compras | CxP | El área solicitante confirmó (o deshizo, `Confirmado=false`) el servicio de la OC, una confirmación por OC (86e3tacbn). CxP republica el pasivo: las líneas de servicio solo cuentan como recibidas con la OC confirmada |
 | `OcRecepcionRegistradaEvent` | Almacén | Compras (sub-estado Recepción de OC), CxP (conciliación) | Recepción contra OC en firme; con flag `factura_pendiente=true` para variante B (materiales directos) |
 | `OcDevolucionRegistradaEvent` | Almacén (sub-flujo 8.B) | Compras (decrementa `CantidadRecibida`), CxP (genera `NotaCargo`) | Devolución física al proveedor |
 | `FacturaProveedorRegistradaEvent` | CxP | Compras (sub-estado Facturación), Almacén (variante B: concilia recepción pendiente) | Captura de factura con OC en estado `Capturada` |
@@ -139,7 +140,7 @@ los tres levantamientos como conjunto:
 | `AlmacenEventListenerWorker` (en Compras) | `almacen-events` | `compras-subscription-almacen` | ✅ sub-estado Recepción; #614 — devoluciones 8.B decrementan `CantidadRecibida` (GAP-5) y entregas por salida RQ (ADR-0043) |
 | ~~`TesoreriaEventListenerWorker` (en Compras)~~ | — | — | ✅ Resuelto **sin** listener de Tesorería (#613/#614): CxP re-publica el pago como `cuentas_por_pagar.factura.pago-aplicado.v1` y lo consume el `CxpEventListenerWorker`. PLATFORM-TODO `<TesoreriaEventListenerCompras>` cerrado |
 
-> El listener `NotaCreditoProveedorRegistradaListener` (en Compras) sigue huérfano: la NC en CxP no tiene granularidad por línea de OC. PLATFORM-TODO `<NcGranularidadLineaOc>`. Mientras tanto, `cuentas_por_pagar.nota-credito.registrada.v1` se loggea como informativo.
+> `<NcGranularidadLineaOc>` cerrado (30-oct) sin líneas en la NC de CxP: al formalizar la nota de cargo de una devolución con la NC 03, CxP publica `cuentas_por_pagar.nc-fiscal-devolucion.recibida.v1`; Almacén concilia esa devolución exacta y publica `almacen.oc_devolucion.conciliada.v1` con lo acreditado por línea de OC; Compras guarda `cantidad_acreditada` (lo acreditado ya no se espera: objetivo = pedido − acreditado; facturado neto = facturado − acreditado). La cancelación de factura manda en `factura.cancelada.v1` el facturado vigente por línea. `nota-credito.registrada.v1` sigue informativo en Compras y en Almacén.
 
 ---
 

@@ -15,7 +15,7 @@ vi.mock('@tanstack/react-router', () => ({
   Link: ({ children }: { children: ReactNode }) => <a href="#">{children}</a>,
 }));
 
-function reporte(titulo: string, columnas: unknown[], filas: unknown[]) {
+function reporte(titulo: string, columnas: unknown[], filas: Record<string, unknown>[]) {
   return {
     titulo,
     generadoEn: '2026-10-21T18:00:00Z',

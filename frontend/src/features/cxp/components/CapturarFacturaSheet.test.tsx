@@ -147,6 +147,26 @@ describe('<CapturarFacturaSheet> — OcSelector deriva proveedor/sucursal', () =
     expect(sucursal).toBeDisabled();
   });
 
+  it('al elegir una OC, el vencimiento sale de sus condiciones de pago (fecha documento + días)', async () => {
+    mswServer.use(
+      http.get('*/api/v1/compras/ordenes/:id', () =>
+        HttpResponse.json({ id: OC_ID, lineas: [], condicionesPagoId: 'cp-30' }),
+      ),
+      http.get('*/api/v1/catalogos/condiciones-pago', () =>
+        HttpResponse.json([{ id: 'cp-30', clave: '30D', nombre: '30 días', diasCredito: 30, estatus: 'Activo' }]),
+      ),
+    );
+    render(<CapturarFacturaSheet open onOpenChange={() => {}} />, {
+      wrapper: createQueryWrapper(),
+    });
+    const fecha = (n: string) => document.querySelector<HTMLInputElement>(`input[name="${n}"]`)!;
+    fireEvent.change(fecha('fechaDocumento'), { target: { value: '2026-10-30' } });
+    fireEvent.click(screen.getByRole('combobox', { name: /orden de compra/i }));
+    fireEvent.click(await screen.findByText('OC-MID2026-000123'));
+
+    await waitFor(() => expect(fecha('fechaVencimiento')).toHaveValue('2026-11-29'));
+  });
+
   it('al elegir la línea de OC se limpia el error «Selecciona la línea de OC»', async () => {
     const LINEA_ID = '55555555-5555-4555-8555-555555555555';
     mswServer.use(

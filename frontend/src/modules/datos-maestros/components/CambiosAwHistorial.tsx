@@ -6,6 +6,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableContainer,
 } from '@/components/ui/table';
 import {
   TIPO_CAMBIO_AW,
@@ -35,6 +36,7 @@ export function CambiosAwHistorial({
         <p className="text-sm text-ink-muted">Sin cambios registrados desde A+W.</p>
       )}
       {!isLoading && !isError && (cambios?.length ?? 0) > 0 && (
+        <TableContainer maxHeightClassName="">
         <Table>
           <TableHeader>
             <TableRow>
@@ -63,6 +65,7 @@ export function CambiosAwHistorial({
             ))}
           </TableBody>
         </Table>
+        </TableContainer>
       )}
     </div>
   );
