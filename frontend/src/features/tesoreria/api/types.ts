@@ -601,3 +601,244 @@ export interface CorridaResponse {
   pendiente: number;
   oficioGeneradoEn: string | null;
 }
+
+// ============================================================================
+// Conciliación Bancaria (T9.2)
+// ============================================================================
+
+/** Estado de la conciliación bancaria mensual. */
+export const EstadoConciliacion = {
+  Abierta: 1,
+  Cerrada: 2,
+} as const;
+export type EstadoConciliacion =
+  (typeof EstadoConciliacion)[keyof typeof EstadoConciliacion];
+
+export const ESTADO_CONCILIACION_HEADER_LABELS: Record<EstadoConciliacion, string> = {
+  [EstadoConciliacion.Abierta]: 'Abierta',
+  [EstadoConciliacion.Cerrada]: 'Cerrada',
+};
+
+/** Estado de una línea del extracto bancario. */
+export const EstadoExtractoLinea = {
+  Pendiente: 1,
+  Emparejada: 2,
+  EnRevision: 3,
+  EnTransito: 4,
+} as const;
+export type EstadoExtractoLinea =
+  (typeof EstadoExtractoLinea)[keyof typeof EstadoExtractoLinea];
+
+export const ESTADO_EXTRACTO_LINEA_LABELS: Record<EstadoExtractoLinea, string> = {
+  [EstadoExtractoLinea.Pendiente]: 'Pendiente',
+  [EstadoExtractoLinea.Emparejada]: 'Emparejada',
+  [EstadoExtractoLinea.EnRevision]: 'En revisión',
+  [EstadoExtractoLinea.EnTransito]: 'En tránsito',
+};
+
+/** Tipo de emparejamiento. */
+export const MatchTipo = {
+  AutoReferenciaImporte: 1,
+  AutoImporteFecha: 2,
+  AutoTolerancia: 3,
+  Manual: 4,
+  AltaAsistida: 5,
+} as const;
+export type MatchTipo = (typeof MatchTipo)[keyof typeof MatchTipo];
+
+export const MATCH_TIPO_LABELS: Record<MatchTipo, string> = {
+  [MatchTipo.AutoReferenciaImporte]: 'Auto (Referencia + Importe)',
+  [MatchTipo.AutoImporteFecha]: 'Auto (Importe + Fecha)',
+  [MatchTipo.AutoTolerancia]: 'Auto (Tolerancia)',
+  [MatchTipo.Manual]: 'Manual',
+  [MatchTipo.AltaAsistida]: 'Alta asistida',
+};
+
+/** Tipo de partida en tránsito. */
+export const PartidaTransitoTipo = {
+  ChequeNoCobrado: 1,
+  DepositoUltimoDia: 2,
+  Otro: 3,
+} as const;
+export type PartidaTransitoTipo =
+  (typeof PartidaTransitoTipo)[keyof typeof PartidaTransitoTipo];
+
+export const PARTIDA_TRANSITO_LABELS: Record<PartidaTransitoTipo, string> = {
+  [PartidaTransitoTipo.ChequeNoCobrado]: 'Cheque no cobrado',
+  [PartidaTransitoTipo.DepositoUltimoDia]: 'Depósito del último día',
+  [PartidaTransitoTipo.Otro]: 'Otro',
+};
+
+export interface ConciliacionResumenResponse {
+  id: string;
+  cuentaBancariaId: string;
+  banco: string;
+  numeroCuenta: string;
+  moneda: string;
+  periodoAnio: number;
+  periodoMes: number;
+  saldoExtracto: number;
+  saldoLibros: number;
+  diferencia: number;
+  estado: EstadoConciliacion;
+  totalLineas: number;
+  lineasEmparejadas: number;
+  lineasPendientes: number;
+  lineasEnRevision: number;
+  lineasEnTransito: number;
+  cerradaEn: string | null;
+  firmanteNombre: string | null;
+}
+
+export interface ExtractoLineaMatchResponse {
+  id: string;
+  movimientoBancarioId: string;
+  monto: number;
+  fechaMatch: string;
+}
+
+export interface ExtractoLineaResponse {
+  id: string;
+  numeroLinea: number;
+  fecha: string;
+  descripcion: string;
+  referencia: string | null;
+  cargo: number | null;
+  abono: number | null;
+  monto: number;
+  sentido: number;
+  estado: EstadoExtractoLinea;
+  matchTipo: MatchTipo | null;
+  matchMovimientoId: string | null;
+  matches: ExtractoLineaMatchResponse[];
+  candidatosRevisionIds: string[];
+  partidaTransito: boolean;
+  partidaTransitoTipo: PartidaTransitoTipo | null;
+  partidaTransitoResponsable: string | null;
+}
+
+export interface BitacoraConciliacionResponse {
+  id: string;
+  extractoLineaId: string | null;
+  movimientoBancarioId: string | null;
+  accion: string;
+  motivo: string;
+  usuarioId: string;
+  fecha: string;
+}
+
+export interface MovimientoBancarioConciliacionDto {
+  id: string;
+  fechaValor: string;
+  sentido: number;
+  monto: number;
+  moneda: string;
+  referenciaBancaria: string | null;
+  conceptoId: string | null;
+  conceptoNombre: string | null;
+  estadoConciliacion: number;
+}
+
+export interface ConciliacionDetalleResponse {
+  id: string;
+  cuentaBancariaId: string;
+  banco: string;
+  numeroCuenta: string;
+  moneda: string;
+  periodoAnio: number;
+  periodoMes: number;
+  saldoExtracto: number;
+  saldoLibros: number;
+  diferencia: number;
+  estado: EstadoConciliacion;
+  cerradaPor: string | null;
+  cerradaEn: string | null;
+  motivoReapertura: string | null;
+  firmanteNombre: string | null;
+  firmantePuesto: string | null;
+  actaGeneradaEn: string | null;
+  lineas: ExtractoLineaResponse[];
+  bitacora: BitacoraConciliacionResponse[];
+  movimientosPeriodo: MovimientoBancarioConciliacionDto[];
+}
+
+export interface ResultadoEmparejamientoResponse {
+  totalLineas: number;
+  paso1Emparejadas: number;
+  paso2Emparejadas: number;
+  paso3Emparejadas: number;
+  totalEmparejadas: number;
+  enRevision: number;
+  pendientes: number;
+}
+
+export interface ConciliacionesFiltros {
+  cuentaBancariaId?: string;
+  anio?: number;
+  mes?: number;
+  estado?: EstadoConciliacion;
+}
+
+export interface CrearConciliacionInput {
+  cuentaBancariaId: string;
+  periodoAnio: number;
+  periodoMes: number;
+  saldoExtracto?: number;
+}
+
+export interface CargarExtractoInput {
+  id: string;
+  contenidoArchivo: string;
+  formato?: string;
+  saldoExtracto?: number;
+  autoEmparejar?: boolean;
+}
+
+export interface EmparejarAutomaticoInput {
+  id: string;
+  toleranciaImporte?: number;
+  ventanaDias?: number;
+}
+
+export interface EmparejarManualInput {
+  id: string;
+  extractoLineaId: string;
+  movimientoIds: string[];
+}
+
+export interface DesemparejarLineaInput {
+  id: string;
+  extractoLineaId: string;
+  motivo: string;
+}
+
+export interface AltaAsistidaInput {
+  id: string;
+  extractoLineaId: string;
+  conceptoId: string;
+  incluyeIva?: boolean;
+  tasaIva?: number;
+  conceptoIvaId?: string;
+  montoBase?: number;
+  montoIva?: number;
+}
+
+export interface MarcarPartidaTransitoInput {
+  id: string;
+  extractoLineaId: string;
+  tipo: PartidaTransitoTipo;
+  responsable: string;
+  autorizadaPor?: string;
+}
+
+export interface CerrarConciliacionInput {
+  id: string;
+  firmanteNombre: string;
+  firmantePuesto: string;
+}
+
+export interface ReabrirConciliacionInput {
+  id: string;
+  motivo: string;
+}
+

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
+import { apiFetch } from '@/lib/auth/api-client';
 import type { DepositoPorIdentificarItem } from '@/features/cxc/api/types';
 import {
   tesoreriaKeys,
@@ -32,6 +33,20 @@ import type {
   ReporteTesoreriaBackend,
   ReppPendienteResponse,
   ReppRecibidoResponse,
+  ConciliacionResumenResponse,
+  ConciliacionDetalleResponse,
+  ExtractoLineaResponse,
+  ResultadoEmparejamientoResponse,
+  ConciliacionesFiltros,
+  CrearConciliacionInput,
+  CargarExtractoInput,
+  EmparejarAutomaticoInput,
+  EmparejarManualInput,
+  DesemparejarLineaInput,
+  AltaAsistidaInput,
+  MarcarPartidaTransitoInput,
+  CerrarConciliacionInput,
+  ReabrirConciliacionInput,
 } from './types';
 
 const BASE = '/api/v1/tesoreria';
@@ -1046,4 +1061,217 @@ export function useCancelarCorrida() {
     path: '/cancelar',
     body: { motivo: a.motivo },
   }));
+}
+
+// ─── Conciliación Bancaria (T9.2) ───────────────────────────────────
+
+export function useConciliaciones(filtros: ConciliacionesFiltros = {}) {
+  const params = new URLSearchParams();
+  if (filtros.cuentaBancariaId) params.append('cuentaBancariaId', filtros.cuentaBancariaId);
+  if (filtros.anio) params.append('anio', filtros.anio.toString());
+  if (filtros.mes) params.append('mes', filtros.mes.toString());
+  if (filtros.estado) params.append('estado', filtros.estado.toString());
+  const qs = params.toString();
+  const url = `${BASE}/conciliaciones${qs ? `?${qs}` : ''}`;
+
+  return useQuery<ConciliacionResumenResponse[]>({
+    queryKey: tesoreriaKeys.conciliacionesList(filtros as Record<string, unknown>),
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<ConciliacionResumenResponse[]>(url, { signal });
+      return data;
+    },
+  });
+}
+
+export function useConciliacionDetalle(id: string, enabled = true) {
+  return useQuery<ConciliacionDetalleResponse>({
+    queryKey: tesoreriaKeys.conciliacion(id),
+    enabled: !!id && enabled,
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<ConciliacionDetalleResponse>(`${BASE}/conciliaciones/${id}`, { signal });
+      return data;
+    },
+  });
+}
+
+export function useCrearConciliacion() {
+  const queryClient = useQueryClient();
+  return useMutation<ConciliacionResumenResponse, unknown, CrearConciliacionInput>({
+    mutationFn: async (input) => {
+      const { data } = await apiRequest<ConciliacionResumenResponse>(`${BASE}/conciliaciones`, {
+        method: 'POST',
+        body: input,
+      });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
+    },
+  });
+}
+
+export function useCargarExtracto() {
+  const queryClient = useQueryClient();
+  return useMutation<ConciliacionResumenResponse, unknown, CargarExtractoInput>({
+    mutationFn: async ({ id, ...body }) => {
+      const { data } = await apiRequest<ConciliacionResumenResponse>(`${BASE}/conciliaciones/${id}/extracto`, {
+        method: 'POST',
+        body,
+      });
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
+    },
+  });
+}
+
+export function useEmparejarAutomatico() {
+  const queryClient = useQueryClient();
+  return useMutation<ResultadoEmparejamientoResponse, unknown, EmparejarAutomaticoInput>({
+    mutationFn: async ({ id, ...body }) => {
+      const { data } = await apiRequest<ResultadoEmparejamientoResponse>(`${BASE}/conciliaciones/${id}/emparejar-automatico`, {
+        method: 'POST',
+        body,
+      });
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
+    },
+  });
+}
+
+export function useEmparejarManual() {
+  const queryClient = useQueryClient();
+  return useMutation<ExtractoLineaResponse, unknown, EmparejarManualInput>({
+    mutationFn: async ({ id, ...body }) => {
+      const { data } = await apiRequest<ExtractoLineaResponse>(`${BASE}/conciliaciones/${id}/emparejar-manual`, {
+        method: 'POST',
+        body,
+      });
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
+    },
+  });
+}
+
+export function useDesemparejarLinea() {
+  const queryClient = useQueryClient();
+  return useMutation<ExtractoLineaResponse, unknown, DesemparejarLineaInput>({
+    mutationFn: async ({ id, ...body }) => {
+      const { data } = await apiRequest<ExtractoLineaResponse>(`${BASE}/conciliaciones/${id}/desemparejar`, {
+        method: 'POST',
+        body,
+      });
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
+    },
+  });
+}
+
+export function useAltaAsistida() {
+  const queryClient = useQueryClient();
+  return useMutation<ExtractoLineaResponse, unknown, AltaAsistidaInput>({
+    mutationFn: async ({ id, ...body }) => {
+      const { data } = await apiRequest<ExtractoLineaResponse>(`${BASE}/conciliaciones/${id}/alta-asistida`, {
+        method: 'POST',
+        body,
+      });
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.movimientos() });
+    },
+  });
+}
+
+export function useMarcarPartidaTransito() {
+  const queryClient = useQueryClient();
+  return useMutation<ExtractoLineaResponse, unknown, MarcarPartidaTransitoInput>({
+    mutationFn: async ({ id, ...body }) => {
+      const { data } = await apiRequest<ExtractoLineaResponse>(`${BASE}/conciliaciones/${id}/partidas-transito`, {
+        method: 'POST',
+        body,
+      });
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
+    },
+  });
+}
+
+export function useCerrarConciliacion() {
+  const queryClient = useQueryClient();
+  return useMutation<Blob, unknown, CerrarConciliacionInput>({
+    mutationFn: async ({ id, firmanteNombre, firmantePuesto }) => {
+      const resp = await apiFetch(`${BASE}/conciliaciones/${id}/cerrar`, {
+        method: 'POST',
+        body: JSON.stringify({ firmanteNombre, firmantePuesto }),
+      });
+      if (!resp.ok) {
+        const errorData = await resp.json().catch(() => ({}));
+        throw new Error(errorData.detail || errorData.title || 'Error al cerrar conciliación');
+      }
+      return await resp.blob();
+    },
+    onSuccess: (blob, variables) => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `acta-conciliacion-${variables.id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    },
+  });
+}
+
+export function useReabrirConciliacion() {
+  const queryClient = useQueryClient();
+  return useMutation<ConciliacionResumenResponse, unknown, ReabrirConciliacionInput>({
+    mutationFn: async ({ id, motivo }) => {
+      const { data } = await apiRequest<ConciliacionResumenResponse>(`${BASE}/conciliaciones/${id}/reabrir`, {
+        method: 'POST',
+        body: { motivo },
+      });
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
+    },
+  });
+}
+
+export async function descargarActaConciliacion(id: string): Promise<void> {
+  const resp = await apiFetch(`${BASE}/conciliaciones/${id}/acta`);
+  if (!resp.ok) {
+    const errorData = await resp.json().catch(() => ({}));
+    throw new Error(errorData.detail || errorData.title || 'Error al descargar acta');
+  }
+  const blob = await resp.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `acta-conciliacion-${id}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }

@@ -167,11 +167,11 @@ import { Route as AppFacturacionReppIdRouteImport } from './routes/_app/facturac
 import { Route as AppFacturacionReppPendientesRouteImport } from './routes/_app/facturacion/repp/pendientes';
 import { Route as AppTesoreriaConciliacionIndexRouteImport } from './routes/_app/tesoreria/conciliacion/index';
 import { Route as AppTesoreriaCorridasIndexRouteImport } from './routes/_app/tesoreria/corridas/index';
+import { Route as AppTesoreriaCorridasIdRouteImport } from './routes/_app/tesoreria/corridas/$id';
+import { Route as AppTesoreriaCorridasNuevaRouteImport } from './routes/_app/tesoreria/corridas/nueva';
 import { Route as AppTesoreriaCuentasIndexRouteImport } from './routes/_app/tesoreria/cuentas/index';
 import { Route as AppTesoreriaDepositosIndexRouteImport } from './routes/_app/tesoreria/depositos/index';
 import { Route as AppTesoreriaDevolucionesIndexRouteImport } from './routes/_app/tesoreria/devoluciones/index';
-import { Route as AppTesoreriaCorridasIdRouteImport } from './routes/_app/tesoreria/corridas/$id';
-import { Route as AppTesoreriaCorridasNuevaRouteImport } from './routes/_app/tesoreria/corridas/nueva';
 import { Route as AppTesoreriaDevolucionesIdRouteImport } from './routes/_app/tesoreria/devoluciones/$id';
 import { Route as AppTesoreriaMovimientosIndexRouteImport } from './routes/_app/tesoreria/movimientos/index';
 import { Route as AppTesoreriaMovimientosIdRouteImport } from './routes/_app/tesoreria/movimientos/$id';
@@ -1071,6 +1071,17 @@ const AppTesoreriaCorridasIndexRoute =
     path: '/tesoreria/corridas/',
     getParentRoute: () => AppRoute,
   } as any);
+const AppTesoreriaCorridasIdRoute = AppTesoreriaCorridasIdRouteImport.update({
+  id: '/tesoreria/corridas/$id',
+  path: '/tesoreria/corridas/$id',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppTesoreriaCorridasNuevaRoute =
+  AppTesoreriaCorridasNuevaRouteImport.update({
+    id: '/tesoreria/corridas/nueva',
+    path: '/tesoreria/corridas/nueva',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppTesoreriaCuentasIndexRoute =
   AppTesoreriaCuentasIndexRouteImport.update({
     id: '/tesoreria/cuentas/',
@@ -1087,17 +1098,6 @@ const AppTesoreriaDevolucionesIndexRoute =
   AppTesoreriaDevolucionesIndexRouteImport.update({
     id: '/tesoreria/devoluciones/',
     path: '/tesoreria/devoluciones/',
-    getParentRoute: () => AppRoute,
-  } as any);
-const AppTesoreriaCorridasIdRoute = AppTesoreriaCorridasIdRouteImport.update({
-  id: '/tesoreria/corridas/$id',
-  path: '/tesoreria/corridas/$id',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppTesoreriaCorridasNuevaRoute =
-  AppTesoreriaCorridasNuevaRouteImport.update({
-    id: '/tesoreria/corridas/nueva',
-    path: '/tesoreria/corridas/nueva',
     getParentRoute: () => AppRoute,
   } as any);
 const AppTesoreriaDevolucionesIdRoute =
@@ -3731,6 +3731,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTesoreriaCorridasIndexRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/tesoreria/corridas/$id': {
+      id: '/_app/tesoreria/corridas/$id';
+      path: '/tesoreria/corridas/$id';
+      fullPath: '/tesoreria/corridas/$id';
+      preLoaderRoute: typeof AppTesoreriaCorridasIdRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/tesoreria/corridas/nueva': {
+      id: '/_app/tesoreria/corridas/nueva';
+      path: '/tesoreria/corridas/nueva';
+      fullPath: '/tesoreria/corridas/nueva';
+      preLoaderRoute: typeof AppTesoreriaCorridasNuevaRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/tesoreria/cuentas/': {
       id: '/_app/tesoreria/cuentas/';
       path: '/tesoreria/cuentas';
@@ -3750,20 +3764,6 @@ declare module '@tanstack/react-router' {
       path: '/tesoreria/devoluciones';
       fullPath: '/tesoreria/devoluciones/';
       preLoaderRoute: typeof AppTesoreriaDevolucionesIndexRouteImport;
-      parentRoute: typeof AppRoute;
-    };
-    '/_app/tesoreria/corridas/$id': {
-      id: '/_app/tesoreria/corridas/$id';
-      path: '/tesoreria/corridas/$id';
-      fullPath: '/tesoreria/corridas/$id';
-      preLoaderRoute: typeof AppTesoreriaCorridasIdRouteImport;
-      parentRoute: typeof AppRoute;
-    };
-    '/_app/tesoreria/corridas/nueva': {
-      id: '/_app/tesoreria/corridas/nueva';
-      path: '/tesoreria/corridas/nueva';
-      fullPath: '/tesoreria/corridas/nueva';
-      preLoaderRoute: typeof AppTesoreriaCorridasNuevaRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/tesoreria/devoluciones/$id': {
