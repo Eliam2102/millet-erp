@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Millet.Api.Seed;
 using Millet.Catalogos.Domain;
 using Millet.SharedKernel.Application;
 
@@ -61,5 +62,22 @@ public sealed class TipoCambioGastoHttpTests
         var g2 = (await conNota.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("gastos").EnumerateArray().Single(g => g.GetProperty("factura").GetString() == "TC-2");
         Assert.Equal(18300.00m, g2.GetProperty("importeMxn").GetDecimal()); Assert.Equal(18.4253m, g2.GetProperty("tipoCambioSugerido").GetDecimal());
         Assert.Equal(-0.68m, g2.GetProperty("diferenciaTipoCambioPct").GetDecimal()); Assert.NotEqual(Guid.Empty, g2.GetProperty("tipoCambioModificadoPor").GetGuid());
+        // CA3: factura de CxP con TC 18.35; «CFDI» sin capturar el valor toma el de la factura.
+        Guid facturaId;
+        using (var scope = e.Scope())
+        {
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var cxp = scope.ServiceProvider.GetRequiredService<Millet.CuentasPorPagar.Infrastructure.Persistence.CuentasPorPagarDbContext>();
+            var fecha = new DateTimeOffset(2026, 10, 21, 12, 0, 0, TimeSpan.Zero);
+            var factura = Millet.CuentasPorPagar.Domain.FacturaProveedor.FacturaProveedor.CapturarSinOc(DemoSesionSeedHostedService.EmpresaId, null, null,
+                proveedor, e.SucursalId, "TC-CFDI", null, fecha, fecha, new DateOnly(2026, 11, 21), "USD", 18.35m, 1000, 0, 0, 0, 1000, "K10.6-CE prueba", fecha);
+            cxp.Set<Millet.CuentasPorPagar.Domain.FacturaProveedor.FacturaProveedor>().Add(factura);
+            await cxp.SaveChangesAsync(); facturaId = factura.Id;
+        }
+        var cfdi = await Post(client, id, "gastos", Gasto("TC-CFDI", new { fuenteTipoCambio = "CFDI", notaTipoCambio = "TC del CFDI de la factura", facturaProveedorId = facturaId }), conNota.Headers.ETag!.Tag);
+        cfdi.EnsureSuccessStatusCode();
+        var g3 = (await cfdi.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("gastos").EnumerateArray().Single(g => g.GetProperty("factura").GetString() == "TC-CFDI");
+        Assert.Equal(18350.00m, g3.GetProperty("importeMxn").GetDecimal()); Assert.Equal("CFDI", g3.GetProperty("fuenteTipoCambio").GetString());
+        Assert.Equal(18.35m, g3.GetProperty("tipoCambio").GetDecimal());
     }
 }
