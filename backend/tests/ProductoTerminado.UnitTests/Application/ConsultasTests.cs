@@ -54,7 +54,8 @@ public sealed class ConsultasTests
         await Escanear(t, 8);
         var r = await Piezas(t, Acceso([Ver], EntornoPt.Sucursal), "P1");
         var av = r.Avance.Single();
-        (av.Terminadas, av.Esperadas, av.Faltantes, av.AvanceFisico).Should().Be((8, 10, 2, "Parcial"));
+        (av.Terminadas, av.Esperadas, av.Pendientes, av.AvanceFisico).Should().Be((8, 10, 2, "Parcial"));
+        (av.EnPt, av.Cargadas, av.Entregadas).Should().Be((8, 0, 0));
         r.Total.Should().Be(8);
     }
 

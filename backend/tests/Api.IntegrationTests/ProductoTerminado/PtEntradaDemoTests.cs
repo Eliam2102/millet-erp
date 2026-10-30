@@ -376,7 +376,7 @@ public class PtEntradaDemoTests(WebApplicationFactory<Program> factory, ITestOut
         var avance = Assert.Single(json.GetProperty("avance").EnumerateArray());
         Assert.Equal(10, avance.GetProperty("esperadas").GetInt32());
         Assert.Equal(8, avance.GetProperty("terminadas").GetInt32());
-        Assert.Equal(2, avance.GetProperty("faltantes").GetInt32());
+        Assert.Equal(2, avance.GetProperty("pendientes").GetInt32());
         Assert.Equal("Parcial", avance.GetProperty("avanceFisico").GetString());
     }
 
@@ -394,15 +394,16 @@ public class PtEntradaDemoTests(WebApplicationFactory<Program> factory, ITestOut
         await Ciclo(f); // el traslape vuelve a leer los mismos renglones
         Assert.Equal(8, await Escaneos(n));
         using var http = await _d.ClienteAsync([PermisosCanonicos.ProductoTerminadoPiezasVer, PermisosCanonicos.ProductoTerminadoPiezasVerTodasSucursales]);
-        async Task<(int Terminadas, int Faltantes, string[] Campos)> Avance()
+        async Task<(int Esperadas, int Terminadas, int Faltantes, int EnPt, int Cargadas, int Entregadas, string[] Campos)> Avance()
         {
             var json = await http.GetFromJsonAsync<JsonElement>($"/api/v1/producto-terminado/piezas?pedido={n}&pageSize=200");
             var a = Assert.Single(json.GetProperty("avance").EnumerateArray());
             var campos = a.EnumerateObject().Concat(json.GetProperty("items").EnumerateArray().SelectMany(i => i.EnumerateObject())).Select(c => c.Name).Distinct().ToArray();
-            return (a.GetProperty("terminadas").GetInt32(), a.GetProperty("faltantes").GetInt32(), campos);
+            return (a.GetProperty("esperadas").GetInt32(), a.GetProperty("terminadas").GetInt32(), a.GetProperty("pendientes").GetInt32(), a.GetProperty("enPt").GetInt32(), a.GetProperty("cargadas").GetInt32(), a.GetProperty("entregadas").GetInt32(), campos);
         }
         var ocho = await Avance();
         Assert.Equal((8, 2), (ocho.Terminadas, ocho.Faltantes));
+        Assert.Equal((10, 8, 0, 0), (ocho.Esperadas, ocho.EnPt, ocho.Cargadas, ocho.Entregadas)); // PT5.2: cargadas y entregadas sin fuente aún
         Assert.DoesNotContain(ocho.Campos, c => c.Contains("estatus", StringComparison.OrdinalIgnoreCase) || c.Contains("status", StringComparison.OrdinalIgnoreCase));
 
         await Escaneo(n, Etq(n, 3), 3, Ahora(500), clave: null); // pieza 3 rota y repuesta
