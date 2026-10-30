@@ -1182,11 +1182,38 @@ const activosFijos: NavModulo = {
   ],
 };
 
+const moduloProductoTerminado: NavModulo = {
+  moduloId: 'producto-terminado',
+  label: 'Producto terminado',
+  icon: Boxes,
+  secciones: [
+    {
+      label: 'Operación',
+      cards: [
+        {
+          label: 'Piezas en producto terminado',
+          description: 'Piezas ingresadas por pedido y sucursal.',
+          to: '/producto-terminado/piezas',
+          icon: Boxes,
+          permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
+        },
+        {
+          label: 'Escaneos con excepción',
+          description: 'Reintentar o descartar escaneos con motivo.',
+          to: '/producto-terminado/excepciones',
+          icon: AlertTriangle,
+          permission: PermisosCanonicos.ProductoTerminadoExcepcionesGestionar,
+        },
+      ],
+    },
+  ],
+};
 const modulos: readonly NavModulo[] = [
   moduloFacturacion,
   moduloCuentasPorCobrar,
   moduloCompras,
   moduloAlmacen,
+  moduloProductoTerminado,
   moduloCuentasPorPagar,
   moduloTesoreria,
   moduloCentrosCosto,

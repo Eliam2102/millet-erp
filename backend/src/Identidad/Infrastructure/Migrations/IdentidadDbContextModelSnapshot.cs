@@ -5350,6 +5350,62 @@ namespace Millet.Identidad.Infrastructure.Migrations
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000010-0001-0000-0000-000000000001"),
+                            Accion = "ver",
+                            Codigo = "producto_terminado.piezas.ver",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Producto terminado: piezas.ver",
+                            Modulo = "producto_terminado",
+                            Recurso = "piezas",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000010-0001-0000-0000-000000000002"),
+                            Accion = "ver-todas-sucursales",
+                            Codigo = "producto_terminado.piezas.ver-todas-sucursales",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Producto terminado: piezas.ver-todas-sucursales",
+                            Modulo = "producto_terminado",
+                            Recurso = "piezas",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000010-0001-0000-0000-000000000003"),
+                            Accion = "gestionar",
+                            Codigo = "producto_terminado.excepciones.gestionar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Producto terminado: excepciones.gestionar",
+                            Modulo = "producto_terminado",
+                            Recurso = "excepciones",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000010-0001-0000-0000-000000000004"),
+                            Accion = "gestionar-todas-sucursales",
+                            Codigo = "producto_terminado.excepciones.gestionar-todas-sucursales",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Producto terminado: excepciones.gestionar-todas-sucursales",
+                            Modulo = "producto_terminado",
+                            Recurso = "excepciones",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
                         });
                 });
 

@@ -8,6 +8,11 @@
  * Uso: <c>useHasPermission(PermisosCanonicos.IdentidadUsuariosCrear)</c>.
  */
 export const PermisosCanonicos = {
+  ProductoTerminadoPiezasVer: 'producto_terminado.piezas.ver',
+  ProductoTerminadoPiezasVerTodasSucursales: 'producto_terminado.piezas.ver-todas-sucursales',
+  ProductoTerminadoExcepcionesGestionar: 'producto_terminado.excepciones.gestionar',
+  ProductoTerminadoExcepcionesGestionarTodasSucursales: 'producto_terminado.excepciones.gestionar-todas-sucursales',
+
   DatosMaestrosClientesCargar: 'datos_maestros.clientes.cargar',
   DatosMaestrosArticulosCargar: 'datos_maestros.articulos.cargar',
   DatosMaestrosProveedoresCargar: 'datos_maestros.proveedores.cargar',

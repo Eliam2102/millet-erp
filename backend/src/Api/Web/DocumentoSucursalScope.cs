@@ -4,7 +4,7 @@ using Millet.SharedKernel.Application.Exceptions;
 namespace Millet.Api.Web;
 public sealed class DocumentoSucursalScope(ICurrentUserContext user, ICurrentUserPermissions permisos,
     IUsuarioSucursalReadPort sucursales, IFacturacionSucursalReadPort facturacion,
-    ICxpSucursalReadPort cxp, ICxcSucursalReadPort cxc, ITesoreriaSucursalReadPort tesoreria, IComprasSucursalReadPort compras, IAlmacenSucursalReadPort almacen, IComercioExteriorSucursalReadPort comercioExterior)
+    ICxpSucursalReadPort cxp, ICxcSucursalReadPort cxc, ITesoreriaSucursalReadPort tesoreria, IComprasSucursalReadPort compras, IAlmacenSucursalReadPort almacen, IComercioExteriorSucursalReadPort comercioExterior, Millet.ProductoTerminado.Application.IProductoTerminadoSucursalReadPort productoTerminado)
 {
     public Task VerificarSucursalAsync(Guid? sucursalId, string permisoTodas, CancellationToken ct)
         => SucursalScopeGuard.VerificarAsync(user.UserId, permisoTodas, permisos,
@@ -17,6 +17,7 @@ public sealed class DocumentoSucursalScope(ICurrentUserContext user, ICurrentUse
         "comprobante" or "sesion_caja" => facturacion,
         "cliente_cartera" or "factura_cartera" or "propuesta_cxc" or "seguimiento_cobranza" or "alerta_cartera" => cxc,
         "expediente_ce" or "envio_otr" => comercioExterior,
+        "pieza_pt" or "escaneo_pt" => productoTerminado,
         _ => tesoreria,
     };
     public static bool Permitido(DocumentoSucursales documento, IReadOnlyList<Guid> permitidas)

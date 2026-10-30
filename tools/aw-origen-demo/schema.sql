@@ -212,3 +212,17 @@ CREATE TABLE IF NOT EXISTS dbo.erp_otr_estado (
     aw_motivo varchar(500),
     UNIQUE (otr_envio_id,tipo,version_erp,intento)
 );
+
+-- PT-01: copia local de las columnas leídas de alcimdb; no es una tabla puente.
+CREATE TABLE IF NOT EXISTS aw_origen.awbar_bearbeit (
+    etikettnr varchar(100) NOT NULL,
+    auftnr varchar(100) NOT NULL,
+    pos integer,
+    teile_nr integer,
+    bearb_zeit timestamp without time zone NOT NULL,
+    esnr_ist integer NOT NULL,
+    fertig integer NOT NULL DEFAULT 1,
+    PRIMARY KEY (etikettnr, esnr_ist, bearb_zeit)
+);
+CREATE INDEX IF NOT EXISTS ix_awbar_pt_finished
+    ON aw_origen.awbar_bearbeit (bearb_zeit, etikettnr COLLATE "C", esnr_ist) WHERE fertig = 1;

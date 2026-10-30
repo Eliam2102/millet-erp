@@ -1,3 +1,9 @@
+using Millet.ProductoTerminado.Application;
+using Millet.ProductoTerminado.Application.Ports;
+using Millet.ProductoTerminado.Infrastructure;
+using Millet.ProductoTerminado.Infrastructure.Persistence;
+using Millet.ProductoTerminado.Infrastructure.PublicAdapters;
+using Millet.Integraciones.Aw.Infrastructure.PiezasPt;
 using Millet.ActivosFijos.Infrastructure;
 using Millet.ActivosFijos.Infrastructure.Persistence;
 using Millet.ComercioExterior.Application;
@@ -735,6 +741,7 @@ builder.Services.AddMilletApplication(
     TesoreriaAssemblyMarker.Assembly,
     CentrosCostoAssemblyMarker.Assembly,
     typeof(CrearExpedienteCommand).Assembly,
+    typeof(RegistrarEscaneoPieza).Assembly,
     typeof(Millet.ActivosFijos.Application.CrearActivoCommand).Assembly,
     ContabilidadAssemblyMarker.Assembly);
 
@@ -962,6 +969,15 @@ builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.IUsuariosReadPort, Mi
 builder.Services.AddCentrosCostoModule();
 builder.Services.AddComprasReadPorts();
 builder.Services.AddComercioExteriorModule();
+builder.Services.AddScoped<PtScanHandler>();
+builder.Services.AddScoped<IPedidosPtReadPort, Millet.Facturacion.Infrastructure.PublicAdapters.PedidosPtReadAdapter>();
+builder.Services.AddScoped<IProductoTerminadoSucursalReadPort, ProductoTerminadoSucursalReadAdapter>();
+builder.Services.AddAwPiezasPt(builder.Configuration, builder.Environment);
+// PLATFORM-TODO(<ProductoTerminadoTopic>): crear producto-terminado-events en Service Bus; entrega local C1.8 durante desarrollo.
+builder.Services.AddOptions<OutboxPublisherOptions>(nameof(ProductoTerminadoDbContext))
+    .Configure(o => o.ServiceBusTopicName = "producto-terminado-events")
+    .Bind(builder.Configuration.GetSection("ProductoTerminado:Outbox"));
+builder.Services.AddHostedService<OutboxPublisherWorker<ProductoTerminadoDbContext>>();
 builder.Services.AddScoped<Millet.CuentasPorPagar.Application.PublicPorts.IFacturaGastoReadPort, Millet.CuentasPorPagar.Infrastructure.PublicAdapters.FacturaGastoReadAdapter>();
 builder.Services.AddOptions<Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorkerOptions>()
     .Bind(builder.Configuration.GetSection(Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorkerOptions.SectionName))
@@ -1418,6 +1434,12 @@ builder.Services.AddDbContext<CentrosCostoDbContext>((sp, opts) =>
 builder.Services.AddDbContext<ContabilidadDbContext>((sp, opts) =>
     ConfigureMilletDbContext(opts, sp));
 
+builder.Services.AddDbContext<ProductoTerminadoDbContext>((sp, opts) =>
+{
+    ConfigureMilletDbContext(opts, sp);
+    opts.AddInterceptors(sp.GetRequiredService<OutboxSaveChangesInterceptor>());
+});
+
 builder.Services.AddDbContext<ComercioExteriorDbContext>((sp, opts) =>
 {
     ConfigureMilletDbContext(opts, sp);
@@ -1458,6 +1480,7 @@ builder.Services.AddSingleton(new MigrationsHealthCheckOptions
         typeof(CentrosCostoDbContext),
         typeof(ContabilidadDbContext),
         typeof(ComercioExteriorDbContext),
+        typeof(ProductoTerminadoDbContext),
         typeof(ActivosFijosDbContext),
     },
 });
@@ -1820,6 +1843,7 @@ Millet.Api.Endpoints.Inicio.ResumenesInicioEndpoints.MapResumenesInicioEndpoints
 Millet.Api.Endpoints.ComercioExterior.ExpedientesEndpoints.MapExpedientesCe(app);
 Millet.Api.Endpoints.ActivosFijos.ActivosEndpoints.MapActivosFijos(app);
 Millet.Api.Endpoints.ComercioExterior.OtrEndpoints.MapOtrCe(app);
+Millet.Api.Endpoints.ProductoTerminado.ProductoTerminadoEndpoints.MapProductoTerminado(app);
 
 Millet.Api.Endpoints.Tesoreria.CuentasEndpoints.MapTesoreriaCuentasEndpoints(app);
 Millet.Api.Endpoints.Tesoreria.ConceptosEndpoints.MapTesoreriaConceptosEndpoints(app);

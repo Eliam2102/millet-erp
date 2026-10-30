@@ -212,8 +212,11 @@ jobs:
           PG_CONN: ${{ steps.get-pg-conn.outputs.pg_conn }}
         run: |
           set -e
-          for ctx in CompartidoDbContext CoreDbContext IdentidadDbContext ComprasDbContext IntegracionesAwDbContext IntegracionesFiscalDbContext AlmacenDbContext CuentasPorPagarDbContext FacturacionDbContext CuentasPorCobrarDbContext TesoreriaDbContext CentrosCostoDbContext ContabilidadDbContext ComercioExteriorDbContext ActivosFijosDbContext; do
+          for ctx in CompartidoDbContext CoreDbContext IdentidadDbContext ComprasDbContext IntegracionesAwDbContext IntegracionesFiscalDbContext AlmacenDbContext CuentasPorPagarDbContext FacturacionDbContext CuentasPorCobrarDbContext TesoreriaDbContext CentrosCostoDbContext ContabilidadDbContext ComercioExteriorDbContext ActivosFijosDbContext ProductoTerminadoDbContext; do
             case "$ctx" in
+              ProductoTerminadoDbContext)
+                proj="src/ProductoTerminado/Millet.ProductoTerminado.csproj"
+                ;;
               CompartidoDbContext)
                 proj="src/Compartido/Millet.Compartido.csproj"
                 ;;

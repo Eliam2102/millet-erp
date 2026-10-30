@@ -28,6 +28,7 @@
       real, no recrear"). No es circular — Compartido nunca referencia
       Facturación.
     -->
+    <ProjectReference Include="../ProductoTerminado/Millet.ProductoTerminado.csproj" />
     <ProjectReference Include="../ComercioExterior/Millet.ComercioExterior.csproj" />
     <ProjectReference Include="../Documentos/Millet.Documentos.csproj" />
     <ProjectReference Include="..\Contabilidad\Millet.Contabilidad.csproj" />

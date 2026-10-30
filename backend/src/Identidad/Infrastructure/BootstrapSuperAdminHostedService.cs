@@ -268,6 +268,9 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
         };
 
         rolesDefinicion = [.. rolesDefinicion,
+            (Guid.Parse("00000010-0011-0000-0000-000000000001"), "almacen-pt", "Almacén PT",
+                "Consulta piezas y resuelve excepciones de producto terminado dentro de sus sucursales.",
+                p => p.Codigo is PermisosCanonicos.ProductoTerminadoPiezasVer or PermisosCanonicos.ProductoTerminadoExcepcionesGestionar),
             (Guid.Parse("0000000d-0001-0001-0000-000000000001"), "direccion-administracion-finanzas",
                 "Dirección de Administración y Finanzas", "Autoriza solicitudes del catálogo contable (R27/D14).",
                 p => p.Codigo is PermisosCanonicos.ContabilidadCatalogoLeer or PermisosCanonicos.ContabilidadCatalogoAutorizar),

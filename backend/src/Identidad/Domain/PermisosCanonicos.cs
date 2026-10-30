@@ -14,6 +14,11 @@ namespace Millet.Identidad.Domain;
 /// </summary>
 public static class PermisosCanonicos
 {
+    public const string ProductoTerminadoPiezasVer = "producto_terminado.piezas.ver";
+    public const string ProductoTerminadoPiezasVerTodasSucursales = "producto_terminado.piezas.ver-todas-sucursales";
+    public const string ProductoTerminadoExcepcionesGestionar = "producto_terminado.excepciones.gestionar";
+    public const string ProductoTerminadoExcepcionesGestionarTodasSucursales = "producto_terminado.excepciones.gestionar-todas-sucursales";
+
     // ----- Infraestructura (transversal) -----
     public const string DatosMaestrosClientesCargar = "datos_maestros.clientes.cargar";
     public const string DatosMaestrosArticulosCargar = "datos_maestros.articulos.cargar";
@@ -1016,5 +1021,9 @@ public static class PermisosCanonicos
         (Guid.Parse("00000004-0090-0000-0000-000000000003"), DatosMaestrosProveedoresCargar, "Cargar desde Excel o CSV: proveedores"),
         (Guid.Parse("00000004-0090-0000-0000-000000000004"), DatosMaestrosProductosAwFiscalCargar, "Cargar desde Excel o CSV: productos-aw-fiscal"),
         (Guid.Parse("00000004-0090-0000-0000-000000000005"), CentrosCostoCatalogoCargar, "Cargar desde Excel o CSV: catalogo"),
+        (Guid.Parse("00000010-0001-0000-0000-000000000001"), ProductoTerminadoPiezasVer, "Producto terminado: piezas.ver"),
+        (Guid.Parse("00000010-0001-0000-0000-000000000002"), ProductoTerminadoPiezasVerTodasSucursales, "Producto terminado: piezas.ver-todas-sucursales"),
+        (Guid.Parse("00000010-0001-0000-0000-000000000003"), ProductoTerminadoExcepcionesGestionar, "Producto terminado: excepciones.gestionar"),
+        (Guid.Parse("00000010-0001-0000-0000-000000000004"), ProductoTerminadoExcepcionesGestionarTodasSucursales, "Producto terminado: excepciones.gestionar-todas-sucursales"),
     };
 }
