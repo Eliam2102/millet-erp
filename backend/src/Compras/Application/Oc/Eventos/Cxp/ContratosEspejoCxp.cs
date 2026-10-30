@@ -56,3 +56,14 @@ public sealed record FacturaPagoAplicadoPayload(
     Guid OrdenCompraId,
     decimal ImportePagadoFactura,
     decimal MontoPagadoAcumuladoOc, Guid? AplicacionId = null);
+
+/// <summary>
+/// Espejo de <c>cuentas_por_pagar.factura.cancelada.v1</c>. Solo interesa el acumulado facturado vigente por línea
+/// de OC (sin la factura cancelada, ceros incluidos); mensajes viejos sin <c>LineasAcumuladasOc</c> no tienen efecto.
+/// </summary>
+public sealed record FacturaProveedorCanceladaPayload(
+    Guid EmpresaId,
+    DateTimeOffset OcurridoEn,
+    Guid FacturaProveedorId,
+    Guid? OrdenCompraId,
+    IReadOnlyList<LineaOcAcumuladaPayload>? LineasAcumuladasOc = null);

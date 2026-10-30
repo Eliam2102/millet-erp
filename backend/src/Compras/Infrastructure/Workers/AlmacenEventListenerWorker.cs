@@ -216,6 +216,15 @@ public sealed class AlmacenEventListenerWorker : BackgroundService, ILocalIntegr
                     break;
                 }
 
+                // Devolución conciliada con NC fiscal 03: fija CantidadAcreditada por línea (lo acreditado ya no se espera).
+                case OcDevolucionConciliadaEnAlmacenHandler.EventType:
+                {
+                    var payload = JsonSerializer.Deserialize<OcDevolucionConciliadaAlmacenPayload>(body, JsonOpts)
+                        ?? throw new JsonException("Payload null.");
+                    await mediator.Send(new OcDevolucionConciliadaEnAlmacenCommand(eventId, payload), cancellationToken);
+                    break;
+                }
+
                 // Anulación de una recepción de activos fijos: baja CantidadRecibida de la línea al acumulado de Almacén.
                 case OcRecepcionActivoAnuladaEnAlmacenHandler.EventType:
                 {

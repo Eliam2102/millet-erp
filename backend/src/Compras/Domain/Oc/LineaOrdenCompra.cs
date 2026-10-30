@@ -109,6 +109,19 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
     /// <summary>Acumulado de facturas registradas. Default 0. Máx <see cref="Cantidad"/>.</summary>
     public decimal CantidadFacturada { get; private set; }
 
+    /// <summary>
+    /// Acumulado devuelto al proveedor y acreditado con NC fiscal 03 (Almacén, <c>oc_devolucion.conciliada</c>).
+    /// Lo acreditado ya no se espera: el objetivo de la línea es <see cref="Cantidad"/> − acreditada y lo
+    /// facturado neto es <see cref="CantidadFacturada"/> (bruto, lo escribe solo CxP) − acreditada.
+    /// </summary>
+    public decimal CantidadAcreditada { get; private set; }
+
+    /// <summary>Cantidad que todavía se espera recibir y facturar (pedido menos lo acreditado).</summary>
+    public decimal CantidadObjetivo => Math.Max(0m, Cantidad - CantidadAcreditada);
+
+    /// <summary>Facturado neto de notas de crédito por devolución.</summary>
+    public decimal CantidadFacturadaNeta => Math.Max(0m, CantidadFacturada - CantidadAcreditada);
+
     public string? TextoAdicional { get; private set; }
 
     /// <summary>
@@ -552,8 +565,9 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
                 "LINEA_OC_CANTIDAD_FACTURADA_NEGATIVA",
                 "La cantidad facturada acumulada no puede ser negativa.");
         }
-        // three-way match: se factura hasta lo pedido o lo recibido (un recibido histórico puede exceder lo pedido)
-        var techo = Math.Max(Cantidad, CantidadRecibida);
+        // three-way match: se factura hasta lo pedido o lo recibido (un recibido histórico puede exceder lo pedido);
+        // lo acreditado por devolución no cuenta, así una reposición facturada cabe en el bruto.
+        var techo = Math.Max(Cantidad, CantidadRecibida) + CantidadAcreditada;
         if (cantidadAcumulada > techo)
         {
             throw new BusinessRuleException(
@@ -561,5 +575,25 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
                 $"La cantidad facturada acumulada ({cantidadAcumulada}) excede lo pedido o recibido en la línea ({techo}).");
         }
         CantidadFacturada = cantidadAcumulada;
+    }
+
+    /// <summary>
+    /// Asigna (no incrementa) el acumulado acreditado por devoluciones conciliadas con NC fiscal 03.
+    /// </summary>
+    internal void SetCantidadAcreditada(decimal cantidadAcumulada)
+    {
+        if (cantidadAcumulada < 0m)
+        {
+            throw new BusinessRuleException(
+                "LINEA_OC_CANTIDAD_ACREDITADA_NEGATIVA",
+                "La cantidad acreditada acumulada no puede ser negativa.");
+        }
+        if (cantidadAcumulada > Math.Max(Cantidad, CantidadFacturada))
+        {
+            throw new BusinessRuleException(
+                "LINEA_OC_CANTIDAD_ACREDITADA_EXCEDE",
+                $"La cantidad acreditada acumulada ({cantidadAcumulada}) excede lo pedido o facturado en la línea.");
+        }
+        CantidadAcreditada = cantidadAcumulada;
     }
 }

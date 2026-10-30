@@ -1652,6 +1652,21 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
     }
 
     /// <summary>
+    /// Registra el acumulado acreditado por devoluciones conciliadas con NC fiscal 03 para una línea.
+    /// Lo acreditado deja de esperarse (decisión del owner, 30-oct): la OC puede cerrarse sin reposición.
+    /// </summary>
+    public RecalcularSubEstadosResultado RegistrarAcreditacionLinea(
+        Guid lineaId,
+        decimal cantidadAcumulada,
+        DateTimeOffset ocurridoEn)
+    {
+        ValidarEstadoParaRegistrarMovimiento();
+        var linea = BuscarLineaOLanzar(lineaId);
+        linea.SetCantidadAcreditada(cantidadAcumulada);
+        return RecalcularSubEstadosYAjustarEstado(ocurridoEn);
+    }
+
+    /// <summary>
     /// Registra (set) el monto pagado acumulado a nivel cabecera. Los
     /// pagos viven en Tesorería y se aplican a facturas; el agregado
     /// solo mantiene el denormalizado para derivar el sub-estado de pago
@@ -1690,9 +1705,11 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             return;
         }
 
-        var cantidadTotal = _lineas.Sum(l => l.Cantidad);
+        // Objetivo = pedido − acreditado por devolución (lo acreditado ya no se espera); facturado neto de esas NC.
+        var cantidadTotal = _lineas.Sum(l => l.CantidadObjetivo);
         // igual que Recepción: el excedente facturado de una línea no completa a otra
-        var facturadoTotal = _lineas.Sum(l => Math.Min(l.CantidadFacturada, l.Cantidad));
+        var facturadoTotal = _lineas.Sum(l => Math.Min(l.CantidadFacturadaNeta, l.CantidadObjetivo));
+        var acreditadoTotal = _lineas.Sum(l => l.CantidadAcreditada);
 
         // GAP-9: los servicios no se reciben en Almacén — el sub-estado de
         // Recepción se calcula SOLO sobre las líneas físicas (!EsServicio).
@@ -1701,12 +1718,15 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         // cancelación sin recepciones depende de SinRecepcion). Facturación
         // y Pago siguen calculándose sobre todas las líneas.
         var lineasFisicas = _lineas.Where(l => !l.EsServicio).ToList();
-        var cantidadFisicaTotal = lineasFisicas.Sum(l => l.Cantidad);
+        var cantidadFisicaTotal = lineasFisicas.Sum(l => l.CantidadObjetivo);
+        var acreditadoFisico = lineasFisicas.Sum(l => l.CantidadAcreditada);
         // defensivo: el excedente de una línea (histórico, de cuando había tolerancia) no completa a otra
-        var recibidoTotal = lineasFisicas.Sum(l => Math.Min(l.CantidadRecibida, l.Cantidad));
+        var recibidoTotal = lineasFisicas.Sum(l => Math.Min(l.CantidadRecibida, l.CantidadObjetivo));
 
+        // Devolución total acreditada: no queda nada por esperar, la línea se da por completa.
         SubEstadoRecepcion = recibidoTotal switch
         {
+            _ when cantidadFisicaTotal == 0m && acreditadoFisico > 0m => SubEstadoRecepcion.Completa,
             0m => SubEstadoRecepcion.SinRecepcion,
             var r when r >= cantidadFisicaTotal => SubEstadoRecepcion.Completa,
             _ => SubEstadoRecepcion.Parcial,
@@ -1714,6 +1734,7 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
 
         SubEstadoFacturacion = facturadoTotal switch
         {
+            _ when cantidadTotal == 0m && acreditadoTotal > 0m => SubEstadoFacturacion.Completa,
             0m => SubEstadoFacturacion.SinFactura,
             var f when f >= cantidadTotal => SubEstadoFacturacion.Completa,
             _ => SubEstadoFacturacion.Parcial,
