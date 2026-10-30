@@ -1,4 +1,5 @@
 using FluentValidation;
+using Millet.Compras.Domain.Oc;
 
 namespace Millet.Compras.Application.Oc.Lineas.ActualizarLinea;
 
@@ -44,6 +45,10 @@ public sealed class ActualizarLineaOcValidator : AbstractValidator<ActualizarLin
             .WithErrorCode("FRACCION_ARANCELARIA_INVALIDA")
             .WithMessage("La fracción arancelaria debe tener 8 o 10 dígitos.")
             .When(c => c.FraccionArancelaria is not null);
+
+        RuleFor(c => c.LoteProveedor)
+            .MaximumLength(LineaOrdenCompra.LoteProveedorMaxLength).WithErrorCode("LINEA_OC_LOTE_LARGO")
+            .When(c => c.LoteProveedor is not null);
 
         RuleFor(c => c.ClaseActivoId)
             .NotEqual(Guid.Empty).WithErrorCode("CLASE_ACTIVO_INVALIDA")

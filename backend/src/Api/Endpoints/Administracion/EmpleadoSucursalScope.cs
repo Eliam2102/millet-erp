@@ -73,6 +73,18 @@ internal static class EmpleadoSucursalScope
             ct);
     }
 
+    /// <summary>
+    /// Perfil corporativo: bypass de sucursal de empleados o usuario
+    /// corporativo (86e3x6cpw: cuentas que aún no tienen sucursal).
+    /// </summary>
+    public static async Task<bool> EsCorporativoAsync(
+        ICurrentUserContext currentUser,
+        ICurrentUserPermissions permisos,
+        IUsuarioSucursalReadPort usuarioSucursales,
+        CancellationToken ct) =>
+        await TieneBypassAsync(permisos, ct)
+        || (currentUser.UserId is Guid uid && await usuarioSucursales.EsCorporativoAsync(uid, ct));
+
     private static async Task<bool> TieneBypassAsync(ICurrentUserPermissions permisos, CancellationToken ct) =>
         await permisos.TieneAsync(PermisosCanonicos.AdminEmpleadosGestionarTodasSucursales, ct);
 }

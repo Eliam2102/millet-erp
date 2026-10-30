@@ -252,6 +252,8 @@ function buildListarProductosAwPath(
   if (filtros.fiscalesIncompletos != null)
     params.set('fiscalesIncompletos', String(filtros.fiscalesIncompletos));
   if (filtros.tipo) params.set('tipo', filtros.tipo);
+  if (filtros.esServicioRecubrimiento != null)
+    params.set('esServicioRecubrimiento', String(filtros.esServicioRecubrimiento));
   if (filtros.offset != null) params.set('offset', String(filtros.offset));
   if (filtros.limit != null) params.set('limit', String(filtros.limit));
   const query = params.toString();

@@ -67,7 +67,7 @@ function pedido(estado: string) {
     clienteNombre: 'Cliente Demo SA',
     // FAC-ING-PR3: id + nombre del catálogo compartido.canales_venta.
     canalVentaId: 1,
-    canalVenta: 'Tienda Cancún',
+    canalVenta: 'Sucursal Cancún',
     comportamientoFiscal: 'MostradorInmediato',
     // F6.1: pedido manual clasificado como venta directa.
     claseManual: 'VentaDirecta' as string | null,
@@ -185,6 +185,21 @@ describe('<DetallePedido> — smoke', () => {
     expect(screen.getAllByText('Vigente').length).toBeGreaterThanOrEqual(2);
   });
 
+  it('86e3wzcn4: un pedido existente con «Traslado (Carta Porte)» se consulta igual', async () => {
+    setPermisos(['facturacion.facturas.leer']);
+    mswServer.use(
+      http.get('*/api/v1/facturacion/pedidos-facturables/p-1', () =>
+        HttpResponse.json({ ...pedido('Facturado'), comportamientoFiscal: 'TrasladoConCartaPorte' }),
+      ),
+      http.get('*/api/v1/facturacion/pedidos-facturables/p-1/comprobantes', () =>
+        HttpResponse.json([]),
+      ),
+    );
+    render(<DetallePedido />, { wrapper: createQueryWrapper() });
+    expect(await screen.findByText('Traslado (Carta Porte)')).toBeInTheDocument();
+    expect(screen.getByText('Cliente Demo SA')).toBeInTheDocument();
+  });
+
   it('86e3tfd6n: muestra los anticipos cobrados antes de que llegara el pedido', async () => {
     setPermisos(['facturacion.facturas.leer']);
     mswServer.use(
@@ -285,7 +300,7 @@ describe('<DetallePedido> — smoke', () => {
     // FAC-ING-PR3: viaja el id del catálogo + el nombre para conservar
     // la opción si el canal fue desactivado.
     expect(arg.canalVenta).toBe(1);
-    expect(arg.canalVentaNombre).toBe('Tienda Cancún');
+    expect(arg.canalVentaNombre).toBe('Sucursal Cancún');
     expect(arg.lineas[0].descripcion).toBe('Vidrio templado 6mm');
     expect(arg.lineas[0].valorUnitario).toBe(100);
     // FAC-UX-PR3: datos fiscales del master viajan en el prefill.

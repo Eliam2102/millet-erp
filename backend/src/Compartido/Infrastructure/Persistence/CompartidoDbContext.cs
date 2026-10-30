@@ -1196,10 +1196,12 @@ public sealed class CompartidoDbContext : BaseDbContext
             t.HasCheckConstraint("ck_proveedores_tipo_persona", "tipo_persona BETWEEN 0 AND 1");
             t.HasCheckConstraint("ck_proveedores_estatus", "estatus BETWEEN 0 AND 2");
             t.HasCheckConstraint("ck_proveedores_tolerancia_no_negativa", "tolerancia_factura_contra_oc_mxn IS NULL OR tolerancia_factura_contra_oc_mxn >= 0");
+            t.HasCheckConstraint("ck_proveedores_clave_aw_positiva", "clave_aw IS NULL OR clave_aw > 0");
         });
         proveedor.HasKey(x => x.Id);
         proveedor.Property(x => x.Clave).HasMaxLength(20).IsRequired();
         proveedor.Property(x => x.ClaveLegacy).HasMaxLength(20);
+        proveedor.Property(x => x.OrigenCarga).HasMaxLength(20);
         proveedor.Property(x => x.RazonSocial).HasMaxLength(254).IsRequired();
         proveedor.Property(x => x.NombreComercial).HasMaxLength(254);
         proveedor.Property(x => x.Rfc).HasMaxLength(13).IsRequired();
@@ -1241,6 +1243,11 @@ public sealed class CompartidoDbContext : BaseDbContext
             .HasDatabaseName("ux_proveedores_rfc_no_generico")
             .HasFilter("rfc NOT IN ('XAXX010101000','XEXX010101000')");
         proveedor.HasIndex(x => x.Estatus);
+        // 86e3wyjz3 · ALM-APP-1: la clave de A+W no se repite entre proveedores.
+        proveedor.HasIndex(x => x.ClaveAw)
+            .IsUnique()
+            .HasDatabaseName("ux_proveedores_clave_aw")
+            .HasFilter("clave_aw IS NOT NULL");
     }
 
     /// <summary>
@@ -1539,6 +1546,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         producto.Property(x => x.FraccionArancelaria).HasMaxLength(10);
         producto.Property(x => x.UnidadAduana).HasMaxLength(3);
         producto.Property(x => x.PesoUnitarioKg).HasPrecision(18, 6);
+        producto.Property(x => x.EsServicioRecubrimiento).HasDefaultValue(false);
         producto.Property(x => x.CodigoModelo).HasMaxLength(50);
         producto.Property(x => x.Wgr).HasMaxLength(10);
         producto.Property(x => x.WgrDescripcion).HasMaxLength(100);
@@ -1721,9 +1729,9 @@ public sealed class CompartidoDbContext : BaseDbContext
 
         var seedTime = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
         canal.HasData(
-            SeedCanalVenta(1, "Tienda Cancún", "Ventas Cancun", seedTime),
-            SeedCanalVenta(2, "Tienda Circuito", "Ventas Circuito", seedTime),
-            SeedCanalVenta(3, "Tienda Chichí Suárez", null, seedTime),
+            SeedCanalVenta(1, "Sucursal Cancún", "Ventas Cancun", seedTime),
+            SeedCanalVenta(2, "Sucursal Circuito", "Ventas Circuito", seedTime),
+            SeedCanalVenta(3, "Sucursal Chichí Suárez", null, seedTime),
             SeedCanalVenta(4, "CC Mérida", "CC Mérida", seedTime),
             SeedCanalVenta(5, "CC Q.Roo", null, seedTime),
             SeedCanalVenta(6, "CC Municipios", null, seedTime),

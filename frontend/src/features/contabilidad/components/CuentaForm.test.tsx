@@ -188,18 +188,31 @@ describe('<CuentaForm> alta', () => {
       http.get('*/api/v1/contabilidad/cuentas/siguiente-codigo', () => HttpResponse.json({ codigo: null, motivo: null })),
     );
     render(<CuentaForm onGuardada={vi.fn()} onCancelar={vi.fn()} />, { wrapper: createQueryWrapper() });
+    // P19: valor fijo calculado por el sistema, no un campo de captura.
     const tipo = screen.getByLabelText('Tipo');
-    expect(tipo).toHaveAttribute('readonly');
-    expect(tipo).toHaveValue('Acumula (no recibe movimientos)');
+    expect(tipo.tagName).toBe('OUTPUT');
+    expect(screen.queryByRole('textbox', { name: 'Tipo' })).not.toBeInTheDocument();
+    expect(tipo).toHaveTextContent('Acumula (no recibe movimientos)');
+    expect(tipo).toHaveAccessibleDescription(/Las cuentas de nivel 1/);
     expect(screen.getByText(/Las cuentas de nivel 1 \(sin cuenta padre\) acumulan/)).toBeInTheDocument();
     // Sin padre se puede elegir rubro de reporte.
     expect(screen.getByLabelText(/Rubro de reporte/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText('Cuenta padre'));
     fireEvent.click(await screen.findByText('FIX Bancos'));
-    expect(screen.getByLabelText('Tipo')).toHaveValue('Afectable (recibe movimientos)');
+    expect(screen.getByLabelText('Tipo')).toHaveTextContent('Afectable (recibe movimientos)');
     expect(screen.getByText(/pasará a acumular/)).toBeInTheDocument();
     expect(screen.queryByLabelText(/Rubro de reporte/)).not.toBeInTheDocument();
+  });
+
+  it('Tipo y Cuenta colectiva comparten una fila (6 + 6) y Naturaleza va junto a Nombre', () => {
+    render(<CuentaForm onGuardada={vi.fn()} onCancelar={vi.fn()} />, { wrapper: createQueryWrapper() });
+    const campo = (etiqueta: string) => screen.getByLabelText(etiqueta).closest('.col-span-12')!;
+    const tipo = campo('Tipo');
+    expect(tipo).toHaveClass('sm:col-span-6');
+    expect(tipo.nextElementSibling).toBe(campo('Cuenta colectiva'));
+    expect(campo('Cuenta colectiva')).toHaveClass('sm:col-span-6');
+    expect(campo('Nombre*').nextElementSibling).toBe(campo('Naturaleza'));
   });
 
   it('P23: cuentas colectivas con etiquetas claras, incluidas deudores y acreedores', async () => {

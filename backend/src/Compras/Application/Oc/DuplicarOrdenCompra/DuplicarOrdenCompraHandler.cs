@@ -156,6 +156,7 @@ public sealed class DuplicarOrdenCompraHandler
                     linea.EsServicio, linea.CentroCostoId, linea.FraccionArancelaria, linea.EsActivoFijo, linea.ClaseActivoId,
                     productoAwVarianteId: linea.ProductoAwVarianteId, anchoMm: linea.AnchoMm, altoMm: linea.AltoMm);
             else
+                // No se copia LoteProveedor: el lote pertenece a un embarque, no a la plantilla de la OC.
                 nueva.AgregarLineaManual(Guid.CreateVersion7(), linea.ArticuloId,
                     cantidad, linea.UnidadMedida, linea.PrecioUnitario, linea.DepartamentoSolicitanteId,
                     linea.Descuento, linea.IndicadorImpuestos, linea.DescripcionExtendida,

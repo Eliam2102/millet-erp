@@ -40,6 +40,8 @@ public sealed class DirectorioEntraSimulado : IEntraDirectorioPort
         new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, string> _upnPorClaveIdempotencia = new();
     private readonly object _lockCreacion = new();
+    private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> _miembrosPorGrupo =
+        new(StringComparer.OrdinalIgnoreCase);
 
     public DirectorioEntraSimulado(IOptionsMonitor<EntraDirectorioOptions> options)
     {
@@ -109,6 +111,35 @@ public sealed class DirectorioEntraSimulado : IEntraDirectorioPort
         }
         return Task.FromResult(GenerarContrasenaTemporal());
     }
+
+    public Task<IReadOnlyList<CuentaEntra>> ListarCuentasAsync(string? texto, int top, CancellationToken ct)
+    {
+        var filtro = texto?.Trim();
+        IReadOnlyList<CuentaEntra> cuentas = _cuentasPorUpn.Values
+            .Where(c => c.Habilitada && _options.CurrentValue.PermiteCorreo(c.Upn))
+            .Where(c => string.IsNullOrEmpty(filtro)
+                || c.Upn.Contains(filtro, StringComparison.OrdinalIgnoreCase)
+                || c.NombreMostrado.Contains(filtro, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(c => c.NombreMostrado, StringComparer.CurrentCultureIgnoreCase)
+            .Take(Math.Max(top, 0))
+            .ToList();
+        return Task.FromResult(cuentas);
+    }
+
+    public Task AgregarAGrupoAccesoAsync(string grupoId, string objectId, CancellationToken ct)
+    {
+        _miembrosPorGrupo.GetOrAdd(grupoId, _ => new(StringComparer.OrdinalIgnoreCase)).TryAdd(objectId, 0);
+        return Task.CompletedTask;
+    }
+
+    public Task QuitarDeGrupoAccesoAsync(string grupoId, string objectId, CancellationToken ct)
+    {
+        if (_miembrosPorGrupo.TryGetValue(grupoId, out var miembros)) miembros.TryRemove(objectId, out _);
+        return Task.CompletedTask;
+    }
+
+    public Task<bool> EsMiembroDeGrupoAccesoAsync(string grupoId, string objectId, CancellationToken ct) =>
+        Task.FromResult(_miembrosPorGrupo.TryGetValue(grupoId, out var miembros) && miembros.ContainsKey(objectId));
 
     /// <summary>
     /// OID con forma de GUID derivado del correo: estable entre reinicios y

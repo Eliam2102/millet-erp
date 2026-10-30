@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using Millet.Facturacion.Application.Ingesta.ImportarPedidoPlantaPintura;
 using Millet.Facturacion.Domain.Ports;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Facturacion.Infrastructure.Workers;
 
@@ -87,8 +88,20 @@ public sealed class PlantaPinturaImportWorker : BackgroundService
         {
             try
             {
-                await sender.Send(new ImportarPedidoPlantaPinturaCommand(opts.EmpresaId, pedido), cancellationToken);
+                var resp = await sender.Send(new ImportarPedidoPlantaPinturaCommand(opts.EmpresaId, pedido), cancellationToken);
                 procesadas++;
+                if (resp.PedidoFacturableId is { } pedidoId)
+                    await AcusarAsync(reader, pedido.NumeroPedido, ResultadoAcusePlantaPintura.Creado, pedidoId, null, cancellationToken);
+                else if (resp.MotivoExcepcion is { } motivo)
+                    await AcusarAsync(reader, pedido.NumeroPedido, ResultadoAcusePlantaPintura.Error, null,
+                        resp.Detalle ?? $"Rechazada: {motivo}", cancellationToken);
+                else
+                    _logger.LogDebug("[PlantaPinturaImportWorker] Pedido {Pedido} pospuesto sin pedido ni motivo — sin acuse.", pedido.NumeroPedido);
+            }
+            catch (BusinessRuleException ex)
+            {
+                _logger.LogWarning(ex, "[PlantaPinturaImportWorker] Pedido {Pedido} rechazado", pedido.NumeroPedido);
+                await AcusarAsync(reader, pedido.NumeroPedido, ResultadoAcusePlantaPintura.Error, null, ex.Message, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -101,6 +114,21 @@ public sealed class PlantaPinturaImportWorker : BackgroundService
 
         return procesadas;
     }
+
+    // Un acuse fallido no debe tumbar el lote: la fila se relee y el handler es idempotente.
+    private async Task AcusarAsync(
+        IPlantaPinturaPedidosReader reader, string numeroPedido, ResultadoAcusePlantaPintura resultado,
+        Guid? pedidoId, string? error, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await reader.MarcarResultadoAsync(numeroPedido, resultado, pedidoId, error, DateTimeOffset.UtcNow, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "[PlantaPinturaImportWorker] No se pudo escribir el acuse de {Pedido}", numeroPedido);
+        }
+    }
 }
 
 public sealed class PlantaPinturaImportOptions
@@ -108,7 +136,7 @@ public sealed class PlantaPinturaImportOptions
     public const string SectionName = "Facturacion:Workers:PlantaPinturaImport";
 
     public bool Disabled { get; init; }
-    public int IntervalSeconds { get; init; } = 120;
+    public int IntervalSeconds { get; init; } = 10;
     public int BatchSize { get; init; } = 50;
 
     /// <summary>Empresa de los pedidos de Planta Pintura (MVP single-tenant). Vacío → no procesa.</summary>

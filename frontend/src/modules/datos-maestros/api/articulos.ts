@@ -164,3 +164,16 @@ function buildListarArticulosPath(filtros: ListarArticulosFiltros): string {
     ? `/api/v1/datos-maestros/articulos?${query}`
     : '/api/v1/datos-maestros/articulos';
 }
+
+export function useReactivarArticulo() {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, { id: string; idempotencyKey: string }>({
+    mutationFn: async ({ id, idempotencyKey }) => {
+      await apiRequest<void>(`/api/v1/catalogos/articulos/${id}/reactivar`, { method: 'POST', idempotencyKey });
+    },
+    onSuccess: (_data, vars) => {
+      void queryClient.invalidateQueries({ queryKey: datosMaestrosKeys.articulos() });
+      void queryClient.invalidateQueries({ queryKey: datosMaestrosKeys.articulo(vars.id) });
+    },
+  });
+}

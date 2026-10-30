@@ -741,6 +741,7 @@ Resumen de los `PLATFORM-TODO` que aplican a Admin (heredados del 01-diseño §1
 | `<FolioSecuenciaDeprecate>` | `Compras.FolioSecuencia` deprecada en F-Admin-PR6.2 | Cuando todos los módulos consuman `ReservarFolioCommand` |
 | `<EntraIdResolver>` | `LocalEntraIdResolverNoOp` en F-Admin-PR4.1 | Cuando se wire Graph API real |
 | `<EntraDirectorio>` | `DirectorioEntraSimulado` (en memoria) para el alta unificada, plan F1-ADM-01 F2 | Cuando TI entregue `User.ReadWrite.All` en la App Registration: adaptador Graph de `IEntraDirectorioPort` (`GET /users`, `POST /users`) |
+| `<GrupoAccesoErp>` | `Entra:GrupoAccesoErpId` vacío: el ERP no agrega ni quita cuentas del grupo de acceso (86e3x6cpw); la pestaña Acceso muestra «NoConfigurado» | Cuando TI cree el grupo «ERP Millet · Usuarios» asignado a la aplicación y otorgue `GroupMember.ReadWrite.All`: configurar su Object ID en `Entra:GrupoAccesoErpId` |
 | `<ServiceBusWireup>` | In-process via MediatR | Cuando Notificaciones/Almacén/CxP existan y requieran cross-process |
 | `<CatalogosSapImport>` | Seeds versionados solo | Post-MVP si el cliente requiere migración masiva |
 

@@ -165,6 +165,8 @@ export interface ClienteRfcRepetido {
   pedidosAw: number;
   ultimoPedidoAw: string | null;
   pedidosErp: number;
+  cotizacionesAw: number;
+  ultimaCotizacionAw: string | null;
   accionSugerida: AccionSugeridaRfc;
 }
 export interface GrupoRfcRepetido {

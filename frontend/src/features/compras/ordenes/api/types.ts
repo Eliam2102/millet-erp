@@ -591,6 +591,8 @@ export interface LineaOrdenCompraResponse {
    */
   // PLATFORM-TODO(<F1-COM-06>): supuesto Vilo, campo de comercio exterior.
   fraccionArancelaria: string | null;
+  /** F1-MP-05: lote que el proveedor declara para la compra; `null` si no se capturó. */
+  loteProveedor?: string | null;
   /** F1-MP-01 (E1): medida de la hoja (vidrio crudo). Null/ausente si el artículo no maneja medidas
    * o es una línea heredada de RQ aún sin medida. La cantidad sigue en m² (= hojas × <c>areaHojaM2</c>). */
   productoAwVarianteId?: string | null;

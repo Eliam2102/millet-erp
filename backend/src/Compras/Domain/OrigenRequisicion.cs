@@ -14,4 +14,7 @@ public enum OrigenRequisicion : short
 
     /// <summary>RQ generada automáticamente por el motor de reorden.</summary>
     Sistema = 1,
+
+    /// <summary>RQ enviada por la aplicación de Almacenes (REQUISICION_ENVIADA); nace Autorizada y la OC conserva su proveedor.</summary>
+    AlmacenesApp = 2,
 }

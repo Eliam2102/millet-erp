@@ -20,10 +20,12 @@ public sealed class ReactivarUsuarioHandler
     private readonly IdentidadDbContext _db;
     private readonly CompartidoDbContext _compartido;
     private readonly IPermissionCache _permissionCache;
+    private readonly Colaboradores.GrupoAccesoErpSincronizador _grupoAcceso;
 
     public ReactivarUsuarioHandler(IdentidadDbContext db, CompartidoDbContext compartido,
-        IPermissionCache permissionCache)
+        IPermissionCache permissionCache, Colaboradores.GrupoAccesoErpSincronizador grupoAcceso)
     {
+        _grupoAcceso = grupoAcceso;
         _db = db;
         _compartido = compartido;
         _permissionCache = permissionCache;
@@ -49,6 +51,8 @@ public sealed class ReactivarUsuarioHandler
             usuario.Reactivar();
             await _db.SaveChangesAsync(cancellationToken);
             await _permissionCache.InvalidateAllForUserAsync(usuario.Id, cancellationToken);
+            // Con acceso de nuevo, la cuenta vuelve al grupo de Entra (86e3x6cpw, B2).
+            await _grupoAcceso.SincronizarAsync(usuario.Id, cancellationToken);
         }
 
         return new UsuarioResponse(

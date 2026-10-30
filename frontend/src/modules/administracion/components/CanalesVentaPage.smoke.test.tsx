@@ -15,7 +15,7 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 const CANALES = [
   {
     id: 1,
-    nombre: 'Tienda Cancún',
+    nombre: 'Sucursal Cancún',
     estatus: 0,
     version: 1,
     claveAw: 'CANCUN',
@@ -64,7 +64,7 @@ describe('<CanalesVentaPage> — smoke (FAC-ING-PR3)', () => {
     setPermisos([PermisosCanonicos.AdminEmpresasSucursalesGestionar]);
     render(<CanalesVentaPage />, { wrapper: createQueryWrapper() });
 
-    expect(await screen.findByText('Tienda Cancún')).toBeInTheDocument();
+    expect(await screen.findByText('Sucursal Cancún')).toBeInTheDocument();
     expect(screen.getByText('Planta Pintura')).toBeInTheDocument();
     // Columna clave A+W: GRUPPE de la ingesta de pedidos.
     expect(screen.getByText('CANCUN')).toBeInTheDocument();
@@ -76,7 +76,7 @@ describe('<CanalesVentaPage> — smoke (FAC-ING-PR3)', () => {
     setPermisos([PermisosCanonicos.AdminEmpresasSucursalesGestionar]);
     render(<CanalesVentaPage />, { wrapper: createQueryWrapper() });
 
-    await screen.findByText('Tienda Cancún');
+    await screen.findByText('Sucursal Cancún');
     fireEvent.click(screen.getByRole('button', { name: /agregar canal/i }));
     expect(screen.getByRole('form', { name: /agregar canal/i })).toBeInTheDocument();
 
@@ -84,7 +84,7 @@ describe('<CanalesVentaPage> — smoke (FAC-ING-PR3)', () => {
       screen.getByRole('button', { name: /reactivar canal planta pintura/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: /desactivar canal tienda cancún/i }),
+      screen.getByRole('button', { name: /desactivar canal sucursal cancún/i }),
     ).toBeInTheDocument();
   });
 
@@ -92,7 +92,7 @@ describe('<CanalesVentaPage> — smoke (FAC-ING-PR3)', () => {
     setPermisos([]);
     render(<CanalesVentaPage />, { wrapper: createQueryWrapper() });
 
-    expect(await screen.findByText('Tienda Cancún')).toBeInTheDocument();
+    expect(await screen.findByText('Sucursal Cancún')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /agregar canal/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /editar canal/i })).not.toBeInTheDocument();
   });
