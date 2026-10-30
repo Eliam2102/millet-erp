@@ -88,6 +88,19 @@ public static class ReppEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        // GET: PDF del complemento de pago con el diseño de la factura de Millet (86e3tfdx0).
+        group.MapGet("/{id:guid}/pdf", async (Guid id, IMediator mediator, CancellationToken ct) =>
+        {
+            var pdf = await mediator.Send(
+                new ComprobantePdfQuery(id, FormatoPdfFactura.Bilingue, FamiliaComprobante.ReciboPago), ct);
+            return Results.File(pdf.Contenido, pdf.ContentType, pdf.NombreSugerido);
+        })
+        .RequireAuthorization(leer)
+        .WithName("ReppPdf")
+        .WithSummary("Descarga el PDF de un REPP (complemento de pago)")
+        .Produces(StatusCodes.Status200OK, contentType: "application/pdf")
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
         // GET: facturas PPD con saldo por cobrar (candidatas de un REPP).
         // Alimenta el FacturaPpdPicker del form de emisión — cierra
         // PLATFORM-TODO(<FacturaPicker>). Mismo permiso que emitir.

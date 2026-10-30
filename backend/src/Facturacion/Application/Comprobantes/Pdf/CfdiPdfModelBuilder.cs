@@ -4,6 +4,7 @@ using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Domain.Facturas;
 using Millet.Facturacion.Domain.NotasCredito;
 using Millet.Facturacion.Domain.Ports;
+using Millet.Facturacion.Domain.Repp;
 
 namespace Millet.Facturacion.Application.Comprobantes.Pdf;
 
@@ -57,7 +58,7 @@ public static class CfdiPdfModelBuilder
 
         return Armar(f, datos, TipoDocumentoPdf.Factura, "FACTURA", "INVOICE", "factura",
             conceptos, impuestos, fisicos, ComentariosFactura(f), f.OrdenCompraCliente, f.ReferenciaCliente,
-            f.CondicionesPago, Relacionados(f));
+            f.CondicionesPago, Relacionados(f)) with { ComercioExterior = ComercioExterior(f.ComplementoCce) };
     }
 
     public static CfdiPdfModel DesdeAnticipo(FacturaAnticipo a, DatosImpresionCfdi? datos)
@@ -85,6 +86,55 @@ public static class CfdiPdfModelBuilder
             comentarios: $"Motivo / Reason: {motivo}", ordenCompra: null, referencia: null, condiciones: null,
             relaciones: Relacionados(nc));
     }
+
+    /// <summary>
+    /// Complemento de pago (CFDI tipo P, 86e3tfdx0) con el diseño de la factura de
+    /// Millet: el concepto único «Pago» del SAT, los datos del pago y las facturas
+    /// cubiertas. <paramref name="foliosFacturas"/> da la serie-folio de cada factura.
+    /// </summary>
+    public static CfdiPdfModel DesdeReciboPago(
+        ReciboPago r, DatosImpresionCfdi? datos, IReadOnlyDictionary<Guid, string>? foliosFacturas = null)
+    {
+        ArgumentNullException.ThrowIfNull(r);
+        datos ??= DatosImpresionCfdi.Vacio;
+        var facturas = r.FacturasPagadas.OrderBy(f => f.NumParcialidad).ThenBy(f => f.FacturaUuid).ToList();
+        var primera = facturas.FirstOrDefault();
+        var pago = new ComplementoPagoPdf(
+            r.FechaPago,
+            primera is null ? "" : ConDescripcion(primera.FormaPagoReal, datos.FormasPago),
+            r.MonedaPago,
+            facturas.Select(f => f.TcPago).FirstOrDefault(tc => tc is not null),
+            r.ImporteTotalPago,
+            Primero(facturas, f => f.ReferenciaPago),
+            Primero(facturas, f => f.CuentaOrdenante),
+            Primero(facturas, f => f.CuentaBeneficiaria),
+            facturas.Select(f => new DocumentoPagadoPdf(
+                f.FacturaUuid,
+                foliosFacturas?.GetValueOrDefault(f.FacturaVentaId),
+                f.MonedaFactura, f.NumParcialidad, f.SaldoAnterior, f.ImportePagado, f.SaldoInsoluto)).ToList());
+
+        var modelo = Armar(r, datos, TipoDocumentoPdf.ComplementoPago, "COMPLEMENTO DE PAGO", "PAYMENT RECEIPT",
+            "complemento-pago", [ConceptoPago], [], SinMedidas,
+            comentarios: null, ordenCompra: null, referencia: null, condiciones: null, relaciones: Relacionados(r));
+        return modelo with
+        {
+            TipoComprobante = "Pago",
+            MontoEnLetra = MontoEnLetra(r.ImporteTotalPago, r.MonedaPago),
+            ComplementoPago = pago,
+        };
+    }
+
+    /// <summary>Concepto único que el SAT fija para el CFDI de pago (84111506 · Pago · ACT, importe 0).</summary>
+    private static readonly ConceptoPdf ConceptoPago = new(null, "84111506", "Pago", null, 1, "ACT", 0, 0, 0);
+
+    private static string? Primero(IEnumerable<ReciboPagoFactura> facturas, Func<ReciboPagoFactura, string?> campo) =>
+        facturas.Select(campo).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+
+    private static ComercioExteriorPdf? ComercioExterior(Domain.Cce.ComplementoCce? cce) =>
+        cce is null
+            ? null
+            : new ComercioExteriorPdf(cce.TipoOperacion, cce.Incoterm, cce.ClaveDePedimento, cce.CertificadoOrigen,
+                cce.TcDof, cce.Lineas.Sum(l => l.ValorDolares), cce.ReceptorNumRegIdTrib, cce.ReceptorPaisResidencia);
 
     private static CfdiPdfModel Armar(
         Comprobante c, DatosImpresionCfdi datos, TipoDocumentoPdf tipo, string tituloEs, string tituloEn, string prefijoArchivo,
