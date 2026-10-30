@@ -26,6 +26,8 @@ import {
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
 import { esApiError, apiRequest } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth/auth-store';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { useAuditoria, exportarAuditoria } from '@/modules/administracion/api/auditoria';
 import { useEmpresas } from '@/modules/administracion/api';
 import { useDepartamentos, usePuestos, useEmpleados } from '@/features/catalogos/api/hooks';
@@ -146,6 +148,8 @@ export function AuditoriaPage() {
   const roles = useMemo(() => rolesQuery.data?.items ?? [], [rolesQuery.data?.items]);
 
   const auditoriaQuery = useAuditoria(filtrosAplicados);
+  // ADM-BIT: exportar es un permiso aparte de consultar; sin él no aparece el botón.
+  const puedeExportar = useHasPermission(PermisosCanonicos.AdminAuditoriaExportar);
   const exportacion = useMutation({
     mutationFn: () => exportarAuditoria(filtrosAplicados),
     onSuccess: (blob) => {
@@ -370,19 +374,29 @@ export function AuditoriaPage() {
         titulo={<>Bitácora de auditoría</>}
         descripcion={
           <>
-            <Button
-              variant="secondary"
-              onClick={() => exportacion.mutate()}
-              disabled={exportacion.isPending}
-              title={
-                exportacion.isPending
-                  ? 'Se está preparando el archivo.'
-                  : 'Exportar todos los registros con los filtros aplicados'
-              }
-            >
-              <Download className="size-3.5" />
-              {exportacion.isPending ? 'Exportando…' : 'Exportar'}
-            </Button>
+            {puedeExportar && (
+              <>
+                <Button
+                  variant="secondary"
+                  onClick={() => exportacion.mutate()}
+                  disabled={exportacion.isPending || total === 0}
+                  title={
+                    exportacion.isPending
+                      ? 'Se está preparando el archivo.'
+                      : 'Exportar todos los registros con los filtros aplicados'
+                  }
+                >
+                  <Download className="size-3.5" />
+                  {exportacion.isPending ? 'Exportando…' : 'Exportar'}
+                </Button>
+                {/* Mismo total que trae el renglón de control al final del CSV. */}
+                {auditoriaQuery.data && (
+                  <span className="text-xs text-ink-muted" data-testid="auditoria-total-exportar">
+                    Se exportarán {total.toLocaleString('es-MX')} registros
+                  </span>
+                )}
+              </>
+            )}
             Consulta consolidada de eventos del sistema (rango obligatorio, máx. 90 días).
           </>
         }

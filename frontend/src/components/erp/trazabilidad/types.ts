@@ -109,3 +109,31 @@ export function tipoDocumentoDetalleRoute(
       return null;
   }
 }
+
+/**
+ * ADM-BIT: «Abrir documento» desde la bitácora. Traduce la entidad auditada (nombre de la clase en
+ * <c>audit_log.entidad</c>) al tipo de documento del mapa de rutas de arriba; el id es el del documento raíz
+ * (<c>aggregateRootId</c>), así una línea o una cuenta bancaria abren su documento. <c>null</c> = sin pantalla.
+ */
+const TIPO_POR_ENTIDAD_AUDITADA: Record<string, TipoDocumentoTrazabilidad> = {
+  Requisicion: TipoDocumentoTrazabilidad.Requisicion,
+  OrdenCompra: TipoDocumentoTrazabilidad.OrdenCompra,
+  FacturaProveedor: TipoDocumentoTrazabilidad.FacturaProveedor,
+  PedidoFacturable: TipoDocumentoTrazabilidad.PedidoFacturable,
+  FacturaVenta: TipoDocumentoTrazabilidad.FacturaVenta,
+  FacturaAnticipo: TipoDocumentoTrazabilidad.FacturaAnticipo,
+  ReciboPago: TipoDocumentoTrazabilidad.ReciboPago,
+  CartaPorte: TipoDocumentoTrazabilidad.CartaPorte,
+};
+
+export function auditoriaDocumentoRoute(
+  entidad: string,
+  documentoId: string,
+): { to: string; params: Record<string, string> } | null {
+  // Datos maestros: la ficha del proveedor (también para el cambio de su cuenta bancaria).
+  if (entidad === 'Proveedor' || entidad === 'CuentaBancariaProveedor') {
+    return { to: '/admin/datos-maestros/proveedores/$id', params: { id: documentoId } };
+  }
+  const tipo = TIPO_POR_ENTIDAD_AUDITADA[entidad];
+  return tipo === undefined ? null : tipoDocumentoDetalleRoute(tipo, documentoId);
+}
