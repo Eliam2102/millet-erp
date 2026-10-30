@@ -97,7 +97,7 @@ public sealed class CfdiMilletDocument(CfdiPdfModel m) : IDocument
         {
             var izquierda = fila.ConstantItem(EstilosCfdiMillet.LogoAnchoCm, Unit.Centimetre).PaddingTop(14);
             if (m.Emisor.Logo is { Length: > 0 } logo)
-                izquierda.MaxHeight(2.4f, Unit.Centimetre).Image(logo).FitArea();
+                izquierda.MaxHeight(EstilosCfdiMillet.LogoAltoCm, Unit.Centimetre).Image(logo).FitArea();
             else
                 izquierda.Text(m.Emisor.NombreComercial ?? m.Emisor.RazonSocial).FontSize(16).Bold();
 
