@@ -20,6 +20,7 @@ function lineaOc(
     articuloClave: 'IPP60001',
     articuloNombre: 'Aceite de corte',
     descripcionExtendida: null,
+    fraccionArancelaria: null,
     cantidad: 10,
     unidadMedida: 'PZA',
     precioUnitario: 100,
@@ -177,11 +178,13 @@ function fila(partial: Partial<FilaRecepcionValues>): FilaRecepcionValues {
     cantidadSolicitada: 10,
     cantidadYaRecibida: 0,
     pendiente: 10,
+    maximo: 10,
     incluida: true,
     cantidad: 10,
     ubicacionReferencia: null,
     ubicacionId: null,
     comentario: null,
+    cantidadDanada: 0,
     ...partial,
   };
 }

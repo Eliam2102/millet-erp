@@ -58,6 +58,8 @@ function salida(over: Partial<SalidaDetalle> = {}): SalidaDetalle {
         centroCostoClave: null,
         centroCostoNombre: null,
         proyectoId: null,
+        comentarioLinea: null,
+        ubicacionCodigo: null,
       },
     ],
     ...over,
@@ -97,6 +99,8 @@ describe('salida-display — nombres con fallback al id', () => {
           centroCostoClave: null,
           centroCostoNombre: null,
           proyectoId: null,
+          comentarioLinea: null,
+          ubicacionCodigo: null,
         },
       ],
     });
