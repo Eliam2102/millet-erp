@@ -28,6 +28,8 @@ import {
   BeneficiarioTipo,
   EstadoAplicacionMovimiento,
   SentidoMovimiento,
+  SOPORTE_FICHA_LABELS,
+  SoporteFicha,
   type DepositoConfirmacionResponse,
 } from '@/features/tesoreria/api/types';
 import { CuentaBancariaSelector } from '@/features/tesoreria/components/CuentaBancariaSelector';
@@ -78,11 +80,18 @@ export function ConfirmarDepositoDialog({ deposito, onOpenChange }: ConfirmarDep
   });
 
   const [movimientoId, setMovimientoId] = useState<string | null>(null);
+  // Corte de caja: 1..N fichas; desde la 2ª se exige vale de caja o corte parcial con folio.
+  const [montoAlta, setMontoAlta] = useState('');
+  const [soporteTipo, setSoporteTipo] = useState('');
+  const [soporteFolio, setSoporteFolio] = useState('');
   // C7.4: preselecciona el movimiento que CxC identificó (derived state por depósito).
   const [depositoPrevio, setDepositoPrevio] = useState<string | null>(null);
   if ((deposito?.id ?? null) !== depositoPrevio) {
     setDepositoPrevio(deposito?.id ?? null);
     setMovimientoId(deposito?.movimientoSugeridoId ?? null);
+    setMontoAlta(String(deposito?.saldoPorDepositar ?? deposito?.montoEsperado ?? ''));
+    setSoporteTipo('');
+    setSoporteFolio('');
   }
   const [altaRapida, setAltaRapida] = useState(false);
   const puedeAltaRapida = useHasPermission(PermisosCanonicos.TesoreriaMovimientosRegistrar);
@@ -92,6 +101,11 @@ export function ConfirmarDepositoDialog({ deposito, onOpenChange }: ConfirmarDep
   const [referencia, setReferencia] = useState('');
 
   const esPropuesta = deposito?.propuestaCxcId != null;
+  const esCaja = deposito?.cajaSesionId != null;
+  const saldo = esCaja ? (deposito?.saldoPorDepositar ?? deposito?.montoEsperado ?? null) : null;
+  const fichas = deposito?.fichas ?? [];
+  const necesitaSoporte = esCaja && fichas.length >= 1;
+  const soporteIncompleto = necesitaSoporte && (soporteTipo === '' || soporteFolio.trim() === '');
   // E8: si CxC ligó la propuesta a un ingreso, solo se confirma contra ese movimiento
   // (el backend responde DEP_MOVIMIENTO_DISTINTO_AL_LIGADO en otro caso).
   const ligado = esPropuesta ? (deposito?.movimientoSugeridoId ?? null) : null;
@@ -104,14 +118,14 @@ export function ConfirmarDepositoDialog({ deposito, onOpenChange }: ConfirmarDep
     ];
     // Moneda igual si el depósito la trae; propuestas además priorizan
     // el monto exacto (los demás siguen visibles — Caja admite aproximado).
-    const filtrados =
+    const porMoneda =
       deposito?.moneda != null ? todos.filter((m) => m.moneda === deposito.moneda) : todos;
-    if (deposito?.montoEsperado == null) return filtrados;
-    return [...filtrados].sort(
-      (a, b) =>
-        Math.abs(a.monto - deposito.montoEsperado!) - Math.abs(b.monto - deposito.montoEsperado!),
-    );
-  }, [candidatos.data, parciales.data, deposito]);
+    // Corte de caja: una ficha no puede exceder el saldo por depositar.
+    const filtrados = saldo != null ? porMoneda.filter((m) => m.monto <= saldo) : porMoneda;
+    const objetivo = saldo ?? deposito?.montoEsperado;
+    if (objetivo == null) return filtrados;
+    return [...filtrados].sort((a, b) => Math.abs(a.monto - objetivo) - Math.abs(b.monto - objetivo));
+  }, [candidatos.data, parciales.data, deposito, saldo]);
 
   function cerrar(next: boolean) {
     if (!next) {
@@ -119,6 +133,8 @@ export function ConfirmarDepositoDialog({ deposito, onOpenChange }: ConfirmarDep
       setAltaRapida(false);
       setCuentaId(null);
       setReferencia('');
+      setSoporteTipo('');
+      setSoporteFolio('');
     }
     onOpenChange(next);
   }
@@ -141,6 +157,8 @@ export function ConfirmarDepositoDialog({ deposito, onOpenChange }: ConfirmarDep
       movimientoBancarioId: id,
       ingreso,
       versionEsperada: deposito.version,
+      soporteTipo: soporteTipo === '' ? undefined : (Number(soporteTipo) as SoporteFicha),
+      soporteFolio: soporteFolio.trim() || undefined,
     };
     confirmar.mutate(
       {
@@ -149,10 +167,10 @@ export function ConfirmarDepositoDialog({ deposito, onOpenChange }: ConfirmarDep
       },
       {
         onSuccess: () => {
-          toast.success('Depósito confirmado', {
+          toast.success(esCaja ? 'Ficha agregada al corte' : 'Depósito confirmado', {
             description: esPropuesta
               ? 'Hecho bancario confirmado; el complemento queda en Pendientes de REP para su emisión manual.'
-              : 'Expectativa de Caja ligada al depósito en banco.',
+              : 'Corte de caja ligado al depósito en banco.',
           });
           cerrar(false);
         },
@@ -191,12 +209,13 @@ export function ConfirmarDepositoDialog({ deposito, onOpenChange }: ConfirmarDep
       if (movimientoId != null) confirmarCon(movimientoId);
       return;
     }
-    if (cuentaId == null || deposito.montoEsperado == null) return;
+    const monto = esCaja ? Number(montoAlta) : deposito.montoEsperado;
+    if (cuentaId == null || monto == null || !(monto > 0)) return;
     // El servidor valida y guarda ambos documentos en una sola transacción.
     const command = {
       cuentaBancariaId: cuentaId,
       conceptoId: conceptoId ?? undefined,
-      monto: deposito.montoEsperado,
+      monto,
       fechaValor,
       referenciaBancaria: referencia.trim() || (deposito.depositoRef ?? undefined),
       beneficiarioTipo: deposito.clienteId != null ? BeneficiarioTipo.Cliente : undefined,
@@ -206,14 +225,17 @@ export function ConfirmarDepositoDialog({ deposito, onOpenChange }: ConfirmarDep
   }
 
   const puedeEnviar = altaRapida
-    ? cuentaId != null && deposito?.montoEsperado != null && fechaValor !== ''
-    : movimientoId != null;
+    ? cuentaId != null &&
+      (esCaja ? Number(montoAlta) > 0 : deposito?.montoEsperado != null) &&
+      fechaValor !== '' &&
+      !soporteIncompleto
+    : movimientoId != null && !soporteIncompleto;
 
   return (
     <Dialog open={deposito != null} onOpenChange={cerrar}>
       <DialogContent size="lg">
         <DialogHeader>
-          <DialogTitle>Confirmar depósito</DialogTitle>
+          <DialogTitle>{esCaja ? 'Agregar ficha al corte' : 'Confirmar depósito'}</DialogTitle>
           <DialogDescription>
             {deposito != null &&
               `${esPropuesta ? 'Propuesta de CxC' : 'Expectativa de Caja'} por ${
@@ -223,10 +245,29 @@ export function ConfirmarDepositoDialog({ deposito, onOpenChange }: ConfirmarDep
               }${deposito.depositoRef ? ` · ref ${deposito.depositoRef}` : ''}. ` +
                 (esPropuesta
                   ? 'Se requiere un ingreso identificado con monto y moneda exactos; si el banco recibió otro importe, rechaza para que CxC re-proponga.'
-                  : 'El monto de Caja es aproximado (el fondo del día siguiente se queda en caja).')}
+                  : `Saldo por depositar ${
+                      saldo != null ? formatoMonto(saldo, deposito.moneda ?? 'MXN') : '—'
+                    }. Una ficha pertenece a un solo corte y no puede exceder el saldo.`)}
           </DialogDescription>
         </DialogHeader>
         <DialogBody className="space-y-4">
+          {esCaja && fichas.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-ink-muted">Fichas del corte</p>
+              <ul className="space-y-0.5 text-xs">
+                {fichas.map((f) => (
+                  <li key={f.id} className="font-mono">
+                    <DateTimeDisplay value={f.fechaFicha} variant="corta" /> ·{' '}
+                    {formatoMonto(f.importe, deposito?.moneda ?? 'MXN')}
+                    {f.numeroFicha ? ` · ${f.numeroFicha}` : ''}
+                    {f.soporteTipo != null
+                      ? ` · ${SOPORTE_FICHA_LABELS[f.soporteTipo]} ${f.soporteFolio ?? ''}`
+                      : ''}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div className="space-y-3">
             {!altaRapida ? (
               <div className="space-y-1">
@@ -285,9 +326,11 @@ export function ConfirmarDepositoDialog({ deposito, onOpenChange }: ConfirmarDep
               <div className="space-y-3 rounded-md border border-dashed border-brand/50 p-3">
                 <p className="text-xs font-medium text-ink-muted">
                   Alta rápida del ingreso (
-                  {deposito?.montoEsperado != null
-                    ? formatoMonto(deposito.montoEsperado, deposito?.moneda ?? 'MXN')
-                    : '—'}
+                  {esCaja
+                    ? `saldo ${saldo != null ? formatoMonto(saldo, deposito?.moneda ?? 'MXN') : '—'}`
+                    : deposito?.montoEsperado != null
+                      ? formatoMonto(deposito.montoEsperado, deposito?.moneda ?? 'MXN')
+                      : '—'}
                   )
                 </p>
                 <FormSeccion numero={1} titulo="Datos de la operación">
@@ -305,6 +348,23 @@ export function ConfirmarDepositoDialog({ deposito, onOpenChange }: ConfirmarDep
                   </FormCampo>
                 </FormSeccion>
                 <FormGrid>
+                  {esCaja && (
+                    <FormCampo span={6}>
+                      <div className="space-y-1">
+                        <label className="text-xs text-ink-muted" htmlFor="dep-monto">
+                          Importe de la ficha *
+                        </label>
+                        <Input
+                          id="dep-monto"
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={montoAlta}
+                          onChange={(e) => setMontoAlta(e.target.value)}
+                        />
+                      </div>
+                    </FormCampo>
+                  )}
                   <FormCampo span={6}>
                     <div className="space-y-1">
                       <label className="text-xs text-ink-muted" htmlFor="dep-fecha">
@@ -343,6 +403,40 @@ export function ConfirmarDepositoDialog({ deposito, onOpenChange }: ConfirmarDep
               </div>
             )}
           </div>
+          {necesitaSoporte && (
+            <FormGrid>
+              <FormCampo span={6}>
+                <div className="space-y-1">
+                  <label className="text-xs text-ink-muted">Documento soporte *</label>
+                  <Select value={soporteTipo} onValueChange={setSoporteTipo}>
+                    <SelectTrigger aria-label="Documento soporte">
+                      <SelectValue placeholder="Vale de caja o corte parcial" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(SOPORTE_FICHA_LABELS).map(([valor, texto]) => (
+                        <SelectItem key={valor} value={valor}>
+                          {texto}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </FormCampo>
+              <FormCampo span={6}>
+                <div className="space-y-1">
+                  <label className="text-xs text-ink-muted" htmlFor="dep-soporte-folio">
+                    Folio del soporte *
+                  </label>
+                  <Input
+                    id="dep-soporte-folio"
+                    value={soporteFolio}
+                    maxLength={40}
+                    onChange={(e) => setSoporteFolio(e.target.value)}
+                  />
+                </div>
+              </FormCampo>
+            </FormGrid>
+          )}
         </DialogBody>
         <DialogFooter>
           <Button variant="ghost" onClick={() => cerrar(false)} disabled={pending}>
@@ -353,11 +447,11 @@ export function ConfirmarDepositoDialog({ deposito, onOpenChange }: ConfirmarDep
             disabled={pending || !puedeEnviar}
             title={
               !puedeEnviar
-                ? 'Selecciona el ingreso o completa la cuenta y fecha del alta rápida.'
+                ? 'Selecciona el ingreso, completa los datos del alta rápida y, desde la 2ª ficha, el documento soporte con su folio.'
                 : undefined
             }
           >
-            {pending ? 'Confirmando…' : 'Confirmar depósito'}
+            {pending ? 'Confirmando…' : esCaja ? 'Agregar ficha' : 'Confirmar depósito'}
           </Button>
         </DialogFooter>
       </DialogContent>

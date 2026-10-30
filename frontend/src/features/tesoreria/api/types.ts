@@ -98,6 +98,8 @@ export const EstadoDepositoConfirmacion = {
   Pendiente: 1,
   Confirmada: 2,
   Rechazada: 3,
+  /** Corte de caja con fichas que aún no suman el efectivo. */
+  Parcial: 4,
 } as const;
 export type EstadoDepositoConfirmacion =
   (typeof EstadoDepositoConfirmacion)[keyof typeof EstadoDepositoConfirmacion];
@@ -109,7 +111,28 @@ export const ESTADO_DEPOSITO_LABELS: Record<
   [EstadoDepositoConfirmacion.Pendiente]: 'Pendiente',
   [EstadoDepositoConfirmacion.Confirmada]: 'Confirmada',
   [EstadoDepositoConfirmacion.Rechazada]: 'Rechazada',
+  [EstadoDepositoConfirmacion.Parcial]: 'Parcial',
 };
+
+/** Mirror de `SoporteFicha`: documento que respalda la 2ª ficha en adelante de un corte. */
+export const SoporteFicha = { ValeCaja: 1, CorteParcial: 2 } as const;
+export type SoporteFicha = (typeof SoporteFicha)[keyof typeof SoporteFicha];
+export const SOPORTE_FICHA_LABELS: Record<SoporteFicha, string> = {
+  [SoporteFicha.ValeCaja]: 'Vale de caja',
+  [SoporteFicha.CorteParcial]: 'Corte parcial',
+};
+
+/** Mirror de `DepositoFichaResponse`. */
+export interface DepositoFichaResponse {
+  id: string;
+  movimientoId: string;
+  importe: number;
+  fechaFicha: string;
+  numeroFicha: string | null;
+  soporteTipo: SoporteFicha | null;
+  soporteFolio: string | null;
+  confirmadaEn: string;
+}
 
 /** Mirror de `EstadoDevolucionCliente` (ck_devolucion_cliente_estado). */
 export const EstadoDevolucionCliente = {
@@ -441,6 +464,10 @@ export interface DepositoConfirmacionResponse {
   /** C7.4: movimiento que CxC identificó desde «Sin identificar»; se preselecciona al confirmar. */
   movimientoSugeridoId?: string | null;
   saldoAFavorPorIdentificar?: number;
+  /** Corte de caja: lo que falta por depositar (efectivo menos fichas). */
+  saldoPorDepositar?: number | null;
+  /** Corte de caja: historial de fichas. */
+  fichas?: DepositoFichaResponse[] | null;
 }
 
 // ---------------------------------------------------------------- REPP recibido (TES-FE-PR6b)
