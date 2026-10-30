@@ -69,9 +69,21 @@ describe('<DictamenRevisionSheet>', () => {
     llenarMotivo();
     fireEvent.click(screen.getByRole('button', { name: 'Liberar' }));
     expect(
-      await screen.findByText('Elige la ubicación (rack) disponible a la que se libera el material.'),
+      await screen.findByText('Elige la ubicación (rack o almacén general) a la que se libera el material.'),
     ).toBeInTheDocument();
     expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it('vidrio por medida: el error pide un rack', async () => {
+    render(
+      <DictamenRevisionSheet item={{ ...item, productoAwVarianteId: 'v-1' }} onOpenChange={() => {}} />,
+      { wrapper: createQueryWrapper() },
+    );
+    llenarMotivo();
+    fireEvent.click(screen.getByRole('button', { name: 'Liberar' }));
+    expect(
+      await screen.findByText('Elige la ubicación (rack) disponible a la que se libera el material.'),
+    ).toBeInTheDocument();
   });
 
   it('envío correcto confirma y llama a la mutación con resultado 0 y el rack', async () => {

@@ -126,7 +126,7 @@ export const FilaRecepcionSchema = z
       ctx.addIssue({
         code: 'custom',
         path: ['ubicacionId'],
-        message: 'Elige la ubicación (rack) destino.',
+        message: v.medida ? 'Elige el rack destino.' : 'Elige el almacén general destino.',
       });
     }
     if (!v.medida && !v.unidadCapturada?.trim() && v.cantidad > v.pendiente) {

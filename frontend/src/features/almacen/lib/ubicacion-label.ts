@@ -23,15 +23,18 @@ export interface RutaUbicacionNiveles {
   subAlmacenClave?: string | null;
   /** N4 — la ubicación (bin) misma. */
   clave: string;
+  /** Ubicación general del sub-almacén (código ÚNICA): se muestra como «Almacén general». */
+  esDefault?: boolean;
 }
 
 export function rutaUbicacion(niveles: RutaUbicacionNiveles): string {
+  const nombre = niveles.esDefault ? 'Almacén general' : niveles.clave;
   const ancestros = [
     niveles.sucursalClave,
     niveles.almacenClave,
     niveles.subAlmacenClave,
   ].filter((x): x is string => !!x);
   return ancestros.length > 0
-    ? `${ancestros.join(' › ')} · ${niveles.clave}`
-    : niveles.clave;
+    ? `${ancestros.join(' › ')} · ${nombre}`
+    : nombre;
 }
