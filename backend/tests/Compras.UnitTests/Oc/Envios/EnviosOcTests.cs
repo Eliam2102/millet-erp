@@ -57,7 +57,7 @@ public sealed class EnviosOcTests
     {
         using var f = new Fixture(firmas);
         var error = await Assert.ThrowsAsync<BusinessRuleException>(() => f.Enviar());
-        Assert.Contains("dos firmas distintas", error.Message);
+        Assert.Contains("firmas que requiere su nivel", error.Message);
         Assert.Null(f.Correo.Ultimo);
         Assert.Empty(f.Db.EnviosOc);
     }
@@ -146,12 +146,14 @@ public sealed class EnviosOcTests
     }
 
     [Fact]
-    public async Task AutorizadaConUnaFirma_NoEnvia()
+    public async Task AutorizadaMenorCuantia_ConSoloN1_SiEnvia()
     {
+        // Decisión del owner (30-oct): basta con las firmas que pidió su nivel.
         using var f = new Fixture(1, requiereNivel2: false);
         Assert.Equal(EstadoOrdenCompra.Autorizada, f.Oc.Estado);
-        await Assert.ThrowsAsync<BusinessRuleException>(() => f.Enviar());
-        Assert.Null(f.Correo.Ultimo);
+        var envio = await f.Enviar();
+        Assert.Equal("simulado", envio.Resultado);
+        Assert.Single(await f.Db.EnviosOc.ToListAsync());
     }
 
     [Theory]
