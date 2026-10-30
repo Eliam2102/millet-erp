@@ -5,6 +5,7 @@ import {
   TableHead,
   TableBody,
   TableCell,
+  TableContainer,
 } from '@/components/ui/table';
 import { RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
@@ -91,6 +92,7 @@ export function ProductoAwVariantesTable({
           <span className="text-xs font-normal text-ink-muted">UC: {unidadMedida}</span>
         )}
       </h3>
+      <TableContainer maxHeightClassName="">
       <Table className="w-full text-sm">
         <TableHeader>
           <TableRow className="text-left text-xs text-ink-muted">
@@ -113,6 +115,7 @@ export function ProductoAwVariantesTable({
           ))}
         </TableBody>
       </Table>
+      </TableContainer>
     </section>
   );
 }
@@ -234,6 +237,7 @@ export function ProductoAwOrigenSection({ producto }: { producto: ProductoAwDeta
       </dl>
 
       {diferencias.length > 0 && (
+        <TableContainer maxHeightClassName="">
         <Table className="mt-4 w-full text-sm">
           <caption className="mb-1 text-left text-xs text-ink-muted">
             Recibido de A+W y no aplicado al producto
@@ -257,6 +261,7 @@ export function ProductoAwOrigenSection({ producto }: { producto: ProductoAwDeta
             ))}
           </TableBody>
         </Table>
+        </TableContainer>
       )}
 
       <CambiosAwHistorial

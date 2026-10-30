@@ -1,5 +1,6 @@
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
-import { BarraFiltros, PaginacionTabla } from '@/components/erp';
+import { BarraFiltros, PaginacionTabla, ErrorState, TableSkeleton } from '@/components/erp';
+import { esApiError } from '@/lib/api';
 import { usePaginacionLocal } from '../../lib/use-paginacion-local';
 import {
   Table,
@@ -12,11 +13,9 @@ import {
 import { useState } from 'react';
 import { Search } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import {
   useAsignarSucursalUbicacion,
@@ -77,13 +76,13 @@ function Ubicaciones({ puedeAdministrar }: { puedeAdministrar: boolean }) {
         }
       >
         {ubicaciones.isLoading ? (
-          <div className="p-4" aria-label="Cargando ubicaciones">
-            <Skeleton className="h-8 w-full" />
-          </div>
+          <TableSkeleton rows={5} />
         ) : ubicaciones.isError ? (
-          <p role="alert" className="p-4 text-sm text-danger-fg">
-            No se pudieron cargar las ubicaciones.
-          </p>
+          <ErrorState
+            title="No se pudieron cargar las ubicaciones"
+            problem={esApiError(ubicaciones.error) ? ubicaciones.error.problem : undefined}
+            onRetry={() => void ubicaciones.refetch()}
+          />
         ) : (
           <Table className="w-full text-sm">
             <TableHeader className="border-b border-line-divider bg-surface-subtle text-left text-2xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
@@ -209,16 +208,13 @@ function Corporativos({ puedeAdministrar }: { puedeAdministrar: boolean }) {
         }
       >
         {centros.isLoading ? (
-          <div className="p-4" aria-label="Cargando centros">
-            <Skeleton className="h-8 w-full" />
-          </div>
+          <TableSkeleton rows={5} />
         ) : centros.isError ? (
-          <div role="alert" className="flex items-center gap-2 p-4 text-sm text-danger-fg">
-            No se pudieron cargar los centros.
-            <Button variant="ghost" size="sm" onClick={() => void centros.refetch()}>
-              Reintentar
-            </Button>
-          </div>
+          <ErrorState
+            title="No se pudieron cargar los centros"
+            problem={esApiError(centros.error) ? centros.error.problem : undefined}
+            onRetry={() => void centros.refetch()}
+          />
         ) : centros.data!.length === 0 ? (
           <p className="p-6 text-sm text-ink-muted">
             {solo ? 'Aún no hay centros corporativos.' : 'Ningún centro coincide con la búsqueda.'}

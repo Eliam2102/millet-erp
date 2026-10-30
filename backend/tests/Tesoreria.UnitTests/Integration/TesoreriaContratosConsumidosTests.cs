@@ -135,6 +135,19 @@ public sealed class TesoreriaContratosConsumidosTests
     }
 
     [Fact]
+    public void PasivoAutorizado_v1_con_desglose_del_CFDI_es_compatible_con_el_espejo()
+    {
+        // T9.1-A: extensión ADITIVA con subtotal, impuestos trasladados y retenciones.
+        var evento = new PasivoAutorizadoParaPagoIntegrationEvent(
+            EmpresaId, OcurridoEn, Guid.NewGuid(), Guid.NewGuid(), null, 1_053.33m, 1_053.33m, "MXN", null,
+            new DateOnly(2026, 8, 1), null, "F-001", Subtotal: 1_000m, ImpuestosTrasladados: 160m, Retenciones: 106.67m);
+
+        var espejo = RoundTrip<PasivoAutorizadoParaPagoPayload>(evento);
+
+        (espejo.Subtotal, espejo.ImpuestosTrasladados, espejo.Retenciones).Should().Be((1_000m, 160m, 106.67m));
+    }
+
+    [Fact]
     public void PasivoAutorizado_v1_pre_extension_deserializa_MetodoPago_null()
     {
         // Evento publicado ANTES de la extensión aditiva (sin el campo).

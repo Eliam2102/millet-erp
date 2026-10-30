@@ -14,6 +14,7 @@ public sealed class ReppPendienteConfiguration : IEntityTypeConfiguration<ReppPe
         builder.Property(p => p.Monto).HasPrecision(18, 6);
         builder.Property(p => p.Moneda).HasMaxLength(3);
         builder.Property(p => p.FormaPago).HasMaxLength(5);
+        builder.Property(p => p.CuentaOrdenante).HasMaxLength(50);
         builder.Property(p => p.Estado).HasConversion<string>().HasMaxLength(20);
         // C7.4: un pendiente por propuesta confirmada; el mismo movimiento admite varios
         // (depósito identificado en partes). Sin propuesta, sigue siendo uno por movimiento.

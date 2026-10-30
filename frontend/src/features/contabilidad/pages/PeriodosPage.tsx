@@ -1,6 +1,6 @@
 import { KpiCard } from '@/components/erp/display/KpiCard';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
-import { BarraFiltros, PaginacionTabla } from '@/components/erp';
+import { BarraFiltros, PaginacionTabla, ErrorState, TableSkeleton } from '@/components/erp';
 import { TabsContabilidad } from '../components/TabsContabilidad';
 import { usePaginacionLocal } from '../lib/use-paginacion-local';
 import { ESTADOS_PERIODO } from '../lib/estados-ui';
@@ -196,17 +196,13 @@ export function PeriodosPage() {
         </div>
       )}
       {ejercicios.isLoading ? (
-        <div className="space-y-2" aria-label="Cargando ejercicios">
-          <Skeleton className="h-8 w-60" />
-          <Skeleton className="h-64 w-full" />
-        </div>
+        <TableSkeleton rows={6} />
       ) : ejercicios.isError ? (
-        <div role="alert" className="flex items-center gap-2 text-sm text-danger-fg">
-          No se pudieron cargar los ejercicios.
-          <Button variant="ghost" size="sm" onClick={() => void ejercicios.refetch()}>
-            Reintentar
-          </Button>
-        </div>
+        <ErrorState
+  title="No se pudieron cargar los ejercicios"
+  problem={esApiError(ejercicios.error) ? ejercicios.error.problem : undefined}
+  onRetry={() => void ejercicios.refetch()}
+/>
       ) : !ejercicio ? (
         <p className="rounded-lg bg-surface-card p-6 text-sm text-ink-muted shadow-card-flat">
           No hay ejercicios contables.{' '}
@@ -791,12 +787,11 @@ function BitacoraPanel({
                 <Skeleton className="h-32 w-full" />
               </div>
             ) : bitacora.isError ? (
-              <div role="alert" className="flex flex-col items-start gap-3 text-sm">
-                <p className="text-danger-fg">No se pudo cargar la bitácora.</p>
-                <Button variant="outline" onClick={() => void bitacora.refetch()}>
-                  Reintentar
-                </Button>
-              </div>
+              <ErrorState
+  title="No se pudo cargar la bitácora"
+  problem={esApiError(bitacora.error) ? bitacora.error.problem : undefined}
+  onRetry={() => void bitacora.refetch()}
+/>
             ) : cambios.length === 0 ? (
               <div className="flex flex-col items-center gap-2 py-8 text-center">
                 <History className="size-5 text-ink-muted" strokeWidth={1.6} aria-hidden="true" />

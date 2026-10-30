@@ -135,7 +135,7 @@ export function BandejaPagosACuenta() {
                     <TableCell className="max-w-64 px-3 py-2">
                       <p className="truncate">
                         {p.proveedorRazonSocial ??
-                          (p.proveedorId != null ? p.proveedorId.slice(0, 8) : 'Sin proveedor')}
+                          'Sin proveedor'}
                       </p>
                       <p className="font-mono text-xs text-ink-muted">{p.proveedorClave ?? ''}</p>
                     </TableCell>

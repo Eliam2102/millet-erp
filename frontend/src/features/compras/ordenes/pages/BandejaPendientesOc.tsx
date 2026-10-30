@@ -139,7 +139,7 @@ export function BandejaPendientesOc() {
   function resolverProveedor(oc: OrdenPendienteAutorizacion): string {
     if (oc.proveedorNombre) return oc.proveedorNombre;
     const p = proveedoresMap.get(oc.proveedorId);
-    if (p == null) return oc.proveedorId.slice(0, 8) + '…';
+    if (p == null) return '—';
     return p.nombreComercial ?? p.razonSocial;
   }
 

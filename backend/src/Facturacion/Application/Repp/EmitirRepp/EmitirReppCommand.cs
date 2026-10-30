@@ -23,7 +23,11 @@ public sealed record EmitirReppCommand(
     // Empresa para invocaciones internas fuera de un request HTTP.
     // El listener de Tesorería solo crea pendientes. El claim del JWT tiene
     // precedencia — un caller HTTP no puede cruzar de empresa por body.
-    Guid? EmpresaId = null) : IRequest<EmitirReppResponse>
+    Guid? EmpresaId = null,
+    // 86e3tfdve: cuenta bancaria de Millet elegida como beneficiaria. Si
+    // CuentaBeneficiaria viene vacía, el handler la resuelve (CLABE o número
+    // según c_FormaPago) por ICuentaBancariaMilletReadPort.
+    Guid? CuentaBancariaBeneficiariaId = null) : IRequest<EmitirReppResponse>
 {
     internal Millet.Facturacion.Domain.Repp.ReppPendiente? Pendiente { get; init; }
 }

@@ -221,7 +221,7 @@ public sealed class AplicarDevolucionInternaHandler
             // origen; debe estar asignado a la ubicación y no ser la ÚNICA.
             await UbicacionEntradaGuard.ValidarUbicacionEntradaAsync(
                 _db, input.UbicacionId!.Value, request.SubAlmacenDestinoId,
-                lineaSalida.ArticuloId, cancellationToken);
+                lineaSalida.ArticuloId, cancellationToken, ligadoAw: lineaSalida.ProductoAwVarianteId is not null);
 
             var lineaId = Guid.CreateVersion7();
             var linea = new LineaMovimiento(
@@ -454,7 +454,7 @@ public sealed class BajaPorDanoHandler : IRequestHandler<BajaPorDanoCommand, Baj
             if (esEntrada)
             {
                 await UbicacionEntradaGuard.ValidarUbicacionEntradaAsync(
-                    _db, l.UbicacionId!.Value, subAlmacenId, l.ArticuloId, cancellationToken);
+                    _db, l.UbicacionId!.Value, subAlmacenId, l.ArticuloId, cancellationToken, ligadoAw: l.ProductoAwVarianteId is not null);
             }
 
             var ubicacionCosto = l.UbicacionId ?? ubicacionDefaultId;
@@ -607,7 +607,7 @@ public sealed class ReincorporacionTrasRevisionHandler
         foreach (var l in request.Lineas)
         {
             await UbicacionEntradaGuard.ValidarUbicacionEntradaAsync(
-                _db, l.UbicacionId!.Value, request.SubAlmacenDestinoId, l.ArticuloId, cancellationToken);
+                _db, l.UbicacionId!.Value, request.SubAlmacenDestinoId, l.ArticuloId, cancellationToken, ligadoAw: l.ProductoAwVarianteId is not null);
 
             // El request no trae el bin de MAT-REV de origen: se toma el del mismo almacén con más saldo LIBRE
             // (saldo − reservado para dictamen − ya tomado por otra línea de esta solicitud) del artículo

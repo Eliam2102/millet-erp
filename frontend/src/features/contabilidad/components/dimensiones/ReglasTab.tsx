@@ -1,6 +1,7 @@
 import { ESTADOS_REGLA } from '../../lib/estados-ui';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
-import { BarraFiltros, PaginacionTabla } from '@/components/erp';
+import { BarraFiltros, PaginacionTabla, EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
+import { esApiError } from '@/lib/api';
 import { DialogBody } from '@/components/ui/dialog';
 import {
   Table,
@@ -25,7 +26,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Skeleton } from '@/components/ui/skeleton';
 import { hoyLocalISO } from '@/lib/datetime';
 import {
   useCerrarRegla,
@@ -162,22 +162,18 @@ export function ReglasTab({ puedeAdministrar }: { puedeAdministrar: boolean }) {
         }
       >
         {reglas.isLoading ? (
-          <div className="space-y-2 p-4" aria-label="Cargando reglas">
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-8 w-full" />
-          </div>
+          <TableSkeleton rows={5} />
         ) : reglas.isError ? (
-          <div role="alert" className="flex items-center gap-2 p-4 text-sm text-danger-fg">
-            No se pudieron cargar las reglas.
-            <Button variant="ghost" size="sm" onClick={() => void reglas.refetch()}>
-              Reintentar
-            </Button>
-          </div>
+          <ErrorState
+  title="No se pudieron cargar las reglas"
+  problem={esApiError(reglas.error) ? reglas.error.problem : undefined}
+  onRetry={() => void reglas.refetch()}
+/>
         ) : reglas.data!.items.length === 0 ? (
-          <p className="p-6 text-sm text-ink-muted">
-            No hay reglas para estos filtros. Sin regla, cada dimensión es opcional (configuración
-            actual) hasta que Contabilidad defina su política.
-          </p>
+          <EmptyState
+            title="No hay reglas para estos filtros."
+            description="Sin regla, cada dimensión es opcional (configuración actual) hasta que Contabilidad defina su política."
+          />
         ) : (
           <>
             <div className="overflow-x-auto">

@@ -61,7 +61,7 @@ function Contenido({ p }: { p: PropuestaAplicacionResponse }) {
           mono
           titulo={p.depositoRef}
           estado={<ChipEstadoPropuesta estado={p.estado} />}
-          descripcion={cliente?.razonSocial ?? p.clienteId.slice(0, 8)}
+          descripcion={cliente?.razonSocial ?? '—'}
           acciones={
             <div className="flex items-center gap-1.5">
               <Button variant="ghost" size="icon" asChild aria-label="Cerrar detalle">
@@ -88,7 +88,7 @@ function Contenido({ p }: { p: PropuestaAplicacionResponse }) {
           <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 lg:grid-cols-4 text-sm">
             <div>
               <dt className="text-xs text-ink-muted">Cliente</dt>
-              <dd className="truncate">{cliente?.razonSocial ?? p.clienteId.slice(0, 8)}</dd>
+              <dd className="truncate">{cliente?.razonSocial ?? '—'}</dd>
             </div>
             <div>
               <dt className="text-xs text-ink-muted">Monto</dt>

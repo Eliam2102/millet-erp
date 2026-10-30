@@ -12,7 +12,8 @@ import {
   type NuevoPedidoApi,
 } from '@/features/facturacion/components/nuevo-pedido-context';
 import { NuevoPedidoManual } from '@/features/facturacion/pages/NuevoPedidoManual';
-import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 
 /**
  * <c>&lt;NuevoPedidoProvider/&gt;</c> + el Sheet asociado. Vive a nivel
@@ -21,38 +22,24 @@ import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
  * <c>NuevaRequisicionProvider</c> (patrón §6.2 de patrones-compras).
  *
  * <para>Confirm al cerrar con cambios: si el form reportó
- * <c>isDirty=true</c>, los gestos de cerrar muestran un
- * <c>window.confirm</c>. El flujo de éxito llama
+ * <c>isDirty=true</c>, los gestos de cerrar muestran el
+ * diálogo de <c>useConfirmarDescarte</c>. El flujo de éxito llama
  * <c>cerrar({ force: true })</c>.</para>
  */
 export function NuevoPedidoProvider({ children }: { children: ReactNode }) {
   const [abierto, setAbierto] = useState(false);
   const [pedido, setPedido] = useState<PedidoFacturableDetalleResponse | undefined>(undefined);
-  const isDirtyRef = useRef(false);
-
-  const setDirty = useCallback((dirty: boolean) => {
-    isDirtyRef.current = dirty;
-  }, []);
-
-  const cerrarConConfirm = useCallback((opts?: { force?: boolean }) => {
-    if (opts?.force === true || !isDirtyRef.current) {
-      isDirtyRef.current = false;
-      setAbierto(false);
-      return;
-    }
-    const confirmar = window.confirm(
-      'Tienes cambios sin guardar en el nuevo pedido. ¿Descartarlos y cerrar?',
-    );
-    if (confirmar) {
-      isDirtyRef.current = false;
-      setAbierto(false);
-    }
-  }, []);
+  const alCerrar = useCallback(() => setAbierto(false), []);
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(alCerrar);
+  const cerrarConConfirm = useCallback(
+    (opts?: { force?: boolean }) => solicitarCierre(opts?.force),
+    [solicitarCierre],
+  );
 
   const api = useMemo<NuevoPedidoApi>(
     () => ({
       abrir: (p?: PedidoFacturableDetalleResponse) => {
-        isDirtyRef.current = false;
+        setDirty(false);
         setPedido(p);
         setAbierto(true);
       },
@@ -99,6 +86,7 @@ export function NuevoPedidoProvider({ children }: { children: ReactNode }) {
           </SheetBody>
         </SheetContent>
       </Sheet>
+      {dialogo}
     </NuevoPedidoContext.Provider>
   );
 }

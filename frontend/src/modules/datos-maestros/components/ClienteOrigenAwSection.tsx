@@ -5,6 +5,7 @@ import {
   TableHead,
   TableBody,
   TableCell,
+  TableContainer,
 } from '@/components/ui/table';
 import { useQueryClient } from '@tanstack/react-query';
 import { RefreshCw } from 'lucide-react';
@@ -124,6 +125,7 @@ export function ClienteOrigenAwSection({ cliente }: { cliente: ClienteDetalle })
       </dl>
 
       {filas.length > 0 && (
+        <TableContainer maxHeightClassName="">
         <Table className="mt-4 w-full text-sm">
           <caption className="mb-1 text-left text-xs text-ink-muted">
             Diferencias entre el ERP y el origen
@@ -145,8 +147,10 @@ export function ClienteOrigenAwSection({ cliente }: { cliente: ClienteDetalle })
             ))}
           </TableBody>
         </Table>
+        </TableContainer>
       )}
       {(o.diferencias?.length ?? 0) > 0 && (
+        <TableContainer maxHeightClassName="">
         <Table className="mt-4 w-full text-sm">
           <caption className="mb-1 text-left text-xs text-ink-muted">
             Recibido de A+W y no aplicado al cliente
@@ -170,6 +174,7 @@ export function ClienteOrigenAwSection({ cliente }: { cliente: ClienteDetalle })
             ))}
           </TableBody>
         </Table>
+        </TableContainer>
       )}
       {canVerOrigen && (
         <CambiosAwHistorial
