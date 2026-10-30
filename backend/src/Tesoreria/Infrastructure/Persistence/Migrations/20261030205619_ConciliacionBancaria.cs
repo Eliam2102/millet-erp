@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -200,7 +200,7 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                 columns: new[] { "conciliacion_id", "linea_hash" });
 
             migrationBuilder.CreateIndex(
-                name: "ix_extracto_linea_match_movimiento",
+                name: "ix_extracto_linea_match_movimiento_id",
                 schema: "tesoreria",
                 table: "extracto_linea",
                 column: "match_movimiento_id");

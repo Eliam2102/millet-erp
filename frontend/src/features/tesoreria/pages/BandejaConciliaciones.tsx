@@ -517,8 +517,8 @@ export function BandejaConciliaciones() {
             <div
               className={`p-4 rounded-lg border flex flex-col justify-between ${
                 conciliacion.diferencia === 0
-                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-300'
-                  : 'bg-rose-500/10 border-rose-500/30 text-rose-900 dark:text-rose-300'
+                  ? 'bg-success-bg border-success text-success-fg'
+                  : 'bg-danger-bg border-danger text-danger-fg'
               }`}
             >
               <div className="flex items-center justify-between">
@@ -526,9 +526,9 @@ export function BandejaConciliaciones() {
                   Diferencia
                 </span>
                 {conciliacion.diferencia === 0 ? (
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  <CheckCircle2 className="h-4 w-4 text-success-fg" />
                 ) : (
-                  <AlertCircle className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+                  <AlertCircle className="h-4 w-4 text-danger-fg" />
                 )}
               </div>
               <div className="mt-2 text-2xl font-bold tracking-tight">
@@ -551,8 +551,8 @@ export function BandejaConciliaciones() {
                   variant={conciliacion.estado === EstadoConciliacion.Cerrada ? 'default' : 'outline'}
                   className={
                     conciliacion.estado === EstadoConciliacion.Cerrada
-                      ? 'bg-emerald-600 text-white'
-                      : 'border-amber-500 text-amber-600'
+                      ? 'bg-success-bg text-success-fg border-success'
+                      : 'border-warning text-warning-fg bg-warning-bg'
                   }
                 >
                   {conciliacion.estado === EstadoConciliacion.Cerrada ? (
@@ -573,7 +573,7 @@ export function BandejaConciliaciones() {
                 ) : (
                   <div>
                     <p>{conciliacion.lineas.filter((l) => l.estado === EstadoExtractoLinea.Emparejada).length} de {conciliacion.lineas.length} líneas emparejadas</p>
-                    <p className="text-amber-600">
+                    <p className="text-warning-fg">
                       {conciliacion.lineas.filter((l) => l.estado === EstadoExtractoLinea.EnRevision).length} en revisión
                     </p>
                   </div>
@@ -760,13 +760,13 @@ export function BandejaConciliaciones() {
                                     </div>
                                   )}
                                   {linea.candidatosRevisionIds?.length > 1 && (
-                                    <div className="text-[10px] text-amber-600 font-medium">
+                                    <div className="text-[10px] text-warning-fg font-medium">
                                       ⚠ {linea.candidatosRevisionIds.length} candidatos posibles
                                     </div>
                                   )}
                                 </TableCell>
                                 <TableCell className="text-right text-xs whitespace-nowrap font-mono">
-                                  <span className={linea.monto < 0 ? 'text-rose-600' : 'text-emerald-600'}>
+                                  <span className={linea.monto < 0 ? 'text-danger-fg' : 'text-success-fg'}>
                                     {linea.monto < 0 ? '-' : '+'}
                                     <MoneyDisplay amount={Math.abs(linea.monto)} currency={conciliacion.moneda} />
                                   </span>
@@ -776,11 +776,11 @@ export function BandejaConciliaciones() {
                                     variant="outline"
                                     className={`text-[10px] px-1.5 py-0.5 ${
                                       linea.estado === EstadoExtractoLinea.Emparejada
-                                        ? 'border-emerald-500 text-emerald-700 bg-emerald-50 dark:bg-emerald-950/20'
+                                        ? 'border-success text-success-fg bg-success-bg'
                                         : linea.estado === EstadoExtractoLinea.EnRevision
-                                          ? 'border-amber-500 text-amber-700 bg-amber-50 dark:bg-amber-950/20'
+                                          ? 'border-warning text-warning-fg bg-warning-bg'
                                           : linea.estado === EstadoExtractoLinea.EnTransito
-                                            ? 'border-blue-500 text-blue-700 bg-blue-50 dark:bg-blue-950/20'
+                                            ? 'border-info text-info-fg bg-info-bg'
                                             : 'border-edge text-ink-muted'
                                     }`}
                                   >
@@ -794,7 +794,7 @@ export function BandejaConciliaciones() {
                                         <Button
                                           variant="ghost"
                                           size="icon"
-                                          className="h-7 w-7 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                                          className="h-7 w-7 text-danger-fg hover:bg-danger-bg"
                                           title="Desemparejar (requiere motivo)"
                                           onClick={() => setModalDesemparejar(linea)}
                                         >
@@ -805,7 +805,7 @@ export function BandejaConciliaciones() {
                                           <Button
                                             variant="ghost"
                                             size="icon"
-                                            className="h-7 w-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                            className="h-7 w-7 text-info-fg hover:bg-info-bg"
                                             title="Alta asistida (comisión / interés / depósito)"
                                             onClick={() => abrirAltaAsistida(linea)}
                                           >
@@ -925,7 +925,7 @@ export function BandejaConciliaciones() {
                                   )}
                                 </TableCell>
                                 <TableCell className="text-right text-xs whitespace-nowrap font-mono">
-                                  <span className={mov.sentido === 2 ? 'text-rose-600' : 'text-emerald-600'}>
+                                  <span className={mov.sentido === 2 ? 'text-danger-fg' : 'text-success-fg'}>
                                     {mov.sentido === 2 ? '-' : '+'}
                                     <MoneyDisplay amount={mov.monto} currency={mov.moneda} />
                                   </span>
@@ -935,7 +935,7 @@ export function BandejaConciliaciones() {
                                     variant="outline"
                                     className={`text-[10px] px-1.5 py-0.5 ${
                                       esConciliado
-                                        ? 'border-emerald-500 text-emerald-700 bg-emerald-50 dark:bg-emerald-950/20'
+                                        ? 'border-success text-success-fg bg-success-bg'
                                         : 'border-edge text-ink-muted'
                                     }`}
                                   >
@@ -1211,7 +1211,7 @@ export function BandejaConciliaciones() {
                 <span className="text-[10px] text-ink-muted">Default: ±3 días</span>
               </div>
             </div>
-            <div className="text-xs text-ink-muted bg-amber-500/10 border border-amber-500/20 p-2.5 rounded text-amber-900 dark:text-amber-300">
+            <div className="text-xs text-ink-muted bg-warning-bg border border-warning p-2.5 rounded text-warning-fg">
               <span className="font-semibold">Regla de seguridad:</span> Si una línea encuentra más de 1 movimiento candidato idéntico, NO se empareja sola; se envía a <b>En revisión</b> para validación humana.
             </div>
           </div>

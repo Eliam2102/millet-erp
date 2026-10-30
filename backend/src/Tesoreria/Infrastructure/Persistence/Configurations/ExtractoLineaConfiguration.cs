@@ -58,7 +58,7 @@ public sealed class ExtractoLineaConfiguration : IEntityTypeConfiguration<Extrac
             .HasDatabaseName("ix_extracto_linea_hash");
 
         builder.HasIndex(e => e.MatchMovimientoId)
-            .HasDatabaseName("ix_extracto_linea_match_movimiento");
+            .HasDatabaseName("ix_extracto_linea_match_movimiento_id");
 
         builder.HasOne<MovimientoBancario>()
             .WithMany()
