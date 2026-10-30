@@ -45,12 +45,9 @@ namespace Millet.Compras.Infrastructure.Workers;
 /// <b>NO consumido en este PR</b>:
 /// <list type="bullet">
 ///   <item><c>cuentas_por_pagar.nota-credito.registrada.v1</c> →
-///   loggeado como informativo. NC en CxP no tiene granularidad por
-///   línea (solo Total); el listener orphan
-///   <c>NotaCreditoProveedorRegistradaListener</c> espera
-///   <c>CantidadFacturadaAcumuladaAjustada</c> por línea, lo cual
-///   requiere rediseño de modelo CxP. PLATFORM-TODO
-///   <c>&lt;NcGranularidadLineaOc&gt;</c>.</item>
+///   informativo. Lo acreditado por devolución llega por Almacén
+///   (<c>almacen.oc_devolucion.conciliada.v1</c>, al formalizar la NC 03),
+///   ya por línea de OC; cierra <c>&lt;NcGranularidadLineaOc&gt;</c>.</item>
 ///   <item><c>tesoreria.pago-factura-proveedor.aplicado.v1</c> — vive en
 ///   el topic <c>tesoreria-events</c>, no en este topic. El listener
 ///   orphan <c>PagoFacturaProveedorListener</c> requiere proyección
@@ -207,6 +204,15 @@ public sealed class CxpEventListenerWorker : BackgroundService, ILocalIntegratio
                     break;
                 }
 
+                // Cancelación: baja lo facturado por línea de OC al vigente (CxP manda el acumulado sin la factura cancelada).
+                case FacturaProveedorCanceladaCommandHandler.EventType:
+                {
+                    var payload = JsonSerializer.Deserialize<FacturaProveedorCanceladaPayload>(body, JsonOpts)
+                        ?? throw new JsonException("Payload null.");
+                    await mediator.Send(new FacturaProveedorCanceladaCommand(eventId, payload), cancellationToken);
+                    break;
+                }
+
                 case FacturaPagoAplicadoCommandHandler.EventType:
                 {
                     var payload = JsonSerializer.Deserialize<FacturaPagoAplicadoPayload>(body, JsonOpts)
@@ -219,7 +225,6 @@ public sealed class CxpEventListenerWorker : BackgroundService, ILocalIntegratio
                 // y dejar marca de idempotencia, pero no aplica reglas de dominio
                 // sobre la OC. Si en el futuro alguno cambia sub-estado, mover
                 // a un command dedicado.
-                case "cuentas_por_pagar.factura.cancelada.v1":
                 case "cuentas_por_pagar.factura.autorizada.v1":
                 case "cuentas_por_pagar.factura.rechazada-por-tolerancia.v1":
                 case "cuentas_por_pagar.factura.diferencia-precio-detectada.v1":

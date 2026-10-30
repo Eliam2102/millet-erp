@@ -96,7 +96,7 @@ export function DescartarCfdiSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-md">
+      <SheetContent side="right" size="form">
         <SheetHeader>
           <SheetTitle>Descartar CFDI</SheetTitle>
           <SheetDescription>

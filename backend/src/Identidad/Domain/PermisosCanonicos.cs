@@ -187,7 +187,10 @@ public static class PermisosCanonicos
     public const string DatosMaestrosProveedoresToleranciaEditar       = "datos_maestros.proveedores.tolerancia-editar";
     // F1-ADM-05 G1.1: validación y activación del proveedor por CxP.
     public const string DatosMaestrosProveedoresValidar                = "datos_maestros.proveedores.validar";
-    public const string DatosMaestrosArticulosGestionar                = "datos_maestros.articulos.gestionar";
+    // 86e3tactf: bloqueo total del proveedor (bloquear y desbloquear) y reemplazo de quien liberaría un bloqueo ajeno.
+    public const string DatosMaestrosProveedoresBloquear               = "datos_maestros.proveedores.bloquear";
+    public const string CuentasPorPagarBloqueosLiberarEnLugar          = "cuentas_por_pagar.bloqueos.liberar-en-lugar";
+    public const string DatosMaestrosArticulosGestionar               = "datos_maestros.articulos.gestionar";
     // ADR-0048: masters nuevos para la ingesta de pedidos A+W → Facturación.
     // Clientes (D6) y ProductoAw (D5, master de venta separado de articulos).
     public const string DatosMaestrosClientesGestionar                 = "datos_maestros.clientes.gestionar";
@@ -396,6 +399,9 @@ public static class PermisosCanonicos
     public const string CuentasPorPagarCfdisCargarManual               = "cuentas_por_pagar.cfdis.cargar-manual";
     public const string CuentasPorPagarCfdisDescartar                  = "cuentas_por_pagar.cfdis.descartar";
 
+    // P8.3: dar o quitar acceso al portal de proveedores desde la ficha del proveedor.
+    public const string CuentasPorPagarPortalAdministrar               = "cuentas_por_pagar.portal.administrar";
+
     public const string CuentasPorPagarReposicionesLeer                = "cuentas_por_pagar.reposiciones.leer";
     public const string CuentasPorPagarReposicionesAdministrar         = "cuentas_por_pagar.reposiciones.administrar";
 
@@ -466,6 +472,7 @@ public static class PermisosCanonicos
     public const string FacturacionNotasCreditoBonificacion    = "facturacion.notas-credito.bonificacion-emitir";
     public const string FacturacionNotasCreditoLeer            = "facturacion.notas-credito.leer";
     public const string FacturacionNotasCreditoReembolsoSolicitar = "facturacion.notas-credito.reembolso-solicitar";
+    public const string FacturacionNotasCreditoAutorizar       = "facturacion.notas-credito.autorizar";
     public const string FacturacionCartaPorteEmitir            = "facturacion.carta-porte.emitir";
     public const string FacturacionCartaPorteLeer              = "facturacion.carta-porte.leer";
     public const string FacturacionReppEmitir                  = "facturacion.repp.emitir";
@@ -828,6 +835,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000007-0009-0000-0000-000000000001"), CuentasPorPagarCfdisLeer,                    "Consultar CFDIs recibidos"),
         (Guid.Parse("00000007-0009-0000-0000-000000000002"), CuentasPorPagarCfdisCargarManual,            "Cargar CFDI manualmente (canal de respaldo)"),
         (Guid.Parse("00000007-0009-0000-0000-000000000003"), CuentasPorPagarCfdisDescartar,               "Descartar CFDI por duplicado o error"),
+        (Guid.Parse("00000007-0011-0000-0000-000000000001"), CuentasPorPagarPortalAdministrar,            "Administrar el acceso de un proveedor al portal de proveedores (correos autorizados)"),
         (Guid.Parse("00000007-0010-0000-0000-000000000001"), CuentasPorPagarReposicionesLeer,             "Consultar reposiciones de caja chica y saldos por reponer"),
         (Guid.Parse("00000007-0010-0000-0000-000000000002"), CuentasPorPagarReposicionesAdministrar,      "Configurar mínimo de reposición por sucursal y emitir cortes manuales"),
         // Integración A+W (PR A). Namespace 00000006-*.
@@ -898,6 +906,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000009-0004-0000-0000-000000000001"), FacturacionNotasCreditoBonificacion,    "Emitir notas de crédito por bonificación (relación 01)"),
         (Guid.Parse("00000009-0004-0000-0000-000000000002"), FacturacionNotasCreditoLeer,            "Consultar notas de crédito emitidas"),
         (Guid.Parse("00000009-0004-0000-0000-000000000003"), FacturacionNotasCreditoReembolsoSolicitar, "Solicitar a Tesorería el reembolso en dinero de una nota de crédito timbrada"),
+        (Guid.Parse("00000009-0004-0000-0000-000000000004"), FacturacionNotasCreditoAutorizar,       "Autorizar y timbrar notas de crédito de clientes que llegan de A+W (propuesta: Gerente de Sucursal, manual §2.3; la reemplaza la cadena por monto F6.4)"),
         (Guid.Parse("00000009-0005-0000-0000-000000000001"), FacturacionCartaPorteEmitir,            "Emitir Carta Porte 3.1 (CFDI tipo T o I), incluyendo tramos siguientes"),
         (Guid.Parse("00000009-0005-0000-0000-000000000002"), FacturacionCartaPorteLeer,              "Consultar Carta Portes emitidas"),
         (Guid.Parse("00000009-0006-0000-0000-000000000001"), FacturacionReppEmitir,                  "Emitir complementos de pago (REPP / Pago 2.0)"),
@@ -1029,5 +1038,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000004-0090-0000-0000-000000000003"), DatosMaestrosProveedoresCargar, "Cargar desde Excel o CSV: proveedores"),
         (Guid.Parse("00000004-0090-0000-0000-000000000004"), DatosMaestrosProductosAwFiscalCargar, "Cargar desde Excel o CSV: productos-aw-fiscal"),
         (Guid.Parse("00000004-0090-0000-0000-000000000005"), CentrosCostoCatalogoCargar, "Cargar desde Excel o CSV: catalogo"),
+        (Guid.Parse("00000004-0091-0000-0000-000000000001"), DatosMaestrosProveedoresBloquear, "Bloquear y desbloquear al proveedor completo (sin pagos ni OC nuevas)"),
+        (Guid.Parse("00000004-0091-0000-0000-000000000002"), CuentasPorPagarBloqueosLiberarEnLugar, "Liberar un bloqueo (proveedor o factura) en lugar de quien lo pidió, con motivo"),
     };
 }

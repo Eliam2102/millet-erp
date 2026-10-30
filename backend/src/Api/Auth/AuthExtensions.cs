@@ -115,6 +115,8 @@ public static class AuthExtensions
             });
 
         services.AddAuthorization();
+        // P8.3: esquema aparte para el portal de proveedores; no toca el JWT de empleados.
+        services.AddPortalProveedorAuth(jwtOptions, signingKey);
         services.AddHttpContextAccessor();
 
         services.AddScoped<IJwtTokenService, JwtTokenService>();

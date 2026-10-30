@@ -11,8 +11,12 @@ public sealed record ListarEscaneosQuery(string? Resultado, int Page, int PageSi
 
 public sealed record PiezaDto(Guid Id, string Etiqueta, string NumeroPedido, int Posicion, int NumeroPieza, Guid SucursalId, string Estado, DateTimeOffset EscaneadaAt);
 
-/// <summary><c>AvanceFisico</c>: SinPiezas | Parcial | Completo.</summary>
-public sealed record AvancePosicionDto(int Posicion, string? Descripcion, int Esperadas, int Terminadas, int Faltantes, string AvanceFisico);
+/// <summary>
+/// Indicadores por posición (PT5.2), todos calculados: Esperadas (A+W), Terminadas (piezas dadas de alta con la regla SRC-114),
+/// EnPt (terminadas que aún no se cargan ni entregan), Cargadas, Entregadas y Pendientes (esperadas - terminadas).
+/// <c>AvanceFisico</c>: SinPiezas | Parcial | Completo. Sin estatus de pedido: lo pone A+W (SRC-112/114).
+/// </summary>
+public sealed record AvancePosicionDto(int Posicion, string? Descripcion, int Esperadas, int Terminadas, int EnPt, int Cargadas, int Entregadas, int Pendientes, string AvanceFisico);
 
 public sealed record PiezasPagina(IReadOnlyList<PiezaDto> Items, int Total, IReadOnlyList<AvancePosicionDto> Avance);
 

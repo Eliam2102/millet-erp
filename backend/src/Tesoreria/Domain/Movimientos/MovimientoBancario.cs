@@ -63,6 +63,14 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
     public string? DestinoBanco { get; private set; }
     public string? DestinoNumeroCuenta { get; private set; }
     public string? DestinoTitular { get; private set; }
+
+    /// <summary>
+    /// 86e3tfdve (opción A): cuenta del cliente desde la que pagó (CtaOrdenante del REP),
+    /// capturada una vez al registrar el ingreso. PII (ADR-0006): enmascarada al mostrarse.
+    /// No viaja en <c>pago-cliente.confirmado.v1</c> (cuidados-infra §4); Facturación la
+    /// lee por puerto con el id del movimiento.
+    /// </summary>
+    public string? CuentaOrdenante { get; private set; }
     /// <summary>Quien registró confirmó haber verificado fondos en la banca (no hay integración bancaria).</summary>
     public bool FondosVerificados { get; private set; }
 
@@ -84,7 +92,8 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
         Guid? beneficiarioRef,
         Guid creadoPor,
         DateTimeOffset ahora,
-        Guid? sucursalId = null)
+        Guid? sucursalId = null,
+        string? cuentaOrdenante = null)
     {
         cuenta.ValidarFechaMovimiento(fechaValor);
         if (!cuenta.Activa)
@@ -97,6 +106,13 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
                 "Si se indica la referencia del beneficiario, el tipo es obligatorio.");
         if (creadoPor == Guid.Empty)
             throw new BusinessRuleException("MOV_USUARIO_VACIO", "El usuario que registra es obligatorio.");
+        // La forma de pago aún no se conoce: solo el patrón general del SAT. La forma
+        // real se valida en Facturación al revisar y al emitir el REP.
+        var ordenante = CuentaPagoSat.Normalizar(cuentaOrdenante);
+        if (ordenante is not null && !CuentaPagoSat.CumpleGeneral(ordenante))
+            throw new BusinessRuleException("MOV_CUENTA_ORDENANTE_INVALIDA",
+                $"La cuenta ordenante {CuentaPagoSat.Enmascarar(ordenante)} no tiene un formato del SAT: " +
+                $"se esperan {CuentaPagoSat.DescripcionGeneral}.");
 
         return new MovimientoBancario
         {
@@ -104,6 +120,7 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
             EmpresaId = empresaId,
             SucursalId = sucursalId,
             CuentaBancariaId = cuenta.Id,
+            CuentaOrdenante = ordenante,
             Sentido = SentidoMovimiento.Ingreso,
             Monto = monto,
             // RN-3: la moneda del movimiento ES la de la cuenta — no se

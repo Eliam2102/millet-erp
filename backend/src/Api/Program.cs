@@ -959,6 +959,9 @@ builder.Services.AddScoped<Millet.Tesoreria.Domain.Ports.IElegibleFacturaReadPor
 builder.Services.AddScoped<Millet.CuentasPorPagar.Domain.Ports.Tesoreria.IPagosProveedorReadPort, Millet.Api.Infrastructure.Adapters.PagosProveedorReadPortAdapter>();
 // FIX-12: nombre del cajero en el corte y la liquidación de caja (Facturación no referencia Identidad).
 builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.IUsuariosReadPort, Millet.Api.Infrastructure.Adapters.FacturacionUsuariosReadAdapter>();
+// 86e3tfdve: cuenta beneficiaria del complemento de pago desde la cuenta bancaria de Millet (dueño: Tesorería).
+builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.ICuentaBancariaMilletReadPort, Millet.Api.Infrastructure.Adapters.CuentaBancariaMilletReadAdapter>();
+builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.ICuentaOrdenanteMovimientoReadPort, Millet.Api.Infrastructure.Adapters.CuentaOrdenanteMovimientoReadAdapter>();
 
 // === Módulo Centros de Costo (CECO-A1) ===
 // Cimiento: catálogo jerárquico Sucursal→Departamento→Equipo + dimensiones
@@ -1131,6 +1134,7 @@ builder.Services.AddScoped<Millet.Identidad.Application.Colaboradores.GrupoAcces
 // defecto hasta configurar adaptadores reales.
 // Avisos SLA de CxP por Graph: independientes del alta de colaboradores.
 builder.Services.AddGraphAvisosRevisionCxp(builder.Configuration);
+builder.Services.AddGraphPortalProveedorCorreo(builder.Configuration);
 var proveedorColaboradores = builder.Configuration["Entra:Proveedor"] ?? "Simulado";
 if (proveedorColaboradores.Equals("Graph", StringComparison.OrdinalIgnoreCase))
     builder.Services.AddGraphColaboradores(builder.Configuration, builder.Environment.IsDevelopment());
@@ -1725,6 +1729,9 @@ Millet.Api.Endpoints.CuentasPorPagar.CfdisEndpoints.MapCfdisEndpoints(app);
 // === Cuentas por Pagar — Facturas con OC (F3-PR1 + revisión F4-PR1) ===
 Millet.Api.Endpoints.CuentasPorPagar.FacturasEndpoints.MapFacturasEndpoints(app);
 
+// === Portal de proveedores (P8.3): entrada aparte, esquema propio ===
+Millet.Api.Endpoints.CuentasPorPagar.PortalProveedoresEndpoints.MapPortalProveedoresEndpoints(app);
+
 // === Cuentas por Pagar — Catálogos read-only (F4-PR1) ===
 Millet.Api.Endpoints.CuentasPorPagar.CatalogosCxpEndpoints.MapCatalogosCxpEndpoints(app);
 
@@ -1854,6 +1861,9 @@ Millet.Api.Endpoints.Tesoreria.PasivosEndpoints.MapTesoreriaPasivosEndpoints(app
 
 // === Tesorería — Pago a proveedor + reversa (TES-PR4, contrato congelado) ===
 Millet.Api.Endpoints.Tesoreria.PagosEndpoints.MapTesoreriaPagosEndpoints(app);
+
+// === Tesorería — Corrida de pagos, Parte A: armar y autorizar (T9.1, 86e3ke5bt) ===
+Millet.Api.Endpoints.Tesoreria.CorridasEndpoints.MapTesoreriaCorridasEndpoints(app);
 
 // === Tesorería — Pago a cuenta: gate RN-2 + liga tardía (TES-PR6) ===
 Millet.Api.Endpoints.Tesoreria.PagosACuentaEndpoints.MapTesoreriaPagosACuentaEndpoints(app);

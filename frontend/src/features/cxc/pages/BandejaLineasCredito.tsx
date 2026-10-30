@@ -244,7 +244,7 @@ export function BandejaLineasCredito() {
                       <TableCell className="max-w-72 px-3 py-2">
                         <p className="truncate">
                           {cliente?.razonSocial ??
-                            (lookup.isLoading ? '…' : l.clienteId.slice(0, 8))}
+                            (lookup.isLoading ? '…' : '—')}
                         </p>
                         {cliente?.rfc && (
                           <p className="font-mono text-xs text-ink-muted">{cliente.rfc}</p>

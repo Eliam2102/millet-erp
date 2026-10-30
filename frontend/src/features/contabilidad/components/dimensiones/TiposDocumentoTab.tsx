@@ -1,6 +1,13 @@
 import { ESTADOS_ACTIVIDAD } from '../../lib/estados-ui';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
-import { BarraFiltros, PaginacionTabla } from '@/components/erp';
+import {
+  BarraFiltros,
+  PaginacionTabla,
+  EmptyState,
+  ErrorState,
+  TableSkeleton,
+} from '@/components/erp';
+import { esApiError } from '@/lib/api';
 import { TabsContabilidad } from '../TabsContabilidad';
 import { usePaginacionLocal } from '../../lib/use-paginacion-local';
 import {
@@ -17,7 +24,6 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
   useCrearTipoDocumento,
   useEditarTipoDocumento,
@@ -190,17 +196,18 @@ export function TiposDocumentoTab({ puedeAdministrar }: { puedeAdministrar: bool
         }
       >
         {tipos.isLoading ? (
-          <div className="p-4" aria-label="Cargando tipos">
-            <Skeleton className="h-8 w-full" />
-          </div>
+          <TableSkeleton rows={5} />
         ) : tipos.isError ? (
-          <p role="alert" className="p-4 text-sm text-danger-fg">
-            No se pudieron cargar los tipos de documento.
-          </p>
+          <ErrorState
+            title="No se pudieron cargar los tipos de documento"
+            problem={esApiError(tipos.error) ? tipos.error.problem : undefined}
+            onRetry={() => void tipos.refetch()}
+          />
         ) : tipos.data!.length === 0 ? (
-          <p className="p-6 text-sm text-ink-muted">
-            Aún no hay tipos de documento. La lista oficial la entrega Contabilidad de Millet.
-          </p>
+          <EmptyState
+            title="Aún no hay tipos de documento."
+            description="La lista oficial la entrega Contabilidad de Millet."
+          />
         ) : (
           <Table className="w-full text-sm">
             <TableHeader className="border-b border-line-divider bg-surface-subtle text-left text-2xs font-semibold uppercase tracking-[0.04em] text-ink-muted">

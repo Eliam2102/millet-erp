@@ -21,6 +21,7 @@ import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { Download, FileCode, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { EstadoFacturacionBadge } from '../components/EstadoFacturacionBadge';
+import { enmascararCuenta } from '../lib/cuentas-pago-sat';
 
 /**
  * <c>Detalle de un REPP</c> (FE-F6). Cabecera del pago + bandeja de
@@ -121,6 +122,15 @@ function Contenido({ r }: { r: NonNullable<ReturnType<typeof useRepp>['data']> }
         <Dato label="Receptor">{r.receptorNombre}</Dato>
         <Dato label="Moneda del pago">{r.monedaPago}</Dato>
         <Dato label="Fecha de pago">{new Date(r.fechaPago).toLocaleString('es-MX')}</Dato>
+        <Dato label="Forma de pago">
+          {r.formaPago ?? <span className="text-ink-muted">Sin forma de pago</span>}
+        </Dato>
+        <Dato label="Cuenta ordenante">
+          <CuentaEnmascarada valor={r.cuentaOrdenante} />
+        </Dato>
+        <Dato label="Cuenta beneficiaria">
+          <CuentaEnmascarada valor={r.cuentaBeneficiaria} />
+        </Dato>
       </dl>
 
       <section className="space-y-2">
@@ -147,7 +157,7 @@ function Contenido({ r }: { r: NonNullable<ReturnType<typeof useRepp>['data']> }
                       params={{ id: f.facturaVentaId }}
                       className="font-mono text-xs text-brand hover:underline"
                     >
-                      {f.folio ?? f.facturaUuid.slice(0, 8)}
+                      {f.folio ?? 'Ver'}
                     </Link>
                   </TableCell>
                   <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
@@ -174,6 +184,15 @@ function Contenido({ r }: { r: NonNullable<ReturnType<typeof useRepp>['data']> }
       <TrazabilidadFacturacion raiz="comprobante" id={r.id} />
       <IntentosTimbradoPanel comprobanteId={r.id} />
     </div>
+  );
+}
+
+function CuentaEnmascarada({ valor }: { valor?: string | null }) {
+  const cuenta = enmascararCuenta(valor);
+  return cuenta ? (
+    <span className="font-mono text-xs">{cuenta}</span>
+  ) : (
+    <span className="text-ink-muted">Sin cuenta</span>
   );
 }
 

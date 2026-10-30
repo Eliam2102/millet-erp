@@ -40,6 +40,23 @@ public sealed class PasivoPendientePago : BaseEntity, IPerteneceAEmpresa, IAudit
     // el read model de REPP pendientes los muestra como "sin dato".
     public string? MetodoPago { get; private set; }
 
+    // T9.1-A: desglose fiscal del CFDI (extensión aditiva del evento de CxP). Null en pasivos
+    // proyectados antes de la extensión o internos: se muestran sin retenciones hasta la re-emisión.
+    public decimal? Subtotal { get; private set; }
+    public decimal? ImpuestosTrasladados { get; private set; }
+    public decimal? Retenciones { get; private set; }
+
+    /// <summary>
+    /// Bruto (subtotal + impuestos trasladados) y retenciones que corresponden a <paramref name="importe"/>
+    /// (prorrata del total del CFDI; el neto es el importe). Sin desglose: bruto = importe, retenciones = 0.
+    /// </summary>
+    public (decimal Bruto, decimal Retenciones) Desglose(decimal importe)
+    {
+        if (Subtotal is null || MontoTotal <= 0) return (importe, 0m);
+        var f = importe / MontoTotal;
+        return (Math.Round((Subtotal.Value + (ImpuestosTrasladados ?? 0m)) * f, 2), Math.Round((Retenciones ?? 0m) * f, 2));
+    }
+
     // GI-PR2 (doc 12 §D1-b): pasivos INTERNOS (reposición de caja chica,
     // préstamo de viáticos). Para internos, FacturaProveedorId almacena el
     // OrigenId (único por diseño) y ProveedorId el BeneficiarioId — así la
@@ -87,7 +104,10 @@ public sealed class PasivoPendientePago : BaseEntity, IPerteneceAEmpresa, IAudit
         Guid? uuidCfdi,
         string? folioProveedor,
         DateTimeOffset recibidoEn,
-        string? metodoPago = null) : base(Guid.CreateVersion7())
+        string? metodoPago = null,
+        decimal? subtotal = null,
+        decimal? impuestosTrasladados = null,
+        decimal? retenciones = null) : base(Guid.CreateVersion7())
     {
         if (facturaProveedorId == Guid.Empty)
             throw new BusinessRuleException("PASIVO_FACTURA_VACIA", "FacturaProveedorId es obligatorio.");
@@ -107,6 +127,7 @@ public sealed class PasivoPendientePago : BaseEntity, IPerteneceAEmpresa, IAudit
         FolioProveedor = folioProveedor;
         RecibidoEn = recibidoEn;
         MetodoPago = metodoPago;
+        Subtotal = subtotal; ImpuestosTrasladados = impuestosTrasladados; Retenciones = retenciones;
         TipoBeneficiario = BeneficiarioProveedor;
         BeneficiarioId = proveedorId;
         OrigenTipo = OrigenFactura;
@@ -209,7 +230,10 @@ public sealed class PasivoPendientePago : BaseEntity, IPerteneceAEmpresa, IAudit
         Guid? uuidCfdi,
         string? folioProveedor,
         DateTimeOffset recibidoEn,
-        string? metodoPago = null)
+        string? metodoPago = null,
+        decimal? subtotal = null,
+        decimal? impuestosTrasladados = null,
+        decimal? retenciones = null)
     {
         MontoTotal = montoTotal;
         SaldoPendiente = saldoPendiente;
@@ -221,5 +245,6 @@ public sealed class PasivoPendientePago : BaseEntity, IPerteneceAEmpresa, IAudit
         RecibidoEn = recibidoEn;
         // Una re-emisión sin el dato no borra el conocido.
         if (metodoPago is not null) MetodoPago = metodoPago;
+        if (subtotal is not null) { Subtotal = subtotal; ImpuestosTrasladados = impuestosTrasladados; Retenciones = retenciones; }
     }
 }

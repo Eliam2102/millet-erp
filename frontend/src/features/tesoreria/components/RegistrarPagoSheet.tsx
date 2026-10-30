@@ -231,7 +231,7 @@ export function RegistrarPagoSheet({
                     <TableRow key={p.facturaProveedorId}>
                       <TableCell className="px-3 py-2">
                         <p className="font-mono text-xs">
-                          {p.folioProveedor ?? p.facturaProveedorId.slice(0, 8)}
+                          {p.folioProveedor ?? '—'}
                         </p>
                       </TableCell>
                       <TableCell className="px-3 py-2 text-xs">
@@ -248,7 +248,7 @@ export function RegistrarPagoSheet({
                           max={p.saldoPendiente}
                           step="0.01"
                           className={`ml-auto w-36 text-right font-mono ${invalido ? 'border-danger' : ''}`}
-                          aria-label={`Importe para ${p.folioProveedor ?? p.facturaProveedorId}`}
+                          aria-label={`Importe para ${p.folioProveedor ?? 'factura'}`}
                           value={importes[p.facturaProveedorId] ?? ''}
                           onChange={(e) =>
                             setOverrides((prev) => ({

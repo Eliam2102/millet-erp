@@ -1,6 +1,7 @@
 import { SheetBody } from '@/components/ui/sheet';
 import { FormCampo } from '@/components/erp/forms/FormGrid';
 import { FormGrid } from '@/components/erp/forms/FormGrid';
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { useEffect, useId, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -435,12 +436,8 @@ export function CotizacionSheet({
   partidas,
   cotizacion,
 }: CotizacionSheetProps) {
-  const [sucio, setSucio] = useState(false);
   // Confirm al cerrar con cambios (patrón NuevaRequisicionProvider).
-  const solicitarCierre = () => {
-    if (sucio && !window.confirm('Tienes cambios sin guardar. ¿Cerrar y descartarlos?')) return;
-    onClose();
-  };
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(onClose);
   return (
     <Sheet open={abierto} onOpenChange={(o) => !o && solicitarCierre()}>
       <SheetContent side="right" size="lg">
@@ -452,13 +449,14 @@ export function CotizacionSheet({
           <FormularioCotizacion
             onClose={onClose}
             onCancelar={solicitarCierre}
-            onDirtyChange={setSucio}
+            onDirtyChange={setDirty}
             requisicionId={requisicionId}
             partidas={partidas}
             cotizacion={cotizacion}
           />
         )}
       </SheetContent>
+      {dialogo}
     </Sheet>
   );
 }

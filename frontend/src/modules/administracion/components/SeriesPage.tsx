@@ -401,7 +401,7 @@ function SeriesTabla({
                     <TableCell className="px-3 py-2">
                       {serie.sucursalId == null
                         ? 'Global'
-                        : (sucursalesMap.get(serie.sucursalId) ?? serie.sucursalId)}
+                        : (sucursalesMap.get(serie.sucursalId) ?? '—')}
                     </TableCell>
                     <TableCell className="px-3 py-2">
                       {TIPO_DOCUMENTO_LABEL[serie.tipoDocumento]}

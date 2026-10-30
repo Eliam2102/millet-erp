@@ -1,6 +1,13 @@
 import { usePaginacionLocal } from '../lib/use-paginacion-local';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
-import { BarraFiltros, PaginacionTabla } from '@/components/erp';
+import {
+  BarraFiltros,
+  PaginacionTabla,
+  EmptyState,
+  ErrorState,
+  TableSkeleton,
+} from '@/components/erp';
+import { esApiError } from '@/lib/api';
 import { TabsContabilidad } from '../components/TabsContabilidad';
 import { ESTADOS_PLANTILLA } from '../lib/estados-ui';
 import { PageHeader } from '@/components/erp/PageHeader';
@@ -16,7 +23,6 @@ import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { Play, Plus, Repeat } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useFormIdempotencyKey } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -134,24 +140,21 @@ export function PolizasRecurrentesPage({ search, onSearch, onAbrir }: Props) {
         }
       >
         {plantillas.isLoading ? (
-          <div className="flex flex-col gap-2 p-4" aria-label="Cargando plantillas">
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-8 w-full" />
-          </div>
+          <TableSkeleton rows={5} />
         ) : plantillas.isError ? (
-          <div role="alert" className="flex items-center gap-2 p-4 text-sm text-danger-fg">
-            No se pudieron cargar las plantillas. {mensajeRecurrente(plantillas.error)}
-            <Button variant="ghost" size="sm" onClick={() => void plantillas.refetch()}>
-              Reintentar
-            </Button>
-          </div>
+          <ErrorState
+            title="No se pudieron cargar las plantillas"
+            problem={esApiError(plantillas.error) ? plantillas.error.problem : undefined}
+            onRetry={() => void plantillas.refetch()}
+          />
         ) : items.length === 0 ? (
-          <p className="p-6 text-sm text-ink-muted">
-            {search.estado
-              ? 'Ninguna plantilla en este estado.'
-              : 'Aún no hay plantillas. Prepara la primera con «Nueva plantilla».'}
-          </p>
+          <EmptyState
+            title={
+              search.estado
+                ? 'Ninguna plantilla en este estado.'
+                : 'Aún no hay plantillas. Prepara la primera con «Nueva plantilla».'
+            }
+          />
         ) : (
           <div className="overflow-x-auto">
             <Table className="w-full min-w-245 text-sm">

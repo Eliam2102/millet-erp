@@ -27,6 +27,9 @@ describe('<DetalleRepp> — smoke', () => {
           uuid: 'U-1',
           receptorNombre: 'Cliente Demo SA',
           monedaPago: 'MXN',
+          formaPago: '03',
+          cuentaOrdenante: '•••• 0016',
+          cuentaBeneficiaria: '•••• 0018',
           importeTotalPago: 1000,
           fechaPago: '2026-05-30T12:00:00Z',
           facturasCubiertas: [
@@ -47,6 +50,9 @@ describe('<DetalleRepp> — smoke', () => {
     await waitFor(() => expect(screen.getByText('REPP-1')).toBeInTheDocument());
     expect(screen.getByText('A-9')).toBeInTheDocument();
     expect(screen.getByText(/Facturas cubiertas \(1\)/i)).toBeInTheDocument();
+    // 86e3tfdve: cuentas del pago enmascaradas.
+    expect(screen.getByText('•••• 0016')).toBeInTheDocument();
+    expect(screen.getByText('•••• 0018')).toBeInTheDocument();
   });
 
   it('descarga el PDF y el XML del complemento de pago (86e3tfdx0)', async () => {

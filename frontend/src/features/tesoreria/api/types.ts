@@ -98,6 +98,8 @@ export const EstadoDepositoConfirmacion = {
   Pendiente: 1,
   Confirmada: 2,
   Rechazada: 3,
+  /** Corte de caja con fichas que aún no suman el efectivo. */
+  Parcial: 4,
 } as const;
 export type EstadoDepositoConfirmacion =
   (typeof EstadoDepositoConfirmacion)[keyof typeof EstadoDepositoConfirmacion];
@@ -109,7 +111,28 @@ export const ESTADO_DEPOSITO_LABELS: Record<
   [EstadoDepositoConfirmacion.Pendiente]: 'Pendiente',
   [EstadoDepositoConfirmacion.Confirmada]: 'Confirmada',
   [EstadoDepositoConfirmacion.Rechazada]: 'Rechazada',
+  [EstadoDepositoConfirmacion.Parcial]: 'Parcial',
 };
+
+/** Mirror de `SoporteFicha`: documento que respalda la 2ª ficha en adelante de un corte. */
+export const SoporteFicha = { ValeCaja: 1, CorteParcial: 2 } as const;
+export type SoporteFicha = (typeof SoporteFicha)[keyof typeof SoporteFicha];
+export const SOPORTE_FICHA_LABELS: Record<SoporteFicha, string> = {
+  [SoporteFicha.ValeCaja]: 'Vale de caja',
+  [SoporteFicha.CorteParcial]: 'Corte parcial',
+};
+
+/** Mirror de `DepositoFichaResponse`. */
+export interface DepositoFichaResponse {
+  id: string;
+  movimientoId: string;
+  importe: number;
+  fechaFicha: string;
+  numeroFicha: string | null;
+  soporteTipo: SoporteFicha | null;
+  soporteFolio: string | null;
+  confirmadaEn: string;
+}
 
 /** Mirror de `EstadoDevolucionCliente` (ck_devolucion_cliente_estado). */
 export const EstadoDevolucionCliente = {
@@ -258,6 +281,8 @@ export interface MovimientoBancarioResponse {
   destinoNumeroCuenta?: string | null;
   destinoTitular?: string | null;
   fondosVerificados?: boolean | null;
+  /** 86e3tfdve: cuenta ordenante del cliente (enmascarada salvo permiso PII). */
+  cuentaOrdenante?: string | null;
   creadoPor: string;
   creadoEn: string;
   version: number;
@@ -288,6 +313,9 @@ export interface PasivoPendienteResponse {
   proveedorId: string;
   proveedorClave: string | null;
   proveedorRazonSocial: string | null;
+  /** 86e3tactf: bloqueo total; el pago se rechaza con PROVEEDOR_BLOQUEADO. */
+  proveedorBloqueado?: boolean;
+  proveedorMotivoBloqueo?: string | null;
   banco: string | null;
   clabe: string | null;
   beneficiario: string | null;
@@ -441,6 +469,10 @@ export interface DepositoConfirmacionResponse {
   /** C7.4: movimiento que CxC identificó desde «Sin identificar»; se preselecciona al confirmar. */
   movimientoSugeridoId?: string | null;
   saldoAFavorPorIdentificar?: number;
+  /** Corte de caja: lo que falta por depositar (efectivo menos fichas). */
+  saldoPorDepositar?: number | null;
+  /** Corte de caja: historial de fichas. */
+  fichas?: DepositoFichaResponse[] | null;
 }
 
 // ---------------------------------------------------------------- REPP recibido (TES-FE-PR6b)
@@ -480,4 +512,87 @@ export interface ConceptoResponse {
   activo: boolean;
   esEjemplo: boolean;
   version: number;
+}
+
+// ─── Corridas de pago (T9.1-A, 86e3ke5bt) ───────────────────────────
+
+/** El backend serializa el estado de la corrida por nombre (no por el número del mirror de arriba). */
+export type EstadoCorridaNombre =
+  | 'Borrador'
+  | 'EnAutorizacion'
+  | 'Autorizada'
+  | 'Ejecutada'
+  | 'Cerrada'
+  | 'Rechazada'
+  | 'Cancelada';
+
+/** Mirror de `PasivoParaCorridaResponse` (GET /tesoreria/corridas/candidatos). */
+export interface PasivoParaCorridaResponse {
+  facturaProveedorId: string;
+  proveedorId: string;
+  proveedorRazonSocial: string | null;
+  folioProveedor: string | null;
+  fechaVencimiento: string;
+  moneda: string;
+  bruto: number;
+  retenciones: number;
+  neto: number;
+  cuentaValidada: boolean;
+}
+
+export interface CorridaProveedorResponse {
+  proveedorId: string;
+  proveedorRazonSocial: string | null;
+  facturas: number;
+  bruto: number;
+  retenciones: number;
+  neto: number;
+}
+
+export interface CorridaLineaResponse {
+  facturaProveedorId: string;
+  proveedorId: string;
+  folioProveedor: string | null;
+  fechaVencimiento: string | null;
+  bruto: number;
+  retenciones: number;
+  neto: number;
+  ejecutada: boolean;
+}
+
+export interface CorridaResumenResponse {
+  id: string;
+  nombre: string;
+  estado: EstadoCorridaNombre;
+  moneda: string;
+  total: number;
+  pasivos: number;
+  firmasRequeridas: number;
+  firmasRecibidas: number;
+  creadaEn: string;
+  version: number;
+}
+
+export interface CorridaResponse {
+  id: string;
+  nombre: string;
+  estado: EstadoCorridaNombre;
+  moneda: string;
+  cuentaBancariaId: string;
+  bruto: number;
+  retenciones: number;
+  total: number;
+  solicitadaPor: string;
+  autorizadaPor: string | null;
+  autorizadaEn: string | null;
+  creadaEn: string;
+  firmasRequeridas: number;
+  firmasRecibidas: number;
+  rolRequerido: string | null;
+  motivoCierre: string | null;
+  avisos: string | null;
+  version: number;
+  proveedores: CorridaProveedorResponse[];
+  lineas: CorridaLineaResponse[];
+  firmas: { usuarioId: string; roles: string; firmadaEn: string }[];
 }

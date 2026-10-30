@@ -27,10 +27,10 @@ describe('<LineaDesdeRqBadge>', () => {
     expect(badge.textContent).not.toContain('019e937e');
   });
 
-  it('sin folio: cae al short-id del GUID (fallback)', () => {
+  it('sin folio: no muestra el GUID en el texto (fallback)', () => {
     const badge = renderBadge(null);
 
-    expect(badge.textContent).toContain('RQ-019e937e');
+    expect(badge.textContent).not.toContain('019e937e');
     // El GUID completo solo vive en el tooltip (title), no en el texto.
     expect(badge.getAttribute('title')).toContain(RQ_ID);
   });

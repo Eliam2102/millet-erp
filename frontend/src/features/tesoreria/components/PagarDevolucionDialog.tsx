@@ -119,7 +119,7 @@ export function PagarDevolucionDialog({
             </div>
             <div>
               <dt className="text-xs text-ink-muted">Cliente</dt>
-              <dd>{d.clienteRazonSocial ?? d.clienteId}</dd>
+              <dd>{d.clienteRazonSocial ?? '—'}</dd>
             </div>
             <div>
               <dt className="text-xs text-ink-muted">Banco destino</dt>

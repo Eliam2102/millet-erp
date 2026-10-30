@@ -68,6 +68,7 @@ public static class DatosMaestrosEndpoints
             [FromQuery] string? razonSocial,
             [FromQuery] string? q,
             [FromQuery] bool? soloExpedienteIncompleto,
+            [FromQuery] bool? bloqueado,
             [FromQuery] TipoPersonaProveedor? tipoPersona,
             [FromQuery] EstatusCatalogo? estatus,
             [FromQuery] int? offset,
@@ -84,7 +85,8 @@ public static class DatosMaestrosEndpoints
                     Offset: offset ?? 0,
                     Limit: limit ?? 50,
                     Q: q,
-                    SoloExpedienteIncompleto: soloExpedienteIncompleto ?? false),
+                    SoloExpedienteIncompleto: soloExpedienteIncompleto ?? false,
+                    Bloqueado: bloqueado),
                 ct);
             return Results.Ok(response);
         })
@@ -114,7 +116,8 @@ public static class DatosMaestrosEndpoints
                 p.Rfc, p.TipoPersona, p.CondicionesPagoDias, p.MonedaPreferidaId,
                 p.Email, p.Telefono, p.Estatus,
                 p.ValidadoPorId, p.ValidadoEn, p.MotivoRechazo, p.ToleranciaFacturaContraOcMxn,
-                p.Origen, p.RegimenFiscalCodigo, p.ConceptoRetencion, p.ValidadoConMatrizVersion, p.Calle, p.NumeroExterior, p.NumeroInterior, p.Colonia, p.Ciudad, p.Municipio, p.Estado, p.CodigoPostal, p.Pais, p.TaxId, p.ClaveAw, p.OrigenCarga, nombresPendientes));
+                p.Origen, p.RegimenFiscalCodigo, p.ConceptoRetencion, p.ValidadoConMatrizVersion, p.Calle, p.NumeroExterior, p.NumeroInterior, p.Colonia, p.Ciudad, p.Municipio, p.Estado, p.CodigoPostal, p.Pais, p.TaxId, p.ClaveAw, p.OrigenCarga, nombresPendientes,
+                p.Bloqueado, p.MotivoBloqueo, p.BloqueadoPorId, p.BloqueadoEn));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresGestionar)
         .WithName("ObtenerProveedorDatosMaestros")
@@ -236,6 +239,31 @@ public static class DatosMaestrosEndpoints
         .WithDescription("Pasa al proveedor de EnRevision a Activo si su expediente documental cumple los requisitos. Exclusivo para CxP con permiso datos_maestros.proveedores.validar.")
         .Produces<ValidarProveedorResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // 86e3tactf: bloqueo total (marca aparte del estatus). Desbloquea quien lo pidió o quien tenga el permiso de reemplazo.
+        proveedores.MapPost("/{id:guid}/bloquear", async (
+            Guid id, [FromBody] BloqueoProveedorRequest body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new BloquearProveedorCommand(id, body.Motivo), ct)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresBloquear)
+        .WithName("BloquearProveedorDatosMaestros")
+        .WithSummary("Bloquear al proveedor: no se paga ninguna factura ni se levantan OC nuevas (86e3tactf)")
+        .Produces<BloqueoProveedorResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        proveedores.MapPost("/{id:guid}/desbloquear", async (
+            Guid id, [FromBody] BloqueoProveedorRequest body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new DesbloquearProveedorCommand(id, body.Motivo), ct)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresBloquear)
+        .WithName("DesbloquearProveedorDatosMaestros")
+        .WithSummary("Desbloquear al proveedor; solo quien lo pidió o quien tenga cuentas_por_pagar.bloqueos.liberar-en-lugar (86e3tactf)")
+        .Produces<BloqueoProveedorResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
@@ -985,7 +1013,13 @@ public static class DatosMaestrosEndpoints
         string? TaxId = null,
         int? ClaveAw = null,
         string? OrigenCarga = null,
-        IReadOnlyList<string>? DocumentosPendientes = null);
+        IReadOnlyList<string>? DocumentosPendientes = null,
+        bool Bloqueado = false,
+        string? MotivoBloqueo = null,
+        Guid? BloqueadoPorId = null,
+        DateTimeOffset? BloqueadoEn = null);
+
+    public sealed record BloqueoProveedorRequest(string Motivo);
 
     public sealed record ActualizarClasificacionFiscalRequest(
         OrigenProveedor? Origen, string? RegimenFiscalCodigo, string? ConceptoRetencion);

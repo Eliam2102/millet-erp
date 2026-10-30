@@ -66,6 +66,9 @@ public sealed class PasivoAutorizadoParaPagoMapper
             TipoBeneficiario: PasivoAutorizadoParaPagoIntegrationEvent.BeneficiarioProveedor,
             BeneficiarioId: f.ProveedorId,
             OrigenTipo: PasivoAutorizadoParaPagoIntegrationEvent.OrigenFactura,
-            OrigenId: notification.FacturaProveedorId), cancellationToken);
+            OrigenId: notification.FacturaProveedorId,
+            Subtotal: f.Subtotal,
+            ImpuestosTrasladados: f.ImpuestosTrasladados,
+            Retenciones: f.Retenciones), cancellationToken);
     }
 }

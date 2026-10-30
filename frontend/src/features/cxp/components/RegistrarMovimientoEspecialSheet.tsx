@@ -62,7 +62,7 @@ export function RegistrarMovimientoEspecialSheet({
 }: RegistrarMovimientoEspecialSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-md">
+      <SheetContent side="right" size="form">
         <SheetHeader>
           <SheetTitle>Movimiento especial del banco</SheetTitle>
           <SheetDescription>

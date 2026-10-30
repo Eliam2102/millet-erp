@@ -74,6 +74,7 @@ function ItemCompacto({ item, activo }: ItemCompactoProps) {
               {item.clave}
             </span>
             <div className="flex shrink-0 items-center gap-1">
+              {item.bloqueado === true && <Badge variant="danger">Bloqueado</Badge>}
               <EstatusBadge estatus={item.estatus} />
               <ChevronRight className="h-4 w-4 text-ink-muted shrink-0" />
             </div>

@@ -425,16 +425,7 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
         // estas LineaOcId. El handler corre antes de SaveChanges, así
         // que el query SQL no ve la factura corriente — sumamos su
         // delta aparte.
-        var previos = await _db.FacturasProveedor
-            .Where(f => f.Estado != EstadoPasivo.Cancelada
-                && f.Id != facturaCorrienteId)
-            .SelectMany(f => f.Lineas)
-            .Where(l => l.LineaOcId.HasValue && lineasOcIds.Contains(l.LineaOcId.Value))
-            .GroupBy(l => l.LineaOcId!.Value)
-            .Select(g => new { LineaOcId = g.Key, Suma = g.Sum(l => l.Cantidad) })
-            .ToListAsync(cancellationToken);
-
-        var previosDict = previos.ToDictionary(p => p.LineaOcId, p => p.Suma);
+        var previosDict = await AcumuladoFacturadoOc.PrevioVigenteAsync(_db, lineasOcIds, facturaCorrienteId, cancellationToken);
 
         return deltasPorLineaOc
             .Select(kv =>

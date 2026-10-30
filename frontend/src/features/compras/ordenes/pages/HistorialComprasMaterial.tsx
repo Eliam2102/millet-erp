@@ -85,7 +85,7 @@ export function HistorialComprasMaterial() {
 
   function resolverProveedor(id: string): string {
     const p = proveedoresMap.get(id);
-    if (p == null) return id.slice(0, 8) + '…';
+    if (p == null) return '—';
     return p.nombreComercial ?? p.razonSocial;
   }
 
@@ -109,7 +109,7 @@ export function HistorialComprasMaterial() {
               </>
             ) : (
               <code className="font-mono text-xs" title={articuloId}>
-                {articuloId.slice(0, 8)}…
+                —
               </code>
             )}
             .

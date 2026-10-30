@@ -87,7 +87,7 @@ const SheetContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed z-50 flex flex-col gap-4 bg-background shadow-sheet transition-transform duration-300',
+        'fixed z-50 flex flex-col gap-4 overflow-y-auto bg-background shadow-sheet transition-transform duration-300',
         'data-[state=open]:animate-in data-[state=closed]:animate-out',
         sideClasses[side],
         // Tamaño por default — el caller puede overridarlo con className.
@@ -137,7 +137,7 @@ function SheetFooter({
   return (
     <div
       className={cn(
-        'flex shrink-0 items-center justify-between gap-2 border-t border-line-divider px-6 py-4 [&>:only-child]:ml-auto',
+        'sticky bottom-0 flex shrink-0 items-center justify-between gap-2 border-t bg-background border-line-divider px-6 py-4 [&>:only-child]:ml-auto',
         className,
       )}
       {...props}

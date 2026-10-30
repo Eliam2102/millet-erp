@@ -281,7 +281,7 @@ function TablaAlmacenes({ items, sucursalesMap, puedeAdministrar, onEditar }: Ta
     () =>
       items.map((a) => ({
         ...a,
-        sucursal: sucursalesMap.get(a.sucursalId)?.nombre ?? a.sucursalId,
+        sucursal: sucursalesMap.get(a.sucursalId)?.nombre ?? '—',
       })),
     [items, sucursalesMap],
   );
