@@ -96,6 +96,9 @@ public static class DependencyInjection
         // F4-PR2: evidencias polimórficas + worker SLA + INotificacionService stub.
         services.AddSingleton<IEvidenciaBlobStorage, LocalFilesystemEvidenciaBlobStorage>();
         services.AddSingleton<INotificacionService, NoOpNotificacionService>();
+        // P8.3: portal de proveedores. El Graph real (Api) reemplaza este NoOp si está configurado.
+        services.TryAddScoped<Domain.Ports.Portal.IPortalCorreoPort, Portal.NoOpPortalCorreo>();
+        services.AddScoped<Domain.Ports.Portal.IPortalProveedorAutenticacion, Adapters.PortalProveedorAutenticacion>();
         services.AddOptions<AvisosRevisionOptions>().Bind(configuration.GetSection(AvisosRevisionOptions.SectionName));
         services
             .AddOptions<RevisionSlaNotificacionOptions>()

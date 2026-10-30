@@ -2805,6 +2805,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000007-0011-0000-0000-000000000001"),
+                            Accion = "administrar",
+                            Codigo = "cuentas_por_pagar.portal.administrar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Administrar el acceso de un proveedor al portal de proveedores (correos autorizados)",
+                            Modulo = "cuentas_por_pagar",
+                            Recurso = "portal",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000007-0010-0000-0000-000000000001"),
                             Accion = "leer",
                             Codigo = "cuentas_por_pagar.reposiciones.leer",
