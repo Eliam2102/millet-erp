@@ -1,9 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
 import { DetalleRepp } from '@/features/facturacion/pages/DetalleRepp';
+import { descargarArchivo } from '@/features/facturacion/lib/descargas';
+
+vi.mock('@/features/facturacion/lib/descargas', () => ({ descargarArchivo: vi.fn() }));
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
@@ -44,6 +47,34 @@ describe('<DetalleRepp> — smoke', () => {
     await waitFor(() => expect(screen.getByText('REPP-1')).toBeInTheDocument());
     expect(screen.getByText('A-9')).toBeInTheDocument();
     expect(screen.getByText(/Facturas cubiertas \(1\)/i)).toBeInTheDocument();
+  });
+
+  it('descarga el PDF y el XML del complemento de pago (86e3tfdx0)', async () => {
+    mswServer.use(
+      http.get('*/api/v1/facturacion/repp/r-1', () =>
+        HttpResponse.json({
+          id: 'r-1',
+          folio: 'REPP-1',
+          estado: 'Timbrado',
+          uuid: 'U-1',
+          receptorNombre: 'Cliente Demo SA',
+          monedaPago: 'MXN',
+          importeTotalPago: 1000,
+          fechaPago: '2026-05-30T12:00:00Z',
+          facturasCubiertas: [],
+        }),
+      ),
+    );
+    render(<DetalleRepp />, { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(screen.getByText('REPP-1')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /PDF/ }));
+    fireEvent.click(screen.getByRole('button', { name: /XML/ }));
+
+    await waitFor(() =>
+      expect(descargarArchivo).toHaveBeenCalledWith('/api/v1/facturacion/repp/r-1/pdf', 'REPP-1.pdf'),
+    );
+    expect(descargarArchivo).toHaveBeenCalledWith('/api/v1/facturacion/repp/r-1/xml', 'REPP-1.xml');
   });
 
   it('error', async () => {
