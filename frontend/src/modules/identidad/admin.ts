@@ -1,4 +1,4 @@
-import { ShieldCheck, UserRound } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import type { AdminSection } from '@/lib/admin/registry';
 
@@ -8,22 +8,11 @@ import type { AdminSection } from '@/lib/admin/registry';
  * dedicado <c>/admin/roles</c> donde se gestiona el rol, la matriz de
  * permisos y la asociación con grupos de Microsoft Entra ID.
  *
- * <para>UF-Admin-PR4 agrega la card de "Usuarios", master-detail
- * dedicado <c>/admin/usuarios</c> con asignación rol×empresa.</para>
+ * <para>86e3x6cpw retira la card «Cuentas de acceso»: las personas y su
+ * acceso se administran sólo en Empleados (vista «Cuentas sin empleado» y
+ * pestaña Acceso de la ficha); <c>/admin/usuarios</c> redirige ahí.</para>
  */
 export const identidadAdminCards: readonly AdminSection[] = [
-  {
-    id: 'identidad-usuarios',
-    modulo: 'identidad',
-    titulo: 'Cuentas de acceso',
-    descripcion: 'Cuentas de Microsoft, su perfil y su estado',
-    icon: UserRound,
-    href: '/admin/usuarios',
-    permisoRequerido: PermisosCanonicos.IdentidadUsuariosLeer,
-    orden: 10,
-    grupo: 'identidad',
-    displayMode: 'custom',
-  },
   {
     id: 'identidad-roles',
     modulo: 'identidad',

@@ -12,6 +12,8 @@ import { useDepartamentos, usePuestos, useSucursales } from '@/features/catalogo
 import { useUsuario } from '@/modules/identidad/api/usuarios';
 import { RolesPorEmpresaPanel } from '@/modules/identidad/components/RolesPorEmpresaPanel';
 import { PermisosPersonalizadosPanel } from '@/modules/identidad/components/PermisosPersonalizadosPanel';
+import { AsignacionUsuarioPanel } from '@/features/centros-costo/components/AsignacionUsuarioPanel';
+import { PreferenciasPanel } from '@/modules/identidad/components/PreferenciasPanel';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { EmpleadoInlineForm } from './EmpleadoInlineForm';
 import { EmpleadoAccesoPanel } from './EmpleadoAccesoPanel';
@@ -42,6 +44,10 @@ export function EmpleadoDetalle() {
   const empleado = empleados.data?.find((e) => e.id === id);
   const puedeEditarEmpleado = useHasPermission(PermisosCanonicos.AdminEmpleadosGestionar);
   const puedeLeerUsuarios = useHasPermission(PermisosCanonicos.IdentidadUsuariosLeer);
+  // Mismo permiso que la pantalla /centros-costo/asignaciones y su endpoint.
+  const puedeAsignarCentrosCosto = useHasPermission(
+    PermisosCanonicos.CentrosCostoAsignacionesAdministrar,
+  );
   const empresaActivaId = useAuthStore((s) => s.currentEmpresaId);
   const alcance = useAlcanceUsuario(puedeLeerUsuarios ? (empleado?.usuarioId ?? null) : null);
   const usuario = useUsuario(puedeLeerUsuarios ? empleado?.usuarioId : null);
@@ -145,7 +151,7 @@ export function EmpleadoDetalle() {
             ['datos', 'Datos generales'],
             ['puesto', 'Puesto y departamento'],
             ['sucursales', 'Sucursales asignadas'],
-            ['acceso', 'Roles y accesos'],
+            ['acceso', 'Acceso'],
           ] as const
         ).map(([key, label]) => (
           <Button
@@ -199,7 +205,7 @@ export function EmpleadoDetalle() {
           <p>Puesto: {puesto?.nombre ?? 'Sin asignar'}</p>
           <p>
             Rol sugerido por el puesto: {puesto?.rolSugeridoNombre ?? 'Sin sugerencia'}. La
-            asignación vigente se administra en Roles y accesos.
+            asignación vigente se administra en la pestaña Acceso.
           </p>
           <p className="text-ink-muted">
             El rol define qué puede hacer; las sucursales asignadas definen dónde puede operar.
@@ -218,7 +224,7 @@ export function EmpleadoDetalle() {
           </p>
           {empleado.usuarioId == null ? (
             <p className="text-sm">
-              Este empleado aún no tiene cuenta de acceso; primero asígnala en Roles y accesos.
+              Este empleado aún no tiene cuenta de acceso; primero dásela en la pestaña Acceso.
             </p>
           ) : !puedeGestionarSucursales ? (
             <p className="text-sm">
@@ -370,11 +376,16 @@ export function EmpleadoDetalle() {
                   empresaId={empresaActivaId}
                 />
               )}
-              <Button asChild variant="link" size="sm">
-                <Link to="/admin/usuarios/$id" params={{ id: empleado.usuarioId }}>
-                  Abrir cuenta de acceso
-                </Link>
-              </Button>
+              <section aria-label="Preferencias" className="space-y-2">
+                <h3 className="text-sm font-semibold">Preferencias</h3>
+                <PreferenciasPanel usuarioId={empleado.usuarioId} />
+              </section>
+              {puedeAsignarCentrosCosto && (
+                <section aria-label="Centros de costo" className="space-y-2">
+                  <h3 className="text-sm font-semibold">Centros de costo</h3>
+                  <AsignacionUsuarioPanel usuarioId={empleado.usuarioId} />
+                </section>
+              )}
             </>
           )}
           {empleado.usuarioId && !puedeLeerUsuarios && (

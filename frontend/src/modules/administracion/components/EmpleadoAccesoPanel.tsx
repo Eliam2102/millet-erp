@@ -20,7 +20,19 @@ import {
 import { usePuestosDeSucursal } from '@/modules/administracion/api/sucursal-puestos';
 import { DOMINIOS_CORPORATIVOS } from '@/modules/administracion/dominios-corporativos';
 import { useRoles } from '@/modules/identidad/api/roles';
-import { useReactivarUsuario } from '@/modules/identidad/api/usuarios';
+import { useDesactivarUsuario, useReactivarUsuario } from '@/modules/identidad/api/usuarios';
+import { useAuthStore } from '@/lib/auth/auth-store';
+import { DialogBody } from '@/components/ui/dialog';
+import { ConfirmacionContent as AlertDialogContent } from '@/modules/administracion/components/ConfirmacionContent';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface Props {
   empleadoId: string;
@@ -32,6 +44,13 @@ interface Props {
   departamentoId?: string | null;
   puestoId?: string | null;
 }
+
+/** 86e3x6cpw · contrato 4: membresía en el grupo de acceso de Entra. */
+const GRUPO_ACCESO = {
+  Sincronizado: 'En el grupo de acceso de Microsoft',
+  Pendiente: 'Pendiente de sincronizar con el grupo de acceso de Microsoft',
+  NoConfigurado: 'Grupo de acceso de Microsoft sin configurar',
+} as const;
 
 const ESTADOS = [
   'Acceso activo',
@@ -54,6 +73,9 @@ export function EmpleadoAccesoPanel({
   const puedeCrear = useHasPermission(PermisosCanonicos.IdentidadUsuariosCrear);
   const puedeAsignar = useHasPermission(PermisosCanonicos.IdentidadAsignacionesAdministrar);
   const puedeEditar = useHasPermission(PermisosCanonicos.IdentidadUsuariosEditar);
+  const puedeDesactivar = useHasPermission(PermisosCanonicos.IdentidadUsuariosDesactivar);
+  const usuarioActualId = useAuthStore((s) => s.user?.id);
+  const [confirmar, setConfirmar] = useState<'desactivar' | 'activar' | null>(null);
   const [tipo, setTipo] = useState<1 | 2>(1);
 
   const [departamentoId, setDepartamentoId] = useState(() => initialDepartamentoId ?? '');
@@ -139,6 +161,7 @@ export function EmpleadoAccesoPanel({
   const reintentar = useAccionAccesoColaborador('reintentar');
   const reenviar = useAccionAccesoColaborador('reenviar');
   const reactivar = useReactivarUsuario();
+  const desactivar = useDesactivarUsuario();
 
   const validacionHabilitada = usuarioId == null && puedeCrear && puedeAsignar && !!correoValidable;
 
@@ -591,7 +614,37 @@ export function EmpleadoAccesoPanel({
   if (acceso.isError || !acceso.data)
     return <p className="text-sm text-danger-fg">No se pudo consultar el acceso.</p>;
   const estado = acceso.data;
-  const pendiente = reintentar.isPending || reenviar.isPending || reactivar.isPending;
+  const pendiente =
+    reintentar.isPending || reenviar.isPending || reactivar.isPending || desactivar.isPending;
+  const esCuentaPropia = usuarioActualId != null && usuarioActualId === usuarioId;
+
+  function cambiarAcceso() {
+    const accion = confirmar;
+    if (accion == null || usuarioId == null) return;
+    if (accion === 'desactivar' && esCuentaPropia) {
+      toast.error('No puedes desactivar tu propia cuenta.');
+      setConfirmar(null);
+      return;
+    }
+    (accion === 'desactivar' ? desactivar : reactivar).mutate(
+      { id: usuarioId, idempotencyKey: crypto.randomUUID() },
+      {
+        onSuccess: () => {
+          acceso.refetch();
+          queryClient.invalidateQueries({ queryKey: adminKeys.empleados() });
+          queryClient.invalidateQueries({ queryKey: ['catalogos', 'empleados'] });
+          queryClient.invalidateQueries({ queryKey: adminKeys.auditoria() });
+          toast.success(accion === 'desactivar' ? 'Acceso desactivado' : 'Acceso activado');
+          setConfirmar(null);
+        },
+        onError: (err) => {
+          error(err);
+          setConfirmar(null);
+        },
+      },
+    );
+  }
+
   return (
     <div className="space-y-2 rounded-md border p-3 text-sm">
       <p>
@@ -606,6 +659,11 @@ export function EmpleadoAccesoPanel({
       {estado.emailContacto && (
         <p className="text-ink-muted">Correo de contacto: {estado.emailContacto}</p>
       )}
+      {estado.grupoAcceso && (
+        <p className={estado.grupoAcceso === 'Pendiente' ? 'text-warning-fg' : 'text-ink-muted'}>
+          {GRUPO_ACCESO[estado.grupoAcceso]}
+        </p>
+      )}
       {estado.accesoEnviadoEn && (
         <p className="text-ink-muted">
           Solicitud de envío aceptada: {new Date(estado.accesoEnviadoEn).toLocaleString()}
@@ -617,23 +675,20 @@ export function EmpleadoAccesoPanel({
             size="sm"
             variant="outline"
             disabled={pendiente}
-            onClick={() =>
-              reactivar.mutate(
-                { id: usuarioId, idempotencyKey: crypto.randomUUID() },
-                {
-                  onSuccess: () => {
-                    acceso.refetch();
-                    queryClient.invalidateQueries({ queryKey: adminKeys.empleados() });
-                    queryClient.invalidateQueries({ queryKey: ['catalogos', 'empleados'] });
-                    queryClient.invalidateQueries({ queryKey: adminKeys.auditoria() });
-                    toast.success('Usuario reactivado');
-                  },
-                  onError: error,
-                },
-              )
-            }
+            onClick={() => setConfirmar('activar')}
           >
-            Reactivar acceso
+            Activar acceso
+          </Button>
+        )}
+        {estado.usuarioActivo && puedeDesactivar && (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={pendiente || esCuentaPropia}
+            title={esCuentaPropia ? 'No puedes desactivar tu propia cuenta' : undefined}
+            onClick={() => setConfirmar('desactivar')}
+          >
+            Desactivar acceso
           </Button>
         )}
         {estado.estadoAcceso === 3 && puedeCrear && (
@@ -674,6 +729,42 @@ export function EmpleadoAccesoPanel({
           </Button>
         )}
       </div>
+      <AlertDialog
+        open={confirmar != null}
+        onOpenChange={(open) => {
+          if (!open) setConfirmar(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader className="px-6 pt-5 pb-3">
+            <AlertDialogTitle>
+              {confirmar === 'desactivar' ? 'Desactivar acceso' : 'Activar acceso'}
+            </AlertDialogTitle>
+          </AlertDialogHeader>
+          <DialogBody>
+            <AlertDialogDescription>
+              {confirmar === 'desactivar' ? (
+                <>
+                  ¿Confirmas quitar el acceso al ERP de{' '}
+                  <span className="font-mono font-semibold">{estado.email}</span>? Sigue como
+                  empleado; su rol y sus sucursales se conservan para cuando se active de nuevo.
+                </>
+              ) : (
+                <>
+                  ¿Confirmas devolver el acceso al ERP a{' '}
+                  <span className="font-mono font-semibold">{estado.email}</span>?
+                </>
+              )}
+            </AlertDialogDescription>
+          </DialogBody>
+          <AlertDialogFooter className="border-t border-line-divider bg-surface-subtle px-6 py-4">
+            <AlertDialogCancel disabled={pendiente}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={cambiarAcceso} disabled={pendiente}>
+              {confirmar === 'desactivar' ? 'Desactivar acceso' : 'Activar acceso'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
