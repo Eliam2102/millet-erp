@@ -1,7 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Millet.Almacen.Domain.DevolucionesProveedor;
 using Millet.Almacen.Domain.Idempotencia;
 using Millet.Almacen.Infrastructure.Persistence;
 
@@ -22,20 +21,9 @@ public sealed record NotaCreditoProveedorRegistradaPayload(
     decimal Total);
 
 /// <summary>
-/// Handler MediatR del evento de CxP. Filtra por
-/// <c>TipoRelacionCfdi=3</c> (NC fiscal por devolución) y vincula la
-/// NC a la <see cref="DevolucionAProveedor"/> pendiente matching por
-/// proveedor + factura origen (F6-PR1).
-///
-/// <para>
-/// <b>Cierre del ciclo bidireccional</b>: la devolución pasa a
-/// <see cref="EstadoDevolucionProveedor.ConciliadaConNcFiscal"/>. Si
-/// hay más de una devolución pendiente del mismo proveedor, se
-/// concilia la más antigua que matchee la factura origen (heurística
-/// simple — el caso "varias devoluciones al mismo proveedor por la
-/// misma factura" no es típico; si pasa, se documenta y resuelve
-/// manualmente).
-/// </para>
+/// Handler MediatR del evento de CxP. <b>Solo informativo</b>: ya no concilia
+/// devoluciones (antes adivinaba la más antigua por proveedor+factura). La conciliación
+/// exacta la hace <see cref="NcFiscalDevolucionRecibidaHandler"/>.
 /// </summary>
 public sealed record NotaCreditoProveedorRegistradaCommand(
     Guid EventId,
@@ -82,44 +70,13 @@ public sealed class NotaCreditoProveedorRegistradaHandler
             return;
         }
 
-        // Busca devoluciones Registrada del proveedor (más reciente primero).
-        // Si tenemos factura origen del payload, filtramos por esa también
-        // — match más preciso.
-        var query = _db.Set<DevolucionAProveedor>()
-            .Where(d => d.ProveedorId == payload.ProveedorId
-                && d.Estado == EstadoDevolucionProveedor.Registrada);
-        if (payload.FacturaOrigenId is Guid facturaId)
-        {
-            query = query.Where(d => d.FacturaProveedorOrigenId == facturaId);
-        }
-
-        var devolucion = await query
-            .OrderBy(d => d.RegistradaAt)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (devolucion is null)
-        {
-            _logger.LogInformation(
-                "NotaCreditoProveedorRegistrada (devolución): no hay devolución pendiente para proveedor={Proveedor} factura={Factura}. Marcando evento procesado y dejando pendiente conciliación manual.",
-                payload.ProveedorId, payload.FacturaOrigenId);
-            _db.Set<EventoProcesado>().Add(new EventoProcesado(
-                request.EventId, EventType,
-                $"Sin devolución matching para proveedor={payload.ProveedorId}"));
-            await _db.SaveChangesAsync(cancellationToken);
-            return;
-        }
-
-        devolucion.ConciliarConNcFiscal(payload.NotaCreditoId);
-
-        _db.Set<EventoProcesado>().Add(new EventoProcesado(
-            eventoId: request.EventId,
-            eventoTipo: EventType,
-            observaciones: $"DevolucionId={devolucion.Id} NcFiscalId={payload.NotaCreditoId}"));
-
-        await _db.SaveChangesAsync(cancellationToken);
-
+        // Solo informativo: la conciliación y el acreditado de la OC ocurren al formalizar la NotaCargo
+        // (cuentas_por_pagar.nc-fiscal-devolucion.recibida.v1, con el Id exacto) en NcFiscalDevolucionRecibidaHandler.
         _logger.LogInformation(
-            "DevolucionAProveedor {DevId} conciliada con NC fiscal {NcId} (proveedor={Proveedor}).",
-            devolucion.Id, payload.NotaCreditoId, payload.ProveedorId);
+            "NotaCreditoProveedorRegistrada (devolución) NC={Nc} proveedor={Proveedor} factura={Factura}: informativo; no concilia.",
+            payload.NotaCreditoId, payload.ProveedorId, payload.FacturaOrigenId);
+        _db.Set<EventoProcesado>().Add(new EventoProcesado(
+            request.EventId, EventType, $"NC={payload.NotaCreditoId} (informativo; concilia nc-fiscal-devolucion.recibida)"));
+        await _db.SaveChangesAsync(cancellationToken);
     }
 }

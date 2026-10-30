@@ -17,7 +17,7 @@ const timbrado: Record<string, EstadoUi> = Object.fromEntries(
             ? 'danger'
             : ['Cancelado', 'Descartada', 'CancelacionPendiente', 'Borrador'].includes(estado)
               ? 'neutral'
-              : estado === 'PendientePedimento'
+              : estado === 'PendientePedimento' || estado === 'PorAutorizar'
                 ? 'warning'
                 : 'info',
     },

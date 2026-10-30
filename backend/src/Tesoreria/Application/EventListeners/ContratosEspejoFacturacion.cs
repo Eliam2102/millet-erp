@@ -25,7 +25,8 @@ public sealed record CajaSesionCerradaPayload(
     Guid CajaId,
     Guid SucursalId,
     DateOnly DiaOperacion,
-    decimal EfectivoDeclarado)
+    decimal EfectivoDeclarado,
+    Guid? ResponsableUsuarioId = null)
 {
     public const string EventType = "facturacion.caja-sesion.cerrada.v1";
 }

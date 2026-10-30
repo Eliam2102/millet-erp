@@ -108,10 +108,13 @@ public class TriggerBinExplicitoTests : IClassFixture<WebApplicationFactory<Prog
             //       hermanas → MOVIMIENTO_MULTI_SUBALMACEN, cubierto por
             //       Pr6aNotNullYMultiSubalmacenTests. Aquí ya no hay caso 4.
 
-            // ── 5. Entrada a la ÚNICA con bin explícito → rechazo
-            //       (la ÚNICA solo se drena; muere sola) ─────────────────────
+            // ── 5. (86e3tfet2) Entrada SIN variante (no vidrio) a la ÚNICA →
+            //       aceptada (almacén general); CON variante (vidrio) → rechazo ─
+            var articuloZ = Guid.NewGuid();
+            await RegistrarMovimientoAsync(db, tipo: 0, subS1, empresaId, articuloZ, 1m, 100m, unicaS1);
+            Assert.Equal(1m, (await LeerSaldoAsync(db, unicaS1, articuloZ))!.Cantidad);
             var exUnica = await Assert.ThrowsAnyAsync<Exception>(() =>
-                RegistrarMovimientoAsync(db, tipo: 0, subS1, empresaId, articuloX, 1m, 100m, unicaS1));
+                RegistrarMovimientoAsync(db, tipo: 0, subS1, empresaId, articuloX, 1m, 100m, unicaS1, varianteId: Guid.NewGuid()));
             Assert.Contains("ENTRADA_A_UBICACION_UNICA", MensajeCompleto(exUnica));
 
             // ── 6. Entrada a bin INACTIVO → rechazo ────────────────────────
@@ -286,7 +289,7 @@ public class TriggerBinExplicitoTests : IClassFixture<WebApplicationFactory<Prog
     /// </summary>
     private static async Task RegistrarMovimientoAsync(
         AlmacenDbContext db, short tipo, Guid subAlmacenId, Guid empresaId,
-        Guid articuloId, decimal cantidad, decimal costo, Guid? ubicacionId)
+        Guid articuloId, decimal cantidad, decimal costo, Guid? ubicacionId, Guid? varianteId = null)
     {
         var movimientoId = Guid.NewGuid();
         await db.Database.ExecuteSqlInterpolatedAsync($@"
@@ -300,10 +303,12 @@ public class TriggerBinExplicitoTests : IClassFixture<WebApplicationFactory<Prog
         await db.Database.ExecuteSqlInterpolatedAsync($@"
             INSERT INTO almacen.lineas_movimiento
                 (id, movimiento_id, posicion, articulo_id, cantidad, unidad_medida,
-                 costo_unitario_mxn, monto_total_mxn, moneda_original, ubicacion_id, version, created_at, updated_at)
+                 costo_unitario_mxn, monto_total_mxn, moneda_original, ubicacion_id,
+                 producto_aw_variante_id, ancho_mm, alto_mm, version, created_at, updated_at)
             VALUES
                 ({Guid.NewGuid()}, {movimientoId}, 1, {articuloId}, {cantidad}, 'PZA',
-                 {costo}, {cantidad * costo}, 'MXN', {ubicacionId}, 0, NOW(), NOW())");
+                 {costo}, {cantidad * costo}, 'MXN', {ubicacionId},
+                 {varianteId}, {(varianteId is null ? (decimal?)null : 2000m)}, {(varianteId is null ? (decimal?)null : 1000m)}, 0, NOW(), NOW())");
     }
 
     // ─── C7.2c: ajustes de conteo por rack (el linchpin) ─────────────────────

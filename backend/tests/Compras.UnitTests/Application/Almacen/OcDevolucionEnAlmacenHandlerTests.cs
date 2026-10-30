@@ -116,6 +116,27 @@ public sealed class OcDevolucionEnAlmacenHandlerTests
         (await db.EventosProcesados.CountAsync()).Should().Be(1);
     }
 
+    [Fact]
+    public async Task Devolucion_de_lo_facturado_dentro_de_lo_pedido_publica_descuento()
+    {
+        await using var db = await CreateDbAsync();
+        var publisher = new CapturingPublisher();
+        var handler = new OcDevolucionEnAlmacenHandler(db, publisher, NullLogger<OcDevolucionEnAlmacenHandler>.Instance);
+        var articulo = Guid.NewGuid();
+        var ocId = await SembrarOcAsync(db, articulo);
+        var linea = db.OrdenesCompra.Local.Single(o => o.Id == ocId).Lineas.Single();
+        // Pedido 100, recibido 100, facturado 100; devolver 10 deja 90 recibidas y 100 facturadas <= 100 pedidas.
+        typeof(LineaOrdenCompra).GetProperty(nameof(LineaOrdenCompra.CantidadRecibida))!.SetValue(linea, 100m);
+        typeof(LineaOrdenCompra).GetProperty(nameof(LineaOrdenCompra.CantidadFacturada))!.SetValue(linea, 100m);
+        await db.SaveChangesAsync();
+
+        await handler.Handle(new OcDevolucionEnAlmacenCommand(Guid.NewGuid(), Payload(
+            ordenCompraId: ocId,
+            Linea(lineaOcId: linea.Id, cantidad: 10m, articuloId: articulo))), CancellationToken.None);
+
+        publisher.Published.Should().ContainSingle();
+    }
+
     private static async Task<Guid> SembrarOcAsync(ComprasDbContext db, params Guid[] articuloIds)
     {
         var oc = new OrdenCompra(

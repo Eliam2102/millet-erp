@@ -35,6 +35,19 @@ public sealed class SaldosP4Tests
         cargo.Estado.Should().Be(EstadoNotaCargo.Formalizada); f.SaldoPendiente.Should().Be(40000);
     }
     [Fact]
+    public async Task Cargo_por_devolucion_sin_IVA_se_formaliza_con_NC_03_que_trae_IVA()
+    {
+        await using var a = new P8Fixture(); var f = a.Nueva(total: 15080); f.Autorizar(null, a.UtcNow);
+        var cargo = NuevoCargo(a, f.Id, 1300); a.Db.AddRange(f, cargo); await a.Db.SaveChangesAsync();
+        await new AplicarNotaCargoHandler(a.Db, a, a, new PasivoAutorizadoParaPagoMapper(new Eventos(), a.Db, new ElegibilidadFacturaService(a.Db, a)), new(new Eventos(), a.Db))
+            .Handle(new(cargo.Id, cargo.Version), default);
+        var nc = Nc.Capturar(a.Current!.Value, null, Guid.NewGuid().ToString(), a.Proveedor, "FIX", null, a.UtcNow, "MXN", null,
+            1300, 208, 0, 1508, TipoNotaCredito.Devolucion, TipoRelacionCfdi.Devolucion, Guid.NewGuid().ToString(), f.Id, null, a.UtcNow);
+        a.Db.Add(nc); await a.Db.SaveChangesAsync();
+        await new FormalizacionNotaCargoService(a.Db, new Notificaciones()).IntentarAsync(nc, a.UtcNow, default);
+        cargo.Estado.Should().Be(EstadoNotaCargo.Formalizada);
+    }
+    [Fact]
     public async Task Anticipo_USD_en_factura_MXN_se_rechaza_sin_amortizar()
     {
         await using var a = new P8Fixture(); var f = a.Nueva(); var anticipo = NuevoAnticipo(a, "USD");

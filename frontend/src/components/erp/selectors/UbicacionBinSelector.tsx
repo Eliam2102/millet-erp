@@ -6,6 +6,7 @@ import { hojasDe } from '@/features/almacen/lib/medida-hoja';
 import { useAsignacionesList } from '@/features/almacen/api/useAsignaciones';
 import { useUbicaciones } from '@/features/almacen/api/useUbicaciones';
 import { useSaldosPorUbicacion } from '@/features/almacen/api/useSaldosCierreReportes';
+import { useSubAlmacenesEnRevision } from '@/features/almacen/api/useAlmacenes';
 import { EstatusCatalogo } from '@/features/almacen/api/types';
 
 /**
@@ -54,6 +55,8 @@ export interface UbicacionBinSelectorProps {
   accionSinUbicaciones?: ReactNode;
   /** F1-MP-01: en modo saldo, solo los bins con existencia de esa medida de hoja. */
   varianteId?: string | null;
+  /** En modo asignación, lista también el almacén general (esDefault activo, salvo el de sub-almacenes en revisión) además de los racks asignados: para lo que no es de A+W. */
+  incluirGeneral?: boolean;
 }
 
 interface BinOption {
@@ -83,6 +86,7 @@ export function UbicacionBinSelector({
   requiereSubAlmacen = true,
   accionSinUbicaciones,
   varianteId,
+  incluirGeneral = false,
 }: UbicacionBinSelectorProps) {
   // El prop modula ambos modos: salida-con-RQ y recepción pasan false (sin sub
   // de cabecera, el bin deriva el sub); vale y devolución omiten el prop (true).
@@ -109,6 +113,9 @@ export function UbicacionBinSelector({
           ? { limit: 500 }
           : {},
   );
+
+  // El almacén general de un sub-almacén Material en revisión no admite entradas (el backend lo rechaza).
+  const subsEnRevision = useSubAlmacenesEnRevision(modo === 'asignacion' && incluirGeneral);
 
   // ── Modo saldo (salidas) ────────────────────────────────────────────────
   const saldosQuery = useSaldosPorUbicacion(
@@ -137,9 +144,20 @@ export function UbicacionBinSelector({
     // ubicaciones cargadas (del sub, o todas si requiereSubAlmacen=false) para
     // la etiqueta + ruta.
     const ubicPorId = new Map((ubicacionesQuery.data?.items ?? []).map((u) => [u.id, u]));
-    return (asignacionesQuery.data?.items ?? [])
+    const asignadas = (asignacionesQuery.data?.items ?? [])
       .map((a) => ubicPorId.get(a.ubicacionId))
-      .filter((u): u is NonNullable<typeof u> => u != null)
+      .filter((u): u is NonNullable<typeof u> => u != null);
+    // Sin la lista de sub-almacenes cargada no se ofrece ningún general.
+    const generales = incluirGeneral && subsEnRevision.listo
+      ? [...ubicPorId.values()].filter(
+          (u) =>
+            u.esDefault &&
+            u.estatus === EstatusCatalogo.Activo &&
+            !asignadas.includes(u) &&
+            !subsEnRevision.ids.has(u.subAlmacenId),
+        )
+      : [];
+    return [...asignadas, ...generales]
       .map((u) => ({
         id: u.id,
         clave: u.clave,
@@ -148,7 +166,7 @@ export function UbicacionBinSelector({
         almacenClave: u.almacenClave,
         subAlmacenClave: u.subAlmacenClave,
       }));
-  }, [habilitado, modo, saldosQuery.data, asignacionesQuery.data, ubicacionesQuery.data]);
+  }, [habilitado, modo, incluirGeneral, subsEnRevision, saldosQuery.data, asignacionesQuery.data, ubicacionesQuery.data]);
 
   const loading =
     modo === 'saldo'
@@ -192,6 +210,7 @@ export function UbicacionBinSelector({
             almacenClave: u.almacenClave,
             subAlmacenClave: u.subAlmacenClave,
             clave: u.clave,
+            esDefault: u.esDefault,
           })} ${u.nombre}`
         }
         renderTrigger={(u) =>
@@ -199,6 +218,7 @@ export function UbicacionBinSelector({
             almacenClave: u.almacenClave,
             subAlmacenClave: u.subAlmacenClave,
             clave: u.clave,
+            esDefault: u.esDefault,
           })
         }
         renderItem={(u) => (
@@ -207,6 +227,7 @@ export function UbicacionBinSelector({
               almacenClave: u.almacenClave,
               subAlmacenClave: u.subAlmacenClave,
               clave: u.clave,
+              esDefault: u.esDefault,
             }}
             nombre={u.nombre}
             adornos={

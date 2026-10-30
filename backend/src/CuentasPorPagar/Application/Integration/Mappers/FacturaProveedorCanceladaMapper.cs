@@ -32,7 +32,8 @@ public sealed class FacturaProveedorCanceladaMapper
             Retenciones: notification.Retenciones?.Select(r => new RetencionDetallePayload(r.Impuesto, r.Tasa, r.Importe)).ToList(),
             Moneda: notification.Moneda,
             TipoCambio: notification.TipoCambio,
-            SucursalId: notification.SucursalId);
+            SucursalId: notification.SucursalId,
+            LineasAcumuladasOc: notification.LineasAcumuladasOc?.Select(l => new LineaOcAcumuladaPayload(l.LineaOcId, l.CantidadAcumulada)).ToList());
         return _publisher.PublishAsync(integration, cancellationToken);
     }
 }

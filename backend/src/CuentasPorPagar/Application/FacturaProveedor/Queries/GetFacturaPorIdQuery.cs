@@ -60,7 +60,11 @@ public sealed record FacturaDetalleResponse(
     Guid? RecepcionId = null,
     string? RecepcionFolio = null,
     string? ClasificacionNoDeducible = null,
-    decimal IvaNoAcreditable = 0m);
+    decimal IvaNoAcreditable = 0m,
+    // 86e3tactf: bloqueo total del proveedor y, en motivo 13, quién pidió no pagar la factura.
+    bool ProveedorBloqueado = false,
+    string? ProveedorMotivoBloqueo = null,
+    Guid? SolicitanteRevisionId = null);
 
 /// <summary>Revisión por área en curso (C-06): motivo, área, fecha de envío y plazo en días hábiles.</summary>
 public sealed record RevisionVigenteResponse(
@@ -195,6 +199,9 @@ public sealed class GetFacturaPorIdHandler : IRequestHandler<GetFacturaPorIdQuer
             Elegible: elegibilidad.ElegiblePendiente, Retenido: elegibilidad.Retenido,
             RetencionesDetalle: f.RetencionesDetalle, Obra: f.Obra, ConceptoRetencion: f.ConceptoRetencion, AlertaRetenciones: f.AlertaRetenciones, CargosAplicadosTotal: f.CargosAplicadosTotal,
             RetencionesRevisadasEn: f.RetencionesRevisadasEn, RetencionesRevisionMotivo: f.RetencionesRevisionMotivo,
-            RevisionVigente: revision);
+            RevisionVigente: revision,
+            ProveedorBloqueado: proveedor?.Bloqueado ?? false,
+            ProveedorMotivoBloqueo: proveedor?.MotivoBloqueo,
+            SolicitanteRevisionId: f.SolicitanteRevisionId);
     }
 }

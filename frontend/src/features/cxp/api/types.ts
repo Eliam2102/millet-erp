@@ -222,6 +222,9 @@ export const MotivoCancelacionLabels: Record<MotivoCancelacion, string> = {
 };
 
 export interface FacturaListItem {
+  /** 86e3tactf: bloqueo total del proveedor; la factura se captura y valida, pero no se paga. */
+  proveedorBloqueado?: boolean;
+  proveedorMotivoBloqueo?: string | null;
   uuidCfdi?: string | null;
   id: string;
   proveedorId: string;
@@ -319,6 +322,10 @@ export interface FacturaDetalle {
   /** Etiquetas resueltas server-side (ADR-0042); null si no resuelven. */
   proveedorNombre: string | null;
   sucursalNombre: string | null;
+  /** 86e3tactf: bloqueo total del proveedor y, con el motivo 13, quién pidió no pagar la factura. */
+  proveedorBloqueado?: boolean;
+  proveedorMotivoBloqueo?: string | null;
+  solicitanteRevisionId?: string | null;
 }
 
 export interface CapturarFacturaConOcLinea {

@@ -38,7 +38,7 @@ export function RespuestaProveedorPanel({ oc }: { oc: OrdenCompraDetalleResponse
   const respuestas = oc.respuestasProveedor ?? [];
   const autorizada = oc.estado === EstadoOrdenCompra.Autorizada;
   if (!autorizada && respuestas.length === 0) return null;
-  const nombre = (id: string) => nombres.get(id)?.nombre ?? id;
+  const nombre = (id: string) => nombres.get(id)?.nombre ?? '—';
   const posicion = (lineaId: string) => oc.lineas.find((l) => l.id === lineaId)?.posicion ?? 0;
 
   return (

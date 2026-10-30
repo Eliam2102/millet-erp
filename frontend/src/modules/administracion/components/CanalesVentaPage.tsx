@@ -7,6 +7,7 @@ import {
   TableHead,
   TableBody,
   TableCell,
+  TableContainer,
 } from '@/components/ui/table';
 import { ListadoCatalogo } from '@/modules/administracion/components/ListadoCatalogo';
 import { OPCIONES_CATALOGO } from '@/modules/administracion/lib/estados-ui';
@@ -138,6 +139,7 @@ export function CanalesVentaPage() {
           opciones={OPCIONES_CATALOGO}
         >
           {(visibles) => (
+            <TableContainer maxHeightClassName="">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -241,6 +243,7 @@ export function CanalesVentaPage() {
                 })}
               </TableBody>
             </Table>
+            </TableContainer>
           )}
         </ListadoCatalogo>
       )}

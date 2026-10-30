@@ -38,7 +38,9 @@ public sealed record MovimientoBancarioResponse(
     // 86e3pdmee: cuenta del proveedor a la que se pagó (snapshot, número enmascarado).
     string? DestinoBanco = null, string? DestinoNumeroCuenta = null, string? DestinoTitular = null, bool FondosVerificados = false,
     // C-03: razón social y clave del beneficiario, resueltas por los puertos de DatosMaestros (ADR-0042).
-    string? BeneficiarioNombre = null, string? BeneficiarioClave = null);
+    string? BeneficiarioNombre = null, string? BeneficiarioClave = null,
+    // 86e3tfdve: cuenta ordenante del cliente; completa solo con `tesoreria.movimientos.ver-cuenta-completa`.
+    string? CuentaOrdenante = null);
 
 internal static class MovimientoBancarioMapper
 {
@@ -74,7 +76,8 @@ internal static class MovimientoBancarioMapper
             m.ReferenciaBancaria, m.ConceptoId, conceptoNombre, m.EstadoAplicacion,
             m.EstadoConciliacion, m.BeneficiarioTipo, m.BeneficiarioRef,
             m.ContramovimientoDe, m.MotivoNoAplicado, m.CreadoPor, m.CreadoEn, m.Version, m.MotivoReversa, m.MotivoReclasificacion,
-            m.DestinoBanco, m.DestinoNumeroCuenta is null ? null : verCuentaCompleta ? m.DestinoNumeroCuenta : Clabe.Enmascarar(m.DestinoNumeroCuenta), m.DestinoTitular, m.FondosVerificados);
+            m.DestinoBanco, m.DestinoNumeroCuenta is null ? null : verCuentaCompleta ? m.DestinoNumeroCuenta : Clabe.Enmascarar(m.DestinoNumeroCuenta), m.DestinoTitular, m.FondosVerificados,
+            CuentaOrdenante: m.CuentaOrdenante is null ? null : verCuentaCompleta ? m.CuentaOrdenante : CuentaPagoSat.Enmascarar(m.CuentaOrdenante));
 }
 
 // --------------------------------------------------- Libro (bandeja paginada)

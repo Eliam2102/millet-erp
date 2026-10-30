@@ -175,20 +175,20 @@ export function InventarioDetallePage() {
               valor={
                 query.data.subAlmacenId == null
                   ? '(todos)'
-                  : (query.data.subAlmacenClave ?? query.data.subAlmacenId)
+                  : (query.data.subAlmacenClave ?? '—')
               }
               mono={query.data.subAlmacenId != null}
             />
             <Campo label="Filtro familia" valor={query.data.filtroFamilia ?? '(sin filtro)'} />
             <Campo
               label="Responsable (contador)"
-              valor={query.data.responsableNombre ?? query.data.responsableId}
+              valor={query.data.responsableNombre ?? '—'}
               mono={query.data.responsableNombre == null}
             />
             {query.data.aprobadorId && (
               <Campo
                 label="Aprobador"
-                valor={query.data.aprobadorNombre ?? query.data.aprobadorId}
+                valor={query.data.aprobadorNombre ?? '—'}
                 mono={query.data.aprobadorNombre == null}
               />
             )}

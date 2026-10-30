@@ -17,7 +17,14 @@ export interface AvancePosicionDto {
   descripcion: string | null;
   esperadas: number;
   terminadas: number;
-  faltantes: number;
+  /** Terminadas que no están cargadas ni entregadas. */
+  enPt: number;
+  /** 0 hasta que exista la carga (PT5.4+). */
+  cargadas: number;
+  /** 0 hasta que exista la entrega (PT5.4+). */
+  entregadas: number;
+  /** Esperadas - terminadas. */
+  pendientes: number;
   /** SinPiezas | Parcial | Completo. */
   avanceFisico: 'SinPiezas' | 'Parcial' | 'Completo';
 }

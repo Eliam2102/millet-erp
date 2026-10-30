@@ -32,6 +32,9 @@ public static class DependencyInjection
         services.AddScoped<Domain.Ports.DatosMaestros.IProveedorBancoReadPort,
             Adapters.ProveedorBancoReadPortAdapter>();
 
+        // T9.1-A: roles del firmante para «al menos una firma con el rol X» de la corrida.
+        services.AddScoped<IFirmanteRolesReadPort, Adapters.FirmanteRolesReadAdapter>();
+
         // TES-PR7: nombres de cliente para la bandeja de depósitos (ADR-0042).
         services.AddScoped<Domain.Ports.DatosMaestros.IClienteReadPort,
             Adapters.ClienteReadPortAdapter>();

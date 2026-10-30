@@ -39,7 +39,7 @@ describe('PiezasPage', () => {
           { id: 'p1', etiqueta: 'ETQ-001', numeroPedido: 'PED-1', posicion: 2, numeroPieza: 3, sucursalId: 'suc-1', estado: 'EnPt', escaneadaAt: '2026-10-20T18:00:00Z' },
         ],
         total: 1,
-        avance: [{ posicion: 2, descripcion: null, esperadas: 5, terminadas: 3, faltantes: 2, avanceFisico: 'Parcial' }],
+        avance: [{ posicion: 2, descripcion: null, esperadas: 5, terminadas: 3, enPt: 3, cargadas: 0, entregadas: 0, pendientes: 2, avanceFisico: 'Parcial' }],
       }),
     );
     const { container } = render(<PiezasPage />);
@@ -48,9 +48,9 @@ describe('PiezasPage', () => {
     expect(state.usePiezas).toHaveBeenLastCalledWith(expect.objectContaining({ pedido: 'PED-1', sucursalId: 'suc-1' }));
     expect(screen.getByText('ETQ-001')).toBeInTheDocument();
     expect(screen.getAllByText('Conkal').length).toBeGreaterThan(0);
-    expect(screen.getByText('En PT')).toBeInTheDocument();
+    expect(screen.getAllByText('En PT').length).toBeGreaterThan(0);
     expect(screen.getByText('Parcial')).toBeInTheDocument();
-    expect(screen.getByText('Faltantes')).toBeInTheDocument();
+    for (const k of ['Esperadas', 'Terminadas', 'Cargadas', 'Entregadas', 'Pendientes']) expect(screen.getByText(k)).toBeInTheDocument();
     expect(container.textContent).not.toContain('69');
   });
 

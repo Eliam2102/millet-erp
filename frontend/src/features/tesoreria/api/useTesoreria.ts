@@ -14,8 +14,12 @@ import type {
   ClasificacionFlujo,
   AplicacionPagoItem,
   BeneficiarioTipo,
+  SoporteFicha,
   CuentaSaldoResponse,
   ClienteRefDto,
+  CorridaResponse,
+  CorridaResumenResponse,
+  PasivoParaCorridaResponse,
   DepositoConfirmacionResponse,
   DevolucionClienteResponse,
   MovimientoBancarioResponse,
@@ -390,6 +394,9 @@ export function useConfirmarDeposito() {
         cuentaBancariaId: string; monto: number; fechaValor: string; referenciaBancaria?: string;
         conceptoId?: string; beneficiarioTipo?: BeneficiarioTipo; beneficiarioRef?: string;
       };
+      /** Corte de caja: obligatorio desde la 2ª ficha. */
+      soporteTipo?: SoporteFicha;
+      soporteFolio?: string;
       versionEsperada: number;
       idempotencyKey: string;
     }) => {
@@ -397,7 +404,7 @@ export function useConfirmarDeposito() {
         `${BASE}/depositos/${args.depositoId}/confirmar`,
         {
           method: 'POST',
-          body: { movimientoBancarioId: args.movimientoBancarioId ?? "00000000-0000-0000-0000-000000000000", ingreso: args.ingreso },
+          body: { movimientoBancarioId: args.movimientoBancarioId ?? "00000000-0000-0000-0000-000000000000", ingreso: args.ingreso, soporteTipo: args.soporteTipo, soporteFolio: args.soporteFolio },
           idempotencyKey: args.idempotencyKey,
           headers: { 'X-Expected-Version': String(args.versionEsperada) },
         },
@@ -450,6 +457,8 @@ export function useRegistrarMovimientoIngreso() {
         conceptoId?: string;
         beneficiarioTipo?: BeneficiarioTipo;
         beneficiarioRef?: string;
+        /** 86e3tfdve: CtaOrdenante del REP; solo patrón general del SAT. */
+        cuentaOrdenante?: string;
       };
       idempotencyKey: string;
     }) => {
@@ -896,4 +905,145 @@ export function usePagarDevolucion() {
       },
     }),
   );
+}
+
+// ─── Corridas de pago (T9.1-A, 86e3ke5bt) ───────────────────────────
+
+export function useCorridas(filtros: { estado?: string; offset?: number; limit?: number } = {}) {
+  return useQuery<PagedResponse<CorridaResumenResponse>>({
+    queryKey: tesoreriaKeys.corridasList(filtros),
+    queryFn: async ({ signal }) => {
+      const params = new URLSearchParams();
+      if (filtros.estado) params.set('estado', filtros.estado);
+      if (filtros.offset != null) params.set('offset', String(filtros.offset));
+      if (filtros.limit != null) params.set('limit', String(filtros.limit));
+      const qs = params.toString();
+      const { data } = await apiRequest<PagedResponse<CorridaResumenResponse>>(
+        qs ? `${BASE}/corridas?${qs}` : `${BASE}/corridas`,
+        { signal },
+      );
+      return data;
+    },
+  });
+}
+
+export function useCorrida(id: string | null) {
+  return useQuery<CorridaResponse>({
+    queryKey: tesoreriaKeys.corrida(id ?? ''),
+    enabled: id != null,
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<CorridaResponse>(`${BASE}/corridas/${id}`, { signal });
+      return data;
+    },
+  });
+}
+
+/** Pasivos autorizados, no retirados por CxP y libres de otra corrida viva (hook único de elegibilidad en el backend). */
+export function usePasivosParaCorrida(
+  filtros: { moneda: string; proveedorId?: string; venceHasta?: string; limit?: number },
+  enabled = true,
+) {
+  return useQuery<PagedResponse<PasivoParaCorridaResponse>>({
+    queryKey: tesoreriaKeys.corridaCandidatos(filtros),
+    enabled: enabled && filtros.moneda !== '',
+    queryFn: async ({ signal }) => {
+      const params = new URLSearchParams({ moneda: filtros.moneda });
+      if (filtros.proveedorId) params.set('proveedorId', filtros.proveedorId);
+      if (filtros.venceHasta) params.set('venceHasta', filtros.venceHasta);
+      params.set('limit', String(filtros.limit ?? 200));
+      const { data } = await apiRequest<PagedResponse<PasivoParaCorridaResponse>>(
+        `${BASE}/corridas/candidatos?${params.toString()}`,
+        { signal },
+      );
+      return data;
+    },
+  });
+}
+
+export function useCrearCorrida() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      cuentaBancariaId: string;
+      facturas: string[];
+      nombre?: string;
+      idempotencyKey: string;
+    }) => {
+      const { data } = await apiRequest<CorridaResponse>(`${BASE}/corridas`, {
+        method: 'POST',
+        body: { cuentaBancariaId: args.cuentaBancariaId, facturas: args.facturas, nombre: args.nombre || null },
+        idempotencyKey: args.idempotencyKey,
+      });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.corridas() });
+    },
+  });
+}
+
+type TransicionCorrida = { id: string; versionEsperada: number; idempotencyKey: string };
+
+function useTransicionCorrida<TArgs extends TransicionCorrida>(
+  construir: (args: TArgs) => { path: string; body?: unknown },
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: TArgs) => {
+      const { path, body } = construir(args);
+      const { data } = await apiRequest<CorridaResponse>(`${BASE}/corridas/${args.id}${path}`, {
+        method: 'POST',
+        body,
+        idempotencyKey: args.idempotencyKey,
+        headers: { 'X-Expected-Version': String(args.versionEsperada) },
+      });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.corridas() });
+    },
+  });
+}
+
+export function useEnviarCorridaAAutorizacion() {
+  return useTransicionCorrida<TransicionCorrida>(() => ({ path: '/enviar-autorizacion' }));
+}
+
+/** Agrega la firma del usuario actual; quien armó la corrida recibe 422 `CORRIDA_MISMO_USUARIO`. */
+export function useAutorizarCorrida() {
+  return useTransicionCorrida<TransicionCorrida>(() => ({ path: '/autorizar' }));
+}
+
+export function useRechazarCorrida() {
+  return useTransicionCorrida((a: TransicionCorrida & { motivo: string }) => ({
+    path: '/rechazar',
+    body: { motivo: a.motivo },
+  }));
+}
+
+/** T9.1-B: un pago por proveedor, con su referencia bancaria y fecha. Repetir la misma referencia no suma. */
+export function useRegistrarEjecucionCorrida() {
+  return useTransicionCorrida(
+    (a: TransicionCorrida & { pagos: { facturas: string[]; referenciaBancaria: string; fechaValor: string }[] }) => ({
+      path: '/ejecucion',
+      body: { pagos: a.pagos },
+    }),
+  );
+}
+
+export function useCerrarCorrida() {
+  return useTransicionCorrida<TransicionCorrida>(() => ({ path: '/cerrar' }));
+}
+
+/** Oficio de la corrida autorizada (reporte ADR-0036; el PDF se arma en el cliente). */
+export async function obtenerOficioCorrida(id: string): Promise<ReporteTesoreriaBackend> {
+  const { data } = await apiRequest<ReporteTesoreriaBackend>(`${BASE}/corridas/${id}/oficio`, { method: 'POST', body: {} });
+  return data;
+}
+
+export function useCancelarCorrida() {
+  return useTransicionCorrida((a: TransicionCorrida & { motivo: string }) => ({
+    path: '/cancelar',
+    body: { motivo: a.motivo },
+  }));
 }

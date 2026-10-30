@@ -63,7 +63,10 @@ export function PiezasPage() {
                 {[
                   ['Esperadas', a.esperadas],
                   ['Terminadas', a.terminadas],
-                  ['Faltantes', a.faltantes],
+                  ['En PT', a.enPt],
+                  ['Cargadas', a.cargadas],
+                  ['Entregadas', a.entregadas],
+                  ['Pendientes', a.pendientes],
                 ].map(([k, v]) => (
                   <div key={k}>
                     <dt className="text-2xs uppercase text-ink-muted">{k}</dt>

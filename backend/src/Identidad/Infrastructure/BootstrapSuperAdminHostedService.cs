@@ -273,10 +273,11 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                 p => p.Codigo is PermisosCanonicos.ContabilidadCatalogoLeer or PermisosCanonicos.ContabilidadCatalogoAutorizar),
             (Guid.Parse("0000000f-0011-0000-0000-000000000001"), "director-administracion-finanzas",
                 "Director de Administración y Finanzas", "Autoriza venta, valor de venta y baja de activos fijos.",
-                p => p.Codigo is PermisosCanonicos.FacturacionActivosAutorizar or PermisosCanonicos.ActivosFijosBajasAutorizar),
+                p => p.Codigo is PermisosCanonicos.FacturacionActivosAutorizar or PermisosCanonicos.ActivosFijosBajasAutorizar
+                    or PermisosCanonicos.DatosMaestrosProveedoresBloquear or PermisosCanonicos.CuentasPorPagarBloqueosLiberarEnLugar),
             (Guid.Parse("0000000f-0011-0000-0000-000000000002"), "contador-general",
                 "Contador General", "Registra las bajas autorizadas por el Director de Administración y Finanzas.",
-                p => p.Codigo == PermisosCanonicos.ActivosFijosBajasRegistrar),
+                p => p.Codigo is PermisosCanonicos.ActivosFijosBajasRegistrar or PermisosCanonicos.DatosMaestrosProveedoresBloquear),
             // REQ-PERM (86e3xd4uz): los 80 usuarios del Portal de Requisiciones. Equivalencia en
             // docs/operacion/equivalencia-permisos-portal-requisiciones.md.
             (Guid.Parse("00000010-0001-0000-0000-000000000001"), "requisitante",

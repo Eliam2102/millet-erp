@@ -91,6 +91,12 @@ Mismo criterio que secretos operativos (ADR-0037).
   `tesoreria.movimientos.ver-cuenta-completa`.
 - **[P0]** El payload de `pago-cliente.confirmado.v1` no incluye datos
   bancarios del cliente — solo referencias.
+  86e3tfdve (opción A): la cuenta ordenante del cliente
+  (`movimiento_bancario.cuenta_ordenante`, CtaOrdenante del REP) tampoco viaja
+  en el evento; Facturación la lee por el puerto público
+  `ConsultarCuentaOrdenanteMovimientoQuery` con el id del movimiento. Se
+  muestra enmascarada salvo con `tesoreria.movimientos.ver-cuenta-completa` y
+  el enricher Serilog cubre las claves `cuentaOrdenante`/`cuentaBeneficiaria`.
 - **[P1]** XML de REPP y archivos de extracto a Blob privado (ADR-0024),
   nunca a disco del App Service.
 

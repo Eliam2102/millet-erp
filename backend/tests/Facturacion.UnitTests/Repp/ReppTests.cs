@@ -149,7 +149,8 @@ public sealed class ReppTests
     private static EmitirReppHandler Handler(FacturacionDbContext db, Guid empresaId) =>
         new(db, new FakeSender(new ReservarFolioResponse("P-000001", 1, "")),
             new FakePeriodoContablePort(), new FakeFiscalApiClient(), new FakeCfdiRepositorioPort(),
-            new FakeIntegrationEventPublisher(), new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
+            new FakeIntegrationEventPublisher(), new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db),
+            new FakeCuentaBancariaMilletReadPort());
 
     [Fact]
     public async Task Emitir_REPP_cubre_varias_facturas()

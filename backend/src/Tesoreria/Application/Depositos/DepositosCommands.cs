@@ -48,7 +48,13 @@ public sealed record DepositoConfirmacionResponse(
     DateTimeOffset? ResueltaEn,
     DateTimeOffset RecibidoEn,
     int Version, Guid? PropuestoPor = null, decimal SaldoAFavorPorIdentificar = 0,
-    Guid? MovimientoSugeridoId = null);
+    Guid? MovimientoSugeridoId = null,
+    decimal? SaldoPorDepositar = null,
+    IReadOnlyList<DepositoFichaResponse>? Fichas = null);
+
+public sealed record DepositoFichaResponse(
+    Guid Id, Guid MovimientoId, decimal Importe, DateOnly FechaFicha, string? NumeroFicha,
+    SoporteFicha? SoporteTipo, string? SoporteFolio, DateTimeOffset ConfirmadaEn);
 
 internal static class DepositoMapper
 {
@@ -75,7 +81,11 @@ internal static class DepositoMapper
             d.DepositoRef, d.MontoEsperado, d.Moneda, d.Estado, d.MotivoRechazo, d.ReppTimbrado,
             // Pendiente: MovimientoId es solo la sugerencia de CxC (va en MovimientoSugeridoId).
             d.Estado == EstadoDepositoConfirmacion.Pendiente ? null : d.MovimientoId, ParseFacturas(d.FacturasJson), d.ResueltaPor, d.ResueltaEn,
-            d.CreatedAt, d.Version, d.PropuestoPor, d.SaldoAFavorPorIdentificar, d.MovimientoSugeridoId);
+            d.CreatedAt, d.Version, d.PropuestoPor, d.SaldoAFavorPorIdentificar, d.MovimientoSugeridoId,
+            d.SaldoPorDepositar,
+            d.CajaSesionId is null ? null : d.Fichas.OrderBy(f => f.ConfirmadaEn)
+                .Select(f => new DepositoFichaResponse(f.Id, f.MovimientoId, f.Importe, f.FechaFicha, f.NumeroFicha,
+                    f.SoporteTipo, f.SoporteFolio, f.ConfirmadaEn)).ToList());
 }
 
 // --------------------------------------------------- Confirmar
@@ -84,7 +94,9 @@ public sealed record ConfirmarDepositoCommand(
     Guid DepositoId,
     Guid MovimientoBancarioId,
     int VersionEsperada,
-    RegistrarMovimientoIngresoCommand? Ingreso = null) : IRequest<DepositoConfirmacionResponse>;
+    RegistrarMovimientoIngresoCommand? Ingreso = null,
+    SoporteFicha? SoporteTipo = null,
+    string? SoporteFolio = null) : IRequest<DepositoConfirmacionResponse>;
 
 public sealed class ConfirmarDepositoValidator : AbstractValidator<ConfirmarDepositoCommand>
 {
@@ -94,6 +106,8 @@ public sealed class ConfirmarDepositoValidator : AbstractValidator<ConfirmarDepo
         RuleFor(c => c.MovimientoBancarioId).NotEmpty().When(c => c.Ingreso is null);
         RuleFor(c => c.MovimientoBancarioId).Empty().When(c => c.Ingreso is not null);
         RuleFor(c => c.Ingreso!).SetValidator(new RegistrarMovimientoIngresoValidator()).When(c => c.Ingreso is not null);
+        RuleFor(c => c.SoporteTipo!.Value).IsInEnum().When(c => c.SoporteTipo is not null);
+        RuleFor(c => c.SoporteFolio).MaximumLength(40);
     }
 }
 
@@ -141,6 +155,7 @@ public sealed class ConfirmarDepositoHandler
                 "No se pudo identificar al usuario que confirma.");
 
         var deposito = await _db.DepositosConfirmacion
+            .Include(d => d.Fichas)
             .FirstOrDefaultAsync(d => d.Id == command.DepositoId, cancellationToken)
             ?? throw new EntityNotFoundException("DEP_NO_ENCONTRADO",
                 $"No se encontró el depósito '{command.DepositoId}'.");
@@ -164,6 +179,40 @@ public sealed class ConfirmarDepositoHandler
             : (await DepositoDisponible.AplicadoPorMovimientoAsync(_db, [movimiento], cancellationToken))
                 .GetValueOrDefault(movimiento.Id);
 
+        // Corte de caja: 1..N fichas, un evento por ficha (Millet 23-oct).
+        if (deposito.CajaSesionId is not null)
+        {
+            if (command.Ingreso is null && await _db.DepositoFichas.AnyAsync(f => f.MovimientoId == movimiento.Id, cancellationToken))
+                throw new BusinessRuleException("DEP_FICHA_YA_LIGADA",
+                    "La ficha ya está ligada a un corte; una ficha no puede pertenecer a dos cortes.");
+            var ficha = deposito.AgregarFicha(movimiento, usuarioId, _clock.UtcNow, command.SoporteTipo, command.SoporteFolio);
+            if (command.Ingreso is not null) _db.MovimientosBancarios.Add(movimiento);
+            _db.DepositoFichas.Add(ficha);
+            await _publisher.PublishAsync(new DepositoCajaConfirmadoIntegrationEvent(
+                EmpresaId: empresaId,
+                OcurridoEn: _clock.UtcNow,
+                DepositoId: deposito.Id,
+                FichaId: ficha.Id,
+                CajaSesionId: deposito.CajaSesionId.Value,
+                DiaCorte: deposito.DiaCorte,
+                SucursalId: deposito.SucursalId,
+                CajeroId: deposito.CajeroId,
+                MovimientoBancarioId: movimiento.Id,
+                CuentaBancariaId: movimiento.CuentaBancariaId,
+                Importe: ficha.Importe,
+                Moneda: movimiento.Moneda,
+                FechaFicha: ficha.FechaFicha,
+                NumeroFicha: ficha.NumeroFicha,
+                SoporteTipo: ficha.SoporteTipo?.ToString(),
+                SoporteFolio: ficha.SoporteFolio,
+                ImporteCorte: deposito.MontoEsperado ?? 0m,
+                SaldoPorDepositar: deposito.SaldoPorDepositar ?? 0m,
+                CorteCompleto: deposito.Estado == EstadoDepositoConfirmacion.Confirmada,
+                ConfirmadaPor: usuarioId), cancellationToken);
+            await _db.SaveChangesAsync(cancellationToken);
+            return DepositoMapper.ToResponse(deposito);
+        }
+
         // RN-6 + cotejo monto/moneda contra lo disponible, validados en el dominio.
         deposito.Confirmar(movimiento, usuarioId, _clock.UtcNow, DepositoDisponible.Disponible(movimiento, aplicadoPrevio));
 
@@ -174,8 +223,8 @@ public sealed class ConfirmarDepositoHandler
         // AplicadoParcial y vuelve a la bandeja de depósitos sin identificar de CxC.
         movimiento.ActualizarEstadoAplicacion(aplicadoPrevio + deposito.ImporteAplicadoDe(movimiento.Monto));
 
-        // Solo las propuestas de CxC disparan el ciclo fiscal (REPP); la
-        // expectativa de Caja se liga y ya — el mostrador timbró lo suyo.
+        // Solo las propuestas de CxC disparan el ciclo fiscal (REPP); los
+        // cortes de caja se cubren con fichas (arriba) — el mostrador timbró lo suyo.
         if (deposito.PropuestaCxcId is Guid propuestaId && deposito.ClienteId is Guid clienteId)
         {
             var facturas = DepositoMapper.ParseFacturas(deposito.FacturasJson);

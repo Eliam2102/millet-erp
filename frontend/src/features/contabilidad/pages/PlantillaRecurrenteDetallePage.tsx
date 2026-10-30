@@ -13,6 +13,7 @@ import { Link } from '@tanstack/react-router';
 import { CheckCheck, Pause, Pencil, Play, Printer, RotateCcw, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ErrorState } from '@/components/erp';
 import { esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -170,19 +171,11 @@ function DetallePlantilla({ id, search }: Props) {
         <div className="flex justify-end" data-print="hidden">
           {cerrar}
         </div>
-        <div
-          role="alert"
-          className="flex items-center gap-2 rounded-lg bg-danger-bg p-4 text-sm text-danger-fg"
-        >
-          {noExiste
-            ? 'La plantilla no existe.'
-            : `No se pudo cargar la plantilla. ${mensajeRecurrente(consulta.error)}`}
-          {!noExiste && (
-            <Button variant="ghost" size="sm" onClick={() => void consulta.refetch()}>
-              Reintentar
-            </Button>
-          )}
-        </div>
+        <ErrorState
+          title={noExiste ? 'La plantilla no existe' : 'No se pudo cargar la plantilla'}
+          problem={esApiError(consulta.error) ? consulta.error.problem : undefined}
+          onRetry={() => void consulta.refetch()}
+        />
       </div>
     );
   }

@@ -115,6 +115,7 @@ public sealed class FacturaProveedorConfiguration : IEntityTypeConfiguration<Fac
         builder.Property(e => e.MotivoRevisionId);
         builder.Property(e => e.DependenciaRevisoraId);
         builder.Property(e => e.FechaEntradaRevision);
+        builder.Property(e => e.SolicitanteRevisionId);
 
         builder.HasMany(e => e.Lineas)
             .WithOne()

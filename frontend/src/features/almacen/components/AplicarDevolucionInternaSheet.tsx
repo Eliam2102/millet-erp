@@ -112,6 +112,10 @@ function FormBody({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: ()
   const articuloPorLineaSalida = new Map(
     (salidaOrigenQuery.data?.lineas ?? []).map((l) => [l.id, l.articuloId]),
   );
+  // SalidaLineaItem no expone la variante: la medida (ancho/alto) distingue el vidrio.
+  const esVidrioPorLineaSalida = new Map(
+    (salidaOrigenQuery.data?.lineas ?? []).map((l) => [l.id, l.anchoMm != null || l.altoMm != null]),
+  );
   const lineasWatch = useWatch({ control: form.control, name: 'lineas' });
 
   function onSubmit(values: AplicarDevolucionInternaValues) {
@@ -401,6 +405,7 @@ function FormBody({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: ()
                                 modo="asignacion"
                                 articuloId={articuloId}
                                 subAlmacenId={subAlmacenDestinoId}
+                                incluirGeneral={!esVidrioPorLineaSalida.get(lineaOrigenId ?? '')}
                                 value={field.value ?? null}
                                 onChange={(id) => field.onChange(id ?? '')}
                                 accionSinUbicaciones={

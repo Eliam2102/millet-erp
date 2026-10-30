@@ -339,6 +339,24 @@ export function useRechazarProveedor() {
   });
 }
 
+/** 86e3tactf: bloqueo total del proveedor. Desbloquea quien lo pidió o quien tenga el permiso de reemplazo. */
+export function useBloqueoProveedor(accion: 'bloquear' | 'desbloquear') {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, { id: string; motivo: string }>({
+    mutationFn: async ({ id, motivo }) => {
+      await apiRequest<void>(`/api/v1/datos-maestros/proveedores/${id}/${accion}`, {
+        method: 'POST',
+        body: { motivo },
+        idempotencyKey: crypto.randomUUID(),
+      });
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: datosMaestrosKeys.proveedor(vars.id) });
+      queryClient.invalidateQueries({ queryKey: datosMaestrosKeys.proveedores() });
+    },
+  });
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────
 
 function buildListarProveedoresPath(
@@ -346,6 +364,7 @@ function buildListarProveedoresPath(
 ): string {
   const params = new URLSearchParams();
   if (filtros.soloExpedienteIncompleto) params.set('soloExpedienteIncompleto', 'true');
+  if (filtros.bloqueado) params.set('bloqueado', 'true');
   if (filtros.q != null && filtros.q.length > 0) params.set('q', filtros.q);
   if (filtros.rfc != null && filtros.rfc.length > 0)
     params.set('rfc', filtros.rfc);

@@ -38,7 +38,7 @@ export function ReposicionesCajaPage() {
   const emitir = useEmitirReposicionManual();
 
   const nombreSucursal = (id: string) =>
-    sucursales.data?.items.find((s) => s.id === id)?.nombre ?? id.slice(0, 8);
+    sucursales.data?.items.find((s) => s.id === id)?.nombre ?? '—';
 
   function emitirAhora(s: SaldoPendienteReposicion) {
     emitir.mutate(

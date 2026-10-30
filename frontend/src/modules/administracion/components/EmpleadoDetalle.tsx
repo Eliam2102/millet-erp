@@ -258,7 +258,7 @@ export function EmpleadoDetalle() {
                         className="flex flex-wrap items-center gap-2 p-3 text-sm"
                       >
                         <span className="flex-1">
-                          {sucursal?.nombre ?? a.sucursalId}
+                          {sucursal?.nombre ?? '—'}
                           {a.sucursalId === empleado.sucursalId ? ' · base laboral' : ''}
                         </span>
                         <Badge variant={activa ? 'success' : 'neutral'}>

@@ -1,5 +1,11 @@
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
-import { BarraFiltros, PaginacionTabla } from '@/components/erp';
+import {
+  BarraFiltros,
+  PaginacionTabla,
+  EmptyState,
+  ErrorState,
+  TableSkeleton,
+} from '@/components/erp';
 import { FormCampo, FormGrid } from '@/components/erp/forms/FormGrid';
 import { PageHeader } from '@/components/erp/PageHeader';
 import {
@@ -16,7 +22,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Skeleton } from '@/components/ui/skeleton';
 import { esApiError } from '@/lib/api';
 import { formatDateTime, hoyLocalISO } from '@/lib/datetime';
 import {
@@ -522,15 +527,15 @@ function MovimientosRegistrados() {
           Movimientos de prueba registrados
         </h2>
         {movs.isLoading ? (
-          <div className="p-4">
-            <Skeleton className="h-8 w-full" />
-          </div>
+          <TableSkeleton rows={5} />
         ) : movs.isError ? (
-          <p role="alert" className="p-4 text-sm text-danger-fg">
-            No se pudieron cargar los movimientos.
-          </p>
+          <ErrorState
+            title="No se pudieron cargar los movimientos"
+            problem={esApiError(movs.error) ? movs.error.problem : undefined}
+            onRetry={() => void movs.refetch()}
+          />
         ) : movs.data!.items.length === 0 ? (
-          <p className="p-6 text-sm text-ink-muted">Aún no hay movimientos de prueba.</p>
+          <EmptyState title="Aún no hay movimientos de prueba." />
         ) : (
           <>
             <div className="overflow-x-auto">

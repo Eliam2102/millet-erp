@@ -36,7 +36,7 @@ export function NuevaTarjetaSheet({
 }: NuevaTarjetaSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-xl">
+      <SheetContent side="right" size="form">
         <SheetHeader>
           <SheetTitle>Nueva tarjeta de crédito</SheetTitle>
           <SheetDescription>

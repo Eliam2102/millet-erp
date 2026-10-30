@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { zId } from '@/lib/z-id';
+import { errorCuentaPago, motivoSinCuenta, admiteBeneficiaria } from '../lib/cuentas-pago-sat';
 
 /**
  * Schema del form "Nuevo REPP" (complemento de pago, FE-F6). Multi-factura;
@@ -23,6 +24,9 @@ export const EmitirReppSchema = z.object({
   formaPagoReal: z.string().min(1, 'Forma de pago').max(5),
   cuentaOrdenante: z.string().max(50).nullable(),
   cuentaBeneficiaria: z.string().max(50).nullable(),
+  // 86e3tfdve: cuenta de Millet elegida del catálogo de Tesorería; el backend
+  // resuelve su CLABE/número (la lista llega enmascarada).
+  cuentaBancariaBeneficiariaId: z.string().nullish(),
   referenciaPago: z.string().max(100).nullable(),
   facturas: z.array(ReppFacturaSchema).min(1, 'Agrega al menos una factura'),
 }).superRefine((values, ctx) => {
@@ -38,6 +42,18 @@ export const EmitirReppSchema = z.object({
       message: 'Con moneda distinta a MXN captura el tipo de cambio.',
     });
   }
+  // 86e3tfdve: cuentas según c_FormaPago (mismo formato que el backend).
+  const errorOrdenante = errorCuentaPago(values.formaPagoReal, 'ordenante', values.cuentaOrdenante);
+  if (errorOrdenante) ctx.addIssue({ code: 'custom', path: ['cuentaOrdenante'], message: errorOrdenante });
+  const errorBeneficiaria = errorCuentaPago(values.formaPagoReal, 'beneficiaria', values.cuentaBeneficiaria);
+  if (errorBeneficiaria)
+    ctx.addIssue({ code: 'custom', path: ['cuentaBeneficiaria'], message: errorBeneficiaria });
+  if (values.cuentaBancariaBeneficiariaId && !admiteBeneficiaria(values.formaPagoReal))
+    ctx.addIssue({
+      code: 'custom',
+      path: ['cuentaBeneficiaria'],
+      message: motivoSinCuenta(values.formaPagoReal, 'beneficiaria'),
+    });
 });
 
 export type EmitirReppValues = z.infer<typeof EmitirReppSchema>;

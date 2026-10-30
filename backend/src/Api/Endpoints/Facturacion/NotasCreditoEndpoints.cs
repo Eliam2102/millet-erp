@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Millet.Api.Auth;
 using Millet.Api.Web;
 using Millet.Facturacion.Application.Comprobantes.Queries;
+using Millet.Facturacion.Application.NotasCredito.AutorizarNotaCredito;
 using Millet.Facturacion.Application.NotasCredito.EmitirNotaCreditoBonificacion;
 using Millet.Facturacion.Application.NotasCredito.Queries;
 using Millet.Facturacion.Application.NotasCredito.SolicitarReembolso;
@@ -41,6 +42,19 @@ public static class NotasCreditoEndpoints
         .Produces<EmitirNotaCreditoBonificacionResponse>(StatusCodes.Status201Created)
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // POST: autoriza y timbra una NC de A+W «Por autorizar» (86e3wjt5r; propuesta hasta F6.4).
+        group.MapPost("/{id:guid}/autorizar", async (
+            Guid id, IMediator mediator, CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new AutorizarNotaCreditoCommand(id), cancellationToken)))
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionNotasCreditoAutorizar)
+        .WithName("AutorizarNotaCredito")
+        .WithSummary("Autoriza y timbra una nota de crédito de A+W que está Por autorizar")
+        .Produces<AutorizarNotaCreditoResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);

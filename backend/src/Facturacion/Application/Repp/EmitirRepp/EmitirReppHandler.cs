@@ -34,12 +34,15 @@ public sealed class EmitirReppHandler : IRequestHandler<EmitirReppCommand, Emiti
     private readonly ICurrentEmpresaContext _empresa;
     private readonly ICurrentUserContext _user;
     private readonly IClock _clock;
+    private readonly ICuentaBancariaMilletReadPort _cuentasMillet;
 
     public EmitirReppHandler(
         FacturacionDbContext db, ISender sender, IPeriodoContablePort periodo, ICfdiTimbradoPort fiscal,
         ICfdiRepositorioPort cfdiRepo, IIntegrationEventPublisher eventos, ICurrentEmpresaContext empresa,
-        ICurrentUserContext user, IClock clock, ValidadorReceptorFiscal receptorFiscal)
+        ICurrentUserContext user, IClock clock, ValidadorReceptorFiscal receptorFiscal,
+        ICuentaBancariaMilletReadPort cuentasMillet)
     {
+        _cuentasMillet = cuentasMillet;
         _receptorFiscal = receptorFiscal;
         _db = db;
         _sender = sender;
@@ -71,6 +74,9 @@ public sealed class EmitirReppHandler : IRequestHandler<EmitirReppCommand, Emiti
         if (!await _periodo.EstaAbiertoAsync(fechaPagoFiscal.Year, fechaPagoFiscal.Month, cancellationToken))
             throw new BusinessRuleException("PERIODO_CERRADO",
                 $"El período {fechaPagoFiscal.Year}/{fechaPagoFiscal.Month:D2} está cerrado.");
+
+        // 86e3tfdve: cuentas del pago validadas contra c_FormaPago antes de reservar folio.
+        var (cuentaOrdenante, cuentaBeneficiaria) = await ResolverCuentasAsync(command, cancellationToken);
 
         // Cargar y validar las facturas cubiertas (timbradas, PPD, mismo cliente).
         var ids = command.Facturas.Select(f => f.FacturaVentaId).ToList();
@@ -149,8 +155,8 @@ public sealed class EmitirReppHandler : IRequestHandler<EmitirReppCommand, Emiti
                 formaPagoReal: command.FormaPagoReal,
                 tcFactura: factura.TipoCambio,
                 tcPago: command.TcPago,
-                cuentaOrdenante: command.CuentaOrdenante,
-                cuentaBeneficiaria: command.CuentaBeneficiaria,
+                cuentaOrdenante: cuentaOrdenante,
+                cuentaBeneficiaria: cuentaBeneficiaria,
                 referenciaPago: command.ReferenciaPago,
                 objetoImpDR: objetoImpDR,
                 facturaTotal: factura.Total,
@@ -189,6 +195,33 @@ public sealed class EmitirReppHandler : IRequestHandler<EmitirReppCommand, Emiti
             Facturas: repp.FacturasPagadas
                 .Select(f => new ReppFacturaPagada(f.FacturaVentaId, f.NumParcialidad, f.ImportePagado, f.SaldoInsoluto, f.GananciaPerdidaCambiaria))
                 .ToList());
+    }
+
+    /// <summary>
+    /// Normaliza las cuentas capturadas y, si no viene beneficiaria pero sí la
+    /// cuenta de Millet elegida, la resuelve (CLABE o número según la forma).
+    /// Valida ambas contra c_FormaPago (<see cref="CuentasPagoSat"/>).
+    /// </summary>
+    private async Task<(string? Ordenante, string? Beneficiaria)> ResolverCuentasAsync(
+        EmitirReppCommand command, CancellationToken cancellationToken)
+    {
+        var ordenante = CuentasPagoSat.Normalizar(command.CuentaOrdenante);
+        var beneficiaria = CuentasPagoSat.Normalizar(command.CuentaBeneficiaria);
+        if (beneficiaria is null && command.CuentaBancariaBeneficiariaId is Guid cuentaId)
+        {
+            if (!CuentasPagoSat.AdmiteBeneficiaria(command.FormaPagoReal))
+                throw new BusinessRuleException(CuentasPagoSat.CodigoError,
+                    $"La forma de pago {command.FormaPagoReal} no admite cuenta beneficiaria; quita la cuenta de Millet o cambia la forma de pago.");
+            var cuenta = await _cuentasMillet.ObtenerAsync(cuentaId, cancellationToken)
+                ?? throw new BusinessRuleException("REPP_CUENTA_BANCARIA_NO_ENCONTRADA",
+                    "La cuenta bancaria de Millet elegida no existe o no pertenece a la empresa.");
+            beneficiaria = CuentasPagoSat.SugerirBeneficiaria(command.FormaPagoReal, cuenta.Clabe, cuenta.NumeroCuenta)
+                ?? throw new BusinessRuleException(CuentasPagoSat.CodigoError,
+                    $"La cuenta {cuenta.Banco} {CuentasPagoSat.Enmascarar(cuenta.NumeroCuenta)} no tiene CLABE ni número con el formato " +
+                    $"del SAT para la forma de pago {command.FormaPagoReal}; captura la cuenta beneficiaria a mano.");
+        }
+        CuentasPagoSat.Validar(command.FormaPagoReal, ordenante, beneficiaria);
+        return (ordenante, beneficiaria);
     }
 
     /// <summary>

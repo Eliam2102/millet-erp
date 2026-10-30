@@ -159,7 +159,7 @@ function TarjetaAjustes(props: { cajaId: string }) {
               {items.map((a) => (
                 <TableRow key={a.id} className="border-t border-line">
                   <TableCell className="px-3 py-2 font-mono text-xs">
-                    {a.comprobanteFolio ?? a.cobroMostradorId}
+                    {a.comprobanteFolio ?? '—'}
                   </TableCell>
                   <TableCell
                     className={cn(
@@ -412,7 +412,7 @@ function TarjetaSucursales(props: { cajaId: string; inicial: string[] }) {
         {seleccion.map((id) => (
           <Chip
             key={id}
-            etiqueta={nombrePorId.get(id) ?? id}
+            etiqueta={nombrePorId.get(id) ?? '—'}
             onQuitar={() => setSeleccion(seleccion.filter((s) => s !== id))}
           />
         ))}
@@ -512,7 +512,7 @@ function TarjetaUsuarios(props: { cajaId: string; inicial: string[] }) {
         {seleccion.map((id) => (
           <Chip
             key={id}
-            etiqueta={nombrePorId.get(id) ?? id}
+            etiqueta={nombrePorId.get(id) ?? '—'}
             onQuitar={() => setSeleccion(seleccion.filter((u) => u !== id))}
           />
         ))}

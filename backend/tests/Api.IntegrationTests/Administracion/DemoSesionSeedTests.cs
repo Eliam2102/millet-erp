@@ -325,7 +325,8 @@ public sealed partial class DemoSesionSeedTests
             Assert.True(p.CerradoEn <= DateTimeOffset.UtcNow, "El cierre del sembrador no debe tener una fecha futura.");
         });
         Assert.Equal(EstadoPeriodo.Abierto, periodos.Single(p => p.Numero == 10).Estado);
-        Assert.Equal(7, await contabilidad.Cuentas.CountAsync(c => c.Nombre.StartsWith("DEMO")));
+        // 7 del catálogo DEMO + 19 de los roles contables de C1.5 (990.10–990.27 y DEMO-PUENTE; 990.01/.02/.03/.05 se reutilizan).
+        Assert.Equal(26, await contabilidad.Cuentas.CountAsync(c => c.Nombre.StartsWith("DEMO")));
         Assert.Equal(2, await tesoreria.CuentasBancarias.CountAsync(c => c.Banco.StartsWith("DEMO-")));
         Assert.Equal(7, await compras.OrdenesCompra.CountAsync()); // + OC de importación CE-01a, de gastos CE-06, OC mixta de Activos Fijos, OC de servicio del agente (P6) y DEMO-OC-USD (C1.2)
         // C1.2: OC en dólares autorizada y TC USD del día en el catálogo.

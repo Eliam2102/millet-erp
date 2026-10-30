@@ -132,7 +132,7 @@ export function DetalleMovimiento({ id }: { id: string }) {
       <div data-print="hidden">
         <PageHeader
           mono
-          titulo={m.referenciaBancaria ?? m.id}
+          titulo={m.referenciaBancaria ?? 'Movimiento bancario'}
           descripcion={
             <>
               Movimiento bancario · {m.beneficiarioNombre ?? m.conceptoNombre ?? 'Sin beneficiario'}
@@ -214,6 +214,12 @@ export function DetalleMovimiento({ id }: { id: string }) {
             )}
           </dd>
         </div>
+        {m.cuentaOrdenante != null && (
+          <div>
+            <dt className="text-xs text-ink-muted">Cuenta ordenante del cliente</dt>
+            <dd className="font-mono text-xs">{m.cuentaOrdenante}</dd>
+          </div>
+        )}
         {m.destinoBanco != null && (
           <div>
             <dt className="text-xs text-ink-muted">Cuenta destino</dt>

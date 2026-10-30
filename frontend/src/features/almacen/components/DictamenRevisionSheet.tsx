@@ -38,8 +38,10 @@ const DESCRIPCION_RESULTADO: Partial<Record<ResultadoDictamen, string>> = {
 };
 
 const MENSAJE_RACK = 'Elige la ubicación (rack) disponible a la que se libera el material.';
+const MENSAJE_GENERAL =
+  'Elige la ubicación (rack o almacén general) a la que se libera el material.';
 
-function crearSchema(pendiente: number) {
+function crearSchema(pendiente: number, esVidrio: boolean) {
   return z
     .object({
       resultado: z.union([
@@ -57,7 +59,9 @@ function crearSchema(pendiente: number) {
     })
     .superRefine((v, ctx) => {
       if (v.resultado === ResultadoDictamen.Liberar && !v.ubicacionDestinoId) {
-        ctx.addIssue({ code: 'custom', path: ['ubicacionDestinoId'], message: MENSAJE_RACK });
+        ctx.addIssue({ code: 'custom', path: ['ubicacionDestinoId'],
+          message: esVidrio ? MENSAJE_RACK : MENSAJE_GENERAL,
+        });
       }
     });
 }
@@ -126,7 +130,7 @@ function Cuerpo({
   const [sinEvidencia, setSinEvidencia] = useState<string | null>(null);
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(crearSchema(item.cantidadPendiente)),
+    resolver: zodResolver(crearSchema(item.cantidadPendiente, !!item.productoAwVarianteId)),
     defaultValues: {
       resultado: ResultadoDictamen.Liberar,
       cantidad: item.cantidadPendiente,
@@ -315,6 +319,7 @@ function Cuerpo({
                     articuloId={item.articuloId}
                     subAlmacenId={null}
                     requiereSubAlmacen={false}
+                    incluirGeneral={!item.productoAwVarianteId}
                     value={field.value}
                     onChange={(id) => field.onChange(id)}
                   />

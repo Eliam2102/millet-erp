@@ -68,6 +68,7 @@ public sealed class ActualizarCabeceraOcHandler : IRequestHandler<ActualizarCabe
             {
                 throw ProveedorNoUtilizable.Error(proveedor.Clave, proveedor.Estatus, $"El proveedor '{proveedor.Clave}' está {proveedor.Estatus} y no puede usarse en OCs.");
             }
+            ProveedorNoUtilizable.RechazarSiBloqueado(proveedor);
         }
 
         if (command.ProveedorId is Guid pFijo)

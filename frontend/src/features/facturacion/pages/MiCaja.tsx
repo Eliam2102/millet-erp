@@ -41,6 +41,7 @@ import {
   useListarCobros,
   useReabrirSesion,
   useRegistrarMovimiento,
+  descargarValeCaja,
   useSesionActual,
 } from '@/features/facturacion/api/useCajaSesiones';
 import { CancelarCobroDialog } from '@/features/facturacion/components/CancelarCobroDialog';
@@ -708,9 +709,17 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
         idempotencyKey,
       },
       {
-        onSuccess: () => {
-          toast.success('Movimiento registrado.');
+        onSuccess: (registrado) => {
           props.onCerrar();
+          if (registrado.folioVale == null) {
+            toast.success('Movimiento registrado.');
+            return;
+          }
+          // Retiro: se descarga el Vale de Caja para imprimirlo y firmarlo (86e3ww6tw).
+          toast.success(`Retiro registrado. Vale de Caja folio ${registrado.folioVale}.`);
+          descargarValeCaja(registrado.id, registrado.folioVale).catch((error: unknown) =>
+            toastError(error, 'No se pudo descargar el Vale de Caja; reimprímelo desde Movimientos.'),
+          );
         },
         onError: (error) => toastError(error, 'No se pudo registrar el movimiento.'),
       },
@@ -925,6 +934,13 @@ function ArqueoPanel(props: { sesion: CajaSesionDetalleResponse }) {
 
 // ─── Movimientos y cobros de la sesión ───────────────────────────────
 
+/** Reimpresión del Vale de Caja de un retiro: mismo folio y datos (86e3ww6tw). */
+function reimprimirVale(movimientoId: string, folio: number) {
+  descargarValeCaja(movimientoId, folio).catch((error: unknown) =>
+    toastError(error, 'No se pudo descargar el Vale de Caja.'),
+  );
+}
+
 function MovimientosTabla(props: { sesion: CajaSesionDetalleResponse }) {
   if (props.sesion.movimientos.length === 0) return null;
   return (
@@ -938,6 +954,7 @@ function MovimientosTabla(props: { sesion: CajaSesionDetalleResponse }) {
               <TableHead className="px-3 py-2 text-left">Forma</TableHead>
               <TableHead className="px-3 py-2 text-right tabular-nums">Importe</TableHead>
               <TableHead className="px-3 py-2 text-left">Descripción</TableHead>
+              <TableHead className="px-3 py-2 text-left">Vale</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -964,6 +981,21 @@ function MovimientosTabla(props: { sesion: CajaSesionDetalleResponse }) {
                   />
                 </TableCell>
                 <TableCell className="px-3 py-2 text-ink-muted">{m.descripcion}</TableCell>
+                <TableCell className="px-3 py-2">
+                  {m.folioVale != null ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      aria-label={`Vale de caja folio ${m.folioVale}`}
+                      onClick={() => reimprimirVale(m.id, m.folioVale!)}
+                    >
+                      <FileText className="mr-1 h-3.5 w-3.5" aria-hidden />
+                      Vale de caja
+                    </Button>
+                  ) : (
+                    <span className="text-xs text-ink-muted">—</span>
+                  )}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

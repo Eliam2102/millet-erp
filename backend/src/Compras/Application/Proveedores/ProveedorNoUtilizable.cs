@@ -16,4 +16,16 @@ internal static class ProveedorNoUtilizable
                 "PROVEEDOR_EN_REVISION",
                 $"El proveedor '{clave}' está en revisión: Cuentas por Pagar debe validarlo antes de usarlo en requisiciones u órdenes de compra.")
             : new BusinessRuleException("PROVEEDOR_INACTIVO", mensajeInactivo);
+
+    /// <summary>
+    /// 86e3tactf: bloqueo total del proveedor (marca aparte del estatus). Rechaza crear, enviar a autorizar y
+    /// autorizar OCs; las OCs ya autorizadas siguen recibiéndose (Almacén no pasa por aquí).
+    /// </summary>
+    public static void RechazarSiBloqueado(Millet.DatosMaestros.Domain.Proveedor proveedor)
+    {
+        if (proveedor.Bloqueado)
+            throw new BusinessRuleException(
+                "PROVEEDOR_BLOQUEADO",
+                $"El proveedor '{proveedor.Clave}' está bloqueado: {proveedor.MotivoBloqueo}. No admite órdenes de compra nuevas ni su autorización.");
+    }
 }

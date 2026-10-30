@@ -241,6 +241,11 @@ export function BandejaDepositos() {
                       {d.montoEsperado != null
                         ? formatoMonto(d.montoEsperado, d.moneda ?? 'MXN')
                         : '—'}
+                      {d.saldoPorDepositar != null && d.estado === EstadoDepositoConfirmacion.Parcial && (
+                        <p className="text-xs text-ink-muted">
+                          Saldo {formatoMonto(d.saldoPorDepositar, d.moneda ?? 'MXN')} · {d.fichas?.length ?? 0} ficha(s)
+                        </p>
+                      )}
                     </TableCell>
                     <TableCell className="px-3 py-2 text-right tabular-nums">
                       {d.propuestaCxcId != null ? d.facturas.length : '—'}
@@ -270,9 +275,10 @@ export function BandejaDepositos() {
                       )}
                     </TableCell>
                     <TableCell className="px-3 py-2 text-right">
-                      {d.estado === EstadoDepositoConfirmacion.Pendiente && (
+                      {(d.estado === EstadoDepositoConfirmacion.Pendiente ||
+                        (d.estado === EstadoDepositoConfirmacion.Parcial && d.cajaSesionId != null)) && (
                         <div className="flex justify-end gap-2">
-                          {puedeRechazar && (
+                          {puedeRechazar && d.estado === EstadoDepositoConfirmacion.Pendiente && (
                             <Button variant="outline" size="sm" onClick={() => setRechazando(d)}>
                               Rechazar
                             </Button>
@@ -289,7 +295,7 @@ export function BandejaDepositos() {
                               </span>
                             ) : (
                               <Button size="sm" onClick={() => setConfirmando(d)}>
-                                Confirmar
+                                {d.cajaSesionId != null ? 'Agregar ficha' : 'Confirmar'}
                               </Button>
                             ))}
                         </div>

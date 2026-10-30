@@ -40,6 +40,7 @@ public sealed class MovimientoBancarioConfiguration : IEntityTypeConfiguration<M
         builder.Property(e => e.DestinoBanco).HasMaxLength(120);
         builder.Property(e => e.DestinoNumeroCuenta).HasMaxLength(40);
         builder.Property(e => e.DestinoTitular).HasMaxLength(254);
+        builder.Property(e => e.CuentaOrdenante).HasMaxLength(50);
         builder.Property(e => e.ConceptoId);
 
         builder.Property(e => e.EstadoAplicacion).HasConversion<short>().IsRequired();

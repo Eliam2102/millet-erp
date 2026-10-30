@@ -30,6 +30,15 @@ public sealed class StubAwSolicitudesReader : IAwSolicitudesReader
     }
 }
 
+/// <summary>Sin canal de A+W configurado: no hay notas de crédito que leer (86e3wjt5r). El canal real lo implementa <c>Integraciones.Aw</c>.</summary>
+public sealed class StubAwNotasCreditoPort : IAwNotasCreditoPort
+{
+    public Task<IReadOnlyList<SolicitudNotaCreditoAw>> LeerNotasPendientesAsync(int max, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<SolicitudNotaCreditoAw>>([]);
+
+    public Task EscribirAcuseAsync(AcuseNotaCreditoAw acuse, CancellationToken cancellationToken) => Task.CompletedTask;
+}
+
 /// <summary>
 /// Fallback DEV del write-back a A+W (mitad A+W de &lt;WriteBackOrigenes&gt; CERRADA
 /// por ADR-0048 PR3/PR5: <c>AwWriteBackSqlAdapter</c> + WriteBackResultadoWorker;

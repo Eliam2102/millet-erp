@@ -1,7 +1,9 @@
 using Millet.CentrosCosto.Application.PublicPorts;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Compras.Application;
+using Millet.Compras.Application.Proveedores;
 using Millet.Compras.Domain.Oc;
 using Millet.Compras.Domain.Oc.Events;
 using Millet.Compras.Infrastructure;
@@ -27,6 +29,7 @@ public sealed class DuplicarOrdenCompraHandler
     private readonly ICurrentEmpresaContext _currentEmpresa;
     private readonly IClock _clock;
     private readonly IPublisher _publisher;
+    private readonly CompartidoDbContext _compartido;
 
     public DuplicarOrdenCompraHandler(
         ComprasDbContext db,
@@ -34,8 +37,10 @@ public sealed class DuplicarOrdenCompraHandler
         ICurrentUserContext currentUser,
         ICurrentEmpresaContext currentEmpresa,
         IClock clock,
-        IPublisher publisher)
+        IPublisher publisher,
+        CompartidoDbContext compartido)
     {
+        _compartido = compartido;
         _db = db;
         _dim3 = dim3;
         _currentUser = currentUser;
@@ -77,6 +82,11 @@ public sealed class DuplicarOrdenCompraHandler
                 "OC_DUPLICAR_ESTADO_NO_PERMITIDO",
                 $"Solo se pueden duplicar OCs Canceladas o Rechazadas (origen: {origen.Estado}).");
         }
+
+        // 86e3tactf: una OC duplicada es una OC nueva; con el proveedor bloqueado no se levanta.
+        var proveedor = await _compartido.Proveedores.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == origen.ProveedorId, cancellationToken);
+        if (proveedor is not null) ProveedorNoUtilizable.RechazarSiBloqueado(proveedor);
 
         var lineasPendientes = origen.Lineas.Where(l => l.Cantidad > l.CantidadRecibida)
             .OrderBy(l => l.Posicion).ToList();

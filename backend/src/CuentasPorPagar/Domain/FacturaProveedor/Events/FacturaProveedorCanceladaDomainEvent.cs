@@ -27,4 +27,6 @@ public sealed record FacturaProveedorCanceladaDomainEvent(
     IReadOnlyList<RetencionCfdi>? Retenciones = null,
     string? Moneda = null,
     decimal? TipoCambio = null,
-    Guid? SucursalId = null) : INotification;
+    Guid? SucursalId = null,
+    // Acumulado vigente por línea OC tras la cancelación (incluye 0). Solo facturas con OC.
+    IReadOnlyList<LineaOcAcumulada>? LineasAcumuladasOc = null) : INotification;

@@ -44,6 +44,23 @@ public interface IProveedorReadPort
         }
         return resultado;
     }
+
+    /// <summary>
+    /// 86e3tactf: proveedores con bloqueo total (id → motivo) para el aviso «Proveedor bloqueado» en las bandejas.
+    /// Misma política que <see cref="ObtenerRfcsPorIdsAsync"/>: el adapter productivo la sobreescribe con una consulta.
+    /// </summary>
+    async Task<IReadOnlyDictionary<Guid, string>> ObtenerBloqueadosPorIdsAsync(
+        IReadOnlyCollection<Guid> proveedorIds,
+        CancellationToken cancellationToken)
+    {
+        var resultado = new Dictionary<Guid, string>();
+        foreach (var id in proveedorIds)
+        {
+            var p = await ObtenerAsync(id, cancellationToken);
+            if (p is { Bloqueado: true }) resultado[id] = p.MotivoBloqueo ?? string.Empty;
+        }
+        return resultado;
+    }
 }
 
 public sealed record ProveedorDto(
@@ -54,7 +71,10 @@ public sealed record ProveedorDto(
     bool EnRevision,
     bool Activo,
     // 86e3pdmee: retención esperada del proveedor (concepto P8 o SIN_RETENCION); null = por revisar.
-    string? ConceptoRetencion = null);
+    string? ConceptoRetencion = null,
+    // 86e3tactf: bloqueo total; CxP sigue capturando y validando facturas, Tesorería no las paga.
+    bool Bloqueado = false,
+    string? MotivoBloqueo = null);
 
 public sealed record ToleranciaProveedorDto(
     ToleranciaTipo Tipo,

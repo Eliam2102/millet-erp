@@ -82,6 +82,7 @@ public sealed class P5ReglasHandlersTests
     [InlineData("PorValidar", "PROVEEDOR_SIN_CUENTA_ACTIVA")]
     [InlineData("EnRevision", "PROVEEDOR_EN_REVISION")]
     [InlineData("Inactivo", "PROVEEDOR_NO_ACTIVO")]
+    [InlineData("Bloqueado", "PROVEEDOR_BLOQUEADO")]
     [InlineData("UsdActiva", "PROVEEDOR_SIN_CUENTA_ACTIVA")]
     public async Task Pago_a_cuenta_rechaza_proveedor_no_apto(string? caso, string codigo)
     {
@@ -90,6 +91,40 @@ public sealed class P5ReglasHandlersTests
         var act = () => handler.Handle(new(cuenta.Id, 100, Fecha, "Urgente", Guid.NewGuid()), default);
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == codigo);
         db.MovimientosBancarios.Should().BeEmpty();
+    }
+
+    // 86e3tactf, criterios 1 y 3: tres facturas del mismo proveedor; bloqueado se rechaza el pago de las tres, desbloqueado se paga.
+    [Theory]
+    [InlineData("Bloqueado", false)]
+    [InlineData("Activa", true)]
+    public async Task Pago_directo_de_tres_facturas_de_un_proveedor_respeta_el_bloqueo(string caso, bool sePaga)
+    {
+        await using var db = Db(); var cuenta = Cuenta(db);
+        var proveedorId = Guid.NewGuid();
+        var pasivos = Enumerable.Range(0, 3).Select(_ =>
+        { var p = new PasivoPendientePago(Empresa, Guid.NewGuid(), proveedorId, null, 1000, 1000, "MXN", null, Fecha, null, "P5", Ahora, "PUE"); db.PasivosPendientesPago.Add(p); return p; }).ToList();
+        await db.SaveChangesAsync();
+        var eventos = new Publicador(db);
+        var handler = new RegistrarPagoProveedorHandler(db, new EmpresaContext(), new User(), new Periodo(), new ProveedorFake(DtoPara(caso)), new ElegibleSinLimite(), eventos, new Clock());
+        var comando = new RegistrarPagoProveedorCommand(cuenta.Id, Fecha, pasivos.Select(p => new AplicacionPagoItem(p.FacturaProveedorId, 1000m)).ToList());
+        if (sePaga)
+        {
+            await handler.Handle(comando, default);
+            db.MovimientosBancarios.Should().ContainSingle();
+            return;
+        }
+        var ex = (await Assert.ThrowsAsync<BusinessRuleException>(() => handler.Handle(comando, default)));
+        ex.Code.Should().Be("PROVEEDOR_BLOQUEADO");
+        ex.Message.Should().Contain("Proveedor bloqueado");
+        db.MovimientosBancarios.Should().BeEmpty(); eventos.Eventos.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Bandeja_senala_proveedor_bloqueado()
+    {
+        await using var db = Db(); var pasivo = Pasivo(db); await db.SaveChangesAsync();
+        var res = await new Millet.Tesoreria.Application.Pasivos.BandejaPasivosPendientesHandler(db, new ProveedorFake(DtoPara("Bloqueado"), todos: true), new Permisos(false)).Handle(new(), default);
+        res.Items.Single().ProveedorBloqueado.Should().BeTrue();
     }
 
     [Fact]
@@ -102,13 +137,13 @@ public sealed class P5ReglasHandlersTests
     }
 
     private static ProveedorBancoDto? DtoPara(string? caso) => caso is null ? null
-        : new(Guid.NewGuid(), "PRU", "Proveedor", [new(Guid.NewGuid(), "Banco", "000000000000001234", true, null, caso == "UsdActiva" ? "USD" : "MXN", "Proveedor", true, caso is "EnRevision" or "Inactivo" or "UsdActiva" ? "Activa" : caso)], Activo: caso != "Inactivo", EnRevision: caso == "EnRevision");
+        : new(Guid.NewGuid(), "PRU", "Proveedor", [new(Guid.NewGuid(), "Banco", "000000000000001234", true, null, caso == "UsdActiva" ? "USD" : "MXN", "Proveedor", true, caso is "EnRevision" or "Inactivo" or "UsdActiva" or "Bloqueado" ? "Activa" : caso)], Activo: caso != "Inactivo", EnRevision: caso == "EnRevision", Bloqueado: caso == "Bloqueado");
 
-    private sealed class ProveedorFake(ProveedorBancoDto? dto) : IProveedorBancoReadPort
+    private sealed class ProveedorFake(ProveedorBancoDto? dto, bool todos = false) : IProveedorBancoReadPort
     {
         public Task<ProveedorBancoDto?> ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult(dto);
         public Task<IReadOnlyDictionary<Guid, ProveedorBancoDto>> ObtenerVariosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct)
-            => Task.FromResult<IReadOnlyDictionary<Guid, ProveedorBancoDto>>(new Dictionary<Guid, ProveedorBancoDto>());
+            => Task.FromResult<IReadOnlyDictionary<Guid, ProveedorBancoDto>>(todos && dto is not null ? ids.ToDictionary(i => i, _ => dto) : new Dictionary<Guid, ProveedorBancoDto>());
     }
 
     [Fact]

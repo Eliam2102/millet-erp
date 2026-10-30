@@ -419,7 +419,7 @@ function RegistrarSalidaBody({
                       <code className="font-mono">{l.articuloClave}</code>
                     ) : (
                       <code className="font-mono" title={l.articuloId}>
-                        {l.articuloId.slice(0, 8)}…
+                        —
                       </code>
                     )}
                     {' · '}

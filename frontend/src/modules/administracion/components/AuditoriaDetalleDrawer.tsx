@@ -5,6 +5,7 @@ import {
   TableHead,
   TableBody,
   TableCell,
+  TableContainer,
 } from '@/components/ui/table';
 import { useMemo } from 'react';
 import { History } from 'lucide-react';
@@ -352,7 +353,7 @@ function CamposDiffTable({
   }
 
   return (
-    <div className="overflow-hidden rounded-md border">
+    <TableContainer maxHeightClassName="" className="rounded-md border">
       <Table data-testid="auditoria-cambios-diff" className="w-full text-sm">
         <TableHeader className="bg-surface-muted/50">
           <TableRow>
@@ -380,7 +381,7 @@ function CamposDiffTable({
           ))}
         </TableBody>
       </Table>
-    </div>
+    </TableContainer>
   );
 }
 
@@ -402,7 +403,7 @@ function CamposValorTable({
   return (
     <div>
       <p className="mb-1 text-xs font-medium text-ink-muted">{titulo}</p>
-      <div className="overflow-hidden rounded-md border">
+      <TableContainer maxHeightClassName="" className="rounded-md border">
         <Table data-testid="auditoria-cambios-objeto" className="w-full text-sm">
           <TableHeader className="bg-surface-muted/50">
             <TableRow>
@@ -422,7 +423,7 @@ function CamposValorTable({
             ))}
           </TableBody>
         </Table>
-      </div>
+      </TableContainer>
     </div>
   );
 }

@@ -73,4 +73,6 @@ public sealed record LineaOrdenCompraResponse(
     // El artículo es vidrio crudo (ligado a A+W) y la línea aún no tiene medida; lo puebla el handler con el artículo.
     bool RequiereMedida = false,
     // F1-MP-05 (A4.2): lote que declara el proveedor (opcional; lo lee C3.2 para COMPRA_RECIBIDA).
-    string? LoteProveedor = null);
+    string? LoteProveedor = null,
+    // Devuelto al proveedor y acreditado con NC fiscal 03: ya no se espera ni cuenta como facturado neto.
+    decimal CantidadAcreditada = 0m);

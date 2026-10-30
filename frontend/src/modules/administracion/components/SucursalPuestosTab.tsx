@@ -278,7 +278,7 @@ function AsignacionDepartamentoRow({
   const reactivar = useReactivarAsignacionSucursalPuesto();
   const [editandoRol, setEditandoRol] = useState(false);
 
-  const etiquetaAsignacion = `${item.puestoClave} en ${item.departamentoNombre ?? item.departamentoId}`;
+  const etiquetaAsignacion = `${item.puestoClave} en ${item.departamentoNombre ?? '—'}`;
 
   function handleConfirmarDesactivar(cerrar: () => void) {
     desactivar.mutate(
@@ -342,7 +342,7 @@ function AsignacionDepartamentoRow({
             <span className="font-mono font-semibold text-ink">{item.puestoClave}</span> del
             departamento{' '}
             <span className="font-semibold text-ink">
-              {item.departamentoNombre ?? item.departamentoId}
+              {item.departamentoNombre ?? '—'}
             </span>{' '}
             en esta sucursal?
           </p>
@@ -362,7 +362,7 @@ function AsignacionDepartamentoRow({
       onReactivar={handleReactivar}
     >
       <span className="text-sm font-medium text-ink">
-        {item.departamentoNombre ?? item.departamentoId}
+        {item.departamentoNombre ?? '—'}
       </span>
       <span className="text-xs text-ink-muted">
         {tieneExcepcion ? (
@@ -415,7 +415,7 @@ function RolSugeridoInlineForm({
   const actualizar = useActualizarRolSugeridoAsignacion();
   const [rolId, setRolId] = useState(item.rolSugeridoId ?? '');
 
-  const etiquetaAsignacion = `${item.puestoClave} en ${item.departamentoNombre ?? item.departamentoId}`;
+  const etiquetaAsignacion = `${item.puestoClave} en ${item.departamentoNombre ?? '—'}`;
 
   function handleGuardar() {
     actualizar.mutate(
@@ -443,7 +443,7 @@ function RolSugeridoInlineForm({
     >
       <div className="flex flex-1 flex-wrap items-center gap-2">
         <span className="text-sm font-medium text-ink">
-          {item.departamentoNombre ?? item.departamentoId}
+          {item.departamentoNombre ?? '—'}
         </span>
         <select
           aria-label={`Rol sugerido para ${etiquetaAsignacion}`}

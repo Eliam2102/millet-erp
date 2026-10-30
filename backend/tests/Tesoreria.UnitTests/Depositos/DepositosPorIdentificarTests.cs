@@ -47,7 +47,7 @@ public sealed class DepositosPorIdentificarTests
             500m, 500m, "Depósito erróneo", new CuentaDestinoDevolucion("BBVA", "032180000118359719", "Cliente SA"), Tesorero, Ahora));
         var deCaja = Ingreso(db, cuenta, 400m, BeneficiarioTipo.Cliente);
         var expectativa = DepositoConfirmacion.CrearExpectativaCaja(Empresa, Guid.NewGuid(), 400m, Fecha);
-        expectativa.Confirmar(deCaja, Tesorero, Ahora);
+        expectativa.AgregarFicha(deCaja, Tesorero, Ahora);
         db.DepositosConfirmacion.Add(expectativa);
         await db.SaveChangesAsync();
 

@@ -88,6 +88,27 @@ CREATE TABLE IF NOT EXISTS dbo.aw_solicitud_pedido (
     UNIQUE (numero_pedido, version)
 );
 
+-- Notas de crédito de clientes (script 17, 86e3wjt5r). Mismas columnas y restricciones que
+-- docs/operacion/aw-integracion-scripts/17. Una nota de muestra se simula con un INSERT en esta tabla.
+CREATE TABLE IF NOT EXISTS dbo.aw_solicitud_nota_credito (
+    solicitud_id        uuid           PRIMARY KEY DEFAULT gen_random_uuid(),
+    numero_nota         text           NOT NULL,
+    version             bigint         NOT NULL,
+    numero_pedido       text           NOT NULL,
+    factura_folio       text,
+    cliente_ref         text           NOT NULL,
+    tipo_nota           text           NOT NULL CHECK (tipo_nota IN ('Bonificacion', 'Devolucion')),
+    importe             numeric(18, 2) NOT NULL CHECK (importe > 0),
+    descripcion         text,
+    creada_at           timestamptz    NOT NULL DEFAULT now(),
+    erp_nota_credito_id uuid,
+    estado_erp          text,
+    resultado           smallint CHECK (resultado IS NULL OR resultado IN (1, 2)),  -- NULL pendiente | 1 Aplicada | 2 Rechazada
+    motivo              text,
+    procesada_at        timestamptz,
+    UNIQUE (numero_nota, version)
+);
+
 -- Retorno ERP -> A+W (script 14 v3, TR-01). Mismas columnas y restricciones que docs/operacion/aw-integracion-scripts/14.
 -- resultado, aplicada_at, motivo e intentos los escribe la tarea de TI (en la demo, a mano); el ERP solo inserta y lee.
 CREATE TABLE IF NOT EXISTS dbo.aw_retorno (

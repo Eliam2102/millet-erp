@@ -1,5 +1,5 @@
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { SheetBody } from '@/components/ui/sheet';
-import { useRef } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -16,21 +16,10 @@ interface Props {
 
 /** Sheet "Nueva cuenta" (patrón P4): confirm al cerrar con cambios sin guardar; al guardar cierra sin confirm. */
 export function NuevaCuentaSheet({ open, onOpenChange }: Props) {
-  const dirty = useRef(false);
-
-  function cerrar(force = false) {
-    if (
-      !force &&
-      dirty.current &&
-      !window.confirm('Tienes una cuenta sin guardar. ¿Descartar y cerrar?')
-    )
-      return;
-    dirty.current = false;
-    onOpenChange(false);
-  }
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() => onOpenChange(false));
 
   return (
-    <Sheet open={open} onOpenChange={(o) => (o ? onOpenChange(true) : cerrar())}>
+    <Sheet open={open} onOpenChange={(o) => (o ? onOpenChange(true) : solicitarCierre())}>
       <SheetContent size="lg" side="right" data-print="hidden">
         <SheetHeader>
           <SheetTitle>Nueva cuenta</SheetTitle>
@@ -43,16 +32,15 @@ export function NuevaCuentaSheet({ open, onOpenChange }: Props) {
           <div className="min-w-0">
             {open && (
               <CuentaForm
-                onGuardada={() => cerrar(true)}
-                onCancelar={() => cerrar()}
-                onDirtyChange={(d) => {
-                  dirty.current = d;
-                }}
+                onGuardada={() => solicitarCierre(true)}
+                onCancelar={() => solicitarCierre()}
+                onDirtyChange={setDirty}
               />
             )}
           </div>
         </SheetBody>
       </SheetContent>
+      {dialogo}
     </Sheet>
   );
 }

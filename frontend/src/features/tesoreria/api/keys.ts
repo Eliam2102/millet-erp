@@ -97,4 +97,12 @@ export const tesoreriaKeys = {
     [...tesoreriaKeys.reportes(), 'flujo-efectivo', filtros] as const,
   auxiliarBancos: (filtros: Record<string, unknown>) =>
     [...tesoreriaKeys.reportes(), 'auxiliar-bancos', filtros] as const,
+
+  // Corridas de pago (T9.1-A)
+  corridas: () => [...tesoreriaKeys.all, 'corridas'] as const,
+  corridasList: (filtros: Record<string, unknown>) =>
+    [...tesoreriaKeys.corridas(), 'list', filtros] as const,
+  corrida: (id: string) => [...tesoreriaKeys.corridas(), 'byId', id] as const,
+  corridaCandidatos: (filtros: Record<string, unknown>) =>
+    [...tesoreriaKeys.corridas(), 'candidatos', filtros] as const,
 };

@@ -107,6 +107,66 @@ describe('<UbicacionBinSelector>', () => {
     expect(screen.queryByText('ÚNICA')).not.toBeInTheDocument();
   });
 
+  it('incluirGeneral: además de los racks asignados lista el almacén general activo', async () => {
+    const TIPO = 0;
+    mswServer.use(
+      http.get('*/api/v1/almacen/asignaciones', () =>
+        HttpResponse.json({ items: [], offset: 0, limit: 500, total: 0 }),
+      ),
+      http.get('*/api/v1/almacen/sub-almacenes', () =>
+        HttpResponse.json({ items: [{ id: SUB, tipo: TIPO }], offset: 0, limit: 500, total: 1 }),
+      ),
+      http.get('*/api/v1/almacen/ubicaciones', () =>
+        HttpResponse.json({ items: [UBIC_RACK, UBIC_UNICA], offset: 0, limit: 500, total: 2 }),
+      ),
+    );
+    render(
+      <UbicacionBinSelector
+        modo="asignacion"
+        articuloId={ART}
+        subAlmacenId={SUB}
+        incluirGeneral
+        value={null}
+        onChange={() => {}}
+      />,
+      { wrapper: createQueryWrapper() },
+    );
+    fireEvent.click(screen.getByRole('combobox'));
+    await waitFor(() =>
+      expect(screen.getByText('ALM › INS · Almacén general')).toBeInTheDocument(),
+    );
+    expect(screen.queryByText('ALM › INS · R-1')).not.toBeInTheDocument();
+  });
+
+it('incluirGeneral: no ofrece el almacén general de un sub Material en revisión', async () => {
+    const TIPO = 2;
+    mswServer.use(
+      http.get('*/api/v1/almacen/asignaciones', () =>
+        HttpResponse.json({ items: [], offset: 0, limit: 500, total: 0 }),
+      ),
+      http.get('*/api/v1/almacen/sub-almacenes', () =>
+        HttpResponse.json({ items: [{ id: SUB, tipo: TIPO }], offset: 0, limit: 500, total: 1 }),
+      ),
+      http.get('*/api/v1/almacen/ubicaciones', () =>
+        HttpResponse.json({ items: [UBIC_RACK, UBIC_UNICA], offset: 0, limit: 500, total: 2 }),
+      ),
+    );
+    render(
+      <UbicacionBinSelector
+        modo="asignacion"
+        articuloId={ART}
+        subAlmacenId={SUB}
+        incluirGeneral
+        value={null}
+        onChange={() => {}}
+      />,
+      { wrapper: createQueryWrapper() },
+    );
+    fireEvent.click(screen.getByRole('combobox'));
+    await waitFor(() => expect(screen.getByText('El artículo no tiene ubicaciones asignadas en este sub-almacén.')).toBeInTheDocument());
+    expect(screen.queryByText('ALM › INS · Almacén general')).not.toBeInTheDocument();
+  });
+
   it('modo asignación por default (requiereSubAlmacen=true): filtra por sub y se deshabilita sin él', () => {
     render(
       <UbicacionBinSelector
@@ -195,7 +255,7 @@ describe('<UbicacionBinSelector>', () => {
     // "R-1" y esta aserción falla).
     expect(await screen.findByText('ALM › INS · R-1')).toBeInTheDocument();
     // La ÚNICA aparece con su ruta + badge redundante.
-    expect(screen.getByText('ALM › INS · ÚNICA')).toBeInTheDocument();
+    expect(screen.getByText('ALM › INS · Almacén general')).toBeInTheDocument();
   });
 
   it('deshabilitado y con placeholder guía sin artículo/sub-almacén', () => {

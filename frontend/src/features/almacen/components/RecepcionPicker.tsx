@@ -67,13 +67,13 @@ export function RecepcionPicker({
   const seleccionada = enLista ?? (detalle.data && value ? detalle.data : undefined);
 
   function ocDe(r: RecepcionListItem) {
-    return r.ordenCompraFolio ?? (r.ordenCompraId ? `${r.ordenCompraId.slice(0, 8)}…` : null);
+    return r.ordenCompraFolio ?? null;
   }
 
   const triggerLabel = seleccionada
     ? `${seleccionada.folio} · ${seleccionada.fechaMovimiento}`
     : value
-      ? `${value.slice(0, 8)}…`
+      ? '—'
       : placeholder;
 
   return (

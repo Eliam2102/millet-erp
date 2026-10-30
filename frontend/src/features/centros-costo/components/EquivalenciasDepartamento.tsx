@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { SucursalSelector } from '@/components/erp/selectors/SucursalSelector';
-import { apiRequest } from '@/lib/api';
+import { ErrorState, TableSkeleton } from '@/components/erp';
+import { apiRequest, esApiError } from '@/lib/api';
 import { zId } from '@/lib/z-id';
 import { CentroCostoPicker } from './CentroCostoPicker';
 interface Equivalencia {
@@ -49,11 +50,13 @@ export function EquivalenciasDepartamento({ puedeAdministrar }: { puedeAdministr
           />
         </FormCampo>
       </FormGrid>
-      {query.isLoading && <p className="text-sm text-ink-muted">Consultando equivalencias…</p>}
+      {query.isLoading && <TableSkeleton rows={3} />}
       {query.isError && (
-        <p role="alert" className="text-sm text-danger-fg">
-          No se pudieron consultar las equivalencias de esta sucursal.
-        </p>
+        <ErrorState
+          title="No se pudieron consultar las equivalencias de esta sucursal"
+          problem={esApiError(query.error) ? query.error.problem : undefined}
+          onRetry={() => void query.refetch()}
+        />
       )}
       <div className="space-y-3">
         {query.data?.map((e) => (

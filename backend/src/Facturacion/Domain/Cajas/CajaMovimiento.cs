@@ -55,6 +55,12 @@ public sealed class CajaMovimiento : BaseEntity, IPerteneceAEmpresa, IAuditable
     /// <summary>Quien capturó/originó el movimiento.</summary>
     public Guid UsuarioId { get; private set; }
 
+    /// <summary>Caja del Vale de Caja; solo en retiros (86e3ww6tw).</summary>
+    public Guid? CajaId { get; private set; }
+
+    /// <summary>Folio del Vale de Caja, consecutivo por caja y fijo al reimprimir; solo en retiros.</summary>
+    public int? FolioVale { get; private set; }
+
     private CajaMovimiento() { }
 
     private CajaMovimiento(
@@ -120,6 +126,19 @@ public sealed class CajaMovimiento : BaseEntity, IPerteneceAEmpresa, IAuditable
         return new CajaMovimiento(
             Guid.CreateVersion7(), empresaId, cajaSesionId, tipo, formaPago.Trim(), importe,
             moneda, cobroMostradorId, Normalizar(referencia), descripcion.Trim(), usuarioId);
+    }
+
+    /// <summary>Asigna el folio del Vale de Caja reservado con <see cref="Caja.SiguienteFolioVale"/>.</summary>
+    public void AsignarFolioVale(Guid cajaId, int folio)
+    {
+        if (Tipo != TipoCajaMovimiento.Retiro)
+            throw new BusinessRuleException("VALE_SOLO_RETIRO", "Solo un retiro lleva Vale de Caja.");
+        if (FolioVale is not null)
+            throw new BusinessRuleException("VALE_FOLIO_ASIGNADO", "El retiro ya tiene folio de Vale de Caja.");
+        if (cajaId == Guid.Empty || folio <= 0)
+            throw new BusinessRuleException("VALE_FOLIO_INVALIDO", "El folio del Vale de Caja debe ser positivo y de una caja.");
+        CajaId = cajaId;
+        FolioVale = folio;
     }
 
     private static string? Normalizar(string? valor) =>

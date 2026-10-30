@@ -204,7 +204,7 @@ public class CuarentenaRecepcionTests : IClassFixture<WebApplicationFactory<Prog
                 ids.ToDictionary(i => i, i => new ArticuloLectura(i, "ART", "Artículo", unidad, null, true)));
     }
 
-    private sealed class CxpFake : ICxpDocumentosReadPort
+    internal sealed class CxpFake : ICxpDocumentosReadPort
     {
         public Task<CfdiRecibidoLectura?> ObtenerCfdiAsync(Guid id, CancellationToken ct) => Task.FromResult<CfdiRecibidoLectura?>(null);
         public Task<IReadOnlyDictionary<Guid, string>> ObtenerFoliosFacturaAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) => Vacio();
@@ -216,7 +216,7 @@ public class CuarentenaRecepcionTests : IClassFixture<WebApplicationFactory<Prog
         private static Task<IReadOnlyDictionary<Guid, string>> Vacio() => Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
     }
 
-    private sealed class ProveedorFake : IProveedorReadPort
+    internal sealed class ProveedorFake : IProveedorReadPort
     {
         public Task<ProveedorLectura?> ObtenerAsync(Guid id, CancellationToken ct) =>
             Task.FromResult<ProveedorLectura?>(new ProveedorLectura(id, "P", "Proveedor", "AAA010101AAA", true));

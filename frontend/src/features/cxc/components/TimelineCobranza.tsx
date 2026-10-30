@@ -6,6 +6,7 @@ import {
   TableRow,
   TableHead,
   TableCell,
+  TableContainer,
 } from '@/components/ui/table';
 import { ResultadoCobranza, type SeguimientoCobranzaResponse } from '../api/types';
 import { ETIQUETA_CANAL_COBRANZA, formatoMonto } from '../lib/glosario';
@@ -23,6 +24,7 @@ export function TimelineCobranza({
   moneda?: string;
 }) {
   return (
+    <TableContainer maxHeightClassName="">
     <Table aria-label="Historial de gestiones">
       <TableHeader>
         <TableRow>
@@ -61,6 +63,7 @@ export function TimelineCobranza({
         ))}
       </TableBody>
     </Table>
+    </TableContainer>
   );
 }
 export function ChipResultadoCobranza({ resultado }: { resultado: ResultadoCobranza }) {

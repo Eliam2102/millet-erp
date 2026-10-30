@@ -43,7 +43,7 @@ public sealed class DepositosHandler
         var limit = Math.Clamp(query.Limit, 1, 500);
         var offset = Math.Max(0, query.Offset);
 
-        var q = _db.DepositosConfirmacion
+        var q = _db.DepositosConfirmacion.Include(d => d.Fichas)
             .Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id)).AsNoTracking();
         if (query.Estado is EstadoDepositoConfirmacion estado) q = q.Where(d => d.Estado == estado);
         if (query.ClienteId is Guid cliente) q = q.Where(d => d.ClienteId == cliente);
@@ -52,7 +52,7 @@ public sealed class DepositosHandler
 
         var total = await q.CountAsync(cancellationToken);
         var items = await q
-            .OrderBy(d => d.Estado == EstadoDepositoConfirmacion.Pendiente ? 0 : 1)
+            .OrderBy(d => d.Estado == EstadoDepositoConfirmacion.Pendiente || d.Estado == EstadoDepositoConfirmacion.Parcial ? 0 : 1)
             .ThenByDescending(d => d.CreatedAt)
             .Skip(offset).Take(limit)
             .ToListAsync(cancellationToken);

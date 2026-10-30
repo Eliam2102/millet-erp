@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Facturacion.Application.Cajas.Alcance;
 using Millet.Facturacion.Domain.Comprobantes;
+using Millet.Facturacion.Domain.Repp;
 using Millet.Facturacion.Infrastructure.Persistence;
 using Millet.SharedKernel.Application.Exceptions;
 
@@ -22,7 +23,9 @@ public sealed record BandejaReppResponse(
     int? SinAsignarCount);
 
 public sealed record ReppBandejaItem(
-    Guid Id, string Folio, string Estado, string? Uuid, string ReceptorNombre, decimal ImporteTotalPago, DateTimeOffset FechaPago);
+    Guid Id, string Folio, string Estado, string? Uuid, string ReceptorNombre, decimal ImporteTotalPago, DateTimeOffset FechaPago,
+    // 86e3tfdve: cuentas del pago enmascaradas («•••• 1234», ADR-0006).
+    string? CuentaOrdenante = null, string? CuentaBeneficiaria = null);
 
 public sealed class BandejaReppHandler : IRequestHandler<BandejaReppQuery, BandejaReppResponse>
 {
@@ -47,11 +50,17 @@ public sealed class BandejaReppHandler : IRequestHandler<BandejaReppQuery, Bande
         var rows = await q
             .OrderByDescending(r => r.FolioNumero)
             .Skip(Math.Max(0, query.Offset)).Take(limit)
-            .Select(r => new { r.Id, r.Folio, r.Estado, r.Uuid, r.ReceptorNombre, r.ImporteTotalPago, r.FechaPago })
+            .Select(r => new
+            {
+                r.Id, r.Folio, r.Estado, r.Uuid, r.ReceptorNombre, r.ImporteTotalPago, r.FechaPago,
+                CuentaOrdenante = r.FacturasPagadas.Select(f => f.CuentaOrdenante).FirstOrDefault(),
+                CuentaBeneficiaria = r.FacturasPagadas.Select(f => f.CuentaBeneficiaria).FirstOrDefault(),
+            })
             .ToListAsync(cancellationToken);
 
         var items = rows.Select(r => new ReppBandejaItem(
-            r.Id, r.Folio, r.Estado.ToString(), r.Uuid, r.ReceptorNombre, r.ImporteTotalPago, r.FechaPago)).ToList();
+            r.Id, r.Folio, r.Estado.ToString(), r.Uuid, r.ReceptorNombre, r.ImporteTotalPago, r.FechaPago,
+            CuentasPagoSat.Enmascarar(r.CuentaOrdenante), CuentasPagoSat.Enmascarar(r.CuentaBeneficiaria))).ToList();
 
         return new BandejaReppResponse(items, sinAsignarCount);
     }
@@ -68,7 +77,11 @@ public sealed record ReppDetalleResponse(
     // Error del último intento de timbrado + folio del PAC (PR-B reintento).
     string? TimbradoErrorCodigo = null,
     string? TimbradoErrorMensaje = null,
-    string? FolioPac = null);
+    string? FolioPac = null,
+    // 86e3tfdve: forma de pago y cuentas del pago enmascaradas («•••• 1234», ADR-0006).
+    string? FormaPago = null,
+    string? CuentaOrdenante = null,
+    string? CuentaBeneficiaria = null);
 
 public sealed record ReppFacturaCubierta(
     Guid FacturaVentaId, string? Folio, string FacturaUuid, int NumParcialidad,
@@ -110,6 +123,9 @@ public sealed class ReppDetalleHandler : IRequestHandler<ReppDetalleQuery, ReppD
         return new ReppDetalleResponse(
             r.Id, r.Folio, r.Estado.ToString(), r.Uuid, r.ReceptorNombre, r.MonedaPago,
             r.ImporteTotalPago, r.FechaPago, cubiertas,
-            r.TimbradoErrorCodigo, r.TimbradoErrorMensaje, r.FolioPac);
+            r.TimbradoErrorCodigo, r.TimbradoErrorMensaje, r.FolioPac,
+            r.FacturasPagadas.Select(f => f.FormaPagoReal).FirstOrDefault(),
+            CuentasPagoSat.Enmascarar(r.FacturasPagadas.Select(f => f.CuentaOrdenante).FirstOrDefault()),
+            CuentasPagoSat.Enmascarar(r.FacturasPagadas.Select(f => f.CuentaBeneficiaria).FirstOrDefault()));
     }
 }

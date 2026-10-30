@@ -78,6 +78,23 @@ public sealed class CancelarFacturaHandler : IRequestHandler<CancelarFacturaComm
         }
         else
         {
+            // Acumulado vigente (sin esta factura) de cada línea OC que referenciaba, incluidas las que quedan en 0.
+            IReadOnlyList<LineaOcAcumulada>? acumulados = null;
+            if (factura.OrdenCompraId is not null)
+            {
+                var lineasOcIds = await _db.FacturasProveedor
+                    .Where(f => f.Id == factura.Id)
+                    .SelectMany(f => f.Lineas)
+                    .Where(l => l.LineaOcId.HasValue)
+                    .Select(l => l.LineaOcId!.Value)
+                    .Distinct()
+                    .ToListAsync(cancellationToken);
+                var previos = await AcumuladoFacturadoOc.PrevioVigenteAsync(_db, lineasOcIds, factura.Id, cancellationToken);
+                acumulados = lineasOcIds
+                    .Select(id => new LineaOcAcumulada(id, previos.GetValueOrDefault(id)))
+                    .ToList();
+            }
+
             await _mediator.Publish(new FacturaProveedorCanceladaDomainEvent(
                 EmpresaId: factura.EmpresaId,
                 FacturaProveedorId: factura.Id,
@@ -93,7 +110,8 @@ public sealed class CancelarFacturaHandler : IRequestHandler<CancelarFacturaComm
                 Retenciones: factura.RetencionesDetalle,
                 Moneda: factura.Moneda,
                 TipoCambio: factura.TipoCambio,
-                SucursalId: factura.SucursalId), cancellationToken);
+                SucursalId: factura.SucursalId,
+                LineasAcumuladasOc: acumulados), cancellationToken);
         }
 
         await _db.SaveChangesAsync(cancellationToken);

@@ -113,6 +113,7 @@ export const ETIQUETA_ESTADO_TIMBRADO: Record<string, string> = {
   CancelacionPendiente: 'Cancelación pendiente',
   Cancelado: 'Cancelado',
   Descartada: 'Descartada',
+  PorAutorizar: 'Por autorizar',
 };
 
 /** Devuelve la etiqueta del estado de timbrado por su valor numérico. */

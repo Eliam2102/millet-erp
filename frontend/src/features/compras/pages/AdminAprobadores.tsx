@@ -307,7 +307,7 @@ function PanelVigentesTabla({ items, deptosMap, usuariosMap, onRevocar }: PanelV
     () =>
       items.map((a) => ({
         ...a,
-        depto: deptosMap.get(a.departamentoId)?.nombre ?? a.departamentoId,
+        depto: deptosMap.get(a.departamentoId)?.nombre ?? '—',
         usuario: nombreUsuarioOGuion(usuariosMap.get(a.usuarioId)?.nombre),
       })),
     [items, deptosMap, usuariosMap],
@@ -482,7 +482,7 @@ function PanelHistoricoTabla({ items, deptosMap, usuariosMap }: PanelHistoricoTa
     () =>
       items.map((a) => ({
         ...a,
-        depto: deptosMap.get(a.departamentoId)?.nombre ?? a.departamentoId,
+        depto: deptosMap.get(a.departamentoId)?.nombre ?? '—',
         usuario: nombreUsuarioOGuion(usuariosMap.get(a.usuarioId)?.nombre),
       })),
     [items, deptosMap, usuariosMap],
@@ -610,7 +610,7 @@ function RevocarConfirm({
 
   const dept =
     aprobador != null
-      ? (deptosMap.get(aprobador.departamentoId)?.nombre ?? aprobador.departamentoId)
+      ? (deptosMap.get(aprobador.departamentoId)?.nombre ?? '—')
       : '';
   const user =
     aprobador != null ? nombreUsuarioOGuion(usuariosMap.get(aprobador.usuarioId)?.nombre) : '';

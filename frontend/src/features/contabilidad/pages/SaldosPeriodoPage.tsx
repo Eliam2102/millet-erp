@@ -1,5 +1,12 @@
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
-import { BarraFiltros, PaginacionTabla } from '@/components/erp';
+import {
+  BarraFiltros,
+  PaginacionTabla,
+  EmptyState,
+  ErrorState,
+  TableSkeleton,
+} from '@/components/erp';
+import { esApiError } from '@/lib/api';
 import { usePaginacionLocal } from '../lib/use-paginacion-local';
 import { PageHeader } from '@/components/erp/PageHeader';
 import {
@@ -14,14 +21,13 @@ import { useMemo, useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { ArrowLeft, Scale } from 'lucide-react';
 import { Label } from '@/components/ui/label';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useEjercicios } from '../api/periodos';
 import { useSaldosPeriodo } from '../api/polizas';
 import { CuentaSelector, type CuentaOpcion } from '../components/dimensiones/CuentaSelector';
 import { SELECT_CLASS } from '../lib/estilos';
-import { centavos, etiquetaPeriodo, mensajePoliza, monto } from '../lib/polizas';
+import { centavos, etiquetaPeriodo, monto } from '../lib/polizas';
 
 /**
  * Movimientos del periodo por cuenta (F1-CON-04): cargos, abonos y saldo de las pólizas autorizadas, anuladas y sus
@@ -145,17 +151,17 @@ export function SaldosPeriodoPage() {
         {!anio ? (
           <p className="p-6 text-sm text-ink-muted">Elige un periodo.</p>
         ) : saldos.isLoading ? (
-          <div className="p-4">
-            <Skeleton className="h-8 w-full" />
-          </div>
+          <TableSkeleton rows={5} />
         ) : saldos.isError ? (
-          <p role="alert" className="p-4 text-sm text-danger-fg">
-            No se pudieron cargar los movimientos. {mensajePoliza(saldos.error)}
-          </p>
+          <ErrorState
+            title="No se pudieron cargar los movimientos"
+            problem={esApiError(saldos.error) ? saldos.error.problem : undefined}
+            onRetry={() => void saldos.refetch()}
+          />
         ) : filas.length === 0 ? (
-          <p className="p-6 text-sm text-ink-muted">
-            El periodo no tiene pólizas autorizadas{cuenta ? ' en esta cuenta' : ''}.
-          </p>
+          <EmptyState
+            title={`El periodo no tiene pólizas autorizadas${cuenta ? ' en esta cuenta' : ''}.`}
+          />
         ) : (
           <div className="overflow-x-auto">
             <Table className="w-full min-w-160 text-sm">

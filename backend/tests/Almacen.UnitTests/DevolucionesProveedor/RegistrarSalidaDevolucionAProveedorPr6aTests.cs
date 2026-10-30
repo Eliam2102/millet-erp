@@ -144,6 +144,25 @@ public class RegistrarSalidaDevolucionAProveedorPr6aTests
     }
 
     [Fact]
+    public async Task Devolver_lo_facturado_dentro_de_lo_pedido_se_permite()
+    {
+        // Pedido 100, recibido 100, facturado 100; devolver 5 deja 95 recibidas y 100 facturadas ≤ 100 pedidas:
+        // la salida va primero y la NC 03 formaliza la nota de cargo después (caso OC-302 del 30-oct).
+        await using var db = NuevaDb();
+        var (subId, _, _) = await SembrarSubConUnicaAsync(db, conUnica: true);
+        var lineaOcId = Guid.NewGuid();
+        var dev = await SembrarDevolucionAutorizadaAsync(db, subId, lineaOcId);
+
+        var resp = await Handler(db, new OcPortFacturada(lineaOcId, recibida: 100m, facturada: 100m)).Handle(
+            new RegistrarSalidaDevolucionAProveedorCommand(
+                DevolucionId: dev.Id, SubAlmacenId: subId,
+                FechaMovimiento: new DateOnly(2027, 4, 1), Bins: Array.Empty<DevolucionProveedorSalidaLineaBin>()),
+            CancellationToken.None);
+
+        (await LeerLineaUnicaAsync(db, resp.MovimientoSalidaId)).Cantidad.Should().Be(5m);
+    }
+
+    [Fact]
     public async Task Dos_lineas_sobre_la_misma_linea_oc_se_acumulan_contra_lo_facturado()
     {
         // Recibido 110, facturado 105: devolver 3 deja 107 (ok) pero 3+3 deja 104 < 105 → bloquea.

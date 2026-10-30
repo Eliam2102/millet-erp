@@ -71,7 +71,7 @@ export function NuevaOrdenCompraProvider({ children }: { children: ReactNode }) 
           setAbierto(true);
         }}
       >
-        <SheetContent side="right" size="lg">
+        <SheetContent side="right" size="form">
           <SheetHeader>
             <SheetTitle>
               {desdeRequisicion
@@ -82,7 +82,7 @@ export function NuevaOrdenCompraProvider({ children }: { children: ReactNode }) 
             <SheetDescription>
               {desdeRequisicion
                 ? 'La sucursal viene de la RQ origen. Llena los campos restantes (proveedor, condiciones de pago, etc.).'
-                : 'Llena los datos de la orden y agrega las partidas desde su detalle.'}
+                : 'Se crea en Capturada; las partidas se ajustan en el detalle.'}
             </SheetDescription>
           </SheetHeader>
 

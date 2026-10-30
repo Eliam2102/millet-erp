@@ -298,7 +298,7 @@ function RenderTabla({
             const proveedorLabel =
               proveedor != null
                 ? (proveedor.nombreComercial ?? proveedor.razonSocial)
-                : oc.proveedorId;
+                : '—';
             const comprador =
               oc.compradorNombre ?? usuariosMap.get(oc.compradorTitularId)?.nombre ?? 'Sin asignar';
             return (

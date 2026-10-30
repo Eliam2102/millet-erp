@@ -49,7 +49,9 @@ public sealed class ProyectarExpectativaCajaHandler : IRequestHandler<ProyectarE
                     empresaId: p.EmpresaId,
                     cajaSesionId: p.CajaSesionId,
                     efectivoDeclarado: p.EfectivoDeclarado,
-                    diaOperacion: p.DiaOperacion));
+                    diaOperacion: p.DiaOperacion,
+                    sucursalId: p.SucursalId,
+                    cajeroId: p.ResponsableUsuarioId));
             }
         }
 

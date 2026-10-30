@@ -110,7 +110,7 @@ export function AplicacionesLayout({ idActivo, detalle }: AplicacionesLayoutProp
                     </div>
                     <div className="mt-1 flex items-center justify-between gap-2 text-xs text-ink-muted">
                       <span className="truncate">
-                        {nombres.get(p.clienteId) ?? p.clienteId.slice(0, 8)}
+                        {nombres.get(p.clienteId) ?? '—'}
                       </span>
                       <span className="shrink-0 font-mono tabular-nums">
                         {formatoMonto(p.montoDeposito, p.moneda)}

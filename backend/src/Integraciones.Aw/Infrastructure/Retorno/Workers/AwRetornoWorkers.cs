@@ -10,10 +10,11 @@ using Millet.SharedKernel.Application.Integration;
 namespace Millet.Integraciones.Aw.Infrastructure.Retorno;
 
 /// <summary>
-/// TR-01: escucha <c>facturacion.factura-venta.timbrada.v1</c> y <c>facturacion.comprobante.cancelado.v1</c>
-/// (topic facturacion-events) y deja la fila Documento (FacturaFinal / Cancelacion) en <c>aw_retorno</c>. La idempotencia vive en la tabla (UUID + tipo, candado por
-/// pedido), no en una marca de evento: una reentrega no duplica. Nota de crédito: fuera de TR-01 (el evento
-/// no trae folio ni pedido). Mismo patrón que <c>FacturacionEventListenerWorker</c> de CxC.
+/// TR-01: escucha <c>facturacion.factura-venta.timbrada.v1</c>, <c>facturacion.comprobante.cancelado.v1</c> y
+/// <c>facturacion.nota-credito.timbrada.v1</c> (topic facturacion-events) y deja la fila Documento
+/// (FacturaFinal / Cancelacion / NotaCredito) en <c>aw_retorno</c>. La idempotencia vive en la tabla (UUID + tipo, candado por
+/// pedido), no en una marca de evento: una reentrega no duplica. La nota de crédito solo genera fila si llegó de A+W
+/// (86e3wjt5r: el evento trae pedido, versión y folio). Mismo patrón que <c>FacturacionEventListenerWorker</c> de CxC.
 /// </summary>
 public sealed class FacturacionRetornoListenerWorker : BackgroundService, ILocalIntegrationEventConsumer
 {
@@ -21,6 +22,7 @@ public sealed class FacturacionRetornoListenerWorker : BackgroundService, ILocal
     public const string SubscriptionName = "integraciones-aw-subscription";
     public const string EventTypeFacturaTimbrada = "facturacion.factura-venta.timbrada.v1";
     public const string EventTypeComprobanteCancelado = "facturacion.comprobante.cancelado.v1";
+    public const string EventTypeNotaCreditoTimbrada = "facturacion.nota-credito.timbrada.v1";
 
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
 
@@ -79,7 +81,7 @@ public sealed class FacturacionRetornoListenerWorker : BackgroundService, ILocal
     {
         try
         {
-            if (eventType is EventTypeFacturaTimbrada or EventTypeComprobanteCancelado)
+            if (eventType is EventTypeFacturaTimbrada or EventTypeComprobanteCancelado or EventTypeNotaCreditoTimbrada)
             {
                 using var scope = _scopeFactory.CreateScope();
                 var sp = scope.ServiceProvider;
@@ -88,6 +90,9 @@ public sealed class FacturacionRetornoListenerWorker : BackgroundService, ILocal
                 var servicio = sp.GetRequiredService<AwRetornoDocumentoService>();
                 if (eventType == EventTypeFacturaTimbrada)
                     await servicio.RegistrarFacturaAsync(JsonSerializer.Deserialize<FacturaTimbradaRetornoPayload>(body, JsonOpts)
+                        ?? throw new JsonException("Payload null."), ct);
+                else if (eventType == EventTypeNotaCreditoTimbrada)
+                    await servicio.RegistrarNotaCreditoAsync(JsonSerializer.Deserialize<FacturaTimbradaRetornoPayload>(body, JsonOpts)
                         ?? throw new JsonException("Payload null."), ct);
                 else
                     await servicio.RegistrarCancelacionAsync(JsonSerializer.Deserialize<CancelacionRetornoPayload>(body, JsonOpts)

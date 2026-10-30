@@ -55,6 +55,32 @@ public sealed class NotaCredito : Comprobante
         ImporteReembolsoSolicitado = importe;
     }
 
+    // ---- Origen A+W (86e3wjt5r): la nota nace en A+W y llega por la tabla puente ----
+
+    /// <summary>Número de la nota en A+W (null = nota del ERP). Único por empresa: idempotencia de la ingesta.</summary>
+    public string? AwNumeroNota { get; private set; }
+
+    /// <summary>Última versión de la nota recibida de A+W.</summary>
+    public long? AwVersionNota { get; private set; }
+
+    /// <summary>Pedido A+W de la factura origen y su versión al recibir la nota: salen en la fila NotaCredito de <c>aw_retorno</c>.</summary>
+    public string? AwNumeroPedido { get; private set; }
+    public long? AwVersionPedido { get; private set; }
+
+    public Guid? AutorizadaPorId { get; private set; }
+    public DateTimeOffset? AutorizadaEn { get; private set; }
+
+    /// <summary>
+    /// <see cref="EstadoTimbrado.PorAutorizar"/> → <see cref="EstadoTimbrado.Borrador"/>: queda lista para timbrar.
+    /// Solo notas de A+W (las del ERP nacen Borrador).
+    /// </summary>
+    public void Autorizar(Guid? usuarioId, DateTimeOffset ahora)
+    {
+        AprobarAutorizacion(ahora);
+        AutorizadaPorId = usuarioId;
+        AutorizadaEn = ahora;
+    }
+
     private NotaCredito() { }
 
     private NotaCredito(
@@ -264,6 +290,61 @@ public sealed class NotaCredito : Comprobante
             descripcion: descripcion);
 
         DesglosarTotales(nc, montoTotal, tasaIva);
+        return nc;
+    }
+
+    /// <summary>
+    /// Crea la NC que llegó de A+W (bonificación o devolución) en <see cref="EstadoTimbrado.PorAutorizar"/>,
+    /// ligada a la factura origen. La devolución marca el subtotal como importe que afecta inventario
+    /// (el movimiento de almacén queda fuera de esta tarjeta).
+    /// </summary>
+    public static NotaCredito CrearDesdeAw(
+        Guid empresaId,
+        string folio,
+        long folioNumero,
+        Guid sucursalId,
+        Guid? cajaId,
+        DatosFiscalesReceptor receptor,
+        DatosFiscalesEmisor emisor,
+        string formaPago,
+        string moneda,
+        decimal? tipoCambio,
+        int periodoAnio,
+        int periodoMes,
+        short? canalVentaId,
+        MotivoNotaCredito motivo,
+        Guid facturaRelacionadaId,
+        decimal montoTotal,
+        decimal? tasaIva,
+        string? descripcion,
+        string awNumeroNota,
+        long awVersionNota,
+        string? awNumeroPedido,
+        long? awVersionPedido)
+    {
+        if (motivo is not (MotivoNotaCredito.Bonificacion or MotivoNotaCredito.Devolucion))
+            throw new BusinessRuleException("NC_MOTIVO_AW_INVALIDO", "A+W solo manda notas de bonificación o devolución.");
+        if (montoTotal <= 0)
+            throw new BusinessRuleException("NC_MONTO_INVALIDO", "El monto de la nota de crédito debe ser mayor que cero.");
+
+        var nc = new NotaCredito(
+            id: Guid.CreateVersion7(), empresaId: empresaId, folio: folio, folioNumero: folioNumero,
+            sucursalId: sucursalId, cajaId: cajaId, usuarioEmisorId: null, receptor: receptor, emisor: emisor,
+            formaPago: formaPago, moneda: moneda, tipoCambio: tipoCambio, periodoAnio: periodoAnio,
+            periodoMes: periodoMes, canalVentaId: canalVentaId, motivo: motivo, anticipoOrigenId: null,
+            facturaRelacionadaId: facturaRelacionadaId, claveProdServSat: "84111506", claveUnidadSat: "ACT",
+            descripcion: string.IsNullOrWhiteSpace(descripcion)
+                ? (motivo == MotivoNotaCredito.Devolucion ? "Devolución" : "Bonificación")
+                : descripcion!);
+
+        nc.AwNumeroNota = awNumeroNota;
+        nc.AwVersionNota = awVersionNota;
+        nc.AwNumeroPedido = awNumeroPedido;
+        nc.AwVersionPedido = awVersionPedido;
+        DesglosarTotales(nc, montoTotal, tasaIva);
+        if (motivo == MotivoNotaCredito.Devolucion)
+            nc.ImporteAfectaInventario = nc.Subtotal;
+        nc.EsperarAutorizacion();
         return nc;
     }
 

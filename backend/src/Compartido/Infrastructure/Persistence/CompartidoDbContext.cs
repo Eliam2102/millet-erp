@@ -1232,6 +1232,11 @@ public sealed class CompartidoDbContext : BaseDbContext
         proveedor.Property(x => x.RegimenFiscalCodigo).HasMaxLength(3);
         proveedor.Property(x => x.ConceptoRetencion).HasMaxLength(80);
         proveedor.Property(x => x.ValidadoConMatrizVersion);
+        // 86e3tactf: bloqueo total, marca aparte del estatus.
+        proveedor.Property(x => x.Bloqueado).HasDefaultValue(false);
+        proveedor.Property(x => x.MotivoBloqueo).HasMaxLength(500);
+        proveedor.Property(x => x.BloqueadoPorId);
+        proveedor.Property(x => x.BloqueadoEn);
 
         proveedor.HasIndex(x => x.Clave).IsUnique();
         // F1-ADM-05: RFC único salvo genéricos SAT (público en general),

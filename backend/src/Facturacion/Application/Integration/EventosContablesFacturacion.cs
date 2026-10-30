@@ -86,7 +86,10 @@ public static class EventosContablesFacturacion
             ClienteId: clienteId,
             Moneda: nc.Moneda,
             TipoCambio: nc.TipoCambio,
-            FechaContable: FechaContable(nc, ocurridoEn));
+            FechaContable: FechaContable(nc, ocurridoEn),
+            NumeroPedidoAw: nc.AwNumeroNota is null ? null : nc.AwNumeroPedido,
+            VersionPedidoAw: nc.AwNumeroNota is null ? null : nc.AwVersionPedido,
+            Folio: nc.Folio);
 
     /// <summary>Tipo A+W de cada producto de la factura (sin puerto o sin producto → sin entrada).</summary>
     public static async Task<IReadOnlyDictionary<Guid, string?>> TiposProductoAsync(

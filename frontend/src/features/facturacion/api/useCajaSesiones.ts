@@ -1,6 +1,7 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
 import { facturacionKeys } from '@/features/facturacion/api/keys';
+import { descargarArchivo } from '@/features/facturacion/lib/descargas';
 import type {
   AutorizacionAperturaResponse,
   CajaAjusteItem,
@@ -17,6 +18,11 @@ import type {
 } from '@/features/facturacion/api/types';
 
 const BASE = '/api/v1/facturacion/cajas';
+
+/** PDF del Vale de Caja de un retiro (86e3ww6tw); reimprimir da el mismo folio. */
+export function descargarValeCaja(movimientoId: string, folio: number): Promise<void> {
+  return descargarArchivo(`${BASE}/movimientos/${movimientoId}/vale.pdf`, `vale-de-caja-${folio}.pdf`);
+}
 const COBROS = '/api/v1/facturacion/cobros';
 
 /**

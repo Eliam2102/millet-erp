@@ -1335,6 +1335,12 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("numeric(15,4)")
                         .HasColumnName("cantidad");
 
+                    b.Property<decimal>("CantidadAcreditada")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("numeric(15,4)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("cantidad_acreditada");
+
                     b.Property<decimal>("CantidadFacturada")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("numeric(15,4)")
@@ -1494,11 +1500,13 @@ namespace Millet.Compras.Infrastructure.Migrations
 
                     b.ToTable("orden_compra_lineas", "compras", t =>
                         {
+                            t.HasCheckConstraint("ck_oc_lineas_acreditada_nn", "cantidad_acreditada >= 0");
+
                             t.HasCheckConstraint("ck_oc_lineas_cantidad_pos", "cantidad > 0");
 
                             t.HasCheckConstraint("ck_oc_lineas_descuento_tipo", "descuento_tipo BETWEEN 0 AND 1");
 
-                            t.HasCheckConstraint("ck_oc_lineas_facturada_max", "cantidad_facturada <= GREATEST(cantidad, cantidad_recibida)");
+                            t.HasCheckConstraint("ck_oc_lineas_facturada_max", "cantidad_facturada <= GREATEST(cantidad, cantidad_recibida) + cantidad_acreditada");
 
                             t.HasCheckConstraint("ck_oc_lineas_facturada_nn", "cantidad_facturada >= 0");
 

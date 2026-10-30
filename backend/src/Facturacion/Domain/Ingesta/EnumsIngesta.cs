@@ -53,5 +53,11 @@ public enum MotivoExcepcion : short
     ServicioNoMarcado = 12,
     /// <summary>Planta Pintura: el IVA de la orden no coincide con la tasa del producto.</summary>
     IvaNoCuadra = 13,
+    /// <summary>Nota de crédito de A+W: la factura de origen no existe (o no está timbrada vigente, o es ambigua).</summary>
+    NcFacturaNoExiste = 14,
+    /// <summary>Nota de crédito de A+W: el cliente de la nota no es el de la factura de origen.</summary>
+    NcClienteDistinto = 15,
+    /// <summary>Nota de crédito de A+W: el importe excede el saldo de la factura de origen.</summary>
+    NcImporteExcedeSaldo = 16,
     Otro = 99,
 }

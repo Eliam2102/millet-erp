@@ -29,6 +29,7 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
+import { enmascararCuenta } from '../lib/cuentas-pago-sat';
 import { estadoUi } from '../lib/estados-ui';
 import { usePaginacionLocal } from '../lib/use-paginacion-local';
 
@@ -177,6 +178,7 @@ export function BandejaRepp() {
                   <TableHead className="px-3 py-2 text-right tabular-nums">Importe</TableHead>
                   <TableHead className="px-3 py-2 text-left">Estado</TableHead>
                   <TableHead className="px-3 py-2 text-left">Fecha pago</TableHead>
+                  <TableHead className="px-3 py-2 text-left">Cuentas del pago</TableHead>
                   <TableHead className="px-3 py-2 text-right tabular-nums">Acción</TableHead>
                 </TableRow>
               </TableHeader>
@@ -193,6 +195,20 @@ export function BandejaRepp() {
                     </TableCell>
                     <TableCell className="px-3 py-2 text-xs text-ink-muted">
                       {new Date(r.fechaPago).toLocaleDateString('es-MX')}
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-xs">
+                      {r.cuentaOrdenante || r.cuentaBeneficiaria ? (
+                        <span className="flex flex-col font-mono">
+                          {r.cuentaOrdenante && (
+                            <span>Ordenante {enmascararCuenta(r.cuentaOrdenante)}</span>
+                          )}
+                          {r.cuentaBeneficiaria && (
+                            <span>Beneficiaria {enmascararCuenta(r.cuentaBeneficiaria)}</span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-ink-muted">Sin cuenta</span>
+                      )}
                     </TableCell>
                     <TableCell className="px-3 py-2 text-right tabular-nums">
                       <Link

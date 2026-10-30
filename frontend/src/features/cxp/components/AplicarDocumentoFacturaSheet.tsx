@@ -51,7 +51,7 @@ function Formulario({ factura, tipo, onClose }: { factura: FacturaDetalle; tipo:
       <dt>Saldo después</dt><dd><MoneyDisplay amount={preview.saldoDespues} currency={factura.moneda} /></dd></dl>
     {documento && preview.error && <p role="alert" className="text-danger-fg">{preview.error}</p>}
     {documento && documento.reconocido > 0 && <p role="note" className="text-ink-muted">Esta NC formaliza un cargo descontado previamente; ese importe se reconoce sin descontarlo otra vez.</p>}
-    <div className="flex justify-end gap-2"><Button variant="ghost" onClick={onClose}>Cancelar</Button>
+    <div className="sticky bottom-0 -mx-4 flex justify-end gap-2 border-t border-line-divider bg-background px-4 py-3"><Button variant="ghost" onClick={onClose}>Cancelar</Button>
       <Button onClick={confirmar} disabled={!documento || !!preview.error || pendiente} title={!documento ? 'Selecciona un documento abierto.' : preview.error ?? undefined}>{tipo === 'anticipo' ? 'Aplicar anticipo' : 'Aplicar NC'}</Button></div>
   </div>;
 }

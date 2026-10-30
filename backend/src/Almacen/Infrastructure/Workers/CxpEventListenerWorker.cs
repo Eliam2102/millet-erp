@@ -198,6 +198,15 @@ public sealed class CxpEventListenerWorker : BackgroundService, ILocalIntegratio
                     break;
                 }
 
+                case NcFiscalDevolucionRecibidaHandler.EventType:
+                {
+                    var payload = JsonSerializer.Deserialize<NcFiscalDevolucionRecibidaPayload>(body, JsonOpts)
+                        ?? throw new JsonException("Payload null.");
+                    await mediator.Send(
+                        new NcFiscalDevolucionRecibidaCommand(eventId, payload), cancellationToken);
+                    break;
+                }
+
                 case CfdiRecibidoIngresadoHandler.EventType:
                 {
                     var payload = JsonSerializer.Deserialize<CfdiRecibidoIngresadoPayload>(body, JsonOpts)

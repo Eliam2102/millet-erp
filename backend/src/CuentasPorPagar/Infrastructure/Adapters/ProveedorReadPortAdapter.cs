@@ -59,7 +59,9 @@ public sealed class ProveedorReadPortAdapter : IProveedorReadPort
                     : null,
                 p.Estatus == EstatusCatalogo.EnRevision,
                 p.Estatus == EstatusCatalogo.Activo,
-                p.ConceptoRetencion))
+                p.ConceptoRetencion,
+                p.Bloqueado,
+                p.MotivoBloqueo))
             .FirstOrDefaultAsync(cancellationToken);
     }
 
@@ -87,8 +89,24 @@ public sealed class ProveedorReadPortAdapter : IProveedorReadPort
                     : null,
                 p.Estatus == EstatusCatalogo.EnRevision,
                 p.Estatus == EstatusCatalogo.Activo,
-                p.ConceptoRetencion))
+                p.ConceptoRetencion,
+                p.Bloqueado,
+                p.MotivoBloqueo))
             .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, string>> ObtenerBloqueadosPorIdsAsync(
+        IReadOnlyCollection<Guid> proveedorIds,
+        CancellationToken cancellationToken)
+    {
+        if (proveedorIds.Count == 0) return new Dictionary<Guid, string>();
+
+        using var bypass = _empresaContext.Bypass();
+
+        return await _db.Proveedores
+            .AsNoTracking()
+            .Where(p => proveedorIds.Contains(p.Id) && p.Bloqueado)
+            .ToDictionaryAsync(p => p.Id, p => p.MotivoBloqueo ?? string.Empty, cancellationToken);
     }
 
     public async Task<IReadOnlyDictionary<Guid, string>> ObtenerNombresPorIdsAsync(

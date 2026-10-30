@@ -163,12 +163,12 @@ export function BandejaReppPendientes() {
                   <TableRow key={r.pagoId} className="hover:bg-surface-muted/30">
                     <TableCell className="max-w-64 px-3 py-2">
                       <p className="truncate">
-                        {r.proveedorRazonSocial ?? r.proveedorId.slice(0, 8)}
+                        {r.proveedorRazonSocial ?? '—'}
                       </p>
                       <p className="font-mono text-xs text-ink-muted">{r.proveedorClave ?? ''}</p>
                     </TableCell>
                     <TableCell className="px-3 py-2 font-mono text-xs">
-                      {r.folioProveedor ?? r.facturaProveedorId.slice(0, 8)}
+                      {r.folioProveedor ?? '—'}
                     </TableCell>
                     <TableCell className="px-3 py-2">
                       <EstadoTesoreriaBadge

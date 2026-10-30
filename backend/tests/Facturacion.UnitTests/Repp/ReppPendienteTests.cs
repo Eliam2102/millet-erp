@@ -163,8 +163,8 @@ public sealed class ReppPendienteTests
         var sender = new EmisionSender(new EmitirReppHandler(db, new FakeSender(new ReservarFolioResponse("P-PRUEBA", 1, "")),
             new FakePeriodoContablePort(), fiscal, new FakeCfdiRepositorioPort(), new FakeIntegrationEventPublisher(),
             new FakeEmpresaContext(Empresa), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora),
-            new ValidadorReceptorFiscal(new FakeClientesReadPort(), new FakeCatalogosSatReadPort(), db)));
-        var handler = new EmitirReppPendienteHandler(db, Servicio(db), new Banco(20m), sender);
+            new ValidadorReceptorFiscal(new FakeClientesReadPort(), new FakeCatalogosSatReadPort(), db), new FakeCuentaBancariaMilletReadPort()));
+        var handler = new EmitirReppPendienteHandler(db, Servicio(db), new Banco(20m), sender, new FakeCuentaBancariaMilletReadPort());
         var resultado = await handler.Handle(new(p.Id), default);
         resultado.Emitido.Should().Be(emitido);
         db.ChangeTracker.Clear();
@@ -181,7 +181,7 @@ public sealed class ReppPendienteTests
     public async Task Regla_fallida_guarda_error_y_no_crea_recibo()
     {
         using var db = Db(); var p = Pendiente(); db.ReppPendientes.Add(p); await db.SaveChangesAsync();
-        var handler = new EmitirReppPendienteHandler(db, Servicio(db), new Banco(null), new FakeSender(new("P", 1, "")));
+        var handler = new EmitirReppPendienteHandler(db, Servicio(db), new Banco(null), new FakeSender(new("P", 1, "")), new FakeCuentaBancariaMilletReadPort());
         var r = await handler.Handle(new(p.Id), default);
         r.Emitido.Should().BeFalse(); db.ChangeTracker.Clear();
         (await db.ReppPendientes.SingleAsync()).UltimoErrorCodigo.Should().Be("REPP_RELACION_INVALIDA");
@@ -206,7 +206,7 @@ public sealed class ReppPendienteTests
         db.ReppPendientes.AddRange(propio, new ReppPendiente(Guid.NewGuid(), Cliente, Guid.NewGuid(), Guid.NewGuid(), null,
             100, "MXN", new(2026, 10, 28), null, []));
         await db.SaveChangesAsync();
-        var handler = new ReppPendienteQueryHandler(db, Servicio(db), new FakeClientesReadPort(), new Banco(null), new FakeClock(Ahora));
+        var handler = new ReppPendienteQueryHandler(db, Servicio(db), new FakeClientesReadPort(), new Banco(null), new FakeClock(Ahora), new FakeCuentaBancariaMilletReadPort());
         var resultado = await handler.Handle(new ReppPendientesQuery(), default);
         resultado.Items.Should().ContainSingle().Which.Id.Should().Be(propio.Id);
         resultado.Kpis.Should().Be(new ReppPendientesKpis(1, 1, 0, 1));
@@ -219,6 +219,219 @@ public sealed class ReppPendienteTests
         p.RegistrarError("REPP_RESULTADO_INCIERTO", "Consultar PAC");
         var revisar = () => p.Revisar("03", [new(Guid.NewGuid(), 100m)]);
         revisar.Should().Throw<BusinessRuleException>().Which.Code.Should().Be("REPP_RESULTADO_INCIERTO");
+    }
+
+    // ---- 86e3tfdve: cuentas del complemento desde la bandeja (datos ficticios) ----
+
+    private const string ClabeMillet = "000000000000000018";
+    private static readonly CuentaBancariaMillet CuentaMillet =
+        new(Guid.NewGuid(), "Banco ficticio", "0000000010", ClabeMillet, "MXN", true);
+
+    private static async Task<(FacturacionDbContext Db, ReppPendiente P, FakeFiscalApiClient Fiscal, EmitirReppPendienteHandler Handler)>
+        EscenarioCuentas(string forma = "03", string? ordenanteDelIngreso = null)
+    {
+        var db = Db();
+        var f = Factura();
+        var p = new ReppPendiente(Empresa, Cliente, Guid.NewGuid(), CuentaMillet.Id, null, 100m, "MXN",
+            new(2026, 10, 28), "Prueba ficticia", [new(f.Id, 100m)], ordenanteDelIngreso);
+        if (forma != "03") p.Revisar(forma, [new(f.Id, 100m)]);
+        db.FacturasVenta.Add(f); db.ReppPendientes.Add(p); await db.SaveChangesAsync();
+        var fiscal = new FakeFiscalApiClient();
+        var cuentas = new FakeCuentaBancariaMilletReadPort(CuentaMillet);
+        var sender = new EmisionSender(new EmitirReppHandler(db, new FakeSender(new ReservarFolioResponse("P-PRUEBA", 1, "")),
+            new FakePeriodoContablePort(), fiscal, new FakeCfdiRepositorioPort(), new FakeIntegrationEventPublisher(),
+            new FakeEmpresaContext(Empresa), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora),
+            new ValidadorReceptorFiscal(new FakeClientesReadPort(), new FakeCatalogosSatReadPort(), db), cuentas));
+        return (db, p, fiscal, new EmitirReppPendienteHandler(db, Servicio(db), new Banco(20m), sender, cuentas));
+    }
+
+    [Fact]
+    public async Task Pendiente_prellena_beneficiaria_con_la_CLABE_de_la_cuenta_de_Millet()
+    {
+        var (db, p, fiscal, handler) = await EscenarioCuentas();
+        using var _ = db;
+        var r = await handler.Handle(new(p.Id, CuentaOrdenante: "0000000000000016"), default);
+        r.Emitido.Should().BeTrue();
+        fiscal.UltimaEmision!.ComplementoPago!.CuentaBeneficiaria.Should().Be(ClabeMillet);
+        fiscal.UltimaEmision.ComplementoPago.CuentaOrdenante.Should().Be("0000000000000016");
+    }
+
+    [Fact]
+    public async Task Pendiente_admite_sobrescribir_la_beneficiaria()
+    {
+        var (db, p, fiscal, handler) = await EscenarioCuentas();
+        using var _ = db;
+        (await handler.Handle(new(p.Id, CuentaBeneficiaria: "0000000099"), default)).Emitido.Should().BeTrue();
+        fiscal.UltimaEmision!.ComplementoPago!.CuentaBeneficiaria.Should().Be("0000000099");
+    }
+
+    [Fact]
+    public async Task Pendiente_en_efectivo_no_lleva_beneficiaria()
+    {
+        var (db, p, fiscal, handler) = await EscenarioCuentas("01");
+        using var _ = db;
+        (await handler.Handle(new(p.Id), default)).Emitido.Should().BeTrue();
+        fiscal.UltimaEmision!.ComplementoPago!.CuentaBeneficiaria.Should().BeNull();
+        fiscal.UltimaEmision.ComplementoPago.CuentaOrdenante.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Pendiente_con_ordenante_invalida_guarda_REPP_CUENTA_INVALIDA_sin_timbrar()
+    {
+        var (db, p, fiscal, handler) = await EscenarioCuentas();
+        using var _ = db;
+        var r = await handler.Handle(new(p.Id, CuentaOrdenante: "000000000012"), default);
+        r.Emitido.Should().BeFalse();
+        r.Codigo.Should().Be("REPP_CUENTA_INVALIDA");
+        fiscal.UltimaEmision.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Revision_valida_las_cuentas_contra_la_forma_de_pago()
+    {
+        var (db, p, _, _) = await EscenarioCuentas();
+        using var __ = db;
+        var relacion = p.Facturas.Select(f => new RelacionRepp(f.FacturaVentaId, f.Importe)).ToArray();
+        var revisar = new RevisarReppPendienteHandler(db, Servicio(db));
+        var act = () => revisar.Handle(new RevisarReppPendienteCommand(p.Id, "01", relacion, CuentaOrdenante: "0000000010"), default);
+        (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("REPP_CUENTA_INVALIDA");
+        await revisar.Handle(new RevisarReppPendienteCommand(p.Id, "03", relacion, "0000000000000016", ClabeMillet), default);
+    }
+
+    [Fact]
+    public async Task Consulta_del_pendiente_muestra_la_beneficiaria_sugerida_enmascarada()
+    {
+        var (db, p, _, _) = await EscenarioCuentas();
+        using var _ = db;
+        var dto = await new ReppPendienteQueryHandler(db, Servicio(db), new FakeClientesReadPort(), new Banco(null),
+            new FakeClock(Ahora), new FakeCuentaBancariaMilletReadPort(CuentaMillet)).Handle(new ReppPendienteQuery(p.Id), default);
+        dto.CuentaBancariaEtiqueta.Should().Be("Banco ficticio · •••• 0010");
+        dto.CuentaBeneficiariaSugerida.Should().Be("•••• 0018");
+        dto.Should().NotBeNull();
+        dto.ToString().Should().NotContain(ClabeMillet);
+    }
+
+    // ---- 86e3tfdve opción A: ordenante capturada en el ingreso de Tesorería (cuentas ficticias) ----
+    private const string OrdenanteIngreso = "0000000000000016";
+
+    [Fact]
+    public async Task Evento_guarda_en_el_pendiente_la_ordenante_del_movimiento_leida_por_puerto()
+    {
+        using var db = Db();
+        var movimiento = Guid.NewGuid();
+        var payload = new PagoClienteConfirmadoPayload(Empresa, Ahora, Guid.NewGuid(), Cliente, movimiento, Guid.NewGuid(),
+            100m, "MXN", new(2026, 10, 28), "Prueba", [new(Guid.NewGuid(), 100m)]);
+        var puerto = new Ordenantes(movimiento, "0000-0000-0000-0016");
+        await new EmitirReppDesdePagoConfirmadoHandler(db, new FakeClock(Ahora), puerto).Handle(new(Guid.NewGuid(), payload), default);
+        (await db.ReppPendientes.SingleAsync()).CuentaOrdenante.Should().Be(OrdenanteIngreso);
+        puerto.Consultas.Should().Equal(movimiento);
+    }
+
+    [Fact]
+    public async Task Evento_sin_ordenante_en_el_ingreso_deja_el_pendiente_sin_ella()
+    {
+        using var db = Db();
+        var payload = new PagoClienteConfirmadoPayload(Empresa, Ahora, Guid.NewGuid(), Cliente, Guid.NewGuid(), Guid.NewGuid(),
+            100m, "MXN", new(2026, 10, 28), "Prueba", [new(Guid.NewGuid(), 100m)]);
+        await new EmitirReppDesdePagoConfirmadoHandler(db, new FakeClock(Ahora), new Ordenantes(Guid.NewGuid(), "0000000000000016"))
+            .Handle(new(Guid.NewGuid(), payload), default);
+        (await db.ReppPendientes.SingleAsync()).CuentaOrdenante.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Rep_uno_por_uno_usa_la_ordenante_del_ingreso_sin_capturarla()
+    {
+        var (db, p, fiscal, handler) = await EscenarioCuentas(ordenanteDelIngreso: OrdenanteIngreso);
+        using var _ = db;
+        (await handler.Handle(new(p.Id), default)).Emitido.Should().BeTrue();
+        fiscal.UltimaEmision!.ComplementoPago!.CuentaOrdenante.Should().Be(OrdenanteIngreso);
+    }
+
+    [Fact]
+    public async Task Revision_corrige_la_ordenante_la_guarda_y_puede_quitarla()
+    {
+        var (db, p, _, _) = await EscenarioCuentas(ordenanteDelIngreso: OrdenanteIngreso);
+        using var _ = db;
+        var relacion = p.Facturas.Select(f => new RelacionRepp(f.FacturaVentaId, f.Importe)).ToArray();
+        var revisar = new RevisarReppPendienteHandler(db, Servicio(db));
+
+        await revisar.Handle(new RevisarReppPendienteCommand(p.Id, "03", relacion), default);
+        p.CuentaOrdenante.Should().Be(OrdenanteIngreso, "sin captura se conserva la del ingreso");
+        await revisar.Handle(new RevisarReppPendienteCommand(p.Id, "03", relacion, "000000000000000099"), default);
+        p.CuentaOrdenante.Should().Be("000000000000000099");
+        await revisar.Handle(new RevisarReppPendienteCommand(p.Id, "03", relacion, LimpiarCuentaOrdenante: true), default);
+        p.CuentaOrdenante.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Revision_valida_la_ordenante_del_ingreso_con_la_forma_real()
+    {
+        // 11 dígitos: cumple el patrón general del ingreso, pero no el de 03 (10, 16 o 18) ni el de 04 (16).
+        var (db, p, _, _) = await EscenarioCuentas(ordenanteDelIngreso: "00000000011");
+        using var _ = db;
+        var relacion = p.Facturas.Select(f => new RelacionRepp(f.FacturaVentaId, f.Importe)).ToArray();
+        var revisar = new RevisarReppPendienteHandler(db, Servicio(db));
+        var act = () => revisar.Handle(new RevisarReppPendienteCommand(p.Id, "04", relacion), default);
+        (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("REPP_CUENTA_INVALIDA");
+        // Con una forma que no admite ordenante (efectivo) se conserva sin usarla.
+        await revisar.Handle(new RevisarReppPendienteCommand(p.Id, "01", relacion), default);
+        p.CuentaOrdenante.Should().Be("00000000011");
+        p.OrdenanteParaFormaPago().Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Rep_uno_por_uno_con_ordenante_que_no_cumple_la_forma_falla_sin_timbrar()
+    {
+        var (db, p, fiscal, handler) = await EscenarioCuentas(ordenanteDelIngreso: "00000000011");
+        using var _ = db;
+        var r = await handler.Handle(new(p.Id), default);
+        r.Emitido.Should().BeFalse();
+        r.Codigo.Should().Be("REPP_CUENTA_INVALIDA");
+        fiscal.UltimaEmision.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Lote_usa_la_ordenante_del_ingreso()
+    {
+        var (db, p, fiscal, handler) = await EscenarioCuentas(ordenanteDelIngreso: OrdenanteIngreso);
+        using var _ = db;
+        var r = await handler.Handle(new EmitirReppPendienteCommand(p.Id) { EnLote = true }, default);
+        r.Emitido.Should().BeTrue();
+        r.Aviso.Should().BeNull();
+        fiscal.UltimaEmision!.ComplementoPago!.CuentaOrdenante.Should().Be(OrdenanteIngreso);
+    }
+
+    [Fact]
+    public async Task Lote_con_ordenante_que_no_cumple_la_forma_timbra_sin_ella_y_avisa()
+    {
+        var (db, p, fiscal, handler) = await EscenarioCuentas(ordenanteDelIngreso: "00000000011");
+        using var _ = db;
+        var r = await handler.Handle(new EmitirReppPendienteCommand(p.Id) { EnLote = true }, default);
+        r.Emitido.Should().BeTrue();
+        r.Aviso.Should().Contain("sin cuenta ordenante").And.Contain("•••• 0011").And.NotContain("00000000011");
+        fiscal.UltimaEmision!.ComplementoPago!.CuentaOrdenante.Should().BeNull();
+        fiscal.UltimaEmision.ComplementoPago.CuentaBeneficiaria.Should().Be(ClabeMillet);
+    }
+
+    [Fact]
+    public async Task Consulta_del_pendiente_muestra_la_ordenante_enmascarada()
+    {
+        var (db, p, _, _) = await EscenarioCuentas(ordenanteDelIngreso: OrdenanteIngreso);
+        using var _ = db;
+        var dto = await new ReppPendienteQueryHandler(db, Servicio(db), new FakeClientesReadPort(), new Banco(null),
+            new FakeClock(Ahora), new FakeCuentaBancariaMilletReadPort(CuentaMillet)).Handle(new ReppPendienteQuery(p.Id), default);
+        dto.CuentaOrdenante.Should().Be("•••• 0016");
+        dto.ToString().Should().NotContain(OrdenanteIngreso);
+    }
+
+    private sealed class Ordenantes(Guid movimiento, string cuenta) : ICuentaOrdenanteMovimientoReadPort
+    {
+        public List<Guid> Consultas { get; } = [];
+        public Task<string?> ObtenerAsync(Guid movimientoBancarioId, CancellationToken cancellationToken)
+        {
+            Consultas.Add(movimientoBancarioId);
+            return Task.FromResult(movimientoBancarioId == movimiento ? cuenta : null);
+        }
     }
 
     private sealed class Banco(decimal? tc) : IReppBancarioReadPort
