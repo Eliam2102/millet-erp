@@ -21,6 +21,8 @@ namespace Millet.Tesoreria.Infrastructure.Workers;
 /// (cierra PLATFORM-TODO(&lt;TesoreriaCajaSesion&gt;)).</item>
 /// <item><c>recibo-pago.timbrado.v1</c> → marca <c>repp_timbrado=true</c>
 /// en la confirmación correspondiente (ciclo fiscal cerrado).</item>
+/// <item><c>caja-faltante.devuelto.v1</c> → abona la devolución del cajero a la
+/// diferencia del corte de origen (86e3vr1tj).</item>
 /// <item><c>nota-credito.reembolso-solicitado.v1</c> → crea la devolución a
 /// cliente de origen nota de crédito (T9.6 · CA6.17).</item>
 /// </list>
@@ -152,6 +154,14 @@ public sealed class FacturacionEventListenerWorker : BackgroundService, ILocalIn
                     var payload = JsonSerializer.Deserialize<CajaSesionCerradaPayload>(body, JsonOpts)
                         ?? throw new JsonException("Payload null.");
                     await mediator.Send(new ProyectarExpectativaCajaCommand(eventId, payload), cancellationToken);
+                    break;
+                }
+
+                case CajaFaltanteDevueltoPayload.EventType:
+                {
+                    var payload = JsonSerializer.Deserialize<CajaFaltanteDevueltoPayload>(body, JsonOpts)
+                        ?? throw new JsonException("Payload null.");
+                    await mediator.Send(new AplicarDevolucionFaltanteCommand(eventId, payload), cancellationToken);
                     break;
                 }
 

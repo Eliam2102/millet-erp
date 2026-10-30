@@ -1878,6 +1878,7 @@ Millet.Api.Endpoints.Tesoreria.PagosACuentaEndpoints.MapTesoreriaPagosACuentaEnd
 // === Tesorería — Confirmación de depósitos de cliente (TES-PR7, TES-9) ===
 Millet.Api.Endpoints.Tesoreria.DepositosEndpoints.MapTesoreriaDepositosEndpoints(app);
 Millet.Api.Endpoints.Tesoreria.DevolucionesEndpoints.MapTesoreriaDevolucionesEndpoints(app);
+Millet.Api.Endpoints.Tesoreria.DiferenciasCorteEndpoints.MapTesoreriaDiferenciasCorteEndpoints(app);
 
 // === Tesorería — REPP recibido de proveedor: pendientes SLA + registro (TES-PR8, TES-4) ===
 Millet.Api.Endpoints.Tesoreria.ReppEndpoints.MapTesoreriaReppEndpoints(app);
