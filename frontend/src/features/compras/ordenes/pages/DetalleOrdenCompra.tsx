@@ -1,6 +1,7 @@
 import { EnviosOcPanel } from '../components/EnviosOcPanel';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { CancelacionOcPanel } from '../components/CancelacionOcPanel';
+import { ConfirmacionServicioPanel } from '../components/ConfirmacionServicioPanel';
 import { IncidenciasProveedorPanel } from '../components/IncidenciasProveedorPanel';
 import { RespuestaProveedorPanel } from '../components/RespuestaProveedorPanel';
 import { useMemo, useState, type ReactNode } from 'react';
@@ -249,6 +250,7 @@ export function DetalleOrdenCompra() {
         <EnviosOcPanel key={oc.id} ordenCompraId={oc.id} folio={oc.folio} />
         <RespuestaProveedorPanel oc={oc} />
         <IncidenciasProveedorPanel oc={oc} />
+        <ConfirmacionServicioPanel oc={oc} />
 
         {/* UF5-PR2: aside de la cadena de duplicación. Solo aparece
             si la OC actual es duplicada (tiene oc_origen_id) o es
