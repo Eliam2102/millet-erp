@@ -2,6 +2,7 @@ using Millet.Facturacion.Domain.Anticipos;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Domain.Facturas;
 using Millet.Facturacion.Domain.NotasCredito;
+using Millet.Facturacion.Domain.Pedidos;
 
 namespace Millet.Facturacion.Application.Integration;
 
@@ -27,7 +28,8 @@ public static class EventosContablesFacturacion
         FacturaVenta f,
         DateTimeOffset ocurridoEn,
         Guid? clienteId = null,
-        IReadOnlyDictionary<Guid, string?>? tiposProducto = null) =>
+        IReadOnlyDictionary<Guid, string?>? tiposProducto = null,
+        PedidoFacturable? pedido = null) =>
         new(
             f.EmpresaId, ocurridoEn, f.Id, f.Uuid!, f.Total, f.Moneda, f.PedidoFacturableId,
             f.ReceptorRfc, f.ReceptorNombre, f.Folio, f.MetodoPago, f.FechaTimbrado,
@@ -48,7 +50,9 @@ public static class EventosContablesFacturacion
                     l.Importe,
                     l.Descuento,
                     l.ImpuestoTrasladadoImporte))
-                .ToList());
+                .ToList(),
+            NumeroPedidoAw: pedido is { Origen: OrigenPedido.Aw } ? pedido.NumeroPedido : null,
+            VersionPedidoAw: pedido is { Origen: OrigenPedido.Aw } ? pedido.VersionOrigen : null);
 
     public static FacturaAnticipoTimbradaIntegrationEvent FacturaAnticipoTimbrada(
         FacturaAnticipo f, DateTimeOffset ocurridoEn, Guid? clienteId = null) =>

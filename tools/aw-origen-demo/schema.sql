@@ -88,6 +88,39 @@ CREATE TABLE IF NOT EXISTS dbo.aw_solicitud_pedido (
     UNIQUE (numero_pedido, version)
 );
 
+-- Retorno ERP -> A+W (script 14 v3, TR-01). Mismas columnas y restricciones que docs/operacion/aw-integracion-scripts/14.
+-- resultado, aplicada_at, motivo e intentos los escribe la tarea de TI (en la demo, a mano); el ERP solo inserta y lee.
+CREATE TABLE IF NOT EXISTS dbo.aw_retorno (
+    retorno_id          uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+    numero_pedido       text        NOT NULL,
+    secuencia           integer     NOT NULL,                       -- 1, 2, 3... por pedido, sin importar el tipo
+    tipo                smallint    NOT NULL CHECK (tipo IN (1, 2, 3, 4)),  -- 1 Estatus | 2 Saldo | 3 Documento | 4 Pago
+    version_pedido      bigint      NOT NULL,
+    estatus_destino     smallint,
+    origen              smallint,
+    usuario_libera      text,
+    anticipos_aplicados numeric(18, 2),
+    saldo               numeric(18, 2),
+    tipo_documento      text,
+    folio               text,
+    uuid                text,
+    importe             numeric(18, 2),
+    forma_pago          text,                           -- tipo 4 (v3): clave SAT
+    moneda              text,                           -- tipo 4 (v3)
+    creada_at           timestamptz NOT NULL DEFAULT now(),
+    aplicada_at         timestamptz,
+    resultado           smallint CHECK (resultado IS NULL OR resultado IN (1, 2, 3)),  -- NULL pendiente | 1 Aplicada | 2 Rechazada | 3 Desfasada
+    motivo              text,
+    intentos            integer     NOT NULL DEFAULT 0 CHECK (intentos >= 0),
+    UNIQUE (numero_pedido, secuencia),
+    CHECK (tipo <> 1 OR COALESCE(estatus_destino, 0) IN (70, 115)),
+    CHECK ((COALESCE(estatus_destino, 0) = 70 AND COALESCE(origen, 0) IN (1, 2)) OR (COALESCE(estatus_destino, 0) <> 70 AND origen IS NULL)),
+    CHECK (origen IS DISTINCT FROM 2 OR usuario_libera IS NOT NULL),
+    CHECK (tipo <> 2 OR saldo IS NOT NULL),
+    CHECK (tipo <> 3 OR (uuid IS NOT NULL AND tipo_documento IN ('FacturaFinal', 'NotaCredito'))),
+    CHECK (tipo <> 4 OR (folio IS NOT NULL AND forma_pago IS NOT NULL AND moneda IS NOT NULL AND importe IS NOT NULL))
+);
+
 CREATE TABLE IF NOT EXISTS dbo.vw_erp_pedido_cabecera (
     numero_pedido            text PRIMARY KEY,
     numero_sucursal          text,

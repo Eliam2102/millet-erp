@@ -29,6 +29,15 @@ public interface IAwWriteBackPort
     Task EscribirResultadoAsync(AwWriteBack writeBack, CancellationToken cancellationToken);
 }
 
+/// <summary>
+/// TR-01: versión del pedido A+W que el ERP ya aplicó. Integraciones.Aw la usa para
+/// reemplazar una fila de <c>aw_retorno</c> desfasada (SRC-114 3a) sin leer tablas de Facturación.
+/// </summary>
+public interface IAwVersionPedidoReadPort
+{
+    Task<long?> VersionAplicadaAsync(string numeroPedido, CancellationToken cancellationToken);
+}
+
 public sealed record SolicitudAw(
     Guid SolicitudId,
     string NumeroPedido,

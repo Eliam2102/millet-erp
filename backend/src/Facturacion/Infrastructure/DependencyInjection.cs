@@ -118,6 +118,7 @@ public static class DependencyInjection
         // write-back sigue pendiente (<PlantaPinturaOrigenes>).
         services.AddScoped<IAwSolicitudesReader, StubAwSolicitudesReader>();
         services.AddScoped<IAwWriteBackPort, StubAwWriteBackPort>();
+        services.AddScoped<IAwVersionPedidoReadPort, AwVersionPedidoReadAdapter>();
 
         // --- F3-PR2: auto-provisión de master A+W — stub hasta DatosMaestros ---
         // CERRADO por ADR-0048 (PR4): AwMasterProvisioningAdapter (Integraciones.Aw)

@@ -547,6 +547,34 @@ resource facturacionEventsCxcSubscriptionFilter 'Microsoft.ServiceBus/namespaces
   }
 }
 
+// Subscription consumida por Integraciones.Aw FacturacionRetornoListenerWorker
+// (TR-01): factura-venta timbrada → fila Documento de aw_retorno.
+// Referencia: backend/src/Integraciones.Aw/Infrastructure/Retorno/AwRetornoWorkers.cs
+resource facturacionEventsAwSubscription 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
+  parent: facturacionEventsTopic
+  name: 'integraciones-aw-subscription'
+  properties: {
+    deadLetteringOnMessageExpiration: true
+    deadLetteringOnFilterEvaluationExceptions: true
+    maxDeliveryCount: 5
+    defaultMessageTimeToLive: 'P1D'
+    lockDuration: 'PT1M'
+    enableBatchedOperations: true
+  }
+}
+
+resource facturacionEventsAwSubscriptionFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01' = {
+  parent: facturacionEventsAwSubscription
+  name: 'EventTypeFilter'
+  properties: {
+    filterType: 'SqlFilter'
+    sqlFilter: {
+      sqlExpression: 'user.EventType IN (\'facturacion.factura-venta.timbrada.v1\')'
+      compatibilityLevel: 20
+    }
+  }
+}
+
 // Subscription consumida por Tesorería FacturacionEventListenerWorker
 // (TES-PR7): caja-sesion.cerrada genera la expectativa de depósito
 // Caja→Banco (cierra PLATFORM-TODO <TesoreriaCajaSesion>) y

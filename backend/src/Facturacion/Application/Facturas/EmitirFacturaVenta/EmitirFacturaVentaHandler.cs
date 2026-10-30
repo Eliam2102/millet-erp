@@ -345,7 +345,7 @@ public sealed class EmitirFacturaVentaHandler
         {
             await _eventos.PublishAsync(EventosContablesFacturacion.FacturaVentaTimbrada(
                 factura, ahora, command.ClienteId ?? pedido?.ClienteId,
-                await EventosContablesFacturacion.TiposProductoAsync(_productos, factura, cancellationToken)),
+                await EventosContablesFacturacion.TiposProductoAsync(_productos, factura, cancellationToken), pedido),
                 cancellationToken);
             await _contabilidad.RegistrarAsientoAsync(new AsientoContableSolicitud(
                 factura.Id, "FacturaVenta", $"Factura {factura.Folio}", factura.Total, factura.Moneda, anio, mes), cancellationToken);

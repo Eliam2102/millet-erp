@@ -39,7 +39,11 @@ public sealed record FacturaVentaTimbradaIntegrationEvent(
     Guid? ClienteId = null,
     decimal? TipoCambio = null,
     DateOnly? FechaContable = null,
-    IReadOnlyList<FacturaLineaContablePayload>? Lineas = null)
+    IReadOnlyList<FacturaLineaContablePayload>? Lineas = null,
+    // TR-01: pedido A+W de la factura y su versión en el ERP al emitirla (null si el pedido
+    // no viene de A+W). Con esto Integraciones.Aw deja la fila Documento en aw_retorno.
+    string? NumeroPedidoAw = null,
+    long? VersionPedidoAw = null)
     : IntegrationEvent("facturacion.factura-venta.timbrada.v1", EmpresaId, OcurridoEn);
 
 /// <summary>
