@@ -49,6 +49,17 @@ public static class AlmacenReordenEndpoints
         .WithSummary("Listar configuraciones de reorden N1/N2 (ADR-0047 PR5.A)")
         .Produces<AlmacenPagedResponse<ConfiguracionReordenListItem>>(StatusCodes.Status200OK);
 
+        // --- Propuesta de reposición (F1-ALM-10): existencia, vivo, punto, faltante, consumo, cobertura y sugerencia ---
+        g.MapGet("/propuesta", async (
+            [FromQuery] Guid? articuloId,
+            [FromQuery] Guid? entidadId,
+            IMediator mediator,
+            CancellationToken ct) => Results.Ok(await mediator.Send(new PropuestaReposicionQuery(articuloId, entidadId), ct)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenReordenRead)
+        .WithName("PropuestaReposicionReorden")
+        .WithSummary("Propuesta de reposición con consumo y cobertura (solo lectura; no cambia parámetros)")
+        .Produces<IReadOnlyList<FaltanteReorden>>(StatusCodes.Status200OK);
+
         // --- Obtener por Id ---
         g.MapGet("/{id:guid}", async (
             Guid id,

@@ -352,6 +352,8 @@ builder.Services
     .AddOptions<Millet.Almacen.Infrastructure.Workers.ReordenWorkerOptions>()
     .Bind(builder.Configuration.GetSection(Millet.Almacen.Infrastructure.Workers.ReordenWorkerOptions.SectionName));
 builder.Services.AddHostedService<Millet.Almacen.Infrastructure.Workers.ReordenWorker>();
+builder.Services.AddOptions<Millet.Almacen.Application.Reorden.ReordenConsumoOptions>()
+    .Bind(builder.Configuration.GetSection(Millet.Almacen.Application.Reorden.ReordenConsumoOptions.SectionName));
 
 // === Catálogos compartidos: seed de prueba (F7-PR1, MVP) ===
 // Hosted service que carga proveedores y artículos de prueba en
