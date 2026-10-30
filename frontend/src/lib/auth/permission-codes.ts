@@ -430,6 +430,7 @@ export const PermisosCanonicos = {
     'facturacion.notas-credito.bonificacion-emitir',
   FacturacionNotasCreditoLeer: 'facturacion.notas-credito.leer',
   FacturacionNotasCreditoReembolsoSolicitar: 'facturacion.notas-credito.reembolso-solicitar',
+  FacturacionNotasCreditoAutorizar: 'facturacion.notas-credito.autorizar',
   FacturacionCartaPorteEmitir: 'facturacion.carta-porte.emitir',
   FacturacionCartaPorteLeer: 'facturacion.carta-porte.leer',
   FacturacionReppEmitir: 'facturacion.repp.emitir',

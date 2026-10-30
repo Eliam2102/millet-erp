@@ -13,7 +13,7 @@ namespace Millet.Integraciones.Aw.Infrastructure.Origen;
 /// <summary>Selectores por puerto. Los adaptadores se resuelven perezosamente: Demo jamás abre SQL Server.</summary>
 public sealed class AwOrigenSelectores(IServiceProvider services, AwOrigenSesion sesion) :
     IAwClientesOrigen, IAwClientesPedidosOrigen, IAwProductosOrigen, IAwSolicitudesReader, IAwClientesReader, IAwArticulosReader,
-    IAwWriteBackPort, IMasterProvisioningPort, IAwRetornoPort
+    IAwWriteBackPort, IMasterProvisioningPort, IAwRetornoPort, IAwNotasCreditoPort
 {
     private async Task<T> ResolverAsync<T>(CancellationToken ct) where T : class
     {
@@ -67,6 +67,10 @@ public sealed class AwOrigenSelectores(IServiceProvider services, AwOrigenSesion
         await (await ResolverAsync<IAwArticulosReader>(cancellationToken)).LeerArticuloAsync(articuloRef, cancellationToken);
     public async Task EscribirResultadoAsync(AwWriteBack writeBack, CancellationToken cancellationToken) =>
         await (await ResolverAsync<IAwWriteBackPort>(cancellationToken)).EscribirResultadoAsync(writeBack, cancellationToken);
+    public async Task<IReadOnlyList<SolicitudNotaCreditoAw>> LeerNotasPendientesAsync(int max, CancellationToken cancellationToken) =>
+        await (await ResolverAsync<IAwNotasCreditoPort>(cancellationToken)).LeerNotasPendientesAsync(max, cancellationToken);
+    public async Task EscribirAcuseAsync(AcuseNotaCreditoAw acuse, CancellationToken cancellationToken) =>
+        await (await ResolverAsync<IAwNotasCreditoPort>(cancellationToken)).EscribirAcuseAsync(acuse, cancellationToken);
     public async Task<int?> AgregarDocumentoAsync(AwRetornoDocumento documento, CancellationToken ct) =>
         await (await ResolverAsync<IAwRetornoPort>(ct)).AgregarDocumentoAsync(documento, ct);
     public async Task<IReadOnlyList<AwRetornoAcuse>> LeerAcusesPorAtenderAsync(CancellationToken ct) =>

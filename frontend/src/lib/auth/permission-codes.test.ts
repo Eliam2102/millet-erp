@@ -288,6 +288,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'facturacion.notas-credito.bonificacion-emitir',
   'facturacion.notas-credito.leer',
   'facturacion.notas-credito.reembolso-solicitar',
+  'facturacion.notas-credito.autorizar',
   'facturacion.carta-porte.emitir',
   'facturacion.carta-porte.leer',
   'facturacion.repp.emitir',

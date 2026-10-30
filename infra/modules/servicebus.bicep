@@ -569,7 +569,7 @@ resource facturacionEventsAwSubscriptionFilter 'Microsoft.ServiceBus/namespaces/
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'facturacion.factura-venta.timbrada.v1\', \'facturacion.comprobante.cancelado.v1\')'
+      sqlExpression: 'user.EventType IN (\'facturacion.factura-venta.timbrada.v1\', \'facturacion.comprobante.cancelado.v1\', \'facturacion.nota-credito.timbrada.v1\')'
       compatibilityLevel: 20
     }
   }
