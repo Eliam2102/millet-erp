@@ -10,6 +10,7 @@ import type {
   CrearConfiguracionReordenPayload,
   EditarConfiguracionReordenPayload,
   PagedResponse,
+  PropuestaReposicionItem,
 } from '@/features/almacen/api/types';
 
 /**
@@ -42,6 +43,20 @@ export function useReordenList(filtros: ListarReordenFiltros = {}) {
       const { data } = await apiRequest<
         PagedResponse<ConfiguracionReordenListItem>
       >(path, { signal });
+      return data;
+    },
+  });
+}
+
+/** F1-ALM-10: existencia, vivo, punto, faltante, consumo (90 d), cobertura y sugerencia. Solo lectura. */
+export function usePropuestaReorden() {
+  return useQuery({
+    queryKey: [...almacenKeys.reorden(), 'propuesta'],
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<PropuestaReposicionItem[]>(
+        '/api/v1/almacen/reorden/propuesta',
+        { signal },
+      );
       return data;
     },
   });

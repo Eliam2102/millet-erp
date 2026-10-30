@@ -120,6 +120,24 @@ export interface ConfiguracionReordenListItem {
   articuloDescripcion: string | null;
 }
 
+/** Fila de la propuesta de reposición — mirror de <c>FaltanteReorden</c> (GET /almacen/reorden/propuesta). */
+export interface PropuestaReposicionItem {
+  configuracionId: string;
+  articuloId: string;
+  nivel: NivelReorden;
+  entidadId: string;
+  existenciaFisica: number;
+  vivo: number;
+  faltante: number;
+  puntoReorden: number;
+  minimo: number;
+  maximo: number;
+  consumoDiario: number;
+  coberturaDias: number | null;
+  minimoSugerido: number | null;
+  maximoSugerido: number | null;
+}
+
 /** Respuesta de crear/editar/desactivar — mirror de <c>ConfiguracionReordenResponse</c>. */
 export interface ConfiguracionReordenResponse {
   id: string;
