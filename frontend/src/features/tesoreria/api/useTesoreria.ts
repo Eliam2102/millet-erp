@@ -14,6 +14,7 @@ import type {
   ClasificacionFlujo,
   AplicacionPagoItem,
   BeneficiarioTipo,
+  SoporteFicha,
   CuentaSaldoResponse,
   ClienteRefDto,
   DepositoConfirmacionResponse,
@@ -390,6 +391,9 @@ export function useConfirmarDeposito() {
         cuentaBancariaId: string; monto: number; fechaValor: string; referenciaBancaria?: string;
         conceptoId?: string; beneficiarioTipo?: BeneficiarioTipo; beneficiarioRef?: string;
       };
+      /** Corte de caja: obligatorio desde la 2ª ficha. */
+      soporteTipo?: SoporteFicha;
+      soporteFolio?: string;
       versionEsperada: number;
       idempotencyKey: string;
     }) => {
@@ -397,7 +401,7 @@ export function useConfirmarDeposito() {
         `${BASE}/depositos/${args.depositoId}/confirmar`,
         {
           method: 'POST',
-          body: { movimientoBancarioId: args.movimientoBancarioId ?? "00000000-0000-0000-0000-000000000000", ingreso: args.ingreso },
+          body: { movimientoBancarioId: args.movimientoBancarioId ?? "00000000-0000-0000-0000-000000000000", ingreso: args.ingreso, soporteTipo: args.soporteTipo, soporteFolio: args.soporteFolio },
           idempotencyKey: args.idempotencyKey,
           headers: { 'X-Expected-Version': String(args.versionEsperada) },
         },

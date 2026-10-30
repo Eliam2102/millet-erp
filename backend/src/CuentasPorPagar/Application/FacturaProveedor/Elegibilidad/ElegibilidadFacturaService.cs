@@ -36,6 +36,9 @@ public sealed class ElegibilidadFacturaService(CuentasPorPagarDbContext db, ICom
             disponible = oc.Lineas.ToDictionary(l => l.Id,
                 l => Math.Max(l.CantidadRecibida, recibidoLocal.GetValueOrDefault(l.Id)));
         }
+        // 86e3tacbn: un servicio no se recibe en Almacén; cuenta como recibido solo con la OC confirmada por el área solicitante.
+        foreach (var l in oc.Lineas.Where(l => l.EsServicio))
+            disponible[l.Id] = oc.ServicioConfirmado ? l.Cantidad : 0;
         // 86e3tabdp: tras cancelar una recepción, lo recibido vigente de esas líneas lo fija Almacén (ya sin la cancelada). Se toma tal
         // cual, sin restar nada a lo de Compras: así el resultado no depende de si Compras ya procesó la cancelación.
         foreach (var (lineaOcId, cantidad) in recibidoVigente ?? new Dictionary<Guid, decimal>())

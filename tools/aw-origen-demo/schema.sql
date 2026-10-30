@@ -88,6 +88,39 @@ CREATE TABLE IF NOT EXISTS dbo.aw_solicitud_pedido (
     UNIQUE (numero_pedido, version)
 );
 
+-- Retorno ERP -> A+W (script 14 v3, TR-01). Mismas columnas y restricciones que docs/operacion/aw-integracion-scripts/14.
+-- resultado, aplicada_at, motivo e intentos los escribe la tarea de TI (en la demo, a mano); el ERP solo inserta y lee.
+CREATE TABLE IF NOT EXISTS dbo.aw_retorno (
+    retorno_id          uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+    numero_pedido       text        NOT NULL,
+    secuencia           integer     NOT NULL,                       -- 1, 2, 3... por pedido, sin importar el tipo
+    tipo                smallint    NOT NULL CHECK (tipo IN (1, 2, 3, 4)),  -- 1 Estatus | 2 Saldo | 3 Documento | 4 Pago
+    version_pedido      bigint      NOT NULL,
+    estatus_destino     smallint,
+    origen              smallint,
+    usuario_libera      text,
+    anticipos_aplicados numeric(18, 2),
+    saldo               numeric(18, 2),
+    tipo_documento      text,
+    folio               text,
+    uuid                text,
+    importe             numeric(18, 2),
+    forma_pago          text,                           -- tipo 4 (v3): clave SAT
+    moneda              text,                           -- tipo 4 (v3)
+    creada_at           timestamptz NOT NULL DEFAULT now(),
+    aplicada_at         timestamptz,
+    resultado           smallint CHECK (resultado IS NULL OR resultado IN (1, 2, 3)),  -- NULL pendiente | 1 Aplicada | 2 Rechazada | 3 Desfasada
+    motivo              text,
+    intentos            integer     NOT NULL DEFAULT 0 CHECK (intentos >= 0),
+    UNIQUE (numero_pedido, secuencia),
+    CHECK (tipo <> 1 OR COALESCE(estatus_destino, 0) IN (70, 115)),
+    CHECK ((COALESCE(estatus_destino, 0) = 70 AND COALESCE(origen, 0) IN (1, 2)) OR (COALESCE(estatus_destino, 0) <> 70 AND origen IS NULL)),
+    CHECK (origen IS DISTINCT FROM 2 OR usuario_libera IS NOT NULL),
+    CHECK (tipo <> 2 OR saldo IS NOT NULL),
+    CHECK (tipo <> 3 OR (uuid IS NOT NULL AND tipo_documento IN ('FacturaFinal', 'NotaCredito', 'Cancelacion'))),
+    CHECK (tipo <> 4 OR (folio IS NOT NULL AND forma_pago IS NOT NULL AND moneda IS NOT NULL AND importe IS NOT NULL))
+);
+
 CREATE TABLE IF NOT EXISTS dbo.vw_erp_pedido_cabecera (
     numero_pedido            text PRIMARY KEY,
     numero_sucursal          text,
@@ -212,3 +245,48 @@ CREATE TABLE IF NOT EXISTS dbo.erp_otr_estado (
     aw_motivo varchar(500),
     UNIQUE (otr_envio_id,tipo,version_erp,intento)
 );
+
+-- Flujo PT-01 · escaneos de pieza terminada (alcimdb, A+W Production). El ERP solo LEE estas tablas.
+CREATE TABLE IF NOT EXISTS dbo.awbar_bearbeit (
+    etikettnr varchar(100) NOT NULL,
+    bearb_zeit timestamp NOT NULL,
+    auftnr varchar(50) NOT NULL,
+    pos int NOT NULL,
+    u_pos int NOT NULL DEFAULT 0,
+    teile_nr varchar(50),
+    fertig smallint NOT NULL,
+    esnr_ist int NOT NULL,
+    bearb_nr int NOT NULL DEFAULT 0,
+    bruch_flag smallint NOT NULL DEFAULT 0,
+    PRIMARY KEY (etikettnr, bearb_zeit)
+);
+CREATE TABLE IF NOT EXISTS dbo.pool_pos (
+    auftnr varchar(50) NOT NULL,
+    pos int NOT NULL,
+    u_pos int NOT NULL DEFAULT 0,
+    ae_intpos int NOT NULL,
+    menge numeric(18,6) NOT NULL,
+    PRIMARY KEY (auftnr, pos, u_pos)
+);
+-- Una fila por operación de la pieza; se cruza con awbar_bearbeit por pieza y operación (consulta de referencia de TI, 27-oct).
+CREATE TABLE IF NOT EXISTS dbo.pool_bearbeit (
+    auftnr varchar(50) NOT NULL,
+    pos int NOT NULL,
+    u_pos int NOT NULL DEFAULT 0,
+    teile_nr varchar(50) NOT NULL,
+    bearb_nr int NOT NULL,
+    text1 varchar(200),
+    PRIMARY KEY (auftnr, pos, u_pos, teile_nr, bearb_nr)
+);
+-- BD demo creadas antes del 28-oct: pasar a la llave nueva sin recrearlas.
+ALTER TABLE dbo.awbar_bearbeit ADD COLUMN IF NOT EXISTS bearb_nr int NOT NULL DEFAULT 0;
+ALTER TABLE dbo.awbar_bearbeit ADD COLUMN IF NOT EXISTS bruch_flag smallint NOT NULL DEFAULT 0;
+ALTER TABLE dbo.pool_bearbeit ADD COLUMN IF NOT EXISTS teile_nr varchar(50) NOT NULL DEFAULT '';
+ALTER TABLE dbo.pool_bearbeit ADD COLUMN IF NOT EXISTS bearb_nr int NOT NULL DEFAULT 0;
+ALTER TABLE dbo.pool_bearbeit DROP COLUMN IF EXISTS esnr;
+-- Representa OR_AVBEREICH de MILMAIN (clave de sucursal por pedido); solo existe en la demo.
+CREATE TABLE IF NOT EXISTS dbo.or_avbereich (
+    auftnr varchar(50) PRIMARY KEY,
+    avbereich varchar(50) NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_awbar_bearbeit_zeit ON dbo.awbar_bearbeit (bearb_zeit, etikettnr);
