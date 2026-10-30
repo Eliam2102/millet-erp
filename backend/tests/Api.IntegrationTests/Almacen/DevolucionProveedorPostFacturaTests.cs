@@ -34,12 +34,18 @@ public sealed class DevolucionProveedorPostFacturaTests(WebApplicationFactory<Pr
 {
     private readonly HashSet<Guid> _entregados = [];
 
-    [Fact]
-    public async Task Devolver_lo_facturado_dentro_de_lo_pedido_sale_reabre_la_OC_y_genera_nota_de_cargo_en_borrador()
+    private sealed record Escenario(HttpClient B, Guid Articulo, Guid OcId, Guid LineaOcId, Guid Bin, Guid RecepcionId,
+        Guid FacturaId, string Uuid, decimal Subtotal, decimal CostoUnitario) : IDisposable
     {
-        await using var app = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s =>
-            s.PostConfigure<ComprasStubsOptions>(o => o.Stubs.Stock.DefaultRatio = 0m)));
-        var hoy = DateOnly.FromDateTime(DateTime.Now);
+        public void Dispose() => B.Dispose();
+    }
+
+    private WebApplicationFactory<Program> NuevaApp() => factory.WithWebHostBuilder(b => b.ConfigureTestServices(s =>
+        s.PostConfigure<ComprasStubsOptions>(o => o.Stubs.Stock.DefaultRatio = 0m)));
+
+    /// <summary>OC autorizada de 20 piezas, recibida 20/20 y facturada 20/20 (el periodo contable lo abre quien llama).</summary>
+    private async Task<Escenario> SembrarOcFacturadaAsync(WebApplicationFactory<Program> app, DateOnly hoy)
+    {
         Guid articulo;
         using (var scope = app.Services.CreateScope())
         {
@@ -49,11 +55,10 @@ public sealed class DevolucionProveedorPostFacturaTests(WebApplicationFactory<Pr
             var art = new Millet.DatosMaestros.Domain.Articulo(Guid.NewGuid(), $"DP{Guid.NewGuid():N}"[..16], "DEVOL post factura", "PZA", unidadMedidaId: pza.Id);
             cat.Add(art); await cat.SaveChangesAsync(); articulo = art.Id;
         }
-        await using var periodo = await AbrirPeriodoSiHaceFaltaAsync(app, hoy);
 
         using var a = await ClienteConPermisosAsync(app, "compras.requisiciones.crear", "compras.requisiciones.leer", "compras.requisiciones.editar", "centros_costo.dim3.leer-todos",
             "compras.ordenes.crear", "compras.ordenes.leer", "compras.ordenes.adjuntar");
-        using var b = await ClienteConPermisosAsync(app, PermisosCanonicos.Todos.Select(p => p.Codigo).ToArray());
+        var b = await ClienteConPermisosAsync(app, PermisosCanonicos.Todos.Select(p => p.Codigo).ToArray());
         await AsociarSucursalAsync(app, a);
 
         // ---------- OC autorizada de 20 piezas ----------
@@ -115,6 +120,18 @@ public sealed class DevolucionProveedorPostFacturaTests(WebApplicationFactory<Pr
         Assert.Equal(20m, antes.Lineas.Single().CantidadRecibida);
         Assert.True(antes.Lineas.Single().CantidadFacturada == 20m, "factura: " + facJson);
         Assert.Equal(SubEstadoRecepcion.Completa, antes.SubEstadoRecepcion);
+        var facturaId = await LeerFacturaAsync(app, uuid, f => f.Id);
+        return new Escenario(b, articulo, ocId, lineaOcId, bin, recepcionId, facturaId, uuid, subtotal, costoUnitario);
+    }
+
+    [Fact]
+    public async Task Devolver_lo_facturado_dentro_de_lo_pedido_sale_reabre_la_OC_y_genera_nota_de_cargo_en_borrador()
+    {
+        await using var app = NuevaApp();
+        var hoy = DateOnly.FromDateTime(DateTime.Now);
+        await using var periodo = await AbrirPeriodoSiHaceFaltaAsync(app, hoy);
+        using var esc = await SembrarOcFacturadaAsync(app, hoy);
+        var (b, articulo, ocId, lineaOcId, bin, recepcionId, facturaId, uuid, _, costoUnitario) = esc;
 
         // ---------- devolución de 2: iniciar, evidencia, solicitar, autorizar ----------
         Guid lineaRecepcionId, subAlmacenId;
@@ -163,16 +180,87 @@ public sealed class DevolucionProveedorPostFacturaTests(WebApplicationFactory<Pr
         Assert.Equal(SubEstadoRecepcion.Parcial, oc.SubEstadoRecepcion);
 
         // ---------- 3. CxP: nota de cargo en Borrador ligada a la devolución, sin IVA ----------
+        var nota = await LeerNotaCargoAsync(app, devId);
+        Assert.Equal(Millet.CuentasPorPagar.Domain.NotaCargo.EstadoNotaCargo.Borrador, nota.Estado);
+        Assert.Equal(2m * costoUnitario, nota.Monto);
+
+        // ---------- 4. nota de cargo: autorizar y aplicar por la API de CxP ----------
+        const string cargos = "/api/v1/cuentas-por-pagar/notas-cargo";
+        var autorizada = await PostConVersionAsync(b, $"{cargos}/{nota.Id}/autorizar", nota.Version, null);
+        await Ok(autorizada, "autoriza nota de cargo");
+        var aplicada = await PostConVersionAsync(b, $"{cargos}/{nota.Id}/aplicar", (await J(autorizada)).GetProperty("version").GetInt32(), new { FacturaOrigenId = facturaId });
+        await Ok(aplicada, "aplica nota de cargo");
+        Assert.Equal(Millet.CuentasPorPagar.Domain.NotaCargo.EstadoNotaCargo.Aplicada, (await LeerNotaCargoAsync(app, devId)).Estado);
+
+        // ---------- 5. NC fiscal 03 (Subtotal = monto de la nota, IVA 16%): la captura formaliza sola (IntentarAsync) ----------
+        var ncUuid = Guid.NewGuid().ToString().ToUpperInvariant();
+        var ncIva = Math.Round(nota.Monto * 0.16m, 2);
+        var ncResp = await b.PostAsJsonAsync("/api/v1/cuentas-por-pagar/notas-credito", new
+        {
+            UuidCfdi = ncUuid, ProveedorId = Proveedor, FolioProveedor = "NC-DEVOL", FechaCfdi = DateTimeOffset.UtcNow, Moneda = "MXN",
+            Subtotal = nota.Monto, ImpuestosTrasladados = ncIva, Retenciones = 0m, Total = nota.Monto + ncIva,
+            Tipo = 2, TipoRelacionCfdi = 3, UuidRelacionCfdi = uuid, // TipoNotaCredito.Devolucion, relación 03
+        });
+        await Ok(ncResp, "captura NC 03");
+        Assert.Equal(Millet.CuentasPorPagar.Domain.NotaCargo.EstadoNotaCargo.Formalizada, (await LeerNotaCargoAsync(app, devId)).Estado);
+
+        // CxP -> Almacén (concilia la devolución exacta) -> Compras (acredita la línea).
+        await BombearAsync(app, ocId.ToString(), lineaOcId.ToString(), devId.ToString());
+
         using (var scope = app.Services.CreateScope())
         {
             using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
-            var nota = await scope.ServiceProvider.GetRequiredService<CuentasPorPagarDbContext>().NotasCargo.AsNoTracking()
-                .SingleAsync(n => n.DevolucionAProveedorId == devId);
-            Assert.Equal(Millet.CuentasPorPagar.Domain.NotaCargo.EstadoNotaCargo.Borrador, nota.Estado);
-            Assert.Equal(2m * costoUnitario, nota.Monto);
+            var dev = await scope.ServiceProvider.GetRequiredService<AlmacenDbContext>().DevolucionesProveedor.AsNoTracking().SingleAsync(d => d.Id == devId);
+            Assert.Equal(Millet.Almacen.Domain.DevolucionesProveedor.EstadoDevolucionProveedor.ConciliadaConNcFiscal, dev.Estado);
         }
-        // Fuera de alcance aquí: la formalización con la NC fiscal 03 (Subtotal vs Total) la cubre su prueba unitaria;
-        // exige timbrar/recibir un CFDI de egreso real y no hay doble en proceso para ese hop.
+        var final = await LeerOcAsync(app, ocId);
+        Assert.Equal(2m, final.Lineas.Single().CantidadAcreditada);
+        Assert.Equal(SubEstadoRecepcion.Completa, final.SubEstadoRecepcion);
+        Assert.Equal(SubEstadoFacturacion.Completa, final.SubEstadoFacturacion);
+        // Fuera de alcance: pago y cierre de la OC (requieren Tesorería); la prueba unitaria de Compras cubre el cierre con objetivo = pedido - acreditado.
+    }
+
+    [Fact]
+    public async Task Cancelar_la_factura_baja_lo_facturado_en_Compras_al_acumulado_vigente()
+    {
+        await using var app = NuevaApp();
+        var hoy = DateOnly.FromDateTime(DateTime.Now);
+        await using var periodo = await AbrirPeriodoSiHaceFaltaAsync(app, hoy);
+        using var esc = await SembrarOcFacturadaAsync(app, hoy);
+
+        var version = await LeerFacturaAsync(app, esc.Uuid, f => f.Version);
+        var resp = await PostConVersionAsync(esc.B, $"/api/v1/cuentas-por-pagar/facturas/{esc.FacturaId}/cancelar", version, new { Motivo = 3, Texto = (string?)null }); // ErrorCaptura
+        await Ok(resp, "cancela factura");
+        await BombearAsync(app, esc.OcId.ToString(), esc.LineaOcId.ToString());
+
+        // Es la única factura de la línea: el acumulado vigente que manda CxP es 0. Con dos facturas quedaría la restante.
+        var oc = await LeerOcAsync(app, esc.OcId);
+        Assert.Equal(0m, oc.Lineas.Single().CantidadFacturada);
+        Assert.Equal(20m, oc.Lineas.Single().CantidadRecibida);
+        Assert.Equal(SubEstadoFacturacion.SinFactura, oc.SubEstadoFacturacion);
+    }
+
+    private static Task<HttpResponseMessage> PostConVersionAsync(HttpClient c, string url, int version, object? body)
+    {
+        var req = new HttpRequestMessage(HttpMethod.Post, url) { Content = body is null ? null : JsonContent.Create(body) };
+        req.Headers.Add("X-Expected-Version", version.ToString());
+        return c.SendAsync(req);
+    }
+
+    private static async Task<Millet.CuentasPorPagar.Domain.NotaCargo.NotaCargo> LeerNotaCargoAsync(WebApplicationFactory<Program> app, Guid devId)
+    {
+        using var scope = app.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        return await scope.ServiceProvider.GetRequiredService<CuentasPorPagarDbContext>().NotasCargo.AsNoTracking()
+            .SingleAsync(n => n.DevolucionAProveedorId == devId);
+    }
+
+    private static async Task<T> LeerFacturaAsync<T>(WebApplicationFactory<Program> app, string uuid, System.Linq.Expressions.Expression<Func<Millet.CuentasPorPagar.Domain.FacturaProveedor.FacturaProveedor, T>> campo)
+    {
+        using var scope = app.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        return await scope.ServiceProvider.GetRequiredService<CuentasPorPagarDbContext>().FacturasProveedor.AsNoTracking()
+            .Where(f => f.UuidCfdi == uuid).Select(campo).SingleAsync();
     }
 
     private static async Task<OrdenCompra> LeerOcAsync(WebApplicationFactory<Program> app, Guid ocId)
