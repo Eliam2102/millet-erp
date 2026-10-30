@@ -191,7 +191,7 @@ public sealed class TesoreriaContratosConsumidosTests
 
         espejo.Should().BeEquivalentTo(new CajaSesionCerradaPayload(
             evento.EmpresaId, evento.OcurridoEn, evento.CajaSesionId, evento.CajaId,
-            evento.SucursalId, evento.DiaOperacion, evento.EfectivoDeclarado));
+            evento.SucursalId, evento.DiaOperacion, evento.EfectivoDeclarado, evento.ResponsableUsuarioId));
 
         evento.EventType.Should().Be(CajaSesionCerradaPayload.EventType);
     }

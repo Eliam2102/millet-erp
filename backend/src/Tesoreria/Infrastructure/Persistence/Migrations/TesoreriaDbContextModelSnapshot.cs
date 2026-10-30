@@ -919,6 +919,10 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("caja_sesion_id");
 
+                    b.Property<Guid?>("CajeroId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cajero_id");
+
                     b.Property<Guid?>("ClienteId")
                         .HasColumnType("uuid")
                         .HasColumnName("cliente_id");
@@ -939,6 +943,10 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)")
                         .HasColumnName("deposito_ref");
+
+                    b.Property<DateOnly?>("DiaCorte")
+                        .HasColumnType("date")
+                        .HasColumnName("dia_corte");
 
                     b.Property<Guid>("EmpresaId")
                         .HasColumnType("uuid")
@@ -1001,6 +1009,10 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("solicitud_viaticos_id");
 
+                    b.Property<Guid?>("SucursalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sucursal_id");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -1040,9 +1052,101 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
 
                     b.ToTable("deposito_confirmacion", "tesoreria", t =>
                         {
-                            t.HasCheckConstraint("ck_deposito_confirmacion_estado", "estado IN (1, 2, 3)");
+                            t.HasCheckConstraint("ck_deposito_confirmacion_estado", "estado IN (1, 2, 3, 4)");
 
                             t.HasCheckConstraint("ck_deposito_confirmacion_origen", "propuesta_cxc_id IS NOT NULL OR caja_sesion_id IS NOT NULL OR solicitud_viaticos_id IS NOT NULL");
+                        });
+                });
+
+            modelBuilder.Entity("Millet.Tesoreria.Domain.Depositos.DepositoFicha", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("ConfirmadaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("confirmada_en");
+
+                    b.Property<Guid>("ConfirmadaPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("confirmada_por");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("DepositoConfirmacionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("deposito_confirmacion_id");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<DateOnly>("FechaFicha")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_ficha");
+
+                    b.Property<decimal>("Importe")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("importe");
+
+                    b.Property<Guid>("MovimientoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("movimiento_id");
+
+                    b.Property<string>("NumeroFicha")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("numero_ficha");
+
+                    b.Property<string>("SoporteFolio")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("soporte_folio");
+
+                    b.Property<short?>("SoporteTipo")
+                        .HasColumnType("smallint")
+                        .HasColumnName("soporte_tipo");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_deposito_ficha");
+
+                    b.HasIndex("DepositoConfirmacionId")
+                        .HasDatabaseName("ix_deposito_ficha_deposito");
+
+                    b.HasIndex("MovimientoId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_deposito_ficha_movimiento");
+
+                    b.ToTable("deposito_ficha", "tesoreria", t =>
+                        {
+                            t.HasCheckConstraint("ck_deposito_ficha_importe", "importe > 0");
+
+                            t.HasCheckConstraint("ck_deposito_ficha_soporte_tipo", "soporte_tipo IS NULL OR soporte_tipo IN (1, 2)");
                         });
                 });
 
@@ -1904,6 +2008,23 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_deposito_confirmacion_movimiento_bancario_movimiento_id");
                 });
 
+            modelBuilder.Entity("Millet.Tesoreria.Domain.Depositos.DepositoFicha", b =>
+                {
+                    b.HasOne("Millet.Tesoreria.Domain.Depositos.DepositoConfirmacion", null)
+                        .WithMany("Fichas")
+                        .HasForeignKey("DepositoConfirmacionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_deposito_ficha_deposito_confirmacion_deposito_confirmacion_");
+
+                    b.HasOne("Millet.Tesoreria.Domain.Movimientos.MovimientoBancario", null)
+                        .WithMany()
+                        .HasForeignKey("MovimientoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_deposito_ficha_movimiento_bancario_movimiento_id");
+                });
+
             modelBuilder.Entity("Millet.Tesoreria.Domain.Devoluciones.DevolucionCliente", b =>
                 {
                     b.HasOne("Millet.Tesoreria.Domain.Movimientos.MovimientoBancario", null)
@@ -1979,6 +2100,11 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                     b.Navigation("Firmas");
 
                     b.Navigation("Lineas");
+                });
+
+            modelBuilder.Entity("Millet.Tesoreria.Domain.Depositos.DepositoConfirmacion", b =>
+                {
+                    b.Navigation("Fichas");
                 });
 #pragma warning restore 612, 618
         }

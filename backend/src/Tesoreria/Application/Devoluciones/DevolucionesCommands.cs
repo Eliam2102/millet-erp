@@ -70,7 +70,8 @@ public sealed class SolicitarDevolucionDepositoHandler
         var movimiento = await _db.MovimientosBancarios.FirstOrDefaultAsync(m => m.Id == command.MovimientoId, cancellationToken)
             ?? throw new EntityNotFoundException("MOV_NO_ENCONTRADO", $"No se encontró el movimiento '{command.MovimientoId}'.");
 
-        if (await _db.DepositosConfirmacion.AnyAsync(d => d.MovimientoId == movimiento.Id && d.Estado == EstadoDepositoConfirmacion.Confirmada, cancellationToken))
+        if (await _db.DepositosConfirmacion.AnyAsync(d => d.MovimientoId == movimiento.Id && d.Estado == EstadoDepositoConfirmacion.Confirmada, cancellationToken)
+            || await _db.DepositoFichas.AnyAsync(f => f.MovimientoId == movimiento.Id, cancellationToken))
             throw new BusinessRuleException("DEV_DEPOSITO_CONFIRMADO",
                 "El depósito ya se confirmó contra una propuesta de Crédito y Cobranza; no es un depósito erróneo. Corrige la aplicación en CxC antes de devolverlo.");
 
