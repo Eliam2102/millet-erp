@@ -1234,7 +1234,12 @@ export interface CobroFacturaDetalle {
   fechaCobro: string;
   usuarioCobradorId: string;
   total: number;
-  formasPago: { formaPago: string; importe: number; referencia: string | null }[];
+  formasPago: {
+    formaPago: string;
+    importe: number;
+    referencia: string | null;
+    tarjetaUltimos4?: string | null;
+  }[];
   sesion: {
     id: string;
     cajaId: string;
@@ -1452,6 +1457,7 @@ export interface CajaMovimientoDto {
   cobroMostradorId: string | null;
   usuarioId: string;
   createdAt: string;
+  tarjetaUltimos4?: string | null;
 }
 
 export interface CajaSesionDetalleResponse {
@@ -1509,6 +1515,8 @@ export interface CobroFormaPagoInput {
   referencia?: string | null;
   cuentaOrdenante?: string | null;
   cuentaBeneficiaria?: string | null;
+  /** 86e3tfdvt: últimos 4 dígitos de la tarjeta (solo 04 y 28). */
+  tarjetaUltimos4?: string | null;
 }
 
 export interface CobroMostradorResponse {
@@ -1523,6 +1531,7 @@ export interface CobroFormaPagoItem {
   formaPago: string;
   importe: number;
   referencia: string | null;
+  tarjetaUltimos4?: string | null;
 }
 
 export interface CobroMostradorItem {

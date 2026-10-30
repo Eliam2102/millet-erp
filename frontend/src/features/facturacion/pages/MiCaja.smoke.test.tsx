@@ -289,6 +289,12 @@ describe('86e3tfdvt · voucher en la liquidación de ruta', () => {
 
     fireEvent.change(voucher, { target: { value: '123456' } });
     expect(voucher).toHaveAttribute('aria-invalid', 'false');
+    // 86e3tfdvt: también los últimos 4 dígitos de la tarjeta.
+    const ultimos4 = screen.getByLabelText('Últimos 4 dígitos de la tarjeta de RUTA-1');
+    expect(ultimos4).toHaveAttribute('aria-invalid', 'true');
+    expect(registrar).toBeDisabled();
+    fireEvent.change(ultimos4, { target: { value: '9876' } });
+    expect(ultimos4).toHaveAttribute('aria-invalid', 'false');
     await waitFor(() => expect(registrar).toBeEnabled());
   });
 });
