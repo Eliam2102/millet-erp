@@ -119,6 +119,18 @@ public sealed record OrdenCompraResponse(
     // F1-COM-11: estado comercial, compromiso vigente e historial de respuestas del proveedor (más reciente primero).
     public EstadoComercialProveedorOc EstadoComercialProveedor { get; init; }
     public DateOnly? FechaCompromisoProveedor { get; init; }
+
+    // 86e3tacbn: conformidad del servicio (una por OC); «no conforme» y última reversa visibles para Compras.
+    public decimal MontoPagado { get; init; }
+    public DateTimeOffset? ServicioConfirmadoEn { get; init; }
+    public Guid? ServicioConfirmadoPorId { get; init; }
+    public string? ServicioConfirmadoPorNombre { get; init; }
+    public string? ServicioConfirmadoComentario { get; init; }
+    public DateTimeOffset? ServicioNoConformeEn { get; init; }
+    public string? ServicioNoConformePorNombre { get; init; }
+    public string? ServicioNoConformeMotivo { get; init; }
+    public DateTimeOffset? ServicioConfirmacionRevocadaEn { get; init; }
+    public string? ServicioConfirmacionRevocadaMotivo { get; init; }
     public IReadOnlyList<RespuestaProveedorOcResponse> RespuestasProveedor { get; init; } = [];
 
     /// <summary>Incidencias del proveedor por línea (F1-COM-07), la más reciente primero.</summary>

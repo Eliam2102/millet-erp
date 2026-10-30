@@ -113,8 +113,11 @@ public sealed class CancelacionSatPollerWorker : BackgroundService
             solicitud.MarcarAceptada(estatus.EstatusSat, clock.UtcNow);
             await AplicarEfectosCancelacionAsync(db, comprobante, clock.UtcNow, cancellationToken);
             // F10-PR1: evento de comprobante cancelado al resolverse el poller.
-            await eventos.PublishAsync(new ComprobanteCanceladoIntegrationEvent(
-                comprobante.EmpresaId, clock.UtcNow, comprobante.Id, comprobante.Tipo.ToString(), comprobante.Uuid ?? string.Empty),
+            await eventos.PublishAsync(EventosContablesFacturacion.ComprobanteCancelado(
+                comprobante, clock.UtcNow,
+                comprobante is FacturaVenta { PedidoFacturableId: { } pedidoEvt }
+                    ? await db.PedidosFacturables.AsNoTracking().FirstOrDefaultAsync(p => p.Id == pedidoEvt, cancellationToken)
+                    : null),
                 cancellationToken);
             resueltas++;
         }
@@ -144,7 +147,6 @@ public sealed class CancelacionSatPollerWorker : BackgroundService
                         .FirstOrDefaultAsync(c => c.PedidoFacturableId == pedido.Id, cancellationToken);
                     if (control is not null)
                     {
-                        control.SolicitarWriteBackEstado("SinFacturar", uuid: null, ahora);
                         control.CambiarEstado(Domain.Ingesta.EstadoIngesta.Importado);
                     }
                 }

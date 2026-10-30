@@ -276,7 +276,31 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                 p => p.Codigo is PermisosCanonicos.FacturacionActivosAutorizar or PermisosCanonicos.ActivosFijosBajasAutorizar),
             (Guid.Parse("0000000f-0011-0000-0000-000000000002"), "contador-general",
                 "Contador General", "Registra las bajas autorizadas por el Director de Administración y Finanzas.",
-                p => p.Codigo == PermisosCanonicos.ActivosFijosBajasRegistrar)];
+                p => p.Codigo == PermisosCanonicos.ActivosFijosBajasRegistrar),
+            // REQ-PERM (86e3xd4uz): los 80 usuarios del Portal de Requisiciones. Equivalencia en
+            // docs/operacion/equivalencia-permisos-portal-requisiciones.md.
+            (Guid.Parse("00000010-0001-0000-0000-000000000001"), "requisitante",
+                "Requisitante", "Captura y edita sus requisiciones.",
+                p => p.Codigo is PermisosCanonicos.ComprasRequisicionesLeer or PermisosCanonicos.ComprasRequisicionesCrear
+                    or PermisosCanonicos.ComprasRequisicionesEditar),
+            (Guid.Parse("00000010-0001-0000-0000-000000000002"), "requisitante-a-nombre-de-otros",
+                "Requisitante a nombre de otros", "Captura requisiciones eligiendo al requisitante.",
+                p => p.Codigo is PermisosCanonicos.ComprasRequisicionesLeer or PermisosCanonicos.ComprasRequisicionesCrear
+                    or PermisosCanonicos.ComprasRequisicionesEditar or PermisosCanonicos.ComprasRequisicionesSeleccionarRequisitante),
+            (Guid.Parse("00000010-0001-0000-0000-000000000003"), "autorizador-requisiciones",
+                "Autorizador de requisiciones", "Firma nivel 1 y nivel 2; el nivel que le toca sale de los aprobadores por departamento.",
+                p => p.Codigo is PermisosCanonicos.ComprasRequisicionesLeer or PermisosCanonicos.ComprasRequisicionesAutorizarNivel1
+                    or PermisosCanonicos.ComprasRequisicionesAutorizarNivel2),
+            (Guid.Parse("00000010-0001-0000-0000-000000000004"), "almacen-salida-contra-requisicion",
+                "Almacén · salida contra requisición", "Surte salidas de almacén contra una requisición autorizada.",
+                p => p.Codigo is PermisosCanonicos.ComprasRequisicionesLeer or PermisosCanonicos.AlmacenSalidasLeerTodas
+                    or PermisosCanonicos.AlmacenSalidasCapturar or PermisosCanonicos.AlmacenSalidasRegistrar),
+            (Guid.Parse("00000010-0001-0000-0000-000000000005"), "almacen-vale-urgente",
+                "Almacén · vale urgente", "Registra salidas por vale sin requisición; se regularizan en 48 h hábiles.",
+                p => p.Codigo is PermisosCanonicos.AlmacenSalidasLeerTodas or PermisosCanonicos.AlmacenSalidasPorVale),
+            (Guid.Parse("00000010-0001-0000-0000-000000000006"), "cancelacion-requisicion-autorizada",
+                "Cancelación de requisición autorizada", "Cancela requisiciones autorizadas; el motivo es obligatorio.",
+                p => p.Codigo is PermisosCanonicos.ComprasRequisicionesLeer or PermisosCanonicos.ComprasRequisicionesCancelar)];
         // Retira las concesiones anteriores también en roles históricos con otro código.
         var contadores = await db.Roles.Where(r => r.Codigo == "contador-general" || r.Nombre == "Contador General")
             .Select(r => r.Id).ToListAsync(cancellationToken);

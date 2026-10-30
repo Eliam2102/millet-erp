@@ -106,6 +106,7 @@ export const PermisosCanonicos = {
     'compras.ordenes.reportes-analisis-proveedores',
   ComprasOrdenesRegistrarRespuestaProveedor: 'compras.ordenes.registrar-respuesta-proveedor',
   ComprasOrdenesRegistrarIncidenciaProveedor: 'compras.ordenes.registrar-incidencia-proveedor',
+  ComprasOrdenesConfirmarServicio: 'compras.ordenes.confirmar-servicio',
 
   // Compras — Cotizaciones (F1-COM-02)
   ComprasCotizacionesLeer: 'compras.cotizaciones.leer',
@@ -506,6 +507,10 @@ export const PermisosCanonicos = {
   ComercioExteriorExpedientesAdjuntosBaja: 'comercio_exterior.expedientes.adjuntos-baja',
   ComercioExteriorDocumentosLeerTodasSucursales: 'comercio_exterior.documentos.leer-todas-sucursales',
   ComercioExteriorDocumentosGestionarTodasSucursales: 'comercio_exterior.documentos.gestionar-todas-sucursales',
+  ProductoTerminadoPiezasVer: 'producto_terminado.piezas.ver',
+  ProductoTerminadoPiezasVerTodasSucursales: 'producto_terminado.piezas.ver-todas-sucursales',
+  ProductoTerminadoExcepcionesGestionar: 'producto_terminado.excepciones.gestionar',
+  ProductoTerminadoExcepcionesGestionarTodasSucursales: 'producto_terminado.excepciones.gestionar-todas-sucursales',
 } as const;
 
 /** Tipo unión de todos los códigos de permiso conocidos (autocompletado en IDE). */

@@ -409,7 +409,6 @@ public sealed class IdempotencyMiddleware
     {
         if (existing.Status == IdempotencyStatuses.Processing)
         {
-            context.Response.Headers.RetryAfter = _options.RetryAfterSeconds.ToString();
             throw new IdempotencyInProgressException(_options.RetryAfterSeconds);
         }
 

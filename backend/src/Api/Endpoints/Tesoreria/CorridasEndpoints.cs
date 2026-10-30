@@ -24,26 +24,18 @@ public static class CorridasEndpoints
         var corridas = app.MapGroup("/api/v1/tesoreria/corridas").WithTags("Tesoreria").RequireAuthorization();
         const string P = PermissionPolicyProvider.Prefix;
 
-        // Lectura: quien arma, quien firma o quien ve la bandeja (el Gerente firma sin necesidad de armar).
-        var lectura = new[] { PermisosCanonicos.TesoreriaCorridasCrear, PermisosCanonicos.TesoreriaCorridasAutorizar, PermisosCanonicos.TesoreriaPasivosVer };
-        async ValueTask<object?> SoloLectura(EndpointFilterInvocationContext ctx, EndpointFilterDelegate next)
-        {
-            var permisos = ctx.HttpContext.RequestServices.GetRequiredService<ICurrentUserPermissions>();
-            foreach (var p in lectura)
-                if (await permisos.TieneAsync(p, ctx.HttpContext.RequestAborted)) return await next(ctx);
-            throw new ForbiddenException("PERMISO_REQUERIDO", "No tienes permiso para ver corridas de pago.");
-        }
+        // Lectura: `tesoreria.pasivos.ver` (el RBAC de ruta exige una sola política; firmantes y armadores la tienen en Tesorería).
 
         corridas.MapGet("/", async ([FromQuery] EstadoCorridaPago? estado, [FromQuery] int? offset, [FromQuery] int? limit,
             IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(new ListarCorridasQuery(estado, offset ?? 0, limit ?? 50), ct)))
-            .AddEndpointFilter(SoloLectura)
+            .RequireAuthorization(P + PermisosCanonicos.TesoreriaPasivosVer)
             .WithName("ListarCorridasPago")
             .Produces<PagedResponse<CorridaResumenResponse>>();
 
         corridas.MapGet("/{id:guid}", async (Guid id, IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(new ObtenerCorridaQuery(id), ct)))
-            .AddEndpointFilter(SoloLectura)
+            .RequireAuthorization(P + PermisosCanonicos.TesoreriaPasivosVer)
             .WithName("ObtenerCorridaPago")
             .Produces<CorridaResponse>()
             .ProducesProblem(StatusCodes.Status404NotFound);
@@ -116,7 +108,7 @@ public static class CorridasEndpoints
 
         corridas.MapGet("/politica-firmas", async (IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(new ObtenerPoliticaFirmasQuery(), ct)))
-            .AddEndpointFilter(SoloLectura)
+            .RequireAuthorization(P + PermisosCanonicos.TesoreriaPasivosVer)
             .WithName("ObtenerPoliticaFirmasCorrida").Produces<IReadOnlyList<EscalonFirmaResponse>>();
 
         corridas.MapPut("/politica-firmas/{moneda}", async (string moneda, [FromBody] PoliticaBody body, IMediator mediator, CancellationToken ct) =>
