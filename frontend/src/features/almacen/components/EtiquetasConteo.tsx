@@ -18,7 +18,7 @@ export function EtiquetaArticulo({
   if (!clave) {
     return (
       <span className="font-mono text-xs text-ink-muted" title={articuloId}>
-        {articuloId.slice(0, 8)}…
+        —
       </span>
     );
   }
@@ -44,7 +44,7 @@ export function EtiquetaSubAlmacen({
   if (!clave) {
     return (
       <span className="font-mono text-xs text-ink-muted" title={subAlmacenId}>
-        {subAlmacenId.slice(0, 8)}…
+        —
       </span>
     );
   }

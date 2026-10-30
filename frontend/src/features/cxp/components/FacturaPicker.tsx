@@ -77,7 +77,7 @@ export function FacturaPicker({
   const triggerLabel = seleccionada
     ? `${folioDe(seleccionada)} · ${seleccionada.moneda} ${seleccionada.total.toFixed(2)}`
     : value
-      ? `${value.slice(0, 8)}…`
+      ? '—'
       : placeholder;
 
   return (
@@ -151,7 +151,7 @@ export function FacturaPicker({
                             </span>
                           </div>
                           <p className="truncate text-xs text-muted-foreground">
-                            {f.proveedorNombre ?? f.proveedorId} ·{' '}
+                            {f.proveedorNombre ?? '—'} ·{' '}
                             {f.fechaDocumento.slice(0, 10)}
                           </p>
                         </div>

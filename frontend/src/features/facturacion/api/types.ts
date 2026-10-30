@@ -87,6 +87,8 @@ export const EstadoTimbrado = {
   Cancelado: 7,
   /** Fallida descartada a conciencia: terminal, quema el folio y libera el pedido (01-G G3). */
   Descartada: 8,
+  /** Nota de crédito de A+W que espera autorización (86e3wjt5r); no se timbra hasta autorizarla. */
+  PorAutorizar: 9,
 } as const satisfies Record<string, number>;
 export type EstadoTimbrado =
   (typeof EstadoTimbrado)[keyof typeof EstadoTimbrado];
@@ -479,6 +481,8 @@ export interface EmitirReppCommand {
   formaPagoReal: string;
   cuentaOrdenante: string | null;
   cuentaBeneficiaria: string | null;
+  /** 86e3tfdve: cuenta de Millet; el backend resuelve su CLABE/número. */
+  cuentaBancariaBeneficiariaId?: string | null;
   referenciaPago: string | null;
   facturas: ReppFacturaPago[];
 }
@@ -512,6 +516,9 @@ export interface ReppBandejaItem {
   receptorNombre: string;
   importeTotalPago: number;
   fechaPago: string;
+  /** 86e3tfdve: cuentas del pago enmascaradas («•••• 1234»). */
+  cuentaOrdenante?: string | null;
+  cuentaBeneficiaria?: string | null;
 }
 
 /** Factura cubierta por un REPP (detalle). */
@@ -558,6 +565,10 @@ export interface ReppDetalleResponse {
   timbradoErrorCodigo: string | null;
   timbradoErrorMensaje: string | null;
   folioPac: string | null;
+  /** 86e3tfdve: forma de pago y cuentas enmascaradas («•••• 1234»). */
+  formaPago?: string | null;
+  cuentaOrdenante?: string | null;
+  cuentaBeneficiaria?: string | null;
 }
 
 // ─── Carta Porte 3.1 (FE-F8) ──────────────────────────────────────────
@@ -1457,6 +1468,8 @@ export interface CajaMovimientoDto {
   cobroMostradorId: string | null;
   usuarioId: string;
   createdAt: string;
+  /** Folio del Vale de Caja, consecutivo por caja; solo en retiros (86e3ww6tw). */
+  folioVale?: number | null;
   tarjetaUltimos4?: string | null;
 }
 
@@ -1500,6 +1513,8 @@ export interface CajaMovimientoRegistradoResponse {
   id: string;
   sesionId: string;
   importe: number;
+  /** Folio del Vale de Caja del retiro (86e3ww6tw); null en depósitos. */
+  folioVale?: number | null;
 }
 
 export interface AutorizacionAperturaResponse {

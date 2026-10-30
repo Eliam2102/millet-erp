@@ -32,6 +32,9 @@ public sealed class Caja : BaseEntity, IPerteneceAEmpresa, IAuditable
     public string? Descripcion { get; private set; }
     public EstatusCatalogo Estatus { get; private set; } = EstatusCatalogo.Activo;
 
+    /// <summary>Último folio de Vale de Caja emitido por esta caja (0 = ninguno, 86e3ww6tw).</summary>
+    public int UltimoFolioVale { get; private set; }
+
     private readonly List<CajaSucursal> _sucursales = [];
     private readonly List<CajaCanal> _canales = [];
     private readonly List<CajaUsuario> _usuarios = [];
@@ -67,6 +70,13 @@ public sealed class Caja : BaseEntity, IPerteneceAEmpresa, IAuditable
         Nombre = nombre.Trim();
         Descripcion = Normalizar(descripcion);
     }
+
+    /// <summary>
+    /// Reserva el siguiente folio del Vale de Caja (consecutivo por caja, 86e3ww6tw).
+    /// El handler bloquea la fila de la caja antes de llamarlo para que dos retiros
+    /// simultáneos no tomen el mismo folio.
+    /// </summary>
+    public int SiguienteFolioVale() => ++UltimoFolioVale;
 
     /// <summary>Reactiva la caja. Idempotente.</summary>
     public void Activar() => Estatus = EstatusCatalogo.Activo;

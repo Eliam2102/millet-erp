@@ -13,6 +13,7 @@ import { FileSpreadsheet, FileText, Loader2, Printer } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { toast } from 'sonner';
 
+import { renderCelda } from '@/components/erp/reportes/render-celda';
 import type { ReporteShellProps } from '@/components/erp/reportes/ReporteShell';
 
 export interface ReporteFacturacionProps<TFila> extends ReporteShellProps<TFila> {
@@ -255,33 +256,6 @@ export function ReporteFacturacion<TFila>({
       )}
     </div>
   );
-}
-
-function renderCelda(valor: unknown, tipo: string): string {
-  if (valor == null) return '—';
-  switch (tipo) {
-    case 'moneda':
-      return typeof valor === 'number'
-        ? new Intl.NumberFormat('es-MX', {
-            style: 'currency',
-            currency: 'MXN',
-            minimumFractionDigits: 2,
-          }).format(valor)
-        : String(valor);
-    case 'numero':
-      return typeof valor === 'number'
-        ? valor.toLocaleString('es-MX', {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 4,
-          })
-        : String(valor);
-    case 'fecha':
-      return typeof valor === 'string'
-        ? new Date(valor).toLocaleDateString('es-MX')
-        : String(valor);
-    default:
-      return String(valor);
-  }
 }
 
 function slugify(s: string): string {

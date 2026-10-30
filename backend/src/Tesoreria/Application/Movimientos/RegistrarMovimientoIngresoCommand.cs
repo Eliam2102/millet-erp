@@ -24,7 +24,9 @@ public sealed record RegistrarMovimientoIngresoCommand(
     Guid? ConceptoId = null,
     BeneficiarioTipo? BeneficiarioTipo = null,
     Guid? BeneficiarioRef = null,
-    Guid? SucursalId = null) : IRequest<MovimientoBancarioResponse>;
+    Guid? SucursalId = null,
+    // 86e3tfdve: cuenta del cliente que pagó (CtaOrdenante del REP); opcional.
+    string? CuentaOrdenante = null) : IRequest<MovimientoBancarioResponse>;
 
 public sealed class RegistrarMovimientoIngresoValidator : AbstractValidator<RegistrarMovimientoIngresoCommand>
 {
@@ -34,6 +36,7 @@ public sealed class RegistrarMovimientoIngresoValidator : AbstractValidator<Regi
         RuleFor(c => c.Monto).GreaterThan(0);
         RuleFor(c => c.FechaValor).NotEmpty();
         RuleFor(c => c.ReferenciaBancaria).MaximumLength(120);
+        RuleFor(c => c.CuentaOrdenante).MaximumLength(CuentaPagoSat.LongitudMaxima);
         RuleFor(c => c.BeneficiarioTipo).IsInEnum().When(c => c.BeneficiarioTipo is not null);
         RuleFor(c => c.BeneficiarioTipo)
             .NotNull()
@@ -111,7 +114,7 @@ public sealed class RegistrarMovimientoIngresoHandler
             beneficiarioTipo: command.BeneficiarioTipo,
             beneficiarioRef: command.BeneficiarioRef,
             creadoPor: usuarioId,
-            ahora: _clock.UtcNow, sucursalId: command.SucursalId);
+            ahora: _clock.UtcNow, sucursalId: command.SucursalId, cuentaOrdenante: command.CuentaOrdenante);
 
         return movimiento;
     }

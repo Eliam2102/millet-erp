@@ -128,9 +128,10 @@ describe('<SalidasPage> — smoke', () => {
     // sin regularizar → "—" (fila s-2). Ningún id crudo en pantalla.
     expect(screen.getByText('RQ-MID2026-000010')).toBeInTheDocument();
     expect(screen.getByText(/Vale · RQ-MID2026-000099/)).toBeInTheDocument();
+    // Dos «—» en la fila: sub-almacén sin resolver (sa-1 no está en el catálogo) y RQ.
     expect(
-      within(screen.getByText('SV2026-000001').closest('tr')!).getByText('—'),
-    ).toBeInTheDocument();
+      within(screen.getByText('SV2026-000001').closest('tr')!).getAllByText('—'),
+    ).toHaveLength(2);
     expect(screen.queryByText(/rq-1|rq-reg-1/)).not.toBeInTheDocument();
   });
 

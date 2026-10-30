@@ -49,3 +49,26 @@ public sealed record LineaDevolucionProveedorPayload(
     decimal MontoTotalMxn,
     // Aditivo (86e3pc50v): cantidad devuelta en unidad de la línea de OC (Cantidad va en unidad base del inventario).
     decimal? CantidadDocumento = null);
+
+/// <summary>
+/// EventType <c>almacen.oc_devolucion.conciliada.v1</c>. Publicado al outbox cuando Almacén
+/// concilia una <c>DevolucionAProveedor</c> con la NC fiscal tipo 03 (consume
+/// <c>cuentas_por_pagar.nc-fiscal-devolucion.recibida.v1</c>, con el Id exacto de la devolución).
+/// Consumidor: <b>Compras</b>, que fija <c>CantidadAcreditada</c> por línea de OC: lo acreditado ya no se espera
+/// y la OC puede cerrar.
+/// <para>
+/// <c>LineasAcreditadasOc</c> lleva el acumulado total post-evento (todas las devoluciones
+/// ConciliadaConNcFiscal de la OC), en la unidad de la línea de OC, para toda línea tocada por alguna
+/// devolución conciliada; es idempotente por diseño (Compras asigna, no suma).
+/// </para>
+/// </summary>
+public sealed record OcDevolucionConciliadaIntegrationEvent(
+    Guid EmpresaId,
+    DateTimeOffset OcurridoEn,
+    Guid OrdenCompraId,
+    Guid DevolucionId,
+    IReadOnlyList<LineaOcAcreditadaPayload> LineasAcreditadasOc)
+    : IntegrationEvent("almacen.oc_devolucion.conciliada.v1", EmpresaId, OcurridoEn);
+
+/// <summary><c>CantidadAcreditadaAcumulada</c> en la unidad de la línea de OC.</summary>
+public sealed record LineaOcAcreditadaPayload(Guid LineaOcId, decimal CantidadAcreditadaAcumulada);

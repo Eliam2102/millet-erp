@@ -14,6 +14,7 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'datos_maestros.clientes.cargar', 'datos_maestros.articulos.cargar', 'datos_maestros.proveedores.cargar',
   'datos_maestros.productos-aw-fiscal.cargar', 'centros_costo.catalogo.cargar',
+  'datos_maestros.proveedores.bloquear', 'cuentas_por_pagar.bloqueos.liberar-en-lugar',
   'activos_fijos.depreciacion.correr',
   'activos_fijos.depreciacion.anular',
   'activos_fijos.bajas.registrar',
@@ -228,6 +229,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'cuentas_por_pagar.cfdis.leer',
   'cuentas_por_pagar.cfdis.cargar-manual',
   'cuentas_por_pagar.cfdis.descartar',
+  'cuentas_por_pagar.portal.administrar',
   'cuentas_por_pagar.reposiciones.leer',
   'cuentas_por_pagar.reposiciones.administrar',
   // Integraciones.Fiscal — admin de PAC + RFCs receptores (PR-2 del
@@ -288,6 +290,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'facturacion.notas-credito.bonificacion-emitir',
   'facturacion.notas-credito.leer',
   'facturacion.notas-credito.reembolso-solicitar',
+  'facturacion.notas-credito.autorizar',
   'facturacion.carta-porte.emitir',
   'facturacion.carta-porte.leer',
   'facturacion.repp.emitir',
@@ -341,6 +344,11 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'admin.puestos.gestionar',
   'admin.empleados.gestionar',
   'admin.empleados.gestionar-todas-sucursales',
+  // Producto Terminado.
+  'producto_terminado.piezas.ver',
+  'producto_terminado.piezas.ver-todas-sucursales',
+  'producto_terminado.excepciones.gestionar',
+  'producto_terminado.excepciones.gestionar-todas-sucursales',
   // Comercio Exterior CE-01a.
   'comercio_exterior.otr.gestionar',
   'comercio_exterior.expedientes.leer',

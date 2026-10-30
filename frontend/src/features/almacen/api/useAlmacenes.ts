@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
 import {
@@ -5,6 +6,7 @@ import {
   type ListarAlmacenesFiltros,
   type ListarSubAlmacenesFiltros,
 } from '@/features/almacen/api/keys';
+import { TipoSubAlmacen } from '@/features/almacen/api/types';
 import type {
   AlmacenDetalle,
   AlmacenListItem,
@@ -121,8 +123,9 @@ export function useEditarAlmacen() {
 
 // ─── Sub-almacenes ────────────────────────────────────────────────────────
 
-export function useSubAlmacenes(filtros: ListarSubAlmacenesFiltros = {}) {
+export function useSubAlmacenes(filtros: ListarSubAlmacenesFiltros = {}, enabled = true) {
   return useQuery({
+    enabled,
     queryKey: almacenKeys.subAlmacenesList(filtros),
     queryFn: async ({ signal }) => {
       const query = buildQuery(filtros);
@@ -136,6 +139,22 @@ export function useSubAlmacenes(filtros: ListarSubAlmacenesFiltros = {}) {
       return data;
     },
   });
+}
+
+/**
+ * Ids de los sub-almacenes Material en revisión: su almacén general no admite
+ * entradas (el backend lo rechaza). <c>listo</c> = ya cargó la lista.
+ */
+export function useSubAlmacenesEnRevision(enabled = true) {
+  const q = useSubAlmacenes({ limit: 500 }, enabled);
+  const ids = useMemo(
+    () =>
+      new Set(
+        (q.data?.items ?? []).filter((s) => s.tipo === TipoSubAlmacen.MaterialEnRevision).map((s) => s.id),
+      ),
+    [q.data],
+  );
+  return { ids, listo: !!q.data };
 }
 
 export interface CrearSubAlmacenCommand {

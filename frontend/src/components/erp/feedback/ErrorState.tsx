@@ -43,7 +43,7 @@ export function ErrorState({ problem, title, onRetry, className }: ErrorStatePro
   const codigo = codigoSoporte(problem);
 
   return (
-    <div role="alert" className={cn('flex flex-col items-center gap-4 px-6 py-12', className)}>
+    <div className={cn('flex flex-col items-center gap-4 px-6 py-12', className)}>
       <Alert variant="destructive" className="max-w-xl text-left">
         <TriangleAlert className="h-4 w-4" />
         <AlertTitle>{tituloFinal}</AlertTitle>

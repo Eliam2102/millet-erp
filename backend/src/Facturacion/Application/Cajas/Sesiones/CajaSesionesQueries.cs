@@ -19,7 +19,7 @@ public sealed record CajaSesionCorteDto(string FormaPago, decimal MontoSistema, 
 public sealed record CajaMovimientoDto(
     Guid Id, string Tipo, string FormaPago, decimal Importe, string Moneda,
     string Descripcion, string? Referencia, Guid? CobroMostradorId, Guid UsuarioId, DateTimeOffset CreatedAt,
-    string? TarjetaUltimos4 = null);
+    int? FolioVale = null, string? TarjetaUltimos4 = null);
 
 public sealed record CajaSesionDetalleResponse(
     Guid Id, Guid CajaId, string CajaNombre, Guid SucursalId, Guid ResponsableUsuarioId, string Estado,
@@ -205,7 +205,7 @@ internal static class CajaSesionProyector
                 .Select(c => new CajaSesionCorteDto(c.FormaPago, c.MontoSistema, c.MontoDeclarado)).ToList(),
             movimientos.Select(m => new CajaMovimientoDto(
                 m.Id, m.Tipo.ToString(), m.FormaPago, m.Importe, m.Moneda, m.Descripcion,
-                m.Referencia, m.CobroMostradorId, m.UsuarioId, m.CreatedAt, m.TarjetaUltimos4)).ToList(),
+                m.Referencia, m.CobroMostradorId, m.UsuarioId, m.CreatedAt, m.FolioVale, m.TarjetaUltimos4)).ToList(),
             totales);
     }
 }

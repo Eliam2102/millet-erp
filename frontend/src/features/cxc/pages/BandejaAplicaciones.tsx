@@ -225,7 +225,7 @@ export function BandejaAplicaciones() {
                       <p className="max-w-48 truncate text-2xs text-ink-muted">{p.remittanceRef}</p>
                     </TableCell>
                     <TableCell className="max-w-56 truncate px-3 py-2">
-                      {nombres.get(p.clienteId) ?? p.clienteId.slice(0, 8)}
+                      {nombres.get(p.clienteId) ?? '—'}
                     </TableCell>
                     <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
                       {formatoMonto(p.montoDeposito, p.moneda)}

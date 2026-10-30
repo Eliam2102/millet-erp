@@ -83,7 +83,7 @@ export function PartidasAbiertas() {
 
   function resolverProveedor(id: string): string {
     const p = proveedoresMap.get(id);
-    if (p == null) return id.slice(0, 8) + '…';
+    if (p == null) return '—';
     return p.nombreComercial ?? p.razonSocial;
   }
   function resolverUsuario(id: string): string {

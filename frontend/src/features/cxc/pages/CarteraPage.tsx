@@ -1,4 +1,5 @@
 import { ReporteCxc } from '../components/ReporteCxc';
+import { hoyLocalISO } from '@/lib/datetime';
 import { PageHeader } from '@/components/erp';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Input } from '@/components/ui/input';
@@ -33,7 +34,7 @@ export function CarteraPage() {
   const navigate = useNavigate();
 
   const query = useAntiguedadSaldos({
-    fechaCorte: search.fechaCorte,
+    fechaCorte: search.fechaCorte ?? hoyLocalISO(),
     clienteId: search.clienteId,
     moneda: search.moneda,
   });

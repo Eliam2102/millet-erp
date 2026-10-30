@@ -60,7 +60,7 @@ export function RegistrarReppSheet({
           <SheetDescription>
             {pendiente != null &&
               `${pendiente.proveedorRazonSocial ?? pendiente.proveedorClave ?? 'Proveedor'} · factura ${
-                pendiente.folioProveedor ?? pendiente.facturaProveedorId.slice(0, 8)
+                pendiente.folioProveedor ?? '—'
               } · pagado ${formatoMonto(pendiente.montoPagado, pendiente.moneda)} el ${formatoFecha(pendiente.fechaPrimerPago)}.`}
           </SheetDescription>
         </SheetHeader>

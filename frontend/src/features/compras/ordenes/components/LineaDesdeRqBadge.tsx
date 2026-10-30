@@ -28,7 +28,7 @@ export interface LineaDesdeRqBadgeProps {
 }
 
 export function LineaDesdeRqBadge({ requisicionId, folio, className }: LineaDesdeRqBadgeProps) {
-  const label = folio ? `RQ ${folio}` : `RQ-${requisicionId.slice(0, 8)}`;
+  const label = folio ? `RQ ${folio}` : 'RQ';
   const tooltip = folio
     ? `Partida heredada de RQ ${folio} (id ${requisicionId})`
     : `Partida heredada de la requisición ${requisicionId}`;

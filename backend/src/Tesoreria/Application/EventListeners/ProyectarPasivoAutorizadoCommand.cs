@@ -68,7 +68,8 @@ public sealed class ProyectarPasivoAutorizadoHandler : IRequestHandler<Proyectar
                 uuidCfdi: uuidCfdi,
                 folioProveedor: p.FolioProveedor,
                 recibidoEn: ahora,
-                metodoPago: p.MetodoPago);
+                metodoPago: p.MetodoPago,
+                subtotal: p.Subtotal, impuestosTrasladados: p.ImpuestosTrasladados, retenciones: p.Retenciones);
             nuevo.AceptarAutorizacion(p.OcurridoEn);
             _db.PasivosPendientesPago.Add(nuevo);
         }
@@ -83,7 +84,8 @@ public sealed class ProyectarPasivoAutorizadoHandler : IRequestHandler<Proyectar
                 uuidCfdi: uuidCfdi,
                 folioProveedor: p.FolioProveedor,
                 recibidoEn: ahora,
-                metodoPago: p.MetodoPago);
+                metodoPago: p.MetodoPago,
+                subtotal: p.Subtotal, impuestosTrasladados: p.ImpuestosTrasladados, retenciones: p.Retenciones);
         }
 
         // Marca de idempotencia en la MISMA transacción que la proyección

@@ -44,6 +44,7 @@ public static class DependencyInjection
         // Scoped porque consume CompartidoDbContext (scoped).
         services.AddScoped<Millet.Facturacion.Application.Timbrado.ValidadorReceptorFiscal>();
         services.AddScoped<Millet.ComercioExterior.Application.Ports.IPedidosEmbarcablesReadPort, PublicAdapters.PedidosEmbarcablesReadAdapter>();
+        services.AddScoped<Millet.ProductoTerminado.Application.Ports.IPedidosPtReadPort, PublicAdapters.PedidosPtReadAdapter>();
         services.AddScoped<ICatalogosSatReadPort, CompartidoCatalogosSatReadAdapter>();
         services.AddScoped<IReppBancarioReadPort, ReppBancarioReadAdapter>();
         services.AddScoped<Millet.CuentasPorCobrar.Domain.Ports.Facturacion.IReppPendientesReadPort, PublicAdapters.ReppPendientesReadAdapter>();
@@ -54,6 +55,7 @@ public static class DependencyInjection
         // Deuda <DatosMaestrosFiscal> cerrada (ADR-0048 PR2).
         services.AddScoped<IClientesReadPort, DatosMaestros.ClientesReadAdapter>();
         services.AddScoped<IPlazoCreditoClienteReadPort, CuentasPorCobrar.PlazoCreditoClienteReadAdapter>();
+        services.AddScoped<ISaldoFacturaReadPort, CuentasPorCobrar.SaldoFacturaReadAdapter>();
         services.AddScoped<IProductosReadPort, DatosMaestros.ProductosReadAdapter>();
         services.AddScoped<Millet.DatosMaestros.Application.Clientes.IPedidosErpPorClienteReadPort, PublicAdapters.PedidosErpPorClienteReadAdapter>();
 
@@ -103,6 +105,8 @@ public static class DependencyInjection
         services.AddSingleton<IGenerarPdfFacturaPort, QuestPdfFacturaGenerator>();
         // FMT-4: domicilio, logo y catálogos del emisor para el PDF con formato de Millet.
         services.AddScoped<IDatosImpresionCfdiReadPort, DatosMaestros.DatosImpresionCfdiReadAdapter>();
+        // 86e3ww6tw: Vale de Caja de los retiros, mismo kit de formatos de Millet.
+        services.AddSingleton<IGenerarValeCajaPdfPort, Pdf.ValeCaja.QuestPdfValeCajaGenerator>();
         // PLATFORM-TODO(<EnvioCfdiCliente>)
         services.AddSingleton<INotificacionService, NoOpNotificacionService>();
         services.AddSingleton<Millet.SharedKernel.Application.Correo.ICorreoDocumentoService, NoOpNotificacionService>();
@@ -118,6 +122,8 @@ public static class DependencyInjection
         // write-back sigue pendiente (<PlantaPinturaOrigenes>).
         services.AddScoped<IAwSolicitudesReader, StubAwSolicitudesReader>();
         services.AddScoped<IAwWriteBackPort, StubAwWriteBackPort>();
+        services.AddScoped<IAwNotasCreditoPort, StubAwNotasCreditoPort>();
+        services.AddScoped<IAwVersionPedidoReadPort, AwVersionPedidoReadAdapter>();
 
         // --- F3-PR2: auto-provisión de master A+W — stub hasta DatosMaestros ---
         // CERRADO por ADR-0048 (PR4): AwMasterProvisioningAdapter (Integraciones.Aw)

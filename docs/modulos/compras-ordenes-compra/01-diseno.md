@@ -254,7 +254,7 @@ La OC autorizada tiene tres dimensiones de progreso que avanzan
   - `SinRecepcion` si `SUM(linea.cantidad_recibida) = 0`.
   - `Parcial` si `0 < SUM(linea.cantidad_recibida) < SUM(linea.cantidad)`.
   - `Completa` si `SUM(linea.cantidad_recibida) = SUM(linea.cantidad)`.
-- `SubEstadoFacturacion`: equivalente, contra `cantidad_facturada`, con tope por línea: se suma `MIN(cantidad_facturada, cantidad)` (el excedente facturado de una línea no completa a otra). Tope de captura por línea: `MAX(cantidad, cantidad_recibida)`; una devolución a proveedor no puede dejar `cantidad_recibida < cantidad_facturada` (ver Almacén 8.B, `DEVOLUCION_EXCEDE_NO_FACTURADO`).
+- `SubEstadoFacturacion`: equivalente, contra `cantidad_facturada`, con tope por línea: se suma `MIN(cantidad_facturada, cantidad)` (el excedente facturado de una línea no completa a otra). Tope de captura por línea: `MAX(cantidad, cantidad_recibida)`; una devolución a proveedor no puede dejar `cantidad_facturada > MAX(cantidad, cantidad_recibida)` (ver Almacén 8.B, `DEVOLUCION_EXCEDE_NO_FACTURADO`). Devolver lo facturado dentro de lo pedido baja `cantidad_recibida` y reabre la OC; `cantidad_facturada` no baja hasta `<NcGranularidadLineaOc>`.
 - `SubEstadoPago`: equivalente, contra `monto_pagado` vs `total_facturado`.
 
 **Transición a `Cerrada`:** se ejecuta automáticamente cuando las tres
@@ -1038,9 +1038,15 @@ El **estado comercial del proveedor** (`EstadoComercialProveedor`, F1-COM-11, §
   evento llega con `lineas_acumuladas_oc[]` ya calculado por CxP, de
   modo que el handler pasa el acumulado directo a
   `OrdenCompra.RegistrarFacturacionLinea` sin proyección espejo.
-- **Pendiente:** `NotaCreditoProveedorRegistradaEvent` se loggea como
-  informativo; la NC en CxP no tiene granularidad por línea (rediseño
-  necesario en CxP). PLATFORM-TODO `<NcGranularidadLineaOc>`.
+- **Devoluciones acreditadas (30-oct, cierra `<NcGranularidadLineaOc>`):**
+  Compras consume `almacen.oc_devolucion.conciliada.v1` (Almacén, al
+  formalizarse la nota de cargo con la NC 03) y fija
+  `cantidad_acreditada` por línea. Lo acreditado deja de esperarse:
+  sub-estados contra `cantidad − acreditada` y facturado neto
+  `cantidad_facturada − acreditada`; la OC cierra sin reposición. El
+  techo de facturación es `MAX(cantidad, recibida) + acreditada` (cabe
+  una reposición). `factura.cancelada.v1` trae el facturado vigente por
+  línea y se aplica igual que `factura.registrada.v1`.
 
 ### 8.4 Con Tesorería (Pago)
 
@@ -1481,7 +1487,7 @@ un `// PLATFORM-TODO(<id>): ...` en código.
 | ~~**Outbox + Service Bus (ADR 0009)**~~ | ~~`<Outbox>`~~ | **CERRADO en F8-PR1 (2026-05-12)**: el Outbox real se introdujo por F6-PR1+PR2 de Requisiciones y OC publica sus 6 integration events versionados (`compras.orden-compra.*.v1`) por el mismo cable. Ver `docs/integraciones/compras-eventos.md`. | — |
 | **Módulo Almacén (Recepción)** | `<Almacen.Recepcion>` | Hoy los puertos `IGenerarMovimientoSalidaPort`, `IReservarStockPort`, `IConsultarStockPort` son stubs (`InMemoryGenerarMovimientoSalidaPort`, etc.). Para OC: el evento `OcRecepcionRegistradaEvent` lo emite hoy el `OcBorradorStub`; cuando exista Recepción, lo emite el módulo real. | En el momento que Recepción exista, este submódulo retira el stub y conecta vía Outbox/Service Bus o como módulo separado del monolito. |
 | ~~**Módulo CxP (Factura de proveedor) — `FacturaProveedorRegistradaEvent`**~~ | ~~`<CxP.Factura>`~~ | **CERRADO en PR #288 (2026-05-24)**: `CxpEventListenerWorker` en Compras consume `cuentas_por_pagar.factura.registrada.v1` con `lineas_acumuladas_oc[]` ya calculado por CxP; sub-estado Facturación de OC avanza automáticamente. | — |
-| **Módulo CxP — `NotaCreditoProveedorRegistradaEvent` granular por línea OC** | `<NcGranularidadLineaOc>` | El listener `NotaCreditoProveedorRegistradaListener` en Compras está escrito pero queda huérfano: la NC en CxP no tiene granularidad por línea (solo `Total`). El worker loggea el evento como informativo. | Rediseño de modelo NC en CxP para incluir líneas con `linea_oc_id`, o decisión explícita de prorrateo por línea. |
+| ~~**Módulo CxP — `NotaCreditoProveedorRegistradaEvent` granular por línea OC**~~ | ~~`<NcGranularidadLineaOc>`~~ | **CERRADO (30-oct)** sin líneas en la NC: lo acreditado por línea viene de Almacén (`almacen.oc_devolucion.conciliada.v1`) al formalizar la nota de cargo con la NC 03; Compras guarda `cantidad_acreditada`. Se quitó el listener huérfano. | — |
 | **Módulo Tesorería (Pago) — `PagoFacturaProveedorEvent`** | `<TesoreriaEventListenerCompras>` | El listener `PagoFacturaProveedorListener` está escrito pero queda huérfano: no hay worker SB en Compras suscrito a `tesoreria-events`. El payload externo no incluye `oc_id` ni acumulado. | Crear `TesoreriaEventListenerWorker` en Compras + proyección local `facturas_proveedor_local` (mapping `factura_id → oc_id`) + proyección de pagos por OC para calcular `MontoPagadoAcumulado`. PR separado. |
 | ~~**Servicio de PDF institucional**~~ | ~~`<PdfService>`~~ | **CERRADO en F6-PR3 (2026-05-12)**: `QuestPdfOrdenCompraGenerator` reemplazó al stub con layout institucional real (QuestPDF Community license, válida hasta $1M revenue). | — |
 | **Correo de OC al proveedor (F1-COM-10 · G1.8)** | `<V08>` | `NoOpNotificacionService` (`EsSimulado = true`, en `Facturacion.Infrastructure.Notificaciones`) implementa `ICorreoDocumentoService`: loggea el envío y no entrega correo; el historial marca el envío como `simulado`. | Registrar en `Api/Program.cs` el adapter real (SMTP / Microsoft Graph) de `ICorreoDocumentoService` en lugar del `NoOp` cuando se confirme el remitente del tenant (V08). Sin más cambios en Compras. |

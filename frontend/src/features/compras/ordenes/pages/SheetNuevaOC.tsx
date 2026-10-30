@@ -5,7 +5,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Plus } from 'lucide-react';
+import { EyeOff, Plus, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { SeccionOc, type EstadoSeccionOc } from '@/features/compras/ordenes/components/SeccionOc';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -34,7 +38,7 @@ import {
   TextAreaField,
   DecimalField,
 } from '@/components/erp';
-import { useSucursales, mapById } from '@/features/catalogos/api';
+import { useSucursales, useDepartamentos, mapById } from '@/features/catalogos/api';
 import {
   CrearOrdenCompraVaciaSchema,
   DEFAULT_CREAR_OC_VACIA,
@@ -264,6 +268,36 @@ export function SheetNuevaOC({
     }
   }
 
+  const departamentosQuery = useDepartamentos();
+  const deptosMap = useMemo(() => mapById(departamentosQuery.data?.items), [departamentosQuery.data]);
+  const totalPartidas = rqsSeleccionadas.reduce((n, rq) => n + rq.totalLineas, 0);
+
+  // Estado por sección derivado del form: errores vigentes de RHF y los
+  // obligatorios que ya define el esquema (sin reglas nuevas).
+  const errores = form.formState.errors;
+  const seccion = (
+    campos: ReadonlyArray<keyof CrearOrdenCompraVaciaValues>,
+    completa: boolean,
+  ): EstadoSeccionOc => {
+    const n = campos.filter((c) => errores[c] != null).length;
+    return { errores: n, completa: completa && n === 0 };
+  };
+  const wv = watchedValues;
+  const estadoSec1 = seccion(['sucursalDestinoId', 'proveedorId'], !!wv.sucursalDestinoId && !!wv.proveedorId);
+  const estadoSec2 = seccion(
+    ['motivoSinRequisicion'],
+    sinRequisicionPrevia ? !!wv.motivoSinRequisicion?.trim() : rqsSeleccionadas.length > 0,
+  );
+  const estadoSec3 = seccion(
+    ['condicionesPagoId', 'moneda', 'tipoCambio', 'fechaDocumento', 'fechaEntregaEsperada'],
+    !!wv.condicionesPagoId && !!wv.moneda && !!wv.fechaDocumento && (moneda === 'MXN' || wv.tipoCambio != null),
+  );
+  const estadoSec4 = seccion(
+    ['usoCfdiClave', 'metodoPago', 'formaPagoClave'],
+    !!wv.usoCfdiClave && !!wv.metodoPago && !!wv.formaPagoClave,
+  );
+  const estadoSec5 = seccion(['usoPrincipalId', 'observaciones'], !!wv.usoPrincipalId);
+
   const crearMut = useCrearOrdenCompraVacia();
   const agregarLineaMut = useAgregarLineaDesdeRequisicion();
 
@@ -414,234 +448,246 @@ export function SheetNuevaOC({
 
       <form
         onSubmit={form.handleSubmit(onSubmit)}
-        className="space-y-4 pt-2"
+        className="space-y-6 pt-1"
         data-component="sheet-nueva-oc"
         noValidate
       >
-        {/* Toggle "Sin RQ previa" + botón consolidación */}
-        <div className="flex flex-wrap gap-2 rounded-md border bg-surface-muted/20 p-3 text-xs">
-          {canCrearSinRq && (
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                {...form.register('sinRequisicionPrevia')}
-                className="h-4 w-4 rounded border-line-control"
-                data-action="toggle-sin-rq"
-              />
-              <span className="font-medium">Esta OC va sin requisición previa</span>
-              <span className="text-ink-muted">(requiere motivo y evidencia)</span>
-            </label>
-          )}
-          {/*
-            Botón "Agregar requisiciones (consolidación)" oculto cuando:
-            - Modo 1:1 desde RQ (la RQ ya viene seleccionada, no se mezcla
-              con otras).
-            - Setting AutoGenerarOcAlAutorizar=true: las RQs ya se
-              comprometen automáticamente al autorizar, no quedan
-              disponibles para consolidación manual.
-          */}
-          {!modoUnoAUno && autoGenerarOcAlAutorizar !== true && (
-            <div className="ml-auto flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  if (sucursalDestinoId == null || sucursalDestinoId.length === 0) {
-                    toast.warning(
-                      'Selecciona primero la sucursal de destino. Las RQs disponibles dependen de la sucursal.',
-                    );
-                    return;
-                  }
-                  setSelectorAbierto(true);
-                }}
-                data-action="abrir-selector-consolidacion"
+        {/* 1 · Destino y proveedor */}
+        <SeccionOc numero={1} titulo="Destino y proveedor" estado={estadoSec1}>
+          <Controller
+            control={form.control}
+            name="sucursalDestinoId"
+            render={({ field, fieldState }) => (
+              <Field
+                label="Sucursal destino"
+                required
+                hint="Define qué requisiciones puedes consolidar."
+                error={fieldState.error?.message}
               >
-                <Plus className="mr-1 h-3.5 w-3.5" />
-                {rqsSeleccionadas.length === 0
-                  ? 'Agregar requisiciones (consolidación)'
-                  : `Editar ${rqsSeleccionadas.length} RQ(s) seleccionadas`}
-              </Button>
+                {(c) => (
+                  <SucursalSelector
+                    triggerProps={c}
+                    value={field.value ?? null}
+                    onChange={(v) => field.onChange(v ?? '')}
+                  />
+                )}
+              </Field>
+            )}
+          />
+          <Controller
+            control={form.control}
+            name="proveedorId"
+            render={({ field, fieldState }) => (
+              <Field label="Proveedor" error={fieldState.error?.message}>
+                {(c) => (
+                  <ProveedorSelector
+                    triggerProps={c}
+                    value={field.value ?? null}
+                    onChange={(v) => field.onChange(v ?? '')}
+                  />
+                )}
+              </Field>
+            )}
+          />
+        </SeccionOc>
+
+        <Separator />
+
+        {/* 2 · Origen de la compra */}
+        <SeccionOc numero={2} titulo="Origen de la compra" estado={estadoSec2}>
+          <Controller
+            control={form.control}
+            name="sinRequisicionPrevia"
+            render={({ field }) => (
+              <fieldset className="min-w-0 space-y-2">
+                <legend className="mb-2 text-xs font-medium text-ink-strong">
+                  ¿De dónde sale esta orden?
+                </legend>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {[
+                    {
+                      valor: false,
+                      titulo: 'Desde requisiciones',
+                      texto: 'Consolida una o varias RQ disponibles de la sucursal.',
+                    },
+                    {
+                      valor: true,
+                      titulo: 'Sin requisición previa',
+                      texto: 'Pide motivo y correo de autorización.',
+                    },
+                  ].map((op) => {
+                    const deshabilitada = op.valor && !canCrearSinRq;
+                    return (
+                      <label
+                        key={op.titulo}
+                        className={cn(
+                          'flex cursor-pointer items-start gap-2.5 rounded-md border border-line-control bg-surface-card p-3',
+                          'has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:focus-visible]:ring-offset-1',
+                          field.value === op.valor && 'border-brand bg-brand-soft',
+                          deshabilitada && 'cursor-not-allowed opacity-60',
+                        )}
+                      >
+                        <input
+                          type="radio"
+                          name="origen-oc"
+                          checked={field.value === op.valor}
+                          onChange={() => field.onChange(op.valor)}
+                          disabled={deshabilitada}
+                          className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--mt-primary)]"
+                          data-action={op.valor ? 'toggle-sin-rq' : 'origen-desde-rq'}
+                        />
+                        <span className="min-w-0">
+                          <span className="block text-sm font-medium text-ink">{op.titulo}</span>
+                          <span className="block text-xs text-ink-muted">{op.texto}</span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            )}
+          />
+
+          {!sinRequisicionPrevia && (
+            <div
+              className="overflow-hidden rounded-md border border-line bg-surface-card"
+              data-component="rqs-seleccionadas-chips"
+            >
+              <div className="flex items-center justify-between gap-2 bg-surface-muted/40 px-3 py-2.5 text-xs">
+                <p aria-live="polite" className="text-ink-muted">
+                  {rqsSeleccionadas.length === 0 ? (
+                    'Aún no agregas requisiciones.'
+                  ) : (
+                    <>
+                      <strong className="font-semibold text-ink">
+                        {rqsSeleccionadas.length}{' '}
+                        {rqsSeleccionadas.length === 1 ? 'requisición' : 'requisiciones'}
+                      </strong>{' '}
+                      · {totalPartidas} {totalPartidas === 1 ? 'partida se agregará' : 'partidas se agregarán'} a la OC
+                    </>
+                  )}
+                </p>
+                {/*
+                  Botón "Agregar" oculto cuando:
+                  - Modo 1:1 desde RQ (la RQ ya viene seleccionada, no se mezcla
+                    con otras).
+                  - Setting AutoGenerarOcAlAutorizar=true: las RQs ya se
+                    comprometen automáticamente al autorizar, no quedan
+                    disponibles para consolidación manual.
+                */}
+                {!modoUnoAUno && autoGenerarOcAlAutorizar !== true && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (sucursalDestinoId == null || sucursalDestinoId.length === 0) {
+                        toast.warning(
+                          'Selecciona primero la sucursal de destino. Las RQs disponibles dependen de la sucursal.',
+                        );
+                        return;
+                      }
+                      setSelectorAbierto(true);
+                    }}
+                    data-action="abrir-selector-consolidacion"
+                  >
+                    <Plus className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+                    Agregar
+                  </Button>
+                )}
+              </div>
+              {rqsSeleccionadas.length > 0 && (
+                <ul className="divide-y divide-line-divider border-t border-line-divider">
+                  {rqsSeleccionadas.map((rq) => (
+                    <li
+                      key={rq.id}
+                      data-rq-chip={rq.id}
+                      className="flex items-center gap-2 px-3 py-2.5 text-xs"
+                    >
+                      <span className="font-mono text-ink">{rq.folio}</span>
+                      <span className="min-w-0 flex-1 truncate text-ink-muted">
+                        · {deptosMap.get(rq.departamentoId)?.nombre ?? 'Sin área'} · {rq.totalLineas}{' '}
+                        {rq.totalLineas === 1 ? 'partida' : 'partidas'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setRqsSeleccionadas((prev) => prev.filter((r) => r.id !== rq.id))
+                        }
+                        className="rounded-sm p-1 text-ink-muted hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        aria-label={`Quitar ${rq.folio} de la consolidación`}
+                      >
+                        <X className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
-        </div>
 
-        {/* Chips de RQs seleccionadas (modo Consolidación) */}
-        {rqsSeleccionadas.length > 0 && (
-          <div
-            className="flex flex-wrap gap-1.5 rounded-md border border-info bg-info-bg/40 p-2 text-xs"
-            data-component="rqs-seleccionadas-chips"
-          >
-            <span className="font-medium text-info-fg">
-              Consolidando {rqsSeleccionadas.length} {rqsSeleccionadas.length === 1 ? 'RQ' : 'RQs'}:
-            </span>
-            {rqsSeleccionadas.map((rq) => (
-              <span
-                key={rq.id}
-                className="inline-flex items-center gap-1 rounded-full border border-info bg-surface-card px-2 py-0.5 font-mono text-info-fg"
-                data-rq-chip={rq.id}
-              >
-                {rq.folio} · {rq.totalLineas}L
-                <button
-                  type="button"
-                  onClick={() => setRqsSeleccionadas((prev) => prev.filter((r) => r.id !== rq.id))}
-                  className="text-info-fg hover:text-info-fg"
-                  aria-label={`Quitar ${rq.folio} de la consolidación`}
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
+          {/* Modal selector de RQs (UF2-PR2) */}
+          <SelectorRequisicionesConsolidacion
+            open={selectorAbierto}
+            onOpenChange={setSelectorAbierto}
+            sucursalId={sucursalDestinoId || null}
+            rqsPreviamenteSeleccionadas={rqsSeleccionadas}
+            onConfirm={(rqs) => setRqsSeleccionadas(rqs)}
+          />
 
-        {/* Modal selector de RQs (UF2-PR2) */}
-        <SelectorRequisicionesConsolidacion
-          open={selectorAbierto}
-          onOpenChange={setSelectorAbierto}
-          sucursalId={sucursalDestinoId || null}
-          rqsPreviamenteSeleccionadas={rqsSeleccionadas}
-          onConfirm={(rqs) => setRqsSeleccionadas(rqs)}
-        />
-
-        {/* Panel motivo + uploader stub (solo modo SinRq) */}
-        {sinRequisicionPrevia && (
-          <div className="space-y-3 rounded-md border border-warning bg-warning-bg/40 p-3">
-            <Controller
-              control={form.control}
-              name="motivoSinRequisicion"
-              render={({ field, fieldState }) => (
-                <Field label="Motivo (obligatorio)" error={fieldState.error?.message}>
-                  {(c) => (
-                    <>
+          {/* Motivo + adjunto (solo modo SinRq) */}
+          {sinRequisicionPrevia && (
+            <div className="space-y-3.5">
+              <Controller
+                control={form.control}
+                name="motivoSinRequisicion"
+                render={({ field, fieldState }) => (
+                  <Field label="Motivo" required error={fieldState.error?.message}>
+                    {(c) => (
                       <TextAreaField
                         textareaProps={c}
                         value={field.value ?? null}
                         onChange={field.onChange}
                         minRows={2}
                       />
-                    </>
-                  )}
-                </Field>
-              )}
-            />
-            <UploadCorreoAutorizacion />
-          </div>
-        )}
+                    )}
+                  </Field>
+                )}
+              />
+              <UploadCorreoAutorizacion />
+            </div>
+          )}
+        </SeccionOc>
 
-        {/* Sección Proveedor */}
-        <FormGrid>
-          <FormCampo span={6}>
-            <Controller
-              control={form.control}
-              name="proveedorId"
-              render={({ field, fieldState }) => (
-                <Field label="Proveedor" error={fieldState.error?.message}>
-                  {(c) => (
-                    <>
-                      <ProveedorSelector
-                        triggerProps={c}
-                        value={field.value ?? null}
-                        onChange={(v) => field.onChange(v ?? '')}
-                      />
-                    </>
-                  )}
-                </Field>
-              )}
-            />
-          </FormCampo>
-          {/* Sucursal alineada con proveedor */}
-          <FormCampo span={6}>
-            <Controller
-              control={form.control}
-              name="sucursalDestinoId"
-              render={({ field, fieldState }) => (
-                <Field label="Sucursal destino" required error={fieldState.error?.message}>
-                  {(c) => (
-                    <>
-                      <SucursalSelector
-                        triggerProps={c}
-                        value={field.value ?? null}
-                        onChange={(v) => field.onChange(v ?? '')}
-                      />
-                      <p className="mt-1 text-xs text-ink-muted">
-                        {sucursalesMap.get(field.value)?.clave
-                          ? `Esta compra se registrará para ${sucursalesMap.get(field.value)?.clave} · ${sucursalesMap.get(field.value)?.nombre}.`
-                          : 'Elige para qué sucursal se realiza esta compra.'}{' '}
-                        Tu cuenta conserva su alcance corporativo o sus sucursales autorizadas.
-                      </p>
-                    </>
-                  )}
-                </Field>
-              )}
-            />
-          </FormCampo>
-        </FormGrid>
+        <Separator />
 
-        <FormGrid>
-          <FormCampo span={6}>
-            <Controller
-              control={form.control}
-              name="usoPrincipalId"
-              render={({ field, fieldState }) => (
-                <Field label="Uso interno de la compra" error={fieldState.error?.message}>
-                  {(c) => (
-                    <>
-                      <p className="text-xs text-ink-muted">No se imprime en la orden de compra</p>
-                      <UsoPrincipalSelector
-                        triggerProps={c}
-                        value={field.value || null}
-                        onChange={(v) => field.onChange(v ?? '')}
-                      />
-                    </>
-                  )}
-                </Field>
-              )}
-            />
-          </FormCampo>
-        </FormGrid>
-        <section aria-label="Datos para la factura del proveedor" className="space-y-3">
-          <h3 className="text-sm font-semibold">Datos para la factura del proveedor</h3>
-          <p className="text-xs text-ink-muted">Uso de CFDI, método y forma de pago son obligatorios al enviar a autorización.</p>
-          <FormGrid>{(['usoCfdiClave', 'metodoPago', 'formaPagoClave'] as const).map(campo => (
-            <FormCampo key={campo} span={4}>
-              <Controller control={form.control} name={campo} render={({ field, fieldState }) => (
-                <CampoFacturaOc campo={campo} value={field.value} onChange={field.onChange} error={fieldState.error?.message} />
-              )} />
-            </FormCampo>
-          ))}</FormGrid>
-        <FormGrid>
-          <FormCampo span={6}>
-            <Controller
-              control={form.control}
-              name="condicionesPagoId"
-              render={({ field, fieldState }) => (
-                <Field label="Condiciones de pago" error={fieldState.error?.message}>
-                  {(c) => (
-                    <>
+        {/* 3 · Condiciones comerciales */}
+        <SeccionOc numero={3} titulo="Condiciones comerciales" estado={estadoSec3}>
+          <FormGrid>
+            <FormCampo span={6}>
+              <Controller
+                control={form.control}
+                name="condicionesPagoId"
+                render={({ field, fieldState }) => (
+                  <Field label="Condiciones de pago" error={fieldState.error?.message}>
+                    {(c) => (
                       <CondicionesPagoSelector
                         triggerProps={c}
                         value={field.value || null}
                         onChange={(v) => field.onChange(v ?? '')}
                       />
-                    </>
-                  )}
-                </Field>
-              )}
-            />
-          </FormCampo>
-
-        </FormGrid>
-
-        <FormGrid>
-          <FormCampo span={6}>
-            <Controller
-              control={form.control}
-              name="moneda"
-              render={({ field, fieldState }) => (
-                <Field label="Moneda" error={fieldState.error?.message}>
-                  {(c) => (
-                    <>
+                    )}
+                  </Field>
+                )}
+              />
+            </FormCampo>
+            <FormCampo span={6}>
+              <Controller
+                control={form.control}
+                name="moneda"
+                render={({ field, fieldState }) => (
+                  <Field label="Moneda" error={fieldState.error?.message}>
+                    {(c) => (
                       <Select value={field.value || 'MXN'} onValueChange={field.onChange}>
                         <SelectTrigger data-field="moneda" {...c}>
                           <SelectValue />
@@ -654,127 +700,183 @@ export function SheetNuevaOC({
                           ))}
                         </SelectContent>
                       </Select>
-                    </>
-                  )}
-                </Field>
-              )}
-            />
-          </FormCampo>
-
-        </FormGrid>
-        </section>
-        <FormGrid>
-          <FormCampo span={6}>
-            <Controller
-              control={form.control}
-              name="fechaDocumento"
-              render={({ field, fieldState }) => (
-                <Field label="Fecha del documento" error={fieldState.error?.message}>
-                  {(c) => (
-                    <>
-                      <DatePickerField
-                        id={c.id}
-                        value={field.value ?? null}
-                        onChange={(v) => field.onChange(v ?? '')}
-                      />
-                    </>
-                  )}
-                </Field>
-              )}
-            />
-          </FormCampo>
-          {moneda !== 'MXN' && (
-            <FormCampo span={6}>
-              <Controller
-                control={form.control}
-                name="tipoCambio"
-                render={({ field, fieldState }) => (
-                  <Field
-                    label={`Tipo de cambio (${moneda} → MXN)`}
-                    error={fieldState.error?.message}
-                  >
-                    {(c) => (
-                      <>
-                        <DecimalField
-                          inputProps={c}
-                          value={field.value ?? null}
-                          onChange={field.onChange}
-                          min={0.000001}
-                          step={0.000001}
-                        />
-                      </>
                     )}
                   </Field>
                 )}
               />
             </FormCampo>
-          )}
-        </FormGrid>
-
-        {/* Sección logística básica (importación + fecha entrega) */}
-        <FormGrid>
-          <FormCampo span={6}>
-            <Field label="Importación o exportación">
-              {(c) => (
-                <div className="flex items-start gap-2 text-sm">
-                  <input
-                    {...c}
-                    type="checkbox"
-                    {...form.register('esImportacion')}
-                    className="mt-0.5 h-4 w-4 rounded border-line-control"
-                    data-field="es-importacion"
+            {moneda !== 'MXN' && (
+              <>
+                <FormCampo span={6}>
+                  <Controller
+                    control={form.control}
+                    name="tipoCambio"
+                    render={({ field, fieldState }) => (
+                      <Field
+                        label={`Tipo de cambio (${moneda} → MXN)`}
+                        error={fieldState.error?.message}
+                      >
+                        {(c) => (
+                          <DecimalField
+                            inputProps={c}
+                            value={field.value ?? null}
+                            onChange={field.onChange}
+                            min={0.000001}
+                            step={0.000001}
+                          />
+                        )}
+                      </Field>
+                    )}
                   />
-                  <p className="text-xs text-ink-muted">
-                    Captura incoterm, país, BL y los demás datos en el detalle de la OC antes de
-                    enviarla a autorización.
+                </FormCampo>
+                <FormCampo span={6} className="self-start pt-[26px]">
+                  <p className="flex h-ctl-md items-center text-xs text-ink-muted">
+                    Aparece solo con moneda distinta a MXN.
                   </p>
-                </div>
-              )}
-            </Field>
-          </FormCampo>
-          <FormCampo span={6}>
-            <Controller
-              control={form.control}
-              name="fechaEntregaEsperada"
-              render={({ field, fieldState }) => (
-                <Field label="Fecha entrega esperada (opcional)" error={fieldState.error?.message}>
-                  {(c) => (
-                    <>
+                </FormCampo>
+              </>
+            )}
+            <FormCampo span={6}>
+              <Controller
+                control={form.control}
+                name="fechaDocumento"
+                render={({ field, fieldState }) => (
+                  <Field label="Fecha del documento" error={fieldState.error?.message}>
+                    {(c) => (
+                      <DatePickerField
+                        id={c.id}
+                        value={field.value ?? null}
+                        onChange={(v) => field.onChange(v ?? '')}
+                      />
+                    )}
+                  </Field>
+                )}
+              />
+            </FormCampo>
+            <FormCampo span={6}>
+              <Controller
+                control={form.control}
+                name="fechaEntregaEsperada"
+                render={({ field, fieldState }) => (
+                  <Field label="Entrega esperada" optional error={fieldState.error?.message}>
+                    {(c) => (
                       <DatePickerField
                         id={c.id}
                         value={field.value ?? null}
                         onChange={(v) => field.onChange(v ?? null)}
                       />
-                    </>
-                  )}
-                </Field>
-              )}
-            />
-          </FormCampo>
-        </FormGrid>
+                    )}
+                  </Field>
+                )}
+              />
+            </FormCampo>
+          </FormGrid>
 
-        {/* Observaciones */}
-        <Controller
-          control={form.control}
-          name="observaciones"
-          render={({ field, fieldState }) => (
-            <Field label="Observaciones (opcional)" error={fieldState.error?.message}>
-              {(c) => (
-                <>
+          <label
+            className={cn(
+              'flex cursor-pointer items-start gap-2.5 rounded-md border border-line-control bg-surface-card p-3',
+              'has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:focus-visible]:ring-offset-1',
+              'has-[:checked]:border-brand has-[:checked]:bg-brand-soft',
+            )}
+          >
+            <input
+              type="checkbox"
+              {...form.register('esImportacion')}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--mt-primary)]"
+              data-field="es-importacion"
+            />
+            <span className="min-w-0">
+              <span className="block text-sm font-medium text-ink">
+                Es importación o exportación
+              </span>
+              <span className="block text-xs text-ink-muted">
+                Incoterm, país, BL y demás datos se capturan en el detalle antes de enviarla a
+                autorización.
+              </span>
+            </span>
+          </label>
+        </SeccionOc>
+
+        <Separator />
+
+        {/* 4 · Datos para la factura del proveedor */}
+        <SeccionOc
+          numero={4}
+          titulo="Datos para la factura del proveedor"
+          subtitulo="Puedes crear la OC sin ellos; son obligatorios para enviarla a autorización."
+          estado={estadoSec4}
+          derecha={<Badge variant="neutral">Se piden al autorizar</Badge>}
+        >
+          <FormGrid>
+            {(['usoCfdiClave', 'metodoPago', 'formaPagoClave'] as const).map((campo) => (
+              <FormCampo key={campo} span={campo === 'usoCfdiClave' ? 12 : 6}>
+                <Controller
+                  control={form.control}
+                  name={campo}
+                  render={({ field, fieldState }) => (
+                    <CampoFacturaOc
+                      campo={campo}
+                      value={field.value}
+                      onChange={field.onChange}
+                      error={fieldState.error?.message}
+                    />
+                  )}
+                />
+              </FormCampo>
+            ))}
+          </FormGrid>
+        </SeccionOc>
+
+        <Separator />
+
+        {/* 5 · Uso y observaciones */}
+        <SeccionOc numero={5} titulo="Uso y observaciones" estado={estadoSec5}>
+          <Controller
+            control={form.control}
+            name="usoPrincipalId"
+            render={({ field, fieldState }) => (
+              <Field
+                label={
+                  <span className="flex items-center justify-between gap-2">
+                    Uso interno de la compra
+                    <span className="inline-flex items-center gap-1 font-normal text-ink-muted">
+                      <EyeOff className="h-3.5 w-3.5" aria-hidden="true" />
+                      No se imprime en la OC
+                    </span>
+                  </span>
+                }
+                error={fieldState.error?.message}
+              >
+                {(c) => (
+                  <UsoPrincipalSelector
+                    triggerProps={c}
+                    value={field.value || null}
+                    onChange={(v) => field.onChange(v ?? '')}
+                  />
+                )}
+              </Field>
+            )}
+          />
+          <Controller
+            control={form.control}
+            name="observaciones"
+            render={({ field, fieldState }) => (
+              <Field label="Observaciones" optional error={fieldState.error?.message}>
+                {(c) => (
                   <TextAreaField
                     textareaProps={c}
                     value={field.value ?? null}
                     onChange={(v) => field.onChange(v || null)}
                     minRows={3}
                   />
-                </>
-              )}
-            </Field>
-          )}
-        />
+                )}
+              </Field>
+            )}
+          />
+        </SeccionOc>
 
-        {/* Footer del Sheet con acciones */}
-        <div className="flex items-center justify-end gap-2 border-t pt-3">
+        {/* Footer pegado al borde inferior del scroll */}
+        <div className="sticky -bottom-5 -mx-6 -mb-5 flex items-center justify-end gap-2 border-t border-line-divider bg-background px-6 py-4">
           <Button
             type="button"
             variant="outline"

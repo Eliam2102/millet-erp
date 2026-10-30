@@ -59,6 +59,18 @@ public sealed class DemoSesionSeedTests
         Assert.DoesNotContain(permisos, p => p.Codigo.Contains("todas-sucursales", StringComparison.Ordinal) || p.Codigo.StartsWith("identidad.", StringComparison.Ordinal));
     }
 
+    /// <summary>M-45: ningún rol definido (salvo el administrador, equivalente al super-admin) recibe los permisos de Producto Terminado.</summary>
+    [Theory]
+    [InlineData("Compras")] [InlineData("CxP")] [InlineData("Tesorería")] [InlineData("Facturación")] [InlineData("Caja")]
+    [InlineData("Contabilidad")] [InlineData("DAF")] [InlineData("Capturista Compras")] [InlineData("Jefe Compras")]
+    [InlineData("Dirección")] [InlineData("Jefe Compras y CxP")] [InlineData("Dirección y Tesorería")]
+    public void M45_Ningun_rol_distinto_del_administrador_recibe_permisos_de_producto_terminado(string rol)
+    {
+        var pt = PermisosCanonicos.Todos.Where(p => p.Codigo.StartsWith("producto_terminado.", StringComparison.Ordinal)).ToArray();
+        Assert.Equal(4, pt.Length);
+        Assert.All(pt, p => Assert.False(DemoSesionSeedHostedService.PermisoDelRol(rol, p.Codigo), $"{rol} no debe recibir {p.Codigo}"));
+    }
+
     [Theory]
     [InlineData("Jefe Compras y CxP", "Jefe Compras", "CxP", true, false, "cuentas_por_pagar.")]
     [InlineData("Dirección y Tesorería", "Dirección", "Tesorería", false, true, "tesoreria.")]

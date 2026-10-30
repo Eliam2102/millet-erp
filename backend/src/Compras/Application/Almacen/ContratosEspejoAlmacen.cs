@@ -143,3 +143,17 @@ public sealed record RecepcionActivoAnuladaAlmacenPayload(
     decimal Cantidad,
     decimal CantidadRecibidaAcumulada,
     string Motivo);
+
+/// <summary>
+/// Espejo de <c>almacen.oc_devolucion.conciliada.v1</c>: devolución a proveedor conciliada con la NC fiscal 03.
+/// <c>CantidadAcreditadaAcumulada</c> es el total acreditado por línea de OC (todas las devoluciones conciliadas
+/// de la OC), en la unidad de la línea; Compras lo fija (set, no incremento).
+/// </summary>
+public sealed record OcDevolucionConciliadaAlmacenPayload(
+    Guid EmpresaId,
+    DateTimeOffset OcurridoEn,
+    Guid OrdenCompraId,
+    Guid DevolucionId,
+    IReadOnlyList<LineaOcAcreditadaAlmacenPayload> LineasAcreditadasOc);
+
+public sealed record LineaOcAcreditadaAlmacenPayload(Guid LineaOcId, decimal CantidadAcreditadaAcumulada);

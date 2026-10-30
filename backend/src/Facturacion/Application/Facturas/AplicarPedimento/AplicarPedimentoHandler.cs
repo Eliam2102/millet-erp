@@ -83,7 +83,10 @@ public sealed class AplicarPedimentoHandler : IRequestHandler<AplicarPedimentoCo
         if (factura.Estado == EstadoTimbrado.Timbrado)
             await _eventos.PublishAsync(EventosContablesFacturacion.FacturaVentaTimbrada(
                 factura, ahora, clienteId: await ClienteContableFacturacion.ResolverAsync(_db, factura, cancellationToken),
-                tiposProducto: await EventosContablesFacturacion.TiposProductoAsync(_productos, factura, cancellationToken)),
+                tiposProducto: await EventosContablesFacturacion.TiposProductoAsync(_productos, factura, cancellationToken),
+                pedido: factura.PedidoFacturableId is Guid pedidoId
+                    ? await _db.PedidosFacturables.AsNoTracking().FirstOrDefaultAsync(p => p.Id == pedidoId, cancellationToken)
+                    : null),
                 cancellationToken);
 
         // RANURA-PR2: la factura retenida por pedimento no alcanzó a emitir

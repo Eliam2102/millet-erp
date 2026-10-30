@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { esApiError } from '@/lib/api';
+import { fechaLocalISO } from '@/lib/datetime';
 import {
   useCfdiDetalle,
   useCfdiParseado,
@@ -45,7 +46,7 @@ export function CfdiDetalleSheet({
 }: CfdiDetalleSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full max-w-3xl overflow-y-auto sm:max-w-3xl">
+      <SheetContent side="right" size="legacy">
         <SheetHeader>
           <SheetTitle>Detalle del CFDI</SheetTitle>
           <SheetDescription className="font-mono text-xs">
@@ -104,8 +105,8 @@ function Detalle({ cfdiId }: { cfdiId: string }) {
           valor={d.serie ? `${d.serie}-${d.folio ?? ''}` : (d.folio ?? '—')}
           mono
         />
-        <Metadato label="Fecha CFDI" valor={d.fechaCfdi.slice(0, 10)} />
-        <Metadato label="Recepción" valor={d.fechaRecepcion.slice(0, 10)} />
+        <Metadato label="Fecha CFDI" valor={fechaLocalISO(d.fechaCfdi)} />
+        <Metadato label="Recepción" valor={fechaLocalISO(d.fechaRecepcion)} />
         <Metadato label="Canal" valor={CanalOrigenCfdiLabels[d.canalOrigen]} />
         <Metadato label="Subtotal" valor={monto(d.subtotal, d.moneda)} mono />
         <Metadato

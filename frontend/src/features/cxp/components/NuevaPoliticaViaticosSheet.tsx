@@ -56,7 +56,7 @@ export function NuevaPoliticaViaticosSheet({
 }: NuevaPoliticaViaticosSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-md">
+      <SheetContent side="right" size="form">
         <SheetHeader>
           <SheetTitle>Nueva política de viáticos</SheetTitle>
           <SheetDescription>

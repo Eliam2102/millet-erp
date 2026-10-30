@@ -345,7 +345,7 @@ public sealed class EmitirFacturaVentaHandler
         {
             await _eventos.PublishAsync(EventosContablesFacturacion.FacturaVentaTimbrada(
                 factura, ahora, command.ClienteId ?? pedido?.ClienteId,
-                await EventosContablesFacturacion.TiposProductoAsync(_productos, factura, cancellationToken)),
+                await EventosContablesFacturacion.TiposProductoAsync(_productos, factura, cancellationToken), pedido),
                 cancellationToken);
             await _contabilidad.RegistrarAsientoAsync(new AsientoContableSolicitud(
                 factura.Id, "FacturaVenta", $"Factura {factura.Folio}", factura.Total, factura.Moneda, anio, mes), cancellationToken);
@@ -359,16 +359,14 @@ public sealed class EmitirFacturaVentaHandler
         {
             pedido.MarcarFacturado(factura.Id);
 
-            // ADR-0048 D3 (PR5): pedidos A+W avisan de vuelta a la tabla-puente
-            // (uuid + estado_facturacion) vía WriteBackResultadoWorker. En el
-            // mismo commit que MarcarFacturado — cero ventana de inconsistencia.
+            // TR-01: el aviso a A+W ya no es un UPDATE por pedido (B6): la factura viaja en
+            // FacturaVentaTimbradaIntegrationEvent y Integraciones.Aw deja su fila Documento.
             if (pedido.Origen == OrigenPedido.Aw && factura.Estado == EstadoTimbrado.Timbrado)
             {
                 var control = await _db.IngestaControles
                     .FirstOrDefaultAsync(c => c.PedidoFacturableId == pedido.Id, cancellationToken);
                 if (control is not null)
                 {
-                    control.SolicitarWriteBackEstado("Facturado", factura.Uuid, _clock.UtcNow);
                     control.CambiarEstado(EstadoIngesta.Facturado);
                 }
             }

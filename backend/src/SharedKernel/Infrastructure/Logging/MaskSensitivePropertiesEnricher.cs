@@ -8,7 +8,7 @@ namespace Millet.SharedKernel.Infrastructure.Logging;
 /// Política balanceada para contexto mexicano (ver ADR-0006):
 ///
 /// - <b>Enmascarar siempre:</b> password, token, bearer, authorization, apiKey,
-///   clientSecret, curp, clabe, numeroCuenta, numeroTarjeta, cvv,
+///   clientSecret, curp, clabe, numeroCuenta, cuentaOrdenante, cuentaBeneficiaria, numeroTarjeta, cvv,
 ///   nombrePersonaFisica, apellidoPaterno, apellidoMaterno, emailPersonal,
 ///   telefonoPersonal.
 /// - <b>NO enmascarar (decisión explícita):</b> rfc, domicilioFiscal,
@@ -32,6 +32,8 @@ public sealed class MaskSensitivePropertiesEnricher : ILogEventEnricher
         "curp",
         "clabe",
         "numeroCuenta",
+        "cuentaOrdenante",
+        "cuentaBeneficiaria",
         "numeroTarjeta",
         "cvv",
         "nombrePersonaFisica",

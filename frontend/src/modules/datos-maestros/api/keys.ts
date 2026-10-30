@@ -21,6 +21,8 @@ import type {
 
 export interface ListarProveedoresFiltros {
   soloExpedienteIncompleto?: boolean;
+  /** 86e3tactf: lista de proveedores bloqueados. */
+  bloqueado?: boolean;
   /** Caja única: clave, RFC, razón social o nombre comercial (parcial). */
   q?: string;
   rfc?: string;

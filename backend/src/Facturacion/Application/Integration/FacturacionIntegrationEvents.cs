@@ -39,7 +39,11 @@ public sealed record FacturaVentaTimbradaIntegrationEvent(
     Guid? ClienteId = null,
     decimal? TipoCambio = null,
     DateOnly? FechaContable = null,
-    IReadOnlyList<FacturaLineaContablePayload>? Lineas = null)
+    IReadOnlyList<FacturaLineaContablePayload>? Lineas = null,
+    // TR-01: pedido A+W de la factura y su versión en el ERP al emitirla (null si el pedido
+    // no viene de A+W). Con esto Integraciones.Aw deja la fila Documento en aw_retorno.
+    string? NumeroPedidoAw = null,
+    long? VersionPedidoAw = null)
     : IntegrationEvent("facturacion.factura-venta.timbrada.v1", EmpresaId, OcurridoEn);
 
 /// <summary>
@@ -99,7 +103,12 @@ public sealed record NotaCreditoTimbradaIntegrationEvent(
     Guid? ClienteId = null,
     string? Moneda = null,
     decimal? TipoCambio = null,
-    DateOnly? FechaContable = null)
+    DateOnly? FechaContable = null,
+    // 86e3wjt5r (mismo patrón que TR-01 en la factura): solo las notas que llegaron de A+W traen pedido
+    // y versión; con ellos Integraciones.Aw deja la fila NotaCredito en aw_retorno.
+    string? NumeroPedidoAw = null,
+    long? VersionPedidoAw = null,
+    string? Folio = null)
     : IntegrationEvent("facturacion.nota-credito.timbrada.v1", EmpresaId, OcurridoEn);
 
 // ---- Reembolso de NC solicitado a Tesorería (T9.6 · CA6.17; supuesto E11: viaja por facturacion-events) ----
@@ -155,7 +164,12 @@ public sealed record ComprobanteCanceladoIntegrationEvent(
     DateTimeOffset OcurridoEn,
     Guid ComprobanteId,
     string TipoComprobante,
-    string Uuid)
+    string Uuid,
+    // TR-01: facturas de pedidos A+W (null en lo demás); Integraciones.Aw deja la fila Cancelacion.
+    string? NumeroPedidoAw = null,
+    long? VersionPedidoAw = null,
+    string? Folio = null,
+    decimal? Total = null)
     : IntegrationEvent("facturacion.comprobante.cancelado.v1", EmpresaId, OcurridoEn);
 
 // ---- Sesión de caja abierta (CAJAS-PR3, 12-cajas.md §10) ----

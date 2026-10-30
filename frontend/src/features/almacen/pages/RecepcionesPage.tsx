@@ -329,7 +329,7 @@ function TablaRecepciones({ items, subAlmacenesMap }: TablaRecepcionesProps) {
     () =>
       items.map((r) => ({
         ...r,
-        subAlmacen: subAlmacenesMap.get(r.subAlmacenId)?.clave ?? r.subAlmacenId,
+        subAlmacen: subAlmacenesMap.get(r.subAlmacenId)?.clave ?? '—',
       })),
     [items, subAlmacenesMap],
   );
@@ -419,8 +419,6 @@ function TablaRecepciones({ items, subAlmacenesMap }: TablaRecepcionesProps) {
                 <TableCell className="text-xs">
                   {r.ordenCompraFolio ? (
                     <span className="font-mono">{r.ordenCompraFolio}</span>
-                  ) : r.ordenCompraId ? (
-                    <span className="font-mono text-ink-muted">{truncarId(r.ordenCompraId)}</span>
                   ) : (
                     <span className="italic text-ink-muted">—</span>
                   )}
@@ -438,8 +436,4 @@ function TablaRecepciones({ items, subAlmacenesMap }: TablaRecepcionesProps) {
       </Table>
     </TableContainer>
   );
-}
-
-function truncarId(id: string): string {
-  return id.length > 12 ? `${id.slice(0, 8)}…` : id;
 }

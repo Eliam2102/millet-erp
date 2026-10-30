@@ -25,5 +25,7 @@ public sealed record FacturaProveedorCanceladaIntegrationEvent(
     IReadOnlyList<RetencionDetallePayload>? Retenciones = null,
     string? Moneda = null,
     decimal? TipoCambio = null,
-    Guid? SucursalId = null)
+    Guid? SucursalId = null,
+    // Acumulado facturado vigente por línea OC tras cancelar (incluye 0); Compras lo aplica directo. Null = JSON antiguo / sin OC.
+    IReadOnlyList<LineaOcAcumuladaPayload>? LineasAcumuladasOc = null)
     : IntegrationEvent("cuentas_por_pagar.factura.cancelada.v1", EmpresaId, OcurridoEn);
