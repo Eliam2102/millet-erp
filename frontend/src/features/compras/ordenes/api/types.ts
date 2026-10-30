@@ -398,6 +398,17 @@ export interface OrdenCompraDetalleResponse {
   respuestasProveedor?: RespuestaProveedorOc[];
   /** F1-COM-07: incidencias del proveedor, la más reciente primero. */
   incidencias?: IncidenciaProveedorOc[];
+  /** 86e3tacbn: conformidad del servicio por OC. */
+  /** Pagado acumulado de la OC; con pago no se puede deshacer la confirmación. */
+  montoPagado?: number;
+  servicioConfirmadoEn?: string | null;
+  servicioConfirmadoPorNombre?: string | null;
+  servicioConfirmadoComentario?: string | null;
+  servicioNoConformeEn?: string | null;
+  servicioNoConformePorNombre?: string | null;
+  servicioNoConformeMotivo?: string | null;
+  servicioConfirmacionRevocadaEn?: string | null;
+  servicioConfirmacionRevocadaMotivo?: string | null;
   /** Campos de cabecera aún en TBD; la OC no se puede transmitir mientras haya alguno. */
   camposPorCapturar?: ('proveedor' | 'condicionesPago' | 'usoPrincipal' | 'usoCfdiClave' | 'metodoPago' | 'formaPagoClave')[] | null;
   // F1-COM-02
