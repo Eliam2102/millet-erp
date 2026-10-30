@@ -85,14 +85,16 @@ public sealed partial class ValeCajaEndpointsTests(WebApplicationFactory<Program
         var retiro = await RetiroAsync(escenario, "02", 500m);
 
         using var pdf = PdfDocument.Open(await (await escenario.Client.GetAsync(Url(retiro.Id))).Content.ReadAsByteArrayAsync());
-        var palabras = pdf.GetPage(1).GetWords().ToList();
-        var marca = Assert.Single(palabras, w => w.Text == "X");
-        var cheque = Assert.Single(palabras, w => w.Text == "Cheque");
-        var efectivo = Assert.Single(palabras, w => w.Text == "Efectivo");
+        var pagina = pdf.GetPage(1);
+        // PdfPig puede pegar la X de la casilla a la etiqueta: se ubica por glifo.
+        var marca = Assert.Single(pagina.Letters, l => l.Value == "X" && l.PointSize < 10);
+        var cheque = Assert.Single(pagina.GetWords(), w => w.Text.EndsWith("Cheque", StringComparison.Ordinal));
+        var efectivo = Assert.Single(pagina.GetWords(), w => w.Text.EndsWith("Efectivo", StringComparison.Ordinal));
 
-        // La X queda dentro de la casilla inmediatamente a la izquierda de «Cheque».
-        Assert.InRange(cheque.BoundingBox.Left - marca.BoundingBox.Right, 0, 12);
+        // La X queda en la casilla de «Cheque»: entre «Efectivo» y la palabra «Cheque».
         Assert.True(marca.BoundingBox.Left > efectivo.BoundingBox.Right);
+        Assert.True(marca.BoundingBox.Right <= cheque.BoundingBox.Right - 20);
+        Assert.InRange(Math.Abs(marca.BoundingBox.Bottom - cheque.BoundingBox.Bottom), 0, 6);
     }
 
     [Fact]

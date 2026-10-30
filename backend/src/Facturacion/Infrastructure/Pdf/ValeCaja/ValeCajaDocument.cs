@@ -34,7 +34,9 @@ public sealed class ValeCajaDocument(ValeCajaPdfModel m) : IDocument
             PdfEstilos.ConfigurarPagina(page);
             page.MarginHorizontal(EstilosValeCaja.MargenLateralPulgadas, Unit.Inch);
             page.MarginVertical(EstilosValeCaja.MargenVerticalPulgadas, Unit.Inch);
-            page.DefaultTextStyle(x => x.FontFamily(PdfFuentes.Familia).FontSize(EstilosValeCaja.Texto).FontColor(EstilosValeCaja.Negro));
+            // Sin ligaduras «ti/fi/fl» de Carlito: el texto del vale se puede buscar y copiar (igual que la OC).
+            page.DefaultTextStyle(x => x.FontFamily(PdfFuentes.Familia).FontSize(EstilosValeCaja.Texto).FontColor(EstilosValeCaja.Negro)
+                .DisableFontFeature(FontFeatures.StandardLigatures));
 
             page.Content().Column(col =>
             {
