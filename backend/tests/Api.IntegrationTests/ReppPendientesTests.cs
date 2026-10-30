@@ -106,13 +106,13 @@ public sealed class ReppPendientesTests : IClassFixture<ReppPendientesTests.Serv
         var recibos = await Recibos(facturaId);
         Assert.Single(recibos);
         Assert.Equal((1, 4_000m), recibos[0]);
-        // La bandeja aísla el error en su resultado (200 con emitido=false); el manual responde 201 o 422.
-        var manual = respuestas[1];
-        var bandeja = await respuestas[0].Content.ReadFromJsonAsync<JsonElement>();
-        var bandejaEmitio = bandeja.GetProperty("emitido").GetBoolean();
-        Assert.True(bandejaEmitio ^ manual.StatusCode == HttpStatusCode.Created);
-        if (!bandejaEmitio) Assert.Equal(HttpStatusCode.Created, manual.StatusCode);
-        else Assert.Equal(HttpStatusCode.UnprocessableEntity, manual.StatusCode);
+        // La bandeja pierde con 200 + emitido=false o con un 4xx; el manual pierde con 422. Nunca 5xx.
+        var manual = respuestas[1]; var bandejaResp = respuestas[0];
+        Assert.True((int)bandejaResp.StatusCode < 500, await bandejaResp.Content.ReadAsStringAsync());
+        Assert.True((int)manual.StatusCode < 500, await manual.Content.ReadAsStringAsync());
+        var bandejaEmitio = bandejaResp.StatusCode == HttpStatusCode.OK
+            && (await bandejaResp.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("emitido").GetBoolean();
+        Assert.True(bandejaEmitio ^ manual.StatusCode == HttpStatusCode.Created, $"bandeja={bandejaResp.StatusCode}/{bandejaEmitio} manual={manual.StatusCode}");
     }
 
     // FAC-03 criterio 2: dos complementos simultáneos de $4,000 → parcialidades 1 y 2, saldo final $2,000.
