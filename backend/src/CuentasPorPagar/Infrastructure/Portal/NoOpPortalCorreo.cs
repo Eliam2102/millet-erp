@@ -18,4 +18,10 @@ public sealed class NoOpPortalCorreo(ILogger<NoOpPortalCorreo> logger, IHostEnvi
             logger.LogWarning("[PortalProveedor] Sin transporte de correo configurado; no se envió el código.");
         return Task.CompletedTask;
     }
+
+    public Task EnviarAvisoPagoAsync(string destinatario, AvisoPagoCorreo aviso, CancellationToken cancellationToken)
+    {
+        logger.LogInformation("[PortalProveedor] Sin transporte de correo; aviso de pago de la factura {Folio} no enviado.", aviso.FolioFactura);
+        return Task.CompletedTask;
+    }
 }

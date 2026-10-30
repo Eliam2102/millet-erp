@@ -58,6 +58,7 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
     private readonly IClock _clock;
     public DbSet<AccesoPortalProveedor> AccesosPortalProveedor => Set<AccesoPortalProveedor>();
     public DbSet<CodigoPortal> CodigosPortal => Set<CodigoPortal>();
+    public DbSet<AvisoPagoPortal> AvisosPagoPortal => Set<AvisoPagoPortal>();
     public DbSet<PagoProveedorLocal> PagosProveedorLocal => Set<PagoProveedorLocal>();
     public DbSet<MovimientoPasivo> MovimientosPasivo => Set<MovimientoPasivo>();
     public DbSet<Domain.Catalogos.RetencionConcepto> RetencionesConcepto => Set<Domain.Catalogos.RetencionConcepto>();
@@ -296,5 +297,6 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new PerfilParserBancoConfiguration());
         modelBuilder.ApplyConfiguration(new AccesoPortalProveedorConfiguration());
         modelBuilder.ApplyConfiguration(new CodigoPortalConfiguration());
+        modelBuilder.ApplyConfiguration(new AvisoPagoPortalConfiguration());
     }
 }

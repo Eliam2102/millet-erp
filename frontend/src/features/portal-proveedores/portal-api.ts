@@ -69,3 +69,27 @@ async function obtener<T>(ruta: string): Promise<T> {
 
 export const listarFacturas = () => obtener<FacturaPortal[]>('/facturas');
 export const listarPagos = () => obtener<PagoPortal[]>('/pagos');
+
+export interface ResultadoSubida {
+  resultado: 'Recibido' | 'YaLoTeniamos';
+  uuid: string;
+  mensaje: string;
+}
+
+/** Sube el XML (y el PDF opcional). El proveedor lo determina el token, nunca el formulario. */
+export async function subirCfdi(xml: File, pdf: File | null): Promise<ResultadoSubida> {
+  const form = new FormData();
+  form.append('xml', xml);
+  if (pdf) form.append('pdf', pdf);
+  const r = await fetch(`${apiBaseUrl}${PREFIJO}/cfdi`, { method: 'POST', headers: { Authorization: `Bearer ${tokenPortal() ?? ''}` }, body: form });
+  if (r.status === 401) {
+    cerrarSesionPortal();
+    throw new PortalSesionExpirada();
+  }
+  if (r.status === 422) {
+    const problema = (await r.json().catch(() => ({}))) as { detail?: string };
+    throw new Error(problema.detail ?? 'No pudimos aceptar el documento.');
+  }
+  if (!r.ok) throw new Error('No se pudo subir el documento. Intenta de nuevo.');
+  return (await r.json()) as ResultadoSubida;
+}

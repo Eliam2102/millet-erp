@@ -62,3 +62,30 @@ it('un código inválido muestra el error y no abre sesión', async () => {
   await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('no es válido'));
   expect(sessionStorage.getItem('millet.portal-proveedores.token')).toBeNull();
 });
+
+it('sube el XML y distingue «Recibimos tu documento» de «Ya lo teníamos»; muestra el rechazo por RFC', async () => {
+  const respuestas = [
+    json({ resultado: 'Recibido', uuid: 'U', mensaje: 'ok' }, 201),
+    json({ resultado: 'YaLoTeniamos', uuid: 'U', mensaje: 'Ya lo teníamos.' }),
+    json({ code: 'PORTAL_RFC_NO_COINCIDE', detail: 'El RFC del emisor del CFDI no coincide con el de tu empresa.' }, 422),
+  ];
+  sessionStorage.setItem('millet.portal-proveedores.token', 'tok');
+  const fetchMock = vi.fn(async (url: string) => (url.endsWith('/facturas') ? json([]) : respuestas.shift()!));
+  vi.stubGlobal('fetch', fetchMock);
+  montar();
+
+  fireEvent.click(await screen.findByRole('tab', { name: 'Subir factura o complemento' }));
+  const enviar = async () => {
+    fireEvent.change(screen.getByLabelText('Archivo XML'), { target: { files: [new File(['<x/>'], 'f.xml', { type: 'text/xml' })] } });
+    fireEvent.click(screen.getByRole('button', { name: 'Subir documento' }));
+  };
+  await enviar();
+  expect(await screen.findByText('Recibimos tu documento.')).toBeTruthy();
+  await enviar();
+  expect(await screen.findByText('Ya lo teníamos.')).toBeTruthy();
+  await enviar();
+  expect(await screen.findByText(/no coincide con el de tu empresa/)).toBeTruthy();
+  const post = fetchMock.mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === 'POST');
+  expect((post?.[1] as RequestInit).headers).toEqual({ Authorization: 'Bearer tok' });
+  expect((post?.[1] as RequestInit).body).toBeInstanceOf(FormData);
+});

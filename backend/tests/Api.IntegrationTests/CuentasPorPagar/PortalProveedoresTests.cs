@@ -2,11 +2,16 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using MediatR;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Millet.CuentasPorPagar.Application.EventListeners;
+using Millet.CuentasPorPagar.Application.EventListeners.Tesoreria;
+using Millet.CuentasPorPagar.Application.Portal;
+using Millet.CuentasPorPagar.Domain.Cfdi;
 using Millet.CuentasPorPagar.Domain.Ports.Contabilidad;
 using Millet.CuentasPorPagar.Domain.Ports.DatosMaestros;
 using Millet.CuentasPorPagar.Domain.Ports.Portal;
@@ -32,6 +37,8 @@ public sealed class PortalProveedoresTests(WebApplicationFactory<Program> factor
     {
         public List<(string Para, string Codigo)> Enviados { get; } = [];
         public Task EnviarCodigoAsync(string d, string c, CancellationToken ct) { lock (Enviados) Enviados.Add((d, c)); return Task.CompletedTask; }
+        public List<string> Avisos { get; } = [];
+        public Task EnviarAvisoPagoAsync(string d, AvisoPagoCorreo a, CancellationToken ct) { lock (Avisos) Avisos.Add(d); return Task.CompletedTask; }
     }
 
     private sealed class Reloj : IClock
@@ -294,6 +301,177 @@ public sealed class PortalProveedoresTests(WebApplicationFactory<Program> factor
             await LimpiarAsync(e);
             await LimpiarClienteAsync(sinPermiso);
             await LimpiarClienteAsync(conPermiso);
+        }
+    }
+
+    // ---- Parte B: subir CFDI y aviso de pago ----
+
+    private static string CfdiXml(string tipo, string rfcEmisor, Guid uuid) => $"""
+        <?xml version="1.0" encoding="UTF-8"?>
+        <cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" TipoDeComprobante="{tipo}" Serie="A" Folio="F1"
+                          Fecha="2026-10-30T10:00:00" Total="116.00" SubTotal="100.00" Moneda="MXN">
+          <cfdi:Emisor Rfc="{rfcEmisor}" Nombre="Proveedor" />
+          <cfdi:Receptor Rfc="MIL010101AAA" Nombre="Millet" />
+          <cfdi:Conceptos><cfdi:Concepto ClaveProdServ="01010101" Cantidad="1" ClaveUnidad="E48" Descripcion="x" ValorUnitario="100" Importe="100" /></cfdi:Conceptos>
+          <cfdi:Impuestos TotalImpuestosTrasladados="16.00" />
+          <cfdi:Complemento><tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" UUID="{uuid.ToString().ToUpperInvariant()}" FechaTimbrado="2026-10-30T10:00:00" /></cfdi:Complemento>
+        </cfdi:Comprobante>
+        """;
+
+    private static Task<HttpResponseMessage> SubirAsync(HttpClient portal, string xml, string nombre = "cfdi.xml")
+    {
+        var form = new MultipartFormDataContent { { new StringContent(xml, System.Text.Encoding.UTF8, "application/xml"), "xml", nombre } };
+        return portal.PostAsync($"{Portal}/cfdi", form);
+    }
+
+    private static async Task LimpiarCfdisAsync(Entorno e, params Guid[] uuids)
+    {
+        using var scope = e.App.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CuentasPorPagarDbContext>();
+        var textos = uuids.Select(u => u.ToString().ToUpperInvariant()).ToList();
+        var cfdis = await db.CfdisRecibidos.ToListAsync();
+        db.CfdisRecibidos.RemoveRange(cfdis.Where(c => textos.Contains(c.UuidCfdi.Valor)));
+        var eventos = await db.OutboxEntries.ToListAsync();
+        db.OutboxEntries.RemoveRange(eventos.Where(o => textos.Any(t => o.Payload.Contains(t, StringComparison.OrdinalIgnoreCase))));
+        await db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task Xml_valido_entra_a_CFDI_recibidos_con_canal_portal_y_un_uuid_repetido_dice_Ya_lo_teniamos_sin_duplicar()
+    {
+        var e = Preparar();
+        await using var _ = e.App;
+        var admin = await LoginAsync(e.App);
+        var correoA = $"a-{e.Sufijo}@fix.test";
+        var uuid = Guid.NewGuid();
+        try
+        {
+            await AutorizarAsync(admin, e.ProvA, correoA);
+            var portal = await EntrarAsync(e, correoA);
+
+            var primera = await SubirAsync(portal, CfdiXml("I", "FIX010101ABC", uuid));
+            var repetida = await SubirAsync(portal, CfdiXml("I", "FIX010101ABC", uuid));
+
+            Assert.Equal(HttpStatusCode.Created, primera.StatusCode);
+            Assert.Equal("Recibido", (await Json(primera)).GetProperty("resultado").GetString());
+            Assert.Equal(HttpStatusCode.OK, repetida.StatusCode);
+            Assert.Equal("YaLoTeniamos", (await Json(repetida)).GetProperty("resultado").GetString());
+            using var scope = e.App.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<CuentasPorPagarDbContext>();
+            var guardados = (await db.CfdisRecibidos.ToListAsync()).Where(c => string.Equals(c.UuidCfdi.Valor, uuid.ToString(), StringComparison.OrdinalIgnoreCase)).ToList();
+            var uno = Assert.Single(guardados);
+            Assert.Equal(CanalOrigenCfdi.PortalProveedor, uno.CanalOrigen);
+        }
+        finally { await LimpiarCfdisAsync(e, uuid); await LimpiarAsync(e); }
+    }
+
+    [Fact]
+    public async Task Complemento_tipo_P_entra_a_la_bandeja_de_CxP()
+    {
+        var e = Preparar();
+        await using var _ = e.App;
+        var admin = await LoginAsync(e.App);
+        var correoA = $"a-{e.Sufijo}@fix.test";
+        var uuid = Guid.NewGuid();
+        try
+        {
+            await AutorizarAsync(admin, e.ProvA, correoA);
+            var portal = await EntrarAsync(e, correoA);
+
+            Assert.Equal(HttpStatusCode.Created, (await SubirAsync(portal, CfdiXml("P", "FIX010101ABC", uuid))).StatusCode);
+
+            var lista = await Json(await admin.GetAsync("/api/v1/cuentas-por-pagar/cfdis?rfcEmisor=FIX010101ABC&limit=500"));
+            Assert.Contains(lista.GetProperty("items").EnumerateArray(),
+                i => string.Equals(i.GetProperty("uuidCfdi").GetString(), uuid.ToString(), StringComparison.OrdinalIgnoreCase));
+        }
+        finally { await LimpiarCfdisAsync(e, uuid); await LimpiarAsync(e); }
+    }
+
+    [Fact]
+    public async Task Xml_con_RFC_de_otro_proveedor_tipo_T_o_archivo_no_xml_se_rechazan_y_no_se_guarda_nada()
+    {
+        var e = Preparar();
+        await using var _ = e.App;
+        var admin = await LoginAsync(e.App);
+        var correoA = $"a-{e.Sufijo}@fix.test";
+        var ajeno = Guid.NewGuid();
+        var traslado = Guid.NewGuid();
+        try
+        {
+            await AutorizarAsync(admin, e.ProvA, correoA);
+            var portal = await EntrarAsync(e, correoA);
+
+            var rfc = await SubirAsync(portal, CfdiXml("I", "OTR010101ABC", ajeno));
+            var tipoT = await SubirAsync(portal, CfdiXml("T", "FIX010101ABC", traslado));
+            var noXml = await SubirAsync(portal, "<cfdi/>", "factura.exe");
+
+            Assert.Equal(HttpStatusCode.UnprocessableEntity, rfc.StatusCode);
+            Assert.Equal("PORTAL_RFC_NO_COINCIDE", await Code(rfc));
+            Assert.Equal("PORTAL_TIPO_NO_ACEPTADO", await Code(tipoT));
+            Assert.Equal("PORTAL_ARCHIVO_NO_XML", await Code(noXml));
+            using var scope = e.App.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<CuentasPorPagarDbContext>();
+            var ids = new[] { ajeno, traslado }.Select(u => u.ToString().ToUpperInvariant()).ToList();
+            Assert.DoesNotContain((await db.CfdisRecibidos.ToListAsync()), c => ids.Contains(c.UuidCfdi.Valor));
+        }
+        finally { await LimpiarCfdisAsync(e, ajeno, traslado); await LimpiarAsync(e); }
+    }
+
+    [Fact]
+    public async Task Subir_CFDI_sin_token_del_portal_da_401()
+    {
+        var e = Preparar();
+        await using var _ = e.App;
+        var r = await SubirAsync(e.App.CreateClient(), CfdiXml("I", "FIX010101ABC", Guid.NewGuid()));
+        Assert.Equal(HttpStatusCode.Unauthorized, r.StatusCode);
+    }
+
+    [Fact]
+    public async Task Pago_de_Tesoreria_avisa_una_sola_vez_a_los_correos_autorizados_aunque_el_evento_llegue_dos_veces()
+    {
+        var e = Preparar();
+        await using var _ = e.App;
+        var admin = await LoginAsync(e.App);
+        var correoA = $"a-{e.Sufijo}@fix.test";
+        var pagoId = Guid.NewGuid();
+        try
+        {
+            await AutorizarAsync(admin, e.ProvA, correoA);
+            var ids = await Sembrar(e, e.ProvA, false, $"FIXA1-{e.Sufijo}");
+            using (var scope = e.App.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<CuentasPorPagarDbContext>();
+                var f = await db.FacturasProveedor.FirstAsync(x => x.Id == ids[0]);
+                f.Autorizar(null, DateTimeOffset.UtcNow);
+                await db.SaveChangesAsync();
+            }
+            var evento = Guid.NewGuid();
+            var payload = new PagoFacturaProveedorPayload(EmpresaBootstrapId, DateTimeOffset.UtcNow, ids[0], pagoId, 10m, "MXN",
+                new DateOnly(2026, 10, 30), null, "REF", null);
+
+            using (var scope = e.App.Services.CreateScope())
+            {
+                var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+                await sender.Send(new PagoFacturaProveedorAplicadoCommand(evento, payload));
+                await sender.Send(new PagoFacturaProveedorAplicadoCommand(evento, payload));
+            }
+            for (var i = 0; i < 2; i++)
+            {
+                using var scope = e.App.Services.CreateScope();
+                using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+                await scope.ServiceProvider.GetRequiredService<ISender>().Send(new EnviarAvisosPagoPortalCommand());
+            }
+
+            Assert.Equal([correoA], e.Correo.Avisos);
+        }
+        finally
+        {
+            using var scope = e.App.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<CuentasPorPagarDbContext>();
+            await db.AvisosPagoPortal.Where(a => a.PagoId == pagoId).ExecuteDeleteAsync();
+            await db.PagosProveedorLocal.Where(p => p.PagoId == pagoId).ExecuteDeleteAsync();
+            await db.EventosProcesados.Where(x => x.EventoTipo == PagoFacturaProveedorAplicadoHandler.EventType && x.Detalle!.Contains(pagoId.ToString())).ExecuteDeleteAsync();
+            await LimpiarAsync(e);
         }
     }
 }

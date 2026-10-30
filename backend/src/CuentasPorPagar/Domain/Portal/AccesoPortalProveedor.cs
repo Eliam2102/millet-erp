@@ -78,3 +78,27 @@ public sealed class CodigoPortal : BaseEntity, IPerteneceAEmpresa, INotAudited
         return ok;
     }
 }
+
+/// <summary>
+/// Aviso de pago pendiente de enviar a los correos autorizados del proveedor. Una fila por pago de Tesorería
+/// (único por empresa + pago): si el mismo pago llega dos veces, sale un solo correo.
+/// </summary>
+public sealed class AvisoPagoPortal : BaseEntity, IPerteneceAEmpresa, INotAudited
+{
+    public Guid EmpresaId { get; set; }
+    public Guid FacturaProveedorId { get; private set; }
+    public Guid PagoId { get; private set; }
+    public decimal Monto { get; private set; }
+    public DateOnly FechaPago { get; private set; }
+    public DateTimeOffset? EnviadoEn { get; private set; }
+    public int Destinatarios { get; private set; }
+
+    private AvisoPagoPortal() { }
+
+    public AvisoPagoPortal(Guid empresaId, Guid facturaId, Guid pagoId, decimal monto, DateOnly fechaPago) : base(Guid.CreateVersion7())
+    {
+        EmpresaId = empresaId; FacturaProveedorId = facturaId; PagoId = pagoId; Monto = monto; FechaPago = fechaPago;
+    }
+
+    public void MarcarEnviado(int destinatarios, DateTimeOffset ahora) { EnviadoEn = ahora; Destinatarios = destinatarios; }
+}
