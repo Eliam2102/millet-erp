@@ -53,6 +53,9 @@ public sealed class TesoreriaDbContext : BaseDbContext
     /// <summary>Corridas de pago con máquina de estados RN-5 (PR-5).</summary>
     public DbSet<CorridaPago> CorridasPago => Set<CorridaPago>();
     public DbSet<PoliticaFirmaCorrida> PoliticasFirmaCorrida => Set<PoliticaFirmaCorrida>();
+    public DbSet<ArchivoLayoutPago> ArchivosLayoutPago => Set<ArchivoLayoutPago>();
+    public DbSet<ArchivoLayoutPagoLinea> ArchivosLayoutPagoLineas => Set<ArchivoLayoutPagoLinea>();
+    public DbSet<PerfilLayoutBanco> PerfilesLayoutBanco => Set<PerfilLayoutBanco>();
 
     /// <summary>Confirmaciones de depósito de cliente — patrón propuesta/confirmación con CxC (PR-7).</summary>
     public DbSet<DepositoConfirmacion> DepositosConfirmacion => Set<DepositoConfirmacion>();
@@ -92,6 +95,9 @@ public sealed class TesoreriaDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new CorridaPagoLineaConfiguration());
         modelBuilder.ApplyConfiguration(new CorridaPagoFirmaConfiguration());
         modelBuilder.ApplyConfiguration(new PoliticaFirmaCorridaConfiguration());
+        modelBuilder.ApplyConfiguration(new ArchivoLayoutPagoConfiguration());
+        modelBuilder.ApplyConfiguration(new ArchivoLayoutPagoLineaConfiguration());
+        modelBuilder.ApplyConfiguration(new PerfilLayoutBancoConfiguration());
         modelBuilder.ApplyConfiguration(new DepositoConfirmacionConfiguration());
         modelBuilder.ApplyConfiguration(new DepositoFichaConfiguration());
         modelBuilder.ApplyConfiguration(new DiferenciaCorteConfiguration());

@@ -601,3 +601,43 @@ export interface CorridaResponse {
   pendiente: number;
   oficioGeneradoEn: string | null;
 }
+
+// ---------------------------------------------------------------- Layout bancario (T9.3)
+
+export interface ExcepcionLineaLayoutResponse {
+  facturaProveedorId: string;
+  proveedorId: string;
+  proveedorRazonSocial: string | null;
+  folioProveedor: string | null;
+  importeNeto: number;
+  causa: string;
+}
+
+export interface LineaLayoutResponse {
+  facturaProveedorId: string;
+  proveedorId: string;
+  proveedorRazonSocial: string | null;
+  folioProveedor: string | null;
+  importeNeto: number;
+  cuentaDestino: string;
+  titular: string;
+  referencia: string;
+  concepto: string;
+}
+
+export interface LayoutCorridaResponse {
+  archivoId: string;
+  corridaId: string;
+  banco: string;
+  tipoPago: string;
+  nombreArchivo: string;
+  contenido: string;
+  total: number;
+  lineasValidas: number;
+  lineasExcluidas: number;
+  esReimpresion: boolean;
+  generadoEn: string;
+  excepciones: ExcepcionLineaLayoutResponse[];
+  lineas: LineaLayoutResponse[];
+}
+
