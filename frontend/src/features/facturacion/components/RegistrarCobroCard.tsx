@@ -15,7 +15,11 @@ import { useRegistrarCobro, useSesionActual } from '@/features/facturacion/api/u
 import {
   autorizacionVoucherInvalida,
   esFormaTarjeta,
+  faltanUltimos4,
+  MENSAJE_ULTIMOS4,
   MENSAJE_VOUCHER,
+  pideUltimos4,
+  soloUltimos4,
   voucherIncompleto,
   formasPagoCaja,
   formasPagoVigentes,
@@ -90,6 +94,7 @@ export function RegistrarCobroCard(props: {
   );
   const cuadra = Math.abs(suma - props.total) < 0.005;
   const sinVoucher = voucherIncompleto(formas);
+  const sinUltimos4 = faltanUltimos4(formas);
 
   function actualizarForma(i: number, parcial: Partial<FormaLocal>) {
     setFormas((prev) => prev.map((f, j) => (j === i ? { ...f, ...parcial } : f)));
@@ -104,6 +109,10 @@ export function RegistrarCobroCard(props: {
       toast.error(MENSAJE_VOUCHER);
       return;
     }
+    if (sinUltimos4) {
+      toast.error(MENSAJE_ULTIMOS4);
+      return;
+    }
     if (!cuadra) {
       toast.error(
         `La suma de formas (${suma.toFixed(2)}) debe igualar el total (${props.total.toFixed(2)}).`,
@@ -114,7 +123,12 @@ export function RegistrarCobroCard(props: {
       {
         body: {
           comprobanteId: props.comprobanteId,
-          formasPago: formas.map((f) => ({ ...f, importe: Number(f.importe) })),
+          formasPago: formas.map(({ tarjetaUltimos4, ...f }) => ({
+            ...f,
+            importe: Number(f.importe),
+            // 86e3tfdvt: solo crédito y débito llevan los últimos 4 dígitos.
+            ...(pideUltimos4(f.formaPago) ? { tarjetaUltimos4: (tarjetaUltimos4 ?? '').trim() } : {}),
+          })),
           origen: Number(origen),
         },
         idempotencyKey,
@@ -221,6 +235,22 @@ export function RegistrarCobroCard(props: {
               aria-required={esFormaTarjeta(f.formaPago)}
             />
           </FormCampo>
+          {pideUltimos4(f.formaPago) && (
+            <FormCampo span={6} className="space-y-1">
+              <Label htmlFor={`cobro-ultimos4-${i}`}>Últimos 4 dígitos de la tarjeta</Label>
+              <Input
+                id={`cobro-ultimos4-${i}`}
+                inputMode="numeric"
+                autoComplete="off"
+                value={f.tarjetaUltimos4 ?? ''}
+                onChange={(e) => actualizarForma(i, { tarjetaUltimos4: soloUltimos4(e.target.value) })}
+                placeholder="Obligatorio · ej. 1234"
+                maxLength={4}
+                aria-invalid={faltanUltimos4([f])}
+                aria-required
+              />
+            </FormCampo>
+          )}
           {formas.length > 1 && (
             <Button
               size="icon"
@@ -275,13 +305,15 @@ export function RegistrarCobroCard(props: {
               <Button
                 size="sm"
                 onClick={onCobrar}
-                disabled={registrar.isPending || !cuadra || !vigentes || sinVoucher}
+                disabled={registrar.isPending || !cuadra || !vigentes || sinVoucher || sinUltimos4}
                 title={
                   !vigentes
                     ? 'Selecciona formas de pago SAT activas.'
                     : sinVoucher
                       ? MENSAJE_VOUCHER
-                      : undefined
+                      : sinUltimos4
+                        ? MENSAJE_ULTIMOS4
+                        : undefined
                 }
               >
                 Cobrar

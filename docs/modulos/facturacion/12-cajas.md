@@ -465,8 +465,15 @@ comprobantes de TPV»), R18 y CA6.10; minuta del 12-oct-2026 (M19).
   de ruta. Desde 86e3tfdvt el dato lleva de 4 a 12 letras, dígitos o guiones
   (`COBRO_TARJETA_AUTORIZACION_INVALIDA`): el tope impide capturar el número
   completo de la tarjeta, que nunca se guarda (mismo criterio que CxP y
-  ADR-0006). Es un supuesto mientras Millet confirma qué dato del voucher se
-  captura (ClickUp 86e3tfdvt). Un complemento de pago solo se cobra
+  ADR-0006). Millet confirmó el 30-oct que del voucher se capturan la
+  autorización y los **últimos 4 dígitos de la tarjeta**: crédito (04) y
+  débito (28) los exigen, exactamente 4 números (`COBRO_TARJETA_SIN_ULTIMOS4`,
+  `COBRO_TARJETA_ULTIMOS4_INVALIDOS`), uno por cada pago con tarjeta. Se
+  guardan en `cobro_mostrador_forma_pago.tarjeta_ultimos4` y en
+  `caja_movimiento.tarjeta_ultimos4`; el corte los muestra como
+  «autorización · **** 1234». La terminal y el importe no se teclean. La 29
+  (servicios) no se habilita en caja según Millet; mientras se excluye
+  (pendiente aparte) conserva solo la autorización. Un complemento de pago solo se cobra
   en caja si la moneda del pago es MXN (`COBRO_MONEDA_INVALIDA`; el CFDI de
   pago lleva `Moneda = XXX`).
 - **Frontend:** `/facturacion/caja/corte/$sesionId` (cuelga de «Mi caja»):
@@ -536,8 +543,8 @@ el cierre del día cuadra la sucursal completa.
 | Actor | Cajero de sucursal (sesión de caja abierta) |
 | Disparador | El cliente liquida un comprobante de mostrador combinando formas de pago (ej. tarjeta de débito + efectivo) |
 | Precondiciones | Sesión de caja abierta; comprobante **timbrado**, en el alcance del cajero y sin cobro vigente; MXN (P6) |
-| Flujo principal | 1. El cajero abre el cobro del comprobante. 2. Captura una fila por forma de pago con su importe (y el número de autorización del voucher en tarjeta). 3. El sistema valida que la suma sea exactamente el monto por cobrar. 4. Registra un solo cobro con N formas. 5. El corte de la sesión lo refleja por forma |
-| Flujos alternos | a) La suma no coincide → rechazo `COBRO_TOTAL_NO_COINCIDE`. b) Fila de tarjeta sin autorización → `COBRO_TARJETA_SIN_REFERENCIA`. c) Cancelación: se cancela el cobro completo (todas sus formas) y se reversa cada movimiento (§6, `[Decisión 12-C]`) |
+| Flujo principal | 1. El cajero abre el cobro del comprobante. 2. Captura una fila por forma de pago con su importe (y, en tarjeta, el número de autorización y los últimos 4 dígitos de la tarjeta). 3. El sistema valida que la suma sea exactamente el monto por cobrar. 4. Registra un solo cobro con N formas. 5. El corte de la sesión lo refleja por forma |
+| Flujos alternos | a) La suma no coincide → rechazo `COBRO_TOTAL_NO_COINCIDE`. b) Fila de tarjeta sin autorización → `COBRO_TARJETA_SIN_REFERENCIA`; de crédito o débito sin los últimos 4 dígitos → `COBRO_TARJETA_SIN_ULTIMOS4`. c) Cancelación: se cancela el cobro completo (todas sus formas) y se reversa cada movimiento (§6, `[Decisión 12-C]`) |
 | Postcondiciones | Un `CobroMostrador` con N `cobro_mostrador_forma_pago`; N `caja_movimiento`; evento `facturacion.cobro-mostrador.registrado.v1` con la lista de formas; cartera de CxC saldada |
 | Fuera de alcance | Cobro mixto en moneda extranjera (caja solo MXN, P6); cobro parcial de una PUE en distintos momentos (una PUE se cobra en una sola operación) |
 

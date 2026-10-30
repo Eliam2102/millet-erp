@@ -90,7 +90,7 @@ public sealed class CobroMostrador : BaseEntity, IPerteneceAEmpresa, IAuditable
         OrigenCobroMostrador origen,
         DateTimeOffset fechaCobro,
         Guid usuarioCobradorId,
-        IReadOnlyList<(string FormaPago, decimal Importe, string? Referencia, string? CuentaOrdenante, string? CuentaBeneficiaria)> formasPago)
+        IReadOnlyList<(string FormaPago, decimal Importe, string? Referencia, string? CuentaOrdenante, string? CuentaBeneficiaria, string? TarjetaUltimos4)> formasPago)
     {
         if (cajaSesionId == Guid.Empty)
             throw new BusinessRuleException("COBRO_SESION_INVALIDA", "La sesión de caja es obligatoria.");
@@ -105,9 +105,9 @@ public sealed class CobroMostrador : BaseEntity, IPerteneceAEmpresa, IAuditable
             Guid.CreateVersion7(), empresaId, cajaSesionId, sucursalId, canalVentaId,
             comprobanteId, origen, fechaCobro, usuarioCobradorId);
 
-        foreach (var (formaPago, importe, referencia, ordenante, beneficiaria) in formasPago)
+        foreach (var (formaPago, importe, referencia, ordenante, beneficiaria, ultimos4) in formasPago)
             cobro._formasPago.Add(new CobroMostradorFormaPago(
-                Guid.CreateVersion7(), cobro.Id, formaPago, importe, referencia, ordenante, beneficiaria));
+                Guid.CreateVersion7(), cobro.Id, formaPago, importe, referencia, ordenante, beneficiaria, ultimos4));
 
         cobro.Total = cobro._formasPago.Sum(f => f.Importe);
         if (cobro.Total <= 0)
@@ -140,11 +140,18 @@ public sealed class CobroMostradorFormaPago : BaseEntity, IAuditable
     public string? CuentaOrdenante { get; private set; }
     public string? CuentaBeneficiaria { get; private set; }
 
+    /// <summary>
+    /// Últimos 4 dígitos de la tarjeta del voucher (86e3tfdvt); null fuera de
+    /// tarjeta. El número completo nunca se guarda.
+    /// </summary>
+    public string? TarjetaUltimos4 { get; private set; }
+
     private CobroMostradorFormaPago() { }
 
     internal CobroMostradorFormaPago(
         Guid id, Guid cobroMostradorId, string formaPago, decimal importe,
-        string? referencia, string? cuentaOrdenante, string? cuentaBeneficiaria) : base(id)
+        string? referencia, string? cuentaOrdenante, string? cuentaBeneficiaria,
+        string? tarjetaUltimos4 = null) : base(id)
     {
         if (string.IsNullOrWhiteSpace(formaPago) || formaPago.Trim().Length > 2)
             throw new BusinessRuleException("COBRO_FORMA_PAGO_INVALIDA", "La forma de pago debe ser clave SAT c_FormaPago de 2 caracteres.");
@@ -157,6 +164,10 @@ public sealed class CobroMostradorFormaPago : BaseEntity, IAuditable
         Referencia = Normalizar(referencia);
         CuentaOrdenante = Normalizar(cuentaOrdenante);
         CuentaBeneficiaria = Normalizar(cuentaBeneficiaria);
+        TarjetaUltimos4 = Normalizar(tarjetaUltimos4);
+        if (TarjetaUltimos4 is not null && (TarjetaUltimos4.Length != 4 || !TarjetaUltimos4.All(char.IsAsciiDigit)))
+            throw new BusinessRuleException(
+                "COBRO_TARJETA_ULTIMOS4_INVALIDOS", "Los últimos dígitos de la tarjeta son exactamente 4 números.");
     }
 
     private static string? Normalizar(string? valor) =>

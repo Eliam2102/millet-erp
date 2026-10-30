@@ -131,6 +131,44 @@ public sealed class LiquidacionRutaTests
     }
 
     [Fact]
+    public async Task LiquidarRuta_con_tarjeta_sin_ultimos4_no_registra_ninguno()
+    {
+        // 86e3tfdvt: la liquidación de ruta pide los mismos datos del voucher que el cobro.
+        using var db = NewDb();
+        await SembrarSesionAsync(db);
+        var f1 = Factura(400m, "F-1");
+        var f2 = Factura(600m, "F-2");
+        db.FacturasVenta.AddRange(f1, f2);
+        await db.SaveChangesAsync();
+
+        var act = () => Handler(db).Handle(new LiquidarRutaCommand(
+            [
+                Efectivo(f1.Id, 400m),
+                new LiquidacionRutaCobroInput(f2.Id, [new CobroFormaPagoInput("04", 600m, "123456")]),
+            ]), CancellationToken.None);
+
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "COBRO_TARJETA_SIN_ULTIMOS4");
+        (await db.CobrosMostrador.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task LiquidarRuta_con_tarjeta_guarda_los_ultimos4()
+    {
+        using var db = NewDb();
+        await SembrarSesionAsync(db);
+        var f1 = Factura(400m, "F-1");
+        db.FacturasVenta.Add(f1);
+        await db.SaveChangesAsync();
+
+        await Handler(db).Handle(new LiquidarRutaCommand(
+            [new LiquidacionRutaCobroInput(f1.Id, [new CobroFormaPagoInput("28", 400m, "654321", TarjetaUltimos4: "4321")])]),
+            CancellationToken.None);
+
+        (await db.CajaMovimientos.SingleAsync(m => m.Tipo == TipoCajaMovimiento.CobroCliente))
+            .TarjetaUltimos4.Should().Be("4321");
+    }
+
+    [Fact]
     public async Task LiquidarRuta_falla_si_algun_comprobante_esta_fuera_de_alcance()
     {
         using var db = NewDb();

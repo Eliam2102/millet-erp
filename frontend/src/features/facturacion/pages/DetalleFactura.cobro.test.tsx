@@ -20,7 +20,7 @@ const cobro: CobroFacturaDetalle = {
   id: 'c-fac05', fechaCobro: '2026-10-09T12:00:00Z', usuarioCobradorId: 'u-fac05', total: 116,
   formasPago: [
     { formaPago: '01', importe: 60, referencia: null },
-    { formaPago: '04', importe: 56, referencia: 'AUT-FICTICIA' },
+    { formaPago: '04', importe: 56, referencia: 'AUT-FICTICIA', tarjetaUltimos4: '1234' },
   ],
   sesion: { id: 's-fac05', cajaId: 'caja-fac05', cajaNombre: 'Caja ficticia FAC-05', diaOperacion: '2026-10-09', estado: 'Abierta' },
 };
@@ -61,7 +61,7 @@ describe('FAC-05 · detalle de cobro', () => {
     expect(within(panel).getByText(new Date(cobro.fechaCobro).toLocaleString('es-MX'))).toBeInTheDocument();
     expect(screen.getByText('Caja ficticia FAC-05')).toBeInTheDocument();
     expect(within(panel).getByText('Cobrado').nextElementSibling).toHaveTextContent('$116.00');
-    expect(screen.getByText('Forma SAT 04 · AUT-FICTICIA')).toBeInTheDocument();
+    expect(screen.getByText('Forma SAT 04 · AUT-FICTICIA · **** 1234')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Registrar cobro' })).not.toBeInTheDocument();
   });
 

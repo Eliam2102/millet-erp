@@ -59,6 +59,10 @@ public sealed class CajaMovimiento : BaseEntity, IPerteneceAEmpresa, IAuditable
     public Guid? CorteOrigenSesionId { get; private set; }
 
     public string? Referencia { get; private set; }
+
+    /// <summary>Últimos 4 dígitos de la tarjeta del voucher en cobros con tarjeta (86e3tfdvt).</summary>
+    public string? TarjetaUltimos4 { get; private set; }
+
     public string Descripcion { get; private set; } = string.Empty;
 
     /// <summary>Quien capturó/originó el movimiento.</summary>
@@ -104,7 +108,8 @@ public sealed class CajaMovimiento : BaseEntity, IPerteneceAEmpresa, IAuditable
         string? referencia = null,
         Guid? cobroMostradorId = null,
         string moneda = "MXN",
-        Guid? corteOrigenSesionId = null)
+        Guid? corteOrigenSesionId = null,
+        string? tarjetaUltimos4 = null)
     {
         if (tipo == TipoCajaMovimiento.DevolucionFaltante)
         {
@@ -150,7 +155,10 @@ public sealed class CajaMovimiento : BaseEntity, IPerteneceAEmpresa, IAuditable
 
         return new CajaMovimiento(
             Guid.CreateVersion7(), empresaId, cajaSesionId, tipo, formaPago.Trim(), importe,
-            moneda, cobroMostradorId, Normalizar(referencia), descripcion.Trim(), usuarioId, corteOrigenSesionId);
+            moneda, cobroMostradorId, Normalizar(referencia), descripcion.Trim(), usuarioId, corteOrigenSesionId)
+        {
+            TarjetaUltimos4 = Normalizar(tarjetaUltimos4),
+        };
     }
 
     /// <summary>Asigna el folio del Vale de Caja reservado con <see cref="Caja.SiguienteFolioVale"/>.</summary>

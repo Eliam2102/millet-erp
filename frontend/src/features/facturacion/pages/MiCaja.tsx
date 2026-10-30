@@ -49,7 +49,11 @@ import { PorCobrarCaja } from '@/features/facturacion/components/PorCobrarCaja';
 import {
   autorizacionVoucherInvalida,
   esFormaTarjeta,
+  faltanUltimos4,
+  MENSAJE_ULTIMOS4,
   MENSAJE_VOUCHER,
+  pideUltimos4,
+  soloUltimos4,
   voucherIncompleto,
   formasPagoCaja,
   formasPagoVigentes,
@@ -446,6 +450,7 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
   // tarjeta, el chofer entrega el voucher (Manual de Sucursales §5.2).
   const [seleccion, setSeleccion] = useState<Record<string, string>>({});
   const [vouchers, setVouchers] = useState<Record<string, string>>({});
+  const [ultimos4, setUltimos4] = useState<Record<string, string>>({});
 
   const items = cobrables.data ?? [];
   const seleccionados = items.filter((c) => seleccion[c.comprobanteId] != null);
@@ -458,6 +463,12 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
     seleccionados.map((c) => ({
       formaPago: seleccion[c.comprobanteId],
       referencia: vouchers[c.comprobanteId],
+    })),
+  );
+  const sinUltimos4 = faltanUltimos4(
+    seleccionados.map((c) => ({
+      formaPago: seleccion[c.comprobanteId],
+      tarjetaUltimos4: ultimos4[c.comprobanteId],
     })),
   );
 
@@ -483,6 +494,10 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
       toast.error(MENSAJE_VOUCHER);
       return;
     }
+    if (sinUltimos4) {
+      toast.error(MENSAJE_ULTIMOS4);
+      return;
+    }
     liquidar.mutate(
       {
         cobros: seleccionados.map((c) => ({
@@ -493,6 +508,9 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
               importe: c.total,
               referencia: esFormaTarjeta(seleccion[c.comprobanteId])
                 ? (vouchers[c.comprobanteId] ?? '').trim()
+                : null,
+              tarjetaUltimos4: pideUltimos4(seleccion[c.comprobanteId])
+                ? (ultimos4[c.comprobanteId] ?? '').trim()
                 : null,
             },
           ],
@@ -630,6 +648,30 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
                           aria-required
                         />
                       )}
+                      {marcado && pideUltimos4(seleccion[c.comprobanteId]) && (
+                        <Input
+                          className="mt-1 h-8 w-44"
+                          inputMode="numeric"
+                          autoComplete="off"
+                          value={ultimos4[c.comprobanteId] ?? ''}
+                          onChange={(e) =>
+                            setUltimos4((prev) => ({
+                              ...prev,
+                              [c.comprobanteId]: soloUltimos4(e.target.value),
+                            }))
+                          }
+                          placeholder="Últimos 4 de la tarjeta"
+                          maxLength={4}
+                          aria-label={`Últimos 4 dígitos de la tarjeta de ${c.folio}`}
+                          aria-invalid={faltanUltimos4([
+                            {
+                              formaPago: seleccion[c.comprobanteId],
+                              tarjetaUltimos4: ultimos4[c.comprobanteId],
+                            },
+                          ])}
+                          aria-required
+                        />
+                      )}
                     </TableCell>
                   </TableRow>
                 );
@@ -651,13 +693,17 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
         <Button
           size="sm"
           onClick={onRegistrar}
-          disabled={liquidar.isPending || seleccionados.length === 0 || !vigentes || sinVoucher}
+          disabled={
+            liquidar.isPending || seleccionados.length === 0 || !vigentes || sinVoucher || sinUltimos4
+          }
           title={
             !vigentes
               ? 'Selecciona formas de pago SAT activas.'
               : sinVoucher
                 ? MENSAJE_VOUCHER
-                : undefined
+                : sinUltimos4
+                  ? MENSAJE_ULTIMOS4
+                  : undefined
           }
         >
           Registrar liquidación
