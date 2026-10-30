@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Millet.CuentasPorPagar.Domain.Eventos;
 using Millet.CuentasPorPagar.Domain.NotaCargo;
+using Millet.CuentasPorPagar.Domain.FacturaProveedor;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 
@@ -100,6 +101,24 @@ public sealed class OcDevolucionRegistradaHandler : IRequestHandler<OcDevolucion
             .ContinueWith(t => t.Result.Single(), cancellationToken);
 
         var folio = FolioInternoNotaCargo.FromAnioSecuencial(anio, siguiente);
+
+        // Almacén casi nunca conoce la factura: CxP la resuelve por la recepción de origen o, si la OC tiene una
+        // sola factura vigente, por la OC. Sin factura clara la nota queda en Borrador y la liga el usuario.
+        var facturaOrigenId = p.FacturaProveedorOrigenId;
+        if (facturaOrigenId is null && p.RecepcionOrigenId is Guid recepcionId)
+        {
+            var porRecepcion = await _db.FacturasProveedor.AsNoTracking()
+                .Where(f => f.RecepcionId == recepcionId && f.ProveedorId == p.ProveedorId && f.Estado != EstadoPasivo.Cancelada)
+                .Select(f => f.Id).Take(2).ToListAsync(cancellationToken);
+            if (porRecepcion.Count == 1) facturaOrigenId = porRecepcion[0];
+        }
+        if (facturaOrigenId is null && p.OrdenCompraOrigenId is Guid ocId)
+        {
+            var porOc = await _db.FacturasProveedor.AsNoTracking()
+                .Where(f => f.OrdenCompraId == ocId && f.ProveedorId == p.ProveedorId && f.Estado != EstadoPasivo.Cancelada)
+                .Select(f => f.Id).Take(2).ToListAsync(cancellationToken);
+            if (porOc.Count == 1) facturaOrigenId = porOc[0];
+        }
         var concepto = $"Devolución a proveedor — {p.FolioMovimiento} — {p.Motivo}";
         if (concepto.Length > 400) concepto = concepto[..400];
 
@@ -113,7 +132,7 @@ public sealed class OcDevolucionRegistradaHandler : IRequestHandler<OcDevolucion
             monto: p.MontoTotalMxn,
             moneda: "MXN",
             tipoCambio: null,
-            facturaOrigenId: p.FacturaProveedorOrigenId,
+            facturaOrigenId: facturaOrigenId,
             devolucionAProveedorId: p.DevolucionId,
             creadoPor: null,
             ahora: ahora);
