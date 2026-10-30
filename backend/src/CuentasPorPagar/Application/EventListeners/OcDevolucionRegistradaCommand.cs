@@ -10,9 +10,9 @@ namespace Millet.CuentasPorPagar.Application.EventListeners;
 
 /// <summary>
 /// Listener del integration event <c>almacen.oc_devolucion.registrada.v1</c>
-/// (F6-PR3). Crea una <see cref="Domain.NotaCargo.NotaCargo"/> en
-/// Borrador asociada a la devolución para que el operador la autorice
-/// y aplique. La NC fiscal del proveedor (tipo CFDI 03) cierra el
+/// (F6-PR3). Crea una <see cref="Domain.NotaCargo.NotaCargo"/> asociada
+/// a la devolución y, si hay factura vigente con saldo, la aplica al
+/// instante (si no, queda en Borrador). La NC fiscal del proveedor (tipo CFDI 03) cierra el
 /// ciclo formalizando la nota de cargo y publicando
 /// <c>NotaCreditoFiscalDevolucionRecibidaEvent</c> a Almacén.
 ///
@@ -38,13 +38,15 @@ public sealed class OcDevolucionRegistradaHandler : IRequestHandler<OcDevolucion
     private readonly CuentasPorPagarDbContext _db;
     private readonly IClock _clock;
     private readonly ILogger<OcDevolucionRegistradaHandler> _logger;
+    private readonly Application.NotaCargo.FormalizacionNotaCargoService _formalizacion;
 
     public OcDevolucionRegistradaHandler(
         CuentasPorPagarDbContext db,
         IClock clock,
-        ILogger<OcDevolucionRegistradaHandler> logger)
+        ILogger<OcDevolucionRegistradaHandler> logger,
+        Application.NotaCargo.FormalizacionNotaCargoService formalizacion)
     {
-        _db = db; _clock = clock; _logger = logger;
+        _db = db; _clock = clock; _logger = logger; _formalizacion = formalizacion;
     }
 
     public async Task Handle(OcDevolucionRegistradaCommand request, CancellationToken cancellationToken)
@@ -117,6 +119,8 @@ public sealed class OcDevolucionRegistradaHandler : IRequestHandler<OcDevolucion
             ahora: ahora);
 
         _db.NotasCargo.Add(nota);
+        // Decisión fiscal 30-oct: la nota nace aplicada en la salida física; sin factura vigente queda en Borrador.
+        var aplicada = await _formalizacion.AplicarPorDevolucionAsync(nota, ahora, cancellationToken);
         _db.EventosProcesados.Add(new EventoProcesado(
             eventoId: request.EventId,
             eventoTipo: EventType,
@@ -126,7 +130,7 @@ public sealed class OcDevolucionRegistradaHandler : IRequestHandler<OcDevolucion
         await _db.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation(
-            "[OcDevolucionRegistradaHandler] NotaCargo {Folio} creada en Borrador (devolucion={DevolucionId}, monto={Monto}).",
-            nota.Folio.Valor, p.DevolucionId, nota.Monto);
+            "[OcDevolucionRegistradaHandler] NotaCargo {Folio} creada en {Estado} (devolucion={DevolucionId}, monto={Monto}).",
+            nota.Folio.Valor, aplicada ? "Aplicada" : "Borrador", p.DevolucionId, nota.Monto);
     }
 }

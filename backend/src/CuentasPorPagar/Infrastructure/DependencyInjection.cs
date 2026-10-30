@@ -150,6 +150,7 @@ public static class DependencyInjection
         services.AddScoped<Application.FacturaProveedor.Elegibilidad.ElegibilidadFacturaService>();
         services.AddScoped<Application.Integration.Mappers.PasivoAutorizadoParaPagoMapper>();
         services.AddScoped<Application.Integration.Mappers.FacturaPagoAplicadoMapper>();
+        services.AddScoped<Application.NotaCargo.FormalizacionNotaCargoService>();
         return services;
     }
 }
