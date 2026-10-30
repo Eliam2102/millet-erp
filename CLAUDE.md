@@ -139,7 +139,7 @@ los tres levantamientos como conjunto:
 | `AlmacenEventListenerWorker` (en Compras) | `almacen-events` | `compras-subscription-almacen` | ✅ sub-estado Recepción; #614 — devoluciones 8.B decrementan `CantidadRecibida` (GAP-5) y entregas por salida RQ (ADR-0043) |
 | ~~`TesoreriaEventListenerWorker` (en Compras)~~ | — | — | ✅ Resuelto **sin** listener de Tesorería (#613/#614): CxP re-publica el pago como `cuentas_por_pagar.factura.pago-aplicado.v1` y lo consume el `CxpEventListenerWorker`. PLATFORM-TODO `<TesoreriaEventListenerCompras>` cerrado |
 
-> El listener `NotaCreditoProveedorRegistradaListener` (en Compras) sigue huérfano: la NC en CxP no tiene granularidad por línea de OC. PLATFORM-TODO `<NcGranularidadLineaOc>`. Mientras tanto, `cuentas_por_pagar.nota-credito.registrada.v1` se loggea como informativo.
+> `<NcGranularidadLineaOc>` cerrado (30-oct) sin líneas en la NC de CxP: al formalizar la nota de cargo de una devolución con la NC 03, CxP publica `cuentas_por_pagar.nc-fiscal-devolucion.recibida.v1`; Almacén concilia esa devolución exacta y publica `almacen.oc_devolucion.conciliada.v1` con lo acreditado por línea de OC; Compras guarda `cantidad_acreditada` (lo acreditado ya no se espera: objetivo = pedido − acreditado; facturado neto = facturado − acreditado). La cancelación de factura manda en `factura.cancelada.v1` el facturado vigente por línea. `nota-credito.registrada.v1` sigue informativo en Compras y en Almacén.
 
 ---
 
