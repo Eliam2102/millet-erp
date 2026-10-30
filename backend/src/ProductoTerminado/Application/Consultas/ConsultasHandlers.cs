@@ -47,7 +47,10 @@ public sealed class ListarPiezasHandler(ProductoTerminadoDbContext db, PtAcceso 
                 var n = cuentas.FirstOrDefault(c => c.Posicion == pos.Posicion)?.N ?? 0;
                 var terminadas = Math.Min(n, pos.PiezasEsperadas);
                 var estado = n == 0 ? "SinPiezas" : terminadas >= pos.PiezasEsperadas && pos.PiezasEsperadas > 0 ? "Completo" : "Parcial";
-                return new AvancePosicionDto(pos.Posicion, pos.Descripcion, pos.PiezasEsperadas, terminadas, Math.Max(0, pos.PiezasEsperadas - terminadas), estado);
+                // TODO(PT5.4-PT5.9): cargadas y entregadas salen de la carga y la entrega; hoy no hay fuente (EstadoPieza solo tiene EnPT).
+                const int cargadas = 0, entregadas = 0;
+                return new AvancePosicionDto(pos.Posicion, pos.Descripcion, pos.PiezasEsperadas, terminadas, terminadas - cargadas - entregadas,
+                    cargadas, entregadas, Math.Max(0, pos.PiezasEsperadas - terminadas), estado);
             }).ToList();
         }
         return new PiezasPagina(items, total, avance);
