@@ -59,8 +59,9 @@ public sealed class DepositoFichasCorteTests(WebApplicationFactory<Program> fact
         var tes = verificar.ServiceProvider.GetRequiredService<TesoreriaDbContext>();
         (await tes.DepositosConfirmacion.SingleAsync(d => d.Id == corte.Id)).Estado.Should().Be(EstadoDepositoConfirmacion.Confirmada);
         (await tes.DepositoFichas.CountAsync(f => f.DepositoConfirmacionId == corte.Id)).Should().Be(2);
-        var eventos = await tes.OutboxEntries.Where(e => e.EventType == "tesoreria.deposito-caja.confirmado.v1"
-            && e.Payload.Contains(corte.Id.ToString())).ToListAsync();
+        // Payload es jsonb: se filtra en memoria (LIKE no existe sobre jsonb).
+        var eventos = (await tes.OutboxEntries.Where(e => e.EventType == "tesoreria.deposito-caja.confirmado.v1").ToListAsync())
+            .Where(e => e.Payload.Contains(corte.Id.ToString())).ToList();
         eventos.Should().HaveCount(2);
         eventos.Should().OnlyContain(e => e.Payload.Contains("2026-11-02"));
     }

@@ -7,7 +7,7 @@ namespace Millet.Tesoreria.Domain.Depositos;
 /// ingreso que cubre todo o parte del efectivo de la sesión. Un corte se cubre con
 /// 1..N fichas; una ficha pertenece a un solo corte (índice único por movimiento).
 /// </summary>
-public sealed class DepositoFicha : BaseEntity, IPerteneceAEmpresa
+public sealed class DepositoFicha : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
     public Guid DepositoConfirmacionId { get; private set; }
