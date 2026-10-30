@@ -964,6 +964,8 @@ builder.Services.AddCuentasPorCobrarModule(builder.Configuration, builder.Enviro
 builder.Services.AddTesoreriaModule(builder.Configuration);
 builder.Services.AddScoped<Millet.Tesoreria.Domain.Ports.IElegibleFacturaReadPort, Millet.Api.Infrastructure.Adapters.ElegibleFacturaReadPortAdapter>();
 builder.Services.AddScoped<Millet.CuentasPorPagar.Domain.Ports.Tesoreria.IPagosProveedorReadPort, Millet.Api.Infrastructure.Adapters.PagosProveedorReadPortAdapter>();
+// K10.5: folio y proveedor de la OC para el auxiliar de la cuenta puente (Contabilidad ← Compras).
+builder.Services.AddScoped<Millet.Contabilidad.Application.CuentaPuente.IOrdenCompraPuentePort, Millet.Api.Infrastructure.Adapters.OrdenCompraPuenteAdapter>();
 // FIX-12: nombre del cajero en el corte y la liquidación de caja (Facturación no referencia Identidad).
 builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.IUsuariosReadPort, Millet.Api.Infrastructure.Adapters.FacturacionUsuariosReadAdapter>();
 // 86e3tfdve: cuenta beneficiaria del complemento de pago desde la cuenta bancaria de Millet (dueño: Tesorería).
@@ -1600,6 +1602,8 @@ Millet.Api.Endpoints.Contabilidad.ContabilidadPeriodosEndpoints.MapContabilidadP
 Millet.Api.Endpoints.Contabilidad.ContabilidadPolizasEndpoints.MapContabilidadPolizasEndpoints(app);
 Millet.Api.Endpoints.Contabilidad.ContabilidadRecurrentesEndpoints.MapContabilidadRecurrentesEndpoints(app);
 Millet.Api.Endpoints.Contabilidad.ContabilidadMotorEndpoints.MapContabilidadMotorEndpoints(app, app.Environment);
+// === Contabilidad — conciliación de la cuenta puente recepción–factura por OC (K10.5) ===
+Millet.Api.Endpoints.Contabilidad.ContabilidadCuentaPuenteEndpoints.MapContabilidadCuentaPuenteEndpoints(app);
 
 // === Almacén — CRUD asignación artículo→ubicación (OITW, ADR-0047 PR3) ===
 Millet.Api.Endpoints.Almacen.Asignaciones.AlmacenAsignacionesEndpoints.MapAlmacenAsignacionesEndpoints(app);

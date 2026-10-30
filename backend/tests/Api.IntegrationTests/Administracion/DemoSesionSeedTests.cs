@@ -325,8 +325,17 @@ public sealed partial class DemoSesionSeedTests
             Assert.True(p.CerradoEn <= DateTimeOffset.UtcNow, "El cierre del sembrador no debe tener una fecha futura.");
         });
         Assert.Equal(EstadoPeriodo.Abierto, periodos.Single(p => p.Numero == 10).Estado);
-        // 7 del catálogo DEMO + 19 de los roles contables de C1.5 (990.10–990.27 y DEMO-PUENTE; 990.01/.02/.03/.05 se reutilizan).
-        Assert.Equal(26, await contabilidad.Cuentas.CountAsync(c => c.Nombre.StartsWith("DEMO")));
+        // 7 del catálogo DEMO + 19 de los roles contables de C1.5 (990.10–990.27 y DEMO-PUENTE; 990.01/.02/.03/.05 se reutilizan)
+        // + 3 de la cuenta puente K10.5 (DEMO-INVENTARIO, DEMO-PROVEEDORES, DEMO-IVA-PEND); DEMO-PUENTE es la misma cuenta en ambos.
+        Assert.Equal(29, await contabilidad.Cuentas.CountAsync(c => c.Nombre.StartsWith("DEMO")));
+        // K10.5: OC-DEMO-K105-01..04 en la puente; saldadas 01 y 04, deudora 02 (+5,000) y acreedora 03 (−3,000). Requiere la migración K105MovimientosPuente.
+        var puente = await contabilidad.MovimientosPuente.ToListAsync();
+        Assert.Equal(4, puente.Select(m => m.OrdenCompraFolio).Distinct().Count());
+        var saldos = puente.GroupBy(m => m.OrdenCompraFolio).ToDictionary(g => g.Key!, g => g.Sum(m => m.Cargo - m.Abono));
+        Assert.Equal(0m, saldos["OC-DEMO-K105-01"]);
+        Assert.Equal(5_000m, saldos["OC-DEMO-K105-02"]);
+        Assert.Equal(-DemoSesionSeedHostedService.ImporteRecepcionSinFacturaDemo, saldos["OC-DEMO-K105-03"]);
+        Assert.Equal(0m, saldos["OC-DEMO-K105-04"]);
         Assert.Equal(2, await tesoreria.CuentasBancarias.CountAsync(c => c.Banco.StartsWith("DEMO-")));
         Assert.Equal(7, await compras.OrdenesCompra.CountAsync()); // + OC de importación CE-01a, de gastos CE-06, OC mixta de Activos Fijos, OC de servicio del agente (P6) y DEMO-OC-USD (C1.2)
         // C1.2: OC en dólares autorizada y TC USD del día en el catálogo.
