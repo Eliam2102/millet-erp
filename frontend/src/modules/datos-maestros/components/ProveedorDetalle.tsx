@@ -48,6 +48,7 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { ProveedorDatosForm } from '@/modules/datos-maestros/components/ProveedorDatosForm';
 import { ProveedorCuentasBancariasSection } from '@/modules/datos-maestros/components/ProveedorCuentasBancariasSection';
 import { ProveedorExpedienteSection } from '@/modules/datos-maestros/components/ProveedorExpedienteSection';
+import { ProveedorAccesoPortalSection } from '@/modules/datos-maestros/components/ProveedorAccesoPortalSection';
 import { ProveedorBloqueo } from '@/modules/datos-maestros/components/ProveedorBloqueo';
 
 /**
@@ -418,6 +419,7 @@ export function ProveedorDetalle() {
           razonSocial={proveedor.razonSocial}
         />
         <ProveedorExpedienteSection proveedorId={proveedor.id} origen={proveedor.origen ?? null} />
+        <ProveedorAccesoPortalSection proveedorId={proveedor.id} />
       </div>
 
       {/* Diálogo de Confirmación para Validar Proveedor */}

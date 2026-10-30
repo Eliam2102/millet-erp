@@ -1134,6 +1134,7 @@ builder.Services.AddScoped<Millet.Identidad.Application.Colaboradores.GrupoAcces
 // defecto hasta configurar adaptadores reales.
 // Avisos SLA de CxP por Graph: independientes del alta de colaboradores.
 builder.Services.AddGraphAvisosRevisionCxp(builder.Configuration);
+builder.Services.AddGraphPortalProveedorCorreo(builder.Configuration);
 var proveedorColaboradores = builder.Configuration["Entra:Proveedor"] ?? "Simulado";
 if (proveedorColaboradores.Equals("Graph", StringComparison.OrdinalIgnoreCase))
     builder.Services.AddGraphColaboradores(builder.Configuration, builder.Environment.IsDevelopment());
@@ -1727,6 +1728,9 @@ Millet.Api.Endpoints.CuentasPorPagar.CfdisEndpoints.MapCfdisEndpoints(app);
 
 // === Cuentas por Pagar — Facturas con OC (F3-PR1 + revisión F4-PR1) ===
 Millet.Api.Endpoints.CuentasPorPagar.FacturasEndpoints.MapFacturasEndpoints(app);
+
+// === Portal de proveedores (P8.3): entrada aparte, esquema propio ===
+Millet.Api.Endpoints.CuentasPorPagar.PortalProveedoresEndpoints.MapPortalProveedoresEndpoints(app);
 
 // === Cuentas por Pagar — Catálogos read-only (F4-PR1) ===
 Millet.Api.Endpoints.CuentasPorPagar.CatalogosCxpEndpoints.MapCatalogosCxpEndpoints(app);
