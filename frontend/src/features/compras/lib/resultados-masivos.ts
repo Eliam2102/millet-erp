@@ -19,7 +19,7 @@ export function resultadosConFolio(
 ): ResultadoAprobacionItem[] {
   return resultados.map((x) => ({
     id: x.id,
-    folio: folioPorId.get(x.id) ?? x.id,
+    folio: folioPorId.get(x.id) ?? '—',
     ok: x.ok,
     mensaje: x.mensaje,
   }));

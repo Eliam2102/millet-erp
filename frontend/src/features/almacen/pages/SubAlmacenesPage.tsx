@@ -314,7 +314,7 @@ function TablaSubAlmacenes({
     () =>
       items.map((s) => ({
         ...s,
-        almacen: almacenesMap.get(s.almacenId)?.clave ?? s.almacenId,
+        almacen: almacenesMap.get(s.almacenId)?.clave ?? '—',
       })),
     [items, almacenesMap],
   );

@@ -21,7 +21,7 @@ export function CancelacionOcPanel({ oc }: { oc: OrdenCompraDetalleResponse }) {
   const solicitudes = oc.solicitudesCancelacion ?? [];
   if (!solicitudes.length) return null;
   const puedeResolver = puedeResolverCancelacion(oc.estado, solicitudes, usuario?.id, permisos);
-  const nombre = (id: string) => nombres.get(id)?.nombre ?? id;
+  const nombre = (id: string) => nombres.get(id)?.nombre ?? '—';
   return (
     <section
       className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat"

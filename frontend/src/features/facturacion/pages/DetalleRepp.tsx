@@ -115,7 +115,7 @@ function Contenido({ r }: { r: NonNullable<ReturnType<typeof useRepp>['data']> }
                       params={{ id: f.facturaVentaId }}
                       className="font-mono text-xs text-brand hover:underline"
                     >
-                      {f.folio ?? f.facturaUuid.slice(0, 8)}
+                      {f.folio ?? 'Ver'}
                     </Link>
                   </TableCell>
                   <TableCell className="px-3 py-2 text-right font-mono tabular-nums">

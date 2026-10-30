@@ -43,7 +43,7 @@ export function ListaLineasCompacta({
           >
             <div className="flex items-start justify-between gap-2">
               <span className={cn('truncate text-sm', l.id === idActivo && 'font-semibold')}>
-                {nombresCliente.get(l.clienteId) ?? l.clienteId.slice(0, 8)}
+                {nombresCliente.get(l.clienteId) ?? '—'}
               </span>
               <ChipEstadoLinea estado={l.estado} />
             </div>

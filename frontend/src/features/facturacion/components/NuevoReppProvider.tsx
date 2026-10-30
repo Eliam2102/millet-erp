@@ -12,7 +12,8 @@ import {
   type NuevoReppApi,
 } from '@/features/facturacion/components/nuevo-repp-context';
 import { NuevoRepp } from '@/features/facturacion/pages/NuevoRepp';
-import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 
 /**
  * <c>&lt;NuevoReppProvider/&gt;</c> + Sheet de emisión de REPP (FE-F6).
@@ -20,31 +21,17 @@ import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
  */
 export function NuevoReppProvider({ children }: { children: ReactNode }) {
   const [abierto, setAbierto] = useState(false);
-  const isDirtyRef = useRef(false);
-
-  const setDirty = useCallback((dirty: boolean) => {
-    isDirtyRef.current = dirty;
-  }, []);
-
-  const cerrarConConfirm = useCallback((opts?: { force?: boolean }) => {
-    if (opts?.force === true || !isDirtyRef.current) {
-      isDirtyRef.current = false;
-      setAbierto(false);
-      return;
-    }
-    const confirmar = window.confirm(
-      'Tienes un complemento de pago sin emitir. ¿Descartar y cerrar?',
-    );
-    if (confirmar) {
-      isDirtyRef.current = false;
-      setAbierto(false);
-    }
-  }, []);
+  const alCerrar = useCallback(() => setAbierto(false), []);
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(alCerrar);
+  const cerrarConConfirm = useCallback(
+    (opts?: { force?: boolean }) => solicitarCierre(opts?.force),
+    [solicitarCierre],
+  );
 
   const api = useMemo<NuevoReppApi>(
     () => ({
       abrir: () => {
-        isDirtyRef.current = false;
+        setDirty(false);
         setAbierto(true);
       },
       cerrar: cerrarConConfirm,
@@ -82,6 +69,7 @@ export function NuevoReppProvider({ children }: { children: ReactNode }) {
           </SheetBody>
         </SheetContent>
       </Sheet>
+      {dialogo}
     </NuevoReppContext.Provider>
   );
 }

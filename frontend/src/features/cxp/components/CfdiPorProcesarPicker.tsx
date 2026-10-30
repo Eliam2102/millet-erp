@@ -120,7 +120,7 @@ export function CfdiPorProcesarPicker({
   const triggerLabel = seleccionado
     ? formatTrigger(seleccionado)
     : value
-      ? `${value.slice(0, 8)}…`
+      ? '—'
       : placeholder;
 
   return (

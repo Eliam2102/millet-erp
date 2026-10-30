@@ -32,6 +32,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ErrorState } from '@/components/erp';
 import { esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -179,19 +180,11 @@ function DetallePoliza({ id, search, onNavegar }: Props) {
         <div className="flex justify-end" data-print="hidden">
           {cerrar}
         </div>
-        <div
-          role="alert"
-          className="flex items-center gap-2 rounded-lg bg-danger-bg p-4 text-sm text-danger-fg"
-        >
-          {noExiste
-            ? 'La póliza no existe o fue descartada.'
-            : `No se pudo cargar la póliza. ${mensajePoliza(consulta.error)}`}
-          {!noExiste && (
-            <Button variant="ghost" size="sm" onClick={() => void consulta.refetch()}>
-              Reintentar
-            </Button>
-          )}
-        </div>
+        <ErrorState
+          title={noExiste ? 'La póliza no existe o fue descartada' : 'No se pudo cargar la póliza'}
+          problem={esApiError(consulta.error) ? consulta.error.problem : undefined}
+          onRetry={() => void consulta.refetch()}
+        />
       </div>
     );
   }

@@ -156,7 +156,7 @@ export function LigarPagoACuentaDialog({ pago, onOpenChange }: LigarPagoACuentaD
                       {(pasivos.data?.items ?? []).map((p) => (
                         <SelectItem key={p.facturaProveedorId} value={p.facturaProveedorId}>
                           <span className="font-mono text-xs">
-                            {p.folioProveedor ?? p.facturaProveedorId.slice(0, 8)}
+                            {p.folioProveedor ?? '—'}
                           </span>{' '}
                           · {formatoMonto(p.saldoPendiente, p.moneda)} · vence{' '}
                           <DateTimeDisplay value={p.fechaVencimiento} variant="corta" />

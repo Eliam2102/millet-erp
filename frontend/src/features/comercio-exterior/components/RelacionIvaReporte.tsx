@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { ErrorState } from '@/components/erp';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
+import { renderCelda } from '@/components/erp/reportes/render-celda';
 import type { ReporteShellProps } from '@/components/erp/reportes/ReporteShell';
 import { Button } from '@/components/ui/button';
 import {
@@ -161,29 +162,4 @@ export function RelacionIvaReporte<TFila>({
       )}
     </ListadoModulo>
   );
-}
-
-// Conserva los formatos del reporte compartido, sin alterar cálculos ni valores.
-function renderCelda(valor: unknown, tipo: string): string {
-  if (valor == null) return '—';
-  switch (tipo) {
-    case 'moneda':
-      return typeof valor === 'number'
-        ? new Intl.NumberFormat('es-MX', {
-            style: 'currency',
-            currency: 'MXN',
-            minimumFractionDigits: 2,
-          }).format(valor)
-        : String(valor);
-    case 'numero':
-      return typeof valor === 'number'
-        ? valor.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 4 })
-        : String(valor);
-    case 'fecha':
-      return typeof valor === 'string'
-        ? new Date(valor).toLocaleDateString('es-MX')
-        : String(valor);
-    default:
-      return String(valor);
-  }
 }

@@ -132,7 +132,7 @@ export function DetalleMovimiento({ id }: { id: string }) {
       <div data-print="hidden">
         <PageHeader
           mono
-          titulo={m.referenciaBancaria ?? m.id}
+          titulo={m.referenciaBancaria ?? 'Movimiento bancario'}
           descripcion={
             <>
               Movimiento bancario · {m.beneficiarioNombre ?? m.conceptoNombre ?? 'Sin beneficiario'}

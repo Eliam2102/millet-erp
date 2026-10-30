@@ -1,3 +1,4 @@
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { useId, useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -62,10 +63,11 @@ export function UnificarClientesRfcSheet({ conflicto, onClose }: { conflicto: Ca
   const sucio = limpio !== '' || (elegido != null && elegido !== grupo?.principalSugeridoId);
   const noExiste = esApiError(q.error) && q.error.status === 404;
 
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(onClose);
   function cerrar() {
     if (ocupado) return;
-    if (sucio && !window.confirm('Tienes cambios sin guardar. ¿Descartarlos y cerrar?')) return;
-    onClose();
+    setDirty(sucio);
+    solicitarCierre();
   }
 
   function confirmarUnificar() {
@@ -207,6 +209,7 @@ export function UnificarClientesRfcSheet({ conflicto, onClose }: { conflicto: Ca
           )}
         </SheetFooter>
       </SheetContent>
+      {dialogo}
     </Sheet>
   );
 }
