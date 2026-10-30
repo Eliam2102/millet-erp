@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { http, HttpResponse } from 'msw';
+import { http, HttpResponse, type JsonBodyType } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
 import { useAuthStore } from '@/lib/auth/auth-store';
@@ -29,7 +29,7 @@ const grupo = {
   ],
 };
 
-function montar(onClose = vi.fn(), g: unknown = grupo) {
+function montar(onClose = vi.fn(), g: JsonBodyType = grupo) {
   mswServer.use(http.get('*/clientes/rfc-repetidos/ABC010101AB1', () => HttpResponse.json(g)));
   render(<UnificarClientesRfcSheet conflicto={conflicto} onClose={onClose} />, { wrapper: createQueryWrapper() });
   return onClose;
