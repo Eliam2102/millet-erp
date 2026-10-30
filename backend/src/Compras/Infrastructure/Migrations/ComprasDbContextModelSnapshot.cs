@@ -1804,6 +1804,45 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasDefaultValue(true)
                         .HasColumnName("requiere_nivel2");
 
+                    b.Property<DateTimeOffset?>("ServicioConfirmacionRevocadaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("servicio_confirmacion_revocada_en");
+
+                    b.Property<string>("ServicioConfirmacionRevocadaMotivo")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("servicio_confirmacion_revocada_motivo");
+
+                    b.Property<Guid?>("ServicioConfirmacionRevocadaPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("servicio_confirmacion_revocada_por_id");
+
+                    b.Property<string>("ServicioConfirmadoComentario")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("servicio_confirmado_comentario");
+
+                    b.Property<DateTimeOffset?>("ServicioConfirmadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("servicio_confirmado_en");
+
+                    b.Property<Guid?>("ServicioConfirmadoPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("servicio_confirmado_por_id");
+
+                    b.Property<DateTimeOffset?>("ServicioNoConformeEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("servicio_no_conforme_en");
+
+                    b.Property<string>("ServicioNoConformeMotivo")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("servicio_no_conforme_motivo");
+
+                    b.Property<Guid?>("ServicioNoConformePorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("servicio_no_conforme_por_id");
+
                     b.Property<bool>("SinRequisicionPrevia")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
