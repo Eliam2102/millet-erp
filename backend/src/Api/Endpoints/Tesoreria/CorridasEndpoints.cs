@@ -109,7 +109,7 @@ public static class CorridasEndpoints
         // T9.1-B: oficio solo de la corrida autorizada (el servidor valida el estado); el PDF se arma en el cliente (ADR-0036).
         corridas.MapPost("/{id:guid}/oficio", async (Guid id, IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(new GenerarOficioCorridaCommand(id), ct)))
-            .AddEndpointFilter(SoloLectura)
+            .RequireAuthorization(P + PermisosCanonicos.TesoreriaPasivosVer)
             .WithName("GenerarOficioCorridaPago").Produces<Millet.Tesoreria.Application.Reportes.Comun.ReporteJsonResponse>()
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
