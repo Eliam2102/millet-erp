@@ -13,7 +13,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(FacturacionDbContext))]
-    [Migration("20261030212221_TarjetaUltimos4Voucher")]
+    [Migration("20261030215003_TarjetaUltimos4Voucher")]
     partial class TarjetaUltimos4Voucher
     {
         /// <inheritdoc />
@@ -570,6 +570,10 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("cobro_mostrador_id");
 
+                    b.Property<Guid?>("CorteOrigenSesionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("corte_origen_sesion_id");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -653,6 +657,10 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                     b.HasIndex("CobroMostradorId")
                         .HasDatabaseName("ix_caja_movimiento_cobro")
                         .HasFilter("cobro_mostrador_id IS NOT NULL");
+
+                    b.HasIndex("CorteOrigenSesionId")
+                        .HasDatabaseName("ix_caja_movimiento_corte_origen")
+                        .HasFilter("corte_origen_sesion_id IS NOT NULL");
 
                     b.HasIndex("CajaId", "FolioVale")
                         .IsUnique()
