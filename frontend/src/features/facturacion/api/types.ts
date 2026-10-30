@@ -481,6 +481,8 @@ export interface EmitirReppCommand {
   formaPagoReal: string;
   cuentaOrdenante: string | null;
   cuentaBeneficiaria: string | null;
+  /** 86e3tfdve: cuenta de Millet; el backend resuelve su CLABE/número. */
+  cuentaBancariaBeneficiariaId?: string | null;
   referenciaPago: string | null;
   facturas: ReppFacturaPago[];
 }
@@ -514,6 +516,9 @@ export interface ReppBandejaItem {
   receptorNombre: string;
   importeTotalPago: number;
   fechaPago: string;
+  /** 86e3tfdve: cuentas del pago enmascaradas («•••• 1234»). */
+  cuentaOrdenante?: string | null;
+  cuentaBeneficiaria?: string | null;
 }
 
 /** Factura cubierta por un REPP (detalle). */
@@ -560,6 +565,10 @@ export interface ReppDetalleResponse {
   timbradoErrorCodigo: string | null;
   timbradoErrorMensaje: string | null;
   folioPac: string | null;
+  /** 86e3tfdve: forma de pago y cuentas enmascaradas («•••• 1234»). */
+  formaPago?: string | null;
+  cuentaOrdenante?: string | null;
+  cuentaBeneficiaria?: string | null;
 }
 
 // ─── Carta Porte 3.1 (FE-F8) ──────────────────────────────────────────

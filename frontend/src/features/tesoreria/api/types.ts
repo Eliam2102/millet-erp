@@ -281,6 +281,8 @@ export interface MovimientoBancarioResponse {
   destinoNumeroCuenta?: string | null;
   destinoTitular?: string | null;
   fondosVerificados?: boolean | null;
+  /** 86e3tfdve: cuenta ordenante del cliente (enmascarada salvo permiso PII). */
+  cuentaOrdenante?: string | null;
   creadoPor: string;
   creadoEn: string;
   version: number;
