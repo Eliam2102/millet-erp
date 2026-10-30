@@ -21,14 +21,17 @@ public sealed class AgregarLineaManualOcHandler
     private readonly ComprasDbContext _db;
     private readonly IDecimalesUnidadGuard _decimalesGuard;
     private readonly IArticuloReadPort _articulos;
+    private readonly Millet.Almacen.Domain.Ports.IVarianteVidrioReadPort? _variantes; // opcional solo para pruebas unitarias sin medidas
     private readonly Millet.CentrosCosto.Application.PublicPorts.IDim3ElegibilidadPort _dim3ElegibilidadPort;
 
     public AgregarLineaManualOcHandler(
         ComprasDbContext db,
         IDecimalesUnidadGuard decimalesGuard,
         IArticuloReadPort articulos,
-        Millet.CentrosCosto.Application.PublicPorts.IDim3ElegibilidadPort dim3ElegibilidadPort, Millet.Compras.Domain.Ports.IClaseActivoCompraReadPort? clasesActivos = null)
+        Millet.CentrosCosto.Application.PublicPorts.IDim3ElegibilidadPort dim3ElegibilidadPort, Millet.Compras.Domain.Ports.IClaseActivoCompraReadPort? clasesActivos = null,
+        Millet.Almacen.Domain.Ports.IVarianteVidrioReadPort? variantes = null)
     {
+        _variantes = variantes;
         _clasesActivos = clasesActivos;
         _db = db;
         _decimalesGuard = decimalesGuard;
@@ -60,18 +63,22 @@ public sealed class AgregarLineaManualOcHandler
         if (command.EsActivoFijo && (command.ClaseActivoId is not Guid claseId || _clasesActivos is null || !await _clasesActivos.EsActivaAsync(claseId, cancellationToken)))
             throw new BusinessRuleException("COMPRA_CLASE_ACTIVO_INVALIDA", "Seleccione una clase de activo activa de la empresa.");
 
-        // ADR-0046 Etapa 2: la cantidad no puede exceder los decimales de la
-        // unidad del artículo (FK NULL → no valida).
-        await _decimalesGuard.ValidarAsync(
-            new[] { new CantidadAValidar(command.ArticuloId, command.Cantidad, command.UnidadMedida) },
-            cancellationToken);
-
         // GAP-9: snapshot de naturaleza — las líneas de servicio se excluyen
         // del sub-estado de Recepción. Artículo no encontrado → false.
         var articulos = await _articulos.ObtenerPorIdsAsync(
             [command.ArticuloId], cancellationToken);
         var esServicio = articulos.TryGetValue(command.ArticuloId, out var articulo)
             && articulo.EsServicio;
+
+        // F1-MP-01 (E1, A4.1-b): vidrio crudo ⇒ medida obligatoria; otro artículo ⇒ sin medida.
+        var medida = await OcLineaMedida.ResolverAsync(
+            articulo?.TieneProductoAw == true, _variantes, command.ArticuloId, command.ProductoAwVarianteId, cancellationToken);
+
+        // ADR-0046 Etapa 2: la cantidad no puede exceder los decimales de la
+        // unidad del artículo (FK NULL → no valida). Con medida los m² salen de hojas enteras (D8): Derivada.
+        await _decimalesGuard.ValidarAsync(
+            new[] { new CantidadAValidar(command.ArticuloId, command.Cantidad, command.UnidadMedida, Derivada: medida is not null) },
+            cancellationToken);
 
         // G1.11 / ADR-0050 §2: línea manual de OC es captura proxy por comprador.
         // Valida existe + activo, SIN alcance.
@@ -98,7 +105,9 @@ public sealed class AgregarLineaManualOcHandler
             textoAdicional: command.TextoAdicional,
             esServicio: esServicio,
             // Fase E PR3: CC-Máquina elegido por el comprador (proxy, abierto).
-            centroCostoId: command.CentroCostoId, esActivoFijo: command.EsActivoFijo, claseActivoId: command.ClaseActivoId);
+            centroCostoId: command.CentroCostoId, esActivoFijo: command.EsActivoFijo, claseActivoId: command.ClaseActivoId,
+            productoAwVarianteId: medida?.VarianteId, anchoMm: medida?.AnchoMm, altoMm: medida?.AltoMm,
+            loteProveedor: command.LoteProveedor);
 
         await _db.SaveChangesAsync(cancellationToken);
 

@@ -19,7 +19,8 @@ namespace Millet.Api.IntegrationTests.Settings;
 /// idempotency middleware.
 /// </para>
 /// </summary>
-public class SettingsEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class SettingsEndpointsTests
 {
     private const string SuperAdminOid = "dev-superadmin";
 

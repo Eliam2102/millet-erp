@@ -22,7 +22,8 @@ namespace Millet.Api.IntegrationTests.Almacen;
 /// B3 con fila-en-0 de Y} + sub2 {B2 5@60 de Y}. Totales: sucursal 35/6300,
 /// sub1 30/6000, sub2 5/300.</para>
 /// </summary>
-public class ConsultaJerarquicaTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class ConsultaJerarquicaTests
 {
     private readonly WebApplicationFactory<Program> _factory;
 

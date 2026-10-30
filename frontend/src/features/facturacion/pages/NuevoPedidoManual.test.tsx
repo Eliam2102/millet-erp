@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
 import { NuevoPedidoManual } from '@/features/facturacion/pages/NuevoPedidoManual';
+import type { PedidoFacturableDetalleResponse } from '@/features/facturacion/api/types';
 import { useAuthStore } from '@/lib/auth/auth-store';
 
 // Los selectores consultan catálogos; aquí se reemplazan por botones que
@@ -108,7 +109,7 @@ describe('<NuevoPedidoManual> — clase de pedido (F6.1)', () => {
     expect(comportamiento).toHaveValue('Venta de activo fijo');
     expect(comportamiento).toHaveAttribute('readonly');
     expect(
-      screen.getByText(/Requiere autorización del Contador General antes de timbrar/i),
+      screen.getByText(/Requiere autorización del Director de Administración y Finanzas antes de timbrar/i),
     ).toBeInTheDocument();
 
     // Al cambiar a otro subtipo se libera el comportamiento.
@@ -185,6 +186,56 @@ describe('<NuevoPedidoManual> — clase de pedido (F6.1)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Crear pedido/i }));
     expect(
       await screen.findByText(/No tienes permiso para capturar pedidos de emergencia/i),
+    ).toBeInTheDocument();
+  });
+});
+
+describe('<NuevoPedidoManual> — comportamiento fiscal (86e3wzcn4)', () => {
+  const pedidoGuardado = {
+    id: 'p-1',
+    numeroPedido: 'MID-001',
+    origen: 'Manual',
+    estado: 'Importado',
+    sucursalId: '33333333-3333-4333-8333-333333333333',
+    clienteId: '22222222-2222-4222-8222-222222222222',
+    clienteNombre: 'Cliente Demo SA',
+    canalVentaId: 1,
+    canalVenta: 'Sucursal Cancún',
+    comportamientoFiscal: 'TrasladoConCartaPorte',
+    claseManual: 'VentaDirecta',
+    subtipoVentaDirecta: 'Almacenable',
+    esEmergencia: false,
+    moneda: 'MXN',
+    obraId: null,
+    obraNombre: null,
+    comentarios: null,
+    comprobanteVigenteId: null,
+    total: 116,
+    ranura: null,
+    version: 1,
+    clienteFiscal: null,
+    lineas: [],
+  } as unknown as PedidoFacturableDetalleResponse;
+
+  it('un pedido nuevo no ofrece «Traslado (Carta Porte)» y avisa dónde se emite', () => {
+    setPermisos(['facturacion.pedidos.crear']);
+    renderForm();
+    const select = screen.getByRole('combobox', { name: 'Comportamiento fiscal' });
+    expect(within(select).queryByRole('option', { name: 'Traslado (Carta Porte)' })).toBeNull();
+    expect(
+      screen.getByText('La Carta Porte se emite desde Facturación › Carta Porte.'),
+    ).toBeInTheDocument();
+  });
+
+  it('al editar un pedido guardado como Traslado el selector muestra su valor', () => {
+    setPermisos(['facturacion.pedidos.crear']);
+    render(<NuevoPedidoManual onClose={vi.fn()} pedido={pedidoGuardado} />, {
+      wrapper: createQueryWrapper(),
+    });
+    const select = screen.getByRole('combobox', { name: 'Comportamiento fiscal' });
+    expect(select).toHaveValue('4');
+    expect(
+      within(select).getByRole('option', { name: 'Traslado (Carta Porte)', selected: true }),
     ).toBeInTheDocument();
   });
 });

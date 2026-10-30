@@ -8,16 +8,17 @@ using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 using Millet.ComercioExterior.Application.PublicPorts;
 using Npgsql;
+using Millet.SharedKernel.Domain;
 
 namespace Millet.ComercioExterior.Application;
-public sealed record PedimentoExportacionDatos(string Numero, string Clave, DateOnly Fecha, Guid? DocumentoId = null);
+public sealed record PedimentoExportacionDatos(string Numero, string Clave, DateOnly Fecha, Guid? DocumentoId = null, string? Aduana = null, string? AduanaNombre = null);
 public sealed record PartidaDatos(Guid PedidoFacturableId, int Posicion, decimal Cantidad);
 public sealed record PartidaDto(Guid Id, Guid ContenedorId, Guid PedidoFacturableId, int Posicion, Guid ClienteId,
     decimal Cantidad, string Unidad, long? VersionOrigenAsignada, EstadoPartida Estado, Guid ConfirmadoPorId);
 public sealed record ContenedorDto(Guid Id, string? Numero, string? Sello, string? Booking, string? BlGuia, string? Ruta,
     DateOnly? FechaCargaPrevista, DateOnly? FechaEmbarqueReal, decimal? PesoKg, int? Bultos, EstadoContenedor Estado, string? MotivoCancelacion);
 public sealed record ContenedoresDetalle(int Version, PedimentoExportacionDatos? Pedimento,
-    IReadOnlyList<ContenedorDto> Contenedores, IReadOnlyList<PartidaDto> Partidas, IReadOnlyList<PedidoEmbarcable> Pedidos);
+    IReadOnlyList<ContenedorDto> Contenedores, IReadOnlyList<PartidaDto> Partidas, IReadOnlyList<PedidoEmbarcable> Pedidos, IReadOnlyDictionary<string, string> Aduanas);
 public sealed record MutarContenedorCommand(Guid ExpedienteId, int Version, string Accion, Guid? ContenedorId = null,
     DatosContenedor? Datos = null, PartidaDatos? Partida = null, Guid? PartidaId = null, DateOnly? Fecha = null,
     string? Motivo = null, PedimentoExportacionDatos? Pedimento = null) : IRequest<ContenedoresDetalle>;
@@ -46,10 +47,11 @@ public sealed class ContenedoresServicio(ComercioExteriorDbContext db, Expedient
         var origen = await pedidos.ObtenerAsync(e.Partidas.Select(p => p.PedidoFacturableId).Distinct().ToArray(), ct);
         var versiones = origen.ToDictionary(p => p.Id, p => p.VersionOrigen);
         return new(e.Version, e.ClavePedimento is null || e.FechaPedimento is null ? null :
-            new(e.NumeroPedimentoExportacion ?? "", e.ClavePedimento, e.FechaPedimento.Value, e.DocumentoPedimentoExportacionId),
+            new(e.NumeroPedimentoExportacion ?? "", e.ClavePedimento, e.FechaPedimento.Value, e.DocumentoPedimentoExportacionId, e.AduanaPedimentoExportacion,
+                e.AduanaPedimentoExportacion is { } aduana ? CatalogoAduanas.Aduanas.GetValueOrDefault(aduana) : null),
             e.Contenedores.OrderBy(c => c.CreatedAt).ThenBy(c => c.Id).Select(c => new ContenedorDto(c.Id, c.Numero, c.Sello, c.Booking, c.BlGuia, c.Ruta, c.FechaCargaPrevista, c.FechaEmbarqueReal, c.PesoKg, c.Bultos, c.Estado, c.MotivoCancelacion)).ToArray(),
             e.Partidas.Select(p => new PartidaDto(p.Id, p.ContenedorId, p.PedidoFacturableId, p.Posicion, p.ClienteId, p.Cantidad, p.Unidad, p.VersionOrigenAsignada,
-                p.Estado == EstadoPartida.Liberada ? EstadoPartida.Liberada : versiones.TryGetValue(p.PedidoFacturableId, out var version) ? p.EstadoActual(version) : EstadoPartida.RequiereRevision, p.ConfirmadoPorId)).ToArray(), origen);
+                p.Estado == EstadoPartida.Liberada ? EstadoPartida.Liberada : versiones.TryGetValue(p.PedidoFacturableId, out var version) ? p.EstadoActual(version) : EstadoPartida.RequiereRevision, p.ConfirmadoPorId)).ToArray(), origen, CatalogoAduanas.Aduanas);
     }
 }
 
@@ -97,7 +99,7 @@ public sealed class MutarContenedorHandler(ComercioExteriorDbContext db, Expedie
                         if (doc is null || tipo is null || doc.TipoDocumentoId != tipo.Id || doc.AdjuntoId is not Guid a || !(await catalogos.AdjuntosVigentesAsync(e.Id, token)).Contains(a))
                             throw new BusinessRuleException("CE_PEDIMENTO_NO_VIGENTE", "Seleccione el documento vigente del pedimento de exportación.");
                     }
-                    e.RegistrarPedimentoExportacion(ped.Numero, ped.Clave, ped.Fecha, clock.HoyLocal(), ped.DocumentoId);
+                    e.RegistrarPedimentoExportacion(ped.Numero, ped.Clave, ped.Fecha, clock.HoyLocal(), ped.Aduana, ped.DocumentoId);
                     break;
                 case "asignar":
                     var datos = request.Partida ?? throw new BusinessRuleException("CE_PARTIDA_DATOS_INVALIDOS", "Seleccione pedido y posición.");

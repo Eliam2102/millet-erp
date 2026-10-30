@@ -75,6 +75,8 @@ beforeEach(() => {
   });
   mswServer.use(
     http.get('*/api/v1/facturacion/cobros', () => HttpResponse.json([])),
+    // Sin handler, la consulta de sucursales cierra la sesión del store a media prueba.
+    http.get('*/api/auth/sucursales', () => HttpResponse.json([])),
     http.get(`${BASE}/sesion-actual`, () =>
       HttpResponse.json({ sesion: sesionAbierta, diaAnteriorPendiente: false }),
     ),

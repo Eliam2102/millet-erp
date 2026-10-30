@@ -23,7 +23,7 @@ import {
 const MOTIVO_MIN = 5;
 const MOTIVO_MAX = 300;
 
-const fusiona = (c: ClienteRfcRepetido) => c.pedidosAw === 0 && c.pedidosErp === 0;
+const fusiona = (c: ClienteRfcRepetido) => c.pedidosAw === 0 && c.cotizacionesAw === 0 && c.pedidosErp === 0;
 
 function mensajeError(e: unknown, defecto: string) {
   return esApiError(e) ? (e.problem.detail ?? e.problem.title) : defecto;
@@ -154,6 +154,8 @@ export function UnificarClientesRfcSheet({ conflicto, onClose }: { conflicto: Ca
                         <span className="block text-xs text-ink-muted">
                           {`Pedidos A+W: ${c.pedidosAw}`}
                           {c.ultimoPedidoAw && ` (último ${formatDate(c.ultimoPedidoAw)})`}
+                          {` · Cotizaciones A+W: ${c.cotizacionesAw}`}
+                          {c.ultimaCotizacionAw && ` (última ${formatDate(c.ultimaCotizacionAw)})`}
                           {` · Pedidos ERP: ${c.pedidosErp}`}
                         </span>
                         <span className="flex flex-wrap items-center gap-2 text-xs">

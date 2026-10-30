@@ -3,17 +3,17 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Millet.Compras.Domain.Oc;
 using Millet.Compras.Domain.Ports.Blob;
-using Millet.Compras.Domain.Ports.Pdf;
+using Millet.Compras.Application.Oc.Pdf;
 using Millet.Compras.Infrastructure;
 using Millet.SharedKernel.Application;
-using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Compras.Application.Oc.Eventos;
 
 /// <summary>
 /// Listener in-proc (F6-PR1) que reacciona a
 /// <see cref="OrdenCompraAutorizadaPersistida"/>: genera el PDF institucional
-/// vía <see cref="IGenerarPdfOrdenCompraPort"/>, sube los bytes al blob
+/// vía <see cref="ImpresionOrdenCompraService"/> (sin marca: foto del momento de la
+/// autorización; descargas y envíos se renderizan al vuelo), sube los bytes al blob
 /// storage y persiste la fila <see cref="OrdenCompraPdf"/>. Si ya existía
 /// un PDF previo (re-autorización tras rechazo), se reemplaza (PUT
 /// semantics).
@@ -27,20 +27,20 @@ public sealed class OrdenCompraAutorizadaPdfListener
     : INotificationHandler<OrdenCompraAutorizadaPersistida>
 {
     private readonly ComprasDbContext _db;
-    private readonly IGenerarPdfOrdenCompraPort _pdfPort;
+    private readonly ImpresionOrdenCompraService _impresion;
     private readonly IAlmacenarBlobPort _blobPort;
     private readonly IClock _clock;
     private readonly ILogger<OrdenCompraAutorizadaPdfListener> _logger;
 
     public OrdenCompraAutorizadaPdfListener(
         ComprasDbContext db,
-        IGenerarPdfOrdenCompraPort pdfPort,
+        ImpresionOrdenCompraService impresion,
         IAlmacenarBlobPort blobPort,
         IClock clock,
         ILogger<OrdenCompraAutorizadaPdfListener> logger)
     {
         _db = db;
-        _pdfPort = pdfPort;
+        _impresion = impresion;
         _blobPort = blobPort;
         _clock = clock;
         _logger = logger;
@@ -48,14 +48,7 @@ public sealed class OrdenCompraAutorizadaPdfListener
 
     public async Task Handle(OrdenCompraAutorizadaPersistida notification, CancellationToken cancellationToken)
     {
-        var oc = await _db.OrdenesCompra
-            .Include(o => o.Lineas)
-            .FirstOrDefaultAsync(o => o.Id == notification.OrdenCompraId, cancellationToken)
-            ?? throw new EntityNotFoundException(
-                "ORDEN_COMPRA_NO_ENCONTRADA",
-                $"No se encontró OC '{notification.OrdenCompraId}' al generar PDF.");
-
-        var pdf = await _pdfPort.GenerarAsync(oc, cancellationToken);
+        var pdf = await _impresion.RenderizarAsync(notification.OrdenCompraId, marca: null, cancellationToken);
 
         using var stream = new MemoryStream(pdf.Contenido, writable: false);
         var pdfId = Guid.CreateVersion7();
@@ -70,7 +63,7 @@ public sealed class OrdenCompraAutorizadaPdfListener
         // rechazo), lo reemplazamos. El blob viejo queda huérfano y lo
         // limpia el job de blob cleanup (post-MVP).
         var existente = await _db.OrdenCompraPdfs
-            .FirstOrDefaultAsync(p => p.OrdenCompraId == oc.Id, cancellationToken);
+            .FirstOrDefaultAsync(p => p.OrdenCompraId == notification.OrdenCompraId, cancellationToken);
         if (existente is not null)
         {
             _db.OrdenCompraPdfs.Remove(existente);
@@ -78,7 +71,7 @@ public sealed class OrdenCompraAutorizadaPdfListener
 
         var registro = new OrdenCompraPdf(
             id: pdfId,
-            ordenCompraId: oc.Id,
+            ordenCompraId: notification.OrdenCompraId,
             blobUrl: blobUrl,
             contentType: pdf.ContentType,
             tamañoBytes: pdf.Contenido.LongLength,
@@ -90,7 +83,7 @@ public sealed class OrdenCompraAutorizadaPdfListener
 
         _logger.LogInformation(
             "PDF de OC generado. OcId={OcId} Folio={Folio} BlobUrl={BlobUrl} Bytes={Bytes}",
-            oc.Id, notification.Folio, blobUrl, pdf.Contenido.LongLength);
+            notification.OrdenCompraId, notification.Folio, blobUrl, pdf.Contenido.LongLength);
     }
 }
 

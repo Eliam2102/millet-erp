@@ -21,7 +21,8 @@ namespace Millet.Api.IntegrationTests.Almacen;
 /// del usuario de servicio, <c>EjecutarBarridoAsync</c> atraviesa lock+TX y
 /// ejecuta el barrido (resultado no-null); con <c>false</c>, se salta (null).
 /// </summary>
-public class ReordenWorkerToggleTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class ReordenWorkerToggleTests
 {
     private readonly WebApplicationFactory<Program> _base;
 

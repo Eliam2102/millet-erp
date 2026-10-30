@@ -48,6 +48,7 @@ export function ClasesPage() {
                 depreciable: true,
                 tasaConfirmada: false,
                 tasaFiscalAnual: null,
+                tasaContableAnual: null,
               })
             }
           >
@@ -55,10 +56,8 @@ export function ClasesPage() {
           </Button>
         }
       />
-      {/* eslint-disable-next-line ds/no-texto-interno -- FICHA_P7 exige marcar las sugerencias como Por confirmar con Millet. */}
       <p className="rounded-lg bg-warning-bg p-3 text-warning-fg">
-        Las tasas sembradas son sugerencias: Por confirmar con Millet. Capture las tasas y configure
-        las cuentas pendientes antes de depreciar.
+        La tasa contable genera póliza; la fiscal se usa sólo en el reporte. Configure las cuentas pendientes antes de depreciar.
       </p>
       {query.error && (
         <p role="alert" className="text-danger-fg">
@@ -76,7 +75,7 @@ export function ClasesPage() {
               <TableHead>Depreciación acumulada</TableHead>
               <TableHead>Gasto</TableHead>
               <TableHead>Depreciable</TableHead>
-              <TableHead>Tasa anual</TableHead>
+              <TableHead>Tasa contable / fiscal</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead>Acciones</TableHead>
             </TableRow>
@@ -97,7 +96,7 @@ export function ClasesPage() {
                 </TableCell>
                 <TableCell>{c.depreciable ? 'Sí' : 'No'}</TableCell>
                 <TableCell className="tabular-nums">
-                  {c.tasaFiscalAnual == null ? 'Sin tasa' : `${c.tasaFiscalAnual} % · Línea recta`}
+                  {c.tasaContableAnual ?? 'Sin tasa'} / {c.tasaFiscalAnual ?? 'Sin tasa'} %
                   {/* eslint-disable-next-line ds/no-texto-interno -- FICHA_P7 exige el estado de negocio Tasa por confirmar. */}
                   {!c.tasaConfirmada && <p className="text-warning-fg">Tasa por confirmar</p>}
                 </TableCell>
@@ -171,12 +170,29 @@ export function ClasesPage() {
             </label>
           ))}
           <label className="text-xs">
-            Tasa anual (sugerencia hasta confirmar)
+            Tasa contable anual (genera póliza)
             <Input
               type="number"
               min="0"
               max="100"
-              step="0.01"
+              step="0.0001"
+              value={editar.tasaContableAnual ?? ''}
+              onChange={(e) =>
+                setEditar({
+                  ...editar,
+                  tasaContableAnual: e.target.value === '' ? null : Number(e.target.value),
+                  tasaConfirmada: false,
+                })
+              }
+            />
+          </label>
+          <label className="text-xs">
+            Tasa fiscal anual (sólo reporte)
+            <Input
+              type="number"
+              min="0"
+              max="100"
+              step="0.0001"
               value={editar.tasaFiscalAnual ?? ''}
               onChange={(e) =>
                 setEditar({

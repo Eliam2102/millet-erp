@@ -44,11 +44,17 @@ import {
 } from '@/components/erp';
 import { cn } from '@/lib/utils';
 import { DOMINIOS_CORPORATIVOS } from '@/modules/administracion/dominios-corporativos';
+import { AvisoCuentaFueraDeDominio } from '@/modules/administracion/components/AvisoCuentaFueraDeDominio';
 
 export interface EmpleadoInlineFormProps {
   empleado?: EmpleadoListItem | null;
   sucursalIdInicial?: string;
   sucursalFija?: boolean;
+  /**
+   * 86e3x6cpw: alta desde «Cuentas sin empleado». Precarga nombre y correo de la
+   * cuenta y fija el acceso en «Ya tiene cuenta Microsoft»; no usa borrador.
+   */
+  cuentaExistente?: { nombre: string; correo: string } | null;
   onCancel: () => void;
   onSaved?: () => void;
 }
@@ -71,6 +77,7 @@ export function EmpleadoInlineForm({
   empleado,
   sucursalIdInicial,
   sucursalFija = false,
+  cuentaExistente = null,
   onCancel,
   onSaved,
 }: EmpleadoInlineFormProps) {
@@ -87,14 +94,14 @@ export function EmpleadoInlineForm({
   );
   const roles = useRoles({ soloActivos: true, limit: 200 }, !esEditar && canDarAcceso);
   const [paso, setPaso] = useState(0);
-  const [acceso, setAcceso] = useState<0 | 1 | 2>(0);
+  const [acceso, setAcceso] = useState<0 | 1 | 2>(cuentaExistente ? 1 : 0);
   const [emailContacto, setEmailContacto] = useState(() => empleado?.emailContacto ?? '');
   const [rolId, setRolId] = useState('');
   const [correoValidable, setCorreoValidable] = useState('');
   const [borradorCargado, setBorradorCargado] = useState(false);
 
   // Dominio y prefijo de correo corporativo para facilitar input
-  const emailInicial = empleado?.email ?? '';
+  const emailInicial = empleado?.email ?? cuentaExistente?.correo ?? '';
   const [emailPrefix, setEmailPrefix] = useState(() => {
     if (!emailInicial) return '';
     const at = emailInicial.indexOf('@');
@@ -115,6 +122,8 @@ export function EmpleadoInlineForm({
           clave: empleado.clave,
           nombre: empleado.nombre,
           email: empleado.email ?? '',
+          telefono: empleado.telefono ?? '',
+          extension: empleado.extension ?? '',
           puestoId: empleado.puestoId ?? '',
           jefeDirectoId: empleado.jefeDirectoId ?? '',
           sucursalId: empleado.sucursalId ?? '',
@@ -122,7 +131,12 @@ export function EmpleadoInlineForm({
           usuarioId: '',
           codigoNomina: empleado.codigoNomina ?? '',
         }
-      : { ...VALORES_INICIALES, sucursalId: sucursalIdInicial ?? '' },
+      : {
+          ...VALORES_INICIALES,
+          nombre: cuentaExistente?.nombre ?? '',
+          email: cuentaExistente?.correo ?? '',
+          sucursalId: sucursalIdInicial ?? '',
+        },
   });
 
   // Sincronizar campos al cambiar el empleado en modo edición
@@ -132,6 +146,8 @@ export function EmpleadoInlineForm({
         clave: empleado.clave,
         nombre: empleado.nombre,
         email: empleado.email ?? '',
+        telefono: empleado.telefono ?? '',
+        extension: empleado.extension ?? '',
         puestoId: empleado.puestoId ?? '',
         jefeDirectoId: empleado.jefeDirectoId ?? '',
         sucursalId: empleado.sucursalId ?? '',
@@ -171,6 +187,7 @@ export function EmpleadoInlineForm({
       return;
     }
     form.setFocus('nombre');
+    if (cuentaExistente) return;
 
     try {
       const raw = sessionStorage.getItem(DRAFT_STORAGE_KEY);
@@ -195,7 +212,7 @@ export function EmpleadoInlineForm({
 
   // Auto-guardado de borrador
   useEffect(() => {
-    if (esEditar) return;
+    if (esEditar || cuentaExistente) return;
     const values = form.getValues();
     if (
       values.clave ||
@@ -218,7 +235,17 @@ export function EmpleadoInlineForm({
         }),
       );
     }
-  }, [esEditar, form, paso, acceso, emailContacto, rolId, emailPrefix, emailDomain]);
+  }, [
+    esEditar,
+    cuentaExistente,
+    form,
+    paso,
+    acceso,
+    emailContacto,
+    rolId,
+    emailPrefix,
+    emailDomain,
+  ]);
 
   const puestoSeleccionado = form.watch('puestoId');
   const sucursalSeleccionada = form.watch('sucursalId');
@@ -361,7 +388,8 @@ export function EmpleadoInlineForm({
           toast.error('No se pudo verificar el correo corporativo con Microsoft Entra ID.');
           return;
         }
-        if (!validacion.data?.dominioPermitido) {
+        // 86e3x6cpw: el dominio sólo se exige si la cuenta no existe todavía.
+        if (!validacion.data?.dominioPermitido && !validacion.data?.cuentaEntra) {
           toast.error(
             `El dominio del correo no está permitido. Dominios autorizados: ${DOMINIOS_CORPORATIVOS.join(', ')}`,
           );
@@ -492,12 +520,13 @@ export function EmpleadoInlineForm({
       (correoValidable !== values.email?.trim() ||
         validacion.isPending ||
         validacion.isError ||
-        !validacion.data?.dominioPermitido ||
+        // 86e3x6cpw: la lista de dominios protege sólo la cuenta nueva; una
+        // cuenta existente se liga tal cual (puedeVincular ya no exige dominio).
         (acceso === 1
           ? !validacion.data?.puedeVincularCuentaExistente
-          : !validacion.data?.puedeCrearCuentaNueva))
+          : !validacion.data?.dominioPermitido || !validacion.data?.puedeCrearCuentaNueva))
     ) {
-      if (validacion.data && !validacion.data.dominioPermitido) {
+      if (acceso !== 1 && validacion.data && !validacion.data.dominioPermitido) {
         toast.error(
           `El dominio del correo no está permitido. Dominios permitidos: ${DOMINIOS_CORPORATIVOS.join(', ')}`,
         );
@@ -820,6 +849,39 @@ export function EmpleadoInlineForm({
           )}
         </FormCampo>
 
+        {esEditar && (
+          <>
+            <FormCampo span={6}>
+              <Field
+                label="Teléfono"
+                htmlFor="empleado-telefono"
+                error={form.formState.errors.telefono?.message}
+              >
+                <Input
+                  id="empleado-telefono"
+                  maxLength={20}
+                  aria-invalid={!!form.formState.errors.telefono}
+                  {...form.register('telefono')}
+                />
+              </Field>
+            </FormCampo>
+            <FormCampo span={6}>
+              <Field
+                label="Extensión"
+                htmlFor="empleado-extension"
+                error={form.formState.errors.extension?.message}
+              >
+                <Input
+                  id="empleado-extension"
+                  maxLength={10}
+                  aria-invalid={!!form.formState.errors.extension}
+                  {...form.register('extension')}
+                />
+              </Field>
+            </FormCampo>
+          </>
+        )}
+
         <FormCampo span={6}>
           <Field
             label="Código de nómina"
@@ -874,7 +936,7 @@ export function EmpleadoInlineForm({
                   <span>No se pudo verificar el correo contra Microsoft Entra ID.</span>
                 </div>
               ) : validacion.data ? (
-                !validacion.data.dominioPermitido ? (
+                !validacion.data.dominioPermitido && !validacion.data.cuentaEntra ? (
                   <div className="flex items-start gap-2 text-danger-fg">
                     <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
                     <div>
@@ -937,14 +999,17 @@ export function EmpleadoInlineForm({
                       </div>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2 font-medium text-success-fg ">
-                      <CheckCircle2 className="h-4 w-4 shrink-0" />
-                      <span>
-                        Cuenta Microsoft encontrada en Entra ID:{' '}
-                        <strong className="font-semibold">
-                          {validacion.data.cuentaEntra.nombreMostrado}
-                        </strong>
-                      </span>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 font-medium text-success-fg ">
+                        <CheckCircle2 className="h-4 w-4 shrink-0" />
+                        <span>
+                          Cuenta Microsoft encontrada en Entra ID:{' '}
+                          <strong className="font-semibold">
+                            {validacion.data.cuentaEntra.nombreMostrado}
+                          </strong>
+                        </span>
+                      </div>
+                      {!validacion.data.dominioPermitido && <AvisoCuentaFueraDeDominio />}
                     </div>
                   )
                 ) : (
@@ -977,6 +1042,7 @@ export function EmpleadoInlineForm({
                 aria-label="Acceso al ERP"
                 className="h-9 w-full rounded-md border bg-surface-page px-3 text-sm"
                 value={acceso}
+                disabled={cuentaExistente != null}
                 onChange={(e) => setAcceso(Number(e.target.value) as 0 | 1 | 2)}
               >
                 <option value={0}>Sin acceso</option>
@@ -1041,41 +1107,52 @@ export function EmpleadoInlineForm({
               error={form.formState.errors.email?.message}
               className="md:col-span-12"
             >
-              <div className="flex items-center w-full">
+              {cuentaExistente ? (
                 <Input
-                  maxLength={100}
-                  placeholder="juana.perez"
-                  value={emailPrefix}
-                  onChange={(e) => handleEmailPrefixChange(e.target.value)}
-                  className="flex-1 min-w-0 rounded-r-none border-r-0 focus:z-10"
+                  aria-label="Correo corporativo de la cuenta"
+                  value={cuentaExistente.correo}
+                  readOnly
+                  className="font-mono"
                 />
-                <div className="flex h-9 shrink-0 items-center rounded-r-md border border-l-0 bg-surface-muted px-3 text-xs text-ink-muted">
-                  <span className="mr-1.5 font-semibold text-ink">@</span>
-                  <select
-                    value={
-                      DOMINIOS_CORPORATIVOS.includes(emailDomain)
-                        ? emailDomain
-                        : DOMINIOS_CORPORATIVOS[0]
-                    }
-                    onChange={(e) => handleEmailDomainChange(e.target.value)}
-                    className="cursor-pointer bg-transparent text-xs font-medium text-ink outline-none"
-                    aria-label="Dominio corporativo"
-                  >
-                    {DOMINIOS_CORPORATIVOS.map((d) => (
-                      <option key={d} value={d}>
-                        {d}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              {emailPrefix.trim() && (
-                <p className="mt-1 text-xs text-ink-muted">
-                  Correo resultante:{' '}
-                  <span className="font-mono font-medium text-ink">
-                    {emailPrefix.trim()}@{emailDomain}
-                  </span>
-                </p>
+              ) : (
+                <>
+                  <div className="flex items-center w-full">
+                    <Input
+                      maxLength={100}
+                      placeholder="juana.perez"
+                      value={emailPrefix}
+                      onChange={(e) => handleEmailPrefixChange(e.target.value)}
+                      className="flex-1 min-w-0 rounded-r-none border-r-0 focus:z-10"
+                    />
+                    <div className="flex h-9 shrink-0 items-center rounded-r-md border border-l-0 bg-surface-muted px-3 text-xs text-ink-muted">
+                      <span className="mr-1.5 font-semibold text-ink">@</span>
+                      <select
+                        value={
+                          DOMINIOS_CORPORATIVOS.includes(emailDomain)
+                            ? emailDomain
+                            : DOMINIOS_CORPORATIVOS[0]
+                        }
+                        onChange={(e) => handleEmailDomainChange(e.target.value)}
+                        className="cursor-pointer bg-transparent text-xs font-medium text-ink outline-none"
+                        aria-label="Dominio corporativo"
+                      >
+                        {DOMINIOS_CORPORATIVOS.map((d) => (
+                          <option key={d} value={d}>
+                            {d}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  {emailPrefix.trim() && (
+                    <p className="mt-1 text-xs text-ink-muted">
+                      Correo resultante:{' '}
+                      <span className="font-mono font-medium text-ink">
+                        {emailPrefix.trim()}@{emailDomain}
+                      </span>
+                    </p>
+                  )}
+                </>
               )}
             </Field>
           </FormCampo>
@@ -1101,7 +1178,7 @@ export function EmpleadoInlineForm({
                     <span>No se pudo verificar el correo contra Microsoft Entra ID.</span>
                   </div>
                 ) : validacion.data ? (
-                  !validacion.data.dominioPermitido ? (
+                  acceso !== 1 && !validacion.data.dominioPermitido ? (
                     <div className="flex items-start gap-2 text-danger-fg">
                       <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
                       <div>
@@ -1117,19 +1194,23 @@ export function EmpleadoInlineForm({
                     </div>
                   ) : acceso === 1 ? (
                     validacion.data.puedeVincularCuentaExistente ? (
-                      <div className="flex items-center gap-2 font-medium text-success-fg ">
-                        <CheckCircle2 className="h-4 w-4 shrink-0" />
-                        <span>
-                          Cuenta Microsoft encontrada:{' '}
-                          <strong className="font-semibold">
-                            {validacion.data.cuentaEntra?.nombreMostrado}
-                          </strong>
-                          {validacion.data.usuarioErp && (
-                            <span className="ml-1 text-xs opacity-85 font-normal">
-                              (se vinculará al usuario existente del ERP)
-                            </span>
-                          )}
-                        </span>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 font-medium text-success-fg ">
+                          <CheckCircle2 className="h-4 w-4 shrink-0" />
+                          <span>
+                            Cuenta Microsoft encontrada:{' '}
+                            <strong className="font-semibold">
+                              {validacion.data.cuentaEntra?.nombreMostrado ??
+                                validacion.data.usuarioErp?.nombre}
+                            </strong>
+                            {validacion.data.usuarioErp && (
+                              <span className="ml-1 text-xs opacity-85 font-normal">
+                                (se vinculará al usuario existente del ERP)
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                        {!validacion.data.dominioPermitido && <AvisoCuentaFueraDeDominio />}
                       </div>
                     ) : validacion.data.empleadoVinculado ? (
                       <div className="flex items-start gap-2 text-danger-fg">
@@ -1346,6 +1427,8 @@ function payloadPatch(
 
   return {
     nombre: values.nombre,
+    telefono: values.telefono,
+    extension: values.extension,
     email: email.valor,
     limpiarEmail: email.limpiar,
     puestoId: puesto.valor,
@@ -1365,16 +1448,20 @@ function payloadPatch(
 
 interface FieldProps {
   label: string;
+  htmlFor?: string;
   required?: boolean;
   error?: string;
   className?: string;
   children: React.ReactNode;
 }
 
-function Field({ label, required, error, className, children }: FieldProps) {
+function Field({ label, htmlFor, required, error, className, children }: FieldProps) {
   return (
     <div className={cn('space-y-1', className)}>
-      <label className="flex items-center gap-1 text-xs font-medium text-ink-muted">
+      <label
+        htmlFor={htmlFor}
+        className="flex items-center gap-1 text-xs font-medium text-ink-muted"
+      >
         {label}
         {required && (
           <span aria-hidden="true" className="text-danger-fg">

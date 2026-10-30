@@ -123,7 +123,7 @@ public static class CatalogosEndpoints
                 .Skip(off).Take(lim)
                 .Select(p => new ProveedorListItem(
                     p.Id, p.Clave, p.RazonSocial, p.NombreComercial, p.Rfc,
-                    p.TipoPersona, p.CondicionesPagoDias, p.MonedaPreferidaId, p.Estatus))
+                    p.TipoPersona, p.CondicionesPagoDias, p.MonedaPreferidaId, p.Estatus, p.ClaveAw))
                 .ToListAsync(ct);
 
             return Results.Ok(new PagedCatalogoResponse<ProveedorListItem>(items, off, lim, total));
@@ -158,7 +158,7 @@ public static class CatalogosEndpoints
             return Results.Ok(new ProveedorDetalle(
                 p.Id, p.Clave, p.ClaveLegacy, p.RazonSocial, p.NombreComercial, p.Rfc,
                 p.TipoPersona, p.CondicionesPagoDias, p.MonedaPreferidaId,
-                p.Email, p.Telefono, p.Estatus));
+                p.Email, p.Telefono, p.Estatus, p.ClaveAw));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CompartidoCatalogosLeer)
         .WithName("ObtenerProveedorPorId")
@@ -273,7 +273,7 @@ public static class CatalogosEndpoints
                 a.Id, a.Clave, a.ClaveLegacy, a.Nombre, a.DescripcionLarga,
                 a.UnidadMedidaDefault, a.UnidadMedidaId, a.Naturaleza, a.Categoria,
                 a.CategoriaId,
-                a.PrecioReferenciaMonto, a.PrecioReferenciaMoneda, a.Estatus));
+                a.PrecioReferenciaMonto, a.PrecioReferenciaMoneda, a.Estatus, a.ProductoAwId));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CompartidoCatalogosLeer)
         .WithName("ObtenerArticuloPorId")
@@ -286,6 +286,20 @@ public static class CatalogosEndpoints
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // F1-MP-01 (E1): medidas de hoja del artículo de vidrio crudo (variantes de su producto A+W) para capturarlas en la OC.
+        articulos.MapGet("/{id:guid}/medidas", async (
+            Guid id, Millet.Almacen.Domain.Ports.IVarianteVidrioReadPort variantes, CancellationToken ct) =>
+            Results.Ok(await variantes.ListarPorArticuloAsync(id, ct)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CompartidoCatalogosLeer)
+        .WithName("ListarMedidasArticulo")
+        .WithSummary("Medidas de hoja de un artículo de vidrio crudo")
+        .WithDescription(
+            "Variantes (ancho × alto, `areaHojaM2`) del producto A+W ligado al artículo. " +
+            "Lista vacía si el artículo no está ligado o su producto está inactivo.")
+        .Produces<IReadOnlyList<Millet.Almacen.Domain.Ports.VarianteVidrioLectura>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden);
 
         // F9-PR1: reclasificar naturaleza en bulk (post-go-live cuando el
         // cliente decide ajustar la matriz A1 §3.bis.1).
@@ -345,7 +359,18 @@ public static class CatalogosEndpoints
                     Telefono: request.Telefono,
                     Origen: request.Origen,
                     RegimenFiscalCodigo: request.RegimenFiscalCodigo,
-                    ConceptoRetencion: request.ConceptoRetencion),
+                    ConceptoRetencion: request.ConceptoRetencion,
+                    Calle: request.Calle,
+                    NumeroExterior: request.NumeroExterior,
+                    NumeroInterior: request.NumeroInterior,
+                    Colonia: request.Colonia,
+                    Ciudad: request.Ciudad,
+                    Municipio: request.Municipio,
+                    Estado: request.Estado,
+                    CodigoPostal: request.CodigoPostal,
+                    Pais: request.Pais,
+                    TaxId: request.TaxId,
+                    ClaveAw: request.ClaveAw),
                 cancellationToken);
             return Results.Created($"/api/v1/catalogos/proveedores/{response.Id}", response);
         })
@@ -361,7 +386,9 @@ public static class CatalogosEndpoints
             "social que otro proveedor no se rechaza: se crea en " +
             "`EnRevision` con `posibleDuplicadoDeId`. Si llega " +
             "`monedaPreferidaId`, validación cross-table contra " +
-            "`compartido.monedas` (404 si no existe). Header " +
+            "`compartido.monedas` (404 si no existe). `claveAw` " +
+            "(clave del proveedor en A+W) única → 409 " +
+            "`PROVEEDOR_CLAVE_AW_DUPLICADA`. Header " +
             "`Idempotency-Key` obligatorio.")
         .Produces<CrearProveedorResponse>(StatusCodes.Status201Created)
         .ProducesValidationProblem()
@@ -393,7 +420,19 @@ public static class CatalogosEndpoints
                     LimpiarCondicionesPago: body.LimpiarCondicionesPago ?? false,
                     LimpiarMonedaPreferida: body.LimpiarMonedaPreferida ?? false,
                     LimpiarEmail: body.LimpiarEmail ?? false,
-                    LimpiarTelefono: body.LimpiarTelefono ?? false),
+                    LimpiarTelefono: body.LimpiarTelefono ?? false,
+                    Calle: body.Calle,
+                    NumeroExterior: body.NumeroExterior,
+                    NumeroInterior: body.NumeroInterior,
+                    Colonia: body.Colonia,
+                    Ciudad: body.Ciudad,
+                    Municipio: body.Municipio,
+                    Estado: body.Estado,
+                    CodigoPostal: body.CodigoPostal,
+                    Pais: body.Pais,
+                    TaxId: body.TaxId,
+                    ClaveAw: body.ClaveAw,
+                    LimpiarClaveAw: body.LimpiarClaveAw ?? false),
                 cancellationToken);
             return Results.NoContent();
         })
@@ -406,7 +445,9 @@ public static class CatalogosEndpoints
             "nullable `null` = no tocar; flag `limpiarX = true` = " +
             "setear nullable a null. Inmutables: `id`, `clave`, " +
             "`claveLegacy`. Si `rfc` viene y cambia, único salvo " +
-            "genéricos SAT → 409 `PROVEEDOR_RFC_DUPLICADO`. Header " +
+            "genéricos SAT → 409 `PROVEEDOR_RFC_DUPLICADO`. `claveAw` " +
+            "(clave del proveedor en A+W) única → 409 " +
+            "`PROVEEDOR_CLAVE_AW_DUPLICADA`. Header " +
             "`Idempotency-Key` obligatorio.")
         .Produces(StatusCodes.Status204NoContent)
         .ProducesValidationProblem()
@@ -434,7 +475,7 @@ public static class CatalogosEndpoints
             "ya está Inactivo, retorna 204 sin cambios. Las RQs " +
             "históricas siguen funcionando con el id; las nuevas RQs " +
             "se bloquean por la validación cross-table de F7-PR1. " +
-            "Para reactivar, usar PATCH (cuando se necesite).")
+            "Para reactivar, usar POST /{id}/reactivar.")
         .Produces(StatusCodes.Status204NoContent)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -456,7 +497,8 @@ public static class CatalogosEndpoints
                     DescripcionLarga: request.DescripcionLarga,
                     CategoriaId: request.CategoriaId,
                     PrecioReferenciaMonto: request.PrecioReferenciaMonto,
-                    PrecioReferenciaMoneda: request.PrecioReferenciaMoneda),
+                    PrecioReferenciaMoneda: request.PrecioReferenciaMoneda,
+                    ProductoAwId: request.ProductoAwId),
                 cancellationToken);
             return Results.Created($"/api/v1/catalogos/articulos/{response.Id}", response);
         })
@@ -495,7 +537,9 @@ public static class CatalogosEndpoints
                     PrecioReferenciaMoneda: body.PrecioReferenciaMoneda,
                     LimpiarDescripcionLarga: body.LimpiarDescripcionLarga ?? false,
                     LimpiarCategoria: body.LimpiarCategoria ?? false,
-                    LimpiarPrecioReferencia: body.LimpiarPrecioReferencia ?? false),
+                    LimpiarPrecioReferencia: body.LimpiarPrecioReferencia ?? false,
+                    ProductoAwId: body.ProductoAwId,
+                    LimpiarProductoAw: body.LimpiarProductoAw ?? false),
                 cancellationToken);
             return Results.NoContent();
         })
@@ -535,6 +579,26 @@ public static class CatalogosEndpoints
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound);
 
+        articulos.MapPost("/{id:guid}/reactivar", async (Guid id, IMediator mediator, CancellationToken ct) =>
+        {
+            await mediator.Send(new ReactivarArticuloCommand(id), ct);
+            return Results.NoContent();
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CompartidoCatalogosAdministrar)
+        .WithName("ReactivarArticulo")
+        .WithSummary("Reactivar articulo");
+
+        proveedores.MapPost("/{id:guid}/reactivar", async (Guid id, IMediator mediator, CancellationToken ct) =>
+        {
+            await mediator.Send(new ReactivarProveedorCommand(id), ct);
+            return Results.NoContent();
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CompartidoCatalogosAdministrar)
+        .WithName("ReactivarProveedor")
+        .WithSummary("Reactivar proveedor");
+
         return app;
     }
 
@@ -559,7 +623,18 @@ public static class CatalogosEndpoints
         string? Telefono,
         OrigenProveedor? Origen = null,
         string? RegimenFiscalCodigo = null,
-        string? ConceptoRetencion = null);
+        string? ConceptoRetencion = null,
+        string? Calle = null,
+        string? NumeroExterior = null,
+        string? NumeroInterior = null,
+        string? Colonia = null,
+        string? Ciudad = null,
+        string? Municipio = null,
+        string? Estado = null,
+        string? CodigoPostal = null,
+        string? Pais = null,
+        string? TaxId = null,
+        int? ClaveAw = null);
 
     /// <summary>Body del PATCH /proveedores/{id} (B.5). Todos opcionales; las cuentas bancarias van por /datos-maestros/proveedores/{id}/cuentas-bancarias.</summary>
     public sealed record ActualizarProveedorRequest(
@@ -575,7 +650,19 @@ public static class CatalogosEndpoints
         bool? LimpiarCondicionesPago,
         bool? LimpiarMonedaPreferida,
         bool? LimpiarEmail,
-        bool? LimpiarTelefono);
+        bool? LimpiarTelefono,
+        string? Calle = null,
+        string? NumeroExterior = null,
+        string? NumeroInterior = null,
+        string? Colonia = null,
+        string? Ciudad = null,
+        string? Municipio = null,
+        string? Estado = null,
+        string? CodigoPostal = null,
+        string? Pais = null,
+        string? TaxId = null,
+        int? ClaveAw = null,
+        bool? LimpiarClaveAw = null);
 
     /// <summary>Body del POST /articulos (B.5).</summary>
     public sealed record CrearArticuloRequest(
@@ -586,7 +673,8 @@ public static class CatalogosEndpoints
         string? DescripcionLarga,
         Guid? CategoriaId,
         decimal? PrecioReferenciaMonto,
-        string? PrecioReferenciaMoneda);
+        string? PrecioReferenciaMoneda,
+        Guid? ProductoAwId = null);
 
     /// <summary>Body del PATCH /articulos/{id} (B.5). Todos opcionales.</summary>
     public sealed record ActualizarArticuloRequest(
@@ -599,7 +687,9 @@ public static class CatalogosEndpoints
         string? PrecioReferenciaMoneda,
         bool? LimpiarDescripcionLarga,
         bool? LimpiarCategoria,
-        bool? LimpiarPrecioReferencia);
+        bool? LimpiarPrecioReferencia,
+        Guid? ProductoAwId = null,
+        bool? LimpiarProductoAw = null);
 }
 
 /// <summary>Wrapper de paginación offset-based para listados de catálogos.</summary>
@@ -618,7 +708,8 @@ public sealed record ProveedorListItem(
     TipoPersonaProveedor TipoPersona,
     short? CondicionesPagoDias,
     Guid? MonedaPreferidaId,
-    EstatusCatalogo Estatus);
+    EstatusCatalogo Estatus,
+    int? ClaveAw = null);
 
 public sealed record ProveedorDetalle(
     Guid Id,
@@ -632,7 +723,8 @@ public sealed record ProveedorDetalle(
     Guid? MonedaPreferidaId,
     string? Email,
     string? Telefono,
-    EstatusCatalogo Estatus);
+    EstatusCatalogo Estatus,
+    int? ClaveAw = null);
 
 public sealed record ArticuloListItem(
     Guid Id,

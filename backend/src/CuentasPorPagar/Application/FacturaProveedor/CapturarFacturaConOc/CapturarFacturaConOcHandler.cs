@@ -173,6 +173,10 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
                     "FACTURA_DUPLICADA",
                     $"Este CFDI ya está registrado: UUID {uuidNormalizado}, factura {(string.IsNullOrWhiteSpace(documento) ? "sin folio" : documento)} (estado {duplicada.Estado}). No se puede registrar dos veces.");
             }
+            if ((await Viaticos.UuidViaticosPendienteValidador.BuscarAsync(_db, new[] { uuidNormalizado! }, Guid.Empty, cancellationToken)).Count > 0)
+                throw new BusinessRuleException(
+                    "FACTURA_DUPLICADA",
+                    $"Este CFDI ya está comprobado en una solicitud de viáticos: UUID {uuidNormalizado}. No se puede registrar dos veces.");
         }
 
         // 86e3tfedr: la recepción elegida debe existir, ser de esta OC y no estar ligada a otra factura vigente.
@@ -356,7 +360,8 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
                     l.Id, l.LineaOcId, l.Cantidad, l.Importe,
                     CentroCostoId: oc.Lineas.FirstOrDefault(x => x.Id == l.LineaOcId)?.CentroCostoId,
                     ValorCapitalizable: l.Importe - (l.Descuento ?? 0) - (command.Subtotal == 0 ? 0 :
-                        (command.Descuentos - command.Lineas.Sum(x => x.Descuento ?? 0)) * l.Importe / command.Subtotal)))
+                        (command.Descuentos - command.Lineas.Sum(x => x.Descuento ?? 0)) * l.Importe / command.Subtotal),
+                    EsServicio: oc.Lineas.FirstOrDefault(x => x.Id == l.LineaOcId)?.EsServicio ?? false))
                 .ToList();
             var cecos = lineasEvento.Select(l => l.CentroCostoId).Distinct().ToList();
 

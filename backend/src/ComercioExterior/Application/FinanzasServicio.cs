@@ -13,8 +13,8 @@ using Millet.SharedKernel.Application.Integration;
 
 namespace Millet.ComercioExterior.Application;
 public sealed record PartidaCostoDatos(Guid PartidaId, Guid? ContenedorId, string Descripcion, decimal ValorAduanaMxn, decimal PesoKg, string Pedimento);
-public sealed record AnticipoDatos(Guid AgenteId, string Pedimento, ImpuestosPedimento Impuestos, DateOnly Fecha, string? ReferenciaPago);
-public sealed record ComprobacionAnticipoDatos(ImpuestosPedimento Impuestos, Guid PedimentoPagadoId, Guid ComprobantePagoId, DateOnly Fecha);
+public sealed record AnticipoDatos(Guid AgenteId, string Pedimento, ImpuestosPedimento Impuestos, DateOnly Fecha, string? ReferenciaPago, bool CuentaPeca = false);
+public sealed record ComprobacionAnticipoDatos(ImpuestosPedimento Impuestos, Guid PedimentoPagadoId, Guid ComprobantePagoId, DateOnly Fecha, IReadOnlyCollection<Guid>? GastoIds = null);
 public sealed record ResolucionAnticipoDatos(string Tipo, decimal Importe, DateOnly Fecha, string Referencia, Guid EvidenciaId, Guid? AnticipoDestinoId = null, int? VersionDestino = null);
 public sealed record ConceptoGastoDatos(BaseDistribucion Importacion, BaseDistribucion Exportacion, bool? RequiereOrdenServicio = null);
 public sealed record FinanzasDetalle(int Version, string EstadoFinanciero, IReadOnlyList<string> Pendientes,
@@ -38,6 +38,11 @@ public sealed record MutarFinanzasCommand(Guid ExpedienteId, int Version, string
 public sealed record ExpedienteCostoDistribuidoEvent(Guid Empresa, DateTimeOffset Fecha, Guid ExpedienteId, Guid SucursalId,
     int NumeroVersion, IReadOnlyList<CostoPartidaDistribuido> Partidas)
     : IntegrationEvent("comercio_exterior.expediente.costo-distribuido.v1", Empresa, Fecha);
+
+public sealed record AnticipoAgenteSaldoTransferidoEvent(Guid Empresa, DateTimeOffset OcurridoEn,
+    Guid ExpedienteId, string FolioExpediente, Guid AnticipoAgenteId, int ResolucionIndice,
+    Guid AgenteId, decimal ImporteMxn, DateOnly Fecha, string Referencia)
+    : IntegrationEvent("comercio_exterior.anticipo-agente.saldo-transferido.v1", Empresa, OcurridoEn);
 
 public sealed class FinanzasServicio(ComercioExteriorDbContext db, ExpedienteServicio servicio,
     IRecepcionesCostoReadPort recepciones, IClock clock, ICatalogosCeReadPort catalogos)
@@ -87,6 +92,8 @@ public sealed class MutarFinanzasValidator : AbstractValidator<MutarFinanzasComm
     public MutarFinanzasValidator()
     {
         RuleFor(x => x.ExpedienteId).NotEmpty(); RuleFor(x => x.Version).GreaterThan(0);
+        RuleFor(x => x.Resolucion!.Tipo).Must(t => t is "compensar" or "devolucion" or "pago-complementario" or "saldo-al-agente")
+            .When(x => x.Resolucion is not null);
         RuleFor(x => x.Accion).Must(x => x is "gasto" or "partida" or "distribuir" or "anticipo" or "comprobar" or "resolver" or "concepto" or "inicializar-conceptos");
     }
 }
@@ -165,13 +172,18 @@ public sealed class MutarFinanzasHandler(ComercioExteriorDbContext db, Expedient
                 var a = request.Anticipo ?? throw new BusinessRuleException("CE_ANTICIPO_INVALIDO", "Capture el anticipo.");
                 if (a.Fecha > clock.HoyLocal()) throw new BusinessRuleException("CE_FECHA_INVALIDA", "La fecha no puede ser futura.");
                 await catalogos.ValidarParticipanteAsync(a.AgenteId, null, cancellationToken);
-                e.RegistrarAnticipo(id, a.AgenteId, a.Pedimento, a.Impuestos ?? throw new BusinessRuleException("CE_IMPUESTOS_INVALIDOS", "Capture IVA, IGI y PRV."), a.Fecha, a.ReferenciaPago);
+                e.RegistrarAnticipo(id, a.AgenteId, a.Pedimento, a.Impuestos ?? throw new BusinessRuleException("CE_IMPUESTOS_INVALIDOS", "Capture IVA, IGI y PRV."), a.Fecha, a.ReferenciaPago, a.CuentaPeca);
                 break;
             case "comprobar":
                 var c = request.Comprobacion ?? throw new BusinessRuleException("CE_COMPROBACION_INVALIDA", "Capture los impuestos pagados.");
                 if (c.Fecha > clock.HoyLocal()) throw new BusinessRuleException("CE_FECHA_INVALIDA", "La fecha no puede ser futura.");
                 await Evidencia(c.PedimentoPagadoId); await Evidencia(c.ComprobantePagoId);
-                Anticipo().Comprobar(c.Impuestos ?? throw new BusinessRuleException("CE_IMPUESTOS_INVALIDOS", "Capture los impuestos pagados."), c.PedimentoPagadoId, c.ComprobantePagoId, c.Fecha); e.MarcarCambioFinanciero();
+                var gastoIds = c.GastoIds ?? [];
+                var gastos = e.Gastos.Where(g => gastoIds.Contains(g.Id)).ToArray();
+                if (gastos.Length != gastoIds.Count || gastoIds.Distinct().Count() != gastoIds.Count)
+                    throw new BusinessRuleException("CE_GASTO_AGENTE_INVALIDO", "Seleccione gastos únicos del expediente.");
+                Anticipo().Comprobar(c.Impuestos ?? throw new BusinessRuleException("CE_IMPUESTOS_INVALIDOS", "Capture los impuestos pagados."), c.PedimentoPagadoId, c.ComprobantePagoId, c.Fecha);
+                Anticipo().AplicarGastos(gastos); e.MarcarCambioFinanciero();
                 break;
             case "resolver":
                 var s = request.Resolucion ?? throw new BusinessRuleException("CE_RESOLUCION_INVALIDA", "Capture la resolución.");
@@ -187,7 +199,12 @@ public sealed class MutarFinanzasHandler(ComercioExteriorDbContext db, Expedient
                     expedienteDestino.ExigirAbierto(); destino = expedienteDestino.Anticipos.Single(a => a.Id == s.AnticipoDestinoId);
                     expedienteDestino.MarcarCambioFinanciero();
                 }
-                Anticipo().Resolver(s.Tipo, s.Importe, s.Fecha, s.Referencia, s.EvidenciaId, servicio.Actor, destino); e.MarcarCambioFinanciero();
+                var anticipo = Anticipo();
+                anticipo.Resolver(s.Tipo, s.Importe, s.Fecha, s.Referencia, s.EvidenciaId, servicio.Actor, destino); e.MarcarCambioFinanciero();
+                if (s.Tipo == "saldo-al-agente")
+                    await eventos.PublishAsync(new AnticipoAgenteSaldoTransferidoEvent(e.EmpresaId, clock.UtcNow,
+                        e.Id, e.Folio, anticipo.Id, anticipo.Resoluciones.Count - 1, anticipo.AgenteId,
+                        s.Importe, s.Fecha, s.Referencia.Trim()), cancellationToken);
                 break;
             default: throw new BusinessRuleException("CE_ACCION_INVALIDA", "Acción desconocida.");
         }

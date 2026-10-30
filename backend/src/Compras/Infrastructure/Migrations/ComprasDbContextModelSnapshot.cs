@@ -475,6 +475,14 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<int?>("AltoMm")
+                        .HasColumnType("integer")
+                        .HasColumnName("alto_mm");
+
+                    b.Property<int?>("AnchoMm")
+                        .HasColumnType("integer")
+                        .HasColumnName("ancho_mm");
+
                     b.Property<Guid>("ArticuloId")
                         .HasColumnType("uuid")
                         .HasColumnName("articulo_id");
@@ -567,6 +575,10 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
                         .HasColumnName("notas");
+
+                    b.Property<int?>("Piezas")
+                        .HasColumnType("integer")
+                        .HasColumnName("piezas");
 
                     b.Property<short>("Posicion")
                         .HasColumnType("smallint")
@@ -1305,6 +1317,16 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<decimal?>("AltoMm")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("numeric(12,3)")
+                        .HasColumnName("alto_mm");
+
+                    b.Property<decimal?>("AnchoMm")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("numeric(12,3)")
+                        .HasColumnName("ancho_mm");
+
                     b.Property<Guid>("ArticuloId")
                         .HasColumnType("uuid")
                         .HasColumnName("articulo_id");
@@ -1388,6 +1410,11 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("linea_requisicion_id");
 
+                    b.Property<string>("LoteProveedor")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("lote_proveedor");
+
                     b.Property<Guid>("OrdenCompraId")
                         .HasColumnType("uuid")
                         .HasColumnName("orden_compra_id");
@@ -1399,6 +1426,10 @@ namespace Millet.Compras.Infrastructure.Migrations
                     b.Property<decimal>("PrecioUnitario")
                         .HasColumnType("numeric(15,4)")
                         .HasColumnName("precio_unitario");
+
+                    b.Property<Guid?>("ProductoAwVarianteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("producto_aw_variante_id");
 
                     b.Property<Guid?>("RequisicionId")
                         .HasColumnType("uuid")
@@ -1478,6 +1509,8 @@ namespace Millet.Compras.Infrastructure.Migrations
                             t.HasCheckConstraint("ck_oc_lineas_recibida_nn", "cantidad_recibida >= 0");
 
                             t.HasCheckConstraint("ck_oc_lineas_rq_coherente", "(requisicion_id IS NULL AND linea_requisicion_id IS NULL) OR (requisicion_id IS NOT NULL AND linea_requisicion_id IS NOT NULL)");
+
+                            t.HasCheckConstraint("ck_oc_lineas_variante_medida", "(producto_aw_variante_id IS NULL AND ancho_mm IS NULL AND alto_mm IS NULL) OR (producto_aw_variante_id IS NOT NULL AND ancho_mm IS NOT NULL AND ancho_mm > 0 AND alto_mm IS NOT NULL AND alto_mm > 0)");
                         });
                 });
 
@@ -1597,6 +1630,11 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("smallint")
                         .HasColumnName("folio_anio");
 
+                    b.Property<string>("FormaPagoClave")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("forma_pago_clave");
+
                     b.Property<decimal>("GastosAdicionales")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("numeric(15,2)")
@@ -1685,6 +1723,11 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("info_logistica_transportista_texto");
+
+                    b.Property<string>("MetodoPago")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("metodo_pago");
 
                     b.Property<string>("Moneda")
                         .IsRequired()
@@ -1792,6 +1835,11 @@ namespace Millet.Compras.Infrastructure.Migrations
                     b.Property<string>("UpdatedBy")
                         .HasColumnType("text")
                         .HasColumnName("updated_by");
+
+                    b.Property<string>("UsoCfdiClave")
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)")
+                        .HasColumnName("uso_cfdi_clave");
 
                     b.Property<Guid>("UsoPrincipalId")
                         .HasColumnType("uuid")
@@ -1908,6 +1956,13 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("character varying(120)")
                         .HasColumnName("generado_por");
 
+                    b.Property<int>("Impresiones")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("impresiones");
+
                     b.Property<Guid>("OrdenCompraId")
                         .HasColumnType("uuid")
                         .HasColumnName("orden_compra_id");
@@ -1915,6 +1970,14 @@ namespace Millet.Compras.Infrastructure.Migrations
                     b.Property<long>("TamañoBytes")
                         .HasColumnType("bigint")
                         .HasColumnName("tamano_bytes");
+
+                    b.Property<DateTimeOffset?>("UltimaImpresionEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ultima_impresion_en");
+
+                    b.Property<Guid?>("UltimaImpresionPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ultima_impresion_por");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -2491,6 +2554,11 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("smallint")
                         .HasColumnName("folio_anio");
 
+                    b.Property<string>("FolioExterno")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("folio_externo");
+
                     b.Property<Guid?>("MotivoTerminacionId")
                         .HasColumnType("uuid")
                         .HasColumnName("motivo_terminacion_id");
@@ -2571,6 +2639,11 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("ix_requisiciones_empresa_id_folio_anio_folio");
 
+                    b.HasIndex("EmpresaId", "Origen", "FolioExterno")
+                        .IsUnique()
+                        .HasDatabaseName("ix_requisiciones_empresa_id_origen_folio_externo")
+                        .HasFilter("folio_externo IS NOT NULL");
+
                     b.HasIndex("EmpresaId", "RequisitanteId", "FechaSolicitud")
                         .IsDescending(false, false, true)
                         .HasDatabaseName("ix_requisiciones_empresa_id_requisitante_id_fecha_solicitud");
@@ -2585,7 +2658,7 @@ namespace Millet.Compras.Infrastructure.Migrations
 
                             t.HasCheckConstraint("ck_requisiciones_estado", "estado BETWEEN 0 AND 9");
 
-                            t.HasCheckConstraint("ck_requisiciones_origen", "origen BETWEEN 0 AND 1");
+                            t.HasCheckConstraint("ck_requisiciones_origen", "origen BETWEEN 0 AND 2");
 
                             t.HasCheckConstraint("ck_requisiciones_prioridad", "prioridad BETWEEN 0 AND 2");
                         });

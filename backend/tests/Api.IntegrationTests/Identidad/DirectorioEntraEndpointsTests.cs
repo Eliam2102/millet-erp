@@ -14,7 +14,8 @@ namespace Millet.Api.IntegrationTests.Identidad;
 /// simulado (plan 15, F2). Usa las cuentas semilla y los dominios de
 /// <c>appsettings.Development.json</c> (<c>Entra</c>).
 /// </summary>
-public class DirectorioEntraEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class DirectorioEntraEndpointsTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string SinPermisosOid = "test-no-perms";
@@ -97,6 +98,21 @@ public class DirectorioEntraEndpointsTests : IClassFixture<WebApplicationFactory
         Assert.False(json.GetProperty("dominioPermitido").GetBoolean());
         Assert.False(json.GetProperty("puedeVincularCuentaExistente").GetBoolean());
         Assert.False(json.GetProperty("puedeCrearCuentaNueva").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Cuenta_Que_Ya_Entro_De_Otro_Dominio_Se_Puede_Vincular_Pero_No_Crear()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var correo = $"invitada-{RandomSufijo()}@gmail.com";
+        await FakeLoginAsync(_factory.CreateClient(), Guid.NewGuid().ToString(), correo, "Cuenta Invitada");
+
+        var json = await ValidarAsync(client, correo);
+
+        Assert.False(json.GetProperty("dominioPermitido").GetBoolean());
+        Assert.True(json.GetProperty("puedeVincularCuentaExistente").GetBoolean());
+        Assert.False(json.GetProperty("puedeCrearCuentaNueva").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, json.GetProperty("motivoBloqueo").ValueKind);
     }
 
     [Fact]

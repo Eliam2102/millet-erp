@@ -25,7 +25,9 @@ public sealed record CrearArticuloCommand(
     string? DescripcionLarga,
     Guid? CategoriaId,
     decimal? PrecioReferenciaMonto,
-    string? PrecioReferenciaMoneda) : IRequest<CrearArticuloResponse>;
+    string? PrecioReferenciaMoneda,
+    Guid? ProductoAwId = null,
+    string? ClaveLegacy = null) : IRequest<CrearArticuloResponse>;
 
 public sealed record CrearArticuloResponse(Guid Id, string Clave);
 
@@ -33,6 +35,7 @@ public sealed class CrearArticuloValidator : AbstractValidator<CrearArticuloComm
 {
     public CrearArticuloValidator()
     {
+        RuleFor(c => c.ClaveLegacy).MaximumLength(20);
         RuleFor(c => c.Clave).NotEmpty().MaximumLength(20);
         RuleFor(c => c.Nombre).NotEmpty().MaximumLength(254);
         RuleFor(c => c.UnidadMedidaId).NotEqual(Guid.Empty);
@@ -42,6 +45,8 @@ public sealed class CrearArticuloValidator : AbstractValidator<CrearArticuloComm
             .When(c => c.PrecioReferenciaMonto.HasValue);
         RuleFor(c => c.PrecioReferenciaMoneda!).Length(3).Matches("^[A-Z]{3}$")
             .When(c => c.PrecioReferenciaMoneda is not null);
+        RuleFor(c => c.ProductoAwId!.Value).NotEqual(Guid.Empty).When(c => c.ProductoAwId.HasValue)
+            .WithName("Producto A+W").WithMessage("Elige un producto A+W válido.");
     }
 }
 
@@ -115,7 +120,14 @@ public sealed class CrearArticuloHandler
             precioReferenciaMonto: request.PrecioReferenciaMonto,
             precioReferenciaMoneda: request.PrecioReferenciaMoneda,
             unidadMedidaId: unidad.Id,
-            categoriaId: categoria?.Id);
+            categoriaId: categoria?.Id,
+            claveLegacy: request.ClaveLegacy);
+
+        if (request.ProductoAwId is { } productoAwId)
+        {
+            await ArticuloProductoAwGuard.ValidarProductoLigableAsync(_db, articulo.Id, articulo.UnidadMedidaDefault, productoAwId, cancellationToken);
+            articulo.AsignarProductoAw(productoAwId);
+        }
 
         _db.Articulos.Add(articulo);
         await _db.SaveChangesAsync(cancellationToken);

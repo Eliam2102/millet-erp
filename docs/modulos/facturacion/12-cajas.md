@@ -459,9 +459,14 @@ comprobantes de TPV»), R18 y CA6.10; minuta del 12-oct-2026 (M19).
   de CFDI por sucursal y día son F6.7.
 - **Nombre del cajero:** puerto `IUsuariosReadPort` (adapter en `Millet.Api`
   sobre `identidad.usuarios`); también se muestra en *Liquidación de caja*.
-- **Reglas de cobro agregadas:** las formas 04 y 28 (tarjeta) exigen la
-  referencia del voucher (`COBRO_TARJETA_SIN_REFERENCIA`), en el cobro
-  unitario y en la liquidación de ruta; un complemento de pago solo se cobra
+- **Reglas de cobro agregadas:** las formas 04, 28 y 29 (tarjeta de crédito,
+  débito y servicios) exigen el número de autorización del voucher
+  (`COBRO_TARJETA_SIN_REFERENCIA`), en el cobro unitario y en la liquidación
+  de ruta. Desde 86e3tfdvt el dato lleva de 4 a 12 letras, dígitos o guiones
+  (`COBRO_TARJETA_AUTORIZACION_INVALIDA`): el tope impide capturar el número
+  completo de la tarjeta, que nunca se guarda (mismo criterio que CxP y
+  ADR-0006). Es un supuesto mientras Millet confirma qué dato del voucher se
+  captura (ClickUp 86e3tfdvt). Un complemento de pago solo se cobra
   en caja si la moneda del pago es MXN (`COBRO_MONEDA_INVALIDA`; el CFDI de
   pago lleva `Moneda = XXX`).
 - **Frontend:** `/facturacion/caja/corte/$sesionId` (cuelga de «Mi caja»):
@@ -517,6 +522,102 @@ el cierre del día cuadra la sucursal completa.
 
 ---
 
+## 16. Caso de uso · Cobro con varias formas de pago en una sola operación (86e3tfecn)
+
+> **Origen:** sesión con Millet del 19-oct (02:17:26). Facturación de Millet pidió **no
+> construirlo ahora**, solo dejar registrado el cobro con varias formas de pago en una sola operación
+> (p. ej. una parte con tarjeta y el resto en efectivo) para decidir cuándo construirlo.
+> Esta sección es documentación: no cambia código.
+
+### 16.1 Caso de uso
+
+| Campo | Contenido |
+|---|---|
+| Actor | Cajero de sucursal (sesión de caja abierta) |
+| Disparador | El cliente liquida un comprobante de mostrador combinando formas de pago (ej. tarjeta de débito + efectivo) |
+| Precondiciones | Sesión de caja abierta; comprobante **timbrado**, en el alcance del cajero y sin cobro vigente; MXN (P6) |
+| Flujo principal | 1. El cajero abre el cobro del comprobante. 2. Captura una fila por forma de pago con su importe (y el número de autorización del voucher en tarjeta). 3. El sistema valida que la suma sea exactamente el monto por cobrar. 4. Registra un solo cobro con N formas. 5. El corte de la sesión lo refleja por forma |
+| Flujos alternos | a) La suma no coincide → rechazo `COBRO_TOTAL_NO_COINCIDE`. b) Fila de tarjeta sin autorización → `COBRO_TARJETA_SIN_REFERENCIA`. c) Cancelación: se cancela el cobro completo (todas sus formas) y se reversa cada movimiento (§6, `[Decisión 12-C]`) |
+| Postcondiciones | Un `CobroMostrador` con N `cobro_mostrador_forma_pago`; N `caja_movimiento`; evento `facturacion.cobro-mostrador.registrado.v1` con la lista de formas; cartera de CxC saldada |
+| Fuera de alcance | Cobro mixto en moneda extranjera (caja solo MXN, P6); cobro parcial de una PUE en distintos momentos (una PUE se cobra en una sola operación) |
+
+### 16.2 Qué hace hoy el ERP (verificado contra el código de develop, 28-oct)
+
+El **cobro de mostrador ya admite varias formas de pago en una sola operación**; lo que
+QA vio como «pago mixto» en el voucher (86e3tfdvt) es este comportamiento:
+
+- **Pantalla** (`RegistrarCobroCard`): agrega filas «Forma de pago 1, 2…», cada una con
+  forma (catálogo activo `c_FormaPago`), importe y referencia; se puede quitar una fila.
+- **Regla de suma** (`RegistrarCobroMostradorHandler`): la suma de las filas debe ser
+  **exactamente** el monto por cobrar (total del CFDI menos NC timbradas que lo acreditan;
+  en un REPP, el importe del pago). Si no, `COBRO_TOTAL_NO_COINCIDE`.
+- **Tarjeta** (04, 28, 29): cada fila exige el número de autorización del voucher (4 a 12
+  caracteres, §14), así que un cobro con dos tarjetas lleva dos autorizaciones.
+- **Movimientos:** un `caja_movimiento` por forma (`[Decisión 12-5]`).
+- **Corte:** totales por forma (`caja_sesion_corte`, una fila por forma); solo el efectivo
+  (01) entra a la diferencia del arqueo; tarjeta y transferencia son informativas. La
+  conciliación facturado contra ingresado (§15) lista las formas de cada cobro.
+- **Evento:** `CobroMostradorRegistradoIntegrationEvent` lleva `FormasPago`
+  (forma + importe) y el total; CxC lo aplica a cartera por el total.
+- **Cancelación:** se cancela el cobro completo; no hay cancelación de una sola forma.
+
+### 16.3 Lo que falta (brechas)
+
+| # | Brecha | Por qué importa |
+|---|---|---|
+| B1 | **Forma de pago del CFDI PUE / anticipo.** La factura se emite **antes** del cobro con una sola `FormaPago` elegida al emitir. El ERP no la compara con las formas del cobro ni sugiere cuál poner | Regla del SAT (guía de llenado del CFDI 4.0): con varias formas se registra la clave con la que se liquida **la mayor cantidad** del pago. Si el cajero emite con 01 y luego cobra 70 % con tarjeta, el CFDI queda con la forma equivocada |
+| B2 | **REPP cobrado en mostrador.** El REPP se emite antes del cobro con una sola forma (`FormaPagoReal` → un nodo `pago20:Pago`). El cobro de mostrador del REPP sí acepta varias formas, así que hoy puede quedar un REPP «03» cobrado con 03 + 01 | En el complemento de pagos 2.0 cada forma de pago es un nodo `pago20:Pago` distinto (con su `FormaDePagoP`, `Monto` y, si aplica, cuentas). Un pago mixto requiere N nodos en el mismo REPP |
+| B3 | **Póliza de cobro (C1.5).** Contabilidad aún no consume `cobro-mostrador.registrado.v1` en develop | El evento ya trae las formas; falta la plantilla, que debe partir el cobro mixto (ver 16.4) |
+| B4 | **Transferencia dentro de un cobro mixto.** La parte por transferencia no lleva el folio de confirmación de Ingresos | Depende de F6.6 (86e3jvuvr): Caja solo aplica pagos con folio |
+
+### 16.4 Nota de impacto
+
+- **Cobro:** sin cambios de modelo. Cambio propuesto para B1: al registrar el cobro,
+  validar (o advertir) que la `FormaPago` del CFDI sea la de mayor importe del cobro; y en
+  la emisión de mostrador, permitir capturar las formas **antes** de timbrar para que el
+  ERP elija la clave de mayor importe. Empate de importes: a criterio del contribuyente
+  (regla del SAT), el ERP propone la primera fila.
+- **Corte de caja:** sin cambios. Ya suma por forma y solo el efectivo entra al arqueo.
+  El voucher de cada fila de tarjeta ya se identifica por su autorización.
+- **REP:** para B2, el REPP de mostrador debe generarse con **un nodo `pago20:Pago` por
+  forma** (misma fecha, `MonedaP` MXN, la suma de los nodos = monto del pago) y la relación
+  de documentos repartida por nodo; o bien emitir el REPP **después** de capturar las
+  formas. Las cuentas ordenante/beneficiaria (86e3tfdve) aplican por nodo y solo en formas
+  bancarizadas. Los REPP del flujo bancario (Tesorería) no cambian: un depósito es una sola
+  forma.
+- **Póliza de cobro (C1.5).** Regla de Contabilidad de Millet (23-oct) para las plantillas
+  de cobro: tarjeta, transferencia y cheque llevan **una póliza por cobro**; el efectivo
+  lleva **una póliza por liquidación del día y sucursal** (no por cobro). Cada forma va a
+  su cuenta: el efectivo a la caja de cobranza (y a bancos al depositarse), la
+  transferencia a bancos en moneda nacional y la tarjeta a la cuenta de cobros con tarjeta,
+  más la comisión bancaria de cada cobro. Faltante o sobrante del arqueo: a deudores
+  funcionarios y empleados, con autorización de Tesorería. Consecuencia para el cobro
+  mixto: **un mismo cobro se parte en dos pólizas**. La parte no efectivo (tarjeta,
+  transferencia, cheque) va en la póliza de ese cobro, con un cargo por forma y el abono a
+  clientes por esa parte; la parte en efectivo se suma a la póliza de efectivo de la
+  liquidación del día y sucursal, con su abono a clientes. El total abonado al cliente
+  sigue siendo el total del cobro. La plantilla debe tomar la forma de cada fila del
+  evento (ya viene en `FormasPago`), no la forma del CFDI. Una cancelación revierte cada
+  parte en la póliza que le corresponde. La cuenta de comisión y la de faltante se
+  construyen en tareas del Sprint 04; mientras, cuentas de prueba visibles.
+
+### 16.5 Propuesta de cuándo construirlo
+
+Lo básico ya funciona, así que **no se bloquea la Oleada 1** (pruebas de Millet desde el
+2-nov): el cajero puede cobrar en mixto y el corte cuadra. Propuesta, a decidir con
+Eliam y Facturación de Millet:
+
+1. **Durante la Oleada 1:** instruir al cajero a emitir el CFDI con la forma de mayor
+   importe (B1 manual) y a no cobrar en mixto un REPP de mostrador (B2) hasta que se
+   construya. Anotarlo en el guion de pruebas.
+2. **Con C1.5 (póliza de cobro):** B3, partiendo el cobro mixto entre la póliza por cobro
+   (tarjeta, transferencia, cheque) y la póliza de efectivo del día y sucursal; y la
+   validación de B1 (forma del CFDI = mayor importe), que es un cambio chico en el cobro.
+3. **Después de F6.6:** B2 (REPP con varios nodos de pago) y B4 (folio de transferencia
+   dentro del cobro mixto), porque ambos tocan el REP y la confirmación de Ingresos.
+
+---
+
 ## Rev.
 
 | Versión | Fecha | Cambios |
@@ -526,3 +627,5 @@ el cierre del día cuadra la sucursal completa.
 | 0.7 | 2026-10-13 | §14 Corte de caja por cajero (FIX-12): endpoint, fuente única en movimientos, voucher obligatorio en tarjeta y REPP solo en pesos |
 | 0.8 | 2026-10-14 | §14: facturado y notas de crédito del punto de venta y resumen de la entrega (M19: facturado, NC, cobranzas, apartados, TPV), como propuesta a validar; relación con F6.7 |
 | 0.9 | 2026-10-21 | §15 Cierre del día por sucursal (F6.7): monitor de estatus de CFDI con verificación SAT y conciliación facturado contra ingresado por sucursal y cajero |
+| 1.0 | 2026-10-26 | §14 (86e3tfdvt): voucher de tarjeta = número de autorización de 4 a 12 caracteres, también en forma 29; nunca el número de la tarjeta |
+| 1.1 | 2026-10-28 | §16 (86e3tfecn): caso de uso del cobro con varias formas de pago en una operación; estado actual del ERP, brechas (forma del CFDI, REPP con varios nodos, póliza de cobro partida según la regla de Contabilidad de Millet del 23-oct, folio de transferencia), nota de impacto y propuesta de cuándo construirlo |

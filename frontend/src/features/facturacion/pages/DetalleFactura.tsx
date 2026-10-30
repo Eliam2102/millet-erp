@@ -1,3 +1,5 @@
+import { formatCantidad } from '@/lib/format-cantidad';
+import { DatosClienteFactura } from '../components/DatosClienteFactura';
 import { ErrorState } from '@/components/erp';
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { PageHeader } from '@/components/erp/PageHeader';
@@ -44,6 +46,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 
 const BASE = '/api/v1/facturacion/facturas';
+const NC_BASE = '/api/v1/facturacion/notas-credito';
 
 /**
  * <c>Detalle del comprobante</c> (FE-F2). Cabecera fiscal + conceptos +
@@ -84,6 +87,7 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
   const puedeReembolsar = useHasPermission(
     PermisosCanonicos.FacturacionNotasCreditoReembolsoSolicitar,
   );
+  const puedeVerNc = useHasPermission(PermisosCanonicos.FacturacionNotasCreditoLeer);
   const [reembolsoNc, setReembolsoNc] = useState<
     NonNullable<typeof f.notasCreditoAplicadas>[number] | null
   >(null);
@@ -108,8 +112,27 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
     }
   }
 
+  // FMT-4: XML y PDF (formato de Millet) de cada NC aplicada, como en el detalle del anticipo.
+  async function descargarNc(ncId: string, folio: string, tipo: 'xml' | 'pdf') {
+    try {
+      await descargarArchivo(`${NC_BASE}/${ncId}/${tipo}`, `${folio}.${tipo}`);
+    } catch (error) {
+      toast.error(esApiError(error) ? error.problem.title : 'No se pudo descargar el archivo.');
+    }
+  }
+
   return (
     <div className="space-y-5">
+      <DatosClienteFactura factura={f} puedeEditar={puedeEmitir} />
+      {(f.noCertificadoEmisor || f.cadenaOriginalTimbre) && <dl className="space-y-2 text-sm">
+        <div><dt>Certificado del emisor</dt><dd className="font-mono">{f.noCertificadoEmisor ?? '—'}</dd></div>
+        <div><dt>Cadena original del timbre</dt><dd className="break-all font-mono text-xs">{f.cadenaOriginalTimbre ?? '—'}</dd></div>
+      </dl>}
+      <dl className="flex flex-wrap gap-5 text-sm tabular-nums">
+        <div><dt>Total de kilos</dt><dd>{f.lineas.some(l => l.pesoKg != null) ? formatCantidad(f.totalKg) : '—'}</dd></div>
+        <div><dt>Total de pies²</dt><dd>{f.lineas.some(l => l.areaPie2 != null) ? formatCantidad(f.totalPie2) : '—'}</dd></div>
+        <div><dt>Total de piezas</dt><dd>{formatCantidad(f.totalPiezas)}</dd></div>
+      </dl>
       {f.datosEmbarqueCe && <EmbarqueCeResumen datos={f.datosEmbarqueCe} />}
       {/* ── Sub-topbar de acciones (§6.5, no se imprime): sticky con
           cerrar (X) que vuelve a la bandeja preservando filtros ──── */}
@@ -264,7 +287,10 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
                   {f.lineas.map((l) => (
                     <TableRow key={l.posicion} className="border-t border-line">
                       <TableCell className="px-3 py-2 text-ink-muted">{l.posicion}</TableCell>
-                      <TableCell className="px-3 py-2">{l.descripcion}</TableCell>
+                      <TableCell className="px-3 py-2">{l.descripcion}
+                        {l.referencia && <p className="text-xs text-ink-muted">{l.referencia}</p>}
+                        {(l.pesoKg != null || l.areaPie2 != null) && <p className="text-xs text-ink-muted tabular-nums">Peso: {l.pesoKg ?? '—'} kg · Área: {l.areaPie2 ?? '—'} pies²</p>}
+                      </TableCell>
                       <TableCell className="px-3 py-2 font-mono text-xs">
                         {l.claveProdServSat} · {l.claveUnidadSat}
                       </TableCell>
@@ -322,6 +348,9 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
                         <TableHead className="px-3 py-2 text-left">UUID</TableHead>
                         <TableHead className="px-3 py-2 text-right tabular-nums">Total</TableHead>
                         <TableHead className="px-3 py-2 text-left">Reembolso</TableHead>
+                        <TableHead className="px-3 py-2 text-right" data-print="hidden">
+                          Archivos
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -352,6 +381,30 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
                                 Solicitar reembolso
                               </Button>
                             ) : null}
+                          </TableCell>
+                          <TableCell className="px-3 py-2 text-right" data-print="hidden">
+                            {puedeVerNc && nc.uuid ? (
+                              <span className="inline-flex gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  aria-label={`XML de la nota de crédito ${nc.folio}`}
+                                  onClick={() => descargarNc(nc.id, nc.folio, 'xml')}
+                                >
+                                  XML
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  aria-label={`PDF de la nota de crédito ${nc.folio}`}
+                                  onClick={() => descargarNc(nc.id, nc.folio, 'pdf')}
+                                >
+                                  PDF
+                                </Button>
+                              </span>
+                            ) : (
+                              <span className="text-xs text-ink-muted">—</span>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}

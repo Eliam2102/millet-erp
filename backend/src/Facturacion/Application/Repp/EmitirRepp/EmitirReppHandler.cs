@@ -173,7 +173,7 @@ public sealed class EmitirReppHandler : IRequestHandler<EmitirReppCommand, Emiti
                 repp.FacturasPagadas.Sum(f => f.GananciaPerdidaCambiaria),
                 repp.FacturasPagadas.Select(f => new ReppFacturaPagadaDetalle(
                     f.FacturaVentaId, f.ImportePagado, f.NumParcialidad, f.MonedaFactura, f.SaldoInsoluto)).ToList(),
-                command.Pendiente?.MovimientoBancarioId), cancellationToken);
+                command.Pendiente?.MovimientoBancarioId, command.Pendiente?.PropuestaId), cancellationToken);
 
         command.Pendiente?.RegistrarIntento(repp);
         _db.RecibosPago.Add(repp);

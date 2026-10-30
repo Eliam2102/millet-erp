@@ -26,7 +26,7 @@ public sealed record CrearEmpleadoCommand(
     Guid? DepartamentoId = null,
     Guid? UsuarioId = null,
     string? CodigoNomina = null,
-    string? EmailContacto = null) : IRequest<EmpleadoResponse>;
+    string? EmailContacto = null, string? Telefono = null, string? Extension = null) : IRequest<EmpleadoResponse>;
 
 public sealed class CrearEmpleadoValidator : AbstractValidator<CrearEmpleadoCommand>
 {
@@ -34,6 +34,8 @@ public sealed class CrearEmpleadoValidator : AbstractValidator<CrearEmpleadoComm
     {
         RuleFor(c => c.EmpresaId).NotEmpty();
         RuleFor(c => c.Clave!).MaximumLength(20).When(c => !string.IsNullOrWhiteSpace(c.Clave));
+        RuleFor(c => c.Telefono).MaximumLength(20).Matches(@"^[0-9 ()+\-]*$").WithMessage("Escribe un teléfono válido de hasta 20 caracteres.");
+        RuleFor(c => c.Extension).MaximumLength(10);
         RuleFor(c => c.Nombre).NotEmpty().MaximumLength(254);
         RuleFor(c => c.Email!).NotEmpty().EmailAddress().MaximumLength(254)
             .When(c => c.Email is not null);
@@ -110,7 +112,7 @@ public sealed class CrearEmpleadoHandler
             departamentoId: command.DepartamentoId,
             usuarioId: command.UsuarioId,
             codigoNomina: command.CodigoNomina,
-            emailContacto: command.EmailContacto);
+            emailContacto: command.EmailContacto, telefono: command.Telefono, extension: command.Extension);
 
         _db.Empleados.Add(empleado);
         await _db.SaveChangesAsync(cancellationToken);
@@ -121,5 +123,5 @@ public sealed class CrearEmpleadoHandler
     internal static EmpleadoResponse Mapear(Empleado e) => new(
         e.Id, e.EmpresaId, e.Clave, e.Nombre, e.Email,
         e.PuestoId, e.JefeDirectoId, e.SucursalId, e.DepartamentoId,
-        e.UsuarioId, e.CodigoNomina, e.Estatus, e.Version);
+        e.UsuarioId, e.CodigoNomina, e.Estatus, e.Version, e.Telefono, e.Extension);
 }

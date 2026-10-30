@@ -13,6 +13,7 @@ public sealed class ActualizarLineaOcHandler : IRequestHandler<ActualizarLineaOc
     private readonly ComprasDbContext _db;
     private readonly IDecimalesUnidadGuard _decimalesGuard;
     private readonly IArticuloReadPort _articulos;
+    private readonly Millet.Almacen.Domain.Ports.IVarianteVidrioReadPort? _variantes; // opcional solo para pruebas unitarias sin medidas
     private readonly Millet.CentrosCosto.Application.PublicPorts.IDim3ElegibilidadPort _dim3ElegibilidadPort;
     private readonly Millet.Compras.Domain.Ports.IClaseActivoCompraReadPort? _clasesActivos;
 
@@ -21,8 +22,10 @@ public sealed class ActualizarLineaOcHandler : IRequestHandler<ActualizarLineaOc
         IDecimalesUnidadGuard decimalesGuard,
         IArticuloReadPort articulos,
         Millet.CentrosCosto.Application.PublicPorts.IDim3ElegibilidadPort dim3ElegibilidadPort,
-        Millet.Compras.Domain.Ports.IClaseActivoCompraReadPort? clasesActivos = null)
+        Millet.Compras.Domain.Ports.IClaseActivoCompraReadPort? clasesActivos = null,
+        Millet.Almacen.Domain.Ports.IVarianteVidrioReadPort? variantes = null)
     {
+        _variantes = variantes;
         _clasesActivos = clasesActivos;
         _db = db;
         _decimalesGuard = decimalesGuard;
@@ -54,21 +57,31 @@ public sealed class ActualizarLineaOcHandler : IRequestHandler<ActualizarLineaOc
             && (claseEfectiva is not Guid claseId || _clasesActivos is null || !await _clasesActivos.EsActivaAsync(claseId, cancellationToken)))
             throw new BusinessRuleException("COMPRA_CLASE_ACTIVO_INVALIDA", "Seleccione una clase de activo activa de la empresa.");
 
+        // F1-MP-01 (E1, A4.1-b): la medida se valida contra el artículo resultante (el del PATCH o el actual). Si cambia
+        // el artículo, la medida anterior no se conserva (el dominio la limpia): vidrio crudo ⇒ hay que elegir otra.
+        var articuloId = command.ArticuloId ?? lineaActual?.ArticuloId;
+        Millet.Almacen.Domain.Ports.VarianteVidrioLectura? medida = null;
+        if (articuloId is Guid aid)
+        {
+            var lectura = await _articulos.ObtenerPorIdsAsync([aid], cancellationToken);
+            var cambiaArticulo = lineaActual is not null && aid != lineaActual.ArticuloId;
+            medida = await OcLineaMedida.ResolverAsync(
+                lectura.TryGetValue(aid, out var art) && art.TieneProductoAw, _variantes, aid,
+                command.ProductoAwVarianteId ?? (cambiaArticulo ? null : lineaActual?.ProductoAwVarianteId), cancellationToken);
+        }
+
         // ADR-0046 Etapa 2: si el PATCH cambia la cantidad, valida sus decimales
         // contra la unidad del artículo. El articuloId puede venir en el comando
         // o conservarse de la línea actual (PATCH parcial). FK NULL → no valida.
-        if (command.Cantidad is decimal cantidad)
+        // Con medida los m² salen de hojas enteras (D8): Derivada.
+        if (command.Cantidad is decimal cantidad && articuloId is Guid aid2)
         {
-            var articuloId = command.ArticuloId ?? lineaActual?.ArticuloId;
-            if (articuloId is Guid aid)
-            {
-                await _decimalesGuard.ValidarAsync(
-                    new[]
-                    {
-                        new CantidadAValidar(aid, cantidad, command.UnidadMedida ?? lineaActual?.UnidadMedida),
-                    },
-                    cancellationToken);
-            }
+            await _decimalesGuard.ValidarAsync(
+                new[]
+                {
+                    new CantidadAValidar(aid2, cantidad, command.UnidadMedida ?? lineaActual?.UnidadMedida, Derivada: medida is not null),
+                },
+                cancellationToken);
         }
 
         // G1.11 / ADR-0050 §2: en línea manual de OC (sin RQ previa), el comprador
@@ -124,7 +137,13 @@ public sealed class ActualizarLineaOcHandler : IRequestHandler<ActualizarLineaOc
             fraccionArancelaria: command.FraccionArancelaria,
             limpiarFraccionArancelaria: command.LimpiarFraccionArancelaria,
             esActivoFijo: command.EsActivoFijo,
-            claseActivoId: command.ClaseActivoId);
+            claseActivoId: command.ClaseActivoId,
+            // Solo si el PATCH trae medida; sin ella el dominio conserva (o limpia al cambiar de artículo) y revalida hojas enteras.
+            productoAwVarianteId: command.ProductoAwVarianteId is null ? null : medida?.VarianteId,
+            anchoMm: command.ProductoAwVarianteId is null ? null : medida?.AnchoMm,
+            altoMm: command.ProductoAwVarianteId is null ? null : medida?.AltoMm,
+            loteProveedor: command.LoteProveedor,
+            limpiarLoteProveedor: command.LimpiarLoteProveedor);
 
         await _db.SaveChangesAsync(cancellationToken);
         if (tx is not null) await tx.CommitAsync(cancellationToken);

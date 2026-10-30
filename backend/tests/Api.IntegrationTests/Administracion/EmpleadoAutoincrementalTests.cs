@@ -6,7 +6,8 @@ using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace Millet.Api.IntegrationTests.Administracion;
 
-public class EmpleadoAutoincrementalTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class EmpleadoAutoincrementalTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string SiguienteClaveEndpoint = "/api/v1/admin/empleados/siguiente-clave";

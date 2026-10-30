@@ -4,8 +4,10 @@ namespace Millet.SharedKernel.Application.UnidadesMedida;
 /// Una cantidad capturada a validar contra los decimales de la unidad de
 /// su artículo. <see cref="UnidadEtiqueta"/> es el string snapshot de la
 /// unidad en la línea (solo para enriquecer el mensaje de error; opcional).
+/// <see cref="Derivada"/> = la cantidad no es lo que capturó la persona (p. ej. m² calculados de hojas
+/// enteras): no se valida contra los decimales de la unidad.
 /// </summary>
-public sealed record CantidadAValidar(Guid ArticuloId, decimal Cantidad, string? UnidadEtiqueta = null);
+public sealed record CantidadAValidar(Guid ArticuloId, decimal Cantidad, string? UnidadEtiqueta = null, bool Derivada = false);
 
 /// <summary>
 /// Guard compartido y agnóstico de módulo que aplica la regla de decimales

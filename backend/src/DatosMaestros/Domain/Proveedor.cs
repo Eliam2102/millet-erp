@@ -22,6 +22,7 @@ public sealed class Proveedor : BaseEntity, IAuditable
 {
     public string Clave { get; private set; } = string.Empty;
     public string? ClaveLegacy { get; private set; }
+    public string? OrigenCarga { get; private set; }
     public string RazonSocial { get; private set; } = string.Empty;
     public string? NombreComercial { get; private set; }
     public string Rfc { get; private set; } = string.Empty;
@@ -70,6 +71,68 @@ public sealed class Proveedor : BaseEntity, IAuditable
     /// </summary>
     public string? ConceptoRetencion { get; private set; }
 
+    public string? Calle { get; private set; }
+    public string? NumeroExterior { get; private set; }
+    public string? NumeroInterior { get; private set; }
+    public string? Colonia { get; private set; }
+    public string? Ciudad { get; private set; }
+    public string? Municipio { get; private set; }
+    public string? Estado { get; private set; }
+    public string? CodigoPostal { get; private set; }
+    public string? Pais { get; private set; }
+    public string? TaxId { get; private set; }
+
+    /// <summary>
+    /// Clave del proveedor en A+W (86e3wyjz3 · ALM-APP-1). La app de Almacenes manda el
+    /// proveedor con esta clave y la OC regresa con la misma, porque de ella A+W toma la moneda.
+    /// Única entre proveedores cuando existe.
+    /// </summary>
+    public int? ClaveAw { get; private set; }
+
+    public void AsignarClaveAw(int? claveAw)
+    {
+        if (claveAw <= 0)
+            throw new BusinessRuleException("PROVEEDOR_CLAVE_AW_INVALIDA", "La clave de A+W es un número entero mayor que cero.");
+        ClaveAw = claveAw;
+    }
+
+    public void ActualizarDomicilioFiscal(string? calle = null,
+        string? numeroExterior = null,
+        string? numeroInterior = null,
+        string? colonia = null,
+        string? ciudad = null,
+        string? municipio = null,
+        string? estado = null,
+        string? codigoPostal = null,
+        string? pais = null,
+        string? taxId = null)
+    {
+        if (calle is { Length: > 254 }) throw new BusinessRuleException("PROVEEDOR_DOMICILIO_INVALIDO", "El campo calle admite hasta 254 caracteres; corrígelo antes de guardar.");
+        if (numeroExterior is { Length: > 20 }) throw new BusinessRuleException("PROVEEDOR_DOMICILIO_INVALIDO", "El campo número exterior admite hasta 20 caracteres; corrígelo antes de guardar.");
+        if (numeroInterior is { Length: > 20 }) throw new BusinessRuleException("PROVEEDOR_DOMICILIO_INVALIDO", "El campo número interior admite hasta 20 caracteres; corrígelo antes de guardar.");
+        if (colonia is { Length: > 254 }) throw new BusinessRuleException("PROVEEDOR_DOMICILIO_INVALIDO", "El campo colonia admite hasta 254 caracteres; corrígelo antes de guardar.");
+        if (ciudad is { Length: > 100 }) throw new BusinessRuleException("PROVEEDOR_DOMICILIO_INVALIDO", "El campo ciudad admite hasta 100 caracteres; corrígelo antes de guardar.");
+        if (municipio is { Length: > 100 }) throw new BusinessRuleException("PROVEEDOR_DOMICILIO_INVALIDO", "El campo municipio admite hasta 100 caracteres; corrígelo antes de guardar.");
+        if (estado is { Length: > 100 }) throw new BusinessRuleException("PROVEEDOR_DOMICILIO_INVALIDO", "El campo estado admite hasta 100 caracteres; corrígelo antes de guardar.");
+        if (codigoPostal is { Length: > 20 }) throw new BusinessRuleException("PROVEEDOR_DOMICILIO_INVALIDO", "El campo código postal admite hasta 20 caracteres; corrígelo antes de guardar.");
+        if (pais is { Length: > 3 }) throw new BusinessRuleException("PROVEEDOR_DOMICILIO_INVALIDO", "El campo país admite hasta 3 caracteres; corrígelo antes de guardar.");
+        if (taxId is { Length: > 40 }) throw new BusinessRuleException("PROVEEDOR_TAXID_INVALIDO", "El campo Tax ID admite hasta 40 caracteres; corrígelo antes de guardar.");
+        if (!string.IsNullOrWhiteSpace(pais) && (pais.Length != 3 || !pais.All(char.IsAsciiLetter)))
+            throw new BusinessRuleException("PROVEEDOR_PAIS_INVALIDO", "Escribe el país con su código ISO de tres letras, por ejemplo MEX.");
+        if (!string.IsNullOrWhiteSpace(taxId) && Origen != OrigenProveedor.Extranjero)
+            throw new BusinessRuleException("PROVEEDOR_TAXID_SOLO_EXTRANJERO", "El Tax ID solo corresponde a proveedores extranjeros; quítalo para guardar.");
+        if (calle is not null) Calle = string.IsNullOrWhiteSpace(calle) ? null : calle.Trim();
+        if (numeroExterior is not null) NumeroExterior = string.IsNullOrWhiteSpace(numeroExterior) ? null : numeroExterior.Trim();
+        if (numeroInterior is not null) NumeroInterior = string.IsNullOrWhiteSpace(numeroInterior) ? null : numeroInterior.Trim();
+        if (colonia is not null) Colonia = string.IsNullOrWhiteSpace(colonia) ? null : colonia.Trim();
+        if (ciudad is not null) Ciudad = string.IsNullOrWhiteSpace(ciudad) ? null : ciudad.Trim();
+        if (municipio is not null) Municipio = string.IsNullOrWhiteSpace(municipio) ? null : municipio.Trim();
+        if (estado is not null) Estado = string.IsNullOrWhiteSpace(estado) ? null : estado.Trim();
+        if (codigoPostal is not null) CodigoPostal = string.IsNullOrWhiteSpace(codigoPostal) ? null : codigoPostal.Trim();
+        if (pais is not null) Pais = string.IsNullOrWhiteSpace(pais) ? (Origen == OrigenProveedor.Nacional ? "MEX" : null) : pais.Trim().ToUpperInvariant();
+        if (taxId is not null) TaxId = string.IsNullOrWhiteSpace(taxId) ? null : taxId.Trim();
+    }
+
     public void ActualizarClasificacionFiscal(OrigenProveedor? origen, string? regimenFiscalCodigo, string? conceptoRetencion)
     {
         var regimen = string.IsNullOrWhiteSpace(regimenFiscalCodigo) ? null : regimenFiscalCodigo.Trim();
@@ -80,6 +143,8 @@ public sealed class Proveedor : BaseEntity, IAuditable
         var concepto = string.IsNullOrWhiteSpace(conceptoRetencion) ? null : conceptoRetencion.Trim().ToUpperInvariant();
         if (concepto?.Length > 80)
             throw new BusinessRuleException("PROVEEDOR_CONCEPTO_RETENCION_INVALIDO", "El concepto de retención admite hasta 80 caracteres.");
+        if (origen != OrigenProveedor.Extranjero) TaxId = null;
+        if (origen == OrigenProveedor.Nacional && Pais is null) Pais = "MEX";
         Origen = origen;
         RegimenFiscalCodigo = origen == OrigenProveedor.Extranjero ? null : regimen;
         ConceptoRetencion = concepto;
@@ -113,7 +178,8 @@ public sealed class Proveedor : BaseEntity, IAuditable
         short? condicionesPagoDias = null,
         Guid? monedaPreferidaId = null,
         string? email = null,
-        string? telefono = null) : base(id)
+        string? telefono = null,
+        string? origenCarga = null) : base(id)
     {
         if (string.IsNullOrWhiteSpace(clave) || clave.Length > 20)
             throw new BusinessRuleException("PROVEEDOR_CLAVE_INVALIDA",
@@ -134,6 +200,7 @@ public sealed class Proveedor : BaseEntity, IAuditable
 
         Clave = clave;
         ClaveLegacy = claveLegacy;
+        OrigenCarga = origenCarga;
         RazonSocial = razonSocial;
         NombreComercial = nombreComercial;
         Rfc = rfcNormalizado;

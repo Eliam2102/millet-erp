@@ -43,6 +43,7 @@ import { useAutorizarPoliza, useDescartarPoliza, usePoliza, usePolizas } from '.
 import type { Partida, Poliza, PolizaLigada } from '../api/polizas-types';
 import { AnularPolizaDialog } from '../components/polizas/AnularPolizaDialog';
 import { CuadrePoliza } from '../components/polizas/CuadrePoliza';
+import { DocumentoOrigenCard } from '../components/polizas/DocumentoOrigenCard';
 import { EstadoPolizaBadge } from '../components/polizas/EstadoPolizaBadge';
 import { PolizaSheet } from '../components/polizas/PolizaSheet';
 import { fechaCorta } from '../lib/dimensiones';
@@ -449,18 +450,6 @@ function DetallePoliza({ id, search, onNavegar }: Props) {
           <Dato k="Fecha">{fechaCorta(p.fecha)}</Dato>
           <Dato k="Periodo">{etiquetaPeriodo(p.periodoAnio, p.periodoNumero)}</Dato>
           <Dato k="Origen">{p.origen === 'Automatica' ? 'Automática' : 'Manual'}</Dato>
-          <Dato k="Documento origen">
-            {p.documentoOrigen ? (
-              <>
-                {p.documentoOrigen.modulo} · {p.documentoOrigen.tipo}{' '}
-                {p.documentoOrigen.folio && (
-                  <span className="font-mono text-xs">{p.documentoOrigen.folio}</span>
-                )}
-              </>
-            ) : (
-              '—'
-            )}
-          </Dato>
           <Dato k="Capturó">{p.capturadaPor}</Dato>
           <Dato k="Autorizó">{p.autorizadaPor ?? '—'}</Dato>
           <div className="col-span-2 md:col-span-4">
@@ -468,6 +457,8 @@ function DetallePoliza({ id, search, onNavegar }: Props) {
             <dd className="whitespace-pre-line text-sm font-medium">{p.concepto}</dd>
           </div>
         </dl>
+
+        {p.documentoOrigen && <DocumentoOrigenCard documento={p.documentoOrigen} />}
 
         <TablaPartidas poliza={p} />
         <CuadrePoliza totalCargos={p.totalCargos} totalAbonos={p.totalAbonos} />

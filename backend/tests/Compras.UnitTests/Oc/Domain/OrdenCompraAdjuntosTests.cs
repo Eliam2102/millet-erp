@@ -21,7 +21,7 @@ public class OrdenCompraAdjuntosTests
         usoPrincipalId: Guid.CreateVersion7(),
         compradorTitularId: Guid.CreateVersion7(),
         encargadoComprasId: Guid.CreateVersion7(),
-        fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime));
+        fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime), usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
 
     private static AdjuntoOC Agregar(OrdenCompra oc) =>
         oc.AdjuntarDocumento(

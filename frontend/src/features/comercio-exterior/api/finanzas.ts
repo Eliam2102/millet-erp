@@ -12,6 +12,7 @@ export interface Concepto {
 }
 export interface Gasto {
   id: string;
+  anticipoAgenteId?: string | null;
   conceptoId: string;
   concepto: string;
   proveedorId: string;
@@ -61,12 +62,14 @@ export interface Distribucion {
     importeMxn: number;
     diferenciaMxn: number;
     inventarioMxn: number;
-    costoVentasMxn: number;
+    gastoImportacionMxn: number;
+    tieneSalidas: boolean;
     costoUnitarioAntes: number;
     costoUnitarioDespues: number;
   }[];
 }
 export interface Anticipo {
+  cuentaPeca?: boolean;
   id: string;
   agenteId: string;
   pedimento: string;

@@ -20,7 +20,8 @@ namespace Millet.Api.IntegrationTests.Contabilidad;
 /// inactivo, centro de otra sucursal, conservación histórica) y negativos de vigencia, jerarquía, herencia y permisos.
 /// Todas las reglas, tipos de documento, centros y sucursales son de PRUEBA (FIX-*), no política de Contabilidad.
 /// </summary>
-public class DimensionesHttpTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class DimensionesHttpTests(WebApplicationFactory<Program> factory)
 {
     private static Guid Id(JsonElement e) => e.GetProperty("id").GetGuid();
 

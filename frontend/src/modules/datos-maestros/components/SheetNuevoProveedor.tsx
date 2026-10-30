@@ -141,6 +141,7 @@ function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps)
   const form = useForm<CrearProveedorValues>({
     resolver: zodResolver(CrearProveedorSchema),
     defaultValues: {
+      pais: '',
       clave: '',
       razonSocial: '',
       rfc: '',
@@ -150,6 +151,7 @@ function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps)
       email: null,
       telefono: null,
       condicionesPagoDias: null,
+      claveAw: null,
     },
   });
 
@@ -165,12 +167,24 @@ function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps)
         payload: {
           clave: values.clave,
           razonSocial: values.razonSocial,
+          calle: values.calle,
+          numeroExterior: values.numeroExterior,
+          numeroInterior: values.numeroInterior,
+          colonia: values.colonia,
+          ciudad: values.ciudad,
+          municipio: values.municipio,
+          estado: values.estado,
+          codigoPostal: values.codigoPostal,
+          pais: values.pais || (fiscal.origen === OrigenProveedor.Nacional ? 'MEX' : undefined),
+          taxId: extranjero ? values.taxId : undefined,
+
           rfc: extranjero ? null : values.rfc,
           tipoPersona: values.tipoPersona,
           nombreComercial: values.nombreComercial,
           email: values.email,
           telefono: values.telefono,
           condicionesPagoDias: values.condicionesPagoDias,
+          claveAw: values.claveAw,
           monedaPreferidaId: null,
           origen: fiscal.origen,
           regimenFiscalCodigo: fiscal.regimenFiscalCodigo,
@@ -212,6 +226,13 @@ function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps)
               setErroresFiscal(
                 erroresDeClasificacion(error.code, error.problem.detail ?? error.problem.title),
               );
+              return;
+            }
+            if (error.code === 'PROVEEDOR_CLAVE_AW_DUPLICADA') {
+              form.setError('claveAw', {
+                type: error.code,
+                message: error.problem.detail ?? 'Ya existe un proveedor con esa clave de A+W.',
+              });
               return;
             }
             if (error.code === 'PROVEEDOR_RFC_DUPLICADO') {
@@ -372,6 +393,33 @@ function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps)
             </FormRow>
           </FormCampo>
 
+          <FormCampo span={6}>
+            <FormRow
+              label="Clave de A+W"
+              hint="Clave del proveedor en A+W. La usa la aplicación de Almacenes."
+              error={form.formState.errors.claveAw?.message}
+            >
+              <Controller
+                name="claveAw"
+                control={form.control}
+                render={({ field }) => (
+                  <Input
+                    type="number"
+                    min={1}
+                    step={1}
+                    inputMode="numeric"
+                    aria-label="Clave de A+W"
+                    className="font-mono"
+                    value={field.value ?? ''}
+                    onChange={(e) =>
+                      field.onChange(e.target.value === '' ? null : Number(e.target.value))
+                    }
+                  />
+                )}
+              />
+            </FormRow>
+          </FormCampo>
+
           <FormCampo span={12}>
             <fieldset className="space-y-3 border-t pt-3">
               <legend className="text-sm font-semibold">Clasificación fiscal (opcional)</legend>
@@ -395,6 +443,136 @@ function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps)
               />
             </fieldset>
           </FormCampo>
+          <FormCampo span={12}>
+            <h3 className="text-sm font-semibold">Domicilio</h3>
+          </FormCampo>
+          <FormCampo span={6}>
+            <label htmlFor="proveedor-calle" className="text-xs font-medium text-ink-strong">
+              Calle
+            </label>
+            <Input id="proveedor-calle" maxLength={254} {...form.register('calle')} />
+            {form.formState.errors.calle?.message && (
+              <p role="alert" className="text-xs text-danger-fg">
+                {form.formState.errors.calle?.message}
+              </p>
+            )}
+          </FormCampo>
+          <FormCampo span={6}>
+            <label
+              htmlFor="proveedor-numeroExterior"
+              className="text-xs font-medium text-ink-strong"
+            >
+              Número exterior
+            </label>
+            <Input
+              id="proveedor-numeroExterior"
+              maxLength={20}
+              {...form.register('numeroExterior')}
+            />
+            {form.formState.errors.numeroExterior?.message && (
+              <p role="alert" className="text-xs text-danger-fg">
+                {form.formState.errors.numeroExterior?.message}
+              </p>
+            )}
+          </FormCampo>
+          <FormCampo span={6}>
+            <label
+              htmlFor="proveedor-numeroInterior"
+              className="text-xs font-medium text-ink-strong"
+            >
+              Número interior
+            </label>
+            <Input
+              id="proveedor-numeroInterior"
+              maxLength={20}
+              {...form.register('numeroInterior')}
+            />
+            {form.formState.errors.numeroInterior?.message && (
+              <p role="alert" className="text-xs text-danger-fg">
+                {form.formState.errors.numeroInterior?.message}
+              </p>
+            )}
+          </FormCampo>
+          <FormCampo span={6}>
+            <label htmlFor="proveedor-colonia" className="text-xs font-medium text-ink-strong">
+              Colonia
+            </label>
+            <Input id="proveedor-colonia" maxLength={254} {...form.register('colonia')} />
+            {form.formState.errors.colonia?.message && (
+              <p role="alert" className="text-xs text-danger-fg">
+                {form.formState.errors.colonia?.message}
+              </p>
+            )}
+          </FormCampo>
+          <FormCampo span={6}>
+            <label htmlFor="proveedor-ciudad" className="text-xs font-medium text-ink-strong">
+              Ciudad
+            </label>
+            <Input id="proveedor-ciudad" maxLength={100} {...form.register('ciudad')} />
+            {form.formState.errors.ciudad?.message && (
+              <p role="alert" className="text-xs text-danger-fg">
+                {form.formState.errors.ciudad?.message}
+              </p>
+            )}
+          </FormCampo>
+          <FormCampo span={6}>
+            <label htmlFor="proveedor-municipio" className="text-xs font-medium text-ink-strong">
+              Municipio
+            </label>
+            <Input id="proveedor-municipio" maxLength={100} {...form.register('municipio')} />
+            {form.formState.errors.municipio?.message && (
+              <p role="alert" className="text-xs text-danger-fg">
+                {form.formState.errors.municipio?.message}
+              </p>
+            )}
+          </FormCampo>
+          <FormCampo span={6}>
+            <label htmlFor="proveedor-estado" className="text-xs font-medium text-ink-strong">
+              Estado
+            </label>
+            <Input id="proveedor-estado" maxLength={100} {...form.register('estado')} />
+            {form.formState.errors.estado?.message && (
+              <p role="alert" className="text-xs text-danger-fg">
+                {form.formState.errors.estado?.message}
+              </p>
+            )}
+          </FormCampo>
+          <FormCampo span={6}>
+            <label htmlFor="proveedor-codigoPostal" className="text-xs font-medium text-ink-strong">
+              Código postal
+            </label>
+            <Input id="proveedor-codigoPostal" maxLength={20} {...form.register('codigoPostal')} />
+            {form.formState.errors.codigoPostal?.message && (
+              <p role="alert" className="text-xs text-danger-fg">
+                {form.formState.errors.codigoPostal?.message}
+              </p>
+            )}
+          </FormCampo>
+          <FormCampo span={6}>
+            <label htmlFor="proveedor-pais" className="text-xs font-medium text-ink-strong">
+              País (ISO de tres letras)
+            </label>
+            <Input id="proveedor-pais" maxLength={3} {...form.register('pais')} />
+            {form.formState.errors.pais?.message && (
+              <p role="alert" className="text-xs text-danger-fg">
+                {form.formState.errors.pais?.message}
+              </p>
+            )}
+          </FormCampo>
+          {extranjero && (
+            <FormCampo span={6}>
+              <label htmlFor="proveedor-taxId" className="text-xs font-medium text-ink-strong">
+                Tax ID (identificación fiscal extranjera)
+              </label>
+              <Input id="proveedor-taxId" maxLength={40} {...form.register('taxId')} />
+              {form.formState.errors.taxId?.message && (
+                <p role="alert" className="text-xs text-danger-fg">
+                  {form.formState.errors.taxId?.message}
+                </p>
+              )}
+              <p className="text-xs text-ink-muted">Opcional. Aparece en la orden de compra</p>
+            </FormCampo>
+          )}
         </FormSeccion>
       </SheetBody>
       <SheetFooter>

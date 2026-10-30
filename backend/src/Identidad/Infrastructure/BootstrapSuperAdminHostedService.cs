@@ -216,6 +216,7 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                 "Administrador de Catálogos",
                 "CRUD de catálogos cross-empresa (monedas, condiciones, SAT, etc.).",
                 p => p.Codigo.StartsWith("compartido.catalogos", StringComparison.Ordinal)
+                     || p.Codigo is PermisosCanonicos.DatosMaestrosArticulosCargar or PermisosCanonicos.DatosMaestrosProveedoresCargar
                      || p.Codigo.StartsWith("catalogos.", StringComparison.Ordinal)
             ),
             (
@@ -269,7 +270,26 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
         rolesDefinicion = [.. rolesDefinicion,
             (Guid.Parse("0000000d-0001-0001-0000-000000000001"), "direccion-administracion-finanzas",
                 "Dirección de Administración y Finanzas", "Autoriza solicitudes del catálogo contable (R27/D14).",
-                p => p.Codigo is PermisosCanonicos.ContabilidadCatalogoLeer or PermisosCanonicos.ContabilidadCatalogoAutorizar)];
+                p => p.Codigo is PermisosCanonicos.ContabilidadCatalogoLeer or PermisosCanonicos.ContabilidadCatalogoAutorizar),
+            (Guid.Parse("0000000f-0011-0000-0000-000000000001"), "director-administracion-finanzas",
+                "Director de Administración y Finanzas", "Autoriza venta, valor de venta y baja de activos fijos.",
+                p => p.Codigo is PermisosCanonicos.FacturacionActivosAutorizar or PermisosCanonicos.ActivosFijosBajasAutorizar),
+            (Guid.Parse("0000000f-0011-0000-0000-000000000002"), "contador-general",
+                "Contador General", "Registra las bajas autorizadas por el Director de Administración y Finanzas.",
+                p => p.Codigo == PermisosCanonicos.ActivosFijosBajasRegistrar)];
+        // Retira las concesiones anteriores también en roles históricos con otro código.
+        var contadores = await db.Roles.Where(r => r.Codigo == "contador-general" || r.Nombre == "Contador General")
+            .Select(r => r.Id).ToListAsync(cancellationToken);
+        var autorizaciones = PermisosCanonicos.Todos.Where(p => p.Codigo is
+            PermisosCanonicos.FacturacionActivosAutorizar or PermisosCanonicos.ActivosFijosBajasAutorizar)
+            .Select(p => p.Id).ToArray();
+        db.RolPermisos.RemoveRange(await db.RolPermisos.Where(r =>
+            contadores.Contains(r.RolId) && autorizaciones.Contains(r.PermisoId)).ToListAsync(cancellationToken));
+        var registrarBaja = PermisosCanonicos.Todos.Single(p => p.Codigo == PermisosCanonicos.ActivosFijosBajasRegistrar).Id;
+        foreach (var contadorId in contadores)
+            if (!await db.RolPermisos.AnyAsync(r => r.RolId == contadorId && r.PermisoId == registrarBaja, cancellationToken))
+                db.RolPermisos.Add(new RolPermiso(Guid.CreateVersion7(), contadorId, registrarBaja));
+        await db.SaveChangesAsync(cancellationToken);
         foreach (var def in rolesDefinicion)
         {
             var rol = await db.Roles

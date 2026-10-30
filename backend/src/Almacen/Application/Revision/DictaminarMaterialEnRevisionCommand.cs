@@ -65,6 +65,11 @@ public sealed class DictaminarMaterialEnRevisionHandler(
         await using var transaccion = await DevolucionesProveedor.DevolucionOrigenLock.AbrirAsync(
             db, info.MovimientoRevisionId, cancellationToken);
 
+        // 86e3tabdp: cancelar la recepción toma este mismo candado; si la cancelaron mientras esperábamos, ya no hay material que dictaminar.
+        if (!await db.Movimientos.AsNoTracking().AnyAsync(m => m.Id == info.MovimientoRevisionId && m.Estado == EstadoMovimiento.Registrado, cancellationToken))
+            throw new BusinessRuleException("DICTAMEN_RECEPCION_CANCELADA",
+                "La recepción de este material fue cancelada: ya no se puede dictaminar.");
+
         var dictaminado = await db.DictamenesRevision.AsNoTracking()
             .Where(d => d.LineaRevisionId == info.LineaRevisionId
                 && (d.Resultado == ResultadoDictamen.Liberar || d.Resultado == ResultadoDictamen.Baja))
@@ -80,7 +85,8 @@ public sealed class DictaminarMaterialEnRevisionHandler(
                 $"La cantidad a dictaminar ({request.Cantidad:0.####}) supera lo pendiente en revisión ({pendiente:0.####}).");
 
         await decimalesGuard.ValidarAsync(
-            [new CantidadAValidar(info.ArticuloId, request.Cantidad, info.UnidadMedida)], cancellationToken);
+            [Recepciones.RecepcionVariante.Cantidad(info.ArticuloId, request.Cantidad, info.UnidadMedida,
+                info.ProductoAwVarianteId, info.AnchoMm, info.AltoMm)], cancellationToken);
 
         var empresaId = currentEmpresa.Current ?? throw new BusinessRuleException(
             "MOV_SIN_EMPRESA", "El contexto de empresa es requerido.");
@@ -90,10 +96,11 @@ public sealed class DictaminarMaterialEnRevisionHandler(
             db, empresaId, request.FechaMovimiento, periodoContable, cancellationToken);
 
         var costo = await db.SaldosInventario.AsNoTracking()
-            .Where(s => s.UbicacionId == info.UbicacionRevisionId && s.ArticuloId == info.ArticuloId)
+            .Where(s => s.UbicacionId == info.UbicacionRevisionId && s.ArticuloId == info.ArticuloId && s.ProductoAwVarianteId == info.ProductoAwVarianteId && s.Lote == info.Lote)
             .Select(s => (decimal?)s.CostoPromedioMxn).FirstOrDefaultAsync(cancellationToken)
             ?? info.CostoUnitarioMxn;
-        var origen = new LineaRevisionMov(info.ArticuloId, info.UnidadMedida, request.Cantidad, costo, info.UbicacionRevisionId);
+        var origen = new LineaRevisionMov(info.ArticuloId, info.UnidadMedida, request.Cantidad, costo, info.UbicacionRevisionId,
+            info.ProductoAwVarianteId, info.AnchoMm, info.AltoMm, info.Lote);
 
         DictamenRevision dictamen;
         string? folio;

@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../Documentos/Millet.Documentos.csproj" />
     <ProjectReference Include="..\SharedKernel\Millet.SharedKernel.csproj" />
     <ProjectReference Include="..\Administracion\Millet.Administracion.csproj" />
     <ProjectReference Include="..\Catalogos\Millet.Catalogos.csproj" />

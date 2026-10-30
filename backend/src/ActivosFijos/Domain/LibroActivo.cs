@@ -90,6 +90,7 @@ public sealed class OperacionLibro : BaseEntity, IPerteneceAEmpresa, IAuditable
     public DateOnly Fecha { get; set; }
     public decimal Importe { get; set; }
     public string Motivo { get; set; } = "";
+    public string SolicitadoPor { get; set; } = "";
     public string? Evidencia { get; set; }
     public Guid RegistradoPor { get; set; }
     public Guid? AutorizadoPor { get; set; }
@@ -97,10 +98,23 @@ public sealed class OperacionLibro : BaseEntity, IPerteneceAEmpresa, IAuditable
     public Guid? FacturaId { get; set; }
     public bool Anulada { get; set; }
     public OperacionLibro() : base(Guid.CreateVersion7()) { }
+    // El catálogo se exige al capturar; las bajas históricas conservan su motivo original.
+    public void ValidarSolicitudBaja()
+    {
+        if (string.IsNullOrWhiteSpace(SolicitadoPor) || SolicitadoPor.Length > 200)
+            throw new BusinessRuleException("AF_SOLICITANTE_REQUERIDO", "Capture el área solicitante (máximo 200 caracteres).");
+        if (!Enum.TryParse<Millet.Facturacion.Domain.Activos.MotivoDisposicionActivo>(Motivo, out var motivo)
+            || !Enum.IsDefined(motivo) || Motivo != motivo.ToString())
+            throw new BusinessRuleException("AF_MOTIVO_REQUERIDO", "Seleccione siniestro, obsolescencia, premio o rifa, donación o venta.");
+    }
     public void Validar(Guid autorizador, bool revalorizacion)
     {
+        if (Tipo == "Baja" && (string.IsNullOrWhiteSpace(SolicitadoPor) || SolicitadoPor.Length > 200))
+            throw new BusinessRuleException("AF_SOLICITANTE_REQUERIDO", "Capture el área solicitante (máximo 200 caracteres).");
         if (autorizador == RegistradoPor || autorizador == Guid.Empty)
-            throw new BusinessRuleException("AF_AUTORIZADOR_DISTINTO", "Debe autorizar otra persona.");
+            throw new BusinessRuleException("AF_AUTORIZADOR_DISTINTO", Tipo == "Baja"
+                ? "Debe autorizar el Director de Administración y Finanzas, distinto del Contador General que registra."
+                : "Debe autorizar otra persona.");
         if (string.IsNullOrWhiteSpace(Motivo) || (Tipo == "Baja" && string.IsNullOrWhiteSpace(Evidencia)))
             throw new BusinessRuleException("AF_EVIDENCIA_REQUERIDA", "Capture motivo y adjunto para la baja.");
         if (Tipo == "Revalorizacion" && !revalorizacion)
@@ -135,27 +149,28 @@ public static class CalculoDepreciacion
         ? Mes(corte).AddMonths(1) : Mes(a.InicioUso!.Value).AddMonths(mismoMes ? 0 : 1);
     public static DateOnly Mes(DateOnly fecha) => new(fecha.Year, fecha.Month, 1);
     public static DateOnly Cierre(DateOnly fecha) => Mes(fecha).AddMonths(1).AddDays(-1);
-    public static DetalleDepreciacion Calcular(Activo a, ClaseActivo clase, DateOnly periodo, decimal revalorizacion = 0, bool mismoMes = false)
+    public static DetalleDepreciacion Calcular(Activo a, ClaseActivo clase, DateOnly periodo, decimal revalorizacion = 0, bool mismoMes = false, ClaseActivo? claseMejorada = null)
     {
+        var resuelta = TasasActivo.Resolver(a, clase, claseMejorada);
         var mes = Mes(periodo);
         var movimientos = a.Historial.Where(x => Mes(x.Fecha) < mes).Sum(x => x.Importe);
         var @base = a.ValorOriginal + movimientos + revalorizacion;
-        var importe = clase.Depreciable && clase.TasaFiscalAnual is decimal tasa && a.Estado == EstadoActivo.Activo && a.InicioUso != null && PrimerMes(a, mismoMes) <= mes
+        var importe = clase.Depreciable && resuelta.Contable is decimal tasa && a.Estado == EstadoActivo.Activo && a.InicioUso != null && PrimerMes(a, mismoMes) <= mes
             && (a.CorteCarga == null || mes > a.CorteCarga)
             ? Math.Min(a.ValorEnLibros, Math.Max(0, decimal.Round(@base * tasa / 1200m, 2, MidpointRounding.AwayFromZero))) : 0;
         // Reconstruye la custodia al cierre, incluso si hay traslados posteriores.
         var custodia = CustodiaAFecha(a, Cierre(mes));
         return new() { EmpresaId = a.EmpresaId, ActivoId = a.Id, Numero = a.Numero, ClaseId = a.ClaseId,
             SucursalId = custodia.SucursalId, CentroCostoId = custodia.CentroCostoId, EquipoId = custodia.EquipoId,
-            Observacion = !clase.Depreciable ? "No depreciable" : clase.TasaFiscalAnual == null ? "Tasa por confirmar: capture la tasa" : !clase.TasaConfirmada ? "Tasa por confirmar con Millet" : null,
-            Clase = clase.Clave, Base = @base, Tasa = clase.TasaFiscalAnual, Importe = importe, AcumuladaAntes = a.DepreciacionAcumulada };
+            Observacion = resuelta.Observacion,
+            Clase = clase.Clave, Base = @base, Tasa = resuelta.Contable, Importe = importe, AcumuladaAntes = a.DepreciacionAcumulada };
     }
     public static CustodiaActivo CustodiaAFecha(Activo a, DateOnly corte)
     {
         var custodia = a.Custodia();
-        var zona = TimeZoneInfo.FindSystemTimeZoneById("America/Merida");
-        foreach (var t in a.Traslados.Where(x => x.AceptadoEn != null).OrderByDescending(x => x.AceptadoEn))
-            if (DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(t.AceptadoEn!.Value, zona).DateTime) > corte) custodia = t.Origen;
+        foreach (var t in a.Traslados.Where(x => x.AceptadoEn != null)
+            .OrderByDescending(x => x.FechaEfectiva).ThenByDescending(x => x.RegistradoEn).ThenByDescending(x => x.Id))
+            if (t.FechaEfectiva > corte) custodia = t.Origen;
         return custodia;
     }
 

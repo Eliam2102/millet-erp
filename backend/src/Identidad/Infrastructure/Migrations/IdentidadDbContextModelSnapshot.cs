@@ -80,6 +80,22 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("estado");
 
+                    b.Property<DateTimeOffset?>("LogoActualizadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("logo_actualizado_en");
+
+                    b.Property<Guid?>("LogoActualizadoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("logo_actualizado_por");
+
+                    b.Property<string>("LogoBlobRef")
+                        .HasColumnType("text")
+                        .HasColumnName("logo_blob_ref");
+
+                    b.Property<string>("LogoContentType")
+                        .HasColumnType("text")
+                        .HasColumnName("logo_content_type");
+
                     b.Property<Guid?>("MonedaId")
                         .HasColumnType("uuid")
                         .HasColumnName("moneda_id");
@@ -3209,6 +3225,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000008-0010-0000-0000-000000000001"),
+                            Accion = "cancelar",
+                            Codigo = "almacen.recepciones.cancelar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Cancelar con motivo una recepción mal capturada (distinto de quien la registró)",
+                            Modulo = "almacen",
+                            Recurso = "recepciones",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000008-0006-0000-0000-000000000001"),
                             Accion = "leer",
                             Codigo = "almacen.inventarios.leer",
@@ -3760,7 +3790,7 @@ namespace Millet.Identidad.Infrastructure.Migrations
                             Codigo = "facturacion.activos.autorizar",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
-                            Descripcion = "Autorizar la venta de activos fijos antes de timbrar (Contador General)",
+                            Descripcion = "Autorizar la venta de activos fijos antes de timbrar (Director de Administración y Finanzas)",
                             Modulo = "facturacion",
                             Recurso = "activos",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
@@ -4665,6 +4695,48 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("0000000d-0007-0000-0000-000000000001"),
+                            Accion = "leer",
+                            Codigo = "contabilidad.motor.leer",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Consultar los roles de cuenta, las plantillas contables y la bandeja de rechazos del motor de pólizas",
+                            Modulo = "contabilidad",
+                            Recurso = "motor",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000d-0007-0000-0000-000000000002"),
+                            Accion = "administrar",
+                            Codigo = "contabilidad.roles-cuenta.administrar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Dar de alta roles de cuenta y cambiar la cuenta de un rol (queda en bitácora; solo afecta pólizas nuevas)",
+                            Modulo = "contabilidad",
+                            Recurso = "roles-cuenta",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000d-0007-0000-0000-000000000003"),
+                            Accion = "gestionar",
+                            Codigo = "contabilidad.rechazos.gestionar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Reprocesar o descartar (con motivo) los eventos rechazados por el motor de pólizas",
+                            Modulo = "contabilidad",
+                            Recurso = "rechazos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("0000000e-0006-0000-0000-000000000001"),
                             Accion = "registrar",
                             Codigo = "comercio_exterior.gastos.registrar",
@@ -5174,7 +5246,7 @@ namespace Millet.Identidad.Infrastructure.Migrations
                             Codigo = "activos_fijos.traslados.gestionar",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
-                            Descripcion = "Activos fijos: traslados.gestionar",
+                            Descripcion = "Registrar el traslado de un activo a otra ubicación (Contador General)",
                             Modulo = "activos_fijos",
                             Recurso = "traslados",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
@@ -5205,6 +5277,76 @@ namespace Millet.Identidad.Infrastructure.Migrations
                             Descripcion = "Activos fijos: activos.gestionar-todas-sucursales",
                             Modulo = "activos_fijos",
                             Recurso = "activos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000004-0090-0000-0000-000000000001"),
+                            Accion = "cargar",
+                            Codigo = "datos_maestros.clientes.cargar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Cargar desde Excel o CSV: clientes",
+                            Modulo = "datos_maestros",
+                            Recurso = "clientes",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000004-0090-0000-0000-000000000002"),
+                            Accion = "cargar",
+                            Codigo = "datos_maestros.articulos.cargar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Cargar desde Excel o CSV: articulos",
+                            Modulo = "datos_maestros",
+                            Recurso = "articulos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000004-0090-0000-0000-000000000003"),
+                            Accion = "cargar",
+                            Codigo = "datos_maestros.proveedores.cargar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Cargar desde Excel o CSV: proveedores",
+                            Modulo = "datos_maestros",
+                            Recurso = "proveedores",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000004-0090-0000-0000-000000000004"),
+                            Accion = "cargar",
+                            Codigo = "datos_maestros.productos-aw-fiscal.cargar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Cargar desde Excel o CSV: productos-aw-fiscal",
+                            Modulo = "datos_maestros",
+                            Recurso = "productos-aw-fiscal",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000004-0090-0000-0000-000000000005"),
+                            Accion = "cargar",
+                            Codigo = "centros_costo.catalogo.cargar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Cargar desde Excel o CSV: catalogo",
+                            Modulo = "centros_costo",
+                            Recurso = "catalogo",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1

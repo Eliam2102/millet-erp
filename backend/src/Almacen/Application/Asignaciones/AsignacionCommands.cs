@@ -116,14 +116,16 @@ public sealed class AsignarArticuloAUbicacionHandler
         await _db.SaveChangesAsync(cancellationToken);
 
         // Fila de saldo en 0, idempotente. Si un movimiento ya la creó, DO NOTHING
-        // (mismo conflict target que el trigger: (ubicacion_id, articulo_id)).
+        // (mismo conflict target que el trigger; la fila-en-0 es la de variante y lote NULL).
+        // F1-MP-01: el vidrio por medida no tiene fila sin medida; sus filas nacen con el primer movimiento de cada medida.
+        if (articulo.ProductoAwId is null)
         await _db.Database.ExecuteSqlInterpolatedAsync($@"
             INSERT INTO almacen.saldos_inventario
                 (ubicacion_id, sub_almacen_id, articulo_id, cantidad,
                  costo_promedio_mxn, ultima_actualizacion_at)
             VALUES ({request.UbicacionId}, {ubicacion.SubAlmacenId}, {request.ArticuloId},
                     0, 0, NOW())
-            ON CONFLICT (ubicacion_id, articulo_id) DO NOTHING",
+            ON CONFLICT (ubicacion_id, articulo_id, producto_aw_variante_id, lote) DO NOTHING",
             cancellationToken);
 
         await tx.CommitAsync(cancellationToken);
@@ -176,12 +178,13 @@ public sealed class DesasignarArticuloDeUbicacionHandler
         asignacion.CambiarEstatus(EstatusCatalogo.Inactivo);
         await _db.SaveChangesAsync(cancellationToken);
 
-        // Borra la fila-en-0 (garantizada en 0 por el guardrail; si tuviera stock
-        // no habríamos llegado aquí). Si no existe, DELETE no afecta filas.
+        // Borra las filas-en-0 de todas las medidas (el guardrail garantiza que ninguna tiene stock; `cantidad = 0`
+        // lo vuelve a asegurar). Si no existen, DELETE no afecta filas.
         await _db.Database.ExecuteSqlInterpolatedAsync($@"
             DELETE FROM almacen.saldos_inventario
              WHERE ubicacion_id = {asignacion.UbicacionId}
-               AND articulo_id = {asignacion.ArticuloId}",
+               AND articulo_id = {asignacion.ArticuloId}
+               AND cantidad = 0",
             cancellationToken);
 
         await tx.CommitAsync(cancellationToken);

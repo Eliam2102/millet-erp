@@ -21,6 +21,9 @@ public sealed record ClienteLookupCxcDto(
     string? Rfc,
     string RazonSocial);
 
+/// <summary>Miembro de un grupo de clientes unificados por RFC (86e3x4g77); cada uno conserva su propio registro y saldo.</summary>
+public sealed record ClienteGrupoMiembroDto(Guid Id, string Clave, string RazonSocial, bool EsPrincipal);
+
 /// <summary>
 /// Puerto de lectura del master de clientes de DatosMaestros (CXC-PR3).
 /// La proyección <c>factura_cartera</c> lo usa para resolver
@@ -63,4 +66,11 @@ public interface IClienteReadPort
         int limit,
         CancellationToken cancellationToken)
         => BuscarAsync(null, texto, null, limit, cancellationToken);
+
+    /// <summary>
+    /// Grupo de unificación del cliente (principal primero + clientes unificados en él). Vacío si el cliente no
+    /// pertenece a un grupo. El default (dobles de prueba) es "sin grupo".
+    /// </summary>
+    Task<IReadOnlyList<ClienteGrupoMiembroDto>> ObtenerGrupoAsync(Guid clienteId, CancellationToken cancellationToken)
+        => Task.FromResult<IReadOnlyList<ClienteGrupoMiembroDto>>([]);
 }

@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Millet.Catalogos.Domain;
 using Millet.Api.IntegrationTests.Fixtures;
@@ -20,7 +21,8 @@ using Millet.SharedKernel.Application;
 namespace Millet.Api.IntegrationTests.DatosMaestros;
 
 /// <summary>86e3qcgyn: grupos de clientes de A+W con RFC repetido y su unificación (Fusionar / Agrupar).</summary>
-public sealed class RfcRepetidosEndpointsTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public sealed class RfcRepetidosEndpointsTests(WebApplicationFactory<Program> factory)
 {
     private const string Base = "/api/v1/datos-maestros/clientes/rfc-repetidos";
     private static readonly Guid Empresa = Guid.Parse("00000003-0000-0000-0000-000000000001");
@@ -256,5 +258,83 @@ public sealed class RfcRepetidosEndpointsTests(WebApplicationFactory<Program> fa
             .AplicarAsync(Snap(refB, rfc) with { BloqueoOrigenCrudo = 0, LeidoEnUtc = DateTime.UtcNow.AddMinutes(5) }, CancellationToken.None);
 
         Assert.Equal(("Inactivo", (Guid?)a), await EstadoAsync(b));
+    }
+
+    private sealed class AwConCotizaciones(string referencia) : IAwClientesPedidosOrigen
+    {
+        public Task<IReadOnlyDictionary<string, AwPedidosCliente>> ContarAsync(IReadOnlyCollection<string> referencias, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyDictionary<string, AwPedidosCliente>>(referencias.Contains(referencia)
+                ? new Dictionary<string, AwPedidosCliente> { [referencia] = new(0, null, 2, new DateTime(2026, 10, 1)) }
+                : new Dictionary<string, AwPedidosCliente>());
+    }
+
+    [Fact]
+    public async Task Una_cotizacion_en_a_w_cuenta_como_historial_y_el_secundario_se_agrupa()
+    {
+        var (a, b, _, refB, rfc) = await DosAsync();
+        await using var f = factory.WithWebHostBuilder(h => h.ConfigureServices(sv =>
+        {
+            sv.RemoveAll<IAwClientesPedidosOrigen>();
+            sv.AddSingleton<IAwClientesPedidosOrigen>(new AwConCotizaciones(refB));
+        }));
+        var http = await UsuariosAwHttp.SuperAdminAsync(f);
+
+        var g = await BuscarGrupoAsync(http, rfc);
+        Assert.Equal(2, Cliente(g!.Value, b).GetProperty("cotizacionesAw").GetInt32());
+
+        // Con a de principal, b (solo cotizaciones) no se fusiona: sigue activo.
+        Assert.Equal(HttpStatusCode.OK, (await Unificar(http, rfc, a)).StatusCode);
+        Assert.Equal(("Activo", (Guid?)a), await EstadoAsync(b));
+    }
+
+    [Fact]
+    public async Task Automatica_unifica_solo_los_grupos_sin_historial_y_es_idempotente()
+    {
+        var (a, b, _, _, rfc) = await DosAsync();
+        var (c, d, _, _, rfcConHistorial) = await DosAsync();
+        using (var scope = factory.Services.CreateScope())
+        {
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var fac = scope.ServiceProvider.GetRequiredService<FacturacionDbContext>();
+            fac.Add(PedidoFacturable.CrearManual(Empresa, $"FIX-UNI-{Guid.NewGuid():N}", TestComprasFixtures.SucursalMid, d, "Cliente ficticio",
+                1, ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, null, ClasePedidoManual.VentaDirecta, SubtipoVentaDirecta.Servicio, null, null));
+            await fac.SaveChangesAsync();
+        }
+
+        async Task<int> Correr()
+        {
+            using var scope = factory.Services.CreateScope();
+            return await scope.ServiceProvider.GetRequiredService<MediatR.ISender>()
+                .Send(new UnificarRfcRepetidosAutomaticoCommand("sistema:test"));
+        }
+
+        Assert.True(await Correr() >= 1);
+        var estados = new[] { await EstadoAsync(a), await EstadoAsync(b) };
+        Assert.Single(estados, e => e.UnificadoEn is not null);
+        Assert.Single(estados, e => e is { Estatus: "Inactivo", UnificadoEn: not null }); // sin historial: Fusionar
+        Assert.Equal((null, null), ((await EstadoAsync(c)).UnificadoEn, (await EstadoAsync(d)).UnificadoEn)); // con historial: queda para una persona
+        var http = await UsuariosAwHttp.SuperAdminAsync(factory);
+        Assert.Null(await BuscarGrupoAsync(http, rfc));
+        Assert.NotNull(await BuscarGrupoAsync(http, rfcConHistorial));
+
+        await Correr(); // idempotente: no vuelve a tocar lo unificado ni el grupo con historial
+        Assert.Equal(estados, new[] { await EstadoAsync(a), await EstadoAsync(b) });
+        Assert.NotNull(await BuscarGrupoAsync(http, rfcConHistorial));
+    }
+
+    [Fact]
+    public async Task Grupo_de_cxc_devuelve_principal_primero_desde_cualquier_miembro_y_vacio_sin_grupo()
+    {
+        var (a, b, _, _, rfc) = await DosAsync();
+        var suelto = await CrearAsync(NuevaRef(), NuevoRfc());
+        var http = await UsuariosAwHttp.SuperAdminAsync(factory);
+        Assert.Equal(HttpStatusCode.OK, (await Unificar(http, rfc, a)).StatusCode);
+
+        using var scope = factory.Services.CreateScope();
+        var puerto = scope.ServiceProvider.GetRequiredService<Millet.CuentasPorCobrar.Domain.Ports.DatosMaestros.IClienteReadPort>();
+        foreach (var desde in new[] { a, b })
+            Assert.Equal([a, b], (await puerto.ObtenerGrupoAsync(desde, CancellationToken.None)).Select(m => m.Id));
+        Assert.True((await puerto.ObtenerGrupoAsync(a, CancellationToken.None))[0].EsPrincipal);
+        Assert.Empty(await puerto.ObtenerGrupoAsync(suelto, CancellationToken.None));
     }
 }

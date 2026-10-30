@@ -49,5 +49,9 @@ public enum MotivoExcepcion : short
     SucursalSinClaveAw = 10,
     /// <summary>La clase no mapea a ComportamientoFiscal (gap G14; corregible vía vista u override).</summary>
     ComportamientoSinRegla = 11,
+    /// <summary>Planta Pintura: el producto existe pero no está marcado como servicio de recubrimiento.</summary>
+    ServicioNoMarcado = 12,
+    /// <summary>Planta Pintura: el IVA de la orden no coincide con la tasa del producto.</summary>
+    IvaNoCuadra = 13,
     Otro = 99,
 }

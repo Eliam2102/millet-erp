@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.Compartido.Application.Adjuntos;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -66,6 +67,7 @@ public static class DatosMaestrosEndpoints
             [FromQuery] string? rfc,
             [FromQuery] string? razonSocial,
             [FromQuery] string? q,
+            [FromQuery] bool? soloExpedienteIncompleto,
             [FromQuery] TipoPersonaProveedor? tipoPersona,
             [FromQuery] EstatusCatalogo? estatus,
             [FromQuery] int? offset,
@@ -81,7 +83,8 @@ public static class DatosMaestrosEndpoints
                     Estatus: estatus,
                     Offset: offset ?? 0,
                     Limit: limit ?? 50,
-                    Q: q),
+                    Q: q,
+                    SoloExpedienteIncompleto: soloExpedienteIncompleto ?? false),
                 ct);
             return Results.Ok(response);
         })
@@ -93,19 +96,25 @@ public static class DatosMaestrosEndpoints
         .ProducesProblem(StatusCodes.Status403Forbidden);
 
         proveedores.MapGet("/{id:guid}", async (
-            Guid id, CompartidoDbContext db, CancellationToken ct) =>
+            Guid id, CompartidoDbContext db, IClock clock, CancellationToken ct) =>
         {
             var p = await db.Proveedores.AsNoTracking()
                 .FirstOrDefaultAsync(x => x.Id == id, ct)
                 ?? throw new EntityNotFoundException(
                     "PROVEEDOR_NO_ENCONTRADO",
                     $"No existe proveedor con id '{id}'.");
+            var pendientes = ExpedienteAdjuntos.PendientesProveedores(db, clock).Where(x => x.ProveedorId == id);
+            var nombresPendientes = await (from pendiente in pendientes
+                join tipo in db.AdjuntoTiposDocumento on pendiente.Codigo equals tipo.Codigo
+                where tipo.TipoEntidad == "proveedor"
+                orderby tipo.Orden
+                select tipo.Nombre).ToListAsync(ct);
             return Results.Ok(new ProveedorDetalle(
                 p.Id, p.Clave, p.ClaveLegacy, p.RazonSocial, p.NombreComercial,
                 p.Rfc, p.TipoPersona, p.CondicionesPagoDias, p.MonedaPreferidaId,
                 p.Email, p.Telefono, p.Estatus,
                 p.ValidadoPorId, p.ValidadoEn, p.MotivoRechazo, p.ToleranciaFacturaContraOcMxn,
-                p.Origen, p.RegimenFiscalCodigo, p.ConceptoRetencion, p.ValidadoConMatrizVersion));
+                p.Origen, p.RegimenFiscalCodigo, p.ConceptoRetencion, p.ValidadoConMatrizVersion, p.Calle, p.NumeroExterior, p.NumeroInterior, p.Colonia, p.Ciudad, p.Municipio, p.Estado, p.CodigoPostal, p.Pais, p.TaxId, p.ClaveAw, p.OrigenCarga, nombresPendientes));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresGestionar)
         .WithName("ObtenerProveedorDatosMaestros")
@@ -383,7 +392,7 @@ public static class DatosMaestrosEndpoints
                 a.Id, a.Clave, a.ClaveLegacy, a.Nombre, a.DescripcionLarga,
                 a.UnidadMedidaDefault, a.UnidadMedidaId, a.Naturaleza, a.Categoria,
                 a.CategoriaId,
-                a.PrecioReferenciaMonto, a.PrecioReferenciaMoneda, a.Estatus));
+                a.PrecioReferenciaMonto, a.PrecioReferenciaMoneda, a.Estatus, a.ProductoAwId));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosArticulosGestionar)
         .WithName("ObtenerArticuloDatosMaestros")
@@ -610,6 +619,7 @@ public static class DatosMaestrosEndpoints
             [FromQuery] string? tipo,
             [FromQuery] string? grupo,
             [FromQuery] string? wgr,
+            [FromQuery] bool? esServicioRecubrimiento,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
             IMediator mediator,
@@ -626,7 +636,8 @@ public static class DatosMaestrosEndpoints
                     Limit: limit ?? 50,
                     Tipo: tipo,
                     Grupo: grupo,
-                    Wgr: wgr),
+                    Wgr: wgr,
+                    EsServicioRecubrimiento: esServicioRecubrimiento),
                 ct);
             return Results.Ok(response);
         })
@@ -654,13 +665,13 @@ public static class DatosMaestrosEndpoints
                 p.FraccionArancelaria, p.UnidadAduana, p.PesoUnitarioKg, p.Origen,
                 p.DatosFiscalesCompletos, p.Estatus, p.FechaBaja,
                 p.Variantes.OrderBy(v => v.ClaveVariante)
-                    .Select(v => new ProductoAwVarianteDato(v.ClaveVariante, v.AltoMm, v.AnchoMm, v.EspesorMm, v.Composicion))
+                    .Select(v => new ProductoAwVarianteDetalle(v.Id, v.ClaveVariante, v.AltoMm, v.AnchoMm, v.EspesorMm, v.Composicion))
                     .ToList(),
                 p.CodigoModelo, p.Grupo, p.Tipo, p.Wgr, p.WgrDescripcion,
                 p.Componentes.OrderBy(c => c.Orden)
                     .Select(c => new ProductoAwComponenteDato(c.Orden, c.Nivel, c.PadreOrden, c.ComponenteRef, c.Descripcion, c.Tipo, c.EspesorMm))
                     .ToList(),
-                p.Version, p.OrigenFiscal, p.EstadoFiscal, p.ReglaFiscalId, p.ConfirmadoPor, p.ConfirmadoEn));
+                p.Version, p.OrigenFiscal, p.EstadoFiscal, p.ReglaFiscalId, p.ConfirmadoPor, p.ConfirmadoEn, p.EsServicioRecubrimiento));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProductosAwGestionar)
         .WithName("ObtenerProductoAw")
@@ -690,7 +701,8 @@ public static class DatosMaestrosEndpoints
                     TasaRetencionIsr: request.TasaRetencionIsr,
                     FraccionArancelaria: request.FraccionArancelaria,
                     UnidadAduana: request.UnidadAduana,
-                    PesoUnitarioKg: request.PesoUnitarioKg),
+                    PesoUnitarioKg: request.PesoUnitarioKg,
+                    EsServicioRecubrimiento: request.EsServicioRecubrimiento ?? false),
                 ct);
             return Results.Created($"/api/v1/datos-maestros/productos-aw/{response.Id}", response);
         })
@@ -748,7 +760,8 @@ public static class DatosMaestrosEndpoints
                     LimpiarFraccionArancelaria: body.LimpiarFraccionArancelaria ?? false,
                     LimpiarUnidadAduana: body.LimpiarUnidadAduana ?? false,
                     LimpiarPesoUnitarioKg: body.LimpiarPesoUnitarioKg ?? false,
-                    VersionEsperada: version),
+                    VersionEsperada: version,
+                    EsServicioRecubrimiento: body.EsServicioRecubrimiento),
                 ct);
             return Results.NoContent();
         })
@@ -865,6 +878,10 @@ public static class DatosMaestrosEndpoints
         bool? LimpiarDomicilioExtranjeroEstado = null,
         bool? LimpiarDomicilioExtranjeroCodigoPostal = null, Guid? ClasificacionId = null);
 
+    /// <summary>Variante con su Id (E07 D3: el Id viaja a líneas de movimiento y saldo).</summary>
+    public sealed record ProductoAwVarianteDetalle(
+        Guid Id, string ClaveVariante, decimal? AltoMm, decimal? AnchoMm, decimal? EspesorMm, string? Composicion);
+
     public sealed record ProductoAwDetalle(
         Guid Id,
         string ReferenciaExterna,
@@ -885,14 +902,15 @@ public static class DatosMaestrosEndpoints
         bool DatosFiscalesCompletos,
         EstatusCatalogo Estatus,
         DateTime? FechaBaja,
-        IReadOnlyList<ProductoAwVarianteDato> Variantes,
+        IReadOnlyList<ProductoAwVarianteDetalle> Variantes,
         string? CodigoModelo,
         string? Grupo,
         string? Tipo,
         string? Wgr,
         string? WgrDescripcion,
         IReadOnlyList<ProductoAwComponenteDato> Componentes,
-        int Version, OrigenFiscalProducto OrigenFiscal, EstadoFiscalProducto EstadoFiscal, Guid? ReglaFiscalId, Guid? ConfirmadoPor, DateTimeOffset? ConfirmadoEn);
+        int Version, OrigenFiscalProducto OrigenFiscal, EstadoFiscalProducto EstadoFiscal, Guid? ReglaFiscalId, Guid? ConfirmadoPor, DateTimeOffset? ConfirmadoEn,
+        bool EsServicioRecubrimiento = false);
 
     public sealed record CrearProductoAwRequest(
         string ReferenciaExterna,
@@ -908,7 +926,8 @@ public static class DatosMaestrosEndpoints
         decimal? TasaRetencionIsr,
         string? FraccionArancelaria = null,
         string? UnidadAduana = null,
-        decimal? PesoUnitarioKg = null);
+        decimal? PesoUnitarioKg = null,
+        bool? EsServicioRecubrimiento = null);
 
     public sealed record ActualizarProductoAwRequest(
         string? Descripcion,
@@ -930,7 +949,8 @@ public static class DatosMaestrosEndpoints
         decimal? PesoUnitarioKg = null,
         bool? LimpiarFraccionArancelaria = null,
         bool? LimpiarUnidadAduana = null,
-        bool? LimpiarPesoUnitarioKg = null);
+        bool? LimpiarPesoUnitarioKg = null,
+        bool? EsServicioRecubrimiento = null);
 
     public sealed record ProveedorDetalle(
         Guid Id,
@@ -952,7 +972,20 @@ public static class DatosMaestrosEndpoints
         OrigenProveedor? Origen = null,
         string? RegimenFiscalCodigo = null,
         string? ConceptoRetencion = null,
-        int? ValidadoConMatrizVersion = null);
+        int? ValidadoConMatrizVersion = null,
+        string? Calle = null,
+        string? NumeroExterior = null,
+        string? NumeroInterior = null,
+        string? Colonia = null,
+        string? Ciudad = null,
+        string? Municipio = null,
+        string? Estado = null,
+        string? CodigoPostal = null,
+        string? Pais = null,
+        string? TaxId = null,
+        int? ClaveAw = null,
+        string? OrigenCarga = null,
+        IReadOnlyList<string>? DocumentosPendientes = null);
 
     public sealed record ActualizarClasificacionFiscalRequest(
         OrigenProveedor? Origen, string? RegimenFiscalCodigo, string? ConceptoRetencion);

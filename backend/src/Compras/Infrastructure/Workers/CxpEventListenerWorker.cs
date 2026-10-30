@@ -228,6 +228,7 @@ public sealed class CxpEventListenerWorker : BackgroundService, ILocalIntegratio
                 case "cuentas_por_pagar.anticipo.capturado.v1":
                 case "cuentas_por_pagar.pasivo.autorizado-para-pago.v1":
                 case "cuentas_por_pagar.estado-cuenta-tc.cerrado.v1":
+                case "cuentas_por_pagar.gasto.registrado.v1":
                 {
                     _logger.LogInformation(
                         "Evento CxP informativo recibido (sin efecto en OC). EventType={EventType} EventId={EventId}",

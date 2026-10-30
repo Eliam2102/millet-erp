@@ -50,7 +50,7 @@ export const VALORES_INICIALES: EmitirFacturaValues = {
   formaPago: '01',
   moneda: 'MXN',
   tipoCambio: null,
-  // Canal id 1 (seed histórico "Tienda Cancún"); si ya no existe en el
+  // Canal id 1 (seed "Sucursal Cancún"); si ya no existe en el
   // catálogo, <CanalVentaSelector/> lo normaliza al primer canal activo.
   canalVenta: 1,
   comportamientoFiscal: ComportamientoFiscal.MostradorInmediato,
@@ -145,6 +145,9 @@ export function valoresIniciales(
       ? prefill.embarqueCe.clavePedimento
       : base.cceClaveDePedimento,
     moneda: prefill.moneda ?? base.moneda,
+    condicionesPago: prefill.condicionesPago,
+    referenciaCliente: prefill.referenciaCliente,
+    observaciones: prefill.observaciones,
     obraNombre: prefill.obraNombre ?? null,
     lineas,
   };

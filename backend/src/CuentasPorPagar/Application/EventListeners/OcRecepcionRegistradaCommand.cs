@@ -113,6 +113,14 @@ public sealed class OcRecepcionRegistradaHandler : IRequestHandler<OcRecepcionRe
             foreach (var f in ligadas) await _danos.DetenerSiAplicaAsync(f, lineasDano, ahora, cancellationToken);
         }
 
+        // 86e3tabdp: recepción correcta tras una cancelación. Si el CFDI ya es una factura de la OC que quedó sin recepción, se liga a ella.
+        if (p.CfdiRecibidoId is Guid cfdiId)
+        {
+            var sinRecepcion = await _db.FacturasProveedor.Where(f => f.OrdenCompraId == p.OrdenCompraId && f.CfdiRecibidoId == cfdiId &&
+                f.RecepcionId == null && f.Estado != Domain.FacturaProveedor.EstadoPasivo.Cancelada).ToListAsync(cancellationToken);
+            foreach (var f in sinRecepcion) f.LigarRecepcionCorrecta(p.RecepcionId);
+        }
+
         var facturas = await _db.FacturasProveedor.Where(f => f.OrdenCompraId == p.OrdenCompraId &&
             f.Estado == Domain.FacturaProveedor.EstadoPasivo.Autorizada).ToListAsync(cancellationToken);
         foreach (var f in facturas)

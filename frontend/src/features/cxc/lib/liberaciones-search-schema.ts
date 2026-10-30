@@ -14,6 +14,7 @@ export const LiberacionesSearchSchema = z.object({
       z.literal(ResultadoLiberacion.Liberado),
       z.literal(ResultadoLiberacion.Retenido),
       z.literal(ResultadoLiberacion.LiberadoConOverride),
+      z.literal(ResultadoLiberacion.PendienteAutorizacion),
     ])
     .optional(),
   clienteId: z.string().optional(),

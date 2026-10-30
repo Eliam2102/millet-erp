@@ -9,6 +9,53 @@ public sealed class FinanzasTests
     private static BasePartidaCosto[] Partidas() => [new(Guid.Parse("00000000-0000-0000-0000-000000000001"), null, "A", 200000, 2000, 1000, Existencia: 1000, ExistenciaTotal: 1000), new(Guid.Parse("00000000-0000-0000-0000-000000000002"), null, "B", 300000, 6000, 1000, Existencia: 1000, ExistenciaTotal: 1000)];
     private static void Gasto(Expediente e, ConceptoGasto concepto, decimal importe, Guid? id = null, IReadOnlyDictionary<Guid, decimal>? directos = null) =>
         e.GuardarGasto(id ?? Guid.NewGuid(), new(concepto.Id, Guid.NewGuid(), "FAC-1", "MXN", importe, new(2026, 10, 1), ImportesDirectos: directos), concepto, 1, "MXN");
+    [Theory]
+    [InlineData(false, false, null)]
+    [InlineData(true, false, "CE_ANTICIPO_PECA_SOLO_IMPUESTOS")]
+    [InlineData(false, true, "CE_GASTO_AGENTE_INVALIDO")]
+    public void P14_impuestos_y_gastos_del_agente(bool peca, bool otroProveedor, string? error)
+    {
+        var e = Nuevo(); var agente = Guid.NewGuid();
+        var concepto = new ConceptoGasto(e.EmpresaId, "HON", "Honorarios");
+        e.GuardarGasto(Guid.NewGuid(), new(concepto.Id, otroProveedor ? Guid.NewGuid() : agente, "HON-1", "MXN", 7500, new(2026, 10, 1)), concepto, 1, "MXN");
+        var a = e.RegistrarAnticipo(Guid.NewGuid(), agente, "PED", new(150000, 0, 0), new(2026, 10, 1), null, peca);
+        a.Comprobar(new(142500, 0, 0), Guid.NewGuid(), Guid.NewGuid(), new(2026, 10, 2));
+        if (error != null)
+        {
+            Assert.Equal(error, Assert.Throws<BusinessRuleException>(() => a.AplicarGastos(e.Gastos)).Code);
+            Assert.Null(e.Gastos.Single().AnticipoAgenteId);
+            return;
+        }
+        a.AplicarGastos(e.Gastos);
+        Assert.Equal(150000, a.Aplicado); Assert.Equal(0, a.Saldo);
+        var b = e.RegistrarAnticipo(Guid.NewGuid(), agente, "PED-2", new(150000, 0, 0), new(2026, 10, 1), null);
+        b.Comprobar(new(142500, 0, 0), Guid.NewGuid(), Guid.NewGuid(), new(2026, 10, 2));
+        Assert.Equal("CE_GASTO_YA_APLICADO", Assert.Throws<BusinessRuleException>(() => b.AplicarGastos(e.Gastos)).Code);
+        Assert.Equal(142500, b.Aplicado);
+        Assert.Equal("CE_GASTO_YA_APLICADO", Assert.Throws<BusinessRuleException>(() => e.GuardarGasto(e.Gastos.Single().Id,
+            new(concepto.Id, agente, "EDIT", "MXN", 1, new(2026, 10, 1)), concepto, 1, "MXN")).Code);
+    }
+    [Fact]
+    public void P14_saldo_en_cuenta_del_agente_libera_cierre()
+    {
+        var e = Nuevo();
+        var a = e.RegistrarAnticipo(Guid.NewGuid(), Guid.NewGuid(), "PED", new(150000, 0, 0), new(2026, 10, 1), null);
+        a.Comprobar(new(142500, 0, 0), Guid.NewGuid(), Guid.NewGuid(), new(2026, 10, 2));
+        a.Resolver("saldo-al-agente", 7500, new(2026, 10, 3), "Cuenta agente", Guid.NewGuid(), Guid.NewGuid());
+        Assert.Equal(0, a.Saldo);
+        Assert.DoesNotContain("Saldo a favor abierto con el agente", e.MotivosFinancieros());
+    }
+    [Theory]
+    [InlineData(160000, 7500, true)]
+    [InlineData(142500, 7501, true)]
+    [InlineData(142500, 7500, false)]
+    public void P14_rechaza_traslado_invalido(decimal aplicado, decimal importe, bool evidencia)
+    {
+        var e = Nuevo();
+        var a = e.RegistrarAnticipo(Guid.NewGuid(), Guid.NewGuid(), "PED", new(150000, 0, 0), new(2026, 10, 1), null);
+        a.Comprobar(new(aplicado, 0, 0), Guid.NewGuid(), Guid.NewGuid(), new(2026, 10, 2));
+        Assert.Throws<BusinessRuleException>(() => a.Resolver("saldo-al-agente", importe, new(2026, 10, 3), "Cuenta", evidencia ? Guid.NewGuid() : Guid.Empty, Guid.NewGuid()));
+    }
     [Fact]
     public void CA1_valor_distribuye_veinte_y_treinta_mil()
     {
@@ -29,12 +76,43 @@ public sealed class FinanzasTests
     }
     [Fact]
     public void CA3_centavos_suman_exactamente_y_empate_es_estable() => Assert.Equal(Tercios, ProrrateoGastos.Repartir(100, [1, 1, 1]));
-    [Fact]
-    public void CA4_gasto_tardio_separa_costo_de_ventas()
+    [Theory]
+    [InlineData(400, 0, 10000)]
+    [InlineData(1000, 10000, 0)]
+    [InlineData(0, 0, 10000)]
+    public void CA4_gasto_tardio_completo_a_gastos_de_importacion(decimal existencia, decimal inventario, decimal gasto)
     {
         var e = Nuevo(); var c = new ConceptoGasto(e.EmpresaId, "FLETE", "Flete"); Gasto(e, c, 10000);
-        var d = e.PrepararDistribucion([c], [Partidas()[0] with { Existencia = 400, ExistenciaTotal = 400 }], Guid.NewGuid(), DateTimeOffset.UtcNow);
-        Assert.Equal(4000, d.Partidas[0].InventarioMxn); Assert.Equal(6000, d.Partidas[0].CostoVentasMxn);
+        var d = e.PrepararDistribucion([c], [Partidas()[0] with { Existencia = existencia, ExistenciaTotal = existencia, CostoPromedioMxn = 100 }], Guid.NewGuid(), DateTimeOffset.UtcNow);
+        Assert.Equal(inventario, d.Partidas[0].InventarioMxn); Assert.Equal(gasto, d.Partidas[0].GastoImportacionMxn);
+        Assert.Equal(100 + (existencia > 0 ? inventario / existencia : 0), d.Partidas[0].CostoUnitarioDespues);
+        Assert.Equal(existencia < 1000, d.Partidas[0].TieneSalidas);
+    }
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Partidas_json_historico_conserva_importes_y_publica_ambos_nombres(bool web)
+    {
+        var opciones = web ? System.Text.Json.JsonSerializerOptions.Web : System.Text.Json.JsonSerializerOptions.Default;
+        var anterior = web ? "costoVentasMxn" : "CostoVentasMxn";
+        var actual = web ? "gastoImportacionMxn" : "GastoImportacionMxn";
+        var historico = System.Text.Json.JsonSerializer.Deserialize<CostoPartidaDistribuido>(
+            "{\"" + anterior + "\":6000}", opciones)!;
+        Assert.Equal(6000, historico.GastoImportacionMxn);
+        var json = System.Text.Json.JsonSerializer.SerializeToElement(historico, opciones);
+        Assert.Equal(6000, json.GetProperty(anterior).GetDecimal());
+        Assert.Equal(6000, json.GetProperty(actual).GetDecimal());
+        Assert.Equal(historico, System.Text.Json.JsonSerializer.Deserialize<CostoPartidaDistribuido>(json, opciones));
+    }
+    [Fact]
+    public void Gasto_tardio_sin_diferencia_conserva_el_indicador_de_salidas()
+    {
+        var e = Nuevo(); var c = new ConceptoGasto(e.EmpresaId, "FLETE", "Flete"); Gasto(e, c, 10000);
+        var partidas = new[] { Partidas()[0] with { Existencia = 400, ExistenciaTotal = 400 } };
+        e.ConfirmarDistribucion(e.PrepararDistribucion([c], partidas, Guid.NewGuid(), DateTimeOffset.UtcNow));
+        var d = e.PrepararDistribucion([c], partidas, Guid.NewGuid(), DateTimeOffset.UtcNow);
+        Assert.True(d.Partidas[0].TieneSalidas);
+        Assert.Equal(0, d.Partidas[0].InventarioMxn); Assert.Equal(0, d.Partidas[0].GastoImportacionMxn);
     }
     [Fact]
     public void CA6_nueva_version_preserva_anterior_y_solo_publica_diferencia()
@@ -73,7 +151,7 @@ public sealed class FinanzasTests
         var clientes = Enumerable.Range(1, 3).Select(i => new BasePartidaCosto(Guid.NewGuid(), null, "Cliente " + i, 100, i * 100, 10, Guid.NewGuid())).ToArray();
         var d = e.PrepararDistribucion([c], clientes, Guid.NewGuid(), DateTimeOffset.UtcNow);
         Assert.Equal(new decimal[] { 5000, 10000, 15000 }, d.Partidas.Select(p => p.ImporteMxn));
-        Assert.All(d.Partidas, p => { Assert.Equal(0, p.InventarioMxn); Assert.Equal(0, p.CostoVentasMxn); Assert.NotNull(p.ClienteId); });
+        Assert.All(d.Partidas, p => { Assert.Equal(0, p.InventarioMxn); Assert.Equal(0, p.GastoImportacionMxn); Assert.NotNull(p.ClienteId); Assert.False(p.TieneSalidas); });
     }
     [Fact]
     public void Directo_exige_suma_exacta_y_no_admite_partidas_ajenas()

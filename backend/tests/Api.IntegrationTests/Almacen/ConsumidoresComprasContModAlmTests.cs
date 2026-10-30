@@ -17,8 +17,8 @@ namespace Millet.Api.IntegrationTests.Almacen;
 /// como procesado, acumulado (<c>CantidadRecibidaAcumulada</c>) sin tolerancia en piezas y
 /// dedupe por <c>EventoId</c>. Usa PostgreSQL real y OC sembradas con el fixture P1.
 /// </summary>
+[Collection(ApiCompartida.Nombre)]
 public sealed class ConsumidoresComprasContModAlmTests(WebApplicationFactory<Program> factory)
-    : IClassFixture<WebApplicationFactory<Program>>
 {
     // 86e3tab1k: en piezas no hay tolerancia. El campo ToleranciaPorcentaje del evento es obsoleto y se ignora.
     [Fact]

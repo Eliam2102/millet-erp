@@ -62,6 +62,8 @@ export type Naturaleza = (typeof Naturaleza)[keyof typeof Naturaleza];
 // ─── Proveedores ───────────────────────────────────────────────────
 
 export interface ProveedorItem {
+  expedienteCompleto: boolean;
+  documentosFaltantes: number;
   id: string;
   clave: string;
   razonSocial: string;
@@ -70,6 +72,8 @@ export interface ProveedorItem {
   tipoPersona: TipoPersonaProveedor;
   condicionesPagoDias: number | null;
   monedaPreferidaId: string | null;
+  /** Clave del proveedor en A+W (la usa la app de Almacenes). */
+  claveAw: number | null;
   estatus: EstatusCatalogo;
   validadoEn?: string | null;
   motivoRechazo?: string | null;
@@ -83,6 +87,18 @@ export interface ListarProveedoresResponse {
 }
 
 export interface ProveedorDetalle {
+  origenCarga?: string | null;
+  documentosPendientes?: string[];
+  calle?: string | null;
+  numeroExterior?: string | null;
+  numeroInterior?: string | null;
+  colonia?: string | null;
+  ciudad?: string | null;
+  municipio?: string | null;
+  estado?: string | null;
+  codigoPostal?: string | null;
+  pais?: string | null;
+  taxId?: string | null;
   id: string;
   clave: string;
   claveLegacy: string | null;
@@ -92,6 +108,7 @@ export interface ProveedorDetalle {
   tipoPersona: TipoPersonaProveedor;
   condicionesPagoDias: number | null;
   monedaPreferidaId: string | null;
+  claveAw: number | null;
   email: string | null;
   telefono: string | null;
   estatus: EstatusCatalogo;
@@ -117,6 +134,16 @@ export interface ClasificacionFiscalProveedorPayload {
 }
 
 export interface CrearProveedorPayload {
+  calle?: string | null;
+  numeroExterior?: string | null;
+  numeroInterior?: string | null;
+  colonia?: string | null;
+  ciudad?: string | null;
+  municipio?: string | null;
+  estado?: string | null;
+  codigoPostal?: string | null;
+  pais?: string | null;
+  taxId?: string | null;
   clave: string;
   razonSocial: string;
   /** Opcional solo si el origen es Extranjero: el backend guarda el RFC genérico XEXX010101000. */
@@ -127,6 +154,7 @@ export interface CrearProveedorPayload {
   monedaPreferidaId: string | null;
   email: string | null;
   telefono: string | null;
+  claveAw?: number | null;
   /** Clasificación fiscal en la misma transacción del alta (86e3pdmee). */
   origen?: OrigenProveedor | null;
   regimenFiscalCodigo?: string | null;
@@ -134,6 +162,16 @@ export interface CrearProveedorPayload {
 }
 
 export interface ActualizarProveedorPayload {
+  calle?: string | null;
+  numeroExterior?: string | null;
+  numeroInterior?: string | null;
+  colonia?: string | null;
+  ciudad?: string | null;
+  municipio?: string | null;
+  estado?: string | null;
+  codigoPostal?: string | null;
+  pais?: string | null;
+  taxId?: string | null;
   razonSocial?: string | null;
   nombreComercial?: string | null;
   rfc?: string | null;
@@ -147,6 +185,8 @@ export interface ActualizarProveedorPayload {
   limpiarMonedaPreferida?: boolean | null;
   limpiarEmail?: boolean | null;
   limpiarTelefono?: boolean | null;
+  claveAw?: number | null;
+  limpiarClaveAw?: boolean | null;
 }
 
 export interface CrearProveedorResponse {
@@ -275,6 +315,8 @@ export interface ArticuloDetalle {
   precioReferenciaMonto: number | null;
   precioReferenciaMoneda: string | null;
   estatus: EstatusCatalogo;
+  /** Familia A+W del vidrio crudo (E07 D5, 1:1); null = insumo sin medidas. */
+  productoAwId?: string | null;
 }
 
 export interface CrearArticuloPayload {
@@ -303,6 +345,9 @@ export interface ActualizarArticuloPayload {
   limpiarDescripcionLarga?: boolean | null;
   limpiarCategoria?: boolean | null;
   limpiarPrecioReferencia?: boolean | null;
+  /** Si llega, liga el artículo a esa familia A+W (rechaza si ya está ligada a otro o hay existencia). */
+  productoAwId?: string | null;
+  limpiarProductoAw?: boolean | null;
 }
 
 export interface CrearArticuloResponse {
@@ -404,6 +449,8 @@ export interface EjecucionSyncResumen {
   pendientes: number;
   conflictos: number;
   errores: number;
+  /** Grupos de RFC repetido sin historial que el barrido unificó automáticamente (86e3x4g77). */
+  unificados: number;
   iniciadaEnUtc: string | null;
   terminadaEnUtc: string | null;
   actor: string | null;
@@ -586,6 +633,8 @@ export interface ProductoAwItem {
   tipo?: string | null;
   /** Piezas del árbol de composición (0 = sin composición). */
   numComponentes?: number;
+  /** PIN-2: marca explícita «Servicio de recubrimiento» (dato del ERP; A+W no la sobrescribe). */
+  esServicioRecubrimiento?: boolean;
 }
 
 export interface ListarProductosAwResponse {
@@ -621,6 +670,8 @@ export interface ProductoAwDetalle {
   datosFiscalesCompletos: boolean;
   estatus: EstatusCatalogo;
   fechaBaja?: string | null;
+  /** PIN-2: marca «Servicio de recubrimiento». */
+  esServicioRecubrimiento?: boolean;
   variantes?: ProductoAwVariante[];
   /** Clasificación de A+W (dueño A+W; null = sin dato). Familia de negocio = tipo → grupo; wgr = grupo de mercancía (`KA_WGR`). */
   codigoModelo?: string | null;
@@ -647,6 +698,8 @@ export interface ProductoAwComponente {
 
 /** Medidas en mm: null = A+W no las informó (NUNCA 0). */
 export interface ProductoAwVariante {
+  /** Id de la variante (E07 D3); lo viajan las líneas de movimiento y el saldo. */
+  id?: string;
   claveVariante: string;
   altoMm: number | null;
   anchoMm: number | null;
@@ -712,6 +765,7 @@ export interface CrearProductoAwPayload {
   fraccionArancelaria?: string | null;
   unidadAduana?: string | null;
   pesoUnitarioKg?: number | null;
+  esServicioRecubrimiento?: boolean;
 }
 
 export interface ActualizarProductoAwPayload {
@@ -729,6 +783,8 @@ export interface ActualizarProductoAwPayload {
   fraccionArancelaria?: string | null;
   unidadAduana?: string | null;
   pesoUnitarioKg?: number | null;
+  /** null/ausente = sin cambio. */
+  esServicioRecubrimiento?: boolean | null;
   limpiarCategoria?: boolean | null;
   limpiarTasaIvaTraslado?: boolean | null;
   limpiarTasaRetencionIva?: boolean | null;

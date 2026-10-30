@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/table';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { Plus, Unlock, XCircle } from 'lucide-react';
+import { Ban, Plus, ShieldCheck, Unlock, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -32,6 +32,7 @@ import { useUsuarios } from '@/features/catalogos/api';
 import { useClientesLookupCxc } from '@/features/cxc/api/useLineasCredito';
 import {
   useAutorizacionesCredito,
+  useBeneficiariosCredito,
   useCancelarAutorizacionCredito,
   useDecisionesLiberacion,
 } from '@/features/cxc/api/useLiberaciones';
@@ -41,12 +42,21 @@ import {
 } from '@/features/cxc/components/ChipsLiberacion';
 import { DecidirLiberacionSheet } from '@/features/cxc/components/DecidirLiberacionSheet';
 import { NuevaAutorizacionDialog } from '@/features/cxc/components/NuevaAutorizacionDialog';
-import { EstadoAutorizacionCredito, ResultadoLiberacion } from '@/features/cxc/api/types';
+import { AutorizarPendienteDialog } from '@/features/cxc/components/AutorizarPendienteDialog';
+import { RechazarPendienteDialog } from '@/features/cxc/components/RechazarPendienteDialog';
+import { puedeAutorizarPendiente } from '@/features/cxc/lib/autorizar-pendiente';
+import {
+  EstadoAutorizacionCredito,
+  ResultadoLiberacion,
+  type DecisionLiberacionResponse,
+} from '@/features/cxc/api/types';
 import {
   ETIQUETA_REGLA_LIBERACION,
   ETIQUETA_RESULTADO_LIBERACION,
+  formatoCobertura,
   formatoMonto,
 } from '@/features/cxc/lib/glosario';
+import { useAuthStore } from '@/lib/auth/auth-store';
 import type { LiberacionesSearch } from '@/features/cxc/lib/liberaciones-search-schema';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -55,6 +65,7 @@ import { esApiError } from '@/lib/api';
 const FROM = '/_app/cxc/liberaciones/' as const;
 
 const OPCIONES_RESULTADO = [
+  ResultadoLiberacion.PendienteAutorizacion,
   ResultadoLiberacion.Liberado,
   ResultadoLiberacion.Retenido,
   ResultadoLiberacion.LiberadoConOverride,
@@ -119,6 +130,7 @@ export function BandejaLiberaciones() {
         <TabsContent value="decisiones" className="mt-4">
           <TabDecisiones
             search={search}
+            puedeOverride={puedeOverride}
             onFiltrarResultado={(r) => actualizarSearch({ resultado: r })}
           />
         </TabsContent>
@@ -135,11 +147,16 @@ export function BandejaLiberaciones() {
 
 function TabDecisiones({
   search,
+  puedeOverride,
   onFiltrarResultado,
 }: {
   search: LiberacionesSearch;
+  puedeOverride: boolean;
   onFiltrarResultado: (r: LiberacionesSearch['resultado']) => void;
 }) {
+  const usuarioActualId = useAuthStore((s) => s.user?.id ?? null);
+  const [porAutorizar, setPorAutorizar] = useState<DecisionLiberacionResponse | null>(null);
+  const [porRechazar, setPorRechazar] = useState<DecisionLiberacionResponse | null>(null);
   const query = useDecisionesLiberacion({
     resultado: search.resultado,
     clienteId: search.clienteId,
@@ -158,6 +175,18 @@ function TabDecisiones({
     for (const c of lookup.data ?? []) m.set(c.id, c.razonSocial);
     return m;
   }, [lookup.data]);
+
+  // C7.3: nombre de quien evaluó. Catálogo de usuarios (identidad.usuarios.leer)
+  // o, para el gerente de CxC, los usuarios con permiso de decidir
+  // (/autorizaciones/beneficiarios); si ninguno responde, id corto.
+  const usuarios = useUsuarios();
+  const evaluadores = useBeneficiariosCredito({ enabled: puedeOverride });
+  const nombreUsuario = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const u of evaluadores.data ?? []) m.set(u.id, u.nombre);
+    for (const u of usuarios.data?.items ?? []) m.set(u.id, u.nombre);
+    return (id: string) => m.get(id) ?? id.slice(0, 8);
+  }, [usuarios.data, evaluadores.data]);
 
   const q = (search.q ?? '').trim().toLowerCase();
   const items = (query.data?.items ?? []).filter((d) => {
@@ -211,6 +240,7 @@ function TabDecisiones({
               { width: 'w-28' },
               { width: 'w-32' },
               { width: 'w-32' },
+              { width: 'w-24' },
             ]}
           />
         ) : items.length === 0 ? (
@@ -236,7 +266,8 @@ function TabDecisiones({
                   </TableHead>
                   <TableHead className="px-3 py-2 font-medium">Resultado</TableHead>
                   <TableHead className="px-3 py-2 font-medium">Regla</TableHead>
-                  <TableHead className="px-3 py-2 font-medium">Decidido</TableHead>
+                  <TableHead className="px-3 py-2 font-medium">Evaluó</TableHead>
+                  <TableHead className="px-3 py-2" />
                 </TableRow>
               </TableHeader>
               <TableBody className="divide-y">
@@ -254,12 +285,48 @@ function TabDecisiones({
                     </TableCell>
                     <TableCell className="px-3 py-2">
                       <ChipResultadoLiberacion resultado={d.resultado} />
+                      {formatoCobertura(d.porcentajeCobertura) && (
+                        <p className="mt-0.5 text-xs text-ink-muted">
+                          {formatoCobertura(d.porcentajeCobertura)}
+                        </p>
+                      )}
+                      {d.resultado === ResultadoLiberacion.PendienteAutorizacion &&
+                        d.resolucionId && (
+                          <p className="mt-0.5 text-xs text-ink-muted">Ya resuelta</p>
+                        )}
                     </TableCell>
                     <TableCell className="px-3 py-2 text-xs">
                       {ETIQUETA_REGLA_LIBERACION[d.reglaAplicada]}
+                      {d.motivo && (
+                        <p className="mt-0.5 max-w-48 truncate text-ink-muted" title={d.motivo}>
+                          {d.motivo}
+                        </p>
+                      )}
                     </TableCell>
-                    <TableCell className="px-3 py-2 text-xs text-ink-muted">
-                      <DateTimeDisplay value={d.decididoEn} />
+                    <TableCell className="px-3 py-2 text-xs">
+                      <p>{nombreUsuario(d.decididoPor)}</p>
+                      <p className="text-ink-muted">
+                        <DateTimeDisplay value={d.decididoEn} />
+                      </p>
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-right">
+                      {puedeAutorizarPendiente(d, puedeOverride, usuarioActualId) && (
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" size="sm" onClick={() => setPorAutorizar(d)}>
+                            <ShieldCheck className="mr-1 h-3.5 w-3.5" />
+                            Autorizar
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-danger-fg"
+                            onClick={() => setPorRechazar(d)}
+                          >
+                            <Ban className="mr-1 h-3.5 w-3.5" />
+                            Rechazar
+                          </Button>
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -268,6 +335,18 @@ function TabDecisiones({
           </div>
         )}
       </ListadoModulo>
+      <AutorizarPendienteDialog
+        decision={porAutorizar}
+        onOpenChange={(open) => {
+          if (!open) setPorAutorizar(null);
+        }}
+      />
+      <RechazarPendienteDialog
+        decision={porRechazar}
+        onOpenChange={(open) => {
+          if (!open) setPorRechazar(null);
+        }}
+      />
     </div>
   );
 }
@@ -348,7 +427,7 @@ function TabAutorizaciones({ puedeOverride }: { puedeOverride: boolean }) {
               <TableHeader className="bg-surface-muted/50 text-left text-xs uppercase tracking-wide text-ink-muted">
                 <TableRow>
                   <TableHead className="px-3 py-2 font-medium">Estado</TableHead>
-                  <TableHead className="px-3 py-2 font-medium">Cliente / pedido</TableHead>
+                  <TableHead className="px-3 py-2 font-medium">Pedido</TableHead>
                   <TableHead className="px-3 py-2 font-medium">Beneficiario</TableHead>
                   <TableHead className="px-3 py-2 font-medium">Motivo</TableHead>
                   <TableHead className="px-3 py-2 font-medium">Vigente hasta</TableHead>

@@ -21,7 +21,7 @@ public sealed class ObraTests
     public void Oc_no_consolida_obras_distintas()
     {
         var oc = new OrdenCompra(Guid.NewGuid(), Guid.NewGuid(), Millet.Compras.Domain.Oc.Folio.Parse("OC-MID2026-998001"), 2026,
-            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), new(2026, 10, 9));
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), new(2026, 10, 9), usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
         oc.HeredarObra("DEMO A");
         oc.AgregarLineaDesdeRequisicion(Guid.NewGuid(), Guid.NewGuid(), 10, "PZA", 20, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), centroCostoId: Guid.NewGuid());
         oc.HeredarObra("DEMO A");

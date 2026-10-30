@@ -96,7 +96,7 @@ const CAMPOS_ENCABEZADO = [
   'tipoCambio',
   'canalVenta',
   'comportamientoFiscal',
-  'obraNombre',
+  'obraNombre', 'ordenCompraCliente', 'referenciaCliente', 'condicionesPago', 'proforma', 'observaciones',
   'cceTipoOperacion',
   'cceIncoterm',
   'cceTcDof',
@@ -193,7 +193,7 @@ function FormInner({
         .filter((a) => a.anticipoId.trim().length > 0 && a.folio)
         .map((a) => ({ folio: a.folio ?? '', importe: a.importe, moneda: monedaFactura })),
     );
-    form.setValue('observaciones', nota === '' ? null : nota, {
+    form.setValue('observaciones', [nota, prefill?.observaciones].filter(Boolean).join('\n'), {
       shouldDirty: true,
       shouldValidate: form.formState.isSubmitted,
     });
@@ -207,7 +207,7 @@ function FormInner({
     });
   }
 
-  // Autorización del Contador General — obligatoria en venta de activo
+  // Autorización del Director de Administración y Finanzas — obligatoria en venta de activo
   // fijo; se elige con <AutorizacionPicker/> (FAC-UX-PR4).
   const [autorizacionId, setAutorizacionId] = useState('');
 
@@ -311,7 +311,7 @@ function FormInner({
   async function onSubmit(values: EmitirFacturaValues) {
     if (ceBloqueado || manualSinClase) return;
     if (esActivo && autorizacionId.trim() === '') {
-      toast.error('La venta de activo fijo requiere el ID de autorización del Contador General.');
+      toast.error('La venta de activo fijo requiere el ID de autorización del Director de Administración y Finanzas.');
       return;
     }
     const command = construirComando(values);
@@ -361,6 +361,10 @@ function FormInner({
           canalVenta: values.canalVenta,
           comportamientoFiscal: values.comportamientoFiscal,
           obraId: null,
+          ordenCompraCliente: values.ordenCompraCliente,
+          referenciaCliente: values.referenciaCliente,
+          condicionesPago: values.condicionesPago,
+          proforma: values.proforma,
           obraNombre: nullIfEmpty(values.obraNombre),
           facturaAgrupada: false,
           clienteId,
@@ -372,7 +376,7 @@ function FormInner({
                   // El folio es solo del FE (arma la nota); no viaja al backend.
                   .map((a) => ({ anticipoId: a.anticipoId, importe: a.importe }))
               : null,
-          observaciones: nullIfEmpty(values.observaciones),
+          observaciones: values.observaciones ?? '',
           autorizacionId: esActivo ? autorizacionId.trim() : null,
           cce: esCce
             ? {
@@ -535,6 +539,7 @@ function FormInner({
             para que RHF conserve valores y muestre errores de zod. */}
         <TabsContent value="encabezado" forceMount>
           <TabEncabezado
+            onObservacionesChange={editarObservaciones}
             form={form}
             emisor={emisor}
             puedeCorregirEnCatalogo={puedeCorregirEnCatalogo}

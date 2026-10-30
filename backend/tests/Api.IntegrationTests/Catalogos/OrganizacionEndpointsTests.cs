@@ -19,7 +19,8 @@ namespace Millet.Api.IntegrationTests.Catalogos;
 /// deterministas (MID/MTY/QRO, COMPRAS/ALMACEN/MTTO/ING/CAL,
 /// ALM-MID-G/ALM-MID-MP/ALM-MTY-G/ALM-QRO-G).
 /// </summary>
-public class OrganizacionEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class OrganizacionEndpointsTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string SinPermisosOid = "test-no-perms";

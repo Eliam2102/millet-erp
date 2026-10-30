@@ -39,8 +39,8 @@ internal static class ReservaDictamen
 
     public static bool CuentaComoDictaminada(ResultadoDictamen r) => r is ResultadoDictamen.Liberar or ResultadoDictamen.Baja;
 
-    /// <summary>Pendiente de dictamen sumado por (bin, artículo) de los bins dados.</summary>
-    public static async Task<Dictionary<(Guid Ubicacion, Guid Articulo), decimal>> PendientePorBinAsync(
+    /// <summary>Pendiente de dictamen sumado por (bin, artículo, variante de medida, lote) de los bins dados.</summary>
+    public static async Task<Dictionary<(Guid Ubicacion, Guid Articulo, Guid? Variante, string? Lote), decimal>> PendientePorBinAsync(
         AlmacenDbContext db, Guid[] ubicacionIds, CancellationToken ct)
     {
         var lineas = await (
@@ -48,7 +48,7 @@ internal static class ReservaDictamen
             join m in db.Movimientos.AsNoTracking() on l.MovimientoId equals m.Id
             where m.Tipo == TipoMovimiento.EntradaCompra && m.Estado == EstadoMovimiento.Registrado
                 && l.UbicacionId != null && ubicacionIds.Contains(l.UbicacionId.Value)
-            select new { l.Id, Ubicacion = l.UbicacionId!.Value, l.ArticuloId, l.Cantidad }).ToListAsync(ct);
+            select new { l.Id, Ubicacion = l.UbicacionId!.Value, l.ArticuloId, Variante = l.ProductoAwVarianteId, l.Lote, l.Cantidad }).ToListAsync(ct);
         if (lineas.Count == 0) return [];
 
         var ids = lineas.Select(l => l.Id).ToArray();
@@ -59,7 +59,7 @@ internal static class ReservaDictamen
             .GroupBy(d => d.LineaRevisionId).ToDictionary(g => g.Key, g => g.Sum(d => d.Cantidad));
 
         return lineas
-            .GroupBy(l => (l.Ubicacion, l.ArticuloId))
+            .GroupBy(l => (l.Ubicacion, l.ArticuloId, l.Variante, Lote: (string?)l.Lote))
             .ToDictionary(g => g.Key, g => g.Sum(l =>
                 Math.Max(0m, l.Cantidad - dictaminado.GetValueOrDefault(l.Id) - devolucion.GetValueOrDefault(l.Id))));
     }
@@ -69,20 +69,20 @@ internal static class ReservaDictamen
     /// dejaría menos saldo que lo reservado para dictamen. Serializa por bin (advisory lock transaccional);
     /// el llamador debe tener ya su transacción abierta o confirmar la que devuelve el lock.
     /// </summary>
-    public static async Task<IReadOnlyDictionary<(Guid Ubicacion, Guid Articulo), decimal>> ValidarAsync(
-        AlmacenDbContext db, IReadOnlyCollection<(Guid Ubicacion, Guid Articulo, decimal Cantidad)> consumos,
+    public static async Task<IReadOnlyDictionary<(Guid Ubicacion, Guid Articulo, Guid? Variante, string? Lote), decimal>> ValidarAsync(
+        AlmacenDbContext db, IReadOnlyCollection<(Guid Ubicacion, Guid Articulo, Guid? Variante, string? Lote, decimal Cantidad)> consumos,
         CancellationToken ct)
     {
         var bins = consumos.Select(c => c.Ubicacion).Distinct().Order().ToArray();
         foreach (var bin in bins) await DevolucionOrigenLock.AbrirAsync(db, bin, ct);
 
         var pendiente = await PendientePorBinAsync(db, bins, ct);
-        foreach (var g in consumos.GroupBy(c => (c.Ubicacion, c.Articulo)))
+        foreach (var g in consumos.GroupBy(c => (c.Ubicacion, c.Articulo, c.Variante, c.Lote)))
         {
             var reservado = pendiente.GetValueOrDefault(g.Key);
             if (reservado <= 0) continue; // sin reserva: el saldo lo valida el trigger (SALDO_INSUFICIENTE)
             var saldo = await db.SaldosInventario.AsNoTracking()
-                .Where(s => s.UbicacionId == g.Key.Ubicacion && s.ArticuloId == g.Key.Articulo)
+                .Where(s => s.UbicacionId == g.Key.Ubicacion && s.ArticuloId == g.Key.Articulo && s.ProductoAwVarianteId == g.Key.Variante && s.Lote == g.Key.Lote)
                 .Select(s => (decimal?)s.Cantidad).FirstOrDefaultAsync(ct) ?? 0m;
             var pedido = g.Sum(c => c.Cantidad);
             if (saldo < pedido) continue; // falta saldo aunque no hubiera reserva: lo reporta el trigger (SALDO_INSUFICIENTE)

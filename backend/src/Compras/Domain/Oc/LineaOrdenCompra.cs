@@ -2,6 +2,7 @@ using Millet.Compras.Domain.Oc.Impuestos;
 using Millet.SharedKernel.Application.Exceptions;
 using Millet.Administracion.Domain;
 using Millet.Almacen.Domain;
+using Millet.Almacen.Domain.Ports;
 using Millet.Catalogos.Domain;
 using Millet.DatosMaestros.Domain;
 using Millet.SharedKernel.Domain;
@@ -117,6 +118,45 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
     public string? FraccionArancelaria { get; private set; }
 
     /// <summary>
+    /// F1-MP-05 (A4.2): lote que el proveedor declara para la línea (opcional, cualquier artículo). Solo se captura antes de
+    /// autorizar; después manda lo que registre el almacenista. Máx. igual que el lote de Almacén (50).
+    /// </summary>
+    public string? LoteProveedor { get; private set; }
+
+    public const int LoteProveedorMaxLength = 50;
+
+    public const string UnidadVidrio = "M2";
+
+    /// <summary>
+    /// F1-MP-01 (E1): medida de la hoja de vidrio crudo (variante A+W + snapshot ancho × alto). Las tres columnas van juntas o
+    /// ninguna. La cantidad sigue en m² (<see cref="Cantidad"/>) y debe ser un número entero de hojas.
+    /// </summary>
+    public Guid? ProductoAwVarianteId { get; private set; }
+    public decimal? AnchoMm { get; private set; }
+    public decimal? AltoMm { get; private set; }
+
+    /// <summary>m² por hoja de la medida de la línea; null si no tiene medida.</summary>
+    public decimal? AreaHojaM2 => AnchoMm is { } a && AltoMm is { } h ? AreaHoja.M2(a, h) : null;
+
+    /// <summary>Asigna o quita (todo null) la medida y revalida unidad y hojas enteras.</summary>
+    internal void AsignarMedida(Guid? varianteId, decimal? anchoMm, decimal? altoMm)
+    {
+        if ((varianteId is null) != (anchoMm is null) || (anchoMm is null) != (altoMm is null))
+            throw new BusinessRuleException("LINEA_OC_MEDIDA_INCOMPLETA", "La medida requiere variante, ancho y alto.");
+        ProductoAwVarianteId = varianteId; AnchoMm = anchoMm; AltoMm = altoMm;
+        ValidarMedida();
+    }
+
+    private void ValidarMedida()
+    {
+        if (AreaHojaM2 is not { } area) return;
+        if (!string.Equals(UnidadMedida, UnidadVidrio, StringComparison.OrdinalIgnoreCase))
+            throw new BusinessRuleException("LINEA_OC_VIDRIO_UNIDAD", "El vidrio con medida se pide en m² (unidad M2).");
+        if (Cantidad % area != 0)
+            throw new BusinessRuleException("HOJAS_ENTERAS", "Con medida, la cantidad debe ser un número entero de hojas.");
+    }
+
+    /// <summary>
     /// Subtotal post-descuento (computed). Fórmula §4.2:
     /// <c>(Cantidad * PrecioUnitario) - Descuento.Aplicar(...)</c>. Redondeado
     /// a 2 decimales banker's rounding.
@@ -148,6 +188,20 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
         return f;
     }
 
+    /// <summary>Normaliza el lote del proveedor: vacío → null; recorta espacios; máx. <see cref="LoteProveedorMaxLength"/>.</summary>
+    internal static string? NormalizarLoteProveedor(string? lote)
+    {
+        if (string.IsNullOrWhiteSpace(lote)) return null;
+        var l = lote.Trim();
+        if (l.Length > LoteProveedorMaxLength)
+        {
+            throw new BusinessRuleException(
+                "LINEA_OC_LOTE_LARGO",
+                $"El lote del proveedor no puede exceder {LoteProveedorMaxLength} caracteres.");
+        }
+        return l;
+    }
+
     /// <summary>Constructor para EF Core.</summary>
     private LineaOrdenCompra() { }
 
@@ -175,7 +229,11 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
         DateTimeOffset? fechaEntregaLinea = null,
         string? textoAdicional = null,
         bool esServicio = false,
-        string? fraccionArancelaria = null) : base(id)
+        string? fraccionArancelaria = null,
+        Guid? productoAwVarianteId = null,
+        decimal? anchoMm = null,
+        decimal? altoMm = null,
+        string? loteProveedor = null) : base(id)
     {
         if (ordenCompraId == Guid.Empty)
         {
@@ -257,8 +315,10 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
         FechaEntregaLinea = fechaEntregaLinea?.ToUniversalTime();
         TextoAdicional = textoAdicional;
         FraccionArancelaria = NormalizarFraccionArancelaria(fraccionArancelaria);
+        LoteProveedor = NormalizarLoteProveedor(loteProveedor);
         CantidadRecibida = 0m;
         CantidadFacturada = 0m;
+        AsignarMedida(productoAwVarianteId, anchoMm, altoMm);
 
         // Calcular impuestos v0 al construir. F3-PR2 reemplaza el motor;
         // RecalcularImpuestos puede invocarse después si cambia el régimen
@@ -301,7 +361,12 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
         string? fraccionArancelaria = null,
         bool limpiarFraccionArancelaria = false,
         bool? esActivoFijo = null,
-        Guid? claseActivoId = null)
+        Guid? claseActivoId = null,
+        Guid? productoAwVarianteId = null,
+        decimal? anchoMm = null,
+        decimal? altoMm = null,
+        string? loteProveedor = null,
+        bool limpiarLoteProveedor = false)
     {
         if (CantidadRecibida > 0m || CantidadFacturada > 0m)
         {
@@ -322,6 +387,8 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
                     "LINEA_OC_ARTICULO_REQUERIDO",
                     "El artículo es requerido.");
             }
+            // Otro artículo ⇒ la medida del anterior ya no aplica (el handler re-valida contra el nuevo).
+            if (a != ArticuloId) { ProductoAwVarianteId = null; AnchoMm = null; AltoMm = null; }
             ArticuloId = a;
         }
         // GAP-9: si cambió el artículo, el caller (handler) re-resuelve la
@@ -402,6 +469,13 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
 
         if (fraccionArancelaria is not null) FraccionArancelaria = NormalizarFraccionArancelaria(fraccionArancelaria);
         else if (limpiarFraccionArancelaria) FraccionArancelaria = null;
+
+        if (loteProveedor is not null) LoteProveedor = NormalizarLoteProveedor(loteProveedor);
+        else if (limpiarLoteProveedor) LoteProveedor = null;
+
+        // Medida nueva, o revalidar la vigente (cambió cantidad o unidad): hojas enteras y m².
+        if (productoAwVarianteId is not null) AsignarMedida(productoAwVarianteId, anchoMm, altoMm);
+        else ValidarMedida();
 
         // Fase E PR3.1: invariante de POST-ESTADO — una línea MANUAL no puede
         // quedar sin CC-Máquina después de una edición. Se evalúa sobre el

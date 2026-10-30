@@ -1,3 +1,5 @@
+import { DatosClienteCampos } from '../DatosClienteCampos';
+import { camposDatosCliente } from '../../lib/datos-cliente';
 import { FormaPagoSelector, SucursalSelector, UsoCfdiSelector } from '@/components/erp';
 import { ClaveSatSelector } from '@/components/erp/selectors/ClaveSatSelector';
 import { MonedaSelector } from '@/components/erp/selectors/MonedaSelector';
@@ -17,7 +19,10 @@ import {
 import { CanalVentaSelector } from '@/features/facturacion/components/selectors/CanalVentaSelector';
 import { CceIncotermSelector } from '@/features/facturacion/components/selectors/CceIncotermSelector';
 import { ClienteSelector } from '@/features/facturacion/components/selectors/ClienteSelector';
-import { OPCIONES_COMPORTAMIENTO_FISCAL } from '@/features/facturacion/lib/glosario';
+import {
+  AVISO_CARTA_PORTE,
+  opcionesComportamientoFiscal,
+} from '@/features/facturacion/lib/glosario';
 import type { EmitirFacturaValues } from '@/features/facturacion/schemas/emitir-factura';
 import { Controller, useWatch, type UseFormReturn } from 'react-hook-form';
 import { Campo, Seccion } from './campos';
@@ -36,6 +41,7 @@ import { numeroONull } from './valores';
  */
 export interface TabEncabezadoProps {
   form: UseFormReturn<EmitirFacturaValues>;
+  onObservacionesChange: (texto: string) => void;
   /** Datos fiscales del emisor (empresa) — informativos, no editables. */
   emisor: EmisorDefaultsResponse;
   /**
@@ -69,6 +75,7 @@ export interface TabEncabezadoProps {
 
 export function TabEncabezado({
   form,
+  onObservacionesChange,
   emisor,
   puedeCorregirEnCatalogo,
   receptorBloqueado,
@@ -84,8 +91,11 @@ export function TabEncabezado({
   clienteFijo,
   canalVentaNombre,
 }: TabEncabezadoProps) {
+  const [ordenCompraCliente, referenciaCliente, condicionesPago, proforma, observaciones] = useWatch({ control: form.control, name: ['ordenCompraCliente', 'referenciaCliente', 'condicionesPago', 'proforma', 'observaciones'] });
+  const datosCliente = { ordenCompraCliente, referenciaCliente, condicionesPago, proforma, observaciones };
   const moneda = useWatch({ control: form.control, name: 'moneda' });
   const metodoPago = useWatch({ control: form.control, name: 'metodoPago' });
+  const comportamientoFiscal = useWatch({ control: form.control, name: 'comportamientoFiscal' });
   const [receptorRfc, receptorNombre, receptorRegimen, receptorCp] = useWatch({
     control: form.control,
     name: ['receptorRfc', 'receptorNombre', 'receptorRegimenFiscal', 'receptorCodigoPostal'],
@@ -95,12 +105,12 @@ export function TabEncabezado({
       {esActivo && (
         <div className="space-y-2 rounded-md border border-line bg-warning-note-bg px-3 py-2">
           <p className="text-sm">
-            Venta de activo fijo: requiere autorización del Contador General
+            Venta de activo fijo: requiere autorización del Director de Administración y Finanzas
             antes de timbrar.
           </p>
           <div className="sm:w-96">
             <Label className="text-xs">
-              Autorización del Contador General{' '}
+              Autorización del Director de Administración y Finanzas{' '}
               <span className="text-danger-fg">*</span>{' '}
               <span className="font-normal">(obligatoria)</span>
             </Label>
@@ -274,7 +284,7 @@ export function TabEncabezado({
         <Campo
           label="Comportamiento fiscal"
           required
-          hint="Exportación (CCE) habilita los datos de comercio exterior y aduana; si hay expediente ligado, se toma su clave. Venta de activo fijo pide autorización del Contador General. Con anticipo permite aplicar anticipos en Totales, opción disponible también para los demás comportamientos. Mostrador inmediato, Traslado con Carta Porte y Administrativa no abren campos adicionales en este formulario."
+          hint="Exportación (CCE) habilita los datos de comercio exterior y aduana; si hay expediente ligado, se toma su clave. Venta de activo fijo pide autorización del Director de Administración y Finanzas. Con anticipo permite aplicar anticipos en Totales, opción disponible también para los demás comportamientos. Mostrador inmediato y Administrativa no abren campos adicionales en este formulario."
         >
           {comportamientoFijo != null ? (
             // Fijo (sin registrar el select) para conservar el valor del form.
@@ -297,7 +307,7 @@ export function TabEncabezado({
                 : undefined
             }
           >
-            {OPCIONES_COMPORTAMIENTO_FISCAL.map((o) => (
+            {opcionesComportamientoFiscal(comportamientoFiscal).map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>
@@ -307,6 +317,7 @@ export function TabEncabezado({
           {comportamientoFijo != null && (
             <p className="text-xs text-ink-muted">{comportamientoFijo}</p>
           )}
+          <p className="text-xs text-ink-muted">{AVISO_CARTA_PORTE}</p>
         </Campo>
         <div className="sm:col-span-2">
           <Campo label="Obra (nombre)" error={form.formState.errors.obraNombre?.message}>
@@ -314,6 +325,9 @@ export function TabEncabezado({
           </Campo>
         </div>
       </Seccion>
+
+      <DatosClienteCampos errors={Object.fromEntries(camposDatosCliente.map(([campo]) => [campo, form.formState.errors[campo]?.message]))} datos={datosCliente} condicionesPagoPlaceholder={metodoPago === 'PUE' ? 'CONTADO' : undefined}
+        onChange={(campo, valor) => campo === 'observaciones' ? onObservacionesChange(valor) : form.setValue(campo, valor, { shouldDirty: true, shouldValidate: true })} />
 
       {/* ── Comercio Exterior (CCE) — solo exportación ───────────── */}
       {esCce && (

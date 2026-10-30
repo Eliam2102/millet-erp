@@ -53,6 +53,7 @@ public static class DependencyInjection
         // (ADR-0048 D5/D6 — compartido.clientes + compartido.producto_aw).
         // Deuda <DatosMaestrosFiscal> cerrada (ADR-0048 PR2).
         services.AddScoped<IClientesReadPort, DatosMaestros.ClientesReadAdapter>();
+        services.AddScoped<IPlazoCreditoClienteReadPort, CuentasPorCobrar.PlazoCreditoClienteReadAdapter>();
         services.AddScoped<IProductosReadPort, DatosMaestros.ProductosReadAdapter>();
         services.AddScoped<Millet.DatosMaestros.Application.Clientes.IPedidosErpPorClienteReadPort, PublicAdapters.PedidosErpPorClienteReadAdapter>();
 
@@ -100,8 +101,11 @@ public static class DependencyInjection
 
         // --- F2-PR2: PDF (real, QuestPDF) + notificación por correo [stub] ---
         services.AddSingleton<IGenerarPdfFacturaPort, QuestPdfFacturaGenerator>();
+        // FMT-4: domicilio, logo y catálogos del emisor para el PDF con formato de Millet.
+        services.AddScoped<IDatosImpresionCfdiReadPort, DatosMaestros.DatosImpresionCfdiReadAdapter>();
         // PLATFORM-TODO(<EnvioCfdiCliente>)
         services.AddSingleton<INotificacionService, NoOpNotificacionService>();
+        services.AddSingleton<Millet.SharedKernel.Application.Correo.ICorreoDocumentoService, NoOpNotificacionService>();
 
         // --- F3-PR1b: ingesta A+W (cola + write-back) — stubs hasta Integraciones.Aw ---
         // PR7: señal de nudge del worker de ingesta (el endpoint anónimo con

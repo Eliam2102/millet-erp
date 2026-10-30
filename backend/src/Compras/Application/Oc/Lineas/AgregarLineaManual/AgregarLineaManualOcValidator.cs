@@ -1,4 +1,5 @@
 using FluentValidation;
+using Millet.Compras.Domain.Oc;
 
 namespace Millet.Compras.Application.Oc.Lineas.AgregarLineaManual;
 
@@ -40,6 +41,10 @@ public sealed class AgregarLineaManualOcValidator : AbstractValidator<AgregarLin
         RuleFor(c => c.TextoAdicional)
             .MaximumLength(500).WithErrorCode("TEXTO_ADICIONAL_DEMASIADO_LARGO")
             .When(c => c.TextoAdicional is not null);
+
+        RuleFor(c => c.LoteProveedor)
+            .MaximumLength(LineaOrdenCompra.LoteProveedorMaxLength).WithErrorCode("LINEA_OC_LOTE_LARGO")
+            .When(c => c.LoteProveedor is not null);
 
         // Descuento: si llega cualquiera de los dos, ambos requeridos.
         RuleFor(c => c.DescuentoValor)

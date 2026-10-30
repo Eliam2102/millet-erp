@@ -39,6 +39,20 @@ public sealed class CuentasPorPagarDbContextSchemaTests
             .Should().NotContain("ConfiguracionReposicionCaja");
     }
 
+    [Fact]
+    public void Clasificacion_no_deducible_se_mapea_en_las_cuatro_tablas_y_su_catalogo()
+    {
+        using var db = CrearDbContext();
+
+        foreach (var t in new[] { typeof(Millet.CuentasPorPagar.Domain.FacturaProveedor.FacturaProveedor),
+                     typeof(Millet.CuentasPorPagar.Domain.TarjetaCredito.MovimientoTarjetaCredito),
+                     typeof(Millet.CuentasPorPagar.Domain.ComprobacionGastos.LineaComprobacionGastos),
+                     typeof(Millet.CuentasPorPagar.Domain.Viaticos.LineaComprobacionViaticos) })
+            db.Model.FindEntityType(t)!.FindProperty("ClasificacionNoDeducible")!.GetMaxLength().Should().Be(40);
+        db.Model.FindEntityType(typeof(Millet.CuentasPorPagar.Domain.Catalogos.ClasificacionNoDeducible))!
+            .GetTableName().Should().Be("clasificaciones_no_deducibles");
+    }
+
     private static CuentasPorPagarDbContext CrearDbContext()
     {
         var options = new DbContextOptionsBuilder<CuentasPorPagarDbContext>()

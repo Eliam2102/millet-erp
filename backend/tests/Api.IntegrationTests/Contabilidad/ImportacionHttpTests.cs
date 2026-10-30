@@ -17,7 +17,8 @@ using Fix = Millet.Contabilidad.UnitTests.Fixtures.FixturesCatalogo;
 namespace Millet.Api.IntegrationTests.Contabilidad;
 
 /// <summary>Importación (vista previa, perfilado, aplicar) contra el API y Postgres reales (§6, §12, §20). Datos FIX-*.</summary>
-public class ImportacionHttpTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class ImportacionHttpTests(WebApplicationFactory<Program> factory)
 {
     private const string Cab = "codigo;nombre;naturaleza;tipo_cuenta;codigo_origen\n";
 

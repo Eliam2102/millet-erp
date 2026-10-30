@@ -47,6 +47,10 @@ public sealed class LineaOrdenCompraConfiguration : IEntityTypeConfiguration<Lin
                 "(requisicion_id IS NOT NULL AND linea_requisicion_id IS NOT NULL)");
             t.HasCheckConstraint("ck_oc_lineas_descuento_tipo",
                 "descuento_tipo BETWEEN 0 AND 1");
+            // F1-MP-01 (E1): variante y snapshot de medida van juntos (igual que ck_lineas_variante_medida en Almacén).
+            t.HasCheckConstraint("ck_oc_lineas_variante_medida",
+                "(producto_aw_variante_id IS NULL AND ancho_mm IS NULL AND alto_mm IS NULL) OR " +
+                "(producto_aw_variante_id IS NOT NULL AND ancho_mm IS NOT NULL AND ancho_mm > 0 AND alto_mm IS NOT NULL AND alto_mm > 0)");
         });
 
         builder.HasKey(l => l.Id);
@@ -149,8 +153,17 @@ public sealed class LineaOrdenCompraConfiguration : IEntityTypeConfiguration<Lin
         // PLATFORM-TODO(F1-COM-06): supuesto Vilo, confirmar con lista de Millet.
         builder.Property(l => l.FraccionArancelaria).HasMaxLength(10);
 
-        // SubtotalLinea es computed (getter) — no se persiste como columna.
+        // F1-MP-05 (A4.2): lote del proveedor, opcional.
+        builder.Property(l => l.LoteProveedor).HasMaxLength(LineaOrdenCompra.LoteProveedorMaxLength);
+
+        // F1-MP-01 (E1): medida de la hoja de vidrio crudo. Sin FK (A+W vive en otro esquema, ADR-0030).
+        builder.Property(l => l.ProductoAwVarianteId);
+        builder.Property(l => l.AnchoMm).HasPrecision(12, 3);
+        builder.Property(l => l.AltoMm).HasPrecision(12, 3);
+
+        // SubtotalLinea y AreaHojaM2 son computed (getter) — no se persisten como columna.
         builder.Ignore(l => l.SubtotalLinea);
+        builder.Ignore(l => l.AreaHojaM2);
 
         // UNIQUE §10.1: posición única dentro de la OC.
         builder.HasIndex(l => new { l.OrdenCompraId, l.Posicion })

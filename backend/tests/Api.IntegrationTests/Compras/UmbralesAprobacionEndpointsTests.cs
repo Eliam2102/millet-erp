@@ -19,7 +19,8 @@ namespace Millet.Api.IntegrationTests.Compras;
 /// (umbrales N1/N2 por departamento). Vive en Api.IntegrationTests por la
 /// misma razón que <see cref="ComprasSettingsEndpointsTests"/>.
 /// </summary>
-public class UmbralesAprobacionEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class UmbralesAprobacionEndpointsTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string EndpointBase = "/api/v1/compras/umbrales-aprobacion";

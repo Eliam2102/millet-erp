@@ -22,6 +22,8 @@ export const ActualizarLineaSchema = z
       .max(999_999_999)
       .nullish(),
     unidadMedida: z.string().min(1).max(20).nullish(),
+    // F1-MP-01 (E1): null = conservar la medida actual. Una línea de vidrio sin medida exige enviarla junto con la cantidad.
+    productoAwVarianteId: z.string().nullish(),
     precioUnitario: z
       .number()
       .nonnegative('El precio no puede ser negativo.')
@@ -52,6 +54,9 @@ export const ActualizarLineaSchema = z
       .regex(/^\d{8}(\d{2})?$/, 'La fracción arancelaria debe tener 8 o 10 dígitos.')
       .nullish(),
     limpiarFraccionArancelaria: z.boolean().nullish(),
+    // F1-MP-05: lote del proveedor (máx. 50, igual que el API).
+    loteProveedor: z.string().trim().max(50, 'Máximo 50 caracteres.').nullish(),
+    limpiarLoteProveedor: z.boolean().nullish(),
     esActivoFijo: z.boolean().nullish(),
     claseActivoId: z.string().nullish(),
   })

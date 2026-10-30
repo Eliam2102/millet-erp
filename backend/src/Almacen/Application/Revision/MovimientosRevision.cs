@@ -6,7 +6,8 @@ using Millet.Almacen.Infrastructure.Persistence;
 namespace Millet.Almacen.Application.Revision;
 
 internal sealed record LineaRevisionMov(
-    Guid ArticuloId, string UnidadMedida, decimal Cantidad, decimal CostoUnitarioMxn, Guid UbicacionId);
+    Guid ArticuloId, string UnidadMedida, decimal Cantidad, decimal CostoUnitarioMxn, Guid UbicacionId,
+    Guid? ProductoAwVarianteId = null, decimal? AnchoMm = null, decimal? AltoMm = null, string? Lote = null);
 
 /// <summary>Línea de un par de liberación: sale del bin de MAT-REV y entra al bin disponible destino.</summary>
 internal sealed record ParLiberacionLinea(LineaRevisionMov Origen, Guid DestinoUbicacionId);
@@ -35,14 +36,16 @@ internal static class MovimientosRevision
             movimiento.AgregarLinea(new LineaMovimiento(
                 id: Guid.CreateVersion7(), movimientoId: movimiento.Id, posicion: posicion++,
                 articuloId: l.ArticuloId, cantidad: l.Cantidad, unidadMedida: l.UnidadMedida,
-                costoUnitarioMxn: l.CostoUnitarioMxn, ubicacionId: l.UbicacionId));
+                costoUnitarioMxn: l.CostoUnitarioMxn, ubicacionId: l.UbicacionId,
+                productoAwVarianteId: l.ProductoAwVarianteId, anchoMm: l.AnchoMm, altoMm: l.AltoMm, lote: l.Lote));
         }
 
         var anio = fecha.Year;
         var prefijo = tipo.PrefijoFolio();
         _ = await FolioMovimientoLock.AbrirAsync(db, prefijo, anio, ct); // la transacción ya la abrió el llamador
-        var secuencia = await db.FolioSecuenciasMovimiento
-            .FirstOrDefaultAsync(s => s.Prefijo == prefijo && s.Anio == anio, ct);
+        // Local primero: dos movimientos del mismo prefijo en un solo guardado (p. ej. dos CEN) no deben crear dos secuencias nuevas.
+        var secuencia = db.FolioSecuenciasMovimiento.Local.FirstOrDefault(s => s.Prefijo == prefijo && s.Anio == anio)
+            ?? await db.FolioSecuenciasMovimiento.FirstOrDefaultAsync(s => s.Prefijo == prefijo && s.Anio == anio, ct);
         if (secuencia is null)
         {
             secuencia = new FolioSecuenciaMovimiento(Guid.CreateVersion7(), prefijo, anio, 0);
@@ -58,10 +61,20 @@ internal static class MovimientosRevision
         AlmacenDbContext db, Guid empresaId, Guid usuarioId, DateOnly fecha, string motivo,
         IReadOnlyList<ParLiberacionLinea> lineas, CancellationToken ct)
     {
+        if (db.Database.IsNpgsql())
+        {
+            // Mismo orden (artículo, ubicación, variante, lote) que el reparto del costo de importación: si el trigger
+            // bloqueara origen y luego destino, un destino con id menor cruzaría los bloqueos.
+            var articulos = lineas.Select(l => l.Origen.ArticuloId).Distinct().ToArray();
+            var ubicaciones = lineas.SelectMany(l => new[] { l.Origen.UbicacionId, l.DestinoUbicacionId }).Distinct().ToArray();
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $"SELECT 1 FROM almacen.saldos_inventario WHERE articulo_id = ANY({articulos}) AND ubicacion_id = ANY({ubicaciones}) ORDER BY articulo_id, ubicacion_id, producto_aw_variante_id, lote FOR UPDATE", ct);
+        }
         var salida = await AgregarAsync(db, empresaId, usuarioId, TipoMovimiento.SalidaPorLiberacionRevision,
             fecha, motivo, lineas.Select(l => l.Origen).ToList(), ct);
         var entrada = await AgregarAsync(db, empresaId, usuarioId, TipoMovimiento.ReincorporacionTrasRevision,
             fecha, motivo, lineas.Select(l => l.Origen with { UbicacionId = l.DestinoUbicacionId }).ToList(), ct);
+        db.Movimientos.Local.Single(m => m.Id == entrada.Id).VincularSalidaLiberacion(salida.Id);
         return (salida, entrada);
     }
 }

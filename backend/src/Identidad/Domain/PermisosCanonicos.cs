@@ -15,6 +15,11 @@ namespace Millet.Identidad.Domain;
 public static class PermisosCanonicos
 {
     // ----- Infraestructura (transversal) -----
+    public const string DatosMaestrosClientesCargar = "datos_maestros.clientes.cargar";
+    public const string DatosMaestrosArticulosCargar = "datos_maestros.articulos.cargar";
+    public const string DatosMaestrosProveedoresCargar = "datos_maestros.proveedores.cargar";
+    public const string DatosMaestrosProductosAwFiscalCargar = "datos_maestros.productos-aw-fiscal.cargar";
+    public const string CentrosCostoCatalogoCargar = "centros_costo.catalogo.cargar";
     public const string AlmacenEntradasLeerTodasSucursales = "almacen.entradas.leer-todas-sucursales";
     public const string AlmacenEntradasGestionarTodasSucursales = "almacen.entradas.gestionar-todas-sucursales";
     public const string AlmacenSalidasLeerTodasSucursales = "almacen.salidas.leer-todas-sucursales";
@@ -289,6 +294,7 @@ public static class PermisosCanonicos
     public const string AlmacenDevolucionesProveedorIniciar            = "almacen.devoluciones-proveedor.iniciar";
     public const string AlmacenDevolucionesProveedorAutorizar          = "almacen.devoluciones-proveedor.autorizar";
     public const string AlmacenCuarentenaDictaminar                    = "almacen.cuarentena.dictaminar";
+    public const string AlmacenRecepcionesCancelar                     = "almacen.recepciones.cancelar";
     public const string AlmacenDevolucionesProveedorRegistrar          = "almacen.devoluciones-proveedor.registrar";
 
     public const string AlmacenInventariosLeer                         = "almacen.inventarios.leer";
@@ -577,6 +583,10 @@ public static class PermisosCanonicos
     public const string ContabilidadRecurrentesLeer                     = "contabilidad.recurrentes.leer";
     public const string ContabilidadRecurrentesAdministrar              = "contabilidad.recurrentes.administrar";
     public const string ContabilidadRecurrentesAutorizar                = "contabilidad.recurrentes.autorizar";
+    // C1.4: motor de pólizas desde eventos (roles de cuenta, plantillas y bandeja de rechazos).
+    public const string ContabilidadMotorLeer                           = "contabilidad.motor.leer";
+    public const string ContabilidadRolesCuentaAdministrar              = "contabilidad.roles-cuenta.administrar";
+    public const string ContabilidadRechazosGestionar                   = "contabilidad.rechazos.gestionar";
 
     public const string ActivosFijosDepreciacionCorrer = "activos_fijos.depreciacion.correr";
     public const string ActivosFijosDepreciacionAnular = "activos_fijos.depreciacion.anular";
@@ -843,6 +853,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000008-0005-0000-0000-000000000002"), AlmacenDevolucionesProveedorAutorizar,       "Autorizar devoluciones a proveedor (Dirección, compartido con cxp.notas-cargo.autorizar)"),
         (Guid.Parse("00000008-0005-0000-0000-000000000003"), AlmacenDevolucionesProveedorRegistrar,       "Registrar la salida física de la devolución a proveedor"),
         (Guid.Parse("00000008-000f-0000-0000-000000000001"), AlmacenCuarentenaDictaminar,                 "Dictaminar material en revisión: liberar, rechazar al proveedor o dar de baja (Gerente de almacén/calidad)"),
+        (Guid.Parse("00000008-0010-0000-0000-000000000001"), AlmacenRecepcionesCancelar,                  "Cancelar con motivo una recepción mal capturada (distinto de quien la registró)"),
         (Guid.Parse("00000008-0006-0000-0000-000000000001"), AlmacenInventariosLeer,                      "Consultar conteos de inventario físico"),
         (Guid.Parse("00000008-0006-0000-0000-000000000002"), AlmacenInventariosCrear,                     "Crear y planificar conteos de inventario (rotativo y anual)"),
         (Guid.Parse("00000008-0006-0000-0000-000000000003"), AlmacenInventariosCapturar,                  "Capturar conteo sin ver cantidad teórica (captura sin sesgo, A6)"),
@@ -883,7 +894,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000009-0006-0000-0000-000000000001"), FacturacionReppEmitir,                  "Emitir complementos de pago (REPP / Pago 2.0)"),
         (Guid.Parse("00000009-0007-0000-0000-000000000001"), FacturacionCancelacionesSolicitar,      "Solicitar la cancelación SAT 4.0 de un comprobante"),
         (Guid.Parse("00000009-0007-0000-0000-000000000002"), FacturacionCancelacionesConsultar,      "Consultar el estatus de las solicitudes de cancelación"),
-        (Guid.Parse("00000009-0008-0000-0000-000000000001"), FacturacionActivosAutorizar,            "Autorizar la venta de activos fijos antes de timbrar (Contador General)"),
+        (Guid.Parse("00000009-0008-0000-0000-000000000001"), FacturacionActivosAutorizar,            "Autorizar la venta de activos fijos antes de timbrar (Director de Administración y Finanzas)"),
         (Guid.Parse("00000009-0009-0000-0000-000000000001"), FacturacionCajaLiquidar,                "Cerrar sesiones de caja (arqueo y liquidación)"),
         (Guid.Parse("00000009-0009-0000-0000-000000000002"), FacturacionCajaAdministrar,             "Administrar cajas: CRUD, alcances (sucursales/canales/usuarios) y alcances administrativos"),
         (Guid.Parse("00000009-0009-0000-0000-000000000003"), FacturacionCajaOperar,                  "Abrir sesión de caja propia, registrar cobros y movimientos, iniciar arqueo"),
@@ -956,6 +967,9 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000d-0006-0000-0000-000000000001"), ContabilidadRecurrentesLeer,            "Consultar plantillas de pólizas recurrentes y su calendario de aplicaciones"),
         (Guid.Parse("0000000d-0006-0000-0000-000000000002"), ContabilidadRecurrentesAdministrar,     "Preparar, editar, suspender y reanudar plantillas recurrentes y generar sus pólizas pendientes"),
         (Guid.Parse("0000000d-0006-0000-0000-000000000003"), ContabilidadRecurrentesAutorizar,       "Activar plantillas recurrentes preparadas por otro usuario"),
+        (Guid.Parse("0000000d-0007-0000-0000-000000000001"), ContabilidadMotorLeer,                  "Consultar los roles de cuenta, las plantillas contables y la bandeja de rechazos del motor de pólizas"),
+        (Guid.Parse("0000000d-0007-0000-0000-000000000002"), ContabilidadRolesCuentaAdministrar,     "Dar de alta roles de cuenta y cambiar la cuenta de un rol (queda en bitácora; solo afecta pólizas nuevas)"),
+        (Guid.Parse("0000000d-0007-0000-0000-000000000003"), ContabilidadRechazosGestionar,          "Reprocesar o descartar (con motivo) los eventos rechazados por el motor de pólizas"),
 
         // CE-01a. Namespace 0000000e, agregado al final para integrar otros PR.
         (Guid.Parse("0000000e-0006-0000-0000-000000000001"), ComercioExteriorGastosRegistrar, "Registrar gastos"),
@@ -994,8 +1008,13 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000f-0001-0000-0000-000000000002"), ActivosFijosActivosVer, "Activos fijos: activos.ver"),
         (Guid.Parse("0000000f-0001-0000-0000-000000000003"), ActivosFijosActivosGestionar, "Activos fijos: activos.gestionar"),
         (Guid.Parse("0000000f-0001-0000-0000-000000000004"), ActivosFijosCapitalizar, "Activos fijos: capitalizar"),
-        (Guid.Parse("0000000f-0001-0000-0000-000000000005"), ActivosFijosTrasladosGestionar, "Activos fijos: traslados.gestionar"),
+        (Guid.Parse("0000000f-0001-0000-0000-000000000005"), ActivosFijosTrasladosGestionar, "Registrar el traslado de un activo a otra ubicación (Contador General)"),
         (Guid.Parse("0000000f-0001-0000-0000-000000000006"), ActivosFijosLeerTodasSucursales, "Activos fijos: activos.leer-todas-sucursales"),
         (Guid.Parse("0000000f-0001-0000-0000-000000000007"), ActivosFijosGestionarTodasSucursales, "Activos fijos: activos.gestionar-todas-sucursales"),
+        (Guid.Parse("00000004-0090-0000-0000-000000000001"), DatosMaestrosClientesCargar, "Cargar desde Excel o CSV: clientes"),
+        (Guid.Parse("00000004-0090-0000-0000-000000000002"), DatosMaestrosArticulosCargar, "Cargar desde Excel o CSV: articulos"),
+        (Guid.Parse("00000004-0090-0000-0000-000000000003"), DatosMaestrosProveedoresCargar, "Cargar desde Excel o CSV: proveedores"),
+        (Guid.Parse("00000004-0090-0000-0000-000000000004"), DatosMaestrosProductosAwFiscalCargar, "Cargar desde Excel o CSV: productos-aw-fiscal"),
+        (Guid.Parse("00000004-0090-0000-0000-000000000005"), CentrosCostoCatalogoCargar, "Cargar desde Excel o CSV: catalogo"),
     };
 }

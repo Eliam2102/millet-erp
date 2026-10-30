@@ -44,6 +44,13 @@ public static class LiberacionesEndpoints
         .WithName("ListarDecisionesLiberacion")
         .Produces<PagedResponse<DecisionLiberacionResponse>>(StatusCodes.Status200OK);
 
+        // C7.3: reglas activas por serie para el preview del panel de decidir.
+        liberaciones.MapGet("/reglas-serie", async (IMediator mediator, CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new ListarReglasLiberacionSerieQuery(), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarLiberacionDecidir)
+        .WithName("ListarReglasLiberacionSerie")
+        .Produces<IReadOnlyList<ReglaLiberacionSerieResponse>>(StatusCodes.Status200OK);
+
         liberaciones.MapGet("/{id:guid}", async (
             Guid id,
             IMediator mediator,
@@ -70,6 +77,51 @@ public static class LiberacionesEndpoints
         .WithName("DecidirLiberacion")
         .Produces<DecisionLiberacionResponse>(StatusCodes.Status201Created)
         .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // C7.3: autorizar una decisión PendienteAutorizacion (cobertura
+        // 50–99 %). Permiso de override; quien registró la pendiente no
+        // puede autorizarla (422) y una pendiente se resuelve una vez (409).
+        // Se recalcula el crédito: la decisión resultante puede ser
+        // Liberado, Retenido o LiberadoConOverride.
+        liberaciones.MapPost("/{id:guid}/autorizar", async (
+            Guid id,
+            [FromBody] AutorizarLiberacionPendienteBody body,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var response = await mediator.Send(
+                new AutorizarLiberacionPendienteCommand(id, body.Motivo), cancellationToken);
+            return Results.Created($"/api/v1/cuentas-por-cobrar/liberaciones/{response.Id}", response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarLiberacionOverride)
+        .WithName("AutorizarLiberacionPendiente")
+        .Produces<DecisionLiberacionResponse>(StatusCodes.Status201Created)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // C7.3: rechazar una decisión PendienteAutorizacion con motivo. Mismo
+        // permiso y validaciones que autorizar; emite una decisión Retenido.
+        liberaciones.MapPost("/{id:guid}/rechazar", async (
+            Guid id,
+            [FromBody] RechazarLiberacionPendienteBody body,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var response = await mediator.Send(
+                new RechazarLiberacionPendienteCommand(id, body.Motivo), cancellationToken);
+            return Results.Created($"/api/v1/cuentas-por-cobrar/liberaciones/{response.Id}", response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarLiberacionOverride)
+        .WithName("RechazarLiberacionPendiente")
+        .Produces<DecisionLiberacionResponse>(StatusCodes.Status201Created)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         // -------- Autorizaciones (overrides consumibles) --------
@@ -137,3 +189,9 @@ public static class LiberacionesEndpoints
         return app;
     }
 }
+
+/// <summary>Body de <c>POST /liberaciones/{id}/autorizar</c> (C7.3).</summary>
+public sealed record AutorizarLiberacionPendienteBody(string Motivo);
+
+/// <summary>Body de <c>POST /liberaciones/{id}/rechazar</c> (C7.3).</summary>
+public sealed record RechazarLiberacionPendienteBody(string Motivo);

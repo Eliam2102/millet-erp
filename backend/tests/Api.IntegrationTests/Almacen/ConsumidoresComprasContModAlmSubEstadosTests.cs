@@ -27,8 +27,8 @@ namespace Millet.Api.IntegrationTests.Almacen;
 /// </list>
 /// Patrón de siembra y ejecución idéntico a <c>ConsumidoresComprasContModAlmTests</c>.
 /// </summary>
+[Collection(ApiCompartida.Nombre)]
 public sealed class ConsumidoresComprasContModAlmSubEstadosTests(WebApplicationFactory<Program> factory)
-    : IClassFixture<WebApplicationFactory<Program>>
 {
     [Fact]
     public async Task M031_variante_B_FacturaPendiente_suma_recibido_y_no_cambia_sub_estado_facturacion()

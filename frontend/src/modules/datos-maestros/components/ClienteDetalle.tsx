@@ -25,6 +25,7 @@ import { esApiError, codigoSoporte } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { ClienteOrigenAwSection } from '@/modules/datos-maestros/components/ClienteOrigenAwSection';
+import { ClienteSaldoGrupoSection } from '@/modules/datos-maestros/components/ClienteSaldoGrupoSection';
 import { ClienteDatosForm } from '@/modules/datos-maestros/components/ClienteDatosForm';
 import {
   EstatusCatalogoBadge,
@@ -177,6 +178,7 @@ export function ClienteDetalle() {
       <div className="space-y-5">
         <ClienteDatosForm cliente={cliente} />
         <ClienteOrigenAwSection cliente={cliente} />
+        <ClienteSaldoGrupoSection clienteId={cliente.id} />
       </div>
 
       <AlertDialog open={confirmDesactivar} onOpenChange={setConfirmDesactivar}>

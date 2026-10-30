@@ -85,24 +85,17 @@ public sealed class FacturasCobrablesPpdHandler
             if (candidatas.Count == 0)
                 break;
 
-            var ids = candidatas.Select(c => c.Id).ToList();
-            var acreditados = await SaldoPorCobrar.AcreditadoPorFacturaAsync(_db, ids, cancellationToken);
-            var pagos = await SaldoPorCobrar.PagosVigentes(_db)
-                .Where(p => ids.Contains(p.FacturaVentaId))
-                .GroupBy(p => p.FacturaVentaId)
-                .Select(g => new { FacturaId = g.Key, Pagado = g.Sum(p => p.ImportePagado), Parcialidades = g.Count() })
-                .ToDictionaryAsync(x => x.FacturaId, cancellationToken);
+            // Mismo cálculo que expone el puerto de parcialidades a CxC (C7.4).
+            var saldos = await SaldoPorCobrar.ParcialidadesAsync(
+                _db, candidatas.Select(c => (c.Id, c.Total)).ToList(), cancellationToken);
 
             resultado.AddRange(candidatas
                 .Select(c =>
                 {
-                    var acreditado = acreditados.GetValueOrDefault(c.Id);
-                    pagos.TryGetValue(c.Id, out var pago);
+                    var s = saldos[c.Id];
                     return new FacturaCobrablePpdItem(
                         c.Id, c.Folio, c.ReceptorRfc, c.ReceptorNombre, c.Moneda, c.Total,
-                        acreditado, pago?.Pagado ?? 0m,
-                        c.Total - acreditado - (pago?.Pagado ?? 0m),
-                        (pago?.Parcialidades ?? 0) + 1,
+                        s.Acreditado, s.Pagado, s.Saldo, s.NumParcialidadSiguiente,
                         c.FechaTimbrado);
                 })
                 .Where(i => i.Saldo > 0)

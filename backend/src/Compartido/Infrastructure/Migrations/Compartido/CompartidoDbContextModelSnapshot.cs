@@ -95,7 +95,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Estatus = (short)0,
-                            Nombre = "Tienda Cancún",
+                            Nombre = "Sucursal Cancún",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1
@@ -107,7 +107,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Estatus = (short)0,
-                            Nombre = "Tienda Circuito",
+                            Nombre = "Sucursal Circuito",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1
@@ -118,7 +118,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Estatus = (short)0,
-                            Nombre = "Tienda Chichí Suárez",
+                            Nombre = "Sucursal Chichí Suárez",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1
@@ -341,6 +341,11 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("smallint")
                         .HasColumnName("estatus");
 
+                    b.Property<string>("Extension")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("extension");
+
                     b.Property<Guid?>("JefeDirectoId")
                         .HasColumnType("uuid")
                         .HasColumnName("jefe_directo_id");
@@ -358,6 +363,11 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                     b.Property<Guid?>("SucursalId")
                         .HasColumnType("uuid")
                         .HasColumnName("sucursal_id");
+
+                    b.Property<string>("Telefono")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("telefono");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -470,6 +480,24 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
                         .HasColumnName("estado");
+
+                    b.Property<DateTimeOffset?>("LogoActualizadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("logo_actualizado_en");
+
+                    b.Property<Guid?>("LogoActualizadoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("logo_actualizado_por");
+
+                    b.Property<string>("LogoBlobRef")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("logo_blob_ref");
+
+                    b.Property<string>("LogoContentType")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("logo_content_type");
 
                     b.Property<Guid?>("MonedaId")
                         .HasColumnType("uuid")
@@ -3977,6 +4005,10 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("numeric(15,4)")
                         .HasColumnName("precio_referencia_monto");
 
+                    b.Property<Guid?>("ProductoAwId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("producto_aw_id");
+
                     b.Property<string>("UnidadMedidaDefault")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -4015,6 +4047,11 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
 
                     b.HasIndex("Naturaleza")
                         .HasDatabaseName("ix_articulos_naturaleza");
+
+                    b.HasIndex("ProductoAwId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_articulos_producto_aw_id")
+                        .HasFilter("producto_aw_id IS NOT NULL");
 
                     b.HasIndex("UnidadMedidaId")
                         .HasDatabaseName("ix_articulos_unidad_medida_id");
@@ -5344,6 +5381,12 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("character varying(254)")
                         .HasColumnName("descripcion");
 
+                    b.Property<bool>("EsServicioRecubrimiento")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("es_servicio_recubrimiento");
+
                     b.Property<short>("EstadoFiscal")
                         .HasColumnType("smallint")
                         .HasColumnName("estado_fiscal");
@@ -5775,16 +5818,40 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("Calle")
+                        .HasMaxLength(254)
+                        .HasColumnType("character varying(254)")
+                        .HasColumnName("calle");
+
+                    b.Property<string>("Ciudad")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("ciudad");
+
                     b.Property<string>("Clave")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
                         .HasColumnName("clave");
 
+                    b.Property<int?>("ClaveAw")
+                        .HasColumnType("integer")
+                        .HasColumnName("clave_aw");
+
                     b.Property<string>("ClaveLegacy")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
                         .HasColumnName("clave_legacy");
+
+                    b.Property<string>("CodigoPostal")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("codigo_postal");
+
+                    b.Property<string>("Colonia")
+                        .HasMaxLength(254)
+                        .HasColumnType("character varying(254)")
+                        .HasColumnName("colonia");
 
                     b.Property<string>("ConceptoRetencion")
                         .HasMaxLength(80)
@@ -5812,6 +5879,11 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("character varying(254)")
                         .HasColumnName("email");
 
+                    b.Property<string>("Estado")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("estado");
+
                     b.Property<short>("Estatus")
                         .HasColumnType("smallint")
                         .HasColumnName("estatus");
@@ -5825,14 +5897,39 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("character varying(500)")
                         .HasColumnName("motivo_rechazo");
 
+                    b.Property<string>("Municipio")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("municipio");
+
                     b.Property<string>("NombreComercial")
                         .HasMaxLength(254)
                         .HasColumnType("character varying(254)")
                         .HasColumnName("nombre_comercial");
 
+                    b.Property<string>("NumeroExterior")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("numero_exterior");
+
+                    b.Property<string>("NumeroInterior")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("numero_interior");
+
                     b.Property<short?>("Origen")
                         .HasColumnType("smallint")
                         .HasColumnName("origen");
+
+                    b.Property<string>("OrigenCarga")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("origen_carga");
+
+                    b.Property<string>("Pais")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("pais");
 
                     b.Property<string>("RazonSocial")
                         .IsRequired()
@@ -5850,6 +5947,11 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasMaxLength(13)
                         .HasColumnType("character varying(13)")
                         .HasColumnName("rfc");
+
+                    b.Property<string>("TaxId")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("tax_id");
 
                     b.Property<string>("Telefono")
                         .HasMaxLength(50)
@@ -5897,6 +5999,11 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .IsUnique()
                         .HasDatabaseName("ix_proveedores_clave");
 
+                    b.HasIndex("ClaveAw")
+                        .IsUnique()
+                        .HasDatabaseName("ux_proveedores_clave_aw")
+                        .HasFilter("clave_aw IS NOT NULL");
+
                     b.HasIndex("Estatus")
                         .HasDatabaseName("ix_proveedores_estatus");
 
@@ -5907,6 +6014,8 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
 
                     b.ToTable("proveedores", "compartido", t =>
                         {
+                            t.HasCheckConstraint("ck_proveedores_clave_aw_positiva", "clave_aw IS NULL OR clave_aw > 0");
+
                             t.HasCheckConstraint("ck_proveedores_condiciones_pago", "condiciones_pago_dias IS NULL OR condiciones_pago_dias BETWEEN 0 AND 365");
 
                             t.HasCheckConstraint("ck_proveedores_estatus", "estatus BETWEEN 0 AND 2");
@@ -7397,6 +7506,12 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasForeignKey("CategoriaId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_articulos_categorias_articulo_categoria_id");
+
+                    b.HasOne("Millet.DatosMaestros.Domain.ProductoAw", null)
+                        .WithMany()
+                        .HasForeignKey("ProductoAwId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_articulos_productos_aw_producto_aw_id");
 
                     b.HasOne("Millet.Catalogos.Domain.UnidadMedida", null)
                         .WithMany()

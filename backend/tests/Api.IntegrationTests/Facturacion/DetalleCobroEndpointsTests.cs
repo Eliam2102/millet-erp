@@ -16,8 +16,8 @@ using Millet.SharedKernel.Application;
 namespace Millet.Api.IntegrationTests.Facturacion;
 
 /// <summary>GET real + handler + PostgreSQL desechable. Todos los datos son ficticios.</summary>
+[Collection(ApiCompartida.Nombre)]
 public sealed class DetalleCobroEndpointsTests(WebApplicationFactory<Program> factory)
-    : IClassFixture<WebApplicationFactory<Program>>
 {
     private static readonly Guid Empresa = Guid.Parse("00000003-0000-0000-0000-000000000001");
     private static readonly DatosFiscalesReceptor Receptor = new("AAA010101AAA", "Cliente ficticio FAC-05", "601", "97000", "G03", "MEX", false);

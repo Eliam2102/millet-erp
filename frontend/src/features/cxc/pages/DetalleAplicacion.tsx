@@ -140,7 +140,11 @@ function Contenido({ p }: { p: PropuestaAplicacionResponse }) {
                   <TableCell className="max-w-56 truncate py-1.5 font-mono text-xs">
                     {f.folio ?? f.facturaUuid}
                     {f.numParcialidad != null && (
-                      <span className="ml-1 text-ink-muted">(parc. {f.numParcialidad})</span>
+                      <span className="ml-1 font-sans text-ink-muted">
+                        Parc. {f.numParcialidad}
+                        {f.saldoInsoluto != null &&
+                          ` · saldo insoluto ${formatoMonto(f.saldoInsoluto, p.moneda)}`}
+                      </span>
                     )}
                   </TableCell>
                   <TableCell className="py-1.5 text-right font-mono tabular-nums">

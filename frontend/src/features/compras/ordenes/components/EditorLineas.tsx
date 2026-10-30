@@ -6,6 +6,7 @@ import {
   TableHead,
   TableCell,
 } from '@/components/ui/table';
+import { textoMedida } from '@/features/almacen/lib/medida-hoja';
 import { useMemo, useState } from 'react';
 import { ConMotivo } from '@/features/compras/components/ConMotivo';
 import { Pencil, Plus, Trash2, Inbox } from 'lucide-react';
@@ -393,6 +394,16 @@ function FilaLinea({
         </div>
         {articuloNombre && (
           <p className="mt-0.5 text-xs text-ink/80 line-clamp-1">{articuloNombre}</p>
+        )}
+        {textoMedida(linea, linea.cantidad) && (
+          <p className="mt-0.5 text-xs text-ink-muted" data-testid="oc-linea-medida">
+            {textoMedida(linea, linea.cantidad)}
+          </p>
+        )}
+        {linea.loteProveedor && (
+          <p className="mt-0.5 text-xs text-ink-muted" data-testid="oc-linea-lote">
+            Lote {linea.loteProveedor}
+          </p>
         )}
         {linea.descripcionExtendida && (
           <p className="mt-1 text-xs text-ink-muted line-clamp-1">{linea.descripcionExtendida}</p>

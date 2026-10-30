@@ -21,7 +21,8 @@ namespace Millet.Api.IntegrationTests.Administracion;
 /// 403 sin cambios en BD; la corporativa con
 /// <c>admin.empleados.gestionar-todas-sucursales</c> sí puede.
 /// </summary>
-public class EmpleadoSucursalScopeTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class EmpleadoSucursalScopeTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string EmpleadosBase = "/api/v1/admin/empleados";

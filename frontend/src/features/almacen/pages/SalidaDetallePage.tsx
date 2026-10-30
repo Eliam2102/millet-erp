@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { ErrorState, DetalleSkeleton } from '@/components/erp';
 import { useSalida } from '@/features/almacen/api/useSalidas';
 import { useValeBlob } from '@/features/almacen/api/useValeBlob';
+import { descargarComprobanteSalida } from '@/features/almacen/api/descargarComprobanteSalida';
 import { type SalidaDetalle } from '@/features/almacen/api/types';
 import { esApiError } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -37,9 +38,6 @@ const FROM = '/_app/almacen/salidas/$id' as const;
  * <c>P4 — Detalle de salida</c> (doc 07 §FE-F3-PR1). Cabecera + líneas.
  * Si la salida es por vale, muestra el botón de regularización (vincular
  * RQ aprobada posterior, A14) cuando aún no se ha regularizado.
- *
- * <para>El comprobante PDF descargable + UI de regularización quedan
- * para iteración posterior (PLATFORM-TODO &lt;ComprobanteSalidaPdf&gt;).</para>
  */
 export function SalidaDetallePage() {
   const { id } = useParams({ from: FROM });
@@ -117,25 +115,11 @@ export function SalidaDetallePage() {
                   ? query.data.subAlmacenClave
                     ? `${query.data.subAlmacenClave} · ${query.data.subAlmacenNombre}`
                     : query.data.subAlmacenNombre
-                  : query.data.subAlmacenId
-              }
-              mono={!query.data.subAlmacenNombre}
-            />
-            <Campo
-              label="Requisición"
-              valor={query.data.rqFolio ?? query.data.rqId ?? '—'}
-              mono={query.data.rqFolio == null && query.data.rqId != null}
-            />
-            <Campo
-              label="Persona destinataria"
-              valor={
-                query.data.personaDestinatariaNombre ?? query.data.personaDestinatariaId ?? '—'
-              }
-              mono={
-                query.data.personaDestinatariaNombre == null &&
-                query.data.personaDestinatariaId != null
+                  : '—'
               }
             />
+            <Campo label="Requisición" valor={query.data.rqFolio ?? '—'} mono={query.data.rqFolio != null} />
+            <Campo label="Persona destinataria" valor={query.data.personaDestinatariaNombre ?? '—'} />
             {query.data.esPorVale && query.data.valeBlobRef && (
               <Campo label="Vale escaneado" valor={query.data.valeBlobRef} mono />
             )}
@@ -148,8 +132,8 @@ export function SalidaDetallePage() {
             {query.data.esPorVale && query.data.rqRegularizadoraId && (
               <Campo
                 label="RQ regularizadora"
-                valor={query.data.rqRegularizadoraFolio ?? query.data.rqRegularizadoraId}
-                mono={query.data.rqRegularizadoraFolio == null}
+                valor={query.data.rqRegularizadoraFolio ?? '—'}
+                mono={query.data.rqRegularizadoraFolio != null}
               />
             )}
             {query.data.observaciones && (
@@ -195,7 +179,7 @@ export function SalidaDetallePage() {
                         </TableCell>
                       ) : (
                         <TableCell className="px-3 py-2 font-mono text-xs">
-                          {l.articuloId}
+                          {l.articuloClave ?? '—'}
                           {l.comentarioLinea && (
                             <div className="font-sans text-xs text-ink-muted">
                               {l.comentarioLinea}
@@ -222,6 +206,11 @@ export function SalidaDetallePage() {
                       </TableCell>
                       <TableCell className="px-3 py-2">
                         {l.unidadMedida}
+                        {l.anchoMm != null && l.altoMm != null && (
+                          <span className="block text-xs tabular-nums text-ink-muted">
+                            Medida {l.anchoMm} × {l.altoMm} mm
+                          </span>
+                        )}
                         {l.unidadCapturada && (
                           <span className="block text-xs text-ink-muted">
                             Captura: {l.cantidadCapturada} {l.unidadCapturada}
@@ -312,9 +301,8 @@ function VerValeButton({ salidaId }: { salidaId: string }) {
 }
 
 /**
- * Botón "Imprimir comprobante" — genera client-side un PDF nativo del
- * comprobante de salida (ADR-0036) y dispara la descarga. Lazy-load
- * de <c>@react-pdf/renderer</c>.
+ * Botón "Imprimir comprobante" — descarga el PDF con el formato M2 de Millet
+ * (SALIDA DE MERCANCIA) que dibuja el backend, para firmarlo a mano.
  */
 function ImprimirComprobanteButton({ salida }: { salida: SalidaDetalle }) {
   const [generando, setGenerando] = useState(false);
@@ -322,15 +310,11 @@ function ImprimirComprobanteButton({ salida }: { salida: SalidaDetalle }) {
   async function imprimir() {
     setGenerando(true);
     try {
-      const { imprimirComprobanteSalida } =
-        await import('@/features/almacen/components/impresion/imprimir-comprobante-salida');
-      await imprimirComprobanteSalida({
-        salida,
-        generadoEn: new Date().toISOString(),
-      });
+      await descargarComprobanteSalida(salida.id, salida.folio);
     } catch (e) {
-      console.error('Error generando comprobante:', e);
-      toast.error('No se pudo generar el comprobante PDF.');
+      toast.error('No se pudo generar el comprobante PDF.', {
+        description: esApiError(e) ? e.problem.detail : 'Reintenta en unos segundos.',
+      });
     } finally {
       setGenerando(false);
     }

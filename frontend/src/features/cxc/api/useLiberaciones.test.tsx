@@ -4,6 +4,7 @@ import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
 import {
+  useAutorizarLiberacionPendiente,
   useAutorizacionesCredito,
   useCancelarAutorizacionCredito,
   useCrearAutorizacionCredito,
@@ -188,5 +189,42 @@ describe('useCancelarAutorizacionCredito', () => {
     expect(result.current.data?.estado).toBe(
       EstadoAutorizacionCredito.Cancelada,
     );
+  });
+});
+
+describe('useAutorizarLiberacionPendiente (C7.3)', () => {
+  it('POST /liberaciones/{id}/autorizar con motivo e Idempotency-Key', async () => {
+    let idem: string | null = null;
+    let body: unknown = null;
+    mswServer.use(
+      http.post(`${BASE}/dl-p/autorizar`, async ({ request }) => {
+        idem = request.headers.get('Idempotency-Key');
+        body = await request.json();
+        return HttpResponse.json(
+          {
+            ...decision,
+            id: 'dl-r',
+            resultado: ResultadoLiberacion.LiberadoConOverride,
+            reglaAplicada: ReglaAplicadaLiberacion.Override,
+            overrideId: 'ac-9',
+            porcentajeCobertura: 66.66,
+            decisionOrigenId: 'dl-p',
+          },
+          { status: 201 },
+        );
+      }),
+    );
+    const { result } = renderHook(() => useAutorizarLiberacionPendiente(), {
+      wrapper: createQueryWrapper(),
+    });
+    result.current.mutate({
+      decisionId: 'dl-p',
+      body: { motivo: 'Pago en tránsito' },
+      idempotencyKey: 'idem-p1',
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(idem).toBe('idem-p1');
+    expect(body).toEqual({ motivo: 'Pago en tránsito' });
+    expect(result.current.data?.decisionOrigenId).toBe('dl-p');
   });
 });

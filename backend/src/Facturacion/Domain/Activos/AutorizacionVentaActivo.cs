@@ -3,10 +3,20 @@ using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Facturacion.Domain.Activos;
 
+/// <summary>Motivos de venta y baja autorizados por Millet.</summary>
+public enum MotivoDisposicionActivo : short
+{
+    Siniestro = 1,
+    Obsolescencia = 2,
+    PremioORifa = 3,
+    Donacion = 4,
+    Venta = 5,
+}
+
 /// <summary>Estado de una <see cref="AutorizacionVentaActivo"/> (§7.8).</summary>
 public enum EstadoAutorizacionActivo : short
 {
-    /// <summary>Autorizada por el Contador General; lista para emitir la factura.</summary>
+    /// <summary>Autorizada por el Director de Administración y Finanzas; lista para emitir la factura.</summary>
     Autorizada = 1,
 
     /// <summary>Consumida por una factura de venta de activo (no reutilizable).</summary>
@@ -17,7 +27,7 @@ public enum EstadoAutorizacionActivo : short
 }
 
 /// <summary>
-/// Autorización del Contador General para vender un activo fijo (§7.8). Es
+/// Autorización del Director de Administración y Finanzas para vender un activo fijo (§7.8). Es
 /// requisito previo a timbrar una factura con comportamiento
 /// <c>VentaActivoFijo</c>. Captura el valor en libros y la depreciación acumulada
 /// (snapshot de Activos Fijos) para calcular la utilidad/pérdida del asiento de
@@ -35,6 +45,10 @@ public sealed class AutorizacionVentaActivo : BaseEntity, IPerteneceAEmpresa, IA
     public bool EsImportacion { get; private set; }
 
     public decimal PrecioVenta { get; private set; }
+
+    public MotivoDisposicionActivo Motivo { get; private set; }
+    public string SolicitadoPor { get; private set; } = string.Empty;
+    public string Evidencia { get; private set; } = string.Empty;
 
     public Guid AutorizadoPor { get; private set; }
     public DateTimeOffset FechaAutorizacion { get; private set; }
@@ -68,24 +82,33 @@ public sealed class AutorizacionVentaActivo : BaseEntity, IPerteneceAEmpresa, IA
 
     public static AutorizacionVentaActivo Crear(
         Guid empresaId, string activoRef, string descripcion, decimal valorEnLibros, decimal depreciacionAcumulada,
-        bool esImportacion, decimal precioVenta, Guid autorizadoPor, DateTimeOffset ahora)
+        bool esImportacion, decimal precioVenta, Guid autorizadoPor, DateTimeOffset ahora,
+        MotivoDisposicionActivo motivo, string solicitadoPor, string evidencia)
     {
         if (string.IsNullOrWhiteSpace(activoRef))
             throw new BusinessRuleException("ACTIVO_REF_INVALIDA", "La referencia del activo es obligatoria.");
         if (precioVenta <= 0)
             throw new BusinessRuleException("ACTIVO_PRECIO_INVALIDO", "El precio de venta debe ser mayor que cero.");
         if (autorizadoPor == Guid.Empty)
-            throw new BusinessRuleException("ACTIVO_AUTORIZADOR_INVALIDO", "Se requiere el usuario autorizador (Contador General).");
+            throw new BusinessRuleException("ACTIVO_AUTORIZADOR_INVALIDO", "Se requiere el usuario autorizador (Director de Administración y Finanzas).");
+
+        if (!Enum.IsDefined(motivo))
+            throw new BusinessRuleException("AF_MOTIVO_REQUERIDO", "Seleccione el motivo de disposición del activo.");
+        if (string.IsNullOrWhiteSpace(solicitadoPor) || solicitadoPor.Length > 200)
+            throw new BusinessRuleException("AF_SOLICITANTE_REQUERIDO", "Capture el área solicitante (máximo 200 caracteres).");
+        if (string.IsNullOrWhiteSpace(evidencia))
+            throw new BusinessRuleException("AF_SOPORTE_REQUERIDO", "Capture la referencia del soporte de la venta.");
 
         return new AutorizacionVentaActivo(Guid.CreateVersion7(), empresaId, activoRef, descripcion,
-            valorEnLibros, depreciacionAcumulada, esImportacion, precioVenta, autorizadoPor, ahora);
+            valorEnLibros, depreciacionAcumulada, esImportacion, precioVenta, autorizadoPor, ahora)
+        { Motivo = motivo, SolicitadoPor = solicitadoPor.Trim(), Evidencia = evidencia.Trim() };
     }
 
     public void ValidarParaTimbrar(decimal precio, DateTimeOffset ahora, Guid? factura = null)
     {
-        if (ahora < FechaAutorizacion || ahora >= FechaAutorizacion.AddDays(30) || precio != PrecioVenta
+        if (precio != PrecioVenta
             || (Estado != EstadoAutorizacionActivo.Autorizada && !(Estado == EstadoAutorizacionActivo.Usada && FacturaVentaId == factura)))
-            throw new BusinessRuleException("AF_NUEVA_AUTORIZACION_REQUERIDA", "La autorización debe tener menos de 30 días y el mismo precio neto MXN; solicite una nueva.");
+            throw new BusinessRuleException("AF_NUEVA_AUTORIZACION_REQUERIDA", "El precio cambió; solicite una nueva autorización.");
     }
 
     /// <summary>Consume la autorización al emitirse la factura (no reutilizable).</summary>

@@ -14,7 +14,8 @@ namespace Millet.Api.IntegrationTests.DatosMaestros;
 /// ADM-06 Entrega D1: lectura de origen A+W en lista y detalle de clientes,
 /// con y sin `origen-ver`, cliente manual sin origenAw y filtros nuevos.
 /// </summary>
-public class ClientesOrigenAwLecturaTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class ClientesOrigenAwLecturaTests
 {
     private static readonly Guid EmpresaBootstrapId = Guid.Parse("00000003-0000-0000-0000-000000000001");
     private readonly WebApplicationFactory<Program> _factory;

@@ -29,6 +29,7 @@ import {
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { formatCantidad } from '@/lib/format-cantidad';
+import { areaHojaDe, textoMedida } from '@/features/almacen/lib/medida-hoja';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { useDecimalesUnidad } from '@/components/erp/forms/useDecimalesUnidad';
 
@@ -253,33 +254,40 @@ export function DevolucionProveedorDetallePage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {query.data.lineas.map((l) => (
-                    <TableRow key={l.id} className="border-t">
-                      <TableCell className="px-3 py-2">{l.posicion}</TableCell>
-                      <TableCell className="px-3 py-2">
-                        {l.articuloClave ? (
-                          <>
-                            <code className="font-mono text-xs">{l.articuloClave}</code>
-                            {l.articuloDescripcion && <> · {l.articuloDescripcion}</>}
-                          </>
-                        ) : (
-                          <code className="font-mono text-xs" title={l.articuloId}>
-                            —
-                          </code>
-                        )}
-                      </TableCell>
-                      <TableCell className="py-2 pl-3 pr-4 text-right tabular-nums">
-                        {formatCantidad(l.cantidad, decimalesUnidad.porCodigo(l.unidadMedida))}
-                      </TableCell>
-                      <TableCell className="px-3 py-2">{l.unidadMedida}</TableCell>
-                      <TableCell className="py-2 pl-3 pr-4 text-right tabular-nums">
-                        <MoneyDisplay amount={l.costoUnitarioMxn} currency="MXN" strong />
-                      </TableCell>
-                      <TableCell className="py-2 pl-3 pr-4 text-right tabular-nums">
-                        <MoneyDisplay amount={l.montoTotalMxn} currency="MXN" strong />
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {query.data.lineas.map((l) => {
+                    const medida = textoMedida(
+                      { ...l, areaHojaM2: areaHojaDe(l.anchoMm, l.altoMm) },
+                      l.cantidad,
+                    );
+                    return (
+                      <TableRow key={l.id} className="border-t">
+                        <TableCell className="px-3 py-2">{l.posicion}</TableCell>
+                        <TableCell className="px-3 py-2">
+                          {l.articuloClave ? (
+                            <>
+                              <code className="font-mono text-xs">{l.articuloClave}</code>
+                              {l.articuloDescripcion && <> · {l.articuloDescripcion}</>}
+                            </>
+                          ) : (
+                            <code className="font-mono text-xs" title={l.articuloId}>
+                              —
+                            </code>
+                          )}
+                          {medida && <div className="text-xs text-ink-muted">{medida}</div>}
+                        </TableCell>
+                        <TableCell className="py-2 pl-3 pr-4 text-right tabular-nums">
+                          {formatCantidad(l.cantidad, decimalesUnidad.porCodigo(l.unidadMedida))}
+                        </TableCell>
+                        <TableCell className="px-3 py-2">{l.unidadMedida}</TableCell>
+                        <TableCell className="py-2 pl-3 pr-4 text-right tabular-nums">
+                          <MoneyDisplay amount={l.costoUnitarioMxn} currency="MXN" strong />
+                        </TableCell>
+                        <TableCell className="py-2 pl-3 pr-4 text-right tabular-nums">
+                          <MoneyDisplay amount={l.montoTotalMxn} currency="MXN" strong />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
