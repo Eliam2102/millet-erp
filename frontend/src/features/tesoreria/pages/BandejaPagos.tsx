@@ -14,6 +14,7 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Banknote, HandCoins } from 'lucide-react';
 import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -277,6 +278,11 @@ export function BandejaPagos() {
                           {p.proveedorRazonSocial ?? p.proveedorId.slice(0, 8)}
                         </p>
                         <p className="font-mono text-xs text-ink-muted">{p.proveedorClave ?? ''}</p>
+                        {p.proveedorBloqueado === true && (
+                          <Badge variant="danger" title={p.proveedorMotivoBloqueo ?? undefined}>
+                            Proveedor bloqueado
+                          </Badge>
+                        )}
                       </TableCell>
                       <TableCell className="px-3 py-2">
                         <p className="font-mono text-xs">

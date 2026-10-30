@@ -41,7 +41,10 @@ public sealed record PasivoPendienteResponse(
     string TipoBeneficiario,
     Guid? BeneficiarioId,
     string OrigenTipo,
-    Guid OrigenId);
+    Guid OrigenId,
+    // 86e3tactf: bloqueo total del proveedor; el pago se rechaza con PROVEEDOR_BLOQUEADO.
+    bool ProveedorBloqueado = false,
+    string? ProveedorMotivoBloqueo = null);
 
 public sealed record BandejaPasivosPendientesQuery(
     Guid? ProveedorId = null,
@@ -171,7 +174,9 @@ public sealed class BandejaPasivosPendientesHandler
                 TipoBeneficiario: p.TipoBeneficiario,
                 BeneficiarioId: p.BeneficiarioId,
                 OrigenTipo: p.OrigenTipo,
-                OrigenId: p.OrigenId);
+                OrigenId: p.OrigenId,
+                ProveedorBloqueado: prov?.Bloqueado ?? false,
+                ProveedorMotivoBloqueo: prov?.MotivoBloqueo);
         }).ToList();
 
         return new PagedResponse<PasivoPendienteResponse>(responses, offset, limit, total);

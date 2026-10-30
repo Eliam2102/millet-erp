@@ -288,6 +288,9 @@ export interface PasivoPendienteResponse {
   proveedorId: string;
   proveedorClave: string | null;
   proveedorRazonSocial: string | null;
+  /** 86e3tactf: bloqueo total; el pago se rechaza con PROVEEDOR_BLOQUEADO. */
+  proveedorBloqueado?: boolean;
+  proveedorMotivoBloqueo?: string | null;
   banco: string | null;
   clabe: string | null;
   beneficiario: string | null;
