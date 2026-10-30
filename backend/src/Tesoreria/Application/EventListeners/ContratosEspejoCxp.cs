@@ -45,7 +45,11 @@ public sealed record PasivoAutorizadoParaPagoPayload(
     string? TipoBeneficiario = null,
     Guid? BeneficiarioId = null,
     string? OrigenTipo = null,
-    Guid? OrigenId = null)
+    Guid? OrigenId = null,
+    // T9.1-A: extensión ADITIVA (desglose del CFDI para bruto/retenciones/neto de la corrida).
+    decimal? Subtotal = null,
+    decimal? ImpuestosTrasladados = null,
+    decimal? Retenciones = null)
 {
     public const string EventType = "cuentas_por_pagar.pasivo.autorizado-para-pago.v1";
 

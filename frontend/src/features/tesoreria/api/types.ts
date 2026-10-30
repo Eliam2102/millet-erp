@@ -511,3 +511,86 @@ export interface ConceptoResponse {
   esEjemplo: boolean;
   version: number;
 }
+
+// ─── Corridas de pago (T9.1-A, 86e3ke5bt) ───────────────────────────
+
+/** El backend serializa el estado de la corrida por nombre (no por el número del mirror de arriba). */
+export type EstadoCorridaNombre =
+  | 'Borrador'
+  | 'EnAutorizacion'
+  | 'Autorizada'
+  | 'Ejecutada'
+  | 'Cerrada'
+  | 'Rechazada'
+  | 'Cancelada';
+
+/** Mirror de `PasivoParaCorridaResponse` (GET /tesoreria/corridas/candidatos). */
+export interface PasivoParaCorridaResponse {
+  facturaProveedorId: string;
+  proveedorId: string;
+  proveedorRazonSocial: string | null;
+  folioProveedor: string | null;
+  fechaVencimiento: string;
+  moneda: string;
+  bruto: number;
+  retenciones: number;
+  neto: number;
+  cuentaValidada: boolean;
+}
+
+export interface CorridaProveedorResponse {
+  proveedorId: string;
+  proveedorRazonSocial: string | null;
+  facturas: number;
+  bruto: number;
+  retenciones: number;
+  neto: number;
+}
+
+export interface CorridaLineaResponse {
+  facturaProveedorId: string;
+  proveedorId: string;
+  folioProveedor: string | null;
+  fechaVencimiento: string | null;
+  bruto: number;
+  retenciones: number;
+  neto: number;
+  ejecutada: boolean;
+}
+
+export interface CorridaResumenResponse {
+  id: string;
+  nombre: string;
+  estado: EstadoCorridaNombre;
+  moneda: string;
+  total: number;
+  pasivos: number;
+  firmasRequeridas: number;
+  firmasRecibidas: number;
+  creadaEn: string;
+  version: number;
+}
+
+export interface CorridaResponse {
+  id: string;
+  nombre: string;
+  estado: EstadoCorridaNombre;
+  moneda: string;
+  cuentaBancariaId: string;
+  bruto: number;
+  retenciones: number;
+  total: number;
+  solicitadaPor: string;
+  autorizadaPor: string | null;
+  autorizadaEn: string | null;
+  creadaEn: string;
+  firmasRequeridas: number;
+  firmasRecibidas: number;
+  rolRequerido: string | null;
+  motivoCierre: string | null;
+  avisos: string | null;
+  version: number;
+  proveedores: CorridaProveedorResponse[];
+  lineas: CorridaLineaResponse[];
+  firmas: { usuarioId: string; roles: string; firmadaEn: string }[];
+}

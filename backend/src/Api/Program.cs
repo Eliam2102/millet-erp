@@ -1855,6 +1855,9 @@ Millet.Api.Endpoints.Tesoreria.PasivosEndpoints.MapTesoreriaPasivosEndpoints(app
 // === Tesorería — Pago a proveedor + reversa (TES-PR4, contrato congelado) ===
 Millet.Api.Endpoints.Tesoreria.PagosEndpoints.MapTesoreriaPagosEndpoints(app);
 
+// === Tesorería — Corrida de pagos, Parte A: armar y autorizar (T9.1, 86e3ke5bt) ===
+Millet.Api.Endpoints.Tesoreria.CorridasEndpoints.MapTesoreriaCorridasEndpoints(app);
+
 // === Tesorería — Pago a cuenta: gate RN-2 + liga tardía (TES-PR6) ===
 Millet.Api.Endpoints.Tesoreria.PagosACuentaEndpoints.MapTesoreriaPagosACuentaEndpoints(app);
 
