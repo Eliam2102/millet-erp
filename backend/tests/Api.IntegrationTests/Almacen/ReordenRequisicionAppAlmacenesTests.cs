@@ -24,7 +24,9 @@ public class ReordenRequisicionAppAlmacenesTests
         var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
         var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
         var empresa = Guid.NewGuid(); var suc = Guid.NewGuid(); var alm = Guid.NewGuid();
-        var sub = Guid.NewGuid(); var ubic = Guid.NewGuid(); var art = Guid.NewGuid(); var rq = Guid.NewGuid();
+        // Usar artículo estándar sembrado (ART-EST-01) con unidad base PZA para que la conversión de unidad resuelva en catálogo.
+        var art = Guid.Parse("00000005-0002-0000-0000-000000000001");
+        var sub = Guid.NewGuid(); var ubic = Guid.NewGuid(); var rq = Guid.NewGuid();
         var clave = $"T{Guid.NewGuid():N}"[..8];
         try
         {
