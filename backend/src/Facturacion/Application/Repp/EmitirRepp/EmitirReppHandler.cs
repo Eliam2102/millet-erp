@@ -57,6 +57,17 @@ public sealed class EmitirReppHandler : IRequestHandler<EmitirReppCommand, Emiti
 
     public async Task<EmitirReppResponse> Handle(EmitirReppCommand command, CancellationToken cancellationToken)
     {
+        // FAC-03: el bloqueo por factura solo sirve dentro de una transacción; la bandeja ya abre la
+        // suya, «Nuevo REPP» no. Se abre aquí si no hay (se confirma al final; si falla, se revierte).
+        await using var tx = _db.Database.IsRelational() && _db.Database.CurrentTransaction is null
+            ? await _db.Database.BeginTransactionAsync(cancellationToken) : null;
+        var respuesta = await EmitirAsync(command, cancellationToken);
+        if (tx is not null) await tx.CommitAsync(cancellationToken);
+        return respuesta;
+    }
+
+    private async Task<EmitirReppResponse> EmitirAsync(EmitirReppCommand command, CancellationToken cancellationToken)
+    {
         // El claim del request gana; command.EmpresaId solo aplica en
         // invocaciones internas sin HTTP; Tesorería solo crea pendientes.
         if ((_empresa.Current ?? command.EmpresaId) is not Guid empresaId)
@@ -80,6 +91,10 @@ public sealed class EmitirReppHandler : IRequestHandler<EmitirReppCommand, Emiti
 
         // Cargar y validar las facturas cubiertas (timbradas, PPD, mismo cliente).
         var ids = command.Facturas.Select(f => f.FacturaVentaId).ToList();
+        // FAC-03: mismo bloqueo por factura (en orden) que la bandeja, antes de leer saldo y parcialidad.
+        if (_db.Database.IsRelational())
+            foreach (var facturaId in ids.Distinct().Order())
+                await _db.Database.SqlQuery<Guid>($"SELECT id AS \"Value\" FROM facturacion.comprobante WHERE id = {facturaId} AND empresa_id = {empresaId} FOR UPDATE").ToListAsync(cancellationToken);
         var facturas = await _db.FacturasVenta
             .Include(f => f.Lineas) // ImpuestosDR del complemento de pago se arma desde las líneas
             .Where(f => ids.Contains(f.Id))
