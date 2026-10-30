@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Millet.Facturacion.Application.Cajas.Alcance;
 using Millet.Facturacion.Application.Comprobantes.Pdf;
 using Millet.Facturacion.Domain.Anticipos;
+using DominioCartaPorte = Millet.Facturacion.Domain.CartaPorte;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Domain.Facturas;
 using Millet.Facturacion.Domain.NotasCredito;
@@ -16,8 +17,8 @@ namespace Millet.Facturacion.Application.Comprobantes.Queries;
 /// PDF de un <see cref="Comprobante"/> (13-B/13-C — generaliza la query de
 /// facturas de venta): factura de venta (bilingüe o térmica), factura de
 /// anticipo y nota de crédito (bilingüe de concepto único; el formato se
-/// ignora). REPP y carta porte no tienen representación PDF propia →
-/// 422 <c>PDF_NO_SOPORTADO</c>. Aplica alcance de cajas y familia esperada,
+/// ignora) y Carta Porte con el diseño de la factura (86e3tfdx0). El REPP no
+/// tiene representación PDF propia → 422 <c>PDF_NO_SOPORTADO</c>. Aplica alcance de cajas y familia esperada,
 /// igual que <see cref="ComprobanteXmlQuery"/>.
 /// </summary>
 public sealed record ComprobantePdfQuery(
@@ -75,6 +76,19 @@ public sealed class ComprobantePdfHandler : IRequestHandler<ComprobantePdfQuery,
                     .Include(n => n.Relaciones)
                     .FirstAsync(n => n.Id == query.ComprobanteId, cancellationToken);
                 return _pdf.Generar(CfdiPdfModelBuilder.DesdeNotaCredito(nc, await DatosAsync(nc, cancellationToken)));
+
+            case DominioCartaPorte.CartaPorte:
+                var cp = await _db.CartasPorte.AsNoTracking()
+                    .Include(x => x.Mercancias)
+                    .Include(x => x.Relaciones)
+                    .FirstAsync(x => x.Id == query.ComprobanteId, cancellationToken);
+                // Catálogos sin filtro de activos: un vehículo u operador dado de baja sigue en su Carta Porte.
+                var vehiculo = await _db.Vehiculos.AsNoTracking().FirstOrDefaultAsync(v => v.Id == cp.VehiculoId, cancellationToken);
+                var operador = await _db.Operadores.AsNoTracking().FirstOrDefaultAsync(o => o.Id == cp.OperadorId, cancellationToken);
+                var previa = cp.CartaPortePreviaId is { } previaId
+                    ? await _db.CartasPorte.AsNoTracking().Where(x => x.Id == previaId).Select(x => x.Folio).FirstOrDefaultAsync(cancellationToken)
+                    : null;
+                return _pdf.Generar(CfdiPdfModelBuilder.DesdeCartaPorte(cp, vehiculo, operador, await DatosAsync(cp, cancellationToken), previa));
 
             default:
                 throw new BusinessRuleException(

@@ -2,7 +2,7 @@ namespace Millet.Facturacion.Domain.Ports;
 
 /// <summary>
 /// Modelo de impresión del CFDI con el formato de Millet (FMT-4, 86e3ukucq):
-/// factura de venta, factura de anticipo y nota de crédito. Lo arma
+/// factura de venta, factura de anticipo, nota de crédito y Carta Porte (86e3tfdx0). Lo arma
 /// <c>CfdiPdfModelBuilder</c> desde la entidad y los <see cref="DatosImpresionCfdi"/>;
 /// la plantilla QuestPDF solo lo presenta y nunca toca entidades ni la base.
 /// </summary>
@@ -26,13 +26,15 @@ public sealed record CfdiPdfModel(
     PagoPdf Pago,
     IReadOnlyList<CfdiRelacionadoPdf> Relacionados,
     TimbrePdf? Timbre,
-    string NombreArchivo);
+    string NombreArchivo,
+    CartaPortePdf? CartaPorte = null);
 
 public enum TipoDocumentoPdf
 {
     Factura = 1,
     Anticipo = 2,
     NotaCredito = 3,
+    CartaPorte = 5,
 }
 
 /// <summary>Emisor con domicilio en líneas y logo (FMT-1a). Sin logo, la plantilla imprime la razón social.</summary>
@@ -90,6 +92,33 @@ public sealed record MontoEnLetraPdf(string Es, string En);
 public sealed record PagoPdf(string UsoCfdi, string MetodoPago, string FormaPago);
 
 public sealed record CfdiRelacionadoPdf(string Uuid, string TipoRelacion);
+
+/// <summary>
+/// Complemento Carta Porte 3.1 impreso (86e3tfdx0): tramo, autotransporte, figura de
+/// transporte y mercancías, con los mismos datos que lleva el XML.
+/// </summary>
+public sealed record CartaPortePdf(
+    UbicacionPdf Origen,
+    UbicacionPdf Destino,
+    decimal DistanciaKm,
+    VehiculoPdf? Vehiculo,
+    OperadorPdf? Operador,
+    IReadOnlyList<MercanciaPdf> Mercancias,
+    decimal PesoBrutoTotalKg,
+    string? CartaPortePreviaFolio);
+
+/// <param name="Fecha">Salida en el origen, llegada estimada en el destino (hora fiscal de México).</param>
+public sealed record UbicacionPdf(string Nombre, string? CodigoPostal, string? Estado, DateTimeOffset Fecha);
+
+/// <param name="PesoBrutoToneladas">Peso bruto vehicular (toneladas), como en el nodo Autotransporte.</param>
+public sealed record VehiculoPdf(
+    string Placa, string ConfigVehicular, int AnioModelo, decimal? PesoBrutoToneladas,
+    string? TipoPermisoSct, string? NumPermisoSct, string? Aseguradora, string? PolizaSeguro);
+
+public sealed record OperadorPdf(string Nombre, string Rfc, string NumLicencia);
+
+public sealed record MercanciaPdf(
+    string BienesTransp, string Descripcion, decimal Cantidad, string ClaveUnidad, decimal PesoKg, bool MaterialPeligroso);
 
 /// <summary>Sellos y cadena del TFD. <c>UrlQr</c> es null si el sello no permite armar el QR (timbrado stub).</summary>
 public sealed record TimbrePdf(string SelloCfdi, string SelloSat, string CadenaOriginal, string? UrlQr);

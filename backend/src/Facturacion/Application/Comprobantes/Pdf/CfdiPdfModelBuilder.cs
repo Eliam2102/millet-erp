@@ -1,9 +1,11 @@
 using Millet.Documentos;
+using Millet.Facturacion.Application.Timbrado;
 using Millet.Facturacion.Domain.Anticipos;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Domain.Facturas;
 using Millet.Facturacion.Domain.NotasCredito;
 using Millet.Facturacion.Domain.Ports;
+using DominioCartaPorte = Millet.Facturacion.Domain.CartaPorte;
 
 namespace Millet.Facturacion.Application.Comprobantes.Pdf;
 
@@ -86,17 +88,53 @@ public static class CfdiPdfModelBuilder
             relaciones: Relacionados(nc));
     }
 
+    /// <summary>
+    /// Carta Porte 3.1 (86e3tfdx0) con el diseño de la factura de Millet, que no tiene plantilla propia.
+    /// Los conceptos son los mismos del XML (<see cref="CfdiEmisionBuilder.DesdeCartaPorte"/>): en tipo T
+    /// las mercancías con valor 0; en tipo I el servicio de transporte. Vehículo u operador ausentes del
+    /// catálogo imprimen el tramo sin ellos.
+    /// </summary>
+    public static CfdiPdfModel DesdeCartaPorte(
+        DominioCartaPorte.CartaPorte cp, DominioCartaPorte.Vehiculo? vehiculo, DominioCartaPorte.Operador? operador,
+        DatosImpresionCfdi? datos, string? folioCartaPortePrevia = null)
+    {
+        ArgumentNullException.ThrowIfNull(cp);
+        var mercancias = cp.Mercancias.ToList();
+        var traslado = cp.Tipo == TipoComprobante.Traslado;
+
+        IReadOnlyList<ConceptoPdf> conceptos = traslado
+            ? mercancias.Select(x => new ConceptoPdf(null, x.BienesTransp, x.Descripcion, null, x.Cantidad, x.ClaveUnidad, 0, 0, 0)).ToList()
+            : [ConceptoUnico(cp, "78101800", "Servicio de transporte de carga", "E48")];
+
+        var complemento = new CartaPortePdf(
+            new UbicacionPdf(cp.Origen, cp.OrigenCodigoPostal, cp.OrigenEstado, CfdiEmisionBuilder.FechaFiscal(cp.FechaSalida)),
+            new UbicacionPdf(cp.Destino, cp.DestinoCodigoPostal, cp.DestinoEstado, CfdiEmisionBuilder.FechaFiscal(cp.FechaLlegadaEstimada)),
+            cp.DistanciaKm,
+            vehiculo is null ? null : new VehiculoPdf(vehiculo.Placa, vehiculo.ConfigVehicular, vehiculo.AnioModelo,
+                vehiculo.PesoBrutoVehicular, vehiculo.TipoPermisoSct, vehiculo.NumPermisoSct, vehiculo.Aseguradora, vehiculo.PolizaSeguro),
+            operador is null ? null : new OperadorPdf(operador.Nombre, operador.Rfc, operador.NumLicencia),
+            mercancias.Select(x => new MercanciaPdf(x.BienesTransp, x.Descripcion, x.Cantidad, x.ClaveUnidad, x.PesoEnKg, x.MaterialPeligroso)).ToList(),
+            mercancias.Sum(x => x.PesoEnKg),
+            folioCartaPortePrevia);
+
+        return Armar(cp, datos ?? DatosImpresionCfdi.Vacio, TipoDocumentoPdf.CartaPorte, "CARTA PORTE", "WAYBILL", "carta-porte",
+            conceptos, traslado ? [] : [IvaUnico(cp)],
+            new TotalesFisicosPdf(complemento.PesoBrutoTotalKg, null, mercancias.Sum(x => x.Cantidad)),
+            comentarios: null, ordenCompra: null, referencia: null, condiciones: null, relaciones: Relacionados(cp),
+            cartaPorte: complemento);
+    }
+
     private static CfdiPdfModel Armar(
         Comprobante c, DatosImpresionCfdi datos, TipoDocumentoPdf tipo, string tituloEs, string tituloEn, string prefijoArchivo,
         IReadOnlyList<ConceptoPdf> conceptos, IReadOnlyList<ImpuestoResumenPdf> impuestos, TotalesFisicosPdf fisicos,
         string? comentarios, string? ordenCompra, string? referencia, string? condiciones,
-        IReadOnlyList<CfdiRelacionadoPdf> relaciones)
+        IReadOnlyList<CfdiRelacionadoPdf> relaciones, CartaPortePdf? cartaPorte = null)
     {
         var (serie, folio) = SepararFolio(c.Folio);
         return new CfdiPdfModel(
             tipo, tituloEs, tituloEn, serie, folio,
             c.FechaTimbrado ?? c.CreatedAt,
-            c.Tipo == TipoComprobante.Egreso ? "Egreso" : "Ingreso",
+            c.Tipo switch { TipoComprobante.Egreso => "Egreso", TipoComprobante.Traslado => "Traslado", _ => "Ingreso" },
             new EmisorPdf(c.NombreEmisor, datos.NombreComercial, c.RfcEmisor,
                 ConDescripcion(c.RegimenFiscalEmisor, datos.Regimenes), datos.DomicilioLineas, datos.Logo),
             new ReceptorPdf(c.ReceptorNombre, c.ReceptorRfc, c.ReceptorCodigoPostal,
@@ -110,7 +148,8 @@ public static class CfdiPdfModelBuilder
                 ConDescripcion(c.MetodoPago, MetodosPago), ConDescripcion(c.FormaPago, datos.FormasPago)),
             relaciones,
             Timbre(c),
-            tipo == TipoDocumentoPdf.Factura ? $"{prefijoArchivo}-{c.Folio}-bilingue.pdf" : $"{prefijoArchivo}-{c.Folio}.pdf");
+            tipo == TipoDocumentoPdf.Factura ? $"{prefijoArchivo}-{c.Folio}-bilingue.pdf" : $"{prefijoArchivo}-{c.Folio}.pdf",
+            cartaPorte);
     }
 
     private static List<CfdiRelacionadoPdf> Relacionados(Comprobante c) =>
