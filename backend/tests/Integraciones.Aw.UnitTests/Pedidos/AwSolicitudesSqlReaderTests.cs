@@ -24,7 +24,7 @@ public class AwSolicitudesSqlReaderTests
     private static readonly Guid SucursalId =
         Guid.Parse("00000000-0000-0000-0000-00000000c1c0");
 
-    // Canal ya resuelto por el caller (2 = "Tienda Circuito" del seed).
+    // Canal ya resuelto por el caller (2 = "Sucursal Circuito" del seed).
     private const short CanalVentaId = 2;
 
     // Override operativo de clase (escape hatch); el camino por defecto es
@@ -66,7 +66,7 @@ public class AwSolicitudesSqlReaderTests
         IvaPorcentaje: ivaPorcentaje,
         Ranura: ranura);
 
-    private static LineaRow Linea(int posicion = 1, bool? requierePedimento = null) => new(
+    private static LineaRow Linea(int posicion = 1) => new(
         NumeroPosicion: posicion,
         ProductoRef: "5137",
         Descripcion: "VIDRIO CLARO 6MM",
@@ -80,8 +80,7 @@ public class AwSolicitudesSqlReaderTests
         AlmacenNivel2: "PISO",
         AlmacenNivel3: null,
         AlmacenNivel4: null,
-        AlmacenIdUbicacion: 42,
-        RequierePedimento: requierePedimento);
+        AlmacenIdUbicacion: 42);
 
     /// <summary>
     /// Shim sobre <see cref="AwSolicitudesSqlReader.Construir"/> (que desde
@@ -145,15 +144,6 @@ public class AwSolicitudesSqlReaderTests
         Assert.Equal(1, payload.RootElement.GetProperty("componentes").GetArrayLength());
     }
 
-    [Fact]
-    public void Construir_RequierePedimentoTrue_SePropaga()
-    {
-        var datos = Construir(
-            Cabecera(), new[] { Linea(1, requierePedimento: true) },
-            Array.Empty<ComponenteRow>(), SucursalId, CanalVentaId, OpcionesCompletas(), NullLogger.Instance);
-
-        Assert.True(datos!.Lineas[0].RequierePedimento);
-    }
 
     // ------------------------------------------------------------------
     // IVA de documento + bruto→neto (FAC-DET-PR2)

@@ -158,6 +158,7 @@ public sealed class AltaColaboradorHandler
     private readonly IAuditLogWriter _auditWriter;
     private readonly ICurrentUserContext _currentUser;
     private readonly ICurrentEmpresaContext _empresaContext;
+    private readonly GrupoAccesoErpSincronizador _grupoAcceso;
 
     public AltaColaboradorHandler(
         IMediator mediator,
@@ -169,8 +170,10 @@ public sealed class AltaColaboradorHandler
         IAuditCorrelationContext correlacion,
         IAuditLogWriter auditWriter,
         ICurrentUserContext currentUser,
-        ICurrentEmpresaContext empresaContext)
+        ICurrentEmpresaContext empresaContext,
+        GrupoAccesoErpSincronizador grupoAcceso)
     {
+        _grupoAcceso = grupoAcceso;
         _mediator = mediator;
         _identidad = identidad;
         _compartido = compartido;
@@ -350,6 +353,10 @@ public sealed class AltaColaboradorHandler
             metadatos: JsonSerializer.Serialize(metadatosObj),
             cancellationToken: cancellationToken);
 
+        // Fuera de la transacción: Graph no participa del commit (86e3x6cpw, B2).
+        if (response.Acceso is { } acceso)
+            await _grupoAcceso.SincronizarAsync(acceso.UsuarioId, cancellationToken);
+
         return response;
     }
 
@@ -406,29 +413,11 @@ public sealed class AltaColaboradorHandler
 
     /// <summary>
     /// Vuelve a validar el correo contra el directorio (no se confía en la
-    /// validación en línea del wizard).
+    /// validación en línea del wizard). Una cuenta existente no exige dominio
+    /// permitido (fix PR #270).
     /// </summary>
-    private async Task<CuentaEntra> ResolverCuentaEntraAsync(string correo, CancellationToken ct)
-    {
-        if (!_entraOptions.CurrentValue.PermiteCorreo(correo))
-        {
-            throw new BusinessRuleException(
-                "ENTRA_DOMINIO_NO_PERMITIDO",
-                $"El dominio de '{correo}' no está permitido para cuentas corporativas.");
-        }
-
-        var cuenta = await _directorio.BuscarPorCorreoAsync(correo, ct)
-            ?? throw new BusinessRuleException(
-                "ENTRA_CUENTA_NO_ENCONTRADA",
-                $"No existe una cuenta Microsoft con el correo '{correo}'.");
-        if (!cuenta.Habilitada)
-        {
-            throw new BusinessRuleException(
-                "ENTRA_CUENTA_DESHABILITADA",
-                $"La cuenta Microsoft '{correo}' está deshabilitada.");
-        }
-        return cuenta;
-    }
+    private Task<CuentaEntra> ResolverCuentaEntraAsync(string correo, CancellationToken ct) =>
+        CuentaExistenteColaborador.ResolverAsync(correo, _directorio, _identidad, _entraOptions.CurrentValue, ct);
 
     /// <summary>
     /// Usuario del ERP con ese correo o con el OID de la cuenta, si se puede

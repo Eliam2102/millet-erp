@@ -345,6 +345,7 @@ function buildListarProveedoresPath(
   filtros: ListarProveedoresFiltros,
 ): string {
   const params = new URLSearchParams();
+  if (filtros.soloExpedienteIncompleto) params.set('soloExpedienteIncompleto', 'true');
   if (filtros.q != null && filtros.q.length > 0) params.set('q', filtros.q);
   if (filtros.rfc != null && filtros.rfc.length > 0)
     params.set('rfc', filtros.rfc);
@@ -394,5 +395,18 @@ export function useActualizarClasificacionFiscalProveedor() {
     onSuccess: (_data, vars) => queryClient.invalidateQueries({
       queryKey: datosMaestrosKeys.proveedor(vars.id),
     }),
+  });
+}
+
+export function useReactivarProveedor() {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, { id: string; idempotencyKey: string }>({
+    mutationFn: async ({ id, idempotencyKey }) => {
+      await apiRequest<void>(`/api/v1/catalogos/proveedores/${id}/reactivar`, { method: 'POST', idempotencyKey });
+    },
+    onSuccess: (_data, vars) => {
+      void queryClient.invalidateQueries({ queryKey: datosMaestrosKeys.proveedores() });
+      void queryClient.invalidateQueries({ queryKey: datosMaestrosKeys.proveedor(vars.id) });
+    },
   });
 }

@@ -216,6 +216,7 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                 "Administrador de Catálogos",
                 "CRUD de catálogos cross-empresa (monedas, condiciones, SAT, etc.).",
                 p => p.Codigo.StartsWith("compartido.catalogos", StringComparison.Ordinal)
+                     || p.Codigo is PermisosCanonicos.DatosMaestrosArticulosCargar or PermisosCanonicos.DatosMaestrosProveedoresCargar
                      || p.Codigo.StartsWith("catalogos.", StringComparison.Ordinal)
             ),
             (

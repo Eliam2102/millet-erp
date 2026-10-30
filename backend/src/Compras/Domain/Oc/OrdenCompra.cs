@@ -717,7 +717,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         Guid? centroCostoId = null,
         string? fraccionArancelaria = null,
         bool esActivoFijo = false, Guid? claseActivoId = null,
-        Guid? productoAwVarianteId = null, decimal? anchoMm = null, decimal? altoMm = null)
+        Guid? productoAwVarianteId = null, decimal? anchoMm = null, decimal? altoMm = null,
+        string? loteProveedor = null)
     {
         if (!EstadosEditables.Contains(Estado))
         {
@@ -757,7 +758,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             textoAdicional: textoAdicional,
             esServicio: esServicio,
             fraccionArancelaria: fraccionArancelaria,
-            productoAwVarianteId: productoAwVarianteId, anchoMm: anchoMm, altoMm: altoMm);
+            productoAwVarianteId: productoAwVarianteId, anchoMm: anchoMm, altoMm: altoMm,
+            loteProveedor: loteProveedor);
 
         linea.ClasificarActivo(esActivoFijo, claseActivoId);
         _lineas.Add(linea);
@@ -880,7 +882,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         bool limpiarFraccionArancelaria = false,
         bool? esActivoFijo = null,
         Guid? claseActivoId = null,
-        Guid? productoAwVarianteId = null, decimal? anchoMm = null, decimal? altoMm = null)
+        Guid? productoAwVarianteId = null, decimal? anchoMm = null, decimal? altoMm = null,
+        string? loteProveedor = null, bool limpiarLoteProveedor = false)
     {
         if (!EstadosEditables.Contains(Estado))
         {
@@ -898,7 +901,7 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             fechaEntregaLinea, limpiarDescripcionExtendida,
             limpiarFechaEntregaLinea, esServicio, centroCostoId,
             fraccionArancelaria, limpiarFraccionArancelaria, esActivoFijo, claseActivoId,
-            productoAwVarianteId, anchoMm, altoMm);
+            productoAwVarianteId, anchoMm, altoMm, loteProveedor, limpiarLoteProveedor);
     }
 
     /// <summary>

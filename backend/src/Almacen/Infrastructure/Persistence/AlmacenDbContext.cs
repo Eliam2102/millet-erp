@@ -93,6 +93,9 @@ public class AlmacenDbContext : BaseDbContext
     /// <summary>F3-PR1: dedupe de eventos cross-módulo (A12).</summary>
     public DbSet<EventoProcesado> EventosProcesados => Set<EventoProcesado>();
 
+    /// <summary>ALM-APP-2: mensajes recibidos de la app de Almacenes (idempotencia por mensajeId).</summary>
+    public DbSet<MensajeApp> MensajesApp => Set<MensajeApp>();
+
     /// <summary>F6-PR1: devoluciones a proveedor (sub-flujo 8.B).</summary>
     public DbSet<Domain.Revision.DictamenRevision> DictamenesRevision => Set<Domain.Revision.DictamenRevision>();
     public DbSet<DevolucionAProveedor> DevolucionesProveedor => Set<DevolucionAProveedor>();
@@ -166,6 +169,7 @@ public class AlmacenDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new SaldoInventarioConfiguration());
         modelBuilder.ApplyConfiguration(new FolioSecuenciaMovimientoConfiguration());
         modelBuilder.ApplyConfiguration(new EventoProcesadoConfiguration());
+        modelBuilder.ApplyConfiguration(new MensajeAppConfiguration());
         modelBuilder.ApplyConfiguration(new DevolucionAProveedorConfiguration());
         modelBuilder.ApplyConfiguration(new LineaDevolucionProveedorConfiguration());
         modelBuilder.ApplyConfiguration(new EvidenciaDevolucionProveedorConfiguration());

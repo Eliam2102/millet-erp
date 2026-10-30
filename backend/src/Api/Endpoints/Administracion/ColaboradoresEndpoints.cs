@@ -78,6 +78,51 @@ public static class ColaboradoresEndpoints
         .ProducesProblem(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        // === Cuentas Microsoft sin empleado (86e3x6cpw, contrato 1 y 2) ===
+
+        group.MapGet("/cuentas-sin-empleado", async (
+            [FromQuery] string? buscar,
+            [FromQuery] int? limit,
+            IMediator mediator,
+            IAuthorizationService authorization,
+            HttpContext httpContext,
+            ICurrentUserContext currentUser,
+            ICurrentUserPermissions permisos,
+            IUsuarioSucursalReadPort usuarioSucursales,
+            CancellationToken ct) =>
+        {
+            if (!await TienePermisoAsync(authorization, httpContext, PermisosCanonicos.IdentidadUsuariosCrear))
+                return Results.Forbid();
+            // La cuenta aún no tiene sucursal: sólo la ve el perfil corporativo (ADR-0051).
+            if (!await EmpleadoSucursalScope.EsCorporativoAsync(currentUser, permisos, usuarioSucursales, ct))
+                return Results.Forbid();
+            return Results.Ok(await mediator.Send(new ListarCuentasSinEmpleadoQuery(buscar, limit ?? 50), ct));
+        })
+        .WithName("ListarCuentasSinEmpleado")
+        .WithSummary("Cuentas Microsoft que todavía no son empleados")
+        .Produces<CuentasSinEmpleadoResponse>()
+        .ProducesProblem(StatusCodes.Status403Forbidden);
+
+        group.MapGet("/por-usuario/{usuarioId:guid}", async (
+            Guid usuarioId,
+            IMediator mediator,
+            CompartidoDbContext db,
+            ICurrentUserContext currentUser,
+            ICurrentUserPermissions permisos,
+            IUsuarioSucursalReadPort usuarioSucursales,
+            CancellationToken ct) =>
+        {
+            var response = await mediator.Send(new ObtenerEmpleadoPorUsuarioQuery(usuarioId), ct);
+            await EmpleadoSucursalScope.VerificarEmpleadoAsync(
+                response.EmpleadoId, db, currentUser, permisos, usuarioSucursales, ct);
+            return Results.Ok(response);
+        })
+        .WithName("ObtenerEmpleadoPorUsuario")
+        .WithSummary("Empleado ligado a una cuenta del ERP")
+        .Produces<EmpleadoPorUsuarioResponse>()
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
         // === Acceso del colaborador (F4) ===
 
         group.MapPost("/{empleadoId:guid}/acceso", async (

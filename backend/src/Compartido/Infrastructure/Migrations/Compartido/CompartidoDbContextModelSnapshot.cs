@@ -95,7 +95,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Estatus = (short)0,
-                            Nombre = "Tienda Cancún",
+                            Nombre = "Sucursal Cancún",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1
@@ -107,7 +107,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Estatus = (short)0,
-                            Nombre = "Tienda Circuito",
+                            Nombre = "Sucursal Circuito",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1
@@ -118,7 +118,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Estatus = (short)0,
-                            Nombre = "Tienda Chichí Suárez",
+                            Nombre = "Sucursal Chichí Suárez",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1
@@ -5381,6 +5381,12 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("character varying(254)")
                         .HasColumnName("descripcion");
 
+                    b.Property<bool>("EsServicioRecubrimiento")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("es_servicio_recubrimiento");
+
                     b.Property<short>("EstadoFiscal")
                         .HasColumnType("smallint")
                         .HasColumnName("estado_fiscal");
@@ -5828,6 +5834,10 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("character varying(20)")
                         .HasColumnName("clave");
 
+                    b.Property<int?>("ClaveAw")
+                        .HasColumnType("integer")
+                        .HasColumnName("clave_aw");
+
                     b.Property<string>("ClaveLegacy")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
@@ -5911,6 +5921,11 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("smallint")
                         .HasColumnName("origen");
 
+                    b.Property<string>("OrigenCarga")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("origen_carga");
+
                     b.Property<string>("Pais")
                         .HasMaxLength(3)
                         .HasColumnType("character varying(3)")
@@ -5984,6 +5999,11 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .IsUnique()
                         .HasDatabaseName("ix_proveedores_clave");
 
+                    b.HasIndex("ClaveAw")
+                        .IsUnique()
+                        .HasDatabaseName("ux_proveedores_clave_aw")
+                        .HasFilter("clave_aw IS NOT NULL");
+
                     b.HasIndex("Estatus")
                         .HasDatabaseName("ix_proveedores_estatus");
 
@@ -5994,6 +6014,8 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
 
                     b.ToTable("proveedores", "compartido", t =>
                         {
+                            t.HasCheckConstraint("ck_proveedores_clave_aw_positiva", "clave_aw IS NULL OR clave_aw > 0");
+
                             t.HasCheckConstraint("ck_proveedores_condiciones_pago", "condiciones_pago_dias IS NULL OR condiciones_pago_dias BETWEEN 0 AND 365");
 
                             t.HasCheckConstraint("ck_proveedores_estatus", "estatus BETWEEN 0 AND 2");

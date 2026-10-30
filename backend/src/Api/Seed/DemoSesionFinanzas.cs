@@ -66,6 +66,8 @@ public sealed partial class DemoSesionSeedHostedService
             db.Periodos.AddRange(periodos);
             await db.SaveChangesAsync(ct);
         }
+        await SembrarUbicacionesSucursalAsync(sp, db, ct);
+
         // No reabrir ni recerrar periodos operados durante un ensayo.
         if (await db.Importaciones.AnyAsync(l => l.EmpresaId == EmpresaId && l.Fuente == "DEMO-SESION", ct)) return;
 
@@ -91,6 +93,30 @@ public sealed partial class DemoSesionSeedHostedService
                 fila.Control, fila.Agrupador, fila.Grupo, fila.Clase, fila.NoAfectableManual) { EmpresaId = EmpresaId });
             db.Origenes.Add(new CuentaContableOrigen(Id("DEMO-ORIGEN/" + fila.CodigoOrigen), ids[fila.Codigo!],
                 fila.Fuente, fila.CodigoOrigen!, lote.Id) { EmpresaId = EmpresaId });
+        }
+        await db.SaveChangesAsync(ct);
+    }
+
+    // K10.2 (V49): con ExigirSucursalDelCentro, un centro cuya ubicación (Dim1) no está ligada a una sucursal se rechaza
+    // (CONTAB_DIM_UBICACION_SIN_SUCURSAL). Cada ubicación del catálogo de CeCo va a su sede DEMO del mismo nombre. Solo agrega lo
+    // que falta: respeta lo que Contabilidad haya configurado.
+    private static readonly (string Dim1, string Sede)[] UbicacionesSedesDemo =
+        [("101", "MID"), ("102", "QRO"), ("103", "CIR"), ("104", "MTY"), ("105", "PIN")];
+
+    private static async Task SembrarUbicacionesSucursalAsync(IServiceProvider sp, ContabilidadDbContext db, CancellationToken ct)
+    {
+        var claves = UbicacionesSedesDemo.Select(u => u.Dim1).ToArray();
+        var dim1 = await sp.GetRequiredService<Millet.CentrosCosto.Infrastructure.Persistence.CentrosCostoDbContext>().Dim1s
+            .AsNoTracking().Where(d => claves.Contains(d.Clave)).ToDictionaryAsync(d => d.Clave, d => d.Id, ct);
+        var sedes = await sp.GetRequiredService<Millet.Compartido.Infrastructure.Persistence.CompartidoDbContext>().Sucursales
+            .AsNoTracking().Where(s => s.EmpresaId == EmpresaId && ClavesSedesDemo.Contains(s.Clave)).ToDictionaryAsync(s => s.Clave, s => s.Id, ct);
+        var ligadas = await db.UbicacionesSucursal.IgnoreQueryFilters()
+            .Where(u => u.EmpresaId == EmpresaId).Select(u => u.Dim1Id).ToListAsync(ct);
+        foreach (var (clave, sede) in UbicacionesSedesDemo)
+        {
+            if (!dim1.TryGetValue(clave, out var dim1Id) || !sedes.TryGetValue(sede, out var sucursalId) || ligadas.Contains(dim1Id))
+                continue;
+            db.UbicacionesSucursal.Add(new UbicacionSucursal(Id($"DEMO-UBICACION-SUCURSAL/{clave}"), dim1Id, sucursalId) { EmpresaId = EmpresaId });
         }
         await db.SaveChangesAsync(ct);
     }

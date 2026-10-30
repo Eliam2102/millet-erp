@@ -4,6 +4,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Millet.Compartido.Infrastructure.Persistence;
+using Millet.Identidad.Application.Colaboradores;
 using Millet.Identidad.Application.DirectorioEntra;
 using Millet.Identidad.Application.Ports;
 using Millet.Identidad.Domain;
@@ -171,6 +172,7 @@ public sealed class ProvisionCuentaEntraWorker : BackgroundService
         IClock clock,
         CancellationToken ct)
     {
+        var cuentaCreada = false;
         try
         {
             var empleado = await compartido.Empleados.IgnoreQueryFilters().AsNoTracking()
@@ -209,6 +211,7 @@ public sealed class ProvisionCuentaEntraWorker : BackgroundService
 
             usuario.VincularEntraOid(creada.Cuenta.ObjectId);
             usuario.RegistrarEnvioAcceso(clock.UtcNow);
+            cuentaCreada = true;
 
             _logger.LogInformation(
                 "[ProvisionCuentaEntraWorker] Cuenta {Upn} creada y solicitud de correo aceptada (usuario {UsuarioId}).",
@@ -224,5 +227,13 @@ public sealed class ProvisionCuentaEntraWorker : BackgroundService
         }
 
         await identidad.SaveChangesAsync(ct);
+
+        // Camino C (86e3x6cpw, B2): con el OID ya guardado, la cuenta entra al grupo de acceso.
+        if (cuentaCreada)
+        {
+            using var scope = _scopeFactory.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<GrupoAccesoErpSincronizador>()
+                .SincronizarAsync(usuario.Id, ct);
+        }
     }
 }

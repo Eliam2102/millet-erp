@@ -95,6 +95,7 @@ public sealed class AgregarLineaDesdeRequisicionHandler
                 "RQ_SUCURSAL_INCOMPATIBLE",
                 $"La RQ '{rq.Folio.Valor}' es de la sucursal '{rq.SucursalId}'; la OC es de '{oc.SucursalDestinoId}' (§10.5).");
         }
+        rq.ExigirProveedorFijo(oc.ProveedorId);
         if (rq.Lineas.Count == 0)
         {
             throw new BusinessRuleException(

@@ -1,3 +1,4 @@
+import { CargaMaestrosDialog } from './CargaMaestrosDialog';
 import { BarraFiltros, TabsEstado } from '@/components/erp';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState, type ReactNode } from 'react';
@@ -113,6 +114,7 @@ export function ClientesLayout({ idActivo, detalle }: ClientesLayoutProps) {
           titulo={<>Clientes</>}
           acciones={
             <>
+              <CargaMaestrosDialog catalogo="clientes" />
               <div className="flex items-center gap-1">
                 {canSincronizar && (
                   <Button size="sm" variant="outline" onClick={() => setSyncAbierto(true)}>

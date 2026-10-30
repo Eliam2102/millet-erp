@@ -1,3 +1,4 @@
+import { useReactivarProveedor } from '../api/proveedores';
 import { estadoUi } from '../lib/estados-ui';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
@@ -6,8 +7,9 @@ import { apiRequest, codigoSoporte } from '@/lib/api';
 import { ProveedorClasificacionFiscalSection } from './ProveedorClasificacionFiscalSection';
 import { ProveedorToleranciaSection } from './ProveedorToleranciaSection';
 import { Link, useParams } from '@tanstack/react-router';
-import { CheckCircle2, Clock, PowerOff, X, XCircle } from 'lucide-react';
+import { CheckCircle2, Clock, PowerOff, TriangleAlert, X, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -99,6 +101,7 @@ export function ProveedorDetalle() {
   const canVerAdjuntos = useHasPermission(PermisosCanonicos.DatosMaestrosProveedoresAdjuntosVer);
 
   const desactivar = useDesactivarProveedor();
+  const reactivar = useReactivarProveedor();
   const validar = useValidarProveedor();
   const rechazar = useRechazarProveedor();
 
@@ -123,6 +126,10 @@ export function ProveedorDetalle() {
   }
 
   const proveedor = proveedorQuery.data;
+  const documentosPendientes = expediente.data
+    ? [...expediente.data.faltantes, ...expediente.data.vencidos].map((codigo) =>
+        expediente.data!.documentos.find((d) => d.codigo === codigo)?.nombre ?? codigo)
+    : proveedor.documentosPendientes ?? [];
   const activo = proveedor.estatus === EstatusCatalogo.Activo;
   const enRevision = proveedor.estatus === EstatusCatalogo.EnRevision;
 
@@ -217,6 +224,16 @@ export function ProveedorDetalle() {
     <div className="flex flex-col gap-5">
       {/* Header NO sticky: viaja con el scroll para no tapar la primera
           fila del form al anclar. */}
+      {activo && documentosPendientes.length > 0 && (
+        <Alert variant="warning">
+          <TriangleAlert className="size-4" aria-hidden="true" />
+          <AlertDescription>
+            Expediente incompleto: faltan {documentosPendientes.length} documentos ({documentosPendientes.join(', ')}).
+            {proveedor.origenCarga === 'CargaSap' && ' Cargado desde SAP sin documentos.'}{' '}
+            <a href="#expediente-proveedor" className="underline underline-offset-2">Ver expediente</a>
+          </AlertDescription>
+        </Alert>
+      )}
       <PageHeader
         mono
         titulo={<>{proveedor.clave}</>}
@@ -264,6 +281,11 @@ export function ProveedorDetalle() {
               </>
             )}
 
+            {canDesactivar && proveedor.estatus === EstatusCatalogo.Inactivo && (
+              <Button variant="ghost" size="sm" disabled={reactivar.isPending} onClick={() => reactivar.mutate({ id: proveedor.id, idempotencyKey: crypto.randomUUID() }, { onError: e => toast.error(e.message) })}>
+                {reactivar.isPending ? 'Reactivando…' : 'Reactivar'}
+              </Button>
+            )}
             {canDesactivar && activo && (
               <Button
                 type="button"
@@ -288,6 +310,10 @@ export function ProveedorDetalle() {
         <div>
           <dt className="text-xs text-ink-muted">RFC</dt>
           <dd className="font-mono text-sm">{proveedor.rfc ?? '—'}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-ink-muted">Clave de A+W</dt>
+          <dd className="font-mono text-sm">{proveedor.claveAw ?? '—'}</dd>
         </div>
         <div>
           <dt className="text-xs text-ink-muted">Días de crédito</dt>

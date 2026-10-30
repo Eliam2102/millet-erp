@@ -18,7 +18,7 @@ public sealed record ReintentarClienteAwRequest(string? Referencia);
 public sealed record EjecucionSincronizacionResumen(
     Guid Id, string Tipo, string Estado, int Leidos, int Creados, int Actualizados, int SinCambios,
     int Pendientes, int Conflictos, int Errores, DateTimeOffset IniciadaEnUtc, DateTimeOffset? TerminadaEnUtc,
-    string Actor, string? ErrorGeneral, string? ResumenProductos = null);
+    string Actor, string? ErrorGeneral, string? ResumenProductos = null, int Unificados = 0);
 
 public sealed record EjecucionSincronizacionError(
     string Referencia, string Codigo, string Mensaje, DateTimeOffset OcurridoEnUtc);
@@ -226,5 +226,5 @@ public static class ClientesSincronizacionEndpoints
 
     private static EjecucionSincronizacionResumen Resumen(AwClientesEjecucion e) => new(
         e.Id, e.Tipo.ToString(), e.Estado.ToString(), e.Leidos, e.Creados, e.Actualizados, e.SinCambios,
-        e.Pendientes, e.Conflictos, e.Errores, e.IniciadaEnUtc, e.TerminadaEnUtc, e.Actor, e.ErrorGeneral, e.ResumenProductos);
+        e.Pendientes, e.Conflictos, e.Errores, e.IniciadaEnUtc, e.TerminadaEnUtc, e.Actor, e.ErrorGeneral, e.ResumenProductos, e.Unificados);
 }

@@ -1,3 +1,4 @@
+import { CargaMaestrosDialog } from './CargaMaestrosDialog';
 import { BarraFiltros, TabsEstado } from '@/components/erp';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState, type ReactNode } from 'react';
@@ -77,6 +78,7 @@ export function ArticulosLayout({ idActivo, detalle }: ArticulosLayoutProps) {
           titulo={<>Artículos</>}
           acciones={
             <>
+              <CargaMaestrosDialog catalogo="articulos" />
               {canAdministrar && (
                 <Button size="sm" onClick={() => nuevoArticulo.abrir()}>
                   <Plus className="mr-1 h-4 w-4" />

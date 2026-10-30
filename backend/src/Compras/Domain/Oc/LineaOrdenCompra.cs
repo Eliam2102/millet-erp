@@ -117,6 +117,14 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
     /// </summary>
     public string? FraccionArancelaria { get; private set; }
 
+    /// <summary>
+    /// F1-MP-05 (A4.2): lote que el proveedor declara para la línea (opcional, cualquier artículo). Solo se captura antes de
+    /// autorizar; después manda lo que registre el almacenista. Máx. igual que el lote de Almacén (50).
+    /// </summary>
+    public string? LoteProveedor { get; private set; }
+
+    public const int LoteProveedorMaxLength = 50;
+
     public const string UnidadVidrio = "M2";
 
     /// <summary>
@@ -180,6 +188,20 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
         return f;
     }
 
+    /// <summary>Normaliza el lote del proveedor: vacío → null; recorta espacios; máx. <see cref="LoteProveedorMaxLength"/>.</summary>
+    internal static string? NormalizarLoteProveedor(string? lote)
+    {
+        if (string.IsNullOrWhiteSpace(lote)) return null;
+        var l = lote.Trim();
+        if (l.Length > LoteProveedorMaxLength)
+        {
+            throw new BusinessRuleException(
+                "LINEA_OC_LOTE_LARGO",
+                $"El lote del proveedor no puede exceder {LoteProveedorMaxLength} caracteres.");
+        }
+        return l;
+    }
+
     /// <summary>Constructor para EF Core.</summary>
     private LineaOrdenCompra() { }
 
@@ -210,7 +232,8 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
         string? fraccionArancelaria = null,
         Guid? productoAwVarianteId = null,
         decimal? anchoMm = null,
-        decimal? altoMm = null) : base(id)
+        decimal? altoMm = null,
+        string? loteProveedor = null) : base(id)
     {
         if (ordenCompraId == Guid.Empty)
         {
@@ -292,6 +315,7 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
         FechaEntregaLinea = fechaEntregaLinea?.ToUniversalTime();
         TextoAdicional = textoAdicional;
         FraccionArancelaria = NormalizarFraccionArancelaria(fraccionArancelaria);
+        LoteProveedor = NormalizarLoteProveedor(loteProveedor);
         CantidadRecibida = 0m;
         CantidadFacturada = 0m;
         AsignarMedida(productoAwVarianteId, anchoMm, altoMm);
@@ -340,7 +364,9 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
         Guid? claseActivoId = null,
         Guid? productoAwVarianteId = null,
         decimal? anchoMm = null,
-        decimal? altoMm = null)
+        decimal? altoMm = null,
+        string? loteProveedor = null,
+        bool limpiarLoteProveedor = false)
     {
         if (CantidadRecibida > 0m || CantidadFacturada > 0m)
         {
@@ -443,6 +469,9 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
 
         if (fraccionArancelaria is not null) FraccionArancelaria = NormalizarFraccionArancelaria(fraccionArancelaria);
         else if (limpiarFraccionArancelaria) FraccionArancelaria = null;
+
+        if (loteProveedor is not null) LoteProveedor = NormalizarLoteProveedor(loteProveedor);
+        else if (limpiarLoteProveedor) LoteProveedor = null;
 
         // Medida nueva, o revalidar la vigente (cambió cantidad o unidad): hojas enteras y m².
         if (productoAwVarianteId is not null) AsignarMedida(productoAwVarianteId, anchoMm, altoMm);
