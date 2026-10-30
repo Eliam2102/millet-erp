@@ -116,6 +116,8 @@ import { Route as AppActivosFijosActivosIndexRouteImport } from './routes/_app/a
 import { Route as AppTesoreriaReportesFlujoEfectivoRouteImport } from './routes/_app/tesoreria/reportes/flujo-efectivo';
 import { Route as AppTesoreriaReportesAuxiliarBancosRouteImport } from './routes/_app/tesoreria/reportes/auxiliar-bancos';
 import { Route as AppTesoreriaMovimientosIdRouteImport } from './routes/_app/tesoreria/movimientos/$id';
+import { Route as AppTesoreriaCorridasIdRouteImport } from './routes/_app/tesoreria/corridas/$id';
+import { Route as AppTesoreriaCorridasNuevaRouteImport } from './routes/_app/tesoreria/corridas/nueva';
 import { Route as AppTesoreriaDevolucionesIdRouteImport } from './routes/_app/tesoreria/devoluciones/$id';
 import { Route as AppFacturacionReppPendientesRouteImport } from './routes/_app/facturacion/repp/pendientes';
 import { Route as AppFacturacionReppIdRouteImport } from './routes/_app/facturacion/repp/$id';
@@ -790,6 +792,17 @@ const AppTesoreriaMovimientosIdRoute =
     path: '/tesoreria/movimientos/$id',
     getParentRoute: () => AppRoute,
   } as any);
+const AppTesoreriaCorridasIdRoute = AppTesoreriaCorridasIdRouteImport.update({
+  id: '/tesoreria/corridas/$id',
+  path: '/tesoreria/corridas/$id',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppTesoreriaCorridasNuevaRoute =
+  AppTesoreriaCorridasNuevaRouteImport.update({
+    id: '/tesoreria/corridas/nueva',
+    path: '/tesoreria/corridas/nueva',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppTesoreriaDevolucionesIdRoute =
   AppTesoreriaDevolucionesIdRouteImport.update({
     id: '/tesoreria/devoluciones/$id',
@@ -1431,6 +1444,8 @@ export interface FileRoutesByFullPath {
   '/facturacion/reportes/liquidacion-caja': typeof AppFacturacionReportesLiquidacionCajaRoute;
   '/facturacion/repp/$id': typeof AppFacturacionReppIdRoute;
   '/facturacion/repp/pendientes': typeof AppFacturacionReppPendientesRoute;
+  '/tesoreria/corridas/$id': typeof AppTesoreriaCorridasIdRoute;
+  '/tesoreria/corridas/nueva': typeof AppTesoreriaCorridasNuevaRoute;
   '/tesoreria/devoluciones/$id': typeof AppTesoreriaDevolucionesIdRoute;
   '/tesoreria/movimientos/$id': typeof AppTesoreriaMovimientosIdRoute;
   '/tesoreria/reportes/auxiliar-bancos': typeof AppTesoreriaReportesAuxiliarBancosRoute;
@@ -1633,6 +1648,8 @@ export interface FileRoutesByTo {
   '/facturacion/reportes/liquidacion-caja': typeof AppFacturacionReportesLiquidacionCajaRoute;
   '/facturacion/repp/$id': typeof AppFacturacionReppIdRoute;
   '/facturacion/repp/pendientes': typeof AppFacturacionReppPendientesRoute;
+  '/tesoreria/corridas/$id': typeof AppTesoreriaCorridasIdRoute;
+  '/tesoreria/corridas/nueva': typeof AppTesoreriaCorridasNuevaRoute;
   '/tesoreria/devoluciones/$id': typeof AppTesoreriaDevolucionesIdRoute;
   '/tesoreria/movimientos/$id': typeof AppTesoreriaMovimientosIdRoute;
   '/tesoreria/reportes/auxiliar-bancos': typeof AppTesoreriaReportesAuxiliarBancosRoute;
@@ -1837,6 +1854,8 @@ export interface FileRoutesById {
   '/_app/facturacion/reportes/liquidacion-caja': typeof AppFacturacionReportesLiquidacionCajaRoute;
   '/_app/facturacion/repp/$id': typeof AppFacturacionReppIdRoute;
   '/_app/facturacion/repp/pendientes': typeof AppFacturacionReppPendientesRoute;
+  '/_app/tesoreria/corridas/$id': typeof AppTesoreriaCorridasIdRoute;
+  '/_app/tesoreria/corridas/nueva': typeof AppTesoreriaCorridasNuevaRoute;
   '/_app/tesoreria/devoluciones/$id': typeof AppTesoreriaDevolucionesIdRoute;
   '/_app/tesoreria/movimientos/$id': typeof AppTesoreriaMovimientosIdRoute;
   '/_app/tesoreria/reportes/auxiliar-bancos': typeof AppTesoreriaReportesAuxiliarBancosRoute;
@@ -2041,6 +2060,8 @@ export interface FileRouteTypes {
     | '/facturacion/reportes/liquidacion-caja'
     | '/facturacion/repp/$id'
     | '/facturacion/repp/pendientes'
+    | '/tesoreria/corridas/$id'
+    | '/tesoreria/corridas/nueva'
     | '/tesoreria/devoluciones/$id'
     | '/tesoreria/movimientos/$id'
     | '/tesoreria/reportes/auxiliar-bancos'
@@ -2243,6 +2264,8 @@ export interface FileRouteTypes {
     | '/facturacion/reportes/liquidacion-caja'
     | '/facturacion/repp/$id'
     | '/facturacion/repp/pendientes'
+    | '/tesoreria/corridas/$id'
+    | '/tesoreria/corridas/nueva'
     | '/tesoreria/devoluciones/$id'
     | '/tesoreria/movimientos/$id'
     | '/tesoreria/reportes/auxiliar-bancos'
@@ -2446,6 +2469,8 @@ export interface FileRouteTypes {
     | '/_app/facturacion/reportes/liquidacion-caja'
     | '/_app/facturacion/repp/$id'
     | '/_app/facturacion/repp/pendientes'
+    | '/_app/tesoreria/corridas/$id'
+    | '/_app/tesoreria/corridas/nueva'
     | '/_app/tesoreria/devoluciones/$id'
     | '/_app/tesoreria/movimientos/$id'
     | '/_app/tesoreria/reportes/auxiliar-bancos'
@@ -3298,6 +3323,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTesoreriaMovimientosIdRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/tesoreria/corridas/$id': {
+      id: '/_app/tesoreria/corridas/$id';
+      path: '/tesoreria/corridas/$id';
+      fullPath: '/tesoreria/corridas/$id';
+      preLoaderRoute: typeof AppTesoreriaCorridasIdRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/tesoreria/corridas/nueva': {
+      id: '/_app/tesoreria/corridas/nueva';
+      path: '/tesoreria/corridas/nueva';
+      fullPath: '/tesoreria/corridas/nueva';
+      preLoaderRoute: typeof AppTesoreriaCorridasNuevaRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/tesoreria/devoluciones/$id': {
       id: '/_app/tesoreria/devoluciones/$id';
       path: '/tesoreria/devoluciones/$id';
@@ -4082,6 +4121,8 @@ interface AppRouteChildren {
   AppFacturacionReportesLiquidacionCajaRoute: typeof AppFacturacionReportesLiquidacionCajaRoute;
   AppFacturacionReppIdRoute: typeof AppFacturacionReppIdRoute;
   AppFacturacionReppPendientesRoute: typeof AppFacturacionReppPendientesRoute;
+  AppTesoreriaCorridasIdRoute: typeof AppTesoreriaCorridasIdRoute;
+  AppTesoreriaCorridasNuevaRoute: typeof AppTesoreriaCorridasNuevaRoute;
   AppTesoreriaDevolucionesIdRoute: typeof AppTesoreriaDevolucionesIdRoute;
   AppTesoreriaMovimientosIdRoute: typeof AppTesoreriaMovimientosIdRoute;
   AppTesoreriaReportesAuxiliarBancosRoute: typeof AppTesoreriaReportesAuxiliarBancosRoute;
@@ -4291,6 +4332,8 @@ const AppRouteChildren: AppRouteChildren = {
     AppFacturacionReportesLiquidacionCajaRoute,
   AppFacturacionReppIdRoute: AppFacturacionReppIdRoute,
   AppFacturacionReppPendientesRoute: AppFacturacionReppPendientesRoute,
+  AppTesoreriaCorridasIdRoute: AppTesoreriaCorridasIdRoute,
+  AppTesoreriaCorridasNuevaRoute: AppTesoreriaCorridasNuevaRoute,
   AppTesoreriaDevolucionesIdRoute: AppTesoreriaDevolucionesIdRoute,
   AppTesoreriaMovimientosIdRoute: AppTesoreriaMovimientosIdRoute,
   AppTesoreriaReportesAuxiliarBancosRoute:
