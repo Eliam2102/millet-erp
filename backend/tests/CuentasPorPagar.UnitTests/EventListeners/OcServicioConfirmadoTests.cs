@@ -38,6 +38,24 @@ public sealed class OcServicioConfirmadoTests
     }
 
     [Fact]
+    public async Task Oc_mixta_con_servicio_sin_confirmar_solo_el_material_es_elegible()
+    {
+        await using var a = new Ambiente(cantidadOc: 20); // total de la OC con IVA: 464
+        a.ConfigurarMixta(confirmado: false);
+        var cmd = a.Command(10, 20, total: 464, iva: 64);
+        var material = cmd.Lineas[0];
+        var captura = await a.Handler.Handle(cmd with { Subtotal = 400, Lineas = [material, material with { LineaOcId = a.LineaServicioId }] }, default);
+        captura.Estado.Should().NotBe(Millet.CuentasPorPagar.Domain.FacturaProveedor.EstadoPasivo.Cancelada, captura.MotivoCancelacion?.ToString());
+        var factura = await a.Db.FacturasProveedor.SingleAsync(f => f.Id == captura.Id);
+
+        var r = await a.Elegibilidad.CalcularAsync(factura, default);
+        r.ElegibleTotal.Should().Be(232); // mitad del neto: solo el material
+
+        a.ConfigurarMixta(confirmado: true);
+        (await a.Elegibilidad.CalcularAsync(factura, default)).ElegibleTotal.Should().Be(464);
+    }
+
+    [Fact]
     public async Task Servicio_confirmado_es_elegible_completo()
     {
         await using var a = new Ambiente(recibido: 0);

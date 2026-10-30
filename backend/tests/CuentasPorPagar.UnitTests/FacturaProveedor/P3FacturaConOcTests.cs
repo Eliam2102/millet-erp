@@ -372,6 +372,11 @@ public sealed class P3FacturaConOcTests
         // 86e3tacbn: la OC es de servicio (Almacén no lo recibe) y el área solicitante lo confirmó o no.
         public void ConfigurarServicio(bool confirmado) =>
             _oc = _oc with { ServicioConfirmado = confirmado, Lineas = [_oc.Lineas[0] with { EsServicio = true, CantidadRecibida = 0 }] };
+        // 86e3tacbn: OC con una línea de material recibida (10 x 20) y una de servicio (10 x 20).
+        public Guid LineaServicioId { get; } = Guid.NewGuid();
+        public void ConfigurarMixta(bool confirmado) =>
+            _oc = _oc with { ServicioConfirmado = confirmado, Lineas = [_oc.Lineas[0] with { Cantidad = 10, CantidadRecibida = 10 },
+                new(LineaServicioId, _oc.Lineas[0].ArticuloId, 10, 20, 0, 0, EsServicio: true)] };
         public Task RecibirAsync(decimal cantidad) => Recepciones.Handle(Recepcion(cantidad), default);
         public Task<decimal> ObtenerMontoMxnAsync(CancellationToken cancellationToken) => Task.FromResult(0.99m);
         public async Task<CfdiRecibido> CfdiAsync(decimal subtotal, decimal iva, decimal retenido, decimal total, bool egreso = false, string? relacionado = null, decimal cantidad = 10)
