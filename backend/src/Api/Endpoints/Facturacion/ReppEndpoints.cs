@@ -9,6 +9,7 @@ using Millet.Facturacion.Application.Repp.Queries;
 using Millet.Facturacion.Application.Repp.Pendientes;
 using Millet.Facturacion.Domain.Repp;
 using Millet.Facturacion.Domain.Comprobantes;
+using Millet.Facturacion.Domain.Ports;
 using Millet.Identidad.Domain;
 
 namespace Millet.Api.Endpoints.Facturacion;
