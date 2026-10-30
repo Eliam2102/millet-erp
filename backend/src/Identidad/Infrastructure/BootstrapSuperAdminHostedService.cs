@@ -264,6 +264,8 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                 p => p.Codigo == PermisosCanonicos.DatosMaestrosProveedoresBancariosVer
                      || p.Codigo == PermisosCanonicos.DatosMaestrosProveedoresBancariosEditar
                      || p.Codigo == PermisosCanonicos.DatosMaestrosProveedoresGestionar
+                     // 86e3vr1tj: Tesorería autoriza las diferencias de corte (Fernando, 23-oct).
+                     || p.Codigo == PermisosCanonicos.TesoreriaDiferenciasCorteAutorizar
             ),
         };
 

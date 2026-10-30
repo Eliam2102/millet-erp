@@ -404,6 +404,7 @@ export const PermisosCanonicos = {
   TesoreriaDevolucionesSolicitar: 'tesoreria.devoluciones.solicitar',
   TesoreriaDevolucionesAutorizar: 'tesoreria.devoluciones.autorizar',
   TesoreriaDevolucionesPagar: 'tesoreria.devoluciones.pagar',
+  TesoreriaDiferenciasCorteAutorizar: 'tesoreria.diferencias-corte.autorizar',
 
   // Facturación — CFDI 4.0 emitido. Mirror manual de backend
   // PermisosCanonicos.cs §"Facturación" (namespace GUID 00000009-*). 24

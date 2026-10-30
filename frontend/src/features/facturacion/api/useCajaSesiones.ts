@@ -96,6 +96,26 @@ export function useAbrirSesion() {
   });
 }
 
+export interface FaltantePorDevolver {
+  corteSesionId: string;
+  diaOperacion: string;
+  faltante: number;
+  devuelto: number;
+  pendiente: number;
+}
+
+/** Cortes del cajero con faltante aún por devolver (origen de «Devolución de faltante»). */
+export function useFaltantesPorDevolver(habilitado: boolean) {
+  return useQuery({
+    queryKey: [...facturacionKeys.sesiones(), 'faltantes-por-devolver'],
+    enabled: habilitado,
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<FaltantePorDevolver[]>(`${BASE}/faltantes-por-devolver`, { signal });
+      return data;
+    },
+  });
+}
+
 /** <c>useRegistrarMovimiento()</c> — depósito/retiro manual (Idempotency-Key). */
 export function useRegistrarMovimiento() {
   const invalidar = useInvalidarSesion();
@@ -108,6 +128,8 @@ export function useRegistrarMovimiento() {
         importe: number;
         descripcion: string;
         referencia?: string | null;
+        /** Solo «Devolución de faltante» (86e3vr1tj): corte cuyo faltante se devuelve. */
+        corteOrigenSesionId?: string | null;
       };
       idempotencyKey: string;
     }) => {

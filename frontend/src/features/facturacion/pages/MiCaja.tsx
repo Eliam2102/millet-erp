@@ -30,6 +30,7 @@ import type {
 } from '@/features/facturacion/api/types';
 import { useListarCajas } from '@/features/facturacion/api/useCajas';
 import {
+  useFaltantesPorDevolver,
   useAbrirSesion,
   useAjustesCaja,
   useCancelarCobro,
@@ -61,6 +62,7 @@ import {
 import {
   MOTIVO_RETIRO_MINIMO,
   TIPO_MOVIMIENTO_DEPOSITO as TIPO_DEPOSITO,
+  TIPO_MOVIMIENTO_DEVOLUCION_FALTANTE as TIPO_DEVOLUCION,
   TIPO_MOVIMIENTO_RETIRO as TIPO_RETIRO,
   errorDescripcionMovimiento,
 } from '@/features/facturacion/schemas/movimiento-caja';
@@ -725,6 +727,9 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
   const [descripcion, setDescripcion] = useState('');
   const [referencia, setReferencia] = useState('');
   const esRetiro = Number(tipo) === TIPO_RETIRO;
+  const esDevolucion = Number(tipo) === TIPO_DEVOLUCION;
+  const [corteOrigen, setCorteOrigen] = useState('');
+  const faltantes = useFaltantesPorDevolver(true);
   const largoMotivo = descripcion.trim().length;
 
   function onGuardar() {
@@ -737,6 +742,10 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
       toast.error('El importe debe ser mayor que cero.');
       return;
     }
+    if (esDevolucion && corteOrigen === '') {
+      toast.error('Elige el corte de origen del faltante que devuelves.');
+      return;
+    }
     const errorDescripcion = errorDescripcionMovimiento(Number(tipo), descripcion);
     if (errorDescripcion) {
       toast.error(errorDescripcion);
@@ -747,9 +756,10 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
         sesionId: props.sesionId,
         body: {
           tipo: Number(tipo),
-          formaPago,
+          formaPago: esDevolucion ? '01' : formaPago,
           importe: monto,
           descripcion: descripcion.trim(),
+          corteOrigenSesionId: esDevolucion ? corteOrigen : null,
           referencia: referencia.trim() === '' ? null : referencia.trim(),
         },
         idempotencyKey,
@@ -786,12 +796,30 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
           <SelectContent>
             <SelectItem value={String(TIPO_DEPOSITO)}>Depósito</SelectItem>
             <SelectItem value={String(TIPO_RETIRO)}>Retiro</SelectItem>
+            <SelectItem value={String(TIPO_DEVOLUCION)}>Devolución de faltante</SelectItem>
           </SelectContent>
         </Select>
       </div>
+      {esDevolucion && (
+        <div className="space-y-1 md:col-span-4">
+          <Label>Corte de origen *</Label>
+          <Select value={corteOrigen} onValueChange={setCorteOrigen}>
+            <SelectTrigger aria-label="Corte de origen">
+              <SelectValue placeholder={faltantes.data?.length === 0 ? 'Sin faltantes por devolver' : 'Elige el corte'} />
+            </SelectTrigger>
+            <SelectContent>
+              {(faltantes.data ?? []).map((f) => (
+                <SelectItem key={f.corteSesionId} value={f.corteSesionId}>
+                  Corte del {f.diaOperacion} · pendiente ${f.pendiente.toFixed(2)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       <div className="space-y-1 md:col-span-2">
         <Label>Forma *</Label>
-        <Select value={formaPago} onValueChange={setFormaPago}>
+        <Select value={esDevolucion ? '01' : formaPago} onValueChange={setFormaPago} disabled={esDevolucion}>
           <SelectTrigger aria-label="Forma de pago">
             <SelectValue />
           </SelectTrigger>
@@ -815,7 +843,7 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
         />
       </div>
       <div className="space-y-1 md:col-span-3">
-        <Label htmlFor="mov-desc">{esRetiro ? 'Motivo del retiro *' : 'Descripción *'}</Label>
+        <Label htmlFor="mov-desc">{esRetiro ? 'Motivo del retiro *' : esDevolucion ? 'Descripción' : 'Descripción *'}</Label>
         <Input
           aria-describedby="mov-desc-ayuda"
           id="mov-desc"
