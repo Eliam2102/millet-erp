@@ -103,6 +103,8 @@ public static class DependencyInjection
         services.AddSingleton<IGenerarPdfFacturaPort, QuestPdfFacturaGenerator>();
         // FMT-4: domicilio, logo y catálogos del emisor para el PDF con formato de Millet.
         services.AddScoped<IDatosImpresionCfdiReadPort, DatosMaestros.DatosImpresionCfdiReadAdapter>();
+        // 86e3ww6tw: Vale de Caja de los retiros, mismo kit de formatos de Millet.
+        services.AddSingleton<IGenerarValeCajaPdfPort, Pdf.ValeCaja.QuestPdfValeCajaGenerator>();
         // PLATFORM-TODO(<EnvioCfdiCliente>)
         services.AddSingleton<INotificacionService, NoOpNotificacionService>();
         services.AddSingleton<Millet.SharedKernel.Application.Correo.ICorreoDocumentoService, NoOpNotificacionService>();
