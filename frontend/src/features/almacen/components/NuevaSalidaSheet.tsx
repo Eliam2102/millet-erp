@@ -395,7 +395,9 @@ function NuevaSalidaFormBody({
       <SheetBody>
         <form
           id="nueva-salida-form"
-          onSubmit={form.handleSubmit(onSubmit)}
+          onSubmit={form.handleSubmit(onSubmit, () =>
+            toast.error('Revisa los campos marcados antes de registrar la salida.'),
+          )}
           noValidate
           className="space-y-4"
         >
