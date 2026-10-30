@@ -29,9 +29,12 @@ public sealed class DesactivarUsuarioHandler
 
     private readonly IdentidadDbContext _db;
     private readonly IPermissionCache _permissionCache;
+    private readonly Colaboradores.GrupoAccesoErpSincronizador _grupoAcceso;
 
-    public DesactivarUsuarioHandler(IdentidadDbContext db, IPermissionCache permissionCache)
+    public DesactivarUsuarioHandler(IdentidadDbContext db, IPermissionCache permissionCache,
+        Colaboradores.GrupoAccesoErpSincronizador grupoAcceso)
     {
+        _grupoAcceso = grupoAcceso;
         _db = db;
         _permissionCache = permissionCache;
     }
@@ -54,6 +57,8 @@ public sealed class DesactivarUsuarioHandler
             // El JWT existente conserva identidad, pero ya no debe conservar
             // permisos cacheados durante el TTL tras una baja.
             await _permissionCache.InvalidateAllForUserAsync(usuario.Id, cancellationToken);
+            // Sin acceso al ERP la cuenta sale del grupo de Entra (86e3x6cpw, B2).
+            await _grupoAcceso.SincronizarAsync(usuario.Id, cancellationToken);
         }
 
         return new UsuarioResponse(

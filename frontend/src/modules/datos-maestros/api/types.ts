@@ -62,6 +62,8 @@ export type Naturaleza = (typeof Naturaleza)[keyof typeof Naturaleza];
 // ─── Proveedores ───────────────────────────────────────────────────
 
 export interface ProveedorItem {
+  expedienteCompleto: boolean;
+  documentosFaltantes: number;
   id: string;
   clave: string;
   razonSocial: string;
@@ -85,6 +87,8 @@ export interface ListarProveedoresResponse {
 }
 
 export interface ProveedorDetalle {
+  origenCarga?: string | null;
+  documentosPendientes?: string[];
   calle?: string | null;
   numeroExterior?: string | null;
   numeroInterior?: string | null;
@@ -445,6 +449,8 @@ export interface EjecucionSyncResumen {
   pendientes: number;
   conflictos: number;
   errores: number;
+  /** Grupos de RFC repetido sin historial que el barrido unificó automáticamente (86e3x4g77). */
+  unificados: number;
   iniciadaEnUtc: string | null;
   terminadaEnUtc: string | null;
   actor: string | null;

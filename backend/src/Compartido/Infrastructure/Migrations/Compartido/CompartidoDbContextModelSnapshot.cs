@@ -5921,6 +5921,11 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("smallint")
                         .HasColumnName("origen");
 
+                    b.Property<string>("OrigenCarga")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("origen_carga");
+
                     b.Property<string>("Pais")
                         .HasMaxLength(3)
                         .HasColumnType("character varying(3)")

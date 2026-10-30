@@ -17,6 +17,8 @@ public sealed class AwClientesOptions
     public bool LecturaHabilitada { get; set; }
     public bool AplicacionHabilitada { get; set; }
     public bool ProgramacionHabilitada { get; set; }
+    /// <summary>Al terminar un barrido, unifica los grupos de RFC repetido sin historial (acuerdo Millet 27-oct). Apagado por defecto.</summary>
+    public bool UnificacionAutomaticaHabilitada { get; set; }
     public int TamanoLote { get; set; } = 100;
     public int SqlQueryTimeoutSeconds { get; set; } = 5;
     public int SqlConnectTimeoutSeconds { get; set; } = 15;
