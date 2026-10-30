@@ -44,6 +44,7 @@ public static class DependencyInjection
         // Scoped porque consume CompartidoDbContext (scoped).
         services.AddScoped<Millet.Facturacion.Application.Timbrado.ValidadorReceptorFiscal>();
         services.AddScoped<Millet.ComercioExterior.Application.Ports.IPedidosEmbarcablesReadPort, PublicAdapters.PedidosEmbarcablesReadAdapter>();
+        services.AddScoped<Millet.ProductoTerminado.Application.Ports.IPedidosPtReadPort, PublicAdapters.PedidosPtReadAdapter>();
         services.AddScoped<ICatalogosSatReadPort, CompartidoCatalogosSatReadAdapter>();
         services.AddScoped<IReppBancarioReadPort, ReppBancarioReadAdapter>();
         services.AddScoped<Millet.CuentasPorCobrar.Domain.Ports.Facturacion.IReppPendientesReadPort, PublicAdapters.ReppPendientesReadAdapter>();

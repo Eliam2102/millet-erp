@@ -212,3 +212,48 @@ CREATE TABLE IF NOT EXISTS dbo.erp_otr_estado (
     aw_motivo varchar(500),
     UNIQUE (otr_envio_id,tipo,version_erp,intento)
 );
+
+-- Flujo PT-01 · escaneos de pieza terminada (alcimdb, A+W Production). El ERP solo LEE estas tablas.
+CREATE TABLE IF NOT EXISTS dbo.awbar_bearbeit (
+    etikettnr varchar(100) NOT NULL,
+    bearb_zeit timestamp NOT NULL,
+    auftnr varchar(50) NOT NULL,
+    pos int NOT NULL,
+    u_pos int NOT NULL DEFAULT 0,
+    teile_nr varchar(50),
+    fertig smallint NOT NULL,
+    esnr_ist int NOT NULL,
+    bearb_nr int NOT NULL DEFAULT 0,
+    bruch_flag smallint NOT NULL DEFAULT 0,
+    PRIMARY KEY (etikettnr, bearb_zeit)
+);
+CREATE TABLE IF NOT EXISTS dbo.pool_pos (
+    auftnr varchar(50) NOT NULL,
+    pos int NOT NULL,
+    u_pos int NOT NULL DEFAULT 0,
+    ae_intpos int NOT NULL,
+    menge numeric(18,6) NOT NULL,
+    PRIMARY KEY (auftnr, pos, u_pos)
+);
+-- Una fila por operación de la pieza; se cruza con awbar_bearbeit por pieza y operación (consulta de referencia de TI, 27-oct).
+CREATE TABLE IF NOT EXISTS dbo.pool_bearbeit (
+    auftnr varchar(50) NOT NULL,
+    pos int NOT NULL,
+    u_pos int NOT NULL DEFAULT 0,
+    teile_nr varchar(50) NOT NULL,
+    bearb_nr int NOT NULL,
+    text1 varchar(200),
+    PRIMARY KEY (auftnr, pos, u_pos, teile_nr, bearb_nr)
+);
+-- BD demo creadas antes del 28-oct: pasar a la llave nueva sin recrearlas.
+ALTER TABLE dbo.awbar_bearbeit ADD COLUMN IF NOT EXISTS bearb_nr int NOT NULL DEFAULT 0;
+ALTER TABLE dbo.awbar_bearbeit ADD COLUMN IF NOT EXISTS bruch_flag smallint NOT NULL DEFAULT 0;
+ALTER TABLE dbo.pool_bearbeit ADD COLUMN IF NOT EXISTS teile_nr varchar(50) NOT NULL DEFAULT '';
+ALTER TABLE dbo.pool_bearbeit ADD COLUMN IF NOT EXISTS bearb_nr int NOT NULL DEFAULT 0;
+ALTER TABLE dbo.pool_bearbeit DROP COLUMN IF EXISTS esnr;
+-- Representa OR_AVBEREICH de MILMAIN (clave de sucursal por pedido); solo existe en la demo.
+CREATE TABLE IF NOT EXISTS dbo.or_avbereich (
+    auftnr varchar(50) PRIMARY KEY,
+    avbereich varchar(50) NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_awbar_bearbeit_zeit ON dbo.awbar_bearbeit (bearb_zeit, etikettnr);
