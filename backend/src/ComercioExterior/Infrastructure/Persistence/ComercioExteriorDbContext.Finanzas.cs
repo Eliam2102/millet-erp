@@ -49,6 +49,6 @@ public sealed partial class ComercioExteriorDbContext
         a.HasIndex(x => new { x.EmpresaId, x.AgenteId }); Json(a.Property(x => x.Resoluciones));
         foreach (var tipo in new[] { typeof(GastoExpediente), typeof(PartidaCosto), typeof(AnticipoAgente) })
             foreach (var property in b.Entity(tipo).Metadata.GetProperties().Where(x => x.ClrType == typeof(decimal) || x.ClrType == typeof(decimal?)))
-                b.Entity(tipo).Property(property.Name).HasPrecision(20, property.Name is "TipoCambio" or "OrdenServicioTipoCambio" or "PesoKg" ? 6 : 2);
+                b.Entity(tipo).Property(property.Name).HasPrecision(20, property.Name is "TipoCambio" or "TipoCambioSugerido" or "OrdenServicioTipoCambio" or "PesoKg" ? 6 : 2);
     }
 }
