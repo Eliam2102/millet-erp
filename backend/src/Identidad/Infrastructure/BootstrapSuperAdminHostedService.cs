@@ -273,10 +273,11 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                 p => p.Codigo is PermisosCanonicos.ContabilidadCatalogoLeer or PermisosCanonicos.ContabilidadCatalogoAutorizar),
             (Guid.Parse("0000000f-0011-0000-0000-000000000001"), "director-administracion-finanzas",
                 "Director de Administración y Finanzas", "Autoriza venta, valor de venta y baja de activos fijos.",
-                p => p.Codigo is PermisosCanonicos.FacturacionActivosAutorizar or PermisosCanonicos.ActivosFijosBajasAutorizar),
+                p => p.Codigo is PermisosCanonicos.FacturacionActivosAutorizar or PermisosCanonicos.ActivosFijosBajasAutorizar
+                    or PermisosCanonicos.DatosMaestrosProveedoresBloquear or PermisosCanonicos.CuentasPorPagarBloqueosLiberarEnLugar),
             (Guid.Parse("0000000f-0011-0000-0000-000000000002"), "contador-general",
                 "Contador General", "Registra las bajas autorizadas por el Director de Administración y Finanzas.",
-                p => p.Codigo == PermisosCanonicos.ActivosFijosBajasRegistrar)];
+                p => p.Codigo is PermisosCanonicos.ActivosFijosBajasRegistrar or PermisosCanonicos.DatosMaestrosProveedoresBloquear)];
         // Retira las concesiones anteriores también en roles históricos con otro código.
         var contadores = await db.Roles.Where(r => r.Codigo == "contador-general" || r.Nombre == "Contador General")
             .Select(r => r.Id).ToListAsync(cancellationToken);

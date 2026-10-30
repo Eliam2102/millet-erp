@@ -14,6 +14,7 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'datos_maestros.clientes.cargar', 'datos_maestros.articulos.cargar', 'datos_maestros.proveedores.cargar',
   'datos_maestros.productos-aw-fiscal.cargar', 'centros_costo.catalogo.cargar',
+  'datos_maestros.proveedores.bloquear', 'cuentas_por_pagar.bloqueos.liberar-en-lugar',
   'activos_fijos.depreciacion.correr',
   'activos_fijos.depreciacion.anular',
   'activos_fijos.bajas.registrar',

@@ -167,6 +167,9 @@ export const PermisosCanonicos = {
     'datos_maestros.proveedores.tolerancia-editar',
   DatosMaestrosProveedoresValidar:
     'datos_maestros.proveedores.validar',
+  // 86e3tactf: bloqueo total del proveedor y reemplazo de quien lo libera.
+  DatosMaestrosProveedoresBloquear: 'datos_maestros.proveedores.bloquear',
+  CuentasPorPagarBloqueosLiberarEnLugar: 'cuentas_por_pagar.bloqueos.liberar-en-lugar',
   DatosMaestrosProveedoresExpedienteConfigurar:
     'datos_maestros.proveedores.expediente-configurar',
   DatosMaestrosArticulosGestionar: 'datos_maestros.articulos.gestionar',
