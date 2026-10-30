@@ -383,3 +383,10 @@ public sealed class NoOpVarianteVidrioReadPort : IVarianteVidrioReadPort
         IReadOnlyCollection<Guid> varianteIds, CancellationToken cancellationToken)
         => Task.FromResult<IReadOnlyDictionary<Guid, VarianteVidrioLectura>>(new Dictionary<Guid, VarianteVidrioLectura>());
 }
+
+/// <summary>Sin adapter real el comprobante sale sin encabezado de empresa.</summary>
+public sealed class NoOpEmpresaImpresionReadPort : IEmpresaImpresionReadPort
+{
+    public Task<Millet.Documentos.EmpresaEncabezado?> ObtenerAsync(Guid empresaId, CancellationToken cancellationToken) =>
+        Task.FromResult<Millet.Documentos.EmpresaEncabezado?>(null);
+}

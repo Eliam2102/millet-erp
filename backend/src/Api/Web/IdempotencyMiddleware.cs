@@ -187,6 +187,8 @@ public sealed class IdempotencyMiddleware
     {
         // El hash lee antes del endpoint: respeta su límite para no almacenar una subida excesiva.
         var limite = context.GetEndpoint()?.Metadata.GetMetadata<IRequestSizeLimitMetadata>()?.MaxRequestBodySize;
+        if (context.Request.ContentType?.StartsWith("multipart/form-data", StringComparison.OrdinalIgnoreCase) == true)
+            maxBytes = checked(maxBytes + 64 * 1024); // El límite de archivo no incluye encabezados ni separadores multipart.
         if (limite.HasValue) maxBytes = (int)Math.Min(maxBytes, limite.Value);
         if (context.Request.ContentLength > maxBytes)
             throw new BadHttpRequestException("El cuerpo excede el tamaño permitido.", StatusCodes.Status413PayloadTooLarge);

@@ -1,9 +1,11 @@
+import { CargaMaestrosDialog } from './CargaMaestrosDialog';
 import { BarraFiltros, TabsEstado } from '@/components/erp';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Plus, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -51,6 +53,7 @@ export function ProveedoresLayout({ idActivo, detalle }: ProveedoresLayoutProps)
   const [busquedaInput, setBusquedaInput] = useState('');
   const [tipoPersona, setTipoPersona] = useState<string>('');
   const [estatus, setEstatus] = useState<string>('');
+  const [soloIncompleto, setSoloIncompleto] = useState(false);
 
   const busquedaDebounced = useDebouncedValue(busquedaInput, 300);
 
@@ -59,9 +62,10 @@ export function ProveedoresLayout({ idActivo, detalle }: ProveedoresLayoutProps)
       q: busquedaDebounced.trim() || undefined,
       tipoPersona: tipoPersona !== '' ? (Number(tipoPersona) as TipoPersonaProveedor) : undefined,
       estatus: estatus !== '' ? (Number(estatus) as EstatusCatalogo) : undefined,
+      soloExpedienteIncompleto: soloIncompleto || undefined,
       limit: 200,
     }),
-    [busquedaDebounced, tipoPersona, estatus],
+    [busquedaDebounced, tipoPersona, estatus, soloIncompleto],
   );
 
   const proveedoresQuery = useProveedores(filtros);
@@ -81,6 +85,7 @@ export function ProveedoresLayout({ idActivo, detalle }: ProveedoresLayoutProps)
           titulo={<>Proveedores</>}
           acciones={
             <>
+              <CargaMaestrosDialog catalogo="proveedores" />
               {canAdministrar && (
                 <Button size="sm" onClick={() => nuevoProveedor.abrir()}>
                   <Plus className="mr-1 h-4 w-4" />
@@ -94,6 +99,8 @@ export function ProveedoresLayout({ idActivo, detalle }: ProveedoresLayoutProps)
         <BarraFiltros
           filtros={
             <FiltrosBloque
+              soloIncompleto={soloIncompleto}
+              onSoloIncompleto={setSoloIncompleto}
               busqueda={busquedaInput}
               onBusqueda={setBusquedaInput}
               tipoPersona={tipoPersona}
@@ -129,6 +136,8 @@ export function ProveedoresLayout({ idActivo, detalle }: ProveedoresLayoutProps)
 }
 
 interface FiltrosBloqueProps {
+  soloIncompleto: boolean;
+  onSoloIncompleto: (v: boolean) => void;
   busqueda: string;
   onBusqueda: (v: string) => void;
   tipoPersona: string;
@@ -138,6 +147,8 @@ interface FiltrosBloqueProps {
 }
 
 function FiltrosBloque({
+  soloIncompleto,
+  onSoloIncompleto,
   busqueda,
   onBusqueda,
   tipoPersona,
@@ -147,7 +158,10 @@ function FiltrosBloque({
 }: FiltrosBloqueProps) {
   return (
     <div className="space-y-2 rounded-md border bg-surface-muted/20 p-2">
-      {/* Filtro rápido / bandeja: Todos / Por validar / Activos */}
+      <label className="flex items-center gap-2 text-xs text-ink">
+        <Checkbox checked={soloIncompleto} onCheckedChange={(checked) => onSoloIncompleto(checked === true)} />
+        Sólo expediente incompleto
+      </label>
 
       <Input
         placeholder="Clave, RFC, nombre o razón social…"

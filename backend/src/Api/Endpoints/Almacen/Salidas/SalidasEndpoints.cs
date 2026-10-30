@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Millet.Almacen.Application.Catalogo;
 using Millet.Almacen.Application.Salidas;
+using Millet.Almacen.Application.Salidas.Pdf;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Api.Auth;
 using Millet.Api.Web;
@@ -93,6 +94,27 @@ public static class SalidasEndpoints
         .WithName("ObtenerSalidaPorId")
         .WithSummary("Obtener salida con líneas")
         .Produces<SalidaDetalle>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // --- Comprobante de salida (formato M2 de Millet, 86e3tferp) ---
+        group.MapGet("/{id:guid}/comprobante", async (
+            Guid id,
+            DocumentoSucursalScope documentos,
+            IMediator mediator,
+            HttpResponse response,
+            CancellationToken ct) =>
+        {
+            await documentos.VerificarAsync("salida_almacen", id, PermisosCanonicos.AlmacenSalidasLeerTodasSucursales, ct);
+            var pdf = await mediator.Send(new ComprobanteSalidaPdfQuery(id), ct);
+            if (pdf is null) return Results.NotFound();
+            // Se dibuja al momento con los datos vigentes; no se guarda.
+            response.Headers.CacheControl = "no-store";
+            return Results.File(pdf.Contenido, "application/pdf", pdf.NombreArchivo);
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenSalidasLeerTodas)
+        .WithName("ObtenerComprobanteSalida")
+        .WithSummary("PDF del comprobante de salida con el formato de Millet")
+        .Produces(StatusCodes.Status200OK, contentType: "application/pdf")
         .ProducesProblem(StatusCodes.Status404NotFound);
 
         // --- Registrar Salida Variante A (con RQ) ---

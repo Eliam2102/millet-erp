@@ -24,7 +24,7 @@ public class AlmacenesAppMensajesTests
             c.AddInMemoryCollection(new Dictionary<string, string?>
             { ["Integraciones:AlmacenesApp:ApiKey"] = llave ?? "" })));
 
-    private static HttpRequestMessage Req(string id, string? headerId = null, string? llave = Llave, string tipo = "REQUISICION_ENVIADA")
+    private static HttpRequestMessage Req(string id, string? headerId = null, string? llave = Llave, string tipo = "REQUISICION_CANCELADA")
     {
         var r = new HttpRequestMessage(HttpMethod.Post, Ruta)
         {

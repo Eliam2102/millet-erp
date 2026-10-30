@@ -15,6 +15,11 @@ namespace Millet.Identidad.Domain;
 public static class PermisosCanonicos
 {
     // ----- Infraestructura (transversal) -----
+    public const string DatosMaestrosClientesCargar = "datos_maestros.clientes.cargar";
+    public const string DatosMaestrosArticulosCargar = "datos_maestros.articulos.cargar";
+    public const string DatosMaestrosProveedoresCargar = "datos_maestros.proveedores.cargar";
+    public const string DatosMaestrosProductosAwFiscalCargar = "datos_maestros.productos-aw-fiscal.cargar";
+    public const string CentrosCostoCatalogoCargar = "centros_costo.catalogo.cargar";
     public const string AlmacenEntradasLeerTodasSucursales = "almacen.entradas.leer-todas-sucursales";
     public const string AlmacenEntradasGestionarTodasSucursales = "almacen.entradas.gestionar-todas-sucursales";
     public const string AlmacenSalidasLeerTodasSucursales = "almacen.salidas.leer-todas-sucursales";
@@ -1016,5 +1021,10 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000f-0001-0000-0000-000000000005"), ActivosFijosTrasladosGestionar, "Registrar el traslado de un activo a otra ubicación (Contador General)"),
         (Guid.Parse("0000000f-0001-0000-0000-000000000006"), ActivosFijosLeerTodasSucursales, "Activos fijos: activos.leer-todas-sucursales"),
         (Guid.Parse("0000000f-0001-0000-0000-000000000007"), ActivosFijosGestionarTodasSucursales, "Activos fijos: activos.gestionar-todas-sucursales"),
+        (Guid.Parse("00000004-0090-0000-0000-000000000001"), DatosMaestrosClientesCargar, "Cargar desde Excel o CSV: clientes"),
+        (Guid.Parse("00000004-0090-0000-0000-000000000002"), DatosMaestrosArticulosCargar, "Cargar desde Excel o CSV: articulos"),
+        (Guid.Parse("00000004-0090-0000-0000-000000000003"), DatosMaestrosProveedoresCargar, "Cargar desde Excel o CSV: proveedores"),
+        (Guid.Parse("00000004-0090-0000-0000-000000000004"), DatosMaestrosProductosAwFiscalCargar, "Cargar desde Excel o CSV: productos-aw-fiscal"),
+        (Guid.Parse("00000004-0090-0000-0000-000000000005"), CentrosCostoCatalogoCargar, "Cargar desde Excel o CSV: catalogo"),
     };
 }

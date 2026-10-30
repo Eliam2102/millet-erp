@@ -5336,6 +5336,76 @@ namespace Millet.Identidad.Infrastructure.Migrations
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000004-0090-0000-0000-000000000001"),
+                            Accion = "cargar",
+                            Codigo = "datos_maestros.clientes.cargar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Cargar desde Excel o CSV: clientes",
+                            Modulo = "datos_maestros",
+                            Recurso = "clientes",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000004-0090-0000-0000-000000000002"),
+                            Accion = "cargar",
+                            Codigo = "datos_maestros.articulos.cargar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Cargar desde Excel o CSV: articulos",
+                            Modulo = "datos_maestros",
+                            Recurso = "articulos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000004-0090-0000-0000-000000000003"),
+                            Accion = "cargar",
+                            Codigo = "datos_maestros.proveedores.cargar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Cargar desde Excel o CSV: proveedores",
+                            Modulo = "datos_maestros",
+                            Recurso = "proveedores",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000004-0090-0000-0000-000000000004"),
+                            Accion = "cargar",
+                            Codigo = "datos_maestros.productos-aw-fiscal.cargar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Cargar desde Excel o CSV: productos-aw-fiscal",
+                            Modulo = "datos_maestros",
+                            Recurso = "productos-aw-fiscal",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000004-0090-0000-0000-000000000005"),
+                            Accion = "cargar",
+                            Codigo = "centros_costo.catalogo.cargar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Cargar desde Excel o CSV: catalogo",
+                            Modulo = "centros_costo",
+                            Recurso = "catalogo",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
                         });
                 });
 

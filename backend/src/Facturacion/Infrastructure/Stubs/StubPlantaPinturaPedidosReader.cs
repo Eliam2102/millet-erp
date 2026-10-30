@@ -19,4 +19,8 @@ public sealed class StubPlantaPinturaPedidosReader : IPlantaPinturaPedidosReader
         _logger.LogDebug("[StubPlantaPinturaPedidosReader] Sin Integraciones.Origenes en dev — 0 pedidos. PLATFORM-TODO(<PlantaPinturaOrigenes>).");
         return Task.FromResult<IReadOnlyList<PedidoPlantaPintura>>([]);
     }
+
+    public Task MarcarResultadoAsync(
+        string numeroPedido, ResultadoAcusePlantaPintura resultado, Guid? pedidoId, string? detalleError,
+        DateTimeOffset fecha, CancellationToken cancellationToken) => Task.CompletedTask;
 }

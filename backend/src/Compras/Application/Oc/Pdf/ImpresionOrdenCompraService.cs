@@ -117,11 +117,11 @@ public class ImpresionOrdenCompraService(
             Referencia = oc.ReferenciaProveedor,
             Empresa = new EmpresaEncabezado(empresa?.RazonSocial ?? "", empresa?.NombreComercial, empresa?.Rfc ?? "",
                 empresa?.RegimenFiscal ?? "",
-                empresa is null ? [] : Domicilio(empresa.Calle, empresa.NumeroExterior, empresa.NumeroInterior,
+                empresa is null ? [] : PdfDomicilio.Lineas(empresa.Calle, empresa.NumeroExterior, empresa.NumeroInterior,
                     empresa.Colonia, empresa.Ciudad, empresa.Municipio, empresa.Estado, empresa.CodigoPostal, empresa.Pais),
                 await LogoAsync(empresa?.LogoBlobRef, cancellationToken)),
             Proveedor = new ProveedorImpresion(prov?.Clave ?? "", prov?.RazonSocial ?? "", prov?.Rfc ?? "",
-                prov is null ? [] : Domicilio(prov.Calle, prov.NumeroExterior, prov.NumeroInterior, prov.Colonia,
+                prov is null ? [] : PdfDomicilio.Lineas(prov.Calle, prov.NumeroExterior, prov.NumeroInterior, prov.Colonia,
                     prov.Ciudad, prov.Municipio, prov.Estado, prov.CodigoPostal, prov.Pais),
                 extranjero ? prov!.TaxId : null),
             Contacto = new ContactoImpresion(
@@ -130,7 +130,7 @@ public class ImpresionOrdenCompraService(
                     .Where(x => !string.IsNullOrWhiteSpace(x))),
                 empleado?.Email ?? empleado?.EmailContacto),
             EntregaNombre = sucursal?.Nombre ?? "",
-            EntregaLineas = sucursal is null ? [] : Domicilio(sucursal.Calle, sucursal.NumeroExterior, sucursal.NumeroInterior,
+            EntregaLineas = sucursal is null ? [] : PdfDomicilio.Lineas(sucursal.Calle, sucursal.NumeroExterior, sucursal.NumeroInterior,
                 sucursal.Colonia, sucursal.Ciudad, sucursal.Municipio, sucursal.Estado, sucursal.CodigoPostal, sucursal.Pais),
             UsoCfdi = uso,
             MetodoPago = metodo,
@@ -155,19 +155,6 @@ public class ImpresionOrdenCompraService(
 
     private static string Clave(string clave, string? descripcion) =>
         string.IsNullOrWhiteSpace(descripcion) ? clave : $"{clave} · {descripcion}";
-
-    /// <summary>Líneas de domicilio al estilo del formato de Millet; omite lo que no se capturó.</summary>
-    private static ImmutableArray<string> Domicilio(string? calle, string? exterior, string? interior, string? colonia,
-        string? ciudad, string? municipio, string? estado, string? cp, string? pais)
-    {
-        string? Unir(string sep, params string?[] partes) => string.Join(sep, partes.Where(p => !string.IsNullOrWhiteSpace(p)));
-        var interiorTxt = string.IsNullOrWhiteSpace(interior) ? null : "Int. " + interior;
-        return new[]
-        {
-            Unir(" ", calle, exterior, interiorTxt), colonia, Unir(", ", ciudad, municipio),
-            Unir(", ", cp, estado), pais,
-        }.Where(l => !string.IsNullOrWhiteSpace(l)).Select(l => l!).ToImmutableArray();
-    }
 
     private async Task<byte[]?> LogoAsync(string? blobRef, CancellationToken cancellationToken)
     {

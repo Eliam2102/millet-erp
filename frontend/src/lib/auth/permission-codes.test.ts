@@ -12,6 +12,8 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
  * vuelve redundante y se borra.</para>
  */
 const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
+  'datos_maestros.clientes.cargar', 'datos_maestros.articulos.cargar', 'datos_maestros.proveedores.cargar',
+  'datos_maestros.productos-aw-fiscal.cargar', 'centros_costo.catalogo.cargar',
   'activos_fijos.depreciacion.correr',
   'activos_fijos.depreciacion.anular',
   'activos_fijos.bajas.registrar',
