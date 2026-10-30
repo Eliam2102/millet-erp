@@ -13,7 +13,9 @@ public sealed record EnviarFacturaARevisionCommand(
     Guid Id,
     int VersionEsperada,
     Guid MotivoRevisionId,
-    Guid DependenciaRevisoraId) : IRequest<EnviarFacturaARevisionResponse>;
+    Guid DependenciaRevisoraId,
+    // 86e3tactf: motivo 13 — usuario del ERP que pidió no pagar; null = quien la envía.
+    Guid? SolicitanteId = null) : IRequest<EnviarFacturaARevisionResponse>;
 
 public sealed record EnviarFacturaARevisionResponse(
     Guid Id,
@@ -90,7 +92,7 @@ public sealed class EnviarFacturaARevisionHandler : IRequestHandler<EnviarFactur
                 $"La dependencia revisora '{dependencia.Codigo}' está inactiva.");
         }
 
-        factura.EnviarARevision(motivo.Id, dependencia.Id, _currentUser.UserId, _clock.UtcNow);
+        factura.EnviarARevision(motivo.Id, dependencia.Id, _currentUser.UserId, _clock.UtcNow, command.SolicitanteId);
         await _db.SaveChangesAsync(cancellationToken);
 
         return new EnviarFacturaARevisionResponse(

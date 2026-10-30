@@ -45,4 +45,11 @@ public enum EstadoTimbrado : short
     /// libera el pedido facturable ([Decisión 01-G] G3). Nunca llegó al SAT.
     /// </summary>
     Descartada = 8,
+
+    /// <summary>
+    /// Nota de crédito recibida de A+W que espera la autorización de una persona con el permiso
+    /// <c>facturacion.notas-credito.autorizar</c>. No se timbra hasta autorizarla
+    /// (<c>PorAutorizar → Borrador → TimbradoEnProceso</c>, en un solo paso).
+    /// </summary>
+    PorAutorizar = 9,
 }

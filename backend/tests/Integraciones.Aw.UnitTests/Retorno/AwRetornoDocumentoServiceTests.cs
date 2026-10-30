@@ -40,6 +40,23 @@ public sealed class AwRetornoDocumentoServiceTests
     }
 
     [Fact]
+    public async Task Nota_de_credito_de_A_W_arma_la_fila_NotaCredito_con_el_folio_fiscal()
+    {
+        var p = new PuertoFalso();
+        await Servicio(p).RegistrarNotaCreditoAsync(new("UUID-NC", 1500m, "NC-7", "900101", 4), default);
+        p.Agregados.Should().ContainSingle().Which.Should().Be(
+            new AwRetornoDocumento("900101", "NotaCredito", 4, "NC-7", "UUID-NC", 1500m));
+    }
+
+    [Fact]
+    public async Task Nota_de_credito_del_ERP_sin_pedido_de_A_W_no_escribe_nada()
+    {
+        var p = new PuertoFalso();
+        (await Servicio(p).RegistrarNotaCreditoAsync(new("UUID-NC", 1500m, "NC-7"), default)).Should().BeNull();
+        p.Agregados.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task Factura_de_pedido_no_AW_no_escribe_nada()
     {
         var p = new PuertoFalso();

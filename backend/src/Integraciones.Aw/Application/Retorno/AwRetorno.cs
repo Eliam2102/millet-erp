@@ -53,6 +53,19 @@ public sealed class AwRetornoDocumentoService(
 {
     public const string TipoFacturaFinal = "FacturaFinal";
     public const string TipoCancelacion = "Cancelacion";
+    public const string TipoNotaCredito = "NotaCredito";
+
+    /// <summary>
+    /// 86e3wjt5r: fila NotaCredito de una nota de A+W ya timbrada. El evento de la nota trae la misma forma
+    /// que el de la factura (UUID, total, folio, pedido y versión), por eso comparte el payload.
+    /// Idempotente por UUID + tipo; null si la nota no es de A+W.
+    /// </summary>
+    public async Task<int?> RegistrarNotaCreditoAsync(FacturaTimbradaRetornoPayload nota, CancellationToken ct)
+    {
+        if (nota.NumeroPedidoAw is null || nota.VersionPedidoAw is null) return null;
+        return await SinCanalApagadoAsync(() => retorno.AgregarDocumentoAsync(new AwRetornoDocumento(
+            nota.NumeroPedidoAw, TipoNotaCredito, nota.VersionPedidoAw.Value, nota.Folio, nota.Uuid, nota.Total), ct));
+    }
 
     /// <summary>Devuelve la secuencia asignada, o null si no aplica (pedido no A+W), ya existía o el canal está apagado.</summary>
     public async Task<int?> RegistrarFacturaAsync(FacturaTimbradaRetornoPayload factura, CancellationToken ct)

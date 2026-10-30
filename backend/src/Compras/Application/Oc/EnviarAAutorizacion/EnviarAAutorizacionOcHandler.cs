@@ -103,6 +103,7 @@ public sealed class EnviarAAutorizacionOcHandler : IRequestHandler<EnviarAAutori
         {
             throw ProveedorNoUtilizable.Error(proveedor.Clave, proveedor.Estatus, $"El proveedor '{proveedor.Clave}' está {proveedor.Estatus} y no puede enviarse a autorización.");
         }
+        ProveedorNoUtilizable.RechazarSiBloqueado(proveedor);
 
         // D4 (P7): el correo de autorización no sustituye la cotización.
         var tieneCotizacion = oc.Adjuntos.Any(a => a.TipoDocumentoId == idCotizacion);

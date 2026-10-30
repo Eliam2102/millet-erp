@@ -254,7 +254,7 @@ La OC autorizada tiene tres dimensiones de progreso que avanzan
   - `SinRecepcion` si `SUM(linea.cantidad_recibida) = 0`.
   - `Parcial` si `0 < SUM(linea.cantidad_recibida) < SUM(linea.cantidad)`.
   - `Completa` si `SUM(linea.cantidad_recibida) = SUM(linea.cantidad)`.
-- `SubEstadoFacturacion`: equivalente, contra `cantidad_facturada`, con tope por línea: se suma `MIN(cantidad_facturada, cantidad)` (el excedente facturado de una línea no completa a otra). Tope de captura por línea: `MAX(cantidad, cantidad_recibida)`; una devolución a proveedor no puede dejar `cantidad_recibida < cantidad_facturada` (ver Almacén 8.B, `DEVOLUCION_EXCEDE_NO_FACTURADO`).
+- `SubEstadoFacturacion`: equivalente, contra `cantidad_facturada`, con tope por línea: se suma `MIN(cantidad_facturada, cantidad)` (el excedente facturado de una línea no completa a otra). Tope de captura por línea: `MAX(cantidad, cantidad_recibida)`; una devolución a proveedor no puede dejar `cantidad_facturada > MAX(cantidad, cantidad_recibida)` (ver Almacén 8.B, `DEVOLUCION_EXCEDE_NO_FACTURADO`). Devolver lo facturado dentro de lo pedido baja `cantidad_recibida` y reabre la OC; `cantidad_facturada` no baja hasta `<NcGranularidadLineaOc>`.
 - `SubEstadoPago`: equivalente, contra `monto_pagado` vs `total_facturado`.
 
 **Transición a `Cerrada`:** se ejecuta automáticamente cuando las tres

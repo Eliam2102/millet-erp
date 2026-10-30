@@ -87,6 +87,8 @@ export const EstadoTimbrado = {
   Cancelado: 7,
   /** Fallida descartada a conciencia: terminal, quema el folio y libera el pedido (01-G G3). */
   Descartada: 8,
+  /** Nota de crédito de A+W que espera autorización (86e3wjt5r); no se timbra hasta autorizarla. */
+  PorAutorizar: 9,
 } as const satisfies Record<string, number>;
 export type EstadoTimbrado =
   (typeof EstadoTimbrado)[keyof typeof EstadoTimbrado];

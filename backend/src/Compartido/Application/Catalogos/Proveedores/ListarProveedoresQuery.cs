@@ -24,7 +24,8 @@ public sealed record ListarProveedoresQuery(
     int Offset = 0,
     int Limit = 50,
     string? Q = null,
-    bool SoloExpedienteIncompleto = false) : IRequest<ListarProveedoresResponse>;
+    bool SoloExpedienteIncompleto = false,
+    bool? Bloqueado = null) : IRequest<ListarProveedoresResponse>;
 
 public sealed record ProveedorItem(
     Guid Id,
@@ -40,7 +41,9 @@ public sealed record ProveedorItem(
     string? MotivoRechazo = null,
     int? ClaveAw = null,
     bool ExpedienteCompleto = true,
-    int DocumentosFaltantes = 0);
+    int DocumentosFaltantes = 0,
+    bool Bloqueado = false,
+    string? MotivoBloqueo = null);
 
 public sealed record ListarProveedoresResponse(
     IReadOnlyList<ProveedorItem> Items,
@@ -106,6 +109,8 @@ public sealed class ListarProveedoresHandler
             q = q.Where(p => p.TipoPersona == tp);
         if (query.Estatus is EstatusCatalogo e)
             q = q.Where(p => p.Estatus == e);
+        if (query.Bloqueado is bool b)
+            q = q.Where(p => p.Bloqueado == b);
 
         var pendientes = ExpedienteAdjuntos.PendientesProveedores(_db, _clock);
         var resumen = q.Select(p => new { Proveedor = p, Pendientes = pendientes.Count(x => x.ProveedorId == p.Id) });
@@ -117,7 +122,8 @@ public sealed class ListarProveedoresHandler
             .Select(x => new ProveedorItem(
                 x.Proveedor.Id, x.Proveedor.Clave, x.Proveedor.RazonSocial, x.Proveedor.NombreComercial, x.Proveedor.Rfc,
                 x.Proveedor.TipoPersona, x.Proveedor.CondicionesPagoDias, x.Proveedor.MonedaPreferidaId, x.Proveedor.Estatus,
-                x.Proveedor.ValidadoEn, x.Proveedor.MotivoRechazo, x.Proveedor.ClaveAw, x.Pendientes == 0, x.Pendientes))
+                x.Proveedor.ValidadoEn, x.Proveedor.MotivoRechazo, x.Proveedor.ClaveAw, x.Pendientes == 0, x.Pendientes,
+                x.Proveedor.Bloqueado, x.Proveedor.MotivoBloqueo))
             .ToListAsync(cancellationToken);
 
         return new ListarProveedoresResponse(items, offset, limit, total);

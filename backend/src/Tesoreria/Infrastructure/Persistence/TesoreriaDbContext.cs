@@ -55,6 +55,7 @@ public sealed class TesoreriaDbContext : BaseDbContext
 
     /// <summary>Confirmaciones de depósito de cliente — patrón propuesta/confirmación con CxC (PR-7).</summary>
     public DbSet<DepositoConfirmacion> DepositosConfirmacion => Set<DepositoConfirmacion>();
+    public DbSet<DepositoFicha> DepositoFichas => Set<DepositoFicha>();
     public DbSet<DevolucionCliente> DevolucionesCliente => Set<DevolucionCliente>();
     public DbSet<FolioSecuenciaDevolucionCliente> FolioSecuenciasDevolucionCliente => Set<FolioSecuenciaDevolucionCliente>();
 
@@ -88,6 +89,7 @@ public sealed class TesoreriaDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new CorridaPagoConfiguration());
         modelBuilder.ApplyConfiguration(new CorridaPagoLineaConfiguration());
         modelBuilder.ApplyConfiguration(new DepositoConfirmacionConfiguration());
+        modelBuilder.ApplyConfiguration(new DepositoFichaConfiguration());
         modelBuilder.ApplyConfiguration(new DevolucionClienteConfiguration());
         modelBuilder.ApplyConfiguration(new FolioSecuenciaDevolucionClienteConfiguration());
         modelBuilder.ApplyConfiguration(new ReppProveedorRecibidoConfiguration());

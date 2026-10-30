@@ -3743,6 +3743,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000009-0004-0000-0000-000000000004"),
+                            Accion = "autorizar",
+                            Codigo = "facturacion.notas-credito.autorizar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar y timbrar notas de crédito de clientes que llegan de A+W (propuesta: Gerente de Sucursal, manual §2.3; la reemplaza la cadena por monto F6.4)",
+                            Modulo = "facturacion",
+                            Recurso = "notas-credito",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000009-0005-0000-0000-000000000001"),
                             Accion = "emitir",
                             Codigo = "facturacion.carta-porte.emitir",
@@ -5431,6 +5445,34 @@ namespace Millet.Identidad.Infrastructure.Migrations
                             Descripcion = "Cargar desde Excel o CSV: catalogo",
                             Modulo = "centros_costo",
                             Recurso = "catalogo",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000004-0091-0000-0000-000000000001"),
+                            Accion = "bloquear",
+                            Codigo = "datos_maestros.proveedores.bloquear",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Bloquear y desbloquear al proveedor completo (sin pagos ni OC nuevas)",
+                            Modulo = "datos_maestros",
+                            Recurso = "proveedores",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000004-0091-0000-0000-000000000002"),
+                            Accion = "liberar-en-lugar",
+                            Codigo = "cuentas_por_pagar.bloqueos.liberar-en-lugar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Liberar un bloqueo (proveedor o factura) en lugar de quien lo pidió, con motivo",
+                            Modulo = "cuentas_por_pagar",
+                            Recurso = "bloqueos",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1
