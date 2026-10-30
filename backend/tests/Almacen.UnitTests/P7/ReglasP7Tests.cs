@@ -221,7 +221,7 @@ public sealed class ReglasP7Tests
         var vivo = new VivoP7();
         var crear = new CrearP7();
         var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
-        services.AddSingleton<MediatR.IRequestHandler<Millet.Almacen.Application.Reorden.EvaluarReordenQuery, IReadOnlyList<Millet.Almacen.Application.Reorden.FaltanteReorden>>>(new Millet.Almacen.Application.Reorden.EvaluarReordenHandler(f.Db, new AlmacenSaldoQueryAdapter(f.Db), vivo));
+        services.AddSingleton<MediatR.IRequestHandler<Millet.Almacen.Application.Reorden.EvaluarReordenQuery, IReadOnlyList<Millet.Almacen.Application.Reorden.FaltanteReorden>>>(new Millet.Almacen.Application.Reorden.EvaluarReordenHandler(f.Db, new AlmacenSaldoQueryAdapter(f.Db), vivo, new Millet.SharedKernel.Infrastructure.SystemClock(), Microsoft.Extensions.Options.Options.Create(new Millet.Almacen.Application.Reorden.ReordenConsumoOptions())));
         using var provider = services.BuildServiceProvider();
         var handler = new Millet.Almacen.Application.Reorden.GenerarBorradoresReordenHandler(new MediatR.Mediator(provider), f.Db, crear, Microsoft.Extensions.Logging.Abstractions.NullLogger<Millet.Almacen.Application.Reorden.GenerarBorradoresReordenHandler>.Instance);
         (await handler.Handle(new(), default)).RqsCreadas.Should().Be(0);

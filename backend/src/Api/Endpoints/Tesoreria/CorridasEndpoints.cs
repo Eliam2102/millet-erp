@@ -113,6 +113,29 @@ public static class CorridasEndpoints
             .WithName("GenerarOficioCorridaPago").Produces<Millet.Tesoreria.Application.Reportes.Comun.ReporteJsonResponse>()
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        // T9.3 (86e3ke5ck): Layout de pago en lote por banco (BBVA primero, configurable).
+        corridas.MapPost("/{id:guid}/layout", async (Guid id, [FromQuery] string? banco, [FromQuery] TipoPagoLayout? tipoPago,
+            IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new GenerarLayoutCorridaCommand(id, banco ?? "BBVA", tipoPago ?? TipoPagoLayout.NacionalSpei), ct)))
+            .RequireAuthorization(P + PermisosCanonicos.TesoreriaCorridasEjecutar)
+            .WithName("GenerarLayoutCorridaPago")
+            .Produces<LayoutCorridaResponse>()
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        corridas.MapGet("/{id:guid}/layout/descargar", async (Guid id, [FromQuery] string? banco, [FromQuery] TipoPagoLayout? tipoPago,
+            IMediator mediator, CancellationToken ct) =>
+        {
+            var r = await mediator.Send(new GenerarLayoutCorridaCommand(id, banco ?? "BBVA", tipoPago ?? TipoPagoLayout.NacionalSpei), ct);
+            return Results.File(
+                System.Text.Encoding.UTF8.GetBytes(r.Contenido),
+                contentType: "text/plain; charset=utf-8",
+                fileDownloadName: r.NombreArchivo);
+        })
+            .RequireAuthorization(P + PermisosCanonicos.TesoreriaCorridasEjecutar)
+            .WithName("DescargarLayoutCorridaPago")
+            .Produces(StatusCodes.Status200OK, contentType: "text/plain")
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         corridas.MapPost("/{id:guid}/ejecucion", async (Guid id, [FromHeader(Name = "X-Expected-Version")] int? v,
             [FromBody] EjecucionBody body, IMediator mediator, DocumentoSucursalScope scope, CancellationToken ct) =>
         {
