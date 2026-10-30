@@ -70,7 +70,7 @@ public sealed class OcDevolucionEnAlmacenHandler
             var lineasOc = await _db.OrdenesCompra
                 .AsNoTracking()
                 .Where(o => o.Id == ordenCompraId)
-                .SelectMany(o => o.Lineas.Select(l => new { l.Id, l.ArticuloId, l.EsServicio, l.Cantidad, l.CantidadRecibida, l.CantidadFacturada }))
+                .SelectMany(o => o.Lineas.Select(l => new { l.Id, l.ArticuloId, l.EsServicio, l.Cantidad, l.CantidadRecibida, l.CantidadFacturada, l.CantidadAcreditada }))
                 .ToListAsync(cancellationToken);
 
             if (lineasOc.Count == 0)
@@ -81,7 +81,7 @@ public sealed class OcDevolucionEnAlmacenHandler
             // Saldo corriente por línea de OC: varias devoluciones sobre la misma línea
             // se descuentan en secuencia (cada evento lleva el acumulado post-descuento anterior).
             var saldo = lineasOc.ToDictionary(l => l.Id, l => l.CantidadRecibida);
-            var facturada = lineasOc.ToDictionary(l => l.Id, l => l.CantidadFacturada);
+            var facturada = lineasOc.ToDictionary(l => l.Id, l => l.CantidadFacturada - l.CantidadAcreditada);
             var pedida = lineasOc.ToDictionary(l => l.Id, l => l.Cantidad);
 
             // Resolver todas las líneas antes de publicar: el listener hace SaveChanges

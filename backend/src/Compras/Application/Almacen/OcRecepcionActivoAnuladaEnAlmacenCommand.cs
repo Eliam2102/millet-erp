@@ -42,12 +42,12 @@ public sealed class OcRecepcionActivoAnuladaEnAlmacenHandler(
             ?? throw new BusinessRuleException("RECEPCION_LINEA_OC_NO_RESOLUBLE",
                 $"La línea de OC {p.LineaOcId} de la recepción {p.RecepcionId} no existe en la OC {oc.Id}.");
 
-        if (p.CantidadRecibidaAcumulada < linea.CantidadFacturada)
+        if (p.CantidadRecibidaAcumulada < linea.CantidadFacturadaNeta)
         {
             // Mismo criterio que la devolución 8.B: recibido no puede quedar bajo lo facturado (check de BD); Almacén ya lo bloquea.
             logger.LogError(
                 "[OcRecepcionActivoAnuladaEnAlmacenHandler] Anulación {RecepcionId} omitida en línea {LineaOcId}: dejaría recibido ({Acumulado}) bajo lo facturado ({Facturada}).",
-                p.RecepcionId, p.LineaOcId, p.CantidadRecibidaAcumulada, linea.CantidadFacturada);
+                p.RecepcionId, p.LineaOcId, p.CantidadRecibidaAcumulada, linea.CantidadFacturadaNeta);
         }
         else
         {
