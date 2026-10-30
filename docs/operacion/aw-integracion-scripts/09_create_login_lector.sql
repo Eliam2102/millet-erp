@@ -8,8 +8,12 @@
 
    Qué otorga (mínimo privilegio, nada de escritura, nada de MILLET_INTEGRACION):
      - millet_erp_lector_aw: SELECT sobre las tablas SYSADM que leen
-       AwClientesSqlOrigen.cs y AwProductosSqlOrigen.cs:
+       AwClientesSqlOrigen.cs, AwClientesPedidosOrigen.cs y AwProductosSqlOrigen.cs:
          clientes:  KU_KUNDEN, KA_ZAHLBED, KA_BONITAET
+         historial: BW_AUFTR_KOPF (pedidos), BW_ANGEB_KOPF (cotizaciones). Solo se cuentan
+                    por cliente (AH_IDENT) para unificar clientes con RFC repetido. Se agregaron
+                    el 29-oct-2026: la pantalla de unificar fallaba con «No se pudieron cargar
+                    los clientes de este RFC».
          productos: BA_PRODUKTE, BA_PRODUKTE_BEZ, BA_STUKL, BA_STUKL_BEARB,
                     BA_LAGMA, KA_WGR
      - Si cambian esos orígenes, actualizar este script y la lista de arriba.
@@ -41,6 +45,9 @@ GO
 GRANT SELECT ON SYSADM.KU_KUNDEN       TO millet_erp_lector_aw;
 GRANT SELECT ON SYSADM.KA_ZAHLBED      TO millet_erp_lector_aw;
 GRANT SELECT ON SYSADM.KA_BONITAET     TO millet_erp_lector_aw;
+/* Historial de pedidos y cotizaciones por cliente (unificación de RFC repetido) */
+GRANT SELECT ON SYSADM.BW_AUFTR_KOPF   TO millet_erp_lector_aw;
+GRANT SELECT ON SYSADM.BW_ANGEB_KOPF   TO millet_erp_lector_aw;
 /* Productos */
 GRANT SELECT ON SYSADM.BA_PRODUKTE     TO millet_erp_lector_aw;
 GRANT SELECT ON SYSADM.BA_PRODUKTE_BEZ TO millet_erp_lector_aw;
