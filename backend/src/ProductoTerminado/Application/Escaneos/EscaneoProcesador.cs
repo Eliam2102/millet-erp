@@ -11,7 +11,7 @@ namespace Millet.ProductoTerminado.Application.Escaneos;
 /// rastreadas, publica el evento al outbox, pero nunca llama a <c>SaveChanges</c>: lo hace quien lo invoca.
 /// Todo camino termina llamando a un <c>Marcar*</c> (el default del escaneo es Excepcion).
 /// </summary>
-public sealed class EscaneoProcesador(ProductoTerminadoDbContext db, IPedidosPtReadPort pedidos, IPtSucursalPorClaveAwPort sucursales, IIntegrationEventPublisher eventos, IClock clock)
+public sealed class EscaneoProcesador(ProductoTerminadoDbContext db, IPedidosPtReadPort pedidos, IPtSucursalPorClaveAwPort sucursales, IIntegrationEventPublisher eventos, IClock clock, LiberacionPedido liberacion)
 {
     public async Task ProcesarAsync(EscaneoPt e, int maxIntentos, CancellationToken ct)
     {
@@ -114,5 +114,9 @@ public sealed class EscaneoProcesador(ProductoTerminadoDbContext db, IPedidosPtR
         db.Movimientos.Add(MovimientoPieza.Alta(pieza, e.Id.ToString(), ahora));
         e.MarcarAlta(pieza.Id);
         await eventos.PublishAsync(new PiezaIngresadaEvent(e.EmpresaId, ahora, pieza.Id, pedido.Id, pedido.NumeroPedido, posicion, numeroPieza, pos.ProductoId, sucursalId, pieza.EscaneadaAt), ct);
+
+        // (8) PT5.2: la primera pieza retiene (69) y evalúa; con el pedido ya retenido, cada pieza nueva reevalúa saldo y REPARTO.
+        if (pedido.Liberacion is null) await liberacion.EntrarA69Async(pedido, origen, ct);
+        else await liberacion.ReevaluarAsync(pedido, ct);
     }
 }

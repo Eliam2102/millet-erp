@@ -286,6 +286,20 @@ namespace Millet.ProductoTerminado.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("empresa_id");
 
+                    b.Property<string>("Liberacion")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("liberacion");
+
+                    b.Property<DateTimeOffset?>("LiberacionAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("liberacion_at");
+
+                    b.Property<string>("MotivoLiberacion")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("motivo_liberacion");
+
                     b.Property<string>("NumeroPedido")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -323,6 +337,10 @@ namespace Millet.ProductoTerminado.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_pedidos_pt");
+
+                    b.HasIndex("Liberacion")
+                        .HasDatabaseName("ix_pt_pedidos_retenidos")
+                        .HasFilter("liberacion = 'Retenido'");
 
                     b.HasIndex("EmpresaId", "NumeroPedido")
                         .IsUnique()
@@ -494,6 +512,62 @@ namespace Millet.ProductoTerminado.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_piezas_pedido_pt_id_posicion_numero_pieza");
 
                     b.ToTable("piezas", "producto_terminado");
+                });
+
+            modelBuilder.Entity("Millet.ProductoTerminado.Domain.SaldoDemo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<string>("NumeroPedido")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("numero_pedido");
+
+                    b.Property<decimal>("Saldo")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("saldo");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_saldos_demo");
+
+                    b.HasIndex("EmpresaId", "NumeroPedido")
+                        .IsUnique()
+                        .HasDatabaseName("ix_saldos_demo_empresa_id_numero_pedido");
+
+                    b.ToTable("saldos_demo", "producto_terminado");
                 });
 
             modelBuilder.Entity("Millet.SharedKernel.Domain.Audit.AuditLogEntry", b =>
