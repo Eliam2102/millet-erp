@@ -221,6 +221,11 @@ function Gastos({
                 'Factura',
                 'Moneda',
                 'Facturado',
+                'TC usado',
+                'Importe MXN',
+                'TC sugerido',
+                '% dif. TC',
+                'TC cambiado por',
                 'Cotizado',
                 'Diferencia',
                 'Acciones',
@@ -246,6 +251,25 @@ function Gastos({
                 </TableCell>
                 <TableCell>{g.moneda}</TableCell>
                 <TableCell className="text-right tabular-nums">{dinero(g.importe)}</TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {g.moneda === 'USD' ? g.tipoCambio.toFixed(4) : '—'}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">{dinero(g.importeMxn)}</TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {g.moneda === 'USD' && g.tipoCambioSugerido !== null
+                    ? g.tipoCambioSugerido.toFixed(4)
+                    : '—'}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {g.moneda === 'USD' && g.diferenciaTipoCambioPct !== null
+                    ? `${g.diferenciaTipoCambioPct.toFixed(2)} %`
+                    : '—'}
+                </TableCell>
+                <TableCell>
+                  {g.moneda === 'USD' && g.tipoCambioModificadoPor
+                    ? (f.nombres[g.tipoCambioModificadoPor] ?? 'Usuario')
+                    : '—'}
+                </TableCell>
                 <TableCell className="text-right tabular-nums">
                   {g.cotizado === null ? 'Sin cotización' : dinero(g.cotizado)}
                 </TableCell>

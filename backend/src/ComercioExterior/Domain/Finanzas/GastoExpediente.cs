@@ -84,6 +84,9 @@ public sealed class GastoExpediente : BaseEntity, IPerteneceAEmpresa, IAuditable
     {
         if (AnticipoAgenteId != null)
             throw new BusinessRuleException("CE_GASTO_YA_APLICADO", "No se puede editar un gasto aplicado a un anticipo.");
+        if (fuente == "MXN" && d.Moneda != "MXN")
+            throw new BusinessRuleException("CE_TIPO_CAMBIO_FUENTE_INVALIDA", "La fuente MXN solo aplica a gastos en pesos.");
+        if (fuente == "Banxico" && sugerido is > 0) tc = sugerido.Value; // Banxico nunca toma el TC enviado por el cliente
         if (concepto.RequiereOrdenServicio && orden is null)
             throw new BusinessRuleException("CE_ORDEN_SERVICIO_REQUERIDA", "Seleccione una orden de servicio para este concepto.");
         if (orden is not null && (orden.Id == Guid.Empty || orden.Total <= 0 || orden.Asignado <= 0 || orden.Asignado > orden.Total ||

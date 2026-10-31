@@ -76,8 +76,14 @@ public sealed class FinanzasServicio(ComercioExteriorDbContext db, ExpedienteSer
                 b?.ValorAduanaMxn ?? 0, b?.PesoKg ?? 0, p.Cantidad, p.ClienteId);
         }).ToArray();
     }
-    public async Task<FinanzasDetalle> DetalleAsync(Expediente e, CancellationToken ct) => new(e.Version, e.EstadoFinanciero,
-        e.MotivosFinancieros(), await ConceptosAsync(e.EmpresaId, ct), e.Gastos, e.PartidasCosto, await PartidasAsync(e, ct), e.Distribuciones, e.Anticipos, await catalogos.NombresTercerosAsync(e.Gastos.Select(g => g.ProveedorId).Concat(e.Anticipos.Select(a => a.AgenteId)).Concat(e.Partidas.Select(p => p.ClienteId)), ct));
+    public async Task<FinanzasDetalle> DetalleAsync(Expediente e, CancellationToken ct)
+    {
+        var terceros = await catalogos.NombresTercerosAsync(e.Gastos.Select(g => g.ProveedorId).Concat(e.Anticipos.Select(a => a.AgenteId)).Concat(e.Partidas.Select(p => p.ClienteId)), ct);
+        var usuarios = await catalogos.NombresAsync(e.Gastos.Where(g => g.TipoCambioModificadoPor is not null).Select(g => g.TipoCambioModificadoPor!.Value).Distinct(), ct);
+        return new(e.Version, e.EstadoFinanciero,
+        e.MotivosFinancieros(), await ConceptosAsync(e.EmpresaId, ct), e.Gastos, e.PartidasCosto, await PartidasAsync(e, ct), e.Distribuciones, e.Anticipos,
+            terceros.Concat(usuarios).GroupBy(x => x.Key).ToDictionary(x => x.Key, x => x.First().Value));
+    }
     public async Task<DistribucionGasto> PreviaAsync(Guid id, int version, CancellationToken ct)
     {
         await servicio.PermisoAsync(PermisosCanonicos.ComercioExteriorGastosDistribuir, ct);
@@ -152,7 +158,8 @@ public sealed class MutarFinanzasHandler(ComercioExteriorDbContext db, Expedient
                 if (g.Moneda != "MXN" && g.FuenteTipoCambio is not null)
                 {
                     fuenteTc = g.FuenteTipoCambio;
-                    tc = fuenteTc == "CFDI" && factura?.TipoCambio is decimal delCfdi ? delCfdi
+                    tc = fuenteTc == "Banxico" ? sugerido
+                        : fuenteTc == "CFDI" && factura?.TipoCambio is decimal delCfdi ? delCfdi
                         : g.TipoCambioUsado ?? throw new BusinessRuleException("CE_TIPO_CAMBIO_REQUERIDO", "Capture el tipo de cambio usado.");
                 }
                 var orden = await ordenes.ValidarAsync(e, g, concepto, tc, cancellationToken);
