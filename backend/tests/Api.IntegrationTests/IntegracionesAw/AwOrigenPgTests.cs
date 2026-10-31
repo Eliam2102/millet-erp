@@ -226,7 +226,7 @@ public class AwOrigenPgTests(WebApplicationFactory<Program> factory)
 
         // Columnas de la fila.
         var c10 = todas.Single(f => f.Id == 10);
-        Assert.Equal(("CLIENTE DEMO 010", "PESOSMX", "DEMO010", 1, 1), (c10.Name1, c10.Waehrung, c10.UstId, c10.Mandant, c10.KzGesperrt));
+        Assert.Equal(("CLIENTE DEMO 010", "PESOSMX", "DEM010101010", 1, 1), (c10.Name1, c10.Waehrung, c10.UstId, c10.Mandant, c10.KzGesperrt));
         Assert.Equal(new DateOnly(2020, 1, 11), c10.Datum);
         Assert.Null(c10.TransactionTime);
         Assert.Equal(new DateTime(2026, 1, 1, 10, 0, 0), todas.Single(f => f.Id == 20).TransactionTime);
@@ -314,10 +314,10 @@ public class AwOrigenPgTests(WebApplicationFactory<Program> factory)
         Assert.Equal("EUR", cs["44"].MonedaDefault);
         Assert.Equal(("30 DIAS", 6, 30), (regs["19"].CondicionCodigoOrigen, regs["19"].CondicionNumeroOrigen, regs["19"].DiasNominalesOrigen));
         Assert.Null(regs["53"].CondicionNumeroOrigen); // 'contado' (minúscula) no coincide con el catálogo
-        Assert.Null(c10.Rfc); // DEMO010 no tiene forma de RFC
+        Assert.Equal("DEM010101010", c10.Rfc); // UST_ID con forma de RFC se aplica solo en demo
         Assert.Equal(r10.DomicilioOrigenCp, c10.CodigoPostalFiscal);
         Assert.Equal("XAXX010101000", cs["3"].Rfc); // UST_ID válido se aplica solo en demo
-        Assert.Equal("DEMO010", r10.CandidatoFiscalUstId);
+        Assert.Equal("DEM010101010", r10.CandidatoFiscalUstId);
 
         // 61 y 62 comparten RFC: ambos se crean (no se fusionan) y el segundo queda con un RfcCompartido pendiente (va a revisión).
         Assert.Equal(("DEMO010101AB1", null), (cs["61"].Rfc, cs["62"].Rfc));

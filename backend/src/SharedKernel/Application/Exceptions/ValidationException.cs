@@ -15,9 +15,15 @@ public sealed class ValidationException : DomainException
     public IReadOnlyList<ValidationError> Errors { get; }
 
     public ValidationException(IEnumerable<ValidationError> errors)
-        : base("Errores de validación")
+        : this(errors.ToList())
     {
-        Errors = errors.ToList();
+    }
+
+    // El mensaje nombra campo y motivo: se persiste tal cual en bandejas/solicitudes (ej. ingesta A+W).
+    private ValidationException(List<ValidationError> errors)
+        : base("Errores de validación: " + string.Join("; ", errors.Select(e => $"{e.Field}: {e.Message}")))
+    {
+        Errors = errors;
     }
 }
 

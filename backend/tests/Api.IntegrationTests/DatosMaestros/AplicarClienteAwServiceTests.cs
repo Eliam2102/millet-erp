@@ -439,6 +439,28 @@ public class AplicarClienteAwServiceTests
         Assert.Single(regs);
     }
 
+    [Fact]
+    public async Task Provisionar_con_RFC_ya_usado_crea_sin_RFC_pero_conserva_candidato_y_aparece_en_rfc_repetidos()
+    {
+        var rfc = NuevoRfc();
+        var (r1, r2) = (NuevaRef(), NuevaRef());
+        var primero = await Provisionar(new ProvisionarClienteDesdeAwCommand(r1, "CLIENTE DEMO A", rfc, null, "06600", null, null, null, "MXN"));
+        var segundo = await Provisionar(new ProvisionarClienteDesdeAwCommand(r2, "CLIENTE DEMO B", rfc, null, "06600", null, null, null, "MXN"));
+
+        Assert.Equal(rfc, primero.Rfc);
+        Assert.True(segundo.Creado);
+        Assert.Null(segundo.Rfc); // unicidad de clientes.rfc
+        var (_, regs) = await Leer(r2);
+        Assert.Equal(rfc, Assert.Single(regs).CandidatoFiscalUstId); // el grupo de #268 lo une por el candidato
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<Millet.Compartido.Infrastructure.Persistence.CompartidoDbContext>();
+        var ids = await db.Set<ClienteSincronizacionAw>().AsNoTracking()
+            .Where(x => x.CandidatoFiscalUstId == rfc).Select(x => x.ClienteId).ToListAsync();
+        Assert.Contains(segundo.ClienteId, ids);
+        Assert.True(await db.Set<CambioMaestroAw>().AnyAsync(c => c.EntidadId == segundo.ClienteId && c.Tipo == TipoCambioMaestroAw.RfcCompartido));
+    }
+
     private async Task<ProvisionarClienteDesdeAwResponse> Provisionar(ProvisionarClienteDesdeAwCommand cmd)
     {
         using var scope = _factory.Services.CreateScope();

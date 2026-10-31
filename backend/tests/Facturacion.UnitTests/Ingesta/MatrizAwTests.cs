@@ -202,6 +202,7 @@ public sealed class MatrizAwTests
             .Handle(new ProcesarSolicitudAwCommand(empresaId, Sol(OperacionAw.Alta)), CancellationToken.None);
 
         resp.Resultado.Should().Be(ResultadoSolicitudAw.Rechazada);
+        resp.Motivo.Should().Contain("reenvíe con una versión nueva");
         (await db.ExcepcionesImportacion.SingleAsync()).Motivo.Should().Be(MotivoExcepcion.TotalesNoCuadran);
         (await db.IngestaControles.SingleAsync()).Estado.Should().Be(EstadoIngesta.Excepcion);
     }
