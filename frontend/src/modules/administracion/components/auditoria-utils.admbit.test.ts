@@ -6,6 +6,8 @@ describe('auditoria-utils · etiquetas del detalle (ADM-BIT, QA O3)', () => {
     expect(humanizarCampo('Estado')).toBe('Estado');
     expect(humanizarCampo('UltimoCambioEn')).toBe('Último Cambio En');
     expect(humanizarCampo('UltimoCambioPor')).toBe('Último Cambio Por');
+    expect(humanizarCampo('UltimoCambioPorNombre')).toBe('Último Cambio Por');
+    expect(humanizarCampo('UltimoCambioPorId')).toBe('Último Cambio Por (id)');
   });
 
   it('el título no repite la entidad y la nombra en español', () => {

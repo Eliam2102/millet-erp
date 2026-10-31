@@ -51,6 +51,9 @@ const DICCIONARIO_CAMPOS: Record<string, string> = {
   estado: 'Estado',
   ultimocambioen: 'Último Cambio En',
   ultimocambiopor: 'Último Cambio Por',
+  // O3b: la cuenta bancaria guarda quién la cambió como id y como nombre; el id queda señalado como tal.
+  ultimocambiopornombre: 'Último Cambio Por',
+  ultimocambioporid: 'Último Cambio Por (id)',
   activo: 'Activo',
   version: 'Versión',
   clave: 'Clave',
