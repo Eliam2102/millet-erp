@@ -354,4 +354,53 @@ describe('<SucursalDetalle> — smoke', () => {
     await waitFor(() => expect(sucursalAsignada).toBe('s-1'));
     await waitFor(() => expect(screen.getByText('Lucía Pérez')).toBeInTheDocument());
   });
+
+  it('permite fijar la Clave A+W con el permiso de gestionar sucursales', async () => {
+    setAuth([
+      PermisosCanonicos.CompartidoCatalogosLeer,
+      PermisosCanonicos.AdminEmpresasSucursalesGestionar,
+    ]);
+    let patch: { claveAw?: string | null } | null = null;
+    mswServer.use(
+      http.get('*/api/v1/admin/empresas/e-1', () =>
+        HttpResponse.json({
+          empresa: { id: 'e-1' },
+          sucursales: [
+            {
+              id: 's-1',
+              clave: 'S01',
+              nombre: 'Sucursal Uno',
+              tipo: 1,
+              estatus: 0,
+              version: 1,
+              claveAw: null,
+            },
+          ],
+        }),
+      ),
+      http.patch('*/api/v1/admin/empresas/sucursales/s-1', async ({ request }) => {
+        patch = (await request.json()) as { claveAw?: string | null };
+        return HttpResponse.json({
+          id: 's-1',
+          clave: 'S01',
+          nombre: 'Sucursal Uno',
+          claveAw: 'CIRCUITO',
+        });
+      }),
+    );
+
+    render(<SucursalDetalle />, { wrapper: createQueryWrapper() });
+    expect(await screen.findByText('Sin asignar')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /editar sucursal/i }));
+    fireEvent.change(screen.getByPlaceholderText('CONKAL'), { target: { value: 'CIRCUITO' } });
+    fireEvent.click(screen.getByRole('button', { name: /guardar cambios/i }));
+    await waitFor(() => expect(patch?.claveAw).toBe('CIRCUITO'));
+  });
+
+  it('no ofrece editar la sucursal sin el permiso de gestionar', async () => {
+    render(<SucursalDetalle />, { wrapper: createQueryWrapper() });
+    await screen.findByRole('heading', { name: 'S01', level: 1 });
+    expect(screen.queryByRole('button', { name: /editar sucursal/i })).not.toBeInTheDocument();
+    expect(screen.queryByText('Clave A+W')).not.toBeInTheDocument();
+  });
 });
