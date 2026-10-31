@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Tesoreria.Application.Common;
 using Millet.Tesoreria.Domain.Depositos;
+using Millet.Tesoreria.Domain.Ports;
 using Millet.Tesoreria.Domain.Ports.DatosMaestros;
 using Millet.Tesoreria.Infrastructure.Persistence;
 
@@ -31,10 +32,11 @@ public sealed class DepositosHandler
 {
     private readonly TesoreriaDbContext _db;
     private readonly IClienteReadPort _clientes;
+    private readonly ICorteNombresReadPort? _nombres;
 
-    public DepositosHandler(TesoreriaDbContext db, IClienteReadPort clientes)
+    public DepositosHandler(TesoreriaDbContext db, IClienteReadPort clientes, ICorteNombresReadPort? nombres = null)
     {
-        _db = db; _clientes = clientes;
+        _db = db; _clientes = clientes; _nombres = nombres;
     }
 
     public async Task<PagedResponse<DepositoConfirmacionResponse>> Handle(
@@ -65,13 +67,18 @@ public sealed class DepositosHandler
         var diferencias = await _db.DiferenciasCorte.AsNoTracking()
             .Where(x => sesiones.Contains(x.CajaSesionId)).ToDictionaryAsync(x => x.CajaSesionId, cancellationToken);
 
+        var cajeros = _nombres is null
+            ? new Dictionary<Guid, string>()
+            : await _nombres.NombresCajerosAsync(items.Where(d => d.CajeroId != null).Select(d => d.CajeroId!.Value).ToList(), cancellationToken);
+
         var responses = items.Select(d =>
         {
             ClienteRefDto? cliente = null;
             if (d.ClienteId is Guid id) clientes.TryGetValue(id, out cliente);
             DiferenciaCorte? diferencia = null;
             if (d.CajaSesionId is Guid sesion) diferencias.TryGetValue(sesion, out diferencia);
-            return DepositoMapper.ToResponse(d, cliente?.Clave, cliente?.RazonSocial, diferencia);
+            var r = DepositoMapper.ToResponse(d, cliente?.Clave, cliente?.RazonSocial, diferencia);
+            return d.CajeroId is Guid cajero && cajeros.TryGetValue(cajero, out var nombre) ? r with { CajeroNombre = nombre } : r;
         }).ToList();
 
         return new PagedResponse<DepositoConfirmacionResponse>(responses, offset, limit, total);

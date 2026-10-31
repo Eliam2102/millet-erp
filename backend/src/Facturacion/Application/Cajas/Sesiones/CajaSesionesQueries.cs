@@ -36,7 +36,12 @@ public sealed record CajaSesionDetalleResponse(
 /// es de un día local anterior → la operación de cobro está bloqueada hasta
 /// el cierre extemporáneo (§5.2).
 /// </summary>
-public sealed record SesionActualResponse(CajaSesionDetalleResponse? Sesion, bool DiaAnteriorPendiente);
+/// <c>UltimaSesionHoy</c>: sin sesión vigente, caja y sucursal de la última sesión del cajero del día local
+/// (ya cerrada) para prellenar la siguiente apertura.
+public sealed record SesionActualResponse(
+    CajaSesionDetalleResponse? Sesion, bool DiaAnteriorPendiente, CajaSesionRefDto? UltimaSesionHoy = null);
+
+public sealed record CajaSesionRefDto(Guid CajaId, Guid SucursalId);
 
 // ---- Sesión actual del cajero (GET /cajas/sesion-actual, permiso operar) ----
 
@@ -72,7 +77,18 @@ public sealed class SesionActualHandler : IRequestHandler<SesionActualQuery, Ses
             .OrderBy(s => s.FechaApertura)
             .FirstOrDefaultAsync(cancellationToken);
         if (sesion is null)
-            return new SesionActualResponse(null, false);
+        {
+            var ultima = await _db.CajaSesiones.AsNoTracking()
+                .Where(s => s.ResponsableUsuarioId == usuarioId)
+                .OrderByDescending(s => s.FechaApertura)
+                .Select(s => new { s.CajaId, s.SucursalId, s.DiaOperacion })
+                .FirstOrDefaultAsync(cancellationToken);
+            if (ultima is null) return new SesionActualResponse(null, false);
+            var zonaUltima = await _sucursales.ObtenerZonaHorariaAsync(ultima.SucursalId, cancellationToken);
+            return new SesionActualResponse(null, false,
+                DiaOperacion.HoyLocal(_clock.UtcNow, zonaUltima) == ultima.DiaOperacion
+                    ? new CajaSesionRefDto(ultima.CajaId, ultima.SucursalId) : null);
+        }
 
         var detalle = await CajaSesionProyector.ProyectarAsync(_db, sesion, cancellationToken);
 

@@ -36,6 +36,13 @@ describe('<BandejaDiferenciasCorte>', () => {
     expect(screen.getByRole('button', { name: 'Rechazar' })).toBeEnabled();
   });
 
+  it('muestra cajero, caja e importe negativo como -$50.00', async () => {
+    bandeja([fila({ cajeroNombre: 'Ana Cajera', cajaNombre: 'Caja 1' })]);
+    expect(await screen.findByText('Ana Cajera')).toBeInTheDocument();
+    expect(screen.getByText('Caja 1')).toBeInTheDocument();
+    expect(screen.getByText('-$50.00')).toBeInTheDocument();
+  });
+
   it('el cajero del corte no puede autorizar ni rechazar la suya', async () => {
     useAuthStore.setState({ user: { id: 'cajero-1' } as never });
     bandeja([fila()]);

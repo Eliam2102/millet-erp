@@ -229,7 +229,11 @@ export function BandejaDepositos() {
                       <p className="truncate">
                         {d.clienteRazonSocial ?? (d.cajaSesionId != null ? 'Corte de caja' : '—')}
                       </p>
-                      <p className="font-mono text-xs text-ink-muted">{d.clienteClave ?? ''}</p>
+                      {d.cajaSesionId != null && d.cajeroNombre ? (
+                        <p className="truncate text-xs text-ink-muted">Cajero: {d.cajeroNombre}</p>
+                      ) : (
+                        <p className="font-mono text-xs text-ink-muted">{d.clienteClave ?? ''}</p>
+                      )}
                     </TableCell>
                     <TableCell
                       className="max-w-44 truncate px-3 py-2 font-mono text-xs"
