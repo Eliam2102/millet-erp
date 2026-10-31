@@ -372,35 +372,33 @@ export function AuditoriaPage() {
     <div className="space-y-4">
       <PageHeader
         titulo={<>Bitácora de auditoría</>}
-        descripcion={
-          <>
-            {puedeExportar && (
-              <>
-                <Button
-                  variant="secondary"
-                  onClick={() => exportacion.mutate()}
-                  disabled={exportacion.isPending || total === 0}
-                  title={
-                    exportacion.isPending
-                      ? 'Se está preparando el archivo.'
-                      : 'Exportar todos los registros con los filtros aplicados'
-                  }
-                >
-                  <Download className="size-3.5" />
-                  {exportacion.isPending ? 'Exportando…' : 'Exportar'}
-                </Button>
-                {/* Mismo total que trae el renglón de control al final del CSV. */}
-                {auditoriaQuery.data && (
-                  <span className="text-xs text-ink-muted" data-testid="auditoria-total-exportar">
-                    Se exportarán {total.toLocaleString('es-MX')} registros
-                  </span>
-                )}
-              </>
-            )}
-            Consulta consolidada de eventos del sistema (rango obligatorio, máx. 90 días).
-          </>
+        descripcion="Consulta consolidada de eventos del sistema (rango obligatorio, máx. 90 días)."
+        acciones={
+          puedeExportar && (
+            <div className="flex items-center gap-3">
+              {/* Mismo total que trae el renglón de control al final del CSV. */}
+              {auditoriaQuery.data && (
+                <span className="text-xs text-ink-muted" data-testid="auditoria-total-exportar">
+                  Se exportará{total === 1 ? '' : 'n'} {total.toLocaleString('es-MX')}{' '}
+                  {total === 1 ? 'registro' : 'registros'}
+                </span>
+              )}
+              <Button
+                variant="secondary"
+                onClick={() => exportacion.mutate()}
+                disabled={exportacion.isPending || total === 0}
+                title={
+                  exportacion.isPending
+                    ? 'Se está preparando el archivo.'
+                    : 'Exportar todos los registros con los filtros aplicados'
+                }
+              >
+                <Download className="size-3.5" />
+                {exportacion.isPending ? 'Exportando…' : 'Exportar'}
+              </Button>
+            </div>
+          )
         }
-        acciones={<></>}
       />
 
       {filtroAggregateRootId && (
