@@ -738,7 +738,8 @@ resource tesoreriaEventsCxpSubscriptionFilter 'Microsoft.ServiceBus/namespaces/t
 
 // Subscription consumida por Facturación TesoreriaEventListenerWorker
 // (PR gemelo de TES-PR7): pago-cliente.confirmado dispara EmitirReppCommand
-// — la automatización que cierra PLATFORM-TODO <PagoClienteConfirmado>.
+// — la automatización que cierra PLATFORM-TODO <PagoClienteConfirmado>. F6.3: reembolso-nota-credito.actualizado
+// actualiza el estado del reembolso en la NC (autorizado, rechazado, cancelado o pagado).
 // Referencia: backend/src/Facturacion/Infrastructure/Workers/TesoreriaEventListenerWorker.cs
 resource tesoreriaEventsFacturacionSubscription 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
   parent: tesoreriaEventsTopic
@@ -759,7 +760,7 @@ resource tesoreriaEventsFacturacionSubscriptionFilter 'Microsoft.ServiceBus/name
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'tesoreria.pago-cliente.confirmado.v1\')'
+      sqlExpression: 'user.EventType IN (\'tesoreria.pago-cliente.confirmado.v1\', \'tesoreria.reembolso-nota-credito.actualizado.v1\')'
       compatibilityLevel: 20
     }
   }
