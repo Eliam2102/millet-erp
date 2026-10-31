@@ -58,7 +58,10 @@ public sealed class ArticulosCarga(CompartidoDbContext db) : IAdaptadorCargaMaes
         var nombre = f.Texto("Nombre");
         object comando = p is null ? new CrearArticuloCommand(clave, f.Requerido("Nombre"), unidad!.Value, naturaleza, null, categoria, null, null, ClaveLegacy: legacy)
             : new ActualizarArticuloCommand(p.Id, nombre, null, unidadTexto is null ? null : unidad, inv is null ? null : naturaleza, categoriaTexto is null ? null : categoria, null, null, false, false, false);
+        // La vista previa muestra código de unidad y nombre de categoría, no sus identificadores.
+        var unidadAntes = p?.UnidadMedidaId is { } uid ? await db.UnidadesMedida.Where(x => x.Id == uid).Select(x => x.Codigo).SingleOrDefaultAsync(ct) : null;
+        var categoriaAntes = p?.CategoriaId is { } cid ? await db.CategoriasArticulo.Where(x => x.Id == cid).Select(x => x.Nombre).SingleOrDefaultAsync(ct) : null;
         return Plan(p, comando, ["clave:" + clave, "legacy:" + legacy, p is null ? "nuevo:" + clave : "id:" + p.Id],
-            ("Nombre", p?.Nombre, nombre), ("Unidad de medida", p?.UnidadMedidaId, unidad), ("Naturaleza", p?.Naturaleza, naturaleza), ("Categoría", p?.CategoriaId, categoria));
+            ("Nombre", p?.Nombre, nombre), ("Unidad de medida", unidadAntes, unidadTexto ?? unidadAntes), ("Naturaleza", p?.Naturaleza, naturaleza), ("Categoría", categoriaAntes, categoriaTexto ?? categoriaAntes));
     }
 }

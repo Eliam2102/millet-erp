@@ -964,6 +964,7 @@ builder.Services.AddCuentasPorCobrarModule(builder.Configuration, builder.Enviro
 // el publisher de los 4 eventos espejo congelados en TES-PR4. Ver
 // docs/modulos/tesoreria/01-diseno.md §6.
 builder.Services.AddTesoreriaModule(builder.Configuration);
+builder.Services.AddScoped<Millet.Tesoreria.Domain.Ports.ICorteNombresReadPort, Millet.Api.Infrastructure.Adapters.CorteNombresReadAdapter>();
 builder.Services.AddScoped<Millet.Tesoreria.Domain.Ports.IElegibleFacturaReadPort, Millet.Api.Infrastructure.Adapters.ElegibleFacturaReadPortAdapter>();
 builder.Services.AddScoped<Millet.CuentasPorPagar.Domain.Ports.Tesoreria.IPagosProveedorReadPort, Millet.Api.Infrastructure.Adapters.PagosProveedorReadPortAdapter>();
 // K10.5: folio y proveedor de la OC para el auxiliar de la cuenta puente (Contabilidad ← Compras).
@@ -1891,6 +1892,9 @@ Millet.Api.Endpoints.Tesoreria.ReppEndpoints.MapTesoreriaReppEndpoints(app);
 
 // === Tesorería — Reportes: flujo de efectivo + auxiliar de bancos (TES-PR10, ADR-0036) ===
 Millet.Api.Endpoints.Tesoreria.ReportesEndpoints.MapTesoreriaReportesEndpoints(app);
+
+// === Tesorería — Conciliación bancaria, emparejamiento multinivel, alta y acta (T9.2, 86e3ke6ne) ===
+Millet.Api.Endpoints.Tesoreria.ConciliacionesEndpoints.MapTesoreriaConciliacionesEndpoints(app);
 
 // === SignalR hubs (CollaborationHub Sprint 1, ADR-0001 + ADR-0012 Capa 2) ===
 // /hubs/compras: canal de colaboración del módulo. Auth requerida — el

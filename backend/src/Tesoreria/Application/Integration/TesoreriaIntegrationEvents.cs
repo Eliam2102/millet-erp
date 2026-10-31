@@ -216,3 +216,26 @@ public sealed record PropuestaAplicacionRechazadaIntegrationEvent(
 {
     public const string WireEventType = "tesoreria.propuesta-aplicacion.rechazada.v1";
 }
+
+/// <summary>
+/// <c>tesoreria.movimiento-bancario.registrado.v1</c> (T9.2 / 01-diseño §8.1 / C1):
+/// Alta desde conciliación bancaria (comisión, interés, depósito no registrado).
+/// Contabilidad consume este evento para emitir la póliza contable correspondiente.
+/// </summary>
+public sealed record MovimientoBancarioRegistradoIntegrationEvent(
+    Guid EmpresaId,
+    DateTimeOffset OcurridoEn,
+    Guid MovimientoBancarioId,
+    Guid CuentaBancariaId,
+    Millet.Tesoreria.Domain.Movimientos.SentidoMovimiento Sentido,
+    decimal Monto,
+    string Moneda,
+    DateOnly FechaValor,
+    string? ReferenciaBancaria,
+    Guid? ConceptoId,
+    string? ConceptoNombre = null,
+    decimal? Iva = null)
+    : IntegrationEvent(WireEventType, EmpresaId, OcurridoEn)
+{
+    public const string WireEventType = "tesoreria.movimiento-bancario.registrado.v1";
+}

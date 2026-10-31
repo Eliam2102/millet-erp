@@ -1,7 +1,8 @@
 #:project ../../backend/src/DatosMaestros/Millet.DatosMaestros.csproj
 // Equivalencia SAP CardCode -> Cliente.ReferenciaExterna (brecha 10, 86e3x4g77). Solo lee archivos: no conecta a SAP ni al ERP.
 // Entradas CSV con encabezado: sap.csv = CardCode,Nombre,Rfc[,Moneda,Saldo]; erp.csv = Id,ReferenciaExterna,RazonSocial,Rfc
-//   (erp.csv sale de: SELECT id, referencia_externa, razon_social, rfc FROM compartido.clientes).
+//   (erp.csv sale de: SELECT id AS "Id", referencia_externa AS "ReferenciaExterna", razon_social AS "RazonSocial", rfc AS "Rfc" FROM compartido.clientes).
+//   Los encabezados no distinguen mayúsculas ni guiones bajos: id,referencia_externa,razon_social,rfc también sirve.
 // Salida: ligados.csv, a-revision.csv, sin-cliente.csv en <carpeta salida>; la carga de saldos (TR5-SAL) consume ligados.csv.
 // Uso: dotnet run equivalencia.cs -- sap.csv erp.csv carpeta-salida
 using System.Globalization;
@@ -16,7 +17,7 @@ static List<Dictionary<string, string>> Leer(string ruta)
     p.SetDelimiters(",");
     var h = p.ReadFields() ?? throw new InvalidDataException($"{ruta} sin encabezado");
     var filas = new List<Dictionary<string, string>>();
-    while (!p.EndOfData) { var v = p.ReadFields()!; filas.Add(h.Select((n, i) => (n, v: i < v.Length ? v[i] : "")).ToDictionary(x => x.n, x => x.v)); }
+    while (!p.EndOfData) { var v = p.ReadFields()!; filas.Add(h.Select((n, i) => (n, v: i < v.Length ? v[i] : "")).ToDictionary(x => x.n.Replace("_", ""), x => x.v, StringComparer.OrdinalIgnoreCase)); }
     return filas;
 }
 static string Q(string? s) => s is null ? "" : s.Contains(',') || s.Contains('"') ? $"\"{s.Replace("\"", "\"\"")}\"" : s;

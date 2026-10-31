@@ -43,9 +43,19 @@ public sealed class CfdiMilletDocument(CfdiPdfModel m) : IDocument
             {
                 col.Item().Element(ClienteYCfdi);
                 col.Item().Element(TablaConceptos);
-                col.Item().PaddingTop(4).Element(TotalesFisicosEImpuestos);
-                col.Item().PaddingTop(6).Element(ComentariosLetraYTotales);
-                col.Item().PaddingTop(8).Element(DatosDePago);
+                if (m.ComplementoPago is null)
+                {
+                    col.Item().PaddingTop(4).Element(TotalesFisicosEImpuestos);
+                    col.Item().PaddingTop(6).Element(ComentariosLetraYTotales);
+                    col.Item().PaddingTop(8).Element(DatosDePago);
+                    if (m.ComercioExterior is not null)
+                        col.Item().PaddingTop(8).Element(ComercioExterior);
+                }
+                else
+                {
+                    col.Item().PaddingTop(8).Element(DatosDelPago);
+                    col.Item().PaddingTop(8).Element(DocumentosPagados);
+                }
                 if (m.Relacionados.Count > 0)
                     col.Item().PaddingTop(8).Element(Relacionados);
                 if (m.Timbre is not null)
@@ -197,7 +207,8 @@ public sealed class CfdiMilletDocument(CfdiPdfModel m) : IDocument
             foreach (var c in m.Conceptos)
             {
                 tabla.Cell().Element(Renglon).Text(Codigo(c));
-                tabla.Cell().Element(Renglon).AlignCenter().Column(d =>
+                // Descripción y «ITEM.n REF» van en una sola pieza: nunca se parten entre páginas.
+                tabla.Cell().Element(Renglon).ShowEntire().AlignCenter().Column(d =>
                 {
                     d.Item().AlignCenter().Text(c.Descripcion);
                     if (!string.IsNullOrWhiteSpace(c.LineaReferencia))
@@ -291,6 +302,142 @@ public sealed class CfdiMilletDocument(CfdiPdfModel m) : IDocument
             Rotulado(fila.RelativeItem(), "Forma de Pago/Way of Payment :", m.Pago.FormaPago);
         });
     }
+
+    /// <summary>
+    /// Complemento de pago (86e3tfdx0): datos del pago en el recuadro gris de los
+    /// sellos, con el uso de CFDI y el monto en letra del pago.
+    /// </summary>
+    private void DatosDelPago(IContainer container)
+    {
+        var p = m.ComplementoPago!;
+        container.Row(fila =>
+        {
+            fila.Spacing(10);
+            fila.RelativeItem().Element(c => Recuadro(c, "DATOS DEL PAGO/PAYMENT DATA", contenido =>
+                Pares(contenido, 2, FilasPago(m))));
+            fila.ConstantItem(EstilosCfdiMillet.TotalesAnchoCm, Unit.Centimetre).Column(derecha =>
+            {
+                derecha.Item().Border(EstilosCfdiMillet.Linea).BorderColor(EstilosCfdiMillet.Borde)
+                    .Background(EstilosCfdiMillet.Gris).Padding(3).Element(c =>
+                        RenglonTotal(c, "Monto/Amount:", p.Monto, p.Moneda, true));
+                derecha.Item().PaddingTop(6).Element(c => Recuadro(c, "MONTO EN LETRA/AMOUNT IN LETTER:",
+                    contenido => contenido.Text(MontoEnLetra)));
+            });
+        });
+    }
+
+    /// <summary>Renglones del recuadro «Datos del pago»; cuentas, operación y TC solo si existen.</summary>
+    internal static IReadOnlyList<(string Etiqueta, string Valor)> FilasPago(CfdiPdfModel modelo)
+    {
+        var p = modelo.ComplementoPago!;
+        var filas = new List<(string, string)>
+        {
+            ("Fecha de pago/Payment date:", p.FechaPago.ToString("yyyy-MM-ddTHH:mm:ss", Numeros)),
+            ("Forma de pago/Way of payment:", p.FormaPago),
+            ("Moneda/Currency:", p.Moneda),
+            ("Uso de CFDI/CFDI Usage:", modelo.Pago.UsoCfdi),
+        };
+        if (p.TipoCambio is { } tc) filas.Add(("Tipo de cambio/Exchange rate:", tc.ToString("0.000000", Numeros)));
+        if (!string.IsNullOrWhiteSpace(p.NumeroOperacion)) filas.Add(("Núm. operación/Operation number:", p.NumeroOperacion));
+        if (!string.IsNullOrWhiteSpace(p.CuentaOrdenante)) filas.Add(("Cuenta ordenante/Payer account:", p.CuentaOrdenante));
+        if (!string.IsNullOrWhiteSpace(p.CuentaBeneficiaria)) filas.Add(("Cuenta beneficiaria/Payee account:", p.CuentaBeneficiaria));
+        return filas;
+    }
+
+    /// <summary>Facturas cubiertas por el pago, con los encabezados ES/EN de la tabla de conceptos.</summary>
+    private void DocumentosPagados(IContainer container)
+    {
+        container.Column(col =>
+        {
+            col.Item().Background(EstilosCfdiMillet.Gris).PaddingVertical(2).PaddingHorizontal(6)
+                .Text("DOCUMENTOS RELACIONADOS/RELATED DOCUMENTS").Bold().FontSize(EstilosCfdiMillet.Seccion);
+            col.Item().Table(tabla =>
+            {
+                tabla.ColumnsDefinition(c =>
+                {
+                    c.RelativeColumn(3.4f);
+                    c.RelativeColumn(1.5f);
+                    c.RelativeColumn(0.9f);
+                    c.RelativeColumn(1.1f);
+                    c.RelativeColumn(1.3f);
+                    c.RelativeColumn(1.3f);
+                    c.RelativeColumn(1.3f);
+                });
+                tabla.Header(h =>
+                {
+                    Encabezado(h.Cell(), "FOLIO FISCAL", "INVOICE ID (UUID)", Alineacion.Izquierda);
+                    Encabezado(h.Cell(), "SERIE-FOLIO", "INVOICE", Alineacion.Centro);
+                    Encabezado(h.Cell(), "MONEDA", "CURRENCY", Alineacion.Centro);
+                    Encabezado(h.Cell(), "PARCIALIDAD", "INSTALLMENT", Alineacion.Centro);
+                    Encabezado(h.Cell(), "SALDO ANTERIOR", "PREVIOUS BALANCE", Alineacion.Derecha);
+                    Encabezado(h.Cell(), "PAGADO", "PAID", Alineacion.Derecha);
+                    Encabezado(h.Cell(), "SALDO INSOLUTO", "OUTSTANDING", Alineacion.Derecha);
+                });
+                foreach (var d in m.ComplementoPago!.Documentos)
+                {
+                    tabla.Cell().Element(Renglon).Text(d.Uuid.ToUpperInvariant()).FontSize(EstilosCfdiMillet.Detalle);
+                    tabla.Cell().Element(Renglon).AlignCenter().Text(d.SerieFolio ?? "");
+                    tabla.Cell().Element(Renglon).AlignCenter().Text(d.Moneda);
+                    tabla.Cell().Element(Renglon).AlignCenter().Text(d.Parcialidad.ToString(Numeros));
+                    tabla.Cell().Element(Renglon).AlignRight().Text(Importe(d.SaldoAnterior));
+                    tabla.Cell().Element(Renglon).AlignRight().Text(Importe(d.Pagado));
+                    tabla.Cell().Element(Renglon).AlignRight().Text(Importe(d.SaldoInsoluto));
+                }
+            });
+        });
+    }
+
+    /// <summary>
+    /// Complemento de Comercio Exterior de la factura de exportación (86e3tfdx0). El
+    /// original FEXP no lo trae en recuadro propio; usa el estilo de los sellos.
+    /// </summary>
+    private void ComercioExterior(IContainer container) =>
+        Recuadro(container.ShowEntire(), "COMERCIO EXTERIOR/FOREIGN TRADE", contenido => Pares(contenido, 2, FilasComercioExterior(m)));
+
+    internal static IReadOnlyList<(string Etiqueta, string Valor)> FilasComercioExterior(CfdiPdfModel modelo)
+    {
+        var ce = modelo.ComercioExterior!;
+        return
+        [
+            ("Incoterm:", ce.Incoterm),
+            ("Tipo de operación/Operation type:", ce.TipoOperacion == "2" ? "2 - Exportación/Export" : ce.TipoOperacion),
+            ("Tipo de cambio USD/Exchange rate:", ce.TipoCambioUsd.ToString("0.000000", Numeros)),
+            ("Clave de pedimento/Customs key:", ce.ClavePedimento ?? ""),
+            ("Total USD:", $"{Importe(ce.TotalUsd)} USD"),
+            ("Certificado de origen/Certificate of origin:", ce.CertificadoOrigen ? "Sí/Yes" : "No"),
+            ("Núm. registro tributario/Tax ID:", ce.NumRegIdTrib),
+            ("Residencia fiscal/Tax residence:", ce.ResidenciaFiscal),
+        ];
+    }
+
+    /// <summary>Recuadro con borde y título gris en negrita cursiva, como los de sellos.</summary>
+    private static void Recuadro(IContainer container, string titulo, Action<IContainer> contenido) =>
+        container.Border(EstilosCfdiMillet.Linea).BorderColor(EstilosCfdiMillet.Borde).Column(col =>
+        {
+            col.Item().Background(EstilosCfdiMillet.Gris).PaddingVertical(2).PaddingHorizontal(6)
+                .Text(titulo).Bold().Italic().FontSize(EstilosCfdiMillet.Detalle);
+            col.Item().PaddingVertical(4).PaddingHorizontal(6).DefaultTextStyle(x => x.FontSize(EstilosCfdiMillet.Detalle))
+                .Element(contenido);
+        });
+
+    /// <summary>Pares «etiqueta en negrita: valor» en <paramref name="columnas"/> columnas.</summary>
+    private static void Pares(IContainer container, int columnas, IReadOnlyList<(string Etiqueta, string Valor)> filas) =>
+        container.Table(tabla =>
+        {
+            tabla.ColumnsDefinition(c =>
+            {
+                for (var i = 0; i < columnas; i++)
+                {
+                    c.RelativeColumn(1.2f);
+                    c.RelativeColumn();
+                }
+            });
+            foreach (var (etiqueta, valor) in filas)
+            {
+                tabla.Cell().PaddingVertical(1).Text(etiqueta).Bold();
+                tabla.Cell().PaddingVertical(1).PaddingLeft(4).Text(valor);
+            }
+        });
 
     private void Relacionados(IContainer container)
     {

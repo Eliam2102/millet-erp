@@ -79,5 +79,13 @@ public sealed class TipoCambioGastoHttpTests
         var g3 = (await cfdi.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("gastos").EnumerateArray().Single(g => g.GetProperty("factura").GetString() == "TC-CFDI");
         Assert.Equal(18350.00m, g3.GetProperty("importeMxn").GetDecimal()); Assert.Equal("CFDI", g3.GetProperty("fuenteTipoCambio").GetString());
         Assert.Equal(18.35m, g3.GetProperty("tipoCambio").GetDecimal());
+        // Hardening: «Banxico» ignora el TC enviado; «MXN» en un gasto USD se rechaza.
+        var banxicoFalso = await Post(client, id, "gastos", Gasto("TC-BX", new { fuenteTipoCambio = "Banxico", tipoCambioUsado = 17.00m }), cfdi.Headers.ETag!.Tag);
+        banxicoFalso.EnsureSuccessStatusCode();
+        var g4 = (await banxicoFalso.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("gastos").EnumerateArray().Single(g => g.GetProperty("factura").GetString() == "TC-BX");
+        Assert.Equal(18.4253m, g4.GetProperty("tipoCambio").GetDecimal()); Assert.Equal(18425.30m, g4.GetProperty("importeMxn").GetDecimal());
+        var mxnEnUsd = await Post(client, id, "gastos", Gasto("TC-MXN", new { fuenteTipoCambio = "MXN", tipoCambioUsado = 5m }), banxicoFalso.Headers.ETag!.Tag);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, mxnEnUsd.StatusCode);
+        Assert.Equal("CE_TIPO_CAMBIO_FUENTE_INVALIDA", (await mxnEnUsd.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
     }
 }

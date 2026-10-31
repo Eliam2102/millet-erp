@@ -100,6 +100,10 @@ public sealed class AdaptadoresMaestrosTests
         Assert.Null((await adaptador.PrepararAsync(fila, default)).Comando);
         fila.Valores["Nombre"] = "Servicio corregido";
         Assert.Contains((await adaptador.PrepararAsync(fila, default)).Cambios, c => c.Campo == "Nombre" && c.Antes == "Servicio ficticio" && c.Despues == "Servicio corregido");
+        db.Add(new UnidadMedida(Guid.NewGuid(), "KG", "Kilogramo", DimensionUnidad.Peso, 1, 0, true)); await db.SaveChangesAsync();
+        fila.Valores["Unidad de medida"] = "KG";
+        Assert.Contains((await adaptador.PrepararAsync(fila, default)).Cambios, c => c.Campo == "Unidad de medida" && c.Antes == "PZA" && c.Despues == "KG");
+        fila.Valores["Unidad de medida"] = "PZA";
         fila.Valores["Inventariable"] = "otro";
         Assert.Contains("Inventariable", (await Assert.ThrowsAsync<BusinessRuleException>(() => adaptador.PrepararAsync(fila, default))).Code);
         await ProbarDuplicadosAsync(adaptador, fila);

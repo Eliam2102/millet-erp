@@ -582,6 +582,13 @@ const moduloTesoreria: NavModulo = {
           ],
         },
         {
+          label: 'Diferencias de corte',
+          description: 'Faltantes y sobrantes del efectivo de cada corte de caja: autorizar o rechazar (deudores funcionarios y empleados).',
+          to: '/tesoreria/diferencias-corte',
+          icon: Scale,
+          permission: PermisosCanonicos.TesoreriaDiferenciasCorteAutorizar,
+        },
+        {
           label: 'Movimientos bancarios',
           description:
             'Libro de movimientos por cuenta: ingresos, egresos, aplicaciones y contramovimientos.',

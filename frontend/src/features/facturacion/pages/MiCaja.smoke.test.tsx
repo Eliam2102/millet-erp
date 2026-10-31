@@ -145,6 +145,25 @@ describe('<MiCaja> — smoke', () => {
     expect(screen.getByLabelText(/Fondo de apertura/i)).toBeInTheDocument();
   });
 
+  it('sin sesión pero con una cerrada hoy: prellena la caja de la última sesión', async () => {
+    mswServer.use(
+      http.get(`${BASE}/sesion-actual`, () =>
+        HttpResponse.json({
+          sesion: null,
+          diaAnteriorPendiente: false,
+          ultimaSesionHoy: { cajaId: 'c-1', sucursalId: 's-1' },
+        }),
+      ),
+      http.get(BASE, () =>
+        HttpResponse.json([
+          { id: 'c-1', nombre: 'Caja Mostrador Conkal', descripcion: null, estatus: 'Activo', sucursales: 1, canales: 1, usuarios: 1 },
+        ]),
+      ),
+    );
+    render(<MiCaja />, { wrapper: createQueryWrapper() });
+    expect(await screen.findByRole('combobox', { name: /Caja/i })).toHaveTextContent('Caja Mostrador Conkal');
+  });
+
   it('con sesión abierta: totales, movimientos y acciones', async () => {
     mswServer.use(
       http.get(`${BASE}/sesion-actual`, () =>

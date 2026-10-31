@@ -39,8 +39,9 @@ export function formatMoney(money: Money): string {
   // devuelve null, o un Money parcial vía cast) rendería "$NaN"/"$undefined"
   // en las bandejas, sin error. Se coerce a 0 para no mostrar dato corrupto.
   const amount = Number.isFinite(money.amount) ? money.amount : 0;
-  const formatted = formatter.format(amount);
-  const body = symbol ? `${symbol}${formatted}` : formatted;
+  const formatted = formatter.format(Math.abs(amount));
+  // El signo va antes del símbolo: -$50.00 (no $-50.00).
+  const body = `${amount < 0 ? '-' : ''}${symbol}${formatted}`;
 
   return money.currency === 'MXN' ? body : `${body} ${money.currency}`;
 }

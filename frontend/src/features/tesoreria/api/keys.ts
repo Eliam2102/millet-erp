@@ -105,4 +105,11 @@ export const tesoreriaKeys = {
   corrida: (id: string) => [...tesoreriaKeys.corridas(), 'byId', id] as const,
   corridaCandidatos: (filtros: Record<string, unknown>) =>
     [...tesoreriaKeys.corridas(), 'candidatos', filtros] as const,
+
+  // Conciliación bancaria (T9.2)
+  conciliaciones: () => [...tesoreriaKeys.all, 'conciliaciones'] as const,
+  conciliacionesList: (filtros: Record<string, unknown>) =>
+    [...tesoreriaKeys.conciliaciones(), 'list', filtros] as const,
+  conciliacion: (id: string) =>
+    [...tesoreriaKeys.conciliaciones(), 'byId', id] as const,
 };

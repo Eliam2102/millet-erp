@@ -515,6 +515,10 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                     b.HasIndex("OrigenComprobanteId")
                         .HasDatabaseName("ix_movimiento_cartera_origen");
 
+                    b.HasIndex("OrigenComprobanteId", "FacturaCarteraId", "Tipo")
+                        .IsUnique()
+                        .HasDatabaseName("ux_movimiento_cartera_origen_factura_tipo");
+
                     b.ToTable("movimiento_cartera", "cuentas_por_cobrar", t =>
                         {
                             t.HasCheckConstraint("ck_movimiento_cartera_importe_positivo", "importe > 0");

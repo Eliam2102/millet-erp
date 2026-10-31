@@ -26,13 +26,16 @@ public sealed record CfdiPdfModel(
     PagoPdf Pago,
     IReadOnlyList<CfdiRelacionadoPdf> Relacionados,
     TimbrePdf? Timbre,
-    string NombreArchivo);
+    string NombreArchivo,
+    ComplementoPagoPdf? ComplementoPago = null,
+    ComercioExteriorPdf? ComercioExterior = null);
 
 public enum TipoDocumentoPdf
 {
     Factura = 1,
     Anticipo = 2,
     NotaCredito = 3,
+    ComplementoPago = 4,
 }
 
 /// <summary>Emisor con domicilio en líneas y logo (FMT-1a). Sin logo, la plantilla imprime la razón social.</summary>
@@ -90,6 +93,45 @@ public sealed record MontoEnLetraPdf(string Es, string En);
 public sealed record PagoPdf(string UsoCfdi, string MetodoPago, string FormaPago);
 
 public sealed record CfdiRelacionadoPdf(string Uuid, string TipoRelacion);
+
+/// <summary>
+/// Datos del pago del complemento de pago (CFDI tipo P, Pago 2.0; 86e3tfdx0). Forma
+/// de pago ya como «clave - descripción»; cuentas y número de operación si los hay.
+/// </summary>
+public sealed record ComplementoPagoPdf(
+    DateTimeOffset FechaPago,
+    string FormaPago,
+    string Moneda,
+    decimal? TipoCambio,
+    decimal Monto,
+    string? NumeroOperacion,
+    string? CuentaOrdenante,
+    string? CuentaBeneficiaria,
+    IReadOnlyList<DocumentoPagadoPdf> Documentos);
+
+/// <summary>Factura cubierta por el pago (DoctoRelacionado): folio fiscal, parcialidad y saldos.</summary>
+public sealed record DocumentoPagadoPdf(
+    string Uuid,
+    string? SerieFolio,
+    string Moneda,
+    int Parcialidad,
+    decimal SaldoAnterior,
+    decimal Pagado,
+    decimal SaldoInsoluto);
+
+/// <summary>
+/// Complemento de Comercio Exterior de la factura de exportación (86e3tfdx0):
+/// INCOTERM, TC en USD, total en dólares y registro tributario del receptor.
+/// </summary>
+public sealed record ComercioExteriorPdf(
+    string TipoOperacion,
+    string Incoterm,
+    string? ClavePedimento,
+    bool CertificadoOrigen,
+    decimal TipoCambioUsd,
+    decimal TotalUsd,
+    string NumRegIdTrib,
+    string ResidenciaFiscal);
 
 /// <summary>Sellos y cadena del TFD. <c>UrlQr</c> es null si el sello no permite armar el QR (timbrado stub).</summary>
 public sealed record TimbrePdf(string SelloCfdi, string SelloSat, string CadenaOriginal, string? UrlQr);
