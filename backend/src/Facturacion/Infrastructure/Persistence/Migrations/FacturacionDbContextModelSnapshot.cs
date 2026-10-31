@@ -1192,6 +1192,19 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("created_by");
 
+                    b.Property<DateTimeOffset?>("DecididaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("decidida_en");
+
+                    b.Property<Guid?>("DecididaPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("decidida_por_id");
+
+                    b.Property<string>("DecididaPorNombre")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("decidida_por_nombre");
+
                     b.Property<DateTimeOffset?>("DeletedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
@@ -1214,6 +1227,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("mensaje_error");
 
+                    b.Property<string>("MotivoRechazo")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo_rechazo");
+
                     b.Property<string>("MotivoSat")
                         .IsRequired()
                         .HasMaxLength(2)
@@ -1227,6 +1245,15 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("SolicitadaEn")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("solicitada_en");
+
+                    b.Property<Guid?>("SolicitadaPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("solicitada_por_id");
+
+                    b.Property<string>("SolicitadaPorNombre")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("solicitada_por_nombre");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")

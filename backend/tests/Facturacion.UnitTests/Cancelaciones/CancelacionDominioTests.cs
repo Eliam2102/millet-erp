@@ -13,11 +13,19 @@ public sealed class CancelacionDominioTests
 
     // ---- SolicitudCancelacion FSM ----
 
+    private static readonly Guid Ingresos = Guid.NewGuid();
+    private static readonly Guid Contador = Guid.NewGuid();
+
+    private static SolicitudCancelacion Pendiente(string motivo = "02", string? sustituto = null) =>
+        SolicitudCancelacion.Crear(Guid.NewGuid(), Guid.NewGuid(), motivo, sustituto, Ahora, Ingresos, "Ingresos");
+
     [Fact]
-    public void Crear_arranca_en_Solicitada()
+    public void Crear_arranca_pendiente_de_autorizacion_con_quien_la_solicita()
     {
-        var s = SolicitudCancelacion.Crear(Guid.NewGuid(), Guid.NewGuid(), "02", null, Ahora);
-        s.Estado.Should().Be(EstadoSolicitudCancelacion.Solicitada);
+        var s = Pendiente();
+        s.Estado.Should().Be(EstadoSolicitudCancelacion.PendienteAutorizacion);
+        (s.SolicitadaPorId, s.SolicitadaPorNombre).Should().Be((Ingresos, "Ingresos"));
+        s.EstaViva.Should().BeTrue();
     }
 
     [Fact]
@@ -28,9 +36,71 @@ public sealed class CancelacionDominioTests
     }
 
     [Fact]
+    public void Autorizar_la_deja_lista_para_el_PAC_y_registra_al_Contador()
+    {
+        var s = Pendiente("01", "22222222-2222-2222-2222-222222222222");
+
+        s.Autorizar(Contador, "Contador", Ahora);
+
+        s.Estado.Should().Be(EstadoSolicitudCancelacion.Solicitada);
+        (s.DecididaPorId, s.DecididaPorNombre, s.DecididaEn).Should().Be((Contador, "Contador", Ahora));
+    }
+
+    [Fact]
+    public void Quien_la_solicito_no_puede_autorizarla_ni_rechazarla()
+    {
+        var s = Pendiente();
+
+        var autorizar = () => s.Autorizar(Ingresos, "Ingresos", Ahora);
+        var rechazar = () => s.RechazarAutorizacion(Ingresos, "Ingresos", "no", Ahora);
+
+        autorizar.Should().Throw<BusinessRuleException>().Where(e => e.Code == "CANCELACION_AUTOAUTORIZACION");
+        rechazar.Should().Throw<BusinessRuleException>().Where(e => e.Code == "CANCELACION_AUTOAUTORIZACION");
+        s.Estado.Should().Be(EstadoSolicitudCancelacion.PendienteAutorizacion);
+    }
+
+    [Fact]
+    public void Rechazar_exige_motivo_y_la_resuelve()
+    {
+        var s = Pendiente();
+
+        var sinMotivo = () => s.RechazarAutorizacion(Contador, "Contador", " ", Ahora);
+        sinMotivo.Should().Throw<BusinessRuleException>().Where(e => e.Code == "CANCELACION_MOTIVO_RECHAZO_REQUERIDO");
+
+        s.RechazarAutorizacion(Contador, "Contador", " Falta la nota de crédito ", Ahora);
+        s.Estado.Should().Be(EstadoSolicitudCancelacion.RechazadaPorAutorizador);
+        s.MotivoRechazo.Should().Be("Falta la nota de crédito");
+        s.ResueltaEn.Should().Be(Ahora);
+        s.EstaViva.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Retirar_solo_mientras_esta_pendiente()
+    {
+        var s = Pendiente();
+        s.Retirar(Ahora);
+        s.Estado.Should().Be(EstadoSolicitudCancelacion.Retirada);
+
+        var otra = Pendiente();
+        otra.Autorizar(Contador, "Contador", Ahora);
+        var act = () => otra.Retirar(Ahora);
+        act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "CANCELACION_NO_PENDIENTE");
+    }
+
+    [Fact]
+    public void Sin_autorizar_no_se_puede_enviar_ni_resolver_ante_el_SAT()
+    {
+        var s = Pendiente();
+
+        ((Action)(() => s.MarcarEnProceso("EnProceso"))).Should().Throw<BusinessRuleException>().Where(e => e.Code == "CANCELACION_TRANSICION_INVALIDA");
+        ((Action)(() => s.MarcarAceptada("Cancelado", Ahora))).Should().Throw<BusinessRuleException>().Where(e => e.Code == "CANCELACION_TRANSICION_INVALIDA");
+    }
+
+    [Fact]
     public void MarcarAceptada_resuelve_la_solicitud()
     {
-        var s = SolicitudCancelacion.Crear(Guid.NewGuid(), Guid.NewGuid(), "02", null, Ahora);
+        var s = Pendiente();
+        s.Autorizar(Contador, "Contador", Ahora);
         s.MarcarEnProceso("EnProceso");
         s.MarcarAceptada("Cancelado", Ahora);
 
@@ -41,7 +111,8 @@ public sealed class CancelacionDominioTests
     [Fact]
     public void Resolver_dos_veces_lanza_YA_RESUELTA()
     {
-        var s = SolicitudCancelacion.Crear(Guid.NewGuid(), Guid.NewGuid(), "02", null, Ahora);
+        var s = Pendiente();
+        s.Autorizar(Contador, "Contador", Ahora);
         s.MarcarAceptada("Cancelado", Ahora);
 
         var act = () => s.MarcarRechazada("x", Ahora);

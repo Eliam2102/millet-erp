@@ -29,10 +29,15 @@ public sealed class SolicitudCancelacionConfiguration : IEntityTypeConfiguration
         builder.Property(e => e.SolicitadaEn).IsRequired();
         builder.Property(e => e.ResueltaEn);
 
+        // F6.5: quién solicita y quién (Contador General) autoriza o rechaza.
+        builder.Property(e => e.SolicitadaPorNombre).HasMaxLength(200);
+        builder.Property(e => e.DecididaPorNombre).HasMaxLength(200);
+        builder.Property(e => e.MotivoRechazo).HasMaxLength(500);
+
         builder.HasIndex(e => e.ComprobanteId)
             .HasDatabaseName("ix_solicitud_cancelacion_comprobante");
 
-        // El poller barre las solicitudes no resueltas (EnProceso).
+        // El poller barre las solicitudes no resueltas (EnProceso); la bandeja, las pendientes de autorizar.
         builder.HasIndex(e => e.Estado)
             .HasDatabaseName("ix_solicitud_cancelacion_estado");
     }

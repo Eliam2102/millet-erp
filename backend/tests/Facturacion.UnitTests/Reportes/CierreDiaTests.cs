@@ -287,6 +287,7 @@ public sealed class CierreDiaTests
         var anterior = Factura(100m, "FV-70", timbrada: Ahora.AddDays(-3));
         db.FacturasVenta.Add(anterior);
         var solicitud = SolicitudCancelacion.Crear(Empresa, anterior.Id, "02", null, Ahora.AddDays(-1));
+        solicitud.Autorizar(Guid.NewGuid(), "Contador", Ahora.AddDays(-1));
         solicitud.MarcarEnProceso(null);
         solicitud.MarcarAceptada("Cancelado", Ahora);
         db.SolicitudesCancelacion.Add(solicitud);

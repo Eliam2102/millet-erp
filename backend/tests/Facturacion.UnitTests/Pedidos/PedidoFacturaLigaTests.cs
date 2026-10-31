@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Millet.Administracion.Application.Series;
+using Millet.Facturacion.Application.Cancelaciones.AutorizarCancelacion;
 using Millet.Facturacion.Application.Cancelaciones.SolicitarCancelacion;
 using Millet.Facturacion.Application.Facturas.EmitirFacturaVenta;
 using Millet.Facturacion.Application.Pedidos.Queries;
@@ -118,9 +119,11 @@ public sealed class PedidoFacturaLigaTests
         var pedido = await SembrarPedidoAsync(db, empresaId);
         var emit = await EmitirHandler(db, empresaId).Handle(Command(pedido.Id), CancellationToken.None);
 
-        await new SolicitarCancelacionHandler(db, new FakeFiscalApiClient(), new FakeIntegrationEventPublisher(),
-            new FakeEmpresaContext(empresaId), new FakeClock(Ahora))
+        await new SolicitarCancelacionHandler(db, new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora))
             .Handle(new SolicitarCancelacionCommand(emit.Id, "02", null), CancellationToken.None);
+        await new AutorizarCancelacionHandler(db, new FakeFiscalApiClient(), new FakeIntegrationEventPublisher(),
+            new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora))
+            .Handle(new AutorizarCancelacionCommand(emit.Id), CancellationToken.None);
 
         var pedidoBd = await db.PedidosFacturables.SingleAsync();
         pedidoBd.Estado.Should().Be(EstadoPedidoFacturable.Importado);

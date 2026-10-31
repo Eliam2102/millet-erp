@@ -2,9 +2,14 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Administracion.Application.Series;
 using Millet.Facturacion.Application.Anticipos.EmitirFacturaAnticipo;
+using Millet.Facturacion.Application.Cancelaciones.AutorizarCancelacion;
+using Millet.Facturacion.Application.Cancelaciones.Queries;
+using Millet.Facturacion.Application.Cancelaciones.RechazarCancelacion;
+using Millet.Facturacion.Application.Cancelaciones.RetirarCancelacion;
 using Millet.Facturacion.Application.Cancelaciones.SolicitarCancelacion;
 using Millet.Facturacion.Application.Facturas.EmitirFacturaVenta;
 using Millet.Facturacion.Domain.Anticipos;
+using Millet.Facturacion.Domain.Cancelaciones;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Domain.Facturas;
 using Millet.Facturacion.Domain.Pedidos;
@@ -16,7 +21,8 @@ using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Facturacion.UnitTests.Cancelaciones;
 
-public sealed class SolicitarCancelacionHandlerTests
+/// <summary>F6.5: Ingresos solicita (sin PAC), el Contador General autoriza (PAC) o rechaza con motivo; Ingresos puede retirar.</summary>
+public sealed class CancelacionDosPasosTests
 {
     private static readonly DateTimeOffset Ahora = new(2026, 5, 30, 12, 0, 0, TimeSpan.Zero);
     private const string Rfc = "AAA010101AAA";
@@ -71,8 +77,31 @@ public sealed class SolicitarCancelacionHandlerTests
             Task.FromResult(new EstatusCfdiResultado(true, "Vigente", true, null));
     }
 
-    private static SolicitarCancelacionHandler Handler(FacturacionDbContext db, Guid empresaId, ICfdiTimbradoPort? fiscal = null) =>
-        new(db, fiscal ?? new FakeFiscalApiClient(), new FakeIntegrationEventPublisher(), new FakeEmpresaContext(empresaId), new FakeClock(Ahora));
+    private static readonly Guid Ingresos = Guid.NewGuid();
+    private static readonly Guid Contador = Guid.NewGuid();
+
+    /// <summary>PAC que cuenta las llamadas: solicitar no debe llamarlo.</summary>
+    private sealed class FakeFiscalContador(ICfdiTimbradoPort interno) : ICfdiTimbradoPort
+    {
+        public int Cancelaciones { get; private set; }
+        public Task<TimbradoResultado> TimbrarAsync(CfdiEmision emision, CancellationToken ct) => interno.TimbrarAsync(emision, ct);
+        public Task<CancelacionResultado> CancelarAsync(CancelacionSolicitud s, CancellationToken ct)
+        {
+            Cancelaciones++;
+            return interno.CancelarAsync(s, ct);
+        }
+        public Task<EstatusCfdiResultado> ConsultarEstatusAsync(EstatusCfdiSolicitud s, CancellationToken ct) => interno.ConsultarEstatusAsync(s, ct);
+    }
+
+    private static SolicitarCancelacionHandler Handler(FacturacionDbContext db, Guid empresaId) =>
+        new(db, new FakeEmpresaContext(empresaId), new FakeUserContext(Ingresos, "Ingresos"), new FakeClock(Ahora));
+
+    private static AutorizarCancelacionHandler Autorizador(FacturacionDbContext db, ICfdiTimbradoPort? fiscal = null, Guid? usuario = null) =>
+        new(db, fiscal ?? new FakeFiscalApiClient(), new FakeIntegrationEventPublisher(),
+            new FakeUserContext(usuario ?? Contador, "Contador"), new FakeClock(Ahora));
+
+    private static Task<SolicitarCancelacionResponse> SolicitarAsync(FacturacionDbContext db, Guid empresaId, Guid comprobanteId, string motivo = "02", string? sustituto = null) =>
+        Handler(db, empresaId).Handle(new SolicitarCancelacionCommand(comprobanteId, motivo, sustituto), CancellationToken.None);
 
     private static async Task<(FacturaVenta, PedidoFacturable)> SembrarFacturaConPedidoAsync(FacturacionDbContext db, Guid empresaId)
     {
@@ -94,20 +123,160 @@ public sealed class SolicitarCancelacionHandlerTests
     }
 
     [Fact]
-    public async Task Cancelar_factura_vigente_la_cancela_y_libera_el_pedido()
+    public async Task Solicitar_queda_pendiente_de_autorizacion_sin_llamar_al_PAC()
     {
         var empresaId = Guid.NewGuid();
         using var db = NewDb(empresaId);
         var (fv, pedido) = await SembrarFacturaConPedidoAsync(db, empresaId);
 
-        var resp = await Handler(db, empresaId).Handle(
-            new SolicitarCancelacionCommand(fv.Id, "02", null), CancellationToken.None);
+        var resp = await SolicitarAsync(db, empresaId, fv.Id);
 
+        resp.EstadoComprobante.Should().Be("Timbrado");
+        resp.EstadoSolicitud.Should().Be("PendienteAutorizacion");
+        var solicitud = await db.SolicitudesCancelacion.SingleAsync();
+        (solicitud.SolicitadaPorId, solicitud.SolicitadaPorNombre).Should().Be((Ingresos, "Ingresos"));
+        (await db.PedidosFacturables.SingleAsync()).Estado.Should().Be(EstadoPedidoFacturable.Facturado);
+    }
+
+    [Fact]
+    public async Task No_se_aceptan_dos_solicitudes_pendientes_del_mismo_comprobante()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var (fv, _) = await SembrarFacturaConPedidoAsync(db, empresaId);
+        await SolicitarAsync(db, empresaId, fv.Id);
+
+        var act = () => SolicitarAsync(db, empresaId, fv.Id, "03");
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "CANCELACION_YA_SOLICITADA");
+    }
+
+    [Fact]
+    public async Task Autorizar_envia_al_PAC_cancela_y_libera_el_pedido()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var (fv, _) = await SembrarFacturaConPedidoAsync(db, empresaId);
+        await SolicitarAsync(db, empresaId, fv.Id);
+        var fiscal = new FakeFiscalContador(new FakeFiscalApiClient());
+
+        var resp = await Autorizador(db, fiscal).Handle(new AutorizarCancelacionCommand(fv.Id), CancellationToken.None);
+
+        fiscal.Cancelaciones.Should().Be(1);
         resp.EstadoComprobante.Should().Be("Cancelado");
         resp.EstadoSolicitud.Should().Be("Aceptada");
         (await db.FacturasVenta.SingleAsync()).Estado.Should().Be(EstadoTimbrado.Cancelado);
         (await db.PedidosFacturables.SingleAsync()).Estado.Should().Be(EstadoPedidoFacturable.Importado);
-        await db.SolicitudesCancelacion.SingleAsync();
+        (await db.SolicitudesCancelacion.SingleAsync()).DecididaPorId.Should().Be(Contador);
+    }
+
+    [Fact]
+    public async Task Quien_solicito_no_puede_autorizar_aunque_tenga_el_permiso()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var (fv, _) = await SembrarFacturaConPedidoAsync(db, empresaId);
+        await SolicitarAsync(db, empresaId, fv.Id);
+        var fiscal = new FakeFiscalContador(new FakeFiscalApiClient());
+
+        var act = () => Autorizador(db, fiscal, Ingresos).Handle(new AutorizarCancelacionCommand(fv.Id), CancellationToken.None);
+
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "CANCELACION_AUTOAUTORIZACION");
+        fiscal.Cancelaciones.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Rechazar_con_motivo_deja_la_factura_vigente_y_el_motivo_visible()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var (fv, _) = await SembrarFacturaConPedidoAsync(db, empresaId);
+        await SolicitarAsync(db, empresaId, fv.Id);
+
+        var resp = await new RechazarCancelacionHandler(db, new FakeUserContext(Contador, "Contador"), new FakeClock(Ahora))
+            .Handle(new RechazarCancelacionCommand(fv.Id, "Se corrige con nota de crédito"), CancellationToken.None);
+
+        resp.EstadoComprobante.Should().Be("Timbrado");
+        resp.EstadoSolicitud.Should().Be("RechazadaPorAutorizador");
+        var consulta = await new ConsultarCancelacionHandler(db).Handle(new ConsultarCancelacionQuery(fv.Id), CancellationToken.None);
+        (consulta.EstadoComprobante, consulta.MotivoRechazo, consulta.DecididaPor, consulta.SolicitadaPor)
+            .Should().Be(("Timbrado", "Se corrige con nota de crédito", "Contador", "Ingresos"));
+    }
+
+    [Fact]
+    public void Rechazar_sin_motivo_no_pasa_la_validacion()
+    {
+        new RechazarCancelacionValidator().Validate(new RechazarCancelacionCommand(Guid.NewGuid(), "")).IsValid.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Retirar_deja_la_factura_vigente_y_permite_solicitar_de_nuevo()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var (fv, _) = await SembrarFacturaConPedidoAsync(db, empresaId);
+        await SolicitarAsync(db, empresaId, fv.Id);
+
+        var resp = await new RetirarCancelacionHandler(db, new FakeClock(Ahora))
+            .Handle(new RetirarCancelacionCommand(fv.Id), CancellationToken.None);
+
+        resp.EstadoSolicitud.Should().Be("Retirada");
+        (await SolicitarAsync(db, empresaId, fv.Id, "03")).EstadoSolicitud.Should().Be("PendienteAutorizacion");
+    }
+
+    [Fact]
+    public async Task Autorizar_sin_solicitud_pendiente_lanza_NotFound()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var (fv, _) = await SembrarFacturaConPedidoAsync(db, empresaId);
+
+        var act = () => Autorizador(db).Handle(new AutorizarCancelacionCommand(fv.Id), CancellationToken.None);
+        await act.Should().ThrowAsync<EntityNotFoundException>().Where(e => e.Code == "CANCELACION_PENDIENTE_NO_ENCONTRADA");
+    }
+
+    [Fact]
+    public async Task Sustitucion_motivo_01_autorizada_envia_el_UUID_sustituto_al_PAC()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var (fv, _) = await SembrarFacturaConPedidoAsync(db, empresaId);
+        const string sustituto = "22222222-2222-2222-2222-222222222222";
+        await SolicitarAsync(db, empresaId, fv.Id, "01", sustituto);
+        var fiscal = new FakeFiscalCapturaCancelacion();
+
+        await Autorizador(db, fiscal).Handle(new AutorizarCancelacionCommand(fv.Id), CancellationToken.None);
+
+        (fiscal.Ultima?.MotivoSat, fiscal.Ultima?.UuidSustituto).Should().Be(("01", sustituto));
+    }
+
+    [Fact]
+    public async Task Bandeja_muestra_las_pendientes_con_factura_motivo_y_solicitante()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var (fv, _) = await SembrarFacturaConPedidoAsync(db, empresaId);
+        await SolicitarAsync(db, empresaId, fv.Id);
+
+        var bandeja = await new BandejaCancelacionesHandler(db).Handle(new BandejaCancelacionesQuery(null), CancellationToken.None);
+
+        var fila = bandeja.Should().ContainSingle().Subject;
+        (fila.ComprobanteId, fila.TipoComprobante, fila.Folio, fila.MotivoSat, fila.SolicitadaPor, fila.EstadoSolicitud)
+            .Should().Be((fv.Id, "FacturaVenta", "F-1", "02", "Ingresos", "PendienteAutorizacion"));
+        (await new BandejaCancelacionesHandler(db).Handle(
+            new BandejaCancelacionesQuery(EstadoSolicitudCancelacion.Aceptada), CancellationToken.None)).Should().BeEmpty();
+    }
+
+    private sealed class FakeFiscalCapturaCancelacion : ICfdiTimbradoPort
+    {
+        public CancelacionSolicitud? Ultima { get; private set; }
+        public Task<TimbradoResultado> TimbrarAsync(CfdiEmision emision, CancellationToken ct) => throw new NotImplementedException();
+        public Task<CancelacionResultado> CancelarAsync(CancelacionSolicitud s, CancellationToken ct)
+        {
+            Ultima = s;
+            return Task.FromResult(new CancelacionResultado(CancelacionEstado.EnProceso, "EnProceso", null));
+        }
+        public Task<EstatusCfdiResultado> ConsultarEstatusAsync(EstatusCfdiSolicitud s, CancellationToken ct) =>
+            Task.FromResult(new EstatusCfdiResultado(true, "Vigente", true, null));
     }
 
     [Fact]
@@ -124,7 +293,7 @@ public sealed class SolicitarCancelacionHandlerTests
         db.FacturasVenta.Add(fv);
         await db.SaveChangesAsync();
 
-        var act = () => Handler(db, empresaId).Handle(new SolicitarCancelacionCommand(fv.Id, "02", null), CancellationToken.None);
+        var act = () => SolicitarAsync(db, empresaId, fv.Id);
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "COMPROBANTE_NO_CANCELABLE");
     }
 
@@ -134,7 +303,7 @@ public sealed class SolicitarCancelacionHandlerTests
         var empresaId = Guid.NewGuid();
         using var db = NewDb(empresaId);
 
-        var act = () => Handler(db, empresaId).Handle(new SolicitarCancelacionCommand(Guid.NewGuid(), "02", null), CancellationToken.None);
+        var act = () => SolicitarAsync(db, empresaId, Guid.NewGuid());
         await act.Should().ThrowAsync<EntityNotFoundException>().Where(e => e.Code == "COMPROBANTE_NO_ENCONTRADO");
     }
 
@@ -145,8 +314,9 @@ public sealed class SolicitarCancelacionHandlerTests
         using var db = NewDb(empresaId);
         var (fv, _) = await SembrarFacturaConPedidoAsync(db, empresaId);
 
-        var resp = await Handler(db, empresaId, new FakeFiscalRechaza()).Handle(
-            new SolicitarCancelacionCommand(fv.Id, "02", null), CancellationToken.None);
+        await SolicitarAsync(db, empresaId, fv.Id);
+
+        var resp = await Autorizador(db, new FakeFiscalRechaza()).Handle(new AutorizarCancelacionCommand(fv.Id), CancellationToken.None);
 
         resp.EstadoComprobante.Should().Be("Timbrado");
         resp.EstadoSolicitud.Should().Be("Rechazada");
@@ -161,7 +331,7 @@ public sealed class SolicitarCancelacionHandlerTests
         using var db = NewDb(empresaId);
         var (fv, _) = await SembrarFacturaConPedidoAsync(db, empresaId);
 
-        var act = () => Handler(db, empresaId).Handle(new SolicitarCancelacionCommand(fv.Id, "01", null), CancellationToken.None);
+        var act = () => SolicitarAsync(db, empresaId, fv.Id, "01");
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "CANCELACION_SUSTITUTO_REQUERIDO");
     }
 
@@ -196,8 +366,7 @@ public sealed class SolicitarCancelacionHandlerTests
             [new AnticipoAAmortizar(anticipo.AnticipoId, 500m)]), CancellationToken.None);
 
         // Cancelar el CFDI del anticipo debe bloquearse: hay NC de amortización vigente.
-        var act = () => Handler(db, empresaId).Handle(
-            new SolicitarCancelacionCommand(anticipo.FacturaAnticipoId, "02", null), CancellationToken.None);
+        var act = () => SolicitarAsync(db, empresaId, anticipo.FacturaAnticipoId);
 
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "ANTICIPO_AMORTIZADO_NCS_VIGENTES");
     }

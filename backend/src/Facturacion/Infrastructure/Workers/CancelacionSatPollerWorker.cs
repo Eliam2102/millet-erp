@@ -140,7 +140,7 @@ public sealed class CancelacionSatPollerWorker : BackgroundService
                 var pedido = await db.PedidosFacturables.FirstOrDefaultAsync(p => p.Id == pedidoId, cancellationToken);
                 pedido?.RevertirAFacturable();
 
-                // ADR-0048 D3 (PR5): espejo del hook de SolicitarCancelacionHandler.
+                // ADR-0048 D3 (PR5): espejo del hook de AutorizarCancelacionHandler.
                 if (pedido?.Origen == Domain.Pedidos.OrigenPedido.Aw)
                 {
                     var control = await db.IngestaControles
