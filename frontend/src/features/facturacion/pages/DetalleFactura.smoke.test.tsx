@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -173,6 +173,67 @@ describe('<DetalleFactura> — smoke', () => {
     await waitFor(() => expect(screen.getByText('NC-9')).toBeInTheDocument());
     expect(screen.getAllByRole('button', { name: 'Solicitar reembolso' })).toHaveLength(1);
     expect(screen.getByText('Solicitado')).toBeInTheDocument();
+  });
+
+  it('F6.3: muestra el estado del reembolso que reporta Tesorería y «Pagado» con fecha y referencia', async () => {
+    const nc = {
+      id: 'nc-20',
+      folio: 'NC-20',
+      motivo: 'Bonificacion',
+      total: 50,
+      uuid: null,
+      fechaTimbrado: '2026-10-30T11:00:00Z',
+      reembolsoSolicitado: true,
+    };
+    mswServer.use(
+      http.get('*/api/v1/facturacion/facturas/f-1', () =>
+        HttpResponse.json({
+          ...detalle,
+          relaciones: [],
+          notasCreditoAplicadas: [
+            { ...nc, estadoReembolso: 'Pagado', reembolsoPagadoEl: '2026-10-31', reembolsoReferencia: 'SPEI 987' },
+            { ...nc, id: 'nc-21', folio: 'NC-21', estadoReembolso: 'Rechazado', reembolsoMotivoResolucion: 'Cuenta no coincide' },
+            { ...nc, id: 'nc-22', folio: 'NC-22', estadoReembolso: 'Autorizado' },
+          ],
+        }),
+      ),
+      http.get('*/api/v1/facturacion/facturas/f-1/envios', () => HttpResponse.json([])),
+    );
+    render(<DetalleFactura />, { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(screen.getByText('NC-20')).toBeInTheDocument());
+    const pagada = screen.getByTestId('reembolso-nc-NC-20');
+    expect(pagada).toHaveTextContent('Pagado');
+    expect(pagada).toHaveTextContent('SPEI 987');
+    expect(pagada).toHaveTextContent(/31 oct 2026/i);
+    expect(screen.getByTestId('reembolso-nc-NC-21')).toHaveTextContent('RechazadoCuenta no coincide');
+    expect(screen.getByTestId('reembolso-nc-NC-22')).toHaveTextContent('Autorizado');
+    expect(screen.queryByRole('button', { name: 'Solicitar reembolso' })).not.toBeInTheDocument();
+  });
+
+  it('F6.3: la NC de bonificación con «Devolver dinero al cliente» envía la cuenta destino', async () => {
+    let cuerpo: unknown = null;
+    mswServer.use(
+      http.get('*/api/v1/facturacion/facturas/f-1', () => HttpResponse.json({ ...detalle, relaciones: [] })),
+      http.get('*/api/v1/facturacion/facturas/f-1/envios', () => HttpResponse.json([])),
+      http.post('*/api/v1/facturacion/notas-credito/bonificacion', async ({ request }) => {
+        cuerpo = await request.json();
+        return HttpResponse.json({ id: 'nc-30', estado: 'Timbrado', uuid: 'U', folio: 'NC-30', total: 10 }, { status: 201 });
+      }),
+    );
+    render(<DetalleFactura />, { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(screen.getByText('A-1')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /NC bonificación/i }));
+    fireEvent.change(screen.getAllByRole('spinbutton')[0], { target: { value: '10' } });
+    fireEvent.click(screen.getByRole('checkbox', { name: /Devolver dinero al cliente/i }));
+    fireEvent.change(screen.getByLabelText(/Banco/), { target: { value: 'BBVA' } });
+    fireEvent.change(screen.getByLabelText(/CLABE/), { target: { value: '0321-8000 0118 359719' } });
+    fireEvent.change(screen.getByLabelText(/Titular/), { target: { value: 'Cliente SA' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Emitir NC' }));
+
+    await waitFor(() => expect(cuerpo).not.toBeNull());
+    expect(cuerpo).toMatchObject({
+      reembolso: { banco: 'BBVA', clabe: '032180000118359719', titular: 'Cliente SA' },
+    });
   });
 
   it('estado error cuando la factura no existe', async () => {
