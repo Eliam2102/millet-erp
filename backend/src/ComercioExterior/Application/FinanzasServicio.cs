@@ -152,7 +152,8 @@ public sealed class MutarFinanzasHandler(ComercioExteriorDbContext db, Expedient
                 if (g.Moneda != "MXN" && g.FuenteTipoCambio is not null)
                 {
                     fuenteTc = g.FuenteTipoCambio;
-                    tc = fuenteTc == "CFDI" && factura?.TipoCambio is decimal delCfdi ? delCfdi
+                    tc = fuenteTc == "Banxico" ? sugerido
+                        : fuenteTc == "CFDI" && factura?.TipoCambio is decimal delCfdi ? delCfdi
                         : g.TipoCambioUsado ?? throw new BusinessRuleException("CE_TIPO_CAMBIO_REQUERIDO", "Capture el tipo de cambio usado.");
                 }
                 var orden = await ordenes.ValidarAsync(e, g, concepto, tc, cancellationToken);
