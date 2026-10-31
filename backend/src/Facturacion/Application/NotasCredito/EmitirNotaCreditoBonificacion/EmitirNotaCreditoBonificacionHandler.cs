@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Millet.Administracion.Application.Series;
 using Millet.Administracion.Domain;
 using Millet.Facturacion.Application.Integration;
+using Millet.Facturacion.Application.NotasCredito.SolicitarReembolso;
 using Millet.Facturacion.Application.Timbrado;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Domain.NotasCredito;
@@ -34,6 +35,7 @@ public sealed class EmitirNotaCreditoBonificacionHandler
     private readonly ICurrentEmpresaContext _empresa;
     private readonly ICurrentUserContext _user;
     private readonly IClock _clock;
+    private readonly ICurrentUserPermissions _permisos;
 
     public EmitirNotaCreditoBonificacionHandler(
         FacturacionDbContext db,
@@ -44,8 +46,9 @@ public sealed class EmitirNotaCreditoBonificacionHandler
         IIntegrationEventPublisher eventos,
         ICurrentEmpresaContext empresa,
         ICurrentUserContext user,
-        IClock clock, ValidadorReceptorFiscal receptorFiscal)
+        IClock clock, ValidadorReceptorFiscal receptorFiscal, ICurrentUserPermissions permisos)
     {
+        _permisos = permisos;
         _receptorFiscal = receptorFiscal;
         _db = db;
         _sender = sender;
@@ -64,6 +67,9 @@ public sealed class EmitirNotaCreditoBonificacionHandler
     {
         if (_empresa.Current is not Guid empresaId)
             throw new ForbiddenException("EMPRESA_NO_SELECCIONADA", "No hay empresa seleccionada en el contexto del request.");
+
+        if (command.Reembolso is not null)
+            await ReembolsoNotaCredito.ExigirPermisoAsync(_permisos, cancellationToken);
 
         var factura = await _db.FacturasVenta
             .FirstOrDefaultAsync(f => f.Id == command.FacturaVentaId, cancellationToken)
@@ -89,6 +95,8 @@ public sealed class EmitirNotaCreditoBonificacionHandler
                 $"El período contable {anio}-{mes:D2} está cerrado; no se puede emitir.");
 
         await _receptorFiscal.ValidarComprobanteAsync(factura, cancellationToken);
+        if (command.Reembolso is not null)
+            await ReembolsoNotaCredito.ExigirClienteAsync(_db, factura, cancellationToken);
 
         var reserva = await _sender.Send(
             new ReservarFolioCommand(
@@ -128,6 +136,8 @@ public sealed class EmitirNotaCreditoBonificacionHandler
 
         if (!string.IsNullOrWhiteSpace(factura.Uuid))
             nc.AgregarRelacion(factura.Uuid!, "01");
+        if (command.Reembolso is { } reembolso)
+            nc.ProgramarReembolso(reembolso.Banco, reembolso.Clabe, reembolso.Titular);
 
         await TimbradoEjecutor.TimbrarYAplicarAsync(_db, 
             nc, CfdiEmisionBuilder.DesdeNotaCredito(nc, ahora),
@@ -138,6 +148,9 @@ public sealed class EmitirNotaCreditoBonificacionHandler
             await _eventos.PublishAsync(EventosContablesFacturacion.NotaCreditoTimbrada(
                 nc, ahora, factura.Id, clienteId: await ClienteContableFacturacion.ResolverAsync(_db, factura, cancellationToken)),
                 cancellationToken);
+
+        // F6.3: con «Devolver dinero al cliente», la solicitud a Tesorería sale en la misma transacción que el timbre.
+        await ReembolsoNotaCredito.SolicitarProgramadoSiAplicaAsync(_db, _eventos, nc, _user.UserId, ahora, cancellationToken);
 
         _db.NotasCredito.Add(nc);
         await _db.SaveChangesAsync(cancellationToken);

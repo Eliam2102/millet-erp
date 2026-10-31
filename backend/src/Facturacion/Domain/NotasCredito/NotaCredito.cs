@@ -1,5 +1,6 @@
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.SharedKernel.Domain.Bancos;
 
 namespace Millet.Facturacion.Domain.NotasCredito;
 
@@ -34,6 +35,79 @@ public sealed class NotaCredito : Comprobante
     /// <summary>Importe del reembolso solicitado a Tesorería (≤ <see cref="Comprobante.Total"/>).</summary>
     public decimal? ImporteReembolsoSolicitado { get; private set; }
 
+    // ---- F6.3: reembolso programado al emitir y su estado en Tesorería ----
+
+    /// <summary>
+    /// La NC se emitió con «Devolver dinero al cliente»: al quedar timbrada (también en un reintento) se pide el reembolso
+    /// por el total, con esta cuenta destino. No cambia el timbrado.
+    /// </summary>
+    public bool ReembolsoAlTimbrar { get; private set; }
+    public string? ReembolsoBanco { get; private set; }
+    public string? ReembolsoClabe { get; private set; }
+    public string? ReembolsoTitular { get; private set; }
+
+    /// <summary>Estado del reembolso que reporta Tesorería (null = sin reembolso).</summary>
+    public EstadoReembolsoNotaCredito? EstadoReembolso { get; private set; }
+    /// <summary>Fecha del último cambio de estado del reembolso en Tesorería (autorización, rechazo, cancelación o pago).</summary>
+    public DateTimeOffset? ReembolsoActualizadoEn { get; private set; }
+    /// <summary>Fecha valor del pago del reembolso.</summary>
+    public DateOnly? ReembolsoPagadoEl { get; private set; }
+    /// <summary>Referencia bancaria del pago del reembolso.</summary>
+    public string? ReembolsoReferencia { get; private set; }
+    /// <summary>Motivo del rechazo o de la cancelación en Tesorería.</summary>
+    public string? ReembolsoMotivoResolucion { get; private set; }
+
+    /// <summary>
+    /// F6.3: deja programado el reembolso para cuando la NC quede timbrada. Solo antes de timbrar y solo en motivos que
+    /// devuelven dinero; la CLABE se valida aquí (18 dígitos y dígito verificador).
+    /// </summary>
+    public void ProgramarReembolso(string banco, string clabe, string titular)
+    {
+        if (Estado is not (EstadoTimbrado.Borrador or EstadoTimbrado.PorAutorizar))
+            throw new BusinessRuleException("NC_REEMBOLSO_YA_TIMBRADA",
+                "El reembolso se programa al emitir o autorizar la nota; si ya está timbrada, solicítalo desde la nota.");
+        if (Motivo is MotivoNotaCredito.Amortizacion or MotivoNotaCredito.Ranura)
+            throw new BusinessRuleException("NC_REEMBOLSO_MOTIVO_NO_PERMITIDO",
+                "Las notas de amortización de anticipo y de ranura se aplican a la factura; no se reembolsan en dinero.");
+        if (string.IsNullOrWhiteSpace(banco) || banco.Trim().Length > 80
+            || string.IsNullOrWhiteSpace(titular) || titular.Trim().Length > 200)
+            throw new BusinessRuleException("NC_REEMBOLSO_DESTINO_INCOMPLETO",
+                "Captura banco, CLABE y titular de la cuenta a la que se devuelve el dinero.");
+
+        ReembolsoAlTimbrar = true;
+        ReembolsoBanco = banco.Trim();
+        ReembolsoClabe = Clabe.Crear(clabe).Valor;
+        ReembolsoTitular = titular.Trim();
+    }
+
+    /// <summary>F6.3: ¿hay que pedir el reembolso ahora? Timbrada, programada y aún no solicitada.</summary>
+    public bool DebeSolicitarReembolsoProgramado =>
+        ReembolsoAlTimbrar && Estado == EstadoTimbrado.Timbrado && ReembolsoSolicitadoEn is null;
+
+    /// <summary>
+    /// F6.3: Tesorería reportó un cambio del reembolso. Idempotente: un estado repetido o anterior al actual no cambia nada
+    /// (los eventos pueden llegar duplicados o en desorden); «Pagado» es final.
+    /// </summary>
+    public void RegistrarEstadoReembolso(EstadoReembolsoNotaCredito estado, DateTimeOffset ocurridoEn,
+        DateOnly? pagadoEl, string? referencia, string? motivo)
+    {
+        if (ReembolsoSolicitadoEn is null)
+            throw new BusinessRuleException("NC_REEMBOLSO_NO_SOLICITADO", "Esta nota de crédito no tiene un reembolso solicitado.");
+        if (EstadoReembolso is EstadoReembolsoNotaCredito.Pagado) return;
+        if (estado == EstadoReembolso) return;
+        if (estado == EstadoReembolsoNotaCredito.Autorizado && EstadoReembolso is not (null or EstadoReembolsoNotaCredito.Solicitado)) return;
+
+        EstadoReembolso = estado;
+        ReembolsoActualizadoEn = ocurridoEn;
+        if (estado == EstadoReembolsoNotaCredito.Pagado)
+        {
+            ReembolsoPagadoEl = pagadoEl;
+            ReembolsoReferencia = string.IsNullOrWhiteSpace(referencia) ? null : referencia.Trim();
+        }
+        if (estado is EstadoReembolsoNotaCredito.Rechazado or EstadoReembolsoNotaCredito.Cancelado)
+            ReembolsoMotivoResolucion = string.IsNullOrWhiteSpace(motivo) ? null : motivo.Trim();
+    }
+
     /// <summary>
     /// T9.6 · CA6.17: Tesorería devuelve en dinero una NC ya timbrada. Una sola solicitud por NC;
     /// no cambia el saldo por cobrar ([Decisión 13-K]).
@@ -53,6 +127,7 @@ public sealed class NotaCredito : Comprobante
 
         ReembolsoSolicitadoEn = ahora;
         ImporteReembolsoSolicitado = importe;
+        EstadoReembolso = EstadoReembolsoNotaCredito.Solicitado;
     }
 
     // ---- Origen A+W (86e3wjt5r): la nota nace en A+W y llega por la tabla puente ----

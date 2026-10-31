@@ -48,8 +48,8 @@ public static class NotasCreditoEndpoints
 
         // POST: autoriza y timbra una NC de A+W «Por autorizar» (86e3wjt5r; propuesta hasta F6.4).
         group.MapPost("/{id:guid}/autorizar", async (
-            Guid id, IMediator mediator, CancellationToken cancellationToken) =>
-            Results.Ok(await mediator.Send(new AutorizarNotaCreditoCommand(id), cancellationToken)))
+            Guid id, AutorizarNotaCreditoBody? body, IMediator mediator, CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new AutorizarNotaCreditoCommand(id, body?.Reembolso), cancellationToken)))
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionNotasCreditoAutorizar)
         .WithName("AutorizarNotaCredito")
@@ -146,3 +146,6 @@ public static class NotasCreditoEndpoints
 }
 
 public sealed record SolicitarReembolsoBody(decimal Importe, string Motivo);
+
+/// <summary>F6.3: cuerpo opcional al autorizar una NC de A+W; con <c>Reembolso</c>, al timbrar se pide la devolución del dinero.</summary>
+public sealed record AutorizarNotaCreditoBody(ReembolsoClienteRequest? Reembolso);

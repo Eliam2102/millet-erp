@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Facturacion.Application.Integration;
+using Millet.Facturacion.Application.NotasCredito.SolicitarReembolso;
 using Millet.Facturacion.Application.NotasCredito;
 using Millet.Facturacion.Domain.Anticipos;
 using Millet.Facturacion.Domain.Comprobantes;
@@ -296,6 +297,9 @@ public sealed class ReintentarTimbradoHandler
         {
             await _eventos.PublishAsync(EventosContablesFacturacion.NotaCreditoTimbrada(
                 nc, ahora, clienteId: await ClienteContableFacturacion.ResolverAsync(_db, nc, ct)), ct);
+            // F6.3: el reembolso programado al emitir sale cuando por fin queda timbrada.
+            // Sin usuario en el reintento: queda como solicitante quien emitió la nota.
+            await ReembolsoNotaCredito.SolicitarProgramadoSiAplicaAsync(_db, _eventos, nc, usuarioId: null, ahora, ct);
         }
 
         return nameof(NotaCredito);
