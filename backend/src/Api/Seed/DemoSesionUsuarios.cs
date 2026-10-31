@@ -38,7 +38,9 @@ public sealed partial class DemoSesionSeedHostedService
             "CxP" => codigo.StartsWith("cuentas_por_pagar.", StringComparison.Ordinal)
                 || codigo.StartsWith("datos_maestros.proveedores.", StringComparison.Ordinal),
             "Tesorería" => codigo.StartsWith("tesoreria.", StringComparison.Ordinal),
-            "Facturación" => codigo.StartsWith("facturacion.", StringComparison.Ordinal)
+            // F6.5: Facturación (Ingresos) solicita la cancelación; la autoriza el Contador General.
+            "Facturación" => (codigo.StartsWith("facturacion.", StringComparison.Ordinal)
+                    && codigo != PermisosCanonicos.FacturacionCancelacionesAutorizar)
                 || codigo.StartsWith("datos_maestros.clientes.", StringComparison.Ordinal),
             // 86e3tfdw2 (supuesto por confirmar con Eliam): la caja de mostrador
             // opera como Facturación pero no ve los pedidos a crédito.
@@ -47,7 +49,8 @@ public sealed partial class DemoSesionSeedHostedService
             // recibe por el prefijo `facturacion.`).
             "Contabilidad" => ((codigo.StartsWith("contabilidad.", StringComparison.Ordinal) || codigo.StartsWith("activos_fijos.", StringComparison.Ordinal))
                 && codigo != PermisosCanonicos.ContabilidadCatalogoAutorizar)
-                || codigo == PermisosCanonicos.FacturacionPedidosLeerCredito,
+                || codigo is PermisosCanonicos.FacturacionPedidosLeerCredito or PermisosCanonicos.FacturacionCancelacionesAutorizar
+                    or PermisosCanonicos.FacturacionCancelacionesConsultar or PermisosCanonicos.FacturacionFacturasLeer,
             "DAF" => codigo is PermisosCanonicos.ContabilidadCatalogoLeer or PermisosCanonicos.ContabilidadCatalogoAutorizar,
             _ => false,
         };

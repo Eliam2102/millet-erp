@@ -3827,6 +3827,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000009-0007-0000-0000-000000000003"),
+                            Accion = "autorizar",
+                            Codigo = "facturacion.cancelaciones.autorizar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar o rechazar las cancelaciones que solicita Ingresos antes de enviarlas al SAT (Contador General, manual §2.3)",
+                            Modulo = "facturacion",
+                            Recurso = "cancelaciones",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000009-0008-0000-0000-000000000001"),
                             Accion = "autorizar",
                             Codigo = "facturacion.activos.autorizar",
