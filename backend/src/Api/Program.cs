@@ -1147,7 +1147,7 @@ builder.Services.AddScoped<Millet.Identidad.Application.Colaboradores.GrupoAcces
 // defecto hasta configurar adaptadores reales.
 // Avisos SLA de CxP por Graph: independientes del alta de colaboradores.
 builder.Services.AddGraphAvisosRevisionCxp(builder.Configuration);
-builder.Services.AddGraphPortalProveedorCorreo(builder.Configuration);
+builder.Services.AddGraphPortalProveedorCorreo(builder.Configuration, builder.Environment);
 var proveedorColaboradores = builder.Configuration["Entra:Proveedor"] ?? "Simulado";
 if (proveedorColaboradores.Equals("Graph", StringComparison.OrdinalIgnoreCase))
     builder.Services.AddGraphColaboradores(builder.Configuration, builder.Environment.IsDevelopment());
