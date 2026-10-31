@@ -105,7 +105,8 @@ public sealed class DevolucionCliente : BaseEntity, IPerteneceAEmpresa, IAuditab
 
     public static DevolucionCliente SolicitarPorNotaCredito(
         Guid empresaId, string folioDevolucion, Guid notaCreditoId, string folio, string? uuid, Guid clienteId, decimal importe,
-        decimal totalNotaCredito, string moneda, Guid? sucursalId, string motivo, Guid? solicitadaPor, DateTimeOffset ahora)
+        decimal totalNotaCredito, string moneda, Guid? sucursalId, string motivo, Guid? solicitadaPor, DateTimeOffset ahora,
+        CuentaDestinoDevolucion? destino = null)
     {
         if (notaCreditoId == Guid.Empty)
             throw new BusinessRuleException("DEV_NC_VACIA", "La nota de crédito es obligatoria.");
@@ -117,9 +118,13 @@ public sealed class DevolucionCliente : BaseEntity, IPerteneceAEmpresa, IAuditab
             throw new BusinessRuleException("DEV_IMPORTE_INVALIDO", "El importe debe ser mayor a cero.");
         if (importe > totalNotaCredito)
             throw new BusinessRuleException("DEV_IMPORTE_EXCEDE_NC", "La devolución excede el total de la nota de crédito.");
+        var (banco, clabe, titular) = destino is null ? ((string?)null, (string?)null, (string?)null) : ValidarDestino(destino);
 
         return new DevolucionCliente
         {
+            DestinoBanco = banco,
+            DestinoClabe = clabe,
+            DestinoTitular = titular,
             Id = Guid.CreateVersion7(),
             EmpresaId = empresaId,
             Folio = folioDevolucion,

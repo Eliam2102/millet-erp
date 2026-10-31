@@ -91,7 +91,11 @@ public sealed record NotaCreditoReembolsoSolicitadoPayload(
     string Moneda,
     Guid SucursalId,
     string Motivo,
-    Guid SolicitadoPor)
+    Guid SolicitadoPor,
+    // F6.3: cuenta destino capturada al emitir la NC (opcional).
+    string? DestinoBanco = null,
+    string? DestinoClabe = null,
+    string? DestinoTitular = null)
 {
     public const string EventType = "facturacion.nota-credito.reembolso-solicitado.v1";
 }
