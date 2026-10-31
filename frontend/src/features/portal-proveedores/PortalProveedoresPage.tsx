@@ -186,7 +186,7 @@ function SubirDocumento({ alExpirar }: { alExpirar: () => void }) {
     setMensaje(null);
     try {
       const r = await subirCfdi(xml, pdf);
-      setMensaje({ ok: true, texto: r.resultado === 'YaLoTeniamos' ? 'Ya lo teníamos.' : 'Recibimos tu documento.' });
+      setMensaje({ ok: true, texto: r.mensaje });
       setXml(null);
       setPdf(null);
     } catch (e) {

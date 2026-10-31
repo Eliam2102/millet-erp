@@ -68,7 +68,7 @@ it('un código inválido muestra el error y no abre sesión', async () => {
 
 it('sube el XML y distingue «Recibimos tu documento» de «Ya lo teníamos»; muestra el rechazo por RFC', async () => {
   const respuestas = [
-    json({ resultado: 'Recibido', uuid: 'U', mensaje: 'ok' }, 201),
+    json({ resultado: 'Recibido', uuid: 'U', mensaje: 'Recibimos tu documento. Ligamos tu complemento a tu pago.' }, 201),
     json({ resultado: 'YaLoTeniamos', uuid: 'U', mensaje: 'Ya lo teníamos.' }),
     json({ code: 'PORTAL_RFC_NO_COINCIDE', detail: 'El RFC del emisor del CFDI no coincide con el de tu empresa.' }, 422),
   ];
@@ -83,7 +83,7 @@ it('sube el XML y distingue «Recibimos tu documento» de «Ya lo teníamos»; m
     fireEvent.click(screen.getByRole('button', { name: 'Subir documento' }));
   };
   await enviar();
-  expect(await screen.findByText('Recibimos tu documento.')).toBeTruthy();
+  expect(await screen.findByText('Recibimos tu documento. Ligamos tu complemento a tu pago.')).toBeTruthy();
   await enviar();
   expect(await screen.findByText('Ya lo teníamos.')).toBeTruthy();
   await enviar();
