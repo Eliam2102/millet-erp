@@ -31,6 +31,7 @@ it('pide código, entra con el código y muestra la factura detenida por falta d
         id: 'f1', folio: 'A-10', uuid: 'U-1', fecha: '2026-10-01T00:00:00Z', total: 116, moneda: 'MXN',
         estado: 'Detenida: falta el complemento de pago', detenida: true,
         motivo: 'Falta el complemento de pago de la factura A-10', fechaProgramadaPago: null,
+        fechaVencimiento: '2026-11-15',
       }]);
     }
     return json([], 404);
@@ -44,6 +45,8 @@ it('pide código, entra con el código y muestra la factura detenida por falta d
   fireEvent.click(screen.getByRole('button', { name: 'Entrar' }));
 
   expect(await screen.findByText('Falta el complemento de pago de la factura A-10')).toBeTruthy();
+  expect(screen.getByText('Sin programar')).toBeTruthy();
+  expect(screen.getByText(new Date('2026-11-15T00:00:00').toLocaleDateString('es-MX'))).toBeTruthy();
   expect(sessionStorage.getItem('millet.portal-proveedores.token')).toBe('tok');
   const llamada = fetchMock.mock.calls.find(([u]) => String(u).endsWith('/facturas'));
   expect((llamada?.[1] as RequestInit).headers).toEqual({ Authorization: 'Bearer tok' });

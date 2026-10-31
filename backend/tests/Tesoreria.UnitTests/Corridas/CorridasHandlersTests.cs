@@ -3,6 +3,7 @@ using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 using Millet.Tesoreria.Application.Corridas;
 using Millet.Tesoreria.Application.EventListeners;
+using Millet.Tesoreria.Application.PublicPorts;
 using Millet.Tesoreria.Domain.Corridas;
 using Millet.Tesoreria.Domain.Cuentas;
 using Millet.Tesoreria.Domain.Pasivos;
@@ -68,6 +69,23 @@ public sealed class CorridasHandlersTests
     }
 
     [Fact]
+    public async Task Fecha_programada_para_el_portal_es_la_de_la_corrida_autorizada_y_solo_de_esa()
+    {
+        await using var db = Db();
+        var (cuenta, p) = await Escenario(db, (Guid.NewGuid(), 1_000m), (Guid.NewGuid(), 2_000m));
+        var r = await Crear(db, Armador).Handle(new(cuenta.Id, [p[0].FacturaProveedorId]), default);
+        var consulta = new ConsultarFechasProgramadasPagoHandler(db);
+        var ids = p.Select(x => x.FacturaProveedorId).ToArray();
+
+        (await consulta.Handle(new(ids), default)).Should().BeEmpty("una corrida en borrador no programa nada");
+        r = await Enviar(db, r);
+        r = await Autorizar(db, JefeTesoreria).Handle(new(r.Id, r.Version), default);
+
+        var fechas = await consulta.Handle(new(ids), default);
+        fechas.Should().ContainSingle().Which.Should().Be(new KeyValuePair<Guid, DateOnly>(p[0].FacturaProveedorId, DateOnly.FromDateTime(Ahora.UtcDateTime)));
+    }
+
+    [Fact]
     public async Task Bruto_retenciones_y_neto_por_proveedor_salen_del_CFDI()
     {
         await using var db = Db();
@@ -123,6 +141,26 @@ public sealed class CorridasHandlersTests
 
         var act = () => Crear(db, Armador).Handle(new(cuenta.Id, [p[0].FacturaProveedorId]), default);
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "CORRIDA_PASIVO_NO_PAGABLE");
+    }
+
+    [Fact]
+    public async Task CA8_4_proveedor_sin_opinion_vigente_aparece_detenido_por_documentacion_y_no_entra_a_la_corrida()
+    {
+        await using var db = Db();
+        Guid sinOpinion = Guid.NewGuid(), conOpinion = Guid.NewGuid();
+        var (cuenta, p) = await Escenario(db, (sinOpinion, 1_000m), (conOpinion, 2_000m));
+        var proveedores = new Proveedores { SinOpinion = [sinOpinion] };
+
+        var candidatos = (await new PasivosParaCorridaHandler(db, proveedores).Handle(new("MXN"), default)).Items;
+        candidatos.Single(x => x.ProveedorId == sinOpinion).Should().Match<PasivoParaCorridaResponse>(x => x.Detenida && x.MotivoDetencion == "documentación");
+        candidatos.Single(x => x.ProveedorId == conOpinion).Detenida.Should().BeFalse();
+
+        var act = () => Crear(db, Armador, proveedores).Handle(new(cuenta.Id, [p[0].FacturaProveedorId]), default);
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "CORRIDA_PASIVO_DETENIDO_DOCUMENTACION");
+
+        // Con la opinión vigente en el expediente, la misma factura se arma sin cambios.
+        var r = await Crear(db, Armador, new Proveedores()).Handle(new(cuenta.Id, [p[0].FacturaProveedorId]), default);
+        r.Lineas.Should().HaveCount(1);
     }
 
     [Fact]
@@ -240,11 +278,12 @@ public sealed class CorridasHandlersTests
     }
     private sealed class Proveedores(params Guid[] sinCuentaValidada) : IProveedorBancoReadPort
     {
+        public HashSet<Guid> SinOpinion { get; init; } = [];
         public Task<ProveedorBancoDto?> ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<ProveedorBancoDto?>(Dto(id));
         public Task<IReadOnlyDictionary<Guid, ProveedorBancoDto>> ObtenerVariosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
             Task.FromResult<IReadOnlyDictionary<Guid, ProveedorBancoDto>>(ids.ToDictionary(i => i, Dto));
         private ProveedorBancoDto Dto(Guid id) => new(id, "P", $"Proveedor {id.ToString()[..4]}",
             [new CuentaProveedorDto(Guid.NewGuid(), "BBVA", "012180001234567897", true, null, "MXN", "Titular", true,
-                sinCuentaValidada.Contains(id) ? "PorValidar" : "Activa")]);
+                sinCuentaValidada.Contains(id) ? "PorValidar" : "Activa")], SinOpinionCumplimiento: SinOpinion.Contains(id));
     }
 }

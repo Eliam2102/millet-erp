@@ -130,7 +130,7 @@ function MisDocumentos({ alExpirar }: { alExpirar: () => void }) {
       {vista === 'facturas' && facturas.data && (
         facturas.data.length === 0 ? <p className="text-sm text-ink-muted">Todavía no tenemos facturas tuyas.</p> : (
           <table className="w-full text-sm">
-            <thead><tr className="text-left"><th>Folio</th><th>UUID</th><th>Fecha</th><th className="text-right">Total</th><th>Estado</th><th>Pago programado</th></tr></thead>
+            <thead><tr className="text-left"><th>Folio</th><th>UUID</th><th>Fecha</th><th className="text-right">Total</th><th>Estado</th><th>Vencimiento</th><th>Fecha programada de pago</th></tr></thead>
             <tbody>
               {facturas.data.map((f) => (
                 <tr key={f.id} className="border-t">
@@ -142,7 +142,8 @@ function MisDocumentos({ alExpirar }: { alExpirar: () => void }) {
                     {f.estado}
                     {f.motivo && <div className="text-xs text-ink-muted">{f.motivo}</div>}
                   </td>
-                  <td>{f.fechaProgramadaPago ? fecha(f.fechaProgramadaPago) : '—'}</td>
+                  <td>{fecha(f.fechaVencimiento)}</td>
+                  <td>{f.fechaProgramadaPago ? fecha(f.fechaProgramadaPago) : 'Sin programar'}</td>
                 </tr>
               ))}
             </tbody>

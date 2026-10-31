@@ -80,4 +80,37 @@ public sealed class ExpedienteProveedorListadoTests
         await db.SaveChangesAsync();
         await ComprobarAsync();
     }
+
+    [Fact]
+    public async Task CA8_4_opinion_de_cumplimiento_faltante_o_vencida_detiene_y_la_vigente_libera()
+    {
+        await using var db = new CompartidoDbContext(new DbContextOptionsBuilder<CompartidoDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, new Empresa());
+        await db.Database.EnsureCreatedAsync();
+        var reloj = new Reloj();
+        Proveedor Nuevo(string clave, OrigenProveedor origen)
+        {
+            var p = new Proveedor(Guid.NewGuid(), clave, "Proveedor sintético", "XEXX010101000", TipoPersonaProveedor.Moral, origenCarga: "CargaSap");
+            p.ActualizarClasificacionFiscal(origen, origen == OrigenProveedor.Nacional ? "601" : null, null);
+            db.Proveedores.Add(p);
+            return p;
+        }
+        var faltante = Nuevo("FALTA", OrigenProveedor.Nacional);
+        var vencida = Nuevo("VENCIDA", OrigenProveedor.Nacional);
+        var vigente = Nuevo("VIGENTE", OrigenProveedor.Nacional);
+        var extranjero = Nuevo("EXT", OrigenProveedor.Extranjero);
+        var tipo = await db.AdjuntoTiposDocumento.FirstAsync(t => t.Codigo == ExpedienteAdjuntos.CodigoOpinionCumplimiento && t.TipoEntidad == "proveedor");
+        void Opinion(Proveedor p, DateOnly hasta) => db.Adjuntos.Add(new Adjunto(Guid.NewGuid(), "proveedor", p.Id, null, tipo.Id, "opinion.pdf",
+            "application/pdf", 20, new string('a', 64), $"opinion/{p.Clave}", hasta, Guid.NewGuid(), reloj.UtcNow.AddDays(-20)));
+        Opinion(vencida, new DateOnly(2026, 10, 1));
+        Opinion(vigente, new DateOnly(2026, 11, 30));
+        await db.SaveChangesAsync();
+
+        var sin = await ExpedienteAdjuntos.SinOpinionCumplimiento(db, reloj).ToListAsync();
+        Assert.Equivalent(new[] { faltante.Id, vencida.Id }, sin);   // el extranjero no aplica y el vigente no se detiene
+
+        Opinion(faltante, new DateOnly(2026, 11, 30));   // sube la opinión: se libera sola
+        await db.SaveChangesAsync();
+        Assert.Equal([vencida.Id], await ExpedienteAdjuntos.SinOpinionCumplimiento(db, reloj).ToListAsync());
+    }
 }
