@@ -76,6 +76,8 @@ public sealed class ProvisionarClienteDesdeAwHandler
             request.ReferenciaExterna, request.RazonSocial, DateTime.UtcNow,
             VersionContrato: "1", VersionMapeo: "0-borrador",
             Rfc: request.Rfc,
+            // Si otro cliente ya tiene el RFC, el nuevo se crea sin él pero conserva el candidato: sigue en rfc-repetidos (#268).
+            CandidatoFiscalUstId: request.Rfc,
             CodigoPostalFiscal: request.CodigoPostalFiscal,
             UsoCfdiDefault: request.UsoCfdiDefault,
             FormaPagoDefault: request.FormaPagoDefault,

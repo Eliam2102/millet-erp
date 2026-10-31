@@ -361,6 +361,21 @@ public sealed class F1AFundacionesTests
     }
 
     [Fact]
+    public async Task Provisionar_desde_pedido_con_rfc_ya_usado_crea_sin_rfc_y_conserva_el_candidato()
+    {
+        using var db = Db();
+        var handler = new ProvisionarClienteDesdeAwHandler(new AplicarClienteAwService(db));
+        ProvisionarClienteDesdeAwCommand Cmd(string r) => new(r, "CLIENTE FICTICIO", "AAA010101AAA", null, null, null, null, null, "MXN");
+        var primero = await handler.Handle(Cmd("61"), CancellationToken.None);
+        var segundo = await handler.Handle(Cmd("62"), CancellationToken.None);
+
+        Assert.Equal("AAA010101AAA", primero.Rfc);
+        Assert.Null(segundo.Rfc);
+        Assert.Equal("AAA010101AAA", (await db.Set<ClienteSincronizacionAw>().SingleAsync(x => x.ClienteId == segundo.ClienteId)).CandidatoFiscalUstId);
+        Assert.Contains(await db.Set<CambioMaestroAw>().ToListAsync(), c => c.EntidadId == segundo.ClienteId && c.Tipo == TipoCambioMaestroAw.RfcCompartido);
+    }
+
+    [Fact]
     public async Task V38_conflicto_obsoleto_se_elimina_y_se_crea_el_cliente()
     {
         using var db = Db();

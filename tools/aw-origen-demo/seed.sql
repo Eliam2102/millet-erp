@@ -30,7 +30,7 @@ SELECT i, 1,
   CASE WHEN i % 12 = 0 THEN ''                              -- sin identificación fiscal
        WHEN i % 3 = 0 THEN 'XAXX010101000'                  -- RFC genérico repetido
        WHEN i % 11 = 0 THEN 'XEXX010101000'
-       ELSE 'DEMO' || lpad(i::text, 3, '0') END,
+       ELSE 'DEM010101' || lpad(i::text, 3, '0') END,   -- RFC sintético de 12 (moral), único por cliente
   '',
   CASE WHEN i % 3 = 0 THEN '' ELSE '55' || lpad(i::text, 8, '0') END,
   '',
