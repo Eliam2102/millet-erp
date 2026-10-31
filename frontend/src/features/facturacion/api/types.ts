@@ -438,6 +438,39 @@ export interface AnticipoSaldoDetalle {
   obraId: number | null;
   obraNombre: string | null;
   vinculaciones: AnticipoVinculacionInfo[];
+  /** F6.3 · CA6.17: devuelto en dinero al cliente. */
+  montoDevuelto?: number;
+  devoluciones?: AnticipoDevolucionInfo[] | null;
+}
+
+/** F6.3: NC de devolución del anticipo y el estado de su reembolso en Tesorería. */
+export interface AnticipoDevolucionInfo {
+  notaCreditoId: string;
+  folio: string;
+  uuid: string | null;
+  estado: string;
+  total: number;
+  estadoReembolso: EstadoReembolsoNc | null;
+  reembolsoPagadoEl: string | null;
+  reembolsoReferencia: string | null;
+  reembolsoMotivoResolucion: string | null;
+}
+
+/** F6.3 · CA6.17: POST /notas-credito/devolucion-anticipo. */
+export interface NotaCreditoDevolucionAnticipoCommand {
+  anticipoId: string;
+  montoTotal: number;
+  tasaIva: number | null;
+  reembolso: ReembolsoClienteRequest;
+}
+
+export interface NotaCreditoDevolucionAnticipoResponse {
+  id: string;
+  estado: string;
+  uuid: string | null;
+  folio: string;
+  total: number;
+  saldoAnticipo: number;
 }
 
 /** Detalle de una factura de anticipo (GET /anticipos/facturas/{id}). */

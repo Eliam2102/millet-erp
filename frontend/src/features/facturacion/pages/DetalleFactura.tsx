@@ -3,7 +3,6 @@ import { DatosClienteFactura } from '../components/DatosClienteFactura';
 import { ErrorState } from '@/components/erp';
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { PageHeader } from '@/components/erp/PageHeader';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -29,6 +28,7 @@ import { CancelarComprobanteForm } from '@/features/facturacion/components/Cance
 import { CobrarEnCajaLink } from '@/features/facturacion/components/CobrarEnCajaLink';
 import { CobroFacturaPanel } from '@/features/facturacion/components/CobroFacturaPanel';
 import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
+import { EstadoReembolsoNcBadge } from '@/features/facturacion/components/EstadoReembolsoNcBadge';
 import { IntentosTimbradoPanel } from '@/features/facturacion/components/IntentosTimbradoPanel';
 import { SolicitarReembolsoNcDialog } from '@/features/facturacion/components/SolicitarReembolsoNcDialog';
 import { TimbradoFallidoBanner } from '@/features/facturacion/components/TimbradoFallidoBanner';
@@ -44,7 +44,6 @@ import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { Ban, Download, FileCode, Mail, Printer, Receipt, X } from 'lucide-react';
 import { useState } from 'react';
-import type { EstadoReembolsoNc, NotaCreditoAplicadaDetalle } from '@/features/facturacion/api/types';
 import { toast } from 'sonner';
 
 const BASE = '/api/v1/facturacion/facturas';
@@ -371,7 +370,13 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
                           </TableCell>
                           <TableCell className="px-3 py-2">
                             {nc.reembolsoSolicitado || nc.estadoReembolso ? (
-                              <EstadoReembolsoCelda nc={nc} />
+                              <EstadoReembolsoNcBadge
+                                folio={nc.folio}
+                                estado={nc.estadoReembolso ?? null}
+                                pagadoEl={nc.reembolsoPagadoEl}
+                                referencia={nc.reembolsoReferencia}
+                                motivo={nc.reembolsoMotivoResolucion}
+                              />
                             ) : puedeReembolsar &&
                               nc.motivo !== 'Amortizacion' &&
                               nc.motivo !== 'Ranura' ? (
@@ -644,43 +649,6 @@ function PedimentoForm({ facturaId }: { facturaId: string }) {
       </div>
     </div>
   );
-}
-
-const VARIANTE_REEMBOLSO: Record<EstadoReembolsoNc, 'info' | 'success' | 'danger' | 'neutral'> = {
-  Solicitado: 'info',
-  Autorizado: 'info',
-  Rechazado: 'danger',
-  Cancelado: 'neutral',
-  Pagado: 'success',
-};
-
-/** F6.3: estado del reembolso en Tesorería; «Pagado» lleva la fecha valor y la referencia del pago. */
-function EstadoReembolsoCelda({ nc }: { nc: NotaCreditoAplicadaDetalle }) {
-  const estado: EstadoReembolsoNc = nc.estadoReembolso ?? 'Solicitado';
-  const detalle =
-    estado === 'Pagado'
-      ? [nc.reembolsoPagadoEl && formatearFechaCorta(nc.reembolsoPagadoEl), nc.reembolsoReferencia]
-          .filter(Boolean)
-          .join(' · ')
-      : estado === 'Rechazado' || estado === 'Cancelado'
-        ? (nc.reembolsoMotivoResolucion ?? '')
-        : '';
-  return (
-    <span className="inline-flex flex-col gap-0.5" data-testid={`reembolso-nc-${nc.folio}`}>
-      <Badge variant={VARIANTE_REEMBOLSO[estado]}>{estado}</Badge>
-      {detalle && <span className="text-xs text-ink-muted">{detalle}</span>}
-    </span>
-  );
-}
-
-/** «2026-10-31» → «31 oct 2026», sin desfase de zona horaria. */
-function formatearFechaCorta(fecha: string): string {
-  const [anio, mes, dia] = fecha.split('-').map(Number);
-  return new Date(anio, mes - 1, dia).toLocaleDateString('es-MX', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
 }
 
 function NcBonificacionForm({

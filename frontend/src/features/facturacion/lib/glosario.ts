@@ -101,6 +101,8 @@ export const ETIQUETA_MOTIVO_NC: Record<string, string> = {
   // RANURA-PR2: NC automática del descuento "ranura" del pedido A+W —
   // etiquetada distinto para distinguirla de las NC comerciales reales.
   Ranura: 'Ranura (descuento de pedido)',
+  // F6.3 · CA6.17: devolución en dinero de un anticipo no aplicado.
+  DevolucionAnticipo: 'Devolución de anticipo',
 };
 
 /** Etiqueta del estado de timbrado (FSM del comprobante). */

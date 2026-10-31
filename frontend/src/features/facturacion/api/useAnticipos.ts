@@ -9,6 +9,8 @@ import type {
   EmitirAnticipoResponse,
   FacturaAnticipoBandejaItem,
   FacturaAnticipoDetalleResponse,
+  NotaCreditoDevolucionAnticipoCommand,
+  NotaCreditoDevolucionAnticipoResponse,
   ReporteBackend,
 } from '@/features/facturacion/api/types';
 
@@ -143,6 +145,35 @@ export function useEmitirAnticipo() {
       queryClient.invalidateQueries({ queryKey: facturacionKeys.anticipos() });
       // El anticipo emitido también es una factura → refresca la bandeja.
       queryClient.invalidateQueries({ queryKey: facturacionKeys.facturas() });
+    },
+  });
+}
+
+/**
+ * F6.3 · CA6.17: devuelve en dinero un anticipo no aplicado (NC relación 01 al
+ * anticipo); al timbrar pide el reembolso a Tesorería con la cuenta destino.
+ */
+export function useEmitirNcDevolucionAnticipo(facturaAnticipoId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      command: NotaCreditoDevolucionAnticipoCommand;
+      idempotencyKey: string;
+    }) => {
+      const { data } = await apiRequest<NotaCreditoDevolucionAnticipoResponse>(
+        '/api/v1/facturacion/notas-credito/devolucion-anticipo',
+        {
+          method: 'POST',
+          body: args.command,
+          idempotencyKey: args.idempotencyKey,
+        },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: facturacionKeys.anticipoFacturaById(facturaAnticipoId),
+      });
     },
   });
 }

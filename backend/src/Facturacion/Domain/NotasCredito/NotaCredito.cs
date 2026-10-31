@@ -259,6 +259,64 @@ public sealed class NotaCredito : Comprobante
     /// Relación 01 a la factura origen (la agrega el handler). El handler valida
     /// que la factura origen no esté cancelada (invariante 6).
     /// </summary>
+    /// <summary>
+    /// F6.3 · CA6.17: NC por devolución en dinero de un anticipo no aplicado, en <see cref="EstadoTimbrado.Borrador"/>.
+    /// Relación 01 al CFDI del anticipo (la agrega el handler). Sin factura relacionada: no toca la cartera de ninguna
+    /// factura; descuenta el saldo del anticipo (<c>Anticipo.RegistrarDevolucion</c>). El reembolso queda programado: al
+    /// timbrar se pide a Tesorería por el total.
+    /// </summary>
+    public static NotaCredito CrearDevolucionAnticipo(
+        Guid empresaId,
+        string folio,
+        long folioNumero,
+        Guid sucursalId,
+        Guid? usuarioEmisorId,
+        DatosFiscalesReceptor receptor,
+        DatosFiscalesEmisor emisor,
+        string formaPago,
+        string moneda,
+        decimal? tipoCambio,
+        int periodoAnio,
+        int periodoMes,
+        short? canalVentaId,
+        Guid anticipoId,
+        decimal montoTotal,
+        decimal? tasaIva,
+        string banco,
+        string clabe,
+        string titular)
+    {
+        if (montoTotal <= 0)
+            throw new BusinessRuleException("NC_MONTO_INVALIDO", "El monto de la nota de crédito debe ser mayor que cero.");
+
+        var nc = new NotaCredito(
+            id: Guid.CreateVersion7(),
+            empresaId: empresaId,
+            folio: folio,
+            folioNumero: folioNumero,
+            sucursalId: sucursalId,
+            cajaId: null,
+            usuarioEmisorId: usuarioEmisorId,
+            receptor: receptor,
+            emisor: emisor,
+            formaPago: formaPago,
+            moneda: moneda,
+            tipoCambio: tipoCambio,
+            periodoAnio: periodoAnio,
+            periodoMes: periodoMes,
+            canalVentaId: canalVentaId,
+            motivo: MotivoNotaCredito.DevolucionAnticipo,
+            anticipoOrigenId: anticipoId,
+            facturaRelacionadaId: null,
+            claveProdServSat: "84111506",
+            claveUnidadSat: "ACT",
+            descripcion: "Devolución de anticipo");
+
+        DesglosarTotales(nc, montoTotal, tasaIva);
+        nc.ProgramarReembolso(banco, clabe, titular);
+        return nc;
+    }
+
     public static NotaCredito CrearBonificacion(
         Guid empresaId,
         string folio,
