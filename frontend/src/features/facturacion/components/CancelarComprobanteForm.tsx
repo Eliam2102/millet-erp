@@ -14,7 +14,8 @@ import { toast } from 'sonner';
  * 4.0 (FE-F5), extraído de <c>DetalleFactura</c> en ANT-PR2 (doc 13, 13-G):
  * el endpoint <c>POST /comprobantes/{id}/cancelar</c> es genérico, así que
  * el mismo form sirve para facturas de venta y facturas de anticipo. El
- * motivo 01 exige el UUID del comprobante sustituto.
+ * motivo 01 exige el UUID del comprobante sustituto. F6.5: la solicitud queda
+ * pendiente de la autorización del Contador General.
  */
 export function CancelarComprobanteForm({
   comprobanteId,
@@ -43,8 +44,8 @@ export function CancelarComprobanteForm({
         idempotencyKey,
       },
       {
-        onSuccess: (res) => {
-          toast.success(`Cancelación solicitada (${res.estadoSolicitud}).`);
+        onSuccess: () => {
+          toast.success('Cancelación solicitada: queda pendiente de la autorización del Contador General.');
           onDone();
         },
         onError: (error) =>

@@ -28,6 +28,7 @@ import { CancelarComprobanteForm } from '@/features/facturacion/components/Cance
 import { CobrarEnCajaLink } from '@/features/facturacion/components/CobrarEnCajaLink';
 import { CobroFacturaPanel } from '@/features/facturacion/components/CobroFacturaPanel';
 import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
+import { EstadoCancelacionBanner } from '@/features/facturacion/components/EstadoCancelacionBanner';
 import { IntentosTimbradoPanel } from '@/features/facturacion/components/IntentosTimbradoPanel';
 import { SolicitarReembolsoNcDialog } from '@/features/facturacion/components/SolicitarReembolsoNcDialog';
 import { TimbradoFallidoBanner } from '@/features/facturacion/components/TimbradoFallidoBanner';
@@ -92,6 +93,8 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
     NonNullable<typeof f.notasCreditoAplicadas>[number] | null
   >(null);
   const cancelacion = useCancelacionEstatus(f.id);
+  // F6.5: con una solicitud pendiente de autorización no se puede pedir otra.
+  const cancelacionPendiente = cancelacion.data?.estadoSolicitud === 'PendienteAutorizacion';
   const [accion, setAccion] = useState<'cancelar' | 'nc' | null>(null);
   const timbrada = f.estado === 'Timbrado' || f.estado === 'Cancelado';
   // Solo una factura vigente (Timbrado) admite NC / cancelación.
@@ -187,7 +190,7 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
                       NC bonificación
                     </Button>
                   )}
-                  {puedeCancelar && vigente && (
+                  {puedeCancelar && vigente && !cancelacionPendiente && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -232,20 +235,11 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
         errorMensaje={f.timbradoErrorMensaje}
       />
 
-      {cancelacion.data?.estadoSolicitud != null && (
-        <div
-          className="rounded-md border border-line bg-warning-note-bg px-3 py-2 text-sm"
-          data-print="hidden"
-        >
-          <span className="font-medium">Solicitud de cancelación:</span>{' '}
-          {cancelacion.data.estadoSolicitud}
-          {cancelacion.data.motivoSat ? ` · motivo ${cancelacion.data.motivoSat}` : ''}
-          {cancelacion.data.estatusSat ? ` · SAT ${cancelacion.data.estatusSat}` : ''}
-          {cancelacion.data.mensajeError ? (
-            <span className="text-danger-fg"> · {cancelacion.data.mensajeError}</span>
-          ) : null}
-        </div>
-      )}
+      <EstadoCancelacionBanner
+        comprobanteId={f.id}
+        cancelacion={cancelacion.data}
+        puedeRetirar={puedeCancelar}
+      />
 
       <div className="space-y-5">
         <section className="space-y-4">
