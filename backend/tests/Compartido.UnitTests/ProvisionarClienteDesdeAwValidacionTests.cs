@@ -15,6 +15,6 @@ public class ProvisionarClienteDesdeAwValidacionTests
 
         var ex = await Assert.ThrowsAsync<ValidationException>(() => pipeline.Handle(cmd, () => Task.FromResult(1), CancellationToken.None));
 
-        ex.Message.Should().StartWith("Errores de validación: ").And.Contain("Rfc").And.Contain("entre 12 y 13").And.Contain("tiene 7");
+        ex.Message.Should().StartWith("Errores de validación: ").And.Contain("Rfc").And.Contain("12").And.Contain("13").And.Contain("7"); // el texto del motivo depende del idioma de FluentValidation
     }
 }
