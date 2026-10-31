@@ -6,6 +6,7 @@ using Millet.SharedKernel.Application.Exceptions;
 using Millet.Tesoreria.Application.Common;
 using Millet.Tesoreria.Application.Integration;
 using Millet.Tesoreria.Domain.Depositos;
+using Millet.Tesoreria.Domain.Ports;
 using Millet.Tesoreria.Infrastructure.Persistence;
 
 namespace Millet.Tesoreria.Application.Depositos;
@@ -20,7 +21,7 @@ public sealed record DiferenciaCorteResponse(
     Guid Id, Guid CajaSesionId, Guid CajaId, Guid SucursalId, Guid CajeroId, DateOnly DiaCorte,
     decimal Importe, string Tipo, EstadoDiferenciaCorte Estado, string? MotivoRechazo,
     decimal ImporteDevuelto, decimal PendientePorDevolver, Guid? ResueltaPor, DateTimeOffset? ResueltaEn,
-    DateTimeOffset RecibidoEn, int Version)
+    DateTimeOffset RecibidoEn, int Version, string? CajeroNombre = null, string? CajaNombre = null)
 {
     public static DiferenciaCorteResponse De(DiferenciaCorte d) =>
         new(d.Id, d.CajaSesionId, d.CajaId, d.SucursalId, d.CajeroId, d.DiaCorte, d.Importe,
@@ -40,7 +41,7 @@ public sealed record DiferenciasCorteQuery(
     public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
 }
 
-public sealed class DiferenciasCorteHandler(TesoreriaDbContext db)
+public sealed class DiferenciasCorteHandler(TesoreriaDbContext db, ICorteNombresReadPort? nombres = null)
     : IRequestHandler<DiferenciasCorteQuery, PagedResponse<DiferenciaCorteResponse>>
 {
     public async Task<PagedResponse<DiferenciaCorteResponse>> Handle(DiferenciasCorteQuery query, CancellationToken cancellationToken)
@@ -58,7 +59,16 @@ public sealed class DiferenciasCorteHandler(TesoreriaDbContext db)
             .ThenByDescending(d => d.CreatedAt)
             .Skip(offset).Take(limit)
             .ToListAsync(cancellationToken);
-        return new PagedResponse<DiferenciaCorteResponse>(items.Select(DiferenciaCorteResponse.De).ToList(), offset, limit, total);
+        var cajeros = nombres is null ? new Dictionary<Guid, string>()
+            : await nombres.NombresCajerosAsync(items.Select(d => d.CajeroId).ToList(), cancellationToken);
+        var cajas = nombres is null ? new Dictionary<Guid, string>()
+            : await nombres.NombresCajasAsync(items.Select(d => d.CajaId).ToList(), cancellationToken);
+        var responses = items.Select(d => DiferenciaCorteResponse.De(d) with
+        {
+            CajeroNombre = cajeros.GetValueOrDefault(d.CajeroId),
+            CajaNombre = cajas.GetValueOrDefault(d.CajaId),
+        }).ToList();
+        return new PagedResponse<DiferenciaCorteResponse>(responses, offset, limit, total);
     }
 }
 
@@ -99,7 +109,8 @@ public sealed class RechazarDiferenciaCorteValidator : AbstractValidator<Rechaza
     public RechazarDiferenciaCorteValidator()
     {
         RuleFor(c => c.DiferenciaId).NotEmpty();
-        RuleFor(c => c.Motivo).NotEmpty().MaximumLength(400);
+        // Sin NotEmpty: el motivo vacío lo responde el dominio con 422 DIF_MOTIVO_VACIO.
+        RuleFor(c => c.Motivo).MaximumLength(400);
     }
 }
 

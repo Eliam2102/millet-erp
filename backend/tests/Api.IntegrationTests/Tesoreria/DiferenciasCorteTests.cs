@@ -48,8 +48,9 @@ public sealed class DiferenciasCorteTests(WebApplicationFactory<Program> factory
         var (client, _) = await Login();
         var d = await Sembrar(Guid.NewGuid(), -50m);
 
-        (await Post(client, $"{Ruta}/{d.Id}/rechazar", new { motivo = " " }, d.Version)).StatusCode
-            .Should().BeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.UnprocessableEntity);
+        var sinMotivo = await Post(client, $"{Ruta}/{d.Id}/rechazar", new { motivo = " " }, d.Version);
+        sinMotivo.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
+        (await sinMotivo.Content.ReadAsStringAsync()).Should().Contain("DIF_MOTIVO_VACIO");
         var ok = await Post(client, $"{Ruta}/{d.Id}/rechazar", new { motivo = "Revisar arqueo" }, d.Version);
         ok.StatusCode.Should().Be(HttpStatusCode.OK);
         (await ok.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("estado").ToString().Should().NotBeEmpty();

@@ -964,6 +964,7 @@ builder.Services.AddCuentasPorCobrarModule(builder.Configuration, builder.Enviro
 // el publisher de los 4 eventos espejo congelados en TES-PR4. Ver
 // docs/modulos/tesoreria/01-diseno.md §6.
 builder.Services.AddTesoreriaModule(builder.Configuration);
+builder.Services.AddScoped<Millet.Tesoreria.Domain.Ports.ICorteNombresReadPort, Millet.Api.Infrastructure.Adapters.CorteNombresReadAdapter>();
 builder.Services.AddScoped<Millet.Tesoreria.Domain.Ports.IElegibleFacturaReadPort, Millet.Api.Infrastructure.Adapters.ElegibleFacturaReadPortAdapter>();
 builder.Services.AddScoped<Millet.CuentasPorPagar.Domain.Ports.Tesoreria.IPagosProveedorReadPort, Millet.Api.Infrastructure.Adapters.PagosProveedorReadPortAdapter>();
 // K10.5: folio y proveedor de la OC para el auxiliar de la cuenta puente (Contabilidad ← Compras).
