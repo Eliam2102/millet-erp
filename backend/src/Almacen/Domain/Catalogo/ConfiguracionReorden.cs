@@ -133,5 +133,8 @@ public sealed class ConfiguracionReorden : BaseEntity, IAuditable
         if (maximo < minimo)
             throw new BusinessRuleException("REORDEN_MAX_MENOR_MIN",
                 "El máximo no puede ser menor que el mínimo.");
+        if (puntoReorden > maximo)
+            throw new BusinessRuleException("REORDEN_PUNTO_MAYOR_MAX",
+                "El punto de reorden no puede ser mayor que el máximo.");
     }
 }

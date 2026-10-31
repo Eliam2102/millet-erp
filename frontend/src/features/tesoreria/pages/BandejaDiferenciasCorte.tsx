@@ -114,7 +114,7 @@ export function BandejaDiferenciasCorte() {
       ) : query.isLoading ? (
         <TableSkeleton
           rows={5}
-          columns={[{ width: 'w-24' }, { width: 'w-24' }, { width: 'w-28' }, { width: 'w-32' }, { width: 'w-32' }]}
+          columns={[{ width: 'w-24' }, { width: 'w-28' }, { width: 'w-24' }, { width: 'w-24' }, { width: 'w-28' }, { width: 'w-32' }, { width: 'w-32' }]}
         />
       ) : items.length === 0 ? (
         <EmptyState
@@ -129,6 +129,8 @@ export function BandejaDiferenciasCorte() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Corte</TableHead>
+                  <TableHead>Cajero</TableHead>
+                  <TableHead>Caja</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead className="text-right">Importe</TableHead>
                   <TableHead className="text-right">Devuelto</TableHead>
@@ -145,6 +147,8 @@ export function BandejaDiferenciasCorte() {
                   return (
                     <TableRow key={d.id} className="hover:bg-surface-subtle">
                       <TableCell>{d.diaCorte}</TableCell>
+                      <TableCell>{d.cajeroNombre ?? '—'}</TableCell>
+                      <TableCell>{d.cajaNombre ?? '—'}</TableCell>
                       <TableCell>{d.tipo}</TableCell>
                       <TableCell className="text-right">
                         <MoneyDisplay amount={d.importe} currency="MXN" strong />

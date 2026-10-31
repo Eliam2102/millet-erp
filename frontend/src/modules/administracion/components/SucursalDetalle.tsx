@@ -8,6 +8,9 @@ import { useSucursales } from '@/features/catalogos/api';
 import { TipoSucursal } from '@/modules/administracion/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { useAuthStore } from '@/lib/auth/auth-store';
+import { useEmpresa } from '@/modules/administracion/api';
+import { SucursalInlineForm } from '@/modules/administracion/components/SucursalInlineForm';
 import { SucursalOrganizacionTab } from '@/modules/administracion/components/SucursalOrganizacionTab';
 import { SucursalColaboradoresTab } from '@/modules/administracion/components/SucursalColaboradoresTab';
 import { cn } from '@/lib/utils';
@@ -24,6 +27,13 @@ export function SucursalDetalle() {
 
   const sucursalesQuery = useSucursales();
   const sucursal = sucursalesQuery.data?.items.find((s) => s.id === id);
+
+  // Clave A+W vive en el detalle de la empresa (el catálogo no la expone); solo se pide si puede gestionarla.
+  const currentEmpresaId = useAuthStore((s) => s.currentEmpresaId);
+  const canGestionarSucursal = useHasPermission(PermisosCanonicos.AdminEmpresasSucursalesGestionar);
+  const empresaQuery = useEmpresa(canGestionarSucursal ? currentEmpresaId : null);
+  const sucursalEmpresa = empresaQuery.data?.sucursales.find((s) => s.id === id);
+  const [editando, setEditando] = useState(false);
 
   const canGestionarDeptos = useHasPermission(
     PermisosCanonicos.AdminSucursalesDepartamentosGestionar,
@@ -65,7 +75,31 @@ export function SucursalDetalle() {
           <dt className="text-xs text-ink-muted">Nombre</dt>
           <dd className="text-sm font-medium ">{sucursal?.nombre ?? '—'}</dd>
         </div>
+        {sucursalEmpresa != null && (
+          <div>
+            <dt className="text-xs text-ink-muted">Clave A+W</dt>
+            <dd className="text-sm font-medium ">
+              {sucursalEmpresa.claveAw ?? <span className="text-ink-muted">Sin asignar</span>}
+            </dd>
+          </div>
+        )}
       </dl>
+      {sucursalEmpresa != null && currentEmpresaId != null && (
+        <div className="px-4 pt-3">
+          {editando ? (
+            <SucursalInlineForm
+              empresaId={currentEmpresaId}
+              sucursal={sucursalEmpresa}
+              onCancel={() => setEditando(false)}
+              onSaved={() => setEditando(false)}
+            />
+          ) : (
+            <Button size="sm" variant="outline" onClick={() => setEditando(true)}>
+              Editar sucursal
+            </Button>
+          )}
+        </div>
+      )}
 
       <nav
         className="sticky top-0 z-10 shrink-0 flex items-center gap-1 border-b bg-surface-page/95 px-4 "

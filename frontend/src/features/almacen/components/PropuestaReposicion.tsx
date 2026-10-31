@@ -25,6 +25,10 @@ const ENCABEZADOS = [
   'Consumo diario', 'Cobertura (días)', 'Mín. sugerido', 'Máx. sugerido',
 ];
 
+// Mismo formato en pantalla y en el CSV exportado.
+const fmtConsumo = (v: number) => v.toFixed(1);
+const fmtCobertura = (v: number | null) => (v === null ? 'Sin consumo' : v.toFixed(1));
+
 /**
  * Propuesta de reposición (F1-ALM-10): consumo promedio de 90 días y cobertura por configuración,
  * con sugerencia de mínimo/máximo que el usuario aplica o ignora (no cambia sola). Exportable a CSV.
@@ -41,8 +45,9 @@ export function PropuestaReposicion({ items, puedeAdministrar }: Props) {
 
   const exportar = () => {
     const lineas = filas.map((f) =>
-      [nombre(f.configuracionId, f.articuloId), f.existenciaFisica, f.vivo, f.puntoReorden, f.faltante,
-        f.consumoDiario, f.coberturaDias ?? '', f.minimoSugerido ?? '', f.maximoSugerido ?? '']
+      [nombre(f.configuracionId, f.articuloId), formatCantidad(f.existenciaFisica), formatCantidad(f.vivo),
+        formatCantidad(f.puntoReorden), formatCantidad(f.faltante), fmtConsumo(f.consumoDiario),
+        fmtCobertura(f.coberturaDias), formatCantidad(f.minimoSugerido), formatCantidad(f.maximoSugerido)]
         .map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','));
     const blob = new Blob(['﻿' + [ENCABEZADOS.join(','), ...lineas].join('\n')], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
@@ -59,7 +64,8 @@ export function PropuestaReposicion({ items, puedeAdministrar }: Props) {
       {
         command: {
           id: c.id, minimo, maximo, cantidadFija: c.cantidadFija ?? null,
-          puntoReorden: c.puntoReorden, autoRequisicion: c.autoRequisicion, objetivo: c.objetivo,
+          // El motor no sugiere punto: se alinea al mínimo para no dejar punto > máximo.
+          puntoReorden: minimo, autoRequisicion: c.autoRequisicion, objetivo: c.objetivo,
         },
         idempotencyKey: crypto.randomUUID(),
       },
@@ -90,8 +96,8 @@ export function PropuestaReposicion({ items, puedeAdministrar }: Props) {
                 <TableCell className="text-right tabular-nums">{formatCantidad(f.vivo)}</TableCell>
                 <TableCell className="text-right tabular-nums">{formatCantidad(f.puntoReorden)}</TableCell>
                 <TableCell className="text-right tabular-nums">{formatCantidad(f.faltante)}</TableCell>
-                <TableCell className="text-right tabular-nums">{f.consumoDiario.toFixed(1)}</TableCell>
-                <TableCell className="text-right tabular-nums">{f.coberturaDias === null ? 'Sin consumo' : f.coberturaDias.toFixed(1)}</TableCell>
+                <TableCell className="text-right tabular-nums">{fmtConsumo(f.consumoDiario)}</TableCell>
+                <TableCell className="text-right tabular-nums">{fmtCobertura(f.coberturaDias)}</TableCell>
                 <TableCell className="text-right tabular-nums">{f.minimoSugerido === null ? '—' : formatCantidad(f.minimoSugerido)}</TableCell>
                 <TableCell className="text-right tabular-nums">{f.maximoSugerido === null ? '—' : formatCantidad(f.maximoSugerido)}</TableCell>
                 {puedeAdministrar && (

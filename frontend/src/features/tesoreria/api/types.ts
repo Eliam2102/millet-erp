@@ -471,6 +471,8 @@ export interface DepositoConfirmacionResponse {
   saldoAFavorPorIdentificar?: number;
   /** Corte de caja: lo que falta por depositar (efectivo menos fichas). */
   saldoPorDepositar?: number | null;
+  /** Corte de caja: nombre del cajero, para distinguir varios cortes. */
+  cajeroNombre?: string | null;
   /** Corte de caja: historial de fichas. */
   fichas?: DepositoFichaResponse[] | null;
 }

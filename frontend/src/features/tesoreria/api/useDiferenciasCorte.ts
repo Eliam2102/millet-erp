@@ -28,6 +28,8 @@ export interface DiferenciaCorteResponse {
   cajaId: string;
   sucursalId: string;
   cajeroId: string;
+  cajeroNombre?: string | null;
+  cajaNombre?: string | null;
   diaCorte: string;
   /** Con signo: negativo faltante, positivo sobrante. */
   importe: number;

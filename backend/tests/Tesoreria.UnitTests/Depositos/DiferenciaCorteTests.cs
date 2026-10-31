@@ -122,6 +122,36 @@ public sealed class DiferenciaCorteTests
         dif.Autorizada.Should().BeFalse();
     }
 
+    // El validador no corta el motivo vacío con 400: lo responde el dominio (422 DIF_MOTIVO_VACIO).
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Validador_deja_pasar_motivo_vacio_al_dominio(string motivo) =>
+        new RechazarDiferenciaCorteValidator().Validate(new RechazarDiferenciaCorteCommand(Guid.NewGuid(), motivo, 1)).IsValid.Should().BeTrue();
+
+    // Las bandejas de diferencias y de depósitos muestran cajero (y caja en diferencias).
+    [Fact]
+    public async Task Bandejas_resuelven_nombre_de_cajero_y_caja()
+    {
+        using var db = Nueva();
+        var dif = await Cerrar(db, 4_950m, -50m);
+        var nombres = new FakeNombres(dif.CajeroId, "Ana Cajera", dif.CajaId, "Caja 1");
+
+        var d = (await new DiferenciasCorteHandler(db, nombres).Handle(new DiferenciasCorteQuery(), default)).Items.Single();
+        d.CajeroNombre.Should().Be("Ana Cajera");
+        d.CajaNombre.Should().Be("Caja 1");
+        var dep = (await new DepositosHandler(db, new FakeClientes(), nombres).Handle(new DepositosQuery(), default)).Items.Single();
+        dep.CajeroNombre.Should().Be("Ana Cajera");
+    }
+
+    private sealed class FakeNombres(Guid cajeroId, string cajero, Guid cajaId, string caja) : Millet.Tesoreria.Domain.Ports.ICorteNombresReadPort
+    {
+        public Task<IReadOnlyDictionary<Guid, string>> NombresCajerosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string> { [cajeroId] = cajero });
+        public Task<IReadOnlyDictionary<Guid, string>> NombresCajasAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string> { [cajaId] = caja });
+    }
+
     // CA5: faltante autorizado de $50; el cajero devuelve $50 («corte del 28-oct») → Saldada y evento de abono.
     [Fact]
     public async Task CA5_devolucion_total_salda_y_publica_el_abono_al_deudor()

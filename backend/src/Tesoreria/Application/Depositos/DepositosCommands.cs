@@ -55,7 +55,9 @@ public sealed record DepositoConfirmacionResponse(
     // (el depósito sí se puede registrar). Importe con signo: negativo faltante, positivo sobrante.
     EstadoDiferenciaCorte? DiferenciaEstado = null,
     decimal? DiferenciaImporte = null,
-    bool? Conciliado = null);
+    bool? Conciliado = null,
+    // Solo en la bandeja: cajero del corte, para distinguir varios cortes.
+    string? CajeroNombre = null);
 
 public sealed record DepositoFichaResponse(
     Guid Id, Guid MovimientoId, decimal Importe, DateOnly FechaFicha, string? NumeroFicha,

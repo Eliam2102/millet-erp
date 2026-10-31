@@ -10,6 +10,10 @@ describe('formatMoney', () => {
     expect(formatMoney({ amount: 1234, currency: 'JPY' })).toBe('¥1,234 JPY');
   });
 
+  it('negativos: signo antes del símbolo', () => {
+    expect(formatMoney({ amount: -50, currency: 'MXN' })).toBe('-$50.00');
+  });
+
   it('guard: amount no finito (null/undefined/NaN) → $0.00, nunca $NaN', () => {
     // Llega por casts/backends que devuelven null pese al tipo `number`.
     const nan = { amount: NaN, currency: 'MXN' } as Money;

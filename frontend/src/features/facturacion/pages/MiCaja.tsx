@@ -151,7 +151,7 @@ export function MiCaja() {
           onRetry={() => query.refetch()}
         />
       ) : query.data?.sesion == null ? (
-        <AperturaSesionCard />
+        <AperturaSesionCard ultima={query.data?.ultimaSesionHoy} />
       ) : (
         <>
           {query.data.diaAnteriorPendiente && (
@@ -174,17 +174,17 @@ export function MiCaja() {
 
 // ─── Apertura (§5.1 paso 1) ──────────────────────────────────────────
 
-function AperturaSesionCard() {
+function AperturaSesionCard({ ultima }: { ultima?: { cajaId: string; sucursalId: string } | null }) {
   const puedeOperar = useHasPermission(PermisosCanonicos.FacturacionCajaOperar);
   const cajas = useListarCajas(true);
   const abrir = useAbrirSesion();
   const idempotencyKey = useFormIdempotencyKey();
 
-  const [cajaId, setCajaId] = useState<string | null>(null);
+  const [cajaId, setCajaId] = useState<string | null>(ultima?.cajaId ?? null);
   // Aviso [12-C]: los ajustes pendientes de la caja elegida se drenan
   // automáticamente al abrir — el cajero debe saberlo antes de declarar.
   const ajustes = useAjustesCaja(cajaId);
-  const [sucursalId, setSucursalId] = useState<string | null>(null);
+  const [sucursalId, setSucursalId] = useState<string | null>(ultima?.sucursalId ?? null);
   const [fondo, setFondo] = useState('');
   const [autorizacionId, setAutorizacionId] = useState('');
   const [pideAutorizacion, setPideAutorizacion] = useState(false);

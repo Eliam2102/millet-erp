@@ -70,6 +70,32 @@ public class ConfiguracionReordenAggregateTests
     }
 
     [Fact]
+    public void Crear_con_punto_mayor_que_maximo_falla()
+    {
+        var act = () => new ConfiguracionReorden(
+            Guid.NewGuid(), Guid.NewGuid(), NivelReorden.Almacen, Guid.NewGuid(),
+            minimo: 1m, maximo: 5m, puntoReorden: 10m,
+            autoRequisicion: false, objetivo: ObjetivoReposicion.Maximo);
+
+        act.Should().Throw<BusinessRuleException>()
+            .Which.Code.Should().Be("REORDEN_PUNTO_MAYOR_MAX");
+    }
+
+    [Fact]
+    public void Editar_con_punto_mayor_que_maximo_falla()
+    {
+        var c = new ConfiguracionReorden(
+            Guid.NewGuid(), Guid.NewGuid(), NivelReorden.Almacen, Guid.NewGuid(),
+            minimo: 1m, maximo: 5m, puntoReorden: 2m,
+            autoRequisicion: false, objetivo: ObjetivoReposicion.Maximo);
+
+        var act = () => c.EditarPolitica(1m, 5m, 10m, false, ObjetivoReposicion.Maximo);
+
+        act.Should().Throw<BusinessRuleException>()
+            .Which.Code.Should().Be("REORDEN_PUNTO_MAYOR_MAX");
+    }
+
+    [Fact]
     public void Crear_con_nivel_negativo_falla()
     {
         var act = () => new ConfiguracionReorden(
