@@ -337,6 +337,31 @@ public sealed class CajaSesionesTests
     }
 
     [Fact]
+    public async Task SesionActual_sin_sesion_vigente_ofrece_caja_y_sucursal_de_la_ultima_del_dia()
+    {
+        using var db = NewDb();
+        var caja = CajaConCajero(Cajero);
+        db.Cajas.Add(caja);
+        await db.SaveChangesAsync();
+        var abierta = await AbrirSesionAsync(db, caja.Id, fondo: 0m);
+        var version = (await db.CajaSesiones.AsNoTracking().SingleAsync()).Version;
+        await new IniciarArqueoCajaSesionHandler(db, new FakeUserContext(Cajero))
+            .Handle(new IniciarArqueoCajaSesionCommand(abierta.Id, version), CancellationToken.None);
+        var sesion = await db.CajaSesiones.SingleAsync();
+        await new CerrarCajaSesionHandler(db, new FakeClock(Ahora), new FakeSucursalesReadPort(), new FakeIntegrationEventPublisher())
+            .Handle(new CerrarCajaSesionCommand(abierta.Id, sesion.Version, 0m), CancellationToken.None);
+
+        Task<SesionActualResponse> Consultar(DateTimeOffset ahora) =>
+            new SesionActualHandler(db, new FakeUserContext(Cajero), new FakeClock(ahora), new FakeSucursalesReadPort())
+                .Handle(new SesionActualQuery(), CancellationToken.None);
+
+        var hoy = await Consultar(Ahora);
+        hoy.Sesion.Should().BeNull();
+        hoy.UltimaSesionHoy.Should().Be(new CajaSesionRefDto(caja.Id, SucursalId));
+        (await Consultar(Ahora.AddDays(1))).UltimaSesionHoy.Should().BeNull();
+    }
+
+    [Fact]
     public async Task Reabrir_devuelve_EnArqueo_a_Abierta_y_el_arqueo_recalcula()
     {
         using var db = NewDb();

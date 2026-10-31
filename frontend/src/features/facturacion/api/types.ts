@@ -1500,6 +1500,8 @@ export interface CajaSesionDetalleResponse {
 export interface SesionActualResponse {
   sesion: CajaSesionDetalleResponse | null;
   diaAnteriorPendiente: boolean;
+  /** Sin sesión vigente: caja y sucursal de la última sesión del día, para prellenar la apertura. */
+  ultimaSesionHoy?: { cajaId: string; sucursalId: string } | null;
 }
 
 export interface CajaSesionMutadaResponse {

@@ -193,8 +193,11 @@ export function ConfirmarDepositoDialog({ deposito, onOpenChange }: ConfirmarDep
           toast.error(
             esApiError(error) ? error.problem.title : 'No se pudo confirmar el depósito',
             {
+              // Si el detalle repite el título, el toast lo mostraría dos veces.
               description: esApiError(error)
-                ? (error.problem.detail ?? 'Revisa los datos del depósito antes de reintentar.')
+                ? error.problem.detail === error.problem.title
+                  ? undefined
+                  : (error.problem.detail ?? 'Revisa los datos del depósito antes de reintentar.')
                 : undefined,
             },
           );
