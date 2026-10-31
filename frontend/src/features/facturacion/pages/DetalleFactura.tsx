@@ -5,6 +5,7 @@ import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -43,6 +44,7 @@ import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { Ban, Download, FileCode, Mail, Printer, Receipt, X } from 'lucide-react';
 import { useState } from 'react';
+import type { EstadoReembolsoNc, NotaCreditoAplicadaDetalle } from '@/features/facturacion/api/types';
 import { toast } from 'sonner';
 
 const BASE = '/api/v1/facturacion/facturas';
@@ -216,6 +218,7 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
         <NcBonificacionForm
           facturaId={f.id}
           totalFactura={f.total}
+          puedeReembolsar={puedeReembolsar}
           onDone={() => setAccion(null)}
         />
       )}
@@ -367,8 +370,8 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
                             {nc.total.toFixed(2)}
                           </TableCell>
                           <TableCell className="px-3 py-2">
-                            {nc.reembolsoSolicitado ? (
-                              <Badge variant="info">Solicitado</Badge>
+                            {nc.reembolsoSolicitado || nc.estadoReembolso ? (
+                              <EstadoReembolsoCelda nc={nc} />
                             ) : puedeReembolsar &&
                               nc.motivo !== 'Amortizacion' &&
                               nc.motivo !== 'Ranura' ? (
@@ -643,18 +646,62 @@ function PedimentoForm({ facturaId }: { facturaId: string }) {
   );
 }
 
+const VARIANTE_REEMBOLSO: Record<EstadoReembolsoNc, 'info' | 'success' | 'danger' | 'neutral'> = {
+  Solicitado: 'info',
+  Autorizado: 'info',
+  Rechazado: 'danger',
+  Cancelado: 'neutral',
+  Pagado: 'success',
+};
+
+/** F6.3: estado del reembolso en Tesorería; «Pagado» lleva la fecha valor y la referencia del pago. */
+function EstadoReembolsoCelda({ nc }: { nc: NotaCreditoAplicadaDetalle }) {
+  const estado: EstadoReembolsoNc = nc.estadoReembolso ?? 'Solicitado';
+  const detalle =
+    estado === 'Pagado'
+      ? [nc.reembolsoPagadoEl && formatearFechaCorta(nc.reembolsoPagadoEl), nc.reembolsoReferencia]
+          .filter(Boolean)
+          .join(' · ')
+      : estado === 'Rechazado' || estado === 'Cancelado'
+        ? (nc.reembolsoMotivoResolucion ?? '')
+        : '';
+  return (
+    <span className="inline-flex flex-col gap-0.5" data-testid={`reembolso-nc-${nc.folio}`}>
+      <Badge variant={VARIANTE_REEMBOLSO[estado]}>{estado}</Badge>
+      {detalle && <span className="text-xs text-ink-muted">{detalle}</span>}
+    </span>
+  );
+}
+
+/** «2026-10-31» → «31 oct 2026», sin desfase de zona horaria. */
+function formatearFechaCorta(fecha: string): string {
+  const [anio, mes, dia] = fecha.split('-').map(Number);
+  return new Date(anio, mes - 1, dia).toLocaleDateString('es-MX', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
 function NcBonificacionForm({
   facturaId,
   totalFactura,
+  puedeReembolsar,
   onDone,
 }: {
   facturaId: string;
   totalFactura: number;
+  puedeReembolsar: boolean;
   onDone: () => void;
 }) {
   const [montoTotal, setMontoTotal] = useState('');
   const [tasaIva, setTasaIva] = useState('0.16');
   const [descripcion, setDescripcion] = useState('');
+  // F6.3: «Devolver dinero al cliente» con la cuenta destino; al timbrar, la solicitud llega a Tesorería.
+  const [devolver, setDevolver] = useState(false);
+  const [banco, setBanco] = useState('');
+  const [clabe, setClabe] = useState('');
+  const [titular, setTitular] = useState('');
   const idempotencyKey = useFormIdempotencyKey();
   const emitir = useEmitirNcBonificacion();
 
@@ -664,6 +711,10 @@ function NcBonificacionForm({
       toast.error('El monto debe ser mayor a 0 y no exceder el total de la factura.');
       return;
     }
+    if (devolver && (!banco.trim() || !titular.trim() || !/^[0-9]{18}$/.test(clabe.trim()))) {
+      toast.error('Para devolver el dinero captura banco, titular y una CLABE de 18 dígitos.');
+      return;
+    }
     emitir.mutate(
       {
         command: {
@@ -671,6 +722,9 @@ function NcBonificacionForm({
           montoTotal: monto,
           tasaIva: tasaIva.trim() === '' ? null : Number(tasaIva),
           descripcion: descripcion.trim() || null,
+          reembolso: devolver
+            ? { banco: banco.trim(), clabe: clabe.trim(), titular: titular.trim() }
+            : null,
         },
         idempotencyKey,
       },
@@ -723,6 +777,40 @@ function NcBonificacionForm({
         <Label className="text-xs">Descripción</Label>
         <Input value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
       </div>
+      {puedeReembolsar && (
+        <div className="sm:col-span-4 flex items-center gap-2">
+          <Checkbox
+            id="nc-devolver-dinero"
+            checked={devolver}
+            onCheckedChange={(checked) => setDevolver(checked === true)}
+          />
+          <Label htmlFor="nc-devolver-dinero" className="text-sm">
+            Devolver dinero al cliente (al timbrar se pide el reembolso a Tesorería)
+          </Label>
+        </div>
+      )}
+      {devolver && (
+        <>
+          <div>
+            <Label className="text-xs" htmlFor="nc-reembolso-banco">Banco *</Label>
+            <Input id="nc-reembolso-banco" value={banco} onChange={(e) => setBanco(e.target.value)} />
+          </div>
+          <div>
+            <Label className="text-xs" htmlFor="nc-reembolso-clabe">CLABE *</Label>
+            <Input
+              id="nc-reembolso-clabe"
+              inputMode="numeric"
+              maxLength={18}
+              value={clabe}
+              onChange={(e) => setClabe(e.target.value.replace(/\D/g, ''))}
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <Label className="text-xs" htmlFor="nc-reembolso-titular">Titular *</Label>
+            <Input id="nc-reembolso-titular" value={titular} onChange={(e) => setTitular(e.target.value)} />
+          </div>
+        </>
+      )}
       <div className="sm:col-span-4 flex justify-end gap-2">
         <Button variant="ghost" size="sm" onClick={onDone} disabled={emitir.isPending}>
           Cancelar
