@@ -121,6 +121,37 @@ public sealed class BitacoraAdmBitTests(WebApplicationFactory<Program> factory)
         Assert.Equal("Registro de prueba", registro.Resumen);
     }
 
+    [Fact]
+    public async Task Vaciar_la_bitacora_o_una_de_sus_particiones_se_rechaza_y_toda_particion_lleva_el_bloqueo()
+    {
+        _ = factory.CreateClient(); // el arranque crea la partición del mes y tres futuras
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CoreDbContext>();
+        var mes = DateTime.UtcNow;
+        var particion = $"core.audit_log_y{mes:yyyy}m{mes:MM}";
+
+        foreach (var tabla in new[] { "core.audit_log", particion })
+        {
+            // Dentro de una transacción que siempre se deshace: si el bloqueo faltara, no se vacía la bitácora compartida.
+            await using var tx = await db.Database.BeginTransactionAsync();
+            // TRUNCATE pide el candado exclusivo antes de que el disparador lo rechace: sin límite podría esperar
+            // indefinidamente detrás de otra transacción abierta sobre la bitácora (pruebas en paralelo).
+            await db.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '15s'");
+#pragma warning disable EF1003 // DDL: el nombre de la tabla sale del mes del reloj, no de un request.
+            var ex = await Assert.ThrowsAsync<PostgresException>(() => db.Database.ExecuteSqlRawAsync("TRUNCATE " + tabla));
+#pragma warning restore EF1003
+            Assert.Contains("inmutable", ex.MessageText, StringComparison.Ordinal);
+            await tx.RollbackAsync();
+        }
+
+        var sinBloqueo = await db.Database.SqlQueryRaw<string>("""
+            SELECT i.inhrelid::regclass::text AS "Value" FROM pg_inherits i
+            WHERE i.inhparent = 'core.audit_log'::regclass
+              AND NOT EXISTS (SELECT 1 FROM pg_trigger t WHERE t.tgrelid = i.inhrelid AND t.tgname = 'trg_audit_log_sin_truncate')
+            """).ToListAsync();
+        Assert.Empty(sinBloqueo);
+    }
+
     private static string Rango()
     {
         var hoy = DateOnly.FromDateTime(DateTime.UtcNow);

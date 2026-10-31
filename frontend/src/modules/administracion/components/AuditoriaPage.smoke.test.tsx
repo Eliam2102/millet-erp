@@ -387,7 +387,7 @@ describe('<AuditoriaPage> — smoke', () => {
     render(<AuditoriaPage />, { wrapper: createQueryWrapper() });
 
     await waitFor(() =>
-      expect(screen.getByTestId('auditoria-total-exportar')).toHaveTextContent('Se exportarán 1 registros'),
+      expect(screen.getByTestId('auditoria-total-exportar')).toHaveTextContent('Se exportará 1 registro'),
     );
     expect(screen.getByRole('button', { name: /exportar/i })).toBeEnabled();
   });
