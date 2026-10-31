@@ -27,13 +27,16 @@ public sealed record CfdiPdfModel(
     IReadOnlyList<CfdiRelacionadoPdf> Relacionados,
     TimbrePdf? Timbre,
     string NombreArchivo,
-    CartaPortePdf? CartaPorte = null);
+    CartaPortePdf? CartaPorte = null,
+    ComplementoPagoPdf? ComplementoPago = null,
+    ComercioExteriorPdf? ComercioExterior = null);
 
 public enum TipoDocumentoPdf
 {
     Factura = 1,
     Anticipo = 2,
     NotaCredito = 3,
+    ComplementoPago = 4,
     CartaPorte = 5,
 }
 
@@ -92,6 +95,45 @@ public sealed record MontoEnLetraPdf(string Es, string En);
 public sealed record PagoPdf(string UsoCfdi, string MetodoPago, string FormaPago);
 
 public sealed record CfdiRelacionadoPdf(string Uuid, string TipoRelacion);
+
+/// <summary>
+/// Datos del pago del complemento de pago (CFDI tipo P, Pago 2.0; 86e3tfdx0). Forma
+/// de pago ya como «clave - descripción»; cuentas y número de operación si los hay.
+/// </summary>
+public sealed record ComplementoPagoPdf(
+    DateTimeOffset FechaPago,
+    string FormaPago,
+    string Moneda,
+    decimal? TipoCambio,
+    decimal Monto,
+    string? NumeroOperacion,
+    string? CuentaOrdenante,
+    string? CuentaBeneficiaria,
+    IReadOnlyList<DocumentoPagadoPdf> Documentos);
+
+/// <summary>Factura cubierta por el pago (DoctoRelacionado): folio fiscal, parcialidad y saldos.</summary>
+public sealed record DocumentoPagadoPdf(
+    string Uuid,
+    string? SerieFolio,
+    string Moneda,
+    int Parcialidad,
+    decimal SaldoAnterior,
+    decimal Pagado,
+    decimal SaldoInsoluto);
+
+/// <summary>
+/// Complemento de Comercio Exterior de la factura de exportación (86e3tfdx0):
+/// INCOTERM, TC en USD, total en dólares y registro tributario del receptor.
+/// </summary>
+public sealed record ComercioExteriorPdf(
+    string TipoOperacion,
+    string Incoterm,
+    string? ClavePedimento,
+    bool CertificadoOrigen,
+    decimal TipoCambioUsd,
+    decimal TotalUsd,
+    string NumRegIdTrib,
+    string ResidenciaFiscal);
 
 /// <summary>
 /// Complemento Carta Porte 3.1 impreso (86e3tfdx0): tramo, autotransporte, figura de

@@ -898,6 +898,11 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
 
+                    b.Property<decimal?>("DiferenciaTipoCambioPct")
+                        .HasPrecision(20, 2)
+                        .HasColumnType("numeric(20,2)")
+                        .HasColumnName("diferencia_tipo_cambio_pct");
+
                     b.Property<Guid>("EmpresaId")
                         .HasColumnType("uuid")
                         .HasColumnName("empresa_id");
@@ -948,6 +953,10 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("moneda");
 
+                    b.Property<string>("NotaTipoCambio")
+                        .HasColumnType("text")
+                        .HasColumnName("nota_tipo_cambio");
+
                     b.Property<decimal?>("OrdenServicioAsignado")
                         .HasPrecision(20, 2)
                         .HasColumnType("numeric(20,2)")
@@ -989,6 +998,15 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasPrecision(20, 6)
                         .HasColumnType("numeric(20,6)")
                         .HasColumnName("tipo_cambio");
+
+                    b.Property<Guid?>("TipoCambioModificadoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tipo_cambio_modificado_por");
+
+                    b.Property<decimal?>("TipoCambioSugerido")
+                        .HasPrecision(20, 6)
+                        .HasColumnType("numeric(20,6)")
+                        .HasColumnName("tipo_cambio_sugerido");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")

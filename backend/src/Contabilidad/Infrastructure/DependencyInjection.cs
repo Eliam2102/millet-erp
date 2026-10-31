@@ -58,6 +58,14 @@ public static class DependencyInjection
         services.AddScoped<LecturaRecurrentes>();
         services.AddOptions<Workers.RecurrentesOpciones>().Bind(configuration.GetSection(Workers.RecurrentesOpciones.Seccion));
         services.AddHostedService<Workers.PolizasRecurrentesWorker>();
+
+        // K10.5: cuenta puente recepción–factura (observador de pólizas automáticas de C1.4 y reporte de conciliación por OC).
+        services.AddOptions<Millet.Contabilidad.Application.CuentaPuente.CuentaPuenteOpciones>()
+            .Bind(configuration.GetSection(Millet.Contabilidad.Application.CuentaPuente.CuentaPuenteOpciones.Seccion));
+        services.AddScoped<Millet.Contabilidad.Application.CuentaPuente.RegistroMovimientosPuente>();
+        services.AddScoped<Millet.Contabilidad.Application.CuentaPuente.LecturaCuentaPuente>();
+        services.AddScoped<Millet.Contabilidad.Application.PublicPorts.IPolizaAutomaticaObservador,
+            Millet.Contabilidad.Application.CuentaPuente.ObservadorCuentaPuente>();
         return services;
     }
 

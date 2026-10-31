@@ -24,6 +24,7 @@ export interface RenglonCarga {
 }
 export interface ResultadoCargaMaestros {
   huella: string; renglones: RenglonCarga[]; nuevos: number; actualiza: number; sinCambio: number; errores: number; confirmado: boolean;
+  resumen?: { seccion: string; clave: string; total: number }[] | null;
 }
 const permisos: Record<Catalogo, string> = {
   clientes: PermisosCanonicos.DatosMaestrosClientesCargar, articulos: PermisosCanonicos.DatosMaestrosArticulosCargar,
@@ -117,6 +118,7 @@ function ContenidoCarga({ catalogo, cerrar, ocupado, setOcupado }: { catalogo: C
       </>}
       {resultado && <>
         <div role="status" className="flex flex-wrap gap-3"><Badge variant="success">{resultado.nuevos} nuevos</Badge><Badge variant="info">{resultado.actualiza} actualizaciones</Badge><Badge variant="neutral">{resultado.sinCambio} sin cambios</Badge><Badge variant="danger">{resultado.errores} con error</Badge></div>
+        {resultado.resumen?.length ? <dl className="text-sm" aria-label="Resumen de la carga">{[...new Set(resultado.resumen.map((c) => c.seccion))].map((sec) => <div key={sec}><dt className="font-medium">{sec}</dt><dd>{resultado.resumen!.filter((c) => c.seccion === sec).map((c) => `${c.clave}: ${c.total}`).join(' · ')}</dd></div>)}</dl> : null}
         {paso === 2 && resultado.nuevos + resultado.actualiza === 0 && <p>No hay renglones válidos con cambios para confirmar. Corrija los errores o elija otro archivo.</p>}
         {paso === 2 && <p>Al confirmar se aplicarán los renglones válidos. Los renglones con error se omitirán.</p>}
         {paso === 3 && <p>Se aplicaron {resultado.nuevos + resultado.actualiza} renglones. Puede descargar los errores, corregirlos y cargar otro archivo.</p>}

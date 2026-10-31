@@ -125,7 +125,7 @@ public sealed class DevolucionProveedorPostFacturaTests(WebApplicationFactory<Pr
     }
 
     [Fact]
-    public async Task Devolver_lo_facturado_dentro_de_lo_pedido_sale_reabre_la_OC_y_genera_nota_de_cargo_en_borrador()
+    public async Task Devolver_lo_facturado_sale_reabre_la_OC_aplica_la_nota_de_cargo_y_la_NC_03_la_sustituye()
     {
         await using var app = NuevaApp();
         var hoy = DateOnly.FromDateTime(DateTime.Now);
@@ -179,18 +179,14 @@ public sealed class DevolucionProveedorPostFacturaTests(WebApplicationFactory<Pr
         Assert.Equal(20m, oc.Lineas.Single().CantidadFacturada);
         Assert.Equal(SubEstadoRecepcion.Parcial, oc.SubEstadoRecepcion);
 
-        // ---------- 3. CxP: nota de cargo en Borrador ligada a la devolución, sin IVA ----------
+        // ---------- 3. CxP: la nota de cargo nace aplicada (sin IVA) y retiene el IVA esperado (Uziel 30-oct) ----------
         var nota = await LeerNotaCargoAsync(app, devId);
-        Assert.Equal(Millet.CuentasPorPagar.Domain.NotaCargo.EstadoNotaCargo.Borrador, nota.Estado);
+        Assert.Equal(Millet.CuentasPorPagar.Domain.NotaCargo.EstadoNotaCargo.Aplicada, nota.Estado);
         Assert.Equal(2m * costoUnitario, nota.Monto);
-
-        // ---------- 4. nota de cargo: autorizar y aplicar por la API de CxP ----------
-        const string cargos = "/api/v1/cuentas-por-pagar/notas-cargo";
-        var autorizada = await PostConVersionAsync(b, $"{cargos}/{nota.Id}/autorizar", nota.Version, null);
-        await Ok(autorizada, "autoriza nota de cargo");
-        var aplicada = await PostConVersionAsync(b, $"{cargos}/{nota.Id}/aplicar", (await J(autorizada)).GetProperty("version").GetInt32(), new { FacturaOrigenId = facturaId });
-        await Ok(aplicada, "aplica nota de cargo");
-        Assert.Equal(Millet.CuentasPorPagar.Domain.NotaCargo.EstadoNotaCargo.Aplicada, (await LeerNotaCargoAsync(app, devId)).Estado);
+        var (totalFactura, saldo, elegible) = await LeerPagableAsync(b, facturaId);
+        Assert.Equal(totalFactura - nota.Monto, saldo);
+        // G1.4: lo pagable descuenta la devolución una sola vez y retiene su IVA: 18/20 del total.
+        Assert.Equal(Math.Round(totalFactura * 18m / 20m, 2), elegible);
 
         // ---------- 5. NC fiscal 03 (Subtotal = monto de la nota, IVA 16%): la captura formaliza sola (IntentarAsync) ----------
         var ncUuid = Guid.NewGuid().ToString().ToUpperInvariant();
@@ -203,6 +199,10 @@ public sealed class DevolucionProveedorPostFacturaTests(WebApplicationFactory<Pr
         });
         await Ok(ncResp, "captura NC 03");
         Assert.Equal(Millet.CuentasPorPagar.Domain.NotaCargo.EstadoNotaCargo.Formalizada, (await LeerNotaCargoAsync(app, devId)).Estado);
+        // La NC sustituye a la nota de cargo (no se suman): saldo = total − NC y se libera la retención.
+        var (_, saldoNc, elegibleNc) = await LeerPagableAsync(b, facturaId);
+        Assert.Equal(totalFactura - (nota.Monto + ncIva), saldoNc);
+        Assert.Equal(saldoNc, elegibleNc);
 
         // CxP -> Almacén (concilia la devolución exacta) -> Compras (acredita la línea).
         await BombearAsync(app, ocId.ToString(), lineaOcId.ToString(), devId.ToString());
@@ -276,6 +276,14 @@ public sealed class DevolucionProveedorPostFacturaTests(WebApplicationFactory<Pr
     /// payload menciona alguno de <paramref name="claves"/> (la base del gate guarda eventos de otras pruebas).
     /// Una falla de listener se relanza: si un salto de la triada se rompe, la prueba lo dice.
     /// </summary>
+    private static async Task<(decimal Total, decimal Saldo, decimal Elegible)> LeerPagableAsync(HttpClient b, Guid facturaId)
+    {
+        var r = await b.GetAsync($"/api/v1/cuentas-por-pagar/facturas/{facturaId}");
+        await Ok(r, "lee factura");
+        var j = await J(r);
+        return (j.GetProperty("total").GetDecimal(), j.GetProperty("saldoPendiente").GetDecimal(), j.GetProperty("elegible").GetDecimal());
+    }
+
     private async Task BombearAsync(WebApplicationFactory<Program> app, params string[] claves)
     {
         var fuentes = new (Type Ctx, Type[] Workers)[]

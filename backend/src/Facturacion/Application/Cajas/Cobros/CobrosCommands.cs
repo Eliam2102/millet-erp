@@ -22,7 +22,8 @@ public sealed record CobroFormaPagoInput(
     decimal Importe,
     string? Referencia = null,
     string? CuentaOrdenante = null,
-    string? CuentaBeneficiaria = null);
+    string? CuentaBeneficiaria = null,
+    string? TarjetaUltimos4 = null);
 
 public sealed record CobroMostradorResponse(
     Guid Id, Guid ComprobanteId, Guid CajaSesionId, string Estado, decimal Total);
@@ -57,6 +58,7 @@ public sealed class RegistrarCobroMostradorValidator : AbstractValidator<Registr
             f.RuleFor(x => x.Referencia!).MaximumLength(100).When(x => x.Referencia is not null);
             f.RuleFor(x => x.CuentaOrdenante!).MaximumLength(50).When(x => x.CuentaOrdenante is not null);
             f.RuleFor(x => x.CuentaBeneficiaria!).MaximumLength(50).When(x => x.CuentaBeneficiaria is not null);
+            f.RuleFor(x => x.TarjetaUltimos4!).MaximumLength(10).When(x => x.TarjetaUltimos4 is not null);
         });
     }
 }
@@ -146,6 +148,16 @@ internal static class CobroMostradorRegistrador
     private static readonly System.Text.RegularExpressions.Regex AutorizacionVoucher =
         new("^[A-Za-z0-9-]{4,12}$", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 
+    /// <summary>
+    /// 86e3tfdvt (Millet, 30-oct): del voucher de crédito y débito también se
+    /// capturan los últimos 4 dígitos de la tarjeta. La 29 (servicios) no se
+    /// habilita en caja y conserva solo la autorización.
+    /// </summary>
+    private static readonly HashSet<string> FormasPagoConUltimos4 = ["04", "28"];
+
+    private static readonly System.Text.RegularExpressions.Regex UltimosCuatro =
+        new("^[0-9]{4}$", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
     public static async Task<CobroMostrador> RegistrarAsync(
         FacturacionDbContext db,
         IIntegrationEventPublisher eventos,
@@ -187,6 +199,16 @@ internal static class CobroMostradorRegistrador
             throw new BusinessRuleException(
                 "COBRO_TARJETA_AUTORIZACION_INVALIDA",
                 "El número de autorización del voucher lleva de 4 a 12 letras o dígitos. No captures el número de la tarjeta.");
+        var tarjetaSinUltimos4 = formasPago.FirstOrDefault(
+            f => FormasPagoConUltimos4.Contains(f.FormaPago) && string.IsNullOrWhiteSpace(f.TarjetaUltimos4));
+        if (tarjetaSinUltimos4 is not null)
+            throw new BusinessRuleException(
+                "COBRO_TARJETA_SIN_ULTIMOS4",
+                $"El cobro con tarjeta (forma {tarjetaSinUltimos4.FormaPago}) requiere los últimos 4 dígitos de la tarjeta.");
+        if (formasPago.Any(f => FormasPagoConUltimos4.Contains(f.FormaPago) && !UltimosCuatro.IsMatch(f.TarjetaUltimos4!.Trim())))
+            throw new BusinessRuleException(
+                "COBRO_TARJETA_ULTIMOS4_INVALIDOS",
+                "Los últimos dígitos de la tarjeta son exactamente 4 números.");
 
         var cobroVigente = await db.CobrosMostrador.AsNoTracking()
             .AnyAsync(c => c.ComprobanteId == comprobante.Id && c.Estado == EstadoCobroMostrador.Registrado,
@@ -236,7 +258,8 @@ internal static class CobroMostradorRegistrador
             empresaId, sesion.Id, comprobante.SucursalId, comprobante.CanalVentaId,
             comprobante.Id, origen, ahora, usuarioId,
             formasPago
-                .Select(f => (f.FormaPago, f.Importe, f.Referencia, f.CuentaOrdenante, f.CuentaBeneficiaria))
+                .Select(f => (f.FormaPago, f.Importe, f.Referencia, f.CuentaOrdenante, f.CuentaBeneficiaria,
+                    FormasPagoConUltimos4.Contains(f.FormaPago) ? f.TarjetaUltimos4 : null))
                 .ToList());
         db.CobrosMostrador.Add(cobro);
 
@@ -245,7 +268,8 @@ internal static class CobroMostradorRegistrador
         {
             db.CajaMovimientos.Add(CajaMovimiento.Crear(
                 empresaId, sesion.Id, TipoCajaMovimiento.CobroCliente, forma.FormaPago, forma.Importe,
-                usuarioId, $"Cobro {comprobante.Folio}", forma.Referencia, cobro.Id));
+                usuarioId, $"Cobro {comprobante.Folio}", forma.Referencia, cobro.Id,
+                tarjetaUltimos4: forma.TarjetaUltimos4));
         }
 
         // Única vía de escritura de Comprobante.CajaId (§6).
@@ -310,6 +334,7 @@ public sealed class LiquidarRutaValidator : AbstractValidator<LiquidarRutaComman
                 f.RuleFor(x => x.Referencia!).MaximumLength(100).When(x => x.Referencia is not null);
                 f.RuleFor(x => x.CuentaOrdenante!).MaximumLength(50).When(x => x.CuentaOrdenante is not null);
                 f.RuleFor(x => x.CuentaBeneficiaria!).MaximumLength(50).When(x => x.CuentaBeneficiaria is not null);
+                f.RuleFor(x => x.TarjetaUltimos4!).MaximumLength(10).When(x => x.TarjetaUltimos4 is not null);
             });
         });
     }

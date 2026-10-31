@@ -90,6 +90,11 @@ public sealed class MovimientoCarteraConfiguration : IEntityTypeConfiguration<Mo
         builder.HasIndex(e => e.OrigenComprobanteId)
             .HasDatabaseName("ix_movimiento_cartera_origen");
 
+        // FAC-03: un comprobante se aplica una sola vez por factura y tipo.
+        builder.HasIndex(e => new { e.OrigenComprobanteId, e.FacturaCarteraId, e.Tipo })
+            .IsUnique()
+            .HasDatabaseName("ux_movimiento_cartera_origen_factura_tipo");
+
         builder.HasIndex(e => e.FacturaCarteraId)
             .HasDatabaseName("ix_movimiento_cartera_factura");
     }

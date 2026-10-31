@@ -30,6 +30,7 @@ import type {
 } from '@/features/facturacion/api/types';
 import { useListarCajas } from '@/features/facturacion/api/useCajas';
 import {
+  useFaltantesPorDevolver,
   useAbrirSesion,
   useAjustesCaja,
   useCancelarCobro,
@@ -49,7 +50,11 @@ import { PorCobrarCaja } from '@/features/facturacion/components/PorCobrarCaja';
 import {
   autorizacionVoucherInvalida,
   esFormaTarjeta,
+  faltanUltimos4,
+  MENSAJE_ULTIMOS4,
   MENSAJE_VOUCHER,
+  pideUltimos4,
+  soloUltimos4,
   voucherIncompleto,
   formasPagoCaja,
   formasPagoVigentes,
@@ -57,6 +62,7 @@ import {
 import {
   MOTIVO_RETIRO_MINIMO,
   TIPO_MOVIMIENTO_DEPOSITO as TIPO_DEPOSITO,
+  TIPO_MOVIMIENTO_DEVOLUCION_FALTANTE as TIPO_DEVOLUCION,
   TIPO_MOVIMIENTO_RETIRO as TIPO_RETIRO,
   errorDescripcionMovimiento,
 } from '@/features/facturacion/schemas/movimiento-caja';
@@ -446,6 +452,7 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
   // tarjeta, el chofer entrega el voucher (Manual de Sucursales §5.2).
   const [seleccion, setSeleccion] = useState<Record<string, string>>({});
   const [vouchers, setVouchers] = useState<Record<string, string>>({});
+  const [ultimos4, setUltimos4] = useState<Record<string, string>>({});
 
   const items = cobrables.data ?? [];
   const seleccionados = items.filter((c) => seleccion[c.comprobanteId] != null);
@@ -458,6 +465,12 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
     seleccionados.map((c) => ({
       formaPago: seleccion[c.comprobanteId],
       referencia: vouchers[c.comprobanteId],
+    })),
+  );
+  const sinUltimos4 = faltanUltimos4(
+    seleccionados.map((c) => ({
+      formaPago: seleccion[c.comprobanteId],
+      tarjetaUltimos4: ultimos4[c.comprobanteId],
     })),
   );
 
@@ -483,6 +496,10 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
       toast.error(MENSAJE_VOUCHER);
       return;
     }
+    if (sinUltimos4) {
+      toast.error(MENSAJE_ULTIMOS4);
+      return;
+    }
     liquidar.mutate(
       {
         cobros: seleccionados.map((c) => ({
@@ -493,6 +510,9 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
               importe: c.total,
               referencia: esFormaTarjeta(seleccion[c.comprobanteId])
                 ? (vouchers[c.comprobanteId] ?? '').trim()
+                : null,
+              tarjetaUltimos4: pideUltimos4(seleccion[c.comprobanteId])
+                ? (ultimos4[c.comprobanteId] ?? '').trim()
                 : null,
             },
           ],
@@ -630,6 +650,30 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
                           aria-required
                         />
                       )}
+                      {marcado && pideUltimos4(seleccion[c.comprobanteId]) && (
+                        <Input
+                          className="mt-1 h-8 w-44"
+                          inputMode="numeric"
+                          autoComplete="off"
+                          value={ultimos4[c.comprobanteId] ?? ''}
+                          onChange={(e) =>
+                            setUltimos4((prev) => ({
+                              ...prev,
+                              [c.comprobanteId]: soloUltimos4(e.target.value),
+                            }))
+                          }
+                          placeholder="Últimos 4 de la tarjeta"
+                          maxLength={4}
+                          aria-label={`Últimos 4 dígitos de la tarjeta de ${c.folio}`}
+                          aria-invalid={faltanUltimos4([
+                            {
+                              formaPago: seleccion[c.comprobanteId],
+                              tarjetaUltimos4: ultimos4[c.comprobanteId],
+                            },
+                          ])}
+                          aria-required
+                        />
+                      )}
                     </TableCell>
                   </TableRow>
                 );
@@ -651,13 +695,17 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
         <Button
           size="sm"
           onClick={onRegistrar}
-          disabled={liquidar.isPending || seleccionados.length === 0 || !vigentes || sinVoucher}
+          disabled={
+            liquidar.isPending || seleccionados.length === 0 || !vigentes || sinVoucher || sinUltimos4
+          }
           title={
             !vigentes
               ? 'Selecciona formas de pago SAT activas.'
               : sinVoucher
                 ? MENSAJE_VOUCHER
-                : undefined
+                : sinUltimos4
+                  ? MENSAJE_ULTIMOS4
+                  : undefined
           }
         >
           Registrar liquidación
@@ -679,6 +727,9 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
   const [descripcion, setDescripcion] = useState('');
   const [referencia, setReferencia] = useState('');
   const esRetiro = Number(tipo) === TIPO_RETIRO;
+  const esDevolucion = Number(tipo) === TIPO_DEVOLUCION;
+  const [corteOrigen, setCorteOrigen] = useState('');
+  const faltantes = useFaltantesPorDevolver(true);
   const largoMotivo = descripcion.trim().length;
 
   function onGuardar() {
@@ -691,6 +742,10 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
       toast.error('El importe debe ser mayor que cero.');
       return;
     }
+    if (esDevolucion && corteOrigen === '') {
+      toast.error('Elige el corte de origen del faltante que devuelves.');
+      return;
+    }
     const errorDescripcion = errorDescripcionMovimiento(Number(tipo), descripcion);
     if (errorDescripcion) {
       toast.error(errorDescripcion);
@@ -701,9 +756,10 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
         sesionId: props.sesionId,
         body: {
           tipo: Number(tipo),
-          formaPago,
+          formaPago: esDevolucion ? '01' : formaPago,
           importe: monto,
           descripcion: descripcion.trim(),
+          corteOrigenSesionId: esDevolucion ? corteOrigen : null,
           referencia: referencia.trim() === '' ? null : referencia.trim(),
         },
         idempotencyKey,
@@ -740,12 +796,30 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
           <SelectContent>
             <SelectItem value={String(TIPO_DEPOSITO)}>Depósito</SelectItem>
             <SelectItem value={String(TIPO_RETIRO)}>Retiro</SelectItem>
+            <SelectItem value={String(TIPO_DEVOLUCION)}>Devolución de faltante</SelectItem>
           </SelectContent>
         </Select>
       </div>
+      {esDevolucion && (
+        <div className="space-y-1 md:col-span-4">
+          <Label>Corte de origen *</Label>
+          <Select value={corteOrigen} onValueChange={setCorteOrigen}>
+            <SelectTrigger aria-label="Corte de origen">
+              <SelectValue placeholder={faltantes.data?.length === 0 ? 'Sin faltantes por devolver' : 'Elige el corte'} />
+            </SelectTrigger>
+            <SelectContent>
+              {(faltantes.data ?? []).map((f) => (
+                <SelectItem key={f.corteSesionId} value={f.corteSesionId}>
+                  Corte del {f.diaOperacion} · pendiente ${f.pendiente.toFixed(2)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       <div className="space-y-1 md:col-span-2">
         <Label>Forma *</Label>
-        <Select value={formaPago} onValueChange={setFormaPago}>
+        <Select value={esDevolucion ? '01' : formaPago} onValueChange={setFormaPago} disabled={esDevolucion}>
           <SelectTrigger aria-label="Forma de pago">
             <SelectValue />
           </SelectTrigger>
@@ -769,7 +843,7 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
         />
       </div>
       <div className="space-y-1 md:col-span-3">
-        <Label htmlFor="mov-desc">{esRetiro ? 'Motivo del retiro *' : 'Descripción *'}</Label>
+        <Label htmlFor="mov-desc">{esRetiro ? 'Motivo del retiro *' : esDevolucion ? 'Descripción' : 'Descripción *'}</Label>
         <Input
           aria-describedby="mov-desc-ayuda"
           id="mov-desc"

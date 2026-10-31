@@ -430,6 +430,68 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
         MotivoReclasificacion = motivo.Trim();
     }
 
+    /// <summary>
+    /// Marca el movimiento como conciliado contra extracto (T9.2).
+    /// </summary>
+    public void MarcarConciliado()
+    {
+        EstadoConciliacion = EstadoConciliacionMovimiento.Conciliado;
+    }
+
+    /// <summary>
+    /// Desmarca el movimiento como conciliado al desemparejar con motivo (T9.2, T9.2-a).
+    /// </summary>
+    public void DesmarcarConciliado()
+    {
+        EstadoConciliacion = EstadoConciliacionMovimiento.NoConciliado;
+    }
+
+    /// <summary>
+    /// Alta asistida desde extracto bancario (T9.2 / CA9.8): crea un movimiento (comisión, interés,
+    /// depósito no registrado) nacido aplicado y conciliado.
+    /// </summary>
+    public static MovimientoBancario RegistrarMovimientoConciliacion(
+        Guid empresaId,
+        CuentaBancaria cuenta,
+        SentidoMovimiento sentido,
+        decimal monto,
+        DateOnly fechaValor,
+        string? referenciaBancaria,
+        Guid conceptoId,
+        Guid creadoPor,
+        DateTimeOffset ahora,
+        Guid? sucursalId = null)
+    {
+        cuenta.ValidarFechaMovimiento(fechaValor);
+        if (!cuenta.Activa)
+            throw new BusinessRuleException("MOV_CUENTA_INACTIVA",
+                $"La cuenta bancaria '{cuenta.Banco}' está inactiva.");
+        if (monto <= 0)
+            throw new BusinessRuleException("MOV_MONTO_INVALIDO", "El monto debe ser mayor a cero.");
+        if (creadoPor == Guid.Empty)
+            throw new BusinessRuleException("MOV_USUARIO_VACIO", "El usuario que registra es obligatorio.");
+        if (conceptoId == Guid.Empty)
+            throw new BusinessRuleException("MOV_CONCEPTO_VACIO", "El concepto es obligatorio para el movimiento.");
+
+        return new MovimientoBancario
+        {
+            Id = Guid.CreateVersion7(),
+            EmpresaId = empresaId,
+            SucursalId = sucursalId,
+            CuentaBancariaId = cuenta.Id,
+            Sentido = sentido,
+            Monto = monto,
+            Moneda = cuenta.Moneda,
+            FechaValor = fechaValor,
+            ReferenciaBancaria = NormalizarReferencia(referenciaBancaria),
+            ConceptoId = conceptoId,
+            EstadoAplicacion = EstadoAplicacionMovimiento.Aplicado,
+            EstadoConciliacion = EstadoConciliacionMovimiento.Conciliado,
+            CreadoPor = creadoPor,
+            CreadoEn = ahora,
+        };
+    }
+
     /// <summary>VO ReferenciaBancaria (§4.3): texto corto normalizado (trim + upper).</summary>
     private static string? NormalizarReferencia(string? referencia)
     {

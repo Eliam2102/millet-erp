@@ -130,7 +130,8 @@ public sealed class PruARegressionTests
         var fecha = new DateTimeOffset(2026, 10, 10, 10, 12, 30, TimeSpan.FromHours(-6));
         var command = new CapturarNotaCreditoCommand(null, Guid.NewGuid().ToString(), a.Proveedor, "FIX-NC", "FIX", fecha,
             "MXN", null, 100, 0, 0, 100, TipoNotaCredito.Descuento, TipoRelacionCfdi.NotaCredito, factura.UuidCfdi!);
-        var r = await new CapturarNotaCreditoHandler(a.Cxp, a, a, a.Mediator, a, a, a.Blobs, new XmlCfdiParser()).Handle(command, default);
+        var r = await new CapturarNotaCreditoHandler(a.Cxp, a, a, a.Mediator, a, a, a.Blobs, new XmlCfdiParser(),
+            new(a.Cxp, a.Mediator, new(a.Eventos, a.Cxp, new(a.Cxp, a)), new(a.Eventos, a.Cxp), new SinDependencias(), NullLogger<Millet.CuentasPorPagar.Application.NotaCargo.FormalizacionNotaCargoService>.Instance)).Handle(command, default);
         a.Cxp.ChangeTracker.Clear(); var nc = await a.Cxp.NotasCreditoProveedor.SingleAsync(n => n.Id == r.Id);
         Assert.Equal(TimeSpan.Zero, nc.FechaCfdi.Offset); Assert.Equal(fecha.ToUniversalTime(), nc.FechaCfdi);
         Assert.Equal(factura.Id, nc.FacturaOrigenId);
@@ -477,6 +478,11 @@ public sealed class PruARegressionTests
         }
     }
 
+    private sealed class SinDependencias : Millet.CuentasPorPagar.Domain.Ports.Administracion.IDependenciaRevisoraReadPort
+    {
+        public Task<Millet.CuentasPorPagar.Domain.Ports.Administracion.DependenciaRevisoraDto?> ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<Millet.CuentasPorPagar.Domain.Ports.Administracion.DependenciaRevisoraDto?>(null);
+        public Task<IReadOnlyList<Millet.CuentasPorPagar.Domain.Ports.Administracion.DependenciaRevisoraDto>> ListarAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<Millet.CuentasPorPagar.Domain.Ports.Administracion.DependenciaRevisoraDto>>([]);
+    }
 #if !P3_POSTGRES
     private sealed class PagoEnMemoria(ComprasDbContext db) : INotificationHandler<PagoFacturaProveedorEvent>
     {

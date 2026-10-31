@@ -209,6 +209,20 @@ public sealed record CajaSesionCerradaIntegrationEvent(
     IReadOnlyList<CajaSesionCorteTotal> Cortes)
     : IntegrationEvent("facturacion.caja-sesion.cerrada.v1", EmpresaId, OcurridoEn);
 
+// ---- Faltante devuelto por el cajero (86e3vr1tj, junta 19-oct) ----
+// El cajero depositó en Mi caja (en un corte posterior) todo o parte del faltante del corte de origen.
+// Consumidor: Tesorería (abona a la diferencia del corte; espejo en
+// backend/src/Tesoreria/Application/EventListeners/ContratosEspejoFacturacion.cs).
+public sealed record CajaFaltanteDevueltoIntegrationEvent(
+    Guid EmpresaId,
+    DateTimeOffset OcurridoEn,
+    Guid CajaMovimientoId,
+    Guid CajaSesionId,
+    Guid CorteOrigenSesionId,
+    Guid CajeroId,
+    decimal Importe)
+    : IntegrationEvent("facturacion.caja-faltante.devuelto.v1", EmpresaId, OcurridoEn);
+
 /// <summary>Forma de pago aplicada en un cobro de mostrador.</summary>
 public sealed record CobroFormaPagoAplicada(string FormaPago, decimal Importe);
 

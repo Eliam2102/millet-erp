@@ -84,6 +84,9 @@ public sealed class AplicarNotaCreditoAFacturaHandler
             throw new BusinessRuleException("NC_MONEDA_DISTINTA", "La NC y la factura deben tener la misma moneda.");
         var cargo = await _db.NotasCargo.AsNoTracking().FirstOrDefaultAsync(
             n => n.NotaCreditoProveedorId == nc.Id && n.FacturaOrigenId == factura.Id, cancellationToken);
+        // La NC 03 solo se aplica sustituyendo a su nota de cargo (formalización); a mano descontaría dos veces la devolución.
+        if (nc.TipoRelacionCfdi == TipoRelacionCfdi.Devolucion && cargo is null)
+            throw new BusinessRuleException("NC03_SIN_NOTA_CARGO", "La NC de devolución (tipo 03) se aplica al formalizar su nota de cargo; no puede aplicarse manualmente sin ella.");
         // La NC fiscal formaliza el cargo ya aplicado; no descuenta dos veces el mismo pasivo.
         var cargoAplicado = cargo is null ? 0 : await _db.MovimientosPasivo
             .Where(m => m.FacturaProveedorId == factura.Id && m.DocumentoId == cargo.Id && m.Tipo == TipoMovimientoPasivo.NotaCargo)

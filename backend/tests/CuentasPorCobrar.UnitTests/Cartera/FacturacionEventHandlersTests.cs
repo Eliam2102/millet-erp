@@ -126,6 +126,26 @@ public sealed class FacturacionEventHandlersTests
     }
 
     [Fact]
+    public async Task ReciboPagoTimbrado_mismo_complemento_con_otro_EventId_no_descuenta_dos_veces()
+    {
+        using var db = CrearDbContext();
+        var factura = await ProyectarFactura(db, total: 10_000m);
+        var reppId = Guid.NewGuid();
+        var handler = new ReciboPagoTimbradoHandler(db, new FakeClock(), NullLogger<ReciboPagoTimbradoHandler>.Instance);
+        var payload = new ReciboPagoTimbradoPayload(
+            factura.EmpresaId, Ahora, reppId, "uuid-repp", 4_000m, 0m,
+            [new ReppFacturaPagadaPayload(factura.FacturaVentaId, 4_000m, 1, "MXN", 6_000m)]);
+
+        await handler.Handle(new ReciboPagoTimbradoCommand(Guid.NewGuid(), payload), CancellationToken.None);
+        await handler.Handle(new ReciboPagoTimbradoCommand(Guid.NewGuid(), payload), CancellationToken.None);
+
+        var f = await db.FacturasCartera.SingleAsync();
+        f.MontoPagado.Should().Be(4_000m);
+        f.SaldoPendiente.Should().Be(6_000m);
+        (await db.MovimientosCartera.CountAsync()).Should().Be(1);
+    }
+
+    [Fact]
     public async Task ReciboPagoTimbrado_factura_no_proyectada_lanza_para_retry()
     {
         using var db = CrearDbContext();

@@ -11,6 +11,6 @@ public sealed class FacturaGastoReadAdapter(CuentasPorPagarDbContext db) : IFact
         var factura = await db.Set<FacturaProveedor>().AsNoTracking().Where(f => f.ProveedorId == proveedorId && f.Estado != EstadoPasivo.Cancelada &&
             (id != null ? f.Id == id : f.UuidCfdi == referencia || f.FolioProveedor == referencia)).OrderByDescending(f => f.CreatedAt).FirstOrDefaultAsync(ct);
         return factura is null ? null : new(factura.Id, factura.ProveedorId, factura.SucursalId, factura.Moneda,
-            DateOnly.FromDateTime(factura.FechaDocumento.Date), factura.UuidCfdi ?? factura.FolioProveedor ?? referencia);
+            DateOnly.FromDateTime(factura.FechaDocumento.Date), factura.UuidCfdi ?? factura.FolioProveedor ?? referencia, factura.TipoCambio);
     }
 }

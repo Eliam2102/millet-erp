@@ -103,7 +103,7 @@ los tres levantamientos como conjunto:
 | `OrdenCompraCerradaEvent` | Compras | Almacén (informativo), Requisiciones (cubrimiento) | Cuando los 3 sub-estados (Recepción + Facturación + Pago) llegan a Completa. Compras calcula el cierre — no lo emiten ni Almacén ni CxP |
 | `OrdenCompraServicioConfirmadoEvent` (`compras.orden-compra.servicio-confirmado.v1`) | Compras | CxP | El área solicitante confirmó (o deshizo, `Confirmado=false`) el servicio de la OC, una confirmación por OC (86e3tacbn). CxP republica el pasivo: las líneas de servicio solo cuentan como recibidas con la OC confirmada |
 | `OcRecepcionRegistradaEvent` | Almacén | Compras (sub-estado Recepción de OC), CxP (conciliación) | Recepción contra OC en firme; con flag `factura_pendiente=true` para variante B (materiales directos) |
-| `OcDevolucionRegistradaEvent` | Almacén (sub-flujo 8.B) | Compras (decrementa `CantidadRecibida`), CxP (genera `NotaCargo`) | Devolución física al proveedor |
+| `OcDevolucionRegistradaEvent` | Almacén (sub-flujo 8.B) | Compras (decrementa `CantidadRecibida`), CxP (genera `NotaCargo` **ya aplicada**, sin IVA; el IVA esperado se retiene de lo pagable y la NC 03 la sustituye al formalizar) | Devolución física al proveedor |
 | `FacturaProveedorRegistradaEvent` | CxP | Compras (sub-estado Facturación), Almacén (variante B: concilia recepción pendiente) | Captura de factura con OC en estado `Capturada` |
 | `FacturaProveedorRechazadaPorToleranciaEvent` | CxP | Compras (corrige OC) | Conciliación falla por exceder tolerancia |
 | `FacturaProveedorAutorizadaEvent` | CxP | Compras (informativo), Contabilidad | Pasa a `Autorizada` |

@@ -38,7 +38,7 @@ public sealed class DetalleCobroEndpointsTests(WebApplicationFactory<Program> fa
             usuario, 0, DateOnly.FromDateTime(ahora.UtcDateTime), ahora, null);
         var cobro = CobroMostrador.Registrar(Empresa, sesion.Id, factura.SucursalId, 1, factura.Id,
             OrigenCobroMostrador.Mostrador, ahora, usuario,
-            [("01", 60m, null, null, null), ("04", 56m, "FIX-AUT", null, null)]);
+            [("01", 60m, null, null, null, null), ("04", 56m, "FIX-AUT", null, null, null)]);
         try
         {
             db.AddRange(factura, caja, sesion);

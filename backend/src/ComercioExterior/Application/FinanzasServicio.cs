@@ -147,12 +147,19 @@ public sealed class MutarFinanzasHandler(ComercioExteriorDbContext db, Expedient
                 var factura = await facturas.BuscarAsync(g.ProveedorId, g.Factura, g.FacturaProveedorId, cancellationToken);
                 if ((g.FacturaProveedorId is not null && factura is null) || (factura is not null && (factura.SucursalId != e.SucursalId || factura.Moneda != g.Moneda || factura.Fecha != g.FechaFactura)))
                     throw new BusinessRuleException("CE_FACTURA_INVALIDA", "La factura debe corresponder al proveedor, sucursal, moneda y fecha del gasto.");
-                var tc = g.Moneda == "MXN" ? 1 : await cambio.ObtenerBanxicoAsync(g.FechaFactura, cancellationToken);
+                var sugerido = g.Moneda == "MXN" ? 1 : await cambio.ObtenerBanxicoAsync(g.FechaFactura, cancellationToken);
+                var tc = sugerido; var fuenteTc = g.Moneda == "MXN" ? "MXN" : "Banxico";
+                if (g.Moneda != "MXN" && g.FuenteTipoCambio is not null)
+                {
+                    fuenteTc = g.FuenteTipoCambio;
+                    tc = fuenteTc == "CFDI" && factura?.TipoCambio is decimal delCfdi ? delCfdi
+                        : g.TipoCambioUsado ?? throw new BusinessRuleException("CE_TIPO_CAMBIO_REQUERIDO", "Capture el tipo de cambio usado.");
+                }
                 var orden = await ordenes.ValidarAsync(e, g, concepto, tc, cancellationToken);
                 if (orden?.Moneda == "USD" && g.Moneda == "MXN")
                     orden = orden with { TipoCambio = await cambio.ObtenerBanxicoAsync(g.FechaFactura, cancellationToken) };
                 if (request.ElementoId is not null && !e.Gastos.Any(x => x.Id == id)) throw new EntityNotFoundException("CE_GASTO_NO_ENCONTRADO", "No existe el gasto.");
-                e.GuardarGasto(id, g with { FacturaProveedorId = factura?.Id }, concepto, tc, g.Moneda == "MXN" ? "MXN" : "Banxico", orden);
+                e.GuardarGasto(id, g with { FacturaProveedorId = factura?.Id }, concepto, tc, fuenteTc, orden, sugerido, g.NotaTipoCambio, servicio.Actor);
                 break;
             case "partida":
                 var p = request.Partida ?? throw new BusinessRuleException("CE_PARTIDA_COSTO_INVALIDA", "Capture las bases de la partida.");

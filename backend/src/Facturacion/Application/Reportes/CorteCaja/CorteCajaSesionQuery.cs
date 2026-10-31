@@ -266,7 +266,7 @@ public sealed class CorteCajaSesionHandler : IRequestHandler<CorteCajaSesionQuer
                 Comprobante: comprobante is null ? null : $"{NombreComprobante(comprobante)} {comprobante.Folio}",
                 Cliente: comprobante?.ReceptorNombre,
                 Origen: cobro is null ? null : NombreOrigen(cobro.Origen),
-                Referencia: m.Referencia,
+                Referencia: m.TarjetaUltimos4 is null ? m.Referencia : $"{m.Referencia} · **** {m.TarjetaUltimos4}",
                 TotalComprobante: totalComprobante,
                 NotasCredito: notasCredito,
                 Importe: m.Importe,

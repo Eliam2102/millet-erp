@@ -563,6 +563,8 @@ export interface NotaCreditoListItem {
   serieProveedor: string | null;
   fechaCfdi: string;
   total: number;
+  /** La NC 03 formaliza la nota de cargo comparando subtotal (la nota nace sin IVA). */
+  subtotal: number;
   moneda: string;
   tipo: number;
   tipoRelacionCfdi: number;

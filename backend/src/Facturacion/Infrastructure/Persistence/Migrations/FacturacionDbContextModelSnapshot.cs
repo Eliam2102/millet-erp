@@ -567,6 +567,10 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("cobro_mostrador_id");
 
+                    b.Property<Guid?>("CorteOrigenSesionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("corte_origen_sesion_id");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -615,6 +619,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("referencia");
 
+                    b.Property<string>("TarjetaUltimos4")
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)")
+                        .HasColumnName("tarjeta_ultimos4");
+
                     b.Property<short>("Tipo")
                         .HasColumnType("smallint")
                         .HasColumnName("tipo");
@@ -645,6 +654,10 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                     b.HasIndex("CobroMostradorId")
                         .HasDatabaseName("ix_caja_movimiento_cobro")
                         .HasFilter("cobro_mostrador_id IS NOT NULL");
+
+                    b.HasIndex("CorteOrigenSesionId")
+                        .HasDatabaseName("ix_caja_movimiento_corte_origen")
+                        .HasFilter("corte_origen_sesion_id IS NOT NULL");
 
                     b.HasIndex("CajaId", "FolioVale")
                         .IsUnique()
@@ -1071,6 +1084,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
                         .HasColumnName("referencia");
+
+                    b.Property<string>("TarjetaUltimos4")
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)")
+                        .HasColumnName("tarjeta_ultimos4");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")

@@ -244,7 +244,9 @@ public sealed record RegistrarCajaMovimientoCommand(
     string FormaPago,
     decimal Importe,
     string Descripcion,
-    string? Referencia = null) : IRequest<CajaMovimientoRegistradoResponse>;
+    string? Referencia = null,
+    // Solo DevolucionFaltante: corte (sesión cerrada) cuyo faltante se devuelve.
+    Guid? CorteOrigenSesionId = null) : IRequest<CajaMovimientoRegistradoResponse>;
 
 /// <param name="FolioVale">Folio del Vale de Caja (solo retiros, 86e3ww6tw).</param>
 public sealed record CajaMovimientoRegistradoResponse(Guid Id, Guid SesionId, decimal Importe, int? FolioVale = null);
@@ -255,11 +257,15 @@ public sealed class RegistrarCajaMovimientoValidator : AbstractValidator<Registr
     {
         RuleFor(c => c.SesionId).NotEmpty();
         RuleFor(c => c.Tipo)
-            .Must(t => t is TipoCajaMovimiento.Deposito or TipoCajaMovimiento.Retiro)
-            .WithMessage("Solo se capturan manualmente depósitos y retiros; los demás tipos los genera el sistema.");
+            .Must(t => t is TipoCajaMovimiento.Deposito or TipoCajaMovimiento.Retiro or TipoCajaMovimiento.DevolucionFaltante)
+            .WithMessage("Solo se capturan manualmente depósitos, retiros y devoluciones de faltante; los demás tipos los genera el sistema.");
+        RuleFor(c => c.CorteOrigenSesionId).NotEmpty().When(c => c.Tipo == TipoCajaMovimiento.DevolucionFaltante)
+            .WithMessage("La devolución de faltante exige elegir el corte de origen.");
         RuleFor(c => c.FormaPago).NotEmpty().MaximumLength(2);
         RuleFor(c => c.Importe).GreaterThan(0);
-        RuleFor(c => c.Descripcion).NotEmpty().MaximumLength(254);
+        // La devolución de faltante se describe sola («Devolución del corte del dd/MM»); no exige texto.
+        RuleFor(c => c.Descripcion).NotEmpty().When(c => c.Tipo != TipoCajaMovimiento.DevolucionFaltante);
+        RuleFor(c => c.Descripcion).MaximumLength(254);
         RuleFor(c => c.Descripcion)
             .Must(d => d.Trim().Length >= CajaMovimiento.MotivoRetiroMinimo)
             .When(c => c.Tipo == TipoCajaMovimiento.Retiro && !string.IsNullOrWhiteSpace(c.Descripcion))
@@ -277,14 +283,17 @@ public sealed class RegistrarCajaMovimientoHandler
     private readonly IClock _clock;
     private readonly ISucursalesReadPort _sucursales;
     private readonly ICatalogosSatReadPort _catalogos;
+    private readonly IIntegrationEventPublisher _eventos;
 
     public RegistrarCajaMovimientoHandler(
         FacturacionDbContext db,
         ICurrentEmpresaContext empresa,
         ICurrentUserContext user,
         IClock clock,
-        ISucursalesReadPort sucursales, ICatalogosSatReadPort catalogos)
+        ISucursalesReadPort sucursales, ICatalogosSatReadPort catalogos,
+        IIntegrationEventPublisher eventos)
     {
+        _eventos = eventos;
         _catalogos = catalogos;
         _db = db;
         _empresa = empresa;
@@ -312,10 +321,14 @@ public sealed class RegistrarCajaMovimientoHandler
 
         await BloqueoDiaAnterior.ValidarAsync(sesion, _clock.UtcNow, _sucursales, cancellationToken);
 
+        var descripcion = command.Descripcion;
+        if (command.Tipo == TipoCajaMovimiento.DevolucionFaltante)
+            descripcion = await ValidarDevolucionFaltanteAsync(command, usuarioId, cancellationToken);
+
         var importe = command.Tipo == TipoCajaMovimiento.Retiro ? -command.Importe : command.Importe;
         var movimiento = CajaMovimiento.Crear(
             empresaId, sesion.Id, command.Tipo, command.FormaPago, importe,
-            usuarioId, command.Descripcion, command.Referencia);
+            usuarioId, descripcion, command.Referencia, corteOrigenSesionId: command.CorteOrigenSesionId);
 
         // Vale de Caja (86e3ww6tw): el retiro toma su folio consecutivo por caja con
         // la fila de la caja bloqueada hasta el commit.
@@ -333,9 +346,42 @@ public sealed class RegistrarCajaMovimientoHandler
         }
 
         _db.CajaMovimientos.Add(movimiento);
+        if (command.Tipo == TipoCajaMovimiento.DevolucionFaltante)
+            await _eventos.PublishAsync(new CajaFaltanteDevueltoIntegrationEvent(
+                empresaId, _clock.UtcNow, movimiento.Id, sesion.Id, command.CorteOrigenSesionId!.Value,
+                usuarioId, movimiento.Importe), cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
         if (tx is not null) await tx.CommitAsync(cancellationToken);
         return new CajaMovimientoRegistradoResponse(movimiento.Id, sesion.Id, movimiento.Importe, movimiento.FolioVale);
+    }
+
+    /// <summary>
+    /// Devolución de faltante (junta 19-oct): el corte de origen debe estar cerrado, con faltante, ser
+    /// del mismo cajero y la suma de devoluciones no puede exceder el faltante. Devuelve la descripción.
+    /// </summary>
+    private async Task<string> ValidarDevolucionFaltanteAsync(
+        RegistrarCajaMovimientoCommand command, Guid usuarioId, CancellationToken cancellationToken)
+    {
+        if (command.CorteOrigenSesionId is not Guid corteOrigenId || corteOrigenId == Guid.Empty)
+            throw new BusinessRuleException("MOVIMIENTO_CORTE_ORIGEN_REQUERIDO",
+                "La devolución de faltante exige elegir el corte de origen.");
+        var origen = await _db.CajaSesiones.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Id == corteOrigenId, cancellationToken)
+            ?? throw new EntityNotFoundException("CORTE_ORIGEN_NO_ENCONTRADO", "No existe el corte de origen.");
+        if (origen.Estado != EstadoCajaSesion.Cerrada || origen.Diferencia is not decimal diferencia || diferencia >= 0)
+            throw new BusinessRuleException("CORTE_ORIGEN_SIN_FALTANTE", "El corte elegido no cerró con faltante.");
+        if (origen.ResponsableUsuarioId != usuarioId)
+            throw new ForbiddenException("CORTE_ORIGEN_DE_OTRO_CAJERO", "Solo el cajero del corte puede devolver su faltante.");
+
+        var devuelto = await _db.CajaMovimientos.AsNoTracking()
+            .Where(m => m.CorteOrigenSesionId == origen.Id).SumAsync(m => m.Importe, cancellationToken);
+        if (command.Importe > -diferencia - devuelto)
+            throw new BusinessRuleException("DEVOLUCION_EXCEDE_FALTANTE",
+                $"La devolución ({command.Importe:0.00}) excede el faltante pendiente del corte ({-diferencia - devuelto:0.00}).");
+
+        return string.IsNullOrWhiteSpace(command.Descripcion)
+            ? $"Devolución del corte del {origen.DiaOperacion:dd/MM/yyyy}"
+            : command.Descripcion;
     }
 }
 

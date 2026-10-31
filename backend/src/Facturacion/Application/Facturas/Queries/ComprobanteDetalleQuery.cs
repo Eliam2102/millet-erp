@@ -167,7 +167,7 @@ public sealed class ComprobanteDetalleHandler
             cobroDetalle = new CobroFacturaDetalle(
                 cobro.Id, cobro.FechaCobro, cobro.UsuarioCobradorId, cobro.Total,
                 cobro.FormasPago.OrderBy(p => p.FormaPago).ThenBy(p => p.Id)
-                    .Select(p => new CobroFormaPagoItem(p.FormaPago, p.Importe, p.Referencia)).ToList(),
+                    .Select(p => new CobroFormaPagoItem(p.FormaPago, p.Importe, p.Referencia, p.TarjetaUltimos4)).ToList(),
                 new CobroCajaSesionDetalle(sesion.Id, sesion.CajaId, sesion.CajaNombre,
                     sesion.DiaOperacion, sesion.Estado.ToString()));
         }

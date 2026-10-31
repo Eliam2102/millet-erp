@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Millet.CuentasPorPagar.Domain.Eventos;
 using Millet.CuentasPorPagar.Domain.NotaCargo;
+using Millet.CuentasPorPagar.Domain.FacturaProveedor;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 
@@ -10,9 +11,9 @@ namespace Millet.CuentasPorPagar.Application.EventListeners;
 
 /// <summary>
 /// Listener del integration event <c>almacen.oc_devolucion.registrada.v1</c>
-/// (F6-PR3). Crea una <see cref="Domain.NotaCargo.NotaCargo"/> en
-/// Borrador asociada a la devolución para que el operador la autorice
-/// y aplique. La NC fiscal del proveedor (tipo CFDI 03) cierra el
+/// (F6-PR3). Crea una <see cref="Domain.NotaCargo.NotaCargo"/> asociada
+/// a la devolución y, si hay factura vigente con saldo, la aplica al
+/// instante (si no, queda en Borrador). La NC fiscal del proveedor (tipo CFDI 03) cierra el
 /// ciclo formalizando la nota de cargo y publicando
 /// <c>NotaCreditoFiscalDevolucionRecibidaEvent</c> a Almacén.
 ///
@@ -38,13 +39,15 @@ public sealed class OcDevolucionRegistradaHandler : IRequestHandler<OcDevolucion
     private readonly CuentasPorPagarDbContext _db;
     private readonly IClock _clock;
     private readonly ILogger<OcDevolucionRegistradaHandler> _logger;
+    private readonly Application.NotaCargo.FormalizacionNotaCargoService _formalizacion;
 
     public OcDevolucionRegistradaHandler(
         CuentasPorPagarDbContext db,
         IClock clock,
-        ILogger<OcDevolucionRegistradaHandler> logger)
+        ILogger<OcDevolucionRegistradaHandler> logger,
+        Application.NotaCargo.FormalizacionNotaCargoService formalizacion)
     {
-        _db = db; _clock = clock; _logger = logger;
+        _db = db; _clock = clock; _logger = logger; _formalizacion = formalizacion;
     }
 
     public async Task Handle(OcDevolucionRegistradaCommand request, CancellationToken cancellationToken)
@@ -98,6 +101,24 @@ public sealed class OcDevolucionRegistradaHandler : IRequestHandler<OcDevolucion
             .ContinueWith(t => t.Result.Single(), cancellationToken);
 
         var folio = FolioInternoNotaCargo.FromAnioSecuencial(anio, siguiente);
+
+        // Almacén casi nunca conoce la factura: CxP la resuelve por la recepción de origen o, si la OC tiene una
+        // sola factura vigente, por la OC. Sin factura clara la nota queda en Borrador y la liga el usuario.
+        var facturaOrigenId = p.FacturaProveedorOrigenId;
+        if (facturaOrigenId is null && p.RecepcionOrigenId is Guid recepcionId)
+        {
+            var porRecepcion = await _db.FacturasProveedor.AsNoTracking()
+                .Where(f => f.RecepcionId == recepcionId && f.ProveedorId == p.ProveedorId && f.Estado != EstadoPasivo.Cancelada)
+                .Select(f => f.Id).Take(2).ToListAsync(cancellationToken);
+            if (porRecepcion.Count == 1) facturaOrigenId = porRecepcion[0];
+        }
+        if (facturaOrigenId is null && p.OrdenCompraOrigenId is Guid ocId)
+        {
+            var porOc = await _db.FacturasProveedor.AsNoTracking()
+                .Where(f => f.OrdenCompraId == ocId && f.ProveedorId == p.ProveedorId && f.Estado != EstadoPasivo.Cancelada)
+                .Select(f => f.Id).Take(2).ToListAsync(cancellationToken);
+            if (porOc.Count == 1) facturaOrigenId = porOc[0];
+        }
         var concepto = $"Devolución a proveedor — {p.FolioMovimiento} — {p.Motivo}";
         if (concepto.Length > 400) concepto = concepto[..400];
 
@@ -111,12 +132,14 @@ public sealed class OcDevolucionRegistradaHandler : IRequestHandler<OcDevolucion
             monto: p.MontoTotalMxn,
             moneda: "MXN",
             tipoCambio: null,
-            facturaOrigenId: p.FacturaProveedorOrigenId,
+            facturaOrigenId: facturaOrigenId,
             devolucionAProveedorId: p.DevolucionId,
             creadoPor: null,
             ahora: ahora);
 
         _db.NotasCargo.Add(nota);
+        // Decisión fiscal 30-oct: la nota nace aplicada en la salida física; sin factura vigente queda en Borrador.
+        var aplicada = await _formalizacion.AplicarPorDevolucionAsync(nota, ahora, cancellationToken);
         _db.EventosProcesados.Add(new EventoProcesado(
             eventoId: request.EventId,
             eventoTipo: EventType,
@@ -126,7 +149,7 @@ public sealed class OcDevolucionRegistradaHandler : IRequestHandler<OcDevolucion
         await _db.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation(
-            "[OcDevolucionRegistradaHandler] NotaCargo {Folio} creada en Borrador (devolucion={DevolucionId}, monto={Monto}).",
-            nota.Folio.Valor, p.DevolucionId, nota.Monto);
+            "[OcDevolucionRegistradaHandler] NotaCargo {Folio} creada en {Estado} (devolucion={DevolucionId}, monto={Monto}).",
+            nota.Folio.Valor, aplicada ? "Aplicada" : "Borrador", p.DevolucionId, nota.Monto);
     }
 }

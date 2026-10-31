@@ -1,5 +1,6 @@
 import {
   AlertTriangle,
+  ArrowLeftRight,
   ArrowRightLeft,
   Banknote,
   BarChart3,
@@ -581,6 +582,13 @@ const moduloTesoreria: NavModulo = {
           ],
         },
         {
+          label: 'Diferencias de corte',
+          description: 'Faltantes y sobrantes del efectivo de cada corte de caja: autorizar o rechazar (deudores funcionarios y empleados).',
+          to: '/tesoreria/diferencias-corte',
+          icon: Scale,
+          permission: PermisosCanonicos.TesoreriaDiferenciasCorteAutorizar,
+        },
+        {
           label: 'Movimientos bancarios',
           description:
             'Libro de movimientos por cuenta: ingresos, egresos, aplicaciones y contramovimientos.',
@@ -1038,6 +1046,19 @@ const moduloContabilidad: NavModulo = {
           to: '/contabilidad/motor',
           icon: Workflow,
           permission: PermisosCanonicos.ContabilidadMotorLeer,
+        },
+      ],
+    },
+    {
+      label: 'Reportes',
+      cards: [
+        {
+          label: 'Cuenta puente recepción–factura',
+          description:
+            'Saldo de la cuenta puente por orden de compra al corte: facturado sin recibir, recibido sin facturar, antigüedad y cuadre contra la balanza.',
+          to: '/contabilidad/reportes/cuenta-puente',
+          icon: ArrowLeftRight,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
         },
       ],
     },

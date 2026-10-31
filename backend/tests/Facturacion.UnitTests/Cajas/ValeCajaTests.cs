@@ -44,7 +44,8 @@ public sealed class ValeCajaTests
         await db.SaveChangesAsync();
         var handler = new RegistrarCajaMovimientoHandler(
             db, new FakeEmpresaContext(Empresa), new FakeUserContext(Cajero),
-            new FakeClock(Ahora), new FakeSucursalesReadPort(), new FakeCatalogosSatReadPort());
+            new FakeClock(Ahora), new FakeSucursalesReadPort(), new FakeCatalogosSatReadPort(),
+            new FakeIntegrationEventPublisher());
 
         Task<CajaMovimientoRegistradoResponse> Registrar(Guid sesion, TipoCajaMovimiento tipo) =>
             handler.Handle(new RegistrarCajaMovimientoCommand(sesion, tipo, "01", 100m, Motivo), CancellationToken.None);

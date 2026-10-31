@@ -61,11 +61,17 @@ public sealed class DepositosHandler
             .Select(d => d.ClienteId!.Value).Distinct().ToList();
         var clientes = await _clientes.ObtenerVariosAsync(clienteIds, cancellationToken);
 
+        var sesiones = items.Where(d => d.CajaSesionId is not null).Select(d => d.CajaSesionId!.Value).ToList();
+        var diferencias = await _db.DiferenciasCorte.AsNoTracking()
+            .Where(x => sesiones.Contains(x.CajaSesionId)).ToDictionaryAsync(x => x.CajaSesionId, cancellationToken);
+
         var responses = items.Select(d =>
         {
             ClienteRefDto? cliente = null;
             if (d.ClienteId is Guid id) clientes.TryGetValue(id, out cliente);
-            return DepositoMapper.ToResponse(d, cliente?.Clave, cliente?.RazonSocial);
+            DiferenciaCorte? diferencia = null;
+            if (d.CajaSesionId is Guid sesion) diferencias.TryGetValue(sesion, out diferencia);
+            return DepositoMapper.ToResponse(d, cliente?.Clave, cliente?.RazonSocial, diferencia);
         }).ToList();
 
         return new PagedResponse<DepositoConfirmacionResponse>(responses, offset, limit, total);

@@ -12,7 +12,8 @@ namespace Millet.DatosMaestros.Application.Cargas;
 public sealed record CambioMaestros(string Campo, string? Antes, string? Despues);
 public sealed record RenglonMaestros(int Renglon, string Estado, IReadOnlyDictionary<string, string> Valores,
     IReadOnlyList<CambioMaestros> Cambios, IReadOnlyList<ErrorMaestros> Errores);
-public sealed record ResultadoMaestros(string Huella, IReadOnlyList<RenglonMaestros> Renglones, int Nuevos, int Actualiza, int SinCambio, int Errores, bool Confirmado);
+public sealed record ResultadoMaestros(string Huella, IReadOnlyList<RenglonMaestros> Renglones, int Nuevos, int Actualiza, int SinCambio, int Errores, bool Confirmado, IReadOnlyList<ConteoMaestros>? Resumen = null);
+public sealed record ConteoMaestros(string Seccion, string Clave, int Total);
 public sealed record PlanMaestros(object? Comando, IReadOnlyList<string> Llaves, IReadOnlyList<CambioMaestros> Cambios, bool Nuevo);
 public interface IAdaptadorCargaMaestros
 {
@@ -22,6 +23,7 @@ public interface IAdaptadorCargaMaestros
     Task PrepararArchivoAsync(TablaMaestros tabla, CancellationToken cancellationToken) => Task.CompletedTask;
     IReadOnlyList<string> LlavesArchivo(FilaMaestros fila);
     Task<PlanMaestros> PrepararAsync(FilaMaestros fila, CancellationToken ct);
+    IReadOnlyList<ConteoMaestros>? Resumir(IReadOnlyList<RenglonMaestros> renglones) => null;
 }
 public static class CargaMaestrosDatos
 {
@@ -115,7 +117,7 @@ public sealed class CargaMaestrosServicio(IEnumerable<IAdaptadorCargaMaestros> a
             }
             await tx!.CommitAsync(ct);
         }
-        return new(huella, resultados, resultados.Count(r => r.Estado == "Nuevo"), resultados.Count(r => r.Estado == "Actualiza"), resultados.Count(r => r.Estado == "SinCambio"), resultados.Count(r => r.Estado == "Error"), confirmar);
+        return new(huella, resultados, resultados.Count(r => r.Estado == "Nuevo"), resultados.Count(r => r.Estado == "Actualiza"), resultados.Count(r => r.Estado == "SinCambio"), resultados.Count(r => r.Estado == "Error"), confirmar, adaptador.Resumir(resultados));
     }
     private static string Columna(IAdaptadorCargaMaestros adaptador, string propiedad) => adaptador.Columnas.FirstOrDefault(c =>
         c.Alias.Append(c.Nombre).Any(a => ArchivoMaestros.Normalizar(a) == ArchivoMaestros.Normalizar(propiedad)))?.Nombre ?? "Registro";

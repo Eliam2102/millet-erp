@@ -72,6 +72,7 @@ public sealed class CobroMostradorFormaPagoConfiguration : IEntityTypeConfigurat
         builder.Property(e => e.Referencia).HasMaxLength(100);
         builder.Property(e => e.CuentaOrdenante).HasMaxLength(50);
         builder.Property(e => e.CuentaBeneficiaria).HasMaxLength(50);
+        builder.Property(e => e.TarjetaUltimos4).HasMaxLength(4);
 
         builder.HasIndex(e => e.CobroMostradorId).HasDatabaseName("ix_cobro_forma_pago_cobro");
     }

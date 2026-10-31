@@ -63,3 +63,44 @@ export function voucherIncompleto(
 ): boolean {
   return faltaVoucherTarjeta(formas) || autorizacionVoucherInvalida(formas);
 }
+
+/**
+ * 86e3tfdvt (Millet, 30-oct): del voucher de crédito (04) y débito (28) también
+ * se capturan los últimos 4 dígitos de la tarjeta; nunca el número completo.
+ * La 29 (servicios) no se habilita en caja y conserva solo la autorización.
+ * Misma regla que el backend (COBRO_TARJETA_SIN_ULTIMOS4 / _ULTIMOS4_INVALIDOS).
+ */
+export const FORMAS_PAGO_CON_ULTIMOS4: readonly string[] = ['04', '28'];
+
+const ULTIMOS_4 = /^\d{4}$/;
+
+export const MENSAJE_ULTIMOS4 =
+  'Captura los últimos 4 dígitos de la tarjeta (exactamente 4 números) en cada pago con tarjeta.';
+
+export function pideUltimos4(clave: string): boolean {
+  return FORMAS_PAGO_CON_ULTIMOS4.includes(clave);
+}
+
+/** Deja solo dígitos y a lo más 4, para el campo de captura. */
+export function soloUltimos4(valor: string): string {
+  return valor.replace(/\D/g, '').slice(0, 4);
+}
+
+/** true si alguna forma de crédito o débito no trae exactamente 4 dígitos de la tarjeta. */
+export function faltanUltimos4(
+  formas: readonly { formaPago: string; tarjetaUltimos4?: string | null }[],
+): boolean {
+  return formas.some(
+    (f) => pideUltimos4(f.formaPago) && !ULTIMOS_4.test((f.tarjetaUltimos4 ?? '').trim()),
+  );
+}
+
+/** Voucher para mostrar: «123456 · **** 1234» (o solo la autorización). */
+export function textoVoucher(
+  referencia: string | null | undefined,
+  tarjetaUltimos4: string | null | undefined,
+): string | null {
+  if (!referencia && !tarjetaUltimos4) return null;
+  if (!tarjetaUltimos4) return referencia ?? null;
+  return referencia ? `${referencia} · **** ${tarjetaUltimos4}` : `**** ${tarjetaUltimos4}`;
+}

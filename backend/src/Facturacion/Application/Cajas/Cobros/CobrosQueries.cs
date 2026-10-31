@@ -12,7 +12,8 @@ namespace Millet.Facturacion.Application.Cajas.Cobros;
 
 // ---- Cobros de una sesión (GET /cobros?sesionId=, permiso caja.operar) ----
 
-public sealed record CobroFormaPagoItem(string FormaPago, decimal Importe, string? Referencia);
+public sealed record CobroFormaPagoItem(
+    string FormaPago, decimal Importe, string? Referencia, string? TarjetaUltimos4 = null);
 
 public sealed record CobroMostradorItem(
     Guid Id, Guid ComprobanteId, string ComprobanteFolio, string TipoComprobante, string Origen,
@@ -52,7 +53,7 @@ public sealed class ListarCobrosMostradorHandler
                 c.Id, c.ComprobanteId, comprobante?.Folio ?? string.Empty,
                 comprobante?.Tipo.ToString() ?? string.Empty, c.Origen.ToString(), c.Estado.ToString(),
                 c.Total, c.Moneda, c.FechaCobro, c.UsuarioCobradorId,
-                c.FormasPago.Select(f => new CobroFormaPagoItem(f.FormaPago, f.Importe, f.Referencia)).ToList());
+                c.FormasPago.Select(f => new CobroFormaPagoItem(f.FormaPago, f.Importe, f.Referencia, f.TarjetaUltimos4)).ToList());
         }).ToList();
     }
 }

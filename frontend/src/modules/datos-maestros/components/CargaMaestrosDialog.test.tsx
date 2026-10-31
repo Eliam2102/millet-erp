@@ -47,6 +47,12 @@ describe('Carga de maestros', () => {
     // El navegador baja a minúsculas el type del Blob: el boundary ya debe ir en minúsculas para coincidir con el cuerpo.
     expect(opciones.body.type).toBe('multipart/form-data; boundary=----cargamaestroshuella');
   });
+  it('muestra el resumen de la previa por sección', async () => {
+    mocks.api.mockResolvedValue({ data: { ...previa, resumen: [{ seccion: 'Grupo', clave: '101', total: 4 }, { seccion: 'Grupo', clave: '115', total: 1 }, { seccion: 'Posible A+W', clave: 'A4', total: 1 }] } });
+    abrir(); elegir(); fireEvent.click(screen.getByRole('button', { name: 'Ver vista previa' }));
+    await screen.findByText('Paso 2 de 3', { exact: false });
+    expect(screen.getByText('101: 4 · 115: 1')).toBeInTheDocument(); expect(screen.getByText('A4: 1')).toBeInTheDocument();
+  });
   it('deshabilita confirmar si ningún renglón cambia', async () => {
     mocks.api.mockResolvedValue({ data: { ...previa, nuevos: 0, actualiza: 0 } });
     abrir(); elegir(); fireEvent.click(screen.getByRole('button', { name: 'Ver vista previa' }));

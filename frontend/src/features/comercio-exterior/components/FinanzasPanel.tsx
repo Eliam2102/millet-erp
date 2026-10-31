@@ -151,35 +151,35 @@ function Gastos({
           <p className="text-ink-muted">No hay órdenes de servicio ligadas.</p>
         ) : (
           <TableContainer maxHeightClassName="">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {[
-                  'Orden',
-                  'Moneda',
-                  'Total OC',
-                  'Asignado al expediente',
-                  'Facturado',
-                  'Diferencia',
-                ].map((h) => (
-                  <TableHead key={h}>{h}</TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {f.ordenesServicio.map((o) => (
-                <TableRow key={o.id}>
-                  <TableCell className="font-mono">{o.folio}</TableCell>
-                  <TableCell>{o.moneda}</TableCell>
-                  {[o.total, o.asignado, o.facturado, o.diferencia].map((n, i) => (
-                    <TableCell key={i} className="text-right tabular-nums">
-                      {dinero(n)}
-                    </TableCell>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {[
+                    'Orden',
+                    'Moneda',
+                    'Total OC',
+                    'Asignado al expediente',
+                    'Facturado',
+                    'Diferencia',
+                  ].map((h) => (
+                    <TableHead key={h}>{h}</TableHead>
                   ))}
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {f.ordenesServicio.map((o) => (
+                  <TableRow key={o.id}>
+                    <TableCell className="font-mono">{o.folio}</TableCell>
+                    <TableCell>{o.moneda}</TableCell>
+                    {[o.total, o.asignado, o.facturado, o.diferencia].map((n, i) => (
+                      <TableCell key={i} className="text-right tabular-nums">
+                        {dinero(n)}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </TableContainer>
         )}
         <p className="text-xs text-ink-muted">
@@ -212,57 +212,57 @@ function Gastos({
         />
       )}
       <TableContainer maxHeightClassName="">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            {[
-              'Concepto',
-              'Proveedor',
-              'Factura',
-              'Moneda',
-              'Facturado',
-              'Cotizado',
-              'Diferencia',
-              'Acciones',
-            ].map((h) => (
-              <TableHead key={h}>{h}</TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {f.gastos.map((g) => (
-            <TableRow key={g.id}>
-              <TableCell>{g.concepto}</TableCell>
-              <TableCell>
-                {f.nombres[g.proveedorId] ?? nombres.get(g.proveedorId) ?? 'Proveedor vinculado'}
-              </TableCell>
-              <TableCell className="font-mono">
-                {g.factura}
-                {g.facturaProveedorId && (
-                  <span className="block text-xs text-ink-muted">
-                    Vinculada a Cuentas por Pagar
-                  </span>
-                )}
-              </TableCell>
-              <TableCell>{g.moneda}</TableCell>
-              <TableCell className="text-right tabular-nums">{dinero(g.importe)}</TableCell>
-              <TableCell className="text-right tabular-nums">
-                {g.cotizado === null ? 'Sin cotización' : dinero(g.cotizado)}
-              </TableCell>
-              <TableCell className="text-right tabular-nums">
-                {g.diferencia === null ? 'Sin cotización' : dinero(g.diferencia)}
-              </TableCell>
-              <TableCell>
-                {registrar && (
-                  <Button variant="ghost" size="sm" onClick={() => setEditar(g)}>
-                    Editar
-                  </Button>
-                )}
-              </TableCell>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {[
+                'Concepto',
+                'Proveedor',
+                'Factura',
+                'Moneda',
+                'Facturado',
+                'Cotizado',
+                'Diferencia',
+                'Acciones',
+              ].map((h) => (
+                <TableHead key={h}>{h}</TableHead>
+              ))}
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {f.gastos.map((g) => (
+              <TableRow key={g.id}>
+                <TableCell>{g.concepto}</TableCell>
+                <TableCell>
+                  {f.nombres[g.proveedorId] ?? nombres.get(g.proveedorId) ?? 'Proveedor vinculado'}
+                </TableCell>
+                <TableCell className="font-mono">
+                  {g.factura}
+                  {g.facturaProveedorId && (
+                    <span className="block text-xs text-ink-muted">
+                      Vinculada a Cuentas por Pagar
+                    </span>
+                  )}
+                </TableCell>
+                <TableCell>{g.moneda}</TableCell>
+                <TableCell className="text-right tabular-nums">{dinero(g.importe)}</TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {g.cotizado === null ? 'Sin cotización' : dinero(g.cotizado)}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {g.diferencia === null ? 'Sin cotización' : dinero(g.diferencia)}
+                </TableCell>
+                <TableCell>
+                  {registrar && (
+                    <Button variant="ghost" size="sm" onClick={() => setEditar(g)}>
+                      Editar
+                    </Button>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </TableContainer>
       {!f.gastos.length && <p className="text-ink-muted">Sin gastos registrados.</p>}
       {data.expediente.tipo === 1 && <ContenedorImportacion id={id} />}
@@ -404,30 +404,30 @@ function Gastos({
         <section>
           <h3 className="text-md font-semibold">Costo logístico por cliente</h3>
           <TableContainer maxHeightClassName="">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Cliente</TableHead>
-                <TableHead className="text-right">Costo MXN</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {Object.entries(
-                [...f.distribuciones]
-                  .sort((a, b) => b.numeroVersion - a.numeroVersion)[0]
-                  .partidas.reduce<Record<string, number>>((totales, p) => {
-                    if (p.clienteId)
-                      totales[p.clienteId] = (totales[p.clienteId] ?? 0) + p.importeMxn;
-                    return totales;
-                  }, {}),
-              ).map(([cliente, total]) => (
-                <TableRow key={cliente}>
-                  <TableCell>{f.nombres[cliente] ?? 'Cliente del contenedor'}</TableCell>
-                  <TableCell className="text-right tabular-nums">{dinero(total)}</TableCell>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead className="text-right">Costo MXN</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {Object.entries(
+                  [...f.distribuciones]
+                    .sort((a, b) => b.numeroVersion - a.numeroVersion)[0]
+                    .partidas.reduce<Record<string, number>>((totales, p) => {
+                      if (p.clienteId)
+                        totales[p.clienteId] = (totales[p.clienteId] ?? 0) + p.importeMxn;
+                      return totales;
+                    }, {}),
+                ).map(([cliente, total]) => (
+                  <TableRow key={cliente}>
+                    <TableCell>{f.nombres[cliente] ?? 'Cliente del contenedor'}</TableCell>
+                    <TableCell className="text-right tabular-nums">{dinero(total)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </TableContainer>
         </section>
       )}
@@ -546,6 +546,7 @@ function GastoForm({
   );
   const [moneda, setMoneda] = useState(gasto?.moneda ?? 'MXN');
   const [contenedor, setContenedor] = useState(gasto?.contenedorId ?? '');
+  const [fuenteTc, setFuenteTc] = useState(gasto?.fuenteTipoCambio ?? 'Banxico');
   const ordenes = useOrdenesServicio(data.expediente.id, proveedor, busquedaOrden);
   const requiereOrden = f.conceptos.find((c) => c.id === concepto)?.requiereOrdenServicio;
   const accion = useMutarFinanzas(data.expediente.id);
@@ -567,6 +568,13 @@ function GastoForm({
       pedimento: d.get('pedimento') || null,
       cotizado: d.get('cotizado') ? Number(d.get('cotizado')) : null,
       contenedorId: d.get('contenedorId') || null,
+      ...(moneda === 'USD' && fuenteTc !== 'Banxico'
+        ? {
+            fuenteTipoCambio: fuenteTc,
+            tipoCambioUsado: d.get('tipoCambioUsado') ? Number(d.get('tipoCambioUsado')) : null,
+            notaTipoCambio: d.get('notaTipoCambio'),
+          }
+        : {}),
       importesDirectos: directo
         ? Object.fromEntries(f.partidas.map((p) => [p.partidaId, Number(d.get(p.partidaId))]))
         : null,
@@ -776,10 +784,57 @@ function GastoForm({
               />
             </Campo>
           ))}
+        {moneda === 'USD' && (
+          <>
+            <Campo label="Fuente del tipo de cambio" id="fg-fuente-tc">
+              <select
+                id="fg-fuente-tc"
+                className={selectClass}
+                value={fuenteTc}
+                onChange={(ev) => setFuenteTc(ev.target.value)}
+              >
+                <option value="Banxico">Banxico (sugerido)</option>
+                <option value="Negociado">Negociado</option>
+                <option value="CFDI">CFDI</option>
+                <option value="Pedimento">Pedimento</option>
+              </select>
+            </Campo>
+            {fuenteTc !== 'Banxico' && (
+              <>
+                <Campo label={`Tipo de cambio usado${fuenteTc === 'CFDI' ? '' : ' *'}`} id="fg-tc">
+                  <Input
+                    id="fg-tc"
+                    name="tipoCambioUsado"
+                    type="number"
+                    min="0.0001"
+                    step="0.0001"
+                    required={fuenteTc !== 'CFDI'}
+                    defaultValue={gasto?.fuenteTipoCambio === fuenteTc ? gasto.tipoCambio : ''}
+                  />
+                  {fuenteTc === 'CFDI' && (
+                    <p className="text-xs text-ink-muted">
+                      Si la factura está en Cuentas por Pagar se toma de ella; si no, captúralo.
+                    </p>
+                  )}
+                </Campo>
+                <Campo label="Nota del cambio (mín. 10 caracteres) *" id="fg-nota-tc">
+                  <Input
+                    id="fg-nota-tc"
+                    name="notaTipoCambio"
+                    required
+                    minLength={10}
+                    maxLength={500}
+                    defaultValue={gasto?.notaTipoCambio ?? ''}
+                  />
+                </Campo>
+              </>
+            )}
+          </>
+        )}
         <FormCampo span={12}>
           <p className="text-xs text-ink-muted">
-            Para USD se utiliza Banxico de la fecha de factura. Si la factura existe en Cuentas por
-            Pagar, se vincula automáticamente.
+            Para USD se sugiere Banxico de la fecha de factura y puede cambiarse. Si la factura
+            existe en Cuentas por Pagar, se vincula automáticamente.
           </p>
           {accion.isError && (
             <p role="alert" className="text-danger-fg">
@@ -925,49 +980,49 @@ function Anticipos({ data, finanzas: f }: { data: ExpedienteDetalle; finanzas: F
       {gestionar && <Button onClick={() => setNuevo(true)}>Registrar anticipo</Button>}
       {nuevo && <NuevoAnticipo id={data.expediente.id} onClose={() => setNuevo(false)} />}
       <TableContainer maxHeightClassName="">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            {[
-              'Agente',
-              'Pedimento',
-              'Anticipado',
-              'Aplicado',
-              'Diferencia',
-              'Saldo abierto',
-              'Estado',
-              'Acciones',
-            ].map((h) => (
-              <TableHead key={h}>{h}</TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {f.anticipos.map((a) => (
-            <TableRow key={a.id}>
-              <TableCell>
-                {f.nombres[a.agenteId] ?? nombres.get(a.agenteId) ?? 'Agente vinculado'}
-              </TableCell>
-              <TableCell className="font-mono">{a.pedimento}</TableCell>
-              {[a.anticipado, a.aplicado, a.diferencia, a.saldo].map((n, i) => (
-                <TableCell key={i} className="text-right tabular-nums">
-                  {n === null ? 'Sin comprobar' : dinero(n)}
-                </TableCell>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {[
+                'Agente',
+                'Pedimento',
+                'Anticipado',
+                'Aplicado',
+                'Diferencia',
+                'Saldo abierto',
+                'Estado',
+                'Acciones',
+              ].map((h) => (
+                <TableHead key={h}>{h}</TableHead>
               ))}
-              <TableCell>
-                <Badge variant={a.saldo === 0 ? 'success' : 'warning'}>{a.estado}</Badge>
-              </TableCell>
-              <TableCell>
-                {gestionar && (a.aplicado === null || a.saldo !== 0) && (
-                  <Button variant="ghost" onClick={() => setSeleccion(a)}>
-                    {a.aplicado === null ? 'Comprobar' : 'Resolver saldo'}
-                  </Button>
-                )}
-              </TableCell>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {f.anticipos.map((a) => (
+              <TableRow key={a.id}>
+                <TableCell>
+                  {f.nombres[a.agenteId] ?? nombres.get(a.agenteId) ?? 'Agente vinculado'}
+                </TableCell>
+                <TableCell className="font-mono">{a.pedimento}</TableCell>
+                {[a.anticipado, a.aplicado, a.diferencia, a.saldo].map((n, i) => (
+                  <TableCell key={i} className="text-right tabular-nums">
+                    {n === null ? 'Sin comprobar' : dinero(n)}
+                  </TableCell>
+                ))}
+                <TableCell>
+                  <Badge variant={a.saldo === 0 ? 'success' : 'warning'}>{a.estado}</Badge>
+                </TableCell>
+                <TableCell>
+                  {gestionar && (a.aplicado === null || a.saldo !== 0) && (
+                    <Button variant="ghost" onClick={() => setSeleccion(a)}>
+                      {a.aplicado === null ? 'Comprobar' : 'Resolver saldo'}
+                    </Button>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </TableContainer>
       {seleccion && (
         <ResolverAnticipo

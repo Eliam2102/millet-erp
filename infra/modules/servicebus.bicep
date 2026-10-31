@@ -580,7 +580,8 @@ resource facturacionEventsAwSubscriptionFilter 'Microsoft.ServiceBus/namespaces/
 // Caja→Banco (cierra PLATFORM-TODO <TesoreriaCajaSesion>) y
 // recibo-pago.timbrado marca repp_timbrado en la confirmación (ciclo
 // fiscal cerrado) y nota-credito.reembolso-solicitado crea la devolución a
-// cliente de origen NC (T9.6 · CA6.17).
+// cliente de origen NC (T9.6 · CA6.17); caja-faltante.devuelto abona la
+// devolución del cajero a la diferencia del corte (86e3vr1tj).
 // Referencia: backend/src/Tesoreria/Infrastructure/Workers/FacturacionEventListenerWorker.cs
 resource facturacionEventsTesoreriaSubscription 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
   parent: facturacionEventsTopic
@@ -601,7 +602,7 @@ resource facturacionEventsTesoreriaSubscriptionFilter 'Microsoft.ServiceBus/name
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'facturacion.caja-sesion.cerrada.v1\', \'facturacion.recibo-pago.timbrado.v1\', \'facturacion.nota-credito.reembolso-solicitado.v1\')'
+      sqlExpression: 'user.EventType IN (\'facturacion.caja-sesion.cerrada.v1\', \'facturacion.recibo-pago.timbrado.v1\', \'facturacion.nota-credito.reembolso-solicitado.v1\', \'facturacion.caja-faltante.devuelto.v1\')'
       compatibilityLevel: 20
     }
   }

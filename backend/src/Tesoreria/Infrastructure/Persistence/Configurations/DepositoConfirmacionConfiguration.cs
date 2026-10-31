@@ -101,3 +101,30 @@ public sealed class DepositoFichaConfiguration : IEntityTypeConfiguration<Deposi
         builder.HasIndex(e => e.DepositoConfirmacionId).HasDatabaseName("ix_deposito_ficha_deposito");
     }
 }
+
+public sealed class DiferenciaCorteConfiguration : IEntityTypeConfiguration<DiferenciaCorte>
+{
+    public void Configure(EntityTypeBuilder<DiferenciaCorte> builder)
+    {
+        builder.ToTable("diferencia_corte", t =>
+        {
+            t.HasCheckConstraint("ck_diferencia_corte_estado", "estado IN (1, 2, 3, 4, 5)");
+            t.HasCheckConstraint("ck_diferencia_corte_importe", "importe <> 0");
+        });
+
+        builder.HasKey(e => e.Id);
+        builder.Property(e => e.Id).ValueGeneratedNever();
+        builder.Property(e => e.EmpresaId).IsRequired();
+        builder.Property(e => e.Importe).HasPrecision(18, 2);
+        builder.Property(e => e.ImporteDevuelto).HasPrecision(18, 2);
+        builder.Property(e => e.Estado).HasConversion<short>().IsRequired();
+        builder.Property(e => e.MotivoRechazo).HasMaxLength(400);
+        builder.Ignore(e => e.EsFaltante);
+        builder.Ignore(e => e.PendientePorDevolver);
+        builder.Ignore(e => e.Autorizada);
+
+        // Idempotencia del listener: una diferencia por sesión de caja.
+        builder.HasIndex(e => e.CajaSesionId).IsUnique().HasDatabaseName("ux_diferencia_corte_caja_sesion");
+        builder.HasIndex(e => new { e.EmpresaId, e.Estado }).HasDatabaseName("ix_diferencia_corte_empresa_estado");
+    }
+}

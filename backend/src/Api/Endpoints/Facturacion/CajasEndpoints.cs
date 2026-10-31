@@ -259,6 +259,14 @@ public static class CajasEndpoints
         .WithSummary("Sesión de caja vigente del usuario actual (null si no tiene)")
         .Produces<SesionActualResponse>(StatusCodes.Status200OK);
 
+        // GET: cortes del cajero con faltante por devolver (origen de «Devolución de faltante», 86e3vr1tj).
+        group.MapGet("/faltantes-por-devolver", async (IMediator mediator, CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new FaltantesPorDevolverQuery(), cancellationToken)))
+        .RequireAuthorization(operar)
+        .WithName("CajaFaltantesPorDevolver")
+        .WithSummary("Cortes cerrados del cajero con faltante aún por devolver")
+        .Produces<IReadOnlyList<FaltantePorDevolverItem>>(StatusCodes.Status200OK);
+
         // POST: apertura de sesión (§5.1).
         group.MapPost("/{id:guid}/sesiones", async (
             Guid id,
@@ -340,7 +348,8 @@ public static class CajasEndpoints
         {
             var response = await mediator.Send(
                 new RegistrarCajaMovimientoCommand(
-                    id, body.Tipo, body.FormaPago, body.Importe, body.Descripcion, body.Referencia),
+                    id, body.Tipo, body.FormaPago, body.Importe, body.Descripcion ?? string.Empty, body.Referencia,
+                    body.CorteOrigenSesionId),
                 cancellationToken);
             return Results.Created($"/api/v1/facturacion/cajas/sesiones/{id}/movimientos/{response.Id}", response);
         })
@@ -464,6 +473,7 @@ public static class CajasEndpoints
     public sealed record CrearAutorizacionAperturaRequest(Guid CajeroUsuarioId, string Motivo);
     public sealed record AbrirCajaSesionRequest(Guid SucursalId, decimal FondoApertura, Guid? AutorizacionAperturaId = null);
     public sealed record RegistrarCajaMovimientoRequest(
-        TipoCajaMovimiento Tipo, string FormaPago, decimal Importe, string Descripcion, string? Referencia = null);
+        TipoCajaMovimiento Tipo, string FormaPago, decimal Importe, string? Descripcion = null, string? Referencia = null,
+        Guid? CorteOrigenSesionId = null);
     public sealed record CerrarCajaSesionRequest(decimal EfectivoDeclarado, string? NotasCierre = null);
 }
