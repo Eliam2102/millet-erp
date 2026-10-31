@@ -18,7 +18,7 @@ public static class PiezasPtDependencyInjection
     {
         services.AddOptions<PiezasPtOptions>().Bind(config.GetSection(PiezasPtOptions.SectionName))
             .Validate(o => o.IntervalSeconds > 0 && o.BatchSize is > 0 and <= 1000 && o.MaxIntentos > 0 && o.PospuestoHoras > 0
-                && o.TraslapeMinutos >= 0 && EstacionesValidas(o.EstacionesPt), "Revise intervalo, lote, reintentos, traslape y estaciones de PT.")
+                && o.TraslapeMinutos >= 0 && o.BarridoMinutos > 0 && EstacionesValidas(o.EstacionesPt), "Revise intervalo, lote, reintentos, traslape, barrido y estaciones de PT.")
             .ValidateOnStart();
         var options = config.GetSection(PiezasPtOptions.SectionName).Get<PiezasPtOptions>() ?? new();
 
@@ -34,6 +34,7 @@ public static class PiezasPtDependencyInjection
         services.AddScoped<IPtSucursalPorClaveAwPort, PtSucursalPorClaveAwAdapter>();
         services.AddScoped<ISaldoPedidoReadPort, SaldoPedidoSelector>();
         services.AddHostedService<PiezasPtEntradaWorker>();
+        services.AddHostedService<PiezasPtLiberacionWorker>();
         return services;
     }
 
