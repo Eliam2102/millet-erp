@@ -42,7 +42,7 @@ public sealed class TerminalTarjetaTests
         (comision is null ? "" : $"<td>{comision}</td><td>{iva}</td><td>{neto}</td><td>{folio}</td>") + "</tr>";
 
     private static byte[] Html(bool conComision, params string[] renglones) => Encoding.Latin1.GetBytes(
-        "<html><body><table>" + string.Format(Encabezado, conComision ? ColumnasComision : "") +
+        "<html><body><table>" + Encabezado.Replace("{0}", conComision ? ColumnasComision : "", StringComparison.Ordinal) +
         string.Concat(renglones) + "</table></body></html>");
 
     [Fact]
