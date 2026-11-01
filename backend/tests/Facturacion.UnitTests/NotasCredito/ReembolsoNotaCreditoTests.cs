@@ -66,4 +66,87 @@ public sealed class ReembolsoNotaCreditoTests
         var act = () => nc.SolicitarReembolso(10m, Ahora);
         act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "NC_REEMBOLSO_MOTIVO_NO_PERMITIDO");
     }
+
+    // ---- F6.3: reembolso programado al emitir y estado reportado por Tesorería ----
+
+    private const string ClabeValida = "032180000118359719";
+
+    [Fact]
+    public void F63_programar_en_borrador_queda_pendiente_hasta_timbrar()
+    {
+        var nc = Bonificacion(timbrada: false);
+        nc.ProgramarReembolso(" BBVA ", ClabeValida, " Cliente SA ");
+
+        nc.ReembolsoAlTimbrar.Should().BeTrue();
+        nc.ReembolsoBanco.Should().Be("BBVA");
+        nc.ReembolsoTitular.Should().Be("Cliente SA");
+        nc.DebeSolicitarReembolsoProgramado.Should().BeFalse("aún no está timbrada");
+
+        nc.MarcarTimbradoEnProceso();
+        nc.MarcarTimbrado("44444444-4444-4444-4444-444444444444", null, null, null, Ahora, null, null);
+        nc.DebeSolicitarReembolsoProgramado.Should().BeTrue();
+        nc.SolicitarReembolso(nc.Total, Ahora);
+        nc.DebeSolicitarReembolsoProgramado.Should().BeFalse("ya se solicitó");
+        nc.EstadoReembolso.Should().Be(EstadoReembolsoNotaCredito.Solicitado);
+    }
+
+    [Fact]
+    public void F63b_sin_programar_no_hay_que_solicitar_reembolso()
+        => Bonificacion().DebeSolicitarReembolsoProgramado.Should().BeFalse();
+
+    [Fact]
+    public void F63_clabe_con_digito_verificador_invalido_se_rechaza()
+    {
+        var act = () => Bonificacion(timbrada: false).ProgramarReembolso("BBVA", "032180000118359710", "Cliente SA");
+        act.Should().Throw<BusinessRuleException>();
+    }
+
+    [Fact]
+    public void F63_programar_en_una_nc_ya_timbrada_lanza_YA_TIMBRADA()
+    {
+        var act = () => Bonificacion().ProgramarReembolso("BBVA", ClabeValida, "Cliente SA");
+        act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "NC_REEMBOLSO_YA_TIMBRADA");
+    }
+
+    [Fact]
+    public void F63_sin_banco_o_titular_lanza_DESTINO_INCOMPLETO()
+    {
+        var act = () => Bonificacion(timbrada: false).ProgramarReembolso(" ", ClabeValida, "Cliente SA");
+        act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "NC_REEMBOLSO_DESTINO_INCOMPLETO");
+    }
+
+    [Fact]
+    public void F63a_pagado_guarda_fecha_y_referencia_y_es_final()
+    {
+        var nc = Bonificacion();
+        nc.SolicitarReembolso(116m, Ahora);
+        nc.RegistrarEstadoReembolso(EstadoReembolsoNotaCredito.Autorizado, Ahora.AddDays(1), null, null, null);
+        nc.RegistrarEstadoReembolso(EstadoReembolsoNotaCredito.Pagado, Ahora.AddDays(2), new DateOnly(2026, 10, 19), " SPEI 123 ", null);
+
+        nc.EstadoReembolso.Should().Be(EstadoReembolsoNotaCredito.Pagado);
+        nc.ReembolsoPagadoEl.Should().Be(new DateOnly(2026, 10, 19));
+        nc.ReembolsoReferencia.Should().Be("SPEI 123");
+        nc.ReembolsoActualizadoEn.Should().Be(Ahora.AddDays(2));
+
+        // Un «Autorizado» que llega tarde (desorden o reintento) no retrocede el estado.
+        nc.RegistrarEstadoReembolso(EstadoReembolsoNotaCredito.Autorizado, Ahora.AddDays(3), null, null, null);
+        nc.EstadoReembolso.Should().Be(EstadoReembolsoNotaCredito.Pagado);
+    }
+
+    [Fact]
+    public void F63_rechazado_guarda_el_motivo()
+    {
+        var nc = Bonificacion();
+        nc.SolicitarReembolso(116m, Ahora);
+        nc.RegistrarEstadoReembolso(EstadoReembolsoNotaCredito.Rechazado, Ahora, null, null, " Cuenta no coincide ");
+        nc.EstadoReembolso.Should().Be(EstadoReembolsoNotaCredito.Rechazado);
+        nc.ReembolsoMotivoResolucion.Should().Be("Cuenta no coincide");
+    }
+
+    [Fact]
+    public void F63_estado_sin_solicitud_lanza_NO_SOLICITADO()
+    {
+        var act = () => Bonificacion().RegistrarEstadoReembolso(EstadoReembolsoNotaCredito.Pagado, Ahora, null, null, null);
+        act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "NC_REEMBOLSO_NO_SOLICITADO");
+    }
 }

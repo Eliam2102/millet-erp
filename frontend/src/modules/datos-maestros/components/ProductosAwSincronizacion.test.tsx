@@ -312,7 +312,8 @@ describe('detalle de producto A+W', () => {
     render(<ProductosAwLayout idActivo={null} />, { wrapper: createQueryWrapper() });
     await waitFor(() => expect(urls).toHaveLength(1));
     expect(new URL(urls[0]).searchParams.has('tipo')).toBe(false);
-    fireEvent.click(screen.getByRole('combobox', { name: 'Tipo' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Más filtros' }));
+    fireEvent.click(await screen.findByRole('combobox', { name: 'Tipo' }));
     for (const t of ['Vidrio plano', 'VTE', 'VLA', 'VC'])
       expect(await screen.findByRole('option', { name: t })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('option', { name: 'VTE' }));

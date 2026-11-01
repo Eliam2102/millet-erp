@@ -7,6 +7,7 @@ using Millet.Tesoreria.Domain.Depositos;
 using Millet.Tesoreria.Domain.Devoluciones;
 using Millet.Tesoreria.Domain.Movimientos;
 using Millet.Tesoreria.Domain.Ports;
+using Millet.Tesoreria.Application.Integration;
 using Millet.Tesoreria.Infrastructure.Persistence;
 
 namespace Millet.Tesoreria.Application.Devoluciones;
@@ -43,11 +44,13 @@ public sealed class PagarDevolucionClienteHandler
     private readonly ICurrentUserContext _currentUser;
     private readonly IPeriodoContablePort _periodoContable;
     private readonly IClock _clock;
+    private readonly IIntegrationEventPublisher _publisher;
 
     public PagarDevolucionClienteHandler(
         TesoreriaDbContext db, ICurrentEmpresaContext currentEmpresa, ICurrentUserContext currentUser,
-        IPeriodoContablePort periodoContable, IClock clock)
+        IPeriodoContablePort periodoContable, IClock clock, IIntegrationEventPublisher publisher)
     {
+        _publisher = publisher;
         _db = db; _currentEmpresa = currentEmpresa; _currentUser = currentUser;
         _periodoContable = periodoContable; _clock = clock;
     }
@@ -132,6 +135,9 @@ public sealed class PagarDevolucionClienteHandler
 
         _db.MovimientosBancarios.Add(egreso);
         d.MarcarPagada(egreso.Id, usuarioId, ahora);
+        // F6.3: la NC muestra «Pagado» con la fecha valor y la referencia del pago.
+        await ReembolsoNotaCreditoEventos.PublicarSiEsDeNotaCreditoAsync(_publisher, d, ahora, ct,
+            fechaPago: command.FechaValor, referencia: command.ReferenciaBancaria ?? $"DEV NC {d.NotaCreditoFolio}");
         await _db.SaveChangesAsync(ct);
 
         var disponible = d.ImporteMaximoOrigen - await DevolucionLectura.ComprometidoAsync(_db, d, ct);

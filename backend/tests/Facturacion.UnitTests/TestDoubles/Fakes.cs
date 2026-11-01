@@ -376,3 +376,21 @@ public sealed class FakeDatosImpresionCfdi(DatosImpresionCfdi? datos = null) : I
         IReadOnlyCollection<Guid> productoIds, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
 }
+
+/// <summary>F6.6: folios de transferencia que «emitió» Tesorería para las pruebas de Caja.</summary>
+public sealed class FakeFolioTransferenciaReadPort(params Millet.Facturacion.Domain.Ports.FolioTransferenciaCajaDto[] emitidos)
+    : Millet.Facturacion.Domain.Ports.IFolioTransferenciaReadPort
+{
+    public static Millet.Facturacion.Domain.Ports.FolioTransferenciaCajaDto Vigente(string folio, Guid clienteId, decimal importe) =>
+        new(Guid.NewGuid(), folio, clienteId, importe, "Vigente", null, null);
+
+    public Task<IReadOnlyList<Millet.Facturacion.Domain.Ports.FolioTransferenciaCajaDto>> ConsultarAsync(
+        IReadOnlyCollection<string> folios, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<Millet.Facturacion.Domain.Ports.FolioTransferenciaCajaDto>>(
+            emitidos.Where(f => folios.Contains(f.Folio, StringComparer.OrdinalIgnoreCase)).ToList());
+
+    public Task<IReadOnlyList<Millet.Facturacion.Domain.Ports.FolioTransferenciaCajaDto>> VigentesDelClienteAsync(
+        Guid clienteId, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<Millet.Facturacion.Domain.Ports.FolioTransferenciaCajaDto>>(
+            emitidos.Where(f => f.ClienteId == clienteId && f.Vigente).ToList());
+}

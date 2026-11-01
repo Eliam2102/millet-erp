@@ -2,12 +2,18 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Millet.Compras.Domain.Oc;
 using Millet.Compras.Domain.Ports.Blob;
 using Millet.Compras.Infrastructure;
 using Millet.Identidad.Domain;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.Correo;
+using Millet.SharedKernel.Infrastructure.Correo;
+using Millet.SharedKernel.Infrastructure.Persistence;
 
 namespace Millet.Api.IntegrationTests.Compras.Oc;
 
@@ -112,5 +118,51 @@ public partial class OrdenesCompraEndpointsTests
         var historial = await ReadJsonAsync(await client.GetAsync($"{EndpointBase}/{ocId}/envios"));
         Assert.False(historial.GetProperty("puedeEnviar").GetBoolean());
         Assert.Equal(0, historial.GetProperty("envios").GetArrayLength());
+    }
+
+    /// <summary>
+    /// 86e3txv0n: con transporte real (aquí en memoria) la OC sale con su PDF, la pantalla deja de
+    /// decir «simulado» y en el servidor de pruebas el correo del proveedor se redirige a los buzones
+    /// de prueba; el intento queda en core.correo_envio con el destinatario original.
+    /// </summary>
+    [Fact]
+    public async Task EnviosOc_Post_ConTransporteReal_EnModoPruebas_RedirigeYRegistra()
+    {
+        var (ocId, _) = await SembrarOcEnvioAsync();
+        var transporte = new CorreoSalienteEnMemoria();
+        await using var fabrica = _factory.WithWebHostBuilder(b => b.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<ICorreoSaliente>();
+            services.AddSingleton<ICorreoSaliente>(sp => new ModoPruebasCorreoSaliente(
+                new RegistroCorreoSaliente(transporte, "Memoria", sp.GetRequiredService<IServiceScopeFactory>(),
+                    sp.GetRequiredService<IClock>(), sp.GetRequiredService<ILogger<RegistroCorreoSaliente>>()),
+                new ModoPruebasCorreoOptions
+                {
+                    Activo = true, DominiosPermitidos = ["millet.example"], BuzonesPrueba = ["qa@example.test"],
+                }));
+        }));
+        var client = fabrica.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
+            await FakeLoginAsync(client, SuperAdminOid, "superadmin@dev.local", "Super Admin Dev"));
+
+        var post = await PostEnvioAsync(client, ocId, Guid.NewGuid().ToString("D"));
+
+        Assert.Equal(HttpStatusCode.OK, post.StatusCode);
+        Assert.Equal("aceptado", (await ReadJsonAsync(post)).GetProperty("resultado").GetString());
+        var historial = await ReadJsonAsync(await client.GetAsync($"{EndpointBase}/{ocId}/envios"));
+        Assert.False(historial.GetProperty("esSimulado").GetBoolean());
+
+        var correo = Assert.Single(transporte.Enviados);
+        Assert.Equal(["qa@example.test"], correo.Para);
+        Assert.StartsWith("[PRUEBAS] Orden de compra", correo.Asunto);
+        Assert.Contains(CorreoDemoProveedor, correo.Html);
+        Assert.Equal("application/pdf", Assert.Single(correo.AdjuntosOVacio).ContentType);
+
+        using var scope = fabrica.Services.CreateScope();
+        var fila = await scope.ServiceProvider.GetRequiredService<CoreDbContext>().CorreoEnvios.AsNoTracking()
+            .SingleAsync(e => e.Modulo == "compras" && e.ReferenciaId == ocId);
+        Assert.Equal("aceptado", fila.Estado);
+        Assert.Equal(CorreoDemoProveedor, fila.ParaOriginal);
+        Assert.Equal("qa@example.test", fila.Para);
     }
 }

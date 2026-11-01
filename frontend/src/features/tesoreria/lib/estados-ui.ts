@@ -3,6 +3,7 @@ import {
   ESTADO_CONCILIACION_LABELS,
   ESTADO_DEPOSITO_LABELS,
   ESTADO_DEVOLUCION_LABELS,
+  ESTADO_FOLIO_TRANSFERENCIA_LABELS,
   SENTIDO_MOVIMIENTO_LABELS,
 } from '../api/types';
 
@@ -31,6 +32,7 @@ export const ESTADOS_UI = {
     4: 'success',
     5: 'neutral',
   }),
+  folioTransferencia: mapa(ESTADO_FOLIO_TRANSFERENCIA_LABELS, { 1: 'info', 2: 'success', 3: 'neutral' }),
   repp: {
     pendiente: { tono: 'warning', texto: 'REPP pendiente' },
     timbrado: { tono: 'success', texto: 'REPP timbrado' },
@@ -62,7 +64,9 @@ export function estadoUi(entidad: EntidadEstado, estado: string | number): Estad
     }
   );
 }
-export function opcionesEstado(entidad: 'aplicacion' | 'conciliacion' | 'deposito' | 'devolucion') {
+export function opcionesEstado(
+  entidad: 'aplicacion' | 'conciliacion' | 'deposito' | 'devolucion' | 'folioTransferencia',
+) {
   const orden =
     entidad === 'devolucion' ? [1, 2, 4, 3, 5] : Object.keys(ESTADOS_UI[entidad]).map(Number);
   return orden.map((valor) => ({ valor, label: estadoUi(entidad, valor).texto }));

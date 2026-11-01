@@ -134,6 +134,44 @@ export interface DepositoFichaResponse {
   confirmadaEn: string;
 }
 
+/** F6.6 · mirror de `EstadoFolioTransferencia` (ck_folio_transferencia_estado). */
+export const EstadoFolioTransferencia = {
+  Vigente: 1,
+  Usado: 2,
+  Cancelado: 3,
+} as const;
+export type EstadoFolioTransferencia =
+  (typeof EstadoFolioTransferencia)[keyof typeof EstadoFolioTransferencia];
+
+export const ESTADO_FOLIO_TRANSFERENCIA_LABELS: Record<EstadoFolioTransferencia, string> = {
+  [EstadoFolioTransferencia.Vigente]: 'Vigente',
+  [EstadoFolioTransferencia.Usado]: 'Usado',
+  [EstadoFolioTransferencia.Cancelado]: 'Cancelado',
+};
+
+/** F6.6: folio de confirmación de transferencia que emite Ingresos para Caja. */
+export interface FolioTransferenciaResponse {
+  id: string;
+  folio: string;
+  estado: EstadoFolioTransferencia;
+  movimientoId: string;
+  fechaValor: string;
+  referenciaBancaria: string | null;
+  importeIngreso: number;
+  clienteId: string;
+  clienteClave: string | null;
+  clienteRazonSocial: string | null;
+  pedido: string | null;
+  importe: number;
+  emitidoPor: string;
+  emitidoEn: string;
+  cobroMostradorId: string | null;
+  usadoEn: string | null;
+  motivoCancelacion: string | null;
+  canceladoEn: string | null;
+  version: number;
+}
+
 /** Mirror de `EstadoDevolucionCliente` (ck_devolucion_cliente_estado). */
 export const EstadoDevolucionCliente = {
   Solicitada: 1,
@@ -543,6 +581,9 @@ export interface PasivoParaCorridaResponse {
   /** 86e3ke2d3: detenida por «documentación» (proveedor sin opinión de cumplimiento vigente). */
   detenida: boolean;
   motivoDetencion: string | null;
+  /** 86e3tactf: proveedor con bloqueo total; el servidor rechaza sus facturas en la corrida. */
+  proveedorBloqueado?: boolean;
+  motivoBloqueo?: string | null;
 }
 
 export interface CorridaProveedorResponse {
@@ -601,7 +642,7 @@ export interface CorridaResponse {
   version: number;
   proveedores: CorridaProveedorResponse[];
   lineas: CorridaLineaResponse[];
-  firmas: { usuarioId: string; roles: string; firmadaEn: string }[];
+  firmas: { usuarioId: string; usuarioNombre?: string | null; roles: string; firmadaEn: string }[];
   ejecutado: number;
   pendiente: number;
   oficioGeneradoEn: string | null;

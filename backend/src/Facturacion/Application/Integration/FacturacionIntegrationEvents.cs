@@ -125,7 +125,11 @@ public sealed record NotaCreditoReembolsoSolicitadoIntegrationEvent(
     string Moneda,
     Guid SucursalId,
     string Motivo,
-    Guid SolicitadoPor)
+    Guid SolicitadoPor,
+    // F6.3: cuenta destino capturada al emitir la NC (opcional; si falta, Tesorería la captura al editar la devolución).
+    string? DestinoBanco = null,
+    string? DestinoClabe = null,
+    string? DestinoTitular = null)
     : IntegrationEvent("facturacion.nota-credito.reembolso-solicitado.v1", EmpresaId, OcurridoEn);
 
 /// <summary>
@@ -223,8 +227,11 @@ public sealed record CajaFaltanteDevueltoIntegrationEvent(
     decimal Importe)
     : IntegrationEvent("facturacion.caja-faltante.devuelto.v1", EmpresaId, OcurridoEn);
 
-/// <summary>Forma de pago aplicada en un cobro de mostrador.</summary>
-public sealed record CobroFormaPagoAplicada(string FormaPago, decimal Importe);
+/// <summary>
+/// Forma de pago aplicada en un cobro de mostrador. <c>FolioTransferencia</c>
+/// solo en forma 03: Tesorería lo marca «Usado» (F6.6).
+/// </summary>
+public sealed record CobroFormaPagoAplicada(string FormaPago, decimal Importe, string? FolioTransferencia = null);
 
 // ---- Cobro de mostrador registrado (CAJAS-PR4, 12-cajas.md §10) ----
 public sealed record CobroMostradorRegistradoIntegrationEvent(

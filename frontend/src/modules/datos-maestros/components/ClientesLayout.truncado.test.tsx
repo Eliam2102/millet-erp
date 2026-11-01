@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -107,20 +107,61 @@ afterEach(() => {
   });
 });
 
-describe('ClientesLayout: aviso de lista truncada', () => {
-  it('muestra «Mostrando 200 de 205 clientes» cuando total supera los ítems recibidos', async () => {
+describe('ClientesLayout: contador y «Cargar más»', () => {
+  it('muestra «200 de 205 clientes» y el botón para cargar más cuando total supera los ítems', async () => {
     responderLista(205, 200);
     renderLayout();
 
-    const aviso = await screen.findByText(/Mostrando 200 de 205 clientes/);
-    expect(aviso).toHaveAttribute('role', 'status');
+    const contador = await screen.findByText(/^200 de 205 clientes$/);
+    expect(contador).toHaveAttribute('role', 'status');
+    expect(screen.getByRole('button', { name: 'Cargar más' })).toBeInTheDocument();
   });
 
-  it('no muestra el aviso cuando total es igual al número de ítems', async () => {
+  it('«Cargar más» pide la siguiente página con offset y la añade a la lista', async () => {
+    const offsets: (string | null)[] = [];
+    mswServer.use(
+      http.get('*/api/v1/datos-maestros/clientes', ({ request }) => {
+        const offset = new URL(request.url).searchParams.get('offset');
+        offsets.push(offset);
+        const segunda = offset === '200';
+        const items = segunda
+          ? [clienteMinimo(201), clienteMinimo(202)]
+          : Array.from({ length: 200 }, (_, i) => clienteMinimo(i + 1));
+        return HttpResponse.json({ items, total: 202, offset: Number(offset ?? 0), limit: 200 });
+      }),
+    );
+    renderLayout();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Cargar más' }));
+
+    expect(await screen.findByText('Cliente 202')).toBeInTheDocument();
+    expect(offsets).toEqual(['0', '200']);
+    expect(screen.getByText(/^202 de 202 clientes$/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Cargar más' })).not.toBeInTheDocument();
+  });
+
+  it('no ofrece «Cargar más» cuando total es igual al número de ítems', async () => {
     responderLista(2, 2);
     renderLayout();
 
     expect(await screen.findByText('Cliente 1')).toBeInTheDocument();
-    expect(screen.queryByText(/Mostrando/)).not.toBeInTheDocument();
+    expect(screen.getByText(/^2 de 2 clientes$/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Cargar más' })).not.toBeInTheDocument();
+  });
+
+  it('un solo control de estado (sin pestañas duplicadas) y el filtro de fiscales incompletos viaja al servidor', async () => {
+    const urls: string[] = [];
+    mswServer.use(
+      http.get('*/api/v1/datos-maestros/clientes', ({ request }) => {
+        urls.push(request.url);
+        return HttpResponse.json({ items: [], total: 0, offset: 0, limit: 200 });
+      }),
+    );
+    renderLayout();
+
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('combobox', { name: 'Estado' })).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Fiscales incompletos' }));
+    await waitFor(() => expect(urls.some((u) => u.includes('fiscalesIncompletos=true'))).toBe(true));
   });
 });

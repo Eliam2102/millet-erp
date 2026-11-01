@@ -312,7 +312,7 @@ public class SalidaUbicacionPorLineaTests : IClassFixture<WebApplicationFactory<
                     ctx.UserId, ctx.UserId, Prioridad.Normal, DateTimeOffset.UtcNow);
                 rq.AgregarLinea(ctx.LineaRqId, ctx.ArticuloId, CantidadInicial, "PZA", Money.Mxn(CostoRack));
                 rq.EnviarAAutorizacion(DateTimeOffset.UtcNow);
-                rq.RegistrarAutorizacion(Guid.NewGuid(), NivelAutorizacion.Nivel1, ctx.UserId, DateTimeOffset.UtcNow, RequiereNivel.SoloN1);
+                rq.RegistrarAutorizacion(Guid.NewGuid(), NivelAutorizacion.Nivel1, Guid.NewGuid(), DateTimeOffset.UtcNow, RequiereNivel.SoloN1);
                 rq.RegistrarCubrimiento([new CubrimientoLinea(ctx.LineaRqId, CantidadInicial, 0)], DateTimeOffset.UtcNow);
                 compras.Requisiciones.Add(rq);
                 await compras.SaveChangesAsync();

@@ -45,7 +45,7 @@ public sealed class TransicionesDevolucionHandlerTests
     public async Task Autorizar_con_el_mismo_usuario_lanza()
     {
         await using var db = Db(); var (_, d) = await Escenario(db);
-        var h = new AutorizarDevolucionHandler(db, new EmpresaContext(), new User(Solicitante), new Permisos(false), new Clientes(), new Clock());
+        var h = new AutorizarDevolucionHandler(db, new EmpresaContext(), new User(Solicitante), new Permisos(false), new Clientes(), new Clock(), new Publicador());
         var act = () => h.Handle(new(d.Id, d.Version), default);
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "DEV_MISMO_USUARIO");
     }
@@ -57,7 +57,7 @@ public sealed class TransicionesDevolucionHandlerTests
         var editor = Guid.NewGuid();
         d.Editar(Cliente, 100m, 600m, "x", Destino, editor, DateTimeOffset.UtcNow);
         await db.SaveChangesAsync();
-        var h = new AutorizarDevolucionHandler(db, new EmpresaContext(), new User(editor), new Permisos(false), new Clientes(), new Clock());
+        var h = new AutorizarDevolucionHandler(db, new EmpresaContext(), new User(editor), new Permisos(false), new Clientes(), new Clock(), new Publicador());
         var act = () => h.Handle(new(d.Id, d.Version), default);
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "DEV_MISMO_USUARIO");
     }
@@ -67,7 +67,7 @@ public sealed class TransicionesDevolucionHandlerTests
     {
         await using var db = Db(); var (_, d) = await Escenario(db);
         var otro = Guid.NewGuid();
-        var h = new AutorizarDevolucionHandler(db, new EmpresaContext(), new User(otro), new Permisos(false), new Clientes(), new Clock());
+        var h = new AutorizarDevolucionHandler(db, new EmpresaContext(), new User(otro), new Permisos(false), new Clientes(), new Clock(), new Publicador());
         var r = await h.Handle(new(d.Id, d.Version), default);
         r.Estado.Should().Be(EstadoDevolucionCliente.Autorizada);
         r.AutorizadaPor.Should().Be(otro);
@@ -77,7 +77,7 @@ public sealed class TransicionesDevolucionHandlerTests
     public async Task Version_vieja_lanza_concurrencia()
     {
         await using var db = Db(); var (_, d) = await Escenario(db);
-        var h = new AutorizarDevolucionHandler(db, new EmpresaContext(), new User(Guid.NewGuid()), new Permisos(false), new Clientes(), new Clock());
+        var h = new AutorizarDevolucionHandler(db, new EmpresaContext(), new User(Guid.NewGuid()), new Permisos(false), new Clientes(), new Clock(), new Publicador());
         var act = () => h.Handle(new(d.Id, d.Version + 1), default);
         await act.Should().ThrowAsync<ConcurrencyException>();
     }
@@ -86,7 +86,7 @@ public sealed class TransicionesDevolucionHandlerTests
     public async Task Cancelar_por_tercero_sin_permiso_lanza()
     {
         await using var db = Db(); var (_, d) = await Escenario(db);
-        var h = new CancelarDevolucionHandler(db, new EmpresaContext(), new User(Guid.NewGuid()), new Permisos(false), new Clientes(), new Clock());
+        var h = new CancelarDevolucionHandler(db, new EmpresaContext(), new User(Guid.NewGuid()), new Permisos(false), new Clientes(), new Clock(), new Publicador());
         var act = () => h.Handle(new(d.Id, "x", d.Version), default);
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "DEV_NO_ES_SOLICITANTE");
     }
@@ -95,6 +95,11 @@ public sealed class TransicionesDevolucionHandlerTests
     { public Guid? Current => Empresa; public bool IsBypassed => false; public IDisposable Bypass() => new Noop(); private sealed class Noop : IDisposable { public void Dispose() { } } }
     private sealed class User(Guid id) : ICurrentUserContext { public Guid? UserId => id; public string? UserName => "Prueba"; }
     private sealed class Clock : IClock { public DateTimeOffset UtcNow => Ahora; }
+    private sealed class Publicador : IIntegrationEventPublisher
+    {
+        public List<object> Publicados { get; } = [];
+        public Task PublishAsync(object integrationEvent, CancellationToken ct) { Publicados.Add(integrationEvent); return Task.CompletedTask; }
+    }
     private sealed class Permisos(bool permitir) : ICurrentUserPermissions { public ValueTask<bool> TieneAsync(string permiso, CancellationToken cancellationToken = default) => ValueTask.FromResult(permitir); }
     private sealed class Clientes : IClienteReadPort
     {

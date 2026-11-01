@@ -7,10 +7,15 @@ import { catalogosKeys } from '@/modules/catalogos/api/keys';
 import { RegistrarCobroCard } from './RegistrarCobroCard';
 
 const registrar = vi.hoisted(() => vi.fn());
+// F6.6: folios de transferencia vigentes que «emitió» Ingresos para el cliente.
+const folios = vi.hoisted(() => ({
+  data: [] as { id: string; folio: string; importe: number; pedido: string | null }[],
+}));
 vi.mock('@/lib/auth/useHasPermission', () => ({ useHasPermission: () => true }));
 vi.mock('@/features/facturacion/api/useCajaSesiones', () => ({
   useSesionActual: () => ({ data: { sesion: { estado: 'Abierta' }, diaAnteriorPendiente: false } }),
   useRegistrarCobro: () => ({ mutate: registrar, isPending: false }),
+  useFoliosTransferenciaCaja: () => ({ data: folios.data, isLoading: false, isError: false }),
 }));
 
 describe('CA1.10 · cobro en pantalla', () => {
@@ -185,5 +190,75 @@ describe('86e3tfdvt · últimos 4 dígitos de la tarjeta', () => {
       }),
       expect.anything(),
     );
+  });
+});
+
+describe('F6.6 · folio de transferencia de Ingresos', () => {
+  it('la transferencia exige elegir un folio vigente del cliente y lo envía con su importe', async () => {
+    mswServer.use(
+      http.get('*/api/v1/catalogos/formas-pago', () =>
+        HttpResponse.json([
+          { id: '01', claveSat: '01', descripcion: 'Efectivo', activa: true },
+          { id: '03', claveSat: '03', descripcion: 'Transferencia', activa: true },
+        ]),
+      ),
+    );
+    folios.data = [{ id: 'f1', folio: 'TR-000001', importe: 8000, pedido: 'PED-100' }];
+    registrar.mockClear();
+    render(
+      <RegistrarCobroCard comprobanteId="venta-tr" folio="DEMO-TR" total={8000} moneda="MXN" />,
+      { wrapper: createQueryWrapper() },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar cobro' }));
+    const cobrar = screen.getByRole('button', { name: 'Cobrar' });
+    await waitFor(() => expect(cobrar).toBeEnabled());
+
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Forma de pago 1' }), { key: 'ArrowDown' });
+    fireEvent.click(await screen.findByRole('option', { name: 'Transferencia' }));
+
+    // Sin folio no se puede aplicar (CA6.8).
+    const folio = await screen.findByRole('combobox', { name: 'Folio de transferencia 1' });
+    expect(folio).toHaveAttribute('aria-required', 'true');
+    expect(cobrar).toBeDisabled();
+    expect(cobrar.getAttribute('title')).toMatch(/folio de transferencia que emitió Ingresos/);
+
+    fireEvent.keyDown(folio, { key: 'ArrowDown' });
+    fireEvent.click(await screen.findByRole('option', { name: /TR-000001 · 8000.00 · PED-100/ }));
+    await waitFor(() => expect(cobrar).toBeEnabled());
+    fireEvent.click(cobrar);
+    expect(registrar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.objectContaining({
+          formasPago: [
+            expect.objectContaining({ formaPago: '03', importe: 8000, folioTransferencia: 'TR-000001' }),
+          ],
+        }),
+      }),
+      expect.anything(),
+    );
+  });
+
+  it('sin folios vigentes avisa que Ingresos debe emitirlo y no deja cobrar', async () => {
+    mswServer.use(
+      http.get('*/api/v1/catalogos/formas-pago', () =>
+        HttpResponse.json([
+          { id: '01', claveSat: '01', descripcion: 'Efectivo', activa: true },
+          { id: '03', claveSat: '03', descripcion: 'Transferencia', activa: true },
+        ]),
+      ),
+    );
+    folios.data = [];
+    render(
+      <RegistrarCobroCard comprobanteId="venta-sin" folio="DEMO-SIN" total={500} moneda="MXN" />,
+      { wrapper: createQueryWrapper() },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar cobro' }));
+    const cobrar = screen.getByRole('button', { name: 'Cobrar' });
+    await waitFor(() => expect(cobrar).toBeEnabled());
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Forma de pago 1' }), { key: 'ArrowDown' });
+    fireEvent.click(await screen.findByRole('option', { name: 'Transferencia' }));
+
+    expect(await screen.findByText(/pide a Ingresos que confirme el abono y emita el folio/)).toBeInTheDocument();
+    expect(cobrar).toBeDisabled();
   });
 });

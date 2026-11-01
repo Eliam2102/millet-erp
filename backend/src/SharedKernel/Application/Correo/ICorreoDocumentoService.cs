@@ -7,4 +7,6 @@ public interface ICorreoDocumentoService
     Task EnviarAsync(CorreoDocumento correo, CancellationToken cancellationToken);
 }
 
-public sealed record CorreoDocumento(Guid EmpresaId, string Destinatario, string Asunto, string NombreArchivo, byte[] Pdf);
+/// <summary><paramref name="Modulo"/> y <paramref name="ReferenciaId"/> identifican el envío en <c>core.correo_envio</c>.</summary>
+public sealed record CorreoDocumento(Guid EmpresaId, string Destinatario, string Asunto, string NombreArchivo, byte[] Pdf,
+    string Modulo = "documentos", Guid? ReferenciaId = null);

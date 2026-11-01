@@ -62,6 +62,18 @@ public sealed class BitacoraEnvioCorreo : BaseEntity, IPerteneceAEmpresa, IAudit
         UltimoError = null;
     }
 
+    /// <summary>
+    /// Reenvío manual de un envío que no ha salido (Pendiente o Fallido): vuelve
+    /// a Pendiente en la misma fila, para que el worker mande un solo correo
+    /// aunque ya se hubieran agotado los reintentos (86e3txv0n).
+    /// </summary>
+    public void Reencolar()
+    {
+        if (Estado == EstadoEnvioCorreo.Enviado)
+            throw new BusinessRuleException("ENVIO_YA_ENVIADO", "Este envío ya salió; un reenvío crea uno nuevo.");
+        Estado = EstadoEnvioCorreo.Pendiente;
+    }
+
     /// <summary>Registra un intento fallido (el worker reintenta hasta el máximo).</summary>
     public void MarcarFallido(string error)
     {

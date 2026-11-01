@@ -180,6 +180,13 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("monto_cobrado");
 
+                    b.Property<decimal>("MontoDevuelto")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("monto_devuelto");
+
                     b.Property<long?>("ObraId")
                         .HasColumnType("bigint")
                         .HasColumnName("obra_id");
@@ -1069,6 +1076,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
 
+                    b.Property<string>("FolioTransferencia")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("folio_transferencia");
+
                     b.Property<string>("FormaPago")
                         .IsRequired()
                         .HasMaxLength(2)
@@ -1108,6 +1120,10 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CobroMostradorId")
                         .HasDatabaseName("ix_cobro_forma_pago_cobro");
+
+                    b.HasIndex("FolioTransferencia")
+                        .HasDatabaseName("ix_cobro_forma_pago_folio_transferencia")
+                        .HasFilter("folio_transferencia IS NOT NULL");
 
                     b.ToTable("cobro_mostrador_forma_pago", "facturacion");
                 });
@@ -3700,6 +3716,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("descripcion");
 
+                    b.Property<string>("EstadoReembolso")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("estado_reembolso");
+
                     b.Property<Guid?>("FacturaRelacionadaId")
                         .HasColumnType("uuid")
                         .HasColumnName("factura_relacionada_id");
@@ -3718,9 +3739,48 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("smallint")
                         .HasColumnName("motivo");
 
+                    b.Property<DateTimeOffset?>("ReembolsoActualizadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reembolso_actualizado_en");
+
+                    b.Property<bool>("ReembolsoAlTimbrar")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("reembolso_al_timbrar");
+
+                    b.Property<string>("ReembolsoBanco")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("reembolso_banco");
+
+                    b.Property<string>("ReembolsoClabe")
+                        .HasMaxLength(18)
+                        .HasColumnType("character varying(18)")
+                        .HasColumnName("reembolso_clabe");
+
+                    b.Property<string>("ReembolsoMotivoResolucion")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("reembolso_motivo_resolucion");
+
+                    b.Property<DateOnly?>("ReembolsoPagadoEl")
+                        .HasColumnType("date")
+                        .HasColumnName("reembolso_pagado_el");
+
+                    b.Property<string>("ReembolsoReferencia")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("reembolso_referencia");
+
                     b.Property<DateTimeOffset?>("ReembolsoSolicitadoEn")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("reembolso_solicitado_en");
+
+                    b.Property<string>("ReembolsoTitular")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("reembolso_titular");
 
                     b.HasIndex("AnticipoOrigenId")
                         .HasDatabaseName("ix_nota_credito_anticipo")

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
@@ -207,5 +207,38 @@ describe('<ProveedorSelector>', () => {
 
     expect(await screen.findByText('Aceros del Norte SA')).toBeInTheDocument();
     expect(qRecibido).toBe(texto);
+  });
+
+  it('con deshabilitarBloqueados, el proveedor bloqueado muestra "Bloqueado" y no se puede elegir', async () => {
+    const base = {
+      nombreComercial: null,
+      tipoPersona: TipoPersonaProveedor.Moral,
+      condicionesPagoDias: 30,
+      monedaPreferidaId: null,
+      estatus: EstatusCatalogo.Activo,
+    };
+    mswServer.use(
+      http.get('*/api/v1/catalogos/proveedores', () =>
+        HttpResponse.json({
+          items: [
+            { ...base, id: 'p-ok', clave: 'P-OK', razonSocial: 'Libre SA', rfc: 'LIB900101AB1' },
+            { ...base, id: 'p-bloq', clave: 'P-BLOQ', razonSocial: 'Vetado SA', rfc: 'VET900101AB1', bloqueado: true, motivoBloqueo: 'Fraude' },
+          ],
+          offset: 0,
+          limit: 50,
+          total: 2,
+        }),
+      ),
+    );
+    const onChange = vi.fn();
+    render(<ProveedorSelector value={null} onChange={onChange} deshabilitarBloqueados />, {
+      wrapper: createQueryWrapper(),
+    });
+    fireEvent.click(screen.getByRole('combobox'));
+    expect(await screen.findByText('Bloqueado: Fraude')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Vetado SA'));
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText('Libre SA'));
+    expect(onChange).toHaveBeenCalledWith('p-ok');
   });
 });

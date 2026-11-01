@@ -392,7 +392,7 @@
                     "Properties": {
                       "FilterType": "Sql",
                       "SqlFilter": {
-                        "SqlExpression": "user.EventType IN ('facturacion.caja-sesion.cerrada.v1', 'facturacion.recibo-pago.timbrado.v1')"
+                        "SqlExpression": "user.EventType IN ('facturacion.caja-sesion.cerrada.v1', 'facturacion.recibo-pago.timbrado.v1', 'facturacion.nota-credito.reembolso-solicitado.v1', 'facturacion.caja-faltante.devuelto.v1')"
                       }
                     }
                   }
@@ -517,7 +517,7 @@
                     "Properties": {
                       "FilterType": "Sql",
                       "SqlFilter": {
-                        "SqlExpression": "user.EventType IN ('tesoreria.pago-cliente.confirmado.v1')"
+                        "SqlExpression": "user.EventType IN ('tesoreria.pago-cliente.confirmado.v1', 'tesoreria.reembolso-nota-credito.actualizado.v1')"
                       }
                     }
                   }

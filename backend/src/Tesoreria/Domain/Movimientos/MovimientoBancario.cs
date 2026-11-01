@@ -179,7 +179,7 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
             Moneda = cuenta.Moneda,
             FechaValor = fechaValor,
             ReferenciaBancaria = NormalizarReferencia(referenciaBancaria),
-            ConceptoId = conceptoId,
+            ConceptoId = conceptoId ?? Cuentas.ConceptoMovimiento.PagoProveedorId,
             // Nace Aplicado: las N AplicacionPagoProveedor se crean en la
             // misma transacción cubriendo el monto completo. Esto además lo
             // deja fuera del índice parcial RN-2 (que solo captura egresos
@@ -389,7 +389,7 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
             Moneda = cuenta.Moneda,
             FechaValor = fechaValor,
             ReferenciaBancaria = NormalizarReferencia(referenciaBancaria),
-            ConceptoId = conceptoId,
+            ConceptoId = conceptoId ?? Cuentas.ConceptoMovimiento.PagoProveedorId,
             EstadoAplicacion = EstadoAplicacionMovimiento.NoAplicado,
             EstadoConciliacion = EstadoConciliacionMovimiento.NoConciliado,
             BeneficiarioTipo = proveedorId is null

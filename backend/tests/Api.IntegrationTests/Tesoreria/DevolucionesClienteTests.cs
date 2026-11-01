@@ -155,6 +155,61 @@ public sealed class DevolucionesClienteTests(WebApplicationFactory<Program> fact
     }
 
     [Fact]
+    public async Task F63_reembolso_con_cuenta_destino_se_autoriza_sin_editar_y_al_pagar_avisa_a_facturacion_con_fecha_y_referencia()
+    {
+        await using var app = AppConPeriodoAbierto();
+        var (client, _) = await Login(app);
+        var ncId = Guid.NewGuid(); _notasCredito.Add(ncId);
+        var eventoId = Guid.NewGuid(); _eventos.Add(eventoId);
+        // F6.3: la cuenta destino viene de la emisión de la NC.
+        var evento = new NotaCreditoReembolsoSolicitadoIntegrationEvent(Empresa, DateTimeOffset.UtcNow, ncId, "NC-F63", Guid.NewGuid().ToString(),
+            Guid.NewGuid(), "AAA010101AAA", 300m, 300m, "MXN", TestComprasFixtures.SucursalMid, "Devolución de dinero de la NC", Guid.NewGuid(),
+            DestinoBanco: "BBVA", DestinoClabe: Clabe, DestinoTitular: "Cliente SA");
+        var payload = JsonSerializer.Deserialize<NotaCreditoReembolsoSolicitadoPayload>(
+            JsonSerializer.Serialize(evento, evento.GetType()), Insensible)!;
+        using (var scope = factory.Services.CreateScope())
+        {
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            await scope.ServiceProvider.GetRequiredService<IMediator>().Send(new ProyectarReembolsoNotaCreditoCommand(eventoId, payload));
+        }
+        Guid id;
+        using (var scope = factory.Services.CreateScope())
+        {
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var d = await scope.ServiceProvider.GetRequiredService<TesoreriaDbContext>().DevolucionesCliente.SingleAsync(x => x.NotaCreditoId == ncId);
+            d.DestinoClabe.Should().Be(Clabe, "la cuenta destino capturada al emitir llega con la solicitud");
+            id = d.Id;
+        }
+
+        (await Post(client, $"{Tes}/devoluciones/{id}/autorizar", new { }, await Version(client, id))).StatusCode.Should().Be(HttpStatusCode.OK);
+        var cuenta = await Deposito();
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+        var pagada = await Post(client, $"{Tes}/devoluciones/{id}/pagar",
+            new { fechaValor = hoy, cuentaBancariaId = cuenta.CuentaBancariaId, referenciaBancaria = "SPEI F63", fondosVerificados = true },
+            await Version(client, id));
+        pagada.StatusCode.Should().Be(HttpStatusCode.OK, await pagada.Content.ReadAsStringAsync());
+
+        using var verificar = factory.Services.CreateScope();
+        using var empresa = verificar.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var tes = verificar.ServiceProvider.GetRequiredService<TesoreriaDbContext>();
+        // Payload es jsonb: se filtra en memoria.
+        var avisos = (await tes.OutboxEntries.Where(e => e.EventType == "tesoreria.reembolso-nota-credito.actualizado.v1").ToListAsync())
+            .Where(e => e.Payload.Contains(ncId.ToString())).ToList();
+        try
+        {
+            avisos.Should().HaveCount(2, "uno al autorizar y otro al pagar");
+            avisos.Should().ContainSingle(e => e.Payload.Contains("\"Autorizada\""));
+            var pago = avisos.Single(e => e.Payload.Contains("\"Pagada\""));
+            pago.Payload.Should().Contain("SPEI F63").And.Contain(hoy.ToString("yyyy-MM-dd"));
+        }
+        finally
+        {
+            var ids = avisos.Select(e => e.Id).ToList();
+            await tes.OutboxEntries.Where(e => ids.Contains(e.Id)).ExecuteDeleteAsync();
+        }
+    }
+
+    [Fact]
     public async Task CA6_17_reembolso_de_nc_llega_a_tesoreria_una_sola_vez_y_se_paga_sin_contramovimiento()
     {
         await using var app = AppConPeriodoAbierto();

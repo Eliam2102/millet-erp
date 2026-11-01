@@ -627,3 +627,17 @@ describe('accionTransmitirAAutorizacion con revisión previa', () => {
     expect(accionTransmitirAAutorizacion(borrador, [], pend).visible).toBe(false);
   });
 });
+
+describe('OC: quien la capturó no puede aprobarla (OC_AUTOAUTORIZACION)', () => {
+  it.each([
+    [EstadoOrdenCompra.EnAutorizacionJefeCompras, accionAprobarNivel1],
+    [EstadoOrdenCompra.EnAutorizacionDireccion, accionAprobarNivel2],
+  ] as const)('%s: deshabilitada con motivo para el comprador titular', (estado, accion) => {
+    const oc = makeOc({ estado, compradorTitularId: 'u-comprador' });
+    const autor = accion(oc, Object.values(PermisosCanonicos), 'u-comprador');
+    expect(autor.visible).toBe(true);
+    expect(autor.habilitada).toBe(false);
+    expect(autor.motivoDeshabilitada).toBeTruthy();
+    expect(accion(oc, Object.values(PermisosCanonicos), 'otro').habilitada).toBe(true);
+  });
+});

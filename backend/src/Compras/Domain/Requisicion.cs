@@ -494,6 +494,14 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
                 $"Solo se puede autorizar en estado EnAutorizacion (actual: {Estado}).");
         }
 
+        // Misma regla que la OC (OC_AUTOAUTORIZACION): quien creó la RQ no la autoriza.
+        if (usuarioId == CreadorId)
+        {
+            throw new BusinessRuleException(
+                "REQUISICION_AUTOAUTORIZACION",
+                "Quien capturó la requisición no puede autorizarla en ningún nivel.");
+        }
+
         if (_autorizaciones.Any(a => a.Nivel == nivel))
         {
             throw new BusinessRuleException(

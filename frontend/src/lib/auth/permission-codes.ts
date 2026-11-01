@@ -210,6 +210,8 @@ export const PermisosCanonicos = {
   AdminSucursalesPuestosGestionar: 'admin.sucursales.puestos-gestionar',
   AdminSucursalesUsuariosGestionar: 'admin.sucursales.usuarios-gestionar',
   AdminAuditoriaLeer: 'admin.auditoria.leer',
+  // ADM-BIT: exportar la bitácora, separado de consultarla.
+  AdminAuditoriaExportar: 'admin.auditoria.exportar',
   // ADM-FE-PR1 (doc 10-catalogo-puestos-empleados): master de puestos y
   // empleados — habilitador de reglas de viáticos por puesto.
   AdminPuestosGestionar: 'admin.puestos.gestionar',
@@ -372,6 +374,8 @@ export const PermisosCanonicos = {
     'cuentas_por_cobrar.aplicacion-pago.proponer',
   CuentasPorCobrarAplicacionPagoConfirmar:
     'cuentas_por_cobrar.aplicacion-pago.confirmar',
+  // C7.2 (86e3kdxy6): administrar reglas de liberación por serie.
+  CuentasPorCobrarReglasSerieGestionar: 'cuentas_por_cobrar.reglas-serie.gestionar',
 
   // Tesorería / Bancos — mirror manual de backend PermisosCanonicos.cs
   // §"Tesorería" (namespace GUID 0000000b-*). Los 19 permisos se
@@ -405,6 +409,9 @@ export const PermisosCanonicos = {
   TesoreriaDevolucionesAutorizar: 'tesoreria.devoluciones.autorizar',
   TesoreriaDevolucionesPagar: 'tesoreria.devoluciones.pagar',
   TesoreriaDiferenciasCorteAutorizar: 'tesoreria.diferencias-corte.autorizar',
+  // F6.6: Ingresos emite y cancela folios de confirmación de transferencias para Caja.
+  TesoreriaFoliosTransferenciaEmitir: 'tesoreria.folios-transferencia.emitir',
+  TesoreriaFoliosTransferenciaCancelar: 'tesoreria.folios-transferencia.cancelar',
 
   // Facturación — CFDI 4.0 emitido. Mirror manual de backend
   // PermisosCanonicos.cs §"Facturación" (namespace GUID 00000009-*). 24

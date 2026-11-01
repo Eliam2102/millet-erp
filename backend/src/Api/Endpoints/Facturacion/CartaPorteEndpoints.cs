@@ -9,6 +9,7 @@ using Millet.Facturacion.Application.CartaPorte.EmitirCartaPorte;
 using Millet.Facturacion.Application.CartaPorte.Queries;
 using Millet.Facturacion.Application.Comprobantes.Queries;
 using Millet.Facturacion.Domain.Comprobantes;
+using Millet.Facturacion.Domain.Ports;
 using Millet.Identidad.Domain;
 
 namespace Millet.Api.Endpoints.Facturacion;
@@ -68,6 +69,19 @@ public static class CartaPorteEndpoints
         .Produces(StatusCodes.Status200OK, contentType: "application/xml")
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // GET: PDF de la Carta Porte con el diseño de la factura de Millet (86e3tfdx0).
+        group.MapGet("/{id:guid}/pdf", async (Guid id, IMediator mediator, CancellationToken ct) =>
+        {
+            var pdf = await mediator.Send(
+                new ComprobantePdfQuery(id, FormatoPdfFactura.Bilingue, FamiliaComprobante.CartaPorte), ct);
+            return Results.File(pdf.Contenido, pdf.ContentType, pdf.NombreSugerido);
+        })
+        .RequireAuthorization(leer)
+        .WithName("CartaPortePdf")
+        .WithSummary("Genera el PDF de una Carta Porte con el formato de Millet")
+        .Produces(StatusCodes.Status200OK, contentType: "application/pdf")
+        .ProducesProblem(StatusCodes.Status404NotFound);
 
         // POST: emite una Carta Porte (T o I).
         group.MapPost("/", async (EmitirCartaPorteCommand command, IMediator mediator, CancellationToken ct) =>

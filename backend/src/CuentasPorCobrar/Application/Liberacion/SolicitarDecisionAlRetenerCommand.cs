@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.CuentasPorCobrar.Domain.Ports.Facturacion;
 using Millet.CuentasPorCobrar.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 
@@ -12,7 +13,8 @@ namespace Millet.CuentasPorCobrar.Application.Liberacion;
 /// </summary>
 public sealed record SolicitarDecisionAlRetenerCommand(Guid EmpresaId, string PedidoRef, Guid ClienteId, string Moneda, decimal MontoPedido) : IRequest<bool>;
 
-public sealed class SolicitarDecisionAlRetenerHandler(CuentasPorCobrarDbContext db, IIntegrationEventPublisher eventos, IClock clock)
+public sealed class SolicitarDecisionAlRetenerHandler(
+    CuentasPorCobrarDbContext db, IIntegrationEventPublisher eventos, IClock clock, IFacturacionPedidosSinFacturarReadPort pedidos)
     : IRequestHandler<SolicitarDecisionAlRetenerCommand, bool>
 {
     /// <summary>Quien firma las decisiones automáticas (DecididoPor no admite vacío).</summary>
@@ -26,7 +28,7 @@ public sealed class SolicitarDecisionAlRetenerHandler(CuentasPorCobrarDbContext 
         if (await db.DecisionesLiberacion.AnyAsync(d => d.EmpresaId == c.EmpresaId && d.PedidoRef == pedidoRef, cancellationToken)) return false;
 
         var sistema = new ContextoSistema(c.EmpresaId);
-        await new DecidirLiberacionHandler(db, eventos, sistema, sistema, clock)
+        await new DecidirLiberacionHandler(db, eventos, sistema, sistema, clock, pedidos)
             .Handle(new DecidirLiberacionCommand(pedidoRef, c.ClienteId, c.Moneda, c.MontoPedido, null), cancellationToken);
         return true;
     }

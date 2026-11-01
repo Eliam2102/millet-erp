@@ -104,3 +104,24 @@ export function textoVoucher(
   if (!tarjetaUltimos4) return referencia ?? null;
   return referencia ? `${referencia} · **** ${tarjetaUltimos4}` : `**** ${tarjetaUltimos4}`;
 }
+
+/** F6.6 (R16): c_FormaPago 03 · transferencia; en caja solo con folio de Ingresos. */
+export const FORMA_PAGO_TRANSFERENCIA = '03';
+
+export const MENSAJE_FOLIO_TRANSFERENCIA =
+  'Elige el folio de transferencia que emitió Ingresos en cada pago por transferencia.';
+
+export function esTransferencia(clave: string): boolean {
+  return clave === FORMA_PAGO_TRANSFERENCIA;
+}
+
+/**
+ * true si alguna transferencia viene sin folio: Caja solo aplica el pago con el
+ * folio de confirmación de Ingresos (CA6.8) y el backend lo rechaza
+ * (COBRO_TRANSFERENCIA_SIN_FOLIO).
+ */
+export function faltaFolioTransferencia(
+  formas: readonly { formaPago: string; folioTransferencia?: string | null }[],
+): boolean {
+  return formas.some((f) => esTransferencia(f.formaPago) && (f.folioTransferencia ?? '').trim() === '');
+}

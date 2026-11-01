@@ -26,6 +26,7 @@ import {
   Inbox,
   Layers,
   LineChart,
+  ListChecks,
   ListTree,
   Lock,
   MapPin,
@@ -590,6 +591,17 @@ const moduloTesoreria: NavModulo = {
           permission: PermisosCanonicos.TesoreriaDiferenciasCorteAutorizar,
         },
         {
+          label: 'Folios de transferencia',
+          description:
+            'Confirmaciones de Ingresos para que Caja aplique pagos por transferencia (forma 03).',
+          to: '/tesoreria/folios-transferencia',
+          icon: ReceiptText,
+          permissionsAny: [
+            PermisosCanonicos.TesoreriaMovimientosVer,
+            PermisosCanonicos.TesoreriaFoliosTransferenciaEmitir,
+          ],
+        },
+        {
           label: 'Movimientos bancarios',
           description:
             'Libro de movimientos por cuenta: ingresos, egresos, aplicaciones y contramovimientos.',
@@ -715,6 +727,14 @@ const moduloCuentasPorCobrar: NavModulo = {
             PermisosCanonicos.CuentasPorCobrarLiberacionDecidir,
             PermisosCanonicos.CuentasPorCobrarLiberacionOverride,
           ],
+        },
+        {
+          label: 'Reglas de serie',
+          description:
+            'Series del pedido A+W que siempre liberan, nunca liberan (solo con autorización) o evalúan crédito.',
+          to: '/cxc/reglas-serie',
+          icon: ListChecks,
+          permission: PermisosCanonicos.CuentasPorCobrarReglasSerieGestionar,
         },
         {
           label: 'Cobranza',

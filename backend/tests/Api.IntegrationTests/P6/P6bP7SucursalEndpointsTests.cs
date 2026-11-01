@@ -260,7 +260,7 @@ public sealed partial class P6SucursalEndpointsTests
                 var lineaRq = Guid.NewGuid(); var lineaOc = Guid.NewGuid();
                 rq.AgregarLinea(lineaRq, art.Id, 10, "PZA", Money.Mxn(10));
                 rq.EnviarAAutorizacion(DateTimeOffset.UtcNow);
-                rq.RegistrarAutorizacion(Guid.NewGuid(), NivelAutorizacion.Nivel1, datos.UsuarioId, DateTimeOffset.UtcNow, RequiereNivel.SoloN1);
+                rq.RegistrarAutorizacion(Guid.NewGuid(), NivelAutorizacion.Nivel1, Guid.NewGuid(), DateTimeOffset.UtcNow, RequiereNivel.SoloN1);
                 rq.RegistrarCubrimiento([new CubrimientoLinea(lineaRq, 10, 0)], DateTimeOffset.UtcNow);
                 // Vincula el árbol RQ → OC sin ejecutar ni alterar la bifurcación P7.
                 oc.AgregarLineaDesdeRequisicion(lineaOc, art.Id, 10, "PZA", 10, rq.DepartamentoId, rq.Id, lineaRq);

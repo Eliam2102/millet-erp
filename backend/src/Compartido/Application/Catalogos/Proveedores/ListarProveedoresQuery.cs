@@ -117,7 +117,8 @@ public sealed class ListarProveedoresHandler
         if (query.SoloExpedienteIncompleto) resumen = resumen.Where(x => x.Pendientes > 0);
         var total = await resumen.CountAsync(cancellationToken);
         var items = await resumen
-            .OrderBy(x => x.Proveedor.Clave)
+            .OrderBy(x => x.Pendientes > 0)
+            .LuegoPorClaveNatural(x => x.Proveedor.Clave)
             .Skip(offset).Take(limit)
             .Select(x => new ProveedorItem(
                 x.Proveedor.Id, x.Proveedor.Clave, x.Proveedor.RazonSocial, x.Proveedor.NombreComercial, x.Proveedor.Rfc,

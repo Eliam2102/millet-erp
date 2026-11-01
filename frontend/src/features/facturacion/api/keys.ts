@@ -169,6 +169,9 @@ export const facturacionKeys = {
     [...facturacionKeys.sesiones(), 'list', { cajaId }] as const,
   cobros: (sesionId: string) =>
     [...facturacionKeys.cajas(), 'cobros', { sesionId }] as const,
+  // F6.6: folios de transferencia vigentes del cliente del comprobante.
+  foliosTransferencia: (comprobanteId: string) =>
+    [...facturacionKeys.cajas(), 'folios-transferencia', { comprobanteId }] as const,
 
   // Liquidación de ruta + ajustes (CAJAS-PR7)
   cobrables: (search: string | null) =>

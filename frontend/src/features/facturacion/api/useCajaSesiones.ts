@@ -12,6 +12,7 @@ import type {
   CobroMostradorResponse,
   ComprobanteCobrableItem,
   CorteCajaResponse,
+  FolioTransferenciaCaja,
   LiquidacionRutaCobroInput,
   LiquidacionRutaResponse,
   SesionActualResponse,
@@ -222,6 +223,25 @@ export function useListarCobros(sesionId: string | null | undefined) {
  * abierta del cajero ([Decisión 12-E]: emitir y cobrar son dos comandos).
  * `origen` 1 = Mostrador, 2 = LiquidacionRuta ([12-7]).
  */
+/**
+ * F6.6: folios de transferencia vigentes (emitidos por Ingresos) del cliente
+ * del comprobante; el cobro con forma 03 elige uno de aquí.
+ */
+export function useFoliosTransferenciaCaja(comprobanteId: string, opts?: { enabled?: boolean }) {
+  return useQuery<FolioTransferenciaCaja[]>({
+    queryKey: facturacionKeys.foliosTransferencia(comprobanteId),
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<FolioTransferenciaCaja[]>(
+        `${COBROS}/folios-transferencia?comprobanteId=${encodeURIComponent(comprobanteId)}`,
+        { signal },
+      );
+      return data;
+    },
+    staleTime: 0,
+    enabled: opts?.enabled ?? true,
+  });
+}
+
 export function useRegistrarCobro() {
   const invalidar = useInvalidarSesion();
   const queryClient = useQueryClient();

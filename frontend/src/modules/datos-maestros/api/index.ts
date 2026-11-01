@@ -9,3 +9,4 @@ export * from '@/modules/datos-maestros/api/articulos';
 export * from '@/modules/datos-maestros/api/clientes';
 export * from '@/modules/datos-maestros/api/productos-aw';
 export * from '@/modules/datos-maestros/api/expediente-tipos';
+export * from '@/modules/datos-maestros/api/lista-infinita';

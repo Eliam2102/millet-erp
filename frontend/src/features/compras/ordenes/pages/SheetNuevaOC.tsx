@@ -482,6 +482,7 @@ export function SheetNuevaOC({
                 {(c) => (
                   <ProveedorSelector
                     triggerProps={c}
+                    deshabilitarBloqueados
                     value={field.value ?? null}
                     onChange={(v) => field.onChange(v ?? '')}
                   />

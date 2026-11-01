@@ -6,6 +6,7 @@ import { RegistrarCobroCard } from './RegistrarCobroCard';
 const useSesionActual = vi.hoisted(() => vi.fn(() => ({ data: undefined })));
 vi.mock('@/lib/auth/useHasPermission', () => ({ useHasPermission: () => false }));
 vi.mock('@/features/facturacion/api/useCajaSesiones', () => ({
+  useFoliosTransferenciaCaja: () => ({ data: [], isLoading: false, isError: false }),
   useSesionActual,
   useRegistrarCobro: () => ({ mutate: vi.fn(), isPending: false }),
 }));

@@ -36,6 +36,10 @@ public sealed class PagoACuentaDomainTests
     }
 
     [Fact]
+    public void RegistrarPagoACuenta_sin_concepto_usa_Pago_a_proveedor() =>
+        PagoACuenta(Guid.NewGuid()).ConceptoId.Should().Be(ConceptoMovimiento.PagoProveedorId);
+
+    [Fact]
     public void RegistrarPagoACuenta_sin_proveedor_se_rechaza()
     {
         var act = () => PagoACuenta(proveedorId: null);

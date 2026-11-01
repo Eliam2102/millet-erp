@@ -29,6 +29,8 @@ public sealed class AnticipoConfiguration : IEntityTypeConfiguration<Anticipo>
 
         builder.Property(e => e.MontoCobrado).HasPrecision(18, 2).IsRequired();
         builder.Property(e => e.MontoAmortizado).HasPrecision(18, 2).IsRequired();
+        // F6.3 · CA6.17: devuelto en dinero por NC de devolución de anticipo.
+        builder.Property(e => e.MontoDevuelto).HasPrecision(18, 2).IsRequired().HasDefaultValue(0m);
         builder.Property(e => e.Saldo).HasPrecision(18, 2).IsRequired();
 
         builder.Property(e => e.Estado).HasConversion<short>().IsRequired();

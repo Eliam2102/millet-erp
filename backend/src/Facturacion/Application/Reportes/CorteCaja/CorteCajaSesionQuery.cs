@@ -527,6 +527,7 @@ public sealed class CorteCajaSesionHandler : IRequestHandler<CorteCajaSesionQuer
         MotivoNotaCredito.Bonificacion => "Bonificación",
         MotivoNotaCredito.Devolucion => "Devolución",
         MotivoNotaCredito.Ranura => "Ranura",
+        MotivoNotaCredito.DevolucionAnticipo => "Devolución de anticipo",
         _ => motivo.ToString(),
     };
 

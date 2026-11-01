@@ -56,7 +56,7 @@ public sealed class ConceptoMovimientoConfiguration : IEntityTypeConfiguration<C
     /// </summary>
     public static readonly IReadOnlyList<(Guid Id, string Nombre, ClasificacionFlujo Clasificacion)> SeedConceptos =
     [
-        (Guid.Parse("0000000b-1001-0000-0000-000000000001"), "Pago a proveedor",              ClasificacionFlujo.Operacion),
+        (ConceptoMovimiento.PagoProveedorId, "Pago a proveedor",              ClasificacionFlujo.Operacion),
         (Guid.Parse("0000000b-1001-0000-0000-000000000002"), "Cobro de cliente",              ClasificacionFlujo.Operacion),
         (Guid.Parse("0000000b-1001-0000-0000-000000000003"), "Depósito de caja",              ClasificacionFlujo.Operacion),
         (Guid.Parse("0000000b-1001-0000-0000-000000000004"), "Comisión bancaria",             ClasificacionFlujo.Operacion),

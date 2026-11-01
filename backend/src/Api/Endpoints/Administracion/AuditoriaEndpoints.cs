@@ -148,10 +148,12 @@ public static class AuditoriaEndpoints
             var archivo = await mediator.Send(new ExportarBitacoraCommand(query), cancellationToken);
             return Results.File(archivo, "text/csv; charset=utf-8", "bitacora.csv");
         })
+        // ADM-BIT: exportar exige su propio permiso, además de poder consultar.
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AdminAuditoriaLeer)
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AdminAuditoriaExportar)
         .WithTags("Administracion")
         .WithName("ExportarAuditoria")
-        .WithSummary("Consultar la bitácora consolidada (rango obligatorio, max 90 días, filtros enriquecidos)")
+        .WithSummary("Exportar la bitácora a CSV con renglón de control (permiso propio de exportar)")
         .Produces(StatusCodes.Status200OK, contentType: "text/csv")
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status401Unauthorized)

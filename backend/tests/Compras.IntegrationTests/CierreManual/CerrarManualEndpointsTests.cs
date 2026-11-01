@@ -1,3 +1,5 @@
+using Millet.Compras.IntegrationTests.Autorizacion;
+using Microsoft.AspNetCore.Mvc.Testing;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -66,7 +68,7 @@ public class CerrarManualEndpointsTests : IClassFixture<StubsWebApplicationFacto
     public async Task CerrarManual_MotivoNoAplica_Retorna_422()
     {
         var client = await CreateSuperAdminClientAsync();
-        var rqId = await CrearTransmitirAutorizarAsync(client, ArticuloSinStock, 10m); // EnSurtido
+        var rqId = await CrearTransmitirAutorizarAsync(_factory, client, ArticuloSinStock, 10m); // EnSurtido
 
         var response = await client.PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{rqId}/cerrar-manual",
@@ -81,7 +83,7 @@ public class CerrarManualEndpointsTests : IClassFixture<StubsWebApplicationFacto
     public async Task CerrarManual_DesdeEnSurtido_SinEntregas_Retorna_204_CerradaSinSurtir()
     {
         var client = await CreateSuperAdminClientAsync();
-        var rqId = await CrearTransmitirAutorizarAsync(client, ArticuloSinStock, 10m); // EnSurtido (todo compra)
+        var rqId = await CrearTransmitirAutorizarAsync(_factory, client, ArticuloSinStock, 10m); // EnSurtido (todo compra)
 
         var response = await client.PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{rqId}/cerrar-manual",
@@ -99,7 +101,7 @@ public class CerrarManualEndpointsTests : IClassFixture<StubsWebApplicationFacto
     {
         var client = await CreateSuperAdminClientAsync();
         // Mixto: cantidad=150, OnHand=100 → 100 almacén (1 reserva) + 50 saldo (1 OC borrador).
-        var rqId = await CrearTransmitirAutorizarAsync(client, ArticuloSeedId, 150m);
+        var rqId = await CrearTransmitirAutorizarAsync(_factory, client, ArticuloSeedId, 150m);
         Assert.Equal(1, await CountOcBorradorAsync(rqId));
 
         var response = await client.PostAsJsonAsync(
@@ -152,7 +154,7 @@ public class CerrarManualEndpointsTests : IClassFixture<StubsWebApplicationFacto
         return json.GetProperty("id").GetGuid();
     }
 
-    private static async Task<Guid> CrearTransmitirAutorizarAsync(HttpClient client, Guid articuloId, decimal cantidad)
+    private static async Task<Guid> CrearTransmitirAutorizarAsync(WebApplicationFactory<Program> factory, HttpClient client, Guid articuloId, decimal cantidad)
     {
         var rqId = await CrearRequisicionAsync(client);
         var lineaBody = new
@@ -174,7 +176,7 @@ public class CerrarManualEndpointsTests : IClassFixture<StubsWebApplicationFacto
         var transmit = await client.PostAsync($"/api/v1/compras/requisiciones/{rqId}/transmitir", content: null);
         transmit.EnsureSuccessStatusCode();
 
-        var auth = await client.PostAsJsonAsync(
+        var auth = await (await AutorizacionTestSeeding.CreateAutorizadorAsync(factory)).PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{rqId}/autorizaciones",
             new { Nivel = 1, Notas = (string?)null });
         auth.EnsureSuccessStatusCode();

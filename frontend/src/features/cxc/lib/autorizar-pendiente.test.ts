@@ -223,19 +223,19 @@ describe('mostrarSelectorOverride (C7.3, hallazgo QA 2 y supuesto d)', () => {
 
 describe('serie que exige autorización (C7.3, sin regresión de C7.2)', () => {
   const reglas = [
-    { prefijo: '3000', comportamiento: ComportamientoSerie.NuncaLibera },
+    { prefijo: '7800', comportamiento: ComportamientoSerie.NuncaLibera },
     { prefijo: '5000', comportamiento: ComportamientoSerie.SiempreLibera },
-    { prefijo: '30009', comportamiento: ComportamientoSerie.SiempreLibera },
+    { prefijo: '78009', comportamiento: ComportamientoSerie.SiempreLibera },
   ];
 
   it('resuelve la serie por el prefijo activo más largo, como el backend', () => {
-    expect(comportamientoSeriePedido(' 3000123456 ', reglas)).toBe(ComportamientoSerie.NuncaLibera);
-    expect(comportamientoSeriePedido('3000999', reglas)).toBe(ComportamientoSerie.SiempreLibera);
+    expect(comportamientoSeriePedido(' 7800123456 ', reglas)).toBe(ComportamientoSerie.NuncaLibera);
+    expect(comportamientoSeriePedido('7800999', reglas)).toBe(ComportamientoSerie.SiempreLibera);
     expect(comportamientoSeriePedido('QA-C73-01', reglas)).toBe(ComportamientoSerie.EvaluaCredito);
-    expect(comportamientoSeriePedido('3000123456', [])).toBe(ComportamientoSerie.EvaluaCredito);
+    expect(comportamientoSeriePedido('7800123456', [])).toBe(ComportamientoSerie.EvaluaCredito);
   });
 
-  it('serie 3000/4000/8000 muestra el selector aunque la cobertura sea menor a 50 %', () => {
+  it('serie que nunca libera (7800) muestra el selector aunque la cobertura sea menor a 50 %', () => {
     expect(mostrarSelectorOverride(false, 30, ComportamientoSerie.NuncaLibera)).toBe(true);
     expect(mostrarSelectorOverride(false, 0, ComportamientoSerie.NuncaLibera)).toBe(true);
   });

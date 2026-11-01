@@ -217,6 +217,8 @@ public static class PermisosCanonicos
     public const string AdminAuditoriaLeer                             = "admin.auditoria.leer";
     /// <summary>ADM-03 / ADR-0051: bypass de sucursal de la bitácora; sin él solo se ven las sucursales del usuario.</summary>
     public const string AdminAuditoriaLeerTodasSucursales              = "admin.auditoria.leer-todas-sucursales";
+    /// <summary>ADM-BIT (86e3xd4ut): exportar la bitácora, separado de consultarla; sin él la exportación responde 403.</summary>
+    public const string AdminAuditoriaExportar                         = "admin.auditoria.exportar";
 
     // ----- Administración — Empresas + Sucursales + Departamentos (F-Admin-PR2.3) -----
     // CRUD completo del catálogo organizacional. Convención kebab-case
@@ -509,6 +511,8 @@ public static class PermisosCanonicos
     public const string CuentasPorCobrarCarteraLeer             = "cuentas_por_cobrar.cartera.leer";
     public const string CuentasPorCobrarAplicacionPagoProponer  = "cuentas_por_cobrar.aplicacion-pago.proponer";
     public const string CuentasPorCobrarAplicacionPagoConfirmar = "cuentas_por_cobrar.aplicacion-pago.confirmar";
+    // C7.2 (86e3kdxy6): administrar las reglas de liberación por serie.
+    public const string CuentasPorCobrarReglasSerieGestionar    = "cuentas_por_cobrar.reglas-serie.gestionar";
 
     // ----- Tesorería / Bancos (TES-PR1) -----
     // Namespace GUID 0000000b-* reservado para el módulo Tesorería.
@@ -551,6 +555,9 @@ public static class PermisosCanonicos
     public const string TesoreriaDevolucionesPagar              = "tesoreria.devoluciones.pagar";
     // 86e3vr1tj (Millet 23-oct): Tesorería autoriza o rechaza el faltante/sobrante del corte de caja (y ve la bandeja).
     public const string TesoreriaDiferenciasCorteAutorizar      = "tesoreria.diferencias-corte.autorizar";
+    // F6.6 (86e3jvuvr, R16): Ingresos emite y cancela el folio de confirmación de transferencias para Caja.
+    public const string TesoreriaFoliosTransferenciaEmitir      = "tesoreria.folios-transferencia.emitir";
+    public const string TesoreriaFoliosTransferenciaCancelar    = "tesoreria.folios-transferencia.cancelar";
 
     // ----- Centros de Costo (CECO-A1; modelo Dim desde CECO-PR4) -----
     // Namespace GUID 0000000c-* reservado para el módulo Centros de Costo.
@@ -748,6 +755,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000005-0001-0000-0000-000000000005"), AdminEmpresasSucursalesGestionar,             "Crear, editar y desactivar sucursales del catálogo organizacional"),
         (Guid.Parse("00000005-0002-0000-0000-000000000001"), AdminAuditoriaLeer,                           "Consultar la bitácora consolidada de auditoría (mínimo del andamio /admin)"),
         (Guid.Parse("00000005-0002-0000-0000-000000000002"), AdminAuditoriaLeerTodasSucursales,            "Consultar la bitácora de todas las sucursales de la empresa"),
+        (Guid.Parse("00000005-0002-0000-0000-000000000003"), AdminAuditoriaExportar,                       "Exportar la bitácora de auditoría a CSV con renglón de control"),
         (Guid.Parse("00000005-0003-0000-0000-000000000001"), AdminDepartamentosGestionar,                  "Crear, editar y desactivar departamentos del catálogo organizacional"),
         (Guid.Parse("00000005-0003-0000-0000-000000000002"), AdminDepartamentosLeer,                       "Consultar departamentos del catálogo organizacional"),
         (Guid.Parse("00000005-0004-0000-0000-000000000001"), AdminSeriesGestionar,                         "Crear, editar y desactivar series de folios cross-módulo (OC, CFDI, póliza)"),
@@ -937,6 +945,7 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000a-0004-0000-0000-000000000001"), CuentasPorCobrarCarteraLeer,             "Consultar cartera, antigüedad de saldos, estado de cuenta y alertas"),
         (Guid.Parse("0000000a-0005-0000-0000-000000000001"), CuentasPorCobrarAplicacionPagoProponer,  "Crear propuestas de aplicación de pago desde depósitos"),
         (Guid.Parse("0000000a-0005-0000-0000-000000000002"), CuentasPorCobrarAplicacionPagoConfirmar, "Confirmar o rechazar propuestas de aplicación de pago (Ingresos)"),
+        (Guid.Parse("0000000a-0006-0000-0000-000000000001"), CuentasPorCobrarReglasSerieGestionar,    "Dar de alta, cambiar y activar o desactivar las reglas de liberación por serie"),
 
         // Tesorería / Bancos (TES-PR1). Namespace 0000000b-*.
         (Guid.Parse("0000000b-0001-0000-0000-000000000001"), TesoreriaCuentasVer,                   "Consultar el catálogo de cuentas bancarias propias y sus saldos"),
@@ -964,6 +973,8 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000b-000b-0000-0000-000000000003"), TesoreriaDevolucionesAutorizar, "Autorizar o rechazar devoluciones de dinero a clientes (Gerente o Jefe de Tesorería)"),
         (Guid.Parse("0000000b-000b-0000-0000-000000000004"), TesoreriaDevolucionesPagar, "Registrar el pago de devoluciones autorizadas con su contramovimiento ligado"),
         (Guid.Parse("0000000b-000c-0000-0000-000000000001"), TesoreriaDiferenciasCorteAutorizar, "Autorizar o rechazar el faltante o sobrante del corte de caja (Tesorería; el cajero del corte no puede autorizar el suyo)"),
+        (Guid.Parse("0000000b-000d-0000-0000-000000000001"), TesoreriaFoliosTransferenciaEmitir, "Emitir el folio de confirmación de una transferencia validada en el banco (Ingresos); Caja solo aplica la forma 03 con ese folio"),
+        (Guid.Parse("0000000b-000d-0000-0000-000000000002"), TesoreriaFoliosTransferenciaCancelar, "Cancelar con motivo un folio de transferencia que Caja no ha usado"),
 
         // Centros de Costo (CECO-A1; modelo Dim desde CECO-PR4). Namespace 0000000c-*.
         (Guid.Parse("0000000c-0001-0000-0000-000000000001"), CentrosCostoCatalogoLeer,                "Consultar el catálogo de centros de costo (árboles, niveles y grupos)"),

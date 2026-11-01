@@ -1,3 +1,4 @@
+using Millet.Compras.IntegrationTests.Autorizacion;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -53,7 +54,7 @@ public class NivelPendienteEndpointsTests : IClassFixture<StubsWebApplicationFac
 
         // Pendiente N2: transmitida + N1 firmado. Matriz N1YN2 ⇒ sigue EnAutorizacion.
         var rqN2 = await CrearTransmitirAsync(client, Articulo, 10m);
-        await AutorizarN1Async(client, rqN2);
+        await AutorizarN1Async(twoLevelFactory, rqN2);
 
         // Sanity: rqN2 sigue EnAutorizacion (no saltó a Autorizada con solo N1).
         var afterN1 = await ReadJsonAsync(
@@ -169,9 +170,9 @@ public class NivelPendienteEndpointsTests : IClassFixture<StubsWebApplicationFac
         return client;
     }
 
-    private static async Task AutorizarN1Async(HttpClient client, Guid rqId)
+    private static async Task AutorizarN1Async(WebApplicationFactory<Program> factory, Guid rqId)
     {
-        var auth = await client.PostAsJsonAsync(
+        var auth = await (await AutorizacionTestSeeding.CreateAutorizadorAsync(factory)).PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{rqId}/autorizaciones",
             new { Nivel = 1, Notas = (string?)null });
         auth.EnsureSuccessStatusCode();

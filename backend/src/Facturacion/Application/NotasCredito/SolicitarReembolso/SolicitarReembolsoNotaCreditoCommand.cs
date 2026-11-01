@@ -63,18 +63,8 @@ public sealed class SolicitarReembolsoNotaCreditoHandler
             ?? throw new EntityNotFoundException(
                 "NOTA_CREDITO_NO_ENCONTRADA", $"No existe la nota de crédito '{command.NotaCreditoId}'.");
 
-        var clienteId = await ClienteContableFacturacion.ResolverAsync(_db, nc, cancellationToken)
-            ?? throw new BusinessRuleException("NC_REEMBOLSO_SIN_CLIENTE",
-                "No se pudo identificar al cliente de la nota de crédito; revisa su factura o anticipo de origen.");
-
         var ahora = _clock.UtcNow;
-        nc.SolicitarReembolso(command.Importe, ahora);
-
-        await _eventos.PublishAsync(new NotaCreditoReembolsoSolicitadoIntegrationEvent(
-            EmpresaId: nc.EmpresaId, OcurridoEn: ahora, NotaCreditoId: nc.Id, Folio: nc.Folio, Uuid: nc.Uuid,
-            ClienteId: clienteId, ReceptorRfc: nc.ReceptorRfc, Importe: command.Importe,
-            TotalNotaCredito: nc.Total, Moneda: nc.Moneda, SucursalId: nc.SucursalId,
-            Motivo: command.Motivo.Trim(), SolicitadoPor: usuarioId), cancellationToken);
+        await ReembolsoNotaCredito.SolicitarAsync(_db, _eventos, nc, command.Importe, command.Motivo, usuarioId, ahora, cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
         return new SolicitarReembolsoNotaCreditoResponse(nc.Id, command.Importe, ahora);

@@ -7,10 +7,10 @@ namespace Millet.CuentasPorCobrar.Domain.Liberacion;
 /// </summary>
 public enum ComportamientoSerie : short
 {
-    /// <summary>La serie siempre libera sin evaluar crédito (5000/7000).</summary>
+    /// <summary>La serie siempre libera sin evaluar crédito.</summary>
     SiempreLibera = 1,
 
-    /// <summary>La serie nunca libera por crédito — solo con override (3000/4000/8000).</summary>
+    /// <summary>La serie nunca libera por crédito — solo con autorización (override).</summary>
     NuncaLibera = 2,
 
     /// <summary>La serie evalúa crédito disponible (default sin regla).</summary>

@@ -159,6 +159,9 @@ export interface ProveedorListItem {
   condicionesPagoDias: number | null;
   monedaPreferidaId: string | null;
   estatus: EstatusCatalogo;
+  /** Bloqueo total (86e3tactf): no admite OC nuevas ni su autorización. */
+  bloqueado?: boolean;
+  motivoBloqueo?: string | null;
 }
 
 /**
