@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -28,10 +28,11 @@ it('muestra Badge de advertencia y envía el filtro de expediente al servidor', 
     <ProveedoresLayout idActivo={null} />
   </NuevoProveedorContext.Provider>, { wrapper: createQueryWrapper() });
   expect(await screen.findByText('Sintético completo')).toBeInTheDocument();
-  expect(screen.getByText('Expediente incompleto')).toHaveClass('bg-warning-bg');
-  fireEvent.click(screen.getByRole('checkbox', { name: 'Sólo expediente incompleto' }));
+  const fila = within(screen.getByRole('list', { name: 'Lista de proveedores' }));
+  expect(fila.getByText('Expediente incompleto')).toHaveClass('bg-warning-bg');
+  fireEvent.click(screen.getByRole('button', { name: 'Expediente incompleto' }));
   await waitFor(() => expect(screen.queryByText('Sintético completo')).not.toBeInTheDocument());
   expect(consultas.some(url => url.includes('soloExpedienteIncompleto=true'))).toBe(true);
-  fireEvent.click(screen.getByRole('checkbox', { name: 'Sólo expediente incompleto' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Expediente incompleto' }));
   expect(await screen.findByText('Sintético completo')).toBeInTheDocument();
 });

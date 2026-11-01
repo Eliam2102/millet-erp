@@ -291,10 +291,10 @@ it.each(['CargaSap', null])('avisa expediente incompleto del activo y distingue 
   // El aviso usa la consulta; el editor documental se prueba en su propia suite.
   useAuthStore.setState({ permisos: [PermisosCanonicos.DatosMaestrosProveedoresValidar] });
   render(<ProveedorDetalle />, { wrapper: createQueryWrapper() });
-  const aviso = await screen.findByRole('alert');
-  expect(aviso).toHaveTextContent('Expediente incompleto: faltan 1 documentos (Contrato).');
+  const aviso = await screen.findByRole('region', { name: 'Expediente incompleto: qué falta' });
+  expect(aviso).toHaveTextContent('Expediente incompleto: qué falta (1)');
   expect(aviso).toHaveClass('bg-warning-note-bg');
-  expect(screen.getByRole('link', { name: 'Ver expediente' })).toHaveAttribute('href', '#expediente-proveedor');
+  expect(screen.getByRole('link', { name: 'Contrato' })).toHaveAttribute('href', '#expediente-proveedor');
   expect(aviso.textContent?.includes('Cargado desde SAP sin documentos.')).toBe(origenCarga === 'CargaSap');
 });
 
@@ -305,10 +305,10 @@ it('muestra el aviso desde el detalle sin permiso de adjuntos y lo oculta al com
     ...PROVEEDOR_EN_REVISION, estatus: EstatusCatalogo.Activo, origenCarga: 'CargaSap', documentosPendientes: pendientes,
   })));
   const vista = render(<ProveedorDetalle />, { wrapper: createQueryWrapper() });
-  expect(await screen.findByRole('alert')).toHaveTextContent('Contrato');
+  expect(await screen.findByRole('region', { name: 'Expediente incompleto: qué falta' })).toHaveTextContent('Contrato');
   vista.unmount();
   pendientes = [];
   render(<ProveedorDetalle />, { wrapper: createQueryWrapper() });
   await screen.findByText('PROV-REV-01');
-  expect(screen.queryByText(/Expediente incompleto:/)).not.toBeInTheDocument();
+  expect(screen.queryByRole('region', { name: 'Expediente incompleto: qué falta' })).not.toBeInTheDocument();
 });

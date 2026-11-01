@@ -27,6 +27,7 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { ClienteOrigenAwSection } from '@/modules/datos-maestros/components/ClienteOrigenAwSection';
 import { ClienteSaldoGrupoSection } from '@/modules/datos-maestros/components/ClienteSaldoGrupoSection';
 import { ClienteDatosForm } from '@/modules/datos-maestros/components/ClienteDatosForm';
+import { QueFaltaPanel, type ItemFalta } from '@/modules/datos-maestros/components/QueFaltaPanel';
 import {
   EstatusCatalogoBadge,
   FiscalesIncompletosBadge,
@@ -69,6 +70,12 @@ export function ClienteDetalle() {
 
   const cliente = clienteQuery.data;
   const activo = cliente.estatus === EstatusCatalogo.Activo;
+  // Misma definición que el filtro «Fiscales incompletos»: RFC, régimen y CP.
+  const faltantesFiscales = ([
+    !cliente.rfc ? { etiqueta: 'RFC', campo: 'rfc' } : null,
+    !cliente.regimenFiscal ? { etiqueta: 'Régimen fiscal', campo: 'regimenFiscal' } : null,
+    !cliente.codigoPostalFiscal ? { etiqueta: 'Código postal fiscal', campo: 'codigoPostalFiscal' } : null,
+  ] as (ItemFalta | null)[]).filter((f): f is ItemFalta => f !== null);
 
   function handleConfirmarDesactivar() {
     desactivar.mutate(
@@ -123,7 +130,14 @@ export function ClienteDetalle() {
       <PageHeader
         mono
         titulo={<>{cliente.clave}</>}
-        descripcion={<>{cliente.razonSocial}</>}
+        descripcion={
+          <>
+            {cliente.razonSocial}
+            <span className="mt-0.5 block font-mono text-xs">
+              RFC {cliente.rfc ?? 'sin RFC'} · {cliente.monedaDefault ?? '—'}
+            </span>
+          </>
+        }
         estado={
           <>
             <EstatusCatalogoBadge estatus={cliente.estatus} />
@@ -164,16 +178,7 @@ export function ClienteDetalle() {
           </>
         }
       />
-      <dl className="grid grid-cols-2 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat">
-        <div>
-          <dt className="text-xs text-ink-muted">RFC</dt>
-          <dd className="font-mono text-sm">{cliente.rfc ?? '—'}</dd>
-        </div>
-        <div>
-          <dt className="text-xs text-ink-muted">Moneda</dt>
-          <dd className="font-mono text-sm">{cliente.monedaDefault ?? '—'}</dd>
-        </div>
-      </dl>
+      <QueFaltaPanel items={faltantesFiscales} />
 
       <div className="space-y-5">
         <ClienteDatosForm cliente={cliente} />

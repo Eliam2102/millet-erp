@@ -115,7 +115,8 @@ public sealed class ListarProductosAwHandler
 
         var total = await q.CountAsync(cancellationToken);
         var items = await q
-            .OrderBy(p => p.ReferenciaExterna)
+            .OrderBy(p => p.ClaveProdServSat == null || p.ClaveUnidadSat == null || p.ObjetoImp == null || p.TasaIvaTraslado == null || p.EstadoFiscal == EstadoFiscalProducto.FiscalPendiente)
+            .LuegoPorClaveNatural(p => p.ReferenciaExterna)
             .Skip(offset).Take(limit)
             .Select(p => new ProductoAwItem(
                 p.Id, p.ReferenciaExterna, p.Descripcion, p.UnidadMedida,

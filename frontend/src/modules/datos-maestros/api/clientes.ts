@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { PAGINA_MAESTRO, useListaInfinita } from '@/modules/datos-maestros/api/lista-infinita';
 import { apiRequest, esApiError } from '@/lib/api';
 import { F1A_QUERY_KEY } from '@/modules/datos-maestros/api/f1a';
 import {
@@ -60,6 +61,15 @@ export function useClientes(filtros: ListarClientesFiltros = {}) {
       return { ...data, items: data.items.map(c => ({ ...c, estatus: normalizarEstatusCliente(c.estatus) })) };
     },
     staleTime: 30_000,
+  });
+}
+
+/** Listado con «Cargar más» (páginas de 200 sobre offset/limit). */
+export function useClientesInfinito(filtros: ListarClientesFiltros = {}) {
+  return useListaInfinita(datosMaestrosKeys.clientesList(filtros), async (offset, signal) => {
+    const { data } = await apiRequest<ListarClientesApi>(
+      buildListarClientesPath({ ...filtros, offset, limit: PAGINA_MAESTRO }), { signal });
+    return { ...data, items: data.items.map((c) => ({ ...c, estatus: normalizarEstatusCliente(c.estatus) })) };
   });
 }
 
