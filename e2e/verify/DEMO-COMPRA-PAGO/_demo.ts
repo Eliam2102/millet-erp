@@ -33,7 +33,7 @@ export async function conceder(guard: any, cleanup: { add: (f: () => Promise<unk
   const previos = (await ok(await guard.api.get(`${base}/permisos`))).permisos
     .filter((p: { origen: string }) => p.origen === 'Concedido' || p.origen === 'Denegado')
     .map((p: { permisoId: string; origen: string }) => ({ permisoId: p.permisoId, efecto: p.origen === 'Concedido' ? 'Conceder' : 'Denegar', motivo: null }));
-  const nuevos = codigos
+  const nuevos = [...new Set(codigos)]
     .map((c) => cat.items.find((x: { codigo: string }) => x.codigo === c))
     .filter((p: unknown) => !!p)
     .filter((p: { id: string }) => !previos.some((q: { permisoId: string }) => q.permisoId === p.id))
@@ -111,10 +111,46 @@ export const C_PERMS = [
 ];
 export const UMBRAL_GENERAL = '00000000-0000-0000-0000-000000000000';
 
-/** Arrange (API as B): approval thresholds of the demo script: N1 up to 1,000 and N2 over 10,000, for the company (general) and for Compras. */
+/**
+ * Arrange (API as B): approval thresholds of the demo script: N1 up to 1,000 and N2 over 10,000, for the company (general) and for Compras.
+ * «Modo de nivel 2» is left at its DEFAULT (SoloDisponibilidad, VILO decision of 18-oct in ficha C3.1): a RQ with a shortage asks for N2.
+ */
 export async function umbralesGuion(guard: any) {
   for (const departamentoId of [UMBRAL_GENERAL, DEPTO_COMPRAS])
-    await ok(await guard.api.put('/api/v1/compras/umbrales-aprobacion', { departamentoId, umbralMenorCuantia: 1000, umbralMonto: 10000, moneda: 'MXN', modoNivel2: 'SoloMonto' }));
+    await ok(await guard.api.put('/api/v1/compras/umbrales-aprobacion', { departamentoId, umbralMenorCuantia: 1000, umbralMonto: 10000, moneda: 'MXN' }));
+}
+
+/** Real Entra users of the test tenant, one per business role of the demo (sessions in e2e/.auth/test/<rol>.json). */
+export const PERSONA = {
+  requisitante: { rol: 'almacen-operativo', email: 'fio@uzieltzaboutlook.onmicrosoft.com' }, // also receives (Almacén MID), captures in CxP and arms the payment run
+  jefeDepto: { rol: 'admin-catalogos', email: 'qa.catalogos@uzieltzaboutlook.onmicrosoft.com' }, // JefeDpto of Compras: signs RQ level 1
+  jefeAlmacen: { rol: 'almacen-corporativo', email: 'oscar@uzieltzaboutlook.onmicrosoft.com' }, // JefeAlmacen of MID: signs RQ level 2 (and the 2nd payment-run signature as «gerente»)
+  comprador: { rol: 'compras', email: 'luis.ibarra@uzieltzaboutlook.onmicrosoft.com' }, // buyer: OC from the RQ, quotes and transmits
+  gerente: { rol: 'super-admin', email: 'geovanny@uzieltzaboutlook.onmicrosoft.com' }, // signs the OC, authorizes the invoice in CxP, signs the payment run
+  auditor: { rol: 'auditor', email: 'qa.auditor@uzieltzaboutlook.onmicrosoft.com' }, // read-only: no authorize / approve / sign
+} as const;
+
+/** Permissions of the RQ signers (jefe de depto / jefe de almacén) to see Pendientes and sign both levels. */
+export const JEFE_PERMS = [
+  'compras.requisiciones.leer', 'compras.requisiciones.leer-todas-sucursales', 'compras.requisiciones.gestionar-todas-sucursales', 'compras.requisiciones.ver-todos-departamentos',
+  'compras.requisiciones.autorizar-nivel1', 'compras.requisiciones.autorizar-nivel2', 'compartido.catalogos.leer', 'centros_costo.dim3.leer-todos',
+];
+/** Permissions of the buyer: OC from the RQ, quote, attach, transmit (and autorizar-nivel1 so the UI shows him the disabled «Aprobar» of his own OC). */
+export const COMPRADOR_PERMS = [
+  'compras.requisiciones.leer', 'compras.ordenes.crear', 'compras.ordenes.crear-sin-rq', 'compras.ordenes.leer', 'compras.ordenes.adjuntar', 'compras.ordenes.transmitir',
+  'compras.ordenes.autorizar-nivel1', 'centros_costo.dim3.leer-todos', 'compartido.catalogos.leer', 'datos_maestros.proveedores.leer',
+];
+/** Permissions of the CxP clerk (captures the supplier invoice against the OC; does NOT authorize it). */
+// the CFDI inbox has no branch until it is linked to an OC: CxP works it with corporate scope (DocumentoSucursalScope, SUCURSAL_NO_DETERMINADA)
+export const CXP_PERMS = ['cuentas_por_pagar.documentos.leer-todas-sucursales', 'cuentas_por_pagar.documentos.gestionar-todas-sucursales', 'cuentas_por_pagar.cfdis.leer', 'cuentas_por_pagar.cfdis.cargar-manual', 'cuentas_por_pagar.facturas.capturar', 'cuentas_por_pagar.facturas.leer', 'compras.ordenes.leer'];
+
+/** Arrange (API as B): designates `email` as approver of the RQ matrix (rol 0 = JefeDpto with the department id, 1 = JefeAlmacen with the branch id) and revokes it in cleanup. */
+export async function designarAprobador(guard: any, cleanup: { add: (f: () => Promise<unknown>) => void }, rol: 0 | 1, scopeId: string, email: string) {
+  const users = await ok(await guard.api.get('/api/v1/identidad/usuarios?limit=100'));
+  const usuarioId: string = users.items.find((u: { email: string }) => u.email === email).id;
+  const r = await ok(await guard.api.post('/api/v1/compras/aprobadores', { departamentoId: scopeId, rol, usuarioId, motivo: 'Matriz de autorización de la demo' }, { 'Idempotency-Key': uuid() }));
+  cleanup.add(async () => { await guard.api.delete(`/api/v1/compras/aprobadores/${r.id}`, undefined, { 'Idempotency-Key': uuid() }); });
+  return usuarioId;
 }
 
 const PDF = () => Buffer.from('%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n');

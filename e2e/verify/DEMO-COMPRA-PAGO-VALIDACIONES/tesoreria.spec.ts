@@ -94,7 +94,7 @@ test('V-TS-04 proveedor bloqueado: no se arma corrida ni se registra pago', asyn
   await page.goto('/tesoreria/corridas/nueva');
   await settle(page);
   await page.getByRole('combobox', { name: 'Cuenta bancaria' }).click();
-  await page.getByRole('option', { name: new RegExp(BANCO_MILLET) }).click();
+  await page.getByRole('option').filter({ hasText: BANCO_MILLET }).filter({ hasText: '6789' }).first().click(); // Millet BBVA account 0123456789 (the journey spec seeds another BBVA account)
   // la pantalla lo muestra deshabilitado con el motivo (antes dejaba elegirlo y el servidor rechazaba la corrida)
   await expect(page.getByRole('checkbox', { name: `Elegir todas las facturas de ${b.razon}` }), 'la pantalla no deja elegirlo').toBeDisabled();
   await expect(page.getByText('Proveedor bloqueado: Opinión de cumplimiento negativa').first()).toBeVisible();
@@ -122,7 +122,7 @@ test('V-TS-05 proveedor sin opinión de cumplimiento: sus facturas quedan deteni
   await page.goto('/tesoreria/corridas/nueva');
   await settle(page);
   await page.getByRole('combobox', { name: 'Cuenta bancaria' }).click();
-  await page.getByRole('option', { name: new RegExp(BANCO_MILLET) }).click();
+  await page.getByRole('option').filter({ hasText: BANCO_MILLET }).filter({ hasText: '6789' }).first().click(); // Millet BBVA account 0123456789 (the journey spec seeds another BBVA account)
   await expect(page.getByText('Detenida por documentación: falta su opinión de cumplimiento vigente')).toBeVisible();
   await expect(page.getByRole('checkbox', { name: `Elegir todas las facturas de ${s.razon}` }), 'la pantalla no deja elegirla').toBeDisabled();
   await foto(page, 'V-TS-05-proveedor-sin-opinion-de-cumplimiento-factura-detenida');
@@ -143,7 +143,7 @@ test('V-TS-06 el mismo pago registrado dos veces no se duplica', async ({ page, 
   const sheet = page.getByRole('dialog', { name: 'Registrar pago a proveedor' });
   await expect(sheet).toBeVisible();
   await sheet.getByRole('combobox', { name: 'Cuenta bancaria' }).click();
-  await page.getByRole('option', { name: new RegExp(BANCO_MILLET) }).first().click();
+  await page.getByRole('option').filter({ hasText: BANCO_MILLET }).filter({ hasText: '6789' }).first().click();
   await sheet.getByLabel(`Importe para ${h.folio}`).fill(String(importe));
   await sheet.getByLabel('Referencia bancaria').fill('SPEI2611041788');
   const post = page.waitForResponse((r) => r.url().endsWith('/api/v1/tesoreria/pagos') && r.request().method() === 'POST');

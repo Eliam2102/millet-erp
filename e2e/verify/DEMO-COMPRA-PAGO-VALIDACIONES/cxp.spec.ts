@@ -223,24 +223,31 @@ test('V-CXP-05 factura sin recepción: no es elegible para pago y Tesorería no 
   sembrarPasivo({ facturaId: b.facturaId, proveedorId: PROV_VIDRIO, total: det.total, subtotal: det.subtotal, folio: b.folio, uuidCfdi: b.uuid, n: 1 });
   await page.goto('/tesoreria/pagos');
   await settle(page);
-  await page.getByRole('checkbox', { name: `Seleccionar ${b.folio}` }).check();
-  await page.getByRole('button', { name: /Registrar pago \(1\)/ }).click();
-  const sheet = page.getByRole('dialog', { name: 'Registrar pago a proveedor' });
-  await sheet.getByRole('combobox', { name: 'Cuenta bancaria' }).click();
-  await page.getByRole('option', { name: /BBVA/ }).first().click();
-  await sheet.getByLabel(`Importe para ${b.folio}`).fill(String(det.total));
-  await sheet.getByLabel('Referencia bancaria').fill('SPEI2611051022');
+  const cb = page.getByRole('checkbox', { name: `Seleccionar ${b.folio}` });
+  // with the Outbox on, the liability arrives through the event flagged as not payable and Tesorería does not even offer it
+  if (!(await cb.waitFor({ state: 'visible', timeout: 8_000 }).then(() => true, () => false))) {
+    await foto(page, 'V-CXP-05b-pasivo-sin-recepcion-no-se-ofrece-para-pago');
+  } else {
+    await cb.check();
+    await page.getByRole('button', { name: /Registrar pago \(1\)/ }).click();
+    const sheet = page.getByRole('dialog', { name: 'Registrar pago a proveedor' });
+    await sheet.getByRole('combobox', { name: 'Cuenta bancaria' }).click();
+    await page.getByRole('option', { name: /BBVA/ }).first().click();
+    await sheet.getByLabel(`Importe para ${b.folio}`).fill(String(det.total));
+    await sheet.getByLabel('Referencia bancaria').fill('SPEI2611051022');
+    guard.allowStatus(422);
+    guard.expectApiMutationError(422);
+    const post = page.waitForResponse((r) => r.url().endsWith('/api/v1/tesoreria/pagos') && r.request().method() === 'POST');
+    await sheet.getByRole('button', { name: 'Registrar pago' }).click();
+    const r = await post;
+    expect(r.status()).toBe(422);
+    await page.waitForTimeout(800);
+    await foto(page, 'V-CXP-05b-pago-rechazado-factura-sin-recepcion');
+    const prob = JSON.parse(await r.text());
+    expect(prob.code ?? JSON.stringify(prob)).toMatch(/PASIVO_NO_PAGABLE_CXP|PAGO_EXCEDE_ELEGIBLE/);
+    console.log(`[V-CXP-05] ${prob.code} - ${prob.detail}`);
+  }
   guard.allowStatus(422);
-  guard.expectApiMutationError(422);
-  const post = page.waitForResponse((r) => r.url().endsWith('/api/v1/tesoreria/pagos') && r.request().method() === 'POST');
-  await sheet.getByRole('button', { name: 'Registrar pago' }).click();
-  const r = await post;
-  expect(r.status()).toBe(422);
-  await page.waitForTimeout(800);
-  await foto(page, 'V-CXP-05b-pago-rechazado-factura-sin-recepcion');
-  const prob = JSON.parse(await r.text());
-  expect(prob.code ?? JSON.stringify(prob)).toMatch(/PASIVO_NO_PAGABLE_CXP|PAGO_EXCEDE_ELEGIBLE/);
-  console.log(`[V-CXP-05] ${prob.code} - ${prob.detail}`);
   const dos = await rechazo(await guard.api.post('/api/v1/tesoreria/pagos', {
     cuentaBancariaId: CUENTA_MILLET, fechaValor: today(), referenciaBancaria: 'SPEI2611051022', aplicaciones: [{ facturaProveedorId: b.facturaId, importe: det.total }],
   }, { 'Idempotency-Key': uuid() }), 422, /PASIVO_NO_PAGABLE_CXP|PAGO_EXCEDE_ELEGIBLE/);
