@@ -13,7 +13,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Millet.SharedKernel.Infrastructure.Persistence.Migrations.Core
 {
     [DbContext(typeof(CoreDbContext))]
-    [Migration("20261031001000_AuditLogSinTruncate")]
+    [Migration("20261101010000_AuditLogSinTruncate")]
     partial class AuditLogSinTruncate
     {
         /// <inheritdoc />
