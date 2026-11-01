@@ -372,6 +372,8 @@ export const PermisosCanonicos = {
     'cuentas_por_cobrar.aplicacion-pago.proponer',
   CuentasPorCobrarAplicacionPagoConfirmar:
     'cuentas_por_cobrar.aplicacion-pago.confirmar',
+  // C7.2 (86e3kdxy6): administrar reglas de liberación por serie.
+  CuentasPorCobrarReglasSerieGestionar: 'cuentas_por_cobrar.reglas-serie.gestionar',
 
   // Tesorería / Bancos — mirror manual de backend PermisosCanonicos.cs
   // §"Tesorería" (namespace GUID 0000000b-*). Los 19 permisos se

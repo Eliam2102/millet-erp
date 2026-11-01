@@ -14,10 +14,12 @@ namespace Millet.CuentasPorCobrar.Application.Liberacion;
 // CXC-PR4: decisión de liberación de pedidos con cascada
 //   serie → crédito → override
 // (levantamiento §2). Reglas:
-//   1. Serie SiempreLibera (5000/7000)  → Liberado (regla Serie), sin evaluar
-//      crédito.
-//   2. Serie NuncaLibera (3000/4000/8000) → Retenido (regla Serie), salvo
-//      override consumible → LiberadoConOverride.
+//   1. Serie SiempreLibera → Liberado (regla Serie), sin evaluar crédito.
+//   2. Serie NuncaLibera → Retenido (regla Serie), salvo override
+//      consumible → LiberadoConOverride.
+//   Las series son configuración (C7.2, tabla regla_liberacion_serie, se
+//   leen en cada decisión); las de Millet están en la migración
+//   ReglasSerieMillet. Una serie sin regla activa evalúa crédito.
 //   3. EvaluaCredito (default): línea Activa del (cliente, moneda) con
 //      disponible ≥ monto del pedido → Liberado (regla Credito); si no,
 //      Retenido salvo override → LiberadoConOverride.

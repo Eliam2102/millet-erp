@@ -225,7 +225,7 @@ function FormDecidir({ onClose }: { onClose: () => void }) {
             </Label>
             <Input
               id="pedidoRef"
-              placeholder="p. ej. 3000123456"
+              placeholder="p. ej. 7800123456"
               maxLength={40}
               {...form.register('pedidoRef')}
             />

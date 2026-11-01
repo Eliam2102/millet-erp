@@ -22,7 +22,7 @@ const BASE_AUT = '*/api/v1/cuentas-por-cobrar/autorizaciones';
 
 const decision = {
   id: 'dl-1',
-  pedidoRef: '3000123456',
+  pedidoRef: '7800123456',
   clienteId: 'cli-1',
   moneda: 'MXN',
   montoPedido: 15000,
@@ -39,7 +39,7 @@ const autorizacion = {
   supervisorUsuarioId: 'u-boss',
   beneficiarioUsuarioId: 'u-1',
   motivo: 'Pago en tránsito',
-  clienteOPedidoRef: '3000123456',
+  clienteOPedidoRef: '7800123456',
   fechaAutorizacion: '2026-07-14T09:00:00Z',
   vigenteHasta: '2026-07-15T09:00:00Z',
   estado: EstadoAutorizacionCredito.Autorizada,
@@ -67,7 +67,7 @@ describe('useDecisionesLiberacion', () => {
     );
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(url!.searchParams.get('resultado')).toBe('1');
-    expect(result.current.data?.items[0].pedidoRef).toBe('3000123456');
+    expect(result.current.data?.items[0].pedidoRef).toBe('7800123456');
   });
 });
 
@@ -93,7 +93,7 @@ describe('useDecidirLiberacion', () => {
     });
     result.current.mutate({
       command: {
-        pedidoRef: '3000123456',
+        pedidoRef: '7800123456',
         clienteId: 'cli-1',
         moneda: 'MXN',
         montoPedido: 15000,
@@ -153,7 +153,7 @@ describe('useCrearAutorizacionCredito', () => {
       command: {
         beneficiarioUsuarioId: 'u-1',
         motivo: 'Pago en tránsito',
-        clienteOPedidoRef: '3000123456',
+        clienteOPedidoRef: '7800123456',
         vigenciaHoras: 24,
       },
       idempotencyKey: 'idem-a1',

@@ -120,9 +120,9 @@ export type ResultadoLiberacion =
  * <c>ComportamientoSerie</c>.
  */
 export const ComportamientoSerie = {
-  /** Siempre libera sin evaluar crédito (5000/7000). */
+  /** Siempre libera sin evaluar crédito (p. ej. 5500). */
   SiempreLibera: 1,
-  /** Nunca libera por crédito: solo con autorización (3000/4000/8000). */
+  /** Nunca libera por crédito: solo con autorización (p. ej. 7800). */
   NuncaLibera: 2,
   /** Evalúa crédito disponible (sin regla de serie). */
   EvaluaCredito: 3,
@@ -134,6 +134,31 @@ export type ComportamientoSerie =
 export interface ReglaLiberacionSerieResponse {
   prefijo: string;
   comportamiento: ComportamientoSerie;
+}
+
+/** C7.2: mirror de backend <c>ReglaLiberacionSerieAdminResponse</c> (todas). */
+export interface ReglaLiberacionSerieAdmin {
+  id: string;
+  prefijo: string;
+  comportamiento: ComportamientoSerie;
+  activo: boolean;
+  version: number;
+  actualizadoEn: string;
+  actualizadoPor: string | null;
+}
+
+/** C7.2: mirror de backend <c>HistorialReglaSerieResponse</c>. */
+export interface HistorialReglaSerie {
+  id: string;
+  reglaId: string;
+  prefijo: string;
+  operacion: string;
+  comportamientoAntes: ComportamientoSerie | null;
+  comportamientoDespues: ComportamientoSerie | null;
+  activoAntes: boolean | null;
+  activoDespues: boolean | null;
+  actorNombre: string;
+  fecha: string;
 }
 
 /**
