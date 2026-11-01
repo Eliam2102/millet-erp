@@ -6,8 +6,10 @@ namespace Millet.Integraciones.Fiscal.Domain.Certificados;
 /// Aviso de vencimiento enviado para un certificado y un umbral (F6.9, P6.4):
 /// 30, 15 y 5 días antes, y el día del vencimiento (0). Uno por certificado y
 /// umbral, para no repetir el aviso.
+/// Marcada <see cref="INotAudited"/>: es un registro técnico de envío que
+/// escribe el worker (ADR-0008); lo auditable es el <see cref="CertificadoCsd"/>.
 /// </summary>
-public sealed class AlertaCsd : BaseEntity, IPerteneceAEmpresa
+public sealed class AlertaCsd : BaseEntity, IPerteneceAEmpresa, INotAudited
 {
     public Guid EmpresaId { get; set; }
     public Guid CertificadoCsdId { get; private set; }
