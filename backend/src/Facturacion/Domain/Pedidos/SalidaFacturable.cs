@@ -29,7 +29,7 @@ public sealed class SalidaFacturable : BaseEntity, IPerteneceAEmpresa, IAuditabl
     public Guid EmpresaId { get; set; }
     public Guid PedidoFacturableId { get; private set; }
 
-    /// <summary>1, 2, 3… por pedido. Supuesto a validar con Jorge (numeración de A+W).</summary>
+    /// <summary>1, 2, 3… por pedido. Supuesto a validar con Millet (numeración de A+W).</summary>
     public int NumeroParcialidad { get; private set; }
 
     public OrigenSalidaFacturable Origen { get; private set; }
