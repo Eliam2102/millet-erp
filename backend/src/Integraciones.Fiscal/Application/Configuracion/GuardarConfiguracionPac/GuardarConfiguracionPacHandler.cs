@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.Integraciones.Fiscal.Application.Certificados;
 using Millet.Integraciones.Fiscal.Application.IntegrationEvents;
 using Millet.Integraciones.Fiscal.Domain;
 using Millet.Integraciones.Fiscal.Domain.Ports;
@@ -34,6 +35,7 @@ public sealed class GuardarConfiguracionPacHandler
     private readonly ICurrentEmpresaContext _currentEmpresa;
     private readonly IClock _clock;
     private readonly IPacCandidatoProbe _probe;
+    private readonly ICurrentUserContext? _user;
 
     public GuardarConfiguracionPacHandler(
         IntegracionesFiscalDbContext db,
@@ -42,8 +44,10 @@ public sealed class GuardarConfiguracionPacHandler
         IConfiguracionPacResolver resolver,
         ICurrentEmpresaContext currentEmpresa,
         IClock clock,
-        IPacCandidatoProbe probe)
+        IPacCandidatoProbe probe,
+        ICurrentUserContext? user = null)
     {
+        _user = user;
         _db = db;
         _cipher = cipher;
         _publisher = publisher;
@@ -78,6 +82,7 @@ public sealed class GuardarConfiguracionPacHandler
                 ct);
 
         bool rotacion = false;
+        VigenciaCsd? csdNuevo = null;
         ConfiguracionPac config;
 
         if (existente is null)
@@ -152,6 +157,10 @@ public sealed class GuardarConfiguracionPacHandler
                 $"{csd.CertificadoBase64}|{csd.LlavePrivadaBase64}|{csd.Password}");
             if (csdHash != config.CsdHash)
             {
+                // F6.9: un certificado revocado no se vuelve a capturar; el nuevo
+                // entra al historial y el anterior queda Sustituido.
+                await HistorialCsd.ValidarNoRevocadoAsync(_db, config.EmpresaId, vigencia.NumeroSerie, ct);
+                csdNuevo = vigencia;
                 config.ConfigurarCsd(
                     certificadoCifrado: _cipher.Encrypt(csd.CertificadoBase64),
                     llavePrivadaCifrada: _cipher.Encrypt(csd.LlavePrivadaBase64),
@@ -175,6 +184,9 @@ public sealed class GuardarConfiguracionPacHandler
                 throw new BusinessRuleException("CONFIG_PAC_CONEXION_RECHAZADA",
                     TestConexionPac.TestConexionPacHandler.MensajePara(prueba));
         }
+
+        if (csdNuevo is not null && !string.IsNullOrEmpty(csdNuevo.NumeroSerie))
+            await HistorialCsd.RegistrarAsync(_db, config.EmpresaId, config.Id, csdNuevo, ahora, _user?.UserName, ct);
 
         if (existente is null) _db.ConfiguracionesPac.Add(config);
         else
