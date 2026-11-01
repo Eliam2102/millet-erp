@@ -1,3 +1,5 @@
+using Millet.Compras.IntegrationTests.Autorizacion;
+using Microsoft.AspNetCore.Mvc.Testing;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -49,15 +51,15 @@ public class SituacionSurtidoEndpointsTests : IClassFixture<StubsWebApplicationF
         var empresaId = await GetEmpresaIdAsync();
 
         // EsperandoCompra: autorizada, todo en compra, NADA recibido ni entregado.
-        var rqEsperando = await CrearTransmitirAutorizarAsync(client, Articulo, 10m);
+        var rqEsperando = await CrearTransmitirAutorizarAsync(_factory, client, Articulo, 10m);
 
         // ListoParaSurtir: recibido (disponible para entregar) pero NADA entregado.
-        var rqListo = await CrearTransmitirAutorizarAsync(client, Articulo, 10m);
+        var rqListo = await CrearTransmitirAutorizarAsync(_factory, client, Articulo, 10m);
         await PublishAsync(new OcRecepcionRegistradaEvent(
             rqListo, await GetPrimeraLineaIdAsync(rqListo), Guid.CreateVersion7(), empresaId, 10m, DateTimeOffset.UtcNow));
 
         // SurtidoParcial: recibido + entrega PARCIAL por el canal de salidas.
-        var rqParcial = await CrearTransmitirAutorizarAsync(client, Articulo, 10m);
+        var rqParcial = await CrearTransmitirAutorizarAsync(_factory, client, Articulo, 10m);
         var lineaParcial = await GetPrimeraLineaIdAsync(rqParcial);
         await PublishAsync(new OcRecepcionRegistradaEvent(
             rqParcial, lineaParcial, Guid.CreateVersion7(), empresaId, 10m, DateTimeOffset.UtcNow));
@@ -212,14 +214,14 @@ public class SituacionSurtidoEndpointsTests : IClassFixture<StubsWebApplicationF
         return client;
     }
 
-    private static async Task<Guid> CrearTransmitirAutorizarAsync(HttpClient client, Guid articuloId, decimal cantidad)
+    private static async Task<Guid> CrearTransmitirAutorizarAsync(WebApplicationFactory<Program> factory, HttpClient client, Guid articuloId, decimal cantidad)
     {
         var rqId = await CrearConLineaSinTransmitirAsync(client, articuloId, cantidad);
 
         var transmit = await client.PostAsync($"/api/v1/compras/requisiciones/{rqId}/transmitir", content: null);
         transmit.EnsureSuccessStatusCode();
 
-        var auth = await client.PostAsJsonAsync(
+        var auth = await (await AutorizacionTestSeeding.CreateAutorizadorAsync(factory)).PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{rqId}/autorizaciones",
             new { Nivel = 1, Notas = (string?)null });
         auth.EnsureSuccessStatusCode();

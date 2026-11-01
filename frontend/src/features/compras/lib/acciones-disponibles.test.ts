@@ -534,3 +534,28 @@ describe('accionVerCotizaciones (F1-COM-02)', () => {
     expect(accionVerCotizaciones(makeRq(EstadoRequisicion.EnSurtido), []).visible).toBe(false);
   });
 });
+
+describe('autoautorización de RQ (REQUISICION_AUTOAUTORIZACION)', () => {
+  const rqEnAut = (extra: Partial<RequisicionResponse> = {}) =>
+    makeRq(EstadoRequisicion.EnAutorizacion, { creadorId: 'u-autor', ...extra });
+
+  it('Nivel 1: el autor ve el botón deshabilitado con motivo; otro usuario lo tiene habilitado', () => {
+    const autor = accionAprobarNivel1(rqEnAut(), TODOS_LOS_PERMISOS, 'u-autor');
+    expect(autor.visible).toBe(true);
+    expect(autor.habilitada).toBe(false);
+    expect(autor.motivoDeshabilitada).toBeTruthy();
+    expect(accionAprobarNivel1(rqEnAut(), TODOS_LOS_PERMISOS, 'otro').habilitada).toBe(true);
+  });
+
+  it('Nivel 2: el autor ve el botón deshabilitado con motivo', () => {
+    const rq = rqEnAut({
+      autorizaciones: [
+        { id: 'a-1', nivel: NivelAutorizacion.Nivel1, usuarioId: 'jefe', fechaHora: '2026-01-01T00:00:00Z', notas: null },
+      ] as RequisicionResponse['autorizaciones'],
+    });
+    const autor = accionAprobarNivel2(rq, TODOS_LOS_PERMISOS, 'u-autor');
+    expect(autor.habilitada).toBe(false);
+    expect(autor.motivoDeshabilitada).toBeTruthy();
+    expect(accionAprobarNivel2(rq, TODOS_LOS_PERMISOS, 'otro').habilitada).toBe(true);
+  });
+});
