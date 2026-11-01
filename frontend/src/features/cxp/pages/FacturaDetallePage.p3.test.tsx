@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { FacturaDetallePage } from './FacturaDetallePage';
+import { esContado } from '../lib/es-contado';
 import { EstadoPasivo, MotivoCancelacion } from '@/features/cxp/api/types';
 import { createQueryWrapper } from '@/test/test-query-client';
 
@@ -127,6 +128,11 @@ describe('P3: detalle fiscal y recepción', () => {
     escenario.contado = false;
     render(<FacturaDetallePage />, { wrapper: createQueryWrapper() });
     expect(screen.queryByText(/contado, sin días de crédito/)).not.toBeInTheDocument();
+  });
+  it('reconoce contado cuando el documento llega a medianoche UTC', () => {
+    expect(esContado('2026-11-01', '2026-11-01T00:00:00Z')).toBe(true);
+    expect(esContado('2026-10-09', '2026-10-09T18:00:00Z')).toBe(true);
+    expect(esContado('2026-12-01', '2026-11-01T00:00:00Z')).toBe(false);
   });
   it('muestra la línea y el dato rechazado y no permite forzar la autorización', () => {
     escenario.cancelada = true;
