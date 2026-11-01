@@ -218,6 +218,99 @@ namespace Millet.SharedKernel.Infrastructure.Persistence.Migrations.Core
 
                     b.ToTable("audit_log", "core");
                 });
+
+            modelBuilder.Entity("Millet.SharedKernel.Infrastructure.Correo.CorreoEnvio", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Adjuntos")
+                        .HasColumnType("integer")
+                        .HasColumnName("adjuntos");
+
+                    b.Property<string>("Asunto")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("asunto");
+
+                    b.Property<long>("BytesAdjuntos")
+                        .HasColumnType("bigint")
+                        .HasColumnName("bytes_adjuntos");
+
+                    b.Property<string>("Codigo")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("codigo");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("estado");
+
+                    b.Property<string>("Modulo")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("modulo");
+
+                    b.Property<string>("Motivo")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("motivo");
+
+                    b.Property<string>("Para")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("para");
+
+                    b.Property<string>("ParaOriginal")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("para_original");
+
+                    b.Property<string>("Proveedor")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("proveedor");
+
+                    b.Property<Guid?>("ReferenciaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("referencia_id");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("tipo");
+
+                    b.HasKey("Id")
+                        .HasName("pk_correo_envio");
+
+                    b.HasIndex("CreatedAt")
+                        .HasDatabaseName("ix_correo_envio_created_at");
+
+                    b.HasIndex("Modulo", "ReferenciaId")
+                        .HasDatabaseName("ix_correo_envio_modulo_referencia");
+
+                    b.ToTable("correo_envio", "core", t =>
+                        {
+                            t.HasCheckConstraint("ck_correo_envio_estado", "estado IN ('aceptado', 'error', 'simulado')");
+                        });
+                });
 #pragma warning restore 612, 618
         }
     }

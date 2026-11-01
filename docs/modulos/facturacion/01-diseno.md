@@ -1008,7 +1008,7 @@ y la memoria de estructura de ventanas ERP.
 | `IMasterProvisioningPort` + readers de master A+W (auto-provisión cliente/artículo) | ✅ **CERRADO** (ADR-0048, PR4 #450) | `AwMasterProvisioningAdapter` (bridge en Integraciones.Aw/Pedidos) + `ProvisionarClienteDesdeAwCommand`/`ProvisionarProductoAwCommand` (DatosMaestros ejecuta el alta; upsert idempotente por referencia externa). Activo vía toggle; `NoOpMasterProvisioningPort` = fallback dev | Ya wired (§3.bis.6). Vistas `vw_erp_cliente`/`vw_erp_articulo` se afinan en fase guiada |
 | `IActivosFijosReadPort` | `<ActivosFijos>` | Catálogo mínimo de activos con saldos | Para venta de activos |
 | `concepto_contable_map` | — | Seed con `TBD-*` + `requiere_codigo_definitivo` | Migración de filas cuando Contabilidad entregue códigos |
-| Envío de CFDI al cliente | `<EnvioCfdiCliente>` | NoOp si SMTP/Graph no configurado | Reusar Integraciones.Mailbox / `INotificacionService` |
+| Envío de CFDI al cliente | `<EnvioCfdiCliente>` | ✅ Cerrado en 86e3txv0n: `CorreoCfdiNotificacionService` sobre `ICorreoSaliente` (ADR-0063); el reenvío reusa la bitácora que no ha salido | — |
 | Outbox Facturación | — | `NoOpIntegrationEventBusSender` si cs vacía | `OutboxPublisherWorker<FacturacionDbContext>` |
 | Permisos `facturacion.*` | — | Registrar al arrancar | Migration en IdentidadDbContext (memoria) |
 

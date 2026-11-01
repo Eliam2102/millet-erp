@@ -11,7 +11,8 @@ namespace Millet.Facturacion.Application.Facturas.ReenviarCfdiCorreo;
 
 /// <summary>
 /// Encola el reenvío del CFDI de una factura al correo indicado (§7.1, §12.5).
-/// Crea una <c>BitacoraEnvioCorreo</c> en <c>Pendiente</c>; el
+/// Crea una <c>BitacoraEnvioCorreo</c> en <c>Pendiente</c> (o reencola la que
+/// no ha salido para ese destinatario); el
 /// <c>EnvioCfdiCorreoWorker</c> la procesa (genera PDF + adjunta XML + entrega).
 /// </summary>
 public sealed record ReenviarCfdiCorreoCommand(Guid ComprobanteId, string Destinatario)
@@ -56,8 +57,22 @@ public sealed class ReenviarCfdiCorreoHandler
                 "FACTURA_NO_TIMBRADA",
                 $"Sólo se puede enviar por correo una factura timbrada (estado actual: {factura.Estado}).");
 
-        var bitacora = BitacoraEnvioCorreo.Encolar(empresaId, factura.Id, command.Destinatario);
-        _db.BitacorasEnvioCorreo.Add(bitacora);
+        // 86e3txv0n: si al mismo destinatario ya hay un envío que no ha salido
+        // (pendiente o fallido), se reencola esa fila en lugar de crear otra: así
+        // el reintento del worker y el reenvío no mandan dos correos.
+        var destinatario = command.Destinatario.Trim();
+        var abiertos = await _db.BitacorasEnvioCorreo
+            .Where(b => b.ComprobanteId == factura.Id && b.Estado != EstadoEnvioCorreo.Enviado)
+            .OrderByDescending(b => b.CreatedAt)
+            .ToListAsync(cancellationToken);
+        var bitacora = abiertos.FirstOrDefault(b => string.Equals(b.Destinatario, destinatario, StringComparison.OrdinalIgnoreCase));
+        if (bitacora is not null)
+            bitacora.Reencolar();
+        else
+        {
+            bitacora = BitacoraEnvioCorreo.Encolar(empresaId, factura.Id, destinatario);
+            _db.BitacorasEnvioCorreo.Add(bitacora);
+        }
         await _db.SaveChangesAsync(cancellationToken);
 
         return new ReenviarCfdiCorreoResponse(bitacora.Id, bitacora.Estado.ToString());

@@ -60,7 +60,8 @@ public sealed class RegistrarEnvioOcHandler(ComprasDbContext db, ICurrentUserCon
                 var marca = ImpresionOrdenCompraService.Marca(pdf.Impresiones + 1, FechaContable.HoyLocal(clock.UtcNow));
                 var generado = await impresion.RenderizarAsync(oc.Id, marca, cancellationToken);
                 await correo.EnviarAsync(new CorreoDocumento(oc.EmpresaId, envio.Destinatario,
-                    $"Orden de compra {oc.Folio.Valor}", generado.NombreSugerido, generado.Contenido), cancellationToken);
+                    $"Orden de compra {oc.Folio.Valor}", generado.NombreSugerido, generado.Contenido,
+                    Modulo: "compras", ReferenciaId: oc.Id), cancellationToken);
             }
             envio.Completar(correo.EsSimulado);
         }

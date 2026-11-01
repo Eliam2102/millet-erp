@@ -5,6 +5,11 @@
 - **Decisores**: Eduardo Paredes
 - **Etiquetas**: email, notificaciones, infraestructura, tier-3
 
+> **Nota (2026-10-31):** el proveedor de envío lo reemplaza [ADR-0063](./0063-correo-saliente-por-microsoft-graph.md)
+> (Microsoft Graph desde el buzón del ERP, en estado Propuesta). Se conservan el puerto único, la trazabilidad
+> y el reintento; el outbox central `core.email_outbox` no se construye: cada módulo reintenta sobre su estado
+> y cada intento queda en `core.correo_envio`.
+
 ## Contexto y problema
 
 El ERP necesita enviar correos por varias razones operativas:
