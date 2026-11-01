@@ -385,6 +385,14 @@ builder.Services
     .Bind(builder.Configuration.GetSection(
         Millet.Facturacion.Application.Cajas.Sesiones.CajasOptions.SectionName));
 
+// === Terminal de tarjetas (86e3vr1tf, Parte A) ===
+// Mapeo de columnas del archivo diario del banco; por omisión «Transacciones por
+// día» de Getnet más columnas supuestas de comisión (Facturacion:TerminalTarjeta:*).
+builder.Services
+    .AddOptions<Millet.Facturacion.Application.Cajas.Terminal.TerminalTarjetaOptions>()
+    .Bind(builder.Configuration.GetSection(
+        Millet.Facturacion.Application.Cajas.Terminal.TerminalTarjetaOptions.SectionName));
+
 // === REPP automático desde Tesorería (PR gemelo TES-PR7) ===
 // Sucursal emisora de los REPP que dispara pago-cliente.confirmado.v1
 // (setting Facturacion__ReppAutomatico__SucursalClave en appservice.bicep;
@@ -1835,6 +1843,7 @@ Millet.Api.Endpoints.Facturacion.CajasEndpoints.MapFacturacionCajasEndpoints(app
 
 // === Facturación — Cobros de mostrador (CAJAS-PR4, 12-cajas.md §6) ===
 Millet.Api.Endpoints.Facturacion.CobrosEndpoints.MapFacturacionCobrosEndpoints(app);
+Millet.Api.Endpoints.Facturacion.TerminalTarjetaEndpoints.MapFacturacionTerminalTarjetaEndpoints(app);
 
 // === Cuentas por Cobrar — Líneas de crédito (CXC-PR1) ===
 Millet.Api.Endpoints.CuentasPorCobrar.LineasCreditoEndpoints.MapLineasCreditoEndpoints(app);
