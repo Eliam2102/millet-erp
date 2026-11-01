@@ -2,6 +2,7 @@ using MediatR;
 using Millet.CuentasPorPagar.Application.Cfdi.IngresarCfdi;
 using Millet.CuentasPorPagar.Domain.Cfdi;
 using Millet.CuentasPorPagar.Domain.Ports.DatosMaestros;
+using Millet.CuentasPorPagar.Domain.Ports.Portal;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.CuentasPorPagar.Application.Portal;
@@ -17,7 +18,7 @@ public sealed record SubirCfdiPortalCommand(Guid ProveedorId, byte[] Xml, byte[]
 /// <param name="Resultado"><c>Recibido</c> o <c>YaLoTeniamos</c> (UUID ya registrado: no se duplica).</param>
 public sealed record SubirCfdiPortalResponse(string Resultado, string Uuid, string Mensaje, Guid? CfdiId);
 
-public sealed class SubirCfdiPortalHandler(IXmlCfdiParser parser, IProveedorReadPort proveedores, ISender mediator)
+public sealed class SubirCfdiPortalHandler(IXmlCfdiParser parser, IProveedorReadPort proveedores, ISender mediator, IReppPortalPort repp)
     : IRequestHandler<SubirCfdiPortalCommand, SubirCfdiPortalResponse>
 {
     public const int MaxXmlBytes = 2 * 1024 * 1024;
@@ -60,13 +61,22 @@ public sealed class SubirCfdiPortalHandler(IXmlCfdiParser parser, IProveedorRead
             using var xml = new MemoryStream(request.Xml, writable: false);
             using var pdfStream = request.Pdf is { Length: > 0 } p ? new MemoryStream(p, writable: false) : null;
             var r = await mediator.Send(new IngresarCfdiCommand(xml, pdfStream, CanalOrigenCfdi.PortalProveedor), cancellationToken);
-            return new("Recibido", r.UuidCfdi, "Recibimos tu documento.", r.Id);
+            return new("Recibido", r.UuidCfdi, await Mensaje("Recibimos tu documento.", datos, request, cancellationToken), r.Id);
         }
         catch (BusinessRuleException ex) when (ex.Code == "CFDI_DUPLICADO")
         {
             // El dedupe es por UUID y el RFC emisor ya coincide con el del proveedor: no se revela nada ajeno.
-            return new("YaLoTeniamos", datos.UuidCfdi, "Ya lo teníamos.", null);
+            // Un complemento ya recibido se vuelve a intentar ligar (p. ej. se subió antes de que Tesorería registrara el pago).
+            return new("YaLoTeniamos", datos.UuidCfdi, await Mensaje("Ya lo teníamos.", datos, request, cancellationToken), null);
         }
+    }
+
+    /// <summary>Complemento de pago (tipo P): se liga solo a los pagos aplicados y se le dice al proveedor el resultado.</summary>
+    private async Task<string> Mensaje(string recibido, DatosCfdiParseados datos, SubirCfdiPortalCommand request, CancellationToken cancellationToken)
+    {
+        if (datos.Tipo != TipoCfdi.Pago) return recibido;
+        var r = await repp.LigarAsync(request.ProveedorId, request.Xml, cancellationToken);
+        return $"{recibido} {r.Mensaje}";
     }
 
     private static bool EsPdf(byte[] b) => b.Length >= 5 && b[0] == '%' && b[1] == 'P' && b[2] == 'D' && b[3] == 'F' && b[4] == '-';

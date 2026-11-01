@@ -378,7 +378,10 @@ public sealed class PortalProveedoresTests(WebApplicationFactory<Program> factor
             await AutorizarAsync(admin, e.ProvA, correoA);
             var portal = await EntrarAsync(e, correoA);
 
-            Assert.Equal(HttpStatusCode.Created, (await SubirAsync(portal, CfdiXml("P", "FIX010101ABC", uuid))).StatusCode);
+            var subida = await SubirAsync(portal, CfdiXml("P", "FIX010101ABC", uuid));
+            Assert.Equal(HttpStatusCode.Created, subida.StatusCode);
+            // 86e3ke2d3: intenta ligarlo al pago; este XML no relaciona ninguna factura, así que queda recibido y se avisa que CxP lo revisa.
+            Assert.Contains("Cuentas por Pagar lo revisará", (await Json(subida)).GetProperty("mensaje").GetString());
 
             var lista = await Json(await admin.GetAsync("/api/v1/cuentas-por-pagar/cfdis?rfcEmisor=FIX010101ABC&limit=500"));
             Assert.Contains(lista.GetProperty("items").EnumerateArray(),

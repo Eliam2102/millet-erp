@@ -93,6 +93,10 @@ public sealed class ConciliacionesCommandsTests
         // Se emitieron eventos de integración para la póliza contable (C1 / normalizador C15)
         publisher.PublishedEvents.Should().HaveCount(2);
         publisher.PublishedEvents.Should().AllBeOfType<MovimientoBancarioRegistradoIntegrationEvent>();
+
+        // El saldo en libros ya incluye la comisión y el IVA recién dados de alta (antes se quedaba sin ellos).
+        var guardada = await db.Conciliaciones.AsNoTracking().SingleAsync(c => c.Id == conc.Id);
+        guardada.SaldoLibros.Should().Be((cuenta.SaldoInicial ?? 0m) - 406.00m);
     }
 
     [Fact]
