@@ -82,6 +82,13 @@ public sealed class ConfiguracionPac : BaseEntity, IPerteneceAEmpresa, IAuditabl
     public DateTimeOffset? CsdNotBefore { get; private set; }
     public DateTimeOffset? CsdNotAfter { get; private set; }
 
+    /// <summary>
+    /// F6.9: el CSD en uso se revocó (comprometido o revocado por el SAT). El
+    /// adaptador deja de timbrar con él aunque no haya vencido. Se limpia al
+    /// capturar otro CSD.
+    /// </summary>
+    public DateTimeOffset? CsdRevocadoEn { get; private set; }
+
     /// <summary>Las tres piezas del CSD están capturadas — condición para timbrar por valores.</summary>
     public bool CsdConfigurado =>
         CsdCertificadoCifrado is { Length: > 0 }
@@ -211,12 +218,22 @@ public sealed class ConfiguracionPac : BaseEntity, IPerteneceAEmpresa, IAuditabl
         CsdActualizadoAt = ahora;
         CsdNotBefore = notBefore;
         CsdNotAfter = notAfter;
+        CsdRevocadoEn = null;
+    }
+
+    /// <summary>F6.9: marca revocado el CSD en uso. Idempotente.</summary>
+    public void RevocarCsd(DateTimeOffset ahora)
+    {
+        if (!CsdConfigurado)
+            throw new BusinessRuleException("CSD_NO_CONFIGURADO", "No hay un CSD capturado que revocar.");
+        CsdRevocadoEn ??= ahora;
     }
 
     /// <summary>Estado derivado; se considera próximo a vencer durante sus últimos 30 días.</summary>
     public EstadoCsd? ObtenerEstadoCsd(DateTimeOffset ahora)
     {
         if (!CsdConfigurado || CsdNotBefore is null || CsdNotAfter is null) return null;
+        if (CsdRevocadoEn is not null) return EstadoCsd.Revocado;
         if (ahora < CsdNotBefore || ahora > CsdNotAfter) return EstadoCsd.Vencido;
         return CsdNotAfter <= ahora.AddDays(30) ? EstadoCsd.ProximoAVencer : EstadoCsd.Vigente;
     }
@@ -231,6 +248,7 @@ public sealed class ConfiguracionPac : BaseEntity, IPerteneceAEmpresa, IAuditabl
         CsdActualizadoAt = null;
         CsdNotBefore = null;
         CsdNotAfter = null;
+        CsdRevocadoEn = null;
     }
 
     /// <summary>Activa la configuración. Idempotente.</summary>
@@ -280,5 +298,6 @@ public enum EstadoCsd
 {
     Vigente,
     ProximoAVencer,
-    Vencido
+    Vencido,
+    Revocado
 }

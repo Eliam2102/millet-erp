@@ -89,7 +89,65 @@ public static class CsdValidador
                 $"{cert.NotAfter:yyyy-MM-dd}). Captura un CSD vigente.");
         }
 
-        return new VigenciaCsd(notBefore, notAfter);
+        return new VigenciaCsd(notBefore, notAfter, NumeroSerie(cert), Rfc(cert.SubjectName));
+    }
+
+    /// <summary>
+    /// F6.9: datos públicos de un .cer ya guardado (número de serie, RFC y
+    /// vigencia) para registrar en el historial los CSD capturados antes de él.
+    /// No valida vigencia ni llave.
+    /// </summary>
+    public static VigenciaCsd LeerMetadatos(string certificadoBase64)
+    {
+        using var cert = X509CertificateLoader.LoadCertificate(Convert.FromBase64String(certificadoBase64));
+        return new VigenciaCsd(
+            new DateTimeOffset(cert.NotBefore.ToUniversalTime()),
+            new DateTimeOffset(cert.NotAfter.ToUniversalTime()),
+            NumeroSerie(cert),
+            Rfc(cert.SubjectName));
+    }
+
+    /// <summary>
+    /// Número de certificado del SAT: el serial X.509 son los códigos ASCII de
+    /// los 20 dígitos (p. ej. <c>3330…</c> → <c>30…</c>). Si no tiene esa forma,
+    /// se deja el serial hexadecimal tal cual.
+    /// </summary>
+    internal static string NumeroSerie(X509Certificate2 cert)
+    {
+        var hex = cert.SerialNumber;
+        if (hex.Length % 2 != 0) return hex;
+        var chars = new char[hex.Length / 2];
+        for (var i = 0; i < chars.Length; i++)
+        {
+            var b = Convert.ToByte(hex.Substring(i * 2, 2), 16);
+            if (b is < (byte)'0' or > (byte)'9') return hex;
+            chars[i] = (char)b;
+        }
+        return new string(chars);
+    }
+
+    /// <summary>RFC del titular: atributo x500UniqueIdentifier (2.5.4.45), «RFC / RFC del representante».</summary>
+    internal static string? Rfc(X500DistinguishedName subject)
+    {
+        var valor = Atributo(subject, "2.5.4.45");
+        return valor?.Split('/', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+    }
+
+    private static string? Atributo(X500DistinguishedName subject, string oidBuscado)
+    {
+        var nombre = new AsnReader(subject.RawData, AsnEncodingRules.DER).ReadSequence();
+        while (nombre.HasData)
+        {
+            var rdn = nombre.ReadSetOf();
+            while (rdn.HasData)
+            {
+                var atributo = rdn.ReadSequence();
+                var oid = atributo.ReadObjectIdentifier();
+                var valor = atributo.ReadCharacterString((UniversalTagNumber)atributo.PeekTag().TagValue);
+                if (oid == oidBuscado && !string.IsNullOrWhiteSpace(valor)) return valor.Trim();
+            }
+        }
+        return null;
     }
 
     private static bool TieneUnidadOrganizativa(X500DistinguishedName subject)
@@ -115,4 +173,5 @@ public static class CsdValidador
     }
 }
 
-public sealed record VigenciaCsd(DateTimeOffset NotBefore, DateTimeOffset NotAfter);
+/// <summary>Vigencia y datos públicos del CSD (F6.9: número de serie y RFC para el historial).</summary>
+public sealed record VigenciaCsd(DateTimeOffset NotBefore, DateTimeOffset NotAfter, string NumeroSerie = "", string? Rfc = null);
