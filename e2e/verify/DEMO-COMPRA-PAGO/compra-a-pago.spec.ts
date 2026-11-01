@@ -346,7 +346,7 @@ test('DEMO-01 [AC] @evidence purchase-to-payment with two users: RQ -> OC -> rec
     }).not.toBe(String(ocInicial.subEstadoRecepcion));
   });
 
-  let facturaId = ''; const folioFac = `F-${rand()}`;
+  let facturaId = ''; const folioFac = `${rand()}`;
   await test.step('8. B uploads the CFDI (supplier RFC) and captures the reconciled invoice', async () => {
     await page.goto('/cxp/cfdis');
     await page.waitForLoadState('networkidle');
