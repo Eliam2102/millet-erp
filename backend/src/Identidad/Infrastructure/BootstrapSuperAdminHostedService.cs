@@ -281,7 +281,10 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                 "Contador General", "Registra las bajas autorizadas por el Director de Administración y Finanzas y autoriza las cancelaciones de CFDI (F6.5).",
                 p => p.Codigo is PermisosCanonicos.ActivosFijosBajasRegistrar or PermisosCanonicos.DatosMaestrosProveedoresBloquear
                     or PermisosCanonicos.FacturacionCancelacionesAutorizar or PermisosCanonicos.FacturacionCancelacionesConsultar
-                    or PermisosCanonicos.FacturacionFacturasLeer or PermisosCanonicos.FacturacionAnticiposLeer),
+                    or PermisosCanonicos.FacturacionFacturasLeer or PermisosCanonicos.FacturacionAnticiposLeer
+                    // Perfil corporativo: autoriza cancelaciones de todas las cajas y sucursales,
+                    // así que ve el detalle de cualquier comprobante (sin esto, 404 por alcance de caja).
+                    or PermisosCanonicos.FacturacionCajaLeerTodas),
             // REQ-PERM (86e3xd4uz): los 80 usuarios del Portal de Requisiciones. Equivalencia en
             // docs/operacion/equivalencia-permisos-portal-requisiciones.md.
             (Guid.Parse("00000010-0001-0000-0000-000000000001"), "requisitante",
