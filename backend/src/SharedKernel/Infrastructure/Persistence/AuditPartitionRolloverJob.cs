@@ -85,6 +85,17 @@ public sealed class AuditPartitionRolloverJob(
                 FOR VALUES FROM ('{from:yyyy-MM-dd} 00:00:00+00')
                 TO ('{to:yyyy-MM-dd} 00:00:00+00')
                 """, ct);
+            // ADM-BIT: PostgreSQL no replica en las particiones el disparador de TRUNCATE de la tabla padre; cada partición
+            // nueva lo recibe aquí (si la migración AuditLogSinTruncate ya creó la función de la bitácora inmutable).
+            await db.Database.ExecuteSqlRawAsync($"""
+                DO $$
+                BEGIN
+                    IF to_regprocedure('core.audit_log_inmutable()') IS NOT NULL THEN
+                        CREATE OR REPLACE TRIGGER trg_audit_log_sin_truncate BEFORE TRUNCATE ON core.{name}
+                            FOR EACH STATEMENT EXECUTE FUNCTION core.audit_log_inmutable();
+                    END IF;
+                END $$;
+                """, ct);
 #pragma warning restore EF1002
         }
 

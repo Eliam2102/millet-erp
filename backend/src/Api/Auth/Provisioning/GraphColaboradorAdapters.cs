@@ -10,7 +10,9 @@ using Millet.CuentasPorPagar.Infrastructure.Notificaciones;
 using Millet.Identidad.Application.DirectorioEntra;
 using Millet.Identidad.Application.Ports;
 using Millet.Identidad.Infrastructure.Stubs;
+using Millet.SharedKernel.Application.Correo;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.SharedKernel.Infrastructure.Correo;
 
 namespace Millet.Api.Auth.Provisioning;
 
@@ -358,28 +360,35 @@ public static class GraphAvisosRevisionRegistration
         if (avisos.ContadorGeneral.All(c => !AvisosRevisionOptions.EsCorreoValido(c)))
             throw new InvalidOperationException(
                 $"{AvisosRevisionOptions.SectionName}:Proveedor=Graph requiere al menos un correo válido en {AvisosRevisionOptions.SectionName}:ContadorGeneral.");
+        ExigirTransporteGraph(configuration, AvisosRevisionOptions.SectionName);
         services.AddSingleton<INotificacionService>(sp => new GraphAvisoRevisionCxp(
-            new GraphServiceClient(
-                new ClientSecretCredential(auth.TenantId, auth.ClientId, auth.ClientSecret),
-                ["https://graph.microsoft.com/.default"]),
-            auth.SenderEmail, avisos, sp.GetRequiredService<ILogger<GraphAvisoRevisionCxp>>()));
+            sp.GetRequiredService<ICorreoSaliente>(), avisos, sp.GetRequiredService<ILogger<GraphAvisoRevisionCxp>>()));
         return services;
+    }
+
+    /// <summary>
+    /// 86e3txv0n: los avisos salen por el transporte único de correo (modo pruebas
+    /// y registro incluidos); pedir Graph aquí sin <c>Correo:Proveedor=Graph</c> los dejaría simulados sin avisar.
+    /// </summary>
+    internal static void ExigirTransporteGraph(IConfiguration configuration, string seccion)
+    {
+        var correo = configuration.GetSection(CorreoSalienteOptions.SectionName).Get<CorreoSalienteOptions>() ?? new();
+        if (!correo.EsGraph)
+            throw new InvalidOperationException(
+                $"{seccion}:Proveedor=Graph requiere {CorreoSalienteOptions.SectionName}:Proveedor=Graph (transporte único de correo).");
     }
 }
 
 /// <summary>Correo del aviso SLA de factura en revisión al Contador General (y Compras según el motivo).</summary>
 public sealed class GraphAvisoRevisionCxp : INotificacionService
 {
-    private readonly GraphServiceClient _graph;
-    private readonly string _sender;
+    private readonly ICorreoSaliente _correo;
     private readonly AvisosRevisionOptions _avisos;
     private readonly ILogger<GraphAvisoRevisionCxp> _logger;
 
-    public GraphAvisoRevisionCxp(
-        GraphServiceClient graph, string sender, AvisosRevisionOptions avisos, ILogger<GraphAvisoRevisionCxp> logger)
+    public GraphAvisoRevisionCxp(ICorreoSaliente correo, AvisosRevisionOptions avisos, ILogger<GraphAvisoRevisionCxp> logger)
     {
-        _graph = graph;
-        _sender = sender;
+        _correo = correo;
         _avisos = avisos;
         _logger = logger;
     }
@@ -393,8 +402,12 @@ public sealed class GraphAvisoRevisionCxp : INotificacionService
                 AvisosRevisionOptions.SectionName, notificacion.FacturaProveedorId);
             return;
         }
-        await GraphCorreoColaboradores.EnviarHtmlAsync(
-            _graph, _sender, para, $"Factura en revisión: {NombreNivel(notificacion.Nivel)}", ConstruirHtml(notificacion), cancellationToken);
+        var resultado = await _correo.EnviarAsync(new MensajeCorreo(notificacion.EmpresaId, "cuentas-por-pagar",
+            "aviso-revision", notificacion.FacturaProveedorId, para,
+            $"Factura en revisión: {NombreNivel(notificacion.Nivel)}", ConstruirHtml(notificacion)), cancellationToken);
+        // Un rechazo se lanza: el worker retira la marca de «ya avisado» y reintenta en el siguiente ciclo (#221).
+        if (resultado.Estado == EstadoCorreoSaliente.Error)
+            throw new InvalidOperationException($"{resultado.Codigo}: {resultado.Motivo}");
     }
 
     public static string NombreNivel(NivelEscalamientoSla nivel) => nivel switch

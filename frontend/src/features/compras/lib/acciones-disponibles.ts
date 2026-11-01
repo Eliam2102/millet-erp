@@ -208,6 +208,10 @@ export function accionTransmitir(
   return HABILITADA;
 }
 
+/** Espejo de <c>REQUISICION_AUTOAUTORIZACION</c> del dominio: quien capturó la RQ no la autoriza. */
+export const MOTIVO_AUTOR_RQ =
+  'Capturaste esta requisición: no puedes autorizarla. Debe autorizarla otra persona.';
+
 /**
  * <b>Aprobar Nivel1</b> — solo en <c>EnAutorizacion</c>; se oculta si
  * Nivel1 ya está firmado por <b>cualquiera</b> (no solo por el usuario
@@ -221,6 +225,7 @@ export function accionTransmitir(
 export function accionAprobarNivel1(
   rq: RequisicionResponse,
   permisos: readonly string[],
+  currentUserId?: string,
 ): AccionDisponible {
   if (
     !permisos.includes(PermisosCanonicos.ComprasRequisicionesAutorizarNivel1)
@@ -229,6 +234,9 @@ export function accionAprobarNivel1(
   }
   if (rq.estado !== EstadoRequisicion.EnAutorizacion) return OCULTO;
   if (tieneFirmaNivel(rq, NivelAutorizacion.Nivel1)) return OCULTO;
+  if (currentUserId && rq.creadorId === currentUserId) {
+    return DISABLED(MOTIVO_AUTOR_RQ);
+  }
   return HABILITADA;
 }
 
@@ -255,6 +263,7 @@ export function accionAprobarNivel2(
   );
   if (yaFirmoN2) return OCULTO;
   if (!tieneFirmaNivel(rq, NivelAutorizacion.Nivel1)) return OCULTO;
+  if (rq.creadorId === currentUserId) return DISABLED(MOTIVO_AUTOR_RQ);
   return HABILITADA;
 }
 

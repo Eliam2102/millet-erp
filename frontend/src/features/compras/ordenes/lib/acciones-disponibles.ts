@@ -336,6 +336,10 @@ export function accionTransmitirAAutorizacion(
   );
 }
 
+/** Espejo de <c>OC_AUTOAUTORIZACION</c> del dominio: quien capturó la OC no la aprueba. */
+export const MOTIVO_AUTOR_OC =
+  'Capturaste esta orden de compra: no puedes aprobarla. Debe aprobarla otra persona.';
+
 /**
  * <b>Aprobar Nivel 1 (Jefe de Compras)</b> — solo en
  * <c>EnAutorizacionJefeCompras</c>. Permiso: <c>autorizar.nivel1</c>.
@@ -346,14 +350,17 @@ export function accionTransmitirAAutorizacion(
  * <c>EnAutorizJefeCompras</c>.</para>
  */
 export function accionAprobarNivel1(
-  oc: Pick<OrdenCompraDetalleResponse, 'estado'>,
+  oc: Pick<OrdenCompraDetalleResponse, 'estado' | 'compradorTitularId'>,
   permisos: readonly string[],
+  currentUserId?: string,
 ): AccionDisponible {
   return gatePermisos(
     permisos,
     [PermisosCanonicos.ComprasOrdenesAutorizarNivel1],
     oc.estado === EstadoOrdenCompra.EnAutorizacionJefeCompras
-      ? HABILITADA
+      ? currentUserId && oc.compradorTitularId === currentUserId
+        ? DISABLED(MOTIVO_AUTOR_OC)
+        : HABILITADA
       : OCULTO,
   );
 }
@@ -363,14 +370,17 @@ export function accionAprobarNivel1(
  * <c>EnAutorizacionDireccion</c>. Permiso: <c>autorizar.nivel2</c>.
  */
 export function accionAprobarNivel2(
-  oc: Pick<OrdenCompraDetalleResponse, 'estado'>,
+  oc: Pick<OrdenCompraDetalleResponse, 'estado' | 'compradorTitularId'>,
   permisos: readonly string[],
+  currentUserId?: string,
 ): AccionDisponible {
   return gatePermisos(
     permisos,
     [PermisosCanonicos.ComprasOrdenesAutorizarNivel2],
     oc.estado === EstadoOrdenCompra.EnAutorizacionDireccion
-      ? HABILITADA
+      ? currentUserId && oc.compradorTitularId === currentUserId
+        ? DISABLED(MOTIVO_AUTOR_OC)
+        : HABILITADA
       : OCULTO,
   );
 }

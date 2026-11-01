@@ -383,7 +383,7 @@ export function DetalleCorrida({ id }: { id: string }) {
           <ul className="space-y-1 text-xs text-ink-secondary">
             {c.firmas.map((f) => (
               <li key={f.usuarioId}>
-                <span className="font-mono">{f.usuarioId}</span> · {f.roles || 'sin rol'} · <DateTimeDisplay value={f.firmadaEn} variant="corta" />
+                <span className={f.usuarioNombre ? undefined : 'font-mono'}>{f.usuarioNombre ?? f.usuarioId}</span> · {f.roles || 'sin rol'} · <DateTimeDisplay value={f.firmadaEn} variant="corta" />
               </li>
             ))}
           </ul>

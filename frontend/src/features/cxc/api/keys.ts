@@ -36,6 +36,9 @@ export const cxcKeys = {
 
   // Reglas de liberación por serie (C7.3)
   reglasSerie: () => [...cxcKeys.all, 'reglas-serie'] as const,
+  // C7.2: administración (todas las reglas) e historial de cambios
+  reglasSerieAdmin: () => [...cxcKeys.reglasSerie(), 'admin'] as const,
+  reglasSerieHistorial: () => [...cxcKeys.reglasSerie(), 'historial'] as const,
 
   // Usuarios con permiso de decidir liberaciones (beneficiarios / evaluadores)
   beneficiariosCredito: () => [...cxcKeys.all, 'beneficiarios-credito'] as const,

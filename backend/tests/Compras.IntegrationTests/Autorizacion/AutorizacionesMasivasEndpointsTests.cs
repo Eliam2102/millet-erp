@@ -42,7 +42,7 @@ public class AutorizacionesMasivasEndpointsTests : IClassFixture<StubsWebApplica
         var rq2 = await CrearTransmitirSinAutorizarAsync(client, new[] { (ArticuloSembrado, 3m) });
         var inexistente = Guid.NewGuid();
 
-        var resp = await client.PostAsJsonAsync(
+        var resp = await (await AutorizacionTestSeeding.CreateAutorizadorAsync(_factory)).PostAsJsonAsync(
             "/api/v1/compras/requisiciones/autorizaciones-masivas",
             new { Ids = new[] { rq1, inexistente, rq2 }, Nivel = 1, Notas = (string?)null });
 
@@ -70,7 +70,7 @@ public class AutorizacionesMasivasEndpointsTests : IClassFixture<StubsWebApplica
         var client = await CreateSuperAdminClientAsync(factory);
         var rq = await CrearTransmitirSinAutorizarAsync(client, new[] { (ArticuloSembrado, 2m) });
 
-        var resp = await client.PostAsJsonAsync(
+        var resp = await (await AutorizacionTestSeeding.CreateAutorizadorAsync(factory)).PostAsJsonAsync(
             "/api/v1/compras/requisiciones/autorizaciones-masivas",
             new { Ids = new[] { rq }, Nivel = 1, Notas = (string?)null });
 

@@ -48,7 +48,12 @@ const DICCIONARIO_CAMPOS: Record<string, string> = {
   updatedby: 'Modificado Por',
   deletedat: 'Fecha de Eliminación',
   estatus: 'Estatus',
-  estado: 'Estado de Acceso',
+  estado: 'Estado',
+  ultimocambioen: 'Último Cambio En',
+  ultimocambiopor: 'Último Cambio Por',
+  // O3b: la cuenta bancaria guarda quién la cambió como id y como nombre; el id queda señalado como tal.
+  ultimocambiopornombre: 'Último Cambio Por',
+  ultimocambioporid: 'Último Cambio Por (id)',
   activo: 'Activo',
   version: 'Versión',
   clave: 'Clave',
@@ -316,6 +321,15 @@ export function formatearValorCampo(
 }
 
 /** Reemplaza GUIDs y nombres técnicos en textos de resumen para que sean comprensibles para el usuario humano. */
+const NOMBRES_ENTIDAD: Record<string, string> = {
+  CuentaBancariaProveedor: 'cuenta bancaria del proveedor',
+};
+
+/** «CuentaBancariaProveedor» → «cuenta bancaria del proveedor»; sin entrada, separa las palabras en minúsculas. */
+function nombreEntidad(entidad: string): string {
+  return NOMBRES_ENTIDAD[entidad] ?? entidad.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase();
+}
+
 export function humanizarTextoConLookups(
   texto: string | null | undefined,
   lookups?: AuditoriaLookups,
@@ -341,6 +355,16 @@ export function humanizarTextoConLookups(
   resultado = resultado
     .replace(/Creó UsuarioEmpresaRol UsuarioEmpresaRol\s+[0-9a-fA-F-]+/gi, 'Asignó rol a usuario')
     .replace(/Creó UsuarioSucursal UsuarioSucursal\s+[0-9a-fA-F-]+/gi, 'Asignó usuario a sucursal');
+
+  // ADM-BIT: una entidad sin clave ni nombre llega como «Modificó CuentaBancariaProveedor CuentaBancariaProveedor 0193abcd»
+  // (resumen) o «CuentaBancariaProveedor 0193abcd» (etiqueta): se dice una vez y en español.
+  resultado = resultado
+    .replace(/\b(Creó|Modificó|Eliminó) ([A-Z][A-Za-z]+) \2 [0-9a-f]{8}\b/g, (_, verbo: string, entidad: string) =>
+      `${verbo} ${nombreEntidad(entidad)}`)
+    .replace(/^([A-Z][A-Za-z]+) [0-9a-f]{8}$/, (_, entidad: string) => {
+      const nombre = nombreEntidad(entidad);
+      return nombre[0].toUpperCase() + nombre.slice(1);
+    });
 
   if (!lookups) return resultado;
 

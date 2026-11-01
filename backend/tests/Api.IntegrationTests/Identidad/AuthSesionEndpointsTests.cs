@@ -499,15 +499,15 @@ public class AuthSesionEndpointsTests
     }
 
     [Fact]
-    public async Task PostSesion_LoginExitoso_NoSeAudita_Y_Rechazado_SiSeRegistra()
+    public async Task PostSesion_Tres_Logins_El_Mismo_Dia_Registran_Un_Acceso_Y_El_Rechazado_SiSeRegistra()
     {
-        var superAdminOid = GetConfiguredSuperAdminOid();
-
+        // ADM-BIT criterio 6: un usuario que entra 3 veces el mismo día deja 1 inicio de sesión en la bitácora.
+        var oid = $"acceso-dia-{Guid.NewGuid():N}";
         var fakeValidator = new FakeEntraTokenValidator(token =>
         {
-            if (token == "token-superadmin-audit")
+            if (token == "token-acceso-dia")
             {
-                return new EntraTokenClaims(superAdminOid, "superadmin@dev.local", "Super Admin Dev");
+                return new EntraTokenClaims(oid, $"{oid}@millet.test", "Acceso Diario");
             }
             throw new UnauthorizedAccessException();
         });
@@ -522,12 +522,23 @@ public class AuthSesionEndpointsTests
         });
         using var client = host.CreateClient();
 
-        // 1. Login exitoso
+        // 1. Tres logins exitosos del mismo usuario
         // La bitácora es compartida: acotar la consulta a esta ejecución.
         var inicio = DateTimeOffset.UtcNow.AddSeconds(-1);
-        var okRes = await client.PostAsJsonAsync(Endpoint, new LoginRequest("token-superadmin-audit", null));
-        okRes.StatusCode.Should().Be(HttpStatusCode.OK);
-        var superAdminId = (await okRes.Content.ReadFromJsonAsync<LoginResponse>())!.Usuario.Id;
+        Guid usuarioId = default;
+        try
+        {
+            for (var i = 0; i < 3; i++)
+            {
+                var okRes = await client.PostAsJsonAsync(Endpoint, new LoginRequest("token-acceso-dia", null));
+                okRes.StatusCode.Should().Be(HttpStatusCode.OK);
+                usuarioId = (await okRes.Content.ReadFromJsonAsync<LoginResponse>())!.Usuario.Id;
+            }
+        }
+        finally
+        {
+            await CleanupUsuarioAsync(oid);
+        }
 
         // 2. Login rechazado (usuario inactivo)
         var inactiveOid = $"inactive-{Guid.NewGuid():N}";
@@ -577,10 +588,13 @@ public class AuthSesionEndpointsTests
 
             var fin = DateTimeOffset.UtcNow.AddSeconds(1);
 
-            var accesoAuditado = await coreDb.AuditLog.AnyAsync(a =>
+            var accesos = await coreDb.AuditLog.Where(a =>
                 a.Operacion == "acceso" && a.Entidad == "Sesion" &&
-                a.UsuarioId == superAdminId && a.Timestamp >= inicio && a.Timestamp <= fin);
-            accesoAuditado.Should().BeFalse("el login exitoso no se audita");
+                a.UsuarioId == usuarioId && a.Timestamp >= inicio && a.Timestamp <= fin).ToListAsync();
+            accesos.Should().ContainSingle("solo el primer inicio de sesión del día queda en la bitácora");
+            accesos[0].Resumen.Should().Be("Inicio de sesión");
+            accesos[0].ActorNombre.Should().Be("Acceso Diario");
+            accesos[0].ActorEmail.Should().BeNull();
 
             var denegadoLog = await coreDb.AuditLog
                 .Where(a => a.Operacion == "acceso_denegado" && a.Entidad == "Sesion"

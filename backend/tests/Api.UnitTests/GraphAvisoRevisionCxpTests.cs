@@ -75,13 +75,25 @@ public sealed class GraphAvisoRevisionCxpTests
     [Fact]
     public void Graph_solo_necesita_Entra_y_Contador_sin_config_de_colaboradores()
     {
-        var cfg = Config([.. EntraCompleto, ("CuentasPorPagar:AvisosRevision:Proveedor", "Graph"),
+        var cfg = Config([.. EntraCompleto, ("CuentasPorPagar:AvisosRevision:Proveedor", "Graph"), ("Correo:Proveedor", "Graph"),
             ("CuentasPorPagar:AvisosRevision:ContadorGeneral:0", "laura@example.com")]);
         var services = new ServiceCollection();
 
         services.AddGraphAvisosRevisionCxp(cfg);
 
         Assert.Single(services);
+    }
+
+    [Fact]
+    public void Graph_sin_transporte_de_correo_Graph_no_arranca()
+    {
+        // 86e3txv0n: el aviso sale por el transporte único; con Correo:Proveedor=NoOp quedaría simulado sin avisar.
+        var cfg = Config([.. EntraCompleto, ("CuentasPorPagar:AvisosRevision:Proveedor", "Graph"),
+            ("CuentasPorPagar:AvisosRevision:ContadorGeneral:0", "laura@example.com")]);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => new ServiceCollection().AddGraphAvisosRevisionCxp(cfg));
+
+        Assert.Contains("Correo:Proveedor=Graph", ex.Message);
     }
 
     [Fact]

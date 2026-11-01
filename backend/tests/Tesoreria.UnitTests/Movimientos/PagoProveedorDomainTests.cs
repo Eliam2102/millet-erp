@@ -38,6 +38,21 @@ public sealed class PagoProveedorDomainTests
     }
 
     [Fact]
+    public void RegistrarPagoProveedor_sin_concepto_usa_Pago_a_proveedor()
+    {
+        Pago().ConceptoId.Should().Be(ConceptoMovimiento.PagoProveedorId);
+    }
+
+    [Fact]
+    public void RegistrarPagoProveedor_respeta_el_concepto_elegido()
+    {
+        var otro = Guid.NewGuid();
+        var m = MovimientoBancario.RegistrarPagoProveedor(
+            Guid.NewGuid(), CuentaMxn(), Guid.NewGuid(), 100m, Fecha, "spei-002", otro, Guid.NewGuid(), Ahora);
+        m.ConceptoId.Should().Be(otro);
+    }
+
+    [Fact]
     public void RegistrarPagoProveedor_cuenta_inactiva_truena()
     {
         var cuenta = CuentaMxn();

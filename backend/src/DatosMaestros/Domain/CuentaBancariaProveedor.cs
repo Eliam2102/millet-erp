@@ -20,11 +20,13 @@ public enum EstadoCuentaBancariaProveedor : short
 /// distinto de quien la capturó, la coteja contra el estado de cuenta o carta
 /// bancaria vigente. La CLABE no se edita: un cambio es una cuenta nueva.
 /// </summary>
-public sealed class CuentaBancariaProveedor : BaseEntity, IAuditable
+public sealed class CuentaBancariaProveedor : BaseEntity, IAuditable, IBelongsToAggregate
 {
     public static readonly string[] Monedas = ["MXN", "USD"];
 
     public Guid ProveedorId { get; private set; }
+    /// <summary>ADM-BIT: en la bitácora, el cambio de cuenta queda en el historial del proveedor y abre su ficha.</summary>
+    public Guid AggregateRootId => ProveedorId;
     public string Banco { get; private set; } = string.Empty;
     /// <summary>CLABE de 18 dígitos (cuentas nacionales).</summary>
     public string? Clabe { get; private set; }

@@ -118,6 +118,7 @@ import { Route as AppCxcCarteraIndexRouteImport } from './routes/_app/cxc/carter
 import { Route as AppCxcCobranzaIndexRouteImport } from './routes/_app/cxc/cobranza/index';
 import { Route as AppCxcEstadoCuentaIndexRouteImport } from './routes/_app/cxc/estado-cuenta/index';
 import { Route as AppCxcLiberacionesIndexRouteImport } from './routes/_app/cxc/liberaciones/index';
+import { Route as AppCxcReglasSerieIndexRouteImport } from './routes/_app/cxc/reglas-serie/index';
 import { Route as AppCxcLineasCreditoIndexRouteImport } from './routes/_app/cxc/lineas-credito/index';
 import { Route as AppCxcLineasCreditoIdRouteImport } from './routes/_app/cxc/lineas-credito/$id';
 import { Route as AppCxpAdminAprobadoresRouteImport } from './routes/_app/cxp/admin.aprobadores';
@@ -175,6 +176,7 @@ import { Route as AppTesoreriaDepositosIndexRouteImport } from './routes/_app/te
 import { Route as AppTesoreriaDevolucionesIndexRouteImport } from './routes/_app/tesoreria/devoluciones/index';
 import { Route as AppTesoreriaDevolucionesIdRouteImport } from './routes/_app/tesoreria/devoluciones/$id';
 import { Route as AppTesoreriaDiferenciasCorteIndexRouteImport } from './routes/_app/tesoreria/diferencias-corte/index';
+import { Route as AppTesoreriaFoliosTransferenciaIndexRouteImport } from './routes/_app/tesoreria/folios-transferencia/index';
 import { Route as AppTesoreriaMovimientosIndexRouteImport } from './routes/_app/tesoreria/movimientos/index';
 import { Route as AppTesoreriaMovimientosIdRouteImport } from './routes/_app/tesoreria/movimientos/$id';
 import { Route as AppTesoreriaPagosCuentaIndexRouteImport } from './routes/_app/tesoreria/pagos-cuenta/index';
@@ -804,6 +806,11 @@ const AppCxcLiberacionesIndexRoute = AppCxcLiberacionesIndexRouteImport.update({
   path: '/cxc/liberaciones/',
   getParentRoute: () => AppRoute,
 } as any);
+const AppCxcReglasSerieIndexRoute = AppCxcReglasSerieIndexRouteImport.update({
+  id: '/cxc/reglas-serie/',
+  path: '/cxc/reglas-serie/',
+  getParentRoute: () => AppRoute,
+} as any);
 const AppCxcLineasCreditoIndexRoute =
   AppCxcLineasCreditoIndexRouteImport.update({
     id: '/cxc/lineas-credito/',
@@ -1119,6 +1126,12 @@ const AppTesoreriaDiferenciasCorteIndexRoute =
   AppTesoreriaDiferenciasCorteIndexRouteImport.update({
     id: '/tesoreria/diferencias-corte/',
     path: '/tesoreria/diferencias-corte/',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppTesoreriaFoliosTransferenciaIndexRoute =
+  AppTesoreriaFoliosTransferenciaIndexRouteImport.update({
+    id: '/tesoreria/folios-transferencia/',
+    path: '/tesoreria/folios-transferencia/',
     getParentRoute: () => AppRoute,
   } as any);
 const AppTesoreriaMovimientosIndexRoute =
@@ -1526,6 +1539,7 @@ export interface FileRoutesByFullPath {
   '/cxc/cobranza/': typeof AppCxcCobranzaIndexRoute;
   '/cxc/estado-cuenta/': typeof AppCxcEstadoCuentaIndexRoute;
   '/cxc/liberaciones/': typeof AppCxcLiberacionesIndexRoute;
+  '/cxc/reglas-serie/': typeof AppCxcReglasSerieIndexRoute;
   '/cxc/lineas-credito/': typeof AppCxcLineasCreditoIndexRoute;
   '/cxp/comprobaciones/': typeof AppCxpComprobacionesIndexRoute;
   '/cxp/facturas/': typeof AppCxpFacturasIndexRoute;
@@ -1547,6 +1561,7 @@ export interface FileRoutesByFullPath {
   '/tesoreria/depositos/': typeof AppTesoreriaDepositosIndexRoute;
   '/tesoreria/devoluciones/': typeof AppTesoreriaDevolucionesIndexRoute;
   '/tesoreria/diferencias-corte/': typeof AppTesoreriaDiferenciasCorteIndexRoute;
+  '/tesoreria/folios-transferencia/': typeof AppTesoreriaFoliosTransferenciaIndexRoute;
   '/tesoreria/movimientos/': typeof AppTesoreriaMovimientosIndexRoute;
   '/tesoreria/pagos-cuenta/': typeof AppTesoreriaPagosCuentaIndexRoute;
   '/tesoreria/pagos/': typeof AppTesoreriaPagosIndexRoute;
@@ -1736,6 +1751,7 @@ export interface FileRoutesByTo {
   '/cxc/cobranza': typeof AppCxcCobranzaIndexRoute;
   '/cxc/estado-cuenta': typeof AppCxcEstadoCuentaIndexRoute;
   '/cxc/liberaciones': typeof AppCxcLiberacionesIndexRoute;
+  '/cxc/reglas-serie': typeof AppCxcReglasSerieIndexRoute;
   '/cxc/lineas-credito': typeof AppCxcLineasCreditoIndexRoute;
   '/cxp/comprobaciones': typeof AppCxpComprobacionesIndexRoute;
   '/cxp/facturas': typeof AppCxpFacturasIndexRoute;
@@ -1757,6 +1773,7 @@ export interface FileRoutesByTo {
   '/tesoreria/depositos': typeof AppTesoreriaDepositosIndexRoute;
   '/tesoreria/devoluciones': typeof AppTesoreriaDevolucionesIndexRoute;
   '/tesoreria/diferencias-corte': typeof AppTesoreriaDiferenciasCorteIndexRoute;
+  '/tesoreria/folios-transferencia': typeof AppTesoreriaFoliosTransferenciaIndexRoute;
   '/tesoreria/movimientos': typeof AppTesoreriaMovimientosIndexRoute;
   '/tesoreria/pagos-cuenta': typeof AppTesoreriaPagosCuentaIndexRoute;
   '/tesoreria/pagos': typeof AppTesoreriaPagosIndexRoute;
@@ -1948,6 +1965,7 @@ export interface FileRoutesById {
   '/_app/cxc/cobranza/': typeof AppCxcCobranzaIndexRoute;
   '/_app/cxc/estado-cuenta/': typeof AppCxcEstadoCuentaIndexRoute;
   '/_app/cxc/liberaciones/': typeof AppCxcLiberacionesIndexRoute;
+  '/_app/cxc/reglas-serie/': typeof AppCxcReglasSerieIndexRoute;
   '/_app/cxc/lineas-credito/': typeof AppCxcLineasCreditoIndexRoute;
   '/_app/cxp/comprobaciones/': typeof AppCxpComprobacionesIndexRoute;
   '/_app/cxp/facturas/': typeof AppCxpFacturasIndexRoute;
@@ -1969,6 +1987,7 @@ export interface FileRoutesById {
   '/_app/tesoreria/depositos/': typeof AppTesoreriaDepositosIndexRoute;
   '/_app/tesoreria/devoluciones/': typeof AppTesoreriaDevolucionesIndexRoute;
   '/_app/tesoreria/diferencias-corte/': typeof AppTesoreriaDiferenciasCorteIndexRoute;
+  '/_app/tesoreria/folios-transferencia/': typeof AppTesoreriaFoliosTransferenciaIndexRoute;
   '/_app/tesoreria/movimientos/': typeof AppTesoreriaMovimientosIndexRoute;
   '/_app/tesoreria/pagos-cuenta/': typeof AppTesoreriaPagosCuentaIndexRoute;
   '/_app/tesoreria/pagos/': typeof AppTesoreriaPagosIndexRoute;
@@ -2160,6 +2179,7 @@ export interface FileRouteTypes {
     | '/cxc/cobranza/'
     | '/cxc/estado-cuenta/'
     | '/cxc/liberaciones/'
+    | '/cxc/reglas-serie/'
     | '/cxc/lineas-credito/'
     | '/cxp/comprobaciones/'
     | '/cxp/facturas/'
@@ -2181,6 +2201,7 @@ export interface FileRouteTypes {
     | '/tesoreria/depositos/'
     | '/tesoreria/devoluciones/'
     | '/tesoreria/diferencias-corte/'
+    | '/tesoreria/folios-transferencia/'
     | '/tesoreria/movimientos/'
     | '/tesoreria/pagos-cuenta/'
     | '/tesoreria/pagos/'
@@ -2370,6 +2391,7 @@ export interface FileRouteTypes {
     | '/cxc/cobranza'
     | '/cxc/estado-cuenta'
     | '/cxc/liberaciones'
+    | '/cxc/reglas-serie'
     | '/cxc/lineas-credito'
     | '/cxp/comprobaciones'
     | '/cxp/facturas'
@@ -2391,6 +2413,7 @@ export interface FileRouteTypes {
     | '/tesoreria/depositos'
     | '/tesoreria/devoluciones'
     | '/tesoreria/diferencias-corte'
+    | '/tesoreria/folios-transferencia'
     | '/tesoreria/movimientos'
     | '/tesoreria/pagos-cuenta'
     | '/tesoreria/pagos'
@@ -2581,6 +2604,7 @@ export interface FileRouteTypes {
     | '/_app/cxc/cobranza/'
     | '/_app/cxc/estado-cuenta/'
     | '/_app/cxc/liberaciones/'
+    | '/_app/cxc/reglas-serie/'
     | '/_app/cxc/lineas-credito/'
     | '/_app/cxp/comprobaciones/'
     | '/_app/cxp/facturas/'
@@ -2602,6 +2626,7 @@ export interface FileRouteTypes {
     | '/_app/tesoreria/depositos/'
     | '/_app/tesoreria/devoluciones/'
     | '/_app/tesoreria/diferencias-corte/'
+    | '/_app/tesoreria/folios-transferencia/'
     | '/_app/tesoreria/movimientos/'
     | '/_app/tesoreria/pagos-cuenta/'
     | '/_app/tesoreria/pagos/'
@@ -3415,6 +3440,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCxcLiberacionesIndexRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/cxc/reglas-serie/': {
+      id: '/_app/cxc/reglas-serie/';
+      path: '/cxc/reglas-serie';
+      fullPath: '/cxc/reglas-serie/';
+      preLoaderRoute: typeof AppCxcReglasSerieIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/cxc/lineas-credito/': {
       id: '/_app/cxc/lineas-credito/';
       path: '/cxc/lineas-credito';
@@ -3812,6 +3844,13 @@ declare module '@tanstack/react-router' {
       path: '/tesoreria/diferencias-corte';
       fullPath: '/tesoreria/diferencias-corte/';
       preLoaderRoute: typeof AppTesoreriaDiferenciasCorteIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/tesoreria/folios-transferencia/': {
+      id: '/_app/tesoreria/folios-transferencia/';
+      path: '/tesoreria/folios-transferencia';
+      fullPath: '/tesoreria/folios-transferencia/';
+      preLoaderRoute: typeof AppTesoreriaFoliosTransferenciaIndexRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/tesoreria/movimientos/': {
@@ -4281,6 +4320,7 @@ interface AppRouteChildren {
   AppCxcCobranzaIndexRoute: typeof AppCxcCobranzaIndexRoute;
   AppCxcEstadoCuentaIndexRoute: typeof AppCxcEstadoCuentaIndexRoute;
   AppCxcLiberacionesIndexRoute: typeof AppCxcLiberacionesIndexRoute;
+  AppCxcReglasSerieIndexRoute: typeof AppCxcReglasSerieIndexRoute;
   AppCxcLineasCreditoIndexRoute: typeof AppCxcLineasCreditoIndexRoute;
   AppCxpComprobacionesIndexRoute: typeof AppCxpComprobacionesIndexRoute;
   AppCxpFacturasIndexRoute: typeof AppCxpFacturasIndexRoute;
@@ -4302,6 +4342,7 @@ interface AppRouteChildren {
   AppTesoreriaDepositosIndexRoute: typeof AppTesoreriaDepositosIndexRoute;
   AppTesoreriaDevolucionesIndexRoute: typeof AppTesoreriaDevolucionesIndexRoute;
   AppTesoreriaDiferenciasCorteIndexRoute: typeof AppTesoreriaDiferenciasCorteIndexRoute;
+  AppTesoreriaFoliosTransferenciaIndexRoute: typeof AppTesoreriaFoliosTransferenciaIndexRoute;
   AppTesoreriaMovimientosIndexRoute: typeof AppTesoreriaMovimientosIndexRoute;
   AppTesoreriaPagosCuentaIndexRoute: typeof AppTesoreriaPagosCuentaIndexRoute;
   AppTesoreriaPagosIndexRoute: typeof AppTesoreriaPagosIndexRoute;
@@ -4501,6 +4542,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppCxcCobranzaIndexRoute: AppCxcCobranzaIndexRoute,
   AppCxcEstadoCuentaIndexRoute: AppCxcEstadoCuentaIndexRoute,
   AppCxcLiberacionesIndexRoute: AppCxcLiberacionesIndexRoute,
+  AppCxcReglasSerieIndexRoute: AppCxcReglasSerieIndexRoute,
   AppCxcLineasCreditoIndexRoute: AppCxcLineasCreditoIndexRoute,
   AppCxpComprobacionesIndexRoute: AppCxpComprobacionesIndexRoute,
   AppCxpFacturasIndexRoute: AppCxpFacturasIndexRoute,
@@ -4523,6 +4565,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppTesoreriaDevolucionesIndexRoute: AppTesoreriaDevolucionesIndexRoute,
   AppTesoreriaDiferenciasCorteIndexRoute:
     AppTesoreriaDiferenciasCorteIndexRoute,
+  AppTesoreriaFoliosTransferenciaIndexRoute:
+    AppTesoreriaFoliosTransferenciaIndexRoute,
   AppTesoreriaMovimientosIndexRoute: AppTesoreriaMovimientosIndexRoute,
   AppTesoreriaPagosCuentaIndexRoute: AppTesoreriaPagosCuentaIndexRoute,
   AppTesoreriaPagosIndexRoute: AppTesoreriaPagosIndexRoute,

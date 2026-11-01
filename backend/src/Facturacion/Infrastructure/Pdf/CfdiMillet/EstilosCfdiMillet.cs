@@ -28,6 +28,8 @@ internal static class EstilosCfdiMillet
     public const float Pie = 7;
 
     public const float LogoAnchoCm = 5.2f;
+    // Alto del logo: con el JPG de Millet las letras MILLET miden ~3.1 cm, igual que en la factura original.
+    public const float LogoAltoCm = 1.6f;
     public const float TotalesAnchoCm = 7.2f;
     public const float QrColumnaCm = 4.2f;
     public const float QrCm = 3.4f;

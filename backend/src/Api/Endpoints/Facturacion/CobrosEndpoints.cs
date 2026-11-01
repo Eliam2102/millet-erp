@@ -39,6 +39,18 @@ public static class CobrosEndpoints
         .ProducesProblem(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        // GET: folios de transferencia vigentes del cliente del comprobante (F6.6, forma 03).
+        group.MapGet("/folios-transferencia", async (
+            [FromQuery] Guid comprobanteId,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new FoliosTransferenciaCajaQuery(comprobanteId), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionCajaOperar)
+        .WithName("FoliosTransferenciaCaja")
+        .WithSummary("Folios de transferencia vigentes del cliente del comprobante")
+        .Produces<IReadOnlyList<Millet.Facturacion.Domain.Ports.FolioTransferenciaCajaDto>>()
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
         // POST: batch de liquidación de ruta — N cobros todo-o-nada a la
         // sesión abierta del cajero, Origen = LiquidacionRuta ([12-7]).
         group.MapPost("/liquidacion-ruta", async (

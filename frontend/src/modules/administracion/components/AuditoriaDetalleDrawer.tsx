@@ -8,7 +8,9 @@ import {
   TableContainer,
 } from '@/components/ui/table';
 import { useMemo } from 'react';
-import { History } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
+import { ExternalLink, History } from 'lucide-react';
+import { auditoriaDocumentoRoute } from '@/components/erp/trazabilidad/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -119,6 +121,12 @@ export function AuditoriaDetalleDrawer({
     return entry.entidad;
   }, [entry, lookups]);
 
+  // ADM-BIT: «Abrir documento» con el mapa de rutas de trazabilidad; el documento es la raíz del registro auditado.
+  const documentoRoute = useMemo(() => {
+    const id = entry?.aggregateRootId ?? entry?.entidadId;
+    return entry && id ? auditoriaDocumentoRoute(entry.entidad, id) : null;
+  }, [entry]);
+
   const sucursalNombre = useMemo(() => {
     if (!entry) return 'No aplica';
     if (entry.sucursalId && lookups?.sucursales?.[entry.sucursalId]) {
@@ -162,6 +170,14 @@ export function AuditoriaDetalleDrawer({
                 >
                   <History className="h-3.5 w-3.5" />
                   Ver historial de este registro
+                </Button>
+              )}
+              {documentoRoute && (
+                <Button type="button" size="sm" variant="outline" className="h-7 text-xs gap-1" asChild>
+                  <Link to={documentoRoute.to} params={documentoRoute.params}>
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Abrir documento
+                  </Link>
                 </Button>
               )}
             </div>

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Millet.CuentasPorCobrar.Application.Integration;
+using Millet.CuentasPorCobrar.UnitTests.CreditoDisponible;
 using Millet.CuentasPorCobrar.Application.Liberacion;
 using Millet.CuentasPorCobrar.Domain.Cartera;
 using Millet.CuentasPorCobrar.Domain.Liberacion;
@@ -36,7 +37,7 @@ public sealed class CoberturaLiberacionHandlerTests
         using var db = CrearDbContext();
         await LineaConDisponible(db, limite: 100_000m, disponible: 40_000m);
 
-        var (res, eventos) = await Decidir(db, Comando("9000101", 60_000m));
+        var (res, eventos) = await Decidir(db, Comando("6000101", 60_000m));
 
         res.Resultado.Should().Be(ResultadoLiberacion.PendienteAutorizacion);
         res.ReglaAplicada.Should().Be(ReglaAplicadaLiberacion.Cobertura);
@@ -53,7 +54,7 @@ public sealed class CoberturaLiberacionHandlerTests
     {
         using var db = CrearDbContext();
         await LineaConDisponible(db, limite: 100_000m, disponible: 40_000m);
-        var (pendiente, _) = await Decidir(db, Comando("9000102", 60_000m));
+        var (pendiente, _) = await Decidir(db, Comando("6000102", 60_000m));
 
         var (res, eventos) = await Autorizar(db, pendiente.Id, "Pago en tránsito confirmado", Nestor);
 
@@ -61,7 +62,7 @@ public sealed class CoberturaLiberacionHandlerTests
         res.ReglaAplicada.Should().Be(ReglaAplicadaLiberacion.Override);
         res.DecisionOrigenId.Should().Be(pendiente.Id);
         res.PorcentajeCobertura.Should().Be(66.66m);
-        res.PedidoRef.Should().Be("9000102");
+        res.PedidoRef.Should().Be("6000102");
         res.DecididoPor.Should().Be(Nestor);
         res.OverrideId.Should().NotBeNull();
         res.Motivo.Should().Be("Pago en tránsito confirmado");
@@ -71,7 +72,7 @@ public sealed class CoberturaLiberacionHandlerTests
         autorizacion.Estado.Should().Be(EstadoAutorizacionCredito.Usada);
         autorizacion.SupervisorUsuarioId.Should().Be(Nestor);
         autorizacion.BeneficiarioUsuarioId.Should().Be(Coordinador);
-        autorizacion.ClienteOPedidoRef.Should().Be("9000102");
+        autorizacion.ClienteOPedidoRef.Should().Be("6000102");
         autorizacion.Motivo.Should().Be("Pago en tránsito confirmado");
         autorizacion.DecisionLiberacionId.Should().Be(res.Id);
 
@@ -91,7 +92,7 @@ public sealed class CoberturaLiberacionHandlerTests
     {
         using var db = CrearDbContext();
         await LineaConDisponible(db, limite: 100_000m, disponible: 40_000m);
-        var (pendiente, _) = await Decidir(db, Comando("9000103", 60_000m));
+        var (pendiente, _) = await Decidir(db, Comando("6000103", 60_000m));
         await Autorizar(db, pendiente.Id, "Primera", Nestor);
 
         var act = () => Autorizar(db, pendiente.Id, "Segunda", Guid.NewGuid());
@@ -107,8 +108,8 @@ public sealed class CoberturaLiberacionHandlerTests
     {
         using var db = CrearDbContext();
         await LineaConDisponible(db, limite: 100_000m, disponible: 40_000m);
-        var (pendiente, _) = await Decidir(db, Comando("9000104", 60_000m));
-        var (otra, _) = await Decidir(db, Comando("9000105", 60_000m));
+        var (pendiente, _) = await Decidir(db, Comando("6000104", 60_000m));
+        var (otra, _) = await Decidir(db, Comando("6000105", 60_000m));
         var (resolucion, _) = await Autorizar(db, pendiente.Id, "Ok", Nestor);
 
         var page = await new ListarDecisionesLiberacionHandler(db).Handle(
@@ -127,8 +128,8 @@ public sealed class CoberturaLiberacionHandlerTests
         // decide de nuevo; la nueva decisión deja sin efecto a la anterior.
         using var db = CrearDbContext();
         await LineaConDisponible(db, limite: 100_000m, disponible: 40_000m);
-        var (pendiente, _) = await Decidir(db, Comando("9000106", 60_000m));
-        await Decidir(db, Comando("9000106", 60_000m), ahora: Ahora.AddHours(2));
+        var (pendiente, _) = await Decidir(db, Comando("6000106", 60_000m));
+        await Decidir(db, Comando("6000106", 60_000m), ahora: Ahora.AddHours(2));
 
         var act = () => Autorizar(db, pendiente.Id, "Tarde", Nestor, ahora: Ahora.AddHours(3));
 
@@ -141,9 +142,9 @@ public sealed class CoberturaLiberacionHandlerTests
     {
         using var db = CrearDbContext();
         await LineaConDisponible(db, limite: 100_000m, disponible: 40_000m);
-        var aut = await AgregarAutorizacion(db, beneficiario: Coordinador, referencia: "9000107");
+        var aut = await AgregarAutorizacion(db, beneficiario: Coordinador, referencia: "6000107");
 
-        var (res, _) = await Decidir(db, Comando("9000107", 60_000m, aut.Id));
+        var (res, _) = await Decidir(db, Comando("6000107", 60_000m, aut.Id));
 
         res.Resultado.Should().Be(ResultadoLiberacion.LiberadoConOverride);
         res.OverrideId.Should().Be(aut.Id);
@@ -159,7 +160,7 @@ public sealed class CoberturaLiberacionHandlerTests
         using var db = CrearDbContext();
         await LineaConDisponible(db, limite: 100_000m, disponible: 30_000m);
 
-        var (res, _) = await Decidir(db, Comando("9000201", 100_000m));
+        var (res, _) = await Decidir(db, Comando("6000201", 100_000m));
 
         res.Resultado.Should().Be(ResultadoLiberacion.Retenido);
         res.ReglaAplicada.Should().Be(ReglaAplicadaLiberacion.Credito);
@@ -171,9 +172,9 @@ public sealed class CoberturaLiberacionHandlerTests
     {
         using var db = CrearDbContext();
         await LineaConDisponible(db, limite: 100_000m, disponible: 30_000m);
-        var aut = await AgregarAutorizacion(db, beneficiario: Coordinador, referencia: "9000202");
+        var aut = await AgregarAutorizacion(db, beneficiario: Coordinador, referencia: "6000202");
 
-        var act = () => Decidir(db, Comando("9000202", 100_000m, aut.Id));
+        var act = () => Decidir(db, Comando("6000202", 100_000m, aut.Id));
 
         await act.Should().ThrowAsync<BusinessRuleException>()
             .Where(e => e.Code == "CXC_COBERTURA_INSUFICIENTE");
@@ -186,7 +187,7 @@ public sealed class CoberturaLiberacionHandlerTests
     {
         using var db = CrearDbContext();
         await LineaConDisponible(db, limite: 100_000m, disponible: 30_000m);
-        var (retenida, _) = await Decidir(db, Comando("9000203", 100_000m));
+        var (retenida, _) = await Decidir(db, Comando("6000203", 100_000m));
 
         var act = () => Autorizar(db, retenida.Id, "Intento", Nestor);
 
@@ -198,9 +199,9 @@ public sealed class CoberturaLiberacionHandlerTests
     {
         using var db = CrearDbContext();
         await LineaConDisponible(db, limite: 100_000m, disponible: 30_000m);
-        var aut = await AgregarAutorizacion(db, beneficiario: Coordinador, referencia: "3000204");
+        var aut = await AgregarAutorizacion(db, beneficiario: Coordinador, referencia: "7800204");
 
-        var (res, _) = await Decidir(db, Comando("3000204", 100_000m, aut.Id));
+        var (res, _) = await Decidir(db, Comando("7800204", 100_000m, aut.Id));
 
         res.Resultado.Should().Be(ResultadoLiberacion.LiberadoConOverride);
         res.ReglaAplicada.Should().Be(ReglaAplicadaLiberacion.Override);
@@ -211,7 +212,7 @@ public sealed class CoberturaLiberacionHandlerTests
     {
         using var db = CrearDbContext();
 
-        var (res, _) = await Decidir(db, Comando("9000205", 10_000m));
+        var (res, _) = await Decidir(db, Comando("6000205", 10_000m));
 
         res.Resultado.Should().Be(ResultadoLiberacion.Retenido);
         res.PorcentajeCobertura.Should().BeNull();
@@ -224,10 +225,10 @@ public sealed class CoberturaLiberacionHandlerTests
     {
         using var db = CrearDbContext();
         await LineaConDisponible(db, limite: 100_000m, disponible: 40_000m);
-        var aut = await AgregarAutorizacion(db, beneficiario: Coordinador, referencia: "9000301");
-        await Decidir(db, Comando("9000301", 60_000m, aut.Id));
+        var aut = await AgregarAutorizacion(db, beneficiario: Coordinador, referencia: "6000301");
+        await Decidir(db, Comando("6000301", 60_000m, aut.Id));
 
-        var act = () => Decidir(db, Comando("9000301", 60_000m, aut.Id));
+        var act = () => Decidir(db, Comando("6000301", 60_000m, aut.Id));
 
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "AC_NO_DISPONIBLE");
     }
@@ -237,9 +238,9 @@ public sealed class CoberturaLiberacionHandlerTests
     {
         using var db = CrearDbContext();
         await LineaConDisponible(db, limite: 100_000m, disponible: 40_000m);
-        var aut = await AgregarAutorizacion(db, beneficiario: Coordinador, referencia: "9000302", supervisor: Nestor);
+        var aut = await AgregarAutorizacion(db, beneficiario: Coordinador, referencia: "6000302", supervisor: Nestor);
 
-        var act = () => Decidir(db, Comando("9000302", 60_000m, aut.Id), usuario: Nestor);
+        var act = () => Decidir(db, Comando("6000302", 60_000m, aut.Id), usuario: Nestor);
 
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "AC_BENEFICIARIO_DISTINTO");
         (await db.DecisionesLiberacion.CountAsync()).Should().Be(0);
@@ -250,7 +251,7 @@ public sealed class CoberturaLiberacionHandlerTests
     {
         using var db = CrearDbContext();
         await LineaConDisponible(db, limite: 100_000m, disponible: 40_000m);
-        var (pendiente, _) = await Decidir(db, Comando("9000303", 60_000m));
+        var (pendiente, _) = await Decidir(db, Comando("6000303", 60_000m));
 
         var act = () => Autorizar(db, pendiente.Id, "Me autorizo", Coordinador);
 
@@ -264,9 +265,9 @@ public sealed class CoberturaLiberacionHandlerTests
     {
         using var db = CrearDbContext();
         await LineaConDisponible(db, limite: 100_000m, disponible: 40_000m);
-        var aut = await AgregarAutorizacion(db, beneficiario: Coordinador, referencia: "9000304");
+        var aut = await AgregarAutorizacion(db, beneficiario: Coordinador, referencia: "6000304");
 
-        var act = () => Decidir(db, Comando("9000304", 60_000m, aut.Id), ahora: Ahora.AddHours(25));
+        var act = () => Decidir(db, Comando("6000304", 60_000m, aut.Id), ahora: Ahora.AddHours(25));
 
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "AC_VENCIDA");
     }
@@ -278,9 +279,9 @@ public sealed class CoberturaLiberacionHandlerTests
     {
         using var db = CrearDbContext();
         await LineaConDisponible(db, limite: 100_000m, disponible: 40_000m);
-        var aut = await AgregarAutorizacion(db, beneficiario: Coordinador, referencia: "9000999");
+        var aut = await AgregarAutorizacion(db, beneficiario: Coordinador, referencia: "6000999");
 
-        var act = () => Decidir(db, Comando("9000401", 60_000m, aut.Id));
+        var act = () => Decidir(db, Comando("6000401", 60_000m, aut.Id));
 
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "AC_REFERENCIA_DISTINTA");
         (await db.AutorizacionesCredito.SingleAsync()).Estado.Should().Be(EstadoAutorizacionCredito.Autorizada);
@@ -295,7 +296,7 @@ public sealed class CoberturaLiberacionHandlerTests
         await LineaConDisponible(db, limite: 100_000m, disponible: 40_000m);
         var aut = await AgregarAutorizacion(db, beneficiario: Coordinador, referencia: referencia);
 
-        var act = () => Decidir(db, Comando("9000402", 60_000m, aut.Id));
+        var act = () => Decidir(db, Comando("6000402", 60_000m, aut.Id));
 
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "AC_REFERENCIA_DISTINTA");
         (await db.DecisionesLiberacion.CountAsync()).Should().Be(0);
@@ -307,9 +308,9 @@ public sealed class CoberturaLiberacionHandlerTests
     {
         using var db = CrearDbContext();
         await LineaConDisponible(db, limite: 100_000m, disponible: 40_000m);
-        var aut = await AgregarAutorizacion(db, beneficiario: Coordinador, referencia: "9000403");
+        var aut = await AgregarAutorizacion(db, beneficiario: Coordinador, referencia: "6000403");
 
-        var (res, _) = await Decidir(db, Comando(" 9000403 ", 60_000m, aut.Id));
+        var (res, _) = await Decidir(db, Comando(" 6000403 ", 60_000m, aut.Id));
 
         res.Resultado.Should().Be(ResultadoLiberacion.LiberadoConOverride);
         (await db.AutorizacionesCredito.SingleAsync()).Estado.Should().Be(EstadoAutorizacionCredito.Usada);
@@ -321,9 +322,9 @@ public sealed class CoberturaLiberacionHandlerTests
     public async Task Supuesto_e_sin_linea_con_override_se_rechaza_sin_consumir()
     {
         using var db = CrearDbContext();
-        var aut = await AgregarAutorizacion(db, beneficiario: Coordinador, referencia: "9000601");
+        var aut = await AgregarAutorizacion(db, beneficiario: Coordinador, referencia: "6000601");
 
-        var act = () => Decidir(db, Comando("9000601", 10_000m, aut.Id));
+        var act = () => Decidir(db, Comando("6000601", 10_000m, aut.Id));
 
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "CXC_SIN_LINEA_ACTIVA");
         (await db.DecisionesLiberacion.CountAsync()).Should().Be(0);
@@ -337,9 +338,9 @@ public sealed class CoberturaLiberacionHandlerTests
         var linea = await LineaConDisponible(db, limite: 100_000m, disponible: 80_000m);
         linea.Bloquear("Cartera vencida");
         await db.SaveChangesAsync();
-        var aut = await AgregarAutorizacion(db, beneficiario: Coordinador, referencia: "9000602");
+        var aut = await AgregarAutorizacion(db, beneficiario: Coordinador, referencia: "6000602");
 
-        var act = () => Decidir(db, Comando("9000602", 100_000m, aut.Id));
+        var act = () => Decidir(db, Comando("6000602", 100_000m, aut.Id));
 
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "CXC_SIN_LINEA_ACTIVA");
         (await db.DecisionesLiberacion.CountAsync()).Should().Be(0);
@@ -354,7 +355,7 @@ public sealed class CoberturaLiberacionHandlerTests
         linea.Bloquear("Cartera vencida");
         await db.SaveChangesAsync();
 
-        var (res, _) = await Decidir(db, Comando("9000603", 100_000m));
+        var (res, _) = await Decidir(db, Comando("6000603", 100_000m));
 
         res.Resultado.Should().Be(ResultadoLiberacion.Retenido);
         res.ReglaAplicada.Should().Be(ReglaAplicadaLiberacion.Credito);
@@ -365,9 +366,9 @@ public sealed class CoberturaLiberacionHandlerTests
     public async Task Serie_NuncaLibera_sin_linea_con_override_sigue_liberando()
     {
         using var db = CrearDbContext();
-        var aut = await AgregarAutorizacion(db, beneficiario: Coordinador, referencia: "3000604");
+        var aut = await AgregarAutorizacion(db, beneficiario: Coordinador, referencia: "7800604");
 
-        var (res, _) = await Decidir(db, Comando("3000604", 10_000m, aut.Id));
+        var (res, _) = await Decidir(db, Comando("7800604", 10_000m, aut.Id));
 
         res.Resultado.Should().Be(ResultadoLiberacion.LiberadoConOverride);
         res.ReglaAplicada.Should().Be(ReglaAplicadaLiberacion.Override);
@@ -380,7 +381,7 @@ public sealed class CoberturaLiberacionHandlerTests
     {
         using var db = CrearDbContext();
         await LineaConDisponible(db, limite: 100_000m, disponible: 40_000m);
-        var (pendiente, _) = await Decidir(db, Comando("9000701", 60_000m));
+        var (pendiente, _) = await Decidir(db, Comando("6000701", 60_000m));
         db.FacturasCartera.RemoveRange(db.FacturasCartera); // entró el pago
         await db.SaveChangesAsync();
 
@@ -402,7 +403,7 @@ public sealed class CoberturaLiberacionHandlerTests
     {
         using var db = CrearDbContext();
         await LineaConDisponible(db, limite: 100_000m, disponible: 40_000m);
-        var (pendiente, _) = await Decidir(db, Comando("9000702", 60_000m));
+        var (pendiente, _) = await Decidir(db, Comando("6000702", 60_000m));
         await AgregarFacturaAbierta(db, 20_000m); // disponible 20,000 → 33.33 %
 
         var (res, _) = await Autorizar(db, pendiente.Id, "Intento", Nestor, Ahora.AddHours(1));
@@ -421,7 +422,7 @@ public sealed class CoberturaLiberacionHandlerTests
     {
         using var db = CrearDbContext();
         var linea = await LineaConDisponible(db, limite: 100_000m, disponible: 40_000m);
-        var (pendiente, _) = await Decidir(db, Comando("9000703", 60_000m));
+        var (pendiente, _) = await Decidir(db, Comando("6000703", 60_000m));
         linea.Bloquear("Cartera vencida");
         await db.SaveChangesAsync();
 
@@ -439,7 +440,7 @@ public sealed class CoberturaLiberacionHandlerTests
     {
         using var db = CrearDbContext();
         await LineaConDisponible(db, limite: 100_000m, disponible: 40_000m);
-        var (pendiente, _) = await Decidir(db, Comando("9000704", 60_000m));
+        var (pendiente, _) = await Decidir(db, Comando("6000704", 60_000m));
         await AgregarFacturaAbierta(db, 5_000m); // disponible 35,000 → 58.33 %
 
         var (res, _) = await Autorizar(db, pendiente.Id, "Pago en tránsito", Nestor, Ahora.AddHours(1));
@@ -449,7 +450,7 @@ public sealed class CoberturaLiberacionHandlerTests
         res.CreditoDisponibleSnapshot.Should().Be(35_000m);
         res.Motivo.Should().Be("Pago en tránsito");
         var autorizacion = await db.AutorizacionesCredito.SingleAsync();
-        autorizacion.ClienteOPedidoRef.Should().Be("9000704");
+        autorizacion.ClienteOPedidoRef.Should().Be("6000704");
         autorizacion.Estado.Should().Be(EstadoAutorizacionCredito.Usada);
     }
 
@@ -460,7 +461,7 @@ public sealed class CoberturaLiberacionHandlerTests
     {
         using var db = CrearDbContext();
         await LineaConDisponible(db, limite: 100_000m, disponible: 40_000m);
-        var (pendiente, _) = await Decidir(db, Comando("9000801", 60_000m));
+        var (pendiente, _) = await Decidir(db, Comando("6000801", 60_000m));
 
         var (res, eventos) = await Rechazar(db, pendiente.Id, "Cliente con atraso en pagos", Nestor);
 
@@ -489,7 +490,7 @@ public sealed class CoberturaLiberacionHandlerTests
     {
         using var db = CrearDbContext();
         await LineaConDisponible(db, limite: 100_000m, disponible: 40_000m);
-        var (pendiente, _) = await Decidir(db, Comando("9000802", 60_000m));
+        var (pendiente, _) = await Decidir(db, Comando("6000802", 60_000m));
 
         var act = () => Rechazar(db, pendiente.Id, "No", Coordinador);
 
@@ -502,7 +503,7 @@ public sealed class CoberturaLiberacionHandlerTests
     {
         using var db = CrearDbContext();
         await LineaConDisponible(db, limite: 100_000m, disponible: 40_000m);
-        var (pendiente, _) = await Decidir(db, Comando("9000803", 60_000m));
+        var (pendiente, _) = await Decidir(db, Comando("6000803", 60_000m));
         await Autorizar(db, pendiente.Id, "Ok", Nestor);
 
         var act = () => Rechazar(db, pendiente.Id, "Tarde", Guid.NewGuid());
@@ -516,7 +517,7 @@ public sealed class CoberturaLiberacionHandlerTests
     {
         using var db = CrearDbContext();
         await LineaConDisponible(db, limite: 100_000m, disponible: 40_000m);
-        var (pendiente, _) = await Decidir(db, Comando("9000804", 60_000m));
+        var (pendiente, _) = await Decidir(db, Comando("6000804", 60_000m));
         await Rechazar(db, pendiente.Id, "No procede", Nestor);
 
         var act = () => Autorizar(db, pendiente.Id, "Sí procede", Guid.NewGuid());
@@ -530,7 +531,7 @@ public sealed class CoberturaLiberacionHandlerTests
     {
         using var db = CrearDbContext();
         await LineaConDisponible(db, limite: 100_000m, disponible: 30_000m);
-        var (retenida, _) = await Decidir(db, Comando("9000805", 100_000m));
+        var (retenida, _) = await Decidir(db, Comando("6000805", 100_000m));
 
         var act = () => Rechazar(db, retenida.Id, "No", Nestor);
 
@@ -571,7 +572,7 @@ public sealed class CoberturaLiberacionHandlerTests
         using var db = CrearDbContext();
         await LineaConDisponible(db, limite: 200_000m, disponible: disponible);
 
-        var (res, _) = await Decidir(db, Comando("9000501", 100_000m));
+        var (res, _) = await Decidir(db, Comando("6000501", 100_000m));
 
         res.Resultado.Should().Be(esperado);
         res.PorcentajeCobertura.Should().Be(porcentaje);
@@ -601,7 +602,7 @@ public sealed class CoberturaLiberacionHandlerTests
         var publisher = new FakePublisher();
         var handler = new DecidirLiberacionHandler(
             db, publisher, new FakeEmpresaContext(EmpresaId), new FakeUserContext(usuario ?? Coordinador),
-            new FakeClock(ahora ?? Ahora));
+            new FakeClock(ahora ?? Ahora), new PedidosSinFacturarFalso());
         var res = await handler.Handle(command, CancellationToken.None);
         return (res, publisher.Publicados);
     }
@@ -612,7 +613,7 @@ public sealed class CoberturaLiberacionHandlerTests
         var publisher = new FakePublisher();
         var handler = new AutorizarLiberacionPendienteHandler(
             db, publisher, new FakeEmpresaContext(EmpresaId), new FakeUserContext(usuario),
-            new FakeClock(ahora ?? Ahora));
+            new FakeClock(ahora ?? Ahora), new PedidosSinFacturarFalso());
         var res = await handler.Handle(
             new AutorizarLiberacionPendienteCommand(decisionId, motivo), CancellationToken.None);
         return (res, publisher.Publicados);
@@ -673,7 +674,7 @@ public sealed class CoberturaLiberacionHandlerTests
             .Handle(new ListarReglasLiberacionSerieQuery(), CancellationToken.None);
 
         Assert.DoesNotContain(reglas, r => r.Prefijo == "9100");
-        Assert.Contains(reglas, r => r.Prefijo == "3000" && r.Comportamiento == ComportamientoSerie.NuncaLibera);
+        Assert.Contains(reglas, r => r.Prefijo == "7800" && r.Comportamiento == ComportamientoSerie.NuncaLibera);
         Assert.Contains(reglas, r => r.Prefijo == "5000" && r.Comportamiento == ComportamientoSerie.SiempreLibera);
     }
 
@@ -684,7 +685,7 @@ public sealed class CoberturaLiberacionHandlerTests
             .Options;
         var db = new CuentasPorCobrarDbContext(options, new FakeEmpresaContext(EmpresaId));
         db.ReglasLiberacionSerie.AddRange(
-            ReglaLiberacionSerieConfiguration.SeedReglas.Select(r =>
+            ReglaLiberacionSerieConfiguration.SeriesMillet.Select(r =>
                 new ReglaLiberacionSerie(r.Id, r.Prefijo, r.Comportamiento)));
         db.SaveChanges();
         return db;

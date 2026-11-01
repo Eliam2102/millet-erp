@@ -23,7 +23,8 @@ public sealed record CobroFormaPagoInput(
     string? Referencia = null,
     string? CuentaOrdenante = null,
     string? CuentaBeneficiaria = null,
-    string? TarjetaUltimos4 = null);
+    string? TarjetaUltimos4 = null,
+    string? FolioTransferencia = null);
 
 public sealed record CobroMostradorResponse(
     Guid Id, Guid ComprobanteId, Guid CajaSesionId, string Estado, decimal Total);
@@ -59,6 +60,7 @@ public sealed class RegistrarCobroMostradorValidator : AbstractValidator<Registr
             f.RuleFor(x => x.CuentaOrdenante!).MaximumLength(50).When(x => x.CuentaOrdenante is not null);
             f.RuleFor(x => x.CuentaBeneficiaria!).MaximumLength(50).When(x => x.CuentaBeneficiaria is not null);
             f.RuleFor(x => x.TarjetaUltimos4!).MaximumLength(10).When(x => x.TarjetaUltimos4 is not null);
+            f.RuleFor(x => x.FolioTransferencia!).MaximumLength(20).When(x => x.FolioTransferencia is not null);
         });
     }
 }
@@ -74,6 +76,7 @@ public sealed class RegistrarCobroMostradorHandler
     private readonly IAlcanceCajaEvaluator _alcance;
     private readonly IIntegrationEventPublisher _eventos;
     private readonly ICatalogosSatReadPort _catalogos;
+    private readonly IFolioTransferenciaReadPort? _foliosTransferencia;
 
     public RegistrarCobroMostradorHandler(
         FacturacionDbContext db,
@@ -82,8 +85,10 @@ public sealed class RegistrarCobroMostradorHandler
         IClock clock,
         ISucursalesReadPort sucursales,
         IAlcanceCajaEvaluator alcance,
-        IIntegrationEventPublisher eventos, ICatalogosSatReadPort catalogos)
+        IIntegrationEventPublisher eventos, ICatalogosSatReadPort catalogos,
+        IFolioTransferenciaReadPort? foliosTransferencia = null)
     {
+        _foliosTransferencia = foliosTransferencia;
         _catalogos = catalogos;
         _db = db;
         _empresa = empresa;
@@ -121,7 +126,7 @@ public sealed class RegistrarCobroMostradorHandler
 
         var cobro = await CobroMostradorRegistrador.RegistrarAsync(
             _db, _eventos, empresaId, usuarioId, sesion, comprobante,
-            command.FormasPago, command.Origen, ahora, cancellationToken);
+            command.FormasPago, command.Origen, ahora, _foliosTransferencia, cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
         return new CobroMostradorResponse(cobro.Id, comprobante.Id, sesion.Id, cobro.Estado.ToString(), cobro.Total);
@@ -168,6 +173,7 @@ internal static class CobroMostradorRegistrador
         IReadOnlyList<CobroFormaPagoInput> formasPago,
         OrigenCobroMostrador origen,
         DateTimeOffset ahora,
+        IFolioTransferenciaReadPort? foliosTransferencia,
         CancellationToken cancellationToken)
     {
         if (comprobante.Estado != EstadoTimbrado.Timbrado)
@@ -254,6 +260,10 @@ internal static class CobroMostradorRegistrador
                 "COBRO_TOTAL_NO_COINCIDE",
                 $"La suma de formas de pago ({totalCobro}) no coincide con el monto por cobrar del comprobante '{comprobante.Folio}' ({totalEsperado}).");
 
+        var clienteId = await ClienteContableFacturacion.ResolverAsync(db, comprobante, cancellationToken);
+        var foliosPorForma = await ValidarFoliosTransferenciaAsync(
+            db, foliosTransferencia, formasPago, clienteId, cancellationToken);
+
         var cobro = CobroMostrador.Registrar(
             empresaId, sesion.Id, comprobante.SucursalId, comprobante.CanalVentaId,
             comprobante.Id, origen, ahora, usuarioId,
@@ -261,6 +271,7 @@ internal static class CobroMostradorRegistrador
                 .Select(f => (f.FormaPago, f.Importe, f.Referencia, f.CuentaOrdenante, f.CuentaBeneficiaria,
                     FormasPagoConUltimos4.Contains(f.FormaPago) ? f.TarjetaUltimos4 : null))
                 .ToList());
+        cobro.LigarFoliosTransferencia(foliosPorForma);
         db.CobrosMostrador.Add(cobro);
 
         // Un movimiento por forma de pago ([Decisión 12-5]).
@@ -275,12 +286,10 @@ internal static class CobroMostradorRegistrador
         // Única vía de escritura de Comprobante.CajaId (§6).
         comprobante.AsignarCajaCobro(sesion.CajaId);
 
-        var clienteId = await ClienteContableFacturacion.ResolverAsync(db, comprobante, cancellationToken);
-
         await eventos.PublishAsync(new CobroMostradorRegistradoIntegrationEvent(
             empresaId, ahora, cobro.Id, sesion.Id, sesion.CajaId, comprobante.Id,
             comprobante.Tipo.ToString(), cobro.Origen.ToString(), cobro.Total,
-            cobro.FormasPago.Select(f => new CobroFormaPagoAplicada(f.FormaPago, f.Importe)).ToList(),
+            cobro.FormasPago.Select(f => new CobroFormaPagoAplicada(f.FormaPago, f.Importe, f.FolioTransferencia)).ToList(),
             SucursalId: comprobante.SucursalId,
             ClienteId: clienteId,
             Moneda: comprobante.Moneda,
@@ -289,6 +298,76 @@ internal static class CobroMostradorRegistrador
             cancellationToken);
 
         return cobro;
+    }
+
+    /// <summary>
+    /// F6.6 (R16 · CA6.8): el cobro con forma 03 solo se aplica con el folio de
+    /// confirmación que emitió Ingresos: vigente, del cliente del comprobante, por
+    /// el importe exacto de esa forma y no usado en otro cobro activo (F6.6-a/b).
+    /// Tesorería lo marca «Usado» al recibir el evento; mientras tanto, el cobro
+    /// activo que ya lo guardó lo bloquea aquí. Devuelve el folio por forma (o null).
+    /// </summary>
+    private static async Task<IReadOnlyList<string?>> ValidarFoliosTransferenciaAsync(
+        FacturacionDbContext db,
+        IFolioTransferenciaReadPort? puerto,
+        IReadOnlyList<CobroFormaPagoInput> formasPago,
+        Guid? clienteId,
+        CancellationToken ct)
+    {
+        static bool EsTransferencia(CobroFormaPagoInput f) => f.FormaPago == CobroMostradorFormaPago.FormaPagoTransferencia;
+        var foliosPorForma = formasPago
+            .Select(f => EsTransferencia(f) && !string.IsNullOrWhiteSpace(f.FolioTransferencia)
+                ? f.FolioTransferencia.Trim().ToUpperInvariant()
+                : null)
+            .ToList();
+        if (!formasPago.Any(EsTransferencia)) return foliosPorForma;
+
+        if (formasPago.Where(EsTransferencia).Any(f => string.IsNullOrWhiteSpace(f.FolioTransferencia)))
+            throw new BusinessRuleException(
+                "COBRO_TRANSFERENCIA_SIN_FOLIO",
+                "El cobro por transferencia (forma 03) requiere el folio de confirmación que emite Ingresos.");
+        var solicitados = foliosPorForma.OfType<string>().ToList();
+        if (solicitados.Distinct().Count() != solicitados.Count)
+            throw new BusinessRuleException("COBRO_FOLIO_TRANSFERENCIA_REPETIDO", "Cada transferencia lleva un folio distinto.");
+        if (puerto is null)
+            throw new BusinessRuleException("FOLIO_TR_NO_DISPONIBLE", "No se pudo validar el folio de transferencia con Tesorería.");
+
+        var encontrados = (await puerto.ConsultarAsync(solicitados, ct))
+            .ToDictionary(f => f.Folio, StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < formasPago.Count; i++)
+        {
+            if (foliosPorForma[i] is not { } numero) continue;
+            if (!encontrados.TryGetValue(numero, out var folio))
+                throw new BusinessRuleException("FOLIO_TR_NO_ENCONTRADO", $"No existe el folio de transferencia {numero}.");
+            if (!folio.Vigente)
+                throw new BusinessRuleException(
+                    "FOLIO_TR_NO_VIGENTE",
+                    folio.Estado == "Usado"
+                        ? $"El folio {numero} ya se aplicó en otro cobro."
+                        : $"El folio {numero} está cancelado.");
+            if (folio.ClienteId != clienteId)
+                throw new BusinessRuleException("FOLIO_TR_OTRO_CLIENTE", $"El folio {numero} es de otro cliente.");
+            if (folio.Importe != formasPago[i].Importe)
+                throw new BusinessRuleException(
+                    "FOLIO_TR_IMPORTE_DISTINTO",
+                    $"El folio {numero} es por {folio.Importe:N2} y la transferencia por {formasPago[i].Importe:N2}.");
+        }
+
+        // Un cobro activo ya lo guardó (Tesorería aún no lo marca) o va en el mismo lote.
+        var usadoEnBd = await (from fp in db.Set<CobroMostradorFormaPago>().AsNoTracking()
+                               join c in db.CobrosMostrador.AsNoTracking() on fp.CobroMostradorId equals c.Id
+                               where c.Estado == EstadoCobroMostrador.Registrado
+                                     && fp.FolioTransferencia != null && solicitados.Contains(fp.FolioTransferencia)
+                               select fp.FolioTransferencia).FirstOrDefaultAsync(ct);
+        var usadoEnLote = db.CobrosMostrador.Local
+            .Where(c => c.Estado == EstadoCobroMostrador.Registrado)
+            .SelectMany(c => c.FormasPago)
+            .Select(f => f.FolioTransferencia)
+            .FirstOrDefault(f => f is not null && solicitados.Contains(f));
+        if ((usadoEnBd ?? usadoEnLote) is { } usado)
+            throw new BusinessRuleException("FOLIO_TR_NO_VIGENTE", $"El folio {usado} ya se aplicó en otro cobro.");
+
+        return foliosPorForma;
     }
 }
 
@@ -335,6 +414,7 @@ public sealed class LiquidarRutaValidator : AbstractValidator<LiquidarRutaComman
                 f.RuleFor(x => x.CuentaOrdenante!).MaximumLength(50).When(x => x.CuentaOrdenante is not null);
                 f.RuleFor(x => x.CuentaBeneficiaria!).MaximumLength(50).When(x => x.CuentaBeneficiaria is not null);
                 f.RuleFor(x => x.TarjetaUltimos4!).MaximumLength(10).When(x => x.TarjetaUltimos4 is not null);
+                f.RuleFor(x => x.FolioTransferencia!).MaximumLength(20).When(x => x.FolioTransferencia is not null);
             });
         });
     }
@@ -350,6 +430,7 @@ public sealed class LiquidarRutaHandler : IRequestHandler<LiquidarRutaCommand, L
     private readonly IAlcanceCajaEvaluator _alcance;
     private readonly IIntegrationEventPublisher _eventos;
     private readonly ICatalogosSatReadPort _catalogos;
+    private readonly IFolioTransferenciaReadPort? _foliosTransferencia;
 
     public LiquidarRutaHandler(
         FacturacionDbContext db,
@@ -358,8 +439,10 @@ public sealed class LiquidarRutaHandler : IRequestHandler<LiquidarRutaCommand, L
         IClock clock,
         ISucursalesReadPort sucursales,
         IAlcanceCajaEvaluator alcance,
-        IIntegrationEventPublisher eventos, ICatalogosSatReadPort catalogos)
+        IIntegrationEventPublisher eventos, ICatalogosSatReadPort catalogos,
+        IFolioTransferenciaReadPort? foliosTransferencia = null)
     {
+        _foliosTransferencia = foliosTransferencia;
         _catalogos = catalogos;
         _db = db;
         _empresa = empresa;
@@ -407,7 +490,7 @@ public sealed class LiquidarRutaHandler : IRequestHandler<LiquidarRutaCommand, L
             var comprobante = comprobantes[item.ComprobanteId];
             var cobro = await CobroMostradorRegistrador.RegistrarAsync(
                 _db, _eventos, empresaId, usuarioId, sesion, comprobante,
-                item.FormasPago, OrigenCobroMostrador.LiquidacionRuta, ahora, cancellationToken);
+                item.FormasPago, OrigenCobroMostrador.LiquidacionRuta, ahora, _foliosTransferencia, cancellationToken);
             cobros.Add(new CobroMostradorResponse(
                 cobro.Id, comprobante.Id, sesion.Id, cobro.Estado.ToString(), cobro.Total));
         }

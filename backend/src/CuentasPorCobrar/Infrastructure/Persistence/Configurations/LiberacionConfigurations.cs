@@ -88,34 +88,28 @@ public sealed class ReglaLiberacionSerieConfiguration : IEntityTypeConfiguration
             .HasDatabaseName("ux_regla_liberacion_prefijo")
             .IsUnique();
 
-        // Seed provisional del documento internacional §8.3 (levantamiento §2):
-        // 5000/7000 siempre liberan; 3000/4000/8000 nunca. ⚠️ Gate suave —
-        // confirmar con Prida si la cartera nacional comparte estas series;
-        // corregir es editar filas, no código.
-        var seedTime = new DateTimeOffset(2026, 7, 14, 0, 0, 0, TimeSpan.Zero);
-        builder.HasData(SeedReglas.Select(r => new
-        {
-            Id = r.Id,
-            Prefijo = r.Prefijo,
-            Comportamiento = r.Comportamiento,
-            Activo = true,
-            Version = 1,
-            CreatedAt = seedTime,
-            UpdatedAt = seedTime,
-            CreatedBy = (string?)"seed",
-            UpdatedBy = (string?)"seed",
-            DeletedAt = (DateTimeOffset?)null,
-        }).ToArray());
+        // C7.2: las series de Millet son datos (las carga la migración
+        // ReglasSerieMillet y CxC las administra en su pantalla); no hay
+        // HasData para que un cambio de regla no se revierta con un deploy.
     }
 
-    /// <summary>Series del doc internacional §8.3. GUIDs deterministas para idempotencia.</summary>
-    public static readonly IReadOnlyList<(Guid Id, string Prefijo, ComportamientoSerie Comportamiento)> SeedReglas =
+    /// <summary>
+    /// Series de Millet (Cuestionario 04, R2 del plano Módulo 07). Las carga
+    /// la migración C7.2 con GUIDs deterministas; se exponen para las pruebas.
+    /// </summary>
+    public static readonly IReadOnlyList<(Guid Id, string Prefijo, ComportamientoSerie Comportamiento)> SeriesMillet =
     [
         (Guid.Parse("0000000a-1001-0000-0000-000000000001"), "5000", ComportamientoSerie.SiempreLibera),
+        (Guid.Parse("0000000a-1001-0000-0000-000000000006"), "5500", ComportamientoSerie.SiempreLibera),
+        (Guid.Parse("0000000a-1001-0000-0000-000000000007"), "5600", ComportamientoSerie.SiempreLibera),
         (Guid.Parse("0000000a-1001-0000-0000-000000000002"), "7000", ComportamientoSerie.SiempreLibera),
-        (Guid.Parse("0000000a-1001-0000-0000-000000000003"), "3000", ComportamientoSerie.NuncaLibera),
-        (Guid.Parse("0000000a-1001-0000-0000-000000000004"), "4000", ComportamientoSerie.NuncaLibera),
-        (Guid.Parse("0000000a-1001-0000-0000-000000000005"), "8000", ComportamientoSerie.NuncaLibera),
+        (Guid.Parse("0000000a-1001-0000-0000-000000000008"), "7200", ComportamientoSerie.SiempreLibera),
+        (Guid.Parse("0000000a-1001-0000-0000-000000000009"), "7500", ComportamientoSerie.SiempreLibera),
+        (Guid.Parse("0000000a-1001-0000-0000-00000000000a"), "5800", ComportamientoSerie.NuncaLibera),
+        (Guid.Parse("0000000a-1001-0000-0000-00000000000b"), "5900", ComportamientoSerie.NuncaLibera),
+        (Guid.Parse("0000000a-1001-0000-0000-00000000000c"), "7800", ComportamientoSerie.NuncaLibera),
+        (Guid.Parse("0000000a-1001-0000-0000-00000000000d"), "7900", ComportamientoSerie.NuncaLibera),
+        (Guid.Parse("0000000a-1001-0000-0000-00000000000e"), "9000", ComportamientoSerie.NuncaLibera),
     ];
 }
 

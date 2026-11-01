@@ -32,6 +32,12 @@ export interface ProveedorSelectorProps {
    * addendum). En alta no se pasa.
    */
   initialLabel?: string;
+  /**
+   * Muestra los proveedores bloqueados deshabilitados con el motivo
+   * "Bloqueado" (para OC: el servidor rechaza PROVEEDOR_BLOQUEADO).
+   * En filtros y reportes no se pasa: ahí un bloqueado sí es consultable.
+   */
+  deshabilitarBloqueados?: boolean;
 }
 
 export function ProveedorSelector({
@@ -42,6 +48,7 @@ export function ProveedorSelector({
   className,
   triggerProps,
   initialLabel,
+  deshabilitarBloqueados,
 }: ProveedorSelectorProps) {
   const [termino, setTermino] = useState<string | undefined>();
   // Id elegido en esta sesión: su etiqueta ya la conserva el buscador.
@@ -71,6 +78,7 @@ export function ProveedorSelector({
       items={items}
       cargando={proveedoresQuery.isLoading || proveedoresQuery.isFetching}
       error={proveedoresQuery.isError ? proveedoresQuery.error : undefined}
+      itemDisabled={(p) => !!deshabilitarBloqueados && !!p.bloqueado}
       itemToLabel={(p) => `${p.clave} · ${p.razonSocial}`}
       valueLabel={
         lookup.data
@@ -82,6 +90,11 @@ export function ProveedorSelector({
           <div className="flex items-center gap-2">
             <span className="truncate font-mono text-xs">{p.clave}</span>
             <span className="font-mono text-xs text-ink-muted">{p.rfc}</span>
+            {deshabilitarBloqueados && p.bloqueado && (
+              <span className="text-xs text-danger">
+                Bloqueado{p.motivoBloqueo ? `: ${p.motivoBloqueo}` : ''}
+              </span>
+            )}
           </div>
           <p className="truncate text-sm">{p.razonSocial}</p>
           {p.nombreComercial && p.nombreComercial !== p.razonSocial && (

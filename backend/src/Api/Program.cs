@@ -13,6 +13,7 @@ using Millet.Almacen.Infrastructure;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.Api.Auth;
 using Millet.Api.Auth.Provisioning;
+using Millet.Api.Correo;
 using Millet.Api.Endpoints.Catalogos;
 using Millet.Api.Endpoints.Compras;
 using Millet.Api.Endpoints.Settings;
@@ -405,10 +406,12 @@ builder.Services
 // ruidosamente en arranque si el flag está activo en Production.
 builder.Services.AddComprasStubs(builder.Configuration, builder.Environment);
 
-// Correo de documentos (OC al proveedor, etc.): hoy simulado.
-// PLATFORM-TODO(<V08>): sustituir por el transporte real de correo.
+// 86e3txv0n: transporte único de correo saliente (Correo:Proveedor = NoOp |
+// SandboxLocal | Graph) con modo pruebas y registro en core.correo_envio.
+// Los documentos (OC al proveedor, etc.) salen por él.
+builder.Services.AddCorreoSaliente(builder.Configuration, builder.Environment.IsDevelopment());
 builder.Services.AddSingleton<Millet.SharedKernel.Application.Correo.ICorreoDocumentoService,
-    Millet.Facturacion.Infrastructure.Notificaciones.NoOpNotificacionService>();
+    Millet.SharedKernel.Infrastructure.Correo.CorreoDocumentoService>();
 
 // === Compras IAlmacenEntregasReadPort → adapter real ===
 // Permite al handler `ObtenerRequisicionPorIdHandler` enriquecer
@@ -792,6 +795,8 @@ builder.Services.AddScoped<
 // Las entidades del dominio (Almacen, MovimientoInventario, Saldo, Conteo,
 // Reserva) entran en F1/F2/F3/F7. DbContext + outbox interceptor abajo.
 builder.Services.AddAlmacenModule();
+builder.Services.AddOptions<Millet.Almacen.Infrastructure.Notificaciones.AvisosAlmacenOptions>()
+    .Bind(builder.Configuration.GetSection(Millet.Almacen.Infrastructure.Notificaciones.AvisosAlmacenOptions.SectionName));
 builder.Services.AddScoped<Millet.SharedKernel.Application.Calendario.ICalendarioHabil,
     Millet.Compartido.Infrastructure.Calendario.CalendarioHabilService>();
 builder.Services.AddScoped<Millet.Almacen.Domain.Ports.ICentroCostoElegibilidadPort,
@@ -980,6 +985,8 @@ builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.IUsuariosReadPort, Mi
 // 86e3tfdve: cuenta beneficiaria del complemento de pago desde la cuenta bancaria de Millet (dueño: Tesorería).
 builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.ICuentaBancariaMilletReadPort, Millet.Api.Infrastructure.Adapters.CuentaBancariaMilletReadAdapter>();
 builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.ICuentaOrdenanteMovimientoReadPort, Millet.Api.Infrastructure.Adapters.CuentaOrdenanteMovimientoReadAdapter>();
+// F6.6: Caja valida el folio de transferencia que emite Ingresos (dueño: Tesorería).
+builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.IFolioTransferenciaReadPort, Millet.Api.Infrastructure.Adapters.FolioTransferenciaReadAdapter>();
 
 // === Módulo Centros de Costo (CECO-A1) ===
 // Cimiento: catálogo jerárquico Sucursal→Departamento→Equipo + dimensiones
@@ -1890,6 +1897,7 @@ Millet.Api.Endpoints.Tesoreria.PagosACuentaEndpoints.MapTesoreriaPagosACuentaEnd
 // === Tesorería — Confirmación de depósitos de cliente (TES-PR7, TES-9) ===
 Millet.Api.Endpoints.Tesoreria.DepositosEndpoints.MapTesoreriaDepositosEndpoints(app);
 Millet.Api.Endpoints.Tesoreria.DevolucionesEndpoints.MapTesoreriaDevolucionesEndpoints(app);
+Millet.Api.Endpoints.Tesoreria.FoliosTransferenciaEndpoints.MapTesoreriaFoliosTransferenciaEndpoints(app);
 Millet.Api.Endpoints.Tesoreria.DiferenciasCorteEndpoints.MapTesoreriaDiferenciasCorteEndpoints(app);
 
 // === Tesorería — REPP recibido de proveedor: pendientes SLA + registro (TES-PR8, TES-4) ===

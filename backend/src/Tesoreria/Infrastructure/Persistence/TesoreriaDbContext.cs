@@ -8,6 +8,7 @@ using Millet.Tesoreria.Domain.Cuentas;
 using Millet.Tesoreria.Domain.Depositos;
 using Millet.Tesoreria.Domain.Devoluciones;
 using Millet.Tesoreria.Domain.Eventos;
+using Millet.Tesoreria.Domain.FoliosTransferencia;
 using Millet.Tesoreria.Domain.Movimientos;
 using Millet.Tesoreria.Domain.Pasivos;
 using Millet.Tesoreria.Domain.Repp;
@@ -65,6 +66,10 @@ public sealed class TesoreriaDbContext : BaseDbContext
     public DbSet<DevolucionCliente> DevolucionesCliente => Set<DevolucionCliente>();
     public DbSet<FolioSecuenciaDevolucionCliente> FolioSecuenciasDevolucionCliente => Set<FolioSecuenciaDevolucionCliente>();
 
+    // F6.6 — folios de confirmación de transferencia que Ingresos emite para Caja.
+    public DbSet<FolioTransferencia> FoliosTransferencia => Set<FolioTransferencia>();
+    public DbSet<FolioSecuenciaTransferencia> FolioSecuenciasTransferencia => Set<FolioSecuenciaTransferencia>();
+
     /// <summary>REPP recibidos de proveedor — registro inmutable (PR-8).</summary>
     public DbSet<ReppPagoProveedor> ReppPagosProveedor => Set<ReppPagoProveedor>();
     public DbSet<ReppProveedorRecibido> ReppsProveedorRecibidos => Set<ReppProveedorRecibido>();
@@ -110,6 +115,8 @@ public sealed class TesoreriaDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new DiferenciaCorteConfiguration());
         modelBuilder.ApplyConfiguration(new DevolucionClienteConfiguration());
         modelBuilder.ApplyConfiguration(new FolioSecuenciaDevolucionClienteConfiguration());
+        modelBuilder.ApplyConfiguration(new FolioTransferenciaConfiguration());
+        modelBuilder.ApplyConfiguration(new FolioSecuenciaTransferenciaConfiguration());
         modelBuilder.ApplyConfiguration(new ReppProveedorRecibidoConfiguration());
         modelBuilder.ApplyConfiguration(new ConciliacionConfiguration());
         modelBuilder.ApplyConfiguration(new ExtractoLineaConfiguration());

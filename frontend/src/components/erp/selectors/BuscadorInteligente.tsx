@@ -48,6 +48,8 @@ export interface BuscadorInteligenteProps<TItem extends { id: string }> {
   error?: unknown;
   /** Contenido de cada fila del listado. */
   renderItem: (item: TItem) => ReactNode;
+  /** Items que se muestran pero no se pueden elegir (el renderItem explica el motivo). */
+  itemDisabled?: (item: TItem) => boolean;
   /** Etiqueta del trigger para el item seleccionado. */
   itemToLabel: (item: TItem) => string;
   /**
@@ -84,6 +86,7 @@ export function BuscadorInteligente<TItem extends { id: string }>({
   cargando = false,
   error,
   renderItem,
+  itemDisabled,
   itemToLabel,
   valueLabel,
   placeholder,
@@ -195,6 +198,7 @@ export function BuscadorInteligente<TItem extends { id: string }>({
                     <CommandItem
                       key={item.id}
                       value={item.id}
+                      disabled={itemDisabled?.(item)}
                       onSelect={() => handleSelect(item)}
                       className="flex items-start justify-between gap-3"
                     >

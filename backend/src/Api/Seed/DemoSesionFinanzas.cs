@@ -55,10 +55,13 @@ public sealed partial class DemoSesionSeedHostedService
         {
             var ejercicio = new EjercicioContable(Id("DEMO-EJERCICIO-2026"), 2026) { EmpresaId = EmpresaId };
             var periodos = ejercicio.GenerarPeriodos();
+            // Octubre en adelante queda abierto hasta el mes en curso: una base sembrada después de octubre
+            // no debe rechazar los movimientos del día por periodo inexistente.
+            var mesAbierto = hoy.Year == 2026 ? Math.Max(10, hoy.Month) : 12;
             foreach (var periodo in periodos)
             {
                 periodo.EmpresaId = EmpresaId;
-                if (periodo.Numero <= 10) periodo.Abrir(null, "Apertura del ejercicio", null, "DEMO sembrador", sp.GetRequiredService<IClock>().UtcNow);
+                if (periodo.Numero <= mesAbierto) periodo.Abrir(null, "Apertura del ejercicio", null, "DEMO sembrador", sp.GetRequiredService<IClock>().UtcNow);
                 if (periodo.Numero <= 9) periodo.Cerrar(periodos.Where(p => p.Numero < periodo.Numero),
                     "Cierre mensual previo a octubre", null, "DEMO sembrador", sp.GetRequiredService<IClock>().UtcNow);
             }

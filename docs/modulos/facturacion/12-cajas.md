@@ -524,8 +524,8 @@ el cierre del día cuadra la sucursal completa.
     complementos de pago o de documentos cancelados.
   - Cada partida queda con el cajero de la sesión que la cobró o, si nadie
     la cobró, con quien la emitió; hay resumen por cajero.
-  - Transferencias: forma 03 con su referencia. El folio de confirmación de
-    Ingresos llega con F6.6 y se agregará al emparejamiento.
+  - Transferencias: forma 03 con su referencia y, desde F6.6, con el folio de
+    confirmación de Ingresos guardado en la forma de pago del cobro.
 
 ---
 
@@ -575,7 +575,7 @@ QA vio como «pago mixto» en el voucher (86e3tfdvt) es este comportamiento:
 | B1 | **Forma de pago del CFDI PUE / anticipo.** La factura se emite **antes** del cobro con una sola `FormaPago` elegida al emitir. El ERP no la compara con las formas del cobro ni sugiere cuál poner | Regla del SAT (guía de llenado del CFDI 4.0): con varias formas se registra la clave con la que se liquida **la mayor cantidad** del pago. Si el cajero emite con 01 y luego cobra 70 % con tarjeta, el CFDI queda con la forma equivocada |
 | B2 | **REPP cobrado en mostrador.** El REPP se emite antes del cobro con una sola forma (`FormaPagoReal` → un nodo `pago20:Pago`). El cobro de mostrador del REPP sí acepta varias formas, así que hoy puede quedar un REPP «03» cobrado con 03 + 01 | En el complemento de pagos 2.0 cada forma de pago es un nodo `pago20:Pago` distinto (con su `FormaDePagoP`, `Monto` y, si aplica, cuentas). Un pago mixto requiere N nodos en el mismo REPP |
 | B3 | **Póliza de cobro (C1.5).** Contabilidad aún no consume `cobro-mostrador.registrado.v1` en develop | El evento ya trae las formas; falta la plantilla, que debe partir el cobro mixto (ver 16.4) |
-| B4 | **Transferencia dentro de un cobro mixto.** La parte por transferencia no lleva el folio de confirmación de Ingresos | Depende de F6.6 (86e3jvuvr): Caja solo aplica pagos con folio |
+| B4 | ~~**Transferencia dentro de un cobro mixto.** La parte por transferencia no lleva el folio de confirmación de Ingresos~~ | Resuelto con F6.6 (86e3jvuvr): cada forma 03 del cobro, también en liquidación de ruta, exige su folio (ver §17) |
 
 ### 16.4 Nota de impacto
 
@@ -625,6 +625,33 @@ Eliam y Facturación de Millet:
 
 ---
 
+## 17. Folio de confirmación de transferencias (F6.6, R16)
+
+Manual de Sucursales §2.1: en call center el cliente paga por transferencia y
+manda el comprobante; el vendedor lo pasa a Ingresos, que valida el abono en
+el banco y emite un **folio de confirmación**; Caja solo aplica el pago con
+ese folio.
+
+- **Dueño:** Tesorería (`tesoreria.folio_transferencia`, folio `TR-000001`
+  consecutivo por empresa). Nace de un ingreso ya registrado en pesos, nunca
+  de una captura libre; varios folios por ingreso hasta su disponible (pagos
+  parciales). Permisos `tesoreria.folios-transferencia.emitir` y `.cancelar`.
+- **Caja:** toda forma 03 de un cobro (mostrador y liquidación de ruta) exige
+  un folio **vigente**, del **cliente** del comprobante y por el **importe**
+  exacto de esa forma; un folio usado o repetido se rechaza. Caja lo lee por
+  el puerto `IFolioTransferenciaReadPort` (solo lectura) y lo guarda en
+  `cobro_mostrador_forma_pago.folio_transferencia`.
+- **Estados:** `Vigente → Usado` con `cobro-mostrador.registrado.v1`;
+  `Usado → Vigente` con `cobro-mostrador.cancelado.v1`; `Vigente → Cancelado`
+  por Ingresos con motivo. Mientras Tesorería procesa el evento, el cobro
+  activo que ya guardó el folio bloquea su reuso en Caja.
+- **Depósitos por identificar:** un ingreso con folio no cancelado ya no se
+  ofrece a CxC ni a Tesorería como «por identificar».
+- **Supuesto a confirmar con Ingresos:** la regla aplica a todo cobro de caja
+  con forma 03, no solo a call center (la caja no conoce el canal del cobro).
+
+---
+
 ## Rev.
 
 | Versión | Fecha | Cambios |
@@ -635,4 +662,5 @@ Eliam y Facturación de Millet:
 | 0.8 | 2026-10-14 | §14: facturado y notas de crédito del punto de venta y resumen de la entrega (M19: facturado, NC, cobranzas, apartados, TPV), como propuesta a validar; relación con F6.7 |
 | 0.9 | 2026-10-21 | §15 Cierre del día por sucursal (F6.7): monitor de estatus de CFDI con verificación SAT y conciliación facturado contra ingresado por sucursal y cajero |
 | 1.0 | 2026-10-26 | §14 (86e3tfdvt): voucher de tarjeta = número de autorización de 4 a 12 caracteres, también en forma 29; nunca el número de la tarjeta |
+| 1.2 | 2026-10-31 | §17 (F6.6, 86e3jvuvr): folio de confirmación de transferencias de Ingresos; Caja aplica la forma 03 solo con folio vigente, del cliente y por el importe; B4 resuelta |
 | 1.1 | 2026-10-28 | §16 (86e3tfecn): caso de uso del cobro con varias formas de pago en una operación; estado actual del ERP, brechas (forma del CFDI, REPP con varios nodos, póliza de cobro partida según la regla de Contabilidad de Millet del 23-oct, folio de transferencia), nota de impacto y propuesta de cuándo construirlo |

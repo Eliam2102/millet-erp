@@ -1588,6 +1588,19 @@ export interface CobroFormaPagoInput {
   cuentaBeneficiaria?: string | null;
   /** 86e3tfdvt: últimos 4 dígitos de la tarjeta (solo 04 y 28). */
   tarjetaUltimos4?: string | null;
+  /** F6.6: folio de confirmación de Ingresos (solo forma 03, obligatorio). */
+  folioTransferencia?: string | null;
+}
+
+/** F6.6: folio de transferencia vigente que emitió Ingresos para el cliente del comprobante. */
+export interface FolioTransferenciaCaja {
+  id: string;
+  folio: string;
+  clienteId: string;
+  importe: number;
+  estado: string;
+  cobroMostradorId: string | null;
+  pedido: string | null;
 }
 
 export interface CobroMostradorResponse {

@@ -9,7 +9,7 @@ const GUID = '018f6a5e-0000-7000-8000-000000000001';
 
 describe('DecidirLiberacionSchema', () => {
   const base = {
-    pedidoRef: '3000123456',
+    pedidoRef: '7800123456',
     clienteId: GUID,
     moneda: 'MXN' as const,
     montoPedido: 15000,
@@ -46,7 +46,7 @@ describe('NuevaAutorizacionSchema', () => {
   const base = {
     beneficiarioUsuarioId: GUID,
     motivo: 'Pago en tránsito confirmado',
-    clienteOPedidoRef: '3000123456',
+    clienteOPedidoRef: '7800123456',
     vigenciaHoras: 24,
   };
 
