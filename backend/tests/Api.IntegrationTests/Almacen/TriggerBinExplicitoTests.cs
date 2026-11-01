@@ -420,7 +420,7 @@ public class TriggerBinExplicitoTests : IClassFixture<WebApplicationFactory<Prog
                 conteoTracked.Aprobar(Guid.NewGuid());
                 await db.SaveChangesAsync();
 
-                var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+                var hoy = Millet.Almacen.Application.Cierre.FechaNegocio.Hoy(DateTimeOffset.UtcNow); // misma fecha de negocio (México) que valida el handler
                 await using var calendario = new PeriodoContableFixture(db.Database.GetConnectionString()!, empresaId, hoy.Year);
                 await calendario.SembrarAsync(hoy.Month);
                 var resp = await new AplicarConteoHandler(

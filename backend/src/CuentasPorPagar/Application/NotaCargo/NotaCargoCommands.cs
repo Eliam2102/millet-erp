@@ -205,7 +205,7 @@ public sealed class AplicarNotaCargoHandler : IRequestHandler<AplicarNotaCargoCo
             ?? throw new EntityNotFoundException("FACTURA_NO_ENCONTRADA", "No se encontró la factura de la nota de cargo.");
         if (factura.ProveedorId != nota.ProveedorId || factura.Moneda != nota.Moneda)
             throw new BusinessRuleException("NCG_FACTURA_DISTINTA", "La nota de cargo y la factura deben tener el mismo proveedor y moneda.");
-        factura.AplicarNotaCargo(nota.Monto, nota.Id, DateOnly.FromDateTime(_clock.UtcNow.UtcDateTime));
+        factura.AplicarNotaCargo(nota.Monto, nota.Id, Millet.CuentasPorPagar.Application.Periodos.FechaNegocio.Hoy(_clock.UtcNow));
         nota.Aplicar(_currentUser.UserId, _clock.UtcNow);
         if (factura.Estado == Domain.FacturaProveedor.EstadoPasivo.Autorizada)
             await _pasivos.Handle(new Domain.FacturaProveedor.Events.FacturaProveedorAutorizadaDomainEvent(
