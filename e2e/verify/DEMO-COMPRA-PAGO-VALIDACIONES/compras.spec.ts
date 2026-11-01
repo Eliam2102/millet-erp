@@ -90,11 +90,20 @@ test('V-RQ-04 rechazar una requisición exige motivo', async ({ page, guard }) =
 
 test('V-RQ-03 la misma persona no autoriza su propia requisición', async ({ page, guard }) => {
   await prep(guard);
-  test.fixme(true, 'BRECHA: la app no lo impide. Requisicion.RegistrarAutorizacion solo exige personas distintas entre Nivel 1 y Nivel 2; quien captura puede dar el Nivel 1. Ver reporte.');
   const rq = await crearRq(guard, { descripcion: 'Compra de herrajes para canceles', articuloId: S.bien!.id, cantidad: 20 });
   await ok(await guard.api.post(`/api/v1/compras/requisiciones/${rq.id}/transmitir`));
+  await page.goto(`/compras/requisiciones/${rq.id}`);
+  await settle(page);
+  const aprobar = page.getByRole('button', { name: 'Aprobar Nivel 1' });
+  await expect(aprobar, 'quien capturó ve el botón, pero deshabilitado').toBeDisabled();
+  await aprobar.locator('..').hover();
+  await expect(page.getByRole('tooltip').getByText('Capturaste esta requisición: no puedes autorizarla. Debe autorizarla otra persona.').first()).toBeVisible();
+  await foto(page, 'V-RQ-03-quien-capturo-la-requisicion-no-puede-autorizarla');
+
   guard.allowStatus(422);
-  await rechazo(await guard.api.post(`/api/v1/compras/requisiciones/${rq.id}/autorizaciones`, { nivel: 1 }), 422, /AUTORIZACION|PROPIA/);
+  const p = await rechazo(await guard.api.post(`/api/v1/compras/requisiciones/${rq.id}/autorizaciones`, { nivel: 1 }), 422, 'REQUISICION_AUTOAUTORIZACION');
+  expect(p.detail).toContain('Quien capturó la requisición');
+  expect((await ok(await guard.api.get(`/api/v1/compras/requisiciones/${rq.id}`))).estado, 'sigue En autorización').toBe(1);
 });
 
 test('V-OC-01 proveedor bloqueado: no admite órdenes de compra nuevas', async ({ page, guard }) => {
@@ -114,12 +123,14 @@ test('V-OC-01 proveedor bloqueado: no admite órdenes de compra nuevas', async (
   await page.getByRole('button', { name: 'Editar cabecera' }).click();
   const form = page.locator('form[aria-label="Editar cabecera"]');
   await form.getByRole('group', { name: 'Proveedor' }).getByRole('combobox').click();
-  await page.getByRole('option', { name: /Perfiles de Aluminio Occidente/ }).first().click();
+  // el selector lo muestra deshabilitado con el motivo: no se puede elegir (antes dejaba elegirlo y el servidor lo rechazaba al guardar)
+  const opcion = page.getByRole('option', { name: /Perfiles de Aluminio Occidente/ }).first();
+  await expect(opcion).toBeVisible();
+  await expect.soft(opcion, 'el proveedor bloqueado se ofrece deshabilitado').toHaveAttribute('aria-disabled', 'true');
+  await expect.soft(opcion).toContainText('Bloqueado: Opinión de cumplimiento 32-D en sentido negativo');
+  await foto(page, 'V-OC-01-proveedor-bloqueado-deshabilitado-en-el-selector');
+  await page.keyboard.press('Escape');
   guard.allowStatus(422);
-  guard.expectApiMutationError(422);
-  await form.getByRole('button', { name: 'Guardar cabecera' }).click();
-  await expect(toast(page, /bloqueado/)).toBeVisible();
-  await foto(page, 'V-OC-01-proveedor-bloqueado-no-admite-orden-de-compra');
 
   const p = await rechazo(await guard.api.post('/api/v1/compras/ordenes', {
     sucursalDestinoId: '00000005-0003-0000-0000-000000000001', sucursalCodigo: 'MID', folioAnio: new Date().getFullYear(), proveedorId: PROV_PERFILES,
@@ -140,12 +151,12 @@ test('V-OC-02 quien capturó la orden de compra no puede firmarla', async ({ pag
   const oc = await ocTransmitida({ guard, page, bearer, provId: PROV_VIDRIO, articuloId: S.bien!.id, cantidad: 5, precio: 800, motivo: 'Reposición de existencias de vidrio flotado' });
   await page.goto(`/compras/ordenes/${oc.id}`);
   await settle(page);
-  await page.getByRole('button', { name: 'Aprobar Nivel 1' }).click();
-  guard.allowStatus(422);
-  guard.expectApiMutationError(422);
-  await page.getByRole('alertdialog').getByRole('button', { name: 'Aprobar Nivel 1' }).click();
-  await expect(toast(page, /no puede autorizarla/)).toBeVisible();
+  const aprobar = page.getByRole('button', { name: 'Aprobar Nivel 1' });
+  await expect(aprobar, 'quien capturó ve el botón, pero deshabilitado').toBeDisabled();
+  await aprobar.locator('..').hover();
+  await expect(page.getByRole('tooltip').getByText('Capturaste esta orden de compra: no puedes aprobarla. Debe aprobarla otra persona.').first()).toBeVisible();
   await foto(page, 'V-OC-02-quien-capturo-la-orden-no-puede-firmarla');
+  guard.allowStatus(422);
 
   const p = await rechazo(await guard.api.post(`/api/v1/compras/ordenes/${oc.id}/autorizaciones`, { nivel: 1 }), 422, 'OC_AUTOAUTORIZACION');
   expect(p.detail).toContain('Quien capturó');
