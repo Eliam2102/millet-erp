@@ -40,4 +40,53 @@ public static class PostgresFunctions
         => throw new InvalidOperationException(
             "PostgresFunctions.Translate solo es válido dentro de una query " +
             "traducida por EF Core (mapeado vía HasDbFunction).");
+
+    /// <summary>
+    /// Mapea el built-in <c>pg_catalog.regexp_replace(text, pattern, replacement)</c>.
+    /// Lo usa <see cref="OrdenClaveNatural"/> para el orden natural de claves.
+    /// </summary>
+    public static string RegexpReplace(string input, string pattern, string replacement)
+        => throw new InvalidOperationException(
+            "PostgresFunctions.RegexpReplace solo es válido dentro de una query " +
+            "traducida por EF Core (mapeado vía HasDbFunction).");
+}
+
+/// <summary>
+/// Orden "natural" de claves tipo <c>AW-1, AW-10, AW-1000</c> (el orden de
+/// texto daría AW-1, AW-10, AW-1000, AW-2). Se ordena por prefijo no
+/// numérico, luego por longitud (mismo prefijo: más dígitos = número mayor)
+/// y al final por texto.
+/// <para>
+/// ponytail: asume el sufijo numérico al final de la clave; una clave con
+/// ceros a la izquierda (<c>AW-01</c>) queda tras <c>AW-1</c>. Si hiciera falta
+/// orden natural completo: colación ICU <c>numeric</c> vía migración.
+/// </para>
+/// </summary>
+public static class OrdenClaveNatural
+{
+    private static readonly System.Reflection.MethodInfo RegexpReplace = typeof(PostgresFunctions).GetMethod(
+        nameof(PostgresFunctions.RegexpReplace), new[] { typeof(string), typeof(string), typeof(string) })!;
+
+    private static System.Linq.Expressions.Expression<Func<T, string>> Prefijo<T>(
+        System.Linq.Expressions.Expression<Func<T, string>> clave) =>
+        System.Linq.Expressions.Expression.Lambda<Func<T, string>>(
+            System.Linq.Expressions.Expression.Call(
+                RegexpReplace, clave.Body,
+                System.Linq.Expressions.Expression.Constant(@"\d+$"),
+                System.Linq.Expressions.Expression.Constant(string.Empty)),
+            clave.Parameters);
+
+    private static System.Linq.Expressions.Expression<Func<T, int>> Longitud<T>(
+        System.Linq.Expressions.Expression<Func<T, string>> clave) =>
+        System.Linq.Expressions.Expression.Lambda<Func<T, int>>(
+            System.Linq.Expressions.Expression.Property(clave.Body, nameof(string.Length)),
+            clave.Parameters);
+
+    public static IOrderedQueryable<T> OrdenarPorClaveNatural<T>(
+        this IQueryable<T> q, System.Linq.Expressions.Expression<Func<T, string>> clave) =>
+        q.OrderBy(Prefijo(clave)).ThenBy(Longitud(clave)).ThenBy(clave);
+
+    public static IOrderedQueryable<T> LuegoPorClaveNatural<T>(
+        this IOrderedQueryable<T> q, System.Linq.Expressions.Expression<Func<T, string>> clave) =>
+        q.ThenBy(Prefijo(clave)).ThenBy(Longitud(clave)).ThenBy(clave);
 }

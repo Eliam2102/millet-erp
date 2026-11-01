@@ -167,7 +167,7 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
     <form
       onSubmit={form.handleSubmit(onSubmit)}
       noValidate
-      className="  gap-4 rounded-md border bg-surface-card p-4"
+      className="space-y-6 rounded-md border bg-surface-card p-4"
     >
       <FormSeccion titulo="Datos del registro">
         <FormCampo span={12}>
@@ -254,9 +254,12 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
           </div>
         </FormCampo>
 
-        <FormCampo span={6}>
+        </FormSeccion>
+
+      <FormSeccion titulo="Datos fiscales" descripcion="RFC, régimen y código postal son requeridos para timbrar.">
+        <FormCampo span={4}>
           <FormRow
-            label="RFC"
+            label="RFC" campo="rfc"
             hint="Requerido para timbrar."
             error={form.formState.errors.rfc?.message}
           >
@@ -278,9 +281,9 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
           </FormRow>
         </FormCampo>
 
-        <FormCampo span={6}>
+        <FormCampo span={4}>
           <FormRow
-            label="Régimen fiscal"
+            label="Régimen fiscal" campo="regimenFiscal"
             hint="Catálogo SAT c_RegimenFiscal. Requerido para timbrar."
             error={form.formState.errors.regimenFiscal?.message}
           >
@@ -298,9 +301,9 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
           </FormRow>
         </FormCampo>
 
-        <FormCampo span={6}>
+        <FormCampo span={4}>
           <FormRow
-            label="Código postal fiscal"
+            label="Código postal fiscal" campo="codigoPostalFiscal"
             hint="Del domicilio fiscal. Requerido para timbrar."
             error={form.formState.errors.codigoPostalFiscal?.message}
           >
@@ -323,7 +326,7 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
           </FormRow>
         </FormCampo>
 
-        <FormCampo span={6}>
+        <FormCampo span={4}>
           <FormRow
             label="Uso CFDI default"
             hint="Opcional. Catálogo SAT c_UsoCFDI."
@@ -343,7 +346,10 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
           </FormRow>
         </FormCampo>
 
-        <FormCampo span={6}>
+      </FormSeccion>
+
+      <FormSeccion titulo="Condiciones comerciales">
+        <FormCampo span={4}>
           <FormRow
             label="Forma de pago default"
             hint="Opcional. Catálogo SAT c_FormaPago."
@@ -363,7 +369,7 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
           </FormRow>
         </FormCampo>
 
-        <FormCampo span={6}>
+        <FormCampo span={4}>
           <FormRow
             label="Método de pago default"
             hint="Opcional. PUE o PPD."
@@ -392,7 +398,7 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
           </FormRow>
         </FormCampo>
 
-        <FormCampo span={6}>
+        <FormCampo span={4}>
           <FormRow
             label="Moneda default"
             required
@@ -413,7 +419,7 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
           </FormRow>
         </FormCampo>
 
-        <FormCampo span={6}>
+        <FormCampo span={12}>
           <FormRow
             label="Cliente genérico"
             hint="Mostrador / público en general."
@@ -437,6 +443,9 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
           </FormRow>
         </FormCampo>
 
+      </FormSeccion>
+
+      <FormSeccion titulo="Contacto">
         <FormCampo span={6}>
           <FormRow label="Email" hint="Opcional." error={form.formState.errors.email?.message}>
             <Controller
@@ -480,15 +489,12 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
           </FormRow>
         </FormCampo>
 
-        <FormCampo span={12}>
-          <div className="md:col-span-2 border-t pt-3 text-sm font-medium text-ink-muted">
-            Receptor extranjero (Comercio Exterior)
-            <p className="text-xs font-normal">
-              Solo para clientes de exportación. Prellenar el encabezado del CCE. Fuente A+W cuando
-              esté disponible; si no, captúralos aquí.
-            </p>
-          </div>
-        </FormCampo>
+      </FormSeccion>
+
+      <FormSeccion
+        titulo="Receptor extranjero (Comercio Exterior)"
+        descripcion="Solo para clientes de exportación. Prellenar el encabezado del CCE. Fuente A+W cuando esté disponible; si no, captúralos aquí."
+      >
 
         <FormCampo span={6}>
           <FormRow
@@ -585,9 +591,10 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
           </FormRow>
         </FormCampo>
 
-        <FormCampo span={12}>
-          {canEditar && (
-            <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-2 border-t pt-3">
+      </FormSeccion>
+
+      {canEditar && (
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-3">
               <Button
                 type="button"
                 variant="ghost"
@@ -599,25 +606,25 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
               <Button type="submit" disabled={!dirty || actualizar.isPending}>
                 {actualizar.isPending ? 'Guardando…' : 'Guardar cambios'}
               </Button>
-            </div>
-          )}
-        </FormCampo>
-      </FormSeccion>
+        </div>
+      )}
     </form>
   );
 }
 
 interface FormRowProps {
   label: string;
+  /** Ancla del campo: «Qué falta» lo enfoca con <c>irACampo</c>. */
+  campo?: string;
   required?: boolean;
   hint?: string;
   error?: string;
   children: ReactNode;
 }
 
-function FormRow({ label, required, hint, error, children }: FormRowProps) {
+function FormRow({ label, campo, required, hint, error, children }: FormRowProps) {
   return (
-    <div className="space-y-1.5">
+    <div id={campo != null ? `campo-${campo}` : undefined} className="space-y-1.5">
       <label className="flex items-center gap-1 text-sm font-medium">
         {label}
         {required && (

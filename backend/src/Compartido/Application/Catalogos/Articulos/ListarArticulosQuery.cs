@@ -79,7 +79,7 @@ public sealed class ListarArticulosHandler
 
         var total = await q.CountAsync(cancellationToken);
         var items = await q
-            .OrderBy(a => a.Clave)
+            .OrdenarPorClaveNatural(a => a.Clave)
             .Skip(offset).Take(limit)
             .Select(a => new ArticuloItem(
                 a.Id, a.Clave, a.Nombre, a.UnidadMedidaDefault,

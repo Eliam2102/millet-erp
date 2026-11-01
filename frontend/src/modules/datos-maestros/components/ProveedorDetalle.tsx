@@ -7,9 +7,8 @@ import { apiRequest, codigoSoporte } from '@/lib/api';
 import { ProveedorClasificacionFiscalSection } from './ProveedorClasificacionFiscalSection';
 import { ProveedorToleranciaSection } from './ProveedorToleranciaSection';
 import { Link, useParams } from '@tanstack/react-router';
-import { CheckCircle2, Clock, PowerOff, TriangleAlert, X, XCircle } from 'lucide-react';
+import { CheckCircle2, Clock, PowerOff, X, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -48,6 +47,7 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { ProveedorDatosForm } from '@/modules/datos-maestros/components/ProveedorDatosForm';
 import { ProveedorCuentasBancariasSection } from '@/modules/datos-maestros/components/ProveedorCuentasBancariasSection';
 import { ProveedorExpedienteSection } from '@/modules/datos-maestros/components/ProveedorExpedienteSection';
+import { QueFaltaPanel } from '@/modules/datos-maestros/components/QueFaltaPanel';
 import { ProveedorAccesoPortalSection } from '@/modules/datos-maestros/components/ProveedorAccesoPortalSection';
 import { ProveedorBloqueo } from '@/modules/datos-maestros/components/ProveedorBloqueo';
 
@@ -226,15 +226,12 @@ export function ProveedorDetalle() {
     <div className="flex flex-col gap-5">
       {/* Header NO sticky: viaja con el scroll para no tapar la primera
           fila del form al anclar. */}
-      {activo && documentosPendientes.length > 0 && (
-        <Alert variant="warning">
-          <TriangleAlert className="size-4" aria-hidden="true" />
-          <AlertDescription>
-            Expediente incompleto: faltan {documentosPendientes.length} documentos ({documentosPendientes.join(', ')}).
-            {proveedor.origenCarga === 'CargaSap' && ' Cargado desde SAP sin documentos.'}{' '}
-            <a href="#expediente-proveedor" className="underline underline-offset-2">Ver expediente</a>
-          </AlertDescription>
-        </Alert>
+      {activo && (
+        <QueFaltaPanel
+          titulo="Expediente incompleto: qué falta"
+          items={documentosPendientes.map((etiqueta) => ({ etiqueta, href: '#expediente-proveedor' }))}
+          nota={proveedor.origenCarga === 'CargaSap' ? 'Cargado desde SAP sin documentos.' : undefined}
+        />
       )}
       <PageHeader
         mono

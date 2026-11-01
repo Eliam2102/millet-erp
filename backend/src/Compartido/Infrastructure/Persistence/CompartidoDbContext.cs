@@ -145,6 +145,12 @@ public sealed class CompartidoDbContext : BaseDbContext
                 new[] { typeof(string), typeof(string), typeof(string) })!)
             .HasName("translate")
             .HasSchema("pg_catalog");
+        modelBuilder
+            .HasDbFunction(typeof(PostgresFunctions).GetMethod(
+                nameof(PostgresFunctions.RegexpReplace),
+                new[] { typeof(string), typeof(string), typeof(string) })!)
+            .HasName("regexp_replace")
+            .HasSchema("pg_catalog");
 
         ConfigureEmpresa(modelBuilder);
         ConfigureMoneda(modelBuilder);
