@@ -25,6 +25,7 @@ import {
   Inbox,
   Layers,
   LineChart,
+  ListChecks,
   ListTree,
   Lock,
   MapPin,
@@ -714,6 +715,14 @@ const moduloCuentasPorCobrar: NavModulo = {
             PermisosCanonicos.CuentasPorCobrarLiberacionDecidir,
             PermisosCanonicos.CuentasPorCobrarLiberacionOverride,
           ],
+        },
+        {
+          label: 'Reglas de serie',
+          description:
+            'Series del pedido A+W que siempre liberan, nunca liberan (solo con autorización) o evalúan crédito.',
+          to: '/cxc/reglas-serie',
+          icon: ListChecks,
+          permission: PermisosCanonicos.CuentasPorCobrarReglasSerieGestionar,
         },
         {
           label: 'Cobranza',
