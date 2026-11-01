@@ -52,7 +52,12 @@ internal static class CorridaArmado
         // Plano 7.2 paso 2: proveedor activo y cuenta bancaria validada (Estado «Activa») en la moneda de la corrida.
         var info = await proveedores.ObtenerVariosAsync(pasivos.Select(p => p.ProveedorId).Distinct().ToList(), ct);
         foreach (var proveedorId in pasivos.Select(p => p.ProveedorId).Distinct())
+        {
             ReglasDestinoProveedor.Resolver(info.GetValueOrDefault(proveedorId), corrida.Moneda, null);
+            if (info[proveedorId].SinOpinionCumplimiento)
+                throw new BusinessRuleException("CORRIDA_PASIVO_DETENIDO_DOCUMENTACION",
+                    $"Las facturas de '{info[proveedorId].RazonSocial}' están detenidas por {PasivosPagables.MotivoDocumentacion}: falta su opinión de cumplimiento vigente en el expediente.");
+        }
 
         foreach (var pasivo in pasivos)
             if (corrida.AgregarLinea(pasivo) is { } linea) db.Add(linea);

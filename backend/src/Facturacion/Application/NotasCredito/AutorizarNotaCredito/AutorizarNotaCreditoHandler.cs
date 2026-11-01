@@ -40,8 +40,9 @@ public sealed class AutorizarNotaCreditoHandler(
                 $"Solo una nota de crédito Por autorizar puede autorizarse (estado actual: {nc.Estado}).");
 
         var ahora = clock.UtcNow;
-        if (!await periodo.EstaAbiertoAsync(ahora.Year, ahora.Month, cancellationToken))
-            throw new BusinessRuleException("PERIODO_CERRADO", $"El período contable {ahora.Year}-{ahora.Month:D2} está cerrado; no se puede emitir.");
+        var fechaFiscal = Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.FechaFiscal(ahora); // período en la fecha fiscal de México, no en UTC
+        if (!await periodo.EstaAbiertoAsync(fechaFiscal.Year, fechaFiscal.Month, cancellationToken))
+            throw new BusinessRuleException("PERIODO_CERRADO", $"El período contable {fechaFiscal.Year}-{fechaFiscal.Month:D2} está cerrado; no se puede emitir.");
 
         // El saldo pudo bajar desde que llegó la nota (pagos u otras notas timbradas).
         var factura = await db.FacturasVenta.FirstOrDefaultAsync(f => f.Id == nc.FacturaRelacionadaId, cancellationToken)

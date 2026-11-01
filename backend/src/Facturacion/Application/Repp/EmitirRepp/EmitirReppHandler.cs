@@ -74,8 +74,9 @@ public sealed class EmitirReppHandler : IRequestHandler<EmitirReppCommand, Emiti
             throw new ForbiddenException("EMPRESA_NO_SELECCIONADA", "No hay empresa seleccionada en el contexto del request.");
 
         var ahora = _clock.UtcNow;
-        var anio = ahora.Year;
-        var mes = ahora.Month;
+        // Período en la fecha fiscal de México: después de las 18:00 del último día, UTC ya es el mes siguiente.
+        var anio = Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.FechaFiscal(ahora).Year;
+        var mes = Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.FechaFiscal(ahora).Month;
 
         if (!await _periodo.EstaAbiertoAsync(anio, mes, cancellationToken))
             throw new BusinessRuleException("PERIODO_CERRADO", $"El período contable {anio}-{mes:D2} está cerrado; no se puede emitir.");

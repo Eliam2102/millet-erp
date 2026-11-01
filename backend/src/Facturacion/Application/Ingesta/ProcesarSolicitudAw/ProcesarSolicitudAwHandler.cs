@@ -280,6 +280,8 @@ public sealed class ProcesarSolicitudAwHandler
         excepcion.Actualizar(motivo, detalle);
         if (marcarControlExcepcion)
             UpsertControl(control, empresaId, sol, hash, EstadoIngesta.Excepcion, pedidoId, ahora);
+        // Dato defectuoso del origen: la misma versión queda aplicada/idempotente; A+W debe reenviar con versión nueva.
+        if (!esperaConfiguracion) detalle += " — reenvíe con una versión nueva";
         return (ResultadoSolicitudAw.Rechazada, pedidoId, detalle, estadoFacturacion);
     }
 

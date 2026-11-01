@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor;
 using Factura = Millet.CuentasPorPagar.Domain.FacturaProveedor.FacturaProveedor;
 using Millet.CuentasPorPagar.Domain.Ports.DatosMaestros;
+using Millet.CuentasPorPagar.Domain.Ports.Tesoreria;
 using Millet.CuentasPorPagar.Domain.Portal;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
 using Millet.SharedKernel.Application.Exceptions;
@@ -13,7 +14,7 @@ namespace Millet.CuentasPorPagar.Application.Portal;
 
 public sealed record FacturaPortalResponse(
     Guid Id, string? Folio, string? Uuid, DateTimeOffset Fecha, decimal Total, string Moneda,
-    string Estado, bool Detenida, string? Motivo, DateOnly? FechaProgramadaPago);
+    string Estado, bool Detenida, string? Motivo, DateOnly? FechaProgramadaPago, DateOnly FechaVencimiento);
 
 public sealed record PagoPortalResponse(
     Guid PagoId, Guid FacturaId, string? Folio, DateOnly FechaPago, decimal Importe, decimal ComplementoPendiente);
@@ -27,13 +28,16 @@ internal static class PortalMapeo
     public static string? Folio(string? serie, string? folio) =>
         string.IsNullOrWhiteSpace(serie) ? folio : $"{serie}-{folio}";
 
-    public static FacturaPortalResponse Mapear(Factura f)
+    public static FacturaPortalResponse Mapear(Factura f, DateOnly? fechaCorrida, bool sinOpinionCumplimiento = false)
     {
         var folio = Folio(f.SerieProveedor, f.FolioProveedor);
         var faltaRepp = f.EnRevision && f.MotivoRevisionId == Factura.MotivoFaltaReppId;
-        var detenida = f.EnRevision;
+        // 86e3ke2d3 (CA8.4): sin opinión de cumplimiento vigente la factura queda detenida por «documentación» (si ya está en revisión por otra causa, manda esa).
+        var faltaOpinion = sinOpinionCumplimiento && !f.EnRevision && f.Estado is not (EstadoPasivo.Pagada or EstadoPasivo.Cancelada);
+        var detenida = f.EnRevision || faltaOpinion;
         var (estado, motivo) = f.Estado switch
         {
+            _ when faltaOpinion => ("Detenida: documentación", "Falta tu opinión de cumplimiento vigente"),
             EstadoPasivo.EnRevision when faltaRepp =>
                 ("Detenida: falta el complemento de pago", $"Falta el complemento de pago de la factura {folio ?? f.UuidCfdi}"),
             EstadoPasivo.EnRevision => ("En revisión", (string?)"La factura está en revisión por Cuentas por Pagar."),
@@ -43,26 +47,34 @@ internal static class PortalMapeo
             EstadoPasivo.Cancelada => ("Cancelada", null),
             _ => ("Recibida", null),
         };
-        // ponytail: CxP aún no guarda la fecha de programación de Tesorería; se muestra el vencimiento de la factura autorizada.
-        DateOnly? programada = f.Estado == EstadoPasivo.Autorizada ? f.FechaVencimiento : null;
-        return new(f.Id, folio, f.UuidCfdi, f.FechaDocumento, f.Total, f.Moneda, estado, detenida, motivo, programada);
+        // Solo una autorizada y no detenida está «programada»; el vencimiento va en su propia columna.
+        DateOnly? programada = f.Estado == EstadoPasivo.Autorizada && !detenida ? fechaCorrida : null;
+        return new(f.Id, folio, f.UuidCfdi, f.FechaDocumento, f.Total, f.Moneda, estado, detenida, motivo, programada, f.FechaVencimiento);
     }
 }
 
-public sealed class PortalProveedorQueryHandlers(CuentasPorPagarDbContext db) :
+public sealed class PortalProveedorQueryHandlers(CuentasPorPagarDbContext db, IPagosProveedorReadPort pagosTesoreria, IProveedorReadPort proveedores) :
     IRequestHandler<ListarFacturasPortalQuery, IReadOnlyList<FacturaPortalResponse>>,
     IRequestHandler<ObtenerFacturaPortalQuery, FacturaPortalResponse>,
     IRequestHandler<ListarPagosPortalQuery, IReadOnlyList<PagoPortalResponse>>
 {
+    // «Fecha programada de pago» = la de la corrida autorizada que incluye la factura; sin corrida, null («Sin programar»).
+    private async Task<IReadOnlyList<FacturaPortalResponse>> MapearAsync(IReadOnlyList<Factura> facturas, CancellationToken ct)
+    {
+        var fechas = await pagosTesoreria.FechasProgramadasAsync(facturas.Select(f => f.Id).ToArray(), ct);
+        var sinOpinion = await proveedores.ObtenerSinOpinionCumplimientoAsync(facturas.Select(f => f.ProveedorId).Distinct().ToArray(), ct);
+        return facturas.Select(f => PortalMapeo.Mapear(f, fechas.TryGetValue(f.Id, out var d) ? d : null, sinOpinion.Contains(f.ProveedorId))).ToList();
+    }
+
     public async Task<IReadOnlyList<FacturaPortalResponse>> Handle(ListarFacturasPortalQuery request, CancellationToken cancellationToken) =>
-        (await db.FacturasProveedor.AsNoTracking().Where(f => f.ProveedorId == request.ProveedorId)
-            .OrderByDescending(f => f.FechaDocumento).Take(500).ToListAsync(cancellationToken)).Select(PortalMapeo.Mapear).ToList();
+        await MapearAsync(await db.FacturasProveedor.AsNoTracking().Where(f => f.ProveedorId == request.ProveedorId)
+            .OrderByDescending(f => f.FechaDocumento).Take(500).ToListAsync(cancellationToken), cancellationToken);
 
     public async Task<FacturaPortalResponse> Handle(ObtenerFacturaPortalQuery request, CancellationToken cancellationToken)
     {
         var f = await db.FacturasProveedor.AsNoTracking().FirstOrDefaultAsync(x => x.Id == request.FacturaId && x.ProveedorId == request.ProveedorId, cancellationToken)
             ?? throw new EntityNotFoundException("PORTAL_FACTURA_NO_ENCONTRADA", "No encontramos la factura.");
-        return PortalMapeo.Mapear(f);
+        return (await MapearAsync([f], cancellationToken))[0];
     }
 
     public async Task<IReadOnlyList<PagoPortalResponse>> Handle(ListarPagosPortalQuery request, CancellationToken cancellationToken)

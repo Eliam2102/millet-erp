@@ -118,6 +118,7 @@ import { Route as AppCxcCarteraIndexRouteImport } from './routes/_app/cxc/carter
 import { Route as AppCxcCobranzaIndexRouteImport } from './routes/_app/cxc/cobranza/index';
 import { Route as AppCxcEstadoCuentaIndexRouteImport } from './routes/_app/cxc/estado-cuenta/index';
 import { Route as AppCxcLiberacionesIndexRouteImport } from './routes/_app/cxc/liberaciones/index';
+import { Route as AppCxcReglasSerieIndexRouteImport } from './routes/_app/cxc/reglas-serie/index';
 import { Route as AppCxcLineasCreditoIndexRouteImport } from './routes/_app/cxc/lineas-credito/index';
 import { Route as AppCxcLineasCreditoIdRouteImport } from './routes/_app/cxc/lineas-credito/$id';
 import { Route as AppCxpAdminAprobadoresRouteImport } from './routes/_app/cxp/admin.aprobadores';
@@ -162,6 +163,7 @@ import { Route as AppFacturacionReportesCierreDiaRouteImport } from './routes/_a
 import { Route as AppFacturacionReportesComparativaAnticiposRouteImport } from './routes/_app/facturacion/reportes/comparativa-anticipos';
 import { Route as AppFacturacionReportesEstadosAnticiposRouteImport } from './routes/_app/facturacion/reportes/estados-anticipos';
 import { Route as AppFacturacionReportesLiquidacionCajaRouteImport } from './routes/_app/facturacion/reportes/liquidacion-caja';
+import { Route as AppFacturacionNotasCreditoIndexRouteImport } from './routes/_app/facturacion/notas-credito/index';
 import { Route as AppFacturacionReppIndexRouteImport } from './routes/_app/facturacion/repp/index';
 import { Route as AppFacturacionReppIdRouteImport } from './routes/_app/facturacion/repp/$id';
 import { Route as AppFacturacionReppPendientesRouteImport } from './routes/_app/facturacion/repp/pendientes';
@@ -803,6 +805,11 @@ const AppCxcLiberacionesIndexRoute = AppCxcLiberacionesIndexRouteImport.update({
   path: '/cxc/liberaciones/',
   getParentRoute: () => AppRoute,
 } as any);
+const AppCxcReglasSerieIndexRoute = AppCxcReglasSerieIndexRouteImport.update({
+  id: '/cxc/reglas-serie/',
+  path: '/cxc/reglas-serie/',
+  getParentRoute: () => AppRoute,
+} as any);
 const AppCxcLineasCreditoIndexRoute =
   AppCxcLineasCreditoIndexRouteImport.update({
     id: '/cxc/lineas-credito/',
@@ -1043,6 +1050,12 @@ const AppFacturacionReportesLiquidacionCajaRoute =
   AppFacturacionReportesLiquidacionCajaRouteImport.update({
     id: '/facturacion/reportes/liquidacion-caja',
     path: '/facturacion/reportes/liquidacion-caja',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppFacturacionNotasCreditoIndexRoute =
+  AppFacturacionNotasCreditoIndexRouteImport.update({
+    id: '/facturacion/notas-credito/',
+    path: '/facturacion/notas-credito/',
     getParentRoute: () => AppRoute,
   } as any);
 const AppFacturacionReppIndexRoute = AppFacturacionReppIndexRouteImport.update({
@@ -1519,6 +1532,7 @@ export interface FileRoutesByFullPath {
   '/cxc/cobranza/': typeof AppCxcCobranzaIndexRoute;
   '/cxc/estado-cuenta/': typeof AppCxcEstadoCuentaIndexRoute;
   '/cxc/liberaciones/': typeof AppCxcLiberacionesIndexRoute;
+  '/cxc/reglas-serie/': typeof AppCxcReglasSerieIndexRoute;
   '/cxc/lineas-credito/': typeof AppCxcLineasCreditoIndexRoute;
   '/cxp/comprobaciones/': typeof AppCxpComprobacionesIndexRoute;
   '/cxp/facturas/': typeof AppCxpFacturasIndexRoute;
@@ -1532,6 +1546,7 @@ export interface FileRoutesByFullPath {
   '/facturacion/carta-porte/': typeof AppFacturacionCartaPorteIndexRoute;
   '/facturacion/facturas/': typeof AppFacturacionFacturasIndexRoute;
   '/facturacion/pedidos/': typeof AppFacturacionPedidosIndexRoute;
+  '/facturacion/notas-credito/': typeof AppFacturacionNotasCreditoIndexRoute;
   '/facturacion/repp/': typeof AppFacturacionReppIndexRoute;
   '/tesoreria/conciliacion/': typeof AppTesoreriaConciliacionIndexRoute;
   '/tesoreria/corridas/': typeof AppTesoreriaCorridasIndexRoute;
@@ -1728,6 +1743,7 @@ export interface FileRoutesByTo {
   '/cxc/cobranza': typeof AppCxcCobranzaIndexRoute;
   '/cxc/estado-cuenta': typeof AppCxcEstadoCuentaIndexRoute;
   '/cxc/liberaciones': typeof AppCxcLiberacionesIndexRoute;
+  '/cxc/reglas-serie': typeof AppCxcReglasSerieIndexRoute;
   '/cxc/lineas-credito': typeof AppCxcLineasCreditoIndexRoute;
   '/cxp/comprobaciones': typeof AppCxpComprobacionesIndexRoute;
   '/cxp/facturas': typeof AppCxpFacturasIndexRoute;
@@ -1741,6 +1757,7 @@ export interface FileRoutesByTo {
   '/facturacion/carta-porte': typeof AppFacturacionCartaPorteIndexRoute;
   '/facturacion/facturas': typeof AppFacturacionFacturasIndexRoute;
   '/facturacion/pedidos': typeof AppFacturacionPedidosIndexRoute;
+  '/facturacion/notas-credito': typeof AppFacturacionNotasCreditoIndexRoute;
   '/facturacion/repp': typeof AppFacturacionReppIndexRoute;
   '/tesoreria/conciliacion': typeof AppTesoreriaConciliacionIndexRoute;
   '/tesoreria/corridas': typeof AppTesoreriaCorridasIndexRoute;
@@ -1939,6 +1956,7 @@ export interface FileRoutesById {
   '/_app/cxc/cobranza/': typeof AppCxcCobranzaIndexRoute;
   '/_app/cxc/estado-cuenta/': typeof AppCxcEstadoCuentaIndexRoute;
   '/_app/cxc/liberaciones/': typeof AppCxcLiberacionesIndexRoute;
+  '/_app/cxc/reglas-serie/': typeof AppCxcReglasSerieIndexRoute;
   '/_app/cxc/lineas-credito/': typeof AppCxcLineasCreditoIndexRoute;
   '/_app/cxp/comprobaciones/': typeof AppCxpComprobacionesIndexRoute;
   '/_app/cxp/facturas/': typeof AppCxpFacturasIndexRoute;
@@ -1952,6 +1970,7 @@ export interface FileRoutesById {
   '/_app/facturacion/carta-porte/': typeof AppFacturacionCartaPorteIndexRoute;
   '/_app/facturacion/facturas/': typeof AppFacturacionFacturasIndexRoute;
   '/_app/facturacion/pedidos/': typeof AppFacturacionPedidosIndexRoute;
+  '/_app/facturacion/notas-credito/': typeof AppFacturacionNotasCreditoIndexRoute;
   '/_app/facturacion/repp/': typeof AppFacturacionReppIndexRoute;
   '/_app/tesoreria/conciliacion/': typeof AppTesoreriaConciliacionIndexRoute;
   '/_app/tesoreria/corridas/': typeof AppTesoreriaCorridasIndexRoute;
@@ -2150,6 +2169,7 @@ export interface FileRouteTypes {
     | '/cxc/cobranza/'
     | '/cxc/estado-cuenta/'
     | '/cxc/liberaciones/'
+    | '/cxc/reglas-serie/'
     | '/cxc/lineas-credito/'
     | '/cxp/comprobaciones/'
     | '/cxp/facturas/'
@@ -2163,6 +2183,7 @@ export interface FileRouteTypes {
     | '/facturacion/carta-porte/'
     | '/facturacion/facturas/'
     | '/facturacion/pedidos/'
+    | '/facturacion/notas-credito/'
     | '/facturacion/repp/'
     | '/tesoreria/conciliacion/'
     | '/tesoreria/corridas/'
@@ -2359,6 +2380,7 @@ export interface FileRouteTypes {
     | '/cxc/cobranza'
     | '/cxc/estado-cuenta'
     | '/cxc/liberaciones'
+    | '/cxc/reglas-serie'
     | '/cxc/lineas-credito'
     | '/cxp/comprobaciones'
     | '/cxp/facturas'
@@ -2372,6 +2394,7 @@ export interface FileRouteTypes {
     | '/facturacion/carta-porte'
     | '/facturacion/facturas'
     | '/facturacion/pedidos'
+    | '/facturacion/notas-credito'
     | '/facturacion/repp'
     | '/tesoreria/conciliacion'
     | '/tesoreria/corridas'
@@ -2569,6 +2592,7 @@ export interface FileRouteTypes {
     | '/_app/cxc/cobranza/'
     | '/_app/cxc/estado-cuenta/'
     | '/_app/cxc/liberaciones/'
+    | '/_app/cxc/reglas-serie/'
     | '/_app/cxc/lineas-credito/'
     | '/_app/cxp/comprobaciones/'
     | '/_app/cxp/facturas/'
@@ -2582,6 +2606,7 @@ export interface FileRouteTypes {
     | '/_app/facturacion/carta-porte/'
     | '/_app/facturacion/facturas/'
     | '/_app/facturacion/pedidos/'
+    | '/_app/facturacion/notas-credito/'
     | '/_app/facturacion/repp/'
     | '/_app/tesoreria/conciliacion/'
     | '/_app/tesoreria/corridas/'
@@ -3402,6 +3427,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCxcLiberacionesIndexRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/cxc/reglas-serie/': {
+      id: '/_app/cxc/reglas-serie/';
+      path: '/cxc/reglas-serie';
+      fullPath: '/cxc/reglas-serie/';
+      preLoaderRoute: typeof AppCxcReglasSerieIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/cxc/lineas-credito/': {
       id: '/_app/cxc/lineas-credito/';
       path: '/cxc/lineas-credito';
@@ -3708,6 +3740,13 @@ declare module '@tanstack/react-router' {
       path: '/facturacion/reportes/liquidacion-caja';
       fullPath: '/facturacion/reportes/liquidacion-caja';
       preLoaderRoute: typeof AppFacturacionReportesLiquidacionCajaRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/facturacion/notas-credito/': {
+      id: '/_app/facturacion/notas-credito/';
+      path: '/facturacion/notas-credito';
+      fullPath: '/facturacion/notas-credito/';
+      preLoaderRoute: typeof AppFacturacionNotasCreditoIndexRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/facturacion/repp/': {
@@ -4261,6 +4300,7 @@ interface AppRouteChildren {
   AppCxcCobranzaIndexRoute: typeof AppCxcCobranzaIndexRoute;
   AppCxcEstadoCuentaIndexRoute: typeof AppCxcEstadoCuentaIndexRoute;
   AppCxcLiberacionesIndexRoute: typeof AppCxcLiberacionesIndexRoute;
+  AppCxcReglasSerieIndexRoute: typeof AppCxcReglasSerieIndexRoute;
   AppCxcLineasCreditoIndexRoute: typeof AppCxcLineasCreditoIndexRoute;
   AppCxpComprobacionesIndexRoute: typeof AppCxpComprobacionesIndexRoute;
   AppCxpFacturasIndexRoute: typeof AppCxpFacturasIndexRoute;
@@ -4274,6 +4314,7 @@ interface AppRouteChildren {
   AppFacturacionCartaPorteIndexRoute: typeof AppFacturacionCartaPorteIndexRoute;
   AppFacturacionFacturasIndexRoute: typeof AppFacturacionFacturasIndexRoute;
   AppFacturacionPedidosIndexRoute: typeof AppFacturacionPedidosIndexRoute;
+  AppFacturacionNotasCreditoIndexRoute: typeof AppFacturacionNotasCreditoIndexRoute;
   AppFacturacionReppIndexRoute: typeof AppFacturacionReppIndexRoute;
   AppTesoreriaConciliacionIndexRoute: typeof AppTesoreriaConciliacionIndexRoute;
   AppTesoreriaCorridasIndexRoute: typeof AppTesoreriaCorridasIndexRoute;
@@ -4480,6 +4521,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppCxcCobranzaIndexRoute: AppCxcCobranzaIndexRoute,
   AppCxcEstadoCuentaIndexRoute: AppCxcEstadoCuentaIndexRoute,
   AppCxcLiberacionesIndexRoute: AppCxcLiberacionesIndexRoute,
+  AppCxcReglasSerieIndexRoute: AppCxcReglasSerieIndexRoute,
   AppCxcLineasCreditoIndexRoute: AppCxcLineasCreditoIndexRoute,
   AppCxpComprobacionesIndexRoute: AppCxpComprobacionesIndexRoute,
   AppCxpFacturasIndexRoute: AppCxpFacturasIndexRoute,
@@ -4493,6 +4535,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppFacturacionCartaPorteIndexRoute: AppFacturacionCartaPorteIndexRoute,
   AppFacturacionFacturasIndexRoute: AppFacturacionFacturasIndexRoute,
   AppFacturacionPedidosIndexRoute: AppFacturacionPedidosIndexRoute,
+  AppFacturacionNotasCreditoIndexRoute: AppFacturacionNotasCreditoIndexRoute,
   AppFacturacionReppIndexRoute: AppFacturacionReppIndexRoute,
   AppTesoreriaConciliacionIndexRoute: AppTesoreriaConciliacionIndexRoute,
   AppTesoreriaCorridasIndexRoute: AppTesoreriaCorridasIndexRoute,

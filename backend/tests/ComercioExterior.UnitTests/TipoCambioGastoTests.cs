@@ -41,4 +41,24 @@ public sealed class TipoCambioGastoTests
     [Fact]
     public void Fuente_desconocida_se_rechaza() =>
         Assert.Equal("CE_TIPO_CAMBIO_NOTA_REQUERIDA", Assert.Throws<BusinessRuleException>(() => Guardar(18.30m, "Otra", "Nota suficiente")).Code);
+    [Fact]
+    public void Banxico_ignora_el_tc_enviado_y_usa_el_sugerido()
+    {
+        var g = Guardar(17.00m, "Banxico");
+        Assert.Equal(18.4253m, g.TipoCambio); Assert.Equal(18425.30m, g.ImporteMxn);
+        Assert.Equal(0, g.DiferenciaTipoCambioPct); Assert.Null(g.NotaTipoCambio); Assert.Null(g.TipoCambioModificadoPor);
+    }
+    [Fact]
+    public void Fuente_mxn_en_gasto_usd_se_rechaza() =>
+        Assert.Equal("CE_TIPO_CAMBIO_FUENTE_INVALIDA", Assert.Throws<BusinessRuleException>(() => Guardar(5m, "MXN")).Code);
+    [Fact]
+    public void Editar_a_banxico_con_tc_falso_no_conserva_el_manual()
+    {
+        var (e, c) = Nuevo(); var id = Guid.NewGuid();
+        DatosGasto d = new(c.Id, Guid.NewGuid(), "F-1", "USD", 1000, Fecha);
+        e.GuardarGasto(id, d, c, 18.30m, "Negociado", null, 18.4253m, "Pactado con el agente", Guid.NewGuid());
+        e.GuardarGasto(id, d, c, 17.00m, "Banxico", null, 18.4253m);
+        var g = e.Gastos.Single();
+        Assert.Equal(18.4253m, g.TipoCambio); Assert.Null(g.NotaTipoCambio); Assert.Null(g.TipoCambioModificadoPor);
+    }
 }
