@@ -1,3 +1,6 @@
+using System.Globalization;
+using System.Xml;
+using System.Xml.Linq;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -55,8 +58,18 @@ public sealed class RegistrarReppRecibidoValidator : AbstractValidator<Registrar
     }
 }
 
+/// <summary>
+/// P8.3 (supuesto del fin de semana 31-oct, pendiente de Laura): el proveedor sube su complemento de pago por el portal y se liga
+/// solo a los pagos aplicados de su factura, por los UUID de DoctoRelacionado. No lo registra CxP a mano. Reusa el registro de
+/// <see cref="RegistrarReppRecibidoCommand"/> (mismas validaciones fiscales y mismo evento que libera FALTA_REPP).
+/// El proveedor viene del token del portal; solo se ligan facturas suyas (en <c>RegistradoPor</c> queda su id, no un usuario del ERP). Si no se puede ligar no es error: el CFDI ya quedó recibido.
+/// </summary>
+public sealed record RegistrarReppPortalCommand(Guid ProveedorId, byte[] Xml) : IRequest<ReppPortalResultado>;
+
+public sealed record ReppPortalResultado(bool Ligado, string Mensaje);
+
 public sealed class RegistrarReppRecibidoHandler
-    : IRequestHandler<RegistrarReppRecibidoCommand, ReppRecibidoResponse>
+    : IRequestHandler<RegistrarReppRecibidoCommand, ReppRecibidoResponse>, IRequestHandler<RegistrarReppPortalCommand, ReppPortalResultado>
 {
     private readonly TesoreriaDbContext _db;
     private readonly ICurrentEmpresaContext _currentEmpresa;
@@ -78,20 +91,97 @@ public sealed class RegistrarReppRecibidoHandler
         _blob = blob; _publisher = publisher; _clock = clock; _proveedores = proveedores;
     }
 
-    public async Task<ReppRecibidoResponse> Handle(RegistrarReppRecibidoCommand command, CancellationToken cancellationToken)
+    public Task<ReppRecibidoResponse> Handle(RegistrarReppRecibidoCommand command, CancellationToken cancellationToken) =>
+        RegistrarConBloqueoAsync(command, null, cancellationToken);
+
+    private async Task<ReppRecibidoResponse> RegistrarConBloqueoAsync(RegistrarReppRecibidoCommand command, Guid? registradoPor, CancellationToken cancellationToken)
     {
-        if (!_db.Database.IsRelational()) return await RegistrarAsync(command, cancellationToken);
+        if (!_db.Database.IsRelational()) return await RegistrarAsync(command, registradoPor, cancellationToken);
         ReppRecibidoResponse? resultado = null;
         await Millet.SharedKernel.Infrastructure.Persistence.PostgresAdvisoryLock.ExecuteAsync(_db, 0x50335F5041474F,
-            async ct => resultado = await RegistrarAsync(command, ct), cancellationToken);
+            async ct => resultado = await RegistrarAsync(command, registradoPor, ct), cancellationToken);
         return resultado!;
     }
-    private async Task<ReppRecibidoResponse> RegistrarAsync(RegistrarReppRecibidoCommand command, CancellationToken cancellationToken)
+
+    // Implementación explícita: un segundo Handle público volvería ambiguas las llamadas con `new(...)` al de siempre.
+    Task<ReppPortalResultado> IRequestHandler<RegistrarReppPortalCommand, ReppPortalResultado>.Handle(RegistrarReppPortalCommand command, CancellationToken cancellationToken) =>
+        LigarPortalAsync(command, cancellationToken);
+
+    public async Task<ReppPortalResultado> LigarPortalAsync(RegistrarReppPortalCommand command, CancellationToken cancellationToken)
+    {
+        var ct = cancellationToken;
+        const string Revisara = " Cuentas por Pagar lo revisará.";
+        // Solo se liga un complemento que relacione UNA factura del proveedor (el registro fiscal valida una factura por XML).
+        XDocument doc;
+        try
+        {
+            using var reader = XmlReader.Create(new MemoryStream(command.Xml, writable: false),
+                new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null, MaxCharactersInDocument = 5_000_000 });
+            doc = XDocument.Load(reader);
+        }
+        catch (XmlException) { return new(false, "No pudimos leer el complemento para ligarlo a tu pago." + Revisara); }
+        XNamespace cfdi = "http://www.sat.gob.mx/cfd/4", pagos = "http://www.sat.gob.mx/Pagos20", timbre = "http://www.sat.gob.mx/TimbreFiscalDigital";
+        var uuid = Guid.TryParse((string?)doc.Root?.Element(cfdi + "Complemento")?.Element(timbre + "TimbreFiscalDigital")?.Attribute("UUID"), out var u) ? u : Guid.Empty;
+        var fechaCfdi = DateTime.TryParse((string?)doc.Root?.Attribute("Fecha"), CultureInfo.InvariantCulture, DateTimeStyles.None, out var f) ? DateOnly.FromDateTime(f) : default;
+        var lineas = (from pago in doc.Descendants(pagos + "Pago")
+                      from d in pago.Elements(pagos + "DoctoRelacionado")
+                      select new
+                      {
+                          Factura = Guid.TryParse((string?)d.Attribute("IdDocumento"), out var id) ? id : Guid.Empty,
+                          Fecha = DateTime.TryParse((string?)pago.Attribute("FechaPago"), CultureInfo.InvariantCulture, DateTimeStyles.None, out var fp) ? DateOnly.FromDateTime(fp) : default,
+                          Importe = decimal.TryParse((string?)d.Attribute("ImpPagado"), NumberStyles.Number, CultureInfo.InvariantCulture, out var imp) ? imp : 0m,
+                      }).ToList();
+        var relacionadas = lineas.Select(l => l.Factura).Distinct().ToArray();
+        if (uuid == Guid.Empty || fechaCfdi == default || relacionadas.Length == 0 || lineas.Any(l => l.Fecha == default || l.Importe <= 0))
+            return new(false, "El complemento no trae los datos para ligarlo a tu pago." + Revisara);
+        var pasivos = await _db.PasivosPendientesPago.AsNoTracking()
+            .Where(p => p.ProveedorId == command.ProveedorId && p.UuidCfdi != null && relacionadas.Contains(p.UuidCfdi.Value)).ToListAsync(ct);
+        if (relacionadas.Length != 1 || pasivos.Count != 1)
+            return new(false, relacionadas.Length > 1
+                ? "Tu complemento relaciona varias facturas; hoy se liga una factura por complemento." + Revisara
+                : "No encontramos una factura tuya con pago que corresponda a tu complemento." + Revisara);
+        var pasivo = pasivos[0];
+        var yaLigado = await _db.ReppsProveedorRecibidos.AsNoTracking().Where(r => r.UuidComplemento == uuid && r.FacturaProveedorId == pasivo.FacturaProveedorId)
+            .AnyAsync(r => _db.ReppPagosProveedor.Any(p => p.ReppId == r.Id), ct);
+        if (yaLigado) return new(true, "Tu complemento ya estaba ligado a tu pago.");
+
+        // Pagos aplicados a la factura con saldo sin cubrir por otro complemento, repartidos por fecha de pago como lo exige el registro fiscal.
+        var aplicaciones = await (from a in _db.AplicacionesPagoProveedor.AsNoTracking()
+                                  join m in _db.MovimientosBancarios.AsNoTracking() on a.MovimientoId equals m.Id
+                                  where a.FacturaProveedorId == pasivo.FacturaProveedorId && !a.Revertida
+                                  select new { a.Id, a.ImporteAplicado, m.FechaValor }).ToListAsync(ct);
+        var ids = aplicaciones.Select(a => a.Id).ToArray();
+        var cubierto = await _db.ReppPagosProveedor.Where(r => ids.Contains(r.PagoId)).GroupBy(r => r.PagoId)
+            .Select(g => new { Id = g.Key, Importe = g.Sum(r => r.Importe) }).ToDictionaryAsync(r => r.Id, r => r.Importe, ct);
+        var elegidos = new List<ReppPagoDetalle>();
+        foreach (var dia in lineas.GroupBy(l => l.Fecha))
+        {
+            var porCubrir = dia.Sum(l => l.Importe);
+            foreach (var a in aplicaciones.Where(a => a.FechaValor == dia.Key).OrderBy(a => a.Id))
+            {
+                var asignado = Math.Min(porCubrir, a.ImporteAplicado - cubierto.GetValueOrDefault(a.Id));
+                if (asignado <= 0) continue;
+                elegidos.Add(new ReppPagoDetalle(a.Id, asignado));
+                porCubrir -= asignado;
+            }
+            if (porCubrir > 0.01m)
+                return new(false, $"No hay pagos de tu factura con fecha {dia.Key:dd/MM/yyyy} e importe pendiente que coincidan con tu complemento." + Revisara);
+        }
+        try
+        {
+            await RegistrarConBloqueoAsync(new RegistrarReppRecibidoCommand(pasivo.FacturaProveedorId, uuid, fechaCfdi,
+                Convert.ToBase64String(command.Xml), elegidos), command.ProveedorId, ct);
+            return new(true, "Ligamos tu complemento a tu pago.");
+        }
+        catch (BusinessRuleException ex) { return new(false, ex.Message + Revisara); }
+    }
+
+    private async Task<ReppRecibidoResponse> RegistrarAsync(RegistrarReppRecibidoCommand command, Guid? registradoPor, CancellationToken cancellationToken)
     {
         if (_currentEmpresa.Current is not Guid empresaId)
             throw new ForbiddenException("EMPRESA_NO_SELECCIONADA",
                 "El usuario no tiene una empresa seleccionada.");
-        if (_currentUser.UserId is not Guid usuarioId)
+        if ((registradoPor ?? _currentUser.UserId) is not Guid usuarioId)
             throw new ForbiddenException("USUARIO_NO_IDENTIFICADO",
                 "No se pudo identificar al usuario que registra el REPP.");
 

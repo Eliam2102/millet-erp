@@ -1,8 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using Millet.Catalogos.Domain;
+using Millet.Compartido.Application.Adjuntos;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.DatosMaestros.Domain;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Infrastructure;
 using Millet.Tesoreria.Domain.Ports.DatosMaestros;
 
 namespace Millet.Tesoreria.Infrastructure.Adapters;
@@ -23,12 +25,16 @@ public sealed class ProveedorBancoReadPortAdapter : IProveedorBancoReadPort
     private readonly CompartidoDbContext _db;
     private readonly ICurrentEmpresaContext _empresaContext;
 
+    private readonly IClock _clock;
+
     public ProveedorBancoReadPortAdapter(
         CompartidoDbContext db,
-        ICurrentEmpresaContext empresaContext)
+        ICurrentEmpresaContext empresaContext,
+        IClock? clock = null)
     {
         _db = db;
         _empresaContext = empresaContext;
+        _clock = clock ?? new SystemClock();
     }
 
     public async Task<ProveedorBancoDto?> ObtenerAsync(Guid proveedorId, CancellationToken cancellationToken)
@@ -48,6 +54,8 @@ public sealed class ProveedorBancoReadPortAdapter : IProveedorBancoReadPort
             .Where(p => proveedorIds.Contains(p.Id))
             .Select(p => new { p.Id, p.Clave, p.RazonSocial, p.Estatus, p.Rfc, p.Bloqueado, p.MotivoBloqueo })
             .ToListAsync(cancellationToken);
+        var sinOpinion = await ExpedienteAdjuntos.SinOpinionCumplimiento(_db, _clock)
+            .Where(id => proveedorIds.Contains(id)).ToListAsync(cancellationToken);
         var cuentas = (await _db.CuentasBancariasProveedor.AsNoTracking()
                 .Where(c => proveedorIds.Contains(c.ProveedorId) && c.Estado != EstadoCuentaBancariaProveedor.Rechazada)
                 .ToListAsync(cancellationToken))
@@ -56,6 +64,7 @@ public sealed class ProveedorBancoReadPortAdapter : IProveedorBancoReadPort
                 c.Estado.ToString()));
         return proveedores.ToDictionary(p => p.Id, p => new ProveedorBancoDto(
             p.Id, p.Clave, p.RazonSocial, cuentas[p.Id].ToList(),
-            p.Estatus == EstatusCatalogo.Activo, p.Estatus == EstatusCatalogo.EnRevision, p.Rfc, p.Bloqueado, p.MotivoBloqueo));
+            p.Estatus == EstatusCatalogo.Activo, p.Estatus == EstatusCatalogo.EnRevision, p.Rfc, p.Bloqueado, p.MotivoBloqueo,
+            sinOpinion.Contains(p.Id)));
     }
 }

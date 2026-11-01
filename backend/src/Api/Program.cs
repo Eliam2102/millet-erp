@@ -964,8 +964,10 @@ builder.Services.AddCuentasPorCobrarModule(builder.Configuration, builder.Enviro
 // el publisher de los 4 eventos espejo congelados en TES-PR4. Ver
 // docs/modulos/tesoreria/01-diseno.md §6.
 builder.Services.AddTesoreriaModule(builder.Configuration);
+builder.Services.AddScoped<Millet.Tesoreria.Domain.Ports.ICorteNombresReadPort, Millet.Api.Infrastructure.Adapters.CorteNombresReadAdapter>();
 builder.Services.AddScoped<Millet.Tesoreria.Domain.Ports.IElegibleFacturaReadPort, Millet.Api.Infrastructure.Adapters.ElegibleFacturaReadPortAdapter>();
 builder.Services.AddScoped<Millet.CuentasPorPagar.Domain.Ports.Tesoreria.IPagosProveedorReadPort, Millet.Api.Infrastructure.Adapters.PagosProveedorReadPortAdapter>();
+builder.Services.AddScoped<Millet.CuentasPorPagar.Domain.Ports.Portal.IReppPortalPort, Millet.Api.Infrastructure.Adapters.ReppPortalAdapter>();
 // K10.5: folio y proveedor de la OC para el auxiliar de la cuenta puente (Contabilidad ← Compras).
 builder.Services.AddScoped<Millet.Contabilidad.Application.CuentaPuente.IOrdenCompraPuentePort, Millet.Api.Infrastructure.Adapters.OrdenCompraPuenteAdapter>();
 // FIX-12: nombre del cajero en el corte y la liquidación de caja (Facturación no referencia Identidad).
@@ -1145,7 +1147,7 @@ builder.Services.AddScoped<Millet.Identidad.Application.Colaboradores.GrupoAcces
 // defecto hasta configurar adaptadores reales.
 // Avisos SLA de CxP por Graph: independientes del alta de colaboradores.
 builder.Services.AddGraphAvisosRevisionCxp(builder.Configuration);
-builder.Services.AddGraphPortalProveedorCorreo(builder.Configuration);
+builder.Services.AddGraphPortalProveedorCorreo(builder.Configuration, builder.Environment);
 var proveedorColaboradores = builder.Configuration["Entra:Proveedor"] ?? "Simulado";
 if (proveedorColaboradores.Equals("Graph", StringComparison.OrdinalIgnoreCase))
     builder.Services.AddGraphColaboradores(builder.Configuration, builder.Environment.IsDevelopment());

@@ -6,9 +6,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Millet.Api.IntegrationTests.DatosMaestros.Adjuntos;
 using Millet.Catalogos.Domain;
+using Millet.Compartido.Application.Adjuntos;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.DatosMaestros.Domain;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Domain.Adjuntos;
 using Millet.Tesoreria.Domain.Cuentas;
 using Millet.Tesoreria.Domain.Pasivos;
 using Millet.Tesoreria.Infrastructure.Persistence;
@@ -32,7 +34,7 @@ public sealed class CorridasPagoTests(WebApplicationFactory<Program> factory)
         public ValueTask DisposeAsync() => Amb.DisposeAsync();
     }
 
-    private async Task<Escenario> SembrarAsync()
+    private async Task<Escenario> SembrarAsync(bool conOpinionCumplimiento = true)
     {
         var amb = new AdjuntosProveedorAmbiente(factory);
         try
@@ -45,6 +47,12 @@ public sealed class CorridasPagoTests(WebApplicationFactory<Program> factory)
                 var ahora = DateTimeOffset.UtcNow;
                 var compartido = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
                 compartido.CuentasBancariasProveedor.Add(CuentaBancariaProveedor.Heredada(provId, "BBVA", Clabe, "Proveedor SA", ahora));
+                if (conOpinionCumplimiento)   // 86e3ke2d3: sin opinión vigente el proveedor queda detenido por «documentación»
+                {
+                    var tipo = await compartido.AdjuntoTiposDocumento.FirstAsync(t => t.TipoEntidad == "proveedor" && t.Codigo == ExpedienteAdjuntos.CodigoOpinionCumplimiento);
+                    compartido.Adjuntos.Add(new Adjunto(Guid.NewGuid(), "proveedor", provId, null, tipo.Id, "opinion.pdf", "application/pdf", 20,
+                        new string('a', 64), $"opinion/{provId}", DateOnly.FromDateTime(DateTime.Today.AddDays(20)), Guid.NewGuid(), ahora));
+                }
                 await compartido.SaveChangesAsync();
                 var tes = scope.ServiceProvider.GetRequiredService<TesoreriaDbContext>();
                 var c = new CuentaBancaria(Empresa, "Egreso MXN", Guid.NewGuid().ToString("N")[..12], null, "MXN");
@@ -154,6 +162,21 @@ public sealed class CorridasPagoTests(WebApplicationFactory<Program> factory)
         var reporte = await AdjuntosProveedorAmbiente.LeerAsync(ok);
         Assert.Equal(1_053.33m, reporte.GetProperty("totales").GetProperty("neto").GetDecimal());
         Assert.Equal(106.67m, reporte.GetProperty("totales").GetProperty("retenciones").GetDecimal());
+    }
+
+    [Fact]
+    public async Task Proveedor_sin_opinion_de_cumplimiento_aparece_detenido_por_documentacion_y_no_entra_a_la_corrida()
+    {
+        await using var e = await SembrarAsync(conOpinionCumplimiento: false);
+
+        var candidatos = await AdjuntosProveedorAmbiente.LeerAsync(await e.Admin.GetAsync($"{Base}/candidatos?moneda=MXN"));
+        var detenida = candidatos.GetProperty("items").EnumerateArray().First(i => i.GetProperty("facturaProveedorId").GetGuid() == e.Pasivo1);
+        Assert.True(detenida.GetProperty("detenida").GetBoolean());
+        Assert.Equal("documentación", detenida.GetProperty("motivoDetencion").GetString());
+
+        var r = await Crear(e, e.Pasivo1);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, r.StatusCode);
+        Assert.Contains("CORRIDA_PASIVO_DETENIDO_DOCUMENTACION", await r.Content.ReadAsStringAsync());
     }
 
     [Fact]

@@ -471,6 +471,8 @@ export interface DepositoConfirmacionResponse {
   saldoAFavorPorIdentificar?: number;
   /** Corte de caja: lo que falta por depositar (efectivo menos fichas). */
   saldoPorDepositar?: number | null;
+  /** Corte de caja: nombre del cajero, para distinguir varios cortes. */
+  cajeroNombre?: string | null;
   /** Corte de caja: historial de fichas. */
   fichas?: DepositoFichaResponse[] | null;
 }
@@ -538,6 +540,9 @@ export interface PasivoParaCorridaResponse {
   retenciones: number;
   neto: number;
   cuentaValidada: boolean;
+  /** 86e3ke2d3: detenida por «documentación» (proveedor sin opinión de cumplimiento vigente). */
+  detenida: boolean;
+  motivoDetencion: string | null;
 }
 
 export interface CorridaProveedorResponse {
