@@ -58,7 +58,7 @@ public sealed class RecuentoVigenteConteoTests(WebApplicationFactory<Program> fa
         var articuloId = Guid.NewGuid(); var sucursalId = Guid.NewGuid();
         var clave = $"A7{Guid.NewGuid():N}"[..12];
         var conteoId = Guid.NewGuid();
-        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+        var hoy = Millet.Almacen.Application.Cierre.FechaNegocio.Hoy(DateTimeOffset.UtcNow); // misma fecha de negocio (México) que valida el handler
         using (empresa.Bypass())
         {
             try
