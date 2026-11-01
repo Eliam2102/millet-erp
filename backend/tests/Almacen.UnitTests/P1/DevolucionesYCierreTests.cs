@@ -226,7 +226,9 @@ public sealed class DevolucionesYCierreTests
     public async Task Aplicar_conteo_no_genera_ajustes_en_periodo_cerrado()
     {
         await using var f = new P1Fixture();
-        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+        // Mismo día de negocio que el handler (America/Mexico_City): con UTC, a fin de mes la prueba cerraba el mes
+        // siguiente y el conteo no se rechazaba.
+        var hoy = Millet.Almacen.Application.Cierre.FechaNegocio.Hoy(DateTimeOffset.UtcNow);
         var conteo = new ConteoInventario(Guid.NewGuid(), P1Fixture.EmpresaId, TipoConteo.Rotativo, hoy, Guid.NewGuid(), f.SubId);
         conteo.AgregarLinea(new LineaConteo(Guid.NewGuid(), conteo.Id, f.ArticuloId, f.SubId, f.BinId, 10, 25));
         conteo.Iniciar(new(5, 1000, 1000, 10000)); conteo.Lineas.Single().Capturar(9, Guid.NewGuid());
