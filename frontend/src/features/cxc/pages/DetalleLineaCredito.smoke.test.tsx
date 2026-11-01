@@ -102,7 +102,7 @@ describe('<DetalleLineaCredito> — smoke', () => {
     await waitFor(() => expect(screen.getByText('ACME SA · MXN')).toBeInTheDocument());
     // C7.1: desglose límite − facturado − liberado sin facturar = disponible, sin marca de dato incompleto.
     expect(await screen.findByText('Liberado sin facturar')).toBeInTheDocument();
-    expect(screen.getByText(/20,000\.00 MXN/)).toBeInTheDocument();
+    expect(screen.getByText(/(^|[^0-9])20,000\.00 MXN/)).toBeInTheDocument();
     expect(screen.getByText(/120,000\.00 MXN/)).toBeInTheDocument();
     expect(screen.getByText(/360,000\.00 MXN/)).toBeInTheDocument();
     expect(screen.queryByTestId('badge-dato-incompleto')).not.toBeInTheDocument();
