@@ -95,7 +95,7 @@ public sealed class AplicarNotaCreditoAFacturaHandler
             Math.Min(nc.MontoAplicado + command.Monto, cargoAplicado) - Math.Min(nc.MontoAplicado, cargoAplicado);
         nc.AplicarMonto(command.Monto);
         if (command.Monto > reconocido)
-            factura.AplicarNotaCredito(command.Monto - reconocido, DateOnly.FromDateTime(_clock.UtcNow.UtcDateTime), nc.Id);
+            factura.AplicarNotaCredito(command.Monto - reconocido, Millet.CuentasPorPagar.Application.Periodos.FechaNegocio.Hoy(_clock.UtcNow), nc.Id);
 
         if (factura.Estado == EstadoPasivo.Autorizada)
             await _pasivos.Handle(new Domain.FacturaProveedor.Events.FacturaProveedorAutorizadaDomainEvent(

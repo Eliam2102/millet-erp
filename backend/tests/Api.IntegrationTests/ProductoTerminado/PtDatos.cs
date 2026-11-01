@@ -111,12 +111,12 @@ internal sealed class PtDatos(WebApplicationFactory<Program> factory)
     }
 
     /// <summary>Crea en Facturación el pedido A+W con una posición de <paramref name="cantidad"/>.</summary>
-    public async Task FacturacionAsync(string numeroPedido, Guid sucursal, decimal cantidad)
+    public async Task FacturacionAsync(string numeroPedido, Guid sucursal, decimal cantidad, string? condicionPago = null)
     {
         using var scope = factory.Services.CreateScope();
         using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
         var db = scope.ServiceProvider.GetRequiredService<FacturacionDbContext>();
-        var p = PedidoFacturable.ImportarDesdeAw(Empresa, numeroPedido, sucursal, Cliente, "PT-INT cliente", 1, ComportamientoFiscal.MostradorInmediato, "MXN", null, null, "PT-INT pedido", 1, "15");
+        var p = PedidoFacturable.ImportarDesdeAw(Empresa, numeroPedido, sucursal, Cliente, "PT-INT cliente", 1, ComportamientoFiscal.MostradorInmediato, "MXN", null, null, "PT-INT pedido", 1, "15", condicionPagoOrigen: condicionPago);
         p.AgregarLinea(null, "PT-INT vidrio", "30171700", "H87", cantidad, 100, 0, false, tasaIva: 0);
         p.RecalcularTotal();
         db.PedidosFacturables.Add(p);
