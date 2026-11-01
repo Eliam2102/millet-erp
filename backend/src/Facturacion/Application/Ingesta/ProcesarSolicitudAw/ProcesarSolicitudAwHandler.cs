@@ -176,6 +176,14 @@ public sealed class ProcesarSolicitudAwHandler
         }
         if (pedido.Estado == EstadoPedidoFacturable.Bloqueado)
             return (ResultadoSolicitudAw.Pospuesta, pedido.Id, "pedido bloqueado (facturándose); reintentar al liberar", "SinFacturar");
+        // FAC-08: con salidas parciales registradas, el pedido original no se reescribe solo;
+        // la modificación va a revisión manual igual que sobre un pedido facturado.
+        if (await _db.SalidasFacturables.AnyAsync(s => s.PedidoFacturableId == pedido.Id, ct))
+        {
+            RegistrarExcepcion(empresaId, sol.NumeroPedido, MotivoExcepcion.ModificacionSobreFacturado,
+                "modificación sobre pedido con salidas parciales — el pedido original no se modifica (FAC-08)");
+            return (ResultadoSolicitudAw.Rechazada, pedido.Id, "modificación sobre pedido con salidas → revisión manual", "SinFacturar");
+        }
 
         var lectura = await _reader.LeerDatosPedidoAsync(sol.NumeroPedido, ct);
         if (lectura.Datos is not DatosPedidoAw datos)
