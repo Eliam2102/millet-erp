@@ -322,7 +322,7 @@ export function BandejaConciliaciones() {
         ventanaDias: parseInt(ventanaDias, 10) || 3,
       });
       toast.success(
-        `Emparejamiento completado: ${res.totalEmparejadas} emparejadas (P1: ${res.paso1Emparejadas}, P2: ${res.paso2Emparejadas}, P3: ${res.paso3Emparejadas}). En revisión: ${res.enRevision}. Pendientes: ${res.pendientes}.`
+        `Emparejamiento completado: ${res.totalEmparejadas} emparejadas (P1: ${res.emparejadasPaso1}, P2: ${res.emparejadasPaso2}, P3: ${res.emparejadasPaso3}). En revisión: ${res.enRevision}. Pendientes: ${res.pendientes}.`
       );
       setModalAutoEmparejar(false);
     } catch (err: unknown) {
