@@ -7,6 +7,7 @@ using Millet.Integraciones.Aw.Infrastructure.Adapters;
 using Millet.Integraciones.Aw.Infrastructure.Origen;
 using Millet.Integraciones.Aw.Infrastructure.OrigenPg;
 using Millet.ProductoTerminado.Application.Ports;
+using Millet.ProductoTerminado.Infrastructure.PublicAdapters;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Integraciones.Aw.Infrastructure.PiezasPt;
@@ -17,7 +18,7 @@ public static class PiezasPtDependencyInjection
     {
         services.AddOptions<PiezasPtOptions>().Bind(config.GetSection(PiezasPtOptions.SectionName))
             .Validate(o => o.IntervalSeconds > 0 && o.BatchSize is > 0 and <= 1000 && o.MaxIntentos > 0 && o.PospuestoHoras > 0
-                && o.TraslapeMinutos >= 0 && EstacionesValidas(o.EstacionesPt), "Revise intervalo, lote, reintentos, traslape y estaciones de PT.")
+                && o.TraslapeMinutos >= 0 && o.BarridoMinutos > 0 && EstacionesValidas(o.EstacionesPt), "Revise intervalo, lote, reintentos, traslape, barrido y estaciones de PT.")
             .ValidateOnStart();
         var options = config.GetSection(PiezasPtOptions.SectionName).Get<PiezasPtOptions>() ?? new();
 
@@ -31,7 +32,9 @@ public static class PiezasPtDependencyInjection
 
         services.AddScoped<IPiezasPtOrigenReader, PiezasPtOrigenSelector>();
         services.AddScoped<IPtSucursalPorClaveAwPort, PtSucursalPorClaveAwAdapter>();
+        services.AddScoped<ISaldoPedidoReadPort, SaldoPedidoSelector>();
         services.AddHostedService<PiezasPtEntradaWorker>();
+        services.AddHostedService<PiezasPtLiberacionWorker>();
         return services;
     }
 
@@ -52,4 +55,16 @@ public sealed class PiezasPtOrigenSelector(IServiceProvider services, AwOrigenSe
     public async Task<IReadOnlyList<EscaneoOrigen>> LeerAsync(DateTime desde, (DateTime Tiempo, string Etiqueta)? despuesDe,
         IReadOnlyList<(int Desde, int Hasta)> estaciones, int max, CancellationToken ct) =>
         await (await ResolverAsync(ct)).LeerAsync(desde, despuesDe, estaciones, max, ct);
+}
+
+/// <summary>
+/// Saldo por pedido según el origen de A+W activo: Demo usa el saldo de prueba; Real, el adaptador provisional «no cubierto».
+/// PLATFORM-TODO(&lt;SaldoPorPedidoFacturacion&gt;): cuando Facturación (Uziel) publique el puerto, Real lo usa y se retira el provisional.
+/// </summary>
+public sealed class SaldoPedidoSelector(IServiceProvider services, AwOrigenSesion sesion) : ISaldoPedidoReadPort
+{
+    public async Task<decimal?> ObtenerAsync(Guid empresaId, string numeroPedido, CancellationToken ct) =>
+        await (await sesion.EsDemoAsync(ct)
+            ? (ISaldoPedidoReadPort)services.GetRequiredService<SaldoPedidoDemoAdapter>()
+            : services.GetRequiredService<SaldoPedidoProvisionalAdapter>()).ObtenerAsync(empresaId, numeroPedido, ct);
 }

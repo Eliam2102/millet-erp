@@ -70,6 +70,11 @@ public static class EntregaLocalIntegrationEventsExtensions
         Consumidor<Millet.Compras.Infrastructure.Workers.AlmacenEventListenerWorker>(services, (c, f, l) => new(c, f, l));
         Consumidor<Millet.CuentasPorCobrar.Infrastructure.Workers.FacturacionEventListenerWorker>(services, (c, f, l) => new(c, f, l));
         Consumidor<Millet.CuentasPorCobrar.Infrastructure.Workers.TesoreriaEventListenerWorker>(services, (c, f, l) => new(c, f, l));
+        // PT5.2: solo entrega local, sin worker de Service Bus (falta el topic producto-terminado-events): CxC decide al retener y PT aplica la decisión.
+        services.AddSingleton<ILocalIntegrationEventConsumer>(sp => new Millet.CuentasPorCobrar.Infrastructure.Workers.ProductoTerminadoLocalConsumer(
+            sp.GetRequiredService<IServiceScopeFactory>(), sp.GetRequiredService<ILogger<Millet.CuentasPorCobrar.Infrastructure.Workers.ProductoTerminadoLocalConsumer>>()));
+        services.AddSingleton<ILocalIntegrationEventConsumer>(sp => new Millet.ProductoTerminado.Infrastructure.Workers.CxcDecisionLocalConsumer(
+            sp.GetRequiredService<IServiceScopeFactory>(), sp.GetRequiredService<ILogger<Millet.ProductoTerminado.Infrastructure.Workers.CxcDecisionLocalConsumer>>()));
         Consumidor<Millet.Tesoreria.Infrastructure.Workers.CuentasPorPagarEventListenerWorker>(services, (c, f, l) => new(c, f, l));
         Consumidor<Millet.Tesoreria.Infrastructure.Workers.CuentasPorCobrarEventListenerWorker>(services, (c, f, l) => new(c, f, l));
         Consumidor<Millet.Tesoreria.Infrastructure.Workers.FacturacionEventListenerWorker>(services, (c, f, l) => new(c, f, l));
