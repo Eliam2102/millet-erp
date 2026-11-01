@@ -219,7 +219,7 @@ public sealed class P8EndpointsTests(WebApplicationFactory<Program> factory)
     private sealed class PeriodoFixturePort(IPeriodoContableConsultaPort port, DateOnly fechaOperacion) : IPeriodoContablePort
     {
         public async Task<bool> AdmiteMovimientosAsync(DateOnly fecha, CancellationToken ct) =>
-            (await port.ConsultarPorFechaAsync(fecha==DateOnly.FromDateTime(DateTime.UtcNow) ? fechaOperacion : fecha,ct)).AdmiteMovimientos;
+            (await port.ConsultarPorFechaAsync(fecha==Millet.CuentasPorPagar.Application.Periodos.FechaNegocio.Hoy(DateTimeOffset.UtcNow) ? fechaOperacion : fecha,ct)).AdmiteMovimientos;
     }
     private sealed class PuertosFixture : IProveedorReadPort, IComprasOcReadPort
     {
