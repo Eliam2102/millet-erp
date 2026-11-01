@@ -589,6 +589,17 @@ const moduloTesoreria: NavModulo = {
           permission: PermisosCanonicos.TesoreriaDiferenciasCorteAutorizar,
         },
         {
+          label: 'Folios de transferencia',
+          description:
+            'Confirmaciones de Ingresos para que Caja aplique pagos por transferencia (forma 03).',
+          to: '/tesoreria/folios-transferencia',
+          icon: ReceiptText,
+          permissionsAny: [
+            PermisosCanonicos.TesoreriaMovimientosVer,
+            PermisosCanonicos.TesoreriaFoliosTransferenciaEmitir,
+          ],
+        },
+        {
           label: 'Movimientos bancarios',
           description:
             'Libro de movimientos por cuenta: ingresos, egresos, aplicaciones y contramovimientos.',

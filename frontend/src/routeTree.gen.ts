@@ -174,6 +174,7 @@ import { Route as AppTesoreriaDepositosIndexRouteImport } from './routes/_app/te
 import { Route as AppTesoreriaDevolucionesIndexRouteImport } from './routes/_app/tesoreria/devoluciones/index';
 import { Route as AppTesoreriaDevolucionesIdRouteImport } from './routes/_app/tesoreria/devoluciones/$id';
 import { Route as AppTesoreriaDiferenciasCorteIndexRouteImport } from './routes/_app/tesoreria/diferencias-corte/index';
+import { Route as AppTesoreriaFoliosTransferenciaIndexRouteImport } from './routes/_app/tesoreria/folios-transferencia/index';
 import { Route as AppTesoreriaMovimientosIndexRouteImport } from './routes/_app/tesoreria/movimientos/index';
 import { Route as AppTesoreriaMovimientosIdRouteImport } from './routes/_app/tesoreria/movimientos/$id';
 import { Route as AppTesoreriaPagosCuentaIndexRouteImport } from './routes/_app/tesoreria/pagos-cuenta/index';
@@ -1114,6 +1115,12 @@ const AppTesoreriaDiferenciasCorteIndexRoute =
     path: '/tesoreria/diferencias-corte/',
     getParentRoute: () => AppRoute,
   } as any);
+const AppTesoreriaFoliosTransferenciaIndexRoute =
+  AppTesoreriaFoliosTransferenciaIndexRouteImport.update({
+    id: '/tesoreria/folios-transferencia/',
+    path: '/tesoreria/folios-transferencia/',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppTesoreriaMovimientosIndexRoute =
   AppTesoreriaMovimientosIndexRouteImport.update({
     id: '/tesoreria/movimientos/',
@@ -1539,6 +1546,7 @@ export interface FileRoutesByFullPath {
   '/tesoreria/depositos/': typeof AppTesoreriaDepositosIndexRoute;
   '/tesoreria/devoluciones/': typeof AppTesoreriaDevolucionesIndexRoute;
   '/tesoreria/diferencias-corte/': typeof AppTesoreriaDiferenciasCorteIndexRoute;
+  '/tesoreria/folios-transferencia/': typeof AppTesoreriaFoliosTransferenciaIndexRoute;
   '/tesoreria/movimientos/': typeof AppTesoreriaMovimientosIndexRoute;
   '/tesoreria/pagos-cuenta/': typeof AppTesoreriaPagosCuentaIndexRoute;
   '/tesoreria/pagos/': typeof AppTesoreriaPagosIndexRoute;
@@ -1748,6 +1756,7 @@ export interface FileRoutesByTo {
   '/tesoreria/depositos': typeof AppTesoreriaDepositosIndexRoute;
   '/tesoreria/devoluciones': typeof AppTesoreriaDevolucionesIndexRoute;
   '/tesoreria/diferencias-corte': typeof AppTesoreriaDiferenciasCorteIndexRoute;
+  '/tesoreria/folios-transferencia': typeof AppTesoreriaFoliosTransferenciaIndexRoute;
   '/tesoreria/movimientos': typeof AppTesoreriaMovimientosIndexRoute;
   '/tesoreria/pagos-cuenta': typeof AppTesoreriaPagosCuentaIndexRoute;
   '/tesoreria/pagos': typeof AppTesoreriaPagosIndexRoute;
@@ -1959,6 +1968,7 @@ export interface FileRoutesById {
   '/_app/tesoreria/depositos/': typeof AppTesoreriaDepositosIndexRoute;
   '/_app/tesoreria/devoluciones/': typeof AppTesoreriaDevolucionesIndexRoute;
   '/_app/tesoreria/diferencias-corte/': typeof AppTesoreriaDiferenciasCorteIndexRoute;
+  '/_app/tesoreria/folios-transferencia/': typeof AppTesoreriaFoliosTransferenciaIndexRoute;
   '/_app/tesoreria/movimientos/': typeof AppTesoreriaMovimientosIndexRoute;
   '/_app/tesoreria/pagos-cuenta/': typeof AppTesoreriaPagosCuentaIndexRoute;
   '/_app/tesoreria/pagos/': typeof AppTesoreriaPagosIndexRoute;
@@ -2170,6 +2180,7 @@ export interface FileRouteTypes {
     | '/tesoreria/depositos/'
     | '/tesoreria/devoluciones/'
     | '/tesoreria/diferencias-corte/'
+    | '/tesoreria/folios-transferencia/'
     | '/tesoreria/movimientos/'
     | '/tesoreria/pagos-cuenta/'
     | '/tesoreria/pagos/'
@@ -2379,6 +2390,7 @@ export interface FileRouteTypes {
     | '/tesoreria/depositos'
     | '/tesoreria/devoluciones'
     | '/tesoreria/diferencias-corte'
+    | '/tesoreria/folios-transferencia'
     | '/tesoreria/movimientos'
     | '/tesoreria/pagos-cuenta'
     | '/tesoreria/pagos'
@@ -2589,6 +2601,7 @@ export interface FileRouteTypes {
     | '/_app/tesoreria/depositos/'
     | '/_app/tesoreria/devoluciones/'
     | '/_app/tesoreria/diferencias-corte/'
+    | '/_app/tesoreria/folios-transferencia/'
     | '/_app/tesoreria/movimientos/'
     | '/_app/tesoreria/pagos-cuenta/'
     | '/_app/tesoreria/pagos/'
@@ -3794,6 +3807,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTesoreriaDiferenciasCorteIndexRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/tesoreria/folios-transferencia/': {
+      id: '/_app/tesoreria/folios-transferencia/';
+      path: '/tesoreria/folios-transferencia';
+      fullPath: '/tesoreria/folios-transferencia/';
+      preLoaderRoute: typeof AppTesoreriaFoliosTransferenciaIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/tesoreria/movimientos/': {
       id: '/_app/tesoreria/movimientos/';
       path: '/tesoreria/movimientos';
@@ -4281,6 +4301,7 @@ interface AppRouteChildren {
   AppTesoreriaDepositosIndexRoute: typeof AppTesoreriaDepositosIndexRoute;
   AppTesoreriaDevolucionesIndexRoute: typeof AppTesoreriaDevolucionesIndexRoute;
   AppTesoreriaDiferenciasCorteIndexRoute: typeof AppTesoreriaDiferenciasCorteIndexRoute;
+  AppTesoreriaFoliosTransferenciaIndexRoute: typeof AppTesoreriaFoliosTransferenciaIndexRoute;
   AppTesoreriaMovimientosIndexRoute: typeof AppTesoreriaMovimientosIndexRoute;
   AppTesoreriaPagosCuentaIndexRoute: typeof AppTesoreriaPagosCuentaIndexRoute;
   AppTesoreriaPagosIndexRoute: typeof AppTesoreriaPagosIndexRoute;
@@ -4501,6 +4522,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppTesoreriaDevolucionesIndexRoute: AppTesoreriaDevolucionesIndexRoute,
   AppTesoreriaDiferenciasCorteIndexRoute:
     AppTesoreriaDiferenciasCorteIndexRoute,
+  AppTesoreriaFoliosTransferenciaIndexRoute:
+    AppTesoreriaFoliosTransferenciaIndexRoute,
   AppTesoreriaMovimientosIndexRoute: AppTesoreriaMovimientosIndexRoute,
   AppTesoreriaPagosCuentaIndexRoute: AppTesoreriaPagosCuentaIndexRoute,
   AppTesoreriaPagosIndexRoute: AppTesoreriaPagosIndexRoute,

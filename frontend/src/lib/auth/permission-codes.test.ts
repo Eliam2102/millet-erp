@@ -264,6 +264,8 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'tesoreria.depositos.confirmar',
   'tesoreria.depositos.rechazar',
   'tesoreria.diferencias-corte.autorizar',
+  'tesoreria.folios-transferencia.emitir',
+  'tesoreria.folios-transferencia.cancelar',
   'tesoreria.repp.registrar',
   'tesoreria.conciliacion.operar',
   'tesoreria.conciliacion.cerrar',

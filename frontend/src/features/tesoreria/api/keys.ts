@@ -43,6 +43,16 @@ export interface DevolucionesFiltros {
   limit?: number;
 }
 
+/** F6.6: filtros de la bandeja «Folios de transferencia». */
+export interface FoliosTransferenciaFiltros {
+  estado?: number;
+  clienteId?: string;
+  movimientoId?: string;
+  folio?: string;
+  offset?: number;
+  limit?: number;
+}
+
 export const tesoreriaKeys = {
   all: ['tesoreria'] as const,
 
@@ -80,6 +90,9 @@ export const tesoreriaKeys = {
     [...tesoreriaKeys.depositos(), 'list', filtros] as const,
 
   // Devoluciones a clientes (T9.6)
+  foliosTransferencia: () => [...tesoreriaKeys.all, 'folios-transferencia'] as const,
+  foliosTransferenciaList: (filtros: FoliosTransferenciaFiltros) =>
+    [...tesoreriaKeys.foliosTransferencia(), 'list', filtros] as const,
   devoluciones: () => [...tesoreriaKeys.all, 'devoluciones'] as const,
   devolucionesList: (filtros: DevolucionesFiltros) =>
     [...tesoreriaKeys.devoluciones(), 'list', filtros] as const,

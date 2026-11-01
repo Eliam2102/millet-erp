@@ -405,6 +405,9 @@ export const PermisosCanonicos = {
   TesoreriaDevolucionesAutorizar: 'tesoreria.devoluciones.autorizar',
   TesoreriaDevolucionesPagar: 'tesoreria.devoluciones.pagar',
   TesoreriaDiferenciasCorteAutorizar: 'tesoreria.diferencias-corte.autorizar',
+  // F6.6: Ingresos emite y cancela folios de confirmación de transferencias para Caja.
+  TesoreriaFoliosTransferenciaEmitir: 'tesoreria.folios-transferencia.emitir',
+  TesoreriaFoliosTransferenciaCancelar: 'tesoreria.folios-transferencia.cancelar',
 
   // Facturación — CFDI 4.0 emitido. Mirror manual de backend
   // PermisosCanonicos.cs §"Facturación" (namespace GUID 00000009-*). 24
