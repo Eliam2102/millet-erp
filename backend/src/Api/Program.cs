@@ -235,6 +235,11 @@ if (string.Equals(builder.Configuration["ServiceBus:Modo"], "EmuladorLocal", Str
         "Endpoint=sb://localhost;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;";
 }
 
+// La partición del mes de core.audit_log debe existir antes de que cualquier hosted service escriba en la base
+// (seeds, outbox, workers): los hosted services arrancan en orden de registro y las migraciones solo dejan
+// particiones hasta octubre de 2026. Por eso este job va registrado antes que todos los demás.
+builder.Services.AddHostedService<AuditPartitionRolloverJob>();
+
 if (!string.IsNullOrWhiteSpace(outboxConnString))
 {
     builder.Services.AddSingleton(_ => new Azure.Messaging.ServiceBus.ServiceBusClient(outboxConnString));
@@ -1382,7 +1387,6 @@ foreach (var dimension in new[] { 1, 2, 3 })
 builder.Services.AddScoped<Millet.DatosMaestros.Application.ProductosAw.AplicarProductoAwService>();
 builder.Services.AddScoped<Millet.DatosMaestros.Application.ProductosAw.IProductoAwContratoReadPort, Millet.Compartido.Infrastructure.PublicAdapters.ProductoAwContratoReadAdapter>();
 builder.Services.AddDbContext<CoreDbContext>((sp, opts) => ConfigureMilletDbContext(opts, sp));
-builder.Services.AddHostedService<AuditPartitionRolloverJob>();
 builder.Services.AddDbContext<IdentidadDbContext>((sp, opts) => ConfigureMilletDbContext(opts, sp));
 
 // Compras + Integraciones.Aw consumen IIntegrationEventPublisher
