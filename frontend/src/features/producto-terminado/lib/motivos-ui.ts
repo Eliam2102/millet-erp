@@ -16,3 +16,16 @@ export function textoMotivo(codigo: string | null): string {
   if (!codigo) return '—';
   return motivos[codigo] ?? codigo;
 }
+
+/** Motivo de la retención o liberación del pedido (PT5.2). */
+const motivosPedido: Record<string, string> = {
+  SaldoPendiente: 'Saldo pendiente',
+  SaldoCubierto: 'Saldo cubierto',
+  Reparto: 'Pedido de reparto',
+  DecisionCxc: 'Decisión de Crédito',
+};
+
+export function textoMotivoPedido(codigo: string | null): string {
+  if (!codigo) return '—';
+  return motivosPedido[codigo] ?? codigo;
+}
