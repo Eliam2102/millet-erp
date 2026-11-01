@@ -34,7 +34,7 @@ public sealed class FormalizacionNotaCargoService(CuentasPorPagarDbContext db, I
                 cargo.Folio.Valor, facturaId);
             return false;
         }
-        factura.AplicarNotaCargo(cargo.Monto, cargo.Id, DateOnly.FromDateTime(ahora.UtcDateTime));
+        factura.AplicarNotaCargo(cargo.Monto, cargo.Id, Millet.CuentasPorPagar.Application.Periodos.FechaNegocio.Hoy(ahora));
         cargo.AplicarPorDevolucion(ahora);
         await publisher.Publish(new NotaCargoAutorizadaDomainEvent(cargo.EmpresaId, cargo.Id, cargo.ProveedorId, cargo.Monto, cargo.FacturaOrigenId, ahora,
             Subtotal: cargo.Monto, Iva: 0, Moneda: cargo.Moneda, TipoCambio: cargo.TipoCambio, SucursalId: cargo.SucursalId), ct);
@@ -131,7 +131,7 @@ public sealed class FormalizacionNotaCargoService(CuentasPorPagarDbContext db, I
         }
         cargo.Formalizar(nc.Id, ahora);
         nc.AplicarMonto(nc.Total);
-        if (adicional > 0) factura.AplicarNotaCredito(adicional, DateOnly.FromDateTime(ahora.UtcDateTime), nc.Id);
+        if (adicional > 0) factura.AplicarNotaCredito(adicional, Millet.CuentasPorPagar.Application.Periodos.FechaNegocio.Hoy(ahora), nc.Id);
         if (cargo.DevolucionAProveedorId is Guid devolucion)
             await publisher.Publish(new NotaCreditoFiscalDevolucionRecibidaDomainEvent(
                 nc.EmpresaId, nc.Id, cargo.Id, devolucion, nc.ProveedorId, nc.Total, nc.UuidCfdi, ahora), ct);

@@ -18,6 +18,7 @@ export interface FacturaPortal {
   detenida: boolean;
   motivo: string | null;
   fechaProgramadaPago: string | null;
+  fechaVencimiento: string;
 }
 
 export interface PagoPortal {

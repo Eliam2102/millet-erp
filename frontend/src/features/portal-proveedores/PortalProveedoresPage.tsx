@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -130,7 +130,7 @@ function MisDocumentos({ alExpirar }: { alExpirar: () => void }) {
       {vista === 'facturas' && facturas.data && (
         facturas.data.length === 0 ? <p className="text-sm text-ink-muted">Todavía no tenemos facturas tuyas.</p> : (
           <table className="w-full text-sm">
-            <thead><tr className="text-left"><th>Folio</th><th>UUID</th><th>Fecha</th><th className="text-right">Total</th><th>Estado</th><th>Pago programado</th></tr></thead>
+            <thead><tr className="text-left"><th>Folio</th><th>UUID</th><th>Fecha</th><th className="text-right">Total</th><th>Estado</th><th>Vencimiento</th><th>Fecha programada de pago</th></tr></thead>
             <tbody>
               {facturas.data.map((f) => (
                 <tr key={f.id} className="border-t">
@@ -142,7 +142,8 @@ function MisDocumentos({ alExpirar }: { alExpirar: () => void }) {
                     {f.estado}
                     {f.motivo && <div className="text-xs text-ink-muted">{f.motivo}</div>}
                   </td>
-                  <td>{f.fechaProgramadaPago ? fecha(f.fechaProgramadaPago) : '—'}</td>
+                  <td>{fecha(f.fechaVencimiento)}</td>
+                  <td>{f.fechaProgramadaPago ? fecha(f.fechaProgramadaPago) : 'Sin programar'}</td>
                 </tr>
               ))}
             </tbody>
@@ -177,6 +178,7 @@ function SubirDocumento({ alExpirar }: { alExpirar: () => void }) {
   const [pdf, setPdf] = useState<File | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [mensaje, setMensaje] = useState<{ ok: boolean; texto: string } | null>(null);
+  const queryClient = useQueryClient();
 
   async function enviar(event: React.FormEvent) {
     event.preventDefault();
@@ -185,7 +187,10 @@ function SubirDocumento({ alExpirar }: { alExpirar: () => void }) {
     setMensaje(null);
     try {
       const r = await subirCfdi(xml, pdf);
-      setMensaje({ ok: true, texto: r.resultado === 'YaLoTeniamos' ? 'Ya lo teníamos.' : 'Recibimos tu documento.' });
+      setMensaje({ ok: true, texto: r.mensaje });
+      // Un complemento ligado cambia facturas y pagos: sin esto seguían diciendo «Falta el complemento» hasta recargar.
+      void queryClient.invalidateQueries({ queryKey: ['portal-facturas'] });
+      void queryClient.invalidateQueries({ queryKey: ['portal-pagos'] });
       setXml(null);
       setPdf(null);
     } catch (e) {

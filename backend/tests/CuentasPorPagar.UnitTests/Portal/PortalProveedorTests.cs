@@ -64,7 +64,7 @@ public sealed class PortalProveedorTests
         var f = Nueva();
         f.EnviarARevision(Factura.MotivoFaltaReppId, Guid.NewGuid(), null, Ahora);
 
-        var r = PortalMapeo.Mapear(f);
+        var r = PortalMapeo.Mapear(f, null);
 
         r.Detenida.Should().BeTrue();
         r.Estado.Should().Contain("falta el complemento de pago");
@@ -74,11 +74,58 @@ public sealed class PortalProveedorTests
     [Fact]
     public void Factura_recibida_no_esta_detenida_y_no_muestra_fecha_de_pago()
     {
-        var r = PortalMapeo.Mapear(Nueva());
+        var r = PortalMapeo.Mapear(Nueva(), new DateOnly(2026, 11, 5));
 
         r.Detenida.Should().BeFalse();
         r.Estado.Should().Be("Recibida");
-        r.FechaProgramadaPago.Should().BeNull();
+        r.FechaProgramadaPago.Should().BeNull("solo una factura autorizada está programada");
         r.Folio.Should().Be("A-10");
+    }
+
+    [Fact]
+    public void Factura_autorizada_muestra_la_fecha_de_la_corrida_y_deja_el_vencimiento_aparte()
+    {
+        var f = Nueva();
+        f.Autorizar(null, Ahora);
+        var corrida = new DateOnly(2026, 11, 5);
+
+        var r = PortalMapeo.Mapear(f, corrida);
+
+        r.Estado.Should().Be("Programada para pago");
+        r.FechaProgramadaPago.Should().Be(corrida);
+        r.FechaVencimiento.Should().Be(f.FechaVencimiento).And.NotBe(corrida);
+    }
+
+    [Fact]
+    public void Factura_autorizada_sin_corrida_queda_sin_fecha_programada()
+    {
+        var f = Nueva();
+        f.Autorizar(null, Ahora);
+
+        PortalMapeo.Mapear(f, null).FechaProgramadaPago.Should().BeNull();
+    }
+
+    [Fact]
+    public void CA8_4_factura_de_proveedor_sin_opinion_vigente_se_muestra_detenida_por_documentacion_y_sin_fecha_programada()
+    {
+        var f = Nueva();
+        f.Autorizar(null, Ahora);
+
+        var r = PortalMapeo.Mapear(f, new DateOnly(2026, 11, 5), sinOpinionCumplimiento: true);
+
+        r.Detenida.Should().BeTrue();
+        r.Estado.Should().Be("Detenida: documentación");
+        r.Motivo.Should().Be("Falta tu opinión de cumplimiento vigente");
+        r.FechaProgramadaPago.Should().BeNull();
+        PortalMapeo.Mapear(f, new DateOnly(2026, 11, 5), sinOpinionCumplimiento: false).Detenida.Should().BeFalse("con la opinión vigente se libera sola");
+    }
+
+    [Fact]
+    public void Factura_ya_detenida_por_falta_de_repp_conserva_su_motivo_aunque_falte_la_opinion()
+    {
+        var f = Nueva();
+        f.EnviarARevision(Factura.MotivoFaltaReppId, Guid.NewGuid(), null, Ahora);
+
+        PortalMapeo.Mapear(f, null, sinOpinionCumplimiento: true).Estado.Should().Contain("falta el complemento de pago");
     }
 }
