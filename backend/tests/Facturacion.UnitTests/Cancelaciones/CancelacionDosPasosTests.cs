@@ -12,6 +12,7 @@ using Millet.Facturacion.Domain.Anticipos;
 using Millet.Facturacion.Domain.Cancelaciones;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Domain.Facturas;
+using Millet.Facturacion.Domain.NotasCredito;
 using Millet.Facturacion.Domain.Pedidos;
 using Millet.Facturacion.Domain.Ports;
 using Millet.Facturacion.Infrastructure.Persistence;
@@ -374,5 +375,33 @@ public sealed class CancelacionDosPasosTests
         var act = () => SolicitarAsync(db, empresaId, anticipo.FacturaAnticipoId);
 
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "ANTICIPO_AMORTIZADO_NCS_VIGENTES");
+    }
+
+    [Fact]
+    public async Task Cancelar_anticipo_con_NC_de_devolucion_vigente_es_bloqueado()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var empresasFiscal = new FakeEmpresaFiscalReadPort(
+            new EmpresaFiscalLectura(empresaId, "MIL010101AAA", "Millet", "601", 0.16m, "76120"));
+        var anticipo = await new EmitirFacturaAnticipoHandler(db, new FakeSenderFoliosUnicos(), new FakePeriodoContablePort(),
+            new FakeCatalogosSatReadPort(), new FakeFiscalUuidsUnicos(), new FakeCfdiRepositorioPort(), empresasFiscal,
+            new FakeIntegrationEventPublisher(),
+            new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db))
+            .Handle(new EmitirFacturaAnticipoCommand(
+                Guid.NewGuid(), Guid.NewGuid(), Rfc, "Cliente", "601", "97000", "G03", "MEX",
+                "BBB010101BBB", "601", "PUE", "03", "MXN", null, TipoAnticipo.ClientesMxp, 1000m, 0.16m, null, null, "AW-1", null, null),
+                CancellationToken.None);
+
+        // F6.3: NC de devolución en dinero del anticipo (relación 01 a su CFDI), aún vigente.
+        db.NotasCredito.Add(NotaCredito.CrearDevolucionAnticipo(empresaId, "NC-1", 1, Guid.NewGuid(), null,
+            new DatosFiscalesReceptor(Rfc, "Cliente", "601", "97000", "G03", "MEX", false),
+            new DatosFiscalesEmisor("MIL010101AAA", "Millet", "601", "76120"), "03", "MXN", null, 2026, 10, 1,
+            anticipo.AnticipoId, 116m, 0.16m, "BBVA", "032180000118359719", "Cliente SA"));
+        await db.SaveChangesAsync();
+
+        var act = () => SolicitarAsync(db, empresaId, anticipo.FacturaAnticipoId);
+
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "ANTICIPO_DEVUELTO_NCS_VIGENTES");
     }
 }

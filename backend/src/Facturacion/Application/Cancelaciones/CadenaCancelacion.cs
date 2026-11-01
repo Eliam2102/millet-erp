@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Millet.Facturacion.Domain.Anticipos;
 using Millet.Facturacion.Domain.Cancelaciones;
 using Millet.Facturacion.Domain.Comprobantes;
+using Millet.Facturacion.Domain.NotasCredito;
 using Millet.Facturacion.Infrastructure.Persistence;
 using Millet.SharedKernel.Application.Exceptions;
 
@@ -46,14 +47,21 @@ internal static class CadenaCancelacion
             .Where(v => v.NcAmortizacionId is not null)
             .Select(v => v.NcAmortizacionId!.Value)
             .ToList();
-        if (ncIds.Count == 0) return;
-
-        var hayNcsVigentes = await db.NotasCredito
-            .AnyAsync(n => ncIds.Contains(n.Id) && n.Estado != EstadoTimbrado.Cancelado, cancellationToken);
-        if (hayNcsVigentes)
+        if (ncIds.Count > 0 && await db.NotasCredito
+                .AnyAsync(n => ncIds.Contains(n.Id) && n.Estado != EstadoTimbrado.Cancelado, cancellationToken))
             throw new BusinessRuleException(
                 "ANTICIPO_AMORTIZADO_NCS_VIGENTES",
                 "No se puede cancelar el anticipo: primero cancela las NC de amortización relacionadas (invariante 8).");
+
+        // F6.3: la NC de devolución en dinero también relaciona el CFDI del anticipo (relación 01).
+        var hayDevolucionVigente = await db.NotasCredito.AnyAsync(n =>
+            n.AnticipoOrigenId == anticipo.Id
+            && n.Motivo == MotivoNotaCredito.DevolucionAnticipo
+            && n.Estado != EstadoTimbrado.Cancelado, cancellationToken);
+        if (hayDevolucionVigente)
+            throw new BusinessRuleException(
+                "ANTICIPO_DEVUELTO_NCS_VIGENTES",
+                "No se puede cancelar el anticipo: primero cancela las NC de devolución del anticipo.");
     }
 
     /// <summary>La solicitud pendiente de autorización del comprobante.</summary>
