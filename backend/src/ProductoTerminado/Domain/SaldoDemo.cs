@@ -3,7 +3,7 @@ using Millet.SharedKernel.Domain;
 namespace Millet.ProductoTerminado.Domain;
 
 /// <summary>Saldo de prueba por pedido, solo canal Demo. PLATFORM-TODO(&lt;SaldoPorPedidoFacturacion&gt;): se retira con el puerto de Uziel.</summary>
-public sealed class SaldoDemo : BaseEntity, IPerteneceAEmpresa
+public sealed class SaldoDemo : BaseEntity, IPerteneceAEmpresa, INotAudited // dato de prueba del canal Demo, temporal: no se audita
 {
     public Guid EmpresaId { get; set; }
     public string NumeroPedido { get; private set; } = "";
