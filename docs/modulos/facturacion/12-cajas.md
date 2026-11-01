@@ -652,6 +652,34 @@ ese folio.
 
 ---
 
+## 18. Terminal de tarjetas: archivo diario del banco (86e3vr1tf, Parte A)
+
+Laura Cerón (26-oct) descartó calcular la comisión por porcentaje al cobrar: el
+banco carga cada día la comisión y su IVA de la terminal, y Millet quiere
+registrar cada cargo tal como viene del banco.
+
+- **Carga:** el supervisor de caja sube el archivo diario (Mi caja › Terminal
+  de tarjetas). Se lee la tabla HTML con extensión `.xls` que exporta Getnet o
+  un CSV. El mapeo de columnas es configurable
+  (`Facturacion:TerminalTarjeta:Columnas`); por omisión, «Transacciones por
+  día» de Getnet. **Supuesto:** comisión, IVA de la comisión, neto y folio de
+  liquidación vienen en los reportes «Comisiones Bancarias» / «Reporte
+  conciliación», aún no recibidos; sus encabezados son provisionales.
+- **Sin duplicar:** cada venta se guarda una vez por número de operación;
+  recargar el archivo no agrega renglones ni eventos.
+- **Emparejamiento:** venta aprobada ↔ forma 04/28 de un cobro vigente con la
+  misma autorización del voucher, el mismo importe y el mismo día de operación.
+  Sin cobro queda «sin emparejar» (sin asiento) y se puede reintentar; las
+  rechazadas por el banco quedan aparte.
+- **Liquidación:** las ventas emparejadas con comisión, IVA, neto y folio se
+  agrupan por folio y publican una vez
+  `facturacion.terminal.liquidacion-registrada.v1` (bruto, comisión, IVA, neto
+  y cobros). La póliza la registra C1.5 (`PLATFORM-TODO(<PolizaLiquidacionTerminal>)`).
+- **Fuera:** factura mensual del banco (Parte B) y la importación general del
+  estado de cuenta (TES-05, T9.2).
+
+---
+
 ## Rev.
 
 | Versión | Fecha | Cambios |
@@ -662,5 +690,6 @@ ese folio.
 | 0.8 | 2026-10-14 | §14: facturado y notas de crédito del punto de venta y resumen de la entrega (M19: facturado, NC, cobranzas, apartados, TPV), como propuesta a validar; relación con F6.7 |
 | 0.9 | 2026-10-21 | §15 Cierre del día por sucursal (F6.7): monitor de estatus de CFDI con verificación SAT y conciliación facturado contra ingresado por sucursal y cajero |
 | 1.0 | 2026-10-26 | §14 (86e3tfdvt): voucher de tarjeta = número de autorización de 4 a 12 caracteres, también en forma 29; nunca el número de la tarjeta |
+| 1.3 | 2026-10-31 | §18 (86e3vr1tf, Parte A): archivo diario de la terminal de tarjetas, emparejamiento con los cobros y liquidación por folio |
 | 1.2 | 2026-10-31 | §17 (F6.6, 86e3jvuvr): folio de confirmación de transferencias de Ingresos; Caja aplica la forma 03 solo con folio vigente, del cliente y por el importe; B4 resuelta |
 | 1.1 | 2026-10-28 | §16 (86e3tfecn): caso de uso del cobro con varias formas de pago en una operación; estado actual del ERP, brechas (forma del CFDI, REPP con varios nodos, póliza de cobro partida según la regla de Contabilidad de Millet del 23-oct, folio de transferencia), nota de impacto y propuesta de cuándo construirlo |
