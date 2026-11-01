@@ -266,6 +266,10 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                      || p.Codigo == PermisosCanonicos.DatosMaestrosProveedoresGestionar
                      // 86e3vr1tj: Tesorería autoriza las diferencias de corte (Fernando, 23-oct).
                      || p.Codigo == PermisosCanonicos.TesoreriaDiferenciasCorteAutorizar
+                     // F6.6: Ingresos (Tesorería) emite y cancela folios de transferencia; supuesto hasta
+                     // que Millet indique quiénes son Ingresos.
+                     || p.Codigo == PermisosCanonicos.TesoreriaFoliosTransferenciaEmitir
+                     || p.Codigo == PermisosCanonicos.TesoreriaFoliosTransferenciaCancelar
             ),
         };
 

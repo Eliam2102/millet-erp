@@ -4429,6 +4429,34 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("0000000b-000d-0000-0000-000000000001"),
+                            Accion = "emitir",
+                            Codigo = "tesoreria.folios-transferencia.emitir",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Emitir el folio de confirmación de una transferencia validada en el banco (Ingresos); Caja solo aplica la forma 03 con ese folio",
+                            Modulo = "tesoreria",
+                            Recurso = "folios-transferencia",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000b-000d-0000-0000-000000000002"),
+                            Accion = "cancelar",
+                            Codigo = "tesoreria.folios-transferencia.cancelar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Cancelar con motivo un folio de transferencia que Caja no ha usado",
+                            Modulo = "tesoreria",
+                            Recurso = "folios-transferencia",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("0000000c-0001-0000-0000-000000000001"),
                             Accion = "leer",
                             Codigo = "centros_costo.catalogo.leer",
