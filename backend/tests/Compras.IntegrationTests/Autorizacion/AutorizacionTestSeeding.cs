@@ -57,6 +57,19 @@ internal static class AutorizacionTestSeeding
     /// Crea un usuario de prueba con un rol que tiene exactamente los permisos
     /// indicados (sin sucursales asociadas) y devuelve su cliente autenticado.
     /// </summary>
+    /// <summary>
+    /// Cliente de OTRA persona que firma RQ en cualquier nivel: quien captura la RQ
+    /// no puede autorizarla (REQUISICION_AUTOAUTORIZACION).
+    /// </summary>
+    internal static async Task<HttpClient> CreateAutorizadorAsync(WebApplicationFactory<Program> factory) =>
+        (await CreateUsuarioConPermisosAsync(
+            factory,
+            PermisosCanonicos.ComprasRequisicionesLeer,
+            PermisosCanonicos.ComprasRequisicionesLeerTodasSucursales,
+            PermisosCanonicos.ComprasRequisicionesAutorizarNivel1,
+            PermisosCanonicos.ComprasRequisicionesAutorizarNivel2,
+            PermisosCanonicos.ComprasRequisicionesGestionarTodasSucursales)).Client;
+
     internal static async Task<(HttpClient Client, Guid UsuarioId)> CreateUsuarioConPermisosAsync(
         WebApplicationFactory<Program> factory, params string[] permisoCodigos)
     {

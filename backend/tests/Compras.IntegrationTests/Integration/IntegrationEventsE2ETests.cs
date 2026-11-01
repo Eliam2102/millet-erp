@@ -1,3 +1,5 @@
+using Millet.Compras.IntegrationTests.Autorizacion;
+using Microsoft.AspNetCore.Mvc.Testing;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -60,7 +62,7 @@ public class IntegrationEventsE2ETests : IClassFixture<StubsWebApplicationFactor
         var client = await CreateSuperAdminClientAsync();
         var rqId = await CrearTransmitirAsync(client, articuloId: ArticuloSeedId, cantidad: 10m);
 
-        var auth = await client.PostAsJsonAsync(
+        var auth = await (await AutorizacionTestSeeding.CreateAutorizadorAsync(_factory)).PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{rqId}/autorizaciones",
             new { Nivel = 1, Notas = (string?)null });
         auth.EnsureSuccessStatusCode();
@@ -76,7 +78,7 @@ public class IntegrationEventsE2ETests : IClassFixture<StubsWebApplicationFactor
         var client = await CreateSuperAdminClientAsync();
         var rqId = await CrearTransmitirAsync(client, articuloId: ArticuloSinStock, cantidad: 10m);
 
-        var auth = await client.PostAsJsonAsync(
+        var auth = await (await AutorizacionTestSeeding.CreateAutorizadorAsync(_factory)).PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{rqId}/autorizaciones",
             new { Nivel = 1, Notas = (string?)null });
         auth.EnsureSuccessStatusCode();
@@ -125,7 +127,7 @@ public class IntegrationEventsE2ETests : IClassFixture<StubsWebApplicationFactor
     {
         var client = await CreateSuperAdminClientAsync();
         // Stock cero → EnSurtido → cancelar permitido.
-        var rqId = await CrearTransmitirAutorizarAsync(client, articuloId: ArticuloSinStock, cantidad: 10m);
+        var rqId = await CrearTransmitirAutorizarAsync(_factory, client, articuloId: ArticuloSinStock, cantidad: 10m);
 
         var cancelar = await client.PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{rqId}/cancelar",
@@ -142,7 +144,7 @@ public class IntegrationEventsE2ETests : IClassFixture<StubsWebApplicationFactor
         // ADR-0043 #3: la recepción YA NO cierra la RQ → NO emite cerrada.v1;
         // la RQ se queda EnSurtido (cierra por entrega, no por recepción).
         var client = await CreateSuperAdminClientAsync();
-        var rqId = await CrearTransmitirAutorizarAsync(client, articuloId: ArticuloSinStock, cantidad: 10m);
+        var rqId = await CrearTransmitirAutorizarAsync(_factory, client, articuloId: ArticuloSinStock, cantidad: 10m);
         var lineaId = await GetLineaIdAsync(rqId);
         var empresaId = await GetEmpresaIdAsync(rqId);
 
@@ -305,10 +307,11 @@ public class IntegrationEventsE2ETests : IClassFixture<StubsWebApplicationFactor
         return rqId;
     }
 
-    private static async Task<Guid> CrearTransmitirAutorizarAsync(HttpClient client, Guid articuloId, decimal cantidad)
+    private static async Task<Guid> CrearTransmitirAutorizarAsync(
+        WebApplicationFactory<Program> factory, HttpClient client, Guid articuloId, decimal cantidad)
     {
         var rqId = await CrearTransmitirAsync(client, articuloId, cantidad);
-        var auth = await client.PostAsJsonAsync(
+        var auth = await (await AutorizacionTestSeeding.CreateAutorizadorAsync(factory)).PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{rqId}/autorizaciones",
             new { Nivel = 1, Notas = (string?)null });
         auth.EnsureSuccessStatusCode();

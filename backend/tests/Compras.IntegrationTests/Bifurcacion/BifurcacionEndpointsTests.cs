@@ -1,3 +1,4 @@
+using Millet.Compras.IntegrationTests.Autorizacion;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -62,7 +63,7 @@ public class BifurcacionEndpointsTests : IClassFixture<StubsWebApplicationFactor
     {
         var client = await CreateSuperAdminClientAsync();
         var rqId = await CrearTransmitirAsync(client, ArticuloSeedId, 10m);
-        var response = await client.PostAsJsonAsync(
+        var response = await (await AutorizacionTestSeeding.CreateAutorizadorAsync(_factory)).PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{rqId}/autorizaciones",
             new { Nivel = 1, Notas = (string?)null });
         response.EnsureSuccessStatusCode();
@@ -94,7 +95,7 @@ public class BifurcacionEndpointsTests : IClassFixture<StubsWebApplicationFactor
         // OnHand=100, cantidad=10 → todo cubierto por almacén.
         var rqId = await CrearTransmitirAsync(client, articuloId: ArticuloSeedId, cantidad: 10m);
 
-        var auth = await client.PostAsJsonAsync(
+        var auth = await (await AutorizacionTestSeeding.CreateAutorizadorAsync(_factory)).PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{rqId}/autorizaciones",
             new { Nivel = 1, Notas = (string?)null });
         auth.EnsureSuccessStatusCode();
@@ -122,7 +123,7 @@ public class BifurcacionEndpointsTests : IClassFixture<StubsWebApplicationFactor
         // Articulo con override 0.0 → OnHand=0 → todo va a OC.
         var rqId = await CrearTransmitirAsync(client, articuloId: ArticuloSinStock, cantidad: 10m);
 
-        var auth = await client.PostAsJsonAsync(
+        var auth = await (await AutorizacionTestSeeding.CreateAutorizadorAsync(_factory)).PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{rqId}/autorizaciones",
             new { Nivel = 1, Notas = (string?)null });
         auth.EnsureSuccessStatusCode();
@@ -150,7 +151,7 @@ public class BifurcacionEndpointsTests : IClassFixture<StubsWebApplicationFactor
         // 50 saldo → mixto → EnSurtido.
         var rqId = await CrearTransmitirAsync(client, articuloId: ArticuloSeedId, cantidad: 150m);
 
-        var auth = await client.PostAsJsonAsync(
+        var auth = await (await AutorizacionTestSeeding.CreateAutorizadorAsync(_factory)).PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{rqId}/autorizaciones",
             new { Nivel = 1, Notas = (string?)null });
         auth.EnsureSuccessStatusCode();
@@ -184,7 +185,7 @@ public class BifurcacionEndpointsTests : IClassFixture<StubsWebApplicationFactor
         // Articulo con override 0.0 → todo a OC → OC port se invoca → throws.
         var rqId = await CrearTransmitirAsync(client, articuloId: ArticuloSinStock, cantidad: 10m);
 
-        var auth = await client.PostAsJsonAsync(
+        var auth = await (await AutorizacionTestSeeding.CreateAutorizadorAsync(_factory)).PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{rqId}/autorizaciones",
             new { Nivel = 1, Notas = (string?)null });
 
