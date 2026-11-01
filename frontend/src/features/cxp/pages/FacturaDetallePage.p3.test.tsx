@@ -7,7 +7,7 @@ import { FacturaDetallePage } from './FacturaDetallePage';
 import { EstadoPasivo, MotivoCancelacion } from '@/features/cxp/api/types';
 import { createQueryWrapper } from '@/test/test-query-client';
 
-const escenario = vi.hoisted(() => ({ cancelada: false }));
+const escenario = vi.hoisted(() => ({ cancelada: false, contado: false }));
 vi.mock('@tanstack/react-router', () => ({
   useParams: () => ({ id: 'factura-ficticia-p3' }),
   useSearch: () => ({}),
@@ -37,7 +37,7 @@ vi.mock('@/features/cxp/api/useFacturas', () => ({
       estado: escenario.cancelada ? EstadoPasivo.Cancelada : EstadoPasivo.Autorizada,
       fechaDocumento: '2026-10-09',
       fechaContabilizacion: '2026-10-09',
-      fechaVencimiento: '2026-11-09',
+      fechaVencimiento: escenario.contado ? '2026-10-09' : '2026-11-09',
       moneda: 'MXN',
       tipoCambio: null,
       ordenCompraId: '11111111-1111-4111-8111-111111111111',
@@ -117,6 +117,16 @@ describe('P3: detalle fiscal y recepción', () => {
     expect(importe('Retenido por falta de recepción')).toContain('39.73');
     expect(importe('Total')).toContain('198.67');
     expect(await screen.findByRole('region', { name: 'Adjuntos' })).toBeInTheDocument();
+  });
+  it('aclara "contado" solo cuando el vencimiento coincide con la fecha del documento', () => {
+    escenario.cancelada = false;
+    escenario.contado = true;
+    const { unmount } = render(<FacturaDetallePage />, { wrapper: createQueryWrapper() });
+    expect(screen.getByText(/contado, sin días de crédito/)).toBeInTheDocument();
+    unmount();
+    escenario.contado = false;
+    render(<FacturaDetallePage />, { wrapper: createQueryWrapper() });
+    expect(screen.queryByText(/contado, sin días de crédito/)).not.toBeInTheDocument();
   });
   it('muestra la línea y el dato rechazado y no permite forzar la autorización', () => {
     escenario.cancelada = true;

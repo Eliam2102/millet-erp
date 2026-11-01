@@ -543,6 +543,9 @@ export interface PasivoParaCorridaResponse {
   /** 86e3ke2d3: detenida por «documentación» (proveedor sin opinión de cumplimiento vigente). */
   detenida: boolean;
   motivoDetencion: string | null;
+  /** 86e3tactf: proveedor con bloqueo total; el servidor rechaza sus facturas en la corrida. */
+  proveedorBloqueado?: boolean;
+  motivoBloqueo?: string | null;
 }
 
 export interface CorridaProveedorResponse {
@@ -601,7 +604,7 @@ export interface CorridaResponse {
   version: number;
   proveedores: CorridaProveedorResponse[];
   lineas: CorridaLineaResponse[];
-  firmas: { usuarioId: string; roles: string; firmadaEn: string }[];
+  firmas: { usuarioId: string; usuarioNombre?: string | null; roles: string; firmadaEn: string }[];
   ejecutado: number;
   pendiente: number;
   oficioGeneradoEn: string | null;
