@@ -18,6 +18,6 @@ public sealed class PedidosPtReadAdapter(FacturacionDbContext db) : IPedidosPtRe
         return new PedidoPtOrigen(p.Id, numero, p.SucursalId, p.Estado.ToString(), p.CondicionPagoOrigen, p.VersionOrigen,
             p.Lineas.OrderBy(l => l.Posicion)
                 .Select(l => new LineaPtOrigen(l.Posicion, l.ProductoId, l.ProductoDescripcion, l.Cantidad, l.ClaveUnidadSat))
-                .ToArray());
+                .ToArray(), p.ClienteId, p.Moneda, p.Total);
     }
 }
