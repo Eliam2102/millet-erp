@@ -4,7 +4,9 @@ import { integracionesFiscalKeys } from '@/features/integraciones-fiscal/api/key
 import type {
   ActualizarRfcReceptorPayload,
   AgregarRfcReceptorCommand,
+  CertificadoCsdItem,
   ConfiguracionPacResponse,
+  EstadoCsdEmpresa,
   GuardarConfiguracionPacPayload,
   ProveedorPac,
   RfcReceptorResponse,
@@ -72,6 +74,61 @@ export function useGuardarConfiguracionPac() {
       queryClient.invalidateQueries({
         queryKey: integracionesFiscalKeys.configuracionByEmpresa(vars.empresaId, vars.proveedor),
       });
+      queryClient.invalidateQueries({ queryKey: integracionesFiscalKeys.csdEstado() });
+    },
+  });
+}
+
+// ─── F6.9: certificados CSD ────────────────────────────────────────────
+
+/** Estado del CSD de la empresa actual (aviso en el ERP). Se refresca cada hora. */
+export function useEstadoCsd(enabled: boolean) {
+  return useQuery<EstadoCsdEmpresa>({
+    queryKey: integracionesFiscalKeys.csdEstado(),
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<EstadoCsdEmpresa>('/api/v1/integraciones/fiscal/csd/estado', { signal });
+      return data;
+    },
+    enabled,
+    staleTime: 60 * 60 * 1000,
+  });
+}
+
+/** Historial de CSD de la empresa (alta, sustitución, revocación). */
+export function useCertificadosCsd(empresaId: string, proveedor: ProveedorPac) {
+  return useQuery<CertificadoCsdItem[]>({
+    queryKey: integracionesFiscalKeys.certificados(empresaId, proveedor),
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<CertificadoCsdItem[]>(
+        `/api/v1/integraciones/fiscal/configuracion/${empresaId}/${proveedor}/certificados`,
+        { signal },
+      );
+      return data;
+    },
+  });
+}
+
+/** Revoca el CSD en uso (con motivo): el ERP deja de timbrar con él. */
+export function useRevocarCsd() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      empresaId: string;
+      proveedor: ProveedorPac;
+      motivo: string;
+      idempotencyKey: string;
+    }) => {
+      const { data } = await apiRequest<CertificadoCsdItem>(
+        `/api/v1/integraciones/fiscal/configuracion/${args.empresaId}/${args.proveedor}/csd/revocar`,
+        { method: 'POST', body: { motivo: args.motivo }, idempotencyKey: args.idempotencyKey },
+      );
+      return data;
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({
+        queryKey: integracionesFiscalKeys.configuracionByEmpresa(vars.empresaId, vars.proveedor),
+      });
+      queryClient.invalidateQueries({ queryKey: integracionesFiscalKeys.csdEstado() });
     },
   });
 }

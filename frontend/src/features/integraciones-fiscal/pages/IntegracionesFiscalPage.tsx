@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useEmpresas } from '@/modules/administracion/api/empresas';
 import { ProveedorPac } from '@/features/integraciones-fiscal/api/types';
 import { useConfiguracionPac } from '@/features/integraciones-fiscal/api/useIntegracionesFiscal';
+import { CertificadosCsdSection } from '@/features/integraciones-fiscal/components/CertificadosCsdSection';
 import { ConfiguracionPacForm } from '@/features/integraciones-fiscal/components/ConfiguracionPacForm';
 import { RfcReceptorList } from '@/features/integraciones-fiscal/components/RfcReceptorList';
 
@@ -130,7 +131,12 @@ function DetalleEmpresa({ empresaId }: { empresaId: string }) {
       </div>
 
       {tab === 'configuracion' && (
-        <ConfiguracionPacForm empresaId={empresaId} existing={config.data ?? null} />
+        <>
+          <ConfiguracionPacForm empresaId={empresaId} existing={config.data ?? null} />
+          {config.data?.csdConfigurado && (
+            <CertificadosCsdSection empresaId={empresaId} proveedor={ProveedorPac.FiscalApi} />
+          )}
+        </>
       )}
       {tab === 'rfcs' && <RfcReceptorList empresaId={empresaId} />}
     </div>
