@@ -106,6 +106,9 @@ public sealed class FacturacionDbContext : BaseDbContext
     /// <summary>Pedidos facturables (origen Aw/PlantaPintura/Manual, F1-PR2).</summary>
     public DbSet<PedidoFacturable> PedidosFacturables => Set<PedidoFacturable>();
 
+    /// <summary>Salidas parciales facturables de un pedido (FAC-08).</summary>
+    public DbSet<SalidaFacturable> SalidasFacturables => Set<SalidaFacturable>();
+
     /// <summary>Proformas versionadas de pedidos facturables, sin valor fiscal (U1.8a).</summary>
     public DbSet<ProformaPedido> ProformasPedido => Set<ProformaPedido>();
 
@@ -192,6 +195,8 @@ public sealed class FacturacionDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new AutorizacionVentaActivoConfiguration());
         modelBuilder.ApplyConfiguration(new PedidoFacturableConfiguration());
         modelBuilder.ApplyConfiguration(new PedidoFacturableLineaConfiguration());
+        modelBuilder.ApplyConfiguration(new SalidaFacturableConfiguration());
+        modelBuilder.ApplyConfiguration(new SalidaFacturableLineaConfiguration());
         modelBuilder.ApplyConfiguration(new ProformaPedidoConfiguration());
         modelBuilder.ApplyConfiguration(new BitacoraEnvioCorreoConfiguration());
         modelBuilder.ApplyConfiguration(new BitacoraIntentoTimbradoConfiguration());
