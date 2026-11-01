@@ -29,6 +29,7 @@ import { CobrarEnCajaLink } from '@/features/facturacion/components/CobrarEnCaja
 import { CobroFacturaPanel } from '@/features/facturacion/components/CobroFacturaPanel';
 import { AnticipoPicker } from '@/features/facturacion/components/AnticipoPicker';
 import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
+import { EstadoCancelacionBanner } from '@/features/facturacion/components/EstadoCancelacionBanner';
 import { EstadoReembolsoNcBadge } from '@/features/facturacion/components/EstadoReembolsoNcBadge';
 import { IntentosTimbradoPanel } from '@/features/facturacion/components/IntentosTimbradoPanel';
 import { SolicitarReembolsoNcDialog } from '@/features/facturacion/components/SolicitarReembolsoNcDialog';
@@ -96,6 +97,8 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
     NonNullable<typeof f.notasCreditoAplicadas>[number] | null
   >(null);
   const cancelacion = useCancelacionEstatus(f.id);
+  // F6.5: con una solicitud pendiente de autorización no se puede pedir otra.
+  const cancelacionPendiente = cancelacion.data?.estadoSolicitud === 'PendienteAutorizacion';
   const [accion, setAccion] = useState<'cancelar' | 'nc' | 'anticipo' | null>(null);
   const puedeAplicarAnticipo = useHasPermission(PermisosCanonicos.FacturacionAnticiposVincular);
   const timbrada = f.estado === 'Timbrado' || f.estado === 'Cancelado';
@@ -202,7 +205,7 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
                       NC bonificación
                     </Button>
                   )}
-                  {puedeCancelar && vigente && (
+                  {puedeCancelar && vigente && !cancelacionPendiente && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -256,20 +259,11 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
         errorMensaje={f.timbradoErrorMensaje}
       />
 
-      {cancelacion.data?.estadoSolicitud != null && (
-        <div
-          className="rounded-md border border-line bg-warning-note-bg px-3 py-2 text-sm"
-          data-print="hidden"
-        >
-          <span className="font-medium">Solicitud de cancelación:</span>{' '}
-          {cancelacion.data.estadoSolicitud}
-          {cancelacion.data.motivoSat ? ` · motivo ${cancelacion.data.motivoSat}` : ''}
-          {cancelacion.data.estatusSat ? ` · SAT ${cancelacion.data.estatusSat}` : ''}
-          {cancelacion.data.mensajeError ? (
-            <span className="text-danger-fg"> · {cancelacion.data.mensajeError}</span>
-          ) : null}
-        </div>
-      )}
+      <EstadoCancelacionBanner
+        comprobanteId={f.id}
+        cancelacion={cancelacion.data}
+        puedeRetirar={puedeCancelar}
+      />
 
       <div className="space-y-5">
         <section className="space-y-4">

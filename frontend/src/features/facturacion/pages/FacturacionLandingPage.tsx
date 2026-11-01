@@ -7,6 +7,7 @@ import { filtrarModuloPorPermisos, type NavModulo } from '@/lib/nav';
 import { Link } from '@tanstack/react-router';
 import {
   AlertTriangle,
+  Ban,
   Banknote,
   BarChart3,
   Building2,
@@ -223,6 +224,14 @@ const moduloFacturacionLanding: NavModulo = {
           to: '/facturacion/pedidos/excepciones',
           icon: AlertTriangle,
           permission: PermisosCanonicos.FacturacionPedidosExcepcionesResolver,
+        },
+        {
+          label: 'Cancelaciones por autorizar',
+          description:
+            'El Contador General autoriza o rechaza (con motivo) las cancelaciones que solicita Ingresos; solo al autorizar se envían al SAT.',
+          to: '/facturacion/cancelaciones',
+          icon: Ban,
+          permission: PermisosCanonicos.FacturacionCancelacionesConsultar,
         },
       ],
     },

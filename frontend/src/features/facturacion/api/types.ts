@@ -1440,6 +1440,63 @@ export interface ConsultarCancelacionResponse {
   mensajeError: string | null;
   solicitadaEn: string | null;
   resueltaEn: string | null;
+  /** F6.5: UUID que sustituye (motivo 01), quién solicitó y quién decidió. */
+  uuidSustituto?: string | null;
+  solicitadaPor?: string | null;
+  decididaPor?: string | null;
+  decididaEn?: string | null;
+  /** Motivo por el que el Contador General no autorizó la cancelación. */
+  motivoRechazo?: string | null;
+}
+
+/**
+ * Estados de una solicitud de cancelación (F6.5): nace pendiente de la
+ * autorización del Contador General; solo al autorizarse se envía al PAC.
+ */
+export type EstadoSolicitudCancelacion =
+  | 'PendienteAutorizacion'
+  | 'RechazadaPorAutorizador'
+  | 'Retirada'
+  | 'Solicitada'
+  | 'EnProceso'
+  | 'Aceptada'
+  | 'Rechazada'
+  | 'Vencida';
+
+export const ESTADO_SOLICITUD_CANCELACION_LABEL: Record<EstadoSolicitudCancelacion, string> = {
+  PendienteAutorizacion: 'Pendiente de autorización',
+  RechazadaPorAutorizador: 'No autorizada',
+  Retirada: 'Retirada',
+  Solicitada: 'Enviada al SAT',
+  EnProceso: 'En proceso ante el SAT',
+  Aceptada: 'Aceptada por el SAT',
+  Rechazada: 'Rechazada por el SAT',
+  Vencida: 'Aceptada (plazo vencido)',
+};
+
+/** Fila de la bandeja de cancelaciones del Contador General (GET /comprobantes/cancelaciones). */
+export interface CancelacionBandejaItem {
+  solicitudId: string;
+  comprobanteId: string;
+  /** Tipo .NET del comprobante: FacturaVenta, FacturaAnticipo, NotaCredito, ReciboPago, CartaPorte. */
+  tipoComprobante: string;
+  folio: string;
+  uuid: string | null;
+  receptorRfc: string;
+  receptorNombre: string;
+  total: number;
+  moneda: string;
+  estadoComprobante: string;
+  motivoSat: string;
+  uuidSustituto: string | null;
+  estadoSolicitud: EstadoSolicitudCancelacion;
+  solicitadaPor: string | null;
+  /** Usuario que solicitó: no puede decidir su propia solicitud (O2). */
+  solicitadaPorId?: string | null;
+  solicitadaEn: string;
+  decididaPor: string | null;
+  decididaEn: string | null;
+  motivoRechazo: string | null;
 }
 
 // ─── Cajas (CAJAS-PR5; backend CAJAS-PR1, 12-cajas.md §7/§10) ─────────

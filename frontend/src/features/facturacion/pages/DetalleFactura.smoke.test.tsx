@@ -186,6 +186,52 @@ describe('<DetalleFactura> — smoke', () => {
     expect(screen.getByText('Solicitado')).toBeInTheDocument();
   });
 
+  it.each([
+    {
+      estadoSolicitud: 'PendienteAutorizacion',
+      motivoRechazo: null,
+      decididaPor: null,
+      textos: [/Pendiente de autorización/, /No se envía al SAT hasta que el Contador General/],
+      retirar: true,
+    },
+    {
+      estadoSolicitud: 'RechazadaPorAutorizador',
+      motivoRechazo: 'Se corrige con nota de crédito',
+      decididaPor: 'Contador demo',
+      textos: [/No autorizada/, /Motivo: Se corrige con nota de crédito\. La factura sigue vigente\./, /No la autorizó: Contador demo/],
+      retirar: false,
+    },
+  ])('F6.5: muestra la solicitud $estadoSolicitud', async (caso) => {
+    mswServer.use(
+      http.get('*/api/v1/facturacion/facturas/f-1', () => HttpResponse.json(detalle)),
+      http.get('*/api/v1/facturacion/facturas/f-1/envios', () => HttpResponse.json([])),
+      http.get('*/api/v1/facturacion/comprobantes/f-1/cancelar', () =>
+        HttpResponse.json({
+          comprobanteId: 'f-1',
+          estadoComprobante: 'Timbrado',
+          solicitudId: 's-1',
+          estadoSolicitud: caso.estadoSolicitud,
+          motivoSat: '02',
+          estatusSat: null,
+          mensajeError: null,
+          solicitadaEn: '2026-10-31T10:00:00Z',
+          resueltaEn: null,
+          uuidSustituto: null,
+          solicitadaPor: 'Ingresos demo',
+          decididaPor: caso.decididaPor,
+          decididaEn: null,
+          motivoRechazo: caso.motivoRechazo,
+        }),
+      ),
+    );
+    render(<DetalleFactura />, { wrapper: createQueryWrapper() });
+    for (const texto of caso.textos) expect(await screen.findByText(texto)).toBeInTheDocument();
+    expect(screen.getByText('Solicitó: Ingresos demo')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retirar solicitud' }) != null).toBe(caso.retirar);
+    // Con una solicitud pendiente no se ofrece pedir otra.
+    expect(screen.queryByRole('button', { name: /^Cancelar$/ }) == null).toBe(caso.retirar);
+  });
+
   it('F6.3: muestra el estado del reembolso que reporta Tesorería y «Pagado» con fecha y referencia', async () => {
     const nc = {
       id: 'nc-20',

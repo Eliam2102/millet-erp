@@ -7,7 +7,8 @@ namespace Millet.Facturacion.Application.Cancelaciones.Queries;
 
 /// <summary>
 /// Estatus de cancelación de un comprobante (§7.2, GET /comprobantes/{id}/cancelar):
-/// el estado del comprobante + la última solicitud de cancelación (si existe).
+/// el estado del comprobante + la última solicitud de cancelación (si existe), con
+/// quién la solicitó y, si ya se decidió, quién la autorizó o rechazó y por qué (F6.5).
 /// </summary>
 public sealed record ConsultarCancelacionQuery(Guid ComprobanteId) : IRequest<ConsultarCancelacionResponse>;
 
@@ -20,7 +21,12 @@ public sealed record ConsultarCancelacionResponse(
     string? EstatusSat,
     string? MensajeError,
     DateTimeOffset? SolicitadaEn,
-    DateTimeOffset? ResueltaEn);
+    DateTimeOffset? ResueltaEn,
+    string? UuidSustituto = null,
+    string? SolicitadaPor = null,
+    string? DecididaPor = null,
+    DateTimeOffset? DecididaEn = null,
+    string? MotivoRechazo = null);
 
 public sealed class ConsultarCancelacionHandler
     : IRequestHandler<ConsultarCancelacionQuery, ConsultarCancelacionResponse>
@@ -50,6 +56,11 @@ public sealed class ConsultarCancelacionHandler
             EstatusSat: solicitud?.EstatusSat,
             MensajeError: solicitud?.MensajeError,
             SolicitadaEn: solicitud?.SolicitadaEn,
-            ResueltaEn: solicitud?.ResueltaEn);
+            ResueltaEn: solicitud?.ResueltaEn,
+            UuidSustituto: solicitud?.UuidSustituto,
+            SolicitadaPor: solicitud?.SolicitadaPorNombre,
+            DecididaPor: solicitud?.DecididaPorNombre,
+            DecididaEn: solicitud?.DecididaEn,
+            MotivoRechazo: solicitud?.MotivoRechazo);
     }
 }

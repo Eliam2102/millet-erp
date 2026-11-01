@@ -82,6 +82,10 @@ export const facturacionKeys = {
     [...facturacionKeys.facturas(), 'byId', id, 'envios'] as const,
   facturaCancelacion: (id: string) =>
     [...facturacionKeys.facturas(), 'byId', id, 'cancelacion'] as const,
+  // F6.5: bandeja de cancelaciones del Contador General.
+  cancelaciones: () => [...facturacionKeys.all, 'cancelaciones'] as const,
+  cancelacionesBandeja: (estado: string) =>
+    [...facturacionKeys.cancelaciones(), 'bandeja', estado] as const,
   // Bitácora de intentos de timbrado ([Decisión 01-G] G4, F13-PR2).
   comprobanteIntentos: (id: string) =>
     [...facturacionKeys.facturas(), 'byId', id, 'intentos-timbrado'] as const,

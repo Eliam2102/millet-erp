@@ -21,6 +21,7 @@ import {
 import { useCancelacionEstatus } from '@/features/facturacion/api/useFacturas';
 import { CancelarComprobanteForm } from '@/features/facturacion/components/CancelarComprobanteForm';
 import { CobrarEnCajaLink } from '@/features/facturacion/components/CobrarEnCajaLink';
+import { EstadoCancelacionBanner } from '@/features/facturacion/components/EstadoCancelacionBanner';
 import { EstadoReembolsoNcBadge } from '@/features/facturacion/components/EstadoReembolsoNcBadge';
 import { IntentosTimbradoPanel } from '@/features/facturacion/components/IntentosTimbradoPanel';
 import { TimbradoFallidoBanner } from '@/features/facturacion/components/TimbradoFallidoBanner';
@@ -78,6 +79,8 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
   const puedeVerIntentos = useHasPermission(PermisosCanonicos.FacturacionFacturasLeer);
   const puedeVerNc = useHasPermission(PermisosCanonicos.FacturacionNotasCreditoLeer);
   const cancelacion = useCancelacionEstatus(f.id);
+  // F6.5: con una solicitud pendiente de autorización no se puede pedir otra.
+  const cancelacionPendiente = cancelacion.data?.estadoSolicitud === 'PendienteAutorizacion';
   const [cancelando, setCancelando] = useState(false);
   const timbrada = f.estado === 'Timbrado' || f.estado === 'Cancelado';
   const vigente = f.estado === 'Timbrado';
@@ -133,7 +136,7 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
                     <Printer className="mr-1 h-4 w-4" />
                     Imprimir
                   </Button>
-                  {puedeCancelar && vigente && (
+                  {puedeCancelar && vigente && !cancelacionPendiente && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -169,20 +172,11 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
         errorMensaje={f.timbradoErrorMensaje}
       />
 
-      {cancelacion.data?.estadoSolicitud != null && (
-        <div
-          className="rounded-md border border-line bg-warning-note-bg px-3 py-2 text-sm"
-          data-print="hidden"
-        >
-          <span className="font-medium">Solicitud de cancelación:</span>{' '}
-          {cancelacion.data.estadoSolicitud}
-          {cancelacion.data.motivoSat ? ` · motivo ${cancelacion.data.motivoSat}` : ''}
-          {cancelacion.data.estatusSat ? ` · SAT ${cancelacion.data.estatusSat}` : ''}
-          {cancelacion.data.mensajeError ? (
-            <span className="text-danger-fg"> · {cancelacion.data.mensajeError}</span>
-          ) : null}
-        </div>
-      )}
+      <EstadoCancelacionBanner
+        comprobanteId={f.id}
+        cancelacion={cancelacion.data}
+        puedeRetirar={puedeCancelar}
+      />
 
       <div className="space-y-5">
         <section className="space-y-4">

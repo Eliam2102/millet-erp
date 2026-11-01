@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Millet.Administracion.Application.Series;
 using Millet.Facturacion.Application.Anticipos.EmitirFacturaAnticipo;
+using Millet.Facturacion.Application.Cancelaciones.AutorizarCancelacion;
 using Millet.Facturacion.Application.Cancelaciones.SolicitarCancelacion;
 using Millet.Facturacion.Application.Facturas.EmitirFacturaVenta;
 using Millet.Facturacion.Application.Integration;
@@ -86,8 +87,10 @@ public sealed class EventosTests
         await db.SaveChangesAsync();
 
         var eventos = new FakeIntegrationEventPublisher();
-        var handler = new SolicitarCancelacionHandler(db, new FakeFiscalApiClient(), eventos, new FakeEmpresaContext(empresaId), new FakeClock(Ahora));
-        await handler.Handle(new SolicitarCancelacionCommand(fv.Id, "02", null), CancellationToken.None);
+        await new SolicitarCancelacionHandler(db, new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora))
+            .Handle(new SolicitarCancelacionCommand(fv.Id, "02", null), CancellationToken.None);
+        await new AutorizarCancelacionHandler(db, new FakeFiscalApiClient(), eventos, new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora))
+            .Handle(new AutorizarCancelacionCommand(fv.Id), CancellationToken.None);
 
         eventos.Publicados.OfType<ComprobanteCanceladoIntegrationEvent>().Should().ContainSingle()
             .Which.Uuid.Should().Be("11111111-1111-1111-1111-111111111111");

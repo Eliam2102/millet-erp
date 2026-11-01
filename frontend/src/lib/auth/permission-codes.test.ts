@@ -301,6 +301,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'facturacion.repp.emitir',
   'facturacion.cancelaciones.solicitar',
   'facturacion.cancelaciones.consultar',
+  'facturacion.cancelaciones.autorizar',
   // 01-G: reintento (#530) y descarte (#534) de comprobantes fallidos.
   'facturacion.comprobantes.reintentar-timbrado',
   'facturacion.comprobantes.descartar',

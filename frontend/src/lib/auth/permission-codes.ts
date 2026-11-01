@@ -448,6 +448,7 @@ export const PermisosCanonicos = {
   FacturacionReppEmitir: 'facturacion.repp.emitir',
   FacturacionCancelacionesSolicitar: 'facturacion.cancelaciones.solicitar',
   FacturacionCancelacionesConsultar: 'facturacion.cancelaciones.consultar',
+  FacturacionCancelacionesAutorizar: 'facturacion.cancelaciones.autorizar',
   FacturacionActivosAutorizar: 'facturacion.activos.autorizar',
   FacturacionCajaLiquidar: 'facturacion.caja.liquidar',
   // Cajas (backend CAJAS-PR1, 12-cajas.md §8; FE desde cajas-pr5).

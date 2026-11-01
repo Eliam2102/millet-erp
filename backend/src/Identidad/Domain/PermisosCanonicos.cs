@@ -480,6 +480,8 @@ public static class PermisosCanonicos
     public const string FacturacionReppEmitir                  = "facturacion.repp.emitir";
     public const string FacturacionCancelacionesSolicitar      = "facturacion.cancelaciones.solicitar";
     public const string FacturacionCancelacionesConsultar      = "facturacion.cancelaciones.consultar";
+    /// <summary>F6.5: autorizar o rechazar una cancelación que solicitó Ingresos (Contador General, manual §2.3 R6).</summary>
+    public const string FacturacionCancelacionesAutorizar      = "facturacion.cancelaciones.autorizar";
     public const string FacturacionActivosAutorizar            = "facturacion.activos.autorizar";
     public const string FacturacionCajaLiquidar                = "facturacion.caja.liquidar";
     // CAJAS-PR1 (12-cajas.md §8): resto del sub-namespace -0009 caja.
@@ -922,6 +924,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000009-0006-0000-0000-000000000001"), FacturacionReppEmitir,                  "Emitir complementos de pago (REPP / Pago 2.0)"),
         (Guid.Parse("00000009-0007-0000-0000-000000000001"), FacturacionCancelacionesSolicitar,      "Solicitar la cancelación SAT 4.0 de un comprobante"),
         (Guid.Parse("00000009-0007-0000-0000-000000000002"), FacturacionCancelacionesConsultar,      "Consultar el estatus de las solicitudes de cancelación"),
+        (Guid.Parse("00000009-0007-0000-0000-000000000003"), FacturacionCancelacionesAutorizar,      "Autorizar o rechazar las cancelaciones que solicita Ingresos antes de enviarlas al SAT (Contador General, manual §2.3)"),
         (Guid.Parse("00000009-0008-0000-0000-000000000001"), FacturacionActivosAutorizar,            "Autorizar la venta de activos fijos antes de timbrar (Director de Administración y Finanzas)"),
         (Guid.Parse("00000009-0009-0000-0000-000000000001"), FacturacionCajaLiquidar,                "Cerrar sesiones de caja (arqueo y liquidación)"),
         (Guid.Parse("00000009-0009-0000-0000-000000000002"), FacturacionCajaAdministrar,             "Administrar cajas: CRUD, alcances (sucursales/canales/usuarios) y alcances administrativos"),

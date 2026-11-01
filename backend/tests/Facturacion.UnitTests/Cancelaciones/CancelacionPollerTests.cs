@@ -61,6 +61,7 @@ public sealed class CancelacionPollerTests
             fv.MarcarCancelacionPendiente();
             pedido.MarcarFacturado(fv.Id);
             var solicitud = SolicitudCancelacion.Crear(empresaId, fv.Id, "02", null, Ahora);
+            solicitud.Autorizar(Guid.NewGuid(), "Contador", Ahora);
             solicitud.MarcarEnProceso("EnProceso");
             db.PedidosFacturables.Add(pedido);
             db.FacturasVenta.Add(fv);
@@ -115,6 +116,7 @@ public sealed class CancelacionPollerTests
             fv.MarcarTimbrado("11111111-1111-1111-1111-111111111111", null, null, null, Ahora, null, null);
             fv.MarcarCancelacionPendiente();
             var solicitud = SolicitudCancelacion.Crear(empresaId, fv.Id, "02", null, Ahora);
+            solicitud.Autorizar(Guid.NewGuid(), "Contador", Ahora);
             solicitud.MarcarEnProceso("EnProceso");
             db.FacturasVenta.Add(fv);
             db.SolicitudesCancelacion.Add(solicitud);
