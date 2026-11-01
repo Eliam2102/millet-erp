@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Millet.ProductoTerminado.Application.Ports;
+using Millet.ProductoTerminado.Application;
 using Millet.ProductoTerminado.Domain;
 
 namespace Millet.ProductoTerminado.UnitTests.Application;
@@ -18,7 +19,7 @@ public sealed class ReglasEscaneoTests
         r.Resultado.Should().Be("Reposicion");
         (await t.Db.Piezas.CountAsync()).Should().Be(1);
         (await t.Db.Movimientos.Select(m => m.Tipo).ToListAsync()).Should().BeEquivalentTo([TipoMovimientoPieza.Alta, TipoMovimientoPieza.Reposicion]);
-        t.Eventos.Eventos.Should().HaveCount(1);
+        t.Eventos.Eventos.OfType<PiezaIngresadaEvent>().Should().HaveCount(1);
     }
 
     [Fact]

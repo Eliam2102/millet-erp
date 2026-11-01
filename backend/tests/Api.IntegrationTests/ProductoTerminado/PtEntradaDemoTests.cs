@@ -138,6 +138,7 @@ public class PtEntradaDemoTests(WebApplicationFactory<Program> factory, ITestOut
         const string like = Prefijo + "%";
         var p = () => new NpgsqlParameter("l", like);
         await Sql("DELETE FROM producto_terminado.integration_events_outbox WHERE payload::text LIKE '%" + Prefijo + "%'");
+        await Sql("DELETE FROM producto_terminado.saldos_demo WHERE numero_pedido LIKE @l", p());
         // Las etiquetas son de 9 caracteres (SRC-114) y no llevan el prefijo: se borra por el pedido.
         const string delPedido = "(SELECT z.id FROM producto_terminado.piezas z JOIN producto_terminado.pedidos_pt p ON p.id = z.pedido_pt_id WHERE p.numero_pedido LIKE @l)";
         await Sql("DELETE FROM producto_terminado.movimientos_pieza WHERE pieza_id IN " + delPedido, p());
@@ -509,5 +510,84 @@ public class PtEntradaDemoTests(WebApplicationFactory<Program> factory, ITestOut
         Assert.Equal(pedidos * repetidas, await EscaneosConResultado(raiz, "Reposicion"));
         Assert.Equal(pedidos * (piezasPorPedido + repetidas), await Escaneos(raiz));
         Assert.Equal(pedidos * piezasPorPedido, await EscaneosConResultado(raiz, "Alta"));
+    }
+
+    // ---------- PT5.2: retención en 69 y liberación a 70 ----------
+
+    private const string EventoEstado = "producto_terminado.pedido.estado-cambiado.v1";
+    private static readonly string[] PermisosSaldo = [PermisosCanonicos.ProductoTerminadoPiezasVer, PermisosCanonicos.ProductoTerminadoPiezasVerTodasSucursales, PermisosCanonicos.ProductoTerminadoExcepcionesGestionar];
+
+    private Task<long> EventosEstado(string n, string estado) =>
+        Cuenta($"SELECT count(*) FROM producto_terminado.integration_events_outbox WHERE event_type = '{EventoEstado}' AND payload::jsonb->>'Estado' = '{estado}' AND payload::text LIKE '%' || @p || '%'", n);
+
+    private Task<(string? Liberacion, string? Motivo)> EstadoPedido(string n) =>
+        Filas("SELECT liberacion, motivo_liberacion FROM producto_terminado.pedidos_pt WHERE numero_pedido LIKE @p || '%'", n,
+            r => (r.IsDBNull(0) ? null : r.GetString(0), r.IsDBNull(1) ? null : r.GetString(1))).ContinueWith(t => t.Result.Single());
+
+    [Fact]
+    public async Task PT52_CA1_CA2_CA5_Ocho_de_diez_quedan_Retenido_y_el_saldo_en_0_libera_una_sola_vez_por_SaldoCubierto()
+    {
+        await using var ctx = await PrepararAsync();
+        var n = Numero();
+        await _d.FacturacionAsync(n, ctx.A, 10);
+        for (var i = 1; i <= 8; i++) await Escaneo(n, Etq(n, i), i, Ahora(i));
+        await using var f = Host();
+        await Ciclo(f);
+
+        Assert.Equal(8, await Piezas(n));
+        Assert.Equal(("Retenido", MotivosPt.SaldoPendiente), await EstadoPedido(n));
+        Assert.Equal(1, await EventosEstado(n, "Retenido"));
+        Assert.Equal(0, await EventosEstado(n, "Liberado"));
+
+        using var http = await new PtDatos(f).ClienteAsync(PermisosSaldo);
+        for (var vez = 0; vez < 2; vez++)
+            Assert.True((await http.PutAsJsonAsync($"/api/v1/producto-terminado/demo/pedidos/{n}/saldo", new { saldo = 0 })).IsSuccessStatusCode);
+
+        Assert.Equal(("Liberado", MotivosPt.SaldoCubierto), await EstadoPedido(n));
+        Assert.Equal(1, await EventosEstado(n, "Liberado"));
+        Assert.Equal(8, await Piezas(n)); // sigue incompleto: el 70 es por dinero (E6)
+        var json = await http.GetFromJsonAsync<JsonElement>($"/api/v1/producto-terminado/piezas?pedido={n}");
+        Assert.Equal("Liberado", json.GetProperty("estadoPedido").GetProperty("estado").GetString());
+        Assert.Equal(MotivosPt.SaldoCubierto, json.GetProperty("estadoPedido").GetProperty("motivo").GetString());
+    }
+
+    [Fact]
+    public async Task PT52_CA3_Reparto_con_tres_de_diez_y_saldo_queda_Liberado_por_Reparto_sin_evento_de_69()
+    {
+        await using var ctx = await PrepararAsync();
+        var n = Numero();
+        await _d.FacturacionAsync(n, ctx.A, 10, condicionPago: "REPARTO");
+        for (var i = 1; i <= 3; i++) await Escaneo(n, Etq(n, i), i, Ahora(i));
+        await using var f = Host();
+        await Ciclo(f);
+
+        Assert.Equal(("Liberado", MotivosPt.Reparto), await EstadoPedido(n));
+        Assert.Equal(1, await EventosEstado(n, "Liberado"));
+        Assert.Equal(0, await EventosEstado(n, "Retenido"));
+    }
+
+    [Fact]
+    public async Task PT52_CA6_En_Real_el_saldo_nunca_libera_ni_en_el_barrido_y_el_endpoint_de_saldo_de_prueba_responde_409()
+    {
+        await using var ctx = await PrepararAsync();
+        var n = Numero();
+        await _d.FacturacionAsync(n, ctx.A, 10);
+        await Escaneo(n, Etq(n, 1), 1, Ahora());
+        await using (var demo = Host()) await Ciclo(demo);
+        Assert.Equal(("Retenido", MotivosPt.SaldoPendiente), await EstadoPedido(n));
+
+        // Aunque exista un saldo de prueba en 0, el canal Real usa el adaptador provisional («no cubierto»).
+        await Sql("INSERT INTO producto_terminado.saldos_demo (id, empresa_id, numero_pedido, saldo, version, created_at, updated_at) VALUES (gen_random_uuid(), @e, @n, 0, 1, now(), now())",
+            new("e", PtDatos.Empresa), new("n", n));
+        await using var real = Host("Real");
+        var barrido = new PiezasPtLiberacionWorker(real.Services.GetRequiredService<IServiceScopeFactory>(),
+            Options.Create(new PiezasPtOptions { EntradaHabilitada = true }), NullLogger<PiezasPtLiberacionWorker>.Instance);
+        await barrido.CorrerUnaVezAsync(CancellationToken.None);
+        Assert.Equal(("Retenido", MotivosPt.SaldoPendiente), await EstadoPedido(n));
+
+        using var http = await new PtDatos(real).ClienteAsync(PermisosSaldo);
+        var r = await http.PutAsJsonAsync($"/api/v1/producto-terminado/demo/pedidos/{n}/saldo", new { saldo = 0 });
+        Assert.Equal(System.Net.HttpStatusCode.Conflict, r.StatusCode);
+        Assert.Equal(0, await EventosEstado(n, "Liberado"));
     }
 }

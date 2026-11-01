@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Millet.ProductoTerminado.Application;
 using Millet.ProductoTerminado.Domain;
 
 namespace Millet.ProductoTerminado.UnitTests.Application;
@@ -16,7 +17,7 @@ public sealed class RegistrarEscaneoPiezaTests
         b.Resultado.Should().Be("Alta");
         (await t.Db.Piezas.CountAsync()).Should().Be(2);
         (await t.Db.Movimientos.CountAsync()).Should().Be(2);
-        t.Eventos.Eventos.Should().HaveCount(2);
+        t.Eventos.Eventos.OfType<PiezaIngresadaEvent>().Should().HaveCount(2);
     }
 
     [Fact]
@@ -31,7 +32,7 @@ public sealed class RegistrarEscaneoPiezaTests
         segunda.EscaneoId.Should().Be(primera.EscaneoId);
         (await t.Db.Piezas.CountAsync()).Should().Be(1);
         (await t.Db.Movimientos.CountAsync()).Should().Be(1);
-        t.Eventos.Eventos.Should().HaveCount(1);
+        t.Eventos.Eventos.OfType<PiezaIngresadaEvent>().Should().HaveCount(1);
     }
 
     [Fact]

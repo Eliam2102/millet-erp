@@ -14,6 +14,7 @@ public sealed class ProductoTerminadoDbContext(DbContextOptions<ProductoTerminad
     public DbSet<PedidoPtPosicion> Posiciones => Set<PedidoPtPosicion>();
     public DbSet<PiezaPt> Piezas => Set<PiezaPt>();
     public DbSet<MovimientoPieza> Movimientos => Set<MovimientoPieza>();
+    public DbSet<SaldoDemo> SaldosDemo => Set<SaldoDemo>();
     public DbSet<EscaneoPt> Escaneos => Set<EscaneoPt>();
     public DbSet<IntegrationEventOutboxEntry> OutboxEntries => Set<IntegrationEventOutboxEntry>();
 
@@ -27,10 +28,21 @@ public sealed class ProductoTerminadoDbContext(DbContextOptions<ProductoTerminad
         p.Property(x => x.Id).ValueGeneratedNever();
         p.Property(x => x.NumeroPedido).HasMaxLength(50);
         p.Property(x => x.CondicionPagoOrigen).HasMaxLength(50);
+        p.Property(x => x.Liberacion).HasConversion<string>().HasMaxLength(20);
+        p.Property(x => x.MotivoLiberacion).HasMaxLength(30);
+        p.HasIndex(x => x.Liberacion).HasDatabaseName("ix_pt_pedidos_retenidos").HasFilter("liberacion = 'Retenido'");
         p.HasIndex(x => new { x.EmpresaId, x.NumeroPedido }).IsUnique();
         p.HasIndex(x => new { x.EmpresaId, x.SucursalVentaId });
         p.HasMany(x => x.Posiciones).WithOne().HasForeignKey(x => x.PedidoPtId).OnDelete(DeleteBehavior.Restrict);
         p.Navigation(x => x.Posiciones).UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        var sd = modelBuilder.Entity<SaldoDemo>();
+        sd.ToTable("saldos_demo");
+        sd.HasKey(x => x.Id);
+        sd.Property(x => x.Id).ValueGeneratedNever();
+        sd.Property(x => x.NumeroPedido).HasMaxLength(50);
+        sd.Property(x => x.Saldo).HasPrecision(18, 2);
+        sd.HasIndex(x => new { x.EmpresaId, x.NumeroPedido }).IsUnique();
 
         var pos = modelBuilder.Entity<PedidoPtPosicion>();
         pos.ToTable("pedido_pt_posiciones");

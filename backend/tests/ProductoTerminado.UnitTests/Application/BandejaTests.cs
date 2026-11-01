@@ -37,7 +37,7 @@ public sealed class BandejaTests
 
     private static PtAcceso Acceso(string[] permisos, params Guid[] sucursales) => new(new UsuarioFalso(Actor), new PermisosFalsos(permisos), new SucursalesFalsas(sucursales));
 
-    private static EscaneoProcesador Proc(EntornoPt t) => new(t.Db, t.Pedidos, t.Sucursales, t.Eventos, new RelojFijo(Ahora));
+    private static EscaneoProcesador Proc(EntornoPt t) => new(t.Db, t.Pedidos, t.Sucursales, t.Eventos, new RelojFijo(Ahora), t.Liberacion);
 
     private static Task<EscaneoPt> Fila(EntornoPt t) => t.Db.Escaneos.SingleAsync();
 
