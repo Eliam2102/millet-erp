@@ -116,6 +116,19 @@ public sealed class CobroMostrador : BaseEntity, IPerteneceAEmpresa, IAuditable
         return cobro;
     }
 
+    /// <summary>
+    /// F6.6: liga a cada forma 03 el folio de confirmación de Ingresos, en el
+    /// orden en que se registraron las formas (null en las demás). La validación
+    /// contra Tesorería (vigente, cliente, importe) vive en el registrador.
+    /// </summary>
+    public void LigarFoliosTransferencia(IReadOnlyList<string?> foliosPorForma)
+    {
+        if (foliosPorForma.Count != _formasPago.Count)
+            throw new BusinessRuleException("COBRO_FOLIOS_DESALINEADOS", "Cada forma de pago lleva su folio (o ninguno).");
+        for (var i = 0; i < _formasPago.Count; i++)
+            if (foliosPorForma[i] is { } folio) _formasPago[i].LigarFolioTransferencia(folio);
+    }
+
     /// <summary>Cancela el cobro (supervisor). La reversa/ajuste la orquesta el handler ([Decisión 12-C]).</summary>
     public void Cancelar()
     {
@@ -146,6 +159,12 @@ public sealed class CobroMostradorFormaPago : BaseEntity, IAuditable
     /// </summary>
     public string? TarjetaUltimos4 { get; private set; }
 
+    /// <summary>
+    /// Folio de confirmación de transferencia que emitió Ingresos (F6.6, R16);
+    /// solo en forma 03. Tesorería lo marca «Usado» con el evento del cobro.
+    /// </summary>
+    public string? FolioTransferencia { get; private set; }
+
     private CobroMostradorFormaPago() { }
 
     internal CobroMostradorFormaPago(
@@ -169,6 +188,16 @@ public sealed class CobroMostradorFormaPago : BaseEntity, IAuditable
             throw new BusinessRuleException(
                 "COBRO_TARJETA_ULTIMOS4_INVALIDOS", "Los últimos dígitos de la tarjeta son exactamente 4 números.");
     }
+
+    internal void LigarFolioTransferencia(string folio)
+    {
+        if (FormaPago != FormaPagoTransferencia)
+            throw new BusinessRuleException("COBRO_FOLIO_SOLO_TRANSFERENCIA", "El folio de transferencia solo aplica a la forma 03.");
+        FolioTransferencia = folio.Trim().ToUpperInvariant();
+    }
+
+    /// <summary>c_FormaPago 03 · Transferencia electrónica de fondos.</summary>
+    public const string FormaPagoTransferencia = "03";
 
     private static string? Normalizar(string? valor) =>
         string.IsNullOrWhiteSpace(valor) ? null : valor.Trim();

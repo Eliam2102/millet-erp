@@ -223,8 +223,11 @@ public sealed record CajaFaltanteDevueltoIntegrationEvent(
     decimal Importe)
     : IntegrationEvent("facturacion.caja-faltante.devuelto.v1", EmpresaId, OcurridoEn);
 
-/// <summary>Forma de pago aplicada en un cobro de mostrador.</summary>
-public sealed record CobroFormaPagoAplicada(string FormaPago, decimal Importe);
+/// <summary>
+/// Forma de pago aplicada en un cobro de mostrador. <c>FolioTransferencia</c>
+/// solo en forma 03: Tesorería lo marca «Usado» (F6.6).
+/// </summary>
+public sealed record CobroFormaPagoAplicada(string FormaPago, decimal Importe, string? FolioTransferencia = null);
 
 // ---- Cobro de mostrador registrado (CAJAS-PR4, 12-cajas.md §10) ----
 public sealed record CobroMostradorRegistradoIntegrationEvent(
