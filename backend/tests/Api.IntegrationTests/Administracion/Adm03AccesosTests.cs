@@ -107,6 +107,9 @@ public sealed class Adm03AccesosTests
         var db = scope.ServiceProvider.GetRequiredService<CoreDbContext>();
         var future = new DateTimeOffset(DateTime.UtcNow.AddMonths(2), TimeSpan.Zero);
         var id = Guid.NewGuid();
+        // La bitácora es inmutable (ADM-BIT: el disparador rechaza DELETE): el evento futuro se inserta en una
+        // transacción que se deshace, así no queda como "el más reciente" para otros tests.
+        await using var tx = await db.Database.BeginTransactionAsync();
         db.AuditLog.Add(new AuditLogEntry
         {
             Id = id,
@@ -118,16 +121,8 @@ public sealed class Adm03AccesosTests
             CorrelationId = Guid.NewGuid(),
         });
         await db.SaveChangesAsync();
-        try
-        {
-            Assert.True(await db.AuditLog.AnyAsync(e => e.Id == id && e.Timestamp == future));
-        }
-        finally
-        {
-            // La bitácora es compartida: un evento de "Sesion" con fecha futura
-            // quedaría como "el más reciente" para otros tests.
-            await db.AuditLog.Where(e => e.Id == id && e.Timestamp == future).ExecuteDeleteAsync();
-        }
+        Assert.True(await db.AuditLog.AnyAsync(e => e.Id == id && e.Timestamp == future));
+        await tx.RollbackAsync();
     }
 
     private static async Task<string> FakeLoginAsync(HttpClient client, string oid)

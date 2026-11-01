@@ -210,6 +210,8 @@ export const PermisosCanonicos = {
   AdminSucursalesPuestosGestionar: 'admin.sucursales.puestos-gestionar',
   AdminSucursalesUsuariosGestionar: 'admin.sucursales.usuarios-gestionar',
   AdminAuditoriaLeer: 'admin.auditoria.leer',
+  // ADM-BIT: exportar la bitácora, separado de consultarla.
+  AdminAuditoriaExportar: 'admin.auditoria.exportar',
   // ADM-FE-PR1 (doc 10-catalogo-puestos-empleados): master de puestos y
   // empleados — habilitador de reglas de viáticos por puesto.
   AdminPuestosGestionar: 'admin.puestos.gestionar',

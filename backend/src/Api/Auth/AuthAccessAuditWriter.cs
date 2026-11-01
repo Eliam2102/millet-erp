@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Domain.Audit;
 using Millet.SharedKernel.Infrastructure.Persistence;
@@ -7,11 +8,28 @@ using Millet.SharedKernel.Infrastructure.Persistence;
 namespace Millet.Api.Auth;
 
 /// <summary>
-/// Registra los accesos denegados y los cambios de empresa en la bitácora
-/// consolidada (el login exitoso no se audita para no ensuciarla). Nunca conserva credenciales, tokens ni correos.
+/// Registra los accesos denegados, los cambios de empresa y el primer inicio de sesión exitoso del día por usuario en la
+/// bitácora consolidada. Nunca conserva credenciales, tokens ni correos.
 /// </summary>
 public sealed class AuthAccessAuditWriter(CoreDbContext db, IClock clock)
 {
+    private static readonly TimeZoneInfo ZonaMexico = TimeZoneInfo.FindSystemTimeZoneById("America/Mexico_City");
+
+    /// <summary>
+    /// ADM-BIT: un registro de acceso por usuario y día (día de America/Mexico_City). Los siguientes inicios de sesión del
+    /// mismo día no se registran, para no llenar la bitácora de ruido; los denegados siempre se registran.
+    /// </summary>
+    public async Task RegistrarPrimerAccesoDelDiaAsync(
+        Guid userId, Guid? empresaId, string? actorNombre, IPAddress? ip, CancellationToken ct)
+    {
+        var local = TimeZoneInfo.ConvertTime(clock.UtcNow, ZonaMexico);
+        var inicioDia = new DateTimeOffset(local.Date, local.Offset).ToUniversalTime();
+        var yaEntro = await db.AuditLog.AnyAsync(a => a.UsuarioId == userId && a.Modulo == "Identidad"
+            && a.Entidad == "Sesion" && a.Operacion == "acceso" && a.Timestamp >= inicioDia, ct);
+        if (!yaEntro)
+            await WriteAsync("acceso", userId, empresaId, "EntraId", null, ip, ct, actorNombre: actorNombre);
+    }
+
     public async Task WriteAsync(
         string operation,
         Guid? userId,

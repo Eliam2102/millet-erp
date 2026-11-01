@@ -37,10 +37,12 @@ public static class AuthEndpoints
         {
             try
             {
-                // El login exitoso no se audita: cada inicio de sesión llenaba la
-                // bitácora de ruido. Solo quedan los intentos denegados.
                 var response = await orchestrator.LoginWithEntraTokenAsync(
                     request.EntraToken, request.EmpresaId, cancellationToken);
+                // ADM-BIT: solo el primer inicio de sesión exitoso del día por usuario (los siguientes serían ruido).
+                await audit.RegistrarPrimerAccesoDelDiaAsync(response.Usuario.Id,
+                    response.Empresas.FirstOrDefault(e => e.EsLaActual)?.Id, response.Usuario.Nombre,
+                    http.Connection.RemoteIpAddress, cancellationToken);
                 return Results.Ok(response);
             }
             catch (UnauthorizedAccessException)
