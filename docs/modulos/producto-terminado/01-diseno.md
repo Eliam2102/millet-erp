@@ -224,7 +224,7 @@ Plano 1.7.1 §11: «sin acuse no afirmar liberado en A+W». El estado `Liberado`
 | Canal real (AWPRODUCTION) | A+W-QA-7 / I13.4 | `ContratoI134Firmado=false`; solo Demo | Encender el canal Real: servidor vinculado `AWPROD_ERP` por la conexión de clientes (`AwClientesDb`); sin conexión híbrida propia |
 | Saldo por pedido | Facturación (Uziel) | Real: `SaldoPedidoProvisionalAdapter` «no cubierto». Demo: `SaldoPedidoDemoAdapter` con saldo de prueba | `PLATFORM-TODO(<SaldoPorPedidoFacturacion>)` |
 | Evento de cambio de saldo | Facturación (Uziel) | barrido de retenidos cada 15 min | se cambia el barrido por la suscripción |
-| Topic `producto-terminado-events` | infra | entrega local C1.8 | `infra/modules/servicebus.bicep` |
+| Topic `producto-terminado-events` | infra | entrega local C1.8 (`ProductoTerminadoLocalConsumer` en CxC y `CxcDecisionLocalConsumer` en PT) | `infra/modules/servicebus.bicep`; agregar topic, suscripción de CxC y suscripción de PT a `cuentas-por-cobrar-events`, `PLATFORM-TODO(<TopicProductoTerminado>)` |
 | Retorno 70 a A+W | U1.5 | ninguno (PT solo publica) | `aw_retorno`, P-007 |
 
 ## 10. Pruebas
@@ -276,6 +276,9 @@ Plano 1.7.1 §11: «sin acuse no afirmar liberado en A+W». El estado `Liberado`
 10. **S10** `PedidoRef` del evento de CxC es el número de pedido de A+W.
 11. **S11** Medidas y m² de la pieza no entran en PT-01; se leen por puerto cuando las necesiten PT5.5 y PT5.12.
 12. **S12** CxC decide automáticamente una sola vez por entrada a 69, como usuario de sistema y sin override.
+13. **S13 (supuesto fin de semana 31-oct, PT5.2)** P-096/P-166: se sigue la ficha; el pedido pasa a 70 aunque esté incompleto, REPARTO incluido (Eliam E4). Eliam y Millet no contestaron; si cambia, solo se agrega la condición «Completo» en `LiberacionPedido`.
+14. **S14 (supuesto fin de semana 31-oct, PT5.2)** P-167: PT registra la liberación directo con su motivo para saldo y REPARTO; la decisión de CxC solo corre en el camino retenido. Con saldo o REPARTO desde la primera pieza no se publica el evento de 69.
+15. **S15 (supuesto fin de semana 31-oct, PT5.2)** Los consumidores de `pedido.estado-cambiado.v1` (CxC) y de `decision-liberacion.emitida.v1` (PT) son solo de entrega local (C1.8), sin worker de Service Bus, hasta que exista el topic `producto-terminado-events`. Todo sigue detrás de las banderas del canal de PT (Real apagado); el canal Real nunca libera por saldo hasta el puerto de Uziel.
 
 ## 12. Preguntas abiertas
 

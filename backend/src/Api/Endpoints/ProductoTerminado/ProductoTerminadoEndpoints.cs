@@ -5,7 +5,9 @@ using Millet.Api.Auth;
 using Millet.Api.Web;
 using Millet.Identidad.Domain;
 using Millet.ProductoTerminado.Application.Consultas;
+using Millet.Integraciones.Aw.Infrastructure.Origen;
 using Millet.ProductoTerminado.Application.Escaneos;
+using Millet.ProductoTerminado.Application.Liberacion;
 
 namespace Millet.Api.Endpoints.ProductoTerminado;
 
@@ -44,6 +46,15 @@ public static class ProductoTerminadoEndpoints
         escaneo.MapPost("/revisar", async (Guid id, HttpRequest req, HttpResponse res, IMediator mediator, CancellationToken ct) =>
             Version(req) is int v ? Respuesta(await mediator.Send(new MarcarReposicionRevisadaCommand(id, v), ct), res) : SinVersion())
             .WithMetadata(new RequireIdempotencyKeyAttribute());
+
+        // Solo Demo (PT5.2): el saldo de prueba simula el cobro de caja. Nunca se mapea en Production; además exige el origen Demo de A+W.
+        // PLATFORM-TODO(<SaldoPorPedidoFacturacion>): se retira cuando Facturación (Uziel) publique el saldo por pedido.
+        if (!app.ServiceProvider.GetRequiredService<IHostEnvironment>().IsProduction())
+            g.MapPut("/demo/pedidos/{numero}/saldo", async (string numero, SaldoDemoBody body, AwOrigenSesion sesion, IMediator mediator, CancellationToken ct) =>
+                await sesion.EsDemoAsync(ct)
+                    ? Results.Ok(new { liberado = await mediator.Send(new PonerSaldoDemoCommand(numero, body.Saldo), ct) })
+                    : Results.Problem(statusCode: 409, title: "El saldo de prueba solo existe en el origen Demo.", extensions: new Dictionary<string, object?> { ["code"] = "PT_SOLO_DEMO" }))
+                .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar);
     }
 
     private static int? Version(HttpRequest req)
@@ -57,4 +68,6 @@ public static class ProductoTerminadoEndpoints
     private static IResult Respuesta(EscaneoDto d, HttpResponse response) { response.Headers.ETag = $"\"{d.Version.ToString(CultureInfo.InvariantCulture)}\""; return Results.Ok(d); }
 
     public sealed record DescartarBody(string Motivo);
+
+    public sealed record SaldoDemoBody(decimal Saldo);
 }

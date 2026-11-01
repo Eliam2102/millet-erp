@@ -29,10 +29,20 @@ export interface AvancePosicionDto {
   avanceFisico: 'SinPiezas' | 'Parcial' | 'Completo';
 }
 
+/** Estado del pedido en el ERP (PT5.2), independiente del avance físico. No es el 69 de A+W. */
+export interface EstadoPedidoDto {
+  estado: 'Retenido' | 'Liberado';
+  /** SaldoPendiente | SaldoCubierto | Reparto | DecisionCxc. */
+  motivo: string | null;
+  desde: string | null;
+}
+
 export interface PiezasPagina {
   items: PiezaDto[];
   total: number;
   avance: AvancePosicionDto[];
+  /** Null si el pedido aún no tiene piezas en PT. */
+  estadoPedido?: EstadoPedidoDto | null;
 }
 
 export interface EscaneoDto {
