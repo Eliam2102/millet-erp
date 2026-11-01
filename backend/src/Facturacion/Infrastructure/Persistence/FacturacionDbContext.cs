@@ -145,6 +145,11 @@ public sealed class FacturacionDbContext : BaseDbContext
     /// <summary>Cobros de mostrador — desacoplan cobro de emisión (CAJAS-PR4, [Decisión 12-3]).</summary>
     public DbSet<CobroMostrador> CobrosMostrador => Set<CobroMostrador>();
 
+    // 86e3vr1tf: archivo diario de la terminal de tarjetas y su liquidación por folio.
+    public DbSet<Millet.Facturacion.Domain.Cajas.Terminal.CargaTerminal> CargasTerminal => Set<Millet.Facturacion.Domain.Cajas.Terminal.CargaTerminal>();
+    public DbSet<Millet.Facturacion.Domain.Cajas.Terminal.TransaccionTerminal> TransaccionesTerminal => Set<Millet.Facturacion.Domain.Cajas.Terminal.TransaccionTerminal>();
+    public DbSet<Millet.Facturacion.Domain.Cajas.Terminal.LiquidacionTerminal> LiquidacionesTerminal => Set<Millet.Facturacion.Domain.Cajas.Terminal.LiquidacionTerminal>();
+
     /// <summary>Marcas de idempotencia de integration events consumidos (PR gemelo TES-PR7).</summary>
     public DbSet<Domain.Eventos.EventoProcesado> EventosProcesados => Set<Domain.Eventos.EventoProcesado>();
 
@@ -210,6 +215,9 @@ public sealed class FacturacionDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new CajaAjustePendienteConfiguration());
         modelBuilder.ApplyConfiguration(new CobroMostradorConfiguration());
         modelBuilder.ApplyConfiguration(new CobroMostradorFormaPagoConfiguration());
+        modelBuilder.ApplyConfiguration(new CargaTerminalConfiguration());
+        modelBuilder.ApplyConfiguration(new TransaccionTerminalConfiguration());
+        modelBuilder.ApplyConfiguration(new LiquidacionTerminalConfiguration());
         modelBuilder.ApplyConfiguration(new EventoProcesadoConfiguration());
     }
 }

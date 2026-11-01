@@ -14,9 +14,9 @@ namespace Millet.Compras.IntegrationTests.Matriz;
 
 /// <summary>
 /// Tests integration de <see cref="ResolverAutorizadorService"/>
-/// (F9-PR2): valida que el servicio busca el aprobador vigente con la
+/// (C3.1 / F-09): valida que el servicio busca el aprobador vigente con la
 /// semántica polimórfica del campo <c>departamento_id</c> (scope_id):
-/// JefeDpto → depto, JefeAlmacen → almacen, AutorizadorN2 → sucursal.
+/// N1 = JefeDpto por departamento; N2 = JefeAlmacen por sucursal.
 /// </summary>
 public class ResolverAutorizadorServiceTests : IClassFixture<StubsWebApplicationFactory>
 {
@@ -35,19 +35,34 @@ public class ResolverAutorizadorServiceTests : IClassFixture<StubsWebApplication
     }
 
     [Fact]
-    public async Task ResolverN1_Con_Naturaleza_Estandar_Busca_JefeAlmacen_Por_AlmacenDestino()
+    public async Task ResolverN1_Busca_JefeDpto_Por_Departamento()
     {
         var deptoId = Guid.CreateVersion7();
-        var almacenId = Guid.CreateVersion7();
-        var jefeAlmacenUserId = Guid.CreateVersion7();
+        var jefeDptoUserId = Guid.CreateVersion7();
 
-        var rq = BuildRequisicion(deptoId, almacenId);
-        await SeedAprobadorAsync(scopeId: almacenId, RolJefeAlmacen, jefeAlmacenUserId);
+        var rq = BuildRequisicion(deptoId, almacenId: Guid.CreateVersion7());
+        await SeedAprobadorAsync(scopeId: deptoId, RolJefeDpto, jefeDptoUserId);
 
         try
         {
-            var resolved = await ResolverN1Async(rq, Naturaleza.Estandar);
-            Assert.Equal(jefeAlmacenUserId, resolved);
+            Assert.Equal(jefeDptoUserId, await ResolverN1Async(rq));
+        }
+        finally
+        {
+            await CleanupAprobadoresAsync(scopeId: deptoId);
+        }
+    }
+
+    [Fact]
+    public async Task ResolverN1_Ignora_JefeAlmacen_Del_Almacen_Destino()
+    {
+        var almacenId = Guid.CreateVersion7();
+        var rq = BuildRequisicion(Guid.CreateVersion7(), almacenId);
+        await SeedAprobadorAsync(scopeId: almacenId, RolJefeAlmacen, Guid.CreateVersion7());
+
+        try
+        {
+            Assert.Null(await ResolverN1Async(rq));
         }
         finally
         {
@@ -56,61 +71,34 @@ public class ResolverAutorizadorServiceTests : IClassFixture<StubsWebApplication
     }
 
     [Fact]
-    public async Task ResolverN1_Con_Naturaleza_Servicio_Busca_JefeDpto_Por_Departamento()
+    public async Task ResolverN2_Busca_JefeAlmacen_Por_Sucursal()
     {
-        var deptoId = Guid.CreateVersion7();
-        var almacenId = Guid.CreateVersion7();
-        var jefeDptoUserId = Guid.CreateVersion7();
-
-        var rq = BuildRequisicion(deptoId, almacenId);
-        await SeedAprobadorAsync(scopeId: deptoId, RolJefeDpto, jefeDptoUserId);
-
-        try
-        {
-            var resolved = await ResolverN1Async(rq, Naturaleza.Servicio);
-            Assert.Equal(jefeDptoUserId, resolved);
-        }
-        finally
-        {
-            await CleanupAprobadoresAsync(scopeId: deptoId);
-        }
-    }
-
-    [Fact]
-    public async Task ResolverN1_Con_Naturaleza_Critico_Busca_JefeDpto_Igual_Que_Servicio()
-    {
-        var deptoId = Guid.CreateVersion7();
-        var almacenId = Guid.CreateVersion7();
-        var jefeDptoUserId = Guid.CreateVersion7();
-
-        var rq = BuildRequisicion(deptoId, almacenId);
-        await SeedAprobadorAsync(scopeId: deptoId, RolJefeDpto, jefeDptoUserId);
-
-        try
-        {
-            var resolved = await ResolverN1Async(rq, Naturaleza.Critico);
-            Assert.Equal(jefeDptoUserId, resolved);
-        }
-        finally
-        {
-            await CleanupAprobadoresAsync(scopeId: deptoId);
-        }
-    }
-
-    [Fact]
-    public async Task ResolverN2_Busca_AutorizadorN2_Por_Sucursal()
-    {
-        var deptoId = Guid.CreateVersion7();
         var sucursalId = Guid.CreateVersion7();
-        var autorizadorUserId = Guid.CreateVersion7();
+        var jefeAlmacenUserId = Guid.CreateVersion7();
 
-        var rq = BuildRequisicion(deptoId, almacenId: Guid.CreateVersion7(), sucursalId: sucursalId);
-        await SeedAprobadorAsync(scopeId: sucursalId, RolAutorizadorN2, autorizadorUserId);
+        var rq = BuildRequisicion(Guid.CreateVersion7(), almacenId: Guid.CreateVersion7(), sucursalId: sucursalId);
+        await SeedAprobadorAsync(scopeId: sucursalId, RolJefeAlmacen, jefeAlmacenUserId);
 
         try
         {
-            var resolved = await ResolverN2Async(rq, Naturaleza.Critico);
-            Assert.Equal(autorizadorUserId, resolved);
+            Assert.Equal(jefeAlmacenUserId, await ResolverN2Async(rq));
+        }
+        finally
+        {
+            await CleanupAprobadoresAsync(scopeId: sucursalId);
+        }
+    }
+
+    [Fact]
+    public async Task ResolverN2_Ignora_AutorizadorN2()
+    {
+        var sucursalId = Guid.CreateVersion7();
+        var rq = BuildRequisicion(Guid.CreateVersion7(), almacenId: Guid.CreateVersion7(), sucursalId: sucursalId);
+        await SeedAprobadorAsync(scopeId: sucursalId, RolAutorizadorN2, Guid.CreateVersion7());
+
+        try
+        {
+            Assert.Null(await ResolverN2Async(rq));
         }
         finally
         {
@@ -123,9 +111,7 @@ public class ResolverAutorizadorServiceTests : IClassFixture<StubsWebApplication
     {
         var rq = BuildRequisicion(Guid.CreateVersion7(), Guid.CreateVersion7());
 
-        var resolved = await ResolverN1Async(rq, Naturaleza.Estandar);
-
-        Assert.Null(resolved);
+        Assert.Null(await ResolverN1Async(rq));
     }
 
     [Fact]
@@ -133,31 +119,27 @@ public class ResolverAutorizadorServiceTests : IClassFixture<StubsWebApplication
     {
         var rq = BuildRequisicion(Guid.CreateVersion7(), Guid.CreateVersion7());
 
-        var resolved = await ResolverN2Async(rq, Naturaleza.Riesgo);
-
-        Assert.Null(resolved);
+        Assert.Null(await ResolverN2Async(rq));
     }
 
     [Fact]
     public async Task ResolverN1_Aprobador_Cerrado_No_Aparece()
     {
         var deptoId = Guid.CreateVersion7();
-        var almacenId = Guid.CreateVersion7();
         var oldUserId = Guid.CreateVersion7();
 
-        var rq = BuildRequisicion(deptoId, almacenId);
+        var rq = BuildRequisicion(deptoId, Guid.CreateVersion7());
         // Sembrar y cerrar inmediatamente.
-        var aprobadorId = await SeedAprobadorAsync(scopeId: almacenId, RolJefeAlmacen, oldUserId);
+        var aprobadorId = await SeedAprobadorAsync(scopeId: deptoId, RolJefeDpto, oldUserId);
         await CerrarAprobadorAsync(aprobadorId);
 
         try
         {
-            var resolved = await ResolverN1Async(rq, Naturaleza.Estandar);
-            Assert.Null(resolved);
+            Assert.Null(await ResolverN1Async(rq));
         }
         finally
         {
-            await CleanupAprobadoresAsync(scopeId: almacenId);
+            await CleanupAprobadoresAsync(scopeId: deptoId);
         }
     }
 
@@ -182,18 +164,18 @@ public class ResolverAutorizadorServiceTests : IClassFixture<StubsWebApplication
             descripcion: "Test resolver");
     }
 
-    private async Task<Guid?> ResolverN1Async(Requisicion rq, Naturaleza naturaleza)
+    private async Task<Guid?> ResolverN1Async(Requisicion rq)
     {
         await using var scope = _factory.Services.CreateAsyncScope();
         var port = scope.ServiceProvider.GetRequiredService<IResolverAutorizadorPort>();
-        return await port.ResolverN1Async(rq, naturaleza);
+        return await port.ResolverN1Async(rq);
     }
 
-    private async Task<Guid?> ResolverN2Async(Requisicion rq, Naturaleza naturaleza)
+    private async Task<Guid?> ResolverN2Async(Requisicion rq)
     {
         await using var scope = _factory.Services.CreateAsyncScope();
         var port = scope.ServiceProvider.GetRequiredService<IResolverAutorizadorPort>();
-        return await port.ResolverN2Async(rq, naturaleza);
+        return await port.ResolverN2Async(rq);
     }
 
     private async Task<Guid> SeedAprobadorAsync(Guid scopeId, short rol, Guid usuarioId)

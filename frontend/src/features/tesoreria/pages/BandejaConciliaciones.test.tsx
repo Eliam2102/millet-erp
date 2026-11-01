@@ -101,4 +101,23 @@ describe('<BandejaConciliaciones>', () => {
     expect(await screen.findByText('DEPOSITO CLIENTE ACME')).toBeInTheDocument();
     expect(await screen.findByText('Cobranza cliente')).toBeInTheDocument();
   });
+
+  it('muestra un cargo del extracto como negativo (el monto del API viene en valor absoluto)', async () => {
+    const conCargo = {
+      ...mockConciliacion,
+      lineas: [{ ...mockConciliacion.lineas[0], descripcion: 'PAGO SPEI PAPELERIA', cargo: 661.2, abono: null, monto: 661.2, sentido: 2 }],
+    };
+    mswServer.use(
+      http.get('*/api/v1/tesoreria/cuentas', () => HttpResponse.json([mockCuenta])),
+      http.get('*/api/v1/tesoreria/conceptos', () => HttpResponse.json([])),
+      http.get('*/api/v1/tesoreria/conciliaciones', () => HttpResponse.json([conCargo])),
+      http.get('*/api/v1/tesoreria/conciliaciones/00000000-0000-0000-0000-000000000010', () => HttpResponse.json(conCargo))
+    );
+
+    render(<BandejaConciliaciones />, { wrapper: createQueryWrapper() });
+
+    const fila = (await screen.findByText('PAGO SPEI PAPELERIA')).closest('tr')!;
+    expect(fila).toHaveTextContent('-$661.20');
+    expect(fila).not.toHaveTextContent('+$661.20');
+  });
 });

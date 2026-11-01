@@ -10,6 +10,7 @@ using Millet.Compras.Domain.Ports.Administracion;
 using Millet.Compras.Domain.Ports.Almacen;
 using Millet.Compras.Domain.Ports.DatosMaestros;
 using Millet.Compras.Domain.Ports.Identidad;
+using Millet.Compras.Domain.Ports.Matriz;
 using Millet.Compras.Infrastructure;
 using Millet.SharedKernel.Application.Exceptions;
 using Millet.SharedKernel.Application.UnidadesMedida;
@@ -49,6 +50,7 @@ public sealed class ObtenerRequisicionPorIdHandler : IRequestHandler<ObtenerRequ
     private readonly IConsultarStockPort _stock;
     private readonly IConversionUnidadPort _conversion;
     private readonly ILogger<ObtenerRequisicionPorIdHandler> _logger;
+    private readonly IResolverAutorizadorPort _autorizadores;
 
     public ObtenerRequisicionPorIdHandler(
         ComprasDbContext db,
@@ -60,8 +62,10 @@ public sealed class ObtenerRequisicionPorIdHandler : IRequestHandler<ObtenerRequ
         IDim3ReadPort centrosCosto,
         IConsultarStockPort stock,
         IConversionUnidadPort conversion,
-        ILogger<ObtenerRequisicionPorIdHandler> logger)
+        ILogger<ObtenerRequisicionPorIdHandler> logger,
+        IResolverAutorizadorPort autorizadores)
     {
+        _autorizadores = autorizadores;
         _db = db;
         _mapper = mapper;
         _usuarios = usuarios;
@@ -148,12 +152,15 @@ public sealed class ObtenerRequisicionPorIdHandler : IRequestHandler<ObtenerRequ
         // con el mismo reparto que el preview. Falla → false, nunca 500.
         var (enAlmacen, almacenCubreTodo) = await CalcularCoberturaAlmacenAsync(
             requisicion, cancellationToken);
+        var enAutorizacion = requisicion.Estado == EstadoRequisicion.EnAutorizacion;
         response = response with
         {
             ProveedorSugeridoRazonSocial = prov?.RazonSocial,
             ProveedorSugeridoClave = prov?.Clave,
             EnAlmacen = enAlmacen,
             AlmacenCubreTodo = almacenCubreTodo,
+            AutorizadorN1Id = enAutorizacion ? await _autorizadores.ResolverN1Async(requisicion, cancellationToken) : null,
+            AutorizadorN2Id = enAutorizacion ? await _autorizadores.ResolverN2Async(requisicion, cancellationToken) : null,
             // Se encadenan las reconstrucciones: cada `with` solo toca sus
             // campos, así que artículo, CC-Máquina y saldos se pueblan sin pisarse.
             Lineas = AplicarSaldos(

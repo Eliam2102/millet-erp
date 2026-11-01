@@ -377,6 +377,12 @@ public sealed class FakeDatosImpresionCfdi(DatosImpresionCfdi? datos = null) : I
         Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
 }
 
+/// <summary>Saldo pendiente según CxC (F1-CXC-05 P2); <c>null</c> = la factura aún no está en cartera.</summary>
+public sealed class FakeSaldoFacturaReadPort(decimal? saldo = null) : ISaldoFacturaReadPort
+{
+    public Task<decimal?> ObtenerSaldoAsync(Guid facturaVentaId, CancellationToken cancellationToken) => Task.FromResult(saldo);
+}
+
 /// <summary>F6.6: folios de transferencia que «emitió» Tesorería para las pruebas de Caja.</summary>
 public sealed class FakeFolioTransferenciaReadPort(params Millet.Facturacion.Domain.Ports.FolioTransferenciaCajaDto[] emitidos)
     : Millet.Facturacion.Domain.Ports.IFolioTransferenciaReadPort

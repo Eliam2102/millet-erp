@@ -51,7 +51,7 @@ export interface ConfiguracionPacResponse {
   csdActualizadoAt: string | null;
   csdNotBefore: string | null;
   csdNotAfter: string | null;
-  csdEstado: 'Vigente' | 'ProximoAVencer' | 'Vencido' | null;
+  csdEstado: 'Vigente' | 'ProximoAVencer' | 'Vencido' | 'Revocado' | null;
   createdAt: string;
   updatedAt: string;
   version: number;
@@ -138,4 +138,30 @@ export interface SubirFielReceptorPayload {
   cerBase64: string;
   keyBase64: string;
   password: string;
+}
+
+/** F6.9: estado del CSD de la empresa actual para el aviso en el ERP. */
+export interface EstadoCsdEmpresa {
+  estado: 'NoConfigurado' | 'Vigente' | 'ProximoAVencer' | 'Vencido' | 'Revocado';
+  numeroSerie: string | null;
+  venceEn: string | null;
+  diasRestantes: number | null;
+  bloqueaTimbrado: boolean;
+}
+
+/** F6.9: certificado del historial de CSD (alta, sustitución, revocación). */
+export interface CertificadoCsdItem {
+  id: string;
+  numeroSerie: string;
+  rfc: string | null;
+  vigenteDesde: string;
+  venceEn: string;
+  estado: 'Vigente' | 'Sustituido' | 'Revocado';
+  registradoEn: string;
+  registradoPor: string | null;
+  finalizadoEn: string | null;
+  finalizadoPor: string | null;
+  motivoRevocacion: string | null;
+  /** Umbrales (30, 15, 5, 0 días) cuyo aviso ya salió. */
+  alertasEnviadas: number[];
 }

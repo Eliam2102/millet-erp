@@ -33,7 +33,7 @@ public sealed class BonificacionReembolsoTests
         new(db, new FakeSender(new ReservarFolioResponse("NC-000010", 10, "")), new FakePeriodoContablePort(),
             new FakeFiscalApiClient(), new FakeCfdiRepositorioPort(), _eventos, new FakeEmpresaContext(_empresa),
             new FakeUserContext(_usuario), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db),
-            new FakeCurrentUserPermissions(permisos));
+            new FakeCurrentUserPermissions(permisos), new FakeSaldoFacturaReadPort());
 
     private async Task<FacturaVenta> FacturaAsync(FacturacionDbContext db, bool conCliente = true)
     {

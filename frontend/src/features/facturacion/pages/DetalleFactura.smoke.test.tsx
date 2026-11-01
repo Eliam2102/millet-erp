@@ -6,6 +6,17 @@ import { createQueryWrapper } from '@/test/test-query-client';
 import { DetalleFactura } from '@/features/facturacion/pages/DetalleFactura';
 
 vi.mock('@/lib/auth/useHasPermission', () => ({ useHasPermission: () => true }));
+// F1-CXC-05 P2: el selector real consulta el estado de cuenta; aquí basta con elegir un anticipo.
+vi.mock('@/features/facturacion/components/AnticipoPicker', () => ({
+  AnticipoPicker: ({ onChange }: { onChange: (a: unknown) => void }) => (
+    <button
+      type="button"
+      onClick={() => onChange({ anticipoId: 'a-7', folio: 'FANT-7', saldo: 500, estado: 'Abierto' })}
+    >
+      Elegir anticipo FANT-7
+    </button>
+  ),
+}));
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
@@ -280,6 +291,46 @@ describe('<DetalleFactura> — smoke', () => {
     expect(cuerpo).toMatchObject({
       reembolso: { banco: 'BBVA', clabe: '032180000118359719', titular: 'Cliente SA' },
     });
+  });
+
+  it('F1-CXC-05 P2: aplica un anticipo del cliente a la factura timbrada con tope en lo que falta por cobrar', async () => {
+    let peticion: { url: string; cuerpo: unknown } | null = null;
+    mswServer.use(
+      http.get('*/api/v1/facturacion/facturas/f-1', () =>
+        HttpResponse.json({ ...detalle, relaciones: [], clienteId: 'c-1', totalPorCobrar: 300 }),
+      ),
+      http.get('*/api/v1/facturacion/facturas/f-1/envios', () => HttpResponse.json([])),
+      http.post('*/api/v1/facturacion/anticipos/:id/aplicar', async ({ request }) => {
+        peticion = { url: request.url, cuerpo: await request.json() };
+        return HttpResponse.json({
+          notaCreditoId: 'nc-40', folio: 'NC-40', uuid: 'U', importe: 300, saldoAnticipo: 200, saldoFactura: 0,
+        });
+      }),
+    );
+    render(<DetalleFactura />, { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(screen.getByText('A-1')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /Aplicar anticipo/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Elegir anticipo FANT-7' }));
+    // Propone el menor entre el saldo del anticipo (500) y lo que falta por cobrar (300).
+    expect(screen.getByLabelText(/Importe/)).toHaveValue(300);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Aplicar anticipo' }).at(-1)!);
+
+    await waitFor(() => expect(peticion).not.toBeNull());
+    expect(peticion!.url).toContain('/anticipos/a-7/aplicar');
+    expect(peticion!.cuerpo).toEqual({ facturaVentaId: 'f-1', importe: 300 });
+  });
+
+  it('F1-CXC-05 P2: sin saldo por cobrar no ofrece aplicar anticipo', async () => {
+    mswServer.use(
+      http.get('*/api/v1/facturacion/facturas/f-1', () =>
+        HttpResponse.json({ ...detalle, relaciones: [], clienteId: 'c-1', totalPorCobrar: 0 }),
+      ),
+      http.get('*/api/v1/facturacion/facturas/f-1/envios', () => HttpResponse.json([])),
+    );
+    render(<DetalleFactura />, { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(screen.getByText('A-1')).toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: /Aplicar anticipo/i })).not.toBeInTheDocument();
   });
 
   it('estado error cuando la factura no existe', async () => {

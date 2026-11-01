@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Administracion.Application.Series;
 using Millet.Administracion.Domain;
+using Millet.Facturacion.Application.Facturas;
 using Millet.Facturacion.Application.Integration;
 using Millet.Facturacion.Application.NotasCredito.SolicitarReembolso;
 using Millet.Facturacion.Application.Timbrado;
@@ -36,6 +37,7 @@ public sealed class EmitirNotaCreditoBonificacionHandler
     private readonly ICurrentUserContext _user;
     private readonly IClock _clock;
     private readonly ICurrentUserPermissions _permisos;
+    private readonly ISaldoFacturaReadPort _saldos;
 
     public EmitirNotaCreditoBonificacionHandler(
         FacturacionDbContext db,
@@ -46,9 +48,10 @@ public sealed class EmitirNotaCreditoBonificacionHandler
         IIntegrationEventPublisher eventos,
         ICurrentEmpresaContext empresa,
         ICurrentUserContext user,
-        IClock clock, ValidadorReceptorFiscal receptorFiscal, ICurrentUserPermissions permisos)
+        IClock clock, ValidadorReceptorFiscal receptorFiscal, ICurrentUserPermissions permisos, ISaldoFacturaReadPort saldos)
     {
         _permisos = permisos;
+        _saldos = saldos;
         _receptorFiscal = receptorFiscal;
         _db = db;
         _sender = sender;
@@ -84,6 +87,13 @@ public sealed class EmitirNotaCreditoBonificacionHandler
             throw new BusinessRuleException(
                 "FACTURA_NO_TIMBRADA",
                 $"Solo se puede bonificar una factura timbrada (estado actual: {factura.Estado}).");
+
+        // F1-CXC-05 Parte 2: sin saldos negativos. La NC no puede acreditar más de lo que la factura tiene pendiente
+        // (antes CxC la rechazaba al proyectarla y quedaba en reintentos).
+        var saldo = await SaldoPendienteFactura.CalcularAsync(_db, _saldos, factura.Id, factura.Total, cancellationToken);
+        if (command.MontoTotal > saldo)
+            throw new BusinessRuleException("NC_IMPORTE_MAYOR_SALDO",
+                $"El importe de la nota ({command.MontoTotal:N2}) es mayor que el saldo pendiente de la factura ({saldo:N2}).");
 
         var ahora = _clock.UtcNow;
         // Período en la fecha fiscal de México: después de las 18:00 del último día, UTC ya es el mes siguiente.

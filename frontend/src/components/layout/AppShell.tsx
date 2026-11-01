@@ -9,6 +9,7 @@ import { contextoNavegacion, filtrarModuloPorPermisos, type NavModulo } from '@/
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { ModulePanel } from '@/components/layout/ModulePanel';
 import { useAuth } from '@/lib/auth/useAuth';
+import { AvisoCsdBanner } from '@/features/integraciones-fiscal/components/AvisoCsdBanner';
 
 /** Shell autenticado: rail de 76px, panel de módulo de 240px y topbar.
  * En móvil conserva el drawer y el launcher. El cambio de sesión sigue
@@ -65,6 +66,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             onMenuClick={() => setMobileOpen(true)}
             onExpandPanel={contexto && !showPanel ? () => setCollapsedModule(null) : undefined}
           />
+          <AvisoCsdBanner />
           <main
             className={`relative min-h-[calc(100vh-3.5rem)] ${pathname === '/' ? '' : 'px-4 pt-6 pb-10 md:px-6'}`}
           >

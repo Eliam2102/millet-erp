@@ -7,6 +7,7 @@ using Millet.Compras.Domain;
 using Millet.Compras.Domain.Matriz;
 using Millet.Compras.Domain.Ports.Almacen;
 using Millet.Compras.Domain.Ports.DatosMaestros;
+using Millet.Compras.Domain.Ports.Matriz;
 using Millet.Compras.Domain.Ports.OrdenCompra;
 using Millet.Compras.Infrastructure;
 using Millet.SharedKernel.Application;
@@ -55,6 +56,7 @@ public sealed class AutorizarRequisicionHandler : IRequestHandler<AutorizarRequi
     private readonly TransaccionApartadosRq _apartadosTx;
     private readonly IConversionUnidadPort _conversion;
     private readonly IArticuloReadPort _articulos;
+    private readonly IResolverAutorizadorPort _autorizadores;
 
     public AutorizarRequisicionHandler(
         ComprasDbContext db,
@@ -64,8 +66,10 @@ public sealed class AutorizarRequisicionHandler : IRequestHandler<AutorizarRequi
         IConsultarStockPort stock,
         IGenerarSolicitudCompraPort ocPort,
         IClock clock, TransaccionApartadosRq apartadosTx, IConversionUnidadPort conversion,
-        IArticuloReadPort articulos)
+        IArticuloReadPort articulos,
+        IResolverAutorizadorPort autorizadores)
     {
+        _autorizadores = autorizadores;
         _db = db;
         _mediator = mediator;
         _currentUser = currentUser;
@@ -116,6 +120,20 @@ public sealed class AutorizarRequisicionHandler : IRequestHandler<AutorizarRequi
                 "BIFURCACION_FALLO",
                 "La bifurcación stock-aware falló. Reintente o consulte al administrador.",
                 ex);
+        }
+
+        // C3.1 / F-09: con aprobador configurado solo él firma el nivel (sin bypass
+        // de super-admin; sin suplentes en el modelo). Sin configurar: basta el permiso.
+        var facultado = command.Nivel == NivelAutorizacion.Nivel1
+            ? await _autorizadores.ResolverN1Async(requisicion, cancellationToken)
+            : await _autorizadores.ResolverN2Async(requisicion, cancellationToken);
+        if (facultado is Guid autorizadorId && autorizadorId != userId)
+        {
+            throw new ForbiddenException(
+                "REQUISICION_AUTORIZADOR_NO_FACULTADO",
+                command.Nivel == NivelAutorizacion.Nivel1
+                    ? "El nivel 1 solo lo firma el jefe del departamento del solicitante."
+                    : "El nivel 2 solo lo firma el jefe de almacén de la sucursal.");
         }
 
         var resultado = requisicion.RegistrarAutorizacion(

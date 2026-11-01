@@ -109,7 +109,7 @@ public partial class OrdenesCompraEndpointsTests
             AutorizarRequisicionHandler Handler() => new(db, sp.GetRequiredService<IMediator>(), new UsuarioP2(Guid.NewGuid()), new NivelP7(),
                 sp.GetRequiredService<IConsultarStockPort>(), fallo ? new OcFallaP7() : sp.GetRequiredService<IGenerarSolicitudCompraPort>(),
                 sp.GetRequiredService<IClock>(), sp.GetRequiredService<TransaccionApartadosRq>(), sp.GetRequiredService<IConversionUnidadPort>(),
-                sp.GetRequiredService<IArticuloReadPort>());
+                sp.GetRequiredService<IArticuloReadPort>(), sp.GetRequiredService<Millet.Compras.Domain.Ports.Matriz.IResolverAutorizadorPort>());
             if (fallo)
             {
                 var ex = await Assert.ThrowsAsync<BusinessRuleException>(() => Handler().Handle(new(rqs[0].Id, NivelAutorizacion.Nivel1), default));

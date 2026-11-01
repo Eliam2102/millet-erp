@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Millet.Integraciones.Fiscal.Domain;
 using Millet.Integraciones.Fiscal.Domain.Ports;
+using Millet.SharedKernel.Application;
 using SdkModels = Fiscalapi.Models;
 // Fiscalapi.Models.ForeignTrade.Mercancia y Fiscalapi.Models.BillOfLading.Mercancia
 // colisionan — siempre vía alias de namespace.
@@ -38,15 +39,17 @@ public sealed partial class FiscalApiTimbradoAdapter : ICfdiTimbradoPort
     private readonly IMonedaPrecisionReadPort? _monedas;
     private readonly IConfiguracionPacResolver _configResolver;
     private readonly ILogger<FiscalApiTimbradoAdapter> _logger;
+    private readonly IClock? _clock;
 
     public FiscalApiTimbradoAdapter(
         IFiscalApiSdkClientFactory factory,
         IConfiguracionPacResolver configResolver,
-        ILogger<FiscalApiTimbradoAdapter> logger, IMonedaPrecisionReadPort? monedas = null)
+        ILogger<FiscalApiTimbradoAdapter> logger, IMonedaPrecisionReadPort? monedas = null, IClock? clock = null)
     {
         _factory = factory; _monedas = monedas;
         _configResolver = configResolver;
         _logger = logger;
+        _clock = clock;
     }
 
     public async Task<TimbradoResultado> TimbrarAsync(CfdiEmision emision, CancellationToken cancellationToken)
@@ -68,6 +71,16 @@ public sealed partial class FiscalApiTimbradoAdapter : ICfdiTimbradoPort
                 "CSD_NO_CONFIGURADO",
                 "La configuración del PAC no tiene el CSD del emisor (.cer + .key + password). " +
                 "Captúralo en Integraciones Fiscal → Configuración del PAC y reintenta el timbrado.");
+        }
+
+        // F6.9 (R24): no se timbra con un CSD revocado ni vencido. Rechazo limpio
+        // antes del PAC; se corrige capturando un CSD vigente y reintentando.
+        if (BloqueoCsd(config.Csd, _clock?.UtcNow ?? DateTimeOffset.UtcNow) is { } bloqueo)
+        {
+            _logger.LogWarning(
+                "[FiscalApiTimbradoAdapter] Timbrado {Serie}-{Folio} (empresa {EmpresaId}) rechazado pre-vuelo: {Codigo}.",
+                emision.Serie, emision.Folio, emision.EmpresaId, bloqueo.Codigo);
+            return Fallido(bloqueo.Codigo, bloqueo.Mensaje);
         }
 
         emision = SustituirIdentidadesSandbox(emision, config);
@@ -723,6 +736,20 @@ public sealed partial class FiscalApiTimbradoAdapter : ICfdiTimbradoPort
                 invoiceId);
         }
 
+        return null;
+    }
+
+    /// <summary>F6.9: motivo por el que el CSD no puede usarse para timbrar, o null si puede.</summary>
+    internal static (string Codigo, string Mensaje)? BloqueoCsd(CsdResuelto csd, DateTimeOffset ahora)
+    {
+        if (csd.RevocadoEn is { } revocado)
+            return ("CSD_REVOCADO",
+                $"El CSD del emisor se revocó el {revocado:yyyy-MM-dd}; no se puede timbrar con él. " +
+                "Captura un CSD vigente en Integraciones Fiscal → Configuración del PAC y reintenta el timbrado.");
+        if (csd.VenceEn is { } vence && ahora >= vence)
+            return ("CSD_VENCIDO",
+                $"El CSD del emisor venció el {vence:yyyy-MM-dd}; no se puede timbrar con él. " +
+                "Captura el CSD renovado en Integraciones Fiscal → Configuración del PAC y reintenta el timbrado.");
         return null;
     }
 

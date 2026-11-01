@@ -96,6 +96,19 @@ public sealed partial class DocumentosFiscalesImpresosTests
         pdf.NombreSugerido.Should().Be("complemento-pago-DEMOP-000401.pdf");
     }
 
+    [Fact]
+    public void Complemento_de_pago_imprime_folios_sin_ligaduras()
+    {
+        // «ff» y «fb» se dibujaban como un solo glifo y el texto del PDF ya no traía el folio (prueba intermitente
+        // del REP con sufijos hexadecimales aleatorios).
+        var folios = new Dictionary<Guid, string> { [FacturaA] = "TFA-ffb0ff1a", [FacturaB] = "TFB-a0fbfl" };
+        using var doc = PdfDocument.Open(new QuestPdfFacturaGenerator()
+            .Generar(CfdiPdfModelBuilder.DesdeReciboPago(NuevoReciboPago(), Datos, folios)).Contenido);
+
+        var texto = SinEspacios(string.Concat(doc.GetPages().Select(p => p.Text)));
+        texto.Should().Contain("TFA-ffb0ff1a").And.Contain("TFB-a0fbfl");
+    }
+
     // ---- Criterio 2: comercio exterior ----
 
     [Fact]

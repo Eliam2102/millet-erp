@@ -25,7 +25,14 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
  * `datos_maestros.proveedores.bloquear`, la acción de bloquear o desbloquear (motivo de 10 a 500
  * caracteres). Desbloquea quien lo pidió o quien tenga el permiso de reemplazo; el backend decide.
  */
-export function ProveedorBloqueo({ proveedor }: { proveedor: ProveedorDetalle }) {
+export function ProveedorBloqueo({
+  proveedor,
+  parte,
+}: {
+  proveedor: ProveedorDetalle;
+  /** Solo el aviso (`alerta`) o solo el botón (`accion`, para el encabezado). Sin valor: ambos. */
+  parte?: 'alerta' | 'accion';
+}) {
   const puedeBloquear = useHasPermission(PermisosCanonicos.DatosMaestrosProveedoresBloquear);
   const bloqueado = proveedor.bloqueado === true;
   const [abierto, setAbierto] = useState(false);
@@ -54,7 +61,7 @@ export function ProveedorBloqueo({ proveedor }: { proveedor: ProveedorDetalle })
 
   return (
     <>
-      {bloqueado && (
+      {bloqueado && parte !== 'accion' && (
         <Alert variant="warning">
           <TriangleAlert className="size-4" aria-hidden="true" />
           <AlertDescription>
@@ -63,17 +70,15 @@ export function ProveedorBloqueo({ proveedor }: { proveedor: ProveedorDetalle })
           </AlertDescription>
         </Alert>
       )}
-      {puedeBloquear && (
-        <div>
-          <Button variant="outline" size="sm" onClick={() => setAbierto(true)}>
-            {bloqueado ? (
-              <LockOpen className="mr-1.5 h-4 w-4" aria-hidden="true" />
-            ) : (
-              <Ban className="mr-1.5 h-4 w-4" aria-hidden="true" />
-            )}
-            {verbo} proveedor
-          </Button>
-        </div>
+      {puedeBloquear && parte !== 'alerta' && (
+        <Button variant="outline" size="sm" onClick={() => setAbierto(true)}>
+          {bloqueado ? (
+            <LockOpen className="mr-1.5 h-4 w-4" aria-hidden="true" />
+          ) : (
+            <Ban className="mr-1.5 h-4 w-4" aria-hidden="true" />
+          )}
+          {verbo} proveedor
+        </Button>
       )}
       <Dialog open={abierto} onOpenChange={setAbierto}>
         <DialogContent size="sm">

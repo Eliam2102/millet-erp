@@ -55,11 +55,15 @@ public sealed record ConfiguracionPacResuelta(
 /// CSD del emisor descifrado para la emisión por valores
 /// (<c>Issuer.TaxCredentials</c> de FiscalAPI). Vive solo en el cache en
 /// memoria del resolver (TTL 60s), nunca se serializa ni se loggea.
+/// F6.9: lleva su vencimiento y si se revocó, para que el adaptador no timbre
+/// con un CSD vencido o revocado (null = sin dato; no bloquea).
 /// </summary>
 public sealed record CsdResuelto(
     string CertificadoBase64,
     string LlavePrivadaBase64,
-    string Password);
+    string Password,
+    DateTimeOffset? VenceEn = null,
+    DateTimeOffset? RevocadoEn = null);
 
 /// <summary>
 /// Copia plana de <see cref="IdentidadSandbox"/> para el snapshot cacheado

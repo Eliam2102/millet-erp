@@ -4,6 +4,9 @@ using Microsoft.AspNetCore.Mvc;
 using Millet.Api.Auth;
 using Millet.Api.Web;
 using Millet.Identidad.Domain;
+using Millet.Api.Endpoints.Adjuntos;
+using Millet.Api.Infrastructure.Adapters;
+using Millet.Integraciones.Fiscal.Application.Certificados;
 using Millet.Integraciones.Fiscal.Application.Configuracion;
 using Millet.Integraciones.Fiscal.Application.Configuracion.GuardarConfiguracionPac;
 using Millet.Integraciones.Fiscal.Application.Configuracion.ObtenerConfiguracionPac;
@@ -125,6 +128,61 @@ public static class IntegracionesFiscalEndpoints
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden);
+
+        // === F6.9: certificados CSD (historial, revocación, estado y evidencia) ===
+
+        config.MapGet("/{empresaId:guid}/{proveedor:int}/certificados", async (
+            Guid empresaId,
+            int proveedor,
+            ICurrentEmpresaContext currentEmpresa,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            EnsureCurrentEmpresa(currentEmpresa, empresaId);
+            return Results.Ok(await mediator.Send(new ListarCertificadosCsdQuery(empresaId), ct));
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.IntegracionesFiscalLeer)
+        .WithName("ListarCertificadosCsd")
+        .WithSummary("Historial de CSD de la empresa (alta, sustitución, revocación)")
+        .Produces<IReadOnlyList<CertificadoCsdItem>>(StatusCodes.Status200OK);
+
+        config.MapPost("/{empresaId:guid}/{proveedor:int}/csd/revocar", async (
+            Guid empresaId,
+            int proveedor,
+            [FromBody] RevocarCsdPayload payload,
+            ICurrentEmpresaContext currentEmpresa,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            EnsureCurrentEmpresa(currentEmpresa, empresaId);
+            return Results.Ok(await mediator.Send(new RevocarCsdCommand(empresaId, (ProveedorPac)proveedor, payload.Motivo), ct));
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.IntegracionesFiscalAdministrar)
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .WithName("RevocarCsd")
+        .WithSummary("Revoca el CSD en uso; el ERP deja de timbrar con él")
+        .Produces<CertificadoCsdItem>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // Estado del CSD de la empresa actual para el aviso en el ERP: sin datos
+        // sensibles, lo consulta cualquier usuario autenticado (lo muestra el banner).
+        app.MapGet("/api/v1/integraciones/fiscal/csd/estado", async (IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new EstadoCsdEmpresaQuery(), ct)))
+        .WithTags("Integraciones.Fiscal")
+        .RequireAuthorization()
+        .WithName("EstadoCsdEmpresa")
+        .WithSummary("Estado y vencimiento del CSD de la empresa actual")
+        .Produces<EstadoCsdEmpresaResponse>(StatusCodes.Status200OK);
+
+        // Evidencia por certificado del historial (acuses del SAT).
+        app.MapGroup("/api/v1/integraciones/fiscal/certificados/{id:guid}")
+            .WithTags("Integraciones.Fiscal")
+            .RequireAuthorization()
+            .MapAdjuntos(CertificadoCsdAdjuntoPropietario.Entidad,
+                PermisosCanonicos.IntegracionesFiscalLeer,
+                PermisosCanonicos.IntegracionesFiscalAdministrar,
+                PermisosCanonicos.IntegracionesFiscalAdministrar);
 
         // === RFCs receptores ===
 
@@ -278,4 +336,7 @@ public static class IntegracionesFiscalEndpoints
         string? BaseUrl,
         string? ApiKey,
         int? TimeoutSegundos);
+
+    /// <summary>Body de la revocación del CSD (F6.9).</summary>
+    public sealed record RevocarCsdPayload(string Motivo);
 }
