@@ -101,6 +101,8 @@ export const A_PERMS = [
   'compras.requisiciones.crear', 'compras.requisiciones.leer', 'compras.requisiciones.editar',
   'compras.ordenes.crear', 'compras.ordenes.crear-sin-rq', 'compras.ordenes.leer', 'compras.ordenes.adjuntar', 'compras.ordenes.transmitir',
   'centros_costo.dim3.leer-todos', 'compartido.catalogos.leer', 'datos_maestros.proveedores.leer',
+  // A may sign in general, so the UI shows the author the disabled «Aprobar Nivel 1» with its reason (REQUISICION_/OC_AUTOAUTORIZACION)
+  'compras.requisiciones.autorizar-nivel1', 'compras.ordenes.autorizar-nivel1',
 ];
 /** Permissions the second signer (C, almacen-corporativo) needs to see the OC of another branch and sign level 2. */
 export const C_PERMS = [

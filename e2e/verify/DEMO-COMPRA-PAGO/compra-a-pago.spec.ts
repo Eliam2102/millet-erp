@@ -178,8 +178,15 @@ test('DEMO-01 [AC] @evidence purchase-to-payment with two users: RQ -> OC -> rec
     });
     const rq = await ok(await guard.api.get(`/api/v1/compras/requisiciones/${rqId}`));
     expect(rq.enAlmacen, 'API enAlmacen must be true with 4 units in stock for MID').toBe(true);
-    // A cannot approve their own RQ
-    await expect(pa.getByRole('button', { name: 'Aprobar Nivel 1' })).toHaveCount(0);
+    // A cannot approve their own RQ: the button is there, disabled, with the reason
+    const aprobarRq = pa.getByRole('button', { name: 'Aprobar Nivel 1' });
+    await expect(aprobarRq).toBeDisabled();
+    await aprobarRq.locator('..').hover();
+    await expect(pa.getByRole('tooltip').getByText('Capturaste esta requisición: no puedes autorizarla. Debe autorizarla otra persona.').first()).toBeVisible();
+    await foto(pa, '02b-autor-no-puede-autorizar-su-requisicion');
+    const t = (await A.api.post(`/api/v1/compras/requisiciones/${rqId}/autorizaciones`, { nivel: 1 })).status();
+    expect(t, 'A authorizing its own RQ (REQUISICION_AUTOAUTORIZACION)').toBe(422);
+    erroresA.length = 0; // that refusal is the expected negative case
   });
 
   await test.step('3. B authorizes N1 from the RQ detail', async () => {
@@ -294,9 +301,11 @@ test('DEMO-01 [AC] @evidence purchase-to-payment with two users: RQ -> OC -> rec
       { method: 'POST', url: new RegExp(`/compras/ordenes/${ocId}/transmitir$`), status: [200, 204] });
     await expect(pa.getByText(`OC ${ocFolio} transmitida a autorización.`)).toBeVisible();
 
-    // whoever captured the OC cannot authorize it: no usable control in the UI ...
+    // whoever captured the OC cannot authorize it: the button is disabled with the reason ...
     const aprobar = pa.getByRole('button', { name: 'Aprobar Nivel 1' });
-    await expect(aprobar, 'the UI offers no "Aprobar Nivel 1" to A (no autorizar-nivel1 permission: AccionesOC hides it)').toHaveCount(0);
+    await expect(aprobar, 'A holds autorizar-nivel1 but captured the OC: "Aprobar Nivel 1" disabled').toBeDisabled();
+    await aprobar.locator('..').hover();
+    await expect(pa.getByRole('tooltip').getByText('Capturaste esta orden de compra: no puedes aprobarla. Debe aprobarla otra persona.').first()).toBeVisible();
     // ... and the API refuses it too (403 or 422)
     const t = (await A.api.post(`/api/v1/compras/ordenes/${ocId}/autorizaciones`, { nivel: 1 })).status();
     expect([403, 422], `A signing its own OC answered ${t}`).toContain(t);
@@ -320,7 +329,7 @@ test('DEMO-01 [AC] @evidence purchase-to-payment with two users: RQ -> OC -> rec
   });
 
   const uuidFiscal = uuid().toUpperCase();
-  let lineaOcId = ''; let subtotal = 0; let iva = 0; let ocInicial: any;
+  let lineaOcId = ''; let recFolio = ''; let subtotal = 0; let iva = 0; let ocInicial: any;
   await test.step('7. B receives the exact quantity (tolerance 0 %)', async () => {
     ocInicial = await ok(await guard.api.get(`/api/v1/compras/ordenes/${ocId}`));
     lineaOcId = ocInicial.lineas[0].id;
@@ -333,6 +342,8 @@ test('DEMO-01 [AC] @evidence purchase-to-payment with two users: RQ -> OC -> rec
     await dlg.getByLabel('Cantidad a recibir, partida 1').fill(String(FALTANTE));
     const res = await apiCallOn(page, () => dlg.getByRole('button', { name: 'Registrar recepción' }).click(),
       { method: 'POST', url: /\/almacen\/recepciones$/, status: 201 });
+    recFolio = (await res.json()).folio;
+    expect(recFolio, 'the reception returns its folio').toBeTruthy();
     const body = JSON.parse(res.request().postData() ?? '{}');
     expect(body.ordenCompraId).toBe(ocId);
     expect(body.lineas[0]).toMatchObject({ lineaOcId, cantidad: FALTANTE, articuloId: stock.articuloId });
@@ -346,7 +357,7 @@ test('DEMO-01 [AC] @evidence purchase-to-payment with two users: RQ -> OC -> rec
     }).not.toBe(String(ocInicial.subEstadoRecepcion));
   });
 
-  let facturaId = ''; const folioFac = `${rand()}`;
+  let facturaId = ''; const folioFac = String(10000 + Math.floor(Math.random() * 90000)); // numeric, like the supplier's own folio
   await test.step('8. B uploads the CFDI (supplier RFC) and captures the reconciled invoice', async () => {
     await page.goto('/cxp/cfdis');
     await page.waitForLoadState('networkidle');
@@ -393,7 +404,20 @@ test('DEMO-01 [AC] @evidence purchase-to-payment with two users: RQ -> OC -> rec
     await page.goto(`/cxp/facturas/${facturaId}`);
     await page.waitForLoadState('networkidle');
     await expect(page.getByText('Sin diferencia').first(), 'the 3-way match must show «Sin diferencia»').toBeVisible();
-    await foto(page, '09a-cxp-factura-capturada-sin-diferencia');
+    // folio as SERIE-FOLIO with no double prefix
+    await expect(page.getByText(`A-${folioFac}`, { exact: true }).first()).toBeVisible();
+    await expect(page.getByText(new RegExp(`[A-Z]-[A-Z]-${folioFac}`))).toHaveCount(0);
+    // «Recepción» shows the folio of the OC reception (3-way match uses it) instead of «—»
+    const facDet = await ok(await guard.api.get(`/api/v1/cuentas-por-pagar/facturas/${facturaId}`));
+    expect(facDet.recepcionFolio, 'invoice detail carries the reception folio').toContain(recFolio);
+    await expect(page.getByText(recFolio).first()).toBeVisible();
+    // due date: supplier credit days (or OC terms); if it equals the document date the UI says it is cash
+    if (String(facDet.fechaVencimiento).slice(0, 10) === String(facDet.fechaDocumento).slice(0, 10))
+      await expect.soft(page.getByText('(contado, sin días de crédito)'), 'cash invoice (OC terms «Contado»): the header must say so').toBeVisible();
+    else
+      await expect(page.getByText('(contado, sin días de crédito)')).toHaveCount(0);
+    test.info().annotations.push({ type: 'vencimiento', description: `documento ${facDet.fechaDocumento} vence ${facDet.fechaVencimiento}` });
+    await foto(page, '09a-cxp-factura-folio-recepcion-y-vencimiento');
     await page.getByRole('button', { name: 'Autorizar', exact: true }).click();
     const dlg = page.getByRole('alertdialog').or(page.getByRole('dialog')).filter({ hasText: 'Autorizar factura para pago' });
     await expect(dlg).toBeVisible();
@@ -452,7 +476,13 @@ test('DEMO-01 [AC] @evidence purchase-to-payment with two users: RQ -> OC -> rec
     await foto(page, '10f-dialogo-firmar-corrida');
     await dlg.getByRole('button', { name: 'Firmar y autorizar' }).click();
     await expect(page.getByText('Autorizada', { exact: true }).first()).toBeVisible();
-    await foto(page, '10g-corrida-autorizada');
+    // the signature shows who signed (name), not the user GUID
+    const firmas = (await ok(await guard.api.get(`/api/v1/tesoreria/corridas/${corridaId}`))).firmas as { usuarioId: string; usuarioNombre?: string }[];
+    expect(firmas).toHaveLength(1);
+    expect(firmas[0].usuarioNombre, 'signature carries the signer name').toBeTruthy();
+    await expect(page.getByText(firmas[0].usuarioNombre!).first()).toBeVisible();
+    await expect(page.getByText(firmas[0].usuarioId)).toHaveCount(0);
+    await foto(page, '10g-corrida-autorizada-firma-con-nombre');
 
     // --- B generates the BBVA layout
     const descarga = page.waitForEvent('download');
@@ -557,7 +587,12 @@ test('DEMO-01 [AC] @evidence purchase-to-payment with two users: RQ -> OC -> rec
     await apiCallOn(page, () => dlg.getByRole('button', { name: 'Cargar y Procesar' }).click(), { method: 'POST', url: /conciliaciones\/[^/]+\/extracto$/, status: [200, 201] });
     await expect(page.getByText('Extracto cargado y procesado correctamente').first()).toBeVisible();
     await expect(page.getByText('1 de 1 líneas emparejadas'), 'the statement line must auto-match the payment (same reference and amount)').toBeVisible();
-    await foto(page, '12b-conciliacion-linea-emparejada-con-el-pago');
+    // the bank movement of the payment is labelled «Pago a proveedor», not «Sin concepto»
+    const libro = page.getByRole('row').filter({ hasText: `Ref: ${referencia}` }).filter({ hasText: 'Conciliado' });
+    await expect(libro).toHaveCount(1);
+    await expect(libro).toContainText('Pago a proveedor');
+    await expect(libro).not.toContainText('Sin concepto');
+    await foto(page, '12b-conciliacion-linea-emparejada-concepto-pago-a-proveedor');
   });
 
   await intentar('13. Accounting: journal entries / events generated by the purchase-to-pay journey', async () => {

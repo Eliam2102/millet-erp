@@ -95,14 +95,11 @@ test('V-TS-04 proveedor bloqueado: no se arma corrida ni se registra pago', asyn
   await settle(page);
   await page.getByRole('combobox', { name: 'Cuenta bancaria' }).click();
   await page.getByRole('option', { name: new RegExp(BANCO_MILLET) }).click();
-  const check = page.getByRole('checkbox', { name: `Elegir todas las facturas de ${b.razon}` });
-  await check.check();
+  // la pantalla lo muestra deshabilitado con el motivo (antes dejaba elegirlo y el servidor rechazaba la corrida)
+  await expect(page.getByRole('checkbox', { name: `Elegir todas las facturas de ${b.razon}` }), 'la pantalla no deja elegirlo').toBeDisabled();
+  await expect(page.getByText('Proveedor bloqueado: Opinión de cumplimiento negativa').first()).toBeVisible();
+  await foto(page, 'V-TS-04-proveedor-bloqueado-deshabilitado-en-nueva-corrida');
   guard.allowStatus(422);
-  guard.expectApiMutationError(422);
-  await page.getByRole('button', { name: 'Crear corrida en borrador' }).click();
-  await expect(page.getByText('No se pudo crear la corrida')).toBeVisible();
-  await expect(page.getByText(/Proveedor bloqueado: .* no admite pagos/)).toBeVisible();
-  await foto(page, 'V-TS-04-proveedor-bloqueado-no-se-arma-la-corrida');
   await page.goto('/tesoreria/pagos');
   await settle(page);
   await expect(page.getByText('Proveedor bloqueado')).toBeVisible();
