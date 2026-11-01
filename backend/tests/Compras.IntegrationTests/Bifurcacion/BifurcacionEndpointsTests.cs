@@ -185,7 +185,7 @@ public class BifurcacionEndpointsTests : IClassFixture<StubsWebApplicationFactor
         // Articulo con override 0.0 → todo a OC → OC port se invoca → throws.
         var rqId = await CrearTransmitirAsync(client, articuloId: ArticuloSinStock, cantidad: 10m);
 
-        var auth = await (await AutorizacionTestSeeding.CreateAutorizadorAsync(_factory)).PostAsJsonAsync(
+        var auth = await (await AutorizacionTestSeeding.CreateAutorizadorAsync(failFactory)).PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{rqId}/autorizaciones",
             new { Nivel = 1, Notas = (string?)null });
 
