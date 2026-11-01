@@ -35,7 +35,7 @@ public sealed class SolicitarDecisionAlRetenerTests
         db.ReglasLiberacionSerie.AddRange(ReglaLiberacionSerieConfiguration.SeriesMillet.Select(r => new ReglaLiberacionSerie(r.Id, r.Prefijo, r.Comportamiento)));
         db.SaveChanges();
         var pub = new Publicador();
-        return (new SolicitarDecisionAlRetenerHandler(db, pub, new Reloj()), db, pub);
+        return (new SolicitarDecisionAlRetenerHandler(db, pub, new Reloj(), new Millet.CuentasPorCobrar.UnitTests.CreditoDisponible.PedidosSinFacturarFalso()), db, pub);
     }
 
     private static SolicitarDecisionAlRetenerCommand Cmd(string pedido, decimal monto = 1000m) => new(EmpresaId, pedido, ClienteId, "MXN", monto);

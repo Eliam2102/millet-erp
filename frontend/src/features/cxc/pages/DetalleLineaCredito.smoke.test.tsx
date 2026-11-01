@@ -52,14 +52,14 @@ function mockHandlers(estado: EstadoLineaCredito, motivo: string | null = null) 
             moneda: 'MXN',
             limite: 500000,
             facturado: 120000,
-            liberadoSinFactura: 0,
-            disponible: 380000,
+            liberadoSinFactura: 20000,
+            disponible: 360000,
             estado,
             origen: OrigenLineaCredito.Solunion,
             plazoDias: 30,
           },
         ],
-        datoIncompleto: true,
+        datoIncompleto: false,
       }),
     ),
   );
@@ -95,14 +95,17 @@ afterEach(() => {
 });
 
 describe('<DetalleLineaCredito> — smoke', () => {
-  it('línea Activa: datos + crédito disponible con badge datoIncompleto + acciones', async () => {
+  it('línea Activa: datos + desglose del crédito disponible (C7.1) + acciones', async () => {
     mockHandlers(EstadoLineaCredito.Activa);
     render(<DetalleLineaCredito />, { wrapper: createQueryWrapper() });
 
     await waitFor(() => expect(screen.getByText('ACME SA · MXN')).toBeInTheDocument());
-    // Fórmula del disponible visible y badge del gap G1.
-    expect(await screen.findByTestId('badge-dato-incompleto')).toBeInTheDocument();
-    expect(screen.getByText(/380,000\.00 MXN/)).toBeInTheDocument();
+    // C7.1: desglose límite − facturado − liberado sin facturar = disponible, sin marca de dato incompleto.
+    expect(await screen.findByText('Liberado sin facturar')).toBeInTheDocument();
+    expect(screen.getByText(/(^|[^0-9])20,000\.00 MXN/)).toBeInTheDocument();
+    expect(screen.getByText(/120,000\.00 MXN/)).toBeInTheDocument();
+    expect(screen.getByText(/360,000\.00 MXN/)).toBeInTheDocument();
+    expect(screen.queryByTestId('badge-dato-incompleto')).not.toBeInTheDocument();
     // Acciones de línea activa.
     expect(screen.getByRole('button', { name: /Bloquear/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Editar/i })).toBeInTheDocument();

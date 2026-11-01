@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Millet.CuentasPorCobrar.Application.Common;
 using Millet.CuentasPorCobrar.Application.Integration;
 using Millet.CuentasPorCobrar.Domain.Liberacion;
+using Millet.CuentasPorCobrar.Domain.Ports.Facturacion;
 using Millet.CuentasPorCobrar.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
@@ -121,16 +122,18 @@ public sealed class DecidirLiberacionHandler : IRequestHandler<DecidirLiberacion
     private readonly ICurrentEmpresaContext _currentEmpresa;
     private readonly ICurrentUserContext _currentUser;
     private readonly IClock _clock;
+    private readonly IFacturacionPedidosSinFacturarReadPort _pedidos;
 
     public DecidirLiberacionHandler(
         CuentasPorCobrarDbContext db,
         IIntegrationEventPublisher eventos,
         ICurrentEmpresaContext currentEmpresa,
         ICurrentUserContext currentUser,
-        IClock clock)
+        IClock clock,
+        IFacturacionPedidosSinFacturarReadPort pedidos)
     {
         _db = db; _eventos = eventos; _currentEmpresa = currentEmpresa;
-        _currentUser = currentUser; _clock = clock;
+        _currentUser = currentUser; _clock = clock; _pedidos = pedidos;
     }
 
     public async Task<DecisionLiberacionResponse> Handle(
@@ -148,7 +151,7 @@ public sealed class DecidirLiberacionHandler : IRequestHandler<DecidirLiberacion
         // Snapshot de crédito: SIEMPRE se calcula, incluso si la serie decide
         // sola — la auditoría de "cuánto crédito había" vale en ambos casos.
         var snapshot = await CreditoLiberacion.CalcularAsync(
-            _db, command.ClienteId, command.Moneda, cancellationToken);
+            _db, _pedidos, command.ClienteId, command.Moneda, command.PedidoRef, cancellationToken);
 
         // Cascada 1: regla por serie (match por prefijo más largo activo).
         var comportamiento = await ResolverComportamientoSerieAsync(

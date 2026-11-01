@@ -616,10 +616,9 @@ export interface CreditoDisponibleLineaResponse {
 }
 
 /**
- * Mirror de backend <c>CreditoDisponibleResponse</c> (CXC-PR2/PR3). El
- * campo <c>datoIncompleto</c> indica que el término "material liberado
- * A+W" (gap G1) aún no entra a la fórmula — la UI muestra el número con
- * badge ámbar, nunca lo oculta (05-frontend-diseno §4.2).
+ * Mirror de backend <c>CreditoDisponibleResponse</c> (CXC-PR2/PR3). Desde
+ * C7.1 el liberado sin facturar es real y <c>datoIncompleto</c> llega en
+ * <c>false</c>; se conserva por compatibilidad del contrato.
  */
 export interface CreditoDisponibleResponse {
   clienteId: string;
