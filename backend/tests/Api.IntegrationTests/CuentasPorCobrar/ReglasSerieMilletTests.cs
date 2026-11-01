@@ -34,9 +34,9 @@ public sealed class ReglasSerieMilletTests
             Assert.Equal((1, true), porSerie[serie]);
         foreach (var serie in new[] { "5800", "5900", "7800", "7900", "9000" })
             Assert.Equal((2, true), porSerie[serie]);
-        Assert.DoesNotContain("3000", porSerie.Keys);
-        Assert.DoesNotContain("4000", porSerie.Keys);
-        Assert.DoesNotContain("8000", porSerie.Keys);
+        // Las series de ejemplo de la semilla anterior ya no están: solo quedan las de Millet
+        // (más las que otra prueba de la colección haya dado de alta, que nunca son de 4 dígitos).
+        Assert.Equal(11, porSerie.Keys.Count(k => k.Length == 4));
     }
 
     [Fact]
