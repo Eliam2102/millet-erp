@@ -647,8 +647,8 @@ export function BandejaConciliaciones() {
               {lineaSeleccionada && (
                 <div className="flex items-center gap-3 bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-md">
                   <span className="text-xs font-medium">
-                    Línea #{lineaSeleccionada.numeroLinea} seleccionada ({lineaSeleccionada.monto >= 0 ? '+' : ''}
-                    {lineaSeleccionada.monto}) ↔ {movimientosSeleccionadosIds.length} movs (Total: {totalMovimientosSeleccionados.toFixed(2)})
+                    Línea #{lineaSeleccionada.numeroLinea} seleccionada ({lineaSeleccionada.sentido === 2 ? '-' : '+'}
+                    {Math.abs(lineaSeleccionada.monto)}) ↔ {movimientosSeleccionadosIds.length} movs (Total: {totalMovimientosSeleccionados.toFixed(2)})
                   </span>
                   <Button
                     size="sm"
@@ -766,8 +766,8 @@ export function BandejaConciliaciones() {
                                   )}
                                 </TableCell>
                                 <TableCell className="text-right text-xs whitespace-nowrap font-mono">
-                                  <span className={linea.monto < 0 ? 'text-danger-fg' : 'text-success-fg'}>
-                                    {linea.monto < 0 ? '-' : '+'}
+                                  <span className={linea.sentido === 2 ? 'text-danger-fg' : 'text-success-fg'}>
+                                    {linea.sentido === 2 ? '-' : '+'}
                                     <MoneyDisplay amount={Math.abs(linea.monto)} currency={conciliacion.moneda} />
                                   </span>
                                 </TableCell>
@@ -1243,8 +1243,8 @@ export function BandejaConciliaciones() {
               <div className="bg-surface border border-edge p-3 rounded-md text-xs">
                 <p className="font-semibold text-ink">{modalAltaAsistida.descripcion}</p>
                 <p className="text-ink-muted">
-                  Fecha: {modalAltaAsistida.fecha.substring(0, 10)} · Monto: {modalAltaAsistida.monto >= 0 ? '+' : ''}
-                  {modalAltaAsistida.monto} {conciliacion?.moneda}
+                  Fecha: {modalAltaAsistida.fecha.substring(0, 10)} · Monto: {modalAltaAsistida.sentido === 2 ? '-' : '+'}
+                  {Math.abs(modalAltaAsistida.monto)} {conciliacion?.moneda}
                 </p>
               </div>
 
