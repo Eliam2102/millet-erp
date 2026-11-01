@@ -183,17 +183,17 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
             )}
           />
         </FormCampo>
-        <FormCampo span={12}>
-          {form.formState.errors.clasificacionId && (
+        {form.formState.errors.clasificacionId && (
+          <FormCampo span={12}>
             <p role="alert" className="text-xs text-danger-fg">
               {form.formState.errors.clasificacionId.message}
             </p>
-          )}
-        </FormCampo>
-        <FormCampo span={12}>
-          {actualizar.error &&
-            esApiError(actualizar.error) &&
-            actualizar.error.problem.clientesExistentes && (
+          </FormCampo>
+        )}
+        {actualizar.error &&
+          esApiError(actualizar.error) &&
+          actualizar.error.problem.clientesExistentes && (
+            <FormCampo span={12}>
               <div
                 role="alert"
                 className="md:col-span-2 rounded-md bg-warning-note-bg p-3 text-warning-note-fg"
@@ -210,8 +210,8 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
                   </Link>
                 ))}
               </div>
-            )}
-        </FormCampo>
+            </FormCampo>
+          )}
         <FormCampo span={6}>
           <FormRow label="Clave" hint="No editable.">
             <Input value={cliente.clave} readOnly aria-readonly className="font-mono" />
@@ -253,13 +253,16 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
             </FormRow>
           </div>
         </FormCampo>
+      </FormSeccion>
 
-        </FormSeccion>
-
-      <FormSeccion titulo="Datos fiscales" descripcion="RFC, régimen y código postal son requeridos para timbrar.">
+      <FormSeccion
+        titulo="Datos fiscales"
+        descripcion="RFC, régimen y código postal son requeridos para timbrar."
+      >
         <FormCampo span={4}>
           <FormRow
-            label="RFC" campo="rfc"
+            label="RFC"
+            campo="rfc"
             hint="Requerido para timbrar."
             error={form.formState.errors.rfc?.message}
           >
@@ -283,7 +286,8 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
 
         <FormCampo span={4}>
           <FormRow
-            label="Régimen fiscal" campo="regimenFiscal"
+            label="Régimen fiscal"
+            campo="regimenFiscal"
             hint="Catálogo SAT c_RegimenFiscal. Requerido para timbrar."
             error={form.formState.errors.regimenFiscal?.message}
           >
@@ -303,7 +307,8 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
 
         <FormCampo span={4}>
           <FormRow
-            label="Código postal fiscal" campo="codigoPostalFiscal"
+            label="Código postal fiscal"
+            campo="codigoPostalFiscal"
             hint="Del domicilio fiscal. Requerido para timbrar."
             error={form.formState.errors.codigoPostalFiscal?.message}
           >
@@ -345,7 +350,6 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
             />
           </FormRow>
         </FormCampo>
-
       </FormSeccion>
 
       <FormSeccion titulo="Condiciones comerciales">
@@ -442,7 +446,6 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
             />
           </FormRow>
         </FormCampo>
-
       </FormSeccion>
 
       <FormSeccion titulo="Contacto">
@@ -488,14 +491,12 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
             />
           </FormRow>
         </FormCampo>
-
       </FormSeccion>
 
       <FormSeccion
         titulo="Receptor extranjero (Comercio Exterior)"
         descripcion="Solo para clientes de exportación. Prellenar el encabezado del CCE. Fuente A+W cuando esté disponible; si no, captúralos aquí."
       >
-
         <FormCampo span={6}>
           <FormRow
             label="Núm. reg. id. trib. (Tax ID)"
@@ -590,22 +591,21 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
             />
           </FormRow>
         </FormCampo>
-
       </FormSeccion>
 
       {canEditar && (
         <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-3">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => form.reset(buildDefaults(cliente))}
-                disabled={!dirty || actualizar.isPending}
-              >
-                Descartar cambios
-              </Button>
-              <Button type="submit" disabled={!dirty || actualizar.isPending}>
-                {actualizar.isPending ? 'Guardando…' : 'Guardar cambios'}
-              </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => form.reset(buildDefaults(cliente))}
+            disabled={!dirty || actualizar.isPending}
+          >
+            Descartar cambios
+          </Button>
+          <Button type="submit" disabled={!dirty || actualizar.isPending}>
+            {actualizar.isPending ? 'Guardando…' : 'Guardar cambios'}
+          </Button>
         </div>
       )}
     </form>

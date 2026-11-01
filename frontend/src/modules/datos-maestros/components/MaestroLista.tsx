@@ -33,7 +33,7 @@ export function FilaMaestroContenido({
     <>
       <div className="flex items-center gap-2">
         <span
-          className={cn('w-28 shrink-0 truncate font-mono', activo ? 'font-semibold' : 'text-ink')}
+          className={cn('w-24 shrink-0 truncate font-mono', activo ? 'font-semibold' : 'text-ink')}
           title={clave}
         >
           {clave}
@@ -41,15 +41,18 @@ export function FilaMaestroContenido({
         <span className="min-w-0 flex-1 truncate text-xs text-ink-secondary" title={titulo}>
           {titulo}
         </span>
-        {incompleto && (
-          <Badge variant={estadoUi('fiscal', 'Incompleto').tono} className="shrink-0 py-0 text-2xs">
-            {etiquetaIncompleto}
-          </Badge>
-        )}
         {derecha}
       </div>
-      {sub != null && (
-        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 pl-[7.5rem] text-2xs text-ink-muted">
+      {(incompleto || sub != null) && (
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 pl-[6.5rem] text-2xs text-ink-muted">
+          {incompleto && (
+            <Badge
+              variant={estadoUi('fiscal', 'Incompleto').tono}
+              className="shrink-0 py-0 text-2xs"
+            >
+              {etiquetaIncompleto}
+            </Badge>
+          )}
           {sub}
         </div>
       )}

@@ -46,7 +46,7 @@ export function BarraFiltros({
       data-print="hidden"
     >
       {busqueda != null && (
-        <div className="w-[260px] max-w-full shrink-0 [&_input]:h-ctl-md [&_input]:rounded-[7px] [&_input]:border-line">
+        <div className="w-full shrink-0 sm:w-[260px] [&_input]:h-ctl-md [&_input]:rounded-[7px] [&_input]:border-line">
           {busqueda}
         </div>
       )}

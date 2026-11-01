@@ -129,9 +129,10 @@ export function ProveedorDetalle() {
 
   const proveedor = proveedorQuery.data;
   const documentosPendientes = expediente.data
-    ? [...expediente.data.faltantes, ...expediente.data.vencidos].map((codigo) =>
-        expediente.data!.documentos.find((d) => d.codigo === codigo)?.nombre ?? codigo)
-    : proveedor.documentosPendientes ?? [];
+    ? [...expediente.data.faltantes, ...expediente.data.vencidos].map(
+        (codigo) => expediente.data!.documentos.find((d) => d.codigo === codigo)?.nombre ?? codigo,
+      )
+    : (proveedor.documentosPendientes ?? []);
   const activo = proveedor.estatus === EstatusCatalogo.Activo;
   const enRevision = proveedor.estatus === EstatusCatalogo.EnRevision;
 
@@ -226,13 +227,6 @@ export function ProveedorDetalle() {
     <div className="flex flex-col gap-5">
       {/* Header NO sticky: viaja con el scroll para no tapar la primera
           fila del form al anclar. */}
-      {activo && (
-        <QueFaltaPanel
-          titulo="Expediente incompleto: qué falta"
-          items={documentosPendientes.map((etiqueta) => ({ etiqueta, href: '#expediente-proveedor' }))}
-          nota={proveedor.origenCarga === 'CargaSap' ? 'Cargado desde SAP sin documentos.' : undefined}
-        />
-      )}
       <PageHeader
         mono
         titulo={<>{proveedor.clave}</>}
@@ -282,7 +276,17 @@ export function ProveedorDetalle() {
             )}
 
             {canDesactivar && proveedor.estatus === EstatusCatalogo.Inactivo && (
-              <Button variant="ghost" size="sm" disabled={reactivar.isPending} onClick={() => reactivar.mutate({ id: proveedor.id, idempotencyKey: crypto.randomUUID() }, { onError: e => toast.error(e.message) })}>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={reactivar.isPending}
+                onClick={() =>
+                  reactivar.mutate(
+                    { id: proveedor.id, idempotencyKey: crypto.randomUUID() },
+                    { onError: (e) => toast.error(e.message) },
+                  )
+                }
+              >
                 {reactivar.isPending ? 'Reactivando…' : 'Reactivar'}
               </Button>
             )}
@@ -306,6 +310,18 @@ export function ProveedorDetalle() {
           </>
         }
       />
+      {activo && (
+        <QueFaltaPanel
+          titulo="Expediente incompleto: qué falta"
+          items={documentosPendientes.map((etiqueta) => ({
+            etiqueta,
+            href: '#expediente-proveedor',
+          }))}
+          nota={
+            proveedor.origenCarga === 'CargaSap' ? 'Cargado desde SAP sin documentos.' : undefined
+          }
+        />
+      )}
       <dl className="grid grid-cols-2 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat">
         <div>
           <dt className="text-xs text-ink-muted">RFC</dt>
