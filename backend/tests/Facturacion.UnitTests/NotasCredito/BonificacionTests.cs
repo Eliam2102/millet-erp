@@ -49,7 +49,7 @@ public sealed class BonificacionTests
             periodo ?? new FakePeriodoContablePort(periodoAbierto), new FakeFiscalApiClient(),
             new FakeCfdiRepositorioPort(), new FakeIntegrationEventPublisher(), new FakeEmpresaContext(empresaId),
             new FakeUserContext(Guid.NewGuid()), new FakeClock(ahora ?? Ahora), ReceptorFiscalTestFactory.Crear(db),
-            new FakeCurrentUserPermissions());
+            new FakeCurrentUserPermissions(), new FakeSaldoFacturaReadPort());
 
     // ---- Dominio ----
 

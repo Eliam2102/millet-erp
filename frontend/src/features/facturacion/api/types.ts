@@ -1237,6 +1237,8 @@ export interface ComprobanteDetalleResponse {
   totalPiezas?: number;
   noCertificadoEmisor?: string | null;
   cadenaOriginalTimbre?: string | null;
+  /** F1-CXC-05 P2: cliente del pedido; con él se ofrecen sus anticipos para aplicar a la factura. */
+  clienteId?: string | null;
 
   datosEmbarqueCe?: import('@/features/comercio-exterior/api/types').DatosEmbarqueCe | null;
   id: string;
@@ -1980,4 +1982,14 @@ export interface ConciliacionFacturadoIngresadoResponse {
   resumen: ConciliacionResumen;
   porCajero: ReporteBackend<ConciliacionCajeroFila>;
   partidas: ReporteBackend<ConciliacionPartidaFila>;
+}
+
+/** F1-CXC-05 P2: POST /anticipos/{id}/aplicar — aplica el anticipo a una factura ya timbrada. */
+export interface AplicarAnticipoAFacturaResponse {
+  notaCreditoId: string;
+  folio: string;
+  uuid: string | null;
+  importe: number;
+  saldoAnticipo: number;
+  saldoFactura: number;
 }

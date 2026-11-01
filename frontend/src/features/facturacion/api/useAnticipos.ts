@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
 import { facturacionKeys } from '@/features/facturacion/api/keys';
 import type {
+  AplicarAnticipoAFacturaResponse,
   BandejaScoped,
   ControlAnticipoFila,
   ControlAnticiposDetalladaResponse,
@@ -174,6 +175,31 @@ export function useEmitirNcDevolucionAnticipo(facturaAnticipoId: string) {
       queryClient.invalidateQueries({
         queryKey: facturacionKeys.anticipoFacturaById(facturaAnticipoId),
       });
+    },
+  });
+}
+
+/**
+ * F1-CXC-05 P2 (compensación): aplica el saldo de un anticipo a una factura
+ * ya timbrada del mismo cliente; emite la NC de amortización (relación 07).
+ */
+export function useAplicarAnticipoAFactura(facturaVentaId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { anticipoId: string; importe: number; idempotencyKey: string }) => {
+      const { data } = await apiRequest<AplicarAnticipoAFacturaResponse>(
+        `${BASE}/${args.anticipoId}/aplicar`,
+        {
+          method: 'POST',
+          body: { facturaVentaId, importe: args.importe },
+          idempotencyKey: args.idempotencyKey,
+        },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: facturacionKeys.facturaById(facturaVentaId) });
+      queryClient.invalidateQueries({ queryKey: facturacionKeys.anticipos() });
     },
   });
 }
