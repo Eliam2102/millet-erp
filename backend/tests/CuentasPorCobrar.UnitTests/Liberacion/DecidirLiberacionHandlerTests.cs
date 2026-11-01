@@ -35,12 +35,12 @@ public sealed class DecidirLiberacionHandlerTests
     }
 
     [Fact]
-    public async Task Serie_3000_nunca_libera_sin_override()
+    public async Task Serie_7800_nunca_libera_sin_override()
     {
         using var db = CrearDbContext();
         await AgregarLinea(db, limite: 1_000_000m); // crédito de sobra — la serie manda
 
-        var (response, _) = await Handle(db, Comando(pedidoRef: "3000456", monto: 100m));
+        var (response, _) = await Handle(db, Comando(pedidoRef: "7800456", monto: 100m));
 
         response.Resultado.Should().Be(ResultadoLiberacion.Retenido);
         response.ReglaAplicada.Should().Be(ReglaAplicadaLiberacion.Serie);
@@ -54,7 +54,7 @@ public sealed class DecidirLiberacionHandlerTests
         using var db = CrearDbContext();
         await AgregarLinea(db, limite: 100_000m);
 
-        var (response, _) = await Handle(db, Comando(pedidoRef: "9000001", monto: 60_000m));
+        var (response, _) = await Handle(db, Comando(pedidoRef: "6000001", monto: 60_000m));
 
         response.Resultado.Should().Be(ResultadoLiberacion.Liberado);
         response.ReglaAplicada.Should().Be(ReglaAplicadaLiberacion.Credito);
@@ -70,7 +70,7 @@ public sealed class DecidirLiberacionHandlerTests
 
         // C7.3: 30,000 / 70,000 = 42 % (< 50 %) → retenido. Con 50,000 ahora
         // sería 60 % → PendienteAutorizacion (CoberturaLiberacionHandlerTests).
-        var (response, _) = await Handle(db, Comando(pedidoRef: "9000002", monto: 70_000m));
+        var (response, _) = await Handle(db, Comando(pedidoRef: "6000002", monto: 70_000m));
 
         response.Resultado.Should().Be(ResultadoLiberacion.Retenido);
         response.ReglaAplicada.Should().Be(ReglaAplicadaLiberacion.Credito);
@@ -82,7 +82,7 @@ public sealed class DecidirLiberacionHandlerTests
     {
         using var db = CrearDbContext();
 
-        var (response, _) = await Handle(db, Comando(pedidoRef: "9000003", monto: 10m));
+        var (response, _) = await Handle(db, Comando(pedidoRef: "6000003", monto: 10m));
 
         response.Resultado.Should().Be(ResultadoLiberacion.Retenido);
     }
@@ -95,7 +95,7 @@ public sealed class DecidirLiberacionHandlerTests
         linea.Bloquear("Cartera vencida");
         await db.SaveChangesAsync();
 
-        var (response, _) = await Handle(db, Comando(pedidoRef: "9000004", monto: 10m));
+        var (response, _) = await Handle(db, Comando(pedidoRef: "6000004", monto: 10m));
 
         response.Resultado.Should().Be(ResultadoLiberacion.Retenido);
         response.CreditoDisponibleSnapshot.Should().Be(0m);
@@ -110,7 +110,7 @@ public sealed class DecidirLiberacionHandlerTests
         var autorizacion = await AgregarAutorizacion(db, beneficiario: UsuarioId);
 
         var (response, _) = await Handle(db, Comando(
-            pedidoRef: "3000789", monto: 50_000m, overrideId: autorizacion.Id));
+            pedidoRef: "7800789", monto: 50_000m, overrideId: autorizacion.Id));
 
         response.Resultado.Should().Be(ResultadoLiberacion.LiberadoConOverride);
         response.ReglaAplicada.Should().Be(ReglaAplicadaLiberacion.Override);
@@ -127,7 +127,7 @@ public sealed class DecidirLiberacionHandlerTests
         using var db = CrearDbContext();
         var ajena = await AgregarAutorizacion(db, beneficiario: Guid.NewGuid());
 
-        var act = () => Handle(db, Comando(pedidoRef: "3000790", monto: 10m, overrideId: ajena.Id));
+        var act = () => Handle(db, Comando(pedidoRef: "7800790", monto: 10m, overrideId: ajena.Id));
 
         await act.Should().ThrowAsync<BusinessRuleException>()
             .Where(e => e.Code == "AC_BENEFICIARIO_DISTINTO");
@@ -142,7 +142,7 @@ public sealed class DecidirLiberacionHandlerTests
         var autorizacion = await AgregarAutorizacion(db, beneficiario: UsuarioId);
 
         var (response, _) = await Handle(db, Comando(
-            pedidoRef: "9000005", monto: 10_000m, overrideId: autorizacion.Id));
+            pedidoRef: "6000005", monto: 10_000m, overrideId: autorizacion.Id));
 
         response.Resultado.Should().Be(ResultadoLiberacion.Liberado);
         response.OverrideId.Should().BeNull();
@@ -158,11 +158,108 @@ public sealed class DecidirLiberacionHandlerTests
         using var db = CrearDbContext();
         await AgregarLinea(db, limite: 100_000m);
 
-        var (_, publicados) = await Handle(db, Comando(pedidoRef: "9000006", monto: 5_000m));
+        var (_, publicados) = await Handle(db, Comando(pedidoRef: "6000006", monto: 5_000m));
 
         publicados.Should().ContainSingle()
             .Which.Should().BeOfType<Application.Integration.DecisionLiberacionEmitidaEvent>()
             .Which.Resultado.Should().Be("Liberado");
+    }
+
+    // --------------------------------------------------- C7.2: series reales de Millet
+
+    [Theory]
+    [InlineData("5000")]
+    [InlineData("5500")]
+    [InlineData("5600")]
+    [InlineData("7000")]
+    [InlineData("7200")]
+    [InlineData("7500")]
+    public async Task CA7_4_serie_que_siempre_libera_libera_sin_credito(string serie)
+    {
+        using var db = CrearDbContext();
+        // Cliente sin línea de crédito: por crédito quedaría retenido.
+
+        var (response, _) = await Handle(db, Comando(pedidoRef: serie + "001", monto: 250_000m));
+
+        response.Resultado.Should().Be(ResultadoLiberacion.Liberado);
+        response.ReglaAplicada.Should().Be(ReglaAplicadaLiberacion.Serie);
+    }
+
+    [Theory]
+    [InlineData("5800")]
+    [InlineData("5900")]
+    [InlineData("7800")]
+    [InlineData("7900")]
+    [InlineData("9000")]
+    public async Task CA7_5_serie_que_nunca_libera_retiene_aunque_alcance_el_credito(string serie)
+    {
+        using var db = CrearDbContext();
+        await AgregarLinea(db, limite: 1_000_000m);
+
+        var (response, _) = await Handle(db, Comando(pedidoRef: serie + "001", monto: 10m));
+
+        response.Resultado.Should().Be(ResultadoLiberacion.Retenido);
+        response.ReglaAplicada.Should().Be(ReglaAplicadaLiberacion.Serie);
+        response.CreditoDisponibleSnapshot.Should().Be(1_000_000m);
+    }
+
+    [Fact]
+    public async Task CA7_5_serie_7800_sale_solo_con_autorizacion()
+    {
+        using var db = CrearDbContext();
+        await AgregarLinea(db, limite: 1_000_000m);
+        var autorizacion = await AgregarAutorizacion(db, beneficiario: UsuarioId);
+
+        var (response, _) = await Handle(db, Comando(
+            pedidoRef: "7800789", monto: 10m, overrideId: autorizacion.Id));
+
+        response.Resultado.Should().Be(ResultadoLiberacion.LiberadoConOverride);
+        response.ReglaAplicada.Should().Be(ReglaAplicadaLiberacion.Override);
+    }
+
+    [Fact]
+    public async Task Serie_no_registrada_evalua_credito()
+    {
+        // Propuesta C7.2: las series de exportación que el cuestionario no
+        // menciona evalúan crédito (no hay regla para ellas).
+        using var db = CrearDbContext();
+
+        var (response, _) = await Handle(db, Comando(pedidoRef: "6000001", monto: 10m));
+
+        response.Resultado.Should().Be(ResultadoLiberacion.Retenido);
+        response.ReglaAplicada.Should().Be(ReglaAplicadaLiberacion.Credito);
+    }
+
+    [Fact]
+    public async Task C7_2_a_cambio_de_regla_aplica_a_la_siguiente_evaluacion()
+    {
+        using var db = CrearDbContext();
+        var (antes, _) = await Handle(db, Comando(pedidoRef: "5500001", monto: 10m));
+        antes.ReglaAplicada.Should().Be(ReglaAplicadaLiberacion.Serie);
+
+        var regla = await db.ReglasLiberacionSerie.SingleAsync(r => r.Prefijo == "5500");
+        await new CambiarComportamientoSerieHandler(db).Handle(
+            new CambiarComportamientoSerieCommand(regla.Id, regla.Version, ComportamientoSerie.EvaluaCredito),
+            CancellationToken.None);
+
+        var (despues, _) = await Handle(db, Comando(pedidoRef: "5500002", monto: 10m));
+        despues.Resultado.Should().Be(ResultadoLiberacion.Retenido);
+        despues.ReglaAplicada.Should().Be(ReglaAplicadaLiberacion.Credito);
+    }
+
+    [Fact]
+    public async Task Regla_desactivada_deja_que_la_serie_evalue_credito()
+    {
+        using var db = CrearDbContext();
+        await AgregarLinea(db, limite: 100_000m);
+        var regla = await db.ReglasLiberacionSerie.SingleAsync(r => r.Prefijo == "9000");
+        await new CambiarEstadoReglaSerieHandler(db).Handle(
+            new CambiarEstadoReglaSerieCommand(regla.Id, regla.Version, Activo: false), CancellationToken.None);
+
+        var (response, _) = await Handle(db, Comando(pedidoRef: "9000001", monto: 10m));
+
+        response.Resultado.Should().Be(ResultadoLiberacion.Liberado);
+        response.ReglaAplicada.Should().Be(ReglaAplicadaLiberacion.Credito);
     }
 
     // --------------------------------------------------- helpers
@@ -202,7 +299,7 @@ public sealed class DecidirLiberacionHandlerTests
     {
         var autorizacion = AutorizacionCredito.Crear(
             EmpresaId, Guid.NewGuid(), beneficiario,
-            "Cliente estratégico", "3000789", Ahora, TimeSpan.FromHours(24));
+            "Cliente estratégico", "7800789", Ahora, TimeSpan.FromHours(24));
         db.AutorizacionesCredito.Add(autorizacion);
         await db.SaveChangesAsync();
         return autorizacion;
@@ -243,10 +340,10 @@ public sealed class DecidirLiberacionHandlerTests
             .Options;
         var db = new CuentasPorCobrarDbContext(options, new FakeEmpresaContext(EmpresaId));
 
-        // Seed del catálogo de series (mismas filas que el HasData de la
-        // configuración — InMemory sin EnsureCreated no aplica HasData).
+        // Catálogo de series de Millet (las mismas filas que carga la
+        // migración ReglasSerieMillet).
         db.ReglasLiberacionSerie.AddRange(
-            ReglaLiberacionSerieConfiguration.SeedReglas.Select(r =>
+            ReglaLiberacionSerieConfiguration.SeriesMillet.Select(r =>
                 new ReglaLiberacionSerie(r.Id, r.Prefijo, r.Comportamiento)));
         db.SaveChanges();
         return db;

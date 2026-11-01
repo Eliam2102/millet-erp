@@ -51,6 +51,80 @@ public static class LiberacionesEndpoints
         .WithName("ListarReglasLiberacionSerie")
         .Produces<IReadOnlyList<ReglaLiberacionSerieResponse>>(StatusCodes.Status200OK);
 
+        // C7.2 (86e3kdxy6): administración de reglas por serie con permiso
+        // propio (reglas-serie.gestionar); quien solo decide sigue leyendo
+        // las activas en /reglas-serie. Cada cambio queda en la bitácora central.
+        var reglas = liberaciones.MapGroup("/reglas-serie/admin");
+
+        reglas.MapGet("/", async (IMediator mediator, CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new ListarReglasLiberacionSerieAdminQuery(), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarReglasSerieGestionar)
+        .WithName("ListarReglasLiberacionSerieAdmin")
+        .Produces<IReadOnlyList<ReglaLiberacionSerieAdminResponse>>(StatusCodes.Status200OK);
+
+        reglas.MapGet("/historial", async (
+            [FromQuery] Guid? reglaId,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new ObtenerHistorialReglasSerieQuery(reglaId), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarReglasSerieGestionar)
+        .WithName("HistorialReglasLiberacionSerie")
+        .Produces<IReadOnlyList<HistorialReglaSerieResponse>>(StatusCodes.Status200OK);
+
+        reglas.MapPost("/", async (
+            [FromBody] CrearReglaLiberacionSerieCommand command,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var response = await mediator.Send(command, cancellationToken);
+            return Results.Created($"/api/v1/cuentas-por-cobrar/liberaciones/reglas-serie/admin/{response.Id}", response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarReglasSerieGestionar)
+        .WithName("CrearReglaLiberacionSerie")
+        .Produces<ReglaLiberacionSerieAdminResponse>(StatusCodes.Status201Created)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status409Conflict);
+
+        reglas.MapPut("/{id:guid}/comportamiento", async (
+            Guid id,
+            [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
+            [FromBody] CambiarComportamientoSerieBody body,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            if (expectedVersion is not int v)
+                return Results.Problem(title: "X-Expected-Version requerido", statusCode: StatusCodes.Status428PreconditionRequired);
+            return Results.Ok(await mediator.Send(
+                new CambiarComportamientoSerieCommand(id, v, body.Comportamiento), cancellationToken));
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarReglasSerieGestionar)
+        .WithName("CambiarComportamientoReglaSerie")
+        .Produces<ReglaLiberacionSerieAdminResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict);
+
+        reglas.MapPut("/{id:guid}/estado", async (
+            Guid id,
+            [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
+            [FromBody] CambiarEstadoReglaSerieBody body,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            if (expectedVersion is not int v)
+                return Results.Problem(title: "X-Expected-Version requerido", statusCode: StatusCodes.Status428PreconditionRequired);
+            return Results.Ok(await mediator.Send(
+                new CambiarEstadoReglaSerieCommand(id, v, body.Activo), cancellationToken));
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarReglasSerieGestionar)
+        .WithName("CambiarEstadoReglaSerie")
+        .Produces<ReglaLiberacionSerieAdminResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict);
+
         liberaciones.MapGet("/{id:guid}", async (
             Guid id,
             IMediator mediator,
@@ -195,3 +269,9 @@ public sealed record AutorizarLiberacionPendienteBody(string Motivo);
 
 /// <summary>Body de <c>POST /liberaciones/{id}/rechazar</c> (C7.3).</summary>
 public sealed record RechazarLiberacionPendienteBody(string Motivo);
+
+/// <summary>Body de <c>PUT /liberaciones/reglas-serie/admin/{id}/comportamiento</c> (C7.2).</summary>
+public sealed record CambiarComportamientoSerieBody(ComportamientoSerie Comportamiento);
+
+/// <summary>Body de <c>PUT /liberaciones/reglas-serie/admin/{id}/estado</c> (C7.2).</summary>
+public sealed record CambiarEstadoReglaSerieBody(bool Activo);
