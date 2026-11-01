@@ -11,6 +11,8 @@ public sealed class PiezasPtOptions
     public int MaxIntentos { get; set; } = 5;
     public int PospuestoHoras { get; set; } = 24;
     public int TraslapeMinutos { get; set; } = 10;
+    /// <summary>Cada cuántos minutos se reevalúan los pedidos retenidos (PT5.2, hasta que Facturación publique el cambio de saldo).</summary>
+    public int BarridoMinutos { get; set; } = 15;
     /// <summary>Estaciones de PT: rangos "a-b" o números sueltos. Solo vive en configuración.</summary>
     public string[] EstacionesPt { get; set; } = [];
     public bool ContratoI134Firmado { get; set; }
