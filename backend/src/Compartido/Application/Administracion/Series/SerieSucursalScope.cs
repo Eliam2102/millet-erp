@@ -54,6 +54,8 @@ public sealed class SerieSucursalScope
 
     public void VerificarEmpresa(Guid empresaId)
     {
+        // Procesos del sistema (workers en Bypass, sin JWT) mandan su empresa explícita: no hay usuario contra quien validar.
+        if (_currentEmpresa.IsBypassed && _currentEmpresa.Current is null) return;
         var actual = _currentEmpresa.Current
             ?? throw new ForbiddenException(
                 "EMPRESA_NO_SELECCIONADA",
