@@ -24,6 +24,7 @@ public sealed class FacturaVentaConfiguration : IEntityTypeConfiguration<Factura
             .HasConversion(v => v == null ? null : System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
                 v => v == null ? null : System.Text.Json.JsonSerializer.Deserialize<DatosEmbarqueCe>(v, (System.Text.Json.JsonSerializerOptions?)null));
         builder.Property(e => e.PedidoFacturableId);
+        builder.Property(e => e.SalidaFacturableId);
         builder.Property(e => e.OrdenCompraCliente).HasMaxLength(60);
         builder.Property(e => e.ReferenciaCliente).HasMaxLength(60);
         builder.Property(e => e.CondicionesPago).HasMaxLength(60);
@@ -57,5 +58,10 @@ public sealed class FacturaVentaConfiguration : IEntityTypeConfiguration<Factura
         builder.HasIndex(e => e.PedidoFacturableId)
             .HasDatabaseName("ix_factura_venta_pedido")
             .HasFilter("pedido_facturable_id IS NOT NULL");
+
+        // FAC-08: facturas de una salida parcial (una vigente por salida; se valida al emitir).
+        builder.HasIndex(e => e.SalidaFacturableId)
+            .HasDatabaseName("ix_factura_venta_salida")
+            .HasFilter("salida_facturable_id IS NOT NULL");
     }
 }

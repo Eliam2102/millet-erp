@@ -134,6 +134,10 @@ public static class DependencyInjection
         // PLATFORM-TODO(<SalidasPedimentos>)
         services.AddScoped<ISalidasPedimentosReader, StubSalidasPedimentosReader>();
 
+        // --- FAC-08: salidas parciales de PT/CE — stub hasta PT-03 y CE-02 ---
+        // PLATFORM-TODO(<SalidasPt>)
+        services.AddScoped<ISalidasParcialesReader, StubSalidasParcialesReader>();
+
         // --- F9: catálogo de Activos Fijos — stub hasta el módulo Activos Fijos ---
         // PLATFORM-TODO(<ActivosFijos>)
         services.AddScoped<IActivosFijosReadPort, NoOpActivosFijosReadPort>();

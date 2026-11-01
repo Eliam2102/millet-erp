@@ -190,6 +190,12 @@ public sealed class EmitirFacturaVentaHandler
         // él, la autorización del Director de Administración y Finanzas (CA6.12). Un pedido manual
         // legacy (sin clase) se rechaza aquí.
         var pedido = await CargarYValidarPedidoAsync(command, true, cancellationToken);
+        var salida = await CargarYValidarSalidaAsync(command, pedido, cancellationToken);
+        // FAC-08: con salida, las partidas de origen son las posiciones de la salida.
+        var partidasOrigen = salida is null
+            ? pedido?.Lineas.OrderBy(l => l.Posicion).ToArray()
+            : salida.Lineas.OrderBy(l => l.Posicion)
+                .Select(l => pedido!.Lineas.Single(p => p.Posicion == l.Posicion)).ToArray();
 
         // 3.ter F9: venta de activo fijo exige autorización del Director de Administración y Finanzas
         // (no se timbra sin ella). Se valida antes de reservar folio.
@@ -197,15 +203,21 @@ public sealed class EmitirFacturaVentaHandler
 
         if (copiaCe is not null && pedido is not null)
         {
-            var origen = pedido.Lineas.OrderBy(l => l.Posicion).ToArray();
-            if (origen.Length != command.Lineas.Count || origen.Where((l, i) => l.Cantidad != command.Lineas[i].Cantidad || l.ProductoId != command.Lineas[i].ProductoId).Any())
-                throw new BusinessRuleException("FAC_PEDIDO_NO_EMBARCADO", "La factura debe incluir todas las posiciones y cantidades del pedido ligado al expediente (D19).");
+            // FAC-08: con salida (un contenedor), el 100 % se exige a la salida, no al pedido;
+            // así no se facturan las piezas del pedido completo en cada contenedor.
+            var origen = partidasOrigen!;
+            var cantidades = salida?.Lineas.OrderBy(l => l.Posicion).Select(l => l.Cantidad).ToArray()
+                ?? origen.Select(l => l.Cantidad).ToArray();
+            if (origen.Length != command.Lineas.Count || origen.Where((l, i) => cantidades[i] != command.Lineas[i].Cantidad || l.ProductoId != command.Lineas[i].ProductoId).Any())
+                throw new BusinessRuleException("FAC_PEDIDO_NO_EMBARCADO", salida is null
+                    ? "La factura debe incluir todas las posiciones y cantidades del pedido ligado al expediente (D19)."
+                    : "La factura debe incluir todas las posiciones y cantidades de la salida (FAC-08).");
         }
 
         if (copiaCe is not null && pedido is not null && _productos is not null)
         {
             var lineasPedido = new List<LineaFiscalAValidar>();
-            foreach (var linea in pedido.Lineas.Where(l => l.ProductoId.HasValue))
+            foreach (var linea in partidasOrigen!.Where(l => l.ProductoId.HasValue))
             {
                 var maestro = await _productos.ObtenerAsync(linea.ProductoId!.Value, cancellationToken);
                 lineasPedido.Add(new LineaFiscalAValidar(linea.Posicion, linea.ProductoId, linea.ProductoDescripcion,
@@ -236,7 +248,7 @@ public sealed class EmitirFacturaVentaHandler
                 DateOnly.FromDateTime(ahora.UtcDateTime)),
             cancellationToken);
 
-        var partidasPedido = pedido?.Lineas.OrderBy(l => l.Posicion).ToArray();
+        var partidasPedido = partidasOrigen;
         var lineasImpresion = new List<EmitirFacturaVentaLinea>();
         for (var indice = 0; indice < command.Lineas.Count; indice++)
         {
@@ -278,6 +290,7 @@ public sealed class EmitirFacturaVentaHandler
             command.ReferenciaCliente ?? pedido?.NumeroPedido,
             condicionesPago,
             command.Proforma, command.Observaciones ?? pedido?.Comentarios);
+        if (salida is not null) factura.LigarSalida(salida.Id, salida.PedidoFacturableId);
 
         if (copiaCe is not null) factura.TomarEmbarqueCe(copiaCe);
 
@@ -295,7 +308,8 @@ public sealed class EmitirFacturaVentaHandler
         {
             factura.MarcarPendientePedimento();
             // B2/B3: el pedido queda tomado por la factura retenida (no re-facturable).
-            pedido?.MarcarFacturado(factura.Id);
+            // FAC-08: con salida, la toma es de la salida (ligada en la factura).
+            if (salida is null) pedido?.MarcarFacturado(factura.Id);
             _db.FacturasVenta.Add(factura);
             await _db.SaveChangesAsync(cancellationToken);
             return new EmitirFacturaVentaResponse(
@@ -356,7 +370,9 @@ public sealed class EmitirFacturaVentaHandler
         // PRIMER intento (1 pedido → 1 documento → N intentos), falle o no el
         // timbre. Un fallo se resuelve SOBRE la factura (reintentar-timbrado /
         // descartar), nunca emitiendo una segunda factura del mismo pedido.
-        if (pedido is not null)
+        // FAC-08: una factura de salida no toma el pedido: queda Importado para las demás
+        // salidas y la salida queda tomada por esta factura (ligada en SalidaFacturableId).
+        if (pedido is not null && salida is null)
         {
             pedido.MarcarFacturado(factura.Id);
 
@@ -420,6 +436,41 @@ public sealed class EmitirFacturaVentaHandler
                 $"La autorización ya fue {autorizacion.Estado} y no puede reutilizarse.");
 
         return autorizacion;
+    }
+
+    /// <summary>
+    /// FAC-08: con <c>SalidaFacturableId</c>, carga la salida del pedido y exige que no tenga
+    /// otra factura vigente (una cancelada o descartada la libera) y que las líneas sean las de
+    /// la salida. Sin salida, un pedido que ya tiene salidas no se factura completo.
+    /// </summary>
+    private async Task<SalidaFacturable?> CargarYValidarSalidaAsync(
+        EmitirFacturaVentaCommand command, PedidoFacturable? pedido, CancellationToken cancellationToken)
+    {
+        if (command.SalidaFacturableId is not Guid salidaId)
+        {
+            if (pedido is not null && await _db.SalidasFacturables.AnyAsync(s => s.PedidoFacturableId == pedido.Id, cancellationToken))
+                throw new BusinessRuleException("PEDIDO_CON_SALIDAS",
+                    "El pedido ya se factura por salidas parciales; factura la salida pendiente.");
+            return null;
+        }
+        if (pedido is null)
+            throw new BusinessRuleException("FAC_SALIDA_SIN_PEDIDO", "Para facturar una salida indica también su pedido.");
+
+        var salida = await _db.SalidasFacturables.Include(s => s.Lineas)
+            .FirstOrDefaultAsync(s => s.Id == salidaId && s.PedidoFacturableId == pedido.Id, cancellationToken)
+            ?? throw new EntityNotFoundException("SALIDA_NO_ENCONTRADA", $"El pedido no tiene la salida {salidaId}.");
+
+        if (await _db.FacturasVenta.AnyAsync(f => f.SalidaFacturableId == salidaId
+                && f.Estado != EstadoTimbrado.Cancelado && f.Estado != EstadoTimbrado.Descartada, cancellationToken))
+            throw new BusinessRuleException("SALIDA_YA_FACTURADA",
+                $"La parcialidad {salida.NumeroParcialidad} ya tiene una factura vigente.");
+
+        var lineas = salida.Lineas.OrderBy(l => l.Posicion).ToArray();
+        if (lineas.Length != command.Lineas.Count || lineas.Where((l, i) => l.Cantidad != command.Lineas[i].Cantidad
+                || pedido.Lineas.Single(p => p.Posicion == l.Posicion).ProductoId != command.Lineas[i].ProductoId).Any())
+            throw new BusinessRuleException("FAC_SALIDA_LINEAS_DISTINTAS",
+                "La factura debe llevar las posiciones y cantidades de la salida, en orden de posición.");
+        return salida;
     }
 
     /// <summary>

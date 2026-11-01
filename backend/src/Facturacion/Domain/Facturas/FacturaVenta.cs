@@ -23,6 +23,9 @@ public sealed class FacturaVenta : Comprobante
     /// <summary>Pedido de origen (A+W / Planta Pintura / Manual). Null en captura directa F1-PR1.</summary>
     public Guid? PedidoFacturableId { get; private set; }
 
+    /// <summary>FAC-08: salida parcial del pedido que esta factura cubre. Null si factura el pedido completo.</summary>
+    public Guid? SalidaFacturableId { get; private set; }
+
     // ---- Obra (snapshot: id numérico + nombre texto; NO aparece en el XML, §7.4) ----
     public long? ObraId { get; private set; }
     public string? ObraNombre { get; private set; }
@@ -101,6 +104,14 @@ public sealed class FacturaVenta : Comprobante
         CondicionesPago = condiciones;
         Proforma = proformaValidada;
         Observaciones = observaciones is null ? null : comentario ?? "";
+    }
+
+    /// <summary>FAC-08: liga la factura a la salida parcial que factura, del mismo pedido.</summary>
+    public void LigarSalida(Guid salidaFacturableId, Guid pedidoFacturableId)
+    {
+        if (PedidoFacturableId != pedidoFacturableId)
+            throw new BusinessRuleException("FAC_SALIDA_OTRO_PEDIDO", "La salida no pertenece al pedido de la factura.");
+        SalidaFacturableId = salidaFacturableId;
     }
 
     private FacturaVenta() { }
