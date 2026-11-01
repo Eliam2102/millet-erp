@@ -97,5 +97,6 @@ export function sembrarPasivo(o: { facturaId: string; proveedorId: string; total
   sql(`insert into tesoreria.pasivo_pendiente_pago (id, empresa_id, factura_proveedor_id, proveedor_id, monto_total, saldo_pendiente, moneda, fecha_vencimiento, uuid_cfdi, folio_proveedor, metodo_pago,
       recibido_en, version, created_at, updated_at, beneficiario_id, origen_id, origen_tipo, tipo_beneficiario, pago_bloqueado, subtotal, impuestos_trasladados, retenciones)
     values ('${uid(550 + o.n)}', '${emp}', '${o.facturaId}', '${o.proveedorId}', ${o.total}, ${o.total}, 'MXN', now() + interval '20 days', '${o.uuidCfdi}', '${o.folio}', 'PUE',
-      now(), 1, now(), now(), '${o.proveedorId}', '${o.facturaId}', 'Factura', 'Proveedor', false, ${o.subtotal}, ${iva}, 0);`);
+      now(), 1, now(), now(), '${o.proveedorId}', '${o.facturaId}', 'Factura', 'Proveedor', false, ${o.subtotal}, ${iva}, 0)
+    on conflict do nothing;`); // with the Outbox on, CxP already sent the liability to Tesorería
 }
