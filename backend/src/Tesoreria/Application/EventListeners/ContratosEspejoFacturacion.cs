@@ -95,3 +95,31 @@ public sealed record NotaCreditoReembolsoSolicitadoPayload(
 {
     public const string EventType = "facturacion.nota-credito.reembolso-solicitado.v1";
 }
+
+/// <summary>Forma de pago del cobro de caja; <c>FolioTransferencia</c> solo en forma 03 (F6.6).</summary>
+public sealed record CobroFormaPagoPayload(string FormaPago, decimal Importe, string? FolioTransferencia = null);
+
+/// <summary>
+/// Espejo (subset) de <c>facturacion.cobro-mostrador.registrado.v1</c> (F6.6):
+/// los folios de transferencia que trae el cobro quedan «Usados».
+/// </summary>
+public sealed record CobroMostradorRegistradoPayload(
+    Guid EmpresaId,
+    DateTimeOffset OcurridoEn,
+    Guid CobroMostradorId,
+    IReadOnlyList<CobroFormaPagoPayload> FormasPago)
+{
+    public const string EventType = "facturacion.cobro-mostrador.registrado.v1";
+}
+
+/// <summary>
+/// Espejo (subset) de <c>facturacion.cobro-mostrador.cancelado.v1</c> (F6.6):
+/// los folios que usó el cobro vuelven a «Vigente».
+/// </summary>
+public sealed record CobroMostradorCanceladoPayload(
+    Guid EmpresaId,
+    DateTimeOffset OcurridoEn,
+    Guid CobroMostradorId)
+{
+    public const string EventType = "facturacion.cobro-mostrador.cancelado.v1";
+}
