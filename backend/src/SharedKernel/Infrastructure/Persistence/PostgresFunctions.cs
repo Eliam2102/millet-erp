@@ -43,12 +43,11 @@ public static class PostgresFunctions
 
     /// <summary>
     /// Mapea el built-in <c>pg_catalog.regexp_replace(text, pattern, replacement)</c>.
-    /// Lo usa <see cref="OrdenClaveNatural"/> para el orden natural de claves.
+    /// Lo usa <see cref="OrdenClaveNatural"/> para el orden natural de claves. Con EF relacional se traduce a SQL;
+    /// con el proveedor InMemory (pruebas unitarias) se evalúa en .NET con el mismo resultado.
     /// </summary>
     public static string RegexpReplace(string input, string pattern, string replacement)
-        => throw new InvalidOperationException(
-            "PostgresFunctions.RegexpReplace solo es válido dentro de una query " +
-            "traducida por EF Core (mapeado vía HasDbFunction).");
+        => System.Text.RegularExpressions.Regex.Replace(input, pattern, replacement);
 }
 
 /// <summary>

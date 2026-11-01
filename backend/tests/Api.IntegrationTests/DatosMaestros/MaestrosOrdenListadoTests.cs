@@ -31,7 +31,7 @@ public class MaestrosOrdenListadoTests
             var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
             foreach (var n in new[] { 10, 2, 1 })
                 db.Clientes.Add(new Cliente(Guid.CreateVersion7(), $"{p}-{n}", $"CLIENTE {p}",
-                    rfc: "DEMO010101AB1", regimenFiscal: "601", codigoPostalFiscal: "97000"));
+                    rfc: $"{p[3..]}{n:D3}XX1", regimenFiscal: "601", codigoPostalFiscal: "97000"));
             db.Clientes.Add(new Cliente(Guid.CreateVersion7(), $"{p}-900", $"CLIENTE {p}"));
             await db.SaveChangesAsync();
         }
