@@ -69,6 +69,27 @@ public static class ExpedienteAdjuntos
         select new DocumentoProveedorPendiente { ProveedorId = p.Id, Codigo = t.Codigo };
     }
 
+    public const string CodigoOpinionCumplimiento = "opinion_cumplimiento";
+
+    /// <summary>
+    /// 86e3ke2d3 (P8.3): proveedores a los que les falta la opinión de cumplimiento vigente (faltante o vencida), sin excepción.
+    /// Aplica aunque el tipo no sea obligatorio en el expediente; respeta el origen del tipo y que siga activo.
+    /// </summary>
+    public static IQueryable<Guid> SinOpinionCumplimiento(CompartidoDbContext db, IClock clock)
+    {
+        var hoy = AdjuntoSoporte.Hoy(clock);
+        return from p in db.Proveedores.AsNoTracking()
+        from t in db.AdjuntoTiposDocumento.AsNoTracking()
+        where t.TipoEntidad == "proveedor" && t.Activo && t.Codigo == CodigoOpinionCumplimiento
+            && (t.AplicaOrigen != AdjuntoAplicaOrigen.SoloNacional || p.Origen != Millet.DatosMaestros.Domain.OrigenProveedor.Extranjero)
+            && (t.AplicaOrigen != AdjuntoAplicaOrigen.SoloExtranjero || p.Origen == Millet.DatosMaestros.Domain.OrigenProveedor.Extranjero)
+            && !db.AdjuntoExcepciones.Any(x => x.TipoEntidad == "proveedor" && x.EntidadId == p.Id && x.TipoDocumentoId == t.Id && x.RevocadaEn == null)
+        let actual = db.Adjuntos.Where(a => a.TipoEntidad == "proveedor" && a.EntidadId == p.Id && a.TipoDocumentoId == t.Id && a.BajaEn == null)
+            .OrderByDescending(a => a.SubidoEn).FirstOrDefault()
+        where actual == null || actual.VigenteHasta < hoy
+        select p.Id;
+    }
+
     /// <summary>
     /// Versión de la matriz de tipos de una entidad: suma de <c>Version</c> de sus tipos. Sube con cada
     /// cambio de un tipo (incluida su desactivación) y con cada tipo nuevo, sin tabla aparte (86e3pdmee).
