@@ -31,6 +31,7 @@ public sealed class PedidosSinFacturarReadAdapterTests
         var pedido = PedidoFacturable.ImportarDesdeAw(Empresa, numero, Guid.NewGuid(), cliente ?? Cliente, "Cliente", (short)1,
             ComportamientoFiscal.MostradorInmediato, moneda, null, null, null, 1, estatus, condicionPagoOrigen: condicion);
         pedido.AgregarLinea(null, "Vidrio", null, "H87", 1m, importe, 0m, false);
+        pedido.RecalcularTotal();
         db.PedidosFacturables.Add(pedido);
         return pedido;
     }
@@ -47,14 +48,14 @@ public sealed class PedidosSinFacturarReadAdapterTests
     public async Task Pedido_a_credito_en_firme_sin_factura_se_lista_con_su_total()
     {
         await using var db = NewDb();
-        var pedido = Pedido(db, "10500001", 20_000m);
+        Pedido(db, "10500001", 20_000m);
 
         var r = await Listar(db);
 
         r.Should().ContainSingle();
         r[0].NumeroPedido.Should().Be("10500001");
         r[0].Moneda.Should().Be("MXN");
-        r[0].Total.Should().Be(pedido.Total);
+        r[0].Total.Should().Be(20_000m); // línea sin tasa (legacy): subtotal
         r[0].AnticipoLigado.Should().Be(0m);
     }
 
@@ -65,6 +66,7 @@ public sealed class PedidosSinFacturarReadAdapterTests
         var pedido = PedidoFacturable.ImportarDesdeAw(Empresa, "10500010", Guid.NewGuid(), Cliente, "Cliente", (short)1,
             ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, 1, "42", condicionPagoOrigen: "30D");
         pedido.AgregarLinea(null, "Vidrio", null, "H87", 1m, 20_000m, 0m, false, tasaIva: 0.16m);
+        pedido.RecalcularTotal();
         db.PedidosFacturables.Add(pedido);
 
         var r = await Listar(db);

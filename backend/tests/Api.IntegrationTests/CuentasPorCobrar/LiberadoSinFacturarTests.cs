@@ -97,6 +97,7 @@ public sealed class LiberadoSinFacturarTests
         var pedido = PedidoFacturable.ImportarDesdeAw(Empresa, numero, Guid.NewGuid(), cliente, "Cliente C7.1", (short)1,
             ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, 1, "42", condicionPagoOrigen: condicion);
         pedido.AgregarLinea(null, "Vidrio", null, "H87", 1m, importe, 0m, false);
+        pedido.RecalcularTotal();
         return pedido;
     }
 
