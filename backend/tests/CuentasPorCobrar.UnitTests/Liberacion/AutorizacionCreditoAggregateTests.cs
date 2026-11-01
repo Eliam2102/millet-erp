@@ -6,7 +6,7 @@ namespace Millet.CuentasPorCobrar.UnitTests.Liberacion;
 public class AutorizacionCreditoAggregateTests
 {
     private static readonly DateTimeOffset Ahora = new(2026, 7, 14, 9, 0, 0, TimeSpan.Zero);
-    private const string Folio = "3000123";
+    private const string Folio = "7800123";
 
     private static AutorizacionCredito Crear(
         Guid? supervisor = null,
@@ -87,7 +87,7 @@ public class AutorizacionCreditoAggregateTests
         var beneficiario = Guid.NewGuid();
         var a = Crear(beneficiario: beneficiario);
 
-        var act = () => a.Consumir(Guid.NewGuid(), beneficiario, Ahora, "3000999");
+        var act = () => a.Consumir(Guid.NewGuid(), beneficiario, Ahora, "7800999");
 
         act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "AC_REFERENCIA_DISTINTA");
         a.Estado.Should().Be(EstadoAutorizacionCredito.Autorizada);
@@ -99,7 +99,7 @@ public class AutorizacionCreditoAggregateTests
         var beneficiario = Guid.NewGuid();
         var a = Crear(beneficiario: beneficiario);
 
-        a.Consumir(Guid.NewGuid(), beneficiario, Ahora, " 3000123 ");
+        a.Consumir(Guid.NewGuid(), beneficiario, Ahora, " 7800123 ");
 
         a.Estado.Should().Be(EstadoAutorizacionCredito.Usada);
     }
