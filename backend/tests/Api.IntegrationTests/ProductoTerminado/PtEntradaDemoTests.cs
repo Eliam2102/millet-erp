@@ -525,7 +525,7 @@ public class PtEntradaDemoTests(WebApplicationFactory<Program> factory, ITestOut
             r => (r.IsDBNull(0) ? null : r.GetString(0), r.IsDBNull(1) ? null : r.GetString(1))).ContinueWith(t => t.Result.Single());
 
     [Fact]
-    public async Task PT52_CA1_CA2_CA5_Ocho_de_diez_quedan_Retenido_y_el_saldo_en_0_libera_una_sola_vez_por_SaldoCubierto()
+    public async Task PT52_CA1_CA2_CA5_Ocho_de_diez_no_se_retienen_con_diez_quedan_Retenido_y_el_saldo_en_0_libera_una_sola_vez_por_SaldoCubierto()
     {
         await using var ctx = await PrepararAsync();
         var n = Numero();
@@ -534,7 +534,14 @@ public class PtEntradaDemoTests(WebApplicationFactory<Program> factory, ITestOut
         await using var f = Host();
         await Ciclo(f);
 
+        // P-096: incompleto no tiene estatus ni evento.
         Assert.Equal(8, await Piezas(n));
+        Assert.Equal((null, null), await EstadoPedido(n));
+        Assert.Equal(0, await EventosEstado(n, "Retenido"));
+
+        for (var i = 9; i <= 10; i++) await Escaneo(n, Etq(n, i), i, Ahora(i));
+        await Ciclo(f);
+        Assert.Equal(10, await Piezas(n));
         Assert.Equal(("Retenido", MotivosPt.SaldoPendiente), await EstadoPedido(n));
         Assert.Equal(1, await EventosEstado(n, "Retenido"));
         Assert.Equal(0, await EventosEstado(n, "Liberado"));
@@ -545,20 +552,26 @@ public class PtEntradaDemoTests(WebApplicationFactory<Program> factory, ITestOut
 
         Assert.Equal(("Liberado", MotivosPt.SaldoCubierto), await EstadoPedido(n));
         Assert.Equal(1, await EventosEstado(n, "Liberado"));
-        Assert.Equal(8, await Piezas(n)); // sigue incompleto: el 70 es por dinero (E6)
+        Assert.Equal(1, await EventosEstado(n, "Retenido"));
         var json = await http.GetFromJsonAsync<JsonElement>($"/api/v1/producto-terminado/piezas?pedido={n}");
         Assert.Equal("Liberado", json.GetProperty("estadoPedido").GetProperty("estado").GetString());
         Assert.Equal(MotivosPt.SaldoCubierto, json.GetProperty("estadoPedido").GetProperty("motivo").GetString());
     }
 
     [Fact]
-    public async Task PT52_CA3_Reparto_con_tres_de_diez_y_saldo_queda_Liberado_por_Reparto_sin_evento_de_69()
+    public async Task PT52_CA3_Reparto_con_tres_de_diez_no_se_libera_y_con_diez_queda_Liberado_por_Reparto_sin_evento_de_69()
     {
         await using var ctx = await PrepararAsync();
         var n = Numero();
         await _d.FacturacionAsync(n, ctx.A, 10, condicionPago: "REPARTO");
         for (var i = 1; i <= 3; i++) await Escaneo(n, Etq(n, i), i, Ahora(i));
         await using var f = Host();
+        await Ciclo(f);
+
+        Assert.Equal((null, null), await EstadoPedido(n));
+        Assert.Equal(0, await EventosEstado(n, "Liberado"));
+
+        for (var i = 4; i <= 10; i++) await Escaneo(n, Etq(n, i), i, Ahora(i));
         await Ciclo(f);
 
         Assert.Equal(("Liberado", MotivosPt.Reparto), await EstadoPedido(n));
@@ -572,7 +585,7 @@ public class PtEntradaDemoTests(WebApplicationFactory<Program> factory, ITestOut
         await using var ctx = await PrepararAsync();
         var n = Numero();
         await _d.FacturacionAsync(n, ctx.A, 10);
-        await Escaneo(n, Etq(n, 1), 1, Ahora());
+        for (var i = 1; i <= 10; i++) await Escaneo(n, Etq(n, i), i, Ahora(i));
         await using (var demo = Host()) await Ciclo(demo);
         Assert.Equal(("Retenido", MotivosPt.SaldoPendiente), await EstadoPedido(n));
 
