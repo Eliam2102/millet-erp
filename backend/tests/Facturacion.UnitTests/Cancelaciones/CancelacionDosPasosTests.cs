@@ -205,7 +205,11 @@ public sealed class CancelacionDosPasosTests
     [Fact]
     public void Rechazar_sin_motivo_no_pasa_la_validacion()
     {
-        new RechazarCancelacionValidator().Validate(new RechazarCancelacionCommand(Guid.NewGuid(), "")).IsValid.Should().BeFalse();
+        var resultado = new RechazarCancelacionValidator().Validate(new RechazarCancelacionCommand(Guid.NewGuid(), ""));
+        resultado.IsValid.Should().BeFalse();
+        // O3: el mensaje del 400 sale en español.
+        resultado.Errors.Should().ContainSingle().Which.ErrorMessage
+            .Should().Be("Indica el motivo por el que no se autoriza la cancelación.");
     }
 
     [Fact]
@@ -262,6 +266,7 @@ public sealed class CancelacionDosPasosTests
         var fila = bandeja.Should().ContainSingle().Subject;
         (fila.ComprobanteId, fila.TipoComprobante, fila.Folio, fila.MotivoSat, fila.SolicitadaPor, fila.EstadoSolicitud)
             .Should().Be((fv.Id, "FacturaVenta", "F-1", "02", "Ingresos", "PendienteAutorizacion"));
+        fila.SolicitadaPorId.Should().Be(Ingresos); // O2: la bandeja oculta la decisión a quien solicitó.
         (await new BandejaCancelacionesHandler(db).Handle(
             new BandejaCancelacionesQuery(EstadoSolicitudCancelacion.Aceptada), CancellationToken.None)).Should().BeEmpty();
     }

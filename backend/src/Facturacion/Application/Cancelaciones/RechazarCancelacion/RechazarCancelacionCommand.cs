@@ -19,7 +19,9 @@ public sealed class RechazarCancelacionValidator : AbstractValidator<RechazarCan
     public RechazarCancelacionValidator()
     {
         RuleFor(c => c.ComprobanteId).NotEmpty();
-        RuleFor(c => c.Motivo).NotEmpty().MaximumLength(500);
+        RuleFor(c => c.Motivo)
+            .NotEmpty().WithMessage("Indica el motivo por el que no se autoriza la cancelación.")
+            .MaximumLength(500).WithMessage("El motivo admite como máximo 500 caracteres.");
     }
 }
 

@@ -30,7 +30,8 @@ public sealed record CancelacionBandejaItem(
     DateTimeOffset SolicitadaEn,
     string? DecididaPor,
     DateTimeOffset? DecididaEn,
-    string? MotivoRechazo);
+    string? MotivoRechazo,
+    Guid? SolicitadaPorId = null);
 
 public sealed class BandejaCancelacionesHandler(FacturacionDbContext db)
     : IRequestHandler<BandejaCancelacionesQuery, IReadOnlyList<CancelacionBandejaItem>>
@@ -52,6 +53,7 @@ public sealed class BandejaCancelacionesHandler(FacturacionDbContext db)
         return filas.Select(f => new CancelacionBandejaItem(
             f.s.Id, f.c.Id, f.c.GetType().Name, f.c.Folio, f.c.Uuid, f.c.ReceptorRfc, f.c.ReceptorNombre,
             f.c.Total, f.c.Moneda, f.c.Estado.ToString(), f.s.MotivoSat, f.s.UuidSustituto, f.s.Estado.ToString(),
-            f.s.SolicitadaPorNombre, f.s.SolicitadaEn, f.s.DecididaPorNombre, f.s.DecididaEn, f.s.MotivoRechazo)).ToList();
+            f.s.SolicitadaPorNombre, f.s.SolicitadaEn, f.s.DecididaPorNombre, f.s.DecididaEn, f.s.MotivoRechazo,
+            f.s.SolicitadaPorId)).ToList();
     }
 }

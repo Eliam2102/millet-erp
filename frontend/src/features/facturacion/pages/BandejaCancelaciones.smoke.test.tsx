@@ -4,6 +4,7 @@ import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
 import { BandejaCancelaciones } from '@/features/facturacion/pages/BandejaCancelaciones';
+import { useAuthStore } from '@/lib/auth/auth-store';
 
 vi.mock('@/lib/auth/useHasPermission', () => ({ useHasPermission: () => true }));
 
@@ -28,6 +29,7 @@ const pendiente = {
   uuidSustituto: null,
   estadoSolicitud: 'PendienteAutorizacion',
   solicitadaPor: 'Ingresos demo',
+  solicitadaPorId: 'u-ingresos',
   solicitadaEn: '2026-10-31T10:00:00Z',
   decididaPor: null,
   decididaEn: null,
@@ -94,5 +96,19 @@ describe('<BandejaCancelaciones> — smoke (F6.5)', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'No autorizar' }));
     await waitFor(() => expect(motivo).toBe('Se corrige con nota de crédito'));
+  });
+
+  it('O2: a quien solicitó no le ofrece autorizar su propia solicitud', async () => {
+    useAuthStore.setState({ user: { id: 'u-ingresos', email: 'i@demo.local', nombre: 'Ingresos demo' } } as never);
+    mswServer.use(
+      http.get('*/api/v1/facturacion/comprobantes/cancelaciones', () => HttpResponse.json([pendiente])),
+    );
+
+    render(<BandejaCancelaciones />, { wrapper: createQueryWrapper() });
+
+    expect(await screen.findByText('La solicitaste tú; la autoriza otra persona.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Autorizar' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'No autorizar' })).toBeNull();
+    useAuthStore.setState({ user: null } as never);
   });
 });

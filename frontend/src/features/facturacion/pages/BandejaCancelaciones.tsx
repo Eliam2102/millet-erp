@@ -21,7 +21,8 @@ import {
   useBandejaCancelaciones,
   useDecidirCancelacion,
 } from '@/features/facturacion/api/useFacturas';
-import { codigoSoporte, esApiError } from '@/lib/api';
+import { mostrarError } from '@/features/facturacion/lib/mostrar-error-cancelacion';
+import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { formatDateTime } from '@/lib/datetime';
@@ -49,6 +50,7 @@ export function BandejaCancelaciones() {
   const puedeAutorizar = useHasPermission(PermisosCanonicos.FacturacionCancelacionesAutorizar);
   const pendientes = estado === 'PendienteAutorizacion';
   const items = query.data ?? [];
+  const usuarioId = useAuthStore((s) => s.user?.id);
 
   return (
     <main className="flex h-full min-h-0 flex-col gap-5 text-sm text-ink">
@@ -106,6 +108,7 @@ export function BandejaCancelaciones() {
                     key={c.solicitudId}
                     c={c}
                     puedeDecidir={pendientes && puedeAutorizar}
+                    propia={pendientes && c.solicitadaPorId != null && c.solicitadaPorId === usuarioId}
                   />
                 ))}
               </TableBody>
@@ -117,7 +120,16 @@ export function BandejaCancelaciones() {
   );
 }
 
-function FilaCancelacion({ c, puedeDecidir }: { c: CancelacionBandejaItem; puedeDecidir: boolean }) {
+function FilaCancelacion({
+  c,
+  puedeDecidir,
+  propia,
+}: {
+  c: CancelacionBandejaItem;
+  puedeDecidir: boolean;
+  /** La solicitó quien ve la bandeja: la decide otra persona (O2). */
+  propia: boolean;
+}) {
   const decidir = useDecidirCancelacion();
   const [rechazando, setRechazando] = useState(false);
   const [motivo, setMotivo] = useState('');
@@ -146,12 +158,7 @@ function FilaCancelacion({ c, puedeDecidir }: { c: CancelacionBandejaItem; puede
                 }).`
               : `Cancelación de ${c.folio} no autorizada. La factura sigue vigente.`,
           ),
-        onError: (error) =>
-          toast.error(esApiError(error) ? error.problem.title : 'No se pudo registrar la decisión.', {
-            description: esApiError(error)
-              ? (error.problem.detail ?? codigoSoporte(error))
-              : undefined,
-          }),
+        onError: (error) => mostrarError(error, 'No se pudo registrar la decisión.'),
       },
     );
   }
@@ -180,7 +187,9 @@ function FilaCancelacion({ c, puedeDecidir }: { c: CancelacionBandejaItem; puede
         <p className="text-xs text-ink-muted">{formatDateTime(c.solicitadaEn)}</p>
       </TableCell>
       <TableCell>
-        {puedeDecidir ? (
+        {propia ? (
+          <p className="text-xs text-ink-muted">La solicitaste tú; la autoriza otra persona.</p>
+        ) : puedeDecidir ? (
           rechazando ? (
             <div className="flex min-w-64 flex-col gap-2">
               <Input

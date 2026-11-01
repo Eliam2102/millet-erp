@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { MOTIVOS_CANCELACION } from '@/features/facturacion/api/types';
 import { useSolicitarCancelacion } from '@/features/facturacion/api/useFacturas';
-import { codigoSoporte, esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { mostrarError } from '@/features/facturacion/lib/mostrar-error-cancelacion';
+import { useFormIdempotencyKey } from '@/lib/api';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -48,18 +49,8 @@ export function CancelarComprobanteForm({
           toast.success('Cancelación solicitada: queda pendiente de la autorización del Contador General.');
           onDone();
         },
-        onError: (error) =>
-          toast.error(
-            esApiError(error) ? error.problem.title : 'No se pudo solicitar la cancelación.',
-            {
-              // El motivo real del SAT/PAC (p. ej. "no cancelable por tener
-              // CFDI relacionados") viaja en detail — sin esto el usuario ve
-              // un genérico y no puede accionar/reportar.
-              description: esApiError(error)
-                ? (error.problem.detail ?? codigoSoporte(error))
-                : undefined,
-            },
-          ),
+        // El motivo real del SAT/PAC viaja en detail; si repite el título no se duplica (O1).
+        onError: (error) => mostrarError(error, 'No se pudo solicitar la cancelación.'),
       },
     );
   }

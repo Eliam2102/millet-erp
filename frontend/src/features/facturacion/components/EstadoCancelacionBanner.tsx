@@ -5,7 +5,8 @@ import {
   type EstadoSolicitudCancelacion,
 } from '@/features/facturacion/api/types';
 import { useDecidirCancelacion } from '@/features/facturacion/api/useFacturas';
-import { codigoSoporte, esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { mostrarError } from '@/features/facturacion/lib/mostrar-error-cancelacion';
+import { useFormIdempotencyKey } from '@/lib/api';
 import { toast } from 'sonner';
 
 /**
@@ -36,12 +37,7 @@ export function EstadoCancelacionBanner({
       { id: comprobanteId, accion: 'retirar', idempotencyKey },
       {
         onSuccess: () => toast.success('Solicitud de cancelación retirada.'),
-        onError: (error) =>
-          toast.error(esApiError(error) ? error.problem.title : 'No se pudo retirar la solicitud.', {
-            description: esApiError(error)
-              ? (error.problem.detail ?? codigoSoporte(error))
-              : undefined,
-          }),
+        onError: (error) => mostrarError(error, 'No se pudo retirar la solicitud.'),
       },
     );
   }

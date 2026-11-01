@@ -1437,6 +1437,8 @@ export interface CancelacionBandejaItem {
   uuidSustituto: string | null;
   estadoSolicitud: EstadoSolicitudCancelacion;
   solicitadaPor: string | null;
+  /** Usuario que solicitó: no puede decidir su propia solicitud (O2). */
+  solicitadaPorId?: string | null;
   solicitadaEn: string;
   decididaPor: string | null;
   decididaEn: string | null;
