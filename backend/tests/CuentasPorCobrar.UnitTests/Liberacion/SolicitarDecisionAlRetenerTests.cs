@@ -32,7 +32,7 @@ public sealed class SolicitarDecisionAlRetenerTests
     {
         var db = new CuentasPorCobrarDbContext(new DbContextOptionsBuilder<CuentasPorCobrarDbContext>()
             .UseInMemoryDatabase($"cxc_retener_{Guid.NewGuid()}").Options, new EmpresaFija());
-        db.ReglasLiberacionSerie.AddRange(ReglaLiberacionSerieConfiguration.SeedReglas.Select(r => new ReglaLiberacionSerie(r.Id, r.Prefijo, r.Comportamiento)));
+        db.ReglasLiberacionSerie.AddRange(ReglaLiberacionSerieConfiguration.SeriesMillet.Select(r => new ReglaLiberacionSerie(r.Id, r.Prefijo, r.Comportamiento)));
         db.SaveChanges();
         var pub = new Publicador();
         return (new SolicitarDecisionAlRetenerHandler(db, pub, new Reloj()), db, pub);
@@ -65,10 +65,10 @@ public sealed class SolicitarDecisionAlRetenerTests
     }
 
     [Fact]
-    public async Task Serie_3000_decide_Retenido_y_sin_datos_de_cliente_o_monto_no_decide()
+    public async Task Serie_7800_decide_Retenido_y_sin_datos_de_cliente_o_monto_no_decide()
     {
         var (h, db, _) = Crear();
-        (await h.Handle(Cmd("3000456"), default)).Should().BeTrue();
+        (await h.Handle(Cmd("7800456"), default)).Should().BeTrue();
         (await db.DecisionesLiberacion.SingleAsync()).Resultado.Should().Be(ResultadoLiberacion.Retenido);
 
         (await h.Handle(Cmd("5000999", monto: 0m), default)).Should().BeFalse();
