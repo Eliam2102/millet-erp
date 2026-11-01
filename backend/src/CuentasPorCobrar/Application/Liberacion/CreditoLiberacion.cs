@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
-using Millet.CuentasPorCobrar.Domain.Cartera;
+using Millet.CuentasPorCobrar.Application.CreditoDisponible;
 using Millet.CuentasPorCobrar.Domain.LineaCredito;
+using Millet.CuentasPorCobrar.Domain.Ports.Facturacion;
 using Millet.CuentasPorCobrar.Infrastructure.Persistence;
 
 namespace Millet.CuentasPorCobrar.Application.Liberacion;
@@ -9,15 +10,17 @@ namespace Millet.CuentasPorCobrar.Application.Liberacion;
 internal readonly record struct CreditoLiberacionSnapshot(bool LineaActiva, decimal Disponible);
 
 /// <summary>
-/// Cálculo ÚNICO del crédito disponible para la liberación de pedidos.
-/// Lo usan «Decidir» (cascada) y «Autorizar» una pendiente (C7.3: al
-/// autorizar se recalcula con el mismo criterio, por si entró un pago o se
-/// bloqueó la línea mientras esperaba).
+/// Crédito disponible para la liberación de pedidos. Lo usan «Decidir»
+/// (cascada) y «Autorizar» una pendiente (C7.3: al autorizar se recalcula
+/// con el mismo criterio, por si entró un pago o se bloqueó la línea
+/// mientras esperaba). Usa los mismos componentes que la consulta del
+/// disponible (C7.1, <see cref="ComponentesCredito"/>).
 /// </summary>
 internal static class CreditoLiberacion
 {
     public static async Task<CreditoLiberacionSnapshot> CalcularAsync(
-        CuentasPorCobrarDbContext db, Guid clienteId, string moneda, CancellationToken cancellationToken)
+        CuentasPorCobrarDbContext db, IFacturacionPedidosSinFacturarReadPort pedidos,
+        Guid clienteId, string moneda, string pedidoRef, CancellationToken cancellationToken)
     {
         // Línea Bloqueada/Suspendida = sin línea activa (supuesto C7.3 e).
         var linea = await db.LineasCredito.AsNoTracking()
@@ -27,16 +30,12 @@ internal static class CreditoLiberacion
                 cancellationToken);
         if (linea is null) return new CreditoLiberacionSnapshot(false, 0m);
 
-        // Mismo cálculo que CreditoDisponibleQuery: saldo pendiente de las
-        // facturas Abierta/Parcial. `liberado_sin_factura` sigue en 0
-        // (PLATFORM-TODO(<CreditoLiberadoSinFactura>), gap G1).
-        var facturado = await db.FacturasCartera.AsNoTracking()
-            .Where(f => f.ClienteId == clienteId
-                     && f.Moneda == moneda
-                     && (f.Estado == EstadoFacturaCartera.Abierta
-                      || f.Estado == EstadoFacturaCartera.Parcial))
-            .SumAsync(f => f.Total - f.MontoPagado - f.MontoNc, cancellationToken);
+        var facturado = (await ComponentesCredito.FacturadoPorMonedaAsync(db, clienteId, cancellationToken))
+            .GetValueOrDefault(moneda, 0m);
+        var liberadoSinFactura = (await ComponentesCredito.LiberadoSinFacturaPorMonedaAsync(
+                pedidos, clienteId, pedidoRef, cancellationToken))
+            .GetValueOrDefault(moneda, 0m);
 
-        return new CreditoLiberacionSnapshot(true, linea.Limite - facturado);
+        return new CreditoLiberacionSnapshot(true, linea.Limite - facturado - liberadoSinFactura);
     }
 }

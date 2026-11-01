@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.CuentasPorCobrar.Application.Common;
 using Millet.CuentasPorCobrar.Domain.Liberacion;
+using Millet.CuentasPorCobrar.Domain.Ports.Facturacion;
 using Millet.CuentasPorCobrar.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
@@ -62,16 +63,18 @@ public sealed class AutorizarLiberacionPendienteHandler
     private readonly ICurrentEmpresaContext _currentEmpresa;
     private readonly ICurrentUserContext _currentUser;
     private readonly IClock _clock;
+    private readonly IFacturacionPedidosSinFacturarReadPort _pedidos;
 
     public AutorizarLiberacionPendienteHandler(
         CuentasPorCobrarDbContext db,
         IIntegrationEventPublisher eventos,
         ICurrentEmpresaContext currentEmpresa,
         ICurrentUserContext currentUser,
-        IClock clock)
+        IClock clock,
+        IFacturacionPedidosSinFacturarReadPort pedidos)
     {
         _db = db; _eventos = eventos; _currentEmpresa = currentEmpresa;
-        _currentUser = currentUser; _clock = clock;
+        _currentUser = currentUser; _clock = clock; _pedidos = pedidos;
     }
 
     public async Task<DecisionLiberacionResponse> Handle(
@@ -83,7 +86,7 @@ public sealed class AutorizarLiberacionPendienteHandler
 
         var ahora = _clock.UtcNow;
         var credito = await CreditoLiberacion.CalcularAsync(
-            _db, pendiente.ClienteId, pendiente.Moneda, cancellationToken);
+            _db, _pedidos, pendiente.ClienteId, pendiente.Moneda, pendiente.PedidoRef, cancellationToken);
 
         ResultadoLiberacion resultado;
         ReglaAplicadaLiberacion regla;

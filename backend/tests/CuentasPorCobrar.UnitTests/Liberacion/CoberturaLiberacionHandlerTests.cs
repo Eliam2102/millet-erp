@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Millet.CuentasPorCobrar.Application.Integration;
+using Millet.CuentasPorCobrar.UnitTests.CreditoDisponible;
 using Millet.CuentasPorCobrar.Application.Liberacion;
 using Millet.CuentasPorCobrar.Domain.Cartera;
 using Millet.CuentasPorCobrar.Domain.Liberacion;
@@ -601,7 +602,7 @@ public sealed class CoberturaLiberacionHandlerTests
         var publisher = new FakePublisher();
         var handler = new DecidirLiberacionHandler(
             db, publisher, new FakeEmpresaContext(EmpresaId), new FakeUserContext(usuario ?? Coordinador),
-            new FakeClock(ahora ?? Ahora));
+            new FakeClock(ahora ?? Ahora), new PedidosSinFacturarFalso());
         var res = await handler.Handle(command, CancellationToken.None);
         return (res, publisher.Publicados);
     }
@@ -612,7 +613,7 @@ public sealed class CoberturaLiberacionHandlerTests
         var publisher = new FakePublisher();
         var handler = new AutorizarLiberacionPendienteHandler(
             db, publisher, new FakeEmpresaContext(EmpresaId), new FakeUserContext(usuario),
-            new FakeClock(ahora ?? Ahora));
+            new FakeClock(ahora ?? Ahora), new PedidosSinFacturarFalso());
         var res = await handler.Handle(
             new AutorizarLiberacionPendienteCommand(decisionId, motivo), CancellationToken.None);
         return (res, publisher.Publicados);

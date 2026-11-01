@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Millet.CuentasPorCobrar.UnitTests.CreditoDisponible;
 using Millet.CuentasPorCobrar.Application.Liberacion;
 using Millet.CuentasPorCobrar.Domain.Cartera;
 using Millet.CuentasPorCobrar.Domain.Liberacion;
@@ -262,17 +263,96 @@ public sealed class DecidirLiberacionHandlerTests
         response.ReglaAplicada.Should().Be(ReglaAplicadaLiberacion.Credito);
     }
 
+    // --------------------------------------------------- C7.1: liberado sin facturar
+
+    [Fact]
+    public async Task CA7_1_liberado_sin_facturar_resta_del_disponible_y_el_pedido_se_libera()
+    {
+        using var db = CrearDbContext();
+        await AgregarLinea(db, limite: 100_000m);
+        await AgregarFacturaAbierta(db, total: 40_000m);
+        var pedidos = new PedidosSinFacturarFalso().Agregar(ClienteId, "6000100", 20_000m);
+
+        var (response, _) = await Handle(db, Comando(pedidoRef: "6000200", monto: 30_000m), pedidos);
+
+        response.CreditoDisponibleSnapshot.Should().Be(40_000m);
+        response.Resultado.Should().Be(ResultadoLiberacion.Liberado);
+        response.ReglaAplicada.Should().Be(ReglaAplicadaLiberacion.Credito);
+    }
+
+    [Fact]
+    public async Task C7_1_el_pedido_evaluado_no_compromete_su_propio_credito()
+    {
+        // El pedido que se evalúa ya entró en firme a Facturación: no se resta dos veces.
+        using var db = CrearDbContext();
+        await AgregarLinea(db, limite: 100_000m);
+        var pedidos = new PedidosSinFacturarFalso()
+            .Agregar(ClienteId, "6000300", 30_000m)
+            .Agregar(ClienteId, "6000100", 20_000m);
+
+        var (response, _) = await Handle(db, Comando(pedidoRef: " 6000300 ", monto: 30_000m), pedidos);
+
+        response.CreditoDisponibleSnapshot.Should().Be(80_000m);
+    }
+
+    [Fact]
+    public async Task C7_1_pedido_cubierto_por_anticipo_no_compromete_credito()
+    {
+        using var db = CrearDbContext();
+        await AgregarLinea(db, limite: 100_000m);
+        var pedidos = new PedidosSinFacturarFalso()
+            .Agregar(ClienteId, "6000100", 20_000m, anticipoLigado: 20_000m)
+            .Agregar(ClienteId, "6000101", 10_000m, anticipoLigado: 15_000m); // sobra anticipo: no suma negativo
+
+        var (response, _) = await Handle(db, Comando(pedidoRef: "6000200", monto: 30_000m), pedidos);
+
+        response.CreditoDisponibleSnapshot.Should().Be(100_000m);
+    }
+
+    [Fact]
+    public async Task C7_1_pedido_en_otra_moneda_no_resta_de_la_linea()
+    {
+        using var db = CrearDbContext();
+        await AgregarLinea(db, limite: 100_000m);
+        var pedidos = new PedidosSinFacturarFalso().Agregar(ClienteId, "6000100", 20_000m, moneda: "USD");
+
+        var (response, _) = await Handle(db, Comando(pedidoRef: "6000200", monto: 30_000m), pedidos);
+
+        response.CreditoDisponibleSnapshot.Should().Be(100_000m);
+    }
+
+    [Fact]
+    public async Task C7_1_consulta_y_liberacion_dan_el_mismo_disponible()
+    {
+        using var db = CrearDbContext();
+        await AgregarLinea(db, limite: 100_000m);
+        await AgregarFacturaAbierta(db, total: 40_000m);
+        var pedidos = new PedidosSinFacturarFalso()
+            .Agregar(ClienteId, "6000100", 20_000m)
+            .Agregar(ClienteId, "6000101", 8_000m, anticipoLigado: 3_000m);
+
+        var consulta = await new Millet.CuentasPorCobrar.Application.CreditoDisponible.CreditoDisponibleHandler(db, pedidos)
+            .Handle(new Millet.CuentasPorCobrar.Application.CreditoDisponible.CreditoDisponibleQuery(ClienteId), CancellationToken.None);
+        var (decision, _) = await Handle(db, Comando(pedidoRef: "6000200", monto: 1_000m), pedidos);
+
+        var linea = consulta.Lineas.Single();
+        linea.LiberadoSinFactura.Should().Be(25_000m);
+        linea.Disponible.Should().Be(35_000m);
+        decision.CreditoDisponibleSnapshot.Should().Be(linea.Disponible);
+    }
+
     // --------------------------------------------------- helpers
 
     private static DecidirLiberacionCommand Comando(string pedidoRef, decimal monto, Guid? overrideId = null) =>
         new(pedidoRef, ClienteId, "MXN", monto, overrideId);
 
     private static async Task<(DecisionLiberacionResponse Response, List<object> Publicados)> Handle(
-        CuentasPorCobrarDbContext db, DecidirLiberacionCommand command)
+        CuentasPorCobrarDbContext db, DecidirLiberacionCommand command, PedidosSinFacturarFalso? pedidos = null)
     {
         var publisher = new FakePublisher();
         var handler = new DecidirLiberacionHandler(
-            db, publisher, new FakeEmpresaContext(EmpresaId), new FakeUserContext(UsuarioId), new FakeClock());
+            db, publisher, new FakeEmpresaContext(EmpresaId), new FakeUserContext(UsuarioId), new FakeClock(),
+            pedidos ?? new PedidosSinFacturarFalso());
         var response = await handler.Handle(command, CancellationToken.None);
         return (response, publisher.Publicados);
     }

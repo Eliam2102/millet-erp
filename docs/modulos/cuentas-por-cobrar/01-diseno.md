@@ -435,7 +435,7 @@ patrones P1–P4 de `frontend/docs/patrones-compras.md`, reportes con
 
 | Pieza | Ticket | NoOp/stub en uso | Cómo se wirea |
 |---|---|---|---|
-| Vista A+W "liberado sin factura / en firme" (G1) | `<CreditoLiberadoSinFactura>` | Término = 0 + `dato_incompleto=true` en `CreditoDisponibleQuery` | A+W publica vista → adapter de lectura la consume y se quita la bandera |
+| ~~Vista A+W "liberado sin factura / en firme" (G1)~~ | `<CreditoLiberadoSinFactura>` | ✅ Resuelto en C7.1 (86e3kdxx4) | Puerto `IFacturacionPedidosSinFacturarReadPort` (adapter en Facturación): pedidos a crédito en firme sin CFDI vigente, menos el anticipo ligado; `dato_incompleto=false` |
 | Emisor de `PagoClienteConfirmadoEvent` (Ingresos/Tesorería) | `<PagoClienteConfirmado>` (ya existe en `ReppEndpoints.cs`) | `ConfirmarPropuestaAplicacionPagoCommand` manual | `TesoreriaEventListenerWorker` en CxC + listener en Facturación invoca `EmitirReppCommand` |
 | Contrato write-back de liberación en `MILLET_INTEGRACION` | `<CxcWriteBackLiberacion>` | Decisión persiste sin efecto en A+W | PR-9: worker consume `DecisionLiberacionEmitidaEvent` → tabla-puente |
 | Feed bancario de depósitos | `<DepositoBancarioFeed>` | Tesorería registra el ingreso a mano («Cobro de cliente», cliente opcional); CxC lo identifica desde «Sin identificar» (C7.4) | Importación de estados de cuenta / conciliación bancaria (T9.2/T9.4) alimenta el mismo `MovimientoBancario`; el puerto `IDepositosPorIdentificarReadPort` no cambia |

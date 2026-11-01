@@ -318,11 +318,6 @@ function FormDecidir({ onClose }: { onClose: () => void }) {
                   <span className="font-mono font-semibold tabular-nums">
                     {formatoMonto(lineaMoneda.disponible, lineaMoneda.moneda)}
                   </span>
-                  {credito.data?.datoIncompleto && (
-                    <span className="ml-2 text-xs text-warning-fg ">
-                      (sin material liberado A+W — indicativo)
-                    </span>
-                  )}
                 </p>
                 {montoPedido > 0 && cobertura != null && (
                   <p className="font-medium">{formatoCobertura(cobertura)}</p>
