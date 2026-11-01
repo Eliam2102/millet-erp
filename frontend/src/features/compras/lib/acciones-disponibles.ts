@@ -212,6 +212,15 @@ export function accionTransmitir(
 export const MOTIVO_AUTOR_RQ =
   'Capturaste esta requisición: no puedes autorizarla. Debe autorizarla otra persona.';
 
+/** Espejo de <c>AUTORIZACION_FIRMA_MISMA_PERSONA</c>: dos niveles = dos personas. */
+export const MOTIVO_MISMO_FIRMANTE =
+  'Ya firmaste el Nivel 1: el Nivel 2 debe firmarlo otra persona.';
+
+/** Espejo de <c>REQUISICION_AUTORIZADOR_NO_FACULTADO</c> (C3.1 / F-09). */
+export const MOTIVO_NO_FACULTADO_N1 =
+  'Le corresponde al jefe del departamento del solicitante.';
+export const MOTIVO_NO_FACULTADO_N2 = 'Le corresponde al jefe de almacén.';
+
 /**
  * <b>Aprobar Nivel1</b> — solo en <c>EnAutorizacion</c>; se oculta si
  * Nivel1 ya está firmado por <b>cualquiera</b> (no solo por el usuario
@@ -236,6 +245,13 @@ export function accionAprobarNivel1(
   if (tieneFirmaNivel(rq, NivelAutorizacion.Nivel1)) return OCULTO;
   if (currentUserId && rq.creadorId === currentUserId) {
     return DISABLED(MOTIVO_AUTOR_RQ);
+  }
+  if (
+    currentUserId &&
+    rq.autorizadorN1Id &&
+    rq.autorizadorN1Id !== currentUserId
+  ) {
+    return DISABLED(MOTIVO_NO_FACULTADO_N1);
   }
   return HABILITADA;
 }
@@ -264,6 +280,17 @@ export function accionAprobarNivel2(
   if (yaFirmoN2) return OCULTO;
   if (!tieneFirmaNivel(rq, NivelAutorizacion.Nivel1)) return OCULTO;
   if (rq.creadorId === currentUserId) return DISABLED(MOTIVO_AUTOR_RQ);
+  if (
+    rq.autorizaciones.some(
+      (a) =>
+        a.nivel === NivelAutorizacion.Nivel1 && a.usuarioId === currentUserId,
+    )
+  ) {
+    return DISABLED(MOTIVO_MISMO_FIRMANTE);
+  }
+  if (rq.autorizadorN2Id && rq.autorizadorN2Id !== currentUserId) {
+    return DISABLED(MOTIVO_NO_FACULTADO_N2);
+  }
   return HABILITADA;
 }
 
