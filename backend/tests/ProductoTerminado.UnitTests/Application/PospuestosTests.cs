@@ -19,7 +19,7 @@ public sealed class PospuestosTests
     private static (ReintentarPospuestosHandler Handler, RelojMutable Reloj) Reintento(EntornoPt t)
     {
         var reloj = new RelojMutable(Inicio);
-        return (new ReintentarPospuestosHandler(t.Db, new EscaneoProcesador(t.Db, t.Pedidos, t.Sucursales, t.Eventos, reloj), reloj, NullLogger<ReintentarPospuestosHandler>.Instance), reloj);
+        return (new ReintentarPospuestosHandler(t.Db, new EscaneoProcesador(t.Db, t.Pedidos, t.Sucursales, t.Eventos, reloj, t.Liberacion), reloj, NullLogger<ReintentarPospuestosHandler>.Instance), reloj);
     }
 
     private static ReintentarPospuestosCommand Cmd(int max = 5) => new(EntornoPt.Empresa, 24, max, 100);

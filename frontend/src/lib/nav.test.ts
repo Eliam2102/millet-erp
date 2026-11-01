@@ -191,7 +191,7 @@ describe('navSidebarItems', () => {
       ],
       ['/facturacion/caja'],
       ['/facturacion/repp/pendientes', '/facturacion/repp'],
-      ['/facturacion/carta-porte', '/facturacion/activos'],
+      ['/facturacion/notas-credito', '/facturacion/carta-porte', '/facturacion/activos'],
       // F6.5: la bandeja de cancelaciones del Contador General va en Revisión.
       ['/facturacion/pedidos/excepciones', '/facturacion/cancelaciones'],
       ['/facturacion/cajas'],

@@ -18,6 +18,7 @@ export interface FacturaPortal {
   detenida: boolean;
   motivo: string | null;
   fechaProgramadaPago: string | null;
+  fechaVencimiento: string;
 }
 
 export interface PagoPortal {
@@ -32,7 +33,12 @@ export interface PagoPortal {
 export class PortalSesionExpirada extends Error {}
 
 export const tokenPortal = () => sessionStorage.getItem(CLAVE);
-export const cerrarSesionPortal = () => sessionStorage.removeItem(CLAVE);
+const CLAVE_EMAIL = 'millet.portal-proveedores.email';
+export const emailPortal = () => sessionStorage.getItem(CLAVE_EMAIL);
+export const cerrarSesionPortal = () => {
+  sessionStorage.removeItem(CLAVE);
+  sessionStorage.removeItem(CLAVE_EMAIL);
+};
 
 export async function solicitarCodigo(email: string): Promise<void> {
   const r = await fetch(`${apiBaseUrl}${PREFIJO}/codigo`, {
@@ -54,6 +60,7 @@ export async function iniciarSesion(email: string, codigo: string): Promise<bool
   if (!r.ok) throw new Error('No se pudo iniciar sesión. Intenta de nuevo.');
   const { token } = (await r.json()) as { token: string };
   sessionStorage.setItem(CLAVE, token);
+  sessionStorage.setItem(CLAVE_EMAIL, email);
   return true;
 }
 

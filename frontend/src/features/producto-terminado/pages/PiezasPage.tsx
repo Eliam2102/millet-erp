@@ -17,6 +17,7 @@ import { useSucursales } from '@/features/catalogos/api';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { usePiezas } from '../api/hooks';
 import type { AvancePosicionDto } from '../api/types';
+import { textoMotivoPedido } from '../lib/motivos-ui';
 
 const PAGE_SIZE = 25;
 const columnas = 'grid grid-cols-[minmax(0,1.4fr)_120px_90px_90px_minmax(0,1fr)_110px_170px] items-center';
@@ -50,6 +51,25 @@ export function PiezasPage() {
         titulo="Piezas en producto terminado"
         descripcion="Consulte las piezas escaneadas por pedido y sucursal, con su avance por posición."
       />
+      {pedidoBuscado && q.data && (q.data.estadoPedido || q.data.avance.length > 0) && (
+        <section aria-label="Estado del pedido" className="flex flex-wrap items-center gap-3 rounded-lg bg-surface-card p-4 shadow-card-flat">
+          <h2 className="text-md font-semibold">Estado del pedido</h2>
+          {q.data.estadoPedido ? (
+            <>
+              <Badge variant={q.data.estadoPedido.estado === 'Liberado' ? 'success' : 'warning'}>{q.data.estadoPedido.estado}</Badge>
+              <span>{textoMotivoPedido(q.data.estadoPedido.motivo)}</span>
+              {q.data.estadoPedido.desde && (
+                <span className="text-xs text-ink-muted">
+                  desde <DateTimeDisplay value={q.data.estadoPedido.desde} variant="datetime" />
+                </span>
+              )}
+            </>
+          ) : (
+            // Sin estatus hasta que el pedido está completo en PT (P-096).
+            <Badge variant="neutral">En producción</Badge>
+          )}
+        </section>
+      )}
       {pedidoBuscado && q.data && q.data.avance.length > 0 && (
         <section aria-label="Avance por posición" className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {q.data.avance.map((a) => (

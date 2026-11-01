@@ -1,9 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor;
 using Millet.Catalogos.Domain;
+using Millet.Compartido.Application.Adjuntos;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.CuentasPorPagar.Domain.Ports.DatosMaestros;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Infrastructure;
 
 namespace Millet.CuentasPorPagar.Infrastructure.Adapters;
 
@@ -32,13 +34,16 @@ public sealed class ProveedorReadPortAdapter : IProveedorReadPort
 {
     private readonly CompartidoDbContext _db;
     private readonly ICurrentEmpresaContext _empresaContext;
+    private readonly IClock _clock;
 
     public ProveedorReadPortAdapter(
         CompartidoDbContext db,
-        ICurrentEmpresaContext empresaContext)
+        ICurrentEmpresaContext empresaContext,
+        IClock? clock = null)
     {
         _db = db;
         _empresaContext = empresaContext;
+        _clock = clock ?? new SystemClock();
     }
 
     public async Task<ProveedorDto?> ObtenerAsync(Guid proveedorId, CancellationToken cancellationToken)
@@ -93,6 +98,18 @@ public sealed class ProveedorReadPortAdapter : IProveedorReadPort
                 p.Bloqueado,
                 p.MotivoBloqueo))
             .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlySet<Guid>> ObtenerSinOpinionCumplimientoAsync(
+        IReadOnlyCollection<Guid> proveedorIds,
+        CancellationToken cancellationToken)
+    {
+        if (proveedorIds.Count == 0) return new HashSet<Guid>();
+
+        using var bypass = _empresaContext.Bypass();
+
+        return (await ExpedienteAdjuntos.SinOpinionCumplimiento(_db, _clock)
+            .Where(id => proveedorIds.Contains(id)).ToListAsync(cancellationToken)).ToHashSet();
     }
 
     public async Task<IReadOnlyDictionary<Guid, string>> ObtenerBloqueadosPorIdsAsync(

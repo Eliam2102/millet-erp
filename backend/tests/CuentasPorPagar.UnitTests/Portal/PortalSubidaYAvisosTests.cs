@@ -51,12 +51,22 @@ public sealed class PortalSubidaYAvisosTests
         public IAsyncEnumerable<object?> CreateStream(object request, CancellationToken ct = default) => throw new NotSupportedException();
     }
 
+    private sealed class Repp(bool ligado = true) : IReppPortalPort
+    {
+        public List<(Guid Proveedor, byte[] Xml)> Llamadas { get; } = [];
+        public Task<ReppPortalLigado> LigarAsync(Guid proveedorId, byte[] xml, CancellationToken ct)
+        {
+            Llamadas.Add((proveedorId, xml));
+            return Task.FromResult(new ReppPortalLigado(ligado, ligado ? "Ligamos tu complemento a tu pago." : "No hay pagos pendientes. Cuentas por Pagar lo revisará."));
+        }
+    }
+
     private static IngresarCfdiResponse Ok(IngresarCfdiCommand _) => new(Guid.NewGuid(), "UUID-1", EstadoCfdiRecibido.PorProcesar, null);
 
-    private static (SubirCfdiPortalHandler H, Mediador M) Crear(string rfc, TipoCfdi tipo, Func<IngresarCfdiCommand, IngresarCfdiResponse>? r = null)
+    private static (SubirCfdiPortalHandler H, Mediador M) Crear(string rfc, TipoCfdi tipo, Func<IngresarCfdiCommand, IngresarCfdiResponse>? r = null, Repp? repp = null)
     {
         var m = new Mediador(r ?? Ok);
-        return (new SubirCfdiPortalHandler(new Parser(rfc, tipo), new Proveedores(), m), m);
+        return (new SubirCfdiPortalHandler(new Parser(rfc, tipo), new Proveedores(), m, repp ?? new Repp()), m);
     }
 
     [Fact]
@@ -95,6 +105,45 @@ public sealed class PortalSubidaYAvisosTests
 
         Assert.Equal("Recibido", r.Resultado);
         Assert.Equal(CanalOrigenCfdi.PortalProveedor, Assert.Single(m.Comandos).Canal);
+    }
+
+    [Fact]
+    public async Task Complemento_de_pago_se_liga_al_pago_con_el_proveedor_del_token_y_la_factura_no_toca_Tesoreria()
+    {
+        var repp = new Repp();
+        var (hp, _) = Crear(RfcProveedor, TipoCfdi.Pago, repp: repp);
+        var (hi, _) = Crear(RfcProveedor, TipoCfdi.Ingreso, repp: repp);
+
+        var p = await hp.Handle(new(Prov, Xml, null), default);
+        await hi.Handle(new(Prov, Xml, null), default);
+
+        Assert.Equal("Recibimos tu documento. Ligamos tu complemento a tu pago.", p.Mensaje);
+        Assert.Equal(Prov, Assert.Single(repp.Llamadas).Proveedor);
+    }
+
+    [Fact]
+    public async Task Complemento_que_no_se_pudo_ligar_queda_recibido_y_dice_el_motivo()
+    {
+        var (h, m) = Crear(RfcProveedor, TipoCfdi.Pago, repp: new Repp(ligado: false));
+
+        var r = await h.Handle(new(Prov, Xml, null), default);
+
+        Assert.Equal("Recibido", r.Resultado);
+        Assert.Contains("Cuentas por Pagar lo revisará", r.Mensaje);
+        Assert.Single(m.Comandos);
+    }
+
+    [Fact]
+    public async Task Complemento_repetido_reintenta_el_ligado()
+    {
+        var repp = new Repp();
+        var (h, _) = Crear(RfcProveedor, TipoCfdi.Pago, _ => throw new BusinessRuleException("CFDI_DUPLICADO", "dup"), repp);
+
+        var r = await h.Handle(new(Prov, Xml, null), default);
+
+        Assert.Equal("YaLoTeniamos", r.Resultado);
+        Assert.Equal("Ya lo teníamos. Ligamos tu complemento a tu pago.", r.Mensaje);
+        Assert.Single(repp.Llamadas);
     }
 
     [Fact]

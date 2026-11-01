@@ -750,6 +750,12 @@ internal static class ConciliacionCalculos
             .Where(m => m.CuentaBancariaId == cuenta.Id && m.FechaValor <= fechaFin)
             .SumAsync(m => m.Sentido == SentidoMovimiento.Ingreso ? m.Monto : -m.Monto, ct);
 
+        // La suma va a la base: los movimientos recién agregados (alta asistida) todavía no están ahí,
+        // se suman del ChangeTracker para que el saldo se guarde en la misma transacción.
+        saldoMovs += db.ChangeTracker.Entries<MovimientoBancario>()
+            .Where(e => e.State == EntityState.Added && e.Entity.CuentaBancariaId == cuenta.Id && e.Entity.FechaValor <= fechaFin)
+            .Sum(e => e.Entity.Sentido == SentidoMovimiento.Ingreso ? e.Entity.Monto : -e.Entity.Monto);
+
         return (cuenta.SaldoInicial ?? 0m) + saldoMovs;
     }
 }
