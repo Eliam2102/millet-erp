@@ -275,6 +275,13 @@ export function ProveedorDetalle() {
               </>
             )}
 
+            <ProveedorBloqueo proveedor={proveedor} parte="accion" />
+            {canValidar && proveedor.estatus === EstatusCatalogo.Activo && (
+              <Button variant="outline" size="sm" onClick={() => setRevisionOpen(true)}>
+                Poner en revisión
+              </Button>
+            )}
+
             {canDesactivar && proveedor.estatus === EstatusCatalogo.Inactivo && (
               <Button
                 variant="ghost"
@@ -338,7 +345,7 @@ export function ProveedorDetalle() {
       </dl>
 
       <div className="space-y-5">
-        <ProveedorBloqueo proveedor={proveedor} />
+        <ProveedorBloqueo proveedor={proveedor} parte="alerta" />
         {/* Banner informativo de En Revisión */}
         {enRevision && (
           <div className="mb-4 rounded-md bg-warning-note-bg p-3 text-warning-note-fg">
@@ -375,11 +382,6 @@ export function ProveedorDetalle() {
           </div>
         )}
 
-        {canValidar && proveedor.estatus === EstatusCatalogo.Activo && (
-          <Button variant="secondary" onClick={() => setRevisionOpen(true)}>
-            Poner en revisión
-          </Button>
-        )}
         <Dialog open={revisionOpen} onOpenChange={setRevisionOpen}>
           <DialogContent size="sm">
             <DialogHeader>
