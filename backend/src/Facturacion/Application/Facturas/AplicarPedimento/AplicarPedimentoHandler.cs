@@ -67,8 +67,9 @@ public sealed class AplicarPedimentoHandler : IRequestHandler<AplicarPedimentoCo
                 $"Solo una factura en PendientePedimento admite pedimento (estado actual: {factura.Estado}).");
 
         var ahora = _clock.UtcNow;
-        if (!await _periodo.EstaAbiertoAsync(ahora.Year, ahora.Month, cancellationToken))
-            throw new BusinessRuleException("PERIODO_CERRADO", $"El período contable {ahora.Year}-{ahora.Month:D2} está cerrado; no se puede timbrar.");
+        var fiscal = Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.FechaFiscal(ahora); // período en la fecha fiscal de México, no en UTC
+        if (!await _periodo.EstaAbiertoAsync(fiscal.Year, fiscal.Month, cancellationToken))
+            throw new BusinessRuleException("PERIODO_CERRADO", $"El período contable {fiscal.Year}-{fiscal.Month:D2} está cerrado; no se puede timbrar.");
 
         await _receptorFiscal.ValidarComprobanteAsync(factura, cancellationToken);
 

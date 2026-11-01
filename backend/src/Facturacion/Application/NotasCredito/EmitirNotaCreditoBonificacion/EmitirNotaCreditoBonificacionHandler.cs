@@ -80,8 +80,9 @@ public sealed class EmitirNotaCreditoBonificacionHandler
                 $"Solo se puede bonificar una factura timbrada (estado actual: {factura.Estado}).");
 
         var ahora = _clock.UtcNow;
-        var anio = ahora.Year;
-        var mes = ahora.Month;
+        // Período en la fecha fiscal de México: después de las 18:00 del último día, UTC ya es el mes siguiente.
+        var anio = Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.FechaFiscal(ahora).Year;
+        var mes = Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.FechaFiscal(ahora).Month;
 
         if (!await _periodo.EstaAbiertoAsync(anio, mes, cancellationToken))
             throw new BusinessRuleException(
