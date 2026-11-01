@@ -164,6 +164,32 @@ public sealed class CorridasHandlersTests
     }
 
     [Fact]
+    public async Task Candidatos_marcan_el_proveedor_bloqueado_con_su_motivo()
+    {
+        await using var db = Db();
+        var bloqueado = Guid.NewGuid();
+        await Escenario(db, (bloqueado, 1_000m), (Guid.NewGuid(), 2_000m));
+
+        var items = (await new PasivosParaCorridaHandler(db, new Proveedores { Bloqueados = [bloqueado] }).Handle(new("MXN"), default)).Items;
+
+        items.Single(i => i.ProveedorId == bloqueado).Should().Match<PasivoParaCorridaResponse>(i => i.ProveedorBloqueado && i.MotivoBloqueo == "Fraude");
+        items.Single(i => i.ProveedorId != bloqueado).ProveedorBloqueado.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Detalle_de_corrida_resuelve_el_nombre_del_firmante()
+    {
+        await using var db = Db();
+        var (cuenta, p) = await Escenario(db, (Guid.NewGuid(), 1_000m));
+        var r = await Enviar(db, await Crear(db, Armador).Handle(new(cuenta.Id, [p[0].FacturaProveedorId]), default));
+        await Autorizar(db, Gerente).Handle(new(r.Id, r.Version), default);
+
+        var c = await new ObtenerCorridaHandler(db, new Proveedores(), new Nombres(Gerente, "Ana Gerente")).Handle(new(r.Id), default);
+
+        c.Firmas.Should().ContainSingle().Which.UsuarioNombre.Should().Be("Ana Gerente");
+    }
+
+    [Fact]
     public async Task Proveedor_sin_cuenta_validada_no_entra_a_la_corrida()
     {
         await using var db = Db();
@@ -276,14 +302,23 @@ public sealed class CorridasHandlersTests
         public Task<IReadOnlyCollection<string>> CodigosRolAsync(Guid usuarioId, Guid empresaId, CancellationToken ct) =>
             Task.FromResult<IReadOnlyCollection<string>>(usuarioId == Gerente ? ["gerente"] : ["jefe-tesoreria"]);
     }
+    private sealed class Nombres(Guid usuario, string nombre) : ICorteNombresReadPort
+    {
+        public Task<IReadOnlyDictionary<Guid, string>> NombresCajerosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, string>>(ids.Where(i => i == usuario).ToDictionary(i => i, _ => nombre));
+        public Task<IReadOnlyDictionary<Guid, string>> NombresCajasAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
+    }
     private sealed class Proveedores(params Guid[] sinCuentaValidada) : IProveedorBancoReadPort
     {
         public HashSet<Guid> SinOpinion { get; init; } = [];
+        public HashSet<Guid> Bloqueados { get; init; } = [];
         public Task<ProveedorBancoDto?> ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<ProveedorBancoDto?>(Dto(id));
         public Task<IReadOnlyDictionary<Guid, ProveedorBancoDto>> ObtenerVariosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
             Task.FromResult<IReadOnlyDictionary<Guid, ProveedorBancoDto>>(ids.ToDictionary(i => i, Dto));
         private ProveedorBancoDto Dto(Guid id) => new(id, "P", $"Proveedor {id.ToString()[..4]}",
             [new CuentaProveedorDto(Guid.NewGuid(), "BBVA", "012180001234567897", true, null, "MXN", "Titular", true,
-                sinCuentaValidada.Contains(id) ? "PorValidar" : "Activa")], SinOpinionCumplimiento: SinOpinion.Contains(id));
+                sinCuentaValidada.Contains(id) ? "PorValidar" : "Activa")], SinOpinionCumplimiento: SinOpinion.Contains(id),
+            Bloqueado: Bloqueados.Contains(id), MotivoBloqueo: Bloqueados.Contains(id) ? "Fraude" : null);
     }
 }

@@ -1,3 +1,4 @@
+using Millet.Compras.IntegrationTests.Autorizacion;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -89,7 +90,7 @@ public class CancelarEndpointsTests : IClassFixture<StubsWebApplicationFactory>
         // el cierre ocurre por entrega o explícitamente. Cerramos de forma
         // manual para construir un estado terminal real y validar que desde
         // ahí la cancelación sigue rechazada.
-        var rqId = await CrearTransmitirAutorizarAsync(client, articuloId: ArticuloSeedId, cantidad: 10m);
+        var rqId = await CrearTransmitirAutorizarAsync(_factory, client, articuloId: ArticuloSeedId, cantidad: 10m);
 
         var cerrar = await client.PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{rqId}/cerrar-manual",
@@ -115,7 +116,7 @@ public class CancelarEndpointsTests : IClassFixture<StubsWebApplicationFactory>
     {
         var client = await CreateSuperAdminClientAsync();
         // Mixto: cantidad=150, OnHand=100 → 100 almacén + 50 saldo (1 OC borrador).
-        var rqId = await CrearTransmitirAutorizarAsync(client, articuloId: ArticuloSeedId, cantidad: 150m);
+        var rqId = await CrearTransmitirAutorizarAsync(_factory, client, articuloId: ArticuloSeedId, cantidad: 150m);
 
         // Pre-condición: en EnSurtido, hay 1 OC borrador.
         var preGet = await client.GetAsync($"/api/v1/compras/requisiciones/{rqId}");
@@ -141,7 +142,7 @@ public class CancelarEndpointsTests : IClassFixture<StubsWebApplicationFactory>
     public async Task Cancelar_Doble_Retorna_422()
     {
         var client = await CreateSuperAdminClientAsync();
-        var rqId = await CrearTransmitirAutorizarAsync(client, articuloId: ArticuloSinStock, cantidad: 10m);
+        var rqId = await CrearTransmitirAutorizarAsync(_factory, client, articuloId: ArticuloSinStock, cantidad: 10m);
 
         var first = await client.PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{rqId}/cancelar",
@@ -159,7 +160,7 @@ public class CancelarEndpointsTests : IClassFixture<StubsWebApplicationFactory>
     public async Task Cancelar_MotivoOtro_SinTexto_Retorna_422()
     {
         var client = await CreateSuperAdminClientAsync();
-        var rqId = await CrearTransmitirAutorizarAsync(client, articuloId: ArticuloSinStock, cantidad: 10m);
+        var rqId = await CrearTransmitirAutorizarAsync(_factory, client, articuloId: ArticuloSinStock, cantidad: 10m);
 
         var response = await client.PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{rqId}/cancelar",
@@ -174,7 +175,7 @@ public class CancelarEndpointsTests : IClassFixture<StubsWebApplicationFactory>
     public async Task Cancelar_MotivoInexistente_Retorna_404()
     {
         var client = await CreateSuperAdminClientAsync();
-        var rqId = await CrearTransmitirAutorizarAsync(client, articuloId: ArticuloSinStock, cantidad: 10m);
+        var rqId = await CrearTransmitirAutorizarAsync(_factory, client, articuloId: ArticuloSinStock, cantidad: 10m);
 
         var response = await client.PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{rqId}/cancelar",
@@ -214,7 +215,7 @@ public class CancelarEndpointsTests : IClassFixture<StubsWebApplicationFactory>
         return json.GetProperty("id").GetGuid();
     }
 
-    private static async Task<Guid> CrearTransmitirAutorizarAsync(HttpClient client, Guid articuloId, decimal cantidad)
+    private static async Task<Guid> CrearTransmitirAutorizarAsync(WebApplicationFactory<Program> factory, HttpClient client, Guid articuloId, decimal cantidad)
     {
         var rqId = await CrearRequisicionAsync(client);
         var lineaBody = new
@@ -238,7 +239,7 @@ public class CancelarEndpointsTests : IClassFixture<StubsWebApplicationFactory>
             $"/api/v1/compras/requisiciones/{rqId}/transmitir", content: null);
         transmit.EnsureSuccessStatusCode();
 
-        var auth = await client.PostAsJsonAsync(
+        var auth = await (await AutorizacionTestSeeding.CreateAutorizadorAsync(factory)).PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{rqId}/autorizaciones",
             new { Nivel = 1, Notas = (string?)null });
         auth.EnsureSuccessStatusCode();

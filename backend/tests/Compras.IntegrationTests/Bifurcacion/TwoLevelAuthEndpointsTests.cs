@@ -50,7 +50,7 @@ public class TwoLevelAuthEndpointsTests : IClassFixture<StubsWebApplicationFacto
 
         // Primera autorización N1: matriz no satisfecha → estado sigue
         // en EnAutorizacion, sin bifurcación (no se invocan stocks/oc).
-        var n1 = await client.PostAsJsonAsync(
+        var n1 = await (await AutorizacionTestSeeding.CreateAutorizadorAsync(twoLevelFactory)).PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{rqId}/autorizaciones",
             new { Nivel = 1, Notas = (string?)null });
         n1.EnsureSuccessStatusCode();
@@ -78,7 +78,7 @@ public class TwoLevelAuthEndpointsTests : IClassFixture<StubsWebApplicationFacto
         var client = await CreateSuperAdminClientAsync(twoLevelFactory);
         var rqId = await CrearTransmitirAsync(client, articuloId: ArticuloSinStock, cantidad: 10m);
 
-        var n1 = await client.PostAsJsonAsync(
+        var n1 = await (await AutorizacionTestSeeding.CreateAutorizadorAsync(twoLevelFactory)).PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{rqId}/autorizaciones",
             new { Nivel = 1, Notas = (string?)null });
         n1.EnsureSuccessStatusCode();

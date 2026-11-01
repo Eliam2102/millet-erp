@@ -12,6 +12,7 @@ using Millet.CuentasPorPagar.Application.FacturaProveedor.Queries;
 using Millet.CuentasPorPagar.Domain.Ports.Administracion;
 using Millet.CuentasPorPagar.Application.Integration;
 using Millet.CuentasPorPagar.Application.Integration.Mappers;
+using Millet.CuentasPorPagar.Domain.Almacen;
 using Millet.CuentasPorPagar.Domain.Cfdi;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor.Events;
@@ -86,6 +87,24 @@ public sealed class P3FacturaConOcTests
         detalle.ProveedorNombre.Should().Be("Proveedor ficticio P3");
         var listado = await new ListarFacturasHandler(a.Db, a, a).Handle(new ListarFacturasQuery(), default);
         listado.Items.Should().ContainSingle().Which.OrdenCompraFolio.Should().Be(folio);
+    }
+
+    [Fact]
+    public async Task Detalle_sin_recepcion_explicita_muestra_las_recepciones_de_la_OC()
+    {
+        await using var a = new Ambiente();
+        var captura = await a.Handler.Handle(a.Command(10, 20), default);
+        var handler = new GetFacturaPorIdHandler(a.Db, a, new SucursalDetalleStub(), a.Elegibilidad, a, a, new CalendarioCero(), new AreaStub());
+        var ocId = (await handler.Handle(new GetFacturaPorIdQuery(captura.Id), default)).OrdenCompraId!.Value;
+        a.Db.RecepcionesOcLocal.AddRange(
+            new RecepcionOcLocal(a.Current!.Value, Guid.NewGuid(), "REC-2", ocId, new(2026, 10, 5), false, null, null, "[]", a.Ahora, a.Ahora),
+            new RecepcionOcLocal(a.Current!.Value, Guid.NewGuid(), "REC-1", ocId, new(2026, 10, 1), false, null, null, "[]", a.Ahora, a.Ahora),
+            new RecepcionOcLocal(a.Current!.Value, Guid.NewGuid(), "REC-AJENA", Guid.NewGuid(), new(2026, 10, 1), false, null, null, "[]", a.Ahora, a.Ahora));
+        await a.Db.SaveChangesAsync();
+
+        var detalle = await handler.Handle(new GetFacturaPorIdQuery(captura.Id), default);
+
+        detalle.RecepcionFolio.Should().Be("REC-1, REC-2");
     }
 
     [Fact]

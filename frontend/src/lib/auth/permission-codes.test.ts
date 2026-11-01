@@ -140,6 +140,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'admin.sucursales.puestos-gestionar',
   'admin.sucursales.usuarios-gestionar',
   'admin.auditoria.leer',
+  'admin.auditoria.exportar',
   'admin.series.gestionar',
   'admin.parametros.leer',
   'admin.parametros.editar',

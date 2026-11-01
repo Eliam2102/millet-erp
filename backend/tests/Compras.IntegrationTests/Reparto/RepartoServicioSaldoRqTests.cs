@@ -55,7 +55,7 @@ public class RepartoServicioSaldoRqTests : IClassFixture<StubsWebApplicationFact
         var client = await AutorizacionTestSeeding.CreateSuperAdminClientAsync(factory);
         var rqId = await CrearTransmitirAsync(client, ArticuloServicioId, 10m, ClasificacionServicio);
 
-        await AutorizarAsync(client, rqId);
+        await AutorizarAsync(factory, rqId);
 
         Assert.DoesNotContain(ArticuloServicioId, stock.Consultas);
         var linea = await LeerUnicaLineaAsync(rqId);
@@ -74,7 +74,7 @@ public class RepartoServicioSaldoRqTests : IClassFixture<StubsWebApplicationFact
         var rqId = await CrearTransmitirAsync(client, ArticuloConStockId, 10m, ClasificacionOrdenCompra);
         await ForzarClasificacionAsync(factory, rqId, ClasificacionServicio);
 
-        await AutorizarAsync(client, rqId);
+        await AutorizarAsync(factory, rqId);
 
         Assert.DoesNotContain(ArticuloConStockId, stock.Consultas);
         var linea = await LeerUnicaLineaAsync(rqId);
@@ -88,7 +88,7 @@ public class RepartoServicioSaldoRqTests : IClassFixture<StubsWebApplicationFact
         var client = await AutorizacionTestSeeding.CreateSuperAdminClientAsync(_factory);
         // Stub: OnHand = 100 → 10 se cubren 100% por almacén, sin saldo de compra.
         var rqId = await CrearTransmitirAsync(client, ArticuloConStockId, 10m, ClasificacionOrdenCompra);
-        await AutorizarAsync(client, rqId);
+        await AutorizarAsync(_factory, rqId);
 
         var disponibles = await ListarDisponiblesAsync(client);
 
@@ -102,7 +102,7 @@ public class RepartoServicioSaldoRqTests : IClassFixture<StubsWebApplicationFact
         var client = await AutorizacionTestSeeding.CreateSuperAdminClientAsync(_factory);
         // Stub: OnHand = 100; 150 → 100 almacén + 50 saldo de compra.
         var rqId = await CrearTransmitirAsync(client, ArticuloConStockId, 150m, ClasificacionOrdenCompra);
-        await AutorizarAsync(client, rqId);
+        await AutorizarAsync(_factory, rqId);
 
         var disponibles = await ListarDisponiblesAsync(client);
 
@@ -120,7 +120,7 @@ public class RepartoServicioSaldoRqTests : IClassFixture<StubsWebApplicationFact
     {
         var client = await AutorizacionTestSeeding.CreateSuperAdminClientAsync(_factory);
         var rqId = await CrearTransmitirAsync(client, ArticuloConStockId, 150m, ClasificacionOrdenCompra);
-        await AutorizarAsync(client, rqId);
+        await AutorizarAsync(_factory, rqId);
 
         // OC desde la RQ: hereda el saldo (50) y luego se reduce a 20 (parcial).
         var crear = await client.PostAsJsonAsync("/api/v1/compras/ordenes/desde-requisicion", new
@@ -170,9 +170,9 @@ public class RepartoServicioSaldoRqTests : IClassFixture<StubsWebApplicationFact
             $"UPDATE compras.requisiciones SET clasificacion = {(short)clasificacion} WHERE id = {rqId}");
     }
 
-    private static async Task AutorizarAsync(HttpClient client, Guid rqId)
+    private static async Task AutorizarAsync(WebApplicationFactory<Program> factory, Guid rqId)
     {
-        var auth = await client.PostAsJsonAsync(
+        var auth = await (await AutorizacionTestSeeding.CreateAutorizadorAsync(factory)).PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{rqId}/autorizaciones",
             new { Nivel = 1, Notas = (string?)null });
         auth.EnsureSuccessStatusCode();

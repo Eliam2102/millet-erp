@@ -123,7 +123,7 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
   const [modalCerrarManualAbierto, setModalCerrarManualAbierto] = useState(false);
 
   const accTransmitir = accionTransmitir(rq, permisos);
-  const accN1 = accionAprobarNivel1(rq, permisos);
+  const accN1 = accionAprobarNivel1(rq, permisos, userId);
   const accN2 = accionAprobarNivel2(rq, permisos, userId);
 
   // Chip informativo "Nivel 1 autorizado": cuando la RQ está EnAutorizacion

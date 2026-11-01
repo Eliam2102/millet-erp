@@ -44,6 +44,8 @@ import { parseDateOnlyLocal } from '@/lib/datetime';
 import { useHasPermission, useHasAnyPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { EstadoOrdenCompra } from '@/features/compras/ordenes/api/types';
+import { MOTIVO_AUTOR_OC } from '@/features/compras/ordenes/lib/acciones-disponibles';
+import { useAuthStore } from '@/lib/auth/auth-store';
 import { cn } from '@/lib/utils';
 import { nombreUsuarioOGuion } from '@/lib/nombre-usuario';
 import { PageHeader } from '@/components/erp/PageHeader';
@@ -148,7 +150,10 @@ export function BandejaPendientesOc() {
   }
 
   const items = query.data?.items ?? [];
-  const autorizables = puedeAutorizar ? items : [];
+  const userId = useAuthStore((s) => s.user?.id);
+  const autorizables = puedeAutorizar
+    ? items.filter((oc) => oc.compradorTitularId !== userId)
+    : [];
   const seleccionadas = autorizables.filter((oc) => seleccion.has(oc.id));
   const todasSeleccionadas =
     autorizables.length > 0 && seleccionadas.length === autorizables.length;
@@ -347,6 +352,7 @@ export function BandejaPendientesOc() {
                           ahoraMs={ahoraMs}
                           seleccionada={seleccion.has(oc.id)}
                           puedeAutorizar={puedeAutorizar}
+                          esAutor={oc.compradorTitularId === userId}
                           bloqueado={autorizarMasivo.isPending}
                           resultado={resultados[oc.id]}
                           onSeleccion={(on) => alternarSeleccion(oc.id, on)}
@@ -375,6 +381,7 @@ function FilaOc({
   ahoraMs,
   seleccionada,
   puedeAutorizar,
+  esAutor,
   bloqueado,
   resultado,
   onSeleccion,
@@ -387,6 +394,8 @@ function FilaOc({
   ahoraMs: number;
   seleccionada: boolean;
   puedeAutorizar: boolean;
+  /** El usuario capturó esta OC: el servidor rechaza su aprobación (OC_AUTOAUTORIZACION). */
+  esAutor: boolean;
   bloqueado: boolean;
   resultado: AutorizacionMasivaOcItemResultado | undefined;
   onSeleccion: (on: boolean) => void;
@@ -407,7 +416,8 @@ function FilaOc({
         <Checkbox
           checked={seleccionada}
           onCheckedChange={(v) => onSeleccion(v === true)}
-          disabled={!puedeAutorizar}
+          disabled={!puedeAutorizar || esAutor}
+          title={esAutor ? MOTIVO_AUTOR_OC : undefined}
           aria-label={`Seleccionar ${oc.folio}`}
         />
       </TableCell>
@@ -452,7 +462,8 @@ function FilaOc({
               type="button"
               variant="secondary"
               size="sm"
-              disabled={bloqueado}
+              disabled={bloqueado || esAutor}
+              title={esAutor ? MOTIVO_AUTOR_OC : undefined}
               aria-label={`Aprobar ${oc.folio}`}
               onClick={onAprobarRapido}
             >

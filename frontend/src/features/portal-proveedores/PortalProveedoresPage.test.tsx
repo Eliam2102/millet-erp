@@ -13,7 +13,7 @@ function montar() {
   );
 }
 
-beforeEach(() => sessionStorage.clear());
+beforeEach(() => { sessionStorage.clear(); window.history.replaceState(null, '', '/'); });
 afterEach(() => vi.unstubAllGlobals());
 
 it('sin sesión del ERP muestra el acceso por correo y no redirige a /login', () => {
@@ -46,8 +46,13 @@ it('pide código, entra con el código y muestra la factura detenida por falta d
 
   expect(await screen.findByText('Falta el complemento de pago de la factura A-10')).toBeTruthy();
   expect(screen.getByText('Sin programar')).toBeTruthy();
-  expect(screen.getByText(new Date('2026-11-15T00:00:00').toLocaleDateString('es-MX'))).toBeTruthy();
+  expect(screen.getByText('15/11/2026')).toBeTruthy();
   expect(sessionStorage.getItem('millet.portal-proveedores.token')).toBe('tok');
+  // resumen, aviso con la acción concreta y correo en la cabecera
+  expect(screen.getByRole('region', { name: 'Facturas detenidas' }).textContent).toContain('sube el complemento en la pestaña');
+  expect(screen.getByText('Detenidas').parentElement?.parentElement?.textContent).toContain('1');
+  expect(screen.getByText('ventas@prov.mx')).toBeTruthy();
+  expect(screen.getByRole('button', { name: /Cerrar sesión/ })).toBeTruthy();
   const llamada = fetchMock.mock.calls.find(([u]) => String(u).endsWith('/facturas'));
   expect((llamada?.[1] as RequestInit).headers).toEqual({ Authorization: 'Bearer tok' });
 });
@@ -77,7 +82,7 @@ it('sube el XML y distingue «Recibimos tu documento» de «Ya lo teníamos»; m
   vi.stubGlobal('fetch', fetchMock);
   montar();
 
-  fireEvent.click(await screen.findByRole('tab', { name: 'Subir factura o complemento' }));
+  fireEvent.mouseDown(await screen.findByRole('tab', { name: 'Subir factura o complemento' }));
   const enviar = async () => {
     fireEvent.change(screen.getByLabelText('Archivo XML'), { target: { files: [new File(['<x/>'], 'f.xml', { type: 'text/xml' })] } });
     fireEvent.click(screen.getByRole('button', { name: 'Subir documento' }));
@@ -91,4 +96,15 @@ it('sube el XML y distingue «Recibimos tu documento» de «Ya lo teníamos»; m
   const post = fetchMock.mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === 'POST');
   expect((post?.[1] as RequestInit).headers).toEqual({ Authorization: 'Bearer tok' });
   expect((post?.[1] as RequestInit).body).toBeInstanceOf(FormData);
+});
+
+it('la sección activa vive en ?seccion= y los listados vacíos explican qué hacer', async () => {
+  sessionStorage.setItem('millet.portal-proveedores.token', 'tok');
+  window.history.replaceState(null, '', '/?seccion=subir');
+  vi.stubGlobal('fetch', vi.fn(async () => json([])));
+  montar();
+  expect(await screen.findByRole('tab', { name: 'Subir factura o complemento', selected: true })).toBeTruthy();
+  fireEvent.mouseDown(screen.getByRole('tab', { name: 'Mis facturas' }));
+  expect(await screen.findByText('Todavía no tenemos facturas tuyas.')).toBeTruthy();
+  expect(window.location.search).toBe('?seccion=facturas');
 });

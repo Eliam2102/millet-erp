@@ -237,6 +237,8 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                 "Acceso read-only sobre todo el área Admin + bitácora.",
                 p => p.Codigo == PermisosCanonicos.InfraAuditLogLeer
                      || p.Codigo == PermisosCanonicos.AdminAuditoriaLeer
+                     // ADM-BIT: exportar va aparte de consultar; en pruebas lo tiene el Auditor (roles finales pendientes con el cliente).
+                     || p.Codigo == PermisosCanonicos.AdminAuditoriaExportar
                      || p.Codigo.EndsWith(".leer", StringComparison.Ordinal)
             ),
             (

@@ -3,7 +3,9 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Millet.Api.IntegrationTests.Contabilidad;
 using Millet.Api.IntegrationTests.Fixtures;
+using Millet.Identidad.Domain;
 
 namespace Millet.Api.IntegrationTests.Compras;
 
@@ -127,7 +129,7 @@ public class AutorizacionesEndpointsTests
         var client = await CreateSuperAdminClientAsync();
         var requisicionId = await CrearYTransmitirAsync(client);
 
-        var response = await client.PostAsJsonAsync(
+        var response = await (await CreateAutorizadorAsync()).PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{requisicionId}/autorizaciones",
             new { Nivel = 1, Notas = "Aprobado por Super Admin" });
 
@@ -145,7 +147,8 @@ public class AutorizacionesEndpointsTests
         var client = await CreateSuperAdminClientAsync();
         var requisicionId = await CrearYTransmitirAsync(client);
 
-        var first = await client.PostAsJsonAsync(
+        var autorizador = await CreateAutorizadorAsync();
+        var first = await autorizador.PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{requisicionId}/autorizaciones",
             new { Nivel = 1, Notas = (string?)null });
         first.EnsureSuccessStatusCode();
@@ -153,7 +156,7 @@ public class AutorizacionesEndpointsTests
         // Tras la primera autorización (fail-open + bifurcación F4-PR1
         // con stock total → EnSurtido), la RQ ya no está en EnAutorizacion.
         // El segundo POST debería fallar con AUTORIZAR_SOLO_EN_AUTORIZACION.
-        var second = await client.PostAsJsonAsync(
+        var second = await autorizador.PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{requisicionId}/autorizaciones",
             new { Nivel = 1, Notas = (string?)null });
 
@@ -189,6 +192,14 @@ public class AutorizacionesEndpointsTests
     }
 
     // --- Helpers ---
+
+    /// <summary>Otra persona que firma RQ: quien captura la RQ no puede autorizarla (REQUISICION_AUTOAUTORIZACION).</summary>
+    private Task<HttpClient> CreateAutorizadorAsync() =>
+        ContabTestKit.ClienteConPermisosAsync(_factory,
+            PermisosCanonicos.ComprasRequisicionesLeer,
+            PermisosCanonicos.ComprasRequisicionesLeerTodasSucursales,
+            PermisosCanonicos.ComprasRequisicionesAutorizarNivel1,
+            PermisosCanonicos.ComprasRequisicionesGestionarTodasSucursales);
 
     private async Task<HttpClient> CreateSuperAdminClientAsync()
     {

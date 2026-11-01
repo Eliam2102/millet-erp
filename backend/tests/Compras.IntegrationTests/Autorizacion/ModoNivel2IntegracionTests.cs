@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Mvc.Testing;
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
@@ -60,9 +61,9 @@ public class ModoNivel2IntegracionTests : IClassFixture<StubsWebApplicationFacto
             var sinStock = await CrearTransmitirAsync(admin, new[] { (ArticuloSinStock, 1m) });
             var estandar = await CrearTransmitirAsync(admin, new[] { (ArticuloEstandar, 10m) });
 
-            await FirmarN1YVerificarAsync(admin, servicio, servicioExigeN2, modo, "servicio");
-            await FirmarN1YVerificarAsync(admin, sinStock, sinStockExigeN2, modo, "inventario sin stock");
-            await FirmarN1YVerificarAsync(admin, estandar, estandarExigeN2, modo, "inventario con stock suficiente");
+            await FirmarN1YVerificarAsync(_factory, admin, servicio, servicioExigeN2, modo, "servicio");
+            await FirmarN1YVerificarAsync(_factory, admin, sinStock, sinStockExigeN2, modo, "inventario sin stock");
+            await FirmarN1YVerificarAsync(_factory, admin, estandar, estandarExigeN2, modo, "inventario con stock suficiente");
         }
         finally
         {
@@ -80,7 +81,7 @@ public class ModoNivel2IntegracionTests : IClassFixture<StubsWebApplicationFacto
 
             var sinStock = await CrearTransmitirAsync(admin, new[] { (ArticuloSinStock, 1m) });
 
-            await FirmarN1YVerificarAsync(admin, sinStock, false, "SoloDisponibilidad (mínimo 50)", "inventario sin stock, importe 15");
+            await FirmarN1YVerificarAsync(_factory, admin, sinStock, false, "SoloDisponibilidad (mínimo 50)", "inventario sin stock, importe 15");
         }
         finally
         {
@@ -89,9 +90,9 @@ public class ModoNivel2IntegracionTests : IClassFixture<StubsWebApplicationFacto
     }
 
     private static async Task FirmarN1YVerificarAsync(
-        HttpClient client, Guid rqId, bool exigeN2, string modo, string etiqueta)
+        WebApplicationFactory<Program> factory, HttpClient client, Guid rqId, bool exigeN2, string modo, string etiqueta)
     {
-        var firma = await AutorizarAsync(client, rqId, nivel: 1);
+        var firma = await AutorizarAsync(await AutorizacionTestSeeding.CreateAutorizadorAsync(factory), rqId, nivel: 1);
         Assert.True(
             firma.IsSuccessStatusCode,
             $"modo {modo}, {etiqueta}: firma N1 devolvió {(int)firma.StatusCode}");
