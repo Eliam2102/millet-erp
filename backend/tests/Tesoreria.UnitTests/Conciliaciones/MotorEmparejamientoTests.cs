@@ -129,7 +129,7 @@ public class MotorEmparejamientoTests
     }
 
     [Fact]
-    public void Paso3_tolerancia_un_peso_en_ventana_de_tres_dias_empareja_si_es_unico()
+    public void Paso3_tolerancia_un_peso_en_ventana_de_tres_dias_solo_sugiere_y_va_a_revision()
     {
         var cuenta = CrearCuenta();
         var conciliacionId = Guid.NewGuid();
@@ -150,10 +150,13 @@ public class MotorEmparejamientoTests
             UsuarioId,
             Ahora);
 
-        resultado.EmparejadasPaso3.Should().Be(1);
-        linea.Estado.Should().Be(EstadoExtractoLinea.Emparejada);
-        linea.MatchTipo.Should().Be(MatchTipo.AutoTolerancia);
-        mov.EstadoConciliacion.Should().Be(EstadoConciliacionMovimiento.Conciliado);
+        // P-140: la diferencia de $0.50 se sugiere para que la confirme una persona, nunca se empareja sola
+        resultado.EmparejadasPaso3.Should().Be(0);
+        resultado.EnRevision.Should().Be(1);
+        linea.Estado.Should().Be(EstadoExtractoLinea.EnRevision);
+        linea.MatchMovimientoId.Should().BeNull();
+        linea.CandidatosRevisionIds.Should().Equal(mov.Id);
+        mov.EstadoConciliacion.Should().Be(EstadoConciliacionMovimiento.NoConciliado);
     }
 
     [Fact]

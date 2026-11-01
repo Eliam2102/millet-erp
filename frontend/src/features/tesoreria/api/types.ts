@@ -808,11 +808,12 @@ export interface ConciliacionDetalleResponse {
   movimientosPeriodo: MovimientoBancarioConciliacionDto[];
 }
 
+/** Espejo de <c>ResultadoEmparejamiento</c> (Tesoreria.Domain): mismos nombres que serializa la API. */
 export interface ResultadoEmparejamientoResponse {
-  totalLineas: number;
-  paso1Emparejadas: number;
-  paso2Emparejadas: number;
-  paso3Emparejadas: number;
+  totalLineasProcesadas: number;
+  emparejadasPaso1: number;
+  emparejadasPaso2: number;
+  emparejadasPaso3: number;
   totalEmparejadas: number;
   enRevision: number;
   pendientes: number;

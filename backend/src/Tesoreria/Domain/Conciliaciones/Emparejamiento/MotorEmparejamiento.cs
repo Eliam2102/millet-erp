@@ -6,7 +6,7 @@ namespace Millet.Tesoreria.Domain.Conciliaciones.Emparejamiento;
 /// Motor de emparejamiento automático en 3 pasos (§2 / T9.2 / P9.2):
 /// Paso 1: Referencia exacta + importe exacto.
 /// Paso 2: Importe exacto + fecha exacta.
-/// Paso 3: Tolerancia configurable (±$1 en ventana de 3 días).
+/// Paso 3: Tolerancia configurable (±$1 en ventana de 3 días): solo SUGIERE (va a revisión), nunca empareja sola (P-140).
 /// Invariante: si una línea tiene más de una opción candidata, NO se confirma sola (va a revisión).
 /// </summary>
 public static class MotorEmparejamiento
@@ -111,19 +111,10 @@ public static class MotorEmparejamiento
                                 && Math.Abs(m.FechaValor.DayNumber - linea.Fecha.DayNumber) <= options.VentanaDias)
                     .ToList();
 
-                if (candidatos.Count == 1)
-                {
-                    var mov = candidatos[0];
-                    linea.Emparejar(mov.Id, MatchTipo.AutoTolerancia, mov.Monto, usuarioId, ahora);
-                    mov.MarcarConciliado();
-                    matchedMovIds.Add(mov.Id);
-                    emp3++;
-                }
-                else if (candidatos.Count > 1)
-                {
-                    // Ambigüedad: va a revisión
+                // P-140: un importe distinto (aunque esté dentro de la tolerancia) lo confirma una persona;
+                // con uno o varios candidatos la línea va a revisión con la sugerencia.
+                if (candidatos.Count > 0)
                     linea.MarcarEnRevision(candidatos.Select(c => c.Id));
-                }
             }
         }
 
