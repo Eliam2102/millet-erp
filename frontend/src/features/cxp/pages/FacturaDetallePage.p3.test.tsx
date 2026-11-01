@@ -35,7 +35,7 @@ vi.mock('@/features/cxp/api/useFacturas', () => ({
       folioProveedor: 'P3-FICTICIA',
       serieProveedor: null,
       estado: escenario.cancelada ? EstadoPasivo.Cancelada : EstadoPasivo.Autorizada,
-      fechaDocumento: '2026-10-09',
+      fechaDocumento: '2026-10-09T18:00:00Z',
       fechaContabilizacion: '2026-10-09',
       fechaVencimiento: escenario.contado ? '2026-10-09' : '2026-11-09',
       moneda: 'MXN',
