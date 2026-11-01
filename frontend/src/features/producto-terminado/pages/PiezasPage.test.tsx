@@ -72,7 +72,15 @@ describe('PiezasPage', () => {
     expect(container.textContent).not.toContain('69');
   });
 
-  it('sin estado de pedido (aún sin piezas) no muestra la sección', () => {
+  it('con posiciones pero sin estado (incompleto) muestra En producción', () => {
+    const avance = [{ posicion: 1, descripcion: null, esperadas: 10, terminadas: 8, enPt: 8, cargadas: 0, entregadas: 0, pendientes: 2, avanceFisico: 'Parcial' }];
+    state.usePiezas.mockReturnValue(ok({ items: [], total: 0, avance, estadoPedido: null }));
+    render(<PiezasPage />);
+    fireEvent.change(screen.getByLabelText('Pedido'), { target: { value: 'PED-1' } });
+    expect(screen.getByLabelText('Estado del pedido')).toHaveTextContent('En producción');
+  });
+
+  it('sin estado de pedido ni posiciones no muestra la sección', () => {
     state.usePiezas.mockReturnValue(ok({ items: [], total: 0, avance: [], estadoPedido: null }));
     render(<PiezasPage />);
     fireEvent.change(screen.getByLabelText('Pedido'), { target: { value: 'PED-1' } });
