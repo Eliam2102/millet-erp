@@ -57,12 +57,10 @@ export function seed() {
 
   // limpia corridas previas (la BD de pruebas se resetea por corrida; esto cubre re-ejecuciones con SKIP_ENV_UP)
   sql(`delete from facturacion.bandeja_excepcion_importacion where pedido_ref like 'NC %';
-       delete from facturacion.nota_credito; delete from facturacion.comprobante where folio='NC-0001'; delete from facturacion.factura_venta where id in (select id from facturacion.comprobante where folio in ('${FACTURA_A}','${FACTURA_B}'));
+       delete from facturacion.nota_credito; delete from facturacion.comprobante where tipo=2; delete from facturacion.factura_venta where id in (select id from facturacion.comprobante where folio in ('${FACTURA_A}','${FACTURA_B}'));
        delete from facturacion.comprobante where folio in ('${FACTURA_A}','${FACTURA_B}');
        delete from facturacion.pedido_facturable where numero_pedido in ('4500871','4500872');
        delete from compartido.clientes where referencia_externa='${CLIENTE_REF}';`);
-  if (!sql(`select 1 from compartido.series where tipo_documento=3 and activa and sucursal_id is null limit 1`))
-    insertar('compartido.series', { empresa_id: q(emp), sucursal_id: 'null', tipo_documento: '3', prefijo: "'NC'", activa: 'true', version: '1', reinicio_periodo: '0' });
 
   const cli = '0a1b2c3d-0000-4000-8000-000000004821';
   insertar('compartido.clientes', { id: q(cli), clave: "'C-48210'", referencia_externa: q(CLIENTE_REF), razon_social: q(CLIENTE), rfc: "'VCB100315AB4'",
@@ -80,17 +78,6 @@ export function seed() {
     insertar('facturacion.factura_venta', { id: q(idFac), comportamiento_fiscal: '1', pedido_facturable_id: q(idPed), factura_agrupada: 'false' });
   }
 
-  // La NC de 1,500 "Por autorizar" se siembra por SQL con la misma forma que deja NotaCredito.CrearDesdeAw: el camino real del worker
-  // (ProcesarNotaCreditoAwHandler -> ReservarFolioCommand) falla en segundo plano con EMPRESA_NO_SELECCIONADA (SerieSucursalScope.cs:57).
-  const idNc = '0a1b2c3d-0000-4000-8000-000000004850';
-  insertar('facturacion.comprobante', { id: q(idNc), empresa_id: q(emp), tipo: '2', folio: "'NC-0001'", folio_numero: '1', sucursal_id: q(suc),
-    receptor_rfc: "'VCB100315AB4'", receptor_nombre: q(CLIENTE), receptor_regimen_fiscal: "'601'", receptor_codigo_postal: "'37530'", receptor_uso_cfdi: "'G03'",
-    receptor_pais: "'MEX'", rfc_emisor: "'VMI080915XY2'", regimen_fiscal_emisor: "'601'", nombre_emisor: "'Vidrios Millet'", lugar_expedicion: "'64000'",
-    metodo_pago: "'PPD'", forma_pago: "'99'", moneda: "'MXN'", subtotal: '1293.10', descuento: '0', impuestos_trasladados: '206.90', retenciones: '0', total: '1500',
-    estado: '9', periodo_anio: '2026', periodo_mes: '10', version: '1' });
-  insertar('facturacion.nota_credito', { id: q(idNc), motivo: '2', factura_relacionada_id: "'0a1b2c3d-0000-4000-8000-000000004840'",
-    importe_afecta_inventario: '0', clave_prod_serv_sat: "'84111506'", clave_unidad_sat: "'ACT'", descripcion: q('Bonificación por diferencia de medidas en cristal templado 6 mm'),
-    aw_numero_nota: q(NC_OK), aw_numero_pedido: "'4500871'", aw_version_nota: '1', aw_version_pedido: '1' });
 }
 
 export function ncAw(numero: string, factura: string, pedido: string, importe: number, descripcion: string, tipo = 'Bonificacion', version = 1) {
@@ -108,3 +95,6 @@ export async function acuse(numero: string, version = 1, timeoutMs = 60_000) {
   }
 }
 export const ncEnErp = (numero: string) => Number(sql(`select count(*) from facturacion.nota_credito where aw_numero_nota=${q(numero)}`));
+
+/** Sucursal de las facturas sembradas (la de la NC). */
+export const sucursalId = () => sql('select id from compartido.sucursales order by clave limit 1');
