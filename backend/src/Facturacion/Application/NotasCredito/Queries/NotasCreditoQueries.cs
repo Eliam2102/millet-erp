@@ -25,7 +25,9 @@ public sealed record BandejaNotasCreditoResponse(
 
 public sealed record NotaCreditoBandejaItem(
     Guid Id, string Folio, string Estado, string? Uuid, string ReceptorNombre, string ReceptorRfc,
-    string Motivo, decimal Total, string Moneda, DateTimeOffset? FechaTimbrado);
+    string Motivo, decimal Total, string Moneda, DateTimeOffset? FechaTimbrado,
+    // 86e3wjt5r: bandeja «Por autorizar» de las notas que llegan de A+W.
+    string? FolioAw = null, string? FacturaFolio = null, DateTimeOffset? FechaRecibida = null);
 
 public sealed class BandejaNotasCreditoHandler
     : IRequestHandler<BandejaNotasCreditoQuery, BandejaNotasCreditoResponse>
@@ -55,13 +57,14 @@ public sealed class BandejaNotasCreditoHandler
             .Select(n => new
             {
                 n.Id, n.Folio, n.Estado, n.Uuid, n.ReceptorNombre, n.ReceptorRfc,
-                n.Motivo, n.Total, n.Moneda, n.FechaTimbrado
+                n.Motivo, n.Total, n.Moneda, n.FechaTimbrado, n.AwNumeroNota, n.CreatedAt,
+                FacturaFolio = _db.FacturasVenta.Where(f => f.Id == n.FacturaRelacionadaId).Select(f => f.Folio).FirstOrDefault()
             })
             .ToListAsync(cancellationToken);
 
         var items = rows.Select(r => new NotaCreditoBandejaItem(
             r.Id, r.Folio, r.Estado.ToString(), r.Uuid, r.ReceptorNombre, r.ReceptorRfc,
-            r.Motivo.ToString(), r.Total, r.Moneda, r.FechaTimbrado)).ToList();
+            r.Motivo.ToString(), r.Total, r.Moneda, r.FechaTimbrado, r.AwNumeroNota, r.FacturaFolio, r.CreatedAt)).ToList();
 
         return new BandejaNotasCreditoResponse(items, sinAsignarCount);
     }

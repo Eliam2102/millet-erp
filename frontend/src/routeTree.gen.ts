@@ -162,6 +162,7 @@ import { Route as AppFacturacionReportesCierreDiaRouteImport } from './routes/_a
 import { Route as AppFacturacionReportesComparativaAnticiposRouteImport } from './routes/_app/facturacion/reportes/comparativa-anticipos';
 import { Route as AppFacturacionReportesEstadosAnticiposRouteImport } from './routes/_app/facturacion/reportes/estados-anticipos';
 import { Route as AppFacturacionReportesLiquidacionCajaRouteImport } from './routes/_app/facturacion/reportes/liquidacion-caja';
+import { Route as AppFacturacionNotasCreditoIndexRouteImport } from './routes/_app/facturacion/notas-credito/index';
 import { Route as AppFacturacionReppIndexRouteImport } from './routes/_app/facturacion/repp/index';
 import { Route as AppFacturacionReppIdRouteImport } from './routes/_app/facturacion/repp/$id';
 import { Route as AppFacturacionReppPendientesRouteImport } from './routes/_app/facturacion/repp/pendientes';
@@ -1045,6 +1046,12 @@ const AppFacturacionReportesLiquidacionCajaRoute =
     path: '/facturacion/reportes/liquidacion-caja',
     getParentRoute: () => AppRoute,
   } as any);
+const AppFacturacionNotasCreditoIndexRoute =
+  AppFacturacionNotasCreditoIndexRouteImport.update({
+    id: '/facturacion/notas-credito/',
+    path: '/facturacion/notas-credito/',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppFacturacionReppIndexRoute = AppFacturacionReppIndexRouteImport.update({
   id: '/facturacion/repp/',
   path: '/facturacion/repp/',
@@ -1532,6 +1539,7 @@ export interface FileRoutesByFullPath {
   '/facturacion/carta-porte/': typeof AppFacturacionCartaPorteIndexRoute;
   '/facturacion/facturas/': typeof AppFacturacionFacturasIndexRoute;
   '/facturacion/pedidos/': typeof AppFacturacionPedidosIndexRoute;
+  '/facturacion/notas-credito/': typeof AppFacturacionNotasCreditoIndexRoute;
   '/facturacion/repp/': typeof AppFacturacionReppIndexRoute;
   '/tesoreria/conciliacion/': typeof AppTesoreriaConciliacionIndexRoute;
   '/tesoreria/corridas/': typeof AppTesoreriaCorridasIndexRoute;
@@ -1741,6 +1749,7 @@ export interface FileRoutesByTo {
   '/facturacion/carta-porte': typeof AppFacturacionCartaPorteIndexRoute;
   '/facturacion/facturas': typeof AppFacturacionFacturasIndexRoute;
   '/facturacion/pedidos': typeof AppFacturacionPedidosIndexRoute;
+  '/facturacion/notas-credito': typeof AppFacturacionNotasCreditoIndexRoute;
   '/facturacion/repp': typeof AppFacturacionReppIndexRoute;
   '/tesoreria/conciliacion': typeof AppTesoreriaConciliacionIndexRoute;
   '/tesoreria/corridas': typeof AppTesoreriaCorridasIndexRoute;
@@ -1952,6 +1961,7 @@ export interface FileRoutesById {
   '/_app/facturacion/carta-porte/': typeof AppFacturacionCartaPorteIndexRoute;
   '/_app/facturacion/facturas/': typeof AppFacturacionFacturasIndexRoute;
   '/_app/facturacion/pedidos/': typeof AppFacturacionPedidosIndexRoute;
+  '/_app/facturacion/notas-credito/': typeof AppFacturacionNotasCreditoIndexRoute;
   '/_app/facturacion/repp/': typeof AppFacturacionReppIndexRoute;
   '/_app/tesoreria/conciliacion/': typeof AppTesoreriaConciliacionIndexRoute;
   '/_app/tesoreria/corridas/': typeof AppTesoreriaCorridasIndexRoute;
@@ -2163,6 +2173,7 @@ export interface FileRouteTypes {
     | '/facturacion/carta-porte/'
     | '/facturacion/facturas/'
     | '/facturacion/pedidos/'
+    | '/facturacion/notas-credito/'
     | '/facturacion/repp/'
     | '/tesoreria/conciliacion/'
     | '/tesoreria/corridas/'
@@ -2372,6 +2383,7 @@ export interface FileRouteTypes {
     | '/facturacion/carta-porte'
     | '/facturacion/facturas'
     | '/facturacion/pedidos'
+    | '/facturacion/notas-credito'
     | '/facturacion/repp'
     | '/tesoreria/conciliacion'
     | '/tesoreria/corridas'
@@ -2582,6 +2594,7 @@ export interface FileRouteTypes {
     | '/_app/facturacion/carta-porte/'
     | '/_app/facturacion/facturas/'
     | '/_app/facturacion/pedidos/'
+    | '/_app/facturacion/notas-credito/'
     | '/_app/facturacion/repp/'
     | '/_app/tesoreria/conciliacion/'
     | '/_app/tesoreria/corridas/'
@@ -3710,6 +3723,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFacturacionReportesLiquidacionCajaRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/facturacion/notas-credito/': {
+      id: '/_app/facturacion/notas-credito/';
+      path: '/facturacion/notas-credito';
+      fullPath: '/facturacion/notas-credito/';
+      preLoaderRoute: typeof AppFacturacionNotasCreditoIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/facturacion/repp/': {
       id: '/_app/facturacion/repp/';
       path: '/facturacion/repp';
@@ -4274,6 +4294,7 @@ interface AppRouteChildren {
   AppFacturacionCartaPorteIndexRoute: typeof AppFacturacionCartaPorteIndexRoute;
   AppFacturacionFacturasIndexRoute: typeof AppFacturacionFacturasIndexRoute;
   AppFacturacionPedidosIndexRoute: typeof AppFacturacionPedidosIndexRoute;
+  AppFacturacionNotasCreditoIndexRoute: typeof AppFacturacionNotasCreditoIndexRoute;
   AppFacturacionReppIndexRoute: typeof AppFacturacionReppIndexRoute;
   AppTesoreriaConciliacionIndexRoute: typeof AppTesoreriaConciliacionIndexRoute;
   AppTesoreriaCorridasIndexRoute: typeof AppTesoreriaCorridasIndexRoute;
@@ -4493,6 +4514,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppFacturacionCartaPorteIndexRoute: AppFacturacionCartaPorteIndexRoute,
   AppFacturacionFacturasIndexRoute: AppFacturacionFacturasIndexRoute,
   AppFacturacionPedidosIndexRoute: AppFacturacionPedidosIndexRoute,
+  AppFacturacionNotasCreditoIndexRoute: AppFacturacionNotasCreditoIndexRoute,
   AppFacturacionReppIndexRoute: AppFacturacionReppIndexRoute,
   AppTesoreriaConciliacionIndexRoute: AppTesoreriaConciliacionIndexRoute,
   AppTesoreriaCorridasIndexRoute: AppTesoreriaCorridasIndexRoute,
