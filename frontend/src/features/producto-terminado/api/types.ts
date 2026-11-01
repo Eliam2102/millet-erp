@@ -41,7 +41,7 @@ export interface PiezasPagina {
   items: PiezaDto[];
   total: number;
   avance: AvancePosicionDto[];
-  /** Null si el pedido aún no tiene piezas en PT. */
+  /** Null hasta que el pedido está completo en PT (P-096): se muestra «En producción». */
   estadoPedido?: EstadoPedidoDto | null;
 }
 

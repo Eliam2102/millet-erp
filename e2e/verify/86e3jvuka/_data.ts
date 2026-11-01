@@ -8,9 +8,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { envCfg, env } from '../../_harness/session';
 
-export const PEDIDO_CONTADO = '4800117'; // contado, 10 piezas, 8 escaneadas
-export const PEDIDO_REPARTO = '4800118'; // REPARTO, 10 piezas, 3 escaneadas
-export const PEDIDO_SERIE_5000 = '5000231'; // serie 5000 (siempre libera por Crédito), 10 piezas, 4 escaneadas
+export const PEDIDO_CONTADO = '4800117'; // contado, 10 piezas, 8 y luego 10 escaneadas
+export const PEDIDO_REPARTO = '4800118'; // REPARTO, 10 piezas, 3 y luego 10 escaneadas
+export const PEDIDO_SERIE_5000 = '5000231'; // serie 5000 (siempre libera por Crédito), 10 piezas, 10 escaneadas
 
 export function sql(statement: string): string {
   if (env !== 'test') throw new Error('[PT-02] seeding is only allowed in the test environment');
@@ -39,13 +39,13 @@ begin
 end $$;`);
 }
 
-/** Demo origin tables of A+W (same DB) + the scans, one row per piece. */
-function escaneos(numero: string, piezas: number) {
+/** Demo origin tables of A+W (same DB) + the scans, one row per piece (desde..piezas). */
+function escaneos(numero: string, piezas: number, desde = 1) {
   sql(`insert into dbo.pool_pos (auftnr,pos,u_pos,ae_intpos,menge) values ('${numero}',1,0,1,100) on conflict do nothing;
 insert into dbo.awbar_bearbeit (etikettnr,bearb_zeit,auftnr,pos,u_pos,teile_nr,fertig,esnr_ist,bruch_flag)
 select substr(encode(sha256(convert_to('${numero}-' || i, 'UTF8')), 'hex'), 1, 9),
        (now() at time zone 'America/Mexico_City') - interval '3 minutes' + (i * interval '1 second'), '${numero}', 1, 0, i::text, 1, 2821, 0
-from generate_series(1, ${piezas}) i;`);
+from generate_series(${desde}, ${piezas}) i;`);
 }
 
 export function prepararOrigenDemo() {

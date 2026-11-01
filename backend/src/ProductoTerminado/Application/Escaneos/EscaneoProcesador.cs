@@ -115,7 +115,7 @@ public sealed class EscaneoProcesador(ProductoTerminadoDbContext db, IPedidosPtR
         e.MarcarAlta(pieza.Id);
         await eventos.PublishAsync(new PiezaIngresadaEvent(e.EmpresaId, ahora, pieza.Id, pedido.Id, pedido.NumeroPedido, posicion, numeroPieza, pos.ProductoId, sucursalId, pieza.EscaneadaAt), ct);
 
-        // (8) PT5.2: la primera pieza retiene (69) y evalúa; con el pedido ya retenido, cada pieza nueva reevalúa saldo y REPARTO.
+        // (8) PT5.2: solo con el pedido completo entra a 69 y evalúa (P-096); con el pedido ya retenido, cada pieza nueva reevalúa saldo y REPARTO.
         if (pedido.Liberacion is null) await liberacion.EntrarA69Async(pedido, origen, ct);
         else await liberacion.ReevaluarAsync(pedido, ct);
     }

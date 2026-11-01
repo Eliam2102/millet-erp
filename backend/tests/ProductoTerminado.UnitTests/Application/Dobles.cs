@@ -62,7 +62,7 @@ internal sealed class EntornoPt : IDisposable
             new DbContextOptionsBuilder<ProductoTerminadoDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, new EmpresaFija(Empresa));
         Sucursales.Claves["01"] = Sucursal;
         var reloj = new RelojFijo(new DateTimeOffset(2026, 10, 28, 12, 0, 0, TimeSpan.Zero));
-        Liberacion = new LiberacionPedido(Saldos, Eventos, reloj);
+        Liberacion = new LiberacionPedido(Db, Saldos, Eventos, reloj);
         Handler = new RegistrarEscaneoPiezaHandler(Db, new EscaneoProcesador(Db, Pedidos, Sucursales, Eventos, reloj, Liberacion), reloj);
     }
 

@@ -19,10 +19,11 @@ const pintado = async (page: Page) => {
 };
 
 /** Portal en un contexto limpio (sin sesión de Entra): correo -> código de Mailpit -> Entrar. */
-async function entrarAlPortal(browser: Browser, email: string) {
-  const context = await browser.newContext({ baseURL, viewport: VIEWPORT });
+async function entrarAlPortal(browser: Browser, email: string, viewport = VIEWPORT, alAbrir?: (page: Page) => Promise<void>) {
+  const context = await browser.newContext({ baseURL, viewport });
   const page = await context.newPage();
   await page.goto('/portal-proveedores');
+  await alAbrir?.(page);
   await page.getByLabel('Correo autorizado').fill(email);
   await page.getByRole('button', { name: 'Enviar código' }).click();
   await expect(page.getByLabel('Código de acceso')).toBeVisible();
@@ -90,6 +91,14 @@ test.describe('P8.3 portal de proveedores', () => {
     await expect(fila(page, FACTURAS.bajioEnCorrida.folio)).not.toContainText('Sin programar');
     await expect(fila(page, FACTURAS.bajioSinProgramar.folio)).toContainText('Sin programar');
     await shot(page, '02-portal-mis-facturas-fecha-programada-y-sin-programar');
+    await context.close();
+  });
+
+  test('R2b portal en teléfono (390x844): acceso y «Mis facturas»', async ({ browser }) => {
+    const { context, page } = await entrarAlPortal(browser, PROVS.bajio.email, { width: 390, height: 844 },
+      (p) => shot(p, '15-portal-acceso-movil-390'));
+    await expect(page.getByRole('tab', { name: 'Mis facturas', selected: true })).toBeVisible();
+    await shot(page, '16-portal-mis-facturas-movil-390');
     await context.close();
   });
 
