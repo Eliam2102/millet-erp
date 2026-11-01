@@ -3155,6 +3155,141 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                     b.ToTable("pedido_facturable_linea", "facturacion");
                 });
 
+            modelBuilder.Entity("Millet.Facturacion.Domain.Pedidos.SalidaFacturable", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<int>("NumeroParcialidad")
+                        .HasColumnType("integer")
+                        .HasColumnName("numero_parcialidad");
+
+                    b.Property<short>("Origen")
+                        .HasColumnType("smallint")
+                        .HasColumnName("origen");
+
+                    b.Property<Guid>("PedidoFacturableId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("pedido_facturable_id");
+
+                    b.Property<string>("Referencia")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("referencia");
+
+                    b.Property<DateTimeOffset>("RegistradaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("registrada_en");
+
+                    b.Property<decimal>("Total")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("total");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_salida_facturable");
+
+                    b.HasIndex("PedidoFacturableId", "NumeroParcialidad")
+                        .IsUnique()
+                        .HasDatabaseName("ux_salida_facturable_parcialidad");
+
+                    b.HasIndex("EmpresaId", "Origen", "Referencia")
+                        .IsUnique()
+                        .HasDatabaseName("ux_salida_facturable_referencia");
+
+                    b.ToTable("salida_facturable", "facturacion");
+                });
+
+            modelBuilder.Entity("Millet.Facturacion.Domain.Pedidos.SalidaFacturableLinea", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Cantidad")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("numeric(18,6)")
+                        .HasColumnName("cantidad");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<decimal>("Importe")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("importe");
+
+                    b.Property<int>("Posicion")
+                        .HasColumnType("integer")
+                        .HasColumnName("posicion");
+
+                    b.Property<Guid>("SalidaFacturableId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("salida_facturable_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_salida_facturable_linea");
+
+                    b.HasIndex("SalidaFacturableId", "Posicion")
+                        .IsUnique()
+                        .HasDatabaseName("ux_salida_facturable_linea_posicion");
+
+                    b.ToTable("salida_facturable_linea", "facturacion");
+                });
+
             modelBuilder.Entity("Millet.Facturacion.Domain.Proformas.ProformaPedido", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3945,6 +4080,10 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(60)")
                         .HasColumnName("referencia_cliente");
 
+                    b.Property<Guid?>("SalidaFacturableId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("salida_facturable_id");
+
                     b.HasIndex("ObraId")
                         .HasDatabaseName("ix_factura_venta_obra")
                         .HasFilter("obra_id IS NOT NULL");
@@ -3952,6 +4091,10 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                     b.HasIndex("PedidoFacturableId")
                         .HasDatabaseName("ix_factura_venta_pedido")
                         .HasFilter("pedido_facturable_id IS NOT NULL");
+
+                    b.HasIndex("SalidaFacturableId")
+                        .HasDatabaseName("ix_factura_venta_salida")
+                        .HasFilter("salida_facturable_id IS NOT NULL");
 
                     b.ToTable("factura_venta", "facturacion");
                 });
@@ -4299,6 +4442,26 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_pedido_facturable_linea_pedidos_facturables_pedido_facturab");
                 });
 
+            modelBuilder.Entity("Millet.Facturacion.Domain.Pedidos.SalidaFacturable", b =>
+                {
+                    b.HasOne("Millet.Facturacion.Domain.Pedidos.PedidoFacturable", null)
+                        .WithMany()
+                        .HasForeignKey("PedidoFacturableId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_salida_facturable_pedido_facturable_pedido_facturable_id");
+                });
+
+            modelBuilder.Entity("Millet.Facturacion.Domain.Pedidos.SalidaFacturableLinea", b =>
+                {
+                    b.HasOne("Millet.Facturacion.Domain.Pedidos.SalidaFacturable", null)
+                        .WithMany("Lineas")
+                        .HasForeignKey("SalidaFacturableId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_salida_facturable_linea_salidas_facturables_salida_facturab");
+                });
+
             modelBuilder.Entity("Millet.Facturacion.Domain.Repp.ReciboPagoFactura", b =>
                 {
                     b.HasOne("Millet.Facturacion.Domain.Repp.ReciboPago", null)
@@ -4414,6 +4577,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                 });
 
             modelBuilder.Entity("Millet.Facturacion.Domain.Pedidos.PedidoFacturable", b =>
+                {
+                    b.Navigation("Lineas");
+                });
+
+            modelBuilder.Entity("Millet.Facturacion.Domain.Pedidos.SalidaFacturable", b =>
                 {
                     b.Navigation("Lineas");
                 });
