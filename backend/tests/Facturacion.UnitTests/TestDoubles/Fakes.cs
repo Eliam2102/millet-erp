@@ -376,3 +376,9 @@ public sealed class FakeDatosImpresionCfdi(DatosImpresionCfdi? datos = null) : I
         IReadOnlyCollection<Guid> productoIds, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
 }
+
+/// <summary>Saldo pendiente según CxC (F1-CXC-05 P2); <c>null</c> = la factura aún no está en cartera.</summary>
+public sealed class FakeSaldoFacturaReadPort(decimal? saldo = null) : ISaldoFacturaReadPort
+{
+    public Task<decimal?> ObtenerSaldoAsync(Guid facturaVentaId, CancellationToken cancellationToken) => Task.FromResult(saldo);
+}
