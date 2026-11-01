@@ -242,7 +242,8 @@ public sealed class NotaCreditoAwTests
         var r = await h.Handle(new ProcesarNotaCreditoAwCommand(empresa, Sol()), CancellationToken.None);
         var eventos = new FakeIntegrationEventPublisher();
         var autorizar = new AutorizarNotaCreditoHandler(db, new FakePeriodoContablePort(periodoAbierto), new FakeSaldo(saldo),
-            new FakeFiscalApiClient(), new FakeCfdiRepositorioPort(), eventos, new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora));
+            new FakeFiscalApiClient(), new FakeCfdiRepositorioPort(), eventos, new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora),
+            new FakeCurrentUserPermissions());
         return (autorizar, db, eventos, r.NotaCreditoId!.Value);
     }
 

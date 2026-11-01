@@ -80,6 +80,7 @@ public static class CfdiPdfModelBuilder
             MotivoNotaCredito.Amortizacion => "Aplicación de anticipo / Advance payment application",
             MotivoNotaCredito.Bonificacion => "Bonificación / Allowance",
             MotivoNotaCredito.Devolucion => "Devolución / Return",
+            MotivoNotaCredito.DevolucionAnticipo => "Devolución de anticipo / Advance payment refund",
             _ => nc.Motivo.ToString(),
         };
         return Armar(nc, datos ?? DatosImpresionCfdi.Vacio, TipoDocumentoPdf.NotaCredito,

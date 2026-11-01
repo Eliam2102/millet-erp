@@ -161,7 +161,7 @@ public sealed class PublicacionEventosContablesTests
         await new EmitirNotaCreditoBonificacionHandler(db, new FakeSender(new ReservarFolioResponse("NC-U16", 2, "")),
             new FakePeriodoContablePort(), _pac, new FakeCfdiRepositorioPort(), _eventos,
             new FakeEmpresaContext(_empresa), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora.AddDays(1)),
-            ReceptorFiscalTestFactory.Crear(db))
+            ReceptorFiscalTestFactory.Crear(db), new FakeCurrentUserPermissions())
             .Handle(new EmitirNotaCreditoBonificacionCommand(factura.Id, 1160m, 0.16m, "Descuento"), default);
         var nc = _eventos.Publicados.OfType<NotaCreditoTimbradaIntegrationEvent>().Single();
         nc.ClienteId.Should().Be(conPedido ? _cliente : null);

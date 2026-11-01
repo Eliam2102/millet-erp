@@ -438,6 +438,39 @@ export interface AnticipoSaldoDetalle {
   obraId: number | null;
   obraNombre: string | null;
   vinculaciones: AnticipoVinculacionInfo[];
+  /** F6.3 · CA6.17: devuelto en dinero al cliente. */
+  montoDevuelto?: number;
+  devoluciones?: AnticipoDevolucionInfo[] | null;
+}
+
+/** F6.3: NC de devolución del anticipo y el estado de su reembolso en Tesorería. */
+export interface AnticipoDevolucionInfo {
+  notaCreditoId: string;
+  folio: string;
+  uuid: string | null;
+  estado: string;
+  total: number;
+  estadoReembolso: EstadoReembolsoNc | null;
+  reembolsoPagadoEl: string | null;
+  reembolsoReferencia: string | null;
+  reembolsoMotivoResolucion: string | null;
+}
+
+/** F6.3 · CA6.17: POST /notas-credito/devolucion-anticipo. */
+export interface NotaCreditoDevolucionAnticipoCommand {
+  anticipoId: string;
+  montoTotal: number;
+  tasaIva: number | null;
+  reembolso: ReembolsoClienteRequest;
+}
+
+export interface NotaCreditoDevolucionAnticipoResponse {
+  id: string;
+  estado: string;
+  uuid: string | null;
+  folio: string;
+  total: number;
+  saldoAnticipo: number;
 }
 
 /** Detalle de una factura de anticipo (GET /anticipos/facturas/{id}). */
@@ -1270,6 +1303,13 @@ export interface NotaCreditoAplicadaDetalle {
   fechaTimbrado: string | null;
   /** T9.6 · CA6.17: ya se pidió a Tesorería el reembolso de esta NC. */
   reembolsoSolicitado?: boolean;
+  /** F6.3: estado del reembolso que reporta Tesorería; null = sin reembolso. */
+  estadoReembolso?: EstadoReembolsoNc | null;
+  reembolsoActualizadoEn?: string | null;
+  /** F6.3: fecha valor del pago (yyyy-MM-dd). */
+  reembolsoPagadoEl?: string | null;
+  reembolsoReferencia?: string | null;
+  reembolsoMotivoResolucion?: string | null;
 }
 
 /** Respuesta de POST /comprobantes/{id}/reintentar-timbrado (todos los tipos). */
@@ -1328,7 +1368,19 @@ export interface NotaCreditoBonificacionCommand {
   montoTotal: number;
   tasaIva: number | null;
   descripcion: string | null;
+  /** F6.3: «Devolver dinero al cliente»; al timbrar se pide a Tesorería el reembolso con esta cuenta. */
+  reembolso?: ReembolsoClienteRequest | null;
 }
+
+/** F6.3: cuenta destino del reembolso al cliente (CLABE de 18 dígitos). */
+export interface ReembolsoClienteRequest {
+  banco: string;
+  clabe: string;
+  titular: string;
+}
+
+/** F6.3: estado del reembolso de una NC según Tesorería. */
+export type EstadoReembolsoNc = 'Solicitado' | 'Autorizado' | 'Rechazado' | 'Cancelado' | 'Pagado';
 
 /** Respuesta de la NC de bonificación. */
 export interface NotaCreditoBonificacionResponse {

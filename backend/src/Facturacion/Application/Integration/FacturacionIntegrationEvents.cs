@@ -125,7 +125,11 @@ public sealed record NotaCreditoReembolsoSolicitadoIntegrationEvent(
     string Moneda,
     Guid SucursalId,
     string Motivo,
-    Guid SolicitadoPor)
+    Guid SolicitadoPor,
+    // F6.3: cuenta destino capturada al emitir la NC (opcional; si falta, Tesorería la captura al editar la devolución).
+    string? DestinoBanco = null,
+    string? DestinoClabe = null,
+    string? DestinoTitular = null)
     : IntegrationEvent("facturacion.nota-credito.reembolso-solicitado.v1", EmpresaId, OcurridoEn);
 
 /// <summary>

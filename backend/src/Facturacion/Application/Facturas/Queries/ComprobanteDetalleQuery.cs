@@ -69,7 +69,13 @@ public sealed record NotaCreditoAplicadaDetalle(
     decimal Total,
     string? Uuid,
     DateTimeOffset? FechaTimbrado,
-    bool ReembolsoSolicitado = false);
+    bool ReembolsoSolicitado = false,
+    // F6.3: estado del reembolso que reporta Tesorería (Solicitado, Autorizado, Rechazado, Cancelado o Pagado).
+    string? EstadoReembolso = null,
+    DateTimeOffset? ReembolsoActualizadoEn = null,
+    DateOnly? ReembolsoPagadoEl = null,
+    string? ReembolsoReferencia = null,
+    string? ReembolsoMotivoResolucion = null);
 
 public sealed record ComprobanteLineaDetalle(
     int Posicion,
@@ -143,11 +149,19 @@ public sealed class ComprobanteDetalleHandler
         var ncAplicadas = (await _db.NotasCredito.AsNoTracking()
                 .Where(n => n.FacturaRelacionadaId == f.Id && n.Estado == EstadoTimbrado.Timbrado)
                 .OrderBy(n => n.FolioNumero)
-                .Select(n => new { n.Id, n.Folio, n.Motivo, n.Total, n.Uuid, n.FechaTimbrado, n.ReembolsoSolicitadoEn })
+                .Select(n => new
+                {
+                    n.Id, n.Folio, n.Motivo, n.Total, n.Uuid, n.FechaTimbrado, n.ReembolsoSolicitadoEn, n.EstadoReembolso,
+                    n.ReembolsoActualizadoEn, n.ReembolsoPagadoEl, n.ReembolsoReferencia, n.ReembolsoMotivoResolucion,
+                })
                 .ToListAsync(cancellationToken))
             .Select(n => new NotaCreditoAplicadaDetalle(
                 n.Id, n.Folio, n.Motivo.ToString(), n.Total, n.Uuid, n.FechaTimbrado,
-                ReembolsoSolicitado: n.ReembolsoSolicitadoEn != null))
+                ReembolsoSolicitado: n.ReembolsoSolicitadoEn != null,
+                // Las NC que pidieron reembolso antes de F6.3 no tienen estado: siguen como «Solicitado».
+                EstadoReembolso: n.EstadoReembolso?.ToString() ?? (n.ReembolsoSolicitadoEn != null ? "Solicitado" : null),
+                ReembolsoActualizadoEn: n.ReembolsoActualizadoEn, ReembolsoPagadoEl: n.ReembolsoPagadoEl,
+                ReembolsoReferencia: n.ReembolsoReferencia, ReembolsoMotivoResolucion: n.ReembolsoMotivoResolucion))
             .ToList();
         var totalAcreditado = ncAplicadas.Sum(n => n.Total);
 
