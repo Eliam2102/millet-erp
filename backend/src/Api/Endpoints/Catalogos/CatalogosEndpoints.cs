@@ -123,7 +123,8 @@ public static class CatalogosEndpoints
                 .Skip(off).Take(lim)
                 .Select(p => new ProveedorListItem(
                     p.Id, p.Clave, p.RazonSocial, p.NombreComercial, p.Rfc,
-                    p.TipoPersona, p.CondicionesPagoDias, p.MonedaPreferidaId, p.Estatus, p.ClaveAw))
+                    p.TipoPersona, p.CondicionesPagoDias, p.MonedaPreferidaId, p.Estatus, p.ClaveAw,
+                    p.Bloqueado, p.MotivoBloqueo))
                 .ToListAsync(ct);
 
             return Results.Ok(new PagedCatalogoResponse<ProveedorListItem>(items, off, lim, total));
@@ -709,7 +710,9 @@ public sealed record ProveedorListItem(
     short? CondicionesPagoDias,
     Guid? MonedaPreferidaId,
     EstatusCatalogo Estatus,
-    int? ClaveAw = null);
+    int? ClaveAw = null,
+    bool Bloqueado = false,
+    string? MotivoBloqueo = null);
 
 public sealed record ProveedorDetalle(
     Guid Id,
