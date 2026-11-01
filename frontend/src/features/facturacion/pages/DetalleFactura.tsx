@@ -27,6 +27,7 @@ import {
 import { CancelarComprobanteForm } from '@/features/facturacion/components/CancelarComprobanteForm';
 import { CobrarEnCajaLink } from '@/features/facturacion/components/CobrarEnCajaLink';
 import { CobroFacturaPanel } from '@/features/facturacion/components/CobroFacturaPanel';
+import { AnticipoPicker } from '@/features/facturacion/components/AnticipoPicker';
 import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
 import { EstadoReembolsoNcBadge } from '@/features/facturacion/components/EstadoReembolsoNcBadge';
 import { IntentosTimbradoPanel } from '@/features/facturacion/components/IntentosTimbradoPanel';
@@ -44,6 +45,8 @@ import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { Ban, Download, FileCode, Mail, Printer, Receipt, X } from 'lucide-react';
 import { useState } from 'react';
+import type { AnticipoEstadoCuenta } from '@/features/facturacion/api/types';
+import { useAplicarAnticipoAFactura } from '@/features/facturacion/api/useAnticipos';
 import { toast } from 'sonner';
 
 const BASE = '/api/v1/facturacion/facturas';
@@ -93,7 +96,8 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
     NonNullable<typeof f.notasCreditoAplicadas>[number] | null
   >(null);
   const cancelacion = useCancelacionEstatus(f.id);
-  const [accion, setAccion] = useState<'cancelar' | 'nc' | null>(null);
+  const [accion, setAccion] = useState<'cancelar' | 'nc' | 'anticipo' | null>(null);
+  const puedeAplicarAnticipo = useHasPermission(PermisosCanonicos.FacturacionAnticiposVincular);
   const timbrada = f.estado === 'Timbrado' || f.estado === 'Cancelado';
   // Solo una factura vigente (Timbrado) admite NC / cancelación.
   const vigente = f.estado === 'Timbrado';
@@ -178,6 +182,16 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
                     <Printer className="mr-1 h-4 w-4" />
                     Imprimir
                   </Button>
+                  {puedeAplicarAnticipo && vigente && f.clienteId && (f.totalPorCobrar ?? 0) > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAccion((a) => (a === 'anticipo' ? null : 'anticipo'))}
+                    >
+                      <Receipt className="mr-1 h-4 w-4" />
+                      Aplicar anticipo
+                    </Button>
+                  )}
                   {puedeNc && vigente && (
                     <Button
                       variant="outline"
@@ -213,6 +227,14 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
         {f.uuid && <p className="font-mono text-xs text-ink-muted">UUID {f.uuid}</p>}
       </div>
 
+      {accion === 'anticipo' && f.clienteId && (
+        <AplicarAnticipoForm
+          facturaId={f.id}
+          clienteId={f.clienteId}
+          porCobrar={f.totalPorCobrar ?? 0}
+          onDone={() => setAccion(null)}
+        />
+      )}
       {accion === 'nc' && (
         <NcBonificacionForm
           facturaId={f.id}
@@ -645,6 +667,98 @@ function PedimentoForm({ facturaId }: { facturaId: string }) {
       <div className="sm:col-span-4 flex justify-end">
         <Button size="sm" onClick={enviar} disabled={aplicar.isPending}>
           {aplicar.isPending ? 'Aplicando…' : 'Aplicar pedimento y timbrar'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * F1-CXC-05 P2 (compensación): aplica el saldo de un anticipo del cliente a esta
+ * factura ya timbrada. Emite la NC de amortización (relación 07) y CxC la
+ * descuenta del saldo; el importe no pasa del saldo del anticipo ni de lo que
+ * falta por cobrar.
+ */
+function AplicarAnticipoForm({
+  facturaId,
+  clienteId,
+  porCobrar,
+  onDone,
+}: {
+  facturaId: string;
+  clienteId: string;
+  porCobrar: number;
+  onDone: () => void;
+}) {
+  const [anticipo, setAnticipo] = useState<AnticipoEstadoCuenta | null>(null);
+  const [importe, setImporte] = useState('');
+  const idempotencyKey = useFormIdempotencyKey();
+  const aplicar = useAplicarAnticipoAFactura(facturaId);
+  const tope = anticipo ? Math.min(anticipo.saldo, porCobrar) : porCobrar;
+
+  function elegir(item: AnticipoEstadoCuenta | null) {
+    setAnticipo(item);
+    setImporte(item ? Math.min(item.saldo, porCobrar).toFixed(2) : '');
+  }
+
+  function enviar() {
+    const monto = Number(importe);
+    if (!anticipo) {
+      toast.error('Selecciona el anticipo a aplicar.');
+      return;
+    }
+    if (!(monto > 0) || monto > tope) {
+      toast.error(`El importe debe ser mayor a 0 y no exceder ${tope.toFixed(2)}.`);
+      return;
+    }
+    aplicar.mutate(
+      { anticipoId: anticipo.anticipoId, importe: monto, idempotencyKey },
+      {
+        onSuccess: (res) => {
+          toast.success(`Anticipo aplicado con la NC ${res.folio} por ${res.importe.toFixed(2)}.`);
+          onDone();
+        },
+        onError: (error) =>
+          toast.error(esApiError(error) ? error.problem.title : 'No se pudo aplicar el anticipo.'),
+      },
+    );
+  }
+
+  return (
+    <div
+      className="grid grid-cols-1 gap-2 rounded-md border border-dashed p-3 sm:grid-cols-4 border-line"
+      data-print="hidden"
+    >
+      <div className="sm:col-span-4 text-sm font-medium">
+        Aplicar anticipo a esta factura (NC de amortización, relación 07)
+      </div>
+      <div className="sm:col-span-4">
+        <ErrorTimbradoAviso error={aplicar.error} />
+      </div>
+      <div className="sm:col-span-2">
+        <Label className="text-xs">Anticipo *</Label>
+        <AnticipoPicker clienteId={clienteId} value={anticipo?.anticipoId} onChange={elegir} />
+      </div>
+      <div>
+        <Label className="text-xs" htmlFor="aplicar-anticipo-importe">
+          Importe *
+        </Label>
+        <Input
+          id="aplicar-anticipo-importe"
+          type="number"
+          step="0.01"
+          min="0"
+          value={importe}
+          onChange={(e) => setImporte(e.target.value)}
+        />
+      </div>
+      <p className="self-end text-xs text-ink-muted">Por cobrar: {porCobrar.toFixed(2)}</p>
+      <div className="sm:col-span-4 flex justify-end gap-2">
+        <Button variant="ghost" size="sm" onClick={onDone} disabled={aplicar.isPending}>
+          Cancelar
+        </Button>
+        <Button size="sm" onClick={enviar} disabled={aplicar.isPending}>
+          {aplicar.isPending ? 'Aplicando…' : 'Aplicar anticipo'}
         </Button>
       </div>
     </div>
