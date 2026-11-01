@@ -980,6 +980,8 @@ builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.IUsuariosReadPort, Mi
 // 86e3tfdve: cuenta beneficiaria del complemento de pago desde la cuenta bancaria de Millet (dueño: Tesorería).
 builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.ICuentaBancariaMilletReadPort, Millet.Api.Infrastructure.Adapters.CuentaBancariaMilletReadAdapter>();
 builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.ICuentaOrdenanteMovimientoReadPort, Millet.Api.Infrastructure.Adapters.CuentaOrdenanteMovimientoReadAdapter>();
+// F6.6: Caja valida el folio de transferencia que emite Ingresos (dueño: Tesorería).
+builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.IFolioTransferenciaReadPort, Millet.Api.Infrastructure.Adapters.FolioTransferenciaReadAdapter>();
 
 // === Módulo Centros de Costo (CECO-A1) ===
 // Cimiento: catálogo jerárquico Sucursal→Departamento→Equipo + dimensiones
@@ -1890,6 +1892,7 @@ Millet.Api.Endpoints.Tesoreria.PagosACuentaEndpoints.MapTesoreriaPagosACuentaEnd
 // === Tesorería — Confirmación de depósitos de cliente (TES-PR7, TES-9) ===
 Millet.Api.Endpoints.Tesoreria.DepositosEndpoints.MapTesoreriaDepositosEndpoints(app);
 Millet.Api.Endpoints.Tesoreria.DevolucionesEndpoints.MapTesoreriaDevolucionesEndpoints(app);
+Millet.Api.Endpoints.Tesoreria.FoliosTransferenciaEndpoints.MapTesoreriaFoliosTransferenciaEndpoints(app);
 Millet.Api.Endpoints.Tesoreria.DiferenciasCorteEndpoints.MapTesoreriaDiferenciasCorteEndpoints(app);
 
 // === Tesorería — REPP recibido de proveedor: pendientes SLA + registro (TES-PR8, TES-4) ===

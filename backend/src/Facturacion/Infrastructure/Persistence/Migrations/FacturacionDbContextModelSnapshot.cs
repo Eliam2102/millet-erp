@@ -1069,6 +1069,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
 
+                    b.Property<string>("FolioTransferencia")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("folio_transferencia");
+
                     b.Property<string>("FormaPago")
                         .IsRequired()
                         .HasMaxLength(2)
@@ -1108,6 +1113,10 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CobroMostradorId")
                         .HasDatabaseName("ix_cobro_forma_pago_cobro");
+
+                    b.HasIndex("FolioTransferencia")
+                        .HasDatabaseName("ix_cobro_forma_pago_folio_transferencia")
+                        .HasFilter("folio_transferencia IS NOT NULL");
 
                     b.ToTable("cobro_mostrador_forma_pago", "facturacion");
                 });

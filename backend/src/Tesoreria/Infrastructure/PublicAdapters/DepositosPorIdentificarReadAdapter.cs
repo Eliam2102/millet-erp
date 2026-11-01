@@ -3,6 +3,7 @@ using Millet.CuentasPorCobrar.Domain.Ports.Tesoreria;
 using Millet.Tesoreria.Application.Depositos;
 using Millet.Tesoreria.Domain.Depositos;
 using Millet.Tesoreria.Domain.Devoluciones;
+using Millet.Tesoreria.Domain.FoliosTransferencia;
 using Millet.Tesoreria.Domain.Movimientos;
 using Millet.Tesoreria.Infrastructure.Persistence;
 
@@ -18,7 +19,7 @@ namespace Millet.Tesoreria.Infrastructure.PublicAdapters;
 /// Criterio: ingreso, no contramovimiento ni revertido, beneficiario tipo
 /// Cliente (cliente opcional), no aplicado por completo, sin devolución
 /// solicitada/autorizada/pagada y no ligado a una expectativa de caja o de
-/// viáticos. <c>Disponible</c> = monto menos lo ya confirmado (el saldo a
+/// viáticos, ni con folio de transferencia emitido (F6.6). <c>Disponible</c> = monto menos lo ya confirmado (el saldo a
 /// favor de una confirmación previa queda disponible).
 /// </para>
 /// </summary>
@@ -44,7 +45,9 @@ public sealed class DepositosPorIdentificarReadAdapter(TesoreriaDbContext db) : 
                         || d.Estado == EstadoDevolucionCliente.Pagada))
                 && !db.DepositosConfirmacion.Any(d => d.MovimientoId == m.Id
                     && d.Estado == EstadoDepositoConfirmacion.Confirmada
-                    && (d.CajaSesionId != null || d.SolicitudViaticosId != null)));
+                    && (d.CajaSesionId != null || d.SolicitudViaticosId != null))
+                // F6.6: un ingreso con folio de transferencia ya lo identificó Ingresos para Caja.
+                && !db.FoliosTransferencia.Any(f => f.MovimientoId == m.Id && f.Estado != EstadoFolioTransferencia.Cancelado));
         if (id is Guid movimientoId) q = q.Where(m => m.Id == movimientoId);
 
         var movimientos = await q.OrderBy(m => m.FechaValor).ThenBy(m => m.CreadoEn).ToListAsync(ct);
