@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Millet.Api.Auth;
 using Millet.Api.Web;
+using Millet.Facturacion.Application.Anticipos.AplicarAnticipoAFactura;
 using Millet.Facturacion.Application.Anticipos.EmitirFacturaAnticipo;
 using Millet.Facturacion.Application.Comprobantes.Queries;
 using Millet.Facturacion.Domain.Ports;
@@ -64,6 +65,26 @@ public static class AnticiposEndpoints
         .WithName("VincularAnticipo")
         .WithSummary("Vincula un anticipo a una factura final (relación 07)")
         .Produces<VincularAnticipoResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // POST: F1-CXC-05 Parte 2 — aplica el anticipo {id} a una factura ya timbrada (NC de amortización, relación 07).
+        group.MapPost("/{id:guid}/aplicar", async (
+            Guid id,
+            VincularAnticipoRequest body,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var response = await mediator.Send(
+                new AplicarAnticipoAFacturaCommand(id, body.FacturaVentaId, body.Importe), cancellationToken);
+            return Results.Ok(response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionAnticiposVincular)
+        .WithName("AplicarAnticipoAFactura")
+        .WithSummary("Aplica el saldo de un anticipo a una factura timbrada del mismo cliente (NC de amortización, relación 07)")
+        .Produces<AplicarAnticipoAFacturaResponse>(StatusCodes.Status200OK)
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);

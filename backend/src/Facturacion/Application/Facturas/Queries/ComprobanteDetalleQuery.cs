@@ -51,7 +51,9 @@ public sealed record ComprobanteDetalleResponse(
     string? OrdenCompraCliente = null, string? ReferenciaCliente = null, string? CondicionesPago = null,
     string? Proforma = null, string? Observaciones = null,
     decimal TotalKg = 0m, decimal TotalPie2 = 0m, decimal TotalPiezas = 0m,
-    string? NoCertificadoEmisor = null, string? CadenaOriginalTimbre = null);
+    string? NoCertificadoEmisor = null, string? CadenaOriginalTimbre = null,
+    // F1-CXC-05 Parte 2: cliente del pedido (si se conoce) para ofrecer sus anticipos al aplicar uno a la factura.
+    Guid? ClienteId = null);
 
 /// <summary>Cobro vigente de la factura, con la sesión donde se registró.</summary>
 public sealed record CobroFacturaDetalle(
@@ -213,6 +215,7 @@ public sealed class ComprobanteDetalleHandler
             OrdenCompraCliente: f.OrdenCompraCliente, ReferenciaCliente: f.ReferenciaCliente,
             CondicionesPago: f.CondicionesPago, Proforma: f.Proforma, Observaciones: f.Observaciones,
             TotalKg: f.TotalKg, TotalPie2: f.TotalPie2, TotalPiezas: f.TotalPiezas,
-            NoCertificadoEmisor: f.NoCertificadoEmisor, CadenaOriginalTimbre: f.CadenaOriginalTimbre);
+            NoCertificadoEmisor: f.NoCertificadoEmisor, CadenaOriginalTimbre: f.CadenaOriginalTimbre,
+            ClienteId: await Integration.ClienteContableFacturacion.ResolverAsync(_db, f, cancellationToken));
     }
 }
