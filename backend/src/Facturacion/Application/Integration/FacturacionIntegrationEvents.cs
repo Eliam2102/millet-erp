@@ -263,3 +263,24 @@ public sealed record CobroMostradorCanceladoIntegrationEvent(
     decimal Total,
     bool ReversadoEnSesion)
     : IntegrationEvent("facturacion.cobro-mostrador.cancelado.v1", EmpresaId, OcurridoEn);
+
+/// <summary>Venta con tarjeta liquidada por el banco: cobro de caja y su importe bruto.</summary>
+public sealed record VentaTerminalLiquidada(Guid CobroMostradorId, Guid SucursalId, decimal Importe, string? Autorizacion);
+
+// ---- Liquidación de la terminal de tarjetas (86e3vr1tf, Parte A) ----
+// Una por folio de liquidación del banco. Póliza esperada (C1.5): cargo a bancos
+// por Neto, a comisiones por tarjeta (601.75) por Comision y a IVA pendiente de
+// pago por IvaComision; abono a «COBROS T/C, T/D» por Bruto.
+// PLATFORM-TODO(<PolizaLiquidacionTerminal>): Contabilidad aún no consume este evento.
+public sealed record TerminalLiquidacionRegistradaIntegrationEvent(
+    Guid EmpresaId,
+    DateTimeOffset OcurridoEn,
+    Guid LiquidacionId,
+    string FolioLiquidacion,
+    DateOnly Fecha,
+    decimal Bruto,
+    decimal Comision,
+    decimal IvaComision,
+    decimal Neto,
+    IReadOnlyList<VentaTerminalLiquidada> Ventas)
+    : IntegrationEvent("facturacion.terminal.liquidacion-registrada.v1", EmpresaId, OcurridoEn);
