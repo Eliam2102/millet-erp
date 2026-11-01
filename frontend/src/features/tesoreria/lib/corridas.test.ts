@@ -12,7 +12,7 @@ describe('pagosPendientes', () => {
 
 const pasivo = (id: string, proveedorId: string, bruto: number, retenciones: number, neto: number): PasivoParaCorridaResponse => ({
   facturaProveedorId: id, proveedorId, proveedorRazonSocial: null, folioProveedor: null,
-  fechaVencimiento: '2026-11-15', moneda: 'MXN', bruto, retenciones, neto, cuentaValidada: true,
+  fechaVencimiento: '2026-11-15', moneda: 'MXN', bruto, retenciones, neto, cuentaValidada: true, detenida: false, motivoDetencion: null,
 });
 
 describe('faltaParaAutorizar', () => {

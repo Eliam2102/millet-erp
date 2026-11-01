@@ -52,8 +52,9 @@ public sealed class EmitirCartaPorteHandler : IRequestHandler<EmitirCartaPorteCo
             throw new ForbiddenException("EMPRESA_NO_SELECCIONADA", "No hay empresa seleccionada en el contexto del request.");
 
         var ahora = _clock.UtcNow;
-        if (!await _periodo.EstaAbiertoAsync(ahora.Year, ahora.Month, cancellationToken))
-            throw new BusinessRuleException("PERIODO_CERRADO", $"El período contable {ahora.Year}-{ahora.Month:D2} está cerrado; no se puede emitir.");
+        var fiscal = Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.FechaFiscal(ahora); // período en la fecha fiscal de México, no en UTC
+        if (!await _periodo.EstaAbiertoAsync(fiscal.Year, fiscal.Month, cancellationToken))
+            throw new BusinessRuleException("PERIODO_CERRADO", $"El período contable {fiscal.Year}-{fiscal.Month:D2} está cerrado; no se puede emitir.");
 
         var (vehiculo, operador) = await CargarTransporteAsync(command.VehiculoId, command.OperadorId, cancellationToken);
 
@@ -74,7 +75,7 @@ public sealed class EmitirCartaPorteHandler : IRequestHandler<EmitirCartaPorteCo
 
         var cp = Dominio.CartaPorte.CrearBorrador(
             empresaId, tipoCfdi, reserva.Folio, reserva.Numero, command.SucursalId, command.CajaId, _user.UserId,
-            receptor, emisor, command.Moneda, ahora.Year, ahora.Month,
+            receptor, emisor, command.Moneda, fiscal.Year, fiscal.Month,
             command.Origen, command.Destino, command.DistanciaKm, command.VehiculoId, command.OperadorId,
             cartaPortePreviaId: null, command.PedidoFacturableId, command.FechaSalida, command.FechaLlegadaEstimada,
             command.MontoServicio, command.TasaIvaServicio,

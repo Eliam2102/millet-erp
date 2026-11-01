@@ -13,8 +13,18 @@ public static class GraphPortalProveedorRegistration
 {
     public const string Seccion = "CuentasPorPagar:PortalProveedores";
 
-    public static IServiceCollection AddGraphPortalProveedorCorreo(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddGraphPortalProveedorCorreo(this IServiceCollection services, IConfiguration configuration, IHostEnvironment env)
     {
+        if (string.Equals(configuration[$"{Seccion}:Proveedor"], "SandboxLocal", StringComparison.OrdinalIgnoreCase))
+        {
+            // Mailpit local: solo Development y SMTP en loopback; nunca un servidor de correo externo.
+            var host = configuration[$"{Seccion}:Host"] ?? "127.0.0.1";
+            var puerto = configuration.GetValue($"{Seccion}:Puerto", 1025);
+            if (!env.IsDevelopment() || host is not ("localhost" or "127.0.0.1" or "::1") || puerto is < 1 or > 65535)
+                throw new InvalidOperationException($"{Seccion}:Proveedor=SandboxLocal solo se permite en Development con SMTP de captura en loopback.");
+            services.AddSingleton<IPortalCorreoPort>(new SandboxLocalPortalProveedorCorreo(host, puerto));
+            return services;
+        }
         if (!string.Equals(configuration[$"{Seccion}:Proveedor"], "Graph", StringComparison.OrdinalIgnoreCase)) return services;
         var auth = configuration.GetSection("Auth:EntraId").Get<EntraIdOptions>() ?? new();
         if (string.IsNullOrWhiteSpace(auth.TenantId) || string.IsNullOrWhiteSpace(auth.ClientId) ||
@@ -24,6 +34,25 @@ public static class GraphPortalProveedorRegistration
         GraphAvisosRevisionRegistration.ExigirTransporteGraph(configuration, Seccion);
         services.AddSingleton<IPortalCorreoPort>(sp => new GraphPortalProveedorCorreo(sp.GetRequiredService<ICorreoSaliente>()));
         return services;
+    }
+}
+
+/// <summary>Código y aviso de pago del portal a un buzón de captura SMTP en loopback (Mailpit); mismo contenido que el de Graph.</summary>
+public sealed class SandboxLocalPortalProveedorCorreo(string host, int puerto) : IPortalCorreoPort
+{
+    private const string Remitente = "portal@millet.local.test";
+
+    public Task EnviarCodigoAsync(string destinatario, string codigo, CancellationToken cancellationToken) =>
+        EnviarAsync(destinatario, "[PRUEBA LOCAL] Tu código de acceso al portal de proveedores de Millet", GraphPortalProveedorCorreo.ConstruirHtml(codigo), cancellationToken);
+
+    public Task EnviarAvisoPagoAsync(string destinatario, AvisoPagoCorreo aviso, CancellationToken cancellationToken) =>
+        EnviarAsync(destinatario, "[PRUEBA LOCAL] Millet te realizó un pago", GraphPortalProveedorCorreo.ConstruirHtmlPago(aviso), cancellationToken);
+
+    private async Task EnviarAsync(string destinatario, string asunto, string html, CancellationToken cancellationToken)
+    {
+        using var mensaje = new System.Net.Mail.MailMessage(Remitente, destinatario, asunto, html) { IsBodyHtml = true };
+        using var smtp = new System.Net.Mail.SmtpClient(host, puerto) { EnableSsl = false, UseDefaultCredentials = false };
+        await smtp.SendMailAsync(mensaje, cancellationToken);
     }
 }
 

@@ -191,7 +191,7 @@ describe('navSidebarItems', () => {
       ],
       ['/facturacion/caja'],
       ['/facturacion/repp/pendientes', '/facturacion/repp'],
-      ['/facturacion/carta-porte', '/facturacion/activos'],
+      ['/facturacion/notas-credito', '/facturacion/carta-porte', '/facturacion/activos'],
       ['/facturacion/pedidos/excepciones'],
       ['/facturacion/cajas'],
       [
