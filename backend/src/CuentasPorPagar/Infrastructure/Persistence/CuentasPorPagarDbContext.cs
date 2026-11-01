@@ -143,7 +143,7 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
 
     private IEnumerable<DateOnly> FechasContables()
     {
-        var hoy = DateOnly.FromDateTime(_clock.UtcNow.UtcDateTime);
+        var hoy = Application.Periodos.FechaNegocio.Hoy(_clock.UtcNow);
         foreach (var e in ChangeTracker.Entries<FacturaProveedor>())
         {
             if (e.State == EntityState.Added || e.Property(f => f.FechaContabilizacion).IsModified ||
