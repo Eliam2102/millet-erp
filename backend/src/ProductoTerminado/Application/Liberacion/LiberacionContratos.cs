@@ -9,7 +9,7 @@ namespace Millet.ProductoTerminado.Application.Liberacion;
 /// </summary>
 public sealed record AplicarDecisionCxcCommand(Guid EmpresaId, string PedidoRef, string Resultado) : IRequest<bool>;
 
-/// <summary>Barrido de pedidos retenidos (cada 15 min): reevalúa saldo y REPARTO. Devuelve cuántos liberó.</summary>
+/// <summary>Barrido de pedidos retenidos (cada 15 min): reevalúa saldo y REPARTO de los que ya tienen el 100 % de piezas. Devuelve cuántos liberó.</summary>
 public sealed record BarrerRetenidosCommand(int Lote = 200) : IRequest<int>;
 
 /// <summary>Solo Demo: fija el saldo de prueba del pedido (simula el cobro de caja) y reevalúa. Devuelve true si el pedido pasó a 70.</summary>

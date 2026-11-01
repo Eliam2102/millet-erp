@@ -14,7 +14,7 @@ public sealed class PedidoPt : BaseEntity, IAuditable, IPerteneceAEmpresa
     public Guid? SucursalEntregaId { get; private set; }
     public string? CondicionPagoOrigen { get; private set; }
     public long? VersionOrigen { get; private set; }
-    /// <summary>Null hasta la primera pieza en PT (PT5.2). Independiente del avance físico (E6).</summary>
+    /// <summary>Null hasta que el pedido está completo en PT (P-096). Independiente del avance físico (E6).</summary>
     public EstadoLiberacion? Liberacion { get; private set; }
     public string? MotivoLiberacion { get; private set; }
     public DateTimeOffset? LiberacionAt { get; private set; }
@@ -35,7 +35,7 @@ public sealed class PedidoPt : BaseEntity, IAuditable, IPerteneceAEmpresa
     public static PedidoPt Crear(Guid empresa, Guid pedidoFacturableId, string numero, Guid sucursalVenta, string? condicionPago, long? versionOrigen)
         => new(empresa, pedidoFacturableId, numero, sucursalVenta, condicionPago, versionOrigen);
 
-    /// <summary>Entra a 69 con la primera pieza. Devuelve false si ya tenía estado (una sola entrada).</summary>
+    /// <summary>Entra a 69 con el pedido completo. Devuelve false si ya tenía estado (una sola entrada).</summary>
     public bool Retener(DateTimeOffset ahora)
     {
         if (Liberacion is not null) return false;

@@ -18,8 +18,8 @@
 | E1 | **(Rev. 3)** El **69 es estatus del pedido, no de la pieza**: A+W lo pone cuando todas las piezas del pedido tienen su registro en las estaciones de PT. **El ERP no infiere ni marca el 69**; con los escaneos solo lleva el avance por posición (esperadas, terminadas, faltantes). El **70** sigue siendo la liberación financiera: «69 no significa 70». | Jorge 27-oct (corrige V11 y plano 1.7.1 §6 en lo de la pieza) |
 | E2 | El PT se controla **por pieza y sucursal**, no como stock de catálogo. No usa la variante de medida de MP-01 (E07 D4 limita las variantes al vidrio crudo). | Registro 16, 10-oct; Jorge 7-oct |
 | E3 | Identidad de la pieza = **pedido + posición + número de pieza**. No se crea existencia anónima. | Plano 1.7.1 §6 y §8 |
-| E4 | El pedido queda cubierto por sus anticipos timbrados ligados, los cobros de sus facturas y los anticipos previos ligados con #208. Las notas de crédito reducen el total. Uziel expone el saldo por pedido en un puerto de Facturación. Mientras tanto usamos un adaptador provisional marcado (en Demo, uno con saldo de prueba). La ruta REPARTO (crédito 24 h) libera sin verificar pago ni completitud. | Decisión E4; Eliam 27-oct |
-| E6 | La liberación a 70 es **por dinero, no por completitud**: un pedido parcial puede pasar a 70. Si está completo se revisa en la carga (PT5.4); sacar un pedido incompleto pide autorización ahí. | Eliam 27-oct; plano 1.7.1 «Actualizar completitud» → «Verificar saldo»; ficha PT5.2 (8 de 10 pasa a 70 al cobrar) |
+| E4 | El pedido queda cubierto por sus anticipos timbrados ligados, los cobros de sus facturas y los anticipos previos ligados con #208. Las notas de crédito reducen el total. Uziel expone el saldo por pedido en un puerto de Facturación. Mientras tanto usamos un adaptador provisional marcado (en Demo, uno con saldo de prueba). La ruta REPARTO (crédito 24 h) libera sin verificar pago, pero con el pedido completo (S13). | Decisión E4; Eliam 27-oct |
+| E6 | **Corregida por P-096 (Millet, 25-oct) y SRC-112/114 (TI):** el pedido solo entra a 69 con el 100 % de sus piezas en PT y solo pasa a 70 desde 69. Un pedido incompleto nunca se libera; su salida es el Tema 57 (P-110), fuera de PT-02. | P-096; SRC-112; SRC-114 |
 | E5 | Lectura de A+W por lotes, sin CDC hasta los servidores nuevos. **(Rev. 3)** No hay aviso: se consulta el registro que A+W ya escribe (§5). El canal real necesita conexión a la instancia AWPRODUCTION (A+W-QA-7). | Jorge 7-oct y 27-oct; P-005; P-006 |
 
 ## 2. Módulo, esquema y fronteras
@@ -147,9 +147,9 @@ flowchart LR
 
 ## 6. 69 → 70: contrato y eventos
 
-> **Rev. 3 · por revisar con Eliam antes de PT-02:** Jorge aclara que el 69 lo pone A+W cuando el pedido está completo. `Retenido` aquí es el estado interno del ERP y **no** debe presentarse como el 69 de A+W. Falta decidir si PT-02 retiene con la primera pieza (como dice abajo) o cuando A+W reporta el 69 del pedido. PT-01 no depende de esto.
+> **Rev. 3:** el 69 lo pone A+W con el pedido completo (SRC-112/114). `Retenido` aquí es el estado interno del ERP y **no** debe presentarse como el 69 de A+W. Decisión del dueño (31-oct): PT-02 alinea con el origen y retiene solo con el 100 % de piezas (S13).
 
-**Regla (PT-02).** El pedido entra a `Retenido` (69) con su primera pieza en PT. Pasa a `Liberado` (70) **por dinero, sin exigir pedido completo** (E6), cuando se cumple una de estas condiciones. PT registra la liberación directo, con su motivo (Q3):
+**Regla (PT-02).** El pedido no tiene estatus de retención (la pantalla lo muestra «En producción») hasta que **todas** sus piezas esperadas, de todas las posiciones, están en PT; entonces entra a `Retenido` (69). Pasa a `Liberado` (70) solo desde ahí, cuando se cumple una de estas condiciones. Un pedido incompleto nunca se libera (P-096); el barrido solo considera pedidos al 100 %. PT registra la liberación directo, con su motivo (Q3):
 
 1. **Saldo cubierto** (`SaldoCubierto`). `ISaldoPedidoReadPort.ObtenerAsync(empresaId, numeroPedido)` devuelve saldo ≤ 0. Ese saldo es el total menos notas de crédito, menos anticipos timbrados ligados, menos cobros de facturas y menos anticipos previos ligados (#208) (decisión E4). El puerto lo define PT y lo implementa Uziel en `Facturacion/Infrastructure/PublicAdapters`. Mientras no exista:
    - **Real:** `SaldoPedidoProvisionalAdapter` devuelve «no cubierto», con `PLATFORM-TODO(<SaldoPorPedidoFacturacion>)`. Nunca libera por error; solo liberan REPARTO y CxC.
@@ -257,7 +257,7 @@ Plano 1.7.1 §11: «sin acuse no afirmar liberado en A+W». El estado `Liberado`
 | PT5.1-d | origen Real con contrato sin firmar → lector real sin registrar; Demo funciona |
 | CA5.14 (parcial) | 2,500 eventos con 10 % repetidos → 2,250 piezas, cero pérdidas; se reporta el tiempo |
 | Plano caso 1 | 8 de 10 → 8 en PT, backorder 2, reenvío sin efecto |
-| PT5.2 (PT-02, Demo) | 8 de 10 en PT, pedido `Retenido`; saldo de prueba en 0 → `Liberado` con motivo `SaldoCubierto` y evento `pedido.estado-cambiado.v1` |
+| PT5.2 (PT-02, Demo) | 8 de 10 en PT, pedido sin estatus (En producción); 10 de 10, `Retenido`; saldo de prueba en 0 → `Liberado` con motivo `SaldoCubierto` y evento `pedido.estado-cambiado.v1` |
 | Reposición (Rev. 4) | pieza 3 en PT; llega otro renglón de su etiqueta con hora nueva → `Reposicion` en bandeja y movimiento `Reposicion` en la pieza; sigue 1 pieza |
 | Ejemplo corregido de TI (Rev. 4) | 10 piezas, 8 escaneadas → 8 y 2 faltantes, sin estatus; la relectura no cambia nada; la pieza 3 repuesta deja `Reposicion`; con las 10 queda completo; sin clave, la sucursal es la del pedido |
 | Estaciones (Rev. 3) | renglón con `esnr_ist` fuera de la lista configurada o `fertig = 0` → se ignora |
@@ -276,8 +276,8 @@ Plano 1.7.1 §11: «sin acuse no afirmar liberado en A+W». El estado `Liberado`
 10. **S10** `PedidoRef` del evento de CxC es el número de pedido de A+W.
 11. **S11** Medidas y m² de la pieza no entran en PT-01; se leen por puerto cuando las necesiten PT5.5 y PT5.12.
 12. **S12** CxC decide automáticamente una sola vez por entrada a 69, como usuario de sistema y sin override.
-13. **S13 (supuesto fin de semana 31-oct, PT5.2)** P-096/P-166: se sigue la ficha; el pedido pasa a 70 aunque esté incompleto, REPARTO incluido (Eliam E4). Eliam y Millet no contestaron; si cambia, solo se agrega la condición «Completo» en `LiberacionPedido`.
-14. **S14 (supuesto fin de semana 31-oct, PT5.2)** P-167: PT registra la liberación directo con su motivo para saldo y REPARTO; la decisión de CxC solo corre en el camino retenido. Con saldo o REPARTO desde la primera pieza no se publica el evento de 69.
+13. **S13 (decisión del dueño 31-oct, PT5.2)** Se alinea con el origen: P-096 (Millet, 25-oct) «hoy solo pasa a 70 un pedido que ya está en 69 (100 % de piezas en PT) y con saldo $0; con saldo, CxC libera a mano. La salida de un pedido incompleto es Tema 57 (P-110)» y SRC-112/114 (TI) «el 69 es del pedido y lo pone A+W con el pedido completo». PT retiene y libera solo con el 100 % de piezas; reemplaza el supuesto anterior de seguir la ficha.
+14. **S14 (PT5.2)** El pedido de reparto también espera el 100 % de piezas, como marca el diseño; si debe salir incompleto se cambia en un punto (`LiberacionPedido`). PT registra la liberación directo con su motivo para saldo y REPARTO; la decisión de CxC solo corre en el camino retenido. Con saldo o REPARTO al completarse no se publica el evento de 69.
 15. **S15 (supuesto fin de semana 31-oct, PT5.2)** Los consumidores de `pedido.estado-cambiado.v1` (CxC) y de `decision-liberacion.emitida.v1` (PT) son solo de entrega local (C1.8), sin worker de Service Bus, hasta que exista el topic `producto-terminado-events`. Todo sigue detrás de las banderas del canal de PT (Real apagado); el canal Real nunca libera por saldo hasta el puerto de Uziel.
 
 ## 12. Preguntas abiertas
