@@ -25,7 +25,7 @@ public sealed class BarrerRetenidosHandler(ProductoTerminadoDbContext db, Libera
 {
     public async Task<int> Handle(BarrerRetenidosCommand c, CancellationToken cancellationToken)
     {
-        var retenidos = await db.PedidosPt.Where(x => x.Liberacion == EstadoLiberacion.Retenido).OrderBy(x => x.LiberacionAt).Take(c.Lote).ToListAsync(cancellationToken);
+        var retenidos = await db.PedidosPt.Include(x => x.Posiciones).Where(x => x.Liberacion == EstadoLiberacion.Retenido).OrderBy(x => x.LiberacionAt).Take(c.Lote).ToListAsync(cancellationToken);
         var liberados = 0;
         foreach (var pedido in retenidos)
         {
@@ -56,7 +56,7 @@ public sealed class PonerSaldoDemoHandler(ProductoTerminadoDbContext db, ICurren
         if (fila is null) db.SaldosDemo.Add(new SaldoDemo(empresaId, numero, c.Saldo)); else fila.Poner(c.Saldo);
         await db.SaveChangesAsync(cancellationToken);
 
-        var pedido = await db.PedidosPt.FirstOrDefaultAsync(x => x.EmpresaId == empresaId && x.NumeroPedido == numero, cancellationToken);
+        var pedido = await db.PedidosPt.Include(x => x.Posiciones).FirstOrDefaultAsync(x => x.EmpresaId == empresaId && x.NumeroPedido == numero, cancellationToken);
         if (pedido is null || !await liberacion.ReevaluarAsync(pedido, cancellationToken)) return false;
         await db.SaveChangesAsync(cancellationToken);
         return true;

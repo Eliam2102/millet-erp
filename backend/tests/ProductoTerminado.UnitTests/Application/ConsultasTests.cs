@@ -62,7 +62,7 @@ public sealed class ConsultasTests
     }
 
     [Fact]
-    public async Task Estado_del_pedido_es_nulo_sin_piezas_retenido_con_saldo_y_liberado_al_cubrirse()
+    public async Task Estado_del_pedido_es_nulo_hasta_completarse_retenido_con_saldo_y_liberado_al_cubrirse()
     {
         using var t = new EntornoPt();
         t.AgregarPedido("P1", 1, 10);
@@ -71,6 +71,9 @@ public sealed class ConsultasTests
         (await Piezas(t, a, "P1")).EstadoPedido.Should().BeNull();
 
         await Escanear(t, 8);
+        (await Piezas(t, a, "P1")).EstadoPedido.Should().BeNull();
+
+        await Escanear(t, 10);
         var retenido = (await Piezas(t, a, "P1")).EstadoPedido!;
         (retenido.Estado, retenido.Motivo).Should().Be(("Retenido", MotivosPt.SaldoPendiente));
         retenido.Desde.Should().NotBeNull();
