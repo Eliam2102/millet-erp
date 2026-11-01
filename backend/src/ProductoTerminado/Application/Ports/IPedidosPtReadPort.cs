@@ -18,7 +18,10 @@ public sealed record PedidoPtOrigen(
     string Estado,
     string? CondicionPagoOrigen,
     long? VersionOrigen,
-    IReadOnlyList<LineaPtOrigen> Lineas);
+    IReadOnlyList<LineaPtOrigen> Lineas,
+    Guid ClienteId = default,
+    string Moneda = "MXN",
+    decimal Total = 0m);
 
 /// <summary>Línea (posición) del pedido con cantidad y unidad SAT para derivar las piezas esperadas.</summary>
 public sealed record LineaPtOrigen(
