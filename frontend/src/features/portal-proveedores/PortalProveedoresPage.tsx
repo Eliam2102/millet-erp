@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -178,6 +178,7 @@ function SubirDocumento({ alExpirar }: { alExpirar: () => void }) {
   const [pdf, setPdf] = useState<File | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [mensaje, setMensaje] = useState<{ ok: boolean; texto: string } | null>(null);
+  const queryClient = useQueryClient();
 
   async function enviar(event: React.FormEvent) {
     event.preventDefault();
@@ -187,6 +188,9 @@ function SubirDocumento({ alExpirar }: { alExpirar: () => void }) {
     try {
       const r = await subirCfdi(xml, pdf);
       setMensaje({ ok: true, texto: r.mensaje });
+      // Un complemento ligado cambia facturas y pagos: sin esto seguían diciendo «Falta el complemento» hasta recargar.
+      void queryClient.invalidateQueries({ queryKey: ['portal-facturas'] });
+      void queryClient.invalidateQueries({ queryKey: ['portal-pagos'] });
       setXml(null);
       setPdf(null);
     } catch (e) {
