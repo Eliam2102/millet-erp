@@ -146,7 +146,8 @@ export function NuevaCorrida() {
                   const todos = ids.every((id) => elegidos.has(id));
                   const algunos = ids.some((id) => elegidos.has(id));
                   const sub = totalesSeleccion(grupo, elegidos);
-                  const sinCuenta = !grupo[0].cuentaValidada;
+                  const detenida = grupo[0].detenida;
+                  const sinCuenta = !grupo[0].cuentaValidada || detenida;
                   const nombreProv = grupo[0].proveedorRazonSocial ?? 'Proveedor sin nombre';
                   return (
                     <Fragment key={grupo[0].proveedorId}>
@@ -161,7 +162,11 @@ export function NuevaCorrida() {
                         </TableCell>
                         <TableCell className="font-medium">
                           {nombreProv}
-                          {sinCuenta && (
+                          {detenida ? (
+                            <Badge variant="warning" className="ml-2">
+                              Detenida por {grupo[0].motivoDetencion ?? 'documentación'}: falta su opinión de cumplimiento vigente
+                            </Badge>
+                          ) : sinCuenta && (
                             <Badge variant="warning" className="ml-2">
                               Sin cuenta bancaria validada
                             </Badge>

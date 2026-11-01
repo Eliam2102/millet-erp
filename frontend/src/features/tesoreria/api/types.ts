@@ -578,6 +578,9 @@ export interface PasivoParaCorridaResponse {
   retenciones: number;
   neto: number;
   cuentaValidada: boolean;
+  /** 86e3ke2d3: detenida por «documentación» (proveedor sin opinión de cumplimiento vigente). */
+  detenida: boolean;
+  motivoDetencion: string | null;
 }
 
 export interface CorridaProveedorResponse {

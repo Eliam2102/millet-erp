@@ -174,7 +174,7 @@ export function BandejaConciliaciones() {
   const [ventanaDias, setVentanaDias] = useState<string>('3');
   const [motivoDesemparejar, setMotivoDesemparejar] = useState<string>('');
   const [motivoReabrir, setMotivoReabrir] = useState<string>('');
-  const [firmanteNombre, setFirmanteNombre] = useState<string>('Gerente de Tesorería');
+  const [firmanteNombre, setFirmanteNombre] = useState<string>(''); // lo escribe quien firma, nunca el puesto como nombre
   const [firmantePuesto, setFirmantePuesto] = useState<string>('Gerente de Tesorería');
 
   // Formulario alta asistida

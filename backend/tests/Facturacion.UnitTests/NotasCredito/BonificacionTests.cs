@@ -4,6 +4,7 @@ using Millet.Facturacion.Application.NotasCredito.EmitirNotaCreditoBonificacion;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Domain.Facturas;
 using Millet.Facturacion.Domain.NotasCredito;
+using Millet.Facturacion.Domain.Ports;
 using Millet.Facturacion.Infrastructure.Persistence;
 using Millet.Facturacion.UnitTests.TestDoubles;
 using Millet.SharedKernel.Application.Exceptions;
@@ -42,11 +43,12 @@ public sealed class BonificacionTests
     }
 
     private static EmitirNotaCreditoBonificacionHandler Handler(
-        FacturacionDbContext db, Guid empresaId, bool periodoAbierto = true) =>
+        FacturacionDbContext db, Guid empresaId, bool periodoAbierto = true,
+        IPeriodoContablePort? periodo = null, DateTimeOffset? ahora = null) =>
         new(db, new FakeSender(new ReservarFolioResponse("NC-000001", 1, "")),
-            new FakePeriodoContablePort(periodoAbierto), new FakeFiscalApiClient(),
+            periodo ?? new FakePeriodoContablePort(periodoAbierto), new FakeFiscalApiClient(),
             new FakeCfdiRepositorioPort(), new FakeIntegrationEventPublisher(), new FakeEmpresaContext(empresaId),
-            new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
+            new FakeUserContext(Guid.NewGuid()), new FakeClock(ahora ?? Ahora), ReceptorFiscalTestFactory.Crear(db));
 
     // ---- Dominio ----
 
@@ -125,5 +127,25 @@ public sealed class BonificacionTests
             new EmitirNotaCreditoBonificacionCommand(factura.Id, 100m, null, null), CancellationToken.None);
 
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "PERIODO_CERRADO");
+    }
+
+    [Fact]
+    public async Task Emitir_el_ultimo_dia_despues_de_las_18_valida_el_mes_fiscal_y_no_el_de_UTC()
+    {
+        // 31-oct 18:30 en México = 1-nov 00:30 UTC: octubre abierto, noviembre todavía no.
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var factura = await SembrarFacturaAsync(db, empresaId);
+
+        var act = () => Handler(db, empresaId, periodo: new SoloMesAbierto(2026, 10),
+                ahora: new DateTimeOffset(2026, 11, 1, 0, 30, 0, TimeSpan.Zero))
+            .Handle(new EmitirNotaCreditoBonificacionCommand(factura.Id, 100m, null, null), CancellationToken.None);
+
+        await act.Should().NotThrowAsync();
+    }
+
+    private sealed class SoloMesAbierto(int anio, int mes) : IPeriodoContablePort
+    {
+        public Task<bool> EstaAbiertoAsync(int año, int m, CancellationToken cancellationToken) => Task.FromResult(año == anio && m == mes);
     }
 }

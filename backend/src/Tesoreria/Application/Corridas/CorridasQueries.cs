@@ -23,6 +23,9 @@ namespace Millet.Tesoreria.Application.Corridas;
 /// </summary>
 public static class PasivosPagables
 {
+    /// <summary>86e3ke2d3 (CA8.4): motivo con el que la corrida detiene las facturas de un proveedor sin opinión de cumplimiento vigente.</summary>
+    public const string MotivoDocumentacion = "documentación";
+
     public static IQueryable<PasivoPendientePago> Elegibles(TesoreriaDbContext db, IReadOnlyList<Guid>? documentosPermitidos) =>
         PasivosPendientesLectura.Consultar(db, documentosPermitidos, soloConSaldo: true)
             .Where(p => p.TipoBeneficiario == PasivoPendientePago.BeneficiarioProveedor);
@@ -36,7 +39,7 @@ public static class PasivosPagables
 public sealed record PasivoParaCorridaResponse(
     Guid FacturaProveedorId, Guid ProveedorId, string? ProveedorRazonSocial, string? FolioProveedor,
     DateOnly FechaVencimiento, string Moneda, decimal Bruto, decimal Retenciones, decimal Neto,
-    bool CuentaValidada);
+    bool CuentaValidada, bool Detenida = false, string? MotivoDetencion = null);
 
 public sealed record PasivosParaCorridaQuery(
     string Moneda, Guid? ProveedorId = null, DateOnly? VenceDesde = null, DateOnly? VenceHasta = null,
@@ -72,7 +75,8 @@ public sealed class PasivosParaCorridaHandler(TesoreriaDbContext db, IProveedorB
             var (bruto, ret) = p.Desglose(p.SaldoPendiente);
             return new PasivoParaCorridaResponse(p.FacturaProveedorId, p.ProveedorId, pv?.RazonSocial, p.FolioProveedor,
                 p.FechaVencimiento, p.Moneda, bruto, ret, p.SaldoPendiente,
-                CuentaValidada: pv is { Activo: true, EnRevision: false } && pv.CuentaPara(p.Moneda) is not null);
+                CuentaValidada: pv is { Activo: true, EnRevision: false } && pv.CuentaPara(p.Moneda) is not null,
+                Detenida: pv is { SinOpinionCumplimiento: true }, MotivoDetencion: pv is { SinOpinionCumplimiento: true } ? PasivosPagables.MotivoDocumentacion : null);
         }).ToList();
         return new PagedResponse<PasivoParaCorridaResponse>(respuesta, offset, limit, total);
     }
