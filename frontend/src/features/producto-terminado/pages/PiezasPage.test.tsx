@@ -54,6 +54,39 @@ describe('PiezasPage', () => {
     expect(container.textContent).not.toContain('69');
   });
 
+  it.each([
+    ['Retenido', 'SaldoPendiente', 'Saldo pendiente'],
+    ['Liberado', 'SaldoCubierto', 'Saldo cubierto'],
+    ['Liberado', 'Reparto', 'Pedido de reparto'],
+    ['Liberado', 'DecisionCxc', 'Decisión de Crédito'],
+  ])('muestra el estado %s del pedido con su motivo %s', (estado, motivo, texto) => {
+    state.usePiezas.mockReturnValue(
+      ok({ items: [], total: 0, avance: [], estadoPedido: { estado, motivo, desde: '2026-10-31T18:00:00Z' } }),
+    );
+    const { container } = render(<PiezasPage />);
+    expect(screen.queryByLabelText('Estado del pedido')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Pedido'), { target: { value: 'PED-1' } });
+    const seccion = screen.getByLabelText('Estado del pedido');
+    expect(seccion).toHaveTextContent(estado);
+    expect(seccion).toHaveTextContent(texto);
+    expect(container.textContent).not.toContain('69');
+  });
+
+  it('con posiciones pero sin estado (incompleto) muestra En producción', () => {
+    const avance = [{ posicion: 1, descripcion: null, esperadas: 10, terminadas: 8, enPt: 8, cargadas: 0, entregadas: 0, pendientes: 2, avanceFisico: 'Parcial' }];
+    state.usePiezas.mockReturnValue(ok({ items: [], total: 0, avance, estadoPedido: null }));
+    render(<PiezasPage />);
+    fireEvent.change(screen.getByLabelText('Pedido'), { target: { value: 'PED-1' } });
+    expect(screen.getByLabelText('Estado del pedido')).toHaveTextContent('En producción');
+  });
+
+  it('sin estado de pedido ni posiciones no muestra la sección', () => {
+    state.usePiezas.mockReturnValue(ok({ items: [], total: 0, avance: [], estadoPedido: null }));
+    render(<PiezasPage />);
+    fireEvent.change(screen.getByLabelText('Pedido'), { target: { value: 'PED-1' } });
+    expect(screen.queryByLabelText('Estado del pedido')).not.toBeInTheDocument();
+  });
+
   it('muestra error con reintento', () => {
     state.usePiezas.mockReturnValue({ data: undefined, isLoading: false, isError: true, refetch: state.refetch });
     render(<PiezasPage />);

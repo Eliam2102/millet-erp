@@ -80,9 +80,11 @@ public sealed class SaldoAnticipoP14Tests
         var lista = await ActivatorUtilities.CreateInstance<ListarAnticiposHandler>(servicios).Handle(new(ProveedorId: agente), default);
         Assert.Contains(lista.Items, a => a.Id == anticipo.Id && a.SaldoAmortizable == 7500 && a.UuidCfdi == null);
         var ahora = servicios.GetRequiredService<IClock>().UtcNow;
+        // Como la pantalla: la fecha contable es el día de negocio a medianoche UTC, no la hora exacta.
+        var fechaContable = new DateTimeOffset(Millet.CuentasPorPagar.Application.Periodos.FechaNegocio.Hoy(ahora).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
         var factura = FacturaProveedor.CapturarConOc(empresaId: payload.EmpresaId, cfdiRecibidoId: null, uuidCfdi: null,
             proveedorId: agente, sucursalId: escenario.SucursalId, folioProveedor: "P14-FACTURA", serieProveedor: "A",
-            fechaDocumento: ahora, fechaContabilizacion: ahora, fechaVencimiento: DateOnly.FromDateTime(ahora.UtcDateTime.AddDays(30)),
+            fechaDocumento: ahora, fechaContabilizacion: fechaContable, fechaVencimiento: DateOnly.FromDateTime(ahora.UtcDateTime.AddDays(30)),
             moneda: "MXN", tipoCambio: null, subtotal: 10000, descuentos: 0, impuestosTrasladados: 0, retenciones: 0,
             total: 10000, ordenCompraId: Guid.NewGuid(), encargadoComprasSnapshot: null, tolerancia: Tolerancia.MontoAbsoluto(0.99m),
             diferenciaContraOc: 0, redondeoAplicado: 0, ahora: ahora);

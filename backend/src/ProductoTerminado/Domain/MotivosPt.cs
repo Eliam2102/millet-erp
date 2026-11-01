@@ -12,4 +12,10 @@ public static class MotivosPt
     public const string IdentidadIncompleta = "PT_IDENTIDAD_INCOMPLETA";
     public const string PiezaDuplicada = "PT_PIEZA_DUPLICADA";
     public const string Reposicion = "PT_REPOSICION";
+
+    // Motivos de la retención/liberación del pedido (PT5.2).
+    public const string SaldoPendiente = "SaldoPendiente";
+    public const string SaldoCubierto = "SaldoCubierto";
+    public const string Reparto = "Reparto";
+    public const string DecisionCxc = "DecisionCxc";
 }

@@ -18,6 +18,9 @@ public sealed record PiezaDto(Guid Id, string Etiqueta, string NumeroPedido, int
 /// </summary>
 public sealed record AvancePosicionDto(int Posicion, string? Descripcion, int Esperadas, int Terminadas, int EnPt, int Cargadas, int Entregadas, int Pendientes, string AvanceFisico);
 
-public sealed record PiezasPagina(IReadOnlyList<PiezaDto> Items, int Total, IReadOnlyList<AvancePosicionDto> Avance);
+/// <summary>Estado del pedido en el ERP (PT5.2): <c>Retenido</c> (69) o <c>Liberado</c> (70) con su motivo y hora. Es independiente del avance físico (E6) y no es el 69 de A+W.</summary>
+public sealed record EstadoPedidoDto(string Estado, string? Motivo, DateTimeOffset? Desde);
+
+public sealed record PiezasPagina(IReadOnlyList<PiezaDto> Items, int Total, IReadOnlyList<AvancePosicionDto> Avance, EstadoPedidoDto? EstadoPedido = null);
 
 public sealed record EscaneosPagina(IReadOnlyList<EscaneoDto> Items, int Total);

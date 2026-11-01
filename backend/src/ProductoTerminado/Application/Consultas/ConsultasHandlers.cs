@@ -34,6 +34,7 @@ public sealed class ListarPiezasHandler(ProductoTerminadoDbContext db, PtAcceso 
             .ToListAsync(cancellationToken);
 
         IReadOnlyList<AvancePosicionDto> avance = [];
+        EstadoPedidoDto? estadoPedido = null;
         if (!string.IsNullOrEmpty(numero))
         {
             var posiciones = await (from pos in db.Posiciones.AsNoTracking()
@@ -41,6 +42,9 @@ public sealed class ListarPiezasHandler(ProductoTerminadoDbContext db, PtAcceso 
                                     where o.NumeroPedido == numero
                                     orderby pos.Posicion
                                     select new { pos.Posicion, pos.Descripcion, pos.PiezasEsperadas }).ToListAsync(cancellationToken);
+            var est = await db.PedidosPt.AsNoTracking().Where(o => o.NumeroPedido == numero)
+                .Select(o => new { o.Liberacion, o.MotivoLiberacion, o.LiberacionAt }).FirstOrDefaultAsync(cancellationToken);
+            estadoPedido = est?.Liberacion is { } l ? new EstadoPedidoDto(l.ToString(), est.MotivoLiberacion, est.LiberacionAt) : null;
             var cuentas = await consulta.GroupBy(x => x.p.Posicion).Select(g => new { Posicion = g.Key, N = g.Count() }).ToListAsync(cancellationToken);
             avance = posiciones.Select(pos =>
             {
@@ -53,7 +57,7 @@ public sealed class ListarPiezasHandler(ProductoTerminadoDbContext db, PtAcceso 
                     cargadas, entregadas, Math.Max(0, pos.PiezasEsperadas - terminadas), estado);
             }).ToList();
         }
-        return new PiezasPagina(items, total, avance);
+        return new PiezasPagina(items, total, avance, estadoPedido);
     }
 }
 

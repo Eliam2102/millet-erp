@@ -94,15 +94,16 @@ public sealed class ProcesarNotaCreditoAwHandler(
                 + (reservado > 0 ? $" (hay {reservado:N2} en notas por autorizar)" : string.Empty), cancellationToken);
 
         var ahora = clock.UtcNow;
+        var fiscal = Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.FechaFiscal(ahora); // período en la fecha de México, no UTC
         var reserva = await sender.Send(
             new ReservarFolioCommand(empresaId, factura.SucursalId, TipoDocumentoSerie.NotaCredito,
-                DateOnly.FromDateTime(ahora.UtcDateTime)), cancellationToken);
+                DateOnly.FromDateTime(fiscal.DateTime)), cancellationToken);
         var baseGravable = factura.Subtotal - factura.Descuento;
         var nc = NotaCredito.CrearDesdeAw(
             empresaId, reserva.Folio, reserva.Numero, factura.SucursalId, factura.CajaId,
             new DatosFiscalesReceptor(factura.ReceptorRfc, factura.ReceptorNombre, factura.ReceptorRegimenFiscal,
                 factura.ReceptorCodigoPostal, factura.ReceptorUsoCfdi, factura.ReceptorPais, factura.ReceptorEsGenerico),
-            factura.SnapshotEmisor(), factura.FormaPago, factura.Moneda, factura.TipoCambio, ahora.Year, ahora.Month,
+            factura.SnapshotEmisor(), factura.FormaPago, factura.Moneda, factura.TipoCambio, fiscal.Year, fiscal.Month,
             factura.CanalVentaId, motivo, factura.Id, sol.Importe,
             tasaIva: baseGravable > 0 ? Math.Round(factura.ImpuestosTrasladados / baseGravable, 2) : 0m,
             sol.Descripcion, sol.NumeroNota, sol.Version, sol.NumeroPedido, pedido.VersionOrigen);

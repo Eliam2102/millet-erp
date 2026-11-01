@@ -11,6 +11,17 @@ public interface IPortalCorreoPort
 
 public sealed record AvisoPagoCorreo(string? FolioFactura, decimal Monto, string Moneda, DateOnly FechaPago);
 
+/// <summary>
+/// Liga el complemento de pago (tipo P) que subió el proveedor a los pagos aplicados de su factura (Tesorería registra el REPP).
+/// P8.3, supuesto del fin de semana 31-oct. Nunca lanza por «no se pudo ligar»: devuelve el motivo para mostrárselo al proveedor.
+/// </summary>
+public interface IReppPortalPort
+{
+    Task<ReppPortalLigado> LigarAsync(Guid proveedorId, byte[] xml, CancellationToken cancellationToken);
+}
+
+public sealed record ReppPortalLigado(bool Ligado, string Mensaje);
+
 /// <summary>Emite el token propio del portal (audiencia distinta a la del ERP, sin permisos del ERP). Lo implementa el Api.</summary>
 public interface IPortalTokenEmisor
 {

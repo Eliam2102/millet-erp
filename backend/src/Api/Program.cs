@@ -235,6 +235,11 @@ if (string.Equals(builder.Configuration["ServiceBus:Modo"], "EmuladorLocal", Str
         "Endpoint=sb://localhost;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;";
 }
 
+// La partición del mes de core.audit_log debe existir antes de que cualquier hosted service escriba en la base
+// (seeds, outbox, workers): los hosted services arrancan en orden de registro y las migraciones solo dejan
+// particiones hasta octubre de 2026. Por eso este job va registrado antes que todos los demás.
+builder.Services.AddHostedService<AuditPartitionRolloverJob>();
+
 if (!string.IsNullOrWhiteSpace(outboxConnString))
 {
     builder.Services.AddSingleton(_ => new Azure.Messaging.ServiceBus.ServiceBusClient(outboxConnString));
@@ -967,6 +972,7 @@ builder.Services.AddTesoreriaModule(builder.Configuration);
 builder.Services.AddScoped<Millet.Tesoreria.Domain.Ports.ICorteNombresReadPort, Millet.Api.Infrastructure.Adapters.CorteNombresReadAdapter>();
 builder.Services.AddScoped<Millet.Tesoreria.Domain.Ports.IElegibleFacturaReadPort, Millet.Api.Infrastructure.Adapters.ElegibleFacturaReadPortAdapter>();
 builder.Services.AddScoped<Millet.CuentasPorPagar.Domain.Ports.Tesoreria.IPagosProveedorReadPort, Millet.Api.Infrastructure.Adapters.PagosProveedorReadPortAdapter>();
+builder.Services.AddScoped<Millet.CuentasPorPagar.Domain.Ports.Portal.IReppPortalPort, Millet.Api.Infrastructure.Adapters.ReppPortalAdapter>();
 // K10.5: folio y proveedor de la OC para el auxiliar de la cuenta puente (Contabilidad ← Compras).
 builder.Services.AddScoped<Millet.Contabilidad.Application.CuentaPuente.IOrdenCompraPuentePort, Millet.Api.Infrastructure.Adapters.OrdenCompraPuenteAdapter>();
 // FIX-12: nombre del cajero en el corte y la liquidación de caja (Facturación no referencia Identidad).
@@ -1146,7 +1152,7 @@ builder.Services.AddScoped<Millet.Identidad.Application.Colaboradores.GrupoAcces
 // defecto hasta configurar adaptadores reales.
 // Avisos SLA de CxP por Graph: independientes del alta de colaboradores.
 builder.Services.AddGraphAvisosRevisionCxp(builder.Configuration);
-builder.Services.AddGraphPortalProveedorCorreo(builder.Configuration);
+builder.Services.AddGraphPortalProveedorCorreo(builder.Configuration, builder.Environment);
 var proveedorColaboradores = builder.Configuration["Entra:Proveedor"] ?? "Simulado";
 if (proveedorColaboradores.Equals("Graph", StringComparison.OrdinalIgnoreCase))
     builder.Services.AddGraphColaboradores(builder.Configuration, builder.Environment.IsDevelopment());
@@ -1364,7 +1370,6 @@ foreach (var dimension in new[] { 1, 2, 3 })
 builder.Services.AddScoped<Millet.DatosMaestros.Application.ProductosAw.AplicarProductoAwService>();
 builder.Services.AddScoped<Millet.DatosMaestros.Application.ProductosAw.IProductoAwContratoReadPort, Millet.Compartido.Infrastructure.PublicAdapters.ProductoAwContratoReadAdapter>();
 builder.Services.AddDbContext<CoreDbContext>((sp, opts) => ConfigureMilletDbContext(opts, sp));
-builder.Services.AddHostedService<AuditPartitionRolloverJob>();
 builder.Services.AddDbContext<IdentidadDbContext>((sp, opts) => ConfigureMilletDbContext(opts, sp));
 
 // Compras + Integraciones.Aw consumen IIntegrationEventPublisher

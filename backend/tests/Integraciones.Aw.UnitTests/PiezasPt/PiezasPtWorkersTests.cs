@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using Millet.Integraciones.Aw.Application.PiezasPt;
 using Millet.Integraciones.Aw.Infrastructure.PiezasPt;
 using Millet.ProductoTerminado.Application.Escaneos;
+using Millet.ProductoTerminado.Application.Liberacion;
 using Millet.SharedKernel.Application;
 
 namespace Millet.Integraciones.Aw.UnitTests.PiezasPt;
@@ -111,6 +112,36 @@ public sealed class PiezasPtWorkersTests
         var h = Armar(["2821"], [Fila(1, 2821, true), Fila(2, 2821, true), Fila(3, 2821, true)], falla: "E2");
         Assert.Equal(2, await h.Worker.CicloAsync(h.Sp, default));
         Assert.Equal(["E1", "E3"], h.Comandos.Select(c => c.Etiqueta).ToArray());
+    }
+
+    [Fact]
+    public async Task Barrido_de_retenidos_apagado_no_crea_scope()
+    {
+        using var worker = new PiezasPtLiberacionWorker(new Prohibido(), Options.Create(new PiezasPtOptions()), NullLogger<PiezasPtLiberacionWorker>.Instance);
+        Assert.Equal(0, await worker.CorrerUnaVezAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Barrido_de_retenidos_encendido_manda_un_comando_y_devuelve_los_liberados()
+    {
+        var sc = new ServiceCollection();
+        sc.AddMediatR(c => c.RegisterServicesFromAssemblyContaining<RegistrarEscaneoPiezaCommand>());
+        var barridos = new List<BarrerRetenidosCommand>();
+        sc.AddSingleton<IRequestHandler<BarrerRetenidosCommand, int>>(new Barrer(barridos));
+        sc.AddScoped<ICurrentEmpresaContext, FakeEmpresa>();
+        sc.AddScoped<IAuditOriginContext, FakeOrigen>();
+        sc.AddScoped<IAuditCorrelationContext, FakeCorrelacion>();
+        using var sp = sc.BuildServiceProvider();
+        using var worker = new PiezasPtLiberacionWorker(sp.GetRequiredService<IServiceScopeFactory>(),
+            Options.Create(new PiezasPtOptions { EntradaHabilitada = true }), NullLogger<PiezasPtLiberacionWorker>.Instance);
+        Assert.Equal(2, await worker.CorrerUnaVezAsync(CancellationToken.None));
+        Assert.Single(barridos);
+        Assert.Equal(15, new PiezasPtOptions().BarridoMinutos);
+    }
+
+    private sealed class Barrer(List<BarrerRetenidosCommand> vistos) : IRequestHandler<BarrerRetenidosCommand, int>
+    {
+        public Task<int> Handle(BarrerRetenidosCommand r, CancellationToken ct) { vistos.Add(r); return Task.FromResult(2); }
     }
 
     private static EscaneoOrigen Fila(int i, int esnr, bool fertig) =>
