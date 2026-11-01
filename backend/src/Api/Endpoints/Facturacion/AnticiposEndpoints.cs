@@ -82,7 +82,7 @@ public static class AnticiposEndpoints
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionAnticiposVincular)
-        .WithName("AplicarAnticipoAFactura")
+        .WithName("AplicarAnticipoAFacturaVenta")
         .WithSummary("Aplica el saldo de un anticipo a una factura timbrada del mismo cliente (NC de amortización, relación 07)")
         .Produces<AplicarAnticipoAFacturaResponse>(StatusCodes.Status200OK)
         .ProducesValidationProblem()
