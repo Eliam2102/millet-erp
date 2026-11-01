@@ -637,6 +637,8 @@ builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoProp
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.CuentasPorPagar.Application.Adjuntos.FacturaProveedorAdjuntoPropietario>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Api.Endpoints.Almacen.Revision.LineaRevisionAdjuntoPropietario>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Contabilidad.Application.Polizas.PolizaAdjuntoPropietario>();
+// F6.9: evidencia del historial de CSD (renovación, sustitución, revocación).
+builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Api.Infrastructure.Adapters.CertificadoCsdAdjuntoPropietario>();
 builder.Services.AddScoped<
     Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario,
     Millet.Compartido.Application.Adjuntos.ProveedorAdjuntoPropietario>();
@@ -769,6 +771,8 @@ builder.Services.AddIntegracionesAwModule(builder.Configuration);
 // cutover de PR-7). FiscalSecretCipher (PR-3) ya está registrado arriba
 // como parte del wiring DataProtection.
 builder.Services.AddIntegracionesFiscalModule(builder.Configuration);
+// F6.9: destinatarios del aviso de vencimiento del CSD por rol (Integraciones.Fiscal no referencia Identidad).
+builder.Services.AddScoped<Millet.Integraciones.Fiscal.Domain.Ports.IDestinatariosAvisoCsdPort, Millet.Api.Infrastructure.Adapters.DestinatariosAvisoCsdAdapter>();
 
 // Adapter CxP del puerto inverso IFiscalCfdiReceiver (PR-12/PR-14): el
 // DescargaPollerWorker (Fiscal) entrega cada CFDI cosechado (metadata +
