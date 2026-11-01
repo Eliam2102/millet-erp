@@ -869,6 +869,13 @@ const moduloFacturacion: NavModulo = {
       label: 'Otros documentos',
       cards: [
         {
+          label: 'Notas de crédito por autorizar',
+          description: 'Notas de crédito de clientes que llegan de A+W: autorizar y timbrar.',
+          to: '/facturacion/notas-credito',
+          icon: FileText,
+          permission: PermisosCanonicos.FacturacionNotasCreditoLeer,
+        },
+        {
           label: 'Carta Porte',
           description:
             'Bandeja de Carta Portes 3.1. Captura de tramo (vehículo, operador, mercancías) y "Crear siguiente tramo".',

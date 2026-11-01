@@ -58,8 +58,9 @@ public sealed class CrearSiguienteTramoHandler : IRequestHandler<CrearSiguienteT
             throw new BusinessRuleException("CARTA_PORTE_PREVIA_NO_TIMBRADA", $"La Carta Porte previa debe estar timbrada (estado actual: {previa.Estado}).");
 
         var ahora = _clock.UtcNow;
-        if (!await _periodo.EstaAbiertoAsync(ahora.Year, ahora.Month, cancellationToken))
-            throw new BusinessRuleException("PERIODO_CERRADO", $"El período contable {ahora.Year}-{ahora.Month:D2} está cerrado; no se puede emitir.");
+        var fiscal = Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.FechaFiscal(ahora); // período en la fecha fiscal de México, no en UTC
+        if (!await _periodo.EstaAbiertoAsync(fiscal.Year, fiscal.Month, cancellationToken))
+            throw new BusinessRuleException("PERIODO_CERRADO", $"El período contable {fiscal.Year}-{fiscal.Month:D2} está cerrado; no se puede emitir.");
 
         var vehiculo = await _db.Vehiculos.FirstOrDefaultAsync(v => v.Id == command.VehiculoId, cancellationToken)
             ?? throw new EntityNotFoundException("VEHICULO_NO_ENCONTRADO", $"No existe el vehículo {command.VehiculoId}.");
@@ -79,7 +80,7 @@ public sealed class CrearSiguienteTramoHandler : IRequestHandler<CrearSiguienteT
 
         var cp = Dominio.CartaPorte.CrearBorrador(
             empresaId, tipoCfdi, reserva.Folio, reserva.Numero, command.SucursalId, previa.CajaId, _user.UserId,
-            receptor, previa.SnapshotEmisor(), previa.Moneda, ahora.Year, ahora.Month,
+            receptor, previa.SnapshotEmisor(), previa.Moneda, fiscal.Year, fiscal.Month,
             command.Origen, command.Destino, command.DistanciaKm, command.VehiculoId, command.OperadorId,
             cartaPortePreviaId: previa.Id, previa.PedidoFacturableId, command.FechaSalida, command.FechaLlegadaEstimada,
             command.MontoServicio, command.TasaIvaServicio,

@@ -110,10 +110,11 @@ public sealed class ReintentarTimbradoHandler
         }
 
         var ahora = _clock.UtcNow;
-        if (!await _periodo.EstaAbiertoAsync(ahora.Year, ahora.Month, ct))
+        var fiscal = Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.FechaFiscal(ahora); // período en la fecha fiscal de México, no en UTC
+        if (!await _periodo.EstaAbiertoAsync(fiscal.Year, fiscal.Month, ct))
             throw new BusinessRuleException(
                 "PERIODO_CERRADO",
-                $"El período contable {ahora.Year}-{ahora.Month:D2} está cerrado; no se puede timbrar.");
+                $"El período contable {fiscal.Year}-{fiscal.Month:D2} está cerrado; no se puede timbrar.");
 
         if (comprobante is ReciboPago recibo)
         {

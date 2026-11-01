@@ -61,6 +61,12 @@ public interface IProveedorReadPort
         }
         return resultado;
     }
+
+    /// <summary>
+    /// 86e3ke2d3 (P8.3): proveedores (de los pedidos) sin opinión de cumplimiento vigente. Sin adapter productivo: ninguno.
+    /// </summary>
+    Task<IReadOnlySet<Guid>> ObtenerSinOpinionCumplimientoAsync(IReadOnlyCollection<Guid> proveedorIds, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlySet<Guid>>(new HashSet<Guid>());
 }
 
 public sealed record ProveedorDto(

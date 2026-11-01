@@ -83,6 +83,67 @@ public sealed class ReppRecibidoTests
         response.Id.Should().Be(previo.Id);(await db.ReppsProveedorRecibidos.CountAsync()).Should().Be(1);(await db.ReppPagosProveedor.CountAsync()).Should().Be(1);
     }
 
+    // ------------------------------------------------------------ portal de proveedores (P8.3)
+
+    private static RegistrarReppRecibidoHandler HandlerPortal(TesoreriaDbContext db, FakePublisher publisher) =>
+        new(db, new FakeEmpresaContext(), new SinUsuario(), new FakeBlob(), publisher, new FakeClock(Ahora), new FakeProveedores());
+
+    [Fact]
+    public async Task Portal_liga_el_complemento_a_los_pagos_aplicados_sin_usuario_del_ERP_y_publica_el_evento_que_libera_FALTA_REPP()
+    {
+        using var db = CrearDbContext();
+        var facturaId = await SembrarPasivoConPagoAsync(db, "PPD", new(2026, 7, 1));
+        var proveedor = db.PasivosPendientesPago.Single().ProveedorId;
+        var publisher = new FakePublisher();
+        var uuid = Guid.NewGuid();
+        var xml = Convert.FromBase64String(Complemento(db, facturaId, uuid, new(2026, 7, 14)).XmlBase64!);
+
+        var r = await HandlerPortal(db, publisher).LigarPortalAsync(new RegistrarReppPortalCommand(proveedor, xml), default);
+
+        r.Ligado.Should().BeTrue();
+        var repp = await db.ReppsProveedorRecibidos.SingleAsync();
+        (repp.UuidComplemento, repp.RegistradoPor).Should().Be((uuid, proveedor));
+        var pago = await db.ReppPagosProveedor.SingleAsync();
+        pago.PagoId.Should().Be((await db.AplicacionesPagoProveedor.SingleAsync()).Id);
+        publisher.Publicados.OfType<ReppProveedorRecibidoIntegrationEvent>().Single().Pagos!.Single().Importe.Should().Be(1000);
+
+        // Volver a subirlo no duplica ni falla.
+        (await HandlerPortal(db, publisher).LigarPortalAsync(new RegistrarReppPortalCommand(proveedor, xml), default)).Ligado.Should().BeTrue();
+        (await db.ReppsProveedorRecibidos.CountAsync()).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Portal_no_liga_el_complemento_a_una_factura_de_otro_proveedor()
+    {
+        using var db = CrearDbContext();
+        var facturaId = await SembrarPasivoConPagoAsync(db, "PPD", new(2026, 7, 1));
+        var xml = Convert.FromBase64String(Complemento(db, facturaId, Guid.NewGuid(), new(2026, 7, 14)).XmlBase64!);
+        var publisher = new FakePublisher();
+
+        var r = await HandlerPortal(db, publisher).LigarPortalAsync(new RegistrarReppPortalCommand(Guid.NewGuid(), xml), default);
+
+        r.Ligado.Should().BeFalse();
+        r.Mensaje.Should().Contain("Cuentas por Pagar lo revisará");
+        (await db.ReppsProveedorRecibidos.CountAsync()).Should().Be(0);
+        publisher.Publicados.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Portal_sin_pago_aplicado_con_esa_fecha_no_liga_y_dice_por_que()
+    {
+        using var db = CrearDbContext();
+        var facturaId = await SembrarPasivoConPagoAsync(db, "PPD", new(2026, 7, 1));
+        var proveedor = db.PasivosPendientesPago.Single().ProveedorId;
+        var xml = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(Complemento(db, facturaId, Guid.NewGuid(), new(2026, 7, 14)).XmlBase64!))
+            .Replace("FechaPago=\"2026-07-01", "FechaPago=\"2026-07-02");
+
+        var r = await HandlerPortal(db, new FakePublisher()).LigarPortalAsync(new RegistrarReppPortalCommand(proveedor, System.Text.Encoding.UTF8.GetBytes(xml)), default);
+
+        r.Ligado.Should().BeFalse();
+        r.Mensaje.Should().Contain("02/07/2026");
+        (await db.ReppsProveedorRecibidos.CountAsync()).Should().Be(0);
+    }
+
     // ------------------------------------------------------------ pendientes
 
     [Fact]
@@ -243,6 +304,12 @@ public sealed class ReppRecibidoTests
     {
         public Guid? UserId => UsuarioId;
         public string? UserName => "test";
+    }
+
+    private sealed class SinUsuario : ICurrentUserContext
+    {
+        public Guid? UserId => null;
+        public string? UserName => null;
     }
 
     private sealed class FakeClock(DateTimeOffset ahora) : IClock
