@@ -35,6 +35,7 @@ public class AutorizadorMatrizEndpointsTests : IClassFixture<StubsWebApplication
         var otro = await CreateAutorizadorAsync(_factory);
         try
         {
+            await PutUmbralAmbosAsync(admin);
             await SembrarAsync(RolAprobador.JefeDpto, TestComprasFixtures.DeptoCompras, jefeDptoId);
             await SembrarAsync(RolAprobador.JefeAlmacen, TestComprasFixtures.SucursalMid, jefeAlmacenId);
             var rq = await CrearTransmitirAsync(admin, new[] { (ArticuloSinStock, 1m) });
@@ -87,6 +88,7 @@ public class AutorizadorMatrizEndpointsTests : IClassFixture<StubsWebApplication
         var (jefe, jefeId) = await CreateUsuarioFirmanteAsync();
         try
         {
+            await PutUmbralAmbosAsync(admin);
             await SembrarAsync(RolAprobador.JefeDpto, TestComprasFixtures.DeptoCompras, jefeId);
             await SembrarAsync(RolAprobador.JefeAlmacen, TestComprasFixtures.SucursalMid, jefeId);
             var rq = await CrearTransmitirAsync(admin, new[] { (ArticuloSinStock, 1m) });
@@ -110,6 +112,21 @@ public class AutorizadorMatrizEndpointsTests : IClassFixture<StubsWebApplication
         var rq = await CrearTransmitirAsync(admin, new[] { (ArticuloSinStock, 1m) });
 
         Assert.True((await AutorizarAsync(await CreateAutorizadorAsync(_factory), rq, 1)).IsSuccessStatusCode);
+    }
+
+    // Ambos: un artículo sin existencia exige N2 (mismo PUT que ModoNivel2IntegracionTests).
+    private static async Task PutUmbralAmbosAsync(HttpClient admin)
+    {
+        var resp = await admin.PutAsJsonAsync("/api/v1/compras/umbrales-aprobacion", new
+        {
+            DepartamentoId = TestComprasFixtures.DeptoCompras,
+            UmbralMenorCuantia = (decimal?)null,
+            UmbralMonto = 100m,
+            Moneda = "MXN",
+            ModoNivel2 = "Ambos",
+            MontoMinimoDisponibilidad = (decimal?)null,
+        });
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
     }
 
     private static async Task AssertNoFacultadoAsync(HttpResponseMessage resp)
@@ -146,6 +163,8 @@ public class AutorizadorMatrizEndpointsTests : IClassFixture<StubsWebApplication
         var scopes = new[] { TestComprasFixtures.DeptoCompras, TestComprasFixtures.SucursalMid };
         db.AprobadoresDepartamento.RemoveRange(await db.AprobadoresDepartamento
             .Where(a => a.EmpresaId == EmpresaInicialId && scopes.Contains(a.DepartamentoId)).ToListAsync());
+        db.UmbralesAprobacionDepartamento.RemoveRange(await db.UmbralesAprobacionDepartamento
+            .Where(u => u.EmpresaId == EmpresaInicialId && u.DepartamentoId == TestComprasFixtures.DeptoCompras).ToListAsync());
         await db.SaveChangesAsync();
     }
 }
