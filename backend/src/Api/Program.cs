@@ -995,6 +995,24 @@ builder.Services.AddOptions<Millet.ActivosFijos.Infrastructure.Workers.AvisosAct
     .Validate(o => o.Interval > TimeSpan.Zero && o.DiasAnticipacion is >= 0 and <= 365 && o.DiasPorEmpresa.Values.All(d => d is >= 0 and <= 365), "Revise intervalo y días de anticipación de avisos AF.")
     .ValidateOnStart();
 builder.Services.AddHostedService<Millet.ActivosFijos.Infrastructure.Workers.AvisosActivosWorker>();
+// K10.6: tipo de cambio diario de Banxico (FIX USD, EUR, CAD) al catálogo de monedas.
+// Sin IntegracionesBanxico:Token (Key Vault / user-secrets) el worker no corre y lo avisa.
+builder.Services.AddOptions<Millet.Compartido.Infrastructure.Banxico.BanxicoOptions>()
+    .Bind(builder.Configuration.GetSection(Millet.Compartido.Infrastructure.Banxico.BanxicoOptions.SectionName))
+    .Validate(o => o.Interval > TimeSpan.Zero && Uri.IsWellFormedUriString(o.BaseUrl, UriKind.Absolute),
+        "IntegracionesBanxico: Interval debe ser mayor que cero y BaseUrl una URL absoluta.")
+    .ValidateOnStart();
+builder.Services.AddHttpClient(Millet.Compartido.Infrastructure.Banxico.BanxicoSieHttpAdapter.HttpClientName, (sp, client) =>
+{
+    var o = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<Millet.Compartido.Infrastructure.Banxico.BanxicoOptions>>().Value;
+    client.BaseAddress = new Uri(o.BaseUrl.EndsWith('/') ? o.BaseUrl : o.BaseUrl + "/");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddScoped<Millet.Compartido.Application.Ports.IBanxicoSiePort,
+    Millet.Compartido.Infrastructure.Banxico.BanxicoSieHttpAdapter>();
+builder.Services.AddScoped<Millet.Compartido.Application.Ports.IAlertaTipoCambioPort,
+    Millet.Compartido.Infrastructure.Banxico.AlertaTipoCambioLogAdapter>();
+builder.Services.AddHostedService<Millet.Compartido.Infrastructure.Banxico.TipoCambioBanxicoWorker>();
 builder.Services.AddOptions<OutboxPublisherOptions>(nameof(ComercioExteriorDbContext))
     .Configure(o => o.ServiceBusTopicName = "comercio-exterior-events")
     .Bind(builder.Configuration.GetSection("ComercioExterior:Outbox"));
