@@ -47,10 +47,14 @@ import {
 } from '@/features/facturacion/api/useCajaSesiones';
 import { CancelarCobroDialog } from '@/features/facturacion/components/CancelarCobroDialog';
 import { PorCobrarCaja } from '@/features/facturacion/components/PorCobrarCaja';
+import { TerminalTarjetaCard } from '@/features/facturacion/components/TerminalTarjetaCard';
 import {
   autorizacionVoucherInvalida,
   esFormaTarjeta,
+  esTransferencia,
+  faltaFolioTransferencia,
   faltanUltimos4,
+  MENSAJE_FOLIO_TRANSFERENCIA,
   MENSAJE_ULTIMOS4,
   MENSAJE_VOUCHER,
   pideUltimos4,
@@ -168,6 +172,8 @@ export function MiCaja() {
       )}
 
       {puedeSupervisar && <AutorizarAperturaCard />}
+      {/* 86e3vr1tf: archivo diario de la terminal de tarjetas. */}
+      {puedeSupervisar && <TerminalTarjetaCard />}
     </div>
   );
 }
@@ -453,6 +459,8 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
   const [seleccion, setSeleccion] = useState<Record<string, string>>({});
   const [vouchers, setVouchers] = useState<Record<string, string>>({});
   const [ultimos4, setUltimos4] = useState<Record<string, string>>({});
+  // F6.6: la transferencia de la ruta también se aplica con el folio de Ingresos.
+  const [foliosTr, setFoliosTr] = useState<Record<string, string>>({});
 
   const items = cobrables.data ?? [];
   const seleccionados = items.filter((c) => seleccion[c.comprobanteId] != null);
@@ -471,6 +479,12 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
     seleccionados.map((c) => ({
       formaPago: seleccion[c.comprobanteId],
       tarjetaUltimos4: ultimos4[c.comprobanteId],
+    })),
+  );
+  const sinFolio = faltaFolioTransferencia(
+    seleccionados.map((c) => ({
+      formaPago: seleccion[c.comprobanteId],
+      folioTransferencia: foliosTr[c.comprobanteId],
     })),
   );
 
@@ -500,6 +514,10 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
       toast.error(MENSAJE_ULTIMOS4);
       return;
     }
+    if (sinFolio) {
+      toast.error(MENSAJE_FOLIO_TRANSFERENCIA);
+      return;
+    }
     liquidar.mutate(
       {
         cobros: seleccionados.map((c) => ({
@@ -513,6 +531,9 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
                 : null,
               tarjetaUltimos4: pideUltimos4(seleccion[c.comprobanteId])
                 ? (ultimos4[c.comprobanteId] ?? '').trim()
+                : null,
+              folioTransferencia: esTransferencia(seleccion[c.comprobanteId])
+                ? (foliosTr[c.comprobanteId] ?? '').trim().toUpperCase()
                 : null,
             },
           ],
@@ -674,6 +695,21 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
                           aria-required
                         />
                       )}
+                      {marcado && esTransferencia(seleccion[c.comprobanteId]) && (
+                        <Input
+                          className="mt-1 h-8 w-44"
+                          autoComplete="off"
+                          value={foliosTr[c.comprobanteId] ?? ''}
+                          onChange={(e) =>
+                            setFoliosTr((prev) => ({ ...prev, [c.comprobanteId]: e.target.value }))
+                          }
+                          placeholder="Folio de Ingresos · TR-000001"
+                          maxLength={20}
+                          aria-label={`Folio de transferencia de ${c.folio}`}
+                          aria-invalid={(foliosTr[c.comprobanteId] ?? '').trim() === ''}
+                          aria-required
+                        />
+                      )}
                     </TableCell>
                   </TableRow>
                 );
@@ -696,7 +732,12 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
           size="sm"
           onClick={onRegistrar}
           disabled={
-            liquidar.isPending || seleccionados.length === 0 || !vigentes || sinVoucher || sinUltimos4
+            liquidar.isPending ||
+            seleccionados.length === 0 ||
+            !vigentes ||
+            sinVoucher ||
+            sinUltimos4 ||
+            sinFolio
           }
           title={
             !vigentes
@@ -705,7 +746,9 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
                 ? MENSAJE_VOUCHER
                 : sinUltimos4
                   ? MENSAJE_ULTIMOS4
-                  : undefined
+                  : sinFolio
+                    ? MENSAJE_FOLIO_TRANSFERENCIA
+                    : undefined
           }
         >
           Registrar liquidación

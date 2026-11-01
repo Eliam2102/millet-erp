@@ -3,7 +3,9 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Millet.Api.IntegrationTests.Contabilidad;
 using Millet.Api.IntegrationTests.Fixtures;
+using Millet.Identidad.Domain;
 
 namespace Millet.Api.IntegrationTests.Compras;
 
@@ -227,6 +229,14 @@ public class RechazarEliminarEndpointsTests
 
     // --- Helpers ---
 
+    /// <summary>Otra persona que firma RQ: quien captura la RQ no puede autorizarla (REQUISICION_AUTOAUTORIZACION).</summary>
+    private Task<HttpClient> CreateAutorizadorAsync() =>
+        ContabTestKit.ClienteConPermisosAsync(_factory,
+            PermisosCanonicos.ComprasRequisicionesLeer,
+            PermisosCanonicos.ComprasRequisicionesLeerTodasSucursales,
+            PermisosCanonicos.ComprasRequisicionesAutorizarNivel1,
+            PermisosCanonicos.ComprasRequisicionesGestionarTodasSucursales);
+
     private async Task<HttpClient> CreateSuperAdminClientAsync()
     {
         var client = _factory.CreateClientWithIdempotency();
@@ -277,12 +287,12 @@ public class RechazarEliminarEndpointsTests
         return rqId;
     }
 
-    private static async Task<Guid> CrearTransmitirAutorizarAsync(HttpClient client)
+    private async Task<Guid> CrearTransmitirAutorizarAsync(HttpClient client)
     {
         var rqId = await CrearYTransmitirAsync(client);
         // Sin umbrales configurados, fail-open: una sola autorización N1
         // transiciona a Autorizada (mismo patrón que AutorizacionesEndpointsTests).
-        var auth = await client.PostAsJsonAsync(
+        var auth = await (await CreateAutorizadorAsync()).PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{rqId}/autorizaciones",
             new { Nivel = 1, Notas = (string?)null });
         auth.EnsureSuccessStatusCode();

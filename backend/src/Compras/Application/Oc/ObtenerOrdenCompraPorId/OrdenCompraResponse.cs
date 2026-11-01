@@ -124,6 +124,7 @@ public sealed record OrdenCompraResponse(
     public decimal MontoPagado { get; init; }
     public DateTimeOffset? ServicioConfirmadoEn { get; init; }
     public Guid? ServicioConfirmadoPorId { get; init; }
+    public string? CompradorNombre { get; init; }
     public string? ServicioConfirmadoPorNombre { get; init; }
     public string? ServicioConfirmadoComentario { get; init; }
     public DateTimeOffset? ServicioNoConformeEn { get; init; }

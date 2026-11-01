@@ -149,10 +149,13 @@ public sealed class GetFacturaPorIdHandler : IRequestHandler<GetFacturaPorIdQuer
                 motivo?.SlaDias is int sla && dias >= PlazoRevision.Umbrales(sla).Vencido);
         }
 
-        var folioRecepcion = f.RecepcionId is Guid rid
-            ? await _db.RecepcionesOcLocal.AsNoTracking().Where(r => r.RecepcionId == rid)
-                .Select(r => r.FolioRecepcion).FirstOrDefaultAsync(cancellationToken)
-            : null;
+        // Con recepción explícita, su folio; sin ella (la conciliación 3 vías usa todas las de la OC), los folios de las recepciones de la OC.
+        var recepciones = _db.RecepcionesOcLocal.AsNoTracking();
+        recepciones = f.RecepcionId is Guid rid
+            ? recepciones.Where(r => r.RecepcionId == rid)
+            : recepciones.Where(r => f.OrdenCompraId != null && r.OrdenCompraId == f.OrdenCompraId);
+        var folios = await recepciones.OrderBy(r => r.FechaMovimiento).Select(r => r.FolioRecepcion).ToListAsync(cancellationToken);
+        var folioRecepcion = folios.Count > 0 ? string.Join(", ", folios) : null;
 
         var elegibilidad = await _elegibilidad.CalcularAsync(f, cancellationToken);
         return new FacturaDetalleResponse(

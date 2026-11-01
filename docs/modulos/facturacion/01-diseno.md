@@ -994,6 +994,7 @@ y la memoria de estructura de ventanas ERP.
 | Pieza | Ticket | NoOp en uso | Cómo se wirea |
 |---|---|---|---|
 | `FacturacionDbContext` + esquema `facturacion` | — | n/a | `Program.cs` + `MigrationsHealthCheckOptions` + `deploy-app-dev.yml` (mismo PR) |
+| `<PolizaLiquidacionTerminal>`: póliza de la liquidación de la terminal de tarjetas | 86e3vr1tf · C1.5 | Facturación publica `facturacion.terminal.liquidacion-registrada.v1`; Contabilidad aún no lo consume | Plantilla en Contabilidad: cargo bancos (neto), 601.75 comisión por tarjeta e IVA pendiente de pago; abono «COBROS T/C, T/D» (bruto) |
 | `IFiscalApiClient` fase 2 (timbrar/cancelar/consultar + complementos) | `<IntegracionesFiscalFase2>` | Stub que devuelve UUID/sello fake en sandbox | Implementar fase 2 de Integraciones.Fiscal (rediseño asíncrono). Facturación consume el puerto |
 | `ICsdProvider` | `<IntegracionesFiscalCsd>` | Stub con CSD de pruebas SAT | Provisto por Integraciones.Fiscal; CSD en Key Vault |
 | `ICfdiRepositorioPort` (repo de **emitidos**) | — (adapter real) | `CfdiArchivoRepository` en `integraciones_fiscal` (F2-PR1, **no es stub**) | Ya wired: Facturación custodia sus CFDIs **emitidos** en `integraciones_fiscal.cfdi_archivo`. **Decisión "Separados" (owner, 2026-05-30):** CxP sigue con su blob para **recibidos** (no se unifican físicamente — son documentos de negocio distintos); un repositorio unificado para conciliación/BI lo arma el módulo 10 jalando de ambos. `UuidCfdi`/`IXmlCfdiParser`/`ICfdiBlobStorage` **no** se promueven (59/7/6 usos en CxP — deuda de refactor aparte si alguna vez duele) |
@@ -1008,7 +1009,7 @@ y la memoria de estructura de ventanas ERP.
 | `IMasterProvisioningPort` + readers de master A+W (auto-provisión cliente/artículo) | ✅ **CERRADO** (ADR-0048, PR4 #450) | `AwMasterProvisioningAdapter` (bridge en Integraciones.Aw/Pedidos) + `ProvisionarClienteDesdeAwCommand`/`ProvisionarProductoAwCommand` (DatosMaestros ejecuta el alta; upsert idempotente por referencia externa). Activo vía toggle; `NoOpMasterProvisioningPort` = fallback dev | Ya wired (§3.bis.6). Vistas `vw_erp_cliente`/`vw_erp_articulo` se afinan en fase guiada |
 | `IActivosFijosReadPort` | `<ActivosFijos>` | Catálogo mínimo de activos con saldos | Para venta de activos |
 | `concepto_contable_map` | — | Seed con `TBD-*` + `requiere_codigo_definitivo` | Migración de filas cuando Contabilidad entregue códigos |
-| Envío de CFDI al cliente | `<EnvioCfdiCliente>` | NoOp si SMTP/Graph no configurado | Reusar Integraciones.Mailbox / `INotificacionService` |
+| Envío de CFDI al cliente | `<EnvioCfdiCliente>` | ✅ Cerrado en 86e3txv0n: `CorreoCfdiNotificacionService` sobre `ICorreoSaliente` (ADR-0063); el reenvío reusa la bitácora que no ha salido | — |
 | Outbox Facturación | — | `NoOpIntegrationEventBusSender` si cs vacía | `OutboxPublisherWorker<FacturacionDbContext>` |
 | Permisos `facturacion.*` | — | Registrar al arrancar | Migration en IdentidadDbContext (memoria) |
 

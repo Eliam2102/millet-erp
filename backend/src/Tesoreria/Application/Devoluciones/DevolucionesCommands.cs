@@ -7,6 +7,7 @@ using Millet.Tesoreria.Domain.Depositos;
 using Millet.Tesoreria.Domain.Devoluciones;
 using Millet.Tesoreria.Domain.Movimientos;
 using Millet.Tesoreria.Domain.Ports.DatosMaestros;
+using Millet.Tesoreria.Application.Integration;
 using Millet.Tesoreria.Infrastructure.Persistence;
 
 namespace Millet.Tesoreria.Application.Devoluciones;
@@ -228,10 +229,12 @@ public sealed class CancelarDevolucionHandler : IRequestHandler<CancelarDevoluci
     private readonly ICurrentUserPermissions _permisos;
     private readonly IClienteReadPort _clientes;
     private readonly IClock _clock;
+    private readonly IIntegrationEventPublisher _publisher;
 
     public CancelarDevolucionHandler(TesoreriaDbContext db, ICurrentEmpresaContext currentEmpresa, ICurrentUserContext currentUser,
-        ICurrentUserPermissions permisos, IClienteReadPort clientes, IClock clock)
+        ICurrentUserPermissions permisos, IClienteReadPort clientes, IClock clock, IIntegrationEventPublisher publisher)
     {
+        _publisher = publisher;
         _db = db; _currentEmpresa = currentEmpresa; _currentUser = currentUser; _permisos = permisos; _clientes = clientes; _clock = clock;
     }
 
@@ -241,7 +244,10 @@ public sealed class CancelarDevolucionHandler : IRequestHandler<CancelarDevoluci
         var (_, usuarioId) = DevolucionTransiciones.Contexto(_currentEmpresa, _currentUser, "cancela");
         var d = await DevolucionTransiciones.CargarAsync(_db, command.Id, command.VersionEsperada, ct);
         await DevolucionTransiciones.ExigirSolicitanteOAutorizadorAsync(d, usuarioId, _permisos, ct);
-        d.Cancelar(command.Motivo, usuarioId, _clock.UtcNow);
+        var ahora = _clock.UtcNow;
+        d.Cancelar(command.Motivo, usuarioId, ahora);
+        // F6.3: Facturación muestra el estado del reembolso en la NC (solo devoluciones de origen NC).
+        await ReembolsoNotaCreditoEventos.PublicarSiEsDeNotaCreditoAsync(_publisher, d, ahora, ct);
         await _db.SaveChangesAsync(ct);
         return await DevolucionTransiciones.RespuestaAsync(_db, _clientes, _permisos, d, ct);
     }
@@ -262,10 +268,12 @@ public sealed class AutorizarDevolucionHandler : IRequestHandler<AutorizarDevolu
     private readonly ICurrentUserPermissions _permisos;
     private readonly IClienteReadPort _clientes;
     private readonly IClock _clock;
+    private readonly IIntegrationEventPublisher _publisher;
 
     public AutorizarDevolucionHandler(TesoreriaDbContext db, ICurrentEmpresaContext currentEmpresa, ICurrentUserContext currentUser,
-        ICurrentUserPermissions permisos, IClienteReadPort clientes, IClock clock)
+        ICurrentUserPermissions permisos, IClienteReadPort clientes, IClock clock, IIntegrationEventPublisher publisher)
     {
+        _publisher = publisher;
         _db = db; _currentEmpresa = currentEmpresa; _currentUser = currentUser; _permisos = permisos; _clientes = clientes; _clock = clock;
     }
 
@@ -274,7 +282,10 @@ public sealed class AutorizarDevolucionHandler : IRequestHandler<AutorizarDevolu
         var ct = cancellationToken;
         var (_, usuarioId) = DevolucionTransiciones.Contexto(_currentEmpresa, _currentUser, "autoriza");
         var d = await DevolucionTransiciones.CargarAsync(_db, command.Id, command.VersionEsperada, ct);
-        d.Autorizar(usuarioId, _clock.UtcNow);
+        var ahora = _clock.UtcNow;
+        d.Autorizar(usuarioId, ahora);
+        // F6.3: Facturación muestra el estado del reembolso en la NC (solo devoluciones de origen NC).
+        await ReembolsoNotaCreditoEventos.PublicarSiEsDeNotaCreditoAsync(_publisher, d, ahora, ct);
         await _db.SaveChangesAsync(ct);
         return await DevolucionTransiciones.RespuestaAsync(_db, _clientes, _permisos, d, ct);
     }
@@ -299,10 +310,12 @@ public sealed class RechazarDevolucionHandler : IRequestHandler<RechazarDevoluci
     private readonly ICurrentUserPermissions _permisos;
     private readonly IClienteReadPort _clientes;
     private readonly IClock _clock;
+    private readonly IIntegrationEventPublisher _publisher;
 
     public RechazarDevolucionHandler(TesoreriaDbContext db, ICurrentEmpresaContext currentEmpresa, ICurrentUserContext currentUser,
-        ICurrentUserPermissions permisos, IClienteReadPort clientes, IClock clock)
+        ICurrentUserPermissions permisos, IClienteReadPort clientes, IClock clock, IIntegrationEventPublisher publisher)
     {
+        _publisher = publisher;
         _db = db; _currentEmpresa = currentEmpresa; _currentUser = currentUser; _permisos = permisos; _clientes = clientes; _clock = clock;
     }
 
@@ -311,7 +324,10 @@ public sealed class RechazarDevolucionHandler : IRequestHandler<RechazarDevoluci
         var ct = cancellationToken;
         var (_, usuarioId) = DevolucionTransiciones.Contexto(_currentEmpresa, _currentUser, "rechaza");
         var d = await DevolucionTransiciones.CargarAsync(_db, command.Id, command.VersionEsperada, ct);
-        d.Rechazar(command.Motivo, usuarioId, _clock.UtcNow);
+        var ahora = _clock.UtcNow;
+        d.Rechazar(command.Motivo, usuarioId, ahora);
+        // F6.3: Facturación muestra el estado del reembolso en la NC (solo devoluciones de origen NC).
+        await ReembolsoNotaCreditoEventos.PublicarSiEsDeNotaCreditoAsync(_publisher, d, ahora, ct);
         await _db.SaveChangesAsync(ct);
         return await DevolucionTransiciones.RespuestaAsync(_db, _clientes, _permisos, d, ct);
     }

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Millet.Integraciones.Fiscal.Domain;
+using Millet.Integraciones.Fiscal.Domain.Certificados;
 using Millet.Integraciones.Fiscal.Domain.Cfdi;
 using Millet.Integraciones.Fiscal.Infrastructure.Persistence.Configurations;
 using Millet.SharedKernel.Application;
@@ -36,6 +37,8 @@ public sealed class IntegracionesFiscalDbContext : BaseDbContext
     }
 
     public DbSet<ConfiguracionPac> ConfiguracionesPac => Set<ConfiguracionPac>();
+    public DbSet<CertificadoCsd> CertificadosCsd => Set<CertificadoCsd>();
+    public DbSet<AlertaCsd> AlertasCsd => Set<AlertaCsd>();
     public DbSet<RfcReceptor> RfcsReceptores => Set<RfcReceptor>();
     public DbSet<DownloadRuleExterna> DownloadRulesExternas => Set<DownloadRuleExterna>();
     public DbSet<SolicitudDescarga> SolicitudesDescarga => Set<SolicitudDescarga>();
@@ -61,6 +64,8 @@ public sealed class IntegracionesFiscalDbContext : BaseDbContext
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.ApplyConfiguration(new ConfiguracionPacConfiguration());
+        modelBuilder.ApplyConfiguration(new CertificadoCsdConfiguration());
+        modelBuilder.ApplyConfiguration(new AlertaCsdConfiguration());
         modelBuilder.ApplyConfiguration(new RfcReceptorConfiguration());
         modelBuilder.ApplyConfiguration(new DownloadRuleExternaConfiguration());
         modelBuilder.ApplyConfiguration(new SolicitudDescargaConfiguration());

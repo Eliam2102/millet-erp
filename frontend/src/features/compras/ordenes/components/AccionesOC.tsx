@@ -94,8 +94,9 @@ export function AccionesOC({ oc, revision }: AccionesOCProps) {
   const duplicarMut = useDuplicarOrdenCompra();
 
   const accTransmitir = accionTransmitirAAutorizacion(oc, permisos, revision);
-  const accN1 = accionAprobarNivel1(oc, permisos);
-  const accN2 = accionAprobarNivel2(oc, permisos);
+  const userId = useAuthStore((s) => s.user?.id);
+  const accN1 = accionAprobarNivel1(oc, permisos, userId);
+  const accN2 = accionAprobarNivel2(oc, permisos, userId);
   const accRechazar = accionRechazar(oc, permisos);
   const accCancelar1 = accionCancelar1Firma(oc, permisos);
   const accCancelarDoble = accionCancelarDobleFirma(oc, permisos);

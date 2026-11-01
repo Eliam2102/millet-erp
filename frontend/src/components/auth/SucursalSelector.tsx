@@ -37,13 +37,13 @@ export function SucursalSelector() {
   if (!empresaId || (sucursales.length === 0 && !isLoading)) return null;
   return (
     <label className="flex items-center gap-2 text-sm">
-      <span className="text-muted-foreground">{alcance?.esCorporativo ? 'Corporativo · Millet:' : 'Sucursal:'}</span>
+      <span className="hidden text-muted-foreground sm:inline">{alcance?.esCorporativo ? 'Corporativo · Millet:' : 'Sucursal:'}</span>
       <select
         aria-label="Sucursal activa"
         value={sucursalId ?? ''}
         disabled={isLoading}
         onChange={(e) => setSucursalId(e.target.value || null)}
-        className="max-w-44 rounded-md border border-input bg-background px-2 py-1"
+        className="max-w-28 rounded-md sm:max-w-44 border border-input bg-background px-2 py-1"
       >
         <option value="">{alcance?.esCorporativo ? 'Todas las sucursales' : 'Todas las permitidas'}</option>
         {sucursales.map((s) => <option key={s.id} value={s.id}>{s.clave} · {s.nombre}</option>)}

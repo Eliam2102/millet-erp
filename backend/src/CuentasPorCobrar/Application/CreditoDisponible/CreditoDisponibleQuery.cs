@@ -1,7 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using Millet.CuentasPorCobrar.Domain.Cartera;
 using Millet.CuentasPorCobrar.Domain.LineaCredito;
+using Millet.CuentasPorCobrar.Domain.Ports.Facturacion;
 using Millet.CuentasPorCobrar.Infrastructure.Persistence;
 
 namespace Millet.CuentasPorCobrar.Application.CreditoDisponible;
@@ -15,8 +15,11 @@ namespace Millet.CuentasPorCobrar.Application.CreditoDisponible;
 // de las facturas Abierta/Parcial del cliente en la moneda de la línea,
 // derivado de la proyección factura_cartera.
 //
-// `liberado_sin_factura` sigue provisional (= 0) hasta que A+W cierre la
-// definición del gap G1; por eso `datoIncompleto` permanece en true.
+// C7.1 (86e3kdxx4): `liberado_sin_factura` es REAL — pedidos a crédito en
+// firme sin factura vigente, menos su anticipo ligado (puerto de lectura de
+// Facturación). Mismo cálculo que la liberación (ComponentesCredito).
+// `datoIncompleto` queda en false; se conserva en el contrato por
+// compatibilidad.
 // ============================================================================
 
 public sealed record CreditoDisponibleLineaResponse(
@@ -40,7 +43,12 @@ public sealed record CreditoDisponibleQuery(Guid ClienteId) : IRequest<CreditoDi
 public sealed class CreditoDisponibleHandler : IRequestHandler<CreditoDisponibleQuery, CreditoDisponibleResponse>
 {
     private readonly CuentasPorCobrarDbContext _db;
-    public CreditoDisponibleHandler(CuentasPorCobrarDbContext db) { _db = db; }
+    private readonly IFacturacionPedidosSinFacturarReadPort _pedidos;
+
+    public CreditoDisponibleHandler(CuentasPorCobrarDbContext db, IFacturacionPedidosSinFacturarReadPort pedidos)
+    {
+        _db = db; _pedidos = pedidos;
+    }
 
     public async Task<CreditoDisponibleResponse> Handle(
         CreditoDisponibleQuery query, CancellationToken cancellationToken)
@@ -50,25 +58,18 @@ public sealed class CreditoDisponibleHandler : IRequestHandler<CreditoDisponible
             .OrderBy(l => l.Moneda).ThenBy(l => l.Estado)
             .ToListAsync(cancellationToken);
 
-        // CXC-PR3: facturado real = saldo pendiente de facturas Abierta/Parcial
-        // del cliente, agrupado por moneda desde la proyección factura_cartera.
-        var facturadoPorMoneda = await _db.FacturasCartera.AsNoTracking()
-            .Where(f => f.ClienteId == query.ClienteId
-                     && (f.Estado == EstadoFacturaCartera.Abierta
-                      || f.Estado == EstadoFacturaCartera.Parcial))
-            .GroupBy(f => f.Moneda)
-            .Select(g => new { Moneda = g.Key, Saldo = g.Sum(f => f.Total - f.MontoPagado - f.MontoNc) })
-            .ToDictionaryAsync(x => x.Moneda, x => x.Saldo, cancellationToken);
+        var facturadoPorMoneda = await ComponentesCredito.FacturadoPorMonedaAsync(
+            _db, query.ClienteId, cancellationToken);
+        // Las líneas ya vienen filtradas por la empresa vigente: se toma la suya.
+        var liberadoPorMoneda = lineas.Count == 0
+            ? []
+            : await ComponentesCredito.LiberadoSinFacturaPorMonedaAsync(
+                _pedidos, lineas[0].EmpresaId, query.ClienteId, pedidoRefExcluido: null, cancellationToken);
 
         var respuesta = lineas.Select(l =>
         {
             var facturado = facturadoPorMoneda.GetValueOrDefault(l.Moneda, 0m);
-
-            // PLATFORM-TODO(<CreditoLiberadoSinFactura>): A+W no expone aún la
-            // vista de "liberado sin factura / material en firme" (gap G1 del
-            // 00-levantamiento). Cuando exista, un adapter de lectura la
-            // consume aquí y se quita la bandera DatoIncompleto.
-            var liberadoSinFactura = 0m;
+            var liberadoSinFactura = liberadoPorMoneda.GetValueOrDefault(l.Moneda, 0m);
 
             return new CreditoDisponibleLineaResponse(
                 LineaCreditoId: l.Id,
@@ -85,6 +86,6 @@ public sealed class CreditoDisponibleHandler : IRequestHandler<CreditoDisponible
         return new CreditoDisponibleResponse(
             ClienteId: query.ClienteId,
             Lineas: respuesta,
-            DatoIncompleto: true);
+            DatoIncompleto: false);
     }
 }

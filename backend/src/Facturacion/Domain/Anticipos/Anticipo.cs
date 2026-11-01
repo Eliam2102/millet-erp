@@ -43,6 +43,8 @@ public sealed class Anticipo : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRelev
 
     public decimal MontoCobrado { get; private set; }
     public decimal MontoAmortizado { get; private set; }
+    /// <summary>F6.3 · CA6.17: devuelto en dinero al cliente por NC de devolución de anticipo (no aplicado a una factura).</summary>
+    public decimal MontoDevuelto { get; private set; }
 
     /// <summary>Saldo amortizable persistido = <c>MontoCobrado − MontoAmortizado</c>.</summary>
     public decimal Saldo { get; private set; }
@@ -191,11 +193,33 @@ public sealed class Anticipo : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRelev
 
         vinculacion.AsociarNotaCredito(ncAmortizacionId);
         MontoAmortizado += importe;
-        Saldo = MontoCobrado - MontoAmortizado;
+        Saldo = MontoCobrado - MontoAmortizado - MontoDevuelto;
         if (Saldo <= 0m)
             Estado = EstadoAnticipo.Amortizado;
 
         return vinculacion;
+    }
+
+    /// <summary>
+    /// F6.3 · CA6.17: el anticipo no aplicado se devuelve en dinero con una NC de devolución. Solo hasta el
+    /// <see cref="SaldoDisponible"/> (lo comprometido en vinculaciones no se puede devolver); al llegar a cero el anticipo
+    /// queda <see cref="EstadoAnticipo.Amortizado"/> (sin saldo).
+    /// </summary>
+    public void RegistrarDevolucion(decimal importe)
+    {
+        if (Estado != EstadoAnticipo.Abierto)
+            throw new BusinessRuleException("ANTICIPO_NO_ABIERTO",
+                $"Solo un anticipo abierto puede devolverse (estado actual: {Estado}).");
+        if (importe <= 0m)
+            throw new BusinessRuleException("ANTICIPO_IMPORTE_INVALIDO", "El importe a devolver debe ser mayor que cero.");
+        if (importe > SaldoDisponible)
+            throw new BusinessRuleException("ANTICIPO_SALDO_INSUFICIENTE",
+                $"El importe a devolver ({importe:N2}) excede el saldo disponible del anticipo ({SaldoDisponible:N2}).");
+
+        MontoDevuelto += importe;
+        Saldo = MontoCobrado - MontoAmortizado - MontoDevuelto;
+        if (Saldo <= 0m)
+            Estado = EstadoAnticipo.Amortizado;
     }
 
     /// <summary>

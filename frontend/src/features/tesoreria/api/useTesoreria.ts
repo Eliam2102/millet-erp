@@ -6,11 +6,13 @@ import {
   tesoreriaKeys,
   type DepositosFiltros,
   type DevolucionesFiltros,
+  type FoliosTransferenciaFiltros,
   type MovimientosFiltros,
   type PasivosFiltros,
 } from './keys';
 import type {
   CuentaProveedorPago,
+  FolioTransferenciaResponse,
   ConceptoResponse,
   ClasificacionFlujo,
   AplicacionPagoItem,
@@ -833,6 +835,69 @@ export function useSolicitarDevolucionDeposito() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.all });
     },
+  });
+}
+
+// ─── F6.6 · Folios de confirmación de transferencia (Ingresos → Caja) ───
+
+export function useFoliosTransferencia(filtros: FoliosTransferenciaFiltros = {}, opts?: { enabled?: boolean }) {
+  return useQuery<PagedResponse<FolioTransferenciaResponse>>({
+    queryKey: tesoreriaKeys.foliosTransferenciaList(filtros),
+    enabled: opts?.enabled ?? true,
+    queryFn: async ({ signal }) => {
+      const params = new URLSearchParams();
+      if (filtros.estado != null) params.set('estado', String(filtros.estado));
+      if (filtros.clienteId) params.set('clienteId', filtros.clienteId);
+      if (filtros.movimientoId) params.set('movimientoId', filtros.movimientoId);
+      if (filtros.folio) params.set('folio', filtros.folio);
+      if (filtros.offset != null) params.set('offset', String(filtros.offset));
+      if (filtros.limit != null) params.set('limit', String(filtros.limit));
+      const qs = params.toString();
+      const { data } = await apiRequest<PagedResponse<FolioTransferenciaResponse>>(
+        qs ? `${BASE}/folios-transferencia?${qs}` : `${BASE}/folios-transferencia`,
+        { signal },
+      );
+      return data;
+    },
+  });
+}
+
+/** Ingresos emite el folio desde un ingreso de cliente (F6.6, CA6.8). */
+export function useEmitirFolioTransferencia() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      movimientoId: string;
+      clienteId: string;
+      importe: number;
+      pedido?: string | null;
+      idempotencyKey: string;
+    }) => {
+      const { idempotencyKey, ...body } = args;
+      const { data } = await apiRequest<FolioTransferenciaResponse>(`${BASE}/folios-transferencia`, {
+        method: 'POST',
+        body,
+        idempotencyKey,
+      });
+      return data;
+    },
+    // El ingreso deja de estar «por identificar» y cambia su disponible.
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: tesoreriaKeys.all }),
+  });
+}
+
+/** Ingresos cancela un folio que no se usó, con motivo. */
+export function useCancelarFolioTransferencia() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { id: string; motivo: string; idempotencyKey: string }) => {
+      const { data } = await apiRequest<FolioTransferenciaResponse>(
+        `${BASE}/folios-transferencia/${args.id}/cancelar`,
+        { method: 'POST', body: { motivo: args.motivo }, idempotencyKey: args.idempotencyKey },
+      );
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: tesoreriaKeys.all }),
   });
 }
 

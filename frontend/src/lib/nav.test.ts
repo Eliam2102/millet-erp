@@ -150,6 +150,7 @@ describe('navSidebarItems', () => {
     expect(operacion).toEqual([
       '/cxc/lineas-credito',
       '/cxc/liberaciones',
+      '/cxc/reglas-serie',
       '/cxc/cobranza',
       '/cxc/anticipos',
       '/cxc/aplicaciones',
@@ -162,6 +163,8 @@ describe('navSidebarItems', () => {
       PermisosCanonicos.CuentasPorCobrarLiberacionDecidir,
       PermisosCanonicos.CuentasPorCobrarLiberacionOverride,
     ]);
+    const reglasSerie = cxc.secciones[0].cards.find((c) => c.to === '/cxc/reglas-serie');
+    expect(reglasSerie?.permission).toBe(PermisosCanonicos.CuentasPorCobrarReglasSerieGestionar);
     const reportes = cxc.secciones[1].cards.map((c) => c.to);
     expect(reportes).toEqual(['/cxc/cartera', '/cxc/estado-cuenta']);
   });

@@ -120,9 +120,9 @@ export type ResultadoLiberacion =
  * <c>ComportamientoSerie</c>.
  */
 export const ComportamientoSerie = {
-  /** Siempre libera sin evaluar crédito (5000/7000). */
+  /** Siempre libera sin evaluar crédito (p. ej. 5500). */
   SiempreLibera: 1,
-  /** Nunca libera por crédito: solo con autorización (3000/4000/8000). */
+  /** Nunca libera por crédito: solo con autorización (p. ej. 7800). */
   NuncaLibera: 2,
   /** Evalúa crédito disponible (sin regla de serie). */
   EvaluaCredito: 3,
@@ -134,6 +134,31 @@ export type ComportamientoSerie =
 export interface ReglaLiberacionSerieResponse {
   prefijo: string;
   comportamiento: ComportamientoSerie;
+}
+
+/** C7.2: mirror de backend <c>ReglaLiberacionSerieAdminResponse</c> (todas). */
+export interface ReglaLiberacionSerieAdmin {
+  id: string;
+  prefijo: string;
+  comportamiento: ComportamientoSerie;
+  activo: boolean;
+  version: number;
+  actualizadoEn: string;
+  actualizadoPor: string | null;
+}
+
+/** C7.2: mirror de backend <c>HistorialReglaSerieResponse</c>. */
+export interface HistorialReglaSerie {
+  id: string;
+  reglaId: string;
+  prefijo: string;
+  operacion: string;
+  comportamientoAntes: ComportamientoSerie | null;
+  comportamientoDespues: ComportamientoSerie | null;
+  activoAntes: boolean | null;
+  activoDespues: boolean | null;
+  actorNombre: string;
+  fecha: string;
 }
 
 /**
@@ -591,10 +616,9 @@ export interface CreditoDisponibleLineaResponse {
 }
 
 /**
- * Mirror de backend <c>CreditoDisponibleResponse</c> (CXC-PR2/PR3). El
- * campo <c>datoIncompleto</c> indica que el término "material liberado
- * A+W" (gap G1) aún no entra a la fórmula — la UI muestra el número con
- * badge ámbar, nunca lo oculta (05-frontend-diseno §4.2).
+ * Mirror de backend <c>CreditoDisponibleResponse</c> (CXC-PR2/PR3). Desde
+ * C7.1 el liberado sin facturar es real y <c>datoIncompleto</c> llega en
+ * <c>false</c>; se conserva por compatibilidad del contrato.
  */
 export interface CreditoDisponibleResponse {
   clienteId: string;

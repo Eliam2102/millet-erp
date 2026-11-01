@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { PAGINA_MAESTRO, useListaInfinita } from '@/modules/datos-maestros/api/lista-infinita';
 import { apiRequest } from '@/lib/api';
 import {
   datosMaestrosKeys,
@@ -43,6 +44,13 @@ export function useArticulos(filtros: ListarArticulosFiltros = {}) {
     },
     staleTime: 30_000,
   });
+}
+
+/** Listado con «Cargar más» (páginas de 200 sobre offset/limit). */
+export function useArticulosInfinito(filtros: ListarArticulosFiltros = {}) {
+  return useListaInfinita(datosMaestrosKeys.articulosList(filtros), async (offset, signal) =>
+    (await apiRequest<ListarArticulosResponse>(
+      buildListarArticulosPath({ ...filtros, offset, limit: PAGINA_MAESTRO }), { signal })).data);
 }
 
 export function useArticulo(id: string | null | undefined) {

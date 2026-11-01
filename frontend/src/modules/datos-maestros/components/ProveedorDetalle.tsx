@@ -7,9 +7,8 @@ import { apiRequest, codigoSoporte } from '@/lib/api';
 import { ProveedorClasificacionFiscalSection } from './ProveedorClasificacionFiscalSection';
 import { ProveedorToleranciaSection } from './ProveedorToleranciaSection';
 import { Link, useParams } from '@tanstack/react-router';
-import { CheckCircle2, Clock, PowerOff, TriangleAlert, X, XCircle } from 'lucide-react';
+import { CheckCircle2, Clock, PowerOff, X, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -48,6 +47,7 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { ProveedorDatosForm } from '@/modules/datos-maestros/components/ProveedorDatosForm';
 import { ProveedorCuentasBancariasSection } from '@/modules/datos-maestros/components/ProveedorCuentasBancariasSection';
 import { ProveedorExpedienteSection } from '@/modules/datos-maestros/components/ProveedorExpedienteSection';
+import { QueFaltaPanel } from '@/modules/datos-maestros/components/QueFaltaPanel';
 import { ProveedorAccesoPortalSection } from '@/modules/datos-maestros/components/ProveedorAccesoPortalSection';
 import { ProveedorBloqueo } from '@/modules/datos-maestros/components/ProveedorBloqueo';
 
@@ -129,9 +129,10 @@ export function ProveedorDetalle() {
 
   const proveedor = proveedorQuery.data;
   const documentosPendientes = expediente.data
-    ? [...expediente.data.faltantes, ...expediente.data.vencidos].map((codigo) =>
-        expediente.data!.documentos.find((d) => d.codigo === codigo)?.nombre ?? codigo)
-    : proveedor.documentosPendientes ?? [];
+    ? [...expediente.data.faltantes, ...expediente.data.vencidos].map(
+        (codigo) => expediente.data!.documentos.find((d) => d.codigo === codigo)?.nombre ?? codigo,
+      )
+    : (proveedor.documentosPendientes ?? []);
   const activo = proveedor.estatus === EstatusCatalogo.Activo;
   const enRevision = proveedor.estatus === EstatusCatalogo.EnRevision;
 
@@ -226,16 +227,6 @@ export function ProveedorDetalle() {
     <div className="flex flex-col gap-5">
       {/* Header NO sticky: viaja con el scroll para no tapar la primera
           fila del form al anclar. */}
-      {activo && documentosPendientes.length > 0 && (
-        <Alert variant="warning">
-          <TriangleAlert className="size-4" aria-hidden="true" />
-          <AlertDescription>
-            Expediente incompleto: faltan {documentosPendientes.length} documentos ({documentosPendientes.join(', ')}).
-            {proveedor.origenCarga === 'CargaSap' && ' Cargado desde SAP sin documentos.'}{' '}
-            <a href="#expediente-proveedor" className="underline underline-offset-2">Ver expediente</a>
-          </AlertDescription>
-        </Alert>
-      )}
       <PageHeader
         mono
         titulo={<>{proveedor.clave}</>}
@@ -284,8 +275,25 @@ export function ProveedorDetalle() {
               </>
             )}
 
+            <ProveedorBloqueo proveedor={proveedor} parte="accion" />
+            {canValidar && proveedor.estatus === EstatusCatalogo.Activo && (
+              <Button variant="outline" size="sm" onClick={() => setRevisionOpen(true)}>
+                Poner en revisión
+              </Button>
+            )}
+
             {canDesactivar && proveedor.estatus === EstatusCatalogo.Inactivo && (
-              <Button variant="ghost" size="sm" disabled={reactivar.isPending} onClick={() => reactivar.mutate({ id: proveedor.id, idempotencyKey: crypto.randomUUID() }, { onError: e => toast.error(e.message) })}>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={reactivar.isPending}
+                onClick={() =>
+                  reactivar.mutate(
+                    { id: proveedor.id, idempotencyKey: crypto.randomUUID() },
+                    { onError: (e) => toast.error(e.message) },
+                  )
+                }
+              >
                 {reactivar.isPending ? 'Reactivando…' : 'Reactivar'}
               </Button>
             )}
@@ -309,6 +317,18 @@ export function ProveedorDetalle() {
           </>
         }
       />
+      {activo && (
+        <QueFaltaPanel
+          titulo="Expediente incompleto: qué falta"
+          items={documentosPendientes.map((etiqueta) => ({
+            etiqueta,
+            href: '#expediente-proveedor',
+          }))}
+          nota={
+            proveedor.origenCarga === 'CargaSap' ? 'Cargado desde SAP sin documentos.' : undefined
+          }
+        />
+      )}
       <dl className="grid grid-cols-2 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat">
         <div>
           <dt className="text-xs text-ink-muted">RFC</dt>
@@ -325,7 +345,7 @@ export function ProveedorDetalle() {
       </dl>
 
       <div className="space-y-5">
-        <ProveedorBloqueo proveedor={proveedor} />
+        <ProveedorBloqueo proveedor={proveedor} parte="alerta" />
         {/* Banner informativo de En Revisión */}
         {enRevision && (
           <div className="mb-4 rounded-md bg-warning-note-bg p-3 text-warning-note-fg">
@@ -362,11 +382,6 @@ export function ProveedorDetalle() {
           </div>
         )}
 
-        {canValidar && proveedor.estatus === EstatusCatalogo.Activo && (
-          <Button variant="secondary" onClick={() => setRevisionOpen(true)}>
-            Poner en revisión
-          </Button>
-        )}
         <Dialog open={revisionOpen} onOpenChange={setRevisionOpen}>
           <DialogContent size="sm">
             <DialogHeader>

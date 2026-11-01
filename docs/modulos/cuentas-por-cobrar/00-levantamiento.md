@@ -92,9 +92,10 @@ Naming canónico `{Agregado}{Verbo}Event` (convención de la triada) con tipo
 
 Reglas (de ambos levantamientos):
 - Un pedido se libera solo si: el cliente tiene crédito activo (SOLUNION o interno), no excede su línea, y pagó o tiene promesa de pago válida.
-- **Reglas por serie de folio** (catálogo `regla_liberacion_serie`): folios que inician en `5000`/`7000` **siempre** liberan; folios `3000`/`4000`/`8000` **nunca** liberan.
+- **Reglas por serie de folio** (catálogo `regla_liberacion_serie`): folios que inician en `5000`, `5500`, `5600`, `7000`, `7200` o `7500` **siempre** liberan; los nacionales que inician en `5800`, `5900`, `7800`, `7900` o `9000` **nunca** liberan (solo salen con autorización). Fuente: Cuestionario 04 (R2 del plano Módulo 07). Las reglas son configuración: las carga la migración de C7.2 y CxC las administra en **CxC › Reglas de serie** (permiso `cuentas_por_cobrar.reglas-serie.gestionar`); cada cambio queda en la bitácora central y aplica a la siguiente evaluación. Una serie sin regla activa evalúa crédito.
+- **Propuestas C7.2 (por validar con el área de Crédito):** (a) las series de exportación que el cuestionario no menciona evalúan crédito; (b) la serie es el prefijo de 4 dígitos del número de pedido de A+W; (c) el permiso de administrar reglas se asigna a los roles que ya autorizan liberaciones (`cuentas_por_cobrar.liberacion.override`) y a SuperAdmin.
 - Clientes bloqueados por falta de pago no se liberan.
-- Clientes sin línea de crédito activa (no existe o está bloqueada): en series que evalúan crédito se **retienen sin aceptar autorización** (C7.3, supuesto e); en series que nunca liberan (3000/4000/8000) siguen liberándose solo con override de gerente.
+- Clientes sin línea de crédito activa (no existe o está bloqueada): en series que evalúan crédito se **retienen sin aceptar autorización** (C7.3, supuesto e); en series que nunca liberan siguen liberándose solo con override de gerente.
 - Exceder el límite: según la cobertura (C7.3, abajo); con 50 %–99.99 % se libera con autorización de CxC.
 
 **Cobertura parcial — C7.3 (ClickUp 86e3jvv6n).** Fuentes: cuestionario 04 R3 («si la línea de crédito solo cubre entre el 50 % y el 99 % se podría solicitar autorización manual del depto. de CxC»), Matriz I7 (autorización consumible, un solo uso, vigencia corta, motivo obligatorio, sin autoconsumo) y R5 (autoriza el gerente de área, Néstor Prida).
@@ -111,9 +112,9 @@ Reglas (de ambos levantamientos):
 - **Autorización por pedido (E10, 26-oct):** una autorización sirve para un solo pedido. `cliente_o_pedido_ref` debe ser **exactamente** el folio del pedido que se decide (tras recortar espacios, distinguiendo mayúsculas); ya no se acepta por id, RFC ni razón social del cliente (`AC_REFERENCIA_DISTINTA`, 422). Siguen vigentes: un solo uso (`AC_NO_DISPONIBLE`), vencida > 24 h (`AC_VENCIDA`), solo el beneficiario la consume (`AC_BENEFICIARIO_DISTINTO`).
 - `liberado_sin_factura` sigue en 0 (dependencia C7.1): hasta entonces el disponible solo descuenta lo facturado.
 
-> **Supuestos C7.3 (por confirmar con Eliam):** (a) 50 % exacto = pendiente; (b) el porcentaje se trunca a 2 decimales para guardar y a entero para mostrar (66.66 → «Cobertura 66 %»), acotado a [0, 100]; (c) la decisión pendiente no vence; si cambia el crédito se decide de nuevo y la nueva decisión deja sin efecto a la pendiente; (d) con menos de 50 % se retiene y no se acepta autorización — **solo** en las series que evalúan crédito; la regla de serie que exige autorización (3000/4000/8000) no cambia; (e) sin línea activa o con la línea bloqueada → `Retenido` sin aceptar autorización (en series que evalúan crédito; las series 3000/4000/8000 siguen aceptando override con o sin línea).
+> **Supuestos C7.3 (por confirmar con Eliam):** (a) 50 % exacto = pendiente; (b) el porcentaje se trunca a 2 decimales para guardar y a entero para mostrar (66.66 → «Cobertura 66 %»), acotado a [0, 100]; (c) la decisión pendiente no vence; si cambia el crédito se decide de nuevo y la nueva decisión deja sin efecto a la pendiente; (d) con menos de 50 % se retiene y no se acepta autorización — **solo** en las series que evalúan crédito; la regla de serie que exige autorización no cambia; (e) sin línea activa o con la línea bloqueada → `Retenido` sin aceptar autorización (en series que evalúan crédito; las series que nunca liberan siguen aceptando override con o sin línea).
 
-> **Pendiente — sugerencia:** el catálogo de reglas por serie proviene del documento internacional (§8.3). Confirmar con Prida si la cartera **nacional** comparte exactamente esas series (`3000/4000/5000/7000/8000`) o maneja otras. Propuesta: modelarlo como catálogo versionado (seed) `regla_liberacion_serie(prefijo, comportamiento)` para que ambas carteras compartan la tabla y difieran solo en filas.
+> **Resuelto (C7.2):** el catálogo de reglas por serie ya usa las series de Millet del Cuestionario 04 y se administra como configuración, no como semilla en código.
 
 ### 1.2 Cartera y cobranza
 
@@ -182,7 +183,7 @@ Se preserva la separación de funciones del AS-IS (Cartera propone, Ingresos apl
 - **Saldo neto (13-K)** = `facturado − pagos aplicados − NC`.
 
 ### 2.3 Restricciones operativas
-- Folios `3000/4000/8000` no se liberan bajo ninguna circunstancia.
+- Folios de las series que nunca liberan (`5800`, `5900`, `7800`, `7900`, `9000`) no se liberan por crédito; solo salen con autorización de CxC.
 - En la línea de crédito, límite y comprometido deben ser consistentes (regla heredada de SAP; en el modelo nuevo el "comprometido" se deriva del cálculo de crédito disponible).
 - Multi-moneda de primera clase: cada saldo y línea se expresa en su moneda (USD internacional, MXN nacional). No se fuerza conversión para operar.
 
@@ -284,7 +285,7 @@ triada). Es la base de cartera, antigüedad, saldo neto 13-K y estado de cuenta.
 - **Antigüedad de saldos** — proyección sobre `factura_cartera` con buckets configurables.
 - **Saldo neto por cliente (13-K)** = `facturado − pagos_aplicados − NC` (derivable de `factura_cartera`).
 
-> **Pendiente — sugerencia (G1):** `liberado sin factura` / "material en firme" **no tiene vista ni definición cerrada** en el contrato A+W (gap G1). Propuesta: el cálculo de crédito disponible se implementa con el término `liberado_sin_factura` marcado `PLATFORM-TODO(<CreditoLiberadoSinFactura>)` (ADR-0031), devolviendo 0 y una bandera `dato_incompleto=true` hasta que A+W cierre la definición; así el módulo avanza sin bloquearse y el número se vuelve exacto cuando llegue el contrato.
+> **Resuelto (C7.1, 86e3kdxx4):** `liberado sin factura` = pedidos a crédito en Facturación que siguen sin CFDI vigente (ni cancelados) y comprometen crédito según V22 — estatus A+W 40 o posterior (incluye 42), o 15 en la parte que su anticipo no cubre —, menos el saldo del anticipo ligado a cada pedido (sin bajar de cero). El total del pedido va con IVA, como el facturado y el anticipo. Se lee de Facturación con un puerto de lectura (`IFacturacionPedidosSinFacturarReadPort`), no con una copia por eventos. Un solo cálculo alimenta la consulta del disponible, la decisión de liberación y la autorización de pendientes; el pedido que se evalúa no compromete su propio crédito. **Supuestos a validar con el área de Crédito:** (a) **V22** (P7.1, registro de validaciones): el pedido compromete crédito desde estatus 40, o desde 15 si no tiene anticipo que lo cubra; el anticipo ligado se descuenta en ambos casos; (b) un pedido en dólares compromete la línea en dólares, sin convertir; (c) el pedido cuenta con su total con IVA (si un pedido legacy tiene líneas sin tasa, el subtotal). Mejora posterior: tomar el estado del pedido de Producto Terminado (PT5.2) como fuente sin cambiar la fórmula.
 
 ### 3.3 Permisos (RBAC, ADR-0007 + ADR-0041)
 

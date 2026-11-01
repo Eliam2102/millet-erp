@@ -23,8 +23,8 @@ namespace Millet.Compras.Domain;
 /// significado depende del <see cref="Rol"/>:
 /// <list type="bullet">
 ///   <item><c>JefeDpto</c> → scope es el <c>departamento_id</c> del solicitante (literal).</item>
-///   <item><c>JefeAlmacen</c> → scope es el <c>almacen_destino_id</c> de la requisición (overload).</item>
-///   <item><c>AutorizadorN2</c> → scope es la <c>sucursal_id</c> de la requisición (overload).</item>
+///   <item><c>JefeAlmacen</c> → scope es la <c>sucursal_id</c> de la requisición (overload; firma el N2 de la RQ).</item>
+///   <item><c>AutorizadorN2</c> → scope es la <c>sucursal_id</c> (sin uso en RQ desde C3.1).</item>
 /// </list>
 /// El nombre del campo se mantuvo (no rename físico) para no romper la
 /// API expuesta en F9-PR1; la polimorfía la maneja

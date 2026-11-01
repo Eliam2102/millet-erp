@@ -97,7 +97,7 @@ describe('useAnticiposCliente', () => {
             saldo: 60000,
             saldoDisponible: 60000,
             moneda: 'MXN',
-            pedidoOrigenRef: '3000123456',
+            pedidoOrigenRef: '7800123456',
           },
         ]);
       }),

@@ -13,6 +13,7 @@ using Millet.Almacen.Infrastructure;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.Api.Auth;
 using Millet.Api.Auth.Provisioning;
+using Millet.Api.Correo;
 using Millet.Api.Endpoints.Catalogos;
 using Millet.Api.Endpoints.Compras;
 using Millet.Api.Endpoints.Settings;
@@ -390,6 +391,14 @@ builder.Services
     .Bind(builder.Configuration.GetSection(
         Millet.Facturacion.Application.Cajas.Sesiones.CajasOptions.SectionName));
 
+// === Terminal de tarjetas (86e3vr1tf, Parte A) ===
+// Mapeo de columnas del archivo diario del banco; por omisión «Transacciones por
+// día» de Getnet más columnas supuestas de comisión (Facturacion:TerminalTarjeta:*).
+builder.Services
+    .AddOptions<Millet.Facturacion.Application.Cajas.Terminal.TerminalTarjetaOptions>()
+    .Bind(builder.Configuration.GetSection(
+        Millet.Facturacion.Application.Cajas.Terminal.TerminalTarjetaOptions.SectionName));
+
 // === REPP automático desde Tesorería (PR gemelo TES-PR7) ===
 // Sucursal emisora de los REPP que dispara pago-cliente.confirmado.v1
 // (setting Facturacion__ReppAutomatico__SucursalClave en appservice.bicep;
@@ -405,10 +414,12 @@ builder.Services
 // ruidosamente en arranque si el flag está activo en Production.
 builder.Services.AddComprasStubs(builder.Configuration, builder.Environment);
 
-// Correo de documentos (OC al proveedor, etc.): hoy simulado.
-// PLATFORM-TODO(<V08>): sustituir por el transporte real de correo.
+// 86e3txv0n: transporte único de correo saliente (Correo:Proveedor = NoOp |
+// SandboxLocal | Graph) con modo pruebas y registro en core.correo_envio.
+// Los documentos (OC al proveedor, etc.) salen por él.
+builder.Services.AddCorreoSaliente(builder.Configuration, builder.Environment.IsDevelopment());
 builder.Services.AddSingleton<Millet.SharedKernel.Application.Correo.ICorreoDocumentoService,
-    Millet.Facturacion.Infrastructure.Notificaciones.NoOpNotificacionService>();
+    Millet.SharedKernel.Infrastructure.Correo.CorreoDocumentoService>();
 
 // === Compras IAlmacenEntregasReadPort → adapter real ===
 // Permite al handler `ObtenerRequisicionPorIdHandler` enriquecer
@@ -642,6 +653,8 @@ builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoProp
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.CuentasPorPagar.Application.Adjuntos.FacturaProveedorAdjuntoPropietario>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Api.Endpoints.Almacen.Revision.LineaRevisionAdjuntoPropietario>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Contabilidad.Application.Polizas.PolizaAdjuntoPropietario>();
+// F6.9: evidencia del historial de CSD (renovación, sustitución, revocación).
+builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Api.Infrastructure.Adapters.CertificadoCsdAdjuntoPropietario>();
 builder.Services.AddScoped<
     Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario,
     Millet.Compartido.Application.Adjuntos.ProveedorAdjuntoPropietario>();
@@ -774,6 +787,8 @@ builder.Services.AddIntegracionesAwModule(builder.Configuration);
 // cutover de PR-7). FiscalSecretCipher (PR-3) ya está registrado arriba
 // como parte del wiring DataProtection.
 builder.Services.AddIntegracionesFiscalModule(builder.Configuration);
+// F6.9: destinatarios del aviso de vencimiento del CSD por rol (Integraciones.Fiscal no referencia Identidad).
+builder.Services.AddScoped<Millet.Integraciones.Fiscal.Domain.Ports.IDestinatariosAvisoCsdPort, Millet.Api.Infrastructure.Adapters.DestinatariosAvisoCsdAdapter>();
 
 // Adapter CxP del puerto inverso IFiscalCfdiReceiver (PR-12/PR-14): el
 // DescargaPollerWorker (Fiscal) entrega cada CFDI cosechado (metadata +
@@ -792,6 +807,8 @@ builder.Services.AddScoped<
 // Las entidades del dominio (Almacen, MovimientoInventario, Saldo, Conteo,
 // Reserva) entran en F1/F2/F3/F7. DbContext + outbox interceptor abajo.
 builder.Services.AddAlmacenModule();
+builder.Services.AddOptions<Millet.Almacen.Infrastructure.Notificaciones.AvisosAlmacenOptions>()
+    .Bind(builder.Configuration.GetSection(Millet.Almacen.Infrastructure.Notificaciones.AvisosAlmacenOptions.SectionName));
 builder.Services.AddScoped<Millet.SharedKernel.Application.Calendario.ICalendarioHabil,
     Millet.Compartido.Infrastructure.Calendario.CalendarioHabilService>();
 builder.Services.AddScoped<Millet.Almacen.Domain.Ports.ICentroCostoElegibilidadPort,
@@ -980,6 +997,8 @@ builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.IUsuariosReadPort, Mi
 // 86e3tfdve: cuenta beneficiaria del complemento de pago desde la cuenta bancaria de Millet (dueño: Tesorería).
 builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.ICuentaBancariaMilletReadPort, Millet.Api.Infrastructure.Adapters.CuentaBancariaMilletReadAdapter>();
 builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.ICuentaOrdenanteMovimientoReadPort, Millet.Api.Infrastructure.Adapters.CuentaOrdenanteMovimientoReadAdapter>();
+// F6.6: Caja valida el folio de transferencia que emite Ingresos (dueño: Tesorería).
+builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.IFolioTransferenciaReadPort, Millet.Api.Infrastructure.Adapters.FolioTransferenciaReadAdapter>();
 
 // === Módulo Centros de Costo (CECO-A1) ===
 // Cimiento: catálogo jerárquico Sucursal→Departamento→Equipo + dimensiones
@@ -1001,6 +1020,24 @@ builder.Services.AddOptions<Millet.ActivosFijos.Infrastructure.Workers.AvisosAct
     .Validate(o => o.Interval > TimeSpan.Zero && o.DiasAnticipacion is >= 0 and <= 365 && o.DiasPorEmpresa.Values.All(d => d is >= 0 and <= 365), "Revise intervalo y días de anticipación de avisos AF.")
     .ValidateOnStart();
 builder.Services.AddHostedService<Millet.ActivosFijos.Infrastructure.Workers.AvisosActivosWorker>();
+// K10.6: tipo de cambio diario de Banxico (FIX USD, EUR, CAD) al catálogo de monedas.
+// Sin IntegracionesBanxico:Token (Key Vault / user-secrets) el worker no corre y lo avisa.
+builder.Services.AddOptions<Millet.Compartido.Infrastructure.Banxico.BanxicoOptions>()
+    .Bind(builder.Configuration.GetSection(Millet.Compartido.Infrastructure.Banxico.BanxicoOptions.SectionName))
+    .Validate(o => o.Interval > TimeSpan.Zero && Uri.IsWellFormedUriString(o.BaseUrl, UriKind.Absolute),
+        "IntegracionesBanxico: Interval debe ser mayor que cero y BaseUrl una URL absoluta.")
+    .ValidateOnStart();
+builder.Services.AddHttpClient(Millet.Compartido.Infrastructure.Banxico.BanxicoSieHttpAdapter.HttpClientName, (sp, client) =>
+{
+    var o = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<Millet.Compartido.Infrastructure.Banxico.BanxicoOptions>>().Value;
+    client.BaseAddress = new Uri(o.BaseUrl.EndsWith('/') ? o.BaseUrl : o.BaseUrl + "/");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddScoped<Millet.Compartido.Application.Ports.IBanxicoSiePort,
+    Millet.Compartido.Infrastructure.Banxico.BanxicoSieHttpAdapter>();
+builder.Services.AddScoped<Millet.Compartido.Application.Ports.IAlertaTipoCambioPort,
+    Millet.Compartido.Infrastructure.Banxico.AlertaTipoCambioLogAdapter>();
+builder.Services.AddHostedService<Millet.Compartido.Infrastructure.Workers.TipoCambioBanxicoWorker>();
 builder.Services.AddOptions<OutboxPublisherOptions>(nameof(ComercioExteriorDbContext))
     .Configure(o => o.ServiceBusTopicName = "comercio-exterior-events")
     .Bind(builder.Configuration.GetSection("ComercioExterior:Outbox"));
@@ -1844,6 +1881,7 @@ Millet.Api.Endpoints.Facturacion.CajasEndpoints.MapFacturacionCajasEndpoints(app
 
 // === Facturación — Cobros de mostrador (CAJAS-PR4, 12-cajas.md §6) ===
 Millet.Api.Endpoints.Facturacion.CobrosEndpoints.MapFacturacionCobrosEndpoints(app);
+Millet.Api.Endpoints.Facturacion.TerminalTarjetaEndpoints.MapFacturacionTerminalTarjetaEndpoints(app);
 
 // === Cuentas por Cobrar — Líneas de crédito (CXC-PR1) ===
 Millet.Api.Endpoints.CuentasPorCobrar.LineasCreditoEndpoints.MapLineasCreditoEndpoints(app);
@@ -1896,6 +1934,7 @@ Millet.Api.Endpoints.Tesoreria.PagosACuentaEndpoints.MapTesoreriaPagosACuentaEnd
 // === Tesorería — Confirmación de depósitos de cliente (TES-PR7, TES-9) ===
 Millet.Api.Endpoints.Tesoreria.DepositosEndpoints.MapTesoreriaDepositosEndpoints(app);
 Millet.Api.Endpoints.Tesoreria.DevolucionesEndpoints.MapTesoreriaDevolucionesEndpoints(app);
+Millet.Api.Endpoints.Tesoreria.FoliosTransferenciaEndpoints.MapTesoreriaFoliosTransferenciaEndpoints(app);
 Millet.Api.Endpoints.Tesoreria.DiferenciasCorteEndpoints.MapTesoreriaDiferenciasCorteEndpoints(app);
 
 // === Tesorería — REPP recibido de proveedor: pendientes SLA + registro (TES-PR8, TES-4) ===

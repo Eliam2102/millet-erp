@@ -69,4 +69,7 @@ public sealed record RequisicionResponse(
     // (estimación de solo lectura; sin apartar stock). False en otros estados o si falla.
     bool EnAlmacen = false,
     // true si además ninguna línea va a compra (surtido total). Solo válido con EnAlmacen.
-    bool AlmacenCubreTodo = false);
+    bool AlmacenCubreTodo = false,
+    // C3.1: quién debe firmar cada nivel según la matriz (null = sin configurar, basta el permiso).
+    Guid? AutorizadorN1Id = null,
+    Guid? AutorizadorN2Id = null);

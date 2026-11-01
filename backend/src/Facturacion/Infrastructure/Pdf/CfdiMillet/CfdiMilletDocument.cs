@@ -10,7 +10,8 @@ namespace Millet.Facturacion.Infrastructure.Pdf.CfdiMillet;
 /// <summary>
 /// Representación impresa del CFDI con el formato de Millet (FMT-4, 86e3ukucq):
 /// factura, factura de anticipo y nota de crédito comparten el diseño de los
-/// originales FEXP 758332, FANT 504596 y NCRED 1079125. Carta, bilingüe ES/EN,
+/// originales FEXP 758332, FANT 504596 y NCRED 1079125; la Carta Porte (86e3tfdx0) usa el
+/// mismo diseño más su sección de tramo y transporte. Carta, bilingüe ES/EN,
 /// con la fuente Carlito del kit (FMT-0b). Solo presenta el <see cref="CfdiPdfModel"/>.
 /// </summary>
 public sealed class CfdiMilletDocument(CfdiPdfModel m) : IDocument
@@ -31,7 +32,9 @@ public sealed class CfdiMilletDocument(CfdiPdfModel m) : IDocument
         {
             PdfEstilos.ConfigurarPagina(page);
             page.Margin(EstilosCfdiMillet.MargenPulgadas, Unit.Inch);
-            page.DefaultTextStyle(x => x.FontFamily(PdfFuentes.Familia).FontSize(EstilosCfdiMillet.Texto).FontColor(EstilosCfdiMillet.Negro));
+            // Sin ligaduras: folios, RFC y UUID deben copiarse y buscarse tal cual («ff», «fb» se volvían un glifo).
+            page.DefaultTextStyle(x => x.FontFamily(PdfFuentes.Familia).FontSize(EstilosCfdiMillet.Texto).FontColor(EstilosCfdiMillet.Negro)
+                .DisableFontFeature(FontFeatures.StandardLigatures).DisableFontFeature(FontFeatures.ContextualLigatures));
 
             page.Header().Column(encabezado =>
             {
@@ -47,9 +50,12 @@ public sealed class CfdiMilletDocument(CfdiPdfModel m) : IDocument
                 {
                     col.Item().PaddingTop(4).Element(TotalesFisicosEImpuestos);
                     col.Item().PaddingTop(6).Element(ComentariosLetraYTotales);
-                    col.Item().PaddingTop(8).Element(DatosDePago);
+                    if (MuestraDatosDePago)
+                        col.Item().PaddingTop(8).Element(DatosDePago);
                     if (m.ComercioExterior is not null)
                         col.Item().PaddingTop(8).Element(ComercioExterior);
+                    if (m.CartaPorte is not null)
+                        col.Item().PaddingTop(8).Element(CartaPorte);
                 }
                 else
                 {
@@ -65,8 +71,11 @@ public sealed class CfdiMilletDocument(CfdiPdfModel m) : IDocument
             page.Footer().Row(fila =>
             {
                 fila.ConstantItem(80);
-                fila.RelativeItem().AlignCenter().Text(Leyenda).Bold().Italic()
-                    .FontSize(EstilosCfdiMillet.Leyenda).FontColor(EstilosCfdiMillet.AzulLeyenda);
+                if (MuestraLeyenda)
+                    fila.RelativeItem().AlignCenter().Text(Leyenda).Bold().Italic()
+                        .FontSize(EstilosCfdiMillet.Leyenda).FontColor(EstilosCfdiMillet.AzulLeyenda);
+                else
+                    fila.RelativeItem();
                 fila.ConstantItem(80).AlignRight().AlignBottom().Text(t =>
                 {
                     t.DefaultTextStyle(x => x.FontSize(EstilosCfdiMillet.Pie));
@@ -90,7 +99,7 @@ public sealed class CfdiMilletDocument(CfdiPdfModel m) : IDocument
         {
             var izquierda = fila.ConstantItem(EstilosCfdiMillet.LogoAnchoCm, Unit.Centimetre).PaddingTop(14);
             if (m.Emisor.Logo is { Length: > 0 } logo)
-                izquierda.MaxHeight(2.4f, Unit.Centimetre).Image(logo).FitArea();
+                izquierda.MaxHeight(EstilosCfdiMillet.LogoAltoCm, Unit.Centimetre).Image(logo).FitArea();
             else
                 izquierda.Text(m.Emisor.NombreComercial ?? m.Emisor.RazonSocial).FontSize(16).Bold();
 
@@ -234,6 +243,11 @@ public sealed class CfdiMilletDocument(CfdiPdfModel m) : IDocument
                 medidas.RelativeItem().Text($"Total Pie².:{(t.Pie2 is null ? "" : Medida(t.Pie2.Value))}");
                 medidas.RelativeItem().Text($"Total Qty.:{t.Piezas.ToString("#,##0.##", Numeros)}");
             });
+            if (!MuestraImpuestos)
+            {
+                fila.RelativeItem();
+                return;
+            }
             fila.RelativeItem().Table(tabla =>
             {
                 tabla.ColumnsDefinition(c =>
@@ -302,6 +316,83 @@ public sealed class CfdiMilletDocument(CfdiPdfModel m) : IDocument
             Rotulado(fila.RelativeItem(), "Forma de Pago/Way of Payment :", m.Pago.FormaPago);
         });
     }
+
+    /// <summary>El CFDI de traslado no lleva método ni forma de pago: la Carta Porte tipo T omite «Datos de pago».</summary>
+    internal bool MuestraDatosDePago => !(m.CartaPorte is not null && m.TipoComprobante == "Traslado");
+
+    /// <summary>La Carta Porte de traslado no lleva impuestos: no se imprime el encabezado de la tabla vacía.</summary>
+    internal bool MuestraImpuestos => m.CartaPorte is null || m.Impuestos.Count > 0;
+
+    /// <summary>Sin timbre el PDF es una vista previa, no la representación impresa de un CFDI.</summary>
+    internal bool MuestraLeyenda => m.Timbre is not null;
+
+    /// <summary>Complemento Carta Porte: tramo, autotransporte, operador y mercancías con barras grises como la factura.</summary>
+    private void CartaPorte(IContainer container)
+    {
+        var cp = m.CartaPorte!;
+        container.DefaultTextStyle(x => x.FontSize(EstilosCfdiMillet.Detalle)).Column(col =>
+        {
+            col.Spacing(6);
+            col.Item().Background(EstilosCfdiMillet.Gris).PaddingVertical(3).AlignCenter()
+                .Text("COMPLEMENTO CARTA PORTE/WAYBILL COMPLEMENT").Bold().FontSize(EstilosCfdiMillet.Seccion);
+            col.Item().Row(fila =>
+            {
+                fila.Spacing(10);
+                fila.RelativeItem().Element(c => Recuadro(c, "ORIGEN/ORIGIN", contenido => Lineas(contenido, Ubicacion(cp.Origen, "Fecha de salida/Departure"))));
+                fila.RelativeItem().Element(c => Recuadro(c, "DESTINO/DESTINATION", contenido => Lineas(contenido, Ubicacion(cp.Destino, "Llegada estimada/Estimated arrival"))));
+            });
+            col.Item().Row(fila =>
+            {
+                fila.Spacing(10);
+                fila.RelativeItem().Element(c => Recuadro(c, "AUTOTRANSPORTE/VEHICLE", contenido => Lineas(contenido, Vehiculo(cp.Vehiculo))));
+                fila.RelativeItem().Element(c => Recuadro(c, "OPERADOR/DRIVER", contenido => Lineas(contenido, Operador(cp.Operador))));
+            });
+            col.Item().Row(fila =>
+            {
+                fila.RelativeItem().Text(t =>
+                {
+                    t.Span("Distancia recorrida/Distance: ").Bold();
+                    t.Span($"{Importe(cp.DistanciaKm)} km");
+                });
+                if (cp.CartaPortePreviaFolio is { } previa)
+                    fila.RelativeItem().AlignRight().Text(t =>
+                    {
+                        t.Span("Continuación de/Continues: ").Bold();
+                        t.Span(previa);
+                    });
+            });
+            col.Item().Element(Mercancias);
+        });
+    }
+
+    internal static IReadOnlyList<(string Etiqueta, string Valor)> Ubicacion(UbicacionPdf u, string rotuloFecha) =>
+    [
+        ("", u.Nombre),
+        ("C.P./Zip code:", u.CodigoPostal ?? ""),
+        ("Estado/State:", u.Estado ?? ""),
+        ($"{rotuloFecha}:", u.Fecha.ToString("dd/MM/yyyy HH:mm", Numeros)),
+    ];
+
+    internal static IReadOnlyList<(string Etiqueta, string Valor)> Vehiculo(VehiculoPdf? v) => v is null
+        ? [("", "Sin vehículo en el catálogo")]
+        :
+        [
+            ("Placa/Plate:", v.Placa),
+            ("Configuración/Configuration:", v.ConfigVehicular),
+            ("Año/Year:", v.AnioModelo.ToString(Numeros)),
+            ("Peso bruto/Gross weight:", v.PesoBrutoToneladas is { } t ? $"{Importe(t)} t" : ""),
+            ("Permiso SCT/SCT permit:", string.Join(" ", new[] { v.TipoPermisoSct, v.NumPermisoSct }.Where(x => !string.IsNullOrWhiteSpace(x)))),
+            ("Seguro/Insurance:", string.Join(" · ", new[] { v.Aseguradora, v.PolizaSeguro }.Where(x => !string.IsNullOrWhiteSpace(x)))),
+        ];
+
+    internal static IReadOnlyList<(string Etiqueta, string Valor)> Operador(OperadorPdf? o) => o is null
+        ? [("", "Sin operador en el catálogo")]
+        :
+        [
+            ("", o.Nombre),
+            ("RFC:", o.Rfc),
+            ("Licencia/License:", o.NumLicencia),
+        ];
 
     /// <summary>
     /// Complemento de pago (86e3tfdx0): datos del pago en el recuadro gris de los
@@ -438,6 +529,62 @@ public sealed class CfdiMilletDocument(CfdiPdfModel m) : IDocument
                 tabla.Cell().PaddingVertical(1).PaddingLeft(4).Text(valor);
             }
         });
+
+    /// <summary>Renglones «etiqueta: valor»; sin etiqueta, el valor va en negrita (nombre del lugar o de la persona).</summary>
+    private static void Lineas(IContainer container, IReadOnlyList<(string Etiqueta, string Valor)> filas) =>
+        container.Column(datos =>
+        {
+            datos.Spacing(2);
+            foreach (var (etiqueta, valor) in filas)
+                datos.Item().Text(t =>
+                {
+                    if (etiqueta.Length == 0)
+                    {
+                        t.Span(valor).Bold();
+                        return;
+                    }
+                    t.Span(etiqueta + " ").Bold();
+                    t.Span(valor);
+                });
+        });
+
+    private void Mercancias(IContainer container)
+    {
+        var cp = m.CartaPorte!;
+        container.Table(tabla =>
+        {
+            tabla.ColumnsDefinition(c =>
+            {
+                c.RelativeColumn(1.3f);
+                c.RelativeColumn(3.6f);
+                c.RelativeColumn(0.9f);
+                c.RelativeColumn(0.8f);
+                c.RelativeColumn(1);
+                c.RelativeColumn(1);
+            });
+            tabla.Header(h =>
+            {
+                Encabezado(h.Cell(), "BIENES TRANSP.", "GOODS KEY", Alineacion.Izquierda);
+                Encabezado(h.Cell(), "MERCANCÍA", "GOODS", Alineacion.Centro);
+                Encabezado(h.Cell(), "CANTIDAD", "QUANTITY", Alineacion.Centro);
+                Encabezado(h.Cell(), "CVE UNIDAD", "KEY UNIT", Alineacion.Centro);
+                Encabezado(h.Cell(), "PESO KG", "WEIGHT KG", Alineacion.Centro);
+                Encabezado(h.Cell(), "MAT. PELIGROSO", "HAZARDOUS", Alineacion.Derecha);
+            });
+            foreach (var x in cp.Mercancias)
+            {
+                tabla.Cell().Element(Renglon).Text(x.BienesTransp);
+                tabla.Cell().Element(Renglon).AlignCenter().Text(x.Descripcion);
+                tabla.Cell().Element(Renglon).AlignCenter().Text(Importe(x.Cantidad));
+                tabla.Cell().Element(Renglon).AlignCenter().Text(x.ClaveUnidad);
+                tabla.Cell().Element(Renglon).AlignCenter().Text(Medida(x.PesoKg));
+                tabla.Cell().Element(Renglon).AlignRight().Text(x.MaterialPeligroso ? "Sí/Yes" : "No");
+            }
+            tabla.Cell().ColumnSpan(4).Element(Renglon).AlignRight().Text("Peso bruto total/Total gross weight:").Bold();
+            tabla.Cell().Element(Renglon).AlignCenter().Text(Medida(cp.PesoBrutoTotalKg)).Bold();
+            tabla.Cell().Element(Renglon);
+        });
+    }
 
     private void Relacionados(IContainer container)
     {

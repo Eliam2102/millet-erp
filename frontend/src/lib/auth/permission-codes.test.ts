@@ -140,6 +140,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'admin.sucursales.puestos-gestionar',
   'admin.sucursales.usuarios-gestionar',
   'admin.auditoria.leer',
+  'admin.auditoria.exportar',
   'admin.series.gestionar',
   'admin.parametros.leer',
   'admin.parametros.editar',
@@ -246,6 +247,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'cuentas_por_cobrar.cartera.leer',
   'cuentas_por_cobrar.aplicacion-pago.proponer',
   'cuentas_por_cobrar.aplicacion-pago.confirmar',
+  'cuentas_por_cobrar.reglas-serie.gestionar',
   // Tesorería / Bancos (TES-FE-PR1). Mirror del backend §"Tesorería"
   // (namespace GUID 0000000b-*). 18 seedeados en TES-PR1 + pasivos.ver
   // en TES-PR3 + cuentas.administrar (TES-7 revisada).
@@ -264,6 +266,8 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'tesoreria.depositos.confirmar',
   'tesoreria.depositos.rechazar',
   'tesoreria.diferencias-corte.autorizar',
+  'tesoreria.folios-transferencia.emitir',
+  'tesoreria.folios-transferencia.cancelar',
   'tesoreria.repp.registrar',
   'tesoreria.conciliacion.operar',
   'tesoreria.conciliacion.cerrar',

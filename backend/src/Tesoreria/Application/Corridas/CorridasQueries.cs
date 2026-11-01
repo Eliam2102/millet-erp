@@ -5,6 +5,7 @@ using Millet.Tesoreria.Application.Common;
 using Millet.Tesoreria.Application.Pasivos;
 using Millet.Tesoreria.Domain.Corridas;
 using Millet.Tesoreria.Domain.Pasivos;
+using Millet.Tesoreria.Domain.Ports;
 using Millet.Tesoreria.Domain.Ports.DatosMaestros;
 using Millet.Tesoreria.Infrastructure.Persistence;
 
@@ -39,7 +40,8 @@ public static class PasivosPagables
 public sealed record PasivoParaCorridaResponse(
     Guid FacturaProveedorId, Guid ProveedorId, string? ProveedorRazonSocial, string? FolioProveedor,
     DateOnly FechaVencimiento, string Moneda, decimal Bruto, decimal Retenciones, decimal Neto,
-    bool CuentaValidada, bool Detenida = false, string? MotivoDetencion = null);
+    bool CuentaValidada, bool Detenida = false, string? MotivoDetencion = null,
+    bool ProveedorBloqueado = false, string? MotivoBloqueo = null);
 
 public sealed record PasivosParaCorridaQuery(
     string Moneda, Guid? ProveedorId = null, DateOnly? VenceDesde = null, DateOnly? VenceHasta = null,
@@ -76,7 +78,8 @@ public sealed class PasivosParaCorridaHandler(TesoreriaDbContext db, IProveedorB
             return new PasivoParaCorridaResponse(p.FacturaProveedorId, p.ProveedorId, pv?.RazonSocial, p.FolioProveedor,
                 p.FechaVencimiento, p.Moneda, bruto, ret, p.SaldoPendiente,
                 CuentaValidada: pv is { Activo: true, EnRevision: false } && pv.CuentaPara(p.Moneda) is not null,
-                Detenida: pv is { SinOpinionCumplimiento: true }, MotivoDetencion: pv is { SinOpinionCumplimiento: true } ? PasivosPagables.MotivoDocumentacion : null);
+                Detenida: pv is { SinOpinionCumplimiento: true }, MotivoDetencion: pv is { SinOpinionCumplimiento: true } ? PasivosPagables.MotivoDocumentacion : null,
+                ProveedorBloqueado: pv is { Bloqueado: true }, MotivoBloqueo: pv?.MotivoBloqueo);
         }).ToList();
         return new PagedResponse<PasivoParaCorridaResponse>(respuesta, offset, limit, total);
     }
@@ -85,7 +88,7 @@ public sealed class PasivosParaCorridaHandler(TesoreriaDbContext db, IProveedorB
 public sealed record CorridaProveedorResponse(Guid ProveedorId, string? ProveedorRazonSocial, int Facturas, decimal Bruto, decimal Retenciones, decimal Neto);
 public sealed record CorridaLineaResponse(Guid FacturaProveedorId, Guid ProveedorId, string? FolioProveedor, DateOnly? FechaVencimiento,
     decimal Bruto, decimal Retenciones, decimal Neto, bool Ejecutada, string? ReferenciaBancaria, DateOnly? FechaEjecucion);
-public sealed record CorridaFirmaResponse(Guid UsuarioId, string Roles, DateTimeOffset FirmadaEn);
+public sealed record CorridaFirmaResponse(Guid UsuarioId, string Roles, DateTimeOffset FirmadaEn, string? UsuarioNombre = null);
 
 public sealed record CorridaResponse(
     Guid Id, string Nombre, string Estado, string Moneda, Guid CuentaBancariaId,
@@ -100,13 +103,16 @@ public sealed record CorridaResponse(
 
 internal static class CorridaLectura
 {
-    public static async Task<CorridaResponse> ToResponseAsync(TesoreriaDbContext db, IProveedorBancoReadPort proveedores, CorridaPago c, CancellationToken cancellationToken)
+    public static async Task<CorridaResponse> ToResponseAsync(TesoreriaDbContext db, IProveedorBancoReadPort proveedores, CorridaPago c, CancellationToken cancellationToken,
+        ICorteNombresReadPort? nombres = null)
     {
         var ct = cancellationToken;
         var facturaIds = c.Lineas.Select(l => l.FacturaProveedorId).ToList();
         var pasivos = await db.PasivosPendientesPago.AsNoTracking().Where(p => facturaIds.Contains(p.FacturaProveedorId))
             .Select(p => new { p.FacturaProveedorId, p.FolioProveedor, p.FechaVencimiento }).ToDictionaryAsync(p => p.FacturaProveedorId, ct);
         var info = await proveedores.ObtenerVariosAsync(c.Lineas.Select(l => l.ProveedorId).Distinct().ToList(), ct);
+        // Nombre de quien firmó (Identidad, por lote); sin puerto o sin match, el cliente cae al id.
+        var firmantes = nombres is null ? null : await nombres.NombresCajerosAsync(c.Firmas.Select(f => f.UsuarioId).ToList(), ct);
 
         var lineas = c.Lineas.Select(l =>
         {
@@ -121,7 +127,7 @@ internal static class CorridaLectura
             c.Lineas.Sum(l => l.Bruto), c.Lineas.Sum(l => l.Retenciones), c.Total,
             c.SolicitadaPor, c.AutorizadaPor, c.AutorizadaEn, c.CreadaEn,
             c.FirmasRequeridas, c.FirmasRecibidas, c.RolRequerido, c.MotivoCierre, c.Avisos, c.Version,
-            porProveedor, lineas, c.Firmas.Select(f => new CorridaFirmaResponse(f.UsuarioId, f.Roles, f.FirmadaEn)).ToList(),
+            porProveedor, lineas, c.Firmas.Select(f => new CorridaFirmaResponse(f.UsuarioId, f.Roles, f.FirmadaEn, firmantes?.GetValueOrDefault(f.UsuarioId))).ToList(),
             c.Ejecutado, c.Pendiente, c.OficioGeneradoEn);
     }
 }
@@ -151,13 +157,13 @@ public sealed class ListarCorridasHandler(TesoreriaDbContext db) : IRequestHandl
 
 public sealed record ObtenerCorridaQuery(Guid Id) : IRequest<CorridaResponse>;
 
-public sealed class ObtenerCorridaHandler(TesoreriaDbContext db, IProveedorBancoReadPort proveedores) : IRequestHandler<ObtenerCorridaQuery, CorridaResponse>
+public sealed class ObtenerCorridaHandler(TesoreriaDbContext db, IProveedorBancoReadPort proveedores, ICorteNombresReadPort? nombres = null) : IRequestHandler<ObtenerCorridaQuery, CorridaResponse>
 {
     public async Task<CorridaResponse> Handle(ObtenerCorridaQuery query, CancellationToken cancellationToken)
     {
         var ct = cancellationToken;
         var c = await db.CorridasPago.AsNoTracking().Include(x => x.Lineas).Include(x => x.Firmas).FirstOrDefaultAsync(x => x.Id == query.Id, ct)
             ?? throw new EntityNotFoundException("CORRIDA_NO_ENCONTRADA", $"No se encontró la corrida '{query.Id}'.");
-        return await CorridaLectura.ToResponseAsync(db, proveedores, c, ct);
+        return await CorridaLectura.ToResponseAsync(db, proveedores, c, ct, nombres);
     }
 }

@@ -58,6 +58,8 @@ public sealed class ConfiguracionPacConfiguration : IEntityTypeConfiguration<Con
         builder.Property(c => c.CsdActualizadoAt);
         builder.Property(c => c.CsdNotBefore);
         builder.Property(c => c.CsdNotAfter);
+        // F6.9: revocación del CSD en uso (bloquea el timbrado).
+        builder.Property(c => c.CsdRevocadoEn);
 
         // Identidades de prueba (LCO sintética) — owned opcionales, table
         // splitting sobre la misma fila. Todas las columnas NULL ⇒ navegación

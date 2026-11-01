@@ -1657,6 +1657,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000005-0002-0000-0000-000000000003"),
+                            Accion = "exportar",
+                            Codigo = "admin.auditoria.exportar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Exportar la bitácora de auditoría a CSV con renglón de control",
+                            Modulo = "admin",
+                            Recurso = "auditoria",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000005-0003-0000-0000-000000000001"),
                             Accion = "gestionar",
                             Codigo = "admin.departamentos.gestionar",
@@ -4079,6 +4093,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("0000000a-0006-0000-0000-000000000001"),
+                            Accion = "gestionar",
+                            Codigo = "cuentas_por_cobrar.reglas-serie.gestionar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Dar de alta, cambiar y activar o desactivar las reglas de liberación por serie",
+                            Modulo = "cuentas_por_cobrar",
+                            Recurso = "reglas-serie",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("0000000b-0001-0000-0000-000000000001"),
                             Accion = "ver",
                             Codigo = "tesoreria.cuentas.ver",
@@ -4423,6 +4451,34 @@ namespace Millet.Identidad.Infrastructure.Migrations
                             Descripcion = "Autorizar o rechazar el faltante o sobrante del corte de caja (Tesorería; el cajero del corte no puede autorizar el suyo)",
                             Modulo = "tesoreria",
                             Recurso = "diferencias-corte",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000b-000d-0000-0000-000000000001"),
+                            Accion = "emitir",
+                            Codigo = "tesoreria.folios-transferencia.emitir",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Emitir el folio de confirmación de una transferencia validada en el banco (Ingresos); Caja solo aplica la forma 03 con ese folio",
+                            Modulo = "tesoreria",
+                            Recurso = "folios-transferencia",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000b-000d-0000-0000-000000000002"),
+                            Accion = "cancelar",
+                            Codigo = "tesoreria.folios-transferencia.cancelar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Cancelar con motivo un folio de transferencia que Caja no ha usado",
+                            Modulo = "tesoreria",
+                            Recurso = "folios-transferencia",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1

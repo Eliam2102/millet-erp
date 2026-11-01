@@ -65,7 +65,7 @@ qué un sistema es como es.
 |------|-----------------------------------------------------------|------------|
 | [0024](./0024-almacenamiento-documentos.md) | Almacenamiento de documentos con Azure Blob Storage | Aceptada |
 | [0025](./0025-generacion-pdfs.md) | Generación de PDFs con QuestPDF | Aceptada |
-| [0026](./0026-notificaciones-email.md) | Notificaciones por email con Azure Communication Services Email | Aceptada |
+| [0026](./0026-notificaciones-email.md) | Notificaciones por email con Azure Communication Services Email | Aceptada; proveedor reemplazado por ADR-0063 (propuesta) |
 | [0027](./0027-integracion-pac-onefactura.md) | Integración con PAC fiscal (`IPacProvider` + OneFactura) | Reemplazada por [ADR-0038](./0038-fiscalapi-pac-unico.md) |
 
 ### Operación y entrega (DevOps)
@@ -120,6 +120,7 @@ qué un sistema es como es.
 
 | [0050](./0050-consumo-centro-costo-maquina-dim3.md) | Consumo del centro de costo de máquina en Compras | Reemplazada parcialmente por ADR-0062 |
 | [0062](./0062-centro-costo-heredado-departamento.md) | Heredar el centro de costo del departamento y permitir máquina opcional (P203) | Aceptada para construcción; V49 Por confirmar |
+| [0063](./0063-correo-saliente-por-microsoft-graph.md) | Correo saliente por Microsoft Graph desde el buzón del ERP | Propuesta |
 
 ## Backlog explícito (decisiones pendientes que NO deben olvidarse)
 

@@ -217,186 +217,6 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                     b.ToTable("integration_events_outbox", "tesoreria");
                 });
 
-            modelBuilder.Entity("Millet.Tesoreria.Domain.Corridas.ArchivoLayoutPago", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("Banco")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasColumnName("banco");
-
-                    b.Property<string>("Contenido")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("contenido");
-
-                    b.Property<Guid>("CorridaId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("corrida_id");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("text")
-                        .HasColumnName("created_by");
-
-                    b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<Guid>("EmpresaId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("empresa_id");
-
-                    b.Property<DateTimeOffset>("GeneradoEn")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("generado_en");
-
-                    b.Property<Guid>("GeneradoPor")
-                        .HasColumnType("uuid")
-                        .HasColumnName("generado_por");
-
-                    b.Property<int>("LineasExcluidas")
-                        .HasColumnType("integer")
-                        .HasColumnName("lineas_excluidas");
-
-                    b.Property<int>("LineasValidas")
-                        .HasColumnType("integer")
-                        .HasColumnName("lineas_validas");
-
-                    b.Property<string>("NombreArchivo")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("nombre_archivo");
-
-                    b.Property<short>("TipoPago")
-                        .HasColumnType("smallint")
-                        .HasColumnName("tipo_pago");
-
-                    b.Property<decimal>("Total")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
-                        .HasColumnName("total");
-
-                    b.Property<DateTimeOffset?>("UltimaDescargaEn")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("ultima_descarga_en");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("text")
-                        .HasColumnName("updated_by");
-
-                    b.Property<int>("VecesDescargado")
-                        .HasColumnType("integer")
-                        .HasColumnName("veces_descargado");
-
-                    b.Property<int>("Version")
-                        .IsConcurrencyToken()
-                        .HasColumnType("integer")
-                        .HasColumnName("version");
-
-                    b.HasKey("Id")
-                        .HasName("pk_corrida_pago_archivo");
-
-                    b.HasIndex("EmpresaId", "CorridaId", "Banco", "TipoPago")
-                        .IsUnique()
-                        .HasDatabaseName("ux_corrida_pago_archivo_tipo");
-
-                    b.ToTable("corrida_pago_archivo", "tesoreria");
-                });
-
-            modelBuilder.Entity("Millet.Tesoreria.Domain.Corridas.ArchivoLayoutPagoLinea", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<Guid>("ArchivoLayoutId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("archivo_layout_id");
-
-                    b.Property<string>("Concepto")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
-                        .HasColumnName("concepto");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("text")
-                        .HasColumnName("created_by");
-
-                    b.Property<string>("CuentaDestino")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasColumnName("cuenta_destino");
-
-                    b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<Guid>("FacturaProveedorId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("factura_proveedor_id");
-
-                    b.Property<decimal>("ImporteNeto")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
-                        .HasColumnName("importe_neto");
-
-                    b.Property<Guid>("ProveedorId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("proveedor_id");
-
-                    b.Property<string>("Referencia")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
-                        .HasColumnName("referencia");
-
-                    b.Property<string>("Titular")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("titular");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("text")
-                        .HasColumnName("updated_by");
-
-                    b.Property<int>("Version")
-                        .IsConcurrencyToken()
-                        .HasColumnType("integer")
-                        .HasColumnName("version");
-
-                    b.HasKey("Id")
-                        .HasName("pk_corrida_pago_archivo_linea");
-
-                    b.HasIndex("ArchivoLayoutId", "FacturaProveedorId")
-                        .HasDatabaseName("ix_corrida_pago_archivo_linea_factura");
-
-                    b.ToTable("corrida_pago_archivo_linea", "tesoreria");
-                });
-
             modelBuilder.Entity("Millet.Tesoreria.Domain.Conciliaciones.BitacoraConciliacion", b =>
                 {
                     b.Property<Guid>("Id")
@@ -771,6 +591,186 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_extracto_linea_match_movimiento");
 
                     b.ToTable("extracto_linea_match", "tesoreria");
+                });
+
+            modelBuilder.Entity("Millet.Tesoreria.Domain.Corridas.ArchivoLayoutPago", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Banco")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("banco");
+
+                    b.Property<string>("Contenido")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("contenido");
+
+                    b.Property<Guid>("CorridaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("corrida_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<DateTimeOffset>("GeneradoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("generado_en");
+
+                    b.Property<Guid>("GeneradoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("generado_por");
+
+                    b.Property<int>("LineasExcluidas")
+                        .HasColumnType("integer")
+                        .HasColumnName("lineas_excluidas");
+
+                    b.Property<int>("LineasValidas")
+                        .HasColumnType("integer")
+                        .HasColumnName("lineas_validas");
+
+                    b.Property<string>("NombreArchivo")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("nombre_archivo");
+
+                    b.Property<short>("TipoPago")
+                        .HasColumnType("smallint")
+                        .HasColumnName("tipo_pago");
+
+                    b.Property<decimal>("Total")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("total");
+
+                    b.Property<DateTimeOffset?>("UltimaDescargaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ultima_descarga_en");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("VecesDescargado")
+                        .HasColumnType("integer")
+                        .HasColumnName("veces_descargado");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_corrida_pago_archivo");
+
+                    b.HasIndex("EmpresaId", "CorridaId", "Banco", "TipoPago")
+                        .IsUnique()
+                        .HasDatabaseName("ux_corrida_pago_archivo_tipo");
+
+                    b.ToTable("corrida_pago_archivo", "tesoreria");
+                });
+
+            modelBuilder.Entity("Millet.Tesoreria.Domain.Corridas.ArchivoLayoutPagoLinea", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ArchivoLayoutId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("archivo_layout_id");
+
+                    b.Property<string>("Concepto")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("concepto");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("CuentaDestino")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("cuenta_destino");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("FacturaProveedorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("factura_proveedor_id");
+
+                    b.Property<decimal>("ImporteNeto")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("importe_neto");
+
+                    b.Property<Guid>("ProveedorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("proveedor_id");
+
+                    b.Property<string>("Referencia")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("referencia");
+
+                    b.Property<string>("Titular")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("titular");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_corrida_pago_archivo_linea");
+
+                    b.HasIndex("ArchivoLayoutId", "FacturaProveedorId")
+                        .HasDatabaseName("ix_corrida_pago_archivo_linea_factura");
+
+                    b.ToTable("corrida_pago_archivo_linea", "tesoreria");
                 });
 
             modelBuilder.Entity("Millet.Tesoreria.Domain.Corridas.CorridaPago", b =>
@@ -2191,6 +2191,137 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                     b.ToTable("evento_procesado", "tesoreria");
                 });
 
+            modelBuilder.Entity("Millet.Tesoreria.Domain.FoliosTransferencia.FolioSecuenciaTransferencia", b =>
+                {
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<int>("Siguiente")
+                        .HasColumnType("integer")
+                        .HasColumnName("siguiente");
+
+                    b.HasKey("EmpresaId")
+                        .HasName("pk_folio_secuencias_transferencia");
+
+                    b.ToTable("folio_secuencias_transferencia", "tesoreria");
+                });
+
+            modelBuilder.Entity("Millet.Tesoreria.Domain.FoliosTransferencia.FolioTransferencia", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("CanceladoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cancelado_en");
+
+                    b.Property<Guid?>("CanceladoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cancelado_por");
+
+                    b.Property<Guid>("ClienteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cliente_id");
+
+                    b.Property<Guid?>("CobroMostradorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cobro_mostrador_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<DateTimeOffset>("EmitidoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("emitido_en");
+
+                    b.Property<Guid>("EmitidoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("emitido_por");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<short>("Estado")
+                        .HasColumnType("smallint")
+                        .HasColumnName("estado");
+
+                    b.Property<string>("Folio")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("folio");
+
+                    b.Property<decimal>("Importe")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("importe");
+
+                    b.Property<string>("MotivoCancelacion")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("motivo_cancelacion");
+
+                    b.Property<Guid>("MovimientoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("movimiento_id");
+
+                    b.Property<string>("Pedido")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("pedido");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<DateTimeOffset?>("UsadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("usado_en");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_folio_transferencia");
+
+                    b.HasIndex("MovimientoId")
+                        .HasDatabaseName("ix_folio_transferencia_movimiento");
+
+                    b.HasIndex("ClienteId", "Estado")
+                        .HasDatabaseName("ix_folio_transferencia_cliente_estado");
+
+                    b.HasIndex("EmpresaId", "Folio")
+                        .IsUnique()
+                        .HasDatabaseName("ux_folio_transferencia_empresa_folio");
+
+                    b.ToTable("folio_transferencia", "tesoreria", t =>
+                        {
+                            t.HasCheckConstraint("ck_folio_transferencia_estado", "estado IN (1, 2, 3)");
+
+                            t.HasCheckConstraint("ck_folio_transferencia_importe", "importe > 0");
+
+                            t.HasCheckConstraint("ck_folio_transferencia_usado", "(estado = 2) = (cobro_mostrador_id IS NOT NULL)");
+                        });
+                });
+
             modelBuilder.Entity("Millet.Tesoreria.Domain.Movimientos.AplicacionPagoProveedor", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2742,16 +2873,6 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                     b.ToTable("repp_proveedor_recibido", "tesoreria");
                 });
 
-            modelBuilder.Entity("Millet.Tesoreria.Domain.Corridas.ArchivoLayoutPagoLinea", b =>
-                {
-                    b.HasOne("Millet.Tesoreria.Domain.Corridas.ArchivoLayoutPago", null)
-                        .WithMany("Lineas")
-                        .HasForeignKey("ArchivoLayoutId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_corrida_pago_archivo_linea_corrida_pago_archivo_archivo_lay");
-                });
-
             modelBuilder.Entity("Millet.Tesoreria.Domain.Conciliaciones.BitacoraConciliacion", b =>
                 {
                     b.HasOne("Millet.Tesoreria.Domain.Conciliaciones.Conciliacion", null)
@@ -2803,6 +2924,16 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_extracto_linea_match_movimiento_bancario_movimiento_bancari");
+                });
+
+            modelBuilder.Entity("Millet.Tesoreria.Domain.Corridas.ArchivoLayoutPagoLinea", b =>
+                {
+                    b.HasOne("Millet.Tesoreria.Domain.Corridas.ArchivoLayoutPago", null)
+                        .WithMany("Lineas")
+                        .HasForeignKey("ArchivoLayoutId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_corrida_pago_archivo_linea_corrida_pago_archivo_archivo_lay");
                 });
 
             modelBuilder.Entity("Millet.Tesoreria.Domain.Corridas.CorridaPago", b =>
@@ -2876,6 +3007,16 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_devolucion_cliente_movimiento_bancario_movimiento_pago_id");
                 });
 
+            modelBuilder.Entity("Millet.Tesoreria.Domain.FoliosTransferencia.FolioTransferencia", b =>
+                {
+                    b.HasOne("Millet.Tesoreria.Domain.Movimientos.MovimientoBancario", null)
+                        .WithMany()
+                        .HasForeignKey("MovimientoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_folio_transferencia_movimiento_bancario_movimiento_id");
+                });
+
             modelBuilder.Entity("Millet.Tesoreria.Domain.Movimientos.AplicacionPagoProveedor", b =>
                 {
                     b.HasOne("Millet.Tesoreria.Domain.Corridas.CorridaPago", null)
@@ -2931,11 +3072,6 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_repp_pagos_proveedor_repp_proveedor_recibido_repp_id");
                 });
 
-            modelBuilder.Entity("Millet.Tesoreria.Domain.Corridas.ArchivoLayoutPago", b =>
-                {
-                    b.Navigation("Lineas");
-                });
-
             modelBuilder.Entity("Millet.Tesoreria.Domain.Conciliaciones.Conciliacion", b =>
                 {
                     b.Navigation("Bitacora");
@@ -2946,6 +3082,11 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Millet.Tesoreria.Domain.Conciliaciones.ExtractoLinea", b =>
                 {
                     b.Navigation("Matches");
+                });
+
+            modelBuilder.Entity("Millet.Tesoreria.Domain.Corridas.ArchivoLayoutPago", b =>
+                {
+                    b.Navigation("Lineas");
                 });
 
             modelBuilder.Entity("Millet.Tesoreria.Domain.Corridas.CorridaPago", b =>

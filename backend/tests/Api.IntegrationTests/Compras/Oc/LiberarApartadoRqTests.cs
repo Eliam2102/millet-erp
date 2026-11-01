@@ -85,7 +85,7 @@ public partial class OrdenesCompraEndpointsTests
             var handler = new AutorizarRequisicionHandler(sp.GetRequiredService<ComprasDbContext>(), sp.GetRequiredService<IMediator>(), new UsuarioP2(Guid.NewGuid()), new NivelP7(),
                 sp.GetRequiredService<IConsultarStockPort>(), sp.GetRequiredService<IGenerarSolicitudCompraPort>(),
                 sp.GetRequiredService<IClock>(), sp.GetRequiredService<TransaccionApartadosRq>(), sp.GetRequiredService<IConversionUnidadPort>(),
-                sp.GetRequiredService<IArticuloReadPort>());
+                sp.GetRequiredService<IArticuloReadPort>(), sp.GetRequiredService<Millet.Compras.Domain.Ports.Matriz.IResolverAutorizadorPort>());
             await handler.Handle(new(rq.Id, NivelAutorizacion.Nivel1), default);
         }
 

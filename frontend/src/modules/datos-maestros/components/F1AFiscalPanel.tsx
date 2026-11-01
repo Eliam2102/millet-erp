@@ -87,7 +87,7 @@ export function F1AProductoFiscal({ producto }: { producto: ProductoAwDetalle })
     );
   }
   return (
-    <section className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat text-sm text-ink">
+    <section id="ficha-fiscal-producto" className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat text-sm text-ink">
       <h2 className="text-lg font-semibold">Revisión fiscal del producto</h2>
       <div className="flex flex-wrap gap-2">
         <Badge variant={faltantes.length ? 'warning' : 'info'}>
@@ -101,12 +101,6 @@ export function F1AProductoFiscal({ producto }: { producto: ProductoAwDetalle })
               : 'Sin regla aplicada'}
         </span>
       </div>
-      {faltantes.length > 0 && (
-        <p role="note" className="rounded-md bg-warning-note-bg p-3 text-warning-note-fg">
-          Falta {faltantes.join(', ')}. Completa los datos fiscales para poder timbrar este
-          producto.
-        </p>
-      )}
       {producto.confirmadoEn && (
         <p className="text-xs text-ink-muted">
           Confirmada el {new Date(producto.confirmadoEn).toLocaleString('es-MX')} ·{' '}

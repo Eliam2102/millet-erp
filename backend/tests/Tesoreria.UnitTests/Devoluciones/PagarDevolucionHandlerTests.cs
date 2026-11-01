@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 using Millet.Tesoreria.Application.Devoluciones;
+using Millet.Tesoreria.Application.Integration;
 using Millet.Tesoreria.Domain.Cuentas;
 using Millet.Tesoreria.Domain.Devoluciones;
 using Millet.Tesoreria.Domain.Movimientos;
@@ -21,8 +22,8 @@ public sealed class PagarDevolucionHandlerTests
 
     private static TesoreriaDbContext Db() => new(new DbContextOptionsBuilder<TesoreriaDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, new EmpresaContext());
 
-    private static PagarDevolucionClienteHandler Handler(TesoreriaDbContext db, bool abierto = true) =>
-        new(db, new EmpresaContext(), new User(Guid.NewGuid()), new Periodo(abierto), new Clock());
+    private static PagarDevolucionClienteHandler Handler(TesoreriaDbContext db, bool abierto = true, Publicador? publicador = null) =>
+        new(db, new EmpresaContext(), new User(Guid.NewGuid()), new Periodo(abierto), new Clock(), publicador ?? new Publicador());
 
     private static async Task<(MovimientoBancario, DevolucionCliente)> Deposito(TesoreriaDbContext db, decimal importe = 1_000m)
     {
@@ -56,6 +57,40 @@ public sealed class PagarDevolucionHandlerTests
         r.MovimientoPagoId.Should().Be(egreso.Id);
         egreso.Sentido.Should().Be(SentidoMovimiento.Egreso);
         (await db.MovimientosBancarios.FirstAsync(x => x.Id == m.Id)).EstadoAplicacion.Should().Be(EstadoAplicacionMovimiento.Aplicado);
+    }
+
+    [Fact]
+    public async Task F63a_pagar_el_reembolso_de_una_nc_avisa_a_facturacion_con_fecha_y_referencia()
+    {
+        await using var db = Db(); var (c, d) = await Nc(db, "MXN");
+        var publicador = new Publicador();
+        await Handler(db, publicador: publicador).Handle(new(d.Id, Fecha, c.Id, "SPEI 987", true, d.Version), default);
+
+        var e = publicador.Publicados.OfType<ReembolsoNotaCreditoActualizadoIntegrationEvent>().Single();
+        e.NotaCreditoId.Should().Be(d.NotaCreditoId!.Value);
+        e.Estado.Should().Be("Pagada");
+        e.FechaPago.Should().Be(Fecha);
+        e.ReferenciaBancaria.Should().Be("SPEI 987");
+        e.Importe.Should().Be(300m);
+    }
+
+    [Fact]
+    public async Task Pagar_sin_referencia_usa_la_referencia_del_movimiento()
+    {
+        await using var db = Db(); var (c, d) = await Nc(db, "MXN");
+        var publicador = new Publicador();
+        await Handler(db, publicador: publicador).Handle(new(d.Id, Fecha, c.Id, null, true, d.Version), default);
+        publicador.Publicados.OfType<ReembolsoNotaCreditoActualizadoIntegrationEvent>().Single()
+            .ReferenciaBancaria.Should().Be("DEV NC NC-1");
+    }
+
+    [Fact]
+    public async Task Pagar_una_devolucion_por_deposito_no_avisa_a_facturacion()
+    {
+        await using var db = Db(); var (_, d) = await Deposito(db);
+        var publicador = new Publicador();
+        await Handler(db, publicador: publicador).Handle(new(d.Id, Fecha, null, null, true, d.Version), default);
+        publicador.Publicados.Should().BeEmpty();
     }
 
     [Fact]
@@ -119,5 +154,10 @@ public sealed class PagarDevolucionHandlerTests
     { public Guid? Current => Empresa; public bool IsBypassed => false; public IDisposable Bypass() => new Noop(); private sealed class Noop : IDisposable { public void Dispose() { } } }
     private sealed class User(Guid id) : ICurrentUserContext { public Guid? UserId => id; public string? UserName => "Prueba"; }
     private sealed class Clock : IClock { public DateTimeOffset UtcNow => Ahora; }
+    private sealed class Publicador : IIntegrationEventPublisher
+    {
+        public List<object> Publicados { get; } = [];
+        public Task PublishAsync(object integrationEvent, CancellationToken ct) { Publicados.Add(integrationEvent); return Task.CompletedTask; }
+    }
     private sealed class Periodo(bool abierto) : IPeriodoContablePort { public Task<bool> EstaAbiertoAsync(int año, int mes, CancellationToken ct) => Task.FromResult(abierto); }
 }

@@ -140,6 +140,15 @@ public sealed class TesoreriaEventListenerWorker : BackgroundService, ILocalInte
                     break;
                 }
 
+                case ReembolsoNotaCreditoActualizadoPayload.EventType:
+                {
+                    // F6.3: estado del reembolso de una NC (autorizado, rechazado, cancelado o pagado).
+                    var payload = JsonSerializer.Deserialize<ReembolsoNotaCreditoActualizadoPayload>(body, JsonOpts)
+                        ?? throw new JsonException("Payload null.");
+                    await mediator.Send(new ActualizarReembolsoNotaCreditoCommand(eventId, payload), cancellationToken);
+                    break;
+                }
+
                 default:
                 {
                     _logger.Log(

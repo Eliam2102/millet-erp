@@ -125,7 +125,11 @@ public sealed record NotaCreditoReembolsoSolicitadoIntegrationEvent(
     string Moneda,
     Guid SucursalId,
     string Motivo,
-    Guid SolicitadoPor)
+    Guid SolicitadoPor,
+    // F6.3: cuenta destino capturada al emitir la NC (opcional; si falta, Tesorería la captura al editar la devolución).
+    string? DestinoBanco = null,
+    string? DestinoClabe = null,
+    string? DestinoTitular = null)
     : IntegrationEvent("facturacion.nota-credito.reembolso-solicitado.v1", EmpresaId, OcurridoEn);
 
 /// <summary>
@@ -223,8 +227,11 @@ public sealed record CajaFaltanteDevueltoIntegrationEvent(
     decimal Importe)
     : IntegrationEvent("facturacion.caja-faltante.devuelto.v1", EmpresaId, OcurridoEn);
 
-/// <summary>Forma de pago aplicada en un cobro de mostrador.</summary>
-public sealed record CobroFormaPagoAplicada(string FormaPago, decimal Importe);
+/// <summary>
+/// Forma de pago aplicada en un cobro de mostrador. <c>FolioTransferencia</c>
+/// solo en forma 03: Tesorería lo marca «Usado» (F6.6).
+/// </summary>
+public sealed record CobroFormaPagoAplicada(string FormaPago, decimal Importe, string? FolioTransferencia = null);
 
 // ---- Cobro de mostrador registrado (CAJAS-PR4, 12-cajas.md §10) ----
 public sealed record CobroMostradorRegistradoIntegrationEvent(
@@ -256,3 +263,24 @@ public sealed record CobroMostradorCanceladoIntegrationEvent(
     decimal Total,
     bool ReversadoEnSesion)
     : IntegrationEvent("facturacion.cobro-mostrador.cancelado.v1", EmpresaId, OcurridoEn);
+
+/// <summary>Venta con tarjeta liquidada por el banco: cobro de caja y su importe bruto.</summary>
+public sealed record VentaTerminalLiquidada(Guid CobroMostradorId, Guid SucursalId, decimal Importe, string? Autorizacion);
+
+// ---- Liquidación de la terminal de tarjetas (86e3vr1tf, Parte A) ----
+// Una por folio de liquidación del banco. Póliza esperada (C1.5): cargo a bancos
+// por Neto, a comisiones por tarjeta (601.75) por Comision y a IVA pendiente de
+// pago por IvaComision; abono a «COBROS T/C, T/D» por Bruto.
+// PLATFORM-TODO(<PolizaLiquidacionTerminal>): Contabilidad aún no consume este evento.
+public sealed record TerminalLiquidacionRegistradaIntegrationEvent(
+    Guid EmpresaId,
+    DateTimeOffset OcurridoEn,
+    Guid LiquidacionId,
+    string FolioLiquidacion,
+    DateOnly Fecha,
+    decimal Bruto,
+    decimal Comision,
+    decimal IvaComision,
+    decimal Neto,
+    IReadOnlyList<VentaTerminalLiquidada> Ventas)
+    : IntegrationEvent("facturacion.terminal.liquidacion-registrada.v1", EmpresaId, OcurridoEn);

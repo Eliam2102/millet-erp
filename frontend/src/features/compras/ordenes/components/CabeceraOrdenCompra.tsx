@@ -329,6 +329,7 @@ function FormularioCabecera({
                       value={field.value || null}
                       onChange={(v) => field.onChange(v ?? '')}
                       initialLabel={oc.proveedorRazonSocial ?? undefined}
+                      deshabilitarBloqueados
                     />
                   </div>
                 )}

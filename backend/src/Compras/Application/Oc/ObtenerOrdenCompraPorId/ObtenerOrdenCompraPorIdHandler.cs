@@ -146,11 +146,12 @@ public sealed class ObtenerOrdenCompraPorIdHandler
             nombres.TryGetValue(usuarioId, out ultimaImpresionNombre);
         }
 
-        var idsServicio = new[] { oc.ServicioConfirmadoPorId, oc.ServicioNoConformePorId }.OfType<Guid>().Distinct().ToArray();
+        var idsServicio = new Guid?[] { oc.CompradorTitularId, oc.ServicioConfirmadoPorId, oc.ServicioNoConformePorId }.OfType<Guid>().Distinct().ToArray();
         var nombresServicio = await _usuarios.ObtenerNombresAsync(idsServicio, cancellationToken);
 
         return response with
         {
+            CompradorNombre = nombresServicio.GetValueOrDefault(oc.CompradorTitularId),
             ServicioConfirmadoPorNombre = oc.ServicioConfirmadoPorId is Guid cp ? nombresServicio.GetValueOrDefault(cp) : null,
             ServicioNoConformePorNombre = oc.ServicioNoConformePorId is Guid np ? nombresServicio.GetValueOrDefault(np) : null,
             UsoCfdiClave = oc.UsoCfdiClave,

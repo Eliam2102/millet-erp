@@ -1,9 +1,5 @@
 import { KpiCard, ErrorState } from '@/components/erp';
 
-import { Badge } from '@/components/ui/badge';
-import { AlertTriangle } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-
 import { useCreditoDisponible } from '@/features/cxc/api/useLineasCredito';
 import { formatoMonto } from '@/features/cxc/lib/glosario';
 import { esApiError } from '@/lib/api';
@@ -16,10 +12,9 @@ import { cn } from '@/lib/utils';
  * liberado sin factura</c>. Nunca convierte divisas: un renglón por
  * moneda.
  *
- * <para>Mientras el gap G1 con A+W siga abierto, <c>datoIncompleto</c>
- * viene en <c>true</c> y el número se muestra con badge ámbar "sin
- * material liberado A+W" (05-frontend-diseno §4.2). El dato NO se
- * oculta: se enseña qué le falta.</para>
+ * <para>C7.1 (86e3kdxx4): el liberado sin facturar ya es real (pedidos a
+ * crédito en firme sin factura, menos su anticipo), así que se muestra
+ * el desglose completo y ya no hay marca de dato incompleto.</para>
  */
 export function CreditoDisponibleCard({
   clienteId,
@@ -37,7 +32,6 @@ export function CreditoDisponibleCard({
     >
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-medium">Crédito disponible</h3>
-        {query.data?.datoIncompleto && <BadgeDatoIncompleto />}
       </div>
 
       {query.isError ? (
@@ -61,12 +55,18 @@ export function CreditoDisponibleCard({
                 <span className="font-mono">{l.moneda}</span>
                 <ChipEstadoLinea estado={l.estado} />
               </div>
-              <div className="grid gap-3 md:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <KpiCard etiqueta="Límite" valor={formatoMonto(l.limite, l.moneda)} />
                 <KpiCard
-                  etiqueta="Usado"
-                  valor={formatoMonto(l.facturado + l.liberadoSinFactura, l.moneda)}
-                  subdato="Facturado + liberado sin factura"
+                  etiqueta="Facturado"
+                  valor={formatoMonto(l.facturado, l.moneda)}
+                  subdato="Saldo de facturas abiertas"
+                  tono="info"
+                />
+                <KpiCard
+                  etiqueta="Liberado sin facturar"
+                  valor={formatoMonto(l.liberadoSinFactura, l.moneda)}
+                  subdato="Pedidos a crédito en firme, menos anticipo"
                   tono="info"
                 />
                 <KpiCard
@@ -75,42 +75,11 @@ export function CreditoDisponibleCard({
                   tono={l.disponible < 0 ? 'danger' : 'success'}
                 />
               </div>
-              <p className="text-xs text-ink-muted">
-                Facturado {formatoMonto(l.facturado, l.moneda)} · liberado sin factura{' '}
-                {formatoMonto(l.liberadoSinFactura, l.moneda)} · plazo {l.plazoDias} días
-              </p>
+              <p className="text-xs text-ink-muted">Plazo {l.plazoDias} días</p>
             </li>
           ))}
         </ul>
       )}
     </section>
-  );
-}
-
-/**
- * Badge ámbar del término faltante de la fórmula (gap G1). Tooltip
- * explica qué significa — el número es utilizable pero optimista.
- */
-function BadgeDatoIncompleto() {
-  return (
-    <TooltipProvider delayDuration={150}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Badge
-            variant="warning"
-            className="cursor-help gap-1"
-            data-testid="badge-dato-incompleto"
-          >
-            <AlertTriangle className="h-3 w-3" aria-hidden="true" />
-            sin material liberado A+W
-          </Badge>
-        </TooltipTrigger>
-        <TooltipContent className="max-w-72">
-          El término &quot;liberado sin factura&quot; (material liberado en A+W aún no facturado)
-          todavía no se integra a la fórmula — el disponible mostrado puede ser mayor al real. La
-          información de material liberado aún está pendiente de integración.
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
   );
 }

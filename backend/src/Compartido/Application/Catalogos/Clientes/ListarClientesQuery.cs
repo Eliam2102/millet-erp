@@ -99,7 +99,8 @@ public sealed class ListarClientesHandler
         var total = await q.CountAsync(cancellationToken);
         // Left join 1:1 (UNIQUE cliente_id): un cliente manual queda con Sync = null.
         var rows = await q
-            .OrderBy(c => c.Clave)
+            .OrderBy(c => c.Rfc == null || c.RegimenFiscal == null || c.CodigoPostalFiscal == null)
+            .LuegoPorClaveNatural(c => c.Clave)
             .Skip(offset).Take(limit)
             .Select(c => new
             {
