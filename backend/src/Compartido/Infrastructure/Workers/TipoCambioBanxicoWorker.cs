@@ -6,9 +6,10 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Millet.Catalogos.Application.Monedas;
 using Millet.Compartido.Application.Ports;
+using Millet.Compartido.Infrastructure.Banxico;
 using Millet.SharedKernel.Application;
 
-namespace Millet.Compartido.Infrastructure.Banxico;
+namespace Millet.Compartido.Infrastructure.Workers;
 
 /// <summary>
 /// K10.6: descarga el tipo de cambio de Banxico al arrancar y cada <see cref="BanxicoOptions.Interval"/>.

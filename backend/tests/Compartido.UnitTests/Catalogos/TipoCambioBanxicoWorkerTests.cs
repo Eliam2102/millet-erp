@@ -9,6 +9,7 @@ using Microsoft.Extensions.Options;
 using Millet.Catalogos.Application.Monedas;
 using Millet.Compartido.Application.Ports;
 using Millet.Compartido.Infrastructure.Banxico;
+using Millet.Compartido.Infrastructure.Workers;
 using Millet.SharedKernel.Application;
 using Xunit;
 

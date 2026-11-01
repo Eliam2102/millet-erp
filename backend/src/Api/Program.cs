@@ -1018,7 +1018,7 @@ builder.Services.AddScoped<Millet.Compartido.Application.Ports.IBanxicoSiePort,
     Millet.Compartido.Infrastructure.Banxico.BanxicoSieHttpAdapter>();
 builder.Services.AddScoped<Millet.Compartido.Application.Ports.IAlertaTipoCambioPort,
     Millet.Compartido.Infrastructure.Banxico.AlertaTipoCambioLogAdapter>();
-builder.Services.AddHostedService<Millet.Compartido.Infrastructure.Banxico.TipoCambioBanxicoWorker>();
+builder.Services.AddHostedService<Millet.Compartido.Infrastructure.Workers.TipoCambioBanxicoWorker>();
 builder.Services.AddOptions<OutboxPublisherOptions>(nameof(ComercioExteriorDbContext))
     .Configure(o => o.ServiceBusTopicName = "comercio-exterior-events")
     .Bind(builder.Configuration.GetSection("ComercioExterior:Outbox"));
