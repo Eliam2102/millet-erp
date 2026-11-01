@@ -201,7 +201,7 @@ Worker: `Facturacion:Workers:TimbradoPendiente` (`Disabled` false,
 | `<WriteBackOrigenes>` | Canal de write-back A+W | Cuando se acuerde el SP/tabla |
 | `<PeriodoContableCerrado>` | Candado de período | Cuando exista Contabilidad |
 | `<ActivosFijos>` | Catálogo de activos | Módulo Activos Fijos |
-| `<EnvioCfdiCliente>` | Notificaciones/Mailbox | Cuando exista el servicio |
+| `<EnvioCfdiCliente>` | ✅ Cerrado (86e3txv0n) | Configurar `Correo:Proveedor=Graph` en el ambiente; ver ADR-0063 |
 | `<RepoCfdiComun>` | Migración de CxP al repo común | F2, coordinado |
 
 ---

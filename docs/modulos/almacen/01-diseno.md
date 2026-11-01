@@ -688,7 +688,7 @@ ADR-0022. Patrón heredado de Compras/CxP.
 | Worker | Schedule | Responsabilidad | NoOp condicional |
 |---|---|---|---|
 | `OutboxPublisherWorker<AlmacenDbContext>` | Cada 5s | Publica eventos pendientes a Service Bus | Si cs vacía |
-| `RegularizacionValeSlaWorker` | Diario (9 AM) | Detecta vales sin regularizar (A14): día 1 → notifica Coordinador, día 2 → notifica Jefe Almacén | Si `INotificacionService` no está configurado |
+| `RegularizacionValeSlaWorker` | Diario (9 AM) | Detecta vales sin regularizar (A14): día 1 → notifica Coordinador (`Almacen:Avisos:Coordinador`), día 2 → notifica Jefe Almacén (`Almacen:Avisos:JefeAlmacen`); correo por `ICorreoSaliente` (86e3txv0n, ADR-0063) | Sin correos configurados el aviso solo queda en el log |
 | `InventarioRotativoCalendarioWorker` | Diario (3 AM) | Sugiere conteos rotativos según calendario configurado por sub-almacén | Sin condición externa |
 
 ---
