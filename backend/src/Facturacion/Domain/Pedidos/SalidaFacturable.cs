@@ -117,7 +117,7 @@ public sealed class SalidaFacturable : BaseEntity, IPerteneceAEmpresa, IAuditabl
 }
 
 /// <summary>Posición del pedido y cantidad que sale en la parcialidad.</summary>
-public sealed class SalidaFacturableLinea : BaseEntity, IBelongsToAggregate
+public sealed class SalidaFacturableLinea : BaseEntity, IBelongsToAggregate, IAuditable
 {
     public Guid SalidaFacturableId { get; private set; }
     public int Posicion { get; private set; }

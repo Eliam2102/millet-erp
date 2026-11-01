@@ -105,7 +105,7 @@ public sealed class SalidasParcialesFacturaTests : IClassFixture<SalidasParciale
         Assert.Equal(salida, reenviada);
         var otraVez = await client.PostAsJsonAsync(Facturas, EmitirBody(sucursal, pedidoId, salida, 60m));
         await AssertProblemAsync(otraVez, HttpStatusCode.UnprocessableEntity, "SALIDA_YA_FACTURADA");
-        var cambiada = await client.PostAsJsonAsync($"{Pedidos}/{pedidoId}/salidas", SalidaBody("SAL-1", 70m));
+        var cambiada = await client.PostAsJsonAsync($"{Pedidos}/{pedidoId}/salidas", SalidaBody(pedidoId, "SAL-1", 70m));
         await AssertProblemAsync(cambiada, HttpStatusCode.UnprocessableEntity, "SALIDA_REFERENCIA_DISTINTA");
 
         using var scope = _factory.Services.CreateScope();
@@ -129,7 +129,7 @@ public sealed class SalidasParcialesFacturaTests : IClassFixture<SalidasParciale
         await AssertProblemAsync(completo, HttpStatusCode.UnprocessableEntity, "PEDIDO_CON_SALIDAS");
         var distinta = await client.PostAsJsonAsync(Facturas, EmitirBody(sucursal, pedidoId, salida, 100m));
         await AssertProblemAsync(distinta, HttpStatusCode.UnprocessableEntity, "FAC_SALIDA_LINEAS_DISTINTAS");
-        var excede = await client.PostAsJsonAsync($"{Pedidos}/{pedidoId}/salidas", SalidaBody("SAL-2", 41m));
+        var excede = await client.PostAsJsonAsync($"{Pedidos}/{pedidoId}/salidas", SalidaBody(pedidoId, "SAL-2", 41m));
         await AssertProblemAsync(excede, HttpStatusCode.UnprocessableEntity, "SALIDA_EXCEDE_PEDIDO");
     }
 
@@ -149,9 +149,11 @@ public sealed class SalidasParcialesFacturaTests : IClassFixture<SalidasParciale
         return p.Id;
     }
 
-    private static object SalidaBody(string referencia, decimal cantidad) => new
+    // La referencia es única por empresa y origen: se le agrega el pedido para que las pruebas
+    // que comparten la base no choquen entre sí.
+    private static object SalidaBody(Guid pedidoId, string referencia, decimal cantidad) => new
     {
-        referencia,
+        referencia = $"{referencia}-{pedidoId:N}",
         lineas = new[] { new { posicion = 1, cantidad } },
         origen = (int)OrigenSalidaFacturable.ProductoTerminado,
     };
@@ -159,7 +161,7 @@ public sealed class SalidasParcialesFacturaTests : IClassFixture<SalidasParciale
     private static async Task<Guid> RegistrarSalidaAsync(HttpClient client, Guid pedidoId, string referencia, decimal cantidad,
         HttpStatusCode esperado)
     {
-        var r = await client.PostAsJsonAsync($"{Pedidos}/{pedidoId}/salidas", SalidaBody(referencia, cantidad));
+        var r = await client.PostAsJsonAsync($"{Pedidos}/{pedidoId}/salidas", SalidaBody(pedidoId, referencia, cantidad));
         Assert.True(r.StatusCode == esperado, $"{(int)r.StatusCode}: {await r.Content.ReadAsStringAsync()}");
         return (await r.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
     }
