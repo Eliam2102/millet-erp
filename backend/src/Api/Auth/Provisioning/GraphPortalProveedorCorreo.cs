@@ -1,7 +1,7 @@
-using Azure.Identity;
-using Microsoft.Graph;
 using Millet.Api.Auth.Options;
 using Millet.CuentasPorPagar.Domain.Ports.Portal;
+using Millet.SharedKernel.Application.Correo;
+using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Api.Auth.Provisioning;
 
@@ -21,23 +21,29 @@ public static class GraphPortalProveedorRegistration
             string.IsNullOrWhiteSpace(auth.ClientSecret) || string.IsNullOrWhiteSpace(auth.SenderEmail))
             throw new InvalidOperationException(
                 $"{Seccion}:Proveedor=Graph requiere Auth:EntraId:TenantId, ClientId, ClientSecret y SenderEmail.");
-        services.AddSingleton<IPortalCorreoPort>(_ => new GraphPortalProveedorCorreo(
-            new GraphServiceClient(new ClientSecretCredential(auth.TenantId, auth.ClientId, auth.ClientSecret),
-                ["https://graph.microsoft.com/.default"]),
-            auth.SenderEmail));
+        GraphAvisosRevisionRegistration.ExigirTransporteGraph(configuration, Seccion);
+        services.AddSingleton<IPortalCorreoPort>(sp => new GraphPortalProveedorCorreo(sp.GetRequiredService<ICorreoSaliente>()));
         return services;
     }
 }
 
-public sealed class GraphPortalProveedorCorreo(GraphServiceClient graph, string sender) : IPortalCorreoPort
+/// <summary>Correos del portal por el transporte único (86e3txv0n); un rechazo se lanza con su motivo.</summary>
+public sealed class GraphPortalProveedorCorreo(ICorreoSaliente correo) : IPortalCorreoPort
 {
     public Task EnviarCodigoAsync(string destinatario, string codigo, CancellationToken cancellationToken) =>
-        GraphCorreoColaboradores.EnviarHtmlAsync(graph, sender, [destinatario], "Tu código de acceso al portal de proveedores de Millet",
+        EnviarAsync("codigo-portal", destinatario, "Tu código de acceso al portal de proveedores de Millet",
             ConstruirHtml(codigo), cancellationToken);
 
     public Task EnviarAvisoPagoAsync(string destinatario, AvisoPagoCorreo aviso, CancellationToken cancellationToken) =>
-        GraphCorreoColaboradores.EnviarHtmlAsync(graph, sender, [destinatario], "Millet te realizó un pago",
-            ConstruirHtmlPago(aviso), cancellationToken);
+        EnviarAsync("aviso-pago-portal", destinatario, "Millet te realizó un pago", ConstruirHtmlPago(aviso), cancellationToken);
+
+    private async Task EnviarAsync(string tipo, string destinatario, string asunto, string html, CancellationToken ct)
+    {
+        var resultado = await correo.EnviarAsync(
+            new MensajeCorreo(null, "cuentas-por-pagar", tipo, null, [destinatario], asunto, html), ct);
+        if (resultado.Estado == EstadoCorreoSaliente.Error)
+            throw new BusinessRuleException(resultado.Codigo ?? CodigosCorreoSaliente.ErrorEnvio, resultado.Motivo ?? "No se pudo enviar el correo.");
+    }
 
     public static string ConstruirHtmlPago(AvisoPagoCorreo a)
     {
