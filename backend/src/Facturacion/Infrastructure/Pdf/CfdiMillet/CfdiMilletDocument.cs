@@ -32,7 +32,9 @@ public sealed class CfdiMilletDocument(CfdiPdfModel m) : IDocument
         {
             PdfEstilos.ConfigurarPagina(page);
             page.Margin(EstilosCfdiMillet.MargenPulgadas, Unit.Inch);
-            page.DefaultTextStyle(x => x.FontFamily(PdfFuentes.Familia).FontSize(EstilosCfdiMillet.Texto).FontColor(EstilosCfdiMillet.Negro));
+            // Sin ligaduras: folios, RFC y UUID deben copiarse y buscarse tal cual («ff», «fb» se volvían un glifo).
+            page.DefaultTextStyle(x => x.FontFamily(PdfFuentes.Familia).FontSize(EstilosCfdiMillet.Texto).FontColor(EstilosCfdiMillet.Negro)
+                .DisableFontFeature(FontFeatures.StandardLigatures).DisableFontFeature(FontFeatures.ContextualLigatures));
 
             page.Header().Column(encabezado =>
             {
