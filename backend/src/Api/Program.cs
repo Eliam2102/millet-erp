@@ -1111,6 +1111,12 @@ builder.Services
     .Bind(builder.Configuration.GetSection(
         Millet.Facturacion.Infrastructure.Workers.PedimentoSalidasOptions.SectionName));
 builder.Services.AddHostedService<Millet.Facturacion.Infrastructure.Workers.PedimentoSalidasWorker>();
+// FAC-08: salidas parciales de PT/CE → salidas facturables (stub vacío en dev, PLATFORM-TODO(<SalidasPt>)).
+builder.Services
+    .AddOptions<Millet.Facturacion.Infrastructure.Workers.SalidasParcialesOptions>()
+    .Bind(builder.Configuration.GetSection(
+        Millet.Facturacion.Infrastructure.Workers.SalidasParcialesOptions.SectionName));
+builder.Services.AddHostedService<Millet.Facturacion.Infrastructure.Workers.SalidasParcialesWorker>();
 
 // F10-PR2: worker de ingesta de Planta Pintura (pull de órdenes vía
 // IPlantaPinturaPedidosReader [stub en dev]; exige master preexistente).
