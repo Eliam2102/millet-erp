@@ -78,7 +78,7 @@ public sealed class AplicarAnticipoAFacturaHandler
             throw new BusinessRuleException("ANTICIPO_MONEDA_DISTINTA", "El anticipo y la factura deben tener la misma moneda.");
         var ahora = _clock.UtcNow;
         anticipo.Amortizar(command.Monto, ahora);
-        factura.AplicarAnticipo(command.Monto, DateOnly.FromDateTime(ahora.UtcDateTime), anticipo.Id);
+        factura.AplicarAnticipo(command.Monto, Millet.CuentasPorPagar.Application.Periodos.FechaNegocio.Hoy(ahora), anticipo.Id);
 
         if (factura.Estado == EstadoPasivo.Autorizada)
             await _pasivos.Handle(new Domain.FacturaProveedor.Events.FacturaProveedorAutorizadaDomainEvent(

@@ -311,7 +311,7 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
                     datos.ImpuestosTrasladados, datos.Retenciones, datos.Total, TipoNotaCredito.Descuento,
                     TipoRelacionCfdi.NotaCredito, xml!.UuidCfdi, factura.Id, null, ahora);
                 nc.AplicarMonto(datos.Total);
-                factura.AplicarNotaCredito(datos.Total, DateOnly.FromDateTime(ahora.UtcDateTime), nc.Id);
+                factura.AplicarNotaCredito(datos.Total, Millet.CuentasPorPagar.Application.Periodos.FechaNegocio.Hoy(ahora), nc.Id);
                 documento.MarcarConvertidoEnPasivo(nc.Id);
                 _db.NotasCreditoProveedor.Add(nc);
                 await _mediator.Publish(new NotaCreditoProveedorRegistradaDomainEvent(
