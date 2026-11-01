@@ -60,10 +60,11 @@ public sealed class CreditoDisponibleHandler : IRequestHandler<CreditoDisponible
 
         var facturadoPorMoneda = await ComponentesCredito.FacturadoPorMonedaAsync(
             _db, query.ClienteId, cancellationToken);
+        // Las líneas ya vienen filtradas por la empresa vigente: se toma la suya.
         var liberadoPorMoneda = lineas.Count == 0
             ? []
             : await ComponentesCredito.LiberadoSinFacturaPorMonedaAsync(
-                _pedidos, query.ClienteId, pedidoRefExcluido: null, cancellationToken);
+                _pedidos, lineas[0].EmpresaId, query.ClienteId, pedidoRefExcluido: null, cancellationToken);
 
         var respuesta = lineas.Select(l =>
         {

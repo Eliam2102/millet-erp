@@ -23,6 +23,8 @@ public sealed record PedidoSinFacturarDto(
 /// </summary>
 public interface IFacturacionPedidosSinFacturarReadPort
 {
+    /// <param name="empresaId">Empresa de la línea de crédito: explícita para que funcione
+    /// igual desde un request que desde un worker (decisión automática de PT5.2).</param>
     Task<IReadOnlyList<PedidoSinFacturarDto>> ListarPorClienteAsync(
-        Guid clienteId, CancellationToken cancellationToken);
+        Guid empresaId, Guid clienteId, CancellationToken cancellationToken);
 }

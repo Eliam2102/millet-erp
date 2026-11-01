@@ -3,6 +3,7 @@ using Millet.CuentasPorCobrar.Domain.Ports.Facturacion;
 using Millet.Facturacion.Domain.Anticipos;
 using Millet.Facturacion.Domain.Pedidos;
 using Millet.Facturacion.Infrastructure.Persistence;
+using Millet.SharedKernel.Application;
 
 namespace Millet.Facturacion.Infrastructure.PublicAdapters;
 
@@ -15,15 +16,19 @@ namespace Millet.Facturacion.Infrastructure.PublicAdapters;
 /// ligado es el saldo de los anticipos del mismo cliente y moneda cuyo
 /// pedido de origen es el pedido (por id del CFDI de anticipo o por folio).
 /// <c>Total</c> va con IVA, como el facturado de la cartera y el saldo del
-/// anticipo. Lectura <c>AsNoTracking</c> con el filtro de empresa vigente.
+/// anticipo. Lectura <c>AsNoTracking</c> filtrada por la empresa recibida
+/// (bypass del filtro global: el contexto puede ser un worker de sistema).
 /// </summary>
-public sealed class PedidosSinFacturarReadAdapter(FacturacionDbContext db) : IFacturacionPedidosSinFacturarReadPort
+public sealed class PedidosSinFacturarReadAdapter(FacturacionDbContext db, ICurrentEmpresaContext empresa)
+    : IFacturacionPedidosSinFacturarReadPort
 {
     public async Task<IReadOnlyList<PedidoSinFacturarDto>> ListarPorClienteAsync(
-        Guid clienteId, CancellationToken cancellationToken)
+        Guid empresaId, Guid clienteId, CancellationToken cancellationToken)
     {
+        using var bypass = empresa.Bypass();
         var pedidos = await db.PedidosFacturables.AsNoTracking()
-            .Where(p => p.ClienteId == clienteId
+            .Where(p => p.EmpresaId == empresaId
+                     && p.ClienteId == clienteId
                      && p.EsCredito
                      && p.ComprobanteVigenteId == null
                      && p.Estado != EstadoPedidoFacturable.Facturado
@@ -42,7 +47,7 @@ public sealed class PedidosSinFacturarReadAdapter(FacturacionDbContext db) : IFa
         if (pedidos.Count == 0) return [];
 
         var anticipos = await db.Anticipos.AsNoTracking()
-            .Where(a => a.ClienteId == clienteId && a.Estado != EstadoAnticipo.Cancelado && a.Saldo > 0)
+            .Where(a => a.EmpresaId == empresaId && a.ClienteId == clienteId && a.Estado != EstadoAnticipo.Cancelado && a.Saldo > 0)
             .Select(a => new { a.Moneda, a.Saldo, a.PedidoOrigenRef, a.FacturaAnticipoId })
             .ToListAsync(cancellationToken);
         var facturas = anticipos.Select(a => a.FacturaAnticipoId).ToList();

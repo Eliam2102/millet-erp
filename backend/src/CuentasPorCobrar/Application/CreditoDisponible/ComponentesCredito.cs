@@ -33,11 +33,11 @@ internal static class ComponentesCredito
     /// evaluando, que no compromete su propio crédito.
     /// </summary>
     public static async Task<Dictionary<string, decimal>> LiberadoSinFacturaPorMonedaAsync(
-        IFacturacionPedidosSinFacturarReadPort pedidos, Guid clienteId, string? pedidoRefExcluido,
+        IFacturacionPedidosSinFacturarReadPort pedidos, Guid empresaId, Guid clienteId, string? pedidoRefExcluido,
         CancellationToken cancellationToken)
     {
         var excluido = pedidoRefExcluido?.Trim();
-        var lista = await pedidos.ListarPorClienteAsync(clienteId, cancellationToken);
+        var lista = await pedidos.ListarPorClienteAsync(empresaId, clienteId, cancellationToken);
         return lista
             .Where(p => excluido is null || !string.Equals(p.NumeroPedido?.Trim(), excluido, StringComparison.Ordinal))
             .GroupBy(p => p.Moneda)

@@ -15,7 +15,7 @@ public sealed class PedidosSinFacturarFalso : IFacturacionPedidosSinFacturarRead
     }
 
     public Task<IReadOnlyList<PedidoSinFacturarDto>> ListarPorClienteAsync(
-        Guid clienteId, CancellationToken cancellationToken) =>
+        Guid empresaId, Guid clienteId, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<PedidoSinFacturarDto>>(
             _pedidos.Where(p => p.ClienteId == clienteId).Select(p => p.Pedido).ToList());
 }

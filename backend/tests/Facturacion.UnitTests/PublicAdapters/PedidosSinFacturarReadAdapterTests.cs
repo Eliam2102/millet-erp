@@ -39,7 +39,8 @@ public sealed class PedidosSinFacturarReadAdapterTests
         FacturacionDbContext db)
     {
         await db.SaveChangesAsync();
-        return await new PedidosSinFacturarReadAdapter(db).ListarPorClienteAsync(Cliente, CancellationToken.None);
+        return await new PedidosSinFacturarReadAdapter(db, new FakeEmpresaContext(null, isBypassed: true))
+            .ListarPorClienteAsync(Empresa, Cliente, CancellationToken.None);
     }
 
     [Fact]

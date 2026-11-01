@@ -33,7 +33,7 @@ internal static class CreditoLiberacion
         var facturado = (await ComponentesCredito.FacturadoPorMonedaAsync(db, clienteId, cancellationToken))
             .GetValueOrDefault(moneda, 0m);
         var liberadoSinFactura = (await ComponentesCredito.LiberadoSinFacturaPorMonedaAsync(
-                pedidos, clienteId, pedidoRef, cancellationToken))
+                pedidos, linea.EmpresaId, clienteId, pedidoRef, cancellationToken))
             .GetValueOrDefault(moneda, 0m);
 
         return new CreditoLiberacionSnapshot(true, linea.Limite - facturado - liberadoSinFactura);
