@@ -6723,6 +6723,44 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         },
                         new
                         {
+                            Id = new Guid("00000011-0007-0000-0000-000000000001"),
+                            Activo = true,
+                            AplicaOrigen = (short)0,
+                            Codigo = "acuse_renovacion",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Acuse de renovación o sustitución del SAT",
+                            Obligatorio = false,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
+                            Orden = 1,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "certificado_csd",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000011-0007-0000-0000-000000000002"),
+                            Activo = true,
+                            AplicaOrigen = (short)0,
+                            Codigo = "acuse_revocacion",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Acuse o evidencia de revocación",
+                            Obligatorio = false,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
+                            Orden = 2,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "certificado_csd",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000011-0006-0000-0000-000000000005"),
                             Activo = true,
                             AplicaOrigen = (short)0,

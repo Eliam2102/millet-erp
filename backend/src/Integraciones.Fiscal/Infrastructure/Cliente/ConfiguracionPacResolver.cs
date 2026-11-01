@@ -83,7 +83,9 @@ internal sealed class ConfiguracionPacResolver : IConfiguracionPacResolver
                     ? new CsdResuelto(
                         CertificadoBase64: cipher.Decrypt(config.CsdCertificadoCifrado!),
                         LlavePrivadaBase64: cipher.Decrypt(config.CsdLlavePrivadaCifrada!),
-                        Password: cipher.Decrypt(config.CsdPasswordCifrado!))
+                        Password: cipher.Decrypt(config.CsdPasswordCifrado!),
+                        VenceEn: config.CsdNotAfter,
+                        RevocadoEn: config.CsdRevocadoEn)
                     : null);
         }
 

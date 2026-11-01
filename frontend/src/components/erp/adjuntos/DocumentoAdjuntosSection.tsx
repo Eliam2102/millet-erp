@@ -30,7 +30,7 @@ export function DocumentoAdjuntosSection({
   soloLectura = false,
 }: {
   base: string;
-  tipo: 'requisicion' | 'factura_proveedor' | 'poliza' | 'linea_revision' | 'oc_respuesta_proveedor';
+  tipo: 'requisicion' | 'factura_proveedor' | 'poliza' | 'linea_revision' | 'oc_respuesta_proveedor' | 'certificado_csd';
   /** Prefijo de la convención `{permiso}.adjuntos-ver|subir|baja`. Se ignora si llegan `permisos`. */
   permiso?: string;
   permisos?: PermisosAdjuntos;
