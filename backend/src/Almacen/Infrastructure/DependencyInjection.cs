@@ -59,9 +59,9 @@ public static class DependencyInjection
         // para validar stock + reemplazar el stub InMemoryConsultarStockPort).
         services.AddScoped<IAlmacenSaldoQueryPort, AlmacenSaldoQueryAdapter>();
 
-        // F5-PR1: notificaciones (NoOp stub hasta que el módulo Notificaciones
-        // exista — PLATFORM-TODO(<NotificacionService>)).
-        services.AddScoped<INotificacionService, NoOpNotificacionService>();
+        // F5-PR1 / 86e3txv0n: avisos por el transporte único de correo; los
+        // destinatarios salen de Almacen:Avisos (se enlaza en Program.cs).
+        services.AddScoped<INotificacionService, Notificaciones.CorreoNotificacionService>();
 
         return services;
     }

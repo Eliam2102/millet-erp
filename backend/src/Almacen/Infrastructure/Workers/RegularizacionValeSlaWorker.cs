@@ -25,10 +25,8 @@ namespace Millet.Almacen.Infrastructure.Workers;
 /// </para>
 ///
 /// <para>
-/// En F5-PR1 el servicio de notificación es <see cref="NoOpNotificacionService"/>
-/// (log-only); el integrador real con email/SignalR entra cuando el
-/// módulo Notificaciones (ADR-0026) exista —
-/// <c>PLATFORM-TODO(&lt;NotificacionService&gt;)</c>.
+/// El aviso sale por correo: día 1 a <c>Almacen:Avisos:Coordinador</c>, día 2 a <c>Almacen:Avisos:JefeAlmacen</c>
+/// (<c>CorreoNotificacionService</c>, 86e3txv0n).
 /// </para>
 /// </summary>
 public sealed class RegularizacionValeSlaWorker : BackgroundService

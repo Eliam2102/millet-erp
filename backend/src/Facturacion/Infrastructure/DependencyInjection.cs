@@ -101,15 +101,14 @@ public static class DependencyInjection
         // `AddIntegracionesFiscalModule` (que corre antes en Program.cs). CxP
         // custodia sus recibidos por su cuenta (alcance "Separados").
 
-        // --- F2-PR2: PDF (real, QuestPDF) + notificación por correo [stub] ---
+        // --- F2-PR2: PDF (real, QuestPDF) + notificación por correo ---
         services.AddSingleton<IGenerarPdfFacturaPort, QuestPdfFacturaGenerator>();
         // FMT-4: domicilio, logo y catálogos del emisor para el PDF con formato de Millet.
         services.AddScoped<IDatosImpresionCfdiReadPort, DatosMaestros.DatosImpresionCfdiReadAdapter>();
         // 86e3ww6tw: Vale de Caja de los retiros, mismo kit de formatos de Millet.
         services.AddSingleton<IGenerarValeCajaPdfPort, Pdf.ValeCaja.QuestPdfValeCajaGenerator>();
-        // PLATFORM-TODO(<EnvioCfdiCliente>)
-        services.AddSingleton<INotificacionService, NoOpNotificacionService>();
-        services.AddSingleton<Millet.SharedKernel.Application.Correo.ICorreoDocumentoService, NoOpNotificacionService>();
+        // 86e3txv0n: el CFDI sale por el transporte único de correo (ICorreoSaliente, Api).
+        services.AddSingleton<INotificacionService, CorreoCfdiNotificacionService>();
 
         // --- F3-PR1b: ingesta A+W (cola + write-back) — stubs hasta Integraciones.Aw ---
         // PR7: señal de nudge del worker de ingesta (el endpoint anónimo con
