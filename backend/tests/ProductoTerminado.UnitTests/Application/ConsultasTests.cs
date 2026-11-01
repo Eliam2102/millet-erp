@@ -1,7 +1,9 @@
+using Microsoft.EntityFrameworkCore;
 using Millet.Administracion.Application.Abstractions;
 using Millet.Identidad.Domain;
 using Millet.ProductoTerminado.Application;
 using Millet.ProductoTerminado.Application.Consultas;
+using Millet.ProductoTerminado.Domain;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 
@@ -57,6 +59,27 @@ public sealed class ConsultasTests
         (av.Terminadas, av.Esperadas, av.Pendientes, av.AvanceFisico).Should().Be((8, 10, 2, "Parcial"));
         (av.EnPt, av.Cargadas, av.Entregadas).Should().Be((8, 0, 0));
         r.Total.Should().Be(8);
+    }
+
+    [Fact]
+    public async Task Estado_del_pedido_es_nulo_sin_piezas_retenido_con_saldo_y_liberado_al_cubrirse()
+    {
+        using var t = new EntornoPt();
+        t.AgregarPedido("P1", 1, 10);
+        t.Saldos.Saldos["P1"] = 500m;
+        var a = Acceso([Ver], EntornoPt.Sucursal);
+        (await Piezas(t, a, "P1")).EstadoPedido.Should().BeNull();
+
+        await Escanear(t, 8);
+        var retenido = (await Piezas(t, a, "P1")).EstadoPedido!;
+        (retenido.Estado, retenido.Motivo).Should().Be(("Retenido", MotivosPt.SaldoPendiente));
+        retenido.Desde.Should().NotBeNull();
+
+        t.Saldos.Saldos["P1"] = 0m;
+        await t.Liberacion.ReevaluarAsync(await t.Db.PedidosPt.SingleAsync(), default);
+        await t.Db.SaveChangesAsync();
+        var liberado = (await Piezas(t, a, "P1")).EstadoPedido!;
+        (liberado.Estado, liberado.Motivo).Should().Be(("Liberado", MotivosPt.SaldoCubierto));
     }
 
     [Fact]

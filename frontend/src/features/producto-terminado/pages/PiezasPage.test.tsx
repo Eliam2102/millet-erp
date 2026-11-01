@@ -54,6 +54,31 @@ describe('PiezasPage', () => {
     expect(container.textContent).not.toContain('69');
   });
 
+  it.each([
+    ['Retenido', 'SaldoPendiente', 'Saldo pendiente'],
+    ['Liberado', 'SaldoCubierto', 'Saldo cubierto'],
+    ['Liberado', 'Reparto', 'Pedido de reparto'],
+    ['Liberado', 'DecisionCxc', 'Decisión de Crédito'],
+  ])('muestra el estado %s del pedido con su motivo %s', (estado, motivo, texto) => {
+    state.usePiezas.mockReturnValue(
+      ok({ items: [], total: 0, avance: [], estadoPedido: { estado, motivo, desde: '2026-10-31T18:00:00Z' } }),
+    );
+    const { container } = render(<PiezasPage />);
+    expect(screen.queryByLabelText('Estado del pedido')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Pedido'), { target: { value: 'PED-1' } });
+    const seccion = screen.getByLabelText('Estado del pedido');
+    expect(seccion).toHaveTextContent(estado);
+    expect(seccion).toHaveTextContent(texto);
+    expect(container.textContent).not.toContain('69');
+  });
+
+  it('sin estado de pedido (aún sin piezas) no muestra la sección', () => {
+    state.usePiezas.mockReturnValue(ok({ items: [], total: 0, avance: [], estadoPedido: null }));
+    render(<PiezasPage />);
+    fireEvent.change(screen.getByLabelText('Pedido'), { target: { value: 'PED-1' } });
+    expect(screen.queryByLabelText('Estado del pedido')).not.toBeInTheDocument();
+  });
+
   it('muestra error con reintento', () => {
     state.usePiezas.mockReturnValue({ data: undefined, isLoading: false, isError: true, refetch: state.refetch });
     render(<PiezasPage />);
