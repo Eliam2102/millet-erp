@@ -23,8 +23,7 @@ namespace Millet.Compras.Application.Matriz;
 /// </para>
 /// <list type="bullet">
 ///   <item><c>JefeDpto</c> → scope = <c>requisicion.DepartamentoId</c></item>
-///   <item><c>JefeAlmacen</c> → scope = <c>requisicion.AlmacenDestinoId</c></item>
-///   <item><c>AutorizadorN2</c> → scope = <c>requisicion.SucursalId</c></item>
+///   <item><c>JefeAlmacen</c> → scope = <c>requisicion.SucursalId</c> (N2)</item>
 /// </list>
 /// </summary>
 public sealed class ResolverAutorizadorService : IResolverAutorizadorPort
@@ -36,43 +35,19 @@ public sealed class ResolverAutorizadorService : IResolverAutorizadorPort
         _db = db;
     }
 
+    // C3.1 / F-09: N1 = jefe del departamento del solicitante (toda naturaleza).
     public async Task<Guid?> ResolverN1Async(
         Requisicion requisicion,
-        Naturaleza naturaleza,
-        CancellationToken cancellationToken = default)
-    {
-        // Estandar → JefeAlmacen del almacén destino.
-        // Servicio/Critico/Riesgo → JefeDpto del departamento del solicitante.
-        // PLATFORM-TODO(<MatrizN1AlmacenNullable>): cuando se cablee la matriz
-        // N1 (hoy este servicio es dead code — registrado en DI sin invocadores),
-        // resolver el JefeAlmacen de otra forma para RQs manuales, que post-PR3
-        // tienen AlmacenDestinoId = NULL (el requisitante ya no captura almacén):
-        // p.ej. por sucursal, o descartar la ruta Estandar. El `?? Guid.Empty`
-        // solo evita el NRE del compile; con scope Guid.Empty no resolvería
-        // aprobador (WHERE departamento_id = Guid.Empty → null).
-        var (rol, scopeId) = naturaleza == Naturaleza.Estandar
-            ? (RolAprobador.JefeAlmacen, requisicion.AlmacenDestinoId ?? Guid.Empty)
-            : (RolAprobador.JefeDpto, requisicion.DepartamentoId);
+        CancellationToken cancellationToken = default) =>
+        await ResolverVigenteAsync(
+            requisicion.EmpresaId, requisicion.DepartamentoId, RolAprobador.JefeDpto, cancellationToken);
 
-        return await ResolverVigenteAsync(requisicion.EmpresaId, scopeId, rol, cancellationToken);
-    }
-
+    // C3.1 / F-09: N2 = jefe de almacén de la sucursal (el RQ manual no trae almacén destino).
     public async Task<Guid?> ResolverN2Async(
         Requisicion requisicion,
-        Naturaleza naturaleza,
-        CancellationToken cancellationToken = default)
-    {
-        // En MVP: AutorizadorN2 por sucursal (no especialización por
-        // naturaleza). Cuando el cliente afine "Riesgo químico → gerente
-        // de seguridad", agregamos un segundo lookup específico.
-        _ = naturaleza;
-
-        return await ResolverVigenteAsync(
-            requisicion.EmpresaId,
-            requisicion.SucursalId,
-            RolAprobador.AutorizadorN2,
-            cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        await ResolverVigenteAsync(
+            requisicion.EmpresaId, requisicion.SucursalId, RolAprobador.JefeAlmacen, cancellationToken);
 
     private async Task<Guid?> ResolverVigenteAsync(
         Guid empresaId, Guid scopeId, RolAprobador rol, CancellationToken cancellationToken)

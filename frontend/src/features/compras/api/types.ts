@@ -419,6 +419,9 @@ export interface RequisicionResponse {
   enAlmacen?: boolean | null;
   /** true si además ninguna línea va a compra. Solo relevante con enAlmacen. */
   almacenCubreTodo?: boolean | null;
+  /** C3.1: quién firma cada nivel según la matriz; null = sin configurar (basta el permiso). */
+  autorizadorN1Id?: string | null;
+  autorizadorN2Id?: string | null;
 }
 
 /**
