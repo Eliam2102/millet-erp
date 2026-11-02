@@ -67,9 +67,11 @@ async function capturarFactura(api: any, o: { ocId: string; lineaOcId: string; a
     moneda: 'MXN', subtotal, descuentos: 0, impuestosTrasladados: iva, retenciones: 0, total: r2(subtotal + iva), recepcionId: o.recepcionId ?? null,
     lineas: [{ articuloId: o.articuloId, claveProdServ: '01010101', descripcion: 'Insumos de planta', cantidad: o.cantidad, claveUnidad: 'H87', precioUnitario: o.precio, importe: subtotal, lineaOcId: o.lineaOcId }],
   }, idem());
-  // the reception reaches CxP through its event (Outbox): wait for it instead of failing with RECEPCION_NO_ENCONTRADA
+  // the reception reaches CxP through its event (Outbox) and Compras records the received quantity a few seconds later: with a
+  // reception just made, wait for both instead of failing with RECEPCION_NO_ENCONTRADA / FACTURA_EXCEDE_RECIBIDO (#357)
+  const enCarrera = async (r: any) => r.status() === 422 && /RECEPCION_NO_ENCONTRADA|FACTURA_EXCEDE_RECIBIDO/.test(await r.text());
   let res = await enviar();
-  for (let i = 0; i < 20 && res.status() === 422 && (await res.text()).includes('RECEPCION_NO_ENCONTRADA'); i++) { await new Promise((r) => setTimeout(r, 2000)); res = await enviar(); }
+  for (let i = 0; i < 20 && o.recepcionId && await enCarrera(res); i++) { await new Promise((r) => setTimeout(r, 2000)); res = await enviar(); }
   return ok(res, [200, 201]) as Promise<{ id: string; estado: number; diferenciaContraOc: number; motivoCancelacion: number | null; motivoCancelacionTexto: string | null }>;
 }
 
@@ -93,6 +95,7 @@ test('V-RO-01 rol sin facultad (auditor): no ve Autorizar / Aprobar y la API res
   await umbralesGuion(guard);
   await abrirPeriodoActual(page, bearerB);
   const art = await articulo(guard, 'Disco de corte para vidrio 4 pulgadas');
+  const bin = await crearBinNeutro(guard, art.id);
 
   // RQ en autorización (capturada por A)
   const rq = await ok(await A.api.post('/api/v1/compras/requisiciones', {
@@ -105,7 +108,9 @@ test('V-RO-01 rol sin facultad (auditor): no ve Autorizar / Aprobar y la API res
   // OC en autorización (capturada por el comprador) y factura capturada en CxP sobre una OC autorizada
   const ocPend = await ocSinRqTransmitida({ guard, page, A: C, bearerB, provId: PROV.id, articuloId: art.id, cantidad: 2, precio: 120, motivo: 'Reposición de discos de corte' });
   const ocAut = await ocAutorizada({ guard, page, C, bearerB, articuloId: art.id, cantidad: 2, precio: 120 });
-  const fac = await capturarFactura(A.api, { ocId: ocAut.id, lineaOcId: ocAut.lineas[0].id, articuloId: art.id, cantidad: 2, precio: 120 });
+  // CxP solo admite la factura por lo recibido (#357): Almacén recibe las 2 piezas antes
+  const rec = await recibirApi(A, ocAut.id, ocAut.lineas[0].id, art.id, 2, bin.id);
+  const fac = await capturarFactura(A.api, { ocId: ocAut.id, lineaOcId: ocAut.lineas[0].id, articuloId: art.id, cantidad: 2, precio: 120, recepcionId: rec.recepcionId });
   expect(fac.estado, 'factura Capturada').toBe(1);
 
   const pa = AU.page;
@@ -194,10 +199,13 @@ test('V-RO-03 tolerancia factura contra OC en el borde: +0.99 pasa y +1.00 se re
   await umbralesGuion(guard);
   await abrirPeriodoActual(page, bearerB);
   const art = await articulo(guard, 'Silicón estructural cartucho 300 ml');
+  const bin = await crearBinNeutro(guard, art.id);
   const casos: Array<[string, number, number]> = [['099', 0.99, 1], ['100', 1.0, 5]];
   for (const [n, extra, esperado] of casos) {
     const oc = await ocAutorizada({ guard, page, C, bearerB, articuloId: art.id, cantidad: 1, precio: 950 });
-    const fac = await capturarFactura(A.api, { ocId: oc.id, lineaOcId: oc.lineas[0].id, articuloId: art.id, cantidad: 1, precio: r2(950 + extra) });
+    // lo recibido vale 950: +0.99 queda dentro de la tolerancia de dinero; +1.00 se cancela por tolerancia contra la OC
+    const rec = await recibirApi(A, oc.id, oc.lineas[0].id, art.id, 1, bin.id);
+    const fac = await capturarFactura(A.api, { ocId: oc.id, lineaOcId: oc.lineas[0].id, articuloId: art.id, cantidad: 1, precio: r2(950 + extra), recepcionId: rec.recepcionId });
     test.info().annotations.push({ type: `tolerancia +${extra.toFixed(2)}`, description: `estado=${fac.estado} diferencia=${fac.diferenciaContraOc} motivo=${fac.motivoCancelacion} ${fac.motivoCancelacionTexto ?? ''}` });
     expect(fac.estado, `+${extra.toFixed(2)} sobre el precio de la OC`).toBe(esperado);
     if (esperado === 5) expect(fac.motivoCancelacion, 'cancelada por tolerancia').toBe(1);
@@ -216,14 +224,15 @@ test('V-RO-04 corrida arriba del límite DEMO ($500,000): dos firmas de personas
   const J2 = await abrir(browser, PERSONA.jefeAlmacen, '/tesoreria/corridas', cleanup);
   const AU = await abrir(browser, PERSONA.auditor, '/tesoreria/corridas', cleanup);
   const FIRMA = ['tesoreria.corridas.autorizar', 'tesoreria.pasivos.ver', 'tesoreria.cuentas.ver', 'tesoreria.documentos.leer-todas-sucursales', 'cuentas_por_pagar.facturas.leer'];
-  // política de firmas vigente (escalón DEMO de la ficha 86e3ke5bt) y rol «gerente» del segundo firmante (Identidad, por su API).
+  // política de firmas vigente (escalón DEMO de la ficha 86e3ke5bt) y rol «gerente» del segundo firmante (sembrado por Identidad al
+  // arrancar el API, #358; aquí solo se asigna a la persona).
   // Va ANTES de conceder permisos: un cambio de rol borra las excepciones de permisos del usuario (ADR-0053).
   const politica = await ok(await guard.api.get('/api/v1/tesoreria/corridas/politica-firmas'));
   test.info().annotations.push({ type: 'politica-firmas', description: JSON.stringify(politica) });
   const me = await ok(await guard.api.get('/api/auth/me'));
   const roles = lista(await ok(await guard.api.get('/api/v1/identidad/roles?limit=200')));
-  let gerente = roles.find((r: { codigo: string }) => r.codigo === 'gerente');
-  if (!gerente) gerente = await ok(await guard.api.post('/api/v1/identidad/roles', { id: uuid(), codigo: 'gerente', nombre: 'Gerente de Tesorería', descripcion: 'Firma corridas de pago sobre el límite' }, idem()), [200, 201]);
+  const gerente = roles.find((r: { codigo: string }) => r.codigo === 'gerente');
+  expect(gerente, 'Identidad siembra el rol «gerente»').toBeTruthy();
   const users = await ok(await guard.api.get('/api/v1/identidad/usuarios?limit=100'));
   const oscarId = users.items.find((u: { email: string }) => u.email === PERSONA.jefeAlmacen.email).id;
   const asig = await guard.api.post(`/api/v1/identidad/usuarios/${oscarId}/asignaciones`, { empresaId: me.currentEmpresaId, rolId: gerente.id }, idem());

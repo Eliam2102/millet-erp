@@ -1,8 +1,9 @@
 /**
  * DEMO-COMPRA-PAGO, approval levels of the demo script:
- *   DEMO-00 (paso 0)  /compras/configuracion shows the "Modo de nivel 2" selector and the "Umbrales de aprobación" table with the
- *                     General (empresa) row and the Compras row (N1 1,000 / N2 10,000). The thresholds are arranged through the API,
- *                     the assertion is on screen.
+ *   DEMO-00 (paso 0)  /compras/configuracion shows the "Umbrales de aprobación" table with the General (empresa) row and the
+ *                     Compras row (N1 1,000 / N2 10,000) and, per row, the "Modo de nivel 2" selector at its default «Solo por
+ *                     disponibilidad» (ficha C3.1: the mode is per department; VILO decision 18-oct). Thresholds are arranged through
+ *                     the API, the assertion is on screen.
  *   DEMO-05 (6b/6c)   An OC above the N2 threshold: B signs N1 by UI, it moves to the "Nivel 2 (Dirección)" tab flagged "Falta N2",
  *                     B cannot sign N2 (same person), and C (almacen-corporativo, a different real user) signs N2 by UI -> Autorizada
  *                     with two distinct signers.
@@ -24,16 +25,15 @@ test('DEMO-00 [paso 0] @evidence configuration screen: Modo de nivel 2 and thres
 
   await page.goto('/compras/configuracion');
   await page.waitForLoadState('networkidle');
-  await expect(page.getByRole('heading', { name: 'Modo de nivel 2' })).toBeVisible();
-  const modo = page.getByRole('combobox', { name: /Condición que exige nivel 2/ });
-  await expect(modo).toBeVisible();
-  await expect(modo, 'the selector must show the current mode').not.toHaveText('');
   await expect(page.getByRole('heading', { name: 'Umbrales de aprobación' })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Modo de nivel 2' })).toBeVisible();
   const valor = (etiqueta: string) => page.getByLabel(etiqueta);
   for (const [fila, n1, n2] of [['General (empresa)', 1000, 10000], [compras, 1000, 10000]] as const) {
     await expect(page.getByRole('row', { name: new RegExp(fila.replace(/[()]/g, '\\$&')) }).first(), `row "${fila}" must be listed`).toBeVisible();
     expect(Number((await valor(`Umbral N1 de ${fila}`).inputValue()).replace(/[^0-9.]/g, ''))).toBe(n1);
     expect(Number((await valor(`Umbral N2 de ${fila}`).inputValue()).replace(/[^0-9.]/g, ''))).toBe(n2);
+    await expect(page.getByRole('combobox', { name: `Modo de nivel 2 de ${fila}` }), `row "${fila}" must show the default mode`)
+      .toHaveText('Solo por disponibilidad');
   }
   await expectNoPlaceholders(page);
   await foto(page, '00-configuracion-modo-y-umbrales');
