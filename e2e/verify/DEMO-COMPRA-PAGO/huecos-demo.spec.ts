@@ -13,6 +13,7 @@
 import { apiCallOn, expect, expectNoPlaceholders, reloadAndExpect, shot, test } from '../../_harness/fixtures';
 import type { Page } from '../../_harness/fixtures';
 import { asRole, crearArticulo, CC_SEED, DEPTO_COMPRAS, MID, ok, OPER_EMAIL, proveedorSeed, rand, SA_EMAIL, warm } from '../86e3pc50v/_data';
+import { designarAprobador, JEFE_PERMS, PERSONA } from './_demo';
 
 test.use({ role: 'super-admin', viewport: { width: 1600, height: 900 } });
 test.setTimeout(600_000);
@@ -66,17 +67,37 @@ async function umbrales(guard: any) {
   await ok(await guard.api.put('/api/v1/compras/umbrales-aprobacion', { departamentoId: DEPTO_COMPRAS, umbralMenorCuantia: 1000, umbralMonto: 10000, moneda: 'MXN' }));
 }
 
-/** Arrange (API): a transmitted RQ of user A with N1 authorization by B, so A can "Convertir a OC". No price. */
-async function rqAutorizada(A: Awaited<ReturnType<typeof asRole>>, guard: any, cantidad: number, descripcion: string) {
+/**
+ * Arrange (API): the JefeAlmacen of MID (another real user) designated as N2 approver of the RQ matrix (C3.1). With «Modo de nivel 2»
+ * at its default SoloDisponibilidad (VILO decision 18-oct) an RQ whose article has no stock asks for N2, and B cannot sign both levels.
+ */
+async function jefeAlmacen(browser: any, guard: any, cleanup: any) {
+  const J2 = await asRole(browser, PERSONA.jefeAlmacen.rol, PERSONA.jefeAlmacen.email, '/compras/requisiciones');
+  cleanup.add(async () => { await J2.context.close(); });
+  await conceder(guard, cleanup, PERSONA.jefeAlmacen.email, JEFE_PERMS);
+  await designarAprobador(guard, cleanup, 1, MID, PERSONA.jefeAlmacen.email);
+  return J2;
+}
+
+/**
+ * Arrange (API): a transmitted RQ of user A authorized by B (N1) and, since nothing is in stock, by the JefeAlmacen (N2), so A can
+ * "Convertir a OC". No price.
+ * Clasificación «Orden de compra» (1): the article has no category and naturaleza Bien, and the RQ type filter
+ * (ArticulosPorClasificacion, 86e3tfedd) only admits such articles in an OC-type RQ; Materia prima/Pinturas need a mapped category.
+ */
+async function rqAutorizada(A: Awaited<ReturnType<typeof asRole>>, J2: Awaited<ReturnType<typeof asRole>>, guard: any, cantidad: number, descripcion: string) {
   const art = await crearArticulo(guard, { clave: `INS-${rand()}` });
   const r = await ok(await A.api.post('/api/v1/compras/requisiciones', {
-    sucursalId: MID, sucursalCodigo: 'MID', folioAnio: new Date().getFullYear(), departamentoId: DEPTO_COMPRAS, clasificacion: 2, prioridad: 1,
+    sucursalId: MID, sucursalCodigo: 'MID', folioAnio: new Date().getFullYear(), departamentoId: DEPTO_COMPRAS, clasificacion: 1, prioridad: 1,
     fechaSolicitud: new Date().toISOString(), descripcion: `${descripcion} ${rand()}`, fechaEntregaDeseada: null, proveedorSugeridoId: null, requisitanteId: null,
   }));
   const id = (r.id ?? r.requisicionId) as string;
   await ok(await A.api.post(`/api/v1/compras/requisiciones/${id}/lineas`, { articuloId: art.id, cantidad, unidadMedida: 'PZA', precioEstimadoMonto: 0, precioEstimadoMoneda: 'MXN', centroCostoId: CC_SEED }));
   await ok(await A.api.post(`/api/v1/compras/requisiciones/${id}/transmitir`));
   await ok(await guard.api.post(`/api/v1/compras/requisiciones/${id}/autorizaciones`, { nivel: 1 }));
+  expect((await ok(await guard.api.get(`/api/v1/compras/requisiciones/${id}`))).estado, 'no stock: N1 alone leaves the RQ EnAutorizacion').toBe(1);
+  await ok(await J2.api.post(`/api/v1/compras/requisiciones/${id}/autorizaciones`, { nivel: 2 }));
+  expect((await ok(await guard.api.get(`/api/v1/compras/requisiciones/${id}`))).estado, 'RQ authorized by both levels (EnSurtido, as in the demo journey)').toBe(3);
   return id;
 }
 
@@ -148,7 +169,8 @@ test('DEMO-02 [a][e] @evidence OC without price is rejected on transmit; quotati
   await conceder(guard, cleanup, OPER_EMAIL, A_PERMS);
   await umbrales(guard);
   await proveedorSeed(guard);
-  const rqId = await rqAutorizada(A, guard, 10, 'Insumos de oficina');
+  const J2 = await jefeAlmacen(browser, guard, cleanup);
+  const rqId = await rqAutorizada(A, J2, guard, 10, 'Insumos de oficina');
 
   const ocId = await ocDesdeRq(pa, rqId);
   const oc0 = await ok(await guard.api.get(`/api/v1/compras/ordenes/${ocId}`));
@@ -193,7 +215,8 @@ test('DEMO-03 [d] @evidence import OC: 422 without incoterm shows no UUIDs, then
   await conceder(guard, cleanup, OPER_EMAIL, A_PERMS);
   await umbrales(guard);
   await proveedorSeed(guard);
-  const rqId = await rqAutorizada(A, guard, 10, 'Refacciones importadas');
+  const J2 = await jefeAlmacen(browser, guard, cleanup);
+  const rqId = await rqAutorizada(A, J2, guard, 10, 'Refacciones importadas');
 
   const ocId = await ocDesdeRq(pa, rqId, { importacion: true });
   await ponerPrecio(pa, ocId, 15, '70052101');
@@ -266,10 +289,11 @@ test('DEMO-04 [f] @evidence mass approval of OCs: checkboxes visibly selected be
   await conceder(guard, cleanup, OPER_EMAIL, A_PERMS);
   await umbrales(guard);
   await proveedorSeed(guard);
+  const J2 = await jefeAlmacen(browser, guard, cleanup);
 
   const ids: string[] = []; const folios: string[] = [];
   for (const desc of ['Papeleria mensual', 'Toner para impresoras']) {
-    const rqId = await rqAutorizada(A, guard, 6, desc);
+    const rqId = await rqAutorizada(A, J2, guard, 6, desc);
     const ocId = await ocDesdeRq(pa, rqId);
     await adjuntarPorUi(pa, guard, ocId, 'cotizacion', 'cotizacion-proveedor.pdf');
     await ponerPrecio(pa, ocId, 15);

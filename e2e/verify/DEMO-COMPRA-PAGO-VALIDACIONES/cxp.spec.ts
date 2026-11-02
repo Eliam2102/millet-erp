@@ -1,24 +1,27 @@
 /**
  * Validaciones de CUENTAS POR PAGAR: la factura (CFDI) se carga y captura contra una OC por la pantalla real. Cada caso hace
  * lo indebido en la pantalla y luego repite la operación contra la API para afirmar el rechazo del servidor.
- * La OC se deja autorizada por SQL (la firma de otra persona no es lo que se prueba aquí).
+ * La OC se deja autorizada por SQL (la firma de otra persona no es lo que se prueba aquí). Desde #357 CxP rechaza la factura contra
+ * OC que excede lo recibido sin facturar (FACTURA_EXCEDE_RECIBIDO), así que los casos que deben capturar reciben la OC antes.
  */
+import { SA_EMAIL, warm } from '../86e3pc50v/_data';
 import type { Page } from '@playwright/test';
 import { test, expect, shot, type Guard } from '../../_harness/fixtures';
 import { apiBaseURL } from '../../_harness/session';
 import {
   abrirContabilidad, captureBearer, crearArticulo, crearBin, CC_SEED, DEPTO_COMPRAS, MID, nombrarCatalogos, ok, PROV_VIDRIO, rand, rechazo, sql, today, uuid, foto } from './_data';
-import { habilitarProveedorParaPago, sembrarCuentaMillet, sembrarPasivo, CUENTA_MILLET } from './_tesoreria';
+import { habilitarProveedorParaPago, sembrarCuentaMillet } from './_tesoreria';
 
 test.use({ role: 'super-admin', viewport: { width: 1600, height: 900 } });
 test.setTimeout(240_000);
-test.beforeEach(async ({ page }) => { await page.goto('/cxp/facturas'); await page.waitForLoadState('networkidle'); });
+// warm() completes the SSO sign-in if the saved session needs it and waits for the workspace, so guard.api has the page's token
+test.beforeEach(async ({ page }) => { await warm(page, '/cxp/facturas', SA_EMAIL); });
 
 const CANT = 20; const PRECIO = 850;
 const SUBTOTAL = CANT * PRECIO; const IVA = Math.round(SUBTOTAL * 0.16 * 100) / 100;
 const RFC_PROV = 'SES010101AAA'; // PROV-EST (seed), renombrado como Vidrio Flotado del Bajío
 const RFC_AJENO = 'VTE180920AB1';
-const S: { ocId?: string; ocFolio?: string; lineaId?: string; articuloId?: string; yo?: string; base?: { facturaId: string; uuid: string; folio: string; body: any; cfdiXml: string }; bearer?: { v: string } } = {};
+const S: { ocId?: string; ocFolio?: string; lineaId?: string; articuloId?: string; binId?: string; yo?: string; base?: { facturaId: string; uuid: string; folio: string; body: any; cfdiXml: string }; bearer?: { v: string } } = {};
 
 const settle = async (p: Page) => { await p.waitForLoadState('networkidle'); await p.waitForTimeout(700); };
 const toast = (p: Page) => p.locator('[data-sonner-toast]').first();
@@ -71,7 +74,7 @@ async function abrirCaptura(page: Page, uuidCfdi: string, ocFolio?: string) {
 /** OC autorizada (arrange por SQL) con 20 piezas de vidrio a $850. Devuelve folio y línea. */
 async function crearOc(guard: Guard) {
   const art = await crearArticulo(guard, { clave: `VID-FLT-06-${rand()}`, nombre: 'Vidrio flotado claro 6 mm hoja 2.44 x 3.60 m' });
-  await crearBin(guard, [art.id]);
+  const bin = await crearBin(guard, [art.id]);
   const oc = await ok(await guard.api.post('/api/v1/compras/ordenes', {
     sucursalDestinoId: MID, sucursalCodigo: 'MID', folioAnio: new Date().getFullYear(), proveedorId: PROV_VIDRIO,
     condicionesPagoId: uuid(), usoPrincipalId: uuid(), fechaDocumento: today(), moneda: 'MXN',
@@ -82,7 +85,17 @@ async function crearOc(guard: Guard) {
   }));
   const det = await ok(await guard.api.get(`/api/v1/compras/ordenes/${oc.id}`));
   sql(`update compras.ordenes_compra set estado=3, fecha_contabilizacion=now() where id='${oc.id}'`);
-  return { ocId: oc.id as string, ocFolio: det.folio as string, lineaId: det.lineas[0].id as string, articuloId: art.id };
+  return { ocId: oc.id as string, ocFolio: det.folio as string, lineaId: det.lineas[0].id as string, articuloId: art.id, binId: bin.id };
+}
+
+/** Arrange (API de Almacén): recibe las 20 piezas de la OC y espera a que Compras registre lo recibido (llega por su evento). */
+async function recibirOc(guard: Guard, oc: { ocId: string; lineaId: string; articuloId: string; binId: string }) {
+  await ok(await guard.api.post('/api/v1/almacen/recepciones', {
+    ordenCompraId: oc.ocId, fechaMovimiento: today(), cfdiUuidFiscal: nuevoUuid(), observaciones: 'Recepción de vidrio flotado',
+    lineas: [{ articuloId: oc.articuloId, lineaOcId: oc.lineaId, cantidad: CANT, ubicacionId: oc.binId }],
+  }, { 'Idempotency-Key': uuid() }), [200, 201]);
+  await expect.poll(async () => (await ok(await guard.api.get(`/api/v1/compras/ordenes/${oc.ocId}`))).lineas[0].cantidadRecibida,
+    { timeout: 40_000, message: 'Compras registra lo recibido' }).toBe(CANT);
 }
 
 /** Catálogos, periodos y la OC base (una vez por worker). */
@@ -92,6 +105,7 @@ async function prepOc(guard: Guard) {
   await abrirContabilidad(guard);
   S.yo = (await ok(await guard.api.get('/api/auth/me'))).userId;
   Object.assign(S, await crearOc(guard));
+  await recibirOc(guard, S as Required<typeof S>);
   sembrarCuentaMillet();
   habilitarProveedorParaPago(PROV_VIDRIO, 1);
 }
@@ -179,6 +193,7 @@ test('V-CXP-03 factura con total fuera de tolerancia contra la OC no queda captu
 test('V-CXP-04 factura con fecha de contabilización en un periodo contable cerrado no se captura', async ({ page, guard }) => {
   await prepOc(guard);
   const oc = await crearOc(guard);
+  await recibirOc(guard, oc); // con lo recibido, el único motivo de rechazo que queda es el periodo cerrado
   const anio = new Date().getFullYear();
   sql(`update contabilidad.periodos_contables set estado=2 where anio=${anio} and numero=1`);
   const u = nuevoUuid();
@@ -203,55 +218,27 @@ test('V-CXP-04 factura con fecha de contabilización en un periodo contable cerr
   sql(`update contabilidad.periodos_contables set estado=1 where anio=${anio} and numero=1`);
 });
 
-test('V-CXP-05 factura sin recepción: no es elegible para pago y Tesorería no la paga', async ({ page, guard }) => {
-  await prepBase(page, guard);
-  const b = S.base!;
-  // CxP autoriza la factura (nada recibido todavía en Almacén)
-  await page.goto(`/cxp/facturas/${b.facturaId}`);
-  await settle(page);
-  await page.getByRole('button', { name: 'Autorizar', exact: true }).click();
-  await page.getByRole('button', { name: 'Autorizar para pago' }).click();
-  await expect.poll(async () => (await ok(await guard.api.get(`/api/v1/cuentas-por-pagar/facturas/${b.facturaId}`))).estado, { timeout: 15_000 }).toBe(3);
-  await settle(page);
-  const det = await ok(await guard.api.get(`/api/v1/cuentas-por-pagar/facturas/${b.facturaId}`));
-  expect(det.estado, 'Autorizada').toBe(3);
-  expect(det.elegible, 'nada recibido => nada elegible para pago').toBe(0);
-  await expect(page.getByText('Elegible para pago').first()).toBeVisible();
-  await foto(page, 'V-CXP-05a-factura-autorizada-sin-recepcion-elegible-cero');
-
-  // Tesorería: el pasivo existe, pero el pago se rechaza
-  sembrarPasivo({ facturaId: b.facturaId, proveedorId: PROV_VIDRIO, total: det.total, subtotal: det.subtotal, folio: b.folio, uuidCfdi: b.uuid, n: 1 });
-  await page.goto('/tesoreria/pagos');
-  await settle(page);
-  const cb = page.getByRole('checkbox', { name: `Seleccionar ${b.folio}` });
-  // with the Outbox on, the liability arrives through the event flagged as not payable and Tesorería does not even offer it
-  if (!(await cb.waitFor({ state: 'visible', timeout: 8_000 }).then(() => true, () => false))) {
-    await foto(page, 'V-CXP-05b-pasivo-sin-recepcion-no-se-ofrece-para-pago');
-  } else {
-    await cb.check();
-    await page.getByRole('button', { name: /Registrar pago \(1\)/ }).click();
-    const sheet = page.getByRole('dialog', { name: 'Registrar pago a proveedor' });
-    await sheet.getByRole('combobox', { name: 'Cuenta bancaria' }).click();
-    await page.getByRole('option', { name: /BBVA/ }).first().click();
-    await sheet.getByLabel(`Importe para ${b.folio}`).fill(String(det.total));
-    await sheet.getByLabel('Referencia bancaria').fill('SPEI2611051022');
-    guard.allowStatus(422);
-    guard.expectApiMutationError(422);
-    const post = page.waitForResponse((r) => r.url().endsWith('/api/v1/tesoreria/pagos') && r.request().method() === 'POST');
-    await sheet.getByRole('button', { name: 'Registrar pago' }).click();
-    const r = await post;
-    expect(r.status()).toBe(422);
-    await page.waitForTimeout(800);
-    await foto(page, 'V-CXP-05b-pago-rechazado-factura-sin-recepcion');
-    const prob = JSON.parse(await r.text());
-    expect(prob.code ?? JSON.stringify(prob)).toMatch(/PASIVO_NO_PAGABLE_CXP|PAGO_EXCEDE_ELEGIBLE/);
-    console.log(`[V-CXP-05] ${prob.code} - ${prob.detail}`);
-  }
+test('V-CXP-05 factura sin recepción: se rechaza con FACTURA_EXCEDE_RECIBIDO y no se guarda', async ({ page, guard }) => {
+  await prepOc(guard);
+  const oc = await crearOc(guard); // OC autorizada, nada recibido todavía en Almacén
+  const u = nuevoUuid(); const num = numFolio();
+  await cargarCfdi(page, cfdiXml({ uuid: u, rfc: RFC_PROV, fecha: today(), folio: num }), 'factura-sin-recepcion.xml');
+  const cap = await abrirCaptura(page, u, oc.ocFolio);
   guard.allowStatus(422);
-  const dos = await rechazo(await guard.api.post('/api/v1/tesoreria/pagos', {
-    cuentaBancariaId: CUENTA_MILLET, fechaValor: today(), referenciaBancaria: 'SPEI2611051022', aplicaciones: [{ facturaProveedorId: b.facturaId, importe: det.total }],
-  }, { 'Idempotency-Key': uuid() }), 422, /PASIVO_NO_PAGABLE_CXP|PAGO_EXCEDE_ELEGIBLE/);
-  expect(dos.detail).toBeTruthy();
-  expect(sql(`select count(*) from tesoreria.aplicacion_pago_proveedor where factura_proveedor_id='${b.facturaId}'`), 'no se aplicó dinero').toBe('0');
+  guard.expectApiMutationError(422);
+  const post = page.waitForResponse((r) => /\/cuentas-por-pagar\/facturas$/.test(r.url()) && r.request().method() === 'POST');
+  await cap.getByRole('button', { name: 'Capturar factura' }).click();
+  const r = await post;
+  expect(r.status()).toBe(422);
+  await expect(toast(page)).toBeVisible();
+  await page.waitForTimeout(500);
+  await foto(page, 'V-CXP-05-factura-sin-recepcion-se-rechaza');
+  const prob = JSON.parse(await r.text());
+  expect(prob.code ?? JSON.stringify(prob)).toContain('FACTURA_EXCEDE_RECIBIDO');
+  expect(prob.detail).toContain(oc.ocFolio);
+  // el servidor responde igual si se le llama directo
+  const body = JSON.parse(r.request().postData() ?? '{}');
+  await rechazo(await guard.api.post('/api/v1/cuentas-por-pagar/facturas', { ...body, uuidCfdi: nuevoUuid(), cfdiRecibidoId: null }, { 'Idempotency-Key': uuid() }), 422, 'FACTURA_EXCEDE_RECIBIDO');
+  expect(sql(`select count(*) from cuentas_por_pagar.facturas_proveedor where orden_compra_id = '${oc.ocId}'`), 'no se guardó ninguna factura de esa OC').toBe('0');
   void apiBaseURL; void captureBearer;
 });
