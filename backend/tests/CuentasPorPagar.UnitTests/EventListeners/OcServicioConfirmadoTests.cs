@@ -41,10 +41,11 @@ public sealed class OcServicioConfirmadoTests
     public async Task Oc_mixta_con_servicio_sin_confirmar_solo_el_material_es_elegible()
     {
         await using var a = new Ambiente(cantidadOc: 20); // total de la OC con IVA: 464
-        a.ConfigurarMixta(confirmado: false);
+        a.ConfigurarMixta(confirmado: true); // F1-CXP-01: se factura con el servicio confirmado; luego se deshace.
         var cmd = a.Command(10, 20, total: 464, iva: 64);
         var material = cmd.Lineas[0];
         var captura = await a.Handler.Handle(cmd with { Subtotal = 400, Lineas = [material, material with { LineaOcId = a.LineaServicioId }] }, default);
+        a.ConfigurarMixta(confirmado: false);
         captura.Estado.Should().NotBe(Millet.CuentasPorPagar.Domain.FacturaProveedor.EstadoPasivo.Cancelada, captura.MotivoCancelacion?.ToString());
         var factura = await a.Db.FacturasProveedor.SingleAsync(f => f.Id == captura.Id);
 
@@ -59,6 +60,7 @@ public sealed class OcServicioConfirmadoTests
     public async Task Servicio_confirmado_es_elegible_completo()
     {
         await using var a = new Ambiente(recibido: 0);
+        a.ConfigurarServicio(confirmado: true); // F1-CXP-01: el servicio se factura ya confirmado.
         var factura = await FacturaAutorizadaAsync(a);
         a.ConfigurarServicio(confirmado: true);
 
@@ -72,6 +74,7 @@ public sealed class OcServicioConfirmadoTests
     public async Task Evento_republica_el_pasivo_con_la_elegibilidad_nueva_y_es_idempotente()
     {
         await using var a = new Ambiente(recibido: 0);
+        a.ConfigurarServicio(confirmado: true); // F1-CXP-01: el servicio se factura ya confirmado.
         var factura = await FacturaAutorizadaAsync(a);
         a.ConfigurarServicio(confirmado: true);
         a.Eventos.Integraciones.Clear();
@@ -90,6 +93,7 @@ public sealed class OcServicioConfirmadoTests
     public async Task Al_deshacer_la_confirmacion_el_pasivo_vuelve_a_cero()
     {
         await using var a = new Ambiente(recibido: 0);
+        a.ConfigurarServicio(confirmado: true); // F1-CXP-01: el servicio se factura ya confirmado.
         var factura = await FacturaAutorizadaAsync(a);
         a.ConfigurarServicio(confirmado: false);
         a.Eventos.Integraciones.Clear();

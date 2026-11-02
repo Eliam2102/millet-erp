@@ -180,9 +180,10 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
         }
 
         // 86e3tfedr: la recepción elegida debe existir, ser de esta OC y no estar ligada a otra factura vigente.
+        Domain.Almacen.RecepcionOcLocal? recepcion = null;
         if (command.RecepcionId is Guid recepcionId)
         {
-            var recepcion = await _db.RecepcionesOcLocal.AsNoTracking()
+            recepcion = await _db.RecepcionesOcLocal.AsNoTracking()
                 .FirstOrDefaultAsync(r => r.RecepcionId == recepcionId, cancellationToken)
                 ?? throw new BusinessRuleException(
                     "RECEPCION_NO_ENCONTRADA",
@@ -235,6 +236,8 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
         var diferencia = conciliacion.Diferencia;
         if (notas.Sum(n => n.Xml.Total) > command.Total)
             throw new BusinessRuleException("NC_EXCEDE_FACTURA", "Las notas de crédito exceden el total de la factura.");
+        if (conciliacion.Motivo is null)
+            ValidarContraRecibido(command, oc, tolerancia, previas, recepcion);
         var redondeo = 0m;
 
         // 4) Construir la factura. Si pasa tolerancia → Capturada con
@@ -397,6 +400,41 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
             MotivoCancelacion: factura.MotivoDeCancelacion,
             Version: factura.Version,
             MotivoCancelacionTexto: factura.MotivoCancelacionTexto);
+    }
+
+    /// <summary>
+    /// F1-CXP-01 (revisión 9-oct) y CXP-09: la base de la factura (después de descuentos y NC adjuntas) no puede exceder el valor de
+    /// lo recibido aún sin facturar (cantidad recibida − facturas vigentes previas, × base pactada en la OC) más la tolerancia de
+    /// dinero del proveedor. En piezas no hay tolerancia. Si la factura liga una recepción, cuenta solo lo de esa recepción. Se
+    /// rechaza la captura (422) en vez de cancelarla: no hay nada que corregir en la OC, hay que esperar la recepción. La
+    /// retención del pago (<see cref="ElegibilidadPago"/>) no sustituye este rechazo.
+    /// </summary>
+    private static void ValidarContraRecibido(CapturarFacturaConOcCommand command, OrdenCompraDto oc, Tolerancia tolerancia,
+        IReadOnlyDictionary<Guid, decimal> previas, Domain.Almacen.RecepcionOcLocal? recepcion)
+    {
+        // Mismas fuentes que la elegibilidad de pago: Compras ya descuenta devoluciones y cancelaciones; un servicio cuenta
+        // como recibido solo con la OC confirmada por el área solicitante (86e3tacbn).
+        var disponible = oc.Lineas.ToDictionary(l => l.Id, l =>
+            Math.Max(0, (l.EsServicio ? (oc.ServicioConfirmado ? l.Cantidad : 0) : l.CantidadRecibida) - previas.GetValueOrDefault(l.Id)));
+        if (recepcion is not null)
+        {
+            var deRecepcion = (System.Text.Json.JsonSerializer.Deserialize<List<EventListeners.LineaRecepcionPayload>>(
+                    recepcion.LineasJson, System.Text.Json.JsonSerializerOptions.Web) ?? [])
+                .Where(l => l.LineaOcId != null && !recepcion.LineaAnulada(l.LineaOcId))
+                .GroupBy(l => l.LineaOcId!.Value).ToDictionary(g => g.Key, g => g.Sum(l => l.Cantidad));
+            foreach (var id in disponible.Keys.ToList())
+                disponible[id] = Math.Min(disponible[id], deRecepcion.GetValueOrDefault(id));
+        }
+        var precios = oc.Lineas.ToDictionary(o => o.Id, o => o.BaseNetaUnitaria ?? o.PrecioUnitario);
+        var lineas = command.Lineas.Select(l => new LineaElegibilidad(l.LineaOcId!.Value, l.Cantidad, precios[l.LineaOcId.Value])).ToList();
+        var recibido = ElegibilidadPago.ValorRecibido(lineas, disponible);
+        var neto = command.Subtotal - command.Descuentos - (command.NotasCredito ?? []).Sum(n => n.Lineas.Sum(l => l.Base));
+        var exceso = neto - recibido;
+        if (exceso > 0 && !tolerancia.Pasa(exceso, recibido))
+            throw new BusinessRuleException("FACTURA_EXCEDE_RECIBIDO",
+                $"La factura ampara {neto:N2} {command.Moneda} antes de impuestos y lo recibido en almacén sin facturar " +
+                $"{(recepcion is null ? $"de la OC {oc.Folio}" : $"en la recepción {recepcion.FolioRecepcion}")} vale {recibido:N2} " +
+                $"(excede {exceso:N2}; tolerancia {tolerancia.Valor:N2}). Captúrala cuando llegue la recepción o pide al proveedor una factura por lo recibido.");
     }
 
     /// <summary>
