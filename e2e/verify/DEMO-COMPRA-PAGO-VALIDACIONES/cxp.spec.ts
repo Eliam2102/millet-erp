@@ -4,6 +4,7 @@
  * La OC se deja autorizada por SQL (la firma de otra persona no es lo que se prueba aquí). Desde #357 CxP rechaza la factura contra
  * OC que excede lo recibido sin facturar (FACTURA_EXCEDE_RECIBIDO), así que los casos que deben capturar reciben la OC antes.
  */
+import { SA_EMAIL, warm } from '../86e3pc50v/_data';
 import type { Page } from '@playwright/test';
 import { test, expect, shot, type Guard } from '../../_harness/fixtures';
 import { apiBaseURL } from '../../_harness/session';
@@ -13,7 +14,8 @@ import { habilitarProveedorParaPago, sembrarCuentaMillet } from './_tesoreria';
 
 test.use({ role: 'super-admin', viewport: { width: 1600, height: 900 } });
 test.setTimeout(240_000);
-test.beforeEach(async ({ page }) => { await page.goto('/cxp/facturas'); await page.waitForLoadState('networkidle'); });
+// warm() completes the SSO sign-in if the saved session needs it and waits for the workspace, so guard.api has the page's token
+test.beforeEach(async ({ page }) => { await warm(page, '/cxp/facturas', SA_EMAIL); });
 
 const CANT = 20; const PRECIO = 850;
 const SUBTOTAL = CANT * PRECIO; const IVA = Math.round(SUBTOTAL * 0.16 * 100) / 100;

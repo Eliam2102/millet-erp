@@ -97,7 +97,7 @@ async function rqAutorizada(A: Awaited<ReturnType<typeof asRole>>, J2: Awaited<R
   await ok(await guard.api.post(`/api/v1/compras/requisiciones/${id}/autorizaciones`, { nivel: 1 }));
   expect((await ok(await guard.api.get(`/api/v1/compras/requisiciones/${id}`))).estado, 'no stock: N1 alone leaves the RQ EnAutorizacion').toBe(1);
   await ok(await J2.api.post(`/api/v1/compras/requisiciones/${id}/autorizaciones`, { nivel: 2 }));
-  expect((await ok(await guard.api.get(`/api/v1/compras/requisiciones/${id}`))).estado, 'RQ Autorizada').toBe(2);
+  expect((await ok(await guard.api.get(`/api/v1/compras/requisiciones/${id}`))).estado, 'RQ authorized by both levels (EnSurtido, as in the demo journey)').toBe(3);
   return id;
 }
 

@@ -3,6 +3,7 @@
  * La corrida se arma con la sesión de super-admin (única vigente): por eso «quien armó no autoriza» se prueba con la misma persona,
  * y para los casos que necesitan una segunda firma la corrida se registra a nombre de otra persona (arrange por SQL en BD de prueba).
  */
+import { SA_EMAIL, warm } from '../86e3pc50v/_data';
 import type { Page } from '@playwright/test';
 import { test, expect, shot, type Guard } from '../../_harness/fixtures';
 import { ok, otroUsuarioId, rechazo, sql, today, uuid, foto } from './_data';
@@ -10,7 +11,8 @@ import { BANCO_MILLET, CUENTA_MILLET, PROVS, prov, seed, totalDe } from './_teso
 
 test.use({ role: 'super-admin', viewport: { width: 1600, height: 900 } });
 test.setTimeout(180_000);
-test.beforeEach(async ({ page }) => { await page.goto('/tesoreria/corridas'); await page.waitForLoadState('networkidle'); }); // el token de la API se captura de la primera llamada de la página
+// warm() completes the SSO sign-in if the saved session needs it and waits for the workspace, so guard.api has the page's token
+test.beforeEach(async ({ page }) => { await warm(page, '/tesoreria/corridas', SA_EMAIL); });
 test.beforeAll(() => seed());
 
 const S: { yo?: string } = {};

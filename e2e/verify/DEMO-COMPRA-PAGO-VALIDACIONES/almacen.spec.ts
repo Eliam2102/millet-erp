@@ -2,6 +2,7 @@
  * Validaciones de RECEPCIÓN DE ALMACÉN: cantidades, estado de la OC, cancelación y periodo contable.
  * Cada caso: la pantalla bloquea o muestra el mensaje y el servidor rechaza la misma operación (status y código afirmados).
  */
+import { SA_EMAIL, warm } from '../86e3pc50v/_data';
 import type { Page } from '@playwright/test';
 import { test, expect, shot, type Guard } from '../../_harness/fixtures';
 import {
@@ -9,7 +10,8 @@ import {
 
 test.use({ role: 'super-admin', viewport: { width: 1600, height: 900 } });
 test.setTimeout(180_000);
-test.beforeEach(async ({ page }) => { await page.goto('/almacen/recepciones'); await page.waitForLoadState('networkidle'); }); // el token de la API se captura de la primera llamada de la página
+// warm() completes the SSO sign-in if the saved session needs it and waits for the workspace, so guard.api has the page's token
+test.beforeEach(async ({ page }) => { await warm(page, '/almacen/recepciones', SA_EMAIL); });
 
 type Esc = { ocId: string; folio: string; lineaId: string; articuloId: string; articuloNombre: string; binId: string; binClave: string; cantidad: number };
 const S: { yo?: string } = {};

@@ -2,6 +2,7 @@
  * Validaciones de CONCILIACIÓN BANCARIA: no cierra con diferencia (CONCILIACION_DESCUADRADA) y desemparejar exige motivo.
  * Datos: libros sembrados por SQL + extracto BBVA de septiembre 2026 generado en _conciliacion.ts.
  */
+import { SA_EMAIL, warm } from '../86e3pc50v/_data';
 import { randomUUID } from 'node:crypto';
 import type { Page } from '@playwright/test';
 import { test, expect, apiCallOn, shot } from '../../_harness/fixtures';
@@ -11,7 +12,8 @@ import { rechazo, foto } from './_data';
 test.use({ role: 'super-admin', viewport: { width: 1600, height: 900 } });
 test.setTimeout(180_000);
 test.beforeAll(() => seedAll());
-test.beforeEach(async ({ page }) => { await page.goto('/tesoreria/conciliacion'); await page.waitForLoadState('networkidle'); });
+// warm() completes the SSO sign-in if the saved session needs it and waits for the workspace, so guard.api has the page's token
+test.beforeEach(async ({ page }) => { await warm(page, '/tesoreria/conciliacion', SA_EMAIL); });
 
 const API = '/api/v1/tesoreria/conciliaciones';
 const idem = () => ({ 'Idempotency-Key': randomUUID() });

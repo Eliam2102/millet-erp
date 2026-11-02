@@ -3,6 +3,7 @@
  * mensaje claro y el servidor también lo rechaza (se llama a la API directamente y se afirma status y código).
  * Sesión: super-admin (única vigente). «Quien capturó no firma» se prueba con la misma persona, que es justo el caso.
  */
+import { SA_EMAIL, warm } from '../86e3pc50v/_data';
 import type { Page } from '@playwright/test';
 import { test, expect, shot, type Guard } from '../../_harness/fixtures';
 import {
@@ -11,7 +12,8 @@ import {
 
 test.use({ role: 'super-admin', viewport: { width: 1600, height: 900 } });
 test.setTimeout(180_000);
-test.beforeEach(async ({ page }) => { await page.goto('/compras/requisiciones'); await page.waitForLoadState('networkidle'); }); // el token de la API se captura de la primera llamada de la página
+// warm() completes the SSO sign-in if the saved session needs it and waits for the workspace, so guard.api has the page's token
+test.beforeEach(async ({ page }) => { await warm(page, '/compras/requisiciones', SA_EMAIL); });
 
 const S: { bien?: { id: string; clave: string; nombre: string }; servicio?: { id: string; clave: string; nombre: string }; yo?: string } = {};
 
