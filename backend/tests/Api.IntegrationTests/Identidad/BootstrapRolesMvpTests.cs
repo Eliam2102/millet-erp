@@ -39,6 +39,7 @@ public class BootstrapRolesMvpTests : IClassFixture<WebApplicationFactory<Progra
         "admin-compras",
         "cxp",
         "tesoreria",
+        "gerente",
     ];
 
     private readonly WebApplicationFactory<Program> _factory;
@@ -203,6 +204,22 @@ public class BootstrapRolesMvpTests : IClassFixture<WebApplicationFactory<Progra
         Assert.Contains(bancariosVerId, datosMaestrosPermisoIds);
         Assert.DoesNotContain(bancariosEditarId, datosMaestrosPermisoIds);
         Assert.DoesNotContain(Guid.Parse("00000004-0009-0000-0000-000000000008"), datosMaestrosPermisoIds);
+    }
+
+    [Fact]
+    public async Task RolGerente_Solo_Consulta_Y_Firma_Corridas()
+    {
+        // T9.1: PoliticaFirmaCorrida.Demo pide una firma del rol «gerente» desde $500,000.
+        var client = await CreateSuperAdminClientAsync();
+        var gerenteId = await GetRolIdByCodigoAsync(client, "gerente");
+        var detalle = await GetDetalleAsync(client, gerenteId);
+        var permisoIds = detalle.GetProperty("permisoIds").EnumerateArray().Select(g => g.GetGuid()).ToHashSet();
+        var esperados = PermisosCanonicos.Todos
+            .Where(p => p.Codigo is PermisosCanonicos.TesoreriaPasivosVer or PermisosCanonicos.TesoreriaCorridasAutorizar)
+            .Select(p => p.Id).ToHashSet();
+
+        Assert.Equal("Gerente", detalle.GetProperty("rol").GetProperty("nombre").GetString());
+        Assert.True(esperados.SetEquals(permisoIds), "El rol 'gerente' solo consulta y firma corridas.");
     }
 
     [Fact]

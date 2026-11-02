@@ -314,7 +314,12 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                 p => p.Codigo is PermisosCanonicos.AlmacenSalidasLeerTodas or PermisosCanonicos.AlmacenSalidasPorVale),
             (Guid.Parse("00000010-0001-0000-0000-000000000006"), "cancelacion-requisicion-autorizada",
                 "Cancelación de requisición autorizada", "Cancela requisiciones autorizadas; el motivo es obligatorio.",
-                p => p.Codigo is PermisosCanonicos.ComprasRequisicionesLeer or PermisosCanonicos.ComprasRequisicionesCancelar)];
+                p => p.Codigo is PermisosCanonicos.ComprasRequisicionesLeer or PermisosCanonicos.ComprasRequisicionesCancelar),
+            // T9.1: el escalón DEMO de firmas (PoliticaFirmaCorrida.Demo, desde $500,000) pide una firma del rol «gerente».
+            // Solo consulta y firma de corridas; propuesta de VILO hasta que Millet confirme los firmantes.
+            (Guid.Parse("0000000b-0005-0001-0000-000000000001"), "gerente",
+                "Gerente", "Firma las corridas de pago del escalón que pide al Gerente.",
+                p => p.Codigo is PermisosCanonicos.TesoreriaPasivosVer or PermisosCanonicos.TesoreriaCorridasAutorizar)];
         // Retira las concesiones anteriores también en roles históricos con otro código.
         var contadores = await db.Roles.Where(r => r.Codigo == "contador-general" || r.Nombre == "Contador General")
             .Select(r => r.Id).ToListAsync(cancellationToken);
