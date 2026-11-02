@@ -71,6 +71,18 @@ public sealed class P3ReglasTests
     }
 
     [Fact]
+    public void Valor_recibido_no_compensa_entre_lineas_y_consume_lo_disponible_en_orden()
+    {
+        var a = Guid.NewGuid(); var b = Guid.NewGuid();
+        // A: 10 facturadas con 8 recibidas; B: 2 facturadas con 5 recibidas. Lo que sobra en B no cubre el faltante de A.
+        ElegibilidadPago.ValorRecibido([new(a, 10, 20), new(b, 2, 50)], new Dictionary<Guid, decimal> { [a] = 8, [b] = 5 })
+            .Should().Be(8 * 20 + 2 * 50);
+        // Dos líneas de factura contra la misma línea de OC comparten lo recibido; sin recepción vale 0.
+        ElegibilidadPago.ValorRecibido([new(a, 6, 20), new(a, 6, 20)], new Dictionary<Guid, decimal> { [a] = 8 }).Should().Be(160);
+        ElegibilidadPago.ValorRecibido([new(a, 1, 20)], new Dictionary<Guid, decimal>()).Should().Be(0);
+    }
+
+    [Fact]
     public void Devolucion_OC302_cargo_1300_retiene_208_de_IVA_y_la_NC_1508_lo_libera_sin_descuento_doble()
     {
         var id = Guid.NewGuid(); var recibido = new Dictionary<Guid, decimal> { [id] = 18 };

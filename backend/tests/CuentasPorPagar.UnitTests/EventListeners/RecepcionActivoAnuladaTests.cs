@@ -66,13 +66,15 @@ public sealed class RecepcionActivoAnuladaTests
     public async Task Cantidad_anulada_no_cuenta_como_recibido_local_en_la_elegibilidad()
     {
         await using var a = new P3FacturaConOcTests.Ambiente(recibido: 0);
-        var respuesta = await a.Handler.Handle(a.Command(5, 20), default);
-        var factura = await a.Db.FacturasProveedor.SingleAsync(f => f.Id == respuesta.Id);
         var rec = a.Recepcion(5);
         await a.Recepciones.Handle(rec, default);
+        a.ActualizarRecibido(5); // F1-CXP-01: se factura lo recibido.
+        var respuesta = await a.Handler.Handle(a.Command(5, 20), default);
+        var factura = await a.Db.FacturasProveedor.SingleAsync(f => f.Id == respuesta.Id);
         factura.Autorizar(null, a.Ahora);
         await a.Db.SaveChangesAsync();
         await Handler(a).Handle(Anular(a, rec), default);
+        a.ActualizarRecibido(0); // Compras también descuenta la anulación; lo local no debe volver a contarla.
 
         var e = await a.Elegibilidad.CalcularAsync(factura, default, considerarRecepcionesLocales: true);
 

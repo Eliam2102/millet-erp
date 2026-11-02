@@ -45,8 +45,9 @@ public sealed class OcRecepcionCanceladaHandlerTests
     [InlineData(5)] // Compras ya descontó la cancelación (antes se restaba otra vez y salía 40)
     public async Task Factura_autorizada_republica_el_pasivo_igual_haya_o_no_descontado_Compras(int recibidoEnCompras)
     {
-        await using var a = new Ambiente(recibido: recibidoEnCompras);
-        var captura = await a.Handler.Handle(a.Command(10, 20), default);
+        await using var a = new Ambiente();
+        var captura = await a.Handler.Handle(a.Command(10, 20), default); // F1-CXP-01: se factura lo recibido.
+        a.ActualizarRecibido(recibidoEnCompras);
         var factura = await a.Db.FacturasProveedor.SingleAsync(f => f.Id == captura.Id);
         factura.Autorizar(null, a.Ahora);
         await a.Db.SaveChangesAsync();
