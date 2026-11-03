@@ -3,7 +3,7 @@ import { RegimenFiscalSelector } from '@/components/erp/selectors/RegimenFiscalS
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useRetenciones } from '@/features/cxp/api/useRetenciones';
-import { CONCEPTO_SIN_RETENCION, etiquetaConcepto } from '@/features/cxp/lib/retenciones-p8';
+import { CONCEPTO_SIN_RETENCION, etiquetaConceptoLegible } from '@/features/cxp/lib/retenciones-p8';
 import { OrigenProveedor, TipoPersonaProveedor } from '@/modules/datos-maestros/api/types';
 
 export interface ClasificacionFiscalValores {
@@ -136,7 +136,7 @@ export function ClasificacionFiscalCampos({
           <option value="">Por revisar</option>
           {conceptos.map((c) => (
             <option key={c} value={c}>
-              {etiquetaConcepto(c)}
+              {etiquetaConceptoLegible(c)}
             </option>
           ))}
         </select>

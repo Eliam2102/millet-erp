@@ -162,6 +162,45 @@ describe('<SheetNuevoProveedor>', () => {
     );
   });
 
+  it('201 EnRevision sin posibleDuplicadoDeId no avisa duplicado', async () => {
+    mswServer.use(
+      http.post('*/api/v1/catalogos/proveedores', () =>
+        HttpResponse.json(
+          { id: 'p-nuevo', clave: 'P-010', estatus: 2, posibleDuplicadoDeId: null },
+          { status: 201 },
+        ),
+      ),
+    );
+    vi.mocked(toast.warning).mockClear();
+
+    render(
+      <NuevoProveedorProvider>
+        <AbrirAlMontar />
+      </NuevoProveedorProvider>,
+      { wrapper: createQueryWrapper() },
+    );
+
+    await screen.findByLabelText('Clave');
+    llenarYEnviar();
+
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Proveedor P-010 creado'));
+    expect(toast.warning).not.toHaveBeenCalled();
+  });
+
+  it('las etiquetas quedan ligadas a sus controles', async () => {
+    render(
+      <NuevoProveedorProvider>
+        <AbrirAlMontar />
+      </NuevoProveedorProvider>,
+      { wrapper: createQueryWrapper() },
+    );
+
+    expect(await screen.findByLabelText('Clave')).toBeInTheDocument();
+    expect(screen.getByLabelText('Razón social')).toBeInTheDocument();
+    expect(screen.getByLabelText('RFC')).toBeInTheDocument();
+    expect(screen.getByLabelText('Tipo persona')).toBeInTheDocument();
+  });
+
   it('extranjero: oculta el RFC y manda origen y retención en el mismo POST, sin segunda llamada', async () => {
     let body: Record<string, unknown> | null = null;
     let llamadasClasificacion = 0;

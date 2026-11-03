@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
-import { etiquetaConcepto } from '@/features/cxp/lib/retenciones-p8';
+import { etiquetaConceptoLegible } from '@/features/cxp/lib/retenciones-p8';
 import { useActualizarClasificacionFiscalProveedor } from '../api/proveedores';
 import { OrigenProveedor, type TipoPersonaProveedor } from '../api/types';
 import {
@@ -159,7 +159,7 @@ export function ProveedorClasificacionFiscalSection({
           <div>
             <dt className="text-xs text-ink-muted">Retención que aplica</dt>
             <dd className="text-ink">
-              {conceptoRetencion == null ? 'Por revisar' : etiquetaConcepto(conceptoRetencion)}
+              {conceptoRetencion == null ? 'Por revisar' : etiquetaConceptoLegible(conceptoRetencion)}
             </dd>
           </div>
         </dl>
