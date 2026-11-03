@@ -35,6 +35,8 @@ public sealed class LineaCreditoConfiguration : IEntityTypeConfiguration<LineaCr
 
         builder.Property(e => e.Estado).HasConversion<short>().IsRequired();
         builder.Property(e => e.MotivoBloqueo).HasMaxLength(400);
+        builder.Property(e => e.BloqueoAutomatico).IsRequired().HasDefaultValue(false);
+        builder.Property(e => e.MotivoDesbloqueo).HasMaxLength(400);
         builder.Property(e => e.Clasificacion).HasMaxLength(1);
 
         // Invariante §4.2 / índice crítico §5.1: una sola línea Activa por

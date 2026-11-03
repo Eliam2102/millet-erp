@@ -25,13 +25,17 @@ public sealed record LineaCreditoResponse(
     string? Clasificacion,
     EstadoLineaCredito Estado,
     string? MotivoBloqueo,
-    int Version);
+    int Version,
+    bool BloqueoAutomatico = false,
+    DateTimeOffset? DesbloqueoManualEn = null,
+    string? MotivoDesbloqueo = null);
 
 internal static class LineaCreditoMapper
 {
     public static LineaCreditoResponse ToResponse(LineaCredito l) =>
         new(l.Id, l.ClienteId, l.Moneda, l.Limite, l.Origen, l.PlazoDias,
-            l.Clasificacion, l.Estado, l.MotivoBloqueo, l.Version);
+            l.Clasificacion, l.Estado, l.MotivoBloqueo, l.Version,
+            l.BloqueoAutomatico, l.DesbloqueoManualEn, l.MotivoDesbloqueo);
 }
 
 // --------------------------------------------------- Crear
@@ -173,13 +177,27 @@ public sealed class BloquearLineaCreditoHandler : IRequestHandler<BloquearLineaC
     }
 }
 
-public sealed record DesbloquearLineaCreditoCommand(Guid Id, int VersionEsperada)
+/// <summary>
+/// Desbloqueo manual autorizado (C7.5): exige motivo. Si la línea estaba
+/// bloqueada por vencimiento, el desbloqueo cubre lo vencido a esta fecha.
+/// </summary>
+public sealed record DesbloquearLineaCreditoCommand(Guid Id, int VersionEsperada, string Motivo)
     : IRequest<LineaCreditoResponse>;
+
+public sealed class DesbloquearLineaCreditoValidator : AbstractValidator<DesbloquearLineaCreditoCommand>
+{
+    public DesbloquearLineaCreditoValidator()
+    {
+        RuleFor(c => c.Id).NotEmpty();
+        RuleFor(c => c.Motivo).NotEmpty().MaximumLength(400);
+    }
+}
 
 public sealed class DesbloquearLineaCreditoHandler : IRequestHandler<DesbloquearLineaCreditoCommand, LineaCreditoResponse>
 {
     private readonly CuentasPorCobrarDbContext _db;
-    public DesbloquearLineaCreditoHandler(CuentasPorCobrarDbContext db) { _db = db; }
+    private readonly IClock _clock;
+    public DesbloquearLineaCreditoHandler(CuentasPorCobrarDbContext db, IClock clock) { _db = db; _clock = clock; }
 
     public async Task<LineaCreditoResponse> Handle(DesbloquearLineaCreditoCommand command, CancellationToken cancellationToken)
     {
@@ -202,7 +220,7 @@ public sealed class DesbloquearLineaCreditoHandler : IRequestHandler<Desbloquear
             throw new BusinessRuleException("LC_DUPLICADA",
                 $"El cliente ya tiene otra línea de crédito activa en {l.Moneda} — bloquéala antes de desbloquear ésta.");
 
-        l.Desbloquear();
+        l.Desbloquear(command.Motivo, _clock.UtcNow);
         await _db.SaveChangesAsync(cancellationToken);
         return LineaCreditoMapper.ToResponse(l);
     }

@@ -189,19 +189,21 @@ export function useBloquearLineaCredito() {
   });
 }
 
-/** <c>useDesbloquearLineaCredito()</c> — POST desbloquear. */
+/** <c>useDesbloquearLineaCredito()</c> — POST desbloquear con motivo (C7.5). */
 export function useDesbloquearLineaCredito() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (args: {
       id: string;
       versionEsperada: number;
+      motivo: string;
       idempotencyKey: string;
     }) => {
       const { data } = await apiRequest<LineaCreditoResponse>(
         `${BASE}/${args.id}/desbloquear`,
         {
           method: 'POST',
+          body: { motivo: args.motivo },
           idempotencyKey: args.idempotencyKey,
           headers: { 'X-Expected-Version': String(args.versionEsperada) },
         },

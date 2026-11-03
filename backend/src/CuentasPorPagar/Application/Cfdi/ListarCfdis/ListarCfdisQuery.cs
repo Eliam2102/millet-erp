@@ -23,7 +23,9 @@ public sealed record ListarCfdisQuery(
     TipoCfdi? Tipo = null,
     string? RfcEmisor = null,
     int Offset = 0,
-    int Limit = 50) : IRequest<PagedResponse<CfdiListItemResponse>>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+    int Limit = 50,
+    string? Q = null,
+    DateTimeOffset? RecibidoAntesDe = null) : IRequest<PagedResponse<CfdiListItemResponse>>, Millet.SharedKernel.Application.IDocumentoScopedQuery
 {
     public string PermisoTodasSucursales => "cuentas_por_pagar.documentos.leer-todas-sucursales";
     public string TipoDocumento => "cfdi_recibido";
@@ -74,6 +76,20 @@ public sealed class ListarCfdisHandler : IRequestHandler<ListarCfdisQuery, Paged
         {
             var rfc = RfcMexicano.Parse(query.RfcEmisor);
             q = q.Where(c => c.RfcEmisor == rfc);
+        }
+
+        if (query.RecibidoAntesDe is DateTimeOffset antes)
+            q = q.Where(c => c.FechaRecepcion < antes);
+        if (!string.IsNullOrWhiteSpace(query.Q))
+        {
+            // Escapa los comodines de LIKE del texto del usuario (\ es el escape por defecto en Npgsql).
+            var patron = "%" + query.Q.Trim()
+                .Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
+            // UuidCfdi es un VO con value converter: EF no traduce ILike sobre esa columna. Se resuelven
+            // los ids por SQL y se componen como subconsulta sobre `q`, que ya trae el scoping.
+            var ids = _db.Database.SqlQuery<Guid>(
+                $"SELECT id AS \"Value\" FROM cuentas_por_pagar.cfdis_recibidos WHERE uuid_cfdi ILIKE {patron} OR folio ILIKE {patron}");
+            q = q.Where(c => ids.Contains(c.Id));
         }
 
         var total = await q.CountAsync(cancellationToken);

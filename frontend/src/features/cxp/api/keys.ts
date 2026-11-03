@@ -9,6 +9,10 @@ export interface ListarCfdisFiltros {
   estado?: number;
   tipo?: number;
   rfcEmisor?: string;
+  /** UUID o folio (ILIKE en el servidor). */
+  q?: string;
+  /** ISO: solo CFDIs recibidos antes de esta fecha. */
+  recibidoAntesDe?: string;
   offset?: number;
   limit?: number;
 }

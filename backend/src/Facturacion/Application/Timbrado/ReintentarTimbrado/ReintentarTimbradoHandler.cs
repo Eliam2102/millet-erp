@@ -201,6 +201,10 @@ public sealed class ReintentarTimbradoHandler
             factura, CfdiEmisionBuilder.DesdeFacturaVenta(factura, ahora),
             _fiscal, _cfdiRepo, ahora, ct, PersistirEnProcesoAsync);
 
+        // FAC-08b: si es sustituta, al quedar timbrada se solicita la cancelación de la original.
+        await Sustituciones.SustitucionCfdi.SolicitarCancelacionOriginalAsync(
+            _db, factura, factura.UsuarioEmisorId, null, ahora, ct);
+
         // Efectos de EmitirFacturaVentaHandler pasos 9 y B2/B3 (evento +
         // asiento + pedido + write-back A+W) que el intento fallido omitió.
         if (factura.Estado == EstadoTimbrado.Timbrado)

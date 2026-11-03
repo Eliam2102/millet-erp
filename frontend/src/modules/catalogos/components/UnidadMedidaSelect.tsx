@@ -14,6 +14,7 @@ export interface UnidadMedidaSelectProps {
   value: string | null;
   onChange: (id: string | null) => void;
   disabled?: boolean;
+  id?: string;
   /**
    * Muestra la opción "— sin asignar —" (edición de artículos legacy con
    * FK NULL). En alta NO se pasa: la unidad es obligatoria.
@@ -30,6 +31,7 @@ export function UnidadMedidaSelect({
   value,
   onChange,
   disabled,
+  id,
   permitirVacio,
 }: UnidadMedidaSelectProps) {
   const query = useUnidadesMedidaList();
@@ -41,7 +43,7 @@ export function UnidadMedidaSelect({
       onValueChange={(v) => onChange(v === SIN_ASIGNAR ? null : v)}
       disabled={disabled || query.isLoading}
     >
-      <SelectTrigger>
+      <SelectTrigger id={id}>
         <SelectValue placeholder="Selecciona una unidad…" />
       </SelectTrigger>
       <SelectContent>

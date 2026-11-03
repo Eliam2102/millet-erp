@@ -6,6 +6,7 @@ using Millet.Administracion.Application.Series;
 using Millet.Administracion.Domain;
 using Millet.Facturacion.Application.Integration;
 using Millet.Facturacion.Application.NotasCredito;
+using Millet.Facturacion.Application.Sustituciones;
 using Millet.Facturacion.Application.Timbrado;
 using Millet.Facturacion.Domain.Activos;
 using Millet.Facturacion.Domain.Comprobantes;
@@ -174,6 +175,18 @@ public sealed class EmitirFacturaVentaHandler
 
         var receptor = FacturaVentaArmado.ReceptorDe(command);
 
+        // 2.ter FAC-08b: la original debe poder sustituirse ANTES de quemar folio o timbre.
+        FacturaVenta? sustituida = null;
+        if (command.SustituyeComprobanteId is Guid sustituyeId)
+        {
+            if (command.PedidoFacturableId is not null || command.SalidaFacturableId is not null
+                || command.Anticipos is { Count: > 0 } || command.Cce is not null || command.AutorizacionId is not null)
+                throw new BusinessRuleException(
+                    "SUSTITUCION_COMBINACION_NO_SOPORTADA",
+                    "La factura sustituta no se liga a pedido, salida, anticipos, CCE ni autorización: los hereda de la original al cancelarse.");
+            sustituida = await SustitucionCfdi.CargarSustituibleAsync(_db, sustituyeId, cancellationToken);
+        }
+
         // 2.bis F12-PR1: snapshot del emisor (razón social + LugarExpedicion del
         // master). Falla aquí si la empresa no tiene CP fiscal — sin quemar folio.
         var emisor = await EmisorSnapshot.ResolverAsync(
@@ -301,6 +314,10 @@ public sealed class EmitirFacturaVentaHandler
             autorizacion.MarcarUsada(factura.Id);
         }
 
+        // 5.bis.b FAC-08b: relación 04 a la original (va en el XML, antes de timbrar o retener).
+        if (sustituida is not null)
+            factura.AgregarRelacion(sustituida.Uuid!, SustitucionCfdi.TipoRelacion);
+
         // 5.ter F7-PR2: compuerta de pedimento (§3.bis.5, por factura, nunca
         // global). Si requiere pedimento y aún no lo tiene, se retiene sin timbrar
         // (solo esta factura); AplicarPedimentoCommand la completa después.
@@ -331,6 +348,11 @@ public sealed class EmitirFacturaVentaHandler
             factura,
             CfdiEmisionBuilder.DesdeFacturaVenta(factura, ahora),
             _fiscal, _cfdiRepo, ahora, cancellationToken);
+
+        // 7.bis FAC-08b: timbrada la sustituta, se solicita la cancelación de la original
+        // (motivo 01, sustituto = UUID nuevo). Queda pendiente de autorización (F6.5).
+        await SustitucionCfdi.SolicitarCancelacionOriginalAsync(
+            _db, factura, _user.UserId, _user.UserName, ahora, cancellationToken);
 
         // 8. F4-PR2: amortizar (generar + timbrar una NC por anticipo) si la
         // factura quedó Timbrada. Atómico: cualquier fallo lanza y el SaveChanges

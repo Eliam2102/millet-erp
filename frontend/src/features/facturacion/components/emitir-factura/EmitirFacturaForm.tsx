@@ -135,9 +135,10 @@ export function EmitirFacturaForm(props: EmitirFacturaFormProps) {
   return (
     <FormInner
       key={
-        props.prefill
+        props.prefill?.sustituye?.id ??
+        (props.prefill?.pedidoFacturableId
           ? `${props.prefill.pedidoFacturableId}:${props.prefill.salidaFacturableId ?? 'pedido'}`
-          : 'manual'
+          : 'manual')
       }
       {...props}
       emisor={defaults.data}
@@ -376,6 +377,7 @@ function FormInner({
           clienteId,
           pedidoFacturableId: prefill?.pedidoFacturableId ?? null,
           salidaFacturableId: prefill?.salidaFacturableId ?? null,
+          sustituyeComprobanteId: prefill?.sustituye?.id ?? null,
           anticipos:
             anticipos.filter((a) => a.anticipoId.trim().length > 0).length > 0
               ? anticipos
@@ -517,6 +519,20 @@ function FormInner({
           Se timbrará con la serie de Venta directa de la sucursal.
         </p>
       )}
+      {prefill?.sustituye && (
+        <p
+          role="note"
+          data-testid="leyenda-sustitucion"
+          className="flex items-start gap-1.5 rounded-md bg-info-bg px-3 py-2 text-sm text-info-fg"
+        >
+          <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" strokeWidth={1.6} />
+          <span>
+            Sustituye a <span className="font-mono">{prefill.sustituye.folio}</span> (relación 04). Corrige
+            lo necesario y timbra: el ERP pedirá la cancelación de la original con motivo 01 y quedará
+            pendiente de la autorización del Contador General.
+          </span>
+        </p>
+      )}
       {prefill?.pedidoFacturableId && !prefill.salidaFacturableId && (
         <div className="rounded-md border border-brand/30 bg-brand/5 px-3 py-2 text-sm">
           Facturando un pedido — partidas, datos comerciales y fiscales vienen precargados desde el
@@ -592,7 +608,8 @@ function FormInner({
             totales={totales}
             total={total}
             moneda={moneda}
-            clienteId={clienteId}
+            // FAC-08b: la sustituta no amortiza anticipos (los rechaza el backend).
+            clienteId={prefill?.sustituye ? null : clienteId}
             anticipos={anticipos}
             onAnticiposChange={cambiarAnticipos}
             observaciones={observaciones ?? ''}

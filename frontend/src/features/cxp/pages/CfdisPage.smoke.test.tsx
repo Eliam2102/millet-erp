@@ -12,12 +12,13 @@ import {
   TipoCfdi,
 } from '@/features/cxp/api/types';
 
+let searchMock: Record<string, unknown> = {};
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
     <a href={to}>{children}</a>
   ),
   useNavigate: () => () => {},
-  useSearch: () => ({}),
+  useSearch: () => searchMock,
 }));
 
 beforeEach(() => {
@@ -38,6 +39,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  searchMock = {};
   useAuthStore.setState({
     status: 'idle',
     accessToken: null,
@@ -85,6 +87,21 @@ describe('<CfdisPage> — smoke', () => {
     ).toBeInTheDocument();
   });
 
+  it('busca y pagina en el servidor (q, offset, limit) y muestra el total', async () => {
+    searchMock = { q: 'F3A9', page: 2 };
+    let url = '';
+    mswServer.use(
+      http.get('*/api/v1/cuentas-por-pagar/cfdis', ({ request }) => {
+        url = request.url;
+        return HttpResponse.json({ items: [], offset: 25, limit: 25, total: 0 });
+      }),
+    );
+    render(<CfdisPage />, { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(url).toContain('q=F3A9'));
+    expect(url).toContain('offset=25');
+    expect(url).toContain('limit=25');
+  });
+
   it('estado con datos renderiza UUIDs y RFC', async () => {
     mswServer.use(
       http.get('*/api/v1/cuentas-por-pagar/cfdis', () =>
@@ -118,6 +135,7 @@ describe('<CfdisPage> — smoke', () => {
     // Badge "Por procesar" (no el label del checkbox "Solo por procesar...")
     expect(screen.getByText(/^Por procesar$/i)).toBeInTheDocument();
     expect(screen.getByText(/A-12345/i)).toBeInTheDocument();
+    expect(screen.getByText('1–1 de 1')).toBeInTheDocument();
   });
 
   it('muestra el botón "Cargar CFDI" con el permiso cargar-manual', async () => {

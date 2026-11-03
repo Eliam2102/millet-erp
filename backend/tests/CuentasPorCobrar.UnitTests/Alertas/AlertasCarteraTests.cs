@@ -94,7 +94,8 @@ public sealed class EvaluarAlertasCarteraTests
         creadas.Should().Be(1);
         var bloqueada = await db.LineasCredito.SingleAsync(l => l.Id == linea.Id);
         bloqueada.Estado.Should().Be(EstadoLineaCredito.Bloqueada);
-        bloqueada.MotivoBloqueo.Should().StartWith("Auto-bloqueo");
+        bloqueada.MotivoBloqueo.Should().StartWith("Bloqueo automático");
+        bloqueada.BloqueoAutomatico.Should().BeTrue();
         (await db.AlertasCartera.SingleAsync()).Tipo.Should().Be(TipoAlertaCartera.AutoBloqueoVencimiento);
     }
 

@@ -109,7 +109,11 @@ export function ArticuloSelector({
           ? 'No hay artículos dados de alta para este tipo de requisición.'
           : 'Empieza a escribir la clave o el nombre del artículo.'
       }
-      noMatchText={(t) => `Ningún artículo activo coincide con "${t}".`}
+      noMatchText={(t) =>
+        tipoRequisicion != null
+          ? `Ningún artículo activo de este tipo de requisición coincide con "${t}". Si existe, puede ser de otra clasificación.`
+          : `Ningún artículo activo coincide con "${t}".`
+      }
       disabled={disabled}
       className={className}
       triggerProps={triggerProps}
