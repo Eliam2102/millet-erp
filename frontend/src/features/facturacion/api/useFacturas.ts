@@ -10,6 +10,7 @@ import type {
   BandejaScoped,
   CancelacionBandejaItem,
   ComprobanteDetalleResponse,
+  DatosSustitucionResponse,
   ConsultarCancelacionResponse,
   DescartarComprobanteResponse,
   EmisorDefaultsResponse,
@@ -75,6 +76,24 @@ export function useListarFacturas(filtros: ListarFacturasFiltros) {
 }
 
 /** <c>useComprobante(id)</c> — detalle de una factura (líneas + timbre). */
+/**
+ * <c>useDatosSustitucion()</c> — FAC-08b: datos de la factura original para el
+ * borrador de su sustituta. Falla con 422 si la original ya no se puede sustituir.
+ */
+export function useDatosSustitucion(id: string | null) {
+  return useQuery<DatosSustitucionResponse>({
+    queryKey: id != null ? [...facturacionKeys.facturaById(id), 'sustitucion'] : ['facturacion', 'noop'],
+    queryFn: async ({ signal }) => {
+      if (id == null) throw new Error('useDatosSustitucion invocado sin id');
+      const { data } = await apiRequest<DatosSustitucionResponse>(`${BASE}/${id}/sustitucion`, { signal });
+      return data;
+    },
+    enabled: id != null,
+    staleTime: 0,
+    retry: false,
+  });
+}
+
 export function useComprobante(id: string | null | undefined) {
   return useQuery<ComprobanteDetalleResponse>({
     queryKey: id != null ? facturacionKeys.facturaById(id) : ['facturacion', 'noop'],

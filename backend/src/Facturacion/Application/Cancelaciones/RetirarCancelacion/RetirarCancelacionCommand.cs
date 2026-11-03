@@ -18,6 +18,12 @@ public sealed class RetirarCancelacionHandler(FacturacionDbContext db, IClock cl
     public async Task<SolicitarCancelacionResponse> Handle(RetirarCancelacionCommand command, CancellationToken cancellationToken)
     {
         var solicitud = await CadenaCancelacion.PendienteDeAsync(db, command.ComprobanteId, cancellationToken);
+        // FAC-08b (supuesto a validar): la sustituta ya está timbrada; retirar dejaría dos facturas
+        // vigentes. Si no procede, el Contador General la rechaza y la sustituta se cancela.
+        if (await Sustituciones.SustitucionCfdi.SustitutaDeSolicitudAsync(db, solicitud, cancellationToken) is not null)
+            throw new Millet.SharedKernel.Application.Exceptions.BusinessRuleException(
+                "SUSTITUCION_NO_RETIRABLE",
+                "La factura ya se sustituyó: la cancelación no se puede retirar. Si no procede, el Contador General debe rechazarla.");
         solicitud.Retirar(clock.UtcNow);
         await db.SaveChangesAsync(cancellationToken);
 
