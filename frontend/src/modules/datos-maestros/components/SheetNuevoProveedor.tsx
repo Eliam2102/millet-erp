@@ -42,7 +42,6 @@ import {
   type ErroresClasificacionFiscal,
 } from '@/modules/datos-maestros/components/ClasificacionFiscalCampos';
 import {
-  EstatusCatalogo,
   OrigenProveedor,
   TipoPersonaProveedor,
 } from '@/modules/datos-maestros/api/types';
@@ -102,7 +101,7 @@ export function NuevoProveedorProvider({ children }: { children: ReactNode }) {
           <SheetHeader>
             <SheetTitle>Nuevo proveedor</SheetTitle>
             <SheetDescription>
-              Alta del proveedor en el catálogo cross-empresa. Datos adicionales (condiciones de
+              Alta del proveedor en el catálogo compartido por todas las empresas. Datos adicionales (condiciones de
               pago, moneda, etc.) se ajustan después en el detalle.
             </SheetDescription>
           </SheetHeader>
@@ -195,7 +194,7 @@ function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps)
       {
         onSuccess: (resp) => {
           toast.success(`Proveedor ${resp.clave} creado`);
-          if (resp.estatus === EstatusCatalogo.EnRevision) {
+          if (resp.posibleDuplicadoDeId != null) {
             toast.warning(`${resp.clave} quedó en revisión: posible duplicado`, {
               description:
                 'RFC genérico con la misma razón social que otro proveedor existente. Revísalo antes de operar con él.',
@@ -269,11 +268,13 @@ function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps)
           <FormCampo span={6}>
             <FormRow
               label="Clave"
+              htmlFor="nuevo-proveedor-clave"
               required
               hint="Identificador corto. Inmutable después de creado."
               error={form.formState.errors.clave?.message}
             >
               <Input
+                id="nuevo-proveedor-clave"
                 autoFocus
                 maxLength={20}
                 placeholder="P-001"
@@ -286,10 +287,12 @@ function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps)
           <FormCampo span={6}>
             <FormRow
               label="Razón social"
+              htmlFor="nuevo-proveedor-razon"
               required
               error={form.formState.errors.razonSocial?.message}
             >
               <Input
+                id="nuevo-proveedor-razon"
                 maxLength={254}
                 placeholder="Acme S.A. de C.V."
                 {...form.register('razonSocial')}
@@ -305,11 +308,13 @@ function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps)
             ) : (
               <FormRow
                 label="RFC"
+                htmlFor="nuevo-proveedor-rfc"
                 required
                 hint="12 caracteres (persona moral) o 13 (persona física)."
                 error={form.formState.errors.rfc?.message}
               >
                 <UppercaseInput
+                  id="nuevo-proveedor-rfc"
                   maxLength={13}
                   placeholder="ACM010101ABC"
                   className="font-mono"
@@ -322,6 +327,7 @@ function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps)
           <FormCampo span={6}>
             <FormRow
               label="Tipo persona"
+              htmlFor="nuevo-proveedor-tipo"
               required
               error={form.formState.errors.tipoPersona?.message}
             >
@@ -337,7 +343,7 @@ function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps)
                       setFiscal((f) => ({ ...f, regimenFiscalCodigo: null }));
                     }}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="nuevo-proveedor-tipo">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -351,12 +357,13 @@ function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps)
           </FormCampo>
 
           <FormCampo span={6}>
-            <FormRow label="Email" hint="Opcional." error={form.formState.errors.email?.message}>
+            <FormRow label="Email" htmlFor="nuevo-proveedor-email" hint="Opcional." error={form.formState.errors.email?.message}>
               <Controller
                 name="email"
                 control={form.control}
                 render={({ field }) => (
                   <Input
+                    id="nuevo-proveedor-email"
                     type="email"
                     maxLength={254}
                     placeholder="contacto@proveedor.com"
@@ -373,6 +380,7 @@ function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps)
           <FormCampo span={6}>
             <FormRow
               label="Teléfono"
+              htmlFor="nuevo-proveedor-telefono"
               hint="Opcional."
               error={form.formState.errors.telefono?.message}
             >
@@ -381,6 +389,7 @@ function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps)
                 control={form.control}
                 render={({ field }) => (
                   <Input
+                    id="nuevo-proveedor-telefono"
                     maxLength={50}
                     placeholder="+52 55 1234 5678"
                     value={field.value ?? ''}
@@ -396,6 +405,7 @@ function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps)
           <FormCampo span={6}>
             <FormRow
               label="Clave de A+W"
+              htmlFor="nuevo-proveedor-claveaw"
               hint="Clave del proveedor en A+W. La usa la aplicación de Almacenes."
               error={form.formState.errors.claveAw?.message}
             >
@@ -404,6 +414,7 @@ function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps)
                 control={form.control}
                 render={({ field }) => (
                   <Input
+                    id="nuevo-proveedor-claveaw"
                     type="number"
                     min={1}
                     step={1}
@@ -589,23 +600,24 @@ function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps)
 
 interface FormRowProps {
   label: string;
+  htmlFor: string;
   required?: boolean;
   hint?: string;
   error?: string;
   children: ReactNode;
 }
 
-function FormRow({ label, required, hint, error, children }: FormRowProps) {
+function FormRow({ label, htmlFor, required, hint, error, children }: FormRowProps) {
   return (
     <div className="space-y-1.5">
-      <label className="flex items-center gap-1 text-sm font-medium">
-        {label}
+      <div className="flex items-center gap-1 text-sm font-medium">
+        <label htmlFor={htmlFor}>{label}</label>
         {required && (
           <span aria-hidden="true" className="text-danger-fg">
             *
           </span>
         )}
-      </label>
+      </div>
       {children}
       {hint != null && error == null && <p className="text-xs text-ink-muted">{hint}</p>}
       {error != null && (

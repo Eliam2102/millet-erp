@@ -41,6 +41,16 @@ export const CONCEPTO_SIN_RETENCION = 'SIN_RETENCION';
 export function etiquetaConcepto(c: string): string {
   return c === CONCEPTO_SIN_RETENCION ? 'Sin retención (compra de bienes)' : c;
 }
+const ETIQUETAS_CONCEPTO: Record<string, string> = {
+  ARRENDAMIENTO_PF: 'Arrendamiento (persona física)',
+  HONORARIOS_PF: 'Honorarios (persona física)',
+  RESICO_PF: 'RESICO (persona física)',
+  FLETES: 'Fletes',
+};
+/** Etiqueta en español del concepto para pantallas de datos maestros (el valor enviado no cambia). */
+export function etiquetaConceptoLegible(c: string): string {
+  return ETIQUETAS_CONCEPTO[c] ?? etiquetaConcepto(c);
+}
 export function alertaRetenciones(
   total: number,
   propuesta: readonly RetencionCfdi[],
