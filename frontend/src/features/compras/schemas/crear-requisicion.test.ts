@@ -44,6 +44,14 @@ describe('CrearRequisicionSchema', () => {
     ).toThrow();
   });
 
+  it('sin clasificación: pide elegirla (no hay valor por defecto)', () => {
+    const r = CrearRequisicionSchema.safeParse({ ...baseValido, clasificacion: undefined });
+    expect(r.success).toBe(false);
+    expect(r.error?.issues.find((i) => i.path[0] === 'clasificacion')?.message).toBe(
+      'Selecciona la clasificación',
+    );
+  });
+
   it('rechaza descripcion > 500 caracteres', () => {
     expect(() =>
       CrearRequisicionSchema.parse({

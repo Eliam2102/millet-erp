@@ -2428,6 +2428,164 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                     b.ToTable("pagos_proveedor_local", "cuentas_por_pagar");
                 });
 
+            modelBuilder.Entity("Millet.CuentasPorPagar.Domain.Mailbox.BuzonEjecucion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("ARevision")
+                        .HasColumnType("integer")
+                        .HasColumnName("a_revision");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<int>("Duplicados")
+                        .HasColumnType("integer")
+                        .HasColumnName("duplicados");
+
+                    b.Property<string>("Error")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("error");
+
+                    b.Property<DateTimeOffset>("FinUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("fin_utc");
+
+                    b.Property<int>("Ingresados")
+                        .HasColumnType("integer")
+                        .HasColumnName("ingresados");
+
+                    b.Property<DateTimeOffset>("InicioUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("inicio_utc");
+
+                    b.Property<int>("Mensajes")
+                        .HasColumnType("integer")
+                        .HasColumnName("mensajes");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_buzon_ejecuciones");
+
+                    b.HasIndex("InicioUtc")
+                        .HasDatabaseName("ix_buzon_ejecuciones_inicio");
+
+                    b.ToTable("buzon_ejecuciones", "cuentas_por_pagar");
+                });
+
+            modelBuilder.Entity("Millet.CuentasPorPagar.Domain.Mailbox.BuzonRevisionCfdi", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Asunto")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("asunto");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<bool>("Descartado")
+                        .HasColumnType("boolean")
+                        .HasColumnName("descartado");
+
+                    b.Property<Guid?>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<string>("MensajeId")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("mensaje_id");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("motivo");
+
+                    b.Property<string>("MotivoDescarte")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("motivo_descarte");
+
+                    b.Property<DateTimeOffset>("RecibidoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recibido_en");
+
+                    b.Property<DateTimeOffset>("RegistradoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("registrado_en");
+
+                    b.Property<string>("Remitente")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)")
+                        .HasColumnName("remitente");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_buzon_revision_cfdi");
+
+                    b.HasIndex("MensajeId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_buzon_revision_cfdi_mensaje");
+
+                    b.HasIndex("Descartado", "RegistradoEn")
+                        .HasDatabaseName("ix_buzon_revision_cfdi_estado_fecha");
+
+                    b.ToTable("buzon_revision_cfdi", "cuentas_por_pagar");
+                });
+
             modelBuilder.Entity("Millet.CuentasPorPagar.Domain.NotaCargo.FolioSecuenciaNotaCargo", b =>
                 {
                     b.Property<Guid>("EmpresaId")
