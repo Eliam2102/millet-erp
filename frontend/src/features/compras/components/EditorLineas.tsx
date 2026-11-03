@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { EmptyState, DateTimeDisplay } from '@/components/erp';
 import { CubrimientoBar } from '@/components/erp/display/CubrimientoBar';
+import { formatCcMaquinaLabel } from '@/features/centros-costo/lib/cc-maquina-label';
 import { LineaInlineForm } from '@/features/compras/components/LineaInlineForm';
 import type { LineaResponse, RequisicionResponse } from '@/features/compras/api/types';
 import { useActualizarNotasLinea, useEliminarLinea } from '@/features/compras/api/useLineas';
@@ -200,6 +201,7 @@ export function EditorLineas({ rq }: EditorLineasProps) {
               <TableRow>
                 <TableHead className="px-3 py-2 text-left font-medium">#</TableHead>
                 <TableHead className="px-3 py-2 text-left font-medium">Artículo</TableHead>
+                <TableHead className="px-3 py-2 text-left font-medium">Centro de costo</TableHead>
                 <TableHead className="px-3 py-2 text-right font-medium">Cant.</TableHead>
                 <TableHead className="px-3 py-2 text-left font-medium">UM</TableHead>
                 <TableHead className="px-3 py-2 text-left font-medium hidden @4xl:table-cell">
@@ -389,6 +391,13 @@ function FilaLinea({
           <div className="font-mono text-xs text-ink-muted" title={linea.articuloId}>
             —
           </div>
+        )}
+      </TableCell>
+      <TableCell className="px-3 py-2 text-xs">
+        {linea.centroCostoId ? (
+          formatCcMaquinaLabel({ clave: linea.centroCostoClave, nombre: linea.centroCostoNombre })
+        ) : (
+          <span className="text-ink-muted">—</span>
         )}
       </TableCell>
       <TableCell className="px-3 py-2 text-right tabular-nums">{linea.cantidad}</TableCell>
