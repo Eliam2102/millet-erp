@@ -148,7 +148,7 @@ export function CfdisPage() {
     <div className="space-y-4">
       <PageHeader
         titulo="CFDIs recibidos"
-        descripcion="Bandeja paginada del CfdiRecibido. Marca duplicados, descarta CFDIs no aplicables o abre el flujo de captura desde aquí."
+        descripcion="CFDI que enviaron los proveedores. Marca duplicados, descarta CFDIs no aplicables o abre el flujo de captura desde aquí."
         acciones={
           <>
             {puedeCargarManual && (
