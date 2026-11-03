@@ -17,9 +17,12 @@ public sealed class AwRetornoDocumentoServiceTests
             Agregados.Add(d);
             return Task.FromResult<int?>(Agregados.Count);
         }
+        public List<AwRetornoAcuse> Acuses { get; init; } = [];
+        public Task<int> AgregarPagosAsync(string numeroPedido, long versionPedido, string folio,
+            IReadOnlyList<AwPagoGrupo> grupos, bool exigirDocumento, CancellationToken ct) => Task.FromResult(0);
         public Task<IReadOnlyList<AwRetornoAcuse>> LeerAcusesPorAtenderAsync(CancellationToken ct) =>
             Apagado ? throw new BusinessRuleException("AW_ORIGEN_SIN_CONFIGURAR", "apagado")
-                    : Task.FromResult<IReadOnlyList<AwRetornoAcuse>>([]);
+                    : Task.FromResult<IReadOnlyList<AwRetornoAcuse>>(Acuses);
     }
 
     private sealed class VersionFalsa : IAwVersionPedidoReadPort
@@ -70,5 +73,14 @@ public sealed class AwRetornoDocumentoServiceTests
         var p = new PuertoFalso { Apagado = true };
         (await Servicio(p).RegistrarFacturaAsync(new("UUID-1", 1160m, "F-9", "900101", 4), default)).Should().BeNull();
         (await Servicio(p).ConciliarAcusesAsync(default)).Should().Be(new AwRetornoConciliacion(0, 0, 0));
+    }
+
+    [Fact]
+    public async Task Un_pago_desfasado_se_reporta_y_no_se_reemplaza_como_documento()
+    {
+        var p = new PuertoFalso { Acuses = [new AwRetornoAcuse("900101", 3, 2, null, "F-1", null, 500m, DateTimeOffset.UtcNow,
+            3, "versión mayor", 1, AwRetornoAcuse.TipoPagoFila, "03", "MXN")] };
+        (await Servicio(p).ConciliarAcusesAsync(default)).Should().Be(new AwRetornoConciliacion(0, 1, 0));
+        p.Agregados.Should().BeEmpty();
     }
 }

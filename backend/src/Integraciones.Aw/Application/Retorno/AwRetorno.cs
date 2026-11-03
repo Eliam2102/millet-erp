@@ -8,11 +8,17 @@ namespace Millet.Integraciones.Aw.Application.Retorno;
 public sealed record AwRetornoDocumento(
     string NumeroPedido, string TipoDocumento, long VersionPedido, string? Folio, string Uuid, decimal Importe);
 
-/// <summary>Fila Documento con el acuse de la tarea de TI (aplicada_at, resultado, motivo, intentos).</summary>
+/// <summary>Un grupo de pago de una factura (tipo 4, script 14 v3): forma de pago + moneda con el importe ACUMULADO.</summary>
+public sealed record AwPagoGrupo(string FormaPago, string Moneda, decimal Importe);
+
+/// <summary>Fila de cualquier tipo con el acuse de la tarea de TI (aplicada_at, resultado, motivo, intentos).</summary>
 public sealed record AwRetornoAcuse(
-    string NumeroPedido, int Secuencia, long VersionPedido, string TipoDocumento, string? Folio, string Uuid,
-    decimal Importe, DateTimeOffset? AplicadaAt, byte? Resultado, string? Motivo, int Intentos)
+    string NumeroPedido, int Secuencia, long VersionPedido, string? TipoDocumento, string? Folio, string? Uuid,
+    decimal? Importe, DateTimeOffset? AplicadaAt, byte? Resultado, string? Motivo, int Intentos,
+    byte Tipo = AwRetornoAcuse.TipoDocumentoFila, string? FormaPago = null, string? Moneda = null)
 {
+    public const byte TipoDocumentoFila = 3;
+    public const byte TipoPagoFila = 4;
     public const int MaxIntentos = 3;
     /// <summary>Rechazada con 3 intentos o más: el pedido espera a una persona (SRC-114 3c).</summary>
     public bool Detenida => Resultado == 2 && Intentos >= MaxIntentos;
@@ -33,7 +39,17 @@ public interface IAwRetornoPort
     /// </summary>
     Task<int?> AgregarDocumentoAsync(AwRetornoDocumento documento, CancellationToken ct);
 
-    /// <summary>Filas Documento desfasadas sin reemplazo y rechazadas con 3 intentos o más.</summary>
+    /// <summary>
+    /// Filas Pago (tipo 4) de una factura, bajo el mismo candado por pedido. <paramref name="grupos"/> es el estado
+    /// actual completo (forma + moneda con su importe acumulado): por cada grupo cuyo último importe cambió se agrega
+    /// una fila que sustituye a la anterior (SRC-121); un grupo que ya no existe se manda en 0. Una reentrega no
+    /// duplica. Con <paramref name="exigirDocumento"/>, falla si aún no existe la fila FacturaFinal de ese folio, para
+    /// que el pago nunca quede antes que su factura. Devuelve cuántas filas agregó.
+    /// </summary>
+    Task<int> AgregarPagosAsync(string numeroPedido, long versionPedido, string folio, IReadOnlyList<AwPagoGrupo> grupos,
+        bool exigirDocumento, CancellationToken ct);
+
+    /// <summary>Filas de cualquier tipo desfasadas sin reemplazo y rechazadas con 3 intentos o más.</summary>
     Task<IReadOnlyList<AwRetornoAcuse>> LeerAcusesPorAtenderAsync(CancellationToken ct);
 }
 
@@ -99,6 +115,13 @@ public sealed class AwRetornoDocumentoService(
                 logger.LogWarning("aw_retorno detenido: pedido {Pedido} secuencia {Secuencia} rechazada {Intentos} veces ({Motivo}). Requiere revisión de una persona.",
                     a.NumeroPedido, a.Secuencia, a.Intentos, a.Motivo);
             }
+            else if (a.Desfasada && a.Tipo != AwRetornoAcuse.TipoDocumentoFila)
+            {
+                // ponytail: el pago desfasado se recalcula desde Facturación en la rebanada 3; mientras, solo se avisa.
+                esperando++;
+                logger.LogWarning("aw_retorno desfasado sin reemplazo (tipo {Tipo}): pedido {Pedido} secuencia {Secuencia}.",
+                    a.Tipo, a.NumeroPedido, a.Secuencia);
+            }
             else if (a.Desfasada)
             {
                 var version = await versiones.VersionAplicadaAsync(a.NumeroPedido, ct);
@@ -110,7 +133,7 @@ public sealed class AwRetornoDocumentoService(
                     continue;
                 }
                 if (await retorno.AgregarDocumentoAsync(new AwRetornoDocumento(
-                        a.NumeroPedido, a.TipoDocumento, version.Value, a.Folio, a.Uuid, a.Importe), ct) is not null)
+                        a.NumeroPedido, a.TipoDocumento!, version.Value, a.Folio, a.Uuid!, a.Importe ?? 0m), ct) is not null)
                     reemplazadas++;
             }
         }

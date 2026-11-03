@@ -281,6 +281,91 @@ public class AwRetornoPgTests(WebApplicationFactory<Program> factory)
         ((long)(await cmd.ExecuteScalarAsync())!).Should().Be(0);
     }
 
+    // ===== Pagos (tipo 4, script 14 v3, SRC-121): importe acumulado por factura + forma + moneda; la fila nueva sustituye =====
+    private async Task<List<string>> PagosAsync(string pedido)
+    {
+        await using var cn = new NpgsqlConnection(_cs);
+        await cn.OpenAsync();
+        await using var cmd = new NpgsqlCommand(
+            "SELECT concat_ws('|', secuencia, version_pedido, folio, forma_pago, moneda, importe) " +
+            "FROM dbo.aw_retorno WHERE numero_pedido = @p AND tipo = 4 ORDER BY secuencia", cn);
+        cmd.Parameters.AddWithValue("p", pedido);
+        var filas = new List<string>();
+        await using var r = await cmd.ExecuteReaderAsync();
+        while (await r.ReadAsync()) filas.Add(r.GetString(0));
+        return filas;
+    }
+
+    [Fact]
+    public async Task Los_pagos_dejan_una_fila_por_forma_y_moneda_y_la_reentrega_no_duplica()
+    {
+        var adapter = Adapter();
+        await adapter.AgregarDocumentoAsync(Doc("900101", "UUID-A", version: 2, folio: "F-1"), default);
+
+        (await adapter.AgregarPagosAsync("900101", 2, "F-1", [new("01", "MXN", 300m), new("03", "MXN", 200m)], true, default)).Should().Be(2);
+        (await adapter.AgregarPagosAsync("900101", 2, "F-1", [new("03", "MXN", 200m), new("01", "MXN", 300m)], true, default)).Should().Be(0);
+
+        (await PagosAsync("900101")).Should().Equal("2|2|F-1|01|MXN|300.00", "3|2|F-1|03|MXN|200.00");
+    }
+
+    [Fact]
+    public async Task Un_pago_mas_deja_el_acumulado_y_un_cobro_cancelado_deja_su_grupo_en_cero()
+    {
+        var adapter = Adapter();
+        await adapter.AgregarDocumentoAsync(Doc("900101", "UUID-A", version: 2, folio: "F-1"), default);
+        await adapter.AgregarPagosAsync("900101", 2, "F-1", [new("01", "MXN", 300m), new("03", "MXN", 200m)], true, default);
+
+        // Entra otro pago en efectivo: solo el grupo 01 cambia y lleva el total, no la diferencia.
+        (await adapter.AgregarPagosAsync("900101", 2, "F-1", [new("01", "MXN", 450m), new("03", "MXN", 200m)], true, default)).Should().Be(1);
+        // Se cancela la transferencia: su grupo baja a 0.
+        (await adapter.AgregarPagosAsync("900101", 2, "F-1", [new("01", "MXN", 450m)], true, default)).Should().Be(1);
+        // Otra vez el mismo estado: nada.
+        (await adapter.AgregarPagosAsync("900101", 2, "F-1", [new("01", "MXN", 450m)], true, default)).Should().Be(0);
+
+        (await PagosAsync("900101")).Should().Equal(
+            "2|2|F-1|01|MXN|300.00", "3|2|F-1|03|MXN|200.00", "4|2|F-1|01|MXN|450.00", "5|2|F-1|03|MXN|0.00");
+    }
+
+    [Fact]
+    public async Task Dos_facturas_del_pedido_llevan_sus_pagos_aparte_con_secuencia_corrida()
+    {
+        var adapter = Adapter();
+        await adapter.AgregarDocumentoAsync(Doc("900101", "UUID-A", folio: "F-1"), default);
+        await adapter.AgregarDocumentoAsync(Doc("900101", "UUID-B", folio: "F-2"), default);
+
+        await adapter.AgregarPagosAsync("900101", 1, "F-1", [new("01", "MXN", 100m)], true, default);
+        await adapter.AgregarPagosAsync("900101", 1, "F-2", [new("01", "USD", 50m)], true, default);
+
+        (await PagosAsync("900101")).Should().Equal("3|1|F-1|01|MXN|100.00", "4|1|F-2|01|USD|50.00");
+    }
+
+    [Fact]
+    public async Task El_pago_no_se_adelanta_a_su_factura()
+    {
+        await FluentActions.Awaiting(() => Adapter().AgregarPagosAsync("900101", 1, "F-9", [new("01", "MXN", 100m)], true, default))
+            .Should().ThrowAsync<InvalidOperationException>();
+        (await PagosAsync("900101")).Should().BeEmpty();
+
+        // Anticipo (sin fila FacturaFinal propia): no se exige.
+        (await Adapter().AgregarPagosAsync("900101", 1, "FA-1", [new("03", "MXN", 100m)], false, default)).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Un_pago_desfasado_aparece_en_el_acuse_hasta_que_llega_su_reemplazo()
+    {
+        var adapter = Adapter();
+        await adapter.AgregarDocumentoAsync(Doc("900101", "UUID-A", version: 2, folio: "F-1"), default);
+        await adapter.AgregarPagosAsync("900101", 2, "F-1", [new("01", "MXN", 300m)], true, default);
+        await EjecutarAsync("UPDATE dbo.aw_retorno SET resultado = 3, aplicada_at = now(), intentos = 1 WHERE tipo = 4");
+
+        var acuse = (await adapter.LeerAcusesPorAtenderAsync(default)).Should().ContainSingle().Subject;
+        (acuse.Tipo, acuse.Folio, acuse.FormaPago, acuse.Moneda, acuse.Importe).Should().Be(((byte)4, "F-1", "01", "MXN", (decimal?)300m));
+
+        // Mismo importe con la versión nueva: sí se agrega (reemplaza a la desfasada) y el acuse queda limpio.
+        (await adapter.AgregarPagosAsync("900101", 3, "F-1", [new("01", "MXN", 300m)], true, default)).Should().Be(1);
+        (await adapter.LeerAcusesPorAtenderAsync(default)).Should().BeEmpty();
+    }
+
     // ===== Criterio 5: misma tabla en el canal demo =====
     [Fact]
     public async Task La_tabla_demo_tiene_las_restricciones_del_script_14()
