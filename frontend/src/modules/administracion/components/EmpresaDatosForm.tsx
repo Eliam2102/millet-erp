@@ -259,7 +259,7 @@ export function EmpresaDatosForm({ empresa }: EmpresaDatosFormProps) {
           <FormRow
             id="empresa-cp"
             label="Código postal fiscal"
-            hint="CP del domicilio fiscal SAT — es el LugarExpedicion del CFDI 4.0. Sin él, la emisión de facturas falla."
+            hint="CP del domicilio fiscal SAT — es el lugar de expedición del CFDI 4.0. Sin él, la emisión de facturas falla."
             error={form.formState.errors.codigoPostal?.message}
           >
             <Controller

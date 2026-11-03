@@ -56,7 +56,7 @@ import { cn } from '@/lib/utils';
  * liberación" (05-frontend-diseno §3): NO es un form largo. Captura
  * pedido/cliente/moneda/monto, muestra el crédito disponible (snapshot
  * indicativo) y el botón cambia según el caso: Liberar / Registrar
- * retención / Liberar con override (selector de autorización VIGENTE
+ * retención / Liberar con excepción autorizada (selector de autorización VIGENTE
  * del usuario actual, §4.3 — nunca captura de contraseña ajena).
  *
  * <para>La cascada serie → crédito → override la evalúa el BACKEND al
@@ -76,8 +76,7 @@ export function DecidirLiberacionSheet({
         <SheetHeader>
           <SheetTitle>Decidir liberación</SheetTitle>
           <SheetDescription>
-            Evalúa la liberación de un pedido contra la cascada serie → crédito → override. La
-            decisión queda registrada de forma inmutable (correcciones = nueva decisión).
+            Revisa si el pedido puede liberarse por serie, crédito o excepción autorizada; cada decisión queda registrada.
           </SheetDescription>
         </SheetHeader>
         <div className="flex min-h-0 flex-1 flex-col">
@@ -149,12 +148,12 @@ function FormDecidir({ onClose }: { onClose: () => void }) {
 
   const etiquetaBoton = serieExigeAutorizacion
     ? overrideId
-      ? 'Liberar con override'
+      ? 'Liberar con excepción autorizada'
       : 'Registrar retención'
     : alcanza
       ? 'Liberar pedido'
       : overrideId
-        ? 'Liberar con override'
+        ? 'Liberar con excepción autorizada'
         : pendiente
           ? 'Enviar a autorización'
           : 'Registrar retención';
@@ -337,11 +336,11 @@ function FormDecidir({ onClose }: { onClose: () => void }) {
         {clienteId && montoPedido > 0 && ofreceOverride && (
           <section className="space-y-1">
             <Label htmlFor="overrideId" className="text-xs">
-              Autorización vigente (override)
+              Excepción autorizada vigente
             </Label>
             {serieExigeAutorizacion && (
               <p className="text-xs text-ink-muted">
-                La serie de este pedido solo se libera con autorización; sin override quedará
+                La serie de este pedido solo se libera con autorización; sin una excepción autorizada quedará
                 retenido.
               </p>
             )}
@@ -358,7 +357,7 @@ function FormDecidir({ onClose }: { onClose: () => void }) {
                   setValueAs: (v) => (v === '' ? null : v),
                 })}
               >
-                <option value="">Sin override (retener)</option>
+                <option value="">Sin excepción autorizada (retener)</option>
                 {vigentes.map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.clienteOPedidoRef} · {a.motivo} · vence{' '}

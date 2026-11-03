@@ -131,7 +131,7 @@ export function PackingListUpload({ value, onChange, disabled, error }: PackingL
             variant="ghost"
             size="sm"
             onClick={() => onChange(null)}
-            aria-label="Quitar packing list"
+            aria-label="Quitar lista de empaque"
           >
             <X className="h-4 w-4" />
           </Button>
@@ -156,13 +156,13 @@ export function PackingListUpload({ value, onChange, disabled, error }: PackingL
         {subir.isPending ? (
           <div className="flex flex-col items-center gap-2 text-ink-muted">
             <Loader2 className="h-6 w-6 animate-spin" />
-            <p className="text-sm">Subiendo packing list…</p>
+            <p className="text-sm">Subiendo lista de empaque…</p>
           </div>
         ) : (
           <>
             <Upload className="mx-auto h-6 w-6 text-ink-muted" />
             <p className="mt-2 text-sm text-ink-muted">
-              Arrastra el packing list aquí, o
+              Arrastra el lista de empaque aquí, o
               <button
                 type="button"
                 className="ml-1 font-medium text-brand hover:underline"

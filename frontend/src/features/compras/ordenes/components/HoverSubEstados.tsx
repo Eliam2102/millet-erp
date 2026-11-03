@@ -50,7 +50,7 @@ export function HoverSubEstados({ recepcion, facturacion, pago, className }: Hov
     <div
       className={cn('inline-flex items-center gap-1', className)}
       title={tooltip}
-      role="img"
+      role="group"
       aria-label={tooltip}
       data-component="hover-sub-estados"
     >
@@ -90,6 +90,8 @@ function Chip({
   return (
     <span
       title={title}
+      aria-label={title}
+      role="img"
       data-sub-estado={kind}
       data-progreso={progreso}
       className={cn(

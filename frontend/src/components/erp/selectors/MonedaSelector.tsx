@@ -47,6 +47,11 @@ export function MonedaSelector({
     () =>
       (query.data ?? [])
         .filter((m) => m.activa)
+        .sort(
+          (a, b) =>
+            (a.codigo === 'MXN' ? 0 : a.codigo === 'USD' ? 1 : 2) -
+            (b.codigo === 'MXN' ? 0 : b.codigo === 'USD' ? 1 : 2),
+        )
         .map((m) => ({ id: m.codigo, codigo: m.codigo, nombre: m.nombre })),
     [query.data],
   );

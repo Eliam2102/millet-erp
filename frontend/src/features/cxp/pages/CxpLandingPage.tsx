@@ -167,7 +167,7 @@ const moduloCxpLanding: NavModulo = {
         {
           label: 'Antigüedad de saldos',
           description:
-            'Cartera viva por buckets 0-30 / 31-60 / 61-90 / +90 días. Exportable PDF/Excel.',
+            'Cartera por rangos de 0-30 / 31-60 / 61-90 / +90 días. Exportable PDF/Excel.',
           to: '/cxp/reportes/antiguedad',
           icon: BarChart3,
           permission: PermisosCanonicos.CuentasPorPagarReportesAntiguedad,
@@ -181,7 +181,7 @@ const moduloCxpLanding: NavModulo = {
         },
         {
           label: 'Cartera por proveedor',
-          description: 'Saldo total y por bucket por proveedor. Drill-down a facturas vivas.',
+          description: 'Saldo total y por rango por proveedor, con consulta de sus facturas pendientes.',
           to: '/cxp/reportes/cartera',
           icon: Wallet,
           permission: PermisosCanonicos.CuentasPorPagarReportesCartera,
@@ -189,7 +189,7 @@ const moduloCxpLanding: NavModulo = {
         {
           label: 'Estados de cuenta TC',
           description:
-            'Reporte agregado de estados de cuenta de tarjetas con sus pasivos asociados.',
+            'Reporte consolidado de estados de cuenta de tarjetas con sus pasivos asociados.',
           to: '/cxp/reportes/tc',
           icon: CreditCard,
           permission: PermisosCanonicos.CuentasPorPagarReportesTc,

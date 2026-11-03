@@ -17,7 +17,7 @@ export const AsociarGrupoEntraIdSchema = z.object({
   objectId: z
     .string()
     .trim()
-    .min(1, 'ObjectId requerido')
+    .min(1, 'Captura el identificador del grupo.')
     .max(100, 'Máximo 100 caracteres'),
   nombre: z
     .string()

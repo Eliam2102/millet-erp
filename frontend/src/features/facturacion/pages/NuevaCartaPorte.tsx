@@ -338,7 +338,7 @@ function FormInner({
             label="Estado origen (clave SAT)"
             required
             error={form.formState.errors.origenEstado?.message}
-            hint="Catálogo SAT c_Estado (QUE, CMX, JAL…)."
+
           >
             <Input className="uppercase" maxLength={3} {...form.register('origenEstado')} />
           </Campo>
@@ -361,7 +361,7 @@ function FormInner({
             label="Estado destino (clave SAT)"
             required
             error={form.formState.errors.destinoEstado?.message}
-            hint="Catálogo SAT c_Estado (QUE, CMX, JAL…)."
+
           >
             <Input className="uppercase" maxLength={3} {...form.register('destinoEstado')} />
           </Campo>

@@ -49,7 +49,7 @@ export function PiezasPage() {
       <Breadcrumbs items={[{ label: 'Producto Terminado' }, { label: 'Piezas' }]} />
       <PageHeader
         titulo="Piezas en producto terminado"
-        descripcion="Consulte las piezas escaneadas por pedido y sucursal, con su avance por posición."
+        descripcion="Consulta las piezas escaneadas por pedido y sucursal, con su avance por posición."
       />
       {pedidoBuscado && q.data && (q.data.estadoPedido || q.data.avance.length > 0) && (
         <section aria-label="Estado del pedido" className="flex flex-wrap items-center gap-3 rounded-lg bg-surface-card p-4 shadow-card-flat">

@@ -122,7 +122,7 @@ export function RecepcionesPage() {
     <div className="space-y-5">
       <PageHeader
         titulo="Recepciones"
-        descripcion="Bandeja de entradas. Variante A (con factura) para insumos; Variante B (con packing list) para materiales directos."
+        descripcion="Entradas de material: con factura para insumos y con lista de empaque para materia prima."
         acciones={
           <>
             {puedeRegistrar && (
@@ -141,15 +141,15 @@ export function RecepcionesPage() {
             (estado) => estado === tab.valor,
           ),
         ).map((tab) => (
-          <Button
+          <Link
             key={tab.valor}
-            variant="ghost"
-            className="h-auto items-stretch p-0 text-left [&>div]:w-full"
-            aria-pressed={search.estado === tab.valor}
-            onClick={() => actualizarSearch({ estado: tab.valor as typeof search.estado })}
+            to="/almacen/recepciones"
+            search={{ ...search, page: undefined, estado: tab.valor as typeof search.estado }}
+            aria-current={search.estado === tab.valor ? 'page' : undefined}
+            className="rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
           >
             <KpiCard etiqueta={tab.label} valor={conteos.data?.[tab.valor] ?? '—'} />
-          </Button>
+          </Link>
         ))}
       </div>
       {search.ordenCompraId && <ActivosRecibidosOc ordenCompraId={search.ordenCompraId} />}
