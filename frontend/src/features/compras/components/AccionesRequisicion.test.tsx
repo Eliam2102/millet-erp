@@ -349,7 +349,7 @@ describe('<AccionesRequisicion>', () => {
 
   it('Borrador + permiso eliminar: muestra botón Eliminar', () => {
     setupSession([PermisosCanonicos.ComprasRequisicionesEliminar]);
-    render(<AccionesRequisicion rq={makeRq()} />, {
+    render(<AccionesRequisicion rq={makeRq({ creadorId: USER_ID })} />, {
       wrapper: wrapperWithStubs(),
     });
     expect(
@@ -364,7 +364,7 @@ describe('<AccionesRequisicion>', () => {
     setupSession([PermisosCanonicos.ComprasRequisicionesEliminar]);
     render(
       <AccionesRequisicion
-        rq={makeRq({ estado: EstadoRequisicion.EnAutorizacion })}
+        rq={makeRq({ estado: EstadoRequisicion.EnAutorizacion, creadorId: USER_ID })}
       />,
       { wrapper: wrapperWithStubs() },
     );
@@ -490,7 +490,7 @@ describe('<AccionesRequisicion>', () => {
         HttpResponse.json([]),
       ),
     );
-    render(<AccionesRequisicion rq={makeRq()} />, {
+    render(<AccionesRequisicion rq={makeRq({ creadorId: USER_ID })} />, {
       wrapper: wrapperWithStubs(),
     });
     screen.getByRole('button', { name: /eliminar/i }).click();
@@ -503,7 +503,7 @@ describe('<AccionesRequisicion>', () => {
   it('eliminar una RQ de SISTEMA muestra el aviso de re-propuesta del motor', async () => {
     setupSession([PermisosCanonicos.ComprasRequisicionesEliminar]);
     render(
-      <AccionesRequisicion rq={makeRq({ origen: OrigenRequisicion.Sistema })} />,
+      <AccionesRequisicion rq={makeRq({ origen: OrigenRequisicion.Sistema, creadorId: USER_ID })} />,
       { wrapper: wrapperWithStubs() },
     );
     screen.getByRole('button', { name: /eliminar/i }).click();
@@ -513,7 +513,7 @@ describe('<AccionesRequisicion>', () => {
 
   it('eliminar una RQ MANUAL no muestra el aviso de reabasto', async () => {
     setupSession([PermisosCanonicos.ComprasRequisicionesEliminar]);
-    render(<AccionesRequisicion rq={makeRq()} />, {
+    render(<AccionesRequisicion rq={makeRq({ creadorId: USER_ID })} />, {
       wrapper: wrapperWithStubs(),
     });
     screen.getByRole('button', { name: /eliminar/i }).click();

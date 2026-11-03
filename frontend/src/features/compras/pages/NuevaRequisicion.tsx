@@ -363,11 +363,11 @@ export function NuevaRequisicion({ onClose, onDirtyChange }: NuevaRequisicionPro
                   control={form.control}
                   render={({ field }) => (
                     <Select
-                      value={String(field.value)}
+                      value={field.value == null ? '' : String(field.value)}
                       onValueChange={(v) => field.onChange(Number(v) as Clasificacion)}
                     >
                       <SelectTrigger {...c}>
-                        <SelectValue />
+                        <SelectValue placeholder="Selecciona la clasificación" />
                       </SelectTrigger>
                       <SelectContent>
                         {(
@@ -657,12 +657,15 @@ function RecuperarBorradorModal({
   );
 }
 
-function buildEmptyValues(sucursalActivaId?: string | null): CrearRequisicionValues {
+// Sin clasificación preseleccionada (CONT-MOD-COM): define quién autoriza, el usuario la elige.
+function buildEmptyValues(
+  sucursalActivaId?: string | null,
+): Omit<CrearRequisicionValues, 'clasificacion'> & { clasificacion?: Clasificacion } {
   return {
     sucursalId: sucursalActivaId ?? '',
     departamentoId: '',
     requisitanteId: undefined,
-    clasificacion: Clasificacion.Servicio,
+    clasificacion: undefined,
     prioridad: Prioridad.Normal,
     fechaSolicitud: new Date().toISOString(),
     fechaEntregaDeseada: null,
