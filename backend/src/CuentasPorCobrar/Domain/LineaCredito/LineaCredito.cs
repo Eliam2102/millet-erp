@@ -41,6 +41,21 @@ public sealed class LineaCredito : BaseEntity, IPerteneceAEmpresa, IAuditable
     public EstadoLineaCredito Estado { get; private set; }
     public string? MotivoBloqueo { get; private set; }
 
+    /// <summary>
+    /// <c>true</c> cuando el bloqueo lo puso la evaluación de vencimientos
+    /// (C7.5); solo esos bloqueos se levantan solos al pagar. Un bloqueo
+    /// manual de Crédito y Cobranza nunca se desbloquea automáticamente.
+    /// </summary>
+    public bool BloqueoAutomatico { get; private set; }
+
+    /// <summary>
+    /// Último desbloqueo manual autorizado (C7.5): cubre lo vencido a esa
+    /// fecha. La evaluación solo vuelve a bloquear si otra factura rebasa
+    /// plazo + tolerancia después de este momento.
+    /// </summary>
+    public DateTimeOffset? DesbloqueoManualEn { get; private set; }
+    public string? MotivoDesbloqueo { get; private set; }
+
     private LineaCredito() { }
 
     public static LineaCredito Crear(
@@ -109,7 +124,15 @@ public sealed class LineaCredito : BaseEntity, IPerteneceAEmpresa, IAuditable
                 "La clasificación debe ser A, B, C o E.");
     }
 
-    public void Bloquear(string motivo)
+    public void Bloquear(string motivo) => BloquearInterno(motivo, automatico: false);
+
+    /// <summary>
+    /// Bloqueo automático por vencimientos (C7.5): la factura más vencida
+    /// rebasó plazo del cliente + tolerancia.
+    /// </summary>
+    public void BloquearPorVencimiento(string motivo) => BloquearInterno(motivo, automatico: true);
+
+    private void BloquearInterno(string motivo, bool automatico)
     {
         if (Estado != EstadoLineaCredito.Activa)
             throw new BusinessRuleException("LC_NO_BLOQUEABLE",
@@ -120,15 +143,45 @@ public sealed class LineaCredito : BaseEntity, IPerteneceAEmpresa, IAuditable
 
         Estado = EstadoLineaCredito.Bloqueada;
         MotivoBloqueo = motivo.Trim();
+        BloqueoAutomatico = automatico;
     }
 
-    public void Desbloquear()
+    /// <summary>
+    /// Desbloqueo manual autorizado (C7.5): exige motivo y queda registrado
+    /// con su fecha.
+    /// </summary>
+    public void Desbloquear(string motivo, DateTimeOffset ahora)
+    {
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new BusinessRuleException("LC_MOTIVO_DESBLOQUEO_VACIO",
+                "El motivo del desbloqueo es obligatorio.");
+        ValidarDesbloqueable();
+
+        Estado = EstadoLineaCredito.Activa;
+        MotivoBloqueo = null;
+        BloqueoAutomatico = false;
+        DesbloqueoManualEn = ahora;
+        MotivoDesbloqueo = motivo.Trim();
+    }
+
+    /// <summary>
+    /// Desbloqueo automático (C7.5-a): el cliente ya no tiene facturas
+    /// fuera de plazo + tolerancia. Solo aplica a bloqueos automáticos.
+    /// </summary>
+    public bool DesbloquearPorPago()
+    {
+        if (Estado != EstadoLineaCredito.Bloqueada || !BloqueoAutomatico) return false;
+
+        Estado = EstadoLineaCredito.Activa;
+        MotivoBloqueo = null;
+        BloqueoAutomatico = false;
+        return true;
+    }
+
+    private void ValidarDesbloqueable()
     {
         if (Estado != EstadoLineaCredito.Bloqueada)
             throw new BusinessRuleException("LC_NO_DESBLOQUEABLE",
                 $"Solo se desbloquea desde Bloqueada (actual: {Estado}).");
-
-        Estado = EstadoLineaCredito.Activa;
-        MotivoBloqueo = null;
     }
 }
