@@ -1158,6 +1158,13 @@ const productoTerminado: NavModulo = {
           permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
         },
         {
+          label: 'Salidas pendientes',
+          description: 'Pedidos pagados y completos que aún no salen, con alerta a las 24 y 48 horas.',
+          to: '/producto-terminado/salidas',
+          icon: Boxes,
+          permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
+        },
+        {
           label: 'Excepciones de entrada',
           description: 'Escaneos que no se pudieron dar de alta: reintentar, descartar o marcar revisados.',
           to: '/producto-terminado/excepciones',

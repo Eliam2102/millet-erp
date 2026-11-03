@@ -193,6 +193,7 @@ Plano 1.7.1 §11: «sin acuse no afirmar liberado en A+W». El estado `Liberado`
 | PT-02 (PT5.2) | Consulta `EstadoPedidoPt(numeroPedido)` con los indicadores de §4 por sucursal; comando `EvaluarLiberacion(pedidoPtId)` con los disparos de §6; columnas de liberación en `pedidos_pt`; adaptador de saldo Demo; handler de CxC `SolicitarDecisionAlRetenerHandler`. |
 | PT-04 (PT5.9) | Movimientos `TrasladoSalida` y `TrasladoRecepcion` con `referencia = traspaso_id`; estado `EnTransito`; la pieza conserva su costo de origen. La recepción parcial deja tránsito pendiente. Nada de esto se construye en PT-01: el modelo ya separa sede física de sede de entrega. |
 | PT5.5 (albarán, 71) | `RegistrarSalida(albaranId, piezaIds)`, idempotente por `(pieza, Salida, albaranId)`, que solo acepta piezas `Cargada`. El 71 lo genera A+W o el ERP según P-021. Si es A+W, la lectura del 71 es otro tipo de evento en el mismo patrón de puente. |
+| PT5.3 (monitor de salidas) | Consulta `ListarSalidasPendientes` (`GET /producto-terminado/salidas-pendientes`): pedidos en 70 (`Liberado`, pagados o liberados por CxC) con piezas `EnPT` y sin salida; antigüedad desde `liberacion_at`, alerta `24h` y `48h`. Lee cliente, destino y salida por `IPedidosPtReadPort.ObtenerParaMonitorAsync`. |
 | U1.5 (retorno a A+W) | Consume `pedido.estado-cambiado.v1` y escribe en `aw_retorno` (P-007), desde Integraciones.Aw. PT no escribe en A+W. |
 | PT5.12 | `pieza.ingresada.v1` lleva `piezaId`, pedido, posición, `productoId`, sucursal y fecha; el costo se agrega allá. |
 
@@ -279,6 +280,11 @@ Plano 1.7.1 §11: «sin acuse no afirmar liberado en A+W». El estado `Liberado`
 13. **S13 (decisión del dueño 31-oct, PT5.2)** Se alinea con el origen: P-096 (Millet, 25-oct) «hoy solo pasa a 70 un pedido que ya está en 69 (100 % de piezas en PT) y con saldo $0; con saldo, CxC libera a mano. La salida de un pedido incompleto es Tema 57 (P-110)» y SRC-112/114 (TI) «el 69 es del pedido y lo pone A+W con el pedido completo». PT retiene y libera solo con el 100 % de piezas; reemplaza el supuesto anterior de seguir la ficha.
 14. **S14 (PT5.2)** El pedido de reparto también espera el 100 % de piezas, como marca el diseño; si debe salir incompleto se cambia en un punto (`LiberacionPedido`). PT registra la liberación directo con su motivo para saldo y REPARTO; la decisión de CxC solo corre en el camino retenido. Con saldo o REPARTO al completarse no se publica el evento de 69.
 15. **S15 (supuesto fin de semana 31-oct, PT5.2)** Los consumidores de `pedido.estado-cambiado.v1` (CxC) y de `decision-liberacion.emitida.v1` (PT) son solo de entrega local (C1.8), sin worker de Service Bus, hasta que exista el topic `producto-terminado-events`. Todo sigue detrás de las banderas del canal de PT (Real apagado); el canal Real nunca libera por saldo hasta el puerto de Uziel.
+
+16. **S16 (PT5.3)** Un pedido «ya salió» si tiene una `SalidaFacturable` en Facturación o si su estatus de A+W es 72 o 115. El 71 no cuenta: es el traslado de A+W al Portal de Salidas, que se retira. Cuando PT5.5 registre el albarán, debe dejar la salida para que el monitor siga igual.
+17. **S17 (PT5.3)** Con salida parcial, el pedido sale del monitor con la primera salida.
+18. **S18 (PT5.3)** Un pedido con piezas en dos sucursales aparece una vez por sucursal física de la pieza.
+19. **S19 (PT5.3)** «Destino» es el nombre de la obra del pedido; las alertas son solo en pantalla (sin aviso por correo).
 
 ## 12. Preguntas abiertas
 
