@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -7,6 +8,7 @@ using Millet.CuentasPorPagar.Application.Cfdi.IngresarCfdi;
 using Millet.CuentasPorPagar.Domain.Cfdi;
 using Millet.CuentasPorPagar.Domain.Mailbox;
 using Millet.CuentasPorPagar.Infrastructure.Mailbox;
+using Millet.CuentasPorPagar.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 
@@ -14,7 +16,7 @@ namespace Millet.CuentasPorPagar.Infrastructure.Workers;
 
 /// <summary>
 /// Worker en-proceso (ADR-0022) que polea el mailbox dedicado de CFDIs
-/// (§9 del 01-diseno, §4 del 04-cuidados-infra). Cada tick (default 5
+/// (§9 del 01-diseno, §4 del 04-cuidados-infra). Cada tick (default 15
 /// min, configurable en <see cref="WorkerSchedulingOptions"/>):
 /// <list type="number">
 ///   <item>Lista mensajes pendientes con attachments en <c>Inbox</c>.</item>
@@ -97,11 +99,15 @@ public sealed class CfdiMailboxIngestionWorker : BackgroundService
         }
     }
 
+    private enum Resultado { Ingresado, Duplicado, Revision, Reintentar }
+
+    private sealed record Salida(Resultado Resultado, string? Razon = null, Guid? EmpresaId = null);
+
     /// <summary>Internal para que tests disparen un tick sin esperar el loop.</summary>
     internal async Task TickAsync(CancellationToken cancellationToken)
     {
         var mailboxOpts = _mailboxOptions.CurrentValue;
-        if (!mailboxOpts.IsConfigured)
+        if (!mailboxOpts.IsActivo)
         {
             _logger.LogInformation("[CfdiMailboxIngestionWorker] Mailbox sin credenciales Graph — skip tick.");
             return;
@@ -115,6 +121,13 @@ public sealed class CfdiMailboxIngestionWorker : BackgroundService
         var mediator = sp.GetRequiredService<IMediator>();
         var parser = sp.GetRequiredService<IXmlCfdiParser>();
         var empresaContext = sp.GetRequiredService<ICurrentEmpresaContext>();
+        var db = sp.GetRequiredService<CuentasPorPagarDbContext>();
+        var clock = sp.GetRequiredService<IClock>();
+
+        var inicio = clock.UtcNow;
+        var originContext = sp.GetRequiredService<IAuditOriginContext>();
+        using var origin = originContext.SetOrigin(nameof(CfdiMailboxIngestionWorker));
+        using var bypass = empresaContext.Bypass();
 
         IReadOnlyList<MailboxMensaje> mensajes;
         try
@@ -126,57 +139,108 @@ public sealed class CfdiMailboxIngestionWorker : BackgroundService
             _logger.LogError(ex,
                 "[CfdiMailboxIngestionWorker] Listar pendientes falló ({Codigo}). Skip tick.",
                 ex.Codigo);
+            await RegistrarCorridaAsync(db, BuzonEjecucion.Registrar(inicio, clock.UtcNow, 0, 0, 0, 0, ex.Codigo), cancellationToken);
             return;
         }
 
         if (mensajes.Count == 0)
         {
             _logger.LogDebug("[CfdiMailboxIngestionWorker] Nada pendiente en mailbox.");
+            await RegistrarCorridaAsync(db, BuzonEjecucion.Registrar(inicio, clock.UtcNow, 0, 0, 0, 0, null), cancellationToken);
             return;
         }
 
-        var originContext = sp.GetRequiredService<IAuditOriginContext>();
-        using var origin = originContext.SetOrigin(nameof(CfdiMailboxIngestionWorker));
-        using var bypass = empresaContext.Bypass();
-
         var ingresados = 0;
         var duplicados = 0;
-        var fallidos = 0;
+        var revision = 0;
         foreach (var mensaje in mensajes)
         {
             if (cancellationToken.IsCancellationRequested) break;
 
-            var (ok, dup, razon) = await ProcesarMensajeAsync(
-                mailbox, mediator, parser, schedulingOpts.RfcsReceptores, mensaje, cancellationToken);
-
-            if (ok) ingresados++;
-            else if (dup) duplicados++;
-            else
+            Salida salida;
+            try
             {
-                fallidos++;
-                try
-                {
-                    await mailbox.MoverAFallidoAsync(mensaje.Id, razon ?? "DESCONOCIDO", cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex,
-                        "[CfdiMailboxIngestionWorker] No se pudo mover mensaje {Mensaje} a Failed.",
-                        mensaje.Id);
-                }
+                salida = await ProcesarMensajeAsync(
+                    mailbox, mediator, parser, schedulingOpts.RfcsReceptores, mailboxOpts.MaxXmlBytes, mensaje, cancellationToken);
+            }
+            catch (BusinessRuleException ex)
+            {
+                // CFDI con UUID/RFC inválido u otra regla del handler: revisión humana, no tumba el tick.
+                db.ChangeTracker.Clear();
+                salida = new Salida(Resultado.Revision, ex.Code);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // Falla técnica (BD, red): el correo se queda en Inbox y se reintenta en el siguiente tick.
+                db.ChangeTracker.Clear();
+                _logger.LogError(ex, "[CfdiMailboxIngestionWorker] Mensaje {Mensaje} falló; se reintenta en el próximo tick.", mensaje.Id);
+                salida = new Salida(Resultado.Reintentar);
+            }
+
+            switch (salida.Resultado)
+            {
+                case Resultado.Ingresado: ingresados++; break;
+                case Resultado.Duplicado: duplicados++; break;
+                case Resultado.Revision:
+                    revision++;
+                    await EnviarARevisionAsync(mailbox, db, clock, mensaje, salida, cancellationToken);
+                    break;
             }
         }
 
+        await RegistrarCorridaAsync(db,
+            BuzonEjecucion.Registrar(inicio, clock.UtcNow, mensajes.Count, ingresados, duplicados, revision, null),
+            cancellationToken);
+
         _logger.LogInformation(
-            "[CfdiMailboxIngestionWorker] Tick: {Total} mensajes — ingresados={I}, duplicados={D}, fallidos={F}.",
-            mensajes.Count, ingresados, duplicados, fallidos);
+            "[CfdiMailboxIngestionWorker] Tick: {Total} mensajes — ingresados={I}, duplicados={D}, a revisión={F}.",
+            mensajes.Count, ingresados, duplicados, revision);
     }
 
-    private async Task<(bool ok, bool duplicado, string? razon)> ProcesarMensajeAsync(
+    private async Task RegistrarCorridaAsync(CuentasPorPagarDbContext db, BuzonEjecucion corrida, CancellationToken ct)
+    {
+        try
+        {
+            db.BuzonEjecuciones.Add(corrida);
+            await db.SaveChangesAsync(ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // La bitácora nunca debe tumbar la ingesta.
+            _logger.LogError(ex, "[CfdiMailboxIngestionWorker] No se pudo guardar la bitácora de la corrida.");
+        }
+    }
+
+    /// <summary>Fila en la bandeja de revisión (idempotente por correo) y el correo sale de Inbox.</summary>
+    private async Task EnviarARevisionAsync(
+        IMailboxClient mailbox, CuentasPorPagarDbContext db, IClock clock,
+        MailboxMensaje mensaje, Salida salida, CancellationToken ct)
+    {
+        var razon = salida.Razon ?? "DESCONOCIDO";
+        try
+        {
+            if (!await db.BuzonRevisionCfdi.AnyAsync(b => b.MensajeId == mensaje.Id, ct))
+            {
+                db.BuzonRevisionCfdi.Add(BuzonRevisionCfdi.Registrar(salida.EmpresaId, mensaje, razon, clock.UtcNow));
+                await db.SaveChangesAsync(ct);
+            }
+            // Solo se mueve si quedó registrado: nunca se pierde un correo sin rastro.
+            await mailbox.MoverAFallidoAsync(mensaje.Id, razon, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            db.ChangeTracker.Clear();
+            _logger.LogError(ex,
+                "[CfdiMailboxIngestionWorker] No se pudo enviar mensaje {Mensaje} a revisión; se reintenta.", mensaje.Id);
+        }
+    }
+
+    private async Task<Salida> ProcesarMensajeAsync(
         IMailboxClient mailbox,
         IMediator mediator,
         IXmlCfdiParser parser,
         IDictionary<string, Guid> rfcMap,
+        long maxXmlBytes,
         MailboxMensaje mensaje,
         CancellationToken cancellationToken)
     {
@@ -184,10 +248,12 @@ public sealed class CfdiMailboxIngestionWorker : BackgroundService
         if (xmlAttachment is null)
         {
             _logger.LogWarning(
-                "[CfdiMailboxIngestionWorker] Mensaje {Mensaje} from={From} sin attachment XML; mover a Failed.",
-                mensaje.Id, mensaje.FromAddress);
-            return (false, false, "SIN_XML");
+                "[CfdiMailboxIngestionWorker] Mensaje {Mensaje} sin attachment XML; a revisión.", mensaje.Id);
+            return new Salida(Resultado.Revision, "SIN_XML");
         }
+
+        if (xmlAttachment.Tamanio is long tam && tam > maxXmlBytes)
+            return new Salida(Resultado.Revision, "XML_DEMASIADO_GRANDE");
 
         byte[] xmlBytes;
         try
@@ -202,8 +268,11 @@ public sealed class CfdiMailboxIngestionWorker : BackgroundService
             _logger.LogError(ex,
                 "[CfdiMailboxIngestionWorker] Mensaje {Mensaje}: descarga del XML falló ({Codigo}).",
                 mensaje.Id, ex.Codigo);
-            return (false, false, ex.Codigo);
+            return new Salida(Resultado.Revision, ex.Codigo);
         }
+
+        if (xmlBytes.LongLength > maxXmlBytes)
+            return new Salida(Resultado.Revision, "XML_DEMASIADO_GRANDE");
 
         DatosCfdiParseados datos;
         try
@@ -214,17 +283,17 @@ public sealed class CfdiMailboxIngestionWorker : BackgroundService
         catch (CfdiParseException ex)
         {
             _logger.LogWarning(ex,
-                "[CfdiMailboxIngestionWorker] Mensaje {Mensaje} XML malformado ({Codigo}): {Mensaje2}",
-                mensaje.Id, ex.Codigo, ex.Message);
-            return (false, false, ex.Codigo);
+                "[CfdiMailboxIngestionWorker] Mensaje {Mensaje} XML malformado ({Codigo}).",
+                mensaje.Id, ex.Codigo);
+            return new Salida(Resultado.Revision, ex.Codigo);
         }
 
         if (!rfcMap.TryGetValue(datos.RfcReceptor.ToUpperInvariant(), out var empresaId))
         {
             _logger.LogWarning(
-                "[CfdiMailboxIngestionWorker] Mensaje {Mensaje} RFC receptor {Rfc} no está mapeado en Workers:RfcsReceptores; mover a Failed.",
-                mensaje.Id, datos.RfcReceptor);
-            return (false, false, "RFC_RECEPTOR_NO_MAPEADO");
+                "[CfdiMailboxIngestionWorker] Mensaje {Mensaje} RFC receptor no está mapeado en Workers:RfcsReceptores; a revisión.",
+                mensaje.Id);
+            return new Salida(Resultado.Revision, "RFC_RECEPTOR_NO_MAPEADO");
         }
 
         // PDF opcional: primer attachment con content-type application/pdf.
@@ -252,7 +321,7 @@ public sealed class CfdiMailboxIngestionWorker : BackgroundService
                 _logger.LogInformation(
                     "[CfdiMailboxIngestionWorker] UUID {Uuid} ingresado desde mensaje {Mensaje}.",
                     resp.UuidCfdi, mensaje.Id);
-                return (true, false, null);
+                return new Salida(Resultado.Ingresado);
             }
             catch (BusinessRuleException ex) when (ex.Code == "CFDI_DUPLICADO")
             {
@@ -260,7 +329,11 @@ public sealed class CfdiMailboxIngestionWorker : BackgroundService
                 _logger.LogInformation(
                     "[CfdiMailboxIngestionWorker] UUID duplicado en mensaje {Mensaje}; movido a Processed.",
                     mensaje.Id);
-                return (false, true, null);
+                return new Salida(Resultado.Duplicado);
+            }
+            catch (BusinessRuleException ex)
+            {
+                return new Salida(Resultado.Revision, ex.Code, empresaId);
             }
         }
         finally

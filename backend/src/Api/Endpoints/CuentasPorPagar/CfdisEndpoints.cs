@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Millet.Api.Auth;
 using Millet.Api.Web;
+using Millet.CuentasPorPagar.Application.Cfdi.Buzon;
 using Millet.CuentasPorPagar.Application.Cfdi.DescartarCfdi;
 using Millet.CuentasPorPagar.Application.Cfdi.IngresarCfdi;
 using Millet.CuentasPorPagar.Application.Cfdi.ListarCfdis;
@@ -234,6 +235,39 @@ public static class CfdisEndpoints
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // P8.1: bandeja de revisión del buzón de correo y bitácora de corridas.
+        group.MapGet("/buzon/revision", async (
+            [FromQuery] bool? incluirDescartados, [FromQuery] int? offset, [FromQuery] int? limit,
+            IMediator mediator, CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(
+                new ListarBuzonRevisionQuery(incluirDescartados ?? false, offset ?? 0, limit ?? 50), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarCfdisLeer)
+        .WithName("ListarBuzonRevisionCfdi")
+        .WithSummary("Correos del buzón de CFDIs que requieren revisión (sin XML, XML inválido, receptor ajeno)")
+        .Produces<PagedResponse<BuzonRevisionItemResponse>>(StatusCodes.Status200OK);
+
+        group.MapPost("/buzon/revision/{id:guid}/descartar", async (
+            Guid id, [FromBody] DescartarCfdiRequest request, IMediator mediator, CancellationToken cancellationToken) =>
+        {
+            await mediator.Send(new DescartarBuzonRevisionCommand(id, request.Motivo), cancellationToken);
+            return Results.NoContent();
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarCfdisDescartar)
+        .WithName("DescartarBuzonRevisionCfdi")
+        .WithSummary("Descartar un correo de la bandeja de revisión del buzón")
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        group.MapGet("/buzon/ejecuciones", async (
+            [FromQuery] int? limit, IMediator mediator, CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new ListarBuzonEjecucionesQuery(limit ?? 20), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarCfdisLeer)
+        .WithName("ListarBuzonEjecuciones")
+        .WithSummary("Últimas corridas del worker del buzón de CFDIs")
+        .Produces<IReadOnlyList<BuzonEjecucionResponse>>(StatusCodes.Status200OK);
 
         return app;
     }

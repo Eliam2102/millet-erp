@@ -4,6 +4,8 @@ import { apiFetch } from '@/lib/auth/api-client';
 import { ApiError } from '@/lib/api/error';
 import { cxpKeys, type ListarCfdisFiltros } from '@/features/cxp/api/keys';
 import type {
+  BuzonEjecucion,
+  BuzonRevisionItem,
   CfdiDetalle,
   CfdiListItem,
   CfdiParseado,
@@ -209,6 +211,57 @@ export function useMarcarCfdiDuplicado() {
         {
           method: 'POST',
           body: args.command,
+          idempotencyKey: args.idempotencyKey,
+        },
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: cxpKeys.cfdis() });
+    },
+  });
+}
+
+// ─── Buzón de correo (P8.1) ───────────────────────────────────────────
+
+export function useBuzonRevision() {
+  return useQuery({
+    queryKey: [...cxpKeys.cfdis(), 'buzon', 'revision'],
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<PagedResponse<BuzonRevisionItem>>(
+        '/api/v1/cuentas-por-pagar/cfdis/buzon/revision?limit=50',
+        { signal },
+      );
+      return data;
+    },
+  });
+}
+
+export function useBuzonEjecuciones() {
+  return useQuery({
+    queryKey: [...cxpKeys.cfdis(), 'buzon', 'ejecuciones'],
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<BuzonEjecucion[]>(
+        '/api/v1/cuentas-por-pagar/cfdis/buzon/ejecuciones?limit=1',
+        { signal },
+      );
+      return data;
+    },
+  });
+}
+
+export function useDescartarBuzonRevision() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      id: string;
+      motivo: string;
+      idempotencyKey: string;
+    }) => {
+      await apiRequest<void>(
+        `/api/v1/cuentas-por-pagar/cfdis/buzon/revision/${args.id}/descartar`,
+        {
+          method: 'POST',
+          body: { motivo: args.motivo },
           idempotencyKey: args.idempotencyKey,
         },
       );
