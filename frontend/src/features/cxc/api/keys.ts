@@ -85,6 +85,9 @@ export const cxcKeys = {
 
   // Aplicación de pagos (CXC-FE-PR6)
   propuestas: () => [...cxcKeys.all, 'propuestas-aplicacion'] as const,
+  /** CXC-06: conciliación de cobros contra pólizas. */
+  conciliacionPolizas: (desde: string, hasta: string) =>
+    [...cxcKeys.all, 'conciliacion-polizas', desde, hasta] as const,
   propuestasList: (filtros: Record<string, unknown>) =>
     [...cxcKeys.propuestas(), 'list', filtros] as const,
   propuestaById: (id: string) =>
