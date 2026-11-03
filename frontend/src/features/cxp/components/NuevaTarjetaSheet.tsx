@@ -41,7 +41,7 @@ export function NuevaTarjetaSheet({
           <SheetTitle>Nueva tarjeta de crédito</SheetTitle>
           <SheetDescription>
             Solo se almacenan los últimos 4 dígitos. El resto del número
-            queda enmascarado. PerfilParser define cómo se interpretará el
+            queda enmascarado. El perfil de lectura define cómo se interpretará el
             estado de cuenta del banco.
           </SheetDescription>
         </SheetHeader>

@@ -620,6 +620,14 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
                 $"Solo se puede eliminar desde Borrador o EnAutorizacion (actual: {Estado}).");
         }
 
+        // CONT-MOD-COM (86e3pc50m): solo quien capturó la RQ la retira; el autorizador la rechaza.
+        if (actorId != CreadorId)
+        {
+            throw new BusinessRuleException(
+                "REQUISICION_ELIMINAR_SOLO_CREADOR",
+                "Solo quien capturó la requisición puede eliminarla. Si no procede, recházala.");
+        }
+
         AplicarTerminacion(EstadoRequisicion.Eliminada, motivoId, actorId, fechaHora, motivoTexto);
 
         return new Events.RequisicionEliminadaEvent(

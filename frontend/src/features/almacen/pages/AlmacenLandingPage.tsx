@@ -92,7 +92,7 @@ const moduloAlmacenLanding: NavModulo = {
         {
           label: 'Recepciones',
           description:
-            'Bandeja de entradas. Captura Variante A (con factura) y Variante B (con packing list).',
+            'Entradas de material: con factura para insumos y con lista de empaque para materia prima.',
           to: '/almacen/recepciones',
           icon: PackagePlus,
           permission: PermisosCanonicos.AlmacenEntradasLeer,
@@ -112,6 +112,8 @@ const moduloAlmacenLanding: NavModulo = {
           permissionsAny: [
             PermisosCanonicos.AlmacenDevolucionesInternasLeer,
             PermisosCanonicos.AlmacenDevolucionesProveedorIniciar,
+            PermisosCanonicos.AlmacenDevolucionesProveedorAutorizar,
+            PermisosCanonicos.AlmacenDevolucionesProveedorRegistrar,
           ],
         },
         {

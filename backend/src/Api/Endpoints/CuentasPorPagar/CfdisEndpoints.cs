@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Millet.Api.Auth;
 using Millet.Api.Web;
+using Millet.CuentasPorPagar.Application.Cfdi.Buzon;
 using Millet.CuentasPorPagar.Application.Cfdi.DescartarCfdi;
 using Millet.CuentasPorPagar.Application.Cfdi.IngresarCfdi;
 using Millet.CuentasPorPagar.Application.Cfdi.ListarCfdis;
@@ -45,6 +46,8 @@ public static class CfdisEndpoints
             [FromQuery] string? rfcEmisor,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
+            [FromQuery] string? q,
+            [FromQuery] DateTimeOffset? recibidoAntesDe,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
@@ -54,7 +57,9 @@ public static class CfdisEndpoints
                     Tipo: tipo,
                     RfcEmisor: rfcEmisor,
                     Offset: offset ?? 0,
-                    Limit: limit ?? 50),
+                    Limit: limit ?? 50,
+                    Q: q,
+                    RecibidoAntesDe: recibidoAntesDe),
                 cancellationToken);
             return Results.Ok(response);
         })
@@ -63,7 +68,7 @@ public static class CfdisEndpoints
         .WithSummary("Bandeja paginada de CFDIs recibidos")
         .WithDescription(
             "Lista los CFDIs recibidos con filtros opcionales por estado, " +
-            "tipo y RFC emisor. Default: 50 items, max 500. Orden " +
+            "tipo, RFC emisor, UUID o folio (`q`) y fecha de recepción. Default: 50 items, max 500. Orden " +
             "`FechaRecepcion DESC`. Permiso `cuentas_por_pagar.cfdis.leer`.")
         .Produces<PagedResponse<CfdiListItemResponse>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -234,6 +239,39 @@ public static class CfdisEndpoints
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // P8.1: bandeja de revisión del buzón de correo y bitácora de corridas.
+        group.MapGet("/buzon/revision", async (
+            [FromQuery] bool? incluirDescartados, [FromQuery] int? offset, [FromQuery] int? limit,
+            IMediator mediator, CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(
+                new ListarBuzonRevisionQuery(incluirDescartados ?? false, offset ?? 0, limit ?? 50), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarCfdisLeer)
+        .WithName("ListarBuzonRevisionCfdi")
+        .WithSummary("Correos del buzón de CFDIs que requieren revisión (sin XML, XML inválido, receptor ajeno)")
+        .Produces<PagedResponse<BuzonRevisionItemResponse>>(StatusCodes.Status200OK);
+
+        group.MapPost("/buzon/revision/{id:guid}/descartar", async (
+            Guid id, [FromBody] DescartarCfdiRequest request, IMediator mediator, CancellationToken cancellationToken) =>
+        {
+            await mediator.Send(new DescartarBuzonRevisionCommand(id, request.Motivo), cancellationToken);
+            return Results.NoContent();
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarCfdisDescartar)
+        .WithName("DescartarBuzonRevisionCfdi")
+        .WithSummary("Descartar un correo de la bandeja de revisión del buzón")
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        group.MapGet("/buzon/ejecuciones", async (
+            [FromQuery] int? limit, IMediator mediator, CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new ListarBuzonEjecucionesQuery(limit ?? 20), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarCfdisLeer)
+        .WithName("ListarBuzonEjecuciones")
+        .WithSummary("Últimas corridas del worker del buzón de CFDIs")
+        .Produces<IReadOnlyList<BuzonEjecucionResponse>>(StatusCodes.Status200OK);
 
         return app;
     }

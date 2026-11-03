@@ -1,10 +1,12 @@
 import { apiBaseUrl } from '@/lib/auth/config';
 import { useAuthStore } from '@/lib/auth/auth-store';
+import { renovarSesion } from '@/lib/auth/renovacion-sesion';
 import type { MeResponse } from '@/lib/auth/types';
 
 /**
  * Wrapper de <c>fetch</c> que inyecta <c>Authorization: Bearer &lt;jwt&gt;</c>
- * automáticamente desde el auth store. En 401, limpia la sesión local
+ * automáticamente desde el auth store. En 401 intenta una renovación
+ * silenciosa y repite la llamada; si no se puede, limpia la sesión local
  * (UI re-renderiza al LoginScreen). En 403 recarga los permisos vigentes
  * (U1.0) para que la UI oculte acciones retiradas sin esperar otro login.
  *
@@ -30,11 +32,22 @@ export async function apiFetch(
   }
 
   const url = path.startsWith('http') ? path : `${apiBaseUrl}${path}`;
-  const response = await fetch(url, { ...options, headers });
+  let response = await fetch(url, { ...options, headers });
+
+  // 86e3x819w: el token del ERP dura 15 min. Si una llamada llega con el
+  // token vencido (la pestaña estuvo dormida y no alcanzó a renovarse), se
+  // renueva en silencio una sola vez y se repite la llamada con el token
+  // nuevo. Los endpoints de auth quedan fuera para no entrar en ciclo.
+  if (response.status === 401 && token && !path.includes('/api/auth/')) {
+    if (await renovarSesion()) {
+      const nuevo = useAuthStore.getState().accessToken;
+      if (nuevo) headers.set('Authorization', `Bearer ${nuevo}`);
+      response = await fetch(url, { ...options, headers });
+    }
+  }
 
   if (response.status === 401) {
-    // Token expiró o inválido. Limpiar sesión local; la UI vuelve a LoginScreen.
-    // PR siguiente puede agregar silent refresh aquí si MSAL tiene cuenta activa.
+    // Token inválido y no se pudo renovar. Limpiar sesión local; la UI vuelve a LoginScreen.
     useAuthStore.getState().clearSession();
   }
 

@@ -109,6 +109,9 @@ describe('<SubEstadosBar>', () => {
     );
     const bars = container.querySelectorAll('[role="progressbar"]');
     expect(bars).toHaveLength(3);
+    for (const bar of bars) {
+      expect(bar).toHaveAttribute('title', bar.getAttribute('aria-label'));
+    }
     const valores = Array.from(bars).map((b) => b.getAttribute('aria-valuenow'));
     expect(valores).toEqual(['100', '50', '0']);
   });

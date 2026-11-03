@@ -62,7 +62,22 @@ function ConControllerDirecto({ error }: { error?: string }) {
   );
 }
 
+function ConControllerYTexto() {
+  const { control } = useForm<{ cantidad: number }>({ defaultValues: { cantidad: 0 } });
+  return (
+    <Field label="Cantidad a entregar" required>
+      <Controller control={control} name="cantidad" render={({ field }) => <Input type="number" {...field} />} />
+      <p>Máximo: 4</p>
+    </Field>
+  );
+}
+
 describe('<Field>', () => {
+  it('Controller con texto hermano: el label sigue asociado al control', () => {
+    render(<ConControllerYTexto />);
+    expect(screen.getByLabelText(/Cantidad a entregar/)).toHaveAttribute('type', 'number');
+  });
+
   it('asocia label con Controller directo (Input, Select, DecimalField)', () => {
     render(<ConControllerDirecto error="Obligatorio" />);
     const nombre = screen.getByLabelText(/Nombre/);

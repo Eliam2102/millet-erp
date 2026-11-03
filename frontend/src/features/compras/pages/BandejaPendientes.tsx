@@ -72,7 +72,7 @@ const SENTINEL_ALL = '__all__';
  * server-side por <c>estado=EnAutorizacion</c> (el endpoint
  * <c>/pendientes-autorizacion</c> es atajo). Filtro depto gateado
  * por <c>ver-todos-departamentos</c>; búsqueda por folio
- * client-side; paginación offset.</para>
+ * server-side (<c>q</c>); paginación offset.</para>
  *
  * <para>El sub-item del sidebar "Pendientes de autorización" se gate
  * con <c>useHasAnyPermission(['autorizar-nivel1', 'autorizar-nivel2'])</c>;
@@ -88,6 +88,7 @@ export function BandejaPendientes() {
   const query = usePendientesAutorizacion({
     departamentoId: search.departamentoId,
     nivelPendiente: search.nivelPendiente,
+    q: search.q,
     offset: search.offset,
     limit: search.limit,
   });
@@ -100,12 +101,8 @@ export function BandejaPendientes() {
     [departamentosQuery.data],
   );
 
-  const itemsFiltrados = useMemo(() => {
-    const items = query.data?.items ?? [];
-    if (!search.q) return items;
-    const needle = search.q.toLowerCase();
-    return items.filter((r) => r.folio.toLowerCase().includes(needle));
-  }, [query.data, search.q]);
+  // La búsqueda por folio (`q`) la resuelve el servidor.
+  const itemsFiltrados = useMemo(() => query.data?.items ?? [], [query.data]);
 
   const [sort, setSort] = useState<SortState<'folio' | 'fechaSolicitud'> | null>(null);
   const itemsOrdenados = useMemo(() => {

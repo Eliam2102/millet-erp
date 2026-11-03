@@ -91,7 +91,7 @@ export function textoSinLineaActiva(
     ? `${cliente} tiene la línea de crédito en ${moneda} bloqueada`
     : `${cliente} no tiene línea de crédito activa en ${moneda}`;
   return serieExigeAutorizacion
-    ? `${linea} — sin override, la decisión quedará retenida.`
+    ? `${linea} — sin una excepción autorizada, la decisión quedará retenida.`
     : `${linea}: el pedido quedará retenido; no procede autorización de CxC.`;
 }
 
@@ -109,7 +109,7 @@ export function textoCoberturaPreview(
     return 'La serie de este pedido no se libera por crédito, sin importar la cobertura.';
   if (alcanza) return 'El crédito alcanza para el monto del pedido.';
   if (pendiente)
-    return 'El crédito cubre entre 50 % y 99 %: quedará pendiente de autorización de CxC (o usa un override vigente para este pedido).';
+    return 'El crédito cubre entre 50 % y 99 %: quedará pendiente de autorización de CxC (o usa una excepción autorizada vigente para este pedido).';
   return 'El crédito cubre menos del 50 %: quedará retenido y no procede autorización de CxC.';
 }
 

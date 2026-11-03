@@ -421,7 +421,7 @@ function FilaOc({
           aria-label={`Seleccionar ${oc.folio}`}
         />
       </TableCell>
-      <TableCell className="px-3 py-2 font-mono text-xs">{oc.folio}</TableCell>
+      <TableCell className="whitespace-nowrap px-3 py-2 font-mono text-xs">{oc.folio}</TableCell>
       <TableCell className="px-3 py-2">{proveedor}</TableCell>
       <TableCell className="px-3 py-2 text-right tabular-nums">
         {oc.cantidadTotal.toLocaleString('es-MX')}

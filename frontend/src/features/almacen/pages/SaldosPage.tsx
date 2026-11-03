@@ -106,7 +106,7 @@ export function SaldosPage() {
     <div className="space-y-5">
       <PageHeader
         titulo="Saldos"
-        descripcion="Existencias materializadas por sub-almacén y artículo, con costo promedio ponderado y valor de inventario."
+        descripcion="Existencias por sub-almacén y artículo, con su costo promedio y el valor del inventario."
       />
 
       <ListadoModulo

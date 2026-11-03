@@ -117,7 +117,7 @@ const moduloCxcLanding: NavModulo = {
         {
           label: 'Liberación de pedidos',
           description:
-            'Decisiones de liberación con cascada serie → crédito → override y autorizaciones consumibles.',
+            'Pedidos detenidos por serie o por crédito; aquí se liberan con su autorización.',
           to: '/cxc/liberaciones',
           icon: Unlock,
           permissionsAny: [

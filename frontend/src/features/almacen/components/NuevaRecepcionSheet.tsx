@@ -405,7 +405,7 @@ function NuevaRecepcionFormBody({
     if (packingListAdjunto == null) {
       form.setError('packingListBlobRef' as keyof RecepcionFormValues, {
         type: 'required',
-        message: 'Sube el archivo del packing list antes de registrar.',
+        message: 'Sube el archivo del lista de empaque antes de registrar.',
       });
       return;
     }
@@ -489,7 +489,7 @@ function NuevaRecepcionFormBody({
                 value="B"
                 active={variante === 'B'}
                 onSelect={solicitarVariante}
-                titulo="Con packing list"
+                titulo="Con lista de empaque"
                 descripcion="Materiales directos no-vidrio — factura llega después por CxP."
               />
             </div>
@@ -685,7 +685,7 @@ function NuevaRecepcionFormBody({
 
           {variante === 'B' && (
             <Field
-              label="Packing list"
+              label="Lista de empaque"
               required
               error={form.formState.errors.packingListBlobRef?.message}
             >
@@ -747,7 +747,7 @@ function NuevaRecepcionFormBody({
         open={varianteSolicitada != null}
         onOpenChange={(o) => !o && setVarianteSolicitada(null)}
         titulo="¿Cambiar el tipo de recepción?"
-        resumen="Se perderán la OC, las partidas y el CFDI o packing list capturados."
+        resumen="Se perderán la OC, las partidas y el CFDI o lista de empaque capturados."
         verbo="Cambiar tipo"
         tono="peligro"
         onConfirmar={() => varianteSolicitada && cambiarVariante(varianteSolicitada)}
@@ -1308,7 +1308,7 @@ function VarianteOption({
       )}
     >
       <div className="text-sm font-medium">
-        Variante {value} — {titulo}
+        {titulo}
       </div>
       <div className="mt-0.5 text-xs text-ink-muted">{descripcion}</div>
     </button>

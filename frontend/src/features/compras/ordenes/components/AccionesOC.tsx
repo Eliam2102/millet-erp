@@ -580,7 +580,7 @@ function getConfig(action: Exclude<ConfirmAction, null>, folio: string) {
   return {
     titulo: `¿Aprobar OC ${folio} (Nivel 2)?`,
     descripcion:
-      'La OC pasará a Autorizada — se genera el PDF, se setea la FechaContabilizacion y se notifica al proveedor. No se puede revertir sin Cancelar (1 firma o doble firma).',
+      'La OC pasará a Autorizada — se genera el PDF, se asigna la fecha de contabilización y se notifica al proveedor. No se puede revertir sin Cancelar (1 firma o doble firma).',
     cta: 'Aprobar Nivel 2',
   };
 }

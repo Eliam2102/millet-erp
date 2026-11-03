@@ -351,7 +351,7 @@ export function AprobacionConteoPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Aplicar conteo?</AlertDialogTitle>
             <AlertDialogDescription>
-              Se generarán los movimientos AjustePositivo/AjusteNegativo en batch y los saldos se
+              Se generarán los ajustes positivos y negativos en lote y los saldos se
               actualizarán. Esta acción es irreversible. Asegúrate de haber confirmado el resultado
               del conteo y la justificación de cada variación.
             </AlertDialogDescription>

@@ -61,6 +61,14 @@ import {
  * <c>DEFAULT_BANDEJA_SEARCH</c> y los CTAs vuelven a la bandeja sin
  * filtros — el browser back igual respeta el history nativo.</para>
  */
+// Estados finales: la partida ya no se surte ni se compra.
+const RQ_CERRADAS: number[] = [
+  EstadoRequisicion.Cerrada,
+  EstadoRequisicion.Cancelada,
+  EstadoRequisicion.CerradaSinSurtir,
+  EstadoRequisicion.CerradaSurtidaParcial,
+];
+
 export function DetalleRequisicion() {
   const esRecurrente = useContext(RecurrenciaContext);
   // <c>strict: false</c> permite que el componente viva en dos rutas
@@ -274,7 +282,11 @@ function RenderLineas({ rq }: { rq: import('@/features/compras/api/types').Requi
       {hayAlgunaAccion ? (
         <EditorLineas rq={rq} />
       ) : (
-        <ListaLineas lineas={rq.lineas} resolverArticulo={resolverArticulo} />
+        <ListaLineas
+          lineas={rq.lineas}
+          resolverArticulo={resolverArticulo}
+          cerrada={RQ_CERRADAS.includes(rq.estado)}
+        />
       )}
       <ApartadosRequisicion
         requisicionId={rq.id}

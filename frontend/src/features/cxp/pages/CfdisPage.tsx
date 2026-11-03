@@ -41,10 +41,13 @@ import { esApiError } from '@/lib/api';
 import { EstadoCfdiBadge } from '@/features/cxp/components/EstadoCfdiBadge';
 import { CapturarFacturaSheet } from '@/features/cxp/components/CapturarFacturaSheet';
 import { CargarCfdiSheet } from '@/features/cxp/components/CargarCfdiSheet';
+import { BuzonRevisionPanel } from '@/features/cxp/components/BuzonRevisionPanel';
 import { CfdiDetalleSheet } from '@/features/cxp/components/CfdiDetalleSheet';
 import { DescartarCfdiSheet } from '@/features/cxp/components/DescartarCfdiSheet';
 import { MarcarDuplicadoSheet } from '@/features/cxp/components/MarcarDuplicadoSheet';
 import type { CfdisSearch } from '@/features/cxp/lib/cfdis-search-schema';
+import { PaginacionTabla } from '@/components/erp/data/PaginacionTabla';
+import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 
@@ -64,9 +67,9 @@ type SortKey =
 
 /**
  * <c>P2 — Bandeja de CFDIs recibidos</c> (doc 07 §FE-F1-PR1).
- * Tabla con filtros server-side (estado, tipo, RFC emisor) + filtro
- * client-side de búsqueda libre por UUID/folio + filtro "Sólo vencidos
- * &gt; 5 días" (calculado client-side sobre <c>fechaRecepcion</c>).
+ * Tabla paginada en el servidor con filtros server-side (estado, tipo,
+ * RFC emisor, UUID/folio) + filtro "Sólo vencidos &gt; 5 días"
+ * (<c>recibidoAntesDe</c> sobre <c>fechaRecepcion</c>).
  *
  * <para>Acciones por fila (dropdown): Marcar duplicado, Descartar.
  * Ambas sólo aplican a CFDIs en <c>PorProcesar</c>; las demás filas
@@ -106,48 +109,41 @@ export function CfdisPage() {
     null,
   );
 
+  // «Vencidos»: PorProcesar recibidos hace más de N días; se corta al inicio del día para que la llave de caché sea estable.
+  const recibidoAntesDe = useMemo(() => {
+    if (!search.soloVencidos) return undefined;
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - DIAS_VENCIDO_UMBRAL);
+    return d.toISOString();
+  }, [search.soloVencidos]);
+  const { offset, limit } = paginaAOffsetLimit(search);
+
   const query = useCfdis({
-    estado: search.estado,
+    estado: search.soloVencidos ? EstadoCfdiRecibido.PorProcesar : search.estado,
     tipo: search.tipo,
     rfcEmisor: search.rfcEmisor,
-    limit: 200,
+    q: search.q,
+    recibidoAntesDe,
+    offset,
+    limit,
   });
 
+  // Cambiar un filtro regresa a la primera página.
   function actualizarSearch(parcial: Partial<CfdisSearch>) {
     navigate({
       to: '/cxp/cfdis',
-      search: { ...search, ...parcial },
+      search: { ...search, page: undefined, ...parcial },
     });
   }
 
-  // Filtro client-side: búsqueda por UUID/folio + vencidos > N días.
-  const itemsFiltrados = useMemo(() => {
-    let items = query.data?.items ?? [];
-    if (search.q) {
-      const needle = search.q.toLowerCase();
-      items = items.filter(
-        (c) =>
-          c.uuidCfdi.toLowerCase().includes(needle) ||
-          (c.folio ?? '').toLowerCase().includes(needle),
-      );
-    }
-    if (search.soloVencidos) {
-      const ahora = new Date().getTime();
-      items = items.filter((c) => {
-        if (c.estado !== EstadoCfdiRecibido.PorProcesar) return false;
-        const diasDesde =
-          (ahora - Date.parse(c.fechaRecepcion)) / (1000 * 60 * 60 * 24);
-        return diasDesde > DIAS_VENCIDO_UMBRAL;
-      });
-    }
-    return items;
-  }, [query.data, search.q, search.soloVencidos]);
+  const itemsFiltrados = query.data?.items ?? [];
 
   return (
     <div className="space-y-4">
       <PageHeader
         titulo="CFDIs recibidos"
-        descripcion="Bandeja paginada del CfdiRecibido. Marca duplicados, descarta CFDIs no aplicables o abre el flujo de captura desde aquí."
+        descripcion="CFDI que enviaron los proveedores. Marca duplicados, descarta CFDIs no aplicables o abre el flujo de captura desde aquí."
         acciones={
           <>
             {puedeCargarManual && (
@@ -159,6 +155,8 @@ export function CfdisPage() {
           </>
         }
       />
+
+      <BuzonRevisionPanel puedeDescartar={puedeDescartar} />
 
       <FiltrosToolbar search={search} onChange={actualizarSearch} />
 
@@ -197,15 +195,24 @@ export function CfdisPage() {
           }
         />
       ) : (
-        <TablaCfdis
-          items={itemsFiltrados}
-          puedeDescartar={puedeDescartar}
-          puedeCapturarFactura={puedeCapturarFactura}
-          onVerDetalle={setDetalleTarget}
-          onDescartar={setDescartarTarget}
-          onMarcarDuplicado={setDuplicadoTarget}
-          onCapturarFactura={setCapturarTarget}
-        />
+        <>
+          <TablaCfdis
+            items={itemsFiltrados}
+            puedeDescartar={puedeDescartar}
+            puedeCapturarFactura={puedeCapturarFactura}
+            onVerDetalle={setDetalleTarget}
+            onDescartar={setDescartarTarget}
+            onMarcarDuplicado={setDuplicadoTarget}
+            onCapturarFactura={setCapturarTarget}
+          />
+          <PaginacionTabla
+            total={query.data?.total ?? 0}
+            offset={offset}
+            limit={limit}
+            extremos
+            onChange={(o, l) => actualizarSearch(offsetLimitAPagina(o, l))}
+          />
+        </>
       )}
 
       <CargarCfdiSheet open={cargarOpen} onOpenChange={setCargarOpen} />

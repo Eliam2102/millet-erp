@@ -80,6 +80,8 @@ describe('<ApartadosRequisicion>', () => {
     const enviar = dialog.querySelector('button:last-of-type') as HTMLButtonElement;
     fireEvent.click(enviar);
     expect(await screen.findByText(/motivo es obligatorio/i)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/motivo/i), { target: { value: 'y' } });
+    expect(screen.queryByText(/motivo es obligatorio/i)).not.toBeInTheDocument();
 
     const cantidad = screen.getByLabelText(/cantidad a liberar/i);
     fireEvent.change(cantidad, { target: { value: '9' } });

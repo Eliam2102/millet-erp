@@ -19,11 +19,10 @@ public sealed class WorkerSchedulingOptions
 
     /// <summary>
     /// Intervalo del worker de ingesta de mailbox (§9 del 01-diseno).
-    /// Default 5 minutos (300s) — alto enough para no martillar Graph,
-    /// bajo enough para que un CFDI llegue al área en menos de 10 min
-    /// desde que el proveedor lo envió.
+    /// Default 15 minutos (900s, P8.1): no martilla Graph y el CFDI
+    /// llega al área en menos de 20 min desde que el proveedor lo envió.
     /// </summary>
-    public int MailboxIntervalSeconds { get; init; } = 300;
+    public int MailboxIntervalSeconds { get; init; } = 900;
 
     /// <summary>
     /// Mapping de RFCs receptores → EmpresaId usado por el

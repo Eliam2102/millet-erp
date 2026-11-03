@@ -1489,7 +1489,7 @@ function VarianteOption({
       )}
     >
       <div className="text-sm font-medium">
-        Variante {value} — {titulo}
+        {titulo}
       </div>
       <div className="mt-0.5 text-xs text-ink-muted">{descripcion}</div>
     </button>

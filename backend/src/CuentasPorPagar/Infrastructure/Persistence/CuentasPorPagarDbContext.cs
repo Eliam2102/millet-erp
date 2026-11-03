@@ -171,6 +171,12 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
     /// <summary>CFDIs recibidos en el ERP por cualquier canal (§4.1 del 00-levantamiento, F1-PR1).</summary>
     public DbSet<CfdiRecibido> CfdisRecibidos => Set<CfdiRecibido>();
 
+    /// <summary>Bandeja de revisión del buzón de CFDIs (P8.1-a).</summary>
+    public DbSet<Domain.Mailbox.BuzonRevisionCfdi> BuzonRevisionCfdi => Set<Domain.Mailbox.BuzonRevisionCfdi>();
+
+    /// <summary>Bitácora de corridas del worker del buzón (P8.1).</summary>
+    public DbSet<Domain.Mailbox.BuzonEjecucion> BuzonEjecuciones => Set<Domain.Mailbox.BuzonEjecucion>();
+
     /// <summary>Facturas de proveedor — agregado central del módulo (§4.2, F3-PR1).</summary>
     public DbSet<FacturaProveedor> FacturasProveedor => Set<FacturaProveedor>();
 
@@ -250,6 +256,8 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
 
         modelBuilder.ApplyConfiguration(new IntegrationEventOutboxEntryConfiguration());
         modelBuilder.ApplyConfiguration(new CfdiRecibidoConfiguration());
+        modelBuilder.ApplyConfiguration(new BuzonRevisionCfdiConfiguration());
+        modelBuilder.ApplyConfiguration(new BuzonEjecucionConfiguration());
         modelBuilder.ApplyConfiguration(new FacturaProveedorConfiguration());
         modelBuilder.Entity<PagoProveedorLocal>(b =>
         {

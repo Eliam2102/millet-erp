@@ -13,7 +13,7 @@ const tipoValues = Object.values(TipoAnticipo) as [number, ...number[]];
 
 export const AnticipoSchema = z.object({
   sucursalId: zId('Selecciona una sucursal'),
-  clienteId: zId('ClienteId debe ser un GUID válido'),
+  clienteId: zId('Selecciona un cliente válido.'),
   // Receptor (nominal)
   receptorRfc: z.string().min(12, 'RFC del receptor').max(13),
   receptorNombre: z.string().min(1, 'Nombre / razón social').max(254),

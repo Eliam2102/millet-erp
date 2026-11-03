@@ -24,7 +24,7 @@ import {
   PaginacionTabla,
 } from '@/components/erp';
 import { useOrdenesCompra } from '@/features/compras/ordenes/api/useOrdenesCompra';
-import { useProveedores, useUsuarios, mapById } from '@/features/catalogos/api';
+import { useUsuarios, mapById } from '@/features/catalogos/api';
 import { esApiError } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -54,9 +54,9 @@ const BANDEJA_FROM = '/_app/compras/ordenes/' as const;
  * <c>&lt;BandejaRequisiciones/&gt;</c>: tabla densa con columnas
  * escaneables (folio, fecha, proveedor, comprador, estado, sub-estados,
  * acción "Ver"), sort client-side por columnas Folio/Fecha/Estado,
- * paginación page/pageSize del backend, búsqueda por folio
- * client-side sobre la página actual (el <c>q</c> del topbar global
- * además se manda al endpoint como <c>referenciaProveedor</c>).</para>
+ * paginación page/pageSize del backend, búsqueda por
+ * folio / referencia de proveedor server-side (el <c>q</c> del topbar
+ * global se manda al endpoint como <c>q</c>).</para>
  *
  * <para>Click en "Ver" navega a <c>/compras/ordenes/$id</c> que monta
  * el master-detail (<c>OrdenesCompraLayout</c> + <c>DetalleOrdenCompra</c>)
@@ -67,11 +67,9 @@ const BANDEJA_FROM = '/_app/compras/ordenes/' as const;
  * §6.4 patrones-compras: no agregar Quick Create / botón "Nueva ..."
  * sin el Sheet correspondiente.</para>
  *
- * <para>Resolución de IDs → nombres: <c>useProveedores</c> /
- * <c>useUsuarios</c> con cache 1h. Para proveedores prefiere
- * <c>nombreComercial</c> (amigable) y cae a <c>razonSocial</c>; si el
- * id no resuelve (catálogo no cargado o el item no está en la página
- * cacheada), fallback al id raw — coherente con resto del frontend.</para>
+ * <para>Resolución de IDs → nombres: el proveedor llega resuelto del
+ * servidor (<c>proveedorNombre</c>); el comprador usa <c>compradorNombre</c>
+ * o <c>useUsuarios</c> con cache 1h.</para>
  */
 export function BandejaOrdenesCompra() {
   const search = useSearch({ from: BANDEJA_FROM });
@@ -89,36 +87,16 @@ export function BandejaOrdenesCompra() {
     compradorTitularId: search.compradorTitularId,
     fechaDesde: search.fechaDesde,
     fechaHasta: search.fechaHasta,
-    referenciaProveedor: search.q,
+    q: search.q,
     page: search.page,
     pageSize: search.pageSize,
   });
-  // Cargados con limit alto + includeInactivas para resolver
-  // proveedores históricos en la bandeja (un proveedor pudo haberse
-  // inactivado tras crear una OC). Sin esto, la bandeja muestra el
-  // GUID en la columna proveedor.
-  const proveedoresQuery = useProveedores({
-    limit: 1000,
-    includeInactivas: true,
-  });
   const usuariosQuery = useUsuarios();
 
-  const proveedoresMap = useMemo(
-    () => mapById(proveedoresQuery.data?.items),
-    [proveedoresQuery.data],
-  );
   const usuariosMap = useMemo(() => mapById(usuariosQuery.data?.items), [usuariosQuery.data]);
 
-  // Búsqueda por folio: client-side sobre la página actual (el `q`
-  // del topbar también se manda como `referenciaProveedor` server-side
-  // en el hook; este filtro adicional cubre el matching por folio
-  // dentro de los items ya cargados).
-  const itemsFiltrados = useMemo(() => {
-    const items = ordenesQuery.data?.items ?? [];
-    if (!search.q) return items;
-    const needle = search.q.toLowerCase();
-    return items.filter((o) => o.folio.toLowerCase().includes(needle));
-  }, [ordenesQuery.data, search.q]);
+  // La búsqueda (`q`: folio o referencia de proveedor) la resuelve el servidor.
+  const itemsFiltrados = useMemo(() => ordenesQuery.data?.items ?? [], [ordenesQuery.data]);
 
   function setSearch(next: BandejaOcSearch) {
     navigate({
@@ -170,7 +148,6 @@ export function BandejaOrdenesCompra() {
         <RenderTabla
           query={ordenesQuery}
           itemsFiltrados={itemsFiltrados}
-          proveedoresMap={proveedoresMap}
           usuariosMap={usuariosMap}
           search={search}
         />
@@ -182,7 +159,6 @@ export function BandejaOrdenesCompra() {
 interface RenderTablaProps {
   query: ReturnType<typeof useOrdenesCompra>;
   itemsFiltrados: readonly OrdenCompraResumen[];
-  proveedoresMap: Map<string, { nombreComercial: string | null; razonSocial: string }>;
   usuariosMap: Map<string, { nombre: string }>;
   search: BandejaOcSearch;
 }
@@ -192,7 +168,6 @@ type SortKey = 'folio' | 'fechaDocumento' | 'estado';
 function RenderTabla({
   query,
   itemsFiltrados,
-  proveedoresMap,
   usuariosMap,
   search,
 }: RenderTablaProps) {
@@ -250,13 +225,13 @@ function RenderTabla({
     <div className="flex min-h-0 flex-1 flex-col">
       <Table className="w-full min-w-full table-fixed text-sm">
         <colgroup>
-          <col className="w-[180px]" />
-          <col className="w-[110px]" />
+          <col className="w-36" />
+          <col className="w-24" />
           <col />
-          <col className="w-[150px]" />
-          <col className="w-[230px]" />
-          <col className="w-[84px]" />
-          <col className="w-[76px]" />
+          <col className="w-28" />
+          <col className="w-44" />
+          <col className="w-24" />
+          <col className="w-16" />
         </colgroup>
         <TableHeader className="bg-surface-muted/50 text-xs uppercase tracking-wide text-ink-muted">
           <TableRow>
@@ -287,18 +262,15 @@ function RenderTabla({
               />
             </TableHead>
             <TableHead className="px-3 py-2 text-left font-medium">
-              <abbr title="Recepción · Facturación · Pago">Sub-estados</abbr>
+              <abbr title="Recepción · Facturación · Pago">Avance</abbr>
             </TableHead>
             <TableHead className="px-3 py-2 text-right font-medium">Ver</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody className="[&_tr]:h-12">
           {itemsOrdenados.map((oc, i) => {
-            const proveedor = proveedoresMap.get(oc.proveedorId);
-            const proveedorLabel =
-              proveedor != null
-                ? (proveedor.nombreComercial ?? proveedor.razonSocial)
-                : '—';
+            // H-19/H-25: el nombre viene del servidor; un catálogo capado a 1000 dejaba «—».
+            const proveedorLabel = oc.proveedorNombre ?? '—';
             const comprador =
               oc.compradorNombre ?? usuariosMap.get(oc.compradorTitularId)?.nombre ?? 'Sin asignar';
             return (
@@ -319,7 +291,10 @@ function RenderTabla({
                 <TableCell className="px-3 py-2 truncate" title={proveedorLabel}>
                   {proveedorLabel}
                 </TableCell>
-                <TableCell className={`px-3 py-2 truncate${comprador === 'Sin asignar' ? ' text-ink-muted' : ''}`} title={comprador}>
+                <TableCell
+                  className={`px-3 py-2 truncate${comprador === 'Sin asignar' ? ' text-ink-muted' : ''}`}
+                  title={comprador}
+                >
                   {comprador}
                 </TableCell>
                 <TableCell className="px-3 py-2">
