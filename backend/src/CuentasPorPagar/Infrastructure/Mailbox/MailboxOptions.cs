@@ -42,6 +42,20 @@ public sealed class MailboxOptions
     public int MaxMensajesPorTick { get; init; } = 25;
     public int TimeoutSecondsGraph { get; init; } = 30;
 
+    /// <summary>Tope de tamaño del XML adjunto (frontera: lo mayor va a revisión sin descargarse).</summary>
+    public long MaxXmlBytes { get; init; } = 5 * 1024 * 1024;
+
+    /// <summary>
+    /// Solo dev/pruebas (P8.1): ruta de un buzón simulado en disco. Si se
+    /// llena, reemplaza a Graph (<see cref="DirectorioMailboxClient"/>).
+    /// </summary>
+    public string SimuladorDirectorio { get; init; } = string.Empty;
+
+    public bool UsaSimulador => !string.IsNullOrWhiteSpace(SimuladorDirectorio);
+
+    /// <summary>El worker corre si hay Graph configurado o buzón simulado.</summary>
+    public bool IsActivo => IsConfigured || UsaSimulador;
+
     public bool IsConfigured =>
         !string.IsNullOrWhiteSpace(TenantId) &&
         !string.IsNullOrWhiteSpace(ClientId) &&
