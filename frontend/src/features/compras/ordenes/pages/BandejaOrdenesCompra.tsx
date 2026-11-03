@@ -54,9 +54,9 @@ const BANDEJA_FROM = '/_app/compras/ordenes/' as const;
  * <c>&lt;BandejaRequisiciones/&gt;</c>: tabla densa con columnas
  * escaneables (folio, fecha, proveedor, comprador, estado, sub-estados,
  * acción "Ver"), sort client-side por columnas Folio/Fecha/Estado,
- * paginación page/pageSize del backend, búsqueda por folio
- * client-side sobre la página actual (el <c>q</c> del topbar global
- * además se manda al endpoint como <c>referenciaProveedor</c>).</para>
+ * paginación page/pageSize del backend, búsqueda por
+ * folio / referencia de proveedor server-side (el <c>q</c> del topbar
+ * global se manda al endpoint como <c>q</c>).</para>
  *
  * <para>Click en "Ver" navega a <c>/compras/ordenes/$id</c> que monta
  * el master-detail (<c>OrdenesCompraLayout</c> + <c>DetalleOrdenCompra</c>)
@@ -89,7 +89,7 @@ export function BandejaOrdenesCompra() {
     compradorTitularId: search.compradorTitularId,
     fechaDesde: search.fechaDesde,
     fechaHasta: search.fechaHasta,
-    referenciaProveedor: search.q,
+    q: search.q,
     page: search.page,
     pageSize: search.pageSize,
   });
@@ -109,16 +109,8 @@ export function BandejaOrdenesCompra() {
   );
   const usuariosMap = useMemo(() => mapById(usuariosQuery.data?.items), [usuariosQuery.data]);
 
-  // Búsqueda por folio: client-side sobre la página actual (el `q`
-  // del topbar también se manda como `referenciaProveedor` server-side
-  // en el hook; este filtro adicional cubre el matching por folio
-  // dentro de los items ya cargados).
-  const itemsFiltrados = useMemo(() => {
-    const items = ordenesQuery.data?.items ?? [];
-    if (!search.q) return items;
-    const needle = search.q.toLowerCase();
-    return items.filter((o) => o.folio.toLowerCase().includes(needle));
-  }, [ordenesQuery.data, search.q]);
+  // La búsqueda (`q`: folio o referencia de proveedor) la resuelve el servidor.
+  const itemsFiltrados = useMemo(() => ordenesQuery.data?.items ?? [], [ordenesQuery.data]);
 
   function setSearch(next: BandejaOcSearch) {
     navigate({

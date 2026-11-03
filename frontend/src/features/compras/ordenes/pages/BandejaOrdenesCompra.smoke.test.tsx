@@ -35,6 +35,8 @@ function renderConProvider(ui: ReactElement) {
   );
 }
 
+let mockSearch: Record<string, unknown> = { page: 1, pageSize: 50 };
+
 vi.mock('@tanstack/react-router', () => ({
   Link: ({
     children,
@@ -52,7 +54,7 @@ vi.mock('@tanstack/react-router', () => ({
     </a>
   ),
   useNavigate: () => () => {},
-  useSearch: () => ({ page: 1, pageSize: 50 }),
+  useSearch: () => mockSearch,
 }));
 
 function setupCatalogos() {
@@ -112,6 +114,27 @@ afterEach(() => {
 });
 
 describe('<BandejaOrdenesCompra> — smoke (UF1-PR3)', () => {
+  it('búsqueda: manda q al servidor y no descarta las filas que devuelve', async () => {
+    mockSearch = { page: 1, pageSize: 50, q: '000042' };
+    let recibido: URL | null = null;
+    mswServer.use(
+      http.get('*/api/v1/compras/ordenes', ({ request }) => {
+        recibido = new URL(request.url);
+        // El servidor puede casar por referencia de proveedor: el folio no contiene q.
+        return HttpResponse.json({
+          items: [makeOrdenResumen({ id: 'oc-42', folio: 'OC-MID2026-ABC' })],
+          page: 1,
+          pageSize: 50,
+          totalCount: 1,
+        });
+      }),
+    );
+    renderConProvider(<BandejaOrdenesCompra />);
+    expect(await screen.findByText('OC-MID2026-ABC')).toBeInTheDocument();
+    expect(recibido!.searchParams.get('q')).toBe('000042');
+    expect(recibido!.searchParams.has('referenciaProveedor')).toBe(false);
+    mockSearch = { page: 1, pageSize: 50 };
+  });
   it('muestra el nombre de comprador enriquecido sin consultar el padrón', async () => {
     mswServer.use(http.get('*/api/v1/compras/ordenes', () => HttpResponse.json({ items: [{ id: 'oc-prub', folio: 'OC-PRUB', estado: EstadoOrdenCompra.Borrador, proveedorId: 'prov', compradorTitularId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', compradorNombre: 'Carla Compras', fechaDocumento: '2026-10-10', moneda: 'MXN' }], page: 1, pageSize: 50, totalCount: 1 })));
     renderConProvider(<BandejaOrdenesCompra />);
