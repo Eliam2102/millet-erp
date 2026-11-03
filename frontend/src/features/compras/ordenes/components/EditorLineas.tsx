@@ -7,7 +7,7 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import { textoMedida } from '@/features/almacen/lib/medida-hoja';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { ConMotivo } from '@/features/compras/components/ConMotivo';
 import { Pencil, Plus, Trash2, Inbox } from 'lucide-react';
 import { toast } from 'sonner';
@@ -40,7 +40,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { handleOcMutationError } from '@/features/compras/ordenes/lib/handle-conflict';
 import { LineaInlineFormOc } from '@/features/compras/ordenes/components/LineaInlineFormOc';
 import { LineaDesdeRqBadge } from '@/features/compras/ordenes/components/LineaDesdeRqBadge';
-import { useArticulos, mapById } from '@/features/catalogos/api';
 import { formatCcMaquinaLabel } from '@/features/centros-costo/lib/cc-maquina-label';
 import { cn } from '@/lib/utils';
 import { etiquetaDescuento } from '../lib/subtotal-linea';
@@ -91,15 +90,6 @@ export function EditorLineas({ oc }: EditorLineasProps) {
   const conflictDialog = useConflictDialog();
   const queryClient = useQueryClient();
 
-  // Catálogo de artículos para resolver articuloId → clave/descripción
-  // en cada fila. Limit alto + includeInactivas para no perder
-  // artículos que pudieron haberse marcado inactivos después de
-  // usarse en esta OC.
-  const articulosQuery = useArticulos({
-    limit: 1000,
-    includeInactivas: true,
-  });
-  const articulosMap = useMemo(() => mapById(articulosQuery.data?.items), [articulosQuery.data]);
 
   const accAgregarManual = accionAgregarLineaManual(oc, permisos);
   const accEditar = accionEditarLineaEstructural(oc, permisos);
@@ -247,16 +237,14 @@ export function EditorLineas({ oc }: EditorLineasProps) {
               // La fila en edición se oculta: su form se monta fuera de la
               // tabla para no heredar su ancho (UX-F3-01).
               if (linea.id === lineaEnEdicionId) return null;
-              // Preferir la etiqueta enriquecida del DTO (ADR-0042 addendum);
-              // fallback al catálogo capado client-side y por último al id.
-              const articulo = articulosMap.get(linea.articuloId);
+              // Etiqueta resuelta en backend (ADR-0042 addendum); null → la fila cae al id.
               return (
                 <FilaLinea
                   key={linea.id}
                   linea={linea}
                   moneda={oc.moneda}
-                  articuloClave={linea.articuloClave ?? articulo?.clave ?? null}
-                  articuloNombre={linea.articuloNombre ?? articulo?.nombre ?? null}
+                  articuloClave={linea.articuloClave}
+                  articuloNombre={linea.articuloNombre}
                   bgClass={i % 2 === 1 ? 'bg-surface-muted/20' : undefined}
                   mostrarFraccion={mostrarFraccion}
                   canEditar={accEditar.habilitada}

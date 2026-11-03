@@ -90,7 +90,7 @@ describe('<RegistrarPagoSheet> cuenta del proveedor', () => {
     expect(boton).toBeEnabled();
     fireEvent.click(boton);
     await waitFor(() => expect(body).not.toBeNull());
-    expect(body).toMatchObject({ cuentaProveedorId: 'b' });
+    expect(body).toMatchObject({ cuentaProveedorId: 'b', conceptoId: '0000000b-1001-0000-0000-000000000001' });
     expect(body).not.toHaveProperty('fondosVerificados');
   });
 
