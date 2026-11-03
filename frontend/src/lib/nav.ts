@@ -8,6 +8,8 @@ import {
   Bell,
   BookOpen,
   BookOpenCheck,
+  BookOpenText,
+  BookText,
   Boxes,
   Building2,
   CalendarRange,
@@ -1090,6 +1092,35 @@ const moduloContabilidad: NavModulo = {
     {
       label: 'Reportes',
       cards: [
+        {
+          label: 'Balanza de comprobación',
+          description:
+            'Saldo inicial, cargos, abonos y saldo final por cuenta del periodo o acumulada, por nivel y sucursal, con su cuadre.',
+          to: '/contabilidad/reportes/balanza',
+          icon: Scale,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
+        },
+        {
+          label: 'Mayor por cuenta',
+          description: 'Saldo inicial, movimientos con saldo corrido y saldo final de una cuenta (incluye a sus hijas).',
+          to: '/contabilidad/reportes/mayor',
+          icon: BookOpenText,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
+        },
+        {
+          label: 'Auxiliar por tercero',
+          description: 'Saldo de una cuenta abierto por cliente, proveedor o banco, conciliado contra su mayor.',
+          to: '/contabilidad/reportes/auxiliar',
+          icon: Users,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
+        },
+        {
+          label: 'Libro diario',
+          description: 'Pólizas del periodo con sus partidas, en orden de fecha y folio, con exportación a Excel.',
+          to: '/contabilidad/reportes/diario',
+          icon: BookText,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
+        },
         {
           label: 'Cuenta puente recepción–factura',
           description:
