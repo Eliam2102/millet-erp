@@ -105,3 +105,107 @@ export function useReemparejarTerminal() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.all }),
   });
 }
+
+// ---- 86e3xt2q8 · Parte B: factura mensual del banco ligada a los cargos ----
+
+/** CFDI recibido (buzón de CxP) candidato a factura del banco. */
+export interface CfdiBancoCandidato {
+  id: string;
+  uuid: string;
+  rfcEmisor: string;
+  serie: string | null;
+  folio: string | null;
+  fechaCfdi: string;
+  subtotal: number;
+  iva: number;
+  total: number;
+  moneda: string;
+  tipo: string;
+  estado: string;
+}
+
+export interface CuadreFacturaBanco {
+  anio: number;
+  mes: number;
+  cargos: number;
+  comisionCargos: number;
+  ivaCargos: number;
+  totalCargos: number;
+  cfdiRecibidoId: string | null;
+  uuidCfdi: string | null;
+  rfcEmisor: string | null;
+  subtotalFactura: number | null;
+  ivaFactura: number | null;
+  totalFactura: number | null;
+  diferenciaComision: number | null;
+  diferenciaIva: number | null;
+  diferenciaTotal: number | null;
+  cuadra: boolean;
+}
+
+export interface FacturaBancoTerminal {
+  id: string;
+  cfdiRecibidoId: string;
+  uuidCfdi: string;
+  rfcEmisor: string;
+  anio: number;
+  mes: number;
+  comision: number;
+  ivaComision: number;
+  total: number;
+  cargos: number;
+  ligadaEn: string;
+}
+
+const facturaKeys = {
+  all: [...keys.all, 'factura-banco'] as const,
+  candidatos: (anio: number, mes: number) => [...facturaKeys.all, 'candidatos', { anio, mes }] as const,
+  cuadre: (anio: number, mes: number, cfdi: string | null) => [...facturaKeys.all, 'cuadre', { anio, mes, cfdi }] as const,
+  ligadas: () => [...facturaKeys.all, 'ligadas'] as const,
+};
+
+export function useCfdisBancoCandidatos(anio: number, mes: number) {
+  return useQuery<CfdiBancoCandidato[]>({
+    queryKey: facturaKeys.candidatos(anio, mes),
+    queryFn: async ({ signal }) =>
+      (await apiRequest<CfdiBancoCandidato[]>(`${BASE}/factura-banco/candidatos?anio=${anio}&mes=${mes}`, { signal })).data,
+  });
+}
+
+/** Suma de los cargos del mes sin factura y, con un CFDI elegido, su comparación. */
+export function useCuadreFacturaBanco(anio: number, mes: number, cfdiRecibidoId: string | null) {
+  return useQuery<CuadreFacturaBanco>({
+    queryKey: facturaKeys.cuadre(anio, mes, cfdiRecibidoId),
+    queryFn: async ({ signal }) =>
+      (
+        await apiRequest<CuadreFacturaBanco>(
+          `${BASE}/factura-banco/cuadre?anio=${anio}&mes=${mes}${cfdiRecibidoId ? `&cfdiRecibidoId=${cfdiRecibidoId}` : ''}`,
+          { signal },
+        )
+      ).data,
+  });
+}
+
+export function useFacturasBancoTerminal() {
+  return useQuery<FacturaBancoTerminal[]>({
+    queryKey: facturaKeys.ligadas(),
+    queryFn: async ({ signal }) =>
+      (await apiRequest<FacturaBancoTerminal[]>(`${BASE}/factura-banco?limit=6`, { signal })).data,
+  });
+}
+
+/** Liga la factura del banco a los cargos del mes; el backend la rechaza si no cuadra al centavo. */
+export function useLigarFacturaBanco() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { anio: number; mes: number; cfdiRecibidoId: string; idempotencyKey: string }) =>
+      (
+        await apiRequest<FacturaBancoTerminal>(`${BASE}/factura-banco`, {
+          method: 'POST',
+          body: { anio: args.anio, mes: args.mes, cfdiRecibidoId: args.cfdiRecibidoId },
+          idempotencyKey: args.idempotencyKey,
+        })
+      ).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.all }),
+  });
+}
