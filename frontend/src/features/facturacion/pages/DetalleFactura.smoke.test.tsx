@@ -18,6 +18,11 @@ vi.mock('@/features/facturacion/components/AnticipoPicker', () => ({
   ),
 }));
 
+// FAC-08b: el panel real monta el formulario de emisión completo; aquí basta con saber que se abre.
+vi.mock('@/features/facturacion/components/SustituirFacturaPanel', () => ({
+  SustituirFacturaPanel: ({ facturaId }: { facturaId: string }) => <p>Panel sustituir {facturaId}</p>,
+}));
+
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
     <a href={to}>{children}</a>
@@ -347,5 +352,50 @@ describe('<DetalleFactura> — smoke', () => {
     await waitFor(() =>
       expect(screen.getByText(/No se pudo cargar la factura/i)).toBeInTheDocument(),
     );
+  });
+  it('FAC-08b: «Sustituir» abre el borrador de la sustituta en una factura vigente', async () => {
+    mswServer.use(
+      http.get('*/api/v1/facturacion/facturas/f-1', () => HttpResponse.json({ ...detalle, relaciones: [] })),
+      http.get('*/api/v1/facturacion/facturas/f-1/envios', () => HttpResponse.json([])),
+    );
+    render(<DetalleFactura />, { wrapper: createQueryWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: /Sustituir/ }));
+    expect(await screen.findByText('Panel sustituir f-1')).toBeInTheDocument();
+  });
+
+  it('FAC-08b: la original muestra «Sustituida por» y ya no ofrece sustituir', async () => {
+    mswServer.use(
+      http.get('*/api/v1/facturacion/facturas/f-1', () =>
+        HttpResponse.json({
+          ...detalle,
+          relaciones: [],
+          sustituidaPor: { id: 'f-2', folio: 'A-2', uuid: 'bbbbbbbb-0000-0000-0000-000000000002', estado: 'Timbrado' },
+        }),
+      ),
+      http.get('*/api/v1/facturacion/facturas/f-1/envios', () => HttpResponse.json([])),
+    );
+    render(<DetalleFactura />, { wrapper: createQueryWrapper() });
+    const aviso = await screen.findByTestId('aviso-sustitucion');
+    expect(aviso).toHaveTextContent('Sustituida por A-2 (relación 04 · vigente).');
+    expect(screen.queryByRole('button', { name: /Sustituir/ })).not.toBeInTheDocument();
+  });
+
+  it('FAC-08b: la sustituta muestra «Sustituye a» y el aviso de sustitución rechazada', async () => {
+    mswServer.use(
+      http.get('*/api/v1/facturacion/facturas/f-1', () =>
+        HttpResponse.json({
+          ...detalle,
+          relaciones: [],
+          sustituyeA: { id: 'f-0', folio: 'A-0', uuid: 'aaaaaaaa-0000-0000-0000-000000000000', estado: 'Timbrado' },
+          sustitucionRechazadaMotivo: 'El cliente conserva la original',
+        }),
+      ),
+      http.get('*/api/v1/facturacion/facturas/f-1/envios', () => HttpResponse.json([])),
+    );
+    render(<DetalleFactura />, { wrapper: createQueryWrapper() });
+    const aviso = await screen.findByTestId('aviso-sustitucion');
+    expect(aviso).toHaveTextContent('Sustituye a A-0 (relación 04 · vigente).');
+    expect(aviso).toHaveTextContent('Sustitución rechazada.');
+    expect(aviso).toHaveTextContent('«El cliente conserva la original»');
   });
 });

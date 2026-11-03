@@ -77,6 +77,11 @@ export interface LineaCreditoResponse {
   motivoBloqueo: string | null;
   /** Versión de concurrencia optimista — va en <c>X-Expected-Version</c>. */
   version: number;
+  /** C7.5: bloqueo puesto por vencimiento; se levanta solo al pagar lo vencido. */
+  bloqueoAutomatico?: boolean;
+  /** C7.5: último desbloqueo manual autorizado. */
+  desbloqueoManualEn?: string | null;
+  motivoDesbloqueo?: string | null;
 }
 
 /** Payload de creación (mirror de <c>CrearLineaCreditoCommand</c>). */

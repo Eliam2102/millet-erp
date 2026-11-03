@@ -1074,6 +1074,12 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<bool>("BloqueoAutomatico")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("bloqueo_automatico");
+
                     b.Property<string>("Clasificacion")
                         .HasMaxLength(1)
                         .HasColumnType("character varying(1)")
@@ -1094,6 +1100,10 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("DeletedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
+
+                    b.Property<DateTimeOffset?>("DesbloqueoManualEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("desbloqueo_manual_en");
 
                     b.Property<Guid>("EmpresaId")
                         .HasColumnType("uuid")
@@ -1118,6 +1128,11 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                         .HasMaxLength(400)
                         .HasColumnType("character varying(400)")
                         .HasColumnName("motivo_bloqueo");
+
+                    b.Property<string>("MotivoDesbloqueo")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("motivo_desbloqueo");
 
                     b.Property<short>("Origen")
                         .HasColumnType("smallint")

@@ -139,17 +139,46 @@ public class LineaCreditoAggregateTests
         var l = Crear();
         l.Bloquear("Cartera vencida");
 
-        l.Desbloquear();
+        l.Desbloquear("Acuerdo de pago autorizado", DateTimeOffset.UtcNow);
 
         l.Estado.Should().Be(EstadoLineaCredito.Activa);
         l.MotivoBloqueo.Should().BeNull();
+        l.MotivoDesbloqueo.Should().Be("Acuerdo de pago autorizado");
+        l.DesbloqueoManualEn.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void C7_5_desbloqueo_manual_exige_motivo()
+    {
+        var l = Crear();
+        l.BloquearPorVencimiento("Bloqueo automático");
+
+        var act = () => l.Desbloquear(" ", DateTimeOffset.UtcNow);
+
+        act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "LC_MOTIVO_DESBLOQUEO_VACIO");
+    }
+
+    [Fact]
+    public void C7_5_desbloqueo_por_pago_solo_levanta_bloqueos_automaticos()
+    {
+        var manual = Crear();
+        manual.Bloquear("Decisión de Crédito");
+        manual.DesbloquearPorPago().Should().BeFalse();
+        manual.Estado.Should().Be(EstadoLineaCredito.Bloqueada);
+
+        var automatica = Crear();
+        automatica.BloquearPorVencimiento("Bloqueo automático");
+        automatica.BloqueoAutomatico.Should().BeTrue();
+        automatica.DesbloquearPorPago().Should().BeTrue();
+        automatica.Estado.Should().Be(EstadoLineaCredito.Activa);
+        automatica.BloqueoAutomatico.Should().BeFalse();
     }
 
     [Fact]
     public void Desbloquear_rechaza_desde_Activa()
     {
         var l = Crear();
-        var act = () => l.Desbloquear();
+        var act = () => l.Desbloquear("Motivo", DateTimeOffset.UtcNow);
         act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "LC_NO_DESBLOQUEABLE");
     }
 }

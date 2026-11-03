@@ -114,6 +114,18 @@ public sealed class FacturaVenta : Comprobante
         SalidaFacturableId = salidaFacturableId;
     }
 
+    /// <summary>
+    /// FAC-08b: al aceptarse la cancelación por sustitución (motivo 01), la factura nueva
+    /// toma el pedido y la salida de la original para que no queden libres para refacturar.
+    /// </summary>
+    public void HeredarOrigenDeSustituida(Guid? pedidoFacturableId, Guid? salidaFacturableId)
+    {
+        if (PedidoFacturableId is not null || SalidaFacturableId is not null)
+            throw new BusinessRuleException("SUSTITUCION_ORIGEN_YA_LIGADO", "La factura sustituta ya tiene pedido o salida.");
+        PedidoFacturableId = pedidoFacturableId;
+        SalidaFacturableId = salidaFacturableId;
+    }
+
     private FacturaVenta() { }
 
     private FacturaVenta(
