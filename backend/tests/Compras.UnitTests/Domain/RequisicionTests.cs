@@ -309,7 +309,7 @@ public class RequisicionTests
     {
         var rq = CrearValida();
         var motivoId = Guid.CreateVersion7();
-        var actorId = Guid.CreateVersion7();
+        var actorId = rq.CreadorId;
         var ahora = DateTimeOffset.UtcNow;
 
         rq.Eliminar(motivoId, actorId, ahora);
@@ -325,9 +325,21 @@ public class RequisicionTests
     {
         var rq = CrearEnAutorizacion();
 
-        rq.Eliminar(Guid.CreateVersion7(), Guid.CreateVersion7(), DateTimeOffset.UtcNow);
+        rq.Eliminar(Guid.CreateVersion7(), rq.CreadorId, DateTimeOffset.UtcNow);
 
         Assert.Equal(EstadoRequisicion.Eliminada, rq.Estado);
+    }
+
+    [Fact]
+    public void Eliminar_Should_Throw_When_ActorNoEsCreador()
+    {
+        var rq = CrearEnAutorizacion();
+
+        var ex = Assert.Throws<BusinessRuleException>(() =>
+            rq.Eliminar(Guid.CreateVersion7(), Guid.CreateVersion7(), DateTimeOffset.UtcNow));
+
+        Assert.Equal("REQUISICION_ELIMINAR_SOLO_CREADOR", ex.Code);
+        Assert.Equal(EstadoRequisicion.EnAutorizacion, rq.Estado);
     }
 
     [Fact]
@@ -336,7 +348,7 @@ public class RequisicionTests
         var rq = CrearValida();
         Assert.Null(rq.DeletedAt);
 
-        rq.Eliminar(Guid.CreateVersion7(), Guid.CreateVersion7(), DateTimeOffset.UtcNow);
+        rq.Eliminar(Guid.CreateVersion7(), rq.CreadorId, DateTimeOffset.UtcNow);
 
         // Estado terminal de negocio, NO soft-delete del framework.
         Assert.Null(rq.DeletedAt);

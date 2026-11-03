@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest, esConflictoConcurrencia, useBodyScopedIdempotencyKey } from '@/lib/api';
 import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialog-context';
-import type { EscaneoDto, EscaneosPagina, PiezasPagina, ResultadoEscaneo } from './types';
+import type { EscaneoDto, EscaneosPagina, PiezasPagina, ResultadoEscaneo, SalidasPendientesPagina } from './types';
 
 const BASE = '/api/v1/producto-terminado';
 
@@ -54,5 +54,21 @@ export function useEscaneoAccion() {
       if (esConflictoConcurrencia(error))
         conflict.openSimple({ onRefrescar: () => qc.invalidateQueries({ queryKey: ptKeys.all }) });
     },
+  });
+}
+
+/** Pedidos en 70 que aún no salen; se refresca solo cada minuto. */
+export function useSalidasPendientes(f: {
+  sucursalId?: string;
+  alerta?: '24h' | '48h';
+  buscar?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  return useQuery({
+    queryKey: [...ptKeys.all, 'salidas-pendientes', f],
+    queryFn: async ({ signal }) =>
+      (await apiRequest<SalidasPendientesPagina>(`${BASE}/salidas-pendientes${qs(f)}`, { signal })).data,
+    refetchInterval: 60_000,
   });
 }

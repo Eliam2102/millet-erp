@@ -82,7 +82,11 @@ public static class DependencyInjection
         var mailboxOpts = configuration.GetSection(MailboxOptions.SectionName).Get<MailboxOptions>()
                           ?? new MailboxOptions();
 
-        if (mailboxOpts.IsConfigured)
+        if (mailboxOpts.UsaSimulador)
+        {
+            services.AddSingleton<IMailboxClient, DirectorioMailboxClient>();
+        }
+        else if (mailboxOpts.IsConfigured)
         {
             services.AddSingleton<IMailboxClient, GraphMailboxClient>();
         }

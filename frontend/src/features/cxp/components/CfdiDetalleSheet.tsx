@@ -194,7 +194,7 @@ function Detalle({ cfdiId }: { cfdiId: string }) {
             {esApiError(parseadoQuery.error)
               ? ` (${parseadoQuery.error.problem.title})`
               : ''}
-            . Los importes del encabezado provienen de la ingesta.
+            . Los importes del encabezado provienen de la importación.
           </p>
         ) : (
           <div className="overflow-x-auto rounded-md border">
@@ -202,7 +202,7 @@ function Detalle({ cfdiId }: { cfdiId: string }) {
               <thead className="bg-muted/50">
                 <tr>
                   <th className="px-3 py-2 text-left">#</th>
-                  <th className="px-3 py-2 text-left">ClaveProdServ</th>
+                  <th className="px-3 py-2 text-left">Clave de producto o servicio</th>
                   <th className="px-3 py-2 text-left">Descripción</th>
                   <th className="px-3 py-2 text-right">Cantidad</th>
                   <th className="px-3 py-2 text-left">Unidad</th>

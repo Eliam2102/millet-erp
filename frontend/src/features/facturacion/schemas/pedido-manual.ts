@@ -41,7 +41,7 @@ const comportamientoValues = Object.values(ComportamientoFiscal) as [
 const PedidoManualBaseSchema = z.object({
   numeroPedido: z.string().max(50).nullable(),
   sucursalId: zId('Selecciona una sucursal'),
-  clienteId: zId('ClienteId debe ser un GUID válido'),
+  clienteId: zId('Selecciona un cliente válido.'),
   clienteNombre: z
     .string()
     .min(1, 'Captura el nombre o razón social del cliente')

@@ -220,7 +220,7 @@ function RenderTabla({ query, resolverProveedor, resolverUsuario }: RenderTablaP
                 className={cn(i % 2 === 1 ? 'bg-surface-muted/20' : undefined)}
                 data-oc={p.id}
               >
-                <TableCell className="px-3 py-2 font-mono text-xs">
+                <TableCell className="whitespace-nowrap px-3 py-2 font-mono text-xs">
                   <Link
                     className="font-mono text-xs font-medium text-brand"
                     to="/compras/ordenes/$id"

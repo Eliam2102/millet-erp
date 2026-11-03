@@ -9,8 +9,8 @@ import { useAuthStore } from '@/lib/auth/auth-store';
 import { EstadoMovimiento } from '@/features/almacen/api/types';
 
 vi.mock('@tanstack/react-router', () => ({
-  Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
-    <a href={to}>{children}</a>
+  Link: ({ children, to, search }: { children: React.ReactNode; to: string; search?: { estado?: number } }) => (
+    <a href={search?.estado == null ? to : `${to}?estado=${search.estado}`}>{children}</a>
   ),
   useNavigate: () => () => {},
   useSearch: () => ({}),
@@ -180,4 +180,26 @@ describe('<RecepcionesPage> — smoke', () => {
     }
     expect(results.violations).toHaveLength(0);
   });
+});
+
+it('muestra conteos en KPIs enlazados y sus pestañas', async () => {
+  mswServer.use(
+    http.get('*/api/v1/almacen/recepciones', () =>
+      HttpResponse.json({ items: [], offset: 0, limit: 10, total: 0 }),
+    ),
+    http.get('*/api/v1/almacen/recepciones/conteos-por-estado', () =>
+      HttpResponse.json([
+        { estado: EstadoMovimiento.Borrador, total: 7 },
+        { estado: EstadoMovimiento.Validado, total: 12 },
+      ]),
+    ),
+  );
+  render(<RecepcionesPage />, { wrapper: createQueryWrapper() });
+  const borrador = await screen.findByRole('link', { name: 'Borrador 7' });
+  const validado = screen.getByRole('link', { name: 'Validado 12' });
+  expect(borrador).toHaveAttribute('href', `/almacen/recepciones?estado=${EstadoMovimiento.Borrador}`);
+  expect(validado).toHaveAttribute('href', `/almacen/recepciones?estado=${EstadoMovimiento.Validado}`);
+  expect(borrador.querySelector('.text-3xl')).toHaveTextContent('7');
+  expect(validado.querySelector('.tabular-nums')).toHaveTextContent('12');
+  expect(screen.getByRole('tab', { name: /Borrador.*7/ })).toBeInTheDocument();
 });

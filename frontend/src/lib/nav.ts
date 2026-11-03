@@ -227,7 +227,7 @@ const moduloAlmacen: NavModulo = {
         {
           label: 'Recepciones',
           description:
-            'Bandeja de entradas. Captura recepciones Variante A (con factura) y Variante B (con packing list, factura pendiente).',
+            'Entradas de material: con factura para insumos y con lista de empaque para materia prima.',
           to: '/almacen/recepciones',
           icon: PackagePlus,
           permission: PermisosCanonicos.AlmacenEntradasLeer,
@@ -469,7 +469,7 @@ const moduloCuentasPorPagar: NavModulo = {
         {
           label: 'Estados de cuenta TC',
           description:
-            'Reporte agregado de estados de cuenta de tarjetas de crédito empresariales con sus pasivos asociados.',
+            'Reporte consolidado de estados de cuenta de tarjetas de crédito empresariales con sus pasivos asociados.',
           to: '/cxp/reportes/tc',
           icon: CreditCard,
           permission: PermisosCanonicos.CuentasPorPagarReportesTc,
@@ -720,7 +720,7 @@ const moduloCuentasPorCobrar: NavModulo = {
         {
           label: 'Liberación de pedidos',
           description:
-            'Decisiones de liberación con cascada serie → crédito → override y autorizaciones consumibles.',
+            'Pedidos detenidos por serie o por crédito; aquí se liberan con su autorización.',
           to: '/cxc/liberaciones',
           icon: Unlock,
           permissionsAny: [
@@ -918,7 +918,7 @@ const moduloFacturacion: NavModulo = {
       label: 'Revisión',
       cards: [
         {
-          label: 'Excepciones de ingesta',
+          label: 'Pedidos con error de importación',
           description:
             'Pedidos que fallaron la importación (cliente no existe, producto sin clave SAT, almacén no asignado). Resolución inline.',
           to: '/facturacion/pedidos/excepciones',
@@ -1154,6 +1154,13 @@ const productoTerminado: NavModulo = {
           label: 'Piezas',
           description: 'Piezas en producto terminado por pedido y sucursal, con avance por posición.',
           to: '/producto-terminado/piezas',
+          icon: Boxes,
+          permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
+        },
+        {
+          label: 'Salidas pendientes',
+          description: 'Pedidos pagados y completos que aún no salen, con alerta a las 24 y 48 horas.',
+          to: '/producto-terminado/salidas',
           icon: Boxes,
           permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
         },

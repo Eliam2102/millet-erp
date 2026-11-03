@@ -250,13 +250,13 @@ function RenderTabla({
     <div className="flex min-h-0 flex-1 flex-col">
       <Table className="w-full min-w-full table-fixed text-sm">
         <colgroup>
-          <col className="w-[180px]" />
-          <col className="w-[110px]" />
+          <col className="w-36" />
+          <col className="w-24" />
           <col />
-          <col className="w-[150px]" />
-          <col className="w-[230px]" />
-          <col className="w-[84px]" />
-          <col className="w-[76px]" />
+          <col className="w-28" />
+          <col className="w-44" />
+          <col className="w-24" />
+          <col className="w-16" />
         </colgroup>
         <TableHeader className="bg-surface-muted/50 text-xs uppercase tracking-wide text-ink-muted">
           <TableRow>
@@ -287,7 +287,7 @@ function RenderTabla({
               />
             </TableHead>
             <TableHead className="px-3 py-2 text-left font-medium">
-              <abbr title="Recepción · Facturación · Pago">Sub-estados</abbr>
+              <abbr title="Recepción · Facturación · Pago">Avance</abbr>
             </TableHead>
             <TableHead className="px-3 py-2 text-right font-medium">Ver</TableHead>
           </TableRow>
@@ -296,9 +296,7 @@ function RenderTabla({
           {itemsOrdenados.map((oc, i) => {
             const proveedor = proveedoresMap.get(oc.proveedorId);
             const proveedorLabel =
-              proveedor != null
-                ? (proveedor.nombreComercial ?? proveedor.razonSocial)
-                : '—';
+              proveedor != null ? (proveedor.nombreComercial ?? proveedor.razonSocial) : '—';
             const comprador =
               oc.compradorNombre ?? usuariosMap.get(oc.compradorTitularId)?.nombre ?? 'Sin asignar';
             return (
@@ -319,7 +317,10 @@ function RenderTabla({
                 <TableCell className="px-3 py-2 truncate" title={proveedorLabel}>
                   {proveedorLabel}
                 </TableCell>
-                <TableCell className={`px-3 py-2 truncate${comprador === 'Sin asignar' ? ' text-ink-muted' : ''}`} title={comprador}>
+                <TableCell
+                  className={`px-3 py-2 truncate${comprador === 'Sin asignar' ? ' text-ink-muted' : ''}`}
+                  title={comprador}
+                >
                   {comprador}
                 </TableCell>
                 <TableCell className="px-3 py-2">

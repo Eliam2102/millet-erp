@@ -124,7 +124,7 @@ export const ESTADOS: Record<EstadoRequisicion, DefinicionTerm> = {
   },
   Eliminada: {
     resumen:
-      'La RQ se eliminó pre-autorización (estado Borrador o EnAutorizacion). Es un soft delete: queda en BD para auditoría pero ya no aparece en bandejas.',
+      'La RQ se eliminó pre-autorización (estado Borrador o En autorización). Se conserva para auditoría pero ya no aparece en bandejas.',
   },
   CerradaSinSurtir: {
     resumen:

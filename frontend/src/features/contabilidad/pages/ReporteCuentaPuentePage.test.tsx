@@ -159,3 +159,47 @@ describe('<ReporteCuentaPuentePage>', () => {
     expect(boton).toHaveFocus();
   });
 });
+
+it('explica la cuenta faltante sin clave técnica ni reintento y enlaza Motor contable', async () => {
+  servidor();
+  mswServer.use(
+    http.get(API, () =>
+      HttpResponse.json(
+        {
+          title: 'Error',
+          status: 422,
+          code: 'PUENTE_CUENTA_NO_CONFIGURADA',
+          detail: '(Contabilidad:CuentaPuente:CodigoCuenta)',
+        },
+        { status: 422 },
+      ),
+    ),
+  );
+  render(<ReporteCuentaPuentePage />, { wrapper: createQueryWrapper() });
+  const aviso = await screen.findByRole('note');
+  expect(aviso).toHaveClass('bg-warning-note-bg');
+  expect(aviso).toHaveTextContent(
+    'Falta asignar la cuenta puente recepción–factura en Motor contable. Cuando se asigne, el reporte aparecerá aquí.',
+  );
+  expect(screen.getByRole('link', { name: 'Ir a Motor contable' })).toHaveAttribute(
+    'href',
+    '/contabilidad/motor',
+  );
+  expect(screen.queryByText(/Contabilidad:CuentaPuente/)).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /Reintentar/ })).not.toBeInTheDocument();
+});
+
+it('conserva el reintento para otros errores', async () => {
+  servidor();
+  mswServer.use(
+    http.get(API, () =>
+      HttpResponse.json(
+        { title: 'Servicio sin respuesta', status: 500, code: 'OTRO' },
+        { status: 500 },
+      ),
+    ),
+  );
+  render(<ReporteCuentaPuentePage />, { wrapper: createQueryWrapper() });
+  expect(await screen.findByRole('button', { name: /Reintentar/ })).toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'Ir a Motor contable' })).not.toBeInTheDocument();
+});

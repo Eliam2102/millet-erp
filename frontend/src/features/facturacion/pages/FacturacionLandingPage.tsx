@@ -218,7 +218,7 @@ const moduloFacturacionLanding: NavModulo = {
       label: 'Revisión',
       cards: [
         {
-          label: 'Excepciones de ingesta',
+          label: 'Pedidos con error de importación',
           description:
             'Pedidos que fallaron la importación (cliente no existe, producto sin clave SAT, almacén no asignado). Resolución inline.',
           to: '/facturacion/pedidos/excepciones',

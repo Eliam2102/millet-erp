@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useQuery } from '@tanstack/react-query';
 import { buildAuditoriaPath } from '@/modules/administracion/api/auditoria';
 import type { ConsultarBitacoraResponse } from '@/modules/administracion/api/types';
+import { nombreEntidad, textoActividad } from '@/lib/entidades';
 import { apiRequest } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { formatRelative, hoyLocalISO, parseDateOnlyLocal } from '@/lib/datetime';
@@ -19,11 +20,20 @@ export function RecientesInicio({
 }) {
   const hasta = hoyLocalISO();
   const desde = format(subDays(parseDateOnlyLocal(hasta), 6), 'yyyy-MM-dd');
-  const sucursalId = useAuthStore(s => s.currentSucursalId);
-  const filtros = { desde, hasta, usuarioId, empresaId, sucursalId: sucursalId ?? undefined, offset: 0, limit: 3 };
+  const sucursalId = useAuthStore((s) => s.currentSucursalId);
+  const filtros = {
+    desde,
+    hasta,
+    usuarioId,
+    empresaId,
+    sucursalId: sucursalId ?? undefined,
+    offset: 0,
+    limit: 3,
+  };
   const query = useQuery({
     queryKey: ['inicio-recientes', filtros],
-    queryFn: async () => (await apiRequest<ConsultarBitacoraResponse>(buildAuditoriaPath(filtros))).data,
+    queryFn: async () =>
+      (await apiRequest<ConsultarBitacoraResponse>(buildAuditoriaPath(filtros))).data,
     staleTime: 0,
     gcTime: 0,
     retry: false,
@@ -67,30 +77,39 @@ export function RecientesInicio({
           </CardContent>
         ) : (
           <ul className="grid grid-cols-1 gap-2 px-4 pb-3 md:grid-cols-3">
-            {query.data.items.map((evento) => (
-              <li key={evento.id} className="min-w-0 rounded-md bg-surface-subtle">
-                <Link
-                  to="/admin/auditoria"
-                  search={{}}
-                  className="flex flex-col items-start gap-1 rounded-md px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand hover:bg-surface-subtle"
-                >
-                  <span className="min-w-0">
-                    <span className="block truncate font-mono text-xs font-medium text-brand">
-                      {evento.entidadEtiqueta || evento.entidad}
+            {query.data.items.map((evento) => {
+              const etiqueta = evento.entidadEtiqueta
+                ? textoActividad(evento.entidadEtiqueta, evento.entidad)
+                : nombreEntidad(evento.entidad);
+              const conId = etiqueta.match(/^(.*) ([a-f0-9]{7,8})$/i);
+              return (
+                <li key={evento.id} className="min-w-0 rounded-md bg-surface-subtle">
+                  <Link
+                    to="/admin/auditoria"
+                    search={{}}
+                    className="flex flex-col items-start gap-1 rounded-md px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand hover:bg-surface-subtle"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium text-ink">
+                        {conId ? conId[1] : etiqueta}
+                        {conId && (
+                          <span className="ml-1 font-mono text-xs text-ink-muted">{conId[2]}</span>
+                        )}
+                      </span>
+                      <span
+                        className="block truncate text-xs text-ink-secondary"
+                        title={textoActividad(evento.resumen || evento.operacion, evento.entidad)}
+                      >
+                        {textoActividad(evento.resumen || evento.operacion, evento.entidad)}
+                      </span>
                     </span>
-                    <span
-                      className="block truncate text-xs text-ink-secondary"
-                      title={evento.resumen || evento.operacion}
-                    >
-                      {evento.resumen || evento.operacion}
-                    </span>
-                  </span>
-                  <time dateTime={evento.timestamp} className="text-xs text-ink-muted">
-                    {formatRelative(evento.timestamp)}
-                  </time>
-                </Link>
-              </li>
-            ))}
+                    <time dateTime={evento.timestamp} className="text-xs text-ink-muted">
+                      {formatRelative(evento.timestamp)}
+                    </time>
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         )}
       </Card>

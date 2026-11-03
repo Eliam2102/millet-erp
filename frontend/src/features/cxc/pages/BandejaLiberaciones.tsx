@@ -97,7 +97,7 @@ export function BandejaLiberaciones() {
       <PageHeader
         titulo={<>Liberación de pedidos</>}
         descripcion={
-          <>Decisiones con cascada serie → crédito → override y autorizaciones consumibles.</>
+          <>Pedidos detenidos por serie o por crédito; aquí se liberan con su autorización.</>
         }
         acciones={
           <>

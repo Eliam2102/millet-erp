@@ -167,7 +167,7 @@ export function TabEncabezado({
           label="Uso CFDI"
           required
           error={form.formState.errors.receptorUsoCfdi?.message}
-          hint="Catálogo SAT c_UsoCFDI."
+
         >
           <Controller
             name="receptorUsoCfdi"
@@ -227,7 +227,7 @@ export function TabEncabezado({
           hint={
             metodoPago === 'PPD'
               ? 'Fijada en 99 — Por definir: el SAT la exige con método PPD (la forma real viaja en el REPP de cada pago).'
-              : 'Catálogo SAT c_FormaPago.'
+              : undefined
           }
         >
           <Controller
@@ -376,7 +376,7 @@ export function TabEncabezado({
           </Campo>
           <Campo
             label="Clave de pedimento"
-            hint="Catálogo SAT c_ClavePedimento (ej. A1). Opcional."
+
           >
             {embarqueCe?.ligado ? (
               <p className="h-ctl-xl py-2 text-sm">{embarqueCe.clavePedimento}</p>

@@ -24,3 +24,12 @@ public sealed record EstadoPedidoDto(string Estado, string? Motivo, DateTimeOffs
 public sealed record PiezasPagina(IReadOnlyList<PiezaDto> Items, int Total, IReadOnlyList<AvancePosicionDto> Avance, EstadoPedidoDto? EstadoPedido = null);
 
 public sealed record EscaneosPagina(IReadOnlyList<EscaneoDto> Items, int Total);
+
+/// <summary>Monitor de salidas (PT5.3): pedidos en 70 sin salida. <c>Alerta</c>: <c>24h</c> | <c>48h</c> en el filtro; en la fila además <c>ninguna</c>. Orden: el más antiguo primero.</summary>
+public sealed record ListarSalidasPendientesQuery(Guid? SucursalId, string? Alerta, string? Buscar, int Page, int PageSize) : IRequest<SalidasPendientesPagina>;
+
+/// <summary><c>HorasSinSalida</c> son horas completas desde <c>LiberadoAt</c> (70). <c>Alerta</c>: ninguna | 24h | 48h.</summary>
+public sealed record SalidaPendienteDto(Guid PedidoPtId, string NumeroPedido, string Cliente, string? Destino, Guid SucursalId, int Piezas, DateTimeOffset LiberadoAt, int HorasSinSalida, string Alerta);
+
+/// <summary><c>Total</c>, <c>Con24h</c> y <c>Con48h</c> cuentan todo lo filtrado por sucursal y búsqueda, antes de paginar y de filtrar por alerta.</summary>
+public sealed record SalidasPendientesPagina(IReadOnlyList<SalidaPendienteDto> Items, int Total, int Con24h, int Con48h);
