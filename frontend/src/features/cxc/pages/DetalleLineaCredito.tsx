@@ -21,6 +21,7 @@ import {
 } from '@/features/cxc/api/useLineasCredito';
 import { cxcKeys } from '@/features/cxc/api/keys';
 import { BloquearLineaDialog } from '@/features/cxc/components/BloquearLineaDialog';
+import { DesbloquearLineaDialog } from '@/features/cxc/components/DesbloquearLineaDialog';
 import { ChipEstadoLinea } from '@/features/cxc/components/ChipEstadoLinea';
 import { CreditoDisponibleCard } from '@/features/cxc/components/CreditoDisponibleCard';
 import {
@@ -81,6 +82,7 @@ function Contenido({ linea }: { linea: LineaCreditoResponse }) {
 
   const [editando, setEditando] = useState(false);
   const [dialogBloquear, setDialogBloquear] = useState(false);
+  const [dialogDesbloquear, setDialogDesbloquear] = useState(false);
 
   const bloquear = useBloquearLineaCredito();
   const desbloquear = useDesbloquearLineaCredito();
@@ -144,20 +146,7 @@ function Contenido({ linea }: { linea: LineaCreditoResponse }) {
                   variant="outline"
                   size="sm"
                   disabled={desbloquear.isPending}
-                  onClick={() =>
-                    desbloquear.mutate(
-                      {
-                        id: linea.id,
-                        versionEsperada: linea.version,
-                        // Key fresca por submit: el backend exige UUID v4 puro.
-                        idempotencyKey: crypto.randomUUID(),
-                      },
-                      {
-                        onSuccess: () => toast.success('Línea desbloqueada.'),
-                        onError: (e) => manejarError(e, 'No se pudo desbloquear la línea.'),
-                      },
-                    )
-                  }
+                  onClick={() => setDialogDesbloquear(true)}
                 >
                   <Unlock className="mr-1.5 h-3.5 w-3.5" />
                   {desbloquear.isPending ? 'Desbloqueando…' : 'Desbloquear'}
@@ -177,8 +166,17 @@ function Contenido({ linea }: { linea: LineaCreditoResponse }) {
         <div className="flex items-start gap-2 rounded-md border border-line bg-danger-bg px-4 py-3 text-sm text-danger-fg   ">
           <Ban className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <div>
-            <p className="font-medium">Línea bloqueada</p>
+            <p className="font-medium">
+              {linea.bloqueoAutomatico
+                ? 'Línea bloqueada automáticamente por vencimiento'
+                : 'Línea bloqueada'}
+            </p>
             <p>{linea.motivoBloqueo}</p>
+            {linea.bloqueoAutomatico && (
+              <p className="mt-1 text-xs">
+                Se desbloquea sola cuando el cliente paga lo vencido fuera de plazo y tolerancia.
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -240,6 +238,32 @@ function Contenido({ linea }: { linea: LineaCreditoResponse }) {
                 toast.success('Línea bloqueada.');
               },
               onError: (e) => manejarError(e, 'No se pudo bloquear la línea.'),
+            },
+          )
+        }
+      />
+
+      <DesbloquearLineaDialog
+        open={dialogDesbloquear}
+        onOpenChange={setDialogDesbloquear}
+        etiquetaLinea={etiquetaLinea}
+        bloqueoAutomatico={linea.bloqueoAutomatico}
+        isPending={desbloquear.isPending}
+        onConfirm={(motivo) =>
+          desbloquear.mutate(
+            {
+              id: linea.id,
+              versionEsperada: linea.version,
+              motivo,
+              // Key fresca por submit: el backend exige UUID v4 puro.
+              idempotencyKey: crypto.randomUUID(),
+            },
+            {
+              onSuccess: () => {
+                setDialogDesbloquear(false);
+                toast.success('Línea desbloqueada.');
+              },
+              onError: (e) => manejarError(e, 'No se pudo desbloquear la línea.'),
             },
           )
         }
