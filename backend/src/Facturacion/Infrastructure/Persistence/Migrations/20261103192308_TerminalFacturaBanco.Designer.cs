@@ -13,7 +13,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(FacturacionDbContext))]
-    [Migration("20261103183638_TerminalFacturaBanco")]
+    [Migration("20261103192308_TerminalFacturaBanco")]
     partial class TerminalFacturaBanco
     {
         /// <inheritdoc />
