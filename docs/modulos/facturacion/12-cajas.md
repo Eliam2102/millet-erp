@@ -675,8 +675,37 @@ registrar cada cargo tal como viene del banco.
   agrupan por folio y publican una vez
   `facturacion.terminal.liquidacion-registrada.v1` (bruto, comisión, IVA, neto
   y cobros). La póliza la registra C1.5 (`PLATFORM-TODO(<PolizaLiquidacionTerminal>)`).
-- **Fuera:** factura mensual del banco (Parte B) y la importación general del
-  estado de cuenta (TES-05, T9.2).
+- **Fuera:** la importación general del estado de cuenta (TES-05, T9.2).
+
+### 18.1 Factura mensual del banco ligada a los cargos (86e3xt2q8, Parte B)
+
+Laura Cerón (26-oct): cada cargo diario de la terminal queda ligado a la factura
+mensual del banco.
+
+- **Elección:** en Mi caja › Terminal de tarjetas › Factura del banco, el
+  supervisor elige el mes y el CFDI recibido del banco. La lista viene del buzón de CxP
+  (`ICfdiRecibidoBancoReadPort`, solo lectura): CFDI de ingreso por procesar del
+  mes o del siguiente. Una factura ya ligada deja de ofrecerse.
+- **Cuadre:** suma la comisión y el IVA de las liquidaciones del mes (por fecha de
+  liquidación) que aún no tienen factura. Los compara contra el subtotal, el IVA y
+  el total del CFDI. **Supuesto a validar:** cuadra solo si las tres diferencias son
+  cero, sin tolerancia.
+- **Si cuadra:** cada liquidación queda con el folio fiscal (`terminal_liquidacion.factura_banco_id`
+  y `uuid_factura_banco`). Se registra `terminal_factura_banco`: un CFDI por mes, que no
+  se puede ligar dos veces. Se publica
+  `facturacion.terminal.factura-banco-ligada.v1`: el IVA de las comisiones pasa de
+  pendiente a pagado. La póliza la registra C1.5
+  (`PLATFORM-TODO(<PolizaFacturaBancoTerminal>)`).
+- **Si no cuadra:** muestra la diferencia de comisión, IVA y total, y no liga nada
+  (`TERMINAL_FACTURA_NO_CUADRA`).
+- **Sin cuenta por pagar:** el banco ya cobró la comisión al liquidar. El CFDI no se
+  marca en CxP. **A validar con Millet:** si se deja de capturar como factura de
+  proveedor y de registrar su «pago».
+- **Endpoints:**
+  - `GET /api/v1/facturacion/terminal-tarjetas/factura-banco/candidatos`
+  - `GET …/factura-banco/cuadre`
+  - `GET …/factura-banco`
+  - `POST …/factura-banco` (permiso `facturacion.caja.supervisar`)
 
 ---
 
@@ -690,6 +719,7 @@ registrar cada cargo tal como viene del banco.
 | 0.8 | 2026-10-14 | §14: facturado y notas de crédito del punto de venta y resumen de la entrega (M19: facturado, NC, cobranzas, apartados, TPV), como propuesta a validar; relación con F6.7 |
 | 0.9 | 2026-10-21 | §15 Cierre del día por sucursal (F6.7): monitor de estatus de CFDI con verificación SAT y conciliación facturado contra ingresado por sucursal y cajero |
 | 1.0 | 2026-10-26 | §14 (86e3tfdvt): voucher de tarjeta = número de autorización de 4 a 12 caracteres, también en forma 29; nunca el número de la tarjeta |
+| 1.4 | 2026-11-03 | §18.1 (86e3xt2q8, Parte B): factura mensual del banco ligada a los cargos de la terminal; cuadre al centavo y evento de IVA pagado |
 | 1.3 | 2026-10-31 | §18 (86e3vr1tf, Parte A): archivo diario de la terminal de tarjetas, emparejamiento con los cobros y liquidación por folio |
 | 1.2 | 2026-10-31 | §17 (F6.6, 86e3jvuvr): folio de confirmación de transferencias de Ingresos; Caja aplica la forma 03 solo con folio vigente, del cliente y por el importe; B4 resuelta |
 | 1.1 | 2026-10-28 | §16 (86e3tfecn): caso de uso del cobro con varias formas de pago en una operación; estado actual del ERP, brechas (forma del CFDI, REPP con varios nodos, póliza de cobro partida según la regla de Contabilidad de Millet del 23-oct, folio de transferencia), nota de impacto y propuesta de cuándo construirlo |
