@@ -1042,6 +1042,73 @@ export interface PedidoComprobanteItem {
   vigente: boolean;
 }
 
+// ─── Salidas parciales del pedido (FAC-08) ─────────────────────────────
+
+/** Origen de la salida (mirror numérico de OrigenSalidaFacturable). */
+export const OrigenSalidaFacturable = {
+  ProductoTerminado: 1,
+  ContenedorExportacion: 2,
+  Manual: 3,
+} as const;
+export type OrigenSalidaFacturableValor =
+  (typeof OrigenSalidaFacturable)[keyof typeof OrigenSalidaFacturable];
+
+/** Avance de una partida del pedido: pedida, en salidas y facturada. */
+export interface AvancePartidaPedido {
+  posicion: number;
+  descripcion: string;
+  pedida: number;
+  enSalidas: number;
+  facturada: number;
+}
+
+export interface SalidaFacturableItemLinea {
+  posicion: number;
+  cantidad: number;
+  importe: number;
+}
+
+/** Una parcialidad del pedido con su factura vigente (null = pendiente o cancelada). */
+export interface SalidaFacturableItem {
+  id: string;
+  numeroParcialidad: number;
+  origen: OrigenSalidaFacturableValor;
+  referencia: string;
+  registradaEn: string;
+  total: number;
+  facturaId: string | null;
+  folio: string | null;
+  uuid: string | null;
+  estadoFactura: string | null;
+  lineas: SalidaFacturableItemLinea[];
+}
+
+/** GET /pedidos-facturables/{id}/salidas. */
+export interface PedidoSalidasResponse {
+  pedidoFacturableId: string;
+  totalPedido: number;
+  totalFacturado: number;
+  avance: AvancePartidaPedido[];
+  salidas: SalidaFacturableItem[];
+}
+
+/** Body de POST /pedidos-facturables/{id}/salidas (origen Manual por omisión). */
+export interface RegistrarSalidaCommand {
+  referencia: string;
+  lineas: Array<{ posicion: number; cantidad: number }>;
+}
+
+export interface SalidaFacturableResponse {
+  id: string;
+  pedidoFacturableId: string;
+  numeroParcialidad: number;
+  origen: OrigenSalidaFacturableValor;
+  referencia: string;
+  total: number;
+  yaRegistrada: boolean;
+  lineas: SalidaFacturableItemLinea[];
+}
+
 // ─── Emisión / comprobantes (FE-F1-PR2) ───────────────────────────────
 
 /**
@@ -1109,6 +1176,8 @@ export interface EmitirFacturaVentaCommand {
   /** Liga la factura al pedido origen (B2). Si se provee, al timbrar el
    * backend transiciona el pedido a `Facturado`. */
   pedidoFacturableId?: string | null;
+  /** FAC-08: factura solo esta parcialidad del pedido; el pedido sigue abierto. */
+  salidaFacturableId?: string | null;
   /** Anticipos a amortizar (relación 07). El backend emite la NC de
    * amortización atómica con el timbre de la factura final. */
   anticipos?: AnticipoAAmortizar[] | null;
