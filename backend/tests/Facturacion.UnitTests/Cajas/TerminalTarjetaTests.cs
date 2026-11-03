@@ -186,7 +186,10 @@ public sealed class TerminalTarjetaTests
         r.Emparejados.Should().Be(1);
         r.Liquidaciones.Should().Be(1);
         var t = await db.TransaccionesTerminal.SingleAsync();
-        (t.Ultimos4, t.Moneda, t.FechaHora).Should().Be(("0987", "MXN", new DateTime(2026, 10, 1, 12, 28, 29)));
+        (t.Ultimos4, t.Moneda).Should().Be(("0987", "MXN"));
+        // 12:28:29 hora de Mérida (UTC−6) se guarda en UTC, como lo exige timestamp with time zone.
+        t.FechaHora.Should().Be(new DateTime(2026, 10, 1, 18, 28, 29, DateTimeKind.Utc));
+        t.FechaHora.Kind.Should().Be(DateTimeKind.Utc);
         t.CobroMostradorId.Should().Be(cobro);
         var e = eventos.Publicados.OfType<TerminalLiquidacionRegistradaIntegrationEvent>().Single();
         (e.Bruto, e.Comision, e.IvaComision, e.Neto).Should().Be((10_000m, 200m, 32m, 9_768m));
@@ -204,6 +207,18 @@ public sealed class TerminalTarjetaTests
 
         r.Aprobada.Should().BeFalse();
         r.FechaLiquidacion.Should().Be(new DateOnly(2026, 10, 2));
+    }
+
+    [Fact]
+    public void Hora_de_la_terminal_se_guarda_en_utc_y_el_dia_local_no_se_corre_de_noche()
+    {
+        // 23:30 del 1-oct en Mérida = 05:30 UTC del 2-oct; el día de la venta sigue siendo el 1-oct.
+        var utc = HoraTerminal.AUtc(new DateTime(2026, 10, 1, 23, 30, 0), null);
+
+        utc.Should().Be(new DateTime(2026, 10, 2, 5, 30, 0, DateTimeKind.Utc));
+        utc.Kind.Should().Be(DateTimeKind.Utc);
+        HoraTerminal.DiaLocal(utc, null).Should().Be(new DateOnly(2026, 10, 1));
+        HoraTerminal.DiaLocal(utc, "America/Tijuana").Should().Be(new DateOnly(2026, 10, 1));
     }
 
     // ---- helpers ----

@@ -72,7 +72,8 @@ public sealed class TerminalTarjetaHandlers :
         {
             // Un renglón repetido en el mismo archivo tampoco se duplica.
             if (!existentes.Add(r.NoOperacion.Trim())) continue;
-            var t = TransaccionTerminal.Registrar(empresaId, carga.Id, r);
+            // El archivo trae hora local del comercio; Npgsql exige UTC (timestamp with time zone).
+            var t = TransaccionTerminal.Registrar(empresaId, carga.Id, r with { FechaHora = HoraTerminal.AUtc(r.FechaHora, Zona) });
             _db.TransaccionesTerminal.Add(t);
             nuevas.Add(t);
         }
@@ -135,7 +136,7 @@ public sealed class TerminalTarjetaHandlers :
         var usadas = new HashSet<Guid>();
         foreach (var t in porEmparejar.OrderBy(t => t.FechaHora))
         {
-            var dia = DateOnly.FromDateTime(t.FechaHora);
+            var dia = HoraTerminal.DiaLocal(t.FechaHora, Zona);
             var forma = candidatas.FirstOrDefault(c => !usadas.Contains(c.FormaPagoId)
                 && MismaAutorizacion(c.Referencia!, t.Autorizacion!)
                 && c.Importe == t.Importe && c.DiaOperacion == dia);
@@ -172,7 +173,7 @@ public sealed class TerminalTarjetaHandlers :
             var ventas = grupo.ToList();
             // Fecha del cargo = día en que el banco liquidó (DAT_SETTLED del GMR); sin ella, el de la última venta.
             var liquidacion = LiquidacionTerminal.Crear(empresaId, cargaId, grupo.Key,
-                ventas.Max(v => v.FechaLiquidacion ?? DateOnly.FromDateTime(v.FechaHora)), ventas);
+                ventas.Max(v => v.FechaLiquidacion ?? HoraTerminal.DiaLocal(v.FechaHora, Zona)), ventas);
             _db.LiquidacionesTerminal.Add(liquidacion);
             await _eventos.PublishAsync(new TerminalLiquidacionRegistradaIntegrationEvent(
                 empresaId, _clock.UtcNow, liquidacion.Id, liquidacion.Folio, liquidacion.Fecha, liquidacion.Bruto,
@@ -183,6 +184,8 @@ public sealed class TerminalTarjetaHandlers :
         }
         return creadas;
     }
+
+    private string? Zona => _opciones.CurrentValue.ZonaHoraria;
 
     private static bool MismaAutorizacion(string voucher, string banco)
     {
@@ -195,4 +198,23 @@ public sealed class TerminalTarjetaHandlers :
     private static CargaTerminalResponse Respuesta(CargaTerminal c) => new(
         c.Id, c.NombreArchivo, c.FechaArchivo, c.CargadoEn, c.Renglones, c.Nuevos, c.Duplicados, c.Emparejados,
         c.SinEmparejar, c.Rechazados, c.Liquidaciones);
+}
+
+/// <summary>
+/// Hora de la terminal: el archivo trae la hora local del comercio y se guarda en UTC. El día de la venta se calcula de
+/// regreso en la misma zona, para emparejar con el día de operación de la caja sin que una venta de la noche se corra
+/// al día siguiente.
+/// </summary>
+public static class HoraTerminal
+{
+    public static DateTime AUtc(DateTime horaLocal, string? zonaIana) => horaLocal.Kind == DateTimeKind.Utc
+        ? horaLocal
+        : TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(horaLocal, DateTimeKind.Unspecified), Zona(zonaIana));
+
+    public static DateOnly DiaLocal(DateTime fechaHora, string? zonaIana) => fechaHora.Kind == DateTimeKind.Utc
+        ? DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(fechaHora, Zona(zonaIana)))
+        : DateOnly.FromDateTime(fechaHora);
+
+    private static TimeZoneInfo Zona(string? zonaIana) => TimeZoneInfo.FindSystemTimeZoneById(
+        string.IsNullOrWhiteSpace(zonaIana) ? Millet.Administracion.Domain.Sucursal.ZonaHorariaDefault : zonaIana.Trim());
 }

@@ -37,6 +37,13 @@ public sealed class TerminalTarjetaOptions
     /// (Chargeback, Adjustment, Discount, Billing) no son ventas y no se cargan aquí.
     /// </summary>
     public string TipoMovimientoVenta { get; set; } = "Transaction";
+
+    /// <summary>
+    /// Zona horaria IANA de la hora que traen los archivos de la terminal (hora local del comercio). La fecha y hora se
+    /// guardan en UTC y el día de la venta se calcula en esta zona para emparejar con el día de operación de la caja.
+    /// Vacío = la zona por omisión de las sucursales (<c>Sucursal.ZonaHorariaDefault</c>).
+    /// </summary>
+    public string? ZonaHoraria { get; set; }
 }
 
 public sealed class ColumnasTerminal
