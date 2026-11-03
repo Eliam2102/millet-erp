@@ -23,7 +23,10 @@ public static class AlmacenesAppMensajesEndpoint
     {
         app.MapPost("/api/v1/integraciones/almacenes/mensajes", async (
             HttpRequest request, IConfiguration configuration, AlmacenDbContext db,
-            Millet.Almacen.Domain.Ports.IComprasCrearRqAppPort rqApp, CancellationToken ct) =>
+            Millet.Almacen.Domain.Ports.IComprasCrearRqAppPort rqApp,
+            Millet.Compartido.Infrastructure.Persistence.CompartidoDbContext maestros,
+            Millet.Almacen.Domain.Ports.IUsuarioServicioReadPort usuarioServicio,
+            Millet.SharedKernel.Application.ICurrentEmpresaContext empresa, CancellationToken ct) =>
         {
             var keyConfigurada = configuration["Integraciones:AlmacenesApp:ApiKey"];
             if (string.IsNullOrWhiteSpace(keyConfigurada))
@@ -68,15 +71,21 @@ public static class AlmacenesAppMensajesEndpoint
                     .FirstOrDefaultAsync(m => m.MensajeId == mensajeId, ct);
                 if (previo is null)
                 {
+                    // Las salidas mueven existencia: movimiento y MensajeApp se confirman juntos (idempotencia por
+                    // mensajeId) y el folio del movimiento exige transacción abierta antes de reservarlo.
+                    var esSalida = AlmacenesAppSalida.Tipos.ContainsKey(tipo);
+                    await using var tx = esSalida && db.Database.IsNpgsql() ? await db.Database.BeginTransactionAsync(ct) : null;
+
                     // Punto de enchufe de handlers: un case por tipo.
                     var (estado, folio, error) = tipo switch
                     {
                         "REQUISICION_ENVIADA" => await AlmacenesAppRequisicionEnviada.ManejarAsync(datos, rqApp, ct),
+                        _ when esSalida => await AlmacenesAppSalida.ManejarAsync(tipo, datos, db, maestros, usuarioServicio, empresa, ct),
                         _ => ("ERROR", (string?)null, (string?)"tipo aún no soportado"),
                     };
-                    // Un ERROR de datos de la RQ (proveedor/artículo sin dar de alta) se corrige en el ERP
+                    // Un ERROR de datos (proveedor/artículo/medida sin dar de alta) se corrige en el ERP
                     // y la app reenvía el mismo mensajeId: no se guarda para que el reenvío se procese.
-                    if (tipo == "REQUISICION_ENVIADA" && estado == "ERROR")
+                    if ((tipo == "REQUISICION_ENVIADA" || esSalida) && estado == "ERROR")
                         return Results.Json(new Acuse(mensajeId, estado, folio, error));
                     var referencia = Str("referencia");
                     db.MensajesApp.Add(new MensajeApp(mensajeId, tipo,
@@ -85,10 +94,15 @@ public static class AlmacenesAppMensajesEndpoint
                     try
                     {
                         await db.SaveChangesAsync(ct);
-                        return Results.Json(new Acuse(mensajeId, estado, folio, error));
+                        if (tx is not null) await tx.CommitAsync(ct);
+                        // Salida sin existencia: se acepta (RECIBIDO) y queda en la bandeja de revisión (estado guardado).
+                        return estado == Millet.Almacen.Application.AppAlmacenes.SalidaAppAlmacenes.EnRevision
+                            ? Results.Json(new Acuse(mensajeId, "RECIBIDO", null, null))
+                            : Results.Json(new Acuse(mensajeId, estado, folio, error));
                     }
                     catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: "23505" })
                     {
+                        if (tx is not null) await tx.RollbackAsync(ct);
                         db.ChangeTracker.Clear();
                         previo = await db.MensajesApp.AsNoTracking().FirstAsync(m => m.MensajeId == mensajeId, ct);
                     }
@@ -104,6 +118,18 @@ public static class AlmacenesAppMensajesEndpoint
         .Produces<Acuse>(StatusCodes.Status200OK)
         .Produces<Acuse>(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound);
+
+        // Bandeja de revisión (J6): salidas aceptadas sin existencia suficiente; no movieron saldo.
+        app.MapGet("/api/v1/almacen/mensajes-app/revision", async (AlmacenDbContext db, CancellationToken ct) =>
+            Results.Ok(await db.MensajesApp.AsNoTracking()
+                .Where(m => m.Estado == Millet.Almacen.Application.AppAlmacenes.SalidaAppAlmacenes.EnRevision)
+                .OrderByDescending(m => m.RecibidoAt)
+                .Select(m => new { m.MensajeId, m.Tipo, m.Referencia, m.Error, m.RecibidoAt, m.Payload })
+                .Take(500).ToListAsync(ct)))
+        .RequireAuthorization(Millet.Api.Auth.PermissionPolicyProvider.Prefix
+            + Millet.Identidad.Domain.PermisosCanonicos.AlmacenSalidasLeerTodas)
+        .WithTags("Integraciones Almacenes")
+        .WithName("ListarSalidasAppEnRevision");
 
         return app;
     }
