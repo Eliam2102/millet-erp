@@ -673,5 +673,5 @@ function buildEmptyValues(
     descripcion: null,
     obra: null,
     soloApartarSiCompleto: false,
-  } as CrearRequisicionValues;
+  };
 }
