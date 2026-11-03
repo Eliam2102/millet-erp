@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Millet.Contabilidad.Domain;
+using Millet.SharedKernel.Application;
 using Millet.CuentasPorCobrar.Application.ConciliacionPolizas;
 using Millet.CuentasPorCobrar.Domain.AplicacionPagos;
 using Millet.CuentasPorCobrar.Domain.Cartera;
@@ -27,6 +28,7 @@ public sealed partial class ListenersContabilidadTests
         TipoAjusteCobro tipo, bool autorizar)
     {
         using var scope = factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
         var db = scope.ServiceProvider.GetRequiredService<CuentasPorCobrarDbContext>();
         var p = PropuestaAplicacionPago.Crear(EmpresaBootstrapId, cliente, $"DEP-C06-{Guid.NewGuid():N}"[..20], deposito, "MXN", "REM-C06",
             [(Guid.NewGuid().ToString(), facturaCartera, aplicado, null)], 1_000m, Proponente, Guid.NewGuid(),
@@ -142,6 +144,7 @@ public sealed partial class ListenersContabilidadTests
             PropuestaAplicacionPago p;
             using (var scope = factory.Services.CreateScope())
             {
+                using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
                 var db = scope.ServiceProvider.GetRequiredService<CuentasPorCobrarDbContext>();
                 var fc = FacturaCartera.Crear(EmpresaBootstrapId, factura, cliente, "XAXX010101000", $"FIX cliente C06 {e.Suf}",
                     factura.ToString(), "FV-C06", 2_320m, "MXN", "PPD", Ahora.AddDays(-5), Ahora.AddDays(25));
