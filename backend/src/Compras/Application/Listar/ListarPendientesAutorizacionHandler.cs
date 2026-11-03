@@ -77,6 +77,18 @@ public sealed class ListarPendientesAutorizacionHandler
             q = q.Where(r => r.DepartamentoId == departamentoId);
         }
 
+        if (!string.IsNullOrWhiteSpace(query.Q))
+        {
+            // Escapa los comodines de LIKE del texto del usuario (\ es el escape por defecto en Npgsql).
+            var patron = "%" + query.Q.Trim()
+                .Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
+            // Folio es un VO con value converter: EF no traduce ILike sobre esa columna. Se resuelven
+            // los ids por SQL y se componen como subconsulta sobre `q`, que ya trae el scoping.
+            var idsPorFolio = _db.Database.SqlQuery<Guid>(
+                $"SELECT id AS \"Value\" FROM compras.requisiciones WHERE folio ILIKE {patron}");
+            q = q.Where(r => idsPorFolio.Contains(r.Id));
+        }
+
         // Filtro por nivel pendiente (PR-A): EXISTS/NOT EXISTS sobre
         // Autorizaciones. Va ANTES de CountAsync/Skip/Take para que tanto el
         // total como la página reflejen el filtro. Codifica la misma regla que

@@ -13,6 +13,8 @@ import {
   Prioridad,
 } from '@/features/compras/api/types';
 
+let mockSearch: Record<string, unknown> = { offset: 0, limit: 50 };
+
 vi.mock('@tanstack/react-router', () => ({
   Link: ({
     children,
@@ -30,7 +32,7 @@ vi.mock('@tanstack/react-router', () => ({
     </a>
   ),
   useNavigate: () => () => {},
-  useSearch: () => ({ offset: 0, limit: 50 }),
+  useSearch: () => mockSearch,
 }));
 
 function setupCatalogos() {
@@ -72,6 +74,41 @@ afterEach(() => {
 });
 
 describe('<BandejaRequisiciones> — smoke', () => {
+  it('búsqueda: manda q al servidor y no descarta las filas que devuelve', async () => {
+    mockSearch = { offset: 0, limit: 50, q: '000777' };
+    let recibido: URL | null = null;
+    mswServer.use(
+      http.get('*/api/v1/compras/requisiciones', ({ request }) => {
+        recibido = new URL(request.url);
+        return HttpResponse.json({
+          items: [{
+              id: 'rq-q',
+              folio: 'MID2026-ABC',
+              folioAnio: 2026,
+              estado: EstadoRequisicion.Borrador,
+              clasificacion: Clasificacion.Servicio,
+              prioridad: Prioridad.Normal,
+              sucursalId: 's-1',
+              departamentoId: 'd-1',
+              requisitanteId: 'u-1',
+              descripcion: null,
+              fechaSolicitud: '2026-05-09T10:00:00Z',
+              fechaEntregaDeseada: null,
+            }],
+          offset: 0,
+          limit: 50,
+          total: 1,
+        });
+      }),
+    );
+    render(<BandejaRequisiciones />, { wrapper: createQueryWrapper() });
+    await waitFor(() =>
+      expect(screen.getAllByText('MID2026-ABC').length).toBeGreaterThan(0),
+    );
+    expect(recibido!.searchParams.get('q')).toBe('000777');
+    mockSearch = { offset: 0, limit: 50 };
+  });
+
   it('estado loading: muestra el header', () => {
     mswServer.use(
       http.get(

@@ -40,6 +40,7 @@ function buildPath(filtros: ListarPendientesFiltros): string {
     params.set('departamentoId', filtros.departamentoId);
   if (filtros.nivelPendiente != null)
     params.set('nivelPendiente', String(filtros.nivelPendiente));
+  if (filtros.q) params.set('q', filtros.q);
   if (filtros.offset != null) params.set('offset', String(filtros.offset));
   if (filtros.limit != null) params.set('limit', String(filtros.limit));
   const query = params.toString();
