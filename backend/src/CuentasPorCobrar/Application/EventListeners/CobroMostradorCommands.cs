@@ -1,6 +1,8 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Millet.CuentasPorCobrar.Application.Alertas;
 using Millet.CuentasPorCobrar.Domain.Cartera;
 using Millet.CuentasPorCobrar.Domain.Eventos;
 using Millet.CuentasPorCobrar.Infrastructure.Persistence;
@@ -30,13 +32,16 @@ public sealed class CobroMostradorRegistradoHandler : IRequestHandler<CobroMostr
     private readonly CuentasPorCobrarDbContext _db;
     private readonly IClock _clock;
     private readonly ILogger<CobroMostradorRegistradoHandler> _logger;
+    private readonly int _toleranciaDias;
 
     public CobroMostradorRegistradoHandler(
         CuentasPorCobrarDbContext db,
         IClock clock,
-        ILogger<CobroMostradorRegistradoHandler> logger)
+        ILogger<CobroMostradorRegistradoHandler> logger,
+        IOptions<AlertasCarteraOptions>? alertas = null)
     {
         _db = db; _clock = clock; _logger = logger;
+        _toleranciaDias = Math.Max(0, (alertas?.Value ?? new AlertasCarteraOptions()).ToleranciaDiasVencido);
     }
 
     public async Task Handle(CobroMostradorRegistradoCommand request, CancellationToken cancellationToken)
@@ -71,6 +76,13 @@ public sealed class CobroMostradorRegistradoHandler : IRequestHandler<CobroMostr
                 "[CobroMostradorRegistrado] Comprobante {ComprobanteId} no está en cartera — informativo.",
                 p.ComprobanteId);
         }
+
+        // C7.5-a: si el pago deja al cliente sin facturas fuera de plazo +
+        // tolerancia, su línea bloqueada por vencimiento se desbloquea sola.
+        if (factura is not null)
+            await BloqueoPorVencimiento.ReevaluarTrasPagoAsync(
+                _db, factura.ClienteId, factura.Moneda, _toleranciaDias,
+                DateOnly.FromDateTime(_clock.UtcNow.UtcDateTime), _logger, cancellationToken);
 
         _db.EventosProcesados.Add(new EventoProcesado(
             request.EventId, EventType, _clock.UtcNow, detalle));

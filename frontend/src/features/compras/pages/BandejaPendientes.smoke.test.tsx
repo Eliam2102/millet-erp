@@ -80,6 +80,41 @@ afterEach(() => {
 });
 
 describe('<BandejaPendientes> — smoke', () => {
+  it('búsqueda: manda q al servidor y no descarta las filas que devuelve', async () => {
+    searchHolder.current = { offset: 0, limit: 50, q: '000777' };
+    let recibido: URL | null = null;
+    mswServer.use(
+      http.get('*/api/v1/compras/pendientes-autorizacion', ({ request }) => {
+        recibido = new URL(request.url);
+        return HttpResponse.json({
+          items: [{
+              id: 'rq-q',
+              folio: 'MID2026-ABC',
+              folioAnio: 2026,
+              estado: EstadoRequisicion.EnAutorizacion,
+              clasificacion: Clasificacion.Servicio,
+              prioridad: Prioridad.Normal,
+              sucursalId: 's-1',
+              departamentoId: 'd-1',
+              requisitanteId: 'u-1',
+              descripcion: null,
+              fechaSolicitud: '2026-05-09T10:00:00Z',
+              fechaEntregaDeseada: null,
+            }],
+          offset: 0,
+          limit: 50,
+          total: 1,
+        });
+      }),
+    );
+    render(<BandejaPendientes />, { wrapper: createQueryWrapper() });
+    await waitFor(() =>
+      expect(screen.getAllByText('MID2026-ABC').length).toBeGreaterThan(0),
+    );
+    expect(recibido!.searchParams.get('q')).toBe('000777');
+    searchHolder.current = { offset: 0, limit: 50 };
+  });
+
   it('estado empty: muestra texto específico de pendientes', async () => {
     mswServer.use(
       http.get('*/api/v1/compras/pendientes-autorizacion', () =>

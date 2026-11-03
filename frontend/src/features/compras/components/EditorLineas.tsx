@@ -6,7 +6,7 @@ import {
   TableHead,
   TableCell,
 } from '@/components/ui/table';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { ConMotivo } from '@/features/compras/components/ConMotivo';
 import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -40,7 +40,6 @@ import { esConflictoConcurrencia } from '@/lib/api/error';
 import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialog-context';
 import { useQueryClient } from '@tanstack/react-query';
 import { comprasKeys } from '@/features/compras/api/keys';
-import { useArticulos, mapById } from '@/features/catalogos/api';
 
 /**
  * <c>&lt;EditorLineas/&gt;</c> — tabla de líneas con acciones
@@ -88,15 +87,6 @@ export function EditorLineas({ rq }: EditorLineasProps) {
   const [lineaEnEdicionId, setLineaEnEdicionId] = useState<string | null>(null);
   const [lineaAEliminar, setLineaAEliminar] = useState<LineaResponse | null>(null);
 
-  // Catálogo de artículos para resolver articuloId → clave/nombre
-  // por fila. Limit alto + includeInactivas para no perder
-  // artículos que pudieron haberse marcado inactivos después de
-  // usarse en esta RQ.
-  const articulosQuery = useArticulos({
-    limit: 1000,
-    includeInactivas: true,
-  });
-  const articulosMap = useMemo(() => mapById(articulosQuery.data?.items), [articulosQuery.data]);
 
   const eliminar = useEliminarLinea();
   const conflictDialog = useConflictDialog();
@@ -221,16 +211,14 @@ export function EditorLineas({ rq }: EditorLineasProps) {
                 // La fila en edición se oculta: su form se monta fuera de la
                 // tabla para no heredar su ancho (UX-F3-01).
                 if (linea.id === lineaEnEdicionId) return null;
-                // Preferir la etiqueta enriquecida del DTO (ADR-0042 addendum);
-                // fallback al catálogo capado client-side y por último al id.
-                const articulo = articulosMap.get(linea.articuloId);
+                // Etiqueta resuelta en backend (ADR-0042 addendum); null → la fila cae al id.
                 return (
                   <FilaLinea
                     key={linea.id}
                     linea={linea}
                     rqId={rq.id}
-                    articuloClave={linea.articuloClave ?? articulo?.clave ?? null}
-                    articuloNombre={linea.articuloNombre ?? articulo?.nombre ?? null}
+                    articuloClave={linea.articuloClave}
+                    articuloNombre={linea.articuloNombre}
                     bgClass={i % 2 === 1 ? 'bg-surface-muted/20' : undefined}
                     canEditarEstructural={canEditarEstructural.habilitada}
                     canEliminar={canEliminar.habilitada}

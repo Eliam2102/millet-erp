@@ -31,6 +31,7 @@ import { CuentaBancariaSelector } from './CuentaBancariaSelector';
 import { Link } from '@tanstack/react-router';
 import { useCuentasProveedorPago, useRegistrarPago } from '@/features/tesoreria/api/useTesoreria';
 import type { CuentaProveedorPago, PasivoPendienteResponse } from '@/features/tesoreria/api/types';
+import { CONCEPTO_PAGO_PROVEEDOR_ID } from '@/features/tesoreria/api/types';
 import { formatoMonto } from '@/features/tesoreria/lib/formato';
 import { esApiError, useBodyScopedIdempotencyKey, codigoSoporte } from '@/lib/api';
 
@@ -58,7 +59,8 @@ export function RegistrarPagoSheet({
   const registrar = useRegistrarPago();
   const keyFor = useBodyScopedIdempotencyKey();
 
-  const [conceptoId, setConceptoId] = useState<string | null>(null);
+  // H-23: un pago a proveedor propone su concepto; el usuario puede cambiarlo.
+  const [conceptoId, setConceptoId] = useState<string | null>(CONCEPTO_PAGO_PROVEEDOR_ID);
   const [cuentaId, setCuentaId] = useState<string | null>(null);
   const [fechaValor, setFechaValor] = useState(() => hoyLocalISO());
   const [referencia, setReferencia] = useState('');

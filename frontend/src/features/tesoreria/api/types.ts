@@ -256,6 +256,9 @@ export const ClasificacionFlujo = {
 export type ClasificacionFlujo =
   (typeof ClasificacionFlujo)[keyof typeof ClasificacionFlujo];
 
+/** Concepto sembrado «Pago a proveedor» (`ConceptoMovimiento.PagoProveedorId` en backend). */
+export const CONCEPTO_PAGO_PROVEEDOR_ID = '0000000b-1001-0000-0000-000000000001';
+
 export const CLASIFICACION_FLUJO_LABELS: Record<ClasificacionFlujo, string> = {
   [ClasificacionFlujo.Operacion]: 'Operación',
   [ClasificacionFlujo.Inversion]: 'Inversión',

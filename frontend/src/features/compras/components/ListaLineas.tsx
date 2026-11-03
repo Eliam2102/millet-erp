@@ -26,9 +26,11 @@ export interface ListaLineasProps {
   lineas: LineaResponse[];
   /** Mapa id → nombre para resolver artículos. Si no se provee, muestra el id. */
   resolverArticulo?: (articuloId: string) => string;
+  /** RQ cerrada o cancelada: ya no se surte ni se compra lo pendiente. */
+  cerrada?: boolean;
 }
 
-export function ListaLineas({ lineas, resolverArticulo }: ListaLineasProps) {
+export function ListaLineas({ lineas, resolverArticulo, cerrada = false }: ListaLineasProps) {
   if (lineas.length === 0) {
     return (
       <EmptyState
@@ -100,7 +102,7 @@ export function ListaLineas({ lineas, resolverArticulo }: ListaLineasProps) {
                       cantPendiente={l.cantPendiente}
                       cantSinCompra={l.cantSinCompra}
                     />
-                    <ResumenParcialLinea linea={l} />
+                    <ResumenParcialLinea linea={l} cerrada={cerrada} />
                   </TableCell>
                 </TableRow>
               );
@@ -116,15 +118,21 @@ export function ListaLineas({ lineas, resolverArticulo }: ListaLineasProps) {
  * entregado, lo comprometido en OC, lo recibido y lo que aún falta comprar.
  * Se oculta si el backend no envió el saldo (respuesta sin los campos nuevos).
  */
-function ResumenParcialLinea({ linea }: { linea: LineaResponse }) {
+function ResumenParcialLinea({ linea, cerrada }: { linea: LineaResponse; cerrada: boolean }) {
   if (linea.cantSaldoPorComprar === undefined) return null;
-  const texto = [
-    `Almacén surte ${linea.cantDeAlmacen}`,
-    `Entregado ${linea.cantEntregadoDeAlmacen ?? 0}`,
-    `En OC ${linea.cantComprometidaEnOc ?? 0}`,
-    `Recibido ${linea.cantRecibida}`,
-    `Falta por comprar ${linea.cantSaldoPorComprar}`,
-  ].join(' · ');
+  const texto = cerrada
+    ? [
+        `Entregado ${linea.cantEntregadoDeAlmacen ?? 0}`,
+        `Recibido ${linea.cantRecibida}`,
+        'Cerrada: ya no se surte ni se compra lo pendiente',
+      ].join(' · ')
+    : [
+        `Almacén surte ${linea.cantDeAlmacen}`,
+        `Entregado ${linea.cantEntregadoDeAlmacen ?? 0}`,
+        `En OC ${linea.cantComprometidaEnOc ?? 0}`,
+        `Recibido ${linea.cantRecibida}`,
+        `Falta por comprar ${linea.cantSaldoPorComprar}`,
+      ].join(' · ');
   return (
     <p className="mt-1 text-xs text-ink-muted" data-resumen-parcial="">
       {texto}

@@ -490,6 +490,9 @@ public sealed class ConsultarBitacoraHandler
                 catch { }
             }
 
+            entidadEtiqueta = BitacoraTexto.Legible(entidadEtiqueta);
+            resumen = BitacoraTexto.Legible(resumen, r.Entidad);
+
             items.Add(new AuditLogEntryResponse(
                 Id: r.Id,
                 Timestamp: r.Timestamp,

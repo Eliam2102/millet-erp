@@ -22,8 +22,19 @@ public sealed class AlertasCarteraOptions
     /// <summary>Días vencidos para alertar cartera asegurada SOLUNION (límite de siniestro).</summary>
     public int SolunionDiasVencido { get; set; } = 90;
 
-    /// <summary>Días vencidos que disparan el auto-bloqueo de la línea.</summary>
-    public int AutoBloqueoDiasVencido { get; set; } = 90;
+    /// <summary>
+    /// Días antes del límite SOLUNION en que aparece la alerta (CA7.11: la
+    /// alerta debe salir antes de los 90 días para reportar el impago a
+    /// tiempo). Supuesto C7.5 «a validar»: 10 días ⇒ alerta desde 80.
+    /// </summary>
+    public int SolunionDiasAnticipacion { get; set; } = 10;
+
+    /// <summary>
+    /// Tolerancia del bloqueo automático por vencimiento (C7.5, R7/P7.2):
+    /// días de gracia después del plazo del cliente. Se bloquea cuando
+    /// han pasado más de plazo + tolerancia días desde el timbrado.
+    /// </summary>
+    public int ToleranciaDiasVencido { get; set; } = 15;
 }
 
 /// <summary>
@@ -69,6 +80,7 @@ public sealed class EvaluarAlertasCarteraHandler : IRequestHandler<EvaluarAlerta
                 ClienteId = f.ClienteId!.Value,
                 f.Moneda,
                 f.FechaVencimiento,
+                f.FechaTimbrado,
                 Saldo = f.Total - f.MontoPagado - f.MontoNc,
             })
             .ToListAsync(cancellationToken);
@@ -85,6 +97,7 @@ public sealed class EvaluarAlertasCarteraHandler : IRequestHandler<EvaluarAlerta
         var yaAbiertas = pendientes.Select(a => (a.ClienteId, a.Tipo, a.Moneda)).ToHashSet();
 
         var creadas = 0;
+        var cambios = false;
 
         foreach (var grupo in cartera.GroupBy(f => (f.EmpresaId, f.ClienteId, f.Moneda)))
         {
@@ -95,12 +108,19 @@ public sealed class EvaluarAlertasCarteraHandler : IRequestHandler<EvaluarAlerta
             var saldoTotal = grupo.Sum(f => f.Saldo);
 
             // 1. SOLUNION 90d — solo cartera asegurada (línea origen SOLUNION).
+            // Avisa con anticipación para reportar el impago antes de perder
+            // la cobertura (CA7.11).
+            var umbralSolunion = _options.SolunionDiasVencido - Math.Max(0, _options.SolunionDiasAnticipacion);
             if (linea is { Origen: OrigenLineaCredito.Solunion }
-                && diasVencidosMax >= _options.SolunionDiasVencido)
+                && diasVencidosMax >= umbralSolunion)
             {
+                var faltan = _options.SolunionDiasVencido - diasVencidosMax;
+                var cuando = faltan > 0
+                    ? $"faltan {faltan} día(s) para el límite de {_options.SolunionDiasVencido}"
+                    : $"límite de siniestro: {_options.SolunionDiasVencido}";
                 creadas += await CrearSiNoAbiertaAsync(
                     yaAbiertas, empresaId, clienteId, TipoAlertaCartera.Solunion90d, moneda,
-                    $"Cartera asegurada SOLUNION con factura(s) vencida(s) {diasVencidosMax} días (límite de siniestro: {_options.SolunionDiasVencido}).",
+                    $"Cartera asegurada SOLUNION con factura(s) vencida(s) {diasVencidosMax} días ({cuando}).",
                     ahora, cancellationToken);
             }
 
@@ -113,23 +133,54 @@ public sealed class EvaluarAlertasCarteraHandler : IRequestHandler<EvaluarAlerta
                     ahora, cancellationToken);
             }
 
-            // 3. Auto-bloqueo por vencimientos — bloquea la línea con motivo
-            // automático (levantamiento §3.1). Solo si sigue Activa.
-            if (linea is { Estado: EstadoLineaCredito.Activa }
-                && diasVencidosMax >= _options.AutoBloqueoDiasVencido)
+            // 3. Bloqueo automático por vencimiento (C7.5): la factura más
+            // vencida rebasa plazo del cliente + tolerancia. Solo si la línea
+            // sigue Activa y lo vencido no quedó cubierto por un desbloqueo
+            // manual autorizado.
+            if (linea is { Estado: EstadoLineaCredito.Activa })
             {
-                var motivo = $"Auto-bloqueo: factura(s) vencida(s) {diasVencidosMax} días (umbral {_options.AutoBloqueoDiasVencido}).";
-                linea.Bloquear(motivo);
-                creadas += await CrearSiNoAbiertaAsync(
-                    yaAbiertas, empresaId, clienteId, TipoAlertaCartera.AutoBloqueoVencimiento, moneda,
-                    motivo, ahora, cancellationToken);
-                _logger.LogWarning(
-                    "[AlertasCartera] Línea de crédito {LineaId} auto-bloqueada. Cliente={ClienteId} Moneda={Moneda}.",
-                    linea.Id, clienteId, moneda);
+                var tolerancia = Math.Max(0, _options.ToleranciaDiasVencido);
+                var rebasan = BloqueoPorVencimiento.FacturasQueRebasan(
+                    grupo.Select(f => f.FechaTimbrado), linea.PlazoDias, tolerancia, hoy);
+                if (BloqueoPorVencimiento.DebeBloquear(rebasan, linea.DesbloqueoManualEn))
+                {
+                    var diasMax = grupo.Max(f => BloqueoPorVencimiento.DiasDesdeTimbrado(f.FechaTimbrado, hoy));
+                    var motivo = $"Bloqueo automático: factura con {diasMax} días desde su emisión, más que el plazo de {linea.PlazoDias} + {tolerancia} de tolerancia.";
+                    linea.BloquearPorVencimiento(motivo);
+                    cambios = true;
+                    creadas += await CrearSiNoAbiertaAsync(
+                        yaAbiertas, empresaId, clienteId, TipoAlertaCartera.AutoBloqueoVencimiento, moneda,
+                        motivo, ahora, cancellationToken);
+                    _logger.LogWarning(
+                        "[AlertasCartera] Línea de crédito {LineaId} bloqueada por vencimiento. Cliente={ClienteId} Moneda={Moneda}.",
+                        linea.Id, clienteId, moneda);
+                }
             }
         }
 
-        if (creadas > 0)
+        // 4. Desbloqueo automático (C7.5-a) de las líneas bloqueadas por
+        // vencimiento cuyo cliente ya no tiene facturas fuera de plazo +
+        // tolerancia (red de seguridad del desbloqueo al aplicar el pago).
+        var bloqueadas = await _db.LineasCredito
+            .Where(l => l.Estado == EstadoLineaCredito.Bloqueada && l.BloqueoAutomatico)
+            .ToListAsync(cancellationToken);
+        foreach (var linea in bloqueadas)
+        {
+            var timbrados = cartera
+                .Where(f => f.ClienteId == linea.ClienteId && f.Moneda == linea.Moneda && f.Saldo > 0)
+                .Select(f => f.FechaTimbrado);
+            if (BloqueoPorVencimiento.FacturasQueRebasan(
+                    timbrados, linea.PlazoDias, Math.Max(0, _options.ToleranciaDiasVencido), hoy).Count == 0
+                && linea.DesbloquearPorPago())
+            {
+                cambios = true;
+                _logger.LogInformation(
+                    "[AlertasCartera] Línea de crédito {LineaId} desbloqueada: sin facturas fuera de plazo + tolerancia.",
+                    linea.Id);
+            }
+        }
+
+        if (creadas > 0 || cambios)
         {
             await _db.SaveChangesAsync(cancellationToken);
             _logger.LogInformation("[AlertasCartera] Evaluación completada: {N} alerta(s) nueva(s).", creadas);
