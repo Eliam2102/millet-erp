@@ -162,7 +162,7 @@ export const TipoCfdiLabels: Record<TipoCfdi, string> = {
 export const CanalOrigenCfdiLabels: Record<CanalOrigenCfdi, string> = {
   [CanalOrigenCfdi.Desconocido]: 'Desconocido',
   [CanalOrigenCfdi.DescargaSat]: 'Descarga SAT',
-  [CanalOrigenCfdi.Mailbox]: 'Mailbox',
+  [CanalOrigenCfdi.Mailbox]: 'Buzón',
   [CanalOrigenCfdi.CargaManual]: 'Carga manual',
   [CanalOrigenCfdi.PortalProveedor]: 'Portal proveedor',
 };
@@ -1630,3 +1630,34 @@ export interface PendientesFacturarProveedor {
   proveedorNombre: string | null;
   ocs: OcPendienteFacturar[];
 }
+
+// ─── Buzón de correo de CFDIs (P8.1) ──────────────────────────────────
+
+export interface BuzonRevisionItem {
+  id: string;
+  asunto: string;
+  remitente: string;
+  recibidoEn: string;
+  motivo: string;
+  registradoEn: string;
+  descartado: boolean;
+  motivoDescarte: string | null;
+}
+
+export interface BuzonEjecucion {
+  id: string;
+  inicioUtc: string;
+  finUtc: string;
+  mensajes: number;
+  ingresados: number;
+  duplicados: number;
+  aRevision: number;
+  error: string | null;
+}
+
+export const BuzonMotivoLabels: Record<string, string> = {
+  SIN_XML: 'El correo no trae XML',
+  XML_DEMASIADO_GRANDE: 'XML demasiado grande',
+  RFC_RECEPTOR_NO_MAPEADO: 'El receptor no es una empresa de Millet',
+  CFDI_XML_MALFORMADO: 'XML con estructura inválida',
+};
