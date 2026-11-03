@@ -161,7 +161,7 @@ public sealed class P5TesoreriaCobranzaTests(WebApplicationFactory<Program> fact
             var pago = MovimientoBancario.RegistrarPagoACuenta(Empresa, cuenta, proveedor, 500, Fecha, null, null, "Prueba P5", user, DateTimeOffset.UtcNow);
             pago.ActualizarEstadoAplicacion(100); db.MovimientosBancarios.Add(pago); await db.SaveChangesAsync();
         }
-        var segundo = await Post(client, $"{Tes}/pagos-cuenta", new { cuentaBancariaId = ingreso.CuentaBancariaId, proveedorId = proveedor, monto = 100, fechaValor = Fecha, motivo = "Prueba P5" });
+        var segundo = await Post(client, $"{Tes}/pagos-cuenta", new { cuentaBancariaId = ingreso.CuentaBancariaId, proveedorId = proveedor, monto = 100, fechaValor = Fecha, motivo = "Prueba P5", referenciaBancaria = $"P5-{Guid.NewGuid():N}" });
         segundo.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
         (await segundo.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString().Should().Be("PAGO_CUENTA_ABIERTO_EXISTENTE");
     }
