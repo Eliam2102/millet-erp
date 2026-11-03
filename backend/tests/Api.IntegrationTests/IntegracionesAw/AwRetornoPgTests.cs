@@ -136,9 +136,9 @@ public class AwRetornoPgTests(WebApplicationFactory<Program> factory)
             NullLogger<FacturacionRetornoListenerWorker>.Instance), sp);
     }
 
-    private static string Timbrada(string uuid, string folio, string pedido, long version) => JsonSerializer.Serialize(
+    private static string Timbrada(string uuid, string folio, string pedido, long version, Guid? facturaId = null) => JsonSerializer.Serialize(
         new Millet.Facturacion.Application.Integration.FacturaVentaTimbradaIntegrationEvent(
-            Guid.NewGuid(), DateTimeOffset.UtcNow, Guid.NewGuid(), uuid, 580m, "MXN", Guid.NewGuid(),
+            Guid.NewGuid(), DateTimeOffset.UtcNow, facturaId ?? Guid.NewGuid(), uuid, 580m, "MXN", Guid.NewGuid(),
             "XAXX010101000", "Cliente", folio, "PPD", DateTimeOffset.UtcNow, NumeroPedidoAw: pedido, VersionPedidoAw: version));
 
     private static string Cancelada(string uuid, string folio, string pedido, long version) => JsonSerializer.Serialize(
@@ -353,8 +353,7 @@ public class AwRetornoPgTests(WebApplicationFactory<Program> factory)
     [Fact]
     public async Task El_pago_no_se_adelanta_a_su_factura()
     {
-        await FluentActions.Awaiting(() => Adapter().AgregarPagosAsync("900101", 1, "F-9", [new("01", "MXN", 100m)], true, default))
-            .Should().ThrowAsync<InvalidOperationException>();
+        (await Adapter().AgregarPagosAsync("900101", 1, "F-9", [new("01", "MXN", 100m)], true, default)).Should().Be(0);
         (await PagosAsync("900101")).Should().BeEmpty();
 
         // Anticipo (sin fila FacturaFinal propia): no se exige.
@@ -401,6 +400,47 @@ public class AwRetornoPgTests(WebApplicationFactory<Program> factory)
             JsonSerializer.Serialize(new { ReciboPagoId = repp }), default);
 
         (await PagosAsync("900505")).Should().Equal("2|2|F-5|01|MXN|580.00", "3|2|F-5|01|MXN|0.00", "4|2|F-5|03|MXN|580.00");
+    }
+
+    [Fact]
+    public async Task Un_cobro_que_llega_antes_que_su_factura_se_recoge_al_timbrar_la_factura()
+    {
+        var (listener, sp) = ListenerConServicio();
+        await using var _ = sp;
+        _versiones.PorPedido["900606"] = 1;
+        var factura = Guid.NewGuid();
+        _pagos.PorComprobante[factura] = [new PagosFacturaAw("900606", "F-6", true, [new("01", "MXN", 580m)])];
+
+        await listener.ConsumirLocalAsync(FacturacionRetornoListenerWorker.EventTypeCobroRegistrado, Guid.NewGuid(),
+            JsonSerializer.Serialize(new { ComprobanteId = factura }), default);
+        (await PagosAsync("900606")).Should().BeEmpty();
+
+        await listener.ConsumirLocalAsync(FacturacionRetornoListenerWorker.EventTypeFacturaTimbrada, Guid.NewGuid(),
+            Timbrada("UUID-6", "F-6", "900606", 1, factura), default);
+        (await PagosAsync("900606")).Should().Equal("2|1|F-6|01|MXN|580.00");
+    }
+
+    [Fact]
+    public async Task El_importe_se_redondea_a_dos_decimales_y_el_recalculo_no_duplica()
+    {
+        var adapter = Adapter();
+        await adapter.AgregarDocumentoAsync(Doc("900101", "UUID-A", folio: "F-1"), default);
+        (await adapter.AgregarPagosAsync("900101", 1, "F-1", [new("01", "MXN", 100.005m)], true, default)).Should().Be(1);
+        (await adapter.AgregarPagosAsync("900101", 1, "F-1", [new("01", "MXN", 100.005m)], true, default)).Should().Be(0);
+        (await PagosAsync("900101")).Should().Equal("2|1|F-1|01|MXN|100.01");
+    }
+
+    [Fact]
+    public async Task Un_cero_desfasado_se_reenvia_con_la_version_nueva()
+    {
+        var adapter = Adapter();
+        await adapter.AgregarDocumentoAsync(Doc("900101", "UUID-A", version: 1, folio: "F-1"), default);
+        await adapter.AgregarPagosAsync("900101", 1, "F-1", [new("03", "MXN", 200m)], true, default);
+        await adapter.AgregarPagosAsync("900101", 1, "F-1", [], true, default);                    // cobro cancelado → 0
+        await EjecutarAsync("UPDATE dbo.aw_retorno SET resultado = 3, aplicada_at = now(), intentos = 1 WHERE tipo = 4 AND importe = 0");
+
+        (await adapter.AgregarPagosAsync("900101", 2, "F-1", [], true, default)).Should().Be(1);
+        (await adapter.LeerAcusesPorAtenderAsync(default)).Should().BeEmpty();
     }
 
     // ===== Criterio 5: misma tabla en el canal demo =====

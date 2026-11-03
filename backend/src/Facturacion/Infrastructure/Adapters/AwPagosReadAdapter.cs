@@ -48,7 +48,7 @@ public sealed class AwPagosReadAdapter(FacturacionDbContext db, ICurrentEmpresaC
     private async Task<List<Factura>> Anticipos(
         System.Linq.Expressions.Expression<Func<Domain.Anticipos.FacturaAnticipo, bool>> filtro, CancellationToken ct)
     {
-        // Mismo criterio que PedidosSinFacturarReadAdapter: pedido por la factura o por Anticipo.PedidoOrigenRef.
+        // Pedido por la factura o por Anticipo.PedidoOrigenRef, siempre que sea un pedido A+W del mismo cliente.
         var r = await db.FacturasAnticipo.AsNoTracking().Where(filtro)
             .Where(f => f.Estado != EstadoTimbrado.Cancelado)
             .Select(f => new
@@ -57,7 +57,12 @@ public sealed class AwPagosReadAdapter(FacturacionDbContext db, ICurrentEmpresaC
                 f.Folio,
                 PorPedido = db.PedidosFacturables.Where(p => p.Id == f.PedidoFacturableId && p.Origen == OrigenPedido.Aw)
                     .Select(p => p.NumeroPedido).FirstOrDefault(),
-                PorRef = db.Anticipos.Where(a => a.FacturaAnticipoId == f.Id).Select(a => a.PedidoOrigenRef).FirstOrDefault(),
+                // PedidoOrigenRef es texto libre: solo cuenta si es un pedido A+W del mismo cliente del anticipo.
+                PorRef = db.Anticipos.Where(a => a.FacturaAnticipoId == f.Id)
+                    .Select(a => db.PedidosFacturables
+                        .Where(p => p.Origen == OrigenPedido.Aw && p.NumeroPedido == a.PedidoOrigenRef && p.ClienteId == a.ClienteId)
+                        .Select(p => p.NumeroPedido).FirstOrDefault())
+                    .FirstOrDefault(),
             })
             .ToListAsync(ct);
         return r.Select(x => new Factura(x.Id, x.Folio, x.PorPedido ?? x.PorRef, false))

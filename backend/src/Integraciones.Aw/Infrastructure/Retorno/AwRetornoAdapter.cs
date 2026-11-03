@@ -105,9 +105,12 @@ public sealed class AwRetornoAdapter(
             await using var existe = Comando(cn, tx, SqlExisteFactura);
             P(existe, "@pedido", DbType.String, numeroPedido);
             P(existe, "@folio", DbType.String, folio);
+            // Sin su FacturaFinal no se escribe nada: el evento de factura timbrada recalcula los pagos al llegar.
             if (Convert.ToInt32(await existe.ExecuteScalarAsync(ct)) == 0)
-                throw new InvalidOperationException(
-                    $"aw_retorno: el pago de la factura {folio} (pedido {numeroPedido}) llegó antes que su fila FacturaFinal; se reintenta.");
+            {
+                await tx.RollbackAsync(ct);
+                return 0;
+            }
         }
 
         var ultimos = new Dictionary<(string, string), (decimal Importe, byte? Resultado, long Version)>();
@@ -122,9 +125,11 @@ public sealed class AwRetornoAdapter(
         }
 
         // Estado deseado: los grupos actuales y, en 0, los que ya no existen (cobro cancelado).
-        var deseado = grupos.ToDictionary(g => (g.FormaPago, g.Moneda), g => g.Importe);
+        // La columna es decimal(18,2): se compara y se guarda ya redondeado, o cada recálculo parecería un cambio.
+        var deseado = grupos.ToDictionary(g => (g.FormaPago, g.Moneda), g => Math.Round(g.Importe, 2, MidpointRounding.AwayFromZero));
         foreach (var (llave, ultimo) in ultimos)
-            if (!deseado.ContainsKey(llave) && ultimo.Importe != 0m) deseado[llave] = 0m;
+            if (!deseado.ContainsKey(llave) && (ultimo.Importe != 0m || (ultimo.Resultado == 3 && ultimo.Version < versionPedido)))
+                deseado[llave] = 0m;
 
         var secuencia = await SiguienteSecuenciaAsync(cn, tx, numeroPedido, ct);
         var agregadas = 0;

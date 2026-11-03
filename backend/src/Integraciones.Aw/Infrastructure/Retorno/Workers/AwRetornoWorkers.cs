@@ -100,8 +100,13 @@ public sealed class FacturacionRetornoListenerWorker : BackgroundService, ILocal
                 using var bypass = sp.GetRequiredService<ICurrentEmpresaContext>().Bypass();
                 var servicio = sp.GetRequiredService<AwRetornoDocumentoService>();
                 if (eventType == EventTypeFacturaTimbrada)
-                    await servicio.RegistrarFacturaAsync(JsonSerializer.Deserialize<FacturaTimbradaRetornoPayload>(body, JsonOpts)
-                        ?? throw new JsonException("Payload null."), ct);
+                {
+                    var factura = JsonSerializer.Deserialize<FacturaTimbradaRetornoPayload>(body, JsonOpts)
+                        ?? throw new JsonException("Payload null.");
+                    await servicio.RegistrarFacturaAsync(factura, ct);
+                    // Un cobro que llegó antes que la factura no escribió nada: aquí se recogen sus pagos.
+                    if (factura.FacturaVentaId is { } id) await servicio.RegistrarPagosAsync(id, ct);
+                }
                 else if (eventType == EventTypeNotaCreditoTimbrada)
                     await servicio.RegistrarNotaCreditoAsync(JsonSerializer.Deserialize<FacturaTimbradaRetornoPayload>(body, JsonOpts)
                         ?? throw new JsonException("Payload null."), ct);

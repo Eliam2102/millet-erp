@@ -28,12 +28,12 @@ public sealed class AwPagosReadAdapterTests
     private static AwPagosReadAdapter Adapter(FacturacionDbContext db) =>
         new(db, new FakeEmpresaContext(null, isBypassed: true));
 
-    private static PedidoFacturable Pedido(FacturacionDbContext db, string numero, bool aw = true)
+    private static PedidoFacturable Pedido(FacturacionDbContext db, string numero, bool aw = true, Guid? clienteId = null)
     {
         var p = aw
-            ? PedidoFacturable.ImportarDesdeAw(Empresa, numero, Guid.NewGuid(), Guid.NewGuid(), "Cliente", (short)1,
+            ? PedidoFacturable.ImportarDesdeAw(Empresa, numero, Guid.NewGuid(), clienteId ?? Guid.NewGuid(), "Cliente", (short)1,
                 ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, 1, "42")
-            : PedidoFacturable.CrearManual(Empresa, numero, Sucursal, Guid.NewGuid(), "Cliente", 1,
+            : PedidoFacturable.CrearManual(Empresa, numero, Sucursal, clienteId ?? Guid.NewGuid(), "Cliente", 1,
                 ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, Guid.NewGuid(),
                 ClasePedidoManual.VentaDirecta, SubtipoVentaDirecta.Servicio, null, null);
         db.PedidosFacturables.Add(p);
@@ -73,7 +73,7 @@ public sealed class AwPagosReadAdapterTests
         return r;
     }
 
-    private static FacturaAnticipo Anticipo(FacturacionDbContext db, string folio, Guid? pedidoId, string? pedidoRef)
+    private static FacturaAnticipo Anticipo(FacturacionDbContext db, string folio, Guid? pedidoId, string? pedidoRef, Guid? clienteId = null)
     {
         var id = Guid.NewGuid();
         var f = FacturaAnticipo.CrearBorrador(Empresa, folio, 1, Sucursal, null, null, Receptor, Emisor, "03", "MXN", null,
@@ -81,7 +81,7 @@ public sealed class AwPagosReadAdapterTests
         f.MarcarTimbradoEnProceso();
         f.MarcarTimbrado(Guid.NewGuid().ToString(), null, null, null, Ahora, null, null);
         db.FacturasAnticipo.Add(f);
-        db.Anticipos.Add(Millet.Facturacion.Domain.Anticipos.Anticipo.Crear(Empresa, Guid.NewGuid(), "BBB010101BBB",
+        db.Anticipos.Add(Millet.Facturacion.Domain.Anticipos.Anticipo.Crear(Empresa, clienteId ?? Guid.NewGuid(), "BBB010101BBB",
             TipoAnticipo.ClientesMxp, "MXN", 1160m, f.Id, pedidoRef));
         return f;
     }
@@ -161,7 +161,9 @@ public sealed class AwPagosReadAdapterTests
     public async Task Factura_de_anticipo_resuelve_el_pedido_por_PedidoOrigenRef()
     {
         await using var db = NewDb();
-        var f = Anticipo(db, "FANT-1", null, "10500009");
+        var cliente = Guid.NewGuid();
+        Pedido(db, "10500009", clienteId: cliente);
+        var f = Anticipo(db, "FANT-1", null, "10500009", cliente);
         Cobro(db, f.Id, ("03", 1160m));
         await db.SaveChangesAsync();
 
@@ -170,6 +172,25 @@ public sealed class AwPagosReadAdapterTests
         r.NumeroPedidoAw.Should().Be("10500009");
         r.EsFacturaFinal.Should().BeFalse();
         r.Grupos.Should().BeEquivalentTo([new PagoGrupoAw("03", "MXN", 1160m)]);
+    }
+
+    [Fact]
+    public async Task El_PedidoOrigenRef_solo_cuenta_si_es_un_pedido_AW_del_mismo_cliente()
+    {
+        await using var db = NewDb();
+        var cliente = Guid.NewGuid();
+        Pedido(db, "10500010", clienteId: Guid.NewGuid());            // pedido A+W de otro cliente
+        Pedido(db, "10500011", aw: false, clienteId: cliente);         // pedido manual del mismo cliente
+        var otro = Anticipo(db, "FANT-2", null, "10500010", cliente);
+        var manual = Anticipo(db, "FANT-3", null, "10500011", cliente);
+        var inexistente = Anticipo(db, "FANT-4", null, "99999999", cliente);
+        Cobro(db, otro.Id, ("03", 100m));
+        Cobro(db, manual.Id, ("03", 100m));
+        Cobro(db, inexistente.Id, ("03", 100m));
+        await db.SaveChangesAsync();
+
+        foreach (var f in new[] { otro, manual, inexistente })
+            (await Adapter(db).PorComprobanteAsync(f.Id, default)).Should().BeEmpty();
     }
 
     [Fact]

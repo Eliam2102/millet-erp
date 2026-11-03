@@ -46,7 +46,8 @@ public interface IAwRetornoPort
     /// actual completo (forma + moneda con su importe acumulado): por cada grupo cuyo último importe cambió se agrega
     /// una fila que sustituye a la anterior (SRC-121); un grupo que ya no existe se manda en 0. Una reentrega no
     /// duplica. Con <paramref name="exigirDocumento"/>, falla si aún no existe la fila FacturaFinal de ese folio, para
-    /// que el pago nunca quede antes que su factura. Devuelve cuántas filas agregó.
+    /// que el pago nunca quede antes que su factura, no escribe nada (devuelve 0): el evento de factura timbrada
+    /// recalcula los pagos al llegar. Devuelve cuántas filas agregó.
     /// </summary>
     Task<int> AgregarPagosAsync(string numeroPedido, long versionPedido, string folio, IReadOnlyList<AwPagoGrupo> grupos,
         bool exigirDocumento, CancellationToken ct);
@@ -57,7 +58,8 @@ public interface IAwRetornoPort
 
 /// <summary>Datos de la factura timbrada que importan a A+W (subconjunto de FacturaVentaTimbradaIntegrationEvent).</summary>
 public sealed record FacturaTimbradaRetornoPayload(
-    string Uuid, decimal Total, string Folio, string? NumeroPedidoAw = null, long? VersionPedidoAw = null);
+    string Uuid, decimal Total, string Folio, string? NumeroPedidoAw = null, long? VersionPedidoAw = null,
+    Guid? FacturaVentaId = null);
 
 /// <summary>Cancelación de una factura (comprobante.cancelado). Propuesta de VILO: fila Documento tipo «Cancelacion» con el UUID cancelado.</summary>
 public sealed record CancelacionRetornoPayload(
@@ -179,9 +181,19 @@ public sealed class AwRetornoDocumentoService(
                         a.NumeroPedido, a.Folio, a.Secuencia);
                     continue;
                 }
-                if (await retorno.AgregarPagosAsync(a.NumeroPedido, version!.Value, factura.Folio, Mapear(factura.Grupos),
-                        exigirDocumento: false, ct) > 0)
-                    reemplazadas++;
+                try
+                {
+                    if (await retorno.AgregarPagosAsync(a.NumeroPedido, version!.Value, factura.Folio, Mapear(factura.Grupos),
+                            exigirDocumento: false, ct) > 0)
+                        reemplazadas++;
+                }
+                catch (BusinessRuleException ex) when (ex.Code == "AW_RETORNO_MAPEO_PAGO")
+                {
+                    // Una equivalencia que falta no detiene la conciliación de las demás filas.
+                    esperando++;
+                    logger.LogWarning("aw_retorno pago desfasado sin reemplazo: pedido {Pedido} factura {Folio}: {Motivo}",
+                        a.NumeroPedido, a.Folio, ex.Message);
+                }
             }
             else if (a.Desfasada && a.Tipo != AwRetornoAcuse.TipoDocumentoFila)
             {
