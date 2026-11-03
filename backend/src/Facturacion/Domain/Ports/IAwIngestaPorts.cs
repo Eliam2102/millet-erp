@@ -38,6 +38,25 @@ public interface IAwVersionPedidoReadPort
     Task<long?> VersionAplicadaAsync(string numeroPedido, CancellationToken cancellationToken);
 }
 
+/// <summary>Pagos acumulados de una factura A+W por forma de pago SAT + moneda (retorno tipo 4). Importe &gt; 0.</summary>
+public sealed record PagoGrupoAw(string FormaPagoSat, string Moneda, decimal Importe);
+
+/// <param name="Folio">Folio del comprobante (el mismo del retorno tipo 3).</param>
+/// <param name="EsFacturaFinal">true = FacturaVenta; false = FacturaAnticipo.</param>
+public sealed record PagosFacturaAw(string NumeroPedidoAw, string Folio, bool EsFacturaFinal, IReadOnlyList<PagoGrupoAw> Grupos);
+
+/// <summary>
+/// Pagos aplicados (acumulado) a las facturas A+W, para que Integraciones.Aw escriba filas tipo 4 de
+/// <c>aw_retorno</c> sin leer tablas de Facturación. Lectura pura.
+/// </summary>
+public interface IAwPagosReadPort
+{
+    /// <summary>Factura/anticipo → ella misma; REPP → cada factura que paga. Facturas no A+W o canceladas se omiten.</summary>
+    Task<IReadOnlyList<PagosFacturaAw>> PorComprobanteAsync(Guid comprobanteId, CancellationToken cancellationToken);
+
+    Task<PagosFacturaAw?> PorFolioAsync(string numeroPedidoAw, string folio, CancellationToken cancellationToken);
+}
+
 /// <summary>
 /// 86e3wjt5r: tabla puente de notas de crédito de A+W (<c>aw_solicitud_nota_credito</c>, script 17, en
 /// MILLET_INTEGRACION). A+W (un job, por confirmar con TI) escribe la nota; el ERP lee las pendientes y
