@@ -671,6 +671,7 @@ public static class RequisicionesEndpoints
             [FromQuery] EstadoRequisicion? estado,
             [FromQuery] Guid? departamentoId,
             [FromQuery] Guid? requisitanteId,
+            [FromQuery] string? q,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
             IMediator mediator,
@@ -682,7 +683,8 @@ public static class RequisicionesEndpoints
                     departamentoId,
                     requisitanteId,
                     offset ?? 0,
-                    limit ?? 50),
+                    limit ?? 50,
+                    q),
                 cancellationToken);
             return Results.Ok(response);
         })
@@ -691,7 +693,7 @@ public static class RequisicionesEndpoints
         .WithSummary("Bandeja general con filtros opcionales")
         .WithDescription(
             "Lista paginada (offset-based, default `limit=50`) con filtros " +
-            "opcionales por `estado`, `departamentoId`, `requisitanteId`. " +
+            "opcionales por `estado`, `departamentoId`, `requisitanteId` y `q` (folio, contiene). " +
             "Sin filtros, lista todas las RQs de la empresa actual ordenadas " +
             "por `fecha_solicitud DESC`. Filtrada siempre por `empresa_id` " +
             "del JWT (multi-tenant, ADR-0011).")
@@ -706,6 +708,7 @@ public static class RequisicionesEndpoints
         app.MapGet("/api/v1/compras/pendientes-autorizacion", async Task<IResult> (
             [FromQuery] Guid? departamentoId,
             [FromQuery] short? nivelPendiente,
+            [FromQuery] string? q,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
             IMediator mediator,
@@ -733,7 +736,8 @@ public static class RequisicionesEndpoints
                     DepartamentoId: departamentoId,
                     NivelPendiente: nivel,
                     Offset: offset ?? 0,
-                    Limit: limit ?? 50),
+                    Limit: limit ?? 50,
+                    Q: q),
                 cancellationToken);
             return Results.Ok(response);
         })

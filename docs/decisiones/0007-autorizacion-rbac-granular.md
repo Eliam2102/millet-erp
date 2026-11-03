@@ -167,3 +167,11 @@ implícitos. Termina mal.
 - Configurar `Auth:InitialAdminEntraOid` en Key Vault de cada ambiente (dev/qa/prod) con el `oid` del usuario que será SuperAdmin inicial
 - Endpoint admin: `POST /api/identidad/permisos/invalidar-cache/{usuarioId}` que el módulo admin invoca cuando cambia roles, para forzar invalidación inmediata
 - Documentar en `CLAUDE.md`: convenciones de naming, dónde declarar permisos nuevos, cómo aplicar `[RequirePermission]`, y patrón estándar para validaciones de SoD dinámica
+
+## Adenda 86e3x819w (2-nov-2026) · Seguridad de la sesión
+
+- **Vida del token del ERP: 15 minutos** (`Auth:Jwt:AccessTokenLifetimeMinutes`, antes 60). El arranque rechaza valores fuera de 5–60. Un token copiado desde DevTools o de un equipo compartido deja de servir en minutos.
+- **Renovación silenciosa** (`frontend/src/lib/auth/renovacion-sesion.ts`): 2 minutos antes de vencer, MSAL da un token de Entra sin interacción y se cambia por una sesión nueva del API **con la misma empresa**. El store sólo actualiza token, vencimiento y permisos; empresa, sucursal y formulario abierto no se mueven. Si una llamada llega con el token vencido (pestaña dormida), `apiFetch` renueva una vez y repite la llamada; si no se puede, vuelve al login como antes. En `FakeForLocalDev` no hay renovación.
+- **Cabeceras de seguridad en Static Web Apps**: al compilar, `vite.config.ts` suma a `dist/staticwebapp.config.json` la `Content-Security-Policy` armada con el dominio de `VITE_API_BASE_URL` (`frontend/src/lib/seguridad/csp.ts`), más `Strict-Transport-Security` y `Permissions-Policy`. Se mantienen `X-Content-Type-Options`, `X-Frame-Options` y `Referrer-Policy`.
+- **El backend sigue siendo quien autoriza**: un token válido sin permiso recibe 403 `PERMISO_FALTANTE`; uno alterado o ausente, 401 (`tests/Api.IntegrationTests/Identidad/SesionSeguridadTests.cs`).
+- **Pendiente de decidir con el equipo**: mover el token a cookie HttpOnly con un BFF (protección más fuerte contra XSS; requiere CSRF y mismo dominio). No entra en esta adenda.

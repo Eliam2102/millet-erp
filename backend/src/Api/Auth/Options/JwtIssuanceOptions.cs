@@ -22,6 +22,18 @@ public sealed class JwtIssuanceOptions
     /// </summary>
     public string SigningKey { get; set; } = string.Empty;
 
-    /// <summary>Vida del access token en minutos. Default 60 (ADR-0007 PR 2 spec).</summary>
-    public int AccessTokenLifetimeMinutes { get; set; } = 60;
+    /// <summary>
+    /// Vida del access token en minutos. Default 15 (86e3x819w): si alguien
+    /// copia el token (XSS o equipo compartido) sólo le sirve unos minutos.
+    /// El frontend lo renueva en silencio antes de que venza
+    /// (<c>lib/auth/renovacion-sesion.ts</c>), así que acortarlo no corta
+    /// formularios largos. Antes era 60 (ADR-0007 PR 2).
+    /// </summary>
+    public int AccessTokenLifetimeMinutes { get; set; } = 15;
+
+    /// <summary>Límite inferior aceptado al arranque: menos obliga a renovar casi en cada llamada.</summary>
+    public const int VidaMinimaMinutos = 5;
+
+    /// <summary>Límite superior aceptado al arranque: más alarga la ventana de un token robado.</summary>
+    public const int VidaMaximaMinutos = 60;
 }

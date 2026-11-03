@@ -1,6 +1,8 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Millet.CuentasPorCobrar.Application.Alertas;
 using Millet.CuentasPorCobrar.Domain.Cartera;
 using Millet.CuentasPorCobrar.Domain.Eventos;
 using Millet.CuentasPorCobrar.Infrastructure.Persistence;
@@ -34,13 +36,16 @@ public sealed class ReciboPagoTimbradoHandler : IRequestHandler<ReciboPagoTimbra
     private readonly CuentasPorCobrarDbContext _db;
     private readonly IClock _clock;
     private readonly ILogger<ReciboPagoTimbradoHandler> _logger;
+    private readonly int _toleranciaDias;
 
     public ReciboPagoTimbradoHandler(
         CuentasPorCobrarDbContext db,
         IClock clock,
-        ILogger<ReciboPagoTimbradoHandler> logger)
+        ILogger<ReciboPagoTimbradoHandler> logger,
+        IOptions<AlertasCarteraOptions>? alertas = null)
     {
         _db = db; _clock = clock; _logger = logger;
+        _toleranciaDias = Math.Max(0, (alertas?.Value ?? new AlertasCarteraOptions()).ToleranciaDiasVencido);
     }
 
     public async Task Handle(ReciboPagoTimbradoCommand request, CancellationToken cancellationToken)
@@ -73,6 +78,7 @@ public sealed class ReciboPagoTimbradoHandler : IRequestHandler<ReciboPagoTimbra
         }
         var desglose = p.FacturasPagadas ?? [];
         var aplicadas = 0;
+        var clientesPagados = new HashSet<(Guid?, string)>();
 
         foreach (var fp in desglose)
         {
@@ -92,6 +98,7 @@ public sealed class ReciboPagoTimbradoHandler : IRequestHandler<ReciboPagoTimbra
             }
 
             factura.AplicarPago(fp.ImportePagado);
+            clientesPagados.Add((factura.ClienteId, factura.Moneda));
             _db.MovimientosCartera.Add(new MovimientoCartera(
                 empresaId: p.EmpresaId,
                 facturaCarteraId: factura.Id,
@@ -101,6 +108,12 @@ public sealed class ReciboPagoTimbradoHandler : IRequestHandler<ReciboPagoTimbra
                 fechaMovimiento: p.OcurridoEn));
             aplicadas++;
         }
+
+        // C7.5-a: desbloqueo automático por cliente y moneda pagados.
+        foreach (var (clienteId, moneda) in clientesPagados)
+            await BloqueoPorVencimiento.ReevaluarTrasPagoAsync(
+                _db, clienteId, moneda, _toleranciaDias,
+                DateOnly.FromDateTime(_clock.UtcNow.UtcDateTime), _logger, cancellationToken);
 
         _db.EventosProcesados.Add(new EventoProcesado(
             eventoId: request.EventId,

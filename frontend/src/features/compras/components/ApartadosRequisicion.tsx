@@ -183,6 +183,7 @@ function LiberarApartadoDialog({
                 onChange={(v) => {
                   setCantidad(v);
                   setIdempotencyKey(crypto.randomUUID());
+                  setError(null);
                 }}
                 min={0}
                 max={apartado.pendiente}
@@ -199,6 +200,7 @@ function LiberarApartadoDialog({
                 onChange={(v) => {
                   setMotivo(v ?? '');
                   setIdempotencyKey(crypto.randomUUID());
+                  setError(null);
                 }}
                 maxLength={500}
                 minRows={2}
@@ -231,6 +233,7 @@ function LiberarApartadoDialog({
                       onChange={() => {
                         setMandarACompra(o.v);
                         setIdempotencyKey(crypto.randomUUID());
+                        setError(null);
                       }}
                     />
                     {o.t}

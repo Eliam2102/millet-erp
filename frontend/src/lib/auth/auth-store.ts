@@ -24,6 +24,7 @@ const initialState: AuthState = {
 interface AuthActions {
   setStatus: (status: AuthStatus, errorMessage?: string | null) => void;
   setSession: (response: LoginResponse) => void;
+  renovarToken: (response: LoginResponse) => void;
   updateEmpresas: (empresas: EmpresaInfo[]) => void;
   updatePermisos: (permisos: string[]) => void;
   updateComprasSettings: (settings: ComprasSettings | null) => void;
@@ -60,6 +61,32 @@ export const useAuthStore = create<AuthState & AuthActions>((set) => ({
       isSwitchingEmpresa: false,
     });
   },
+
+  /**
+   * 86e3x819w: renovación silenciosa. Cambia el token y su vencimiento (y
+   * los permisos y settings vigentes) sin tocar empresa ni sucursal elegidas,
+   * para no mover la pantalla ni el formulario que el usuario está llenando.
+   * Si la sesión renovada trae otra empresa actual (no debería: se pide la
+   * misma), se aplica completa como en el login.
+   */
+  renovarToken: (response) =>
+    set((state) => {
+      const empresaActual = response.empresas.find((e) => e.esLaActual);
+      const mismaEmpresa = (empresaActual?.id ?? null) === state.currentEmpresaId;
+      return {
+        status: 'authenticated',
+        errorMessage: null,
+        accessToken: response.accessToken,
+        expiresAt: new Date(response.expiresAt),
+        user: response.usuario,
+        empresas: response.empresas,
+        permisos: response.permisos,
+        comprasSettings: response.comprasSettings,
+        ...(mismaEmpresa
+          ? {}
+          : { currentEmpresaId: empresaActual?.id ?? null, currentSucursalId: null }),
+      };
+    }),
 
   updateEmpresas: (empresas) => {
     const empresaActual = empresas.find((e) => e.esLaActual);

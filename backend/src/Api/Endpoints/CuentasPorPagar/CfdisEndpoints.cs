@@ -46,6 +46,8 @@ public static class CfdisEndpoints
             [FromQuery] string? rfcEmisor,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
+            [FromQuery] string? q,
+            [FromQuery] DateTimeOffset? recibidoAntesDe,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
@@ -55,7 +57,9 @@ public static class CfdisEndpoints
                     Tipo: tipo,
                     RfcEmisor: rfcEmisor,
                     Offset: offset ?? 0,
-                    Limit: limit ?? 50),
+                    Limit: limit ?? 50,
+                    Q: q,
+                    RecibidoAntesDe: recibidoAntesDe),
                 cancellationToken);
             return Results.Ok(response);
         })
@@ -64,7 +68,7 @@ public static class CfdisEndpoints
         .WithSummary("Bandeja paginada de CFDIs recibidos")
         .WithDescription(
             "Lista los CFDIs recibidos con filtros opcionales por estado, " +
-            "tipo y RFC emisor. Default: 50 items, max 500. Orden " +
+            "tipo, RFC emisor, UUID o folio (`q`) y fecha de recepción. Default: 50 items, max 500. Orden " +
             "`FechaRecepcion DESC`. Permiso `cuentas_por_pagar.cfdis.leer`.")
         .Produces<PagedResponse<CfdiListItemResponse>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)

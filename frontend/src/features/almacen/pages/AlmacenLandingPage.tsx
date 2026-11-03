@@ -112,6 +112,8 @@ const moduloAlmacenLanding: NavModulo = {
           permissionsAny: [
             PermisosCanonicos.AlmacenDevolucionesInternasLeer,
             PermisosCanonicos.AlmacenDevolucionesProveedorIniciar,
+            PermisosCanonicos.AlmacenDevolucionesProveedorAutorizar,
+            PermisosCanonicos.AlmacenDevolucionesProveedorRegistrar,
           ],
         },
         {

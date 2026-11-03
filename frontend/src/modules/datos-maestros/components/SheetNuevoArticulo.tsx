@@ -81,7 +81,7 @@ export function NuevoArticuloProvider({ children }: { children: ReactNode }) {
           <SheetHeader>
             <SheetTitle>Nuevo artículo</SheetTitle>
             <SheetDescription>
-              Alta del artículo en el catálogo cross-empresa. Datos opcionales (descripción larga,
+              Alta del artículo en el catálogo compartido por todas las empresas. Datos opcionales (descripción larga,
               precio referencia) se ajustan después en el detalle.
             </SheetDescription>
           </SheetHeader>
@@ -202,11 +202,13 @@ function NuevoArticuloForm({ onClose, onDirtyChange }: NuevoArticuloFormProps) {
           <FormCampo span={6}>
             <FormRow
               label="Clave"
+              htmlFor="nuevo-articulo-clave"
               required
               hint="Identificador corto. Inmutable."
               error={form.formState.errors.clave?.message}
             >
               <Input
+                id="nuevo-articulo-clave"
                 autoFocus
                 maxLength={20}
                 placeholder="A-001"
@@ -217,8 +219,9 @@ function NuevoArticuloForm({ onClose, onDirtyChange }: NuevoArticuloFormProps) {
           </FormCampo>
 
           <FormCampo span={6}>
-            <FormRow label="Nombre" required error={form.formState.errors.nombre?.message}>
+            <FormRow label="Nombre" htmlFor="nuevo-articulo-nombre" required error={form.formState.errors.nombre?.message}>
               <Input
+                id="nuevo-articulo-nombre"
                 maxLength={254}
                 placeholder="Caja de cartón 30×30×30"
                 {...form.register('nombre')}
@@ -229,6 +232,7 @@ function NuevoArticuloForm({ onClose, onDirtyChange }: NuevoArticuloFormProps) {
           <FormCampo span={6}>
             <FormRow
               label="Unidad de medida"
+              htmlFor="nuevo-articulo-unidad"
               required
               hint="Del catálogo de unidades."
               error={form.formState.errors.unidadMedidaId?.message}
@@ -238,6 +242,7 @@ function NuevoArticuloForm({ onClose, onDirtyChange }: NuevoArticuloFormProps) {
                 control={form.control}
                 render={({ field }) => (
                   <UnidadMedidaSelect
+                    id="nuevo-articulo-unidad"
                     value={field.value || null}
                     onChange={(id) => field.onChange(id ?? '')}
                   />
@@ -249,6 +254,7 @@ function NuevoArticuloForm({ onClose, onDirtyChange }: NuevoArticuloFormProps) {
           <FormCampo span={6}>
             <FormRow
               label="Naturaleza"
+              htmlFor="nuevo-articulo-naturaleza"
               required
               hint="Alimenta la matriz de aprobación de Compras."
               error={form.formState.errors.naturaleza?.message}
@@ -261,7 +267,7 @@ function NuevoArticuloForm({ onClose, onDirtyChange }: NuevoArticuloFormProps) {
                     value={String(field.value)}
                     onValueChange={(v) => field.onChange(Number(v))}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="nuevo-articulo-naturaleza">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -307,23 +313,24 @@ function NuevoArticuloForm({ onClose, onDirtyChange }: NuevoArticuloFormProps) {
 
 interface FormRowProps {
   label: string;
+  htmlFor?: string;
   required?: boolean;
   hint?: string;
   error?: string;
   children: ReactNode;
 }
 
-function FormRow({ label, required, hint, error, children }: FormRowProps) {
+function FormRow({ label, htmlFor, required, hint, error, children }: FormRowProps) {
   return (
     <div className="space-y-1.5">
-      <label className="flex items-center gap-1 text-sm font-medium">
-        {label}
+      <div className="flex items-center gap-1 text-sm font-medium">
+        <label htmlFor={htmlFor}>{label}</label>
         {required && (
           <span aria-hidden="true" className="text-danger-fg">
             *
           </span>
         )}
-      </label>
+      </div>
       {children}
       {hint != null && error == null && <p className="text-xs text-ink-muted">{hint}</p>}
       {error != null && (

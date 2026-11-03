@@ -117,19 +117,23 @@ public static class LineasCreditoEndpoints
         lineas.MapPost("/{id:guid}/desbloquear", async (
             Guid id,
             [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
+            [FromBody] DesbloquearBody body,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
             if (expectedVersion is not int v)
                 return Results.Problem(title: "X-Expected-Version requerido", statusCode: StatusCodes.Status428PreconditionRequired);
 
-            var response = await mediator.Send(new DesbloquearLineaCreditoCommand(id, v), cancellationToken);
+            var response = await mediator.Send(
+                new DesbloquearLineaCreditoCommand(id, v, body.Motivo), cancellationToken);
             return Results.Ok(response);
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarLineasCreditoGestionar)
         .WithName("DesbloquearLineaCredito")
+        .WithSummary("Desbloqueo manual autorizado con motivo (C7.5)")
         .Produces<LineaCreditoResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
@@ -138,4 +142,5 @@ public static class LineasCreditoEndpoints
 
     public sealed record ActualizarLineaCreditoBody(decimal Limite, int PlazoDias, string? Clasificacion);
     public sealed record BloquearBody(string Motivo);
+    public sealed record DesbloquearBody(string Motivo);
 }

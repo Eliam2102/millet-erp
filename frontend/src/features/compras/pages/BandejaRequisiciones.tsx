@@ -44,9 +44,8 @@ const BANDEJA_FROM = '/_app/compras/requisiciones/' as const;
 /**
  * <c>P1 Bandeja general de Requisiciones</c> (doc 05 §5).
  *
- * <para>Lista paginada con filtros + búsqueda por folio (client-side
- * dentro de la página actual mientras <c>GlobalSearch</c> backend no
- * exista, doc 05 §13.4) + estados loading/empty/error.</para>
+ * <para>Lista paginada con filtros + búsqueda por folio (server-side,
+ * parámetro <c>q</c>) + estados loading/empty/error.</para>
  *
  * <para>Los filtros viven en <c>search params</c> de la URL y se
  * preservan al volver del detalle (doc 05 §13.9, breadcrumb
@@ -72,17 +71,16 @@ export function BandejaRequisiciones() {
     estado: search.estado,
     departamentoId: search.departamentoId,
     requisitanteId: search.requisitanteId,
+    q: search.q,
     offset: search.offset,
     limit: search.limit,
   });
 
-  // Búsqueda por folio: client-side sobre la página actual.
-  const itemsFiltrados = useMemo(() => {
-    const items = requisicionesQuery.data?.items ?? [];
-    if (!search.q) return items;
-    const needle = search.q.toLowerCase();
-    return items.filter((r) => r.folio.toLowerCase().includes(needle));
-  }, [requisicionesQuery.data, search.q]);
+  // La búsqueda por folio (`q`) la resuelve el servidor.
+  const itemsFiltrados = useMemo(
+    () => requisicionesQuery.data?.items ?? [],
+    [requisicionesQuery.data],
+  );
 
   function setSearch(next: BandejaSearch) {
     // Navegación explícita a la propia ruta para que TanStack Router

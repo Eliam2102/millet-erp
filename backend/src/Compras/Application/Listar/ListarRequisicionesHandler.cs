@@ -60,6 +60,18 @@ public sealed class ListarRequisicionesHandler
             q = q.Where(r => r.RequisitanteId == requisitanteId);
         }
 
+        if (!string.IsNullOrWhiteSpace(query.Q))
+        {
+            // Escapa los comodines de LIKE del texto del usuario (\ es el escape por defecto en Npgsql).
+            var patron = "%" + query.Q.Trim()
+                .Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
+            // Folio es un VO con value converter: EF no traduce ILike sobre esa columna. Se resuelven
+            // los ids por SQL y se componen como subconsulta sobre `q`, que ya trae el scoping.
+            var idsPorFolio = _db.Database.SqlQuery<Guid>(
+                $"SELECT id AS \"Value\" FROM compras.requisiciones WHERE folio ILIKE {patron}");
+            q = q.Where(r => idsPorFolio.Contains(r.Id));
+        }
+
         var total = await q.CountAsync(cancellationToken);
 
         // Proyección a un intermedio con las sumas por RQ calculadas EN SQL
