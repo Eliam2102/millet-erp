@@ -659,12 +659,34 @@ banco carga cada día la comisión y su IVA de la terminal, y Millet quiere
 registrar cada cargo tal como viene del banco.
 
 - **Carga:** el supervisor de caja sube el archivo diario (Mi caja › Terminal
-  de tarjetas). Se lee la tabla HTML con extensión `.xls` que exporta Getnet o
-  un CSV. El mapeo de columnas es configurable
-  (`Facturacion:TerminalTarjeta:Columnas`); por omisión, «Transacciones por
-  día» de Getnet. **Supuesto:** comisión, IVA de la comisión, neto y folio de
-  liquidación vienen en los reportes «Comisiones Bancarias» / «Reporte
-  conciliación», aún no recibidos; sus encabezados son provisionales.
+  de tarjetas). El lector reconoce dos layouts por sus encabezados:
+  - **OneGMR TRST** de Getnet (guía «Getnet One GMR», jun-2025; actualizado
+    86e3xt2q8). CSV con coma y punto decimal, una fila por venta liquidada,
+    renglón final `ENDOFFILE_…`. Nombre `GMR_MX_GETNET_<id>_YYYYMMDD_P_TRST_SSS.CSV`.
+    Mapeo (`Facturacion:TerminalTarjeta:ColumnasGmr`):
+
+    | Columna GMR | Dato en el ERP |
+    |---|---|
+    | `ID_TRANSACTION` | Número de operación |
+    | `DAT_TRANSACTION` + `TIM_TRANSACTION` | Fecha y hora de la venta |
+    | `AMT_GROSS` | Importe bruto |
+    | `COD_CURRENCY` | Moneda (484 = MXN) |
+    | `NUM_CARD` (enmascarada) | Últimos 4 dígitos |
+    | `COD_AUTHORIZATION` | Autorización |
+    | `DES_TRANSACTION_STATUS` | Estatus (`Captured`, `Approved` y `Authorized` = aprobada) |
+    | `AMT_TOTAL_FEE` | Comisión |
+    | `AMT_TOTAL_VAT_TAX` | IVA de la comisión |
+    | `AMT_NET` | Neto (bruto − comisión − IVA) |
+    | `ID_SETTLEMENT` | Folio de liquidación |
+    | `DAT_SETTLED` | Fecha del cargo |
+    | `DES_FINANCIAL_MOVEMENTS_TYPE` | Tipo de movimiento: solo `Transaction`; Billing, Adjustment y demás no son ventas |
+
+  - **«Transacciones por día»** del portal: tabla HTML `.xls`, sin comisión
+    (`Facturacion:TerminalTarjeta:Columnas`).
+  - **Supuestos a validar con una muestra real:** `COD_AUTHORIZATION` puede llegar
+    sin los ceros del voucher, así que se compara sin ceros a la izquierda; la fecha
+    y hora de la venta se toman como hora local. La descarga por SFTP (`/GMR/in`,
+    alta con clave SSH e IP fija) queda para después; hoy el archivo se sube a mano.
 - **Sin duplicar:** cada venta se guarda una vez por número de operación;
   recargar el archivo no agrega renglones ni eventos.
 - **Emparejamiento:** venta aprobada ↔ forma 04/28 de un cobro vigente con la
