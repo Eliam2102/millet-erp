@@ -47,6 +47,10 @@ public sealed class DepositoConfirmacionConfiguration : IEntityTypeConfiguration
         builder.Property(e => e.Moneda).HasMaxLength(3);
         builder.Property(e => e.ResueltaPor);
         builder.Property(e => e.ResueltaEn);
+        builder.Property(e => e.ConfirmacionAutomatica).IsRequired().HasDefaultValue(false);
+        builder.Property(e => e.ReglaAutomatica).HasMaxLength(400);
+        builder.Property(e => e.ExtractoLineaId);
+        builder.Property(e => e.MotivoRevision).HasMaxLength(400);
 
         builder.HasOne<MovimientoBancario>()
             .WithMany()

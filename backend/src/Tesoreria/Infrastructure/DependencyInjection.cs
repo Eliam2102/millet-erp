@@ -71,6 +71,8 @@ public static class DependencyInjection
             .AddOptions<Application.Depositos.DepositoAutomaticoOptions>()
             .Bind(configuration.GetSection(Application.Depositos.DepositoAutomaticoOptions.SectionName));
 
+        services.AddScoped<Application.Depositos.DepositoAutomaticoProcesador>();
+
         // T9.2: Parsers de extracto bancario con perfil por banco (BBVA primero)
         services.AddSingleton<Domain.Conciliaciones.ExtractoParser.IExtractoParser, Domain.Conciliaciones.ExtractoParser.BbvaExtractoParser>();
         services.AddSingleton<Domain.Conciliaciones.ExtractoParser.ExtractoParserFactory>();

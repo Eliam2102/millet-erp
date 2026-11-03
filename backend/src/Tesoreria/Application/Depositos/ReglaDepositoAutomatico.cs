@@ -11,8 +11,8 @@ public sealed class DepositoAutomaticoOptions
     /// <summary>Un depósito igual o mayor a este monto (MXN) siempre pasa a revisión humana.</summary>
     public decimal UmbralMxn { get; set; } = 100_000m;
 
-    /// <summary>Fragmentos de la descripción del extracto que delatan un cheque (comparación sin mayúsculas).</summary>
-    public string[] PalabrasCheque { get; set; } = ["CH ", "CHEQUE", "CHQ", "SBC", "DOCTO"];
+    /// <summary>Fragmentos de la descripción del extracto que delatan un cheque (sin mayúsculas). Solo en appsettings: Bind agrega a un arreglo con valor por omisión.</summary>
+    public string[] PalabrasCheque { get; set; } = [];
 }
 
 /// <summary>

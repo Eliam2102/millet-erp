@@ -1,3 +1,4 @@
+using Millet.Tesoreria.Application.Depositos;
 using Millet.Tesoreria.Domain.Conciliaciones;
 using Millet.Tesoreria.Domain.Movimientos;
 
@@ -21,7 +22,9 @@ public sealed record ConciliacionResumenResponse(
     int LineasEnRevision,
     int LineasEnTransito,
     DateTimeOffset? CerradaEn,
-    string? FirmanteNombre);
+    string? FirmanteNombre,
+    // 86e3ke6yn: solo al importar un extracto; null en el resto de las consultas.
+    ResumenDepositosAutomaticos? Depositos = null);
 
 public sealed record ExtractoLineaMatchResponse(
     Guid Id,

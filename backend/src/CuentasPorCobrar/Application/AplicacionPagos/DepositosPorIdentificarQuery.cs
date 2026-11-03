@@ -14,9 +14,9 @@ namespace Millet.CuentasPorCobrar.Application.AplicacionPagos;
 // aplicación (CrearPropuestaAplicacionCommand con MovimientoBancarioId) y
 // Tesorería confirma (R12). Fuente: IDepositosPorIdentificarReadPort de
 // Tesorería; aquí solo se descuentan las propuestas de CxC que esperan
-// confirmación contra el mismo depósito. La alta automática desde el banco
-// sigue pendiente: PLATFORM-TODO(<DepositoBancarioFeed>) — hoy el depósito lo
-// registra Tesorería a mano (POST /api/v1/tesoreria/movimientos).
+// confirmación contra el mismo depósito. La alta desde el banco la hace
+// Tesorería al importar el extracto (86e3ke6yn): cada abono sin propuesta
+// pendiente entra como ingreso; <DepositoBancarioFeed> cerrado.
 // ============================================================================
 
 public sealed record DepositoPorIdentificarResponse(

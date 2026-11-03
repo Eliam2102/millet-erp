@@ -57,7 +57,12 @@ public sealed record DepositoConfirmacionResponse(
     decimal? DiferenciaImporte = null,
     bool? Conciliado = null,
     // Solo en la bandeja: cajero del corte, para distinguir varios cortes.
-    string? CajeroNombre = null);
+    string? CajeroNombre = null,
+    // 86e3ke6yn: confirmación automática al importar el extracto, o por qué quedó en revisión.
+    bool ConfirmacionAutomatica = false,
+    string? ReglaAutomatica = null,
+    string? MotivoRevision = null,
+    Guid? ExtractoLineaId = null);
 
 public sealed record DepositoFichaResponse(
     Guid Id, Guid MovimientoId, decimal Importe, DateOnly FechaFicha, string? NumeroFicha,
@@ -95,7 +100,9 @@ internal static class DepositoMapper
                 .Select(f => new DepositoFichaResponse(f.Id, f.MovimientoId, f.Importe, f.FechaFicha, f.NumeroFicha,
                     f.SoporteTipo, f.SoporteFolio, f.ConfirmadaEn)).ToList(),
             diferencia?.Estado, diferencia?.Importe,
-            d.CajaSesionId is null ? null : d.Estado == EstadoDepositoConfirmacion.Confirmada && (diferencia is null || diferencia.Autorizada));
+            d.CajaSesionId is null ? null : d.Estado == EstadoDepositoConfirmacion.Confirmada && (diferencia is null || diferencia.Autorizada),
+            ConfirmacionAutomatica: d.ConfirmacionAutomatica, ReglaAutomatica: d.ReglaAutomatica,
+            MotivoRevision: d.MotivoRevision, ExtractoLineaId: d.ExtractoLineaId);
 }
 
 // --------------------------------------------------- Confirmar

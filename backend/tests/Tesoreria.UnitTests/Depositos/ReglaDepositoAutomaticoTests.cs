@@ -12,7 +12,10 @@ public sealed class ReglaDepositoAutomaticoTests
     private const string Ref = "VAL-2026-0412";
     private static readonly Guid Importador = Guid.NewGuid();
     private static readonly Guid Proponente = Guid.NewGuid();
-    private static readonly DepositoAutomaticoOptions Opciones = new();
+    private static readonly DepositoAutomaticoOptions Opciones = new()
+    {
+        PalabrasCheque = ["CH ", "CHEQUE", "CHQ", "SBC", "DOCTO"],
+    };
 
     private static ExtractoLinea Linea(decimal monto = 48_500m, string? referencia = Ref,
         string descripcion = "SPEI RECIBIDO BBVA VIDRIOS Y ALUMINIOS DEL BAJIO") =>
