@@ -46,8 +46,19 @@ public class AwRetornoPgTests(WebApplicationFactory<Program> factory)
         Options.Create(new AwPedidosOptions { SqlConnectTimeoutSeconds = 5, SqlQueryTimeoutSeconds = 15 }),
         AwRetornoAdapter.CandadoPostgres);
 
+    private readonly PagosFalsos _pagos = new();
+
+    private sealed class PagosFalsos : IAwPagosReadPort
+    {
+        public Dictionary<Guid, List<PagosFacturaAw>> PorComprobante { get; } = [];
+        public Task<IReadOnlyList<PagosFacturaAw>> PorComprobanteAsync(Guid comprobanteId, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<PagosFacturaAw>>(PorComprobante.TryGetValue(comprobanteId, out var l) ? l : []);
+        public Task<PagosFacturaAw?> PorFolioAsync(string numeroPedidoAw, string folio, CancellationToken ct) =>
+            Task.FromResult(PorComprobante.Values.SelectMany(l => l).LastOrDefault(f => f.NumeroPedidoAw == numeroPedidoAw && f.Folio == folio));
+    }
+
     private AwRetornoDocumentoService Servicio() =>
-        new(Adapter(), _versiones, NullLogger<AwRetornoDocumentoService>.Instance);
+        new(Adapter(), _versiones, _pagos, Options.Create(new AwPedidosOptions()), NullLogger<AwRetornoDocumentoService>.Instance);
 
     private static AwRetornoDocumento Doc(string pedido, string uuid, long version = 1, decimal importe = 1160m, string folio = "F-1") =>
         new(pedido, "FacturaFinal", version, folio, uuid, importe);
@@ -364,6 +375,32 @@ public class AwRetornoPgTests(WebApplicationFactory<Program> factory)
         // Mismo importe con la versión nueva: sí se agrega (reemplaza a la desfasada) y el acuse queda limpio.
         (await adapter.AgregarPagosAsync("900101", 3, "F-1", [new("01", "MXN", 300m)], true, default)).Should().Be(1);
         (await adapter.LeerAcusesPorAtenderAsync(default)).Should().BeEmpty();
+    }
+
+    // ===== Disparo de pagos: cobro registrado/cancelado y REPP timbrado → filas Pago recalculadas =====
+    [Fact]
+    public async Task Los_eventos_de_cobro_y_REPP_dejan_las_filas_Pago_y_la_cancelacion_del_cobro_baja_a_cero()
+    {
+        var (listener, sp) = ListenerConServicio();
+        await using var _ = sp;
+        _versiones.PorPedido["900505"] = 2;
+        var factura = Guid.NewGuid();
+        await listener.ConsumirLocalAsync(FacturacionRetornoListenerWorker.EventTypeFacturaTimbrada, Guid.NewGuid(), Timbrada("UUID-F", "F-5", "900505", 2), default);
+
+        _pagos.PorComprobante[factura] = [new PagosFacturaAw("900505", "F-5", true, [new("01", "MXN", 580m)])];
+        var cobro = JsonSerializer.Serialize(new { ComprobanteId = factura, Total = 580m });
+        await listener.ConsumirLocalAsync(FacturacionRetornoListenerWorker.EventTypeCobroRegistrado, Guid.NewGuid(), cobro, default);
+        await listener.ConsumirLocalAsync(FacturacionRetornoListenerWorker.EventTypeCobroRegistrado, Guid.NewGuid(), cobro, default); // reentrega
+
+        _pagos.PorComprobante[factura] = [new PagosFacturaAw("900505", "F-5", true, [])];
+        await listener.ConsumirLocalAsync(FacturacionRetornoListenerWorker.EventTypeCobroCancelado, Guid.NewGuid(), cobro, default);
+
+        var repp = Guid.NewGuid();
+        _pagos.PorComprobante[repp] = [new PagosFacturaAw("900505", "F-5", true, [new("03", "MXN", 580m)])];
+        await listener.ConsumirLocalAsync(FacturacionRetornoListenerWorker.EventTypeReciboPagoTimbrado, Guid.NewGuid(),
+            JsonSerializer.Serialize(new { ReciboPagoId = repp }), default);
+
+        (await PagosAsync("900505")).Should().Equal("2|2|F-5|01|MXN|580.00", "3|2|F-5|01|MXN|0.00", "4|2|F-5|03|MXN|580.00");
     }
 
     // ===== Criterio 5: misma tabla en el canal demo =====

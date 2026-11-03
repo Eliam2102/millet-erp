@@ -1,4 +1,6 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Millet.Integraciones.Aw.Application.Pedidos;
 using Millet.Facturacion.Domain.Ports;
 using Millet.SharedKernel.Application.Exceptions;
 
@@ -61,11 +63,19 @@ public sealed record FacturaTimbradaRetornoPayload(
 public sealed record CancelacionRetornoPayload(
     string Uuid, string? Folio = null, decimal? Total = null, string? NumeroPedidoAw = null, long? VersionPedidoAw = null);
 
+/// <summary>
+/// Disparo de las filas Pago: un cobro de mostrador (registrado o cancelado), un REPP timbrado o un comprobante
+/// cancelado. Basta el id; los importes se recalculan del estado actual de Facturación, así la reentrega y el
+/// orden de llegada no cambian el resultado.
+/// </summary>
+public sealed record PagoRetornoPayload(Guid? ComprobanteId = null, Guid? ReciboPagoId = null);
+
 public sealed record AwRetornoConciliacion(int Reemplazadas, int Esperando, int Detenidas);
 
 /// <summary>TR-01: arma las filas Documento y concilia el acuse. Con el canal sin configurar no hace nada.</summary>
 public sealed class AwRetornoDocumentoService(
-    IAwRetornoPort retorno, IAwVersionPedidoReadPort versiones, ILogger<AwRetornoDocumentoService> logger)
+    IAwRetornoPort retorno, IAwVersionPedidoReadPort versiones, IAwPagosReadPort pagos,
+    IOptions<AwPedidosOptions> opciones, ILogger<AwRetornoDocumentoService> logger)
 {
     public const string TipoFacturaFinal = "FacturaFinal";
     public const string TipoCancelacion = "Cancelacion";
@@ -100,6 +110,47 @@ public sealed class AwRetornoDocumentoService(
     }
 
     /// <summary>
+    /// 86e3jvv6z: filas Pago (tipo 4) de cada factura A+W que toca el comprobante, con el importe acumulado por forma
+    /// de pago + moneda (SRC-114, SRC-121). Devuelve cuántas filas agregó. Una factura cuyo pedido aún no tiene
+    /// versión aplicada se omite con aviso.
+    /// </summary>
+    public async Task<int> RegistrarPagosAsync(Guid comprobanteId, CancellationToken ct)
+    {
+        var agregadas = 0;
+        foreach (var f in await pagos.PorComprobanteAsync(comprobanteId, ct))
+        {
+            var version = await versiones.VersionAplicadaAsync(f.NumeroPedidoAw, ct);
+            if (version is null)
+            {
+                logger.LogWarning("aw_retorno: pago de la factura {Folio} omitido; el pedido {Pedido} aún no tiene versión aplicada.",
+                    f.Folio, f.NumeroPedidoAw);
+                continue;
+            }
+            var grupos = Mapear(f.Grupos);
+            agregadas += await SinCanalApagadoAsync(() => retorno.AgregarPagosAsync(
+                f.NumeroPedidoAw, version.Value, f.Folio, grupos, exigirDocumento: f.EsFacturaFinal, ct));
+        }
+        return agregadas;
+    }
+
+    /// <summary>Equivalencia SAT/ISO → A+W. Dos claves que caen en el mismo valor de A+W se suman en un solo grupo.</summary>
+    private List<AwPagoGrupo> Mapear(IReadOnlyList<PagoGrupoAw> grupos) =>
+        grupos.Select(g => (Forma: Valor(opciones.Value.MapeoFormaPagoAw, g.FormaPagoSat, 10, "forma de pago"),
+                            Moneda: Valor(opciones.Value.MapeoMonedaAw, g.Moneda, 3, "moneda"), g.Importe))
+            .GroupBy(g => (g.Forma, g.Moneda))
+            .Select(x => new AwPagoGrupo(x.Key.Forma, x.Key.Moneda, x.Sum(g => g.Importe)))
+            .ToList();
+
+    private static string Valor(Dictionary<string, string> mapeo, string clave, int maximo, string que)
+    {
+        var valor = mapeo.Count == 0 ? clave
+            : mapeo.TryGetValue(clave, out var v) ? v
+            : throw new BusinessRuleException("AW_RETORNO_MAPEO_PAGO", $"Sin equivalencia de {que} «{clave}» hacia A+W.");
+        return valor.Length <= maximo ? valor
+            : throw new BusinessRuleException("AW_RETORNO_MAPEO_PAGO", $"La {que} «{valor}» excede {maximo} caracteres en aw_retorno.");
+    }
+
+    /// <summary>
     /// Lee el acuse: una desfasada se reemplaza con una fila nueva con la versión que el ERP ya aplicó
     /// (si aún no pasó de la de la fila, espera); una rechazada con 3 intentos solo se reporta.
     /// </summary>
@@ -115,10 +166,26 @@ public sealed class AwRetornoDocumentoService(
                 logger.LogWarning("aw_retorno detenido: pedido {Pedido} secuencia {Secuencia} rechazada {Intentos} veces ({Motivo}). Requiere revisión de una persona.",
                     a.NumeroPedido, a.Secuencia, a.Intentos, a.Motivo);
             }
+            else if (a.Desfasada && a.Tipo == AwRetornoAcuse.TipoPagoFila)
+            {
+                // El pago desfasado se recalcula del estado actual de la factura con la versión nueva.
+                var version = await versiones.VersionAplicadaAsync(a.NumeroPedido, ct);
+                var factura = version is null || version <= a.VersionPedido ? null
+                    : await pagos.PorFolioAsync(a.NumeroPedido, a.Folio!, ct);
+                if (factura is null)
+                {
+                    esperando++;
+                    logger.LogWarning("aw_retorno pago desfasado sin reemplazo: pedido {Pedido} factura {Folio} secuencia {Secuencia}.",
+                        a.NumeroPedido, a.Folio, a.Secuencia);
+                    continue;
+                }
+                if (await retorno.AgregarPagosAsync(a.NumeroPedido, version!.Value, factura.Folio, Mapear(factura.Grupos),
+                        exigirDocumento: false, ct) > 0)
+                    reemplazadas++;
+            }
             else if (a.Desfasada && a.Tipo != AwRetornoAcuse.TipoDocumentoFila)
             {
-                // ponytail: el pago desfasado se recalcula desde Facturación en la rebanada 3; mientras, solo se avisa.
-                esperando++;
+                esperando++; // tipos 1 y 2: el ERP aún no los escribe (SRC-114 #9).
                 logger.LogWarning("aw_retorno desfasado sin reemplazo (tipo {Tipo}): pedido {Pedido} secuencia {Secuencia}.",
                     a.Tipo, a.NumeroPedido, a.Secuencia);
             }
