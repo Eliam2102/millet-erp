@@ -289,7 +289,7 @@ public sealed record TerminalLiquidacionRegistradaIntegrationEvent(
 // Se publica cuando la comisión y el IVA del mes cuadran con el CFDI del banco. Póliza
 // esperada (C1.5): el IVA de las comisiones pasa de pendiente de pago a pagado
 // (acreditable) por IvaComision, con el folio fiscal de la factura. No hay cuenta por pagar:
-// el banco ya cobró la comisión al liquidar (a validar con Millet).
+// el banco ya cobró la comisión al liquidar (a validar con el negocio).
 // PLATFORM-TODO(<PolizaFacturaBancoTerminal>): Contabilidad aún no consume este evento.
 public sealed record TerminalFacturaBancoLigadaIntegrationEvent(
     Guid EmpresaId,

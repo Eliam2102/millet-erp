@@ -183,7 +183,7 @@ public sealed class LiquidacionTerminal : BaseEntity, IPerteneceAEmpresa, IAudit
 
 /// <summary>
 /// Factura mensual del banco por las comisiones de la terminal (86e3xt2q8, Parte B;
-/// Laura Cerón 26-oct: cada cargo diario queda ligado a la factura mensual). Se
+/// definición del negocio del 26-oct: cada cargo diario queda ligado a la factura mensual). Se
 /// liga solo si la comisión y el IVA del mes cuadran al centavo con el CFDI
 /// recibido (supuesto a validar: sin tolerancia); si no, no se liga nada.
 /// </summary>

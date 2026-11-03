@@ -701,7 +701,7 @@ registrar cada cargo tal como viene del banco.
 
 ### 18.1 Factura mensual del banco ligada a los cargos (86e3xt2q8, Parte B)
 
-Laura Cerón (26-oct): cada cargo diario de la terminal queda ligado a la factura
+Definición del negocio (26-oct): cada cargo diario de la terminal queda ligado a la factura
 mensual del banco.
 
 - **Elección:** en Mi caja › Terminal de tarjetas › Factura del banco, el
@@ -721,7 +721,7 @@ mensual del banco.
 - **Si no cuadra:** muestra la diferencia de comisión, IVA y total, y no liga nada
   (`TERMINAL_FACTURA_NO_CUADRA`).
 - **Sin cuenta por pagar:** el banco ya cobró la comisión al liquidar. El CFDI no se
-  marca en CxP. **A validar con Millet:** si se deja de capturar como factura de
+  marca en CxP. **A validar con el negocio:** si se deja de capturar como factura de
   proveedor y de registrar su «pago».
 - **Endpoints:**
   - `GET /api/v1/facturacion/terminal-tarjetas/factura-banco/candidatos`

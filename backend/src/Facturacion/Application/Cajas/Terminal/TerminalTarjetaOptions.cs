@@ -5,7 +5,7 @@ namespace Millet.Facturacion.Application.Cajas.Terminal;
 /// El lector acepta dos layouts y elige el que coincide con los encabezados:
 /// <list type="bullet">
 /// <item><see cref="Columnas"/>: reporte «Transacciones por día» del portal de Getnet
-/// (tabla HTML .xls que envió Millet). No trae comisión ni liquidación.</item>
+/// (tabla HTML .xls recibida del negocio). No trae comisión ni liquidación.</item>
 /// <item><see cref="ColumnasGmr"/>: archivo OneGMR <c>TRST</c> (Transaction Settlement)
 /// de Getnet, CSV con coma y punto decimal, nombre
 /// <c>GMR_MX_GETNET_&lt;merchant&gt;_YYYYMMDD_P_TRST_SSS.CSV</c> (guía «Getnet One GMR»,
