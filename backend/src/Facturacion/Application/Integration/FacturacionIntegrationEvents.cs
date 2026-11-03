@@ -284,3 +284,26 @@ public sealed record TerminalLiquidacionRegistradaIntegrationEvent(
     decimal Neto,
     IReadOnlyList<VentaTerminalLiquidada> Ventas)
     : IntegrationEvent("facturacion.terminal.liquidacion-registrada.v1", EmpresaId, OcurridoEn);
+
+// ---- Factura mensual del banco ligada a los cargos de la terminal (86e3xt2q8, Parte B) ----
+// Se publica cuando la comisión y el IVA del mes cuadran con el CFDI del banco. Póliza
+// esperada (C1.5): el IVA de las comisiones pasa de pendiente de pago a pagado
+// (acreditable) por IvaComision, con el folio fiscal de la factura. No hay cuenta por pagar:
+// el banco ya cobró la comisión al liquidar (a validar con Millet).
+// PLATFORM-TODO(<PolizaFacturaBancoTerminal>): Contabilidad aún no consume este evento.
+public sealed record TerminalFacturaBancoLigadaIntegrationEvent(
+    Guid EmpresaId,
+    DateTimeOffset OcurridoEn,
+    Guid FacturaBancoId,
+    Guid CfdiRecibidoId,
+    string UuidCfdi,
+    string RfcEmisor,
+    int Anio,
+    int Mes,
+    decimal Comision,
+    decimal IvaComision,
+    decimal Total,
+    IReadOnlyList<CargoTerminalFacturado> Cargos)
+    : IntegrationEvent("facturacion.terminal.factura-banco-ligada.v1", EmpresaId, OcurridoEn);
+
+public sealed record CargoTerminalFacturado(Guid LiquidacionId, string FolioLiquidacion, DateOnly Fecha, decimal Comision, decimal IvaComision);
