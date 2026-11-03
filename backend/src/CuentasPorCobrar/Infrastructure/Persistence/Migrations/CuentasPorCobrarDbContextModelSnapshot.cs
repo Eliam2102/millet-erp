@@ -190,6 +190,14 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<DateTimeOffset?>("AjusteAutorizadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ajuste_autorizado_en");
+
+                    b.Property<Guid?>("AjusteAutorizadoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ajuste_autorizado_por");
+
                     b.Property<decimal>("AjusteNoFiscal")
                         .HasPrecision(14, 2)
                         .HasColumnType("numeric(14,2)")
@@ -236,6 +244,11 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                         .HasColumnType("numeric(14,2)")
                         .HasColumnName("monto_deposito");
 
+                    b.Property<string>("MotivoAjuste")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("motivo_ajuste");
+
                     b.Property<string>("MotivoRechazo")
                         .HasMaxLength(400)
                         .HasColumnType("character varying(400)")
@@ -248,6 +261,10 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("PropuestoPor")
                         .HasColumnType("uuid")
                         .HasColumnName("propuesto_por");
+
+                    b.Property<Guid?>("ReciboPagoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recibo_pago_id");
 
                     b.Property<string>("RemittanceRef")
                         .IsRequired()
@@ -272,6 +289,10 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("saldo_a_favor_por_identificar");
 
+                    b.Property<short?>("TipoAjuste")
+                        .HasColumnType("smallint")
+                        .HasColumnName("tipo_ajuste");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -291,6 +312,9 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                     b.HasIndex("Estado")
                         .HasDatabaseName("ix_propuesta_aplicacion_pendientes")
                         .HasFilter("estado = 1");
+
+                    b.HasIndex("ReciboPagoId")
+                        .HasDatabaseName("ix_propuesta_aplicacion_recibo_pago");
 
                     b.HasIndex("ClienteId", "Estado")
                         .HasDatabaseName("ix_propuesta_aplicacion_cliente_estado");
