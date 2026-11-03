@@ -15,7 +15,8 @@ public sealed record ListarPendientesAutorizacionQuery(
     Guid? DepartamentoId = null,
     NivelAutorizacion? NivelPendiente = null,
     int Offset = 0,
-    int Limit = 50) : IRequest<PagedResponse<PendienteAutorizacionItemResponse>>, Millet.SharedKernel.Application.ISucursalScopedQuery
+    int Limit = 50,
+    string? Q = null) : IRequest<PagedResponse<PendienteAutorizacionItemResponse>>, Millet.SharedKernel.Application.ISucursalScopedQuery
 {
     public string PermisoTodasSucursales => "compras.requisiciones.leer-todas-sucursales";
     public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }

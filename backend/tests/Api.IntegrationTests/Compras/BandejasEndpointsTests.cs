@@ -143,6 +143,31 @@ public class BandejasEndpointsTests
         Assert.Equal(1, sj.GetProperty("items").GetArrayLength());
     }
 
+    [Fact]
+    public async Task ListarRequisiciones_PorQ_BuscaFolioEnTodaLaBandeja()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var deptoAislado = await SeedDeptoAisladoConAsignacionAsync(TestComprasFixtures.SucursalMid);
+        for (var i = 0; i < 3; i++)
+        {
+            await CrearRequisicionAsync(client, deptoAislado);
+        }
+
+        // Página de 1 fila: el folio buscado queda fuera de ella salvo que el servidor filtre.
+        var todas = await ReadJsonAsync(await client.GetAsync(
+            $"/api/v1/compras/requisiciones?departamentoId={deptoAislado}&limit=3"));
+        var folio = todas.GetProperty("items")[2].GetProperty("folio").GetString()!;
+
+        var hit = await ReadJsonAsync(await client.GetAsync(
+            $"/api/v1/compras/requisiciones?departamentoId={deptoAislado}&limit=1&q={folio.ToLowerInvariant()}"));
+        Assert.Equal(1, hit.GetProperty("total").GetInt32());
+        Assert.Equal(folio, hit.GetProperty("items")[0].GetProperty("folio").GetString());
+
+        var miss = await ReadJsonAsync(await client.GetAsync(
+            $"/api/v1/compras/requisiciones?departamentoId={deptoAislado}&q=NO-EXISTE-%25"));
+        Assert.Equal(0, miss.GetProperty("total").GetInt32());
+    }
+
     // --- GET /api/v1/compras/pendientes-autorizacion ---
 
     [Fact]

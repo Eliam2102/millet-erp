@@ -26,6 +26,7 @@ export interface ListarPendientesFiltros {
   departamentoId?: string;
   /** Nivel de autorización pendiente (PR-A): 1 = falta N1, 2 = falta N2. */
   nivelPendiente?: number;
+  q?: string;
   offset?: number;
   limit?: number;
 }
