@@ -85,7 +85,7 @@ export function SalidasPendientesPage() {
         descripcion="Pedidos pagados y completos en producto terminado que todavía no salen. Se actualiza cada minuto."
       />
       <section aria-label="Pedidos con retraso" className="flex gap-3">
-        <Contador etiqueta="Más de 24 h" valor={q.data?.con24h} tono="warning" activo={alerta === '24h'} onClick={() => elegir(alerta === '24h' ? null : '24h')} />
+        <Contador etiqueta="Entre 24 y 48 h" valor={q.data?.con24h} tono="warning" activo={alerta === '24h'} onClick={() => elegir(alerta === '24h' ? null : '24h')} />
         <Contador etiqueta="48 h o más" valor={q.data?.con48h} tono="danger" activo={alerta === '48h'} onClick={() => elegir(alerta === '48h' ? null : '48h')} />
       </section>
       {q.isError ? (
