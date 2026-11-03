@@ -623,7 +623,8 @@ public class PtEntradaDemoTests(WebApplicationFactory<Program> factory, ITestOut
         var fila = (await http.GetFromJsonAsync<JsonElement>(url)).GetProperty("items").EnumerateArray().Single();
         Assert.Equal(n, fila.GetProperty("numeroPedido").GetString());
         Assert.Equal("PT-INT cliente", fila.GetProperty("cliente").GetString());
-        Assert.Equal("PT-INT pedido", fila.GetProperty("destino").GetString());
+        // El pedido de prueba no trae obra (PT-INT pedido va en comentarios): destino nulo.
+        Assert.Equal(JsonValueKind.Null, fila.GetProperty("destino").ValueKind);
         Assert.Equal(10, fila.GetProperty("piezas").GetInt32());
         Assert.Equal("ninguna", fila.GetProperty("alerta").GetString());
 
