@@ -14,7 +14,9 @@ vi.mock('@/features/almacen/api/useRecepciones', () => ({
   useCfdisParaRecepcion: () => ({ data: undefined }),
   useLineasRecibibles: () => ({ data: undefined }),
 }));
-const useOrdenCompraMock = vi.hoisted(() => vi.fn<(id: string | null) => { data: undefined }>(() => ({ data: undefined })));
+const useOrdenCompraMock = vi.hoisted(() =>
+  vi.fn<(id: string | null) => { data: undefined }>(() => ({ data: undefined })),
+);
 vi.mock('@/features/compras/ordenes/api/useOrdenCompra', () => ({
   useOrdenCompra: useOrdenCompraMock,
 }));
@@ -23,15 +25,27 @@ vi.mock('@/features/compras/ordenes/api/useOrdenCompra', () => ({
 vi.mock('@/features/almacen/components/OrdenCompraRecepcionSelector', () => ({
   OrdenCompraRecepcionSelector: ({ onChange }: { onChange: (id: string | null) => void }) => (
     <>
-      <button type="button" onClick={() => onChange('oc-1')}>OC uno</button>
-      <button type="button" onClick={() => onChange('oc-2')}>OC dos</button>
+      <button type="button" onClick={() => onChange('oc-1')}>
+        OC uno
+      </button>
+      <button type="button" onClick={() => onChange('oc-2')}>
+        OC dos
+      </button>
     </>
   ),
 }));
 vi.mock('@/components/erp/selectors/UbicacionSelector', () => ({
-  UbicacionSelector: ({ value, onChange }: { value: string | null; onChange: (id: string | null) => void }) => (
+  UbicacionSelector: ({
+    value,
+    onChange,
+  }: {
+    value: string | null;
+    onChange: (id: string | null) => void;
+  }) => (
     <>
-      <button type="button" onClick={() => onChange('3f1c2a40-0000-4000-8000-000000000001')}>Elegir ubicación por defecto</button>
+      <button type="button" onClick={() => onChange('3f1c2a40-0000-4000-8000-000000000001')}>
+        Elegir ubicación por defecto
+      </button>
       <output aria-label="ubicación por defecto">{value ?? ''}</output>
     </>
   ),
@@ -92,7 +106,7 @@ describe('<NuevaRecepcionSheet> — confirmación de descarte', () => {
     renderSheet();
     escribirObservaciones();
 
-    fireEvent.click(screen.getByRole('button', { name: /Variante B/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Con lista de empaque/ }));
 
     expect(screen.getByText('¿Cambiar el tipo de recepción?')).toBeTruthy();
   });

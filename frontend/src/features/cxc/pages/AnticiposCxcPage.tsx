@@ -99,8 +99,7 @@ export function AnticiposCxcPage() {
           titulo={<>Anticipos de clientes</>}
           descripcion={
             <>
-              Saldo de cada anticipo y su aplicación a la factura final (la emisión y la amortización
-              viven en Facturación; aquí solo se consultan).
+              Saldo de cada anticipo y su aplicación a la factura final. Se emiten y aplican en Facturación; aquí sólo se consultan.
             </>
           }
         />

@@ -82,3 +82,30 @@ describe('<MonedaSelector>', () => {
     expect(onChange).toHaveBeenCalledWith('MXN');
   });
 });
+
+it('prioriza MXN y USD y conserva el orden del resto y el código guardado', async () => {
+  const onChange = vi.fn();
+  mswServer.use(
+    http.get('*/api/v1/catalogos/monedas', () =>
+      HttpResponse.json([
+        moneda('ARS', 'Peso argentino'),
+        moneda('CAD', 'Dólar canadiense'),
+        moneda('USD', 'Dólar EUA'),
+        moneda('MXN', 'Peso mexicano'),
+        moneda('BRL', 'Real'),
+      ]),
+    ),
+  );
+  render(<MonedaSelector value={null} onChange={onChange} />, { wrapper: createQueryWrapper() });
+  fireEvent.click(screen.getByRole('combobox'));
+  const opciones = await screen.findAllByRole('option');
+  expect(opciones.map((o) => o.textContent?.slice(0, 3))).toEqual([
+    'MXN',
+    'USD',
+    'ARS',
+    'CAD',
+    'BRL',
+  ]);
+  fireEvent.click(opciones[1]);
+  expect(onChange).toHaveBeenCalledWith('USD');
+});

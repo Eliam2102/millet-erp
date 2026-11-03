@@ -486,7 +486,7 @@ function NuevoClienteForm({ onClose, onDirtyChange }: NuevoClienteFormProps) {
               <FormCampo span={6}>
                 <FormRow
                   label="Régimen fiscal"
-                  hint="Catálogo SAT c_RegimenFiscal."
+
                   error={form.formState.errors.regimenFiscal?.message}
                 >
                   <Controller

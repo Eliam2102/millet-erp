@@ -288,7 +288,7 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
           <FormRow
             label="Régimen fiscal"
             campo="regimenFiscal"
-            hint="Catálogo SAT c_RegimenFiscal. Requerido para timbrar."
+
             error={form.formState.errors.regimenFiscal?.message}
           >
             <Controller
@@ -334,7 +334,7 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
         <FormCampo span={4}>
           <FormRow
             label="Uso CFDI default"
-            hint="Opcional. Catálogo SAT c_UsoCFDI."
+
             error={form.formState.errors.usoCfdiDefault?.message}
           >
             <Controller
@@ -356,7 +356,7 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
         <FormCampo span={4}>
           <FormRow
             label="Forma de pago default"
-            hint="Opcional. Catálogo SAT c_FormaPago."
+
             error={form.formState.errors.formaPagoDefault?.message}
           >
             <Controller

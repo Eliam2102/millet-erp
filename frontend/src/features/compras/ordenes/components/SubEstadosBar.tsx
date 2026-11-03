@@ -147,6 +147,7 @@ export function SubEstadosBar({ recepcion, facturacion, pago, className }: SubEs
                 'relative h-2.5 overflow-hidden rounded-full bg-surface-muted ring-1 ring-inset',
                 PROGRESO_RING[b.progreso],
               )}
+              title={`${b.dimension}: ${b.label}`}
               role="progressbar"
               aria-label={`${b.dimension}: ${b.label}`}
               aria-valuemin={0}

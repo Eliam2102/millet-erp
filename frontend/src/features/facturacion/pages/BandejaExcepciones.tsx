@@ -55,7 +55,7 @@ export function BandejaExcepciones() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <PageHeader
-            titulo={<>Excepciones de ingesta</>}
+            titulo={<>Pedidos con error de importación</>}
             descripcion={
               <>
                 Pedidos que fallaron la importación (cliente sin alta, producto sin clave SAT,

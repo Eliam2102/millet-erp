@@ -171,7 +171,7 @@ export function CanalVentaInlineForm({ canal, onCancel, onSaved }: CanalVentaInl
             <Input
               maxLength={40}
               placeholder="CANCUN"
-              title="GRUPPE con el que A+W refiere este canal en la ingesta de pedidos. Vacía = no recibe pedidos de A+W."
+              title="GRUPPE con el que A+W refiere este canal en la importación de pedidos. Vacía = no recibe pedidos de A+W."
               {...form.register('claveAw')}
             />
           </Field>

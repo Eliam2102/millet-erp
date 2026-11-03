@@ -217,7 +217,15 @@ function RenderTabla({ query, itemsFiltrados, canCrear, search }: RenderTablaPro
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <Table className="w-full min-w-full text-sm">
+      <Table className="w-full table-fixed text-sm">
+        <colgroup>
+          <col className="w-36" />
+          <col className="w-24" />
+          <col />
+          <col />
+          <col className="w-44" />
+          <col className="w-16" />
+        </colgroup>
         <TableHeader className="bg-surface-muted/50 text-xs uppercase tracking-wide text-ink-muted">
           <TableRow>
             <TableHead className="px-3 py-2 text-left">
@@ -268,8 +276,18 @@ function RenderTabla({ query, itemsFiltrados, canCrear, search }: RenderTablaPro
                 <TableCell className="px-3 py-2">
                   <DateTimeDisplay value={r.fechaSolicitud} />
                 </TableCell>
-                <TableCell className={`px-3 py-2${requisitante === 'Sin asignar' ? ' text-ink-muted' : ''}`}>{requisitante}</TableCell>
-                <TableCell className={`px-3 py-2${deptoLabel === 'Sin departamento' ? ' text-ink-muted' : ''}`}>{deptoLabel}</TableCell>
+                <TableCell
+                  title={requisitante}
+                  className={`truncate px-3 py-2${requisitante === 'Sin asignar' ? ' text-ink-muted' : ''}`}
+                >
+                  {requisitante}
+                </TableCell>
+                <TableCell
+                  title={deptoLabel}
+                  className={`truncate px-3 py-2${deptoLabel === 'Sin departamento' ? ' text-ink-muted' : ''}`}
+                >
+                  {deptoLabel}
+                </TableCell>
                 <TableCell className="px-3 py-2">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <EstadoBadge

@@ -45,7 +45,7 @@ import { CanalVentaInlineForm } from '@/modules/administracion/components/CanalV
  * con inline forms (NUNCA modal), desactivar con confirm (el canal sale
  * de los selectores y de la resolución de ingesta A+W sin tocar el
  * histórico) y reactivar directo. La columna "Clave A+W" es el GRUPPE
- * con el que A+W refiere el canal en la ingesta de pedidos.</para>
+ * con el que A+W refiere el canal en la importación de pedidos.</para>
  */
 export function CanalesVentaPage() {
   const [agregando, setAgregando] = useState(false);
@@ -89,7 +89,7 @@ export function CanalesVentaPage() {
         descripcion={
           <>
             Eje organizacional de la facturación (de dónde viene la venta). La clave A+W es el
-            GRUPPE con el que A+W refiere el canal en la ingesta de pedidos. Total: {canales.length}
+            GRUPPE con el que A+W refiere el canal en la importación de pedidos. Total: {canales.length}
             .
           </>
         }
@@ -177,7 +177,7 @@ export function CanalesVentaPage() {
                           <TableCell className="w-32">
                             <span
                               className="w-28 truncate font-mono text-xs"
-                              title="Clave A+W (GRUPPE de la ingesta de pedidos)"
+                              title="Clave A+W (GRUPPE de la importación de pedidos)"
                             >
                               {c.claveAw ?? '—'}
                             </span>
@@ -262,7 +262,7 @@ export function CanalesVentaPage() {
             <AlertDialogDescription>
               ¿Confirmas desactivar el canal{' '}
               <span className="font-semibold">{confirmDesactivar?.nombre}</span>? Saldrá de los
-              selectores de pedidos/emisión y de la resolución de la ingesta A+W, pero los
+              selectores de pedidos/emisión y de la resolución de la importación de A+W, pero los
               documentos existentes conservan su histórico. Se puede reactivar en cualquier momento.
             </AlertDialogDescription>
           </DialogBody>

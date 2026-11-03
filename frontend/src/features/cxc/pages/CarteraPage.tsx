@@ -94,8 +94,7 @@ export function CarteraPage() {
           titulo={<>Antigüedad de saldos</>}
           descripcion={
             <>
-              Cartera viva por cliente y moneda: por vencer + buckets de días vencidos (saldo
-              vencido = suma de buckets).
+              Saldo de cada cliente por moneda: lo que está por vencer y lo vencido por rango de días.
             </>
           }
         />

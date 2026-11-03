@@ -104,7 +104,7 @@ function FormContainer({ onClose }: { onClose: () => void }) {
         )}
       >
         {flujo === 'A'
-          ? 'Se generará la FacturaProveedor en estado Pagada al registrar.'
+          ? 'Se generará la factura de proveedor en estado Pagada al registrar.'
           : 'Solo se registra el movimiento; ningún pasivo se crea (gasto sin CFDI).'}
       </div>
       </div>
@@ -311,7 +311,7 @@ function FormConCfdi({ onClose }: { onClose: () => void }) {
       },
       {
         onSuccess: () => {
-          toast.success('Movimiento con CFDI registrado (FacturaProveedor generada)');
+          toast.success('Movimiento con CFDI registrado (factura de proveedor generada)');
           onClose();
         },
         onError: (error) => {

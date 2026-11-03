@@ -103,7 +103,7 @@ export function FacturasPage() {
     <div className="space-y-4">
       <PageHeader
         titulo="Facturas"
-        descripcion="Bandeja del agregado FacturaProveedor. Captura conciliada con OC, revisión y autorización del ciclo del pasivo."
+        descripcion="Captura, conciliación contra OC y recepción, y autorización para pago."
         acciones={
           <>
             {puedeCapturar && (

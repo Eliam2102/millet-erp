@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { Link } from '@tanstack/react-router';
 import { ArrowLeftRight, CircleCheck, TriangleAlert } from 'lucide-react';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { ProveedorSelector, ReporteShell, SucursalSelector } from '@/components/erp';
@@ -72,11 +73,16 @@ export function ReporteCuentaPuentePage() {
   const [proveedorId, setProveedorId] = useState('');
   const [soloConSaldo, setSoloConSaldo] = useState(true);
   // Filtros aplicados: el reporte se ejecuta al abrir con el corte de hoy y después con «Ejecutar».
-  const [aplicados, setAplicados] = useState<FiltrosConciliacionPuente>({ corte: hoy, soloConSaldo: true });
+  const [aplicados, setAplicados] = useState<FiltrosConciliacionPuente>({
+    corte: hoy,
+    soloConSaldo: true,
+  });
   const [ocAbierta, setOcAbierta] = useState<SaldoPuenteOc | null>(null);
   const origenFoco = useRef<HTMLButtonElement | null>(null);
 
   const query = useConciliacionPuente(aplicados);
+  const faltaCuentaPuente =
+    esApiError(query.error) && query.error.code === 'PUENTE_CUENTA_NO_CONFIGURADA';
   const reporte = query.data;
   const filas = reporte?.filas ?? [];
   // Pie de la tabla: sumas de las filas mostradas; el saldo es el total del reporte (las OC saldadas suman cero).
@@ -125,92 +131,108 @@ export function ReporteCuentaPuentePage() {
         />
       )}
 
-      <ReporteShell<SaldoPuenteOc>
-        reporte={reporteShell}
-        isLoading={query.isLoading}
-        error={esApiError(query.error) ? query.error : undefined}
-        onRetry={() => void query.refetch()}
-        nivelTitulo="h2"
-        nombreArchivo={`cuenta-puente-${reporte?.corte ?? corte}`}
-        obtenerCelda={(f, clave) => {
-          if (clave === 'ordenCompraFolio') return folioOc(f);
-          if (clave === 'proveedorNombre') return f.proveedorNombre ?? 'Sin proveedor';
-          if (clave === 'sucursalNombre') return f.sucursalNombre || 'Sin sucursal';
-          return (f as unknown as Record<string, unknown>)[clave];
-        }}
-        etiquetaAccion="Movimientos"
-        accionFila={(f) => (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            aria-label={`Ver movimientos de ${folioOc(f)}`}
-            onClick={(e) => {
-              origenFoco.current = e.currentTarget;
-              setOcAbierta(f);
-            }}
-          >
-            Movimientos
-          </Button>
-        )}
-        filtrosUi={
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="puente-corte">Corte *</Label>
-              <Input
-                id="puente-corte"
-                type="date"
-                value={corte}
-                max="9999-12-31"
-                onChange={(e) => setCorte(e.target.value)}
-                className="w-44"
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="puente-sucursal">
-                Sucursal <span className="font-normal text-ink-muted">(opcional)</span>
-              </Label>
-              <SucursalSelector
-                value={sucursalId || null}
-                onChange={(id) => setSucursalId(id ?? '')}
-                placeholder="Todas las sucursales"
-                className="w-56"
-                triggerProps={{ id: 'puente-sucursal' }}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="puente-proveedor">
-                Proveedor <span className="font-normal text-ink-muted">(opcional)</span>
-              </Label>
-              <ProveedorSelector
-                value={proveedorId || null}
-                onChange={(id) => setProveedorId(id ?? '')}
-                placeholder="Todos los proveedores"
-                className="w-56"
-                triggerProps={{ id: 'puente-proveedor' }}
-              />
-            </div>
-            <div className="flex h-ctl-xl items-center gap-2">
-              <Checkbox
-                id="puente-solo-saldo"
-                checked={soloConSaldo}
-                onCheckedChange={(v) => setSoloConSaldo(v === true)}
-              />
-              <Label htmlFor="puente-solo-saldo" className="font-normal">
-                Solo con saldo
-              </Label>
-            </div>
+      {faltaCuentaPuente ? (
+        <div
+          role="note"
+          className="flex items-start gap-2 rounded-md bg-warning-note-bg px-3 py-2.5 text-warning-note-fg"
+        >
+          <TriangleAlert className="size-4 shrink-0" strokeWidth={1.6} aria-hidden="true" />
+          <p>
+            Falta asignar la cuenta puente recepción–factura en Motor contable. Cuando se asigne, el
+            reporte aparecerá aquí.{' '}
+            <Link to="/contabilidad/motor" className="font-medium underline">
+              Ir a Motor contable
+            </Link>
+          </p>
+        </div>
+      ) : (
+        <ReporteShell<SaldoPuenteOc>
+          reporte={reporteShell}
+          isLoading={query.isLoading}
+          error={esApiError(query.error) ? query.error : undefined}
+          onRetry={() => void query.refetch()}
+          nivelTitulo="h2"
+          nombreArchivo={`cuenta-puente-${reporte?.corte ?? corte}`}
+          obtenerCelda={(f, clave) => {
+            if (clave === 'ordenCompraFolio') return folioOc(f);
+            if (clave === 'proveedorNombre') return f.proveedorNombre ?? 'Sin proveedor';
+            if (clave === 'sucursalNombre') return f.sucursalNombre || 'Sin sucursal';
+            return (f as unknown as Record<string, unknown>)[clave];
+          }}
+          etiquetaAccion="Movimientos"
+          accionFila={(f) => (
             <Button
               type="button"
-              onClick={ejecutar}
-              disabled={!corte}
-              title={corte ? undefined : 'Captura la fecha de corte para ejecutar el reporte.'}
+              variant="outline"
+              size="sm"
+              aria-label={`Ver movimientos de ${folioOc(f)}`}
+              onClick={(e) => {
+                origenFoco.current = e.currentTarget;
+                setOcAbierta(f);
+              }}
             >
-              Ejecutar
+              Movimientos
             </Button>
-          </div>
-        }
-      />
+          )}
+          filtrosUi={
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="puente-corte">Corte *</Label>
+                <Input
+                  id="puente-corte"
+                  type="date"
+                  value={corte}
+                  max="9999-12-31"
+                  onChange={(e) => setCorte(e.target.value)}
+                  className="w-44"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="puente-sucursal">
+                  Sucursal <span className="font-normal text-ink-muted">(opcional)</span>
+                </Label>
+                <SucursalSelector
+                  value={sucursalId || null}
+                  onChange={(id) => setSucursalId(id ?? '')}
+                  placeholder="Todas las sucursales"
+                  className="w-56"
+                  triggerProps={{ id: 'puente-sucursal' }}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="puente-proveedor">
+                  Proveedor <span className="font-normal text-ink-muted">(opcional)</span>
+                </Label>
+                <ProveedorSelector
+                  value={proveedorId || null}
+                  onChange={(id) => setProveedorId(id ?? '')}
+                  placeholder="Todos los proveedores"
+                  className="w-56"
+                  triggerProps={{ id: 'puente-proveedor' }}
+                />
+              </div>
+              <div className="flex h-ctl-xl items-center gap-2">
+                <Checkbox
+                  id="puente-solo-saldo"
+                  checked={soloConSaldo}
+                  onCheckedChange={(v) => setSoloConSaldo(v === true)}
+                />
+                <Label htmlFor="puente-solo-saldo" className="font-normal">
+                  Solo con saldo
+                </Label>
+              </div>
+              <Button
+                type="button"
+                onClick={ejecutar}
+                disabled={!corte}
+                title={corte ? undefined : 'Captura la fecha de corte para ejecutar el reporte.'}
+              >
+                Ejecutar
+              </Button>
+            </div>
+          }
+        />
+      )}
 
       {ocAbierta && reporte && (
         <DetalleMovimientosOc
@@ -276,13 +298,17 @@ function TarjetaCuadre({
         <Dato etiqueta="Facturado sin recibir" valor={monto(totales.facturadoSinRecibir)} />
         <Dato etiqueta="Recibido sin facturar" valor={monto(totales.recibidoSinFacturar)} />
         <Dato etiqueta="31 a 60 días" valor={monto(totales.tramo31a60)} />
-        <Dato etiqueta="Más de 60 días" valor={monto(totales.tramoMasDe60)} alerta={totales.tramoMasDe60 !== 0} />
+        <Dato
+          etiqueta="Más de 60 días"
+          valor={monto(totales.tramoMasDe60)}
+          alerta={totales.tramoMasDe60 !== 0}
+        />
       </dl>
 
       {!concilia ? (
         <p role="note" className="text-xs text-ink-muted">
-          Con filtro de proveedor no se concilia contra la balanza, porque la balanza no se abre por proveedor. Quita
-          el filtro para ver el cuadre.
+          Con filtro de proveedor no se concilia contra la balanza, porque la balanza no se abre por
+          proveedor. Quita el filtro para ver el cuadre.
         </p>
       ) : noCuadra ? (
         <p
@@ -291,8 +317,9 @@ function TarjetaCuadre({
         >
           <TriangleAlert className="mt-0.5 size-4 shrink-0" strokeWidth={1.6} aria-hidden="true" />
           <span>
-            La cuenta puente tiene {monto(totales.partidasSinOc ?? 0)} en partidas sin orden de compra (pólizas
-            manuales o ajustes). Revísalas en Movimientos por cuenta y reclasifícalas a la OC que corresponda.
+            La cuenta puente tiene {monto(totales.partidasSinOc ?? 0)} en partidas sin orden de
+            compra (pólizas manuales o ajustes). Revísalas en Movimientos por cuenta y
+            reclasifícalas a la OC que corresponda.
           </span>
         </p>
       ) : (
@@ -310,10 +337,7 @@ function Dato({ etiqueta, valor, alerta }: { etiqueta: string; valor: string; al
     <div className="flex flex-col gap-0.5">
       <dt className="text-xs text-ink-muted">{etiqueta}</dt>
       <dd
-        className={cn(
-          'text-sm font-medium tabular-nums',
-          alerta ? 'text-danger-fg' : 'text-ink',
-        )}
+        className={cn('text-sm font-medium tabular-nums', alerta ? 'text-danger-fg' : 'text-ink')}
       >
         {valor}
       </dd>
@@ -355,8 +379,8 @@ function DetalleMovimientosOc({
             Movimientos de la cuenta puente
           </SheetTitle>
           <SheetDescription className="text-xs text-ink-muted">
-            <span className="font-mono">{folioOc(fila)}</span> · {fila.proveedorNombre ?? 'Sin proveedor'} · al{' '}
-            {fechaCorta(corte)}
+            <span className="font-mono">{folioOc(fila)}</span> ·{' '}
+            {fila.proveedorNombre ?? 'Sin proveedor'} · al {fechaCorta(corte)}
           </SheetDescription>
         </SheetHeader>
         <SheetBody className="space-y-5">
@@ -370,7 +394,11 @@ function DetalleMovimientosOc({
             </div>
             <Dato
               etiqueta="Desde"
-              valor={fila.fechaPrimerMovimientoSinSaldar ? fechaCorta(fila.fechaPrimerMovimientoSinSaldar) : '—'}
+              valor={
+                fila.fechaPrimerMovimientoSinSaldar
+                  ? fechaCorta(fila.fechaPrimerMovimientoSinSaldar)
+                  : '—'
+              }
             />
             <Dato
               etiqueta="Antigüedad"
@@ -390,7 +418,9 @@ function DetalleMovimientosOc({
             </div>
           ) : detalle.isError ? (
             <div role="alert" className="flex flex-col items-start gap-3 text-sm">
-              <p className="text-danger-fg">No se pudieron cargar los movimientos de la orden de compra.</p>
+              <p className="text-danger-fg">
+                No se pudieron cargar los movimientos de la orden de compra.
+              </p>
               <Button variant="outline" onClick={() => void detalle.refetch()}>
                 Reintentar
               </Button>
@@ -410,15 +440,25 @@ function DetalleMovimientosOc({
               <TableBody>
                 {(detalle.data?.movimientos ?? []).map((m) => (
                   <TableRow key={m.id}>
-                    <TableCell className="font-mono text-xs">{m.polizaFolio ?? 'Sin número'}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {m.polizaFolio ?? 'Sin número'}
+                    </TableCell>
                     <TableCell className="text-ink-secondary">{fechaCorta(m.fecha)}</TableCell>
                     <TableCell>
                       {TIPO_DOCUMENTO_PUENTE[m.tipoDocumento]}
-                      {m.esReversa && <span className="ml-1 text-xs text-ink-muted">(reversa)</span>}
+                      {m.esReversa && (
+                        <span className="ml-1 text-xs text-ink-muted">(reversa)</span>
+                      )}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">{m.cargo === 0 ? '' : monto(m.cargo)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{m.abono === 0 ? '' : monto(m.abono)}</TableCell>
-                    <TableCell className="text-right font-medium tabular-nums">{monto(m.saldoAcumulado)}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {m.cargo === 0 ? '' : monto(m.cargo)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {m.abono === 0 ? '' : monto(m.abono)}
+                    </TableCell>
+                    <TableCell className="text-right font-medium tabular-nums">
+                      {monto(m.saldoAcumulado)}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

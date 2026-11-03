@@ -173,7 +173,7 @@ describe('<BandejaOrdenesCompra> — smoke (UF1-PR3)', () => {
     // <HoverSubEstados> (UF6-PR1): un solo tooltip combinado en el wrapper
     // multi-partida + chips internos con `data-progreso`. Buscamos el chip R
     // por su atributo `data-sub-estado="recepcion"`.
-    const wrapper = screen.getByRole('img', {
+    const wrapper = screen.getByRole('group', {
       name: /Recepción: Recepción parcial[\s\S]*Facturación[\s\S]*Pago/i,
     });
     expect(wrapper).toBeInTheDocument();

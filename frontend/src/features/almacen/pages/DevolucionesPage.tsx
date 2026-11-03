@@ -115,9 +115,7 @@ export function DevolucionesPage() {
         titulo="Devoluciones a proveedor"
         descripcion={
           <>
-            Devoluciones al proveedor con estado de Borrador → En autorización → Autorizada →
-            Registrada → Conciliada NC fiscal. Las devoluciones internas y las de material en
-            revisión están en el menú "Otras acciones".
+            Devoluciones al proveedor y su nota de crédito. Las devoluciones internas y el material en revisión están en «Otras acciones».
           </>
         }
         acciones={
