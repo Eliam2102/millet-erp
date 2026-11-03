@@ -91,9 +91,61 @@ public sealed class EventosContablesG16Tests
     public void Registrar_pago_no_exige_confirmar_fondos()
     {
         var validator = new RegistrarPagoProveedorValidator();
-        var result = validator.Validate(new RegistrarPagoProveedorCommand(Guid.NewGuid(), Fecha, [new(Guid.NewGuid(), 1m)]));
+        var result = validator.Validate(new RegistrarPagoProveedorCommand(Guid.NewGuid(), Fecha, [new(Guid.NewGuid(), 1m)], "SPEI-1"));
         result.Errors.Should().NotContain(e => e.PropertyName == "FondosVerificados");
         result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Pago_y_pago_a_cuenta_exigen_la_referencia_del_banco()
+    {
+        new RegistrarPagoProveedorValidator().Validate(new RegistrarPagoProveedorCommand(Guid.NewGuid(), Fecha, [new(Guid.NewGuid(), 1m)], " "))
+            .Errors.Should().Contain(e => e.PropertyName == "ReferenciaBancaria");
+        new RegistrarPagoACuentaValidator().Validate(new RegistrarPagoACuentaCommand(Guid.NewGuid(), 100, Fecha, "Urgencia", Guid.NewGuid()))
+            .Errors.Should().Contain(e => e.PropertyName == "ReferenciaBancaria");
+    }
+
+    [Fact]
+    public async Task Brecha12_misma_referencia_recupera_el_pago_identico_y_rechaza_otro_uso()
+    {
+        var (db, cuenta, pasivo) = Escenario(null);
+        await using var _ = db;
+        await db.SaveChangesAsync();
+        var publisher = new Captura();
+        var handler = new RegistrarPagoProveedorHandler(db, new FakeEmpresa(), new FakeUser(), new Abierto(),
+            ProveedorActivo(), new ElegibleSinLimite(), publisher, new FakeClock());
+
+        var primero = await handler.Handle(new(cuenta.Id, Fecha, [new(pasivo.FacturaProveedorId, 400m)], "spei-9"), default);
+        var reintento = await handler.Handle(new(cuenta.Id, Fecha, [new(pasivo.FacturaProveedorId, 400m)], " SPEI-9 "), default);
+
+        reintento.MovimientoId.Should().Be(primero.MovimientoId);
+        reintento.Aplicaciones.Single().PagoId.Should().Be(primero.Aplicaciones.Single().PagoId);
+        (await db.MovimientosBancarios.CountAsync()).Should().Be(1);
+        publisher.Eventos.OfType<PagoFacturaProveedorAplicadoIntegrationEvent>().Should().ContainSingle();
+
+        var otroMonto = () => handler.Handle(new(cuenta.Id, Fecha, [new(pasivo.FacturaProveedorId, 100m)], "SPEI-9"), default);
+        await otroMonto.Should().ThrowAsync<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>()
+            .Where(e => e.Code == "PAGO_REFERENCIA_DUPLICADA");
+
+        var aCuenta = new RegistrarPagoACuentaHandler(db, new FakeEmpresa(), new FakeUser(), new Abierto(), new FakeClock(), ProveedorActivo());
+        var mismaRefEnPagoACuenta = () => aCuenta.Handle(new(cuenta.Id, 50m, Fecha, "urgente", pasivo.ProveedorId, "SPEI-9"), default);
+        await mismaRefEnPagoACuenta.Should().ThrowAsync<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>()
+            .Where(e => e.Code == "PAGO_REFERENCIA_DUPLICADA");
+    }
+
+    [Fact]
+    public async Task Brecha12_pago_a_cuenta_reintento_identico_no_duplica_ni_choca_con_rn2()
+    {
+        var (db, cuenta, pasivo) = Escenario(null);
+        await using var _ = db;
+        await db.SaveChangesAsync();
+        var handler = new RegistrarPagoACuentaHandler(db, new FakeEmpresa(), new FakeUser(), new Abierto(), new FakeClock(), ProveedorActivo());
+
+        var primero = await handler.Handle(new(cuenta.Id, 50m, Fecha, "urgente", pasivo.ProveedorId, "SPEI-10"), default);
+        var reintento = await handler.Handle(new(cuenta.Id, 50m, Fecha, "urgente", pasivo.ProveedorId, "spei-10"), default);
+
+        reintento.MovimientoId.Should().Be(primero.MovimientoId);
+        (await db.MovimientosBancarios.CountAsync()).Should().Be(1);
     }
 
     private static ConCuentas ProveedorActivo() => new()

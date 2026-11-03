@@ -57,7 +57,9 @@ public sealed class RegistrarPagoProveedorValidator : AbstractValidator<Registra
     {
         RuleFor(c => c.CuentaBancariaId).NotEmpty();
         RuleFor(c => c.FechaValor).NotEmpty();
-        RuleFor(c => c.ReferenciaBancaria).MaximumLength(120);
+        // §7.3 paso 3: el pago se registra con el folio que dio el banco.
+        RuleFor(c => c.ReferenciaBancaria).NotEmpty().WithMessage("Captura la referencia (folio) que dio el banco.")
+            .MaximumLength(120);
         RuleFor(c => c.Aplicaciones).NotEmpty()
             .WithMessage("El pago debe aplicar al menos a un pasivo.");
         RuleForEach(c => c.Aplicaciones).ChildRules(a =>
@@ -127,6 +129,23 @@ public sealed class RegistrarPagoProveedorHandler
             .FirstOrDefaultAsync(c => c.Id == command.CuentaBancariaId, cancellationToken)
             ?? throw new EntityNotFoundException("CTA_NO_ENCONTRADA",
                 $"No se encontró la cuenta bancaria '{command.CuentaBancariaId}'.");
+
+        // Brecha 12 (§7.3 paso 3): un folio del banco respalda un solo pago por cuenta. Va antes de las
+        // reglas de saldo porque un reintento idéntico ya consumió lo elegible: recupera el resultado previo.
+        if (await ReferenciaPagoUnica.BuscarAsync(_db, cuenta.Id, command.ReferenciaBancaria, cancellationToken) is { } previo)
+        {
+            var previas = await _db.AplicacionesPagoProveedor
+                .Where(a => a.MovimientoId == previo.Id && !a.Revertida).ToListAsync(cancellationToken);
+            var mismo = previas.Count > 0 && previas.Count == command.Aplicaciones.Count
+                && previo.Monto == command.Aplicaciones.Sum(a => a.Importe)
+                && command.Aplicaciones.All(c => previas.Any(a => a.FacturaProveedorId == c.FacturaProveedorId && a.ImporteAplicado == c.Importe))
+                && !await ReferenciaPagoUnica.RevertidoAsync(_db, previo.Id, cancellationToken);
+            if (!mismo) throw ReferenciaPagoUnica.Duplicada(previo);
+            return new PagoProveedorResponse(
+                previo.Id, previo.CuentaBancariaId, previas[0].ProveedorId, previo.Monto, previo.Moneda, previo.FechaValor,
+                previo.ReferenciaBancaria,
+                previas.Select(a => new AplicacionPagoResponse(a.Id, a.FacturaProveedorId, a.ImporteAplicado, a.Revertida)).ToList());
+        }
 
         // RN-8: candado real de Contabilidad.
         if (command.ConceptoId is Guid conceptoId && !await _db.ConceptosMovimiento.AnyAsync(c => c.Id == conceptoId && c.Activo, cancellationToken))

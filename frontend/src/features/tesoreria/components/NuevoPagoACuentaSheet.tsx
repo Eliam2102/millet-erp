@@ -50,7 +50,8 @@ export function NuevoPagoACuentaSheet({ open, onOpenChange }: NuevoPagoACuentaSh
     proveedorId != null &&
     Number.isFinite(montoNum) &&
     montoNum > 0 &&
-    motivo.trim().length > 0;
+    motivo.trim().length > 0 &&
+    referencia.trim().length > 0;
 
   function limpiar() {
     setProveedorId(null);
@@ -75,7 +76,7 @@ export function NuevoPagoACuentaSheet({ open, onOpenChange }: NuevoPagoACuentaSh
       fechaValor,
       motivo: motivo.trim(),
       proveedorId,
-      referenciaBancaria: referencia.trim() || undefined,
+      referenciaBancaria: referencia.trim(),
     };
     registrar.mutate(
       {
@@ -171,10 +172,11 @@ export function NuevoPagoACuentaSheet({ open, onOpenChange }: NuevoPagoACuentaSh
               <FormCampo span={6}>
                 <div className="space-y-1">
                   <label className="text-xs text-ink-muted" htmlFor="pac-ref">
-                    Referencia bancaria
+                    Referencia bancaria *
                   </label>
                   <Input
                     id="pac-ref"
+                    required
                     value={referencia}
                     onChange={(e) => setReferencia(e.target.value)}
                     maxLength={120}
