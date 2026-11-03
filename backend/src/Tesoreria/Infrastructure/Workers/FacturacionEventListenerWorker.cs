@@ -21,6 +21,10 @@ namespace Millet.Tesoreria.Infrastructure.Workers;
 /// (cierra PLATFORM-TODO(&lt;TesoreriaCajaSesion&gt;)).</item>
 /// <item><c>recibo-pago.timbrado.v1</c> → marca <c>repp_timbrado=true</c>
 /// en la confirmación correspondiente (ciclo fiscal cerrado).</item>
+/// <item><c>caja-faltante.devuelto.v1</c> → abona la devolución del cajero a la
+/// diferencia del corte de origen (86e3vr1tj).</item>
+/// <item><c>cobro-mostrador.registrado.v1</c> / <c>cancelado.v1</c> → folios de transferencia
+/// «Usado» / de vuelta a «Vigente» (F6.6).</item>
 /// <item><c>nota-credito.reembolso-solicitado.v1</c> → crea la devolución a
 /// cliente de origen nota de crédito (T9.6 · CA6.17).</item>
 /// </list>
@@ -155,11 +159,35 @@ public sealed class FacturacionEventListenerWorker : BackgroundService, ILocalIn
                     break;
                 }
 
+                case CajaFaltanteDevueltoPayload.EventType:
+                {
+                    var payload = JsonSerializer.Deserialize<CajaFaltanteDevueltoPayload>(body, JsonOpts)
+                        ?? throw new JsonException("Payload null.");
+                    await mediator.Send(new AplicarDevolucionFaltanteCommand(eventId, payload), cancellationToken);
+                    break;
+                }
+
                 case ReciboPagoTimbradoPayload.EventType:
                 {
                     var payload = JsonSerializer.Deserialize<ReciboPagoTimbradoPayload>(body, JsonOpts)
                         ?? throw new JsonException("Payload null.");
                     await mediator.Send(new MarcarReppTimbradoCommand(eventId, payload), cancellationToken);
+                    break;
+                }
+
+                case CobroMostradorRegistradoPayload.EventType:
+                {
+                    var payload = JsonSerializer.Deserialize<CobroMostradorRegistradoPayload>(body, JsonOpts)
+                        ?? throw new JsonException("Payload null.");
+                    await mediator.Send(new MarcarFoliosTransferenciaUsadosCommand(eventId, payload), cancellationToken);
+                    break;
+                }
+
+                case CobroMostradorCanceladoPayload.EventType:
+                {
+                    var payload = JsonSerializer.Deserialize<CobroMostradorCanceladoPayload>(body, JsonOpts)
+                        ?? throw new JsonException("Payload null.");
+                    await mediator.Send(new LiberarFoliosTransferenciaCommand(eventId, payload), cancellationToken);
                     break;
                 }
 

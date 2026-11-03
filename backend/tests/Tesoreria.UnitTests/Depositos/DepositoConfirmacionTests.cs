@@ -106,16 +106,14 @@ public sealed class DepositoConfirmacionTests
     }
 
     [Fact]
-    public void Expectativa_de_caja_admite_monto_aproximado()
+    public void Expectativa_de_caja_no_se_confirma_con_Confirmar_sino_con_fichas()
     {
         var expectativa = DepositoConfirmacion.CrearExpectativaCaja(
             EmpresaId, Guid.NewGuid(), efectivoDeclarado: 12_345.50m, diaOperacion: new DateOnly(2026, 7, 14));
-        var movimiento = Ingreso(monto: 12_000m); // el fondo del día siguiente se quedó en caja
 
-        expectativa.Confirmar(movimiento, UsuarioId, Ahora);
+        var act = () => expectativa.Confirmar(Ingreso(monto: 12_345.50m), UsuarioId, Ahora);
 
-        expectativa.Estado.Should().Be(EstadoDepositoConfirmacion.Confirmada);
-        expectativa.ClienteId.Should().BeNull();
+        act.Should().Throw<BusinessRuleException>().Which.Code.Should().Be("DEP_CORTE_CAJA_USA_FICHAS");
         expectativa.DepositoRef.Should().Be("CAJA 2026-07-14");
     }
 

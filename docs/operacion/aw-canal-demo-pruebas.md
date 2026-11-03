@@ -89,6 +89,31 @@ nuevo costaría ~$15–25 al mes y no hace falta.
 Por API (mismo permiso): `PUT /api/v1/integraciones/aw/origen` con `{"origen":"Demo"|"Real"}`, cabeceras
 `If-Match: "<versión>"` e `Idempotency-Key`.
 
+## Entrada de pieza terminada a Producto Terminado (PT-01)
+
+El origen Demo incluye las tablas de escaneos de pieza terminada (`dbo.awbar_bearbeit`, `dbo.pool_pos`,
+`dbo.pool_bearbeit` y, solo en la demo, `dbo.or_avbereich` como sustituto de `OR_AVBEREICH` de MILMAIN). El ERP
+solo las lee; nunca escribe en ellas.
+
+1. Cargar los escaneos de muestra: `tools/aw-origen-demo/aw-origen-demo.sh piezas` (también corre al final de `up`;
+   repetirlo es inocuo). Incluye el pedido 900101 (CIRCUITO) con piezas, una reposición, una pieza que excede la
+   cantidad, un escaneo sin terminar y uno en estación fuera de lista; el 900199 (no está en Facturación) y el
+   900102 (CANCUN).
+2. Habilitar la entrada con variables de entorno:
+   `IntegracionesAw__PiezasPt__EntradaHabilitada=true`, `IntegracionesAw__PiezasPt__EmpresaId=<guid>` e
+   `IntegracionesAw__OrigenDemo__Permitido=true`.
+3. La lista de estaciones de pieza terminada es configuración, no código: clave
+   `IntegracionesAw:PiezasPt:EstacionesPt` (rangos `"2821-2831"` o números `"2840"`). Con la lista vacía no se
+   admite ningún escaneo. La lista es la de la consulta de referencia de TI (27-oct): 2821–2831, 2840, 3201–3315 y
+   3501–3509. La muestra trae un escaneo en la 2835 para comprobar que se ignora.
+4. El origen Real requiere `ContratoI134Firmado`, `EntradaHabilitada` y `ConnectionStrings:AwClientesDb` (la conexión de
+   clientes, login `millet_erp_lector_aw`; sin cadena ni conexión híbrida propias). Sigue apagado por configuración.
+   Jorge (29-oct, SRC-114) dejó el script 15 corrido y el servidor vinculado `AWPROD_ERP`:
+   - El lector consulta `[AWPROD_ERP].alcimdb.dbo.…` con `OPENQUERY`, para que el filtro se resuelva en producción.
+   - Pieza terminada = `fertig = 1 AND bruch_flag = 0 AND LEN(etikettnr) = 9` (la rotura entra como etiqueta + `01` con
+     `bruch_flag = 1` y no cuenta). La muestra demo incluye una rotura para comprobarlo.
+   - La sucursal no se lee de AWPRODUCTION: la pieza toma la del pedido, que ya viene de MILMAIN `OR_AVBEREICH`.
+
 ## Riesgos
 
 - **Los datos maestros de demo se quedan al volver a Real.** Clientes y productos sincronizados desde Demo se

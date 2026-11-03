@@ -38,4 +38,7 @@ public sealed record ActualizarLineaOcCommand(
     bool? EsActivoFijo = null,
     Guid? ClaseActivoId = null,
     // F1-MP-01 (E1): null = conservar la medida (se limpia sola si cambia el artículo).
-    Guid? ProductoAwVarianteId = null) : IRequest;
+    Guid? ProductoAwVarianteId = null,
+    // F1-MP-05 (A4.2): null = no tocar; LimpiarLoteProveedor = true → null.
+    string? LoteProveedor = null,
+    bool LimpiarLoteProveedor = false) : IRequest;

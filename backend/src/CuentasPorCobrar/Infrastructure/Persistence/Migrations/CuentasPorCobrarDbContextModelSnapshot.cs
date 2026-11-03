@@ -515,6 +515,10 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                     b.HasIndex("OrigenComprobanteId")
                         .HasDatabaseName("ix_movimiento_cartera_origen");
 
+                    b.HasIndex("OrigenComprobanteId", "FacturaCarteraId", "Tipo")
+                        .IsUnique()
+                        .HasDatabaseName("ux_movimiento_cartera_origen_factura_tipo");
+
                     b.ToTable("movimiento_cartera", "cuentas_por_cobrar", t =>
                         {
                             t.HasCheckConstraint("ck_movimiento_cartera_importe_positivo", "importe > 0");
@@ -1061,68 +1065,6 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                     b.ToTable("regla_liberacion_serie", "cuentas_por_cobrar", t =>
                         {
                             t.HasCheckConstraint("ck_regla_liberacion_comportamiento", "comportamiento IN (1, 2, 3)");
-                        });
-
-                    b.HasData(
-                        new
-                        {
-                            Id = new Guid("0000000a-1001-0000-0000-000000000001"),
-                            Activo = true,
-                            Comportamiento = (short)1,
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            CreatedBy = "seed",
-                            Prefijo = "5000",
-                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            UpdatedBy = "seed",
-                            Version = 1
-                        },
-                        new
-                        {
-                            Id = new Guid("0000000a-1001-0000-0000-000000000002"),
-                            Activo = true,
-                            Comportamiento = (short)1,
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            CreatedBy = "seed",
-                            Prefijo = "7000",
-                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            UpdatedBy = "seed",
-                            Version = 1
-                        },
-                        new
-                        {
-                            Id = new Guid("0000000a-1001-0000-0000-000000000003"),
-                            Activo = true,
-                            Comportamiento = (short)2,
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            CreatedBy = "seed",
-                            Prefijo = "3000",
-                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            UpdatedBy = "seed",
-                            Version = 1
-                        },
-                        new
-                        {
-                            Id = new Guid("0000000a-1001-0000-0000-000000000004"),
-                            Activo = true,
-                            Comportamiento = (short)2,
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            CreatedBy = "seed",
-                            Prefijo = "4000",
-                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            UpdatedBy = "seed",
-                            Version = 1
-                        },
-                        new
-                        {
-                            Id = new Guid("0000000a-1001-0000-0000-000000000005"),
-                            Activo = true,
-                            Comportamiento = (short)2,
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            CreatedBy = "seed",
-                            Prefijo = "8000",
-                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            UpdatedBy = "seed",
-                            Version = 1
                         });
                 });
 

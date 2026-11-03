@@ -53,11 +53,11 @@ public sealed class CierreDiaTests
 
     private static FacturaVenta Factura(
         decimal valor, string folio, Guid? emisor = null, string metodoPago = "PUE",
-        DateTimeOffset? timbrada = null, bool timbrar = true)
+        DateTimeOffset? timbrada = null, bool timbrar = true, Guid? pedidoId = null)
     {
         var fv = FacturaVenta.CrearBorrador(Empresa, folio, 1, Cancun, null, emisor ?? Ana, Receptor(), Emisor(),
             metodoPago, metodoPago == "PPD" ? "99" : "01", "MXN", null, 2026, 10, 1,
-            ComportamientoFiscal.MostradorInmediato, null, null, null, false);
+            ComportamientoFiscal.MostradorInmediato, pedidoId, null, null, false);
         fv.AgregarLinea(null, "01010101", "P", "H87", 1m, valor, 0m, "01", 0m, null, null);
         fv.RecalcularTotales();
         if (!timbrar)
@@ -79,10 +79,15 @@ public sealed class CierreDiaTests
 
     private static Task<CobroMostradorResponse> CobrarAsync(
         FacturacionDbContext db, Guid cajero, Guid comprobanteId, params CobroFormaPagoInput[] formas) =>
+        CobrarConFolioAsync(db, cajero, comprobanteId, null, formas);
+
+    private static Task<CobroMostradorResponse> CobrarConFolioAsync(
+        FacturacionDbContext db, Guid cajero, Guid comprobanteId, IFolioTransferenciaReadPort? folios,
+        params CobroFormaPagoInput[] formas) =>
         new RegistrarCobroMostradorHandler(
                 db, new FakeEmpresaContext(Empresa), new FakeUserContext(cajero), new FakeClock(Ahora),
                 Sucursales(), new FakeAlcanceCajaEvaluator(),
-                new FakeIntegrationEventPublisher(), new FakeCatalogosSatReadPort())
+                new FakeIntegrationEventPublisher(), new FakeCatalogosSatReadPort(), folios)
             .Handle(new RegistrarCobroMostradorCommand(comprobanteId, formas), CancellationToken.None);
 
     private static ConsultaEstatusCfdiSimuladoAdapter Simulado(params string[] cancelados) =>
@@ -188,10 +193,18 @@ public sealed class CierreDiaTests
     {
         using var db = NewDb();
         await AbrirSesionAsync(db, Ana);
-        var ayer = Factura(100m, "FV-30", timbrada: Ahora.AddDays(-1));
+        // F6.6: la transferencia en caja lleva el folio de Ingresos del cliente del pedido.
+        var cliente = Guid.NewGuid();
+        var pedido = PedidoFacturable.CrearManual(Empresa, "P-30", Cancun, cliente, "Cliente", 1,
+            ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, Ana,
+            ClasePedidoManual.VentaDirecta, SubtipoVentaDirecta.Servicio, null, null);
+        db.PedidosFacturables.Add(pedido);
+        var ayer = Factura(100m, "FV-30", timbrada: Ahora.AddDays(-1), pedidoId: pedido.Id);
         db.FacturasVenta.Add(ayer);
         await db.SaveChangesAsync();
-        await CobrarAsync(db, Ana, ayer.Id, new CobroFormaPagoInput("03", ayer.Total, "SPEI-123"));
+        await CobrarConFolioAsync(db, Ana, ayer.Id, new FakeFolioTransferenciaReadPort(
+                FakeFolioTransferenciaReadPort.Vigente("TR-000030", cliente, ayer.Total)),
+            new CobroFormaPagoInput("03", ayer.Total, "SPEI-123", FolioTransferencia: "TR-000030"));
         db.ChangeTracker.Clear();
 
         var r = await ConciliarAsync(db);
@@ -287,6 +300,7 @@ public sealed class CierreDiaTests
         var anterior = Factura(100m, "FV-70", timbrada: Ahora.AddDays(-3));
         db.FacturasVenta.Add(anterior);
         var solicitud = SolicitudCancelacion.Crear(Empresa, anterior.Id, "02", null, Ahora.AddDays(-1));
+        solicitud.Autorizar(Guid.NewGuid(), "Contador", Ahora.AddDays(-1));
         solicitud.MarcarEnProceso(null);
         solicitud.MarcarAceptada("Cancelado", Ahora);
         db.SolicitudesCancelacion.Add(solicitud);

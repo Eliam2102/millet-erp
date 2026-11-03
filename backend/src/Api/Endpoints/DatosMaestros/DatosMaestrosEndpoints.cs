@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.Compartido.Application.Adjuntos;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -66,6 +67,8 @@ public static class DatosMaestrosEndpoints
             [FromQuery] string? rfc,
             [FromQuery] string? razonSocial,
             [FromQuery] string? q,
+            [FromQuery] bool? soloExpedienteIncompleto,
+            [FromQuery] bool? bloqueado,
             [FromQuery] TipoPersonaProveedor? tipoPersona,
             [FromQuery] EstatusCatalogo? estatus,
             [FromQuery] int? offset,
@@ -81,7 +84,9 @@ public static class DatosMaestrosEndpoints
                     Estatus: estatus,
                     Offset: offset ?? 0,
                     Limit: limit ?? 50,
-                    Q: q),
+                    Q: q,
+                    SoloExpedienteIncompleto: soloExpedienteIncompleto ?? false,
+                    Bloqueado: bloqueado),
                 ct);
             return Results.Ok(response);
         })
@@ -93,19 +98,26 @@ public static class DatosMaestrosEndpoints
         .ProducesProblem(StatusCodes.Status403Forbidden);
 
         proveedores.MapGet("/{id:guid}", async (
-            Guid id, CompartidoDbContext db, CancellationToken ct) =>
+            Guid id, CompartidoDbContext db, IClock clock, CancellationToken ct) =>
         {
             var p = await db.Proveedores.AsNoTracking()
                 .FirstOrDefaultAsync(x => x.Id == id, ct)
                 ?? throw new EntityNotFoundException(
                     "PROVEEDOR_NO_ENCONTRADO",
                     $"No existe proveedor con id '{id}'.");
+            var pendientes = ExpedienteAdjuntos.PendientesProveedores(db, clock).Where(x => x.ProveedorId == id);
+            var nombresPendientes = await (from pendiente in pendientes
+                join tipo in db.AdjuntoTiposDocumento on pendiente.Codigo equals tipo.Codigo
+                where tipo.TipoEntidad == "proveedor"
+                orderby tipo.Orden
+                select tipo.Nombre).ToListAsync(ct);
             return Results.Ok(new ProveedorDetalle(
                 p.Id, p.Clave, p.ClaveLegacy, p.RazonSocial, p.NombreComercial,
                 p.Rfc, p.TipoPersona, p.CondicionesPagoDias, p.MonedaPreferidaId,
                 p.Email, p.Telefono, p.Estatus,
                 p.ValidadoPorId, p.ValidadoEn, p.MotivoRechazo, p.ToleranciaFacturaContraOcMxn,
-                p.Origen, p.RegimenFiscalCodigo, p.ConceptoRetencion, p.ValidadoConMatrizVersion, p.Calle, p.NumeroExterior, p.NumeroInterior, p.Colonia, p.Ciudad, p.Municipio, p.Estado, p.CodigoPostal, p.Pais, p.TaxId));
+                p.Origen, p.RegimenFiscalCodigo, p.ConceptoRetencion, p.ValidadoConMatrizVersion, p.Calle, p.NumeroExterior, p.NumeroInterior, p.Colonia, p.Ciudad, p.Municipio, p.Estado, p.CodigoPostal, p.Pais, p.TaxId, p.ClaveAw, p.OrigenCarga, nombresPendientes,
+                p.Bloqueado, p.MotivoBloqueo, p.BloqueadoPorId, p.BloqueadoEn));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresGestionar)
         .WithName("ObtenerProveedorDatosMaestros")
@@ -227,6 +239,31 @@ public static class DatosMaestrosEndpoints
         .WithDescription("Pasa al proveedor de EnRevision a Activo si su expediente documental cumple los requisitos. Exclusivo para CxP con permiso datos_maestros.proveedores.validar.")
         .Produces<ValidarProveedorResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // 86e3tactf: bloqueo total (marca aparte del estatus). Desbloquea quien lo pidió o quien tenga el permiso de reemplazo.
+        proveedores.MapPost("/{id:guid}/bloquear", async (
+            Guid id, [FromBody] BloqueoProveedorRequest body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new BloquearProveedorCommand(id, body.Motivo), ct)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresBloquear)
+        .WithName("BloquearProveedorDatosMaestros")
+        .WithSummary("Bloquear al proveedor: no se paga ninguna factura ni se levantan OC nuevas (86e3tactf)")
+        .Produces<BloqueoProveedorResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        proveedores.MapPost("/{id:guid}/desbloquear", async (
+            Guid id, [FromBody] BloqueoProveedorRequest body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new DesbloquearProveedorCommand(id, body.Motivo), ct)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresBloquear)
+        .WithName("DesbloquearProveedorDatosMaestros")
+        .WithSummary("Desbloquear al proveedor; solo quien lo pidió o quien tenga cuentas_por_pagar.bloqueos.liberar-en-lugar (86e3tactf)")
+        .Produces<BloqueoProveedorResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
@@ -610,6 +647,7 @@ public static class DatosMaestrosEndpoints
             [FromQuery] string? tipo,
             [FromQuery] string? grupo,
             [FromQuery] string? wgr,
+            [FromQuery] bool? esServicioRecubrimiento,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
             IMediator mediator,
@@ -626,7 +664,8 @@ public static class DatosMaestrosEndpoints
                     Limit: limit ?? 50,
                     Tipo: tipo,
                     Grupo: grupo,
-                    Wgr: wgr),
+                    Wgr: wgr,
+                    EsServicioRecubrimiento: esServicioRecubrimiento),
                 ct);
             return Results.Ok(response);
         })
@@ -660,7 +699,7 @@ public static class DatosMaestrosEndpoints
                 p.Componentes.OrderBy(c => c.Orden)
                     .Select(c => new ProductoAwComponenteDato(c.Orden, c.Nivel, c.PadreOrden, c.ComponenteRef, c.Descripcion, c.Tipo, c.EspesorMm))
                     .ToList(),
-                p.Version, p.OrigenFiscal, p.EstadoFiscal, p.ReglaFiscalId, p.ConfirmadoPor, p.ConfirmadoEn));
+                p.Version, p.OrigenFiscal, p.EstadoFiscal, p.ReglaFiscalId, p.ConfirmadoPor, p.ConfirmadoEn, p.EsServicioRecubrimiento));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProductosAwGestionar)
         .WithName("ObtenerProductoAw")
@@ -690,7 +729,8 @@ public static class DatosMaestrosEndpoints
                     TasaRetencionIsr: request.TasaRetencionIsr,
                     FraccionArancelaria: request.FraccionArancelaria,
                     UnidadAduana: request.UnidadAduana,
-                    PesoUnitarioKg: request.PesoUnitarioKg),
+                    PesoUnitarioKg: request.PesoUnitarioKg,
+                    EsServicioRecubrimiento: request.EsServicioRecubrimiento ?? false),
                 ct);
             return Results.Created($"/api/v1/datos-maestros/productos-aw/{response.Id}", response);
         })
@@ -748,7 +788,8 @@ public static class DatosMaestrosEndpoints
                     LimpiarFraccionArancelaria: body.LimpiarFraccionArancelaria ?? false,
                     LimpiarUnidadAduana: body.LimpiarUnidadAduana ?? false,
                     LimpiarPesoUnitarioKg: body.LimpiarPesoUnitarioKg ?? false,
-                    VersionEsperada: version),
+                    VersionEsperada: version,
+                    EsServicioRecubrimiento: body.EsServicioRecubrimiento),
                 ct);
             return Results.NoContent();
         })
@@ -896,7 +937,8 @@ public static class DatosMaestrosEndpoints
         string? Wgr,
         string? WgrDescripcion,
         IReadOnlyList<ProductoAwComponenteDato> Componentes,
-        int Version, OrigenFiscalProducto OrigenFiscal, EstadoFiscalProducto EstadoFiscal, Guid? ReglaFiscalId, Guid? ConfirmadoPor, DateTimeOffset? ConfirmadoEn);
+        int Version, OrigenFiscalProducto OrigenFiscal, EstadoFiscalProducto EstadoFiscal, Guid? ReglaFiscalId, Guid? ConfirmadoPor, DateTimeOffset? ConfirmadoEn,
+        bool EsServicioRecubrimiento = false);
 
     public sealed record CrearProductoAwRequest(
         string ReferenciaExterna,
@@ -912,7 +954,8 @@ public static class DatosMaestrosEndpoints
         decimal? TasaRetencionIsr,
         string? FraccionArancelaria = null,
         string? UnidadAduana = null,
-        decimal? PesoUnitarioKg = null);
+        decimal? PesoUnitarioKg = null,
+        bool? EsServicioRecubrimiento = null);
 
     public sealed record ActualizarProductoAwRequest(
         string? Descripcion,
@@ -934,7 +977,8 @@ public static class DatosMaestrosEndpoints
         decimal? PesoUnitarioKg = null,
         bool? LimpiarFraccionArancelaria = null,
         bool? LimpiarUnidadAduana = null,
-        bool? LimpiarPesoUnitarioKg = null);
+        bool? LimpiarPesoUnitarioKg = null,
+        bool? EsServicioRecubrimiento = null);
 
     public sealed record ProveedorDetalle(
         Guid Id,
@@ -966,7 +1010,16 @@ public static class DatosMaestrosEndpoints
         string? Estado = null,
         string? CodigoPostal = null,
         string? Pais = null,
-        string? TaxId = null);
+        string? TaxId = null,
+        int? ClaveAw = null,
+        string? OrigenCarga = null,
+        IReadOnlyList<string>? DocumentosPendientes = null,
+        bool Bloqueado = false,
+        string? MotivoBloqueo = null,
+        Guid? BloqueadoPorId = null,
+        DateTimeOffset? BloqueadoEn = null);
+
+    public sealed record BloqueoProveedorRequest(string Motivo);
 
     public sealed record ActualizarClasificacionFiscalRequest(
         OrigenProveedor? Origen, string? RegimenFiscalCodigo, string? ConceptoRetencion);

@@ -9,6 +9,7 @@ using Millet.CuentasPorPagar.Domain.Evidencias;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor;
 using Millet.CuentasPorPagar.Domain.NotaCargo;
 using Millet.CuentasPorPagar.Domain.NotaCreditoProveedor;
+using Millet.CuentasPorPagar.Domain.Portal;
 using Millet.CuentasPorPagar.Domain.TarjetaCredito;
 using Millet.CuentasPorPagar.Domain.Viaticos;
 using Millet.CuentasPorPagar.Infrastructure.Persistence.Configurations;
@@ -55,6 +56,9 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
 
     private readonly Application.Periodos.PeriodoCerradoValidator _periodos;
     private readonly IClock _clock;
+    public DbSet<AccesoPortalProveedor> AccesosPortalProveedor => Set<AccesoPortalProveedor>();
+    public DbSet<CodigoPortal> CodigosPortal => Set<CodigoPortal>();
+    public DbSet<AvisoPagoPortal> AvisosPagoPortal => Set<AvisoPagoPortal>();
     public DbSet<PagoProveedorLocal> PagosProveedorLocal => Set<PagoProveedorLocal>();
     public DbSet<MovimientoPasivo> MovimientosPasivo => Set<MovimientoPasivo>();
     public DbSet<Domain.Catalogos.RetencionConcepto> RetencionesConcepto => Set<Domain.Catalogos.RetencionConcepto>();
@@ -139,7 +143,7 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
 
     private IEnumerable<DateOnly> FechasContables()
     {
-        var hoy = DateOnly.FromDateTime(_clock.UtcNow.UtcDateTime);
+        var hoy = Application.Periodos.FechaNegocio.Hoy(_clock.UtcNow);
         foreach (var e in ChangeTracker.Entries<FacturaProveedor>())
         {
             if (e.State == EntityState.Added || e.Property(f => f.FechaContabilizacion).IsModified ||
@@ -291,5 +295,8 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new EstadoCuentaTcConfiguration());
         modelBuilder.ApplyConfiguration(new LineaBancoTcConfiguration());
         modelBuilder.ApplyConfiguration(new PerfilParserBancoConfiguration());
+        modelBuilder.ApplyConfiguration(new AccesoPortalProveedorConfiguration());
+        modelBuilder.ApplyConfiguration(new CodigoPortalConfiguration());
+        modelBuilder.ApplyConfiguration(new AvisoPagoPortalConfiguration());
     }
 }

@@ -1,11 +1,13 @@
 import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { useNavigate } from '@tanstack/react-router';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import {
   SheetBody,
@@ -38,31 +40,17 @@ import { UnidadMedidaSelect } from '@/modules/catalogos/components/UnidadMedidaS
  */
 export function NuevoProductoAwProvider({ children }: { children: ReactNode }) {
   const [abierto, setAbierto] = useState(false);
-  const isDirtyRef = useRef(false);
-
-  const setDirty = useCallback((dirty: boolean) => {
-    isDirtyRef.current = dirty;
-  }, []);
-
-  const cerrarConConfirm = useCallback((opts?: { force?: boolean }) => {
-    if (opts?.force === true || !isDirtyRef.current) {
-      isDirtyRef.current = false;
-      setAbierto(false);
-      return;
-    }
-    const confirmar = window.confirm(
-      'Tienes cambios sin guardar en el nuevo producto. ¿Descartarlos y cerrar?',
-    );
-    if (confirmar) {
-      isDirtyRef.current = false;
-      setAbierto(false);
-    }
-  }, []);
+  const alCerrar = useCallback(() => setAbierto(false), []);
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(alCerrar);
+  const cerrarConConfirm = useCallback(
+    (opts?: { force?: boolean }) => solicitarCierre(opts?.force),
+    [solicitarCierre],
+  );
 
   const api = useMemo<NuevoProductoAwApi>(
     () => ({
       abrir: () => {
-        isDirtyRef.current = false;
+        setDirty(false);
         setAbierto(true);
       },
       cerrar: cerrarConConfirm,
@@ -103,6 +91,7 @@ export function NuevoProductoAwProvider({ children }: { children: ReactNode }) {
           </div>
         </SheetContent>
       </Sheet>
+      {dialogo}
     </NuevoProductoAwContext.Provider>
   );
 }
@@ -127,6 +116,7 @@ function NuevoProductoAwForm({ onClose, onDirtyChange }: NuevoProductoAwFormProp
       categoriaId: null,
       claveProdServSat: null,
       claveUnidadSat: null,
+      esServicioRecubrimiento: false,
     },
   });
 
@@ -146,6 +136,7 @@ function NuevoProductoAwForm({ onClose, onDirtyChange }: NuevoProductoAwFormProp
           categoriaId: values.categoriaId,
           claveProdServSat: values.claveProdServSat,
           claveUnidadSat: values.claveUnidadSat,
+          esServicioRecubrimiento: values.esServicioRecubrimiento,
           objetoImp: null,
           tasaIvaTraslado: null,
           tasaRetencionIva: null,
@@ -344,6 +335,18 @@ function NuevoProductoAwForm({ onClose, onDirtyChange }: NuevoProductoAwFormProp
                 </FormRow>
               </FormCampo>
             </FormGrid>
+          </FormCampo>
+          <FormCampo span={12}>
+            <Controller
+              name="esServicioRecubrimiento"
+              control={form.control}
+              render={({ field }) => (
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <Checkbox checked={field.value} onCheckedChange={(c) => field.onChange(c === true)} />
+                  Servicio de recubrimiento
+                </label>
+              )}
+            />
           </FormCampo>
         </FormSeccion>
       </SheetBody>

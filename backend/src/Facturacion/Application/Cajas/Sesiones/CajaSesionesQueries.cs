@@ -18,7 +18,8 @@ public sealed record CajaSesionCorteDto(string FormaPago, decimal MontoSistema, 
 
 public sealed record CajaMovimientoDto(
     Guid Id, string Tipo, string FormaPago, decimal Importe, string Moneda,
-    string Descripcion, string? Referencia, Guid? CobroMostradorId, Guid UsuarioId, DateTimeOffset CreatedAt);
+    string Descripcion, string? Referencia, Guid? CobroMostradorId, Guid UsuarioId, DateTimeOffset CreatedAt,
+    int? FolioVale = null, string? TarjetaUltimos4 = null);
 
 public sealed record CajaSesionDetalleResponse(
     Guid Id, Guid CajaId, string CajaNombre, Guid SucursalId, Guid ResponsableUsuarioId, string Estado,
@@ -35,7 +36,12 @@ public sealed record CajaSesionDetalleResponse(
 /// es de un día local anterior → la operación de cobro está bloqueada hasta
 /// el cierre extemporáneo (§5.2).
 /// </summary>
-public sealed record SesionActualResponse(CajaSesionDetalleResponse? Sesion, bool DiaAnteriorPendiente);
+/// <c>UltimaSesionHoy</c>: sin sesión vigente, caja y sucursal de la última sesión del cajero del día local
+/// (ya cerrada) para prellenar la siguiente apertura.
+public sealed record SesionActualResponse(
+    CajaSesionDetalleResponse? Sesion, bool DiaAnteriorPendiente, CajaSesionRefDto? UltimaSesionHoy = null);
+
+public sealed record CajaSesionRefDto(Guid CajaId, Guid SucursalId);
 
 // ---- Sesión actual del cajero (GET /cajas/sesion-actual, permiso operar) ----
 
@@ -71,7 +77,18 @@ public sealed class SesionActualHandler : IRequestHandler<SesionActualQuery, Ses
             .OrderBy(s => s.FechaApertura)
             .FirstOrDefaultAsync(cancellationToken);
         if (sesion is null)
-            return new SesionActualResponse(null, false);
+        {
+            var ultima = await _db.CajaSesiones.AsNoTracking()
+                .Where(s => s.ResponsableUsuarioId == usuarioId)
+                .OrderByDescending(s => s.FechaApertura)
+                .Select(s => new { s.CajaId, s.SucursalId, s.DiaOperacion })
+                .FirstOrDefaultAsync(cancellationToken);
+            if (ultima is null) return new SesionActualResponse(null, false);
+            var zonaUltima = await _sucursales.ObtenerZonaHorariaAsync(ultima.SucursalId, cancellationToken);
+            return new SesionActualResponse(null, false,
+                DiaOperacion.HoyLocal(_clock.UtcNow, zonaUltima) == ultima.DiaOperacion
+                    ? new CajaSesionRefDto(ultima.CajaId, ultima.SucursalId) : null);
+        }
 
         var detalle = await CajaSesionProyector.ProyectarAsync(_db, sesion, cancellationToken);
 
@@ -79,6 +96,42 @@ public sealed class SesionActualHandler : IRequestHandler<SesionActualQuery, Ses
         var diaAnterior = DiaOperacion.HoyLocal(_clock.UtcNow, zona) > sesion.DiaOperacion;
 
         return new SesionActualResponse(detalle, diaAnterior);
+    }
+}
+
+// ---- Faltantes por devolver del cajero (GET /cajas/faltantes-por-devolver, permiso operar) ----
+
+public sealed record FaltantePorDevolverItem(
+    Guid CorteSesionId, DateOnly DiaOperacion, decimal Faltante, decimal Devuelto, decimal Pendiente);
+
+/// <summary>Cortes cerrados del cajero con faltante aún no devuelto del todo (origen de «Devolución de faltante»).</summary>
+public sealed record FaltantesPorDevolverQuery() : IRequest<IReadOnlyList<FaltantePorDevolverItem>>;
+
+public sealed class FaltantesPorDevolverHandler(FacturacionDbContext db, ICurrentUserContext user)
+    : IRequestHandler<FaltantesPorDevolverQuery, IReadOnlyList<FaltantePorDevolverItem>>
+{
+    public async Task<IReadOnlyList<FaltantePorDevolverItem>> Handle(
+        FaltantesPorDevolverQuery query, CancellationToken cancellationToken)
+    {
+        if (user.UserId is not Guid usuarioId) return [];
+
+        var cortes = await db.CajaSesiones.AsNoTracking()
+            .Where(s => s.ResponsableUsuarioId == usuarioId && s.Estado == EstadoCajaSesion.Cerrada && s.Diferencia < 0)
+            .OrderByDescending(s => s.DiaOperacion)
+            .Select(s => new { s.Id, s.DiaOperacion, Faltante = -s.Diferencia!.Value })
+            .ToListAsync(cancellationToken);
+        var ids = cortes.Select(c => c.Id).ToList();
+        var devuelto = await db.CajaMovimientos.AsNoTracking()
+            .Where(m => m.CorteOrigenSesionId != null && ids.Contains(m.CorteOrigenSesionId.Value))
+            .GroupBy(m => m.CorteOrigenSesionId!.Value)
+            .Select(g => new { Id = g.Key, Total = g.Sum(m => m.Importe) })
+            .ToDictionaryAsync(x => x.Id, x => x.Total, cancellationToken);
+
+        return cortes
+            .Select(c => new FaltantePorDevolverItem(
+                c.Id, c.DiaOperacion, c.Faltante, devuelto.GetValueOrDefault(c.Id), c.Faltante - devuelto.GetValueOrDefault(c.Id)))
+            .Where(i => i.Pendiente > 0)
+            .ToList();
     }
 }
 
@@ -204,7 +257,7 @@ internal static class CajaSesionProyector
                 .Select(c => new CajaSesionCorteDto(c.FormaPago, c.MontoSistema, c.MontoDeclarado)).ToList(),
             movimientos.Select(m => new CajaMovimientoDto(
                 m.Id, m.Tipo.ToString(), m.FormaPago, m.Importe, m.Moneda, m.Descripcion,
-                m.Referencia, m.CobroMostradorId, m.UsuarioId, m.CreatedAt)).ToList(),
+                m.Referencia, m.CobroMostradorId, m.UsuarioId, m.CreatedAt, m.FolioVale, m.TarjetaUltimos4)).ToList(),
             totales);
     }
 }

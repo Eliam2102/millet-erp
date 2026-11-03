@@ -14,8 +14,8 @@ using Millet.SharedKernel.Infrastructure;
 namespace Millet.Facturacion.UnitTests.Ingesta;
 
 /// <summary>
-/// PR5 (ADR-0048 D3): write-back diferido hacia la tabla-puente — semántica
-/// de dominio en <see cref="IngestaControl"/> y drenado por
+/// PR5 (ADR-0048 D3): reintento del write-back por solicitud hacia la tabla-puente
+/// (TR-01 retiró el write-back por pedido) — semántica de dominio en <see cref="IngestaControl"/> y drenado por
 /// <see cref="WriteBackResultadoWorker"/>.
 /// </summary>
 public sealed class WriteBackTests
@@ -28,19 +28,6 @@ public sealed class WriteBackTests
         EstadoIngesta.Importado, Guid.NewGuid(), Ahora);
 
     // ===== Dominio =====
-
-    [Fact]
-    public void SolicitarWriteBackEstado_marca_pendiente_por_pedido()
-    {
-        var control = Control();
-        control.SolicitarWriteBackEstado("Facturado", "UUID-1", Ahora);
-
-        control.WriteBackPendiente.Should().BeTrue();
-        control.WriteBackSolicitudId.Should().BeNull(); // por-pedido → Guid.Empty en el adapter
-        control.WriteBackEstado.Should().Be("Facturado");
-        control.WriteBackUuid.Should().Be("UUID-1");
-        control.WriteBackIntentos.Should().Be(0);
-    }
 
     [Fact]
     public void SolicitarReintentoWriteBack_conserva_solicitud_y_resultado()
@@ -60,7 +47,7 @@ public sealed class WriteBackTests
     public void ConfirmarWriteBack_limpia_pendiente_y_fallos_incrementan_intentos()
     {
         var control = Control();
-        control.SolicitarWriteBackEstado("Facturado", "UUID-1", Ahora);
+        control.SolicitarReintentoWriteBack(Guid.NewGuid(), ResultadoSolicitudAw.Aplicada, null, "SinFacturar", Ahora);
 
         control.RegistrarFalloWriteBack("HC caída", Ahora);
         control.RegistrarFalloWriteBack("HC caída", Ahora);
@@ -106,42 +93,6 @@ public sealed class WriteBackTests
         NullLogger<WriteBackResultadoWorker>.Instance);
 
     [Fact]
-    public async Task Tick_entrega_pendiente_por_pedido_y_confirma()
-    {
-        var dbName = Guid.NewGuid().ToString();
-        var (sp, port) = ArmarWorkerServices(dbName);
-
-        Guid pedidoId;
-        using (var scope = sp.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<FacturacionDbContext>();
-            var control = Control();
-            pedidoId = control.PedidoFacturableId!.Value;
-            control.SolicitarWriteBackEstado("Facturado", "UUID-1", Ahora);
-            db.IngestaControles.Add(control);
-            await db.SaveChangesAsync();
-        }
-
-        var entregados = await CrearWorker(sp).TickAsync(CancellationToken.None);
-
-        entregados.Should().Be(1);
-        port.Ultimo.Should().NotBeNull();
-        port.Ultimo!.SolicitudId.Should().Be(Guid.Empty); // por-pedido
-        port.Ultimo.NumeroPedido.Should().Be("10432218");
-        port.Ultimo.ErpPedidoId.Should().Be(pedidoId);
-        port.Ultimo.EstadoFacturacion.Should().Be("Facturado");
-        port.Ultimo.Uuid.Should().Be("UUID-1");
-
-        using (var scope = sp.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<FacturacionDbContext>();
-            var control = await db.IngestaControles.SingleAsync();
-            control.WriteBackPendiente.Should().BeFalse();
-            control.WriteBackAt.Should().Be(Ahora);
-        }
-    }
-
-    [Fact]
     public async Task Tick_con_canal_caido_incrementa_intentos_y_sigue_pendiente()
     {
         var dbName = Guid.NewGuid().ToString();
@@ -152,7 +103,7 @@ public sealed class WriteBackTests
         {
             var db = scope.ServiceProvider.GetRequiredService<FacturacionDbContext>();
             var control = Control();
-            control.SolicitarWriteBackEstado("Facturado", "UUID-1", Ahora);
+            control.SolicitarReintentoWriteBack(Guid.NewGuid(), ResultadoSolicitudAw.Aplicada, null, "SinFacturar", Ahora);
             db.IngestaControles.Add(control);
             await db.SaveChangesAsync();
         }
@@ -182,7 +133,7 @@ public sealed class WriteBackTests
         {
             var db = scope.ServiceProvider.GetRequiredService<FacturacionDbContext>();
             var control = Control();
-            control.SolicitarWriteBackEstado("Facturado", "UUID-1", Ahora);
+            control.SolicitarReintentoWriteBack(Guid.NewGuid(), ResultadoSolicitudAw.Aplicada, null, "SinFacturar", Ahora);
             for (var i = 0; i < 10; i++) // MaxIntentos default = 10
                 control.RegistrarFalloWriteBack("HC caída", Ahora);
             db.IngestaControles.Add(control);

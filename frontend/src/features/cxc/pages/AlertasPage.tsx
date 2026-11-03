@@ -244,7 +244,7 @@ export function AlertasPage() {
                       <ChipTipoAlerta tipo={a.tipo} />
                     </TableCell>
                     <TableCell className="max-w-56 truncate px-3 py-2">
-                      {nombres.get(a.clienteId) ?? a.clienteId.slice(0, 8)}
+                      {nombres.get(a.clienteId) ?? '—'}
                       <p className="font-mono text-2xs text-ink-muted">{a.moneda}</p>
                     </TableCell>
                     <TableCell className="max-w-96 px-3 py-2 text-xs">{a.detalle}</TableCell>

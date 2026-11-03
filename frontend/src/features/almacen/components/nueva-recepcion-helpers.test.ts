@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   construirFilas,
   contarLineasEnOtraUbicacion,
+  destinoPorFila,
   indicesParaAutoAsignar,
   detectarConflictoSubAlmacen,
   hojasPendientes,
@@ -20,6 +21,7 @@ function lineaOc(
     articuloClave: 'IPP60001',
     articuloNombre: 'Aceite de corte',
     descripcionExtendida: null,
+    fraccionArancelaria: null,
     cantidad: 10,
     unidadMedida: 'PZA',
     precioUnitario: 100,
@@ -177,11 +179,13 @@ function fila(partial: Partial<FilaRecepcionValues>): FilaRecepcionValues {
     cantidadSolicitada: 10,
     cantidadYaRecibida: 0,
     pendiente: 10,
+    maximo: 10,
     incluida: true,
     cantidad: 10,
     ubicacionReferencia: null,
     ubicacionId: null,
     comentario: null,
+    cantidadDanada: 0,
     ...partial,
   };
 }
@@ -209,28 +213,73 @@ describe('indicesParaAutoAsignar (helper de cabecera)', () => {
 });
 
 describe('contarLineasEnOtraUbicacion (aviso de divergencia)', () => {
-  it('cuenta solo las INCLUIDAS que van a un bin distinto del helper', () => {
+  it('cuenta solo las INCLUIDAS con ubicación distinta de su destino esperado', () => {
     const filas = [
       fila({ incluida: true, ubicacionId: BIN_B }), // diverge → cuenta
       fila({ incluida: true, ubicacionId: BIN_A }), // coincide → no cuenta
       fila({ incluida: true, ubicacionId: null }), // vacía → no cuenta
       fila({ incluida: false, ubicacionId: BIN_B }), // no incluida → no cuenta
     ];
-    expect(contarLineasEnOtraUbicacion(filas, BIN_A)).toBe(1);
+    expect(contarLineasEnOtraUbicacion(filas, [BIN_A, BIN_A, BIN_A, BIN_A])).toBe(1);
   });
 
-  it('es 0 sin helper elegido (no hay contra qué divergir)', () => {
+  it('es 0 sin destino esperado (no hay contra qué divergir)', () => {
     const filas = [fila({ incluida: true, ubicacionId: BIN_B })];
-    expect(contarLineasEnOtraUbicacion(filas, null)).toBe(0);
-    expect(contarLineasEnOtraUbicacion(filas, undefined)).toBe(0);
+    expect(contarLineasEnOtraUbicacion(filas, [null])).toBe(0);
+  });
+});
+
+describe('destinoPorFila (A+W nunca; lo demás rack asignado o general)', () => {
+  const RACK = 'rack-1';
+  const GEN = 'gen-1';
+  const GEN_OTRO = 'gen-2';
+  const ubic = new Map([
+    [RACK, { subAlmacenId: 'sub-1', esDefault: false }],
+    [GEN, { subAlmacenId: 'sub-1', esDefault: true }],
+    [GEN_OTRO, { subAlmacenId: 'sub-2', esDefault: true }],
+  ]);
+  const vidrio = fila({
+    articuloId: 'vid',
+    medida: { varianteId: 'v', anchoMm: 1, altoMm: 1, areaHojaM2: 1 },
+  } as Partial<FilaRecepcionValues>);
+  const silicon = fila({ articuloId: 'sil' });
+  const asignadas = new Map([
+    ['vid', new Set([RACK])],
+    ['sil', new Set([RACK])],
+  ]);
+
+  it('OC mixta con rack: A+W sin destino, consumible al rack asignado', () => {
+    expect(destinoPorFila([vidrio, silicon], RACK, ubic, asignadas)).toEqual([null, RACK]);
   });
 
-  it('es 0 cuando todas las incluidas coinciden con el helper', () => {
+  it('consumible sin ese rack asignado: general del sub del rack', () => {
+    expect(destinoPorFila([silicon], RACK, ubic, new Map())).toEqual([GEN]);
+  });
+
+  it('rack en sub Material en revisión: sin general para las no asignadas', () => {
+    expect(destinoPorFila([silicon], RACK, ubic, new Map(), new Set(['sub-1']))).toEqual([null]);
+  });
+
+  it('solo consumibles con general elegido: todas al general', () => {
+    expect(destinoPorFila([silicon, silicon], GEN_OTRO, ubic, asignadas)).toEqual([GEN_OTRO, GEN_OTRO]);
+  });
+
+  it('general elegido: A+W no recibe destino', () => {
+    expect(destinoPorFila([vidrio, silicon], GEN, ubic, asignadas)).toEqual([null, GEN]);
+  });
+
+  it('sin helper: nada', () => {
+    expect(destinoPorFila([vidrio, silicon], null, ubic, asignadas)).toEqual([null, null]);
+  });
+
+  it('contadores: solo cuentan partidas que no son de A+W', () => {
+    const d = destinoPorFila([vidrio, silicon, silicon], RACK, ubic, asignadas);
     const filas = [
-      fila({ incluida: true, ubicacionId: BIN_A }),
-      fila({ incluida: true, ubicacionId: BIN_A }),
+      { ...vidrio, incluida: true, ubicacionId: BIN_B },
+      { ...silicon, incluida: true, ubicacionId: RACK },
+      { ...silicon, incluida: true, ubicacionId: BIN_B },
     ];
-    expect(contarLineasEnOtraUbicacion(filas, BIN_A)).toBe(0);
+    expect(contarLineasEnOtraUbicacion(filas, d)).toBe(1);
   });
 });
 
@@ -255,9 +304,9 @@ describe('detectarConflictoSubAlmacen', () => {
   });
 });
 
-describe('indicesParaAutoAsignar con predicado', () => {
-  it('solo rellena las filas que el predicado acepta', () => {
+describe('indicesParaAutoAsignar con destinos', () => {
+  it('solo rellena las filas con destino propuesto', () => {
     const filas = [{ ubicacionId: null, articuloId: 'a' }, { ubicacionId: null, articuloId: 'b' }] as FilaRecepcionValues[];
-    expect(indicesParaAutoAsignar(filas, (f) => f.articuloId === 'b')).toEqual([1]);
+    expect(indicesParaAutoAsignar(filas, [null, 'x'])).toEqual([1]);
   });
 });

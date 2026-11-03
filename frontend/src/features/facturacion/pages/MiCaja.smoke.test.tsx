@@ -145,6 +145,25 @@ describe('<MiCaja> — smoke', () => {
     expect(screen.getByLabelText(/Fondo de apertura/i)).toBeInTheDocument();
   });
 
+  it('sin sesión pero con una cerrada hoy: prellena la caja de la última sesión', async () => {
+    mswServer.use(
+      http.get(`${BASE}/sesion-actual`, () =>
+        HttpResponse.json({
+          sesion: null,
+          diaAnteriorPendiente: false,
+          ultimaSesionHoy: { cajaId: 'c-1', sucursalId: 's-1' },
+        }),
+      ),
+      http.get(BASE, () =>
+        HttpResponse.json([
+          { id: 'c-1', nombre: 'Caja Mostrador Conkal', descripcion: null, estatus: 'Activo', sucursales: 1, canales: 1, usuarios: 1 },
+        ]),
+      ),
+    );
+    render(<MiCaja />, { wrapper: createQueryWrapper() });
+    expect(await screen.findByRole('combobox', { name: /Caja/i })).toHaveTextContent('Caja Mostrador Conkal');
+  });
+
   it('con sesión abierta: totales, movimientos y acciones', async () => {
     mswServer.use(
       http.get(`${BASE}/sesion-actual`, () =>
@@ -289,6 +308,12 @@ describe('86e3tfdvt · voucher en la liquidación de ruta', () => {
 
     fireEvent.change(voucher, { target: { value: '123456' } });
     expect(voucher).toHaveAttribute('aria-invalid', 'false');
+    // 86e3tfdvt: también los últimos 4 dígitos de la tarjeta.
+    const ultimos4 = screen.getByLabelText('Últimos 4 dígitos de la tarjeta de RUTA-1');
+    expect(ultimos4).toHaveAttribute('aria-invalid', 'true');
+    expect(registrar).toBeDisabled();
+    fireEvent.change(ultimos4, { target: { value: '9876' } });
+    expect(ultimos4).toHaveAttribute('aria-invalid', 'false');
     await waitFor(() => expect(registrar).toBeEnabled());
   });
 });

@@ -7,6 +7,7 @@ using Millet.Facturacion.Application.Ingesta.Queries;
 using Millet.Facturacion.Application.Ingesta.ResolverExcepcionImportacion;
 using Millet.Facturacion.Application.Pedidos.CrearPedidoFacturableManual;
 using Millet.Facturacion.Application.Pedidos.EditarPedidoFacturableManual;
+using Millet.Facturacion.Application.Pedidos.RegistrarSalidaFacturable;
 using Millet.Facturacion.Application.Trazabilidad;
 using Millet.Facturacion.Application.Pedidos.Queries;
 using Millet.Facturacion.Application.Facturas.EmitirFacturaVenta;
@@ -90,6 +91,41 @@ public static class PedidosFacturablesEndpoints
         .WithName("PedidoComprobantes")
         .WithSummary("Historial de comprobantes de un pedido (cancelados + vigente)")
         .Produces<IReadOnlyList<PedidoComprobanteItem>>(StatusCodes.Status200OK);
+
+        // FAC-08: salidas parciales del pedido con su factura vigente y el avance por posición.
+        group.MapGet("/{id:guid}/salidas", async (
+            Guid id,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new PedidoSalidasQuery(id), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionFacturasLeer)
+        .WithName("PedidoSalidas")
+        .WithSummary("Salidas parciales del pedido, su factura vigente y el avance (FAC-08)")
+        .Produces<PedidoSalidasResponse>(StatusCodes.Status200OK);
+
+        // FAC-08: registra una salida parcial a mano mientras PT-03 y CE-02 no la publican.
+        // Reenviar la misma referencia regresa la salida ya registrada (200) sin cambiar importes.
+        group.MapPost("/{id:guid}/salidas", async (
+            Guid id,
+            RegistrarSalidaRequest request,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var r = await mediator.Send(new RegistrarSalidaFacturableCommand(
+                id, null, request.Origen ?? OrigenSalidaFacturable.Manual, request.Referencia, request.Lineas), cancellationToken);
+            return r.YaRegistrada
+                ? Results.Ok(r)
+                : Results.Created($"/api/v1/facturacion/pedidos-facturables/{id}/salidas", r);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionPedidosCapturar)
+        .WithName("RegistrarSalidaFacturable")
+        .WithSummary("Registra una salida parcial del pedido para facturarla por separado (FAC-08)")
+        .Produces<SalidaFacturableResponse>(StatusCodes.Status201Created)
+        .Produces<SalidaFacturableResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         // POST: captura manual de un pedido.
         group.MapPost("/", async (
@@ -270,6 +306,11 @@ public static class PedidosFacturablesEndpoints
     /// F6.1: <c>ClaseManual</c> (1 VentaDirecta, 2 Emergencia) y
     /// <c>SubtipoVentaDirecta</c> (1 Activo, 2 Almacenable, 3 Servicio) van en
     /// forma numérica, igual que <c>ComportamientoFiscal</c>.</summary>
+    public sealed record RegistrarSalidaRequest(
+        string Referencia,
+        IReadOnlyList<SalidaFacturableLineaDto> Lineas,
+        OrigenSalidaFacturable? Origen = null);
+
     public sealed record EditarPedidoFacturableRequest(
         Guid ClienteId,
         string ClienteNombre,

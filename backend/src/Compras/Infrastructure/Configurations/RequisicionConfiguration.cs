@@ -31,7 +31,7 @@ public sealed class RequisicionConfiguration : IEntityTypeConfiguration<Requisic
             t.HasCheckConstraint("ck_requisiciones_estado", "estado BETWEEN 0 AND 9");
             t.HasCheckConstraint("ck_requisiciones_clasificacion", "clasificacion BETWEEN 0 AND 3");
             t.HasCheckConstraint("ck_requisiciones_prioridad", "prioridad BETWEEN 0 AND 2");
-            t.HasCheckConstraint("ck_requisiciones_origen", "origen BETWEEN 0 AND 1");
+            t.HasCheckConstraint("ck_requisiciones_origen", "origen BETWEEN 0 AND 2");
         });
 
         builder.Property(x => x.Obra).HasMaxLength(120);
@@ -83,6 +83,12 @@ public sealed class RequisicionConfiguration : IEntityTypeConfiguration<Requisic
             .HasConversion<short>()
             .HasDefaultValue(OrigenRequisicion.Manual)
             .IsRequired();
+
+        builder.Property(r => r.FolioExterno).HasMaxLength(64);
+        // Un folio externo no se repite dentro del mismo origen (idempotencia del mensaje de la app).
+        builder.HasIndex(r => new { r.EmpresaId, r.Origen, r.FolioExterno })
+            .IsUnique()
+            .HasFilter("folio_externo IS NOT NULL");
 
         builder.Property(r => r.MotivoTerminacionId);
         builder.Property(r => r.MotivoTerminacionTexto).HasMaxLength(500);

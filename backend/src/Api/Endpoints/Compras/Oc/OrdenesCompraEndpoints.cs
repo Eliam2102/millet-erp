@@ -22,6 +22,7 @@ using Millet.Compras.Application.Oc.Autorizar;
 using Millet.Compras.Application.Oc.Cancelar;
 using Millet.Compras.Application.Oc.CancelarConRecepciones;
 using Millet.Compras.Application.Oc.CerrarManual;
+using Millet.Compras.Application.Oc.ConfirmarServicio;
 using Millet.Compras.Application.Oc.CrearOrdenCompraDesdeRequisicion;
 using Millet.Compras.Application.Oc.CrearOrdenCompraVacia;
 using Millet.Compras.Application.Oc.DuplicarOrdenCompra;
@@ -411,7 +412,8 @@ public static class OrdenesCompraEndpoints
                     FechaEntregaLinea: body.FechaEntregaLinea,
                     CentroCostoId: body.CentroCostoId,
                     TextoAdicional: body.TextoAdicional, EsActivoFijo: body.EsActivoFijo, ClaseActivoId: body.ClaseActivoId,
-                    ProductoAwVarianteId: body.ProductoAwVarianteId),
+                    ProductoAwVarianteId: body.ProductoAwVarianteId,
+                    LoteProveedor: body.LoteProveedor),
                 cancellationToken);
             return Results.Created($"/api/v1/compras/ordenes/{id}/lineas/{response.LineaId}", response);
         })
@@ -468,7 +470,9 @@ public static class OrdenesCompraEndpoints
                     LimpiarFraccionArancelaria: body.LimpiarFraccionArancelaria ?? false,
                     EsActivoFijo: body.EsActivoFijo,
                     ClaseActivoId: body.ClaseActivoId,
-                    ProductoAwVarianteId: body.ProductoAwVarianteId),
+                    ProductoAwVarianteId: body.ProductoAwVarianteId,
+                    LoteProveedor: body.LoteProveedor,
+                    LimpiarLoteProveedor: body.LimpiarLoteProveedor ?? false),
                 cancellationToken);
             return Results.NoContent();
         })
@@ -747,6 +751,53 @@ public static class OrdenesCompraEndpoints
         .Produces(StatusCodes.Status204NoContent)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // --- 86e3tacbn: conformidad del servicio por OC (el área solicitante; el dominio valida el departamento) ---
+        group.MapPost("/{id:guid}/confirmar-servicio", async (
+            Guid id, [FromBody] ConfirmarServicioRequest body, IMediator mediator, CancellationToken cancellationToken) =>
+        {
+            await mediator.Send(new ConfirmarServicioOcCommand(id, body.Comentario), cancellationToken);
+            return Results.NoContent();
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesConfirmarServicio)
+        .WithName("ConfirmarServicioOrdenCompra")
+        .WithSummary("Confirmar el servicio realizado y recibido a satisfacción (86e3tacbn)")
+        .WithDescription("Una confirmación por OC aplica a todas sus líneas de servicio. Solo un usuario del departamento solicitante; sin ella CxP no libera a pago la factura de servicios. Header `Idempotency-Key` obligatorio.")
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        group.MapPost("/{id:guid}/deshacer-confirmacion-servicio", async (
+            Guid id, [FromBody] MotivoServicioRequest body, IMediator mediator, CancellationToken cancellationToken) =>
+        {
+            await mediator.Send(new RevocarConfirmacionServicioOcCommand(id, body.Motivo), cancellationToken);
+            return Results.NoContent();
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesConfirmarServicio)
+        .WithName("DeshacerConfirmacionServicioOrdenCompra")
+        .WithSummary("Deshacer la confirmación del servicio con motivo; no se puede con una factura de la OC pagada (86e3tacbn)")
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        group.MapPost("/{id:guid}/servicio-no-conforme", async (
+            Guid id, [FromBody] MotivoServicioRequest body, IMediator mediator, CancellationToken cancellationToken) =>
+        {
+            await mediator.Send(new MarcarServicioNoConformeOcCommand(id, body.Motivo), cancellationToken);
+            return Results.NoContent();
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesConfirmarServicio)
+        .WithName("ServicioNoConformeOrdenCompra")
+        .WithSummary("«No quedé conforme»: avisa a Compras con el motivo (86e3tacbn)")
+        .Produces(StatusCodes.Status204NoContent)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
@@ -1936,7 +1987,9 @@ public static class OrdenesCompraEndpoints
         Guid? CentroCostoId,
         string? TextoAdicional, bool EsActivoFijo = false, Guid? ClaseActivoId = null,
         // F1-MP-01 (E1): medida de la hoja; obligatoria si el artículo es vidrio crudo (liga A+W), prohibida si no.
-        Guid? ProductoAwVarianteId = null);
+        Guid? ProductoAwVarianteId = null,
+        // F1-MP-05 (A4.2): lote del proveedor, opcional.
+        string? LoteProveedor = null);
 
     /// <summary>Body del PATCH lineas (F2-PR2).</summary>
     public sealed record ActualizarLineaOcRequest(
@@ -1960,12 +2013,17 @@ public static class OrdenesCompraEndpoints
         bool? LimpiarFraccionArancelaria = null,
         bool? EsActivoFijo = null, Guid? ClaseActivoId = null,
         // F1-MP-01 (E1): null = conservar la medida actual.
-        Guid? ProductoAwVarianteId = null);
+        Guid? ProductoAwVarianteId = null,
+        // F1-MP-05 (A4.2): null = no tocar; LimpiarLoteProveedor = true → null.
+        string? LoteProveedor = null,
+        bool? LimpiarLoteProveedor = null);
 
     /// <summary>Body del PATCH texto-adicional (F2-PR2).</summary>
     public sealed record ActualizarTextoAdicionalRequest(string? TextoAdicional);
     public sealed record ResolverCancelacionOcRequest(bool Confirmar, string Motivo);
     public sealed record RegistrarRespuestaProveedorRequest(TipoRespuestaProveedorOc? Tipo, DateOnly? FechaRespuesta, string? Evidencia, string? ContactoProveedor, string? Motivo, IReadOnlyList<CompromisoEntregaInput>? Compromisos);
+    public sealed record ConfirmarServicioRequest(string? Comentario);
+    public sealed record MotivoServicioRequest(string Motivo);
     public sealed record RegistrarIncidenciaProveedorRequest(Guid LineaOrdenCompraId, TipoIncidenciaProveedorOc Tipo, decimal Cantidad, DateOnly FechaCompromiso, Guid ResponsableId, string? Descripcion);
     public sealed record ReprogramarIncidenciaProveedorRequest(DateOnly FechaCompromiso, string Motivo);
     public sealed record CerrarIncidenciaProveedorRequest(string Motivo);

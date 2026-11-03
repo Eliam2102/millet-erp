@@ -173,6 +173,10 @@ namespace Millet.Integraciones.Aw.Infrastructure.Persistence.Migrations
                         .HasColumnType("smallint")
                         .HasColumnName("tipo");
 
+                    b.Property<int>("Unificados")
+                        .HasColumnType("integer")
+                        .HasColumnName("unificados");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");

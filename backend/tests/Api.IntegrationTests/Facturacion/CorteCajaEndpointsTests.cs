@@ -44,7 +44,7 @@ public sealed class CorteCajaEndpointsTests(WebApplicationFactory<Program> facto
             cajero.Id, 300m, DateOnly.FromDateTime(ahora.UtcDateTime), ahora, null);
         var cobro = CobroMostrador.Registrar(Empresa, sesion.Id, factura.SucursalId, 1, factura.Id,
             OrigenCobroMostrador.Mostrador, ahora, cajero.Id,
-            [("01", 60m, null, null, null), ("04", 56m, "FIX-AUT-12", null, null)]);
+            [("01", 60m, null, null, null, null), ("04", 56m, "FIX-AUT-12", null, null, null)]);
         var fondo = CajaMovimiento.Crear(Empresa, sesion.Id, TipoCajaMovimiento.FondoApertura,
             CajaSesion.FormaPagoEfectivo, 300m, cajero.Id, "Fondo de apertura");
         var movimientos = cobro.FormasPago.Select(f => CajaMovimiento.Crear(

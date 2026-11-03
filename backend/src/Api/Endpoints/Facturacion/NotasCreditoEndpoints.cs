@@ -4,7 +4,9 @@ using Microsoft.AspNetCore.Mvc;
 using Millet.Api.Auth;
 using Millet.Api.Web;
 using Millet.Facturacion.Application.Comprobantes.Queries;
+using Millet.Facturacion.Application.NotasCredito.AutorizarNotaCredito;
 using Millet.Facturacion.Application.NotasCredito.EmitirNotaCreditoBonificacion;
+using Millet.Facturacion.Application.NotasCredito.EmitirNotaCreditoDevolucionAnticipo;
 using Millet.Facturacion.Application.NotasCredito.Queries;
 using Millet.Facturacion.Application.NotasCredito.SolicitarReembolso;
 using Millet.Facturacion.Domain.Comprobantes;
@@ -25,6 +27,25 @@ public static class NotasCreditoEndpoints
             .MapGroup("/api/v1/facturacion/notas-credito")
             .WithTags("Facturacion");
 
+        // F6.3 · CA6.17: NC por devolución en dinero de un anticipo no aplicado; al timbrar pide el reembolso a Tesorería.
+        group.MapPost("/devolucion-anticipo", async (
+            EmitirNotaCreditoDevolucionAnticipoCommand command,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var response = await mediator.Send(command, cancellationToken);
+            return Results.Created($"/api/v1/facturacion/notas-credito/{response.Id}", response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionNotasCreditoBonificacion)
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionNotasCreditoReembolsoSolicitar)
+        .WithName("EmitirNotaCreditoDevolucionAnticipo")
+        .WithSummary("Devuelve en dinero un anticipo no aplicado: NC (relación 01 al anticipo) y solicitud de reembolso a Tesorería")
+        .Produces<EmitirNotaCreditoDevolucionAnticipoResponse>(StatusCodes.Status201Created)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden);
+
         // POST: emite (sella + timbra) una NC por bonificación sobre una factura.
         group.MapPost("/bonificacion", async (
             EmitirNotaCreditoBonificacionCommand command,
@@ -41,6 +62,19 @@ public static class NotasCreditoEndpoints
         .Produces<EmitirNotaCreditoBonificacionResponse>(StatusCodes.Status201Created)
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // POST: autoriza y timbra una NC de A+W «Por autorizar» (86e3wjt5r; propuesta hasta F6.4).
+        group.MapPost("/{id:guid}/autorizar", async (
+            Guid id, AutorizarNotaCreditoBody? body, IMediator mediator, CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new AutorizarNotaCreditoCommand(id, body?.Reembolso), cancellationToken)))
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionNotasCreditoAutorizar)
+        .WithName("AutorizarNotaCredito")
+        .WithSummary("Autoriza y timbra una nota de crédito de A+W que está Por autorizar")
+        .Produces<AutorizarNotaCreditoResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
@@ -132,3 +166,6 @@ public static class NotasCreditoEndpoints
 }
 
 public sealed record SolicitarReembolsoBody(decimal Importe, string Motivo);
+
+/// <summary>F6.3: cuerpo opcional al autorizar una NC de A+W; con <c>Reembolso</c>, al timbrar se pide la devolución del dinero.</summary>
+public sealed record AutorizarNotaCreditoBody(ReembolsoClienteRequest? Reembolso);

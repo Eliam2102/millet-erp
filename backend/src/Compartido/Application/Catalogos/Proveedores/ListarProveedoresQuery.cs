@@ -1,4 +1,6 @@
 using MediatR;
+using Millet.Compartido.Application.Adjuntos;
+using Millet.SharedKernel.Application;
 using Microsoft.EntityFrameworkCore;
 using Millet.Catalogos.Domain;
 using Millet.Compartido.Infrastructure.Persistence;
@@ -21,7 +23,9 @@ public sealed record ListarProveedoresQuery(
     EstatusCatalogo? Estatus = null,
     int Offset = 0,
     int Limit = 50,
-    string? Q = null) : IRequest<ListarProveedoresResponse>;
+    string? Q = null,
+    bool SoloExpedienteIncompleto = false,
+    bool? Bloqueado = null) : IRequest<ListarProveedoresResponse>;
 
 public sealed record ProveedorItem(
     Guid Id,
@@ -34,7 +38,12 @@ public sealed record ProveedorItem(
     Guid? MonedaPreferidaId,
     EstatusCatalogo Estatus,
     DateTimeOffset? ValidadoEn = null,
-    string? MotivoRechazo = null);
+    string? MotivoRechazo = null,
+    int? ClaveAw = null,
+    bool ExpedienteCompleto = true,
+    int DocumentosFaltantes = 0,
+    bool Bloqueado = false,
+    string? MotivoBloqueo = null);
 
 public sealed record ListarProveedoresResponse(
     IReadOnlyList<ProveedorItem> Items,
@@ -48,7 +57,13 @@ public sealed class ListarProveedoresHandler
     private const int LimitMax = 200;
     private readonly CompartidoDbContext _db;
 
-    public ListarProveedoresHandler(CompartidoDbContext db) => _db = db;
+    private readonly IClock _clock;
+
+    public ListarProveedoresHandler(CompartidoDbContext db, IClock clock)
+    {
+        _db = db;
+        _clock = clock;
+    }
 
     public async Task<ListarProveedoresResponse> Handle(
         ListarProveedoresQuery query, CancellationToken cancellationToken)
@@ -94,15 +109,22 @@ public sealed class ListarProveedoresHandler
             q = q.Where(p => p.TipoPersona == tp);
         if (query.Estatus is EstatusCatalogo e)
             q = q.Where(p => p.Estatus == e);
+        if (query.Bloqueado is bool b)
+            q = q.Where(p => p.Bloqueado == b);
 
-        var total = await q.CountAsync(cancellationToken);
-        var items = await q
-            .OrderBy(p => p.Clave)
+        var pendientes = ExpedienteAdjuntos.PendientesProveedores(_db, _clock);
+        var resumen = q.Select(p => new { Proveedor = p, Pendientes = pendientes.Count(x => x.ProveedorId == p.Id) });
+        if (query.SoloExpedienteIncompleto) resumen = resumen.Where(x => x.Pendientes > 0);
+        var total = await resumen.CountAsync(cancellationToken);
+        var items = await resumen
+            .OrderBy(x => x.Pendientes > 0)
+            .LuegoPorClaveNatural(x => x.Proveedor.Clave)
             .Skip(offset).Take(limit)
-            .Select(p => new ProveedorItem(
-                p.Id, p.Clave, p.RazonSocial, p.NombreComercial, p.Rfc,
-                p.TipoPersona, p.CondicionesPagoDias, p.MonedaPreferidaId, p.Estatus,
-                p.ValidadoEn, p.MotivoRechazo))
+            .Select(x => new ProveedorItem(
+                x.Proveedor.Id, x.Proveedor.Clave, x.Proveedor.RazonSocial, x.Proveedor.NombreComercial, x.Proveedor.Rfc,
+                x.Proveedor.TipoPersona, x.Proveedor.CondicionesPagoDias, x.Proveedor.MonedaPreferidaId, x.Proveedor.Estatus,
+                x.Proveedor.ValidadoEn, x.Proveedor.MotivoRechazo, x.Proveedor.ClaveAw, x.Pendientes == 0, x.Pendientes,
+                x.Proveedor.Bloqueado, x.Proveedor.MotivoBloqueo))
             .ToListAsync(cancellationToken);
 
         return new ListarProveedoresResponse(items, offset, limit, total);

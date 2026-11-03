@@ -51,7 +51,9 @@ public sealed record ComprobanteDetalleResponse(
     string? OrdenCompraCliente = null, string? ReferenciaCliente = null, string? CondicionesPago = null,
     string? Proforma = null, string? Observaciones = null,
     decimal TotalKg = 0m, decimal TotalPie2 = 0m, decimal TotalPiezas = 0m,
-    string? NoCertificadoEmisor = null, string? CadenaOriginalTimbre = null);
+    string? NoCertificadoEmisor = null, string? CadenaOriginalTimbre = null,
+    // F1-CXC-05 Parte 2: cliente del pedido (si se conoce) para ofrecer sus anticipos al aplicar uno a la factura.
+    Guid? ClienteId = null);
 
 /// <summary>Cobro vigente de la factura, con la sesión donde se registró.</summary>
 public sealed record CobroFacturaDetalle(
@@ -69,7 +71,13 @@ public sealed record NotaCreditoAplicadaDetalle(
     decimal Total,
     string? Uuid,
     DateTimeOffset? FechaTimbrado,
-    bool ReembolsoSolicitado = false);
+    bool ReembolsoSolicitado = false,
+    // F6.3: estado del reembolso que reporta Tesorería (Solicitado, Autorizado, Rechazado, Cancelado o Pagado).
+    string? EstadoReembolso = null,
+    DateTimeOffset? ReembolsoActualizadoEn = null,
+    DateOnly? ReembolsoPagadoEl = null,
+    string? ReembolsoReferencia = null,
+    string? ReembolsoMotivoResolucion = null);
 
 public sealed record ComprobanteLineaDetalle(
     int Posicion,
@@ -143,11 +151,19 @@ public sealed class ComprobanteDetalleHandler
         var ncAplicadas = (await _db.NotasCredito.AsNoTracking()
                 .Where(n => n.FacturaRelacionadaId == f.Id && n.Estado == EstadoTimbrado.Timbrado)
                 .OrderBy(n => n.FolioNumero)
-                .Select(n => new { n.Id, n.Folio, n.Motivo, n.Total, n.Uuid, n.FechaTimbrado, n.ReembolsoSolicitadoEn })
+                .Select(n => new
+                {
+                    n.Id, n.Folio, n.Motivo, n.Total, n.Uuid, n.FechaTimbrado, n.ReembolsoSolicitadoEn, n.EstadoReembolso,
+                    n.ReembolsoActualizadoEn, n.ReembolsoPagadoEl, n.ReembolsoReferencia, n.ReembolsoMotivoResolucion,
+                })
                 .ToListAsync(cancellationToken))
             .Select(n => new NotaCreditoAplicadaDetalle(
                 n.Id, n.Folio, n.Motivo.ToString(), n.Total, n.Uuid, n.FechaTimbrado,
-                ReembolsoSolicitado: n.ReembolsoSolicitadoEn != null))
+                ReembolsoSolicitado: n.ReembolsoSolicitadoEn != null,
+                // Las NC que pidieron reembolso antes de F6.3 no tienen estado: siguen como «Solicitado».
+                EstadoReembolso: n.EstadoReembolso?.ToString() ?? (n.ReembolsoSolicitadoEn != null ? "Solicitado" : null),
+                ReembolsoActualizadoEn: n.ReembolsoActualizadoEn, ReembolsoPagadoEl: n.ReembolsoPagadoEl,
+                ReembolsoReferencia: n.ReembolsoReferencia, ReembolsoMotivoResolucion: n.ReembolsoMotivoResolucion))
             .ToList();
         var totalAcreditado = ncAplicadas.Sum(n => n.Total);
 
@@ -167,7 +183,7 @@ public sealed class ComprobanteDetalleHandler
             cobroDetalle = new CobroFacturaDetalle(
                 cobro.Id, cobro.FechaCobro, cobro.UsuarioCobradorId, cobro.Total,
                 cobro.FormasPago.OrderBy(p => p.FormaPago).ThenBy(p => p.Id)
-                    .Select(p => new CobroFormaPagoItem(p.FormaPago, p.Importe, p.Referencia)).ToList(),
+                    .Select(p => new CobroFormaPagoItem(p.FormaPago, p.Importe, p.Referencia, p.TarjetaUltimos4)).ToList(),
                 new CobroCajaSesionDetalle(sesion.Id, sesion.CajaId, sesion.CajaNombre,
                     sesion.DiaOperacion, sesion.Estado.ToString()));
         }
@@ -199,6 +215,7 @@ public sealed class ComprobanteDetalleHandler
             OrdenCompraCliente: f.OrdenCompraCliente, ReferenciaCliente: f.ReferenciaCliente,
             CondicionesPago: f.CondicionesPago, Proforma: f.Proforma, Observaciones: f.Observaciones,
             TotalKg: f.TotalKg, TotalPie2: f.TotalPie2, TotalPiezas: f.TotalPiezas,
-            NoCertificadoEmisor: f.NoCertificadoEmisor, CadenaOriginalTimbre: f.CadenaOriginalTimbre);
+            NoCertificadoEmisor: f.NoCertificadoEmisor, CadenaOriginalTimbre: f.CadenaOriginalTimbre,
+            ClienteId: await Integration.ClienteContableFacturacion.ResolverAsync(_db, f, cancellationToken));
     }
 }

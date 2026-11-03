@@ -14,7 +14,7 @@ namespace Millet.Facturacion.Application.Timbrado.DescartarComprobante;
 /// Descarta un comprobante fallido ([Decisión 01-G] G3). Carga polimórfica
 /// por la raíz TPT (mismo patrón que <c>ReintentarTimbradoHandler</c>); la
 /// FSM valida <c>TimbradoFallido → Descartada</c>. Efectos por tipo — espejo
-/// de los de la cancelación (<c>SolicitarCancelacionHandler</c>):
+/// de los de la cancelación (<c>AutorizarCancelacionHandler</c>):
 ///
 /// <list type="bullet">
 /// <item><c>FacturaVenta</c>: si esta factura tenía tomado su pedido (G5),
@@ -70,7 +70,6 @@ public sealed class DescartarComprobanteHandler
                             .FirstOrDefaultAsync(c => c.PedidoFacturableId == pedido.Id, cancellationToken);
                         if (control is not null)
                         {
-                            control.SolicitarWriteBackEstado("SinFacturar", uuid: null, _clock.UtcNow);
                             control.CambiarEstado(EstadoIngesta.Importado);
                         }
                     }

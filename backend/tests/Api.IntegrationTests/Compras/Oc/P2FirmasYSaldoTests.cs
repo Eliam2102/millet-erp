@@ -367,7 +367,7 @@ public partial class OrdenesCompraEndpointsTests
                     sp.GetRequiredService<Millet.Compras.Domain.Ports.Blob.IAlmacenarBlobPort>())
                     .Handle(DesdeRqP2(rqId), default);
             else if (flujo == "duplicar")
-                await new DuplicarOrdenCompraHandler(db, puerto, usuario, empresa, reloj, publisher)
+                await new DuplicarOrdenCompraHandler(db, puerto, usuario, empresa, reloj, publisher, sp.GetRequiredService<CompartidoDbContext>())
                     .Handle(new(id, "MID", 2026, new DateOnly(2026, 10, 9)), default);
             else
                 await new AgregarLineaDesdeRequisicionHandler(db, puerto, empresa, reloj, publisher,

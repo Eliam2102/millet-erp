@@ -43,6 +43,16 @@ export interface DevolucionesFiltros {
   limit?: number;
 }
 
+/** F6.6: filtros de la bandeja «Folios de transferencia». */
+export interface FoliosTransferenciaFiltros {
+  estado?: number;
+  clienteId?: string;
+  movimientoId?: string;
+  folio?: string;
+  offset?: number;
+  limit?: number;
+}
+
 export const tesoreriaKeys = {
   all: ['tesoreria'] as const,
 
@@ -80,6 +90,9 @@ export const tesoreriaKeys = {
     [...tesoreriaKeys.depositos(), 'list', filtros] as const,
 
   // Devoluciones a clientes (T9.6)
+  foliosTransferencia: () => [...tesoreriaKeys.all, 'folios-transferencia'] as const,
+  foliosTransferenciaList: (filtros: FoliosTransferenciaFiltros) =>
+    [...tesoreriaKeys.foliosTransferencia(), 'list', filtros] as const,
   devoluciones: () => [...tesoreriaKeys.all, 'devoluciones'] as const,
   devolucionesList: (filtros: DevolucionesFiltros) =>
     [...tesoreriaKeys.devoluciones(), 'list', filtros] as const,
@@ -97,4 +110,19 @@ export const tesoreriaKeys = {
     [...tesoreriaKeys.reportes(), 'flujo-efectivo', filtros] as const,
   auxiliarBancos: (filtros: Record<string, unknown>) =>
     [...tesoreriaKeys.reportes(), 'auxiliar-bancos', filtros] as const,
+
+  // Corridas de pago (T9.1-A)
+  corridas: () => [...tesoreriaKeys.all, 'corridas'] as const,
+  corridasList: (filtros: Record<string, unknown>) =>
+    [...tesoreriaKeys.corridas(), 'list', filtros] as const,
+  corrida: (id: string) => [...tesoreriaKeys.corridas(), 'byId', id] as const,
+  corridaCandidatos: (filtros: Record<string, unknown>) =>
+    [...tesoreriaKeys.corridas(), 'candidatos', filtros] as const,
+
+  // Conciliación bancaria (T9.2)
+  conciliaciones: () => [...tesoreriaKeys.all, 'conciliaciones'] as const,
+  conciliacionesList: (filtros: Record<string, unknown>) =>
+    [...tesoreriaKeys.conciliaciones(), 'list', filtros] as const,
+  conciliacion: (id: string) =>
+    [...tesoreriaKeys.conciliaciones(), 'byId', id] as const,
 };

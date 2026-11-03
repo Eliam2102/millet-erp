@@ -101,6 +101,21 @@ public class DirectorioEntraEndpointsTests
     }
 
     [Fact]
+    public async Task Cuenta_Que_Ya_Entro_De_Otro_Dominio_Se_Puede_Vincular_Pero_No_Crear()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var correo = $"invitada-{RandomSufijo()}@gmail.com";
+        await FakeLoginAsync(_factory.CreateClient(), Guid.NewGuid().ToString(), correo, "Cuenta Invitada");
+
+        var json = await ValidarAsync(client, correo);
+
+        Assert.False(json.GetProperty("dominioPermitido").GetBoolean());
+        Assert.True(json.GetProperty("puedeVincularCuentaExistente").GetBoolean());
+        Assert.False(json.GetProperty("puedeCrearCuentaNueva").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, json.GetProperty("motivoBloqueo").ValueKind);
+    }
+
+    [Fact]
     public async Task Usuario_Erp_Con_Mismo_Correo_Se_Informa_Y_Bloquea_Crear()
     {
         var client = await CreateSuperAdminClientAsync();

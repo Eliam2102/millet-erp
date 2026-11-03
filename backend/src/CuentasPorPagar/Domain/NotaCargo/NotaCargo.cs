@@ -122,6 +122,23 @@ public sealed class NotaCargo : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRele
         FechaAutorizacion = ahora;
     }
 
+    /// <summary>
+    /// Devolución a proveedor (decisión fiscal 30-oct): la nota nace aplicada
+    /// («aplicada sin formalizar») en la salida física, sin usuario ni autorización manual.
+    /// </summary>
+    public void AplicarPorDevolucion(DateTimeOffset ahora)
+    {
+        if (Estado != EstadoNotaCargo.Borrador || DevolucionAProveedorId is null || FacturaOrigenId is null)
+        {
+            throw new BusinessRuleException(
+                "NCG_NO_APLICABLE_POR_DEVOLUCION",
+                "Solo una nota en Borrador con devolución y factura de origen puede aplicarse automáticamente.");
+        }
+        Estado = EstadoNotaCargo.Aplicada;
+        FechaAutorizacion = ahora;
+        FechaAplicacion = ahora;
+    }
+
     public void VincularFactura(Guid facturaId)
     {
         if (Estado is not (EstadoNotaCargo.Borrador or EstadoNotaCargo.Autorizada) || facturaId == Guid.Empty)

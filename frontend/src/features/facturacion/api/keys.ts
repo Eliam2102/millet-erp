@@ -82,6 +82,10 @@ export const facturacionKeys = {
     [...facturacionKeys.facturas(), 'byId', id, 'envios'] as const,
   facturaCancelacion: (id: string) =>
     [...facturacionKeys.facturas(), 'byId', id, 'cancelacion'] as const,
+  // F6.5: bandeja de cancelaciones del Contador General.
+  cancelaciones: () => [...facturacionKeys.all, 'cancelaciones'] as const,
+  cancelacionesBandeja: (estado: string) =>
+    [...facturacionKeys.cancelaciones(), 'bandeja', estado] as const,
   // Bitácora de intentos de timbrado ([Decisión 01-G] G4, F13-PR2).
   comprobanteIntentos: (id: string) =>
     [...facturacionKeys.facturas(), 'byId', id, 'intentos-timbrado'] as const,
@@ -165,6 +169,9 @@ export const facturacionKeys = {
     [...facturacionKeys.sesiones(), 'list', { cajaId }] as const,
   cobros: (sesionId: string) =>
     [...facturacionKeys.cajas(), 'cobros', { sesionId }] as const,
+  // F6.6: folios de transferencia vigentes del cliente del comprobante.
+  foliosTransferencia: (comprobanteId: string) =>
+    [...facturacionKeys.cajas(), 'folios-transferencia', { comprobanteId }] as const,
 
   // Liquidación de ruta + ajustes (CAJAS-PR7)
   cobrables: (search: string | null) =>

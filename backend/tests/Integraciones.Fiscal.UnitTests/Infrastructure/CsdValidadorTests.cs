@@ -15,7 +15,8 @@ internal static class CsdTestFactory
         string password = "12345678a",
         DateTimeOffset? notBefore = null,
         DateTimeOffset? notAfter = null,
-        string subject = "CN=EKU9003173C9, OU=Sucursal de prueba")
+        string subject = "CN=EKU9003173C9, OU=Sucursal de prueba",
+        string? numeroSerie = null)
     {
         using var rsa = RSA.Create(2048);
         var req = new CertificateRequest(
@@ -26,7 +27,8 @@ internal static class CsdTestFactory
             X509SignatureGenerator.CreateForRSA(rsa, RSASignaturePadding.Pkcs1),
             notBefore ?? DateTimeOffset.UtcNow.AddDays(-1),
             notAfter ?? DateTimeOffset.UtcNow.AddYears(4),
-            RandomNumberGenerator.GetBytes(16));
+            // F6.9: el SAT codifica el número de certificado como los códigos ASCII de sus dígitos.
+            numeroSerie is null ? RandomNumberGenerator.GetBytes(16) : System.Text.Encoding.ASCII.GetBytes(numeroSerie));
 
         var cerBase64 = Convert.ToBase64String(cert.Export(X509ContentType.Cert));
         var keyBase64 = Convert.ToBase64String(rsa.ExportEncryptedPkcs8PrivateKey(

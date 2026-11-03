@@ -253,7 +253,7 @@ public sealed class CicloAnticipoDetalleTests
             .Handle(FacturaCommand([new AnticipoAAmortizar(anticipo.AnticipoId, 500m)]), CancellationToken.None);
         var nc = await db.NotasCredito.SingleAsync();
 
-        var handler = new ComprobantePdfHandler(db, new FakeAlcanceCajaEvaluator(), new QuestPdfFacturaGenerator());
+        var handler = new ComprobantePdfHandler(db, new FakeAlcanceCajaEvaluator(), new QuestPdfFacturaGenerator(), new FakeDatosImpresionCfdi());
 
         var pdfAnticipo = await handler.Handle(
             new ComprobantePdfQuery(anticipo.FacturaAnticipoId, FormatoPdfFactura.Bilingue, FamiliaComprobante.FacturaAnticipo),

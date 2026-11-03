@@ -87,6 +87,8 @@ export const EstadoTimbrado = {
   Cancelado: 7,
   /** Fallida descartada a conciencia: terminal, quema el folio y libera el pedido (01-G G3). */
   Descartada: 8,
+  /** Nota de crédito de A+W que espera autorización (86e3wjt5r); no se timbra hasta autorizarla. */
+  PorAutorizar: 9,
 } as const satisfies Record<string, number>;
 export type EstadoTimbrado =
   (typeof EstadoTimbrado)[keyof typeof EstadoTimbrado];
@@ -436,6 +438,39 @@ export interface AnticipoSaldoDetalle {
   obraId: number | null;
   obraNombre: string | null;
   vinculaciones: AnticipoVinculacionInfo[];
+  /** F6.3 · CA6.17: devuelto en dinero al cliente. */
+  montoDevuelto?: number;
+  devoluciones?: AnticipoDevolucionInfo[] | null;
+}
+
+/** F6.3: NC de devolución del anticipo y el estado de su reembolso en Tesorería. */
+export interface AnticipoDevolucionInfo {
+  notaCreditoId: string;
+  folio: string;
+  uuid: string | null;
+  estado: string;
+  total: number;
+  estadoReembolso: EstadoReembolsoNc | null;
+  reembolsoPagadoEl: string | null;
+  reembolsoReferencia: string | null;
+  reembolsoMotivoResolucion: string | null;
+}
+
+/** F6.3 · CA6.17: POST /notas-credito/devolucion-anticipo. */
+export interface NotaCreditoDevolucionAnticipoCommand {
+  anticipoId: string;
+  montoTotal: number;
+  tasaIva: number | null;
+  reembolso: ReembolsoClienteRequest;
+}
+
+export interface NotaCreditoDevolucionAnticipoResponse {
+  id: string;
+  estado: string;
+  uuid: string | null;
+  folio: string;
+  total: number;
+  saldoAnticipo: number;
 }
 
 /** Detalle de una factura de anticipo (GET /anticipos/facturas/{id}). */
@@ -479,6 +514,8 @@ export interface EmitirReppCommand {
   formaPagoReal: string;
   cuentaOrdenante: string | null;
   cuentaBeneficiaria: string | null;
+  /** 86e3tfdve: cuenta de Millet; el backend resuelve su CLABE/número. */
+  cuentaBancariaBeneficiariaId?: string | null;
   referenciaPago: string | null;
   facturas: ReppFacturaPago[];
 }
@@ -512,6 +549,9 @@ export interface ReppBandejaItem {
   receptorNombre: string;
   importeTotalPago: number;
   fechaPago: string;
+  /** 86e3tfdve: cuentas del pago enmascaradas («•••• 1234»). */
+  cuentaOrdenante?: string | null;
+  cuentaBeneficiaria?: string | null;
 }
 
 /** Factura cubierta por un REPP (detalle). */
@@ -558,6 +598,10 @@ export interface ReppDetalleResponse {
   timbradoErrorCodigo: string | null;
   timbradoErrorMensaje: string | null;
   folioPac: string | null;
+  /** 86e3tfdve: forma de pago y cuentas enmascaradas («•••• 1234»). */
+  formaPago?: string | null;
+  cuentaOrdenante?: string | null;
+  cuentaBeneficiaria?: string | null;
 }
 
 // ─── Carta Porte 3.1 (FE-F8) ──────────────────────────────────────────
@@ -1193,6 +1237,8 @@ export interface ComprobanteDetalleResponse {
   totalPiezas?: number;
   noCertificadoEmisor?: string | null;
   cadenaOriginalTimbre?: string | null;
+  /** F1-CXC-05 P2: cliente del pedido; con él se ofrecen sus anticipos para aplicar a la factura. */
+  clienteId?: string | null;
 
   datosEmbarqueCe?: import('@/features/comercio-exterior/api/types').DatosEmbarqueCe | null;
   id: string;
@@ -1234,7 +1280,12 @@ export interface CobroFacturaDetalle {
   fechaCobro: string;
   usuarioCobradorId: string;
   total: number;
-  formasPago: { formaPago: string; importe: number; referencia: string | null }[];
+  formasPago: {
+    formaPago: string;
+    importe: number;
+    referencia: string | null;
+    tarjetaUltimos4?: string | null;
+  }[];
   sesion: {
     id: string;
     cajaId: string;
@@ -1254,6 +1305,13 @@ export interface NotaCreditoAplicadaDetalle {
   fechaTimbrado: string | null;
   /** T9.6 · CA6.17: ya se pidió a Tesorería el reembolso de esta NC. */
   reembolsoSolicitado?: boolean;
+  /** F6.3: estado del reembolso que reporta Tesorería; null = sin reembolso. */
+  estadoReembolso?: EstadoReembolsoNc | null;
+  reembolsoActualizadoEn?: string | null;
+  /** F6.3: fecha valor del pago (yyyy-MM-dd). */
+  reembolsoPagadoEl?: string | null;
+  reembolsoReferencia?: string | null;
+  reembolsoMotivoResolucion?: string | null;
 }
 
 /** Respuesta de POST /comprobantes/{id}/reintentar-timbrado (todos los tipos). */
@@ -1312,7 +1370,19 @@ export interface NotaCreditoBonificacionCommand {
   montoTotal: number;
   tasaIva: number | null;
   descripcion: string | null;
+  /** F6.3: «Devolver dinero al cliente»; al timbrar se pide a Tesorería el reembolso con esta cuenta. */
+  reembolso?: ReembolsoClienteRequest | null;
 }
+
+/** F6.3: cuenta destino del reembolso al cliente (CLABE de 18 dígitos). */
+export interface ReembolsoClienteRequest {
+  banco: string;
+  clabe: string;
+  titular: string;
+}
+
+/** F6.3: estado del reembolso de una NC según Tesorería. */
+export type EstadoReembolsoNc = 'Solicitado' | 'Autorizado' | 'Rechazado' | 'Cancelado' | 'Pagado';
 
 /** Respuesta de la NC de bonificación. */
 export interface NotaCreditoBonificacionResponse {
@@ -1370,6 +1440,63 @@ export interface ConsultarCancelacionResponse {
   mensajeError: string | null;
   solicitadaEn: string | null;
   resueltaEn: string | null;
+  /** F6.5: UUID que sustituye (motivo 01), quién solicitó y quién decidió. */
+  uuidSustituto?: string | null;
+  solicitadaPor?: string | null;
+  decididaPor?: string | null;
+  decididaEn?: string | null;
+  /** Motivo por el que el Contador General no autorizó la cancelación. */
+  motivoRechazo?: string | null;
+}
+
+/**
+ * Estados de una solicitud de cancelación (F6.5): nace pendiente de la
+ * autorización del Contador General; solo al autorizarse se envía al PAC.
+ */
+export type EstadoSolicitudCancelacion =
+  | 'PendienteAutorizacion'
+  | 'RechazadaPorAutorizador'
+  | 'Retirada'
+  | 'Solicitada'
+  | 'EnProceso'
+  | 'Aceptada'
+  | 'Rechazada'
+  | 'Vencida';
+
+export const ESTADO_SOLICITUD_CANCELACION_LABEL: Record<EstadoSolicitudCancelacion, string> = {
+  PendienteAutorizacion: 'Pendiente de autorización',
+  RechazadaPorAutorizador: 'No autorizada',
+  Retirada: 'Retirada',
+  Solicitada: 'Enviada al SAT',
+  EnProceso: 'En proceso ante el SAT',
+  Aceptada: 'Aceptada por el SAT',
+  Rechazada: 'Rechazada por el SAT',
+  Vencida: 'Aceptada (plazo vencido)',
+};
+
+/** Fila de la bandeja de cancelaciones del Contador General (GET /comprobantes/cancelaciones). */
+export interface CancelacionBandejaItem {
+  solicitudId: string;
+  comprobanteId: string;
+  /** Tipo .NET del comprobante: FacturaVenta, FacturaAnticipo, NotaCredito, ReciboPago, CartaPorte. */
+  tipoComprobante: string;
+  folio: string;
+  uuid: string | null;
+  receptorRfc: string;
+  receptorNombre: string;
+  total: number;
+  moneda: string;
+  estadoComprobante: string;
+  motivoSat: string;
+  uuidSustituto: string | null;
+  estadoSolicitud: EstadoSolicitudCancelacion;
+  solicitadaPor: string | null;
+  /** Usuario que solicitó: no puede decidir su propia solicitud (O2). */
+  solicitadaPorId?: string | null;
+  solicitadaEn: string;
+  decididaPor: string | null;
+  decididaEn: string | null;
+  motivoRechazo: string | null;
 }
 
 // ─── Cajas (CAJAS-PR5; backend CAJAS-PR1, 12-cajas.md §7/§10) ─────────
@@ -1452,6 +1579,9 @@ export interface CajaMovimientoDto {
   cobroMostradorId: string | null;
   usuarioId: string;
   createdAt: string;
+  /** Folio del Vale de Caja, consecutivo por caja; solo en retiros (86e3ww6tw). */
+  folioVale?: number | null;
+  tarjetaUltimos4?: string | null;
 }
 
 export interface CajaSesionDetalleResponse {
@@ -1481,6 +1611,8 @@ export interface CajaSesionDetalleResponse {
 export interface SesionActualResponse {
   sesion: CajaSesionDetalleResponse | null;
   diaAnteriorPendiente: boolean;
+  /** Sin sesión vigente: caja y sucursal de la última sesión del día, para prellenar la apertura. */
+  ultimaSesionHoy?: { cajaId: string; sucursalId: string } | null;
 }
 
 export interface CajaSesionMutadaResponse {
@@ -1494,6 +1626,8 @@ export interface CajaMovimientoRegistradoResponse {
   id: string;
   sesionId: string;
   importe: number;
+  /** Folio del Vale de Caja del retiro (86e3ww6tw); null en depósitos. */
+  folioVale?: number | null;
 }
 
 export interface AutorizacionAperturaResponse {
@@ -1509,6 +1643,21 @@ export interface CobroFormaPagoInput {
   referencia?: string | null;
   cuentaOrdenante?: string | null;
   cuentaBeneficiaria?: string | null;
+  /** 86e3tfdvt: últimos 4 dígitos de la tarjeta (solo 04 y 28). */
+  tarjetaUltimos4?: string | null;
+  /** F6.6: folio de confirmación de Ingresos (solo forma 03, obligatorio). */
+  folioTransferencia?: string | null;
+}
+
+/** F6.6: folio de transferencia vigente que emitió Ingresos para el cliente del comprobante. */
+export interface FolioTransferenciaCaja {
+  id: string;
+  folio: string;
+  clienteId: string;
+  importe: number;
+  estado: string;
+  cobroMostradorId: string | null;
+  pedido: string | null;
 }
 
 export interface CobroMostradorResponse {
@@ -1523,6 +1672,7 @@ export interface CobroFormaPagoItem {
   formaPago: string;
   importe: number;
   referencia: string | null;
+  tarjetaUltimos4?: string | null;
 }
 
 export interface CobroMostradorItem {
@@ -1889,4 +2039,14 @@ export interface ConciliacionFacturadoIngresadoResponse {
   resumen: ConciliacionResumen;
   porCajero: ReporteBackend<ConciliacionCajeroFila>;
   partidas: ReporteBackend<ConciliacionPartidaFila>;
+}
+
+/** F1-CXC-05 P2: POST /anticipos/{id}/aplicar — aplica el anticipo a una factura ya timbrada. */
+export interface AplicarAnticipoAFacturaResponse {
+  notaCreditoId: string;
+  folio: string;
+  uuid: string | null;
+  importe: number;
+  saldoAnticipo: number;
+  saldoFactura: number;
 }

@@ -1,11 +1,22 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
 import { DetalleFactura } from '@/features/facturacion/pages/DetalleFactura';
 
 vi.mock('@/lib/auth/useHasPermission', () => ({ useHasPermission: () => true }));
+// F1-CXC-05 P2: el selector real consulta el estado de cuenta; aquí basta con elegir un anticipo.
+vi.mock('@/features/facturacion/components/AnticipoPicker', () => ({
+  AnticipoPicker: ({ onChange }: { onChange: (a: unknown) => void }) => (
+    <button
+      type="button"
+      onClick={() => onChange({ anticipoId: 'a-7', folio: 'FANT-7', saldo: 500, estado: 'Abierto' })}
+    >
+      Elegir anticipo FANT-7
+    </button>
+  ),
+}));
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
@@ -173,6 +184,153 @@ describe('<DetalleFactura> — smoke', () => {
     await waitFor(() => expect(screen.getByText('NC-9')).toBeInTheDocument());
     expect(screen.getAllByRole('button', { name: 'Solicitar reembolso' })).toHaveLength(1);
     expect(screen.getByText('Solicitado')).toBeInTheDocument();
+  });
+
+  it.each([
+    {
+      estadoSolicitud: 'PendienteAutorizacion',
+      motivoRechazo: null,
+      decididaPor: null,
+      textos: [/Pendiente de autorización/, /No se envía al SAT hasta que el Contador General/],
+      retirar: true,
+    },
+    {
+      estadoSolicitud: 'RechazadaPorAutorizador',
+      motivoRechazo: 'Se corrige con nota de crédito',
+      decididaPor: 'Contador demo',
+      textos: [/No autorizada/, /Motivo: Se corrige con nota de crédito\. La factura sigue vigente\./, /No la autorizó: Contador demo/],
+      retirar: false,
+    },
+  ])('F6.5: muestra la solicitud $estadoSolicitud', async (caso) => {
+    mswServer.use(
+      http.get('*/api/v1/facturacion/facturas/f-1', () => HttpResponse.json(detalle)),
+      http.get('*/api/v1/facturacion/facturas/f-1/envios', () => HttpResponse.json([])),
+      http.get('*/api/v1/facturacion/comprobantes/f-1/cancelar', () =>
+        HttpResponse.json({
+          comprobanteId: 'f-1',
+          estadoComprobante: 'Timbrado',
+          solicitudId: 's-1',
+          estadoSolicitud: caso.estadoSolicitud,
+          motivoSat: '02',
+          estatusSat: null,
+          mensajeError: null,
+          solicitadaEn: '2026-10-31T10:00:00Z',
+          resueltaEn: null,
+          uuidSustituto: null,
+          solicitadaPor: 'Ingresos demo',
+          decididaPor: caso.decididaPor,
+          decididaEn: null,
+          motivoRechazo: caso.motivoRechazo,
+        }),
+      ),
+    );
+    render(<DetalleFactura />, { wrapper: createQueryWrapper() });
+    for (const texto of caso.textos) expect(await screen.findByText(texto)).toBeInTheDocument();
+    expect(screen.getByText('Solicitó: Ingresos demo')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retirar solicitud' }) != null).toBe(caso.retirar);
+    // Con una solicitud pendiente no se ofrece pedir otra.
+    expect(screen.queryByRole('button', { name: /^Cancelar$/ }) == null).toBe(caso.retirar);
+  });
+
+  it('F6.3: muestra el estado del reembolso que reporta Tesorería y «Pagado» con fecha y referencia', async () => {
+    const nc = {
+      id: 'nc-20',
+      folio: 'NC-20',
+      motivo: 'Bonificacion',
+      total: 50,
+      uuid: null,
+      fechaTimbrado: '2026-10-30T11:00:00Z',
+      reembolsoSolicitado: true,
+    };
+    mswServer.use(
+      http.get('*/api/v1/facturacion/facturas/f-1', () =>
+        HttpResponse.json({
+          ...detalle,
+          relaciones: [],
+          notasCreditoAplicadas: [
+            { ...nc, estadoReembolso: 'Pagado', reembolsoPagadoEl: '2026-10-31', reembolsoReferencia: 'SPEI 987' },
+            { ...nc, id: 'nc-21', folio: 'NC-21', estadoReembolso: 'Rechazado', reembolsoMotivoResolucion: 'Cuenta no coincide' },
+            { ...nc, id: 'nc-22', folio: 'NC-22', estadoReembolso: 'Autorizado' },
+          ],
+        }),
+      ),
+      http.get('*/api/v1/facturacion/facturas/f-1/envios', () => HttpResponse.json([])),
+    );
+    render(<DetalleFactura />, { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(screen.getByText('NC-20')).toBeInTheDocument());
+    const pagada = screen.getByTestId('reembolso-nc-NC-20');
+    expect(pagada).toHaveTextContent('Pagado');
+    expect(pagada).toHaveTextContent('SPEI 987');
+    expect(pagada).toHaveTextContent(/31 oct 2026/i);
+    expect(screen.getByTestId('reembolso-nc-NC-21')).toHaveTextContent('RechazadoCuenta no coincide');
+    expect(screen.getByTestId('reembolso-nc-NC-22')).toHaveTextContent('Autorizado');
+    expect(screen.queryByRole('button', { name: 'Solicitar reembolso' })).not.toBeInTheDocument();
+  });
+
+  it('F6.3: la NC de bonificación con «Devolver dinero al cliente» envía la cuenta destino', async () => {
+    let cuerpo: unknown = null;
+    mswServer.use(
+      http.get('*/api/v1/facturacion/facturas/f-1', () => HttpResponse.json({ ...detalle, relaciones: [] })),
+      http.get('*/api/v1/facturacion/facturas/f-1/envios', () => HttpResponse.json([])),
+      http.post('*/api/v1/facturacion/notas-credito/bonificacion', async ({ request }) => {
+        cuerpo = await request.json();
+        return HttpResponse.json({ id: 'nc-30', estado: 'Timbrado', uuid: 'U', folio: 'NC-30', total: 10 }, { status: 201 });
+      }),
+    );
+    render(<DetalleFactura />, { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(screen.getByText('A-1')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /NC bonificación/i }));
+    fireEvent.change(screen.getAllByRole('spinbutton')[0], { target: { value: '10' } });
+    fireEvent.click(screen.getByRole('checkbox', { name: /Devolver dinero al cliente/i }));
+    fireEvent.change(screen.getByLabelText(/Banco/), { target: { value: 'BBVA' } });
+    fireEvent.change(screen.getByLabelText(/CLABE/), { target: { value: '0321-8000 0118 359719' } });
+    fireEvent.change(screen.getByLabelText(/Titular/), { target: { value: 'Cliente SA' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Emitir NC' }));
+
+    await waitFor(() => expect(cuerpo).not.toBeNull());
+    expect(cuerpo).toMatchObject({
+      reembolso: { banco: 'BBVA', clabe: '032180000118359719', titular: 'Cliente SA' },
+    });
+  });
+
+  it('F1-CXC-05 P2: aplica un anticipo del cliente a la factura timbrada con tope en lo que falta por cobrar', async () => {
+    let peticion: { url: string; cuerpo: unknown } | null = null;
+    mswServer.use(
+      http.get('*/api/v1/facturacion/facturas/f-1', () =>
+        HttpResponse.json({ ...detalle, relaciones: [], clienteId: 'c-1', totalPorCobrar: 300 }),
+      ),
+      http.get('*/api/v1/facturacion/facturas/f-1/envios', () => HttpResponse.json([])),
+      http.post('*/api/v1/facturacion/anticipos/:id/aplicar', async ({ request }) => {
+        peticion = { url: request.url, cuerpo: await request.json() };
+        return HttpResponse.json({
+          notaCreditoId: 'nc-40', folio: 'NC-40', uuid: 'U', importe: 300, saldoAnticipo: 200, saldoFactura: 0,
+        });
+      }),
+    );
+    render(<DetalleFactura />, { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(screen.getByText('A-1')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /Aplicar anticipo/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Elegir anticipo FANT-7' }));
+    // Propone el menor entre el saldo del anticipo (500) y lo que falta por cobrar (300).
+    expect(screen.getByLabelText(/Importe/)).toHaveValue(300);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Aplicar anticipo' }).at(-1)!);
+
+    await waitFor(() => expect(peticion).not.toBeNull());
+    expect(peticion!.url).toContain('/anticipos/a-7/aplicar');
+    expect(peticion!.cuerpo).toEqual({ facturaVentaId: 'f-1', importe: 300 });
+  });
+
+  it('F1-CXC-05 P2: sin saldo por cobrar no ofrece aplicar anticipo', async () => {
+    mswServer.use(
+      http.get('*/api/v1/facturacion/facturas/f-1', () =>
+        HttpResponse.json({ ...detalle, relaciones: [], clienteId: 'c-1', totalPorCobrar: 0 }),
+      ),
+      http.get('*/api/v1/facturacion/facturas/f-1/envios', () => HttpResponse.json([])),
+    );
+    render(<DetalleFactura />, { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(screen.getByText('A-1')).toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: /Aplicar anticipo/i })).not.toBeInTheDocument();
   });
 
   it('estado error cuando la factura no existe', async () => {

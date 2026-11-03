@@ -3,10 +3,12 @@ using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Infrastructure.Outbox;
 using Millet.SharedKernel.Infrastructure.Persistence;
 using Millet.Tesoreria.Domain.Corridas;
+using Millet.Tesoreria.Domain.Conciliaciones;
 using Millet.Tesoreria.Domain.Cuentas;
 using Millet.Tesoreria.Domain.Depositos;
 using Millet.Tesoreria.Domain.Devoluciones;
 using Millet.Tesoreria.Domain.Eventos;
+using Millet.Tesoreria.Domain.FoliosTransferencia;
 using Millet.Tesoreria.Domain.Movimientos;
 using Millet.Tesoreria.Domain.Pasivos;
 using Millet.Tesoreria.Domain.Repp;
@@ -52,15 +54,31 @@ public sealed class TesoreriaDbContext : BaseDbContext
 
     /// <summary>Corridas de pago con máquina de estados RN-5 (PR-5).</summary>
     public DbSet<CorridaPago> CorridasPago => Set<CorridaPago>();
+    public DbSet<PoliticaFirmaCorrida> PoliticasFirmaCorrida => Set<PoliticaFirmaCorrida>();
+    public DbSet<ArchivoLayoutPago> ArchivosLayoutPago => Set<ArchivoLayoutPago>();
+    public DbSet<ArchivoLayoutPagoLinea> ArchivosLayoutPagoLineas => Set<ArchivoLayoutPagoLinea>();
+    public DbSet<PerfilLayoutBanco> PerfilesLayoutBanco => Set<PerfilLayoutBanco>();
 
     /// <summary>Confirmaciones de depósito de cliente — patrón propuesta/confirmación con CxC (PR-7).</summary>
     public DbSet<DepositoConfirmacion> DepositosConfirmacion => Set<DepositoConfirmacion>();
+    public DbSet<DepositoFicha> DepositoFichas => Set<DepositoFicha>();
+    public DbSet<DiferenciaCorte> DiferenciasCorte => Set<DiferenciaCorte>();
     public DbSet<DevolucionCliente> DevolucionesCliente => Set<DevolucionCliente>();
     public DbSet<FolioSecuenciaDevolucionCliente> FolioSecuenciasDevolucionCliente => Set<FolioSecuenciaDevolucionCliente>();
+
+    // F6.6 — folios de confirmación de transferencia que Ingresos emite para Caja.
+    public DbSet<FolioTransferencia> FoliosTransferencia => Set<FolioTransferencia>();
+    public DbSet<FolioSecuenciaTransferencia> FolioSecuenciasTransferencia => Set<FolioSecuenciaTransferencia>();
 
     /// <summary>REPP recibidos de proveedor — registro inmutable (PR-8).</summary>
     public DbSet<ReppPagoProveedor> ReppPagosProveedor => Set<ReppPagoProveedor>();
     public DbSet<ReppProveedorRecibido> ReppsProveedorRecibidos => Set<ReppProveedorRecibido>();
+
+    /// <summary>Conciliación bancaria mensual por cuenta (T9.2).</summary>
+    public DbSet<Conciliacion> Conciliaciones => Set<Conciliacion>();
+    public DbSet<ExtractoLinea> ExtractoLineas => Set<ExtractoLinea>();
+    public DbSet<ExtractoLineaMatch> ExtractoLineaMatches => Set<ExtractoLineaMatch>();
+    public DbSet<BitacoraConciliacion> BitacorasConciliacion => Set<BitacoraConciliacion>();
 
     /// <summary>Marcas de idempotencia para integration events consumidos (PR-3/PR-7).</summary>
     public DbSet<EventoProcesado> EventosProcesados => Set<EventoProcesado>();
@@ -87,10 +105,23 @@ public sealed class TesoreriaDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new PasivoPendientePagoConfiguration());
         modelBuilder.ApplyConfiguration(new CorridaPagoConfiguration());
         modelBuilder.ApplyConfiguration(new CorridaPagoLineaConfiguration());
+        modelBuilder.ApplyConfiguration(new CorridaPagoFirmaConfiguration());
+        modelBuilder.ApplyConfiguration(new PoliticaFirmaCorridaConfiguration());
+        modelBuilder.ApplyConfiguration(new ArchivoLayoutPagoConfiguration());
+        modelBuilder.ApplyConfiguration(new ArchivoLayoutPagoLineaConfiguration());
+        modelBuilder.ApplyConfiguration(new PerfilLayoutBancoConfiguration());
         modelBuilder.ApplyConfiguration(new DepositoConfirmacionConfiguration());
+        modelBuilder.ApplyConfiguration(new DepositoFichaConfiguration());
+        modelBuilder.ApplyConfiguration(new DiferenciaCorteConfiguration());
         modelBuilder.ApplyConfiguration(new DevolucionClienteConfiguration());
         modelBuilder.ApplyConfiguration(new FolioSecuenciaDevolucionClienteConfiguration());
+        modelBuilder.ApplyConfiguration(new FolioTransferenciaConfiguration());
+        modelBuilder.ApplyConfiguration(new FolioSecuenciaTransferenciaConfiguration());
         modelBuilder.ApplyConfiguration(new ReppProveedorRecibidoConfiguration());
+        modelBuilder.ApplyConfiguration(new ConciliacionConfiguration());
+        modelBuilder.ApplyConfiguration(new ExtractoLineaConfiguration());
+        modelBuilder.ApplyConfiguration(new ExtractoLineaMatchConfiguration());
+        modelBuilder.ApplyConfiguration(new BitacoraConciliacionConfiguration());
         modelBuilder.Entity<ReppPagoProveedor>(b =>
         {
             b.ToTable("repp_pagos_proveedor"); b.HasKey(x => x.Id); b.Property(x => x.Id).ValueGeneratedNever();

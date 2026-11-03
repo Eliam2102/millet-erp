@@ -84,6 +84,11 @@ public sealed class PagoFacturaProveedorAplicadoHandler : IRequestHandler<PagoFa
             ImportePagadoFactura: factura.ImporteSaldado,
             OcurridoEn: _clock.UtcNow, AplicacionId: p.PagoId), cancellationToken);
 
+        // P8.3: aviso de pago al proveedor (portal). Una fila por pago: un evento repetido no manda dos correos.
+        if (!await _db.AvisosPagoPortal.AnyAsync(a => a.PagoId == p.PagoId, cancellationToken)
+            && !_db.AvisosPagoPortal.Local.Any(a => a.PagoId == p.PagoId))
+            _db.AvisosPagoPortal.Add(new Domain.Portal.AvisoPagoPortal(factura.EmpresaId, factura.Id, p.PagoId, p.Monto, p.FechaPago));
+
         await RegistrarProcesado(request.EventId, EventType,
             $"Factura={p.FacturaProveedorId} monto={p.Monto} pago={p.PagoId}", cancellationToken);
 

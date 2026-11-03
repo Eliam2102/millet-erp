@@ -68,6 +68,7 @@ import { Field } from '@/features/almacen/components/internal/Field';
 import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 import { formatCantidad } from '@/lib/format-cantidad';
+import { PropuestaReposicion } from '@/features/almacen/components/PropuestaReposicion';
 
 const FROM = '/_app/almacen/reorden' as const;
 const SENTINEL_ALL = '__all__';
@@ -121,7 +122,7 @@ export function ReordenPage() {
 
   function resolverEntidad(item: ConfiguracionReordenListItem): string {
     const mapa = item.nivel === NivelReorden.Sucursal ? sucursalesMap : almacenesMap;
-    return mapa.get(item.entidadId)?.nombre ?? item.entidadId;
+    return mapa.get(item.entidadId)?.nombre ?? '—';
   }
 
   function confirmarCambioMotor(valor: boolean) {
@@ -295,6 +296,8 @@ export function ReordenPage() {
           </div>
         )}
       </ListadoModulo>
+
+      <PropuestaReposicion items={query.data?.items ?? []} puedeAdministrar={puedeAdministrar} />
 
       <ReordenSheet open={sheetAbierto} onOpenChange={setSheetAbierto} editando={editando} />
 

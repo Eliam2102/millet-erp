@@ -109,6 +109,19 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
     /// <summary>Acumulado de facturas registradas. Default 0. Máx <see cref="Cantidad"/>.</summary>
     public decimal CantidadFacturada { get; private set; }
 
+    /// <summary>
+    /// Acumulado devuelto al proveedor y acreditado con NC fiscal 03 (Almacén, <c>oc_devolucion.conciliada</c>).
+    /// Lo acreditado ya no se espera: el objetivo de la línea es <see cref="Cantidad"/> − acreditada y lo
+    /// facturado neto es <see cref="CantidadFacturada"/> (bruto, lo escribe solo CxP) − acreditada.
+    /// </summary>
+    public decimal CantidadAcreditada { get; private set; }
+
+    /// <summary>Cantidad que todavía se espera recibir y facturar (pedido menos lo acreditado).</summary>
+    public decimal CantidadObjetivo => Math.Max(0m, Cantidad - CantidadAcreditada);
+
+    /// <summary>Facturado neto de notas de crédito por devolución.</summary>
+    public decimal CantidadFacturadaNeta => Math.Max(0m, CantidadFacturada - CantidadAcreditada);
+
     public string? TextoAdicional { get; private set; }
 
     /// <summary>
@@ -116,6 +129,14 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
     /// PLATFORM-TODO(F1-COM-06): supuesto Vilo, confirmar con lista de Millet.
     /// </summary>
     public string? FraccionArancelaria { get; private set; }
+
+    /// <summary>
+    /// F1-MP-05 (A4.2): lote que el proveedor declara para la línea (opcional, cualquier artículo). Solo se captura antes de
+    /// autorizar; después manda lo que registre el almacenista. Máx. igual que el lote de Almacén (50).
+    /// </summary>
+    public string? LoteProveedor { get; private set; }
+
+    public const int LoteProveedorMaxLength = 50;
 
     public const string UnidadVidrio = "M2";
 
@@ -180,6 +201,20 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
         return f;
     }
 
+    /// <summary>Normaliza el lote del proveedor: vacío → null; recorta espacios; máx. <see cref="LoteProveedorMaxLength"/>.</summary>
+    internal static string? NormalizarLoteProveedor(string? lote)
+    {
+        if (string.IsNullOrWhiteSpace(lote)) return null;
+        var l = lote.Trim();
+        if (l.Length > LoteProveedorMaxLength)
+        {
+            throw new BusinessRuleException(
+                "LINEA_OC_LOTE_LARGO",
+                $"El lote del proveedor no puede exceder {LoteProveedorMaxLength} caracteres.");
+        }
+        return l;
+    }
+
     /// <summary>Constructor para EF Core.</summary>
     private LineaOrdenCompra() { }
 
@@ -210,7 +245,8 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
         string? fraccionArancelaria = null,
         Guid? productoAwVarianteId = null,
         decimal? anchoMm = null,
-        decimal? altoMm = null) : base(id)
+        decimal? altoMm = null,
+        string? loteProveedor = null) : base(id)
     {
         if (ordenCompraId == Guid.Empty)
         {
@@ -292,6 +328,7 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
         FechaEntregaLinea = fechaEntregaLinea?.ToUniversalTime();
         TextoAdicional = textoAdicional;
         FraccionArancelaria = NormalizarFraccionArancelaria(fraccionArancelaria);
+        LoteProveedor = NormalizarLoteProveedor(loteProveedor);
         CantidadRecibida = 0m;
         CantidadFacturada = 0m;
         AsignarMedida(productoAwVarianteId, anchoMm, altoMm);
@@ -340,7 +377,9 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
         Guid? claseActivoId = null,
         Guid? productoAwVarianteId = null,
         decimal? anchoMm = null,
-        decimal? altoMm = null)
+        decimal? altoMm = null,
+        string? loteProveedor = null,
+        bool limpiarLoteProveedor = false)
     {
         if (CantidadRecibida > 0m || CantidadFacturada > 0m)
         {
@@ -444,6 +483,9 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
         if (fraccionArancelaria is not null) FraccionArancelaria = NormalizarFraccionArancelaria(fraccionArancelaria);
         else if (limpiarFraccionArancelaria) FraccionArancelaria = null;
 
+        if (loteProveedor is not null) LoteProveedor = NormalizarLoteProveedor(loteProveedor);
+        else if (limpiarLoteProveedor) LoteProveedor = null;
+
         // Medida nueva, o revalidar la vigente (cambió cantidad o unidad): hojas enteras y m².
         if (productoAwVarianteId is not null) AsignarMedida(productoAwVarianteId, anchoMm, altoMm);
         else ValidarMedida();
@@ -523,8 +565,9 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
                 "LINEA_OC_CANTIDAD_FACTURADA_NEGATIVA",
                 "La cantidad facturada acumulada no puede ser negativa.");
         }
-        // three-way match: se factura hasta lo pedido o lo recibido (un recibido histórico puede exceder lo pedido)
-        var techo = Math.Max(Cantidad, CantidadRecibida);
+        // three-way match: se factura hasta lo pedido o lo recibido (un recibido histórico puede exceder lo pedido);
+        // lo acreditado por devolución no cuenta, así una reposición facturada cabe en el bruto.
+        var techo = Math.Max(Cantidad, CantidadRecibida) + CantidadAcreditada;
         if (cantidadAcumulada > techo)
         {
             throw new BusinessRuleException(
@@ -532,5 +575,25 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
                 $"La cantidad facturada acumulada ({cantidadAcumulada}) excede lo pedido o recibido en la línea ({techo}).");
         }
         CantidadFacturada = cantidadAcumulada;
+    }
+
+    /// <summary>
+    /// Asigna (no incrementa) el acumulado acreditado por devoluciones conciliadas con NC fiscal 03.
+    /// </summary>
+    internal void SetCantidadAcreditada(decimal cantidadAcumulada)
+    {
+        if (cantidadAcumulada < 0m)
+        {
+            throw new BusinessRuleException(
+                "LINEA_OC_CANTIDAD_ACREDITADA_NEGATIVA",
+                "La cantidad acreditada acumulada no puede ser negativa.");
+        }
+        if (cantidadAcumulada > Math.Max(Cantidad, CantidadFacturada))
+        {
+            throw new BusinessRuleException(
+                "LINEA_OC_CANTIDAD_ACREDITADA_EXCEDE",
+                $"La cantidad acreditada acumulada ({cantidadAcumulada}) excede lo pedido o facturado en la línea.");
+        }
+        CantidadAcreditada = cantidadAcumulada;
     }
 }

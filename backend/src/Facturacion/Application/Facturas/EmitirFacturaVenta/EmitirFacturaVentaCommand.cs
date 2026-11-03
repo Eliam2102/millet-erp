@@ -52,7 +52,10 @@ public sealed record EmitirFacturaVentaCommand(
     // los anticipos aplicados. Se imprime en el PDF; NUNCA va al XML del CFDI.
     string? Observaciones = null,
     string? OrdenCompraCliente = null, string? ReferenciaCliente = null,
-    string? CondicionesPago = null, string? Proforma = null) : IRequest<EmitirFacturaVentaResponse>;
+    string? CondicionesPago = null, string? Proforma = null,
+    // FAC-08: salida parcial del pedido que se factura. Las líneas deben ser las de la salida
+    // (posición, producto y cantidad); el pedido sigue Importado para las demás salidas.
+    Guid? SalidaFacturableId = null) : IRequest<EmitirFacturaVentaResponse>;
 
 /// <summary>Anticipo a amortizar contra la factura final, con el importe a aplicar.</summary>
 public sealed record AnticipoAAmortizar(Guid AnticipoId, decimal Importe);

@@ -326,6 +326,26 @@ public sealed class FiscalApiTimbradoAdapterTests
     }
 
     [Fact]
+    public async Task F69_timbrar_con_csd_revocado_o_vencido_es_fallido_sin_llamar_al_pac()
+    {
+        var invoices = new FakeInvoiceService { OnCreate = _ => RespuestaTimbrada() };
+        var vigente = CsdPrueba with { VenceEn = DateTimeOffset.UtcNow.AddYears(1) };
+
+        var revocado = await Adapter(invoices, ConfigSandbox() with { Csd = vigente with { RevocadoEn = DateTimeOffset.UtcNow.AddDays(-1) } })
+            .TimbrarAsync(EmisionIngreso(), CancellationToken.None);
+        var vencido = await Adapter(invoices, ConfigSandbox() with { Csd = vigente with { VenceEn = DateTimeOffset.UtcNow.AddMinutes(-1) } })
+            .TimbrarAsync(EmisionIngreso(), CancellationToken.None);
+
+        (revocado.Estado, revocado.ErrorCodigo).Should().Be((TimbradoEstado.Fallido, "CSD_REVOCADO"));
+        (vencido.Estado, vencido.ErrorCodigo).Should().Be((TimbradoEstado.Fallido, "CSD_VENCIDO"));
+        invoices.UltimoCreado.Should().BeNull(); // nunca llegó al PAC
+
+        // Con un CSD vigente sí timbra (no rompe el sandbox de los demás).
+        var ok = await Adapter(invoices, ConfigSandbox() with { Csd = vigente }).TimbrarAsync(EmisionIngreso(), CancellationToken.None);
+        ok.Estado.Should().Be(TimbradoEstado.Timbrado);
+    }
+
+    [Fact]
     public async Task Timbrar_tipo_pago_sin_forma_metodo_y_con_complemento()
     {
         var invoices = new FakeInvoiceService { OnCreate = _ => RespuestaTimbrada() };

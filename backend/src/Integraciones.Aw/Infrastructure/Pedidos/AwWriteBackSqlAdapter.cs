@@ -16,15 +16,9 @@ namespace Millet.Integraciones.Aw.Infrastructure.Pedidos;
 /// (doc 04 §5) — el login <c>millet_erp_integracion</c> tiene UPDATE
 /// restringido por columna, gemelo del contrato en permisos.
 ///
-/// <para>Dos modos según <see cref="AwWriteBack.SolicitudId"/>:</para>
-/// <list type="bullet">
-///   <item><b>Por solicitud</b> (<c>SolicitudId != Guid.Empty</c>): resultado
-///   del procesamiento — claim + resultado + motivo + procesada_at.</item>
-///   <item><b>Por pedido</b> (<c>Guid.Empty</c>, timbrado/cancelación):
-///   uuid + estado_facturacion en TODAS las filas del pedido. Gap
-///   G-writeback (spec §7): si el equipo A+W prefiere solo la última
-///   <c>version</c>, se ajusta el WHERE aquí — un solo lugar.</item>
-/// </list>
+/// <para>Solo escribe el resultado del procesamiento por solicitud (claim + resultado +
+/// motivo + procesada_at). TR-01: el modo por pedido (uuid/estado en todas las filas, B6)
+/// se retiró; la factura la escribe <c>AwRetornoAdapter</c> en <c>aw_retorno</c>.</para>
 ///
 /// <para>Idempotente por construcción: UPDATE absoluto de valores finales;
 /// un reintento re-escribe lo mismo. El claim nunca se borra (D18) — este
@@ -48,11 +42,16 @@ public sealed class AwWriteBackSqlAdapter : IAwWriteBackPort
 
     public async Task EscribirResultadoAsync(AwWriteBack writeBack, CancellationToken cancellationToken)
     {
-        var porSolicitud = writeBack.SolicitudId != Guid.Empty;
+        // TR-01 (B6): el UPDATE por pedido (uuid/estado en TODAS las versiones) se retiró; la factura
+        // viaja ahora como fila Documento de aw_retorno (AwRetornoAdapter). Solo queda el acuse por solicitud.
+        if (writeBack.SolicitudId == Guid.Empty)
+        {
+            _logger.LogWarning("[AwWriteBackSqlAdapter] write-back por pedido ignorado (retirado en TR-01). pedido={Pedido}", writeBack.NumeroPedido);
+            return;
+        }
 
         // COALESCE preserva claim/uuid previos: nunca se degradan a NULL (D18).
-        var sql = porSolicitud
-            ? """
+        const string sql = """
               UPDATE dbo.aw_solicitud_pedido
                  SET erp_pedido_id      = COALESCE(@erpPedidoId, erp_pedido_id),
                      estado_facturacion = COALESCE(@estado, estado_facturacion),
@@ -61,13 +60,6 @@ public sealed class AwWriteBackSqlAdapter : IAwWriteBackPort
                      motivo             = @motivo,
                      procesada_at       = SYSDATETIMEOFFSET()
                WHERE solicitud_id = @solicitudId
-              """
-            : """
-              UPDATE dbo.aw_solicitud_pedido
-                 SET erp_pedido_id      = COALESCE(@erpPedidoId, erp_pedido_id),
-                     estado_facturacion = COALESCE(@estado, estado_facturacion),
-                     [uuid]             = COALESCE(@uuid, [uuid])
-               WHERE numero_pedido = @numeroPedido
               """;
 
         try
@@ -92,7 +84,7 @@ public sealed class AwWriteBackSqlAdapter : IAwWriteBackPort
             command.CommandText = sql;
             command.CommandType = CommandType.Text;
             command.CommandTimeout = _options.SqlQueryTimeoutSeconds;
-            AgregarParametros(command, writeBack, porSolicitud);
+            AgregarParametros(command, writeBack);
 
             var afectadas = await command.ExecuteNonQueryAsync(cancellationToken);
             if (afectadas == 0)
@@ -102,14 +94,14 @@ public sealed class AwWriteBackSqlAdapter : IAwWriteBackPort
                 // loggea para auditoría; el worker NO debe reintentar infinito
                 // por esto — cuenta como éxito de canal.
                 _logger.LogWarning(
-                    "[AwWriteBackSqlAdapter] write-back sin filas afectadas. porSolicitud={PorSolicitud} solicitud={SolicitudId} pedido={Pedido}",
-                    porSolicitud, writeBack.SolicitudId, writeBack.NumeroPedido);
+                    "[AwWriteBackSqlAdapter] write-back sin filas afectadas. solicitud={SolicitudId} pedido={Pedido}",
+                    writeBack.SolicitudId, writeBack.NumeroPedido);
                 return;
             }
 
             _logger.LogInformation(
-                "[AwWriteBackSqlAdapter] write-back OK. modo={Modo} pedido={Pedido} resultado={Resultado} estado={Estado} uuid={Uuid} filas={Filas}",
-                porSolicitud ? "solicitud" : "pedido", writeBack.NumeroPedido,
+                "[AwWriteBackSqlAdapter] write-back OK. pedido={Pedido} resultado={Resultado} estado={Estado} uuid={Uuid} filas={Filas}",
+                writeBack.NumeroPedido,
                 writeBack.Resultado, writeBack.EstadoFacturacion, writeBack.Uuid, afectadas);
         }
         catch (SqlException ex) when (ex.Number == 18456)
@@ -133,7 +125,7 @@ public sealed class AwWriteBackSqlAdapter : IAwWriteBackPort
         }
     }
 
-    private static void AgregarParametros(DbCommand command, AwWriteBack wb, bool porSolicitud)
+    private static void AgregarParametros(DbCommand command, AwWriteBack wb)
     {
         command.Parameters.Add(new SqlParameter("@erpPedidoId", SqlDbType.UniqueIdentifier)
         { Value = (object?)wb.ErpPedidoId ?? DBNull.Value });
@@ -142,19 +134,11 @@ public sealed class AwWriteBackSqlAdapter : IAwWriteBackPort
         command.Parameters.Add(new SqlParameter("@uuid", SqlDbType.NVarChar, 36)
         { Value = (object?)wb.Uuid ?? DBNull.Value });
 
-        if (porSolicitud)
-        {
-            command.Parameters.Add(new SqlParameter("@resultado", SqlDbType.TinyInt)
-            { Value = (byte)wb.Resultado });
-            command.Parameters.Add(new SqlParameter("@motivo", SqlDbType.NVarChar, 500)
-            { Value = (object?)wb.Motivo ?? DBNull.Value });
-            command.Parameters.Add(new SqlParameter("@solicitudId", SqlDbType.UniqueIdentifier)
-            { Value = wb.SolicitudId });
-        }
-        else
-        {
-            command.Parameters.Add(new SqlParameter("@numeroPedido", SqlDbType.NVarChar, 50)
-            { Value = wb.NumeroPedido });
-        }
+        command.Parameters.Add(new SqlParameter("@resultado", SqlDbType.TinyInt)
+        { Value = (byte)wb.Resultado });
+        command.Parameters.Add(new SqlParameter("@motivo", SqlDbType.NVarChar, 500)
+        { Value = (object?)wb.Motivo ?? DBNull.Value });
+        command.Parameters.Add(new SqlParameter("@solicitudId", SqlDbType.UniqueIdentifier)
+        { Value = wb.SolicitudId });
     }
 }

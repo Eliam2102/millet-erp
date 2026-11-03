@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import {
   Sheet,
   SheetContent,
@@ -21,24 +21,10 @@ interface Props {
 
 /** Sheet «Nueva póliza» / «Editar póliza» (patrón P4): confirma al cerrar con cambios; al guardar cierra sin confirmar. */
 export function PolizaSheet({ open, onOpenChange, poliza, onGuardada, reclasifica }: Props) {
-  const dirty = useRef(false);
-  const onDirtyChange = useCallback((d: boolean) => {
-    dirty.current = d;
-  }, []);
-
-  function cerrar(force = false) {
-    if (
-      !force &&
-      dirty.current &&
-      !window.confirm('Tienes cambios sin guardar en la póliza. ¿Descartar y cerrar?')
-    )
-      return;
-    dirty.current = false;
-    onOpenChange(false);
-  }
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() => onOpenChange(false));
 
   return (
-    <Sheet open={open} onOpenChange={(o) => (o ? onOpenChange(true) : cerrar())}>
+    <Sheet open={open} onOpenChange={(o) => (o ? onOpenChange(true) : solicitarCierre())}>
       <SheetContent size="lg" side="right" data-print="hidden">
         <SheetHeader>
           <SheetTitle className="text-xl">{poliza ? 'Editar póliza' : 'Nueva póliza'}</SheetTitle>
@@ -54,15 +40,16 @@ export function PolizaSheet({ open, onOpenChange, poliza, onGuardada, reclasific
               poliza={poliza}
               reclasifica={reclasifica}
               onGuardada={(p) => {
-                cerrar(true);
+                solicitarCierre(true);
                 onGuardada(p);
               }}
-              onCancelar={() => cerrar()}
-              onDirtyChange={onDirtyChange}
+              onCancelar={() => solicitarCierre()}
+              onDirtyChange={setDirty}
             />
           )}
         </div>
       </SheetContent>
+      {dialogo}
     </Sheet>
   );
 }

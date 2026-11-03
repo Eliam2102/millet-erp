@@ -42,14 +42,15 @@ public sealed class FormalizarNotaCargoValidator : AbstractValidator<FormalizarN
 {
     public FormalizarNotaCargoValidator() { RuleFor(c => c.Id).NotEmpty(); RuleFor(c => c.NotaCreditoId).NotEmpty(); RuleFor(c => c.VersionEsperada).GreaterThanOrEqualTo(0); }
 }
-public sealed class FormalizarNotaCargoHandler(CuentasPorPagarDbContext db, IPublisher publisher, IClock clock) : IRequestHandler<FormalizarNotaCargoCommand>
+public sealed class FormalizarNotaCargoHandler(CuentasPorPagarDbContext db, FormalizacionNotaCargoService formalizacion, IClock clock) : IRequestHandler<FormalizarNotaCargoCommand>
 {
     public async Task Handle(FormalizarNotaCargoCommand c, CancellationToken cancellationToken)
     {
         var cargo = await db.NotasCargo.FirstOrDefaultAsync(x => x.Id == c.Id, cancellationToken) ?? throw new EntityNotFoundException("NCG_NO_ENCONTRADA", "No se encontró la nota de cargo.");
         if (cargo.Version != c.VersionEsperada) throw new ConcurrencyException("NotaCargo", c.Id);
         var nc = await db.NotasCreditoProveedor.FirstOrDefaultAsync(x => x.Id == c.NotaCreditoId, cancellationToken) ?? throw new EntityNotFoundException("NC_NO_ENCONTRADA", "No se encontró la NC.");
-        await new FormalizacionNotaCargoService(db, publisher).FormalizarAsync(cargo, nc, clock.UtcNow, cancellationToken);
+        if (!await formalizacion.FormalizarAsync(cargo, nc, clock.UtcNow, cancellationToken))
+            throw new BusinessRuleException("NCG_FACTURA_NO_ADMITE_NC", "La factura está pagada o cancelada, o la NC no está abierta o no cubre el cargo; no se puede formalizar la nota de cargo.");
         await db.SaveChangesAsync(cancellationToken);
     }
 }

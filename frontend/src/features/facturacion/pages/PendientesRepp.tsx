@@ -1,5 +1,6 @@
 import { BarraFiltros, PaginacionTabla, TabsEstado } from '@/components/erp';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { KpiCard } from '@/components/erp/display/KpiCard';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { FormaPagoSelector } from '@/components/erp/selectors/FormaPagoSelector';
@@ -27,7 +28,7 @@ import {
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { Link } from '@tanstack/react-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import type {
@@ -44,6 +45,13 @@ import {
 import { EstadoFacturacionBadge } from '../components/EstadoFacturacionBadge';
 import { FacturaPpdPicker } from '../components/FacturaPpdPicker';
 import {
+  admiteBeneficiaria,
+  admiteOrdenante,
+  errorCuentaPago,
+  motivoSinCuenta,
+  normalizarCuenta,
+} from '../lib/cuentas-pago-sat';
+import {
   bloqueoRelacion,
   formatoImporte,
   mensajeFalloEmision,
@@ -56,20 +64,7 @@ export function PendientesRepp() {
   const [offset, setOffset] = useState(0);
   const [seleccion, setSeleccion] = useState<string[]>([]);
   const [abierto, setAbierto] = useState<string | null>(null);
-  const dirty = useRef(false);
-  const onDirtyChange = useCallback((value: boolean) => {
-    dirty.current = value;
-  }, []);
-  function cerrar(force = false) {
-    if (
-      force ||
-      !dirty.current ||
-      window.confirm('Hay cambios sin guardar. ¿Descartar los cambios y cerrar?')
-    ) {
-      dirty.current = false;
-      setAbierto(null);
-    }
-  }
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() => setAbierto(null));
   const [resultados, setResultados] = useState<EmisionPendiente[]>([]);
   const puedeEscribir = useHasPermission(PermisosCanonicos.FacturacionReppEmitir);
   const query = useReppPendientes(estado, indicador, offset);
@@ -159,6 +154,7 @@ export function PendientesRepp() {
                 {r.emitido
                   ? 'REP emitido'
                   : (r.mensaje ?? 'No se pudo emitir. Consulta el pago antes de reintentar.')}
+                {r.aviso && <span className="block text-xs text-warning-fg">{r.aviso}</span>}
               </li>
             ))}
           </ul>
@@ -303,7 +299,7 @@ export function PendientesRepp() {
       <Sheet
         open={abierto !== null}
         onOpenChange={(open) => {
-          if (!open) cerrar();
+          if (!open) solicitarCierre();
         }}
       >
         <SheetContent size="lg">
@@ -327,14 +323,15 @@ export function PendientesRepp() {
                   key={`${detalle.data.id}:${JSON.stringify(detalle.data)}`}
                   pago={detalle.data}
                   puedeEscribir={puedeEscribir}
-                  cerrar={cerrar}
-                  onDirtyChange={onDirtyChange}
+                  cerrar={solicitarCierre}
+                  onDirtyChange={setDirty}
                 />
               )
             )}
           </SheetBody>
         </SheetContent>
       </Sheet>
+      {dialogo}
     </main>
   );
 }
@@ -361,10 +358,31 @@ function RevisionPago({
   const ocupado =
     acciones.revisar.isPending || acciones.emitirUno.isPending || acciones.descartar.isPending;
   const editable = puedeEscribir && pago.estado === 'Pendiente' && !pago.intentoReciboPagoId;
-  const bloqueo = bloqueoRelacion(pago.monto, formaPago, facturas);
+  // 86e3tfdve: cuentas del pago. La ordenante (opción A) viene del ingreso de
+  // Tesorería; la capturada aquí la reemplaza al guardar y se puede quitar. La
+  // beneficiaria se prellena con la cuenta de Millet del depósito salvo que se
+  // capture otra.
+  const [ordenante, setOrdenante] = useState('');
+  const [quitarOrdenante, setQuitarOrdenante] = useState(false);
+  const [beneficiaria, setBeneficiaria] = useState('');
+  const conOrdenante = admiteOrdenante(formaPago);
+  const conBeneficiaria = admiteBeneficiaria(formaPago);
+  const errorOrdenante = conOrdenante ? errorCuentaPago(formaPago, 'ordenante', ordenante) : null;
+  const errorBeneficiaria = conBeneficiaria
+    ? errorCuentaPago(formaPago, 'beneficiaria', beneficiaria)
+    : null;
+  const cuentas = {
+    cuentaOrdenante: conOrdenante && !quitarOrdenante ? normalizarCuenta(ordenante) : null,
+    cuentaBeneficiaria: conBeneficiaria ? normalizarCuenta(beneficiaria) : null,
+    limpiarCuentaOrdenante: quitarOrdenante,
+  };
+  const bloqueoCuentas = errorOrdenante ?? errorBeneficiaria;
+  const bloqueo = bloqueoRelacion(pago.monto, formaPago, facturas) ?? bloqueoCuentas;
   const bloqueoEmision =
     bloqueo ??
-    (form.formState.isDirty ? 'Guarda la revisión antes de emitir.' : pago.bloqueos[0]) ??
+    (form.formState.isDirty || quitarOrdenante
+      ? 'Guarda la revisión antes de emitir.'
+      : pago.bloqueos[0]) ??
     null;
   function cambiar(filas: RelacionRepp[]) {
     form.setValue('facturas', filas, { shouldDirty: true });
@@ -372,7 +390,9 @@ function RevisionPago({
   async function guardar() {
     if (bloqueo) return;
     try {
-      await acciones.revisar.mutateAsync({ id: pago.id, formaPago, facturas });
+      await acciones.revisar.mutateAsync({ id: pago.id, formaPago, facturas, cuentas });
+      setOrdenante('');
+      setQuitarOrdenante(false);
       toast.success('Revisión guardada.');
     } catch {
       toast.error('No se pudo guardar. Verifica cliente, facturas PPD, saldo y monto confirmado.');
@@ -383,6 +403,11 @@ function RevisionPago({
       const resultado = await acciones.emitirUno.mutateAsync({
         id: pago.id,
         idempotencyKey: crypto.randomUUID(),
+        // Quitar la ordenante se resuelve al guardar la revisión, no al emitir.
+        cuentas: {
+          cuentaOrdenante: cuentas.cuentaOrdenante,
+          cuentaBeneficiaria: cuentas.cuentaBeneficiaria,
+        },
       });
       const mensaje = mensajeFalloEmision([resultado]);
       if (mensaje) {
@@ -513,14 +538,118 @@ function RevisionPago({
             Total relacionado: {formatoImporte(totalRelacion(facturas))} {pago.moneda}
           </p>
         </fieldset>
+        <fieldset className="space-y-2">
+          <legend className="font-semibold">3. Cuentas del pago</legend>
+          <dl className="grid grid-cols-2 gap-3 rounded-lg bg-surface-subtle p-3">
+            <div>
+              <dt className="text-xs text-ink-muted">Cuenta de Millet del depósito</dt>
+              <dd className="font-mono text-xs">
+                {pago.cuentaBancariaEtiqueta ?? <span className="text-ink-muted">Sin cuenta</span>}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-ink-muted">Cuenta ordenante del cliente</dt>
+              <dd className="font-mono text-xs">
+                {quitarOrdenante ? (
+                  <span className="text-ink-muted">Se quitará al guardar</span>
+                ) : (
+                  (pago.cuentaOrdenante ?? <span className="text-ink-muted">Sin cuenta</span>)
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-ink-muted">Cuenta beneficiaria al emitir</dt>
+              <dd className="font-mono text-xs">
+                {!conBeneficiaria ? (
+                  <span className="text-ink-muted">No aplica</span>
+                ) : normalizarCuenta(beneficiaria) ? (
+                  'Capturada abajo'
+                ) : (
+                  (pago.cuentaBeneficiariaSugerida ?? (
+                    <span className="text-ink-muted">Sin cuenta</span>
+                  ))
+                )}
+              </dd>
+            </div>
+          </dl>
+          {editable && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label htmlFor="pendiente-cuenta-ordenante">
+                  {pago.cuentaOrdenante ? 'Corregir cuenta ordenante' : 'Cuenta ordenante'}
+                </Label>
+                <Input
+                  id="pendiente-cuenta-ordenante"
+                  placeholder="Opcional"
+                  value={ordenante}
+                  maxLength={50}
+                  disabled={!conOrdenante || quitarOrdenante || ocupado}
+                  aria-invalid={!!errorOrdenante}
+                  onChange={(e) => setOrdenante(e.target.value)}
+                />
+                <p className="text-xs text-ink-muted">
+                  {!conOrdenante
+                    ? motivoSinCuenta(formaPago, 'ordenante')
+                    : pago.cuentaOrdenante
+                      ? 'Déjala vacía para usar la que registró Tesorería con el depósito.'
+                      : 'Cuenta del cliente desde la que pagó. Se guarda con la revisión.'}
+                </p>
+                {errorOrdenante && <p className="text-xs text-danger-fg">{errorOrdenante}</p>}
+                {pago.cuentaOrdenante && (
+                  <label className="flex items-center gap-2 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={quitarOrdenante}
+                      disabled={ocupado}
+                      onChange={(e) => {
+                        setQuitarOrdenante(e.target.checked);
+                        if (e.target.checked) setOrdenante('');
+                      }}
+                    />
+                    Quitar la cuenta ordenante del pago
+                  </label>
+                )}
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="pendiente-cuenta-beneficiaria">
+                  Otra cuenta beneficiaria
+                </Label>
+                <Input
+                  id="pendiente-cuenta-beneficiaria"
+                  placeholder="Opcional"
+                  value={beneficiaria}
+                  maxLength={50}
+                  disabled={!conBeneficiaria || ocupado}
+                  aria-invalid={!!errorBeneficiaria}
+                  onChange={(e) => setBeneficiaria(e.target.value)}
+                />
+                <p className="text-xs text-ink-muted">
+                  {conBeneficiaria
+                    ? 'Déjala vacía para usar la cuenta de Millet del depósito.'
+                    : motivoSinCuenta(formaPago, 'beneficiaria')}
+                </p>
+                {errorBeneficiaria && (
+                  <p className="text-xs text-danger-fg">{errorBeneficiaria}</p>
+                )}
+              </div>
+            </div>
+          )}
+          {editable && (
+            <p className="text-xs text-ink-muted">
+              La emisión por lote usa la cuenta de Millet del depósito y la ordenante guardada; si
+              esta no cumple la forma de pago, el REP sale sin ella y el resultado lo avisa.
+            </p>
+          )}
+        </fieldset>
         {pago.ultimoErrorMensaje && (
           <p role="alert" className="rounded-md bg-danger-bg p-3 text-danger-fg">
             {pago.ultimoErrorMensaje}
           </p>
         )}
-        {pago.estado === 'Pendiente' && (bloqueoEmision || pago.bloqueos.length > 0) && (
+        {pago.estado === 'Pendiente' &&
+          ((bloqueoEmision && bloqueoEmision !== bloqueoCuentas) || pago.bloqueos.length > 0) && (
           <div role="note" className="rounded-md bg-warning-note-bg p-3 text-warning-note-fg">
-            {bloqueoEmision}
+            {bloqueoEmision !== bloqueoCuentas && bloqueoEmision}
             <ul>
               {pago.bloqueos
                 .filter((b) => b !== bloqueoEmision)

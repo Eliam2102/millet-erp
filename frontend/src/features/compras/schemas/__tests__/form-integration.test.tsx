@@ -58,7 +58,7 @@ function FormDePrueba({
             <MoneyField
               value={
                 field.value != null
-                  ? { amount: field.value, currency: form.getValues('precioEstimadoMoneda') }
+                  ? { amount: field.value, currency: form.getValues('precioEstimadoMoneda') ?? 'MXN' }
                   : null
               }
               onChange={(money) => field.onChange(money?.amount ?? null)}

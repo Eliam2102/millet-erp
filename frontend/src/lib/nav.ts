@@ -1,6 +1,8 @@
 import {
   AlertTriangle,
+  ArrowLeftRight,
   ArrowRightLeft,
+  Ban,
   Banknote,
   BarChart3,
   Bell,
@@ -24,6 +26,7 @@ import {
   Inbox,
   Layers,
   LineChart,
+  ListChecks,
   ListTree,
   Lock,
   MapPin,
@@ -581,6 +584,24 @@ const moduloTesoreria: NavModulo = {
           ],
         },
         {
+          label: 'Diferencias de corte',
+          description: 'Faltantes y sobrantes del efectivo de cada corte de caja: autorizar o rechazar (deudores funcionarios y empleados).',
+          to: '/tesoreria/diferencias-corte',
+          icon: Scale,
+          permission: PermisosCanonicos.TesoreriaDiferenciasCorteAutorizar,
+        },
+        {
+          label: 'Folios de transferencia',
+          description:
+            'Confirmaciones de Ingresos para que Caja aplique pagos por transferencia (forma 03).',
+          to: '/tesoreria/folios-transferencia',
+          icon: ReceiptText,
+          permissionsAny: [
+            PermisosCanonicos.TesoreriaMovimientosVer,
+            PermisosCanonicos.TesoreriaFoliosTransferenciaEmitir,
+          ],
+        },
+        {
           label: 'Movimientos bancarios',
           description:
             'Libro de movimientos por cuenta: ingresos, egresos, aplicaciones y contramovimientos.',
@@ -706,6 +727,14 @@ const moduloCuentasPorCobrar: NavModulo = {
             PermisosCanonicos.CuentasPorCobrarLiberacionDecidir,
             PermisosCanonicos.CuentasPorCobrarLiberacionOverride,
           ],
+        },
+        {
+          label: 'Reglas de serie',
+          description:
+            'Series del pedido A+W que siempre liberan, nunca liberan (solo con autorización) o evalúan crédito.',
+          to: '/cxc/reglas-serie',
+          icon: ListChecks,
+          permission: PermisosCanonicos.CuentasPorCobrarReglasSerieGestionar,
         },
         {
           label: 'Cobranza',
@@ -861,6 +890,13 @@ const moduloFacturacion: NavModulo = {
       label: 'Otros documentos',
       cards: [
         {
+          label: 'Notas de crédito por autorizar',
+          description: 'Notas de crédito de clientes que llegan de A+W: autorizar y timbrar.',
+          to: '/facturacion/notas-credito',
+          icon: FileText,
+          permission: PermisosCanonicos.FacturacionNotasCreditoLeer,
+        },
+        {
           label: 'Carta Porte',
           description:
             'Bandeja de Carta Portes 3.1. Captura de tramo (vehículo, operador, mercancías) y "Crear siguiente tramo".',
@@ -888,6 +924,14 @@ const moduloFacturacion: NavModulo = {
           to: '/facturacion/pedidos/excepciones',
           icon: AlertTriangle,
           permission: PermisosCanonicos.FacturacionPedidosExcepcionesResolver,
+        },
+        {
+          label: 'Cancelaciones por autorizar',
+          description:
+            'El Contador General autoriza o rechaza (con motivo) las cancelaciones que solicita Ingresos; solo al autorizar se envían al SAT.',
+          to: '/facturacion/cancelaciones',
+          icon: Ban,
+          permission: PermisosCanonicos.FacturacionCancelacionesConsultar,
         },
       ],
     },
@@ -1041,6 +1085,19 @@ const moduloContabilidad: NavModulo = {
         },
       ],
     },
+    {
+      label: 'Reportes',
+      cards: [
+        {
+          label: 'Cuenta puente recepción–factura',
+          description:
+            'Saldo de la cuenta puente por orden de compra al corte: facturado sin recibir, recibido sin facturar, antigüedad y cuadre contra la balanza.',
+          to: '/contabilidad/reportes/cuenta-puente',
+          icon: ArrowLeftRight,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
+        },
+      ],
+    },
   ],
 };
 
@@ -1079,6 +1136,33 @@ const comercioExterior: NavModulo = {
           to: '/comercio-exterior/relacion-iva',
           icon: FileText,
           permission: PermisosCanonicos.ComercioExteriorRelacionIvaLeer,
+        },
+      ],
+    },
+  ],
+};
+
+const productoTerminado: NavModulo = {
+  moduloId: 'producto-terminado',
+  label: 'Producto Terminado',
+  icon: Boxes,
+  secciones: [
+    {
+      label: 'Operación',
+      cards: [
+        {
+          label: 'Piezas',
+          description: 'Piezas en producto terminado por pedido y sucursal, con avance por posición.',
+          to: '/producto-terminado/piezas',
+          icon: Boxes,
+          permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
+        },
+        {
+          label: 'Excepciones de entrada',
+          description: 'Escaneos que no se pudieron dar de alta: reintentar, descartar o marcar revisados.',
+          to: '/producto-terminado/excepciones',
+          icon: Boxes,
+          permission: PermisosCanonicos.ProductoTerminadoExcepcionesGestionar,
         },
       ],
     },
@@ -1194,6 +1278,7 @@ const modulos: readonly NavModulo[] = [
   moduloContabilidad,
   placeholderModulo('reportes', 'Reportes', LineChart),
   comercioExterior,
+  productoTerminado,
 ];
 
 /**

@@ -1,5 +1,6 @@
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
-import { BarraFiltros, PaginacionTabla } from '@/components/erp';
+import { BarraFiltros, PaginacionTabla, ErrorState, TableSkeleton } from '@/components/erp';
+import { esApiError } from '@/lib/api';
 import { TabsContabilidad } from '../components/TabsContabilidad';
 import { PageHeader } from '@/components/erp/PageHeader';
 import {
@@ -17,7 +18,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -259,25 +259,15 @@ function ListaCuentas({
   vacio: React.ReactNode;
 }) {
   if (consulta.isLoading) {
-    return (
-      <div className="space-y-2" data-testid="lista-cargando" aria-label="Cargando cuentas">
-        <Skeleton className="h-8 w-full" />
-        <Skeleton className="h-8 w-full" />
-        <Skeleton className="h-8 w-full" />
-      </div>
-    );
+    return <TableSkeleton rows={5} />;
   }
   if (consulta.isError) {
     return (
-      <div
-        role="alert"
-        className="flex items-center gap-2 rounded-lg border border-danger p-4 text-danger-fg"
-      >
-        No se pudo cargar el catálogo.
-        <Button variant="ghost" size="sm" onClick={() => void consulta.refetch()}>
-          Reintentar
-        </Button>
-      </div>
+      <ErrorState
+        title="No se pudo cargar el catálogo"
+        problem={esApiError(consulta.error) ? consulta.error.problem : undefined}
+        onRetry={() => void consulta.refetch()}
+      />
     );
   }
   const { items, total } = consulta.data!;

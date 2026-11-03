@@ -32,6 +32,9 @@ public static class DependencyInjection
         services.AddScoped<Domain.Ports.DatosMaestros.IProveedorBancoReadPort,
             Adapters.ProveedorBancoReadPortAdapter>();
 
+        // T9.1-A: roles del firmante para «al menos una firma con el rol X» de la corrida.
+        services.AddScoped<IFirmanteRolesReadPort, Adapters.FirmanteRolesReadAdapter>();
+
         // TES-PR7: nombres de cliente para la bandeja de depósitos (ADR-0042).
         services.AddScoped<Domain.Ports.DatosMaestros.IClienteReadPort,
             Adapters.ClienteReadPortAdapter>();
@@ -63,6 +66,10 @@ public static class DependencyInjection
         {
             services.AddSingleton<Domain.Ports.IReppXmlBlobStorage, Blob.LocalFilesystemReppXmlStorage>();
         }
+
+        // T9.2: Parsers de extracto bancario con perfil por banco (BBVA primero)
+        services.AddSingleton<Domain.Conciliaciones.ExtractoParser.IExtractoParser, Domain.Conciliaciones.ExtractoParser.BbvaExtractoParser>();
+        services.AddSingleton<Domain.Conciliaciones.ExtractoParser.ExtractoParserFactory>();
 
         return services;
     }

@@ -61,6 +61,8 @@ export function crearAgregarLineaManualSchema(
       // Fracción arancelaria (comercio exterior, solo se captura al EDITAR; la
       // alta manual la deja undefined y no viaja en el POST). PLATFORM-TODO(<F1-COM-06>): supuesto Vilo.
       fraccionArancelaria: FraccionArancelariaSchema.nullish(),
+      // F1-MP-05: lote del proveedor, opcional (máx. 50, igual que el API).
+      loteProveedor: z.string().trim().max(50, 'Máximo 50 caracteres.').nullish(),
       // Fase E PR3.1: CC-Máquina elegido por el comprador (proxy, selector
       // abierto). REQUERIDO en la línea manual. La exigencia es condicional
       // porque este mismo schema resuelve el form al EDITAR una línea heredada

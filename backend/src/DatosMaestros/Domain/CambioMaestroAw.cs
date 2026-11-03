@@ -17,6 +17,9 @@ public sealed class CambioMaestroAw : BaseEntity, INotAudited
 {
     private const int MaxValor = 400;
 
+    /// <summary>Actor fijo de las resoluciones automáticas (sin usuario), p. ej. la unificación automática de RFC repetido.</summary>
+    public static readonly Guid UsuarioSistemaId = new("00000000-0000-0000-0000-00000000a0a0");
+
     public string TipoEntidad { get; private set; } = string.Empty;
     public Guid? EntidadId { get; private set; }
     public string ReferenciaExterna { get; private set; } = string.Empty;

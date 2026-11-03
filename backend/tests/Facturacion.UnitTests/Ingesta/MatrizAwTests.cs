@@ -202,6 +202,7 @@ public sealed class MatrizAwTests
             .Handle(new ProcesarSolicitudAwCommand(empresaId, Sol(OperacionAw.Alta)), CancellationToken.None);
 
         resp.Resultado.Should().Be(ResultadoSolicitudAw.Rechazada);
+        resp.Motivo.Should().Contain("reenvíe con una versión nueva");
         (await db.ExcepcionesImportacion.SingleAsync()).Motivo.Should().Be(MotivoExcepcion.TotalesNoCuadran);
         (await db.IngestaControles.SingleAsync()).Estado.Should().Be(EstadoIngesta.Excepcion);
     }
@@ -322,6 +323,27 @@ public sealed class MatrizAwTests
 
         resp.Resultado.Should().Be(ResultadoSolicitudAw.Rechazada);
         (await db.ExcepcionesImportacion.SingleAsync()).Motivo.Should().Be(MotivoExcepcion.ModificacionSobreFacturado);
+    }
+
+    [Fact]
+    public async Task Modificacion_sobre_pedido_con_salidas_va_a_revision_y_no_reescribe_el_pedido()
+    {
+        // FAC-08: con salidas parciales el pedido original no se modifica solo.
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var (pedido, _) = await SembrarPedidoAsync(db, empresaId, EstadoPedidoFacturable.Importado);
+        db.SalidasFacturables.Add(SalidaFacturable.Registrar(pedido, [], OrigenSalidaFacturable.ProductoTerminado, "SAL-1", [(1, 1m)], Ahora));
+        await db.SaveChangesAsync();
+        var wb = new FakeAwWriteBackPort();
+
+        var resp = await Handler(db, wb, Datos(ranura: 100m), Cliente())
+            .Handle(new ProcesarSolicitudAwCommand(empresaId, Sol(OperacionAw.Modificacion, version: 2)), CancellationToken.None);
+
+        resp.Resultado.Should().Be(ResultadoSolicitudAw.Rechazada);
+        (await db.ExcepcionesImportacion.SingleAsync()).Motivo.Should().Be(MotivoExcepcion.ModificacionSobreFacturado);
+        var guardado = await db.PedidosFacturables.SingleAsync();
+        guardado.VersionOrigen.Should().Be(1);
+        guardado.Ranura.Should().BeNull();
     }
 
     // ---- Cancelación ----

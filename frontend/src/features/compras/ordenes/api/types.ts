@@ -398,6 +398,17 @@ export interface OrdenCompraDetalleResponse {
   respuestasProveedor?: RespuestaProveedorOc[];
   /** F1-COM-07: incidencias del proveedor, la más reciente primero. */
   incidencias?: IncidenciaProveedorOc[];
+  /** 86e3tacbn: conformidad del servicio por OC. */
+  /** Pagado acumulado de la OC; con pago no se puede deshacer la confirmación. */
+  montoPagado?: number;
+  servicioConfirmadoEn?: string | null;
+  servicioConfirmadoPorNombre?: string | null;
+  servicioConfirmadoComentario?: string | null;
+  servicioNoConformeEn?: string | null;
+  servicioNoConformePorNombre?: string | null;
+  servicioNoConformeMotivo?: string | null;
+  servicioConfirmacionRevocadaEn?: string | null;
+  servicioConfirmacionRevocadaMotivo?: string | null;
   /** Campos de cabecera aún en TBD; la OC no se puede transmitir mientras haya alguno. */
   camposPorCapturar?: ('proveedor' | 'condicionesPago' | 'usoPrincipal' | 'usoCfdiClave' | 'metodoPago' | 'formaPagoClave')[] | null;
   // F1-COM-02
@@ -591,6 +602,8 @@ export interface LineaOrdenCompraResponse {
    */
   // PLATFORM-TODO(<F1-COM-06>): supuesto Vilo, campo de comercio exterior.
   fraccionArancelaria: string | null;
+  /** F1-MP-05: lote que el proveedor declara para la compra; `null` si no se capturó. */
+  loteProveedor?: string | null;
   /** F1-MP-01 (E1): medida de la hoja (vidrio crudo). Null/ausente si el artículo no maneja medidas
    * o es una línea heredada de RQ aún sin medida. La cantidad sigue en m² (= hojas × <c>areaHojaM2</c>). */
   productoAwVarianteId?: string | null;

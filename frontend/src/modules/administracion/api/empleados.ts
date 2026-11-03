@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/api';
+import { apiRequest, esApiError } from '@/lib/api';
 import { adminKeys } from '@/modules/administracion/api/keys';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import type {
@@ -7,10 +7,7 @@ import type {
   CrearEmpleadoCommand,
   EmpleadoResponse,
 } from '@/modules/administracion/api/types';
-import type {
-  EmpleadoListItem,
-  PagedCatalogoResponse,
-} from '@/features/catalogos/api';
+import type { EmpleadoListItem, PagedCatalogoResponse } from '@/features/catalogos/api';
 
 /**
  * Query + mutations del master de Empleados (ADM-FE-PR1, backend
@@ -95,10 +92,9 @@ export function useSiguienteClaveEmpleado(enabled = true) {
   return useQuery<SiguienteClaveEmpleadoResponse>({
     queryKey: ['admin', 'empleados', 'siguiente-clave'],
     queryFn: async ({ signal }) => {
-      const { data } = await apiRequest<SiguienteClaveEmpleadoResponse>(
-        `${BASE}/siguiente-clave`,
-        { signal },
-      );
+      const { data } = await apiRequest<SiguienteClaveEmpleadoResponse>(`${BASE}/siguiente-clave`, {
+        signal,
+      });
       return data;
     },
     enabled,
@@ -141,6 +137,60 @@ export interface AccesoColaboradorEstado {
   primerAccesoEn: string | null;
   emailContacto: string | null;
   usuarioActivo: boolean;
+  /** 86e3x6cpw · contrato 4: membresía en el grupo de acceso de Entra (opcional). */
+  grupoAcceso?: 'Sincronizado' | 'Pendiente' | 'NoConfigurado' | null;
+}
+
+/** 86e3x6cpw · contrato 1: cuenta Microsoft del directorio que aún no es empleado. */
+export interface CuentaSinEmpleado {
+  objectId: string;
+  nombre: string;
+  correo: string;
+  habilitada: boolean;
+  usuarioId: string | null;
+  yaEntroAlErp: boolean;
+}
+
+export interface CuentasSinEmpleadoResponse {
+  items: CuentaSinEmpleado[];
+  total: number;
+}
+
+/**
+ * Cuentas del directorio sin ficha de empleado
+ * (<c>GET /admin/colaboradores/cuentas-sin-empleado</c>, sólo perfil corporativo).
+ */
+export function useCuentasSinEmpleado(buscar: string, enabled = true) {
+  const texto = buscar.trim();
+  return useQuery<CuentasSinEmpleadoResponse>({
+    queryKey: ['admin', 'colaboradores', 'cuentas-sin-empleado', texto],
+    enabled,
+    queryFn: async ({ signal }) => {
+      const qs = new URLSearchParams({ limit: '50' });
+      if (texto) qs.set('buscar', texto);
+      const { data } = await apiRequest<CuentasSinEmpleadoResponse>(
+        `/api/v1/admin/colaboradores/cuentas-sin-empleado?${qs.toString()}`,
+        { signal },
+      );
+      return data;
+    },
+  });
+}
+
+/**
+ * Empleado ligado a una cuenta del ERP (contrato 2). Devuelve <c>null</c> si la
+ * cuenta no tiene empleado (404), para redirigir las rutas viejas de usuarios.
+ */
+export async function obtenerEmpleadoPorUsuario(usuarioId: string): Promise<string | null> {
+  try {
+    const { data } = await apiRequest<{ empleadoId: string }>(
+      `/api/v1/admin/colaboradores/por-usuario/${encodeURIComponent(usuarioId)}`,
+    );
+    return data.empleadoId;
+  } catch (err) {
+    if (esApiError(err) && err.status === 404) return null;
+    throw err;
+  }
 }
 
 export interface ValidacionCorreoCorporativo {
@@ -175,27 +225,31 @@ export function useAccesoColaborador(empleadoId: string | null) {
     enabled: empleadoId != null,
     queryFn: async ({ signal }) => {
       const { data } = await apiRequest<AccesoColaboradorEstado>(
-        `/api/v1/admin/colaboradores/${empleadoId}/acceso`, { signal },
+        `/api/v1/admin/colaboradores/${empleadoId}/acceso`,
+        { signal },
       );
       return data;
     },
-    refetchInterval: (query) =>
-      query.state.data?.estadoAcceso === 2 ? 3000 : false,
+    refetchInterval: (query) => (query.state.data?.estadoAcceso === 2 ? 3000 : false),
   });
 }
 
 export function useDarAccesoColaborador() {
   const queryClient = useQueryClient();
-  return useMutation<AltaColaboradorResponse, Error, {
-    empleadoId: string;
-    acceso: 1 | 2;
-    correoCorporativo: string;
-    emailContacto: string | null;
-    rolId: string;
-    departamentoId?: string | null;
-    puestoId?: string | null;
-    idempotencyKey: string;
-  }>({
+  return useMutation<
+    AltaColaboradorResponse,
+    Error,
+    {
+      empleadoId: string;
+      acceso: 1 | 2;
+      correoCorporativo: string;
+      emailContacto: string | null;
+      rolId: string;
+      departamentoId?: string | null;
+      puestoId?: string | null;
+      idempotencyKey: string;
+    }
+  >({
     mutationFn: async ({ empleadoId, idempotencyKey, ...body }) => {
       const { data } = await apiRequest<AltaColaboradorResponse>(
         `/api/v1/admin/colaboradores/${empleadoId}/acceso`,
@@ -206,7 +260,9 @@ export function useDarAccesoColaborador() {
     onSuccess: (_, vars) => {
       invalidar(queryClient);
       queryClient.invalidateQueries({ queryKey: ['identidad', 'usuarios'] });
-      queryClient.invalidateQueries({ queryKey: ['admin', 'colaboradores', vars.empleadoId, 'acceso'] });
+      queryClient.invalidateQueries({
+        queryKey: ['admin', 'colaboradores', vars.empleadoId, 'acceso'],
+      });
     },
   });
 }
@@ -218,7 +274,11 @@ interface AltaColaboradorResponse {
 
 export function useAccionAccesoColaborador(accion: 'reintentar' | 'reenviar') {
   const queryClient = useQueryClient();
-  return useMutation<AccesoColaboradorEstado, Error, { empleadoId: string; idempotencyKey: string }>({
+  return useMutation<
+    AccesoColaboradorEstado,
+    Error,
+    { empleadoId: string; idempotencyKey: string }
+  >({
     mutationFn: async ({ empleadoId, idempotencyKey }) => {
       const { data } = await apiRequest<AccesoColaboradorEstado>(
         `/api/v1/admin/colaboradores/${empleadoId}/acceso/${accion}`,
@@ -273,10 +333,11 @@ function useCambioEstatusEmpleado(accion: 'desactivar' | 'reactivar') {
   const queryClient = useQueryClient();
   return useMutation<EmpleadoResponse, Error, CambiarEstatusEmpleadoArgs>({
     mutationFn: async ({ id, idempotencyKey }) => {
-      const { data } = await apiRequest<EmpleadoResponse>(
-        `${BASE}/${id}/${accion}`,
-        { method: 'POST', body: {}, idempotencyKey },
-      );
+      const { data } = await apiRequest<EmpleadoResponse>(`${BASE}/${id}/${accion}`, {
+        method: 'POST',
+        body: {},
+        idempotencyKey,
+      });
       return data;
     },
     onSuccess: () => invalidar(queryClient),

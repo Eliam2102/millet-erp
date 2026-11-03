@@ -3,7 +3,8 @@ import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { NotasCreditoAdjuntas } from './NotasCreditoAdjuntas';
 import { desgloseRetenciones } from '@/features/cxp/lib/conciliacion-p3';
-import { hoyLocalISO } from '@/lib/datetime';
+import { hoyLocalISO, parseDateOnlyLocal } from '@/lib/datetime';
+import { addDays, format } from 'date-fns';
 import { useEffect, useMemo, useState } from 'react';
 import { Controller, useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -31,7 +32,8 @@ import { CfdiPorProcesarPicker } from '@/features/cxp/components/CfdiPorProcesar
 import { useCfdiParseado } from '@/features/cxp/api/useCfdis';
 import { abrirPdfCfdi, descargarXmlCfdi } from '@/features/cxp/lib/cfdi-archivos';
 import { ArticuloSelector, LineaOcSelector, OrdenCompraSelector, ProveedorSelector } from '@/components/erp';
-import { mapById, useSucursales } from '@/features/catalogos/api';
+import { mapById, useCondicionesPago, useProveedor, useSucursales } from '@/features/catalogos/api';
+import { useOrdenCompra } from '@/features/compras/ordenes/api/useOrdenCompra';
 import { resetLineaOcIds } from '@/features/cxp/lib/reset-linea-oc';
 import { cn } from '@/lib/utils';
 import { useRetenciones } from '@/features/cxp/api/useRetenciones';
@@ -226,6 +228,24 @@ export function CapturarFacturaSheet({
     control: form.control,
     name: 'ordenCompraId',
   });
+  // Vencimiento heredado de las condiciones de pago de la OC (levantamiento CxP §1) o, si la OC
+  // no trae, de los días de crédito del proveedor; si el usuario ya lo editó, se respeta.
+  const fechaDocumentoSel = useWatch({ control: form.control, name: 'fechaDocumento' });
+  const ocSel = useOrdenCompra(ordenCompraIdSel || null);
+  const condicionesPago = useCondicionesPago({ includeInactivas: true });
+  const proveedorOc = useProveedor(ocSel.data?.proveedorId);
+  const diasCreditoOc =
+    condicionesPago.data?.find((c) => c.id === ocSel.data?.condicionesPagoId)?.diasCredito ??
+    proveedorOc.data?.condicionesPagoDias ??
+    undefined;
+  useEffect(() => {
+    if (diasCreditoOc == null || !fechaDocumentoSel) return;
+    if (form.getFieldState('fechaVencimiento').isDirty) return;
+    form.setValue(
+      'fechaVencimiento',
+      format(addDays(parseDateOnlyLocal(fechaDocumentoSel), diasCreditoOc), 'yyyy-MM-dd'),
+    );
+  }, [diasCreditoOc, fechaDocumentoSel, form]);
   const recepcionIdSel = useWatch({ control: form.control, name: 'recepcionId' });
   const notasCredito = useWatch({ control: form.control, name: 'notasCredito' }) ?? [];
   const monedaSel = useWatch({ control: form.control, name: 'moneda' });

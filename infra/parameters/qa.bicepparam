@@ -77,5 +77,7 @@ param awCambiosHabilitado = false
 param awDocumentSyncHabilitado = false
 param awLateReconciliationHabilitado = false
 
-// SDK FiscalAPI apagado (NoOp) hasta tener tenant sandbox en el KV qa.
-param integracionesFiscalSdkDisabled = true
+// SDK FiscalAPI encendido: timbrado contra el sandbox de FiscalAPI (Oleada 1).
+// Requiere el secreto `fiscalapi-tenant-key` (tenant sandbox) en el KV qa y la
+// ApiKey sk_test capturada en Integraciones Fiscal (BaseUrl https://test.fiscalapi.com).
+param integracionesFiscalSdkDisabled = false

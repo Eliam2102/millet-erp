@@ -69,7 +69,7 @@ afterEach(() => {
 });
 
 describe('<DevolucionesPage> — smoke', () => {
-  it('columna Proveedor muestra la razón social resuelta; cae al id truncado si no resuelve', async () => {
+  it('columna Proveedor muestra la razón social resuelta; si no resuelve, el enlace dice «Ver» y no el id', async () => {
     mswServer.use(
       http.get('*/api/v1/almacen/devoluciones-proveedor', () =>
         HttpResponse.json({
@@ -95,11 +95,9 @@ describe('<DevolucionesPage> — smoke', () => {
     await waitFor(() =>
       expect(screen.getByText('Vidrios del Norte SA')).toBeInTheDocument(),
     );
-    // Fila sin resolver: id truncado (nunca el GUID completo).
-    expect(screen.getByText('019e5ba8…')).toBeInTheDocument();
-    expect(
-      screen.queryByText('019e5ba8-41b2-7ee8-8f40-4435f4808968'),
-    ).not.toBeInTheDocument();
+    // Fila sin resolver: enlace «Ver» (nunca el GUID, ni completo ni truncado).
+    expect(screen.getByText('Ver')).toBeInTheDocument();
+    expect(screen.queryByText(/019e5ba8/)).not.toBeInTheDocument();
   });
 
   it('estado empty muestra la bandeja vacía', async () => {

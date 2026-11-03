@@ -106,7 +106,8 @@ public sealed class AgregarLineaManualOcHandler
             esServicio: esServicio,
             // Fase E PR3: CC-Máquina elegido por el comprador (proxy, abierto).
             centroCostoId: command.CentroCostoId, esActivoFijo: command.EsActivoFijo, claseActivoId: command.ClaseActivoId,
-            productoAwVarianteId: medida?.VarianteId, anchoMm: medida?.AnchoMm, altoMm: medida?.AltoMm);
+            productoAwVarianteId: medida?.VarianteId, anchoMm: medida?.AnchoMm, altoMm: medida?.AltoMm,
+            loteProveedor: command.LoteProveedor);
 
         await _db.SaveChangesAsync(cancellationToken);
 

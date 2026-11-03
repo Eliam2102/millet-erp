@@ -75,7 +75,9 @@ public sealed class ActivoServicio(ActivosFijosDbContext db, ICurrentUserContext
         var resultado = await polizas.RegistrarAutomaticaAsync(new SolicitudPolizaAutomatica("AF", fecha, concepto,
             new DocumentoOrigenPoliza("ActivosFijos", "Capitalizacion", documento, a.Numero, null), llave,
             [new PartidaRequest(activo, concepto, positivo ? monto : 0, positivo ? 0 : monto, a.SucursalId, Dim1Id: nodo.Dim1Id, Dim2Id: nodo.Dim2Id, Dim3Id: nodo.Nivel == DimensionContable.Dim3 ? nodo.Id : null),
-             new PartidaRequest(puente, concepto, positivo ? 0 : monto, positivo ? monto : 0, a.SucursalId, Dim1Id: nodo.Dim1Id, Dim2Id: nodo.Dim2Id, Dim3Id: nodo.Nivel == DimensionContable.Dim3 ? nodo.Id : null)], OrigenMovimiento.AuxiliarCxP), ct);
+             new PartidaRequest(puente, concepto, positivo ? 0 : monto, positivo ? monto : 0, a.SucursalId, Dim1Id: nodo.Dim1Id, Dim2Id: nodo.Dim2Id, Dim3Id: nodo.Nivel == DimensionContable.Dim3 ? nodo.Id : null,
+                 // K10.5 (E7): la capitalización salda la puente de la OC del activo.
+                 Puente: a.OrdenCompraId is Guid oc ? new ReferenciaPuente(oc, a.LineaOcId, TipoDocumentoPuente.CapitalizacionAf, documento) : null)], OrigenMovimiento.AuxiliarCxP), ct);
         return resultado.Id;
     }
 }

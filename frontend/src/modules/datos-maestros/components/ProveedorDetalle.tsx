@@ -1,3 +1,4 @@
+import { useReactivarProveedor } from '../api/proveedores';
 import { estadoUi } from '../lib/estados-ui';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
@@ -46,6 +47,9 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { ProveedorDatosForm } from '@/modules/datos-maestros/components/ProveedorDatosForm';
 import { ProveedorCuentasBancariasSection } from '@/modules/datos-maestros/components/ProveedorCuentasBancariasSection';
 import { ProveedorExpedienteSection } from '@/modules/datos-maestros/components/ProveedorExpedienteSection';
+import { QueFaltaPanel } from '@/modules/datos-maestros/components/QueFaltaPanel';
+import { ProveedorAccesoPortalSection } from '@/modules/datos-maestros/components/ProveedorAccesoPortalSection';
+import { ProveedorBloqueo } from '@/modules/datos-maestros/components/ProveedorBloqueo';
 
 /**
  * Detalle de proveedor (P3 del patrón cross-módulo). Header en flow
@@ -99,6 +103,7 @@ export function ProveedorDetalle() {
   const canVerAdjuntos = useHasPermission(PermisosCanonicos.DatosMaestrosProveedoresAdjuntosVer);
 
   const desactivar = useDesactivarProveedor();
+  const reactivar = useReactivarProveedor();
   const validar = useValidarProveedor();
   const rechazar = useRechazarProveedor();
 
@@ -123,6 +128,11 @@ export function ProveedorDetalle() {
   }
 
   const proveedor = proveedorQuery.data;
+  const documentosPendientes = expediente.data
+    ? [...expediente.data.faltantes, ...expediente.data.vencidos].map(
+        (codigo) => expediente.data!.documentos.find((d) => d.codigo === codigo)?.nombre ?? codigo,
+      )
+    : (proveedor.documentosPendientes ?? []);
   const activo = proveedor.estatus === EstatusCatalogo.Activo;
   const enRevision = proveedor.estatus === EstatusCatalogo.EnRevision;
 
@@ -224,6 +234,7 @@ export function ProveedorDetalle() {
         estado={
           <>
             <EstatusBadge estatus={proveedor.estatus} />
+            {proveedor.bloqueado === true && <Badge variant="danger">Bloqueado</Badge>}
           </>
         }
         acciones={
@@ -264,6 +275,28 @@ export function ProveedorDetalle() {
               </>
             )}
 
+            <ProveedorBloqueo proveedor={proveedor} parte="accion" />
+            {canValidar && proveedor.estatus === EstatusCatalogo.Activo && (
+              <Button variant="outline" size="sm" onClick={() => setRevisionOpen(true)}>
+                Poner en revisión
+              </Button>
+            )}
+
+            {canDesactivar && proveedor.estatus === EstatusCatalogo.Inactivo && (
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={reactivar.isPending}
+                onClick={() =>
+                  reactivar.mutate(
+                    { id: proveedor.id, idempotencyKey: crypto.randomUUID() },
+                    { onError: (e) => toast.error(e.message) },
+                  )
+                }
+              >
+                {reactivar.isPending ? 'Reactivando…' : 'Reactivar'}
+              </Button>
+            )}
             {canDesactivar && activo && (
               <Button
                 type="button"
@@ -284,10 +317,26 @@ export function ProveedorDetalle() {
           </>
         }
       />
+      {activo && (
+        <QueFaltaPanel
+          titulo="Expediente incompleto: qué falta"
+          items={documentosPendientes.map((etiqueta) => ({
+            etiqueta,
+            href: '#expediente-proveedor',
+          }))}
+          nota={
+            proveedor.origenCarga === 'CargaSap' ? 'Cargado desde SAP sin documentos.' : undefined
+          }
+        />
+      )}
       <dl className="grid grid-cols-2 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat">
         <div>
           <dt className="text-xs text-ink-muted">RFC</dt>
           <dd className="font-mono text-sm">{proveedor.rfc ?? '—'}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-ink-muted">Clave de A+W</dt>
+          <dd className="font-mono text-sm">{proveedor.claveAw ?? '—'}</dd>
         </div>
         <div>
           <dt className="text-xs text-ink-muted">Días de crédito</dt>
@@ -296,6 +345,7 @@ export function ProveedorDetalle() {
       </dl>
 
       <div className="space-y-5">
+        <ProveedorBloqueo proveedor={proveedor} parte="alerta" />
         {/* Banner informativo de En Revisión */}
         {enRevision && (
           <div className="mb-4 rounded-md bg-warning-note-bg p-3 text-warning-note-fg">
@@ -332,11 +382,6 @@ export function ProveedorDetalle() {
           </div>
         )}
 
-        {canValidar && proveedor.estatus === EstatusCatalogo.Activo && (
-          <Button variant="secondary" onClick={() => setRevisionOpen(true)}>
-            Poner en revisión
-          </Button>
-        )}
         <Dialog open={revisionOpen} onOpenChange={setRevisionOpen}>
           <DialogContent size="sm">
             <DialogHeader>
@@ -389,6 +434,7 @@ export function ProveedorDetalle() {
           razonSocial={proveedor.razonSocial}
         />
         <ProveedorExpedienteSection proveedorId={proveedor.id} origen={proveedor.origen ?? null} />
+        <ProveedorAccesoPortalSection proveedorId={proveedor.id} />
       </div>
 
       {/* Diálogo de Confirmación para Validar Proveedor */}

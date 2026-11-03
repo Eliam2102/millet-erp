@@ -5,6 +5,7 @@ import { useFormasPago } from '@/modules/catalogos/api/formas-pago';
 import { Link } from '@tanstack/react-router';
 import type { ComprobanteDetalleResponse } from '../api/types';
 import { estadoCobroFactura } from '../lib/estado-cobro-factura';
+import { textoVoucher } from '../lib/formas-pago-caja';
 import { RegistrarCobroCard } from './RegistrarCobroCard';
 
 const importe = (valor: number, moneda: string) =>
@@ -63,16 +64,19 @@ export function CobroFacturaPanel({ factura: f }: { factura: ComprobanteDetalleR
             />
             <h3 className="text-sm font-medium">Formas de pago</h3>
             <ul className="space-y-2">
-              {cobro.formasPago.map((p, i) => (
-                <li key={i} className="flex justify-between gap-3">
-                  <span>
-                    {catalogo.data?.find((forma) => forma.claveSat === p.formaPago)?.descripcion ??
-                      `Forma SAT ${p.formaPago}`}
-                    {p.referencia ? ` · ${p.referencia}` : ''}
-                  </span>
-                  <span className="text-right tabular-nums">{importe(p.importe, f.moneda)}</span>
-                </li>
-              ))}
+              {cobro.formasPago.map((p, i) => {
+                const voucher = textoVoucher(p.referencia, p.tarjetaUltimos4);
+                return (
+                  <li key={i} className="flex justify-between gap-3">
+                    <span>
+                      {catalogo.data?.find((forma) => forma.claveSat === p.formaPago)?.descripcion ??
+                        `Forma SAT ${p.formaPago}`}
+                      {voucher ? ` · ${voucher}` : ''}
+                    </span>
+                    <span className="text-right tabular-nums">{importe(p.importe, f.moneda)}</span>
+                  </li>
+                );
+              })}
             </ul>
           </>
         ) : f.metodoPago === 'PUE' ? (

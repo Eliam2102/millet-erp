@@ -77,7 +77,7 @@ export function NotaCreditoDetallePage() {
           <dl className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 @xl:grid-cols-2 @3xl:grid-cols-4 @5xl:grid-cols-6">
             <Campo
               label="Proveedor"
-              valor={query.data.proveedorNombre ?? query.data.proveedorId}
+              valor={query.data.proveedorNombre ?? '—'}
               mono={query.data.proveedorNombre == null}
             />
             <Campo label="UUID CFDI" valor={query.data.uuidCfdi} mono />
@@ -150,14 +150,14 @@ export function NotaCreditoDetallePage() {
                 <dt className="text-xs text-muted-foreground">
                   Factura origen
                 </dt>
-                <dd className="font-mono text-xs">
+                <dd className="text-xs">
                   {query.data.facturaOrigenId != null ? (
                     <Link
                       to="/cxp/facturas/$id"
                       params={{ id: query.data.facturaOrigenId }}
                       className="text-primary underline-offset-2 hover:underline"
                     >
-                      {query.data.facturaOrigenId}
+                      Ver factura origen
                     </Link>
                   ) : (
                     '— (en espera de match)'

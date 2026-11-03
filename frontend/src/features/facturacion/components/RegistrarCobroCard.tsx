@@ -11,11 +11,22 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { CobroFormaPagoInput } from '@/features/facturacion/api/types';
-import { useRegistrarCobro, useSesionActual } from '@/features/facturacion/api/useCajaSesiones';
+import {
+  useFoliosTransferenciaCaja,
+  useRegistrarCobro,
+  useSesionActual,
+} from '@/features/facturacion/api/useCajaSesiones';
 import {
   autorizacionVoucherInvalida,
   esFormaTarjeta,
+  esTransferencia,
+  faltaFolioTransferencia,
+  faltanUltimos4,
+  MENSAJE_FOLIO_TRANSFERENCIA,
+  MENSAJE_ULTIMOS4,
   MENSAJE_VOUCHER,
+  pideUltimos4,
+  soloUltimos4,
   voucherIncompleto,
   formasPagoCaja,
   formasPagoVigentes,
@@ -75,6 +86,11 @@ export function RegistrarCobroCard(props: {
     { formaPago: '01', importe: props.total.toFixed(2) },
   ]);
   const [registrado, setRegistrado] = useState(false);
+  // F6.6: los folios de Ingresos se consultan solo si hay una transferencia en el cobro.
+  const conTransferencia = formas.some((f) => esTransferencia(f.formaPago));
+  const folios = useFoliosTransferenciaCaja(props.comprobanteId, {
+    enabled: puedeOperar && abierto && conTransferencia,
+  });
 
   if (!puedeOperar || registrado) return null;
   if (sesion.data?.sesion == null || sesion.data.diaAnteriorPendiente) return null;
@@ -90,6 +106,9 @@ export function RegistrarCobroCard(props: {
   );
   const cuadra = Math.abs(suma - props.total) < 0.005;
   const sinVoucher = voucherIncompleto(formas);
+  const sinUltimos4 = faltanUltimos4(formas);
+  const sinFolio = faltaFolioTransferencia(formas);
+  const foliosVigentes = folios.data ?? [];
 
   function actualizarForma(i: number, parcial: Partial<FormaLocal>) {
     setFormas((prev) => prev.map((f, j) => (j === i ? { ...f, ...parcial } : f)));
@@ -104,6 +123,14 @@ export function RegistrarCobroCard(props: {
       toast.error(MENSAJE_VOUCHER);
       return;
     }
+    if (sinUltimos4) {
+      toast.error(MENSAJE_ULTIMOS4);
+      return;
+    }
+    if (sinFolio) {
+      toast.error(MENSAJE_FOLIO_TRANSFERENCIA);
+      return;
+    }
     if (!cuadra) {
       toast.error(
         `La suma de formas (${suma.toFixed(2)}) debe igualar el total (${props.total.toFixed(2)}).`,
@@ -114,7 +141,14 @@ export function RegistrarCobroCard(props: {
       {
         body: {
           comprobanteId: props.comprobanteId,
-          formasPago: formas.map((f) => ({ ...f, importe: Number(f.importe) })),
+          formasPago: formas.map(({ tarjetaUltimos4, folioTransferencia, ...f }) => ({
+            ...f,
+            importe: Number(f.importe),
+            // 86e3tfdvt: solo crédito y débito llevan los últimos 4 dígitos.
+            ...(pideUltimos4(f.formaPago) ? { tarjetaUltimos4: (tarjetaUltimos4 ?? '').trim() } : {}),
+            // F6.6: solo la transferencia lleva el folio de Ingresos.
+            ...(esTransferencia(f.formaPago) ? { folioTransferencia: folioTransferencia ?? null } : {}),
+          })),
           origen: Number(origen),
         },
         idempotencyKey,
@@ -221,6 +255,63 @@ export function RegistrarCobroCard(props: {
               aria-required={esFormaTarjeta(f.formaPago)}
             />
           </FormCampo>
+          {pideUltimos4(f.formaPago) && (
+            <FormCampo span={6} className="space-y-1">
+              <Label htmlFor={`cobro-ultimos4-${i}`}>Últimos 4 dígitos de la tarjeta</Label>
+              <Input
+                id={`cobro-ultimos4-${i}`}
+                inputMode="numeric"
+                autoComplete="off"
+                value={f.tarjetaUltimos4 ?? ''}
+                onChange={(e) => actualizarForma(i, { tarjetaUltimos4: soloUltimos4(e.target.value) })}
+                placeholder="Obligatorio · ej. 1234"
+                maxLength={4}
+                aria-invalid={faltanUltimos4([f])}
+                aria-required
+              />
+            </FormCampo>
+          )}
+          {esTransferencia(f.formaPago) && (
+            <FormCampo span={6} className="space-y-1">
+              <Label htmlFor={`cobro-folio-${i}`}>Folio de transferencia</Label>
+              <Select
+                value={f.folioTransferencia ?? ''}
+                onValueChange={(v) => {
+                  const elegido = foliosVigentes.find((x) => x.folio === v);
+                  // El folio es por el importe exacto: se propone ese importe.
+                  actualizarForma(i, {
+                    folioTransferencia: v,
+                    ...(elegido ? { importe: elegido.importe.toFixed(2) } : {}),
+                  });
+                }}
+                disabled={folios.isLoading || foliosVigentes.length === 0}
+              >
+                <SelectTrigger
+                  id={`cobro-folio-${i}`}
+                  aria-label={`Folio de transferencia ${i + 1}`}
+                  aria-required
+                  aria-invalid={(f.folioTransferencia ?? '') === ''}
+                >
+                  <SelectValue placeholder={folios.isLoading ? 'Cargando folios…' : 'Obligatorio · elige el folio'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {foliosVigentes.map((x) => (
+                    <SelectItem key={x.id} value={x.folio}>
+                      {x.folio} · {x.importe.toFixed(2)}
+                      {x.pedido ? ` · ${x.pedido}` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {!folios.isLoading && (folios.isError || foliosVigentes.length === 0) && (
+                <p role="status" className="text-xs text-ink-muted">
+                  {folios.isError
+                    ? 'No se pudieron consultar los folios de transferencia.'
+                    : 'Este cliente no tiene folios de transferencia vigentes: pide a Ingresos que confirme el abono y emita el folio.'}
+                </p>
+              )}
+            </FormCampo>
+          )}
           {formas.length > 1 && (
             <Button
               size="icon"
@@ -275,13 +366,19 @@ export function RegistrarCobroCard(props: {
               <Button
                 size="sm"
                 onClick={onCobrar}
-                disabled={registrar.isPending || !cuadra || !vigentes || sinVoucher}
+                disabled={
+                  registrar.isPending || !cuadra || !vigentes || sinVoucher || sinUltimos4 || sinFolio
+                }
                 title={
                   !vigentes
                     ? 'Selecciona formas de pago SAT activas.'
                     : sinVoucher
                       ? MENSAJE_VOUCHER
-                      : undefined
+                      : sinUltimos4
+                        ? MENSAJE_ULTIMOS4
+                        : sinFolio
+                          ? MENSAJE_FOLIO_TRANSFERENCIA
+                          : undefined
                 }
               >
                 Cobrar

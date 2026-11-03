@@ -28,7 +28,8 @@ public sealed record CrearProductoAwCommand(
     decimal? TasaRetencionIsr,
     string? FraccionArancelaria = null,
     string? UnidadAduana = null,
-    decimal? PesoUnitarioKg = null) : IRequest<CrearProductoAwResponse>;
+    decimal? PesoUnitarioKg = null,
+    bool EsServicioRecubrimiento = false) : IRequest<CrearProductoAwResponse>;
 
 public sealed record CrearProductoAwResponse(Guid Id, string ReferenciaExterna);
 
@@ -118,7 +119,8 @@ public sealed class CrearProductoAwHandler
             tasaRetencionIsr: request.TasaRetencionIsr,
             fraccionArancelaria: request.FraccionArancelaria,
             unidadAduana: request.UnidadAduana,
-            pesoUnitarioKg: request.PesoUnitarioKg);
+            pesoUnitarioKg: request.PesoUnitarioKg,
+            esServicioRecubrimiento: request.EsServicioRecubrimiento);
 
         _db.ProductosAw.Add(producto);
         await _db.SaveChangesAsync(cancellationToken);

@@ -1,3 +1,4 @@
+import { CargaMaestrosDialog } from '@/modules/datos-maestros/components/CargaMaestrosDialog';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { BarraFiltros } from '@/components/erp/data/BarraFiltros';
 import { EquivalenciasDepartamento } from '../components/EquivalenciasDepartamento';
@@ -102,6 +103,9 @@ export function ConfiguracionCentrosCostoPage() {
         descripcion="Consulta y administra el catálogo jerárquico y sus grupos de clasificación."
         acciones={
           <>
+            <CargaMaestrosDialog catalogo="centros-costo-dim1" etiqueta={`Cargar desde Excel · ${etiquetaNivel('dim1', 'configuracion')}`} />
+            <CargaMaestrosDialog catalogo="centros-costo-dim2" etiqueta={`Cargar desde Excel · ${etiquetaNivel('dim2', 'configuracion')}`} />
+            <CargaMaestrosDialog catalogo="centros-costo-dim3" etiqueta={`Cargar desde Excel · ${etiquetaNivel('dim3', 'configuracion')}`} />
             {puedeAdministrar && (
               <>
                 <Button onClick={() => setDim1Dialog({ tipo: 'crear' })}>

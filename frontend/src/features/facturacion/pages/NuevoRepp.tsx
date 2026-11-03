@@ -1,14 +1,21 @@
 import { SucursalSelector } from '@/components/erp';
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
+import { FormaPagoSelector } from '@/components/erp/selectors/FormaPagoSelector';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { ClienteLookupItem, FacturaCobrablePpdItem } from '@/features/facturacion/api/types';
 import { useEmitirRepp } from '@/features/facturacion/api/useRepp';
 import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
+import { CuentaBeneficiariaCampo } from '@/features/facturacion/components/CuentaBeneficiariaCampo';
 import { FacturaPpdPicker } from '@/features/facturacion/components/FacturaPpdPicker';
 import { ClienteSelector } from '@/features/facturacion/components/selectors/ClienteSelector';
+import {
+  admiteBeneficiaria,
+  admiteOrdenante,
+  motivoSinCuenta,
+} from '@/features/facturacion/lib/cuentas-pago-sat';
 import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
 import {
   EmitirReppSchema,
@@ -55,6 +62,7 @@ const VALORES_INICIALES: EmitirReppValues = {
   formaPagoReal: '03',
   cuentaOrdenante: null,
   cuentaBeneficiaria: null,
+  cuentaBancariaBeneficiariaId: null,
   referenciaPago: null,
   facturas: [defaultFactura()],
 };
@@ -91,6 +99,25 @@ export function NuevoRepp({ onClose, onDirtyChange }: NuevoReppProps) {
   }, [isDirty, onDirtyChange]);
 
   const monedaPago = useWatch({ control: form.control, name: 'monedaPago' });
+  // 86e3tfdve: las cuentas solo aplican a formas bancarizadas (c_FormaPago).
+  const formaPago = useWatch({ control: form.control, name: 'formaPagoReal' }) ?? '';
+  const cuentaBeneficiaria = useWatch({ control: form.control, name: 'cuentaBeneficiaria' });
+  const cuentaBancariaBeneficiariaId = useWatch({
+    control: form.control,
+    name: 'cuentaBancariaBeneficiariaId',
+  });
+  const conOrdenante = admiteOrdenante(formaPago);
+  const conBeneficiaria = admiteBeneficiaria(formaPago);
+  useEffect(() => {
+    if (!conOrdenante && form.getValues('cuentaOrdenante') != null)
+      form.setValue('cuentaOrdenante', null, { shouldDirty: true });
+    if (!conBeneficiaria) {
+      if (form.getValues('cuentaBeneficiaria') != null)
+        form.setValue('cuentaBeneficiaria', null, { shouldDirty: true });
+      if (form.getValues('cuentaBancariaBeneficiariaId') != null)
+        form.setValue('cuentaBancariaBeneficiariaId', null, { shouldDirty: true });
+    }
+  }, [conOrdenante, conBeneficiaria, form]);
   const facturasWatch = useWatch({ control: form.control, name: 'facturas' });
   const totalPago = (facturasWatch ?? []).reduce((acc, f) => acc + (f.importePagado ?? 0), 0);
 
@@ -137,6 +164,7 @@ export function NuevoRepp({ onClose, onDirtyChange }: NuevoReppProps) {
           formaPagoReal: values.formaPagoReal,
           cuentaOrdenante: nullIfEmpty(values.cuentaOrdenante),
           cuentaBeneficiaria: nullIfEmpty(values.cuentaBeneficiaria),
+          cuentaBancariaBeneficiariaId: values.cuentaBancariaBeneficiariaId ?? null,
           referenciaPago: nullIfEmpty(values.referenciaPago),
           facturas: values.facturas,
         },
@@ -213,13 +241,17 @@ export function NuevoRepp({ onClose, onDirtyChange }: NuevoReppProps) {
           <Campo label="Fecha de pago" required error={form.formState.errors.fechaPago?.message}>
             <Input type="date" {...form.register('fechaPago')} />
           </Campo>
-          <Campo
-            label="Forma de pago"
-            required
-            error={form.formState.errors.formaPagoReal?.message}
-            hint="Clave SAT c_FormaPago (03 transferencia…)."
-          >
-            <Input maxLength={5} {...form.register('formaPagoReal')} />
+          <Campo label="Forma de pago" required error={form.formState.errors.formaPagoReal?.message}>
+            <Controller
+              control={form.control}
+              name="formaPagoReal"
+              render={({ field }) => (
+                <FormaPagoSelector
+                  value={field.value}
+                  onChange={(v) => field.onChange(v ?? '')}
+                />
+              )}
+            />
           </Campo>
           <Campo label="Moneda del pago" required error={form.formState.errors.monedaPago?.message}>
             <Input className="uppercase" maxLength={3} {...form.register('monedaPago')} />
@@ -239,14 +271,48 @@ export function NuevoRepp({ onClose, onDirtyChange }: NuevoReppProps) {
           <Campo label="Referencia de pago" error={form.formState.errors.referenciaPago?.message}>
             <Input placeholder="Opcional" {...form.register('referenciaPago')} />
           </Campo>
-          <Campo label="Cuenta ordenante" error={form.formState.errors.cuentaOrdenante?.message}>
-            <Input placeholder="Opcional" {...form.register('cuentaOrdenante')} />
+          <Campo
+            label="Cuenta ordenante"
+            htmlFor="repp-cuenta-ordenante"
+            error={form.formState.errors.cuentaOrdenante?.message}
+            hint={
+              conOrdenante
+                ? 'Cuenta del cliente desde la que pagó. Opcional.'
+                : motivoSinCuenta(formaPago, 'ordenante')
+            }
+          >
+            <Input
+              id="repp-cuenta-ordenante"
+              placeholder="Opcional"
+              disabled={!conOrdenante}
+              aria-invalid={!!form.formState.errors.cuentaOrdenante}
+              {...form.register('cuentaOrdenante', { setValueAs: (v) => nullIfEmpty(v) })}
+            />
           </Campo>
           <Campo
             label="Cuenta beneficiaria"
+            htmlFor="repp-cuenta-beneficiaria"
             error={form.formState.errors.cuentaBeneficiaria?.message}
+            hint={
+              conBeneficiaria
+                ? 'Cuenta de Millet que recibió el pago. Opcional.'
+                : motivoSinCuenta(formaPago, 'beneficiaria')
+            }
           >
-            <Input placeholder="Opcional" {...form.register('cuentaBeneficiaria')} />
+            <CuentaBeneficiariaCampo
+              id="repp-cuenta-beneficiaria"
+              formaPago={formaPago}
+              moneda={monedaPago}
+              cuenta={cuentaBeneficiaria ?? null}
+              cuentaBancariaId={cuentaBancariaBeneficiariaId ?? null}
+              invalid={!!form.formState.errors.cuentaBeneficiaria}
+              onCuenta={(v) =>
+                form.setValue('cuentaBeneficiaria', v, { shouldDirty: true, shouldValidate: form.formState.isSubmitted })
+              }
+              onCuentaBancariaId={(v) =>
+                form.setValue('cuentaBancariaBeneficiariaId', v, { shouldDirty: true, shouldValidate: form.formState.isSubmitted })
+              }
+            />
           </Campo>
         </section>
 
@@ -407,12 +473,14 @@ export function NuevoRepp({ onClose, onDirtyChange }: NuevoReppProps) {
 
 function Campo({
   label,
+  htmlFor,
   required,
   error,
   hint,
   children,
 }: {
   label: string;
+  htmlFor?: string;
   required?: boolean;
   error?: string;
   hint?: string;
@@ -420,7 +488,7 @@ function Campo({
 }) {
   return (
     <div className="space-y-1">
-      <Label className="text-xs">
+      <Label className="text-xs" htmlFor={htmlFor}>
         {label}
         {required && <span className="ml-1 text-danger-fg">*</span>}
       </Label>

@@ -8,6 +8,7 @@ import type {
   AplicarPedimentoCommand,
   AplicarPedimentoResponse,
   BandejaScoped,
+  CancelacionBandejaItem,
   ComprobanteDetalleResponse,
   ConsultarCancelacionResponse,
   DescartarComprobanteResponse,
@@ -15,6 +16,7 @@ import type {
   EmitirFacturaVentaCommand,
   EmitirFacturaVentaResponse,
   EnvioCorreoItem,
+  EstadoSolicitudCancelacion,
   FacturaBandejaItem,
   IntentoTimbradoItem,
   NotaCreditoBonificacionCommand,
@@ -190,7 +192,8 @@ export function useCancelacionEstatus(id: string | null | undefined) {
 
 /**
  * <c>useSolicitarCancelacion()</c> — solicita la cancelación SAT 4.0
- * (Idempotency-Key). El motivo 01 exige UUID sustituto.
+ * (Idempotency-Key). El motivo 01 exige UUID sustituto. F6.5: queda
+ * pendiente de autorización del Contador General; aún no va al PAC.
  */
 export function useSolicitarCancelacion() {
   const queryClient = useQueryClient();
@@ -216,6 +219,57 @@ export function useSolicitarCancelacion() {
       // El comprobante cancelado puede ser una factura de anticipo (doc 13):
       // refresca su bandeja/detalle y el Control de Anticipos.
       queryClient.invalidateQueries({ queryKey: facturacionKeys.anticipos() });
+      queryClient.invalidateQueries({
+        queryKey: facturacionKeys.facturaCancelacion(args.id),
+      });
+      queryClient.invalidateQueries({ queryKey: facturacionKeys.cancelaciones() });
+    },
+  });
+}
+
+/** <c>useBandejaCancelaciones(estado)</c> — bandeja del Contador General (F6.5). */
+export function useBandejaCancelaciones(estado: EstadoSolicitudCancelacion) {
+  return useQuery<CancelacionBandejaItem[]>({
+    queryKey: facturacionKeys.cancelacionesBandeja(estado),
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<CancelacionBandejaItem[]>(
+        `/api/v1/facturacion/comprobantes/cancelaciones?estado=${estado}`,
+        { signal },
+      );
+      return data;
+    },
+    staleTime: 0,
+  });
+}
+
+/**
+ * <c>useDecidirCancelacion()</c> — F6.5: el Contador General autoriza (se envía
+ * al PAC) o rechaza con motivo; Ingresos puede retirar una pendiente.
+ * Idempotency-Key en las tres.
+ */
+export function useDecidirCancelacion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      id: string;
+      accion: 'autorizar' | 'rechazar' | 'retirar';
+      motivo?: string;
+      idempotencyKey: string;
+    }) => {
+      const { data } = await apiRequest<SolicitarCancelacionResponse>(
+        `/api/v1/facturacion/comprobantes/${args.id}/cancelar/${args.accion}`,
+        {
+          method: 'POST',
+          body: args.accion === 'rechazar' ? { motivo: args.motivo ?? '' } : undefined,
+          idempotencyKey: args.idempotencyKey,
+        },
+      );
+      return data;
+    },
+    onSuccess: (_data, args) => {
+      queryClient.invalidateQueries({ queryKey: facturacionKeys.facturas() });
+      queryClient.invalidateQueries({ queryKey: facturacionKeys.anticipos() });
+      queryClient.invalidateQueries({ queryKey: facturacionKeys.cancelaciones() });
       queryClient.invalidateQueries({
         queryKey: facturacionKeys.facturaCancelacion(args.id),
       });

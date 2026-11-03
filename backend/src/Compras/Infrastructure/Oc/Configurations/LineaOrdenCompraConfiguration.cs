@@ -41,7 +41,8 @@ public sealed class LineaOrdenCompraConfiguration : IEntityTypeConfiguration<Lin
             t.HasCheckConstraint("ck_oc_lineas_facturada_nn", "cantidad_facturada >= 0");
             // El techo exacto (= cantidad, sin tolerancia en piezas) lo valida el dominio; la base conserva una cota de seguridad (× 2) por datos históricos.
             t.HasCheckConstraint("ck_oc_lineas_recibida_max", "cantidad_recibida <= cantidad * 2");
-            t.HasCheckConstraint("ck_oc_lineas_facturada_max", "cantidad_facturada <= GREATEST(cantidad, cantidad_recibida)");
+            t.HasCheckConstraint("ck_oc_lineas_facturada_max", "cantidad_facturada <= GREATEST(cantidad, cantidad_recibida) + cantidad_acreditada");
+            t.HasCheckConstraint("ck_oc_lineas_acreditada_nn", "cantidad_acreditada >= 0");
             t.HasCheckConstraint("ck_oc_lineas_rq_coherente",
                 "(requisicion_id IS NULL AND linea_requisicion_id IS NULL) OR " +
                 "(requisicion_id IS NOT NULL AND linea_requisicion_id IS NOT NULL)");
@@ -149,9 +150,17 @@ public sealed class LineaOrdenCompraConfiguration : IEntityTypeConfiguration<Lin
             .HasDefaultValue(0m)
             .IsRequired();
 
+        builder.Property(l => l.CantidadAcreditada)
+            .HasColumnType("numeric(15,4)")
+            .HasDefaultValue(0m)
+            .IsRequired();
+
         builder.Property(l => l.TextoAdicional).HasColumnType("text");
         // PLATFORM-TODO(F1-COM-06): supuesto Vilo, confirmar con lista de Millet.
         builder.Property(l => l.FraccionArancelaria).HasMaxLength(10);
+
+        // F1-MP-05 (A4.2): lote del proveedor, opcional.
+        builder.Property(l => l.LoteProveedor).HasMaxLength(LineaOrdenCompra.LoteProveedorMaxLength);
 
         // F1-MP-01 (E1): medida de la hoja de vidrio crudo. Sin FK (A+W vive en otro esquema, ADR-0030).
         builder.Property(l => l.ProductoAwVarianteId);

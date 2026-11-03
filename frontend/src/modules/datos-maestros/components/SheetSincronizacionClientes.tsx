@@ -227,6 +227,7 @@ function DetalleEjecucion({ id, onVolver }: { id: string; onVolver: () => void }
                 ['Sin cambios', d.sinCambios],
                 ['Pendientes', d.pendientes],
                 ['Conflictos', d.conflictos],
+                ['Unificados', d.unificados],
                 ['Errores', d.errores.length],
               ] as const
             ).map(([t, v]) => (

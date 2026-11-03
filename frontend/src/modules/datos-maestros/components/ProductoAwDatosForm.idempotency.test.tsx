@@ -225,4 +225,38 @@ describe('<ProductoAwDatosForm> — Idempotency-Key por submit (regresión Bug B
     for (const k of ['componentes', 'codigoModelo', 'grupo', 'tipo', 'wgr', 'wgrDescripcion'])
       expect(body).not.toHaveProperty(k);
   });
+
+  it('PIN-2: la marca «Servicio de recubrimiento» se activa y se quita, y viaja en el PATCH', async () => {
+    const bodies: Record<string, unknown>[] = [];
+    mswServer.use(
+      http.patch('*/api/v1/datos-maestros/productos-aw/pa-1', async ({ request }) => {
+        bodies.push((await request.json()) as Record<string, unknown>);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    render(<ProductoAwDatosForm producto={{ ...PRODUCTO, esServicioRecubrimiento: false }} />, {
+      wrapper: createQueryWrapper(),
+    });
+    const marca = screen.getByRole('checkbox', { name: /servicio de recubrimiento/i });
+    expect(marca).not.toBeChecked();
+
+    fireEvent.click(marca);
+    expect(marca).toBeChecked();
+    fireEvent.click(screen.getByRole('button', { name: /guardar cambios/i }));
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).toMatchObject({ esServicioRecubrimiento: true });
+
+    fireEvent.click(marca);
+    await waitFor(() => expect(screen.getByRole('button', { name: /guardar cambios/i })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: /guardar cambios/i }));
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    expect(bodies[1]).toMatchObject({ esServicioRecubrimiento: false });
+  });
+
+  it('PIN-2: un producto ya marcado abre con la marca activa', () => {
+    render(<ProductoAwDatosForm producto={{ ...PRODUCTO, esServicioRecubrimiento: true }} />, {
+      wrapper: createQueryWrapper(),
+    });
+    expect(screen.getByRole('checkbox', { name: /servicio de recubrimiento/i })).toBeChecked();
+  });
 });

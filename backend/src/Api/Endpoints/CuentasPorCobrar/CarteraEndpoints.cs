@@ -40,6 +40,16 @@ public static class CarteraEndpoints
         .WithName("ObtenerSaldoNetoCliente")
         .Produces<SaldoNetoClienteResponse>(StatusCodes.Status200OK);
 
+        cartera.MapGet("/cartera/saldo-grupo/{clienteId:guid}", async (
+            Guid clienteId,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new SaldoGrupoClienteQuery(clienteId), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarCarteraLeer)
+        .WithName("ObtenerSaldoGrupoCliente")
+        .WithSummary("Saldo por moneda de cada cliente del grupo de unificación por RFC (vacío si no hay grupo)")
+        .Produces<SaldoGrupoClienteResponse>(StatusCodes.Status200OK);
+
         // CXC-PR6: reportes ADR-0036 (JSON estructurado → <ReporteShell>).
         cartera.MapGet("/cartera/antiguedad", async (
             [FromQuery] DateOnly? fechaCorte,

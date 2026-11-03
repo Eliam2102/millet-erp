@@ -57,15 +57,15 @@ public sealed class RfcRepetidosTests
         Assert.Equal(EstatusCatalogo.Activo, g.Estatus);
     }
 
-    private static MiembroRfcRepetido M(string r, bool rfc = false, int aw = 0, DateTime? ultimo = null, int erp = 0, bool unificado = false) =>
-        new(Guid.NewGuid(), r, rfc, unificado, aw, ultimo, erp);
+    private static MiembroRfcRepetido M(string r, bool rfc = false, int aw = 0, DateTime? ultimo = null, int erp = 0, bool unificado = false, int cot = 0, DateTime? ultimaCot = null) =>
+        new(Guid.NewGuid(), r, rfc, unificado, aw, ultimo, erp, cot, ultimaCot);
 
     [Fact]
     public void Principal_sugerido_sigue_el_orden_rfc_en_erp_pedido_aw_reciente_mas_pedidos_erp_referencia_baja()
     {
         var a = M("10", aw: 3, ultimo: new DateTime(2026, 1, 1)); var b = M("9", rfc: true); var c = M("11", aw: 1, ultimo: new DateTime(2026, 5, 1), erp: 9);
         Assert.Equal((b.Id, "Ya tiene el RFC en el ERP."), RfcRepetidosReglas.SugerirPrincipal([a, b, c]));
-        Assert.Equal((c.Id, "Tiene el pedido más reciente en A+W."), RfcRepetidosReglas.SugerirPrincipal([a, c]));
+        Assert.Equal((c.Id, "Tiene la actividad más reciente en A+W (pedido o cotización)."), RfcRepetidosReglas.SugerirPrincipal([a, c]));
         var d = M("20", erp: 1); var e = M("21", erp: 4);
         Assert.Equal((e.Id, "Tiene más pedidos en el ERP."), RfcRepetidosReglas.SugerirPrincipal([d, e]));
         var f = M("100"); var g = M("20"); var manual = M(null!);
@@ -82,5 +82,22 @@ public sealed class RfcRepetidosTests
         Assert.Equal("Fusionar", RfcRepetidosReglas.AccionSugerida(sin, p.Id));
         Assert.Equal("Agrupar", RfcRepetidosReglas.AccionSugerida(conAw, p.Id));
         Assert.Equal("Agrupar", RfcRepetidosReglas.AccionSugerida(conErp, p.Id));
+    }
+
+    [Fact]
+    public void Una_cotizacion_en_a_w_cuenta_como_historial()
+    {
+        var p = M("1"); var soloCotizacion = M("2", cot: 1);
+        Assert.True(RfcRepetidosReglas.ConHistorial(soloCotizacion));
+        Assert.Equal("Agrupar", RfcRepetidosReglas.AccionSugerida(soloCotizacion, p.Id));
+    }
+
+    [Fact]
+    public void Principal_sugerido_considera_la_cotizacion_mas_reciente_ademas_del_pedido()
+    {
+        var conPedido = M("1", aw: 1, ultimo: new DateTime(2026, 1, 1)); var soloCotizacion = M("2", cot: 1, ultimaCot: new DateTime(2026, 6, 1));
+        Assert.Equal(soloCotizacion.Id, RfcRepetidosReglas.SugerirPrincipal([conPedido, soloCotizacion]).Id);
+        var sinNada = M("0"); // referencia más baja, pero sin actividad
+        Assert.Equal(soloCotizacion.Id, RfcRepetidosReglas.SugerirPrincipal([sinNada, soloCotizacion]).Id);
     }
 }

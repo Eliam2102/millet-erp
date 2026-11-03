@@ -1,5 +1,6 @@
 import {
   CanalCobranza,
+  ComportamientoSerie,
   EstadoAutorizacionCredito,
   EstadoLineaCredito,
   EstadoPropuestaAplicacion,
@@ -32,6 +33,13 @@ export const ETIQUETA_RESULTADO_LIBERACION: Record<ResultadoLiberacion, string> 
   [ResultadoLiberacion.Retenido]: 'Retenido',
   [ResultadoLiberacion.LiberadoConOverride]: 'Liberado con override',
   [ResultadoLiberacion.PendienteAutorizacion]: 'Pendiente de autorización',
+};
+
+/** C7.2: lo que hace una serie de folio frente a la liberación. */
+export const ETIQUETA_COMPORTAMIENTO_SERIE: Record<ComportamientoSerie, string> = {
+  [ComportamientoSerie.SiempreLibera]: 'Siempre libera',
+  [ComportamientoSerie.NuncaLibera]: 'Nunca libera (solo con autorización)',
+  [ComportamientoSerie.EvaluaCredito]: 'Evalúa crédito',
 };
 
 export const ETIQUETA_REGLA_LIBERACION: Record<ReglaAplicadaLiberacion, string> = {

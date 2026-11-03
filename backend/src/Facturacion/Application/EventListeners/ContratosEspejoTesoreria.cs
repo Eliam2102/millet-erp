@@ -42,3 +42,24 @@ public sealed record PagoClienteConfirmadoPayload(
 {
     public const string EventType = "tesoreria.pago-cliente.confirmado.v1";
 }
+
+/// <summary>
+/// Espejo de <c>tesoreria.reembolso-nota-credito.actualizado.v1</c> (F6.3): cambió el estado de la devolución de dinero de
+/// una NC (Autorizada, Rechazada, Cancelada o Pagada). En «Pagada» trae la fecha valor y la referencia bancaria.
+/// Fuente: Tesoreria/Application/Integration/ReembolsoNotaCreditoIntegrationEvents.cs.
+/// </summary>
+public sealed record ReembolsoNotaCreditoActualizadoPayload(
+    Guid EmpresaId,
+    DateTimeOffset OcurridoEn,
+    Guid DevolucionId,
+    string DevolucionFolio,
+    Guid NotaCreditoId,
+    string Estado,
+    decimal Importe,
+    string Moneda,
+    DateOnly? FechaPago,
+    string? ReferenciaBancaria,
+    string? Motivo)
+{
+    public const string EventType = "tesoreria.reembolso-nota-credito.actualizado.v1";
+}

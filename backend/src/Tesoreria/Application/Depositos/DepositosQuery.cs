@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Tesoreria.Application.Common;
 using Millet.Tesoreria.Domain.Depositos;
+using Millet.Tesoreria.Domain.Ports;
 using Millet.Tesoreria.Domain.Ports.DatosMaestros;
 using Millet.Tesoreria.Infrastructure.Persistence;
 
@@ -31,10 +32,11 @@ public sealed class DepositosHandler
 {
     private readonly TesoreriaDbContext _db;
     private readonly IClienteReadPort _clientes;
+    private readonly ICorteNombresReadPort? _nombres;
 
-    public DepositosHandler(TesoreriaDbContext db, IClienteReadPort clientes)
+    public DepositosHandler(TesoreriaDbContext db, IClienteReadPort clientes, ICorteNombresReadPort? nombres = null)
     {
-        _db = db; _clientes = clientes;
+        _db = db; _clientes = clientes; _nombres = nombres;
     }
 
     public async Task<PagedResponse<DepositoConfirmacionResponse>> Handle(
@@ -43,7 +45,7 @@ public sealed class DepositosHandler
         var limit = Math.Clamp(query.Limit, 1, 500);
         var offset = Math.Max(0, query.Offset);
 
-        var q = _db.DepositosConfirmacion
+        var q = _db.DepositosConfirmacion.Include(d => d.Fichas)
             .Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id)).AsNoTracking();
         if (query.Estado is EstadoDepositoConfirmacion estado) q = q.Where(d => d.Estado == estado);
         if (query.ClienteId is Guid cliente) q = q.Where(d => d.ClienteId == cliente);
@@ -52,7 +54,7 @@ public sealed class DepositosHandler
 
         var total = await q.CountAsync(cancellationToken);
         var items = await q
-            .OrderBy(d => d.Estado == EstadoDepositoConfirmacion.Pendiente ? 0 : 1)
+            .OrderBy(d => d.Estado == EstadoDepositoConfirmacion.Pendiente || d.Estado == EstadoDepositoConfirmacion.Parcial ? 0 : 1)
             .ThenByDescending(d => d.CreatedAt)
             .Skip(offset).Take(limit)
             .ToListAsync(cancellationToken);
@@ -61,11 +63,22 @@ public sealed class DepositosHandler
             .Select(d => d.ClienteId!.Value).Distinct().ToList();
         var clientes = await _clientes.ObtenerVariosAsync(clienteIds, cancellationToken);
 
+        var sesiones = items.Where(d => d.CajaSesionId is not null).Select(d => d.CajaSesionId!.Value).ToList();
+        var diferencias = await _db.DiferenciasCorte.AsNoTracking()
+            .Where(x => sesiones.Contains(x.CajaSesionId)).ToDictionaryAsync(x => x.CajaSesionId, cancellationToken);
+
+        var cajeros = _nombres is null
+            ? new Dictionary<Guid, string>()
+            : await _nombres.NombresCajerosAsync(items.Where(d => d.CajeroId != null).Select(d => d.CajeroId!.Value).ToList(), cancellationToken);
+
         var responses = items.Select(d =>
         {
             ClienteRefDto? cliente = null;
             if (d.ClienteId is Guid id) clientes.TryGetValue(id, out cliente);
-            return DepositoMapper.ToResponse(d, cliente?.Clave, cliente?.RazonSocial);
+            DiferenciaCorte? diferencia = null;
+            if (d.CajaSesionId is Guid sesion) diferencias.TryGetValue(sesion, out diferencia);
+            var r = DepositoMapper.ToResponse(d, cliente?.Clave, cliente?.RazonSocial, diferencia);
+            return d.CajeroId is Guid cajero && cajeros.TryGetValue(cajero, out var nombre) ? r with { CajeroNombre = nombre } : r;
         }).ToList();
 
         return new PagedResponse<DepositoConfirmacionResponse>(responses, offset, limit, total);

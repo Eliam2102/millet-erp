@@ -3,6 +3,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Millet.Facturacion.Application.Comprobantes.Pdf;
+using Millet.Facturacion.Application.Comprobantes.Queries;
 using Millet.Facturacion.Domain.Envios;
 using Millet.Facturacion.Domain.Ports;
 using Millet.Facturacion.Infrastructure.Persistence;
@@ -69,6 +71,7 @@ public sealed class EnvioCfdiCorreoWorker : BackgroundService
         var sp = scope.ServiceProvider;
         var db = sp.GetRequiredService<FacturacionDbContext>();
         var pdfGen = sp.GetRequiredService<IGenerarPdfFacturaPort>();
+        var datosImpresion = sp.GetRequiredService<IDatosImpresionCfdiReadPort>();
         var cfdiRepo = sp.GetRequiredService<ICfdiRepositorioPort>();
         var notif = sp.GetRequiredService<INotificacionService>();
         var clock = sp.GetRequiredService<IClock>();
@@ -90,6 +93,7 @@ public sealed class EnvioCfdiCorreoWorker : BackgroundService
         {
             var factura = await db.FacturasVenta
                 .Include(f => f.Lineas)
+                .Include(f => f.Relaciones)
                 .FirstOrDefaultAsync(f => f.Id == bitacora.ComprobanteId, cancellationToken);
 
             if (factura is null)
@@ -100,7 +104,9 @@ public sealed class EnvioCfdiCorreoWorker : BackgroundService
 
             try
             {
-                var pdf = pdfGen.Generar(factura, FormatoPdfFactura.Bilingue);
+                var pdf = pdfGen.Generar(CfdiPdfModelBuilder.DesdeFactura(
+                    factura, await datosImpresion.ObtenerAsync(factura.EmpresaId, cancellationToken),
+                    await datosImpresion.CodigosArticuloAsync(ComprobantePdfHandler.ProductosDe(factura), cancellationToken)));
                 var xml = factura.Uuid is null
                     ? null
                     : (await cfdiRepo.ObtenerPorUuidAsync(factura.Uuid, cancellationToken))?.XmlContenido;

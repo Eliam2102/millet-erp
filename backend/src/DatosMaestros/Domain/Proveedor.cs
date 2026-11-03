@@ -22,6 +22,7 @@ public sealed class Proveedor : BaseEntity, IAuditable
 {
     public string Clave { get; private set; } = string.Empty;
     public string? ClaveLegacy { get; private set; }
+    public string? OrigenCarga { get; private set; }
     public string RazonSocial { get; private set; } = string.Empty;
     public string? NombreComercial { get; private set; }
     public string Rfc { get; private set; } = string.Empty;
@@ -80,6 +81,20 @@ public sealed class Proveedor : BaseEntity, IAuditable
     public string? CodigoPostal { get; private set; }
     public string? Pais { get; private set; }
     public string? TaxId { get; private set; }
+
+    /// <summary>
+    /// Clave del proveedor en A+W (86e3wyjz3 · ALM-APP-1). La app de Almacenes manda el
+    /// proveedor con esta clave y la OC regresa con la misma, porque de ella A+W toma la moneda.
+    /// Única entre proveedores cuando existe.
+    /// </summary>
+    public int? ClaveAw { get; private set; }
+
+    public void AsignarClaveAw(int? claveAw)
+    {
+        if (claveAw <= 0)
+            throw new BusinessRuleException("PROVEEDOR_CLAVE_AW_INVALIDA", "La clave de A+W es un número entero mayor que cero.");
+        ClaveAw = claveAw;
+    }
 
     public void ActualizarDomicilioFiscal(string? calle = null,
         string? numeroExterior = null,
@@ -163,7 +178,8 @@ public sealed class Proveedor : BaseEntity, IAuditable
         short? condicionesPagoDias = null,
         Guid? monedaPreferidaId = null,
         string? email = null,
-        string? telefono = null) : base(id)
+        string? telefono = null,
+        string? origenCarga = null) : base(id)
     {
         if (string.IsNullOrWhiteSpace(clave) || clave.Length > 20)
             throw new BusinessRuleException("PROVEEDOR_CLAVE_INVALIDA",
@@ -184,6 +200,7 @@ public sealed class Proveedor : BaseEntity, IAuditable
 
         Clave = clave;
         ClaveLegacy = claveLegacy;
+        OrigenCarga = origenCarga;
         RazonSocial = razonSocial;
         NombreComercial = nombreComercial;
         Rfc = rfcNormalizado;
@@ -270,6 +287,47 @@ public sealed class Proveedor : BaseEntity, IAuditable
         if (string.IsNullOrWhiteSpace(motivo) || motivo.Trim().Length < 5 || motivo.Length > 500)
             throw new BusinessRuleException("PROVEEDOR_MOTIVO_INVALIDO", "Indica el motivo de revisión (de 5 a 500 caracteres).");
         Estatus = EstatusCatalogo.EnRevision;
+    }
+
+    // ----- Bloqueo total (86e3tactf) -----
+    // Marca aparte del estatus de alta: no paga ninguna factura ni se levantan OC nuevas.
+    public bool Bloqueado { get; private set; }
+    public string? MotivoBloqueo { get; private set; }
+    /// <summary>Usuario del ERP que pidió el bloqueo; solo él (o quien tenga el permiso de reemplazo) lo libera.</summary>
+    public Guid? BloqueadoPorId { get; private set; }
+    public DateTimeOffset? BloqueadoEn { get; private set; }
+
+    public void Bloquear(Guid usuarioId, string motivo, DateTimeOffset ahora)
+    {
+        if (Bloqueado)
+            throw new BusinessRuleException("PROVEEDOR_YA_BLOQUEADO", "El proveedor ya está bloqueado.");
+        MotivoBloqueo = MotivoBloqueoValido(motivo);
+        Bloqueado = true;
+        BloqueadoPorId = usuarioId;
+        BloqueadoEn = ahora;
+    }
+
+    /// <summary>Solo desbloquea quien lo pidió, o quien tenga el permiso de reemplazo (<paramref name="puedeReemplazar"/>).</summary>
+    public void Desbloquear(Guid usuarioId, string motivo, bool puedeReemplazar)
+    {
+        if (!Bloqueado)
+            throw new BusinessRuleException("PROVEEDOR_NO_BLOQUEADO", "El proveedor no está bloqueado.");
+        if (BloqueadoPorId != usuarioId && !puedeReemplazar)
+            throw new ForbiddenException("SOLO_DESBLOQUEA_SOLICITANTE",
+                "Solo quien pidió el bloqueo puede desbloquear al proveedor.");
+        MotivoBloqueoValido(motivo);
+        Bloqueado = false;
+        MotivoBloqueo = null;
+        BloqueadoPorId = null;
+        BloqueadoEn = null;
+    }
+
+    private static string MotivoBloqueoValido(string motivo)
+    {
+        var m = motivo?.Trim() ?? string.Empty;
+        if (m.Length is < 10 or > 500)
+            throw new BusinessRuleException("PROVEEDOR_MOTIVO_BLOQUEO_INVALIDO", "Indica el motivo (de 10 a 500 caracteres).");
+        return m;
     }
 
     /// <summary>

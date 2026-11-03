@@ -44,6 +44,7 @@ public static class DependencyInjection
         // Scoped porque consume CompartidoDbContext (scoped).
         services.AddScoped<Millet.Facturacion.Application.Timbrado.ValidadorReceptorFiscal>();
         services.AddScoped<Millet.ComercioExterior.Application.Ports.IPedidosEmbarcablesReadPort, PublicAdapters.PedidosEmbarcablesReadAdapter>();
+        services.AddScoped<Millet.ProductoTerminado.Application.Ports.IPedidosPtReadPort, PublicAdapters.PedidosPtReadAdapter>();
         services.AddScoped<ICatalogosSatReadPort, CompartidoCatalogosSatReadAdapter>();
         services.AddScoped<IReppBancarioReadPort, ReppBancarioReadAdapter>();
         services.AddScoped<Millet.CuentasPorCobrar.Domain.Ports.Facturacion.IReppPendientesReadPort, PublicAdapters.ReppPendientesReadAdapter>();
@@ -54,6 +55,7 @@ public static class DependencyInjection
         // Deuda <DatosMaestrosFiscal> cerrada (ADR-0048 PR2).
         services.AddScoped<IClientesReadPort, DatosMaestros.ClientesReadAdapter>();
         services.AddScoped<IPlazoCreditoClienteReadPort, CuentasPorCobrar.PlazoCreditoClienteReadAdapter>();
+        services.AddScoped<ISaldoFacturaReadPort, CuentasPorCobrar.SaldoFacturaReadAdapter>();
         services.AddScoped<IProductosReadPort, DatosMaestros.ProductosReadAdapter>();
         services.AddScoped<Millet.DatosMaestros.Application.Clientes.IPedidosErpPorClienteReadPort, PublicAdapters.PedidosErpPorClienteReadAdapter>();
 
@@ -99,11 +101,14 @@ public static class DependencyInjection
         // `AddIntegracionesFiscalModule` (que corre antes en Program.cs). CxP
         // custodia sus recibidos por su cuenta (alcance "Separados").
 
-        // --- F2-PR2: PDF (real, QuestPDF) + notificación por correo [stub] ---
+        // --- F2-PR2: PDF (real, QuestPDF) + notificación por correo ---
         services.AddSingleton<IGenerarPdfFacturaPort, QuestPdfFacturaGenerator>();
-        // PLATFORM-TODO(<EnvioCfdiCliente>)
-        services.AddSingleton<INotificacionService, NoOpNotificacionService>();
-        services.AddSingleton<Millet.SharedKernel.Application.Correo.ICorreoDocumentoService, NoOpNotificacionService>();
+        // FMT-4: domicilio, logo y catálogos del emisor para el PDF con formato de Millet.
+        services.AddScoped<IDatosImpresionCfdiReadPort, DatosMaestros.DatosImpresionCfdiReadAdapter>();
+        // 86e3ww6tw: Vale de Caja de los retiros, mismo kit de formatos de Millet.
+        services.AddSingleton<IGenerarValeCajaPdfPort, Pdf.ValeCaja.QuestPdfValeCajaGenerator>();
+        // 86e3txv0n: el CFDI sale por el transporte único de correo (ICorreoSaliente, Api).
+        services.AddSingleton<INotificacionService, CorreoCfdiNotificacionService>();
 
         // --- F3-PR1b: ingesta A+W (cola + write-back) — stubs hasta Integraciones.Aw ---
         // PR7: señal de nudge del worker de ingesta (el endpoint anónimo con
@@ -116,6 +121,8 @@ public static class DependencyInjection
         // write-back sigue pendiente (<PlantaPinturaOrigenes>).
         services.AddScoped<IAwSolicitudesReader, StubAwSolicitudesReader>();
         services.AddScoped<IAwWriteBackPort, StubAwWriteBackPort>();
+        services.AddScoped<IAwNotasCreditoPort, StubAwNotasCreditoPort>();
+        services.AddScoped<IAwVersionPedidoReadPort, AwVersionPedidoReadAdapter>();
 
         // --- F3-PR2: auto-provisión de master A+W — stub hasta DatosMaestros ---
         // CERRADO por ADR-0048 (PR4): AwMasterProvisioningAdapter (Integraciones.Aw)
@@ -126,6 +133,10 @@ public static class DependencyInjection
         // --- F7-PR2: pedimentos del Sistema de Salidas — stub hasta Integraciones.Origenes ---
         // PLATFORM-TODO(<SalidasPedimentos>)
         services.AddScoped<ISalidasPedimentosReader, StubSalidasPedimentosReader>();
+
+        // --- FAC-08: salidas parciales de PT/CE — stub hasta PT-03 y CE-02 ---
+        // PLATFORM-TODO(<SalidasPt>)
+        services.AddScoped<ISalidasParcialesReader, StubSalidasParcialesReader>();
 
         // --- F9: catálogo de Activos Fijos — stub hasta el módulo Activos Fijos ---
         // PLATFORM-TODO(<ActivosFijos>)
@@ -154,6 +165,11 @@ public static class DependencyInjection
         services.AddScoped<
             Millet.CuentasPorCobrar.Domain.Ports.Facturacion.IFacturacionAnticiposReadPort,
             PublicAdapters.FacturacionAnticiposReadAdapter>();
+
+        // --- C7.1: pedidos a crédito en firme sin factura (liberado sin facturar) ---
+        services.AddScoped<
+            Millet.CuentasPorCobrar.Domain.Ports.Facturacion.IFacturacionPedidosSinFacturarReadPort,
+            PublicAdapters.PedidosSinFacturarReadAdapter>();
 
         // --- F1-CXC-05: anticipos con sus aplicaciones a factura final (mismas
         // reglas que la comparativa F6.2, sin alcance de Cajas; CxC filtra por sucursal).

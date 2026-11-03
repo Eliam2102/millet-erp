@@ -47,7 +47,7 @@ export function RegistrarRefundTcSheet({
 }: RegistrarRefundTcSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-md">
+      <SheetContent side="right" size="form">
         <SheetHeader>
           <SheetTitle>Registrar refund</SheetTitle>
           <SheetDescription>
@@ -126,7 +126,7 @@ function Form({ original, onClose }: FormProps) {
       <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs">
         <p>
           <strong>Movimiento original:</strong>{' '}
-          <span className="font-mono">{original.id.slice(0, 8)}…</span>
+          {original.merchantNormalizado}
         </p>
         <p className="text-muted-foreground">
           Pre-rellenamos los campos desde el movimiento original. Ajusta el

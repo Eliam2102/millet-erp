@@ -19,12 +19,19 @@ public sealed record ReppPendienteDto(Guid Id, Guid ClienteId, string ClienteNom
     DateOnly FechaValor, DateOnly FechaLimite, string? Referencia, string FormaPago, bool Revisado,
     string Estado, string Alerta, decimal? TipoCambio, bool TcPorRegistrar,
     Guid? ReciboPagoId, Guid? IntentoReciboPagoId, string? UltimoErrorCodigo, string? UltimoErrorMensaje,
-    string? MotivoDescarte, IReadOnlyList<ReppPendienteFacturaDto> Facturas, IReadOnlyList<string> Bloqueos);
+    string? MotivoDescarte, IReadOnlyList<ReppPendienteFacturaDto> Facturas, IReadOnlyList<string> Bloqueos,
+    // 86e3tfdve: cuenta de Millet donde entró el depósito (banco + «•••• 1234») y
+    // beneficiaria que se usará al emitir con la forma actual (enmascarada; null si no aplica).
+    string? CuentaBancariaEtiqueta = null, string? CuentaBeneficiariaSugerida = null,
+    // Opción A: ordenante guardada (la del ingreso o la corregida al revisar), enmascarada.
+    string? CuentaOrdenante = null);
 
 public sealed class ReppPendienteQueryHandler(FacturacionDbContext db, ReppPendienteServicio servicio,
-    IClientesReadPort clientes, IReppBancarioReadPort bancario, IClock clock)
+    IClientesReadPort clientes, IReppBancarioReadPort bancario, IClock clock, ICuentaBancariaMilletReadPort cuentasMillet)
     : IRequestHandler<ReppPendienteQuery, ReppPendienteDto>, IRequestHandler<ReppPendientesQuery, ReppPendientesResponse>
 {
+    private readonly ICuentaBancariaMilletReadPort _cuentasMillet = cuentasMillet;
+
     public async Task<ReppPendienteDto> Handle(ReppPendienteQuery q, CancellationToken cancellationToken) =>
         await MapearAsync(await servicio.ObtenerAsync(q.Id, false, cancellationToken), true, cancellationToken);
 
@@ -75,11 +82,17 @@ public sealed class ReppPendienteQueryHandler(FacturacionDbContext db, ReppPendi
                 catch (BusinessRuleException ex) { bloqueos.Add(ex.Message); }
             }
         }
+        // 86e3tfdve: la cuenta completa nunca sale al cliente; solo banco + últimos 4.
+        var cuenta = await _cuentasMillet.ObtenerAsync(p.CuentaBancariaId, cancellationToken);
+        var etiqueta = cuenta is null ? null : $"{cuenta.Banco} · {CuentasPagoSat.Enmascarar(cuenta.NumeroCuenta)}";
+        var sugerida = cuenta is null ? null
+            : CuentasPagoSat.Enmascarar(CuentasPagoSat.SugerirBeneficiaria(p.FormaPago, cuenta.Clabe, cuenta.NumeroCuenta));
         return new(p.Id, p.ClienteId, cliente?.RazonSocial ?? "[CLIENTE POR IDENTIFICAR]", cliente?.Rfc,
             p.MovimientoBancarioId, p.CuentaBancariaId, p.PropuestaId, p.Monto, p.Moneda,
             p.FechaValor, p.FechaLimite, p.Referencia, p.FormaPago, p.Revisado, p.Estado.ToString(),
             PlazoRepp.Alerta(p.FechaLimite, clock.UtcNow), tc, p.Moneda != "MXN" && tc is null,
             p.ReciboPagoId, p.IntentoReciboPagoId, p.UltimoErrorCodigo, p.UltimoErrorMensaje, p.MotivoDescarte,
-            p.Facturas.Select(f => new ReppPendienteFacturaDto(f.FacturaVentaId, folios.GetValueOrDefault(f.FacturaVentaId), f.Importe)).ToArray(), bloqueos);
+            p.Facturas.Select(f => new ReppPendienteFacturaDto(f.FacturaVentaId, folios.GetValueOrDefault(f.FacturaVentaId), f.Importe)).ToArray(), bloqueos,
+            etiqueta, sugerida, CuentasPagoSat.Enmascarar(p.CuentaOrdenante));
     }
 }

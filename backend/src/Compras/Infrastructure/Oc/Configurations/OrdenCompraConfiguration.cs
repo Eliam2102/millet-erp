@@ -140,6 +140,17 @@ public sealed class OrdenCompraConfiguration : IEntityTypeConfiguration<OrdenCom
             .IsRequired();
         builder.Property(o => o.FechaCompromisoProveedor);
 
+        // 86e3tacbn: conformidad del servicio por OC.
+        builder.Property(o => o.ServicioConfirmadoEn);
+        builder.Property(o => o.ServicioConfirmadoPorId);
+        builder.Property(o => o.ServicioConfirmadoComentario).HasMaxLength(500);
+        builder.Property(o => o.ServicioNoConformeEn);
+        builder.Property(o => o.ServicioNoConformePorId);
+        builder.Property(o => o.ServicioNoConformeMotivo).HasMaxLength(500);
+        builder.Property(o => o.ServicioConfirmacionRevocadaEn);
+        builder.Property(o => o.ServicioConfirmacionRevocadaPorId);
+        builder.Property(o => o.ServicioConfirmacionRevocadaMotivo).HasMaxLength(500);
+
         builder.Property(o => o.MotivoSinRequisicion).HasColumnType("text");
         builder.Property(o => o.MotivoCancelacionId);
         builder.Property(o => o.MotivoCancelacion).HasColumnType("text");

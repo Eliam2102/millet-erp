@@ -242,7 +242,7 @@ public class AwClientesSandboxTests(WebApplicationFactory<Program> factory, ITes
         Assert.Equal("EUR", cs["77"].MonedaDefault);
         Assert.Equal(("30 DIAS", 6, 30), (regs["19"].CondicionCodigoOrigen, regs["19"].CondicionNumeroOrigen, regs["19"].DiasNominalesOrigen));
         Assert.Null(c10.Rfc); // nunca se deriva RFC de UST_ID/STEUERNUMMER
-        Assert.Equal("DEMO010", r10.CandidatoFiscalUstId);
+        Assert.Equal("DEM010101010", r10.CandidatoFiscalUstId);
 
         // Segundo barrido: idempotente.
         var e2 = await Barrido(OrigenReal(Opts()), Opts());

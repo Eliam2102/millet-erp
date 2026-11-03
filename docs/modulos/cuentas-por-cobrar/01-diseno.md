@@ -297,9 +297,10 @@ ETag; errores RFC 7807.
   moneda (jsonb), número de filas, SHA-256 y nombre del PDF, y el estado
   *Registrado* / *Enviado* / *Fallido*. Un fallo del correo no revierte el
   registro. `GET .../envios` devuelve el historial (permiso `cartera.leer`).
-- **Correo.** Puerto `IEstadoCuentaCorreoPort`: SMTP de captura en loopback
-  (Mailpit) solo en Development (`CuentasPorCobrar:EstadoCuentaCorreo:Proveedor=SandboxLocal`);
-  en los demás ambientes NoOp → queda *Registrado* (ver §13).
+- **Correo.** Puerto `IEstadoCuentaCorreoPort` sobre el transporte único
+  `ICorreoSaliente` (86e3txv0n, [ADR-0063](../../decisiones/0063-correo-saliente-por-microsoft-graph.md)):
+  `Correo:Proveedor=Graph` envía; `SandboxLocal` (Mailpit, solo Development) captura;
+  `NoOp` → queda *Registrado*. Un rechazo del proveedor deja el envío *Fallido* con su motivo.
 - **Fuera de alcance:** NC sin proyectar en cartera (no bloquean), cobros de
   mostrador que no pasan por `ReppPendiente`, y los totales del encabezado del
   reporte que suman MXN y USD (el registro del envío sí los guarda por moneda).
@@ -435,12 +436,12 @@ patrones P1–P4 de `frontend/docs/patrones-compras.md`, reportes con
 
 | Pieza | Ticket | NoOp/stub en uso | Cómo se wirea |
 |---|---|---|---|
-| Vista A+W "liberado sin factura / en firme" (G1) | `<CreditoLiberadoSinFactura>` | Término = 0 + `dato_incompleto=true` en `CreditoDisponibleQuery` | A+W publica vista → adapter de lectura la consume y se quita la bandera |
+| ~~Vista A+W "liberado sin factura / en firme" (G1)~~ | `<CreditoLiberadoSinFactura>` | ✅ Resuelto en C7.1 (86e3kdxx4) | Puerto `IFacturacionPedidosSinFacturarReadPort` (adapter en Facturación): pedidos a crédito en firme sin CFDI vigente, menos el anticipo ligado; `dato_incompleto=false` |
 | Emisor de `PagoClienteConfirmadoEvent` (Ingresos/Tesorería) | `<PagoClienteConfirmado>` (ya existe en `ReppEndpoints.cs`) | `ConfirmarPropuestaAplicacionPagoCommand` manual | `TesoreriaEventListenerWorker` en CxC + listener en Facturación invoca `EmitirReppCommand` |
 | Contrato write-back de liberación en `MILLET_INTEGRACION` | `<CxcWriteBackLiberacion>` | Decisión persiste sin efecto en A+W | PR-9: worker consume `DecisionLiberacionEmitidaEvent` → tabla-puente |
 | Feed bancario de depósitos | `<DepositoBancarioFeed>` | Tesorería registra el ingreso a mano («Cobro de cliente», cliente opcional); CxC lo identifica desde «Sin identificar» (C7.4) | Importación de estados de cuenta / conciliación bancaria (T9.2/T9.4) alimenta el mismo `MovimientoBancario`; el puerto `IDepositosPorIdentificarReadPort` no cambia |
 | Motor de notificaciones para `AlertaCarteraGeneradaEvent` | `<Notificaciones>` | Alerta visible solo en bandeja `/cxc/alertas` | Cuando exista el motor transversal |
-| Correo saliente del estado de cuenta al cliente (C7.8) | `<EnvioEstadoCuentaCliente>` | `NoOpEstadoCuentaCorreoAdapter` (el envío queda *Registrado*; el PDF se descarga). En Development, `SandboxLocalEstadoCuentaCorreoAdapter` → Mailpit | Adaptador de `IEstadoCuentaCorreoPort` sobre el motor de correo transversal (Graph/SMTP corporativo, ADR-0026) |
+| Correo saliente del estado de cuenta al cliente (C7.8) | `<EnvioEstadoCuentaCliente>` | ✅ Cerrado en 86e3txv0n: `CorreoSalienteEstadoCuentaAdapter` sobre `ICorreoSaliente` (ADR-0063) | — |
 
 ---
 

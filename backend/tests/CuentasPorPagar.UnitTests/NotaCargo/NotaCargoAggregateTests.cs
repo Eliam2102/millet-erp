@@ -118,4 +118,24 @@ public sealed class NotaCargoAggregateTests
         var act = () => n.Cancelar("error", DateTimeOffset.UtcNow);
         act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "NCG_NO_CANCELABLE");
     }
+
+    [Fact]
+    public void AplicarPorDevolucion_pasa_de_Borrador_a_Aplicada_sin_usuario()
+    {
+        var n = Domain.NotaCargo.NotaCargo.Crear(Guid.NewGuid(), FolioInternoNotaCargo.FromAnioSecuencial(2026, 1), Guid.NewGuid(), null,
+            "Devolución", null, 1300m, "MXN", null, Guid.NewGuid(), Guid.NewGuid(), null, DateTimeOffset.UtcNow);
+        var ahora = DateTimeOffset.UtcNow;
+        n.AplicarPorDevolucion(ahora);
+        n.Estado.Should().Be(EstadoNotaCargo.Aplicada);
+        n.AutorizadoPor.Should().BeNull();
+        n.FechaAutorizacion.Should().Be(ahora);
+        n.FechaAplicacion.Should().Be(ahora);
+    }
+
+    [Fact]
+    public void AplicarPorDevolucion_rechaza_nota_manual_sin_devolucion()
+    {
+        var act = () => Crear().AplicarPorDevolucion(DateTimeOffset.UtcNow);
+        act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "NCG_NO_APLICABLE_POR_DEVOLUCION");
+    }
 }

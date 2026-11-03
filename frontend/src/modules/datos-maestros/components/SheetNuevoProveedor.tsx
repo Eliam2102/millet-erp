@@ -1,7 +1,8 @@
 import { FormCampo } from '@/components/erp/forms/FormGrid';
 import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { erroresDeClasificacion } from '@/modules/datos-maestros/lib/clasificacion-fiscal';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { useNavigate } from '@tanstack/react-router';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -65,31 +66,17 @@ import {
  */
 export function NuevoProveedorProvider({ children }: { children: ReactNode }) {
   const [abierto, setAbierto] = useState(false);
-  const isDirtyRef = useRef(false);
-
-  const setDirty = useCallback((dirty: boolean) => {
-    isDirtyRef.current = dirty;
-  }, []);
-
-  const cerrarConConfirm = useCallback((opts?: { force?: boolean }) => {
-    if (opts?.force === true || !isDirtyRef.current) {
-      isDirtyRef.current = false;
-      setAbierto(false);
-      return;
-    }
-    const confirmar = window.confirm(
-      'Tienes cambios sin guardar en el nuevo proveedor. ¿Descartarlos y cerrar?',
-    );
-    if (confirmar) {
-      isDirtyRef.current = false;
-      setAbierto(false);
-    }
-  }, []);
+  const alCerrar = useCallback(() => setAbierto(false), []);
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(alCerrar);
+  const cerrarConConfirm = useCallback(
+    (opts?: { force?: boolean }) => solicitarCierre(opts?.force),
+    [solicitarCierre],
+  );
 
   const api = useMemo<NuevoProveedorApi>(
     () => ({
       abrir: () => {
-        isDirtyRef.current = false;
+        setDirty(false);
         setAbierto(true);
       },
       cerrar: cerrarConConfirm,
@@ -129,6 +116,7 @@ export function NuevoProveedorProvider({ children }: { children: ReactNode }) {
           </div>
         </SheetContent>
       </Sheet>
+      {dialogo}
     </NuevoProveedorContext.Provider>
   );
 }
@@ -163,6 +151,7 @@ function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps)
       email: null,
       telefono: null,
       condicionesPagoDias: null,
+      claveAw: null,
     },
   });
 
@@ -195,6 +184,7 @@ function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps)
           email: values.email,
           telefono: values.telefono,
           condicionesPagoDias: values.condicionesPagoDias,
+          claveAw: values.claveAw,
           monedaPreferidaId: null,
           origen: fiscal.origen,
           regimenFiscalCodigo: fiscal.regimenFiscalCodigo,
@@ -236,6 +226,13 @@ function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps)
               setErroresFiscal(
                 erroresDeClasificacion(error.code, error.problem.detail ?? error.problem.title),
               );
+              return;
+            }
+            if (error.code === 'PROVEEDOR_CLAVE_AW_DUPLICADA') {
+              form.setError('claveAw', {
+                type: error.code,
+                message: error.problem.detail ?? 'Ya existe un proveedor con esa clave de A+W.',
+              });
               return;
             }
             if (error.code === 'PROVEEDOR_RFC_DUPLICADO') {
@@ -389,6 +386,33 @@ function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps)
                     value={field.value ?? ''}
                     onChange={(e) =>
                       field.onChange(e.target.value.length > 0 ? e.target.value : null)
+                    }
+                  />
+                )}
+              />
+            </FormRow>
+          </FormCampo>
+
+          <FormCampo span={6}>
+            <FormRow
+              label="Clave de A+W"
+              hint="Clave del proveedor en A+W. La usa la aplicación de Almacenes."
+              error={form.formState.errors.claveAw?.message}
+            >
+              <Controller
+                name="claveAw"
+                control={form.control}
+                render={({ field }) => (
+                  <Input
+                    type="number"
+                    min={1}
+                    step={1}
+                    inputMode="numeric"
+                    aria-label="Clave de A+W"
+                    className="font-mono"
+                    value={field.value ?? ''}
+                    onChange={(e) =>
+                      field.onChange(e.target.value === '' ? null : Number(e.target.value))
                     }
                   />
                 )}

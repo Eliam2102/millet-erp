@@ -1,21 +1,28 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
+import { apiFetch } from '@/lib/auth/api-client';
 import type { DepositoPorIdentificarItem } from '@/features/cxc/api/types';
 import {
   tesoreriaKeys,
   type DepositosFiltros,
   type DevolucionesFiltros,
+  type FoliosTransferenciaFiltros,
   type MovimientosFiltros,
   type PasivosFiltros,
 } from './keys';
 import type {
   CuentaProveedorPago,
+  FolioTransferenciaResponse,
   ConceptoResponse,
   ClasificacionFlujo,
   AplicacionPagoItem,
   BeneficiarioTipo,
+  SoporteFicha,
   CuentaSaldoResponse,
   ClienteRefDto,
+  CorridaResponse,
+  CorridaResumenResponse,
+  PasivoParaCorridaResponse,
   DepositoConfirmacionResponse,
   DevolucionClienteResponse,
   MovimientoBancarioResponse,
@@ -28,6 +35,21 @@ import type {
   ReporteTesoreriaBackend,
   ReppPendienteResponse,
   ReppRecibidoResponse,
+  ConciliacionResumenResponse,
+  ConciliacionDetalleResponse,
+  ExtractoLineaResponse,
+  ResultadoEmparejamientoResponse,
+  ConciliacionesFiltros,
+  CrearConciliacionInput,
+  CargarExtractoInput,
+  EmparejarAutomaticoInput,
+  EmparejarManualInput,
+  DesemparejarLineaInput,
+  AltaAsistidaInput,
+  MarcarPartidaTransitoInput,
+  CerrarConciliacionInput,
+  ReabrirConciliacionInput,
+  LayoutCorridaResponse,
 } from './types';
 
 const BASE = '/api/v1/tesoreria';
@@ -390,6 +412,9 @@ export function useConfirmarDeposito() {
         cuentaBancariaId: string; monto: number; fechaValor: string; referenciaBancaria?: string;
         conceptoId?: string; beneficiarioTipo?: BeneficiarioTipo; beneficiarioRef?: string;
       };
+      /** Corte de caja: obligatorio desde la 2ª ficha. */
+      soporteTipo?: SoporteFicha;
+      soporteFolio?: string;
       versionEsperada: number;
       idempotencyKey: string;
     }) => {
@@ -397,7 +422,7 @@ export function useConfirmarDeposito() {
         `${BASE}/depositos/${args.depositoId}/confirmar`,
         {
           method: 'POST',
-          body: { movimientoBancarioId: args.movimientoBancarioId ?? "00000000-0000-0000-0000-000000000000", ingreso: args.ingreso },
+          body: { movimientoBancarioId: args.movimientoBancarioId ?? "00000000-0000-0000-0000-000000000000", ingreso: args.ingreso, soporteTipo: args.soporteTipo, soporteFolio: args.soporteFolio },
           idempotencyKey: args.idempotencyKey,
           headers: { 'X-Expected-Version': String(args.versionEsperada) },
         },
@@ -450,6 +475,8 @@ export function useRegistrarMovimientoIngreso() {
         conceptoId?: string;
         beneficiarioTipo?: BeneficiarioTipo;
         beneficiarioRef?: string;
+        /** 86e3tfdve: CtaOrdenante del REP; solo patrón general del SAT. */
+        cuentaOrdenante?: string;
       };
       idempotencyKey: string;
     }) => {
@@ -811,6 +838,69 @@ export function useSolicitarDevolucionDeposito() {
   });
 }
 
+// ─── F6.6 · Folios de confirmación de transferencia (Ingresos → Caja) ───
+
+export function useFoliosTransferencia(filtros: FoliosTransferenciaFiltros = {}, opts?: { enabled?: boolean }) {
+  return useQuery<PagedResponse<FolioTransferenciaResponse>>({
+    queryKey: tesoreriaKeys.foliosTransferenciaList(filtros),
+    enabled: opts?.enabled ?? true,
+    queryFn: async ({ signal }) => {
+      const params = new URLSearchParams();
+      if (filtros.estado != null) params.set('estado', String(filtros.estado));
+      if (filtros.clienteId) params.set('clienteId', filtros.clienteId);
+      if (filtros.movimientoId) params.set('movimientoId', filtros.movimientoId);
+      if (filtros.folio) params.set('folio', filtros.folio);
+      if (filtros.offset != null) params.set('offset', String(filtros.offset));
+      if (filtros.limit != null) params.set('limit', String(filtros.limit));
+      const qs = params.toString();
+      const { data } = await apiRequest<PagedResponse<FolioTransferenciaResponse>>(
+        qs ? `${BASE}/folios-transferencia?${qs}` : `${BASE}/folios-transferencia`,
+        { signal },
+      );
+      return data;
+    },
+  });
+}
+
+/** Ingresos emite el folio desde un ingreso de cliente (F6.6, CA6.8). */
+export function useEmitirFolioTransferencia() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      movimientoId: string;
+      clienteId: string;
+      importe: number;
+      pedido?: string | null;
+      idempotencyKey: string;
+    }) => {
+      const { idempotencyKey, ...body } = args;
+      const { data } = await apiRequest<FolioTransferenciaResponse>(`${BASE}/folios-transferencia`, {
+        method: 'POST',
+        body,
+        idempotencyKey,
+      });
+      return data;
+    },
+    // El ingreso deja de estar «por identificar» y cambia su disponible.
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: tesoreriaKeys.all }),
+  });
+}
+
+/** Ingresos cancela un folio que no se usó, con motivo. */
+export function useCancelarFolioTransferencia() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { id: string; motivo: string; idempotencyKey: string }) => {
+      const { data } = await apiRequest<FolioTransferenciaResponse>(
+        `${BASE}/folios-transferencia/${args.id}/cancelar`,
+        { method: 'POST', body: { motivo: args.motivo }, idempotencyKey: args.idempotencyKey },
+      );
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: tesoreriaKeys.all }),
+  });
+}
+
 /** <c>useClientesTesoreria(texto)</c> — buscador de clientes (razón social, clave o RFC). */
 export function useClientesTesoreria(texto: string) {
   const t = texto.trim();
@@ -897,3 +987,382 @@ export function usePagarDevolucion() {
     }),
   );
 }
+
+// ─── Corridas de pago (T9.1-A, 86e3ke5bt) ───────────────────────────
+
+export function useCorridas(filtros: { estado?: string; offset?: number; limit?: number } = {}) {
+  return useQuery<PagedResponse<CorridaResumenResponse>>({
+    queryKey: tesoreriaKeys.corridasList(filtros),
+    queryFn: async ({ signal }) => {
+      const params = new URLSearchParams();
+      if (filtros.estado) params.set('estado', filtros.estado);
+      if (filtros.offset != null) params.set('offset', String(filtros.offset));
+      if (filtros.limit != null) params.set('limit', String(filtros.limit));
+      const qs = params.toString();
+      const { data } = await apiRequest<PagedResponse<CorridaResumenResponse>>(
+        qs ? `${BASE}/corridas?${qs}` : `${BASE}/corridas`,
+        { signal },
+      );
+      return data;
+    },
+  });
+}
+
+export function useCorrida(id: string | null) {
+  return useQuery<CorridaResponse>({
+    queryKey: tesoreriaKeys.corrida(id ?? ''),
+    enabled: id != null,
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<CorridaResponse>(`${BASE}/corridas/${id}`, { signal });
+      return data;
+    },
+  });
+}
+
+/** Pasivos autorizados, no retirados por CxP y libres de otra corrida viva (hook único de elegibilidad en el backend). */
+export function usePasivosParaCorrida(
+  filtros: { moneda: string; proveedorId?: string; venceHasta?: string; limit?: number },
+  enabled = true,
+) {
+  return useQuery<PagedResponse<PasivoParaCorridaResponse>>({
+    queryKey: tesoreriaKeys.corridaCandidatos(filtros),
+    enabled: enabled && filtros.moneda !== '',
+    queryFn: async ({ signal }) => {
+      const params = new URLSearchParams({ moneda: filtros.moneda });
+      if (filtros.proveedorId) params.set('proveedorId', filtros.proveedorId);
+      if (filtros.venceHasta) params.set('venceHasta', filtros.venceHasta);
+      params.set('limit', String(filtros.limit ?? 200));
+      const { data } = await apiRequest<PagedResponse<PasivoParaCorridaResponse>>(
+        `${BASE}/corridas/candidatos?${params.toString()}`,
+        { signal },
+      );
+      return data;
+    },
+  });
+}
+
+export function useCrearCorrida() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      cuentaBancariaId: string;
+      facturas: string[];
+      nombre?: string;
+      idempotencyKey: string;
+    }) => {
+      const { data } = await apiRequest<CorridaResponse>(`${BASE}/corridas`, {
+        method: 'POST',
+        body: { cuentaBancariaId: args.cuentaBancariaId, facturas: args.facturas, nombre: args.nombre || null },
+        idempotencyKey: args.idempotencyKey,
+      });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.corridas() });
+    },
+  });
+}
+
+type TransicionCorrida = { id: string; versionEsperada: number; idempotencyKey: string };
+
+function useTransicionCorrida<TArgs extends TransicionCorrida>(
+  construir: (args: TArgs) => { path: string; body?: unknown },
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: TArgs) => {
+      const { path, body } = construir(args);
+      const { data } = await apiRequest<CorridaResponse>(`${BASE}/corridas/${args.id}${path}`, {
+        method: 'POST',
+        body,
+        idempotencyKey: args.idempotencyKey,
+        headers: { 'X-Expected-Version': String(args.versionEsperada) },
+      });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.corridas() });
+    },
+  });
+}
+
+export function useEnviarCorridaAAutorizacion() {
+  return useTransicionCorrida<TransicionCorrida>(() => ({ path: '/enviar-autorizacion' }));
+}
+
+/** Agrega la firma del usuario actual; quien armó la corrida recibe 422 `CORRIDA_MISMO_USUARIO`. */
+export function useAutorizarCorrida() {
+  return useTransicionCorrida<TransicionCorrida>(() => ({ path: '/autorizar' }));
+}
+
+export function useRechazarCorrida() {
+  return useTransicionCorrida((a: TransicionCorrida & { motivo: string }) => ({
+    path: '/rechazar',
+    body: { motivo: a.motivo },
+  }));
+}
+
+/** T9.1-B: un pago por proveedor, con su referencia bancaria y fecha. Repetir la misma referencia no suma. */
+export function useRegistrarEjecucionCorrida() {
+  return useTransicionCorrida(
+    (a: TransicionCorrida & { pagos: { facturas: string[]; referenciaBancaria: string; fechaValor: string }[] }) => ({
+      path: '/ejecucion',
+      body: { pagos: a.pagos },
+    }),
+  );
+}
+
+export function useCerrarCorrida() {
+  return useTransicionCorrida<TransicionCorrida>(() => ({ path: '/cerrar' }));
+}
+
+/** Oficio de la corrida autorizada (reporte ADR-0036; el PDF se arma en el cliente). */
+export async function obtenerOficioCorrida(id: string): Promise<ReporteTesoreriaBackend> {
+  const { data } = await apiRequest<ReporteTesoreriaBackend>(`${BASE}/corridas/${id}/oficio`, { method: 'POST', body: {} });
+  return data;
+}
+
+export function useCancelarCorrida() {
+  return useTransicionCorrida((a: TransicionCorrida & { motivo: string }) => ({
+    path: '/cancelar',
+    body: { motivo: a.motivo },
+  }));
+}
+
+// ─── Layout bancario (T9.3) ──────────────────────────────────────────
+
+/** T9.3 (86e3ke5ck): Generar layout de pago en lote por banco (BBVA primero). */
+export async function generarLayoutCorrida(
+  id: string,
+  banco: string = 'BBVA',
+  tipoPago: string = 'NacionalSpei',
+): Promise<LayoutCorridaResponse> {
+  const { data } = await apiRequest<LayoutCorridaResponse>(
+    `${BASE}/corridas/${id}/layout?banco=${encodeURIComponent(banco)}&tipoPago=${encodeURIComponent(tipoPago)}`,
+    { method: 'POST', body: {} },
+  );
+  return data;
+}
+
+export function useGenerarLayoutCorrida() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, banco, tipoPago }: { id: string; banco?: string; tipoPago?: string }) =>
+      generarLayoutCorrida(id, banco, tipoPago),
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ['tesoreria', 'corridas', vars.id] });
+    },
+  });
+}
+
+export function useConciliaciones(filtros: ConciliacionesFiltros = {}) {
+  const params = new URLSearchParams();
+  if (filtros.cuentaBancariaId) params.append('cuentaBancariaId', filtros.cuentaBancariaId);
+  if (filtros.anio) params.append('anio', filtros.anio.toString());
+  if (filtros.mes) params.append('mes', filtros.mes.toString());
+  if (filtros.estado) params.append('estado', filtros.estado.toString());
+  const qs = params.toString();
+  const url = `${BASE}/conciliaciones${qs ? `?${qs}` : ''}`;
+
+  return useQuery<ConciliacionResumenResponse[]>({
+    queryKey: tesoreriaKeys.conciliacionesList(filtros as Record<string, unknown>),
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<ConciliacionResumenResponse[]>(url, { signal });
+      return data;
+    },
+  });
+}
+
+export function useConciliacionDetalle(id: string, enabled = true) {
+  return useQuery<ConciliacionDetalleResponse>({
+    queryKey: tesoreriaKeys.conciliacion(id),
+    enabled: !!id && enabled,
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<ConciliacionDetalleResponse>(`${BASE}/conciliaciones/${id}`, { signal });
+      return data;
+    },
+  });
+}
+
+export function useCrearConciliacion() {
+  const queryClient = useQueryClient();
+  return useMutation<ConciliacionResumenResponse, unknown, CrearConciliacionInput>({
+    mutationFn: async (input) => {
+      const { data } = await apiRequest<ConciliacionResumenResponse>(`${BASE}/conciliaciones`, {
+        method: 'POST',
+        body: input,
+      });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
+    },
+  });
+}
+
+export function useCargarExtracto() {
+  const queryClient = useQueryClient();
+  return useMutation<ConciliacionResumenResponse, unknown, CargarExtractoInput>({
+    mutationFn: async ({ id, ...body }) => {
+      const { data } = await apiRequest<ConciliacionResumenResponse>(`${BASE}/conciliaciones/${id}/extracto`, {
+        method: 'POST',
+        body,
+      });
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
+    },
+  });
+}
+
+export function useEmparejarAutomatico() {
+  const queryClient = useQueryClient();
+  return useMutation<ResultadoEmparejamientoResponse, unknown, EmparejarAutomaticoInput>({
+    mutationFn: async ({ id, ...body }) => {
+      const { data } = await apiRequest<ResultadoEmparejamientoResponse>(`${BASE}/conciliaciones/${id}/emparejar-automatico`, {
+        method: 'POST',
+        body,
+      });
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
+    },
+  });
+}
+
+export function useEmparejarManual() {
+  const queryClient = useQueryClient();
+  return useMutation<ExtractoLineaResponse, unknown, EmparejarManualInput>({
+    mutationFn: async ({ id, ...body }) => {
+      const { data } = await apiRequest<ExtractoLineaResponse>(`${BASE}/conciliaciones/${id}/emparejar-manual`, {
+        method: 'POST',
+        body,
+      });
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
+    },
+  });
+}
+
+export function useDesemparejarLinea() {
+  const queryClient = useQueryClient();
+  return useMutation<ExtractoLineaResponse, unknown, DesemparejarLineaInput>({
+    mutationFn: async ({ id, ...body }) => {
+      const { data } = await apiRequest<ExtractoLineaResponse>(`${BASE}/conciliaciones/${id}/desemparejar`, {
+        method: 'POST',
+        body,
+      });
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
+    },
+  });
+}
+
+export function useAltaAsistida() {
+  const queryClient = useQueryClient();
+  return useMutation<ExtractoLineaResponse, unknown, AltaAsistidaInput>({
+    mutationFn: async ({ id, ...body }) => {
+      const { data } = await apiRequest<ExtractoLineaResponse>(`${BASE}/conciliaciones/${id}/alta-asistida`, {
+        method: 'POST',
+        body,
+      });
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.movimientos() });
+    },
+  });
+}
+
+export function useMarcarPartidaTransito() {
+  const queryClient = useQueryClient();
+  return useMutation<ExtractoLineaResponse, unknown, MarcarPartidaTransitoInput>({
+    mutationFn: async ({ id, ...body }) => {
+      const { data } = await apiRequest<ExtractoLineaResponse>(`${BASE}/conciliaciones/${id}/partidas-transito`, {
+        method: 'POST',
+        body,
+      });
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
+    },
+  });
+}
+
+export function useCerrarConciliacion() {
+  const queryClient = useQueryClient();
+  return useMutation<Blob, unknown, CerrarConciliacionInput>({
+    mutationFn: async ({ id, firmanteNombre, firmantePuesto }) => {
+      const resp = await apiFetch(`${BASE}/conciliaciones/${id}/cerrar`, {
+        method: 'POST',
+        body: JSON.stringify({ firmanteNombre, firmantePuesto }),
+      });
+      if (!resp.ok) {
+        const errorData = await resp.json().catch(() => ({}));
+        throw new Error(errorData.detail || errorData.title || 'Error al cerrar conciliación');
+      }
+      return await resp.blob();
+    },
+    onSuccess: (blob, variables) => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `acta-conciliacion-${variables.id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    },
+  });
+}
+
+export function useReabrirConciliacion() {
+  const queryClient = useQueryClient();
+  return useMutation<ConciliacionResumenResponse, unknown, ReabrirConciliacionInput>({
+    mutationFn: async ({ id, motivo }) => {
+      const { data } = await apiRequest<ConciliacionResumenResponse>(`${BASE}/conciliaciones/${id}/reabrir`, {
+        method: 'POST',
+        body: { motivo },
+      });
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
+    },
+  });
+}
+
+export async function descargarActaConciliacion(id: string): Promise<void> {
+  const resp = await apiFetch(`${BASE}/conciliaciones/${id}/acta`);
+  if (!resp.ok) {
+    const errorData = await resp.json().catch(() => ({}));
+    throw new Error(errorData.detail || errorData.title || 'Error al descargar acta');
+  }
+  const blob = await resp.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `acta-conciliacion-${id}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+

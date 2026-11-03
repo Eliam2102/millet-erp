@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Millet.Api.Auth.Options;
 using Millet.Api.Auth.Models;
 using Millet.Identidad.Application;
 using Millet.Identidad.Domain;
@@ -43,6 +45,7 @@ public sealed class LoginOrchestrator
     private readonly Millet.Identidad.Application.Ports.IEntraGruposReadPort? _grupos;
     private readonly Millet.Compras.Infrastructure.ComprasDbContext _comprasDb;
     private readonly Millet.Compartido.Infrastructure.Persistence.CompartidoDbContext _compartidoDb;
+    private readonly IOptionsMonitor<IdentidadAccesoOptions> _acceso;
 
     public LoginOrchestrator(
         IdentidadDbContext db,
@@ -54,8 +57,10 @@ public sealed class LoginOrchestrator
         IClock clock,
         Millet.Compras.Infrastructure.ComprasDbContext comprasDb,
         Millet.Compartido.Infrastructure.Persistence.CompartidoDbContext compartidoDb,
+        IOptionsMonitor<IdentidadAccesoOptions> acceso,
         Millet.Identidad.Application.Ports.IEntraGruposReadPort? grupos = null)
     {
+        _acceso = acceso;
         _grupos = grupos;
         _db = db;
         _entraValidator = entraValidator;
@@ -221,6 +226,8 @@ public sealed class LoginOrchestrator
             }
         }
 
+        await VerificarEmpleadoActivoAsync(usuario, cancellationToken);
+
         if (grupos is not null)
         {
             var vigentes = grupos.Distinct(StringComparer.OrdinalIgnoreCase).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -265,6 +272,24 @@ public sealed class LoginOrchestrator
     /// default. El bypass del empresa context permite leer la fila aunque
     /// el query filter global aún no esté seteado.
     /// </summary>
+    /// <summary>
+    /// «No hay acceso sin empleado» (86e3x6cpw, B3), detrás de
+    /// <c>Identidad:ExigirEmpleadoParaAcceso</c>. Las cuentas técnicas
+    /// (service principals, bootstrap) quedan fuera de la regla.
+    /// </summary>
+    private async Task VerificarEmpleadoActivoAsync(Usuario usuario, CancellationToken cancellationToken)
+    {
+        if (!_acceso.CurrentValue.ExigirEmpleadoParaAcceso || usuario.EsCuentaTecnica) return;
+        var tieneEmpleado = await _compartidoDb.Empleados.IgnoreQueryFilters().AsNoTracking()
+            .AnyAsync(e => e.UsuarioId == usuario.Id && e.Estatus == EstatusCatalogo.Activo, cancellationToken);
+        if (!tieneEmpleado)
+        {
+            throw new ForbiddenException(
+                "USUARIO_SIN_EMPLEADO",
+                "Tu cuenta aún no está dada de alta como empleado. Pide al administrador que la ligue en Empleados.");
+        }
+    }
+
     private async Task<Millet.Compras.Application.Settings.ComprasSettingsResponse?> LoadComprasSettingsAsync(
         Guid? empresaId,
         CancellationToken cancellationToken)

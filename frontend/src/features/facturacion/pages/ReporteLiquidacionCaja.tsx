@@ -13,8 +13,7 @@ import { ReporteFacturacion } from '../components/ReporteFacturacion';
 const FROM = '/_app/facturacion/reportes/liquidacion-caja' as const;
 
 function primerDiaDeMes(): string {
-  const ahora = new Date();
-  return new Date(ahora.getFullYear(), ahora.getMonth(), 1).toISOString().slice(0, 10);
+  return `${hoyLocalISO().slice(0, 8)}01`;
 }
 function hoy(): string {
   return hoyLocalISO();

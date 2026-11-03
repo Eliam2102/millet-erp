@@ -11,7 +11,7 @@ using LineaCreditoAggregate = Millet.CuentasPorCobrar.Domain.LineaCredito.LineaC
 public sealed class CreditoDisponibleQueryTests
 {
     [Fact]
-    public async Task Devuelve_una_linea_por_moneda_con_disponible_igual_al_limite_mientras_terminos_provisionales()
+    public async Task Devuelve_una_linea_por_moneda_con_disponible_igual_al_limite_sin_cartera_ni_pedidos()
     {
         using var db = CrearDbContext();
         var clienteId = Guid.NewGuid();
@@ -33,18 +33,27 @@ public sealed class CreditoDisponibleQueryTests
     }
 
     [Fact]
-    public async Task DatoIncompleto_es_true_mientras_facturado_y_liberado_sean_provisionales()
+    public async Task C7_1_liberado_sin_factura_real_y_sin_marca_de_dato_incompleto()
     {
         using var db = CrearDbContext();
         var clienteId = Guid.NewGuid();
         db.LineasCredito.Add(CrearLinea(clienteId, "MXN", 100_000m, plazoDias: 45));
+        db.LineasCredito.Add(CrearLinea(clienteId, "USD", 10_000m, plazoDias: 45));
         await db.SaveChangesAsync();
+        var pedidos = new PedidosSinFacturarFalso()
+            .Agregar(clienteId, "6000100", 20_000m)
+            .Agregar(clienteId, "6000101", 5_000m, anticipoLigado: 5_000m)
+            .Agregar(clienteId, "6000102", 1_500m, moneda: "USD");
 
-        var response = await Handle(db, clienteId);
+        var response = await Handle(db, clienteId, pedidos);
 
-        // CXC-PR3 conecta `facturado`; el gap G1 conecta `liberado_sin_factura`.
-        // Hasta entonces la bandera SIEMPRE va encendida.
-        response.DatoIncompleto.Should().BeTrue();
+        response.DatoIncompleto.Should().BeFalse();
+        var mxn = response.Lineas.Single(l => l.Moneda == "MXN");
+        mxn.LiberadoSinFactura.Should().Be(20_000m);
+        mxn.Disponible.Should().Be(80_000m);
+        var usd = response.Lineas.Single(l => l.Moneda == "USD");
+        usd.LiberadoSinFactura.Should().Be(1_500m);
+        usd.Disponible.Should().Be(8_500m);
     }
 
     [Fact]
@@ -55,7 +64,7 @@ public sealed class CreditoDisponibleQueryTests
         var response = await Handle(db, Guid.NewGuid());
 
         response.Lineas.Should().BeEmpty();
-        response.DatoIncompleto.Should().BeTrue();
+        response.DatoIncompleto.Should().BeFalse();
     }
 
     [Fact]
@@ -89,9 +98,10 @@ public sealed class CreditoDisponibleQueryTests
             .Which.Limite.Should().Be(100_000m);
     }
 
-    private static async Task<CreditoDisponibleResponse> Handle(CuentasPorCobrarDbContext db, Guid clienteId)
+    private static async Task<CreditoDisponibleResponse> Handle(
+        CuentasPorCobrarDbContext db, Guid clienteId, PedidosSinFacturarFalso? pedidos = null)
     {
-        var handler = new CreditoDisponibleHandler(db);
+        var handler = new CreditoDisponibleHandler(db, pedidos ?? new PedidosSinFacturarFalso());
         return await handler.Handle(new CreditoDisponibleQuery(clienteId), CancellationToken.None);
     }
 

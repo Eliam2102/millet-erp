@@ -7,6 +7,7 @@ import { filtrarModuloPorPermisos, type NavModulo } from '@/lib/nav';
 import { Link } from '@tanstack/react-router';
 import {
   AlertTriangle,
+  Ban,
   Banknote,
   BarChart3,
   Building2,
@@ -189,6 +190,13 @@ const moduloFacturacionLanding: NavModulo = {
       label: 'Otros documentos',
       cards: [
         {
+          label: 'Notas de crédito por autorizar',
+          description: 'Notas de crédito de clientes que llegan de A+W: autorizar y timbrar.',
+          to: '/facturacion/notas-credito',
+          icon: FileText,
+          permission: PermisosCanonicos.FacturacionNotasCreditoLeer,
+        },
+        {
           label: 'Carta Porte',
           description:
             'Bandeja de Carta Portes 3.1. Captura de tramo (vehículo, operador, mercancías) y "Crear siguiente tramo".',
@@ -216,6 +224,14 @@ const moduloFacturacionLanding: NavModulo = {
           to: '/facturacion/pedidos/excepciones',
           icon: AlertTriangle,
           permission: PermisosCanonicos.FacturacionPedidosExcepcionesResolver,
+        },
+        {
+          label: 'Cancelaciones por autorizar',
+          description:
+            'El Contador General autoriza o rechaza (con motivo) las cancelaciones que solicita Ingresos; solo al autorizar se envían al SAT.',
+          to: '/facturacion/cancelaciones',
+          icon: Ban,
+          permission: PermisosCanonicos.FacturacionCancelacionesConsultar,
         },
       ],
     },

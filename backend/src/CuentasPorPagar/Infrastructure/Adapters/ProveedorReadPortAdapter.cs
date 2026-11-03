@@ -1,9 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor;
 using Millet.Catalogos.Domain;
+using Millet.Compartido.Application.Adjuntos;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.CuentasPorPagar.Domain.Ports.DatosMaestros;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Infrastructure;
 
 namespace Millet.CuentasPorPagar.Infrastructure.Adapters;
 
@@ -32,13 +34,16 @@ public sealed class ProveedorReadPortAdapter : IProveedorReadPort
 {
     private readonly CompartidoDbContext _db;
     private readonly ICurrentEmpresaContext _empresaContext;
+    private readonly IClock _clock;
 
     public ProveedorReadPortAdapter(
         CompartidoDbContext db,
-        ICurrentEmpresaContext empresaContext)
+        ICurrentEmpresaContext empresaContext,
+        IClock? clock = null)
     {
         _db = db;
         _empresaContext = empresaContext;
+        _clock = clock ?? new SystemClock();
     }
 
     public async Task<ProveedorDto?> ObtenerAsync(Guid proveedorId, CancellationToken cancellationToken)
@@ -59,7 +64,9 @@ public sealed class ProveedorReadPortAdapter : IProveedorReadPort
                     : null,
                 p.Estatus == EstatusCatalogo.EnRevision,
                 p.Estatus == EstatusCatalogo.Activo,
-                p.ConceptoRetencion))
+                p.ConceptoRetencion,
+                p.Bloqueado,
+                p.MotivoBloqueo))
             .FirstOrDefaultAsync(cancellationToken);
     }
 
@@ -87,8 +94,36 @@ public sealed class ProveedorReadPortAdapter : IProveedorReadPort
                     : null,
                 p.Estatus == EstatusCatalogo.EnRevision,
                 p.Estatus == EstatusCatalogo.Activo,
-                p.ConceptoRetencion))
+                p.ConceptoRetencion,
+                p.Bloqueado,
+                p.MotivoBloqueo))
             .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlySet<Guid>> ObtenerSinOpinionCumplimientoAsync(
+        IReadOnlyCollection<Guid> proveedorIds,
+        CancellationToken cancellationToken)
+    {
+        if (proveedorIds.Count == 0) return new HashSet<Guid>();
+
+        using var bypass = _empresaContext.Bypass();
+
+        return (await ExpedienteAdjuntos.SinOpinionCumplimiento(_db, _clock)
+            .Where(id => proveedorIds.Contains(id)).ToListAsync(cancellationToken)).ToHashSet();
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, string>> ObtenerBloqueadosPorIdsAsync(
+        IReadOnlyCollection<Guid> proveedorIds,
+        CancellationToken cancellationToken)
+    {
+        if (proveedorIds.Count == 0) return new Dictionary<Guid, string>();
+
+        using var bypass = _empresaContext.Bypass();
+
+        return await _db.Proveedores
+            .AsNoTracking()
+            .Where(p => proveedorIds.Contains(p.Id) && p.Bloqueado)
+            .ToDictionaryAsync(p => p.Id, p => p.MotivoBloqueo ?? string.Empty, cancellationToken);
     }
 
     public async Task<IReadOnlyDictionary<Guid, string>> ObtenerNombresPorIdsAsync(

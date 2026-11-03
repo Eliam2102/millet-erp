@@ -98,6 +98,8 @@ export const EstadoDepositoConfirmacion = {
   Pendiente: 1,
   Confirmada: 2,
   Rechazada: 3,
+  /** Corte de caja con fichas que aún no suman el efectivo. */
+  Parcial: 4,
 } as const;
 export type EstadoDepositoConfirmacion =
   (typeof EstadoDepositoConfirmacion)[keyof typeof EstadoDepositoConfirmacion];
@@ -109,7 +111,66 @@ export const ESTADO_DEPOSITO_LABELS: Record<
   [EstadoDepositoConfirmacion.Pendiente]: 'Pendiente',
   [EstadoDepositoConfirmacion.Confirmada]: 'Confirmada',
   [EstadoDepositoConfirmacion.Rechazada]: 'Rechazada',
+  [EstadoDepositoConfirmacion.Parcial]: 'Parcial',
 };
+
+/** Mirror de `SoporteFicha`: documento que respalda la 2ª ficha en adelante de un corte. */
+export const SoporteFicha = { ValeCaja: 1, CorteParcial: 2 } as const;
+export type SoporteFicha = (typeof SoporteFicha)[keyof typeof SoporteFicha];
+export const SOPORTE_FICHA_LABELS: Record<SoporteFicha, string> = {
+  [SoporteFicha.ValeCaja]: 'Vale de caja',
+  [SoporteFicha.CorteParcial]: 'Corte parcial',
+};
+
+/** Mirror de `DepositoFichaResponse`. */
+export interface DepositoFichaResponse {
+  id: string;
+  movimientoId: string;
+  importe: number;
+  fechaFicha: string;
+  numeroFicha: string | null;
+  soporteTipo: SoporteFicha | null;
+  soporteFolio: string | null;
+  confirmadaEn: string;
+}
+
+/** F6.6 · mirror de `EstadoFolioTransferencia` (ck_folio_transferencia_estado). */
+export const EstadoFolioTransferencia = {
+  Vigente: 1,
+  Usado: 2,
+  Cancelado: 3,
+} as const;
+export type EstadoFolioTransferencia =
+  (typeof EstadoFolioTransferencia)[keyof typeof EstadoFolioTransferencia];
+
+export const ESTADO_FOLIO_TRANSFERENCIA_LABELS: Record<EstadoFolioTransferencia, string> = {
+  [EstadoFolioTransferencia.Vigente]: 'Vigente',
+  [EstadoFolioTransferencia.Usado]: 'Usado',
+  [EstadoFolioTransferencia.Cancelado]: 'Cancelado',
+};
+
+/** F6.6: folio de confirmación de transferencia que emite Ingresos para Caja. */
+export interface FolioTransferenciaResponse {
+  id: string;
+  folio: string;
+  estado: EstadoFolioTransferencia;
+  movimientoId: string;
+  fechaValor: string;
+  referenciaBancaria: string | null;
+  importeIngreso: number;
+  clienteId: string;
+  clienteClave: string | null;
+  clienteRazonSocial: string | null;
+  pedido: string | null;
+  importe: number;
+  emitidoPor: string;
+  emitidoEn: string;
+  cobroMostradorId: string | null;
+  usadoEn: string | null;
+  motivoCancelacion: string | null;
+  canceladoEn: string | null;
+  version: number;
+}
 
 /** Mirror de `EstadoDevolucionCliente` (ck_devolucion_cliente_estado). */
 export const EstadoDevolucionCliente = {
@@ -258,6 +319,8 @@ export interface MovimientoBancarioResponse {
   destinoNumeroCuenta?: string | null;
   destinoTitular?: string | null;
   fondosVerificados?: boolean | null;
+  /** 86e3tfdve: cuenta ordenante del cliente (enmascarada salvo permiso PII). */
+  cuentaOrdenante?: string | null;
   creadoPor: string;
   creadoEn: string;
   version: number;
@@ -288,6 +351,9 @@ export interface PasivoPendienteResponse {
   proveedorId: string;
   proveedorClave: string | null;
   proveedorRazonSocial: string | null;
+  /** 86e3tactf: bloqueo total; el pago se rechaza con PROVEEDOR_BLOQUEADO. */
+  proveedorBloqueado?: boolean;
+  proveedorMotivoBloqueo?: string | null;
   banco: string | null;
   clabe: string | null;
   beneficiario: string | null;
@@ -441,6 +507,12 @@ export interface DepositoConfirmacionResponse {
   /** C7.4: movimiento que CxC identificó desde «Sin identificar»; se preselecciona al confirmar. */
   movimientoSugeridoId?: string | null;
   saldoAFavorPorIdentificar?: number;
+  /** Corte de caja: lo que falta por depositar (efectivo menos fichas). */
+  saldoPorDepositar?: number | null;
+  /** Corte de caja: nombre del cajero, para distinguir varios cortes. */
+  cajeroNombre?: string | null;
+  /** Corte de caja: historial de fichas. */
+  fichas?: DepositoFichaResponse[] | null;
 }
 
 // ---------------------------------------------------------------- REPP recibido (TES-FE-PR6b)
@@ -481,3 +553,378 @@ export interface ConceptoResponse {
   esEjemplo: boolean;
   version: number;
 }
+
+// ─── Corridas de pago (T9.1-A, 86e3ke5bt) ───────────────────────────
+
+/** El backend serializa el estado de la corrida por nombre (no por el número del mirror de arriba). */
+export type EstadoCorridaNombre =
+  | 'Borrador'
+  | 'EnAutorizacion'
+  | 'Autorizada'
+  | 'Ejecutada'
+  | 'Cerrada'
+  | 'Rechazada'
+  | 'Cancelada';
+
+/** Mirror de `PasivoParaCorridaResponse` (GET /tesoreria/corridas/candidatos). */
+export interface PasivoParaCorridaResponse {
+  facturaProveedorId: string;
+  proveedorId: string;
+  proveedorRazonSocial: string | null;
+  folioProveedor: string | null;
+  fechaVencimiento: string;
+  moneda: string;
+  bruto: number;
+  retenciones: number;
+  neto: number;
+  cuentaValidada: boolean;
+  /** 86e3ke2d3: detenida por «documentación» (proveedor sin opinión de cumplimiento vigente). */
+  detenida: boolean;
+  motivoDetencion: string | null;
+  /** 86e3tactf: proveedor con bloqueo total; el servidor rechaza sus facturas en la corrida. */
+  proveedorBloqueado?: boolean;
+  motivoBloqueo?: string | null;
+}
+
+export interface CorridaProveedorResponse {
+  proveedorId: string;
+  proveedorRazonSocial: string | null;
+  facturas: number;
+  bruto: number;
+  retenciones: number;
+  neto: number;
+}
+
+export interface CorridaLineaResponse {
+  facturaProveedorId: string;
+  proveedorId: string;
+  folioProveedor: string | null;
+  fechaVencimiento: string | null;
+  bruto: number;
+  retenciones: number;
+  neto: number;
+  ejecutada: boolean;
+  referenciaBancaria: string | null;
+  fechaEjecucion: string | null;
+}
+
+export interface CorridaResumenResponse {
+  id: string;
+  nombre: string;
+  estado: EstadoCorridaNombre;
+  moneda: string;
+  total: number;
+  pasivos: number;
+  firmasRequeridas: number;
+  firmasRecibidas: number;
+  creadaEn: string;
+  version: number;
+}
+
+export interface CorridaResponse {
+  id: string;
+  nombre: string;
+  estado: EstadoCorridaNombre;
+  moneda: string;
+  cuentaBancariaId: string;
+  bruto: number;
+  retenciones: number;
+  total: number;
+  solicitadaPor: string;
+  autorizadaPor: string | null;
+  autorizadaEn: string | null;
+  creadaEn: string;
+  firmasRequeridas: number;
+  firmasRecibidas: number;
+  rolRequerido: string | null;
+  motivoCierre: string | null;
+  avisos: string | null;
+  version: number;
+  proveedores: CorridaProveedorResponse[];
+  lineas: CorridaLineaResponse[];
+  firmas: { usuarioId: string; usuarioNombre?: string | null; roles: string; firmadaEn: string }[];
+  ejecutado: number;
+  pendiente: number;
+  oficioGeneradoEn: string | null;
+}
+
+// ============================================================================
+// Conciliación Bancaria (T9.2)
+// ============================================================================
+
+/** Estado de la conciliación bancaria mensual. */
+export const EstadoConciliacion = {
+  Abierta: 1,
+  Cerrada: 2,
+} as const;
+export type EstadoConciliacion =
+  (typeof EstadoConciliacion)[keyof typeof EstadoConciliacion];
+
+export const ESTADO_CONCILIACION_HEADER_LABELS: Record<EstadoConciliacion, string> = {
+  [EstadoConciliacion.Abierta]: 'Abierta',
+  [EstadoConciliacion.Cerrada]: 'Cerrada',
+};
+
+/** Estado de una línea del extracto bancario. */
+export const EstadoExtractoLinea = {
+  Pendiente: 1,
+  Emparejada: 2,
+  EnRevision: 3,
+  EnTransito: 4,
+} as const;
+export type EstadoExtractoLinea =
+  (typeof EstadoExtractoLinea)[keyof typeof EstadoExtractoLinea];
+
+export const ESTADO_EXTRACTO_LINEA_LABELS: Record<EstadoExtractoLinea, string> = {
+  [EstadoExtractoLinea.Pendiente]: 'Pendiente',
+  [EstadoExtractoLinea.Emparejada]: 'Emparejada',
+  [EstadoExtractoLinea.EnRevision]: 'En revisión',
+  [EstadoExtractoLinea.EnTransito]: 'En tránsito',
+};
+
+/** Tipo de emparejamiento. */
+export const MatchTipo = {
+  AutoReferenciaImporte: 1,
+  AutoImporteFecha: 2,
+  AutoTolerancia: 3,
+  Manual: 4,
+  AltaAsistida: 5,
+} as const;
+export type MatchTipo = (typeof MatchTipo)[keyof typeof MatchTipo];
+
+export const MATCH_TIPO_LABELS: Record<MatchTipo, string> = {
+  [MatchTipo.AutoReferenciaImporte]: 'Auto (Referencia + Importe)',
+  [MatchTipo.AutoImporteFecha]: 'Auto (Importe + Fecha)',
+  [MatchTipo.AutoTolerancia]: 'Auto (Tolerancia)',
+  [MatchTipo.Manual]: 'Manual',
+  [MatchTipo.AltaAsistida]: 'Alta asistida',
+};
+
+/** Tipo de partida en tránsito. */
+export const PartidaTransitoTipo = {
+  ChequeNoCobrado: 1,
+  DepositoUltimoDia: 2,
+  Otro: 3,
+} as const;
+export type PartidaTransitoTipo =
+  (typeof PartidaTransitoTipo)[keyof typeof PartidaTransitoTipo];
+
+export const PARTIDA_TRANSITO_LABELS: Record<PartidaTransitoTipo, string> = {
+  [PartidaTransitoTipo.ChequeNoCobrado]: 'Cheque no cobrado',
+  [PartidaTransitoTipo.DepositoUltimoDia]: 'Depósito del último día',
+  [PartidaTransitoTipo.Otro]: 'Otro',
+};
+
+export interface ConciliacionResumenResponse {
+  id: string;
+  cuentaBancariaId: string;
+  banco: string;
+  numeroCuenta: string;
+  moneda: string;
+  periodoAnio: number;
+  periodoMes: number;
+  saldoExtracto: number;
+  saldoLibros: number;
+  diferencia: number;
+  estado: EstadoConciliacion;
+  totalLineas: number;
+  lineasEmparejadas: number;
+  lineasPendientes: number;
+  lineasEnRevision: number;
+  lineasEnTransito: number;
+  cerradaEn: string | null;
+  firmanteNombre: string | null;
+}
+
+export interface ExtractoLineaMatchResponse {
+  id: string;
+  movimientoBancarioId: string;
+  monto: number;
+  fechaMatch: string;
+}
+
+export interface ExtractoLineaResponse {
+  id: string;
+  numeroLinea: number;
+  fecha: string;
+  descripcion: string;
+  referencia: string | null;
+  cargo: number | null;
+  abono: number | null;
+  monto: number;
+  sentido: number;
+  estado: EstadoExtractoLinea;
+  matchTipo: MatchTipo | null;
+  matchMovimientoId: string | null;
+  matches: ExtractoLineaMatchResponse[];
+  candidatosRevisionIds: string[];
+  partidaTransito: boolean;
+  partidaTransitoTipo: PartidaTransitoTipo | null;
+  partidaTransitoResponsable: string | null;
+}
+
+export interface BitacoraConciliacionResponse {
+  id: string;
+  extractoLineaId: string | null;
+  movimientoBancarioId: string | null;
+  accion: string;
+  motivo: string;
+  usuarioId: string;
+  fecha: string;
+}
+
+export interface MovimientoBancarioConciliacionDto {
+  id: string;
+  fechaValor: string;
+  sentido: number;
+  monto: number;
+  moneda: string;
+  referenciaBancaria: string | null;
+  conceptoId: string | null;
+  conceptoNombre: string | null;
+  estadoConciliacion: number;
+}
+
+export interface ConciliacionDetalleResponse {
+  id: string;
+  cuentaBancariaId: string;
+  banco: string;
+  numeroCuenta: string;
+  moneda: string;
+  periodoAnio: number;
+  periodoMes: number;
+  saldoExtracto: number;
+  saldoLibros: number;
+  diferencia: number;
+  estado: EstadoConciliacion;
+  cerradaPor: string | null;
+  cerradaEn: string | null;
+  motivoReapertura: string | null;
+  firmanteNombre: string | null;
+  firmantePuesto: string | null;
+  actaGeneradaEn: string | null;
+  lineas: ExtractoLineaResponse[];
+  bitacora: BitacoraConciliacionResponse[];
+  movimientosPeriodo: MovimientoBancarioConciliacionDto[];
+}
+
+/** Espejo de <c>ResultadoEmparejamiento</c> (Tesoreria.Domain): mismos nombres que serializa la API. */
+export interface ResultadoEmparejamientoResponse {
+  totalLineasProcesadas: number;
+  emparejadasPaso1: number;
+  emparejadasPaso2: number;
+  emparejadasPaso3: number;
+  totalEmparejadas: number;
+  enRevision: number;
+  pendientes: number;
+}
+
+export interface ConciliacionesFiltros {
+  cuentaBancariaId?: string;
+  anio?: number;
+  mes?: number;
+  estado?: EstadoConciliacion;
+}
+
+export interface CrearConciliacionInput {
+  cuentaBancariaId: string;
+  periodoAnio: number;
+  periodoMes: number;
+  saldoExtracto?: number;
+}
+
+export interface CargarExtractoInput {
+  id: string;
+  contenidoArchivo: string;
+  formato?: string;
+  saldoExtracto?: number;
+  autoEmparejar?: boolean;
+}
+
+export interface EmparejarAutomaticoInput {
+  id: string;
+  toleranciaImporte?: number;
+  ventanaDias?: number;
+}
+
+export interface EmparejarManualInput {
+  id: string;
+  extractoLineaId: string;
+  movimientoIds: string[];
+}
+
+export interface DesemparejarLineaInput {
+  id: string;
+  extractoLineaId: string;
+  motivo: string;
+}
+
+export interface AltaAsistidaInput {
+  id: string;
+  extractoLineaId: string;
+  conceptoId: string;
+  incluyeIva?: boolean;
+  tasaIva?: number;
+  conceptoIvaId?: string;
+  montoBase?: number;
+  montoIva?: number;
+}
+
+export interface MarcarPartidaTransitoInput {
+  id: string;
+  extractoLineaId: string;
+  tipo: PartidaTransitoTipo;
+  responsable: string;
+  autorizadaPor?: string;
+}
+
+export interface CerrarConciliacionInput {
+  id: string;
+  firmanteNombre: string;
+  firmantePuesto: string;
+}
+
+export interface ReabrirConciliacionInput {
+  id: string;
+  motivo: string;
+}
+
+// ---------------------------------------------------------------- Layout bancario (T9.3)
+
+export interface ExcepcionLineaLayoutResponse {
+  facturaProveedorId: string;
+  proveedorId: string;
+  proveedorRazonSocial: string | null;
+  folioProveedor: string | null;
+  importeNeto: number;
+  causa: string;
+}
+
+export interface LineaLayoutResponse {
+  facturaProveedorId: string;
+  proveedorId: string;
+  proveedorRazonSocial: string | null;
+  folioProveedor: string | null;
+  importeNeto: number;
+  cuentaDestino: string;
+  titular: string;
+  referencia: string;
+  concepto: string;
+}
+
+export interface LayoutCorridaResponse {
+  archivoId: string;
+  corridaId: string;
+  banco: string;
+  tipoPago: string;
+  nombreArchivo: string;
+  contenido: string;
+  total: number;
+  lineasValidas: number;
+  lineasExcluidas: number;
+  esReimpresion: boolean;
+  generadoEn: string;
+  excepciones: ExcepcionLineaLayoutResponse[];
+  lineas: LineaLayoutResponse[];
+}
+

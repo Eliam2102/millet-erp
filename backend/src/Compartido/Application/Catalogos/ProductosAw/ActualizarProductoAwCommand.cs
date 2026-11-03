@@ -35,7 +35,8 @@ public sealed record ActualizarProductoAwCommand(
     bool LimpiarFraccionArancelaria = false,
     bool LimpiarUnidadAduana = false,
     bool LimpiarPesoUnitarioKg = false,
-    int? VersionEsperada = null) : IRequest;
+    int? VersionEsperada = null,
+    bool? EsServicioRecubrimiento = null) : IRequest;
 
 public sealed class ActualizarProductoAwValidator : AbstractValidator<ActualizarProductoAwCommand>
 {
@@ -117,7 +118,8 @@ public sealed class ActualizarProductoAwHandler : IRequestHandler<ActualizarProd
             descripcion: request.Descripcion,
             unidadMedida: request.UnidadMedidaId is null ? request.UnidadMedida : null,
             categoriaId: request.CategoriaId,
-            limpiarCategoria: request.LimpiarCategoria);
+            limpiarCategoria: request.LimpiarCategoria,
+            esServicioRecubrimiento: request.EsServicioRecubrimiento);
 
         var antesFiscal = System.Text.Json.JsonSerializer.Serialize(producto.FichaFiscal());
         producto.AsignarDatosFiscales(

@@ -39,7 +39,11 @@ public sealed record FacturaVentaTimbradaIntegrationEvent(
     Guid? ClienteId = null,
     decimal? TipoCambio = null,
     DateOnly? FechaContable = null,
-    IReadOnlyList<FacturaLineaContablePayload>? Lineas = null)
+    IReadOnlyList<FacturaLineaContablePayload>? Lineas = null,
+    // TR-01: pedido A+W de la factura y su versión en el ERP al emitirla (null si el pedido
+    // no viene de A+W). Con esto Integraciones.Aw deja la fila Documento en aw_retorno.
+    string? NumeroPedidoAw = null,
+    long? VersionPedidoAw = null)
     : IntegrationEvent("facturacion.factura-venta.timbrada.v1", EmpresaId, OcurridoEn);
 
 /// <summary>
@@ -99,7 +103,12 @@ public sealed record NotaCreditoTimbradaIntegrationEvent(
     Guid? ClienteId = null,
     string? Moneda = null,
     decimal? TipoCambio = null,
-    DateOnly? FechaContable = null)
+    DateOnly? FechaContable = null,
+    // 86e3wjt5r (mismo patrón que TR-01 en la factura): solo las notas que llegaron de A+W traen pedido
+    // y versión; con ellos Integraciones.Aw deja la fila NotaCredito en aw_retorno.
+    string? NumeroPedidoAw = null,
+    long? VersionPedidoAw = null,
+    string? Folio = null)
     : IntegrationEvent("facturacion.nota-credito.timbrada.v1", EmpresaId, OcurridoEn);
 
 // ---- Reembolso de NC solicitado a Tesorería (T9.6 · CA6.17; supuesto E11: viaja por facturacion-events) ----
@@ -116,7 +125,11 @@ public sealed record NotaCreditoReembolsoSolicitadoIntegrationEvent(
     string Moneda,
     Guid SucursalId,
     string Motivo,
-    Guid SolicitadoPor)
+    Guid SolicitadoPor,
+    // F6.3: cuenta destino capturada al emitir la NC (opcional; si falta, Tesorería la captura al editar la devolución).
+    string? DestinoBanco = null,
+    string? DestinoClabe = null,
+    string? DestinoTitular = null)
     : IntegrationEvent("facturacion.nota-credito.reembolso-solicitado.v1", EmpresaId, OcurridoEn);
 
 /// <summary>
@@ -155,7 +168,12 @@ public sealed record ComprobanteCanceladoIntegrationEvent(
     DateTimeOffset OcurridoEn,
     Guid ComprobanteId,
     string TipoComprobante,
-    string Uuid)
+    string Uuid,
+    // TR-01: facturas de pedidos A+W (null en lo demás); Integraciones.Aw deja la fila Cancelacion.
+    string? NumeroPedidoAw = null,
+    long? VersionPedidoAw = null,
+    string? Folio = null,
+    decimal? Total = null)
     : IntegrationEvent("facturacion.comprobante.cancelado.v1", EmpresaId, OcurridoEn);
 
 // ---- Sesión de caja abierta (CAJAS-PR3, 12-cajas.md §10) ----
@@ -195,8 +213,25 @@ public sealed record CajaSesionCerradaIntegrationEvent(
     IReadOnlyList<CajaSesionCorteTotal> Cortes)
     : IntegrationEvent("facturacion.caja-sesion.cerrada.v1", EmpresaId, OcurridoEn);
 
-/// <summary>Forma de pago aplicada en un cobro de mostrador.</summary>
-public sealed record CobroFormaPagoAplicada(string FormaPago, decimal Importe);
+// ---- Faltante devuelto por el cajero (86e3vr1tj, junta 19-oct) ----
+// El cajero depositó en Mi caja (en un corte posterior) todo o parte del faltante del corte de origen.
+// Consumidor: Tesorería (abona a la diferencia del corte; espejo en
+// backend/src/Tesoreria/Application/EventListeners/ContratosEspejoFacturacion.cs).
+public sealed record CajaFaltanteDevueltoIntegrationEvent(
+    Guid EmpresaId,
+    DateTimeOffset OcurridoEn,
+    Guid CajaMovimientoId,
+    Guid CajaSesionId,
+    Guid CorteOrigenSesionId,
+    Guid CajeroId,
+    decimal Importe)
+    : IntegrationEvent("facturacion.caja-faltante.devuelto.v1", EmpresaId, OcurridoEn);
+
+/// <summary>
+/// Forma de pago aplicada en un cobro de mostrador. <c>FolioTransferencia</c>
+/// solo en forma 03: Tesorería lo marca «Usado» (F6.6).
+/// </summary>
+public sealed record CobroFormaPagoAplicada(string FormaPago, decimal Importe, string? FolioTransferencia = null);
 
 // ---- Cobro de mostrador registrado (CAJAS-PR4, 12-cajas.md §10) ----
 public sealed record CobroMostradorRegistradoIntegrationEvent(
@@ -228,3 +263,24 @@ public sealed record CobroMostradorCanceladoIntegrationEvent(
     decimal Total,
     bool ReversadoEnSesion)
     : IntegrationEvent("facturacion.cobro-mostrador.cancelado.v1", EmpresaId, OcurridoEn);
+
+/// <summary>Venta con tarjeta liquidada por el banco: cobro de caja y su importe bruto.</summary>
+public sealed record VentaTerminalLiquidada(Guid CobroMostradorId, Guid SucursalId, decimal Importe, string? Autorizacion);
+
+// ---- Liquidación de la terminal de tarjetas (86e3vr1tf, Parte A) ----
+// Una por folio de liquidación del banco. Póliza esperada (C1.5): cargo a bancos
+// por Neto, a comisiones por tarjeta (601.75) por Comision y a IVA pendiente de
+// pago por IvaComision; abono a «COBROS T/C, T/D» por Bruto.
+// PLATFORM-TODO(<PolizaLiquidacionTerminal>): Contabilidad aún no consume este evento.
+public sealed record TerminalLiquidacionRegistradaIntegrationEvent(
+    Guid EmpresaId,
+    DateTimeOffset OcurridoEn,
+    Guid LiquidacionId,
+    string FolioLiquidacion,
+    DateOnly Fecha,
+    decimal Bruto,
+    decimal Comision,
+    decimal IvaComision,
+    decimal Neto,
+    IReadOnlyList<VentaTerminalLiquidada> Ventas)
+    : IntegrationEvent("facturacion.terminal.liquidacion-registrada.v1", EmpresaId, OcurridoEn);

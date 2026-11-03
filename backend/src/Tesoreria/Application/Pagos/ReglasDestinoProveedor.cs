@@ -16,6 +16,10 @@ public static class ReglasDestinoProveedor
         if (info is null)
             throw new BusinessRuleException("PROVEEDOR_NO_ENCONTRADO",
                 "El proveedor del pago no existe o no tiene datos bancarios; regístralo y valídalo en Datos maestros antes de pagar.");
+        // 86e3tactf: bloqueo total; cubre pago directo y pago a cuenta (ambos pasan por aquí).
+        if (info.Bloqueado)
+            throw new BusinessRuleException("PROVEEDOR_BLOQUEADO",
+                $"Proveedor bloqueado: '{info.RazonSocial}' no admite pagos ({info.MotivoBloqueo}).");
         if (info.EnRevision)
             throw new BusinessRuleException("PROVEEDOR_EN_REVISION",
                 $"El proveedor '{info.RazonSocial}' está en revisión y no admite pagos.");

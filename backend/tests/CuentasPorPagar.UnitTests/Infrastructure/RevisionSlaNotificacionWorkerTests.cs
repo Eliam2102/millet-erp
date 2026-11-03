@@ -178,7 +178,8 @@ public sealed class RevisionSlaNotificacionWorkerTests : IDisposable
             ordenCompraId: Guid.NewGuid(), encargadoComprasSnapshot: null,
             tolerancia: Domain.FacturaProveedor.Tolerancia.MontoAbsoluto(0.99m),
             diferenciaContraOc: 0m, redondeoAplicado: 0m, ahora: Entrada);
-        f.EnviarARevision(motivoId, Guid.NewGuid(), null, Entrada);
+        // 86e3tactf: el motivo 13 exige saber quién pidió no pagar.
+        f.EnviarARevision(motivoId, Guid.NewGuid(), null, Entrada, solicitanteId: Guid.NewGuid());
         db.FacturasProveedor.Add(f);
         await db.SaveChangesAsync();
         return f.Id;

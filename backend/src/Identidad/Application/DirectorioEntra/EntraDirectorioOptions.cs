@@ -28,6 +28,14 @@ public sealed class EntraDirectorioOptions
     /// </summary>
     public string UrlInicioSesion { get; set; } = "https://myapps.microsoft.com";
 
+    /// <summary>
+    /// Object ID del grupo de seguridad «ERP Millet · Usuarios» asignado a la
+    /// aplicación (86e3x6cpw, B2). Dar acceso agrega la cuenta al grupo y
+    /// quitarlo la saca. Vacío = el ERP no gestiona el grupo (se registra un
+    /// aviso).
+    /// </summary>
+    public string? GrupoAccesoErpId { get; set; }
+
     /// <summary>Worker de provisión de cuentas nuevas (camino B, F4).</summary>
     public ProvisionCuentaEntraOptions Provision { get; set; } = new();
 

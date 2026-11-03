@@ -12,7 +12,14 @@ public sealed record EmitirNotaCreditoBonificacionCommand(
     Guid FacturaVentaId,
     decimal MontoTotal,
     decimal? TasaIva,
-    string? Descripcion) : IRequest<EmitirNotaCreditoBonificacionResponse>;
+    string? Descripcion,
+    ReembolsoClienteRequest? Reembolso = null) : IRequest<EmitirNotaCreditoBonificacionResponse>;
+
+/// <summary>
+/// F6.3: «Devolver dinero al cliente». Al quedar timbrada la NC se pide a Tesorería el reembolso por su total, con esta
+/// cuenta destino (CLABE validada). Exige el permiso <c>facturacion.notas-credito.reembolso-solicitar</c>.
+/// </summary>
+public sealed record ReembolsoClienteRequest(string Banco, string Clabe, string Titular);
 
 public sealed record EmitirNotaCreditoBonificacionResponse(
     Guid Id,

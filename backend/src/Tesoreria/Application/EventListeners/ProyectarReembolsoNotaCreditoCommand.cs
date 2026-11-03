@@ -46,7 +46,10 @@ public sealed class ProyectarReembolsoNotaCreditoHandler : IRequestHandler<Proye
             var folioDevolucion = await Devoluciones.DevolucionLectura.SiguienteFolioAsync(_db, p.EmpresaId, cancellationToken);
             _db.DevolucionesCliente.Add(DevolucionCliente.SolicitarPorNotaCredito(
                 p.EmpresaId, folioDevolucion, p.NotaCreditoId, p.Folio, p.Uuid, p.ClienteId, p.Importe, p.TotalNotaCredito,
-                p.Moneda, p.SucursalId, p.Motivo, p.SolicitadoPor, ahora));
+                p.Moneda, p.SucursalId, p.Motivo, p.SolicitadoPor, ahora,
+                // F6.3: si Facturación capturó la cuenta destino al emitir, la devolución ya llega lista para autorizar.
+                destino: p.DestinoBanco is not null && p.DestinoClabe is not null && p.DestinoTitular is not null
+                    ? new CuentaDestinoDevolucion(p.DestinoBanco, p.DestinoClabe, p.DestinoTitular) : null));
         }
 
         _db.EventosProcesados.Add(new EventoProcesado(

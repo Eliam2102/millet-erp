@@ -63,6 +63,10 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
 
         httpContext.Response.StatusCode = problem.Status ?? StatusCodes.Status500InternalServerError;
         httpContext.Response.ContentType = "application/problem+json";
+        if (exception is IdempotencyInProgressException inProgress)
+        {
+            httpContext.Response.Headers.RetryAfter = inProgress.RetryAfterSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
 
         await JsonSerializer.SerializeAsync(
             httpContext.Response.Body, problem, JsonOptions, cancellationToken);

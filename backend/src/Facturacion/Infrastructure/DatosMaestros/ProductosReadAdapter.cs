@@ -30,13 +30,15 @@ public sealed class ProductosReadAdapter : IProductosReadPort
                 x.Id, x.Descripcion, x.ClaveProdServSat, x.ClaveUnidadSat,
                 x.ObjetoImp, x.TasaIvaTraslado, x.TasaRetencionIva,
                 x.TasaRetencionIsr, x.Origen, x.Tipo, x.EstadoFiscal, x.PesoUnitarioKg,
+                x.EsServicioRecubrimiento, Activo = x.Estatus == EstatusCatalogo.Activo,
             })
             .FirstOrDefaultAsync(cancellationToken);
 
         return p is null ? null : new ProductoFiscalLectura(
             p.Id, p.Descripcion, p.ClaveProdServSat, p.ClaveUnidadSat,
             p.ObjetoImp, p.TasaIvaTraslado, p.TasaRetencionIva,
-            p.TasaRetencionIsr, p.Origen.ToString(), p.Tipo, p.EstadoFiscal.ToString(), p.PesoUnitarioKg);
+            p.TasaRetencionIsr, p.Origen.ToString(), p.Tipo, p.EstadoFiscal.ToString(), p.PesoUnitarioKg,
+            p.EsServicioRecubrimiento, p.Activo);
     }
 
     public async Task<ProductoFiscalLectura?> ResolverPorReferenciaAsync(
@@ -49,13 +51,15 @@ public sealed class ProductosReadAdapter : IProductosReadPort
                 x.Id, x.Descripcion, x.ClaveProdServSat, x.ClaveUnidadSat,
                 x.ObjetoImp, x.TasaIvaTraslado, x.TasaRetencionIva,
                 x.TasaRetencionIsr, x.Origen, x.Tipo, x.EstadoFiscal, x.PesoUnitarioKg,
+                x.EsServicioRecubrimiento, Activo = x.Estatus == EstatusCatalogo.Activo,
             })
             .FirstOrDefaultAsync(cancellationToken);
 
         return p is null ? null : new ProductoFiscalLectura(
             p.Id, p.Descripcion, p.ClaveProdServSat, p.ClaveUnidadSat,
             p.ObjetoImp, p.TasaIvaTraslado, p.TasaRetencionIva,
-            p.TasaRetencionIsr, p.Origen.ToString(), p.Tipo, p.EstadoFiscal.ToString(), p.PesoUnitarioKg);
+            p.TasaRetencionIsr, p.Origen.ToString(), p.Tipo, p.EstadoFiscal.ToString(), p.PesoUnitarioKg,
+            p.EsServicioRecubrimiento, p.Activo);
     }
 
     public async Task<IReadOnlyList<ProductoAwBusquedaItem>> BuscarAsync(

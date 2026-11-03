@@ -101,6 +101,72 @@ public sealed class C74CicloCompletoEntregaLocalTests(WebApplicationFactory<Prog
             .Should().HaveCount(2).And.OnlyContain(p => p.Estado == EstadoReppPendiente.Emitido && p.ReciboPagoId != null);
     }
 
+    /// <summary>
+    /// 86e3tfdve (opción A): la cuenta ordenante se captura una vez al registrar el ingreso,
+    /// no viaja en el evento (cuidados-infra §4), Facturación la lee por puerto al crear el
+    /// pendiente y la emisión por lote la lleva a <c>CtaOrdenante</c>. Cuenta ficticia.
+    /// </summary>
+    [Fact]
+    public async Task Ordenante_capturada_en_el_ingreso_llega_al_REP_emitido_por_lote()
+    {
+        const string ordenante = "0000000000000016";
+        await using var app = HostConEntregaLocal();
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+        var cxc = await ClienteConPermisosAsync(app, PermisosCanonicos.CuentasPorCobrarAplicacionPagoProponer,
+            PermisosCanonicos.CuentasPorCobrarCarteraLeerTodasSucursales, PermisosCanonicos.CuentasPorCobrarCarteraGestionarTodasSucursales);
+        var tesoreria = await ClienteConPermisosAsync(app, PermisosCanonicos.Todos.Select(p => p.Codigo).ToArray());
+        var cliente = Guid.NewGuid();
+        var facturas = await SembrarFacturasPpdAsync(app, cliente, hoy);
+
+        var alta = await tesoreria.PostAsJsonAsync("/api/v1/tesoreria/movimientos", new
+        {
+            cuentaBancariaId = await CuentaAsync(app), monto = 50_000m, fechaValor = hoy,
+            referenciaBancaria = $"SPEI-ORD-{Guid.NewGuid():N}"[..20], beneficiarioTipo = (int)BeneficiarioTipo.Cliente,
+            cuentaOrdenante = "0000-0000-0000-0016",
+        });
+        alta.StatusCode.Should().Be(HttpStatusCode.Created, await alta.Content.ReadAsStringAsync());
+        var movimientoId = (await alta.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+
+        var propuesta = await ProponerAsync(cxc, cliente, movimientoId, 50_000m,
+            [(facturas[0].Uuid, 20_000m), (facturas[1].Uuid, 20_000m), (facturas[2].Uuid, 10_000m)]);
+        var deposito = await EsperarAsync(app, sp => sp.GetRequiredService<TesoreriaDbContext>().DepositosConfirmacion.AsNoTracking()
+            .SingleOrDefaultAsync(d => d.PropuestaCxcId == propuesta), "proyección del depósito en Tesorería");
+        using (var confirmar = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/tesoreria/depositos/{deposito.Id}/confirmar")
+               { Content = JsonContent.Create(new { movimientoBancarioId = movimientoId }) })
+        {
+            confirmar.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString());
+            confirmar.Headers.Add("X-Expected-Version", deposito.Version.ToString());
+            var r = await tesoreria.SendAsync(confirmar);
+            r.StatusCode.Should().Be(HttpStatusCode.OK, await r.Content.ReadAsStringAsync());
+        }
+
+        var pendiente = await EsperarAsync(app, sp => sp.GetRequiredService<FacturacionDbContext>().ReppPendientes.AsNoTracking()
+            .SingleOrDefaultAsync(p => p.PropuestaId == propuesta), "pendiente de REP en Facturación");
+        pendiente.CuentaOrdenante.Should().Be(ordenante, "Facturación la lee del movimiento por puerto");
+
+        // La consulta del pendiente la muestra enmascarada.
+        var dto = await tesoreria.GetFromJsonAsync<JsonElement>($"/api/v1/facturacion/repp/pendientes/{pendiente.Id}");
+        dto.GetProperty("cuentaOrdenante").GetString().Should().Be("•••• 0016");
+
+        using (var lote = new HttpRequestMessage(HttpMethod.Post, "/api/v1/facturacion/repp/pendientes/emitir-lote")
+               { Content = JsonContent.Create(new { ids = new[] { pendiente.Id } }) })
+        {
+            lote.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString());
+            var r = await tesoreria.SendAsync(lote);
+            var cuerpo = await r.Content.ReadAsStringAsync();
+            r.StatusCode.Should().Be(HttpStatusCode.OK, cuerpo);
+            var resultado = JsonDocument.Parse(cuerpo).RootElement[0];
+            resultado.GetProperty("emitido").GetBoolean().Should().BeTrue(cuerpo);
+            (resultado.TryGetProperty("aviso", out var aviso) ? aviso.ValueKind : JsonValueKind.Null)
+                .Should().Be(JsonValueKind.Null, cuerpo);
+        }
+
+        Pac.Emisiones.Should().Contain(e => e.ComplementoPago != null
+            && e.ComplementoPago.CuentaOrdenante == ordenante && e.ComplementoPago.Monto == 50_000m);
+        await EsperarAsync(app, async sp => await sp.GetRequiredService<CuentasPorCobrarDbContext>().PropuestasAplicacionPago.AsNoTracking()
+            .AnyAsync(p => p.Id == propuesta && p.ReppTimbrado) ? (object)true : null, "REP timbrado aplicado en CxC");
+    }
+
     /// <summary>Proyección en Tesorería → confirmación por otro usuario → pendiente de REP → emisión → cartera.</summary>
     private static async Task CicloConfirmacionYRepAsync(WebApplicationFactory<Program> app, HttpClient tesoreria, Guid propuestaId, Guid movimientoId)
     {
@@ -291,8 +357,15 @@ public sealed class C74CicloCompletoEntregaLocalTests(WebApplicationFactory<Prog
 
     private sealed class Pac : ICfdiTimbradoPort
     {
-        public Task<TimbradoResultado> TimbrarAsync(CfdiEmision emision, CancellationToken cancellationToken) => Task.FromResult(new TimbradoResultado(
-            TimbradoEstado.Timbrado, Guid.NewGuid().ToString(), null, null, null, DateTimeOffset.UtcNow, null, "<prueba-ficticia/>", null, null));
+        /// <summary>Emisiones recibidas (86e3tfdve: verificar las cuentas del complemento de pago).</summary>
+        public static readonly System.Collections.Concurrent.ConcurrentQueue<CfdiEmision> Emisiones = new();
+
+        public Task<TimbradoResultado> TimbrarAsync(CfdiEmision emision, CancellationToken cancellationToken)
+        {
+            Emisiones.Enqueue(emision);
+            return Task.FromResult(new TimbradoResultado(
+                TimbradoEstado.Timbrado, Guid.NewGuid().ToString(), null, null, null, DateTimeOffset.UtcNow, null, "<prueba-ficticia/>", null, null));
+        }
         public Task<CancelacionResultado> CancelarAsync(CancelacionSolicitud s, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<EstatusCfdiResultado> ConsultarEstatusAsync(EstatusCfdiSolicitud s, CancellationToken cancellationToken) => throw new NotSupportedException();
     }

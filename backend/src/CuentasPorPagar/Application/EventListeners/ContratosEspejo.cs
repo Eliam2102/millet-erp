@@ -40,6 +40,19 @@ public sealed record OcCanceladaPayload(
     string? MotivoCancelacionTexto);
 
 /// <summary>
+/// Espejo de <c>compras.orden-compra.servicio-confirmado.v1</c> (86e3tacbn). <c>Confirmado = false</c> es la
+/// reversa de la conformidad. CxP republica el pasivo de las facturas autorizadas de la OC con la elegibilidad nueva.
+/// </summary>
+public sealed record OcServicioConfirmadoPayload(
+    Guid EmpresaId,
+    DateTimeOffset OcurridoEn,
+    Guid OrdenCompraId,
+    string Folio,
+    bool Confirmado,
+    Guid UsuarioId,
+    string? Texto);
+
+/// <summary>
 /// Espejo de <c>almacen.oc_recepcion.registrada.v1</c>. CxP proyecta
 /// localmente para que <c>IAlmacenRecepcionReadPort</c> resuelva sin
 /// query cross-DbContext.

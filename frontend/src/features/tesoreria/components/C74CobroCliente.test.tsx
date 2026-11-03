@@ -69,4 +69,23 @@ describe('Alta de ingreso · cobro de cliente (C7.4)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Registrar ingreso' }));
     expect(mocks.mutate.mock.calls[0][0].command.beneficiarioTipo).toBeUndefined();
   });
+
+  it('86e3tfdve: captura la cuenta ordenante normalizada y bloquea un formato fuera del SAT', () => {
+    render(<RegistrarIngresoSheet open onOpenChange={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'elegir cuenta' }));
+    fireEvent.change(screen.getByLabelText('Importe *'), { target: { value: '100' } });
+    expect(screen.queryByLabelText('Cuenta ordenante del cliente')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('Cobro de cliente (cliente opcional)'));
+
+    fireEvent.change(screen.getByLabelText('Cuenta ordenante del cliente'), { target: { value: '000000012' } });
+    expect(screen.getByText(/debe tener 10, 11, 15, 16 o 18 dígitos/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Registrar ingreso' })).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText('Cuenta ordenante del cliente'), {
+      target: { value: '0000-0000 0000-0016' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar ingreso' }));
+    expect(mocks.mutate.mock.calls[0][0].command.cuentaOrdenante).toBe('0000000000000016');
+  });
 });
+

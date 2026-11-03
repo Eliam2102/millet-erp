@@ -19,6 +19,12 @@ public sealed class ReppPendiente : BaseEntity, IPerteneceAEmpresa, IAuditable
     public DateOnly FechaLimite { get; private set; }
     public string? Referencia { get; private set; }
     public string FormaPago { get; private set; } = "03";
+    /// <summary>
+    /// 86e3tfdve (opción A): CtaOrdenante del cliente. Nace con la que Tesorería capturó al
+    /// registrar el ingreso (leída por puerto) y se puede corregir al revisar. Solo se usa
+    /// si la forma de pago la admite. PII (ADR-0006): enmascarada al mostrarse.
+    /// </summary>
+    public string? CuentaOrdenante { get; private set; }
     public bool Revisado { get; private set; }
     public EstadoReppPendiente Estado { get; private set; }
     public Guid? ReciboPagoId { get; private set; }
@@ -34,7 +40,7 @@ public sealed class ReppPendiente : BaseEntity, IPerteneceAEmpresa, IAuditable
 
     public ReppPendiente(Guid empresaId, Guid clienteId, Guid movimientoBancarioId,
         Guid cuentaBancariaId, Guid? propuestaId, decimal monto, string moneda,
-        DateOnly fechaValor, string? referencia, IEnumerable<RelacionRepp> facturas)
+        DateOnly fechaValor, string? referencia, IEnumerable<RelacionRepp> facturas, string? cuentaOrdenante = null)
         : base(Guid.CreateVersion7())
     {
         EmpresaId = empresaId;
@@ -47,8 +53,12 @@ public sealed class ReppPendiente : BaseEntity, IPerteneceAEmpresa, IAuditable
         FechaValor = fechaValor;
         FechaLimite = PlazoRepp.FechaLimite(fechaValor);
         Referencia = referencia;
+        CuentaOrdenante = CuentasPagoSat.Normalizar(cuentaOrdenante);
         ReemplazarFacturas(facturas);
     }
+
+    /// <summary>Ordenante que aplica con la forma de pago actual; null si la forma no la admite.</summary>
+    public string? OrdenanteParaFormaPago() => CuentasPagoSat.AdmiteOrdenante(FormaPago) ? CuentaOrdenante : null;
 
     public void VerificarEditable()
     {
@@ -71,13 +81,21 @@ public sealed class ReppPendiente : BaseEntity, IPerteneceAEmpresa, IAuditable
             throw new BusinessRuleException("REPP_MONTO_DISTINTO", "La suma de la relación debe ser exactamente el monto confirmado.");
     }
 
-    public void Revisar(string formaPago, IReadOnlyCollection<RelacionRepp> facturas)
+    public void Revisar(string formaPago, IReadOnlyCollection<RelacionRepp> facturas,
+        string? cuentaOrdenante = null, bool limpiarCuentaOrdenante = false)
     {
         VerificarEditable();
         ValidarRelacion(facturas);
         if (string.IsNullOrWhiteSpace(formaPago) || formaPago == "99")
             throw new BusinessRuleException("REPP_FORMA_PAGO_INVALIDA", "Selecciona la forma de pago real; no se admite 99 Por definir.");
+        // 86e3tfdve: la capturada reemplaza a la del ingreso; vacía conserva la guardada.
+        var ordenante = limpiarCuentaOrdenante ? null : CuentasPagoSat.Normalizar(cuentaOrdenante) ?? CuentaOrdenante;
+        // Forma real: la capturada se valida siempre; la guardada solo si la forma la admite
+        // (con efectivo, p. ej., se conserva pero no se usa).
+        CuentasPagoSat.Validar(formaPago, CuentasPagoSat.Normalizar(cuentaOrdenante)
+            ?? (CuentasPagoSat.AdmiteOrdenante(formaPago) ? ordenante : null), null);
         FormaPago = formaPago;
+        CuentaOrdenante = ordenante;
         Revisado = true;
         ReemplazarFacturas(facturas);
         UltimoErrorCodigo = null;

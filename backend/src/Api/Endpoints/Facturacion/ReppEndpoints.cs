@@ -9,6 +9,7 @@ using Millet.Facturacion.Application.Repp.Queries;
 using Millet.Facturacion.Application.Repp.Pendientes;
 using Millet.Facturacion.Domain.Repp;
 using Millet.Facturacion.Domain.Comprobantes;
+using Millet.Facturacion.Domain.Ports;
 using Millet.Identidad.Domain;
 
 namespace Millet.Api.Endpoints.Facturacion;
@@ -88,6 +89,19 @@ public static class ReppEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        // GET: PDF del complemento de pago con el diseño de la factura de Millet (86e3tfdx0).
+        group.MapGet("/{id:guid}/pdf", async (Guid id, IMediator mediator, CancellationToken ct) =>
+        {
+            var pdf = await mediator.Send(
+                new ComprobantePdfQuery(id, FormatoPdfFactura.Bilingue, FamiliaComprobante.ReciboPago), ct);
+            return Results.File(pdf.Contenido, pdf.ContentType, pdf.NombreSugerido);
+        })
+        .RequireAuthorization(leer)
+        .WithName("ReppPdf")
+        .WithSummary("Descarga el PDF de un REPP (complemento de pago)")
+        .Produces(StatusCodes.Status200OK, contentType: "application/pdf")
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
         // GET: facturas PPD con saldo por cobrar (candidatas de un REPP).
         // Alimenta el FacturaPpdPicker del form de emisión — cierra
         // PLATFORM-TODO(<FacturaPicker>). Mismo permiso que emitir.
@@ -116,12 +130,15 @@ public static class ReppEndpoints
             .RequireAuthorization(leer).WithName("ConsultarReppPendiente");
         pendientes.MapPut("/{id:guid}", async (Guid id, RevisarReppPendienteBody body, IMediator mediator, CancellationToken ct) =>
         {
-            await mediator.Send(new RevisarReppPendienteCommand(id, body.FormaPago, body.Facturas), ct);
+            await mediator.Send(new RevisarReppPendienteCommand(id, body.FormaPago, body.Facturas,
+                body.CuentaOrdenante, body.CuentaBeneficiaria, body.LimpiarCuentaOrdenante), ct);
             return Results.NoContent();
         }).RequireAuthorization(emitir).WithName("RevisarReppPendiente");
-        pendientes.MapPost("/{id:guid}/emitir", async (Guid id, IMediator mediator, CancellationToken ct) =>
+        // 86e3tfdve: body opcional con las cuentas del pago; sin body, la beneficiaria
+        // se prellena con la cuenta de Millet donde entró el depósito.
+        pendientes.MapPost("/{id:guid}/emitir", async (Guid id, [FromBody] EmitirReppPendienteBody? body, IMediator mediator, CancellationToken ct) =>
         {
-            var result = await mediator.Send(new EmitirReppPendienteCommand(id), ct);
+            var result = await mediator.Send(new EmitirReppPendienteCommand(id, body?.CuentaOrdenante, body?.CuentaBeneficiaria), ct);
             return result.Emitido ? Results.Ok(result) : Results.Problem(
                 title: "No se pudo emitir el REP", detail: result.Mensaje,
                 statusCode: StatusCodes.Status422UnprocessableEntity,
@@ -139,5 +156,7 @@ public static class ReppEndpoints
     }
 }
 
-public sealed record RevisarReppPendienteBody(string FormaPago, IReadOnlyList<RelacionRepp> Facturas);
+public sealed record RevisarReppPendienteBody(string FormaPago, IReadOnlyList<RelacionRepp> Facturas,
+    string? CuentaOrdenante = null, string? CuentaBeneficiaria = null, bool LimpiarCuentaOrdenante = false);
+public sealed record EmitirReppPendienteBody(string? CuentaOrdenante = null, string? CuentaBeneficiaria = null);
 public sealed record DescartarReppPendienteBody(string Motivo);

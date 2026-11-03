@@ -90,4 +90,22 @@ describe('Órdenes de servicio en gastos', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Elegir proveedor' }));
     expect(screen.getByLabelText('Orden de servicio *')).toHaveValue('');
   });
+  it('pide fuente, tipo de cambio y nota (mín. 10) al cambiar el tipo de cambio en USD', () => {
+    render(<FinanzasPanel data={expediente} tab="gastos" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar gasto' }));
+    expect(screen.queryByLabelText('Fuente del tipo de cambio')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Moneda *'), { target: { value: 'USD' } });
+    fireEvent.change(screen.getByLabelText('Fuente del tipo de cambio'), {
+      target: { value: 'Negociado' },
+    });
+    expect(screen.getByLabelText('Tipo de cambio usado *')).toBeRequired();
+    expect(screen.getByLabelText('Nota del cambio (mín. 10 caracteres) *')).toHaveAttribute(
+      'minlength',
+      '10',
+    );
+    fireEvent.change(screen.getByLabelText('Fuente del tipo de cambio'), {
+      target: { value: 'CFDI' },
+    });
+    expect(screen.getByLabelText('Tipo de cambio usado')).not.toBeRequired();
+  });
 });

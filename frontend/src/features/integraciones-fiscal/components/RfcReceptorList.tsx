@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { Loader2, Plus, ShieldAlert, ShieldCheck, Trash2, Upload } from 'lucide-react';
+import { ConfirmarAccionDialog } from '@/components/erp';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -90,6 +91,7 @@ function RfcRow({ rfc, canEdit }: RfcRowProps) {
   const eliminar = useEliminarRfcReceptor();
   const idempotencyKey = useFormIdempotencyKey();
   const [fielDialogOpen, setFielDialogOpen] = useState(false);
+  const [confirmandoEliminar, setConfirmandoEliminar] = useState(false);
 
   function toggle(field: 'descargaHabilitada' | 'refreshHabilitada', value: boolean) {
     actualizar.mutate(
@@ -111,11 +113,13 @@ function RfcRow({ rfc, canEdit }: RfcRowProps) {
   }
 
   function handleDelete() {
-    if (!confirm(`¿Eliminar RFC ${rfc.rfc}?`)) return;
     eliminar.mutate(
       { id: rfc.id, empresaId: rfc.empresaId, idempotencyKey },
       {
-        onSuccess: () => toast.success(`RFC ${rfc.rfc} eliminado.`),
+        onSuccess: () => {
+          setConfirmandoEliminar(false);
+          toast.success(`RFC ${rfc.rfc} eliminado.`);
+        },
         onError: () => toast.error('Error al eliminar RFC.'),
       },
     );
@@ -180,7 +184,7 @@ function RfcRow({ rfc, canEdit }: RfcRowProps) {
               type="button"
               variant="ghost"
               size="icon"
-              onClick={handleDelete}
+              onClick={() => setConfirmandoEliminar(true)}
               disabled={eliminar.isPending}
               aria-label={`Eliminar RFC ${rfc.rfc}`}
             >
@@ -199,6 +203,16 @@ function RfcRow({ rfc, canEdit }: RfcRowProps) {
           rfc={rfc.rfc}
         />
       )}
+      <ConfirmarAccionDialog
+        open={confirmandoEliminar}
+        onOpenChange={setConfirmandoEliminar}
+        titulo="Eliminar RFC receptor"
+        resumen={<>Se eliminará el RFC <strong>{rfc.rfc}</strong>.</>}
+        verbo="Eliminar RFC"
+        tono="peligro"
+        onConfirmar={handleDelete}
+        pendiente={eliminar.isPending}
+      />
     </li>
   );
 }

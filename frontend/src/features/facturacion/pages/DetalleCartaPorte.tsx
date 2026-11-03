@@ -21,6 +21,7 @@ import { TimbradoFallidoBanner } from '@/features/facturacion/components/Timbrad
 import { TrazabilidadFacturacion } from '@/features/facturacion/components/TrazabilidadFacturacion';
 import { VehiculoPicker } from '@/features/facturacion/components/VehiculoPicker';
 import type { CartaPorteSearch } from '@/features/facturacion/lib/carta-porte-search-schema';
+import { descargarArchivo } from '@/features/facturacion/lib/descargas';
 import {
   SiguienteTramoSchema,
   type SiguienteTramoValues,
@@ -31,11 +32,13 @@ import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { hoyLocalISO } from '@/lib/datetime';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
-import { Route as RouteIcon, X } from 'lucide-react';
+import { Download, FileCode, Route as RouteIcon, X } from 'lucide-react';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { EstadoFacturacionBadge } from '../components/EstadoFacturacionBadge';
+
+const BASE = '/api/v1/facturacion/carta-porte';
 
 /**
  * <c>Detalle de una Carta Porte</c> (FE-F8). Tramo + vehículo + operador +
@@ -85,6 +88,16 @@ function Contenido({ c }: { c: NonNullable<ReturnType<typeof useCartaPorte>['dat
   const [siguienteAbierto, setSiguienteAbierto] = useState(false);
   // Solo desde un tramo timbrado tiene sentido crear el siguiente.
   const puedeContinuar = puedeEmitir && c.estado === 'Timbrado';
+  const timbrada = c.estado === 'Timbrado' || c.estado === 'Cancelado';
+
+  // 86e3tfdx0: XML timbrado y PDF con el formato de Millet, como en el detalle de la factura.
+  async function descargar(tipo: 'xml' | 'pdf') {
+    try {
+      await descargarArchivo(`${BASE}/${c.id}/${tipo}`, `${c.folio}.${tipo}`);
+    } catch (error) {
+      toast.error(esApiError(error) ? error.problem.title : 'No se pudo descargar el archivo.');
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -120,16 +133,22 @@ function Contenido({ c }: { c: NonNullable<ReturnType<typeof useCartaPorte>['dat
             </p>
           )}
         </div>
-        {puedeContinuar && (
-          <Button
-            variant="outline"
-            data-print="hidden"
-            onClick={() => setSiguienteAbierto((v) => !v)}
-          >
-            <RouteIcon className="mr-2 h-4 w-4" />
-            Crear siguiente tramo
+        <div className="flex flex-wrap items-center gap-2" data-print="hidden">
+          <Button variant="outline" size="sm" onClick={() => descargar('xml')} disabled={!timbrada}>
+            <FileCode className="mr-1 h-4 w-4" />
+            XML
           </Button>
-        )}
+          <Button variant="outline" size="sm" onClick={() => descargar('pdf')}>
+            <Download className="mr-1 h-4 w-4" />
+            PDF
+          </Button>
+          {puedeContinuar && (
+            <Button variant="outline" onClick={() => setSiguienteAbierto((v) => !v)}>
+              <RouteIcon className="mr-2 h-4 w-4" />
+              Crear siguiente tramo
+            </Button>
+          )}
+        </div>
       </div>
 
       {siguienteAbierto && (

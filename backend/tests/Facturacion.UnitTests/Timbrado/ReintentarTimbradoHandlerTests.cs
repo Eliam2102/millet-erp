@@ -291,9 +291,8 @@ public sealed class ReintentarTimbradoHandlerTests
         r.Estado.Should().Be("Timbrado");
         pedido.Estado.Should().Be(Millet.Facturacion.Domain.Pedidos.EstadoPedidoFacturable.Facturado);
         pedido.ComprobanteVigenteId.Should().Be(fv.Id);
-        control.WriteBackPendiente.Should().BeTrue();
-        control.WriteBackEstado.Should().Be("Facturado");
-        control.WriteBackUuid.Should().Be(r.Uuid);
+        control.Estado.Should().Be(Millet.Facturacion.Domain.Ingesta.EstadoIngesta.Facturado);
+        control.WriteBackPendiente.Should().BeFalse(); // TR-01: ya no hay write-back por pedido (B6)
     }
 
     private static FacturaVenta CrearFacturaFallidaDePedido(

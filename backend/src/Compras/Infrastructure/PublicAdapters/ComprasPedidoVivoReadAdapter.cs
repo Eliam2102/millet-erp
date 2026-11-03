@@ -185,7 +185,8 @@ public sealed class ComprasPedidoVivoReadAdapter : IComprasPedidoVivoReadPort
             join o in _db.OrdenesCompra.AsNoTracking() on l.OrdenCompraId equals o.Id
             join r in _db.Requisiciones.AsNoTracking() on l.RequisicionId equals r.Id into rqs
             from r in rqs.DefaultIfEmpty()
-            where (r == null || r.Origen == OrigenRequisicion.Manual)
+            // F1-ALM-10: la RQ de la app de Almacenes (sin almacén, por sucursal) también es pedido vivo.
+            where (r == null || r.Origen != OrigenRequisicion.Sistema)
                 && o.Estado != EstadoOrdenCompra.Cancelada && o.Estado != EstadoOrdenCompra.Cerrada
                 && sucursales.Contains(o.SucursalDestinoId) && articulos.Contains(l.ArticuloId)
             select new { o.SucursalDestinoId, l.ArticuloId, l.LineaRequisicionId, l.Cantidad, l.CantidadRecibida, l.UnidadMedida })
@@ -202,7 +203,7 @@ public sealed class ComprasPedidoVivoReadAdapter : IComprasPedidoVivoReadPort
         }
         var filas = await (from l in _db.LineaRequisiciones.AsNoTracking()
             join r in _db.Requisiciones.AsNoTracking() on l.RequisicionId equals r.Id
-            where r.Origen == OrigenRequisicion.Manual && EstadosVivosRq.Contains(r.Estado)
+            where r.Origen != OrigenRequisicion.Sistema && EstadosVivosRq.Contains(r.Estado)
                 && sucursales.Contains(r.SucursalId) && articulos.Contains(l.ArticuloId)
             select new { r.SucursalId, r.Estado, l.Id, l.ArticuloId, l.Cantidad, l.CantidadDeCompra, l.UnidadMedida })
             .ToListAsync(ct);

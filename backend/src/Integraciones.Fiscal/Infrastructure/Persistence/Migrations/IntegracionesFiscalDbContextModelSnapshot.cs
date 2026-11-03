@@ -19,10 +19,171 @@ namespace Millet.Integraciones.Fiscal.Infrastructure.Persistence.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("integraciones_fiscal")
-                .HasAnnotation("ProductVersion", "9.0.4")
+                .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.Entity("Millet.Integraciones.Fiscal.Domain.Certificados.AlertaCsd", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CertificadoCsdId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("certificado_csd_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Destinatarios")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("destinatarios");
+
+                    b.Property<int>("DiasRestantes")
+                        .HasColumnType("integer")
+                        .HasColumnName("dias_restantes");
+
+                    b.Property<DateTimeOffset>("DisparadaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("disparada_en");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<int>("UmbralDias")
+                        .HasColumnType("integer")
+                        .HasColumnName("umbral_dias");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_alertas_csd");
+
+                    b.HasIndex("CertificadoCsdId", "UmbralDias")
+                        .IsUnique()
+                        .HasDatabaseName("ux_alertas_csd_certificado_umbral");
+
+                    b.ToTable("alertas_csd", "integraciones_fiscal");
+                });
+
+            modelBuilder.Entity("Millet.Integraciones.Fiscal.Domain.Certificados.CertificadoCsd", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ConfiguracionPacId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("configuracion_pac_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<short>("Estado")
+                        .HasColumnType("smallint")
+                        .HasColumnName("estado");
+
+                    b.Property<DateTimeOffset?>("FinalizadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("finalizado_en");
+
+                    b.Property<string>("FinalizadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("finalizado_por");
+
+                    b.Property<string>("MotivoRevocacion")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo_revocacion");
+
+                    b.Property<string>("NumeroSerie")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("numero_serie");
+
+                    b.Property<DateTimeOffset>("RegistradoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("registrado_en");
+
+                    b.Property<string>("RegistradoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("registrado_por");
+
+                    b.Property<string>("Rfc")
+                        .HasMaxLength(13)
+                        .HasColumnType("character varying(13)")
+                        .HasColumnName("rfc");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<DateTimeOffset>("VenceEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("vence_en");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.Property<DateTimeOffset>("VigenteDesde")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("vigente_desde");
+
+                    b.HasKey("Id")
+                        .HasName("pk_certificados_csd");
+
+                    b.HasIndex("EmpresaId", "NumeroSerie")
+                        .HasDatabaseName("ix_certificados_csd_empresa_numero_serie");
+
+                    b.ToTable("certificados_csd", "integraciones_fiscal");
+                });
 
             modelBuilder.Entity("Millet.Integraciones.Fiscal.Domain.Cfdi.CfdiArchivo", b =>
                 {
@@ -150,14 +311,6 @@ namespace Millet.Integraciones.Fiscal.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("csd_actualizado_at");
 
-                    b.Property<DateTimeOffset?>("CsdNotAfter")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("csd_not_after");
-
-                    b.Property<DateTimeOffset?>("CsdNotBefore")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("csd_not_before");
-
                     b.Property<byte[]>("CsdCertificadoCifrado")
                         .HasColumnType("bytea")
                         .HasColumnName("csd_certificado_cifrado");
@@ -171,9 +324,21 @@ namespace Millet.Integraciones.Fiscal.Infrastructure.Persistence.Migrations
                         .HasColumnType("bytea")
                         .HasColumnName("csd_llave_privada_cifrada");
 
+                    b.Property<DateTimeOffset?>("CsdNotAfter")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("csd_not_after");
+
+                    b.Property<DateTimeOffset?>("CsdNotBefore")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("csd_not_before");
+
                     b.Property<byte[]>("CsdPasswordCifrado")
                         .HasColumnType("bytea")
                         .HasColumnName("csd_password_cifrado");
+
+                    b.Property<DateTimeOffset?>("CsdRevocadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("csd_revocado_en");
 
                     b.Property<DateTimeOffset?>("DeletedAt")
                         .HasColumnType("timestamp with time zone")
@@ -527,6 +692,23 @@ namespace Millet.Integraciones.Fiscal.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("timestamp");
 
+                    b.Property<string>("ActorEmail")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("actor_email");
+
+                    b.Property<string>("ActorNombre")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("actor_nombre");
+
+                    b.Property<string>("ActorTipo")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("actor_tipo");
+
                     b.Property<Guid?>("AggregateRootId")
                         .HasColumnType("uuid")
                         .HasColumnName("aggregate_root_id");
@@ -549,6 +731,12 @@ namespace Millet.Integraciones.Fiscal.Infrastructure.Persistence.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)")
                         .HasColumnName("entidad");
+
+                    b.Property<string>("EntidadEtiqueta")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("entidad_etiqueta");
 
                     b.Property<Guid?>("EntidadId")
                         .HasColumnType("uuid")
@@ -578,12 +766,21 @@ namespace Millet.Integraciones.Fiscal.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("operacion");
 
+                    b.Property<string>("Resumen")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("resumen");
+
                     b.Property<Guid?>("UsuarioId")
                         .HasColumnType("uuid")
                         .HasColumnName("usuario_id");
 
                     b.HasKey("Id", "Timestamp")
                         .HasName("pk_audit_log");
+
+                    b.HasIndex("ActorTipo", "Timestamp")
+                        .HasDatabaseName("ix_audit_log_actor_tipo_timestamp");
 
                     b.HasIndex("EmpresaId", "Timestamp")
                         .HasDatabaseName("ix_audit_log_empresa_id_timestamp");

@@ -28,4 +28,6 @@ public sealed record AgregarLineaManualOcCommand(
     // código de error, no un fallo de deserialización.
     Guid? CentroCostoId = null, bool EsActivoFijo = false, Guid? ClaseActivoId = null,
     // F1-MP-01 (E1): medida de la hoja (variante A+W) de un artículo de vidrio crudo; el handler fija ancho y alto desde A+W.
-    Guid? ProductoAwVarianteId = null) : IRequest<AgregarLineaManualOcResponse>;
+    Guid? ProductoAwVarianteId = null,
+    // F1-MP-05 (A4.2): lote que declara el proveedor (opcional).
+    string? LoteProveedor = null) : IRequest<AgregarLineaManualOcResponse>;

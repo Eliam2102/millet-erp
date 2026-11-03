@@ -113,8 +113,11 @@ public sealed class CancelacionSatPollerWorker : BackgroundService
             solicitud.MarcarAceptada(estatus.EstatusSat, clock.UtcNow);
             await AplicarEfectosCancelacionAsync(db, comprobante, clock.UtcNow, cancellationToken);
             // F10-PR1: evento de comprobante cancelado al resolverse el poller.
-            await eventos.PublishAsync(new ComprobanteCanceladoIntegrationEvent(
-                comprobante.EmpresaId, clock.UtcNow, comprobante.Id, comprobante.Tipo.ToString(), comprobante.Uuid ?? string.Empty),
+            await eventos.PublishAsync(EventosContablesFacturacion.ComprobanteCancelado(
+                comprobante, clock.UtcNow,
+                comprobante is FacturaVenta { PedidoFacturableId: { } pedidoEvt }
+                    ? await db.PedidosFacturables.AsNoTracking().FirstOrDefaultAsync(p => p.Id == pedidoEvt, cancellationToken)
+                    : null),
                 cancellationToken);
             resueltas++;
         }
@@ -137,14 +140,13 @@ public sealed class CancelacionSatPollerWorker : BackgroundService
                 var pedido = await db.PedidosFacturables.FirstOrDefaultAsync(p => p.Id == pedidoId, cancellationToken);
                 pedido?.RevertirAFacturable();
 
-                // ADR-0048 D3 (PR5): espejo del hook de SolicitarCancelacionHandler.
+                // ADR-0048 D3 (PR5): espejo del hook de AutorizarCancelacionHandler.
                 if (pedido?.Origen == Domain.Pedidos.OrigenPedido.Aw)
                 {
                     var control = await db.IngestaControles
                         .FirstOrDefaultAsync(c => c.PedidoFacturableId == pedido.Id, cancellationToken);
                     if (control is not null)
                     {
-                        control.SolicitarWriteBackEstado("SinFacturar", uuid: null, ahora);
                         control.CambiarEstado(Domain.Ingesta.EstadoIngesta.Importado);
                     }
                 }

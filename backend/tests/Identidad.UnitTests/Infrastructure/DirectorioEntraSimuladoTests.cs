@@ -139,6 +139,40 @@ public class DirectorioEntraSimuladoTests
         new EntraDirectorioOptions().PermiteCorreo("persona@millet.mx").Should().BeFalse();
     }
 
+    [Fact]
+    public async Task Listar_Cuentas_Solo_Habilitadas_De_Dominio_Permitido_Y_Filtra_Por_Texto()
+    {
+        var directorio = Crear(
+            new CuentaSimuladaOptions { Correo = "maria.perez@millet.mx", Nombre = "María Pérez" },
+            new CuentaSimuladaOptions { Correo = "luis.gomez@millet.mx", Nombre = "Luis Gómez" },
+            new CuentaSimuladaOptions { Correo = "baja@millet.mx", Nombre = "Baja", Habilitada = false },
+            new CuentaSimuladaOptions { Correo = "externo@gmail.com", Nombre = "Externo" });
+
+        var todas = await directorio.ListarCuentasAsync(null, 50, default);
+        todas.Select(c => c.Upn).Should().Equal("luis.gomez@millet.mx", "maria.perez@millet.mx");
+
+        var filtradas = await directorio.ListarCuentasAsync("pérez", 50, default);
+        filtradas.Should().ContainSingle().Which.Upn.Should().Be("maria.perez@millet.mx");
+
+        (await directorio.ListarCuentasAsync(null, 1, default)).Should().HaveCount(1);
+    }
+
+    [Fact]
+    public async Task Grupo_De_Acceso_Agregar_Y_Quitar_Son_Idempotentes()
+    {
+        var directorio = Crear();
+        const string grupo = "grupo-erp";
+        const string oid = "11111111-1111-4111-8111-111111111111";
+
+        await directorio.AgregarAGrupoAccesoAsync(grupo, oid, default);
+        await directorio.AgregarAGrupoAccesoAsync(grupo, oid, default);
+        (await directorio.EsMiembroDeGrupoAccesoAsync(grupo, oid, default)).Should().BeTrue();
+
+        await directorio.QuitarDeGrupoAccesoAsync(grupo, oid, default);
+        await directorio.QuitarDeGrupoAccesoAsync(grupo, oid, default);
+        (await directorio.EsMiembroDeGrupoAccesoAsync(grupo, oid, default)).Should().BeFalse();
+    }
+
     private sealed class OptionsMonitorFijo(EntraDirectorioOptions valor) : IOptionsMonitor<EntraDirectorioOptions>
     {
         public EntraDirectorioOptions CurrentValue => valor;

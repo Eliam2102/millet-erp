@@ -51,6 +51,7 @@ internal static class TestAssemblyInit
         Environment.SetEnvironmentVariable("Outbox__Disabled", "true");
         Environment.SetEnvironmentVariable("Compras__Outbox__Disabled", "true");
         Environment.SetEnvironmentVariable("IntegracionesAw__Outbox__Disabled", "true");
+        Environment.SetEnvironmentVariable("ProductoTerminado__Outbox__Disabled", "true");
 
         // Provisión de cuentas Entra (plan 15, F4): el worker procesa
         // TODOS los usuarios en ProvisionandoCuenta de la BD compartida;

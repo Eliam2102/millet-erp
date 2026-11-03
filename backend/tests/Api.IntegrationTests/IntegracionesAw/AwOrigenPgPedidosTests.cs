@@ -183,7 +183,7 @@ public class AwOrigenPgPedidosTests(WebApplicationFactory<Program> factory)
     }
 
     [Fact]
-    public async Task Write_back_marca_la_solicitud_y_luego_el_uuid_del_pedido_sin_borrar_el_claim()
+    public async Task Write_back_marca_la_solicitud_y_el_modo_por_pedido_ya_no_escribe_uuid_TR01()
     {
         var solicitud = (await Lector().LeerPendientesAsync(1, CancellationToken.None)).Single();
         var erpId = Guid.NewGuid();
@@ -199,7 +199,8 @@ public class AwOrigenPgPedidosTests(WebApplicationFactory<Program> factory)
             SELECT concat_ws('|', erp_pedido_id, estado_facturacion, uuid, resultado, (procesada_at IS NOT NULL)::text)
               FROM dbo.aw_solicitud_pedido WHERE solicitud_id = '{solicitud.SolicitudId}'
             """);
-        fila.Should().Be($"{erpId}|Facturado|11111111-2222-3333-4444-555555555555|1|true");
+        // TR-01 (B6): la llamada por pedido (Guid.Empty) no toca el uuid ni el estado.
+        fila.Should().Be($"{erpId}|SinFacturar|1|true");
 
         // Aplicada sale de la cola de pendientes.
         (await Lector().LeerPendientesAsync(50, CancellationToken.None)).Select(s => s.NumeroPedido)

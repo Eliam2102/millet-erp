@@ -2,6 +2,8 @@
 
 > **Enmienda P7 (09-oct-2026):** ADR-0061 reemplaza la decisión de no apartar existencia al autorizar RQ y la política de disparo de reorden. Se conserva la jerarquía física, bins y triggers. Confirmación con Millet: Por confirmar.
 
+> **Nota 28-oct-2026 (acuerdo de Almacenes con TI, ClickUp 86e3wyrg4):** la materia prima de A+W (vidrio y herrajes, artículos con clave A+W) **no requiere rack en el ERP**. El rack, la hoja y el lote los lleva la aplicación de Almacenes de Millet. En el ERP esa materia prima vive en el almacén general (EXPORTACIÓN, OBRAS, GENERAL) con existencia por `articuloAw` + medida, en m². La jerarquía de 4 niveles y la ubicación obligatoria de este ADR siguen vigentes para lo que no está en A+W (consumibles y refacciones), que se recibe sin rack en el almacén general. Detalle: `docs/modulos/almacen/02-diseno-articulo-variante-medida.md` (corrección del 28-oct).
+
 - **Estado**: Aceptada (enmendada 2026-07-06 — el reorden sube a Nivel 1/2; ver Enmienda)
 - **Fecha**: 2026-07-03 (refinado 2026-07-03: cut a 7 PRs — captura de bin real partida a PR7)
 - **Decisores**: Eduardo Paredes (owner), Victor

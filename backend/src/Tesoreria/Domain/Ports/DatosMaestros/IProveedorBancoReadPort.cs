@@ -14,7 +14,10 @@ public sealed record ProveedorBancoDto(
     string RazonSocial,
     IReadOnlyList<CuentaProveedorDto> Cuentas,
     bool Activo = true,
-    bool EnRevision = false, string? Rfc = null)
+    bool EnRevision = false, string? Rfc = null,
+    bool Bloqueado = false, string? MotivoBloqueo = null,
+    // 86e3ke2d3: sin opinión de cumplimiento vigente; sus facturas quedan detenidas por «documentación» en las corridas.
+    bool SinOpinionCumplimiento = false)
 {
     /// <summary>Cuenta a la que se paga en esa moneda: la predeterminada activa, o la única activa.</summary>
     public CuentaProveedorDto? CuentaPara(string moneda)

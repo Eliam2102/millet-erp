@@ -1,3 +1,5 @@
+using Millet.Compras.IntegrationTests.Autorizacion;
+using Microsoft.AspNetCore.Mvc.Testing;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -158,7 +160,7 @@ public class EntregaCanalEndpointsTests : IClassFixture<StubsWebApplicationFacto
     private async Task<(Guid RqId, Guid LineaId)> CrearRqEnSurtidoAsync(decimal cantidad)
     {
         var client = await CreateSuperAdminClientAsync();
-        var rqId = await CrearTransmitirAutorizarAsync(client, ArticuloSinStock, cantidad);
+        var rqId = await CrearTransmitirAutorizarAsync(_factory, client, ArticuloSinStock, cantidad);
         Guid lineaId;
         using (var scope = _factory.Services.CreateScope())
         {
@@ -179,7 +181,7 @@ public class EntregaCanalEndpointsTests : IClassFixture<StubsWebApplicationFacto
         return client;
     }
 
-    private static async Task<Guid> CrearTransmitirAutorizarAsync(HttpClient client, Guid articuloId, decimal cantidad)
+    private static async Task<Guid> CrearTransmitirAutorizarAsync(WebApplicationFactory<Program> factory, HttpClient client, Guid articuloId, decimal cantidad)
     {
         var rqBody = TestComprasFixtures.BuildCrearRqValidBody(descripcion: "Test integration ADR-0043 entrega");
         var crear = await client.PostAsJsonAsync("/api/v1/compras/requisiciones", rqBody);
@@ -205,7 +207,7 @@ public class EntregaCanalEndpointsTests : IClassFixture<StubsWebApplicationFacto
         var transmit = await client.PostAsync($"/api/v1/compras/requisiciones/{rqId}/transmitir", content: null);
         transmit.EnsureSuccessStatusCode();
 
-        var auth = await client.PostAsJsonAsync(
+        var auth = await (await AutorizacionTestSeeding.CreateAutorizadorAsync(factory)).PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{rqId}/autorizaciones",
             new { Nivel = 1, Notas = (string?)null });
         auth.EnsureSuccessStatusCode();

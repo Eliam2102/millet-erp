@@ -19,7 +19,8 @@
          una segunda Alta
        - ya avisado y vuelve a 15/42 → operacion 2 (Modificación)
          (nuevo evento en BW_AUFTR_HIST posterior al último avisado)
-     Pedidos internos Serie 9000 (ID 90000000–99999999): no se avisan.
+     Pedidos de almacén, prefijos 9000 y 9100 (ID 90000000–99999999): no se avisan.
+     El filtro va por rango de folio (TI, 27-oct, punto 6); no por OR_GRUPPE ni AH_MCODE.
      Pedido cancelado (STATUS 900 o 999; arquitectura A+W §4):
        - ya avisado (por el job o por el botón) y no cancelado
                                      → operacion 3 (Cancelación)
@@ -311,11 +312,15 @@ BEGIN
 END
 GO
 
-/* Rollback (en pruebas: job « (DEV)» y USE MILLET_INTEGRACION_DEV):
-   EXEC msdb.dbo.sp_delete_job @job_name = N'Millet ERP - aviso de pedidos A+W';
-   USE MILLET_INTEGRACION;
-   DROP PROCEDURE dbo.usp_aw_aviso_pedidos;
-   DROP TABLE dbo.aw_aviso_job_pedido; DROP TABLE dbo.aw_aviso_job_config;
-   DROP SYNONYM dbo.aw_src_auftr_hist; DROP SYNONYM dbo.aw_src_auftr_kopf;
+/* Rollback. Se pone la base UNA vez y el nombre del job sale de ella, igual que al crearlo,
+   para que quitar el de pruebas nunca borre el de producción (observación de TI, 26-oct):
+   DECLARE @base sysname = N'MILLET_INTEGRACION_DEV';   -- producción: N'MILLET_INTEGRACION'
+   DECLARE @job  sysname = N'Millet ERP - aviso de pedidos A+W'
+                         + CASE WHEN @base LIKE N'%[_]DEV' THEN N' (DEV)' ELSE N'' END;
+   EXEC msdb.dbo.sp_delete_job @job_name = @job;
+   EXEC (N'USE ' + QUOTENAME(@base) + N';
+     DROP PROCEDURE dbo.usp_aw_aviso_pedidos;
+     DROP TABLE dbo.aw_aviso_job_pedido; DROP TABLE dbo.aw_aviso_job_config;
+     DROP SYNONYM dbo.aw_src_auftr_hist; DROP SYNONYM dbo.aw_src_auftr_kopf;');
    (La cola no se toca: sus filas son bitácora de correlación.)
 */

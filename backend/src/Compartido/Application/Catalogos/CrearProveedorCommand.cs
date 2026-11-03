@@ -41,7 +41,10 @@ public sealed record CrearProveedorCommand(
     string? Estado = null,
     string? CodigoPostal = null,
     string? Pais = null,
-    string? TaxId = null) : IRequest<CrearProveedorResponse>;
+    string? TaxId = null,
+    int? ClaveAw = null,
+    string? ClaveLegacy = null,
+    bool ActivarCargaSap = false) : IRequest<CrearProveedorResponse>;
 
 public sealed record CrearProveedorResponse(
     Guid Id,
@@ -53,6 +56,7 @@ public sealed class CrearProveedorValidator : AbstractValidator<CrearProveedorCo
 {
     public CrearProveedorValidator()
     {
+        RuleFor(c => c.ClaveLegacy).MaximumLength(20);
         RuleFor(c => c.Clave).NotEmpty().MaximumLength(20);
         RuleFor(c => c.Calle).MaximumLength(254);
         RuleFor(c => c.NumeroExterior).MaximumLength(20);
@@ -67,6 +71,8 @@ public sealed class CrearProveedorValidator : AbstractValidator<CrearProveedorCo
         RuleFor(c => c.Pais).Matches(@"^([A-Za-z]{3})?$").WithMessage("Escribe el país con tres letras, por ejemplo MEX.");
         RuleFor(c => c.TaxId).Must(string.IsNullOrWhiteSpace).When(c => c.Origen != OrigenProveedor.Extranjero).WithErrorCode("PROVEEDOR_TAXID_SOLO_EXTRANJERO").WithMessage("El Tax ID solo corresponde a proveedores extranjeros.");
         RuleFor(c => c.RazonSocial).NotEmpty().MaximumLength(254);
+        RuleFor(c => c.ClaveAw).GreaterThan(0).When(c => c.ClaveAw.HasValue)
+            .WithErrorCode("PROVEEDOR_CLAVE_AW_INVALIDA").WithMessage("La clave de A+W es un número entero mayor que cero.");
         // 86e3pdmee: el extranjero no tiene RFC; se guarda el genérico XEXX010101000.
         RuleFor(c => c.Rfc!).NotEmpty().When(c => c.Origen != OrigenProveedor.Extranjero);
         RuleFor(c => c.Rfc!).Length(12, 13).When(c => !string.IsNullOrWhiteSpace(c.Rfc));
@@ -117,6 +123,9 @@ public sealed class CrearProveedorHandler
                 $"Ya existe un proveedor con clave '{request.Clave}'.");
         }
 
+        if (request.ClaveAw is int claveAw)
+            await ClaveAwProveedor.ValidarUnicaAsync(_db, claveAw, proveedorId: null, cancellationToken);
+
         // RFC único (F1-ADM-05), excepto genéricos SAT: cualquier estatus
         // cuenta como duplicado. RFC genérico + misma razón social no se
         // rechaza ni se fusiona: se crea en EnRevision para que alguien lo
@@ -124,7 +133,8 @@ public sealed class CrearProveedorHandler
         var rfcNormalizado = string.IsNullOrWhiteSpace(request.Rfc)
             ? Proveedor.RfcGenericoExtranjero
             : request.Rfc.Trim().ToUpperInvariant();
-        var estatus = EstatusCatalogo.EnRevision;
+        // El cutover SAP conserva el estatus Activo del runbook; el alta operativa sigue en revisión.
+        var estatus = request.ActivarCargaSap ? EstatusCatalogo.Activo : EstatusCatalogo.EnRevision;
         Guid? posibleDuplicadoDeId = null;
 
         if (!Proveedor.EsRfcGenerico(rfcNormalizado))
@@ -150,7 +160,7 @@ public sealed class CrearProveedorHandler
                 .Select(p => (Guid?)p.Id)
                 .FirstOrDefaultAsync(cancellationToken);
 #pragma warning restore CA1304, CA1311, CA1862
-            if (posibleDuplicadoDeId is not null) estatus = EstatusCatalogo.EnRevision;
+            if (posibleDuplicadoDeId is not null && !request.ActivarCargaSap) estatus = EstatusCatalogo.EnRevision;
         }
 
         var proveedor = new Proveedor(
@@ -164,7 +174,9 @@ public sealed class CrearProveedorHandler
             condicionesPagoDias: request.CondicionesPagoDias,
             monedaPreferidaId: request.MonedaPreferidaId,
             email: request.Email,
-            telefono: request.Telefono);
+            telefono: request.Telefono,
+            claveLegacy: request.ClaveLegacy,
+            origenCarga: request.ActivarCargaSap ? "CargaSap" : null);
 
         // 86e3pdmee: la clasificación fiscal viaja en la misma transacción del alta.
         if (request.Origen is not null || !string.IsNullOrWhiteSpace(request.RegimenFiscalCodigo) || !string.IsNullOrWhiteSpace(request.ConceptoRetencion))
@@ -174,6 +186,7 @@ public sealed class CrearProveedorHandler
             proveedor.ActualizarClasificacionFiscal(request.Origen, regimen, request.ConceptoRetencion);
         }
 
+        proveedor.AsignarClaveAw(request.ClaveAw);
         _db.Proveedores.Add(proveedor);
         proveedor.ActualizarDomicilioFiscal(request.Calle, request.NumeroExterior, request.NumeroInterior, request.Colonia, request.Ciudad, request.Municipio, request.Estado, request.CodigoPostal, request.Pais, request.TaxId);
         await _db.SaveChangesAsync(cancellationToken);

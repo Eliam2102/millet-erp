@@ -1,6 +1,7 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
 import { facturacionKeys } from '@/features/facturacion/api/keys';
+import { descargarArchivo } from '@/features/facturacion/lib/descargas';
 import type {
   AutorizacionAperturaResponse,
   CajaAjusteItem,
@@ -11,12 +12,18 @@ import type {
   CobroMostradorResponse,
   ComprobanteCobrableItem,
   CorteCajaResponse,
+  FolioTransferenciaCaja,
   LiquidacionRutaCobroInput,
   LiquidacionRutaResponse,
   SesionActualResponse,
 } from '@/features/facturacion/api/types';
 
 const BASE = '/api/v1/facturacion/cajas';
+
+/** PDF del Vale de Caja de un retiro (86e3ww6tw); reimprimir da el mismo folio. */
+export function descargarValeCaja(movimientoId: string, folio: number): Promise<void> {
+  return descargarArchivo(`${BASE}/movimientos/${movimientoId}/vale.pdf`, `vale-de-caja-${folio}.pdf`);
+}
 const COBROS = '/api/v1/facturacion/cobros';
 
 /**
@@ -90,6 +97,26 @@ export function useAbrirSesion() {
   });
 }
 
+export interface FaltantePorDevolver {
+  corteSesionId: string;
+  diaOperacion: string;
+  faltante: number;
+  devuelto: number;
+  pendiente: number;
+}
+
+/** Cortes del cajero con faltante aún por devolver (origen de «Devolución de faltante»). */
+export function useFaltantesPorDevolver(habilitado: boolean) {
+  return useQuery({
+    queryKey: [...facturacionKeys.sesiones(), 'faltantes-por-devolver'],
+    enabled: habilitado,
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<FaltantePorDevolver[]>(`${BASE}/faltantes-por-devolver`, { signal });
+      return data;
+    },
+  });
+}
+
 /** <c>useRegistrarMovimiento()</c> — depósito/retiro manual (Idempotency-Key). */
 export function useRegistrarMovimiento() {
   const invalidar = useInvalidarSesion();
@@ -102,6 +129,8 @@ export function useRegistrarMovimiento() {
         importe: number;
         descripcion: string;
         referencia?: string | null;
+        /** Solo «Devolución de faltante» (86e3vr1tj): corte cuyo faltante se devuelve. */
+        corteOrigenSesionId?: string | null;
       };
       idempotencyKey: string;
     }) => {
@@ -194,6 +223,25 @@ export function useListarCobros(sesionId: string | null | undefined) {
  * abierta del cajero ([Decisión 12-E]: emitir y cobrar son dos comandos).
  * `origen` 1 = Mostrador, 2 = LiquidacionRuta ([12-7]).
  */
+/**
+ * F6.6: folios de transferencia vigentes (emitidos por Ingresos) del cliente
+ * del comprobante; el cobro con forma 03 elige uno de aquí.
+ */
+export function useFoliosTransferenciaCaja(comprobanteId: string, opts?: { enabled?: boolean }) {
+  return useQuery<FolioTransferenciaCaja[]>({
+    queryKey: facturacionKeys.foliosTransferencia(comprobanteId),
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<FolioTransferenciaCaja[]>(
+        `${COBROS}/folios-transferencia?comprobanteId=${encodeURIComponent(comprobanteId)}`,
+        { signal },
+      );
+      return data;
+    },
+    staleTime: 0,
+    enabled: opts?.enabled ?? true,
+  });
+}
+
 export function useRegistrarCobro() {
   const invalidar = useInvalidarSesion();
   const queryClient = useQueryClient();

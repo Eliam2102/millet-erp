@@ -1,6 +1,7 @@
 import { FormCampo } from '@/components/erp/forms/FormGrid';
 import { FormSeccion } from '@/components/erp/forms/FormSeccion';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
@@ -28,28 +29,17 @@ import {
 
 export function NuevaCondicionesPagoProvider({ children }: { children: ReactNode }) {
   const [abierto, setAbierto] = useState(false);
-  const isDirtyRef = useRef(false);
-
-  const setDirty = useCallback((d: boolean) => {
-    isDirtyRef.current = d;
-  }, []);
-
-  const cerrar = useCallback((opts?: { force?: boolean }) => {
-    if (opts?.force === true || !isDirtyRef.current) {
-      isDirtyRef.current = false;
-      setAbierto(false);
-      return;
-    }
-    if (window.confirm('Tienes cambios sin guardar. ¿Descartarlos y cerrar?')) {
-      isDirtyRef.current = false;
-      setAbierto(false);
-    }
-  }, []);
+  const alCerrar = useCallback(() => setAbierto(false), []);
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(alCerrar);
+  const cerrar = useCallback(
+    (opts?: { force?: boolean }) => solicitarCierre(opts?.force),
+    [solicitarCierre],
+  );
 
   const api = useMemo<NuevaCondicionesPagoApi>(
     () => ({
       abrir: () => {
-        isDirtyRef.current = false;
+        setDirty(false);
         setAbierto(true);
       },
       cerrar,
@@ -76,6 +66,7 @@ export function NuevaCondicionesPagoProvider({ children }: { children: ReactNode
           </div>
         </SheetContent>
       </Sheet>
+      {dialogo}
     </NuevaCondicionesPagoContext.Provider>
   );
 }

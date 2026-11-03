@@ -1,3 +1,4 @@
+using Millet.Facturacion.Domain.Ports;
 using Microsoft.EntityFrameworkCore;
 using Millet.Facturacion.Application.Cajas.Alcance;
 using Millet.Facturacion.Application.Cajas.Cobros;
@@ -41,11 +42,11 @@ public sealed class CorteCajaTests
 
     private static FacturaVenta FacturaTimbrada(
         decimal valor, string folio, Guid? sucursal = null, string metodoPago = "PUE", string moneda = "MXN",
-        DateTimeOffset? fechaTimbrado = null)
+        DateTimeOffset? fechaTimbrado = null, Guid? pedidoId = null)
     {
         var fv = FacturaVenta.CrearBorrador(Empresa, folio, 1, sucursal ?? SucursalId, null, null, Receptor(), Emisor(),
             metodoPago, metodoPago == "PPD" ? "99" : "01", moneda, moneda == "MXN" ? null : 17.5m, 2026, 7, 1,
-            ComportamientoFiscal.MostradorInmediato, null, null, null, false);
+            ComportamientoFiscal.MostradorInmediato, pedidoId, null, null, false);
         fv.AgregarLinea(null, "01010101", "P", "H87", 1m, valor, 0m, "02", 0m, null, null);
         fv.RecalcularTotales();
         fv.MarcarTimbradoEnProceso();
@@ -83,10 +84,14 @@ public sealed class CorteCajaTests
 
     private static Task<CobroMostradorResponse> CobrarAsync(
         FacturacionDbContext db, Guid comprobanteId, params CobroFormaPagoInput[] formas) =>
+        CobrarConFolioAsync(db, comprobanteId, null, formas);
+
+    private static Task<CobroMostradorResponse> CobrarConFolioAsync(
+        FacturacionDbContext db, Guid comprobanteId, IFolioTransferenciaReadPort? folios, params CobroFormaPagoInput[] formas) =>
         new RegistrarCobroMostradorHandler(
                 db, new FakeEmpresaContext(Empresa), new FakeUserContext(Cajero), new FakeClock(Ahora),
                 new FakeSucursalesReadPort(), new FakeAlcanceCajaEvaluator(),
-                new FakeIntegrationEventPublisher(), new FakeCatalogosSatReadPort())
+                new FakeIntegrationEventPublisher(), new FakeCatalogosSatReadPort(), folios)
             .Handle(new RegistrarCobroMostradorCommand(comprobanteId, formas), CancellationToken.None);
 
     private static CorteCajaSesionHandler Corte(
@@ -101,11 +106,18 @@ public sealed class CorteCajaTests
         using var db = NewDb();
         var sesion = await SembrarSesionAsync(db);
         var f1 = FacturaTimbrada(5000m, "FA-1");
-        var f2 = FacturaTimbrada(2510m, "FA-2");
+        // F6.6: la transferencia en caja lleva el folio de Ingresos del cliente del pedido.
+        var cliente = Guid.NewGuid();
+        var pedido = PedidoFacturable.CrearManual(Empresa, "P-FA-2", SucursalId, cliente, "Cliente", 1,
+            ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, Cajero,
+            ClasePedidoManual.VentaDirecta, SubtipoVentaDirecta.Servicio, null, null);
+        db.PedidosFacturables.Add(pedido);
+        var f2 = FacturaTimbrada(2510m, "FA-2", pedidoId: pedido.Id);
         db.FacturasVenta.AddRange(f1, f2);
         await db.SaveChangesAsync();
-        await CobrarAsync(db, f1.Id, new("01", 2000m, null), new("04", 3000m, "VOUCHER"));
-        await CobrarAsync(db, f2.Id, new CobroFormaPagoInput("03", 2510m, "TRANSFERENCIA"));
+        await CobrarAsync(db, f1.Id, new("01", 2000m, null), new("04", 3000m, "VOUCHER", TarjetaUltimos4: "3000"));
+        await CobrarConFolioAsync(db, f2.Id, new FakeFolioTransferenciaReadPort(FakeFolioTransferenciaReadPort.Vigente("TR-000002", cliente, 2510m)),
+            new CobroFormaPagoInput("03", 2510m, "TRANSFERENCIA", FolioTransferencia: "TR-000002"));
         db.ChangeTracker.Clear();
         var corte = await Corte(db).Handle(new(sesion.Id), default);
         corte.Reporte.Totales!["importe"].Should().Be(8010m);
@@ -153,8 +165,8 @@ public sealed class CorteCajaTests
 
         var neto = factura.Total - 116m;
         await CobrarAsync(db, factura.Id,
-            new CobroFormaPagoInput("01", neto - 400m), new CobroFormaPagoInput("04", 400m, "AUT-77"));
-        await CobrarAsync(db, anticipo.Id, new CobroFormaPagoInput("28", anticipo.Total, "AUT-88"));
+            new CobroFormaPagoInput("01", neto - 400m), new CobroFormaPagoInput("04", 400m, "AUT-77", TarjetaUltimos4: "1234"));
+        await CobrarAsync(db, anticipo.Id, new CobroFormaPagoInput("28", anticipo.Total, "AUT-88", TarjetaUltimos4: "5678"));
         await CobrarAsync(db, repp.Id, new CobroFormaPagoInput("01", 750m));
         db.ChangeTracker.Clear();
 
@@ -177,9 +189,9 @@ public sealed class CorteCajaTests
         porForma["04"].MontoSistema.Should().Be(400m);
         porForma["28"].MontoSistema.Should().Be(anticipo.Total);
 
-        // Vouchers de la terminal visibles en el corte.
+        // Vouchers de la terminal visibles en el corte: autorización y últimos 4 (86e3tfdvt).
         r.Reporte.Filas.Where(f => f.Referencia != null).Select(f => f.Referencia)
-            .Should().BeEquivalentTo(["AUT-77", "AUT-88"]);
+            .Should().BeEquivalentTo(["AUT-77 · **** 1234", "AUT-88 · **** 5678"]);
 
         // Total del CFDI y NC: una sola vez por cobro (informativos, no son dinero).
         var filasFactura = r.Reporte.Filas.Where(f => f.Comprobante == "Factura F-1").ToList();
@@ -230,7 +242,7 @@ public sealed class CorteCajaTests
         await db.SaveChangesAsync();
 
         await CobrarAsync(db, ranura.Id, new CobroFormaPagoInput("01", ranura.Total - 116m));
-        await CobrarAsync(db, anticipo.Id, new CobroFormaPagoInput("04", anticipo.Total, "482913"));
+        await CobrarAsync(db, anticipo.Id, new CobroFormaPagoInput("04", anticipo.Total, "482913", TarjetaUltimos4: "0417"));
         db.ChangeTracker.Clear();
 
         var r = await Corte(db).Handle(new CorteCajaSesionQuery(sesion.Id), CancellationToken.None);

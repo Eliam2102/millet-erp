@@ -5381,6 +5381,12 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("character varying(254)")
                         .HasColumnName("descripcion");
 
+                    b.Property<bool>("EsServicioRecubrimiento")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("es_servicio_recubrimiento");
+
                     b.Property<short>("EstadoFiscal")
                         .HasColumnType("smallint")
                         .HasColumnName("estado_fiscal");
@@ -5812,6 +5818,20 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<bool>("Bloqueado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("bloqueado");
+
+                    b.Property<DateTimeOffset?>("BloqueadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("bloqueado_en");
+
+                    b.Property<Guid?>("BloqueadoPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("bloqueado_por_id");
+
                     b.Property<string>("Calle")
                         .HasMaxLength(254)
                         .HasColumnType("character varying(254)")
@@ -5827,6 +5847,10 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
                         .HasColumnName("clave");
+
+                    b.Property<int?>("ClaveAw")
+                        .HasColumnType("integer")
+                        .HasColumnName("clave_aw");
 
                     b.Property<string>("ClaveLegacy")
                         .HasMaxLength(20)
@@ -5882,6 +5906,11 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("uuid")
                         .HasColumnName("moneda_preferida_id");
 
+                    b.Property<string>("MotivoBloqueo")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo_bloqueo");
+
                     b.Property<string>("MotivoRechazo")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
@@ -5910,6 +5939,11 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                     b.Property<short?>("Origen")
                         .HasColumnType("smallint")
                         .HasColumnName("origen");
+
+                    b.Property<string>("OrigenCarga")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("origen_carga");
 
                     b.Property<string>("Pais")
                         .HasMaxLength(3)
@@ -5984,6 +6018,11 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .IsUnique()
                         .HasDatabaseName("ix_proveedores_clave");
 
+                    b.HasIndex("ClaveAw")
+                        .IsUnique()
+                        .HasDatabaseName("ux_proveedores_clave_aw")
+                        .HasFilter("clave_aw IS NOT NULL");
+
                     b.HasIndex("Estatus")
                         .HasDatabaseName("ix_proveedores_estatus");
 
@@ -5994,6 +6033,8 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
 
                     b.ToTable("proveedores", "compartido", t =>
                         {
+                            t.HasCheckConstraint("ck_proveedores_clave_aw_positiva", "clave_aw IS NULL OR clave_aw > 0");
+
                             t.HasCheckConstraint("ck_proveedores_condiciones_pago", "condiciones_pago_dias IS NULL OR condiciones_pago_dias BETWEEN 0 AND 365");
 
                             t.HasCheckConstraint("ck_proveedores_estatus", "estatus BETWEEN 0 AND 2");
@@ -6676,6 +6717,44 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             Orden = 1,
                             SoloPersonaMoral = false,
                             TipoEntidad = "cotizacion_compra",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000011-0007-0000-0000-000000000001"),
+                            Activo = true,
+                            AplicaOrigen = (short)0,
+                            Codigo = "acuse_renovacion",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Acuse de renovación o sustitución del SAT",
+                            Obligatorio = false,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
+                            Orden = 1,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "certificado_csd",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000011-0007-0000-0000-000000000002"),
+                            Activo = true,
+                            AplicaOrigen = (short)0,
+                            Codigo = "acuse_revocacion",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Acuse o evidencia de revocación",
+                            Obligatorio = false,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
+                            Orden = 2,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "certificado_csd",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { PAGINA_MAESTRO, useListaInfinita } from '@/modules/datos-maestros/api/lista-infinita';
 import { apiRequest, esApiError } from '@/lib/api';
 import {
   datosMaestrosKeys,
@@ -45,6 +46,13 @@ export function useProductosAw(filtros: ListarProductosAwFiltros = {}) {
     },
     staleTime: 30_000,
   });
+}
+
+/** Listado con «Cargar más» (páginas de 200 sobre offset/limit). */
+export function useProductosAwInfinito(filtros: ListarProductosAwFiltros = {}) {
+  return useListaInfinita(datosMaestrosKeys.productosAwList(filtros), async (offset, signal) =>
+    (await apiRequest<ListarProductosAwResponse>(
+      buildListarProductosAwPath({ ...filtros, offset, limit: PAGINA_MAESTRO }), { signal })).data);
 }
 
 export function useProductoAw(id: string | null | undefined) {
@@ -252,6 +260,8 @@ function buildListarProductosAwPath(
   if (filtros.fiscalesIncompletos != null)
     params.set('fiscalesIncompletos', String(filtros.fiscalesIncompletos));
   if (filtros.tipo) params.set('tipo', filtros.tipo);
+  if (filtros.esServicioRecubrimiento != null)
+    params.set('esServicioRecubrimiento', String(filtros.esServicioRecubrimiento));
   if (filtros.offset != null) params.set('offset', String(filtros.offset));
   if (filtros.limit != null) params.set('limit', String(filtros.limit));
   const query = params.toString();

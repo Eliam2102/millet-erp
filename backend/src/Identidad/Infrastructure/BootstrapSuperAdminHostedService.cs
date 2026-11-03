@@ -216,6 +216,7 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                 "Administrador de Catálogos",
                 "CRUD de catálogos cross-empresa (monedas, condiciones, SAT, etc.).",
                 p => p.Codigo.StartsWith("compartido.catalogos", StringComparison.Ordinal)
+                     || p.Codigo is PermisosCanonicos.DatosMaestrosArticulosCargar or PermisosCanonicos.DatosMaestrosProveedoresCargar
                      || p.Codigo.StartsWith("catalogos.", StringComparison.Ordinal)
             ),
             (
@@ -236,6 +237,8 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                 "Acceso read-only sobre todo el área Admin + bitácora.",
                 p => p.Codigo == PermisosCanonicos.InfraAuditLogLeer
                      || p.Codigo == PermisosCanonicos.AdminAuditoriaLeer
+                     // ADM-BIT: exportar va aparte de consultar; en pruebas lo tiene el Auditor (roles finales pendientes con el cliente).
+                     || p.Codigo == PermisosCanonicos.AdminAuditoriaExportar
                      || p.Codigo.EndsWith(".leer", StringComparison.Ordinal)
             ),
             (
@@ -263,6 +266,12 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                 p => p.Codigo == PermisosCanonicos.DatosMaestrosProveedoresBancariosVer
                      || p.Codigo == PermisosCanonicos.DatosMaestrosProveedoresBancariosEditar
                      || p.Codigo == PermisosCanonicos.DatosMaestrosProveedoresGestionar
+                     // 86e3vr1tj: Tesorería autoriza las diferencias de corte (Fernando, 23-oct).
+                     || p.Codigo == PermisosCanonicos.TesoreriaDiferenciasCorteAutorizar
+                     // F6.6: Ingresos (Tesorería) emite y cancela folios de transferencia; supuesto hasta
+                     // que Millet indique quiénes son Ingresos.
+                     || p.Codigo == PermisosCanonicos.TesoreriaFoliosTransferenciaEmitir
+                     || p.Codigo == PermisosCanonicos.TesoreriaFoliosTransferenciaCancelar
             ),
         };
 
@@ -272,10 +281,45 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                 p => p.Codigo is PermisosCanonicos.ContabilidadCatalogoLeer or PermisosCanonicos.ContabilidadCatalogoAutorizar),
             (Guid.Parse("0000000f-0011-0000-0000-000000000001"), "director-administracion-finanzas",
                 "Director de Administración y Finanzas", "Autoriza venta, valor de venta y baja de activos fijos.",
-                p => p.Codigo is PermisosCanonicos.FacturacionActivosAutorizar or PermisosCanonicos.ActivosFijosBajasAutorizar),
+                p => p.Codigo is PermisosCanonicos.FacturacionActivosAutorizar or PermisosCanonicos.ActivosFijosBajasAutorizar
+                    or PermisosCanonicos.DatosMaestrosProveedoresBloquear or PermisosCanonicos.CuentasPorPagarBloqueosLiberarEnLugar),
             (Guid.Parse("0000000f-0011-0000-0000-000000000002"), "contador-general",
-                "Contador General", "Registra las bajas autorizadas por el Director de Administración y Finanzas.",
-                p => p.Codigo == PermisosCanonicos.ActivosFijosBajasRegistrar)];
+                "Contador General", "Registra las bajas autorizadas por el Director de Administración y Finanzas y autoriza las cancelaciones de CFDI (F6.5).",
+                p => p.Codigo is PermisosCanonicos.ActivosFijosBajasRegistrar or PermisosCanonicos.DatosMaestrosProveedoresBloquear
+                    or PermisosCanonicos.FacturacionCancelacionesAutorizar or PermisosCanonicos.FacturacionCancelacionesConsultar
+                    or PermisosCanonicos.FacturacionFacturasLeer or PermisosCanonicos.FacturacionAnticiposLeer
+                    // Perfil corporativo: autoriza cancelaciones de todas las cajas y sucursales,
+                    // así que ve el detalle de cualquier comprobante (sin esto, 404 por alcance de caja).
+                    or PermisosCanonicos.FacturacionCajaLeerTodas),
+            // REQ-PERM (86e3xd4uz): los 80 usuarios del Portal de Requisiciones. Equivalencia en
+            // docs/operacion/equivalencia-permisos-portal-requisiciones.md.
+            (Guid.Parse("00000010-0001-0000-0000-000000000001"), "requisitante",
+                "Requisitante", "Captura y edita sus requisiciones.",
+                p => p.Codigo is PermisosCanonicos.ComprasRequisicionesLeer or PermisosCanonicos.ComprasRequisicionesCrear
+                    or PermisosCanonicos.ComprasRequisicionesEditar),
+            (Guid.Parse("00000010-0001-0000-0000-000000000002"), "requisitante-a-nombre-de-otros",
+                "Requisitante a nombre de otros", "Captura requisiciones eligiendo al requisitante.",
+                p => p.Codigo is PermisosCanonicos.ComprasRequisicionesLeer or PermisosCanonicos.ComprasRequisicionesCrear
+                    or PermisosCanonicos.ComprasRequisicionesEditar or PermisosCanonicos.ComprasRequisicionesSeleccionarRequisitante),
+            (Guid.Parse("00000010-0001-0000-0000-000000000003"), "autorizador-requisiciones",
+                "Autorizador de requisiciones", "Firma nivel 1 y nivel 2; el nivel que le toca sale de los aprobadores por departamento.",
+                p => p.Codigo is PermisosCanonicos.ComprasRequisicionesLeer or PermisosCanonicos.ComprasRequisicionesAutorizarNivel1
+                    or PermisosCanonicos.ComprasRequisicionesAutorizarNivel2),
+            (Guid.Parse("00000010-0001-0000-0000-000000000004"), "almacen-salida-contra-requisicion",
+                "Almacén · salida contra requisición", "Surte salidas de almacén contra una requisición autorizada.",
+                p => p.Codigo is PermisosCanonicos.ComprasRequisicionesLeer or PermisosCanonicos.AlmacenSalidasLeerTodas
+                    or PermisosCanonicos.AlmacenSalidasCapturar or PermisosCanonicos.AlmacenSalidasRegistrar),
+            (Guid.Parse("00000010-0001-0000-0000-000000000005"), "almacen-vale-urgente",
+                "Almacén · vale urgente", "Registra salidas por vale sin requisición; se regularizan en 48 h hábiles.",
+                p => p.Codigo is PermisosCanonicos.AlmacenSalidasLeerTodas or PermisosCanonicos.AlmacenSalidasPorVale),
+            (Guid.Parse("00000010-0001-0000-0000-000000000006"), "cancelacion-requisicion-autorizada",
+                "Cancelación de requisición autorizada", "Cancela requisiciones autorizadas; el motivo es obligatorio.",
+                p => p.Codigo is PermisosCanonicos.ComprasRequisicionesLeer or PermisosCanonicos.ComprasRequisicionesCancelar),
+            // T9.1: el escalón DEMO de firmas (PoliticaFirmaCorrida.Demo, desde $500,000) pide una firma del rol «gerente».
+            // Solo consulta y firma de corridas; propuesta de VILO hasta que Millet confirme los firmantes.
+            (Guid.Parse("0000000b-0005-0001-0000-000000000001"), "gerente",
+                "Gerente", "Firma las corridas de pago del escalón que pide al Gerente.",
+                p => p.Codigo is PermisosCanonicos.TesoreriaPasivosVer or PermisosCanonicos.TesoreriaCorridasAutorizar)];
         // Retira las concesiones anteriores también en roles históricos con otro código.
         var contadores = await db.Roles.Where(r => r.Codigo == "contador-general" || r.Nombre == "Contador General")
             .Select(r => r.Id).ToListAsync(cancellationToken);

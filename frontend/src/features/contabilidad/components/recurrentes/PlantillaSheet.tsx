@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import {
   Sheet,
   SheetContent,
@@ -19,24 +19,10 @@ interface Props {
 
 /** Sheet «Nueva plantilla» / «Editar plantilla» (patrón P4): confirma al cerrar con cambios; al guardar cierra sin confirmar. */
 export function PlantillaSheet({ open, onOpenChange, plantilla, onGuardada }: Props) {
-  const dirty = useRef(false);
-  const onDirtyChange = useCallback((d: boolean) => {
-    dirty.current = d;
-  }, []);
-
-  function cerrar(force = false) {
-    if (
-      !force &&
-      dirty.current &&
-      !window.confirm('Tienes cambios sin guardar en la plantilla. ¿Descartar y cerrar?')
-    )
-      return;
-    dirty.current = false;
-    onOpenChange(false);
-  }
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() => onOpenChange(false));
 
   return (
-    <Sheet open={open} onOpenChange={(o) => (o ? onOpenChange(true) : cerrar())}>
+    <Sheet open={open} onOpenChange={(o) => (o ? onOpenChange(true) : solicitarCierre())}>
       <SheetContent size="lg" side="right" data-print="hidden">
         <SheetHeader>
           <SheetTitle className="text-xl">
@@ -53,15 +39,16 @@ export function PlantillaSheet({ open, onOpenChange, plantilla, onGuardada }: Pr
             <PlantillaForm
               plantilla={plantilla}
               onGuardada={(p) => {
-                cerrar(true);
+                solicitarCierre(true);
                 onGuardada(p);
               }}
-              onCancelar={() => cerrar()}
-              onDirtyChange={onDirtyChange}
+              onCancelar={() => solicitarCierre()}
+              onDirtyChange={setDirty}
             />
           )}
         </div>
       </SheetContent>
+      {dialogo}
     </Sheet>
   );
 }

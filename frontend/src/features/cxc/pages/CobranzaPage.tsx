@@ -56,7 +56,7 @@ export function CobranzaPage() {
   const nombreUsuario = useMemo(() => {
     const m = new Map<string, string>();
     for (const u of usuarios.data?.items ?? []) m.set(u.id, u.nombre);
-    return (id: string) => m.get(id) ?? id.slice(0, 8);
+    return (id: string) => m.get(id) ?? '—';
   }, [usuarios.data]);
 
   function actualizarSearch(parcial: Partial<CobranzaSearch>) {

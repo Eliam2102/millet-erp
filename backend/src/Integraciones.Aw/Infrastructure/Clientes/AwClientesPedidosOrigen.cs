@@ -11,8 +11,9 @@ using Millet.Integraciones.Aw.Infrastructure.Pedidos;
 namespace Millet.Integraciones.Aw.Infrastructure.Clientes;
 
 /// <summary>
-/// Historial de pedidos por cliente en A+W: SOLO-SELECT sobre <c>SYSADM.BW_AUFTR_KOPF</c>
-/// (<c>AH_IDENT</c> = <c>KU_KUNDEN.ID</c>, <c>DATUM_ERF</c> = fecha de alta). Misma conexión de clientes (TLS verificado).
+/// Historial por cliente en A+W: SOLO-SELECT sobre <c>SYSADM.BW_AUFTR_KOPF</c> (pedidos) y <c>SYSADM.BW_ANGEB_KOPF</c>
+/// (cotizaciones); en ambas <c>AH_IDENT</c> = <c>KU_KUNDEN.ID</c> y <c>DATUM_ERF</c> = fecha de alta.
+/// Misma conexión de clientes (TLS verificado).
 /// </summary>
 public sealed class AwClientesPedidosSqlOrigen : IAwClientesPedidosOrigen
 {
@@ -54,8 +55,14 @@ public sealed class AwClientesPedidosSqlOrigen : IAwClientesPedidosOrigen
                         command.Parameters.Add(new SqlParameter($"@p{i}", SqlDbType.Int) { Value = lote[i] });
                     using var r = await command.ExecuteReaderAsync(ct);
                     while (await r.ReadAsync(ct))
-                        resultado[r.GetInt32(0).ToString(System.Globalization.CultureInfo.InvariantCulture)] =
-                            new(r.GetInt32(1), r.IsDBNull(2) ? null : r.GetDateTime(2));
+                    {
+                        var clave = r.GetInt32(0).ToString(System.Globalization.CultureInfo.InvariantCulture);
+                        var previo = resultado.GetValueOrDefault(clave) ?? new AwPedidosCliente(0, null);
+                        var fecha = r.IsDBNull(3) ? (DateTime?)null : r.GetDateTime(3);
+                        resultado[clave] = r.GetInt32(1) == 0
+                            ? previo with { Pedidos = r.GetInt32(2), Ultimo = fecha }
+                            : previo with { Cotizaciones = r.GetInt32(2), UltimaCotizacion = fecha };
+                    }
                     return true;
                 }, ct);
         }
@@ -67,9 +74,12 @@ public sealed class AwClientesPedidosSqlOrigen : IAwClientesPedidosOrigen
     }
 
     /// <summary>Solo parámetros numéricos (@p0..@pN): sin concatenar valores.</summary>
-    internal static string Sql(int n) =>
-        "SELECT AH_IDENT, COUNT(*), MAX(DATUM_ERF) FROM SYSADM.BW_AUFTR_KOPF WHERE AH_IDENT IN ("
-        + string.Join(",", Enumerable.Range(0, n).Select(i => $"@p{i}")) + ") GROUP BY AH_IDENT";
+    internal static string Sql(int n)
+    {
+        var inn = string.Join(",", Enumerable.Range(0, n).Select(i => $"@p{i}"));
+        return $"SELECT AH_IDENT, 0, COUNT(*), MAX(DATUM_ERF) FROM SYSADM.BW_AUFTR_KOPF WHERE AH_IDENT IN ({inn}) GROUP BY AH_IDENT "
+            + $"UNION ALL SELECT AH_IDENT, 1, COUNT(*), MAX(DATUM_ERF) FROM SYSADM.BW_ANGEB_KOPF WHERE AH_IDENT IN ({inn}) GROUP BY AH_IDENT";
+    }
 }
 
 /// <summary>Origen simulado/demo: sin historial en A+W (todo conteo en cero).</summary>

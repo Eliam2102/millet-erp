@@ -111,6 +111,7 @@ function buildValuesFromLinea(linea: LineaOrdenCompraResponse): AgregarLineaManu
     textoAdicional: linea.textoAdicional ?? null,
     centroCostoId: linea.centroCostoId,
     fraccionArancelaria: linea.fraccionArancelaria ?? null,
+    loteProveedor: linea.loteProveedor ?? null,
     esActivoFijo: linea.esActivoFijo ?? false,
     claseActivoId: linea.claseActivoId ?? null,
   };
@@ -137,6 +138,11 @@ const CODIGOS_ERROR_MEDIDA: Record<string, { campo: string }> = {
   LINEA_OC_VIDRIO_UNIDAD: { campo: 'cantidad' },
 };
 
+/** Error del API del lote → campo del form. */
+const CODIGOS_ERROR_LOTE: Record<string, { campo: string }> = {
+  LINEA_OC_LOTE_LARGO: { campo: 'loteProveedor' },
+};
+
 const m2DeHojas = (hojas: number | null, area: number | null) =>
   hojas != null && area != null ? Math.round(hojas * area * 10000) / 10000 : 0;
 
@@ -151,6 +157,17 @@ function comandoFraccion(
   const valor = captura?.trim() ?? '';
   if (valor !== '') return { fraccionArancelaria: valor };
   if (previa != null) return { limpiarFraccionArancelaria: true };
+  return {};
+}
+
+/** Lote del proveedor en el PATCH: con valor → se fija; vacío con valor previo → se limpia; si no, no se toca. */
+function comandoLote(
+  captura: string | null | undefined,
+  previo: string | null | undefined,
+): Pick<ActualizarLineaValues, 'loteProveedor' | 'limpiarLoteProveedor'> {
+  const valor = captura?.trim() ?? '';
+  if (valor !== '') return { loteProveedor: valor };
+  if (previo != null) return { limpiarLoteProveedor: true };
   return {};
 }
 
@@ -307,7 +324,7 @@ export function LineaInlineFormOc({ oc, linea, onCancel, onSaved }: LineaInlineF
       if (
         applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], err, {
           shouldFocus: true,
-          codigos: CODIGOS_ERROR_MEDIDA,
+          codigos: { ...CODIGOS_ERROR_MEDIDA, ...CODIGOS_ERROR_LOTE },
         })
       ) {
         return;
@@ -357,6 +374,7 @@ export function LineaInlineFormOc({ oc, linea, onCancel, onSaved }: LineaInlineF
             centroCostoId: lineaDesdeRq ? null : (values.centroCostoId ?? null),
             esActivoFijo: values.esActivoFijo ?? false,
             claseActivoId: values.esActivoFijo ? (values.claseActivoId ?? null) : null,
+            ...(articuloServicio ? {} : comandoLote(values.loteProveedor, linea.loteProveedor)),
             // Solo en OC de comercio exterior: fuera de ella el API rechaza el campo.
             ...(oc.esImportacion
               ? comandoFraccion(values.fraccionArancelaria, linea.fraccionArancelaria)
@@ -377,7 +395,11 @@ export function LineaInlineFormOc({ oc, linea, onCancel, onSaved }: LineaInlineF
     agregar.mutate(
       {
         ordenCompraId: oc.id,
-        command: { ...values, productoAwVarianteId: esVidrio ? values.productoAwVarianteId : null },
+        command: {
+          ...values,
+          productoAwVarianteId: esVidrio ? values.productoAwVarianteId : null,
+          loteProveedor: articuloServicio ? null : values.loteProveedor || null,
+        },
         idempotencyKey,
       },
       {
@@ -772,6 +794,26 @@ export function LineaInlineFormOc({ oc, linea, onCancel, onSaved }: LineaInlineF
             </Field>
           )}
         </FormCampo>
+
+        {/* F1-MP-05: no hay bandera A+W en el cliente (solo medidas, que dejan fuera la herrajería): todo lo que no es servicio. */}
+        {!articuloServicio && (
+          <FormCampo span={6}>
+            <Field
+              label="Lote del proveedor (opcional)"
+              error={form.formState.errors.loteProveedor?.message}
+            >
+              {(c) => (
+                <Input
+                  {...c}
+                  type="text"
+                  autoComplete="off"
+                  data-field="lote-proveedor"
+                  {...form.register('loteProveedor')}
+                />
+              )}
+            </Field>
+          </FormCampo>
+        )}
       </FormGrid>
 
       {!articuloServicio && (

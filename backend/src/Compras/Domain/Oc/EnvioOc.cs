@@ -24,11 +24,12 @@ public sealed class EnvioOc : BaseEntity, IAuditable, IBelongsToAggregate, IPert
     {
         var firmas = oc.Autorizaciones.Where(a => a.Ciclo == oc.CicloAutorizacion
             && a.Resultado == ResultadoAutorizacionOc.Autorizado).ToList();
+        // Basta con las firmas que pidió su nivel: N1 en menor cuantía, N1 + N2 (personas distintas) sobre umbral.
         return oc.Estado == EstadoOrdenCompra.Autorizada
             && firmas.Any(a => a.Nivel == NivelAutorizacion.Nivel1)
-            && firmas.Any(a => a.Nivel == NivelAutorizacion.Nivel2)
-            && firmas.Select(a => a.UsuarioId).Distinct().Count() >= 2
-            ? null : "Autoriza la orden con dos firmas distintas del ciclo vigente antes de enviarla al proveedor.";
+            && (!oc.RequiereNivel2 || (firmas.Any(a => a.Nivel == NivelAutorizacion.Nivel2)
+                && firmas.Select(a => a.UsuarioId).Distinct().Count() >= 2))
+            ? null : "Autoriza la orden con las firmas que requiere su nivel antes de enviarla al proveedor.";
     }
 
     public EnvioOc(OrdenCompra oc, OrdenCompraPdf pdf, string? destinatario, string modo,

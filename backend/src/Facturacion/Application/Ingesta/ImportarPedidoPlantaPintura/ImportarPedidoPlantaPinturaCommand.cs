@@ -18,4 +18,5 @@ public sealed record ImportarPedidoPlantaPinturaCommand(
 public sealed record ImportarPedidoPlantaPinturaResponse(
     ResultadoSolicitudAw Resultado,
     Guid? PedidoFacturableId,
-    MotivoExcepcion? MotivoExcepcion);
+    MotivoExcepcion? MotivoExcepcion,
+    string? Detalle = null);

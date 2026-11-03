@@ -11,6 +11,11 @@ export const integracionesFiscalKeys = {
   configuracionByEmpresa: (empresaId: string, proveedor: ProveedorPac) =>
     [...integracionesFiscalKeys.configuracion(), empresaId, proveedor] as const,
 
+  // F6.9: estado del CSD (banner) e historial de certificados.
+  csdEstado: () => [...integracionesFiscalKeys.all, 'csd-estado'] as const,
+  certificados: (empresaId: string, proveedor: ProveedorPac) =>
+    [...integracionesFiscalKeys.configuracionByEmpresa(empresaId, proveedor), 'certificados'] as const,
+
   rfcsReceptores: () => [...integracionesFiscalKeys.all, 'rfcs-receptores'] as const,
   rfcsReceptoresByEmpresa: (empresaId: string) =>
     [...integracionesFiscalKeys.rfcsReceptores(), empresaId] as const,

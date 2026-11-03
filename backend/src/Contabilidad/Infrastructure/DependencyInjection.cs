@@ -49,12 +49,23 @@ public static class DependencyInjection
         services.AddScoped<RegistroPolizas>();
         services.AddScoped<LecturaPolizas>();
         services.AddScoped<IPolizaContablePort, PolizaContableAdapter>();
+        // C1.5: entrada única de los listeners (anulaciones, caja, consumo) y datos que el motor completa desde pólizas previas.
+        services.AddScoped<Millet.Contabilidad.Application.Motor.ProcesadorEventosContables>();
+        services.AddScoped<Millet.Contabilidad.Application.Motor.IEnriquecedorEventoContable, Millet.Contabilidad.Application.Motor.EnriquecedorPolizasOrigen>();
 
         // K10.4: pólizas recurrentes con reversa automática; el generador corre también como proceso de fondo.
         services.AddScoped<GeneradorRecurrentes>();
         services.AddScoped<LecturaRecurrentes>();
         services.AddOptions<Workers.RecurrentesOpciones>().Bind(configuration.GetSection(Workers.RecurrentesOpciones.Seccion));
         services.AddHostedService<Workers.PolizasRecurrentesWorker>();
+
+        // K10.5: cuenta puente recepción–factura (observador de pólizas automáticas de C1.4 y reporte de conciliación por OC).
+        services.AddOptions<Millet.Contabilidad.Application.CuentaPuente.CuentaPuenteOpciones>()
+            .Bind(configuration.GetSection(Millet.Contabilidad.Application.CuentaPuente.CuentaPuenteOpciones.Seccion));
+        services.AddScoped<Millet.Contabilidad.Application.CuentaPuente.RegistroMovimientosPuente>();
+        services.AddScoped<Millet.Contabilidad.Application.CuentaPuente.LecturaCuentaPuente>();
+        services.AddScoped<Millet.Contabilidad.Application.PublicPorts.IPolizaAutomaticaObservador,
+            Millet.Contabilidad.Application.CuentaPuente.ObservadorCuentaPuente>();
         return services;
     }
 

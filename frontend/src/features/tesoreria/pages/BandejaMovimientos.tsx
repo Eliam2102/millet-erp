@@ -237,7 +237,7 @@ export function BandejaMovimientos() {
                       <DateTimeDisplay value={m.fechaValor} variant="corta" />
                     </TableCell>
                     <TableCell className="max-w-64 truncate px-3 py-2 text-xs">
-                      {nombresCuenta.get(m.cuentaBancariaId) ?? m.cuentaBancariaId.slice(0, 8)}
+                      {nombresCuenta.get(m.cuentaBancariaId) ?? '—'}
                     </TableCell>
                     <TableCell className="px-3 py-2">
                       {estadoUi('sentido', m.sentido).texto}

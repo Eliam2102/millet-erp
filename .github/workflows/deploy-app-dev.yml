@@ -17,7 +17,8 @@
 #                                  CuentasPorPagarDbContext, FacturacionDbContext,
 #                                  CuentasPorCobrarDbContext, TesoreriaDbContext,
 #                                  CentrosCostoDbContext, ContabilidadDbContext,
-#                                  ComercioExteriorDbContext, ActivosFijosDbContext)
+#                                  ComercioExteriorDbContext, ActivosFijosDbContext,
+#                                  ProductoTerminadoDbContext)
 #                                  con la
 #                                  connection string leída de Key Vault vía OIDC
 #                                  (ADR-0029). Cada módulo nuevo debe agregarse
@@ -194,6 +195,7 @@ jobs:
         #   - ContabilidadDbContext              → Millet.Contabilidad.csproj
         #   - ComercioExteriorDbContext          → Millet.ComercioExterior.csproj
         #   - ActivosFijosDbContext              → Millet.ActivosFijos.csproj
+        #   - ProductoTerminadoDbContext         → Millet.ProductoTerminado.csproj
         # Cada módulo nuevo que introduzca un DbContext debe agregarse al
         # bucle de abajo Y a MigrationsHealthCheckOptions.ContextTypes en
         # Program.cs (de lo contrario /health/ready reportará Unhealthy
@@ -212,7 +214,7 @@ jobs:
           PG_CONN: ${{ steps.get-pg-conn.outputs.pg_conn }}
         run: |
           set -e
-          for ctx in CompartidoDbContext CoreDbContext IdentidadDbContext ComprasDbContext IntegracionesAwDbContext IntegracionesFiscalDbContext AlmacenDbContext CuentasPorPagarDbContext FacturacionDbContext CuentasPorCobrarDbContext TesoreriaDbContext CentrosCostoDbContext ContabilidadDbContext ComercioExteriorDbContext ActivosFijosDbContext; do
+          for ctx in CompartidoDbContext CoreDbContext IdentidadDbContext ComprasDbContext IntegracionesAwDbContext IntegracionesFiscalDbContext AlmacenDbContext CuentasPorPagarDbContext FacturacionDbContext CuentasPorCobrarDbContext TesoreriaDbContext CentrosCostoDbContext ContabilidadDbContext ComercioExteriorDbContext ActivosFijosDbContext ProductoTerminadoDbContext; do
             case "$ctx" in
               CompartidoDbContext)
                 proj="src/Compartido/Millet.Compartido.csproj"
@@ -258,6 +260,9 @@ jobs:
                 ;;
               ActivosFijosDbContext)
                 proj="src/ActivosFijos/Millet.ActivosFijos.csproj"
+                ;;
+              ProductoTerminadoDbContext)
+                proj="src/ProductoTerminado/Millet.ProductoTerminado.csproj"
                 ;;
             esac
             echo "::group::Applying migrations for $ctx (project: $proj)"

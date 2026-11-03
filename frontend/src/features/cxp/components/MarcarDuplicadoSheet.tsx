@@ -97,7 +97,7 @@ export function MarcarDuplicadoSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-md">
+      <SheetContent side="right" size="form">
         <SheetHeader>
           <SheetTitle>Marcar CFDI como duplicado</SheetTitle>
           <SheetDescription>

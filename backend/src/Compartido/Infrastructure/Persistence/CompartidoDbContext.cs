@@ -145,6 +145,12 @@ public sealed class CompartidoDbContext : BaseDbContext
                 new[] { typeof(string), typeof(string), typeof(string) })!)
             .HasName("translate")
             .HasSchema("pg_catalog");
+        modelBuilder
+            .HasDbFunction(typeof(PostgresFunctions).GetMethod(
+                nameof(PostgresFunctions.RegexpReplace),
+                new[] { typeof(string), typeof(string), typeof(string) })!)
+            .HasName("regexp_replace")
+            .HasSchema("pg_catalog");
 
         ConfigureEmpresa(modelBuilder);
         ConfigureMoneda(modelBuilder);
@@ -289,6 +295,9 @@ public sealed class CompartidoDbContext : BaseDbContext
             new { Id = Guid.Parse("00000011-0006-0000-0000-000000000006"), TipoEntidad = "linea_revision", Codigo = "foto_dano", Nombre = "Foto o evidencia del daño", Orden = 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
             // F1-COM-02: PDF de la cotización del proveedor.
             new { Id = Guid.Parse("00000011-0006-0000-0000-000000000004"), TipoEntidad = "cotizacion_compra", Codigo = "cotizacion", Nombre = "Cotización del proveedor", Orden = 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            // F6.9: evidencia del historial de CSD (R24).
+            new { Id = Guid.Parse("00000011-0007-0000-0000-000000000001"), TipoEntidad = "certificado_csd", Codigo = "acuse_renovacion", Nombre = "Acuse de renovación o sustitución del SAT", Orden = 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            new { Id = Guid.Parse("00000011-0007-0000-0000-000000000002"), TipoEntidad = "certificado_csd", Codigo = "acuse_revocacion", Nombre = "Acuse o evidencia de revocación", Orden = 2, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
             // F1-COM-11: evidencia de la respuesta del proveedor sobre la OC (G1.2). Plan reservaba ...0004, tomado por COM-02.
             new { Id = Guid.Parse("00000011-0006-0000-0000-000000000005"), TipoEntidad = "oc_respuesta_proveedor", Codigo = "evidencia_respuesta", Nombre = "Evidencia de la respuesta del proveedor", Orden = 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
             SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000001", "constancia_situacion_fiscal", "Constancia de situación fiscal", 1, 3, false, seedTime),
@@ -1196,10 +1205,12 @@ public sealed class CompartidoDbContext : BaseDbContext
             t.HasCheckConstraint("ck_proveedores_tipo_persona", "tipo_persona BETWEEN 0 AND 1");
             t.HasCheckConstraint("ck_proveedores_estatus", "estatus BETWEEN 0 AND 2");
             t.HasCheckConstraint("ck_proveedores_tolerancia_no_negativa", "tolerancia_factura_contra_oc_mxn IS NULL OR tolerancia_factura_contra_oc_mxn >= 0");
+            t.HasCheckConstraint("ck_proveedores_clave_aw_positiva", "clave_aw IS NULL OR clave_aw > 0");
         });
         proveedor.HasKey(x => x.Id);
         proveedor.Property(x => x.Clave).HasMaxLength(20).IsRequired();
         proveedor.Property(x => x.ClaveLegacy).HasMaxLength(20);
+        proveedor.Property(x => x.OrigenCarga).HasMaxLength(20);
         proveedor.Property(x => x.RazonSocial).HasMaxLength(254).IsRequired();
         proveedor.Property(x => x.NombreComercial).HasMaxLength(254);
         proveedor.Property(x => x.Rfc).HasMaxLength(13).IsRequired();
@@ -1230,6 +1241,11 @@ public sealed class CompartidoDbContext : BaseDbContext
         proveedor.Property(x => x.RegimenFiscalCodigo).HasMaxLength(3);
         proveedor.Property(x => x.ConceptoRetencion).HasMaxLength(80);
         proveedor.Property(x => x.ValidadoConMatrizVersion);
+        // 86e3tactf: bloqueo total, marca aparte del estatus.
+        proveedor.Property(x => x.Bloqueado).HasDefaultValue(false);
+        proveedor.Property(x => x.MotivoBloqueo).HasMaxLength(500);
+        proveedor.Property(x => x.BloqueadoPorId);
+        proveedor.Property(x => x.BloqueadoEn);
 
         proveedor.HasIndex(x => x.Clave).IsUnique();
         // F1-ADM-05: RFC único salvo genéricos SAT (público en general),
@@ -1241,6 +1257,11 @@ public sealed class CompartidoDbContext : BaseDbContext
             .HasDatabaseName("ux_proveedores_rfc_no_generico")
             .HasFilter("rfc NOT IN ('XAXX010101000','XEXX010101000')");
         proveedor.HasIndex(x => x.Estatus);
+        // 86e3wyjz3 · ALM-APP-1: la clave de A+W no se repite entre proveedores.
+        proveedor.HasIndex(x => x.ClaveAw)
+            .IsUnique()
+            .HasDatabaseName("ux_proveedores_clave_aw")
+            .HasFilter("clave_aw IS NOT NULL");
     }
 
     /// <summary>
@@ -1539,6 +1560,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         producto.Property(x => x.FraccionArancelaria).HasMaxLength(10);
         producto.Property(x => x.UnidadAduana).HasMaxLength(3);
         producto.Property(x => x.PesoUnitarioKg).HasPrecision(18, 6);
+        producto.Property(x => x.EsServicioRecubrimiento).HasDefaultValue(false);
         producto.Property(x => x.CodigoModelo).HasMaxLength(50);
         producto.Property(x => x.Wgr).HasMaxLength(10);
         producto.Property(x => x.WgrDescripcion).HasMaxLength(100);

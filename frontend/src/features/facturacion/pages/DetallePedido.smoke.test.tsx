@@ -185,6 +185,21 @@ describe('<DetallePedido> — smoke', () => {
     expect(screen.getAllByText('Vigente').length).toBeGreaterThanOrEqual(2);
   });
 
+  it('86e3wzcn4: un pedido existente con «Traslado (Carta Porte)» se consulta igual', async () => {
+    setPermisos(['facturacion.facturas.leer']);
+    mswServer.use(
+      http.get('*/api/v1/facturacion/pedidos-facturables/p-1', () =>
+        HttpResponse.json({ ...pedido('Facturado'), comportamientoFiscal: 'TrasladoConCartaPorte' }),
+      ),
+      http.get('*/api/v1/facturacion/pedidos-facturables/p-1/comprobantes', () =>
+        HttpResponse.json([]),
+      ),
+    );
+    render(<DetallePedido />, { wrapper: createQueryWrapper() });
+    expect(await screen.findByText('Traslado (Carta Porte)')).toBeInTheDocument();
+    expect(screen.getByText('Cliente Demo SA')).toBeInTheDocument();
+  });
+
   it('86e3tfd6n: muestra los anticipos cobrados antes de que llegara el pedido', async () => {
     setPermisos(['facturacion.facturas.leer']);
     mswServer.use(

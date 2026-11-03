@@ -94,10 +94,12 @@ public sealed class DepositosListenerHandlersTests
     {
         using var db = CrearDbContext();
         var handler = new ProyectarExpectativaCajaHandler(db, new FakeClock(Ahora));
+        var sucursal = Guid.NewGuid();
+        var cajero = Guid.NewGuid();
 
         await handler.Handle(new ProyectarExpectativaCajaCommand(Guid.NewGuid(), new CajaSesionCerradaPayload(
-            EmpresaId, Ahora, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
-            new DateOnly(2026, 7, 14), EfectivoDeclarado: 12_000m)), CancellationToken.None);
+            EmpresaId, Ahora, Guid.NewGuid(), Guid.NewGuid(), sucursal,
+            new DateOnly(2026, 7, 14), EfectivoDeclarado: 12_000m, ResponsableUsuarioId: cajero)), CancellationToken.None);
 
         await handler.Handle(new ProyectarExpectativaCajaCommand(Guid.NewGuid(), new CajaSesionCerradaPayload(
             EmpresaId, Ahora, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
@@ -107,6 +109,9 @@ public sealed class DepositosListenerHandlersTests
         expectativa.CajaSesionId.Should().NotBeNull();
         expectativa.MontoEsperado.Should().Be(12_000m);
         expectativa.ClienteId.Should().BeNull();
+        expectativa.SucursalId.Should().Be(sucursal);
+        expectativa.CajeroId.Should().Be(cajero);
+        expectativa.DiaCorte.Should().Be(new DateOnly(2026, 7, 14));
 
         (await db.EventosProcesados.CountAsync()).Should().Be(2);
     }

@@ -36,6 +36,24 @@ public sealed class ProyectarReembolsoNotaCreditoHandlerTests
     }
 
     [Fact]
+    public async Task F63_la_cuenta_destino_capturada_al_emitir_llega_en_la_devolucion()
+    {
+        using var db = CrearDbContext();
+        var handler = new ProyectarReembolsoNotaCreditoHandler(db, new FakeClock(Ahora));
+        var payload = Payload(Guid.NewGuid()) with
+        {
+            DestinoBanco = "BBVA", DestinoClabe = "032180000118359719", DestinoTitular = "Cliente SA",
+        };
+
+        await handler.Handle(new ProyectarReembolsoNotaCreditoCommand(Guid.NewGuid(), payload), CancellationToken.None);
+
+        var d = await db.DevolucionesCliente.SingleAsync();
+        d.DestinoBanco.Should().Be("BBVA");
+        d.DestinoClabe.Should().Be("032180000118359719");
+        d.DestinoTitular.Should().Be("Cliente SA");
+    }
+
+    [Fact]
     public async Task Importe_mayor_al_total_lanza_DEV_IMPORTE_EXCEDE_NC()
     {
         using var db = CrearDbContext();

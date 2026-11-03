@@ -67,8 +67,9 @@ public sealed class AplicarPedimentoHandler : IRequestHandler<AplicarPedimentoCo
                 $"Solo una factura en PendientePedimento admite pedimento (estado actual: {factura.Estado}).");
 
         var ahora = _clock.UtcNow;
-        if (!await _periodo.EstaAbiertoAsync(ahora.Year, ahora.Month, cancellationToken))
-            throw new BusinessRuleException("PERIODO_CERRADO", $"El período contable {ahora.Year}-{ahora.Month:D2} está cerrado; no se puede timbrar.");
+        var fiscal = Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.FechaFiscal(ahora); // período en la fecha fiscal de México, no en UTC
+        if (!await _periodo.EstaAbiertoAsync(fiscal.Year, fiscal.Month, cancellationToken))
+            throw new BusinessRuleException("PERIODO_CERRADO", $"El período contable {fiscal.Year}-{fiscal.Month:D2} está cerrado; no se puede timbrar.");
 
         await _receptorFiscal.ValidarComprobanteAsync(factura, cancellationToken);
 
@@ -83,7 +84,10 @@ public sealed class AplicarPedimentoHandler : IRequestHandler<AplicarPedimentoCo
         if (factura.Estado == EstadoTimbrado.Timbrado)
             await _eventos.PublishAsync(EventosContablesFacturacion.FacturaVentaTimbrada(
                 factura, ahora, clienteId: await ClienteContableFacturacion.ResolverAsync(_db, factura, cancellationToken),
-                tiposProducto: await EventosContablesFacturacion.TiposProductoAsync(_productos, factura, cancellationToken)),
+                tiposProducto: await EventosContablesFacturacion.TiposProductoAsync(_productos, factura, cancellationToken),
+                pedido: factura.PedidoFacturableId is Guid pedidoId
+                    ? await _db.PedidosFacturables.AsNoTracking().FirstOrDefaultAsync(p => p.Id == pedidoId, cancellationToken)
+                    : null),
                 cancellationToken);
 
         // RANURA-PR2: la factura retenida por pedimento no alcanzó a emitir

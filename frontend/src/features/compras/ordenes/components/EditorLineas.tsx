@@ -385,7 +385,7 @@ function FilaLinea({
             <span className="font-mono text-xs font-medium">{articuloClave}</span>
           ) : (
             <span className="font-mono text-xs text-ink-muted" title={linea.articuloId}>
-              {linea.articuloId.slice(0, 8)}…
+              —
             </span>
           )}
           {linea.requisicionId != null && (
@@ -398,6 +398,11 @@ function FilaLinea({
         {textoMedida(linea, linea.cantidad) && (
           <p className="mt-0.5 text-xs text-ink-muted" data-testid="oc-linea-medida">
             {textoMedida(linea, linea.cantidad)}
+          </p>
+        )}
+        {linea.loteProveedor && (
+          <p className="mt-0.5 text-xs text-ink-muted" data-testid="oc-linea-lote">
+            Lote {linea.loteProveedor}
           </p>
         )}
         {linea.descripcionExtendida && (

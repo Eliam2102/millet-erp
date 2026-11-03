@@ -210,7 +210,7 @@ public static class FacturasEndpoints
             }
 
             var response = await mediator.Send(
-                new EnviarFacturaARevisionCommand(id, v, request.MotivoRevisionId, request.DependenciaRevisoraId),
+                new EnviarFacturaARevisionCommand(id, v, request.MotivoRevisionId, request.DependenciaRevisoraId, request.SolicitanteId),
                 cancellationToken);
             return Results.Ok(response);
         })
@@ -444,7 +444,7 @@ public static class FacturasEndpoints
     public sealed record CancelarFacturaRequest(MotivoCancelacion Motivo, string? Texto);
     public sealed record MarcarRetencionesRevisadasRequest(string Motivo);
 
-    public sealed record EnviarRevisionRequest(Guid MotivoRevisionId, Guid DependenciaRevisoraId);
+    public sealed record EnviarRevisionRequest(Guid MotivoRevisionId, Guid DependenciaRevisoraId, Guid? SolicitanteId = null);
 
     public sealed record LiberarRevisionRequest(string AccionTomada);
 

@@ -74,6 +74,12 @@ public static class DependencyInjection
         services.AddHostedService<DescargaSubmitterWorker>();
         services.AddHostedService<DescargaPollerWorker>();
 
+        // F6.9: avisos de vencimiento del CSD (30/15/5 días y el día del vencimiento).
+        services.AddOptions<Application.Certificados.AlertasCsdOptions>()
+            .Bind(configuration.GetSection(Application.Certificados.AlertasCsdOptions.SectionName));
+        services.AddHostedService<AlertasCsdWorker>();
+        services.TryAddScoped<Domain.Ports.IAvisoCsdPort, Avisos.LogAvisoCsdAdapter>();
+
         // Receiver inverso: NoOp default. Program.cs lo sobreescribe con
         // FiscalCfdiReceiverAdapter (CxP) — el AddScoped posterior gana
         // porque TryAddScoped solo registra si no existe.

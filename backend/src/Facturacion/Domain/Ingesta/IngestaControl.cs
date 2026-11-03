@@ -41,9 +41,8 @@ public sealed class IngestaControl : BaseEntity, IPerteneceAEmpresa, IAuditable
     public bool WriteBackPendiente { get; private set; }
 
     /// <summary>
-    /// Solicitud originadora si el pendiente es un reintento del write-back
-    /// síncrono por-solicitud; <c>null</c> = write-back por-pedido
-    /// (timbrado/cancelación → el adapter usa <c>Guid.Empty</c>).
+    /// Solicitud originadora del reintento del write-back síncrono por-solicitud.
+    /// TR-01: el write-back por-pedido (uuid/estado) se retiró; lo reemplaza aw_retorno.
     /// </summary>
     public Guid? WriteBackSolicitudId { get; private set; }
 
@@ -95,28 +94,6 @@ public sealed class IngestaControl : BaseEntity, IPerteneceAEmpresa, IAuditable
     public void TocarLectura(DateTimeOffset ahora) => UltimaLecturaAt = ahora;
 
     public void CambiarEstado(EstadoIngesta estado) => Estado = estado;
-
-    /// <summary>
-    /// Encola el write-back POR-PEDIDO (timbrado/cancelación del CFDI): el
-    /// worker escribirá <c>uuid</c> + <c>estado_facturacion</c> en todas las
-    /// filas del pedido en la tabla-puente (adapter con <c>Guid.Empty</c>).
-    /// Reemplaza cualquier pendiente anterior — el estado más reciente manda.
-    /// </summary>
-    public void SolicitarWriteBackEstado(string estadoFacturacion, string? uuid, DateTimeOffset ahora)
-    {
-        if (string.IsNullOrWhiteSpace(estadoFacturacion))
-            throw new BusinessRuleException("WRITEBACK_ESTADO_INVALIDO", "El estado de facturación es obligatorio.");
-
-        WriteBackPendiente = true;
-        WriteBackSolicitudId = null;
-        WriteBackResultado = null;
-        WriteBackEstado = estadoFacturacion;
-        WriteBackUuid = uuid;
-        WriteBackMotivo = null;
-        WriteBackIntentos = 0;
-        WriteBackUltimoError = null;
-        UltimaLecturaAt = ahora;
-    }
 
     /// <summary>
     /// Encola el reintento del write-back POR-SOLICITUD cuando la escritura

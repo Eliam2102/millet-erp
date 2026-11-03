@@ -13,6 +13,21 @@ namespace Millet.Facturacion.Domain.Ports;
 public interface IPlantaPinturaPedidosReader
 {
     Task<IReadOnlyList<PedidoPlantaPintura>> LeerPendientesAsync(int max, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Acuse en la misma fila de la orden (resultado, pedido ERP, error, fecha): la
+    /// orden deja de leerse como pendiente. Mismo patrón que <c>OtrTablasAdapter.MarcarResultadoAsync</c>.
+    /// </summary>
+    Task MarcarResultadoAsync(
+        string numeroPedido, ResultadoAcusePlantaPintura resultado, Guid? pedidoId, string? detalleError,
+        DateTimeOffset fecha, CancellationToken cancellationToken);
+}
+
+/// <summary>Valor escrito en la columna de resultado de la fila de origen.</summary>
+public enum ResultadoAcusePlantaPintura : short
+{
+    Creado = 1,
+    Error = 2,
 }
 
 /// <summary>
@@ -45,4 +60,6 @@ public sealed record LineaPedidoPlantaPintura(
     decimal Cantidad,
     decimal Precio,
     decimal Descuento,
-    bool RequierePedimento);
+    bool RequierePedimento,
+    /// <summary>Tasa de IVA con la que se cotizó (0.16 = 16 %); null = no informada, no se valida.</summary>
+    decimal? TasaIva = null);

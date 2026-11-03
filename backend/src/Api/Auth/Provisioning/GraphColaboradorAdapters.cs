@@ -10,7 +10,9 @@ using Millet.CuentasPorPagar.Infrastructure.Notificaciones;
 using Millet.Identidad.Application.DirectorioEntra;
 using Millet.Identidad.Application.Ports;
 using Millet.Identidad.Infrastructure.Stubs;
+using Millet.SharedKernel.Application.Correo;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.SharedKernel.Infrastructure.Correo;
 
 namespace Millet.Api.Auth.Provisioning;
 
@@ -185,6 +187,81 @@ public sealed class GraphDirectorioColaboradores : IEntraDirectorioPort
         return contrasena;
     }
 
+    public async Task<IReadOnlyList<CuentaEntra>> ListarCuentasAsync(string? texto, int top, CancellationToken ct)
+    {
+        // Las comillas dobles delimitan cada término de $search; no se aceptan en el texto.
+        var filtro = texto?.Replace("\"", string.Empty).Trim();
+        try
+        {
+            // userType en $filter es consulta avanzada: exige ConsistencyLevel=eventual y $count.
+            var respuesta = await _graph.Users.GetAsync(r =>
+            {
+                r.QueryParameters.Filter = "accountEnabled eq true and userType eq 'Member'";
+                r.QueryParameters.Select = ["id", "userPrincipalName", "displayName", "accountEnabled"];
+                r.QueryParameters.Top = Math.Clamp(top, 1, 999);
+                r.QueryParameters.Count = true;
+                if (string.IsNullOrEmpty(filtro))
+                    r.QueryParameters.Orderby = ["displayName"];
+                else
+                    r.QueryParameters.Search =
+                        $"\"displayName:{filtro}\" OR \"mail:{filtro}\" OR \"userPrincipalName:{filtro}\"";
+                r.Headers.Add("ConsistencyLevel", "eventual");
+            }, ct);
+            return (respuesta?.Value ?? [])
+                .Where(u => u.Id is not null && _options.CurrentValue.PermiteCorreo(u.UserPrincipalName ?? string.Empty))
+                .Select(Convertir)
+                .ToList();
+        }
+        catch (ODataError ex) when (ex.ResponseStatusCode == 403 || string.Equals(ex.Error?.Code, "Authorization_RequestDenied", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new BusinessRuleException(
+                "ENTRA_PERMISOS_INSUFICIENTES",
+                "Microsoft Entra ID rechazó la consulta del directorio. La aplicación requiere el permiso 'User.Read.All'.");
+        }
+    }
+
+    public async Task AgregarAGrupoAccesoAsync(string grupoId, string objectId, CancellationToken ct)
+    {
+        try
+        {
+            await _graph.Groups[grupoId].Members.Ref.PostAsync(new ReferenceCreate
+            {
+                OdataId = $"https://graph.microsoft.com/v1.0/directoryObjects/{objectId}",
+            }, cancellationToken: ct);
+        }
+        catch (ODataError ex) when (ex.ResponseStatusCode == 400 &&
+            (ex.Error?.Message ?? ex.Message).Contains("already exist", StringComparison.OrdinalIgnoreCase))
+        {
+            // Ya era miembro: la operación es idempotente.
+        }
+    }
+
+    public async Task QuitarDeGrupoAccesoAsync(string grupoId, string objectId, CancellationToken ct)
+    {
+        try
+        {
+            await _graph.Groups[grupoId].Members[objectId].Ref.DeleteAsync(cancellationToken: ct);
+        }
+        catch (ODataError ex) when (ex.ResponseStatusCode == 404)
+        {
+            // No era miembro: la operación es idempotente.
+        }
+    }
+
+    public async Task<bool> EsMiembroDeGrupoAccesoAsync(string grupoId, string objectId, CancellationToken ct)
+    {
+        // El OID va dentro de $filter: sólo se acepta con forma de GUID.
+        if (!Guid.TryParse(objectId, out var oid)) return false;
+        var respuesta = await _graph.Groups[grupoId].Members.GetAsync(r =>
+        {
+            r.QueryParameters.Filter = $"id eq '{oid:D}'";
+            r.QueryParameters.Select = ["id"];
+            r.QueryParameters.Count = true;
+            r.Headers.Add("ConsistencyLevel", "eventual");
+        }, ct);
+        return respuesta?.Value?.Count > 0;
+    }
+
     private async Task<User?> BuscarUsuarioCompletoAsync(string upn, CancellationToken ct)
     {
         try
@@ -283,28 +360,35 @@ public static class GraphAvisosRevisionRegistration
         if (avisos.ContadorGeneral.All(c => !AvisosRevisionOptions.EsCorreoValido(c)))
             throw new InvalidOperationException(
                 $"{AvisosRevisionOptions.SectionName}:Proveedor=Graph requiere al menos un correo válido en {AvisosRevisionOptions.SectionName}:ContadorGeneral.");
+        ExigirTransporteGraph(configuration, AvisosRevisionOptions.SectionName);
         services.AddSingleton<INotificacionService>(sp => new GraphAvisoRevisionCxp(
-            new GraphServiceClient(
-                new ClientSecretCredential(auth.TenantId, auth.ClientId, auth.ClientSecret),
-                ["https://graph.microsoft.com/.default"]),
-            auth.SenderEmail, avisos, sp.GetRequiredService<ILogger<GraphAvisoRevisionCxp>>()));
+            sp.GetRequiredService<ICorreoSaliente>(), avisos, sp.GetRequiredService<ILogger<GraphAvisoRevisionCxp>>()));
         return services;
+    }
+
+    /// <summary>
+    /// 86e3txv0n: los avisos salen por el transporte único de correo (modo pruebas
+    /// y registro incluidos); pedir Graph aquí sin <c>Correo:Proveedor=Graph</c> los dejaría simulados sin avisar.
+    /// </summary>
+    internal static void ExigirTransporteGraph(IConfiguration configuration, string seccion)
+    {
+        var correo = configuration.GetSection(CorreoSalienteOptions.SectionName).Get<CorreoSalienteOptions>() ?? new();
+        if (!correo.EsGraph)
+            throw new InvalidOperationException(
+                $"{seccion}:Proveedor=Graph requiere {CorreoSalienteOptions.SectionName}:Proveedor=Graph (transporte único de correo).");
     }
 }
 
 /// <summary>Correo del aviso SLA de factura en revisión al Contador General (y Compras según el motivo).</summary>
 public sealed class GraphAvisoRevisionCxp : INotificacionService
 {
-    private readonly GraphServiceClient _graph;
-    private readonly string _sender;
+    private readonly ICorreoSaliente _correo;
     private readonly AvisosRevisionOptions _avisos;
     private readonly ILogger<GraphAvisoRevisionCxp> _logger;
 
-    public GraphAvisoRevisionCxp(
-        GraphServiceClient graph, string sender, AvisosRevisionOptions avisos, ILogger<GraphAvisoRevisionCxp> logger)
+    public GraphAvisoRevisionCxp(ICorreoSaliente correo, AvisosRevisionOptions avisos, ILogger<GraphAvisoRevisionCxp> logger)
     {
-        _graph = graph;
-        _sender = sender;
+        _correo = correo;
         _avisos = avisos;
         _logger = logger;
     }
@@ -318,8 +402,12 @@ public sealed class GraphAvisoRevisionCxp : INotificacionService
                 AvisosRevisionOptions.SectionName, notificacion.FacturaProveedorId);
             return;
         }
-        await GraphCorreoColaboradores.EnviarHtmlAsync(
-            _graph, _sender, para, $"Factura en revisión: {NombreNivel(notificacion.Nivel)}", ConstruirHtml(notificacion), cancellationToken);
+        var resultado = await _correo.EnviarAsync(new MensajeCorreo(notificacion.EmpresaId, "cuentas-por-pagar",
+            "aviso-revision", notificacion.FacturaProveedorId, para,
+            $"Factura en revisión: {NombreNivel(notificacion.Nivel)}", ConstruirHtml(notificacion)), cancellationToken);
+        // Un rechazo se lanza: el worker retira la marca de «ya avisado» y reintenta en el siguiente ciclo (#221).
+        if (resultado.Estado == EstadoCorreoSaliente.Error)
+            throw new InvalidOperationException($"{resultado.Codigo}: {resultado.Motivo}");
     }
 
     public static string NombreNivel(NivelEscalamientoSla nivel) => nivel switch

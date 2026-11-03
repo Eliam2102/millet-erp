@@ -16,11 +16,12 @@ import { TipoDocumentoTrazabilidad } from '@/components/erp/trazabilidad/types';
 import { ReclasificarMovimiento } from '../components/ReclasificarMovimiento';
 import { useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { ArrowRightLeft, RotateCcw, Undo2, X } from 'lucide-react';
+import { ArrowRightLeft, ReceiptText, RotateCcw, Undo2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
 import {
+  useFoliosTransferencia,
   useMovimiento,
   useRevertirPago,
   useDesligarPagoACuenta,
@@ -34,6 +35,8 @@ import {
 import { MotivoDialog } from '@/features/tesoreria/components/MotivoDialog';
 import { BENEFICIARIO_TIPO_LABELS, SentidoMovimiento } from '@/features/tesoreria/api/types';
 import { SolicitarDevolucionDialog } from '@/features/tesoreria/components/SolicitarDevolucionDialog';
+import { EmitirFolioTransferenciaDialog } from '@/features/tesoreria/components/EmitirFolioTransferenciaDialog';
+import { FoliosTransferenciaTabla } from '@/features/tesoreria/components/FoliosTransferenciaTabla';
 import { formatoMonto } from '@/features/tesoreria/lib/formato';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -61,6 +64,11 @@ export function DetalleMovimiento({ id }: { id: string }) {
   );
   const [revirtiendo, setRevirtiendo] = useState<AplicacionMovimientoDto | null>(null);
   const [solicitandoDevolucion, setSolicitandoDevolucion] = useState(false);
+  // F6.6: Ingresos emite el folio de transferencia desde el ingreso del cliente.
+  const puedeEmitirFolio = useHasPermission(PermisosCanonicos.TesoreriaFoliosTransferenciaEmitir);
+  const [emitiendoFolio, setEmitiendoFolio] = useState(false);
+  const esIngreso = query.data?.movimiento.sentido === SentidoMovimiento.Ingreso;
+  const folios = useFoliosTransferencia({ movimientoId: id, limit: 100 }, { enabled: esIngreso });
 
   function confirmarReversa(motivo: string) {
     if (revirtiendo == null) return;
@@ -132,7 +140,7 @@ export function DetalleMovimiento({ id }: { id: string }) {
       <div data-print="hidden">
         <PageHeader
           mono
-          titulo={m.referenciaBancaria ?? m.id}
+          titulo={m.referenciaBancaria ?? 'Movimiento bancario'}
           descripcion={
             <>
               Movimiento bancario · {m.beneficiarioNombre ?? m.conceptoNombre ?? 'Sin beneficiario'}
@@ -143,6 +151,15 @@ export function DetalleMovimiento({ id }: { id: string }) {
             <>
               {' '}
               <div className="flex items-center gap-2">
+                {puedeEmitirFolio &&
+                  m.sentido === SentidoMovimiento.Ingreso &&
+                  m.contramovimientoDe == null &&
+                  m.moneda === 'MXN' && (
+                    <Button variant="outline" size="sm" onClick={() => setEmitiendoFolio(true)}>
+                      <ReceiptText className="mr-1 h-3 w-3" aria-hidden="true" />
+                      Emitir folio de transferencia
+                    </Button>
+                  )}
                 {puedeSolicitarDevolucion &&
                   m.sentido === SentidoMovimiento.Ingreso &&
                   m.contramovimientoDe == null && (
@@ -214,6 +231,12 @@ export function DetalleMovimiento({ id }: { id: string }) {
             )}
           </dd>
         </div>
+        {m.cuentaOrdenante != null && (
+          <div>
+            <dt className="text-xs text-ink-muted">Cuenta ordenante del cliente</dt>
+            <dd className="font-mono text-xs">{m.cuentaOrdenante}</dd>
+          </div>
+        )}
         {m.destinoBanco != null && (
           <div>
             <dt className="text-xs text-ink-muted">Cuenta destino</dt>
@@ -330,6 +353,13 @@ export function DetalleMovimiento({ id }: { id: string }) {
         )}
       </section>
 
+      {esIngreso && (folios.data?.items.length ?? 0) > 0 && (
+        <section className="space-y-2">
+          <h2 className="text-sm font-semibold">Folios de transferencia</h2>
+          <FoliosTransferenciaTabla folios={folios.data!.items} />
+        </section>
+      )}
+
       {contramovimientos.length > 0 && (
         <section className="space-y-2">
           <h2 className="text-sm font-semibold">Movimientos ligados</h2>
@@ -359,6 +389,19 @@ export function DetalleMovimiento({ id }: { id: string }) {
           </ul>
         </section>
       )}
+
+      <EmitirFolioTransferenciaDialog
+        movimiento={{
+          id: m.id,
+          monto: m.monto,
+          moneda: m.moneda,
+          beneficiarioTipo: m.beneficiarioTipo ?? null,
+          beneficiarioRef: m.beneficiarioRef ?? null,
+          beneficiarioNombre: m.beneficiarioNombre ?? null,
+        }}
+        abierto={emitiendoFolio}
+        onCerrar={() => setEmitiendoFolio(false)}
+      />
 
       <SolicitarDevolucionDialog
         movimiento={{

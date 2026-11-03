@@ -106,6 +106,9 @@ public sealed class FacturacionDbContext : BaseDbContext
     /// <summary>Pedidos facturables (origen Aw/PlantaPintura/Manual, F1-PR2).</summary>
     public DbSet<PedidoFacturable> PedidosFacturables => Set<PedidoFacturable>();
 
+    /// <summary>Salidas parciales facturables de un pedido (FAC-08).</summary>
+    public DbSet<SalidaFacturable> SalidasFacturables => Set<SalidaFacturable>();
+
     /// <summary>Proformas versionadas de pedidos facturables, sin valor fiscal (U1.8a).</summary>
     public DbSet<ProformaPedido> ProformasPedido => Set<ProformaPedido>();
 
@@ -144,6 +147,11 @@ public sealed class FacturacionDbContext : BaseDbContext
 
     /// <summary>Cobros de mostrador — desacoplan cobro de emisión (CAJAS-PR4, [Decisión 12-3]).</summary>
     public DbSet<CobroMostrador> CobrosMostrador => Set<CobroMostrador>();
+
+    // 86e3vr1tf: archivo diario de la terminal de tarjetas y su liquidación por folio.
+    public DbSet<Millet.Facturacion.Domain.Cajas.Terminal.CargaTerminal> CargasTerminal => Set<Millet.Facturacion.Domain.Cajas.Terminal.CargaTerminal>();
+    public DbSet<Millet.Facturacion.Domain.Cajas.Terminal.TransaccionTerminal> TransaccionesTerminal => Set<Millet.Facturacion.Domain.Cajas.Terminal.TransaccionTerminal>();
+    public DbSet<Millet.Facturacion.Domain.Cajas.Terminal.LiquidacionTerminal> LiquidacionesTerminal => Set<Millet.Facturacion.Domain.Cajas.Terminal.LiquidacionTerminal>();
 
     /// <summary>Marcas de idempotencia de integration events consumidos (PR gemelo TES-PR7).</summary>
     public DbSet<Domain.Eventos.EventoProcesado> EventosProcesados => Set<Domain.Eventos.EventoProcesado>();
@@ -192,6 +200,8 @@ public sealed class FacturacionDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new AutorizacionVentaActivoConfiguration());
         modelBuilder.ApplyConfiguration(new PedidoFacturableConfiguration());
         modelBuilder.ApplyConfiguration(new PedidoFacturableLineaConfiguration());
+        modelBuilder.ApplyConfiguration(new SalidaFacturableConfiguration());
+        modelBuilder.ApplyConfiguration(new SalidaFacturableLineaConfiguration());
         modelBuilder.ApplyConfiguration(new ProformaPedidoConfiguration());
         modelBuilder.ApplyConfiguration(new BitacoraEnvioCorreoConfiguration());
         modelBuilder.ApplyConfiguration(new BitacoraIntentoTimbradoConfiguration());
@@ -210,6 +220,9 @@ public sealed class FacturacionDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new CajaAjustePendienteConfiguration());
         modelBuilder.ApplyConfiguration(new CobroMostradorConfiguration());
         modelBuilder.ApplyConfiguration(new CobroMostradorFormaPagoConfiguration());
+        modelBuilder.ApplyConfiguration(new CargaTerminalConfiguration());
+        modelBuilder.ApplyConfiguration(new TransaccionTerminalConfiguration());
+        modelBuilder.ApplyConfiguration(new LiquidacionTerminalConfiguration());
         modelBuilder.ApplyConfiguration(new EventoProcesadoConfiguration());
     }
 }

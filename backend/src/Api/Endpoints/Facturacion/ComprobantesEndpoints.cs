@@ -1,19 +1,24 @@
 using MediatR;
 using Millet.Api.Auth;
 using Millet.Api.Web;
+using Millet.Facturacion.Application.Cancelaciones.AutorizarCancelacion;
 using Millet.Facturacion.Application.Cancelaciones.Queries;
+using Millet.Facturacion.Application.Cancelaciones.RechazarCancelacion;
+using Millet.Facturacion.Application.Cancelaciones.RetirarCancelacion;
 using Millet.Facturacion.Application.Cancelaciones.SolicitarCancelacion;
 using Millet.Facturacion.Application.Timbrado.DescartarComprobante;
 using Millet.Facturacion.Application.Timbrado.Queries;
 using Millet.Facturacion.Application.Timbrado.ReintentarTimbrado;
 using Millet.Facturacion.Application.Trazabilidad;
+using Millet.Facturacion.Domain.Cancelaciones;
 using Millet.Identidad.Domain;
 
 namespace Millet.Api.Endpoints.Facturacion;
 
 /// <summary>
 /// Endpoints transversales de comprobantes del módulo Facturación. F5-PR2:
-/// cancelación SAT (solicitud + estatus). <c>/api/v1/facturacion/comprobantes</c>.
+/// cancelación SAT (solicitud + estatus); F6.5: autorización del Contador General,
+/// rechazo, retiro y bandeja. <c>/api/v1/facturacion/comprobantes</c>.
 /// </summary>
 public static class ComprobantesEndpoints
 {
@@ -57,6 +62,73 @@ public static class ComprobantesEndpoints
         .WithSummary("Consulta el estatus de cancelación de un comprobante")
         .Produces<ConsultarCancelacionResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // F6.5: el Contador General autoriza la cancelación pendiente; solo entonces se envía al PAC.
+        group.MapPost("/{id:guid}/cancelar/autorizar", async (
+            Guid id,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var response = await mediator.Send(new AutorizarCancelacionCommand(id), cancellationToken);
+            return Results.Ok(response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionCancelacionesAutorizar)
+        .WithName("AutorizarCancelacion")
+        .WithSummary("Autoriza una cancelación pendiente y la envía al PAC")
+        .Produces<SolicitarCancelacionResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // F6.5: el Contador General no autoriza la cancelación (con motivo); el comprobante sigue vigente.
+        group.MapPost("/{id:guid}/cancelar/rechazar", async (
+            Guid id,
+            RechazarCancelacionRequest body,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var response = await mediator.Send(new RechazarCancelacionCommand(id, body.Motivo), cancellationToken);
+            return Results.Ok(response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionCancelacionesAutorizar)
+        .WithName("RechazarCancelacion")
+        .WithSummary("Rechaza una cancelación pendiente con motivo")
+        .Produces<SolicitarCancelacionResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // F6.5: Ingresos retira una cancelación que aún no se autoriza.
+        group.MapPost("/{id:guid}/cancelar/retirar", async (
+            Guid id,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var response = await mediator.Send(new RetirarCancelacionCommand(id), cancellationToken);
+            return Results.Ok(response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionCancelacionesSolicitar)
+        .WithName("RetirarCancelacion")
+        .WithSummary("Retira una cancelación pendiente de autorización")
+        .Produces<SolicitarCancelacionResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // F6.5: bandeja del Contador General (por omisión, pendientes de autorización).
+        group.MapGet("/cancelaciones", async (
+            EstadoSolicitudCancelacion? estado,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var response = await mediator.Send(new BandejaCancelacionesQuery(estado), cancellationToken);
+            return Results.Ok(response);
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionCancelacionesConsultar)
+        .WithName("BandejaCancelaciones")
+        .WithSummary("Solicitudes de cancelación por estado")
+        .Produces<IReadOnlyList<CancelacionBandejaItem>>(StatusCodes.Status200OK);
 
         // POST: reintenta el timbrado de un comprobante en TimbradoFallido
         // (cualquier tipo — mismo folio interno, no re-emite).
@@ -138,6 +210,9 @@ public static class ComprobantesEndpoints
 
     /// <summary>Body de la solicitud de cancelación.</summary>
     public sealed record SolicitarCancelacionRequest(string MotivoSat, string? UuidSustituto);
+
+    /// <summary>Body del rechazo de una cancelación pendiente.</summary>
+    public sealed record RechazarCancelacionRequest(string Motivo);
 
     /// <summary>
     /// Body del reintento de timbrado. <c>ConfirmarNoDuplicado</c> debe ir

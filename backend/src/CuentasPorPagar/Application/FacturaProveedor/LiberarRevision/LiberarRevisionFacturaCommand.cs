@@ -33,10 +33,11 @@ public sealed class LiberarRevisionFacturaHandler : IRequestHandler<LiberarRevis
     private readonly CuentasPorPagarDbContext _db;
     private readonly ICurrentUserContext _currentUser;
     private readonly IClock _clock;
+    private readonly ICurrentUserPermissions _permisos;
 
-    public LiberarRevisionFacturaHandler(CuentasPorPagarDbContext db, ICurrentUserContext currentUser, IClock clock)
+    public LiberarRevisionFacturaHandler(CuentasPorPagarDbContext db, ICurrentUserContext currentUser, IClock clock, ICurrentUserPermissions permisos)
     {
-        _db = db; _currentUser = currentUser; _clock = clock;
+        _db = db; _currentUser = currentUser; _clock = clock; _permisos = permisos;
     }
 
     public async Task<LiberarRevisionFacturaResponse> Handle(LiberarRevisionFacturaCommand command, CancellationToken cancellationToken)
@@ -52,7 +53,9 @@ public sealed class LiberarRevisionFacturaHandler : IRequestHandler<LiberarRevis
             throw new ConcurrencyException(nameof(FacturaProveedor), factura.Id);
         }
 
-        factura.LiberarRevision(command.AccionTomada, _currentUser.UserId, _clock.UtcNow);
+        var puedeReemplazar = await _permisos.TieneAsync(
+            Millet.Identidad.Domain.PermisosCanonicos.CuentasPorPagarBloqueosLiberarEnLugar, cancellationToken);
+        factura.LiberarRevision(command.AccionTomada, _currentUser.UserId, _clock.UtcNow, puedeReemplazar);
         await _db.SaveChangesAsync(cancellationToken);
 
         return new LiberarRevisionFacturaResponse(factura.Id, factura.Estado, factura.Version);

@@ -35,6 +35,7 @@ import { EditarDatosP8 } from '@/features/cxp/components/EditarDatosP8';
 import { formatCantidad } from '@/lib/format-cantidad';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { folioFactura } from '@/features/cxp/lib/formato';
+import { esContado } from '../lib/es-contado';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccionDialog';
 
@@ -137,6 +138,11 @@ export function FacturaDetallePage() {
             estado={
               <>
                 <EstadoPasivoChip estado={query.data.estado} />
+                {query.data.proveedorBloqueado === true && (
+                  <Badge variant="danger" title={query.data.proveedorMotivoBloqueo ?? undefined}>
+                    Proveedor bloqueado
+                  </Badge>
+                )}
                 <ToleranciaIndicator
                   diferencia={query.data.diferenciaContraOc}
                   cancelada={query.data.estado === EstadoPasivo.Cancelada}
@@ -150,6 +156,9 @@ export function FacturaDetallePage() {
                 Contabilización:{' '}
                 <DateTimeDisplay value={query.data.fechaContabilizacion} variant="media" /> · Vence:{' '}
                 <DateTimeDisplay value={query.data.fechaVencimiento} variant="media" />
+                {esContado(query.data.fechaVencimiento, query.data.fechaDocumento) && (
+                  <span title="El vencimiento coincide con la fecha del documento"> (contado, sin días de crédito)</span>
+                )}
               </>
             }
             acciones={
@@ -576,3 +585,4 @@ function ToleranciaIndicator({ diferencia, cancelada }: ToleranciaIndicatorProps
     </Badge>
   );
 }
+

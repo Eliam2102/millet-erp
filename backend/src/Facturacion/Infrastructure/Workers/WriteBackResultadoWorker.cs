@@ -15,8 +15,6 @@ namespace Millet.Facturacion.Infrastructure.Workers;
 /// pendientes de <c>ingesta_control</c> hacia la tabla-puente
 /// <c>aw_solicitud_pedido</c> vía <see cref="IAwWriteBackPort"/>:
 /// <list type="bullet">
-///   <item>uuid + estado_facturacion al timbrar/cancelar (por-pedido,
-///   <c>WriteBackSolicitudId = null</c> → el adapter usa <c>Guid.Empty</c>);</item>
 ///   <item>reintentos del write-back síncrono por-solicitud que falló
 ///   (HC caída) — la ingesta ya quedó aplicada, solo falta avisar a A+W.</item>
 /// </list>
@@ -85,7 +83,8 @@ public sealed class WriteBackResultadoWorker : BackgroundService
         using var bypass = empresaContext.Bypass();
 
         var pendientes = await db.IngestaControles
-            .Where(c => c.WriteBackPendiente && c.WriteBackIntentos < opts.MaxIntentos)
+            // TR-01: solo reintentos por-solicitud; el write-back por-pedido (B6) quedó apagado.
+            .Where(c => c.WriteBackPendiente && c.WriteBackSolicitudId != null && c.WriteBackIntentos < opts.MaxIntentos)
             .OrderBy(c => c.UltimaLecturaAt)
             .Take(opts.BatchSize)
             .ToListAsync(cancellationToken);

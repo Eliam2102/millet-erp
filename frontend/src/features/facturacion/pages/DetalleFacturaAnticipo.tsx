@@ -2,6 +2,8 @@ import { ErrorState } from '@/components/erp';
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Table,
   TableBody,
@@ -9,12 +11,18 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableContainer,
 } from '@/components/ui/table';
 import type { FacturaAnticipoDetalleResponse } from '@/features/facturacion/api/types';
-import { useFacturaAnticipoDetalle } from '@/features/facturacion/api/useAnticipos';
+import {
+  useEmitirNcDevolucionAnticipo,
+  useFacturaAnticipoDetalle,
+} from '@/features/facturacion/api/useAnticipos';
 import { useCancelacionEstatus } from '@/features/facturacion/api/useFacturas';
 import { CancelarComprobanteForm } from '@/features/facturacion/components/CancelarComprobanteForm';
 import { CobrarEnCajaLink } from '@/features/facturacion/components/CobrarEnCajaLink';
+import { EstadoCancelacionBanner } from '@/features/facturacion/components/EstadoCancelacionBanner';
+import { EstadoReembolsoNcBadge } from '@/features/facturacion/components/EstadoReembolsoNcBadge';
 import { IntentosTimbradoPanel } from '@/features/facturacion/components/IntentosTimbradoPanel';
 import { TimbradoFallidoBanner } from '@/features/facturacion/components/TimbradoFallidoBanner';
 import { TrazabilidadFacturacion } from '@/features/facturacion/components/TrazabilidadFacturacion';
@@ -23,7 +31,7 @@ import type { FacturasAnticipoSearch } from '@/features/facturacion/lib/facturas
 import { ETIQUETA_TIPO_RELACION } from '@/features/facturacion/lib/glosario';
 import { ChipTimbrado } from '@/features/facturacion/pages/BandejaFacturas';
 import { ChipEstadoAnticipo } from '@/features/facturacion/pages/BandejaFacturasAnticipo';
-import { esApiError } from '@/lib/api';
+import { esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
@@ -71,6 +79,8 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
   const puedeVerIntentos = useHasPermission(PermisosCanonicos.FacturacionFacturasLeer);
   const puedeVerNc = useHasPermission(PermisosCanonicos.FacturacionNotasCreditoLeer);
   const cancelacion = useCancelacionEstatus(f.id);
+  // F6.5: con una solicitud pendiente de autorización no se puede pedir otra.
+  const cancelacionPendiente = cancelacion.data?.estadoSolicitud === 'PendienteAutorizacion';
   const [cancelando, setCancelando] = useState(false);
   const timbrada = f.estado === 'Timbrado' || f.estado === 'Cancelado';
   const vigente = f.estado === 'Timbrado';
@@ -126,7 +136,7 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
                     <Printer className="mr-1 h-4 w-4" />
                     Imprimir
                   </Button>
-                  {puedeCancelar && vigente && (
+                  {puedeCancelar && vigente && !cancelacionPendiente && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -162,20 +172,11 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
         errorMensaje={f.timbradoErrorMensaje}
       />
 
-      {cancelacion.data?.estadoSolicitud != null && (
-        <div
-          className="rounded-md border border-line bg-warning-note-bg px-3 py-2 text-sm"
-          data-print="hidden"
-        >
-          <span className="font-medium">Solicitud de cancelación:</span>{' '}
-          {cancelacion.data.estadoSolicitud}
-          {cancelacion.data.motivoSat ? ` · motivo ${cancelacion.data.motivoSat}` : ''}
-          {cancelacion.data.estatusSat ? ` · SAT ${cancelacion.data.estatusSat}` : ''}
-          {cancelacion.data.mensajeError ? (
-            <span className="text-danger-fg"> · {cancelacion.data.mensajeError}</span>
-          ) : null}
-        </div>
-      )}
+      <EstadoCancelacionBanner
+        comprobanteId={f.id}
+        cancelacion={cancelacion.data}
+        puedeRetirar={puedeCancelar}
+      />
 
       <div className="space-y-5">
         <section className="space-y-4">
@@ -198,6 +199,7 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
 
         <section className="space-y-4">
           <section className="space-y-3">
+            <TableContainer maxHeightClassName="">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -214,6 +216,7 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
                 </TableRow>
               </TableBody>
             </Table>
+            </TableContainer>
             <ResumenImportes
               moneda={f.moneda}
               subtotal={f.subtotal}
@@ -289,7 +292,7 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
                                 params={{ id: v.facturaVentaId }}
                                 className="font-mono text-xs font-medium text-brand hover:underline"
                               >
-                                {v.facturaFolio ?? v.facturaVentaId.slice(0, 8)}
+                                {v.facturaFolio ?? 'Ver'}
                               </Link>
                               {v.facturaEstado && (
                                 <span className="ml-2 text-xs text-ink-muted">
@@ -351,6 +354,9 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
                     </Table>
                   </div>
                 )}
+
+                {/* ── F6.3 · CA6.17: devolución en dinero del anticipo no aplicado ── */}
+                <DevolucionesAnticipo f={f} />
               </section>
             )}
 
@@ -401,6 +407,200 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
           </div>
         </section>
       </div>
+    </div>
+  );
+}
+
+/**
+ * F6.3 · CA6.17: devolver en dinero el saldo disponible de un anticipo. Emite la NC de devolución (relación 01 al
+ * anticipo) y, al timbrar, la solicitud de reembolso llega a Tesorería con la cuenta destino.
+ */
+function DevolucionesAnticipo({ f }: { f: FacturaAnticipoDetalleResponse }) {
+  const anticipo = f.anticipo!;
+  const puedeEmitirNc = useHasPermission(PermisosCanonicos.FacturacionNotasCreditoBonificacion);
+  const puedeReembolsar = useHasPermission(
+    PermisosCanonicos.FacturacionNotasCreditoReembolsoSolicitar,
+  );
+  const puedeDevolver = puedeEmitirNc && puedeReembolsar;
+  const [abierto, setAbierto] = useState(false);
+  const [monto, setMonto] = useState('');
+  const [tasaIva, setTasaIva] = useState('0.16');
+  const [banco, setBanco] = useState('');
+  const [clabe, setClabe] = useState('');
+  const [titular, setTitular] = useState('');
+  const idempotencyKey = useFormIdempotencyKey();
+  const emitir = useEmitirNcDevolucionAnticipo(f.id);
+  const devoluciones = anticipo.devoluciones ?? [];
+  const disponible = anticipo.saldoDisponible;
+
+  function enviar() {
+    const importe = Number(monto);
+    if (!(importe > 0) || importe > disponible) {
+      toast.error(
+        `El importe debe ser mayor a 0 y no exceder el disponible (${disponible.toFixed(2)}).`,
+      );
+      return;
+    }
+    if (!banco.trim() || !titular.trim() || !/^[0-9]{18}$/.test(clabe)) {
+      toast.error('Captura banco, titular y una CLABE de 18 dígitos.');
+      return;
+    }
+    emitir.mutate(
+      {
+        command: {
+          anticipoId: anticipo.anticipoId,
+          montoTotal: importe,
+          tasaIva: tasaIva.trim() === '' ? null : Number(tasaIva),
+          reembolso: { banco: banco.trim(), clabe, titular: titular.trim() },
+        },
+        idempotencyKey,
+      },
+      {
+        onSuccess: (res) => {
+          toast.success(
+            `NC ${res.folio} emitida; se pidió a Tesorería el reembolso de ${res.total.toFixed(2)}.`,
+          );
+          setAbierto(false);
+        },
+        onError: (error) =>
+          toast.error(esApiError(error) ? error.problem.title : 'No se pudo devolver el anticipo.'),
+      },
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-medium">Devoluciones al cliente ({devoluciones.length})</h3>
+        {puedeDevolver && anticipo.estado === 'Abierto' && disponible > 0 && !abierto && (
+          <Button size="sm" variant="outline" data-print="hidden" onClick={() => setAbierto(true)}>
+            Devolver anticipo
+          </Button>
+        )}
+      </div>
+      {abierto && (
+        <div
+          className="grid grid-cols-1 gap-2 rounded-md border border-dashed border-line p-3 sm:grid-cols-4"
+          data-print="hidden"
+        >
+          <p className="text-xs text-ink-muted sm:col-span-4">
+            Se emite una nota de crédito por devolución (relación 01 a este anticipo) y Tesorería
+            recibe la solicitud de reembolso. Disponible: {disponible.toFixed(2)} {f.moneda}.
+          </p>
+          <div>
+            <Label className="text-xs" htmlFor="dev-anticipo-monto">
+              Importe *
+            </Label>
+            <Input
+              id="dev-anticipo-monto"
+              type="number"
+              step="0.01"
+              min="0"
+              value={monto}
+              onChange={(e) => setMonto(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label className="text-xs" htmlFor="dev-anticipo-iva">
+              Tasa IVA
+            </Label>
+            <Input
+              id="dev-anticipo-iva"
+              type="number"
+              step="0.01"
+              min="0"
+              max="1"
+              value={tasaIva}
+              onChange={(e) => setTasaIva(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label className="text-xs" htmlFor="dev-anticipo-banco">
+              Banco *
+            </Label>
+            <Input
+              id="dev-anticipo-banco"
+              value={banco}
+              onChange={(e) => setBanco(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label className="text-xs" htmlFor="dev-anticipo-clabe">
+              CLABE *
+            </Label>
+            <Input
+              id="dev-anticipo-clabe"
+              inputMode="numeric"
+              maxLength={18}
+              value={clabe}
+              onChange={(e) => setClabe(e.target.value.replace(/\D/g, ''))}
+            />
+          </div>
+          <div className="sm:col-span-4">
+            <Label className="text-xs" htmlFor="dev-anticipo-titular">
+              Titular *
+            </Label>
+            <Input
+              id="dev-anticipo-titular"
+              value={titular}
+              onChange={(e) => setTitular(e.target.value)}
+            />
+          </div>
+          <div className="flex justify-end gap-2 sm:col-span-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setAbierto(false)}
+              disabled={emitir.isPending}
+            >
+              Cancelar
+            </Button>
+            <Button size="sm" onClick={enviar} disabled={emitir.isPending}>
+              {emitir.isPending ? 'Emitiendo…' : 'Emitir NC y solicitar reembolso'}
+            </Button>
+          </div>
+        </div>
+      )}
+      {devoluciones.length > 0 && (
+        <div className="overflow-x-auto rounded-md border border-line">
+          <Table className="w-full text-sm">
+            <TableHeader className="bg-surface-muted/50">
+              <TableRow>
+                <TableHead className="px-3 py-2 text-left">Nota de crédito</TableHead>
+                <TableHead className="px-3 py-2 text-left">Timbrado</TableHead>
+                <TableHead className="px-3 py-2 text-right tabular-nums">Importe</TableHead>
+                <TableHead className="px-3 py-2 text-left">Reembolso</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {devoluciones.map((d) => (
+                <TableRow key={d.notaCreditoId} className="border-t border-line">
+                  <TableCell className="px-3 py-2 font-mono text-xs">{d.folio}</TableCell>
+                  <TableCell className="px-3 py-2">
+                    <ChipTimbrado estado={d.estado} />
+                  </TableCell>
+                  <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
+                    {d.total.toFixed(2)}
+                  </TableCell>
+                  <TableCell className="px-3 py-2">
+                    {d.estadoReembolso || d.estado === 'Timbrado' ? (
+                      <EstadoReembolsoNcBadge
+                        folio={d.folio}
+                        estado={d.estadoReembolso}
+                        pagadoEl={d.reembolsoPagadoEl}
+                        referencia={d.reembolsoReferencia}
+                        motivo={d.reembolsoMotivoResolucion}
+                      />
+                    ) : (
+                      <span className="text-xs text-ink-muted">Al timbrar</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   );
 }

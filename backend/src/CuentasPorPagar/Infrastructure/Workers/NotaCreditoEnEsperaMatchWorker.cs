@@ -81,6 +81,7 @@ public sealed class NotaCreditoEnEsperaMatchWorker : BackgroundService
         var sp = scope.ServiceProvider;
         var db = sp.GetRequiredService<CuentasPorPagarDbContext>();
         var mediator = sp.GetRequiredService<IMediator>();
+        var formalizacion = sp.GetRequiredService<Application.NotaCargo.FormalizacionNotaCargoService>();
         var clock = sp.GetRequiredService<IClock>();
         var empresaContext = sp.GetRequiredService<ICurrentEmpresaContext>();
 
@@ -125,7 +126,7 @@ public sealed class NotaCreditoEnEsperaMatchWorker : BackgroundService
             {
                 nc.VincularFacturaOrigen(matchFactura.Id, ahora);
                 vinculadas++;
-                await new Application.NotaCargo.FormalizacionNotaCargoService(db, mediator).IntentarAsync(nc, ahora, cancellationToken);
+                await formalizacion.IntentarAsync(nc, ahora, cancellationToken);
 
                 await mediator.Publish(new NotaCreditoProveedorRegistradaDomainEvent(
                     EmpresaId: nc.EmpresaId,
@@ -160,7 +161,7 @@ public sealed class NotaCreditoEnEsperaMatchWorker : BackgroundService
 
         var abiertas = await db.NotasCreditoProveedor.Where(n => n.TipoRelacionCfdi == TipoRelacionCfdi.Devolucion && n.Estado == EstadoNotaCredito.Abierta).ToListAsync(cancellationToken);
         foreach (var nc in abiertas)
-            await new Application.NotaCargo.FormalizacionNotaCargoService(db, mediator).IntentarAsync(nc, ahora, cancellationToken);
+            await formalizacion.IntentarAsync(nc, ahora, cancellationToken);
         if (vinculadas > 0 || db.ChangeTracker.HasChanges())
         {
             await db.SaveChangesAsync(cancellationToken);

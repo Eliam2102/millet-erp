@@ -49,7 +49,7 @@ export function DisputarMovimientoTcSheet({
 }: DisputarMovimientoTcSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-md">
+      <SheetContent side="right" size="form">
         <SheetHeader>
           <SheetTitle>Disputar movimiento TC</SheetTitle>
           <SheetDescription>

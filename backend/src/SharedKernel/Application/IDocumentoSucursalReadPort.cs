@@ -14,6 +14,7 @@ public interface ICxpSucursalReadPort : IDocumentoSucursalReadPort;
 public interface ICxcSucursalReadPort : IDocumentoSucursalReadPort;
 public interface ITesoreriaSucursalReadPort : IDocumentoSucursalReadPort;
 public interface IComercioExteriorSucursalReadPort : IDocumentoSucursalReadPort;
+public interface IProductoTerminadoSucursalReadPort : IDocumentoSucursalReadPort;
 public interface IDocumentoScopedQuery : ISucursalScopedQuery
 {
     string TipoDocumento { get; }

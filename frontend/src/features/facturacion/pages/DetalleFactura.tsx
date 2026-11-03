@@ -3,8 +3,8 @@ import { DatosClienteFactura } from '../components/DatosClienteFactura';
 import { ErrorState } from '@/components/erp';
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { PageHeader } from '@/components/erp/PageHeader';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -27,7 +27,10 @@ import {
 import { CancelarComprobanteForm } from '@/features/facturacion/components/CancelarComprobanteForm';
 import { CobrarEnCajaLink } from '@/features/facturacion/components/CobrarEnCajaLink';
 import { CobroFacturaPanel } from '@/features/facturacion/components/CobroFacturaPanel';
+import { AnticipoPicker } from '@/features/facturacion/components/AnticipoPicker';
 import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
+import { EstadoCancelacionBanner } from '@/features/facturacion/components/EstadoCancelacionBanner';
+import { EstadoReembolsoNcBadge } from '@/features/facturacion/components/EstadoReembolsoNcBadge';
 import { IntentosTimbradoPanel } from '@/features/facturacion/components/IntentosTimbradoPanel';
 import { SolicitarReembolsoNcDialog } from '@/features/facturacion/components/SolicitarReembolsoNcDialog';
 import { TimbradoFallidoBanner } from '@/features/facturacion/components/TimbradoFallidoBanner';
@@ -43,9 +46,12 @@ import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { Ban, Download, FileCode, Mail, Printer, Receipt, X } from 'lucide-react';
 import { useState } from 'react';
+import type { AnticipoEstadoCuenta } from '@/features/facturacion/api/types';
+import { useAplicarAnticipoAFactura } from '@/features/facturacion/api/useAnticipos';
 import { toast } from 'sonner';
 
 const BASE = '/api/v1/facturacion/facturas';
+const NC_BASE = '/api/v1/facturacion/notas-credito';
 
 /**
  * <c>Detalle del comprobante</c> (FE-F2). Cabecera fiscal + conceptos +
@@ -86,11 +92,15 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
   const puedeReembolsar = useHasPermission(
     PermisosCanonicos.FacturacionNotasCreditoReembolsoSolicitar,
   );
+  const puedeVerNc = useHasPermission(PermisosCanonicos.FacturacionNotasCreditoLeer);
   const [reembolsoNc, setReembolsoNc] = useState<
     NonNullable<typeof f.notasCreditoAplicadas>[number] | null
   >(null);
   const cancelacion = useCancelacionEstatus(f.id);
-  const [accion, setAccion] = useState<'cancelar' | 'nc' | null>(null);
+  // F6.5: con una solicitud pendiente de autorización no se puede pedir otra.
+  const cancelacionPendiente = cancelacion.data?.estadoSolicitud === 'PendienteAutorizacion';
+  const [accion, setAccion] = useState<'cancelar' | 'nc' | 'anticipo' | null>(null);
+  const puedeAplicarAnticipo = useHasPermission(PermisosCanonicos.FacturacionAnticiposVincular);
   const timbrada = f.estado === 'Timbrado' || f.estado === 'Cancelado';
   // Solo una factura vigente (Timbrado) admite NC / cancelación.
   const vigente = f.estado === 'Timbrado';
@@ -105,6 +115,15 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
       } else {
         await descargarArchivo(`${BASE}/${f.id}/pdf?formato=termica`, `${f.folio}-termica.pdf`);
       }
+    } catch (error) {
+      toast.error(esApiError(error) ? error.problem.title : 'No se pudo descargar el archivo.');
+    }
+  }
+
+  // FMT-4: XML y PDF (formato de Millet) de cada NC aplicada, como en el detalle del anticipo.
+  async function descargarNc(ncId: string, folio: string, tipo: 'xml' | 'pdf') {
+    try {
+      await descargarArchivo(`${NC_BASE}/${ncId}/${tipo}`, `${folio}.${tipo}`);
     } catch (error) {
       toast.error(esApiError(error) ? error.problem.title : 'No se pudo descargar el archivo.');
     }
@@ -166,6 +185,16 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
                     <Printer className="mr-1 h-4 w-4" />
                     Imprimir
                   </Button>
+                  {puedeAplicarAnticipo && vigente && f.clienteId && (f.totalPorCobrar ?? 0) > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAccion((a) => (a === 'anticipo' ? null : 'anticipo'))}
+                    >
+                      <Receipt className="mr-1 h-4 w-4" />
+                      Aplicar anticipo
+                    </Button>
+                  )}
                   {puedeNc && vigente && (
                     <Button
                       variant="outline"
@@ -176,7 +205,7 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
                       NC bonificación
                     </Button>
                   )}
-                  {puedeCancelar && vigente && (
+                  {puedeCancelar && vigente && !cancelacionPendiente && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -201,10 +230,19 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
         {f.uuid && <p className="font-mono text-xs text-ink-muted">UUID {f.uuid}</p>}
       </div>
 
+      {accion === 'anticipo' && f.clienteId && (
+        <AplicarAnticipoForm
+          facturaId={f.id}
+          clienteId={f.clienteId}
+          porCobrar={f.totalPorCobrar ?? 0}
+          onDone={() => setAccion(null)}
+        />
+      )}
       {accion === 'nc' && (
         <NcBonificacionForm
           facturaId={f.id}
           totalFactura={f.total}
+          puedeReembolsar={puedeReembolsar}
           onDone={() => setAccion(null)}
         />
       )}
@@ -221,20 +259,11 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
         errorMensaje={f.timbradoErrorMensaje}
       />
 
-      {cancelacion.data?.estadoSolicitud != null && (
-        <div
-          className="rounded-md border border-line bg-warning-note-bg px-3 py-2 text-sm"
-          data-print="hidden"
-        >
-          <span className="font-medium">Solicitud de cancelación:</span>{' '}
-          {cancelacion.data.estadoSolicitud}
-          {cancelacion.data.motivoSat ? ` · motivo ${cancelacion.data.motivoSat}` : ''}
-          {cancelacion.data.estatusSat ? ` · SAT ${cancelacion.data.estatusSat}` : ''}
-          {cancelacion.data.mensajeError ? (
-            <span className="text-danger-fg"> · {cancelacion.data.mensajeError}</span>
-          ) : null}
-        </div>
-      )}
+      <EstadoCancelacionBanner
+        comprobanteId={f.id}
+        cancelacion={cancelacion.data}
+        puedeRetirar={puedeCancelar}
+      />
 
       <div className="space-y-5">
         <section className="space-y-4">
@@ -337,6 +366,9 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
                         <TableHead className="px-3 py-2 text-left">UUID</TableHead>
                         <TableHead className="px-3 py-2 text-right tabular-nums">Total</TableHead>
                         <TableHead className="px-3 py-2 text-left">Reembolso</TableHead>
+                        <TableHead className="px-3 py-2 text-right" data-print="hidden">
+                          Archivos
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -353,8 +385,14 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
                             {nc.total.toFixed(2)}
                           </TableCell>
                           <TableCell className="px-3 py-2">
-                            {nc.reembolsoSolicitado ? (
-                              <Badge variant="info">Solicitado</Badge>
+                            {nc.reembolsoSolicitado || nc.estadoReembolso ? (
+                              <EstadoReembolsoNcBadge
+                                folio={nc.folio}
+                                estado={nc.estadoReembolso ?? null}
+                                pagadoEl={nc.reembolsoPagadoEl}
+                                referencia={nc.reembolsoReferencia}
+                                motivo={nc.reembolsoMotivoResolucion}
+                              />
                             ) : puedeReembolsar &&
                               nc.motivo !== 'Amortizacion' &&
                               nc.motivo !== 'Ranura' ? (
@@ -367,6 +405,30 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
                                 Solicitar reembolso
                               </Button>
                             ) : null}
+                          </TableCell>
+                          <TableCell className="px-3 py-2 text-right" data-print="hidden">
+                            {puedeVerNc && nc.uuid ? (
+                              <span className="inline-flex gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  aria-label={`XML de la nota de crédito ${nc.folio}`}
+                                  onClick={() => descargarNc(nc.id, nc.folio, 'xml')}
+                                >
+                                  XML
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  aria-label={`PDF de la nota de crédito ${nc.folio}`}
+                                  onClick={() => descargarNc(nc.id, nc.folio, 'pdf')}
+                                >
+                                  PDF
+                                </Button>
+                              </span>
+                            ) : (
+                              <span className="text-xs text-ink-muted">—</span>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -605,18 +667,117 @@ function PedimentoForm({ facturaId }: { facturaId: string }) {
   );
 }
 
+/**
+ * F1-CXC-05 P2 (compensación): aplica el saldo de un anticipo del cliente a esta
+ * factura ya timbrada. Emite la NC de amortización (relación 07) y CxC la
+ * descuenta del saldo; el importe no pasa del saldo del anticipo ni de lo que
+ * falta por cobrar.
+ */
+function AplicarAnticipoForm({
+  facturaId,
+  clienteId,
+  porCobrar,
+  onDone,
+}: {
+  facturaId: string;
+  clienteId: string;
+  porCobrar: number;
+  onDone: () => void;
+}) {
+  const [anticipo, setAnticipo] = useState<AnticipoEstadoCuenta | null>(null);
+  const [importe, setImporte] = useState('');
+  const idempotencyKey = useFormIdempotencyKey();
+  const aplicar = useAplicarAnticipoAFactura(facturaId);
+  const tope = anticipo ? Math.min(anticipo.saldo, porCobrar) : porCobrar;
+
+  function elegir(item: AnticipoEstadoCuenta | null) {
+    setAnticipo(item);
+    setImporte(item ? Math.min(item.saldo, porCobrar).toFixed(2) : '');
+  }
+
+  function enviar() {
+    const monto = Number(importe);
+    if (!anticipo) {
+      toast.error('Selecciona el anticipo a aplicar.');
+      return;
+    }
+    if (!(monto > 0) || monto > tope) {
+      toast.error(`El importe debe ser mayor a 0 y no exceder ${tope.toFixed(2)}.`);
+      return;
+    }
+    aplicar.mutate(
+      { anticipoId: anticipo.anticipoId, importe: monto, idempotencyKey },
+      {
+        onSuccess: (res) => {
+          toast.success(`Anticipo aplicado con la NC ${res.folio} por ${res.importe.toFixed(2)}.`);
+          onDone();
+        },
+        onError: (error) =>
+          toast.error(esApiError(error) ? error.problem.title : 'No se pudo aplicar el anticipo.'),
+      },
+    );
+  }
+
+  return (
+    <div
+      className="grid grid-cols-1 gap-2 rounded-md border border-dashed p-3 sm:grid-cols-4 border-line"
+      data-print="hidden"
+    >
+      <div className="sm:col-span-4 text-sm font-medium">
+        Aplicar anticipo a esta factura (NC de amortización, relación 07)
+      </div>
+      <div className="sm:col-span-4">
+        <ErrorTimbradoAviso error={aplicar.error} />
+      </div>
+      <div className="sm:col-span-2">
+        <Label className="text-xs">Anticipo *</Label>
+        <AnticipoPicker clienteId={clienteId} value={anticipo?.anticipoId} onChange={elegir} />
+      </div>
+      <div>
+        <Label className="text-xs" htmlFor="aplicar-anticipo-importe">
+          Importe *
+        </Label>
+        <Input
+          id="aplicar-anticipo-importe"
+          type="number"
+          step="0.01"
+          min="0"
+          value={importe}
+          onChange={(e) => setImporte(e.target.value)}
+        />
+      </div>
+      <p className="self-end text-xs text-ink-muted">Por cobrar: {porCobrar.toFixed(2)}</p>
+      <div className="sm:col-span-4 flex justify-end gap-2">
+        <Button variant="ghost" size="sm" onClick={onDone} disabled={aplicar.isPending}>
+          Cancelar
+        </Button>
+        <Button size="sm" onClick={enviar} disabled={aplicar.isPending}>
+          {aplicar.isPending ? 'Aplicando…' : 'Aplicar anticipo'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function NcBonificacionForm({
   facturaId,
   totalFactura,
+  puedeReembolsar,
   onDone,
 }: {
   facturaId: string;
   totalFactura: number;
+  puedeReembolsar: boolean;
   onDone: () => void;
 }) {
   const [montoTotal, setMontoTotal] = useState('');
   const [tasaIva, setTasaIva] = useState('0.16');
   const [descripcion, setDescripcion] = useState('');
+  // F6.3: «Devolver dinero al cliente» con la cuenta destino; al timbrar, la solicitud llega a Tesorería.
+  const [devolver, setDevolver] = useState(false);
+  const [banco, setBanco] = useState('');
+  const [clabe, setClabe] = useState('');
+  const [titular, setTitular] = useState('');
   const idempotencyKey = useFormIdempotencyKey();
   const emitir = useEmitirNcBonificacion();
 
@@ -626,6 +787,10 @@ function NcBonificacionForm({
       toast.error('El monto debe ser mayor a 0 y no exceder el total de la factura.');
       return;
     }
+    if (devolver && (!banco.trim() || !titular.trim() || !/^[0-9]{18}$/.test(clabe.trim()))) {
+      toast.error('Para devolver el dinero captura banco, titular y una CLABE de 18 dígitos.');
+      return;
+    }
     emitir.mutate(
       {
         command: {
@@ -633,6 +798,9 @@ function NcBonificacionForm({
           montoTotal: monto,
           tasaIva: tasaIva.trim() === '' ? null : Number(tasaIva),
           descripcion: descripcion.trim() || null,
+          reembolso: devolver
+            ? { banco: banco.trim(), clabe: clabe.trim(), titular: titular.trim() }
+            : null,
         },
         idempotencyKey,
       },
@@ -685,6 +853,40 @@ function NcBonificacionForm({
         <Label className="text-xs">Descripción</Label>
         <Input value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
       </div>
+      {puedeReembolsar && (
+        <div className="sm:col-span-4 flex items-center gap-2">
+          <Checkbox
+            id="nc-devolver-dinero"
+            checked={devolver}
+            onCheckedChange={(checked) => setDevolver(checked === true)}
+          />
+          <Label htmlFor="nc-devolver-dinero" className="text-sm">
+            Devolver dinero al cliente (al timbrar se pide el reembolso a Tesorería)
+          </Label>
+        </div>
+      )}
+      {devolver && (
+        <>
+          <div>
+            <Label className="text-xs" htmlFor="nc-reembolso-banco">Banco *</Label>
+            <Input id="nc-reembolso-banco" value={banco} onChange={(e) => setBanco(e.target.value)} />
+          </div>
+          <div>
+            <Label className="text-xs" htmlFor="nc-reembolso-clabe">CLABE *</Label>
+            <Input
+              id="nc-reembolso-clabe"
+              inputMode="numeric"
+              maxLength={18}
+              value={clabe}
+              onChange={(e) => setClabe(e.target.value.replace(/\D/g, ''))}
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <Label className="text-xs" htmlFor="nc-reembolso-titular">Titular *</Label>
+            <Input id="nc-reembolso-titular" value={titular} onChange={(e) => setTitular(e.target.value)} />
+          </div>
+        </>
+      )}
       <div className="sm:col-span-4 flex justify-end gap-2">
         <Button variant="ghost" size="sm" onClick={onDone} disabled={emitir.isPending}>
           Cancelar

@@ -63,6 +63,14 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
     public string? DestinoBanco { get; private set; }
     public string? DestinoNumeroCuenta { get; private set; }
     public string? DestinoTitular { get; private set; }
+
+    /// <summary>
+    /// 86e3tfdve (opción A): cuenta del cliente desde la que pagó (CtaOrdenante del REP),
+    /// capturada una vez al registrar el ingreso. PII (ADR-0006): enmascarada al mostrarse.
+    /// No viaja en <c>pago-cliente.confirmado.v1</c> (cuidados-infra §4); Facturación la
+    /// lee por puerto con el id del movimiento.
+    /// </summary>
+    public string? CuentaOrdenante { get; private set; }
     /// <summary>Quien registró confirmó haber verificado fondos en la banca (no hay integración bancaria).</summary>
     public bool FondosVerificados { get; private set; }
 
@@ -84,7 +92,8 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
         Guid? beneficiarioRef,
         Guid creadoPor,
         DateTimeOffset ahora,
-        Guid? sucursalId = null)
+        Guid? sucursalId = null,
+        string? cuentaOrdenante = null)
     {
         cuenta.ValidarFechaMovimiento(fechaValor);
         if (!cuenta.Activa)
@@ -97,6 +106,13 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
                 "Si se indica la referencia del beneficiario, el tipo es obligatorio.");
         if (creadoPor == Guid.Empty)
             throw new BusinessRuleException("MOV_USUARIO_VACIO", "El usuario que registra es obligatorio.");
+        // La forma de pago aún no se conoce: solo el patrón general del SAT. La forma
+        // real se valida en Facturación al revisar y al emitir el REP.
+        var ordenante = CuentaPagoSat.Normalizar(cuentaOrdenante);
+        if (ordenante is not null && !CuentaPagoSat.CumpleGeneral(ordenante))
+            throw new BusinessRuleException("MOV_CUENTA_ORDENANTE_INVALIDA",
+                $"La cuenta ordenante {CuentaPagoSat.Enmascarar(ordenante)} no tiene un formato del SAT: " +
+                $"se esperan {CuentaPagoSat.DescripcionGeneral}.");
 
         return new MovimientoBancario
         {
@@ -104,6 +120,7 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
             EmpresaId = empresaId,
             SucursalId = sucursalId,
             CuentaBancariaId = cuenta.Id,
+            CuentaOrdenante = ordenante,
             Sentido = SentidoMovimiento.Ingreso,
             Monto = monto,
             // RN-3: la moneda del movimiento ES la de la cuenta — no se
@@ -162,7 +179,7 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
             Moneda = cuenta.Moneda,
             FechaValor = fechaValor,
             ReferenciaBancaria = NormalizarReferencia(referenciaBancaria),
-            ConceptoId = conceptoId,
+            ConceptoId = conceptoId ?? Cuentas.ConceptoMovimiento.PagoProveedorId,
             // Nace Aplicado: las N AplicacionPagoProveedor se crean en la
             // misma transacción cubriendo el monto completo. Esto además lo
             // deja fuera del índice parcial RN-2 (que solo captura egresos
@@ -372,7 +389,7 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
             Moneda = cuenta.Moneda,
             FechaValor = fechaValor,
             ReferenciaBancaria = NormalizarReferencia(referenciaBancaria),
-            ConceptoId = conceptoId,
+            ConceptoId = conceptoId ?? Cuentas.ConceptoMovimiento.PagoProveedorId,
             EstadoAplicacion = EstadoAplicacionMovimiento.NoAplicado,
             EstadoConciliacion = EstadoConciliacionMovimiento.NoConciliado,
             BeneficiarioTipo = proveedorId is null
@@ -411,6 +428,68 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
             throw new BusinessRuleException("MOV_RECLASIFICACION_INVALIDA", "Selecciona el concepto e indica el motivo de la reclasificación.");
         ConceptoId = conceptoId;
         MotivoReclasificacion = motivo.Trim();
+    }
+
+    /// <summary>
+    /// Marca el movimiento como conciliado contra extracto (T9.2).
+    /// </summary>
+    public void MarcarConciliado()
+    {
+        EstadoConciliacion = EstadoConciliacionMovimiento.Conciliado;
+    }
+
+    /// <summary>
+    /// Desmarca el movimiento como conciliado al desemparejar con motivo (T9.2, T9.2-a).
+    /// </summary>
+    public void DesmarcarConciliado()
+    {
+        EstadoConciliacion = EstadoConciliacionMovimiento.NoConciliado;
+    }
+
+    /// <summary>
+    /// Alta asistida desde extracto bancario (T9.2 / CA9.8): crea un movimiento (comisión, interés,
+    /// depósito no registrado) nacido aplicado y conciliado.
+    /// </summary>
+    public static MovimientoBancario RegistrarMovimientoConciliacion(
+        Guid empresaId,
+        CuentaBancaria cuenta,
+        SentidoMovimiento sentido,
+        decimal monto,
+        DateOnly fechaValor,
+        string? referenciaBancaria,
+        Guid conceptoId,
+        Guid creadoPor,
+        DateTimeOffset ahora,
+        Guid? sucursalId = null)
+    {
+        cuenta.ValidarFechaMovimiento(fechaValor);
+        if (!cuenta.Activa)
+            throw new BusinessRuleException("MOV_CUENTA_INACTIVA",
+                $"La cuenta bancaria '{cuenta.Banco}' está inactiva.");
+        if (monto <= 0)
+            throw new BusinessRuleException("MOV_MONTO_INVALIDO", "El monto debe ser mayor a cero.");
+        if (creadoPor == Guid.Empty)
+            throw new BusinessRuleException("MOV_USUARIO_VACIO", "El usuario que registra es obligatorio.");
+        if (conceptoId == Guid.Empty)
+            throw new BusinessRuleException("MOV_CONCEPTO_VACIO", "El concepto es obligatorio para el movimiento.");
+
+        return new MovimientoBancario
+        {
+            Id = Guid.CreateVersion7(),
+            EmpresaId = empresaId,
+            SucursalId = sucursalId,
+            CuentaBancariaId = cuenta.Id,
+            Sentido = sentido,
+            Monto = monto,
+            Moneda = cuenta.Moneda,
+            FechaValor = fechaValor,
+            ReferenciaBancaria = NormalizarReferencia(referenciaBancaria),
+            ConceptoId = conceptoId,
+            EstadoAplicacion = EstadoAplicacionMovimiento.Aplicado,
+            EstadoConciliacion = EstadoConciliacionMovimiento.Conciliado,
+            CreadoPor = creadoPor,
+            CreadoEn = ahora,
+        };
     }
 
     /// <summary>VO ReferenciaBancaria (§4.3): texto corto normalizado (trim + upper).</summary>

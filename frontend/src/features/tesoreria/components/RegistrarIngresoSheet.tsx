@@ -28,7 +28,7 @@ import { useSucursalesPermitidas } from '@/features/compras/ordenes/api/useSucur
 import { CuentaBancariaSelector } from './CuentaBancariaSelector';
 import { ConceptoSelector } from './ConceptoSelector';
 import { useRegistrarMovimientoIngreso } from '../api/useTesoreria';
-import { IngresoSchema } from '../lib/ingreso';
+import { IngresoSchema, normalizarCuentaOrdenante } from '../lib/ingreso';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
@@ -69,6 +69,8 @@ function IngresoForm({ cerrar }: { cerrar: () => void }) {
   // C7.4 · CA7.9: depósito de cliente; sin cliente queda «sin identificar» para CxC.
   const [cobroCliente, setCobroCliente] = useState(false);
   const [cliente, setCliente] = useState<string | null>(null);
+  // 86e3tfdve (opción A): cuenta del cliente que pagó; Facturación la usa como CtaOrdenante del REP.
+  const [ordenante, setOrdenante] = useState('');
   const registrar = useRegistrarMovimientoIngreso();
   const key = useBodyScopedIdempotencyKey();
   const resultado = IngresoSchema.safeParse({
@@ -80,7 +82,12 @@ function IngresoForm({ cerrar }: { cerrar: () => void }) {
     referenciaBancaria: referencia || undefined,
     beneficiarioTipo: cobroCliente ? BeneficiarioTipo.Cliente : undefined,
     beneficiarioRef: cobroCliente && cliente ? cliente : undefined,
+    cuentaOrdenante: cobroCliente ? normalizarCuentaOrdenante(ordenante) : undefined,
   });
+  const errorOrdenante =
+    cobroCliente && !resultado.success
+      ? resultado.error.issues.find((i) => i.path[0] === 'cuentaOrdenante')?.message
+      : undefined;
   function guardar() {
     if (!resultado.success) return;
     registrar.mutate(
@@ -174,7 +181,10 @@ function IngresoForm({ cerrar }: { cerrar: () => void }) {
                   checked={cobroCliente}
                   onCheckedChange={(v) => {
                     setCobroCliente(v === true);
-                    if (v !== true) setCliente(null);
+                    if (v !== true) {
+                      setCliente(null);
+                      setOrdenante('');
+                    }
                   }}
                 />
                 <Label htmlFor="ingreso-cobro-cliente">Cobro de cliente (cliente opcional)</Label>
@@ -190,6 +200,25 @@ function IngresoForm({ cerrar }: { cerrar: () => void }) {
                     Sin el detalle del cliente (remittance) el depósito queda «sin identificar» en
                     Cuentas por Cobrar y no se aplica hasta identificarlo.
                   </p>
+                  <div className="space-y-1">
+                    <Label htmlFor="ingreso-cuenta-ordenante">Cuenta ordenante del cliente</Label>
+                    <Input
+                      id="ingreso-cuenta-ordenante"
+                      placeholder="Opcional"
+                      maxLength={50}
+                      autoComplete="off"
+                      value={ordenante}
+                      aria-invalid={!!errorOrdenante}
+                      onChange={(e) => setOrdenante(e.target.value)}
+                    />
+                    <p className="text-2xs text-ink-muted">
+                      Cuenta desde la que pagó el cliente. Se usa en el complemento de pago (REP) y
+                      se muestra enmascarada.
+                    </p>
+                    {errorOrdenante && (
+                      <p className="text-xs text-danger-fg">{errorOrdenante}</p>
+                    )}
+                  </div>
                 </>
               )}
             </div>
@@ -205,7 +234,7 @@ function IngresoForm({ cerrar }: { cerrar: () => void }) {
           disabled={!resultado.success || registrar.isPending}
           title={
             !resultado.success
-              ? 'Selecciona sucursal, cuenta, fecha e importe positivo.'
+              ? (errorOrdenante ?? 'Selecciona sucursal, cuenta, fecha e importe positivo.')
               : undefined
           }
         >

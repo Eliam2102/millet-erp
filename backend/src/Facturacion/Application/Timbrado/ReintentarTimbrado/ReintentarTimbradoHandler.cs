@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Facturacion.Application.Integration;
+using Millet.Facturacion.Application.NotasCredito.SolicitarReembolso;
 using Millet.Facturacion.Application.NotasCredito;
 using Millet.Facturacion.Domain.Anticipos;
 using Millet.Facturacion.Domain.Comprobantes;
@@ -110,10 +111,11 @@ public sealed class ReintentarTimbradoHandler
         }
 
         var ahora = _clock.UtcNow;
-        if (!await _periodo.EstaAbiertoAsync(ahora.Year, ahora.Month, ct))
+        var fiscal = Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.FechaFiscal(ahora); // período en la fecha fiscal de México, no en UTC
+        if (!await _periodo.EstaAbiertoAsync(fiscal.Year, fiscal.Month, ct))
             throw new BusinessRuleException(
                 "PERIODO_CERRADO",
-                $"El período contable {ahora.Year}-{ahora.Month:D2} está cerrado; no se puede timbrar.");
+                $"El período contable {fiscal.Year}-{fiscal.Month:D2} está cerrado; no se puede timbrar.");
 
         if (comprobante is ReciboPago recibo)
         {
@@ -205,7 +207,10 @@ public sealed class ReintentarTimbradoHandler
         {
             await _eventos.PublishAsync(EventosContablesFacturacion.FacturaVentaTimbrada(
                 factura, ahora, clienteId: await ClienteContableFacturacion.ResolverAsync(_db, factura, ct),
-                tiposProducto: await EventosContablesFacturacion.TiposProductoAsync(_productos, factura, ct)),
+                tiposProducto: await EventosContablesFacturacion.TiposProductoAsync(_productos, factura, ct),
+                pedido: factura.PedidoFacturableId is Guid pedidoEvt
+                    ? await _db.PedidosFacturables.AsNoTracking().FirstOrDefaultAsync(p => p.Id == pedidoEvt, ct)
+                    : null),
                 ct);
             await _contabilidad.RegistrarAsientoAsync(new AsientoContableSolicitud(
                 factura.Id, "FacturaVenta", $"Factura {factura.Folio}", factura.Total, factura.Moneda,
@@ -233,7 +238,6 @@ public sealed class ReintentarTimbradoHandler
                     .FirstOrDefaultAsync(c => c.PedidoFacturableId == pedido.Id, ct);
                 if (control is not null)
                 {
-                    control.SolicitarWriteBackEstado("Facturado", factura.Uuid, _clock.UtcNow);
                     control.CambiarEstado(EstadoIngesta.Facturado);
                 }
             }
@@ -294,6 +298,9 @@ public sealed class ReintentarTimbradoHandler
         {
             await _eventos.PublishAsync(EventosContablesFacturacion.NotaCreditoTimbrada(
                 nc, ahora, clienteId: await ClienteContableFacturacion.ResolverAsync(_db, nc, ct)), ct);
+            // F6.3: el reembolso programado al emitir sale cuando por fin queda timbrada.
+            // Sin usuario en el reintento: queda como solicitante quien emitió la nota.
+            await ReembolsoNotaCredito.SolicitarProgramadoSiAplicaAsync(_db, _eventos, nc, usuarioId: null, ahora, ct);
         }
 
         return nameof(NotaCredito);

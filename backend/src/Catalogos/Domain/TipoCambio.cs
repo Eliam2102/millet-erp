@@ -46,4 +46,19 @@ public sealed class TipoCambio : BaseEntity, IAuditable
         ValorEnMxn = valorEnMxn;
         Origen = origen;
     }
+
+    /// <summary>
+    /// K10.6: la descarga diaria corrige su propio valor si Banxico lo publicó distinto.
+    /// Las capturas manuales no se tocan.
+    /// </summary>
+    public void CorregirValorBanxico(decimal valorEnMxn)
+    {
+        if (Origen != OrigenTipoCambio.Banxico)
+            throw new BusinessRuleException("TIPO_CAMBIO_NO_ES_BANXICO",
+                "Solo se corrigen los tipos de cambio descargados de Banxico.");
+        if (valorEnMxn <= 0)
+            throw new BusinessRuleException("TIPO_CAMBIO_VALOR_INVALIDO",
+                "El valor en MXN debe ser mayor a cero.");
+        ValorEnMxn = valorEnMxn;
+    }
 }

@@ -84,7 +84,7 @@ describe('<Activos> — smoke', () => {
     render(<Activos />, { wrapper: createQueryWrapper() });
     fireEvent.click(screen.getByRole('button', { name: 'Autorizar venta' }));
     expect(screen.getAllByText(/Director de Administración y Finanzas/).length).toBeGreaterThan(0);
-    const autorizar = screen.getByRole('button', { name: 'Autorizar', exact: true });
+    const autorizar = screen.getByRole('button', { name: 'Autorizar' });
     expect(autorizar).toBeDisabled();
     fireEvent.change(screen.getByLabelText('Referencia del activo *'), {
       target: { value: 'AF-1' },

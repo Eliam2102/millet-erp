@@ -346,7 +346,7 @@ function RenderLista({
                   <DateTimeDisplay value={rq.fechaSolicitud} />
                 </TableCell>
                 <TableCell className="px-3 py-2 truncate">
-                  {depto?.nombre ?? rq.departamentoId}
+                  {depto?.nombre ?? '—'}
                 </TableCell>
                 <TableCell className="px-3 py-2 truncate">
                   {nombreUsuarioOGuion(requisitante?.nombre)}

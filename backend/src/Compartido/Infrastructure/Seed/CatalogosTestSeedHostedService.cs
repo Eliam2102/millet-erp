@@ -98,7 +98,9 @@ public sealed class CatalogosTestSeedHostedService : IHostedService
             {
                 // Decisión 07-oct: la sesión conserva la organización canónica,
                 // pero sus proveedores y artículos los crea el sembrador DEMO.
-                if (!_demoSesionHabilitado)
+                // Staging = servidor de pruebas con datos reales de Millet (Eliam, 27-oct):
+                // proveedores y artículos llegan por la carga de SAP, no por este seed.
+                if (!_demoSesionHabilitado && !_environment.IsStaging())
                 {
                     await SeedProveedoresAsync(db, ct);
                     await SeedArticulosAsync(db, ct);

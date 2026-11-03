@@ -20,6 +20,9 @@ import type {
 } from '@/modules/datos-maestros/api/types';
 
 export interface ListarProveedoresFiltros {
+  soloExpedienteIncompleto?: boolean;
+  /** 86e3tactf: lista de proveedores bloqueados. */
+  bloqueado?: boolean;
   /** Caja única: clave, RFC, razón social o nombre comercial (parcial). */
   q?: string;
   rfc?: string;
@@ -69,6 +72,8 @@ export interface ListarProductosAwFiltros {
   fiscalesIncompletos?: boolean;
   /** Tipo de A+W, igualdad exacta (Vidrio plano, VTE, VLA, VC). */
   tipo?: string;
+  /** true = solo servicios de recubrimiento (PIN-2). */
+  esServicioRecubrimiento?: boolean;
   offset?: number;
   limit?: number;
 }

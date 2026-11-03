@@ -20,9 +20,10 @@ namespace Millet.Tesoreria.Domain.Depositos;
 /// Dos orígenes:
 /// (a) propuesta de CxC (<see cref="PropuestaCxcId"/>) — al confirmar se
 /// publica <c>pago-cliente.confirmado.v1</c> y Facturación emite el REPP;
-/// (b) expectativa de Caja (<see cref="CajaSesionId"/>) — solo cierra el
-/// ciclo Caja→Banco, sin evento (el hecho fiscal del mostrador ya lo
-/// cubrió el cobro de caja).
+/// (b) expectativa de Caja (<see cref="CajaSesionId"/>) — se cubre con 1..N
+/// <see cref="Fichas"/> (<see cref="AgregarFicha"/>); cada ficha publica
+/// <c>tesoreria.deposito-caja.confirmado.v1</c> para la póliza de Contabilidad
+/// (el hecho fiscal del mostrador ya lo cubrió el cobro de caja).
 /// </para>
 /// </summary>
 public sealed class DepositoConfirmacion : BaseEntity, IPerteneceAEmpresa, IAuditable
@@ -53,6 +54,19 @@ public sealed class DepositoConfirmacion : BaseEntity, IPerteneceAEmpresa, IAudi
 
     /// <summary>Expectativa de depósito de Caja (<c>facturacion.caja-sesion.cerrada.v1</c>).</summary>
     public Guid? CajaSesionId { get; private set; }
+
+    /// <summary>Día del corte (día de operación de la sesión): lo conserva el evento aunque la ficha caiga otro día.</summary>
+    public DateOnly? DiaCorte { get; private set; }
+    public Guid? SucursalId { get; private set; }
+
+    /// <summary>Cajero responsable de la sesión de caja.</summary>
+    public Guid? CajeroId { get; private set; }
+
+    /// <summary>Fichas que cubren el corte (solo expectativas de Caja).</summary>
+    public List<DepositoFicha> Fichas { get; private set; } = [];
+
+    /// <summary>Lo que falta por depositar del corte; null si no es expectativa de Caja.</summary>
+    public decimal? SaldoPorDepositar => CajaSesionId is null ? null : (MontoEsperado ?? 0m) - Fichas.Sum(f => f.Importe);
 
     /// <summary>
     /// Solicitud de viáticos origen (GI-PR4, doc 12 §D4/Q3): expectativa
@@ -129,7 +143,9 @@ public sealed class DepositoConfirmacion : BaseEntity, IPerteneceAEmpresa, IAudi
         Guid empresaId,
         Guid cajaSesionId,
         decimal efectivoDeclarado,
-        DateOnly diaOperacion)
+        DateOnly diaOperacion,
+        Guid? sucursalId = null,
+        Guid? cajeroId = null)
     {
         if (cajaSesionId == Guid.Empty)
             throw new BusinessRuleException("DEP_CAJA_SESION_VACIA", "La sesión de caja es obligatoria.");
@@ -144,6 +160,9 @@ public sealed class DepositoConfirmacion : BaseEntity, IPerteneceAEmpresa, IAudi
             CajaSesionId = cajaSesionId,
             DepositoRef = $"CAJA {diaOperacion:yyyy-MM-dd}",
             MontoEsperado = efectivoDeclarado,
+            DiaCorte = diaOperacion,
+            SucursalId = sucursalId,
+            CajeroId = cajeroId,
             // Las cajas operan efectivo MXN (12-cajas.md); si llega
             // multimoneda de caja algún día, vendrá en el evento.
             Moneda = "MXN",
@@ -200,6 +219,8 @@ public sealed class DepositoConfirmacion : BaseEntity, IPerteneceAEmpresa, IAudi
     public void Confirmar(MovimientoBancario movimiento, Guid usuarioId, DateTimeOffset ahora, decimal? disponible = null)
     {
         AsegurarPendiente();
+        if (CajaSesionId is not null)
+            throw new BusinessRuleException("DEP_CORTE_CAJA_USA_FICHAS", "El depósito de un corte de caja se cubre con fichas (AgregarFicha).");
         if (usuarioId == Guid.Empty)
             throw new BusinessRuleException("DEP_USUARIO_VACIO", "El usuario que confirma es obligatorio.");
         if (PropuestaCxcId is not null && (PropuestoPor is null || PropuestoPor == Guid.Empty))
@@ -247,6 +268,53 @@ public sealed class DepositoConfirmacion : BaseEntity, IPerteneceAEmpresa, IAudi
     }
 
     /// <summary>
+    /// Millet 23-oct: liga una ficha (movimiento de ingreso completo) al corte de caja.
+    /// Estado: Pendiente → Parcial (suma menor al efectivo) → Confirmada (suma igual).
+    /// Desde la segunda ficha exige documento soporte (vale de caja o corte parcial) con folio;
+    /// la suma no puede exceder el efectivo del corte.
+    /// </summary>
+    public DepositoFicha AgregarFicha(MovimientoBancario movimiento, Guid usuarioId, DateTimeOffset ahora,
+        SoporteFicha? soporteTipo = null, string? soporteFolio = null)
+    {
+        if (CajaSesionId is null)
+            throw new BusinessRuleException("DEP_NO_ES_CORTE_CAJA", "Solo el depósito de un corte de caja se cubre con fichas.");
+        if (Estado is not (EstadoDepositoConfirmacion.Pendiente or EstadoDepositoConfirmacion.Parcial))
+            throw new BusinessRuleException("DEP_YA_RESUELTA", $"Solo un depósito pendiente o parcial admite fichas (estado actual: {Estado}).");
+        if (usuarioId == Guid.Empty)
+            throw new BusinessRuleException("DEP_USUARIO_VACIO", "El usuario que confirma es obligatorio.");
+        if (movimiento.Sentido != SentidoMovimiento.Ingreso)
+            throw new BusinessRuleException("DEP_MOVIMIENTO_NO_INGRESO", "Solo un movimiento bancario de ingreso puede ser ficha de un corte (RN-6).");
+        if (movimiento.ContramovimientoDe is not null)
+            throw new BusinessRuleException("DEP_MOVIMIENTO_ES_REVERSA", "Un contramovimiento de reversa no puede ser ficha de un corte.");
+        if (movimiento.EstadoAplicacion != EstadoAplicacionMovimiento.NoAplicado)
+            throw new BusinessRuleException("DEP_MOVIMIENTO_YA_APLICADO", "El movimiento ya está aplicado a otro documento.");
+        if (Moneda is not null && movimiento.Moneda != Moneda)
+            throw new BusinessRuleException("DEP_MONEDA_DISTINTA", $"El movimiento es {movimiento.Moneda} y el depósito esperado es {Moneda}.");
+
+        var saldo = SaldoPorDepositar!.Value;
+        if (movimiento.Monto > saldo)
+            throw new BusinessRuleException("DEP_FICHA_EXCEDE_CORTE",
+                $"La ficha ({movimiento.Monto:0.00}) excede el saldo por depositar del corte ({saldo:0.00}).");
+
+        var folio = soporteFolio?.Trim();
+        if (Fichas.Count >= 1 && (soporteTipo is null || string.IsNullOrEmpty(folio)))
+            throw new BusinessRuleException("DEP_FICHA_SOPORTE_REQUERIDO",
+                "Desde la segunda ficha se requiere el vale de caja o el corte parcial, con su folio.");
+        if (soporteTipo is not null && string.IsNullOrEmpty(folio))
+            throw new BusinessRuleException("DEP_FICHA_SOPORTE_REQUERIDO", "El documento soporte requiere su folio.");
+
+        var ficha = DepositoFicha.Crear(this, movimiento.Id, movimiento.Monto, movimiento.FechaValor,
+            movimiento.ReferenciaBancaria, soporteTipo, folio, usuarioId, ahora);
+        Fichas.Add(ficha);
+        movimiento.ActualizarEstadoAplicacion(movimiento.Monto);
+
+        Estado = movimiento.Monto == saldo ? EstadoDepositoConfirmacion.Confirmada : EstadoDepositoConfirmacion.Parcial;
+        ResueltaPor = usuarioId;
+        ResueltaEn = ahora;
+        return ficha;
+    }
+
+    /// <summary>
     /// Importe del movimiento que esta confirmación aplica (C7.4). Propuesta de
     /// CxC: el depósito propuesto menos el saldo a favor por identificar (ese
     /// sobrante sigue disponible en el movimiento). Caja y viáticos: el
@@ -289,10 +357,13 @@ public sealed class DepositoConfirmacion : BaseEntity, IPerteneceAEmpresa, IAudi
     }
 }
 
-/// <summary>Estados de la confirmación de depósito (§5 DDL: 1=Pendiente 2=Confirmada 3=Rechazada).</summary>
+/// <summary>Estados de la confirmación de depósito (§5 DDL: 1=Pendiente 2=Confirmada 3=Rechazada 4=Parcial).</summary>
 public enum EstadoDepositoConfirmacion : short
 {
     Pendiente = 1,
     Confirmada = 2,
     Rechazada = 3,
+
+    /// <summary>Corte de caja con fichas que aún no suman el efectivo (Millet 23-oct).</summary>
+    Parcial = 4,
 }

@@ -42,41 +42,44 @@ public sealed class AwSqlTlsTests
         return (cert.ExportCertificatePem(), cert);
     }
 
-    private static AwSqlCertificadoServidor InstalarYLimpiar(string pem, X509Certificate2 cert, out AwSqlCertificadoServidor segunda)
+    [Fact]
+    public void Certificado_vigente_es_Healthy_y_queda_fijado_en_las_conexiones()
     {
-        using var store = new X509Store(StoreName.Root, StoreLocation.CurrentUser);
+        var (pem, cert) = Generar(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(5));
+        var dir = Directory.CreateTempSubdirectory("millet-aw-tls-").FullName;
         try
         {
-            var primera = AwSqlCertificadoServidor.Instalar(pem);
-            segunda = AwSqlCertificadoServidor.Instalar(pem); // idempotente
-            store.Open(OpenFlags.ReadWrite);
-            store.Certificates.Find(X509FindType.FindByThumbprint, cert.Thumbprint, false).Should().HaveCount(1);
-            return primera;
+            var r = AwSqlCertificadoServidor.Instalar(pem, dir);
+            AwSqlCertificadoServidor.Instalar(pem, dir).Error.Should().BeNull(); // idempotente
+            r.Error.Should().BeNull();
+            r.Evaluar(DateTimeOffset.UtcNow).Status.Should().Be(HealthStatus.Healthy);
+            X509Certificate2.CreateFromPem(File.ReadAllText(r.Ruta!)).Thumbprint.Should().Be(cert.Thumbprint);
+            new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(AwSqlTls.Validar(Base + "Encrypt=True", "T"))
+                .ServerCertificate.Should().Be(r.Ruta);
         }
         finally
         {
-            store.Open(OpenFlags.ReadWrite);
-            store.Remove(cert);
+            AwSqlTls.CertificadoServidorRuta = null;
+            Directory.Delete(dir, recursive: true);
         }
     }
 
-    [SoloLinuxFact]
-    public void Certificado_vigente_es_Healthy_y_se_instala_una_sola_vez()
-    {
-        var (pem, cert) = Generar(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(5));
-        var r = InstalarYLimpiar(pem, cert, out var segunda);
-        r.Error.Should().BeNull();
-        segunda.Error.Should().BeNull();
-        r.Evaluar(DateTimeOffset.UtcNow).Status.Should().Be(HealthStatus.Healthy);
-    }
-
-    [SoloLinuxFact]
+    [Fact]
     public void Certificado_por_vencer_es_Degraded_y_vencido_es_Unhealthy()
     {
-        var (pem, cert) = Generar(DateTimeOffset.UtcNow.AddDays(-10), DateTimeOffset.UtcNow.AddDays(30));
-        var r = InstalarYLimpiar(pem, cert, out _);
-        r.Evaluar(DateTimeOffset.UtcNow).Status.Should().Be(HealthStatus.Degraded);
-        r.Evaluar(DateTimeOffset.UtcNow.AddDays(31)).Status.Should().Be(HealthStatus.Unhealthy);
+        var (pem, _) = Generar(DateTimeOffset.UtcNow.AddDays(-10), DateTimeOffset.UtcNow.AddDays(30));
+        var dir = Directory.CreateTempSubdirectory("millet-aw-tls-").FullName;
+        try
+        {
+            var r = AwSqlCertificadoServidor.Instalar(pem, dir);
+            r.Evaluar(DateTimeOffset.UtcNow).Status.Should().Be(HealthStatus.Degraded);
+            r.Evaluar(DateTimeOffset.UtcNow.AddDays(31)).Status.Should().Be(HealthStatus.Unhealthy);
+        }
+        finally
+        {
+            AwSqlTls.CertificadoServidorRuta = null;
+            Directory.Delete(dir, recursive: true);
+        }
     }
 
     [Fact]
@@ -87,18 +90,5 @@ public sealed class AwSqlTlsTests
         var h = r.Evaluar(DateTimeOffset.UtcNow);
         h.Status.Should().Be(HealthStatus.Unhealthy);
         h.Description.Should().NotContain("basura-secreta");
-    }
-}
-
-/// <summary>
-/// Estas pruebas escriben en el almacén raíz del usuario. En macOS ese almacén es el llavero real
-/// y .NET no puede escribir en él («Access is denied»); App Service y CI corren en Linux.
-/// </summary>
-public sealed class SoloLinuxFactAttribute : FactAttribute
-{
-    public SoloLinuxFactAttribute()
-    {
-        if (!OperatingSystem.IsLinux())
-            Skip = "Solo Linux: en macOS el almacén raíz es el llavero real y no admite escritura (App Service corre en Linux).";
     }
 }

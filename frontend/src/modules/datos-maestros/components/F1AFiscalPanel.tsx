@@ -1,3 +1,4 @@
+import { CargaMaestrosDialog } from './CargaMaestrosDialog';
 import { PaginacionTabla, BarraFiltros } from '@/components/erp';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { FormCampo } from '@/components/erp/forms/FormGrid';
@@ -46,7 +47,6 @@ import {
   type FichaFiscal,
   type ReglaFiscal,
   type CambioFiscal,
-  type ImportacionFiscal,
 } from '../api/f1a';
 
 function Historial({ id, tipo }: { id: string; tipo: 'Producto' | 'Regla' }) {
@@ -87,7 +87,7 @@ export function F1AProductoFiscal({ producto }: { producto: ProductoAwDetalle })
     );
   }
   return (
-    <section className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat text-sm text-ink">
+    <section id="ficha-fiscal-producto" className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat text-sm text-ink">
       <h2 className="text-lg font-semibold">Revisión fiscal del producto</h2>
       <div className="flex flex-wrap gap-2">
         <Badge variant={faltantes.length ? 'warning' : 'info'}>
@@ -101,12 +101,6 @@ export function F1AProductoFiscal({ producto }: { producto: ProductoAwDetalle })
               : 'Sin regla aplicada'}
         </span>
       </div>
-      {faltantes.length > 0 && (
-        <p role="note" className="rounded-md bg-warning-note-bg p-3 text-warning-note-fg">
-          Falta {faltantes.join(', ')}. Completa los datos fiscales para poder timbrar este
-          producto.
-        </p>
-      )}
       {producto.confirmadoEn && (
         <p className="text-xs text-ink-muted">
           Confirmada el {new Date(producto.confirmadoEn).toLocaleString('es-MX')} ·{' '}
@@ -163,7 +157,6 @@ const vacia: FichaFiscal = {
 export function F1AFiscalPanel() {
   const reglas = useF1AQuery<ReglaFiscal[]>(`${FISCAL}/reglas`);
   const guardar = useF1AMutation();
-  const importar = useF1AMutation<ImportacionFiscal>();
   const [editar, setEditar] = useState<ReglaFiscal | null>(null);
   const [campo, setCampo] = useState('Tipo');
   const [valor, setValor] = useState('');
@@ -412,46 +405,7 @@ export function F1AFiscalPanel() {
           </FormSeccion>
         </form>
       </section>
-      <section className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat">
-        <h2 className="text-lg font-semibold">Importar reglas y excepciones CSV</h2>
-        <p className="text-xs text-ink-muted">
-          Encabezado:
-          clase,campo,valor,descripcion,claveProdServSat,claveUnidadSat,objetoImp,tasaIvaTraslado,tasaRetencionIva,tasaRetencionIsr.
-          Clase: Regla o Excepcion; para una excepción, valor es la referencia A+W del producto.
-        </p>
-        <Label htmlFor="fiscal-csv">Archivo CSV</Label>
-        <Input
-          id="fiscal-csv"
-          type="file"
-          accept=".csv,text/csv"
-          disabled={importar.isPending}
-          onChange={async (e) => {
-            const archivo = e.target.files?.[0];
-            if (!archivo) return;
-            if (archivo.size > 2_000_000) {
-              toast.error('El CSV no puede exceder 2 MB.');
-              return;
-            }
-            const csv = await archivo.text();
-            importar.mutate(
-              { path: `${FISCAL}/importar`, body: { csv } },
-              { onError: (e) => toast.error(mensajeF1A(e)) },
-            );
-          }}
-        />
-        {importar.data && (
-          <div role="status">
-            <p>
-              {importar.data.aplicadas} filas aplicadas · {importar.data.sinCambios} sin cambios.
-            </p>
-            {importar.data.errores.map((e) => (
-              <p key={e.fila} className="text-danger-fg">
-                Fila {e.fila}: {e.mensaje}
-              </p>
-            ))}
-          </div>
-        )}
-      </section>
+      <CargaMaestrosDialog catalogo="productos-aw-fiscal" />
     </div>
   );
 }

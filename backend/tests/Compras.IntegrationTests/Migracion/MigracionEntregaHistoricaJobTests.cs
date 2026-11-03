@@ -1,3 +1,5 @@
+using Millet.Compras.IntegrationTests.Autorizacion;
+using Microsoft.AspNetCore.Mvc.Testing;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -46,41 +48,41 @@ public class MigracionEntregaHistoricaJobTests : IClassFixture<StubsWebApplicati
 
         // ── Seed de 7 escenarios ────────────────────────────────────────────
         // 1) MOVER: Cerrada, 1 línea(10), entregado 4 con LineaRqId → exacta parcial.
-        var rqMover = await CrearRqEnSurtidoAsync(client, (Articulo, 10m));
+        var rqMover = await CrearRqEnSurtidoAsync(_factory, client, (Articulo, 10m));
         var lMover = (await GetLineasAsync(rqMover))[0];
         var empresaId = await GetEmpresaIdAsync(rqMover);
         await SeedSalidaAsync(rqMover, empresaId, Articulo, 4m, lineaRqId: lMover.Id);
         await SetEstadoAsync(rqMover, EstadoRequisicion.Cerrada);
 
         // 2) QUEDA: Cerrada, 1 línea(10), entregado 10 con LineaRqId → exacta completa.
-        var rqQueda = await CrearRqEnSurtidoAsync(client, (Articulo, 10m));
+        var rqQueda = await CrearRqEnSurtidoAsync(_factory, client, (Articulo, 10m));
         var lQueda = (await GetLineasAsync(rqQueda))[0];
         await SeedSalidaAsync(rqQueda, empresaId, Articulo, 10m, lineaRqId: lQueda.Id);
         await SetEstadoAsync(rqQueda, EstadoRequisicion.Cerrada);
 
         // 3) CAPADA: Cerrada, 1 línea(10), entregado 15 (sobre-entrega) → capa a 10.
-        var rqCapada = await CrearRqEnSurtidoAsync(client, (Articulo, 10m));
+        var rqCapada = await CrearRqEnSurtidoAsync(_factory, client, (Articulo, 10m));
         var lCapada = (await GetLineasAsync(rqCapada))[0];
         await SeedSalidaAsync(rqCapada, empresaId, Articulo, 15m, lineaRqId: lCapada.Id);
         await SetEstadoAsync(rqCapada, EstadoRequisicion.Cerrada);
 
         // 4) AMBIGUA: Cerrada, 2 líneas mismo artículo, entregado 7 SIN LineaRqId.
-        var rqAmbigua = await CrearRqEnSurtidoAsync(client, (Articulo, 10m), (Articulo, 5m));
+        var rqAmbigua = await CrearRqEnSurtidoAsync(_factory, client, (Articulo, 10m), (Articulo, 5m));
         var lAmbiguas = await GetLineasAsync(rqAmbigua);
         await SeedSalidaAsync(rqAmbigua, empresaId, Articulo, 7m, lineaRqId: null);
         await SetEstadoAsync(rqAmbigua, EstadoRequisicion.Cerrada);
 
         // 5) BACKFILL EnSurtido: queda EnSurtido, entregado 6 SIN LineaRqId (pre-#399, artículo único).
-        var rqBackfill = await CrearRqEnSurtidoAsync(client, (Articulo, 10m));
+        var rqBackfill = await CrearRqEnSurtidoAsync(_factory, client, (Articulo, 10m));
         var lBackfill = (await GetLineasAsync(rqBackfill))[0];
         await SeedSalidaAsync(rqBackfill, empresaId, Articulo, 6m, lineaRqId: null);
 
         // 6) EXCLUIDO: CerradaSinSurtir (#400) — el job no la toca.
-        var rqSinSurtir = await CrearRqEnSurtidoAsync(client, (Articulo, 10m));
+        var rqSinSurtir = await CrearRqEnSurtidoAsync(_factory, client, (Articulo, 10m));
         await SetEstadoAsync(rqSinSurtir, EstadoRequisicion.CerradaSinSurtir);
 
         // 7) EXCLUIDO: Cancelada — el job no la toca.
-        var rqCancelada = await CrearRqEnSurtidoAsync(client, (Articulo, 10m));
+        var rqCancelada = await CrearRqEnSurtidoAsync(_factory, client, (Articulo, 10m));
         await SetEstadoAsync(rqCancelada, EstadoRequisicion.Cancelada);
 
         var ids = new[] { rqMover, rqQueda, rqCapada, rqAmbigua, rqBackfill, rqSinSurtir, rqCancelada };
@@ -240,7 +242,7 @@ INSERT INTO almacen.lineas_movimiento
     }
 
     private static async Task<Guid> CrearRqEnSurtidoAsync(
-        HttpClient client, params (Guid Art, decimal Cant)[] lineas)
+        WebApplicationFactory<Program> factory, HttpClient client, params (Guid Art, decimal Cant)[] lineas)
     {
         var rqBody = TestComprasFixtures.BuildCrearRqValidBody(descripcion: "Test ADR-0043 #4 migración");
         var crear = await client.PostAsJsonAsync("/api/v1/compras/requisiciones", rqBody);
@@ -271,7 +273,7 @@ INSERT INTO almacen.lineas_movimiento
             $"/api/v1/compras/requisiciones/{rqId}/transmitir", content: null);
         transmit.EnsureSuccessStatusCode();
 
-        var auth = await client.PostAsJsonAsync(
+        var auth = await (await AutorizacionTestSeeding.CreateAutorizadorAsync(factory)).PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{rqId}/autorizaciones",
             new { Nivel = 1, Notas = (string?)null });
         auth.EnsureSuccessStatusCode();

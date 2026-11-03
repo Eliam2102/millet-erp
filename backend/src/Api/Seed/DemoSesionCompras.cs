@@ -65,8 +65,8 @@ public sealed partial class DemoSesionSeedHostedService
                             CapturistaComprasDemoId, ActorId, Prioridad.Normal, Fecha, proveedorSugeridoId: proveedor.Id, descripcion: "DEMO-RQ-MID");
                         rq.AgregarLinea(Id("DEMO-RQ-LINEA"), articulo.Id, 10, "PZA", Money.Mxn(100));
                         rq.EnviarAAutorizacion(Fecha);
-                        rq.RegistrarAutorizacion(Id("DEMO-RQ-N1"), NivelAutorizacion.Nivel1, ActorId, Fecha, RequiereNivel.N1YN2, "Autorización de requisición");
-                        rq.RegistrarAutorizacion(Id("DEMO-RQ-N2"), NivelAutorizacion.Nivel2, ActorId, Fecha, RequiereNivel.N1YN2, "Autorización de requisición");
+                        rq.RegistrarAutorizacion(Id("DEMO-RQ-N1"), NivelAutorizacion.Nivel1, JefeComprasDemoId, Fecha, RequiereNivel.N1YN2, "Autorización de requisición");
+                        rq.RegistrarAutorizacion(Id("DEMO-RQ-N2"), NivelAutorizacion.Nivel2, DireccionDemoId, Fecha, RequiereNivel.N1YN2, "Autorización de requisición");
                         rq.RegistrarCubrimiento([new CubrimientoLinea(rq.Lineas.Single().Id, 0, 10)], Fecha);
                         db.Requisiciones.Add(rq);
                         await sp.GetRequiredService<IIntegrationEventPublisher>().PublishAsync(

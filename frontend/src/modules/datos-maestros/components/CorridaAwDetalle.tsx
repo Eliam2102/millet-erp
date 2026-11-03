@@ -15,6 +15,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableContainer,
 } from '@/components/ui/table';
 import { esApiError } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -321,6 +322,7 @@ export function CorridaAwDetalle({ id }: { id: string }) {
               ) : (
                 conflictos.length > 0 && (
                   <div>
+                    <TableContainer maxHeightClassName="">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -351,6 +353,7 @@ export function CorridaAwDetalle({ id }: { id: string }) {
                         ))}
                       </TableBody>
                     </Table>
+                    </TableContainer>
                     {conflictos.length > 10 && (
                       <PaginacionTabla
                         total={conflictos.length}

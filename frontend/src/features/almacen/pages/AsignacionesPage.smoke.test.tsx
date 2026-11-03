@@ -105,7 +105,7 @@ describe('<AsignacionesPage> — smoke', () => {
       expect(screen.getByText('ART-1 · Silicón')).toBeInTheDocument(),
     );
     // La ubicación se muestra con su ruta de padre (distingue las "ÚNICA").
-    expect(screen.getByText('ALM-A › INS-A · ÚNICA')).toBeInTheDocument();
+    expect(screen.getByText('ALM-A › INS-A · Almacén general')).toBeInTheDocument();
   });
 
   it('"Asignar artículo" abre el sheet', async () => {

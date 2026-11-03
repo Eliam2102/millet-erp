@@ -90,7 +90,7 @@ public sealed class CobroMostrador : BaseEntity, IPerteneceAEmpresa, IAuditable
         OrigenCobroMostrador origen,
         DateTimeOffset fechaCobro,
         Guid usuarioCobradorId,
-        IReadOnlyList<(string FormaPago, decimal Importe, string? Referencia, string? CuentaOrdenante, string? CuentaBeneficiaria)> formasPago)
+        IReadOnlyList<(string FormaPago, decimal Importe, string? Referencia, string? CuentaOrdenante, string? CuentaBeneficiaria, string? TarjetaUltimos4)> formasPago)
     {
         if (cajaSesionId == Guid.Empty)
             throw new BusinessRuleException("COBRO_SESION_INVALIDA", "La sesión de caja es obligatoria.");
@@ -105,15 +105,28 @@ public sealed class CobroMostrador : BaseEntity, IPerteneceAEmpresa, IAuditable
             Guid.CreateVersion7(), empresaId, cajaSesionId, sucursalId, canalVentaId,
             comprobanteId, origen, fechaCobro, usuarioCobradorId);
 
-        foreach (var (formaPago, importe, referencia, ordenante, beneficiaria) in formasPago)
+        foreach (var (formaPago, importe, referencia, ordenante, beneficiaria, ultimos4) in formasPago)
             cobro._formasPago.Add(new CobroMostradorFormaPago(
-                Guid.CreateVersion7(), cobro.Id, formaPago, importe, referencia, ordenante, beneficiaria));
+                Guid.CreateVersion7(), cobro.Id, formaPago, importe, referencia, ordenante, beneficiaria, ultimos4));
 
         cobro.Total = cobro._formasPago.Sum(f => f.Importe);
         if (cobro.Total <= 0)
             throw new BusinessRuleException("COBRO_TOTAL_INVALIDO", "El total del cobro debe ser mayor que cero.");
 
         return cobro;
+    }
+
+    /// <summary>
+    /// F6.6: liga a cada forma 03 el folio de confirmación de Ingresos, en el
+    /// orden en que se registraron las formas (null en las demás). La validación
+    /// contra Tesorería (vigente, cliente, importe) vive en el registrador.
+    /// </summary>
+    public void LigarFoliosTransferencia(IReadOnlyList<string?> foliosPorForma)
+    {
+        if (foliosPorForma.Count != _formasPago.Count)
+            throw new BusinessRuleException("COBRO_FOLIOS_DESALINEADOS", "Cada forma de pago lleva su folio (o ninguno).");
+        for (var i = 0; i < _formasPago.Count; i++)
+            if (foliosPorForma[i] is { } folio) _formasPago[i].LigarFolioTransferencia(folio);
     }
 
     /// <summary>Cancela el cobro (supervisor). La reversa/ajuste la orquesta el handler ([Decisión 12-C]).</summary>
@@ -140,11 +153,24 @@ public sealed class CobroMostradorFormaPago : BaseEntity, IAuditable
     public string? CuentaOrdenante { get; private set; }
     public string? CuentaBeneficiaria { get; private set; }
 
+    /// <summary>
+    /// Últimos 4 dígitos de la tarjeta del voucher (86e3tfdvt); null fuera de
+    /// tarjeta. El número completo nunca se guarda.
+    /// </summary>
+    public string? TarjetaUltimos4 { get; private set; }
+
+    /// <summary>
+    /// Folio de confirmación de transferencia que emitió Ingresos (F6.6, R16);
+    /// solo en forma 03. Tesorería lo marca «Usado» con el evento del cobro.
+    /// </summary>
+    public string? FolioTransferencia { get; private set; }
+
     private CobroMostradorFormaPago() { }
 
     internal CobroMostradorFormaPago(
         Guid id, Guid cobroMostradorId, string formaPago, decimal importe,
-        string? referencia, string? cuentaOrdenante, string? cuentaBeneficiaria) : base(id)
+        string? referencia, string? cuentaOrdenante, string? cuentaBeneficiaria,
+        string? tarjetaUltimos4 = null) : base(id)
     {
         if (string.IsNullOrWhiteSpace(formaPago) || formaPago.Trim().Length > 2)
             throw new BusinessRuleException("COBRO_FORMA_PAGO_INVALIDA", "La forma de pago debe ser clave SAT c_FormaPago de 2 caracteres.");
@@ -157,7 +183,21 @@ public sealed class CobroMostradorFormaPago : BaseEntity, IAuditable
         Referencia = Normalizar(referencia);
         CuentaOrdenante = Normalizar(cuentaOrdenante);
         CuentaBeneficiaria = Normalizar(cuentaBeneficiaria);
+        TarjetaUltimos4 = Normalizar(tarjetaUltimos4);
+        if (TarjetaUltimos4 is not null && (TarjetaUltimos4.Length != 4 || !TarjetaUltimos4.All(char.IsAsciiDigit)))
+            throw new BusinessRuleException(
+                "COBRO_TARJETA_ULTIMOS4_INVALIDOS", "Los últimos dígitos de la tarjeta son exactamente 4 números.");
     }
+
+    internal void LigarFolioTransferencia(string folio)
+    {
+        if (FormaPago != FormaPagoTransferencia)
+            throw new BusinessRuleException("COBRO_FOLIO_SOLO_TRANSFERENCIA", "El folio de transferencia solo aplica a la forma 03.");
+        FolioTransferencia = folio.Trim().ToUpperInvariant();
+    }
+
+    /// <summary>c_FormaPago 03 · Transferencia electrónica de fondos.</summary>
+    public const string FormaPagoTransferencia = "03";
 
     private static string? Normalizar(string? valor) =>
         string.IsNullOrWhiteSpace(valor) ? null : valor.Trim();

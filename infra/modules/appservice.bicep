@@ -241,8 +241,8 @@ var awIntegrationAppSettings = [
     value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=aw-cambios-connection-string)'
   }
   {
-    // Cert público de SER-DATA (CN=SER-DATA, SAN aw-sql-onprem): la app lo agrega a CurrentUser\Root
-    // al arrancar para que SqlClient verifique la cadena (ADR-0048). Renovar: nuevo PEM en KV + restart.
+    // Cert público de SER-DATA (CN=SER-DATA, SAN aw-sql-onprem): la app lo fija en cada conexión con
+    // ServerCertificate (ADR-0048, enmienda 29-oct). Renovar: nuevo PEM en KV + restart.
     name: 'IntegracionesAw__SqlTls__CertificadoServidorPem'
     value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=aw-sql-server-certificate)'
   }

@@ -205,6 +205,8 @@ public sealed class CrearSubAlmacenHandler
             estatus: request.Estatus);
 
         _db.SubAlmacenes.Add(sub);
+        // Ubicación general (ÚNICA): destino de lo que no es vidrio.
+        _db.Ubicaciones.Add(new Ubicacion(Guid.CreateVersion7(), sub.Id, "ÚNICA", "Almacén general", esDefault: true));
         await _db.SaveChangesAsync(cancellationToken);
 
         return new CrearSubAlmacenResponse(sub.Id, sub.AlmacenId, sub.Clave);

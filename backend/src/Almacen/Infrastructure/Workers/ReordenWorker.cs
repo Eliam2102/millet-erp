@@ -52,6 +52,9 @@ public sealed class ReordenWorker : BackgroundService
         _logger = logger;
     }
 
+    private static readonly TimeSpan ReintentoSinUsuarioServicio = TimeSpan.FromSeconds(15);
+    private bool _sinUsuarioServicio;
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         if (_options.Disabled)
@@ -79,7 +82,12 @@ public sealed class ReordenWorker : BackgroundService
 
             try
             {
-                await Task.Delay(_options.Interval, stoppingToken);
+                // Al arrancar, el bootstrap puede sembrar el usuario de servicio unos segundos
+                // después del primer ciclo: mientras falte, se reintenta pronto.
+                var espera = _sinUsuarioServicio && _options.Interval > ReintentoSinUsuarioServicio
+                    ? ReintentoSinUsuarioServicio
+                    : _options.Interval;
+                await Task.Delay(espera, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -115,6 +123,7 @@ public sealed class ReordenWorker : BackgroundService
         // TX: apagado (o usuario de servicio sin sembrar) → skip barato del ciclo.
         var usuarios = sp.GetRequiredService<IUsuarioServicioReadPort>();
         var usuarioServicio = await usuarios.ObtenerReordenAsync(ct);
+        _sinUsuarioServicio = usuarioServicio is null;
         if (usuarioServicio is null)
         {
             _logger.LogDebug(

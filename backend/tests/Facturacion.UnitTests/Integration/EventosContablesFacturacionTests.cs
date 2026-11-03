@@ -127,6 +127,40 @@ public sealed class EventosContablesFacturacionTests
     }
 
     [Fact]
+    public void TR01_el_evento_trae_pedido_y_version_solo_si_el_pedido_viene_de_AW()
+    {
+        var factura = Factura(lineas: (null, 100m, null, null));
+        var aw = Millet.Facturacion.Domain.Pedidos.PedidoFacturable.ImportarDesdeAw(Empresa, "900101", Sucursal, Guid.NewGuid(), "Cliente",
+            (short)1, ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, 7, "15");
+        var manual = Millet.Facturacion.Domain.Pedidos.PedidoFacturable.CrearManual(Empresa, "PED-1", Sucursal, Guid.NewGuid(), "Cliente", 1,
+            ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, null,
+            Millet.Facturacion.Domain.Pedidos.ClasePedidoManual.VentaDirecta, Millet.Facturacion.Domain.Pedidos.SubtipoVentaDirecta.Servicio, null, null);
+
+        var conAw = EventosContablesFacturacion.FacturaVentaTimbrada(factura, Timbrado, pedido: aw);
+        conAw.NumeroPedidoAw.Should().Be("900101");
+        conAw.VersionPedidoAw.Should().Be(7);
+        var conManual = EventosContablesFacturacion.FacturaVentaTimbrada(factura, Timbrado, pedido: manual);
+        conManual.NumeroPedidoAw.Should().BeNull();
+        conManual.VersionPedidoAw.Should().BeNull();
+        EventosContablesFacturacion.FacturaVentaTimbrada(factura, Timbrado).NumeroPedidoAw.Should().BeNull();
+    }
+
+    [Fact]
+    public void TR01_el_evento_de_cancelacion_trae_pedido_folio_y_uuid_solo_si_el_pedido_viene_de_AW()
+    {
+        var factura = Factura(lineas: (null, 100m, null, null));
+        var aw = Millet.Facturacion.Domain.Pedidos.PedidoFacturable.ImportarDesdeAw(Empresa, "900101", Sucursal, Guid.NewGuid(), "Cliente",
+            (short)1, ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, 7, "15");
+
+        var evt = EventosContablesFacturacion.ComprobanteCancelado(factura, Timbrado, aw);
+        evt.NumeroPedidoAw.Should().Be("900101");
+        evt.VersionPedidoAw.Should().Be(7);
+        evt.Folio.Should().Be(factura.Folio);
+        evt.Uuid.Should().Be(factura.Uuid);
+        EventosContablesFacturacion.ComprobanteCancelado(factura, Timbrado).NumeroPedidoAw.Should().BeNull();
+    }
+
+    [Fact]
     public void Nombre_y_version_de_los_eventos_no_cambian()
     {
         var factura = Factura(lineas: (null, 100m, null, null));

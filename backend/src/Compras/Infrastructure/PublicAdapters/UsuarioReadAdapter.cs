@@ -54,4 +54,11 @@ public sealed class UsuarioReadAdapter : IUsuarioReadPort
             .Where(u => distinct.Contains(u.Id))
             .ToDictionaryAsync(u => u.Id, u => u.Nombre, cancellationToken);
     }
+
+    public async Task<Guid?> ObtenerDepartamentoAsync(Guid usuarioId, CancellationToken cancellationToken)
+    {
+        using var bypass = _empresaContext.Bypass();
+        return await _db.Usuarios.AsNoTracking().Where(u => u.Id == usuarioId)
+            .Select(u => u.DepartamentoId).FirstOrDefaultAsync(cancellationToken);
+    }
 }

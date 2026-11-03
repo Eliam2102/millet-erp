@@ -16,7 +16,7 @@ public sealed class EntregaLocalIntegrationEventsTests
     private static readonly string[] TopicsEsperados =
     [
         "almacen-events", "comercio-exterior-events", "compras-events", "cuentas-por-cobrar-events",
-        "cuentas-por-pagar-events", "facturacion-events", "tesoreria-events",
+        "cuentas-por-pagar-events", "facturacion-events", "producto-terminado-events", "tesoreria-events",
     ];
 
     [Theory]
@@ -34,7 +34,7 @@ public sealed class EntregaLocalIntegrationEventsTests
     }
 
     [Fact]
-    public void En_Development_con_la_opcion_activa_registra_el_sender_local_y_los_17_consumidores()
+    public void En_Development_con_la_opcion_activa_registra_el_sender_local_y_los_24_consumidores()
     {
         var services = new ServiceCollection().AddLogging();
 
@@ -44,9 +44,17 @@ public sealed class EntregaLocalIntegrationEventsTests
         using var sp = services.BuildServiceProvider();
         Assert.IsType<LocalDispatchIntegrationEventBusSender>(sp.GetRequiredService<IIntegrationEventBusSender>());
         var consumidores = sp.GetServices<ILocalIntegrationEventConsumer>().ToList();
-        // 16 workers con Service Bus (P14: CxP escucha a Comercio Exterior); ComprasActivoWorker aporta uno por topic.
-        Assert.Equal(17, consumidores.Count);
-        Assert.Equal(17, consumidores.Select(c => c.GetType()).Distinct().Count());
+        // PT5.2 suma dos consumidores locales (CxC pide la decisión al retener; PT aplica la de CxC). 21 workers con Service Bus (P14: CxP escucha a Comercio Exterior; TR-01 suma el retorno A+W; C1.5 suma los 4 de Contabilidad); ComprasActivoWorker aporta uno por topic.
+        Assert.Equal(24, consumidores.Count);
+        Assert.Equal(24, consumidores.Select(c => c.GetType()).Distinct().Count());
+        Assert.Contains(consumidores, c => c is Millet.Contabilidad.Infrastructure.Workers.FacturacionContabilidadListenerWorker
+            && c.TopicName == "facturacion-events");
+        Assert.Contains(consumidores, c => c is Millet.Contabilidad.Infrastructure.Workers.CuentasPorPagarContabilidadListenerWorker
+            && c.TopicName == "cuentas-por-pagar-events");
+        Assert.Contains(consumidores, c => c is Millet.Contabilidad.Infrastructure.Workers.TesoreriaContabilidadListenerWorker
+            && c.TopicName == "tesoreria-events");
+        Assert.Contains(consumidores, c => c is Millet.Contabilidad.Infrastructure.Workers.AlmacenContabilidadListenerWorker
+            && c.TopicName == "almacen-events");
         Assert.Equal(
             TopicsEsperados,
             consumidores.Select(c => c.TopicName).Distinct().Order().ToArray());

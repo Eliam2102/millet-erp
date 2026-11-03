@@ -15,7 +15,10 @@ import { ClasePedidoFieldset } from '@/features/facturacion/components/ClasePedi
 import { CanalVentaSelector } from '@/features/facturacion/components/selectors/CanalVentaSelector';
 import { ClienteSelector } from '@/features/facturacion/components/selectors/ClienteSelector';
 import { aplicarErroresPedidoManual } from '@/features/facturacion/lib/errores-venta-directa';
-import { OPCIONES_COMPORTAMIENTO_FISCAL } from '@/features/facturacion/lib/glosario';
+import {
+  AVISO_CARTA_PORTE,
+  opcionesComportamientoFiscal,
+} from '@/features/facturacion/lib/glosario';
 import {
   EditarPedidoSchema,
   PedidoManualSchema,
@@ -160,6 +163,7 @@ export function NuevoPedidoManual({ onClose, onDirtyChange, pedido }: NuevoPedid
   const lineasWatch = useWatch({ control: form.control, name: 'lineas' });
   // F6.1: subtipo Activo ⇒ comportamiento fijo en «Venta de activo fijo».
   const subtipoWatch = useWatch({ control: form.control, name: 'subtipoVentaDirecta' });
+  const comportamientoWatch = useWatch({ control: form.control, name: 'comportamientoFiscal' });
   const esActivo = subtipoWatch === SubtipoVentaDirecta.Activo;
   const monedaWatch = useWatch({ control: form.control, name: 'moneda' });
   const totalEstimado = (lineasWatch ?? []).reduce(
@@ -398,7 +402,7 @@ export function NuevoPedidoManual({ onClose, onDirtyChange, pedido }: NuevoPedid
                   className="h-9 w-full rounded-md border border-line-control bg-transparent px-3 text-sm shadow-sm"
                   {...form.register('comportamientoFiscal', { valueAsNumber: true })}
                 >
-                  {OPCIONES_COMPORTAMIENTO_FISCAL.filter(
+                  {opcionesComportamientoFiscal(comportamientoWatch).filter(
                     // «Venta de activo fijo» solo aplica al subtipo Activo.
                     (o) => o.value !== ComportamientoFiscal.VentaActivoFijo,
                   ).map((o) => (
@@ -408,6 +412,7 @@ export function NuevoPedidoManual({ onClose, onDirtyChange, pedido }: NuevoPedid
                   ))}
                 </select>
               )}
+              <p className="text-xs text-ink-muted">{AVISO_CARTA_PORTE}</p>
             </Campo>
           </FormCampo>
 

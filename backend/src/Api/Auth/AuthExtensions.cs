@@ -115,11 +115,15 @@ public static class AuthExtensions
             });
 
         services.AddAuthorization();
+        // P8.3: esquema aparte para el portal de proveedores; no toca el JWT de empleados.
+        services.AddPortalProveedorAuth(jwtOptions, signingKey);
         services.AddHttpContextAccessor();
 
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IEntraTokenValidator, EntraTokenValidator>();
         services.AddScoped<Millet.Identidad.Application.Ports.IEntraGruposReadPort, GraphEntraGruposReader>();
+        services.AddOptions<IdentidadAccesoOptions>()
+            .Bind(configuration.GetSection(IdentidadAccesoOptions.SectionName));
         services.AddScoped<LoginOrchestrator>();
 
         // RBAC granular (ADR-0007). El policy provider construye policies

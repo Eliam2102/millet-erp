@@ -22,6 +22,11 @@ export interface Gasto {
   importe: number;
   importeMxn: number;
   tipoCambio: number;
+  fuenteTipoCambio: string;
+  tipoCambioSugerido: number | null;
+  diferenciaTipoCambioPct: number | null;
+  notaTipoCambio: string | null;
+  tipoCambioModificadoPor: string | null;
   fechaFactura: string;
   pedimento: string | null;
   ordenServicioId: string | null;

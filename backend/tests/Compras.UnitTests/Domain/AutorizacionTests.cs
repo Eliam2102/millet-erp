@@ -129,6 +129,37 @@ public class AutorizacionTests
         Assert.Equal("AUTORIZACION_NIVEL2_SIN_NIVEL1", ex.Code);
     }
 
+    [Theory]
+    [InlineData(NivelAutorizacion.Nivel1)]
+    [InlineData(NivelAutorizacion.Nivel2)]
+    public void RegistrarAutorizacion_PorElCreador_Should_Throw_AutoAutorizacion(NivelAutorizacion nivel)
+    {
+        var rq = CrearRqConLineas();
+        rq.EnviarAAutorizacion(DateTimeOffset.UtcNow);
+
+        var ex = Assert.Throws<BusinessRuleException>(() =>
+            rq.RegistrarAutorizacion(Guid.CreateVersion7(), nivel,
+                rq.CreadorId, DateTimeOffset.UtcNow, RequiereNivel.N1YN2));
+        Assert.Equal("REQUISICION_AUTOAUTORIZACION", ex.Code);
+        Assert.Empty(rq.Autorizaciones);
+    }
+
+    [Fact]
+    public void RegistrarAutorizacion_Nivel2_MismaPersonaQueNivel1_Should_Throw()
+    {
+        var rq = CrearRqConLineas();
+        rq.EnviarAAutorizacion(DateTimeOffset.UtcNow);
+        var usuario = Guid.CreateVersion7();
+        rq.RegistrarAutorizacion(Guid.CreateVersion7(), NivelAutorizacion.Nivel1,
+            usuario, DateTimeOffset.UtcNow, RequiereNivel.N1YN2);
+
+        var ex = Assert.Throws<BusinessRuleException>(() =>
+            rq.RegistrarAutorizacion(Guid.CreateVersion7(), NivelAutorizacion.Nivel2,
+                usuario, DateTimeOffset.UtcNow, RequiereNivel.N1YN2));
+        Assert.Equal("AUTORIZACION_FIRMA_MISMA_PERSONA", ex.Code);
+        Assert.Equal(EstadoRequisicion.EnAutorizacion, rq.Estado);
+    }
+
     [Fact]
     public void RegistrarAutorizacion_Duplicate_Nivel1_Should_Throw()
     {

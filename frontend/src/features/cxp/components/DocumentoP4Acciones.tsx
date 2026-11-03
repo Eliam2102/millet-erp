@@ -43,7 +43,7 @@ function Formulario({ accion, tipo, documento, onClose }: { accion: Accion; tipo
   const notas = useNotasCredito({ proveedorId: documento.proveedorId, limit: 500 });
   const esNc = accion === 'formalizar' || accion === 'amortizar-nc';
   const opciones = esNc ? (notas.data?.items ?? []).filter(n => n.moneda === documento.moneda && (n.estado === EstadoNotaCredito.Abierta || (accion === 'amortizar-nc' && n.estado === EstadoNotaCredito.EnEspera)) &&
-    (accion === 'formalizar' ? n.tipoRelacionCfdi === 3 && n.facturaOrigenId === documento.facturaOrigenId && n.total === documento.monto : n.tipoRelacionCfdi === 7 && n.uuidRelacionCfdi === documento.uuidCfdi))
+    (accion === 'formalizar' ? n.tipoRelacionCfdi === 3 && n.facturaOrigenId === documento.facturaOrigenId && n.subtotal === documento.monto : n.tipoRelacionCfdi === 7 && n.uuidRelacionCfdi === documento.uuidCfdi))
     .map(n => ({ id: n.id, label: `${n.folioProveedor ?? n.uuidCfdi} · ${n.saldoPorAplicar.toFixed(2)} ${n.moneda}`, version: n.version }))
     : (facturas.data?.items ?? []).filter(f => f.moneda === documento.moneda && f.estado !== EstadoPasivo.Cancelada && f.estado !== EstadoPasivo.Pagada &&
       (accion !== 'vincular-factura' || excepcion || f.uuidCfdi === documento.uuidRelacionCfdi))

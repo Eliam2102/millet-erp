@@ -43,7 +43,12 @@ public sealed record EstadoAccesoColaboradorResponse(
     DateTimeOffset? AccesoEnviadoEn,
     DateTimeOffset? PrimerAccesoEn,
     string? EmailContacto,
-    bool UsuarioActivo);
+    bool UsuarioActivo,
+    /// <summary>
+    /// Cuenta frente al grupo de acceso de Entra (86e3x6cpw, contrato 4):
+    /// «Sincronizado», «Pendiente» o «NoConfigurado». Solo lo llena la consulta.
+    /// </summary>
+    string? GrupoAcceso = null);
 
 public sealed class AccesoColaboradorHandlers :
     IRequestHandler<ObtenerAccesoColaboradorQuery, EstadoAccesoColaboradorResponse>,
@@ -57,6 +62,7 @@ public sealed class AccesoColaboradorHandlers :
     private readonly IOptionsMonitor<EntraDirectorioOptions> _entraOptions;
     private readonly IClock _clock;
     private readonly ILogger<AccesoColaboradorHandlers> _logger;
+    private readonly GrupoAccesoErpSincronizador _grupoAcceso;
 
     public AccesoColaboradorHandlers(
         IdentidadDbContext identidad,
@@ -65,8 +71,10 @@ public sealed class AccesoColaboradorHandlers :
         ICorreoSalientePort correoSaliente,
         IOptionsMonitor<EntraDirectorioOptions> entraOptions,
         IClock clock,
-        ILogger<AccesoColaboradorHandlers> logger)
+        ILogger<AccesoColaboradorHandlers> logger,
+        GrupoAccesoErpSincronizador grupoAcceso)
     {
+        _grupoAcceso = grupoAcceso;
         _identidad = identidad;
         _compartido = compartido;
         _directorio = directorio;
@@ -80,7 +88,10 @@ public sealed class AccesoColaboradorHandlers :
         ObtenerAccesoColaboradorQuery query, CancellationToken cancellationToken)
     {
         var (empleado, usuario) = await CargarAsync(query.EmpleadoId, tracking: false, cancellationToken);
-        return Respuesta(empleado, usuario);
+        return Respuesta(empleado, usuario) with
+        {
+            GrupoAcceso = await _grupoAcceso.ConsultarAsync(usuario.Id, cancellationToken),
+        };
     }
 
     public async Task<EstadoAccesoColaboradorResponse> Handle(

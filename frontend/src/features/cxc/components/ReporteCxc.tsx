@@ -10,6 +10,7 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import { BarraFiltros, ErrorState, ListadoModulo, PaginacionTabla } from '@/components/erp';
+import { renderCelda } from '@/components/erp/reportes/render-celda';
 import type { ApiError } from '@/lib/api';
 import type { ReporteShellData } from '../lib/reporte-cxc-adapter';
 import { usePaginacionLocal } from '../lib/use-paginacion-local';
@@ -204,29 +205,4 @@ export function ReporteCxc({
       )}
     </ListadoModulo>
   );
-}
-
-// Conserva los formatos del reporte compartido; las columnas y sus tipos vienen de la respuesta.
-function renderCelda(valor: unknown, tipo: string): string {
-  if (valor == null) return '—';
-  switch (tipo) {
-    case 'moneda':
-      return typeof valor === 'number'
-        ? new Intl.NumberFormat('es-MX', {
-            style: 'currency',
-            currency: 'MXN',
-            minimumFractionDigits: 2,
-          }).format(valor)
-        : String(valor);
-    case 'numero':
-      return typeof valor === 'number'
-        ? valor.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 4 })
-        : String(valor);
-    case 'fecha':
-      return typeof valor === 'string'
-        ? new Date(valor).toLocaleDateString('es-MX')
-        : String(valor);
-    default:
-      return String(valor);
-  }
 }

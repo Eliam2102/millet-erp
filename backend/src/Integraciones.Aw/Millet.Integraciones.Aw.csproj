@@ -25,6 +25,8 @@
          IMasterProvisioningPort). Sin ciclo: Facturación no referencia Aw. -->
     <ProjectReference Include="..\ComercioExterior\Millet.ComercioExterior.csproj" />
     <ProjectReference Include="..\Facturacion\Millet.Facturacion.csproj" />
+    <!-- PT-01: el adaptador PT implementa IPtSucursalPorClaveAwPort (puerto definido por Producto Terminado). Sin ciclo: PT no referencia Aw. -->
+    <ProjectReference Include="..\ProductoTerminado\Millet.ProductoTerminado.csproj" />
   </ItemGroup>
 
   <ItemGroup>

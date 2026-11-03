@@ -11,27 +11,21 @@ namespace Millet.Api.IntegrationTests.IntegracionesAw;
 /// <summary>Utilidades comunes: conexión por la fábrica PRODUCTIVA de pedidos y confianza temporal del certificado.</summary>
 internal static class AwTlsPruebas
 {
-    /// <summary>Instala el PEM en CurrentUser\Root y, al disponer, lo retira solo si no estaba antes.</summary>
+    /// <summary>Fija el PEM como certificado de las conexiones A+W (como en App Service) y lo suelta al disponer.</summary>
     public static IDisposable ConfiarTemporalmente(string pemPath)
     {
-        var pem = File.ReadAllText(pemPath);
-        using var cert = X509Certificate2.CreateFromPem(pem);
-        using var store = new X509Store(StoreName.Root, StoreLocation.CurrentUser);
-        store.Open(OpenFlags.ReadWrite);
-        var yaEstaba = store.Certificates.Find(X509FindType.FindByThumbprint, cert.Thumbprint, false).Count > 0;
-        var r = AwSqlCertificadoServidor.Instalar(pem);
+        var dir = Directory.CreateTempSubdirectory("millet-aw-tls-").FullName;
+        var r = AwSqlCertificadoServidor.Instalar(File.ReadAllText(pemPath), dir);
         r.Error.Should().BeNull();
-        return new Retiro(yaEstaba ? null : cert.Thumbprint);
+        return new Retiro(dir);
     }
 
-    private sealed class Retiro(string? huella) : IDisposable
+    private sealed class Retiro(string dir) : IDisposable
     {
         public void Dispose()
         {
-            if (huella is null) return;
-            using var store = new X509Store(StoreName.Root, StoreLocation.CurrentUser);
-            store.Open(OpenFlags.ReadWrite);
-            foreach (var c in store.Certificates.Find(X509FindType.FindByThumbprint, huella, false)) store.Remove(c);
+            AwSqlTls.CertificadoServidorRuta = null;
+            Directory.Delete(dir, recursive: true);
         }
     }
 
@@ -125,13 +119,20 @@ public class AwSqlTlsSerDataVpnTests(ITestOutputHelper salida)
     }
 
     [Fact]
-    public async Task Con_nombre_de_certificado_equivocado_falla()
+    public async Task Con_otro_certificado_fijado_falla()
     {
         if (!Activo) return;
-        using var _ = AwTlsPruebas.ConfiarTemporalmente(PemPath!);
-        await using var conn = AwTlsPruebas.ViaFabricaProductiva(Servidor + Credenciales() + "HostNameInCertificate=otro-host-xyz;");
+        // Con ServerCertificate el servidor debe presentar exactamente el certificado fijado (más estricto que el nombre).
+        using var rsa = System.Security.Cryptography.RSA.Create(2048);
+        var otro = new System.Security.Cryptography.X509Certificates.CertificateRequest("CN=aw-sql-onprem", rsa,
+            System.Security.Cryptography.HashAlgorithmName.SHA256, System.Security.Cryptography.RSASignaturePadding.Pkcs1)
+            .CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1));
+        var pem = Path.Combine(Directory.CreateTempSubdirectory("millet-aw-tls-").FullName, "otro.pem");
+        File.WriteAllText(pem, otro.ExportCertificatePem());
+        using var _ = AwTlsPruebas.ConfiarTemporalmente(pem);
+        await using var conn = AwTlsPruebas.ViaFabricaProductiva(Servidor + Credenciales() + "HostNameInCertificate=aw-sql-onprem;");
         var ex = await Assert.ThrowsAsync<SqlException>(() => conn.OpenAsync());
-        salida.WriteLine($"HostNameInCertificate equivocado: falla como se espera ({ex.GetType().Name}).");
+        salida.WriteLine($"Otro certificado fijado: falla como se espera ({ex.GetType().Name}).");
     }
 
     [Fact]

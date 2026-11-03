@@ -20,4 +20,5 @@ export const ESTADOS_CSD = {
   Vigente: { texto: 'Vigente', variante: 'success' },
   ProximoAVencer: { texto: 'Próximo a vencer', variante: 'warning' },
   Vencido: { texto: 'Vencido', variante: 'danger' },
+  Revocado: { texto: 'Revocado', variante: 'danger' },
 } as const;

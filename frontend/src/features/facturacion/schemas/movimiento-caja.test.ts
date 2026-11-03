@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   MOTIVO_RETIRO_MINIMO,
   TIPO_MOVIMIENTO_DEPOSITO,
+  TIPO_MOVIMIENTO_DEVOLUCION_FALTANTE,
   TIPO_MOVIMIENTO_RETIRO,
   errorDescripcionMovimiento,
 } from '@/features/facturacion/schemas/movimiento-caja';
@@ -22,6 +23,10 @@ describe('errorDescripcionMovimiento (86e3tfdwa)', () => {
 
   it('acepta un retiro con motivo de 15 caracteres', () => {
     expect(errorDescripcionMovimiento(TIPO_MOVIMIENTO_RETIRO, 'Reparación 1234')).toBeNull();
+  });
+
+  it('la devolución de faltante no exige descripción (se describe sola)', () => {
+    expect(errorDescripcionMovimiento(TIPO_MOVIMIENTO_DEVOLUCION_FALTANTE, '')).toBeNull();
   });
 
   it('no aplica el mínimo a los depósitos', () => {

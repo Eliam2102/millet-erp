@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Millet.Facturacion.Application.Cajas.Alcance;
 using Millet.Facturacion.Application.Facturas.Queries;
 using Millet.Facturacion.Domain.Comprobantes;
+using Millet.Facturacion.Domain.NotasCredito;
 using Millet.Facturacion.Infrastructure.Persistence;
 using Millet.SharedKernel.Application.Exceptions;
 
@@ -107,7 +108,15 @@ public sealed record AnticipoSaldoDetalle(
     Guid AnticipoId, Guid ClienteId, string Estado,
     decimal MontoCobrado, decimal MontoAmortizado, decimal Saldo, decimal SaldoDisponible,
     string? PedidoOrigenRef, long? ObraId, string? ObraNombre,
-    IReadOnlyList<AnticipoVinculacionInfo> Vinculaciones);
+    IReadOnlyList<AnticipoVinculacionInfo> Vinculaciones,
+    // F6.3 · CA6.17: lo devuelto en dinero y sus NC de devolución con el estado del reembolso en Tesorería.
+    decimal MontoDevuelto = 0m,
+    IReadOnlyList<AnticipoDevolucionInfo>? Devoluciones = null);
+
+/// <summary>F6.3: NC de devolución del anticipo y el estado de su reembolso (Solicitado … Pagado).</summary>
+public sealed record AnticipoDevolucionInfo(
+    Guid NotaCreditoId, string Folio, string? Uuid, string Estado, decimal Total,
+    string? EstadoReembolso, DateOnly? ReembolsoPagadoEl, string? ReembolsoReferencia, string? ReembolsoMotivoResolucion);
 
 /// <summary>Vinculación M2/M3: factura final + NC de amortización (si ya existe).</summary>
 public sealed record AnticipoVinculacionInfo(
@@ -206,9 +215,22 @@ public sealed class FacturaAnticipoDetalleHandler
             })
             .ToList();
 
+        var devoluciones = (await _db.NotasCredito.AsNoTracking()
+                .Where(n => n.AnticipoOrigenId == a.Id && n.Motivo == MotivoNotaCredito.DevolucionAnticipo)
+                .OrderBy(n => n.FolioNumero)
+                .Select(n => new
+                {
+                    n.Id, n.Folio, n.Uuid, n.Estado, n.Total, n.EstadoReembolso,
+                    n.ReembolsoPagadoEl, n.ReembolsoReferencia, n.ReembolsoMotivoResolucion,
+                })
+                .ToListAsync(cancellationToken))
+            .Select(n => new AnticipoDevolucionInfo(n.Id, n.Folio, n.Uuid, n.Estado.ToString(), n.Total,
+                n.EstadoReembolso?.ToString(), n.ReembolsoPagadoEl, n.ReembolsoReferencia, n.ReembolsoMotivoResolucion))
+            .ToList();
+
         return new AnticipoSaldoDetalle(
             a.Id, a.ClienteId, a.Estado.ToString(),
             a.MontoCobrado, a.MontoAmortizado, a.Saldo, a.SaldoDisponible,
-            a.PedidoOrigenRef, a.ObraId, a.ObraNombre, vinculaciones);
+            a.PedidoOrigenRef, a.ObraId, a.ObraNombre, vinculaciones, a.MontoDevuelto, devoluciones);
     }
 }

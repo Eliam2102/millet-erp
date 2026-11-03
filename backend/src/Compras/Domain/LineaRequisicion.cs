@@ -69,6 +69,18 @@ public sealed class LineaRequisicion : BaseEntity, IAuditable, IBelongsToAggrega
 
     public string? Notas { get; private set; }
 
+    /// <summary>Solo RQ de la app de Almacenes: piezas y medida de hoja en mm.</summary>
+    public int? Piezas { get; private set; }
+    public int? AnchoMm { get; private set; }
+    public int? AltoMm { get; private set; }
+
+    internal void AsignarMedidaApp(int? piezas, int? anchoMm, int? altoMm)
+    {
+        if (piezas <= 0 || anchoMm <= 0 || altoMm <= 0)
+            throw new BusinessRuleException("RQ_LINEA_MEDIDA_INVALIDA", "Piezas y medida deben ser positivas.");
+        Piezas = piezas; AnchoMm = anchoMm; AltoMm = altoMm;
+    }
+
     public decimal CantidadDeAlmacen { get; private set; }
 
     public decimal CantidadDeCompra { get; private set; }

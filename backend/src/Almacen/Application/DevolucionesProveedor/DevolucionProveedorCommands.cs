@@ -429,14 +429,16 @@ public sealed class RegistrarSalidaDevolucionAProveedorHandler
                     _conversion, linea.ArticuloId, lineaOc.UnidadMedida, cancellationToken), 4);
             if (lineaOc is not null)
             {
-                // Triada: no se puede devolver lo ya facturado hasta que una NC o cancelación baje lo facturado en CxP.
+                // Triada: misma invariante que la BD de Compras (facturada <= MAX(cantidad, recibida)). Devolver lo
+                // facturado dentro de lo pedido se permite: la salida genera la nota de cargo y la NC 03 la formaliza.
+                // Solo se bloquea cuando lo facturado es excedente de recepción.
                 var devuelto = devueltoPorLineaOc.GetValueOrDefault(lineaOc.LineaId) + (cantidadDocumento ?? 0m);
                 devueltoPorLineaOc[lineaOc.LineaId] = devuelto;
-                if (lineaOc.CantidadFacturada > 0m && lineaOc.CantidadRecibida - devuelto < lineaOc.CantidadFacturada)
+                if (lineaOc.CantidadFacturada > Math.Max(lineaOc.CantidadSolicitada, lineaOc.CantidadRecibida - devuelto))
                     throw new BusinessRuleException(
                         "DEVOLUCION_EXCEDE_NO_FACTURADO",
-                        $"No se puede devolver: la línea de la OC tiene {lineaOc.CantidadRecibida} recibidas y {lineaOc.CantidadFacturada} facturadas; " +
-                        "la devolución dejaría lo recibido por debajo de lo facturado. Registra primero la nota de crédito o cancela la factura en Cuentas por Pagar.");
+                        $"No se puede devolver: la línea de la OC pide {lineaOc.CantidadSolicitada}, tiene {lineaOc.CantidadRecibida} recibidas y {lineaOc.CantidadFacturada} facturadas; " +
+                        "la devolución dejaría facturado un excedente que ya no se recibió. Cancela la factura del excedente en Cuentas por Pagar.");
             }
             var movLineaId = Guid.CreateVersion7();
             var ubicacionLinea = binPorLinea.TryGetValue(linea.Id, out var ubi)

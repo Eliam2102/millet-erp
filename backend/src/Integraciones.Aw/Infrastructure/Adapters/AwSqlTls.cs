@@ -8,6 +8,13 @@ namespace Millet.Integraciones.Aw.Infrastructure.Adapters;
 /// </summary>
 public static class AwSqlTls
 {
+    /// <summary>
+    /// Ruta local del PEM público de SER-DATA que dejó <see cref="AwSqlCertificadoServidor.Instalar"/>. Con ella cada
+    /// conexión fija ese certificado (<c>ServerCertificate</c>) en vez de depender del almacén de confianza del sistema.
+    /// ponytail: estado de proceso; se fija una vez al registrar servicios, antes de abrir cualquier conexión.
+    /// </summary>
+    public static string? CertificadoServidorRuta { get; set; }
+
     /// <summary>Devuelve la cadena normalizada o lanza <see cref="InvalidOperationException"/> sin incluir secretos.</summary>
     public static string Validar(string connectionString, string nombre)
     {
@@ -18,6 +25,8 @@ public static class AwSqlTls
         if (b.Encrypt != SqlConnectionEncryptOption.Mandatory || b.TrustServerCertificate)
             throw new InvalidOperationException(
                 $"ConnectionStrings:{nombre} exige TLS verificado (Encrypt=True;TrustServerCertificate=False).");
+        if (CertificadoServidorRuta is { } ruta && string.IsNullOrEmpty(b.ServerCertificate))
+            b.ServerCertificate = ruta;
         return b.ConnectionString;
     }
 }

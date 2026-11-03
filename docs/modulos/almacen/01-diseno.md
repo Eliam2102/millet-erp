@@ -172,7 +172,7 @@ Hereda los ADRs transversales. La tabla resume los aplicados.
 - `Salida.rq_id` (variante A) debe estar `Aprobada`. Si es Vale (variante B), `rq_id` es null + `pendiente_regularizacion = true` con `fecha_limite_regularizacion = fecha_salida + 48h`.
 - `DevolucionInterna.salida_origen_id` debe existir y `cantidad_devuelta <= salida_origen.cantidad - devoluciones_previas`.
 - `DevolucionAProveedor` requiere autorización de Dirección (vía evidencia, mismo patrón que `NotaCargo` en CxP).
-- `DevolucionAProveedor` (8.B): al registrar la salida, por cada línea de OC `cantidad_recibida − devuelto (acumulado de la devolución) >= cantidad_facturada`; si no, error `DEVOLUCION_EXCEDE_NO_FACTURADO` (422) hasta que una NC o la cancelación de la factura en CxP reduzca lo facturado. Se valida solo al registrar la salida (no al iniciar). Compras, si aun así recibe un evento que violaría esto, omite la línea, registra error y marca el evento procesado.
+- `DevolucionAProveedor` (8.B): al registrar la salida, por cada línea de OC `cantidad_facturada <= MAX(cantidad, cantidad_recibida − devuelto (acumulado de la devolución))` (misma invariante que el CHECK `ck_oc_lineas_facturada_max` de Compras); si no, error `DEVOLUCION_EXCEDE_NO_FACTURADO` (422): solo ocurre con excedente de recepción facturado y se resuelve cancelando esa factura en CxP. Devolver lo facturado dentro de lo pedido se permite: orden **salida física → `NotaCargo` en CxP → NC fiscal tipo 03 la formaliza (compara contra el subtotal de la NC) → `ConciliadaConNcFiscal`** (corrección 30-oct; antes se pedía la NC primero y ninguna NC bajaba lo facturado). Se valida solo al registrar la salida (no al iniciar). Compras, si aun así recibe un evento que violaría esto, omite la línea, registra error y marca el evento procesado.
 - `ConteoInventario.estado = Aprobado` requiere que todas las líneas con `variacion > umbral` (A7) tengan al menos un recuento registrado.
 - `ConteoInventario.estado = Aplicado` genera movimientos `AjustePositivo` / `AjusteNegativo` por línea y bloquea el conteo (no se reabre).
 - `SaldoInventario.cantidad_reservada >= 0` y `SaldoInventario.cantidad >= cantidad_reservada` siempre (la reserva no puede exceder el físico).
@@ -688,7 +688,7 @@ ADR-0022. Patrón heredado de Compras/CxP.
 | Worker | Schedule | Responsabilidad | NoOp condicional |
 |---|---|---|---|
 | `OutboxPublisherWorker<AlmacenDbContext>` | Cada 5s | Publica eventos pendientes a Service Bus | Si cs vacía |
-| `RegularizacionValeSlaWorker` | Diario (9 AM) | Detecta vales sin regularizar (A14): día 1 → notifica Coordinador, día 2 → notifica Jefe Almacén | Si `INotificacionService` no está configurado |
+| `RegularizacionValeSlaWorker` | Diario (9 AM) | Detecta vales sin regularizar (A14): día 1 → notifica Coordinador (`Almacen:Avisos:Coordinador`), día 2 → notifica Jefe Almacén (`Almacen:Avisos:JefeAlmacen`); correo por `ICorreoSaliente` (86e3txv0n, ADR-0063) | Sin correos configurados el aviso solo queda en el log |
 | `InventarioRotativoCalendarioWorker` | Diario (3 AM) | Sugiere conteos rotativos según calendario configurado por sub-almacén | Sin condición externa |
 
 ---

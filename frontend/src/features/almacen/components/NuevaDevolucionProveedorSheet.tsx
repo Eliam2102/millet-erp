@@ -465,7 +465,7 @@ const SIN_LINEA = '__ninguna__';
 const MENSAJE_REVISA_CAMPOS = 'Revisa los campos marcados en rojo antes de crear la devolución.';
 
 function etiquetaLinea(l: RecepcionLineaItem): string {
-  const articulo = l.articuloClave ?? `${l.articuloId.slice(0, 8)}…`;
+  const articulo = l.articuloClave ?? '—';
   const desc = l.articuloDescripcion ? ` · ${l.articuloDescripcion}` : '';
   return `#${l.posicion} · ${articulo}${desc} · ${medidaDe(l)?.texto ?? `${l.cantidad} ${l.unidadMedida}`}`;
 }

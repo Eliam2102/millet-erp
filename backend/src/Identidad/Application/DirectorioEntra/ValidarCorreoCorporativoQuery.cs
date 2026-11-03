@@ -121,8 +121,13 @@ public sealed class ValidarCorreoCorporativoHandler
             .Select(e => new EmpleadoVinculadoResumen(e.Id, e.Clave, e.Nombre))
             .FirstOrDefaultAsync(cancellationToken);
 
+        // Fix PR #270: el dominio sólo bloquea cuando no hay cuenta que ligar
+        // (ni en el directorio ni un usuario del ERP que ya entró con su OID).
+        bool usuarioConOid = usuario is not null && !usuario.TieneOidPendiente;
+        bool existeCuenta = cuenta is not null || usuarioConOid;
+
         string? motivoBloqueo = null;
-        if (!dominioPermitido)
+        if (!dominioPermitido && !existeCuenta)
         {
             motivoBloqueo = "DOMINIO_NO_PERMITIDO";
         }
@@ -147,9 +152,8 @@ public sealed class ValidarCorreoCorporativoHandler
             motivoBloqueo = "ENTRA_CUENTA_DESHABILITADA";
         }
 
-        bool cuentaHabilitada = cuenta is { Habilitada: true };
-        bool puedeVincular = dominioPermitido
-            && cuentaHabilitada
+        bool cuentaHabilitada = cuenta is { Habilitada: true } || (cuenta is null && usuarioConOid);
+        bool puedeVincular = cuentaHabilitada
             && empleado is null
             && (usuario is null || (usuario.Activo && !usuario.EsCuentaTecnica))
             && !conflictoCandidatos;

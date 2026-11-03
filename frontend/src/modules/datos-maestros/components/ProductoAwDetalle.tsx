@@ -27,6 +27,8 @@ import {
   ProductoAwVariantesTable,
 } from '@/modules/datos-maestros/components/ProductoAwOrigenSection';
 import { F1AProductoFiscal } from './F1AFiscalPanel';
+import { faltantesFicha } from './ficha-fiscal';
+import { QueFaltaPanel } from './QueFaltaPanel';
 import { ProductoAwDatosForm } from '@/modules/datos-maestros/components/ProductoAwDatosForm';
 import {
   EstatusCatalogoBadge,
@@ -102,7 +104,14 @@ export function ProductoAwDetalle() {
       <PageHeader
         mono
         titulo={<>{producto.referenciaExterna}</>}
-        descripcion={<>{producto.descripcion}</>}
+        descripcion={
+          <>
+            {producto.descripcion}
+            <span className="mt-0.5 block font-mono text-xs">
+              UM {producto.unidadMedida ?? '—'} · SAT {producto.claveProdServSat ?? 'sin clave'}
+            </span>
+          </>
+        }
         estado={
           <>
             <EstatusCatalogoBadge estatus={producto.estatus} />
@@ -131,16 +140,12 @@ export function ProductoAwDetalle() {
           </>
         }
       />
-      <dl className="grid grid-cols-2 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat">
-        <div>
-          <dt className="text-xs text-ink-muted">Unidad de medida</dt>
-          <dd className="font-mono text-sm">{producto.unidadMedida ?? '—'}</dd>
-        </div>
-        <div>
-          <dt className="text-xs text-ink-muted">Clave SAT</dt>
-          <dd className="font-mono text-sm">{producto.claveProdServSat ?? '—'}</dd>
-        </div>
-      </dl>
+      <QueFaltaPanel
+        items={faltantesFicha(producto).map((etiqueta) => ({
+          etiqueta,
+          href: canGestionar ? '#ficha-fiscal-producto' : undefined,
+        }))}
+      />
 
       <div className="space-y-5">
         <ProductoAwBajaAviso producto={producto} />

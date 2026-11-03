@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Millet.CuentasPorPagar.Application.EventListeners;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor;
+using Millet.CuentasPorPagar.Domain.NotaCargo;
 using Millet.CuentasPorPagar.Domain.Ports.Compras;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
 using Factura = Millet.CuentasPorPagar.Domain.FacturaProveedor.FacturaProveedor;
@@ -36,6 +37,9 @@ public sealed class ElegibilidadFacturaService(CuentasPorPagarDbContext db, ICom
             disponible = oc.Lineas.ToDictionary(l => l.Id,
                 l => Math.Max(l.CantidadRecibida, recibidoLocal.GetValueOrDefault(l.Id)));
         }
+        // 86e3tacbn: un servicio no se recibe en Almacén; cuenta como recibido solo con la OC confirmada por el área solicitante.
+        foreach (var l in oc.Lineas.Where(l => l.EsServicio))
+            disponible[l.Id] = oc.ServicioConfirmado ? l.Cantidad : 0;
         // 86e3tabdp: tras cancelar una recepción, lo recibido vigente de esas líneas lo fija Almacén (ya sin la cancelada). Se toma tal
         // cual, sin restar nada a lo de Compras: así el resultado no depende de si Compras ya procesó la cancelación.
         foreach (var (lineaOcId, cantidad) in recibidoVigente ?? new Dictionary<Guid, decimal>())
@@ -49,6 +53,23 @@ public sealed class ElegibilidadFacturaService(CuentasPorPagarDbContext db, ICom
             disponible[l.LineaOcId!.Value] = Math.Max(0, disponible.GetValueOrDefault(l.LineaOcId.Value) - l.Cantidad);
         var lineas = factura.Lineas.Select(l => new LineaElegibilidad(l.LineaOcId ?? Guid.Empty, l.Cantidad,
             oc.Lineas.FirstOrDefault(o => o.Id == l.LineaOcId) is { } o ? o.BaseNetaUnitaria ?? o.PrecioUnitario : 0)).ToList();
-        return ElegibilidadPago.Calcular(lineas, disponible, neto, factura.AnticipoAplicadoTotal, factura.ImportePagado);
+        return ElegibilidadPago.Calcular(lineas, disponible, neto, factura.AnticipoAplicadoTotal, factura.ImportePagado,
+            await DescontadoPorDevolucionAsync(factura, ct));
+    }
+
+    // Dinero que las devoluciones a proveedor ya descontaron de la factura: sus notas de cargo aplicadas/formalizadas y la parte de la NC
+    // fiscal que las sustituye. Los movimientos se leen de BD y del contexto porque el pasivo se republica antes de guardar.
+    private async Task<decimal> DescontadoPorDevolucionAsync(Factura factura, CancellationToken ct)
+    {
+        db.ChangeTracker.DetectChanges();
+        var cargos = (await db.NotasCargo.Where(n => n.FacturaOrigenId == factura.Id && n.DevolucionAProveedorId != null).ToListAsync(ct))
+            .Concat(db.NotasCargo.Local.Where(n => n.FacturaOrigenId == factura.Id && n.DevolucionAProveedorId != null))
+            .DistinctBy(n => n.Id).Where(n => n.Estado is EstadoNotaCargo.Aplicada or EstadoNotaCargo.Formalizada).ToList();
+        if (cargos.Count == 0) return 0;
+        var ncIds = cargos.Where(n => n.NotaCreditoProveedorId != null).Select(n => n.NotaCreditoProveedorId).ToList();
+        var movimientos = (await db.MovimientosPasivo.Where(m => m.FacturaProveedorId == factura.Id && m.Tipo == TipoMovimientoPasivo.NotaCredito).ToListAsync(ct))
+            .Concat(db.MovimientosPasivo.Local.Where(m => m.FacturaProveedorId == factura.Id && m.Tipo == TipoMovimientoPasivo.NotaCredito))
+            .DistinctBy(m => m.Id).Where(m => ncIds.Contains(m.DocumentoId));
+        return cargos.Sum(n => n.Monto) + movimientos.Sum(m => m.Monto);
     }
 }

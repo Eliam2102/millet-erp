@@ -277,13 +277,13 @@ function EditorUsuarioAlcances(props: { usuarioId: string }) {
   const nombreSucursal = (id: string | null) =>
     id == null
       ? 'Todas las sucursales'
-      : (sucursales.data?.items.find((s) => s.id === id)?.nombre ?? id);
+      : (sucursales.data?.items.find((s) => s.id === id)?.nombre ?? '—');
   const nombreCanal = (id: number | null) =>
     id == null
       ? 'Todos los canales'
       : (canales.data?.find((c) => c.id === id)?.nombre ?? `Canal ${id}`);
   const nombreUsuario =
-    usuarios.data?.items.find((u) => u.id === props.usuarioId)?.nombre ?? props.usuarioId;
+    usuarios.data?.items.find((u) => u.id === props.usuarioId)?.nombre ?? '—';
 
   if (query.isLoading) {
     return <TableSkeleton rows={3} columns={[{ width: 'w-full' }]} />;

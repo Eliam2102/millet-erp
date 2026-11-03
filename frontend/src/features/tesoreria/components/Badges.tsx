@@ -4,6 +4,7 @@ import type {
   EstadoConciliacionMovimiento,
   EstadoDepositoConfirmacion,
   EstadoDevolucionCliente,
+  EstadoFolioTransferencia,
   SentidoMovimiento,
 } from '../api/types';
 import { estadoUi, type EntidadEstado } from '../lib/estados-ui';
@@ -35,4 +36,8 @@ export function ReppTimbradoBadge({ timbrado }: { timbrado: boolean }) {
 }
 export function EstadoDevolucionBadge({ estado }: { estado: EstadoDevolucionCliente }) {
   return <EstadoTesoreriaBadge entidad="devolucion" estado={estado} />;
+}
+
+export function EstadoFolioTransferenciaBadge({ estado }: { estado: EstadoFolioTransferencia }) {
+  return <EstadoTesoreriaBadge entidad="folioTransferencia" estado={estado} />;
 }

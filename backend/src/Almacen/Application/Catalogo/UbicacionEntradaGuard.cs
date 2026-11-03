@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Millet.Almacen.Domain.Catalogo;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.Catalogos.Domain;
 using Millet.SharedKernel.Application.Exceptions;
@@ -16,7 +17,8 @@ namespace Millet.Almacen.Application.Catalogo;
 ///   <item>Pertenece al sub-almacén del movimiento —solo si se pasa uno
 ///   (dev-interna)— (<c>UBICACION_NO_PERTENECE_AL_SUBALMACEN</c>). Recepción no
 ///   lo pasa: deriva el sub del bin y valida el invariante entre líneas.</item>
-///   <item>No es la ÚNICA/default — las entradas exigen ubicación real
+///   <item>Si es la ÚNICA/default ("almacén general") solo admite lo que no es
+///   vidrio y entonces no exige asignación; el vidrio exige rack
 ///   (<c>ENTRADA_A_UBICACION_UNICA</c>).</item>
 ///   <item>El artículo está asignado y activo a esa ubicación
 ///   (<c>ENTRADA_SIN_ASIGNACION</c>), molde de
@@ -44,7 +46,8 @@ public static class UbicacionEntradaGuard
         Guid ubicacionId,
         Guid articuloId,
         CancellationToken ct,
-        Guid? subEsperado = null)
+        Guid? subEsperado = null,
+        bool ligadoAw = true)
     {
         var ubicacion = await db.Ubicaciones.AsNoTracking()
             .Where(u => u.Id == ubicacionId)
@@ -64,9 +67,20 @@ public static class UbicacionEntradaGuard
                 "La ubicación elegida no pertenece al sub-almacén del movimiento.");
 
         if (ubicacion.EsDefault)
-            throw new BusinessRuleException(
-                "ENTRADA_A_UBICACION_UNICA",
-                "Las entradas exigen una ubicación real; la ÚNICA solo se drena por salidas.");
+        {
+            if (ligadoAw)
+                throw new BusinessRuleException(
+                    "ENTRADA_A_UBICACION_UNICA",
+                    "Los artículos de A+W entran a un rack; el almacén general es para consumibles y refacciones.");
+            // MAT-REV no tiene almacén general de entrada: lo dañado entra a sus racks y sale por dictamen.
+            var tipoSub = await db.SubAlmacenes.AsNoTracking()
+                .Where(s => s.Id == ubicacion.SubAlmacenId).Select(s => s.Tipo).FirstAsync(ct);
+            if (tipoSub == TipoSubAlmacen.MaterialEnRevision)
+                throw new BusinessRuleException(
+                    "ENTRADA_A_UBICACION_UNICA",
+                    "El sub-almacén de material en revisión no recibe en su almacén general; elige otro sub-almacén.");
+            return ubicacion.SubAlmacenId; // artículo sin A+W al almacén general: sin asignación
+        }
 
         var tieneAsignacion = await db.AsignacionesArticuloUbicacion.AsNoTracking()
             .AnyAsync(
@@ -92,6 +106,7 @@ public static class UbicacionEntradaGuard
         Guid ubicacionId,
         Guid subAlmacenId,
         Guid articuloId,
-        CancellationToken ct)
-        => ValidarEntradaYDerivarSubAsync(db, ubicacionId, articuloId, ct, subEsperado: subAlmacenId);
+        CancellationToken ct,
+        bool ligadoAw = true)
+        => ValidarEntradaYDerivarSubAsync(db, ubicacionId, articuloId, ct, subEsperado: subAlmacenId, ligadoAw: ligadoAw);
 }

@@ -344,7 +344,7 @@ function TablaFacturas({ items }: TablaFacturasProps) {
                   </Link>
                 </TableCell>
                 <TableCell>
-                  <ProveedorCelda nombre={f.proveedorNombre} rfc={f.proveedorRfc} />
+                  <ProveedorCelda nombre={f.proveedorNombre} rfc={f.proveedorRfc} bloqueado={f.proveedorBloqueado} />
                 </TableCell>
                 <TableCell className="whitespace-nowrap">
                   <DateTimeDisplay value={f.fechaDocumento} variant="corta" />

@@ -36,7 +36,7 @@ Se corren como **sysadmin**. Todos se pueden repetir sin daño. Para pruebas:
 | 1 | `09_create_login_lector.sql` | Crea el usuario `millet_erp_lector_aw`, solo con lectura (`SELECT`) sobre las 9 tablas de clientes y productos que lee el ERP en `MILMAIN`. Pide la contraseña con `:setvar Password` (modo SQLCMD) | Ninguno |
 | 2 | `07_job_aviso_pedidos.sql` | Crea la tarea `Millet ERP - aviso de pedidos A+W (DEV)`: cada 15 segundos escribe en la tabla de avisos los pedidos que llegan a 15 o 42 y las cancelaciones (900/999). No repite lo que ya escribió el botón del vendedor y no avisa los pedidos internos de la Serie 9000. Lee `MILMAIN` con prioridad baja y sin bloquearla | Cambiar `USE MILLET_INTEGRACION;` por `USE MILLET_INTEGRACION_DEV;` al inicio y `@base` (sección 4 del script) a `N'MILLET_INTEGRACION_DEV'`. El nombre del job agrega « (DEV)» solo |
 
-No correr `05_seed_dev.sql`, `07_create_otr_tables.sql` ni `08_grant_otr.sql`.
+No correr `05_seed_dev.sql`, `12_create_otr_tables.sql` ni `13_grant_otr.sql`.
 
 La contraseña del script 09 la define TI y se la pasa a Eliam por un canal seguro para el Key Vault. No se escribe en archivos, correos ni chats.
 

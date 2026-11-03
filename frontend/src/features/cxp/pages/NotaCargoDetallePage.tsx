@@ -131,7 +131,7 @@ export function NotaCargoDetallePage() {
           <dl className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 @xl:grid-cols-2 @3xl:grid-cols-4 @5xl:grid-cols-6">
             <Campo
               label="Proveedor"
-              valor={query.data.proveedorNombre ?? query.data.proveedorId}
+              valor={query.data.proveedorNombre ?? '—'}
               mono={query.data.proveedorNombre == null}
             />
             <Campo
@@ -141,7 +141,7 @@ export function NotaCargoDetallePage() {
             />
             <div className="md:col-span-2">
               <dt className="text-xs text-muted-foreground">Concepto</dt>
-              <dd className="text-sm">{query.data.concepto}</dd>
+              <dd className="text-sm [overflow-wrap:anywhere]">{query.data.concepto}</dd>
             </div>
             <Campo
               label="Concepto contable"
@@ -181,14 +181,14 @@ export function NotaCargoDetallePage() {
                 <dt className="text-xs text-muted-foreground">
                   Factura origen
                 </dt>
-                <dd className="font-mono text-xs">
+                <dd className="text-xs">
                   {query.data.facturaOrigenId != null ? (
                     <Link
                       to="/cxp/facturas/$id"
                       params={{ id: query.data.facturaOrigenId }}
                       className="text-primary underline-offset-2 hover:underline"
                     >
-                      {query.data.facturaOrigenId}
+                      Ver factura origen
                     </Link>
                   ) : (
                     '—'
@@ -197,21 +197,20 @@ export function NotaCargoDetallePage() {
               </div>
               <Campo
                 label="Devolución a proveedor"
-                valor={query.data.devolucionAProveedorId ?? '—'}
-                mono={query.data.devolucionAProveedorId != null}
+                valor={query.data.devolucionAProveedorId != null ? 'Vinculada' : '—'}
               />
               <div>
                 <dt className="text-xs text-muted-foreground">
                   NC del proveedor (conciliación)
                 </dt>
-                <dd className="font-mono text-xs">
+                <dd className="text-xs">
                   {query.data.notaCreditoProveedorId != null ? (
                     <Link
                       to="/cxp/notas-credito/$id"
                       params={{ id: query.data.notaCreditoProveedorId }}
                       className="text-primary underline-offset-2 hover:underline"
                     >
-                      {query.data.notaCreditoProveedorId}
+                      Ver NC del proveedor
                     </Link>
                   ) : (
                     '—'

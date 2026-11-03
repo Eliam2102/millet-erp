@@ -102,10 +102,10 @@ describe('filtrarModuloPorPermisos', () => {
 });
 
 describe('navSidebarItems', () => {
-  it('arranca con Inicio (link), seguido de los 11 módulos del back-office', () => {
+  it('arranca con Inicio (link), seguido de los 12 módulos del back-office', () => {
     expect(navSidebarItems[0]).toMatchObject({ kind: 'link', label: 'Inicio' });
     const modulos = navSidebarItems.filter((i) => i.kind === 'modulo');
-    expect(modulos.length).toBe(11);
+    expect(modulos.length).toBe(12);
     expect(modulos.map((m) => m.moduloId)).toEqual([
       'facturacion',
       'cxc',
@@ -118,6 +118,7 @@ describe('navSidebarItems', () => {
       'contabilidad',
       'reportes',
       'comercio-exterior',
+      'producto-terminado',
     ]);
   });
 
@@ -135,6 +136,7 @@ describe('navSidebarItems', () => {
       'activos-fijos',
       'contabilidad',
       'comercio-exterior',
+      'producto-terminado',
     ]);
   });
 
@@ -148,6 +150,7 @@ describe('navSidebarItems', () => {
     expect(operacion).toEqual([
       '/cxc/lineas-credito',
       '/cxc/liberaciones',
+      '/cxc/reglas-serie',
       '/cxc/cobranza',
       '/cxc/anticipos',
       '/cxc/aplicaciones',
@@ -160,6 +163,8 @@ describe('navSidebarItems', () => {
       PermisosCanonicos.CuentasPorCobrarLiberacionDecidir,
       PermisosCanonicos.CuentasPorCobrarLiberacionOverride,
     ]);
+    const reglasSerie = cxc.secciones[0].cards.find((c) => c.to === '/cxc/reglas-serie');
+    expect(reglasSerie?.permission).toBe(PermisosCanonicos.CuentasPorCobrarReglasSerieGestionar);
     const reportes = cxc.secciones[1].cards.map((c) => c.to);
     expect(reportes).toEqual(['/cxc/cartera', '/cxc/estado-cuenta']);
   });
@@ -189,8 +194,9 @@ describe('navSidebarItems', () => {
       ],
       ['/facturacion/caja'],
       ['/facturacion/repp/pendientes', '/facturacion/repp'],
-      ['/facturacion/carta-porte', '/facturacion/activos'],
-      ['/facturacion/pedidos/excepciones'],
+      ['/facturacion/notas-credito', '/facturacion/carta-porte', '/facturacion/activos'],
+      // F6.5: la bandeja de cancelaciones del Contador General va en Revisión.
+      ['/facturacion/pedidos/excepciones', '/facturacion/cancelaciones'],
       ['/facturacion/cajas'],
       [
         '/facturacion/reportes/liquidacion-caja',

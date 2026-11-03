@@ -1,3 +1,4 @@
+using MediatR;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -67,9 +68,9 @@ public class AwClientesSincronizadorTests : IClassFixture<WebApplicationFactory<
     }
 
     private static AwClientesOptions Opts(int lote = 3, bool lectura = true, bool aplicacion = true,
-        AwClientesOrigenTipo origen = AwClientesOrigenTipo.Simulado) => new()
+        AwClientesOrigenTipo origen = AwClientesOrigenTipo.Simulado, bool unifica = false) => new()
     {
-        Origen = origen, LecturaHabilitada = lectura, AplicacionHabilitada = aplicacion, TamanoLote = lote,
+        Origen = origen, UnificacionAutomaticaHabilitada = unifica, LecturaHabilitada = lectura, AplicacionHabilitada = aplicacion, TamanoLote = lote,
         MapeoMoneda = new(StringComparer.OrdinalIgnoreCase) { ["MXN"] = "MXN" }, // sin mapeo la fila queda Pendiente
     };
 
@@ -496,5 +497,67 @@ public class AwClientesSincronizadorTests : IClassFixture<WebApplicationFactory<
             await cdb.Set<ClienteLigadoAw>().Where(r => refs.Contains(r.ReferenciaExterna)).ExecuteDeleteAsync();
             await cdb.Clientes.Where(c => c.Id == manualId || (c.ReferenciaExterna != null && refs.Contains(c.ReferenciaExterna))).ExecuteDeleteAsync();
         }
+    }
+
+    /// <summary>Cuenta los comandos de unificación automática y responde con <c>Grupos</c> unificados.</summary>
+    private sealed class SenderFake(int grupos) : ISender
+    {
+        public List<UnificarRfcRepetidosAutomaticoCommand> Enviados { get; } = [];
+
+        public Task<TResponse> Send<TResponse>(IRequest<TResponse> request, CancellationToken ct = default)
+        {
+            Enviados.Add((UnificarRfcRepetidosAutomaticoCommand)(object)request);
+            return Task.FromResult((TResponse)(object)grupos);
+        }
+
+        public Task Send<TRequest>(TRequest request, CancellationToken ct = default) where TRequest : IRequest => throw new NotSupportedException();
+        public Task<object?> Send(object request, CancellationToken ct = default) => throw new NotSupportedException();
+        public IAsyncEnumerable<TResponse> CreateStream<TResponse>(IStreamRequest<TResponse> request, CancellationToken ct = default) => throw new NotSupportedException();
+        public IAsyncEnumerable<object?> CreateStream(object request, CancellationToken ct = default) => throw new NotSupportedException();
+    }
+
+    private async Task<(AwClientesEjecucion Ejec, SenderFake Sender)> BarridoConSender(AwClientesOptions opts)
+    {
+        await LimpiarVivosAsync();
+        var sender = new SenderFake(2);
+        var origen = new OrigenFake(Filas(NuevaBase(), 2));
+        using var scope = _factory.Services.CreateScope();
+        var sp = scope.ServiceProvider;
+        using var bypass = sp.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var services = new ServiceCollection();
+        services.AddSingleton<IAwClientesOrigen>(origen);
+        services.AddSingleton<ISender>(sender);
+        var sync = new AwClientesSincronizador(sp.GetRequiredService<IntegracionesAwDbContext>(), sp.GetRequiredService<CompartidoDbContext>(),
+            sp.GetRequiredService<AplicarClienteAwService>(), services.BuildServiceProvider(), Options.Create(opts), TimeProvider.System,
+            NullLogger<AwClientesSincronizador>.Instance);
+        var id = await sync.IniciarBarridoAsync("test", CancellationToken.None);
+        await sync.EjecutarAsync(id, CancellationToken.None);
+        return (await Ejec(id), sender);
+    }
+
+    [Fact]
+    public async Task Unificacion_automatica_con_bandera_y_origen_sql_corre_al_final_del_barrido_y_registra_unificados()
+    {
+        var (e, sender) = await BarridoConSender(Opts(origen: AwClientesOrigenTipo.Sql, unifica: true));
+        Assert.Equal(AwClientesEjecucionEstado.Completa, e.Estado);
+        Assert.Equal(2, e.Unificados);
+        Assert.Equal("sistema:unificacion-automatica", Assert.Single(sender.Enviados).Actor);
+    }
+
+    [Fact]
+    public async Task Unificacion_automatica_no_corre_con_la_bandera_apagada()
+    {
+        var (e, sender) = await BarridoConSender(Opts(origen: AwClientesOrigenTipo.Sql, unifica: false));
+        Assert.Equal(0, e.Unificados);
+        Assert.Empty(sender.Enviados);
+    }
+
+    [Fact]
+    public async Task Unificacion_automatica_no_corre_si_el_origen_no_es_sql_aunque_la_bandera_este_encendida()
+    {
+        var (e, sender) = await BarridoConSender(Opts(origen: AwClientesOrigenTipo.Simulado, unifica: true));
+        Assert.Equal(AwClientesEjecucionEstado.Completa, e.Estado);
+        Assert.Equal(0, e.Unificados);
+        Assert.Empty(sender.Enviados);
     }
 }

@@ -22,6 +22,13 @@ public interface IGenerarPdfFacturaPort
 
     /// <summary>PDF bilingüe de una nota de crédito (Egreso; motivo + relaciones, 13-C).</summary>
     PdfFacturaGenerado Generar(NotaCredito notaCredito);
+
+    /// <summary>
+    /// PDF carta con el formato de Millet (FMT-4) desde el modelo ya armado con los
+    /// datos de impresión del emisor (domicilio, logo y catálogos). Las sobrecargas
+    /// por entidad arman el modelo sin esos datos.
+    /// </summary>
+    PdfFacturaGenerado Generar(CfdiPdfModel modelo);
 }
 
 public enum FormatoPdfFactura

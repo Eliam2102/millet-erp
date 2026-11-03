@@ -114,6 +114,6 @@ public sealed class ComprasOcReadPortAdapter : IComprasOcReadPort
             Total: totales.TotalAPagar,
             Estado: oc.Estado.ToString(),
             Lineas: lineas,
-            Moneda: oc.Moneda, Obra: oc.Obra);
+            Moneda: oc.Moneda, Obra: oc.Obra, ServicioConfirmado: oc.ServicioConfirmadoEn is not null);
     }
 }

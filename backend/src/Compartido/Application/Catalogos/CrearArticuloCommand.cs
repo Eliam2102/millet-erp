@@ -26,7 +26,8 @@ public sealed record CrearArticuloCommand(
     Guid? CategoriaId,
     decimal? PrecioReferenciaMonto,
     string? PrecioReferenciaMoneda,
-    Guid? ProductoAwId = null) : IRequest<CrearArticuloResponse>;
+    Guid? ProductoAwId = null,
+    string? ClaveLegacy = null) : IRequest<CrearArticuloResponse>;
 
 public sealed record CrearArticuloResponse(Guid Id, string Clave);
 
@@ -34,6 +35,7 @@ public sealed class CrearArticuloValidator : AbstractValidator<CrearArticuloComm
 {
     public CrearArticuloValidator()
     {
+        RuleFor(c => c.ClaveLegacy).MaximumLength(20);
         RuleFor(c => c.Clave).NotEmpty().MaximumLength(20);
         RuleFor(c => c.Nombre).NotEmpty().MaximumLength(254);
         RuleFor(c => c.UnidadMedidaId).NotEqual(Guid.Empty);
@@ -118,7 +120,8 @@ public sealed class CrearArticuloHandler
             precioReferenciaMonto: request.PrecioReferenciaMonto,
             precioReferenciaMoneda: request.PrecioReferenciaMoneda,
             unidadMedidaId: unidad.Id,
-            categoriaId: categoria?.Id);
+            categoriaId: categoria?.Id,
+            claveLegacy: request.ClaveLegacy);
 
         if (request.ProductoAwId is { } productoAwId)
         {

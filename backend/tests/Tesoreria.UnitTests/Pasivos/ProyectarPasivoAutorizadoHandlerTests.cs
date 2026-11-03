@@ -57,6 +57,23 @@ public sealed class ProyectarPasivoAutorizadoHandlerTests
     }
 
     [Fact]
+    public async Task Proyecta_el_desglose_del_CFDI_y_la_reemision_lo_actualiza()
+    {
+        // T9.1-A: bruto / retenciones / neto de la corrida salen de estos campos.
+        using var db = CrearDbContext();
+        var handler = new ProyectarPasivoAutorizadoHandler(db, new FakeClock(Ahora));
+        var facturaId = Guid.NewGuid();
+        var payload = Payload(facturaId, 1_053.33m, 1_053.33m) with { Subtotal = 1_000m, ImpuestosTrasladados = 160m, Retenciones = 106.67m };
+
+        await handler.Handle(new ProyectarPasivoAutorizadoCommand(Guid.NewGuid(), payload), CancellationToken.None);
+        (await db.PasivosPendientesPago.SingleAsync()).Desglose(1_053.33m).Should().Be((1_160m, 106.67m));
+
+        await handler.Handle(new ProyectarPasivoAutorizadoCommand(Guid.NewGuid(),
+            payload with { OcurridoEn = Ahora.AddMinutes(1), Retenciones = 0m }), CancellationToken.None);
+        (await db.PasivosPendientesPago.SingleAsync()).Desglose(1_053.33m).Retenciones.Should().Be(0m);
+    }
+
+    [Fact]
     public async Task Reemision_actualiza_sin_duplicar()
     {
         using var db = CrearDbContext();

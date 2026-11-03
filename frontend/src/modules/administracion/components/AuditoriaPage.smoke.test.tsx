@@ -348,4 +348,61 @@ describe('<AuditoriaPage> — smoke', () => {
     const sucursalSelect = screen.getByLabelText('Sucursal') as HTMLSelectElement;
     await waitFor(() => expect(sucursalSelect.value).toBe(SUCURSAL_ACTIVA_ID));
   });
+  function servidorConUnRegistro() {
+    mswServer.use(
+      http.get('*/api/v1/admin/auditoria', () =>
+        HttpResponse.json({ items: [ENTRY_UPDATE], total: 1 }),
+      ),
+      http.get('*/api/v1/admin/empresas', () =>
+        HttpResponse.json({ items: [EMPRESA_E1], total: 1 }),
+      ),
+      http.get('*/api/v1/identidad/usuarios/admin', () =>
+        HttpResponse.json({ items: [USUARIO_U1], total: 1 }),
+      ),
+    );
+  }
+
+  it('ADM-BIT: sin el permiso de exportar ve resultados pero no aparece el botón Exportar', async () => {
+    servidorConUnRegistro();
+
+    render(<AuditoriaPage />, { wrapper: createQueryWrapper() });
+
+    await waitFor(() =>
+      expect(screen.getByText('REQ-0001 · Requisición Perfiles')).toBeInTheDocument(),
+    );
+    expect(screen.queryByRole('button', { name: /exportar/i })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('auditoria-total-exportar')).not.toBeInTheDocument();
+  });
+
+  it('ADM-BIT: con el permiso de exportar muestra el botón y el total que traerá el archivo', async () => {
+    useAuthStore.setState({
+      permisos: [
+        PermisosCanonicos.AdminAuditoriaLeer,
+        PermisosCanonicos.AdminAuditoriaExportar,
+        PermisosCanonicos.AdminEmpresasLeer,
+      ],
+    });
+    servidorConUnRegistro();
+
+    render(<AuditoriaPage />, { wrapper: createQueryWrapper() });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('auditoria-total-exportar')).toHaveTextContent('Se exportará 1 registro'),
+    );
+    expect(screen.getByRole('button', { name: /exportar/i })).toBeEnabled();
+  });
+
+  it('ADM-BIT: el detalle ofrece «Abrir documento» hacia el documento raíz del registro', async () => {
+    servidorConUnRegistro();
+
+    render(<AuditoriaPage />, { wrapper: createQueryWrapper() });
+
+    await waitFor(() =>
+      expect(screen.getByText('REQ-0001 · Requisición Perfiles')).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByRole('button', { name: /ver detalle/i }));
+
+    const enlace = await screen.findByRole('link', { name: /abrir documento/i });
+    expect(enlace).toHaveAttribute('href', '/compras/requisiciones/$id');
+  });
 });

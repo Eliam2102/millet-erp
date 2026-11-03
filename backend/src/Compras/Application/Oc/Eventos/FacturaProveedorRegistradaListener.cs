@@ -47,6 +47,11 @@ public sealed class FacturaProveedorRegistradaListener
         {
             await _publisher.Publish(cerrada, cancellationToken);
         }
+        // Cancelar una factura baja lo facturado y puede reabrir la OC.
+        if (resultado.Reabrierta is { } reabierta)
+        {
+            await _publisher.Publish(reabierta, cancellationToken);
+        }
 
         // ADR-0009: incluir cierre/reapertura en la transacción del cambio.
         await _db.SaveChangesAsync(cancellationToken);

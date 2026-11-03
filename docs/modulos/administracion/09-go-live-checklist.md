@@ -311,6 +311,7 @@ Luego corregir secret en Key Vault y re-startear (idempotencia garantiza que el 
 - `<SchemaRename>` — Fase B ADR-0035.
 - `<EntraIdResolver>` — wireup Graph API real.
 - `<EntraDirectorio>` — adaptador Graph del directorio Entra (buscar/crear cuentas) para el alta unificada.
+- `<GrupoAccesoErp>` — Object ID del grupo de acceso del ERP en `Entra:GrupoAccesoErpId` y permiso `GroupMember.ReadWrite.All`; encender `Identidad:ExigirEmpleadoParaAcceso` después de ligar las cuentas actuales a su ficha de empleado.
 - `<ServiceBusWireup>` — eventos cross-process.
 - `<CatalogosSapImport>` — migración masiva.
 

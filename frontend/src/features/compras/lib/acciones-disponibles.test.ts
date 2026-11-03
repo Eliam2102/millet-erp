@@ -534,3 +534,68 @@ describe('accionVerCotizaciones (F1-COM-02)', () => {
     expect(accionVerCotizaciones(makeRq(EstadoRequisicion.EnSurtido), []).visible).toBe(false);
   });
 });
+
+describe('autoautorización de RQ (REQUISICION_AUTOAUTORIZACION)', () => {
+  const rqEnAut = (extra: Partial<RequisicionResponse> = {}) =>
+    makeRq(EstadoRequisicion.EnAutorizacion, { creadorId: 'u-autor', ...extra });
+
+  it('Nivel 1: el autor ve el botón deshabilitado con motivo; otro usuario lo tiene habilitado', () => {
+    const autor = accionAprobarNivel1(rqEnAut(), TODOS_LOS_PERMISOS, 'u-autor');
+    expect(autor.visible).toBe(true);
+    expect(autor.habilitada).toBe(false);
+    expect(autor.motivoDeshabilitada).toBeTruthy();
+    expect(accionAprobarNivel1(rqEnAut(), TODOS_LOS_PERMISOS, 'otro').habilitada).toBe(true);
+  });
+
+  it('Nivel 2: el autor ve el botón deshabilitado con motivo', () => {
+    const rq = rqEnAut({
+      autorizaciones: [
+        { id: 'a-1', nivel: NivelAutorizacion.Nivel1, usuarioId: 'jefe', fechaHora: '2026-01-01T00:00:00Z', notas: null },
+      ] as RequisicionResponse['autorizaciones'],
+    });
+    const autor = accionAprobarNivel2(rq, TODOS_LOS_PERMISOS, 'u-autor');
+    expect(autor.habilitada).toBe(false);
+    expect(autor.motivoDeshabilitada).toBeTruthy();
+    expect(accionAprobarNivel2(rq, TODOS_LOS_PERMISOS, 'otro').habilitada).toBe(true);
+  });
+});
+
+describe('C3.1: mismo firmante y autorizador de la matriz', () => {
+  const n1 = {
+    id: 'a-1',
+    nivel: NivelAutorizacion.Nivel1,
+    usuarioId: 'jefe-dpto',
+    fechaHora: '2026-05-09T10:00:00Z',
+    notas: null,
+  };
+  const rq = (extra: Partial<RequisicionResponse>) =>
+    makeRq(EstadoRequisicion.EnAutorizacion, { creadorId: 'u-autor', ...extra });
+
+  it('N2 deshabilitado con motivo para quien ya firmó N1', () => {
+    const r = accionAprobarNivel2(rq({ autorizaciones: [n1] }), TODOS_LOS_PERMISOS, 'jefe-dpto');
+    expect(r.habilitada).toBe(false);
+    expect(r.motivoDeshabilitada).toMatch(/otra persona/);
+  });
+
+  it('N1: solo el jefe de departamento designado; otro ve el motivo', () => {
+    const r1 = rq({ autorizadorN1Id: 'jefe-dpto' });
+    expect(accionAprobarNivel1(r1, TODOS_LOS_PERMISOS, 'otro')).toMatchObject({
+      habilitada: false,
+      motivoDeshabilitada: expect.stringMatching(/jefe del departamento/),
+    });
+    expect(accionAprobarNivel1(r1, TODOS_LOS_PERMISOS, 'jefe-dpto').habilitada).toBe(true);
+  });
+
+  it('N2: solo el jefe de almacén designado; otro ve el motivo', () => {
+    const r2 = rq({ autorizaciones: [n1], autorizadorN2Id: 'jefe-alm' });
+    expect(accionAprobarNivel2(r2, TODOS_LOS_PERMISOS, 'otro')).toMatchObject({
+      habilitada: false,
+      motivoDeshabilitada: expect.stringMatching(/jefe de almacén/),
+    });
+    expect(accionAprobarNivel2(r2, TODOS_LOS_PERMISOS, 'jefe-alm').habilitada).toBe(true);
+  });
+
+  it('sin autorizador configurado: basta el permiso', () => {
+    expect(accionAprobarNivel1(rq({}), TODOS_LOS_PERMISOS, 'otro').habilitada).toBe(true);
+  });
+});

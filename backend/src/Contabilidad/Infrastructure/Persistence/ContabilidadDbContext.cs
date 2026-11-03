@@ -42,12 +42,17 @@ public sealed class ContabilidadDbContext : BaseDbContext
     public DbSet<ConsecutivoPoliza> ConsecutivosPoliza => Set<ConsecutivoPoliza>();
     // K10.4: pólizas recurrentes.
     public DbSet<PlantillaRecurrente> PlantillasRecurrentes => Set<PlantillaRecurrente>();
+    // K10.5: auxiliar por OC de la cuenta puente recepción–factura.
+    public DbSet<MovimientoPuente> MovimientosPuente => Set<MovimientoPuente>();
 
     // C1.4: motor de pólizas desde eventos (roles de cuenta, plantillas y bandeja de rechazos).
     public DbSet<RolCuenta> RolesCuenta => Set<RolCuenta>();
     public DbSet<RolCuentaCambio> RolesCuentaCambios => Set<RolCuentaCambio>();
     public DbSet<PlantillaContable> PlantillasContables => Set<PlantillaContable>();
     public DbSet<RechazoContable> RechazosContables => Set<RechazoContable>();
+    public DbSet<EventoContableProcesado> EventosProcesados => Set<EventoContableProcesado>();
+    public DbSet<CobroEfectivoCaja> CobrosEfectivoCaja => Set<CobroEfectivoCaja>();
+    public DbSet<ConsumoContabilizado> ConsumosContabilizados => Set<ConsumoContabilizado>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

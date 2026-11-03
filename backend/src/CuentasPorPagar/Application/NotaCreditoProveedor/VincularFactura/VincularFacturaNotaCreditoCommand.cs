@@ -43,10 +43,11 @@ public sealed class VincularFacturaNotaCreditoHandler
     private readonly CuentasPorPagarDbContext _db;
     private readonly IMediator _mediator;
     private readonly IClock _clock;
+    private readonly NotaCargo.FormalizacionNotaCargoService _formalizacion;
 
-    public VincularFacturaNotaCreditoHandler(CuentasPorPagarDbContext db, IMediator mediator, IClock clock)
+    public VincularFacturaNotaCreditoHandler(CuentasPorPagarDbContext db, IMediator mediator, IClock clock, NotaCargo.FormalizacionNotaCargoService formalizacion)
     {
-        _db = db; _mediator = mediator; _clock = clock;
+        _db = db; _mediator = mediator; _clock = clock; _formalizacion = formalizacion;
     }
 
     public async Task<VincularFacturaNotaCreditoResponse> Handle(
@@ -111,7 +112,7 @@ public sealed class VincularFacturaNotaCreditoHandler
             Moneda: nc.Moneda,
             TipoCambio: nc.TipoCambio), cancellationToken);
 
-        await new NotaCargo.FormalizacionNotaCargoService(_db, _mediator).IntentarAsync(nc, ahora, cancellationToken);
+        await _formalizacion.IntentarAsync(nc, ahora, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
         return new VincularFacturaNotaCreditoResponse(nc.Id, nc.Estado, nc.FacturaOrigenId!.Value, nc.Version);

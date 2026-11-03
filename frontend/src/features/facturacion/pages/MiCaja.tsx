@@ -30,6 +30,7 @@ import type {
 } from '@/features/facturacion/api/types';
 import { useListarCajas } from '@/features/facturacion/api/useCajas';
 import {
+  useFaltantesPorDevolver,
   useAbrirSesion,
   useAjustesCaja,
   useCancelarCobro,
@@ -41,14 +42,23 @@ import {
   useListarCobros,
   useReabrirSesion,
   useRegistrarMovimiento,
+  descargarValeCaja,
   useSesionActual,
 } from '@/features/facturacion/api/useCajaSesiones';
 import { CancelarCobroDialog } from '@/features/facturacion/components/CancelarCobroDialog';
 import { PorCobrarCaja } from '@/features/facturacion/components/PorCobrarCaja';
+import { TerminalTarjetaCard } from '@/features/facturacion/components/TerminalTarjetaCard';
 import {
   autorizacionVoucherInvalida,
   esFormaTarjeta,
+  esTransferencia,
+  faltaFolioTransferencia,
+  faltanUltimos4,
+  MENSAJE_FOLIO_TRANSFERENCIA,
+  MENSAJE_ULTIMOS4,
   MENSAJE_VOUCHER,
+  pideUltimos4,
+  soloUltimos4,
   voucherIncompleto,
   formasPagoCaja,
   formasPagoVigentes,
@@ -56,6 +66,7 @@ import {
 import {
   MOTIVO_RETIRO_MINIMO,
   TIPO_MOVIMIENTO_DEPOSITO as TIPO_DEPOSITO,
+  TIPO_MOVIMIENTO_DEVOLUCION_FALTANTE as TIPO_DEVOLUCION,
   TIPO_MOVIMIENTO_RETIRO as TIPO_RETIRO,
   errorDescripcionMovimiento,
 } from '@/features/facturacion/schemas/movimiento-caja';
@@ -144,7 +155,7 @@ export function MiCaja() {
           onRetry={() => query.refetch()}
         />
       ) : query.data?.sesion == null ? (
-        <AperturaSesionCard />
+        <AperturaSesionCard ultima={query.data?.ultimaSesionHoy} />
       ) : (
         <>
           {query.data.diaAnteriorPendiente && (
@@ -161,23 +172,25 @@ export function MiCaja() {
       )}
 
       {puedeSupervisar && <AutorizarAperturaCard />}
+      {/* 86e3vr1tf: archivo diario de la terminal de tarjetas. */}
+      {puedeSupervisar && <TerminalTarjetaCard />}
     </div>
   );
 }
 
 // ─── Apertura (§5.1 paso 1) ──────────────────────────────────────────
 
-function AperturaSesionCard() {
+function AperturaSesionCard({ ultima }: { ultima?: { cajaId: string; sucursalId: string } | null }) {
   const puedeOperar = useHasPermission(PermisosCanonicos.FacturacionCajaOperar);
   const cajas = useListarCajas(true);
   const abrir = useAbrirSesion();
   const idempotencyKey = useFormIdempotencyKey();
 
-  const [cajaId, setCajaId] = useState<string | null>(null);
+  const [cajaId, setCajaId] = useState<string | null>(ultima?.cajaId ?? null);
   // Aviso [12-C]: los ajustes pendientes de la caja elegida se drenan
   // automáticamente al abrir — el cajero debe saberlo antes de declarar.
   const ajustes = useAjustesCaja(cajaId);
-  const [sucursalId, setSucursalId] = useState<string | null>(null);
+  const [sucursalId, setSucursalId] = useState<string | null>(ultima?.sucursalId ?? null);
   const [fondo, setFondo] = useState('');
   const [autorizacionId, setAutorizacionId] = useState('');
   const [pideAutorizacion, setPideAutorizacion] = useState(false);
@@ -445,6 +458,9 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
   // tarjeta, el chofer entrega el voucher (Manual de Sucursales §5.2).
   const [seleccion, setSeleccion] = useState<Record<string, string>>({});
   const [vouchers, setVouchers] = useState<Record<string, string>>({});
+  const [ultimos4, setUltimos4] = useState<Record<string, string>>({});
+  // F6.6: la transferencia de la ruta también se aplica con el folio de Ingresos.
+  const [foliosTr, setFoliosTr] = useState<Record<string, string>>({});
 
   const items = cobrables.data ?? [];
   const seleccionados = items.filter((c) => seleccion[c.comprobanteId] != null);
@@ -457,6 +473,18 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
     seleccionados.map((c) => ({
       formaPago: seleccion[c.comprobanteId],
       referencia: vouchers[c.comprobanteId],
+    })),
+  );
+  const sinUltimos4 = faltanUltimos4(
+    seleccionados.map((c) => ({
+      formaPago: seleccion[c.comprobanteId],
+      tarjetaUltimos4: ultimos4[c.comprobanteId],
+    })),
+  );
+  const sinFolio = faltaFolioTransferencia(
+    seleccionados.map((c) => ({
+      formaPago: seleccion[c.comprobanteId],
+      folioTransferencia: foliosTr[c.comprobanteId],
     })),
   );
 
@@ -482,6 +510,14 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
       toast.error(MENSAJE_VOUCHER);
       return;
     }
+    if (sinUltimos4) {
+      toast.error(MENSAJE_ULTIMOS4);
+      return;
+    }
+    if (sinFolio) {
+      toast.error(MENSAJE_FOLIO_TRANSFERENCIA);
+      return;
+    }
     liquidar.mutate(
       {
         cobros: seleccionados.map((c) => ({
@@ -492,6 +528,12 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
               importe: c.total,
               referencia: esFormaTarjeta(seleccion[c.comprobanteId])
                 ? (vouchers[c.comprobanteId] ?? '').trim()
+                : null,
+              tarjetaUltimos4: pideUltimos4(seleccion[c.comprobanteId])
+                ? (ultimos4[c.comprobanteId] ?? '').trim()
+                : null,
+              folioTransferencia: esTransferencia(seleccion[c.comprobanteId])
+                ? (foliosTr[c.comprobanteId] ?? '').trim().toUpperCase()
                 : null,
             },
           ],
@@ -629,6 +671,45 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
                           aria-required
                         />
                       )}
+                      {marcado && pideUltimos4(seleccion[c.comprobanteId]) && (
+                        <Input
+                          className="mt-1 h-8 w-44"
+                          inputMode="numeric"
+                          autoComplete="off"
+                          value={ultimos4[c.comprobanteId] ?? ''}
+                          onChange={(e) =>
+                            setUltimos4((prev) => ({
+                              ...prev,
+                              [c.comprobanteId]: soloUltimos4(e.target.value),
+                            }))
+                          }
+                          placeholder="Últimos 4 de la tarjeta"
+                          maxLength={4}
+                          aria-label={`Últimos 4 dígitos de la tarjeta de ${c.folio}`}
+                          aria-invalid={faltanUltimos4([
+                            {
+                              formaPago: seleccion[c.comprobanteId],
+                              tarjetaUltimos4: ultimos4[c.comprobanteId],
+                            },
+                          ])}
+                          aria-required
+                        />
+                      )}
+                      {marcado && esTransferencia(seleccion[c.comprobanteId]) && (
+                        <Input
+                          className="mt-1 h-8 w-44"
+                          autoComplete="off"
+                          value={foliosTr[c.comprobanteId] ?? ''}
+                          onChange={(e) =>
+                            setFoliosTr((prev) => ({ ...prev, [c.comprobanteId]: e.target.value }))
+                          }
+                          placeholder="Folio de Ingresos · TR-000001"
+                          maxLength={20}
+                          aria-label={`Folio de transferencia de ${c.folio}`}
+                          aria-invalid={(foliosTr[c.comprobanteId] ?? '').trim() === ''}
+                          aria-required
+                        />
+                      )}
                     </TableCell>
                   </TableRow>
                 );
@@ -650,13 +731,24 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
         <Button
           size="sm"
           onClick={onRegistrar}
-          disabled={liquidar.isPending || seleccionados.length === 0 || !vigentes || sinVoucher}
+          disabled={
+            liquidar.isPending ||
+            seleccionados.length === 0 ||
+            !vigentes ||
+            sinVoucher ||
+            sinUltimos4 ||
+            sinFolio
+          }
           title={
             !vigentes
               ? 'Selecciona formas de pago SAT activas.'
               : sinVoucher
                 ? MENSAJE_VOUCHER
-                : undefined
+                : sinUltimos4
+                  ? MENSAJE_ULTIMOS4
+                  : sinFolio
+                    ? MENSAJE_FOLIO_TRANSFERENCIA
+                    : undefined
           }
         >
           Registrar liquidación
@@ -678,6 +770,9 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
   const [descripcion, setDescripcion] = useState('');
   const [referencia, setReferencia] = useState('');
   const esRetiro = Number(tipo) === TIPO_RETIRO;
+  const esDevolucion = Number(tipo) === TIPO_DEVOLUCION;
+  const [corteOrigen, setCorteOrigen] = useState('');
+  const faltantes = useFaltantesPorDevolver(true);
   const largoMotivo = descripcion.trim().length;
 
   function onGuardar() {
@@ -690,6 +785,10 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
       toast.error('El importe debe ser mayor que cero.');
       return;
     }
+    if (esDevolucion && corteOrigen === '') {
+      toast.error('Elige el corte de origen del faltante que devuelves.');
+      return;
+    }
     const errorDescripcion = errorDescripcionMovimiento(Number(tipo), descripcion);
     if (errorDescripcion) {
       toast.error(errorDescripcion);
@@ -700,17 +799,26 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
         sesionId: props.sesionId,
         body: {
           tipo: Number(tipo),
-          formaPago,
+          formaPago: esDevolucion ? '01' : formaPago,
           importe: monto,
           descripcion: descripcion.trim(),
+          corteOrigenSesionId: esDevolucion ? corteOrigen : null,
           referencia: referencia.trim() === '' ? null : referencia.trim(),
         },
         idempotencyKey,
       },
       {
-        onSuccess: () => {
-          toast.success('Movimiento registrado.');
+        onSuccess: (registrado) => {
           props.onCerrar();
+          if (registrado.folioVale == null) {
+            toast.success('Movimiento registrado.');
+            return;
+          }
+          // Retiro: se descarga el Vale de Caja para imprimirlo y firmarlo (86e3ww6tw).
+          toast.success(`Retiro registrado. Vale de Caja folio ${registrado.folioVale}.`);
+          descargarValeCaja(registrado.id, registrado.folioVale).catch((error: unknown) =>
+            toastError(error, 'No se pudo descargar el Vale de Caja; reimprímelo desde Movimientos.'),
+          );
         },
         onError: (error) => toastError(error, 'No se pudo registrar el movimiento.'),
       },
@@ -731,12 +839,30 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
           <SelectContent>
             <SelectItem value={String(TIPO_DEPOSITO)}>Depósito</SelectItem>
             <SelectItem value={String(TIPO_RETIRO)}>Retiro</SelectItem>
+            <SelectItem value={String(TIPO_DEVOLUCION)}>Devolución de faltante</SelectItem>
           </SelectContent>
         </Select>
       </div>
+      {esDevolucion && (
+        <div className="space-y-1 md:col-span-4">
+          <Label>Corte de origen *</Label>
+          <Select value={corteOrigen} onValueChange={setCorteOrigen}>
+            <SelectTrigger aria-label="Corte de origen">
+              <SelectValue placeholder={faltantes.data?.length === 0 ? 'Sin faltantes por devolver' : 'Elige el corte'} />
+            </SelectTrigger>
+            <SelectContent>
+              {(faltantes.data ?? []).map((f) => (
+                <SelectItem key={f.corteSesionId} value={f.corteSesionId}>
+                  Corte del {f.diaOperacion} · pendiente ${f.pendiente.toFixed(2)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       <div className="space-y-1 md:col-span-2">
         <Label>Forma *</Label>
-        <Select value={formaPago} onValueChange={setFormaPago}>
+        <Select value={esDevolucion ? '01' : formaPago} onValueChange={setFormaPago} disabled={esDevolucion}>
           <SelectTrigger aria-label="Forma de pago">
             <SelectValue />
           </SelectTrigger>
@@ -760,7 +886,7 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
         />
       </div>
       <div className="space-y-1 md:col-span-3">
-        <Label htmlFor="mov-desc">{esRetiro ? 'Motivo del retiro *' : 'Descripción *'}</Label>
+        <Label htmlFor="mov-desc">{esRetiro ? 'Motivo del retiro *' : esDevolucion ? 'Descripción' : 'Descripción *'}</Label>
         <Input
           aria-describedby="mov-desc-ayuda"
           id="mov-desc"
@@ -925,6 +1051,13 @@ function ArqueoPanel(props: { sesion: CajaSesionDetalleResponse }) {
 
 // ─── Movimientos y cobros de la sesión ───────────────────────────────
 
+/** Reimpresión del Vale de Caja de un retiro: mismo folio y datos (86e3ww6tw). */
+function reimprimirVale(movimientoId: string, folio: number) {
+  descargarValeCaja(movimientoId, folio).catch((error: unknown) =>
+    toastError(error, 'No se pudo descargar el Vale de Caja.'),
+  );
+}
+
 function MovimientosTabla(props: { sesion: CajaSesionDetalleResponse }) {
   if (props.sesion.movimientos.length === 0) return null;
   return (
@@ -938,6 +1071,7 @@ function MovimientosTabla(props: { sesion: CajaSesionDetalleResponse }) {
               <TableHead className="px-3 py-2 text-left">Forma</TableHead>
               <TableHead className="px-3 py-2 text-right tabular-nums">Importe</TableHead>
               <TableHead className="px-3 py-2 text-left">Descripción</TableHead>
+              <TableHead className="px-3 py-2 text-left">Vale</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -964,6 +1098,21 @@ function MovimientosTabla(props: { sesion: CajaSesionDetalleResponse }) {
                   />
                 </TableCell>
                 <TableCell className="px-3 py-2 text-ink-muted">{m.descripcion}</TableCell>
+                <TableCell className="px-3 py-2">
+                  {m.folioVale != null ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      aria-label={`Vale de caja folio ${m.folioVale}`}
+                      onClick={() => reimprimirVale(m.id, m.folioVale!)}
+                    >
+                      <FileText className="mr-1 h-3.5 w-3.5" aria-hidden />
+                      Vale de caja
+                    </Button>
+                  ) : (
+                    <span className="text-xs text-ink-muted">—</span>
+                  )}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

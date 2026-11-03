@@ -11,11 +11,22 @@ using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Facturacion.Application.Repp.Pendientes;
 
-public sealed record RevisarReppPendienteCommand(Guid Id, string FormaPago, IReadOnlyList<RelacionRepp> Facturas) : IRequest;
+// 86e3tfdve: cuentas del REP desde la bandeja. La ordenante (opción A) nace con la que
+// Tesorería capturó en el ingreso, se corrige al revisar y se guarda en el pendiente; la
+// usan el REP uno por uno y el lote. La beneficiaria se prellena con la cuenta de Millet
+// donde entró el depósito y no se guarda.
+public sealed record RevisarReppPendienteCommand(Guid Id, string FormaPago, IReadOnlyList<RelacionRepp> Facturas,
+    string? CuentaOrdenante = null, string? CuentaBeneficiaria = null, bool LimpiarCuentaOrdenante = false) : IRequest;
 public sealed record DescartarReppPendienteCommand(Guid Id, string Motivo) : IRequest;
-public sealed record EmitirReppPendienteCommand(Guid Id) : IRequest<EmitirReppPendienteResultado>;
+public sealed record EmitirReppPendienteCommand(Guid Id, string? CuentaOrdenante = null, string? CuentaBeneficiaria = null)
+    : IRequest<EmitirReppPendienteResultado>
+{
+    /// <summary>Emisión por lote: una ordenante guardada que no cumple la forma se omite con aviso en vez de fallar.</summary>
+    public bool EnLote { get; init; }
+}
 public sealed record EmitirReppPendientesLoteCommand(IReadOnlyList<Guid> Ids) : IRequest<IReadOnlyList<EmitirReppPendienteResultado>>;
-public sealed record EmitirReppPendienteResultado(Guid Id, bool Emitido, Guid? ReciboPagoId, string? Codigo, string? Mensaje);
+public sealed record EmitirReppPendienteResultado(Guid Id, bool Emitido, Guid? ReciboPagoId, string? Codigo, string? Mensaje,
+    string? Aviso = null);
 
 public sealed class RevisarReppPendienteValidator : AbstractValidator<RevisarReppPendienteCommand>
 {
@@ -23,6 +34,8 @@ public sealed class RevisarReppPendienteValidator : AbstractValidator<RevisarRep
     {
         RuleFor(c => c.Id).NotEmpty();
         RuleFor(c => c.FormaPago).NotEmpty().MaximumLength(5);
+        RuleFor(c => c.CuentaOrdenante).MaximumLength(50);
+        RuleFor(c => c.CuentaBeneficiaria).MaximumLength(50);
         RuleFor(c => c.Facturas).NotEmpty();
         RuleForEach(c => c.Facturas).ChildRules(f =>
         {
@@ -59,7 +72,8 @@ public sealed class RevisarReppPendienteHandler(FacturacionDbContext db, ReppPen
         await using var tx = db.Database.IsRelational() ? await db.Database.BeginTransactionAsync(cancellationToken) : null;
         var p = await servicio.ObtenerAsync(c.Id, true, cancellationToken);
         await servicio.ValidarAsync(p, c.FormaPago, c.Facturas, cancellationToken);
-        p.Revisar(c.FormaPago, c.Facturas);
+        CuentasPagoSat.Validar(c.FormaPago, null, c.CuentaBeneficiaria);
+        p.Revisar(c.FormaPago, c.Facturas, c.CuentaOrdenante, c.LimpiarCuentaOrdenante);
         await db.SaveChangesAsync(cancellationToken);
         if (tx is not null) await tx.CommitAsync(cancellationToken);
     }
@@ -79,14 +93,18 @@ public sealed class DescartarReppPendienteHandler(FacturacionDbContext db, ReppP
 }
 
 public sealed class EmitirReppPendienteHandler(FacturacionDbContext db, ReppPendienteServicio servicio,
-    IReppBancarioReadPort bancario, ISender sender, ILogger<EmitirReppPendienteHandler>? logger = null) : IRequestHandler<EmitirReppPendienteCommand, EmitirReppPendienteResultado>
+    IReppBancarioReadPort bancario, ISender sender, ICuentaBancariaMilletReadPort cuentasMillet,
+    ILogger<EmitirReppPendienteHandler>? logger = null) : IRequestHandler<EmitirReppPendienteCommand, EmitirReppPendienteResultado>
 {
+    private readonly ICuentaBancariaMilletReadPort _cuentasMillet = cuentasMillet;
+
     public async Task<EmitirReppPendienteResultado> Handle(EmitirReppPendienteCommand c, CancellationToken cancellationToken)
     {
         await using var tx = db.Database.IsRelational() ? await db.Database.BeginTransactionAsync(cancellationToken) : null;
         var p = await servicio.ObtenerAsync(c.Id, true, cancellationToken);
         if (p.Estado == EstadoReppPendiente.Emitido)
             return new(p.Id, true, p.ReciboPagoId, null, null);
+        string? aviso = null;
         try
         {
             var relacion = p.Facturas.Select(f => new RelacionRepp(f.FacturaVentaId, f.Importe)).ToArray();
@@ -96,10 +114,24 @@ public sealed class EmitirReppPendienteHandler(FacturacionDbContext db, ReppPend
             await servicio.ValidarAsync(p, p.FormaPago, relacion, cancellationToken);
             var tc = await servicio.TipoCambioAsync(p, cancellationToken);
             var sucursal = await bancario.SucursalEmisoraAsync(cancellationToken);
+            // 86e3tfdve: beneficiaria = la capturada o, si no, la cuenta de Millet donde
+            // entró el depósito (CLABE/número según la forma). La valida EmitirReppHandler.
+            var beneficiaria = CuentasPagoSat.Normalizar(c.CuentaBeneficiaria)
+                ?? await ReppPendienteCuentas.BeneficiariaSugeridaAsync(p, _cuentasMillet, cancellationToken);
+            // Opción A: la capturada al emitir o la guardada en el pendiente. En lote, una guardada
+            // que no cumple la forma real se omite con aviso: el REP sale sin ordenante.
+            var ordenante = CuentasPagoSat.Normalizar(c.CuentaOrdenante) ?? p.OrdenanteParaFormaPago();
+            if (c.EnLote && c.CuentaOrdenante is null && p.CuentaOrdenante is not null
+                && (ordenante is null || !CuentasPagoSat.OrdenanteCumple(p.FormaPago, ordenante)))
+            {
+                aviso = $"Se emitió sin cuenta ordenante: {CuentasPagoSat.Enmascarar(p.CuentaOrdenante)} no aplica " +
+                        $"a la forma de pago {p.FormaPago}. Corrígela en la revisión si el REP debe llevarla.";
+                ordenante = null;
+            }
             // Propiedad interna: el endpoint manual no puede asociar un pendiente desde el body.
             await sender.Send(new EmitirReppCommand(sucursal,
                 new DateTimeOffset(p.FechaValor.ToDateTime(TimeOnly.MinValue), TimeSpan.FromHours(-6)).ToUniversalTime(),
-                p.Moneda, tc, p.FormaPago, null, null, p.Referencia,
+                p.Moneda, tc, p.FormaPago, ordenante, beneficiaria, p.Referencia,
                 relacion.Select(f => new ReppFacturaPago(f.FacturaVentaId, f.Importe)).ToArray())
                 { Pendiente = p }, cancellationToken);
             // Recibo, outbox y estado del pendiente fueron guardados por EmitirReppHandler.
@@ -131,7 +163,18 @@ public sealed class EmitirReppPendienteHandler(FacturacionDbContext db, ReppPend
         }
         if (tx is not null) await tx.CommitAsync(cancellationToken);
         return new(p.Id, p.Estado == EstadoReppPendiente.Emitido,
-            p.ReciboPagoId ?? p.IntentoReciboPagoId, p.UltimoErrorCodigo, p.UltimoErrorMensaje);
+            p.ReciboPagoId ?? p.IntentoReciboPagoId, p.UltimoErrorCodigo, p.UltimoErrorMensaje, aviso);
+    }
+}
+
+public static class ReppPendienteCuentas
+{
+    /// <summary>Beneficiaria sugerida para el pendiente (sin enmascarar); null si la forma no la admite.</summary>
+    public static async Task<string?> BeneficiariaSugeridaAsync(ReppPendiente p, ICuentaBancariaMilletReadPort cuentas, CancellationToken ct)
+    {
+        if (!CuentasPagoSat.AdmiteBeneficiaria(p.FormaPago)) return null;
+        var cuenta = await cuentas.ObtenerAsync(p.CuentaBancariaId, ct);
+        return cuenta is null ? null : CuentasPagoSat.SugerirBeneficiaria(p.FormaPago, cuenta.Clabe, cuenta.NumeroCuenta);
     }
 }
 
@@ -146,7 +189,7 @@ public sealed class EmitirReppPendientesLoteHandler(IServiceScopeFactory scopes,
             await using var scope = scopes.CreateAsyncScope();
             try
             {
-                resultados.Add(await scope.ServiceProvider.GetRequiredService<ISender>().Send(new EmitirReppPendienteCommand(id), cancellationToken));
+                resultados.Add(await scope.ServiceProvider.GetRequiredService<ISender>().Send(new EmitirReppPendienteCommand(id) { EnLote = true }, cancellationToken));
             }
             catch (EntityNotFoundException ex) { resultados.Add(new(id, false, null, ex.Code, ex.Message)); }
             catch (Exception ex) when (ex is not OperationCanceledException)

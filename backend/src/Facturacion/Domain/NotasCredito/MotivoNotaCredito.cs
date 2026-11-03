@@ -23,6 +23,12 @@ public enum MotivoNotaCredito : short
     /// comerciales reales (bonificación/devolución) en listados y reportes.
     /// </summary>
     Ranura = 4,
+
+    /// <summary>
+    /// F6.3 · CA6.17: devolución en dinero de un anticipo no aplicado (relación 01 al CFDI del anticipo). Descuenta el saldo
+    /// del anticipo y siempre pide el reembolso a Tesorería. No afecta inventario.
+    /// </summary>
+    DevolucionAnticipo = 5,
 }
 
 /// <summary>Mapea el motivo a la clave SAT del tipo de relación CFDI (<c>c_TipoRelacion</c>).</summary>
@@ -34,6 +40,7 @@ public static class MotivoNotaCreditoExtensions
         MotivoNotaCredito.Bonificacion => "01",
         MotivoNotaCredito.Devolucion => "03",
         MotivoNotaCredito.Ranura => "01",
+        MotivoNotaCredito.DevolucionAnticipo => "01",
         _ => "01",
     };
 }

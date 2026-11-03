@@ -286,7 +286,7 @@ export function ComparativoCotizaciones() {
               <TableBody className="[&_tr]:h-12">
                 {filas.map(
                   ({ cot, linea }: { cot: CotizacionComparativo; linea: LineaComparativo }) => {
-                    const proveedor = cot.proveedorRazonSocial ?? cot.proveedorId;
+                    const proveedor = cot.proveedorRazonSocial ?? '—';
                     const bloqueada = !cot.vigente || !puedeElegir;
                     return (
                       <TableRow key={cot.id} className="hover:bg-surface-subtle">
@@ -513,7 +513,7 @@ export function ComparativoCotizaciones() {
           <AlertDialogHeader>
             <AlertDialogTitle>
               ¿Eliminar la cotización de{' '}
-              {eliminando?.proveedorRazonSocial ?? eliminando?.proveedorId}?
+              {eliminando?.proveedorRazonSocial ?? 'este proveedor'}?
             </AlertDialogTitle>
             <AlertDialogDescription>
               Solo se puede eliminar antes de elegir una cotización.

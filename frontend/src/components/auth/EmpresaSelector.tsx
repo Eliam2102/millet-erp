@@ -42,14 +42,15 @@ export function EmpresaSelector() {
   return (
     <div className="flex flex-col">
       <label className="flex items-center gap-2">
-        <span className="text-sm text-ink-muted">
+        <span className="hidden text-sm text-ink-muted sm:inline">
           Empresa:
         </span>
         <select
+          aria-label="Empresa activa"
           value={currentEmpresa?.id ?? ''}
           onChange={handleChange}
           disabled={isBusy}
-          className="rounded-md border border-line-control bg-surface-card px-2 py-1 text-sm disabled:opacity-50"
+          className="max-w-28 rounded-md border border-line-control bg-surface-card px-2 py-1 text-sm disabled:opacity-50 sm:max-w-none"
         >
           {empresas.map((e) => (
             <option key={e.id} value={e.id}>

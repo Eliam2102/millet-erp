@@ -216,6 +216,25 @@ public abstract class Comprobante : BaseEntity, IPerteneceAEmpresa, IFiscalmente
         Estado = EstadoTimbrado.Borrador;
     }
 
+    /// <summary>Nace en <see cref="EstadoTimbrado.PorAutorizar"/> (nota de crédito de A+W); la subclase lo invoca al crearse.</summary>
+    protected void EsperarAutorizacion() => Estado = EstadoTimbrado.PorAutorizar;
+
+    /// <summary>
+    /// Transición <c>PorAutorizar → Borrador</c>: queda listo para timbrar. El período pasa al de la
+    /// autorización (el de la recepción pudo cerrarse mientras esperaba).
+    /// </summary>
+    protected void AprobarAutorizacion(DateTimeOffset ahora)
+    {
+        if (Estado != EstadoTimbrado.PorAutorizar)
+            throw new BusinessRuleException(
+                "COMPROBANTE_NO_POR_AUTORIZAR",
+                $"Solo un comprobante Por autorizar puede autorizarse (actual: {Estado}).");
+
+        PeriodoAnio = ahora.Year;
+        PeriodoMes = ahora.Month;
+        Estado = EstadoTimbrado.Borrador;
+    }
+
     /// <summary>
     /// Transición <c>Borrador → TimbradoEnProceso</c>. El handler la invoca
     /// justo antes de llamar al PAC para que el comprobante no se considere un

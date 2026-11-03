@@ -19,6 +19,7 @@ const PROVEEDOR: ProveedorDetalle = {
   id: 'p-1',
   clave: 'P-001',
   claveLegacy: null,
+  claveAw: null,
   razonSocial: 'Proveedor Uno SA',
   nombreComercial: null,
   rfc: 'PUN010101AAA',

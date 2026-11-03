@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import type { ComparativoCotizaciones, CotizacionComparativo } from '@/features/compras/api/types';
 import { useCrearOrdenCompraDesdeRequisicion } from '@/features/compras/ordenes/api/useCrearOrdenCompraDesdeRequisicion';
+import { CampoFacturaOc, type CampoFactura } from '@/features/compras/ordenes/components/CampoFacturaOc';
 import { useSucursalesPermitidas } from '@/features/compras/ordenes/api/useSucursalesPermitidas';
 import { esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { hoyLocalISO } from '@/lib/datetime';
@@ -48,6 +49,12 @@ function Formulario({
   const [fechaEntrega, setFechaEntrega] = useState(cotizacion.fechaEntrega ?? '');
   const [tipoCambio, setTipoCambio] = useState(tcDelDia === null ? '' : String(tcDelDia));
   const [observaciones, setObservaciones] = useState('');
+  // Mismos datos de factura que la OC desde RQ: obligatorios al transmitir, así no se capturan después.
+  const [factura, setFactura] = useState<Record<CampoFactura, string>>({
+    usoCfdiClave: '',
+    metodoPago: '',
+    formaPagoClave: '',
+  });
 
   const tc = Number(tipoCambio);
   const faltante = !condicionesPagoId
@@ -78,6 +85,9 @@ function Formulario({
           tipoCambio: esMxn ? null : tc,
           fechaEntregaEsperada: fechaEntrega || null,
           observaciones: observaciones.trim() || null,
+          usoCfdiClave: factura.usoCfdiClave || null,
+          metodoPago: factura.metodoPago || null,
+          formaPagoClave: factura.formaPagoClave || null,
           cotizacionId: cotizacion.id,
           motivoEleccion: motivoEleccion.trim(),
         },
@@ -145,6 +155,15 @@ function Formulario({
               />
             </Field>
           </FormCampo>
+          {(['usoCfdiClave', 'metodoPago', 'formaPagoClave'] as const).map((campo) => (
+            <FormCampo key={campo} span={4}>
+              <CampoFacturaOc
+                campo={campo}
+                value={factura[campo]}
+                onChange={(v) => setFactura((f) => ({ ...f, [campo]: v }))}
+              />
+            </FormCampo>
+          ))}
           <FormCampo span={6}>
             <Field label="Observaciones" optional>
               <Textarea
@@ -184,7 +203,7 @@ export function GenerarOcCotizacionDialog({
   onClose,
   ...resto
 }: GenerarOcCotizacionDialogProps) {
-  const proveedor = resto.cotizacion.proveedorRazonSocial ?? resto.cotizacion.proveedorId;
+  const proveedor = resto.cotizacion.proveedorRazonSocial ?? '—';
   return (
     <Dialog open={abierto} onOpenChange={(o) => !o && onClose()}>
       <DialogContent size="lg">

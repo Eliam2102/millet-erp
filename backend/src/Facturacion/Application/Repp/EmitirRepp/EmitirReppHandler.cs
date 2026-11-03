@@ -34,12 +34,15 @@ public sealed class EmitirReppHandler : IRequestHandler<EmitirReppCommand, Emiti
     private readonly ICurrentEmpresaContext _empresa;
     private readonly ICurrentUserContext _user;
     private readonly IClock _clock;
+    private readonly ICuentaBancariaMilletReadPort _cuentasMillet;
 
     public EmitirReppHandler(
         FacturacionDbContext db, ISender sender, IPeriodoContablePort periodo, ICfdiTimbradoPort fiscal,
         ICfdiRepositorioPort cfdiRepo, IIntegrationEventPublisher eventos, ICurrentEmpresaContext empresa,
-        ICurrentUserContext user, IClock clock, ValidadorReceptorFiscal receptorFiscal)
+        ICurrentUserContext user, IClock clock, ValidadorReceptorFiscal receptorFiscal,
+        ICuentaBancariaMilletReadPort cuentasMillet)
     {
+        _cuentasMillet = cuentasMillet;
         _receptorFiscal = receptorFiscal;
         _db = db;
         _sender = sender;
@@ -54,14 +57,26 @@ public sealed class EmitirReppHandler : IRequestHandler<EmitirReppCommand, Emiti
 
     public async Task<EmitirReppResponse> Handle(EmitirReppCommand command, CancellationToken cancellationToken)
     {
+        // FAC-03: el bloqueo por factura solo sirve dentro de una transacción; la bandeja ya abre la
+        // suya, «Nuevo REPP» no. Se abre aquí si no hay (se confirma al final; si falla, se revierte).
+        await using var tx = _db.Database.IsRelational() && _db.Database.CurrentTransaction is null
+            ? await _db.Database.BeginTransactionAsync(cancellationToken) : null;
+        var respuesta = await EmitirAsync(command, cancellationToken);
+        if (tx is not null) await tx.CommitAsync(cancellationToken);
+        return respuesta;
+    }
+
+    private async Task<EmitirReppResponse> EmitirAsync(EmitirReppCommand command, CancellationToken cancellationToken)
+    {
         // El claim del request gana; command.EmpresaId solo aplica en
         // invocaciones internas sin HTTP; Tesorería solo crea pendientes.
         if ((_empresa.Current ?? command.EmpresaId) is not Guid empresaId)
             throw new ForbiddenException("EMPRESA_NO_SELECCIONADA", "No hay empresa seleccionada en el contexto del request.");
 
         var ahora = _clock.UtcNow;
-        var anio = ahora.Year;
-        var mes = ahora.Month;
+        // Período en la fecha fiscal de México: después de las 18:00 del último día, UTC ya es el mes siguiente.
+        var anio = Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.FechaFiscal(ahora).Year;
+        var mes = Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.FechaFiscal(ahora).Month;
 
         if (!await _periodo.EstaAbiertoAsync(anio, mes, cancellationToken))
             throw new BusinessRuleException("PERIODO_CERRADO", $"El período contable {anio}-{mes:D2} está cerrado; no se puede emitir.");
@@ -72,8 +87,15 @@ public sealed class EmitirReppHandler : IRequestHandler<EmitirReppCommand, Emiti
             throw new BusinessRuleException("PERIODO_CERRADO",
                 $"El período {fechaPagoFiscal.Year}/{fechaPagoFiscal.Month:D2} está cerrado.");
 
+        // 86e3tfdve: cuentas del pago validadas contra c_FormaPago antes de reservar folio.
+        var (cuentaOrdenante, cuentaBeneficiaria) = await ResolverCuentasAsync(command, cancellationToken);
+
         // Cargar y validar las facturas cubiertas (timbradas, PPD, mismo cliente).
         var ids = command.Facturas.Select(f => f.FacturaVentaId).ToList();
+        // FAC-03: mismo bloqueo por factura (en orden) que la bandeja, antes de leer saldo y parcialidad.
+        if (_db.Database.IsRelational())
+            foreach (var facturaId in ids.Distinct().Order())
+                await _db.Database.SqlQuery<Guid>($"SELECT id AS \"Value\" FROM facturacion.comprobante WHERE id = {facturaId} AND empresa_id = {empresaId} FOR UPDATE").ToListAsync(cancellationToken);
         var facturas = await _db.FacturasVenta
             .Include(f => f.Lineas) // ImpuestosDR del complemento de pago se arma desde las líneas
             .Where(f => ids.Contains(f.Id))
@@ -149,8 +171,8 @@ public sealed class EmitirReppHandler : IRequestHandler<EmitirReppCommand, Emiti
                 formaPagoReal: command.FormaPagoReal,
                 tcFactura: factura.TipoCambio,
                 tcPago: command.TcPago,
-                cuentaOrdenante: command.CuentaOrdenante,
-                cuentaBeneficiaria: command.CuentaBeneficiaria,
+                cuentaOrdenante: cuentaOrdenante,
+                cuentaBeneficiaria: cuentaBeneficiaria,
                 referenciaPago: command.ReferenciaPago,
                 objetoImpDR: objetoImpDR,
                 facturaTotal: factura.Total,
@@ -189,6 +211,33 @@ public sealed class EmitirReppHandler : IRequestHandler<EmitirReppCommand, Emiti
             Facturas: repp.FacturasPagadas
                 .Select(f => new ReppFacturaPagada(f.FacturaVentaId, f.NumParcialidad, f.ImportePagado, f.SaldoInsoluto, f.GananciaPerdidaCambiaria))
                 .ToList());
+    }
+
+    /// <summary>
+    /// Normaliza las cuentas capturadas y, si no viene beneficiaria pero sí la
+    /// cuenta de Millet elegida, la resuelve (CLABE o número según la forma).
+    /// Valida ambas contra c_FormaPago (<see cref="CuentasPagoSat"/>).
+    /// </summary>
+    private async Task<(string? Ordenante, string? Beneficiaria)> ResolverCuentasAsync(
+        EmitirReppCommand command, CancellationToken cancellationToken)
+    {
+        var ordenante = CuentasPagoSat.Normalizar(command.CuentaOrdenante);
+        var beneficiaria = CuentasPagoSat.Normalizar(command.CuentaBeneficiaria);
+        if (beneficiaria is null && command.CuentaBancariaBeneficiariaId is Guid cuentaId)
+        {
+            if (!CuentasPagoSat.AdmiteBeneficiaria(command.FormaPagoReal))
+                throw new BusinessRuleException(CuentasPagoSat.CodigoError,
+                    $"La forma de pago {command.FormaPagoReal} no admite cuenta beneficiaria; quita la cuenta de Millet o cambia la forma de pago.");
+            var cuenta = await _cuentasMillet.ObtenerAsync(cuentaId, cancellationToken)
+                ?? throw new BusinessRuleException("REPP_CUENTA_BANCARIA_NO_ENCONTRADA",
+                    "La cuenta bancaria de Millet elegida no existe o no pertenece a la empresa.");
+            beneficiaria = CuentasPagoSat.SugerirBeneficiaria(command.FormaPagoReal, cuenta.Clabe, cuenta.NumeroCuenta)
+                ?? throw new BusinessRuleException(CuentasPagoSat.CodigoError,
+                    $"La cuenta {cuenta.Banco} {CuentasPagoSat.Enmascarar(cuenta.NumeroCuenta)} no tiene CLABE ni número con el formato " +
+                    $"del SAT para la forma de pago {command.FormaPagoReal}; captura la cuenta beneficiaria a mano.");
+        }
+        CuentasPagoSat.Validar(command.FormaPagoReal, ordenante, beneficiaria);
+        return (ordenante, beneficiaria);
     }
 
     /// <summary>

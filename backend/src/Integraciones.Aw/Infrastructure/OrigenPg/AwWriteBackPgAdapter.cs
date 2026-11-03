@@ -28,13 +28,18 @@ public sealed class AwWriteBackPgAdapter : IAwWriteBackPort
 
     public async Task EscribirResultadoAsync(AwWriteBack writeBack, CancellationToken cancellationToken)
     {
-        var porSolicitud = writeBack.SolicitudId != Guid.Empty;
+        // TR-01 (B6): el UPDATE por pedido (uuid/estado en TODAS las versiones) se retiró; la factura
+        // viaja ahora como fila Documento de aw_retorno (AwRetornoAdapter). Solo queda el acuse por solicitud.
+        if (writeBack.SolicitudId == Guid.Empty)
+        {
+            _logger.LogWarning("[AwWriteBackPgAdapter] write-back por pedido ignorado (retirado en TR-01). pedido={Pedido}", writeBack.NumeroPedido);
+            return;
+        }
 
         // COALESCE preserva claim/uuid previos: nunca se degradan a NULL (D18).
         // procesada_at llega como parámetro (no SYSDATETIMEOFFSET()) para que el
         // SQL corra igual en el origen de demo PostgreSQL.
-        var sql = porSolicitud
-            ? """
+        const string sql = """
               UPDATE dbo.aw_solicitud_pedido
                  SET erp_pedido_id      = COALESCE(@erpPedidoId, erp_pedido_id),
                      estado_facturacion = COALESCE(@estado, estado_facturacion),
@@ -43,20 +48,13 @@ public sealed class AwWriteBackPgAdapter : IAwWriteBackPort
                      motivo             = @motivo,
                      procesada_at       = @procesadaAt
                WHERE solicitud_id = @solicitudId
-              """
-            : """
-              UPDATE dbo.aw_solicitud_pedido
-                 SET erp_pedido_id      = COALESCE(@erpPedidoId, erp_pedido_id),
-                     estado_facturacion = COALESCE(@estado, estado_facturacion),
-                     uuid               = COALESCE(@uuid, uuid)
-               WHERE numero_pedido = @numeroPedido
               """;
 
         var afectadas = await PgPlumbing.EjecutarAsync(_connectionFactory, _options, _logger, "WriteBack",
             async connection =>
             {
                 using var command = PgPlumbing.CrearCommand(connection, sql, _options);
-                AgregarParametros(command, writeBack, porSolicitud);
+                AgregarParametros(command, writeBack);
                 return await command.ExecuteNonQueryAsync(cancellationToken);
             }, cancellationToken);
 
@@ -67,33 +65,26 @@ public sealed class AwWriteBackPgAdapter : IAwWriteBackPort
             // loggea para auditoría; el worker NO debe reintentar infinito
             // por esto — cuenta como éxito de canal.
             _logger.LogWarning(
-                "[AwWriteBackPgAdapter] write-back sin filas afectadas. porSolicitud={PorSolicitud} solicitud={SolicitudId} pedido={Pedido}",
-                porSolicitud, writeBack.SolicitudId, writeBack.NumeroPedido);
+                "[AwWriteBackPgAdapter] write-back sin filas afectadas. solicitud={SolicitudId} pedido={Pedido}",
+                writeBack.SolicitudId, writeBack.NumeroPedido);
             return;
         }
 
         _logger.LogInformation(
-            "[AwWriteBackPgAdapter] write-back OK. modo={Modo} pedido={Pedido} resultado={Resultado} estado={Estado} uuid={Uuid} filas={Filas}",
-            porSolicitud ? "solicitud" : "pedido", writeBack.NumeroPedido,
+            "[AwWriteBackPgAdapter] write-back OK. pedido={Pedido} resultado={Resultado} estado={Estado} uuid={Uuid} filas={Filas}",
+            writeBack.NumeroPedido,
             writeBack.Resultado, writeBack.EstadoFacturacion, writeBack.Uuid, afectadas);
     }
 
-    private static void AgregarParametros(DbCommand command, AwWriteBack wb, bool porSolicitud)
+    private static void AgregarParametros(DbCommand command, AwWriteBack wb)
     {
         PgPlumbing.Param(command, "@erpPedidoId", DbType.Guid, wb.ErpPedidoId);
         PgPlumbing.Param(command, "@estado", DbType.String, wb.EstadoFacturacion);
         PgPlumbing.Param(command, "@uuid", DbType.String, wb.Uuid);
 
-        if (porSolicitud)
-        {
-            PgPlumbing.Param(command, "@resultado", DbType.Int16, (short)wb.Resultado);
-            PgPlumbing.Param(command, "@motivo", DbType.String, wb.Motivo);
-            PgPlumbing.Param(command, "@procesadaAt", DbType.DateTimeOffset, DateTimeOffset.UtcNow);
-            PgPlumbing.Param(command, "@solicitudId", DbType.Guid, wb.SolicitudId);
-        }
-        else
-        {
-            PgPlumbing.Param(command, "@numeroPedido", DbType.String, wb.NumeroPedido);
-        }
+        PgPlumbing.Param(command, "@resultado", DbType.Int16, (short)wb.Resultado);
+        PgPlumbing.Param(command, "@motivo", DbType.String, wb.Motivo);
+        PgPlumbing.Param(command, "@procesadaAt", DbType.DateTimeOffset, DateTimeOffset.UtcNow);
+        PgPlumbing.Param(command, "@solicitudId", DbType.Guid, wb.SolicitudId);
     }
 }

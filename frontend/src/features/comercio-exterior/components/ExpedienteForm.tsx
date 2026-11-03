@@ -1,3 +1,4 @@
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { FormCampo, FormGrid } from '@/components/erp/forms/FormGrid';
 import { useState, type FormEvent } from 'react';
@@ -43,7 +44,7 @@ export function ExpedienteForm({ onClose }: { onClose: () => void }) {
     fechaTc: null,
     fuenteTc: null,
   });
-  const [dirty, setDirty] = useState(false);
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(onClose);
   const navigate = useNavigate();
   const crear = useCrearExpediente();
   const [busquedaOc, setBusquedaOc] = useState('');
@@ -57,11 +58,7 @@ export function ExpedienteForm({ onClose }: { onClose: () => void }) {
     setDatos((d) => ({ ...d, ...patch }));
   }
   function cerrar() {
-    if (
-      !crear.isPending &&
-      (!dirty || window.confirm('Hay datos sin guardar. ¿Descartar la captura?'))
-    )
-      onClose();
+    if (!crear.isPending) solicitarCierre();
   }
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -320,6 +317,7 @@ export function ExpedienteForm({ onClose }: { onClose: () => void }) {
           </SheetFooter>
         </form>
       </SheetContent>
+      {dialogo}
     </Sheet>
   );
 }

@@ -8,6 +8,12 @@
  * Uso: <c>useHasPermission(PermisosCanonicos.IdentidadUsuariosCrear)</c>.
  */
 export const PermisosCanonicos = {
+  DatosMaestrosClientesCargar: 'datos_maestros.clientes.cargar',
+  DatosMaestrosArticulosCargar: 'datos_maestros.articulos.cargar',
+  DatosMaestrosProveedoresCargar: 'datos_maestros.proveedores.cargar',
+  DatosMaestrosProductosAwFiscalCargar: 'datos_maestros.productos-aw-fiscal.cargar',
+  CentrosCostoCatalogoCargar: 'centros_costo.catalogo.cargar',
+
   ActivosFijosDepreciacionCorrer: 'activos_fijos.depreciacion.correr',
   ActivosFijosDepreciacionAnular: 'activos_fijos.depreciacion.anular',
   ActivosFijosBajasRegistrar: 'activos_fijos.bajas.registrar',
@@ -100,6 +106,7 @@ export const PermisosCanonicos = {
     'compras.ordenes.reportes-analisis-proveedores',
   ComprasOrdenesRegistrarRespuestaProveedor: 'compras.ordenes.registrar-respuesta-proveedor',
   ComprasOrdenesRegistrarIncidenciaProveedor: 'compras.ordenes.registrar-incidencia-proveedor',
+  ComprasOrdenesConfirmarServicio: 'compras.ordenes.confirmar-servicio',
 
   // Compras — Cotizaciones (F1-COM-02)
   ComprasCotizacionesLeer: 'compras.cotizaciones.leer',
@@ -161,6 +168,9 @@ export const PermisosCanonicos = {
     'datos_maestros.proveedores.tolerancia-editar',
   DatosMaestrosProveedoresValidar:
     'datos_maestros.proveedores.validar',
+  // 86e3tactf: bloqueo total del proveedor y reemplazo de quien lo libera.
+  DatosMaestrosProveedoresBloquear: 'datos_maestros.proveedores.bloquear',
+  CuentasPorPagarBloqueosLiberarEnLugar: 'cuentas_por_pagar.bloqueos.liberar-en-lugar',
   DatosMaestrosProveedoresExpedienteConfigurar:
     'datos_maestros.proveedores.expediente-configurar',
   DatosMaestrosArticulosGestionar: 'datos_maestros.articulos.gestionar',
@@ -200,6 +210,8 @@ export const PermisosCanonicos = {
   AdminSucursalesPuestosGestionar: 'admin.sucursales.puestos-gestionar',
   AdminSucursalesUsuariosGestionar: 'admin.sucursales.usuarios-gestionar',
   AdminAuditoriaLeer: 'admin.auditoria.leer',
+  // ADM-BIT: exportar la bitácora, separado de consultarla.
+  AdminAuditoriaExportar: 'admin.auditoria.exportar',
   // ADM-FE-PR1 (doc 10-catalogo-puestos-empleados): master de puestos y
   // empleados — habilitador de reglas de viáticos por puesto.
   AdminPuestosGestionar: 'admin.puestos.gestionar',
@@ -340,6 +352,7 @@ export const PermisosCanonicos = {
   CuentasPorPagarCfdisLeer: 'cuentas_por_pagar.cfdis.leer',
   CuentasPorPagarCfdisCargarManual: 'cuentas_por_pagar.cfdis.cargar-manual',
   CuentasPorPagarCfdisDescartar: 'cuentas_por_pagar.cfdis.descartar',
+  CuentasPorPagarPortalAdministrar: 'cuentas_por_pagar.portal.administrar',
 
   CuentasPorPagarReposicionesLeer: 'cuentas_por_pagar.reposiciones.leer',
   CuentasPorPagarReposicionesAdministrar:
@@ -361,6 +374,8 @@ export const PermisosCanonicos = {
     'cuentas_por_cobrar.aplicacion-pago.proponer',
   CuentasPorCobrarAplicacionPagoConfirmar:
     'cuentas_por_cobrar.aplicacion-pago.confirmar',
+  // C7.2 (86e3kdxy6): administrar reglas de liberación por serie.
+  CuentasPorCobrarReglasSerieGestionar: 'cuentas_por_cobrar.reglas-serie.gestionar',
 
   // Tesorería / Bancos — mirror manual de backend PermisosCanonicos.cs
   // §"Tesorería" (namespace GUID 0000000b-*). Los 19 permisos se
@@ -393,6 +408,10 @@ export const PermisosCanonicos = {
   TesoreriaDevolucionesSolicitar: 'tesoreria.devoluciones.solicitar',
   TesoreriaDevolucionesAutorizar: 'tesoreria.devoluciones.autorizar',
   TesoreriaDevolucionesPagar: 'tesoreria.devoluciones.pagar',
+  TesoreriaDiferenciasCorteAutorizar: 'tesoreria.diferencias-corte.autorizar',
+  // F6.6: Ingresos emite y cancela folios de confirmación de transferencias para Caja.
+  TesoreriaFoliosTransferenciaEmitir: 'tesoreria.folios-transferencia.emitir',
+  TesoreriaFoliosTransferenciaCancelar: 'tesoreria.folios-transferencia.cancelar',
 
   // Facturación — CFDI 4.0 emitido. Mirror manual de backend
   // PermisosCanonicos.cs §"Facturación" (namespace GUID 00000009-*). 24
@@ -423,11 +442,13 @@ export const PermisosCanonicos = {
     'facturacion.notas-credito.bonificacion-emitir',
   FacturacionNotasCreditoLeer: 'facturacion.notas-credito.leer',
   FacturacionNotasCreditoReembolsoSolicitar: 'facturacion.notas-credito.reembolso-solicitar',
+  FacturacionNotasCreditoAutorizar: 'facturacion.notas-credito.autorizar',
   FacturacionCartaPorteEmitir: 'facturacion.carta-porte.emitir',
   FacturacionCartaPorteLeer: 'facturacion.carta-porte.leer',
   FacturacionReppEmitir: 'facturacion.repp.emitir',
   FacturacionCancelacionesSolicitar: 'facturacion.cancelaciones.solicitar',
   FacturacionCancelacionesConsultar: 'facturacion.cancelaciones.consultar',
+  FacturacionCancelacionesAutorizar: 'facturacion.cancelaciones.autorizar',
   FacturacionActivosAutorizar: 'facturacion.activos.autorizar',
   FacturacionCajaLiquidar: 'facturacion.caja.liquidar',
   // Cajas (backend CAJAS-PR1, 12-cajas.md §8; FE desde cajas-pr5).
@@ -500,6 +521,10 @@ export const PermisosCanonicos = {
   ComercioExteriorExpedientesAdjuntosBaja: 'comercio_exterior.expedientes.adjuntos-baja',
   ComercioExteriorDocumentosLeerTodasSucursales: 'comercio_exterior.documentos.leer-todas-sucursales',
   ComercioExteriorDocumentosGestionarTodasSucursales: 'comercio_exterior.documentos.gestionar-todas-sucursales',
+  ProductoTerminadoPiezasVer: 'producto_terminado.piezas.ver',
+  ProductoTerminadoPiezasVerTodasSucursales: 'producto_terminado.piezas.ver-todas-sucursales',
+  ProductoTerminadoExcepcionesGestionar: 'producto_terminado.excepciones.gestionar',
+  ProductoTerminadoExcepcionesGestionarTodasSucursales: 'producto_terminado.excepciones.gestionar-todas-sucursales',
 } as const;
 
 /** Tipo unión de todos los códigos de permiso conocidos (autocompletado en IDE). */

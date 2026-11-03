@@ -10,6 +10,9 @@ public sealed class TesoreriaSucursalReadAdapter(TesoreriaDbContext db, ICxpSucu
         if (tipo == "devolucion_cliente")
             return (await db.DevolucionesCliente.AsNoTracking().Select(x => new { x.Id, x.SucursalId }).ToListAsync(ct))
                 .Select(x => new DocumentoSucursales(x.Id, x.SucursalId is Guid s ? new[] { s } : Array.Empty<Guid>())).ToArray();
+        if (tipo == "diferencia_corte")
+            return (await db.DiferenciasCorte.AsNoTracking().Select(x => new { x.Id, x.SucursalId }).ToListAsync(ct))
+                .Select(x => new DocumentoSucursales(x.Id, new[] { x.SucursalId })).ToArray();
         var facturas = (await cxp.ListarAsync("factura_proveedor", ct)).ToDictionary(x => x.Id, x => x.Sucursales);
         if (tipo == "pasivo")
         {

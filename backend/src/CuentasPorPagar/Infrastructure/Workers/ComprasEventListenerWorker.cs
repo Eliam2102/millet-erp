@@ -185,6 +185,14 @@ public sealed class ComprasEventListenerWorker : BackgroundService, ILocalIntegr
                     break;
                 }
 
+                case OcServicioConfirmadoHandler.EventType:
+                {
+                    var payload = JsonSerializer.Deserialize<OcServicioConfirmadoPayload>(body, JsonOpts)
+                        ?? throw new JsonException("Payload null.");
+                    await mediator.Send(new OcServicioConfirmadoCommand(eventId, payload), cancellationToken);
+                    break;
+                }
+
                 default:
                 {
                     _logger.Log(

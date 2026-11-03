@@ -97,19 +97,33 @@ public sealed class CajaMovimientoConfiguration : IEntityTypeConfiguration<CajaM
         builder.Property(e => e.Importe).HasPrecision(18, 2).IsRequired();
         builder.Property(e => e.Moneda).HasMaxLength(3).IsRequired();
         builder.Property(e => e.CobroMostradorId);
+        builder.Property(e => e.CorteOrigenSesionId);
         builder.Property(e => e.Referencia).HasMaxLength(100);
+        builder.Property(e => e.TarjetaUltimos4).HasMaxLength(4);
         builder.Property(e => e.Descripcion).HasMaxLength(254).IsRequired();
         builder.Property(e => e.UsuarioId).IsRequired();
+        builder.Property(e => e.CajaId);
+        builder.Property(e => e.FolioVale);
 
         builder.HasOne<CajaSesion>()
             .WithMany()
             .HasForeignKey(e => e.CajaSesionId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // Devoluciones de faltante por corte de origen (suma acumulada ≤ faltante).
+        builder.HasIndex(e => e.CorteOrigenSesionId)
+            .HasDatabaseName("ix_caja_movimiento_corte_origen")
+            .HasFilter("corte_origen_sesion_id IS NOT NULL");
+
         builder.HasIndex(e => e.CajaSesionId).HasDatabaseName("ix_caja_movimiento_sesion");
         builder.HasIndex(e => e.CobroMostradorId)
             .HasDatabaseName("ix_caja_movimiento_cobro")
             .HasFilter("cobro_mostrador_id IS NOT NULL");
+        // Vale de Caja (86e3ww6tw): el folio no se repite dentro de una caja.
+        builder.HasIndex(e => new { e.CajaId, e.FolioVale })
+            .IsUnique()
+            .HasDatabaseName("ux_caja_movimiento_folio_vale")
+            .HasFilter("folio_vale IS NOT NULL");
     }
 }
 
