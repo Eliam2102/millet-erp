@@ -51,7 +51,7 @@ public sealed class AutorizarCancelacionHandler(
             case CancelacionEstado.Aceptada:
                 comprobante.MarcarCancelado();
                 solicitud.MarcarAceptada(resultado.EstatusSat, ahora);
-                await AplicarEfectosCancelacionAsync(comprobante, cancellationToken);
+                await AplicarEfectosCancelacionAsync(comprobante, solicitud, cancellationToken);
                 // F10-PR1: evento de comprobante cancelado (reversa fiscal/financiera).
                 await eventos.PublishAsync(EventosContablesFacturacion.ComprobanteCancelado(
                     comprobante, ahora, await PedidoDeAsync(comprobante, cancellationToken)),
@@ -84,8 +84,13 @@ public sealed class AutorizarCancelacionHandler(
     /// (vuelve a Importado, re-facturable, invariante 5); el anticipo cancelado
     /// pasa a Cancelado.
     /// </summary>
-    private async Task AplicarEfectosCancelacionAsync(Comprobante comprobante, CancellationToken cancellationToken)
+    private async Task AplicarEfectosCancelacionAsync(
+        Comprobante comprobante, Domain.Cancelaciones.SolicitudCancelacion solicitud, CancellationToken cancellationToken)
     {
+        // FAC-08b: cancelada por sustitución, el pedido y la salida pasan a la sustituta.
+        if (await Sustituciones.SustitucionCfdi.TraspasarOrigenAsync(db, comprobante, solicitud, cancellationToken))
+            return;
+
         switch (comprobante)
         {
             case FacturaVenta { PedidoFacturableId: { } pedidoId }:
