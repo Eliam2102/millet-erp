@@ -339,7 +339,8 @@ public sealed class CrearPropuestaAplicacionHandler
                 {
                     var cartera = facturas[f.FacturaUuid];
                     return new PropuestaAplicacionFacturaDetalle(
-                        cartera.FacturaVentaId, cartera.Folio, f.ImporteAplicado);
+                        cartera.FacturaVentaId, cartera.Folio, f.ImporteAplicado,
+                        saldosInsolutos.TryGetValue(cartera.Id, out var saldo) ? saldo : null);
                 })
                 .ToList(),
             MovimientoBancarioId: propuesta.MovimientoBancarioId), cancellationToken);

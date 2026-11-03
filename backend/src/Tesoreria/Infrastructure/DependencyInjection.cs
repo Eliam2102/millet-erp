@@ -67,6 +67,10 @@ public static class DependencyInjection
             services.AddSingleton<Domain.Ports.IReppXmlBlobStorage, Blob.LocalFilesystemReppXmlStorage>();
         }
 
+        services
+            .AddOptions<Application.Depositos.DepositoAutomaticoOptions>()
+            .Bind(configuration.GetSection(Application.Depositos.DepositoAutomaticoOptions.SectionName));
+
         // T9.2: Parsers de extracto bancario con perfil por banco (BBVA primero)
         services.AddSingleton<Domain.Conciliaciones.ExtractoParser.IExtractoParser, Domain.Conciliaciones.ExtractoParser.BbvaExtractoParser>();
         services.AddSingleton<Domain.Conciliaciones.ExtractoParser.ExtractoParserFactory>();
