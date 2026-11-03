@@ -56,7 +56,8 @@ public sealed class RegistrarPagoACuentaValidator : AbstractValidator<RegistrarP
         RuleFor(c => c.ProveedorId).NotEmpty().WithMessage("Selecciona el proveedor del pago a cuenta.");
         RuleFor(c => c.FechaValor).NotEmpty();
         RuleFor(c => c.Motivo).NotEmpty().MaximumLength(400);
-        RuleFor(c => c.ReferenciaBancaria).MaximumLength(120);
+        RuleFor(c => c.ReferenciaBancaria).NotEmpty().WithMessage("Captura la referencia (folio) que dio el banco.")
+            .MaximumLength(120);
     }
 }
 
@@ -86,6 +87,16 @@ public sealed class RegistrarPagoACuentaHandler
     public async Task<PagoACuentaResponse> Handle(
         RegistrarPagoACuentaCommand command, CancellationToken cancellationToken)
     {
+        if (!_db.Database.IsRelational()) return await RegistrarAsync(command, cancellationToken);
+        PagoACuentaResponse? resultado = null;
+        // Mismo candado que el pago directo: la referencia única se comprueba sin carrera entre ambos flujos.
+        await Millet.SharedKernel.Infrastructure.Persistence.PostgresAdvisoryLock.ExecuteAsync(_db, 0x50335F5041474F,
+            async ct => resultado = await RegistrarAsync(command, ct), cancellationToken);
+        return resultado!;
+    }
+
+    private async Task<PagoACuentaResponse> RegistrarAsync(RegistrarPagoACuentaCommand command, CancellationToken cancellationToken)
+    {
         if (_currentEmpresa.Current is not Guid empresaId)
             throw new ForbiddenException("EMPRESA_NO_SELECCIONADA",
                 "El usuario no tiene una empresa seleccionada.");
@@ -106,6 +117,18 @@ public sealed class RegistrarPagoACuentaHandler
         if (!abierto)
             throw new BusinessRuleException("MOV_PERIODO_CERRADO",
                 $"El período {command.FechaValor.Year}/{command.FechaValor.Month:00} está cerrado.");
+
+        // Brecha 12: un folio del banco respalda un solo egreso por cuenta. Reintento idéntico → mismo resultado.
+        if (await ReferenciaPagoUnica.BuscarAsync(_db, cuenta.Id, command.ReferenciaBancaria, cancellationToken) is { } previo)
+        {
+            var mismo = previo.MotivoNoAplicado is not null && previo.BeneficiarioRef == command.ProveedorId
+                && previo.Monto == command.Monto && previo.FechaValor == command.FechaValor
+                && !await ReferenciaPagoUnica.RevertidoAsync(_db, previo.Id, cancellationToken);
+            if (!mismo) throw ReferenciaPagoUnica.Duplicada(previo);
+            return new PagoACuentaResponse(
+                previo.Id, previo.CuentaBancariaId, previo.BeneficiarioRef, previo.Monto, previo.Moneda, previo.FechaValor,
+                previo.ReferenciaBancaria, previo.MotivoNoAplicado!, previo.EstadoAplicacion);
+        }
 
         // RN-2: máximo un pago no aplicado abierto por proveedor. El índice
         // parcial único es el backstop ante dobles submit; aquí se valida

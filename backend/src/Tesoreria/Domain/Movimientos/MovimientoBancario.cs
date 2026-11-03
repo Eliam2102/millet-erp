@@ -493,7 +493,7 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
     }
 
     /// <summary>VO ReferenciaBancaria (§4.3): texto corto normalizado (trim + upper).</summary>
-    private static string? NormalizarReferencia(string? referencia)
+    internal static string? NormalizarReferencia(string? referencia)
     {
         var r = referencia?.Trim().ToUpperInvariant();
         return string.IsNullOrEmpty(r) ? null : r;
