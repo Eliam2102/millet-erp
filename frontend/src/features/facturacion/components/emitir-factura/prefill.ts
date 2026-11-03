@@ -9,6 +9,14 @@
 export interface EmitirFacturaPrefill {
   embarqueCe?: import('@/features/comercio-exterior/api/types').EmbarqueCe | null;
   pedidoFacturableId: string;
+  /**
+   * FAC-08: factura solo esta parcialidad del pedido. Las partidas del
+   * prefill son las de la salida (mismas posiciones y cantidades) y el
+   * pedido sigue abierto para las siguientes salidas.
+   */
+  salidaFacturableId?: string | null;
+  /** FAC-08: número de la parcialidad que se factura (solo para mostrar). */
+  numeroParcialidad?: number | null;
   /** Origen del pedido ("Aw", "PlantaPintura", "Manual"). */
   origen?: string;
   /**
