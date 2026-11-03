@@ -135,6 +135,20 @@ describe('<BandejaOrdenesCompra> — smoke (UF1-PR3)', () => {
     expect(recibido!.searchParams.has('referenciaProveedor')).toBe(false);
     mockSearch = { page: 1, pageSize: 50 };
   });
+  it('muestra el proveedor que resuelve el servidor (H-19: no depende del catálogo de 1000)', async () => {
+    mswServer.use(
+      http.get('*/api/v1/compras/ordenes', () =>
+        HttpResponse.json({
+          items: [makeOrdenResumen({ id: 'oc-77', folio: 'OC-77', proveedorId: 'p-fuera', proveedorNombre: 'FERRETERA DEL SURESTE' })],
+          page: 1,
+          pageSize: 50,
+          totalCount: 1,
+        }),
+      ),
+    );
+    renderConProvider(<BandejaOrdenesCompra />);
+    expect(await screen.findByText('FERRETERA DEL SURESTE')).toBeInTheDocument();
+  });
   it('muestra el nombre de comprador enriquecido sin consultar el padrón', async () => {
     mswServer.use(http.get('*/api/v1/compras/ordenes', () => HttpResponse.json({ items: [{ id: 'oc-prub', folio: 'OC-PRUB', estado: EstadoOrdenCompra.Borrador, proveedorId: 'prov', compradorTitularId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', compradorNombre: 'Carla Compras', fechaDocumento: '2026-10-10', moneda: 'MXN' }], page: 1, pageSize: 50, totalCount: 1 })));
     renderConProvider(<BandejaOrdenesCompra />);

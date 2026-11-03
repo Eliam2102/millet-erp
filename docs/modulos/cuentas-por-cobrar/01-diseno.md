@@ -237,7 +237,7 @@ exista el emisor (A2).
 |---|---|
 | `OutboxPublisherWorker<CuentasPorCobrarDbContext>` | Drena outbox → `cuentas-por-cobrar-events` |
 | `FacturacionEventListenerWorker` (en CxC) | `facturacion-events` → proyección `factura_cartera` + saldo 13-K; idempotente por id de origen |
-| `AlertaCarteraWorker` | Evaluación programada (diaria): SOLUNION 90d, exceso de crédito, auto-bloqueo por vencimiento |
+| `AlertaCarteraWorker` | Evaluación programada (diaria): SOLUNION 90d, exceso de crédito, bloqueo automático por vencimiento y desbloqueo de los que ya no aplican (§11.4) |
 | `TesoreriaEventListenerWorker` (en CxC) | **Diferido** hasta A2 — consume `PagoClienteConfirmadoEvent` |
 
 ---
@@ -422,6 +422,37 @@ ETag; errores RFC 7807.
 - **Fuera de alcance:** la importación automática de depósitos desde el banco
   (`PLATFORM-TODO(<DepositoBancarioFeed>)`, T9.2/T9.4).
 
+### 11.4 Bloqueo automático por vencimiento (F1-CXC-06 · C7.5)
+
+- **Regla (R7, P7.2).** La línea de crédito se bloquea sola cuando alguna
+  factura viva del cliente en esa moneda lleva más de *plazo de la línea +
+  tolerancia* días desde su timbrado. Tolerancia
+  `CuentasPorCobrar:Alertas:ToleranciaDiasVencido`, 15 por omisión.
+  Sustituye al umbral fijo de 90 días (`AutoBloqueoDiasVencido`, retirado).
+  Ejemplo CA7.12: plazo 15 + 15 → con 31 días se bloquea, con 30 no.
+- **Marca.** `linea_credito.bloqueo_automatico` distingue el bloqueo de la
+  evaluación del bloqueo manual de Crédito y Cobranza.
+- **Desbloqueo automático (C7.5-a).** Al aplicar un cobro de mostrador, un
+  REP o una NC, si el cliente ya no tiene facturas fuera de plazo +
+  tolerancia, la línea se desbloquea en la misma transacción. La
+  evaluación diaria repite la revisión. Un bloqueo manual nunca se levanta
+  solo.
+- **Desbloqueo manual autorizado.** `POST /lineas-credito/{id}/desbloquear`
+  exige `motivo` y el permiso `cuentas_por_cobrar.lineas-credito.gestionar`;
+  guarda `motivo_desbloqueo` y `desbloqueo_manual_en`.
+  - *Supuesto a validar:* el desbloqueo cubre lo vencido a esa fecha. Solo
+    una factura que rebase plazo + tolerancia **después** vuelve a
+    bloquear.
+- **Alerta del seguro (CA7.11).** Se conserva aparte del bloqueo. Para
+  reportar el impago a tiempo, avisa
+  `SolunionDiasAnticipacion` días antes del límite `SolunionDiasVencido`
+  (90).
+  - *Supuesto a validar:* 10 días de anticipación, así que avisa desde los
+    80 días de vencida.
+- **Migración** `20261102033604_LineaCreditoBloqueoAutomatico`: agrega las
+  tres columnas y marca como automáticos los bloqueos vigentes cuyo motivo
+  empieza con «Auto-bloqueo:».
+
 ---
 
 ## 12. Frontend — patrones aplicables
@@ -452,3 +483,4 @@ patrones P1–P4 de `frontend/docs/patrones-compras.md`, reportes con
 | v0.1 | 2026-07-13 | Borrador inicial derivado del levantamiento v0.2 |
 | v0.2 | 2026-10-20 | F1-CXC-09 · C7.8: envío del estado de cuenta, bloqueo por REP pendientes (§11.1) y PLATFORM-TODO `<EnvioEstadoCuentaCliente>` (§13) |
 | v0.3 | 2026-10-21 | F1-CXC-05: anticipos con su aplicación a la factura final (§6.1, §11, §11.2) |
+| v0.4 | 2026-11-02 | F1-CXC-06 · C7.5: bloqueo automático por plazo + tolerancia, desbloqueo al pagar y manual con motivo, alerta del seguro anticipada (§9, §11.4) |

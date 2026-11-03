@@ -21,9 +21,12 @@ import { toast } from 'sonner';
 export function CancelarComprobanteForm({
   comprobanteId,
   onDone,
+  sugerirSustituir = false,
 }: {
   comprobanteId: string;
   onDone: () => void;
+  /** FAC-08b: en facturas de venta, el motivo 01 se arma solo con «Sustituir». */
+  sugerirSustituir?: boolean;
 }) {
   const [motivoSat, setMotivoSat] = useState('02');
   const [uuidSustituto, setUuidSustituto] = useState('');
@@ -86,6 +89,14 @@ export function CancelarComprobanteForm({
           </div>
         )}
       </FormCampo>
+      {requiereSustituto && sugerirSustituir && (
+        <FormCampo span={12}>
+          <p role="note" className="rounded-md bg-info-bg px-3 py-2 text-sm text-info-fg">
+            Para sustituir esta factura usa «Sustituir»: el ERP emite la nueva con relación 04 y arma esta
+            solicitud con su UUID. Captura el UUID a mano solo si la sustituta se emitió fuera del ERP.
+          </p>
+        </FormCampo>
+      )}
       <FormCampo span={12}>
         <div className="sm:col-span-3 flex justify-end gap-2">
           <Button variant="ghost" size="sm" onClick={onDone} disabled={cancelar.isPending}>

@@ -124,6 +124,19 @@ describe('<ListaLineas>', () => {
     ).toBeInTheDocument();
   });
 
+  it('RQ cerrada: no dice «Falta por comprar»', () => {
+    render(
+      <ListaLineas
+        cerrada
+        lineas={[makeLinea({ cantDeAlmacen: 4, cantEntregadoDeAlmacen: 2, cantRecibida: 0, cantSaldoPorComprar: 6 })]}
+      />,
+    );
+    expect(
+      screen.getByText('Entregado 2 · Recibido 0 · Cerrada: ya no se surte ni se compra lo pendiente'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Falta por comprar/)).not.toBeInTheDocument();
+  });
+
   it('oculta el resumen parcial si el backend no envió el saldo', () => {
     const { container } = render(<ListaLineas lineas={[makeLinea()]} />);
     expect(

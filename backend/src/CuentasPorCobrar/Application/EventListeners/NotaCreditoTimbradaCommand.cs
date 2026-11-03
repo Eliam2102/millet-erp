@@ -1,6 +1,8 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Millet.CuentasPorCobrar.Application.Alertas;
 using Millet.CuentasPorCobrar.Domain.Cartera;
 using Millet.CuentasPorCobrar.Domain.Eventos;
 using Millet.CuentasPorCobrar.Infrastructure.Persistence;
@@ -26,13 +28,16 @@ public sealed class NotaCreditoTimbradaHandler : IRequestHandler<NotaCreditoTimb
     private readonly CuentasPorCobrarDbContext _db;
     private readonly IClock _clock;
     private readonly ILogger<NotaCreditoTimbradaHandler> _logger;
+    private readonly int _toleranciaDias;
 
     public NotaCreditoTimbradaHandler(
         CuentasPorCobrarDbContext db,
         IClock clock,
-        ILogger<NotaCreditoTimbradaHandler> logger)
+        ILogger<NotaCreditoTimbradaHandler> logger,
+        IOptions<AlertasCarteraOptions>? alertas = null)
     {
         _db = db; _clock = clock; _logger = logger;
+        _toleranciaDias = Math.Max(0, (alertas?.Value ?? new AlertasCarteraOptions()).ToleranciaDiasVencido);
     }
 
     public async Task Handle(NotaCreditoTimbradaCommand request, CancellationToken cancellationToken)
@@ -67,6 +72,16 @@ public sealed class NotaCreditoTimbradaHandler : IRequestHandler<NotaCreditoTimb
             detalle = $"NC={p.NotaCreditoId} sin factura relacionada — informativa";
             _logger.LogInformation(
                 "[NotaCreditoTimbrada] NC {NcId} sin factura relacionada — informativa.", p.NotaCreditoId);
+        }
+
+        // C7.5-a: la NC también puede dejar al cliente al corriente.
+        if (p.FacturaRelacionadaId is Guid relacionada)
+        {
+            var facturaNc = await _db.FacturasCartera
+                .FirstAsync(f => f.FacturaVentaId == relacionada, cancellationToken);
+            await BloqueoPorVencimiento.ReevaluarTrasPagoAsync(
+                _db, facturaNc.ClienteId, facturaNc.Moneda, _toleranciaDias,
+                DateOnly.FromDateTime(_clock.UtcNow.UtcDateTime), _logger, cancellationToken);
         }
 
         _db.EventosProcesados.Add(new EventoProcesado(

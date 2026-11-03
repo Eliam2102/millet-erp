@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PaginaSearchShape } from '@/components/erp/data/paginacion';
 import {
   EstadoCfdiRecibido,
   TipoCfdi,
@@ -15,7 +16,7 @@ import {
  *
  * <para>Filtro alterno <c>soloVencidos</c>: muestra solo CFDIs en
  * <c>PorProcesar</c> con <c>fechaRecepcion</c> &gt; 5 días (cálculo
- * client-side sobre la página actual; ver doc 07 §FE-F1-PR1).</para>
+ * en el servidor con <c>recibidoAntesDe</c>; ver doc 07 §FE-F1-PR1).</para>
  */
 export const CfdisSearchSchema = z.object({
   estado: z
@@ -44,6 +45,7 @@ export const CfdisSearchSchema = z.object({
     .optional(),
   q: z.string().min(1).max(200).optional(),
   soloVencidos: z.boolean().optional(),
+  ...PaginaSearchShape,
 });
 
 export type CfdisSearch = z.infer<typeof CfdisSearchSchema>;

@@ -24,7 +24,7 @@ import {
   PaginacionTabla,
 } from '@/components/erp';
 import { useOrdenesCompra } from '@/features/compras/ordenes/api/useOrdenesCompra';
-import { useProveedores, useUsuarios, mapById } from '@/features/catalogos/api';
+import { useUsuarios, mapById } from '@/features/catalogos/api';
 import { esApiError } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -67,11 +67,9 @@ const BANDEJA_FROM = '/_app/compras/ordenes/' as const;
  * §6.4 patrones-compras: no agregar Quick Create / botón "Nueva ..."
  * sin el Sheet correspondiente.</para>
  *
- * <para>Resolución de IDs → nombres: <c>useProveedores</c> /
- * <c>useUsuarios</c> con cache 1h. Para proveedores prefiere
- * <c>nombreComercial</c> (amigable) y cae a <c>razonSocial</c>; si el
- * id no resuelve (catálogo no cargado o el item no está en la página
- * cacheada), fallback al id raw — coherente con resto del frontend.</para>
+ * <para>Resolución de IDs → nombres: el proveedor llega resuelto del
+ * servidor (<c>proveedorNombre</c>); el comprador usa <c>compradorNombre</c>
+ * o <c>useUsuarios</c> con cache 1h.</para>
  */
 export function BandejaOrdenesCompra() {
   const search = useSearch({ from: BANDEJA_FROM });
@@ -93,20 +91,8 @@ export function BandejaOrdenesCompra() {
     page: search.page,
     pageSize: search.pageSize,
   });
-  // Cargados con limit alto + includeInactivas para resolver
-  // proveedores históricos en la bandeja (un proveedor pudo haberse
-  // inactivado tras crear una OC). Sin esto, la bandeja muestra el
-  // GUID en la columna proveedor.
-  const proveedoresQuery = useProveedores({
-    limit: 1000,
-    includeInactivas: true,
-  });
   const usuariosQuery = useUsuarios();
 
-  const proveedoresMap = useMemo(
-    () => mapById(proveedoresQuery.data?.items),
-    [proveedoresQuery.data],
-  );
   const usuariosMap = useMemo(() => mapById(usuariosQuery.data?.items), [usuariosQuery.data]);
 
   // La búsqueda (`q`: folio o referencia de proveedor) la resuelve el servidor.
@@ -162,7 +148,6 @@ export function BandejaOrdenesCompra() {
         <RenderTabla
           query={ordenesQuery}
           itemsFiltrados={itemsFiltrados}
-          proveedoresMap={proveedoresMap}
           usuariosMap={usuariosMap}
           search={search}
         />
@@ -174,7 +159,6 @@ export function BandejaOrdenesCompra() {
 interface RenderTablaProps {
   query: ReturnType<typeof useOrdenesCompra>;
   itemsFiltrados: readonly OrdenCompraResumen[];
-  proveedoresMap: Map<string, { nombreComercial: string | null; razonSocial: string }>;
   usuariosMap: Map<string, { nombre: string }>;
   search: BandejaOcSearch;
 }
@@ -184,7 +168,6 @@ type SortKey = 'folio' | 'fechaDocumento' | 'estado';
 function RenderTabla({
   query,
   itemsFiltrados,
-  proveedoresMap,
   usuariosMap,
   search,
 }: RenderTablaProps) {
@@ -286,9 +269,8 @@ function RenderTabla({
         </TableHeader>
         <TableBody className="[&_tr]:h-12">
           {itemsOrdenados.map((oc, i) => {
-            const proveedor = proveedoresMap.get(oc.proveedorId);
-            const proveedorLabel =
-              proveedor != null ? (proveedor.nombreComercial ?? proveedor.razonSocial) : '—';
+            // H-19/H-25: el nombre viene del servidor; un catálogo capado a 1000 dejaba «—».
+            const proveedorLabel = oc.proveedorNombre ?? '—';
             const comprador =
               oc.compradorNombre ?? usuariosMap.get(oc.compradorTitularId)?.nombre ?? 'Sin asignar';
             return (
