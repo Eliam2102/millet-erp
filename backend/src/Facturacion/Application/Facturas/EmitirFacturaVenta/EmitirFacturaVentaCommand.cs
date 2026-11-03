@@ -55,7 +55,10 @@ public sealed record EmitirFacturaVentaCommand(
     string? CondicionesPago = null, string? Proforma = null,
     // FAC-08: salida parcial del pedido que se factura. Las líneas deben ser las de la salida
     // (posición, producto y cantidad); el pedido sigue Importado para las demás salidas.
-    Guid? SalidaFacturableId = null) : IRequest<EmitirFacturaVentaResponse>;
+    Guid? SalidaFacturableId = null,
+    // FAC-08b: factura timbrada que esta sustituye. La nueva lleva la relación 04 a su UUID y,
+    // al timbrar, el ERP solicita la cancelación de la original con motivo 01.
+    Guid? SustituyeComprobanteId = null) : IRequest<EmitirFacturaVentaResponse>;
 
 /// <summary>Anticipo a amortizar contra la factura final, con el importe a aplicar.</summary>
 public sealed record AnticipoAAmortizar(Guid AnticipoId, decimal Importe);

@@ -594,6 +594,17 @@ public sealed class PedidoFacturable : BaseEntity, IPerteneceAEmpresa, IFiscalme
     }
 
     /// <summary>
+    /// FAC-08b: la factura vigente del pedido se canceló por sustitución (motivo 01): el
+    /// pedido sigue facturado, ahora por la factura que la sustituye.
+    /// </summary>
+    public void ReasignarComprobanteVigente(Guid comprobanteSustitutoId)
+    {
+        if (Estado != EstadoPedidoFacturable.Facturado)
+            throw new BusinessRuleException("PEDIDO_NO_FACTURADO", "Solo un pedido facturado cambia de factura vigente.");
+        ComprobanteVigenteId = comprobanteSustitutoId;
+    }
+
+    /// <summary>
     /// Tras cancelar el CFDI vigente, el pedido vuelve a
     /// <see cref="EstadoPedidoFacturable.Importado"/> y queda re-facturable
     /// (invariante 5, §4.3). No aplica a un pedido cancelado en origen.

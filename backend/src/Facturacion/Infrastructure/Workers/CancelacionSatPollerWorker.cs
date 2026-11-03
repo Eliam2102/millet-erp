@@ -111,7 +111,7 @@ public sealed class CancelacionSatPollerWorker : BackgroundService
             if (comprobante.Estado == EstadoTimbrado.CancelacionPendiente)
                 comprobante.MarcarCancelado();
             solicitud.MarcarAceptada(estatus.EstatusSat, clock.UtcNow);
-            await AplicarEfectosCancelacionAsync(db, comprobante, clock.UtcNow, cancellationToken);
+            await AplicarEfectosCancelacionAsync(db, comprobante, solicitud, clock.UtcNow, cancellationToken);
             // F10-PR1: evento de comprobante cancelado al resolverse el poller.
             await eventos.PublishAsync(EventosContablesFacturacion.ComprobanteCancelado(
                 comprobante, clock.UtcNow,
@@ -132,8 +132,12 @@ public sealed class CancelacionSatPollerWorker : BackgroundService
     }
 
     private static async Task AplicarEfectosCancelacionAsync(
-        FacturacionDbContext db, Comprobante comprobante, DateTimeOffset ahora, CancellationToken cancellationToken)
+        FacturacionDbContext db, Comprobante comprobante, SolicitudCancelacion solicitud, DateTimeOffset ahora, CancellationToken cancellationToken)
     {
+        // FAC-08b: cancelada por sustitución, el pedido y la salida pasan a la sustituta.
+        if (await Millet.Facturacion.Application.Sustituciones.SustitucionCfdi.TraspasarOrigenAsync(db, comprobante, solicitud, cancellationToken))
+            return;
+
         switch (comprobante)
         {
             case FacturaVenta { PedidoFacturableId: { } pedidoId }:

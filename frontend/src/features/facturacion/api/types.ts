@@ -1116,6 +1116,8 @@ export interface EmitirFacturaVentaCommand {
   cce?: EmitirFacturaVentaCce | null;
   /** Autorización del Director de Administración y Finanzas (obligatoria para venta de activo fijo). */
   autorizacionId?: string | null;
+  /** FAC-08b: factura timbrada que esta sustituye (relación 04). */
+  sustituyeComprobanteId?: string | null;
   /** Observaciones (86e3tfdw2, ≤1000): se imprimen en el PDF; NO van al XML del CFDI. */
   observaciones?: string | null;
   lineas: EmitirFacturaVentaLinea[];
@@ -1273,6 +1275,60 @@ export interface ComprobanteDetalleResponse {
   totalPorCobrar: number;
   /** [Decisión 13-K] NC timbradas que acreditan a esta factura. */
   notasCreditoAplicadas: NotaCreditoAplicadaDetalle[] | null;
+  /** FAC-08b: en la original, la factura que la sustituye (relación 04). */
+  sustituidaPor?: SustitucionReferencia | null;
+  /** FAC-08b: en la sustituta, la factura original. */
+  sustituyeA?: SustitucionReferencia | null;
+  /** FAC-08b: motivo con el que el Contador General no autorizó la sustitución. */
+  sustitucionRechazadaMotivo?: string | null;
+}
+
+/** Factura del otro lado de una sustitución (FAC-08b). */
+export interface SustitucionReferencia {
+  id: string;
+  folio: string;
+  uuid: string | null;
+  estado: string;
+}
+
+/** GET /facturas/{id}/sustitucion — borrador de la sustituta con los datos de la original. */
+export interface DatosSustitucionResponse {
+  sustituyeComprobanteId: string;
+  sustituyeFolio: string;
+  sustituyeUuid: string;
+  sucursalId: string;
+  clienteId: string | null;
+  receptorRfc: string;
+  receptorNombre: string;
+  receptorRegimenFiscal: string;
+  receptorCodigoPostal: string;
+  receptorUsoCfdi: string;
+  metodoPago: string;
+  formaPago: string;
+  moneda: string;
+  tipoCambio: number | null;
+  canalVenta: number | null;
+  comportamientoFiscal: number;
+  obraNombre: string | null;
+  ordenCompraCliente: string | null;
+  referenciaCliente: string | null;
+  condicionesPago: string | null;
+  proforma: string | null;
+  observaciones: string | null;
+  lineas: Array<{
+    productoId: string | null;
+    claveProdServSat: string;
+    descripcion: string;
+    claveUnidadSat: string;
+    cantidad: number;
+    valorUnitario: number;
+    descuento: number;
+    objetoImp: string;
+    tasaIvaTraslado: number | null;
+    tasaRetencionIva: number | null;
+    tasaRetencionIsr: number | null;
+    requierePedimento: boolean;
+  }>;
 }
 
 export interface CobroFacturaDetalle {

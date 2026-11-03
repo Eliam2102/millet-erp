@@ -53,7 +53,15 @@ public sealed record ComprobanteDetalleResponse(
     decimal TotalKg = 0m, decimal TotalPie2 = 0m, decimal TotalPiezas = 0m,
     string? NoCertificadoEmisor = null, string? CadenaOriginalTimbre = null,
     // F1-CXC-05 Parte 2: cliente del pedido (si se conoce) para ofrecer sus anticipos al aplicar uno a la factura.
-    Guid? ClienteId = null);
+    Guid? ClienteId = null,
+    // FAC-08b: sustitución con relación 04. En la original, la factura que la sustituye; en la
+    // sustituta, la original y, si el Contador General no autorizó, el motivo del rechazo.
+    SustitucionReferencia? SustituidaPor = null,
+    SustitucionReferencia? SustituyeA = null,
+    string? SustitucionRechazadaMotivo = null);
+
+/// <summary>Factura del otro lado de una sustitución (FAC-08b).</summary>
+public sealed record SustitucionReferencia(Guid Id, string Folio, string? Uuid, string Estado);
 
 /// <summary>Cobro vigente de la factura, con la sesión donde se registró.</summary>
 public sealed record CobroFacturaDetalle(
@@ -200,6 +208,31 @@ public sealed class ComprobanteDetalleHandler
                 .SumAsync(p => p.ImportePagado, cancellationToken)
             : 0m;
 
+        // FAC-08b: sustitución (relación 04) en ambos sentidos.
+        SustitucionReferencia? sustituidaPor = null, sustituyeA = null;
+        string? sustitucionRechazada = null;
+        if (f.Uuid is not null
+            && await Sustituciones.SustitucionCfdi.SustitutaVigenteDeAsync(_db, f.Uuid, cancellationToken) is { } b)
+        {
+            sustituidaPor = new SustitucionReferencia(b.Id, b.Folio, b.Uuid, b.Estado.ToString());
+            if (b.Uuid is not null)
+                sustitucionRechazada = await MotivoRechazoSustitucionAsync(f.Id, b.Uuid, cancellationToken);
+        }
+        var uuidOriginal = f.Relaciones.FirstOrDefault(r => r.TipoRelacion == Sustituciones.SustitucionCfdi.TipoRelacion)?.UuidRelacionado;
+        if (uuidOriginal is not null)
+        {
+            var a = await _db.Comprobantes.AsNoTracking()
+                .Where(c => c.Uuid == uuidOriginal)
+                .Select(c => new { c.Id, c.Folio, c.Uuid, c.Estado })
+                .FirstOrDefaultAsync(cancellationToken);
+            if (a is not null)
+            {
+                sustituyeA = new SustitucionReferencia(a.Id, a.Folio, a.Uuid, a.Estado.ToString());
+                if (f.Uuid is not null)
+                    sustitucionRechazada = await MotivoRechazoSustitucionAsync(a.Id, f.Uuid, cancellationToken);
+            }
+        }
+
         return new ComprobanteDetalleResponse(
             f.Id, f.Tipo.ToString(), f.Folio, f.Estado.ToString(), f.Uuid,
             f.ReceptorRfc, f.ReceptorNombre, f.Moneda,
@@ -216,6 +249,16 @@ public sealed class ComprobanteDetalleHandler
             CondicionesPago: f.CondicionesPago, Proforma: f.Proforma, Observaciones: f.Observaciones,
             TotalKg: f.TotalKg, TotalPie2: f.TotalPie2, TotalPiezas: f.TotalPiezas,
             NoCertificadoEmisor: f.NoCertificadoEmisor, CadenaOriginalTimbre: f.CadenaOriginalTimbre,
-            ClienteId: await Integration.ClienteContableFacturacion.ResolverAsync(_db, f, cancellationToken));
+            ClienteId: await Integration.ClienteContableFacturacion.ResolverAsync(_db, f, cancellationToken),
+            SustituidaPor: sustituidaPor, SustituyeA: sustituyeA, SustitucionRechazadaMotivo: sustitucionRechazada);
     }
+
+    /// <summary>FAC-08b: motivo con el que no se autorizó cancelar la original por la sustituta, si así fue.</summary>
+    private Task<string?> MotivoRechazoSustitucionAsync(Guid originalId, string uuidSustituta, CancellationToken cancellationToken) =>
+        _db.SolicitudesCancelacion.AsNoTracking()
+            .Where(s => s.ComprobanteId == originalId && s.UuidSustituto == uuidSustituta
+                && s.Estado == Domain.Cancelaciones.EstadoSolicitudCancelacion.RechazadaPorAutorizador)
+            .OrderByDescending(s => s.SolicitadaEn)
+            .Select(s => s.MotivoRechazo)
+            .FirstOrDefaultAsync(cancellationToken);
 }
