@@ -20,4 +20,17 @@ public sealed class PedidosPtReadAdapter(FacturacionDbContext db) : IPedidosPtRe
                 .Select(l => new LineaPtOrigen(l.Posicion, l.ProductoId, l.ProductoDescripcion, l.Cantidad, l.ClaveUnidadSat))
                 .ToArray(), p.ClienteId, p.Moneda, p.Total);
     }
+
+    private static readonly string[] EstadosSalida = ["72", "115"];
+
+    public async Task<IReadOnlyDictionary<Guid, PedidoMonitorOrigen>> ObtenerParaMonitorAsync(Guid empresaId, IReadOnlyCollection<Guid> pedidoFacturableIds, CancellationToken ct) =>
+        await db.PedidosFacturables.AsNoTracking()
+            .Where(x => x.EmpresaId == empresaId && pedidoFacturableIds.Contains(x.Id))
+            .Select(x => new
+            {
+                x.Id,
+                Info = new PedidoMonitorOrigen(x.ClienteNombre, x.ObraNombre,
+                    db.SalidasFacturables.Any(s => s.PedidoFacturableId == x.Id) || (x.EstadoOrigen != null && EstadosSalida.Contains(x.EstadoOrigen))),
+            })
+            .ToDictionaryAsync(x => x.Id, x => x.Info, ct);
 }
