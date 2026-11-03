@@ -1,4 +1,5 @@
 import {
+  Children,
   Fragment,
   cloneElement,
   isValidElement,
@@ -108,6 +109,17 @@ export function Field({
   ) {
     body = cloneElement(children as ReactElement<Record<string, unknown>>, {
       ...control,
+    });
+  } else if (Array.isArray(children)) {
+    // Control + texto de apoyo como hermanos: el `id` va al primer `Controller`.
+    let hecho = false;
+    body = Children.toArray(children).map((c) => {
+      if (hecho || !isValidElement(c) || c.type !== Controller) return c;
+      hecho = true;
+      const ctrl = c as ReactElement<{ render: (args: unknown) => ReactNode }>;
+      return cloneElement(ctrl, {
+        render: (args: unknown) => aplicarAControl(ctrl.props.render(args), control),
+      });
     });
   } else {
     body = children;
