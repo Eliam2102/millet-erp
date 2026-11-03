@@ -71,6 +71,8 @@ public sealed class TransaccionTerminal : BaseEntity, IPerteneceAEmpresa, IAudit
     public decimal? IvaComision { get; private set; }
     public decimal? Neto { get; private set; }
     public string? FolioLiquidacion { get; private set; }
+    /// <summary>Día en que el banco liquidó (GMR: <c>DAT_SETTLED</c>). Null = el de la venta.</summary>
+    public DateOnly? FechaLiquidacion { get; private set; }
     public EstadoTransaccionTerminal Estado { get; private set; }
     public Guid? CobroMostradorId { get; private set; }
     public Guid? CobroFormaPagoId { get; private set; }
@@ -103,6 +105,7 @@ public sealed class TransaccionTerminal : BaseEntity, IPerteneceAEmpresa, IAudit
             IvaComision = r.IvaComision,
             Neto = r.Neto,
             FolioLiquidacion = Limpio(r.FolioLiquidacion),
+            FechaLiquidacion = r.FechaLiquidacion,
             Estado = r.Aprobada ? EstadoTransaccionTerminal.SinEmparejar : EstadoTransaccionTerminal.Rechazada,
         };
     }
@@ -256,4 +259,5 @@ public sealed record CuadreFacturaBanco(
 /// <summary>Renglón leído del archivo, ya con tipos (antes de persistirlo).</summary>
 public sealed record RenglonTerminal(
     string NoOperacion, DateTime FechaHora, decimal Importe, string? Moneda, string? Ultimos4, string? Autorizacion,
-    string? Estatus, bool Aprobada, decimal? Comision, decimal? IvaComision, decimal? Neto, string? FolioLiquidacion);
+    string? Estatus, bool Aprobada, decimal? Comision, decimal? IvaComision, decimal? Neto, string? FolioLiquidacion,
+    DateOnly? FechaLiquidacion = null);

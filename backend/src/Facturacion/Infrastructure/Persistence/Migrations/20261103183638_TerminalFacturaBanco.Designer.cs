@@ -13,7 +13,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(FacturacionDbContext))]
-    [Migration("20261103170054_TerminalFacturaBanco")]
+    [Migration("20261103183638_TerminalFacturaBanco")]
     partial class TerminalFacturaBanco
     {
         /// <inheritdoc />
@@ -1486,6 +1486,10 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("FechaHora")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("fecha_hora");
+
+                    b.Property<DateOnly?>("FechaLiquidacion")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_liquidacion");
 
                     b.Property<string>("FolioLiquidacion")
                         .HasMaxLength(40)

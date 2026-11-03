@@ -1484,6 +1484,10 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("fecha_hora");
 
+                    b.Property<DateOnly?>("FechaLiquidacion")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_liquidacion");
+
                     b.Property<string>("FolioLiquidacion")
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)")

@@ -115,7 +115,11 @@ public sealed class TerminalTarjetaHandlers :
         var porEmparejar = transacciones
             .Where(t => t.Estado == EstadoTransaccionTerminal.SinEmparejar && t.Autorizacion is not null).ToList();
         if (porEmparejar.Count == 0) return;
-        var autorizaciones = porEmparejar.Select(t => t.Autorizacion!).Distinct().ToList();
+        // El GMR trae COD_AUTHORIZATION como número: puede llegar sin ceros a la izquierda
+        // («21747» por «021747»). Se busca también la versión con ceros hasta 6 dígitos.
+        var autorizaciones = porEmparejar.Select(t => t.Autorizacion!)
+            .SelectMany(a => a.Length < 6 && a.All(char.IsDigit) ? new[] { a, a.PadLeft(6, '0') } : [a])
+            .Distinct().ToList();
 
         var candidatas = await (
             from fp in _db.Set<CobroMostradorFormaPago>().AsNoTracking()
@@ -133,7 +137,7 @@ public sealed class TerminalTarjetaHandlers :
         {
             var dia = DateOnly.FromDateTime(t.FechaHora);
             var forma = candidatas.FirstOrDefault(c => !usadas.Contains(c.FormaPagoId)
-                && string.Equals(c.Referencia!.Trim(), t.Autorizacion, StringComparison.OrdinalIgnoreCase)
+                && MismaAutorizacion(c.Referencia!, t.Autorizacion!)
                 && c.Importe == t.Importe && c.DiaOperacion == dia);
             if (forma is null) continue;
             usadas.Add(forma.FormaPagoId);
@@ -166,8 +170,9 @@ public sealed class TerminalTarjetaHandlers :
         foreach (var grupo in todas.GroupBy(t => t.FolioLiquidacion!).Where(g => !yaLiquidados.Contains(g.Key)))
         {
             var ventas = grupo.ToList();
+            // Fecha del cargo = día en que el banco liquidó (DAT_SETTLED del GMR); sin ella, el de la última venta.
             var liquidacion = LiquidacionTerminal.Crear(empresaId, cargaId, grupo.Key,
-                DateOnly.FromDateTime(ventas.Max(v => v.FechaHora)), ventas);
+                ventas.Max(v => v.FechaLiquidacion ?? DateOnly.FromDateTime(v.FechaHora)), ventas);
             _db.LiquidacionesTerminal.Add(liquidacion);
             await _eventos.PublishAsync(new TerminalLiquidacionRegistradaIntegrationEvent(
                 empresaId, _clock.UtcNow, liquidacion.Id, liquidacion.Folio, liquidacion.Fecha, liquidacion.Bruto,
@@ -177,6 +182,14 @@ public sealed class TerminalTarjetaHandlers :
             creadas++;
         }
         return creadas;
+    }
+
+    private static bool MismaAutorizacion(string voucher, string banco)
+    {
+        var v = voucher.Trim();
+        var b = banco.Trim();
+        if (string.Equals(v, b, StringComparison.OrdinalIgnoreCase)) return true;
+        return v.All(char.IsDigit) && b.All(char.IsDigit) && v.TrimStart('0') == b.TrimStart('0');
     }
 
     private static CargaTerminalResponse Respuesta(CargaTerminal c) => new(

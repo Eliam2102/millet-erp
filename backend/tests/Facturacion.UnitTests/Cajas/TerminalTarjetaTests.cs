@@ -154,6 +154,58 @@ public sealed class TerminalTarjetaTests
         sinColumnas.Should().Throw<BusinessRuleException>().Which.Code.Should().Be("TERMINAL_ENCABEZADOS");
     }
 
+    // ---- 86e3xt2q8: archivo OneGMR TRST de Getnet (nombres reales de la guía «Getnet One GMR», jun-2025) ----
+
+    private const string EncabezadoGmr =
+        "NUM_MERCHANT_LEGAL_DOCUMENT,NAM_MERCHANT,COD_SELLER,NAM_SELLER,NUM_BANK_ACCOUNT,COD_BANK_ACCOUNT_CURRENCY,ID_TERMINAL," +
+        "NUM_CARD,DES_FINANCIAL_MOVEMENTS_TYPE,DES_TRANSACTION_TYPE,DES_TRANSACTION_STATUS,ID_TRANSACTION,COD_AUTHORIZATION," +
+        "COD_RRN,DAT_TRANSACTION,TIM_TRANSACTION,ID_SETTLEMENT,DAT_SETTLEMENT,DAT_SETTLED,AMT_GROSS,COD_CURRENCY,AMT_NET," +
+        "AMT_NET_CURRENCY,AMT_TOTAL_FEE,AMT_TOTAL_VAT_TAX\n";
+
+    private static string RenglonGmr(string id, string tipo, string estatus, string auth, string bruto, string neto, string fee,
+        string iva, string settlement = "202610026740289484GNMXPURCC0", string settled = "2026-10-02") =>
+        $"XPT9999999A10,PRUEBA,1,PRUEBA,0,484,T001,4321-56XX-XXXX-0987,{tipo},Purchase,{estatus},{id},{auth}," +
+        $"'227320004374,2026-10-01,12:28:29,{settlement},2026-10-02,{settled},{bruto},484,{neto},484,{fee},{iva}\n";
+
+    [Fact]
+    public async Task Archivo_gmr_trst_empareja_y_liquida_con_los_nombres_reales_de_getnet()
+    {
+        using var db = NewDb();
+        // El voucher trae 021747 y el GMR manda COD_AUTHORIZATION como número: 21747.
+        var cobro = await CobrarTarjetaAsync(db, 10_000m, "021747");
+        var eventos = new FakeIntegrationEventPublisher();
+        var csv = Encoding.UTF8.GetBytes(EncabezadoGmr
+            + RenglonGmr("45f9b223-ce28-4710-9300-5bd13f915555", "Transaction", "Captured", "21747", "10000", "9768", "200", "32")
+            + RenglonGmr("", "Billing", "", "", "150", "174", "0", "24")
+            + "ENDOFFILE_000000002_000000001\n");
+
+        var r = await Handlers(db, eventos).Handle(
+            new CargarArchivoTerminalCommand("GMR_MX_GETNET_9999999_20261002_R_TRST_001.CSV", csv, Dia), default);
+
+        r.Renglones.Should().Be(1, "el cargo mensual (Billing) y el renglón ENDOFFILE no son ventas");
+        r.Emparejados.Should().Be(1);
+        r.Liquidaciones.Should().Be(1);
+        var t = await db.TransaccionesTerminal.SingleAsync();
+        (t.Ultimos4, t.Moneda, t.FechaHora).Should().Be(("0987", "MXN", new DateTime(2026, 10, 1, 12, 28, 29)));
+        t.CobroMostradorId.Should().Be(cobro);
+        var e = eventos.Publicados.OfType<TerminalLiquidacionRegistradaIntegrationEvent>().Single();
+        (e.Bruto, e.Comision, e.IvaComision, e.Neto).Should().Be((10_000m, 200m, 32m, 9_768m));
+        e.FolioLiquidacion.Should().Be("202610026740289484GNMXPURCC0");
+        e.Fecha.Should().Be(new DateOnly(2026, 10, 2), "el cargo es del día en que el banco liquidó (DAT_SETTLED)");
+    }
+
+    [Fact]
+    public void Lector_gmr_marca_rechazadas_las_ventas_denegadas()
+    {
+        var csv = Encoding.UTF8.GetBytes(EncabezadoGmr
+            + RenglonGmr("op-denegada", "Transaction", "Denied", "000000", "500", "0", "0", "0"));
+
+        var r = LectorArchivoTerminal.Leer(csv, Dia, new TerminalTarjetaOptions()).Should().ContainSingle().Subject;
+
+        r.Aprobada.Should().BeFalse();
+        r.FechaLiquidacion.Should().Be(new DateOnly(2026, 10, 2));
+    }
+
     // ---- helpers ----
 
     private static Task<CargaTerminalResponse> Cargar(FacturacionDbContext db, FakeIntegrationEventPublisher eventos, byte[] archivo) =>
