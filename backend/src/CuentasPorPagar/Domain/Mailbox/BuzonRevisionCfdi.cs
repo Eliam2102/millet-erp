@@ -13,7 +13,7 @@ namespace Millet.CuentasPorPagar.Domain.Mailbox;
 /// (p. ej. RFC receptor desconocido).
 /// </para>
 /// </summary>
-public sealed class BuzonRevisionCfdi : BaseEntity
+public sealed class BuzonRevisionCfdi : BaseEntity, IAuditable
 {
     public const int MaxMensajeId = 400;
 
@@ -53,7 +53,7 @@ public sealed class BuzonRevisionCfdi : BaseEntity
 }
 
 /// <summary>Bitácora persistida de cada corrida del worker del buzón (P8.1).</summary>
-public sealed class BuzonEjecucion : BaseEntity
+public sealed class BuzonEjecucion : BaseEntity, INotAudited
 {
     public DateTimeOffset InicioUtc { get; private set; }
     public DateTimeOffset FinUtc { get; private set; }
