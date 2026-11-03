@@ -35,6 +35,7 @@ public sealed class TransaccionTerminalConfiguration : IEntityTypeConfiguration<
         builder.Property(e => e.IvaComision).HasPrecision(18, 2);
         builder.Property(e => e.Neto).HasPrecision(18, 2);
         builder.Property(e => e.FolioLiquidacion).HasMaxLength(40);
+        builder.Property(e => e.FechaLiquidacion);
         builder.Property(e => e.Estado).HasConversion<short>().IsRequired();
         builder.Ignore(e => e.TraeLiquidacion);
 
@@ -63,5 +64,28 @@ public sealed class LiquidacionTerminalConfiguration : IEntityTypeConfiguration<
         builder.Property(e => e.IvaComision).HasPrecision(18, 2);
         builder.Property(e => e.Neto).HasPrecision(18, 2);
         builder.HasIndex(e => new { e.EmpresaId, e.Folio }).IsUnique().HasDatabaseName("ux_terminal_liquidacion_empresa_folio");
+        builder.Property(e => e.UuidFacturaBanco).HasMaxLength(36);
+        builder.HasOne<FacturaBancoTerminal>().WithMany().HasForeignKey(e => e.FacturaBancoId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(e => new { e.EmpresaId, e.Fecha }).HasFilter("factura_banco_id IS NULL")
+            .HasDatabaseName("ix_terminal_liquidacion_sin_factura_fecha");
+    }
+}
+
+public sealed class FacturaBancoTerminalConfiguration : IEntityTypeConfiguration<FacturaBancoTerminal>
+{
+    public void Configure(EntityTypeBuilder<FacturaBancoTerminal> builder)
+    {
+        builder.ToTable("terminal_factura_banco", t =>
+            t.HasCheckConstraint("ck_terminal_factura_banco_mes", "mes BETWEEN 1 AND 12"));
+        builder.HasKey(e => e.Id);
+        builder.Property(e => e.Id).ValueGeneratedNever();
+        builder.Property(e => e.UuidCfdi).HasMaxLength(36).IsRequired();
+        builder.Property(e => e.RfcEmisor).HasMaxLength(13).IsRequired();
+        builder.Property(e => e.Comision).HasPrecision(18, 2);
+        builder.Property(e => e.IvaComision).HasPrecision(18, 2);
+        builder.Property(e => e.Total).HasPrecision(18, 2);
+        // Un CFDI del banco ampara un solo mes.
+        builder.HasIndex(e => new { e.EmpresaId, e.UuidCfdi }).IsUnique().HasDatabaseName("ux_terminal_factura_banco_empresa_uuid");
+        builder.HasIndex(e => new { e.EmpresaId, e.CfdiRecibidoId }).IsUnique().HasDatabaseName("ux_terminal_factura_banco_empresa_cfdi");
     }
 }

@@ -152,6 +152,7 @@ public sealed class FacturacionDbContext : BaseDbContext
     public DbSet<Millet.Facturacion.Domain.Cajas.Terminal.CargaTerminal> CargasTerminal => Set<Millet.Facturacion.Domain.Cajas.Terminal.CargaTerminal>();
     public DbSet<Millet.Facturacion.Domain.Cajas.Terminal.TransaccionTerminal> TransaccionesTerminal => Set<Millet.Facturacion.Domain.Cajas.Terminal.TransaccionTerminal>();
     public DbSet<Millet.Facturacion.Domain.Cajas.Terminal.LiquidacionTerminal> LiquidacionesTerminal => Set<Millet.Facturacion.Domain.Cajas.Terminal.LiquidacionTerminal>();
+    public DbSet<Millet.Facturacion.Domain.Cajas.Terminal.FacturaBancoTerminal> FacturasBancoTerminal => Set<Millet.Facturacion.Domain.Cajas.Terminal.FacturaBancoTerminal>();
 
     /// <summary>Marcas de idempotencia de integration events consumidos (PR gemelo TES-PR7).</summary>
     public DbSet<Domain.Eventos.EventoProcesado> EventosProcesados => Set<Domain.Eventos.EventoProcesado>();
@@ -223,6 +224,7 @@ public sealed class FacturacionDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new CargaTerminalConfiguration());
         modelBuilder.ApplyConfiguration(new TransaccionTerminalConfiguration());
         modelBuilder.ApplyConfiguration(new LiquidacionTerminalConfiguration());
+        modelBuilder.ApplyConfiguration(new FacturaBancoTerminalConfiguration());
         modelBuilder.ApplyConfiguration(new EventoProcesadoConfiguration());
     }
 }
