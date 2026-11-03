@@ -233,7 +233,7 @@ function AperturaSesionCard({ ultima }: { ultima?: { cajaId: string; sucursalId:
       <div>
         <h2 className="font-medium">Abrir sesión</h2>
         <p className="text-xs text-ink-muted">
-          Declara el fondo y la sucursal de operación; su zona horaria define el día del corte.
+          Captura el fondo inicial y la sucursal donde vas a cobrar.
         </p>
       </div>
 
@@ -1258,8 +1258,7 @@ function AutorizarAperturaCard() {
       <div>
         <h2 className="font-medium">Autorizar apertura de caja ajena</h2>
         <p className="text-xs text-ink-muted">
-          Autorización consumible de un solo uso y vigencia corta; el alcance sigue a la caja, la
-          responsabilidad al cajero que abre.
+          Permite que otro cajero abra esta caja una sola vez. Quien la abre responde por ella.
         </p>
       </div>
       <div className="grid gap-3 md:grid-cols-3">

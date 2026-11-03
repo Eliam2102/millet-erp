@@ -18,7 +18,7 @@ const DESC_ESTADO_PEDIDO: Record<string, string> = {
   Bloqueado: 'Un cajero lo está facturando (soft-lock).',
   Facturado: 'Tiene un CFDI vigente. Al cancelar el CFDI vuelve a Importado.',
   Cancelado: 'Cancelado (cancelación de A+W sin CFDI, o anulado).',
-  Excepcion: 'Falló la validación de ingesta; se resuelve en la bandeja de excepciones.',
+  Excepcion: 'Falló la validación de importación; revísala en Pedidos con error de importación.',
 };
 
 const DESC_ESTADO_TIMBRADO: Record<string, string> = {
@@ -60,7 +60,7 @@ const TERMINOS: ReadonlyArray<{ termino: string; definicion: string }> = [
   {
     termino: 'Pedimento',
     definicion:
-      'Compuerta por factura: si un concepto lo requiere, la factura queda PendientePedimento hasta capturarlo, y entonces se timbra.',
+      'Compuerta por factura: si un concepto lo requiere, la factura queda pendiente de pedimento hasta capturarlo, y entonces se timbra.',
   },
 ];
 

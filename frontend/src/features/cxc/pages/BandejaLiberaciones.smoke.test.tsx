@@ -106,9 +106,9 @@ describe('<BandejaLiberaciones> — smoke', () => {
     // por ids) — findByText espera ese segundo ciclo.
     expect(await screen.findByText('ACME SA')).toBeInTheDocument();
     expect(
-      within(screen.getByRole('table')).getByText('Liberado con override'),
+      within(screen.getByRole('table')).getByText('Liberado con excepción autorizada'),
     ).toBeInTheDocument();
-    expect(screen.getByText('Override autorizado')).toBeInTheDocument();
+    expect(screen.getByText('Excepción autorizada')).toBeInTheDocument();
   });
 
   it('sin permiso override: no muestra "Nueva autorización"', async () => {

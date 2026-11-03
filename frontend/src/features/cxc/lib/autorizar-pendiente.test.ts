@@ -283,7 +283,7 @@ describe('textoSinLineaActiva (C7.3, supuesto e)', () => {
   });
   it('serie que exige autorización conserva el override', () => {
     const texto = textoSinLineaActiva('ACME', 'MXN', false, true);
-    expect(texto).toMatch(/sin override, la decisión quedará retenida/);
+    expect(texto).toMatch(/sin una excepción autorizada, la decisión quedará retenida/);
     expect(texto).not.toMatch(/no procede/);
   });
 });

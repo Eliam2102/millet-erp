@@ -409,6 +409,7 @@ describe('accionEliminarRequisicion (matriz §6.1 fila 10)', () => {
       const result = accionEliminarRequisicion(
         makeRq(estado),
         TODOS_LOS_PERMISOS,
+        'u-1',
       );
       const esperado =
         estado === EstadoRequisicion.Borrador ||
@@ -419,7 +420,17 @@ describe('accionEliminarRequisicion (matriz §6.1 fila 10)', () => {
 
   it('sin permiso eliminar: oculto', () => {
     expect(
-      accionEliminarRequisicion(makeRq(EstadoRequisicion.Borrador), []).visible,
+      accionEliminarRequisicion(makeRq(EstadoRequisicion.Borrador), [], 'u-1').visible,
+    ).toBe(false);
+  });
+
+  it('RQ ajena en autorización: oculto aunque tenga el permiso', () => {
+    expect(
+      accionEliminarRequisicion(
+        makeRq(EstadoRequisicion.EnAutorizacion),
+        TODOS_LOS_PERMISOS,
+        'otro-usuario',
+      ).visible,
     ).toBe(false);
   });
 });
@@ -487,7 +498,8 @@ describe('Cobertura matriz §6.1 (acciones sin parámetros × 10 estados)', () =
       { name: 'rechazar', fn: accionRechazar, visiblesEn: [EstadoRequisicion.EnAutorizacion] },
       {
         name: 'eliminarRequisicion',
-        fn: accionEliminarRequisicion,
+        fn: (rq: RequisicionResponse, p: readonly string[]) =>
+          accionEliminarRequisicion(rq, p, rq.creadorId),
         visiblesEn: [EstadoRequisicion.Borrador, EstadoRequisicion.EnAutorizacion],
       },
       {

@@ -75,24 +75,26 @@ public sealed class GraphMailboxClient : IMailboxClient, IDisposable
             foreach (var msg in messages?.Value ?? [])
             {
                 if (msg.Id is null) continue;
-                if (!(msg.HasAttachments ?? false)) continue;
+                // P8.1-a: un correo sin adjuntos también se devuelve (lista vacía)
+                // para que el worker lo mande a la bandeja de revisión en vez de
+                // dejarlo para siempre en Inbox.
+                var attachList = new List<MailboxAttachment>();
+                if (msg.HasAttachments ?? false)
+                {
+                    var attachments = await _graph
+                        .Users[_options.MailboxUpn]
+                        .Messages[msg.Id]
+                        .Attachments
+                        .GetAsync(req => req.QueryParameters.Select = ["id", "name", "contentType", "size"], cancellationToken);
 
-                var attachments = await _graph
-                    .Users[_options.MailboxUpn]
-                    .Messages[msg.Id]
-                    .Attachments
-                    .GetAsync(req => req.QueryParameters.Select = ["id", "name", "contentType", "size"], cancellationToken);
-
-                var attachList = (attachments?.Value ?? [])
-                    .Where(a => a is FileAttachment && !string.IsNullOrEmpty(a.Id))
-                    .Select(a => new MailboxAttachment(
-                        a.Id!,
-                        a.Name ?? "(sin nombre)",
-                        a.ContentType ?? "application/octet-stream",
-                        a.Size.HasValue ? a.Size.Value : null))
-                    .ToList();
-
-                if (attachList.Count == 0) continue;
+                    attachList.AddRange((attachments?.Value ?? [])
+                        .Where(a => a is FileAttachment && !string.IsNullOrEmpty(a.Id))
+                        .Select(a => new MailboxAttachment(
+                            a.Id!,
+                            a.Name ?? "(sin nombre)",
+                            a.ContentType ?? "application/octet-stream",
+                            a.Size.HasValue ? a.Size.Value : null)));
+                }
 
                 result.Add(new MailboxMensaje(
                     Id: msg.Id,

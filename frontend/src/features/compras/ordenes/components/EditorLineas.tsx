@@ -234,7 +234,7 @@ export function EditorLineas({ oc }: EditorLineasProps) {
               </TableHead>
               <TableHead className="px-3 py-2 text-right font-medium">Precio</TableHead>
               <TableHead className="px-3 py-2 text-right font-medium">Subtotal</TableHead>
-              <TableHead className="hidden px-3 py-2 text-right font-medium @4xl:table-cell">
+              <TableHead className="px-3 py-2 text-right font-medium">
                 IVA
               </TableHead>
               {(accEditar.visible || accEliminar.visible) && (
@@ -281,7 +281,7 @@ export function EditorLineas({ oc }: EditorLineasProps) {
                   strong
                 />
               </TableCell>
-              <TableCell className="hidden px-3 py-2 text-right tabular-nums @4xl:table-cell">
+              <TableCell className="px-3 py-2 text-right tabular-nums">
                 <MoneyDisplay
                   amount={lineasOrdenadas.reduce((acc, l) => acc + l.ivaImporte, 0)}
                   currency={oc.moneda}
@@ -461,7 +461,7 @@ function FilaLinea({
           {etiquetaDescuento(linea.descuentoTipo, linea.descuentoValor)}
         </p>
       </TableCell>
-      <TableCell className="hidden px-3 py-2 text-right tabular-nums text-ink-muted @4xl:table-cell">
+      <TableCell className="px-3 py-2 text-right tabular-nums text-ink-muted">
         <MoneyDisplay amount={linea.ivaImporte} currency={moneda} />
       </TableCell>
       {showAcciones && (

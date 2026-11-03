@@ -50,7 +50,7 @@ describe('<HistoricoModal>', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('MID2026-000042')).toBeInTheDocument();
     expect(
-      screen.getByText(/transiciones del agregado/i),
+      screen.getByText(/Todos los cambios de la requisición/i),
     ).toBeInTheDocument();
   });
 

@@ -55,12 +55,15 @@ export const CrearRequisicionSchema = z.object({
   sucursalId: idLike('Sucursal requerida'),
   departamentoId: idLike('Departamento requerido'),
   requisitanteId: idLikeOpcional,
-  clasificacion: z.union([
-    z.literal(Clasificacion.Servicio),
-    z.literal(Clasificacion.OrdenCompra),
-    z.literal(Clasificacion.MateriaPrima),
-    z.literal(Clasificacion.Pinturas),
-  ]),
+  clasificacion: z.literal(
+    [
+      Clasificacion.Servicio,
+      Clasificacion.OrdenCompra,
+      Clasificacion.MateriaPrima,
+      Clasificacion.Pinturas,
+    ],
+    { error: 'Selecciona la clasificación' },
+  ),
   prioridad: z.union([
     z.literal(Prioridad.Baja),
     z.literal(Prioridad.Normal),

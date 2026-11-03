@@ -41,6 +41,7 @@ import { esApiError } from '@/lib/api';
 import { EstadoCfdiBadge } from '@/features/cxp/components/EstadoCfdiBadge';
 import { CapturarFacturaSheet } from '@/features/cxp/components/CapturarFacturaSheet';
 import { CargarCfdiSheet } from '@/features/cxp/components/CargarCfdiSheet';
+import { BuzonRevisionPanel } from '@/features/cxp/components/BuzonRevisionPanel';
 import { CfdiDetalleSheet } from '@/features/cxp/components/CfdiDetalleSheet';
 import { DescartarCfdiSheet } from '@/features/cxp/components/DescartarCfdiSheet';
 import { MarcarDuplicadoSheet } from '@/features/cxp/components/MarcarDuplicadoSheet';
@@ -159,6 +160,8 @@ export function CfdisPage() {
           </>
         }
       />
+
+      <BuzonRevisionPanel puedeDescartar={puedeDescartar} />
 
       <FiltrosToolbar search={search} onChange={actualizarSearch} />
 
