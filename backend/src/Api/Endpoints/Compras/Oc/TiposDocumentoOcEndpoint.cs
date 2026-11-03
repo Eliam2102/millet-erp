@@ -11,7 +11,8 @@ namespace Millet.Api.Endpoints.Compras.Oc;
 /// (UF3-PR2). Usado por <c>&lt;TipoDocumentoSelector/&gt;</c> en el
 /// <c>&lt;AdjuntosManager/&gt;</c> del Tab "Adjuntos" del detalle de OC.
 ///
-/// <para>Permiso: <c>compras.ordenes.adjuntar</c>. Solo activos por
+/// <para>Permiso: <c>compras.ordenes.leer</c> (quien ve los adjuntos de la OC
+/// necesita el nombre del tipo, aunque no pueda adjuntar). Solo activos por
 /// default; sin paginación porque son 7 tipos seedeados (C6 §4.12).
 /// El frontend cachea 1h porque el catálogo es casi inmutable.</para>
 ///
@@ -46,7 +47,7 @@ public static class TiposDocumentoOcEndpoint
                 .ToListAsync(ct);
             return Results.Ok(items);
         })
-        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesAdjuntar)
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesLeer)
         .WithName("ListarTiposDocumentoOc")
         .WithTags("Compras Catalogos")
         .WithSummary("Catálogo de tipos de documento adjunto de OC (UF3-PR2)")

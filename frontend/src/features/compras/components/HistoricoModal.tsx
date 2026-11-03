@@ -43,7 +43,7 @@ export function HistoricoModal({
             Histórico — <span className="font-mono">{folio}</span>
           </DialogTitle>
           <DialogDescription>
-            Todas las transiciones del agregado: creación, edición de partidas, autorizaciones,
+            Todos los cambios de la requisición: creación, edición de partidas, autorizaciones,
             cubrimiento, recepciones y cierre. Click en "Ver cambios" para inspeccionar el diff de
             cada evento.
           </DialogDescription>

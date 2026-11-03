@@ -2,8 +2,10 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Identidad.Domain;
 using Millet.ProductoTerminado.Application.Escaneos;
+using Millet.ProductoTerminado.Application.Ports;
 using Millet.ProductoTerminado.Domain;
 using Millet.ProductoTerminado.Infrastructure.Persistence;
+using Millet.SharedKernel.Application;
 
 namespace Millet.ProductoTerminado.Application.Consultas;
 
@@ -58,6 +60,53 @@ public sealed class ListarPiezasHandler(ProductoTerminadoDbContext db, PtAcceso 
             }).ToList();
         }
         return new PiezasPagina(items, total, avance, estadoPedido);
+    }
+}
+
+public sealed class ListarSalidasPendientesHandler(ProductoTerminadoDbContext db, PtAcceso acceso, IPedidosPtReadPort pedidos, ICurrentEmpresaContext empresa, IClock clock)
+    : IRequestHandler<ListarSalidasPendientesQuery, SalidasPendientesPagina>
+{
+    public async Task<SalidasPendientesPagina> Handle(ListarSalidasPendientesQuery q, CancellationToken cancellationToken)
+    {
+        await acceso.ExigirPermisoAsync(PermisosCanonicos.ProductoTerminadoPiezasVer, cancellationToken);
+        const string todas = PermisosCanonicos.ProductoTerminadoPiezasVerTodasSucursales;
+        var visibles = await acceso.SucursalesVisiblesAsync(todas, cancellationToken);
+        if (q.SucursalId is { } s) await acceso.VerificarSucursalAsync(s, todas, cancellationToken);
+
+        // Igual que Piezas: la sucursal es la física de la pieza. Solo pedidos en 70 (Liberado); los retenidos (69) no salen.
+        var piezas = db.Piezas.AsNoTracking().Where(p => p.Estado == EstadoPieza.EnPT);
+        if (q.SucursalId is { } sid) piezas = piezas.Where(p => p.SucursalId == sid);
+        else if (visibles is not null) piezas = piezas.Where(p => visibles.Contains(p.SucursalId));
+
+        var filas = await (from p in piezas
+                           join o in db.PedidosPt.AsNoTracking() on p.PedidoPtId equals o.Id
+                           where o.Liberacion == EstadoLiberacion.Liberado && o.LiberacionAt != null
+                           group p by new { o.Id, o.PedidoFacturableId, o.NumeroPedido, p.SucursalId, o.LiberacionAt } into g
+                           select new { g.Key.Id, g.Key.PedidoFacturableId, g.Key.NumeroPedido, g.Key.SucursalId, At = g.Key.LiberacionAt!.Value, N = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        // ponytail: filtro "ya salió" en memoria (trae todos los 70 con piezas en PT); mover a SQL cuando PT5.5 guarde la salida en PT.
+        var empresaId = empresa.Current ?? throw new UnauthorizedAccessException();
+        var origen = await pedidos.ObtenerParaMonitorAsync(empresaId, filas.Select(f => f.PedidoFacturableId).Distinct().ToArray(), cancellationToken);
+        var ahora = clock.UtcNow;
+        var buscar = q.Buscar?.Trim();
+        var pendientes = filas
+            .Where(f => origen.TryGetValue(f.PedidoFacturableId, out var o) && !o.TieneSalida)
+            .Select(f =>
+            {
+                var o = origen[f.PedidoFacturableId];
+                var horas = (int)Math.Max(0, Math.Floor((ahora - f.At).TotalHours));
+                var alerta = horas >= 48 ? "48h" : horas >= 24 ? "24h" : "ninguna";
+                return new SalidaPendienteDto(f.Id, f.NumeroPedido, o.ClienteNombre, o.Destino, f.SucursalId, f.N, f.At, horas, alerta);
+            })
+            .Where(d => string.IsNullOrEmpty(buscar)
+                || d.NumeroPedido.Contains(buscar, StringComparison.OrdinalIgnoreCase)
+                || d.Cliente.Contains(buscar, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        var lista = q.Alerta is null ? pendientes : pendientes.Where(d => d.Alerta == q.Alerta).ToList();
+        var items = lista.OrderBy(d => d.LiberadoAt).ThenBy(d => d.NumeroPedido).Skip((q.Page - 1) * q.PageSize).Take(q.PageSize).ToList();
+        return new SalidasPendientesPagina(items, lista.Count, pendientes.Count(d => d.Alerta == "24h"), pendientes.Count(d => d.Alerta == "48h"));
     }
 }
 

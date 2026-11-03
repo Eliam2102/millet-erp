@@ -42,7 +42,7 @@ export type IdentidadSandboxValues = z.infer<typeof IdentidadSandboxSchema>;
 
 export const GuardarConfiguracionPacSchema = z.object({
   baseUrl: z
-    .string({ error: 'BaseUrl obligatoria.' })
+    .string({ error: 'Captura la URL base.' })
     .trim()
     .url('Debe ser una URL absoluta http(s).')
     .max(500, 'Máximo 500 caracteres.'),

@@ -209,7 +209,7 @@ export const RegistrarRecepcionPackingListSchema = z
     fechaMovimiento: z.string().regex(DATE_ONLY_RE, 'Fecha en formato YYYY-MM-DD'),
     packingListBlobRef: z
       .string()
-      .min(1, 'Adjunto del packing list requerido')
+      .min(1, 'Adjunto del lista de empaque requerido')
       .max(500, 'Máximo 500 caracteres'),
     observaciones: z.string().max(500, 'Máximo 500 caracteres').nullish(),
     // PR4: helper de cabecera (ver variante A).

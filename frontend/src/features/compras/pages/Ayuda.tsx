@@ -124,11 +124,11 @@ function SeccionCicloDeVida() {
       </p>
       <div className="overflow-x-auto rounded-md border bg-surface-muted/30 p-4">
         <pre className="text-xs leading-relaxed font-mono">
-          {`  Borrador ──[transmitir]──> EnAutorización ──[aprobar matriz]──> Autorizada ──> EnSurtido ──> Cerrada ✕
+          {`  Borrador ──[transmitir]──> En autorización ──[aprobar matriz]──> Autorizada ──> En surtido ──> Cerrada ✕
      │                            │                              │      │
      │                            │              [cerrar manual]─┤      ├──[cancelar]──> Cancelada ✕
      │                            │                              ▼      │
-     │                            │           CerradaSinSurtir ✕ / CerradaSurtidaParcial ✕
+     │                            │           Cerrada sin surtir ✕ / Cerrada con surtido parcial ✕
      │                            │
      │                            └──[rechazar]──> Rechazada ✕
      │
@@ -136,12 +136,12 @@ function SeccionCicloDeVida() {
      │
      └──[matriz cumplida sin entrega] ──> Cerrada ✕
 
-Pre-autorización: Borrador, EnAutorización
+Pre-autorización: Borrador, En autorización
   («En almacén» es una insignia informativa en RQ pre-autorización con
    surtido de almacén estimado; no es un estado y el apartado ocurre al autorizar)
-Post-autorización: Autorizada, EnSurtido
+Post-autorización: Autorizada, En surtido
 Terminales: Cerrada, Rechazada, Cancelada, Eliminada,
-            CerradaSinSurtir, CerradaSurtidaParcial`}
+            Cerrada sin surtir, Cerrada con surtido parcial`}
         </pre>
       </div>
     </section>

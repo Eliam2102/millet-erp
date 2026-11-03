@@ -603,4 +603,41 @@ public class PtEntradaDemoTests(WebApplicationFactory<Program> factory, ITestOut
         Assert.Equal(System.Net.HttpStatusCode.Conflict, r.StatusCode);
         Assert.Equal(0, await EventosEstado(n, "Liberado"));
     }
+
+    // ---------- PT5.3: monitor de salidas de pedidos en 70 ----------
+
+    [Fact]
+    public async Task PT53_Pedido_Liberado_se_lista_sin_alerta_deja_de_listarse_al_registrar_su_salida_y_sin_permiso_o_en_otra_sucursal_se_rechaza()
+    {
+        await using var ctx = await PrepararAsync();
+        var n = Numero();
+        await _d.FacturacionAsync(n, ctx.A, 10);
+        for (var i = 1; i <= 10; i++) await Escaneo(n, Etq(n, i), i, Ahora(i));
+        await using var f = Host();
+        await Ciclo(f);
+        using var http = await new PtDatos(f).ClienteAsync([.. PermisosSaldo, PermisosCanonicos.FacturacionPedidosCapturar], ctx.A);
+        Assert.True((await http.PutAsJsonAsync($"/api/v1/producto-terminado/demo/pedidos/{n}/saldo", new { saldo = 0 })).IsSuccessStatusCode);
+        Assert.Equal(("Liberado", MotivosPt.SaldoCubierto), await EstadoPedido(n));
+
+        var url = $"/api/v1/producto-terminado/salidas-pendientes?sucursalId={ctx.A}&buscar={n}";
+        var fila = (await http.GetFromJsonAsync<JsonElement>(url)).GetProperty("items").EnumerateArray().Single();
+        Assert.Equal(n, fila.GetProperty("numeroPedido").GetString());
+        Assert.Equal("PT-INT cliente", fila.GetProperty("cliente").GetString());
+        // El pedido de prueba no trae obra (PT-INT pedido va en comentarios): destino nulo.
+        Assert.Equal(JsonValueKind.Null, fila.GetProperty("destino").ValueKind);
+        Assert.Equal(10, fila.GetProperty("piezas").GetInt32());
+        Assert.Equal("ninguna", fila.GetProperty("alerta").GetString());
+
+        // PT5.3-a: con su salida registrada en Facturación el pedido deja de listarse.
+        var pedidoId = (await Filas("SELECT pedido_facturable_id FROM producto_terminado.pedidos_pt WHERE numero_pedido LIKE @p || '%'", n, r => r.GetGuid(0))).Single();
+        var salida = await http.PostAsJsonAsync($"/api/v1/facturacion/pedidos-facturables/{pedidoId}/salidas",
+            new { referencia = "PT-INT-" + Guid.NewGuid().ToString("N")[..8], lineas = new[] { new { posicion = 1, cantidad = 10 } } });
+        Assert.True(salida.IsSuccessStatusCode, await salida.Content.ReadAsStringAsync());
+        Assert.Empty((await http.GetFromJsonAsync<JsonElement>(url)).GetProperty("items").EnumerateArray());
+
+        using var otra = await new PtDatos(f).ClienteAsync([PermisosCanonicos.ProductoTerminadoPiezasVer], ctx.B);
+        Assert.Equal(System.Net.HttpStatusCode.Forbidden, (await otra.GetAsync($"/api/v1/producto-terminado/salidas-pendientes?sucursalId={ctx.A}")).StatusCode);
+        using var sinPermiso = await new PtDatos(f).ClienteAsync([], ctx.A);
+        Assert.Equal(System.Net.HttpStatusCode.Forbidden, (await sinPermiso.GetAsync("/api/v1/producto-terminado/salidas-pendientes")).StatusCode);
+    }
 }

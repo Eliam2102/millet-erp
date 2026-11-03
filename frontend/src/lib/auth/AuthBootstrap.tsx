@@ -3,6 +3,7 @@ import { MsalProvider } from '@azure/msal-react';
 import { type PublicClientApplication } from '@azure/msal-browser';
 import { authMode, buildMsalInstance } from '@/lib/auth/config';
 import { handlePostLoginRedirect, trySilentLogin } from '@/lib/auth/useAuth';
+import { iniciarRenovacionAutomatica, registrarInstanciaMsal } from '@/lib/auth/renovacion-sesion';
 import { GlassLoader } from '@/components/auth/GlassLoader';
 
 interface AuthBootstrapProps {
@@ -24,6 +25,9 @@ function arrancarMsal(): Promise<PublicClientApplication | null> {
       return null;
     }
     await instance.initialize();
+    // 86e3x819w: la renovación silenciosa del token del ERP usa esta instancia.
+    registrarInstanciaMsal(instance);
+    iniciarRenovacionAutomatica();
     // Orden importante:
     // 1. handlePostLoginRedirect: si acabamos de volver de Entra (redirect
     //    flow), MSAL detecta el código en la URL y restaura la sesión.

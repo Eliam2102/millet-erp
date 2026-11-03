@@ -30,10 +30,27 @@ export function ReceptorFiscalInfo({
   return (
     <div className="flex items-start justify-between gap-3 rounded-md border bg-surface-muted/30 px-3 py-2 border-line">
       <dl className="grid flex-1 grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-4">
-        <DatoFiscal etiqueta="RFC" valor={valores.rfc} mono />
-        <DatoFiscal etiqueta="Razón social" valor={valores.nombre} />
-        <DatoFiscal etiqueta="Régimen fiscal" valor={valores.regimenFiscal} />
-        <DatoFiscal etiqueta="CP fiscal" valor={valores.codigoPostal} />
+        <DatoFiscal
+          etiqueta="RFC"
+          valor={clienteId == null ? '' : valores.rfc}
+          sinCliente={clienteId == null}
+          mono
+        />
+        <DatoFiscal
+          etiqueta="Razón social"
+          valor={clienteId == null ? '' : valores.nombre}
+          sinCliente={clienteId == null}
+        />
+        <DatoFiscal
+          etiqueta="Régimen fiscal"
+          valor={clienteId == null ? '' : valores.regimenFiscal}
+          sinCliente={clienteId == null}
+        />
+        <DatoFiscal
+          etiqueta="CP fiscal"
+          valor={clienteId == null ? '' : valores.codigoPostal}
+          sinCliente={clienteId == null}
+        />
       </dl>
       {puedeCorregirEnCatalogo && clienteId != null && (
         <Link
@@ -121,10 +138,12 @@ function DatoFiscal({
   etiqueta,
   valor,
   mono,
+  sinCliente,
 }: {
   etiqueta: string;
   valor: string;
   mono?: boolean;
+  sinCliente: boolean;
 }) {
   const vacio = (valor ?? '').trim() === '';
   return (
@@ -133,12 +152,12 @@ function DatoFiscal({
       <dd
         className={cn(
           'truncate text-sm',
-          mono && 'font-mono',
-          vacio ? 'text-warning-fg ' : 'font-medium text-ink/90',
+          mono && !vacio && 'font-mono',
+          vacio ? 'text-ink-muted' : 'font-medium text-ink/90',
         )}
         title={vacio ? undefined : valor}
       >
-        {vacio ? 'Falta en el catálogo' : valor}
+        {vacio ? (sinCliente ? '—' : 'Falta en el catálogo') : valor}
       </dd>
     </div>
   );

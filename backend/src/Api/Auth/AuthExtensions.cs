@@ -43,6 +43,8 @@ public static class AuthExtensions
                 "Auth:Jwt:SigningKey es requerido (en Development viene de appsettings.Development.json; en QA/Prod de Key Vault).")
             .Validate(o => Encoding.UTF8.GetByteCount(o.SigningKey) >= 32,
                 "Auth:Jwt:SigningKey debe tener al menos 32 bytes (256 bits) para HMAC SHA-256.")
+            .Validate(o => o.AccessTokenLifetimeMinutes is >= JwtIssuanceOptions.VidaMinimaMinutos and <= JwtIssuanceOptions.VidaMaximaMinutos,
+                $"Auth:Jwt:AccessTokenLifetimeMinutes debe estar entre {JwtIssuanceOptions.VidaMinimaMinutos} y {JwtIssuanceOptions.VidaMaximaMinutos} minutos.")
             .ValidateOnStart();
 
         services.AddOptions<EntraIdOptions>()

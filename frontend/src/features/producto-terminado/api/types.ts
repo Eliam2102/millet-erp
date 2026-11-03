@@ -69,3 +69,25 @@ export interface EscaneosPagina {
   items: EscaneoDto[];
   total: number;
 }
+
+export type AlertaSalida = 'ninguna' | '24h' | '48h';
+
+export interface SalidaPendienteDto {
+  pedidoPtId: string;
+  numeroPedido: string;
+  cliente: string;
+  destino: string | null;
+  sucursalId: string;
+  piezas: number;
+  liberadoAt: string;
+  horasSinSalida: number;
+  alerta: AlertaSalida;
+}
+
+/** Con24h y Con48h cuentan todo lo filtrado por sucursal y búsqueda, antes de filtrar por alerta. */
+export interface SalidasPendientesPagina {
+  items: SalidaPendienteDto[];
+  total: number;
+  con24h: number;
+  con48h: number;
+}

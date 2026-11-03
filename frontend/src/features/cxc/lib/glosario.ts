@@ -31,7 +31,7 @@ export const ETIQUETA_ORIGEN_LINEA: Record<OrigenLineaCredito, string> = {
 export const ETIQUETA_RESULTADO_LIBERACION: Record<ResultadoLiberacion, string> = {
   [ResultadoLiberacion.Liberado]: 'Liberado',
   [ResultadoLiberacion.Retenido]: 'Retenido',
-  [ResultadoLiberacion.LiberadoConOverride]: 'Liberado con override',
+  [ResultadoLiberacion.LiberadoConOverride]: 'Liberado con excepción autorizada',
   [ResultadoLiberacion.PendienteAutorizacion]: 'Pendiente de autorización',
 };
 
@@ -45,7 +45,7 @@ export const ETIQUETA_COMPORTAMIENTO_SERIE: Record<ComportamientoSerie, string> 
 export const ETIQUETA_REGLA_LIBERACION: Record<ReglaAplicadaLiberacion, string> = {
   [ReglaAplicadaLiberacion.Serie]: 'Regla por serie',
   [ReglaAplicadaLiberacion.Credito]: 'Crédito disponible',
-  [ReglaAplicadaLiberacion.Override]: 'Override autorizado',
+  [ReglaAplicadaLiberacion.Override]: 'Excepción autorizada',
   [ReglaAplicadaLiberacion.Cobertura]: 'Cobertura parcial',
 };
 

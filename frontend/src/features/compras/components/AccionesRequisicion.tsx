@@ -136,7 +136,7 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
       ? rq.autorizaciones.find((a) => a.nivel === NivelAutorizacion.Nivel1)
       : undefined;
   const accRechazar = accionRechazar(rq, permisos);
-  const accEliminar = accionEliminarRequisicion(rq, permisos);
+  const accEliminar = accionEliminarRequisicion(rq, permisos, userId);
   const accCancelar = accionCancelar(rq, permisos);
   const accCerrarManual = accionCerrarManual(rq, permisos);
   const accConvertirAOc = accionConvertirAOc(rq, permisos, autoGenerarOcAlAutorizar);

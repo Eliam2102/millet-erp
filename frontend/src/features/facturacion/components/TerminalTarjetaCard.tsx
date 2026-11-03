@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { CreditCard, RefreshCw, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -39,6 +39,7 @@ function mxn(v: number | null): string {
  * y no generan asiento. Recargar el mismo archivo no duplica renglones.
  */
 export function TerminalTarjetaCard() {
+  const archivoInput = useRef<HTMLInputElement>(null);
   const cargar = useCargarArchivoTerminal();
   const reemparejar = useReemparejarTerminal();
   const [archivo, setArchivo] = useState<File | null>(null);
@@ -93,7 +94,15 @@ export function TerminalTarjetaCard() {
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">
           <Label htmlFor="terminal-archivo">Archivo de la terminal</Label>
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="outline" onClick={() => archivoInput.current?.click()}>
+              Elegir archivo
+            </Button>
+            <span className="text-xs text-ink-muted">{archivo?.name ?? 'Sin archivo'}</span>
+          </div>
           <Input
+            ref={archivoInput}
+            className="hidden"
             id="terminal-archivo"
             type="file"
             accept=".xls,.html,.htm,.csv"

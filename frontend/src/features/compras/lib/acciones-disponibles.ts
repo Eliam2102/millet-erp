@@ -312,15 +312,18 @@ export function accionRechazar(
 /**
  * <b>Eliminar (RQ)</b> — pre-autorización solamente. Disponible en
  * <c>Borrador</c> y <c>EnAutorizacion</c>. Permiso:
- * <c>compras.requisiciones.eliminar</c>.
+ * <c>compras.requisiciones.eliminar</c>. Solo quien capturó la RQ
+ * (backend: <c>REQUISICION_ELIMINAR_SOLO_CREADOR</c>); el autorizador rechaza.
  */
 export function accionEliminarRequisicion(
   rq: RequisicionResponse,
   permisos: readonly string[],
+  currentUserId: string,
 ): AccionDisponible {
   if (!permisos.includes(PermisosCanonicos.ComprasRequisicionesEliminar)) {
     return OCULTO;
   }
+  if (rq.creadorId !== currentUserId) return OCULTO;
   const eliminable: EstadoRequisicion[] = [
     EstadoRequisicion.Borrador,
     EstadoRequisicion.EnAutorizacion,
