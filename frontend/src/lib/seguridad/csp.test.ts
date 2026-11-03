@@ -5,12 +5,12 @@ const directiva = (csp: string, nombre: string) =>
   csp.split('; ').find((d) => d.startsWith(`${nombre} `)) ?? '';
 
 describe('construirCsp (86e3x819w)', () => {
-  const csp = construirCsp('https://app-millet-qa-mxc-01.azurewebsites.net/');
+  const csp = construirCsp('https://api.ejemplo.test/');
 
   it('permite la API por HTTPS y por WebSocket (SignalR), además de Entra', () => {
     const conectar = directiva(csp, 'connect-src');
-    expect(conectar).toContain('https://app-millet-qa-mxc-01.azurewebsites.net');
-    expect(conectar).toContain('wss://app-millet-qa-mxc-01.azurewebsites.net');
+    expect(conectar).toContain('https://api.ejemplo.test');
+    expect(conectar).toContain('wss://api.ejemplo.test');
     expect(conectar).toContain('https://login.microsoftonline.com');
     expect(conectar).not.toContain('/ '); // origen sin ruta
   });
