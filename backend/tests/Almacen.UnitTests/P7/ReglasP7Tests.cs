@@ -191,6 +191,34 @@ public sealed class ReglasP7Tests
     }
 
     [Fact]
+    public async Task ALM36_salida_sin_autorizado_con_existencia_apartada_para_otra_rq_lo_dice()
+    {
+        await using var f = new P1Fixture();
+        var saldo = await f.Db.SaldosInventario.SingleAsync();
+        f.Db.SaldosInventario.Remove(saldo);
+        f.Db.SaldosInventario.Add(new(f.BinId, f.SubId, f.ArticuloId, 6, 25));
+        await f.Db.SaveChangesAsync();
+        var sucursal = (await f.Db.Almacenes.SingleAsync()).SucursalId;
+        var servicio = P7Support.Apartados(f.Db);
+        // RQ-A aparta las 6; la RQ-B (la de la salida) quedó sin nada autorizado desde almacén.
+        (await servicio.ApartarAsync(P1Fixture.EmpresaId, sucursal, Guid.NewGuid(), Guid.NewGuid(), f.ArticuloId, 6, default)).Should().Be(6);
+        var rq = (await f.Rq.ObtenerAsync(f.DocumentoId, default))!;
+        var port = new P1Fixture.RqPort(rq with { SucursalId = sucursal, Lineas = [rq.Lineas[0] with { CantidadDisponibleEntregar = 0 }] });
+        var ex = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            new RegistrarSalidaConRequisicionHandler(f.Db, port, f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), new P7Support.Conversion(), servicio)
+                .Handle(new(f.DocumentoId, P1Fixture.Fecha, null, null, [new(f.ArticuloId, f.LineaId, 4, null, null, null, null, f.BinId, null)]), default));
+        ex.Code.Should().Be("SALIDA_EXISTENCIA_APARTADA");
+        ex.Message.Should().Contain("apartada para otra requisición");
+
+        // Sin apartados ajenos, el motivo sigue siendo lo autorizado.
+        await servicio.LiberarAsync((await f.Db.ApartadosRequisicion.SingleAsync()).RequisicionId, default);
+        var sinApartar = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            new RegistrarSalidaConRequisicionHandler(f.Db, port, f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), new P7Support.Conversion(), servicio)
+                .Handle(new(f.DocumentoId, P1Fixture.Fecha, null, null, [new(f.ArticuloId, f.LineaId, 4, null, null, null, null, f.BinId, null)]), default));
+        sinApartar.Code.Should().Be("SALIDA_EXCEDE_AUTORIZADO");
+    }
+
+    [Fact]
     public async Task Avisos_separan_vales_vencidos_por_vencer_y_regularizados()
     {
         await using var f = new P1Fixture();
