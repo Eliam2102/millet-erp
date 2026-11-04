@@ -153,6 +153,7 @@ export function useDesactivarArticulo() {
 
 function buildListarArticulosPath(filtros: ListarArticulosFiltros): string {
   const params = new URLSearchParams();
+  if (filtros.q != null && filtros.q.length > 0) params.set('q', filtros.q);
   if (filtros.codigo != null && filtros.codigo.length > 0)
     params.set('codigo', filtros.codigo);
   if (filtros.descripcion != null && filtros.descripcion.length > 0)

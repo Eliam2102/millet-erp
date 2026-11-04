@@ -285,7 +285,13 @@ function NuevaIncidenciaForm({
         </FormCampo>
         <FormCampo span={3}>
           <Field label="Responsable del seguimiento" required>
-            <UsuarioSelector value={responsableId} onChange={setResponsableId} />
+            <UsuarioSelector
+              value={responsableId}
+              onChange={setResponsableId}
+              initialLabel={
+                responsableId === oc.compradorTitularId ? (oc.compradorNombre ?? undefined) : undefined
+              }
+            />
           </Field>
         </FormCampo>
         <FormCampo span={6}>

@@ -66,7 +66,7 @@ public class OperacionesComprasOutboxTests : IClassFixture<StubsWebApplicationFa
                 .FirstAsync(m => m.Clave == "RECH-DUP");
 
             await new CancelarOrdenCompraHandler(db, Usuario, sp.GetRequiredService<IClock>(),
-                sp.GetRequiredService<IPublisher>()).Handle(new(id, motivo.Id, null), CancellationToken.None);
+                sp.GetRequiredService<IPublisher>(), sp.GetRequiredService<Millet.Compras.Domain.Ports.Almacen.IRecepcionesOcReadPort>()).Handle(new(id, motivo.Id, null), CancellationToken.None);
         }
         await VerificarAsync(_factory.Services, id, "cancelada", EstadoOrdenCompra.Cancelada);
     }

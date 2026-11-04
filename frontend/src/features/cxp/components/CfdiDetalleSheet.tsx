@@ -21,6 +21,7 @@ import {
   TipoCfdiLabels,
   type CfdiListItem,
 } from '@/features/cxp/api/types';
+import { EstatusSatBadge } from '@/features/cxp/components/EstatusSatBadge';
 import { EstadoCfdiBadge } from '@/features/cxp/components/EstadoCfdiBadge';
 import { descargarXmlCfdi } from '@/features/cxp/lib/cfdi-archivos';
 
@@ -128,6 +129,15 @@ function Detalle({ cfdiId }: { cfdiId: string }) {
           <dt className="text-xs text-muted-foreground">Estado</dt>
           <dd className="mt-0.5">
             <EstadoCfdiBadge estado={d.estado} />
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">Estatus SAT</dt>
+          <dd className="mt-0.5">
+            <EstatusSatBadge
+              estatus={d.estatusSat}
+              fechaCancelacion={d.fechaCancelacionSat}
+            />
           </dd>
         </div>
         {d.motivoDescarte && (

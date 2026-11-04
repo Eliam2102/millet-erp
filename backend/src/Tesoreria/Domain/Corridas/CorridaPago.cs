@@ -11,7 +11,8 @@ namespace Millet.Tesoreria.Domain.Corridas;
 ///
 /// <para>
 /// T9.1-A (armar y autorizar): <c>Borrador → EnAutorizacion → Autorizada</c>;
-/// <c>Rechazada</c>/<c>Cancelada</c> solo desde los dos primeros. Quien arma
+/// <c>Rechazada</c> solo desde los dos primeros; <c>Cancelada</c> también desde <c>Autorizada</c> (sin pagos
+/// ejecutados), para liberar un pasivo que CxP retiró o cambió después de firmar (F-TES-02). Quien arma
 /// no autoriza. Las firmas requeridas salen del parámetro
 /// <see cref="PoliticaFirmaCorrida"/> y se congelan al enviar a autorización.
 /// <c>Ejecutada</c>/<c>Cerrada</c> y el oficio llegan en la Parte B (86e3jvvhf).
@@ -186,16 +187,20 @@ public sealed class CorridaPago : BaseEntity, IPerteneceAEmpresa, IAuditable
         foreach (var l in _lineas) l.Liberar();
     }
 
+    /// <summary>
+    /// Cancela la corrida y libera sus pasivos. Autorizada también se cancela: en ese estado no hay pagos ejecutados
+    /// (el primero la pasa a <c>Ejecutada</c>, que se resuelve con <see cref="CerrarEjecucion"/>).
+    /// </summary>
     public void Cancelar(string motivo)
     {
-        if (Estado is not (EstadoCorridaPago.Borrador or EstadoCorridaPago.EnAutorizacion))
-            throw new BusinessRuleException("CORRIDA_ESTADO_INVALIDO", "Solo se cancela una corrida en borrador o en autorización.");
+        if (Estado is not (EstadoCorridaPago.Borrador or EstadoCorridaPago.EnAutorizacion or EstadoCorridaPago.Autorizada))
+            throw new BusinessRuleException("CORRIDA_ESTADO_INVALIDO", "Solo se cancela una corrida sin pagos ejecutados; si ya tiene pagos, ciérrala.");
         Cerrar(EstadoCorridaPago.Cancelada, motivo);
     }
 
     /// <summary>
     /// CxP retiró la autorización del pasivo. En borrador o autorización la línea sale de la corrida y, si ya había
-    /// firmas, la corrida vuelve a borrador (el total cambió). Autorizada: solo se avisa; la Parte B revalida al ejecutar.
+    /// firmas, la corrida vuelve a borrador (el total cambió). Autorizada: solo se avisa; la Parte B revalida al ejecutar y la corrida se puede cancelar.
     /// </summary>
     public bool RetirarPasivo(Guid facturaProveedorId, string motivo)
     {

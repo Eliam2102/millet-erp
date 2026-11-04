@@ -132,7 +132,9 @@ public class CrearOrdenCompraVaciaValidatorTests
     {
         var result = _validator.Validate(Valid(sinRequisicionPrevia: true, motivoSinRequisicion: null));
         Assert.False(result.IsValid);
-        Assert.Contains(result.Errors, e => e.ErrorCode == "MOTIVO_SIN_RQ_REQUERIDO");
+        // F-RQOC-08: mismo código que el dominio y texto en español, sin el nombre técnico del campo.
+        Assert.Contains(result.Errors, e => e.ErrorCode == "OC_MOTIVO_SIN_RQ_REQUERIDO"
+            && e.ErrorMessage == "Una OC sin requisición previa requiere capturar el motivo.");
     }
 
     [Fact]

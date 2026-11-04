@@ -18,6 +18,7 @@ using Millet.Compras.Application.ObtenerRequisicionPorId;
 using Millet.Compras.Application.PreviewCubrimiento;
 using Millet.Compras.Application.Rechazar;
 using Millet.Compras.Domain;
+using Millet.Compras.Domain.Ports.Identidad;
 using Millet.Compras.Infrastructure;
 using Millet.Identidad.Application;
 using Millet.Identidad.Domain;
@@ -117,10 +118,12 @@ public static class RequisicionesEndpoints
             ICurrentUserContext currentUser,
             ICurrentUserPermissions permisos,
             IUsuarioSucursalReadPort usuarioSucursales,
+            IUsuarioReadPort usuarios,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
             await RqSucursalScope.VerificarAsync(id, db, currentUser, permisos, usuarioSucursales, cancellationToken);
+            await RqDepartamentoScope.VerificarAsync(id, db, currentUser, permisos, usuarios, cancellationToken);
             var response = await mediator.Send(new ObtenerRequisicionPorIdQuery(id), cancellationToken);
             // ETag con Version (cuidado §2.4 [P1]). El cliente devuelve
             // este valor en If-Match al hacer mutaciones futuras.
@@ -151,9 +154,11 @@ public static class RequisicionesEndpoints
             ICurrentUserContext currentUser,
             ICurrentUserPermissions permisos,
             IUsuarioSucursalReadPort usuarioSucursales,
+            IUsuarioReadPort usuarios,
             CancellationToken cancellationToken) =>
         {
             await RqSucursalScope.VerificarAsync(id, db, currentUser, permisos, usuarioSucursales, cancellationToken);
+            await RqDepartamentoScope.VerificarAsync(id, db, currentUser, permisos, usuarios, cancellationToken);
             var response = await mediator.Send(
                 new PreviewCubrimientoQuery(id), cancellationToken);
             return Results.Ok(response);
@@ -619,9 +624,11 @@ public static class RequisicionesEndpoints
             ICurrentUserContext scopeUser,
             ICurrentUserPermissions scopePermisos,
             IUsuarioSucursalReadPort scopeSucursales,
+            IUsuarioReadPort usuarios,
             CancellationToken cancellationToken) =>
         {
             await RqSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: false);
+            await RqDepartamentoScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, usuarios, cancellationToken);
             return Results.Ok(await mediator.Send(new ObtenerApartadosRequisicionQuery(id), cancellationToken));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasRequisicionesLeer)
@@ -675,6 +682,9 @@ public static class RequisicionesEndpoints
             [FromQuery] int? offset,
             [FromQuery] int? limit,
             IMediator mediator,
+            ICurrentUserContext currentUser,
+            ICurrentUserPermissions permisos,
+            IUsuarioReadPort usuarios,
             CancellationToken cancellationToken) =>
         {
             var response = await mediator.Send(
@@ -684,7 +694,11 @@ public static class RequisicionesEndpoints
                     requisitanteId,
                     offset ?? 0,
                     limit ?? 50,
-                    q),
+                    q)
+                {
+                    AlcanceDepartamento = await RqDepartamentoScope.ResolverAsync(
+                        currentUser, permisos, usuarios, detalle: false, cancellationToken),
+                },
                 cancellationToken);
             return Results.Ok(response);
         })
@@ -765,9 +779,11 @@ public static class RequisicionesEndpoints
             ICurrentUserContext currentUser,
             ICurrentUserPermissions permisos,
             IUsuarioSucursalReadPort usuarioSucursales,
+            IUsuarioReadPort usuarios,
             CancellationToken cancellationToken) =>
         {
             await RqSucursalScope.VerificarAsync(id, db, currentUser, permisos, usuarioSucursales, cancellationToken);
+            await RqDepartamentoScope.VerificarAsync(id, db, currentUser, permisos, usuarios, cancellationToken);
             var response = await mediator.Send(
                 new Millet.Compras.Application.Historico.ObtenerHistoricoQuery(id),
                 cancellationToken);

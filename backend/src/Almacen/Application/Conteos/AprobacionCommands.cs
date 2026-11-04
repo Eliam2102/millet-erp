@@ -113,7 +113,8 @@ public sealed class EvaluarVariacionesConteoHandler : IRequestHandler<EvaluarVar
             if (l.CantidadVigente(recuentos) is not decimal real) continue;
             var diff = real - l.CantidadTeorica;
             var diffAbs = Math.Abs(diff);
-            var pct = l.CantidadTeorica == 0 ? 100m : diffAbs / l.CantidadTeorica * 100m;
+            // Teórico 0: cualquier diferencia es 100 %; 0 contra 0 no varía.
+            var pct = l.CantidadTeorica == 0 ? (diffAbs == 0 ? 0m : 100m) : diffAbs / l.CantidadTeorica * 100m;
             var valor = Math.Abs(diff * l.CostoPromedioSnapshot);
             var excedeUmbral = pct > umbrales.VariacionPctParaRecuento
                 || valor > umbrales.VariacionValorParaRecuento;

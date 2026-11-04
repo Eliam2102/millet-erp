@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.Tesoreria.Application.Corridas;
 using Millet.Tesoreria.Application.Integration;
 using Millet.Tesoreria.Domain.Movimientos;
 using Millet.Tesoreria.Domain.Ports;
@@ -57,7 +58,9 @@ public sealed class RegistrarPagoProveedorValidator : AbstractValidator<Registra
     {
         RuleFor(c => c.CuentaBancariaId).NotEmpty();
         RuleFor(c => c.FechaValor).NotEmpty();
-        RuleFor(c => c.ReferenciaBancaria).MaximumLength(120);
+        // §7.3 paso 3: el pago se registra con el folio que dio el banco.
+        RuleFor(c => c.ReferenciaBancaria).NotEmpty().WithMessage("Captura la referencia (folio) que dio el banco.")
+            .MaximumLength(120);
         RuleFor(c => c.Aplicaciones).NotEmpty()
             .WithMessage("El pago debe aplicar al menos a un pasivo.");
         RuleForEach(c => c.Aplicaciones).ChildRules(a =>
@@ -66,7 +69,7 @@ public sealed class RegistrarPagoProveedorValidator : AbstractValidator<Registra
             a.RuleFor(x => x.Importe).GreaterThan(0);
         });
         RuleFor(c => c.Aplicaciones)
-            .Must(apls => apls.Select(a => a.FacturaProveedorId).Distinct().Count() == apls.Count)
+            .Must(apls => apls is null || apls.Select(a => a.FacturaProveedorId).Distinct().Count() == apls.Count)
             .WithMessage("No se puede aplicar dos veces a la misma factura en el mismo pago.");
     }
 }
@@ -128,6 +131,23 @@ public sealed class RegistrarPagoProveedorHandler
             ?? throw new EntityNotFoundException("CTA_NO_ENCONTRADA",
                 $"No se encontró la cuenta bancaria '{command.CuentaBancariaId}'.");
 
+        // Brecha 12 (§7.3 paso 3): un folio del banco respalda un solo pago por cuenta. Va antes de las
+        // reglas de saldo porque un reintento idéntico ya consumió lo elegible: recupera el resultado previo.
+        if (await ReferenciaPagoUnica.BuscarAsync(_db, cuenta.Id, command.ReferenciaBancaria, cancellationToken) is { } previo)
+        {
+            var previas = await _db.AplicacionesPagoProveedor
+                .Where(a => a.MovimientoId == previo.Id && !a.Revertida).ToListAsync(cancellationToken);
+            var mismo = previas.Count > 0 && previas.Count == command.Aplicaciones.Count
+                && previo.Monto == command.Aplicaciones.Sum(a => a.Importe)
+                && command.Aplicaciones.All(c => previas.Any(a => a.FacturaProveedorId == c.FacturaProveedorId && a.ImporteAplicado == c.Importe))
+                && !await ReferenciaPagoUnica.RevertidoAsync(_db, previo.Id, cancellationToken);
+            if (!mismo) throw ReferenciaPagoUnica.Duplicada(previo);
+            return new PagoProveedorResponse(
+                previo.Id, previo.CuentaBancariaId, previas[0].ProveedorId, previo.Monto, previo.Moneda, previo.FechaValor,
+                previo.ReferenciaBancaria,
+                previas.Select(a => new AplicacionPagoResponse(a.Id, a.FacturaProveedorId, a.ImporteAplicado, a.Revertida)).ToList());
+        }
+
         // RN-8: candado real de Contabilidad.
         if (command.ConceptoId is Guid conceptoId && !await _db.ConceptosMovimiento.AnyAsync(c => c.Id == conceptoId && c.Activo, cancellationToken))
             throw new BusinessRuleException("MOV_CONCEPTO_INVALIDO", "Selecciona un concepto activo.");
@@ -169,18 +189,9 @@ public sealed class RegistrarPagoProveedorHandler
                 "Un pago cubre pasivos de un solo proveedor; registra un pago por proveedor.");
         var proveedorId = proveedores[0];
 
-        // F1-ADM-05 G1.1 / 86e3pdmee: proveedor Activo, fuera de revisión y con cuenta activa en la moneda
-        // del egreso; si el puerto no devuelve datos del proveedor el pago se bloquea.
-        CuentaDestinoPago? destino = null;
-        if (!hayInternos)
-        {
-            var infoProveedor = await _proveedorBancoPort.ObtenerAsync(proveedorId, cancellationToken);
-            var elegida = ReglasDestinoProveedor.Resolver(infoProveedor, cuenta.Moneda, command.CuentaProveedorId);
-            destino = new CuentaDestinoPago(elegida.Id, elegida.Banco, elegida.Numero, elegida.Titular);
-        }
-
         // RN-3: la cuenta de egreso coincide en moneda con los pasivos
-        // (cross-moneda bloqueado en MVP; T-G6).
+        // (cross-moneda bloqueado en MVP; T-G6). Va antes que la cuenta del
+        // proveedor para no pedir una cuenta en otra moneda que no hace falta (F-TES-05).
         var monedasDistintas = pasivos.Values
             .Select(p => p.Moneda).Distinct()
             .Where(m => m != cuenta.Moneda)
@@ -189,11 +200,25 @@ public sealed class RegistrarPagoProveedorHandler
             throw new BusinessRuleException("PAGO_CROSS_MONEDA",
                 $"La cuenta es {cuenta.Moneda} y hay pasivos en {string.Join(", ", monedasDistintas)} (RN-3; cross-moneda fuera del MVP).");
 
+        // F1-ADM-05 G1.1 / 86e3pdmee: proveedor Activo, fuera de revisión y con cuenta activa en la moneda
+        // del egreso; si el puerto no devuelve datos del proveedor el pago se bloquea.
+        CuentaDestinoPago? destino = null;
+        if (!hayInternos)
+        {
+            var infoProveedor = await _proveedorBancoPort.ObtenerAsync(proveedorId, cancellationToken);
+            var elegida = ReglasDestinoProveedor.Resolver(infoProveedor, cuenta.Moneda, command.CuentaProveedorId);
+            // Misma detención por documentación que la corrida (sin 32-D vigente no se paga por ninguna vía).
+            PasivosPagables.ExigirOpinionCumplimiento(infoProveedor!, "PAGO_PASIVO_DETENIDO_DOCUMENTACION");
+            destino = new CuentaDestinoPago(elegida.Id, elegida.Banco, elegida.Numero, elegida.Titular);
+        }
+
         foreach (var grupo in command.Aplicaciones.GroupBy(a => a.FacturaProveedorId))
         {
             if (pasivos[grupo.Key].EsInterno) continue;
             if (pasivos[grupo.Key].PagoBloqueado)
                 throw new BusinessRuleException("PASIVO_NO_AUTORIZADO_CXP", "CxP retiró la autorización del pasivo. Debe autorizarse de nuevo antes de pagar.");
+            // El saldo va antes que el elegible: si el importe excede la factura, el aviso de «retenido» no aplica.
+            pasivos[grupo.Key].ExigirSaldo(grupo.Sum(a => a.Importe));
             var limite = await _elegible.ObtenerLimiteAcumuladoAsync(grupo.Key, cancellationToken);
             if (limite <= 0)
                 throw new BusinessRuleException("PASIVO_NO_PAGABLE_CXP", "CxP no autoriza un importe pagable para esta factura. Revisa su estado y saldo en CxP.");

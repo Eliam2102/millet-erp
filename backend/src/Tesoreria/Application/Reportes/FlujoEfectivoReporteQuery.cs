@@ -2,7 +2,6 @@ using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.SharedKernel.Application;
-using Millet.SharedKernel.Application.Exceptions;
 using Millet.Tesoreria.Application.Reportes.Comun;
 using Millet.Tesoreria.Domain.Cuentas;
 using Millet.Tesoreria.Domain.Movimientos;
@@ -34,8 +33,8 @@ public sealed class FlujoEfectivoReporteHandler(TesoreriaDbContext db, IClock cl
     {
         var cuentas = await FlujoLectura.Cuentas(db, query.DocumentosPermitidos, query.Moneda, query.CuentaBancariaId)
             .OrderBy(c => c.Moneda).ThenBy(c => c.Banco).ToListAsync(cancellationToken);
-        if (cuentas.Any(c => c.FechaCorteSaldoInicial >= query.Desde))
-            throw new BusinessRuleException("FLUJO_ANTERIOR_AL_CORTE", "El inicio del reporte debe ser posterior al corte del saldo inicial de las cuentas seleccionadas.");
+        // Una cuenta con corte dentro del rango arranca en su saldo al corte: no hay movimientos en o antes del corte
+        // (MOV_ANTERIOR_AL_CORTE), así que el período de esa cuenta empieza al día siguiente (F-TES-08).
         var ids = cuentas.Select(c => c.Id).ToList();
         var movimientos = FlujoLectura.Movimientos(db, ids);
         var anteriores = await movimientos.Where(m => m.FechaValor < query.Desde)
@@ -58,7 +57,10 @@ public sealed class FlujoEfectivoReporteHandler(TesoreriaDbContext db, IClock cl
                     ["moneda"] = cuenta.Moneda, ["clasificacion"] = clasificacion, ["concepto"] = concepto,
                     ["ingresos"] = ingresos, ["egresos"] = egresos, ["neto"] = neto,
                 };
-            filas.Add(Fila("saldoInicial", "Saldo inicial", cuenta.SaldoInicial is null ? "Saldo inicial por capturar; solo movimientos registrados" : "Saldo al inicio del período", null, null, inicial));
+            var conceptoInicial = cuenta.SaldoInicial is null ? "Saldo inicial por capturar; solo movimientos registrados"
+                : cuenta.FechaCorteSaldoInicial >= query.Desde ? $"Saldo al corte del {cuenta.FechaCorteSaldoInicial.Value.ToString("dd/MM/yyyy", System.Globalization.CultureInfo.InvariantCulture)}"
+                : "Saldo al inicio del período";
+            filas.Add(Fila("saldoInicial", "Saldo inicial", conceptoInicial, null, null, inicial));
             var periodo = agregados.Where(a => a.CuentaBancariaId == cuenta.Id).ToList();
             foreach (var grupo in periodo.GroupBy(a => a.ConceptoId).OrderBy(g => g.Key))
             {

@@ -412,8 +412,25 @@ public partial class OrdenesCompraEndpointsTests
         var detalle = await ReadJsonAsync(await client.GetAsync($"{EndpointBase}/{nuevaId}"));
         Assert.Equal(6m, detalle.GetProperty("lineas")[0].GetProperty("cantidad").GetDecimal());
         Assert.Equal(rqId, detalle.GetProperty("lineas")[0].GetProperty("requisicionId").GetGuid());
-        await AssertCodigoP2(await client.PostAsJsonAsync($"{EndpointBase}/desde-requisicion", DesdeRqP2(rqId)),
-            HttpStatusCode.UnprocessableEntity, "RQ_YA_COMPROMETIDA");
+        var comprometida = await client.PostAsJsonAsync($"{EndpointBase}/desde-requisicion", DesdeRqP2(rqId));
+        await AssertCodigoP2(comprometida, HttpStatusCode.UnprocessableEntity, "RQ_YA_COMPROMETIDA");
+        // F-RQOC-09: el mensaje nombra la OC por su folio, no por su id.
+        var texto = (await ReadJsonAsync(comprometida)).GetProperty("detail").GetString()!;
+        Assert.Contains(detalle.GetProperty("folio").GetString()!, texto);
+        Assert.DoesNotContain(nuevaId.ToString(), texto);
+    }
+
+    [Fact]
+    public async Task F_RQOC_04_pdf_de_oc_sin_autorizar_responde_422_sin_id()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var crear = await client.PostAsJsonAsync(EndpointBase, ValidBody());
+        crear.EnsureSuccessStatusCode();
+        var id = (await ReadJsonAsync(crear)).GetProperty("id").GetGuid();
+
+        var pdf = await client.GetAsync($"{EndpointBase}/{id}/pdf");
+        await AssertCodigoP2(pdf, HttpStatusCode.UnprocessableEntity, "OC_PDF_NO_AUTORIZADA");
+        Assert.DoesNotContain(id.ToString(), (await ReadJsonAsync(pdf)).GetProperty("detail").GetString());
     }
 
     [Fact]

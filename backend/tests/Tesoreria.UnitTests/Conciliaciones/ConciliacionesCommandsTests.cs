@@ -208,7 +208,7 @@ public sealed class ConciliacionesCommandsTests
         db.Conciliaciones.Add(conc);
         await db.SaveChangesAsync();
 
-        var handler = new CerrarConciliacionHandler(db, new TestUser(Usuario), new TestClock());
+        var handler = new CerrarConciliacionHandler(db, new TestUser(Usuario), new TestClock(), new TestEmpresaActa());
         byte[] pdfBytes = await handler.Handle(new CerrarConciliacionCommand(
             conc.Id, "Lic. Fernando Ancona", "Gerente de Tesorería"), default);
 
@@ -223,6 +223,13 @@ public sealed class ConciliacionesCommandsTests
     }
 
     // Contextos de prueba
+    private sealed class TestEmpresaActa : Millet.Tesoreria.Domain.Ports.DatosMaestros.IEmpresaActaReadPort
+    {
+        public Task<Millet.Tesoreria.Domain.Ports.DatosMaestros.EmpresaActaDto?> ObtenerAsync(Guid empresaId, CancellationToken cancellationToken) =>
+            Task.FromResult<Millet.Tesoreria.Domain.Ports.DatosMaestros.EmpresaActaDto?>(
+                empresaId == Empresa ? new("Industria Vidriera del Sureste S.A. de C.V.", "IVS000101AB1") : null);
+    }
+
     private sealed class TestEmpresaContext : ICurrentEmpresaContext
     {
         public Guid? Current => Empresa;

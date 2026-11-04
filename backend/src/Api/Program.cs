@@ -853,6 +853,10 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.IComprasCrearRqAppPort,
     Millet.Compras.Infrastructure.PublicAdapters.ComprasCrearRqAppAdapter>();
+// Salidas de la app de Almacenes: resuelve sucursal/artículo/medida (Almacén no referencia Compartido).
+builder.Services.AddScoped<
+    Millet.Almacen.Domain.Ports.IAppSalidaResolverPort,
+    Millet.Compras.Infrastructure.PublicAdapters.AppSalidaResolverAdapter>();
 // Fase E PR5: display del CC-Máquina en salidas. El adapter delega en
 // CentrosCosto.IDim3ReadPort (Almacén no puede referenciar CentrosCosto —
 // ciclo vía Compartido). Reemplaza NoOpCentroCostoReadPort de Almacén.
@@ -1010,6 +1014,9 @@ builder.Services.AddComprasReadPorts();
 builder.Services.AddComercioExteriorModule();
 builder.Services.AddProductoTerminadoModule();
 builder.Services.AddScoped<Millet.CuentasPorPagar.Application.PublicPorts.IFacturaGastoReadPort, Millet.CuentasPorPagar.Infrastructure.PublicAdapters.FacturaGastoReadAdapter>();
+// 86e3xt2q8: Caja elige la factura mensual del banco del buzón de CFDI recibidos de CxP (solo lectura).
+builder.Services.AddScoped<Millet.CuentasPorPagar.Application.PublicPorts.ICfdiRecibidoPublicReadPort, Millet.CuentasPorPagar.Infrastructure.PublicAdapters.CfdiRecibidoPublicReadAdapter>();
+builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.ICfdiRecibidoBancoReadPort, Millet.Api.Infrastructure.Adapters.CfdiRecibidoBancoReadAdapter>();
 builder.Services.AddOptions<Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorkerOptions>()
     .Bind(builder.Configuration.GetSection(Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorkerOptions.SectionName))
     .Validate(o => o.Interval > TimeSpan.Zero, "ComercioExterior:AvisosHitos:Interval debe ser mayor que cero.")

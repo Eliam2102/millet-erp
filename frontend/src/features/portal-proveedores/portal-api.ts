@@ -19,6 +19,8 @@ export interface FacturaPortal {
   motivo: string | null;
   fechaProgramadaPago: string | null;
   fechaVencimiento: string;
+  /** Solo en una factura Pagada: fecha de su último pago. */
+  fechaPago?: string | null;
 }
 
 export interface PagoPortal {

@@ -86,11 +86,13 @@ describe('<RegistrarPagoSheet> cuenta del proveedor', () => {
     await screen.findAllByRole('radio');
     fireEvent.click(screen.getByText('elegir egreso'));
     const boton = screen.getByRole('button', { name: 'Registrar pago' });
+    expect(boton).toBeDisabled(); // falta la referencia del banco
+    fireEvent.change(screen.getByLabelText(/Referencia bancaria/), { target: { value: ' spei-1 ' } });
     expect(screen.queryByRole('checkbox', { name: /Verifiqué en la banca/ })).not.toBeInTheDocument();
     expect(boton).toBeEnabled();
     fireEvent.click(boton);
     await waitFor(() => expect(body).not.toBeNull());
-    expect(body).toMatchObject({ cuentaProveedorId: 'b', conceptoId: '0000000b-1001-0000-0000-000000000001' });
+    expect(body).toMatchObject({ referenciaBancaria: 'spei-1', cuentaProveedorId: 'b', conceptoId: '0000000b-1001-0000-0000-000000000001' });
     expect(body).not.toHaveProperty('fondosVerificados');
   });
 
@@ -120,6 +122,8 @@ describe('<RegistrarPagoSheet> cuenta del proveedor', () => {
     );
     fireEvent.click(screen.getByText('elegir egreso'));
     const boton = screen.getByRole('button', { name: 'Registrar pago' });
+    expect(boton).toBeDisabled(); // falta la referencia del banco
+    fireEvent.change(screen.getByLabelText(/Referencia bancaria/), { target: { value: ' spei-1 ' } });
     expect(screen.queryByRole('checkbox', { name: /Verifiqué en la banca/ })).not.toBeInTheDocument();
     expect(boton).toBeEnabled();
     fireEvent.click(boton);

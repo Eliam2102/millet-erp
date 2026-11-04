@@ -332,7 +332,7 @@ function RegistrarSalidaBody({
       },
       {
         onSuccess: (resp) => {
-          toast.success(`Salida ${resp.folioMovimientoSalida} registrada`);
+          toast.success(`Salida ${resp.folioSalida} registrada`);
           onSuccess();
         },
         onError: (e) => {
