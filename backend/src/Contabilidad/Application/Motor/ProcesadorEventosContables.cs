@@ -300,6 +300,13 @@ public sealed class EnriquecedorPolizasOrigen(ContabilidadDbContext db) : IEnriq
                     ?? throw Espera(factura, "la póliza de la factura de proveedor pagada");
                 return e with { ProveedorId = e.ProveedorId ?? tt.ProveedorId, SucursalId = e.SucursalId ?? tt.SucursalId, FacturaOrigenId = null };
             }
+            case NormalizadorEventos.AnticipoProveedorAmortizado when e.SucursalId is null && e.FacturaOrigenId is { } factura:
+            {
+                // C1.5b: la factura no traía sucursal; sale de su póliza (TT, o la del estado de cuenta si es la agregada de tarjeta).
+                var tt = await PartidaOrigenAsync(e.EmpresaId, NormalizadorEventos.DocFacturaProveedor, factura, conProveedor: false, ct)
+                    ?? throw Espera(factura, "la póliza de la factura a la que se aplicó el anticipo");
+                return e with { SucursalId = tt.SucursalId, FacturaOrigenId = null };
+            }
             case NormalizadorEventos.PagoClienteConfirmado when e.SucursalId is null && e.FacturaOrigenId is { } factura:
             {
                 var rf = await PartidaOrigenAsync(e.EmpresaId, NormalizadorEventos.DocComprobante, factura, conProveedor: false, ct)

@@ -189,7 +189,10 @@ public sealed class FacturacionContabilidadListenerWorker(ServiceBusClient? clie
     ], StringComparer.Ordinal);
 }
 
-/// <summary>C1.5 · <c>cuentas-por-pagar-events</c>: factura (#2, C1.4), cancelación, NC, nota de cargo y anticipo de proveedor (#3–#4).</summary>
+/// <summary>
+/// C1.5 · <c>cuentas-por-pagar-events</c>: factura (#2, C1.4), cancelación, NC, nota de cargo y anticipo de proveedor (#3–#4).
+/// C1.5b: gasto de caja chica, viáticos y tarjeta; pasivos internos; cierre del estado de cuenta de tarjeta y amortización del anticipo.
+/// </summary>
 public sealed class CuentasPorPagarContabilidadListenerWorker(ServiceBusClient? client, IServiceScopeFactory scopeFactory,
     ILogger<CuentasPorPagarContabilidadListenerWorker> logger) : ContabilidadEventListenerWorker(client, scopeFactory, logger)
 {
@@ -204,6 +207,8 @@ public sealed class CuentasPorPagarContabilidadListenerWorker(ServiceBusClient? 
     [
         NormalizadorEventos.FacturaProveedorRegistrada, NormalizadorEventos.FacturaProveedorCancelada,
         NormalizadorEventos.NotaCreditoProveedorRegistrada, NormalizadorEventos.NotaCargoAutorizada, NormalizadorEventos.AnticipoProveedorCapturado,
+        NormalizadorEventos.GastoRegistrado, NormalizadorEventos.PasivoAutorizadoParaPago, NormalizadorEventos.EstadoCuentaTcCerrado,
+        NormalizadorEventos.AnticipoProveedorAmortizado,
     ], StringComparer.Ordinal);
 }
 

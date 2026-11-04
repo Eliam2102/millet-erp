@@ -49,7 +49,7 @@ public static partial class NormalizadorEventos
         try
         {
             return tipo == FacturaProveedorRegistrada ? FacturaProveedor(eventoId, payload)
-                : NormalizarC15(tipo, eventoId, payload) ?? Generico(tipo, eventoId, payload);
+                : NormalizarC15(tipo, eventoId, payload) ?? NormalizarC15b(tipo, eventoId, payload) ?? Generico(tipo, eventoId, payload);
         }
         catch (JsonException e)
         {
