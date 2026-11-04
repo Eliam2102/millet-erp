@@ -832,6 +832,14 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnType("smallint")
                         .HasColumnName("estado");
 
+                    b.Property<short?>("EstatusSat")
+                        .HasColumnType("smallint")
+                        .HasColumnName("estatus_sat");
+
+                    b.Property<DateTimeOffset?>("FechaCancelacionSat")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("fecha_cancelacion_sat");
+
                     b.Property<DateTimeOffset>("FechaCfdi")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("fecha_cfdi");

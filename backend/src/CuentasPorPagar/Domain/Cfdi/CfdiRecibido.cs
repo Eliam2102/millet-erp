@@ -55,6 +55,18 @@ public sealed class CfdiRecibido : BaseEntity, IPerteneceAEmpresa, IFiscalmenteR
     /// </summary>
     public string? MetodoPago { get; private set; }
 
+    /// <summary>
+    /// Estatus del CFDI ante el SAT (vigente/cancelado). Nullable: filas
+    /// históricas aún no consultadas al SAT.
+    /// </summary>
+    public EstatusSatCfdi? EstatusSat { get; private set; }
+
+    /// <summary>
+    /// Fecha (UTC) de cancelación ante el SAT; solo tiene valor cuando
+    /// <see cref="EstatusSat"/> es Cancelado. Nullable para filas históricas.
+    /// </summary>
+    public DateTimeOffset? FechaCancelacionSat { get; private set; }
+
     public CanalOrigenCfdi CanalOrigen { get; private set; }
     public DateTimeOffset FechaRecepcion { get; private set; }
 
@@ -126,7 +138,9 @@ public sealed class CfdiRecibido : BaseEntity, IPerteneceAEmpresa, IFiscalmenteR
         EstadoCfdiRecibido estado,
         Guid? solicitudDescargaId,
         string? requestIdExternoFiscalApi,
-        string? metodoPago) : base(id)
+        string? metodoPago,
+        EstatusSatCfdi? estatusSat = null,
+        DateTimeOffset? fechaCancelacionSat = null) : base(id)
     {
         EmpresaId = empresaId;
         UuidCfdi = uuid;
@@ -151,6 +165,8 @@ public sealed class CfdiRecibido : BaseEntity, IPerteneceAEmpresa, IFiscalmenteR
         SolicitudDescargaId = solicitudDescargaId;
         RequestIdExternoFiscalApi = requestIdExternoFiscalApi;
         MetodoPago = metodoPago;
+        EstatusSat = estatusSat;
+        FechaCancelacionSat = estatusSat == EstatusSatCfdi.Cancelado ? fechaCancelacionSat?.ToUniversalTime() : null;
     }
 
     /// <summary>
@@ -188,7 +204,9 @@ public sealed class CfdiRecibido : BaseEntity, IPerteneceAEmpresa, IFiscalmenteR
         string xmlHashSha256,
         Guid? solicitudDescargaId = null,
         string? requestIdExternoFiscalApi = null,
-        string? metodoPago = null)
+        string? metodoPago = null,
+        EstatusSatCfdi? estatusSat = null,
+        DateTimeOffset? fechaCancelacionSat = null)
     {
         if (total < 0)
             throw new BusinessRuleException("CFDI_TOTAL_NEGATIVO", "El total del CFDI no puede ser negativo.");
@@ -223,8 +241,34 @@ public sealed class CfdiRecibido : BaseEntity, IPerteneceAEmpresa, IFiscalmenteR
             estado: EstadoCfdiRecibido.PorProcesar,
             solicitudDescargaId: solicitudDescargaId,
             requestIdExternoFiscalApi: requestIdExternoFiscalApi,
-            metodoPago: NormalizarMetodoPago(metodoPago));
+            metodoPago: NormalizarMetodoPago(metodoPago),
+            estatusSat: estatusSat,
+            fechaCancelacionSat: fechaCancelacionSat);
     }
+
+    /// <summary>
+    /// Actualiza el estatus SAT sin tocar el estado interno, el XML, el hash,
+    /// el canal ni la fecha de recepción. Devuelve true solo si cambió algún valor.
+    /// </summary>
+    public bool ActualizarEstatusSat(EstatusSatCfdi estatus, DateTimeOffset? fechaCancelacion)
+    {
+        var nuevaFecha = estatus == EstatusSatCfdi.Cancelado ? fechaCancelacion?.ToUniversalTime() : null;
+        if (EstatusSat == estatus && FechaCancelacionSat == nuevaFecha)
+            return false;
+
+        EstatusSat = estatus;
+        FechaCancelacionSat = nuevaFecha;
+        return true;
+    }
+
+    /// <summary>Interpreta el texto de estatus del SAT; cualquier valor desconocido o vacío devuelve null.</summary>
+    public static EstatusSatCfdi? ParseEstatusSat(string? valor) =>
+        valor?.Trim().ToLowerInvariant() switch
+        {
+            "vigente" => EstatusSatCfdi.Vigente,
+            "cancelado" => EstatusSatCfdi.Cancelado,
+            _ => null,
+        };
 
     /// <summary>Normaliza el MetodoPago SAT: trim + upper; vacío → null.</summary>
     private static string? NormalizarMetodoPago(string? metodoPago)

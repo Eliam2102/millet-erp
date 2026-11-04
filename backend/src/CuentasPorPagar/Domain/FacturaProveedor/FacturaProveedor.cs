@@ -237,6 +237,8 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
     /// <summary>86e3tactf: usuario que pidió no pagar (motivo 13); solo él la libera, salvo el permiso de reemplazo.</summary>
     public Guid? SolicitanteRevisionId { get; private set; }
     public static readonly Guid MotivoIndicacionExpresaId = Guid.Parse("00000007-1001-0000-0000-00000000000d");
+    /// <summary>Motivo «CFDI cancelado ante el SAT»: sembrado por la migración AgregarEstatusSatCfdiRecibido vía SQL, no por HasData.</summary>
+    public static readonly Guid MotivoCfdiCanceladoSatId = Guid.Parse("00000007-1001-0000-0000-00000000009a");
 
     private readonly List<LineaFacturaProveedor> _lineas = [];
     public IReadOnlyCollection<LineaFacturaProveedor> Lineas => _lineas.AsReadOnly();
