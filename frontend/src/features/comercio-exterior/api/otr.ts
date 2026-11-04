@@ -84,7 +84,7 @@ export function useOtrAccion() {
       apiRequest<OtrEnvio>(`${BASE}/${envio.id}/${ruta}`, {
         method: 'POST',
         body,
-        ifMatch: `"${envio.version}"`,
+        ifMatch: String(envio.version),
         idempotencyKey: keyFor({ id: envio.id, version: envio.version, ruta, body }),
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ceKeys.all }),
