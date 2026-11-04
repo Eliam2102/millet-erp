@@ -69,7 +69,7 @@ public sealed class RegistrarPagoProveedorValidator : AbstractValidator<Registra
             a.RuleFor(x => x.Importe).GreaterThan(0);
         });
         RuleFor(c => c.Aplicaciones)
-            .Must(apls => apls.Select(a => a.FacturaProveedorId).Distinct().Count() == apls.Count)
+            .Must(apls => apls is null || apls.Select(a => a.FacturaProveedorId).Distinct().Count() == apls.Count)
             .WithMessage("No se puede aplicar dos veces a la misma factura en el mismo pago.");
     }
 }

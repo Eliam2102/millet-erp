@@ -37,7 +37,7 @@ import { CatalogoQueryError } from './CatalogoQueryError';
 export interface BuscadorInteligenteProps<TItem extends { id: string }> {
   /** Id del seleccionado (controlled). */
   value: string | null | undefined;
-  /** Item elegido, o <c>null</c> al deseleccionar (clic en el ya elegido). */
+  /** Item elegido, o <c>null</c> al quitar la selección (opción «Quitar selección»). Elegir de nuevo el ya elegido lo conserva. */
   onChange: (item: TItem | null) => void;
   /** Término ya con debounce y trim; <c>undefined</c> si la caja está vacía. */
   onTerminoChange: (termino: string | undefined) => void;
@@ -124,10 +124,9 @@ export function BuscadorInteligente<TItem extends { id: string }>({
       ? (valueLabel ?? value)
       : placeholder;
 
-  function handleSelect(item: TItem) {
-    const esDeseleccion = item.id === value;
-    onChange(esDeseleccion ? null : item);
-    setSelected(esDeseleccion ? null : item);
+  function handleSelect(item: TItem | null) {
+    onChange(item);
+    setSelected(item);
     setOpen(false);
     setInput('');
   }
@@ -194,6 +193,15 @@ export function BuscadorInteligente<TItem extends { id: string }>({
                   {termino ? noMatchText(termino) : emptyText}
                 </CommandEmpty>
                 <CommandGroup>
+                  {value && (
+                    <CommandItem
+                      value="__quitar-seleccion__"
+                      onSelect={() => handleSelect(null)}
+                      className="text-ink-muted"
+                    >
+                      Quitar selección
+                    </CommandItem>
+                  )}
                   {items.map((item) => (
                     <CommandItem
                       key={item.id}

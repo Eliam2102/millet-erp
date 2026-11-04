@@ -16,6 +16,7 @@ import { RegistrarGestionProvider } from '@/features/cxc/components/RegistrarGes
 import { NuevaPropuestaProvider } from '@/features/cxc/components/NuevaPropuestaProvider';
 import { NuevoExpedienteProvider } from '@/features/comercio-exterior/components/NuevoExpedienteProvider';
 import { Toaster } from '@/components/ui/sonner';
+import { toast } from 'sonner';
 
 /**
  * Layout pathless <c>_app</c> — todas las rutas del ERP autenticado viven
@@ -33,8 +34,10 @@ export const Route = createFileRoute('/_app')({
       throw redirect({ to: '/login' });
     }
     // Misma regla que el sidebar: una URL de un módulo o pantalla sin
-    // permiso regresa a Inicio en lugar de mostrar una pantalla vacía o 403.
+    // permiso regresa a Inicio en lugar de mostrar una pantalla vacía o 403,
+    // pero avisando por qué (F-FIN-01).
     if (!rutaPermitida(location.pathname, permisos)) {
+      toast.info('No tienes acceso a ese módulo.', { id: 'sin-acceso-modulo' });
       throw redirect({ to: '/' });
     }
   },
