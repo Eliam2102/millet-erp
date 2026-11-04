@@ -358,6 +358,9 @@ builder.Services
     .AddOptions<Millet.Almacen.Infrastructure.Workers.ReordenWorkerOptions>()
     .Bind(builder.Configuration.GetSection(Millet.Almacen.Infrastructure.Workers.ReordenWorkerOptions.SectionName));
 builder.Services.AddHostedService<Millet.Almacen.Infrastructure.Workers.ReordenWorker>();
+// F1-ALM-13 (Fernando 4-nov): los incrementables de importación no suben el inventario (false por omisión; «versión posterior»).
+builder.Services.AddOptions<Millet.Almacen.Application.EventListeners.IncrementablesImportacionOptions>()
+    .Bind(builder.Configuration.GetSection(Millet.Almacen.Application.EventListeners.IncrementablesImportacionOptions.SectionName));
 builder.Services.AddOptions<Millet.Almacen.Application.Reorden.ReordenConsumoOptions>()
     .Bind(builder.Configuration.GetSection(Millet.Almacen.Application.Reorden.ReordenConsumoOptions.SectionName));
 
