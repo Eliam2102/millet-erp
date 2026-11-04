@@ -3,6 +3,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { PortalProveedoresPage } from './PortalProveedoresPage';
 
+// Las fechas se prueban en la zona de Mérida: en UTC el corrimiento de día no se notaría.
+process.env.TZ = 'America/Merida';
+
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 
 function montar() {
@@ -47,6 +50,7 @@ it('pide código, entra con el código y muestra la factura detenida por falta d
   expect(await screen.findByText('Falta el complemento de pago de la factura A-10')).toBeTruthy();
   expect(screen.getByText('Sin programar')).toBeTruthy();
   expect(screen.getByText('15/11/2026')).toBeTruthy();
+  expect(screen.getByText('01/10/2026')).toBeTruthy(); // la fecha del CFDI, no el día anterior
   expect(sessionStorage.getItem('millet.portal-proveedores.token')).toBe('tok');
   // resumen, aviso con la acción concreta y correo en la cabecera
   expect(screen.getByRole('region', { name: 'Facturas detenidas' }).textContent).toContain('sube el complemento en la pestaña');

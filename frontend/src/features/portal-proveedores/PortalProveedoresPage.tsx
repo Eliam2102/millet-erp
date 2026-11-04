@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EmptyState } from '@/components/erp/feedback/EmptyState';
 import { KpiCard } from '@/components/erp/display/KpiCard';
+import { parseDateOnlyLocal } from '@/lib/datetime';
 import { cn } from '@/lib/utils';
 import {
   cerrarSesionPortal,
@@ -29,8 +30,10 @@ import {
 } from './portal-api';
 
 const dinero = (n: number, moneda = 'MXN') => n.toLocaleString('es-MX', { style: 'currency', currency: moneda });
+// Todas las fechas del portal son de calendario (la del CFDI llega como medianoche UTC): se toma `YYYY-MM-DD` tal cual,
+// sin pasar por la zona local, que en México la correría al día anterior.
 const fecha = (iso: string) =>
-  new Date(iso.length === 10 ? `${iso}T00:00:00` : iso).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  parseDateOnlyLocal(iso.slice(0, 10)).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
 type Seccion = 'facturas' | 'pagos' | 'subir';
 const SECCIONES: Seccion[] = ['facturas', 'pagos', 'subir'];
