@@ -99,4 +99,9 @@ export const cxcKeys = {
   alertas: () => [...cxcKeys.all, 'alertas'] as const,
   alertasList: (filtros: Record<string, unknown>) =>
     [...cxcKeys.alertas(), 'list', filtros] as const,
+
+  // Conciliación diaria de cartera contra Facturación (C7.7)
+  conciliaciones: () => [...cxcKeys.all, 'conciliaciones'] as const,
+  conciliacionesList: () => [...cxcKeys.conciliaciones(), 'list'] as const,
+  conciliacionById: (id: string) => [...cxcKeys.conciliaciones(), 'byId', id] as const,
 };
