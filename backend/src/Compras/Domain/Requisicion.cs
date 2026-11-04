@@ -1025,7 +1025,7 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         {
             throw new BusinessRuleException(
                 "RQ_YA_COMPROMETIDA_EN_OTRA_OC",
-                $"La RQ ya está comprometida en la OC '{existente}'. No puede asignarse a otra.");
+                $"La RQ '{Folio.Valor}' ya está comprometida en otra orden de compra. No puede asignarse a otra.");
         }
 
         ComprometidaEnOcId = ordenCompraId;
