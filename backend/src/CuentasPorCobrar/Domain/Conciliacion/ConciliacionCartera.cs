@@ -92,8 +92,12 @@ public sealed class ConciliacionCartera : BaseEntity, IPerteneceAEmpresa, IAudit
     }
 }
 
-/// <summary>Una diferencia encontrada en una corrida, con su causa probable.</summary>
-public sealed class DiferenciaConciliacion : BaseEntity, IPerteneceAEmpresa
+/// <summary>
+/// Una diferencia encontrada en una corrida, con su causa probable. Marcada
+/// <see cref="INotAudited"/>: es un renglón inmutable que nace con su corrida, y la
+/// corrida ya es auditable (ADR-0008, Capa 4).
+/// </summary>
+public sealed class DiferenciaConciliacion : BaseEntity, IPerteneceAEmpresa, INotAudited
 {
     public Guid EmpresaId { get; set; }
     public Guid ConciliacionId { get; private set; }
