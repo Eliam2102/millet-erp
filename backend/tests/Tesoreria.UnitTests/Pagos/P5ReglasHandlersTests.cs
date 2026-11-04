@@ -186,6 +186,28 @@ public sealed class P5ReglasHandlersTests
             .Errors.Should().Contain(e => e.PropertyName == "ProveedorId");
     }
 
+    // F-FIN-03: ligar liquida la factura, así que respeta la misma detención por 32-D que el pago directo.
+    [Fact]
+    public async Task Ligar_pago_a_cuenta_a_factura_de_proveedor_sin_opinion_de_cumplimiento_se_detiene()
+    {
+        await using var db = Db(); var cuenta = Cuenta(db); var pasivo = Pasivo(db);
+        var movimiento = MovimientoBancario.RegistrarPagoACuenta(Empresa, cuenta, pasivo.ProveedorId, 500, Fecha, null, null, "Urgencia", Usuario, Ahora);
+        db.MovimientosBancarios.Add(movimiento); await db.SaveChangesAsync();
+        var eventos = new Publicador(db);
+        var ligar = new LigarPagoACuentaHandler(db, new EmpresaContext(), eventos, new Clock(), new ProveedorFake(DtoPara("SinOpinion")));
+        var act = () => ligar.Handle(new(movimiento.Id, pasivo.FacturaProveedorId, 200), default);
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "LIGA_PASIVO_DETENIDO_DOCUMENTACION");
+        db.AplicacionesPagoProveedor.Should().BeEmpty(); pasivo.SaldoPendiente.Should().Be(1000); eventos.Eventos.Should().BeEmpty();
+    }
+
+    // F-FIN-04: sin lista de aplicaciones es 400 de validación, no NullReference.
+    [Fact]
+    public void Pago_sin_aplicaciones_es_error_de_validacion()
+    {
+        new RegistrarPagoProveedorValidator().Validate(new RegistrarPagoProveedorCommand(Guid.NewGuid(), Fecha, null!, "REF-1"))
+            .Errors.Should().Contain(e => e.PropertyName == "Aplicaciones" && e.ErrorMessage == "El pago debe aplicar al menos a un pasivo.");
+    }
+
     [Fact]
     public async Task Desligar_recalcula_sin_crear_ingreso_y_permite_religar()
     {
@@ -193,7 +215,7 @@ public sealed class P5ReglasHandlersTests
         var movimiento = MovimientoBancario.RegistrarPagoACuenta(Empresa, cuenta, pasivo.ProveedorId, 500, Fecha, null, null, "Urgencia", Usuario, Ahora);
         db.MovimientosBancarios.Add(movimiento); await db.SaveChangesAsync();
         var eventos = new Publicador(db);
-        var ligar = new LigarPagoACuentaHandler(db, new EmpresaContext(), eventos, new Clock());
+        var ligar = new LigarPagoACuentaHandler(db, new EmpresaContext(), eventos, new Clock(), new ProveedorFake(DtoPara("Activa")));
         await ligar.Handle(new(movimiento.Id, pasivo.FacturaProveedorId, 200), default);
         var aplicacion = await db.AplicacionesPagoProveedor.SingleAsync();
         await new DesligarPagoACuentaHandler(db, eventos, new Clock()).Handle(new(movimiento.Id, aplicacion.Id, "Liga equivocada"), default);
@@ -260,7 +282,7 @@ public sealed class P5ReglasHandlersTests
         var pago = MovimientoBancario.RegistrarPagoACuenta(Empresa, cuenta, pasivo.ProveedorId, 500, Fecha, null, null, "Urgencia", Usuario, Ahora);
         db.MovimientosBancarios.Add(pago); await db.SaveChangesAsync();
         var eventos = new Publicador(db);
-        await new LigarPagoACuentaHandler(db, new EmpresaContext(), eventos, new Clock()).Handle(new(pago.Id, pasivo.FacturaProveedorId, 500), default);
+        await new LigarPagoACuentaHandler(db, new EmpresaContext(), eventos, new Clock(), new ProveedorFake(DtoPara("Activa"))).Handle(new(pago.Id, pasivo.FacturaProveedorId, 500), default);
         var aplicacion = await db.AplicacionesPagoProveedor.SingleAsync();
         db.MovimientosBancarios.Add(MovimientoBancario.RegistrarPagoACuenta(Empresa, cuenta, pasivo.ProveedorId, 100, Fecha, null, null, "Otro urgente", Usuario, Ahora));
         await db.SaveChangesAsync();

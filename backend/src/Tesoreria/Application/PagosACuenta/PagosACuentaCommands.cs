@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 using Millet.Tesoreria.Application.Integration;
+using Millet.Tesoreria.Application.Corridas;
 using Millet.Tesoreria.Application.Pagos;
 using Millet.Tesoreria.Domain.Movimientos;
 using Millet.Tesoreria.Domain.Ports;
@@ -198,14 +199,17 @@ public sealed class LigarPagoACuentaHandler
     private readonly ICurrentEmpresaContext _currentEmpresa;
     private readonly IIntegrationEventPublisher _publisher;
     private readonly IClock _clock;
+    private readonly IProveedorBancoReadPort _proveedores;
 
     public LigarPagoACuentaHandler(
         TesoreriaDbContext db,
         ICurrentEmpresaContext currentEmpresa,
         IIntegrationEventPublisher publisher,
-        IClock clock)
+        IClock clock,
+        IProveedorBancoReadPort proveedores)
     {
         _db = db; _currentEmpresa = currentEmpresa; _publisher = publisher; _clock = clock;
+        _proveedores = proveedores;
     }
 
     public async Task<PagoProveedorResponse> Handle(
@@ -239,6 +243,14 @@ public sealed class LigarPagoACuentaHandler
         if (movimiento.Moneda != pasivo.Moneda)
             throw new BusinessRuleException("PAGO_CROSS_MONEDA",
                 $"El movimiento es {movimiento.Moneda} y el pasivo {pasivo.Moneda} (RN-3).");
+
+        // F-FIN-03: ligar liquida la factura; misma detención que el pago directo y la corrida
+        // (proveedor bloqueado/en revisión, sin 32-D vigente, autorización retirada por CxP).
+        var infoProveedor = await _proveedores.ObtenerAsync(pasivo.ProveedorId, cancellationToken);
+        ReglasDestinoProveedor.Resolver(infoProveedor, movimiento.Moneda, null);
+        PasivosPagables.ExigirOpinionCumplimiento(infoProveedor!, "LIGA_PASIVO_DETENIDO_DOCUMENTACION");
+        if (pasivo.PagoBloqueado)
+            throw new BusinessRuleException("PASIVO_NO_AUTORIZADO_CXP", "CxP retiró la autorización del pasivo. Debe autorizarse de nuevo antes de pagar.");
 
         var yaLigada = await _db.AplicacionesPagoProveedor.AnyAsync(
             a => a.MovimientoId == movimiento.Id

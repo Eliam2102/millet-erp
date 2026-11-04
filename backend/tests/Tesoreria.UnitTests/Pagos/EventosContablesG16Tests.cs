@@ -260,7 +260,8 @@ public sealed class EventosContablesG16Tests
         await db.SaveChangesAsync();
         var publisher = new Captura();
 
-        await new LigarPagoACuentaHandler(db, new FakeEmpresa(), publisher, new FakeClock())
+        await new LigarPagoACuentaHandler(db, new FakeEmpresa(), publisher, new FakeClock(),
+                new ConCuentas { Cuentas = [new CuentaProveedorDto(Guid.NewGuid(), "BBVA", "012180000000001234", true, null, "MXN", "Prov SA", true, "Activa")] })
             .Handle(new LigarPagoACuentaCommand(movimiento.Id, pasivo.FacturaProveedorId, 400m), default);
 
         var e = publisher.Eventos.OfType<PagoFacturaProveedorAplicadoIntegrationEvent>().Single();
