@@ -200,6 +200,8 @@ function PanelAjuste({ p }: { p: PropuestaAplicacionResponse }) {
   const [rechazando, setRechazando] = useState(false);
 
   const porAutorizar = p.ajustePorAutorizar === true;
+  // Rechazar el ajuste rechaza la propuesta: sin autorización, el panel dice «Ajuste rechazado» con el motivo (QA O1).
+  const rechazado = p.estado === EstadoPropuestaAplicacion.Rechazada && !p.ajusteAutorizadoEn;
   const esQuienPropuso = usuarioId != null && p.propuestoPor === usuarioId;
   const puedeAutorizar = porAutorizar && !esQuienPropuso && tienePermiso;
 
@@ -220,7 +222,7 @@ function PanelAjuste({ p }: { p: PropuestaAplicacionResponse }) {
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h3 className="font-medium">
-            {porAutorizar ? 'Ajuste por autorizar' : 'Ajuste documentado'}
+            {porAutorizar ? 'Ajuste por autorizar' : rechazado ? 'Ajuste rechazado' : 'Ajuste documentado'}
           </h3>
           <p className="text-xs text-ink-muted">
             El depósito es {formatoMonto(-p.ajusteNoFiscal, p.moneda)} menor que lo aplicado. No genera
@@ -275,15 +277,23 @@ function PanelAjuste({ p }: { p: PropuestaAplicacionResponse }) {
           <dd>
             {p.ajusteAutorizadoEn
               ? `Autorizado el ${new Date(p.ajusteAutorizadoEn).toLocaleString('es-MX')}`
-              : porAutorizar
-                ? 'Pendiente'
-                : '—'}
+              : rechazado
+                ? `Rechazado${p.resueltaEn ? ` el ${new Date(p.resueltaEn).toLocaleString('es-MX')}` : ''}`
+                : porAutorizar
+                  ? 'Pendiente'
+                  : '—'}
           </dd>
         </div>
         <div className="col-span-2 lg:col-span-4">
           <dt className="text-xs text-ink-muted">Motivo</dt>
           <dd className="whitespace-pre-wrap">{p.motivoAjuste ?? '—'}</dd>
         </div>
+        {rechazado && p.motivoRechazo && (
+          <div className="col-span-2 lg:col-span-4">
+            <dt className="text-xs text-ink-muted">Motivo del rechazo</dt>
+            <dd className="whitespace-pre-wrap">{p.motivoRechazo}</dd>
+          </div>
+        )}
       </dl>
       {porAutorizar && esQuienPropuso && (
         <p className="mt-3 text-xs text-ink-muted">

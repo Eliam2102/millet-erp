@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   ConciliacionCobrosResponse,
@@ -193,9 +193,24 @@ describe('CXC-06 · ajuste documentado de un cobro corto', () => {
       expect.anything(),
     );
   });
-});
 
-describe('CXC-06 · conciliación de cobros contra pólizas', () => {
+  it('con el ajuste rechazado el panel dice «Ajuste rechazado» con el motivo, no «Ajuste documentado»', () => {
+    mocks.propuesta = propuestaConAjuste({
+      estado: 3,
+      ajustePorAutorizar: false,
+      motivoRechazo: 'Ajuste rechazado: No es comisión',
+      resueltaEn: '2026-11-04T18:00:00Z',
+    });
+    render(<DetalleAplicacion />);
+
+    const panel = screen.getByRole('region', { name: 'Ajuste del cobro' });
+    expect(within(panel).getByText('Ajuste rechazado')).toBeInTheDocument();
+    expect(within(panel).queryByText('Ajuste documentado')).not.toBeInTheDocument();
+    expect(within(panel).getByText(/^Rechazado el/)).toBeInTheDocument();
+    expect(within(panel).getByText('Ajuste rechazado: No es comisión')).toBeInTheDocument();
+    expect(within(panel).queryByRole('button', { name: 'Autorizar ajuste' })).not.toBeInTheDocument();
+  });
+
   it('lista por omisión las diferencias con su causa probable', () => {
     const r: ConciliacionCobrosResponse = {
       desde: '2026-11-01',
