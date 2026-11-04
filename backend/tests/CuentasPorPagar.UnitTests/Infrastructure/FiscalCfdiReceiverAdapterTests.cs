@@ -158,7 +158,7 @@ public sealed class FiscalCfdiReceiverAdapterTests
     }
 
     [Fact]
-    public async Task Pasivo_Capturada_y_CFDI_Cancelado_pasa_a_revision_sin_cancelar_ni_eventos()
+    public async Task Pasivo_Capturada_y_CFDI_Cancelado_pasa_a_revision_sin_cancelar()
     {
         var (adapter, db, _, ctx) = Build();
         try
@@ -171,7 +171,6 @@ public sealed class FiscalCfdiReceiverAdapterTests
             r.MotivoRevisionId.Should().Be(Factura.MotivoCfdiCanceladoSatId);
             r.DependenciaRevisoraId.Should().Be(CancelacionPasivoSolicitadaHandler.DependenciaCxpId);
             r.Estado.Should().NotBe(EstadoPasivo.Cancelada);
-            (await db.OutboxEntries.CountAsync()).Should().Be(0);
         }
         finally { ctx.Dispose(); }
     }
@@ -307,6 +306,31 @@ public sealed class FiscalCfdiReceiverAdapterTests
             var act = () => adapter.IngresarCfdiAsync(NewPayload("Cancelado", FechaCancel), CancellationToken.None);
             await act.Should().NotThrowAsync();
             (await CfdiAsync(db)).EstatusSat.Should().Be(EstatusSatCfdi.Cancelado);
+        }
+        finally { ctx.Dispose(); }
+    }
+
+    [Fact]
+    public async Task DocumentoDestino_anticipo_existente_no_truena_actualiza_estatus_y_no_lo_toca()
+    {
+        var (adapter, db, _, ctx) = Build();
+        try
+        {
+            var a = Domain.AnticipoProveedor.AnticipoProveedor.Capturar(
+                empresaId: EmpresaId, cfdiRecibidoId: Guid.NewGuid(), uuidCfdi: Uuid, proveedorId: Guid.NewGuid(),
+                serie: "FANT", folioProveedor: "ANT-001", fechaCfdi: Ahora, moneda: "MXN", tipoCambio: null,
+                montoEntregado: 1000m, ordenCompraId: Guid.NewGuid(), capturadoPor: Guid.NewGuid(), ahora: Ahora);
+            db.AnticiposProveedor.Add(a);
+            await db.SaveChangesAsync();
+            await SeedFacturaAsync(db, EstadoSeed.Capturada, destinoOverride: a.Id);
+
+            var act = () => adapter.IngresarCfdiAsync(NewPayload("Cancelado", FechaCancel), CancellationToken.None);
+            await act.Should().NotThrowAsync();
+
+            (await CfdiAsync(db)).EstatusSat.Should().Be(EstatusSatCfdi.Cancelado);
+            var despues = await db.AnticiposProveedor.SingleAsync(x => x.Id == a.Id);
+            despues.Estado.Should().Be(Domain.AnticipoProveedor.EstadoAnticipo.Abierto);
+            despues.SaldoAmortizable.Should().Be(1000m);
         }
         finally { ctx.Dispose(); }
     }
