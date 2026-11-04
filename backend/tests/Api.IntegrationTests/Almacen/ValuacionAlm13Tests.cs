@@ -9,7 +9,9 @@ using Millet.Almacen.Application.Reportes;
 using Millet.Almacen.Domain.Cierre;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Domain.Ports;
+using Millet.Administracion.Domain;
 using Millet.Almacen.Infrastructure.Persistence;
+using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Api.IntegrationTests.Contabilidad;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.UnidadesMedida;
@@ -173,6 +175,14 @@ public class ValuacionAlm13Tests(WebApplicationFactory<Program> factory) : IClas
     {
         await new CuarentenaRecepcionTests(factory).EjecutarConFixtureAsync(async (db, ctx) =>
         {
+            // Sucursal real en Compartido: el cuadre la lee con el adaptador productivo y filtra por su EmpresaId.
+            using var scopeSuc = factory.Services.CreateScope();
+            var compartido = scopeSuc.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+            var empresaReal = await compartido.Empresas.AsNoTracking().OrderBy(e => e.Id).Select(e => e.Id).FirstAsync();
+            var sucursal = new Sucursal(ctx.SucursalId, empresaReal, $"C{ctx.SucursalId:N}"[..12], "Sucursal cuadre", TipoSucursal.Planta,
+                "Calle prueba", "1", "Centro", "Mérida", "Mérida", "Yucatán", "97000", "México");
+            compartido.Add(sucursal);
+            await compartido.SaveChangesAsync();
             var marzo = await RecibirAsync(db, ctx, 10m, 900m);
             await FecharAsync(db, marzo, new DateOnly(2027, 3, 10));
             var periodo = new PeriodoCerrado(Guid.NewGuid(), ctx.EmpresaId, 2027, 3, ctx.UserId);
@@ -183,7 +193,7 @@ public class ValuacionAlm13Tests(WebApplicationFactory<Program> factory) : IClas
             {
                 await RecibirAsync(db, ctx, 10m, 1000m);   // abril
 
-                var cuadre = await CuadreAsync(db, ctx, 19_000m);
+                var cuadre = await CuadreAsync(db, ctx with { EmpresaId = empresaReal }, 19_000m);
                 var suc = cuadre.Filas.Single(f => f.Nivel == "Cuenta");
                 (suc.Valuacion, suc.SaldoContable, suc.Diferencia, suc.Observacion).Should().Be((19_000m, 19_000m, 0m, "Cuadra"));
                 cuadre.Filas.Should().NotContain(f => f.Nivel == "Kardex");
@@ -192,12 +202,14 @@ public class ValuacionAlm13Tests(WebApplicationFactory<Program> factory) : IClas
                 await db.Database.ExecuteSqlInterpolatedAsync(
                     $"UPDATE almacen.saldos_inventario SET costo_promedio_mxn = 975 WHERE ubicacion_id = {ctx.RackId} AND articulo_id = {ctx.ArticuloId}");
                 (await AlfakAsync(db, ctx, new DateOnly(2027, 3, 31))).ValorInventarioFinal.Should().Be(9_000m);
-                var kardex = (await CuadreAsync(db, ctx, 19_000m)).Filas.Single(f => f.Nivel == "Kardex");
+                var kardex = (await CuadreAsync(db, ctx with { EmpresaId = empresaReal }, 19_000m)).Filas.Single(f => f.Nivel == "Kardex");
                 (kardex.Valuacion, kardex.Diferencia).Should().Be((19_500m, 500m));
             }
             finally
             {
                 await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM almacen.periodos_cerrados WHERE empresa_id = {ctx.EmpresaId}");
+                compartido.Remove(sucursal);
+                await compartido.SaveChangesAsync();
             }
         });
     }
