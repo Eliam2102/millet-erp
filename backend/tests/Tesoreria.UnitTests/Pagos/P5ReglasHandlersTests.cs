@@ -119,6 +119,18 @@ public sealed class P5ReglasHandlersTests
         db.MovimientosBancarios.Should().BeEmpty(); eventos.Eventos.Should().BeEmpty();
     }
 
+    // F-TES-01: sin opinión de cumplimiento (32-D) vigente, el pago directo se detiene igual que la corrida.
+    [Fact]
+    public async Task Pago_directo_a_proveedor_sin_opinion_de_cumplimiento_se_detiene()
+    {
+        await using var db = Db(); var cuenta = Cuenta(db); var pasivo = Pasivo(db); await db.SaveChangesAsync();
+        var eventos = new Publicador(db);
+        var handler = new RegistrarPagoProveedorHandler(db, new EmpresaContext(), new User(), new Periodo(), new ProveedorFake(DtoPara("SinOpinion")), new ElegibleSinLimite(), eventos, new Clock());
+        var act = () => handler.Handle(new(cuenta.Id, Fecha, [new(pasivo.FacturaProveedorId, 10m)]), default);
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "PAGO_PASIVO_DETENIDO_DOCUMENTACION");
+        db.MovimientosBancarios.Should().BeEmpty(); eventos.Eventos.Should().BeEmpty();
+    }
+
     [Fact]
     public async Task Bandeja_senala_proveedor_bloqueado()
     {
@@ -137,7 +149,8 @@ public sealed class P5ReglasHandlersTests
     }
 
     private static ProveedorBancoDto? DtoPara(string? caso) => caso is null ? null
-        : new(Guid.NewGuid(), "PRU", "Proveedor", [new(Guid.NewGuid(), "Banco", "000000000000001234", true, null, caso == "UsdActiva" ? "USD" : "MXN", "Proveedor", true, caso is "EnRevision" or "Inactivo" or "UsdActiva" or "Bloqueado" ? "Activa" : caso)], Activo: caso != "Inactivo", EnRevision: caso == "EnRevision", Bloqueado: caso == "Bloqueado");
+        : new(Guid.NewGuid(), "PRU", "Proveedor", [new(Guid.NewGuid(), "Banco", "000000000000001234", true, null, caso == "UsdActiva" ? "USD" : "MXN", "Proveedor", true, caso is "EnRevision" or "Inactivo" or "UsdActiva" or "Bloqueado" or "SinOpinion" ? "Activa" : caso)], Activo: caso != "Inactivo", EnRevision: caso == "EnRevision", Bloqueado: caso == "Bloqueado",
+            SinOpinionCumplimiento: caso == "SinOpinion");
 
     private sealed class ProveedorFake(ProveedorBancoDto? dto, bool todos = false) : IProveedorBancoReadPort
     {

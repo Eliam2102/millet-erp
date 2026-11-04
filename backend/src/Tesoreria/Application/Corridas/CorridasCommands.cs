@@ -54,9 +54,7 @@ internal static class CorridaArmado
         foreach (var proveedorId in pasivos.Select(p => p.ProveedorId).Distinct())
         {
             ReglasDestinoProveedor.Resolver(info.GetValueOrDefault(proveedorId), corrida.Moneda, null);
-            if (info[proveedorId].SinOpinionCumplimiento)
-                throw new BusinessRuleException("CORRIDA_PASIVO_DETENIDO_DOCUMENTACION",
-                    $"Las facturas de '{info[proveedorId].RazonSocial}' están detenidas por {PasivosPagables.MotivoDocumentacion}: falta su opinión de cumplimiento vigente en el expediente.");
+            PasivosPagables.ExigirOpinionCumplimiento(info[proveedorId], "CORRIDA_PASIVO_DETENIDO_DOCUMENTACION");
         }
 
         foreach (var pasivo in pasivos)

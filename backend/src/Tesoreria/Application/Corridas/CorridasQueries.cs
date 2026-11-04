@@ -27,6 +27,17 @@ public static class PasivosPagables
     /// <summary>86e3ke2d3 (CA8.4): motivo con el que la corrida detiene las facturas de un proveedor sin opinión de cumplimiento vigente.</summary>
     public const string MotivoDocumentacion = "documentación";
 
+    /// <summary>
+    /// 86e3ke2d3 (CA8.4): las facturas de un proveedor sin opinión de cumplimiento vigente no se pagan. Misma regla para la
+    /// corrida y para el pago directo; cada flujo pasa su código de error.
+    /// </summary>
+    public static void ExigirOpinionCumplimiento(ProveedorBancoDto info, string codigo)
+    {
+        if (info.SinOpinionCumplimiento)
+            throw new BusinessRuleException(codigo,
+                $"Las facturas de '{info.RazonSocial}' están detenidas por {MotivoDocumentacion}: falta su opinión de cumplimiento vigente en el expediente.");
+    }
+
     public static IQueryable<PasivoPendientePago> Elegibles(TesoreriaDbContext db, IReadOnlyList<Guid>? documentosPermitidos) =>
         PasivosPendientesLectura.Consultar(db, documentosPermitidos, soloConSaldo: true)
             .Where(p => p.TipoBeneficiario == PasivoPendientePago.BeneficiarioProveedor);

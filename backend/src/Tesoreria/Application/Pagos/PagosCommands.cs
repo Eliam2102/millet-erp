@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.Tesoreria.Application.Corridas;
 using Millet.Tesoreria.Application.Integration;
 using Millet.Tesoreria.Domain.Movimientos;
 using Millet.Tesoreria.Domain.Ports;
@@ -195,6 +196,8 @@ public sealed class RegistrarPagoProveedorHandler
         {
             var infoProveedor = await _proveedorBancoPort.ObtenerAsync(proveedorId, cancellationToken);
             var elegida = ReglasDestinoProveedor.Resolver(infoProveedor, cuenta.Moneda, command.CuentaProveedorId);
+            // Misma detención por documentación que la corrida (sin 32-D vigente no se paga por ninguna vía).
+            PasivosPagables.ExigirOpinionCumplimiento(infoProveedor!, "PAGO_PASIVO_DETENIDO_DOCUMENTACION");
             destino = new CuentaDestinoPago(elegida.Id, elegida.Banco, elegida.Numero, elegida.Titular);
         }
 
