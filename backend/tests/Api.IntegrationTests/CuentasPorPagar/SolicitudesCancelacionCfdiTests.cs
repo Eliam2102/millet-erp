@@ -48,7 +48,7 @@ public sealed class SolicitudesCancelacionCfdiTests(WebApplicationFactory<Progra
             var creada = await admin.PostAsJsonAsync($"{Cfdis}/{rechazado.Id}/solicitudes-cancelacion", new { area = 1, notas = "FIX pidió el proveedor" });
             Assert.Equal(HttpStatusCode.Created, creada.StatusCode);
             var sol = await Json(creada);
-            Assert.Equal("Pendiente", sol.GetProperty("estado").GetString());
+            Assert.Equal((int)EstadoSolicitudCancelacion.Pendiente, sol.GetProperty("estado").GetInt32());
             Assert.NotEqual(Guid.Empty, sol.GetProperty("responsableId").GetGuid());
             Assert.True(sol.GetProperty("plazoSatVence").GetDateTimeOffset() > sol.GetProperty("fechaRecepcion").GetDateTimeOffset());
 
@@ -62,10 +62,10 @@ public sealed class SolicitudesCancelacionCfdiTests(WebApplicationFactory<Progra
                 Form(false, "FIX ya está pagada", true));
             Assert.Equal(HttpStatusCode.OK, rechazo.StatusCode);
             var rj = await Json(rechazo);
-            Assert.Equal("Rechazada", rj.GetProperty("estado").GetString());
+            Assert.Equal((int)EstadoSolicitudCancelacion.Rechazada, rj.GetProperty("estado").GetInt32());
             Assert.Equal("acuse.pdf", rj.GetProperty("evidenciaNombre").GetString());
             var detalle = await Json(await admin.GetAsync($"{Cfdis}/{rechazado.Id}"));
-            Assert.Equal("Vigente", detalle.GetProperty("estatusSat").GetString());
+            Assert.Equal((int)EstatusSatCfdi.Vigente, detalle.GetProperty("estatusSat").GetInt32());
 
             // Decidir sin comentario: 400/422 y no cambia nada.
             var otra = await Json(await admin.PostAsJsonAsync($"{Cfdis}/{aceptado.Id}/solicitudes-cancelacion", new { area = 3 }));
@@ -77,8 +77,8 @@ public sealed class SolicitudesCancelacionCfdiTests(WebApplicationFactory<Progra
             var acepta = await admin.PostAsync($"{Cfdis}/{aceptado.Id}/solicitudes-cancelacion/{otra.GetProperty("id").GetGuid()}/decidir",
                 Form(true, "FIX acuse del SAT", false));
             Assert.Equal(HttpStatusCode.OK, acepta.StatusCode);
-            Assert.Equal("Aceptada", (await Json(acepta)).GetProperty("estado").GetString());
-            Assert.Equal("Vigente", (await Json(await admin.GetAsync($"{Cfdis}/{aceptado.Id}"))).GetProperty("estatusSat").GetString());
+            Assert.Equal((int)EstadoSolicitudCancelacion.Aceptada, (await Json(acepta)).GetProperty("estado").GetInt32());
+            Assert.Equal((int)EstatusSatCfdi.Vigente, (await Json(await admin.GetAsync($"{Cfdis}/{aceptado.Id}"))).GetProperty("estatusSat").GetInt32());
 
             var lista = await Json(await admin.GetAsync($"{Cfdis}/{aceptado.Id}/solicitudes-cancelacion"));
             Assert.Single(lista.EnumerateArray());
