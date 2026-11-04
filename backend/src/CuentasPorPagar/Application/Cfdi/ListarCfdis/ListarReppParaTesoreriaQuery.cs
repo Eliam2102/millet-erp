@@ -47,7 +47,8 @@ public sealed class ListarReppParaTesoreriaHandler(CuentasPorPagarDbContext db, 
                     uuids.Any(id => !mapa.TryGetValue(id, out var ramas) || ramas.Any(s => !permitidas.Contains(s)))) continue;
                 resultado.Add(new(c.Id, c.UuidCfdi.Valor, c.RfcEmisor.Valor, c.Tipo, c.Folio, c.Serie,
                     c.FechaCfdi, c.Total, c.Subtotal, c.ImpuestosTrasladados, c.Retenciones, c.TipoCambio,
-                    c.Moneda, c.CanalOrigen, c.FechaRecepcion, c.Estado));
+                    c.Moneda, c.CanalOrigen, c.FechaRecepcion, c.Estado,
+                    c.EstatusSat, c.FechaCancelacionSat));
             }
             catch (XmlException) { /* Documento inválido: no autoriza lectura operativa. */ }
         }
