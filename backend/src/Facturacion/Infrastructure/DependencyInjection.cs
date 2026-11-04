@@ -48,6 +48,7 @@ public static class DependencyInjection
         services.AddScoped<ICatalogosSatReadPort, CompartidoCatalogosSatReadAdapter>();
         services.AddScoped<IReppBancarioReadPort, ReppBancarioReadAdapter>();
         services.AddScoped<Millet.CuentasPorCobrar.Domain.Ports.Facturacion.IReppPendientesReadPort, PublicAdapters.ReppPendientesReadAdapter>();
+        services.AddScoped<Millet.CuentasPorCobrar.Domain.Ports.Facturacion.IConciliacionFacturacionReadPort, PublicAdapters.ConciliacionCarteraReadAdapter>();
         services.AddScoped<Millet.Facturacion.Application.Repp.Pendientes.ReppPendienteServicio>();
 
         // --- Master de Cliente/Producto: adapters REALES sobre Compartido ---

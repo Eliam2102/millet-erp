@@ -51,6 +51,12 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(Application.Alertas.AlertasCarteraOptions.SectionName));
         services.AddHostedService<Workers.AlertaCarteraWorker>();
 
+        // C7.7: conciliación diaria de cartera contra Facturación.
+        services
+            .AddOptions<Workers.ConciliacionCarteraOptions>()
+            .Bind(configuration.GetSection(Workers.ConciliacionCarteraOptions.SectionName));
+        services.AddHostedService<Workers.ConciliacionCarteraWorker>();
+
         // C7.8: correo del estado de cuenta por el transporte único de correo
         // (Correo:Proveedor, 86e3txv0n); NoOp deja el envío en Registrado.
         services.AddScoped<IEstadoCuentaCorreoPort, CorreoSalienteEstadoCuentaAdapter>();
