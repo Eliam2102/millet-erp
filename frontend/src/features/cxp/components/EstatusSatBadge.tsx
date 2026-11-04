@@ -30,7 +30,11 @@ export function EstatusSatBadge({
     >
       {label}
       {cancelado && fechaCancelacion ? (
-        <DateTimeDisplay value={fechaCancelacion} variant="corta" />
+        <>
+          {' '}
+          <span aria-hidden="true">·</span>
+          <DateTimeDisplay value={fechaCancelacion} variant="corta" />
+        </>
       ) : null}
     </span>
   );
