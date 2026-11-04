@@ -9,7 +9,7 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
     /// <list type="bullet">
     ///   <item>Plantillas v2 de Almacén (#1, #13, #14, #15a, #15b): la partida de INVENTARIO va por línea con rol por clasificador
     ///   (INVENTARIO_{grupo del artículo} si tiene cuenta; si no, INVENTARIO). La v1 queda para la historia.</item>
-    ///   <item>Roles INVENTARIO_{grupo} solo para los grupos SAP sin ambigüedad, con la cuenta del catálogo de Fernando si ya existe
+    ///   <item>Roles INVENTARIO_{grupo} para los grupos SAP de inventario, con la cuenta del catálogo de Fernando si ya existe
     ///   en la empresa (si no, quedan sin cuenta y Contabilidad la asigna en Roles de cuenta). 115.05 (tránsito) no se siembra.</item>
     /// </list>
     /// </summary>
@@ -36,7 +36,20 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                     ('INVENTARIO_PINT_ELEC_QUIM_MP', 'Inventario del grupo PINT.ELEC.QUÍM. (MP) (115.02.04.00 MP PINTURA ELECTROSTATICA)', '115.02.04.00'),
                     ('INVENTARIO_HERRAJES_IMPORTACION', 'Inventario del grupo HERRAJES IMPORTACIÓN (115.07.01.00 HERRAJES)', '115.07.01.00'),
                     ('INVENTARIO_HERRAJES_NACIONALES', 'Inventario del grupo HERRAJES NACIONALES (115.07.01.00 HERRAJES)', '115.07.01.00'),
-                    ('INVENTARIO_ACCESORIOS', 'Inventario del grupo ACCESORIOS (115.07.02.00 ACCESORIOS)', '115.07.02.00')
+                    ('INVENTARIO_ACCESORIOS', 'Inventario del grupo ACCESORIOS (115.07.02.00 ACCESORIOS)', '115.07.02.00'),
+                    -- Fernando 4-nov: «para insumos y refacciones (115.02.03.00)»; aluminio, empaques, serigrafía y químicos por lectura nuestra.
+                    ('INVENTARIO_INSUMOS_PRODUCCION', 'Inventario del grupo INSUMOS PRODUCCION (115.02.03.00 SUMINISTROS, MATERIALES Y REFACCIONES)', '115.02.03.00'),
+                    ('INVENTARIO_REFAC_MAQ_Y_OTROS', 'Inventario del grupo REFAC. MAQ. Y OTROS (115.02.03.00 SUMINISTROS, MATERIALES Y REFACCIONES)', '115.02.03.00'),
+                    ('INVENTARIO_REFAC_TRANSPORTE', 'Inventario del grupo REFAC. TRANSPORTE (115.02.03.00 SUMINISTROS, MATERIALES Y REFACCIONES)', '115.02.03.00'),
+                    ('INVENTARIO_REFAC_COMPUTO', 'Inventario del grupo REFAC. CÓMPUTO (115.02.03.00 SUMINISTROS, MATERIALES Y REFACCIONES)', '115.02.03.00'),
+                    ('INVENTARIO_REFAC_EDIFICIOS', 'Inventario del grupo REFAC. EDIFICIOS (115.02.03.00 SUMINISTROS, MATERIALES Y REFACCIONES)', '115.02.03.00'),
+                    ('INVENTARIO_ALUMINIO', 'Inventario del grupo ALUMINIO (115.02.03.00 SUMINISTROS, MATERIALES Y REFACCIONES)', '115.02.03.00'),
+                    ('INVENTARIO_ALUCOM', 'Inventario del grupo ALUCOM (115.02.03.00 SUMINISTROS, MATERIALES Y REFACCIONES)', '115.02.03.00'),
+                    ('INVENTARIO_REYNOBON', 'Inventario del grupo REYNOBON (115.02.03.00 SUMINISTROS, MATERIALES Y REFACCIONES)', '115.02.03.00'),
+                    ('INVENTARIO_EMPAQUE_Y_EMBALAJE', 'Inventario del grupo EMPAQUE Y EMBALAJE (115.02.03.00 SUMINISTROS, MATERIALES Y REFACCIONES)', '115.02.03.00'),
+                    ('INVENTARIO_SERIGRAFIA_TINT_DIG', 'Inventario del grupo SERIGRAFIA TINT/DIG. (115.02.03.00 SUMINISTROS, MATERIALES Y REFACCIONES)', '115.02.03.00'),
+                    ('INVENTARIO_PINTURAS_Y_QUIMICOS', 'Inventario del grupo PINTURAS Y QUIMICOS (115.02.03.00 SUMINISTROS, MATERIALES Y REFACCIONES)', '115.02.03.00'),
+                    ('INVENTARIO_PRODUCTOS_QUIMICOS', 'Inventario del grupo PRODUCTOS QUÍMICOS (115.02.03.00 SUMINISTROS, MATERIALES Y REFACCIONES)', '115.02.03.00')
                 ) AS r(codigo, descripcion, cuenta)
                 ON CONFLICT DO NOTHING;
 

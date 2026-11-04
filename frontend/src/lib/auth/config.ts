@@ -115,4 +115,12 @@ export const seedDevUsers: SeedDevUser[] = [
     nombre: 'Auditor Dev',
     descripcion: 'Sin asignaciones iniciales.',
   },
+  { oid: 'man-requisitante', email: 'ana.ruiz@ejemplo.local', nombre: 'Ana Ruiz · Requisitante', descripcion: 'Persona de ejemplo (manuales).' },
+  { oid: 'man-jefe-depto', email: 'carlos.mendez@ejemplo.local', nombre: 'Carlos Méndez · Jefe de Mantenimiento', descripcion: 'Persona de ejemplo (manuales).' },
+  { oid: 'man-jefe-almacen', email: 'rosa.pech@ejemplo.local', nombre: 'Rosa Pech · Jefa de Almacén', descripcion: 'Persona de ejemplo (manuales).' },
+  { oid: 'man-comprador', email: 'jorge.canul@ejemplo.local', nombre: 'Jorge Canul · Comprador', descripcion: 'Persona de ejemplo (manuales).' },
+  { oid: 'man-jefe-compras', email: 'laura.chan@ejemplo.local', nombre: 'Laura Chan · Jefa de Compras', descripcion: 'Persona de ejemplo (manuales).' },
+  { oid: 'man-direccion', email: 'roberto.sosa@ejemplo.local', nombre: 'Roberto Sosa · Dirección', descripcion: 'Persona de ejemplo (manuales).' },
+  { oid: 'man-cxp', email: 'patricia.uc@ejemplo.local', nombre: 'Patricia Uc · Cuentas por pagar', descripcion: 'Persona de ejemplo (manuales).' },
+  { oid: 'man-tesoreria', email: 'sofia.dzul@ejemplo.local', nombre: 'Sofía Dzul · Tesorería', descripcion: 'Persona de ejemplo (manuales).' },
 ];
