@@ -1014,6 +1014,9 @@ builder.Services.AddComprasReadPorts();
 builder.Services.AddComercioExteriorModule();
 builder.Services.AddProductoTerminadoModule();
 builder.Services.AddScoped<Millet.CuentasPorPagar.Application.PublicPorts.IFacturaGastoReadPort, Millet.CuentasPorPagar.Infrastructure.PublicAdapters.FacturaGastoReadAdapter>();
+// 86e3xt2q8: Caja elige la factura mensual del banco del buzón de CFDI recibidos de CxP (solo lectura).
+builder.Services.AddScoped<Millet.CuentasPorPagar.Application.PublicPorts.ICfdiRecibidoPublicReadPort, Millet.CuentasPorPagar.Infrastructure.PublicAdapters.CfdiRecibidoPublicReadAdapter>();
+builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.ICfdiRecibidoBancoReadPort, Millet.Api.Infrastructure.Adapters.CfdiRecibidoBancoReadAdapter>();
 builder.Services.AddOptions<Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorkerOptions>()
     .Bind(builder.Configuration.GetSection(Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorkerOptions.SectionName))
     .Validate(o => o.Interval > TimeSpan.Zero, "ComercioExterior:AvisosHitos:Interval debe ser mayor que cero.")

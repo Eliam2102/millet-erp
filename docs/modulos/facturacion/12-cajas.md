@@ -659,12 +659,34 @@ banco carga cada día la comisión y su IVA de la terminal, y Millet quiere
 registrar cada cargo tal como viene del banco.
 
 - **Carga:** el supervisor de caja sube el archivo diario (Mi caja › Terminal
-  de tarjetas). Se lee la tabla HTML con extensión `.xls` que exporta Getnet o
-  un CSV. El mapeo de columnas es configurable
-  (`Facturacion:TerminalTarjeta:Columnas`); por omisión, «Transacciones por
-  día» de Getnet. **Supuesto:** comisión, IVA de la comisión, neto y folio de
-  liquidación vienen en los reportes «Comisiones Bancarias» / «Reporte
-  conciliación», aún no recibidos; sus encabezados son provisionales.
+  de tarjetas). El lector reconoce dos layouts por sus encabezados:
+  - **OneGMR TRST** de Getnet (guía «Getnet One GMR», jun-2025; actualizado
+    86e3xt2q8). CSV con coma y punto decimal, una fila por venta liquidada,
+    renglón final `ENDOFFILE_…`. Nombre `GMR_MX_GETNET_<id>_YYYYMMDD_P_TRST_SSS.CSV`.
+    Mapeo (`Facturacion:TerminalTarjeta:ColumnasGmr`):
+
+    | Columna GMR | Dato en el ERP |
+    |---|---|
+    | `ID_TRANSACTION` | Número de operación |
+    | `DAT_TRANSACTION` + `TIM_TRANSACTION` | Fecha y hora de la venta |
+    | `AMT_GROSS` | Importe bruto |
+    | `COD_CURRENCY` | Moneda (484 = MXN) |
+    | `NUM_CARD` (enmascarada) | Últimos 4 dígitos |
+    | `COD_AUTHORIZATION` | Autorización |
+    | `DES_TRANSACTION_STATUS` | Estatus (`Captured`, `Approved` y `Authorized` = aprobada) |
+    | `AMT_TOTAL_FEE` | Comisión |
+    | `AMT_TOTAL_VAT_TAX` | IVA de la comisión |
+    | `AMT_NET` | Neto (bruto − comisión − IVA) |
+    | `ID_SETTLEMENT` | Folio de liquidación |
+    | `DAT_SETTLED` | Fecha del cargo |
+    | `DES_FINANCIAL_MOVEMENTS_TYPE` | Tipo de movimiento: solo `Transaction`; Billing, Adjustment y demás no son ventas |
+
+  - **«Transacciones por día»** del portal: tabla HTML `.xls`, sin comisión
+    (`Facturacion:TerminalTarjeta:Columnas`).
+  - **Supuestos a validar con una muestra real:** `COD_AUTHORIZATION` puede llegar
+    sin los ceros del voucher, así que se compara sin ceros a la izquierda; la fecha
+    y hora de la venta se toman como hora local. La descarga por SFTP (`/GMR/in`,
+    alta con clave SSH e IP fija) queda para después; hoy el archivo se sube a mano.
 - **Sin duplicar:** cada venta se guarda una vez por número de operación;
   recargar el archivo no agrega renglones ni eventos.
 - **Emparejamiento:** venta aprobada ↔ forma 04/28 de un cobro vigente con la
@@ -675,8 +697,37 @@ registrar cada cargo tal como viene del banco.
   agrupan por folio y publican una vez
   `facturacion.terminal.liquidacion-registrada.v1` (bruto, comisión, IVA, neto
   y cobros). La póliza la registra C1.5 (`PLATFORM-TODO(<PolizaLiquidacionTerminal>)`).
-- **Fuera:** factura mensual del banco (Parte B) y la importación general del
-  estado de cuenta (TES-05, T9.2).
+- **Fuera:** la importación general del estado de cuenta (TES-05, T9.2).
+
+### 18.1 Factura mensual del banco ligada a los cargos (86e3xt2q8, Parte B)
+
+Definición del negocio (26-oct): cada cargo diario de la terminal queda ligado a la factura
+mensual del banco.
+
+- **Elección:** en Mi caja › Terminal de tarjetas › Factura del banco, el
+  supervisor elige el mes y el CFDI recibido del banco. La lista viene del buzón de CxP
+  (`ICfdiRecibidoBancoReadPort`, solo lectura): CFDI de ingreso por procesar del
+  mes o del siguiente. Una factura ya ligada deja de ofrecerse.
+- **Cuadre:** suma la comisión y el IVA de las liquidaciones del mes (por fecha de
+  liquidación) que aún no tienen factura. Los compara contra el subtotal, el IVA y
+  el total del CFDI. **Supuesto a validar:** cuadra solo si las tres diferencias son
+  cero, sin tolerancia.
+- **Si cuadra:** cada liquidación queda con el folio fiscal (`terminal_liquidacion.factura_banco_id`
+  y `uuid_factura_banco`). Se registra `terminal_factura_banco`: un CFDI por mes, que no
+  se puede ligar dos veces. Se publica
+  `facturacion.terminal.factura-banco-ligada.v1`: el IVA de las comisiones pasa de
+  pendiente a pagado. La póliza la registra C1.5
+  (`PLATFORM-TODO(<PolizaFacturaBancoTerminal>)`).
+- **Si no cuadra:** muestra la diferencia de comisión, IVA y total, y no liga nada
+  (`TERMINAL_FACTURA_NO_CUADRA`).
+- **Sin cuenta por pagar:** el banco ya cobró la comisión al liquidar. El CFDI no se
+  marca en CxP. **A validar con el negocio:** si se deja de capturar como factura de
+  proveedor y de registrar su «pago».
+- **Endpoints:**
+  - `GET /api/v1/facturacion/terminal-tarjetas/factura-banco/candidatos`
+  - `GET …/factura-banco/cuadre`
+  - `GET …/factura-banco`
+  - `POST …/factura-banco` (permiso `facturacion.caja.supervisar`)
 
 ---
 
@@ -690,6 +741,7 @@ registrar cada cargo tal como viene del banco.
 | 0.8 | 2026-10-14 | §14: facturado y notas de crédito del punto de venta y resumen de la entrega (M19: facturado, NC, cobranzas, apartados, TPV), como propuesta a validar; relación con F6.7 |
 | 0.9 | 2026-10-21 | §15 Cierre del día por sucursal (F6.7): monitor de estatus de CFDI con verificación SAT y conciliación facturado contra ingresado por sucursal y cajero |
 | 1.0 | 2026-10-26 | §14 (86e3tfdvt): voucher de tarjeta = número de autorización de 4 a 12 caracteres, también en forma 29; nunca el número de la tarjeta |
+| 1.4 | 2026-11-03 | §18.1 (86e3xt2q8, Parte B): factura mensual del banco ligada a los cargos de la terminal; cuadre al centavo y evento de IVA pagado |
 | 1.3 | 2026-10-31 | §18 (86e3vr1tf, Parte A): archivo diario de la terminal de tarjetas, emparejamiento con los cobros y liquidación por folio |
 | 1.2 | 2026-10-31 | §17 (F6.6, 86e3jvuvr): folio de confirmación de transferencias de Ingresos; Caja aplica la forma 03 solo con folio vigente, del cliente y por el importe; B4 resuelta |
 | 1.1 | 2026-10-28 | §16 (86e3tfecn): caso de uso del cobro con varias formas de pago en una operación; estado actual del ERP, brechas (forma del CFDI, REPP con varios nodos, póliza de cobro partida según la regla de Contabilidad de Millet del 23-oct, folio de transferencia), nota de impacto y propuesta de cuándo construirlo |
