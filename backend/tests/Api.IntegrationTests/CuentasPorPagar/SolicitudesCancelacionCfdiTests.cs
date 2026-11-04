@@ -19,7 +19,7 @@ public sealed class SolicitudesCancelacionCfdiTests(WebApplicationFactory<Progra
     private const string Cfdis = "/api/v1/cuentas-por-pagar/cfdis";
 
     [Fact]
-    public async Task Registrar_rechazar_y_aceptar_dejan_registro_evidencia_y_estatus_SAT()
+    public async Task Registrar_rechazar_y_aceptar_dejan_registro_y_evidencia_sin_tocar_el_estatus_SAT()
     {
         await using var enEmpresa = factory.ConEmpresa(EmpresaBootstrapId);
         await using var app = enEmpresa.WithWebHostBuilder(b => b.ConfigureTestServices(s =>
@@ -73,12 +73,12 @@ public sealed class SolicitudesCancelacionCfdiTests(WebApplicationFactory<Progra
                 Form(true, " ", false));
             Assert.True(sinComentario.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.UnprocessableEntity);
 
-            // CA8.16: aceptar sin pasivo cancela el CFDI ante el SAT.
+            // Aceptar es decisión interna: el estatus SAT no cambia (solo lo cambia la sincronización del SAT).
             var acepta = await admin.PostAsync($"{Cfdis}/{aceptado.Id}/solicitudes-cancelacion/{otra.GetProperty("id").GetGuid()}/decidir",
                 Form(true, "FIX acuse del SAT", false));
             Assert.Equal(HttpStatusCode.OK, acepta.StatusCode);
             Assert.Equal("Aceptada", (await Json(acepta)).GetProperty("estado").GetString());
-            Assert.Equal("Cancelado", (await Json(await admin.GetAsync($"{Cfdis}/{aceptado.Id}"))).GetProperty("estatusSat").GetString());
+            Assert.Equal("Vigente", (await Json(await admin.GetAsync($"{Cfdis}/{aceptado.Id}"))).GetProperty("estatusSat").GetString());
 
             var lista = await Json(await admin.GetAsync($"{Cfdis}/{aceptado.Id}/solicitudes-cancelacion"));
             Assert.Single(lista.EnumerateArray());

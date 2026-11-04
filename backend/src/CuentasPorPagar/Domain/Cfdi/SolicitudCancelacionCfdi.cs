@@ -22,8 +22,8 @@ public enum EstadoSolicitudCancelacion
 /// <summary>
 /// Solicitud de cancelación de un CFDI recibido que un proveedor pidió en el
 /// portal del SAT (P8.7). Fiscal la registra; Contabilidad decide con el área.
-/// Aceptarla cancela el CFDI y el pasivo (lo orquesta el handler); rechazarla
-/// solo deja el registro y la evidencia.
+/// Aceptar o rechazar solo deja la decisión y su evidencia; el pasivo se cancela
+/// cuando la sincronización del SAT confirma la cancelación del CFDI.
 /// </summary>
 public sealed class SolicitudCancelacionCfdi : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRelevante, IAuditable
 {
@@ -46,7 +46,10 @@ public sealed class SolicitudCancelacionCfdi : BaseEntity, IPerteneceAEmpresa, I
 
     private SolicitudCancelacionCfdi() { }
 
-    /// <summary>Vencimiento del plazo del SAT (calculado; los festivos no se consideran).</summary>
+    /// <summary>
+    /// Vencimiento del plazo del SAT (calculado; los festivos no se consideran). Solo informa o alerta:
+    /// al vencer el ERP no cancela ni cambia nada por silencio. Supuesto pendiente de Fiscal.
+    /// </summary>
     public DateTimeOffset PlazoSatVence => SumarDiasHabiles(FechaRecepcion, PlazoSatDiasHabiles);
 
     public static SolicitudCancelacionCfdi Registrar(

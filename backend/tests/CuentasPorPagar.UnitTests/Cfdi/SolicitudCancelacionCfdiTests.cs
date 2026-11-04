@@ -1,8 +1,5 @@
-using MediatR;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Millet.CuentasPorPagar.Application.Cfdi.SolicitudesCancelacion;
-using Millet.CuentasPorPagar.Application.FacturaProveedor.CancelarFactura;
 using Millet.CuentasPorPagar.Domain.Cfdi;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
@@ -35,12 +32,7 @@ public sealed class SolicitudCancelacionCfdiTests : IAsyncDisposable
 
     private RegistrarSolicitudCancelacionHandler Registrador() => new(_db, new Usuario(_usuario), new Reloj());
 
-    private DecidirSolicitudCancelacionHandler Decisor() => new(_db, new Usuario(_usuario),
-        new Mediator(new ServiceCollection()
-            .AddSingleton<IRequestHandler<CancelarFacturaCommand, CancelarFacturaResponse>>(
-                new CancelarFacturaHandler(_db, new Usuario(_usuario), new Mediator(new ServiceCollection().BuildServiceProvider()), new Reloj()))
-            .BuildServiceProvider()),
-        new Reloj());
+    private DecidirSolicitudCancelacionHandler Decisor() => new(_db, new Usuario(_usuario), new Reloj());
 
     private async Task<(CfdiRecibido Cfdi, SolicitudCancelacionResponse Sol)> ConSolicitudAsync(CfdiRecibido? cfdi = null)
     {
@@ -75,7 +67,7 @@ public sealed class SolicitudCancelacionCfdiTests : IAsyncDisposable
     }
 
     [Fact]
-    public async Task Aceptar_sin_pasivo_marca_el_CFDI_cancelado_en_el_SAT()
+    public async Task Aceptar_guarda_la_decision_pero_no_cancela_el_CFDI_en_el_SAT()
     {
         var (cfdi, sol) = await ConSolicitudAsync();
 
@@ -85,26 +77,32 @@ public sealed class SolicitudCancelacionCfdiTests : IAsyncDisposable
         r.DecididoPor.Should().Be(_usuario);
         r.EvidenciaNombre.Should().Be("acuse.pdf");
         var guardado = await _db.CfdisRecibidos.SingleAsync(c => c.Id == cfdi.Id);
-        guardado.EstatusSat.Should().Be(EstatusSatCfdi.Cancelado);
-        guardado.FechaCancelacionSat.Should().Be(Ahora);
+        guardado.EstatusSat.Should().Be(EstatusSatCfdi.Vigente);
+        guardado.FechaCancelacionSat.Should().BeNull();
     }
 
-    [Fact]
-    public async Task Aceptar_con_pasivo_cancela_la_factura_por_CfdiCanceladoEnSat()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Aceptar_con_factura_capturada_o_pagada_guarda_la_decision_y_no_toca_la_factura(bool pagada)
     {
         var cfdi = NuevoCfdi();
         var factura = Factura.CapturarSinOc(_empresa, cfdi.Id, null, Guid.NewGuid(), Guid.NewGuid(), "F1", null, Ahora, Ahora,
             DateOnly.FromDateTime(Ahora.UtcDateTime), "MXN", null, 100, 0, 16, 0, 116, "prueba", Ahora);
+        if (pagada)
+        {
+            factura.Autorizar(null, Ahora);
+            factura.RegistrarPago(116m, Ahora, "pago prueba");
+        }
+        var estadoAntes = factura.Estado;
         cfdi.MarcarConvertidoEnPasivo(factura.Id);
         _db.FacturasProveedor.Add(factura);
         var (_, sol) = await ConSolicitudAsync(cfdi);
 
         await Decisor().Handle(new DecidirSolicitudCancelacionCommand(cfdi.Id, sol.Id, true, "Acuse SAT", null, null), default);
 
-        var f = await _db.FacturasProveedor.SingleAsync(x => x.Id == factura.Id);
-        f.Estado.Should().Be(EstadoPasivo.Cancelada);
-        f.MotivoDeCancelacion.Should().Be(MotivoCancelacion.CfdiCanceladoEnSat);
-        (await _db.CfdisRecibidos.SingleAsync(c => c.Id == cfdi.Id)).EstatusSat.Should().Be(EstatusSatCfdi.Cancelado);
+        (await _db.FacturasProveedor.SingleAsync(x => x.Id == factura.Id)).Estado.Should().Be(estadoAntes);
+        (await _db.CfdisRecibidos.SingleAsync(c => c.Id == cfdi.Id)).EstatusSat.Should().Be(EstatusSatCfdi.Vigente);
         (await _db.SolicitudesCancelacionCfdi.SingleAsync()).Estado.Should().Be(EstadoSolicitudCancelacion.Aceptada);
     }
 

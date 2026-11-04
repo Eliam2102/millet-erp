@@ -300,8 +300,9 @@ public static class CfdisEndpoints
         .WithName("DecidirSolicitudCancelacionCfdi")
         .WithSummary("Acepta o rechaza una solicitud de cancelación (multipart: aceptar, comentario, archivo opcional)")
         .WithDescription(
-            "Aceptar cancela el CFDI (estatus SAT) y, si ya es factura, el pasivo. Rechazar solo deja el " +
-            "registro y la evidencia. `comentario` es obligatorio; `archivo` opcional.")
+            "Aceptar o rechazar solo guarda la decisión y su evidencia; no cambia el CFDI ni el pasivo. " +
+            "Si se acepta y el SAT luego reporta el CFDI cancelado, la sincronización cancela la factura " +
+            "(o la manda a revisión). `comentario` es obligatorio; `archivo` opcional.")
         .Accepts<IFormFile>("multipart/form-data")
         .Produces<SolicitudCancelacionResponse>(StatusCodes.Status200OK)
         .ProducesValidationProblem()
