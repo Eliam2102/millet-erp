@@ -874,8 +874,9 @@ export interface RegistrarSalidaDevolucionAProveedorCommand {
 }
 
 export interface RegistrarSalidaDevolucionAProveedorResponse {
+  devolucionId: string;
   movimientoSalidaId: string;
-  folioMovimientoSalida: string;
+  folioSalida: string;
 }
 
 // ─── Conteos / Inventario físico (FE-F5-PR1) ────────────────────────────────
