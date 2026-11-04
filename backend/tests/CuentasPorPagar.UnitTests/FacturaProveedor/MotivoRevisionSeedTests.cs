@@ -16,6 +16,13 @@ public sealed class MotivoRevisionSeedTests
     }
 
     [Fact]
+    public void Seed_no_contiene_el_motivo_CFDI_cancelado_SAT_porque_se_siembra_por_SQL()
+    {
+        MotivoRevisionConfiguration.SeedMotivos.Select(m => m.Id)
+            .Should().NotContain(Domain.FacturaProveedor.FacturaProveedor.MotivoCfdiCanceladoSatId);
+    }
+
+    [Fact]
     public void Seed_tiene_disputa_contractual_con_SLA_15_dias()
     {
         var disputa = MotivoRevisionConfiguration.SeedMotivos
