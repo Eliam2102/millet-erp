@@ -59,7 +59,9 @@ public sealed record PasivoAutorizadoParaPagoIntegrationEvent(
     // T9.1-A: extensión ADITIVA — desglose del CFDI para la corrida de pagos de Tesorería.
     decimal? Subtotal = null,
     decimal? ImpuestosTrasladados = null,
-    decimal? Retenciones = null)
+    decimal? Retenciones = null,
+    // C1.5b (aditivo): sucursal de los pasivos internos (reposición de caja chica, préstamo y liquidación de viáticos) para su póliza.
+    Guid? SucursalId = null)
     : IntegrationEvent("cuentas_por_pagar.pasivo.autorizado-para-pago.v1", EmpresaId, OcurridoEn)
 {
     public const string BeneficiarioProveedor = "Proveedor";

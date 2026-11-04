@@ -6,6 +6,7 @@ using Millet.CuentasPorPagar.Domain.FacturaProveedor;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.SharedKernel.Application.Integration;
 
 namespace Millet.CuentasPorPagar.Application.FacturaProveedor.AplicarAnticipo;
 
@@ -41,11 +42,13 @@ public sealed class AplicarAnticipoAFacturaHandler
     private readonly CuentasPorPagarDbContext _db;
     private readonly IClock _clock;
     private readonly Integration.Mappers.PasivoAutorizadoParaPagoMapper _pasivos;
+    private readonly IIntegrationEventPublisher? _events;
 
-    public AplicarAnticipoAFacturaHandler(CuentasPorPagarDbContext db, IClock clock, Integration.Mappers.PasivoAutorizadoParaPagoMapper pasivos, Integration.Mappers.FacturaPagoAplicadoMapper pagosOc)
+    public AplicarAnticipoAFacturaHandler(CuentasPorPagarDbContext db, IClock clock, Integration.Mappers.PasivoAutorizadoParaPagoMapper pasivos,
+        Integration.Mappers.FacturaPagoAplicadoMapper pagosOc, IIntegrationEventPublisher? events = null)
     {
         _pagosOc = pagosOc;
-        _db = db; _clock = clock; _pasivos = pasivos;
+        _db = db; _clock = clock; _pasivos = pasivos; _events = events;
     }
 
     public async Task<AplicarAnticipoAFacturaResponse> Handle(
@@ -87,6 +90,14 @@ public sealed class AplicarAnticipoAFacturaHandler
         if (aplicacion is not null)
             await _pagosOc.Handle(new Domain.FacturaProveedor.Events.FacturaProveedorPagoAplicadoDomainEvent(
                 factura.EmpresaId, factura.Id, factura.OrdenCompraId, factura.ImporteSaldado, _clock.UtcNow, aplicacion.Id), cancellationToken);
+        // C1.5b: la amortización genera su póliza en Contabilidad (proveedores contra anticipo a proveedores).
+        if (_events is not null)
+            await _events.PublishAsync(new Integration.AnticipoProveedorAmortizadoIntegrationEvent(
+                EmpresaId: factura.EmpresaId, OcurridoEn: ahora, AplicacionId: aplicacion?.Id ?? Guid.NewGuid(),
+                AnticipoId: anticipo.Id, FacturaProveedorId: factura.Id, ProveedorId: factura.ProveedorId, Monto: command.Monto,
+                Moneda: anticipo.Moneda, TipoCambio: anticipo.TipoCambio,
+                SucursalId: factura.SucursalId == Guid.Empty ? null : factura.SucursalId,
+                UuidAnticipo: anticipo.UuidCfdi, UuidFactura: factura.UuidCfdi), cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
         return new AplicarAnticipoAFacturaResponse(

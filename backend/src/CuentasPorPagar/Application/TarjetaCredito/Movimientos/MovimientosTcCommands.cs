@@ -5,6 +5,7 @@ using Millet.CuentasPorPagar.Application.Catalogos.ClasificacionesNoDeducibles;
 using Millet.CuentasPorPagar.Application.Common;
 using Millet.CuentasPorPagar.Application.Integration;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor;
+using Millet.CuentasPorPagar.Domain.Ports.Administracion;
 using Millet.CuentasPorPagar.Domain.TarjetaCredito;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
@@ -109,15 +110,17 @@ public sealed class RegistrarMovimientoTcConCfdiHandler
     private readonly ICurrentUserContext _currentUser;
     private readonly IClock _clock;
     private readonly IIntegrationEventPublisher _events;
+    private readonly IEmpleadoReadPort? _empleados;
 
     public RegistrarMovimientoTcConCfdiHandler(
         CuentasPorPagarDbContext db,
         ICurrentEmpresaContext currentEmpresa,
         ICurrentUserContext currentUser,
         IClock clock,
-        IIntegrationEventPublisher events)
+        IIntegrationEventPublisher events,
+        IEmpleadoReadPort? empleados = null)
     {
-        _db = db; _currentEmpresa = currentEmpresa; _currentUser = currentUser; _clock = clock; _events = events;
+        _db = db; _currentEmpresa = currentEmpresa; _currentUser = currentUser; _clock = clock; _events = events; _empleados = empleados;
     }
 
     public async Task<MovimientoTcResponse> Handle(
@@ -232,7 +235,8 @@ public sealed class RegistrarMovimientoTcConCfdiHandler
             Subtotal: factura.Subtotal, IvaTrasladado: factura.ImpuestosTrasladados,
             IvaNoAcreditable: factura.IvaNoAcreditable, Total: factura.Total,
             Moneda: command.MonedaOriginal, TipoCambio: command.TipoCambioCaptura,
-            ConceptoContable: command.ConceptoContable), cancellationToken);
+            ConceptoContable: command.ConceptoContable,
+            SucursalId: await SucursalEmpleado.DeAsync(_empleados, command.UsuarioQueUsoId, cancellationToken)), cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
         return MovimientoTcMapper.ToResponse(mov, factura.IvaNoAcreditable);
@@ -275,12 +279,13 @@ public sealed class RegistrarMovimientoTcSinCfdiHandler
     private readonly ICurrentEmpresaContext _currentEmpresa;
     private readonly IIntegrationEventPublisher _events;
     private readonly IClock _clock;
+    private readonly IEmpleadoReadPort? _empleados;
 
     public RegistrarMovimientoTcSinCfdiHandler(
         CuentasPorPagarDbContext db, ICurrentEmpresaContext currentEmpresa,
-        IIntegrationEventPublisher events, IClock clock)
+        IIntegrationEventPublisher events, IClock clock, IEmpleadoReadPort? empleados = null)
     {
-        _db = db; _currentEmpresa = currentEmpresa; _events = events; _clock = clock;
+        _db = db; _currentEmpresa = currentEmpresa; _events = events; _clock = clock; _empleados = empleados;
     }
 
     public async Task<MovimientoTcResponse> Handle(
@@ -314,19 +319,21 @@ public sealed class RegistrarMovimientoTcSinCfdiHandler
             clasificacionNoDeducible: clasificacion);
 
         _db.MovimientosTarjetaCredito.Add(mov);
-        await _events.PublishAsync(GastoSinCfdi(mov, _clock.UtcNow, GastoRegistradoIntegrationEvent.OrigenTarjeta), cancellationToken);
+        await _events.PublishAsync(GastoSinCfdi(mov, _clock.UtcNow, GastoRegistradoIntegrationEvent.OrigenTarjeta,
+            await SucursalEmpleado.DeAsync(_empleados, mov.UsuarioQueUsoId, cancellationToken)), cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
         return MovimientoTcMapper.ToResponse(mov);
     }
 
     /// <summary>Gasto sin CFDI (siempre no deducible, sin desglose de IVA); también lo usa la captura retroactiva.</summary>
-    internal static GastoRegistradoIntegrationEvent GastoSinCfdi(MovimientoTarjetaCredito mov, DateTimeOffset ahora, string origen) =>
+    internal static GastoRegistradoIntegrationEvent GastoSinCfdi(MovimientoTarjetaCredito mov, DateTimeOffset ahora, string origen,
+        Guid? sucursalId = null) =>
         new(EmpresaId: mov.EmpresaId, OcurridoEn: ahora, Origen: origen,
             DocumentoId: mov.Id, LineaId: null, FacturaProveedorId: null,
             Fecha: mov.FechaMovimiento, ProveedorId: null, ProveedorRfc: null,
             Uuid: null, Deducible: mov.ClasificacionNoDeducible is null, ClasificacionNoDeducible: mov.ClasificacionNoDeducible,
             Subtotal: mov.MontoOriginal, IvaTrasladado: 0m, IvaNoAcreditable: 0m, Total: mov.MontoOriginal,
-            Moneda: mov.MonedaOriginal, TipoCambio: mov.TipoCambioCaptura, ConceptoContable: mov.ConceptoContable);
+            Moneda: mov.MonedaOriginal, TipoCambio: mov.TipoCambioCaptura, ConceptoContable: mov.ConceptoContable, SucursalId: sucursalId);
 }
 
 // --------------------------------------------------- Listar
