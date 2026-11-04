@@ -743,6 +743,26 @@ public class RequisicionTests
     }
 
     [Fact]
+    public void RegistrarRecepcion_TrasDevolucionDePiezaDanada_UsaNetoDeLaOc()
+    {
+        // F-01 (recorrido 04-nov): 1.ª recepción de 4 con 1 dañada (OC = 4, RQ = 4),
+        // devolución de la dañada (OC = 3) y 2.ª recepción de 3 (OC = 6). Sumar la
+        // cantidad bruta daba 4 + 3 = 7 > 6 y la RQ se quedaba atrás.
+        var rq = CrearEnSurtido(); // 10 = 4 almacén + 6 compra
+        var lineaId = rq.Lineas.Single().Id;
+        rq.RegistrarRecepcion(lineaId, 4m, DateTimeOffset.UtcNow);
+
+        Assert.Throws<BusinessRuleException>(() => rq.RegistrarRecepcion(lineaId, 3m, DateTimeOffset.UtcNow));
+
+        var delta = Millet.Compras.Application.Almacen.OcRecepcionEnAlmacenHandler.DeltaRequisicion(
+            netoOc: 6m, recibidaRq: rq.Lineas.Single().CantidadRecibida);
+        rq.RegistrarRecepcion(lineaId, delta, DateTimeOffset.UtcNow);
+
+        Assert.Equal(6m, rq.Lineas.Single().CantidadRecibida);
+        Assert.Equal(0m, rq.Lineas.Single().Cubrimiento.CantidadPendiente);
+    }
+
+    [Fact]
     public void RegistrarRecepcion_CantidadInvalida_Lanza()
     {
         var rq = CrearEnSurtido();
