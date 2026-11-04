@@ -30,6 +30,7 @@ public static class DependencyInjection
         services.AddScoped<ISaldosContablesReadPort, SaldosContablesReadAdapter>();
         // CXC-06: pólizas de cobro para la conciliación de cartera de CxC.
         services.AddScoped<ICobrosContabilizadosReadPort, CobrosContabilizadosReadAdapter>();
+        services.AddScoped<IRolCuentaSaldoReadPort, RolCuentaSaldoReadAdapter>();
 
         // F1-CON-02: reglas de dimensión. Los puertos ICentroCostoContabilidadPort e ISucursalContabilidadPort los
         // implementan sus dueños (CentrosCosto, Compartido) y se cablean en Program.cs.

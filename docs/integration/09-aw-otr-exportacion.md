@@ -11,16 +11,53 @@ La «Orden de Transporte» del glosario de CxP es un concepto distinto.
 
 ## Frontera y dependencias
 
-El flujo 3 vive en `Integraciones.Aw/Infrastructure/Exportacion/`. Implementa los puertos
-`IOtrEntradaReader` y `IOtrSalidaWriter` definidos por Comercio Exterior. La dependencia es
+El flujo 3 vive en `Integraciones.Aw/Infrastructure/Exportacion/`. Implementa el puerto
+`IOtrEntradaReader` definido por Comercio Exterior. La dependencia es
 `Integraciones.Aw → ComercioExterior`; CE no referencia A+W. No usa `AwSolicitudesWorker`,
 `IngestaControl`, EDI, drop service ni consumidores de eventos propios en Service Bus.
 
-SQL Server real: **exclusivamente** `MILLET_INTEGRACION.dbo.aw_otr_envio`,
-`aw_otr_envio_linea` y `erp_otr_estado`. Son tablas puente **nuevas, definidas por el ERP**
-(D18). No hay INSERT/UPDATE/DELETE contra tablas internas de A+W.
+**Modelo vigente (4-nov-2026).** Jorge (TI Millet, correo del 1-nov, punto 2): en A+W OTR no se
+pueden agregar eventos ni personalizaciones, así que A+W no escribe en tablas puente ni lee lo que
+el ERP deje. Por eso:
 
-## Contrato de entrada
+- El ERP **sólo lee** las tablas del módulo OTR, en modo de sólo lectura, con el usuario
+  `millet_erp_lector_aw` (igual que producto terminado por `AWPROD_ERP`). El lector real va en
+  A+W-QA-10; ver «Lectura real» abajo.
+- Las tablas puente `aw_otr_envio`, `aw_otr_envio_linea` y `erp_otr_estado` **no existen en
+  `MILLET_INTEGRACION`**. Los scripts 12 y 13 y el usuario `aw_otr` se retiraron.
+- El ERP **no escribe nada hacia A+W**. Booking, BL, embarque real, estado aduanal, entrega y
+  cierre se quedan en el expediente de exportación.
+
+## Lectura real: tablas del módulo OTR (pendiente de Jorge)
+
+Revisión del 4-nov con `millet_erp_lector_aw`: el usuario sólo ve las tablas que tiene concedidas
+(11 en `MILMAIN`, 5 de `alcimdb` por `AWPROD_ERP`); ninguna es del módulo OTR. El encabezado del
+pedido, que ya se puede leer, cubre parte de la regla R8:
+
+| Dato R8 | Tabla y columna | Observación (pedidos 2026) |
+|---|---|---|
+| Pedido | `SYSADM.BW_AUFTR_KOPF` (número de pedido) | — |
+| Cliente | `BW_AUFTR_KOPF` → `KU_KUNDEN` | Ya se lee para clientes |
+| Ruta | `BW_AUFTR_KOPF.OR_TOUR` | MERIDA, FLORIDA, CANCUN, ONTARIO… |
+| Línea y tránsito | `BW_AUFTR_KOPF.OR_ZOLLTOUR` | Exportación: p. ej. FLORIDA → «LINEA PENINSULAR, T/T 08» |
+| Peso | `BW_AUFTR_KOPF.SU_GEWICHT`, `SU_GEWICHT_TARA` | Casi todos los pedidos |
+| Fecha prevista / real | `BW_AUFTR_KOPF.DATUM_LIEFER_PLAN`, `DATUM_LIEFER_TAT` | Casi todos |
+| Remisión | `BW_AUFTR_KOPF.NR_LIEFERSCHEIN` | — |
+| Empaque | `BW_AUFTR_KOPF.OR_VERPACKUNG` | — |
+| Camión | `BW_AUFTR_KOPF.OR_LKW` | Casi siempre `<indf>` |
+| Dirección de entrega | Por confirmar | — |
+| **Contenedor** | **No encontrado** | Pedir a Jorge |
+| **Bultos** | **No encontrado** | Pedir a Jorge |
+| **Envío o carga** (qué pedidos y posiciones van juntos) | **No encontrado** | Pedir a Jorge |
+
+Falta de Jorge: base, instancia y tablas del módulo OTR donde están contenedor, bultos y la carga,
+cómo se detecta un envío nuevo, modificado o cancelado, y `SELECT` sobre ellas para
+`millet_erp_lector_aw`.
+
+## Contrato de entrada (origen Demo)
+
+Las tablas siguientes son el **origen Demo de ejemplo** (`tools/aw-origen-demo`) y el formato que
+el lector real de A+W-QA-10 debe entregar al ERP. En real no se escribe `erp_resultado` en A+W.
 
 A+W inserta cabecera y todas sus líneas **en una sola transacción**, de modo que el lector
 nunca encuentre un envío publicado a medias. Cada versión es inmutable; los cambios se
@@ -93,44 +130,16 @@ El índice de barrido selecciona `erp_resultado IS NULL` o `Error`, orden por id
 - Cancelación de origen: vínculo Cancelado, partidas en revisión; pedidos y facturas se
   conservan. Un id cancelado no se reactiva (`CE_OTR_CANCELADO`); se requiere un nuevo id.
 - Cierre financiero sigue bloqueado por CE-03 (`CE_CIERRE_FINANCIERO_PENDIENTE`). El
-  contrato de salida de cierre está preparado, sin habilitar el cierre en CE-04.
+  cierre no se informa a A+W (ver «Regreso a A+W: no aplica»).
 
-## Salida, transacción y acuse
+## Regreso a A+W: no aplica
 
-CE genera `comercio_exterior.otr_salidas` dentro del mismo `SaveChangesAsync` que el hito,
-booking o embarque. No se usa Service Bus para consumir eventos del propio módulo. Llave
-única `(envío, tipo, versión ERP, intento)`; versión ERP = máximo + 1 por envío y tipo, considerando filas persistidas y las nuevas del mismo guardado. Es independiente de la versión del expediente.
-Tipos: `hito`, `booking`, `booking-cancelado`, `embarque`, `contenedor-cancelado`,
-`despacho-aduanal`, `liberado`, `entregado`, `cerrado`, `estado-expediente`.
+Hasta el 4-nov el ERP generaba salidas (`otr_salidas`) y las entregaba a `erp_otr_estado` para que
+A+W las acusara. Se retiró: A+W no lee esa tabla. La tabla `comercio_exterior.otr_salidas` se
+conserva sólo como historial y ya no crece. Si Millet necesita ver el booking en OTR, iría como un
+tipo nuevo en `aw_retorno`, que aplica el servicio de Windows de TI (fuera de alcance hoy).
 
-`dbo.erp_otr_estado`:
-
-| Columna | Tipo SQL Server | Quién escribe |
-|---|---|---|
-| `salida_id` | uniqueidentifier PK | ERP, nuevo id por reintento manual; estable durante reintentos automáticos de entrega |
-| `otr_envio_id` | nvarchar(100) | ERP |
-| `tipo` | nvarchar(50) | ERP |
-| `version_erp` | int > 0 | ERP; contador por envío y tipo |
-| `intento` | int > 0, DEFAULT 1 | ERP; UNIQUE con envío, tipo y versión ERP |
-| `valor_json` | nvarchar(max), ISJSON | ERP; estado e hitos con fechas, booking, embarque y cancelación del contenedor |
-| `creada_at` | datetimeoffset(3) | Default al insertar ERP |
-| `aw_acuse_at` | datetimeoffset(3), opcional | **Sólo A+W** |
-| `aw_resultado` | nvarchar(30), opcional | **Sólo A+W**: `Aplicada` o `Rechazada` |
-| `aw_motivo` | nvarchar(500), opcional | **Sólo A+W** |
-
-Ejemplo de `valor_json`:
-
-```json
-{"expedienteId":"00000000-0000-0000-0000-000000000001","estado":"Abierto","hito":"entregado","hitos":[{"Clave":"entregado","FechaReal":"2026-10-16"}],"contenedor":[{"Booking":"DEMO-BOOK","FechaEmbarqueReal":"2026-10-15","estado":"Activo"}]}
-```
-
-A+W debe ignorar duplicados por `(envío,tipo,versión ERP,intento)`, aplicar versiones ERP superiores y permitir un intento nuevo de una versión antes rechazada. Una versión ya aplicada se confirma también como Aplicada. A+W escribe fecha, resultado y motivo juntos tras aplicar. ERP sólo inserta y lee: nunca modifica columnas `aw_*` ni borra filas puente.
-
-Estados locales: Pendiente → Entregada → Acusada. `MaxIntentos` limita exclusivamente errores al insertar. Una salida Entregada conserva su estado mientras no llegue el acuse y se consulta en cada ciclo, sin reentregarla. Al superar `AcuseVencidoMinutos` aparece marcada «Sin acuse» en la bandeja, sin cambiar su estado. Un acuse tardío Aplicada pasa a Acusada.
-
-Acuse Rechazada → Fallida. El reintento manual crea otra salida Pendiente con nuevo `salida_id`, misma versión ERP e `intento + 1`; la fallida queda Reemplazada con `ReemplazadaPorId`. La fila y el rechazo originales permanecen en el puente. Está disponible con permiso OTR y alcance de sucursal, incluso tras cierre o cancelación.
-
-La bandeja del lanzador contiene dos listas: envíos por vincular, y salidas Fallidas o Sin acuse de todos los expedientes dentro del alcance de sucursal.
+La bandeja del lanzador contiene sólo los envíos por vincular.
 
 ## Encendido, Demo y operación
 
@@ -138,25 +147,21 @@ La bandeja del lanzador contiene dos listas: envíos por vincular, y salidas Fal
 
 | Clave | Omisión | Regla |
 |---|---|---|
-| `EntradaHabilitada` | false | Independiente de salida y de flujos 1/2 |
-| `SalidaHabilitada` | false | Independiente de entrada y de flujos 1/2 |
+| `EntradaHabilitada` | false | Independiente de flujos 1/2 |
 | `EmpresaId` | null | Vacío o Guid.Empty: no procesa ni abre conexiones |
 | `IntervalSeconds` | 120 | > 0; espera inicial antes del primer barrido |
 | `BatchSize` | 50 | 1–1000 |
-| `MaxIntentos` | 5 | > 0, errores técnicos de entrada y errores de entrega de salida |
-| `AcuseVencidoMinutos` | 1440 | > 0; marca visual Sin acuse sin cambiar el estado Entregada |
+| `MaxIntentos` | 5 | > 0, errores técnicos de entrada |
 | `ContratoI134Firmado` | false | Candado real adicional; activar sólo con evidencia de I13.4 firmado |
 
-Real se registra únicamente con contrato firmado, conexión `AwIntegracionDb` y bandera de
-la dirección activa. `Demo` usa la misma selección `AwOrigenSesion`, registro keyed `Demo`
+Real se registra únicamente con contrato firmado, conexión `AwIntegracionDb` y
+`EntradaHabilitada`; hoy apunta al modelo de tablas puente y queda apagado hasta A+W-QA-10. `Demo` usa la misma selección `AwOrigenSesion`, registro keyed `Demo`
 y `AwOrigenPgDb`; requiere `IntegracionesAw:OrigenDemo:Permitido`, y nunca en Production.
 No hay autenticación simulada: HTTP conserva EntraId + JWT del API y filtro territorial CE.
 Ver requiere `expedientes.leer`; gestionar usa `otr.gestionar` y alcance CE por sucursal.
 
-Scripts para Jorge: [12](../operacion/aw-integracion-scripts/12_create_otr_tables.sql) y
-[13](../operacion/aw-integracion-scripts/13_grant_otr.sql). Login ERP existente
-`millet_erp_integracion`; login propuesto A+W `aw_otr`, por confirmar. No ejecutar scripts
-sin acuerdo; no conceden permisos sobre tablas internas del proveedor.
+Los scripts 12 (tablas puente) y 13 (permisos y usuario `aw_otr`) se retiraron el 4-nov: Jorge no
+los corrió y el modelo no aplica. Para OTR no se crea nada en `MILLET_INTEGRACION`.
 
 Demo sintética: `tools/aw-origen-demo/schema.sql` y `otr.sql`. Después de preparar el origen,
 `aw-origen-demo.sh otr` carga dos envíos y la versión 2 del primero (peso 100 → 125).

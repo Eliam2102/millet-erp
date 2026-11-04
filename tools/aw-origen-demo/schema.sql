@@ -219,7 +219,7 @@ SELECT producto_ref::text                                        AS producto_ref
        upper(replace(coalesce(unidad_medida, ''), '²', '2'))     AS unidad_medida
   FROM aw_origen.erp_articulo;
 
--- Flujo 3 OTR · tablas puente definidas por el ERP; datos sintéticos en otr.sql.
+-- Flujo 3 OTR · origen Demo de ejemplo (datos sintéticos en otr.sql). En real el ERP lee las tablas del módulo OTR (A+W-QA-10); no escribe nada hacia A+W.
 CREATE TABLE IF NOT EXISTS dbo.aw_otr_envio (
     otr_envio_id varchar(100) NOT NULL,
     version bigint NOT NULL CHECK (version > 0),
@@ -253,19 +253,6 @@ CREATE TABLE IF NOT EXISTS dbo.aw_otr_envio_linea (
     FOREIGN KEY (otr_envio_id,version) REFERENCES dbo.aw_otr_envio(otr_envio_id,version)
 );
 CREATE INDEX IF NOT EXISTS ix_aw_otr_pendiente ON dbo.aw_otr_envio (otr_envio_id,version) WHERE erp_resultado IS NULL OR erp_resultado = 'Error';
-CREATE TABLE IF NOT EXISTS dbo.erp_otr_estado (
-    salida_id uuid PRIMARY KEY,
-    otr_envio_id varchar(100) NOT NULL,
-    tipo varchar(50) NOT NULL,
-    version_erp integer NOT NULL CHECK (version_erp > 0),
-    intento int NOT NULL DEFAULT 1 CHECK (intento > 0),
-    valor_json text NOT NULL CHECK (jsonb_typeof(valor_json::jsonb) = 'object'),
-    creada_at timestamptz NOT NULL DEFAULT now(),
-    aw_acuse_at timestamptz,
-    aw_resultado varchar(30),
-    aw_motivo varchar(500),
-    UNIQUE (otr_envio_id,tipo,version_erp,intento)
-);
 
 -- Flujo PT-01 · escaneos de pieza terminada (alcimdb, A+W Production). El ERP solo LEE estas tablas.
 CREATE TABLE IF NOT EXISTS dbo.awbar_bearbeit (
@@ -311,3 +298,21 @@ CREATE TABLE IF NOT EXISTS dbo.or_avbereich (
     avbereich varchar(50) NOT NULL
 );
 CREATE INDEX IF NOT EXISTS ix_awbar_bearbeit_zeit ON dbo.awbar_bearbeit (bearb_zeit, etikettnr);
+-- A4.8 · composición por pieza: operación del escaneo (999970 ensamblado, 999980 laminación), medidas y gas de la
+-- posición (milésimas de mm) y componentes de la posición (separador 520xxx, PVB 419xxx). El ERP solo LEE.
+ALTER TABLE dbo.awbar_bearbeit ADD COLUMN IF NOT EXISTS art_nr int NOT NULL DEFAULT 0;
+ALTER TABLE dbo.pool_pos ADD COLUMN IF NOT EXISTS breite numeric(18,0) NOT NULL DEFAULT 0;
+ALTER TABLE dbo.pool_pos ADD COLUMN IF NOT EXISTS hoehe numeric(18,0) NOT NULL DEFAULT 0;
+ALTER TABLE dbo.pool_pos ADD COLUMN IF NOT EXISTS gas_flag smallint NOT NULL DEFAULT 0;
+ALTER TABLE dbo.pool_pos ADD COLUMN IF NOT EXISTS gas1_artnr int NOT NULL DEFAULT 0;
+CREATE TABLE IF NOT EXISTS dbo.pool_teile (
+    auftnr varchar(50) NOT NULL,
+    pos int NOT NULL,
+    u_pos int NOT NULL DEFAULT 0,
+    teile_nr varchar(50) NOT NULL,
+    oberteil_nr varchar(50) NOT NULL DEFAULT '0',
+    artnr int NOT NULL,
+    breite numeric(18,0) NOT NULL DEFAULT 0,
+    hoehe numeric(18,0) NOT NULL DEFAULT 0,
+    PRIMARY KEY (auftnr, pos, u_pos, teile_nr)
+);

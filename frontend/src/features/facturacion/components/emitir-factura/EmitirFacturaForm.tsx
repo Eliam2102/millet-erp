@@ -134,7 +134,12 @@ export function EmitirFacturaForm(props: EmitirFacturaFormProps) {
   }
   return (
     <FormInner
-      key={props.prefill?.sustituye?.id ?? props.prefill?.pedidoFacturableId ?? 'manual'}
+      key={
+        props.prefill?.sustituye?.id ??
+        (props.prefill?.pedidoFacturableId
+          ? `${props.prefill.pedidoFacturableId}:${props.prefill.salidaFacturableId ?? 'pedido'}`
+          : 'manual')
+      }
       {...props}
       emisor={defaults.data}
     />
@@ -316,7 +321,9 @@ function FormInner({
     }
     const command = construirComando(values);
     const pedidoId = prefill?.pedidoFacturableId;
-    if (!pedidoId) {
+    // FAC-08: la proforma es del pedido completo; contra una parcialidad
+    // siempre habría diferencias, así que no se compara.
+    if (!pedidoId || prefill?.salidaFacturableId) {
       emitirComando(command);
       return;
     }
@@ -369,6 +376,7 @@ function FormInner({
           facturaAgrupada: false,
           clienteId,
           pedidoFacturableId: prefill?.pedidoFacturableId ?? null,
+          salidaFacturableId: prefill?.salidaFacturableId ?? null,
           sustituyeComprobanteId: prefill?.sustituye?.id ?? null,
           anticipos:
             anticipos.filter((a) => a.anticipoId.trim().length > 0).length > 0
@@ -525,11 +533,21 @@ function FormInner({
           </span>
         </p>
       )}
-      {prefill?.pedidoFacturableId && (
+      {prefill?.pedidoFacturableId && !prefill.salidaFacturableId && (
         <div className="rounded-md border border-brand/30 bg-brand/5 px-3 py-2 text-sm">
           Facturando un pedido — partidas, datos comerciales y fiscales vienen precargados desde el
           pedido y los catálogos. Revisa y completa lo que falte. Al timbrar, el pedido pasa a{' '}
           <span className="font-medium">Facturado</span>.
+        </div>
+      )}
+      {prefill?.salidaFacturableId && (
+        <div
+          data-testid="aviso-factura-parcialidad"
+          className="rounded-md border border-brand/30 bg-brand/5 px-3 py-2 text-sm"
+        >
+          Facturando la parcialidad {prefill.numeroParcialidad ?? ''} del pedido — las partidas
+          llevan solo las cantidades de esa salida. Al timbrar, la parcialidad queda facturada y el
+          pedido sigue abierto para las siguientes salidas.
         </div>
       )}
 
