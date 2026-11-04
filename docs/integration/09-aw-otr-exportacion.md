@@ -11,8 +11,8 @@ La «Orden de Transporte» del glosario de CxP es un concepto distinto.
 
 ## Frontera y dependencias
 
-El flujo 3 vive en `Integraciones.Aw/Infrastructure/Exportacion/`. Implementa los puertos
-`IOtrEntradaReader` y `IOtrSalidaWriter` definidos por Comercio Exterior. La dependencia es
+El flujo 3 vive en `Integraciones.Aw/Infrastructure/Exportacion/`. Implementa el puerto
+`IOtrEntradaReader` definido por Comercio Exterior. La dependencia es
 `Integraciones.Aw → ComercioExterior`; CE no referencia A+W. No usa `AwSolicitudesWorker`,
 `IngestaControl`, EDI, drop service ni consumidores de eventos propios en Service Bus.
 
@@ -130,7 +130,7 @@ El índice de barrido selecciona `erp_resultado IS NULL` o `Error`, orden por id
 - Cancelación de origen: vínculo Cancelado, partidas en revisión; pedidos y facturas se
   conservan. Un id cancelado no se reactiva (`CE_OTR_CANCELADO`); se requiere un nuevo id.
 - Cierre financiero sigue bloqueado por CE-03 (`CE_CIERRE_FINANCIERO_PENDIENTE`). El
-  contrato de salida de cierre está preparado, sin habilitar el cierre en CE-04.
+  cierre no se informa a A+W (ver «Regreso a A+W: no aplica»).
 
 ## Regreso a A+W: no aplica
 
