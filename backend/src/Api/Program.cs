@@ -1073,6 +1073,10 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Contabilidad.Application.Ports.ICuentaBancariaContabilidadPort,
     Millet.Tesoreria.Infrastructure.PublicAdapters.CuentaBancariaContabilidadAdapter>();
+// F1-ALM-13: grupo del artículo para la cuenta de inventario por tipo (rol INVENTARIO_{grupo}).
+builder.Services.AddScoped<
+    Millet.Contabilidad.Application.Ports.IArticuloContabilidadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.ArticuloContabilidadAdapter>();
 
 // === Flujo 2 de Integraciones.Aw: ingesta de pedidos en firme (ADR-0048) ===
 // Adapters reales del reader/write-back sobre MILLET_INTEGRACION (tabla-puente

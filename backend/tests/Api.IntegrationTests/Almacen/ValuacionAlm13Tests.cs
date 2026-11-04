@@ -184,7 +184,7 @@ public class ValuacionAlm13Tests(WebApplicationFactory<Program> factory) : IClas
                 await RecibirAsync(db, ctx, 10m, 1000m);   // abril
 
                 var cuadre = await CuadreAsync(db, ctx, 19_000m);
-                var suc = cuadre.Filas.Single(f => f.Nivel == "Sucursal");
+                var suc = cuadre.Filas.Single(f => f.Nivel == "Cuenta");
                 (suc.Valuacion, suc.SaldoContable, suc.Diferencia, suc.Observacion).Should().Be((19_000m, 19_000m, 0m, "Cuadra"));
                 cuadre.Filas.Should().NotContain(f => f.Nivel == "Kardex");
 
@@ -215,9 +215,12 @@ public class ValuacionAlm13Tests(WebApplicationFactory<Program> factory) : IClas
 
     private sealed class InventarioDoble(decimal saldo) : IInventarioContableReadPort
     {
-        public Task<IReadOnlyDictionary<Guid, CuentaInventarioSaldo>> ObtenerAsync(DateOnly corte, IReadOnlyCollection<Guid> sucursales, CancellationToken ct) =>
-            Task.FromResult<IReadOnlyDictionary<Guid, CuentaInventarioSaldo>>(
-                sucursales.ToDictionary(s => s, _ => new CuentaInventarioSaldo(Guid.NewGuid(), "1150", "Inventario", saldo)));
+        private readonly Guid _cuenta = Guid.NewGuid();
+
+        public Task<IReadOnlyDictionary<(Guid SucursalId, string? Grupo), CuentaInventarioSaldo>> ObtenerAsync(DateOnly corte,
+            IReadOnlyCollection<(Guid SucursalId, string? Grupo)> claves, IReadOnlyCollection<Guid>? sucursalesSaldo, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyDictionary<(Guid SucursalId, string? Grupo), CuentaInventarioSaldo>>(
+                claves.ToDictionary(k => k, _ => new CuentaInventarioSaldo(_cuenta, "1150", "Inventario", saldo)));
     }
 
     private sealed class RelojFijo : IClock
