@@ -32,13 +32,15 @@ public class AlmacenesAppSalidasTests
 
     public AlmacenesAppSalidasTests(WebApplicationFactory<Program> factory) => _factory = factory;
 
+    private const decimal Area = 8.9304m; // m² de la hoja 2440x3660 (AreaHoja.M2)
+
     private sealed record Sembrado(Guid ArticuloId, string ArticuloAw);
 
     private WebApplicationFactory<Program> ConLlave() =>
         _factory.WithWebHostBuilder(b => b.ConfigureAppConfiguration((_, c) =>
             c.AddInMemoryCollection(new Dictionary<string, string?> { ["Integraciones:AlmacenesApp:ApiKey"] = Llave })));
 
-    /// <summary>Artículo A+W con variante 2440x3660 y saldo de <paramref name="stock"/> piezas a 100 MXN en MID.</summary>
+    /// <summary>Artículo A+W con variante 2440x3660 y saldo de <paramref name="stock"/> hojas (en m², a 100 MXN/m²) en MID; sin variante, piezas.</summary>
     private async Task<Sembrado> SembrarAsync(decimal stock, bool conVariante = true, bool referenciaNumerica = false)
     {
         using var scope = _factory.Services.CreateScope();
@@ -48,7 +50,7 @@ public class AlmacenesAppSalidasTests
         var refAw = referenciaNumerica ? $"9{Random.Shared.NextInt64(10_000_000_000, 99_999_999_999)}" : $"SAL{n[..12]}";
         var prod = new ProductoAw(Guid.CreateVersion7(), refAw, "Vidrio salida app", "M2");
         if (conVariante) prod.AplicarVariantes([new ProductoAwVarianteDato($"V-{n[..8]}", 3660m, 2440m, null, null)]);
-        var art = new Articulo(Guid.CreateVersion7(), $"SAL-{n[12..24]}", "Vidrio salida app", "PZA");
+        var art = new Articulo(Guid.CreateVersion7(), $"SAL-{n[12..24]}", "Vidrio salida app", conVariante ? "M2" : "PZA");
         art.AsignarProductoAw(prod.Id);
         compartido.AddRange(prod, art);
         await compartido.SaveChangesAsync();
@@ -61,7 +63,7 @@ public class AlmacenesAppSalidasTests
         var alm = new Millet.Almacen.Domain.Catalogo.Almacen(Guid.NewGuid(), $"S-{n[..16]}", "DEMO salida app", mid);
         var sub = new SubAlmacen(Guid.NewGuid(), alm.Id, "S", "DEMO S", TipoSubAlmacen.Insumos);
         var bin = new Ubicacion(Guid.NewGuid(), sub.Id, "S", "DEMO S");
-        db.AddRange(alm, sub, bin, new SaldoInventario(bin.Id, sub.Id, art.Id, stock, 100m, varianteId));
+        db.AddRange(alm, sub, bin, new SaldoInventario(bin.Id, sub.Id, art.Id, conVariante ? stock * Area : stock, 100m, varianteId));
         await db.SaveChangesAsync();
         return new(art.Id, refAw);
     }
@@ -137,7 +139,7 @@ public class AlmacenesAppSalidasTests
         var a = await Acuse(await f.CreateClient().SendAsync(Req(id, tipo, datos)));
         Assert.Equal("ERROR", a.GetProperty("estado").GetString());
         Assert.Contains(contiene, a.GetProperty("error").GetString());
-        Assert.Equal(10m, await DisponibleAsync(s.ArticuloId));
+        Assert.Equal(10 * Area, await DisponibleAsync(s.ArticuloId));
         Assert.Equal(0, await MovimientosAsync(s.ArticuloId));
         using var scope = f.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
@@ -145,7 +147,7 @@ public class AlmacenesAppSalidasTests
     }
 
     [Fact]
-    public async Task CA4_4_AJUSTE_SALIDA_mesa_HEGLA1_con_3_hojas_baja_3_y_acusa_RECIBIDO_con_folio()
+    public async Task CA4_4_AJUSTE_SALIDA_mesa_HEGLA1_con_3_hojas_baja_3_por_el_area_en_m2_y_acusa_RECIBIDO_con_folio()
     {
         var s = await SembrarAsync(10);
         await using var f = ConLlave();
@@ -155,7 +157,7 @@ public class AlmacenesAppSalidasTests
 
         Assert.Equal("RECIBIDO", a.GetProperty("estado").GetString());
         Assert.StartsWith("M-SAL", a.GetProperty("folio").GetString());
-        Assert.Equal(7m, await DisponibleAsync(s.ArticuloId));
+        Assert.Equal(7 * Area, await DisponibleAsync(s.ArticuloId));
         var mov = Assert.Single(await MovsAsync(s.ArticuloId));
         Assert.Equal(TipoMovimiento.SalidaConsumo, mov.Tipo);
         Assert.Contains("mesa HEGLA1", mov.Motivo);
@@ -165,7 +167,7 @@ public class AlmacenesAppSalidasTests
             DatosV6("AJUSTE", 3, [Grupo(s.ArticuloAw, 3)], mesa: "HEGLA1"))));
         Assert.Equal("DUPLICADO", a2.GetProperty("estado").GetString());
         Assert.Equal(a.GetProperty("folio").GetString(), a2.GetProperty("folio").GetString());
-        Assert.Equal(7m, await DisponibleAsync(s.ArticuloId));
+        Assert.Equal(7 * Area, await DisponibleAsync(s.ArticuloId));
     }
 
     [Fact]
@@ -180,7 +182,7 @@ public class AlmacenesAppSalidasTests
 
         Assert.Equal("ERROR", a.GetProperty("estado").GetString());
         Assert.Contains("NO-EXISTE-", a.GetProperty("error").GetString());
-        Assert.Equal(10m, await DisponibleAsync(s.ArticuloId));
+        Assert.Equal(10 * Area, await DisponibleAsync(s.ArticuloId));
         Assert.Equal(0, await MovimientosAsync(s.ArticuloId));
         using var scope = f.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
@@ -196,7 +198,7 @@ public class AlmacenesAppSalidasTests
             DatosV6("AJUSTE", 2, [Grupo(s.ArticuloAw, 2, ancho: 3660, alto: 2440)]))));
 
         Assert.Equal("RECIBIDO", a.GetProperty("estado").GetString());
-        Assert.Equal(8m, await DisponibleAsync(s.ArticuloId));
+        Assert.Equal(8 * Area, await DisponibleAsync(s.ArticuloId));
     }
 
     [Fact]
@@ -210,8 +212,8 @@ public class AlmacenesAppSalidasTests
             DatosV6("ROTURA", 4, [Grupo(sobrado.ArticuloAw, 2), Grupo(corto.ArticuloAw, 2)], motivo: "Rotura en mesa"))));
 
         Assert.Equal("RECIBIDO", a.GetProperty("estado").GetString());
-        Assert.Equal(10m, await DisponibleAsync(sobrado.ArticuloId));
-        Assert.Equal(1m, await DisponibleAsync(corto.ArticuloId));
+        Assert.Equal(10 * Area, await DisponibleAsync(sobrado.ArticuloId));
+        Assert.Equal(1 * Area, await DisponibleAsync(corto.ArticuloId));
         Assert.Equal(0, await MovimientosAsync(sobrado.ArticuloId) + await MovimientosAsync(corto.ArticuloId));
         using var scope = f.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
@@ -222,26 +224,27 @@ public class AlmacenesAppSalidasTests
     }
 
     [Fact]
-    public async Task SALIDA_MANUAL_con_costo_300_de_grupo_y_3_piezas_deja_la_linea_a_100()
+    public async Task SALIDA_MANUAL_con_costo_de_grupo_y_3_hojas_calcula_el_unitario_por_m2()
     {
         var s = await SembrarAsync(10);
         await using var f = ConLlave();
         var a = await Acuse(await f.CreateClient().SendAsync(Req(Guid.NewGuid().ToString(), "SALIDA_MANUAL",
-            DatosV6("MANUAL", 3, [Grupo(s.ArticuloAw, 3, costo: 450m)], motivo: "Muestra"))));
+            DatosV6("MANUAL", 3, [Grupo(s.ArticuloAw, 3, costo: 535.824m)], motivo: "Muestra"))));
         Assert.Equal("RECIBIDO", a.GetProperty("estado").GetString());
-        // Costo del grupo 450 (≠ promedio 100·3) → unitario 150: prueba que se usa el costo del mensaje.
+        // 3 hojas = 26.7912 m²; costo del grupo 535.824 (≠ promedio) → 20 MXN/m²: el unitario es costo/m², no costo/piezas.
         using (var scope = _factory.Services.CreateScope())
         {
             using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
             var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
             var l = await db.LineasMovimiento.AsNoTracking().SingleAsync(x => x.ArticuloId == s.ArticuloId);
-            Assert.Equal(150m, l.CostoUnitarioMxn);
+            Assert.Equal(20m, l.CostoUnitarioMxn);
+            Assert.Equal(3 * Area, l.Cantidad);
         }
         Assert.Equal(TipoMovimiento.AjusteNegativo, Assert.Single(await MovsAsync(s.ArticuloId)).Tipo);
 
         var s2 = await SembrarAsync(10);
         var a2 = await Acuse(await f.CreateClient().SendAsync(Req(Guid.NewGuid().ToString(), "SALIDA_MANUAL",
-            DatosV6("MANUAL", 3, [Grupo(s2.ArticuloAw, 3, costo: 300m)], motivo: "Muestra"))));
+            DatosV6("MANUAL", 3, [Grupo(s2.ArticuloAw, 3, costo: 2679.12m)], motivo: "Muestra"))));
         Assert.Equal("RECIBIDO", a2.GetProperty("estado").GetString());
         using var scope2 = _factory.Services.CreateScope();
         using var bypass2 = scope2.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
@@ -274,7 +277,7 @@ public class AlmacenesAppSalidasTests
         var a = await Acuse(await f.CreateClient().SendAsync(Req(Guid.NewGuid().ToString(), "ROTURA",
             DatosV6("ROTURA", 2, [Grupo(s.ArticuloAw, 2)], motivo: "Se cayó del caballete"))));
         Assert.Equal("RECIBIDO", a.GetProperty("estado").GetString());
-        Assert.Equal(8m, await DisponibleAsync(s.ArticuloId));
+        Assert.Equal(8 * Area, await DisponibleAsync(s.ArticuloId));
         var mov = Assert.Single(await MovsAsync(s.ArticuloId));
         Assert.Equal(TipoMovimiento.BajaPorDano, mov.Tipo);
         Assert.Contains(": Se cayó del caballete", mov.Motivo);
@@ -301,7 +304,7 @@ public class AlmacenesAppSalidasTests
         var a = await Acuse(await f.CreateClient().SendAsync(Req(Guid.NewGuid().ToString(), "AJUSTE_SALIDA",
             DatosV6("AJUSTE", 2, [grupo]))));
         Assert.Equal("RECIBIDO", a.GetProperty("estado").GetString());
-        Assert.Equal(8m, await DisponibleAsync(s.ArticuloId));
+        Assert.Equal(8 * Area, await DisponibleAsync(s.ArticuloId));
     }
 
     [Fact]
@@ -329,6 +332,26 @@ public class AlmacenesAppSalidasTests
         var s = await SembrarAsync(10);
         var grupo = new { articuloAw = s.ArticuloAw, ancho = 2440, lote = "L1", piezas = 1 };
         await AssertErrorSinEfectosAsync(s, DatosV6("AJUSTE", 1, [grupo]), "deben venir juntos");
+    }
+
+    [Fact]
+    public async Task Grupo_con_m2_que_no_coincide_con_piezas_por_area_da_ERROR_con_el_campo_sin_efectos()
+    {
+        var s = await SembrarAsync(10);
+        var grupo = new { articuloAw = s.ArticuloAw, ancho = 2440, alto = 3660, lote = "L1", piezas = 3, m2 = 3m };
+        await AssertErrorSinEfectosAsync(s, DatosV6("AJUSTE", 3, [grupo]), "almacenes[0].grupos[0].m2");
+    }
+
+    [Fact]
+    public async Task Grupo_con_m2_coincidente_baja_ese_m2()
+    {
+        var s = await SembrarAsync(10);
+        await using var f = ConLlave();
+        var grupo = new { articuloAw = s.ArticuloAw, ancho = 2440, alto = 3660, lote = "L1", piezas = 3, m2 = 26.7912m };
+        var a = await Acuse(await f.CreateClient().SendAsync(Req(Guid.NewGuid().ToString(), "ROTURA",
+            DatosV6("ROTURA", 3, [grupo], motivo: "Rotura"))));
+        Assert.Equal("RECIBIDO", a.GetProperty("estado").GetString());
+        Assert.Equal(7 * Area, await DisponibleAsync(s.ArticuloId));
     }
 
     [Fact]
