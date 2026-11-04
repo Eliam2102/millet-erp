@@ -41,13 +41,13 @@ public class AlmacenesAppSalidasTests
             c.AddInMemoryCollection(new Dictionary<string, string?> { ["Integraciones:AlmacenesApp:ApiKey"] = Llave })));
 
     /// <summary>Artículo A+W con variante 2440x3660 y saldo de <paramref name="stock"/> hojas (en m², a 100 MXN/m²) en MID; sin variante, piezas.</summary>
-    private async Task<Sembrado> SembrarAsync(decimal stock, bool conVariante = true, bool referenciaNumerica = false)
+    private async Task<Sembrado> SembrarAsync(decimal stock, bool conVariante = true, bool referenciaNumerica = false, string? refAw = null)
     {
         using var scope = _factory.Services.CreateScope();
         using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
         var compartido = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
         var n = Guid.NewGuid().ToString("N").ToUpperInvariant();
-        var refAw = referenciaNumerica ? $"9{Random.Shared.NextInt64(10_000_000_000, 99_999_999_999)}" : $"SAL{n[..12]}";
+        refAw ??= referenciaNumerica ? $"9{Random.Shared.NextInt64(10_000_000_000, 99_999_999_999)}" : $"SAL{n[..12]}";
         var prod = new ProductoAw(Guid.CreateVersion7(), refAw, "Vidrio salida app", "M2");
         if (conVariante) prod.AplicarVariantes([new ProductoAwVarianteDato($"V-{n[..8]}", 3660m, 2440m, null, null)]);
         var art = new Articulo(Guid.CreateVersion7(), $"SAL-{n[12..24]}", "Vidrio salida app", conVariante ? "M2" : "PZA");
@@ -141,9 +141,15 @@ public class AlmacenesAppSalidasTests
         Assert.Contains(contiene, a.GetProperty("error").GetString());
         Assert.Equal(10 * Area, await DisponibleAsync(s.ArticuloId));
         Assert.Equal(0, await MovimientosAsync(s.ArticuloId));
+        Assert.Equal("ERROR", await EstadoMensajeAsync(f, id));
+    }
+
+    /// <summary>Estado guardado del mensaje (A4.3-a: un rechazo queda en la bandeja con estado ERROR).</summary>
+    private static async Task<string?> EstadoMensajeAsync(WebApplicationFactory<Program> f, string id)
+    {
         using var scope = f.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
-        Assert.False(await db.MensajesApp.AnyAsync(m => m.MensajeId == id));
+        return await db.MensajesApp.AsNoTracking().Where(m => m.MensajeId == id).Select(m => m.Estado).SingleOrDefaultAsync();
     }
 
     [Fact]
@@ -171,7 +177,7 @@ public class AlmacenesAppSalidasTests
     }
 
     [Fact]
-    public async Task Articulo_AW_desconocido_da_ERROR_sin_movimiento_y_no_guarda_el_mensaje()
+    public async Task Articulo_AW_desconocido_da_ERROR_sin_movimiento_y_queda_en_la_bandeja_con_estado_ERROR()
     {
         var s = await SembrarAsync(10);
         await using var f = ConLlave();
@@ -184,9 +190,49 @@ public class AlmacenesAppSalidasTests
         Assert.Contains("NO-EXISTE-", a.GetProperty("error").GetString());
         Assert.Equal(10 * Area, await DisponibleAsync(s.ArticuloId));
         Assert.Equal(0, await MovimientosAsync(s.ArticuloId));
-        using var scope = f.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
-        Assert.False(await db.MensajesApp.AnyAsync(m => m.MensajeId == id));
+        Assert.Equal("ERROR", await EstadoMensajeAsync(f, id));
+    }
+
+    [Fact]
+    public async Task A4_3_a_consumo_de_articulo_inexistente_va_a_la_bandeja_y_el_reenvio_tras_darlo_de_alta_descuenta_una_vez()
+    {
+        const string ruta = "/api/v1/almacen/mensajes-app/revision";
+        var refAw = $"SALX{Guid.NewGuid().ToString("N")[..12].ToUpperInvariant()}";
+        await using var f = ConLlave();
+        var id = Guid.NewGuid().ToString();
+        var datos = DatosV6("AJUSTE", 3, [Grupo(refAw, 3)], mesa: "HEGLA1");
+
+        var a = await Acuse(await f.CreateClient().SendAsync(Req(id, "AJUSTE_SALIDA", datos)));
+        Assert.Equal("ERROR", a.GetProperty("estado").GetString());
+        Assert.Contains(refAw, a.GetProperty("error").GetString());
+
+        var lector = await ContabTestKit.ClienteConPermisosAsync(f, PermisosCanonicos.AlmacenSalidasLeerTodas);
+        try
+        {
+            var bandeja = await ContabTestKit.Json(await lector.GetAsync(ruta));
+            var fila = Assert.Single(bandeja.EnumerateArray(), x => x.GetProperty("mensajeId").GetString() == id);
+            Assert.Equal("ERROR", fila.GetProperty("estado").GetString());
+            Assert.Contains(refAw, fila.GetProperty("error").GetString());
+
+            // Se da de alta el artículo en el ERP y la app reenvía el mismo mensajeId: ahora descuenta.
+            var s = await SembrarAsync(10, refAw: refAw);
+            var a2 = await Acuse(await f.CreateClient().SendAsync(Req(id, "AJUSTE_SALIDA", datos)));
+            Assert.Equal("RECIBIDO", a2.GetProperty("estado").GetString());
+            Assert.Equal(7 * Area, await DisponibleAsync(s.ArticuloId));
+            Assert.Equal(Millet.Almacen.Application.AppAlmacenes.SalidaAppAlmacenes.Recibido, await EstadoMensajeAsync(f, id));
+
+            var despues = await ContabTestKit.Json(await lector.GetAsync(ruta));
+            Assert.DoesNotContain(despues.EnumerateArray(), x => x.GetProperty("mensajeId").GetString() == id);
+
+            // Un tercer envío ya es DUPLICADO y no vuelve a bajar.
+            var a3 = await Acuse(await f.CreateClient().SendAsync(Req(id, "AJUSTE_SALIDA", datos)));
+            Assert.Equal("DUPLICADO", a3.GetProperty("estado").GetString());
+            Assert.Equal(7 * Area, await DisponibleAsync(s.ArticuloId));
+        }
+        finally
+        {
+            await ContabTestKit.LimpiarClienteAsync(lector);
+        }
     }
 
     [Fact]
@@ -264,9 +310,7 @@ public class AlmacenesAppSalidasTests
         Assert.Equal("ERROR", a.GetProperty("estado").GetString());
         Assert.Contains("almacenes[0]", a.GetProperty("error").GetString());
         Assert.NotEqual(HttpStatusCode.InternalServerError, resp.StatusCode);
-        using var scope = f.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
-        Assert.False(await db.MensajesApp.AnyAsync(m => m.MensajeId == id));
+        Assert.Equal("ERROR", await EstadoMensajeAsync(f, id));
     }
 
     [Fact]

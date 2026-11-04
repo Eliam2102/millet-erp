@@ -16,6 +16,7 @@ namespace Millet.Api.Endpoints.Almacen;
 public static class AlmacenesAppMensajesEndpoint
 {
     private const int MaxBytes = 1_000_000;
+    private static readonly string[] TiposSalida = [.. AlmacenesAppSalida.Tipos.Keys];
 
     public sealed record Acuse(string? MensajeId, string Estado, string? Folio, string? Error);
 
@@ -69,6 +70,13 @@ public static class AlmacenesAppMensajesEndpoint
 
                 var previo = await db.MensajesApp.AsNoTracking()
                     .FirstOrDefaultAsync(m => m.MensajeId == mensajeId, ct);
+                // A4.3-a: una salida rechazada quedó en la bandeja sin mover saldo; cuando la app reenvía el
+                // mismo mensajeId (ya corregido el dato en el ERP) se procesa otra vez y sale de la bandeja.
+                if (previo is { Estado: "ERROR" } && AlmacenesAppSalida.Tipos.ContainsKey(previo.Tipo))
+                {
+                    await db.MensajesApp.Where(m => m.MensajeId == mensajeId && m.Estado == "ERROR").ExecuteDeleteAsync(ct);
+                    previo = null;
+                }
                 if (previo is null)
                 {
                     var referencia = Str("referencia");
@@ -77,10 +85,21 @@ public static class AlmacenesAppMensajesEndpoint
                     {
                         // Las salidas mueven existencia: movimiento y MensajeApp se confirman juntos en el guardado.
                         var (resuelta, errorSalida) = await AlmacenesAppSalida.ManejarAsync(tipo, datos, salidaResolver, usuarioServicio, ct);
-                        // Un ERROR de datos (proveedor/artículo/medida sin dar de alta) se corrige en el ERP
-                        // y la app reenvía el mismo mensajeId: no se guarda para que el reenvío se procese.
+                        // Un ERROR de datos (artículo/medida/sucursal sin dar de alta, campo inválido) no descuenta nada
+                        // y queda en la bandeja de excepciones (A4.3-a) con estado ERROR; la app lo corrige y reenvía
+                        // el mismo mensajeId, que se vuelve a procesar (ver arriba).
                         if (resuelta is null)
+                        {
+                            db.MensajesApp.Add(new MensajeApp(mensajeId, tipo,
+                                referencia?.Length > 100 ? referencia[..100] : referencia, root.GetRawText(), "ERROR", null,
+                                errorSalida?.Length > 1000 ? errorSalida[..1000] : errorSalida));
+                            try { await db.SaveChangesAsync(ct); }
+                            catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: "23505" })
+                            {
+                                db.ChangeTracker.Clear(); // otro envío del mismo mensajeId ganó la carrera; el acuse sigue siendo ERROR
+                            }
                             return Results.Json(new Acuse(mensajeId, "ERROR", null, errorSalida));
+                        }
                         var g = await salidasGuardado.GuardarAsync(mensajeId, tipo, referencia, root.GetRawText(),
                             resuelta.EmpresaId, resuelta.UsuarioId, resuelta.Salidas, ct);
                         if (g.Estado == "ERROR")
@@ -129,12 +148,14 @@ public static class AlmacenesAppMensajesEndpoint
         .Produces<Acuse>(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound);
 
-        // Bandeja de revisión (J6): salidas aceptadas sin existencia suficiente; no movieron saldo.
+        // Bandeja de revisión (J6) y de excepciones (A4.3-a): salidas aceptadas sin existencia suficiente
+        // (EN_REVISION) y salidas rechazadas por datos (ERROR). Ninguna movió saldo.
         app.MapGet("/api/v1/almacen/mensajes-app/revision", async (AlmacenDbContext db, CancellationToken ct) =>
             Results.Ok(await db.MensajesApp.AsNoTracking()
-                .Where(m => m.Estado == Millet.Almacen.Application.AppAlmacenes.SalidaAppAlmacenes.EnRevision)
+                .Where(m => m.Estado == Millet.Almacen.Application.AppAlmacenes.SalidaAppAlmacenes.EnRevision
+                    || (m.Estado == "ERROR" && TiposSalida.Contains(m.Tipo)))
                 .OrderByDescending(m => m.RecibidoAt)
-                .Select(m => new { m.MensajeId, m.Tipo, m.Referencia, m.Error, m.RecibidoAt, m.Payload })
+                .Select(m => new { m.MensajeId, m.Tipo, m.Estado, m.Referencia, m.Error, m.RecibidoAt, m.Payload })
                 .Take(500).ToListAsync(ct)))
         .RequireAuthorization(Millet.Api.Auth.PermissionPolicyProvider.Prefix
             + Millet.Identidad.Domain.PermisosCanonicos.AlmacenSalidasLeerTodas)
