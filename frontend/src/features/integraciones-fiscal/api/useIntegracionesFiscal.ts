@@ -32,10 +32,10 @@ export function useConfiguracionPac(empresaId: string | null, proveedor: Proveed
           `/api/v1/integraciones/fiscal/configuracion/${empresaId}/${proveedor}`,
           { signal },
         );
-        return data;
+        // 204 = no hay configuración aún (modo "crear"); la UI renderiza el form vacío.
+        return data ?? null;
       } catch (err) {
-        // 404 = no hay configuración aún (modo "crear"). UI renderiza
-        // el form vacío.
+        // 404: mismo caso en un API anterior.
         if (err instanceof ApiError && err.status === 404) {
           return null;
         }
