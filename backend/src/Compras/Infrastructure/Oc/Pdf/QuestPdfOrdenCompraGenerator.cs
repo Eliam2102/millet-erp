@@ -135,8 +135,6 @@ public sealed class QuestPdfOrdenCompraGenerator : IGenerarPdfOrdenCompraPort
                     prov.Item().Text(oc.Proveedor.RazonSocial).Bold();
                     foreach (var linea in oc.Proveedor.DomicilioLineas.Where(x => !string.IsNullOrWhiteSpace(x)))
                         prov.Item().Text(linea);
-                    if (!string.IsNullOrWhiteSpace(oc.Proveedor.TaxId))
-                        prov.Item().Text($"Tax ID: {oc.Proveedor.TaxId}");
                     if (!string.IsNullOrWhiteSpace(oc.Incoterm))
                         prov.Item().Text($"INCOTERM: {oc.Incoterm}");
                 });
@@ -155,7 +153,8 @@ public sealed class QuestPdfOrdenCompraGenerator : IGenerarPdfOrdenCompraPort
                 der.Item().Component(new BloqueEtiquetado("Proveedor",
                 [
                     new("Número de proveedor", oc.Proveedor.Clave),
-                    new("RFC", oc.Proveedor.Rfc),
+                    string.IsNullOrWhiteSpace(oc.Proveedor.TaxId)
+                        ? new("RFC", oc.Proveedor.Rfc) : new("Tax ID", oc.Proveedor.TaxId),
                 ]));
                 der.Item().Component(new BloqueEtiquetado("Su contacto",
                 [
