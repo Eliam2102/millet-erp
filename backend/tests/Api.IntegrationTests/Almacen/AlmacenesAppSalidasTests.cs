@@ -8,7 +8,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Millet.Almacen.Domain.Catalogo;
 using Millet.Almacen.Domain.Saldos;
 using Millet.Almacen.Infrastructure.Persistence;
+using Millet.Almacen.Domain.Movimientos;
+using Millet.Almacen.Domain.Ports;
+using Millet.Api.IntegrationTests.Contabilidad;
 using Millet.Compartido.Infrastructure.Persistence;
+using Millet.Identidad.Domain;
 using Millet.DatosMaestros.Domain;
 using Millet.SharedKernel.Application;
 
@@ -35,23 +39,24 @@ public class AlmacenesAppSalidasTests
             c.AddInMemoryCollection(new Dictionary<string, string?> { ["Integraciones:AlmacenesApp:ApiKey"] = Llave })));
 
     /// <summary>Artículo A+W con variante 2440x3660 y saldo de <paramref name="stock"/> piezas a 100 MXN en MID.</summary>
-    private async Task<Sembrado> SembrarAsync(decimal stock)
+    private async Task<Sembrado> SembrarAsync(decimal stock, bool conVariante = true, bool referenciaNumerica = false)
     {
         using var scope = _factory.Services.CreateScope();
         using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
         var compartido = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
         var n = Guid.NewGuid().ToString("N").ToUpperInvariant();
-        var refAw = $"SAL{n[..12]}";
+        var refAw = referenciaNumerica ? $"9{Random.Shared.NextInt64(10_000_000_000, 99_999_999_999)}" : $"SAL{n[..12]}";
         var prod = new ProductoAw(Guid.CreateVersion7(), refAw, "Vidrio salida app", "M2");
-        prod.AplicarVariantes([new ProductoAwVarianteDato($"V-{n[..8]}", 3660m, 2440m, null, null)]);
+        if (conVariante) prod.AplicarVariantes([new ProductoAwVarianteDato($"V-{n[..8]}", 3660m, 2440m, null, null)]);
         var art = new Articulo(Guid.CreateVersion7(), $"SAL-{n[12..24]}", "Vidrio salida app", "PZA");
         art.AsignarProductoAw(prod.Id);
         compartido.AddRange(prod, art);
         await compartido.SaveChangesAsync();
 
         var mid = await compartido.Sucursales.AsNoTracking().Where(s => s.Clave == "MID").Select(s => s.Id).SingleAsync();
-        var varianteId = await compartido.ProductosAwVariantes.AsNoTracking()
-            .Where(v => v.ProductoAwId == prod.Id).Select(v => v.Id).SingleAsync();
+        Guid? varianteId = conVariante
+            ? await compartido.ProductosAwVariantes.AsNoTracking().Where(v => v.ProductoAwId == prod.Id).Select(v => v.Id).SingleAsync()
+            : null;
         var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
         var alm = new Millet.Almacen.Domain.Catalogo.Almacen(Guid.NewGuid(), $"S-{n[..16]}", "DEMO salida app", mid);
         var sub = new SubAlmacen(Guid.NewGuid(), alm.Id, "S", "DEMO S", TipoSubAlmacen.Insumos);
@@ -112,6 +117,33 @@ public class AlmacenesAppSalidasTests
         return await db.LineasMovimiento.AsNoTracking().CountAsync(l => l.ArticuloId == articuloId);
     }
 
+    private sealed record Mov(TipoMovimiento Tipo, string? Motivo, Guid EmpresaId);
+
+    private async Task<List<Mov>> MovsAsync(Guid articuloId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
+        return await (from l in db.LineasMovimiento.AsNoTracking()
+                      join m in db.Movimientos.AsNoTracking() on l.MovimientoId equals m.Id
+                      where l.ArticuloId == articuloId
+                      select new Mov(m.Tipo, m.Motivo, m.EmpresaId)).ToListAsync();
+    }
+
+    private async Task AssertErrorSinEfectosAsync(Sembrado s, object datos, string contiene, string tipo = "AJUSTE_SALIDA")
+    {
+        await using var f = ConLlave();
+        var id = Guid.NewGuid().ToString();
+        var a = await Acuse(await f.CreateClient().SendAsync(Req(id, tipo, datos)));
+        Assert.Equal("ERROR", a.GetProperty("estado").GetString());
+        Assert.Contains(contiene, a.GetProperty("error").GetString());
+        Assert.Equal(10m, await DisponibleAsync(s.ArticuloId));
+        Assert.Equal(0, await MovimientosAsync(s.ArticuloId));
+        using var scope = f.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
+        Assert.False(await db.MensajesApp.AnyAsync(m => m.MensajeId == id));
+    }
+
     [Fact]
     public async Task CA4_4_AJUSTE_SALIDA_mesa_HEGLA1_con_3_hojas_baja_3_y_acusa_RECIBIDO_con_folio()
     {
@@ -124,6 +156,9 @@ public class AlmacenesAppSalidasTests
         Assert.Equal("RECIBIDO", a.GetProperty("estado").GetString());
         Assert.StartsWith("M-SAL", a.GetProperty("folio").GetString());
         Assert.Equal(7m, await DisponibleAsync(s.ArticuloId));
+        var mov = Assert.Single(await MovsAsync(s.ArticuloId));
+        Assert.Equal(TipoMovimiento.SalidaConsumo, mov.Tipo);
+        Assert.Contains("mesa HEGLA1", mov.Motivo);
 
         // El mismo mensajeId otra vez: DUPLICADO y el saldo no vuelve a bajar.
         var a2 = await Acuse(await f.CreateClient().SendAsync(Req(id, "AJUSTE_SALIDA",
@@ -202,6 +237,7 @@ public class AlmacenesAppSalidasTests
             var l = await db.LineasMovimiento.AsNoTracking().SingleAsync(x => x.ArticuloId == s.ArticuloId);
             Assert.Equal(150m, l.CostoUnitarioMxn);
         }
+        Assert.Equal(TipoMovimiento.AjusteNegativo, Assert.Single(await MovsAsync(s.ArticuloId)).Tipo);
 
         var s2 = await SembrarAsync(10);
         var a2 = await Acuse(await f.CreateClient().SendAsync(Req(Guid.NewGuid().ToString(), "SALIDA_MANUAL",
@@ -228,5 +264,135 @@ public class AlmacenesAppSalidasTests
         using var scope = f.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
         Assert.False(await db.MensajesApp.AnyAsync(m => m.MensajeId == id));
+    }
+
+    [Fact]
+    public async Task ROTURA_con_existencia_es_BajaPorDano_con_el_motivo_y_baja_el_saldo()
+    {
+        var s = await SembrarAsync(10);
+        await using var f = ConLlave();
+        var a = await Acuse(await f.CreateClient().SendAsync(Req(Guid.NewGuid().ToString(), "ROTURA",
+            DatosV6("ROTURA", 2, [Grupo(s.ArticuloAw, 2)], motivo: "Se cayó del caballete"))));
+        Assert.Equal("RECIBIDO", a.GetProperty("estado").GetString());
+        Assert.Equal(8m, await DisponibleAsync(s.ArticuloId));
+        var mov = Assert.Single(await MovsAsync(s.ArticuloId));
+        Assert.Equal(TipoMovimiento.BajaPorDano, mov.Tipo);
+        Assert.Contains(": Se cayó del caballete", mov.Motivo);
+    }
+
+    [Fact]
+    public async Task Material_por_cantidad_sin_medida_baja_el_saldo_sin_variante()
+    {
+        var s = await SembrarAsync(10, conVariante: false);
+        await using var f = ConLlave();
+        var grupo = new { articuloAw = s.ArticuloAw, lote = "L1", piezas = 4, ancho = (int?)null, alto = (int?)null, m2 = (decimal?)null };
+        var a = await Acuse(await f.CreateClient().SendAsync(Req(Guid.NewGuid().ToString(), "AJUSTE_SALIDA",
+            DatosV6("AJUSTE", 4, [grupo]))));
+        Assert.Equal("RECIBIDO", a.GetProperty("estado").GetString());
+        Assert.Equal(6m, await DisponibleAsync(s.ArticuloId));
+    }
+
+    [Fact]
+    public async Task ArticuloAw_enviado_como_numero_JSON_se_resuelve()
+    {
+        var s = await SembrarAsync(10, referenciaNumerica: true);
+        await using var f = ConLlave();
+        var grupo = new { articuloAw = long.Parse(s.ArticuloAw), ancho = 2440, alto = 3660, lote = "L1", piezas = 2 };
+        var a = await Acuse(await f.CreateClient().SendAsync(Req(Guid.NewGuid().ToString(), "AJUSTE_SALIDA",
+            DatosV6("AJUSTE", 2, [grupo]))));
+        Assert.Equal("RECIBIDO", a.GetProperty("estado").GetString());
+        Assert.Equal(8m, await DisponibleAsync(s.ArticuloId));
+    }
+
+    [Fact]
+    public async Task Sin_datos_sucursal_da_ERROR_sin_efectos()
+    {
+        var s = await SembrarAsync(10);
+        var datos = new
+        {
+            movimiento = "AJUSTE",
+            almacenes = new[] { new { almacenGeneral = new { id = 1 }, piezas = 1, grupos = new[] { Grupo(s.ArticuloAw, 1) } } },
+        };
+        await AssertErrorSinEfectosAsync(s, datos, "datos.sucursal");
+    }
+
+    [Fact]
+    public async Task Piezas_cero_da_ERROR_sin_efectos()
+    {
+        var s = await SembrarAsync(10);
+        await AssertErrorSinEfectosAsync(s, DatosV6("AJUSTE", 0, [Grupo(s.ArticuloAw, 0)]), "piezas debe ser mayor que cero");
+    }
+
+    [Fact]
+    public async Task Solo_ancho_sin_alto_da_ERROR_sin_efectos()
+    {
+        var s = await SembrarAsync(10);
+        var grupo = new { articuloAw = s.ArticuloAw, ancho = 2440, lote = "L1", piezas = 1 };
+        await AssertErrorSinEfectosAsync(s, DatosV6("AJUSTE", 1, [grupo]), "deben venir juntos");
+    }
+
+    [Fact]
+    public async Task Medida_inexistente_da_ERROR_sin_efectos()
+    {
+        var s = await SembrarAsync(10);
+        await AssertErrorSinEfectosAsync(s, DatosV6("AJUSTE", 1, [Grupo(s.ArticuloAw, 1, ancho: 1111, alto: 2222)]), "No existe la medida");
+    }
+
+    [Fact]
+    public async Task Sucursal_desconocida_da_ERROR_sin_efectos()
+    {
+        var s = await SembrarAsync(10);
+        var datos = new
+        {
+            movimiento = "AJUSTE", sucursal = "NOEXISTE-SUC",
+            almacenes = new[] { new { almacenGeneral = new { id = 1 }, piezas = 1, grupos = new[] { Grupo(s.ArticuloAw, 1) } } },
+        };
+        await AssertErrorSinEfectosAsync(s, datos, "No existe la sucursal");
+    }
+
+    [Fact]
+    public async Task El_movimiento_se_guarda_con_la_empresa_del_usuario_de_servicio()
+    {
+        var s = await SembrarAsync(10);
+        Guid empresaServicio;
+        using (var scope = _factory.Services.CreateScope())
+            empresaServicio = (await scope.ServiceProvider.GetRequiredService<IUsuarioServicioReadPort>()
+                .ObtenerReordenAsync(CancellationToken.None))!.EmpresaId;
+        await using var f = ConLlave();
+        var a = await Acuse(await f.CreateClient().SendAsync(Req(Guid.NewGuid().ToString(), "AJUSTE_SALIDA",
+            DatosV6("AJUSTE", 1, [Grupo(s.ArticuloAw, 1)]))));
+        Assert.Equal("RECIBIDO", a.GetProperty("estado").GetString());
+        Assert.NotEqual(Guid.Empty, empresaServicio);
+        Assert.Equal(empresaServicio, Assert.Single(await MovsAsync(s.ArticuloId)).EmpresaId);
+    }
+
+    [Fact]
+    public async Task Bandeja_de_revision_401_anonimo_403_sin_permiso_y_200_con_el_mensaje_EN_REVISION()
+    {
+        const string ruta = "/api/v1/almacen/mensajes-app/revision";
+        var corto = await SembrarAsync(1);
+        await using var f = ConLlave();
+        var id = Guid.NewGuid().ToString();
+        await Acuse(await f.CreateClient().SendAsync(Req(id, "ROTURA",
+            DatosV6("ROTURA", 2, [Grupo(corto.ArticuloAw, 2)], motivo: "Rotura"))));
+
+        using var anonimo = await f.CreateClient().GetAsync(ruta);
+        Assert.Equal(HttpStatusCode.Unauthorized, anonimo.StatusCode);
+
+        var sinPermiso = await ContabTestKit.ClienteConPermisosAsync(f, PermisosCanonicos.AlmacenEntradasLeer);
+        var conPermiso = await ContabTestKit.ClienteConPermisosAsync(f, PermisosCanonicos.AlmacenSalidasLeerTodas);
+        try
+        {
+            using var prohibido = await sinPermiso.GetAsync(ruta);
+            Assert.Equal(HttpStatusCode.Forbidden, prohibido.StatusCode);
+
+            var lista = await ContabTestKit.Json(await conPermiso.GetAsync(ruta));
+            Assert.Contains(lista.EnumerateArray(), x => x.GetProperty("mensajeId").GetString() == id);
+        }
+        finally
+        {
+            await ContabTestKit.LimpiarClienteAsync(sinPermiso);
+            await ContabTestKit.LimpiarClienteAsync(conPermiso);
+        }
     }
 }

@@ -25,7 +25,7 @@ public sealed class SalidaAppAlmacenesGuardado
 
     /// <summary>
     /// Registra las salidas y el mensaje en una transacción (solo Npgsql: el folio del movimiento la exige).
-    /// Un ERROR no guarda nada (el reenvío del mismo mensajeId se reprocesa). <c>Duplicado</c> = carrera con otro
+    /// <c>Duplicado</c> = carrera con otro
     /// envío del mismo mensajeId (23505): se revierte y el llamador responde DUPLICADO.
     /// </summary>
     public async Task<(string Estado, string? Folio, string? Error, bool Duplicado)> GuardarAsync(
@@ -36,7 +36,6 @@ public sealed class SalidaAppAlmacenesGuardado
         await using var tx = _db.Database.IsNpgsql() ? await _db.Database.BeginTransactionAsync(ct) : null;
 
         var (estado, folio, error) = await SalidaAppAlmacenes.RegistrarAsync(_db, empresaId, usuarioId, salidas, ct);
-        if (estado == "ERROR") return (estado, folio, error, false);
 
         _db.MensajesApp.Add(new MensajeApp(mensajeId, tipo,
             referencia?.Length > 100 ? referencia[..100] : referencia, payload, estado, folio, error));
