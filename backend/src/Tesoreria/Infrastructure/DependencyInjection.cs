@@ -38,6 +38,8 @@ public static class DependencyInjection
         // TES-PR7: nombres de cliente para la bandeja de depósitos (ADR-0042).
         services.AddScoped<Domain.Ports.DatosMaestros.IClienteReadPort,
             Adapters.ClienteReadPortAdapter>();
+        services.AddScoped<Domain.Ports.DatosMaestros.IEmpresaActaReadPort,
+            Adapters.EmpresaActaReadPortAdapter>();
 
         // C7.4 (86e3jvv56): CxC lee los depósitos de cliente sin identificar por su
         // puerto; Tesorería es dueña del movimiento bancario (mismo patrón que

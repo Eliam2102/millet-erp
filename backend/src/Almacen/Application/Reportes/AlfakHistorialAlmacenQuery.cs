@@ -109,6 +109,7 @@ public sealed class AlfakHistorialAlmacenHandler
                         m.Tipo,
                         m.FechaMovimiento,
                         l.Cantidad,
+                        l.CostoUnitarioMxn,
                     };
 
         var rows = await query.ToListAsync(cancellationToken);
@@ -155,6 +156,8 @@ public sealed class AlfakHistorialAlmacenHandler
                 }
             }
             var saldoFinal = inicial + entradas - salidas + ajPos - ajNeg;
+            var posteriores = g.Where(m => m.FechaMovimiento > request.Hasta)
+                .Select(m => (TipoMovimientoExtensions.EsEntrada(m.Tipo), m.Cantidad, m.CostoUnitarioMxn)).ToList();
             // C7.2a: costo representativo del sub-almacén = promedio ponderado
             // entre sus bins (una fila arbitraria sería el costo de un bin al
             // azar con N bins). Sin cambio con la ÚNICA única.
@@ -170,6 +173,8 @@ public sealed class AlfakHistorialAlmacenHandler
                 ? Math.Round(
                     saldosActuales.Sum(s => s.Cantidad * s.CostoPromedioMxn) / cantidadActual, 4)
                 : saldosActuales.Count > 0 ? saldosActuales[0].CostoPromedioMxn : 0m;
+            var (valorFinal, costoFinal) = ValorizarAlCorte(
+                saldoFinal, saldosActuales.Sum(s => s.Cantidad * s.CostoPromedioMxn), costoProm, posteriores);
             filas.Add(new AlfakHistorialFila(
                 SubAlmacenId: g.Key.SubAlmacenId,
                 ArticuloId: g.Key.ArticuloId,
@@ -179,8 +184,8 @@ public sealed class AlfakHistorialAlmacenHandler
                 AjustesPositivos: ajPos,
                 AjustesNegativos: ajNeg,
                 SaldoFinal: saldoFinal,
-                CostoPromedioFinal: costoProm,
-                ValorInventarioFinal: Math.Round(saldoFinal * costoProm, 2),
+                CostoPromedioFinal: costoFinal,
+                ValorInventarioFinal: valorFinal,
                 // Sub-almacén por JOIN; Articulo* nulos aquí, se enriquecen en batch.
                 SubAlmacenNombre: subAlmacenNombre,
                 ArticuloClave: null,
@@ -215,6 +220,25 @@ public sealed class AlfakHistorialAlmacenHandler
             Columnas: Columnas,
             Filas: filas,
             Totales: CalcularTotales(filas));
+    }
+
+    /// <summary>
+    /// Valor y costo promedio al corte (<c>Hasta</c>): parte del valor actual del saldo y revierte las
+    /// líneas posteriores al corte con su costo congelado (entrada resta, salida suma). Sin líneas
+    /// posteriores equivale al cálculo previo (saldoFinal × costo actual).
+    /// </summary>
+    // ponytail: los ajustes de valor sin línea de movimiento (SaldoInventario.AjustarValor) posteriores a
+    // Hasta no se revierten; un snapshot al cierre mensual lo resolvería.
+    public static (decimal Valor, decimal Costo) ValorizarAlCorte(
+        decimal saldoFinal, decimal valorActual, decimal costoActual,
+        IEnumerable<(bool EsEntrada, decimal Cantidad, decimal CostoUnitario)> posterioresAHasta)
+    {
+        var lineas = posterioresAHasta.ToList();
+        if (lineas.Count == 0)
+            return (Math.Round(saldoFinal * costoActual, 2), costoActual);
+        var valor = valorActual - lineas.Sum(l => (l.EsEntrada ? 1m : -1m) * l.Cantidad * l.CostoUnitario);
+        var costo = saldoFinal != 0 ? Math.Round(valor / saldoFinal, 4) : costoActual;
+        return (Math.Round(valor, 2), costo);
     }
 
     /// <summary>ArticuloId distintos para el batch de enriquecimiento (ADR-0042).</summary>

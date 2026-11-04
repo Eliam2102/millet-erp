@@ -126,7 +126,7 @@ public static class ActaConciliacionPdfGenerator
                     cert.Item().Text(
                         "Se certifica que la presente conciliación bancaria mensual ha sido revisada a cabalidad, comprobándose " +
                         "que los saldos bancarios y los registros contables en libros de la empresa se encuentran completamente cuadrados " +
-                        "con una diferencia neta de $0.00 (cero pesos), satisfaciendo los requisitos de control interno de Vidrios Millet.")
+                        "con una diferencia neta de $0.00 (cero pesos), satisfaciendo los requisitos de control interno de " + d.EmpresaNombre + ".")
                         .FontSize(8).FontColor(Colors.Grey.Darken3);
                 });
 
@@ -158,7 +158,7 @@ public static class ActaConciliacionPdfGenerator
                 t.CurrentPageNumber();
                 t.Span(" de ");
                 t.TotalPages();
-                t.Span($" · Folio: {d.ConciliacionId} · Vidrios Millet");
+                t.Span($" · Folio: {d.ConciliacionId} · {d.EmpresaNombre}");
             });
         });
     });
@@ -170,7 +170,7 @@ public static class ActaConciliacionPdfGenerator
         {
             row.RelativeItem().Column(c =>
             {
-                c.Item().Text("VIDRIOS MILLET DE MÉXICO").Bold().FontSize(12).FontColor(PdfEstilos.AzulMarca);
+                c.Item().Text(d.EmpresaNombre.ToUpperInvariant()).Bold().FontSize(12).FontColor(PdfEstilos.AzulMarca);
                 c.Item().Text($"RFC: {d.EmpresaRfc}").FontSize(8).FontColor(Colors.Grey.Darken1);
                 c.Item().Text("MÓDULO DE TESORERÍA / BANCOS").FontSize(8).FontColor(Colors.Grey.Darken1);
             });

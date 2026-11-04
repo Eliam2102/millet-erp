@@ -75,6 +75,18 @@ public sealed class PagarDevolucionHandlerTests
     }
 
     [Fact]
+    public async Task Brecha12_folio_ya_usado_por_otro_egreso_de_la_cuenta_rechaza_la_devolucion()
+    {
+        await using var db = Db(); var (c, d) = await Nc(db, "MXN");
+        db.MovimientosBancarios.Add(MovimientoBancario.RegistrarPagoACuenta(Empresa, c, Guid.NewGuid(), 50m, Fecha, "spei 987", null, "urgente", Solicitante, Ahora));
+        await db.SaveChangesAsync();
+
+        var pagar = () => Handler(db).Handle(new(d.Id, Fecha, c.Id, " SPEI 987 ", true, d.Version), default);
+
+        await pagar.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "PAGO_REFERENCIA_DUPLICADA");
+    }
+
+    [Fact]
     public async Task Pagar_sin_referencia_usa_la_referencia_del_movimiento()
     {
         await using var db = Db(); var (c, d) = await Nc(db, "MXN");

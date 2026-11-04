@@ -7,7 +7,8 @@ public sealed class CancelarRequisicionValidator : AbstractValidator<CancelarReq
     public CancelarRequisicionValidator()
     {
         RuleFor(c => c.RequisicionId).NotEmpty().WithErrorCode("REQUISICION_REQUERIDA");
-        RuleFor(c => c.MotivoId).NotEmpty().WithErrorCode("MOTIVO_REQUERIDO");
+        RuleFor(c => c.MotivoId).NotEmpty().WithErrorCode("MOTIVO_REQUERIDO")
+            .WithMessage("Selecciona el motivo de cancelación.");
 
         RuleFor(c => c.MotivoTexto)
             .MaximumLength(500).WithErrorCode("MOTIVO_TEXTO_DEMASIADO_LARGO")

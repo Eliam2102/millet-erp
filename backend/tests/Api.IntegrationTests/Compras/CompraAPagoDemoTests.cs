@@ -60,7 +60,9 @@ public sealed class CompraAPagoDemoTests(WebApplicationFactory<Program> factory)
             var cat = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
             var pza = await cat.UnidadesMedida.SingleAsync(u => u.Codigo == "PZA");
             var art = new Millet.DatosMaestros.Domain.Articulo(Guid.NewGuid(), $"CP{Guid.NewGuid():N}"[..16], "DEMO compra a pago", "PZA", unidadMedidaId: pza.Id);
-            cat.Add(art); await cat.SaveChangesAsync(); Articulo = art.Id;
+            cat.Add(art);
+            await Millet.Api.IntegrationTests.DatosMaestros.Adjuntos.AdjuntosProveedorAmbiente.AgregarOpinionCumplimientoAsync(cat, Proveedor);
+            await cat.SaveChangesAsync(); Articulo = art.Id;
         }
         await using var periodo = await AbrirPeriodoSiHaceFaltaAsync(app, hoy);
 

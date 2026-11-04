@@ -244,6 +244,30 @@ describe('detalle de producto A+W', () => {
     expect(filas[1]).toHaveTextContent('sin dato');
   });
 
+  it('CA2.9: un laminado 6+0.89+6 muestra sus capas y componentes con su espesor', () => {
+    const c = (orden: number, nivel: number, padreOrden: number | null, componenteRef: string,
+      descripcion: string, tipo: string, espesorMm: number | null) =>
+      ({ orden, nivel, padreOrden, componenteRef, descripcion, tipo, espesorMm });
+    render(
+      <ProductoAwComposicion
+        componentes={[
+          c(1, 1, null, 'DEMO-LAM-13', 'LAMINADO 6+0.89+6 CLARO', 'VLA', null),
+          c(2, 2, 1, 'DEMO-100006', '6MM CLARO', 'Vidrio plano', 6),
+          c(3, 2, 1, 'DEMO-419001', 'P.V.B. CLARO 0.89MM', 'Interlayer', 0.89),
+          c(4, 2, 1, 'DEMO-100006', '6MM CLARO', 'Vidrio plano', 6),
+        ]}
+      />,
+    );
+    expect(screen.getByText('Composición (4)')).toBeInTheDocument();
+    const filas = screen.getAllByRole('treeitem');
+    expect(filas.map((f) => f.getAttribute('aria-level'))).toEqual(['1', '2', '2', '2']);
+    expect(filas[1]).toHaveTextContent('6MM CLARO');
+    expect(filas[1]).toHaveTextContent('Vidrio plano · 6 mm');
+    expect(filas[2]).toHaveTextContent('P.V.B. CLARO 0.89MM');
+    expect(filas[2]).toHaveTextContent('Interlayer · 0.89 mm');
+    expect(filas[3]).toHaveTextContent('Vidrio plano · 6 mm');
+  });
+
   it('composición vacía no renderiza la sección', () => {
     render(<ProductoAwComposicion componentes={[]} />);
     expect(screen.queryByRole('tree')).not.toBeInTheDocument();

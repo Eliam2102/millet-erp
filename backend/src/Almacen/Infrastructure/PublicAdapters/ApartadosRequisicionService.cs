@@ -64,6 +64,19 @@ public sealed class ApartadosRequisicionService(AlmacenDbContext db, IAlmacenSal
         await db.SaveChangesAsync(ct);
     }
 
+    /// <summary>
+    /// ALM-36: true si la existencia de la sucursal alcanza para <paramref name="cantidadBase"/> pero lo libre más
+    /// lo apartado para esta RQ no: el resto está apartado para otra requisición.
+    /// </summary>
+    public async Task<bool> ApartadaParaOtraAsync(Guid sucursalId, Guid rqId, Guid articuloId,
+        decimal cantidadBase, CancellationToken ct)
+    {
+        var disponible = await saldos.ConsultarDisponibilidadPorSucursalAsync(sucursalId, articuloId, ct);
+        var propios = await db.ApartadosRequisicion.AsNoTracking()
+            .Where(a => a.RequisicionId == rqId && a.ArticuloId == articuloId).SumAsync(a => a.Pendiente, ct);
+        return cantidadBase <= disponible.Cantidad && cantidadBase > disponible.CantidadDisponible + propios;
+    }
+
     public async Task ConsumirAsync(Guid sucursalId, Guid? rqId, Guid? lineaId,
         Guid articuloId, decimal cantidad, CancellationToken ct)
     {

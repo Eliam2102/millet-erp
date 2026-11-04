@@ -175,7 +175,8 @@ public sealed class ObtenerConciliacionDetalleHandler(TesoreriaDbContext db)
 // ============================================================================
 public sealed record DescargarActaConciliacionQuery(Guid Id) : IRequest<byte[]>;
 
-public sealed class DescargarActaConciliacionHandler(TesoreriaDbContext db)
+public sealed class DescargarActaConciliacionHandler(TesoreriaDbContext db,
+    Millet.Tesoreria.Domain.Ports.DatosMaestros.IEmpresaActaReadPort empresas)
     : IRequestHandler<DescargarActaConciliacionQuery, byte[]>
 {
     public async Task<byte[]> Handle(DescargarActaConciliacionQuery query, CancellationToken cancellationToken)
@@ -194,6 +195,9 @@ public sealed class DescargarActaConciliacionHandler(TesoreriaDbContext db)
             .FirstOrDefaultAsync(c => c.Id == conciliacion.CuentaBancariaId, cancellationToken)
             ?? throw new EntityNotFoundException("CUENTA_NO_ENCONTRADA", "No se encontró la cuenta bancaria.");
 
+        var empresa = await empresas.ObtenerAsync(conciliacion.EmpresaId, cancellationToken)
+            ?? throw new EntityNotFoundException("EMPRESA_NO_ENCONTRADA", "No se encontró la empresa de la conciliación.");
+
         var partidasTransito = conciliacion.Lineas
             .Where(l => l.PartidaTransito)
             .Select(l => new DatosPartidaTransito(
@@ -208,8 +212,8 @@ public sealed class DescargarActaConciliacionHandler(TesoreriaDbContext db)
 
         var datosActa = new DatosActaConciliacion(
             conciliacion.Id,
-            "Vidrios Millet de México S.A. de C.V.",
-            "VMI900101XYZ",
+            empresa.RazonSocial,
+            empresa.Rfc,
             cuenta.Banco,
             Millet.SharedKernel.Domain.Bancos.NumeroCuenta.Crear(cuenta.NumeroCuenta).Enmascarado,
             cuenta.Moneda,

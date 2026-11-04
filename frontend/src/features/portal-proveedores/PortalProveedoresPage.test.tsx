@@ -3,6 +3,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { PortalProveedoresPage } from './PortalProveedoresPage';
 
+// Las fechas se prueban en la zona de Mérida: en UTC el corrimiento de día no se notaría.
+process.env.TZ = 'America/Merida';
+
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 
 function montar() {
@@ -32,6 +35,10 @@ it('pide código, entra con el código y muestra la factura detenida por falta d
         estado: 'Detenida: falta el complemento de pago', detenida: true,
         motivo: 'Falta el complemento de pago de la factura A-10', fechaProgramadaPago: null,
         fechaVencimiento: '2026-11-15',
+      }, {
+        id: 'f2', folio: 'A-11', uuid: 'U-2', fecha: '2026-10-02T00:00:00Z', total: 50, moneda: 'MXN',
+        estado: 'Pagada', detenida: false, motivo: null, fechaProgramadaPago: null,
+        fechaVencimiento: '2026-11-16', fechaPago: '2026-11-04',
       }]);
     }
     return json([], 404);
@@ -47,6 +54,8 @@ it('pide código, entra con el código y muestra la factura detenida por falta d
   expect(await screen.findByText('Falta el complemento de pago de la factura A-10')).toBeTruthy();
   expect(screen.getByText('Sin programar')).toBeTruthy();
   expect(screen.getByText('15/11/2026')).toBeTruthy();
+  expect(screen.getByText('01/10/2026')).toBeTruthy(); // la fecha del CFDI, no el día anterior
+  expect(screen.getByText('Pagada el 04/11/2026')).toBeTruthy(); // F-CXP-03: la pagada dice cuándo se pagó
   expect(sessionStorage.getItem('millet.portal-proveedores.token')).toBe('tok');
   // resumen, aviso con la acción concreta y correo en la cabecera
   expect(screen.getByRole('region', { name: 'Facturas detenidas' }).textContent).toContain('sube el complemento en la pestaña');
@@ -55,6 +64,17 @@ it('pide código, entra con el código y muestra la factura detenida por falta d
   expect(screen.getByRole('button', { name: /Cerrar sesión/ })).toBeTruthy();
   const llamada = fetchMock.mock.calls.find(([u]) => String(u).endsWith('/facturas'));
   expect((llamada?.[1] as RequestInit).headers).toEqual({ Authorization: 'Bearer tok' });
+});
+
+it('reenviar código avisa del límite de 3 por hora sin revelar si el correo existe (F-CXP-04)', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(null, { status: 202 })));
+  montar();
+
+  fireEvent.change(screen.getByLabelText('Correo autorizado'), { target: { value: 'ventas@prov.mx' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Enviar código' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Reenviar código' }));
+
+  expect((await screen.findByRole('status')).textContent).toMatch(/Si el correo está autorizado.*máximo 3 códigos por hora/);
 });
 
 it('un código inválido muestra el error y no abre sesión', async () => {

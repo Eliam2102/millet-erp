@@ -1,4 +1,5 @@
 import { createFileRoute, redirect, useParams } from '@tanstack/react-router';
+import { toast } from 'sonner';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { ProveedoresLayout } from '@/modules/datos-maestros/components/ProveedoresLayout';
@@ -18,6 +19,8 @@ export const Route = createFileRoute(
     if (
       !permisos.includes(PermisosCanonicos.DatosMaestrosProveedoresGestionar)
     ) {
+      // F-RQOC-03: avisar en lugar de regresar a Inicio en silencio.
+      toast.info('No tienes permiso para abrir Proveedores.', { id: 'sin-acceso-proveedores' });
       throw redirect({ to: '/' });
     }
   },

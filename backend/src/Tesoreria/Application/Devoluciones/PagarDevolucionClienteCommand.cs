@@ -133,6 +133,11 @@ public sealed class PagarDevolucionClienteHandler
                 command.FondosVerificados, usuarioId, ahora, d.SucursalId);
         }
 
+        // F1-TES-05 brecha 12: el folio que capturó Tesorería no puede respaldar otro egreso de la cuenta.
+        // ponytail: corre bajo el candado de devoluciones, no el de pagos; si dos capturas simultáneas usan el mismo folio, índice único parcial en BD.
+        if (await Millet.Tesoreria.Application.Pagos.ReferenciaPagoUnica.BuscarAsync(_db, egreso.CuentaBancariaId, command.ReferenciaBancaria, ct) is { } previo)
+            throw Millet.Tesoreria.Application.Pagos.ReferenciaPagoUnica.Duplicada(previo);
+
         _db.MovimientosBancarios.Add(egreso);
         d.MarcarPagada(egreso.Id, usuarioId, ahora);
         // F6.3: la NC muestra «Pagado» con la fecha valor y la referencia del pago.

@@ -69,7 +69,8 @@ public sealed partial class CrearOrdenCompraVaciaValidator : AbstractValidator<C
             .When(c => c.Observaciones is not null);
 
         RuleFor(c => c.MotivoSinRequisicion)
-            .NotEmpty().WithErrorCode("MOTIVO_SIN_RQ_REQUERIDO")
+            .NotEmpty().WithErrorCode("OC_MOTIVO_SIN_RQ_REQUERIDO")
+            .WithMessage("Una OC sin requisición previa requiere capturar el motivo.")
             .When(c => c.SinRequisicionPrevia);
 
         RuleFor(c => c.MotivoSinRequisicion)

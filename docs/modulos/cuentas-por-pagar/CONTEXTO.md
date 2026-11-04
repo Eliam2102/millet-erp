@@ -102,3 +102,4 @@ Trampas: `AplicarComprobacionGastosHandler` incluye por Id la comprobación reci
 
 ## 10. Aprendizajes por tarea
 - 2026-10-22 · 86e3kdw2k · El mínimo de reposición vive en backend, frontend (`ReposicionesCajaPage.tsx`, `useReposiciones.ts`, `types.ts`), docs (doc 12 y levantamiento §7.4.1) y permisos; no tiene pruebas. `AprobadorLimite` nunca se ha aplicado en ningún handler.
+- 2026-11-03 · 86e3ke0z5 · El estatus SAT del CFDI recibido (`EstatusSat`, `FechaCancelacionSat`) lo fija solo la descarga del SAT (`FiscalCfdiReceiverAdapter`); alta manual y buzón lo dejan en null. La alerta por CFDI cancelado manda la factura a revisión (`CFDI_CANCELADO_SAT`, sembrado por SQL, no en `SeedMotivos`) solo en la transición a Cancelado, porque la descarga reprocesa varios días. `DocumentoDestinoId` es polimórfico (factura, NC, anticipo, comprobación). Abierto: qué hacer al capturar un CFDI que ya llegó cancelado (siete flujos de captura).

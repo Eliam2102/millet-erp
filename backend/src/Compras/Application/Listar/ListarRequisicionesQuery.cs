@@ -22,4 +22,25 @@ public sealed record ListarRequisicionesQuery(
 {
     public string PermisoTodasSucursales => "compras.requisiciones.leer-todas-sucursales";
     public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+
+    /// <summary>
+    /// Alcance por departamento (F-RQOC-01): lo fija el endpoint cuando el usuario no ve todos los
+    /// departamentos. Null = sin restricción.
+    /// </summary>
+    public AlcanceDepartamentoRq? AlcanceDepartamento { get; init; }
+}
+
+/// <summary>
+/// Quien no tiene <c>compras.requisiciones.ver-todos-departamentos</c> solo ve las RQ de su departamento
+/// y las que pidió o capturó (doc 05 §10.4, ayuda de Compras).
+/// </summary>
+public sealed record AlcanceDepartamentoRq(Guid UsuarioId, Guid? DepartamentoId)
+{
+    public System.Linq.Expressions.Expression<Func<Requisicion, bool>> Visible()
+    {
+        var usuario = UsuarioId;
+        var depto = DepartamentoId;
+        return r => r.RequisitanteId == usuario || r.CreadorId == usuario
+            || (depto != null && r.DepartamentoId == depto);
+    }
 }

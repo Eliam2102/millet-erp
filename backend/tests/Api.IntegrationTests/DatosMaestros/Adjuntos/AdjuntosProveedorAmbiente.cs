@@ -181,6 +181,14 @@ public sealed class AdjuntosProveedorAmbiente : IAsyncDisposable
         return p.Id;
     }
 
+    /// <summary>86e3ke2d3: opinión de cumplimiento vigente; sin ella el proveedor queda detenido por «documentación» en corrida y pago.</summary>
+    public static async Task AgregarOpinionCumplimientoAsync(CompartidoDbContext db, Guid proveedorId)
+    {
+        var tipo = await db.AdjuntoTiposDocumento.FirstAsync(t => t.TipoEntidad == "proveedor" && t.Codigo == Millet.Compartido.Application.Adjuntos.ExpedienteAdjuntos.CodigoOpinionCumplimiento);
+        db.Adjuntos.Add(new Adjunto(Guid.NewGuid(), "proveedor", proveedorId, null, tipo.Id, "opinion.pdf", "application/pdf", 20,
+            new string('a', 64), $"opinion/{proveedorId}", DateOnly.FromDateTime(DateTime.Today.AddDays(20)), Guid.NewGuid(), DateTimeOffset.UtcNow));
+    }
+
     public async Task<int> ContarAdjuntosAsync(Guid proveedorId)
     {
         using var scope = Factory.Services.CreateScope();

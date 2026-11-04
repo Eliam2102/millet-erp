@@ -11,7 +11,7 @@ namespace Millet.Integraciones.Aw.Infrastructure.Retorno;
 
 /// <summary>
 /// TR-01: escucha <c>facturacion.factura-venta.timbrada.v1</c>, <c>facturacion.comprobante.cancelado.v1</c> y
-/// <c>facturacion.nota-credito.timbrada.v1</c> (topic facturacion-events) y deja la fila Documento
+/// <c>facturacion.nota-credito.timbrada.v1</c> (y, 86e3jvv6z, cobros de mostrador y REPP timbrados para las filas Pago) (topic facturacion-events) y deja la fila Documento
 /// (FacturaFinal / Cancelacion / NotaCredito) en <c>aw_retorno</c>. La idempotencia vive en la tabla (UUID + tipo, candado por
 /// pedido), no en una marca de evento: una reentrega no duplica. La nota de crédito solo genera fila si llegó de A+W
 /// (86e3wjt5r: el evento trae pedido, versión y folio). Mismo patrón que <c>FacturacionEventListenerWorker</c> de CxC.
@@ -23,6 +23,10 @@ public sealed class FacturacionRetornoListenerWorker : BackgroundService, ILocal
     public const string EventTypeFacturaTimbrada = "facturacion.factura-venta.timbrada.v1";
     public const string EventTypeComprobanteCancelado = "facturacion.comprobante.cancelado.v1";
     public const string EventTypeNotaCreditoTimbrada = "facturacion.nota-credito.timbrada.v1";
+    // 86e3jvv6z: pagos (tipo 4). El importe se recalcula de Facturación; el evento solo dice qué comprobante cambió.
+    public const string EventTypeCobroRegistrado = "facturacion.cobro-mostrador.registrado.v1";
+    public const string EventTypeCobroCancelado = "facturacion.cobro-mostrador.cancelado.v1";
+    public const string EventTypeReciboPagoTimbrado = "facturacion.recibo-pago.timbrado.v1";
 
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
 
@@ -76,12 +80,19 @@ public sealed class FacturacionRetornoListenerWorker : BackgroundService, ILocal
     Task ILocalIntegrationEventConsumer.ConsumirLocalAsync(string eventType, Guid eventId, string body, CancellationToken cancellationToken)
         => ProcessAsync(eventType, body, null, cancellationToken);
 
+    private static async Task RegistrarPagosAsync(AwRetornoDocumentoService servicio, string body, CancellationToken ct)
+    {
+        var p = JsonSerializer.Deserialize<PagoRetornoPayload>(body, JsonOpts) ?? throw new JsonException("Payload null.");
+        if ((p.ComprobanteId ?? p.ReciboPagoId) is { } id) await servicio.RegistrarPagosAsync(id, ct);
+    }
+
     /// <summary>Internal para tests: sin Service Bus relanza la falla (el outbox reintenta); con él abandona para retry.</summary>
     internal async Task ProcessAsync(string eventType, string body, ProcessMessageEventArgs? sb, CancellationToken ct)
     {
         try
         {
-            if (eventType is EventTypeFacturaTimbrada or EventTypeComprobanteCancelado or EventTypeNotaCreditoTimbrada)
+            if (eventType is EventTypeFacturaTimbrada or EventTypeComprobanteCancelado or EventTypeNotaCreditoTimbrada
+                or EventTypeCobroRegistrado or EventTypeCobroCancelado or EventTypeReciboPagoTimbrado)
             {
                 using var scope = _scopeFactory.CreateScope();
                 var sp = scope.ServiceProvider;
@@ -89,14 +100,25 @@ public sealed class FacturacionRetornoListenerWorker : BackgroundService, ILocal
                 using var bypass = sp.GetRequiredService<ICurrentEmpresaContext>().Bypass();
                 var servicio = sp.GetRequiredService<AwRetornoDocumentoService>();
                 if (eventType == EventTypeFacturaTimbrada)
-                    await servicio.RegistrarFacturaAsync(JsonSerializer.Deserialize<FacturaTimbradaRetornoPayload>(body, JsonOpts)
-                        ?? throw new JsonException("Payload null."), ct);
+                {
+                    var factura = JsonSerializer.Deserialize<FacturaTimbradaRetornoPayload>(body, JsonOpts)
+                        ?? throw new JsonException("Payload null.");
+                    await servicio.RegistrarFacturaAsync(factura, ct);
+                    // Un cobro que llegó antes que la factura no escribió nada: aquí se recogen sus pagos.
+                    if (factura.FacturaVentaId is { } id) await servicio.RegistrarPagosAsync(id, ct);
+                }
                 else if (eventType == EventTypeNotaCreditoTimbrada)
                     await servicio.RegistrarNotaCreditoAsync(JsonSerializer.Deserialize<FacturaTimbradaRetornoPayload>(body, JsonOpts)
                         ?? throw new JsonException("Payload null."), ct);
-                else
+                else if (eventType == EventTypeComprobanteCancelado)
+                {
                     await servicio.RegistrarCancelacionAsync(JsonSerializer.Deserialize<CancelacionRetornoPayload>(body, JsonOpts)
                         ?? throw new JsonException("Payload null."), ct);
+                    // Un REPP cancelado baja los pagos de sus facturas; una factura cancelada no deja pagos (se omite).
+                    await RegistrarPagosAsync(servicio, body, ct);
+                }
+                else
+                    await RegistrarPagosAsync(servicio, body, ct);
             }
             if (sb is not null) await sb.CompleteMessageAsync(sb.Message, ct);
         }

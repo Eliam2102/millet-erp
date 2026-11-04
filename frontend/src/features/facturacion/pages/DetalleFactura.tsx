@@ -33,6 +33,7 @@ import { EstadoCancelacionBanner } from '@/features/facturacion/components/Estad
 import { EstadoReembolsoNcBadge } from '@/features/facturacion/components/EstadoReembolsoNcBadge';
 import { IntentosTimbradoPanel } from '@/features/facturacion/components/IntentosTimbradoPanel';
 import { SolicitarReembolsoNcDialog } from '@/features/facturacion/components/SolicitarReembolsoNcDialog';
+import { SustituirFacturaPanel } from '@/features/facturacion/components/SustituirFacturaPanel';
 import { TimbradoFallidoBanner } from '@/features/facturacion/components/TimbradoFallidoBanner';
 import { TrazabilidadFacturacion } from '@/features/facturacion/components/TrazabilidadFacturacion';
 import { descargarArchivo } from '@/features/facturacion/lib/descargas';
@@ -44,7 +45,7 @@ import { esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
-import { Ban, Download, FileCode, Mail, Printer, Receipt, X } from 'lucide-react';
+import { Ban, Download, FileCode, Info, Mail, Printer, Receipt, RefreshCw, TriangleAlert, X } from 'lucide-react';
 import { useState } from 'react';
 import type { AnticipoEstadoCuenta } from '@/features/facturacion/api/types';
 import { useAplicarAnticipoAFactura } from '@/features/facturacion/api/useAnticipos';
@@ -99,7 +100,7 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
   const cancelacion = useCancelacionEstatus(f.id);
   // F6.5: con una solicitud pendiente de autorización no se puede pedir otra.
   const cancelacionPendiente = cancelacion.data?.estadoSolicitud === 'PendienteAutorizacion';
-  const [accion, setAccion] = useState<'cancelar' | 'nc' | 'anticipo' | null>(null);
+  const [accion, setAccion] = useState<'cancelar' | 'nc' | 'anticipo' | 'sustituir' | null>(null);
   const puedeAplicarAnticipo = useHasPermission(PermisosCanonicos.FacturacionAnticiposVincular);
   const timbrada = f.estado === 'Timbrado' || f.estado === 'Cancelado';
   // Solo una factura vigente (Timbrado) admite NC / cancelación.
@@ -205,6 +206,17 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
                       NC bonificación
                     </Button>
                   )}
+                  {puedeEmitir && puedeCancelar && vigente && !cancelacionPendiente && !f.sustituidaPor && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAccion((a) => (a === 'sustituir' ? null : 'sustituir'))}
+                      title="Emite una factura nueva con relación 04 y pide la cancelación de esta con motivo 01"
+                    >
+                      <RefreshCw className="mr-1 h-4 w-4" />
+                      Sustituir
+                    </Button>
+                  )}
                   {puedeCancelar && vigente && !cancelacionPendiente && (
                     <Button
                       variant="outline"
@@ -247,8 +259,9 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
         />
       )}
       {accion === 'cancelar' && (
-        <CancelarComprobanteForm comprobanteId={f.id} onDone={() => setAccion(null)} />
+        <CancelarComprobanteForm comprobanteId={f.id} sugerirSustituir onDone={() => setAccion(null)} />
       )}
+      {accion === 'sustituir' && <SustituirFacturaPanel facturaId={f.id} onDone={() => setAccion(null)} />}
 
       {pendientePedimento && puedeEmitir && <PedimentoForm facturaId={f.id} />}
 
@@ -258,6 +271,8 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
         errorCodigo={f.timbradoErrorCodigo}
         errorMensaje={f.timbradoErrorMensaje}
       />
+
+      <AvisoSustitucion f={f} />
 
       <EstadoCancelacionBanner
         comprobanteId={f.id}
@@ -904,6 +919,44 @@ function Dato({ label, children }: { label: string; children: React.ReactNode })
     <div className="space-y-0.5">
       <dt className="text-xs text-ink-muted">{label}</dt>
       <dd className="text-sm">{children}</dd>
+    </div>
+  );
+}
+
+/**
+ * FAC-08b: «Sustituida por B» en la original y «Sustituye a A» en la sustituta (relación 04).
+ * Si el Contador General no autorizó la sustitución, avisa que las dos siguen vigentes
+ * hasta que se cancele la sustituta (supuesto a validar).
+ */
+function AvisoSustitucion({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['data']> }) {
+  const otra = f.sustituidaPor ?? f.sustituyeA;
+  if (!otra) return null;
+  const esOriginal = Boolean(f.sustituidaPor);
+  return (
+    <div className="space-y-2" data-testid="aviso-sustitucion">
+      <p role="note" className="flex items-start gap-1.5 rounded-md bg-info-bg px-3 py-2 text-sm text-info-fg">
+        <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" strokeWidth={1.6} />
+        <span>
+          {esOriginal ? 'Sustituida por ' : 'Sustituye a '}
+          <Link to="/facturacion/facturas/$id" params={{ id: otra.id }} className="font-mono underline">
+            {otra.folio}
+          </Link>{' '}
+          (relación 04 · {otra.estado === 'Timbrado' ? 'vigente' : otra.estado.toLowerCase()}).
+        </span>
+      </p>
+      {f.sustitucionRechazadaMotivo && (
+        <p
+          role="note"
+          className="flex items-start gap-1.5 rounded-md bg-warning-note-bg px-3 py-2.5 text-sm text-warning-note-fg"
+        >
+          <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" strokeWidth={1.6} />
+          <span>
+            <span className="font-medium">Sustitución rechazada.</span> El Contador General no autorizó
+            cancelar la original: «{f.sustitucionRechazadaMotivo}». El ERP pidió la cancelación de la
+            sustituta con motivo 03; mientras no se cancele, las dos facturas están vigentes: no cobres dos veces.
+          </span>
+        </p>
+      )}
     </div>
   );
 }

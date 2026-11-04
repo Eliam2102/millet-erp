@@ -46,8 +46,19 @@ public class AwRetornoPgTests(WebApplicationFactory<Program> factory)
         Options.Create(new AwPedidosOptions { SqlConnectTimeoutSeconds = 5, SqlQueryTimeoutSeconds = 15 }),
         AwRetornoAdapter.CandadoPostgres);
 
+    private readonly PagosFalsos _pagos = new();
+
+    private sealed class PagosFalsos : IAwPagosReadPort
+    {
+        public Dictionary<Guid, List<PagosFacturaAw>> PorComprobante { get; } = [];
+        public Task<IReadOnlyList<PagosFacturaAw>> PorComprobanteAsync(Guid comprobanteId, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<PagosFacturaAw>>(PorComprobante.TryGetValue(comprobanteId, out var l) ? l : []);
+        public Task<PagosFacturaAw?> PorFolioAsync(string numeroPedidoAw, string folio, CancellationToken ct) =>
+            Task.FromResult(PorComprobante.Values.SelectMany(l => l).LastOrDefault(f => f.NumeroPedidoAw == numeroPedidoAw && f.Folio == folio));
+    }
+
     private AwRetornoDocumentoService Servicio() =>
-        new(Adapter(), _versiones, NullLogger<AwRetornoDocumentoService>.Instance);
+        new(Adapter(), _versiones, _pagos, Options.Create(new AwPedidosOptions()), NullLogger<AwRetornoDocumentoService>.Instance);
 
     private static AwRetornoDocumento Doc(string pedido, string uuid, long version = 1, decimal importe = 1160m, string folio = "F-1") =>
         new(pedido, "FacturaFinal", version, folio, uuid, importe);
@@ -125,9 +136,9 @@ public class AwRetornoPgTests(WebApplicationFactory<Program> factory)
             NullLogger<FacturacionRetornoListenerWorker>.Instance), sp);
     }
 
-    private static string Timbrada(string uuid, string folio, string pedido, long version) => JsonSerializer.Serialize(
+    private static string Timbrada(string uuid, string folio, string pedido, long version, Guid? facturaId = null) => JsonSerializer.Serialize(
         new Millet.Facturacion.Application.Integration.FacturaVentaTimbradaIntegrationEvent(
-            Guid.NewGuid(), DateTimeOffset.UtcNow, Guid.NewGuid(), uuid, 580m, "MXN", Guid.NewGuid(),
+            Guid.NewGuid(), DateTimeOffset.UtcNow, facturaId ?? Guid.NewGuid(), uuid, 580m, "MXN", Guid.NewGuid(),
             "XAXX010101000", "Cliente", folio, "PPD", DateTimeOffset.UtcNow, NumeroPedidoAw: pedido, VersionPedidoAw: version));
 
     private static string Cancelada(string uuid, string folio, string pedido, long version) => JsonSerializer.Serialize(
@@ -279,6 +290,157 @@ public class AwRetornoPgTests(WebApplicationFactory<Program> factory)
         await cn.OpenAsync();
         await using var cmd = new NpgsqlCommand("SELECT count(*) FROM dbo.aw_solicitud_pedido WHERE uuid IS NOT NULL OR estado_facturacion IS NOT NULL", cn);
         ((long)(await cmd.ExecuteScalarAsync())!).Should().Be(0);
+    }
+
+    // ===== Pagos (tipo 4, script 14 v3, SRC-121): importe acumulado por factura + forma + moneda; la fila nueva sustituye =====
+    private async Task<List<string>> PagosAsync(string pedido)
+    {
+        await using var cn = new NpgsqlConnection(_cs);
+        await cn.OpenAsync();
+        await using var cmd = new NpgsqlCommand(
+            "SELECT concat_ws('|', secuencia, version_pedido, folio, forma_pago, moneda, importe) " +
+            "FROM dbo.aw_retorno WHERE numero_pedido = @p AND tipo = 4 ORDER BY secuencia", cn);
+        cmd.Parameters.AddWithValue("p", pedido);
+        var filas = new List<string>();
+        await using var r = await cmd.ExecuteReaderAsync();
+        while (await r.ReadAsync()) filas.Add(r.GetString(0));
+        return filas;
+    }
+
+    [Fact]
+    public async Task Los_pagos_dejan_una_fila_por_forma_y_moneda_y_la_reentrega_no_duplica()
+    {
+        var adapter = Adapter();
+        await adapter.AgregarDocumentoAsync(Doc("900101", "UUID-A", version: 2, folio: "F-1"), default);
+
+        (await adapter.AgregarPagosAsync("900101", 2, "F-1", [new("01", "MXN", 300m), new("03", "MXN", 200m)], true, default)).Should().Be(2);
+        (await adapter.AgregarPagosAsync("900101", 2, "F-1", [new("03", "MXN", 200m), new("01", "MXN", 300m)], true, default)).Should().Be(0);
+
+        (await PagosAsync("900101")).Should().Equal("2|2|F-1|01|MXN|300.00", "3|2|F-1|03|MXN|200.00");
+    }
+
+    [Fact]
+    public async Task Un_pago_mas_deja_el_acumulado_y_un_cobro_cancelado_deja_su_grupo_en_cero()
+    {
+        var adapter = Adapter();
+        await adapter.AgregarDocumentoAsync(Doc("900101", "UUID-A", version: 2, folio: "F-1"), default);
+        await adapter.AgregarPagosAsync("900101", 2, "F-1", [new("01", "MXN", 300m), new("03", "MXN", 200m)], true, default);
+
+        // Entra otro pago en efectivo: solo el grupo 01 cambia y lleva el total, no la diferencia.
+        (await adapter.AgregarPagosAsync("900101", 2, "F-1", [new("01", "MXN", 450m), new("03", "MXN", 200m)], true, default)).Should().Be(1);
+        // Se cancela la transferencia: su grupo baja a 0.
+        (await adapter.AgregarPagosAsync("900101", 2, "F-1", [new("01", "MXN", 450m)], true, default)).Should().Be(1);
+        // Otra vez el mismo estado: nada.
+        (await adapter.AgregarPagosAsync("900101", 2, "F-1", [new("01", "MXN", 450m)], true, default)).Should().Be(0);
+
+        (await PagosAsync("900101")).Should().Equal(
+            "2|2|F-1|01|MXN|300.00", "3|2|F-1|03|MXN|200.00", "4|2|F-1|01|MXN|450.00", "5|2|F-1|03|MXN|0.00");
+    }
+
+    [Fact]
+    public async Task Dos_facturas_del_pedido_llevan_sus_pagos_aparte_con_secuencia_corrida()
+    {
+        var adapter = Adapter();
+        await adapter.AgregarDocumentoAsync(Doc("900101", "UUID-A", folio: "F-1"), default);
+        await adapter.AgregarDocumentoAsync(Doc("900101", "UUID-B", folio: "F-2"), default);
+
+        await adapter.AgregarPagosAsync("900101", 1, "F-1", [new("01", "MXN", 100m)], true, default);
+        await adapter.AgregarPagosAsync("900101", 1, "F-2", [new("01", "USD", 50m)], true, default);
+
+        (await PagosAsync("900101")).Should().Equal("3|1|F-1|01|MXN|100.00", "4|1|F-2|01|USD|50.00");
+    }
+
+    [Fact]
+    public async Task El_pago_no_se_adelanta_a_su_factura()
+    {
+        (await Adapter().AgregarPagosAsync("900101", 1, "F-9", [new("01", "MXN", 100m)], true, default)).Should().Be(0);
+        (await PagosAsync("900101")).Should().BeEmpty();
+
+        // Anticipo (sin fila FacturaFinal propia): no se exige.
+        (await Adapter().AgregarPagosAsync("900101", 1, "FA-1", [new("03", "MXN", 100m)], false, default)).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Un_pago_desfasado_aparece_en_el_acuse_hasta_que_llega_su_reemplazo()
+    {
+        var adapter = Adapter();
+        await adapter.AgregarDocumentoAsync(Doc("900101", "UUID-A", version: 2, folio: "F-1"), default);
+        await adapter.AgregarPagosAsync("900101", 2, "F-1", [new("01", "MXN", 300m)], true, default);
+        await EjecutarAsync("UPDATE dbo.aw_retorno SET resultado = 3, aplicada_at = now(), intentos = 1 WHERE tipo = 4");
+
+        var acuse = (await adapter.LeerAcusesPorAtenderAsync(default)).Should().ContainSingle().Subject;
+        (acuse.Tipo, acuse.Folio, acuse.FormaPago, acuse.Moneda, acuse.Importe).Should().Be(((byte)4, "F-1", "01", "MXN", (decimal?)300m));
+
+        // Mismo importe con la versión nueva: sí se agrega (reemplaza a la desfasada) y el acuse queda limpio.
+        (await adapter.AgregarPagosAsync("900101", 3, "F-1", [new("01", "MXN", 300m)], true, default)).Should().Be(1);
+        (await adapter.LeerAcusesPorAtenderAsync(default)).Should().BeEmpty();
+    }
+
+    // ===== Disparo de pagos: cobro registrado/cancelado y REPP timbrado → filas Pago recalculadas =====
+    [Fact]
+    public async Task Los_eventos_de_cobro_y_REPP_dejan_las_filas_Pago_y_la_cancelacion_del_cobro_baja_a_cero()
+    {
+        var (listener, sp) = ListenerConServicio();
+        await using var _ = sp;
+        _versiones.PorPedido["900505"] = 2;
+        var factura = Guid.NewGuid();
+        await listener.ConsumirLocalAsync(FacturacionRetornoListenerWorker.EventTypeFacturaTimbrada, Guid.NewGuid(), Timbrada("UUID-F", "F-5", "900505", 2), default);
+
+        _pagos.PorComprobante[factura] = [new PagosFacturaAw("900505", "F-5", true, [new("01", "MXN", 580m)])];
+        var cobro = JsonSerializer.Serialize(new { ComprobanteId = factura, Total = 580m });
+        await listener.ConsumirLocalAsync(FacturacionRetornoListenerWorker.EventTypeCobroRegistrado, Guid.NewGuid(), cobro, default);
+        await listener.ConsumirLocalAsync(FacturacionRetornoListenerWorker.EventTypeCobroRegistrado, Guid.NewGuid(), cobro, default); // reentrega
+
+        _pagos.PorComprobante[factura] = [new PagosFacturaAw("900505", "F-5", true, [])];
+        await listener.ConsumirLocalAsync(FacturacionRetornoListenerWorker.EventTypeCobroCancelado, Guid.NewGuid(), cobro, default);
+
+        var repp = Guid.NewGuid();
+        _pagos.PorComprobante[repp] = [new PagosFacturaAw("900505", "F-5", true, [new("03", "MXN", 580m)])];
+        await listener.ConsumirLocalAsync(FacturacionRetornoListenerWorker.EventTypeReciboPagoTimbrado, Guid.NewGuid(),
+            JsonSerializer.Serialize(new { ReciboPagoId = repp }), default);
+
+        (await PagosAsync("900505")).Should().Equal("2|2|F-5|01|MXN|580.00", "3|2|F-5|01|MXN|0.00", "4|2|F-5|03|MXN|580.00");
+    }
+
+    [Fact]
+    public async Task Un_cobro_que_llega_antes_que_su_factura_se_recoge_al_timbrar_la_factura()
+    {
+        var (listener, sp) = ListenerConServicio();
+        await using var _ = sp;
+        _versiones.PorPedido["900606"] = 1;
+        var factura = Guid.NewGuid();
+        _pagos.PorComprobante[factura] = [new PagosFacturaAw("900606", "F-6", true, [new("01", "MXN", 580m)])];
+
+        await listener.ConsumirLocalAsync(FacturacionRetornoListenerWorker.EventTypeCobroRegistrado, Guid.NewGuid(),
+            JsonSerializer.Serialize(new { ComprobanteId = factura }), default);
+        (await PagosAsync("900606")).Should().BeEmpty();
+
+        await listener.ConsumirLocalAsync(FacturacionRetornoListenerWorker.EventTypeFacturaTimbrada, Guid.NewGuid(),
+            Timbrada("UUID-6", "F-6", "900606", 1, factura), default);
+        (await PagosAsync("900606")).Should().Equal("2|1|F-6|01|MXN|580.00");
+    }
+
+    [Fact]
+    public async Task El_importe_se_redondea_a_dos_decimales_y_el_recalculo_no_duplica()
+    {
+        var adapter = Adapter();
+        await adapter.AgregarDocumentoAsync(Doc("900101", "UUID-A", folio: "F-1"), default);
+        (await adapter.AgregarPagosAsync("900101", 1, "F-1", [new("01", "MXN", 100.005m)], true, default)).Should().Be(1);
+        (await adapter.AgregarPagosAsync("900101", 1, "F-1", [new("01", "MXN", 100.005m)], true, default)).Should().Be(0);
+        (await PagosAsync("900101")).Should().Equal("2|1|F-1|01|MXN|100.01");
+    }
+
+    [Fact]
+    public async Task Un_cero_desfasado_se_reenvia_con_la_version_nueva()
+    {
+        var adapter = Adapter();
+        await adapter.AgregarDocumentoAsync(Doc("900101", "UUID-A", version: 1, folio: "F-1"), default);
+        await adapter.AgregarPagosAsync("900101", 1, "F-1", [new("03", "MXN", 200m)], true, default);
+        await adapter.AgregarPagosAsync("900101", 1, "F-1", [], true, default);                    // cobro cancelado → 0
+        await EjecutarAsync("UPDATE dbo.aw_retorno SET resultado = 3, aplicada_at = now(), intentos = 1 WHERE tipo = 4 AND importe = 0");
+
+        (await adapter.AgregarPagosAsync("900101", 2, "F-1", [], true, default)).Should().Be(1);
+        (await adapter.LeerAcusesPorAtenderAsync(default)).Should().BeEmpty();
     }
 
     // ===== Criterio 5: misma tabla en el canal demo =====

@@ -56,7 +56,8 @@ public static class EmpresasEndpoints
             var logo = await mediator.Send(new ObtenerLogoEmpresaQuery(id), ct);
             response.Headers.CacheControl = "no-store";
             response.Headers.XContentTypeOptions = "nosniff";
-            return logo is null ? Results.NotFound() : Results.Stream(logo.Contenido, logo.ContentType);
+            // Sin logo = 204 (no 404): «Mi empresa» lo pide siempre y el 404 ensuciaba la consola.
+            return logo is null ? Results.NoContent() : Results.Stream(logo.Contenido, logo.ContentType);
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AdminEmpresasLeer)
         .WithName("ObtenerLogoEmpresa");

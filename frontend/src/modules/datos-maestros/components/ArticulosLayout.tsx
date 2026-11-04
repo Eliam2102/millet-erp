@@ -25,7 +25,7 @@ import { CampoFiltro, MaestroFiltros, MaestroShell } from './MaestroShell';
 
 /**
  * Layout master-detail (P3 del patrón cross-módulo) para
- * <c>/admin/datos-maestros/articulos</c>. Filtros: descripción y estado a la vista;
+ * <c>/admin/datos-maestros/articulos</c>. Filtros: clave o descripción y estado a la vista;
  * código, unidad y naturaleza en «+ Filtro». Claves en orden natural (lo ordena la
  * API) y «Cargar más» sobre todo el universo. Artículos no tiene noción de «incompleto».
  */
@@ -39,24 +39,24 @@ export function ArticulosLayout({ idActivo, detalle }: ArticulosLayoutProps) {
   const canAdministrar = useHasPermission(PermisosCanonicos.CompartidoCatalogosAdministrar);
 
   const [codigoInput, setCodigoInput] = useState('');
-  const [descripcionInput, setDescripcionInput] = useState('');
+  const [busquedaInput, setBusquedaInput] = useState('');
   const [unidadInput, setUnidadInput] = useState('');
   const [naturaleza, setNaturaleza] = useState<string>('');
   const [estatus, setEstatus] = useState<string>('');
 
   const codigoDeb = useDebouncedValue(codigoInput, 300);
-  const descripcionDeb = useDebouncedValue(descripcionInput, 300);
+  const busquedaDeb = useDebouncedValue(busquedaInput, 300);
   const unidadDeb = useDebouncedValue(unidadInput, 300);
 
   const filtros = useMemo<ListarArticulosFiltros>(
     () => ({
       codigo: codigoDeb.trim() || undefined,
-      descripcion: descripcionDeb.trim() || undefined,
+      q: busquedaDeb.trim() || undefined,
       unidadMedidaDefault: unidadDeb.trim() || undefined,
       naturaleza: naturaleza !== '' ? (Number(naturaleza) as Naturaleza) : undefined,
       estatus: estatus !== '' ? (Number(estatus) as EstatusCatalogo) : undefined,
     }),
-    [codigoDeb, descripcionDeb, unidadDeb, naturaleza, estatus],
+    [codigoDeb, busquedaDeb, unidadDeb, naturaleza, estatus],
   );
 
   const { query, items, total } = useArticulosInfinito(filtros);
@@ -85,10 +85,10 @@ export function ArticulosLayout({ idActivo, detalle }: ArticulosLayoutProps) {
       }
       filtros={
         <MaestroFiltros
-          busqueda={descripcionInput}
-          onBusqueda={setDescripcionInput}
-          placeholder="Buscar por descripción…"
-          ariaLabel="Filtrar por descripción"
+          busqueda={busquedaInput}
+          onBusqueda={setBusquedaInput}
+          placeholder="Clave o descripción…"
+          ariaLabel="Buscar por clave o descripción"
           estatus={estatus}
           onEstatus={setEstatus}
           masFiltrosActivos={activos}

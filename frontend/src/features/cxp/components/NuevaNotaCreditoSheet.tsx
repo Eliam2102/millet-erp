@@ -65,6 +65,13 @@ const TIPO_NC_POR_RELACION: Record<TipoRelacionCfdi, TipoNotaCredito> = {
   [TipoRelacionCfdi.AmortizacionAnticipo]: TipoNotaCredito.AmortizacionAnticipo,
 };
 
+/** Inverso: al elegir el tipo a mano, la relación SAT debe coincidir (03 formaliza la nota de cargo). */
+const RELACION_POR_TIPO_NC: Record<TipoNotaCredito, TipoRelacionCfdi> = {
+  [TipoNotaCredito.Descuento]: TipoRelacionCfdi.NotaCredito,
+  [TipoNotaCredito.Devolucion]: TipoRelacionCfdi.Devolucion,
+  [TipoNotaCredito.AmortizacionAnticipo]: TipoRelacionCfdi.AmortizacionAnticipo,
+};
+
 /**
  * <c>&lt;NuevaNotaCreditoSheet/&gt;</c> — captura de NC del proveedor.
  * El backend resuelve automáticamente la factura origen vía
@@ -321,7 +328,14 @@ function NuevaNcForm({
             control={form.control}
             name="tipo"
             render={({ field }) => (
-              <Select value={String(field.value)} onValueChange={(v) => field.onChange(Number(v))}>
+              <Select
+                value={String(field.value)}
+                onValueChange={(v) => {
+                  const tipo = Number(v) as TipoNotaCredito;
+                  field.onChange(tipo);
+                  form.setValue('tipoRelacionCfdi', RELACION_POR_TIPO_NC[tipo]);
+                }}
+              >
                 <SelectTrigger {...control}>
                   <SelectValue />
                 </SelectTrigger>

@@ -1224,6 +1224,109 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                     b.ToTable("terminal_carga", "facturacion");
                 });
 
+            modelBuilder.Entity("Millet.Facturacion.Domain.Cajas.Terminal.FacturaBancoTerminal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Anio")
+                        .HasColumnType("integer")
+                        .HasColumnName("anio");
+
+                    b.Property<int>("Cargos")
+                        .HasColumnType("integer")
+                        .HasColumnName("cargos");
+
+                    b.Property<Guid>("CfdiRecibidoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cfdi_recibido_id");
+
+                    b.Property<decimal>("Comision")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("comision");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<decimal>("IvaComision")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("iva_comision");
+
+                    b.Property<DateTimeOffset>("LigadaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ligada_en");
+
+                    b.Property<Guid>("LigadaPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ligada_por");
+
+                    b.Property<int>("Mes")
+                        .HasColumnType("integer")
+                        .HasColumnName("mes");
+
+                    b.Property<string>("RfcEmisor")
+                        .IsRequired()
+                        .HasMaxLength(13)
+                        .HasColumnType("character varying(13)")
+                        .HasColumnName("rfc_emisor");
+
+                    b.Property<decimal>("Total")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("total");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<string>("UuidCfdi")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)")
+                        .HasColumnName("uuid_cfdi");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_terminal_factura_banco");
+
+                    b.HasIndex("EmpresaId", "CfdiRecibidoId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_terminal_factura_banco_empresa_cfdi");
+
+                    b.HasIndex("EmpresaId", "UuidCfdi")
+                        .IsUnique()
+                        .HasDatabaseName("ux_terminal_factura_banco_empresa_uuid");
+
+                    b.ToTable("terminal_factura_banco", "facturacion", t =>
+                        {
+                            t.HasCheckConstraint("ck_terminal_factura_banco_mes", "mes BETWEEN 1 AND 12");
+                        });
+                });
+
             modelBuilder.Entity("Millet.Facturacion.Domain.Cajas.Terminal.LiquidacionTerminal", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1260,6 +1363,10 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("empresa_id");
 
+                    b.Property<Guid?>("FacturaBancoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("factura_banco_id");
+
                     b.Property<DateOnly>("Fecha")
                         .HasColumnType("date")
                         .HasColumnName("fecha");
@@ -1292,6 +1399,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("updated_by");
 
+                    b.Property<string>("UuidFacturaBanco")
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)")
+                        .HasColumnName("uuid_factura_banco");
+
                     b.Property<int>("Version")
                         .IsConcurrencyToken()
                         .HasColumnType("integer")
@@ -1299,6 +1411,13 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_terminal_liquidacion");
+
+                    b.HasIndex("FacturaBancoId")
+                        .HasDatabaseName("ix_terminal_liquidacion_factura_banco_id");
+
+                    b.HasIndex("EmpresaId", "Fecha")
+                        .HasDatabaseName("ix_terminal_liquidacion_sin_factura_fecha")
+                        .HasFilter("factura_banco_id IS NULL");
 
                     b.HasIndex("EmpresaId", "Folio")
                         .IsUnique()
@@ -1364,6 +1483,10 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("FechaHora")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("fecha_hora");
+
+                    b.Property<DateOnly?>("FechaLiquidacion")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_liquidacion");
 
                     b.Property<string>("FolioLiquidacion")
                         .HasMaxLength(40)
@@ -4397,6 +4520,15 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_cobro_mostrador_forma_pago_cobros_mostrador_cobro_mostrador");
+                });
+
+            modelBuilder.Entity("Millet.Facturacion.Domain.Cajas.Terminal.LiquidacionTerminal", b =>
+                {
+                    b.HasOne("Millet.Facturacion.Domain.Cajas.Terminal.FacturaBancoTerminal", null)
+                        .WithMany()
+                        .HasForeignKey("FacturaBancoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_terminal_liquidacion_facturas_banco_terminal_factura_banco_");
                 });
 
             modelBuilder.Entity("Millet.Facturacion.Domain.Cajas.Terminal.TransaccionTerminal", b =>
