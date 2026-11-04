@@ -34,6 +34,18 @@ public static class ReportesEndpoints
         .WithSummary("ALFAK-HISTORIAL-ALMACEN — movimientos del periodo agrupados por sub-almacén / artículo")
         .Produces<ReporteResponse<AlfakHistorialFila>>(StatusCodes.Status200OK);
 
+        // F1-ALM-13-a: valuación al cierre contra el saldo de la cuenta de inventario. Mismo permiso que el ALFAK (es su total).
+        app.MapGet("/api/v1/almacen/reportes/cuadre-inventario", async (
+            [FromQuery] int anio,
+            [FromQuery] int mes,
+            IMediator mediator,
+            CancellationToken ct) => Results.Ok(await mediator.Send(new CuadreInventarioContableQuery(anio, mes), ct)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenReportesAlfak)
+        .WithTags("Almacen")
+        .WithName("ReporteCuadreInventarioContable")
+        .WithSummary("Cuadre del cierre: valuación del ALFAK contra el saldo de la cuenta de inventario por sucursal")
+        .Produces<ReporteResponse<CuadreInventarioFila>>(StatusCodes.Status200OK);
+
         // SAP-REPORTE-EXISTENCIA-MP-CNK
         app.MapGet("/api/v1/almacen/reportes/mp-cnk", async (
             [FromQuery] Guid? subAlmacenId,

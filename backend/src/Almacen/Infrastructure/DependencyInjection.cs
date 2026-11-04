@@ -56,6 +56,7 @@ public static class DependencyInjection
         // adapter real (delega en CentrosCosto.IDim3ReadPort) se cablea en Program.cs.
         services.AddScoped<ICentroCostoReadPort, NoOpCentroCostoReadPort>();
         services.AddScoped<IPeriodoContableReadPort, PeriodoContableReadAdapter>();
+        services.AddScoped<IInventarioContableReadPort, InventarioContableReadAdapter>();
 
         // F2-PR2: Open Host Service público (Compras/Requisiciones lo consumen
         // para validar stock + reemplazar el stub InMemoryConsultarStockPort).

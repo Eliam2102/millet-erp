@@ -616,6 +616,67 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Millet.Almacen.Domain.Cierre.ValuacionCierre", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Anio")
+                        .HasColumnType("integer")
+                        .HasColumnName("anio");
+
+                    b.Property<Guid>("ArticuloId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("articulo_id");
+
+                    b.Property<decimal>("Cantidad")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("cantidad");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<string>("Lote")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("lote");
+
+                    b.Property<int>("Mes")
+                        .HasColumnType("integer")
+                        .HasColumnName("mes");
+
+                    b.Property<Guid>("PeriodoCerradoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("periodo_cerrado_id");
+
+                    b.Property<Guid?>("ProductoAwVarianteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("producto_aw_variante_id");
+
+                    b.Property<Guid>("SubAlmacenId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sub_almacen_id");
+
+                    b.Property<decimal>("ValorMxn")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("valor_mxn");
+
+                    b.HasKey("Id")
+                        .HasName("pk_valuaciones_cierre");
+
+                    b.HasIndex("PeriodoCerradoId")
+                        .HasDatabaseName("ix_valuaciones_cierre_periodo_cerrado_id");
+
+                    b.HasIndex("EmpresaId", "Anio", "Mes", "SubAlmacenId")
+                        .HasDatabaseName("ix_valuaciones_cierre_empresa_id_anio_mes_sub_almacen_id");
+
+                    b.ToTable("valuaciones_cierre", "almacen");
+                });
+
             modelBuilder.Entity("Millet.Almacen.Domain.Consumo.ConsumoComponenteAw", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2666,6 +2727,16 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_ubicaciones_sub_almacenes_sub_almacen_id");
+                });
+
+            modelBuilder.Entity("Millet.Almacen.Domain.Cierre.ValuacionCierre", b =>
+                {
+                    b.HasOne("Millet.Almacen.Domain.Cierre.PeriodoCerrado", null)
+                        .WithMany()
+                        .HasForeignKey("PeriodoCerradoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_valuaciones_cierre_periodos_cerrados_periodo_cerrado_id");
                 });
 
             modelBuilder.Entity("Millet.Almacen.Domain.Conteos.LineaConteo", b =>

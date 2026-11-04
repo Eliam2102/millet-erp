@@ -1237,6 +1237,22 @@ export interface AlfakHistorialFila {
   saldoFinal: number;
   costoPromedioFinal: number;
   valorInventarioFinal: number;
+  /** F1-ALM-13: hojas (unidad física) del vidrio por medida al saldo final; null si no es por medida. */
+  hojasFinal?: number | null;
+}
+
+/** F1-ALM-13-a: fila del cuadre del cierre (Sucursal, Almacén o Kardex). Diferencia = valuación − saldo (o − kardex). */
+export interface CuadreInventarioFila {
+  nivel: 'Sucursal' | 'Almacén' | 'Kardex';
+  sucursalId: string;
+  sucursal: string | null;
+  almacen: string | null;
+  articulo: string | null;
+  cuenta: string | null;
+  valuacion: number;
+  saldoContable: number | null;
+  diferencia: number | null;
+  observacion: string | null;
 }
 
 export interface ExistenciaMpCnkFila {
