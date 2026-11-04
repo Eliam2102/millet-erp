@@ -1,8 +1,11 @@
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Millet.Compras.Application.Integration.AlmCompra;
 using Millet.Compras.Domain.AlmCompra;
+using Millet.Compras.Domain.Oc;
+using Millet.Compras.Domain.Oc.Events;
 using Millet.Compras.Infrastructure;
 using Millet.Integraciones.Aw.Infrastructure.AlmCompra;
 using Millet.SharedKernel.Application;
@@ -23,8 +26,25 @@ public sealed class AlmCompraProcesadorTests
         private sealed class Nada : IDisposable { public void Dispose() { } }
     }
 
+    private sealed class Publicador : IPublisher
+    {
+        public List<object> Publicados { get; } = [];
+        public Task Publish(object notification, CancellationToken cancellationToken = default) { Publicados.Add(notification); return Task.CompletedTask; }
+        public Task Publish<TNotification>(TNotification notification, CancellationToken cancellationToken = default) where TNotification : INotification
+        { Publicados.Add(notification!); return Task.CompletedTask; }
+    }
+
+    private sealed class CancelacionFalsa : IAlmCompraCancelacion
+    {
+        public List<string> Llamadas { get; } = [];
+        public Task<IReadOnlyList<object>> FinalizarAsync(Guid ocId, CancellationToken ct) { Llamadas.Add("finalizar"); return Task.FromResult<IReadOnlyList<object>>([]); }
+        public Task RevertirAsync(Guid ocId, string? error, CancellationToken ct) { Llamadas.Add("revertir"); return Task.CompletedTask; }
+    }
+
     private sealed class Entorno
     {
+        public Publicador Publicador { get; } = new();
+        public CancelacionFalsa Cancelacion { get; } = new();
         public ComprasDbContext Db { get; }
         public SimuladoAlmCompraTransporte Sim { get; } = new();
         public Reloj Reloj { get; } = new(new DateTimeOffset(2026, 11, 4, 12, 0, 0, TimeSpan.Zero));
@@ -36,20 +56,21 @@ public sealed class AlmCompraProcesadorTests
             Db = new ComprasDbContext(opts, new BypassEmpresa());
             Db.Database.EnsureCreated();
             Procesador = new AlmCompraProcesador(Db, Sim, Options.Create(new AlmCompraOptions { MaxIntentos = maxIntentos }),
-                Reloj, new BypassEmpresa(), NullLogger<AlmCompraProcesador>.Instance);
+                Reloj, new BypassEmpresa(), Cancelacion,
+                Publicador, NullLogger<AlmCompraProcesador>.Instance);
         }
 
         /// <summary>Encola un mensaje de la OC <paramref name="folio"/> con el ordinal siguiente de su tipo.</summary>
-        public AlmCompraEnvio Encolar(string folio, string tipo)
+        public AlmCompraEnvio Encolar(string folio, string tipo, Guid? ocId = null)
         {
             var ordinal = Db.AlmCompraEnvios.Local.Count(e => e.Referencia == folio && e.Tipo == tipo) + 1;
-            var ocId = Guid.NewGuid();
-            var id = AlmCompraSobre.MensajeId(folio, ocId, tipo, ordinal);
+            var ocGuid = ocId ?? Guid.NewGuid();
+            var id = AlmCompraSobre.MensajeId(folio, ocGuid, tipo, ordinal);
             object datos = tipo == AlmCompraEnvio.TipoCancelada
                 ? AlmCompraSobre.DatosCancelada(folio, "Cancelada")
                 : AlmCompraSobre.DatosCompra(new AlmCompraDatos(folio, 164, "3M", "MXN", null, new DateOnly(2026, 11, 4),
                     [new AlmCompraLinea("1", "RQ-00000003", 1, 100006, 501, 3300, 6100, 10, null, null, null, 210.5m, 4237.8m)]));
-            var envio = new AlmCompraEnvio(Guid.CreateVersion7(), Empresa, ocId, folio, tipo, ordinal, id,
+            var envio = new AlmCompraEnvio(Guid.CreateVersion7(), Empresa, ocGuid, folio, tipo, ordinal, id,
                 AlmCompraSobre.Armar(id, tipo, Reloj.UtcNow, folio, datos));
             Db.AlmCompraEnvios.Add(envio);
             Db.SaveChanges();
@@ -189,19 +210,45 @@ public sealed class AlmCompraProcesadorTests
         t.Sim.ViolacionesDeOrden.Should().BeEmpty();
     }
 
+    // El efecto sobre la OC (cancelar y liberar / revertir con aviso) se prueba en Compras.UnitTests (dominio) y en la prueba de API
+    // contra PostgreSQL; el proveedor InMemory no materializa las líneas de la OC, por eso aquí va un doble.
     [Fact]
-    public async Task Cancelar_o_modificar_con_entrada_cerrada_es_ERROR_de_Almacenes_y_detiene_la_referencia()
+    public async Task Cancelacion_rechazada_queda_RECHAZADA_sin_detener_la_referencia_y_aceptada_queda_PROCESADA()
     {
         var t = new Entorno();
-        t.Encolar("OC-1", AlmCompraEnvio.TipoRecibida);
+        var ok = t.Encolar("OC-C0", AlmCompraEnvio.TipoRecibida);
+        t.Encolar("OC-C2", AlmCompraEnvio.TipoRecibida);
         await t.Procesador.ProcesarAsync(default);
-        t.Sim.MarcarEntradaCerrada("OC-1");
-        var c = t.Encolar("OC-1", AlmCompraEnvio.TipoCancelada);
+        var c0 = t.Encolar("OC-C0", AlmCompraEnvio.TipoCancelada);
+        t.Sim.MarcarEntradaCerrada("OC-C2");
+        var c = t.Encolar("OC-C2", AlmCompraEnvio.TipoCancelada);
+        var m = t.Encolar("OC-C2", AlmCompraEnvio.TipoModificada); // p. ej. el pedimento que llega después
 
         await t.Procesador.ProcesarAsync(default);
+        await t.Procesador.ProcesarAsync(default);
 
+        (await t.EstadoAsync(c0)).Should().Be(AlmCompraEnvio.Procesado);
         var fila = await t.Db.AlmCompraEnvios.AsNoTracking().SingleAsync(x => x.Id == c.Id);
-        (fila.Estado, fila.UltimoError).Should().Be((AlmCompraEnvio.Error, "La compra OC-1 ya tiene entrada cerrada."));
+        (fila.Estado, fila.UltimoError).Should().Be((AlmCompraEnvio.Rechazado, "La compra OC-C2 ya tiene entrada cerrada."));
+        t.Sim.Escrituras.Should().Contain(m.MensajeId); // el rechazo no frena la referencia
+        t.Cancelacion.Llamadas.Should().Equal("finalizar", "revertir"); // PROCESADO cancela la OC; ERROR la revierte
+    }
+
+    [Fact]
+    public async Task Modificar_con_entrada_cerrada_es_ERROR_de_Almacenes_y_si_detiene_la_referencia()
+    {
+        var t = new Entorno();
+        t.Encolar("OC-M1", AlmCompraEnvio.TipoRecibida);
+        await t.Procesador.ProcesarAsync(default);
+        t.Sim.MarcarEntradaCerrada("OC-M1");
+        var m1 = t.Encolar("OC-M1", AlmCompraEnvio.TipoModificada);
+        var m2 = t.Encolar("OC-M1", AlmCompraEnvio.TipoModificada);
+
+        await t.Procesador.ProcesarAsync(default);
+
+        var fila = await t.Db.AlmCompraEnvios.AsNoTracking().SingleAsync(x => x.Id == m1.Id);
+        (fila.Estado, fila.UltimoError).Should().Be((AlmCompraEnvio.Error, "La compra OC-M1 ya tiene entrada cerrada."));
+        (await t.EstadoAsync(m2)).Should().Be(AlmCompraEnvio.Pendiente);
     }
 
     [Fact]

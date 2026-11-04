@@ -14,8 +14,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Millet.Compras.Infrastructure.Migrations
 {
     [DbContext(typeof(ComprasDbContext))]
-    [Migration("20261104202150_AlmCompraEnvios")]
-    partial class AlmCompraEnvios
+    [Migration("20261104221440_AlmCompraEnviosYCancelacionAlmacenes")]
+    partial class AlmCompraEnviosYCancelacionAlmacenes
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -151,7 +151,7 @@ namespace Millet.Compras.Infrastructure.Migrations
 
                     b.ToTable("alm_compra_envios", "compras", t =>
                         {
-                            t.HasCheckConstraint("ck_alm_compra_envios_estado", "estado IN ('PENDIENTE','ENVIADO','PROCESADO','DUPLICADO','ERROR')");
+                            t.HasCheckConstraint("ck_alm_compra_envios_estado", "estado IN ('PENDIENTE','ENVIADO','PROCESADO','DUPLICADO','ERROR','RECHAZADO')");
 
                             t.HasCheckConstraint("ck_alm_compra_envios_tipo", "tipo IN ('COMPRA_RECIBIDA','COMPRA_CANCELADA','COMPRA_MODIFICADA')");
                         });
@@ -2433,6 +2433,10 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
 
+                    b.Property<bool>("EsperaAlmacenes")
+                        .HasColumnType("boolean")
+                        .HasColumnName("espera_almacenes");
+
                     b.Property<short>("EstadoAnterior")
                         .HasColumnType("smallint")
                         .HasColumnName("estado_anterior");
@@ -2467,6 +2471,10 @@ namespace Millet.Compras.Infrastructure.Migrations
                     b.Property<Guid?>("ResolutorId")
                         .HasColumnType("uuid")
                         .HasColumnName("resolutor_id");
+
+                    b.Property<string>("RespuestaAlmacenes")
+                        .HasColumnType("text")
+                        .HasColumnName("respuesta_almacenes");
 
                     b.Property<Guid>("SolicitanteId")
                         .HasColumnType("uuid")

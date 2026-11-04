@@ -18,6 +18,7 @@ public static class DependencyInjection
     {
         services.AddScoped<AlmCompraEncolador>();
         services.AddScoped<AlmCompraProcesador>();
+        services.AddScoped<IAlmCompraCancelacion, AlmCompraCancelacion>();
         return services;
     }
 }

@@ -6,7 +6,7 @@ namespace Millet.Compras.Application.Integration.AlmCompra;
 
 /// <summary>Línea de COMPRA_RECIBIDA / COMPRA_MODIFICADA (contrato v6 §9). Los nulos no viajan.</summary>
 public sealed record AlmCompraLinea(
-    string LineaErp, string Requisicion, int Posicion, int ArticuloAw, int? ArticuloAlmacenAw,
+    string LineaErp, string? Requisicion, int? Posicion, int ArticuloAw, int? ArticuloAlmacenAw,
     int? Ancho, int? Alto, int Piezas, string? Lote, string? Pedimento, string? Etiqueta,
     decimal? CostoM2, decimal? CostoPieza,
     // Fórmula pendiente (Dirección/Jorge): hoy siempre null, así que no se escribe.

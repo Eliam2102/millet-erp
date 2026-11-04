@@ -25,6 +25,11 @@ public sealed class AlmCompraEnvio : BaseEntity, IPerteneceAEmpresa
     public const string Duplicado = "DUPLICADO";
     /// <summary>Destino final de lo que falla siempre: acuse ERROR, error local o reintentos agotados. Detiene la referencia.</summary>
     public const string Error = "ERROR";
+    /// <summary>
+    /// Almacenes rechazó una COMPRA_CANCELADA (ya hay entrada): el ERP revierte la cancelación y la fila queda como historia
+    /// sin detener la referencia (el resto de los mensajes de la compra, p. ej. el pedimento, sigue su curso).
+    /// </summary>
+    public const string Rechazado = "RECHAZADO";
 
     public const int VersionContrato = 1;
 
@@ -64,7 +69,7 @@ public sealed class AlmCompraEnvio : BaseEntity, IPerteneceAEmpresa
         return e;
     }
 
-    public bool Terminado => Estado is Procesado or Duplicado;
+    public bool Terminado => Estado is Procesado or Duplicado or Rechazado;
 
     public void MarcarEscrito(DateTimeOffset ahora)
     {
@@ -83,7 +88,7 @@ public sealed class AlmCompraEnvio : BaseEntity, IPerteneceAEmpresa
     public void AplicarAcuse(string estado, string? compraId, string? error, DateTimeOffset ahora)
     {
         Estado = estado; CompraIdAlmacenes = compraId; AcuseEn = ahora;
-        UltimoError = estado == Error ? Recortar(error ?? "Almacenes devolvió ERROR sin detalle.") : null;
+        UltimoError = estado is Error or Rechazado ? Recortar(error ?? "Almacenes devolvió ERROR sin detalle.") : null;
     }
 
     /// <summary>Reintento manual de una fila que no llegó a escribirse (falla local o reintentos agotados).</summary>

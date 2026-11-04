@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using MediatR;
 using Millet.Compras.Domain.AlmCompra;
 using Millet.Compras.Infrastructure;
 using Millet.SharedKernel.Application;
@@ -21,7 +22,7 @@ public sealed record AlmCompraTick(int Escritos, int Acusados, int Fallas);
 /// </summary>
 public sealed class AlmCompraProcesador(
     ComprasDbContext db, IAlmCompraTransporte transporte, IOptions<AlmCompraOptions> options, IClock clock,
-    ICurrentEmpresaContext empresa, ILogger<AlmCompraProcesador> logger)
+    ICurrentEmpresaContext empresa, IAlmCompraCancelacion cancelacion, IPublisher publisher, ILogger<AlmCompraProcesador> logger)
 {
     public async Task<AlmCompraTick> ProcesarAsync(CancellationToken ct)
     {
@@ -29,22 +30,24 @@ public sealed class AlmCompraProcesador(
         int escritos = 0, acusados = 0, fallas = 0;
 
         var referencias = await db.AlmCompraEnvios.AsNoTracking()
-            .Where(e => e.Estado != AlmCompraEnvio.Procesado && e.Estado != AlmCompraEnvio.Duplicado)
+            .Where(e => e.Estado != AlmCompraEnvio.Procesado && e.Estado != AlmCompraEnvio.Duplicado && e.Estado != AlmCompraEnvio.Rechazado)
             .Select(e => e.Referencia).Distinct().ToListAsync(ct);
 
         foreach (var referencia in referencias)
         {
             var filas = await db.AlmCompraEnvios
-                .Where(e => e.Referencia == referencia && e.Estado != AlmCompraEnvio.Procesado && e.Estado != AlmCompraEnvio.Duplicado)
+                .Where(e => e.Referencia == referencia && e.Estado != AlmCompraEnvio.Procesado && e.Estado != AlmCompraEnvio.Duplicado && e.Estado != AlmCompraEnvio.Rechazado)
                 .OrderBy(e => e.Secuencia).ToListAsync(ct);
 
             foreach (var fila in filas)
             {
                 try
                 {
-                    var sigue = await AvanzarAsync(fila, ct);
+                    var post = new List<object>();
+                    var sigue = await AvanzarAsync(fila, post, ct);
                     escritos += sigue.Escrito ? 1 : 0; acusados += sigue.Acusado ? 1 : 0; fallas += sigue.Falla ? 1 : 0;
                     await db.SaveChangesAsync(ct);
+                    foreach (var evento in post) await publisher.Publish(evento, ct);
                     if (!sigue.Continuar) break;
                 }
                 catch (DbUpdateConcurrencyException)
@@ -59,7 +62,7 @@ public sealed class AlmCompraProcesador(
         return new AlmCompraTick(escritos, acusados, fallas);
     }
 
-    private async Task<(bool Continuar, bool Escrito, bool Acusado, bool Falla)> AvanzarAsync(AlmCompraEnvio fila, CancellationToken ct)
+    private async Task<(bool Continuar, bool Escrito, bool Acusado, bool Falla)> AvanzarAsync(AlmCompraEnvio fila, List<object> post, CancellationToken ct)
     {
         var ahora = clock.UtcNow;
         var escrito = false;
@@ -101,8 +104,16 @@ public sealed class AlmCompraProcesador(
             fila.AplicarAcuse(AlmCompraEnvio.Error, null, $"Acuse con estado desconocido '{acuse.Estado}'.", ahora);
             return (false, escrito, true, false);
         }
-        if (fila.Estado == acuse.Estado) return (false, escrito, false, false); // ERROR que sigue en ERROR: nada que guardar
-        fila.AplicarAcuse(acuse.Estado, acuse.CompraId, acuse.Error, ahora);
+        // Almacenes rechaza una cancelación porque ya hay entrada: no es una falla de la compra, el ERP revierte la OC y la
+        // referencia sigue (RECHAZADO). Cualquier otro ERROR sí detiene la referencia.
+        var estadoFinal = fila.Tipo == AlmCompraEnvio.TipoCancelada && acuse.Estado == AlmCompraEnvio.Error ? AlmCompraEnvio.Rechazado : acuse.Estado;
+        if (fila.Estado == estadoFinal) return (false, escrito, false, false); // ERROR que sigue en ERROR: nada que guardar
+        fila.AplicarAcuse(estadoFinal, acuse.CompraId, acuse.Error, ahora);
+        if (fila.Tipo == AlmCompraEnvio.TipoCancelada)
+        {
+            if (estadoFinal == AlmCompraEnvio.Rechazado) await cancelacion.RevertirAsync(fila.OrdenCompraId, acuse.Error, ct);
+            else post.AddRange(await cancelacion.FinalizarAsync(fila.OrdenCompraId, ct));
+        }
         return (fila.Terminado, escrito, true, false);
     }
 }

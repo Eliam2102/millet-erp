@@ -15,7 +15,7 @@ public sealed class AlmCompraEnvioConfiguration : IEntityTypeConfiguration<AlmCo
         builder.ToTable("alm_compra_envios", t =>
         {
             t.HasCheckConstraint("ck_alm_compra_envios_tipo", "tipo IN ('COMPRA_RECIBIDA','COMPRA_CANCELADA','COMPRA_MODIFICADA')");
-            t.HasCheckConstraint("ck_alm_compra_envios_estado", "estado IN ('PENDIENTE','ENVIADO','PROCESADO','DUPLICADO','ERROR')");
+            t.HasCheckConstraint("ck_alm_compra_envios_estado", "estado IN ('PENDIENTE','ENVIADO','PROCESADO','DUPLICADO','ERROR','RECHAZADO')");
         });
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).ValueGeneratedNever();
