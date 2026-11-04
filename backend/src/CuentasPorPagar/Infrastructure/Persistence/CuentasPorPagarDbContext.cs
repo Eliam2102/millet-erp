@@ -171,6 +171,9 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
     /// <summary>CFDIs recibidos en el ERP por cualquier canal (§4.1 del 00-levantamiento, F1-PR1).</summary>
     public DbSet<CfdiRecibido> CfdisRecibidos => Set<CfdiRecibido>();
 
+    /// <summary>Solicitudes de cancelación de CFDI pedidas por proveedores (P8.7).</summary>
+    public DbSet<SolicitudCancelacionCfdi> SolicitudesCancelacionCfdi => Set<SolicitudCancelacionCfdi>();
+
     /// <summary>Bandeja de revisión del buzón de CFDIs (P8.1-a).</summary>
     public DbSet<Domain.Mailbox.BuzonRevisionCfdi> BuzonRevisionCfdi => Set<Domain.Mailbox.BuzonRevisionCfdi>();
 
@@ -256,6 +259,7 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
 
         modelBuilder.ApplyConfiguration(new IntegrationEventOutboxEntryConfiguration());
         modelBuilder.ApplyConfiguration(new CfdiRecibidoConfiguration());
+        modelBuilder.ApplyConfiguration(new SolicitudCancelacionCfdiConfiguration());
         modelBuilder.ApplyConfiguration(new BuzonRevisionCfdiConfiguration());
         modelBuilder.ApplyConfiguration(new BuzonEjecucionConfiguration());
         modelBuilder.ApplyConfiguration(new FacturaProveedorConfiguration());
