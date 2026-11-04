@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Millet.Compras.Domain;
+using Millet.Compras.Domain.AlmCompra;
 using Millet.Compras.Domain.Cotizaciones;
 using Millet.Compras.Domain.Idempotencia;
 using Millet.Compras.Domain.Oc;
@@ -72,6 +73,9 @@ public sealed class ComprasDbContext : BaseDbContext
     /// </summary>
     public DbSet<EventoProcesado> EventosProcesados => Set<EventoProcesado>();
 
+    /// <summary>Bandeja de salida ERP → Almacenes (86e3jvu83 · C3.2).</summary>
+    public DbSet<AlmCompraEnvio> AlmCompraEnvios => Set<AlmCompraEnvio>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("compras");
@@ -90,6 +94,7 @@ public sealed class ComprasDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new OcBorradorStubConfiguration());
         modelBuilder.ApplyConfiguration(new IntegrationEventOutboxEntryConfiguration());
         modelBuilder.ApplyConfiguration(new EventoProcesadoConfiguration());
+        modelBuilder.ApplyConfiguration(new AlmCompraEnvioConfiguration());
 
         // Submódulo Órdenes de Compra (F1-PR1, F2-PR1, F2-PR4, F3-PR1, F3-PR2).
         modelBuilder.ApplyConfiguration(new OrdenCompraConfiguration());

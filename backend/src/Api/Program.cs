@@ -451,6 +451,13 @@ builder.Services
     .AddOptions<Millet.Compras.Infrastructure.Workers.IncidenciaVencidaOptions>()
     .Bind(builder.Configuration.GetSection(Millet.Compras.Infrastructure.Workers.IncidenciaVencidaOptions.SectionName));
 builder.Services.AddHostedService<Millet.Compras.Infrastructure.Workers.IncidenciaVencidaWorker>();
+// 86e3jvu83 (C3.2): bandeja ERP → Almacenes (COMPRA_RECIBIDA/CANCELADA/MODIFICADA). Worker apagado por omisión
+// (Integraciones:AlmCompra:Habilitado); el transporte (Simulado | Sql) lo registra AddIntegracionesAwModule.
+builder.Services.AddComprasAlmCompra();
+builder.Services
+    .AddOptions<Millet.Compras.Application.Integration.AlmCompra.AlmCompraOptions>()
+    .Bind(builder.Configuration.GetSection(Millet.Compras.Application.Integration.AlmCompra.AlmCompraOptions.SectionName));
+builder.Services.AddHostedService<Millet.Compras.Infrastructure.Workers.AlmCompraWorker>();
 
 // === Compras IConsultarStockPort → adapter real ===
 // Reemplaza el InMemoryConsultarStockPort stub (config-driven que
@@ -1626,6 +1633,7 @@ app.MapRequisicionesEndpoints();
 app.MapLineasEndpoints();
 app.MapAprobadoresEndpoints();
 app.MapComprasSettingsEndpoints();
+app.MapAlmCompraEnviosEndpoints();
 app.MapUmbralesAprobacionEndpoints();
 app.MapCotizacionesEndpoints();
 
