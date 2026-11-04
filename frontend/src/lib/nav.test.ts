@@ -166,7 +166,7 @@ describe('navSidebarItems', () => {
     const reglasSerie = cxc.secciones[0].cards.find((c) => c.to === '/cxc/reglas-serie');
     expect(reglasSerie?.permission).toBe(PermisosCanonicos.CuentasPorCobrarReglasSerieGestionar);
     const reportes = cxc.secciones[1].cards.map((c) => c.to);
-    expect(reportes).toEqual(['/cxc/cartera', '/cxc/estado-cuenta']);
+    expect(reportes).toEqual(['/cxc/cartera', '/cxc/estado-cuenta', '/cxc/conciliacion']);
   });
 
   it('Facturación prioriza Venta y agrupa caja, complementos, revisión, configuración y reportes', () => {
