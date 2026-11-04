@@ -118,6 +118,9 @@ public class AlmacenDbContext : BaseDbContext
     /// <summary>F8-PR2: periodos cerrados (cierre de mes).</summary>
     public DbSet<PeriodoCerrado> PeriodosCerrados => Set<PeriodoCerrado>();
 
+    /// <summary>F1-ALM-13: foto de la valuación al cierre mensual.</summary>
+    public DbSet<ValuacionCierre> ValuacionesCierre => Set<ValuacionCierre>();
+
     /// <summary>
     /// Outbox de eventos de integración del módulo Almacén. Lo escribe
     /// <c>OutboxSaveChangesInterceptor</c> drenando el buffer scoped
@@ -196,6 +199,17 @@ public class AlmacenDbContext : BaseDbContext
             b.Property(a => a.MotivoLiberacion).HasMaxLength(500);
             b.HasIndex(a => a.LineaRequisicionId).IsUnique();
             b.HasIndex(a => new { a.SucursalId, a.ArticuloId });
+        });
+        modelBuilder.Entity<ValuacionCierre>(b =>
+        {
+            b.ToTable("valuaciones_cierre");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).ValueGeneratedNever();
+            b.Property(x => x.Lote).HasMaxLength(50);
+            b.Property(x => x.Cantidad).HasPrecision(18, 4);
+            b.Property(x => x.ValorMxn).HasPrecision(18, 2);
+            b.HasOne<PeriodoCerrado>().WithMany().HasForeignKey(x => x.PeriodoCerradoId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(x => new { x.EmpresaId, x.Anio, x.Mes, x.SubAlmacenId });
         });
         modelBuilder.Entity<NormaConsumoComponente>(b =>
         {

@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.Almacen.Application.Reportes;
 using Millet.Almacen.Domain.Cierre;
 using Millet.Almacen.Domain.Conteos;
 using Millet.Almacen.Domain.Movimientos;
@@ -111,9 +112,22 @@ public sealed class EjecutarCierreMensualHandler
             mes: request.Mes,
             cerradoPor: cerradoPor);
         _db.Set<PeriodoCerrado>().Add(periodo);
+        await TomarFotoValuacionAsync(_db, periodo, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
         return new EjecutarCierreMensualResponse(periodo.Id, request.Anio, request.Mes, periodo.CerradoAt);
+    }
+
+    /// <summary>
+    /// F1-ALM-13: foto de la valuación del ALFAK al último día del mes, en la misma transacción del cierre. Guarda todos los grupos
+    /// (también los que quedaron en cero) para que el ALFAK del mes cerrado no vuelva a calcularlos.
+    /// </summary>
+    public static async Task TomarFotoValuacionAsync(AlmacenDbContext db, PeriodoCerrado periodo, CancellationToken ct)
+    {
+        var corte = new DateOnly(periodo.Anio, periodo.Mes, DateTime.DaysInMonth(periodo.Anio, periodo.Mes));
+        foreach (var f in await AlfakHistorialAlmacenHandler.CalcularAsync(db, corte, corte, null, null, null, ct))
+            db.ValuacionesCierre.Add(new ValuacionCierre(periodo, f.SubAlmacenId, f.ArticuloId, f.ProductoAwVarianteId, f.Lote,
+                f.SaldoFinal, f.ValorInventarioFinal));
     }
 }
 
