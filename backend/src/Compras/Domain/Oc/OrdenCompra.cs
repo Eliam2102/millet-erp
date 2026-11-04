@@ -1330,6 +1330,11 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
     /// con el estado previo para que listeners (Notificaciones,
     /// Requisiciones — liberación) sepan el contexto.
     /// </summary>
+    public const string CodigoCancelarConRecepcion = "OC_CANCELAR_CON_RECEPCION";
+
+    public const string MensajeCancelarConRecepcion =
+        "Esta orden de compra ya tiene material recibido en Almacén. Para cancelarla usa «Solicitar cancelación», que requiere dos firmas.";
+
     public CancelarResultado Cancelar(
         Guid usuarioId,
         DateTimeOffset fechaHora,
@@ -1345,9 +1350,7 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
 
         if (SubEstadoRecepcion != SubEstadoRecepcion.SinRecepcion)
         {
-            throw new BusinessRuleException(
-                "OC_CANCELAR_CON_RECEPCION",
-                "Cancelar OCs con recepciones parciales requiere doble autorización (F5-PR4 maneja ese caso).");
+            throw new BusinessRuleException(CodigoCancelarConRecepcion, MensajeCancelarConRecepcion);
         }
 
         if (motivoCancelacionId == Guid.Empty)

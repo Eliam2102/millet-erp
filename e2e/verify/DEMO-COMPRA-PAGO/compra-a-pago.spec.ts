@@ -11,14 +11,13 @@
  * Steps: 1 A creates RQ  2 A transmits  3 B/C refused (403 REQUISICION_AUTORIZADOR_NO_FACULTADO), J1 signs N1, J1 sees N2 disabled,
  *   J2 signs N2, stock in Almacén is set aside (apartado, CA3.4)  4 mass approval N1 (J1) + N2 (J2)  5 C creates/quotes/transmits the OC
  *   6 B signs the OC (Comprador titular with name)  7 A receives  8 A uploads the CFDI and captures the invoice  9 B authorizes it
- *   10 A arms the run, B signs, BBVA layout (second generation = reprint, T9.3-a), payment, close  11 invoice Pagada / OC Cerrada
+  *   10 A arms the run, B signs, payment, close (BBVA layout hidden: Phase 2)  11 invoice Pagada / OC Cerrada
  *   12 bank reconciliation (same statement twice does not duplicate, CA9.5; charge shown with «-»)  13 pólizas EM, TT, PP exact (C1.5-a, K10.5).
  *
  * Shortcuts kept because the sources allow them: chart of accounts + role->account mapping seeded (C1.5 roles DEMO), Outbox + local
  * delivery ON in the verify config (C1.5 §5), BBVA statement built by the spec in our own CSV layout («formato DEMO»: P-018/P-019 have no
  * real layout yet). Supplier master data / bank account / Millet BBVA account are SQL (no API sets a validated CLABE). Test DB only.
  */
-import fs from 'node:fs';
 import { apiCallOn, expect, expectNoPlaceholders, reloadAndExpect, shot, test } from '../../_harness/fixtures';
 import type { Page } from '../../_harness/fixtures';
 import {
@@ -538,32 +537,7 @@ test('DEMO-01 [AC] @evidence purchase-to-payment with one real user per role: RQ
     await expect(page.getByText(firmas[0].usuarioId)).toHaveCount(0);
     await foto(page, '10g-corrida-autorizada-firma-con-nombre');
 
-    // --- B generates the BBVA layout
-    const descarga = page.waitForEvent('download');
-    const lres = await apiCallOn(page, () => page.getByRole('button', { name: 'Generar archivo' }).click(), { method: 'POST', url: /\/corridas\/[0-9a-f-]+\/layout\?/, status: 200 });
-    const layout = await lres.json();
-    const archivo = fs.readFileSync(await (await descarga).path(), 'utf8');
-    await expect(page.getByText('Archivo generado con 1 líneas')).toBeVisible();
-    await foto(page, '10h-layout-bbva-generado');
-    expect(layout).toMatchObject({ banco: 'BBVA', lineasValidas: 1, lineasExcluidas: 0 });
-    expect(layout.total).toBeCloseTo(total, 2);
-    expect(archivo, 'BBVA layout line: CLABE, amount, holder and reference').toContain(`${PROV_CLABE},${total.toFixed(2)},`);
-    fs.mkdirSync('.verification/DEMO-COMPRA-PAGO/evidence/test/screens', { recursive: true });
-    fs.writeFileSync('.verification/DEMO-COMPRA-PAGO/evidence/test/screens/10i-layout-bbva-contenido.txt', `${layout.nombreArchivo}\n\n${archivo}\n`);
-    expect(layout.esReimpresion, 'first generation is not a reprint').toBe(false);
-
-    // T9.3-a: a second generation of the same run must not produce a new file: it is blocked or comes back marked as reprint
-    const descarga2 = page.waitForEvent('download').catch(() => null);
-    const lres2 = await apiCallOn(page, () => page.getByRole('button', { name: 'Generar archivo' }).click(), { method: 'POST', url: /\/corridas\/[0-9a-f-]+\/layout\?/, status: [200, 409, 422] });
-    const layout2 = await lres2.json();
-    if (lres2.status() === 200) {
-      expect(layout2.esReimpresion, 'second generation answers as reprint').toBe(true);
-      expect(layout2.archivoId, 'same stored file, no new layout record').toBe(layout.archivoId);
-      expect(layout2.nombreArchivo).toBe(layout.nombreArchivo);
-      await expect(page.getByText('Archivo descargado (Reimpresión)').first()).toBeVisible();
-      await descarga2;
-    }
-    await foto(page, '10h2-layout-segundo-intento-reimpresion');
+    // --- T9.3 BBVA layout: hidden in the UI, bulk payments are Phase 2 (Eliam, 03-nov)
 
     // --- B registers the payment of the run (bank reference of the transfer)
     await page.getByLabel('Referencia bancaria').fill(referencia);

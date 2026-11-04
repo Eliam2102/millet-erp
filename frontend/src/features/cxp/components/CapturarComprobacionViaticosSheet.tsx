@@ -34,7 +34,7 @@ import type {
 import { CfdiPorProcesarPicker } from '@/features/cxp/components/CfdiPorProcesarPicker';
 import { CargarCfdiSheet } from '@/features/cxp/components/CargarCfdiSheet';
 import { ClasificacionNoDeducibleCampo } from '@/features/cxp/components/ClasificacionNoDeducibleCampo';
-import { useProveedor } from '@/features/catalogos/api';
+import { fetchProveedoresPorRfc, useProveedor } from '@/features/catalogos/api';
 import { Field, ProveedorSelector } from '@/components/erp';
 import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -171,6 +171,21 @@ function Form({ solicitud, onCancel, onCaptured, onDirtyChange }: FormProps) {
       shouldValidate: true,
     });
     form.setValue(`lineas.${index}.moneda`, cfdi.moneda);
+    precargarProveedor(index, cfdi);
+  }
+
+  /** Igual que en caja chica: el proveedor sale del RFC emisor si es único y la línea no tiene uno. */
+  function precargarProveedor(index: number, cfdi: CfdiListItem) {
+    if (form.getValues(`lineas.${index}.proveedorId`)) return;
+    fetchProveedoresPorRfc(cfdi.rfcEmisor)
+      .then((m) => {
+        if (m.length !== 1 || form.getValues(`lineas.${index}.proveedorId`)) return;
+        if (form.getValues(`lineas.${index}.cfdiRecibidoId`) !== cfdi.id) return;
+        form.setValue(`lineas.${index}.proveedorId`, m[0].id, { shouldValidate: true });
+      })
+      .catch(() => {
+        // Selector manual como respaldo.
+      });
   }
 
   function onSubmit(values: CapturarComprobacionViaticosValues) {

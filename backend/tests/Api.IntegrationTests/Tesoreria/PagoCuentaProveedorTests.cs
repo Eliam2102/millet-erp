@@ -60,6 +60,7 @@ public sealed class PagoCuentaProveedorTests(WebApplicationFactory<Program> fact
                 cu.Validar(Guid.NewGuid(), "Validador", Guid.NewGuid(), true, null, ahora);
                 var compartido = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
                 compartido.CuentasBancariasProveedor.AddRange(cm, cu);
+                await AdjuntosProveedorAmbiente.AgregarOpinionCumplimientoAsync(compartido, provId);
                 await compartido.SaveChangesAsync();
                 mxn = cm.Id; usd = cu.Id;
                 var tes = scope.ServiceProvider.GetRequiredService<TesoreriaDbContext>();

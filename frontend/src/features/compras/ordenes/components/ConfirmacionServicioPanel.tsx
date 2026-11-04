@@ -8,6 +8,7 @@ import { DateTimeDisplay, Field } from '@/components/erp';
 import { esApiError } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { useMiDepartamento } from '@/lib/auth/useMiEmpleado';
 import { EstadoOrdenCompra, type OrdenCompraDetalleResponse } from '../api/types';
 import { useAccionServicioOc } from '../api/useConfirmarServicioOc';
 
@@ -31,7 +32,13 @@ function mensajeError(error: unknown) {
  * (el backend lo valida); no se puede deshacer si la OC ya tiene una factura pagada.
  */
 export function ConfirmacionServicioPanel({ oc }: { oc: OrdenCompraDetalleResponse }) {
-  const puede = useHasPermission(PermisosCanonicos.ComprasOrdenesConfirmarServicio);
+  const tienePermiso = useHasPermission(PermisosCanonicos.ComprasOrdenesConfirmarServicio);
+  const miDepartamento = useMiDepartamento();
+  // F-RQOC-10: el API exige además ser del departamento que pidió alguna partida de servicio.
+  const puede =
+    tienePermiso &&
+    !!miDepartamento &&
+    oc.lineas.some((l) => l.esServicio && l.departamentoSolicitanteId === miDepartamento);
   const mutation = useAccionServicioOc();
   const [modo, setModo] = useState<Modo | null>(null);
   const [texto, setTexto] = useState('');

@@ -21,6 +21,7 @@ import {
   type CargaTerminal,
 } from '@/features/facturacion/api/useTerminalTarjeta';
 import { esApiError } from '@/lib/api';
+import { FacturaBancoTerminalSection } from './FacturaBancoTerminalSection';
 
 const PESTANAS = [
   { valor: EstadoTransaccionTerminal.SinEmparejar, etiqueta: 'Sin emparejar' },
@@ -175,6 +176,8 @@ export function TerminalTarjetaCard() {
           </Table>
         </div>
       )}
+
+      <FacturaBancoTerminalSection />
     </section>
   );
 }

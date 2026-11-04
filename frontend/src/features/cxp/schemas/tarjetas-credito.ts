@@ -73,7 +73,7 @@ export const MovimientoTcConCfdiSchema = z.object({
   descripcionLibre: z.string().trim().max(500).nullable(),
   conceptoContable: z.string().trim().min(1).max(120),
   cfdiRecibidoId: z.string().regex(UUID_RE, 'UUID CFDI inválido.'),
-  proveedorId: z.string().regex(UUID_RE, 'UUID proveedor inválido.'),
+  proveedorId: z.string().regex(UUID_RE, 'Selecciona el proveedor.'),
   uuidCfdi: z.string().regex(UUID_RE).nullable(),
   folioProveedor: z.string().trim().max(50).nullable(),
   serieProveedor: z.string().trim().max(20).nullable(),

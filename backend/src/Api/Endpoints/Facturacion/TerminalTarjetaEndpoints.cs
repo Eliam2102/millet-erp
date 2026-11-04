@@ -11,7 +11,8 @@ namespace Millet.Api.Endpoints.Facturacion;
 
 /// <summary>
 /// Terminal de tarjetas (86e3vr1tf, Parte A): carga del archivo diario del banco,
-/// emparejamiento con los cobros de caja y liquidación por folio. Supervisión de
+/// emparejamiento con los cobros de caja y liquidación por folio. Parte B (86e3xt2q8):
+/// factura mensual del banco ligada a los cargos. Supervisión de
 /// caja (<c>facturacion.caja.supervisar</c>).
 /// </summary>
 public static class TerminalTarjetaEndpoints
@@ -64,6 +65,34 @@ public static class TerminalTarjetaEndpoints
         .WithName("ReemparejarTerminal")
         .WithSummary("Vuelve a emparejar las ventas sin emparejar con los cobros de caja")
         .Produces<CargaTerminalResponse>();
+
+        // ---- Parte B (86e3xt2q8): factura mensual del banco ligada a los cargos ----
+        group.MapGet("/factura-banco/candidatos", async (
+            [FromQuery] int anio, [FromQuery] int mes, [FromQuery] string? rfcEmisor, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new CfdisBancoCandidatosQuery(anio, mes, rfcEmisor), ct)))
+        .WithName("ListarCfdisBancoTerminal")
+        .WithSummary("CFDI recibidos (buzón de CxP) candidatos a factura del banco del mes")
+        .Produces<IReadOnlyList<Millet.Facturacion.Domain.Ports.CfdiRecibidoBanco>>();
+
+        group.MapGet("/factura-banco/cuadre", async (
+            [FromQuery] int anio, [FromQuery] int mes, [FromQuery] Guid? cfdiRecibidoId, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new CuadreFacturaBancoQuery(anio, mes, cfdiRecibidoId), ct)))
+        .WithName("CuadreFacturaBancoTerminal")
+        .WithSummary("Compara la comisión y el IVA de los cargos del mes contra la factura del banco")
+        .Produces<CuadreFacturaBancoResponse>();
+
+        group.MapGet("/factura-banco", async ([FromQuery] int? limit, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new FacturasBancoTerminalQuery(limit ?? 24), ct)))
+        .WithName("ListarFacturasBancoTerminal")
+        .Produces<IReadOnlyList<FacturaBancoTerminalResponse>>();
+
+        group.MapPost("/factura-banco", async (LigarFacturaBancoTerminalCommand body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(body, ct)))
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .WithName("LigarFacturaBancoTerminal")
+        .WithSummary("Liga la factura mensual del banco a los cargos del mes si cuadra al centavo")
+        .Produces<FacturaBancoTerminalResponse>()
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         return app;
     }

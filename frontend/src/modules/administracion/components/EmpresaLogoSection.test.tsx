@@ -16,7 +16,7 @@ beforeEach(() => {
     permisos: [],
   });
   mswServer.use(
-    http.get('*/api/v1/admin/empresas/e-1/logo', () => new HttpResponse(null, { status: 404 })),
+    http.get('*/api/v1/admin/empresas/e-1/logo', () => new HttpResponse(null, { status: 204 })),
   );
 });
 

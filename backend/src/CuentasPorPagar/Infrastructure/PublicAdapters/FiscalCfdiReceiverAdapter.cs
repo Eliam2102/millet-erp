@@ -1,7 +1,9 @@
 using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Millet.CuentasPorPagar.Application.EventListeners.Tesoreria;
 using Millet.CuentasPorPagar.Domain.Cfdi;
+using Millet.CuentasPorPagar.Domain.FacturaProveedor;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
 using Millet.Integraciones.Fiscal.Domain.Ports;
 using Millet.SharedKernel.Application;
@@ -26,9 +28,13 @@ namespace Millet.CuentasPorPagar.Infrastructure.PublicAdapters;
 /// Flujo del adapter:
 /// </para>
 /// <list type="number">
-///   <item>Dedupe por <c>uuid_cfdi_valor</c>. Si ya existe, skip
-///   (idempotencia frente a reentregas del worker o solicitudes
-///   traslapadas).</item>
+///   <item>Dedupe por <c>uuid_cfdi_valor</c>. Si ya existe no se reingresa
+///   (idempotencia frente a reentregas del worker o solicitudes traslapadas):
+///   solo se actualiza el estatus SAT (vigente/cancelado) sin parsear XML ni
+///   tocar blob, canal, hash o fecha de recepción. Solo cuando el estatus
+///   cambia a cancelado (no en reentregas) y ya es pasivo, la factura Capturada/Autorizada pasa a
+///   revisión con el motivo CFDI cancelado en el SAT (nunca se cancela, ni
+///   se publican eventos); en cualquier otro estado solo se registra aviso.</item>
 ///   <item>Parsea el XML con <see cref="IXmlCfdiParser"/>. Si el parse
 ///   falla, loggea warning y descarta (el meta-item solo no nos sirve
 ///   sin XML — esa era la deuda del flujo Metadata-only).</item>
@@ -36,7 +42,7 @@ namespace Millet.CuentasPorPagar.Infrastructure.PublicAdapters;
 ///   <item>Guarda el XML en <see cref="ICfdiBlobStorage"/>.</item>
 ///   <item>Crea <see cref="CfdiRecibido"/> via <see cref="CfdiRecibido.Ingresar"/>
 ///   en estado <see cref="EstadoCfdiRecibido.PorProcesar"/> (con XML, hash y
-///   blob ref reales — no <c>MetadataOnly</c>).</item>
+///   blob ref reales — no <c>MetadataOnly</c>) y el estatus SAT del payload.</item>
 /// </list>
 ///
 /// <para>
@@ -73,18 +79,82 @@ public sealed class FiscalCfdiReceiverAdapter : IFiscalCfdiReceiver
     {
         var uuidNormalizado = payload.Uuid.Trim().ToUpperInvariant();
 
-        // 1) Dedupe por UUID. Si ya existe, no hacer nada (idempotente).
+        var estatus = CfdiRecibido.ParseEstatusSat(payload.EstatusSat);
+        if (!string.IsNullOrWhiteSpace(payload.EstatusSat) && estatus is null)
+        {
+            _logger.LogWarning(
+                "[FiscalCfdiReceiverAdapter] UUID {Uuid} con estatus SAT desconocido '{Estatus}' — se ignora.",
+                uuidNormalizado, payload.EstatusSat);
+        }
+
+        // 1) Dedupe por UUID. Si ya existe no se reingresa (idempotente), pero se
+        //    actualiza el estatus SAT; si el CFDI ya es pasivo y el SAT lo reporta
+        //    cancelado, la factura vigente pasa a revisión (nunca se cancela sola).
         var existente = await _db.CfdisRecibidos
-            .AsNoTracking()
             .Where(c => c.UuidCfdi.Valor == uuidNormalizado)
-            .Select(c => new { c.Id, c.Estado })
             .FirstOrDefaultAsync(cancellationToken);
 
         if (existente is not null)
         {
-            _logger.LogDebug(
-                "[FiscalCfdiReceiverAdapter] UUID {Uuid} ya existe en estado {Estado} — skip.",
-                uuidNormalizado, existente.Estado);
+            if (existente.EmpresaId != payload.EmpresaId)
+            {
+                _logger.LogWarning(
+                    "[FiscalCfdiReceiverAdapter] UUID {Uuid} existe para otra empresa — skip.",
+                    uuidNormalizado);
+                return;
+            }
+
+            if (estatus is null)
+            {
+                _logger.LogDebug(
+                    "[FiscalCfdiReceiverAdapter] UUID {Uuid} ya existe en estado {Estado} — skip.",
+                    uuidNormalizado, existente.Estado);
+                return;
+            }
+
+            // La descarga SAT reentrega varios días el mismo "Cancelado": la alerta solo
+            // se dispara en la transición a cancelado, para no reenviar a revisión una
+            // factura que CxP ya revisó y liberó a Capturada.
+            var yaEstabaCancelado = existente.EstatusSat == EstatusSatCfdi.Cancelado;
+            var changed = existente.ActualizarEstatusSat(estatus.Value, payload.FechaCancelacion);
+            var enviadaARevision = false;
+
+            if (estatus == EstatusSatCfdi.Cancelado
+                && !yaEstabaCancelado
+                && existente.Estado == EstadoCfdiRecibido.ConvertidoEnPasivo
+                && existente.DocumentoDestinoId is Guid destino)
+            {
+                var factura = await _db.FacturasProveedor
+                    .FirstOrDefaultAsync(f => f.Id == destino, cancellationToken);
+
+                if (factura is null)
+                {
+                    _logger.LogWarning(
+                        "[FiscalCfdiReceiverAdapter] UUID {Uuid} cancelado en SAT: el destino {Destino} no es una FacturaProveedor.",
+                        uuidNormalizado, destino);
+                }
+                else if (factura.Estado is EstadoPasivo.Capturada or EstadoPasivo.Autorizada)
+                {
+                    factura.EnviarARevision(
+                        FacturaProveedor.MotivoCfdiCanceladoSatId,
+                        CancelacionPasivoSolicitadaHandler.DependenciaCxpId,
+                        null,
+                        _clock.UtcNow);
+                    enviadaARevision = true;
+                    _logger.LogInformation(
+                        "[FiscalCfdiReceiverAdapter] UUID {Uuid} cancelado en SAT: factura {Factura} enviada a revisión.",
+                        uuidNormalizado, factura.Id);
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "[FiscalCfdiReceiverAdapter] UUID {Uuid} cancelado en SAT: factura {Factura} en estado {Estado} — no se envía a revisión.",
+                        uuidNormalizado, factura.Id, factura.Estado);
+                }
+            }
+
+            if (changed || enviadaARevision)
+                await _db.SaveChangesAsync(cancellationToken);
             return;
         }
 
@@ -158,7 +228,9 @@ public sealed class FiscalCfdiReceiverAdapter : IFiscalCfdiReceiver
             pdfBlobRef:                null,
             xmlHashSha256:             xmlHashSha256,
             solicitudDescargaId:       payload.SolicitudDescargaId,
-            requestIdExternoFiscalApi: payload.RequestIdExterno);
+            requestIdExternoFiscalApi: payload.RequestIdExterno,
+            estatusSat:                estatus,
+            fechaCancelacionSat:       payload.FechaCancelacion);
 
         _db.CfdisRecibidos.Add(cfdi);
         await _db.SaveChangesAsync(cancellationToken);

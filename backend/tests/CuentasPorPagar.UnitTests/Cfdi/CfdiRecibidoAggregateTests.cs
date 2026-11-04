@@ -171,4 +171,16 @@ public sealed class CfdiRecibidoAggregateTests
         cfdi.Estado.Should().Be(EstadoCfdiRecibido.ConvertidoEnPasivo);
         cfdi.DocumentoDestinoId.Should().Be(segundo);
     }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void F_CXP_06_descartar_sin_motivo_responde_con_el_codigo_y_texto_del_dominio(string motivo)
+    {
+        var r = new Millet.CuentasPorPagar.Application.Cfdi.DescartarCfdi.DescartarCfdiValidator()
+            .Validate(new Millet.CuentasPorPagar.Application.Cfdi.DescartarCfdi.DescartarCfdiCommand(Guid.NewGuid(), motivo));
+
+        r.Errors.Should().ContainSingle().Which.Should().Match<FluentValidation.Results.ValidationFailure>(e =>
+            e.ErrorCode == "CFDI_MOTIVO_DESCARTE_VACIO" && e.ErrorMessage == "El motivo del descarte es obligatorio.");
+    }
 }

@@ -12,7 +12,7 @@ const UUID_CFDI_RE =
 export const CapturarNotaCreditoSchema = z.object({
   cfdiRecibidoId: z.string().regex(UUID_RE).nullable(),
   uuidCfdi: z.string().regex(UUID_CFDI_RE, 'UUID CFDI inválido.'),
-  proveedorId: z.string().regex(UUID_RE, 'UUID proveedor inválido.'),
+  proveedorId: z.string().regex(UUID_RE, 'Selecciona el proveedor.'),
   folioProveedor: z.string().trim().max(50).nullable(),
   serieProveedor: z.string().trim().max(20).nullable(),
   fechaCfdi: z.string().regex(DATE_ONLY_RE, 'Formato YYYY-MM-DD.'),
@@ -44,7 +44,7 @@ export type CapturarNotaCreditoValues = z.infer<
 export const CapturarAnticipoSchema = z.object({
   cfdiRecibidoId: z.string().regex(UUID_RE).nullable(),
   uuidCfdi: z.string().regex(UUID_CFDI_RE, 'UUID CFDI inválido.'),
-  proveedorId: z.string().regex(UUID_RE, 'UUID proveedor inválido.'),
+  proveedorId: z.string().regex(UUID_RE, 'Selecciona el proveedor.'),
   serie: z
     .string()
     .trim()
@@ -61,7 +61,7 @@ export const CapturarAnticipoSchema = z.object({
 export type CapturarAnticipoValues = z.infer<typeof CapturarAnticipoSchema>;
 
 export const CrearNotaCargoSchema = z.object({
-  proveedorId: z.string().regex(UUID_RE, 'UUID proveedor inválido.'),
+  proveedorId: z.string().regex(UUID_RE, 'Selecciona el proveedor.'),
   sucursalId: z.string().regex(UUID_RE).nullable(),
   concepto: z
     .string()

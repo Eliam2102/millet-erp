@@ -100,6 +100,10 @@ internal static class ContabTestKit
         return autenticado;
     }
 
+    /// <summary>Id del usuario creado por <see cref="ClienteConPermisosAsync"/>.</summary>
+    public static Guid UsuarioIdDe(HttpClient cliente) =>
+        Identidades.TryGetValue(cliente, out var identidad) ? identidad.UsuarioId : throw new InvalidOperationException("Cliente sin identidad de prueba.");
+
     public static async Task LimpiarClienteAsync(HttpClient cliente)
     {
         if (!Identidades.TryGetValue(cliente, out var identidad)) return;

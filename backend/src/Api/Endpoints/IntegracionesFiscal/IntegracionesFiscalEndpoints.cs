@@ -60,13 +60,14 @@ public static class IntegracionesFiscalEndpoints
             EnsureCurrentEmpresa(currentEmpresa, empresaId);
             var response = await mediator.Send(
                 new ObtenerConfiguracionPacQuery(empresaId, (ProveedorPac)proveedor), ct);
-            return response is null ? Results.NotFound() : Results.Ok(response);
+            // Sin configuración = 204 (no 404): «Mi empresa» la pide siempre y el 404 ensuciaba la consola.
+            return response is null ? Results.NoContent() : Results.Ok(response);
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.IntegracionesFiscalLeer)
         .WithName("ObtenerConfiguracionPac")
         .WithSummary("Obtener la configuración del PAC para una empresa + proveedor")
         .Produces<ConfiguracionPacResponse>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status204NoContent)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden);
 

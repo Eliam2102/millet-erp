@@ -166,11 +166,12 @@ public sealed class P5TesoreriaCobranzaTests(WebApplicationFactory<Program> fact
         (await segundo.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString().Should().Be("PAGO_CUENTA_ABIERTO_EXISTENTE");
     }
 
-    private sealed class ProveedorApto : Millet.Tesoreria.Domain.Ports.DatosMaestros.IProveedorBancoReadPort
+    private sealed class ProveedorApto(bool sinOpinion = false) : Millet.Tesoreria.Domain.Ports.DatosMaestros.IProveedorBancoReadPort
     {
         public Task<Millet.Tesoreria.Domain.Ports.DatosMaestros.ProveedorBancoDto?> ObtenerAsync(Guid id, CancellationToken ct) =>
             Task.FromResult<Millet.Tesoreria.Domain.Ports.DatosMaestros.ProveedorBancoDto?>(new(id, "P5", "Proveedor P5",
-                [new(Guid.NewGuid(), "Banco P5", "002010077777777771", true, null, "MXN", "Proveedor P5", true, "Activa")]));
+                [new(Guid.NewGuid(), "Banco P5", "002010077777777771", true, null, "MXN", "Proveedor P5", true, "Activa")],
+                SinOpinionCumplimiento: sinOpinion));
         public Task<IReadOnlyDictionary<Guid, Millet.Tesoreria.Domain.Ports.DatosMaestros.ProveedorBancoDto>> ObtenerVariosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
             Task.FromResult<IReadOnlyDictionary<Guid, Millet.Tesoreria.Domain.Ports.DatosMaestros.ProveedorBancoDto>>(new Dictionary<Guid, Millet.Tesoreria.Domain.Ports.DatosMaestros.ProveedorBancoDto>());
     }
@@ -209,10 +210,46 @@ public sealed class P5TesoreriaCobranzaTests(WebApplicationFactory<Program> fact
         filas.Single(f => f.GetProperty("tipo").GetString() == "movimiento").GetProperty("clasificacion").GetString().Should().Be("Inversión");
     }
 
+    // F-FIN-03: ligar a la factura de un proveedor sin 32-D responde 422 y no deja la factura pagada.
+    [Fact]
+    public async Task Ligar_pago_a_cuenta_con_proveedor_sin_opinion_de_cumplimiento_responde_422_y_no_aplica()
+    {
+        await using var app = ConProveedor(new ProveedorApto(sinOpinion: true));
+        var (client, user) = await Login(app); var (_, ingreso) = await Deposito(Guid.NewGuid());
+        Guid movimientoId; var facturaId = Guid.NewGuid();
+        using (var scope = factory.Services.CreateScope())
+        {
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var db = scope.ServiceProvider.GetRequiredService<TesoreriaDbContext>();
+            var cuenta = await db.CuentasBancarias.SingleAsync(c => c.Id == ingreso.CuentaBancariaId);
+            var proveedor = Guid.NewGuid();
+            var pasivo = new PasivoPendientePago(Empresa, facturaId, proveedor, null, 500, 500, "MXN", null, Fecha, null, "P5", DateTimeOffset.UtcNow, "PUE");
+            var pago = MovimientoBancario.RegistrarPagoACuenta(Empresa, cuenta, proveedor, 500, Fecha, null, null, "Prueba ficticia P5", user, DateTimeOffset.UtcNow);
+            movimientoId = pago.Id; _pasivos.Add(facturaId);
+            db.PasivosPendientesPago.Add(pasivo); db.MovimientosBancarios.Add(pago); await db.SaveChangesAsync();
+        }
+        var respuesta = await Post(client, $"{Tes}/pagos-cuenta/{movimientoId}/ligar", new { facturaProveedorId = facturaId, importe = 200 });
+        respuesta.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
+        (await respuesta.Content.ReadAsStringAsync()).Should().Contain("LIGA_PASIVO_DETENIDO_DOCUMENTACION");
+        using var verificar = factory.Services.CreateScope();
+        using var empresa = verificar.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var tes = verificar.ServiceProvider.GetRequiredService<TesoreriaDbContext>();
+        (await tes.AplicacionesPagoProveedor.AnyAsync(a => a.MovimientoId == movimientoId)).Should().BeFalse();
+        (await tes.PasivosPendientesPago.SingleAsync(p => p.FacturaProveedorId == facturaId)).SaldoPendiente.Should().Be(500);
+    }
+
+    private WebApplicationFactory<Program> ConProveedor(Millet.Tesoreria.Domain.Ports.DatosMaestros.IProveedorBancoReadPort proveedor) =>
+        factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
+        {
+            services.RemoveAll<Millet.Tesoreria.Domain.Ports.DatosMaestros.IProveedorBancoReadPort>();
+            services.AddSingleton(proveedor);
+        }));
+
     [Fact]
     public async Task Desligar_por_endpoint_conserva_un_solo_egreso_y_guarda_motivo()
     {
-        var (client, user) = await Login(); var (_, ingreso) = await Deposito(Guid.NewGuid());
+        await using var app = ConProveedor(new ProveedorApto());
+        var (client, user) = await Login(app); var (_, ingreso) = await Deposito(Guid.NewGuid());
         Guid movimientoId; Guid facturaId;
         using (var scope = factory.Services.CreateScope())
         {

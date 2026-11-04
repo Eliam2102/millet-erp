@@ -35,7 +35,9 @@ public sealed record CfdiDetalleResponse(
     Guid? CfdiOriginalId,
     Guid? DocumentoDestinoId,
     bool TieneXml,
-    bool TienePdf);
+    bool TienePdf,
+    EstatusSatCfdi? EstatusSat,
+    DateTimeOffset? FechaCancelacionSat);
 
 public sealed class ObtenerCfdiPorIdHandler
     : IRequestHandler<ObtenerCfdiPorIdQuery, CfdiDetalleResponse>
@@ -76,6 +78,8 @@ public sealed class ObtenerCfdiPorIdHandler
             CfdiOriginalId: c.CfdiOriginalId,
             DocumentoDestinoId: c.DocumentoDestinoId,
             TieneXml: !string.IsNullOrEmpty(c.XmlBlobRef),
-            TienePdf: !string.IsNullOrEmpty(c.PdfBlobRef));
+            TienePdf: !string.IsNullOrEmpty(c.PdfBlobRef),
+            EstatusSat: c.EstatusSat,
+            FechaCancelacionSat: c.FechaCancelacionSat);
     }
 }
