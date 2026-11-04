@@ -185,6 +185,10 @@ public class GenerarBorradoresReordenTests
                 .Where(r => r.AlmacenDestinoId == alm && r.Origen == Millet.Compras.Domain.OrigenRequisicion.Sistema)
                 .ToListAsync();
             rqs.Should().ContainSingle("el borrador creado en el ciclo 1 suprime la regeneración en el ciclo 2");
+            // El reorden solo deja una RQ en Borrador (sin autorizar) y Almacén no crea ninguna OC.
+            rqs[0].Estado.Should().Be(Millet.Compras.Domain.EstadoRequisicion.Borrador);
+            (await comprasDb.OrdenesCompra.IgnoreQueryFilters().AsNoTracking()
+                .AnyAsync(o => o.EmpresaId == empresa)).Should().BeFalse("el reorden nunca crea ni autoriza órdenes de compra");
         }
         finally
         {
