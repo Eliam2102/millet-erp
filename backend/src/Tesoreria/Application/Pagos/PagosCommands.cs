@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.Tesoreria.Application.Corridas;
 using Millet.Tesoreria.Application.Integration;
 using Millet.Tesoreria.Domain.Movimientos;
 using Millet.Tesoreria.Domain.Ports;
@@ -188,18 +189,9 @@ public sealed class RegistrarPagoProveedorHandler
                 "Un pago cubre pasivos de un solo proveedor; registra un pago por proveedor.");
         var proveedorId = proveedores[0];
 
-        // F1-ADM-05 G1.1 / 86e3pdmee: proveedor Activo, fuera de revisión y con cuenta activa en la moneda
-        // del egreso; si el puerto no devuelve datos del proveedor el pago se bloquea.
-        CuentaDestinoPago? destino = null;
-        if (!hayInternos)
-        {
-            var infoProveedor = await _proveedorBancoPort.ObtenerAsync(proveedorId, cancellationToken);
-            var elegida = ReglasDestinoProveedor.Resolver(infoProveedor, cuenta.Moneda, command.CuentaProveedorId);
-            destino = new CuentaDestinoPago(elegida.Id, elegida.Banco, elegida.Numero, elegida.Titular);
-        }
-
         // RN-3: la cuenta de egreso coincide en moneda con los pasivos
-        // (cross-moneda bloqueado en MVP; T-G6).
+        // (cross-moneda bloqueado en MVP; T-G6). Va antes que la cuenta del
+        // proveedor para no pedir una cuenta en otra moneda que no hace falta (F-TES-05).
         var monedasDistintas = pasivos.Values
             .Select(p => p.Moneda).Distinct()
             .Where(m => m != cuenta.Moneda)
@@ -208,11 +200,25 @@ public sealed class RegistrarPagoProveedorHandler
             throw new BusinessRuleException("PAGO_CROSS_MONEDA",
                 $"La cuenta es {cuenta.Moneda} y hay pasivos en {string.Join(", ", monedasDistintas)} (RN-3; cross-moneda fuera del MVP).");
 
+        // F1-ADM-05 G1.1 / 86e3pdmee: proveedor Activo, fuera de revisión y con cuenta activa en la moneda
+        // del egreso; si el puerto no devuelve datos del proveedor el pago se bloquea.
+        CuentaDestinoPago? destino = null;
+        if (!hayInternos)
+        {
+            var infoProveedor = await _proveedorBancoPort.ObtenerAsync(proveedorId, cancellationToken);
+            var elegida = ReglasDestinoProveedor.Resolver(infoProveedor, cuenta.Moneda, command.CuentaProveedorId);
+            // Misma detención por documentación que la corrida (sin 32-D vigente no se paga por ninguna vía).
+            PasivosPagables.ExigirOpinionCumplimiento(infoProveedor!, "PAGO_PASIVO_DETENIDO_DOCUMENTACION");
+            destino = new CuentaDestinoPago(elegida.Id, elegida.Banco, elegida.Numero, elegida.Titular);
+        }
+
         foreach (var grupo in command.Aplicaciones.GroupBy(a => a.FacturaProveedorId))
         {
             if (pasivos[grupo.Key].EsInterno) continue;
             if (pasivos[grupo.Key].PagoBloqueado)
                 throw new BusinessRuleException("PASIVO_NO_AUTORIZADO_CXP", "CxP retiró la autorización del pasivo. Debe autorizarse de nuevo antes de pagar.");
+            // El saldo va antes que el elegible: si el importe excede la factura, el aviso de «retenido» no aplica.
+            pasivos[grupo.Key].ExigirSaldo(grupo.Sum(a => a.Importe));
             var limite = await _elegible.ObtenerLimiteAcumuladoAsync(grupo.Key, cancellationToken);
             if (limite <= 0)
                 throw new BusinessRuleException("PASIVO_NO_PAGABLE_CXP", "CxP no autoriza un importe pagable para esta factura. Revisa su estado y saldo en CxP.");

@@ -226,7 +226,8 @@ export function DetalleCorrida({ id }: { id: string }) {
             Cerrar corrida
           </Button>
         )}
-        {abierta && puedeCrear && (
+        {/* Autorizada (sin pagos) también se cancela: libera el pasivo que CxP retiró o cambió (F-TES-02). */}
+        {(abierta || c.estado === 'Autorizada') && puedeCrear && (
           <Button variant="outline" size="sm" onClick={() => setCancelando(true)}>
             Cancelar corrida
           </Button>

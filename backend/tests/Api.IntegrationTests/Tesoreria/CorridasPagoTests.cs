@@ -6,11 +6,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Millet.Api.IntegrationTests.DatosMaestros.Adjuntos;
 using Millet.Catalogos.Domain;
-using Millet.Compartido.Application.Adjuntos;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.DatosMaestros.Domain;
 using Millet.SharedKernel.Application;
-using Millet.SharedKernel.Domain.Adjuntos;
 using Millet.Tesoreria.Domain.Cuentas;
 using Millet.Tesoreria.Domain.Pasivos;
 using Millet.Tesoreria.Infrastructure.Persistence;
@@ -48,11 +46,7 @@ public sealed class CorridasPagoTests(WebApplicationFactory<Program> factory)
                 var compartido = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
                 compartido.CuentasBancariasProveedor.Add(CuentaBancariaProveedor.Heredada(provId, "BBVA", Clabe, "Proveedor SA", ahora));
                 if (conOpinionCumplimiento)   // 86e3ke2d3: sin opinión vigente el proveedor queda detenido por «documentación»
-                {
-                    var tipo = await compartido.AdjuntoTiposDocumento.FirstAsync(t => t.TipoEntidad == "proveedor" && t.Codigo == ExpedienteAdjuntos.CodigoOpinionCumplimiento);
-                    compartido.Adjuntos.Add(new Adjunto(Guid.NewGuid(), "proveedor", provId, null, tipo.Id, "opinion.pdf", "application/pdf", 20,
-                        new string('a', 64), $"opinion/{provId}", DateOnly.FromDateTime(DateTime.Today.AddDays(20)), Guid.NewGuid(), ahora));
-                }
+                    await AdjuntosProveedorAmbiente.AgregarOpinionCumplimientoAsync(compartido, provId);
                 await compartido.SaveChangesAsync();
                 var tes = scope.ServiceProvider.GetRequiredService<TesoreriaDbContext>();
                 var c = new CuentaBancaria(Empresa, "Egreso MXN", Guid.NewGuid().ToString("N")[..12], null, "MXN");
