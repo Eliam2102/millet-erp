@@ -6,10 +6,10 @@ using Millet.SharedKernel.Infrastructure;
 using Millet.SharedKernel.Infrastructure.Persistence.Interceptors;
 
 namespace Millet.Api.UnitTests;
-public sealed class OtrSalidaTests
+public sealed class OtrSinSalidaTests
 {
     [Fact]
-    public async Task Hito_booking_y_cancelaciones_usan_contador_propio_por_envio_y_tipo()
+    public async Task Booking_embarque_e_hitos_se_guardan_en_el_expediente_sin_crear_salidas_hacia_AW()
     {
         var empresa = Guid.NewGuid(); var actor = Guid.NewGuid(); var cliente = Guid.NewGuid(); var sucursal = Guid.NewGuid();
         var hoy = new DateOnly(2026, 10, 16);
@@ -22,22 +22,14 @@ public sealed class OtrSalidaTests
         o.Aplicar(1, new(cliente, sucursal, "DEMO cliente", "DEMO entrega", null, new("DEMO-C", null, null, "DEMO-BL", null, hoy, 100, 1), [new("DEMO-PED", 1, 10, "H87")]));
         o.Vincular(e); e.GuardarContenedor(o.ContenedorId!.Value, o.Conciliar(null, new(2026, 10, 16, 12, 0, 0, TimeSpan.Zero)));
         db.Expedientes.Add(e); db.OtrEnvios.Add(o); await db.SaveChangesAsync();
-        var inicial = await db.OtrSalidas.SingleAsync(); Assert.Equal(1, inicial.VersionErp); Assert.Equal("hito", inicial.Tipo);
-        Assert.Equal(EstadoOtrSalida.Pendiente, inicial.Estado);
-        e.CambiarCompromiso("planeado", hoy, actor, null); await db.SaveChangesAsync(); Assert.Single(await db.OtrSalidas.ToArrayAsync());
+        e.CambiarCompromiso("planeado", hoy, actor, null); await db.SaveChangesAsync();
         e.OmitirHito("planeado", "DEMO omitir planeado", actor); await db.SaveChangesAsync();
-        Assert.Contains(await db.OtrSalidas.ToArrayAsync(), s => s.Tipo == "hito" && s.VersionErp == 2);
-        var c = e.Contenedor(o.ContenedorId.Value); e.GuardarContenedor(c.Id, OtrEnvio.Datos(c) with { Booking = "DEMO-BOOK" }); await db.SaveChangesAsync();
-        Assert.Equal(1, (await db.OtrSalidas.SingleAsync(s => s.Tipo == "booking")).VersionErp);
-        e.GuardarContenedor(c.Id, OtrEnvio.Datos(c) with { Booking = null }); await db.SaveChangesAsync();
-        Assert.Equal(1, (await db.OtrSalidas.SingleAsync(s => s.Tipo == "booking-cancelado")).VersionErp);
-        e.CancelarContenedor(c.Id, "DEMO cancelación contenedor", false); await db.SaveChangesAsync();
-        Assert.Equal(1, (await db.OtrSalidas.SingleAsync(s => s.Tipo == "contenedor-cancelado")).VersionErp);
+        var c = e.Contenedor(o.ContenedorId!.Value);
+        e.GuardarContenedor(c.Id, OtrEnvio.Datos(c) with { Booking = "DEMO-BOOK" }); await db.SaveChangesAsync();
         db.ChangeTracker.Clear();
-        e = await db.Expedientes.Include(x => x.Hitos).SingleAsync();
-        db.OtrSalidas.Add(o.CrearSalida("hito", 40, "{}", []));
-        e.OmitirHito("booking-confirmado", "DEMO segundo hito", actor); await db.SaveChangesAsync();
-        Assert.Equal(41, await db.OtrSalidas.Where(s => s.Tipo == "hito").MaxAsync(s => s.VersionErp));
-        var cantidad = await db.OtrSalidas.CountAsync(); await db.SaveChangesAsync(); Assert.Equal(cantidad, await db.OtrSalidas.CountAsync());
+        var guardado = await db.Expedientes.Include(x => x.Contenedores).Include(x => x.Hitos).SingleAsync();
+        Assert.Equal("DEMO-BOOK", guardado.Contenedor(c.Id).Booking);
+        Assert.True(guardado.Hitos.Single(h => h.Clave == "planeado").Omitido);
+        Assert.Empty(await db.OtrSalidas.ToArrayAsync());
     }
 }

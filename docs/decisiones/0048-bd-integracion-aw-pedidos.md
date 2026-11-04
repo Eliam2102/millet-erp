@@ -233,6 +233,12 @@ salida apagadas por omisión, empresa obligatoria; Real requiere conexión, band
 y contrato I13.4 firmado. Demo PostgreSQL conserva selección keyed y prohibición en
 Production. Contrato, columnas y pendientes: [09-aw-otr-exportacion.md](../integration/09-aw-otr-exportacion.md).
 
+**Enmienda 4-nov-2026 (A+W-QA-9).** Jorge (1-nov) confirmó que A+W OTR no admite eventos ni
+personalizaciones: no escribe en tablas puente ni lee `erp_otr_estado`. Se retiran las tablas
+puente de OTR, los scripts 12 y 13, el usuario `aw_otr`, `IOtrSalidaWriter` y `OtrSalidaWorker`.
+El ERP sólo lee las tablas del módulo OTR con `millet_erp_lector_aw` (lector real en A+W-QA-10) y
+no escribe nada hacia A+W; el regreso queda en el expediente.
+
 ## Adenda A+W-QA-4 (22-oct-2026): TLS verificado hacia SER-DATA
 
 Todas las conexiones A+W (pedidos, clientes, productos, cambios, flujo 1 y OTR) pasan por

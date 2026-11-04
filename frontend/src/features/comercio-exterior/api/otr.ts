@@ -53,20 +53,6 @@ export interface OtrEnvio {
     usarOtr: boolean | null;
     motivo: string | null;
   }[];
-  salidas: {
-    id: string;
-    tipo: string;
-    versionErp: number;
-    estado: 1 | 2 | 3 | 4 | 5;
-    intento: number;
-    reemplazadaPorId: string | null;
-    sinAcuse: boolean;
-    intentos: number;
-    ultimoError: string | null;
-    acuseAt: string | null;
-    acuseResultado: string | null;
-    acuseMotivo: string | null;
-  }[];
 }
 const BASE = '/api/v1/comercio-exterior/otr';
 export function useOtrEnvios(expedienteId?: string) {

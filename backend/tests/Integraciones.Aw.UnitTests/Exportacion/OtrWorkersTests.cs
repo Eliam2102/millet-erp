@@ -14,25 +14,13 @@ namespace Millet.Integraciones.Aw.UnitTests.Exportacion;
 public sealed class OtrWorkersTests
 {
     [Theory]
-    [InlineData(false, false, true)]
-    [InlineData(true, false, false)]
-    [InlineData(false, true, false)]
-    public async Task Apagado_o_sin_empresa_no_resuelve_servicios_ni_abre_conexiones(bool entrada, bool salida, bool empresa)
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public async Task Apagado_o_sin_empresa_no_resuelve_servicios_ni_abre_conexiones(bool entrada, bool empresa)
     {
-        var options = Options.Create(new OtrOptions { EntradaHabilitada = entrada, SalidaHabilitada = salida, EmpresaId = empresa ? Guid.NewGuid() : null });
-        var scopes = new Prohibido();
-        using var lector = new OtrEntradaWorker(scopes, options, NullLogger<OtrEntradaWorker>.Instance);
-        using var escritor = new OtrSalidaWorker(scopes, options, NullLogger<OtrSalidaWorker>.Instance);
-        Assert.Equal(0, await lector.CorrerUnaVezAsync(CancellationToken.None)); Assert.Equal(0, await escritor.CorrerUnaVezAsync(CancellationToken.None));
-    }
-    [Theory][InlineData(true)][InlineData(false)]
-    public async Task Banderas_independientes_no_arrancan_la_direccion_apagada(bool probarEntrada)
-    {
-        var options = Options.Create(new OtrOptions { EntradaHabilitada = !probarEntrada, SalidaHabilitada = probarEntrada, EmpresaId = Guid.NewGuid() });
-        using OtrWorker worker = probarEntrada
-            ? new OtrEntradaWorker(new Prohibido(), options, NullLogger<OtrEntradaWorker>.Instance)
-            : new OtrSalidaWorker(new Prohibido(), options, NullLogger<OtrSalidaWorker>.Instance);
-        Assert.Equal(0, await worker.CorrerUnaVezAsync(CancellationToken.None));
+        var options = Options.Create(new OtrOptions { EntradaHabilitada = entrada, EmpresaId = empresa ? Guid.NewGuid() : null });
+        using var lector = new OtrEntradaWorker(new Prohibido(), options, NullLogger<OtrEntradaWorker>.Instance);
+        Assert.Equal(0, await lector.CorrerUnaVezAsync(CancellationToken.None));
     }
     [Theory][InlineData(false)][InlineData(true)]
     public async Task Error_por_fila_no_detiene_lote_y_control_local_limita_reintentos(bool fallaWriteback)
