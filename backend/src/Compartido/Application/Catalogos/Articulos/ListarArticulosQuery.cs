@@ -11,7 +11,7 @@ namespace Millet.DatosMaestros.Application.Articulos;
 /// Lista paginada enriquecida de artículos (F-Admin-PR4.5). Filtros
 /// avanzados respecto al endpoint legacy de F7-PR1: codigo (substring
 /// sobre clave), descripcion (substring sobre nombre), naturaleza,
-/// unidadMedidaDefault, estatus.
+/// unidadMedidaDefault, estatus. <c>Q</c> = buscador general: clave o nombre.
 /// </summary>
 public sealed record ListarArticulosQuery(
     string? Codigo = null,
@@ -20,7 +20,8 @@ public sealed record ListarArticulosQuery(
     string? UnidadMedidaDefault = null,
     EstatusCatalogo? Estatus = null,
     int Offset = 0,
-    int Limit = 50) : IRequest<ListarArticulosResponse>;
+    int Limit = 50,
+    string? Q = null) : IRequest<ListarArticulosResponse>;
 
 public sealed record ArticuloItem(
     Guid Id,
@@ -67,6 +68,14 @@ public sealed class ListarArticulosHandler
             var aguja = query.Descripcion;
             q = q.Where(a =>
                 PostgresFunctions.Translate(a.Nombre.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)
+                    .Contains(PostgresFunctions.Translate(aguja.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)));
+        }
+        if (!string.IsNullOrWhiteSpace(query.Q))
+        {
+            var aguja = query.Q.Trim();
+            q = q.Where(a =>
+                a.Clave.ToLower().Contains(aguja.ToLower())
+                || PostgresFunctions.Translate(a.Nombre.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)
                     .Contains(PostgresFunctions.Translate(aguja.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)));
         }
 #pragma warning restore CA1304, CA1311, CA1862
