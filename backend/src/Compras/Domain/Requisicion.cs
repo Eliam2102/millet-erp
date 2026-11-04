@@ -772,6 +772,24 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
     }
 
     /// <summary>
+    /// F-01: tras una devolución a proveedor (o la cancelación de una recepción)
+    /// la línea de RQ baja al recibido neto de sus líneas de OC. Solo baja: lo
+    /// que falta sumar lo empareja la siguiente recepción
+    /// (<c>OcRecepcionEnAlmacenHandler.DeltaRequisicion</c>).
+    /// </summary>
+    public void AjustarRecepcionAlNeto(Guid lineaId, decimal recibidoNetoOc)
+    {
+        if (Estado != EstadoRequisicion.EnSurtido)
+        {
+            throw new BusinessRuleException(
+                "RECEPCION_SOLO_DESDE_ENSURTIDO",
+                $"Solo se pueden ajustar recepciones en EnSurtido (actual: {Estado}).");
+        }
+
+        BuscarLineaOLanzar(lineaId).BajarRecepcionA(recibidoNetoOc);
+    }
+
+    /// <summary>
     /// Registra una entrega incremental al solicitante sobre la línea
     /// indicada (ADR-0043, canal de entrega Almacén→Compras). Espejo de
     /// <see cref="RegistrarRecepcion"/>, pero con dos diferencias clave:

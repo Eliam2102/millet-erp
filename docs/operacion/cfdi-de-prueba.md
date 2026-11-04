@@ -16,10 +16,10 @@ la emita, así que `tools/cfdi-prueba/generar.mjs` arma un CFDI 4.0 sintético d
 | Dato | De dónde sale |
 |---|---|
 | Emisor | RFC y razón social del proveedor de la OC (`/catalogos/proveedores/{id}`) |
-| Receptor | RFC de la empresa de la OC (`/admin/empresas`) o `--rfc-receptor` |
+| Receptor | RFC, nombre y CP de la empresa de la OC: de `/admin/empresas` o, si no hay permiso, del receptor de los CFDI ya recibidos en CxP › CFDIs (de preferencia uno que no sea de prueba). `--rfc-receptor`, `--nombre-receptor` y `--cp-receptor` mandan sobre lo leído |
 | Conceptos | Líneas de la OC: precio unitario de la OC, descuento de la línea, IVA con la tasa de la línea (16 % hoy) |
 | Cantidad por línea | Lo recibido y no facturado (servicios: todo, si la OC tiene el servicio confirmado). Con `--cantidades` se elige otra, p. ej. parcial |
-| UUID | Aleatorio en el `TimbreFiscalDigital`; nunca se repite |
+| UUID | Aleatorio en el `TimbreFiscalDigital`; nunca se repite (salvo con `--uuid`) |
 | Moneda | La de la OC (con su tipo de cambio si no es MXN) |
 
 No reparte el descuento global de la OC; si la OC lo tiene, avisa.
@@ -28,8 +28,11 @@ No reparte el descuento global de la OC; si la OC lo tiene, avisa.
 
 - Node 22 (el del frontend). Sin dependencias.
 - Usuario con `compras.ordenes.leer` y `compartido.catalogos.leer`; con `--cargar`,
-  además `cuentas_por_pagar.cfdis.cargar-manual`. Para leer el RFC de la empresa,
-  `admin.empresas.leer`; si no lo tiene, pasar `--rfc-receptor`.
+  además `cuentas_por_pagar.cfdis.cargar-manual`.
+- Para el receptor, alguno de estos: `admin.empresas.leer`, o `cuentas_por_pagar.cfdis.leer`
+  (el rol de CxP lo tiene) con al menos un CFDI recibido en CxP › CFDIs. Si no hay ninguno
+  (p. ej. Compras sin acceso a CFDIs), pasar `--rfc-receptor` (y, si se quiere,
+  `--nombre-receptor` y `--cp-receptor`; sin ellos van «Millet» y `00000`).
 - El proveedor de la OC debe tener RFC en el catálogo.
 - Token: entrar a la app, abrir las herramientas del navegador › Red, tomar cualquier
   llamada a `/api/...` y copiar el valor del encabezado `Authorization`.
@@ -45,6 +48,22 @@ node tools/cfdi-prueba/generar.mjs --url $API --oc OC-MID2026-000002
 
 # Factura parcial (posición de línea = cantidad) y lo deja en la bandeja de CFDIs
 node tools/cfdi-prueba/generar.mjs --url $API --oc OC-MID2026-000002 --cantidades 1=4,2=1 --cargar
+```
+
+### Casos negativos (para probar rechazos)
+
+| Opción | Qué arma | Qué debe responder el ERP |
+|---|---|---|
+| `--rfc-emisor XAXX010101000` | El mismo CFDI con otro RFC emisor | Portal: `PORTAL_RFC_NO_COINCIDE`; captura con la OC: `CFDI_NO_UTILIZABLE` |
+| `--tipo E` | `TipoDeComprobante="E"` (egreso) | Portal: `PORTAL_TIPO_NO_ACEPTADO` |
+| `--uuid <UUID de un CFDI ya recibido>` | Repite ese UUID | Portal: «Documento repetido»; carga manual: `CFDI_DUPLICADO` |
+
+```bash
+node tools/cfdi-prueba/generar.mjs --url $API --oc OC-MID2026-000002 --rfc-emisor XAXX010101000
+node tools/cfdi-prueba/generar.mjs --url $API --oc OC-MID2026-000002 --tipo E
+node tools/cfdi-prueba/generar.mjs --url $API --oc OC-MID2026-000002 --uuid 15A75665-0000-4000-8000-000000000000 --cargar
+# Sin permiso para leer la empresa
+node tools/cfdi-prueba/generar.mjs --url $API --oc OC-MID2026-000002 --rfc-receptor MID010101AAA --nombre-receptor 'MILLET INDUSTRIA DE VIDRIO' --cp-receptor 97000
 ```
 
 Después: CxP › CFDIs › buscar el UUID › «Capturar factura» › elegir la OC. La conciliación
@@ -65,4 +84,4 @@ debe salir «Sin diferencia».
 - **SAT/PAC**: CxP no consulta al SAT al recibir ni al capturar un CFDI de proveedor; no hay
   nada que simular.
 
-Pruebas del armado del XML: `node --test tools/cfdi-prueba/cfdi.test.mjs`.
+Pruebas del armado del XML y del receptor: `node --test tools/cfdi-prueba/cfdi.test.mjs`.

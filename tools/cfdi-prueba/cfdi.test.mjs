@@ -1,7 +1,7 @@
 // node --test tools/cfdi-prueba/cfdi.test.mjs
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { construirCfdi } from './cfdi.mjs';
+import { armarReceptor, construirCfdi, receptorDeXml } from './cfdi.mjs';
 
 const linea = (o) => ({
   posicion: 1, articuloClave: 'ART-1', articuloNombre: 'Resma "carta" & bond', unidadMedida: 'PZA',
@@ -74,4 +74,36 @@ test('escapa texto y rechaza cantidades de más o una OC sin pendiente', () => {
   assert.throws(() => construirCfdi({ oc: oc([linea()]), emisor, receptor, cantidades: { 1: 11 } }), /excede/);
   assert.throws(() => construirCfdi({ oc: oc([linea({ cantidadRecibida: 0 })]), emisor, receptor }), /No hay nada que facturar/);
   assert.throws(() => construirCfdi({ oc: oc([linea()]), emisor: { rfc: '' }, receptor }), /RFC/);
+});
+
+test('casos negativos: tipo Egreso, UUID repetido y emisor distinto', () => {
+  const uuid = '15a75665-1111-4222-8333-444455556666';
+  const r = construirCfdi({ oc: oc([linea()]), emisor: { ...emisor, rfc: 'XAXX010101000' }, receptor, tipo: 'E', uuid });
+  assert.equal(attr(r.xml, 'cfdi:Comprobante', 'TipoDeComprobante'), 'E');
+  assert.equal(attr(r.xml, 'cfdi:Emisor', 'Rfc'), 'XAXX010101000');
+  assert.equal(r.uuid, uuid.toUpperCase());
+  assert.equal(attr(r.xml, 'tfd:TimbreFiscalDigital', 'UUID'), uuid.toUpperCase());
+  assert.throws(() => construirCfdi({ oc: oc([linea()]), emisor, receptor, tipo: 'P' }), /usa I \(ingreso\) o E/);
+  assert.throws(() => construirCfdi({ oc: oc([linea()]), emisor, receptor, uuid: 'no-es-uuid' }), /UUID inválido/);
+});
+
+test('receptor: lo leído del XML de un CFDI recibido y lo de la línea de comandos manda', () => {
+  const { xml } = construirCfdi({ oc: oc([linea()]), emisor, receptor: { rfc: 'MIL010101AAA', razonSocial: 'Millet & Cía', codigoPostal: '97000' } });
+  const leido = receptorDeXml(xml);
+  assert.deepEqual(leido, { rfc: 'MIL010101AAA', razonSocial: 'Millet & Cía', codigoPostal: '97000' });
+  assert.equal(receptorDeXml('<cfdi:Comprobante/>'), null);
+
+  assert.deepEqual(armarReceptor(leido), leido);
+  assert.deepEqual(armarReceptor(leido, { cp: '97100', nombre: 'Otra' }), { rfc: 'MIL010101AAA', razonSocial: 'Otra', codigoPostal: '97100' });
+  // Otro RFC: no hereda nombre ni CP de la empresa.
+  assert.deepEqual(armarReceptor(leido, { rfc: 'otr010101aaa' }), { rfc: 'OTR010101AAA', razonSocial: 'Millet', codigoPostal: undefined });
+  // El CP 00000 de un CFDI de prueba no se reutiliza.
+  assert.equal(armarReceptor({ ...leido, codigoPostal: '00000' }).codigoPostal, undefined);
+  assert.throws(() => armarReceptor(null), /--rfc-receptor/);
+  assert.throws(() => armarReceptor(leido, { cp: '123' }), /5 dígitos/);
+
+  const r = construirCfdi({ oc: oc([linea()]), emisor, receptor: armarReceptor(leido, { cp: '97100', nombre: 'Otra' }) });
+  assert.equal(attr(r.xml, 'cfdi:Receptor', 'Nombre'), 'Otra');
+  assert.equal(attr(r.xml, 'cfdi:Receptor', 'DomicilioFiscalReceptor'), '97100');
+  assert.equal(attr(r.xml, 'cfdi:Comprobante', 'LugarExpedicion'), '97100');
 });
