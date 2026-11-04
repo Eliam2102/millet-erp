@@ -24,17 +24,47 @@ export function cantidadPorOmision(linea, servicioConfirmado) {
   return Math.max(0, base - (linea.cantidadFacturada ?? 0));
 }
 
+const UUID_RE = /^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/i;
+const desc = (s) => s.replace(/&(amp|lt|gt|quot|apos);/g, (_, e) => ({ amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" })[e]);
+
+/** Receptor (RFC, nombre y CP) de un XML de CFDI ya recibido; null si no lo trae. */
+export function receptorDeXml(xml) {
+  const tag = xml.match(/<cfdi:Receptor\b[^>]*>/)?.[0];
+  const v = (n) => { const m = tag?.match(new RegExp(`\\s${n}="([^"]*)"`)); return m ? desc(m[1]) : undefined; };
+  const rfc = v('Rfc');
+  return rfc ? { rfc, razonSocial: v('Nombre'), codigoPostal: v('DomicilioFiscalReceptor') } : null;
+}
+
+/**
+ * Receptor final: lo que se pase por línea de comandos manda; lo demás sale de la empresa leída del API,
+ * solo si es la del mismo RFC (con otro RFC no se le pega el nombre ni el CP de Millet).
+ * @param {{rfc?: string, razonSocial?: string, codigoPostal?: string} | null | undefined} empresa
+ * @param {{rfc?: string, nombre?: string, cp?: string}} opciones
+ */
+export function armarReceptor(empresa, { rfc, nombre, cp } = {}) {
+  const rfcFinal = (rfc ?? empresa?.rfc)?.toUpperCase();
+  if (!rfcFinal) throw new Error('No pude leer el RFC de la empresa: hace falta admin.empresas.leer, o cuentas_por_pagar.cfdis.leer con algún CFDI recibido. Pásalo con --rfc-receptor.');
+  if (cp !== undefined && !/^\d{5}$/.test(cp)) throw new Error(`--cp-receptor debe tener 5 dígitos (llegó «${cp}»).`);
+  const misma = empresa?.rfc?.toUpperCase() === rfcFinal;
+  const cpEmpresa = misma && /^\d{5}$/.test(empresa.codigoPostal ?? '') && empresa.codigoPostal !== '00000' ? empresa.codigoPostal : undefined;
+  return { rfc: rfcFinal, razonSocial: nombre ?? (misma ? empresa.razonSocial : undefined) ?? 'Millet', codigoPostal: cp ?? cpEmpresa };
+}
+
 /**
  * @param {object} p
  * @param {object} p.oc OC tal como la devuelve el API (camelCase).
  * @param {{rfc: string, razonSocial: string}} p.emisor Proveedor de la OC.
  * @param {{rfc: string, razonSocial: string, codigoPostal?: string}} p.receptor Empresa (Millet).
  * @param {Record<number, number>} [p.cantidades] Posición de línea → cantidad (parcial). Sin ella, cantidadPorOmision.
- * @param {string} [p.uuid] UUID del timbre; por omisión uno aleatorio.
+ * @param {string} [p.uuid] UUID del timbre; por omisión uno aleatorio. Repetir uno sirve para probar CFDI_DUPLICADO.
+ * @param {'I'|'E'} [p.tipo] TipoDeComprobante: I (ingreso) o E (egreso, para probar el rechazo por tipo).
  * @param {string} [p.fecha] Fecha CFDI; por omisión ahora (hora de México).
  */
-export function construirCfdi({ oc, emisor, receptor, cantidades, uuid = randomUUID().toUpperCase(), fecha = fechaCfdi() }) {
+export function construirCfdi({ oc, emisor, receptor, cantidades, uuid = randomUUID(), fecha = fechaCfdi(), tipo = 'I' }) {
   if (!emisor?.rfc) throw new Error('El proveedor de la OC no tiene RFC.');
+  if (!UUID_RE.test(uuid)) throw new Error(`UUID inválido: «${uuid}» (formato 8-4-4-4-12 hexadecimal).`);
+  uuid = uuid.toUpperCase();
+  if (!['I', 'E'].includes(tipo)) throw new Error(`Tipo «${tipo}» no soportado: usa I (ingreso) o E (egreso).`);
   if (!receptor?.rfc) throw new Error('Falta el RFC de la empresa receptora.');
   const servicioConfirmado = Boolean(oc.servicioConfirmadoEn);
   const lineas = [];
@@ -82,7 +112,7 @@ export function construirCfdi({ oc, emisor, receptor, cantidades, uuid = randomU
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <!-- CFDI DE PRUEBA generado por tools/cfdi-prueba para la OC ${esc(oc.folio)}. Sin timbrar: no tiene validez fiscal. -->
-<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="4.0" Serie="PRUEBA" Folio="${folio}" Fecha="${fecha}" Sello="SIN-SELLO-PRUEBA" FormaPago="${metodoPago === 'PUE' ? '03' : '99'}" NoCertificado="00000000000000000000" Certificado="" SubTotal="${m2(subtotal)}"${descuento ? ` Descuento="${m2(descuento)}"` : ''} Moneda="${moneda}"${moneda !== 'MXN' ? ` TipoCambio="${oc.tipoCambio ?? 1}"` : ''} Total="${m2(total)}" TipoDeComprobante="I" Exportacion="01" MetodoPago="${metodoPago}" LugarExpedicion="${receptor.codigoPostal || '00000'}">
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="4.0" Serie="PRUEBA" Folio="${folio}" Fecha="${fecha}" Sello="SIN-SELLO-PRUEBA" FormaPago="${metodoPago === 'PUE' ? '03' : '99'}" NoCertificado="00000000000000000000" Certificado="" SubTotal="${m2(subtotal)}"${descuento ? ` Descuento="${m2(descuento)}"` : ''} Moneda="${moneda}"${moneda !== 'MXN' ? ` TipoCambio="${oc.tipoCambio ?? 1}"` : ''} Total="${m2(total)}" TipoDeComprobante="${tipo}" Exportacion="01" MetodoPago="${metodoPago}" LugarExpedicion="${receptor.codigoPostal || '00000'}">
   <cfdi:Emisor Rfc="${esc(emisor.rfc)}" Nombre="${esc(emisor.razonSocial)}" RegimenFiscal="601"/>
   <cfdi:Receptor Rfc="${esc(receptor.rfc)}" Nombre="${esc(receptor.razonSocial)}" DomicilioFiscalReceptor="${receptor.codigoPostal || '00000'}" RegimenFiscalReceptor="601" UsoCFDI="${oc.usoCfdiClave || 'G03'}"/>
   <cfdi:Conceptos>
