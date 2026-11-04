@@ -417,6 +417,19 @@ public partial class OrdenesCompraEndpointsTests
     }
 
     [Fact]
+    public async Task F_RQOC_04_pdf_de_oc_sin_autorizar_responde_422_sin_id()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var crear = await client.PostAsJsonAsync(EndpointBase, ValidBody());
+        crear.EnsureSuccessStatusCode();
+        var id = (await ReadJsonAsync(crear)).GetProperty("id").GetGuid();
+
+        var pdf = await client.GetAsync($"{EndpointBase}/{id}/pdf");
+        await AssertCodigoP2(pdf, HttpStatusCode.UnprocessableEntity, "OC_PDF_NO_AUTORIZADA");
+        Assert.DoesNotContain(id.ToString(), (await ReadJsonAsync(pdf)).GetProperty("detail").GetString());
+    }
+
+    [Fact]
     public async Task P2_FacturarConCancelacionSolicitada_422()
     {
         var client = await CreateSuperAdminClientAsync();

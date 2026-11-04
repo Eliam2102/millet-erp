@@ -285,13 +285,17 @@ public static class OrdenesCompraEndpoints
             CancellationToken cancellationToken) =>
         {
             await OcSucursalScope.VerificarAsync(id, db, scopeUser, scopePermisos, scopeSucursales, cancellationToken);
+            // F-RQOC-04: una OC sin autorizar no tiene PDF; se dice eso (422) en vez de un 404 con el id.
+            var estado = await db.OrdenesCompra.AsNoTracking().Where(o => o.Id == id).Select(o => o.Estado).FirstAsync(cancellationToken);
+            if (estado is not (EstadoOrdenCompra.Autorizada or EstadoOrdenCompra.Cerrada))
+                throw new BusinessRuleException("OC_PDF_NO_AUTORIZADA", "Autoriza la orden de compra antes de descargar su PDF.");
             // La fila existe solo si la OC se autorizó; también lleva el contador de impresiones.
             var pdf = await db.OrdenCompraPdfs
                 .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.OrdenCompraId == id, cancellationToken)
                 ?? throw new EntityNotFoundException(
                     "OC_PDF_NO_ENCONTRADO",
-                    $"La OC '{id}' aún no tiene PDF generado. Se genera al autorizar N2.");
+                    "Esta orden de compra aún no tiene PDF generado.");
 
             // El PDF se dibuja al momento con los datos vigentes; el blob guardado es solo la foto de la autorización.
             response.Headers.CacheControl = "no-store";
