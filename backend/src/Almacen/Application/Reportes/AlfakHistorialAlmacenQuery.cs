@@ -2,6 +2,7 @@ using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Application.Catalogo;
+using Millet.Almacen.Domain.Cierre;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Domain.Ports;
 using Millet.Almacen.Infrastructure.Persistence;
@@ -62,7 +63,12 @@ public sealed record AlfakHistorialFila(
     Guid? ProductoAwVarianteId = null,
     string? Medida = null,
     // S4b: una fila por lote del proveedor (null = sin lote / apertura).
-    string? Lote = null);
+    string? Lote = null,
+    // F1-ALM-13: hojas (unidad física) al saldo final del vidrio por medida; la existencia sigue en m². Null = sin medida.
+    decimal? HojasFinal = null);
+
+internal sealed record LineaKardex(Guid SubAlmacenId, string SubAlmacenNombre, Guid ArticuloId, Guid? ProductoAwVarianteId, string? Lote,
+    TipoMovimiento Tipo, DateOnly FechaMovimiento, decimal Cantidad, decimal CostoUnitarioMxn);
 
 public sealed class AlfakHistorialAlmacenHandler
     : IRequestHandler<AlfakHistorialAlmacenQuery, ReporteResponse<AlfakHistorialFila>>
@@ -81,38 +87,79 @@ public sealed class AlfakHistorialAlmacenHandler
     public async Task<ReporteResponse<AlfakHistorialFila>> Handle(
         AlfakHistorialAlmacenQuery request, CancellationToken cancellationToken)
     {
+        await AlcanceSucursalAlmacen.VerificarSubAlmacenAsync(_db, request.SubAlmacenId,
+            request.SucursalesPermitidas, cancellationToken);
+        var filas = await CalcularAsync(_db, request.Desde, request.Hasta, request.SubAlmacenId, request.ArticuloId,
+            request.SucursalesPermitidas, cancellationToken);
+        filas = await AplicarFotoCierreAsync(_db, request.Hasta, filas, cancellationToken);
+        var medidas = _variantes is null ? new Dictionary<Guid, VarianteVidrioLectura>()
+            : await _variantes.ObtenerPorIdsAsync(
+                filas.Where(f => f.ProductoAwVarianteId != null).Select(f => f.ProductoAwVarianteId!.Value).Distinct().ToArray(), cancellationToken);
+        filas = filas.Select(f => f with
+        {
+            Medida = MedidaReporte.Texto(f.ProductoAwVarianteId, f.SaldoFinal, medidas),
+            HojasFinal = MedidaReporte.Hojas(f.ProductoAwVarianteId, f.SaldoFinal, medidas),
+        }).ToList();
+
+        // Enriquecimiento de artículo (clave/descripción) en batch sobre los
+        // ArticuloId distintos (ADR-0042, anti-N+1); fallback a null cuando el
+        // read-port no resuelve.
+        var ids = ExtraerArticuloIdsDistintos(filas);
+        var articulos = ids.Count > 0
+            ? await _articulos.ObtenerPorIdsAsync(ids, cancellationToken)
+            : new Dictionary<Guid, ArticuloLectura>();
+        filas = AplicarArticulos(filas, articulos);
+
+        return new ReporteResponse<AlfakHistorialFila>(
+            Titulo: "ALFAK-HISTORIAL-ALMACEN",
+            GeneradoEn: DateTimeOffset.UtcNow,
+            FiltrosAplicados: new Dictionary<string, string?>
+            {
+                ["desde"] = request.Desde.ToString("yyyy-MM-dd"),
+                ["hasta"] = request.Hasta.ToString("yyyy-MM-dd"),
+                ["sub_almacen_id"] = request.SubAlmacenId?.ToString(),
+                ["articulo_id"] = request.ArticuloId?.ToString(),
+            },
+            Columnas: Columnas,
+            Filas: filas,
+            Totales: CalcularTotales(filas));
+    }
+
+    /// <summary>
+    /// Líneas que cuentan para el kardex y el ALFAK (registradas, y canceladas con folio para netear entrada y CEN), con su
+    /// sub-almacén y su costo congelado. La comparten el ALFAK y el cuadre del cierre (ALM-13-a).
+    /// </summary>
+    internal static IQueryable<LineaKardex> LineasKardex(AlmacenDbContext db, Guid? subAlmacenId, Guid? articuloId, IReadOnlyList<Guid>? sucursales,
+        DateOnly? desde = null, DateOnly? hasta = null) =>
+        from l in db.LineasMovimiento.AsNoTracking()
+            join m in db.Movimientos.AsNoTracking() on l.MovimientoId equals m.Id
+            join v in db.Ubicaciones.AsNoTracking() on l.UbicacionId equals (Guid?)v.Id
+            join sa in db.SubAlmacenes.AsNoTracking() on v.SubAlmacenId equals sa.Id
+            // Una recepción cancelada (con folio) sigue en el kardex: su entrada y su CEN se netean.
+            where (m.Estado == EstadoMovimiento.Registrado || (m.Estado == EstadoMovimiento.Cancelado && m.Folio != null))
+               && (subAlmacenId == null || v.SubAlmacenId == subAlmacenId)
+               && (articuloId == null || l.ArticuloId == articuloId)
+               && (desde == null || m.FechaMovimiento >= desde) && (hasta == null || m.FechaMovimiento <= hasta)
+               && (sucursales == null
+                   || AlcanceSucursalAlmacen.SubAlmacenesPermitidos(db, sucursales!).Contains(v.SubAlmacenId))
+            select new LineaKardex(v.SubAlmacenId, sa.Nombre, l.ArticuloId, l.ProductoAwVarianteId, l.Lote,
+                m.Tipo, m.FechaMovimiento, l.Cantidad, l.CostoUnitarioMxn);
+
+    /// <summary>
+    /// Filas del ALFAK sin enriquecer (sin medida ni artículo). Lo usan el reporte y el cierre mensual para la foto de la valuación.
+    /// <c>sucursales = null</c> = alcance corporativo.
+    /// </summary>
+    internal static async Task<List<AlfakHistorialFila>> CalcularAsync(AlmacenDbContext db, DateOnly desde, DateOnly hasta,
+        Guid? subAlmacenId, Guid? articuloId, IReadOnlyList<Guid>? sucursales, CancellationToken cancellationToken)
+    {
         // Líneas de movimiento Registrados, con el nombre del sub-almacén por
         // JOIN (traducible; proyección sobre columnas del entity). El cálculo de
         // saldo inicial/final por periodo se hace en memoria sobre estas filas.
-        // PR6a: el sub-almacén salió de la cabecera; se deriva vía la vista
-        // v_movimiento_sub_almacen (una fila por movimiento).
-        await AlcanceSucursalAlmacen.VerificarSubAlmacenAsync(_db, request.SubAlmacenId,
-            request.SucursalesPermitidas, cancellationToken);
-
-        var query = from l in _db.LineasMovimiento.AsNoTracking()
-                    join m in _db.Movimientos.AsNoTracking() on l.MovimientoId equals m.Id
-                    join v in _db.MovimientosSubAlmacen.AsNoTracking() on m.Id equals v.MovimientoId
-                    join sa in _db.SubAlmacenes.AsNoTracking() on v.SubAlmacenId equals sa.Id
-                    // Una recepción cancelada (con folio) sigue en el kardex: su entrada y su CEN se netean.
-                    where (m.Estado == EstadoMovimiento.Registrado || (m.Estado == EstadoMovimiento.Cancelado && m.Folio != null))
-                       && (request.SubAlmacenId == null || v.SubAlmacenId == request.SubAlmacenId)
-                       && (request.ArticuloId == null || l.ArticuloId == request.ArticuloId)
-                       && (request.SucursalesPermitidas == null
-                           || AlcanceSucursalAlmacen.SubAlmacenesPermitidos(_db, request.SucursalesPermitidas).Contains(v.SubAlmacenId))
-                    select new
-                    {
-                        v.SubAlmacenId,
-                        SubAlmacenNombre = sa.Nombre,
-                        l.ArticuloId,
-                        l.ProductoAwVarianteId,
-                        l.Lote,
-                        m.Tipo,
-                        m.FechaMovimiento,
-                        l.Cantidad,
-                        l.CostoUnitarioMxn,
-                    };
-
-        var rows = await query.ToListAsync(cancellationToken);
+        // PR6a: el sub-almacén salió de la cabecera; se deriva de la ubicación de
+        // la línea (la misma derivación de la vista v_movimiento_sub_almacen: todas
+        // las líneas de un movimiento comparten sub-almacén). Sin la vista, la
+        // consulta también corre en EF InMemory (pruebas unitarias del cierre).
+        var rows = await LineasKardex(db, subAlmacenId, articuloId, sucursales).ToListAsync(cancellationToken);
 
         var grupos = rows.GroupBy(r => new { r.SubAlmacenId, r.ArticuloId, r.ProductoAwVarianteId, r.Lote });
         var filas = new List<AlfakHistorialFila>();
@@ -124,11 +171,11 @@ public sealed class AlfakHistorialAlmacenHandler
             foreach (var mov in g)
             {
                 var signo = TipoMovimientoExtensions.EsEntrada(mov.Tipo) ? 1m : -1m;
-                if (mov.FechaMovimiento < request.Desde)
+                if (mov.FechaMovimiento < desde)
                 {
                     inicial += signo * mov.Cantidad;
                 }
-                else if (mov.FechaMovimiento >= request.Desde && mov.FechaMovimiento <= request.Hasta)
+                else if (mov.FechaMovimiento >= desde && mov.FechaMovimiento <= hasta)
                 {
                     if (mov.Tipo == TipoMovimiento.EntradaCompra
                         || mov.Tipo == TipoMovimiento.DevolucionSalida
@@ -156,12 +203,12 @@ public sealed class AlfakHistorialAlmacenHandler
                 }
             }
             var saldoFinal = inicial + entradas - salidas + ajPos - ajNeg;
-            var posteriores = g.Where(m => m.FechaMovimiento > request.Hasta)
+            var posteriores = g.Where(m => m.FechaMovimiento > hasta)
                 .Select(m => (TipoMovimientoExtensions.EsEntrada(m.Tipo), m.Cantidad, m.CostoUnitarioMxn)).ToList();
             // C7.2a: costo representativo del sub-almacén = promedio ponderado
             // entre sus bins (una fila arbitraria sería el costo de un bin al
             // azar con N bins). Sin cambio con la ÚNICA única.
-            var saldosActuales = await _db.SaldosInventario.AsNoTracking()
+            var saldosActuales = await db.SaldosInventario.AsNoTracking()
                 .Where(s => s.SubAlmacenId == g.Key.SubAlmacenId
                     && s.ArticuloId == g.Key.ArticuloId
                     && s.ProductoAwVarianteId == g.Key.ProductoAwVarianteId
@@ -193,33 +240,25 @@ public sealed class AlfakHistorialAlmacenHandler
                 ProductoAwVarianteId: g.Key.ProductoAwVarianteId,
                 Lote: g.Key.Lote));
         }
-        var medidas = _variantes is null ? new Dictionary<Guid, VarianteVidrioLectura>()
-            : await _variantes.ObtenerPorIdsAsync(
-                filas.Where(f => f.ProductoAwVarianteId != null).Select(f => f.ProductoAwVarianteId!.Value).Distinct().ToArray(), cancellationToken);
-        filas = filas.Select(f => f with { Medida = MedidaReporte.Texto(f.ProductoAwVarianteId, f.SaldoFinal, medidas) }).ToList();
+        return filas;
+    }
 
-        // Enriquecimiento de artículo (clave/descripción) en batch sobre los
-        // ArticuloId distintos (ADR-0042, anti-N+1); fallback a null cuando el
-        // read-port no resuelve.
-        var ids = ExtraerArticuloIdsDistintos(filas);
-        var articulos = ids.Count > 0
-            ? await _articulos.ObtenerPorIdsAsync(ids, cancellationToken)
-            : new Dictionary<Guid, ArticuloLectura>();
-        filas = AplicarArticulos(filas, articulos);
-
-        return new ReporteResponse<AlfakHistorialFila>(
-            Titulo: "ALFAK-HISTORIAL-ALMACEN",
-            GeneradoEn: DateTimeOffset.UtcNow,
-            FiltrosAplicados: new Dictionary<string, string?>
-            {
-                ["desde"] = request.Desde.ToString("yyyy-MM-dd"),
-                ["hasta"] = request.Hasta.ToString("yyyy-MM-dd"),
-                ["sub_almacen_id"] = request.SubAlmacenId?.ToString(),
-                ["articulo_id"] = request.ArticuloId?.ToString(),
-            },
-            Columnas: Columnas,
-            Filas: filas,
-            Totales: CalcularTotales(filas));
+    /// <summary>
+    /// F1-ALM-13: si <c>Hasta</c> es el último día de un mes cerrado, el valor y el costo salen de la foto tomada al cierre
+    /// (<see cref="ValuacionCierre"/>), no del cálculo de hoy. Los grupos sin foto (nacieron después del cierre) se quedan como están.
+    /// </summary>
+    internal static async Task<List<AlfakHistorialFila>> AplicarFotoCierreAsync(AlmacenDbContext db, DateOnly hasta,
+        List<AlfakHistorialFila> filas, CancellationToken ct)
+    {
+        if (hasta.Day != DateTime.DaysInMonth(hasta.Year, hasta.Month) || filas.Count == 0) return filas;
+        var subs = filas.Select(f => f.SubAlmacenId).Distinct().ToList();
+        var foto = await db.ValuacionesCierre.AsNoTracking()
+            .Where(v => v.Anio == hasta.Year && v.Mes == hasta.Month && subs.Contains(v.SubAlmacenId)).ToListAsync(ct);
+        if (foto.Count == 0) return filas;
+        var porGrupo = foto.ToDictionary(v => (v.SubAlmacenId, v.ArticuloId, v.ProductoAwVarianteId, v.Lote));
+        return filas.Select(f => porGrupo.TryGetValue((f.SubAlmacenId, f.ArticuloId, f.ProductoAwVarianteId, f.Lote), out var v)
+            ? f with { ValorInventarioFinal = v.ValorMxn, CostoPromedioFinal = v.Cantidad != 0 ? Math.Round(v.ValorMxn / v.Cantidad, 4) : f.CostoPromedioFinal }
+            : f).ToList();
     }
 
     /// <summary>
@@ -227,8 +266,9 @@ public sealed class AlfakHistorialAlmacenHandler
     /// líneas posteriores al corte con su costo congelado (entrada resta, salida suma). Sin líneas
     /// posteriores equivale al cálculo previo (saldoFinal × costo actual).
     /// </summary>
-    // ponytail: los ajustes de valor sin línea de movimiento (SaldoInventario.AjustarValor) posteriores a
-    // Hasta no se revierten; un snapshot al cierre mensual lo resolvería.
+    // ponytail: los ajustes de valor sin línea de movimiento (SaldoInventario.AjustarValor) posteriores a Hasta no se
+    // revierten; en un mes cerrado manda la foto del cierre (AplicarFotoCierreAsync), así que solo afecta cortes de meses abiertos
+    // y ajustes hechos entre el fin de mes y la ejecución del cierre.
     public static (decimal Valor, decimal Costo) ValorizarAlCorte(
         decimal saldoFinal, decimal valorActual, decimal costoActual,
         IEnumerable<(bool EsEntrada, decimal Cantidad, decimal CostoUnitario)> posterioresAHasta)
@@ -275,6 +315,7 @@ public sealed class AlfakHistorialAlmacenHandler
         new("ajustesPositivos", "Ajuste +", "numero", "right"),
         new("ajustesNegativos", "Ajuste -", "numero", "right"),
         new("saldoFinal", "Saldo final", "numero", "right"),
+        new("hojasFinal", "Hojas", "numero", "right"),
         new("costoPromedioFinal", "Costo prom.", "moneda", "right"),
         new("valorInventarioFinal", "Valor", "moneda", "right"),
     ];

@@ -33,6 +33,13 @@ export const ETIQUETA_ORIGEN_PEDIDO: Record<string, string> = {
   Manual: 'Manual',
 };
 
+/** FAC-08: de dónde viene una salida parcial del pedido (OrigenSalidaFacturable). */
+export const ETIQUETA_ORIGEN_SALIDA: Record<number, string> = {
+  1: 'Producto terminado',
+  2: 'Contenedor de exportación',
+  3: 'Manual',
+};
+
 // Canal de venta (FAC-ING-PR3): ya NO hay etiquetas hardcodeadas — los
 // selects consumen useCanalesVenta() (catálogo administrable) y los
 // detalles muestran el `canalVenta` (nombre) que devuelve el backend.

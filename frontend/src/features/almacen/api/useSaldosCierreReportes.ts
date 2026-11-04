@@ -9,6 +9,7 @@ import {
 } from '@/features/almacen/api/keys';
 import type {
   AlfakHistorialFila,
+  CuadreInventarioFila,
   EjecutarCierreMensualCommand,
   EjecutarCierreMensualResponse,
   ExistenciaMpCnkFila,
@@ -203,6 +204,21 @@ export function useReporteAlfakHistorial(filtros: AlfakHistorialFiltros) {
       return data;
     },
     enabled: !!filtros.desde && !!filtros.hasta,
+  });
+}
+
+/** F1-ALM-13-a: valuación al cierre del mes contra la cuenta de inventario y contra el kardex. */
+export function useReporteCuadreInventario(anio: number, mes: number) {
+  return useQuery({
+    queryKey: almacenKeys.reporteCuadreInventario(anio, mes),
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<ReporteResponse<CuadreInventarioFila>>(
+        `/api/v1/almacen/reportes/cuadre-inventario?anio=${anio}&mes=${mes}`,
+        { signal },
+      );
+      return data;
+    },
+    enabled: anio > 0 && mes >= 1 && mes <= 12,
   });
 }
 

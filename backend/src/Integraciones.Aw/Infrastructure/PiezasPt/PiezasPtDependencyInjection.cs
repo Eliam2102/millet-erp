@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Millet.Integraciones.Aw.Application.Clientes;
 using Millet.Integraciones.Aw.Application.PiezasPt;
+using Millet.Integraciones.Aw.Infrastructure.ConsumoComponentes;
 using Millet.Integraciones.Aw.Infrastructure.Adapters;
 using Millet.Integraciones.Aw.Infrastructure.Origen;
 using Millet.Integraciones.Aw.Infrastructure.OrigenPg;
@@ -31,6 +32,14 @@ public static class PiezasPtDependencyInjection
                 () => new SqlConnection(AwSqlTls.Validar(config.GetConnectionString(cadena)!, cadena)), false));
 
         services.AddScoped<IPiezasPtOrigenReader, PiezasPtOrigenSelector>();
+
+        // A4.8: mismo origen (Demo/Real), misma conexión y mismo servidor vinculado que PT; solo SELECT.
+        services.AddKeyedScoped<IConsumoComponentesOrigenReader>("Demo", (_, _) => new ConsumoComponentesOrigenAdapter(() => new AwOrigenPg.Fabrica(config).CreateConnection(), true));
+        if (options.ContratoI134Firmado && !string.IsNullOrWhiteSpace(config.GetConnectionString(cadena)) && options.ConsumoComponentesHabilitado)
+            services.AddKeyedScoped<IConsumoComponentesOrigenReader>("Real", (_, _) => new ConsumoComponentesOrigenAdapter(
+                () => new SqlConnection(AwSqlTls.Validar(config.GetConnectionString(cadena)!, cadena)), false));
+        services.AddScoped<IConsumoComponentesOrigenReader, ConsumoComponentesOrigenSelector>();
+        services.AddHostedService<ConsumoComponentesWorker>();
         services.AddScoped<IPtSucursalPorClaveAwPort, PtSucursalPorClaveAwAdapter>();
         services.AddScoped<ISaldoPedidoReadPort, SaldoPedidoSelector>();
         services.AddHostedService<PiezasPtEntradaWorker>();

@@ -12,6 +12,9 @@ import type {
   PedidoFacturableDetalleResponse,
   PedidoFacturableLineaInput,
   PedidoFacturableResponse,
+  PedidoSalidasResponse,
+  RegistrarSalidaCommand,
+  SalidaFacturableResponse,
 } from '@/features/facturacion/api/types';
 
 const BASE = '/api/v1/facturacion/pedidos-facturables';
@@ -90,6 +93,51 @@ export function usePedidoComprobantes(id: string | null | undefined) {
     },
     enabled: id != null,
     staleTime: 0,
+  });
+}
+
+/**
+ * <c>usePedidoSalidas(id)</c> — salidas parciales del pedido con su factura
+ * vigente y el avance por partida (FAC-08).
+ */
+export function usePedidoSalidas(id: string | null | undefined, enabled = true) {
+  return useQuery<PedidoSalidasResponse>({
+    queryKey:
+      id != null ? facturacionKeys.pedidoSalidas(id) : ['facturacion', 'noop-salidas'],
+    queryFn: async ({ signal }) => {
+      if (id == null) throw new Error('usePedidoSalidas invocado sin id');
+      const { data } = await apiRequest<PedidoSalidasResponse>(`${BASE}/${id}/salidas`, {
+        signal,
+      });
+      return data;
+    },
+    enabled: id != null && enabled,
+    staleTime: 0,
+  });
+}
+
+/**
+ * <c>useRegistrarSalida()</c> — registra una salida parcial a mano (FAC-08).
+ * Idempotente: reenviar la misma referencia con las mismas cantidades
+ * regresa la salida ya registrada (<c>yaRegistrada</c>).
+ */
+export function useRegistrarSalida() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      pedidoId: string;
+      command: RegistrarSalidaCommand;
+      idempotencyKey: string;
+    }) => {
+      const { data } = await apiRequest<SalidaFacturableResponse>(
+        `${BASE}/${args.pedidoId}/salidas`,
+        { method: 'POST', body: args.command, idempotencyKey: args.idempotencyKey },
+      );
+      return data;
+    },
+    onSuccess: (_data, args) => {
+      queryClient.invalidateQueries({ queryKey: facturacionKeys.pedidoSalidas(args.pedidoId) });
+    },
   });
 }
 

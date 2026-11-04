@@ -797,6 +797,14 @@ const moduloCuentasPorCobrar: NavModulo = {
           icon: FileText,
           permission: PermisosCanonicos.CuentasPorCobrarCarteraLeer,
         },
+        {
+          label: 'Conciliación de cartera',
+          description:
+            'Lo timbrado, cobrado y cancelado en Facturación contra la cartera, día por día, con sus diferencias.',
+          to: '/cxc/conciliacion',
+          icon: Scale,
+          permission: PermisosCanonicos.CuentasPorCobrarCarteraLeer,
+        },
       ],
     },
   ],
@@ -1127,7 +1135,7 @@ const comercioExterior: NavModulo = {
         },
         {
           label: 'Bandeja OTR',
-          description: 'Vincular envíos y revisar salidas fallidas o sin acuse.',
+          description: 'Vincular envíos OTR a un expediente de exportación.',
           to: '/comercio-exterior/otr',
           icon: FileText,
           permission: PermisosCanonicos.ComercioExteriorExpedientesLeer,
