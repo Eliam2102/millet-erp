@@ -262,6 +262,73 @@ public sealed class ConsumidoresComprasContModAlmTests(WebApplicationFactory<Pro
         }
     }
 
+    // F-01 (recorrido 04-nov): la devolución bajaba la OC (9/10) y la RQ seguía en 10/10.
+    [Fact]
+    public async Task Devolucion_baja_tambien_lo_recibido_en_la_RQ()
+    {
+        var articulo = Guid.NewGuid();
+        var (ocId, lineas) = await SembrarOcAsync(articulo);
+        var (rqId, rqLineaId) = await SembrarRqLigadaAsync(ocId, lineas[0], articulo);
+        var eventoRecepcion = Guid.NewGuid();
+        var eventoDevolucion = Guid.NewGuid();
+        try
+        {
+            await EnviarAsync(eventoRecepcion, Payload(ocId, Linea(lineas[0], articulo, 10m, acumulado: 10m)));
+            Assert.Equal(10m, await LeerRecibidoRqAsync(rqLineaId));
+
+            await EnviarDevolucionAsync(eventoDevolucion, PayloadDevolucion(ocId, LineaDevolucion(lineas[0], articulo, 1m)));
+
+            Assert.Equal(9m, (await LeerOcAsync(ocId)).Lineas.Single().CantidadRecibida);
+            Assert.Equal(9m, await LeerRecibidoRqAsync(rqLineaId));
+        }
+        finally
+        {
+            await LimpiarAsync(ocId, eventoRecepcion, eventoDevolucion);
+            using var scope = factory.Services.CreateScope();
+            var compras = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
+            await compras.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM compras.requisiciones WHERE id = {rqId}");
+        }
+    }
+
+    /// <summary>RQ en surtido (10 a compra) ligada a la línea de OC, como la deja «Convertir a OC».</summary>
+    private async Task<(Guid RqId, Guid RqLineaId)> SembrarRqLigadaAsync(Guid ocId, Guid lineaOcId, Guid articulo)
+    {
+        using var scope = factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var compras = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
+        var rq = new Millet.Compras.Domain.Requisicion(
+            id: Guid.CreateVersion7(), empresaId: EmpresaBootstrapId,
+            folio: Millet.Compras.Domain.Folio.Parse($"MID2026-{Random.Shared.Next(900000, 999999)}"), folioAnio: 2026,
+            clasificacion: Millet.Compras.Domain.Clasificacion.MateriaPrima,
+            sucursalId: Guid.NewGuid(), departamentoId: Guid.NewGuid(), almacenDestinoId: Guid.NewGuid(),
+            requisitanteId: Guid.NewGuid(), creadorId: Guid.NewGuid(),
+            prioridad: Millet.Compras.Domain.Prioridad.Normal, fechaSolicitud: DateTimeOffset.UtcNow, descripcion: null);
+        var rqLineaId = Guid.CreateVersion7();
+        rq.AgregarLinea(rqLineaId, articulo, 10m, "PZA", Millet.SharedKernel.Domain.Money.Mxn(25m));
+        rq.EnviarAAutorizacion(DateTimeOffset.UtcNow);
+        rq.RegistrarAutorizacion(Guid.CreateVersion7(), Millet.Compras.Domain.NivelAutorizacion.Nivel1, Guid.NewGuid(),
+            DateTimeOffset.UtcNow, Millet.Compras.Domain.Matriz.RequiereNivel.SoloN1);
+        rq.RegistrarCubrimiento(
+            [new Millet.Compras.Domain.CubrimientoLinea(rqLineaId, CantidadDeAlmacen: 0m, CantidadDeCompra: 10m)],
+            DateTimeOffset.UtcNow);
+        compras.Requisiciones.Add(rq);
+        await compras.SaveChangesAsync();
+        var lineaOc = (await compras.OrdenesCompra.Include(o => o.Lineas).FirstAsync(o => o.Id == ocId))
+            .Lineas.Single(l => l.Id == lineaOcId);
+        typeof(LineaOrdenCompra).GetProperty(nameof(LineaOrdenCompra.RequisicionId))!.SetValue(lineaOc, rq.Id);
+        typeof(LineaOrdenCompra).GetProperty(nameof(LineaOrdenCompra.LineaRequisicionId))!.SetValue(lineaOc, rqLineaId);
+        await compras.SaveChangesAsync();
+        return (rq.Id, rqLineaId);
+    }
+
+    private async Task<decimal> LeerRecibidoRqAsync(Guid rqLineaId)
+    {
+        using var scope = factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var compras = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
+        return await compras.LineaRequisiciones.Where(l => l.Id == rqLineaId).Select(l => l.CantidadRecibida).SingleAsync();
+    }
+
     /// <summary>Siembra una OC autorizada con una línea manual por cada artículo (100 PZA c/u).</summary>
     private async Task<(Guid OcId, Guid[] LineaIds)> SembrarOcAsync(params Guid[] articuloIds)
     {

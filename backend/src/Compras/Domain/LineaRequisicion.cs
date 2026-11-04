@@ -357,6 +357,15 @@ public sealed class LineaRequisicion : BaseEntity, IAuditable, IBelongsToAggrega
         CantidadRecibida = nuevaCantidadRecibida;
     }
 
+    /// <summary>Baja <see cref="CantidadRecibida"/> al neto indicado (nunca la sube ni la deja negativa).</summary>
+    internal void BajarRecepcionA(decimal recibidoNeto)
+    {
+        if (recibidoNeto < CantidadRecibida)
+        {
+            CantidadRecibida = Math.Max(0m, recibidoNeto);
+        }
+    }
+
     /// <summary>
     /// Registra una entrega incremental al solicitante (ADR-0043). Acumula
     /// sobre <see cref="CantidadEntregada"/>. A diferencia de

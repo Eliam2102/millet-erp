@@ -512,13 +512,13 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
         {
             throw new BusinessRuleException(
                 "FACTURA_AUTORIZADA_NO_CANCELABLE",
-                "Una factura autorizada no puede cancelarse en este flujo. F3-PR1 permite cancelar solo en Capturada/EnRevision (§A7).");
+                "La factura ya está autorizada y no se puede cancelar. Si hay un error, envíala a revisión y cancélala desde ahí.");
         }
         if (motivo == MotivoCancelacion.OtroConTexto && string.IsNullOrWhiteSpace(texto))
         {
             throw new BusinessRuleException(
                 "FACTURA_MOTIVO_TEXTO_REQUERIDO",
-                "El motivo 'OtroConTexto' requiere un texto descriptivo.");
+                "Escribe el motivo de la cancelación.");
         }
 
         var anterior = Estado;
@@ -801,7 +801,7 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
         {
             throw new BusinessRuleException(
                 "FACTURA_INMUTABLE",
-                $"No se puede {operacion} en estado {Estado} (§A7 — inmutabilidad post-autorización).");
+                $"No se puede {operacion} porque la factura ya está {Estado.ToString().ToLowerInvariant()}.");
         }
     }
 

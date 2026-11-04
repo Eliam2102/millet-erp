@@ -7,7 +7,7 @@ const UUID_CFDI_RE = UUID_RE;
 export const CajaChicaLineaSchema = z.object({
   cfdiRecibidoId: z.string().regex(UUID_RE).nullable(),
   uuidCfdi: z.string().regex(UUID_CFDI_RE, 'UUID CFDI inválido.').nullable(),
-  proveedorId: z.string().regex(UUID_RE, 'UUID proveedor inválido.'),
+  proveedorId: z.string().regex(UUID_RE, 'Selecciona el proveedor.'),
   folioProveedor: z.string().trim().max(40).nullable(),
   serieProveedor: z.string().trim().max(25).nullable(),
   fechaCfdi: z.string().regex(DATE_ONLY_RE, 'Formato YYYY-MM-DD.'),

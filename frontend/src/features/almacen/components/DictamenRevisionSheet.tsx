@@ -321,7 +321,8 @@ function Cuerpo({
                     requiereSubAlmacen={false}
                     incluirGeneral={!item.productoAwVarianteId}
                     value={field.value}
-                    onChange={(id) => field.onChange(id)}
+                    // Volver a elegir el rack sugerido (ya seleccionado) lo deseleccionaba: es obligatorio, se conserva.
+                    onChange={(id) => field.onChange(id ?? field.value)}
                   />
                 )}
               />
