@@ -24,9 +24,8 @@ public static class AlmacenesAppMensajesEndpoint
         app.MapPost("/api/v1/integraciones/almacenes/mensajes", async (
             HttpRequest request, IConfiguration configuration, AlmacenDbContext db,
             Millet.Almacen.Domain.Ports.IComprasCrearRqAppPort rqApp,
-            Millet.Compartido.Infrastructure.Persistence.CompartidoDbContext maestros,
-            Millet.Almacen.Domain.Ports.IUsuarioServicioReadPort usuarioServicio,
-            Millet.SharedKernel.Application.ICurrentEmpresaContext empresa, CancellationToken ct) =>
+            Millet.Almacen.Domain.Ports.IAppSalidaResolverPort salidaResolver,
+            Millet.Almacen.Domain.Ports.IUsuarioServicioReadPort usuarioServicio, CancellationToken ct) =>
         {
             var keyConfigurada = configuration["Integraciones:AlmacenesApp:ApiKey"];
             if (string.IsNullOrWhiteSpace(keyConfigurada))
@@ -80,7 +79,7 @@ public static class AlmacenesAppMensajesEndpoint
                     var (estado, folio, error) = tipo switch
                     {
                         "REQUISICION_ENVIADA" => await AlmacenesAppRequisicionEnviada.ManejarAsync(datos, rqApp, ct),
-                        _ when esSalida => await AlmacenesAppSalida.ManejarAsync(tipo, datos, db, maestros, usuarioServicio, empresa, ct),
+                        _ when esSalida => await AlmacenesAppSalida.ManejarAsync(tipo, datos, db, salidaResolver, usuarioServicio, ct),
                         _ => ("ERROR", (string?)null, (string?)"tipo aún no soportado"),
                     };
                     // Un ERROR de datos (proveedor/artículo/medida sin dar de alta) se corrige en el ERP

@@ -1,11 +1,8 @@
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Application.AppAlmacenes;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Domain.Ports;
 using Millet.Almacen.Infrastructure.Persistence;
-using Millet.Compartido.Infrastructure.Persistence;
-using Millet.SharedKernel.Application;
 
 namespace Millet.Api.Endpoints.Almacen;
 
@@ -27,8 +24,8 @@ public static class AlmacenesAppSalida
     };
 
     public static async Task<(string Estado, string? Folio, string? Error)> ManejarAsync(
-        string tipo, JsonElement datos, AlmacenDbContext db, CompartidoDbContext maestros,
-        IUsuarioServicioReadPort usuarioServicio, ICurrentEmpresaContext empresa, CancellationToken ct)
+        string tipo, JsonElement datos, AlmacenDbContext db, IAppSalidaResolverPort resolver,
+        IUsuarioServicioReadPort usuarioServicio, CancellationToken ct)
     {
         var sucursal = Texto(datos, "sucursal");
         var articuloAw = datos.TryGetProperty("articuloAw", out var a)
@@ -48,39 +45,15 @@ public static class AlmacenesAppSalida
         var sp = await usuarioServicio.ObtenerReordenAsync(ct);
         if (sp is null || !sp.Activo) return ("ERROR", null, "El usuario de servicio del ERP no está disponible.");
 
-        using var bypass = empresa.Bypass();
-        var suc = sucursal.Trim();
-        var sucursalId = await maestros.Sucursales.AsNoTracking()
-            .Where(x => x.Clave == suc || x.ClaveAw == suc).Select(x => (Guid?)x.Id).FirstOrDefaultAsync(ct);
-        if (sucursalId is null) return ("ERROR", null, $"No existe la sucursal '{suc}'.");
-
-        var clave = articuloAw.Trim();
-        var arts = await (from art in maestros.Articulos.AsNoTracking()
-                          join p in maestros.ProductosAw.AsNoTracking() on art.ProductoAwId equals p.Id
-                          where p.ReferenciaExterna == clave
-                          select new { art.Id, art.UnidadMedidaDefault, ProductoAwId = p.Id }).ToListAsync(ct);
-        if (arts.Count == 0) return ("ERROR", null, $"No existe un artículo ligado al artículo A+W {clave}.");
-        if (arts.Count > 1) return ("ERROR", null, $"El artículo A+W {clave} está ligado a más de un artículo del ERP.");
-        var articulo = arts[0];
-
-        Guid? varianteId = null;
-        decimal? anchoVar = null, altoVar = null;
-        if (ancho is not null)
-        {
-            var variante = await maestros.ProductosAwVariantes.AsNoTracking()
-                .Where(v => v.ProductoAwId == articulo.ProductoAwId
-                    && ((v.AnchoMm == ancho && v.AltoMm == alto) || (v.AnchoMm == alto && v.AltoMm == ancho)))
-                .Select(v => new { v.Id, v.AnchoMm, v.AltoMm }).FirstOrDefaultAsync(ct);
-            if (variante is null)
-                return ("ERROR", null, $"No existe la medida {ancho:0.##}x{alto:0.##} del artículo A+W {clave}.");
-            (varianteId, anchoVar, altoVar) = (variante.Id, variante.AnchoMm, variante.AltoMm);
-        }
+        var resuelto = await resolver.ResolverAsync(sucursal, [new GrupoSalidaApp(articuloAw, ancho, alto)], ct);
+        if (resuelto.Error is not null) return ("ERROR", null, resuelto.Error);
+        var g = resuelto.Grupos[0];
 
         var comentario = Texto(datos, "comentario");
         var motivo = $"App Almacenes {tipo}" + (string.IsNullOrWhiteSpace(comentario) ? "" : $": {comentario.Trim()}");
         return await SalidaAppAlmacenes.RegistrarAsync(db, sp.EmpresaId, sp.Id,
-            new SalidaApp(Tipos[tipo], sucursalId.Value, articulo.Id, articulo.UnidadMedidaDefault, varianteId,
-                cantidad.Value, costo, motivo.Length > 500 ? motivo[..500] : motivo, anchoVar, altoVar), ct);
+            new SalidaApp(Tipos[tipo], resuelto.SucursalId, g.ArticuloId, g.UnidadMedida, g.ProductoAwVarianteId,
+                cantidad.Value, costo, motivo.Length > 500 ? motivo[..500] : motivo, g.AnchoMm, g.AltoMm), ct);
     }
 
     private static string? Texto(JsonElement o, string n) =>
