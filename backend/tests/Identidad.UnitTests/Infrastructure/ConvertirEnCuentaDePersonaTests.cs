@@ -58,7 +58,7 @@ public sealed class ConvertirEnCuentaDePersonaTests : IDisposable
 
         r.EsCuentaTecnica.Should().BeFalse();
         (await _s.Db.Usuarios.AsNoTracking().SingleAsync(u => u.Id == tecnica.Id)).EsCuentaTecnica.Should().BeFalse();
-        _audit.Registros.Should().ContainSingle(a => a.Operacion == "usuario.convertido-en-cuenta-de-persona"
+        _audit.Registros.Should().ContainSingle(a => a.Operacion == "usuario.convertido-a-persona"
             && a.EntidadId == tecnica.Id && a.Resumen.Contains(MotivoValido) && a.UsuarioId == actor.Id);
     }
 

@@ -85,7 +85,7 @@ public class CuentasTecnicasTests
         using var scope = _factory.Services.CreateScope();
         var core = scope.ServiceProvider.GetRequiredService<CoreDbContext>();
         var bitacora = await core.AuditLog.AsNoTracking()
-            .Where(a => a.EntidadId == tecnicaId && a.Operacion == "usuario.convertido-en-cuenta-de-persona")
+            .Where(a => a.EntidadId == tecnicaId && a.Operacion == "usuario.convertido-a-persona")
             .ToListAsync();
         var registro = Assert.Single(bitacora);
         Assert.Contains(motivo, registro.Cambios);

@@ -122,7 +122,8 @@ public sealed class ConvertirEnCuentaDePersonaHandler
         await _permissionCache.InvalidateAllForUserAsync(usuario.Id, ct);
 
         await _audit.RegistrarAsync(
-            operacion: "usuario.convertido-en-cuenta-de-persona",
+            // core.audit_log.operacion es varchar(32).
+            operacion: "usuario.convertido-a-persona",
             modulo: "Identidad",
             entidad: "Usuario",
             entidadId: usuario.Id,
