@@ -108,6 +108,19 @@ public sealed class AdaptadoresMaestrosTests
         Assert.Contains("Inventariable", (await Assert.ThrowsAsync<BusinessRuleException>(() => adaptador.PrepararAsync(fila, default))).Code);
         await ProbarDuplicadosAsync(adaptador, fila);
     }
+    [Theory]
+    [InlineData("CAJA", "CAJA")] [InlineData("ROLLO", "ROLLO")] [InlineData("PAQ", "PAQ")] [InlineData("PAQUETE", "PAQ")] [InlineData("Paquetes", "PAQ")]
+    public async Task Articulos_P200_carga_los_empaques_con_su_unidad(string unidadSap, string codigo)
+    {
+        // P-200 (Fernando Alejos 4-nov): CAJA = XBX, ROLLO = RK y PAQUETES = XPK se dieron de alta en el catálogo de unidades.
+        await using var db = Compartido();
+        var unidad = new UnidadMedida(Guid.NewGuid(), codigo, codigo, DimensionUnidad.Conteo, 1, 0, false);
+        db.Add(unidad); await db.SaveChangesAsync();
+        var csv = $"item_code,nombre,unidad_medida,invnt_item\nSAP-P200,Empaque ficticio,{unidadSap},Y";
+        var adaptador = new ArticulosCarga(db);
+        var fila = Assert.Single(ArchivoMaestros.Leer(Encoding.UTF8.GetBytes(csv), "sap.csv", adaptador.Columnas).Filas);
+        Assert.Equal(unidad.Id, Assert.IsType<CrearArticuloCommand>((await adaptador.PrepararAsync(fila, default)).Comando).UnidadMedidaId);
+    }
     [Fact]
     public async Task Articulos_previa_reporta_grupos_tipos_duplicados_unidades_y_posible_aw_sin_insertar()
     {
