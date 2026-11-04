@@ -35,6 +35,9 @@ const dinero = (n: number, moneda = 'MXN') => n.toLocaleString('es-MX', { style:
 const fecha = (iso: string) =>
   parseDateOnlyLocal(iso.slice(0, 10)).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
+// El servidor no avisa cuando se llega al límite (CodigoPortal.MaxPorHora = 3) para no revelar qué correos existen; por eso se dice aquí.
+const LIMITE_CODIGOS = 'Por seguridad enviamos máximo 3 códigos por hora; si ya pediste 3, espera unos minutos antes de pedir otro.';
+
 type Seccion = 'facturas' | 'pagos' | 'subir';
 const SECCIONES: Seccion[] = ['facturas', 'pagos', 'subir'];
 /** La sección vive en `?seccion=` para que sobreviva a recargar y se pueda compartir el enlace. */
@@ -134,7 +137,7 @@ function Acceso({ alEntrar }: { alEntrar: () => void }) {
           {enviado && (
             <div className="flex flex-wrap justify-between gap-2">
               <Button type="button" variant="ghost" size="sm" disabled={ocupado}
-                onClick={() => void ejecutar(async () => { await solicitarCodigo(email.trim()); setAviso('Te enviamos un código nuevo.'); })}>
+                onClick={() => void ejecutar(async () => { await solicitarCodigo(email.trim()); setAviso(`Si el correo está autorizado, te enviamos un código nuevo. ${LIMITE_CODIGOS}`); })}>
                 Reenviar código
               </Button>
               <Button type="button" variant="ghost" size="sm" disabled={ocupado}
@@ -146,7 +149,7 @@ function Acceso({ alEntrar }: { alEntrar: () => void }) {
         </form>
       </Card>
       <p className="mt-4 max-w-sm text-center text-xs text-ink-muted">
-        ¿No te llega el código? Pide a tu contacto de Cuentas por Pagar que autorice tu correo.
+        ¿No te llega el código? {LIMITE_CODIGOS} Si sigue sin llegar, pide a tu contacto de Cuentas por Pagar que autorice tu correo.
       </p>
     </main>
   );

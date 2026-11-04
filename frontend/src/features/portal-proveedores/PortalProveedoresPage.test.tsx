@@ -66,6 +66,17 @@ it('pide código, entra con el código y muestra la factura detenida por falta d
   expect((llamada?.[1] as RequestInit).headers).toEqual({ Authorization: 'Bearer tok' });
 });
 
+it('reenviar código avisa del límite de 3 por hora sin revelar si el correo existe (F-CXP-04)', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(null, { status: 202 })));
+  montar();
+
+  fireEvent.change(screen.getByLabelText('Correo autorizado'), { target: { value: 'ventas@prov.mx' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Enviar código' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Reenviar código' }));
+
+  expect((await screen.findByRole('status')).textContent).toMatch(/Si el correo está autorizado.*máximo 3 códigos por hora/);
+});
+
 it('un código inválido muestra el error y no abre sesión', async () => {
   vi.stubGlobal('fetch', vi.fn(async (url: string) =>
     url.endsWith('/codigo') ? new Response(null, { status: 202 }) : json({}, 401)));
