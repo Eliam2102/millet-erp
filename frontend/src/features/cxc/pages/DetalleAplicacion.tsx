@@ -92,7 +92,7 @@ function Contenido({ p }: { p: PropuestaAplicacionResponse }) {
 
       {p.ajusteNoFiscal < 0 && <PanelAjuste p={p} />}
 
-      {p.estado === EstadoPropuestaAplicacion.Rechazada && p.motivoRechazo && (
+      {p.estado === EstadoPropuestaAplicacion.Rechazada && p.motivoRechazo && !esAjusteRechazado(p) && (
         <div className="rounded-md border border-line bg-danger-bg px-4 py-3 text-sm text-danger-fg">
           <p className="font-medium">Propuesta rechazada</p>
           <p>{p.motivoRechazo}</p>
@@ -191,6 +191,15 @@ function Contenido({ p }: { p: PropuestaAplicacionResponse }) {
  * otra persona con permiso (nunca quien propuso) lo autoriza (la propuesta pasa a Tesorería) o lo rechaza (la propuesta queda
  * rechazada).
  */
+/** Rechazar el ajuste rechaza la propuesta con «Ajuste rechazado: …» (RechazarAjustePropuestaCommand); el panel lo dice (QA O1). */
+function esAjusteRechazado(p: PropuestaAplicacionResponse) {
+  return (
+    p.estado === EstadoPropuestaAplicacion.Rechazada &&
+    !p.ajusteAutorizadoEn &&
+    (p.motivoRechazo?.startsWith('Ajuste rechazado:') ?? false)
+  );
+}
+
 function PanelAjuste({ p }: { p: PropuestaAplicacionResponse }) {
   const usuarioId = useAuthStore((s) => s.user?.id ?? null);
   // CXC-06: autoriza o rechaza con el permiso existente aplicacion-pago.confirmar (supuesto «a validar»).
@@ -200,8 +209,7 @@ function PanelAjuste({ p }: { p: PropuestaAplicacionResponse }) {
   const [rechazando, setRechazando] = useState(false);
 
   const porAutorizar = p.ajustePorAutorizar === true;
-  // Rechazar el ajuste rechaza la propuesta: sin autorización, el panel dice «Ajuste rechazado» con el motivo (QA O1).
-  const rechazado = p.estado === EstadoPropuestaAplicacion.Rechazada && !p.ajusteAutorizadoEn;
+  const rechazado = esAjusteRechazado(p);
   const esQuienPropuso = usuarioId != null && p.propuestoPor === usuarioId;
   const puedeAutorizar = porAutorizar && !esQuienPropuso && tienePermiso;
 

@@ -209,6 +209,9 @@ describe('CXC-06 · ajuste documentado de un cobro corto', () => {
     expect(within(panel).getByText(/^Rechazado el/)).toBeInTheDocument();
     expect(within(panel).getByText('Ajuste rechazado: No es comisión')).toBeInTheDocument();
     expect(within(panel).queryByRole('button', { name: 'Autorizar ajuste' })).not.toBeInTheDocument();
+    // El motivo no se repite en el aviso general de propuesta rechazada.
+    expect(screen.queryByText('Propuesta rechazada')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Ajuste rechazado: No es comisión')).toHaveLength(1);
   });
 
   it('lista por omisión las diferencias con su causa probable', () => {
