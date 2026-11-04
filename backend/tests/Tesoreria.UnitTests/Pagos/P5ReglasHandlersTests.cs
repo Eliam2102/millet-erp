@@ -131,6 +131,17 @@ public sealed class P5ReglasHandlersTests
         db.MovimientosBancarios.Should().BeEmpty(); eventos.Eventos.Should().BeEmpty();
     }
 
+    // F-TES-04: exceder el saldo responde PAGO_EXCEDE_SALDO, no el aviso de «retenido hasta recibir la mercancía».
+    [Fact]
+    public async Task Pago_que_excede_el_saldo_responde_excede_saldo_aunque_el_elegible_sea_menor()
+    {
+        await using var db = Db(); var cuenta = Cuenta(db); var pasivo = Pasivo(db); await db.SaveChangesAsync();
+        var handler = new RegistrarPagoProveedorHandler(db, new EmpresaContext(), new User(), new Periodo(), new Proveedores(), new ElegibleFijo(1000m), new Publicador(db), new Clock());
+        var act = () => handler.Handle(new(cuenta.Id, Fecha, [new(pasivo.FacturaProveedorId, 1100m)]), default);
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "PAGO_EXCEDE_SALDO");
+        db.MovimientosBancarios.Should().BeEmpty();
+    }
+
     [Fact]
     public async Task Bandeja_senala_proveedor_bloqueado()
     {
@@ -289,6 +300,8 @@ public sealed class P5ReglasHandlersTests
     // P3: Tesorería no paga más que el elegible; estas pruebas no lo limitan.
     private sealed class ElegibleSinLimite : Millet.Tesoreria.Domain.Ports.IElegibleFacturaReadPort
     { public Task<decimal> ObtenerLimiteAcumuladoAsync(Guid id, CancellationToken ct) => Task.FromResult(decimal.MaxValue); }
+    private sealed class ElegibleFijo(decimal limite) : Millet.Tesoreria.Domain.Ports.IElegibleFacturaReadPort
+    { public Task<decimal> ObtenerLimiteAcumuladoAsync(Guid id, CancellationToken ct) => Task.FromResult(limite); }
     private sealed class Permisos(bool permitir) : ICurrentUserPermissions { public ValueTask<bool> TieneAsync(string permiso, CancellationToken cancellationToken = default) => ValueTask.FromResult(permitir); }
     private sealed class Periodo : IPeriodoContablePort { public Task<bool> EstaAbiertoAsync(int año, int mes, CancellationToken ct) => Task.FromResult(true); }
     private sealed class Proveedores : IProveedorBancoReadPort

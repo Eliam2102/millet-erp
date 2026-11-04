@@ -196,10 +196,16 @@ public sealed class PasivoPendientePago : BaseEntity, IPerteneceAEmpresa, IAudit
         if (importe <= 0)
             throw new BusinessRuleException("PASIVO_IMPORTE_INVALIDO",
                 "El importe a aplicar debe ser mayor a cero.");
+        ExigirSaldo(importe);
+        SaldoPendiente -= importe;
+    }
+
+    /// <summary>El importe no excede el saldo pendiente; el pago lo valida antes que el elegible (F-TES-04).</summary>
+    public void ExigirSaldo(decimal importe)
+    {
         if (importe > SaldoPendiente)
             throw new BusinessRuleException("PAGO_EXCEDE_SALDO",
                 $"El importe {importe:0.00} excede el saldo pendiente {SaldoPendiente:0.00} del pasivo.");
-        SaldoPendiente -= importe;
     }
 
     /// <summary>

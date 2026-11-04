@@ -216,6 +216,8 @@ public sealed class RegistrarPagoProveedorHandler
             if (pasivos[grupo.Key].EsInterno) continue;
             if (pasivos[grupo.Key].PagoBloqueado)
                 throw new BusinessRuleException("PASIVO_NO_AUTORIZADO_CXP", "CxP retiró la autorización del pasivo. Debe autorizarse de nuevo antes de pagar.");
+            // El saldo va antes que el elegible: si el importe excede la factura, el aviso de «retenido» no aplica.
+            pasivos[grupo.Key].ExigirSaldo(grupo.Sum(a => a.Importe));
             var limite = await _elegible.ObtenerLimiteAcumuladoAsync(grupo.Key, cancellationToken);
             if (limite <= 0)
                 throw new BusinessRuleException("PASIVO_NO_PAGABLE_CXP", "CxP no autoriza un importe pagable para esta factura. Revisa su estado y saldo en CxP.");
