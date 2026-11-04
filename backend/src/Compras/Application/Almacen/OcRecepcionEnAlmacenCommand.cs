@@ -92,6 +92,20 @@ public sealed class OcRecepcionEnAlmacenHandler
                 "ORDEN_COMPRA_NO_ENCONTRADA",
                 $"No se encontró OC '{p.OrdenCompraId}' al proyectar recepción {p.RecepcionId}.");
 
+        // F-RQOC-02: una recepción que llega a una OC ya cancelada no se puede registrar y reintentar no
+        // cambia nada (la OC no sale de Cancelada). Se marca como procesada y queda en el log para revisión,
+        // en lugar de fallar en cada reintento hasta dead-letter.
+        if (oc.Estado == Domain.Oc.EstadoOrdenCompra.Cancelada)
+        {
+            _logger.LogError(
+                "[OcRecepcionEnAlmacenHandler] Recepción {RecepcionId} sobre la OC cancelada {OcId}: Almacén la registró y la OC no. Revisar con Almacén.",
+                p.RecepcionId, oc.Id);
+            _db.EventosProcesados.Add(new EventoProcesado(request.EventoId, EventType,
+                $"Recepcion={p.RecepcionId} OC={p.OrdenCompraId} sin aplicar: OC cancelada"));
+            await _db.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
         var eventosCierre = new List<OrdenCompraCerradaEvent>();
         // Eventos in-proc para que `OcRecepcionRegistradaListener` actualice
         // la línea de RQ correspondiente (cierra el ciclo RQ → OC → recep →
