@@ -25,7 +25,8 @@ public static class AlmacenesAppMensajesEndpoint
             HttpRequest request, IConfiguration configuration, AlmacenDbContext db,
             Millet.Almacen.Domain.Ports.IComprasCrearRqAppPort rqApp,
             Millet.Almacen.Domain.Ports.IAppSalidaResolverPort salidaResolver,
-            Millet.Almacen.Domain.Ports.IUsuarioServicioReadPort usuarioServicio, CancellationToken ct) =>
+            Millet.Almacen.Domain.Ports.IUsuarioServicioReadPort usuarioServicio,
+            Millet.Almacen.Infrastructure.PublicAdapters.SalidaAppAlmacenesGuardado salidasGuardado, CancellationToken ct) =>
         {
             var keyConfigurada = configuration["Integraciones:AlmacenesApp:ApiKey"];
             if (string.IsNullOrWhiteSpace(keyConfigurada))
@@ -70,40 +71,50 @@ public static class AlmacenesAppMensajesEndpoint
                     .FirstOrDefaultAsync(m => m.MensajeId == mensajeId, ct);
                 if (previo is null)
                 {
-                    // Las salidas mueven existencia: movimiento y MensajeApp se confirman juntos (idempotencia por
-                    // mensajeId) y el folio del movimiento exige transacción abierta antes de reservarlo.
-                    var esSalida = AlmacenesAppSalida.Tipos.ContainsKey(tipo);
-                    await using var tx = esSalida && db.Database.IsNpgsql() ? await db.Database.BeginTransactionAsync(ct) : null;
-
-                    // Punto de enchufe de handlers: un case por tipo.
-                    var (estado, folio, error) = tipo switch
-                    {
-                        "REQUISICION_ENVIADA" => await AlmacenesAppRequisicionEnviada.ManejarAsync(datos, rqApp, ct),
-                        _ when esSalida => await AlmacenesAppSalida.ManejarAsync(tipo, datos, db, salidaResolver, usuarioServicio, ct),
-                        _ => ("ERROR", (string?)null, (string?)"tipo aún no soportado"),
-                    };
-                    // Un ERROR de datos (proveedor/artículo/medida sin dar de alta) se corrige en el ERP
-                    // y la app reenvía el mismo mensajeId: no se guarda para que el reenvío se procese.
-                    if ((tipo == "REQUISICION_ENVIADA" || esSalida) && estado == "ERROR")
-                        return Results.Json(new Acuse(mensajeId, estado, folio, error));
                     var referencia = Str("referencia");
-                    db.MensajesApp.Add(new MensajeApp(mensajeId, tipo,
-                        referencia?.Length > 100 ? referencia[..100] : referencia,
-                        root.GetRawText(), estado, folio, error));
-                    try
+                    string estado; string? folio, error;
+                    if (AlmacenesAppSalida.Tipos.ContainsKey(tipo))
                     {
-                        await db.SaveChangesAsync(ct);
-                        if (tx is not null) await tx.CommitAsync(ct);
-                        // Salida sin existencia: se acepta (RECIBIDO) y queda en la bandeja de revisión (estado guardado).
-                        return estado == Millet.Almacen.Application.AppAlmacenes.SalidaAppAlmacenes.EnRevision
-                            ? Results.Json(new Acuse(mensajeId, "RECIBIDO", null, null))
-                            : Results.Json(new Acuse(mensajeId, estado, folio, error));
-                    }
-                    catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: "23505" })
-                    {
-                        if (tx is not null) await tx.RollbackAsync(ct);
-                        db.ChangeTracker.Clear();
+                        // Las salidas mueven existencia: movimiento y MensajeApp se confirman juntos en el guardado.
+                        var (resuelta, errorSalida) = await AlmacenesAppSalida.ManejarAsync(tipo, datos, salidaResolver, usuarioServicio, ct);
+                        // Un ERROR de datos (proveedor/artículo/medida sin dar de alta) se corrige en el ERP
+                        // y la app reenvía el mismo mensajeId: no se guarda para que el reenvío se procese.
+                        if (resuelta is null)
+                            return Results.Json(new Acuse(mensajeId, "ERROR", null, errorSalida));
+                        var g = await salidasGuardado.GuardarAsync(mensajeId, tipo, referencia, root.GetRawText(),
+                            resuelta.EmpresaId, resuelta.UsuarioId, resuelta.Salidas, ct);
+                        if (g.Estado == "ERROR")
+                            return Results.Json(new Acuse(mensajeId, g.Estado, g.Folio, g.Error));
+                        if (!g.Duplicado)
+                            // Salida sin existencia: se acepta (RECIBIDO) y queda en la bandeja de revisión (estado guardado).
+                            return g.Estado == Millet.Almacen.Application.AppAlmacenes.SalidaAppAlmacenes.EnRevision
+                                ? Results.Json(new Acuse(mensajeId, "RECIBIDO", null, null))
+                                : Results.Json(new Acuse(mensajeId, g.Estado, g.Folio, g.Error));
                         previo = await db.MensajesApp.AsNoTracking().FirstAsync(m => m.MensajeId == mensajeId, ct);
+                    }
+                    else
+                    {
+                        // Punto de enchufe de handlers: un case por tipo.
+                        (estado, folio, error) = tipo switch
+                        {
+                            "REQUISICION_ENVIADA" => await AlmacenesAppRequisicionEnviada.ManejarAsync(datos, rqApp, ct),
+                            _ => ("ERROR", (string?)null, (string?)"tipo aún no soportado"),
+                        };
+                        if (tipo == "REQUISICION_ENVIADA" && estado == "ERROR")
+                            return Results.Json(new Acuse(mensajeId, estado, folio, error));
+                        db.MensajesApp.Add(new MensajeApp(mensajeId, tipo,
+                            referencia?.Length > 100 ? referencia[..100] : referencia,
+                            root.GetRawText(), estado, folio, error));
+                        try
+                        {
+                            await db.SaveChangesAsync(ct);
+                            return Results.Json(new Acuse(mensajeId, estado, folio, error));
+                        }
+                        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: "23505" })
+                        {
+                            db.ChangeTracker.Clear();
+                            previo = await db.MensajesApp.AsNoTracking().FirstAsync(m => m.MensajeId == mensajeId, ct);
+                        }
                     }
                 }
 

@@ -99,6 +99,59 @@ public class SalidaAppAlmacenesTests
             .And.Contain(l => l.Cantidad == 2 && l.CostoUnitarioMxn == 120m);
     }
 
+    [Fact]
+    public async Task Dos_partidas_del_mismo_articulo_cuya_suma_excede_la_existencia_quedan_en_revision_sin_movimientos()
+    {
+        var (db, _, _, _, _) = Db();
+        var (estado, folio, error) = await SalidaAppAlmacenes.RegistrarAsync(
+            db, EmpresaId, Usuario, [Salida(6), Salida(6)], default);
+        await db.SaveChangesAsync();
+
+        estado.Should().Be(SalidaAppAlmacenes.EnRevision);
+        folio.Should().BeNull();
+        error.Should().Contain("disponible 10").And.Contain("solicitada 12");
+        (await db.Movimientos.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Dos_partidas_del_mismo_articulo_dentro_de_existencia_no_toman_dos_veces_el_mismo_saldo()
+    {
+        var (db, _, ubiA, subB, ubiB) = Db();
+        db.SaldosInventario.Add(new SaldoInventario(ubiB, subB, Articulo, 4, 120m, Variante)); // 10 en A + 4 en B
+        await db.SaveChangesAsync();
+
+        var (estado, _, _) = await SalidaAppAlmacenes.RegistrarAsync(
+            db, EmpresaId, Usuario, [Salida(8, 90m), Salida(5, 110m)], default);
+        await db.SaveChangesAsync();
+
+        estado.Should().Be(SalidaAppAlmacenes.Recibido);
+        var lineas = await db.LineasMovimiento.ToListAsync();
+        lineas.Sum(l => l.Cantidad).Should().Be(13);
+        lineas.Sum(l => l.Cantidad * l.CostoUnitarioMxn).Should().Be(8 * 90m + 5 * 110m);
+        // Ninguna ubicación sale por más de su saldo: A (10) se agota entre ambas partidas, B (4) aporta solo 3.
+        lineas.Where(l => l.UbicacionId == ubiA).Sum(l => l.Cantidad).Should().Be(10);
+        lineas.Where(l => l.UbicacionId == ubiB).Sum(l => l.Cantidad).Should().Be(3);
+    }
+
+    [Fact]
+    public async Task Dos_articulos_distintos_uno_corto_deja_todo_en_revision_sin_movimientos()
+    {
+        var (db, subA, ubiA, _, _) = Db();
+        var otro = Guid.NewGuid();
+        db.SaldosInventario.Add(new SaldoInventario(ubiA, subA, otro, 2, 50m));
+        await db.SaveChangesAsync();
+
+        var corto = new SalidaApp(TipoMovimiento.SalidaConsumo, Sucursal, otro, "PZA", null, 3, null, "App Almacenes AJUSTE_SALIDA");
+        var (estado, folio, error) = await SalidaAppAlmacenes.RegistrarAsync(
+            db, EmpresaId, Usuario, [Salida(3), corto], default);
+        await db.SaveChangesAsync();
+
+        estado.Should().Be(SalidaAppAlmacenes.EnRevision);
+        folio.Should().BeNull();
+        error.Should().Contain("disponible 2").And.Contain("solicitada 3");
+        (await db.Movimientos.CountAsync()).Should().Be(0);
+    }
+
     private sealed class FakeEmpresa(Guid current) : ICurrentEmpresaContext
     {
         public Guid? Current { get; } = current;
