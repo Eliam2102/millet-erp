@@ -6,8 +6,8 @@ using Millet.ComercioExterior.Domain;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Integraciones.Aw.Infrastructure.Exportacion;
-/// <summary>SQL parametrizado exclusivamente sobre las tres tablas puente del ERP (D18).</summary>
-public sealed class OtrTablasAdapter(Func<DbConnection> fabrica, bool postgres) : IOtrEntradaReader, IOtrSalidaWriter
+/// <summary>Lector del origen Demo (tablas de ejemplo). El lector real de las tablas del módulo OTR va en A+W-QA-10.</summary>
+public sealed class OtrTablasAdapter(Func<DbConnection> fabrica, bool postgres) : IOtrEntradaReader
 {
     private async Task<DbConnection> AbrirAsync(CancellationToken ct)
     {
@@ -73,31 +73,5 @@ public sealed class OtrTablasAdapter(Func<DbConnection> fabrica, bool postgres) 
         await using var cmd = Comando(c, "UPDATE dbo.aw_otr_envio SET erp_resultado=@resultado, erp_motivo=@motivo, erp_procesada_at=@ahora WHERE otr_envio_id=@id AND version=@version",
             ("id", idOrigen), ("version", version), ("resultado", resultado), ("motivo", motivo), ("ahora", DateTimeOffset.UtcNow));
         await cmd.ExecuteNonQueryAsync(ct);
-    }
-    public async Task EntregarAsync(OtrEntrega salida, CancellationToken ct)
-    {
-        await using var c = await AbrirAsync(ct);
-        var sql = postgres
-            ? "INSERT INTO dbo.erp_otr_estado (salida_id, otr_envio_id, tipo, version_erp, intento, valor_json) VALUES (@id,@envio,@tipo,@version,@intento,@json) ON CONFLICT (otr_envio_id,tipo,version_erp,intento) DO NOTHING"
-            : "INSERT INTO dbo.erp_otr_estado (salida_id,otr_envio_id,tipo,version_erp,intento,valor_json) SELECT @id,@envio,@tipo,@version,@intento,@json WHERE NOT EXISTS (SELECT 1 FROM dbo.erp_otr_estado WITH (UPDLOCK,HOLDLOCK) WHERE otr_envio_id=@envio AND tipo=@tipo AND version_erp=@version AND intento=@intento)";
-        await using var cmd = Comando(c, sql, ("id", salida.Id), ("envio", salida.IdOrigen), ("tipo", salida.Tipo), ("version", salida.VersionErp), ("intento", salida.Intento), ("json", salida.ValorJson));
-        await cmd.ExecuteNonQueryAsync(ct);
-    }
-    public async Task<IReadOnlyList<OtrAcuse>> LeerAcusesAsync(IReadOnlyCollection<Guid> salidas, CancellationToken ct)
-    {
-        if (salidas.Count == 0) return [];
-        await using var c = await AbrirAsync(ct);
-        var result = new List<OtrAcuse>();
-        foreach (var id in salidas)
-        {
-            await using var cmd = Comando(c, "SELECT aw_acuse_at,aw_resultado,aw_motivo FROM dbo.erp_otr_estado WHERE salida_id=@id AND aw_acuse_at IS NOT NULL", ("id", id));
-            await using var reader = await cmd.ExecuteReaderAsync(ct);
-            if (await reader.ReadAsync(ct))
-            {
-                var fecha = reader.GetValue(0) is DateTimeOffset f ? f : new DateTimeOffset(DateTime.SpecifyKind(reader.GetDateTime(0), DateTimeKind.Utc));
-                result.Add(new(id, fecha, reader.IsDBNull(1) ? "Rechazada" : reader.GetString(1), reader.IsDBNull(2) ? null : reader.GetString(2)));
-            }
-        }
-        return result;
     }
 }

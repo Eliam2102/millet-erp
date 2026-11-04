@@ -26,9 +26,6 @@ public static class OtrEndpoints
         envio.MapPost("/conflictos/{conflictoId:guid}/resolver", async (Guid id, Guid conflictoId, Decision body, HttpRequest req, HttpResponse res, IMediator mediator, CancellationToken ct) =>
             Version(req) is int v ? Respuesta(await mediator.Send(new ResolverConflictoOtr(id, v, conflictoId, body.UsarOtr, body.Motivo), ct), res) : SinVersion())
             .WithMetadata(new RequireIdempotencyKeyAttribute());
-        envio.MapPost("/salidas/{salidaId:guid}/reintentar", async (Guid id, Guid salidaId, HttpRequest req, HttpResponse res, IMediator mediator, CancellationToken ct) =>
-            Version(req) is int v ? Respuesta(await mediator.Send(new ReintentarSalidaOtr(id, v, salidaId), ct), res) : SinVersion())
-            .WithMetadata(new RequireIdempotencyKeyAttribute());
     }
     private static int? Version(HttpRequest req)
     {

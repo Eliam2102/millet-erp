@@ -13,13 +13,6 @@ export const estadosPartidaOtr = {
   2: { tono: 'info', texto: 'Propuesta' },
   3: { tono: 'warning', texto: 'Requiere revisión' },
 } as const;
-export const estadosSalidaOtr = {
-  1: { tono: 'warning', texto: 'Pendiente' },
-  2: { tono: 'info', texto: 'Entregada' },
-  3: { tono: 'success', texto: 'Acusada' },
-  4: { tono: 'danger', texto: 'Fallida' },
-  5: { tono: 'neutral', texto: 'Reemplazada' },
-} as const;
 export const estadosContenedor = {
   1: { tono: 'info', texto: 'Activo' },
   2: { tono: 'neutral', texto: 'Cancelado' },

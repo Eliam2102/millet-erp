@@ -1,6 +1,6 @@
 import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { FormCampo, FormGrid } from '@/components/erp/forms/FormGrid';
-import { estadosOtr, estadosPartidaOtr, estadosSalidaOtr } from '../lib/estados-ui';
+import { estadosOtr, estadosPartidaOtr } from '../lib/estados-ui';
 import {
   Table,
   TableHeader,
@@ -81,7 +81,6 @@ export function OtrPanel({
 export function OtrDetalle({ envio, abierto = true }: { envio: OtrEnvio; abierto?: boolean }) {
   const permisoGestionar = useHasPermission(P.ComercioExteriorOtrGestionar);
   const gestionar = permisoGestionar && abierto && envio.estado === 2;
-  const accion = useOtrAccion();
   return (
     <article className="space-y-4 rounded-lg bg-surface-card p-4 shadow-card-flat">
       <header className="flex flex-wrap items-center gap-3">
@@ -145,50 +144,6 @@ export function OtrDetalle({ envio, abierto = true }: { envio: OtrEnvio; abierto
           <Conflicto key={c.id} envio={envio} conflicto={c} gestionar={gestionar} />
         ))}
       </section>
-      <section className="space-y-2" aria-label="Salidas OTR">
-        <h4 className="font-medium">Salidas y acuse A+W</h4>
-        {envio.salidas.length === 0 && <p className="text-ink-muted">Sin salidas.</p>}
-        {envio.salidas.map((s) => (
-          <div
-            className="flex flex-wrap items-center gap-3 border-b border-line-row py-3"
-            key={s.id}
-          >
-            <span>
-              {s.tipo} · versión ERP {s.versionErp} · intento {s.intento}
-            </span>
-            <Badge variant={s.sinAcuse ? 'warning' : estadosSalidaOtr[s.estado].tono}>
-              {s.sinAcuse ? 'Sin acuse' : estadosSalidaOtr[s.estado].texto}
-            </Badge>
-            <span className="text-xs text-ink-muted">Intentos: {s.intentos}</span>
-            {s.acuseAt && (
-              <span>
-                {s.acuseResultado} · <DateTimeDisplay value={s.acuseAt} />
-              </span>
-            )}
-            {s.acuseMotivo && <p>{s.acuseMotivo}</p>}
-            {s.ultimoError && <p className="text-danger-fg">{s.ultimoError}</p>}
-            {permisoGestionar && s.estado === 4 && (
-              <Button
-                variant="outline"
-                disabled={accion.isPending}
-                title={accion.isPending ? 'Guardando reintento.' : undefined}
-                onClick={() => {
-                  void accion
-                    .mutateAsync({ envio, ruta: `salidas/${s.id}/reintentar` })
-                    .catch(() => {});
-                }}
-              >
-                Reintentar salida
-              </Button>
-            )}
-          </div>
-        ))}
-      </section>
-      {accion.isError && (
-        <p role="alert" className="text-danger-fg">
-          {esApiError(accion.error) ? accion.error.message : 'No se pudo reintentar la salida.'}
-        </p>
-      )}
     </article>
   );
 }

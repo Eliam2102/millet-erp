@@ -80,23 +80,6 @@ public sealed class OtrTests
         o.Vincular(e); Assert.Equal(e.Id, o.ExpedienteId); Codigo("CE_OTR_YA_VINCULADO", () => o.Vincular(Expediente()));
     }
     [Fact]
-    public void O8_salida_unica_con_acuse_y_reintento_hasta_maximo()
-    {
-        var o = Envio(); var s = o.CrearSalida("hito", 1, "{}", []);
-        Codigo("CE_OTR_SALIDA_DUPLICADA", () => o.CrearSalida("hito", 1, "{}", [s]));
-        Assert.Equal(EstadoOtrSalida.Pendiente, s.Estado); s.Intentar(2, Ahora); s.ErrorEntrega(2, "DEMO error"); Assert.Equal(EstadoOtrSalida.Pendiente, s.Estado);
-        s.Intentar(2, Ahora); s.ErrorEntrega(2, "DEMO error"); Assert.Equal(EstadoOtrSalida.Fallida, s.Estado); Assert.Equal(2, s.Intentos);
-        Codigo("CE_OTR_SALIDA_NO_REINTENTABLE", () => s.Intentar(2, Ahora)); var nueva = s.Reintentar();
-        Assert.Equal(EstadoOtrSalida.Reemplazada, s.Estado); Assert.Equal(nueva.Id, s.ReemplazadaPorId); Assert.NotEqual(s.Id, nueva.Id);
-        Assert.Equal(2, nueva.Intento); Assert.Equal(s.VersionErp, nueva.VersionErp); Assert.Equal(0, nueva.Intentos);
-        nueva.Intentar(2, Ahora); nueva.Entregada(); nueva.Acusar(Ahora, "Aplicada", "DEMO recibido"); Assert.Equal(EstadoOtrSalida.Acusada, nueva.Estado);
-        Codigo("CE_OTR_SALIDA_NO_FALLIDA", () => nueva.Reintentar());
-        var rechazo = o.CrearSalida("booking", 2, "{}", []); rechazo.Intentar(2, Ahora); rechazo.Acusar(Ahora, "Rechazada", "DEMO revisar"); Assert.Equal(EstadoOtrSalida.Fallida, rechazo.Estado);
-        var reentrega = rechazo.Reintentar(); Assert.Equal("Rechazada", rechazo.AcuseResultado); Assert.Equal(reentrega.Id, rechazo.ReemplazadaPorId);
-        reentrega.Intentar(2, Ahora); reentrega.Entregada(); reentrega.Acusar(Ahora.AddDays(2), "Aplicada", "DEMO acuse tardío");
-        Assert.Equal(EstadoOtrSalida.Acusada, reentrega.Estado); Assert.Equal(EstadoOtrSalida.Reemplazada, rechazo.Estado);
-    }
-    [Fact]
     public void O6_propuesta_no_atribuye_confirmacion_humana_hasta_confirmar_en_ce()
     {
         var o = Envio(); var e = Expediente(); o.Vincular(e); e.GuardarContenedor(o.ContenedorId!.Value, o.Conciliar(null, Ahora));

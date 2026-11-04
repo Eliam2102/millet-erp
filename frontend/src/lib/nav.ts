@@ -1127,7 +1127,7 @@ const comercioExterior: NavModulo = {
         },
         {
           label: 'Bandeja OTR',
-          description: 'Vincular envíos y revisar salidas fallidas o sin acuse.',
+          description: 'Vincular envíos OTR a un expediente de exportación.',
           to: '/comercio-exterior/otr',
           icon: FileText,
           permission: PermisosCanonicos.ComercioExteriorExpedientesLeer,
