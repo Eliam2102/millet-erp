@@ -763,6 +763,26 @@ public class RequisicionTests
     }
 
     [Fact]
+    public void AjustarRecepcionAlNeto_TrasDevolucion_BajaLaRqYLaSiguienteRecepcionLaEmpareja()
+    {
+        // F-01 (recorrido 04-nov): tras la devolución la OC baja a 5/6 y la RQ seguía en 6/6.
+        var rq = CrearEnSurtido(); // 10 = 4 almacén + 6 compra
+        var lineaId = rq.Lineas.Single().Id;
+        rq.RegistrarRecepcion(lineaId, 6m, DateTimeOffset.UtcNow);
+
+        rq.AjustarRecepcionAlNeto(lineaId, 5m);
+        Assert.Equal(5m, rq.Lineas.Single().CantidadRecibida);
+
+        rq.AjustarRecepcionAlNeto(lineaId, 8m); // solo baja
+        Assert.Equal(5m, rq.Lineas.Single().CantidadRecibida);
+
+        var delta = Millet.Compras.Application.Almacen.OcRecepcionEnAlmacenHandler.DeltaRequisicion(
+            netoOc: 6m, recibidaRq: rq.Lineas.Single().CantidadRecibida);
+        rq.RegistrarRecepcion(lineaId, delta, DateTimeOffset.UtcNow);
+        Assert.Equal(6m, rq.Lineas.Single().CantidadRecibida);
+    }
+
+    [Fact]
     public void RegistrarRecepcion_CantidadInvalida_Lanza()
     {
         var rq = CrearEnSurtido();

@@ -18,9 +18,15 @@ vi.mock('@/features/almacen/api/useMaterialEnRevision', () => ({
 // Stub del selector de rack: expone un botón que elige un rack, sin react-query de catálogos.
 vi.mock('@/components/erp/selectors/UbicacionBinSelector', () => ({
   UbicacionBinSelector: ({ onChange }: { onChange: (id: string | null) => void }) => (
-    <button type="button" onClick={() => onChange('rack-1')}>
-      Elegir rack
-    </button>
+    <>
+      <button type="button" onClick={() => onChange('rack-1')}>
+        Elegir rack
+      </button>
+      {/* El combobox real manda null al volver a elegir la opción ya seleccionada. */}
+      <button type="button" onClick={() => onChange(null)}>
+        Reelegir rack seleccionado
+      </button>
+    </>
   ),
 }));
 
@@ -102,6 +108,21 @@ describe('<DictamenRevisionSheet>', () => {
     const arg = mutate.mock.calls[0][0];
     expect(arg.lineaRevisionId).toBe('l-1');
     expect(arg.command).toMatchObject({ resultado: 0, cantidad: 2, ubicacionDestinoId: 'rack-1', motivo: 'Hoja utilizable' });
+  });
+
+  it('volver a elegir el rack sugerido no lo deselecciona (O1)', async () => {
+    render(
+      <DictamenRevisionSheet item={{ ...item, ubicacionDisponibleSugeridaId: 'rack-sug' }} onOpenChange={() => {}} />,
+      { wrapper: createQueryWrapper() },
+    );
+    llenarMotivo();
+    fireEvent.click(screen.getByRole('button', { name: 'Reelegir rack seleccionado' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Liberar' }));
+    expect(await screen.findByText(/no se puede deshacer/)).toBeInTheDocument();
+    const botones = screen.getAllByRole('button', { name: 'Liberar' });
+    fireEvent.click(botones[botones.length - 1]);
+    await waitFor(() => expect(mutate).toHaveBeenCalledTimes(1));
+    expect(mutate.mock.calls[0][0].command).toMatchObject({ ubicacionDestinoId: 'rack-sug' });
   });
 
   it('no permite dictaminar más de lo pendiente', async () => {

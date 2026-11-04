@@ -120,6 +120,26 @@ public sealed class UmbralesYAprobacionTests
     }
 
     [Fact]
+    public async Task Teorico_cero_y_contado_cero_no_pide_recuento()
+    {
+        await using var db = NuevaDb();
+        var c = new ConteoInventario(Guid.NewGuid(), Guid.NewGuid(), TipoConteo.Rotativo,
+            new DateOnly(2026, 11, 4), Guid.NewGuid());
+        foreach (var (teorico, real) in new[] { (0m, 0m), (0m, 0m), (1m, 0m) })
+        {
+            var l = new LineaConteo(Guid.NewGuid(), c.Id, Guid.NewGuid(), Guid.NewGuid(),
+                Guid.NewGuid(), teorico, 10);
+            l.Capturar(real, Guid.NewGuid());
+            c.AgregarLinea(l);
+        }
+        c.Iniciar(new(5, 1000, 1000, 15000));
+        db.Conteos.Add(c);
+        await db.SaveChangesAsync();
+        Assert.Equal(1, await new EvaluarVariacionesConteoHandler(db).Handle(new(c.Id), default));
+        Assert.Equal("False,False,True", string.Join(',', c.Lineas.Select(l => l.RequiereRecuento)));
+    }
+
+    [Fact]
     public void Neto_compensa_signos_y_redondea_por_linea_como_aplicar()
     {
         var c = CrearConteo(0, new(5, 1000, 1000, 10000));
