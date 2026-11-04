@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -20,7 +20,11 @@ const LINEAS = '*/api/v1/cuentas-por-cobrar/lineas-credito';
 const LOOKUP = '*/api/v1/cuentas-por-cobrar/clientes-lookup';
 const DISPONIBLE = '*/api/v1/cuentas-por-cobrar/credito-disponible/cli-1';
 
-function mockLinea(estado: EstadoLineaCredito, motivoBloqueo: string | null = null) {
+function mockLinea(
+  estado: EstadoLineaCredito,
+  motivoBloqueo: string | null = null,
+  extra: Record<string, unknown> = {},
+) {
   return {
     id: 'lc-1',
     clienteId: 'cli-1',
@@ -32,12 +36,17 @@ function mockLinea(estado: EstadoLineaCredito, motivoBloqueo: string | null = nu
     estado,
     motivoBloqueo,
     version: 1,
+    ...extra,
   };
 }
 
-function mockHandlers(estado: EstadoLineaCredito, motivo: string | null = null) {
+function mockHandlers(
+  estado: EstadoLineaCredito,
+  motivo: string | null = null,
+  extra: Record<string, unknown> = {},
+) {
   mswServer.use(
-    http.get(`${LINEAS}/lc-1`, () => HttpResponse.json(mockLinea(estado, motivo))),
+    http.get(`${LINEAS}/lc-1`, () => HttpResponse.json(mockLinea(estado, motivo, extra))),
     http.get(LOOKUP, () =>
       HttpResponse.json([
         { id: 'cli-1', clave: 'C001', rfc: 'AAA010101AAA', razonSocial: 'ACME SA' },
@@ -119,6 +128,35 @@ describe('<DetalleLineaCredito> — smoke', () => {
     await waitFor(() => expect(screen.getByText('Cartera vencida +90 días')).toBeInTheDocument());
     expect(screen.getByRole('button', { name: /Desbloquear/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Bloquear/i })).not.toBeInTheDocument();
+  });
+
+  it('C7.5: bloqueo automático por vencimiento y desbloqueo manual con motivo', async () => {
+    mockHandlers(EstadoLineaCredito.Bloqueada, 'Bloqueo automático: factura con 31 días', {
+      bloqueoAutomatico: true,
+    });
+    let cuerpo: unknown = null;
+    mswServer.use(
+      http.post(`${LINEAS}/lc-1/desbloquear`, async ({ request }) => {
+        cuerpo = await request.json();
+        return HttpResponse.json(mockLinea(EstadoLineaCredito.Activa));
+      }),
+    );
+    render(<DetalleLineaCredito />, { wrapper: createQueryWrapper() });
+
+    expect(
+      await screen.findByText('Línea bloqueada automáticamente por vencimiento'),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Se desbloquea sola cuando el cliente paga/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Desbloquear/i }));
+    const confirmar = await screen.findByRole('button', { name: 'Desbloquear línea' });
+    expect(confirmar).toBeDisabled();
+    fireEvent.change(screen.getByLabelText(/Motivo del desbloqueo/), {
+      target: { value: 'Acuerdo de pago autorizado' },
+    });
+    fireEvent.click(confirmar);
+
+    await waitFor(() => expect(cuerpo).toEqual({ motivo: 'Acuerdo de pago autorizado' }));
   });
 
   it('sin permiso gestionar: sin acciones de mutación', async () => {

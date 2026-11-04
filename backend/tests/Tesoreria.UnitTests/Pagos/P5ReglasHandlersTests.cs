@@ -119,6 +119,38 @@ public sealed class P5ReglasHandlersTests
         db.MovimientosBancarios.Should().BeEmpty(); eventos.Eventos.Should().BeEmpty();
     }
 
+    // F-TES-01: sin opinión de cumplimiento (32-D) vigente, el pago directo se detiene igual que la corrida.
+    [Fact]
+    public async Task Pago_directo_a_proveedor_sin_opinion_de_cumplimiento_se_detiene()
+    {
+        await using var db = Db(); var cuenta = Cuenta(db); var pasivo = Pasivo(db); await db.SaveChangesAsync();
+        var eventos = new Publicador(db);
+        var handler = new RegistrarPagoProveedorHandler(db, new EmpresaContext(), new User(), new Periodo(), new ProveedorFake(DtoPara("SinOpinion")), new ElegibleSinLimite(), eventos, new Clock());
+        var act = () => handler.Handle(new(cuenta.Id, Fecha, [new(pasivo.FacturaProveedorId, 10m)]), default);
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "PAGO_PASIVO_DETENIDO_DOCUMENTACION");
+        db.MovimientosBancarios.Should().BeEmpty(); eventos.Eventos.Should().BeEmpty();
+    }
+
+    // F-TES-04: exceder el saldo responde PAGO_EXCEDE_SALDO, no el aviso de «retenido hasta recibir la mercancía».
+    [Fact]
+    public async Task Pago_que_excede_el_saldo_responde_excede_saldo_aunque_el_elegible_sea_menor()
+    {
+        await using var db = Db(); var cuenta = Cuenta(db); var pasivo = Pasivo(db); await db.SaveChangesAsync();
+        var handler = new RegistrarPagoProveedorHandler(db, new EmpresaContext(), new User(), new Periodo(), new Proveedores(), new ElegibleFijo(1000m), new Publicador(db), new Clock());
+        var act = () => handler.Handle(new(cuenta.Id, Fecha, [new(pasivo.FacturaProveedorId, 1100m)]), default);
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "PAGO_EXCEDE_SALDO");
+        db.MovimientosBancarios.Should().BeEmpty();
+    }
+
+    // F-TES-05: cuenta USD y factura MXN responde moneda distinta, no «el proveedor no tiene cuenta en USD».
+    [Fact]
+    public async Task Pago_con_cuenta_en_otra_moneda_responde_cross_moneda()
+    {
+        await using var db = Db(); var usd = Cuenta(db, "USD"); var pasivo = Pasivo(db); await db.SaveChangesAsync();
+        var act = () => Pago(db, new Publicador(db)).Handle(new(usd.Id, Fecha, [new(pasivo.FacturaProveedorId, 10m)]), default);
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "PAGO_CROSS_MONEDA");
+    }
+
     [Fact]
     public async Task Bandeja_senala_proveedor_bloqueado()
     {
@@ -137,7 +169,8 @@ public sealed class P5ReglasHandlersTests
     }
 
     private static ProveedorBancoDto? DtoPara(string? caso) => caso is null ? null
-        : new(Guid.NewGuid(), "PRU", "Proveedor", [new(Guid.NewGuid(), "Banco", "000000000000001234", true, null, caso == "UsdActiva" ? "USD" : "MXN", "Proveedor", true, caso is "EnRevision" or "Inactivo" or "UsdActiva" or "Bloqueado" ? "Activa" : caso)], Activo: caso != "Inactivo", EnRevision: caso == "EnRevision", Bloqueado: caso == "Bloqueado");
+        : new(Guid.NewGuid(), "PRU", "Proveedor", [new(Guid.NewGuid(), "Banco", "000000000000001234", true, null, caso == "UsdActiva" ? "USD" : "MXN", "Proveedor", true, caso is "EnRevision" or "Inactivo" or "UsdActiva" or "Bloqueado" or "SinOpinion" ? "Activa" : caso)], Activo: caso != "Inactivo", EnRevision: caso == "EnRevision", Bloqueado: caso == "Bloqueado",
+            SinOpinionCumplimiento: caso == "SinOpinion");
 
     private sealed class ProveedorFake(ProveedorBancoDto? dto, bool todos = false) : IProveedorBancoReadPort
     {
@@ -153,6 +186,28 @@ public sealed class P5ReglasHandlersTests
             .Errors.Should().Contain(e => e.PropertyName == "ProveedorId");
     }
 
+    // F-FIN-03: ligar liquida la factura, así que respeta la misma detención por 32-D que el pago directo.
+    [Fact]
+    public async Task Ligar_pago_a_cuenta_a_factura_de_proveedor_sin_opinion_de_cumplimiento_se_detiene()
+    {
+        await using var db = Db(); var cuenta = Cuenta(db); var pasivo = Pasivo(db);
+        var movimiento = MovimientoBancario.RegistrarPagoACuenta(Empresa, cuenta, pasivo.ProveedorId, 500, Fecha, null, null, "Urgencia", Usuario, Ahora);
+        db.MovimientosBancarios.Add(movimiento); await db.SaveChangesAsync();
+        var eventos = new Publicador(db);
+        var ligar = new LigarPagoACuentaHandler(db, new EmpresaContext(), eventos, new Clock(), new ProveedorFake(DtoPara("SinOpinion")));
+        var act = () => ligar.Handle(new(movimiento.Id, pasivo.FacturaProveedorId, 200), default);
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "LIGA_PASIVO_DETENIDO_DOCUMENTACION");
+        db.AplicacionesPagoProveedor.Should().BeEmpty(); pasivo.SaldoPendiente.Should().Be(1000); eventos.Eventos.Should().BeEmpty();
+    }
+
+    // F-FIN-04: sin lista de aplicaciones es 400 de validación, no NullReference.
+    [Fact]
+    public void Pago_sin_aplicaciones_es_error_de_validacion()
+    {
+        new RegistrarPagoProveedorValidator().Validate(new RegistrarPagoProveedorCommand(Guid.NewGuid(), Fecha, null!, "REF-1"))
+            .Errors.Should().Contain(e => e.PropertyName == "Aplicaciones" && e.ErrorMessage == "El pago debe aplicar al menos a un pasivo.");
+    }
+
     [Fact]
     public async Task Desligar_recalcula_sin_crear_ingreso_y_permite_religar()
     {
@@ -160,7 +215,7 @@ public sealed class P5ReglasHandlersTests
         var movimiento = MovimientoBancario.RegistrarPagoACuenta(Empresa, cuenta, pasivo.ProveedorId, 500, Fecha, null, null, "Urgencia", Usuario, Ahora);
         db.MovimientosBancarios.Add(movimiento); await db.SaveChangesAsync();
         var eventos = new Publicador(db);
-        var ligar = new LigarPagoACuentaHandler(db, new EmpresaContext(), eventos, new Clock());
+        var ligar = new LigarPagoACuentaHandler(db, new EmpresaContext(), eventos, new Clock(), new ProveedorFake(DtoPara("Activa")));
         await ligar.Handle(new(movimiento.Id, pasivo.FacturaProveedorId, 200), default);
         var aplicacion = await db.AplicacionesPagoProveedor.SingleAsync();
         await new DesligarPagoACuentaHandler(db, eventos, new Clock()).Handle(new(movimiento.Id, aplicacion.Id, "Liga equivocada"), default);
@@ -227,7 +282,7 @@ public sealed class P5ReglasHandlersTests
         var pago = MovimientoBancario.RegistrarPagoACuenta(Empresa, cuenta, pasivo.ProveedorId, 500, Fecha, null, null, "Urgencia", Usuario, Ahora);
         db.MovimientosBancarios.Add(pago); await db.SaveChangesAsync();
         var eventos = new Publicador(db);
-        await new LigarPagoACuentaHandler(db, new EmpresaContext(), eventos, new Clock()).Handle(new(pago.Id, pasivo.FacturaProveedorId, 500), default);
+        await new LigarPagoACuentaHandler(db, new EmpresaContext(), eventos, new Clock(), new ProveedorFake(DtoPara("Activa"))).Handle(new(pago.Id, pasivo.FacturaProveedorId, 500), default);
         var aplicacion = await db.AplicacionesPagoProveedor.SingleAsync();
         db.MovimientosBancarios.Add(MovimientoBancario.RegistrarPagoACuenta(Empresa, cuenta, pasivo.ProveedorId, 100, Fecha, null, null, "Otro urgente", Usuario, Ahora));
         await db.SaveChangesAsync();
@@ -276,6 +331,8 @@ public sealed class P5ReglasHandlersTests
     // P3: Tesorería no paga más que el elegible; estas pruebas no lo limitan.
     private sealed class ElegibleSinLimite : Millet.Tesoreria.Domain.Ports.IElegibleFacturaReadPort
     { public Task<decimal> ObtenerLimiteAcumuladoAsync(Guid id, CancellationToken ct) => Task.FromResult(decimal.MaxValue); }
+    private sealed class ElegibleFijo(decimal limite) : Millet.Tesoreria.Domain.Ports.IElegibleFacturaReadPort
+    { public Task<decimal> ObtenerLimiteAcumuladoAsync(Guid id, CancellationToken ct) => Task.FromResult(limite); }
     private sealed class Permisos(bool permitir) : ICurrentUserPermissions { public ValueTask<bool> TieneAsync(string permiso, CancellationToken cancellationToken = default) => ValueTask.FromResult(permitir); }
     private sealed class Periodo : IPeriodoContablePort { public Task<bool> EstaAbiertoAsync(int año, int mes, CancellationToken ct) => Task.FromResult(true); }
     private sealed class Proveedores : IProveedorBancoReadPort

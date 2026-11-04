@@ -114,10 +114,10 @@ public sealed class RegistrarEjecucionCorridaHandler(TesoreriaDbContext db, ISen
             {
                 if (!pasivos.TryGetValue(l.FacturaProveedorId, out var p) || p.PagoBloqueado)
                     throw new BusinessRuleException("CORRIDA_PASIVO_RETIRADO",
-                        $"CxP retiró la autorización del pasivo {l.FacturaProveedorId}; no se paga. Quítalo de la corrida o pide que CxP lo autorice de nuevo.");
+                        $"CxP retiró la autorización del pasivo {l.FacturaProveedorId}; no se paga. Cancela la corrida (o ciérrala si ya registraste otros pagos) para liberarlo, o pide que CxP lo autorice de nuevo.");
                 if (p.SaldoPendiente != l.ImporteProgramado)
                     throw new BusinessRuleException("CORRIDA_PASIVO_MODIFICADO",
-                        $"El pasivo {l.FacturaProveedorId} cambió después de autorizar la corrida (autorizado {l.ImporteProgramado:N2}, vigente {p.SaldoPendiente:N2}); no se paga.");
+                        $"El pasivo {l.FacturaProveedorId} cambió después de autorizar la corrida (autorizado {l.ImporteProgramado:N2}, vigente {p.SaldoPendiente:N2}); no se paga. Cancela la corrida (o ciérrala si ya registraste otros pagos) para liberarlo y ármala de nuevo.");
             }
 
             // Un pago por proveedor. Guarda las líneas marcadas junto con el pago (misma transacción).

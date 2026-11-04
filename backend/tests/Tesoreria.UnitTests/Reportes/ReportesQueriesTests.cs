@@ -66,6 +66,30 @@ public sealed class ReportesQueriesTests
 
     // ------------------------------------------------------------ helpers
 
+    // F-TES-08: el rango por omisión (inicio de mes) no truena si una cuenta tiene el corte dentro del rango;
+    // esa cuenta arranca en su saldo al corte y las demás en su saldo al inicio.
+    [Fact]
+    public async Task FlujoEfectivo_con_corte_dentro_del_rango_arranca_en_el_saldo_al_corte()
+    {
+        using var db = CrearDbContext();
+        var conCorte = new CuentaBancaria(Guid.NewGuid(), "BBVA", "12345678", null, "MXN");
+        conCorte.RegistrarSaldoInicial(500_000m, new DateOnly(2026, 7, 1), "Carga inicial");
+        var otra = new CuentaBancaria(Guid.NewGuid(), "Banorte", "87654321", null, "MXN");
+        db.CuentasBancarias.AddRange(conCorte, otra);
+        db.MovimientosBancarios.Add(Ingreso(conCorte, 100m, new DateOnly(2026, 7, 2)));
+        db.MovimientosBancarios.Add(Ingreso(otra, 50m, new DateOnly(2026, 6, 20)));
+        await db.SaveChangesAsync();
+
+        var reporte = await new FlujoEfectivoReporteHandler(db, new FakeClock(Ahora))
+            .Handle(new FlujoEfectivoReporteQuery(new DateOnly(2026, 7, 1), new DateOnly(2026, 7, 3)), CancellationToken.None);
+
+        var inicial = reporte.Filas.Single(f => (string?)f["tipo"] == "saldoInicial" && (Guid?)f["cuentaId"] == conCorte.Id);
+        inicial["neto"].Should().Be(500_000m);
+        inicial["concepto"].Should().Be("Saldo al corte del 01/07/2026");
+        reporte.Filas.Single(f => (string?)f["tipo"] == "saldoFinal" && (Guid?)f["cuentaId"] == conCorte.Id)["neto"].Should().Be(500_100m);
+        reporte.Filas.Single(f => (string?)f["tipo"] == "saldoInicial" && (Guid?)f["cuentaId"] == otra.Id)["neto"].Should().Be(50m);
+    }
+
     private static MovimientoBancario Ingreso(CuentaBancaria cuenta, decimal monto, DateOnly fecha) =>
         MovimientoBancario.RegistrarIngreso(
             cuenta.EmpresaId, cuenta, monto, fecha, null, null, null, null, Guid.NewGuid(), Ahora);

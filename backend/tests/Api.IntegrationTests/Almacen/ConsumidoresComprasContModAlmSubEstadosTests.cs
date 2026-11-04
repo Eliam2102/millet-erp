@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Millet.Compras.Application.Almacen;
+using Millet.Compras.Application.Oc.Cancelar;
+using Millet.Compras.Domain.Ports.Almacen;
 using Millet.Compras.Domain;
 using Millet.Compras.Domain.Oc;
 using Millet.Compras.Domain.Oc.Events;
@@ -22,7 +24,7 @@ namespace Millet.Api.IntegrationTests.Almacen;
 /// <list type="bullet">
 ///   <item>M-031: variante B (<c>FacturaPendiente=true</c>) suma recibido y no toca facturación.</item>
 ///   <item>M-041: cierre automático y <see cref="OrdenCompraCerradaEvent"/> solo con las 3 dimensiones Completas.</item>
-///   <item>M-047: recepción sobre OC Cancelada se rechaza sin cambiar lo recibido.</item>
+///   <item>M-047: recepción sobre OC Cancelada no cambia lo recibido y no se reintenta.</item>
 ///   <item>M-099: dos recepciones parciales (30 y 20) dejan 50 en la línea de RQ; el reproceso no duplica.</item>
 /// </list>
 /// Patrón de siembra y ejecución idéntico a <c>ConsumidoresComprasContModAlmTests</c>.
@@ -113,28 +115,68 @@ public sealed class ConsumidoresComprasContModAlmSubEstadosTests(WebApplicationF
     }
 
     [Fact]
-    public async Task M047_recepcion_sobre_oc_cancelada_se_rechaza_sin_cambiar_recibido()
+    public async Task M047_recepcion_sobre_oc_cancelada_no_cambia_recibido_y_no_se_reintenta()
     {
         var articulo = Guid.NewGuid();
         var (ocId, lineas) = await SembrarOcAsync(articulo, estado: EstadoOrdenCompra.Cancelada);
         var eventoId = Guid.NewGuid();
         try
         {
-            // Regla en OrdenCompra.ValidarEstadoParaRegistrarMovimiento: solo Autorizada o Cerrada aceptan movimientos.
-            var ex = await Assert.ThrowsAsync<BusinessRuleException>(
-                () => EnviarAsync(factory, eventoId, Payload(ocId, facturaPendiente: false,
-                    Linea(lineas[0], articulo, 10m, acumulado: 10m))));
+            // F-RQOC-02: la OC cancelada no acepta movimientos y reintentar no lo cambia; el evento se marca
+            // procesado (queda en el log) en lugar de fallar 10 veces hasta dead-letter.
+            await EnviarAsync(factory, eventoId, Payload(ocId, facturaPendiente: false,
+                Linea(lineas[0], articulo, 10m, acumulado: 10m)));
 
-            Assert.Equal("OC_MOVIMIENTO_ESTADO_INVALIDO", ex.Code);
             var oc = await LeerOcAsync(ocId);
             Assert.Equal(EstadoOrdenCompra.Cancelada, oc.Estado);
             Assert.Equal(0m, oc.Lineas.Single(l => l.Id == lineas[0]).CantidadRecibida);
-            Assert.Equal(0, await ContarEventosAsync(eventoId));
+            Assert.Equal(1, await ContarEventosAsync(eventoId));
         }
         finally
         {
             await LimpiarAsync(ocId, eventoId);
         }
+    }
+
+    [Fact]
+    public async Task F_RQOC_02_cancelar_con_recepcion_en_almacen_aun_no_proyectada_se_rechaza()
+    {
+        var articulo = Guid.NewGuid();
+        var (ocId, lineas) = await SembrarOcAsync(articulo);
+        try
+        {
+            using var scope = factory.Services.CreateScope();
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var compras = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
+            var motivo = await compras.MotivosRechazo.AsNoTracking().FirstAsync(m => m.Clave == "RECH-DUP");
+            // Almacén ya registró 4 piezas; Compras todavía no procesa el evento (sub-estado SinRecepcion).
+            var almacen = new RecepcionesFijas([new(Guid.NewGuid(), "M-ENT-FIX", ocId, lineas[0], new DateOnly(2026, 11, 4), 4m, false)]);
+            var handler = new CancelarOrdenCompraHandler(compras, new UsuarioFijo(), scope.ServiceProvider.GetRequiredService<IClock>(),
+                scope.ServiceProvider.GetRequiredService<IPublisher>(), almacen);
+
+            var ex = await Assert.ThrowsAsync<BusinessRuleException>(
+                () => handler.Handle(new CancelarOrdenCompraCommand(ocId, motivo.Id, "Prueba F-RQOC-02"), CancellationToken.None));
+
+            Assert.Equal("OC_CANCELAR_CON_RECEPCION", ex.Code);
+            Assert.DoesNotContain("F5-PR4", ex.Message);
+            Assert.Equal(EstadoOrdenCompra.Autorizada, (await LeerOcAsync(ocId)).Estado);
+        }
+        finally
+        {
+            await LimpiarAsync(ocId);
+        }
+    }
+
+    private sealed class RecepcionesFijas(IReadOnlyList<RecepcionOcLinea> filas) : IRecepcionesOcReadPort
+    {
+        public Task<IReadOnlyList<RecepcionOcLinea>> ListarPorOcAsync(IReadOnlyCollection<Guid> ocIds, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<RecepcionOcLinea>>(filas.Where(f => ocIds.Contains(f.OcId)).ToList());
+    }
+
+    private sealed class UsuarioFijo : ICurrentUserContext
+    {
+        public Guid? UserId { get; } = Guid.NewGuid();
+        public string? UserName => "Prueba F-RQOC-02";
     }
 
     [Fact]

@@ -49,4 +49,14 @@ public sealed class AwPedidosOptions
         ["KG"] = "KGM",
         // ML (metro lineal) por confirmar con el sample fiscal (gap G6).
     };
+
+    /// <summary>
+    /// 86e3jvv6z: forma de pago SAT (01, 03…) → valor que espera el servicio de TI en <c>aw_retorno.forma_pago</c>
+    /// (máx. 10). Vacío = se manda la clave SAT tal cual. Si tiene claves, toda forma debe estar o el pago no se
+    /// manda (AW_RETORNO_MAPEO_PAGO). La equivalencia la mantiene el ERP (SRC-121); valores por confirmar con TI.
+    /// </summary>
+    public Dictionary<string, string> MapeoFormaPagoAw { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Moneda ISO del ERP (MXN, USD) → valor de <c>aw_retorno.moneda</c> (máx. 3). Vacío = tal cual.</summary>
+    public Dictionary<string, string> MapeoMonedaAw { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }

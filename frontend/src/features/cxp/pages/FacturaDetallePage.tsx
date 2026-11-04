@@ -188,9 +188,9 @@ export function FacturaDetallePage() {
             </AvisoEnLinea>
           )}
 
-          {/* Sub-topbar con acciones contextuales */}
+          {/* Sub-topbar con acciones contextuales; sin acciones (Pagada, Cancelada sin motivo) no se pinta. */}
           <div
-            className="flex flex-wrap gap-2 rounded-md border bg-muted/30 px-3 py-2"
+            className="flex flex-wrap gap-2 rounded-md border bg-muted/30 px-3 py-2 empty:hidden"
             data-print="hidden"
           >
             {query.data.estado !== EstadoPasivo.Cancelada &&

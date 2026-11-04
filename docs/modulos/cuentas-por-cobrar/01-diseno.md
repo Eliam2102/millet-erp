@@ -164,7 +164,7 @@ Todo enum persistido con `HasCheckConstraint` + mirror FE (incidente 2026-07-11)
 | `IClienteReadPort` | DatosMaestros | Nombre/RFC/datos del cliente para bandejas y reportes |
 | `IFacturacionAnticiposReadPort` | Facturación (**nuevo**, promueve `AnticipoSaldoDetalle` desde `Facturacion.Application`) | Lista de saldos de anticipo por cliente (§1.4 levantamiento) |
 | `IFacturacionAplicacionesAnticipoReadPort` | Facturación (`FacturacionAplicacionesAnticipoReadAdapter`, F1-CXC-05) | Anticipos con sus aplicaciones a factura final (§11.2) |
-| `IConciliacionFacturacionReadPort` | Facturación (`ConciliacionCarteraReadAdapter`, C7.7) | Comprobantes de un día contable que debieron llegar a la cartera (§11.4) |
+| `IConciliacionFacturacionReadPort` | Facturación (`ConciliacionCarteraReadAdapter`, C7.7) | Comprobantes de un día contable que debieron llegar a la cartera (§11.5) |
 | `IUsuarioReadPort` | Identidad | Nombres en auditoría (calco del de Almacén) |
 | `ISucursalReadPort` / `ITipoCambioReadPort` | Administración/Compartido | Solo si el reporte lo exige; evitar consumos prematuros |
 
@@ -238,8 +238,8 @@ exista el emisor (A2).
 |---|---|
 | `OutboxPublisherWorker<CuentasPorCobrarDbContext>` | Drena outbox → `cuentas-por-cobrar-events` |
 | `FacturacionEventListenerWorker` (en CxC) | `facturacion-events` → proyección `factura_cartera` + saldo 13-K; idempotente por id de origen |
-| `AlertaCarteraWorker` | Evaluación programada (diaria): SOLUNION 90d, exceso de crédito, auto-bloqueo por vencimiento |
-| `ConciliacionCarteraWorker` | C7.7: a partir de `CuentasPorCobrar:Conciliacion:HoraLocal` (06:00 de Millet) concilia el día anterior; una corrida programada por día (§11.4) |
+| `AlertaCarteraWorker` | Evaluación programada (diaria): SOLUNION 90d, exceso de crédito, bloqueo automático por vencimiento y desbloqueo de los que ya no aplican (§11.4) |
+| `ConciliacionCarteraWorker` | C7.7: a partir de `CuentasPorCobrar:Conciliacion:HoraLocal` (06:00 de Millet) concilia el día anterior; una corrida programada por día (§11.5) |
 | `TesoreriaEventListenerWorker` (en CxC) | **Diferido** hasta A2 — consume `PagoClienteConfirmadoEvent` |
 
 ---
@@ -280,7 +280,7 @@ ETag; errores RFC 7807.
 | `/anticipos` | GET?clienteId= (proxy a `IFacturacionAnticiposReadPort`) · GET /aplicaciones?clienteId=&estado= (F1-CXC-05, §11.2) |
 | `/alertas` | GET · POST/{id}/atender |
 | `/credito-disponible/{clienteId}` | GET (con bandera `datoIncompleto`) |
-| `/conciliaciones` | GET?desde=&hasta= · GET/{id} (reporte ADR-0036 de diferencias) · POST (conciliar un día a demanda, C7.7, §11.4) |
+| `/conciliaciones` | GET?desde=&hasta= · GET/{id} (reporte ADR-0036 de diferencias) · POST (conciliar un día a demanda, C7.7, §11.5) |
 
 ### 11.1 Estado de cuenta al cliente (F1-CXC-09 · C7.8)
 
@@ -427,7 +427,38 @@ ETag; errores RFC 7807.
 - **Fuera de alcance:** la importación automática de depósitos desde el banco
   (`PLATFORM-TODO(<DepositoBancarioFeed>)`, T9.2/T9.4).
 
-### 11.4 Conciliación diaria de cartera contra Facturación (F1-CXC-01 · C7.7)
+### 11.4 Bloqueo automático por vencimiento (F1-CXC-06 · C7.5)
+
+- **Regla (R7, P7.2).** La línea de crédito se bloquea sola cuando alguna
+  factura viva del cliente en esa moneda lleva más de *plazo de la línea +
+  tolerancia* días desde su timbrado. Tolerancia
+  `CuentasPorCobrar:Alertas:ToleranciaDiasVencido`, 15 por omisión.
+  Sustituye al umbral fijo de 90 días (`AutoBloqueoDiasVencido`, retirado).
+  Ejemplo CA7.12: plazo 15 + 15 → con 31 días se bloquea, con 30 no.
+- **Marca.** `linea_credito.bloqueo_automatico` distingue el bloqueo de la
+  evaluación del bloqueo manual de Crédito y Cobranza.
+- **Desbloqueo automático (C7.5-a).** Al aplicar un cobro de mostrador, un
+  REP o una NC, si el cliente ya no tiene facturas fuera de plazo +
+  tolerancia, la línea se desbloquea en la misma transacción. La
+  evaluación diaria repite la revisión. Un bloqueo manual nunca se levanta
+  solo.
+- **Desbloqueo manual autorizado.** `POST /lineas-credito/{id}/desbloquear`
+  exige `motivo` y el permiso `cuentas_por_cobrar.lineas-credito.gestionar`;
+  guarda `motivo_desbloqueo` y `desbloqueo_manual_en`.
+  - *Supuesto a validar:* el desbloqueo cubre lo vencido a esa fecha. Solo
+    una factura que rebase plazo + tolerancia **después** vuelve a
+    bloquear.
+- **Alerta del seguro (CA7.11).** Se conserva aparte del bloqueo. Para
+  reportar el impago a tiempo, avisa
+  `SolunionDiasAnticipacion` días antes del límite `SolunionDiasVencido`
+  (90).
+  - *Supuesto a validar:* 10 días de anticipación, así que avisa desde los
+    80 días de vencida.
+- **Migración** `20261102033604_LineaCreditoBloqueoAutomatico`: agrega las
+  tres columnas y marca como automáticos los bloqueos vigentes cuyo motivo
+  empieza con «Auto-bloqueo:».
+
+### 11.5 Conciliación diaria de cartera contra Facturación (F1-CXC-01 · C7.7)
 
 R19: la cartera se concilia diariamente. La proyección `factura_cartera` vive
 solo de eventos de Facturación; la conciliación comprueba que cada evento llegó.
@@ -497,4 +528,5 @@ patrones P1–P4 de `frontend/docs/patrones-compras.md`, reportes con
 | v0.1 | 2026-07-13 | Borrador inicial derivado del levantamiento v0.2 |
 | v0.2 | 2026-10-20 | F1-CXC-09 · C7.8: envío del estado de cuenta, bloqueo por REP pendientes (§11.1) y PLATFORM-TODO `<EnvioEstadoCuentaCliente>` (§13) |
 | v0.3 | 2026-10-21 | F1-CXC-05: anticipos con su aplicación a la factura final (§6.1, §11, §11.2) |
-| v0.4 | 2026-11-03 | F1-CXC-01 · C7.7: conciliación diaria de cartera contra Facturación (§6.1, §9, §10, §11, §11.4) |
+| v0.4 | 2026-11-02 | F1-CXC-06 · C7.5: bloqueo automático por plazo + tolerancia, desbloqueo al pagar y manual con motivo, alerta del seguro anticipada (§9, §11.4) |
+| v0.5 | 2026-11-04 | F1-CXC-01 · C7.7: conciliación diaria de cartera contra Facturación (§6.1, §9, §10, §11, §11.5) |

@@ -140,7 +140,7 @@ public sealed class CorridaPagoDominioTests
     }
 
     [Fact]
-    public void Rechazar_y_cancelar_solo_desde_borrador_o_en_autorizacion_y_liberan_las_lineas()
+    public void Rechazar_solo_desde_borrador_o_en_autorizacion_y_libera_las_lineas()
     {
         var c = Corrida(1_000m); c.EnviarAAutorizacion(1, null);
         c.Rechazar("no procede", Guid.NewGuid());
@@ -148,8 +148,22 @@ public sealed class CorridaPagoDominioTests
         c.Lineas.Should().OnlyContain(l => !l.Viva);
 
         var a = Corrida(1_000m); a.EnviarAAutorizacion(1, null); a.Firmar(Guid.NewGuid(), [], Ahora);
-        ((Action)(() => a.Cancelar("x"))).Should().Throw<BusinessRuleException>().Where(e => e.Code == "CORRIDA_ESTADO_INVALIDO");
         ((Action)(() => a.Rechazar("x", Guid.NewGuid()))).Should().Throw<BusinessRuleException>().Where(e => e.Code == "CORRIDA_ESTADO_INVALIDO");
+    }
+
+    // F-TES-02: la corrida autorizada sin pagos se cancela con motivo y libera el pasivo; con pagos ya no, se cierra.
+    [Fact]
+    public void Autorizada_sin_pagos_se_cancela_y_libera_lineas_pero_ejecutada_no()
+    {
+        var a = Corrida(1_000m); a.EnviarAAutorizacion(1, null); a.Firmar(Guid.NewGuid(), [], Ahora);
+        ((Action)(() => a.Cancelar(" "))).Should().Throw<BusinessRuleException>().Where(e => e.Code == "CORRIDA_MOTIVO_VACIO");
+        a.Cancelar("CxP retiró la factura");
+        a.Estado.Should().Be(EstadoCorridaPago.Cancelada);
+        a.Lineas.Should().OnlyContain(l => !l.Viva);
+
+        var e = Corrida(400m, 600m); e.EnviarAAutorizacion(1, null); e.Firmar(Guid.NewGuid(), [], Ahora);
+        e.RegistrarEjecucion([e.Lineas.First().FacturaProveedorId], "REF-1", new DateOnly(2026, 11, 1));
+        ((Action)(() => e.Cancelar("x"))).Should().Throw<BusinessRuleException>().Where(x => x.Code == "CORRIDA_ESTADO_INVALIDO");
     }
 
     [Fact]

@@ -7,7 +7,7 @@ import { FacturaDetallePage } from './FacturaDetallePage';
 import { EstadoPasivo, MotivoCancelacion } from '@/features/cxp/api/types';
 import { createQueryWrapper } from '@/test/test-query-client';
 
-const escenario = vi.hoisted(() => ({ cancelada: false, capturada: false, revisadas: false, noDeducible: false }));
+const escenario = vi.hoisted(() => ({ cancelada: false, capturada: false, pagada: false, revisadas: false, noDeducible: false }));
 vi.mock('@tanstack/react-router', () => ({
   useParams: () => ({ id: 'factura-ficticia-p3' }),
   useSearch: () => ({}),
@@ -30,7 +30,9 @@ vi.mock('@/features/cxp/api/useFacturas', () => ({
         ? EstadoPasivo.Cancelada
         : escenario.capturada
           ? EstadoPasivo.Capturada
-          : EstadoPasivo.Autorizada,
+          : escenario.pagada
+            ? EstadoPasivo.Pagada
+            : EstadoPasivo.Autorizada,
       retencionesRevisadasEn: escenario.revisadas ? '2026-10-17T06:00:00Z' : null,
       retencionesRevisionMotivo: escenario.revisadas ? 'FIX Fiscal confirma' : null,
       fechaDocumento: '2026-10-09',
@@ -133,5 +135,14 @@ describe('P8: alerta fiscal y obra en detalle', () => {
     expect(screen.getByRole('button', { name: /^Autorizar$/ })).toBeEnabled();
     expect(screen.queryByRole('button', { name: 'Marcar como revisadas' })).not.toBeInTheDocument();
     expect(screen.getByText(/FIX Fiscal confirma/)).toBeInTheDocument();
+  });
+
+  it('factura pagada: la barra de acciones queda vacía y se oculta (F-03)', () => {
+    Object.assign(escenario, { cancelada: false, capturada: false, pagada: true });
+    const { container } = render(<FacturaDetallePage />, { wrapper: createQueryWrapper() });
+    const barra = container.querySelector('.bg-muted\\/30[data-print="hidden"]');
+    expect(barra).toBeEmptyDOMElement();
+    expect(barra).toHaveClass('empty:hidden');
+    escenario.pagada = false;
   });
 });

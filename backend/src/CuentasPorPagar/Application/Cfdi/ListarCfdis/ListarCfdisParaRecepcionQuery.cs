@@ -65,7 +65,9 @@ public sealed class ListarCfdisParaRecepcionHandler(CuentasPorPagarDbContext db)
                 c.Moneda,
                 c.CanalOrigen,
                 c.FechaRecepcion,
-                c.Estado))
+                c.Estado,
+                c.EstatusSat,
+                c.FechaCancelacionSat))
             .ToListAsync(cancellationToken);
 
         return new CfdisParaRecepcionResponse(rfc.Valor, null, items);

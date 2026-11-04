@@ -51,6 +51,8 @@ public sealed class OcDevolucionRegistradaListener
             await _publisher.Publish(reabierta, cancellationToken);
         }
 
+        await AjustarRequisicionAsync(oc, notification.LineaOrdenCompraId, cancellationToken);
+
         // ADR-0009: incluir cierre/reapertura en la transacción del cambio.
         await _db.SaveChangesAsync(cancellationToken);
 
@@ -60,5 +62,38 @@ public sealed class OcDevolucionRegistradaListener
             notification.LineaOrdenCompraId,
             notification.CantidadAcumuladaAjustada,
             resultado.Reabrierta is not null);
+    }
+
+    /// <summary>
+    /// F-01: la línea de RQ baja al recibido neto de sus líneas de OC en la misma
+    /// transacción. Best-effort: si la RQ no lo admite (p. ej., ya no está
+    /// EnSurtido) se registra y la OC se ajusta igual; el dominio valida antes de
+    /// mutar, así que no queda nada a medias.
+    /// </summary>
+    private async Task AjustarRequisicionAsync(
+        Domain.Oc.OrdenCompra oc, Guid lineaOcId, CancellationToken cancellationToken)
+    {
+        var lineaOc = oc.Lineas.FirstOrDefault(l => l.Id == lineaOcId);
+        if (lineaOc is not { RequisicionId: { } rqId, LineaRequisicionId: { } rqLineaId })
+        {
+            return;
+        }
+
+        try
+        {
+            var otrasOc = await _db.LineasOrdenCompra
+                .Where(l => l.LineaRequisicionId == rqLineaId && l.Id != lineaOc.Id)
+                .SumAsync(l => l.CantidadRecibida, cancellationToken);
+            var rq = await _db.Requisiciones
+                .Include(r => r.Lineas)
+                .FirstOrDefaultAsync(r => r.Id == rqId, cancellationToken);
+            rq?.AjustarRecepcionAlNeto(rqLineaId, otrasOc + lineaOc.CantidadRecibida);
+        }
+        catch (BusinessRuleException ex)
+        {
+            _logger.LogWarning(ex,
+                "[OcDevolucionRegistradaListener] No se ajustó la RQ {RqId} (línea {LineaId}) tras la devolución en la OC {OcId}. La OC sí se ajustó.",
+                rqId, rqLineaId, oc.Id);
+        }
     }
 }

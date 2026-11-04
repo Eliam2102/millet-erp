@@ -124,6 +124,7 @@ public static class DependencyInjection
         services.AddScoped<IAwWriteBackPort, StubAwWriteBackPort>();
         services.AddScoped<IAwNotasCreditoPort, StubAwNotasCreditoPort>();
         services.AddScoped<IAwVersionPedidoReadPort, AwVersionPedidoReadAdapter>();
+        services.AddScoped<IAwPagosReadPort, AwPagosReadAdapter>();
 
         // --- F3-PR2: auto-provisión de master A+W — stub hasta DatosMaestros ---
         // CERRADO por ADR-0048 (PR4): AwMasterProvisioningAdapter (Integraciones.Aw)

@@ -27,6 +27,7 @@ import type { PasivoPendienteResponse } from '@/features/tesoreria/api/types';
 import { MotivoDialog } from '@/features/tesoreria/components/MotivoDialog';
 import { RegistrarPagoSheet } from '@/features/tesoreria/components/RegistrarPagoSheet';
 import { formatoMonto } from '@/features/tesoreria/lib/formato';
+import { esPasivoSeleccionable } from '@/features/tesoreria/lib/pagos';
 import type { PagosSearch } from '@/features/tesoreria/lib/pagos-search-schema';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -76,12 +77,6 @@ export function BandejaPagos() {
 
   const seleccionados = items.filter((p) => seleccion.has(p.facturaProveedorId));
   const ancla = seleccionados[0] ?? null;
-
-  function esSeleccionable(p: PasivoPendienteResponse): boolean {
-    if (ancla == null) return true;
-    // Una transferencia = un beneficiario y una moneda (RN-3 + regla del command).
-    return p.proveedorId === ancla.proveedorId && p.moneda === ancla.moneda;
-  }
 
   function toggle(p: PasivoPendienteResponse, checked: boolean) {
     setSeleccion((prev) => {
@@ -257,7 +252,7 @@ export function BandejaPagos() {
               <TableBody className="divide-y">
                 {items.map((p) => {
                   const marcado = seleccion.has(p.facturaProveedorId);
-                  const seleccionable = esSeleccionable(p);
+                  const seleccionable = esPasivoSeleccionable(p, ancla);
                   return (
                     <TableRow
                       key={p.facturaProveedorId}

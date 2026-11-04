@@ -168,7 +168,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         var nombres = new[] { "Constructora", "Cancelero", "Particular", "Distribuidor", "Gobierno" };
         for (var i = 0; i < nombres.Length; i++) clasificacion.HasData(new {
             Id = Guid.Parse($"00000012-0001-0000-0000-{i+1:000000000000}"), Nombre = nombres[i],
-            Descripcion = "Por validar con Millet (V37, Eliam 10-oct-2026).", Activa = true, Version = 1,
+            Descripcion = "Clasificación comercial de clientes.", Activa = true, Version = 1,
             CreatedAt = new DateTimeOffset(2026,10,10,0,0,0,TimeSpan.Zero), UpdatedAt = new DateTimeOffset(2026,10,10,0,0,0,TimeSpan.Zero),
             CreatedBy = "seed", UpdatedBy = "seed", DeletedAt = (DateTimeOffset?)null });
         var ligado = modelBuilder.Entity<ClienteLigadoAw>();

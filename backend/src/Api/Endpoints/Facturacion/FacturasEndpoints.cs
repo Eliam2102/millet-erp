@@ -10,6 +10,7 @@ using Millet.Facturacion.Application.Facturas.EmitirFacturaVenta;
 using Millet.Facturacion.Application.Comprobantes.Queries;
 using Millet.Facturacion.Application.Facturas.Queries;
 using Millet.Facturacion.Application.Facturas.ReenviarCfdiCorreo;
+using Millet.Facturacion.Application.Sustituciones;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Domain.Pedidos;
 using Millet.Facturacion.Domain.Ports;
@@ -101,6 +102,23 @@ public static class FacturasEndpoints
         .WithSummary("Detalle de una factura de venta (líneas + timbre + relaciones)")
         .Produces<ComprobanteDetalleResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // GET: borrador de la factura sustituta (FAC-08b): datos de la original para el
+        // formulario de emisión. Quien sustituye emite la nueva y solicita la cancelación.
+        group.MapGet("/{id:guid}/sustitucion", async (
+            Guid id, IMediator mediator, CancellationToken cancellationToken) =>
+        {
+            var datos = await mediator.Send(new DatosSustitucionQuery(id), cancellationToken);
+            return Results.Ok(datos);
+        })
+        .RequireAuthorization(
+            PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionFacturasEmitir,
+            PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionCancelacionesSolicitar)
+        .WithName("DatosSustitucionFactura")
+        .WithSummary("Datos de la factura original para emitir su sustituta (relación 04)")
+        .Produces<DatosSustitucionResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         // GET: bitácora de envíos de correo de la factura. B6.
         group.MapGet("/{id:guid}/envios", async (

@@ -10,7 +10,8 @@ namespace Millet.Facturacion.Application.Cancelaciones.RechazarCancelacion;
 
 /// <summary>
 /// El Contador General no autoriza una cancelación pendiente (F6.5): queda con su
-/// motivo y el comprobante sigue vigente. Nada se envía al PAC.
+/// motivo y el comprobante sigue vigente. Nada se envía al PAC. FAC-08b: si era una
+/// sustitución, se solicita la cancelación de la sustituta con motivo 03.
 /// </summary>
 public sealed record RechazarCancelacionCommand(Guid ComprobanteId, string Motivo) : IRequest<SolicitarCancelacionResponse>;
 
@@ -34,7 +35,10 @@ public sealed class RechazarCancelacionHandler(FacturacionDbContext db, ICurrent
             throw new ForbiddenException("USUARIO_NO_IDENTIFICADO", "No se identificó al usuario que rechaza.");
 
         var solicitud = await CadenaCancelacion.PendienteDeAsync(db, command.ComprobanteId, cancellationToken);
-        solicitud.RechazarAutorizacion(usuarioId, user.UserName, command.Motivo, clock.UtcNow);
+        var ahora = clock.UtcNow;
+        solicitud.RechazarAutorizacion(usuarioId, user.UserName, command.Motivo, ahora);
+        // FAC-08b (supuesto a validar): rechazada la sustitución, la sustituta se cancela con motivo 03.
+        await Sustituciones.SustitucionCfdi.SolicitarCancelacionSustitutaAsync(db, solicitud, ahora, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
 
         var comprobante = await db.Comprobantes.AsNoTracking().FirstAsync(c => c.Id == command.ComprobanteId, cancellationToken);
