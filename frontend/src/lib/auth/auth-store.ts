@@ -46,8 +46,6 @@ export const useAuthStore = create<AuthState & AuthActions>((set) => ({
     set({ status, errorMessage }),
 
   setSession: (response) => {
-    // LOCAL-ONLY (manuales): keep the fake session across reloads. Never commit.
-    if (import.meta.env.VITE_AUTH_MODE === 'FakeForLocalDev') sessionStorage.setItem('fake-session', JSON.stringify(response));
     const empresaActual = response.empresas.find((e) => e.esLaActual);
     set({
       status: 'authenticated',
@@ -107,11 +105,5 @@ export const useAuthStore = create<AuthState & AuthActions>((set) => ({
 
   setCurrentSucursalId: (currentSucursalId) => set({ currentSucursalId }),
 
-  clearSession: (status: AuthStatus = 'idle') => { sessionStorage.removeItem('fake-session'); set({ ...initialState, status }); },
+  clearSession: (status: AuthStatus = 'idle') => set({ ...initialState, status }),
 }));
-
-// LOCAL-ONLY (manuales): rehydrate the fake session after a reload. Never commit.
-if (import.meta.env.VITE_AUTH_MODE === 'FakeForLocalDev') {
-  const saved = sessionStorage.getItem('fake-session');
-  if (saved) useAuthStore.getState().setSession(JSON.parse(saved));
-}

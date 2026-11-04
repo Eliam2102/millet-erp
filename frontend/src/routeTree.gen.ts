@@ -3471,18 +3471,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCxcCarteraIndexRouteImport;
       parentRoute: typeof AppRoute;
     };
-    '/_app/cxc/cobranza/': {
-      id: '/_app/cxc/cobranza/';
-      path: '/cxc/cobranza';
-      fullPath: '/cxc/cobranza/';
-      preLoaderRoute: typeof AppCxcCobranzaIndexRouteImport;
-      parentRoute: typeof AppRoute;
-    };
     '/_app/cxc/conciliacion/': {
       id: '/_app/cxc/conciliacion/';
       path: '/cxc/conciliacion';
       fullPath: '/cxc/conciliacion/';
       preLoaderRoute: typeof AppCxcConciliacionIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/cxc/cobranza/': {
+      id: '/_app/cxc/cobranza/';
+      path: '/cxc/cobranza';
+      fullPath: '/cxc/cobranza/';
+      preLoaderRoute: typeof AppCxcCobranzaIndexRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/cxc/estado-cuenta/': {
