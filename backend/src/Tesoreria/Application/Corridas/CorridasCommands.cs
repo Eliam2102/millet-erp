@@ -49,6 +49,11 @@ internal static class CorridaArmado
             throw new BusinessRuleException("CORRIDA_PASIVO_EN_OTRA_CORRIDA",
                 $"El pasivo {enOtra.FacturaProveedorId} ya está en la corrida '{enOtra.Nombre}'.");
 
+        // Primero las reglas propias de la corrida (estado, moneda, saldo): una factura en otra moneda no debe
+        // responder que al proveedor le falta cuenta en esa moneda (F-TES-05). Si algo falla después, no se guarda.
+        foreach (var pasivo in pasivos)
+            if (corrida.AgregarLinea(pasivo) is { } linea) db.Add(linea);
+
         // Plano 7.2 paso 2: proveedor activo y cuenta bancaria validada (Estado «Activa») en la moneda de la corrida.
         var info = await proveedores.ObtenerVariosAsync(pasivos.Select(p => p.ProveedorId).Distinct().ToList(), ct);
         foreach (var proveedorId in pasivos.Select(p => p.ProveedorId).Distinct())
@@ -56,9 +61,6 @@ internal static class CorridaArmado
             ReglasDestinoProveedor.Resolver(info.GetValueOrDefault(proveedorId), corrida.Moneda, null);
             PasivosPagables.ExigirOpinionCumplimiento(info[proveedorId], "CORRIDA_PASIVO_DETENIDO_DOCUMENTACION");
         }
-
-        foreach (var pasivo in pasivos)
-            if (corrida.AgregarLinea(pasivo) is { } linea) db.Add(linea);
     }
 }
 

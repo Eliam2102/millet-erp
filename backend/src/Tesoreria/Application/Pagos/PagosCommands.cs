@@ -189,6 +189,17 @@ public sealed class RegistrarPagoProveedorHandler
                 "Un pago cubre pasivos de un solo proveedor; registra un pago por proveedor.");
         var proveedorId = proveedores[0];
 
+        // RN-3: la cuenta de egreso coincide en moneda con los pasivos
+        // (cross-moneda bloqueado en MVP; T-G6). Va antes que la cuenta del
+        // proveedor para no pedir una cuenta en otra moneda que no hace falta (F-TES-05).
+        var monedasDistintas = pasivos.Values
+            .Select(p => p.Moneda).Distinct()
+            .Where(m => m != cuenta.Moneda)
+            .ToList();
+        if (monedasDistintas.Count > 0)
+            throw new BusinessRuleException("PAGO_CROSS_MONEDA",
+                $"La cuenta es {cuenta.Moneda} y hay pasivos en {string.Join(", ", monedasDistintas)} (RN-3; cross-moneda fuera del MVP).");
+
         // F1-ADM-05 G1.1 / 86e3pdmee: proveedor Activo, fuera de revisión y con cuenta activa en la moneda
         // del egreso; si el puerto no devuelve datos del proveedor el pago se bloquea.
         CuentaDestinoPago? destino = null;
@@ -200,16 +211,6 @@ public sealed class RegistrarPagoProveedorHandler
             PasivosPagables.ExigirOpinionCumplimiento(infoProveedor!, "PAGO_PASIVO_DETENIDO_DOCUMENTACION");
             destino = new CuentaDestinoPago(elegida.Id, elegida.Banco, elegida.Numero, elegida.Titular);
         }
-
-        // RN-3: la cuenta de egreso coincide en moneda con los pasivos
-        // (cross-moneda bloqueado en MVP; T-G6).
-        var monedasDistintas = pasivos.Values
-            .Select(p => p.Moneda).Distinct()
-            .Where(m => m != cuenta.Moneda)
-            .ToList();
-        if (monedasDistintas.Count > 0)
-            throw new BusinessRuleException("PAGO_CROSS_MONEDA",
-                $"La cuenta es {cuenta.Moneda} y hay pasivos en {string.Join(", ", monedasDistintas)} (RN-3; cross-moneda fuera del MVP).");
 
         foreach (var grupo in command.Aplicaciones.GroupBy(a => a.FacturaProveedorId))
         {

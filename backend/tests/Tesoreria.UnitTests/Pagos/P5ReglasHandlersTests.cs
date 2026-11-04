@@ -142,6 +142,15 @@ public sealed class P5ReglasHandlersTests
         db.MovimientosBancarios.Should().BeEmpty();
     }
 
+    // F-TES-05: cuenta USD y factura MXN responde moneda distinta, no «el proveedor no tiene cuenta en USD».
+    [Fact]
+    public async Task Pago_con_cuenta_en_otra_moneda_responde_cross_moneda()
+    {
+        await using var db = Db(); var usd = Cuenta(db, "USD"); var pasivo = Pasivo(db); await db.SaveChangesAsync();
+        var act = () => Pago(db, new Publicador(db)).Handle(new(usd.Id, Fecha, [new(pasivo.FacturaProveedorId, 10m)]), default);
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "PAGO_CROSS_MONEDA");
+    }
+
     [Fact]
     public async Task Bandeja_senala_proveedor_bloqueado()
     {
