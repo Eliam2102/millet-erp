@@ -1241,6 +1241,21 @@ export interface AlfakHistorialFila {
   hojasFinal?: number | null;
 }
 
+/** F1-MP-09: línea del kardex de un artículo/lote; saldo y valorSaldo son corridos (incluyen el saldo inicial). */
+export interface TrazabilidadMpFila {
+  fecha: string;
+  folio: string | null;
+  concepto: string;
+  referencia: string | null;
+  lote: string | null;
+  subAlmacenNombre: string | null;
+  entrada: number;
+  salida: number;
+  saldo: number;
+  costoUnitarioMxn: number;
+  valorSaldo: number;
+}
+
 /** F1-ALM-13-a: fila del cuadre del cierre (Sucursal, Almacén o Kardex). Diferencia = valuación − saldo (o − kardex). */
 export interface CuadreInventarioFila {
   nivel: 'Sucursal' | 'Almacén' | 'Kardex';

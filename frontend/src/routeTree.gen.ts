@@ -92,6 +92,7 @@ import { Route as AppAlmacenRecepcionesIdRouteImport } from './routes/_app/almac
 import { Route as AppAlmacenReportesIndexRouteImport } from './routes/_app/almacen/reportes/index';
 import { Route as AppAlmacenReportesAlfakHistorialRouteImport } from './routes/_app/almacen/reportes/alfak-historial';
 import { Route as AppAlmacenReportesMpCnkRouteImport } from './routes/_app/almacen/reportes/mp-cnk';
+import { Route as AppAlmacenReportesTrazabilidadMpRouteImport } from './routes/_app/almacen/reportes/trazabilidad-mp';
 import { Route as AppAlmacenSalidasIndexRouteImport } from './routes/_app/almacen/salidas/index';
 import { Route as AppAlmacenSalidasIdRouteImport } from './routes/_app/almacen/salidas/$id';
 import { Route as AppComercioExteriorExpedientesIndexRouteImport } from './routes/_app/comercio-exterior/expedientes/index';
@@ -665,6 +666,12 @@ const AppAlmacenReportesMpCnkRoute = AppAlmacenReportesMpCnkRouteImport.update({
   path: '/almacen/reportes/mp-cnk',
   getParentRoute: () => AppRoute,
 } as any);
+const AppAlmacenReportesTrazabilidadMpRoute =
+  AppAlmacenReportesTrazabilidadMpRouteImport.update({
+    id: '/almacen/reportes/trazabilidad-mp',
+    path: '/almacen/reportes/trazabilidad-mp',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppAlmacenSalidasIndexRoute = AppAlmacenSalidasIndexRouteImport.update({
   id: '/almacen/salidas/',
   path: '/almacen/salidas/',
@@ -1471,6 +1478,7 @@ export interface FileRoutesByFullPath {
   '/almacen/recepciones/$id': typeof AppAlmacenRecepcionesIdRoute;
   '/almacen/reportes/alfak-historial': typeof AppAlmacenReportesAlfakHistorialRoute;
   '/almacen/reportes/mp-cnk': typeof AppAlmacenReportesMpCnkRoute;
+  '/almacen/reportes/trazabilidad-mp': typeof AppAlmacenReportesTrazabilidadMpRoute;
   '/almacen/salidas/$id': typeof AppAlmacenSalidasIdRoute;
   '/comercio-exterior/expedientes/$id': typeof AppComercioExteriorExpedientesIdRoute;
   '/compras/admin/aprobadores': typeof AppComprasAdminAprobadoresRoute;
@@ -1685,6 +1693,7 @@ export interface FileRoutesByTo {
   '/almacen/recepciones/$id': typeof AppAlmacenRecepcionesIdRoute;
   '/almacen/reportes/alfak-historial': typeof AppAlmacenReportesAlfakHistorialRoute;
   '/almacen/reportes/mp-cnk': typeof AppAlmacenReportesMpCnkRoute;
+  '/almacen/reportes/trazabilidad-mp': typeof AppAlmacenReportesTrazabilidadMpRoute;
   '/almacen/salidas/$id': typeof AppAlmacenSalidasIdRoute;
   '/comercio-exterior/expedientes/$id': typeof AppComercioExteriorExpedientesIdRoute;
   '/compras/admin/aprobadores': typeof AppComprasAdminAprobadoresRoute;
@@ -1901,6 +1910,7 @@ export interface FileRoutesById {
   '/_app/almacen/recepciones/$id': typeof AppAlmacenRecepcionesIdRoute;
   '/_app/almacen/reportes/alfak-historial': typeof AppAlmacenReportesAlfakHistorialRoute;
   '/_app/almacen/reportes/mp-cnk': typeof AppAlmacenReportesMpCnkRoute;
+  '/_app/almacen/reportes/trazabilidad-mp': typeof AppAlmacenReportesTrazabilidadMpRoute;
   '/_app/almacen/salidas/$id': typeof AppAlmacenSalidasIdRoute;
   '/_app/comercio-exterior/expedientes/$id': typeof AppComercioExteriorExpedientesIdRoute;
   '/_app/compras/admin/aprobadores': typeof AppComprasAdminAprobadoresRoute;
@@ -2117,6 +2127,7 @@ export interface FileRouteTypes {
     | '/almacen/recepciones/$id'
     | '/almacen/reportes/alfak-historial'
     | '/almacen/reportes/mp-cnk'
+    | '/almacen/reportes/trazabilidad-mp'
     | '/almacen/salidas/$id'
     | '/comercio-exterior/expedientes/$id'
     | '/compras/admin/aprobadores'
@@ -2331,6 +2342,7 @@ export interface FileRouteTypes {
     | '/almacen/recepciones/$id'
     | '/almacen/reportes/alfak-historial'
     | '/almacen/reportes/mp-cnk'
+    | '/almacen/reportes/trazabilidad-mp'
     | '/almacen/salidas/$id'
     | '/comercio-exterior/expedientes/$id'
     | '/compras/admin/aprobadores'
@@ -2546,6 +2558,7 @@ export interface FileRouteTypes {
     | '/_app/almacen/recepciones/$id'
     | '/_app/almacen/reportes/alfak-historial'
     | '/_app/almacen/reportes/mp-cnk'
+    | '/_app/almacen/reportes/trazabilidad-mp'
     | '/_app/almacen/salidas/$id'
     | '/_app/comercio-exterior/expedientes/$id'
     | '/_app/compras/admin/aprobadores'
@@ -3282,6 +3295,13 @@ declare module '@tanstack/react-router' {
       path: '/almacen/reportes/mp-cnk';
       fullPath: '/almacen/reportes/mp-cnk';
       preLoaderRoute: typeof AppAlmacenReportesMpCnkRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/almacen/reportes/trazabilidad-mp': {
+      id: '/_app/almacen/reportes/trazabilidad-mp';
+      path: '/almacen/reportes/trazabilidad-mp';
+      fullPath: '/almacen/reportes/trazabilidad-mp';
+      preLoaderRoute: typeof AppAlmacenReportesTrazabilidadMpRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/almacen/salidas/': {
@@ -4278,6 +4298,7 @@ interface AppRouteChildren {
   AppAlmacenRecepcionesIdRoute: typeof AppAlmacenRecepcionesIdRoute;
   AppAlmacenReportesAlfakHistorialRoute: typeof AppAlmacenReportesAlfakHistorialRoute;
   AppAlmacenReportesMpCnkRoute: typeof AppAlmacenReportesMpCnkRoute;
+  AppAlmacenReportesTrazabilidadMpRoute: typeof AppAlmacenReportesTrazabilidadMpRoute;
   AppAlmacenSalidasIdRoute: typeof AppAlmacenSalidasIdRoute;
   AppComercioExteriorExpedientesIdRoute: typeof AppComercioExteriorExpedientesIdRoute;
   AppComprasAdminAprobadoresRoute: typeof AppComprasAdminAprobadoresRoute;
@@ -4491,6 +4512,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAlmacenRecepcionesIdRoute: AppAlmacenRecepcionesIdRoute,
   AppAlmacenReportesAlfakHistorialRoute: AppAlmacenReportesAlfakHistorialRoute,
   AppAlmacenReportesMpCnkRoute: AppAlmacenReportesMpCnkRoute,
+  AppAlmacenReportesTrazabilidadMpRoute: AppAlmacenReportesTrazabilidadMpRoute,
   AppAlmacenSalidasIdRoute: AppAlmacenSalidasIdRoute,
   AppComercioExteriorExpedientesIdRoute: AppComercioExteriorExpedientesIdRoute,
   AppComprasAdminAprobadoresRoute: AppComprasAdminAprobadoresRoute,
