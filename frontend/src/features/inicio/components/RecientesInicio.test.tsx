@@ -58,3 +58,26 @@ it('muestra nombres legibles, respeta la etiqueta y elimina repeticiones en el r
   expect(screen.getByText('OC-2026-001')).toBeInTheDocument();
   expect(container.textContent).not.toMatch(/SolicitudCatalogo|OrdenCompra/);
 });
+
+it('no repite la etiqueta en el detalle, muestra «vacío» y recorta sin desbordar', async () => {
+  mswServer.use(
+    http.get('*/api/*', () =>
+      HttpResponse.json({
+        items: [
+          {
+            id: '9',
+            entidad: 'LineaRequisicion',
+            entidadEtiqueta: 'Linea requisicion 01a1a39c',
+            resumen: 'Modificó Linea requisicion 01a1a39c — Notas: null → 9',
+            timestamp: new Date().toISOString(),
+            operacion: 'Modificar',
+          },
+        ],
+      }),
+    ),
+  );
+  render(<RecientesInicio usuarioId="u" empresaId="e" />, { wrapper: createQueryWrapper() });
+  const detalle = await screen.findByText('Modificó · Notas: vacío → 9');
+  expect(detalle).toHaveClass('line-clamp-2', 'break-words');
+  expect(detalle.closest('a')).toHaveClass('min-w-0');
+});
