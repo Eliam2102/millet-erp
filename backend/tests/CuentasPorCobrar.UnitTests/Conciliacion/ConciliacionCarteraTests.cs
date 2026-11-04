@@ -199,6 +199,22 @@ public sealed class ConciliacionCarteraTests
     }
 
     [Fact]
+    public async Task La_lista_pone_primero_la_corrida_ejecutada_mas_reciente_no_el_dia_mas_reciente()
+    {
+        await using var db = Db();
+        var temprano = Timbrado.AddHours(1);
+        db.ConciliacionesCartera.AddRange(
+            ConciliacionCartera.Registrar(Empresa, Dia, OrigenConciliacion.Programada, null, temprano, 0, []),
+            ConciliacionCartera.Registrar(Empresa, Dia.AddDays(-20), OrigenConciliacion.Demanda, Usuario.Id, temprano.AddHours(3), 0, []),
+            ConciliacionCartera.Registrar(Empresa, Dia.AddDays(-5), OrigenConciliacion.Demanda, Usuario.Id, temprano.AddHours(2), 0, []));
+        await db.SaveChangesAsync();
+
+        var lista = await new ListarConciliacionesHandler(db).Handle(new(null, null), CancellationToken.None);
+
+        lista.Select(c => c.Fecha).Should().Equal(Dia.AddDays(-20), Dia.AddDays(-5), Dia);
+    }
+
+    [Fact]
     public async Task Programada_en_bypass_concilia_cada_empresa_y_registra_sin_usuario()
     {
         await using var db = Db();

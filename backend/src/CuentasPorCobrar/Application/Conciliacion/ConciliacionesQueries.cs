@@ -34,7 +34,7 @@ public sealed class ListarConciliacionesHandler(CuentasPorCobrarDbContext db)
         if (request.Desde is DateOnly desde) q = q.Where(c => c.Fecha >= desde);
         if (request.Hasta is DateOnly hasta) q = q.Where(c => c.Fecha <= hasta);
         var corridas = await q
-            .OrderByDescending(c => c.Fecha).ThenByDescending(c => c.EjecutadaEn)
+            .OrderByDescending(c => c.EjecutadaEn).ThenByDescending(c => c.Fecha)
             .Take(Math.Clamp(request.Limite, 1, 366))
             .ToListAsync(cancellationToken);
         return corridas.Select(ConciliacionResumenResponse.De).ToList();

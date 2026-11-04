@@ -39,6 +39,11 @@ function ayerLocalISO(): string {
   return format(subDays(parseDateOnlyLocal(hoyLocalISO()), 1), 'yyyy-MM-dd');
 }
 
+/** La corrida ejecutada más reciente arriba, sin importar el día que concilió. */
+function ordenarPorEjecucion(corridas: ConciliacionResumen[]): ConciliacionResumen[] {
+  return [...corridas].sort((a, b) => Date.parse(b.ejecutadaEn) - Date.parse(a.ejecutadaEn));
+}
+
 /**
  * <c>Conciliación de cartera</c> (C7.7, 86e3jvv4q) — <c>/cxc/conciliacion</c>.
  * Cada día a las 06:00 se concilia el día anterior; aquí se ven las corridas,
@@ -47,8 +52,9 @@ function ayerLocalISO(): string {
  */
 export function ConciliacionCarteraPage() {
   const corridas = useConciliaciones();
+  const lista = ordenarPorEjecucion(corridas.data ?? []);
   const [seleccionada, setSeleccionada] = useState<string | null>(null);
-  const idActivo = seleccionada ?? corridas.data?.[0]?.id ?? null;
+  const idActivo = seleccionada ?? lista[0]?.id ?? null;
 
   return (
     <div className="flex min-h-0 flex-col gap-5">
@@ -73,7 +79,7 @@ export function ConciliacionCarteraPage() {
         />
       ) : corridas.isLoading ? (
         <TableSkeleton rows={4} />
-      ) : (corridas.data ?? []).length === 0 ? (
+      ) : lista.length === 0 ? (
         <EmptyState
           icon={<Scale className="h-8 w-8" strokeWidth={1.6} />}
           title="Todavía no hay conciliaciones"
@@ -82,7 +88,7 @@ export function ConciliacionCarteraPage() {
       ) : (
         <>
           <TablaCorridas
-            corridas={corridas.data ?? []}
+            corridas={lista}
             activa={idActivo}
             onSeleccionar={setSeleccionada}
           />

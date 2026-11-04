@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -89,6 +89,23 @@ describe('<ConciliacionCarteraPage> — C7.7', () => {
     expect(screen.getByText('Sin diferencias')).toBeInTheDocument();
     expect(await screen.findByText('Factura no está en cartera', undefined, ESPERA)).toBeInTheDocument();
     expect(screen.getByText('FV-100')).toBeInTheDocument();
+  });
+
+  it('ordena las corridas por fecha y hora de ejecución, la más reciente arriba', async () => {
+    const reciente = { ...corrida('c-9', '2026-10-15', 0, 'Demanda'), ejecutadaEn: '2026-11-03T18:30:00Z' };
+    mswServer.use(
+      http.get(BASE, () => HttpResponse.json([...CORRIDAS, reciente])),
+      http.get(`${BASE}/c-9`, () => HttpResponse.json({ ...DETALLE_C2, corrida: reciente })),
+    );
+    render(<ConciliacionCarteraPage />, { wrapper: createQueryWrapper() });
+
+    await screen.findByText('Con diferencia', undefined, ESPERA);
+    const filas = screen.getAllByRole('row').slice(1);
+    expect(filas).toHaveLength(3);
+    expect(within(filas[0]!).getByText('A demanda')).toBeInTheDocument();
+    expect(within(filas[0]!).getByRole('button')).toHaveAttribute('aria-current', 'true');
+    expect(within(filas[1]!).getByText('Con diferencia')).toBeInTheDocument();
+    expect(within(filas[2]!).getByText('Sin diferencias')).toBeInTheDocument();
   });
 
   it('conciliar a demanda manda el día elegido con llave de idempotencia', async () => {
