@@ -34,6 +34,8 @@ export interface ListarProveedoresFiltros {
 }
 
 export interface ListarArticulosFiltros {
+  /** Buscador general: clave o descripción. */
+  q?: string;
   codigo?: string;
   descripcion?: string;
   naturaleza?: Naturaleza;

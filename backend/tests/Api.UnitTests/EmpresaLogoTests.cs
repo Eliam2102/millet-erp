@@ -40,6 +40,32 @@ public sealed class EmpresaLogoTests
         Assert.Equal("image/png", context.Response.ContentType);
     }
 
+    [Fact]
+    public async Task Get_SinLogo_Responde204()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddRouting();
+        services.AddMediatR(config => config.RegisterServicesFromAssemblyContaining<EmpresaLogoTests>());
+        services.AddSingleton<MediatR.IRequestHandler<ObtenerLogoEmpresaQuery, LogoEmpresaArchivo?>, SinLogo>();
+        await using var provider = services.BuildServiceProvider();
+        var rutas = new Rutas(provider);
+        rutas.MapEmpresasEndpoints();
+        var get = rutas.DataSources.SelectMany(x => x.Endpoints)
+            .Single(x => x.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName == "ObtenerLogoEmpresa");
+        var context = new DefaultHttpContext { RequestServices = provider };
+        context.Request.RouteValues["id"] = Guid.NewGuid().ToString();
+        context.Response.Body = new MemoryStream();
+        await get.RequestDelegate!(context);
+        Assert.Equal(StatusCodes.Status204NoContent, context.Response.StatusCode);
+    }
+
+    public sealed class SinLogo : MediatR.IRequestHandler<ObtenerLogoEmpresaQuery, LogoEmpresaArchivo?>
+    {
+        public Task<LogoEmpresaArchivo?> Handle(ObtenerLogoEmpresaQuery request, CancellationToken cancellationToken)
+            => Task.FromResult<LogoEmpresaArchivo?>(null);
+    }
+
     private sealed class Rutas(IServiceProvider servicios) : IEndpointRouteBuilder
     {
         public IServiceProvider ServiceProvider => servicios;
