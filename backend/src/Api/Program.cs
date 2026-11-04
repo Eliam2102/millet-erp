@@ -1910,6 +1910,7 @@ Millet.Api.Endpoints.CuentasPorCobrar.ClientesLookupEndpoints.MapClientesLookupC
 
 // === Cuentas por Cobrar — Cartera: saldo neto 13-K + anticipos (CXC-PR3) ===
 Millet.Api.Endpoints.CuentasPorCobrar.CarteraEndpoints.MapCarteraEndpoints(app);
+Millet.Api.Endpoints.CuentasPorCobrar.ConciliacionesEndpoints.MapConciliacionesEndpoints(app);
 
 // === Cuentas por Cobrar — Liberación de pedidos + overrides (CXC-PR4) ===
 Millet.Api.Endpoints.CuentasPorCobrar.LiberacionesEndpoints.MapLiberacionesEndpoints(app);

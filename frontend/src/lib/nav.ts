@@ -797,6 +797,14 @@ const moduloCuentasPorCobrar: NavModulo = {
           icon: FileText,
           permission: PermisosCanonicos.CuentasPorCobrarCarteraLeer,
         },
+        {
+          label: 'Conciliación de cartera',
+          description:
+            'Lo timbrado, cobrado y cancelado en Facturación contra la cartera, día por día, con sus diferencias.',
+          to: '/cxc/conciliacion',
+          icon: Scale,
+          permission: PermisosCanonicos.CuentasPorCobrarCarteraLeer,
+        },
       ],
     },
   ],
