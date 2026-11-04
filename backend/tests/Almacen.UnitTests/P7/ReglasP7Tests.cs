@@ -71,6 +71,24 @@ public sealed class ReglasP7Tests
         f.Events.Items.Should().ContainSingle();
     }
 
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task Recepcion_en_otra_sucursal_avisa_la_sucursal_antes_que_la_asignacion(bool packing)
+    {
+        await using var f = new P1Fixture();
+        // F-RQOC-06: el artículo no está asignado al rack y la OC es de otra sucursal; manda la sucursal.
+        f.Db.AsignacionesArticuloUbicacion.RemoveRange(await f.Db.AsignacionesArticuloUbicacion.ToListAsync());
+        await f.Db.SaveChangesAsync();
+        var oc = (await f.Oc.ObtenerAsync(f.DocumentoId, default))!;
+        var port = new P1Fixture.OcPort(oc with { SucursalDestinoId = Guid.NewGuid() });
+        RegistrarRecepcionLineaInput[] lineas = [new(f.ArticuloId, f.LineaId, 1, null, null, f.BinId, null)];
+        var conv = new P7Support.Conversion();
+        var ex = await Assert.ThrowsAsync<BusinessRuleException>(() => packing
+            ? new RegistrarRecepcionConPackingListHandler(f.Db, port, f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), conv).Handle(new(f.DocumentoId, P1Fixture.Fecha, "packing.pdf", null, lineas), default)
+            : new RegistrarRecepcionConFacturaHandler(f.Db, port, f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), conv, CfdiFake.Valido(), new ProveedorRfcFake()).Handle(new(f.DocumentoId, P1Fixture.Fecha, Guid.NewGuid(), null, null, lineas), default));
+        ex.Code.Should().Be("RECEPCION_SUCURSAL_DISTINTA");
+    }
+
     [Fact]
     public async Task Salida_convierte_caja_a_base_y_respeta_tope_documental()
     {
