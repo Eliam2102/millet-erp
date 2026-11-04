@@ -311,3 +311,21 @@ CREATE TABLE IF NOT EXISTS dbo.or_avbereich (
     avbereich varchar(50) NOT NULL
 );
 CREATE INDEX IF NOT EXISTS ix_awbar_bearbeit_zeit ON dbo.awbar_bearbeit (bearb_zeit, etikettnr);
+-- A4.8 · composición por pieza: operación del escaneo (999970 ensamblado, 999980 laminación), medidas y gas de la
+-- posición (milésimas de mm) y componentes de la posición (separador 520xxx, PVB 419xxx). El ERP solo LEE.
+ALTER TABLE dbo.awbar_bearbeit ADD COLUMN IF NOT EXISTS art_nr int NOT NULL DEFAULT 0;
+ALTER TABLE dbo.pool_pos ADD COLUMN IF NOT EXISTS breite numeric(18,0) NOT NULL DEFAULT 0;
+ALTER TABLE dbo.pool_pos ADD COLUMN IF NOT EXISTS hoehe numeric(18,0) NOT NULL DEFAULT 0;
+ALTER TABLE dbo.pool_pos ADD COLUMN IF NOT EXISTS gas_flag smallint NOT NULL DEFAULT 0;
+ALTER TABLE dbo.pool_pos ADD COLUMN IF NOT EXISTS gas1_artnr int NOT NULL DEFAULT 0;
+CREATE TABLE IF NOT EXISTS dbo.pool_teile (
+    auftnr varchar(50) NOT NULL,
+    pos int NOT NULL,
+    u_pos int NOT NULL DEFAULT 0,
+    teile_nr varchar(50) NOT NULL,
+    oberteil_nr varchar(50) NOT NULL DEFAULT '0',
+    artnr int NOT NULL,
+    breite numeric(18,0) NOT NULL DEFAULT 0,
+    hoehe numeric(18,0) NOT NULL DEFAULT 0,
+    PRIMARY KEY (auftnr, pos, u_pos, teile_nr)
+);

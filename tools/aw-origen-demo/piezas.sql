@@ -36,4 +36,25 @@ ON CONFLICT DO NOTHING;
 INSERT INTO dbo.awbar_bearbeit (etikettnr, bearb_zeit, auftnr, pos, u_pos, teile_nr, fertig, esnr_ist, bearb_nr, bruch_flag)
 VALUES ('PT900101201', date_trunc('second', now()) - interval '2 minutes', '900101', 1, 0, '2', 1, 2821, 7, 1)
 ON CONFLICT DO NOTHING;
+-- A4.8 · componentes por composición: 900301 insulado con argón 530000 y separador 520042 (875.51 x 1041.65 mm),
+-- 900302 laminado con PVB 419010 bajo la capa laminada 3000000, 900303 insulado sin gas ni separador (solo vidrio,
+-- excepción) y una rotura del 900301 (no descuenta).
+INSERT INTO dbo.or_avbereich (auftnr, avbereich)
+VALUES ('900301', 'CIRCUITO'), ('900302', 'CIRCUITO'), ('900303', 'CIRCUITO')
+ON CONFLICT DO NOTHING;
+INSERT INTO dbo.pool_pos (auftnr, pos, u_pos, ae_intpos, menge, breite, hoehe, gas_flag, gas1_artnr)
+VALUES ('900301', 1, 0, 1, 2, 875510, 1041650, 1, 530000), ('900302', 1, 0, 1, 1, 600000, 900000, 0, 0),
+       ('900303', 1, 0, 1, 1, 700000, 1000000, 0, 0)
+ON CONFLICT DO NOTHING;
+INSERT INTO dbo.pool_teile (auftnr, pos, u_pos, teile_nr, oberteil_nr, artnr, breite, hoehe)
+VALUES ('900301', 1, 0, '2000000', '0', 520042, 875510, 1041650),
+       ('900302', 1, 0, '3000000', '0', 410000, 600000, 900000),
+       ('900302', 1, 0, '3020000', '3000000', 419010, 600000, 900000)
+ON CONFLICT DO NOTHING;
+INSERT INTO dbo.awbar_bearbeit (etikettnr, bearb_zeit, auftnr, pos, u_pos, teile_nr, fertig, esnr_ist, bearb_nr, bruch_flag, art_nr)
+VALUES ('031900301', date_trunc('second', now()) - interval '10 minutes', '900301', 1, 0, '0', 1, 1622, 0, 0, 999970),
+       ('031900302', date_trunc('second', now()) - interval '9 minutes',  '900302', 1, 0, '3000000', 1, 1530, 0, 0, 999980),
+       ('031900303', date_trunc('second', now()) - interval '8 minutes',  '900303', 1, 0, '0', 1, 1622, 0, 0, 999970),
+       ('03190030101', date_trunc('second', now()) - interval '7 minutes', '900301', 1, 0, '0', 1, 1622, 0, 1, 999970)
+ON CONFLICT DO NOTHING;
 COMMIT;

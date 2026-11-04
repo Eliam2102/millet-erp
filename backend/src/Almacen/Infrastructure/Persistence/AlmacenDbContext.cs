@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Domain;
 using Millet.Almacen.Domain.Catalogo;
 using Millet.Almacen.Domain.Cierre;
+using Millet.Almacen.Domain.Consumo;
 using Millet.Almacen.Domain.Conteos;
 using Millet.Almacen.Domain.DevolucionesProveedor;
 using Millet.Almacen.Domain.Idempotencia;
@@ -95,6 +96,10 @@ public class AlmacenDbContext : BaseDbContext
 
     /// <summary>ALM-APP-2: mensajes recibidos de la app de Almacenes (idempotencia por mensajeId).</summary>
     public DbSet<MensajeApp> MensajesApp => Set<MensajeApp>();
+
+    /// <summary>A4.8: normas de consumo por artículo componente y consumos por composición leídos de A+W.</summary>
+    public DbSet<NormaConsumoComponente> NormasConsumoComponente => Set<NormaConsumoComponente>();
+    public DbSet<ConsumoComponenteAw> ConsumosComponenteAw => Set<ConsumoComponenteAw>();
 
     /// <summary>F6-PR1: devoluciones a proveedor (sub-flujo 8.B).</summary>
     public DbSet<Domain.Revision.DictamenRevision> DictamenesRevision => Set<Domain.Revision.DictamenRevision>();
@@ -191,6 +196,37 @@ public class AlmacenDbContext : BaseDbContext
             b.Property(a => a.MotivoLiberacion).HasMaxLength(500);
             b.HasIndex(a => a.LineaRequisicionId).IsUnique();
             b.HasIndex(a => new { a.SucursalId, a.ArticuloId });
+        });
+        modelBuilder.Entity<NormaConsumoComponente>(b =>
+        {
+            b.ToTable("normas_consumo_componente");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).ValueGeneratedNever();
+            b.Property(x => x.ConsumoPorUnidad).HasPrecision(14, 6);
+            b.Property(x => x.PorcentajeMerma).HasPrecision(7, 4);
+            b.Property(x => x.FactorM3PorM2).HasPrecision(14, 6);
+            b.HasIndex(x => new { x.EmpresaId, x.ArticuloId }).IsUnique();
+        });
+        modelBuilder.Entity<ConsumoComponenteAw>(b =>
+        {
+            b.ToTable("consumos_componente_aw");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).ValueGeneratedNever();
+            b.Property(x => x.Origen).HasMaxLength(10).IsRequired();
+            b.Property(x => x.Etiqueta).HasMaxLength(50).IsRequired();
+            b.Property(x => x.ComponenteRef).HasMaxLength(50).IsRequired();
+            b.Property(x => x.Auftnr).HasMaxLength(50).IsRequired();
+            b.Property(x => x.AnchoMm).HasPrecision(14, 4);
+            b.Property(x => x.AltoMm).HasPrecision(14, 4);
+            b.Property(x => x.ClaveSucursal).HasMaxLength(50);
+            b.Property(x => x.BearbZeit).HasColumnType("timestamp without time zone");
+            b.Property(x => x.Estado).HasMaxLength(20).IsRequired();
+            b.Property(x => x.Cantidad).HasPrecision(14, 4);
+            b.Property(x => x.Folio).HasMaxLength(100);
+            b.Property(x => x.Error).HasMaxLength(1000);
+            // D2: un componente de una pieza en una operación se descuenta una sola vez.
+            b.HasIndex(x => new { x.EmpresaId, x.Origen, x.Etiqueta, x.Operacion, x.ComponenteRef }).IsUnique();
+            b.HasIndex(x => new { x.EmpresaId, x.Estado, x.IntentadoAt });
         });
         OnModelCreatingProviderSpecific(modelBuilder);
     }
