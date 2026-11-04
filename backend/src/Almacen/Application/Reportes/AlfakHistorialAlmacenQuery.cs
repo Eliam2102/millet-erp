@@ -129,7 +129,8 @@ public sealed class AlfakHistorialAlmacenHandler
     /// Líneas que cuentan para el kardex y el ALFAK (registradas, y canceladas con folio para netear entrada y CEN), con su
     /// sub-almacén y su costo congelado. La comparten el ALFAK y el cuadre del cierre (ALM-13-a).
     /// </summary>
-    internal static IQueryable<LineaKardex> LineasKardex(AlmacenDbContext db, Guid? subAlmacenId, Guid? articuloId, IReadOnlyList<Guid>? sucursales) =>
+    internal static IQueryable<LineaKardex> LineasKardex(AlmacenDbContext db, Guid? subAlmacenId, Guid? articuloId, IReadOnlyList<Guid>? sucursales,
+        DateOnly? desde = null, DateOnly? hasta = null) =>
         from l in db.LineasMovimiento.AsNoTracking()
             join m in db.Movimientos.AsNoTracking() on l.MovimientoId equals m.Id
             join v in db.Ubicaciones.AsNoTracking() on l.UbicacionId equals (Guid?)v.Id
@@ -138,6 +139,7 @@ public sealed class AlfakHistorialAlmacenHandler
             where (m.Estado == EstadoMovimiento.Registrado || (m.Estado == EstadoMovimiento.Cancelado && m.Folio != null))
                && (subAlmacenId == null || v.SubAlmacenId == subAlmacenId)
                && (articuloId == null || l.ArticuloId == articuloId)
+               && (desde == null || m.FechaMovimiento >= desde) && (hasta == null || m.FechaMovimiento <= hasta)
                && (sucursales == null
                    || AlcanceSucursalAlmacen.SubAlmacenesPermitidos(db, sucursales!).Contains(v.SubAlmacenId))
             select new LineaKardex(v.SubAlmacenId, sa.Nombre, l.ArticuloId, l.ProductoAwVarianteId, l.Lote,

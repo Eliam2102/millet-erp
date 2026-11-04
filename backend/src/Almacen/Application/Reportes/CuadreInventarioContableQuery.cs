@@ -27,7 +27,7 @@ public sealed class CuadreInventarioContableQueryValidator : AbstractValidator<C
 {
     public CuadreInventarioContableQueryValidator()
     {
-        RuleFor(x => x.Anio).InclusiveBetween(2020, 2099);
+        RuleFor(x => x.Anio).InclusiveBetween(2000, 2999);
         RuleFor(x => x.Mes).InclusiveBetween(1, 12);
     }
 }
@@ -122,8 +122,7 @@ public sealed class CuadreInventarioContableHandler(
         var anteriorCorte = inicio.AddDays(-1);
         var anterior = await AlfakHistorialAlmacenHandler.AplicarFotoCierreAsync(db, anteriorCorte,
             await AlfakHistorialAlmacenHandler.CalcularAsync(db, anteriorCorte, anteriorCorte, null, null, request.SucursalesPermitidas, ct), ct);
-        var lineas = await AlfakHistorialAlmacenHandler.LineasKardex(db, null, null, request.SucursalesPermitidas)
-            .Where(l => l.FechaMovimiento >= inicio && l.FechaMovimiento <= corte).ToListAsync(ct);
+        var lineas = await AlfakHistorialAlmacenHandler.LineasKardex(db, null, null, request.SucursalesPermitidas, inicio, corte).ToListAsync(ct);
         var filas = Conciliar(
             cierre.Select(f => (f.SubAlmacenId, f.ArticuloId, f.ValorInventarioFinal)),
             anterior.Select(f => (f.SubAlmacenId, f.ArticuloId, f.ValorInventarioFinal)),
