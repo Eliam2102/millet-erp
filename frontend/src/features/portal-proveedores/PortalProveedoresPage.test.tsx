@@ -35,6 +35,10 @@ it('pide código, entra con el código y muestra la factura detenida por falta d
         estado: 'Detenida: falta el complemento de pago', detenida: true,
         motivo: 'Falta el complemento de pago de la factura A-10', fechaProgramadaPago: null,
         fechaVencimiento: '2026-11-15',
+      }, {
+        id: 'f2', folio: 'A-11', uuid: 'U-2', fecha: '2026-10-02T00:00:00Z', total: 50, moneda: 'MXN',
+        estado: 'Pagada', detenida: false, motivo: null, fechaProgramadaPago: null,
+        fechaVencimiento: '2026-11-16', fechaPago: '2026-11-04',
       }]);
     }
     return json([], 404);
@@ -51,6 +55,7 @@ it('pide código, entra con el código y muestra la factura detenida por falta d
   expect(screen.getByText('Sin programar')).toBeTruthy();
   expect(screen.getByText('15/11/2026')).toBeTruthy();
   expect(screen.getByText('01/10/2026')).toBeTruthy(); // la fecha del CFDI, no el día anterior
+  expect(screen.getByText('Pagada el 04/11/2026')).toBeTruthy(); // F-CXP-03: la pagada dice cuándo se pagó
   expect(sessionStorage.getItem('millet.portal-proveedores.token')).toBe('tok');
   // resumen, aviso con la acción concreta y correo en la cabecera
   expect(screen.getByRole('region', { name: 'Facturas detenidas' }).textContent).toContain('sube el complemento en la pestaña');

@@ -14,7 +14,7 @@ namespace Millet.CuentasPorPagar.Application.Portal;
 
 public sealed record FacturaPortalResponse(
     Guid Id, string? Folio, string? Uuid, DateTimeOffset Fecha, decimal Total, string Moneda,
-    string Estado, bool Detenida, string? Motivo, DateOnly? FechaProgramadaPago, DateOnly FechaVencimiento);
+    string Estado, bool Detenida, string? Motivo, DateOnly? FechaProgramadaPago, DateOnly FechaVencimiento, DateOnly? FechaPago = null);
 
 public sealed record PagoPortalResponse(
     Guid PagoId, Guid FacturaId, string? Folio, DateOnly FechaPago, decimal Importe, decimal ComplementoPendiente);
@@ -28,7 +28,7 @@ internal static class PortalMapeo
     public static string? Folio(string? serie, string? folio) =>
         string.IsNullOrWhiteSpace(serie) ? folio : $"{serie}-{folio}";
 
-    public static FacturaPortalResponse Mapear(Factura f, DateOnly? fechaCorrida, bool sinOpinionCumplimiento = false)
+    public static FacturaPortalResponse Mapear(Factura f, DateOnly? fechaCorrida, bool sinOpinionCumplimiento = false, DateOnly? fechaPago = null)
     {
         var folio = Folio(f.SerieProveedor, f.FolioProveedor);
         var faltaRepp = f.EnRevision && f.MotivoRevisionId == Factura.MotivoFaltaReppId;
@@ -49,7 +49,9 @@ internal static class PortalMapeo
         };
         // Solo una autorizada y no detenida está «programada»; el vencimiento va en su propia columna.
         DateOnly? programada = f.Estado == EstadoPasivo.Autorizada && !detenida ? fechaCorrida : null;
-        return new(f.Id, folio, f.UuidCfdi, f.FechaDocumento, f.Total, f.Moneda, estado, detenida, motivo, programada, f.FechaVencimiento);
+        // Una pagada muestra cuándo se le pagó (el último pago vigente), igual que «Pagos y complementos».
+        return new(f.Id, folio, f.UuidCfdi, f.FechaDocumento, f.Total, f.Moneda, estado, detenida, motivo, programada, f.FechaVencimiento,
+            f.Estado == EstadoPasivo.Pagada ? fechaPago : null);
     }
 }
 
@@ -63,7 +65,13 @@ public sealed class PortalProveedorQueryHandlers(CuentasPorPagarDbContext db, IP
     {
         var fechas = await pagosTesoreria.FechasProgramadasAsync(facturas.Select(f => f.Id).ToArray(), ct);
         var sinOpinion = await proveedores.ObtenerSinOpinionCumplimientoAsync(facturas.Select(f => f.ProveedorId).Distinct().ToArray(), ct);
-        return facturas.Select(f => PortalMapeo.Mapear(f, fechas.TryGetValue(f.Id, out var d) ? d : null, sinOpinion.Contains(f.ProveedorId))).ToList();
+        var pagadas = facturas.Where(f => f.Estado == EstadoPasivo.Pagada).Select(f => f.Id).ToArray();
+        var pagos = pagadas.Length == 0 ? [] : await db.PagosProveedorLocal.AsNoTracking()
+            .Where(p => pagadas.Contains(p.FacturaProveedorId) && !p.Revertido)
+            .GroupBy(p => p.FacturaProveedorId).Select(g => new { g.Key, Fecha = g.Max(p => p.FechaPago) })
+            .ToDictionaryAsync(x => x.Key, x => x.Fecha, ct);
+        return facturas.Select(f => PortalMapeo.Mapear(f, fechas.TryGetValue(f.Id, out var d) ? d : null, sinOpinion.Contains(f.ProveedorId),
+            pagos.TryGetValue(f.Id, out var p) ? p : null)).ToList();
     }
 
     public async Task<IReadOnlyList<FacturaPortalResponse>> Handle(ListarFacturasPortalQuery request, CancellationToken cancellationToken) =>

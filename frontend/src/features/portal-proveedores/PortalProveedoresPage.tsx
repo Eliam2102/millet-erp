@@ -319,7 +319,7 @@ function MisFacturas({ q, ir }: { q: UseQueryResult<FacturaPortal[]>; ir: (s: Se
                 </TableCell>
                 <TableCell className="tabular-nums">{fecha(f.fechaVencimiento)}</TableCell>
                 <TableCell className="tabular-nums">
-                  {f.fechaProgramadaPago ? fecha(f.fechaProgramadaPago) : <span className="text-ink-muted">{f.estado === 'Pagada' ? '—' : 'Sin programar'}</span>}
+                  {f.fechaPago ? `Pagada el ${fecha(f.fechaPago)}` : f.fechaProgramadaPago ? fecha(f.fechaProgramadaPago) : <span className="text-ink-muted">{f.estado === 'Pagada' ? '—' : 'Sin programar'}</span>}
                 </TableCell>
               </TableRow>
             ))}
