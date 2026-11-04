@@ -13,9 +13,10 @@ public interface IAppSalidaResolverPort
 /// <summary>Un grupo de la salida: artículo A+W y, opcionalmente, la medida de la hoja (la girada es la misma).</summary>
 public sealed record GrupoSalidaApp(string ArticuloAw, decimal? AnchoMm, decimal? AltoMm);
 
-/// <summary>Maestros resueltos de un grupo; ancho/alto son los canónicos de la variante.</summary>
+/// <summary>Maestros resueltos de un grupo; ancho/alto son los canónicos de la variante y <c>AreaHojaM2</c> su m² por hoja.</summary>
 public sealed record GrupoSalidaResuelto(
-    Guid ArticuloId, string UnidadMedida, Guid? ProductoAwVarianteId, decimal? AnchoMm, decimal? AltoMm);
+    Guid ArticuloId, string UnidadMedida, Guid? ProductoAwVarianteId, decimal? AnchoMm, decimal? AltoMm,
+    decimal? AreaHojaM2 = null);
 
 /// <summary>Resultado: <see cref="Error"/> no nulo = falló (no se movió nada); si no, un resuelto por grupo, en el mismo orden.</summary>
 public sealed record ResolverSalidaResultado(

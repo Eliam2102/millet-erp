@@ -55,7 +55,8 @@ public sealed class AppSalidaResolverAdapter : IAppSalidaResolverPort
                 .Select(v => new { v.Id, v.AnchoMm, v.AltoMm }).FirstOrDefaultAsync(ct);
             if (variante is null)
                 return Fallo($"No existe la medida {ancho:0.##}x{alto:0.##} del artículo A+W {clave}.");
-            resueltos.Add(new(articulo.Id, articulo.UnidadMedidaDefault, variante.Id, variante.AnchoMm, variante.AltoMm));
+            resueltos.Add(new(articulo.Id, articulo.UnidadMedidaDefault, variante.Id, variante.AnchoMm, variante.AltoMm,
+                AreaHoja.M2(variante.AnchoMm!.Value, variante.AltoMm!.Value)));
         }
         return new(null, sucursalId.Value, resueltos);
     }

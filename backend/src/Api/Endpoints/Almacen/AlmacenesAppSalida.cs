@@ -10,8 +10,10 @@ namespace Millet.Api.Endpoints.Almacen;
 /// §7.1, §8.3 y §8.5: sucursal, movimiento, motivo/origen/mesa/jobid/pedidoAw y <c>almacenes[].grupos[]</c>
 /// (articuloAw, ancho/alto, piezas, costo). Se aplanan los grupos de todos los almacenes (S5: el almacén general
 /// del mensaje se ignora; el ERP decide el sub-almacén) y se resuelven con una sola llamada al puerto; la salida
-/// es todo o nada (S2). <c>costo</c> por grupo (solo SALIDA_MANUAL) es el total en MXN del grupo; el unitario es
-/// costo/piezas y, si falta, se usa el costo promedio (S4). Artículo, medida o sucursal inexistente → ERROR sin
+/// es todo o nada (S2). <c>costo</c> por grupo (solo SALIDA_MANUAL) es el total en MXN del grupo y, si falta, se
+/// usa el costo promedio (S4). Con medida (vidrio) <c>piezas</c> son hojas enteras y el saldo vive en m²: se baja
+/// piezas × m² de la hoja (de la variante; el <c>m2</c> del grupo, si viene, debe coincidir a 4 decimales) y el
+/// unitario es costo/m². Sin medida, <c>piezas</c> está en la unidad del artículo y el unitario es costo/piezas. Artículo, medida o sucursal inexistente → ERROR sin
 /// mover nada. Sin existencia → se acepta y queda en revisión.
 /// </summary>
 public static class AlmacenesAppSalida
@@ -39,7 +41,7 @@ public static class AlmacenesAppSalida
             || almacenes.GetArrayLength() == 0)
             return (null, "almacenes debe ser un arreglo con al menos un elemento.");
 
-        var items = new List<(string Articulo, decimal? Ancho, decimal? Alto, decimal Piezas, decimal? CostoTotal)>();
+        var items = new List<(string Articulo, decimal? Ancho, decimal? Alto, decimal Piezas, decimal? CostoTotal, decimal? M2, string Ruta)>();
         var i = 0;
         foreach (var alm in almacenes.EnumerateArray())
         {
@@ -66,6 +68,8 @@ public static class AlmacenesAppSalida
                 if (!TryNumero(g, "alto", out var alto)) return (null, $"{p}.alto debe ser numérico.");
                 if (ancho is <= 0 || alto is <= 0 || (ancho is null) != (alto is null))
                     return (null, $"{p}.ancho y {p}.alto deben venir juntos y ser mayores que cero, o no venir.");
+                if (!TryNumero(g, "m2", out var m2)) return (null, $"{p}.m2 debe ser numérico.");
+                if (m2 is <= 0) return (null, $"{p}.m2 debe ser mayor que cero.");
                 // v6 §7.1: el costo solo viaja en SALIDA_MANUAL; en AJUSTE_SALIDA y ROTURA se ignora (costo promedio).
                 decimal? costo = null;
                 if (tipo == "SALIDA_MANUAL")
@@ -73,7 +77,7 @@ public static class AlmacenesAppSalida
                     if (!TryNumero(g, "costo", out costo)) return (null, $"{p}.costo debe ser numérico.");
                     if (costo is < 0) return (null, $"{p}.costo no puede ser negativo.");
                 }
-                items.Add((articulo, ancho, alto, piezas.Value, costo));
+                items.Add((articulo, ancho, alto, piezas.Value, costo, m2, p));
                 j++;
             }
             i++;
@@ -96,14 +100,20 @@ public static class AlmacenesAppSalida
         motivo += detalle;
         if (motivo.Length > 500) motivo = motivo[..500];
 
-        var salidas = items.Select((x, k) =>
+        var salidas = new List<SalidaApp>(items.Count);
+        for (var k = 0; k < items.Count; k++)
         {
+            var x = items[k];
             var r = resuelto.Grupos[k];
+            // Con medida el saldo está en m²: piezas son hojas enteras y la cantidad es hojas × m² de la hoja.
+            var cantidad = x.Piezas * (r.AreaHojaM2 ?? 1m);
+            if (r.AreaHojaM2 is not null && x.M2 is { } m2 && Math.Abs(m2 - cantidad) > 0.0001m)
+                return (null, $"{x.Ruta}.m2 ({m2:0.####}) no coincide con piezas × área de la hoja ({cantidad:0.####}).");
             // ponytail: redondeo a la precisión de la columna (14,4); el residuo no se redistribuye entre piezas.
-            var costoUnit = x.CostoTotal is { } ct2 ? Math.Round(ct2 / x.Piezas, 4) : (decimal?)null;
-            return new SalidaApp(Tipos[tipo], resuelto.SucursalId, r.ArticuloId, r.UnidadMedida, r.ProductoAwVarianteId,
-                x.Piezas, costoUnit, motivo, r.AnchoMm, r.AltoMm);
-        }).ToList();
+            var costoUnit = x.CostoTotal is { } ct2 ? Math.Round(ct2 / cantidad, 4) : (decimal?)null;
+            salidas.Add(new SalidaApp(Tipos[tipo], resuelto.SucursalId, r.ArticuloId, r.UnidadMedida, r.ProductoAwVarianteId,
+                cantidad, costoUnit, motivo, r.AnchoMm, r.AltoMm));
+        }
         return (new Resuelta(sp.EmpresaId, sp.Id, salidas), null);
     }
 
