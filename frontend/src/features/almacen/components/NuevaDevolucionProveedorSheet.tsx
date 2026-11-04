@@ -492,7 +492,8 @@ function LineaForm({
     name: `lineas.${index}.unidadMedida` as const,
   });
   const origenId = useWatch({ control, name: `lineas.${index}.lineaRecepcionOrigenId` as const });
-  const medida = medidaDe(lineasRecepcion?.find((o) => o.id === origenId));
+  const origen = lineasRecepcion?.find((o) => o.id === origenId);
+  const medida = medidaDe(origen);
   const decResuelto = lookupLinea.porCodigo(umCodigo);
   const decimalesLinea = decResuelto ?? DECIMALES_FALLBACK;
   const unidadNoResoluble = decResuelto == null && !medida;
@@ -560,6 +561,11 @@ function LineaForm({
               render={({ field }) => (
                 <ArticuloSelector
                   disabled
+                  initialLabel={
+                    origen?.articuloClave
+                      ? [origen.articuloClave, origen.articuloDescripcion].filter(Boolean).join(' · ')
+                      : undefined
+                  }
                   value={field.value || null}
                   onChange={(id) => field.onChange(id ?? '')}
                 />

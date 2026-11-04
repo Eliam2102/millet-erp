@@ -260,6 +260,25 @@ public class DatosMaestrosEndpointsTests
     }
 
     [Fact]
+    public async Task ListarArticulos_Q_Busca_Por_Clave_Y_Por_Nombre()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var art = await PrimeroAsync(client, "/api/v1/datos-maestros/articulos?limit=50");
+        var id = art.GetProperty("id").GetGuid();
+
+        // F-02 (recorrido 04-nov): el buscador general encuentra por clave y por nombre.
+        foreach (var texto in new[] { art.GetProperty("clave").GetString()!, art.GetProperty("nombre").GetString()! })
+        {
+            var response = await client.GetAsync(
+                $"/api/v1/datos-maestros/articulos?q={Uri.EscapeDataString(texto.ToLowerInvariant())}&limit=50");
+            response.EnsureSuccessStatusCode();
+            var json = await ReadJsonAsync(response);
+            Assert.Contains(json.GetProperty("items").EnumerateArray(),
+                i => i.GetProperty("id").GetGuid() == id);
+        }
+    }
+
+    [Fact]
     public async Task ListarYDetalle_Proveedores_No_Exponen_Clabe()
     {
         var admin = await CreateSuperAdminClientAsync();

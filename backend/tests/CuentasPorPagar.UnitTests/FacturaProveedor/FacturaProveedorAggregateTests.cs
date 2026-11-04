@@ -69,7 +69,9 @@ public sealed class FacturaProveedorAggregateTests
         f.Autorizar(usuarioId: null, ahora: DateTimeOffset.UtcNow);
 
         var act = () => f.Cancelar(MotivoCancelacion.ErrorCaptura, texto: null, usuarioId: null, ahora: DateTimeOffset.UtcNow);
-        act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "FACTURA_AUTORIZADA_NO_CANCELABLE");
+        act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "FACTURA_AUTORIZADA_NO_CANCELABLE")
+            .Which.Message.Should().Be("La factura ya está autorizada y no se puede cancelar. Si hay un error, envíala a revisión y cancélala desde ahí.",
+                "F-CXP-05: el mensaje llega al usuario, sin claves internas");
     }
 
     [Fact]

@@ -6,7 +6,9 @@ import { ConfirmacionServicioPanel } from './ConfirmacionServicioPanel';
 
 const permiso = vi.hoisted(() => ({ value: true }));
 const apiRequest = vi.hoisted(() => vi.fn());
+const departamento = vi.hoisted(() => ({ value: 'depto-1' as string | null }));
 vi.mock('@/lib/auth/useHasPermission', () => ({ useHasPermission: () => permiso.value }));
+vi.mock('@/lib/auth/useMiEmpleado', () => ({ useMiDepartamento: () => departamento.value }));
 vi.mock('@/lib/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api')>()),
   apiRequest,
@@ -16,7 +18,7 @@ function oc(extra: Partial<OrdenCompraDetalleResponse> = {}, esServicio = true):
   return {
     id: 'oc-1',
     estado: EstadoOrdenCompra.Autorizada,
-    lineas: [{ id: 'l-1', posicion: 1, esServicio, cantidad: 1, cantidadRecibida: 0 }],
+    lineas: [{ id: 'l-1', posicion: 1, esServicio, cantidad: 1, cantidadRecibida: 0, departamentoSolicitanteId: 'depto-1' }],
     ...extra,
   } as unknown as OrdenCompraDetalleResponse;
 }
@@ -28,6 +30,7 @@ function pintar(o: OrdenCompraDetalleResponse) {
 describe('Conformidad del servicio por OC (86e3tacbn)', () => {
   beforeEach(() => {
     permiso.value = true;
+    departamento.value = 'depto-1';
     apiRequest.mockReset().mockResolvedValue({ data: undefined });
   });
 
@@ -73,6 +76,14 @@ describe('Conformidad del servicio por OC (86e3tacbn)', () => {
     permiso.value = false;
     pintar(oc());
     expect(screen.getByRole('checkbox', { name: /servicio realizado/i })).toBeDisabled();
+    expect(screen.getByText(/Solo el área que pidió el servicio/)).toBeInTheDocument();
+  });
+
+  it('con el permiso pero de otro departamento no ofrece confirmar ni «No quedé conforme» (F-RQOC-10)', () => {
+    departamento.value = 'depto-compras';
+    pintar(oc());
+    expect(screen.getByRole('checkbox', { name: /servicio realizado/i })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'No quedé conforme' })).toBeNull();
     expect(screen.getByText(/Solo el área que pidió el servicio/)).toBeInTheDocument();
   });
 });

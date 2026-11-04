@@ -47,6 +47,10 @@ public sealed class ListarRequisicionesHandler
         IQueryable<Requisicion> q = _db.Requisiciones
             .Where(x => query.SucursalesPermitidas == null || (query.SucursalesPermitidas ?? Array.Empty<Guid>()).Contains(x.SucursalId)).AsNoTracking();
 
+        if (query.AlcanceDepartamento is { } alcance)
+        {
+            q = q.Where(alcance.Visible());
+        }
         if (query.Estado is EstadoRequisicion estado)
         {
             q = q.Where(r => r.Estado == estado);

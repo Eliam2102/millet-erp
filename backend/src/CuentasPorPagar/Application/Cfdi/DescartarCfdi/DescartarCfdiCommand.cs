@@ -14,7 +14,9 @@ public sealed class DescartarCfdiValidator : AbstractValidator<DescartarCfdiComm
     public DescartarCfdiValidator()
     {
         RuleFor(c => c.Id).NotEmpty();
-        RuleFor(c => c.Motivo).NotEmpty().MaximumLength(400);
+        // Mismo código y texto que la regla del dominio (CfdiRecibido.Descartar), para que por API no salga el genérico.
+        RuleFor(c => c.Motivo).NotEmpty().WithErrorCode("CFDI_MOTIVO_DESCARTE_VACIO").WithMessage("El motivo del descarte es obligatorio.")
+            .MaximumLength(400);
     }
 }
 

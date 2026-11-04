@@ -63,7 +63,8 @@ test('V-TS-02 corrida en borrador no genera el archivo de layout', async ({ page
   expect(p.detail).toContain('solo se genera para corridas autorizadas');
 });
 
-test('V-TS-03 CLABE inválida: el pago queda fuera del archivo y se avisa con la causa', async ({ page, guard }) => {
+// T9.3 «Generar archivo» oculto: pagos masivos son Fase 2 (Eliam, 03-nov).
+test.skip('V-TS-03 CLABE inválida: el pago queda fuera del archivo y se avisa con la causa', async ({ page, guard }) => {
   await prep(guard);
   const mala = prov(3);
   const buena = prov(6);

@@ -223,6 +223,8 @@ public sealed class RegistrarRecepcionConFacturaHandler
         var posicion = 1;
         var posicionRevision = 1;
         var payloadLineas = new List<LineaRecepcionPayload>(request.Lineas.Count);
+        await Catalogo.SucursalDestinoGuard.ValidarUbicacionesAsync(_db, oc!.SucursalDestinoId,
+            request.Lineas.Select(l => l.UbicacionId), "RECEPCION_SUCURSAL_DISTINTA", "La orden de compra está dirigida a otra sucursal: recibe la mercancía en un almacén de la sucursal destino de la orden.", cancellationToken);
         var subsDerivados = new HashSet<Guid>();
         // ALM-04: lo dañado va a un segundo movimiento EntradaCompra en MAT-REV (el trigger prohíbe dos sub-almacenes en uno).
         MovimientoInventario? movimientoRevision = null;

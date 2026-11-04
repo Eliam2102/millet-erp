@@ -20,6 +20,8 @@ export interface UsuarioSelectorProps {
   className?: string;
   /** Props extra del trigger (id y aria-* que entrega `Field`). */
   triggerProps?: ComponentProps<'button'>;
+  /** Nombre del usuario precargado mientras no está en la lista (sin GUID crudo). */
+  initialLabel?: string;
 }
 
 export function UsuarioSelector({
@@ -29,6 +31,7 @@ export function UsuarioSelector({
   disabled,
   className,
   triggerProps,
+  initialLabel,
 }: UsuarioSelectorProps) {
   const query = useUsuarios();
   // Filtramos client-side a activos: los selectores solo deben permitir
@@ -58,6 +61,7 @@ export function UsuarioSelector({
       disabled={disabled}
       className={className}
       triggerProps={triggerProps}
+      initialLabel={initialLabel}
       popoverWidthClassName="w-[min(32rem,90vw)]"
     />
   );

@@ -226,7 +226,7 @@ public class BandejasEndpointsTests
         await CrearYTransmitirAsync(admin, deptoAislado);
 
         // Principal que SOLO tiene compras.requisiciones.leer.
-        var jefeOid = await SeedPrincipalSoloLeerRequisicionesAsync();
+        var jefeOid = await SeedPrincipalSoloLeerRequisicionesAsync(deptoAislado);
         var jefe = _factory.CreateClient();
         var token = await FakeLoginAsync(jefe, jefeOid, $"{jefeOid}@test.local", "Jefe Solo Lectura");
         jefe.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -270,7 +270,7 @@ public class BandejasEndpointsTests
         var deptoAislado = await SeedDeptoAisladoConAsignacionAsync(TestComprasFixtures.SucursalMid);
         var rqId = await CrearRequisicionAsync(admin, deptoAislado);
 
-        var jefeOid = await SeedPrincipalSoloLeerRequisicionesAsync();
+        var jefeOid = await SeedPrincipalSoloLeerRequisicionesAsync(deptoAislado);
         var jefe = _factory.CreateClient();
         var token = await FakeLoginAsync(jefe, jefeOid, $"{jefeOid}@test.local", "Jefe Solo Lectura");
         jefe.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -307,7 +307,8 @@ public class BandejasEndpointsTests
     /// sintético para hacer <c>fake-login</c>. Patrón de seeding directo via
     /// DbContext (igual que <see cref="SeedDeptoAisladoConAsignacionAsync"/>).
     /// </summary>
-    private async Task<string> SeedPrincipalSoloLeerRequisicionesAsync()
+    /// <param name="departamentoId">Departamento del jefe: sin ver-todos-departamentos solo ve las RQ del suyo (F-RQOC-01).</param>
+    private async Task<string> SeedPrincipalSoloLeerRequisicionesAsync(Guid departamentoId)
     {
         using var scope = _factory.Services.CreateScope();
         var identidad = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
@@ -326,6 +327,7 @@ public class BandejasEndpointsTests
 
         var oid = $"test-rq-leer-{random}";
         var usuario = new Usuario(Guid.CreateVersion7(), oid, $"{oid}@test.local", "Jefe Solo Lectura");
+        usuario.AsignarDepartamento(departamentoId);
         identidad.Usuarios.Add(usuario);
         identidad.UsuarioPreferencias.Add(new UsuarioPreferencia(Guid.CreateVersion7(), usuario.Id));
         identidad.UsuarioEmpresaRoles.Add(new UsuarioEmpresaRol(

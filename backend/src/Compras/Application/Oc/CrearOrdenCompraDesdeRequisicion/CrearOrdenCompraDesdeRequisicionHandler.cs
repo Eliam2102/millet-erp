@@ -122,11 +122,16 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
                 "RQ_NO_EN_SURTIDO",
                 $"Solo se pueden convertir a OC RQs en estado EnSurtido (actual: {rq.Estado}).");
         }
-        if (rq.ComprometidaEnOcId is not null)
+        if (rq.ComprometidaEnOcId is Guid ocComprometida)
         {
+            // F-RQOC-09: el folio de la OC, no su id.
+            var folioOc = await _db.OrdenesCompra.AsNoTracking().Where(o => o.Id == ocComprometida)
+                .Select(o => o.Folio).FirstOrDefaultAsync(cancellationToken);
             throw new BusinessRuleException(
                 "RQ_YA_COMPROMETIDA",
-                $"La RQ '{rq.Folio.Valor}' ya está comprometida en la OC '{rq.ComprometidaEnOcId}'.");
+                folioOc is null
+                    ? $"La RQ '{rq.Folio.Valor}' ya está comprometida en otra orden de compra."
+                    : $"La RQ '{rq.Folio.Valor}' ya está comprometida en la OC '{folioOc.Valor}'.");
         }
         if (rq.Lineas.Count == 0)
         {
