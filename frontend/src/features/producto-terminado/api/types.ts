@@ -91,3 +91,30 @@ export interface SalidasPendientesPagina {
   con24h: number;
   con48h: number;
 }
+
+export type EstadoTraspaso = 'EnTransito' | 'ConDiferencia' | 'Recibido';
+
+export interface TraspasoPiezaDto {
+  piezaId: string;
+  etiqueta: string;
+  numeroPedido: string;
+  recibida: boolean;
+}
+
+/** `piezas` solo viene en el detalle; `pendientes` = piezas aún en tránsito. */
+export interface TraspasoDto {
+  id: string;
+  sucursalOrigenId: string;
+  sucursalDestinoId: string;
+  estado: EstadoTraspaso;
+  salidaAt: string;
+  recibidoAt: string | null;
+  total: number;
+  pendientes: number;
+  piezas: TraspasoPiezaDto[];
+}
+
+export interface TraspasosPagina {
+  items: TraspasoDto[];
+  total: number;
+}

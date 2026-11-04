@@ -570,6 +570,132 @@ namespace Millet.ProductoTerminado.Infrastructure.Persistence.Migrations
                     b.ToTable("saldos_demo", "producto_terminado");
                 });
 
+            modelBuilder.Entity("Millet.ProductoTerminado.Domain.TraspasoPt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("estado");
+
+                    b.Property<DateTimeOffset?>("RecibidoAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recibido_at");
+
+                    b.Property<DateTimeOffset>("SalidaAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("salida_at");
+
+                    b.Property<Guid>("SucursalDestinoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sucursal_destino_id");
+
+                    b.Property<Guid>("SucursalOrigenId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sucursal_origen_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_traspasos_pt");
+
+                    b.HasIndex("EmpresaId", "Estado", "SalidaAt")
+                        .HasDatabaseName("ix_traspasos_pt_empresa_id_estado_salida_at");
+
+                    b.ToTable("traspasos_pt", "producto_terminado");
+                });
+
+            modelBuilder.Entity("Millet.ProductoTerminado.Domain.TraspasoPtPieza", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<Guid>("PiezaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("pieza_id");
+
+                    b.Property<bool>("Recibida")
+                        .HasColumnType("boolean")
+                        .HasColumnName("recibida");
+
+                    b.Property<Guid>("TraspasoPtId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("traspaso_pt_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_traspaso_pt_piezas");
+
+                    b.HasIndex("PiezaId")
+                        .HasDatabaseName("ix_traspaso_pt_piezas_pieza_id");
+
+                    b.HasIndex("TraspasoPtId", "PiezaId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_traspaso_pt_piezas_traspaso_pt_id_pieza_id");
+
+                    b.ToTable("traspaso_pt_piezas", "producto_terminado");
+                });
+
             modelBuilder.Entity("Millet.SharedKernel.Domain.Audit.AuditLogEntry", b =>
                 {
                     b.Property<Guid>("Id")
@@ -793,9 +919,31 @@ namespace Millet.ProductoTerminado.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_piezas_pedidos_pt_pedido_pt_id");
                 });
 
+            modelBuilder.Entity("Millet.ProductoTerminado.Domain.TraspasoPtPieza", b =>
+                {
+                    b.HasOne("Millet.ProductoTerminado.Domain.PiezaPt", null)
+                        .WithMany()
+                        .HasForeignKey("PiezaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_traspaso_pt_piezas_piezas_pieza_id");
+
+                    b.HasOne("Millet.ProductoTerminado.Domain.TraspasoPt", null)
+                        .WithMany("Piezas")
+                        .HasForeignKey("TraspasoPtId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_traspaso_pt_piezas_traspasos_pt_traspaso_pt_id");
+                });
+
             modelBuilder.Entity("Millet.ProductoTerminado.Domain.PedidoPt", b =>
                 {
                     b.Navigation("Posiciones");
+                });
+
+            modelBuilder.Entity("Millet.ProductoTerminado.Domain.TraspasoPt", b =>
+                {
+                    b.Navigation("Piezas");
                 });
 #pragma warning restore 612, 618
         }

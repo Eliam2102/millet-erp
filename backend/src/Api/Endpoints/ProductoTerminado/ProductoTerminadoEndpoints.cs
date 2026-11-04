@@ -8,6 +8,7 @@ using Millet.ProductoTerminado.Application.Consultas;
 using Millet.Integraciones.Aw.Infrastructure.Origen;
 using Millet.ProductoTerminado.Application.Escaneos;
 using Millet.ProductoTerminado.Application.Liberacion;
+using Millet.ProductoTerminado.Application.Traspasos;
 
 namespace Millet.Api.Endpoints.ProductoTerminado;
 
@@ -51,6 +52,23 @@ public static class ProductoTerminadoEndpoints
             Version(req) is int v ? Respuesta(await mediator.Send(new MarcarReposicionRevisadaCommand(id, v), ct), res) : SinVersion())
             .WithMetadata(new RequireIdempotencyKeyAttribute());
 
+        // Traspasos entre sucursales (PT5.9). El alcance por sucursal lo aplican los handlers (PtAcceso).
+        var traspasos = g.MapGroup("/traspasos");
+        traspasos.MapGet("", async ([FromQuery] string? estado, [FromQuery] Guid? sucursalId, [FromQuery] int? page, [FromQuery] int? pageSize, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ListarTraspasosQuery(estado, sucursalId, page ?? 1, pageSize ?? 50), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoPiezasVer);
+        traspasos.MapGet("/{id:guid}", async (Guid id, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ObtenerTraspasoQuery(id), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoPiezasVer);
+        traspasos.MapPost("", async (CrearTraspasoCommand cmd, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(cmd, ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar)
+            .WithMetadata(new RequireIdempotencyKeyAttribute());
+        traspasos.MapPost("/{id:guid}/recibir", async (Guid id, RecibirBody? body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new RecibirTraspasoCommand(id, body?.PiezaIds), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar)
+            .WithMetadata(new RequireIdempotencyKeyAttribute());
+
         // Solo Demo (PT5.2): el saldo de prueba simula el cobro de caja. Nunca se mapea en Production; además exige el origen Demo de A+W.
         // PLATFORM-TODO(<SaldoPorPedidoFacturacion>): se retira cuando Facturación (Uziel) publique el saldo por pedido.
         if (!app.ServiceProvider.GetRequiredService<IHostEnvironment>().IsProduction())
@@ -72,6 +90,9 @@ public static class ProductoTerminadoEndpoints
     private static IResult Respuesta(EscaneoDto d, HttpResponse response) { response.Headers.ETag = $"\"{d.Version.ToString(CultureInfo.InvariantCulture)}\""; return Results.Ok(d); }
 
     public sealed record DescartarBody(string Motivo);
+
+    /// <summary>Sin cuerpo o sin <c>PiezaIds</c> = recepción total.</summary>
+    public sealed record RecibirBody(IReadOnlyList<Guid>? PiezaIds);
 
     public sealed record SaldoDemoBody(decimal Saldo);
 }

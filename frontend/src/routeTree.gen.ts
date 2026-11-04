@@ -62,6 +62,7 @@ import { Route as AppFacturacionCancelacionesRouteImport } from './routes/_app/f
 import { Route as AppProductoTerminadoExcepcionesRouteImport } from './routes/_app/producto-terminado/excepciones';
 import { Route as AppProductoTerminadoPiezasRouteImport } from './routes/_app/producto-terminado/piezas';
 import { Route as AppProductoTerminadoSalidasRouteImport } from './routes/_app/producto-terminado/salidas';
+import { Route as AppProductoTerminadoTraspasosRouteImport } from './routes/_app/producto-terminado/traspasos';
 import { Route as AppSistemaDisenoIndexRouteImport } from './routes/_app/sistema-diseno/index';
 import { Route as AppTesoreriaIndexRouteImport } from './routes/_app/tesoreria/index';
 import { Route as AppActivosFijosActivosIndexRouteImport } from './routes/_app/activos-fijos/activos/index';
@@ -504,6 +505,12 @@ const AppProductoTerminadoSalidasRoute =
   AppProductoTerminadoSalidasRouteImport.update({
     id: '/producto-terminado/salidas',
     path: '/producto-terminado/salidas',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppProductoTerminadoTraspasosRoute =
+  AppProductoTerminadoTraspasosRouteImport.update({
+    id: '/producto-terminado/traspasos',
+    path: '/producto-terminado/traspasos',
     getParentRoute: () => AppRoute,
   } as any);
 const AppSistemaDisenoIndexRoute = AppSistemaDisenoIndexRouteImport.update({
@@ -1451,6 +1458,7 @@ export interface FileRoutesByFullPath {
   '/producto-terminado/excepciones': typeof AppProductoTerminadoExcepcionesRoute;
   '/producto-terminado/piezas': typeof AppProductoTerminadoPiezasRoute;
   '/producto-terminado/salidas': typeof AppProductoTerminadoSalidasRoute;
+  '/producto-terminado/traspasos': typeof AppProductoTerminadoTraspasosRoute;
   '/admin/': typeof AppAdminIndexRoute;
   '/almacen/': typeof AppAlmacenIndexRoute;
   '/centros-costo/': typeof AppCentrosCostoIndexRoute;
@@ -1665,6 +1673,7 @@ export interface FileRoutesByTo {
   '/producto-terminado/excepciones': typeof AppProductoTerminadoExcepcionesRoute;
   '/producto-terminado/piezas': typeof AppProductoTerminadoPiezasRoute;
   '/producto-terminado/salidas': typeof AppProductoTerminadoSalidasRoute;
+  '/producto-terminado/traspasos': typeof AppProductoTerminadoTraspasosRoute;
   '/admin': typeof AppAdminIndexRoute;
   '/almacen': typeof AppAlmacenIndexRoute;
   '/centros-costo': typeof AppCentrosCostoIndexRoute;
@@ -1881,6 +1890,7 @@ export interface FileRoutesById {
   '/_app/producto-terminado/excepciones': typeof AppProductoTerminadoExcepcionesRoute;
   '/_app/producto-terminado/piezas': typeof AppProductoTerminadoPiezasRoute;
   '/_app/producto-terminado/salidas': typeof AppProductoTerminadoSalidasRoute;
+  '/_app/producto-terminado/traspasos': typeof AppProductoTerminadoTraspasosRoute;
   '/_app/admin/': typeof AppAdminIndexRoute;
   '/_app/almacen/': typeof AppAlmacenIndexRoute;
   '/_app/centros-costo/': typeof AppCentrosCostoIndexRoute;
@@ -2097,6 +2107,7 @@ export interface FileRouteTypes {
     | '/producto-terminado/excepciones'
     | '/producto-terminado/piezas'
     | '/producto-terminado/salidas'
+    | '/producto-terminado/traspasos'
     | '/admin/'
     | '/almacen/'
     | '/centros-costo/'
@@ -2311,6 +2322,7 @@ export interface FileRouteTypes {
     | '/producto-terminado/excepciones'
     | '/producto-terminado/piezas'
     | '/producto-terminado/salidas'
+    | '/producto-terminado/traspasos'
     | '/admin'
     | '/almacen'
     | '/centros-costo'
@@ -2526,6 +2538,7 @@ export interface FileRouteTypes {
     | '/_app/producto-terminado/excepciones'
     | '/_app/producto-terminado/piezas'
     | '/_app/producto-terminado/salidas'
+    | '/_app/producto-terminado/traspasos'
     | '/_app/admin/'
     | '/_app/almacen/'
     | '/_app/centros-costo/'
@@ -3072,6 +3085,13 @@ declare module '@tanstack/react-router' {
       path: '/producto-terminado/salidas';
       fullPath: '/producto-terminado/salidas';
       preLoaderRoute: typeof AppProductoTerminadoSalidasRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/producto-terminado/traspasos': {
+      id: '/_app/producto-terminado/traspasos';
+      path: '/producto-terminado/traspasos';
+      fullPath: '/producto-terminado/traspasos';
+      preLoaderRoute: typeof AppProductoTerminadoTraspasosRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/sistema-diseno/': {
@@ -4258,6 +4278,7 @@ interface AppRouteChildren {
   AppProductoTerminadoExcepcionesRoute: typeof AppProductoTerminadoExcepcionesRoute;
   AppProductoTerminadoPiezasRoute: typeof AppProductoTerminadoPiezasRoute;
   AppProductoTerminadoSalidasRoute: typeof AppProductoTerminadoSalidasRoute;
+  AppProductoTerminadoTraspasosRoute: typeof AppProductoTerminadoTraspasosRoute;
   AppAdminIndexRoute: typeof AppAdminIndexRoute;
   AppAlmacenIndexRoute: typeof AppAlmacenIndexRoute;
   AppCentrosCostoIndexRoute: typeof AppCentrosCostoIndexRoute;
@@ -4471,6 +4492,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppProductoTerminadoExcepcionesRoute: AppProductoTerminadoExcepcionesRoute,
   AppProductoTerminadoPiezasRoute: AppProductoTerminadoPiezasRoute,
   AppProductoTerminadoSalidasRoute: AppProductoTerminadoSalidasRoute,
+  AppProductoTerminadoTraspasosRoute: AppProductoTerminadoTraspasosRoute,
   AppAdminIndexRoute: AppAdminIndexRoute,
   AppAlmacenIndexRoute: AppAlmacenIndexRoute,
   AppCentrosCostoIndexRoute: AppCentrosCostoIndexRoute,
