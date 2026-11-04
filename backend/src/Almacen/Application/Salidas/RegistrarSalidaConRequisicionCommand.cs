@@ -139,11 +139,41 @@ public sealed class RegistrarSalidaConRequisicionHandler
         _periodoContable = periodoContable;
     }
 
+    /// <summary>
+    /// Valida la RQ y, si lo pedido excede lo autorizado porque la existencia está apartada para otra RQ,
+    /// lo dice (ALM-36) en lugar de solo «supera lo disponible autorizado».
+    /// </summary>
+    private async Task ValidarRqAsync(RequisicionLectura? rq, IReadOnlyList<RegistrarSalidaLineaInput> lineas,
+        Func<int, decimal> cantidadBase, CancellationToken cancellationToken)
+    {
+        try
+        {
+            SalidaRqGuard.Validar(rq, lineas);
+        }
+        catch (BusinessRuleException e) when (e.Code == "SALIDA_EXCEDE_AUTORIZADO" && rq!.SucursalId is Guid sucursalRq)
+        {
+            foreach (var grupo in lineas.Select((l, i) => (Linea: l, Base: cantidadBase(i))).GroupBy(x => x.Linea.LineaRqId))
+            {
+                var lineaRq = rq.Lineas.Single(l => l.LineaId == grupo.Key);
+                if (grupo.Sum(x => x.Linea.Cantidad) > lineaRq.CantidadDisponibleEntregar
+                    && await _apartados.ApartadaParaOtraAsync(sucursalRq, rq.Id, lineaRq.ArticuloId, grupo.Sum(x => x.Base), cancellationToken))
+                {
+                    throw new BusinessRuleException("SALIDA_EXISTENCIA_APARTADA",
+                        $"Esta requisición tiene autorizado entregar {lineaRq.CantidadDisponibleEntregar.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)} desde almacén; " +
+                        "la demás existencia de este artículo está apartada para otra requisición.");
+                }
+            }
+            throw;
+        }
+    }
+
     public async Task<RegistrarSalidaResponse> Handle(
         RegistrarSalidaConRequisicionCommand request, CancellationToken cancellationToken)
     {
         var rq = await _rqPort.ObtenerAsync(request.RequisicionId, cancellationToken);
-        SalidaRqGuard.Validar(rq, request.Lineas.Select(l => string.IsNullOrWhiteSpace(l.UnidadCapturada) ? l : l with { Cantidad = 0m }).ToList());
+        var lineasSinCaptura = request.Lineas.Select(l => string.IsNullOrWhiteSpace(l.UnidadCapturada) ? l : l with { Cantidad = 0m }).ToList();
+        // ponytail: antes de convertir se usa la cantidad del documento como base; basta para piezas, la segunda validación usa la base real.
+        await ValidarRqAsync(rq, lineasSinCaptura, i => lineasSinCaptura[i].Cantidad, cancellationToken);
         var conversiones = new List<ConversionUnidad>();
         var variantes = new List<VarianteVidrioLectura?>();
         foreach (var input in request.Lineas)
@@ -153,7 +183,8 @@ public sealed class RegistrarSalidaConRequisicionHandler
             conversiones.Add(await Recepciones.RecepcionVariante.ConvertirAsync(_conversion, input.ArticuloId, input.Cantidad,
                 input.UnidadCapturada, rq!.Lineas.Single(l => l.LineaId == input.LineaRqId).UnidadMedida ?? "PZA", variante, cancellationToken));
         }
-        SalidaRqGuard.Validar(rq, request.Lineas.Select((l, i) => l with { Cantidad = conversiones[i].CantidadDocumento }).ToList());
+        var lineasDocumento = request.Lineas.Select((l, i) => l with { Cantidad = conversiones[i].CantidadDocumento }).ToList();
+        await ValidarRqAsync(rq, lineasDocumento, i => conversiones[i].CantidadBase, cancellationToken);
 
         // 2. Salida-por-línea C2: el sub-almacén ya NO viene en la cabecera — se
         //    DERIVA del bin de cada línea. El validator exige UbicacionId por

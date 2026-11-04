@@ -29,12 +29,6 @@ public sealed class OtrEnvio : BaseEntity, IAuditable, IPerteneceAEmpresa
     public EstadoOtrEnvio Estado { get; private set; }
     public int RevisionContenido { get; private set; }
     public void RegistrarCambio() => RevisionContenido++;
-    public OtrSalida CrearSalida(string tipo, int version, string valor, IEnumerable<OtrSalida> existentes)
-    {
-        if (existentes.Any(s => s.OtrEnvioId == Id && s.Tipo == tipo && s.VersionErp == version))
-            throw new BusinessRuleException("CE_OTR_SALIDA_DUPLICADA", "El envío ya tiene una salida de este tipo y versión ERP.");
-        return new(EmpresaId, Id, tipo, version, valor);
-    }
     public string EdicionesJson { get; private set; } = "{}";
     private readonly List<OtrLinea> _lineas = [];
     public IReadOnlyCollection<OtrLinea> Lineas => _lineas.AsReadOnly();

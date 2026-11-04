@@ -100,6 +100,18 @@ public sealed class CorridasHandlersTests
         (x.Bruto, x.Retenciones, x.Neto).Should().Be((1_160m, 106.67m, 1_053.33m));
     }
 
+    // F-TES-05: corrida en USD con una factura MXN responde moneda distinta, no que al proveedor le falta cuenta en USD.
+    [Fact]
+    public async Task Corrida_en_otra_moneda_responde_moneda_distinta()
+    {
+        await using var db = Db();
+        var (_, p) = await Escenario(db, (Guid.NewGuid(), 100m));
+        var usd = new CuentaBancaria(Empresa, "BBVA", "9876543210", null, "USD"); db.CuentasBancarias.Add(usd); await db.SaveChangesAsync();
+        var act = () => Crear(db, Armador).Handle(new(usd.Id, [p[0].FacturaProveedorId]), default);
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "CORRIDA_MONEDA_DISTINTA");
+        db.CorridasPago.Should().BeEmpty();
+    }
+
     [Fact]
     public async Task CA2_pasivo_en_otra_corrida_viva_se_rechaza_con_el_nombre_de_la_corrida()
     {

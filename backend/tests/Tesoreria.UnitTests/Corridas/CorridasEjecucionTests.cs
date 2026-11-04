@@ -110,6 +110,23 @@ public sealed class CorridasEjecucionTests
         db.MovimientosBancarios.Should().BeEmpty();
     }
 
+    // F-TES-02: el pasivo que CxP cambió después de autorizar ya no queda atrapado; la corrida se cancela y el pasivo se libera.
+    [Fact]
+    public async Task Corrida_autorizada_con_pasivo_modificado_se_cancela_y_libera_el_pasivo()
+    {
+        var (db, c, p) = await Autorizada((Guid.NewGuid(), 600m));
+        await using var _ = db;
+        var modificado = await db.PasivosPendientesPago.FirstAsync(x => x.FacturaProveedorId == p[0].FacturaProveedorId);
+        modificado.ActualizarDesdeEvento(600m, 300m, "MXN", null, new DateOnly(2026, 11, 15), null, "F-1", Ahora);
+        await db.SaveChangesAsync();
+        (await PasivosPagables.Libres(db, null).AnyAsync()).Should().BeFalse();
+
+        var r = await new CancelarCorridaHandler(db, new Proveedores()).Handle(new(c.Id, "CxP cambió el saldo", c.Version), default);
+
+        r.Estado.Should().Be("Cancelada");
+        (await PasivosPagables.Libres(db, null).Select(x => x.FacturaProveedorId).ToListAsync()).Should().Equal(p[0].FacturaProveedorId);
+    }
+
     [Fact]
     public async Task No_se_ejecuta_una_corrida_que_no_esta_autorizada()
     {

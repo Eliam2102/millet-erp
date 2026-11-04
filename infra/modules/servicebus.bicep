@@ -548,7 +548,7 @@ resource facturacionEventsCxcSubscriptionFilter 'Microsoft.ServiceBus/namespaces
 }
 
 // Subscription consumida por Integraciones.Aw FacturacionRetornoListenerWorker
-// (TR-01): factura-venta timbrada → fila Documento de aw_retorno.
+// (TR-01): factura-venta timbrada → fila Documento de aw_retorno; 86e3jvv6z: cobros y REPP → filas Pago.
 // Referencia: backend/src/Integraciones.Aw/Infrastructure/Retorno/AwRetornoWorkers.cs
 resource facturacionEventsAwSubscription 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
   parent: facturacionEventsTopic
@@ -569,7 +569,7 @@ resource facturacionEventsAwSubscriptionFilter 'Microsoft.ServiceBus/namespaces/
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'facturacion.factura-venta.timbrada.v1\', \'facturacion.comprobante.cancelado.v1\', \'facturacion.nota-credito.timbrada.v1\')'
+      sqlExpression: 'user.EventType IN (\'facturacion.factura-venta.timbrada.v1\', \'facturacion.comprobante.cancelado.v1\', \'facturacion.nota-credito.timbrada.v1\', \'facturacion.cobro-mostrador.registrado.v1\', \'facturacion.cobro-mostrador.cancelado.v1\', \'facturacion.recibo-pago.timbrado.v1\')'
       compatibilityLevel: 20
     }
   }

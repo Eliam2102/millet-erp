@@ -63,6 +63,9 @@ public sealed class CfdiRecibidoConfiguration : IEntityTypeConfiguration<CfdiRec
 
         // TES-PR8 [T-G11]: PUE/PPD del Comprobante; NULL en filas históricas.
         builder.Property(e => e.MetodoPago).HasMaxLength(3);
+        // P8.2 (86e3ke0z5): estatus SAT; NULL en filas históricas, alta manual y buzón
+        builder.Property(e => e.EstatusSat).HasConversion<short?>();
+        builder.Property(e => e.FechaCancelacionSat);
 
         builder.Property(e => e.CanalOrigen).HasConversion<short>().IsRequired();
         builder.Property(e => e.FechaRecepcion).IsRequired();

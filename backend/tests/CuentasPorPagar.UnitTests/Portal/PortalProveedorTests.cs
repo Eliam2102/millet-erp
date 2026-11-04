@@ -128,4 +128,21 @@ public sealed class PortalProveedorTests
 
         PortalMapeo.Mapear(f, null, sinOpinionCumplimiento: true).Estado.Should().Contain("falta el complemento de pago");
     }
+
+    [Fact]
+    public void F_CXP_03_factura_pagada_muestra_la_fecha_de_pago_y_las_demas_no()
+    {
+        var f = Nueva();
+        f.Autorizar(null, Ahora);
+        var pago = new DateOnly(2026, 11, 4);
+
+        PortalMapeo.Mapear(f, null, fechaPago: pago).FechaPago.Should().BeNull("aún no está pagada");
+
+        f.RegistrarPago(f.Total, Ahora, "pago");
+        var r = PortalMapeo.Mapear(f, null, fechaPago: pago);
+
+        r.Estado.Should().Be("Pagada");
+        r.FechaPago.Should().Be(pago);
+        r.FechaProgramadaPago.Should().BeNull();
+    }
 }

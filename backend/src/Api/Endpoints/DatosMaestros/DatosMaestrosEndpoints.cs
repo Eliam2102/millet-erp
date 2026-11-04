@@ -386,6 +386,7 @@ public static class DatosMaestrosEndpoints
             [FromQuery] EstatusCatalogo? estatus,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
+            [FromQuery] string? q,
             IMediator mediator,
             CancellationToken ct) =>
         {
@@ -397,7 +398,8 @@ public static class DatosMaestrosEndpoints
                     UnidadMedidaDefault: unidadMedidaDefault,
                     Estatus: estatus,
                     Offset: offset ?? 0,
-                    Limit: limit ?? 50),
+                    Limit: limit ?? 50,
+                    Q: q),
                 ct);
             return Results.Ok(response);
         })

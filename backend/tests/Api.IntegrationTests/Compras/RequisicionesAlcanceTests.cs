@@ -34,8 +34,10 @@ public class RequisicionesAlcanceTests
     public async Task Operativo_Asociado_Abre_RQ_De_Su_Sucursal()
     {
         var rqMid = await CrearRqEnSucursalAsync(TestComprasFixtures.SucursalMid);
+        // Alcance por sucursal; el de departamento (F-RQOC-01) se prueba en RequisicionesAlcanceDepartamentoTests.
         var (cliente, _) = await CreateOperativoAsync(
-            TestComprasFixtures.SucursalMid, PermisosCanonicos.ComprasRequisicionesLeer);
+            TestComprasFixtures.SucursalMid, PermisosCanonicos.ComprasRequisicionesLeer,
+            PermisosCanonicos.ComprasRequisicionesVerTodosDepartamentos);
 
         var resp = await cliente.GetAsync($"{EndpointBase}/{rqMid}");
 
@@ -60,7 +62,8 @@ public class RequisicionesAlcanceTests
         var rqMid = await CrearRqEnSucursalAsync(TestComprasFixtures.SucursalMid);
         var (cliente, _) = await CreateUsuarioConPermisosAsync(
             PermisosCanonicos.ComprasRequisicionesLeer,
-            PermisosCanonicos.ComprasRequisicionesLeerTodasSucursales);
+            PermisosCanonicos.ComprasRequisicionesLeerTodasSucursales,
+            PermisosCanonicos.ComprasRequisicionesVerTodosDepartamentos);
 
         Assert.Equal(HttpStatusCode.OK, (await cliente.GetAsync($"{EndpointBase}/{rqMid}")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await cliente.GetAsync($"{EndpointBase}/{rqMid}/historico")).StatusCode);

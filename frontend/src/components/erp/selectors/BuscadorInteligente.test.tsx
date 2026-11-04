@@ -126,9 +126,16 @@ describe('<BuscadorInteligente>', () => {
     );
   });
 
-  it('clic sobre el ya elegido lo deselecciona', () => {
+  it('clic sobre el ya elegido lo conserva (F-FIN-02)', () => {
     const { onChange } = renderBuscador({ value: 'a' });
     fireEvent.click(screen.getByText('Papelería'));
+    expect(onChange).toHaveBeenCalledWith(ITEMS[0]);
+    expect(onChange).not.toHaveBeenCalledWith(null);
+  });
+
+  it('«Quitar selección» limpia el valor', () => {
+    const { onChange } = renderBuscador({ value: 'a' });
+    fireEvent.click(screen.getByText('Quitar selección'));
     expect(onChange).toHaveBeenCalledWith(null);
   });
 

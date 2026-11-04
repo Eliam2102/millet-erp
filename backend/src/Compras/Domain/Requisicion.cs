@@ -772,6 +772,24 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
     }
 
     /// <summary>
+    /// F-01: tras una devolución a proveedor (o la cancelación de una recepción)
+    /// la línea de RQ baja al recibido neto de sus líneas de OC. Solo baja: lo
+    /// que falta sumar lo empareja la siguiente recepción
+    /// (<c>OcRecepcionEnAlmacenHandler.DeltaRequisicion</c>).
+    /// </summary>
+    public void AjustarRecepcionAlNeto(Guid lineaId, decimal recibidoNetoOc)
+    {
+        if (Estado != EstadoRequisicion.EnSurtido)
+        {
+            throw new BusinessRuleException(
+                "RECEPCION_SOLO_DESDE_ENSURTIDO",
+                $"Solo se pueden ajustar recepciones en EnSurtido (actual: {Estado}).");
+        }
+
+        BuscarLineaOLanzar(lineaId).BajarRecepcionA(recibidoNetoOc);
+    }
+
+    /// <summary>
     /// Registra una entrega incremental al solicitante sobre la línea
     /// indicada (ADR-0043, canal de entrega Almacén→Compras). Espejo de
     /// <see cref="RegistrarRecepcion"/>, pero con dos diferencias clave:
@@ -1025,7 +1043,7 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         {
             throw new BusinessRuleException(
                 "RQ_YA_COMPROMETIDA_EN_OTRA_OC",
-                $"La RQ ya está comprometida en la OC '{existente}'. No puede asignarse a otra.");
+                $"La RQ '{Folio.Valor}' ya está comprometida en otra orden de compra. No puede asignarse a otra.");
         }
 
         ComprometidaEnOcId = ordenCompraId;

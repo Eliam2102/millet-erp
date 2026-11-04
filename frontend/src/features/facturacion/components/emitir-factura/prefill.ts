@@ -8,7 +8,21 @@
  */
 export interface EmitirFacturaPrefill {
   embarqueCe?: import('@/features/comercio-exterior/api/types').EmbarqueCe | null;
-  pedidoFacturableId: string;
+  /** Ausente al sustituir (FAC-08b): la sustituta hereda el pedido al cancelarse la original. */
+  pedidoFacturableId?: string;
+  /**
+   * FAC-08: factura solo esta parcialidad del pedido. Las partidas del
+   * prefill son las de la salida (mismas posiciones y cantidades) y el
+   * pedido sigue abierto para las siguientes salidas.
+   */
+  salidaFacturableId?: string | null;
+  /** FAC-08: número de la parcialidad que se factura (solo para mostrar). */
+  numeroParcialidad?: number | null;
+  /** FAC-08b: factura timbrada que la nueva sustituye (relación 04). */
+  sustituye?: { id: string; folio: string; uuid: string };
+  tipoCambio?: number | null;
+  ordenCompraCliente?: string | null;
+  proforma?: string | null;
   /** Origen del pedido ("Aw", "PlantaPintura", "Manual"). */
   origen?: string;
   /**

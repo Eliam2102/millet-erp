@@ -80,6 +80,10 @@ public sealed class AplicarPedimentoHandler : IRequestHandler<AplicarPedimentoCo
             factura, CfdiEmisionBuilder.DesdeFacturaVenta(factura, ahora),
             _fiscal, _cfdiRepo, ahora, cancellationToken);
 
+        // FAC-08b: sustituta retenida por pedimento: al timbrar se solicita la cancelación de la original.
+        await Sustituciones.SustitucionCfdi.SolicitarCancelacionOriginalAsync(
+            _db, factura, factura.UsuarioEmisorId, null, ahora, cancellationToken);
+
         // F10-PR1: evento de factura timbrada (tras aplicar el pedimento).
         if (factura.Estado == EstadoTimbrado.Timbrado)
             await _eventos.PublishAsync(EventosContablesFacturacion.FacturaVentaTimbrada(

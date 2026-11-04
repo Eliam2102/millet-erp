@@ -1042,6 +1042,73 @@ export interface PedidoComprobanteItem {
   vigente: boolean;
 }
 
+// ─── Salidas parciales del pedido (FAC-08) ─────────────────────────────
+
+/** Origen de la salida (mirror numérico de OrigenSalidaFacturable). */
+export const OrigenSalidaFacturable = {
+  ProductoTerminado: 1,
+  ContenedorExportacion: 2,
+  Manual: 3,
+} as const;
+export type OrigenSalidaFacturableValor =
+  (typeof OrigenSalidaFacturable)[keyof typeof OrigenSalidaFacturable];
+
+/** Avance de una partida del pedido: pedida, en salidas y facturada. */
+export interface AvancePartidaPedido {
+  posicion: number;
+  descripcion: string;
+  pedida: number;
+  enSalidas: number;
+  facturada: number;
+}
+
+export interface SalidaFacturableItemLinea {
+  posicion: number;
+  cantidad: number;
+  importe: number;
+}
+
+/** Una parcialidad del pedido con su factura vigente (null = pendiente o cancelada). */
+export interface SalidaFacturableItem {
+  id: string;
+  numeroParcialidad: number;
+  origen: OrigenSalidaFacturableValor;
+  referencia: string;
+  registradaEn: string;
+  total: number;
+  facturaId: string | null;
+  folio: string | null;
+  uuid: string | null;
+  estadoFactura: string | null;
+  lineas: SalidaFacturableItemLinea[];
+}
+
+/** GET /pedidos-facturables/{id}/salidas. */
+export interface PedidoSalidasResponse {
+  pedidoFacturableId: string;
+  totalPedido: number;
+  totalFacturado: number;
+  avance: AvancePartidaPedido[];
+  salidas: SalidaFacturableItem[];
+}
+
+/** Body de POST /pedidos-facturables/{id}/salidas (origen Manual por omisión). */
+export interface RegistrarSalidaCommand {
+  referencia: string;
+  lineas: Array<{ posicion: number; cantidad: number }>;
+}
+
+export interface SalidaFacturableResponse {
+  id: string;
+  pedidoFacturableId: string;
+  numeroParcialidad: number;
+  origen: OrigenSalidaFacturableValor;
+  referencia: string;
+  total: number;
+  yaRegistrada: boolean;
+  lineas: SalidaFacturableItemLinea[];
+}
+
 // ─── Emisión / comprobantes (FE-F1-PR2) ───────────────────────────────
 
 /**
@@ -1109,6 +1176,8 @@ export interface EmitirFacturaVentaCommand {
   /** Liga la factura al pedido origen (B2). Si se provee, al timbrar el
    * backend transiciona el pedido a `Facturado`. */
   pedidoFacturableId?: string | null;
+  /** FAC-08: factura solo esta parcialidad del pedido; el pedido sigue abierto. */
+  salidaFacturableId?: string | null;
   /** Anticipos a amortizar (relación 07). El backend emite la NC de
    * amortización atómica con el timbre de la factura final. */
   anticipos?: AnticipoAAmortizar[] | null;
@@ -1116,6 +1185,8 @@ export interface EmitirFacturaVentaCommand {
   cce?: EmitirFacturaVentaCce | null;
   /** Autorización del Director de Administración y Finanzas (obligatoria para venta de activo fijo). */
   autorizacionId?: string | null;
+  /** FAC-08b: factura timbrada que esta sustituye (relación 04). */
+  sustituyeComprobanteId?: string | null;
   /** Observaciones (86e3tfdw2, ≤1000): se imprimen en el PDF; NO van al XML del CFDI. */
   observaciones?: string | null;
   lineas: EmitirFacturaVentaLinea[];
@@ -1273,6 +1344,60 @@ export interface ComprobanteDetalleResponse {
   totalPorCobrar: number;
   /** [Decisión 13-K] NC timbradas que acreditan a esta factura. */
   notasCreditoAplicadas: NotaCreditoAplicadaDetalle[] | null;
+  /** FAC-08b: en la original, la factura que la sustituye (relación 04). */
+  sustituidaPor?: SustitucionReferencia | null;
+  /** FAC-08b: en la sustituta, la factura original. */
+  sustituyeA?: SustitucionReferencia | null;
+  /** FAC-08b: motivo con el que el Contador General no autorizó la sustitución. */
+  sustitucionRechazadaMotivo?: string | null;
+}
+
+/** Factura del otro lado de una sustitución (FAC-08b). */
+export interface SustitucionReferencia {
+  id: string;
+  folio: string;
+  uuid: string | null;
+  estado: string;
+}
+
+/** GET /facturas/{id}/sustitucion — borrador de la sustituta con los datos de la original. */
+export interface DatosSustitucionResponse {
+  sustituyeComprobanteId: string;
+  sustituyeFolio: string;
+  sustituyeUuid: string;
+  sucursalId: string;
+  clienteId: string | null;
+  receptorRfc: string;
+  receptorNombre: string;
+  receptorRegimenFiscal: string;
+  receptorCodigoPostal: string;
+  receptorUsoCfdi: string;
+  metodoPago: string;
+  formaPago: string;
+  moneda: string;
+  tipoCambio: number | null;
+  canalVenta: number | null;
+  comportamientoFiscal: number;
+  obraNombre: string | null;
+  ordenCompraCliente: string | null;
+  referenciaCliente: string | null;
+  condicionesPago: string | null;
+  proforma: string | null;
+  observaciones: string | null;
+  lineas: Array<{
+    productoId: string | null;
+    claveProdServSat: string;
+    descripcion: string;
+    claveUnidadSat: string;
+    cantidad: number;
+    valorUnitario: number;
+    descuento: number;
+    objetoImp: string;
+    tasaIvaTraslado: number | null;
+    tasaRetencionIva: number | null;
+    tasaRetencionIsr: number | null;
+    requierePedimento: boolean;
+  }>;
 }
 
 export interface CobroFacturaDetalle {

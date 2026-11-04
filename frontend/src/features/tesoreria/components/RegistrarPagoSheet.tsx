@@ -125,7 +125,9 @@ export function RegistrarPagoSheet({
               ? 'Selecciona la cuenta de egreso'
               : !importesValidos
                 ? 'Revisa los importes a pagar'
-                : null;
+                : referencia.trim() === ''
+                  ? 'Captura la referencia que dio el banco'
+                  : null;
 
   function confirmar() {
     if (
@@ -140,7 +142,7 @@ export function RegistrarPagoSheet({
       cuentaBancariaId: cuentaId,
       conceptoId: conceptoId ?? undefined,
       fechaValor,
-      referenciaBancaria: referencia.trim() || undefined,
+      referenciaBancaria: referencia.trim(),
       aplicaciones: pasivos.map((p) => ({
         facturaProveedorId: p.facturaProveedorId,
         importe: Number(importes[p.facturaProveedorId]),
@@ -365,10 +367,11 @@ export function RegistrarPagoSheet({
             </FormCampo>
             <FormCampo span={6} className="space-y-1">
               <label className="text-xs text-ink-muted" htmlFor="referencia">
-                Referencia bancaria
+                Referencia bancaria *
               </label>
               <Input
                 id="referencia"
+                required
                 value={referencia}
                 onChange={(e) => setReferencia(e.target.value)}
                 maxLength={120}

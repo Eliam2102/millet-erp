@@ -16,4 +16,6 @@ public sealed class PiezasPtOptions
     /// <summary>Estaciones de PT: rangos "a-b" o números sueltos. Solo vive en configuración.</summary>
     public string[] EstacionesPt { get; set; } = [];
     public bool ContratoI134Firmado { get; set; }
+    /// <summary>A4.8: descuento de componentes (argón, separador, PVB) por composición de cada pieza terminada. Apagado por omisión.</summary>
+    public bool ConsumoComponentesHabilitado { get; set; }
 }

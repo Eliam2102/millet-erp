@@ -204,7 +204,7 @@ public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IP
     private static Guid? CuentaOpcional(List<RolCuenta> roles, string codigo, Guid sucursal, string moneda, DateOnly fecha) =>
         Rol(roles, codigo, sucursal, moneda, fecha)?.CuentaId;
 
-    private static RolCuenta? Rol(List<RolCuenta> roles, string codigo, Guid sucursal, string moneda, DateOnly fecha) =>
+    internal static RolCuenta? Rol(List<RolCuenta> roles, string codigo, Guid sucursal, string moneda, DateOnly fecha) =>
         roles.Where(r => r.Codigo == codigo && r.VigenteEn(fecha)
                 && (r.SucursalId is null || r.SucursalId == sucursal) && (r.Moneda is null || r.Moneda == moneda))
             .OrderByDescending(r => (r.SucursalId is null ? 0 : 2) + (r.Moneda is null ? 0 : 1)).ThenByDescending(r => r.VigenteDesde)

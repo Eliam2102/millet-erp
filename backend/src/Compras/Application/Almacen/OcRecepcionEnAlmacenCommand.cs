@@ -92,12 +92,26 @@ public sealed class OcRecepcionEnAlmacenHandler
                 "ORDEN_COMPRA_NO_ENCONTRADA",
                 $"No se encontró OC '{p.OrdenCompraId}' al proyectar recepción {p.RecepcionId}.");
 
+        // F-RQOC-02: una recepción que llega a una OC ya cancelada no se puede registrar y reintentar no
+        // cambia nada (la OC no sale de Cancelada). Se marca como procesada y queda en el log para revisión,
+        // en lugar de fallar en cada reintento hasta dead-letter.
+        if (oc.Estado == Domain.Oc.EstadoOrdenCompra.Cancelada)
+        {
+            _logger.LogError(
+                "[OcRecepcionEnAlmacenHandler] Recepción {RecepcionId} sobre la OC cancelada {OcId}: Almacén la registró y la OC no. Revisar con Almacén.",
+                p.RecepcionId, oc.Id);
+            _db.EventosProcesados.Add(new EventoProcesado(request.EventoId, EventType,
+                $"Recepcion={p.RecepcionId} OC={p.OrdenCompraId} sin aplicar: OC cancelada"));
+            await _db.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
         var eventosCierre = new List<OrdenCompraCerradaEvent>();
         // Eventos in-proc para que `OcRecepcionRegistradaListener` actualice
         // la línea de RQ correspondiente (cierra el ciclo RQ → OC → recep →
         // RQ.CantidadRecibida). Sólo aplica a líneas que vienen de una RQ;
         // las manuales (RequisicionId == null) no propagan.
-        var eventosRq = new List<OcRecepcionRegistradaEvent>();
+        var lineasRq = new HashSet<(Guid RequisicionId, Guid LineaRequisicionId)>();
 
         foreach (var linea in p.Lineas)
         {
@@ -143,20 +157,11 @@ public sealed class OcRecepcionEnAlmacenHandler
                 eventosCierre.Add(cerrada);
             }
 
-            // Si la línea de OC vino de una RQ, encolar evento in-proc.
-            // El `CantidadRecibida` aquí es el DELTA de esta recepción
-            // (no el acumulado) — `Requisicion.RegistrarRecepcion` lo suma
-            // sobre la línea correspondiente.
+            // Si la línea de OC vino de una RQ, se sincroniza después del commit.
             if (lineaOc.RequisicionId is { } rqId
                 && lineaOc.LineaRequisicionId is { } rqLineaId)
             {
-                eventosRq.Add(new OcRecepcionRegistradaEvent(
-                    RequisicionId: rqId,
-                    LineaRequisicionId: rqLineaId,
-                    OrdenCompraId: oc.Id,
-                    EmpresaId: oc.EmpresaId,
-                    CantidadRecibida: linea.Cantidad,
-                    OcurridoEn: p.OcurridoEn));
+                lineasRq.Add((rqId, rqLineaId));
             }
         }
 
@@ -182,17 +187,39 @@ public sealed class OcRecepcionEnAlmacenHandler
         // dominio lanza BusinessRuleException; loggeamos + continuamos para
         // no abandonar el procesamiento del evento de Almacén (el sub-estado
         // de OC ya quedó persistido y es la fuente autoritativa).
-        foreach (var evRq in eventosRq)
+        // F-01 (04-nov): el delta hacia la RQ sale del recibido NETO de la OC
+        // (acumulado de Almacén: sin devoluciones a proveedor), no de la cantidad
+        // bruta del payload, que trae también las piezas dañadas.
+        foreach (var (rqId, rqLineaId) in lineasRq)
         {
             try
             {
-                await _publisher.Publish(evRq, cancellationToken);
+                var netoOc = await _db.LineasOrdenCompra
+                    .Where(l => l.LineaRequisicionId == rqLineaId)
+                    .SumAsync(l => l.CantidadRecibida, cancellationToken);
+                var recibidaRq = await _db.LineaRequisiciones
+                    .Where(l => l.Id == rqLineaId)
+                    .Select(l => l.CantidadRecibida)
+                    .FirstOrDefaultAsync(cancellationToken);
+                var delta = DeltaRequisicion(netoOc, recibidaRq);
+                if (delta <= 0m)
+                {
+                    continue;
+                }
+
+                await _publisher.Publish(new OcRecepcionRegistradaEvent(
+                    RequisicionId: rqId,
+                    LineaRequisicionId: rqLineaId,
+                    OrdenCompraId: oc.Id,
+                    EmpresaId: oc.EmpresaId,
+                    CantidadRecibida: delta,
+                    OcurridoEn: p.OcurridoEn), cancellationToken);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex,
                     "[OcRecepcionEnAlmacenHandler] Error actualizando RQ {RqId} (línea {LineaId}) tras recepción OC {OcId}. OC sí se actualizó.",
-                    evRq.RequisicionId, evRq.LineaRequisicionId, evRq.OrdenCompraId);
+                    rqId, rqLineaId, oc.Id);
             }
         }
 
@@ -200,4 +227,11 @@ public sealed class OcRecepcionEnAlmacenHandler
             "[OcRecepcionEnAlmacenHandler] Recepción {RecepcionId} aplicada a OC {OcId}. Líneas={Lineas} Cerrada={Cerrada}",
             p.RecepcionId, p.OrdenCompraId, p.Lineas.Count, eventosCierre.Count > 0);
     }
+
+    /// <summary>
+    /// Lo que falta sumar a la línea de RQ para igualar el recibido neto de sus
+    /// líneas de OC. ≤ 0 = nada que sumar (p. ej., hubo devolución a proveedor
+    /// y la RQ ya va adelante; la próxima recepción la empareja).
+    /// </summary>
+    internal static decimal DeltaRequisicion(decimal netoOc, decimal recibidaRq) => netoOc - recibidaRq;
 }

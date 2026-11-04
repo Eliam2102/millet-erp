@@ -38,6 +38,7 @@ import {
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
+import { EstatusSatBadge } from '@/features/cxp/components/EstatusSatBadge';
 import { EstadoCfdiBadge } from '@/features/cxp/components/EstadoCfdiBadge';
 import { CapturarFacturaSheet } from '@/features/cxp/components/CapturarFacturaSheet';
 import { CargarCfdiSheet } from '@/features/cxp/components/CargarCfdiSheet';
@@ -463,6 +464,7 @@ function TablaCfdis({
                 onSortChange={setSort}
               />
             </th>
+            <th className="px-3 py-2 text-left">Estatus SAT</th>
             <th className="px-3 py-2 text-left">
               <SortableHeader
                 columnKey="estado"
@@ -508,6 +510,12 @@ function TablaCfdis({
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap text-xs">
                   <DateTimeDisplay value={c.fechaRecepcion} variant="corta" />
+                </td>
+                <td className="px-3 py-2">
+                  <EstatusSatBadge
+                    estatus={c.estatusSat}
+                    fechaCancelacion={c.fechaCancelacionSat}
+                  />
                 </td>
                 <td className="px-3 py-2">
                   <EstadoCfdiBadge estado={c.estado} />

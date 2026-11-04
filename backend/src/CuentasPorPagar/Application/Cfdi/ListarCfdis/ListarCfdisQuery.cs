@@ -51,7 +51,9 @@ public sealed record CfdiListItemResponse(
     string Moneda,
     CanalOrigenCfdi CanalOrigen,
     DateTimeOffset FechaRecepcion,
-    EstadoCfdiRecibido Estado);
+    EstadoCfdiRecibido Estado,
+    EstatusSatCfdi? EstatusSat,
+    DateTimeOffset? FechaCancelacionSat);
 
 public sealed class ListarCfdisHandler : IRequestHandler<ListarCfdisQuery, PagedResponse<CfdiListItemResponse>>
 {
@@ -114,7 +116,9 @@ public sealed class ListarCfdisHandler : IRequestHandler<ListarCfdisQuery, Paged
                 c.Moneda,
                 c.CanalOrigen,
                 c.FechaRecepcion,
-                c.Estado))
+                c.Estado,
+                c.EstatusSat,
+                c.FechaCancelacionSat))
             .ToListAsync(cancellationToken);
 
         return new PagedResponse<CfdiListItemResponse>(items, offset, limit, total);
