@@ -616,6 +616,177 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Millet.Almacen.Domain.Consumo.ConsumoComponenteAw", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal?>("AltoMm")
+                        .HasPrecision(14, 4)
+                        .HasColumnType("numeric(14,4)")
+                        .HasColumnName("alto_mm");
+
+                    b.Property<decimal?>("AnchoMm")
+                        .HasPrecision(14, 4)
+                        .HasColumnType("numeric(14,4)")
+                        .HasColumnName("ancho_mm");
+
+                    b.Property<string>("Auftnr")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("auftnr");
+
+                    b.Property<DateTime>("BearbZeit")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("bearb_zeit");
+
+                    b.Property<decimal?>("Cantidad")
+                        .HasPrecision(14, 4)
+                        .HasColumnType("numeric(14,4)")
+                        .HasColumnName("cantidad");
+
+                    b.Property<int>("Capas")
+                        .HasColumnType("integer")
+                        .HasColumnName("capas");
+
+                    b.Property<string>("ClaveSucursal")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("clave_sucursal");
+
+                    b.Property<string>("ComponenteRef")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("componente_ref");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<string>("Error")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("error");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("estado");
+
+                    b.Property<string>("Etiqueta")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("etiqueta");
+
+                    b.Property<string>("Folio")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("folio");
+
+                    b.Property<DateTimeOffset>("IntentadoAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("intentado_at");
+
+                    b.Property<int>("Operacion")
+                        .HasColumnType("integer")
+                        .HasColumnName("operacion");
+
+                    b.Property<string>("Origen")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("origen");
+
+                    b.Property<int>("Pos")
+                        .HasColumnType("integer")
+                        .HasColumnName("pos");
+
+                    b.Property<DateTimeOffset>("RegistradoAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("registrado_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_consumos_componente_aw");
+
+                    b.HasIndex("EmpresaId", "Estado", "IntentadoAt")
+                        .HasDatabaseName("ix_consumos_componente_aw_empresa_id_estado_intentado_at");
+
+                    b.HasIndex("EmpresaId", "Origen", "Etiqueta", "Operacion", "ComponenteRef")
+                        .IsUnique()
+                        .HasDatabaseName("ix_consumos_componente_aw_empresa_id_origen_etiqueta_operacion");
+
+                    b.ToTable("consumos_componente_aw", "almacen");
+                });
+
+            modelBuilder.Entity("Millet.Almacen.Domain.Consumo.NormaConsumoComponente", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ArticuloId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("articulo_id");
+
+                    b.Property<decimal>("ConsumoPorUnidad")
+                        .HasPrecision(14, 6)
+                        .HasColumnType("numeric(14,6)")
+                        .HasColumnName("consumo_por_unidad");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<decimal?>("FactorM3PorM2")
+                        .HasPrecision(14, 6)
+                        .HasColumnType("numeric(14,6)")
+                        .HasColumnName("factor_m3por_m2");
+
+                    b.Property<decimal>("PorcentajeMerma")
+                        .HasPrecision(7, 4)
+                        .HasColumnType("numeric(7,4)")
+                        .HasColumnName("porcentaje_merma");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_normas_consumo_componente");
+
+                    b.HasIndex("EmpresaId", "ArticuloId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_normas_consumo_componente_empresa_id_articulo_id");
+
+                    b.ToTable("normas_consumo_componente", "almacen");
+                });
+
             modelBuilder.Entity("Millet.Almacen.Domain.Conteos.BloqueoInventario", b =>
                 {
                     b.Property<Guid>("Id")

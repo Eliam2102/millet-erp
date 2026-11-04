@@ -13,15 +13,23 @@ import {
 } from '@/components/ui/table';
 import { facturacionKeys } from '@/features/facturacion/api/keys';
 import { ComportamientoFiscal } from '@/features/facturacion/api/types';
-import { usePedido, usePedidoComprobantes } from '@/features/facturacion/api/usePedidos';
+import {
+  usePedido,
+  usePedidoComprobantes,
+  usePedidoSalidas,
+} from '@/features/facturacion/api/usePedidos';
 import { useGenerarProforma, useUltimaProforma } from '@/features/facturacion/api/useProformas';
-import type { ProformaPedidoResponse } from '@/features/facturacion/api/types';
+import type {
+  ProformaPedidoResponse,
+  SalidaFacturableItem,
+} from '@/features/facturacion/api/types';
 import { ClasePedidoBadge } from '@/features/facturacion/components/ClasePedidoBadge';
 import { BadgeCredito } from '@/features/facturacion/components/BadgeCredito';
 import { AvisoCobrarEnCaja } from '@/features/facturacion/components/CobrarEnCajaLink';
 import { EmitirFacturaForm } from '@/features/facturacion/components/emitir-factura/EmitirFacturaForm';
 import { EstadoFacturacionBadge } from '@/features/facturacion/components/EstadoFacturacionBadge';
 import { ProformaPedidoCard } from '@/features/facturacion/components/ProformaPedidoCard';
+import { SalidasPedido } from '@/features/facturacion/components/SalidasPedido';
 import { VisorProformaDialog } from '@/features/facturacion/components/VisorProformaDialog';
 import { useNuevoPedido } from '@/features/facturacion/components/nuevo-pedido-context';
 import { TrazabilidadFacturacion } from '@/features/facturacion/components/TrazabilidadFacturacion';
@@ -105,11 +113,16 @@ function Contenido({
   const queryClient = useQueryClient();
   const nuevoPedido = useNuevoPedido();
   const [modoEmision, setModoEmision] = useState(false);
+  // FAC-08: parcialidad que se está facturando (null = el pedido completo).
+  const [salidaEnEmision, setSalidaEnEmision] = useState<SalidaFacturableItem | null>(null);
   const [emitida, setEmitida] = useState<{ id: string; folio: string } | null>(null);
   const puedeEmitir = useHasPermission(PermisosCanonicos.FacturacionFacturasEmitir);
   const puedeEditar = useHasPermission(PermisosCanonicos.FacturacionPedidosCapturar);
   const puedeLeerFacturas = useHasPermission(PermisosCanonicos.FacturacionFacturasLeer);
   const facturable = p.estado === 'Importado';
+  // FAC-08: un pedido con salidas parciales se factura por salida, no completo.
+  const salidas = usePedidoSalidas(p.id, puedeLeerFacturas);
+  const haySalidas = (salidas.data?.salidas.length ?? 0) > 0;
   // U1.8a: proforma sin valor fiscal (no consume folio) antes de timbrar.
   const ultimaProforma = useUltimaProforma(p.id, puedeLeerFacturas);
   const generarProforma = useGenerarProforma();
@@ -157,6 +170,28 @@ function Contenido({
   // F6.1: pedido manual legacy sin clase → no se puede facturar hasta clasificarlo.
   const manualSinClase = p.origen === 'Manual' && p.claseManual == null;
   const esEmergencia = p.esEmergencia === true || p.claseManual === 'Emergencia';
+  const bloqueoEmision = manualSinClase
+    ? 'Clasifica el pedido (venta directa o emergencia) antes de facturarlo.'
+    : undefined;
+
+  function cerrarEmision() {
+    setModoEmision(false);
+    setSalidaEnEmision(null);
+  }
+
+  // FAC-08: con parcialidad, las partidas son las de la salida (mismas
+  // posiciones y cantidades, en orden). El descuento sale del importe que la
+  // salida ya calculó, así la suma de las facturas cuadra con el pedido.
+  const lineasEmision = salidaEnEmision
+    ? [...salidaEnEmision.lineas]
+        .sort((a, b) => a.posicion - b.posicion)
+        .flatMap((sl) => {
+          const l = p.lineas.find((x) => x.posicion === sl.posicion);
+          if (l == null) return [];
+          const bruto = sl.cantidad * l.precio;
+          return [{ l, cantidad: sl.cantidad, descuento: Math.max(0, redondear2(bruto - sl.importe)) }];
+        })
+    : p.lineas.map((l) => ({ l, cantidad: l.cantidad, descuento: l.descuento }));
 
   if (modoEmision) {
     return (
@@ -169,11 +204,16 @@ function Contenido({
             estado={<ChipEstadoPedido estado={p.estado} />}
           />
           <ClasePedidoBadge clasificacion={p} />
-          <span className="text-sm text-ink-muted">Emitiendo factura · {p.clienteNombre}</span>
+          <span className="text-sm text-ink-muted">
+            Emitiendo factura · {p.clienteNombre}
+            {salidaEnEmision && ` · parcialidad ${salidaEnEmision.numeroParcialidad}`}
+          </span>
         </div>
         <EmitirFacturaForm
           prefill={{
             pedidoFacturableId: p.id,
+            salidaFacturableId: salidaEnEmision?.id ?? null,
+            numeroParcialidad: salidaEnEmision?.numeroParcialidad ?? null,
             embarqueCe: p.embarqueCe,
             // F6.1: clase del pedido manual (serie de Venta directa, activo).
             origen: p.origen,
@@ -204,14 +244,14 @@ function Contenido({
             referenciaCliente: p.numeroPedido,
             observaciones: p.comentarios,
             condicionesPago: p.condicionPagoOrigen,
-            lineas: p.lineas.map((l) => ({
+            lineas: lineasEmision.map(({ l, cantidad, descuento }) => ({
               productoId: l.productoId,
               claveProdServSat: l.claveProdServSat ?? '',
               descripcion: l.productoDescripcion,
               claveUnidadSat: l.claveUnidadSat ?? '',
-              cantidad: l.cantidad,
+              cantidad,
               valorUnitario: l.precio,
-              descuento: l.descuento,
+              descuento,
               requierePedimento: l.requierePedimento,
               objetoImp: l.objetoImp,
               tasaIvaTraslado: l.tasaIvaTraslado,
@@ -219,11 +259,11 @@ function Contenido({
               tasaRetencionIsr: l.tasaRetencionIsr,
             })),
           }}
-          onCancel={() => setModoEmision(false)}
+          onCancel={cerrarEmision}
           onEditarPedido={
             puedeEditar && editable
               ? () => {
-                  setModoEmision(false);
+                  cerrarEmision();
                   nuevoPedido.abrir(p);
                 }
               : undefined
@@ -233,7 +273,7 @@ function Contenido({
             void queryClient.invalidateQueries({
               queryKey: facturacionKeys.pedidos(),
             });
-            setModoEmision(false);
+            cerrarEmision();
           }}
         />
       </div>
@@ -293,11 +333,11 @@ function Contenido({
           {puedeEmitir && facturable && (
             <Button
               onClick={() => setModoEmision(true)}
-              disabled={manualSinClase}
+              disabled={manualSinClase || haySalidas}
               title={
-                manualSinClase
-                  ? 'Clasifica el pedido (venta directa o emergencia) antes de facturarlo.'
-                  : undefined
+                haySalidas
+                  ? 'El pedido se factura por salidas parciales: factura cada parcialidad en «Salidas parciales».'
+                  : bloqueoEmision
               }
             >
               <Receipt className="mr-2 h-4 w-4" />
@@ -440,6 +480,22 @@ function Contenido({
         </p>
       </section>
 
+      {puedeLeerFacturas && (
+        <SalidasPedido
+          pedidoId={p.id}
+          moneda={p.moneda}
+          facturable={facturable}
+          puedeCapturar={puedeEditar}
+          puedeEmitir={puedeEmitir}
+          bloqueoEmision={bloqueoEmision}
+          salidas={salidas}
+          onFacturarSalida={(s) => {
+            setSalidaEnEmision(s);
+            setModoEmision(true);
+          }}
+        />
+      )}
+
       {(p.anticiposLigados?.length ?? 0) > 0 && (
         <section className="space-y-2">
           <h2 className="text-sm font-medium">Anticipos del pedido ({p.anticiposLigados!.length})</h2>
@@ -537,6 +593,10 @@ function Contenido({
 
 export function ChipEstadoPedido({ estado }: { estado: string }) {
   return <EstadoFacturacionBadge entidad="pedido" estado={estado} />;
+}
+
+function redondear2(v: number): number {
+  return Math.round(v * 100) / 100;
 }
 
 function Dato({ label, children }: { label: string; children: React.ReactNode }) {
