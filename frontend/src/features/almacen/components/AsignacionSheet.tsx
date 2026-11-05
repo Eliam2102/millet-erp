@@ -1,3 +1,4 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { FormCampo } from '@/components/erp/forms/FormGrid';
 import { SheetBody } from '@/components/ui/sheet';
@@ -89,19 +90,19 @@ export function AsignacionSheet({ open, onOpenChange }: AsignacionSheetProps) {
       if (error.code === 'ARTICULO_NO_INVENTARIABLE') {
         form.setError('articuloId', {
           type: error.code,
-          message: error.problem.detail ?? 'Es un servicio (no inventariable); no se asigna a una ubicación.',
+          message: "Es un servicio (no inventariable); no se asigna a una ubicación.",
         });
         return;
       }
       if (applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)) {
         return;
       }
-      toast.error(error.problem.title, {
-        description: error.problem.detail,
+      toast.error(errorUsuario(error), {
+        description: errorUsuario(error),
       });
       return;
     }
-    toast.error('Error inesperado al asignar el artículo.');
+    toast.error("Error inesperado al asignar el artículo. Revisa los datos del registro; si continúa, avisa a soporte.");
   }
 
   const isPending = crear.isPending;
@@ -112,7 +113,7 @@ export function AsignacionSheet({ open, onOpenChange }: AsignacionSheetProps) {
         <SheetHeader>
           <SheetTitle>Asignar artículo a una ubicación</SheetTitle>
           <SheetDescription>
-            Elige el artículo y la ubicación donde vivirá. Se creará su existencia en 0 ahí.
+            Asigna un artículo a la ubicación donde se almacenará, con existencia inicial de cero.
           </SheetDescription>
         </SheetHeader>
 

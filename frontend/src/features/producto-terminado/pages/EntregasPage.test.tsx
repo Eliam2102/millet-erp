@@ -33,7 +33,7 @@ describe('EntregasPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Ver entregas' }));
     expect(screen.getByText('Por entregar')).toBeInTheDocument();
     expect(screen.getByText('Entrega parcial')).toBeInTheDocument();
-    expect(screen.getByText('71 · En ruta')).toBeInTheDocument();
+    expect(screen.getByText("En ruta")).toBeInTheDocument();
     expect(screen.getByText(/Rechazadas en sitio \(E2\): Vidrio con rayón/)).toBeInTheDocument();
     expect(screen.getByText(/pendiente de liquidar en caja/)).toBeInTheDocument();
   });

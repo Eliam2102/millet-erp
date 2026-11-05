@@ -18,14 +18,14 @@ const resultadoUi: Record<ResultadoEntrega, { texto: string; tono: 'success' | '
   Parcial: { texto: 'Entrega parcial', tono: 'warning' },
   Rechazada: { texto: 'Rechazada en sitio', tono: 'danger' },
 };
-const pedidoUi = { '71': { texto: '71 · En ruta', tono: 'info' }, Entregado: { texto: 'Entregado · falta factura', tono: 'neutral' }, '115': { texto: '115 · Facturado y entregado', tono: 'success' } } as const;
+const pedidoUi = { '71': { texto: "En ruta", tono: 'info' }, Entregado: { texto: 'Entregado · falta factura', tono: 'neutral' }, '115': { texto: "Facturado y entregado", tono: 'success' } } as const;
 
 /** Entrega al cliente (PT5.6): el chofer confirma cada pedido de su ruta con firma o foto, parcial o rechazo en sitio. Pensada para celular y tablet. */
 export function EntregasPage() {
   const operar = useAuthStore((s) => s.permisos.includes(P.ProductoTerminadoExcepcionesGestionar));
   const lista = useHojasSalida({ estado: 'Emitida', pageSize: 50 });
   const sucursales = useSucursales();
-  const nombre = (id: string) => sucursales.data?.items.find((s) => s.id === id)?.nombre ?? id.slice(0, 8);
+  const nombre = (id: string) => sucursales.data?.items.find((s) => s.id === id)?.nombre ?? 'Sin sucursal';
   const [abierta, setAbierta] = useState<string | null>(null);
   const detalle = useHojaSalida(abierta);
   const [confirmando, setConfirmando] = useState<string | null>(null);
@@ -33,8 +33,8 @@ export function EntregasPage() {
 
   return (
     <main className="flex h-full min-h-0 flex-col gap-5 overflow-auto text-sm">
-      <Breadcrumbs items={[{ label: 'Producto Terminado' }, { label: 'Entregas' }]} />
-      <PageHeader titulo="Entregas al cliente" descripcion="Rutas emitidas: confirma cada pedido con la firma o una foto de quien recibe. Si el cliente rechaza piezas en sitio, la entrega queda parcial y esas piezas regresan a revisión. Cuando el pedido está facturado y entregado pasa a 115." />
+      <Breadcrumbs items={[{ label: "Producto terminado" }, { label: 'Entregas' }]} />
+      <PageHeader titulo="Entregas al cliente" descripcion="Confirma las entregas de cada ruta con la firma o una foto de quien recibe y registra las piezas rechazadas." />
       {aviso && <p role="status" className="rounded-md bg-success-bg p-3 text-success-fg">{aviso}</p>}
       {lista.isError ? (
         <ErrorState title="No se pudieron cargar las rutas" onRetry={() => void lista.refetch()} />
@@ -63,7 +63,7 @@ export function EntregasPage() {
       )}
       {abierta && detalle.data && (
         <section aria-label={`Entregas de la ruta ${detalle.data.folio}`} className="flex flex-col gap-3 rounded-lg bg-surface-card p-4 shadow-card-flat">
-          <h2 className="text-base font-medium">Ruta {detalle.data.folio} · {detalle.data.destino}</h2>
+          <h2 className="text-md font-semibold">Ruta {detalle.data.folio} · {detalle.data.destino}</h2>
           <div className="grid items-start gap-3 xl:grid-cols-2">
             {detalle.data.albaranes.map((a) => (
               <PedidoEntrega

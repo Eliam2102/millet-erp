@@ -1,3 +1,4 @@
+import { errorDeReporte } from '@/lib/error-usuario';
 import { ReporteAlmacen } from '../components/ReporteAlmacen';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -13,7 +14,6 @@ import { ArticuloSelector } from '@/components/erp';
 import { useReporteTrazabilidadMp } from '@/features/almacen/api/useSaldosCierreReportes';
 import { useSubAlmacenes } from '@/features/almacen/api/useAlmacenes';
 import type { TrazabilidadMpFila } from '@/features/almacen/api/types';
-import { esApiError } from '@/lib/api';
 import { Field } from '@/features/almacen/components/internal/Field';
 
 const SENTINEL_ALL = '__all__';
@@ -42,7 +42,7 @@ export function ReporteTrazabilidadMpPage() {
     <ReporteAlmacen<TrazabilidadMpFila>
       reporte={query.data}
       isLoading={query.isLoading}
-      error={esApiError(query.error) ? query.error : undefined}
+      error={errorDeReporte(query.error)}
       onRetry={() => query.refetch()}
       filtrosUi={
         <div className="flex flex-wrap items-end gap-3">

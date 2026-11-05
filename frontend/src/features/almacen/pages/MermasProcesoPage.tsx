@@ -1,3 +1,5 @@
+import { problemaUsuario } from '@/lib/error-usuario';
+import { errorUsuario } from '@/lib/error-usuario';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/erp/PageHeader';
@@ -22,13 +24,12 @@ import {
 import { useDecidirMerma, useMermasProceso, type MermaProceso } from '@/features/almacen/api/useMermasProceso';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError } from '@/lib/api';
 
 const ESTADOS = { 1: 'PENDIENTE', 2: 'APLICADA', 3: 'RECHAZADA' } as const;
 const ESTADO_UI: Record<MermaProceso['estado'], { texto: string; variante: BadgeProps['variant'] }> = {
   PENDIENTE: { texto: 'Pendiente de autorizar', variante: 'warning' },
   APLICADA: { texto: 'Aplicada', variante: 'success' },
-  RECHAZADA: { texto: 'Rechazada', variante: 'neutral' },
+  RECHAZADA: { texto: 'Rechazada', variante: 'danger' },
 };
 const num = (n: number | null, dec: number) =>
   n === null ? '—' : n.toLocaleString('es-MX', { minimumFractionDigits: dec, maximumFractionDigits: dec });
@@ -67,7 +68,7 @@ export function MermasProcesoPage() {
           setMotivoRechazo(null);
         },
         onError: (e) => {
-          toast.error(esApiError(e) ? (e.problem.detail ?? e.problem.title) : 'No se pudo guardar la decisión');
+          toast.error(errorUsuario(e, 'No se pudo guardar la decisión'));
           setAutorizando(null);
         },
       },
@@ -78,20 +79,20 @@ export function MermasProcesoPage() {
     <div className="space-y-5">
       <PageHeader
         titulo="Desperdicio y merma"
-        descripcion="Desperdicio diario de cada mesa de corte y merma por etapa y motivo, como los informa A+W. La merma se aplica hasta que se autoriza."
+        descripcion="Consulta el desperdicio reportado por A+W y autoriza las mermas por etapa y motivo antes de aplicarlas."
       />
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <KpiCard etiqueta="Desperdicio de mesas aplicado" valor={`${num(desperdicioM2, 2)} m²`} tono="info" />
+        <KpiCard etiqueta="Desperdicio de mesas aplicado" valor={query.isSuccess ? `${num(desperdicioM2, 2)} m²` : <span className="text-ink-muted">—</span>} tono="info" />
         <KpiCard
           etiqueta="Mermas pendientes de autorizar"
-          valor={conteos[1]}
+          valor={query.isSuccess ? conteos[1] : <span className="text-ink-muted">—</span>}
           tono={conteos[1] > 0 ? 'warning' : 'success'}
           subdato="No bajan producción en proceso hasta autorizarse"
         />
         <KpiCard
           etiqueta="Valor absorbido en el costo del PT"
-          valor={<MoneyDisplay amount={valorAplicado} currency="MXN" strong />}
+          valor={<MoneyDisplay amount={query.isSuccess ? valorAplicado : null} currency="MXN" />}
           tono="neutral"
           subdato="m² × costo promedio de la hoja"
         />
@@ -107,7 +108,7 @@ export function MermasProcesoPage() {
             ]}
             valor={tab}
             onChange={setTab}
-            conteos={conteos}
+            conteos={query.isSuccess ? conteos : undefined}
             aria-label="Filtrar por estado"
           />
         }
@@ -115,7 +116,7 @@ export function MermasProcesoPage() {
         {query.isError ? (
           <ErrorState
             title="No se pudo cargar el desperdicio y la merma"
-            problem={esApiError(query.error) ? query.error.problem : undefined}
+            problem={problemaUsuario(query.error)}
             onRetry={() => query.refetch()}
           />
         ) : query.isLoading ? (

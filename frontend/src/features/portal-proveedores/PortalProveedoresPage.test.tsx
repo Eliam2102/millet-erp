@@ -112,7 +112,7 @@ it('sube el XML y distingue «Recibimos tu documento» de «Ya lo teníamos»; m
   await enviar();
   expect(await screen.findByText('Ya lo teníamos.')).toBeTruthy();
   await enviar();
-  expect(await screen.findByText(/no coincide con el de tu empresa/)).toBeTruthy();
+  expect(await screen.findByText('El RFC del emisor del CFDI no coincide con el de tu empresa. Revisa el RFC del XML y carga un documento de tu empresa.')).toBeTruthy();
   const post = fetchMock.mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === 'POST');
   expect((post?.[1] as RequestInit).headers).toEqual({ Authorization: 'Bearer tok' });
   expect((post?.[1] as RequestInit).body).toBeInstanceOf(FormData);

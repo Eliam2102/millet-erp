@@ -508,7 +508,7 @@ describe('<AccionesRequisicion>', () => {
     );
     screen.getByRole('button', { name: /eliminar/i }).click();
     await screen.findByText(/Eliminar requisición/i);
-    expect(screen.getByText(/volverá a proponerla/i)).toBeInTheDocument();
+    expect(screen.getByText(/volverá a solicitarlo/i)).toBeInTheDocument();
   });
 
   it('eliminar una RQ MANUAL no muestra el aviso de reabasto', async () => {
@@ -518,7 +518,7 @@ describe('<AccionesRequisicion>', () => {
     });
     screen.getByRole('button', { name: /eliminar/i }).click();
     await screen.findByText(/Eliminar requisición/i);
-    expect(screen.queryByText(/volverá a proponerla/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/volverá a solicitarlo/i)).not.toBeInTheDocument();
   });
 
   it('click Cancelar abre ModalMotivo en variante "cancelar"', async () => {

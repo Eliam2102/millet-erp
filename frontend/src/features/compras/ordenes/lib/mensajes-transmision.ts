@@ -1,4 +1,5 @@
-import { esApiError, mensajeErrorAccion } from '@/lib/api/error';
+import { esApiError } from '@/lib/api/error';
+import { errorUsuario as mensajeErrorAccion } from '@/lib/error-usuario';
 
 /**
  * Mensajes legibles para los códigos 422 que devuelve
@@ -7,6 +8,7 @@ import { esApiError, mensajeErrorAccion } from '@/lib/api/error';
  * borrador y se exige al transmitir).
  */
 const MENSAJES_TRANSMISION: Readonly<Record<string, string>> = {
+  TRANSMITIR_SIN_LINEAS: 'Agrega al menos una partida antes de enviar la orden a autorización.',
   OC_FICHA_TECNICA_REQUERIDA:
     'Adjunta la ficha técnica de la orden antes de enviarla a autorización.',
   IMPORT_INCOTERM_REQUERIDO:
@@ -30,7 +32,7 @@ const MENSAJES_TRANSMISION: Readonly<Record<string, string>> = {
 export function mensajeErrorTransmision(error: unknown): string {
   const code = esApiError(error) ? error.code : undefined;
   if (code === 'OC_PRECIO_REQUERIDO' && esApiError(error) && error.problem.detail) {
-    return error.problem.detail;
+    return mensajeErrorAccion(error, MENSAJES_TRANSMISION.OC_PRECIO_REQUERIDO);
   }
   return (code && MENSAJES_TRANSMISION[code]) || mensajeErrorAccion(error);
 }

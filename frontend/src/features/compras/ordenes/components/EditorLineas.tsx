@@ -1,3 +1,4 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import {
   Table,
   TableHeader,
@@ -135,7 +136,7 @@ export function EditorLineas({ oc }: EditorLineasProps) {
         return;
       }
       toast.error('No se pudo eliminar la partida.', {
-        description: err instanceof Error ? err.message : 'Error desconocido.',
+        description: err instanceof Error ? errorUsuario(err) : 'Error desconocido.',
       });
     }
   }
