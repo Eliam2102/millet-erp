@@ -282,7 +282,7 @@ public sealed class ExpedientesHttpTests
         {
             var cierre = await Send(client, HttpMethod.Post, $"{Base}/{id}/{ruta}", new { clave = "cerrado", fechaReal = hoy, responsableUsuarioId = escenario.Responsable, motivo = "FIX-CE no aplica" }, etag);
             Assert.Equal(HttpStatusCode.UnprocessableEntity, cierre.StatusCode);
-            Assert.Equal(ruta.EndsWith("omitir", StringComparison.Ordinal) ? "CE_HITO_NO_OMITIBLE" : "CE_CIERRE_FINANCIERO_PENDIENTE", (await Json(cierre)).GetProperty("code").GetString());
+            Assert.Equal(ruta.EndsWith("omitir", StringComparison.Ordinal) ? "CE_HITO_NO_OMITIBLE" : ruta == "cerrar" ? "CE_TRES_CIERRES_PENDIENTES" : "CE_CIERRE_GERENCIA_REQUERIDO", (await Json(cierre)).GetProperty("code").GetString());
         }
         Assert.Equal(HttpStatusCode.Forbidden, (await Send(lectura, HttpMethod.Post, $"{Base}/{id}/cerrar", null, etag)).StatusCode);
         Assert.Equal(4, await escenario.EventosHitoAsync(id));
@@ -456,6 +456,14 @@ public sealed class ExpedientesHttpTests
                 oc.ActualizarInformacionImportacion(origen.InformacionImportacion);
                 compras.OrdenesCompra.Add(oc);
                 await compras.SaveChangesAsync();
+                var ce = scope.ServiceProvider.GetRequiredService<ComercioExteriorDbContext>();
+                foreach (var tipo in await db.AdjuntoTiposDocumento.Where(t => t.TipoEntidad == "expediente_ce").ToArrayAsync())
+                {
+                    var operacion = tipo.Codigo.StartsWith("IMP_", StringComparison.Ordinal) ? Millet.ComercioExterior.Domain.TipoExpediente.Importacion : Millet.ComercioExterior.Domain.TipoExpediente.Exportacion;
+                    if (!await ce.RequisitosHitos.AnyAsync(r => r.TipoDocumentoId == tipo.Id))
+                        ce.RequisitosHitos.Add(new(DemoSesionSeedHostedService.EmpresaId, operacion, tipo.Id, "documentacion-completa"));
+                }
+                await ce.SaveChangesAsync();
                 e.Oc = id;
                 await e.EstadoOcAsync(EstadoOrdenCompra.Autorizada);
                 return e;

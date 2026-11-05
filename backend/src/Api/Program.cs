@@ -270,6 +270,9 @@ if (!string.IsNullOrWhiteSpace(outboxConnString))
     // (pagos, reversas, REPP, cancelaciones).
     builder.Services.AddHostedService<Millet.CuentasPorPagar.Infrastructure.Workers.TesoreriaEventListenerWorker>();
     builder.Services.AddHostedService<Millet.CuentasPorPagar.Infrastructure.Workers.ComercioExteriorEventListenerWorker>();
+    builder.Services.AddHostedService<Millet.ComercioExterior.Infrastructure.Workers.FacturacionEventListenerWorker>();
+    builder.Services.AddHostedService<Millet.ComercioExterior.Infrastructure.Workers.TesoreriaEventListenerWorker>();
+    builder.Services.AddHostedService<Millet.Tesoreria.Infrastructure.Workers.ComercioExteriorEventListenerWorker>();
 
     // Triada: listener Service Bus para eventos de Compras
     // (OC autorizada, OC cancelada). Cierra inbound Compras → CxP

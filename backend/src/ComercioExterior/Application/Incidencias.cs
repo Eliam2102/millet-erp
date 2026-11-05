@@ -17,14 +17,14 @@ public sealed record HistorialIncidenciaDto(EstadoIncidencia Estado, Guid ActorI
 public sealed record IncidenciaDto(Guid Id, TipoIncidencia Tipo, EstadoIncidencia Estado, DateOnly Fecha, Guid ResponsableUsuarioId,
     string ResponsableNombre, string Motivo, string? Descripcion, Guid? ParticipanteId, Guid[] DocumentosIds, Guid[] EvidenciasIds,
     string? AccionCorrectiva, string? EfectoPosterior, string? HitoClave, Guid? ContenedorId, Guid? PartidaId,
-    string? PedimentoAnterior, string? PedimentoNuevo, string? MotivoCancelacion, int AntiguedadDias, IReadOnlyList<HistorialIncidenciaDto> Historial);
+    string? PedimentoAnterior, string? PedimentoNuevo, string? MotivoCancelacion, int AntiguedadDias, IReadOnlyList<HistorialIncidenciaDto> Historial, DateOnly? FechaCompromiso = null, string? SiguienteAccion = null, decimal? CantidadAnterior = null, decimal? CantidadNueva = null, Guid? AjusteAutorizadoPorId = null);
 public sealed record AvisoIncidenciaDto(Guid Id, Guid IncidenciaId, Guid DestinatarioUsuarioId, DateTimeOffset Fecha);
 public static class IncidenciaMap
 {
     public static IncidenciaDto Dto(IncidenciaExpediente i, IReadOnlyDictionary<Guid, string> nombres, DateOnly hoy) => new(i.Id, i.Tipo, i.Estado, i.Fecha, i.ResponsableUsuarioId,
         nombres.GetValueOrDefault(i.ResponsableUsuarioId, "Sin responsable"), i.Motivo, i.Descripcion, i.ParticipanteId, i.DocumentosIds, i.EvidenciasIds,
         i.AccionCorrectiva, i.EfectoPosterior, i.HitoClave, i.ContenedorId, i.PartidaId, i.PedimentoAnterior, i.PedimentoNuevo, i.MotivoCancelacion,
-        Antiguedad(i, hoy), i.Historial.OrderBy(h => h.Fecha).ThenBy(h => h.Estado).Select(h => new HistorialIncidenciaDto(h.Estado, h.ActorId, h.Fecha, h.Motivo)).ToArray());
+        Antiguedad(i, hoy), i.Historial.OrderBy(h => h.Fecha).ThenBy(h => h.Estado).Select(h => new HistorialIncidenciaDto(h.Estado, h.ActorId, h.Fecha, h.Motivo)).ToArray(), i.FechaCompromiso, i.SiguienteAccion, i.CantidadAnterior, i.CantidadNueva, i.AjusteAutorizadoPorId);
     public static int Antiguedad(IncidenciaExpediente i, DateOnly hoy) => Math.Max(0,
         (i.Pendiente ? hoy : FechaContable.HoyLocal(i.Historial.Max(h => h.Fecha))).DayNumber - i.Fecha.DayNumber);
 }
@@ -69,6 +69,8 @@ public sealed class CrearIncidenciaValidator : AbstractValidator<CrearIncidencia
         RuleFor(x => x.ExpedienteId).NotEmpty(); RuleFor(x => x.Version).GreaterThan(0); RuleFor(x => x.Datos).NotNull();
         When(x => x.Datos != null, () => {
             RuleFor(x => x.Datos.Tipo).IsInEnum(); RuleFor(x => x.Datos.Fecha).NotEmpty(); RuleFor(x => x.Datos.ResponsableUsuarioId).NotEmpty();
+            RuleFor(x => x.Datos.FechaCompromiso).NotNull().WithMessage("Capture la fecha compromiso.");
+            RuleFor(x => x.Datos.SiguienteAccion).NotEmpty().MaximumLength(2000).WithMessage("Capture la siguiente acción (máximo 2000 caracteres).");
             RuleFor(x => x.Datos.Motivo).NotEmpty().MinimumLength(5).MaximumLength(500);
             RuleFor(x => x.Datos.Descripcion).MaximumLength(2000); RuleFor(x => x.Datos.AccionCorrectiva).MaximumLength(2000); RuleFor(x => x.Datos.EfectoPosterior).MaximumLength(2000);
             RuleFor(x => x.Datos.DocumentosIds).Must(x => x == null || x.Length <= 100); RuleFor(x => x.Datos.EvidenciasIds).Must(x => x == null || x.Length <= 100);

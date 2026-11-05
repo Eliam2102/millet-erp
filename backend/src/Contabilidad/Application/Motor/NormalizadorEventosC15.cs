@@ -113,6 +113,7 @@ public static partial class NormalizadorEventos
         NotaCargoAutorizada => NotaProveedor(tipo, eventoId, payload, DocNotaCargo, TipoDocumentoPuente.NotaCargo),
         AnticipoProveedorCapturado => AnticipoProveedor(eventoId, payload),
         RevaluacionCierreRegistrada or RevaluacionCierreRevertida => RevaluacionCierre(tipo, eventoId, payload),
+        PagoAnticipoAgente => PagoProveedor(eventoId, payload),
         PagoProveedorAplicado => PagoProveedor(eventoId, payload),
         PagoClienteConfirmado => PagoCliente(eventoId, payload),
         FacturaVentaTimbrada => FacturaVenta(eventoId, payload),
@@ -247,6 +248,11 @@ public static partial class NormalizadorEventos
     private static EventoContable PagoProveedor(Guid eventoId, string payload)
     {
         var p = Leer<PagoProveedorContrato>(payload);
+        if (p.EsAnticipoAgente)
+            return new(PagoAnticipoAgente, eventoId, p.EmpresaId, p.FechaPago, Doc(DocPagoProveedor, p.PagoId, p.ReferenciaBancaria),
+                p.SucursalId, p.ProveedorId, null, null, null, MonedaDe(p.Moneda), p.TipoCambio,
+                new Dictionary<string, decimal?> { ["Total"] = p.Monto }, [], payload,
+                LlaveOverride: $"{PagoAnticipoAgente}:{p.PagoId}");
         return new(PagoProveedorAplicado, eventoId, p.EmpresaId, p.FechaPago, Doc(DocPagoProveedor, p.PagoId, p.ReferenciaBancaria),
             null, null, null, null, null, MonedaDe(p.Moneda), p.TipoCambio,
             new Dictionary<string, decimal?> { ["Total"] = p.Monto }, [], payload, FacturaOrigenId: p.FacturaProveedorId);
@@ -437,7 +443,7 @@ public static partial class NormalizadorEventos
         decimal? Perdida, decimal? Utilidad);
 
     private sealed record PagoProveedorContrato(Guid EmpresaId, Guid FacturaProveedorId, Guid PagoId, decimal Monto, string? Moneda,
-        DateOnly FechaPago, string? ReferenciaBancaria, decimal? TipoCambio);
+        DateOnly FechaPago, string? ReferenciaBancaria, decimal? TipoCambio, bool EsAnticipoAgente = false, Guid? SucursalId = null, Guid? ProveedorId = null);
 
     private sealed record PagoRevertidoContrato(Guid PagoOriginalId, string? Motivo);
 

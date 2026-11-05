@@ -131,7 +131,7 @@ public sealed class EmitirFacturaVentaHandler
                 if (string.IsNullOrWhiteSpace(embarque.Incoterm))
                     throw new BusinessRuleException("CE_INCOTERM_REQUERIDO", "Seleccione un Incoterm vigente en el expediente.");
                 copiaCe = new(embarque.FolioExpediente!, embarque.NumeroPedimento!, embarque.ClavePedimento!, embarque.FechaPedimento!.Value,
-                    embarque.Incoterm, Array.AsReadOnly(embarque.Contenedores!.Select(c => new ContenedorFacturaCe(c.Numero, c.BlGuia, c.FechaEmbarqueReal)).ToArray()), embarque.Aduana, embarque.AduanaNombre);
+                    embarque.Incoterm, Array.AsReadOnly(embarque.Contenedores!.Select(c => new ContenedorFacturaCe(c.Numero, c.BlGuia, c.FechaEmbarqueReal)).ToArray()), embarque.Aduana, embarque.AduanaNombre, embarque.ExpedienteId, embarque.VersionEmbarque, pedidoCe);
                 if (embarque.ClavePedimento == "RT")
                 {
                     command = command with { Cce = null };
@@ -145,7 +145,8 @@ public sealed class EmitirFacturaVentaHandler
                 {
                     if (command.Cce is null) throw new BusinessRuleException("FAC_CCE_REQUERIDO", "Complete las mercancías y el receptor del CCE para la exportación A1.");
                     command = command with { ComportamientoFiscal = ComportamientoFiscal.ExportacionConCce,
-                        Cce = command.Cce with { ClaveDePedimento = "A1", Incoterm = embarque.Incoterm } };
+                        Cce = command.Cce with { ClaveDePedimento = "A1", Incoterm = embarque.Incoterm,
+                            Lineas = DatosAduanalesFactura.Aplicar(command.Cce.Lineas, embarque.DatosAduanales) } };
                 }
             }
         }
@@ -306,6 +307,7 @@ public sealed class EmitirFacturaVentaHandler
         if (salida is not null) factura.LigarSalida(salida.Id, salida.PedidoFacturableId);
 
         if (copiaCe is not null) factura.TomarEmbarqueCe(copiaCe);
+        else if (sustituida?.DatosEmbarqueCe is { } copiaOriginal) factura.TomarEmbarqueCe(copiaOriginal with { PedidoFacturableId = sustituida.PedidoFacturableId });
 
         // 5.quater F9: vincula + consume la autorización de venta de activo fijo.
         if (autorizacion is not null)

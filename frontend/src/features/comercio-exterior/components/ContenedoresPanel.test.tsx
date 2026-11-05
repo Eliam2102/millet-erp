@@ -240,3 +240,17 @@ describe('Contenedores de exportación', () => {
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 });
+
+describe('Importación con cantidades propias', () => {
+  it('muestra remanente de la OC y envía la cantidad al contenedor', async () => {
+    state.data = { ...state.data!, partidas: [], pedidos: [], partidasImportacion: [],
+      partidasOc: [{ id: 'oc-linea', posicion: 1, descripcion: 'Material de prueba', cantidad: 10, unidad: 'PZA', remanente: 4 }] };
+    render(<ContenedoresPanel data={{ ...data, expediente: { ...data.expediente, tipo: 1 } }} />);
+    expect(screen.getByText('4 PZA')).toBeInTheDocument();
+    expect(screen.queryByText('Pedimento de exportación')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Partida de la OC *'), { target: { value: 'oc-linea' } });
+    fireEvent.change(screen.getByLabelText('Cantidad embarcada *'), { target: { value: '4' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Asignar partida de la OC' }));
+    await waitFor(() => expect(state.mutar).toHaveBeenCalledWith({ ruta: 'contenedores/c1/partidas-importacion', body: { ocLineaId: 'oc-linea', cantidad: 4 } }));
+  });
+});

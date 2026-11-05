@@ -8,6 +8,7 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence;
 public sealed partial class ComercioExteriorDbContext(DbContextOptions<ComercioExteriorDbContext> options, ICurrentEmpresaContext empresa) : BaseDbContext(options, empresa)
 {
     public const string SchemaName = "comercio_exterior";
+    public DbSet<RequisitoHitoConfiguracion> RequisitosHitos => Set<RequisitoHitoConfiguracion>();
     public DbSet<OtrEntradaControl> OtrEntradasControl => Set<OtrEntradaControl>();
     public DbSet<OtrEnvio> OtrEnvios => Set<OtrEnvio>();
     public DbSet<OtrSalida> OtrSalidas => Set<OtrSalida>();
@@ -24,8 +25,21 @@ public sealed partial class ComercioExteriorDbContext(DbContextOptions<ComercioE
     {
         modelBuilder.HasDefaultSchema(SchemaName);
         modelBuilder.HasSequence<long>("folio_seq", SchemaName);
+        var rh = modelBuilder.Entity<RequisitoHitoConfiguracion>();
+        rh.ToTable("requisitos_hitos"); rh.HasKey(x => x.Id); rh.Property(x => x.Id).ValueGeneratedNever();
+        rh.Property(x => x.Tipo).HasConversion<string>(); rh.Property(x => x.HitoClave).HasMaxLength(40);
+        rh.HasIndex(x => new { x.EmpresaId, x.Tipo, x.TipoDocumentoId }).IsUnique();
         var e = modelBuilder.Entity<Expediente>();
-        e.ToTable("expedientes");
+        e.HasMany(x => x.Facturas).WithOne().HasForeignKey(x => x.ExpedienteId).OnDelete(DeleteBehavior.Restrict);
+        e.Navigation(x => x.Facturas).UsePropertyAccessMode(PropertyAccessMode.Field);
+        var fc = modelBuilder.Entity<FacturaExpediente>(); fc.ToTable("facturas"); fc.HasKey(x => x.Id); fc.Property(x => x.Id).ValueGeneratedNever(); fc.Ignore(x => x.AggregateRootId);
+        fc.Property(x => x.Uuid).HasMaxLength(36); fc.Property(x => x.UuidOriginal).HasMaxLength(36); fc.Property(x => x.Folio).HasMaxLength(100);
+        e.ToTable("expedientes"); e.Ignore(x => x.SalidaAutorizada);
+        e.HasMany(x => x.AutorizacionesSalida).WithOne().HasForeignKey(x => x.ExpedienteId).OnDelete(DeleteBehavior.Restrict);
+        e.Navigation(x => x.AutorizacionesSalida).UsePropertyAccessMode(PropertyAccessMode.Field);
+        var au = modelBuilder.Entity<AutorizacionSalida>(); au.ToTable("autorizaciones_salida"); au.HasKey(x => x.Id); au.Property(x => x.Id).ValueGeneratedNever();
+        au.Property(x => x.ContenidoJson).HasColumnType("jsonb");
+        au.Ignore(x => x.AggregateRootId); au.Property(x => x.Motivo).HasMaxLength(500); au.HasIndex(x => new { x.ExpedienteId, x.Secuencia }).IsUnique();
         e.HasKey(x => x.Id);
         e.Property(x => x.Id).ValueGeneratedNever();
         e.Property(x => x.Folio).HasMaxLength(24);
@@ -91,6 +105,12 @@ public sealed partial class ComercioExteriorDbContext(DbContextOptions<ComercioE
         d.Property(x => x.NumeroPedimento).HasMaxLength(100);
         e.HasMany(x => x.Contenedores).WithOne().HasForeignKey(x => x.ExpedienteId).OnDelete(DeleteBehavior.Restrict);
         e.Navigation(x => x.Contenedores).UsePropertyAccessMode(PropertyAccessMode.Field);
+        e.HasMany(x => x.PartidasImportacion).WithOne().HasForeignKey(x => x.ExpedienteId).OnDelete(DeleteBehavior.Restrict);
+        e.Navigation(x => x.PartidasImportacion).UsePropertyAccessMode(PropertyAccessMode.Field);
+        var pi = modelBuilder.Entity<PartidaImportacion>();
+        pi.ToTable("partidas_importacion"); pi.HasKey(x => x.Id); pi.Property(x => x.Id).ValueGeneratedNever();
+        pi.Ignore(x => x.AggregateRootId); pi.Property(x => x.Cantidad).HasPrecision(18, 6); pi.Property(x => x.Unidad).HasMaxLength(20);
+        pi.HasOne<ContenedorExpediente>().WithMany().HasForeignKey(x => x.ContenedorId).OnDelete(DeleteBehavior.Restrict);
         e.HasMany(x => x.Partidas).WithOne().HasForeignKey(x => x.ExpedienteId).OnDelete(DeleteBehavior.Restrict);
         e.Navigation(x => x.Partidas).UsePropertyAccessMode(PropertyAccessMode.Field);
         e.HasMany(x => x.VinculosPedidos).WithOne().HasForeignKey(x => x.ExpedienteId).OnDelete(DeleteBehavior.Restrict);
@@ -112,6 +132,8 @@ public sealed partial class ComercioExteriorDbContext(DbContextOptions<ComercioE
         var pe = modelBuilder.Entity<PartidaEmbarcada>();
         pe.ToTable("partidas_embarcadas"); pe.HasKey(x => x.Id); pe.Property(x => x.Id).ValueGeneratedNever();
         pe.Ignore(x => x.AggregateRootId); pe.Property(x => x.Estado).HasConversion<string>();
+        pe.Property(x => x.FraccionArancelaria).HasMaxLength(20); pe.Property(x => x.UnidadAduana).HasMaxLength(20);
+        pe.Property(x => x.PesoKg).HasPrecision(18, 6);
         pe.Property(x => x.Cantidad).HasPrecision(18, 6); pe.Property(x => x.Unidad).HasMaxLength(20);
         pe.HasIndex(x => new { x.EmpresaId, x.PedidoFacturableId, x.Posicion });
         pe.HasOne<ContenedorExpediente>().WithMany().HasForeignKey(x => x.ContenedorId).OnDelete(DeleteBehavior.Restrict);

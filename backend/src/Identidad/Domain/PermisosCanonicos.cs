@@ -646,6 +646,8 @@ public static class PermisosCanonicos
     public const string ActivosFijosGestionarTodasSucursales = "activos_fijos.activos.gestionar-todas-sucursales";
 
     // Comercio Exterior (CE-01a), namespace 0000000e.
+    public const string ComercioExteriorEmbarquesAutorizarSalida = "comercio_exterior.embarques.autorizar_salida";
+    public const string ComercioExteriorExpedientesAprobarCierre = "comercio_exterior.expedientes.aprobar_cierre";
     public const string ComercioExteriorGastosRegistrar = "comercio_exterior.gastos.registrar";
     public const string ComercioExteriorGastosDistribuir = "comercio_exterior.gastos.distribuir";
     public const string ComercioExteriorAnticiposGestionar = "comercio_exterior.anticipos.gestionar";
@@ -1036,6 +1038,8 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000d-0007-0000-0000-000000000003"), ContabilidadRechazosGestionar,          "Reprocesar o descartar (con motivo) los eventos rechazados por el motor de pólizas"),
 
         // CE-01a. Namespace 0000000e, agregado al final para integrar otros PR.
+        (Guid.Parse("0000000e-0007-0000-0000-000000000001"), ComercioExteriorEmbarquesAutorizarSalida, "Autorizar o rechazar la salida de un embarque"),
+        (Guid.Parse("0000000e-0007-0000-0000-000000000002"), ComercioExteriorExpedientesAprobarCierre, "Aprobar el cierre del expediente (Gerencia)"),
         (Guid.Parse("0000000e-0006-0000-0000-000000000001"), ComercioExteriorGastosRegistrar, "Registrar gastos"),
         (Guid.Parse("0000000e-0006-0000-0000-000000000002"), ComercioExteriorGastosDistribuir, "Distribuir gastos"),
         (Guid.Parse("0000000e-0006-0000-0000-000000000003"), ComercioExteriorAnticiposGestionar, "Gestionar anticipos al agente"),

@@ -19,6 +19,13 @@ public sealed class ContenedoresTests
         var id = Guid.NewGuid(); e.GuardarContenedor(id, new(completo ? "DEMO-C" : null, "S", "B", completo ? "DEMO-BL" : null, "R", Hoy, 10, 1)); return id;
     }
     private static void Pedimento(Expediente e, string clave = "A1") => e.RegistrarPedimentoExportacion("DEMO-PEDIMENTO", clave, Hoy, Hoy, "16");
+    private static void PrepararSalida(Expediente e)
+    {
+        foreach (var partida in e.Partidas.ToArray()) e.GuardarDatosAduanales(partida.Id, "70071999", "06", Actor, new(2026, 10, 16, 18, 0, 0, TimeSpan.Zero), true);
+        e.AutorizarSalida(Guid.NewGuid(), new(2026, 10, 16, 18, 0, 0, TimeSpan.Zero), null, true);
+    }
+    private static void Embarcar(Expediente e, Guid c, DateOnly fecha, DateOnly hoy)
+    { PrepararSalida(e); e.RegistrarEmbarque(c, fecha, hoy); }
     private static void Codigo(string code, Action action) => Assert.Equal(code, Assert.Throws<BusinessRuleException>(action).Code);
 
     [Theory]
@@ -36,7 +43,7 @@ public sealed class ContenedoresTests
     public void Pedimento_guarda_aduana_y_libera_facturacion()
     {
         var e = Nuevo(); var c = Contenedor(e); var p = Pedido(e);
-        Pedimento(e); e.AsignarPartida(c, p, 1, 100, Actor); e.RegistrarEmbarque(c, Hoy, Hoy);
+        Pedimento(e); e.AsignarPartida(c, p, 1, 100, Actor); Embarcar(e, c, Hoy, Hoy);
         Assert.Equal("16", e.AduanaPedimentoExportacion);
         Assert.Null(e.BloqueoFacturacion(p).Codigo);
     }
@@ -48,7 +55,7 @@ public sealed class ContenedoresTests
         Pedimento(e); e.AsignarPartida(c, p, 1, 100, Actor);
         typeof(Expediente).GetProperty(nameof(Expediente.AduanaPedimentoExportacion))!.SetValue(e, null);
         Assert.True(e.PedimentoExportacionVigente());
-        e.RegistrarEmbarque(c, Hoy, Hoy);
+        Embarcar(e, c, Hoy, Hoy);
         Assert.Equal("CE_PEDIMENTO_SIN_ADUANA", e.BloqueoFacturacion(p).Codigo);
         Pedimento(e); Assert.Null(e.BloqueoFacturacion(p).Codigo);
     }
@@ -69,7 +76,7 @@ public sealed class ContenedoresTests
     public void Fecha_pedimento_posterior_a_embarque_no_impone_regla_no_confirmada()
     {
         var e = Nuevo(); var c = Contenedor(e); Pedimento(e);
-        e.RegistrarEmbarque(c, Hoy.AddDays(-1), Hoy);
+        Embarcar(e, c, Hoy.AddDays(-1), Hoy);
         Assert.Equal(Hoy.AddDays(-1), e.Contenedor(c).FechaEmbarqueReal);
     }
     [Fact]
@@ -89,7 +96,7 @@ public sealed class ContenedoresTests
         var p1 = Pedido(e, 60); var p2 = Pedido(e, 40);
         e.AsignarPartida(c1, p1, 1, 60, Actor); e.AsignarPartida(c2, p2, 1, 40, Actor);
         Assert.Equal("FAC_PEDIDO_NO_EMBARCADO", e.BloqueoFacturacion(p1).Codigo);
-        e.RegistrarEmbarque(c1, Hoy, Hoy);
+        Embarcar(e, c1, Hoy, Hoy);
         Assert.Null(e.BloqueoFacturacion(p1).Codigo); Assert.Equal("FAC_PEDIDO_NO_EMBARCADO", e.BloqueoFacturacion(p2).Codigo);
         Assert.Contains("40", e.BloqueoFacturacion(p2).Motivo);
     }
@@ -105,12 +112,14 @@ public sealed class ContenedoresTests
     [Fact]
     public void K4_cambio_de_version_requiere_reconfirmar_sin_copiar_datos_comerciales()
     {
-        var e = Nuevo(); var c = Contenedor(e); Pedimento(e); var p = Pedido(e); e.AsignarPartida(c, p, 1, 100, Actor); e.RegistrarEmbarque(c, Hoy, Hoy);
+        var e = Nuevo(); var c = Contenedor(e); Pedimento(e); var p = Pedido(e); e.AsignarPartida(c, p, 1, 100, Actor); Embarcar(e, c, Hoy, Hoy);
         Assert.Null(e.BloqueoFacturacion(p).Codigo);
         var modificado = p with { VersionOrigen = 2 };
         Assert.Equal("CE_PARTIDA_REQUIERE_REVISION", e.BloqueoFacturacion(modificado).Codigo);
         e.ActualizarRevisiones([modificado]); Assert.Equal(EstadoPartida.RequiereRevision, e.Partidas.Single().Estado);
         var revisor = Guid.NewGuid(); e.ConfirmarPartida(e.Partidas.Single().Id, modificado, revisor);
+        Assert.Equal("CE_SALIDA_SIN_AUTORIZAR", e.BloqueoFacturacion(modificado).Codigo);
+        PrepararSalida(e);
         Assert.Null(e.BloqueoFacturacion(modificado).Codigo); Assert.Equal(revisor, e.Partidas.Single().ConfirmadoPorId);
         Assert.Equal(2, e.Partidas.Single().VersionOrigenAsignada);
         Assert.DoesNotContain(typeof(PartidaEmbarcada).GetProperties(), prop => prop.Name is "Precio" or "Descripcion" or "Total");
@@ -129,11 +138,11 @@ public sealed class ContenedoresTests
     [InlineData("A1")][InlineData("RT")]
     public void K6_sin_pedimento_no_embarca_con_pedimento_vigente_si(string clave)
     {
-        var e = Nuevo(); var c = Contenedor(e); Codigo("CE_EMBARQUE_SIN_PEDIMENTO", () => e.RegistrarEmbarque(c, Hoy, Hoy));
+        var e = Nuevo(); var c = Contenedor(e); Codigo("CE_EMBARQUE_SIN_PEDIMENTO", () => Embarcar(e, c, Hoy, Hoy));
         Pedimento(e, clave); var incompleto = Contenedor(e, false);
-        Codigo("CE_EMBARQUE_DATOS_REQUERIDOS", () => e.RegistrarEmbarque(incompleto, Hoy, Hoy));
-        Codigo("CE_FECHA_EMBARQUE_INVALIDA", () => e.RegistrarEmbarque(c, Hoy.AddDays(1), Hoy));
-        e.RegistrarEmbarque(c, Hoy, Hoy); Assert.Equal(Hoy, e.Contenedor(c).FechaEmbarqueReal);
+        Codigo("CE_EMBARQUE_DATOS_REQUERIDOS", () => Embarcar(e, incompleto, Hoy, Hoy));
+        Codigo("CE_FECHA_EMBARQUE_INVALIDA", () => Embarcar(e, c, Hoy.AddDays(1), Hoy));
+        Embarcar(e, c, Hoy, Hoy); Assert.Equal(Hoy, e.Contenedor(c).FechaEmbarqueReal);
     }
     [Fact]
     public void K7_pedimento_versionado_usa_numero_vigente_y_marca_revision()
@@ -155,7 +164,7 @@ public sealed class ContenedoresTests
         Assert.Equal(EstadoContenedor.Activo, e.Contenedor(c1).Estado);
         e.CancelarContenedor(c1, "DEMO booking cancelado", false); Assert.Single(e.Partidas); Assert.Equal("Importado", p.Estado);
         Assert.Equal("FAC_PEDIDO_NO_EMBARCADO", e.BloqueoFacturacion(p).Codigo);
-        e.AsignarPartida(c2, p, 1, 100, Actor); e.RegistrarEmbarque(c2, Hoy, Hoy); Assert.Null(e.BloqueoFacturacion(p).Codigo);
+        e.AsignarPartida(c2, p, 1, 100, Actor); Embarcar(e, c2, Hoy, Hoy); Assert.Null(e.BloqueoFacturacion(p).Codigo);
     }
     [Fact]
     public void Pedido_reducido_no_se_confirma_hasta_corregir_asignaciones()

@@ -54,16 +54,17 @@ public sealed class CrearExpedienteHandler(ComercioExteriorDbContext db, Expedie
     }
 }
 
-public sealed class MutarExpedienteHandler(ComercioExteriorDbContext db, ExpedienteServicio servicio, ICatalogosCeReadPort catalogos, IIntegrationEventPublisher eventos, IClock clock, IPedidosEmbarcablesReadPort pedidos) : IRequestHandler<MutarExpedienteCommand, ExpedienteDetalle>
+public sealed class MutarExpedienteHandler(ComercioExteriorDbContext db, ExpedienteServicio servicio, ICatalogosCeReadPort catalogos, IIntegrationEventPublisher eventos, IClock clock, IPedidosEmbarcablesReadPort pedidos, IOcImportacionReadPort compras) : IRequestHandler<MutarExpedienteCommand, ExpedienteDetalle>
 {
     public async Task<ExpedienteDetalle> Handle(MutarExpedienteCommand request, CancellationToken cancellationToken)
     {
         var permiso = request.Accion switch
         {
-            "cerrar" => PermisosCanonicos.ComercioExteriorExpedientesCerrar,
+            "cerrar" => PermisosCanonicos.ComercioExteriorExpedientesAprobarCierre,
+            "cerrar-fisico" or "cerrar-documental" or "cerrar-financiero" => PermisosCanonicos.ComercioExteriorExpedientesCerrar,
             "hito-compromiso" or "hito-real" or "hito-omitir" => PermisosCanonicos.ComercioExteriorExpedientesHitosRegistrar,
             "cancelar" => PermisosCanonicos.ComercioExteriorExpedientesCancelar,
-            "revisar-documentos" => PermisosCanonicos.ComercioExteriorExpedientesDocumentosRevisar,
+            "requisito-hito" or "revisar-documentos" => PermisosCanonicos.ComercioExteriorExpedientesDocumentosRevisar,
             "documentos" => PermisosCanonicos.ComercioExteriorExpedientesAdjuntosSubir,
             "editar" or "participantes" => PermisosCanonicos.ComercioExteriorExpedientesEditar,
             _ => throw new BusinessRuleException("CE_ACCION_INVALIDA", "Acción desconocida.")};
@@ -87,8 +88,24 @@ public sealed class MutarExpedienteHandler(ComercioExteriorDbContext db, Expedie
         e.ExigirAbierto();
         switch (request.Accion)
         {
+            case "requisito-hito":
+                var rh = request.RequisitoHito ?? throw new BusinessRuleException("CE_DOCUMENTO_INVALIDO", "Seleccione el requisito y su hito.");
+                if (!(await catalogos.RequisitosAsync(e.Tipo, cancellationToken)).Any(r => r.Id == rh.TipoDocumentoId))
+                    throw new BusinessRuleException("CE_TIPO_DOCUMENTO_INVALIDO", "El documento no corresponde al tipo de operación.");
+                var config = await db.RequisitosHitos.SingleOrDefaultAsync(x => x.Tipo == e.Tipo && x.TipoDocumentoId == rh.TipoDocumentoId, cancellationToken);
+                if (config is null) db.RequisitosHitos.Add(new(e.EmpresaId, e.Tipo, rh.TipoDocumentoId, rh.HitoClave));
+                else config.Cambiar(rh.HitoClave);
+                break;
             case "cerrar":
-                e.Cerrar();
+            case "cerrar-fisico":
+            case "cerrar-documental":
+            case "cerrar-financiero":
+                var requisitosCierre = await catalogos.RequisitosAsync(e.Tipo, cancellationToken);
+                var adjuntosCierre = await catalogos.AdjuntosVigentesAsync(e.Id, cancellationToken);
+                var ocCierre = e.OcId is Guid ocId ? await compras.ObtenerAsync(ocId, cancellationToken) : null;
+                var recibidas = ocCierre?.Partidas?.ToDictionary(p => p.Id, p => p.CantidadRecibida) ?? [];
+                if (request.Accion == "cerrar") e.AprobarCierre(servicio.Actor, clock.UtcNow, requisitosCierre, adjuntosCierre, recibidas);
+                else e.CerrarDimension(request.Accion[7..], servicio.Actor, clock.UtcNow, requisitosCierre, adjuntosCierre, recibidas);
                 break;
             case "hito-compromiso":
             case "hito-real":

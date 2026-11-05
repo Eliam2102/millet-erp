@@ -62,7 +62,13 @@ export function IncidenciasPanel({ data }: { data: ExpedienteDetalle }) {
           <p className="text-xs text-ink-muted">
             {i.fecha} · {i.responsableNombre} · {i.antiguedadDias} días
           </p>
+          {i.fechaCompromiso && (
+            <p>
+              Fecha compromiso: {i.fechaCompromiso} · Siguiente acción: {i.siguienteAccion}
+            </p>
+          )}
           {i.descripcion && <p>{i.descripcion}</p>}
+          {i.tipo === 11 && <AjusteCantidad data={data} incidencia={i} />}
           {i.accionCorrectiva && <p>Acción correctiva: {i.accionCorrectiva}</p>}
           {i.efectoPosterior && <p>Efecto posterior: {i.efectoPosterior}</p>}
           {i.pedimentoNuevo && (
@@ -174,6 +180,8 @@ function IncidenciaForm({
   const [fecha, setFecha] = useState(
     new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Merida' }).format(new Date()),
   );
+  const [compromiso, setCompromiso] = useState('');
+  const [siguiente, setSiguiente] = useState('');
   const [responsable, setResponsable] = useState<string | null>(data.responsableUsuarioId);
   const [motivo, setMotivo] = useState('');
   const [descripcion, setDescripcion] = useState('');
@@ -187,6 +195,7 @@ function IncidenciaForm({
   const [adjuntoPedimento, setAdjuntoPedimento] = useState('');
   const [contenedor, setContenedor] = useState('');
   const [partida, setPartida] = useState('');
+  const [cantidadNueva, setCantidadNueva] = useState('');
   const vigentes = (archivos.data ?? []).filter(
     (a) => !a.bajaEn && a.estado !== EstadoAdjunto.Vencido,
   );
@@ -208,6 +217,8 @@ function IncidenciaForm({
           : {
               tipo,
               fecha,
+              fechaCompromiso: compromiso,
+              siguienteAccion: siguiente,
               responsableUsuarioId: responsable,
               motivo,
               descripcion: descripcion || null,
@@ -219,6 +230,7 @@ function IncidenciaForm({
               evidenciasIds: evidencias,
               contenedorId: contenedor || null,
               partidaId: partida || null,
+              cantidadNueva: tipo === 11 ? Number(cantidadNueva) : null,
             },
       });
       onClose();
@@ -255,6 +267,27 @@ function IncidenciaForm({
                   required
                   value={fecha}
                   onChange={(e) => setFecha(e.target.value)}
+                />
+              </FormCampo>
+              <FormCampo span={6}>
+                <Label htmlFor="inc-compromiso">Fecha compromiso *</Label>
+                <Input
+                  id="inc-compromiso"
+                  type="date"
+                  required
+                  min={fecha}
+                  value={compromiso}
+                  onChange={(e) => setCompromiso(e.target.value)}
+                />
+              </FormCampo>
+              <FormCampo span={12}>
+                <Label htmlFor="inc-siguiente">Siguiente acción *</Label>
+                <Input
+                  id="inc-siguiente"
+                  required
+                  maxLength={2000}
+                  value={siguiente}
+                  onChange={(e) => setSiguiente(e.target.value)}
                 />
               </FormCampo>
               <FormCampo span={6}>
@@ -331,7 +364,21 @@ function IncidenciaForm({
                   ))}
                 </fieldset>
               </FormCampo>
-              {data.expediente.tipo === 2 && (
+              {tipo === 11 && (
+                <FormCampo span={6}>
+                  <Label htmlFor="inc-cantidad-nueva">Nueva cantidad embarcada *</Label>
+                  <Input
+                    id="inc-cantidad-nueva"
+                    type="number"
+                    min="0.000001"
+                    step="0.000001"
+                    required
+                    value={cantidadNueva}
+                    onChange={(e) => setCantidadNueva(e.target.value)}
+                  />
+                </FormCampo>
+              )}
+              {(data.expediente.tipo === 2 || tipo === 11) && (
                 <ReferenciasEmbarque
                   id={id}
                   contenedor={contenedor}
@@ -566,7 +613,7 @@ function ReferenciasEmbarque({
           onChange={(e) => onPartida(e.target.value)}
         >
           <option value="">Sin partida</option>
-          {q.data?.data.partidas
+          {[...(q.data?.data.partidas ?? []), ...(q.data?.data.partidasImportacion ?? [])]
             .filter((p) => !contenedor || p.contenedorId === contenedor)
             .map((p) => (
               <option key={p.id} value={p.id}>
@@ -599,5 +646,45 @@ function ReferenciaAfectada({
       {incidencia.partidaId &&
         `Partida afectada: ${partida ? `${partida.posicion} · ${partida.cantidad} ${partida.unidad}` : 'Retirada del embarque; se conserva la referencia en el historial'}.`}
     </p>
+  );
+}
+
+function AjusteCantidad({
+  data,
+  incidencia: i,
+}: {
+  data: ExpedienteDetalle;
+  incidencia: Incidencia;
+}) {
+  const permitido =
+    useHasPermission(P.ComercioExteriorExpedientesEditar) && data.expediente.estado === 1;
+  const accion = useAccionExpediente(data.expediente.id);
+  return (
+    <div className="space-y-2">
+      <p>
+        Cantidad anterior: {i.cantidadAnterior} · Nueva cantidad: {i.cantidadNueva}
+      </p>
+      {permitido && i.estado < 3 && (
+        <Button
+          variant="outline"
+          disabled={accion.isPending}
+          title={accion.isPending ? 'Autorizando ajuste.' : undefined}
+          onClick={() => {
+            void accion
+              .mutateAsync({ accion: `incidencias/${i.id}/autorizar-ajuste` })
+              .catch(() => {});
+          }}
+        >
+          Autorizar ajuste
+        </Button>
+      )}
+      {accion.isError && (
+        <p role="alert" className="text-danger-fg">
+          {esApiError(accion.error)
+            ? (accion.error.problem.detail ?? accion.error.problem.title)
+            : 'No se pudo autorizar el ajuste.'}
+        </p>
+      )}
+    </div>
   );
 }

@@ -34,9 +34,12 @@ public static class ExpedientesEndpoints
         padre.MapPost("/participantes", async (Guid id, ParticipanteDatos body, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) => await Mutar(id, "participantes", request, response, mediator, ct, participante: body)).RequireAuthorization(Policy(PermisosCanonicos.ComercioExteriorExpedientesEditar)).WithMetadata(new RequireIdempotencyKeyAttribute());
         padre.MapPatch("/participantes/{participanteId:guid}", async (Guid id, Guid participanteId, ParticipanteDatos body, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) => await Mutar(id, "participantes", request, response, mediator, ct, participante: body, participanteId: participanteId)).RequireAuthorization(Policy(PermisosCanonicos.ComercioExteriorExpedientesEditar)).WithMetadata(new RequireIdempotencyKeyAttribute());
         padre.MapPost("/documentos", async (Guid id, DocumentoDatos body, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) => await Mutar(id, "documentos", request, response, mediator, ct, documento: body)).RequireAuthorization(Policy(PermisosCanonicos.ComercioExteriorExpedientesAdjuntosSubir)).WithMetadata(new RequireIdempotencyKeyAttribute());
+        padre.MapPost("/requisito-hito", async (Guid id, RequisitoHitoDatos body, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) => await Mutar(id, "requisito-hito", request, response, mediator, ct, requisitoHito: body)).RequireAuthorization(Policy(PermisosCanonicos.ComercioExteriorExpedientesDocumentosRevisar)).WithMetadata(new RequireIdempotencyKeyAttribute());
         padre.MapPost("/revisar-documentos", async (Guid id, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) => await Mutar(id, "revisar-documentos", request, response, mediator, ct)).RequireAuthorization(Policy(PermisosCanonicos.ComercioExteriorExpedientesDocumentosRevisar)).WithMetadata(new RequireIdempotencyKeyAttribute());
         padre.MapPost("/cancelar", async (Guid id, MotivoRequest body, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) => await Mutar(id, "cancelar", request, response, mediator, ct, motivo: body.Motivo)).RequireAuthorization(Policy(PermisosCanonicos.ComercioExteriorExpedientesCancelar)).WithMetadata(new RequireIdempotencyKeyAttribute());
-        padre.MapPost("/cerrar", async (Guid id, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) => await Mutar(id, "cerrar", request, response, mediator, ct)).RequireAuthorization(Policy(PermisosCanonicos.ComercioExteriorExpedientesCerrar)).WithMetadata(new RequireIdempotencyKeyAttribute());
+        foreach (var dimension in new[] { "fisico", "documental", "financiero" })
+            padre.MapPost("/cerrar-" + dimension, async (Guid id, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) => await Mutar(id, "cerrar-" + dimension, request, response, mediator, ct)).RequireAuthorization(Policy(PermisosCanonicos.ComercioExteriorExpedientesCerrar)).WithMetadata(new RequireIdempotencyKeyAttribute());
+        padre.MapPost("/cerrar", async (Guid id, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) => await Mutar(id, "cerrar", request, response, mediator, ct)).RequireAuthorization(Policy(PermisosCanonicos.ComercioExteriorExpedientesAprobarCierre)).WithMetadata(new RequireIdempotencyKeyAttribute());
         foreach (var (ruta, accion) in new[] { ("compromiso", "hito-compromiso"), ("real", "hito-real"), ("omitir", "hito-omitir") })
             padre.MapPost("/hitos/{clave}/" + ruta, async (Guid id, string clave, HitoDatos body, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) => await Mutar(id, accion, request, response, mediator, ct, hito: body with { Clave = clave })).RequireAuthorization(Policy(PermisosCanonicos.ComercioExteriorExpedientesHitosRegistrar)).WithMetadata(new RequireIdempotencyKeyAttribute());
         padre.MapGet("/bitacora", async (Guid id, IMediator mediator, ExpedienteServicio servicio, Millet.SharedKernel.Application.IClock clock, CancellationToken ct) =>
@@ -56,14 +59,14 @@ public static class ExpedientesEndpoints
         return creado ? Results.Created($"{Base}/{dto.Expediente.Id}", dto) : Results.Ok(dto);
     }
 
-    private static async Task<IResult> Mutar(Guid id, string accion, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct, EditarExpedienteDatos? datos = null, ParticipanteDatos? participante = null, Guid? participanteId = null, DocumentoDatos? documento = null, string? motivo = null, HitoDatos? hito = null)
+    private static async Task<IResult> Mutar(Guid id, string accion, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct, EditarExpedienteDatos? datos = null, ParticipanteDatos? participante = null, Guid? participanteId = null, DocumentoDatos? documento = null, string? motivo = null, HitoDatos? hito = null, RequisitoHitoDatos? requisitoHito = null)
     {
         var raw = request.Headers.IfMatch.ToString();
         if (raw.Length < 3 || raw[0] != '"' || raw[^1] != '"' || !int.TryParse(raw.AsSpan(1, raw.Length - 2), NumberStyles.None, CultureInfo.InvariantCulture, out var version) || version < 1)
             return Results.Problem(statusCode: 428, title: "Envíe If-Match con el ETag vigente.", extensions: new Dictionary<string, object?> { ["code"] = "IF_MATCH_REQUIRED" });
         try
         {
-            return Respuesta(await mediator.Send(new MutarExpedienteCommand(id, version, accion, datos, participante, participanteId, documento, motivo, hito), ct), response);
+            return Respuesta(await mediator.Send(new MutarExpedienteCommand(id, version, accion, datos, participante, participanteId, documento, motivo, hito, requisitoHito), ct), response);
         }
         catch (DocumentosFaltantesException ex)
         {

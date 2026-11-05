@@ -50,7 +50,9 @@ public static partial class NormalizadorEventos
     {
         try
         {
-            return tipo == FacturaProveedorRegistrada ? FacturaProveedor(eventoId, payload)
+            return tipo == DevolucionAnticipoAgente ? DevolucionAgente(eventoId, payload)
+                : tipo == CostoImportacionAplicado ? CostoImportacion(eventoId, payload)
+                : tipo == FacturaProveedorRegistrada ? FacturaProveedor(eventoId, payload)
                 : NormalizarC15(tipo, eventoId, payload) ?? Generico(tipo, eventoId, payload);
         }
         catch (JsonException e)

@@ -43,7 +43,7 @@ public sealed record FacturaVentaTimbradaIntegrationEvent(
     // TR-01: pedido A+W de la factura y su versión en el ERP al emitirla (null si el pedido
     // no viene de A+W). Con esto Integraciones.Aw deja la fila Documento en aw_retorno.
     string? NumeroPedidoAw = null,
-    long? VersionPedidoAw = null)
+    long? VersionPedidoAw = null, Guid? ExpedienteCeId = null, int? VersionEmbarqueCe = null, string? UuidOriginal = null)
     : IntegrationEvent("facturacion.factura-venta.timbrada.v1", EmpresaId, OcurridoEn);
 
 /// <summary>
@@ -173,7 +173,7 @@ public sealed record ComprobanteCanceladoIntegrationEvent(
     string? NumeroPedidoAw = null,
     long? VersionPedidoAw = null,
     string? Folio = null,
-    decimal? Total = null)
+    decimal? Total = null, Guid? ExpedienteCeId = null, int? VersionEmbarqueCe = null, Guid? PedidoFacturableId = null, DateTimeOffset? FechaTimbrado = null, string? UuidOriginal = null)
     : IntegrationEvent("facturacion.comprobante.cancelado.v1", EmpresaId, OcurridoEn);
 
 // ---- Sesión de caja abierta (CAJAS-PR3, 12-cajas.md §10) ----

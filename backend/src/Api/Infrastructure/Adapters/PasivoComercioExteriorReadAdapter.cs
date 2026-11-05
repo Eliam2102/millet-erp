@@ -18,6 +18,11 @@ public sealed class PasivoComercioExteriorReadAdapter(
     public async Task<TipoOperacionComercioExterior?> TipoAsync(Guid facturaProveedorId, Guid? ordenCompraId, CancellationToken cancellationToken)
     {
         using var bypass = empresaContext.Bypass();
+        var tipoAnticipo = await (from a in ce.AnticiposAgente.AsNoTracking()
+            join e in ce.Expedientes.AsNoTracking() on a.ExpedienteId equals e.Id
+            where a.Id == facturaProveedorId select (TipoExpediente?)e.Tipo).FirstOrDefaultAsync(cancellationToken);
+        if (tipoAnticipo is not null) return tipoAnticipo == TipoExpediente.Importacion
+            ? TipoOperacionComercioExterior.Importacion : TipoOperacionComercioExterior.Exportacion;
         var tipo = await (from g in ce.Set<GastoExpediente>().AsNoTracking()
                           join e in ce.Expedientes.AsNoTracking() on g.ExpedienteId equals e.Id
                           where g.FacturaProveedorId == facturaProveedorId && e.Estado == EstadoExpediente.Abierto
