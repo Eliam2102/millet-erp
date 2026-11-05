@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Mvc;
 using Millet.Api.Auth;
 using Millet.Api.Web;
 using Millet.Identidad.Domain;
+using Millet.Identidad.Infrastructure;
+using Microsoft.EntityFrameworkCore;
 using Millet.Tesoreria.Application.Conciliaciones;
 using Millet.Tesoreria.Domain.Conciliaciones;
 
@@ -58,10 +60,18 @@ public static class ConciliacionesEndpoints
         conciliaciones.MapGet("/{id:guid}", async (
             Guid id,
             IMediator mediator,
+            IdentidadDbContext identidadDb,
             CancellationToken ct) =>
         {
             var res = await mediator.Send(new ObtenerConciliacionDetalleQuery(id), ct);
-            return Results.Ok(res);
+            var ids = res.Bitacora.Select(b => b.UsuarioId).Distinct().ToArray();
+            var nombres = await identidadDb.Usuarios.AsNoTracking()
+                .Where(u => ids.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id, u => u.Nombre, ct);
+            return Results.Ok(res with
+            {
+                Bitacora = res.Bitacora.Select(b => b with { UsuarioNombre = nombres.GetValueOrDefault(b.UsuarioId) }).ToList()
+            });
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaConciliacionOperar)
         .WithName("ObtenerConciliacionDetalle")

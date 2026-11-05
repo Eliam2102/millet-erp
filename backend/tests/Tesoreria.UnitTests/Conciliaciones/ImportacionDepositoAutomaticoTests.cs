@@ -136,6 +136,9 @@ public sealed class ImportacionDepositoAutomaticoTests
         var res = await Importar(e, e.Conc.Id);
 
         res.TotalLineas.Should().Be(5);
+        res.LineasNuevas.Should().Be(0);
+        res.LineasDuplicadas.Should().Be(5);
+        (await e.Db.ExtractoLineas.MaxAsync(l => l.NumeroLinea)).Should().Be(5); // reimportar no consume números
         res.Depositos.Should().Be(new ResumenDepositosAutomaticos(0, 0, 0));
         e.Publisher.Eventos.OfType<PagoClienteConfirmadoIntegrationEvent>().Should().ContainSingle();
         (await e.Db.MovimientosBancarios.CountAsync()).Should().Be(2);
@@ -153,6 +156,7 @@ public sealed class ImportacionDepositoAutomaticoTests
         var res = await Importar(e, otra.Id);
 
         res.TotalLineas.Should().Be(0);
+        res.LineasDuplicadas.Should().Be(5);
         e.Publisher.Eventos.OfType<PagoClienteConfirmadoIntegrationEvent>().Should().ContainSingle();
     }
 

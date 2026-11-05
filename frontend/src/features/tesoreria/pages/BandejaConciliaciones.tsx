@@ -609,6 +609,8 @@ export function BandejaConciliaciones() {
                       <Button
                         variant="secondary"
                         size="sm"
+                        title="Reabrir conciliación (requiere motivo)"
+                        aria-label="Reabrir conciliación"
                         onClick={() => setModalReabrir(true)}
                       >
                         <Unlock className="h-3.5 w-3.5" />
@@ -627,7 +629,12 @@ export function BandejaConciliaciones() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setModalCargarExtracto(true)}
+                  onClick={() => {
+                    setAutoEmparejarAlCargar(true);
+                    setSaldoFinalExtracto('');
+                    setContenidoExtracto('');
+                    setModalCargarExtracto(true);
+                  }}
                 >
                   <UploadCloud className="mr-1.5 h-4 w-4" />
                   Cargar Extracto BBVA
@@ -984,8 +991,8 @@ export function BandejaConciliaciones() {
                             <TableCell className="text-xs text-ink">
                               {b.motivo}
                             </TableCell>
-                            <TableCell className="text-xs text-ink-muted font-mono">
-                              {b.usuarioId.substring(0, 8)}...
+                            <TableCell className="text-xs text-ink-muted">
+                              {b.usuarioNombre ?? `${b.usuarioId.substring(0, 8)}...`}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -1101,7 +1108,7 @@ export function BandejaConciliaciones() {
           <DialogHeader>
             <DialogTitle>Cargar extracto bancario BBVA</DialogTitle>
             <DialogDescription>
-              Pega el texto del estado de cuenta o sube un archivo CSV/TXT exportado de BBVA Bancomer.
+              Pega el texto del estado de cuenta o elige un archivo CSV/TXT exportado de BBVA Bancomer.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -1128,7 +1135,17 @@ export function BandejaConciliaciones() {
               />
             </div>
             <div>
-              <Label className="text-xs">Contenido del extracto (Pegar texto o arrastrar archivo)</Label>
+              <Label className="text-xs">Contenido del extracto (pegar texto o elegir archivo)</Label>
+              <Input
+                type="file"
+                accept=".csv,.txt,text/csv,text/plain"
+                aria-label="Archivo del extracto"
+                className="mt-1 text-xs"
+                onChange={async (e) => {
+                  const archivo = e.target.files?.[0];
+                  if (archivo) setContenidoExtracto(await archivo.text());
+                }}
+              />
               <Textarea
                 rows={8}
                 placeholder="01/10/2026,PAGO PROVEEDOR,REF12345,1500.00,0.00&#10;02/10/2026,DEPOSITO CLIENTE,CLI999,0.00,25000.00"
@@ -1166,9 +1183,12 @@ export function BandejaConciliaciones() {
                   });
                   const dep = resumen.depositos;
                   toast.success('Extracto cargado y procesado correctamente', {
-                    description: dep
-                      ? `Depósitos: ${dep.autoConfirmados} confirmados solos, ${dep.enRevision} en revisión, ${dep.sinIdentificar} sin identificar.`
-                      : undefined,
+                    description: [
+                      `Líneas nuevas: ${resumen.lineasNuevas ?? 0}. Ya estaban cargadas: ${resumen.lineasDuplicadas ?? 0}.`,
+                      dep
+                        ? `Depósitos: ${dep.autoConfirmados} confirmados solos, ${dep.enRevision} en revisión, ${dep.sinIdentificar} sin identificar.`
+                        : null,
+                    ].filter(Boolean).join(' '),
                   });
                   setModalCargarExtracto(false);
                   setContenidoExtracto('');
