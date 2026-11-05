@@ -84,21 +84,55 @@ public sealed class AlmCompraSobreTests
     }
 
     [Fact]
-    public void Sin_entradas_el_sobre_no_trae_recepciones_y_con_entrada_lleva_hojas_lote_rack_e_importacion_solo_si_hay()
+    public void El_sobre_de_la_compra_nunca_trae_recepciones_ni_rack_ni_hojas_recibidas()
     {
-        AlmCompraSobre.Armar("m", "COMPRA_RECIBIDA", DateTimeOffset.UnixEpoch, "OC-5521", AlmCompraSobre.DatosCompra(Datos())).Should().NotContain("recepciones");
+        var sobre = AlmCompraSobre.Armar("m", "COMPRA_MODIFICADA", DateTimeOffset.UnixEpoch, "OC-5521", AlmCompraSobre.DatosCompra(Datos()));
+        sobre.Should().NotContain("recepciones").And.NotContain("rack").And.NotContain("fraccion");
+    }
 
-        var nacional = new AlmCompraRecepcion("EC-1", new DateOnly(2026, 11, 5), null, [new("1", 48, "L-7781", "R-A01", null)]);
-        var importada = new AlmCompraRecepcion("EC-2", new DateOnly(2026, 11, 5),
-            new("26 47 3456 6001234", "MAEU123456", "MSCU1234567", "470", "A1"), [new("1", 2, "L-7781", "R-A02", "70051001")]);
-        var sobre = AlmCompraSobre.Armar("ERP-OC-5521-M1", "COMPRA_MODIFICADA", DateTimeOffset.UnixEpoch, "OC-5521",
-            AlmCompraSobre.DatosCompra(Datos() with { Recepciones = [nacional, importada] }));
+    [Fact]
+    public void COMPRA_CANCELADA_exige_motivo_y_no_manda_fechaCancelacion()
+    {
+        var json = JsonSerializer.Serialize(AlmCompraSobre.DatosCancelada("OC-5521", "  Cambio de proveedor "));
+        json.Should().Contain("\"motivo\":\"Cambio de proveedor\"").And.NotContain("fechaCancelacion");
+        foreach (var vacio in new string?[] { null, "", "   " })
+            FluentActions.Invoking(() => AlmCompraSobre.DatosCancelada("OC-5521", vacio))
+                .Should().Throw<BusinessRuleException>().Which.Code.Should().Be("ALM_COMPRA_CANCELACION_SIN_MOTIVO");
+    }
 
-        var rec = JsonDocument.Parse(sobre).RootElement.GetProperty("datos").GetProperty("recepciones");
-        rec[0].TryGetProperty("importacion", out _).Should().BeFalse();
-        rec[0].GetProperty("lineas")[0].GetProperty("rack").GetString().Should().Be("R-A01");
-        rec[0].GetProperty("lineas")[0].GetProperty("piezas").GetInt32().Should().Be(48);
-        rec[1].GetProperty("importacion").GetProperty("bl").GetString().Should().Be("MAEU123456");
-        rec[1].GetProperty("lineas")[0].GetProperty("fraccion").GetString().Should().Be("70051001");
+    [Fact]
+    public void COMPRA_MODIFICADA_acepta_cambios_de_piezas_costo_moneda_y_pedimento_y_la_medida_girada()
+    {
+        var recibida = AlmCompraSobre.Armar("m", "COMPRA_RECIBIDA", DateTimeOffset.UnixEpoch, "OC-5521", AlmCompraSobre.DatosCompra(Datos()));
+        var l = Datos().Lineas[0] with { Piezas = 12, CostoM2 = 300m, Pedimento = "26 47 3456 6009999", Ancho = 6100, Alto = 3300 };
+        AlmCompraSobre.CampoFijoDistinto(recibida, Datos("USD", 17.5m) with { Lineas = [l] }).Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("folio")]
+    [InlineData("proveedor")]
+    [InlineData("lineaErp")]
+    [InlineData("requisicion")]
+    [InlineData("posicion")]
+    [InlineData("articuloAw")]
+    [InlineData("medidas")]
+    [InlineData("agregar")]
+    public void COMPRA_MODIFICADA_con_algo_que_no_cambia_distinto_se_detecta_antes_de_encolar(string campo)
+    {
+        var recibida = AlmCompraSobre.Armar("m", "COMPRA_RECIBIDA", DateTimeOffset.UnixEpoch, "OC-5521", AlmCompraSobre.DatosCompra(Datos()));
+        var d = Datos();
+        var l = d.Lineas[0];
+        d = campo switch
+        {
+            "folio" => d with { Folio = "OC-9999" },
+            "proveedor" => d with { ProveedorClaveAw = 165 },
+            "lineaErp" => d with { Lineas = [l with { LineaErp = "2" }] },
+            "requisicion" => d with { Lineas = [l with { Requisicion = "RQ-00000004" }] },
+            "posicion" => d with { Lineas = [l with { Posicion = 2 }] },
+            "articuloAw" => d with { Lineas = [l with { ArticuloAw = 100007 }] },
+            "medidas" => d with { Lineas = [l with { Ancho = 3302 }] },
+            _ => d with { Lineas = [l, l with { LineaErp = "2" }] },
+        };
+        AlmCompraSobre.CampoFijoDistinto(recibida, d).Should().NotBeNull();
     }
 }

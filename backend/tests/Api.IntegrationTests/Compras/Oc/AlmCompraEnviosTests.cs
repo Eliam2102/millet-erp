@@ -210,6 +210,25 @@ public partial class OrdenesCompraEndpointsTests
     }
 
     [Fact]
+    public async Task AlmCompra_con_recepcion_en_el_ERP_el_pedimento_ya_no_genera_COMPRA_MODIFICADA_ventana_de_TI()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var oc = await SembrarOcAppAutorizadaAsync(client);
+        await ProcesarBandejaAsync();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var db = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
+            db.Entry(await db.LineasOrdenCompra.SingleAsync(l => l.Id == oc.LineaOcId)).Property(l => l.CantidadRecibida).CurrentValue = 5m;
+            await db.SaveChangesAsync();
+            await scope.ServiceProvider.GetRequiredService<IMediator>().Send(new ActualizarNumeroPedimentoCommand(oc.OcId, "26 47 3456 6001234"));
+        }
+        // La entrada en el ERP tampoco manda COMPRA_MODIFICADA: la recepción es de Almacenes.
+        Assert.Equal(["COMPRA_RECIBIDA"], (await EnviosAsync(oc.OcId)).Select(f => f.Tipo));
+    }
+
+    [Fact]
     public async Task AlmCompra_MP_sin_RQ_de_la_app_tambien_se_manda_sin_requisicion_y_una_OC_que_no_es_MP_no_genera_nada()
     {
         var client = await CreateSuperAdminClientAsync();

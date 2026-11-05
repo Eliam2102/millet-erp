@@ -13,23 +13,12 @@ public sealed record AlmCompraLinea(
     decimal? CostoMedioM2 = null);
 
 /// <summary>
-/// Lo que Almacén recibió contra una línea de la compra: hojas, lote y rack; <c>fraccion</c> solo en importación.
-/// Campo aditivo del supuesto de C3.2 (no está en v6): pendiente del visto bueno por escrito de Jorge.
-/// </summary>
-public sealed record AlmCompraRecepcionLinea(string LineaErp, int Piezas, string? Lote, string? Rack, string? Fraccion);
-
-/// <summary>Documentos de la entrada de importación (pedimento, BL, contenedor, aduana, clave de pedimento). En compras nacionales no existe.</summary>
-public sealed record AlmCompraImportacion(string Pedimento, string Bl, string Contenedor, string Aduana, string ClavePedimento);
-
-public sealed record AlmCompraRecepcion(string? Folio, DateOnly Fecha, AlmCompraImportacion? Importacion, IReadOnlyList<AlmCompraRecepcionLinea> Lineas);
-
-/// <summary>
-/// Contenido de la compra completa (no en diferencias, regla de Jorge para COMPRA_MODIFICADA). <paramref name="Recepciones"/>
-/// son las entradas confirmadas en el ERP (CA13.8); <c>null</c> mientras no haya ninguna, así la COMPRA_RECIBIDA no cambia.
+/// Contenido de la compra completa (no en diferencias, regla de TI para COMPRA_MODIFICADA). La recepción (hojas, lote, rack)
+/// no viaja: es de Almacenes (TI, 5-nov).
 /// </summary>
 public sealed record AlmCompraDatos(
     string Folio, int ProveedorClaveAw, string ProveedorNombre, string Moneda, decimal? TipoCambio,
-    DateOnly FechaCompra, IReadOnlyList<AlmCompraLinea> Lineas, IReadOnlyList<AlmCompraRecepcion>? Recepciones = null);
+    DateOnly FechaCompra, IReadOnlyList<AlmCompraLinea> Lineas);
 
 /// <summary>Armado del sobre v1 y reglas puras de cantidad y costo.</summary>
 public static class AlmCompraSobre
@@ -55,8 +44,42 @@ public static class AlmCompraSobre
             mensajeId, tipo, version = 1, fecha, origen = "ERP", referencia, datos,
         }, Json);
 
-    public static object DatosCancelada(string folio, string? motivo) =>
-        new { folio, motivo = motivo is { Length: > 200 } ? motivo[..200] : motivo };
+    /// <summary>
+    /// COMPRA_CANCELADA.datos (TI, 5-nov): <c>folio</c> y <c>motivo</c> obligatorios; <c>fechaCancelacion</c> opcional (si falta,
+    /// Almacenes toma la fecha del mensaje), por eso no se manda.
+    /// </summary>
+    public static object DatosCancelada(string folio, string? motivo)
+    {
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new BusinessRuleException("ALM_COMPRA_CANCELACION_SIN_MOTIVO", "COMPRA_CANCELADA exige un motivo; Almacenes la rechaza sin él.");
+        return new { folio, motivo = motivo.Trim() };
+    }
+
+    /// <summary>
+    /// COMPRA_MODIFICADA: lo que no cambia (TI, 5-nov) debe coincidir con la COMPRA_RECIBIDA ya mandada: folio, proveedor y, por
+    /// línea, lineaErp, requisicion, posicion, articuloAw y medidas (en cualquier orientación). Devuelve el primer desajuste o <c>null</c>.
+    /// </summary>
+    public static string? CampoFijoDistinto(string sobreRecibida, AlmCompraDatos d)
+    {
+        using var doc = JsonDocument.Parse(sobreRecibida);
+        var o = doc.RootElement.GetProperty("datos");
+        if (o.GetProperty("folio").GetString() != d.Folio) return "folio";
+        if (o.GetProperty("proveedor").GetProperty("claveAw").GetInt32() != d.ProveedorClaveAw) return "proveedor";
+        var antes = o.GetProperty("lineas").EnumerateArray().ToList();
+        if (antes.Count != d.Lineas.Count) return "lineas (no se agregan ni se quitan)";
+        foreach (var l in d.Lineas)
+        {
+            var a = antes.FirstOrDefault(x => x.GetProperty("lineaErp").GetString() == l.LineaErp);
+            if (a.ValueKind == JsonValueKind.Undefined) return $"lineaErp {l.LineaErp}";
+            string? Txt(string n) => a.TryGetProperty(n, out var v) ? v.GetString() : null;
+            int? Num(string n) => a.TryGetProperty(n, out var v) ? v.GetInt32() : null;
+            if (Txt("requisicion") != l.Requisicion || Num("posicion") != l.Posicion) return $"requisicion/posicion de la línea {l.LineaErp}";
+            if (Num("articuloAw") != l.ArticuloAw) return $"articuloAw de la línea {l.LineaErp}";
+            if (Math.Max(Num("ancho") ?? 0, Num("alto") ?? 0) != Math.Max(l.Ancho ?? 0, l.Alto ?? 0)
+                || Math.Min(Num("ancho") ?? 0, Num("alto") ?? 0) != Math.Min(l.Ancho ?? 0, l.Alto ?? 0)) return $"medidas de la línea {l.LineaErp}";
+        }
+        return null;
+    }
 
     /// <summary>Datos de COMPRA_RECIBIDA y COMPRA_MODIFICADA (misma forma, completa).</summary>
     public static object DatosCompra(AlmCompraDatos d) => new
@@ -68,7 +91,6 @@ public static class AlmCompraSobre
         tipoCambio = d.Moneda == "MXN" ? null : d.TipoCambio,
         fechaCompra = d.FechaCompra,
         lineas = d.Lineas,
-        recepciones = d.Recepciones,
     };
 
     /// <summary>¿El <c>datos</c> de un sobre ya enviado es idéntico a la compra actual? Evita mandar una COMPRA_MODIFICADA sin cambios.</summary>
