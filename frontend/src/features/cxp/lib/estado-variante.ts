@@ -87,6 +87,7 @@ export const ESTADO_SOLICITUD_VIATICOS = armar(EstadoSolicitudViaticosLabels, {
   [EstadoSolicitudViaticos.ComprobacionCapturada]: 'info',
   [EstadoSolicitudViaticos.Liquidada]: 'success',
   [EstadoSolicitudViaticos.Rechazada]: 'danger',
+  [EstadoSolicitudViaticos.Devuelta]: 'warning',
 });
 
 export const ESTADO_TARJETA = armar(EstadoTarjetaLabels, {

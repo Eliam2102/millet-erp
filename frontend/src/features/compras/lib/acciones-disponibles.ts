@@ -310,6 +310,18 @@ export function accionRechazar(
 }
 
 /**
+ * <b>Devolver para corregir</b> — solo en <c>EnAutorizacion</c>; la RQ vuelve
+ * a Borrador con el comentario y no se cierra. Mismo permiso que rechazar
+ * (<c>compras.requisiciones.rechazar</c>).
+ */
+export function accionDevolver(
+  rq: RequisicionResponse,
+  permisos: readonly string[],
+): AccionDisponible {
+  return accionRechazar(rq, permisos);
+}
+
+/**
  * <b>Eliminar (RQ)</b> — pre-autorización solamente. Disponible en
  * <c>Borrador</c> y <c>EnAutorizacion</c>. Permiso:
  * <c>compras.requisiciones.eliminar</c>. Solo quien capturó la RQ

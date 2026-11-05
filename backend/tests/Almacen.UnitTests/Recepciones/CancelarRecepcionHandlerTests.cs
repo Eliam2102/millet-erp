@@ -203,7 +203,7 @@ public class CancelarRecepcionHandlerTests
         (await devolver.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("DEVOLUCION_RECEPCION_INVALIDA");
 
         var dictaminar = () => new DictaminarMaterialEnRevisionHandler(m.Db, new FakeUser(UsuarioB), new FakeEmpresa(), new FakeDecimales(),
-                new PeriodoContableStub(true), null!, new FakeOc())
+                new PeriodoContableStub(true), null!, new FakeOc(), null!)
             .Handle(new DictaminarMaterialEnRevisionCommand(lineaRevision.Id, ResultadoDictamen.Baja, 1m, "Rotas", new DateOnly(2026, 10, 23), null), default);
         await dictaminar.Should().ThrowAsync<EntityNotFoundException>();
     }

@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { useSolicitudViaticos } from '@/features/cxp/api/useViaticos';
 import { AccionesViatico } from '@/features/cxp/components/AccionesViatico';
 import { CapturarComprobacionViaticosSheet } from '@/features/cxp/components/CapturarComprobacionViaticosSheet';
-import { TipoDestinoViaticoLabels } from '@/features/cxp/api/types';
+import { EstadoSolicitudViaticos, TipoDestinoViaticoLabels } from '@/features/cxp/api/types';
 import { esApiError } from '@/lib/api';
 import { EstadoSolicitudViaticosChip } from '@/features/cxp/components/EstadoChips';
 import { Campo, Importe } from '@/features/cxp/components/DetalleCampos';
@@ -78,6 +78,13 @@ export function ViaticoDetallePage() {
               </>
             }
           />
+
+          {query.data.estado === EstadoSolicitudViaticos.Devuelta && (
+            <div role="status" className="rounded-md border border-warning bg-warning-bg px-3 py-2 text-sm text-warning-fg">
+              <p className="font-medium">Devuelta para corregir</p>
+              <p className="[overflow-wrap:anywhere]">{query.data.comentarioDevolucion}</p>
+            </div>
+          )}
 
           {/* Sub-topbar: mismas acciones que la fila de la bandeja (CXP-29). */}
           <AccionesViatico

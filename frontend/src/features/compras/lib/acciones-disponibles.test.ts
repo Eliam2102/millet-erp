@@ -10,6 +10,7 @@ import {
   accionEditarNotasLinea,
   accionEliminarLinea,
   accionEliminarRequisicion,
+  accionDevolver,
   accionRechazar,
   accionTransmitir,
   accionVerCotizaciones,
@@ -395,6 +396,18 @@ describe('accionRechazar (matriz §6.1 fila 9)', () => {
     expect(
       accionRechazar(makeRq(EstadoRequisicion.EnAutorizacion), []).visible,
     ).toBe(false);
+  });
+});
+
+describe('accionDevolver (devolver a corregir)', () => {
+  it.each(ESTADOS_TODOS)('estado=%i: solo EnAutorizacion', (estado) => {
+    expect(accionDevolver(makeRq(estado), TODOS_LOS_PERMISOS).visible).toBe(
+      estado === EstadoRequisicion.EnAutorizacion,
+    );
+  });
+
+  it('sin permiso rechazar: oculto', () => {
+    expect(accionDevolver(makeRq(EstadoRequisicion.EnAutorizacion), []).visible).toBe(false);
   });
 });
 

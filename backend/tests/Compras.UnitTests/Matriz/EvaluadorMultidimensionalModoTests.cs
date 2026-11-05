@@ -116,11 +116,11 @@ public sealed class EvaluadorMultidimensionalModoTests
     }
 
     [Fact]
-    public async Task Sin_Umbral_Vigente_Exige_N2()
+    public async Task Sin_Umbral_Vigente_Queda_Pendiente_De_Configurar_Aprobador()
     {
         var nivel = await EvaluarAsync(null, 20_000m, null, 100m, 1m, 10m);
 
-        Assert.Equal(RequiereNivel.N1YN2, nivel);
+        Assert.Equal(RequiereNivel.SinPolitica, nivel);
     }
 
     [Fact]

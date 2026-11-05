@@ -1,16 +1,19 @@
 using Microsoft.EntityFrameworkCore;
+using Millet.Almacen.Application.Integration;
 using Millet.Almacen.Application.Revision;
 using Millet.Almacen.Domain.Catalogo;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Domain.Saldos;
 using Millet.Almacen.Infrastructure.Persistence;
+using Millet.SharedKernel.Application;
 
 namespace Millet.Almacen.Application.AppAlmacenes;
 
 /// <summary>Salida informada por la app AlmacenRQ_MP, ya resuelta a ids del ERP.</summary>
 public sealed record SalidaApp(
     TipoMovimiento Tipo, Guid SucursalId, Guid ArticuloId, string UnidadMedida, Guid? ProductoAwVarianteId,
-    decimal Cantidad, decimal? CostoUnitarioMxn, string Motivo, decimal? AnchoMm = null, decimal? AltoMm = null);
+    decimal Cantidad, decimal? CostoUnitarioMxn, string Motivo, decimal? AnchoMm = null, decimal? AltoMm = null,
+    string? Causa = null);
 
 /// <summary>
 /// Salidas de la app de Almacenes (F1-MP-07; ACUERDO 28-oct reglas 1–4, correo de Jorge 30-oct punto 4):
@@ -25,8 +28,8 @@ public static class SalidaAppAlmacenes
     public const string EnRevision = "EN_REVISION";
 
     public static Task<(string Estado, string? Folio, string? Error)> RegistrarAsync(
-        AlmacenDbContext db, Guid empresaId, Guid usuarioId, SalidaApp s, CancellationToken ct) =>
-        RegistrarAsync(db, empresaId, usuarioId, [s], ct);
+        AlmacenDbContext db, IIntegrationEventPublisher events, Guid empresaId, Guid usuarioId, SalidaApp s, CancellationToken ct) =>
+        RegistrarAsync(db, events, empresaId, usuarioId, [s], ct);
 
     /// <summary>
     /// Varias salidas del mismo mensaje, todo o nada: si la existencia de cualquier (artículo, variante) no alcanza
@@ -34,7 +37,8 @@ public static class SalidaAppAlmacenes
     /// Todas las partidas comparten sucursal (la del primer elemento).
     /// </summary>
     public static async Task<(string Estado, string? Folio, string? Error)> RegistrarAsync(
-        AlmacenDbContext db, Guid empresaId, Guid usuarioId, IReadOnlyList<SalidaApp> salidas, CancellationToken ct)
+        AlmacenDbContext db, IIntegrationEventPublisher events, Guid empresaId, Guid usuarioId,
+        IReadOnlyList<SalidaApp> salidas, CancellationToken ct)
     {
         var sucursalId = salidas[0].SucursalId;
         var porClave = salidas.GroupBy(x => (x.ArticuloId, x.ProductoAwVarianteId))
@@ -77,7 +81,7 @@ public static class SalidaAppAlmacenes
         }
 
         // Fase 2: reparte cada partida entre los saldos de su clave, descontando lo ya tomado por partidas previas.
-        var lineas = new List<(TipoMovimiento Tipo, string Motivo, Guid SubAlmacenId, LineaRevisionMov Linea)>();
+        var lineas = new List<(TipoMovimiento Tipo, string Motivo, Guid SubAlmacenId, string Causa, LineaRevisionMov Linea)>();
         foreach (var s in salidas)
         {
             var lista = restante[(s.ArticuloId, s.ProductoAwVarianteId)];
@@ -87,7 +91,7 @@ public static class SalidaAppAlmacenes
                 var (saldo, libre) = lista[i];
                 if (libre <= 0) continue;
                 var toma = Math.Min(resta, libre);
-                lineas.Add((s.Tipo, s.Motivo, saldo.SubAlmacenId, new LineaRevisionMov(s.ArticuloId, s.UnidadMedida, toma,
+                lineas.Add((s.Tipo, s.Motivo, saldo.SubAlmacenId, s.Causa ?? SalidaInventarioRegistradaIntegrationEvent.CausaPorDefecto(s.Tipo), new LineaRevisionMov(s.ArticuloId, s.UnidadMedida, toma,
                     s.CostoUnitarioMxn ?? saldo.CostoPromedioMxn, saldo.UbicacionId,
                     s.ProductoAwVarianteId, s.AnchoMm, s.AltoMm, saldo.Lote)));
                 lista[i] = (saldo, libre - toma);
@@ -102,6 +106,8 @@ public static class SalidaAppAlmacenes
         {
             var mov = await MovimientosRevision.AgregarAsync(db, empresaId, usuarioId, grupo.Key.Tipo, fecha, grupo.Key.Motivo,
                 grupo.Select(l => l.Linea).ToList(), ct);
+            await SalidaInventarioRegistradaIntegrationEvent.PublicarAsync(
+                events, db, empresaId, mov.Id, grupo.Key.SubAlmacenId, grupo.First().Causa, ct);
             folios.Add(mov.Folio);
         }
         return (Recibido, string.Join(", ", folios), null);

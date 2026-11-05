@@ -204,6 +204,19 @@ export function DetalleRequisicion() {
           <EditandoBanner entidad="requisicion" id={rq.id} />
         </div>
 
+        {rq.estado === EstadoRequisicion.Borrador && rq.comentarioDevolucion && (
+          <div role="status" className="rounded-md border border-warning bg-warning-bg px-3 py-2 text-sm text-warning-fg">
+            <p className="font-medium">Devuelta para corregir</p>
+            <p className="[overflow-wrap:anywhere]">{rq.comentarioDevolucion}</p>
+          </div>
+        )}
+        {rq.estado === EstadoRequisicion.EnAutorizacion && rq.pendienteConfigurarAprobador && (
+          <div role="status" className="rounded-md border border-warning bg-warning-bg px-3 py-2 text-sm text-warning-fg">
+            <p className="font-medium">Pendiente de configurar el aprobador</p>
+            <p>No hay política de nivel 2 para este departamento. No se autoriza ni se bloquea hasta que se configure.</p>
+          </div>
+        )}
+
         <CabeceraRequisicion rq={rq} resolverNombre={resolverNombre} />
 
         {/* Orden del detalle: datos, partidas y al final adjuntos (igual que la OC). */}

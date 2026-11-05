@@ -2679,6 +2679,11 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("smallint")
                         .HasColumnName("clasificacion");
 
+                    b.Property<string>("ComentarioDevolucion")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("comentario_devolucion");
+
                     b.Property<Guid?>("ComprometidaEnOcId")
                         .HasColumnType("uuid")
                         .HasColumnName("comprometida_en_oc_id");
@@ -2708,6 +2713,10 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("descripcion");
 
+                    b.Property<Guid?>("DevueltaPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("devuelta_por_id");
+
                     b.Property<Guid>("EmpresaId")
                         .HasColumnType("uuid")
                         .HasColumnName("empresa_id");
@@ -2715,6 +2724,10 @@ namespace Millet.Compras.Infrastructure.Migrations
                     b.Property<short>("Estado")
                         .HasColumnType("smallint")
                         .HasColumnName("estado");
+
+                    b.Property<DateTimeOffset?>("FechaDevolucion")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("fecha_devolucion");
 
                     b.Property<DateOnly?>("FechaEntregaDeseada")
                         .HasColumnType("date")
