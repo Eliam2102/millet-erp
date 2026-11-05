@@ -116,7 +116,7 @@ public static class ProductoTerminadoEndpoints
             .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoPiezasVer);
 
         // Solo Demo (PT5.2): el saldo de prueba simula el cobro de caja. Nunca se mapea en Production; además exige el origen Demo de A+W.
-        // PLATFORM-TODO(<SaldoPorPedidoFacturacion>): se retira cuando Facturación (Uziel) publique el saldo por pedido.
+        // El canal Real usa el saldo de Facturación (U-3); este endpoint queda solo para Demo.
         if (!app.ServiceProvider.GetRequiredService<IHostEnvironment>().IsProduction())
             g.MapPut("/demo/pedidos/{numero}/saldo", async (string numero, SaldoDemoBody body, AwOrigenSesion sesion, IMediator mediator, CancellationToken ct) =>
                 await sesion.EsDemoAsync(ct)
