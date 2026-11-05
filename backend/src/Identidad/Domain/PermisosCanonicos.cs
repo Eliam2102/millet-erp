@@ -513,6 +513,8 @@ public static class PermisosCanonicos
     public const string CuentasPorCobrarAplicacionPagoConfirmar = "cuentas_por_cobrar.aplicacion-pago.confirmar";
     // C7.2 (86e3kdxy6): administrar las reglas de liberación por serie.
     public const string CuentasPorCobrarReglasSerieGestionar    = "cuentas_por_cobrar.reglas-serie.gestionar";
+    // C7.7 (86e3jvv4q): conciliar la cartera a demanda; leer las corridas usa cartera.leer.
+    public const string CuentasPorCobrarConciliacionEjecutar    = "cuentas_por_cobrar.conciliacion.ejecutar";
 
     // ----- Tesorería / Bancos (TES-PR1) -----
     // Namespace GUID 0000000b-* reservado para el módulo Tesorería.
@@ -946,6 +948,7 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000a-0005-0000-0000-000000000001"), CuentasPorCobrarAplicacionPagoProponer,  "Crear propuestas de aplicación de pago desde depósitos"),
         (Guid.Parse("0000000a-0005-0000-0000-000000000002"), CuentasPorCobrarAplicacionPagoConfirmar, "Confirmar o rechazar propuestas de aplicación de pago (Ingresos)"),
         (Guid.Parse("0000000a-0006-0000-0000-000000000001"), CuentasPorCobrarReglasSerieGestionar,    "Dar de alta, cambiar y activar o desactivar las reglas de liberación por serie"),
+        (Guid.Parse("0000000a-0007-0000-0000-000000000001"), CuentasPorCobrarConciliacionEjecutar,    "Ejecutar a demanda la conciliación diaria de cartera contra facturación"),
 
         // Tesorería / Bancos (TES-PR1). Namespace 0000000b-*.
         (Guid.Parse("0000000b-0001-0000-0000-000000000001"), TesoreriaCuentasVer,                   "Consultar el catálogo de cuentas bancarias propias y sus saldos"),

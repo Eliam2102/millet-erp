@@ -34,7 +34,7 @@ public class QuestPdfOrdenCompraGeneratorTests
             Empresa = new EmpresaEncabezado("M INDUSTRIA, S.A. DE C.V.", "Millet", "MIN010101AAA", "601",
                 ["AV. LOPEZ PORTILLO 46", "CANCUN, QR, 77524"]),
             Proveedor = extranjero
-                ? new ProveedorImpresion("P0900", "ACME GLASS INC", "XEXX010101000", ["1 MAIN ST", "HOUSTON, TX, USA"], "TX-998877")
+                ? new ProveedorImpresion("P0900", "ACME GLASS INC", "", ["1 MAIN ST", "HOUSTON, TX, USA"], "TX-998877")
                 : new ProveedorImpresion("P0478", "PAULINO ESTRELLA CHIM", "EECP780305DK4", ["CALLE 65 X 8 Y 10 #235", "MERIDA, YUC"]),
             Contacto = new ContactoImpresion("RODRIGO CHAY CANO", "(999) 9302370 Ext. 106", "rodrigo.chay@millet.com.mx"),
             EntregaNombre = "M INDUSTRIA, S.A. DE C.V.",
@@ -127,9 +127,11 @@ public class QuestPdfOrdenCompraGeneratorTests
         var t = Generar("oc-extranjero-usd", Modelo(extranjero: true, moneda: "USD"), "COPIA 1 · 15/10/2026")[0];
 
         AfirmarComun(t, "COPIA 1 · 15/10/2026");
-        Assert.Contains(Sin("XEXX010101000"), t);
-        Assert.Contains(Sin("Tax ID: TX-998877"), t);
-        Assert.Contains(Sin("INCOTERM: FOB"), t);
+        Assert.DoesNotContain("XEXX010101000", t);
+        Assert.Contains(Sin("Tax ID"), t);
+        Assert.Contains(Sin("TX-998877"), t);
+        Assert.Contains(Sin("INCOTERM"), t);
+        Assert.Contains(Sin("FOB"), t);
         Assert.Contains(Sin("250.00 USD"), t);
         Assert.Contains(Sin("Moneda: USD"), t);
     }

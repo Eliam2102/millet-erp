@@ -3,12 +3,14 @@ import { apiRequest } from '@/lib/api';
 import {
   almacenKeys,
   type AlfakHistorialFiltros,
+  type TrazabilidadMpFiltros,
   type HijosJerarquiaParams,
   type ListarSaldosFiltros,
   type MpCnkFiltros,
 } from '@/features/almacen/api/keys';
 import type {
   AlfakHistorialFila,
+  TrazabilidadMpFila,
   CuadreInventarioFila,
   EjecutarCierreMensualCommand,
   EjecutarCierreMensualResponse,
@@ -204,6 +206,28 @@ export function useReporteAlfakHistorial(filtros: AlfakHistorialFiltros) {
       return data;
     },
     enabled: !!filtros.desde && !!filtros.hasta,
+  });
+}
+
+/** F1-MP-09: compras, consumos, merma y saldo de un artículo (y lote). Sin artículo no consulta. */
+export function useReporteTrazabilidadMp(filtros: TrazabilidadMpFiltros) {
+  return useQuery({
+    queryKey: almacenKeys.reporteTrazabilidadMp(filtros),
+    queryFn: async ({ signal }) => {
+      const params = new URLSearchParams({
+        articuloId: filtros.articuloId,
+        desde: filtros.desde,
+        hasta: filtros.hasta,
+      });
+      if (filtros.lote) params.set('lote', filtros.lote);
+      if (filtros.subAlmacenId) params.set('subAlmacenId', filtros.subAlmacenId);
+      const { data } = await apiRequest<ReporteResponse<TrazabilidadMpFila>>(
+        `/api/v1/almacen/reportes/trazabilidad-mp?${params}`,
+        { signal },
+      );
+      return data;
+    },
+    enabled: !!filtros.articuloId && !!filtros.desde && !!filtros.hasta,
   });
 }
 

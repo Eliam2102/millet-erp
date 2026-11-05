@@ -11,8 +11,10 @@ using Millet.CuentasPorPagar.Application.Cfdi.DescargarCfdiBlob;
 using Millet.CuentasPorPagar.Application.Cfdi.MarcarCfdiDuplicado;
 using Millet.CuentasPorPagar.Application.Cfdi.ObtenerCfdiParseado;
 using Millet.CuentasPorPagar.Application.Cfdi.ObtenerCfdiPorId;
+using Millet.CuentasPorPagar.Application.Cfdi.SolicitudesCancelacion;
 using Millet.CuentasPorPagar.Application.Common;
 using Millet.CuentasPorPagar.Domain.Cfdi;
+using Millet.CuentasPorPagar.Domain.Evidencias;
 using Millet.Identidad.Domain;
 using Millet.SharedKernel.Application.Exceptions;
 
@@ -240,6 +242,73 @@ public static class CfdisEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        // P8.7: solicitudes de cancelación que el proveedor pidió en el portal del SAT.
+        // Permisos reutilizados (decisión de Millet): registrar = facturas.capturar, decidir = facturas.cancelar.
+        group.MapGet("/{id:guid}/solicitudes-cancelacion", async (
+            Guid id, IMediator mediator, CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new ListarSolicitudesCancelacionQuery(id), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarCfdisLeer)
+        .WithName("ListarSolicitudesCancelacionCfdi")
+        .WithSummary("Solicitudes de cancelación de un CFDI, con el plazo del SAT")
+        .Produces<IReadOnlyList<SolicitudCancelacionResponse>>(StatusCodes.Status200OK);
+
+        group.MapPost("/{id:guid}/solicitudes-cancelacion", async (
+            Guid id, [FromBody] RegistrarSolicitudCancelacionRequest request,
+            IMediator mediator, CancellationToken cancellationToken) =>
+        {
+            var response = await mediator.Send(
+                new RegistrarSolicitudCancelacionCommand(id, request.Area, request.FechaRecepcion, request.Notas),
+                cancellationToken);
+            return Results.Created($"/api/v1/cuentas-por-pagar/cfdis/{id}/solicitudes-cancelacion", response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarFacturasCapturar)
+        .WithName("RegistrarSolicitudCancelacionCfdi")
+        .WithSummary("Registra una solicitud de cancelación pedida por el proveedor")
+        .Produces<SolicitudCancelacionResponse>(StatusCodes.Status201Created)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        group.MapPost("/{id:guid}/solicitudes-cancelacion/{solicitudId:guid}/decidir", async (
+            Guid id, Guid solicitudId,
+            [FromForm] bool aceptar,
+            [FromForm] string comentario,
+            IFormFile? archivo,
+            IMediator mediator,
+            IEvidenciaBlobStorage blob,
+            Millet.SharedKernel.Application.IClock clock,
+            CancellationToken cancellationToken) =>
+        {
+            string? blobRef = null;
+            if (archivo is { Length: > 0 })
+            {
+                // Sube el blob primero (mismo patrón que las evidencias de factura).
+                await using var stream = archivo.OpenReadStream();
+                blobRef = await blob.GuardarAsync(
+                    solicitudId, Guid.CreateVersion7(), clock.UtcNow, archivo.FileName,
+                    archivo.ContentType ?? "application/octet-stream", stream, cancellationToken);
+            }
+
+            return Results.Ok(await mediator.Send(
+                new DecidirSolicitudCancelacionCommand(id, solicitudId, aceptar, comentario, blobRef, archivo?.FileName),
+                cancellationToken));
+        })
+        .DisableAntiforgery()
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarFacturasCancelar)
+        .WithName("DecidirSolicitudCancelacionCfdi")
+        .WithSummary("Acepta o rechaza una solicitud de cancelación (multipart: aceptar, comentario, archivo opcional)")
+        .WithDescription(
+            "Aceptar o rechazar solo guarda la decisión y su evidencia; no cambia el CFDI ni el pasivo. " +
+            "Si se acepta y el SAT luego reporta el CFDI cancelado, la sincronización cancela la factura " +
+            "(o la manda a revisión). `comentario` es obligatorio; `archivo` opcional.")
+        .Accepts<IFormFile>("multipart/form-data")
+        .Produces<SolicitudCancelacionResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         // P8.1: bandeja de revisión del buzón de correo y bitácora de corridas.
         group.MapGet("/buzon/revision", async (
             [FromQuery] bool? incluirDescartados, [FromQuery] int? offset, [FromQuery] int? limit,
@@ -278,4 +347,5 @@ public static class CfdisEndpoints
 
     public sealed record DescartarCfdiRequest(string Motivo);
     public sealed record MarcarDuplicadoRequest(Guid CfdiOriginalId);
+    public sealed record RegistrarSolicitudCancelacionRequest(AreaSolicitudCancelacion Area, DateTimeOffset? FechaRecepcion, string? Notas);
 }

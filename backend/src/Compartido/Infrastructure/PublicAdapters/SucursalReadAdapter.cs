@@ -22,12 +22,7 @@ namespace Millet.Compartido.Infrastructure.PublicAdapters;
 /// <para><b>Mapeo</b>:</para>
 /// <list>
 ///   <item><c>EsActiva</c> = <see cref="Millet.Administracion.Domain.Sucursal.Estatus"/> == <see cref="EstatusCatalogo.Activo"/></item>
-///   <item><c>EmpresaId</c> = <see cref="Guid.Empty"/>: el dominio actual
-///     de <c>Sucursal</c> no modela <c>EmpresaId</c> (MVP mono-empresa).
-///     Cuando entre la migración multi-empresa, este mapping se
-///     actualiza. Los consumidores de Almacén deben tratar
-///     <see cref="Guid.Empty"/> como "no aplicable" y NO usarlo para
-///     comparar con la empresa actual.</item>
+///   <item><c>EmpresaId</c> = <see cref="Millet.Administracion.Domain.Sucursal.EmpresaId"/> real de la sucursal.</item>
 /// </list>
 /// </summary>
 public sealed class SucursalReadAdapter : ISucursalReadPort
@@ -56,7 +51,7 @@ public sealed class SucursalReadAdapter : ISucursalReadPort
                 s.Id,
                 s.Clave,
                 s.Nombre,
-                Guid.Empty,
+                s.EmpresaId,
                 s.Estatus == EstatusCatalogo.Activo))
             .FirstOrDefaultAsync(cancellationToken);
 

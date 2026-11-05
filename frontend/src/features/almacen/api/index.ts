@@ -80,6 +80,7 @@ export {
   usePeriodosCierre,
   useRevisionPreviaCierre,
   useReporteAlfakHistorial,
+  useReporteTrazabilidadMp,
   useReporteExistenciaMpCnk,
 } from '@/features/almacen/api/useSaldosCierreReportes';
 export {
