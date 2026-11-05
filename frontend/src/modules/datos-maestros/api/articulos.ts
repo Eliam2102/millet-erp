@@ -126,15 +126,17 @@ export function useActualizarArticulo() {
 
 export interface DesactivarArticuloArgs {
   id: string;
+  motivo: string;
   idempotencyKey: string;
 }
 
 export function useDesactivarArticulo() {
   const queryClient = useQueryClient();
   return useMutation<void, Error, DesactivarArticuloArgs>({
-    mutationFn: async ({ id, idempotencyKey }) => {
+    mutationFn: async ({ id, motivo, idempotencyKey }) => {
       await apiRequest<void>(`/api/v1/catalogos/articulos/${id}`, {
         method: 'DELETE',
+        body: { motivo },
         idempotencyKey,
       });
     },
@@ -176,9 +178,9 @@ function buildListarArticulosPath(filtros: ListarArticulosFiltros): string {
 
 export function useReactivarArticulo() {
   const queryClient = useQueryClient();
-  return useMutation<void, Error, { id: string; idempotencyKey: string }>({
-    mutationFn: async ({ id, idempotencyKey }) => {
-      await apiRequest<void>(`/api/v1/catalogos/articulos/${id}/reactivar`, { method: 'POST', idempotencyKey });
+  return useMutation<void, Error, DesactivarArticuloArgs>({
+    mutationFn: async ({ id, motivo, idempotencyKey }) => {
+      await apiRequest<void>(`/api/v1/catalogos/articulos/${id}/reactivar`, { method: 'POST', body: { motivo }, idempotencyKey });
     },
     onSuccess: (_data, vars) => {
       void queryClient.invalidateQueries({ queryKey: datosMaestrosKeys.articulos() });

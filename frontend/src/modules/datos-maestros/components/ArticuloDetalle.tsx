@@ -1,6 +1,7 @@
 import { useReactivarArticulo } from '../api/articulos';
 import { estadoUi } from '../lib/estados-ui';
 import { PageHeader } from '@/components/erp/PageHeader';
+import { CambioEstatusMaestroDialog } from './CambioEstatusMaestroDialog';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { ArrowRight, MapPin, PowerOff, X } from 'lucide-react';
@@ -8,20 +9,10 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useAsignacionesList } from '@/features/almacen/api/useAsignaciones';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { ErrorState, TableSkeleton } from '@/components/erp';
 import { useArticulo, useDesactivarArticulo } from '@/modules/datos-maestros/api';
 import { EstatusCatalogo } from '@/modules/datos-maestros/api/types';
-import { esApiError, codigoSoporte } from '@/lib/api';
+import { esApiError } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { ArticuloDatosForm } from '@/modules/datos-maestros/components/ArticuloDatosForm';
@@ -36,7 +27,7 @@ export function ArticuloDetalle() {
     from: '/_app/admin/datos-maestros/articulos/$id',
   });
   const articuloQuery = useArticulo(id);
-  const [confirmDesactivar, setConfirmDesactivar] = useState(false);
+  const [dialogoEstatus, setDialogoEstatus] = useState<'desactivar' | 'reactivar' | null>(null);
 
   const canDesactivar = useHasPermission(PermisosCanonicos.CompartidoCatalogosAdministrar);
   // Atajo a "Ubicación de artículos". Gateado por el permiso que exige la ruta
@@ -64,26 +55,18 @@ export function ArticuloDetalle() {
   const articulo = articuloQuery.data;
   const activo = articulo.estatus === EstatusCatalogo.Activo;
 
-  function handleConfirmarDesactivar() {
-    desactivar.mutate(
+  function handleConfirmarEstatus(motivo: string) {
+    const mutacion = dialogoEstatus === 'desactivar' ? desactivar : reactivar;
+    mutacion.mutate(
       // Key fresca por acción: el detalle queda montado al navegar entre
-      // artículos; una key estable replicaría el 204 cacheado del 1º y NO
-      // desactivaría el 2º (ADR-0020).
-      { id: articulo.id, idempotencyKey: crypto.randomUUID() },
+      // artículos; una key estable replicaría el 204 cacheado del 1º (ADR-0020).
+      { id: articulo.id, motivo, idempotencyKey: crypto.randomUUID() },
       {
         onSuccess: () => {
-          toast.success(`Artículo ${articulo.clave} desactivado`);
-          setConfirmDesactivar(false);
-        },
-        onError: (error) => {
-          if (esApiError(error)) {
-            toast.error(error.problem.title, {
-              description: codigoSoporte(error),
-            });
-          } else {
-            toast.error('Error al desactivar el artículo.');
-          }
-          setConfirmDesactivar(false);
+          toast.success(
+            `Artículo ${articulo.clave} ${dialogoEstatus === 'desactivar' ? 'desactivado' : 'reactivado'}`,
+          );
+          setDialogoEstatus(null);
         },
       },
     );
@@ -109,8 +92,8 @@ export function ArticuloDetalle() {
               />
             )}
             {canDesactivar && articulo.estatus === EstatusCatalogo.Inactivo && (
-              <Button variant="ghost" size="sm" disabled={reactivar.isPending} onClick={() => reactivar.mutate({ id: articulo.id, idempotencyKey: crypto.randomUUID() }, { onError: e => toast.error(e.message) })}>
-                {reactivar.isPending ? 'Reactivando…' : 'Reactivar'}
+              <Button variant="ghost" size="sm" onClick={() => { reactivar.reset(); setDialogoEstatus('reactivar'); }}>
+                Reactivar
               </Button>
             )}
             {canDesactivar && activo && (
@@ -118,7 +101,10 @@ export function ArticuloDetalle() {
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => setConfirmDesactivar(true)}
+                onClick={() => {
+                  desactivar.reset();
+                  setDialogoEstatus('desactivar');
+                }}
               >
                 <PowerOff className="mr-1.5 h-4 w-4" />
                 Desactivar
@@ -147,25 +133,14 @@ export function ArticuloDetalle() {
         <ArticuloDatosForm articulo={articulo} />
       </div>
 
-      <AlertDialog open={confirmDesactivar} onOpenChange={setConfirmDesactivar}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Desactivar artículo</AlertDialogTitle>
-            <AlertDialogDescription>
-              ¿Confirmas desactivar el artículo{' '}
-              <span className="font-mono font-semibold">{articulo.clave}</span>? Las requisiciones
-              históricas se conservan. El artículo deja de estar disponible para nuevas
-              requisiciones.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={desactivar.isPending}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmarDesactivar} disabled={desactivar.isPending}>
-              {desactivar.isPending ? 'Desactivando…' : 'Desactivar'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <CambioEstatusMaestroDialog
+        modo={dialogoEstatus}
+        etiqueta={`artículo ${articulo.clave}`}
+        pending={desactivar.isPending || reactivar.isPending}
+        error={dialogoEstatus === 'desactivar' ? desactivar.error : reactivar.error}
+        onConfirm={handleConfirmarEstatus}
+        onCancel={() => setDialogoEstatus(null)}
+      />
     </div>
   );
 }

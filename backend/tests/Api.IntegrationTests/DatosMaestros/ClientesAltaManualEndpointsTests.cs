@@ -60,7 +60,7 @@ public sealed class ClientesAltaManualEndpointsTests(WebApplicationFactory<Progr
 
             var manualId = await CreadoAsync(await c.PostAsJsonAsync(Base, Alta(ClaveNueva(), rfcInactivo)));
             ids.Add(manualId);
-            (await c.DeleteAsync($"{Base}/{manualId}")).EnsureSuccessStatusCode();
+            (await c.SendAsync(new HttpRequestMessage(HttpMethod.Delete, $"{Base}/{manualId}") { Content = JsonContent.Create(new { motivo = "Baja de prueba" }) })).EnsureSuccessStatusCode();
 
             var dupInactivo = await c.PostAsJsonAsync(Base, Alta(ClaveNueva(), rfcInactivo));
             Assert.Equal(HttpStatusCode.UnprocessableEntity, dupInactivo.StatusCode);

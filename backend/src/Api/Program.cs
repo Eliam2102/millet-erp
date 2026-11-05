@@ -682,6 +682,23 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Compartido.Application.Ports.IOcLineaAbiertaConMedidaReadPort,
     Millet.Compras.Infrastructure.PublicAdapters.OcLineaAbiertaConMedidaReadAdapter>();
+// Inactivar proveedor, cliente o artículo: cada módulo aporta lo que tiene abierto (OC, saldos, pedidos).
+builder.Services.AddScoped<Millet.Compartido.Application.Catalogos.MaestroEstatusService>();
+builder.Services.AddScoped<
+    Millet.Compartido.Application.Ports.IPendientesMaestroReadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.ExistenciaArticuloPendienteAdapter>();
+builder.Services.AddScoped<
+    Millet.Compartido.Application.Ports.IPendientesMaestroReadPort,
+    Millet.Compras.Infrastructure.PublicAdapters.OcPendientesMaestroReadAdapter>();
+builder.Services.AddScoped<
+    Millet.Compartido.Application.Ports.IPendientesMaestroReadPort,
+    Millet.CuentasPorPagar.Infrastructure.PublicAdapters.SaldoProveedorPendienteReadAdapter>();
+builder.Services.AddScoped<
+    Millet.Compartido.Application.Ports.IPendientesMaestroReadPort,
+    Millet.CuentasPorCobrar.Infrastructure.Adapters.SaldoClientePendienteReadAdapter>();
+builder.Services.AddScoped<
+    Millet.Compartido.Application.Ports.IPendientesMaestroReadPort,
+    Millet.Facturacion.Infrastructure.PublicAdapters.PedidosPendientesClienteReadAdapter>();
 builder.Services.AddSingleton<
     Millet.SharedKernel.Application.Adjuntos.IAdjuntoEnlaceTokenService,
     Millet.Compartido.Infrastructure.Adjuntos.AdjuntoEnlaceTokenService>();
