@@ -52,7 +52,9 @@ public sealed class OtrTablasAdapter(Func<DbConnection> fabrica, bool postgres, 
         var top = postgres || leida is not null ? "" : "TOP (@max)"; var limit = postgres && leida is null ? "LIMIT @max" : "";
         var filtro = leida is null ? "WHERE (erp_resultado IS NULL OR erp_resultado = 'Error')" : "";
         var o = opciones ?? new OtrOptions();
-        await using var cmd = leida is null
+        // Con opciones es el lector de las tablas de OTR (T-SQL); sin ellas, el lector Real usa la forma del contrato (simulador PostgreSQL de las pruebas de integración).
+        var tablasOtr = leida is not null && opciones is not null;
+        await using var cmd = !tablasOtr
             ? Comando(c, $"SELECT {top} otr_envio_id, version, cliente_numero_aw, sucursal_clave_aw, cliente, direccion_entrega, producto, numero_contenedor, ruta, bultos, peso_kg, fecha_carga_prevista, booking, bl_guia, operacion FROM dbo.aw_otr_envio {filtro} ORDER BY otr_envio_id, version {limit}", ("max", max))
             : Comando(c, CabeceraReal(o), ("estatusPedido", o.EstatusPedidoMenorA), ("entregaDesde", o.EntregaDesde?.ToDateTime(TimeOnly.MinValue)));
         var cabeceras = new List<OtrEntrada>();
@@ -88,7 +90,7 @@ public sealed class OtrTablasAdapter(Func<DbConnection> fabrica, bool postgres, 
             if (h.ErrorLectura is not null) { result.Add(h); continue; }
             try
             {
-                await using var lineas = leida is null
+                await using var lineas = !tablasOtr
                     ? Comando(c, "SELECT numero_pedido, posicion, cantidad, unidad FROM dbo.aw_otr_envio_linea WHERE otr_envio_id=@id AND version=@version ORDER BY numero_pedido, posicion", ("id", h.IdOrigen), ("version", h.Version))
                     : Comando(c, LineasReal, ("ruta", int.Parse(h.IdOrigen[..h.IdOrigen.IndexOf('-')], CultureInfo.InvariantCulture)), ("contenedor", h.IdOrigen[(h.IdOrigen.IndexOf('-') + 1)..]), ("estatusPedido", o.EstatusPedidoMenorA), ("unidad", o.UnidadLinea));
                 var recibidas = new List<OtrLineaRecibida>();
