@@ -65,6 +65,7 @@ export function useListarFacturas(filtros: ListarFacturasFiltros) {
       if (filtros.limit != null) params.set('limit', String(filtros.limit));
       if (filtros.alcance != null) params.set('alcance', filtros.alcance);
       if (filtros.clase != null) params.set('clase', filtros.clase);
+      if (filtros.ncPendiente) params.set('ncPendiente', 'true');
       const qs = params.toString();
       const { data } = await apiRequest<BandejaScoped<FacturaBandejaItem>>(
         qs ? `${BASE}?${qs}` : `${BASE}/`,
