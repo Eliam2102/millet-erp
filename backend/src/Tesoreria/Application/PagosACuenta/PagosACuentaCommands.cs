@@ -251,6 +251,7 @@ public sealed class LigarPagoACuentaHandler
         PasivosPagables.ExigirOpinionCumplimiento(infoProveedor!, "LIGA_PASIVO_DETENIDO_DOCUMENTACION");
         if (pasivo.PagoBloqueado)
             throw new BusinessRuleException("PASIVO_NO_AUTORIZADO_CXP", "CxP retiró la autorización del pasivo. Debe autorizarse de nuevo antes de pagar.");
+        await Pasivos.PagosComercioExterior.ExigirAutorizadosAsync(_db, [command.FacturaProveedorId], "LIGA_PASIVO_CE_SIN_AUTORIZAR", cancellationToken);
 
         var yaLigada = await _db.AplicacionesPagoProveedor.AnyAsync(
             a => a.MovimientoId == movimiento.Id

@@ -190,6 +190,7 @@ import { Route as AppTesoreriaDiferenciasCorteIndexRouteImport } from './routes/
 import { Route as AppTesoreriaFoliosTransferenciaIndexRouteImport } from './routes/_app/tesoreria/folios-transferencia/index';
 import { Route as AppTesoreriaMovimientosIndexRouteImport } from './routes/_app/tesoreria/movimientos/index';
 import { Route as AppTesoreriaMovimientosIdRouteImport } from './routes/_app/tesoreria/movimientos/$id';
+import { Route as AppTesoreriaPagosComercioExteriorIndexRouteImport } from './routes/_app/tesoreria/pagos-comercio-exterior/index';
 import { Route as AppTesoreriaPagosCuentaIndexRouteImport } from './routes/_app/tesoreria/pagos-cuenta/index';
 import { Route as AppTesoreriaPagosIndexRouteImport } from './routes/_app/tesoreria/pagos/index';
 import { Route as AppTesoreriaReportesAuxiliarBancosRouteImport } from './routes/_app/tesoreria/reportes/auxiliar-bancos';
@@ -1218,6 +1219,12 @@ const AppTesoreriaMovimientosIdRoute =
     path: '/tesoreria/movimientos/$id',
     getParentRoute: () => AppRoute,
   } as any);
+const AppTesoreriaPagosComercioExteriorIndexRoute =
+  AppTesoreriaPagosComercioExteriorIndexRouteImport.update({
+    id: '/tesoreria/pagos-comercio-exterior/',
+    path: '/tesoreria/pagos-comercio-exterior/',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppTesoreriaPagosCuentaIndexRoute =
   AppTesoreriaPagosCuentaIndexRouteImport.update({
     id: '/tesoreria/pagos-cuenta/',
@@ -1646,6 +1653,7 @@ export interface FileRoutesByFullPath {
   '/tesoreria/diferencias-corte/': typeof AppTesoreriaDiferenciasCorteIndexRoute;
   '/tesoreria/folios-transferencia/': typeof AppTesoreriaFoliosTransferenciaIndexRoute;
   '/tesoreria/movimientos/': typeof AppTesoreriaMovimientosIndexRoute;
+  '/tesoreria/pagos-comercio-exterior/': typeof AppTesoreriaPagosComercioExteriorIndexRoute;
   '/tesoreria/pagos-cuenta/': typeof AppTesoreriaPagosCuentaIndexRoute;
   '/tesoreria/pagos/': typeof AppTesoreriaPagosIndexRoute;
   '/tesoreria/repp/': typeof AppTesoreriaReppIndexRoute;
@@ -1869,6 +1877,7 @@ export interface FileRoutesByTo {
   '/tesoreria/diferencias-corte': typeof AppTesoreriaDiferenciasCorteIndexRoute;
   '/tesoreria/folios-transferencia': typeof AppTesoreriaFoliosTransferenciaIndexRoute;
   '/tesoreria/movimientos': typeof AppTesoreriaMovimientosIndexRoute;
+  '/tesoreria/pagos-comercio-exterior': typeof AppTesoreriaPagosComercioExteriorIndexRoute;
   '/tesoreria/pagos-cuenta': typeof AppTesoreriaPagosCuentaIndexRoute;
   '/tesoreria/pagos': typeof AppTesoreriaPagosIndexRoute;
   '/tesoreria/repp': typeof AppTesoreriaReppIndexRoute;
@@ -2094,6 +2103,7 @@ export interface FileRoutesById {
   '/_app/tesoreria/diferencias-corte/': typeof AppTesoreriaDiferenciasCorteIndexRoute;
   '/_app/tesoreria/folios-transferencia/': typeof AppTesoreriaFoliosTransferenciaIndexRoute;
   '/_app/tesoreria/movimientos/': typeof AppTesoreriaMovimientosIndexRoute;
+  '/_app/tesoreria/pagos-comercio-exterior/': typeof AppTesoreriaPagosComercioExteriorIndexRoute;
   '/_app/tesoreria/pagos-cuenta/': typeof AppTesoreriaPagosCuentaIndexRoute;
   '/_app/tesoreria/pagos/': typeof AppTesoreriaPagosIndexRoute;
   '/_app/tesoreria/repp/': typeof AppTesoreriaReppIndexRoute;
@@ -2319,6 +2329,7 @@ export interface FileRouteTypes {
     | '/tesoreria/diferencias-corte/'
     | '/tesoreria/folios-transferencia/'
     | '/tesoreria/movimientos/'
+    | '/tesoreria/pagos-comercio-exterior/'
     | '/tesoreria/pagos-cuenta/'
     | '/tesoreria/pagos/'
     | '/tesoreria/repp/'
@@ -2542,6 +2553,7 @@ export interface FileRouteTypes {
     | '/tesoreria/diferencias-corte'
     | '/tesoreria/folios-transferencia'
     | '/tesoreria/movimientos'
+    | '/tesoreria/pagos-comercio-exterior'
     | '/tesoreria/pagos-cuenta'
     | '/tesoreria/pagos'
     | '/tesoreria/repp'
@@ -2766,6 +2778,7 @@ export interface FileRouteTypes {
     | '/_app/tesoreria/diferencias-corte/'
     | '/_app/tesoreria/folios-transferencia/'
     | '/_app/tesoreria/movimientos/'
+    | '/_app/tesoreria/pagos-comercio-exterior/'
     | '/_app/tesoreria/pagos-cuenta/'
     | '/_app/tesoreria/pagos/'
     | '/_app/tesoreria/repp/'
@@ -4082,6 +4095,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTesoreriaMovimientosIdRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/tesoreria/pagos-comercio-exterior/': {
+      id: '/_app/tesoreria/pagos-comercio-exterior/';
+      path: '/tesoreria/pagos-comercio-exterior';
+      fullPath: '/tesoreria/pagos-comercio-exterior/';
+      preLoaderRoute: typeof AppTesoreriaPagosComercioExteriorIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/tesoreria/pagos-cuenta/': {
       id: '/_app/tesoreria/pagos-cuenta/';
       path: '/tesoreria/pagos-cuenta';
@@ -4570,6 +4590,7 @@ interface AppRouteChildren {
   AppTesoreriaDiferenciasCorteIndexRoute: typeof AppTesoreriaDiferenciasCorteIndexRoute;
   AppTesoreriaFoliosTransferenciaIndexRoute: typeof AppTesoreriaFoliosTransferenciaIndexRoute;
   AppTesoreriaMovimientosIndexRoute: typeof AppTesoreriaMovimientosIndexRoute;
+  AppTesoreriaPagosComercioExteriorIndexRoute: typeof AppTesoreriaPagosComercioExteriorIndexRoute;
   AppTesoreriaPagosCuentaIndexRoute: typeof AppTesoreriaPagosCuentaIndexRoute;
   AppTesoreriaPagosIndexRoute: typeof AppTesoreriaPagosIndexRoute;
   AppTesoreriaReppIndexRoute: typeof AppTesoreriaReppIndexRoute;
@@ -4805,6 +4826,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppTesoreriaFoliosTransferenciaIndexRoute:
     AppTesoreriaFoliosTransferenciaIndexRoute,
   AppTesoreriaMovimientosIndexRoute: AppTesoreriaMovimientosIndexRoute,
+  AppTesoreriaPagosComercioExteriorIndexRoute:
+    AppTesoreriaPagosComercioExteriorIndexRoute,
   AppTesoreriaPagosCuentaIndexRoute: AppTesoreriaPagosCuentaIndexRoute,
   AppTesoreriaPagosIndexRoute: AppTesoreriaPagosIndexRoute,
   AppTesoreriaReppIndexRoute: AppTesoreriaReppIndexRoute,

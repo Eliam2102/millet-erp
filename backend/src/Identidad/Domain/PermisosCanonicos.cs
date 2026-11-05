@@ -540,6 +540,11 @@ public static class PermisosCanonicos
     public const string TesoreriaPagosCuentaRegistrar           = "tesoreria.pagos-cuenta.registrar";
     public const string TesoreriaPagosCuentaLigar               = "tesoreria.pagos-cuenta.ligar";
     public const string TesoreriaPagosCuentaAutorizar           = "tesoreria.pagos-cuenta.autorizar";
+    // I13.3 (86e3ke4cx): pagos de comercio exterior en dos niveles. Nivel 1 por tipo (Compras de MP / Documentación de
+    // Exportación); nivel 2 la Dirección (Administración y Finanzas o Comercialización, basta una firma).
+    public const string TesoreriaPagosCeAutorizarImportacion    = "tesoreria.pagos-ce.autorizar-importacion";
+    public const string TesoreriaPagosCeAutorizarExportacion    = "tesoreria.pagos-ce.autorizar-exportacion";
+    public const string TesoreriaPagosCeAutorizarDireccion      = "tesoreria.pagos-ce.autorizar-direccion";
     public const string TesoreriaCorridasCrear                  = "tesoreria.corridas.crear";
     public const string TesoreriaCorridasAutorizar              = "tesoreria.corridas.autorizar";
     public const string TesoreriaCorridasEjecutar               = "tesoreria.corridas.ejecutar";
@@ -968,7 +973,10 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000b-0004-0000-0000-000000000001"), TesoreriaPagosCuentaRegistrar,         "Registrar pagos a cuenta (egreso sin documento, gate RN-2)"),
         (Guid.Parse("0000000b-0004-0000-0000-000000000002"), TesoreriaPagosCuentaLigar,             "Ligar tardíamente un pago a cuenta al pasivo provisionado"),
         (Guid.Parse("0000000b-0004-0000-0000-000000000003"), TesoreriaPagosCuentaAutorizar,         "Autorizar (firmar) un pago a cuenta; no puede firmarlo quien lo capturó"),
-        (Guid.Parse("0000000b-0005-0000-0000-000000000001"), TesoreriaCorridasCrear,                "Crear y armar corridas de pago desde la bandeja de pasivos"),
+        (Guid.Parse("0000000b-000e-0000-0000-000000000001"), TesoreriaPagosCeAutorizarImportacion,  "Autorizar (nivel 1) pagos de importación: Compras de MP"),
+        (Guid.Parse("0000000b-000e-0000-0000-000000000002"), TesoreriaPagosCeAutorizarExportacion,  "Autorizar (nivel 1) pagos de exportación: Documentación de Exportación"),
+        (Guid.Parse("0000000b-000e-0000-0000-000000000003"), TesoreriaPagosCeAutorizarDireccion,    "Autorizar (nivel 2) pagos de comercio exterior: Dirección de Administración y Finanzas o Director de Comercialización; basta una firma y no puede ser quien firmó el nivel 1"),
+        (Guid.Parse("0000000b-0005-0000-0000-000000000001"), TesoreriaCorridasCrear,               "Crear y armar corridas de pago desde la bandeja de pasivos"),
         (Guid.Parse("0000000b-0005-0000-0000-000000000002"), TesoreriaCorridasAutorizar,            "Autorizar corridas de pago (pasa además por la matriz de autorización)"),
         (Guid.Parse("0000000b-0005-0000-0000-000000000003"), TesoreriaCorridasEjecutar,             "Ejecutar líneas de corridas autorizadas (RN-5)"),
         (Guid.Parse("0000000b-0006-0000-0000-000000000001"), TesoreriaDepositosConfirmar,           "Confirmar depósitos de cliente contra propuestas de CxC (RN-6)"),

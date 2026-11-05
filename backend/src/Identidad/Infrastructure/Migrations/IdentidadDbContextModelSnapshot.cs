@@ -4317,6 +4317,48 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("0000000b-000e-0000-0000-000000000001"),
+                            Accion = "autorizar-importacion",
+                            Codigo = "tesoreria.pagos-ce.autorizar-importacion",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar (nivel 1) pagos de importación: Compras de MP",
+                            Modulo = "tesoreria",
+                            Recurso = "pagos-ce",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000b-000e-0000-0000-000000000002"),
+                            Accion = "autorizar-exportacion",
+                            Codigo = "tesoreria.pagos-ce.autorizar-exportacion",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar (nivel 1) pagos de exportación: Documentación de Exportación",
+                            Modulo = "tesoreria",
+                            Recurso = "pagos-ce",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000b-000e-0000-0000-000000000003"),
+                            Accion = "autorizar-direccion",
+                            Codigo = "tesoreria.pagos-ce.autorizar-direccion",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar (nivel 2) pagos de comercio exterior: Dirección de Administración y Finanzas o Director de Comercialización; basta una firma y no puede ser quien firmó el nivel 1",
+                            Modulo = "tesoreria",
+                            Recurso = "pagos-ce",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("0000000b-0005-0000-0000-000000000001"),
                             Accion = "crear",
                             Codigo = "tesoreria.corridas.crear",

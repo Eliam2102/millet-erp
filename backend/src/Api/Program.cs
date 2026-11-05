@@ -1020,6 +1020,7 @@ builder.Services.AddCuentasPorCobrarModule(builder.Configuration, builder.Enviro
 // docs/modulos/tesoreria/01-diseno.md §6.
 builder.Services.AddTesoreriaModule(builder.Configuration);
 builder.Services.AddScoped<Millet.Tesoreria.Domain.Ports.ICorteNombresReadPort, Millet.Api.Infrastructure.Adapters.CorteNombresReadAdapter>();
+builder.Services.AddScoped<Millet.Tesoreria.Domain.Ports.IPasivoComercioExteriorReadPort, Millet.Api.Infrastructure.Adapters.PasivoComercioExteriorReadAdapter>();
 builder.Services.AddScoped<Millet.Tesoreria.Domain.Ports.IElegibleFacturaReadPort, Millet.Api.Infrastructure.Adapters.ElegibleFacturaReadPortAdapter>();
 builder.Services.AddScoped<Millet.CuentasPorPagar.Domain.Ports.Tesoreria.IPagosProveedorReadPort, Millet.Api.Infrastructure.Adapters.PagosProveedorReadPortAdapter>();
 builder.Services.AddScoped<Millet.CuentasPorPagar.Domain.Ports.Portal.IReppPortalPort, Millet.Api.Infrastructure.Adapters.ReppPortalAdapter>();
@@ -1970,6 +1971,7 @@ Millet.Api.Endpoints.Tesoreria.MovimientosEndpoints.MapTesoreriaMovimientosEndpo
 
 // === Tesorería — Bandeja de pasivos pendientes de pago (TES-PR3) ===
 Millet.Api.Endpoints.Tesoreria.PasivosEndpoints.MapTesoreriaPasivosEndpoints(app);
+Millet.Api.Endpoints.Tesoreria.PagosComercioExteriorEndpoints.MapTesoreriaPagosComercioExteriorEndpoints(app);
 
 // === Tesorería — Pago a proveedor + reversa (TES-PR4, contrato congelado) ===
 Millet.Api.Endpoints.Tesoreria.PagosEndpoints.MapTesoreriaPagosEndpoints(app);
