@@ -3,6 +3,7 @@ using Millet.Almacen.Domain;
 using Millet.Almacen.Domain.Catalogo;
 using Millet.Almacen.Domain.Cierre;
 using Millet.Almacen.Domain.Consumo;
+using Millet.Almacen.Domain.Taller;
 using Millet.Almacen.Domain.Conteos;
 using Millet.Almacen.Domain.DevolucionesProveedor;
 using Millet.Almacen.Domain.Idempotencia;
@@ -100,6 +101,10 @@ public class AlmacenDbContext : BaseDbContext
     /// <summary>A4.8: normas de consumo por artículo componente y consumos por composición leídos de A+W.</summary>
     public DbSet<NormaConsumoComponente> NormasConsumoComponente => Set<NormaConsumoComponente>();
     public DbSet<ConsumoComponenteAw> ConsumosComponenteAw => Set<ConsumoComponenteAw>();
+
+    /// <summary>PT5.10: descargas del taller por pedido interno Serie 9000 y cierres de día del almacenista.</summary>
+    public DbSet<DescargaTallerAw> DescargasTallerAw => Set<DescargaTallerAw>();
+    public DbSet<CierreTaller> CierresTaller => Set<CierreTaller>();
 
     /// <summary>A4.4: desperdicio de mesa de corte y merma por etapa informados por A+W.</summary>
     public DbSet<Domain.Mermas.MermaProceso> MermasProceso => Set<Domain.Mermas.MermaProceso>();
@@ -244,6 +249,39 @@ public class AlmacenDbContext : BaseDbContext
             // D2: un componente de una pieza en una operación se descuenta una sola vez.
             b.HasIndex(x => new { x.EmpresaId, x.Origen, x.Etiqueta, x.Operacion, x.ComponenteRef }).IsUnique();
             b.HasIndex(x => new { x.EmpresaId, x.Estado, x.IntentadoAt });
+        });
+        modelBuilder.Entity<DescargaTallerAw>(b =>
+        {
+            b.ToTable("descargas_taller_aw");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).ValueGeneratedNever();
+            b.Property(x => x.Origen).HasMaxLength(10).IsRequired();
+            b.Property(x => x.NumeroPedido).HasMaxLength(50).IsRequired();
+            b.Property(x => x.ArticuloRef).HasMaxLength(50).IsRequired();
+            b.Property(x => x.Cantidad).HasPrecision(14, 4);
+            b.Property(x => x.AnchoMm).HasPrecision(14, 4);
+            b.Property(x => x.AltoMm).HasPrecision(14, 4);
+            b.Property(x => x.ClaveSucursal).HasMaxLength(50);
+            b.Property(x => x.M2).HasPrecision(14, 4);
+            b.Property(x => x.Estado).HasMaxLength(20).IsRequired();
+            b.Property(x => x.Folio).HasMaxLength(100);
+            b.Property(x => x.Error).HasMaxLength(1000);
+            // Una posición de un pedido Serie 9000 baja el inventario una sola vez.
+            b.HasIndex(x => new { x.EmpresaId, x.Origen, x.NumeroPedido, x.Posicion }).IsUnique();
+            b.HasIndex(x => new { x.EmpresaId, x.Estado, x.IntentadoAt });
+            b.HasIndex(x => new { x.EmpresaId, x.SucursalId, x.FechaPedido });
+        });
+        modelBuilder.Entity<CierreTaller>(b =>
+        {
+            b.ToTable("cierres_taller");
+            b.Property(x => x.HojasTomadas).HasPrecision(14, 4);
+            b.Property(x => x.RetazosTomados).HasPrecision(14, 4);
+            b.Property(x => x.M2Descargados).HasPrecision(14, 4);
+            b.Property(x => x.M2Cortados).HasPrecision(14, 4);
+            b.Property(x => x.FactorOptimizacion).HasPrecision(14, 4);
+            b.Property(x => x.Notas).HasMaxLength(500);
+            // Un cierre por taller y día.
+            b.HasIndex(x => new { x.EmpresaId, x.SucursalId, x.Fecha }).IsUnique();
         });
         modelBuilder.Entity<Domain.Mermas.MermaProceso>(b =>
         {

@@ -36,6 +36,7 @@ public static class DependencyInjection
         services.AddScoped<SalidaAppAlmacenesGuardado>();
         services.AddScoped<MermaProcesoAppGuardado>();
         services.AddScoped<ConsumoComponentesGuardado>();
+        services.AddScoped<DescargaTallerGuardado>();
         services.AddScoped<IComprasCrearRqSistemaPort, NoOpComprasCrearRqSistemaPort>();
         services.AddScoped<IArticuloReadPort, NoOpArticuloReadPort>();
         services.AddScoped<IVarianteVidrioReadPort, NoOpVarianteVidrioReadPort>();

@@ -36,6 +36,7 @@ import { Route as AppAlmacenRevisionRouteImport } from './routes/_app/almacen/re
 import { Route as AppAlmacenSaldosRouteImport } from './routes/_app/almacen/saldos';
 import { Route as AppAlmacenSaldosJerarquiaRouteImport } from './routes/_app/almacen/saldos-jerarquia';
 import { Route as AppAlmacenSubAlmacenesRouteImport } from './routes/_app/almacen/sub-almacenes';
+import { Route as AppAlmacenTallerRouteImport } from './routes/_app/almacen/taller';
 import { Route as AppAlmacenUbicacionesRouteImport } from './routes/_app/almacen/ubicaciones';
 import { Route as AppCentrosCostoIndexRouteImport } from './routes/_app/centros-costo/index';
 import { Route as AppCentrosCostoAsignacionesRouteImport } from './routes/_app/centros-costo/asignaciones';
@@ -368,6 +369,11 @@ const AppAlmacenSaldosJerarquiaRoute =
 const AppAlmacenSubAlmacenesRoute = AppAlmacenSubAlmacenesRouteImport.update({
   id: '/almacen/sub-almacenes',
   path: '/almacen/sub-almacenes',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppAlmacenTallerRoute = AppAlmacenTallerRouteImport.update({
+  id: '/almacen/taller',
+  path: '/almacen/taller',
   getParentRoute: () => AppRoute,
 } as any);
 const AppAlmacenUbicacionesRoute = AppAlmacenUbicacionesRouteImport.update({
@@ -1463,6 +1469,7 @@ export interface FileRoutesByFullPath {
   '/almacen/saldos': typeof AppAlmacenSaldosRoute;
   '/almacen/saldos-jerarquia': typeof AppAlmacenSaldosJerarquiaRoute;
   '/almacen/sub-almacenes': typeof AppAlmacenSubAlmacenesRoute;
+  '/almacen/taller': typeof AppAlmacenTallerRoute;
   '/almacen/ubicaciones': typeof AppAlmacenUbicacionesRoute;
   '/centros-costo/asignaciones': typeof AppCentrosCostoAsignacionesRoute;
   '/centros-costo/configuracion': typeof AppCentrosCostoConfiguracionRoute;
@@ -1682,6 +1689,7 @@ export interface FileRoutesByTo {
   '/almacen/saldos': typeof AppAlmacenSaldosRoute;
   '/almacen/saldos-jerarquia': typeof AppAlmacenSaldosJerarquiaRoute;
   '/almacen/sub-almacenes': typeof AppAlmacenSubAlmacenesRoute;
+  '/almacen/taller': typeof AppAlmacenTallerRoute;
   '/almacen/ubicaciones': typeof AppAlmacenUbicacionesRoute;
   '/centros-costo/asignaciones': typeof AppCentrosCostoAsignacionesRoute;
   '/centros-costo/configuracion': typeof AppCentrosCostoConfiguracionRoute;
@@ -1903,6 +1911,7 @@ export interface FileRoutesById {
   '/_app/almacen/saldos': typeof AppAlmacenSaldosRoute;
   '/_app/almacen/saldos-jerarquia': typeof AppAlmacenSaldosJerarquiaRoute;
   '/_app/almacen/sub-almacenes': typeof AppAlmacenSubAlmacenesRoute;
+  '/_app/almacen/taller': typeof AppAlmacenTallerRoute;
   '/_app/almacen/ubicaciones': typeof AppAlmacenUbicacionesRoute;
   '/_app/centros-costo/asignaciones': typeof AppCentrosCostoAsignacionesRoute;
   '/_app/centros-costo/configuracion': typeof AppCentrosCostoConfiguracionRoute;
@@ -2124,6 +2133,7 @@ export interface FileRouteTypes {
     | '/almacen/saldos'
     | '/almacen/saldos-jerarquia'
     | '/almacen/sub-almacenes'
+    | '/almacen/taller'
     | '/almacen/ubicaciones'
     | '/centros-costo/asignaciones'
     | '/centros-costo/configuracion'
@@ -2343,6 +2353,7 @@ export interface FileRouteTypes {
     | '/almacen/saldos'
     | '/almacen/saldos-jerarquia'
     | '/almacen/sub-almacenes'
+    | '/almacen/taller'
     | '/almacen/ubicaciones'
     | '/centros-costo/asignaciones'
     | '/centros-costo/configuracion'
@@ -2563,6 +2574,7 @@ export interface FileRouteTypes {
     | '/_app/almacen/saldos'
     | '/_app/almacen/saldos-jerarquia'
     | '/_app/almacen/sub-almacenes'
+    | '/_app/almacen/taller'
     | '/_app/almacen/ubicaciones'
     | '/_app/centros-costo/asignaciones'
     | '/_app/centros-costo/configuracion'
@@ -2953,6 +2965,13 @@ declare module '@tanstack/react-router' {
       path: '/almacen/sub-almacenes';
       fullPath: '/almacen/sub-almacenes';
       preLoaderRoute: typeof AppAlmacenSubAlmacenesRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/almacen/taller': {
+      id: '/_app/almacen/taller';
+      path: '/almacen/taller';
+      fullPath: '/almacen/taller';
+      preLoaderRoute: typeof AppAlmacenTallerRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/almacen/ubicaciones': {
@@ -4335,6 +4354,7 @@ interface AppRouteChildren {
   AppAlmacenSaldosRoute: typeof AppAlmacenSaldosRoute;
   AppAlmacenSaldosJerarquiaRoute: typeof AppAlmacenSaldosJerarquiaRoute;
   AppAlmacenSubAlmacenesRoute: typeof AppAlmacenSubAlmacenesRoute;
+  AppAlmacenTallerRoute: typeof AppAlmacenTallerRoute;
   AppAlmacenUbicacionesRoute: typeof AppAlmacenUbicacionesRoute;
   AppCentrosCostoAsignacionesRoute: typeof AppCentrosCostoAsignacionesRoute;
   AppCentrosCostoConfiguracionRoute: typeof AppCentrosCostoConfiguracionRoute;
@@ -4553,6 +4573,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAlmacenSaldosRoute: AppAlmacenSaldosRoute,
   AppAlmacenSaldosJerarquiaRoute: AppAlmacenSaldosJerarquiaRoute,
   AppAlmacenSubAlmacenesRoute: AppAlmacenSubAlmacenesRoute,
+  AppAlmacenTallerRoute: AppAlmacenTallerRoute,
   AppAlmacenUbicacionesRoute: AppAlmacenUbicacionesRoute,
   AppCentrosCostoAsignacionesRoute: AppCentrosCostoAsignacionesRoute,
   AppCentrosCostoConfiguracionRoute: AppCentrosCostoConfiguracionRoute,
