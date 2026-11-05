@@ -60,8 +60,10 @@ import { esApiError, codigoSoporte } from '@/lib/api';
 import { EmpleadoInlineForm } from '@/modules/administracion/components/EmpleadoInlineForm';
 import { EmpleadoAccesoPanel } from '@/modules/administracion/components/EmpleadoAccesoPanel';
 import { CuentasSinEmpleado } from '@/modules/administracion/components/CuentasSinEmpleado';
+import { CuentasTecnicas } from '@/modules/administracion/components/CuentasTecnicas';
 import {
   useCuentasSinEmpleado,
+  useCuentasTecnicas,
   type CuentaSinEmpleado,
 } from '@/modules/administracion/api/empleados';
 
@@ -146,10 +148,12 @@ function formatFecha(iso: string | null | undefined): string | null {
  * - Acción directa en fila para "Reenviar acceso" a quienes no han iniciado sesión
  * - Panel expandible de acceso a Microsoft Entra ID
  */
-export type VistaEmpleados = 'empleados' | 'sin-empleado';
+export type VistaEmpleados = 'empleados' | 'sin-empleado' | 'tecnicas';
 
 /** Índice de la pestaña «Cuentas sin empleado» en <c>TabsEstado</c>. */
 const TAB_SIN_EMPLEADO = 5;
+/** Índice de la pestaña «Cuentas técnicas» (86e3yxe9m). */
+const TAB_TECNICAS = 6;
 
 export function EmpleadosPage({ vistaInicial = 'empleados' }: { vistaInicial?: VistaEmpleados }) {
   const [offset, setOffset] = useState(0);
@@ -184,6 +188,7 @@ export function EmpleadosPage({ vistaInicial = 'empleados' }: { vistaInicial?: V
   const [vistaElegida, setVista] = useState<VistaEmpleados>(vistaInicial);
   const vista: VistaEmpleados = canVerSinEmpleado ? vistaElegida : 'empleados';
   const cuentasSinEmpleado = useCuentasSinEmpleado('', canVerSinEmpleado);
+  const cuentasTecnicas = useCuentasTecnicas('', canVerSinEmpleado);
   const canCrearUsuarios = useHasPermission(PermisosCanonicos.IdentidadUsuariosCrear);
   // La API de dar acceso exige ambos permisos.
   const canDarAcceso = useHasAllPermissions([
@@ -477,13 +482,19 @@ export function EmpleadosPage({ vistaInicial = 'empleados' }: { vistaInicial?: V
                       valor: TAB_SIN_EMPLEADO,
                       label: `Cuentas sin empleado${cuentasSinEmpleado.data ? ` (${cuentasSinEmpleado.data.total})` : ''}`,
                     },
+                    {
+                      valor: TAB_TECNICAS,
+                      label: `Cuentas técnicas${cuentasTecnicas.data ? ` (${cuentasTecnicas.data.total})` : ''}`,
+                    },
                   ]
                 : []),
             ]}
             valor={
               vista === 'sin-empleado'
                 ? TAB_SIN_EMPLEADO
-                : filtroAcceso === 'todos'
+                : vista === 'tecnicas'
+                  ? TAB_TECNICAS
+                  : filtroAcceso === 'todos'
                   ? undefined
                   : filtrosAcceso.indexOf(filtroAcceso)
             }
@@ -493,13 +504,17 @@ export function EmpleadosPage({ vistaInicial = 'empleados' }: { vistaInicial?: V
                 setVista('sin-empleado');
                 return;
               }
+              if (v === TAB_TECNICAS) {
+                setVista('tecnicas');
+                return;
+              }
               setVista('empleados');
               setFiltroAcceso(v === undefined ? 'todos' : filtrosAcceso[v]);
             }}
           />
         }
         pie={
-          vista === 'sin-empleado' ? undefined : (
+          vista !== 'empleados' ? undefined : (
             <PaginacionTabla
               total={empleadosFiltrados.length}
               offset={offsetVisible}
@@ -510,7 +525,7 @@ export function EmpleadosPage({ vistaInicial = 'empleados' }: { vistaInicial?: V
           )
         }
         filtros={
-          vista === 'sin-empleado' ? undefined : (
+          vista !== 'empleados' ? undefined : (
             <BarraFiltros
               filtros={
                 <>
@@ -587,7 +602,9 @@ export function EmpleadosPage({ vistaInicial = 'empleados' }: { vistaInicial?: V
           )
         }
       >
-        {vista === 'sin-empleado' ? (
+        {vista === 'tecnicas' ? (
+          <CuentasTecnicas />
+        ) : vista === 'sin-empleado' ? (
           <CuentasSinEmpleado
             onCrearEmpleado={(c) => {
               setCuentaParaAlta(c);

@@ -979,6 +979,100 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                     b.ToTable("cfdis_recibidos", "cuentas_por_pagar");
                 });
 
+            modelBuilder.Entity("Millet.CuentasPorPagar.Domain.Cfdi.SolicitudCancelacionCfdi", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<short>("Area")
+                        .HasColumnType("smallint")
+                        .HasColumnName("area");
+
+                    b.Property<Guid>("CfdiRecibidoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cfdi_recibido_id");
+
+                    b.Property<string>("ComentarioDecision")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("comentario_decision");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<Guid?>("DecididoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("decidido_por");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<short>("Estado")
+                        .HasColumnType("smallint")
+                        .HasColumnName("estado");
+
+                    b.Property<string>("EvidenciaBlobRef")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("evidencia_blob_ref");
+
+                    b.Property<string>("EvidenciaNombre")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("evidencia_nombre");
+
+                    b.Property<DateTimeOffset?>("FechaDecision")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("fecha_decision");
+
+                    b.Property<DateTimeOffset>("FechaRecepcion")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("fecha_recepcion");
+
+                    b.Property<string>("Notas")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("notas");
+
+                    b.Property<Guid?>("ResponsableId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("responsable_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_solicitudes_cancelacion_cfdi");
+
+                    b.HasIndex("CfdiRecibidoId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_solicitudes_cancelacion_cfdi_pendiente")
+                        .HasFilter("estado = 1");
+
+                    b.ToTable("solicitudes_cancelacion_cfdi", "cuentas_por_pagar");
+                });
+
             modelBuilder.Entity("Millet.CuentasPorPagar.Domain.ComprobacionGastos.ComprobacionGastos", b =>
                 {
                     b.Property<Guid>("Id")

@@ -197,6 +197,19 @@ describe('Empleados · vista «Cuentas sin empleado» (86e3x6cpw)', () => {
     expect(within(filas[2]).queryAllByRole('button')).toHaveLength(0);
   });
 
+  it('la cuenta que ya entró abre su ficha; la que no ha entrado explica por qué no tiene rol (86e3yxe9m)', async () => {
+    setPermisos(PERMISOS_VISTA);
+    const lista = await abrirVista();
+    const filas = within(lista).getAllByRole('listitem');
+    const ayuda = 'Aún no entra al ERP: no tiene rol. Se asigna al crear su empleado.';
+
+    expect(within(filas[0]).getByRole('link', { name: 'Cuenta Ficticia Uno' })).toBeInTheDocument();
+    expect(within(filas[0]).queryByText(ayuda)).not.toBeInTheDocument();
+
+    expect(within(filas[1]).queryByRole('link', { name: 'Cuenta Ficticia Dos' })).not.toBeInTheDocument();
+    expect(within(filas[1]).getByText(ayuda)).toBeInTheDocument();
+  });
+
   it('el buscador consulta al backend con el texto tras la pausa', async () => {
     setPermisos(PERMISOS_VISTA);
     await abrirVista();
