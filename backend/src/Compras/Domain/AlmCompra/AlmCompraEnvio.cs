@@ -10,8 +10,9 @@ namespace Millet.Compras.Domain.AlmCompra;
 /// mientras el anterior de su referencia no tenga acuse PROCESADO/DUPLICADO; un ERROR detiene la referencia.
 /// <see cref="MensajeId"/> es único (idempotencia): se deriva de la OC, el tipo y un ordinal.
 /// </para>
+/// Sin auditoría (ADR-0008): es una bandeja técnica; su historia es el estado, los intentos y el acuse de cada fila.
 /// </summary>
-public sealed class AlmCompraEnvio : BaseEntity, IPerteneceAEmpresa
+public sealed class AlmCompraEnvio : BaseEntity, IPerteneceAEmpresa, INotAudited
 {
     public const string TipoRecibida = "COMPRA_RECIBIDA";
     public const string TipoCancelada = "COMPRA_CANCELADA";

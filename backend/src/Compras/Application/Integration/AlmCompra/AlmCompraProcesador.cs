@@ -18,15 +18,14 @@ public sealed record AlmCompraTick(int Escritos, int Acusados, int Fallas);
 /// Almacenes puede reprocesarlo desde su aplicación y cambiar el acuse;</item>
 /// <item>una falla del transporte reintenta con espera creciente y, agotados los intentos, pasa a ERROR.</item>
 /// </list>
-/// Escribir es idempotente por <c>mensajeId</c>, así que dos instancias o un ciclo repetido no duplican.
+/// El llamador pone el contexto de empresa (el worker abre el bypass; no es un endpoint). Escribir es idempotente por <c>mensajeId</c>, así que dos instancias o un ciclo repetido no duplican.
 /// </summary>
 public sealed class AlmCompraProcesador(
     ComprasDbContext db, IAlmCompraTransporte transporte, IOptions<AlmCompraOptions> options, IClock clock,
-    ICurrentEmpresaContext empresa, IAlmCompraCancelacion cancelacion, IPublisher publisher, ILogger<AlmCompraProcesador> logger)
+    IAlmCompraCancelacion cancelacion, IPublisher publisher, ILogger<AlmCompraProcesador> logger)
 {
     public async Task<AlmCompraTick> ProcesarAsync(CancellationToken ct)
     {
-        using var bypass = empresa.Bypass();
         int escritos = 0, acusados = 0, fallas = 0;
 
         var referencias = await db.AlmCompraEnvios.AsNoTracking()

@@ -137,6 +137,7 @@ public partial class OrdenesCompraEndpointsTests
     private async Task<AlmCompraTick> ProcesarBandejaAsync()
     {
         using var scope = _factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass(); // como el worker
         return await scope.ServiceProvider.GetRequiredService<AlmCompraProcesador>().ProcesarAsync(default);
     }
 

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Millet.Compras.Application.Integration.AlmCompra;
+using Millet.SharedKernel.Application;
 
 namespace Millet.Compras.Infrastructure.Workers;
 
@@ -25,6 +26,8 @@ public sealed class AlmCompraWorker(
             try
             {
                 using var scope = scopes.CreateScope();
+                // Proceso de fondo sin empresa de sesión: atiende la bandeja de todas las empresas (permitido en Workers/, BypassUsageGuardTest).
+                using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
                 var tick = await scope.ServiceProvider.GetRequiredService<AlmCompraProcesador>().ProcesarAsync(stoppingToken);
                 if (tick != new AlmCompraTick(0, 0, 0)) logger.LogInformation("[AlmCompraWorker] {Tick}", tick);
             }

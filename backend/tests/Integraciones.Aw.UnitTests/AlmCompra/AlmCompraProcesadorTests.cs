@@ -56,7 +56,7 @@ public sealed class AlmCompraProcesadorTests
             Db = new ComprasDbContext(opts, new BypassEmpresa());
             Db.Database.EnsureCreated();
             Procesador = new AlmCompraProcesador(Db, Sim, Options.Create(new AlmCompraOptions { MaxIntentos = maxIntentos }),
-                Reloj, new BypassEmpresa(), Cancelacion,
+                Reloj, Cancelacion,
                 Publicador, NullLogger<AlmCompraProcesador>.Instance);
         }
 
