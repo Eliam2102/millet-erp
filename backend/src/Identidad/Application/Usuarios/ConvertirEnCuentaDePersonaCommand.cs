@@ -1,10 +1,12 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Identidad.Infrastructure;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.SharedKernel.Infrastructure.Persistence;
 
 namespace Millet.Identidad.Application.Usuarios;
 
@@ -47,10 +49,12 @@ public sealed class ConvertirEnCuentaDePersonaHandler
     private readonly ICurrentUserContext _currentUser;
     private readonly IAuditLogWriter _audit;
     private readonly IPermissionCache _permissionCache;
+    private readonly CoreDbContext _core;
 
     public ConvertirEnCuentaDePersonaHandler(
         IdentidadDbContext db,
         CompartidoDbContext compartido,
+        CoreDbContext core,
         ICurrentUserContext currentUser,
         IAuditLogWriter audit,
         IPermissionCache permissionCache)
@@ -60,6 +64,7 @@ public sealed class ConvertirEnCuentaDePersonaHandler
         _currentUser = currentUser;
         _audit = audit;
         _permissionCache = permissionCache;
+        _core = core;
     }
 
     public async Task<UsuarioResponse> Handle(
@@ -118,32 +123,63 @@ public sealed class ConvertirEnCuentaDePersonaHandler
 
         var motivo = command.Motivo.Trim();
         usuario.DesmarcarCuentaTecnica();
-        await _db.SaveChangesAsync(ct);
-        await _permissionCache.InvalidateAllForUserAsync(usuario.Id, ct);
 
-        await _audit.RegistrarAsync(
-            // core.audit_log.operacion es varchar(32).
-            operacion: "usuario.convertido-a-persona",
-            modulo: "Identidad",
-            entidad: "Usuario",
-            entidadId: usuario.Id,
-            aggregateRootId: usuario.Id,
-            actorNombre: _currentUser.UserName ?? "Usuario",
-            actorTipo: "usuario",
-            actorEmail: _currentUser.Email,
-            entidadEtiqueta: usuario.Email,
-            resumen: $"Cuenta técnica convertida en cuenta de persona. Motivo: {motivo}",
-            usuarioId: actorId,
-            cambios: System.Text.Json.JsonSerializer.Serialize(new
-            {
-                esCuentaTecnica = new { antes = true, despues = false },
-                motivo,
-            }),
-            cancellationToken: ct);
+        // Conversión y bitácora son atómicas (86e3yxe9m): la bitácora (core) se une a la conexión y la
+        // transacción de Identidad; si cualquiera falla, la cuenta sigue siendo técnica. La bitácora va
+        // primero para que, sin base relacional (pruebas unitarias), una falla tampoco convierta la cuenta.
+        await EnTransaccionAsync(async () =>
+        {
+            await _audit.RegistrarAsync(
+                // core.audit_log.operacion es varchar(32).
+                operacion: "usuario.convertido-a-persona",
+                modulo: "Identidad",
+                entidad: "Usuario",
+                entidadId: usuario.Id,
+                aggregateRootId: usuario.Id,
+                actorNombre: _currentUser.UserName ?? "Usuario",
+                actorTipo: "usuario",
+                actorEmail: _currentUser.Email,
+                entidadEtiqueta: usuario.Email,
+                resumen: $"Cuenta técnica convertida en cuenta de persona. Motivo: {motivo}",
+                usuarioId: actorId,
+                cambios: System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    esCuentaTecnica = new { antes = true, despues = false },
+                    motivo,
+                }),
+                cancellationToken: ct);
+            await _db.SaveChangesAsync(ct);
+        }, ct);
+        await _permissionCache.InvalidateAllForUserAsync(usuario.Id, ct);
 
         return new UsuarioResponse(
             usuario.Id, usuario.Email, usuario.EntraOid, usuario.Nombre, usuario.DepartamentoId,
             usuario.Activo, usuario.Version, EsCuentaTecnica: usuario.EsCuentaTecnica,
             PrimerAccesoEn: usuario.PrimerAccesoEn);
+    }
+
+    private async Task EnTransaccionAsync(Func<Task> operacion, CancellationToken ct)
+    {
+        if (!_db.Database.IsRelational())
+        {
+            await operacion();
+            return;
+        }
+
+        await using var tx = await _db.Database.BeginTransactionAsync(ct);
+        // Core no debe tener su propia conexión abierta al unirse (mismo patrón que TransaccionColaborador).
+        await _core.Database.CloseConnectionAsync();
+        _core.Database.SetDbConnection(_db.Database.GetDbConnection());
+        await _core.Database.UseTransactionAsync(tx.GetDbTransaction(), ct);
+        try
+        {
+            await operacion();
+            await tx.CommitAsync(ct);
+        }
+        finally
+        {
+            // Sin commit, el dispose de tx hace rollback.
+            await _core.Database.UseTransactionAsync(null, CancellationToken.None);
+        }
     }
 }

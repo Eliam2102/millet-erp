@@ -6,6 +6,7 @@ using Millet.Identidad.Application.Usuarios;
 using Millet.Identidad.Domain;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.SharedKernel.Infrastructure.Persistence;
 
 namespace Millet.Identidad.UnitTests.Infrastructure;
 
@@ -22,11 +23,15 @@ public sealed class ConvertirEnCuentaDePersonaTests : IDisposable
         new DbContextOptionsBuilder<CompartidoDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
         new PermisosOverrideScenario.BypassedEmpresaContext());
     private readonly AuditoriaFalsa _audit = new();
+    private readonly CoreDbContext _core = new(
+        new DbContextOptionsBuilder<CoreDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
+        new PermisosOverrideScenario.BypassedEmpresaContext());
 
     public void Dispose()
     {
         _s.Db.Dispose();
         _compartido.Dispose();
+        _core.Dispose();
     }
 
     [Theory]
@@ -60,6 +65,23 @@ public sealed class ConvertirEnCuentaDePersonaTests : IDisposable
         (await _s.Db.Usuarios.AsNoTracking().SingleAsync(u => u.Id == tecnica.Id)).EsCuentaTecnica.Should().BeFalse();
         _audit.Registros.Should().ContainSingle(a => a.Operacion == "usuario.convertido-a-persona"
             && a.EntidadId == tecnica.Id && a.Resumen.Contains(MotivoValido) && a.UsuarioId == actor.Id);
+    }
+
+    [Fact]
+    public async Task Si_la_bitacora_falla_la_cuenta_sigue_siendo_tecnica()
+    {
+        // Caso del 4-nov: la bitácora rechazó el registro y la cuenta quedó convertida sin rastro.
+        var super = await SuperAdminAsync();
+        var actor = await UsuarioAsync("actor", super);
+        var tecnica = await UsuarioAsync("soporte", tecnica: true);
+        _s.CurrentUser.UserId = actor.Id;
+        _audit.Falla = true;
+
+        var act = () => Handler().Handle(new ConvertirEnCuentaDePersonaCommand(tecnica.Id, tecnica.Version, MotivoValido), default);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        _s.Db.ChangeTracker.Clear();
+        (await _s.Db.Usuarios.AsNoTracking().SingleAsync(u => u.Id == tecnica.Id)).EsCuentaTecnica.Should().BeTrue();
     }
 
     [Fact]
@@ -146,7 +168,7 @@ public sealed class ConvertirEnCuentaDePersonaTests : IDisposable
     }
 
     private ConvertirEnCuentaDePersonaHandler Handler() =>
-        new(_s.Db, _compartido, _s.CurrentUser, _audit, _s.Cache);
+        new(_s.Db, _compartido, _core, _s.CurrentUser, _audit, _s.Cache);
 
     private Task<Rol> SuperAdminAsync() =>
         _s.CrearRolAsync(DesactivarUsuarioHandler.SuperAdminCodigo, esDelSistema: true);
@@ -165,12 +187,16 @@ public sealed class ConvertirEnCuentaDePersonaTests : IDisposable
     private sealed class AuditoriaFalsa : IAuditLogWriter
     {
         public List<(string Operacion, Guid? EntidadId, string Resumen, Guid? UsuarioId)> Registros { get; } = new();
+        public bool Falla { get; set; }
 
         public Task RegistrarAsync(string operacion, string modulo, string entidad, Guid? entidadId, Guid? aggregateRootId,
             string actorNombre, string actorTipo, string? actorEmail, string entidadEtiqueta, string resumen,
             Guid? usuarioId = null, Guid? empresaId = null, string cambios = "{}", string? metadatos = null,
             CancellationToken cancellationToken = default)
         {
+            if (Falla) throw new InvalidOperationException("La bitácora rechazó el registro.");
+            // Mismo límite que core.audit_log.operacion (varchar(32)).
+            if (operacion.Length > 32) throw new InvalidOperationException("operacion excede varchar(32).");
             Registros.Add((operacion, entidadId, resumen, usuarioId));
             return Task.CompletedTask;
         }
