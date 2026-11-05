@@ -172,6 +172,9 @@ describe('<EmitirFacturaForm> — smoke (FAC-UX-PR2/PR3)', () => {
       { wrapper: createQueryWrapper() },
     );
     await screen.findByDisplayValue('Torre Cancún – Fase 1');
+    expect(screen.getByText('Selecciónalo del catálogo; sus datos fiscales vienen de su ficha de cliente.')).toBeInTheDocument();
+    expect(screen.queryByText(/master de clientes/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Obra (nombre)')).toHaveValue('Torre Cancún – Fase 1');
     expect(screen.getAllByText('$100,920.00').length).toBeGreaterThan(0);
 
     rerender(
@@ -237,7 +240,7 @@ describe('<EmitirFacturaForm> — smoke (FAC-UX-PR2/PR3)', () => {
     );
     expect(
       await screen.findByText(
-        'La exportación RT sin complemento requiere confirmación de Fiscal (VAL-CE-08).',
+        'La exportación RT sin complemento requiere confirmación de Fiscal.',
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Emitir y timbrar' })).toBeDisabled();
