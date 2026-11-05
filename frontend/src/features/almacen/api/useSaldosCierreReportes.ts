@@ -4,6 +4,7 @@ import {
   almacenKeys,
   type AlfakHistorialFiltros,
   type TrazabilidadMpFiltros,
+  type KardexFiltros,
   type HijosJerarquiaParams,
   type ListarSaldosFiltros,
   type MpCnkFiltros,
@@ -11,6 +12,7 @@ import {
 import type {
   AlfakHistorialFila,
   TrazabilidadMpFila,
+  KardexFila,
   CuadreInventarioFila,
   EjecutarCierreMensualCommand,
   EjecutarCierreMensualResponse,
@@ -223,6 +225,28 @@ export function useReporteTrazabilidadMp(filtros: TrazabilidadMpFiltros) {
       if (filtros.subAlmacenId) params.set('subAlmacenId', filtros.subAlmacenId);
       const { data } = await apiRequest<ReporteResponse<TrazabilidadMpFila>>(
         `/api/v1/almacen/reportes/trazabilidad-mp?${params}`,
+        { signal },
+      );
+      return data;
+    },
+    enabled: !!filtros.articuloId && !!filtros.desde && !!filtros.hasta,
+  });
+}
+
+/** F1-ALM-15: kardex de un artículo por sub-almacén/ubicación y periodo. Sin artículo no consulta. */
+export function useReporteKardex(filtros: KardexFiltros) {
+  return useQuery({
+    queryKey: almacenKeys.reporteKardex(filtros),
+    queryFn: async ({ signal }) => {
+      const params = new URLSearchParams({
+        articuloId: filtros.articuloId,
+        desde: filtros.desde,
+        hasta: filtros.hasta,
+      });
+      if (filtros.subAlmacenId) params.set('subAlmacenId', filtros.subAlmacenId);
+      if (filtros.ubicacionId) params.set('ubicacionId', filtros.ubicacionId);
+      const { data } = await apiRequest<ReporteResponse<KardexFila>>(
+        `/api/v1/almacen/reportes/kardex?${params}`,
         { signal },
       );
       return data;
