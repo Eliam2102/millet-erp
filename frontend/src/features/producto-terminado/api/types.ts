@@ -10,6 +10,8 @@ export interface PiezaDto {
   sucursalId: string;
   estado: string;
   escaneadaAt: string;
+  /** Solo en tránsito: sucursal a la que va. */
+  sucursalDestinoId?: string | null;
 }
 
 export interface AvancePosicionDto {

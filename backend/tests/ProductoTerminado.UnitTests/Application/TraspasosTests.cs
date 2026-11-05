@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Millet.Administracion.Application.Abstractions;
 using Millet.Identidad.Domain;
 using Millet.ProductoTerminado.Application;
+using Consultas = Millet.ProductoTerminado.Application.Consultas;
 using Millet.ProductoTerminado.Application.Traspasos;
 using Millet.ProductoTerminado.Domain;
 using Millet.SharedKernel.Application;
@@ -89,6 +90,21 @@ public sealed class TraspasosTests
         // La que faltaba llega después: la diferencia se aclara.
         var final = await Recepcion(t).Handle(new RecibirTraspasoCommand(salida.Id, null), default);
         final.Estado.Should().Be("Recibido");
+    }
+
+    [Fact]
+    public async Task Piezas_en_transito_muestran_destino_y_no_cuentan_como_EnPt_en_el_origen()
+    {
+        using var t = await Preparar();
+        await Salida(t).Handle(new CrearTraspasoCommand(EntornoPt.Sucursal, Destino, ["E1"]), default);
+
+        var r = await new Consultas.ListarPiezasHandler(t.Db, Acceso()).Handle(new Consultas.ListarPiezasQuery("P1", EntornoPt.Sucursal, 1, 50), default);
+
+        var enTransito = r.Items.Single(p => p.Estado == "EnTransito");
+        enTransito.Etiqueta.Should().Be("E1");
+        enTransito.SucursalDestinoId.Should().Be(Destino);
+        r.Items.Single(p => p.Etiqueta == "E2").SucursalDestinoId.Should().BeNull();
+        r.Avance.Single().EnPt.Should().Be(1);
     }
 
     [Fact]
