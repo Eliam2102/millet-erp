@@ -1,4 +1,5 @@
-import { ErrorState } from '@/components/erp';
+import { problemaConsulta } from '@/components/erp/feedback/problema-consulta';
+import { ResumenImportes, ErrorState } from '@/components/erp';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,7 +15,6 @@ import { usePedidoSalidas } from '@/features/facturacion/api/usePedidos';
 import { EstadoFacturacionBadge } from '@/features/facturacion/components/EstadoFacturacionBadge';
 import { RegistrarSalidaDialog } from '@/features/facturacion/components/RegistrarSalidaDialog';
 import { ETIQUETA_ORIGEN_SALIDA } from '@/features/facturacion/lib/glosario';
-import { esApiError } from '@/lib/api';
 import { formatDateTime } from '@/lib/datetime';
 import { formatCantidad } from '@/lib/format-cantidad';
 import { formatMoney } from '@/lib/money';
@@ -62,7 +62,7 @@ export function SalidasPedido({
         </h2>
         <ErrorState
           title="No se pudieron cargar las salidas del pedido"
-          problem={esApiError(salidas.error) ? salidas.error.problem : undefined}
+          problem={problemaConsulta(salidas.error)}
           onRetry={() => salidas.refetch()}
         />
       </section>
@@ -138,29 +138,14 @@ export function SalidasPedido({
 
 function Totales({ datos, moneda }: { datos: PedidoSalidasResponse; moneda: string }) {
   return (
-    <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat sm:grid-cols-3">
-      <div className="space-y-0.5">
-        <dt className="text-xs text-ink-muted">Total del pedido</dt>
-        <dd className="text-sm font-medium tabular-nums">
-          {formatMoney({ amount: datos.totalPedido, currency: moneda })}
-        </dd>
-      </div>
-      <div className="space-y-0.5">
-        <dt className="text-xs text-ink-muted">Facturado en parcialidades</dt>
-        <dd className="text-sm font-medium tabular-nums">
-          {formatMoney({ amount: datos.totalFacturado, currency: moneda })}
-        </dd>
-      </div>
-      <div className="space-y-0.5">
-        <dt className="text-xs text-ink-muted">Por facturar</dt>
-        <dd className="text-sm font-medium tabular-nums">
-          {formatMoney({
-            amount: Math.max(0, datos.totalPedido - datos.totalFacturado),
-            currency: moneda,
-          })}
-        </dd>
-      </div>
-    </dl>
+    <ResumenImportes
+      moneda={moneda}
+      total={datos.totalPedido}
+      estadoPago={[
+        { etiqueta: 'Facturado en parcialidades', monto: datos.totalFacturado },
+        { etiqueta: 'Por facturar', monto: Math.max(0, datos.totalPedido - datos.totalFacturado), destacado: true },
+      ]}
+    />
   );
 }
 
@@ -181,7 +166,7 @@ function AvancePorPartida({ datos }: { datos: PedidoSalidasResponse }) {
         <TableBody>
           {datos.avance.map((a) => (
             <TableRow key={a.posicion} className="border-t border-line-row">
-              <TableCell className="px-3 py-2 text-ink-muted tabular-nums">{a.posicion}</TableCell>
+              <TableCell className="px-3 py-2 text-right text-ink-muted tabular-nums">{a.posicion}</TableCell>
               <TableCell className="px-3 py-2">{a.descripcion}</TableCell>
               <TableCell className="px-3 py-2 text-right tabular-nums">
                 {formatCantidad(a.pedida)}

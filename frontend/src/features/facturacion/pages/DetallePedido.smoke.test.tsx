@@ -257,7 +257,7 @@ describe('<DetallePedido> — smoke', () => {
     render(<DetallePedido />, { wrapper: createQueryWrapper() });
     expect(await screen.findByText(/Anticipos del pedido \(1\)/)).toBeInTheDocument();
     expect(screen.getByText('FANT-7')).toBeInTheDocument();
-    expect(screen.getAllByText('1160.00')).toHaveLength(2); // cobrado y saldo
+    expect(screen.getAllByText('$1,160.00')).toHaveLength(2); // cobrado y saldo
   });
 
   it('86e3tfdw2: pedido a crédito muestra badge «Crédito» y la condición de pago', async () => {
@@ -318,7 +318,7 @@ describe('<DetallePedido> — smoke', () => {
     render(<DetallePedido />, { wrapper: createQueryWrapper() });
     await waitFor(() => expect(screen.getByText('Cliente Demo SA')).toBeInTheDocument());
     expect(screen.getByText(/Ranura \(descuento del pedido/i)).toBeInTheDocument();
-    expect(screen.getByText(/−250\.50 MXN/)).toBeInTheDocument();
+    expect(screen.getByText(/−\$250\.50/)).toBeInTheDocument();
   });
 
   it('"Facturar" visible en Importado + permiso emitir; monta la emisión in-place con prefill', async () => {
@@ -722,7 +722,7 @@ describe('<DetallePedido> — proforma (U1.8a)', () => {
       expect(await screen.findByText(/Salidas parciales \(2\)/)).toBeInTheDocument();
       const parcialidad1 = screen.getByTestId('salida-1');
       expect(within(parcialidad1).getByText('FV 10')).toBeInTheDocument();
-      expect(within(parcialidad1).getByText('Timbrado')).toBeInTheDocument();
+      expect(within(parcialidad1).getByText('Timbrada')).toBeInTheDocument();
       const parcialidad2 = screen.getByTestId('salida-2');
       expect(within(parcialidad2).getByText('Por facturar')).toBeInTheDocument();
       expect(within(parcialidad2).getByText('Sin factura')).toBeInTheDocument();

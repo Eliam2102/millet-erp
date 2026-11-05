@@ -47,8 +47,8 @@ export function CxcLandingPage() {
           }
           descripcion={
             <>
-              Cartera de clientes: líneas de crédito, liberación de pedidos, cobranza, aplicación de
-              pagos, antigüedad de saldos y alertas.
+              Consulta la cartera y administra líneas de crédito, liberación de pedidos, cobranza y
+              aplicación de pagos.
             </>
           }
         />
@@ -110,7 +110,7 @@ const moduloCxcLanding: NavModulo = {
         {
           label: 'Líneas de crédito',
           description:
-            'Master de líneas por cliente y moneda: límite, plazo, origen (SOLUNION / interno) y crédito disponible.',
+            'Líneas de crédito por cliente y moneda: límite, plazo, origen (SOLUNION / interno) y crédito disponible.',
           to: '/cxc/lineas-credito',
           icon: CreditCard,
           permission: PermisosCanonicos.CuentasPorCobrarLineasCreditoLeer,
@@ -155,7 +155,7 @@ const moduloCxcLanding: NavModulo = {
         {
           label: 'Aplicación de pagos',
           description:
-            'Propuestas de aplicación depósito ↔ facturas con tolerancia no fiscal; confirmación de Ingresos.',
+            'Propón cómo aplicar depósitos a facturas para su confirmación por Ingresos.',
           to: '/cxc/aplicaciones',
           icon: FileText,
           permissionsAny: [
@@ -202,7 +202,7 @@ const moduloCxcLanding: NavModulo = {
         {
           label: 'Conciliación con pólizas',
           description:
-            'Cobros aplicados en cartera contra sus pólizas: diferencias con su causa probable (CXC-06).',
+            'Cobros aplicados en cartera contra sus pólizas: diferencias con su causa probable.',
           to: '/cxc/conciliacion-polizas',
           icon: Scale,
           permission: PermisosCanonicos.CuentasPorCobrarCarteraLeer,
