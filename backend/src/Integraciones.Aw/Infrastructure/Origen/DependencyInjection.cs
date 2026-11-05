@@ -1,3 +1,4 @@
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -9,6 +10,7 @@ using Millet.Integraciones.Aw.Application.Productos;
 using Millet.Integraciones.Aw.Application.Pedidos;
 using Millet.Integraciones.Aw.Application.Origen;
 using Millet.Integraciones.Aw.Application.Retorno;
+using Millet.Integraciones.Aw.Infrastructure.Adapters;
 using Millet.Integraciones.Aw.Infrastructure.NotasCredito;
 using Millet.Integraciones.Aw.Infrastructure.Retorno;
 using Millet.Integraciones.Aw.Infrastructure.Clientes;
@@ -30,6 +32,19 @@ public static class OrigenDependencyInjection
         ConservarReal<IAwProductosOrigen>(services);
         ConservarReal<IAwSolicitudesReader>(services);
         ConservarReal<IAwWriteBackPort>(services);
+        // 86e3jvv6z: con la bandera, las NC se leen directo de A+W (solo SELECT, millet_erp_lector_aw) y no hay acuse hacia A+W. Se registra
+        // después de la tabla puente (si existe) para ser el «Real»; Demo conserva su adaptador.
+        var lectura = configuration.GetSection(AwNotasCreditoLecturaOptions.SectionName).Get<AwNotasCreditoLecturaOptions>() ?? new();
+        if (lectura.Habilitada)
+        {
+            const string cadena = AwClientesOptions.ConnectionStringName;
+            if (string.IsNullOrWhiteSpace(configuration.GetConnectionString(cadena)))
+                throw new InvalidOperationException($"{AwNotasCreditoLecturaOptions.SectionName}:Habilitada requiere ConnectionStrings:{cadena}.");
+            services.AddSingleton<AwNotasCreditoVistas>();
+            services.AddScoped<IAwNotasCreditoPort>(sp => new AwNotasCreditoDirectoPort(
+                new AwNotasCreditoLectorAdapter(() => new SqlConnection(AwSqlTls.Validar(configuration.GetConnectionString(cadena)!, cadena)), lectura),
+                lectura, sp.GetRequiredService<AwNotasCreditoVistas>()));
+        }
         ConservarReal<IAwNotasCreditoPort>(services);
         ConservarReal<IAwRetornoPort>(services);
         services.AddScoped<AwRetornoDocumentoService>();

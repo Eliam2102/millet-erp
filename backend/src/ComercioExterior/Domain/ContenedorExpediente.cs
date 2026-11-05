@@ -5,13 +5,14 @@ namespace Millet.ComercioExterior.Domain;
 
 public enum EstadoContenedor { Activo = 1, Cancelado = 2 }
 public sealed record DatosContenedor(string? Numero, string? Sello, string? Booking, string? BlGuia, string? Ruta,
-    DateOnly? FechaCargaPrevista, decimal? PesoKg, int? Bultos);
+    DateOnly? FechaCargaPrevista, decimal? PesoKg, int? Bultos, ModalidadTransporte? Modalidad = null);
 
 public sealed class ContenedorExpediente : BaseEntity, IAuditable, IPerteneceAEmpresa, IBelongsToAggregate
 {
     public Guid EmpresaId { get; set; }
     public Guid ExpedienteId { get; private set; }
     public Guid AggregateRootId => ExpedienteId;
+    public ModalidadTransporte? Modalidad { get; private set; }
     public string? Numero { get; private set; }
     public string? Sello { get; private set; }
     public string? Booking { get; private set; }
@@ -38,11 +39,14 @@ public sealed class ContenedorExpediente : BaseEntity, IAuditable, IPerteneceAEm
     internal void Editar(DatosContenedor datos)
     {
         ExigirActivo();
+        if (datos.Modalidad is { } modalidad && !Enum.IsDefined(modalidad))
+            throw new BusinessRuleException("CE_MODALIDAD_INVALIDA", "Seleccione una modalidad de transporte válida.");
         if (new[] { datos.Numero, datos.Sello, datos.Booking, datos.BlGuia, datos.Ruta }.Any(x => x?.Length > 200)
             || datos.PesoKg is < 0 or >= 1_000_000_000_000m || (datos.PesoKg is decimal peso && decimal.Round(peso, 6) != peso) || datos.Bultos < 0)
             throw new BusinessRuleException("CE_CONTENEDOR_DATOS_INVALIDOS", "Referencias: máximo 200 caracteres; peso y bultos no negativos, peso con máximo seis decimales.");
         if (FechaEmbarqueReal is not null && (string.IsNullOrWhiteSpace(datos.Numero) || string.IsNullOrWhiteSpace(datos.BlGuia)))
             throw new BusinessRuleException("CE_EMBARQUE_DATOS_REQUERIDOS", "Un embarque real debe conservar número de contenedor y BL o guía.");
+        Modalidad = datos.Modalidad;
         Numero = Limpiar(datos.Numero); Sello = Limpiar(datos.Sello); Booking = Limpiar(datos.Booking);
         BlGuia = Limpiar(datos.BlGuia); Ruta = Limpiar(datos.Ruta);
         FechaCargaPrevista = datos.FechaCargaPrevista; PesoKg = datos.PesoKg; Bultos = datos.Bultos;

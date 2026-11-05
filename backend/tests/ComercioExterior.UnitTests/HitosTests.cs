@@ -15,7 +15,21 @@ public sealed class HitosTests
         return e;
     }
     private static void Codigo(Action action, string code) => action.Should().Throw<BusinessRuleException>().Which.Code.Should().Be(code);
-    private static void Real(Expediente e, string clave, DateOnly? fecha = null) => e.RegistrarHito(clave, fecha ?? Hoy, Actor, null, null, [], [], Hoy);
+    private static void Real(Expediente e, string clave, DateOnly? fecha = null)
+    {
+        if (clave == "embarcado")
+        {
+            if (e.Tipo == TipoExpediente.Exportacion) e.AutorizarSalida(Guid.NewGuid(), new(2026, 10, 16, 18, 0, 0, TimeSpan.Zero), null, true);
+            else
+            {
+                var c = Guid.NewGuid(); e.GuardarContenedor(c, new("CONT-PRUEBA", null, null, "BL-PRUEBA", null, null, null, null, ModalidadTransporte.Maritimo));
+                e.AgregarParticipante(Guid.NewGuid(), "Naviera prueba", TipoParticipante.Naviera, null, PapelParticipante.Captura, null, null);
+                e.AsignarPartidaImportacion(c, Guid.NewGuid(), 1, 1, 1, "PZA", Actor); e.RegistrarEmbarque(c, fecha ?? Hoy, Hoy);
+            }
+        }
+        var evidencia = Guid.NewGuid();
+        e.RegistrarHito(clave, fecha ?? Hoy, Actor, evidencia, null, [], [evidencia], Hoy);
+    }
 
     [Fact]
     public void Quince_hitos_en_orden_y_solicitado_es_origen_idempotente()
@@ -144,7 +158,7 @@ public sealed class HitosTests
         var e = Crear();
         e.RegistrarAnticipo(Guid.NewGuid(), Guid.NewGuid(), "PED-TEST", new(100, 0, 0), Hoy, null);
         Codigo(e.Cerrar, "CE_CIERRE_FINANCIERO_PENDIENTE");
-        Codigo(() => Real(e, "cerrado"), "CE_CIERRE_FINANCIERO_PENDIENTE");
+        Codigo(() => Real(e, "cerrado"), "CE_CIERRE_GERENCIA_REQUERIDO");
         Codigo(() => e.OmitirHito("cerrado", "No aplica DEMO", Actor), "CE_HITO_NO_OMITIBLE");
         e.Estado.Should().Be(EstadoExpediente.Abierto);
     }

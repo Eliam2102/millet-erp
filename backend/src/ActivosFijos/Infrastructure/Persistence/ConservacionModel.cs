@@ -27,6 +27,10 @@ public sealed partial class ActivosFijosDbContext
         p.ToTable("partidas_conteo"); p.HasKey(x => x.Id); p.Property(x => x.Id).ValueGeneratedNever(); p.Ignore(x => x.AggregateRootId);
         p.HasIndex(x => new { x.ConteoId, x.Numero }).IsUnique(); p.Property(x => x.Resultado).HasConversion<string>();
         p.Property(x => x.Numero).HasMaxLength(60); p.Property(x => x.Evidencia).HasMaxLength(2000); p.Property(x => x.EvidenciaAutorizacion).HasMaxLength(2000);
+        p.HasMany(x => x.CapturasAnteriores).WithOne().HasForeignKey(x => x.PartidaId).OnDelete(DeleteBehavior.Restrict);
+        var captura = m.Entity<CapturaAnteriorConteo>();
+        captura.ToTable("capturas_anteriores_conteo"); captura.HasKey(x => x.Id); captura.Property(x => x.Id).ValueGeneratedNever();
+        captura.Property(x => x.Resultado).HasConversion<string>();
         var a = m.Entity<AvisoActivo>();
         a.ToTable("avisos"); a.HasKey(x => x.Id); a.Property(x => x.Id).ValueGeneratedNever(); a.Property(x => x.Tipo).HasConversion<string>();
         a.HasIndex(x => new { x.EmpresaId, x.FuenteId, x.Tipo }).IsUnique();

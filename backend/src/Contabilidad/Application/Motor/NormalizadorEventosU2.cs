@@ -5,7 +5,7 @@ namespace Millet.Contabilidad.Application.Motor;
 
 /// <summary>
 /// U-2 (86e3yxngq) · eventos que ya se publicaban y Contabilidad no recibía: Tesorería (depósito del corte, diferencias de corte,
-/// movimiento bancario del extracto y reembolso de NC), costo de importación aplicado por Almacén. La salida sin requisición (G-1) la
+/// movimiento bancario del extracto y reembolso de NC). El costo de importación aplicado lo contabiliza #464. La salida sin requisición (G-1) la
 /// lee #445 en NormalizadorEventosC15; U-2 solo le agrega los importes por causa. Mismo molde que C1.5: espejo del contrato JSON, importes con nombre y plantilla sembrada por migración.
 /// Un importe con signo (p. ej. <c>Neto</c>) invierte el lado en el motor: así una sola plantilla cubre faltante y sobrante, egreso e
 /// ingreso, o un costo que sube y uno que baja.
@@ -18,7 +18,6 @@ public static partial class NormalizadorEventos
     public const string DiferenciaCorteDevolucionAplicada = "tesoreria.diferencia-corte.devolucion-aplicada.v1";
     public const string MovimientoBancarioRegistrado = "tesoreria.movimiento-bancario.registrado.v1";
     public const string ReembolsoNotaCreditoActualizado = "tesoreria.reembolso-nota-credito.actualizado.v1";
-    public const string ExpedienteCostoAplicado = "almacen.expediente.costo-aplicado.v1";
 
     // ---- Documento origen ----
     public static readonly (string Modulo, string Tipo) DocDepositoCaja = ("tesoreria", "deposito_caja");
@@ -26,7 +25,6 @@ public static partial class NormalizadorEventos
     public static readonly (string Modulo, string Tipo) DocDevolucionFaltante = ("tesoreria", "devolucion_faltante");
     public static readonly (string Modulo, string Tipo) DocMovimientoBancario = ("tesoreria", "movimiento_bancario");
     public static readonly (string Modulo, string Tipo) DocReembolsoCliente = ("tesoreria", "reembolso_nota_credito");
-    public static readonly (string Modulo, string Tipo) DocExpedienteCosto = ("almacen", "expediente_costo");
 
     /// <summary>Tesorería publica el estado de la devolución; solo «Pagada» mueve dinero.</summary>
     private const string ReembolsoPagado = "Pagada";
@@ -38,7 +36,6 @@ public static partial class NormalizadorEventos
         DiferenciaCorteDevolucionAplicada => DevolucionFaltante(eventoId, payload),
         MovimientoBancarioRegistrado => MovimientoBancario(eventoId, payload),
         ReembolsoNotaCreditoActualizado => ReembolsoNotaCredito(eventoId, payload),
-        ExpedienteCostoAplicado => CostoImportacion(eventoId, payload),
         _ => null,
     };
 
@@ -116,29 +113,6 @@ public static partial class NormalizadorEventos
             new Dictionary<string, decimal?> { ["Total"] = pagada ? r.Importe : 0m }, [], payload, FacturaOrigenId: r.NotaCreditoId);
     }
 
-    // ---------------------------------------------------------------- Almacén
-
-    /// <summary>
-    /// CI: costo de importación aplicado. Cargo INVENTARIO por artículo (rol por grupo) con lo que quedó en existencia + cargo
-    /// COSTO_IMPORTACION_A_RESULTADOS con lo que Almacén mandó a gasto (piezas ya vendidas; Opción A del 26-oct) · abono
-    /// GASTOS_IMPORTACION_POR_APLICAR por la diferencia total. Una versión que baja el costo trae importes negativos.
-    /// </summary>
-    private static EventoContable CostoImportacion(Guid eventoId, string payload)
-    {
-        var c = Leer<CostoImportacionContrato>(payload);
-        var partidas = c.Partidas ?? [];
-        var lineas = partidas.Select(p => new LineaEventoContable(null, p.InventarioMxn, null, false, ArticuloId: p.ArticuloId)).ToList();
-        return Mxn(ExpedienteCostoAplicado, eventoId, c.EmpresaId, FechaContable.HoyLocal(c.OcurridoEn),
-            Doc(DocExpedienteCosto, c.ExpedienteId, $"v{c.NumeroVersion}"), c.SucursalId,
-            new()
-            {
-                ["Inventario"] = lineas.Sum(l => l.Importe),
-                ["Gasto"] = partidas.Sum(p => p.GastoImportacionMxn),
-                ["Total"] = partidas.Sum(p => p.DiferenciaMxn),
-            },
-            lineas, payload);
-    }
-
     // ---- Espejos de contrato ----
 
     private sealed record DepositoCajaContrato(Guid EmpresaId, Guid DepositoId, Guid? SucursalId, decimal Importe, string? Moneda,
@@ -158,11 +132,6 @@ public static partial class NormalizadorEventos
 
     private sealed record ReembolsoContrato(Guid EmpresaId, DateTimeOffset OcurridoEn, Guid DevolucionId, string? DevolucionFolio,
         Guid NotaCreditoId, string? Estado, decimal Importe, string? Moneda, DateOnly? FechaPago);
-
-    private sealed record CostoImportacionContrato(Guid EmpresaId, DateTimeOffset OcurridoEn, Guid ExpedienteId, int NumeroVersion,
-        IReadOnlyList<CostoPartidaContrato>? Partidas, Guid? SucursalId);
-
-    private sealed record CostoPartidaContrato(Guid ArticuloId, decimal DiferenciaMxn, decimal InventarioMxn, decimal GastoImportacionMxn);
 
 
     private const string SentidoEgreso = "Egreso";

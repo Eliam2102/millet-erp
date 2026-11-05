@@ -108,27 +108,6 @@ public class NormalizadorEventosU2Tests
         e.FacturaOrigenId.Should().Be(nc);
     }
 
-    [Fact]
-    public void El_costo_de_importacion_separa_inventario_por_articulo_gasto_y_total()
-    {
-        Guid a1 = Guid.NewGuid(), a2 = Guid.NewGuid();
-        var e = Leer(N.ExpedienteCostoAplicado, new
-        {
-            EmpresaId = Empresa, OcurridoEn = Ocurrido, Empresa, Fecha = Ocurrido, ExpedienteId = Guid.NewGuid(), NumeroVersion = 1, SucursalId = Sucursal,
-            Partidas = new[]
-            {
-                new { PartidaId = Guid.NewGuid(), ArticuloId = a1, DiferenciaMxn = 6_000m, InventarioMxn = 4_800m, GastoImportacionMxn = 1_200m },
-                new { PartidaId = Guid.NewGuid(), ArticuloId = a2, DiferenciaMxn = 4_000m, InventarioMxn = 3_200m, GastoImportacionMxn = 800m },
-            },
-        });
-
-        e.Importes["Inventario"].Should().Be(8_000m);
-        e.Importes["Gasto"].Should().Be(2_000m);
-        e.Importes["Total"].Should().Be(10_000m);
-        e.Lineas.Select(l => (l.ArticuloId, l.Importe)).Should().Equal((a1, 4_800m), (a2, 3_200m));
-        e.Documento.Folio.Should().Be("v1");
-    }
-
     [Theory]
     [InlineData("consumo", "Consumo")]
     [InlineData("consumo_composicion", "Consumo")]

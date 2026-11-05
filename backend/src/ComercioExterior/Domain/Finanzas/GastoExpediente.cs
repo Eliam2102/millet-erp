@@ -39,7 +39,7 @@ public sealed class ConceptoGasto : BaseEntity, IPerteneceAEmpresa, IAuditable
 public sealed record DatosGasto(Guid ConceptoId, Guid ProveedorId, string Factura, string Moneda, decimal Importe,
     DateOnly FechaFactura, string? Pedimento = null, decimal? Cotizado = null, Guid? ContenedorId = null,
     Guid? FacturaProveedorId = null, IReadOnlyDictionary<Guid, decimal>? ImportesDirectos = null, Guid? OrdenServicioId = null, decimal? ImporteAsignado = null,
-    decimal? TipoCambioUsado = null, string? FuenteTipoCambio = null, string? NotaTipoCambio = null);
+    decimal? TipoCambioUsado = null, string? FuenteTipoCambio = null, string? NotaTipoCambio = null, bool ImpuestoPeca = false);
 
 public sealed record OrdenServicioCopia(Guid Id, string Folio, decimal Total, string Moneda, decimal Asignado, decimal TipoCambio);
 
@@ -49,6 +49,7 @@ public sealed class GastoExpediente : BaseEntity, IPerteneceAEmpresa, IAuditable
     public Guid ExpedienteId { get; private set; }
     public Guid AggregateRootId => ExpedienteId;
     public Guid? AnticipoAgenteId { get; private set; }
+    internal void Desaplicar() => AnticipoAgenteId = null;
     internal void AplicarA(Guid anticipo) => AnticipoAgenteId = anticipo;
     public Guid ConceptoId { get; private set; }
     public string Concepto { get; private set; } = "";
@@ -56,6 +57,7 @@ public sealed class GastoExpediente : BaseEntity, IPerteneceAEmpresa, IAuditable
     public Guid ProveedorId { get; private set; }
     public string Factura { get; private set; } = "";
     public Guid? FacturaProveedorId { get; private set; }
+    public bool ImpuestoPeca { get; private set; }
     public string Moneda { get; private set; } = "";
     public decimal Importe { get; private set; }
     public decimal TipoCambio { get; private set; }
@@ -107,6 +109,7 @@ public sealed class GastoExpediente : BaseEntity, IPerteneceAEmpresa, IAuditable
         TipoCambioSugerido = d.Moneda == "MXN" ? null : sugerido ?? tc;
         DiferenciaTipoCambioPct = TipoCambioSugerido is decimal s ? decimal.Round((tc - s) / s * 100, 2, MidpointRounding.AwayFromZero) : null;
         NotaTipoCambio = manual ? nota!.Trim() : null; TipoCambioModificadoPor = manual ? usuario : null;
+        ImpuestoPeca = d.ImpuestoPeca;
         ConceptoId = concepto.Id; Concepto = concepto.Nombre; ExcluidoDelCosto = concepto.EsIvaImportacion;
         ProveedorId = d.ProveedorId; Factura = d.Factura.Trim(); FacturaProveedorId = d.FacturaProveedorId;
         Moneda = d.Moneda; Importe = d.Importe; TipoCambio = tc; FuenteTipoCambio = fuente;

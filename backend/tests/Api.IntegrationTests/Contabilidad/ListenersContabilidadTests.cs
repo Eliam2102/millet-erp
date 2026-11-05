@@ -61,7 +61,7 @@ public sealed partial class ListenersContabilidadTests(WebApplicationFactory<Pro
         ("IVA_ACREDITABLE_PAGADO", "1.11", "Deudora", "Ninguna"),
         ("GASTOS_IMPORTACION_POR_APLICAR", "1.12", "Deudora", "Ninguna"),
         ("CONCEPTO_BANCARIO_COMISION_BANCARIA", "5.6", "Deudora", "Ninguna"),
-        ("COSTO_IMPORTACION_A_RESULTADOS", "5.7", "Deudora", "Ninguna"),
+        ("GASTO_IMPORTACION", "5.7", "Deudora", "Ninguna"),
         ("MERMA", "5.8", "Deudora", "Ninguna"),
     ];
 

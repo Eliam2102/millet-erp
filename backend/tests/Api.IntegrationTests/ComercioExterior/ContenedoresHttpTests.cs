@@ -131,7 +131,8 @@ public sealed class ContenedoresHttpTests
         var asignar = await Enviar(c, HttpMethod.Post, $"{Base}/{ExpId}/contenedores/{cid}/partidas", new { pedidoFacturableId = p1, posicion = 1, cantidad = 60 }, alta.Headers.ETag!.Tag); asignar.EnsureSuccessStatusCode();
         var exceder = await Enviar(c, HttpMethod.Post, $"{Base}/{ExpId}/contenedores/{cid}/partidas", new { pedidoFacturableId = p1, posicion = 1, cantidad = 1 }, asignar.Headers.ETag!.Tag);
         Assert.Equal("CE_CANTIDAD_EXCEDE_PEDIDO", (await Body(exceder)).GetProperty("code").GetString());
-        var embarcar = await Enviar(c, HttpMethod.Post, $"{Base}/{ExpId}/contenedores/{cid}/embarcar", new { fecha = "2026-10-12" }, asignar.Headers.ETag!.Tag); embarcar.EnsureSuccessStatusCode();
+        var autorizado = await PrepararSalidaAsync(e);
+        var embarcar = await Enviar(c, HttpMethod.Post, $"{Base}/{ExpId}/contenedores/{cid}/embarcar", new { fecha = "2026-10-12" }, autorizado); embarcar.EnsureSuccessStatusCode();
         (await Emitir(e, c, p1)).EnsureSuccessStatusCode();
         var bloqueada = await Emitir(e, c, p2); Assert.Equal(HttpStatusCode.UnprocessableEntity, bloqueada.StatusCode); Assert.Equal("FAC_PEDIDO_NO_EMBARCADO", (await Body(bloqueada)).GetProperty("code").GetString());
     }
@@ -151,6 +152,7 @@ public sealed class ContenedoresHttpTests
         var r = await Detalle(c); d = await Body(r); var partida = d.GetProperty("partidas").EnumerateArray().Single(x => x.GetProperty("pedidoFacturableId").GetGuid() == p);
         Assert.Equal(2, partida.GetProperty("estado").GetInt32());
         var confirmado = await Enviar(c, HttpMethod.Post, $"{Base}/{ExpId}/partidas/{partida.GetProperty("id").GetGuid()}/confirmar", etag: r.Headers.ETag!.Tag); confirmado.EnsureSuccessStatusCode();
+        await PrepararSalidaAsync(e);
         (await Emitir(e, c, p)).EnsureSuccessStatusCode();
     }
     [Fact]
@@ -285,6 +287,20 @@ public sealed class ContenedoresHttpTests
         { Comandos.Enqueue(command.CommandText); return ValueTask.FromResult(result); }
     }
 
+    private static async Task<string> PrepararSalidaAsync(ExpedientesHttpTests.Escenario e)
+    {
+        using var documental = await e.ClienteAsync(true);
+        using var autorizador = await e.ClienteAsync(true);
+        using var actual = await Detalle(documental);
+        var etag = actual.Headers.ETag!.Tag;
+        foreach (var p in (await Body(actual)).GetProperty("partidas").EnumerateArray().Where(p => p.GetProperty("estado").GetInt32() != 3))
+        {
+            using var revisada = await Enviar(documental, HttpMethod.Put, $"{Base}/{ExpId}/partidas/{p.GetProperty("id").GetGuid()}/aduanales", new { fraccionArancelaria = "70071999", unidadAduana = "06", revisar = true }, etag);
+            revisada.EnsureSuccessStatusCode(); etag = revisada.Headers.ETag!.Tag;
+        }
+        using var autorizada = await Enviar(autorizador, HttpMethod.Post, $"{Base}/{ExpId}/autorizar-salida", etag: etag);
+        autorizada.EnsureSuccessStatusCode(); return autorizada.Headers.ETag!.Tag;
+    }
     private static Task<HttpResponseMessage> Detalle(HttpClient c) => c.GetAsync($"{Base}/{ExpId}/contenedores");
     private static async Task<HttpResponseMessage> Emitir(ExpedientesHttpTests.Escenario e, HttpClient c, Guid pedido) => await Enviar(c, HttpMethod.Post, "/api/v1/facturacion/facturas/", await Comando(e, pedido));
     private static async Task<EmitirFacturaVentaCommand> Comando(ExpedientesHttpTests.Escenario e, Guid id)

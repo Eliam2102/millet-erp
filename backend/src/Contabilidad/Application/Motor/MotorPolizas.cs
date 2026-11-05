@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Contabilidad.Application.Polizas;
@@ -38,7 +39,7 @@ public sealed class RechazoMotorException(CausaRechazoContable causa, string? de
 }
 
 public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IPolizaContablePort puerto, IClock clock,
-    ICentroCostoContabilidadPort centros, IEnumerable<IEnriquecedorEventoContable> enriquecedores)
+    ICentroCostoContabilidadPort centros, IEnumerable<IEnriquecedorEventoContable> enriquecedores, ILogger<GenerarPolizaDesdeEventoHandler>? logger = null)
     : IRequestHandler<GenerarPolizaDesdeEventoCommand, ResultadoMotor>
 {
     public async Task<ResultadoMotor> Handle(GenerarPolizaDesdeEventoCommand request, CancellationToken cancellationToken)
@@ -106,6 +107,9 @@ public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IP
                 var cuentaPartida = (l.RolPorClasificador ? CuentaPorClasificador(roles, l.Rol, linea?.Clasificador, sucursal, e.Moneda, e.FechaContable)
                         : linea?.CuentaId)
                     ?? (cuenta ??= Cuenta(roles, l.Rol, sucursal, e.Moneda, e.FechaContable));
+                if (e.Tipo == NormalizadorEventos.CostoImportacionAplicado && l.RolPorClasificador &&
+                    (linea?.Clasificador is null || CuentaOpcional(roles, $"{l.Rol}_{Clasificador(linea.Clasificador)}", sucursal, e.Moneda, e.FechaContable) is null))
+                    logger?.LogWarning("Prorrateo CE {Expediente}: falta cuenta específica del artículo {Articulo}; se usa el rol configurable {Rol}.", e.Documento.Id, linea?.ArticuloId, l.Rol);
                 var mxn = Math.Round(importe * tc, 2, MidpointRounding.AwayFromZero);
                 var cargo = l.Lado == LadoPartida.Cargo ? mxn : 0m;
                 var abono = l.Lado == LadoPartida.Abono ? mxn : 0m;

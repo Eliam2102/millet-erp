@@ -51,10 +51,10 @@ public sealed class ImportarPedidoPlantaPinturaHandler
         var cliente = await _clientes.ResolverPorReferenciaAsync(pedido.ClienteRef, cancellationToken);
         if (cliente is null)
             return await RegistrarExcepcionAsync(command.EmpresaId, pedido.NumeroPedido, MotivoExcepcion.ClienteNoExiste,
-                $"Cliente '{pedido.ClienteRef}' no existe en el ERP (Planta Pintura exige preexistencia).", cancellationToken);
+                $"cliente_clave='{pedido.ClienteRef}': no existe en el ERP (Planta Pintura exige preexistencia).", cancellationToken);
         if (!cliente.Activo)
             return await RegistrarExcepcionAsync(command.EmpresaId, pedido.NumeroPedido, MotivoExcepcion.Otro,
-                $"Cliente '{pedido.ClienteRef}' está inactivo en el ERP.", cancellationToken);
+                $"cliente_clave='{pedido.ClienteRef}': está inactivo en el ERP.", cancellationToken);
 
         if (pedido.Lineas.Count != 1)
             return await RegistrarExcepcionAsync(command.EmpresaId, pedido.NumeroPedido, MotivoExcepcion.Otro,
@@ -63,29 +63,29 @@ public sealed class ImportarPedidoPlantaPinturaHandler
         var l = pedido.Lineas[0];
         if (l.Cantidad <= 0)
             return await RegistrarExcepcionAsync(command.EmpresaId, pedido.NumeroPedido, MotivoExcepcion.Otro,
-                "La cantidad debe ser mayor a 0.", cancellationToken);
+                $"m2={l.Cantidad}: debe ser mayor a 0.", cancellationToken);
         if (l.Precio < 0)
             return await RegistrarExcepcionAsync(command.EmpresaId, pedido.NumeroPedido, MotivoExcepcion.Otro,
-                "El precio no puede ser negativo.", cancellationToken);
+                $"precio_m2={l.Precio}: no puede ser negativo.", cancellationToken);
 
         var prod = await _productos.ResolverPorReferenciaAsync(l.ProductoRef, cancellationToken);
         if (prod is null)
             return await RegistrarExcepcionAsync(command.EmpresaId, pedido.NumeroPedido, MotivoExcepcion.ArticuloNoExiste,
-                $"Artículo '{l.ProductoRef}' no existe en el ERP (Planta Pintura exige preexistencia).", cancellationToken);
+                $"servicio_clave='{l.ProductoRef}': no existe en el ERP (Planta Pintura exige preexistencia).", cancellationToken);
         if (!prod.Activo)
             return await RegistrarExcepcionAsync(command.EmpresaId, pedido.NumeroPedido, MotivoExcepcion.Otro,
-                $"Artículo '{l.ProductoRef}' está inactivo en el ERP.", cancellationToken);
+                $"servicio_clave='{l.ProductoRef}': está inactivo en el ERP.", cancellationToken);
         if (!prod.EsServicioRecubrimiento)
             return await RegistrarExcepcionAsync(command.EmpresaId, pedido.NumeroPedido, MotivoExcepcion.ServicioNoMarcado,
-                $"Artículo '{l.ProductoRef}' no está marcado como servicio de recubrimiento.", cancellationToken);
+                $"servicio_clave='{l.ProductoRef}': no está marcado como servicio de recubrimiento.", cancellationToken);
         if (string.IsNullOrWhiteSpace(l.ClaveProdServSat ?? prod.ClaveProdServSat)
             || string.IsNullOrWhiteSpace(l.ClaveUnidadSat ?? prod.ClaveUnidadSat)
             || string.IsNullOrWhiteSpace(prod.ObjetoImp) || prod.TasaIvaTraslado is null)
             return await RegistrarExcepcionAsync(command.EmpresaId, pedido.NumeroPedido, MotivoExcepcion.ProductoSinClaveSat,
-                $"Artículo '{l.ProductoRef}' tiene datos fiscales incompletos (clave SAT, unidad, objeto de impuesto o tasa de IVA).", cancellationToken);
+                $"servicio_clave='{l.ProductoRef}': tiene datos fiscales incompletos en el ERP (clave SAT, unidad, objeto de impuesto o tasa de IVA).", cancellationToken);
         if (l.TasaIva is decimal tasa && tasa != prod.TasaIvaTraslado)
             return await RegistrarExcepcionAsync(command.EmpresaId, pedido.NumeroPedido, MotivoExcepcion.IvaNoCuadra,
-                $"IVA de la orden ({tasa}) no coincide con la tasa del artículo ({prod.TasaIvaTraslado}).", cancellationToken);
+                $"iva_porcentaje={tasa * 100:0.##}: no coincide con la tasa del servicio '{l.ProductoRef}' ({prod.TasaIvaTraslado * 100:0.##}).", cancellationToken);
 
         // Crear el pedido facturable.
         PedidoFacturable nuevo;

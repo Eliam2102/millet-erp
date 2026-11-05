@@ -270,6 +270,10 @@ if (!string.IsNullOrWhiteSpace(outboxConnString))
     // (pagos, reversas, REPP, cancelaciones).
     builder.Services.AddHostedService<Millet.CuentasPorPagar.Infrastructure.Workers.TesoreriaEventListenerWorker>();
     builder.Services.AddHostedService<Millet.CuentasPorPagar.Infrastructure.Workers.ComercioExteriorEventListenerWorker>();
+    builder.Services.AddHostedService<Millet.ComercioExterior.Infrastructure.Workers.AlmacenEventListenerWorker>();
+    builder.Services.AddHostedService<Millet.ComercioExterior.Infrastructure.Workers.FacturacionEventListenerWorker>();
+    builder.Services.AddHostedService<Millet.ComercioExterior.Infrastructure.Workers.TesoreriaEventListenerWorker>();
+    builder.Services.AddHostedService<Millet.Tesoreria.Infrastructure.Workers.ComercioExteriorEventListenerWorker>();
 
     // Triada: listener Service Bus para eventos de Compras
     // (OC autorizada, OC cancelada). Cierra inbound Compras → CxP
@@ -463,6 +467,16 @@ builder.Services
     .AddOptions<Millet.Compras.Application.Integration.AlmCompra.AlmCompraOptions>()
     .Bind(builder.Configuration.GetSection(Millet.Compras.Application.Integration.AlmCompra.AlmCompraOptions.SectionName));
 builder.Services.AddHostedService<Millet.Compras.Infrastructure.Workers.AlmCompraWorker>();
+// Acuerdo 5-nov con TI: lector de alm_mensaje (Almacenes → ERP, sin POST). Apagado por omisión
+// (Integraciones:AlmMensaje:Habilitado); el origen (Simulado | Sql) lo registra AddIntegracionesAwModule.
+builder.Services.AddScoped<Millet.Api.Endpoints.Almacen.AlmacenesAppProcesador>();
+builder.Services.AddScoped<Millet.Almacen.Application.AppAlmacenes.IProcesadorMensajeApp>(
+    sp => sp.GetRequiredService<Millet.Api.Endpoints.Almacen.AlmacenesAppProcesador>());
+builder.Services
+    .AddOptions<Millet.Almacen.Application.AppAlmacenes.AlmMensajeOptions>()
+    .Bind(builder.Configuration.GetSection(Millet.Almacen.Application.AppAlmacenes.AlmMensajeOptions.SectionName));
+builder.Services.AddSingleton<Millet.Almacen.Application.AppAlmacenes.AlmMensajeLector>();
+builder.Services.AddHostedService<Millet.Almacen.Infrastructure.Workers.AlmMensajeWorker>();
 
 // === Compras IConsultarStockPort → adapter real ===
 // Reemplaza el InMemoryConsultarStockPort stub (config-driven que
@@ -1968,6 +1982,7 @@ Millet.Api.Endpoints.CuentasPorCobrar.AlertasEndpoints.MapAlertasEndpoints(app);
 // === Tesorería — Cuentas con saldo + libro de movimientos (TES-PR2) ===
 Millet.Api.Endpoints.Inicio.ResumenesInicioEndpoints.MapResumenesInicioEndpoints(app);
 
+Millet.Api.Endpoints.ComercioExterior.ConfiguracionCeEndpoints.MapConfiguracionCe(app);
 Millet.Api.Endpoints.ComercioExterior.ExpedientesEndpoints.MapExpedientesCe(app);
 Millet.Api.Endpoints.ActivosFijos.ActivosEndpoints.MapActivosFijos(app);
 Millet.Api.Endpoints.ComercioExterior.OtrEndpoints.MapOtrCe(app);

@@ -1583,6 +1583,14 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid?>("AgenteCeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("agente_ce_id");
+
+                    b.Property<Guid?>("AnticipoAgenteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("anticipo_agente_id");
+
                     b.Property<Guid?>("CajaSesionId")
                         .HasColumnType("uuid")
                         .HasColumnName("caja_sesion_id");
@@ -1617,6 +1625,10 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)")
                         .HasColumnName("deposito_ref");
+
+                    b.Property<Guid?>("DevolucionCeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("devolucion_ce_id");
 
                     b.Property<DateOnly?>("DiaCorte")
                         .HasColumnType("date")
@@ -1722,6 +1734,11 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ux_deposito_confirmacion_caja_sesion")
                         .HasFilter("caja_sesion_id IS NOT NULL");
 
+                    b.HasIndex("DevolucionCeId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_deposito_confirmacion_devolucion_ce_id")
+                        .HasFilter("devolucion_ce_id IS NOT NULL");
+
                     b.HasIndex("MovimientoId")
                         .HasDatabaseName("ix_deposito_confirmacion_movimiento_id");
 
@@ -1742,7 +1759,7 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("ck_deposito_confirmacion_estado", "estado IN (1, 2, 3, 4)");
 
-                            t.HasCheckConstraint("ck_deposito_confirmacion_origen", "propuesta_cxc_id IS NOT NULL OR caja_sesion_id IS NOT NULL OR solicitud_viaticos_id IS NOT NULL");
+                            t.HasCheckConstraint("ck_deposito_confirmacion_origen", "propuesta_cxc_id IS NOT NULL OR caja_sesion_id IS NOT NULL OR solicitud_viaticos_id IS NOT NULL OR devolucion_ce_id IS NOT NULL");
                         });
                 });
 
@@ -2797,6 +2814,10 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("subtotal");
+
+                    b.Property<Guid?>("SucursalAnticipoCeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sucursal_anticipo_ce_id");
 
                     b.Property<string>("TipoBeneficiario")
                         .IsRequired()

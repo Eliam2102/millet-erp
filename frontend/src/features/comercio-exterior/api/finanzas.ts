@@ -18,6 +18,7 @@ export interface Gasto {
   proveedorId: string;
   factura: string;
   facturaProveedorId: string | null;
+  impuestoPeca?: boolean;
   moneda: string;
   importe: number;
   importeMxn: number;
@@ -74,6 +75,15 @@ export interface Distribucion {
   }[];
 }
 export interface Anticipo {
+  soporteCalculoId?: string | null;
+  referenciaPago?: string | null;
+  devolucionPendienteId?: string | null;
+  historialComprobaciones?: {
+    impuestos: { iva: number; igi: number; prv: number };
+    gastosMxn: number;
+    fecha: string;
+    motivo: string;
+  }[];
   cuentaPeca?: boolean;
   id: string;
   agenteId: string;

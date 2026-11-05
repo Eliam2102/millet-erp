@@ -242,6 +242,10 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("updated_by");
 
+                    b.Property<Guid?>("SucursalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sucursal_id");
+
                     b.Property<string>("UuidCfdi")
                         .HasMaxLength(36)
                         .HasColumnType("character varying(36)")
@@ -277,7 +281,7 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("ck_anticipo_monto_entregado_positivo", "monto_entregado > 0");
 
-                            t.HasCheckConstraint("ck_anticipo_origen", "(origen = 1 AND uuid_cfdi IS NOT NULL AND referencia_origen IS NULL) OR (origen = 2 AND uuid_cfdi IS NULL AND cfdi_recibido_id IS NULL AND referencia_origen IS NOT NULL)");
+                            t.HasCheckConstraint("ck_anticipo_origen", "(origen = 1 AND uuid_cfdi IS NOT NULL AND referencia_origen IS NULL) OR (origen IN (2, 3) AND uuid_cfdi IS NULL AND cfdi_recibido_id IS NULL AND referencia_origen IS NOT NULL)");
                         });
                 });
 

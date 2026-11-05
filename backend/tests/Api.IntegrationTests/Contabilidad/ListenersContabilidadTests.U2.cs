@@ -84,13 +84,13 @@ public sealed partial class ListenersContabilidadTests
             var expediente = Guid.NewGuid();
             // $10,000 repartidos: 8 de 10 hojas en existencia ($8,000) y 2 vendidas ($2,000), como lo calcula Almacén.
             await Almacen(new ExpedienteCostoAplicadoEvent(EmpresaBootstrapId, Ahora, expediente, 1,
-                [new CostoPartidaAplicado(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 10_000m, 8_000m, 2_000m)],
-                e.Sucursal));
+                [new CostoPartidaAplicado(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 10_000m, 8_000m, 2_000m)])
+                { SucursalId = e.Sucursal });
 
             var ci = (await PolizasAsync(expediente)).Should().ContainSingle().Subject;
             ci.Partidas.Should().HaveCount(3);
             ci.Partidas.Should().Contain(x => x.CuentaId == e.Cuentas["INVENTARIO"] && x.Cargo == 8_000m);
-            ci.Partidas.Should().Contain(x => x.CuentaId == e.Cuentas["COSTO_IMPORTACION_A_RESULTADOS"] && x.Cargo == 2_000m);
+            ci.Partidas.Should().Contain(x => x.CuentaId == e.Cuentas["GASTO_IMPORTACION"] && x.Cargo == 2_000m);
             ci.Partidas.Should().Contain(x => x.CuentaId == e.Cuentas["GASTOS_IMPORTACION_POR_APLICAR"] && x.Abono == 10_000m);
         }
         finally { await LimpiarAsync(e); }
@@ -327,11 +327,11 @@ public sealed partial class ListenersContabilidadTests
                     vigenteDesde = Hoy(), vigenteHasta = (DateOnly?)null, esPrueba = true, nota = "FIX regla C-03 (H1)",
                 })).StatusCode.Should().Be(HttpStatusCode.Created);
 
-            // Costo de importación: la parte vendida pega en gasto (COSTO_IMPORTACION_A_RESULTADOS) y el evento no trae centro.
+            // Costo de importación: la parte vendida pega en gasto (GASTO_IMPORTACION) y el evento no trae centro.
             var expediente = Guid.NewGuid();
             var eventoCosto = await Almacen(new ExpedienteCostoAplicadoEvent(EmpresaBootstrapId, Ahora, expediente, 1,
-                [new CostoPartidaAplicado(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 10_000m, 8_000m, 2_000m)],
-                e.Sucursal));
+                [new CostoPartidaAplicado(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 10_000m, 8_000m, 2_000m)])
+                { SucursalId = e.Sucursal });
             (await PolizasAsync(expediente)).Should().BeEmpty();
             (await RechazoAsync(eventoCosto))!.Causa.Should().Be(CausaRechazoContable.DatoFaltante);
 

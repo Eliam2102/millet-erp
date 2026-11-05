@@ -224,7 +224,7 @@ public sealed class TesoreriaContabilidadListenerWorker(ServiceBusClient? client
 
     private static readonly FrozenSet<string> Tipos = FrozenSet.ToFrozenSet(
     [
-        NormalizadorEventos.PagoProveedorAplicado, NormalizadorEventos.PagoProveedorRevertido, NormalizadorEventos.PagoClienteConfirmado,
+        NormalizadorEventos.DevolucionAnticipoAgente, NormalizadorEventos.PagoProveedorAplicado, NormalizadorEventos.PagoProveedorRevertido, NormalizadorEventos.PagoClienteConfirmado,
         // U-2 (86e3yxngq): depósito del corte, diferencias de corte, alta desde el extracto y reembolso de NC.
         NormalizadorEventos.DepositoCajaConfirmado, NormalizadorEventos.DiferenciaCorteAutorizada,
         NormalizadorEventos.DiferenciaCorteDevolucionAplicada, NormalizadorEventos.MovimientoBancarioRegistrado,
@@ -245,9 +245,7 @@ public sealed class AlmacenContabilidadListenerWorker(ServiceBusClient? client, 
 
     private static readonly FrozenSet<string> Tipos = FrozenSet.ToFrozenSet(
     [
-        NormalizadorEventos.RecepcionOcRegistrada, NormalizadorEventos.RecepcionOcCancelada, NormalizadorEventos.AjusteInventarioAplicado,
+        NormalizadorEventos.CostoImportacionAplicado, NormalizadorEventos.RecepcionOcRegistrada, NormalizadorEventos.RecepcionOcCancelada, NormalizadorEventos.AjusteInventarioAplicado,
         NormalizadorEventos.SalidaRequisicionRegistrada, NormalizadorEventos.SalidaInventarioRegistrada, NormalizadorEventos.DevolucionInternaAplicada, NormalizadorEventos.DevolucionProveedorRegistrada,
-        // U-2 (86e3yxngq): costo de importación aplicado.
-        NormalizadorEventos.ExpedienteCostoAplicado,
     ], StringComparer.Ordinal);
 }

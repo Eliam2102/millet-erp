@@ -42,6 +42,9 @@ public sealed record PagoFacturaProveedorAplicadoIntegrationEvent(
     decimal? TipoCambio = null)
     : IntegrationEvent(WireEventType, EmpresaId, OcurridoEn)
 {
+    public bool EsAnticipoAgente { get; init; }
+    public Guid? SucursalId { get; init; }
+    public Guid? ProveedorId { get; init; }
     public const string WireEventType = "tesoreria.pago-factura-proveedor.aplicado.v1";
 }
 

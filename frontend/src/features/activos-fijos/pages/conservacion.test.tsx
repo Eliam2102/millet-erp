@@ -128,6 +128,7 @@ describe('Conservación de activos', () => {
             resultado: 1,
             ubicacionReal: null,
             evidencia: 'Placa verificada',
+            motivo: '',
           },
         },
       }),

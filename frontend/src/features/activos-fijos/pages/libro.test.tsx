@@ -22,7 +22,7 @@ vi.mock('../api/libro', () => ({
         ? state.corridas
         : ruta.includes('/libro')
           ? { depreciaciones: [], operaciones: state.operaciones }
-          : [{ numero: 'DEMO-MAQ', importe: 4166.67 }],
+          : [{ numero: 'DEMO-MAQ', importe: 4166.67, tasa: 10 }],
     error: null,
   }),
 }));

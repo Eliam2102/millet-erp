@@ -32,7 +32,7 @@ public sealed class AntiguedadAnticiposProveedoresHandler(CuentasPorPagarDbConte
     {
         var corte = q.FechaCorte ?? DateOnly.FromDateTime(clock.UtcNow.UtcDateTime);
         var fin = SaldosHistoricos.FinExclusivo(corte);
-        var anticipos = db.AnticiposProveedor.AsNoTracking()
+        var anticipos = db.AnticiposProveedor.AsNoTracking().Where(a => a.Origen != Domain.AnticipoProveedor.OrigenAnticipo.SolicitudComercioExterior)
             .Where(a => q.DocumentosPermitidos == null || (q.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(a.Id)).Where(a => a.FechaCfdi < fin &&
             (a.FechaCancelacion == null || a.FechaCancelacion >= fin));
         if (q.ProveedorId is Guid p) anticipos = anticipos.Where(a => a.ProveedorId == p);

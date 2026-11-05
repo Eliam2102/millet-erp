@@ -79,6 +79,8 @@ public interface ISaldoFacturaReadPort
 /// <param name="Motivo">«Bonificacion» o «Devolucion».</param>
 /// <param name="Importe">Total de la nota con IVA.</param>
 /// <param name="FacturaFolio">Folio de la factura origen; vacío = la del pedido.</param>
+/// <param name="Vendedor">Opcional (aditivo): vendedor de la nota en A+W (KA_FIRMA_MITARB). Solo informativo.</param>
+/// <param name="EsRanura">Opcional (aditivo): el importe es el de la ranura del pedido, que el ERP ya documenta con su propia NC de ranura al timbrar la factura; no se crea otra.</param>
 public sealed record SolicitudNotaCreditoAw(
     Guid SolicitudId,
     string NumeroNota,
@@ -89,7 +91,9 @@ public sealed record SolicitudNotaCreditoAw(
     string Motivo,
     decimal Importe,
     string? Descripcion,
-    DateTimeOffset CreadaAt);
+    DateTimeOffset CreadaAt,
+    string? Vendedor = null,
+    bool EsRanura = false);
 
 public sealed record AcuseNotaCreditoAw(
     Guid SolicitudId,

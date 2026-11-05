@@ -15,6 +15,7 @@ public sealed class AwNotasCreditoLectorTests
         Assert.Contains("x.DATUM > h.DATUM OR (x.DATUM = h.DATUM AND x.ID > h.ID)", sql); // último registro de la transición
         Assert.Contains("JOIN SYSADM.KU_KUNDEN c ON c.ID = k.AH_IDENT", sql);
         Assert.Contains("c.GRUPPE <> @grupo", sql);                                   // sin clientes internos de almacén
+        Assert.Contains("LEFT JOIN SYSADM.KA_FIRMA_MITARB m ON m.ID = k.OR_BEARBEITER", sql);  // vendedor
     }
 
     [Fact]

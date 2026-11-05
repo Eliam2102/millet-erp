@@ -13,6 +13,7 @@ import {
   useEnlaceAdjunto,
 } from '@/components/erp/adjuntos/api/hooks';
 import { EstadoAdjunto } from '@/components/erp/adjuntos/api/types';
+import { useAuthStore } from '@/lib/auth/auth-store';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
@@ -28,6 +29,8 @@ const control = 'h-ctl-xl w-full rounded-md border border-line-control bg-surfac
 export function IncidenciasPanel({ data }: { data: ExpedienteDetalle }) {
   const gestionar =
     useHasPermission(P.ComercioExteriorIncidenciasGestionar) && data.expediente.estado === 1;
+  const usuarioId = useAuthStore((s) => s.user?.id);
+  const [seguimiento, setSeguimiento] = useState<Incidencia | null>(null);
   const [seleccion, setSeleccion] = useState<Incidencia | 'nueva' | null>(null);
   const incidencias = data.incidencias ?? [];
   const ver = useHasPermission(P.ComercioExteriorExpedientesAdjuntosVer);
@@ -58,11 +61,21 @@ export function IncidenciasPanel({ data }: { data: ExpedienteDetalle }) {
               {estadosIncidencia[i.estado]}
             </Badge>
           </div>
+          {i.automatica && <Badge variant="info">Automática</Badge>}
+          {i.diferenciaCantidad != null && (
+            <p className="tabular-nums">Diferencia: {i.diferenciaCantidad}</p>
+          )}
           <p>{i.motivo}</p>
           <p className="text-xs text-ink-muted">
             {i.fecha} · {i.responsableNombre} · {i.antiguedadDias} días
           </p>
+          {i.fechaCompromiso && (
+            <p>
+              Fecha compromiso: {i.fechaCompromiso} · Siguiente acción: {i.siguienteAccion}
+            </p>
+          )}
           {i.descripcion && <p>{i.descripcion}</p>}
+          {i.tipo === 11 && <AjusteCantidad data={data} incidencia={i} />}
           {i.accionCorrectiva && <p>Acción correctiva: {i.accionCorrectiva}</p>}
           {i.efectoPosterior && <p>Efecto posterior: {i.efectoPosterior}</p>}
           {i.pedimentoNuevo && (
@@ -114,10 +127,22 @@ export function IncidenciasPanel({ data }: { data: ExpedienteDetalle }) {
                 <li key={n}>
                   {estadosIncidencia[h.estado]} · {new Date(h.fecha).toLocaleString('es-MX')} ·{' '}
                   {h.motivo}
+                  {h.fechaCompromisoNueva && (
+                    <span>
+                      {' '}
+                      · Fecha: {h.fechaCompromisoAnterior} → {h.fechaCompromisoNueva} · Acción:{' '}
+                      {h.siguienteAccionAnterior} → {h.siguienteAccionNueva}
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
           </details>
+          {gestionar && i.estado < 3 && usuarioId === i.responsableUsuarioId && (
+            <Button variant="outline" onClick={() => setSeguimiento(i)}>
+              Editar fecha y acción
+            </Button>
+          )}
           {gestionar && i.estado < 3 && (
             <Button variant="outline" onClick={() => setSeleccion(i)}>
               Atender o resolver
@@ -129,6 +154,14 @@ export function IncidenciasPanel({ data }: { data: ExpedienteDetalle }) {
         <p role="alert" className="text-danger-fg">
           No se pudo descargar la evidencia. Revise que el archivo siga disponible.
         </p>
+      )}
+      {seguimiento && (
+        <SeguimientoForm
+          key={`${seguimiento.id}-${data.expediente.version}`}
+          data={data}
+          incidencia={seguimiento}
+          onClose={() => setSeguimiento(null)}
+        />
       )}
       {seleccion && (
         <IncidenciaForm
@@ -174,6 +207,8 @@ function IncidenciaForm({
   const [fecha, setFecha] = useState(
     new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Merida' }).format(new Date()),
   );
+  const [compromiso, setCompromiso] = useState('');
+  const [siguiente, setSiguiente] = useState('');
   const [responsable, setResponsable] = useState<string | null>(data.responsableUsuarioId);
   const [motivo, setMotivo] = useState('');
   const [descripcion, setDescripcion] = useState('');
@@ -187,6 +222,7 @@ function IncidenciaForm({
   const [adjuntoPedimento, setAdjuntoPedimento] = useState('');
   const [contenedor, setContenedor] = useState('');
   const [partida, setPartida] = useState('');
+  const [cantidadNueva, setCantidadNueva] = useState('');
   const vigentes = (archivos.data ?? []).filter(
     (a) => !a.bajaEn && a.estado !== EstadoAdjunto.Vencido,
   );
@@ -208,6 +244,8 @@ function IncidenciaForm({
           : {
               tipo,
               fecha,
+              fechaCompromiso: compromiso,
+              siguienteAccion: siguiente,
               responsableUsuarioId: responsable,
               motivo,
               descripcion: descripcion || null,
@@ -219,6 +257,7 @@ function IncidenciaForm({
               evidenciasIds: evidencias,
               contenedorId: contenedor || null,
               partidaId: partida || null,
+              cantidadNueva: tipo === 11 ? Number(cantidadNueva) : null,
             },
       });
       onClose();
@@ -255,6 +294,27 @@ function IncidenciaForm({
                   required
                   value={fecha}
                   onChange={(e) => setFecha(e.target.value)}
+                />
+              </FormCampo>
+              <FormCampo span={6}>
+                <Label htmlFor="inc-compromiso">Fecha compromiso *</Label>
+                <Input
+                  id="inc-compromiso"
+                  type="date"
+                  required
+                  min={fecha}
+                  value={compromiso}
+                  onChange={(e) => setCompromiso(e.target.value)}
+                />
+              </FormCampo>
+              <FormCampo span={12}>
+                <Label htmlFor="inc-siguiente">Siguiente acción *</Label>
+                <Input
+                  id="inc-siguiente"
+                  required
+                  maxLength={2000}
+                  value={siguiente}
+                  onChange={(e) => setSiguiente(e.target.value)}
                 />
               </FormCampo>
               <FormCampo span={6}>
@@ -331,7 +391,21 @@ function IncidenciaForm({
                   ))}
                 </fieldset>
               </FormCampo>
-              {data.expediente.tipo === 2 && (
+              {tipo === 11 && (
+                <FormCampo span={6}>
+                  <Label htmlFor="inc-cantidad-nueva">Nueva cantidad embarcada *</Label>
+                  <Input
+                    id="inc-cantidad-nueva"
+                    type="number"
+                    min="0.000001"
+                    step="0.000001"
+                    required
+                    value={cantidadNueva}
+                    onChange={(e) => setCantidadNueva(e.target.value)}
+                  />
+                </FormCampo>
+              )}
+              {(data.expediente.tipo === 2 || tipo === 11) && (
                 <ReferenciasEmbarque
                   id={id}
                   contenedor={contenedor}
@@ -566,7 +640,7 @@ function ReferenciasEmbarque({
           onChange={(e) => onPartida(e.target.value)}
         >
           <option value="">Sin partida</option>
-          {q.data?.data.partidas
+          {[...(q.data?.data.partidas ?? []), ...(q.data?.data.partidasImportacion ?? [])]
             .filter((p) => !contenedor || p.contenedorId === contenedor)
             .map((p) => (
               <option key={p.id} value={p.id}>
@@ -592,12 +666,141 @@ function ReferenciaAfectada({
   if (q.isError)
     return <p role="alert">No se pudo consultar el contenedor o la partida afectada.</p>;
   const contenedor = q.data?.data.contenedores.find((c) => c.id === incidencia.contenedorId);
-  const partida = q.data?.data.partidas.find((p) => p.id === incidencia.partidaId);
+  const partida = [
+    ...(q.data?.data.partidas ?? []),
+    ...(q.data?.data.partidasImportacion ?? []),
+  ].find((p) => p.id === incidencia.partidaId);
   return (
     <p className="text-xs text-ink-muted">
       {incidencia.contenedorId && `Contenedor afectado: ${contenedor?.numero ?? 'Sin número'}. `}
       {incidencia.partidaId &&
         `Partida afectada: ${partida ? `${partida.posicion} · ${partida.cantidad} ${partida.unidad}` : 'Retirada del embarque; se conserva la referencia en el historial'}.`}
     </p>
+  );
+}
+
+function AjusteCantidad({
+  data,
+  incidencia: i,
+}: {
+  data: ExpedienteDetalle;
+  incidencia: Incidencia;
+}) {
+  const permitido =
+    useHasPermission(P.ComercioExteriorExpedientesEditar) && data.expediente.estado === 1;
+  const accion = useAccionExpediente(data.expediente.id);
+  return (
+    <div className="space-y-2">
+      <p>
+        Cantidad anterior: {i.cantidadAnterior} · Nueva cantidad: {i.cantidadNueva}
+      </p>
+      {permitido && i.estado < 3 && (
+        <Button
+          variant="outline"
+          disabled={accion.isPending}
+          title={accion.isPending ? 'Autorizando ajuste.' : undefined}
+          onClick={() => {
+            void accion
+              .mutateAsync({ accion: `incidencias/${i.id}/autorizar-ajuste` })
+              .catch(() => {});
+          }}
+        >
+          Autorizar ajuste
+        </Button>
+      )}
+      {accion.isError && (
+        <p role="alert" className="text-danger-fg">
+          {esApiError(accion.error)
+            ? (accion.error.problem.detail ?? accion.error.problem.title)
+            : 'No se pudo autorizar el ajuste.'}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function SeguimientoForm({
+  data,
+  incidencia,
+  onClose,
+}: {
+  data: ExpedienteDetalle;
+  incidencia: Incidencia;
+  onClose: () => void;
+}) {
+  const accion = useAccionExpediente(data.expediente.id);
+  const [fechaCompromiso, setFecha] = useState(incidencia.fechaCompromiso ?? '');
+  const [siguienteAccion, setAccion] = useState(incidencia.siguienteAccion ?? '');
+  const [motivo, setMotivo] = useState('');
+  async function guardar(e: FormEvent) {
+    e.preventDefault();
+    try {
+      await accion.mutateAsync({
+        accion: `incidencias/${incidencia.id}/seguimiento`,
+        body: { fechaCompromiso, siguienteAccion, motivo },
+      });
+      onClose();
+    } catch {
+      /* El error se muestra en el formulario. */
+    }
+  }
+  return (
+    <form onSubmit={guardar} className="space-y-4 rounded-lg border border-line-control p-4">
+      <FormSeccion titulo="Cambiar fecha y siguiente acción">
+        <FormCampo span={6}>
+          <Label htmlFor="seg-fecha">Fecha compromiso *</Label>
+          <Input
+            id="seg-fecha"
+            type="date"
+            required
+            min={incidencia.fecha}
+            value={fechaCompromiso}
+            onChange={(e) => setFecha(e.target.value)}
+          />
+        </FormCampo>
+        <FormCampo span={12}>
+          <Label htmlFor="seg-accion">Siguiente acción *</Label>
+          <Input
+            id="seg-accion"
+            required
+            maxLength={2000}
+            value={siguienteAccion}
+            onChange={(e) => setAccion(e.target.value)}
+          />
+        </FormCampo>
+        <FormCampo span={12}>
+          <Label htmlFor="seg-motivo">Motivo del cambio *</Label>
+          <Input
+            id="seg-motivo"
+            required
+            minLength={5}
+            maxLength={500}
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+          />
+        </FormCampo>
+        <FormCampo span={12}>
+          {accion.isError && (
+            <p role="alert" className="text-danger-fg">
+              {esApiError(accion.error)
+                ? (accion.error.problem.detail ?? accion.error.problem.title)
+                : 'No se pudo guardar el seguimiento.'}
+            </p>
+          )}
+          <div className="flex gap-2">
+            <Button
+              type="submit"
+              disabled={accion.isPending}
+              title={accion.isPending ? 'Guardando seguimiento.' : undefined}
+            >
+              Guardar seguimiento
+            </Button>
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Descartar
+            </Button>
+          </div>
+        </FormCampo>
+      </FormSeccion>
+    </form>
   );
 }
