@@ -1,7 +1,9 @@
 using System.Security.Cryptography;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Millet.CuentasPorPagar.Application.EventListeners.Tesoreria;
+using Millet.CuentasPorPagar.Application.FacturaProveedor.CancelarFactura;
 using Millet.CuentasPorPagar.Domain.Cfdi;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
@@ -33,8 +35,10 @@ namespace Millet.CuentasPorPagar.Infrastructure.PublicAdapters;
 ///   solo se actualiza el estatus SAT (vigente/cancelado) sin parsear XML ni
 ///   tocar blob, canal, hash o fecha de recepción. Solo cuando el estatus
 ///   cambia a cancelado (no en reentregas) y ya es pasivo, la factura Capturada/Autorizada pasa a
-///   revisión con el motivo CFDI cancelado en el SAT (nunca se cancela, ni
-///   se publican eventos); en cualquier otro estado solo se registra aviso.</item>
+///   revisión con el motivo CFDI cancelado en el SAT (no se cancela sola);
+///   excepción (P8.7): si CxP ya aceptó una solicitud de cancelación de ese CFDI y la factura está
+///   Capturada o en revisión, se cancela con <see cref="CancelarFacturaCommand"/>.
+///   En cualquier otro estado solo se registra aviso.</item>
 ///   <item>Parsea el XML con <see cref="IXmlCfdiParser"/>. Si el parse
 ///   falla, loggea warning y descarta (el meta-item solo no nos sirve
 ///   sin XML — esa era la deuda del flujo Metadata-only).</item>
@@ -59,14 +63,17 @@ public sealed class FiscalCfdiReceiverAdapter : IFiscalCfdiReceiver
     private readonly ICfdiBlobStorage _blob;
     private readonly IClock _clock;
     private readonly ILogger<FiscalCfdiReceiverAdapter> _logger;
+    private readonly IMediator _mediator;
 
     public FiscalCfdiReceiverAdapter(
         CuentasPorPagarDbContext db,
         IXmlCfdiParser parser,
         ICfdiBlobStorage blob,
         IClock clock,
-        ILogger<FiscalCfdiReceiverAdapter> logger)
+        ILogger<FiscalCfdiReceiverAdapter> logger,
+        IMediator mediator)
     {
+        _mediator = mediator;
         _db = db;
         _parser = parser;
         _blob = blob;
@@ -132,6 +139,19 @@ public sealed class FiscalCfdiReceiverAdapter : IFiscalCfdiReceiver
                     _logger.LogWarning(
                         "[FiscalCfdiReceiverAdapter] UUID {Uuid} cancelado en SAT: el destino {Destino} no es una FacturaProveedor.",
                         uuidNormalizado, destino);
+                }
+                else if (factura.Estado is EstadoPasivo.Capturada or EstadoPasivo.EnRevision
+                    && await _db.SolicitudesCancelacionCfdi.AnyAsync(
+                        s => s.CfdiRecibidoId == existente.Id && s.Estado == EstadoSolicitudCancelacion.Aceptada, cancellationToken))
+                {
+                    // P8.7: el SAT confirmó una cancelación que Contabilidad ya había aceptado: único caso en que
+                    // el pasivo se cancela (con evento para Compras y Contabilidad). Guarda también el estatus SAT.
+                    await _mediator.Send(new CancelarFacturaCommand(
+                        factura.Id, factura.Version, MotivoCancelacion.CfdiCanceladoEnSat,
+                        "CFDI cancelado en el SAT con solicitud de cancelación aceptada"), cancellationToken);
+                    _logger.LogInformation(
+                        "[FiscalCfdiReceiverAdapter] UUID {Uuid} cancelado en SAT con solicitud aceptada: factura {Factura} cancelada.",
+                        uuidNormalizado, factura.Id);
                 }
                 else if (factura.Estado is EstadoPasivo.Capturada or EstadoPasivo.Autorizada)
                 {
