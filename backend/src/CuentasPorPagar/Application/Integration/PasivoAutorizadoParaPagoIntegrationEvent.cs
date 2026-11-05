@@ -60,11 +60,11 @@ public sealed record PasivoAutorizadoParaPagoIntegrationEvent(
     decimal? Subtotal = null,
     decimal? ImpuestosTrasladados = null,
     decimal? Retenciones = null,
-    // C1.5b (aditivo): sucursal de los pasivos internos (reposición de caja chica, préstamo y liquidación de viáticos) para su póliza.
+    // Aditivo: sucursal del pasivo. C1.5b la llena en los pasivos internos (reposición de caja chica, préstamo y liquidación
+    // de viáticos) para su póliza; el anticipo al agente de Comercio Exterior la asigna con inicializador.
     Guid? SucursalId = null)
     : IntegrationEvent("cuentas_por_pagar.pasivo.autorizado-para-pago.v1", EmpresaId, OcurridoEn)
 {
-    public Guid? SucursalId { get; init; }
     public int? TipoOperacionCe { get; init; }
     public const string BeneficiarioProveedor = "Proveedor";
     public const string BeneficiarioEmpleado = "Empleado";
