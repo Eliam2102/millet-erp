@@ -51,6 +51,14 @@ public sealed class ElegibilidadFacturaService(CuentasPorPagarDbContext db, ICom
             .ToListAsync(ct);
         foreach (var l in previas.SelectMany(f => f.Lineas).Where(l => l.LineaOcId != null))
             disponible[l.LineaOcId!.Value] = Math.Max(0, disponible.GetValueOrDefault(l.LineaOcId.Value) - l.Cantidad);
+        // 86e3yxpy4: una factura ligada a una recepción solo cuenta lo de esa recepción; el resto queda retenido hasta que llegue.
+        if (factura.RecepcionId is Guid recepcionId && await db.RecepcionesOcLocal.FirstOrDefaultAsync(r => r.RecepcionId == recepcionId, ct) is { } recepcion)
+        {
+            var deRecepcion = (JsonSerializer.Deserialize<List<LineaRecepcionPayload>>(recepcion.LineasJson, JsonOptions) ?? [])
+                .Where(l => l.LineaOcId != null && !recepcion.LineaAnulada(l.LineaOcId))
+                .GroupBy(l => l.LineaOcId!.Value).ToDictionary(g => g.Key, g => g.Sum(l => l.Cantidad));
+            foreach (var id in disponible.Keys.ToList()) disponible[id] = Math.Min(disponible[id], deRecepcion.GetValueOrDefault(id));
+        }
         var lineas = factura.Lineas.Select(l => new LineaElegibilidad(l.LineaOcId ?? Guid.Empty, l.Cantidad,
             oc.Lineas.FirstOrDefault(o => o.Id == l.LineaOcId) is { } o ? o.BaseNetaUnitaria ?? o.PrecioUnitario : 0)).ToList();
         return ElegibilidadPago.Calcular(lineas, disponible, neto, factura.AnticipoAplicadoTotal, factura.ImportePagado,

@@ -115,7 +115,7 @@ describe('P3: detalle fiscal y recepción', () => {
     expect(importe('ISR retenido')).toContain('20.00');
     expect(importe('IVA retenido')).toContain('13.33');
     expect(importe('Elegible para pago')).toContain('158.94');
-    expect(importe('Retenido por falta de recepción')).toContain('39.73');
+    expect(importe('Retenido por recepción pendiente')).toContain('39.73');
     expect(importe('Total')).toContain('198.67');
     expect(await screen.findByRole('region', { name: 'Adjuntos' })).toBeInTheDocument();
   });
