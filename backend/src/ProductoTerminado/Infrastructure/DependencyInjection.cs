@@ -15,6 +15,8 @@ public static class DependencyInjection
         services.AddScoped<SaldoPedidoDemoAdapter>();
         services.AddScoped<Application.PtAcceso>();
         services.AddScoped<IProductoTerminadoSucursalReadPort, ProductoTerminadoSucursalReadAdapter>();
+        services.AddOptions<Workers.CierreContraEntregaOptions>().BindConfiguration(Workers.CierreContraEntregaOptions.SectionName);
+        services.AddHostedService<Workers.CierreContraEntregaWorker>();
         return services;
     }
 }

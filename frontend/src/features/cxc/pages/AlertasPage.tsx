@@ -54,6 +54,7 @@ const OPCIONES_TIPO = [
   TipoAlertaCartera.Solunion90d,
   TipoAlertaCartera.ExcesoCredito,
   TipoAlertaCartera.AutoBloqueoVencimiento,
+  TipoAlertaCartera.ContraEntregaNoLiquidada,
 ] as const;
 
 /**
