@@ -33,6 +33,10 @@ public sealed class CompraAPagoAuthMetadataTests
         "POST /api/v1/compras/ordenes/{id:guid}/cancelar-con-recepciones",
         "POST /api/v1/compras/requisiciones/{id:guid}/autorizaciones",
         "POST /api/v1/compras/requisiciones/autorizaciones-masivas",
+        // I13.3: la facultad depende del tipo (importación/exportación) y del nivel; el handler responde 403 CE_PAGO_SIN_FACULTAD.
+        "GET /api/v1/tesoreria/pagos-comercio-exterior/",
+        "POST /api/v1/tesoreria/pagos-comercio-exterior/{facturaProveedorId:guid}/autorizar/{nivel:int}",
+        "POST /api/v1/tesoreria/pagos-comercio-exterior/{facturaProveedorId:guid}/rechazar",
     ];
 
     private readonly WebApplicationFactory<Program> _factory;
