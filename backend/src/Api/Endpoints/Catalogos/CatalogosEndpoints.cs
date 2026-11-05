@@ -98,6 +98,7 @@ public static class CatalogosEndpoints
                 query = query.Where(p =>
                     p.Clave.ToLower().Contains(busqueda.ToLower())
                     || p.Rfc.ToLower().Contains(busqueda.ToLower())
+                    || (p.TaxId != null && p.TaxId.ToLower().Contains(busqueda.ToLower()))
                     || PostgresFunctions.Translate(p.RazonSocial.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)
                         .Contains(PostgresFunctions.Translate(busqueda.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino))
                     || (p.NombreComercial != null &&

@@ -234,6 +234,13 @@ function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps)
               });
               return;
             }
+            if (error.code === 'PROVEEDOR_TAXID_DUPLICADO') {
+              form.setError('taxId', {
+                type: error.code,
+                message: error.problem.detail ?? 'Ya existe un proveedor con ese Tax ID.',
+              });
+              return;
+            }
             if (error.code === 'PROVEEDOR_RFC_DUPLICADO') {
               form.setError('rfc', {
                 type: error.code,
