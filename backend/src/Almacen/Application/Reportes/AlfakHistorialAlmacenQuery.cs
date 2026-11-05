@@ -189,7 +189,8 @@ public sealed class AlfakHistorialAlmacenHandler
                         || mov.Tipo == TipoMovimiento.SalidaPorDevolucionAProveedor
                         || mov.Tipo == TipoMovimiento.BajaPorDano
                         || mov.Tipo == TipoMovimiento.SalidaPorLiberacionRevision
-                        || mov.Tipo == TipoMovimiento.CancelacionEntradaCompra)
+                        || mov.Tipo == TipoMovimiento.CancelacionEntradaCompra
+                        || mov.Tipo == TipoMovimiento.SalidaNoPlanificada)
                     {
                         salidas += mov.Cantidad;
                     }
