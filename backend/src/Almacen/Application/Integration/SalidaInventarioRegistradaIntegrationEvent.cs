@@ -12,7 +12,7 @@ namespace Millet.Almacen.Application.Integration;
 /// no pasa por requisición y que hoy no avisaba: salidas de la app de Almacenes (consumo, rotura, salida manual),
 /// componentes descontados por composición y baja por daño del dictamen de calidad. Una por movimiento.
 /// Consumidor previsto: <b>Contabilidad</b> (póliza de salida a costo, plantilla «Contraste · U-2»).
-/// <c>Causa</c> es el motivo contable: consumo, consumo_composicion, rotura, daño o salida_manual.
+/// <c>Causa</c> es el motivo contable: consumo, consumo_composicion, rotura, daño, salida_manual o salida_no_planificada.
 /// <c>CentroCostoId</c> va null mientras ni la app ni el dictamen lo capturen (aditivo: se llenará sin bump de versión).
 /// </summary>
 public sealed record SalidaInventarioRegistradaIntegrationEvent(
@@ -34,6 +34,7 @@ public sealed record SalidaInventarioRegistradaIntegrationEvent(
     {
         TipoMovimiento.BajaPorDano => "rotura",
         TipoMovimiento.AjusteNegativo => "salida_manual",
+        TipoMovimiento.SalidaNoPlanificada => "salida_no_planificada",
         _ => "consumo",
     };
 
