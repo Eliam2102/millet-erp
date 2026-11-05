@@ -484,6 +484,9 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
         return linea;
     }
 
+    /// <summary>Código del bloqueo de <see cref="Cancelar"/> cuando la factura tiene anticipos aplicados (C1.5b).</summary>
+    public const string CodigoConAnticipoAplicado = "FACTURA_PROVEEDOR_CON_ANTICIPO_APLICADO";
+
     /// <summary>
     /// Cancela la factura con motivo (§A7). Solo aplica desde
     /// <see cref="EstadoPasivo.Capturada"/> o
@@ -507,6 +510,14 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
             throw new BusinessRuleException(
                 "FACTURA_PAGADA_NO_CANCELABLE",
                 "Una factura pagada no puede cancelarse en este flujo. Coordinar con Tesorería.");
+        }
+        // C1.5b: la aplicación del anticipo ya generó su póliza de amortización; cancelar dejaría el anticipo consumido sin factura.
+        // La reversa (desaplicar con evento espejo) es una tarea aparte.
+        if (AnticipoAplicadoTotal > 0)
+        {
+            throw new BusinessRuleException(
+                CodigoConAnticipoAplicado,
+                "La factura tiene anticipos aplicados; no se puede cancelar mientras exista la aplicación.");
         }
         if (Estado == EstadoPasivo.Autorizada)
         {

@@ -9,9 +9,10 @@ namespace Millet.CuentasPorPagar.Application.Integration;
 /// <see cref="AplicacionId"/> es el movimiento de la factura y sirve de llave del documento.
 ///
 /// <para>
-/// <see cref="TipoCambio"/> es el del anticipo (el saldo del anticipo se valuó a ese tipo); <see cref="SucursalId"/> es la de la
-/// factura (null si la factura no tiene sucursal, p. ej. la agregada de tarjeta).
-/// Supuesto «a validar» con Geovany (dueño de CxP): nombre y campos del contrato.
+/// <see cref="TipoCambio"/> es el del anticipo (el saldo del anticipo se valuó a ese tipo); <see cref="TipoCambioFactura"/> es el de la
+/// factura, para que Contabilidad pueda calcular la diferencia cambiaria en CON-11 (aquí no se calcula). <see cref="SucursalId"/> es
+/// la de la factura (null si la factura no tiene sucursal, p. ej. la agregada de tarjeta).
+/// Contrato validado por el dueño de CxP 5-nov.
 /// </para>
 /// </summary>
 public sealed record AnticipoProveedorAmortizadoIntegrationEvent(
@@ -26,5 +27,6 @@ public sealed record AnticipoProveedorAmortizadoIntegrationEvent(
     decimal? TipoCambio,
     Guid? SucursalId,
     string? UuidAnticipo,
-    string? UuidFactura)
+    string? UuidFactura,
+    decimal? TipoCambioFactura = null)
     : IntegrationEvent("cuentas_por_pagar.anticipo.amortizado.v1", EmpresaId, OcurridoEn);

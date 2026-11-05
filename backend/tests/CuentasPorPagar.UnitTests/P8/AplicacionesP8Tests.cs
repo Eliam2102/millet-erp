@@ -67,6 +67,7 @@ public sealed class AplicacionesP8Tests
         e.AnticipoId.Should().Be(anticipo.Id); e.FacturaProveedorId.Should().Be(f.Id); e.ProveedorId.Should().Be(a.Proveedor);
         e.Monto.Should().Be(60); e.Moneda.Should().Be("MXN"); e.SucursalId.Should().Be(a.Sucursal);
         e.AplicacionId.Should().Be((await a.Db.MovimientosPasivo.SingleAsync()).Id);
+        e.TipoCambioFactura.Should().Be(f.TipoCambio, "tipo de cambio de la factura para CON-11; no se calcula diferencia aquí");
     }
     [Theory]
     [InlineData(false)] [InlineData(true)]

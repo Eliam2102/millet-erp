@@ -55,6 +55,9 @@ public sealed class P4EndpointsTests(WebApplicationFactory<Program> factory)
             Assert.Equal(HttpStatusCode.NoContent,(await Post(client,$"/notas-cargo/{cargoId}/formalizar",new {notaCreditoId=ncId},await Version(app,cargoId,true))).StatusCode);
             // Regla fiscal 30-oct: la NC 03 sustituye a la nota de cargo al formalizar (queda aplicada); ya no se aplica a mano.
             Assert.Equal(HttpStatusCode.OK,(await Post(client,$"/facturas/{fId}/aplicar-anticipo",new {anticipoId=antiId,anticipoVersionEsperada=antiV,monto=100},await Version(app,fId))).StatusCode);
+            // C1.5b: con un anticipo aplicado la factura no se cancela (la reversa con evento espejo es otra tarea).
+            var cancelar=await Post(client,$"/facturas/{fId}/cancelar",new {motivo=(int)Millet.CuentasPorPagar.Domain.FacturaProveedor.MotivoCancelacion.ErrorCaptura,texto="FIX C1.5b"},await Version(app,fId));
+            Assert.Equal(HttpStatusCode.UnprocessableEntity,cancelar.StatusCode);Assert.Equal("FACTURA_PROVEEDOR_CON_ANTICIPO_APLICADO",await Code(cancelar));
             Assert.Equal(HttpStatusCode.NoContent,(await Post(client,$"/anticipos/{anti07Id}/amortizar-nc",new {notaCreditoId=nc07Id,ncVersionEsperada=nc07V,monto=100},anti07V)).StatusCode);
             var mismatch=await Post(client,$"/notas-credito/{ncManualId}/vincular-factura",new {facturaOrigenId=fId},ncManualV);
             Assert.Equal(HttpStatusCode.UnprocessableEntity,mismatch.StatusCode);Assert.Equal("NC_UUID_RELACION_DISTINTO",await Code(mismatch));

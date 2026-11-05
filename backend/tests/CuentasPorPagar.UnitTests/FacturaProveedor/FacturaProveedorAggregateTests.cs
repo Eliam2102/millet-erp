@@ -75,6 +75,21 @@ public sealed class FacturaProveedorAggregateTests
     }
 
     [Fact]
+    public void Cancelar_con_anticipo_aplicado_no_se_permite_y_la_factura_queda_igual()
+    {
+        // C1.5b: la aplicación del anticipo ya tiene su póliza de amortización; la reversa (desaplicar) es una tarea aparte.
+        var f = Capturar();
+        f.AplicarAnticipo(10m, new DateOnly(2026, 11, 5), Guid.NewGuid());
+
+        var act = () => f.Cancelar(MotivoCancelacion.ErrorCaptura, texto: null, usuarioId: null, ahora: DateTimeOffset.UtcNow);
+
+        act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "FACTURA_PROVEEDOR_CON_ANTICIPO_APLICADO")
+            .Which.Message.Should().Be("La factura tiene anticipos aplicados; no se puede cancelar mientras exista la aplicación.");
+        f.Estado.Should().Be(EstadoPasivo.Capturada);
+        f.AnticipoAplicadoTotal.Should().Be(10m);
+    }
+
+    [Fact]
     public void Autorizar_pasa_a_Autorizada_y_limpia_revision()
     {
         var f = Capturar();

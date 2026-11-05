@@ -97,7 +97,8 @@ public sealed class AplicarAnticipoAFacturaHandler
                 AnticipoId: anticipo.Id, FacturaProveedorId: factura.Id, ProveedorId: factura.ProveedorId, Monto: command.Monto,
                 Moneda: anticipo.Moneda, TipoCambio: anticipo.TipoCambio,
                 SucursalId: factura.SucursalId == Guid.Empty ? null : factura.SucursalId,
-                UuidAnticipo: anticipo.UuidCfdi, UuidFactura: factura.UuidCfdi), cancellationToken);
+                UuidAnticipo: anticipo.UuidCfdi, UuidFactura: factura.UuidCfdi,
+                TipoCambioFactura: factura.TipoCambio), cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
         return new AplicarAnticipoAFacturaResponse(
