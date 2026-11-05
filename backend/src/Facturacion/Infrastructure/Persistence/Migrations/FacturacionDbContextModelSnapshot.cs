@@ -4275,6 +4275,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(50)")
                         .HasColumnName("aw_numero_pedido");
 
+                    b.Property<string>("AwVendedor")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("aw_vendedor");
+
                     b.Property<long?>("AwVersionNota")
                         .HasColumnType("bigint")
                         .HasColumnName("aw_version_nota");
