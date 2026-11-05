@@ -47,6 +47,23 @@ public sealed class MovimientoPieza : BaseEntity, IAuditable, IPerteneceAEmpresa
     }
 
     /// <summary>Llamar antes de <c>SalirATransito</c>: lee la sucursal de origen de la pieza. Referencia = traspaso_id (idempotente por pieza y traspaso).</summary>
+    private MovimientoPieza(PiezaPt pieza, TipoMovimientoPieza tipo, EstadoPieza anterior, string referencia, DateTimeOffset ocurridoAt, string usuario) : base(Guid.CreateVersion7())
+    {
+        EmpresaId = pieza.EmpresaId;
+        PiezaId = pieza.Id;
+        Tipo = tipo;
+        SucursalOrigenId = pieza.SucursalId;
+        EstadoAnterior = anterior.ToString();
+        EstadoNuevo = pieza.Estado.ToString();
+        Referencia = referencia;
+        OcurridoAt = ocurridoAt;
+        Usuario = usuario;
+    }
+
+    /// <summary>Se llama después de cambiar el estado de la pieza; <c>referencia</c> es el albarán.</summary>
+    public static MovimientoPieza Paso(PiezaPt pieza, TipoMovimientoPieza tipo, EstadoPieza anterior, Guid albaranId, DateTimeOffset ocurridoAt, string usuario)
+        => new(pieza, tipo, anterior, albaranId.ToString(), ocurridoAt, usuario);
+
     public static MovimientoPieza TrasladoSalida(PiezaPt pieza, Guid destino, Guid traspasoId, DateTimeOffset ocurridoAt, string usuario)
         => new(pieza, TipoMovimientoPieza.TrasladoSalida, EstadoPieza.EnPT, EstadoPieza.EnTransito, pieza.SucursalId, destino, traspasoId, ocurridoAt, usuario);
 

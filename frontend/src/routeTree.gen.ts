@@ -57,12 +57,14 @@ import { Route as AppCxcIndexRouteImport } from './routes/_app/cxc/index';
 import { Route as AppCxpIndexRouteImport } from './routes/_app/cxp/index';
 import { Route as AppCxpAnticiposRouteImport } from './routes/_app/cxp/anticipos';
 import { Route as AppCxpCfdisRouteImport } from './routes/_app/cxp/cfdis';
+import { Route as AppCxpRevaluacionRouteImport } from './routes/_app/cxp/revaluacion';
 import { Route as AppCxpRevisionRouteImport } from './routes/_app/cxp/revision';
 import { Route as AppFacturacionIndexRouteImport } from './routes/_app/facturacion/index';
 import { Route as AppFacturacionAyudaRouteImport } from './routes/_app/facturacion/ayuda';
 import { Route as AppFacturacionCajaRouteImport } from './routes/_app/facturacion/caja';
 import { Route as AppFacturacionCancelacionesRouteImport } from './routes/_app/facturacion/cancelaciones';
 import { Route as AppProductoTerminadoExcepcionesRouteImport } from './routes/_app/producto-terminado/excepciones';
+import { Route as AppProductoTerminadoHojasSalidaRouteImport } from './routes/_app/producto-terminado/hojas-salida';
 import { Route as AppProductoTerminadoPiezasRouteImport } from './routes/_app/producto-terminado/piezas';
 import { Route as AppProductoTerminadoSalidasRouteImport } from './routes/_app/producto-terminado/salidas';
 import { Route as AppProductoTerminadoTraspasosRouteImport } from './routes/_app/producto-terminado/traspasos';
@@ -485,6 +487,11 @@ const AppCxpCfdisRoute = AppCxpCfdisRouteImport.update({
   path: '/cxp/cfdis',
   getParentRoute: () => AppRoute,
 } as any);
+const AppCxpRevaluacionRoute = AppCxpRevaluacionRouteImport.update({
+  id: '/cxp/revaluacion',
+  path: '/cxp/revaluacion',
+  getParentRoute: () => AppRoute,
+} as any);
 const AppCxpRevisionRoute = AppCxpRevisionRouteImport.update({
   id: '/cxp/revision',
   path: '/cxp/revision',
@@ -515,6 +522,12 @@ const AppProductoTerminadoExcepcionesRoute =
   AppProductoTerminadoExcepcionesRouteImport.update({
     id: '/producto-terminado/excepciones',
     path: '/producto-terminado/excepciones',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppProductoTerminadoHojasSalidaRoute =
+  AppProductoTerminadoHojasSalidaRouteImport.update({
+    id: '/producto-terminado/hojas-salida',
+    path: '/producto-terminado/hojas-salida',
     getParentRoute: () => AppRoute,
   } as any);
 const AppProductoTerminadoPiezasRoute =
@@ -1499,11 +1512,13 @@ export interface FileRoutesByFullPath {
   '/contabilidad/periodos': typeof AppContabilidadPeriodosRoute;
   '/cxp/anticipos': typeof AppCxpAnticiposRoute;
   '/cxp/cfdis': typeof AppCxpCfdisRoute;
+  '/cxp/revaluacion': typeof AppCxpRevaluacionRoute;
   '/cxp/revision': typeof AppCxpRevisionRoute;
   '/facturacion/ayuda': typeof AppFacturacionAyudaRoute;
   '/facturacion/caja': typeof AppFacturacionCajaRoute;
   '/facturacion/cancelaciones': typeof AppFacturacionCancelacionesRoute;
   '/producto-terminado/excepciones': typeof AppProductoTerminadoExcepcionesRoute;
+  '/producto-terminado/hojas-salida': typeof AppProductoTerminadoHojasSalidaRoute;
   '/producto-terminado/piezas': typeof AppProductoTerminadoPiezasRoute;
   '/producto-terminado/salidas': typeof AppProductoTerminadoSalidasRoute;
   '/producto-terminado/traspasos': typeof AppProductoTerminadoTraspasosRoute;
@@ -1721,11 +1736,13 @@ export interface FileRoutesByTo {
   '/contabilidad/periodos': typeof AppContabilidadPeriodosRoute;
   '/cxp/anticipos': typeof AppCxpAnticiposRoute;
   '/cxp/cfdis': typeof AppCxpCfdisRoute;
+  '/cxp/revaluacion': typeof AppCxpRevaluacionRoute;
   '/cxp/revision': typeof AppCxpRevisionRoute;
   '/facturacion/ayuda': typeof AppFacturacionAyudaRoute;
   '/facturacion/caja': typeof AppFacturacionCajaRoute;
   '/facturacion/cancelaciones': typeof AppFacturacionCancelacionesRoute;
   '/producto-terminado/excepciones': typeof AppProductoTerminadoExcepcionesRoute;
+  '/producto-terminado/hojas-salida': typeof AppProductoTerminadoHojasSalidaRoute;
   '/producto-terminado/piezas': typeof AppProductoTerminadoPiezasRoute;
   '/producto-terminado/salidas': typeof AppProductoTerminadoSalidasRoute;
   '/producto-terminado/traspasos': typeof AppProductoTerminadoTraspasosRoute;
@@ -1945,11 +1962,13 @@ export interface FileRoutesById {
   '/_app/contabilidad/periodos': typeof AppContabilidadPeriodosRoute;
   '/_app/cxp/anticipos': typeof AppCxpAnticiposRoute;
   '/_app/cxp/cfdis': typeof AppCxpCfdisRoute;
+  '/_app/cxp/revaluacion': typeof AppCxpRevaluacionRoute;
   '/_app/cxp/revision': typeof AppCxpRevisionRoute;
   '/_app/facturacion/ayuda': typeof AppFacturacionAyudaRoute;
   '/_app/facturacion/caja': typeof AppFacturacionCajaRoute;
   '/_app/facturacion/cancelaciones': typeof AppFacturacionCancelacionesRoute;
   '/_app/producto-terminado/excepciones': typeof AppProductoTerminadoExcepcionesRoute;
+  '/_app/producto-terminado/hojas-salida': typeof AppProductoTerminadoHojasSalidaRoute;
   '/_app/producto-terminado/piezas': typeof AppProductoTerminadoPiezasRoute;
   '/_app/producto-terminado/salidas': typeof AppProductoTerminadoSalidasRoute;
   '/_app/producto-terminado/traspasos': typeof AppProductoTerminadoTraspasosRoute;
@@ -2169,11 +2188,13 @@ export interface FileRouteTypes {
     | '/contabilidad/periodos'
     | '/cxp/anticipos'
     | '/cxp/cfdis'
+    | '/cxp/revaluacion'
     | '/cxp/revision'
     | '/facturacion/ayuda'
     | '/facturacion/caja'
     | '/facturacion/cancelaciones'
     | '/producto-terminado/excepciones'
+    | '/producto-terminado/hojas-salida'
     | '/producto-terminado/piezas'
     | '/producto-terminado/salidas'
     | '/producto-terminado/traspasos'
@@ -2391,11 +2412,13 @@ export interface FileRouteTypes {
     | '/contabilidad/periodos'
     | '/cxp/anticipos'
     | '/cxp/cfdis'
+    | '/cxp/revaluacion'
     | '/cxp/revision'
     | '/facturacion/ayuda'
     | '/facturacion/caja'
     | '/facturacion/cancelaciones'
     | '/producto-terminado/excepciones'
+    | '/producto-terminado/hojas-salida'
     | '/producto-terminado/piezas'
     | '/producto-terminado/salidas'
     | '/producto-terminado/traspasos'
@@ -2614,11 +2637,13 @@ export interface FileRouteTypes {
     | '/_app/contabilidad/periodos'
     | '/_app/cxp/anticipos'
     | '/_app/cxp/cfdis'
+    | '/_app/cxp/revaluacion'
     | '/_app/cxp/revision'
     | '/_app/facturacion/ayuda'
     | '/_app/facturacion/caja'
     | '/_app/facturacion/cancelaciones'
     | '/_app/producto-terminado/excepciones'
+    | '/_app/producto-terminado/hojas-salida'
     | '/_app/producto-terminado/piezas'
     | '/_app/producto-terminado/salidas'
     | '/_app/producto-terminado/traspasos'
@@ -3139,6 +3164,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCxpCfdisRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/cxp/revaluacion': {
+      id: '/_app/cxp/revaluacion';
+      path: '/cxp/revaluacion';
+      fullPath: '/cxp/revaluacion';
+      preLoaderRoute: typeof AppCxpRevaluacionRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/cxp/revision': {
       id: '/_app/cxp/revision';
       path: '/cxp/revision';
@@ -3179,6 +3211,13 @@ declare module '@tanstack/react-router' {
       path: '/producto-terminado/excepciones';
       fullPath: '/producto-terminado/excepciones';
       preLoaderRoute: typeof AppProductoTerminadoExcepcionesRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/producto-terminado/hojas-salida': {
+      id: '/_app/producto-terminado/hojas-salida';
+      path: '/producto-terminado/hojas-salida';
+      fullPath: '/producto-terminado/hojas-salida';
+      preLoaderRoute: typeof AppProductoTerminadoHojasSalidaRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/producto-terminado/piezas': {
@@ -4410,11 +4449,13 @@ interface AppRouteChildren {
   AppContabilidadPeriodosRoute: typeof AppContabilidadPeriodosRoute;
   AppCxpAnticiposRoute: typeof AppCxpAnticiposRoute;
   AppCxpCfdisRoute: typeof AppCxpCfdisRoute;
+  AppCxpRevaluacionRoute: typeof AppCxpRevaluacionRoute;
   AppCxpRevisionRoute: typeof AppCxpRevisionRoute;
   AppFacturacionAyudaRoute: typeof AppFacturacionAyudaRoute;
   AppFacturacionCajaRoute: typeof AppFacturacionCajaRoute;
   AppFacturacionCancelacionesRoute: typeof AppFacturacionCancelacionesRoute;
   AppProductoTerminadoExcepcionesRoute: typeof AppProductoTerminadoExcepcionesRoute;
+  AppProductoTerminadoHojasSalidaRoute: typeof AppProductoTerminadoHojasSalidaRoute;
   AppProductoTerminadoPiezasRoute: typeof AppProductoTerminadoPiezasRoute;
   AppProductoTerminadoSalidasRoute: typeof AppProductoTerminadoSalidasRoute;
   AppProductoTerminadoTraspasosRoute: typeof AppProductoTerminadoTraspasosRoute;
@@ -4631,11 +4672,13 @@ const AppRouteChildren: AppRouteChildren = {
   AppContabilidadPeriodosRoute: AppContabilidadPeriodosRoute,
   AppCxpAnticiposRoute: AppCxpAnticiposRoute,
   AppCxpCfdisRoute: AppCxpCfdisRoute,
+  AppCxpRevaluacionRoute: AppCxpRevaluacionRoute,
   AppCxpRevisionRoute: AppCxpRevisionRoute,
   AppFacturacionAyudaRoute: AppFacturacionAyudaRoute,
   AppFacturacionCajaRoute: AppFacturacionCajaRoute,
   AppFacturacionCancelacionesRoute: AppFacturacionCancelacionesRoute,
   AppProductoTerminadoExcepcionesRoute: AppProductoTerminadoExcepcionesRoute,
+  AppProductoTerminadoHojasSalidaRoute: AppProductoTerminadoHojasSalidaRoute,
   AppProductoTerminadoPiezasRoute: AppProductoTerminadoPiezasRoute,
   AppProductoTerminadoSalidasRoute: AppProductoTerminadoSalidasRoute,
   AppProductoTerminadoTraspasosRoute: AppProductoTerminadoTraspasosRoute,

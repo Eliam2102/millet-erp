@@ -397,6 +397,8 @@ public static class PermisosCanonicos
     public const string CuentasPorPagarReportesAntiguedad              = "cuentas_por_pagar.reportes.antiguedad";
     public const string CuentasPorPagarReportesDiot                    = "cuentas_por_pagar.reportes.diot";
     public const string CuentasPorPagarReportesTc                      = "cuentas_por_pagar.reportes.tc";
+    public const string CuentasPorPagarRevaluacionEjecutar             = "cuentas_por_pagar.revaluacion.ejecutar";
+    public const string CuentasPorPagarRevaluacionConsultar            = "cuentas_por_pagar.revaluacion.consultar";
 
     public const string CuentasPorPagarCfdisLeer                       = "cuentas_por_pagar.cfdis.leer";
     public const string CuentasPorPagarCfdisCargarManual               = "cuentas_por_pagar.cfdis.cargar-manual";
@@ -856,7 +858,9 @@ public static class PermisosCanonicos
         (Guid.Parse("00000007-0009-0000-0000-000000000001"), CuentasPorPagarCfdisLeer,                    "Consultar CFDIs recibidos"),
         (Guid.Parse("00000007-0009-0000-0000-000000000002"), CuentasPorPagarCfdisCargarManual,            "Cargar CFDI manualmente (canal de respaldo)"),
         (Guid.Parse("00000007-0009-0000-0000-000000000003"), CuentasPorPagarCfdisDescartar,               "Descartar CFDI por duplicado o error"),
-        (Guid.Parse("00000007-0011-0000-0000-000000000001"), CuentasPorPagarPortalAdministrar,            "Administrar el acceso de un proveedor al portal de proveedores (correos autorizados)"),
+        (Guid.Parse("00000007-0012-0000-0000-000000000001"), CuentasPorPagarRevaluacionEjecutar,          "Correr la revaluación de cierre de saldos por pagar en moneda extranjera"),
+        (Guid.Parse("00000007-0012-0000-0000-000000000002"), CuentasPorPagarRevaluacionConsultar,         "Consultar la revaluación de cierre y su reporte por proveedor y documento"),
+        (Guid.Parse("00000007-0011-0000-0000-000000000001"), CuentasPorPagarPortalAdministrar,           "Administrar el acceso de un proveedor al portal de proveedores (correos autorizados)"),
         (Guid.Parse("00000007-0010-0000-0000-000000000001"), CuentasPorPagarReposicionesLeer,             "Consultar reposiciones de caja chica y saldos por reponer"),
         (Guid.Parse("00000007-0010-0000-0000-000000000002"), CuentasPorPagarReposicionesAdministrar,      "Configurar mínimo de reposición por sucursal y emitir cortes manuales"),
         // Integración A+W (PR A). Namespace 00000006-*.

@@ -240,6 +240,9 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
     /// <summary>Líneas crudas del archivo del banco (F7-PR5).</summary>
     public DbSet<LineaBancoTc> LineasBancoTc => Set<LineaBancoTc>();
 
+    /// <summary>Revaluaciones de cierre de saldos en moneda extranjera (CXP-12).</summary>
+    public DbSet<Domain.Revaluacion.RevaluacionCierre> RevaluacionesCierre => Set<Domain.Revaluacion.RevaluacionCierre>();
+
     /// <summary>Perfiles de parser de bancos — seed AMEX_MX (F7-PR5).</summary>
     public DbSet<PerfilParserBanco> PerfilesParserBanco => Set<PerfilParserBanco>();
 
@@ -310,5 +313,7 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new AccesoPortalProveedorConfiguration());
         modelBuilder.ApplyConfiguration(new CodigoPortalConfiguration());
         modelBuilder.ApplyConfiguration(new AvisoPagoPortalConfiguration());
+        modelBuilder.ApplyConfiguration(new RevaluacionCierreConfiguration());
+        modelBuilder.ApplyConfiguration(new RevaluacionDetalleConfiguration());
     }
 }

@@ -72,6 +72,34 @@ internal sealed class PtDatos(WebApplicationFactory<Program> factory)
         return numero;
     }
 
+    /// <summary>Pedido de PT ligado a su pedido real en Facturación (cantidad = piezas) y liberado (70), listo para salir.</summary>
+    public async Task<(string Numero, Guid PedidoFacturableId)> PedidoLiberadoAsync(Guid sucursal, int piezas)
+    {
+        var numero = Nuevo();
+        await FacturacionAsync(numero, sucursal, piezas);
+        using var scope = factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var facturable = await scope.ServiceProvider.GetRequiredService<FacturacionDbContext>().PedidosFacturables.AsNoTracking()
+            .SingleAsync(x => x.EmpresaId == Empresa && x.NumeroPedido == numero);
+        var db = scope.ServiceProvider.GetRequiredService<ProductoTerminadoDbContext>();
+        var p = PedidoPt.Crear(Empresa, facturable.Id, numero, sucursal, null, 1);
+        p.ActualizarPosiciones(1, [(1, null, "PT-INT vidrio", piezas, "H87")]);
+        p.Liberar(MotivosPt.SaldoCubierto, DateTimeOffset.UtcNow);
+        db.PedidosPt.Add(p);
+        await db.SaveChangesAsync();
+        return (numero, facturable.Id);
+    }
+
+    /// <summary>Salidas que Facturación tiene registradas del pedido (cantidad total por salida).</summary>
+    public async Task<IReadOnlyList<decimal>> SalidasFacturacionAsync(Guid pedidoFacturableId)
+    {
+        using var scope = factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        return await scope.ServiceProvider.GetRequiredService<FacturacionDbContext>().SalidasFacturables.AsNoTracking()
+            .Where(x => x.PedidoFacturableId == pedidoFacturableId).OrderBy(x => x.NumeroParcialidad)
+            .Select(x => x.Lineas.Sum(l => l.Cantidad)).ToListAsync();
+    }
+
     /// <summary>Pieza en PT en <paramref name="sucursalFisica"/> con su escaneo Alta.</summary>
     public async Task<string> PiezaAsync(string numeroPedido, Guid sucursalFisica, int numeroPieza)
     {

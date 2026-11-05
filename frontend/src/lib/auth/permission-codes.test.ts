@@ -228,6 +228,8 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'cuentas_por_pagar.reportes.antiguedad',
   'cuentas_por_pagar.reportes.diot',
   'cuentas_por_pagar.reportes.tc',
+  'cuentas_por_pagar.revaluacion.ejecutar',
+  'cuentas_por_pagar.revaluacion.consultar',
   'cuentas_por_pagar.cfdis.leer',
   'cuentas_por_pagar.cfdis.cargar-manual',
   'cuentas_por_pagar.cfdis.descartar',

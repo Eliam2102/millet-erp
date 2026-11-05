@@ -56,17 +56,16 @@ public sealed class ListarPiezasHandler(ProductoTerminadoDbContext db, PtAcceso 
             var est = await db.PedidosPt.AsNoTracking().Where(o => o.NumeroPedido == numero)
                 .Select(o => new { o.Liberacion, o.MotivoLiberacion, o.LiberacionAt }).FirstOrDefaultAsync(cancellationToken);
             estadoPedido = est?.Liberacion is { } l ? new EstadoPedidoDto(l.ToString(), est.MotivoLiberacion, est.LiberacionAt) : null;
-            var cuentas = await consulta.GroupBy(x => x.p.Posicion).Select(g => new { Posicion = g.Key, N = g.Count(), EnPt = g.Count(x => x.p.Estado == EstadoPieza.EnPT) }).ToListAsync(cancellationToken);
+            var cuentas = await consulta.GroupBy(x => x.p.Posicion).Select(g => new { Posicion = g.Key, N = g.Count(), EnPt = g.Count(x => x.p.Estado == EstadoPieza.EnPT), Cargadas = g.Count(x => x.p.Estado == EstadoPieza.Cargada), Entregadas = g.Count(x => x.p.Estado == EstadoPieza.Embarcada) }).ToListAsync(cancellationToken);
             avance = posiciones.Select(pos =>
             {
                 var cuenta = cuentas.FirstOrDefault(c => c.Posicion == pos.Posicion);
                 var n = cuenta?.N ?? 0;
                 var terminadas = Math.Min(n, pos.PiezasEsperadas);
                 var estado = n == 0 ? "SinPiezas" : terminadas >= pos.PiezasEsperadas && pos.PiezasEsperadas > 0 ? "Completo" : "Parcial";
-                // TODO(PT5.4-PT5.9): cargadas y entregadas salen de la carga y la entrega; hoy no hay fuente (EstadoPieza solo tiene EnPT).
-                const int cargadas = 0, entregadas = 0;
-                return new AvancePosicionDto(pos.Posicion, pos.Descripcion, pos.PiezasEsperadas, terminadas, Math.Min(cuenta?.EnPt ?? 0, terminadas) - cargadas - entregadas,
-                    cargadas, entregadas, Math.Max(0, pos.PiezasEsperadas - terminadas), estado);
+                // Cargadas = en el camión (hoja en borrador o carga de PT5.4); entregadas = embarcadas con albarán emitido (PT5.5).
+                return new AvancePosicionDto(pos.Posicion, pos.Descripcion, pos.PiezasEsperadas, terminadas, Math.Min(cuenta?.EnPt ?? 0, terminadas),
+                    cuenta?.Cargadas ?? 0, cuenta?.Entregadas ?? 0, Math.Max(0, pos.PiezasEsperadas - terminadas), estado);
             }).ToList();
         }
         return new PiezasPagina(items, total, avance, estadoPedido);

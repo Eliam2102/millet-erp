@@ -12,3 +12,9 @@ public sealed record PiezaIngresadaEvent(Guid Empresa, DateTimeOffset Fecha, Gui
 /// </summary>
 public sealed record PedidoEstadoCambiadoEvent(Guid Empresa, DateTimeOffset Fecha, Guid PedidoPtId, string NumeroPedido, string Estado, string Motivo, Guid? ClienteId, string? Moneda, decimal? Total)
     : IntegrationEvent("producto_terminado.pedido.estado-cambiado.v1", Empresa, Fecha);
+
+/// <summary>
+/// La primera hoja de salida emitida del pedido lo pasa a 71 (en ruta). Es el aviso que A+W consume (el acuse en A+W es de U1.5).
+/// </summary>
+public sealed record PedidoEnRutaEvent(Guid Empresa, DateTimeOffset Fecha, Guid PedidoPtId, string NumeroPedido, string HojaSalidaFolio, string AlbaranFolio, string? CartaPorteFolio)
+    : IntegrationEvent("producto_terminado.pedido.en-ruta.v1", Empresa, Fecha);

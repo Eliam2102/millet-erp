@@ -501,6 +501,13 @@ const moduloCuentasPorPagar: NavModulo = {
           icon: CreditCard,
           permission: PermisosCanonicos.CuentasPorPagarReportesTc,
         },
+        {
+          label: 'Revaluación de cierre',
+          description: 'Revalúa al cierre de mes los saldos en moneda extranjera y revisa la diferencia por proveedor.',
+          to: '/cxp/revaluacion',
+          icon: BarChart3,
+          permission: PermisosCanonicos.CuentasPorPagarRevaluacionConsultar,
+        },
       ],
     },
     {
@@ -1218,6 +1225,13 @@ const productoTerminado: NavModulo = {
           label: 'Salidas pendientes',
           description: 'Pedidos pagados y completos que aún no salen, con alerta a las 24 y 48 horas.',
           to: '/producto-terminado/salidas',
+          icon: Boxes,
+          permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
+        },
+        {
+          label: 'Hojas de salida',
+          description: 'Albarán por pedido con lo cargado: descuenta el inventario, pasa el pedido a 71 y se imprime para el chofer.',
+          to: '/producto-terminado/hojas-salida',
           icon: Boxes,
           permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
         },
