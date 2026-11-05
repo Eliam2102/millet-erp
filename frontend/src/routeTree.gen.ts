@@ -31,7 +31,9 @@ import { Route as AppAlmacenAlmacenesRouteImport } from './routes/_app/almacen/a
 import { Route as AppAlmacenAsignacionesRouteImport } from './routes/_app/almacen/asignaciones';
 import { Route as AppAlmacenCierreMesRouteImport } from './routes/_app/almacen/cierre-mes';
 import { Route as AppAlmacenConciliacionRouteImport } from './routes/_app/almacen/conciliacion';
+import { Route as AppAlmacenConsumosRevisionRouteImport } from './routes/_app/almacen/consumos-revision';
 import { Route as AppAlmacenMermasRouteImport } from './routes/_app/almacen/mermas';
+import { Route as AppAlmacenNormasConsumoRouteImport } from './routes/_app/almacen/normas-consumo';
 import { Route as AppAlmacenReordenRouteImport } from './routes/_app/almacen/reorden';
 import { Route as AppAlmacenRevisionRouteImport } from './routes/_app/almacen/revision';
 import { Route as AppAlmacenSaldosRouteImport } from './routes/_app/almacen/saldos';
@@ -352,9 +354,20 @@ const AppAlmacenConciliacionRoute = AppAlmacenConciliacionRouteImport.update({
   path: '/almacen/conciliacion',
   getParentRoute: () => AppRoute,
 } as any);
+const AppAlmacenConsumosRevisionRoute =
+  AppAlmacenConsumosRevisionRouteImport.update({
+    id: '/almacen/consumos-revision',
+    path: '/almacen/consumos-revision',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppAlmacenMermasRoute = AppAlmacenMermasRouteImport.update({
   id: '/almacen/mermas',
   path: '/almacen/mermas',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppAlmacenNormasConsumoRoute = AppAlmacenNormasConsumoRouteImport.update({
+  id: '/almacen/normas-consumo',
+  path: '/almacen/normas-consumo',
   getParentRoute: () => AppRoute,
 } as any);
 const AppAlmacenReordenRoute = AppAlmacenReordenRouteImport.update({
@@ -1510,7 +1523,9 @@ export interface FileRoutesByFullPath {
   '/almacen/asignaciones': typeof AppAlmacenAsignacionesRoute;
   '/almacen/cierre-mes': typeof AppAlmacenCierreMesRoute;
   '/almacen/conciliacion': typeof AppAlmacenConciliacionRoute;
+  '/almacen/consumos-revision': typeof AppAlmacenConsumosRevisionRoute;
   '/almacen/mermas': typeof AppAlmacenMermasRoute;
+  '/almacen/normas-consumo': typeof AppAlmacenNormasConsumoRoute;
   '/almacen/reorden': typeof AppAlmacenReordenRoute;
   '/almacen/revision': typeof AppAlmacenRevisionRoute;
   '/almacen/saldos': typeof AppAlmacenSaldosRoute;
@@ -1737,7 +1752,9 @@ export interface FileRoutesByTo {
   '/almacen/asignaciones': typeof AppAlmacenAsignacionesRoute;
   '/almacen/cierre-mes': typeof AppAlmacenCierreMesRoute;
   '/almacen/conciliacion': typeof AppAlmacenConciliacionRoute;
+  '/almacen/consumos-revision': typeof AppAlmacenConsumosRevisionRoute;
   '/almacen/mermas': typeof AppAlmacenMermasRoute;
+  '/almacen/normas-consumo': typeof AppAlmacenNormasConsumoRoute;
   '/almacen/reorden': typeof AppAlmacenReordenRoute;
   '/almacen/revision': typeof AppAlmacenRevisionRoute;
   '/almacen/saldos': typeof AppAlmacenSaldosRoute;
@@ -1966,7 +1983,9 @@ export interface FileRoutesById {
   '/_app/almacen/asignaciones': typeof AppAlmacenAsignacionesRoute;
   '/_app/almacen/cierre-mes': typeof AppAlmacenCierreMesRoute;
   '/_app/almacen/conciliacion': typeof AppAlmacenConciliacionRoute;
+  '/_app/almacen/consumos-revision': typeof AppAlmacenConsumosRevisionRoute;
   '/_app/almacen/mermas': typeof AppAlmacenMermasRoute;
+  '/_app/almacen/normas-consumo': typeof AppAlmacenNormasConsumoRoute;
   '/_app/almacen/reorden': typeof AppAlmacenReordenRoute;
   '/_app/almacen/revision': typeof AppAlmacenRevisionRoute;
   '/_app/almacen/saldos': typeof AppAlmacenSaldosRoute;
@@ -2195,7 +2214,9 @@ export interface FileRouteTypes {
     | '/almacen/asignaciones'
     | '/almacen/cierre-mes'
     | '/almacen/conciliacion'
+    | '/almacen/consumos-revision'
     | '/almacen/mermas'
+    | '/almacen/normas-consumo'
     | '/almacen/reorden'
     | '/almacen/revision'
     | '/almacen/saldos'
@@ -2422,7 +2443,9 @@ export interface FileRouteTypes {
     | '/almacen/asignaciones'
     | '/almacen/cierre-mes'
     | '/almacen/conciliacion'
+    | '/almacen/consumos-revision'
     | '/almacen/mermas'
+    | '/almacen/normas-consumo'
     | '/almacen/reorden'
     | '/almacen/revision'
     | '/almacen/saldos'
@@ -2650,7 +2673,9 @@ export interface FileRouteTypes {
     | '/_app/almacen/asignaciones'
     | '/_app/almacen/cierre-mes'
     | '/_app/almacen/conciliacion'
+    | '/_app/almacen/consumos-revision'
     | '/_app/almacen/mermas'
+    | '/_app/almacen/normas-consumo'
     | '/_app/almacen/reorden'
     | '/_app/almacen/revision'
     | '/_app/almacen/saldos'
@@ -3020,11 +3045,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAlmacenConciliacionRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/almacen/consumos-revision': {
+      id: '/_app/almacen/consumos-revision';
+      path: '/almacen/consumos-revision';
+      fullPath: '/almacen/consumos-revision';
+      preLoaderRoute: typeof AppAlmacenConsumosRevisionRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/almacen/mermas': {
       id: '/_app/almacen/mermas';
       path: '/almacen/mermas';
       fullPath: '/almacen/mermas';
       preLoaderRoute: typeof AppAlmacenMermasRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/almacen/normas-consumo': {
+      id: '/_app/almacen/normas-consumo';
+      path: '/almacen/normas-consumo';
+      fullPath: '/almacen/normas-consumo';
+      preLoaderRoute: typeof AppAlmacenNormasConsumoRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/almacen/reorden': {
@@ -4486,7 +4525,9 @@ interface AppRouteChildren {
   AppAlmacenAsignacionesRoute: typeof AppAlmacenAsignacionesRoute;
   AppAlmacenCierreMesRoute: typeof AppAlmacenCierreMesRoute;
   AppAlmacenConciliacionRoute: typeof AppAlmacenConciliacionRoute;
+  AppAlmacenConsumosRevisionRoute: typeof AppAlmacenConsumosRevisionRoute;
   AppAlmacenMermasRoute: typeof AppAlmacenMermasRoute;
+  AppAlmacenNormasConsumoRoute: typeof AppAlmacenNormasConsumoRoute;
   AppAlmacenReordenRoute: typeof AppAlmacenReordenRoute;
   AppAlmacenRevisionRoute: typeof AppAlmacenRevisionRoute;
   AppAlmacenSaldosRoute: typeof AppAlmacenSaldosRoute;
@@ -4712,7 +4753,9 @@ const AppRouteChildren: AppRouteChildren = {
   AppAlmacenAsignacionesRoute: AppAlmacenAsignacionesRoute,
   AppAlmacenCierreMesRoute: AppAlmacenCierreMesRoute,
   AppAlmacenConciliacionRoute: AppAlmacenConciliacionRoute,
+  AppAlmacenConsumosRevisionRoute: AppAlmacenConsumosRevisionRoute,
   AppAlmacenMermasRoute: AppAlmacenMermasRoute,
+  AppAlmacenNormasConsumoRoute: AppAlmacenNormasConsumoRoute,
   AppAlmacenReordenRoute: AppAlmacenReordenRoute,
   AppAlmacenRevisionRoute: AppAlmacenRevisionRoute,
   AppAlmacenSaldosRoute: AppAlmacenSaldosRoute,
