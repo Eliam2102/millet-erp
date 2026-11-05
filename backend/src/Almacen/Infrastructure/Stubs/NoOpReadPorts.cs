@@ -330,6 +330,13 @@ public sealed class NoOpUsuarioReadPort : IUsuarioReadPort
     }
 }
 
+/// <summary>Sin adapter de Identidad nadie recibe avisos internos; el real se cablea en <c>Program.cs</c> (86e3tac2y).</summary>
+public sealed class NoOpDestinatariosAvisoReadPort : IDestinatariosAvisoReadPort
+{
+    public Task<IReadOnlyList<Guid>> UsuariosConPermisoAsync(Guid empresaId, string permiso, Guid? sucursalId, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<Guid>>([]);
+}
+
 /// <summary>
 /// PLATFORM-TODO(&lt;AlmacenCentroCostoReadAdapter&gt;): adapter real que delega
 /// en <c>CentrosCosto.Application.PublicPorts.IDim3ReadPort</c>. Almacén no

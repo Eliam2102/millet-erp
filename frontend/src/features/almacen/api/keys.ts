@@ -239,6 +239,8 @@ export const almacenKeys = {
   cierrePeriodos: () => [...almacenKeys.all, 'cierre-mes', 'periodos'] as const,
   cierreRevision: (anio: number, mes: number) =>
     [...almacenKeys.all, 'cierre-mes', 'revision-previa', anio, mes] as const,
+  cierreActas: () => [...almacenKeys.all, 'cierre-mes', 'actas'] as const,
+  avisos: () => [...almacenKeys.all, 'avisos'] as const,
 
   // Reabasto / reorden (config N1-N2)
   reorden: () => [...almacenKeys.all, 'reorden'] as const,

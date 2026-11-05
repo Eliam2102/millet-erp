@@ -134,6 +134,10 @@ public class AlmacenDbContext : BaseDbContext
     /// <summary>F1-ALM-13: foto de la valuación al cierre mensual.</summary>
     public DbSet<ValuacionCierre> ValuacionesCierre => Set<ValuacionCierre>();
 
+    /// <summary>86e3tac2y: acta del cierre mensual y avisos dentro del ERP.</summary>
+    public DbSet<ActaCierreMes> ActasCierre => Set<ActaCierreMes>();
+    public DbSet<Domain.Avisos.AvisoAlmacen> AvisosAlmacen => Set<Domain.Avisos.AvisoAlmacen>();
+
     /// <summary>
     /// Outbox de eventos de integración del módulo Almacén. Lo escribe
     /// <c>OutboxSaveChangesInterceptor</c> drenando el buffer scoped
@@ -223,6 +227,29 @@ public class AlmacenDbContext : BaseDbContext
             b.Property(x => x.ValorMxn).HasPrecision(18, 2);
             b.HasOne<PeriodoCerrado>().WithMany().HasForeignKey(x => x.PeriodoCerradoId).OnDelete(DeleteBehavior.Cascade);
             b.HasIndex(x => new { x.EmpresaId, x.Anio, x.Mes, x.SubAlmacenId });
+        });
+        modelBuilder.Entity<ActaCierreMes>(b =>
+        {
+            b.ToTable("actas_cierre");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).ValueGeneratedNever();
+            b.Property(x => x.Estado).HasMaxLength(20).IsRequired();
+            b.Property(x => x.ContenidoJson).HasColumnType("jsonb").IsRequired();
+            b.HasOne<PeriodoCerrado>().WithMany().HasForeignKey(x => x.PeriodoCerradoId).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => new { x.EmpresaId, x.Anio, x.Mes }).IsUnique();
+        });
+        modelBuilder.Entity<Domain.Avisos.AvisoAlmacen>(b =>
+        {
+            b.ToTable("avisos");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).ValueGeneratedNever();
+            b.Property(x => x.Tipo).HasMaxLength(30).IsRequired();
+            b.Property(x => x.Titulo).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Mensaje).HasMaxLength(500).IsRequired();
+            b.Property(x => x.Ruta).HasMaxLength(200);
+            // Un mismo vale, ajuste o acta avisa una sola vez a cada destinatario.
+            b.HasIndex(x => new { x.UsuarioDestinoId, x.Tipo, x.ReferenciaId }).IsUnique();
+            b.HasIndex(x => new { x.UsuarioDestinoId, x.CreadoAt });
         });
         modelBuilder.Entity<NormaConsumoComponente>(b =>
         {
