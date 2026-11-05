@@ -1,3 +1,4 @@
+import { problemaUsuario } from '@/lib/error-usuario';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { TabsEstado } from '@/components/erp/data/TabsEstado';
 import {
@@ -25,7 +26,6 @@ import {
 } from '@/components/erp';
 import { useOrdenesCompra } from '@/features/compras/ordenes/api/useOrdenesCompra';
 import { useUsuarios, mapById } from '@/features/catalogos/api';
-import { esApiError } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { FiltrosBandejaOc } from '@/features/compras/ordenes/components/FiltrosBandejaOc';
@@ -196,7 +196,7 @@ function RenderTabla({
   }
 
   if (query.isError) {
-    const problem = esApiError(query.error) ? query.error.problem : undefined;
+    const problem = problemaUsuario(query.error);
     return <ErrorState problem={problem} onRetry={() => query.refetch()} />;
   }
 

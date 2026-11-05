@@ -149,7 +149,7 @@ describe('<EditorLineas> — smoke', () => {
       ),
     );
     render(<EditorLineas rq={makeRq()} />, { wrapper: createQueryWrapper() });
-    fireEvent.click(screen.getByRole('button', { name: /añadir/i }));
+    fireEvent.click(screen.getByRole('button', { name: /agregar notas/i }));
     const input = screen.getByLabelText('Notas de la partida 1');
     fireEvent.change(input, { target: { value: 'Entregar en rampa 2' } });
     fireEvent.click(screen.getByRole('button', { name: 'Guardar notas de la partida 1' }));
