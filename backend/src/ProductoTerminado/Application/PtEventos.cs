@@ -14,6 +14,12 @@ public sealed record PedidoEstadoCambiadoEvent(Guid Empresa, DateTimeOffset Fech
     : IntegrationEvent("producto_terminado.pedido.estado-cambiado.v1", Empresa, Fecha);
 
 /// <summary>
+/// Un albarán a contra entrega (Crédito 24 horas) no se liquidó en caja el día de la salida (PT5.7): CxC levanta la alerta de cartera.
+/// </summary>
+public sealed record ContraEntregaNoLiquidadaEvent(Guid Empresa, DateTimeOffset Fecha, Guid PedidoPtId, string NumeroPedido, Guid ClienteId, string Moneda, decimal Total, string HojaSalidaFolio, DateTimeOffset SalidaAt)
+    : IntegrationEvent("producto_terminado.contra-entrega.no-liquidada.v1", Empresa, Fecha);
+
+/// <summary>
 /// La primera hoja de salida emitida del pedido lo pasa a 71 (en ruta). Es el aviso que A+W consume (el acuse en A+W es de U1.5).
 /// </summary>
 public sealed record PedidoEnRutaEvent(Guid Empresa, DateTimeOffset Fecha, Guid PedidoPtId, string NumeroPedido, string HojaSalidaFolio, string AlbaranFolio, string? CartaPorteFolio)

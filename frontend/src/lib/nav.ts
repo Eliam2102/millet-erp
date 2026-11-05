@@ -1272,6 +1272,13 @@ const productoTerminado: NavModulo = {
           permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
         },
         {
+          label: 'Liquidación de ruta',
+          description: 'Caja recibe del chofer albaranes firmados, efectivo y vouchers; lo que no cuadra queda con diferencia y la contra entrega sin liquidar se avisa a CxC.',
+          to: '/producto-terminado/liquidacion',
+          icon: Boxes,
+          permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
+        },
+        {
           label: 'Traspasos',
           description: 'Salida de piezas entre sucursales, tránsito y recepción en destino con diferencias.',
           to: '/producto-terminado/traspasos',
