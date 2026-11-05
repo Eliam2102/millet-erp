@@ -384,6 +384,9 @@ export interface RecepcionDetalle {
   foliosCancelacion?: string[] | null;
   /** true = el usuario actual NO la registró (único caso en que puede cancelarla). */
   registradaPorOtroUsuario?: boolean;
+  /** G-3: remisión del proveedor y, si repitió remisión/factura de la OC, el motivo capturado. */
+  remision?: string | null;
+  motivoDuplicado?: string | null;
 }
 
 export type MotivoCancelacionRecepcion = 'ARTICULO' | 'CANTIDAD' | 'OC' | 'UBICACION' | 'OTRO';
@@ -461,6 +464,9 @@ export interface RegistrarRecepcionConFacturaCommand {
   cfdiRecibidoId: string | null;
   cfdiUuidFiscal: string | null;
   observaciones: string | null;
+  /** G-3: remisión del proveedor; con la misma remisión/factura ya recibida en la OC el servidor pide `motivoDuplicado`. */
+  remision?: string | null;
+  motivoDuplicado?: string | null;
   /**
    * PR4: helper de cabecera (bin N4) que el almacenista auto-aplicó a las
    * líneas sin ubicación. null = no usó el helper. Solo reportería — la
@@ -481,6 +487,9 @@ export interface RegistrarRecepcionConPackingListCommand {
   fechaMovimiento: string;
   packingListBlobRef: string;
   observaciones: string | null;
+  /** G-3: ver variante A. */
+  remision?: string | null;
+  motivoDuplicado?: string | null;
   /** PR4: helper de cabecera (ver variante A). null = no lo usó. */
   ubicacionHelperId: string | null;
   importacion?: import('../schemas/recepcion').ImportacionRecepcionValues | null;

@@ -165,12 +165,14 @@ const CODIGOS_RECEPCION: Record<string, { campo: string; mensaje?: string } | 'c
   ENTRADA_SIN_ASIGNACION: 'callout',
   RECEPCION_MULTI_SUBALMACEN: 'callout',
   RECEPCION_SUCURSAL_DISTINTA: 'callout',
+  LISTA_EMPAQUE_VIDRIO: 'callout',
 };
 const TITULOS_CALLOUT: Record<string, string> = {
   RECEPCION_EXCEDE_PENDIENTE: 'Una cantidad excede lo pendiente',
   ENTRADA_SIN_ASIGNACION: 'Un artículo no está asignado al rack elegido',
   RECEPCION_MULTI_SUBALMACEN: 'Las partidas van a sub-almacenes distintos',
   RECEPCION_SUCURSAL_DISTINTA: 'La orden de compra es de otra sucursal',
+  LISTA_EMPAQUE_VIDRIO: 'La lista de empaque no admite vidrio',
 };
 
 function NuevaRecepcionFormBody({
@@ -223,6 +225,8 @@ function NuevaRecepcionFormBody({
     titulo: string;
     detalle: string;
   } | null>(null);
+  // G-3: el servidor avisó que esa remisión/factura ya se recibió en la OC; solo continúa con motivo.
+  const [yaRecibida, setYaRecibida] = useState<string | null>(null);
 
   function solicitarVariante(siguiente: Variante) {
     if (siguiente === variante) return;
@@ -233,6 +237,7 @@ function NuevaRecepcionFormBody({
   function cambiarVariante(siguiente: Variante) {
     setVarianteSolicitada(null);
     setAvisoServidor(null);
+    setYaRecibida(null);
     setVariante(siguiente);
     setPackingListAdjunto(null);
     setCapturaUuidManual(false);
@@ -319,6 +324,10 @@ function NuevaRecepcionFormBody({
 
   function onSubmit(values: RecepcionFormValues) {
     setAvisoServidor(null);
+    if (yaRecibida && !values.motivoDuplicado?.trim()) {
+      form.setError('motivoDuplicado', { type: 'required', message: 'Captura el motivo para registrarla otra vez.' });
+      return;
+    }
     // Un solo sub-almacén por recepción: el conflicto ya se ve por línea.
     const subs = new Map(
       (ubicacionesQuery.data?.items ?? []).map((u) => [
@@ -381,6 +390,8 @@ function NuevaRecepcionFormBody({
             // Mayúsculas como el VO UuidCfdi de CxP (el backend re-normaliza).
             cfdiUuidFiscal: v.cfdiUuidFiscal?.trim().toUpperCase() ?? null,
             observaciones: v.observaciones ?? null,
+            remision: v.remision?.trim() || null,
+            motivoDuplicado: yaRecibida ? v.motivoDuplicado?.trim() || null : null,
             // PR4: null = el almacenista no usó el helper de cabecera.
             ubicacionHelperId: v.ubicacionHelperId ?? null,
             lineas: lineasParaBackend,
@@ -418,6 +429,8 @@ function NuevaRecepcionFormBody({
           fechaMovimiento: v.fechaMovimiento,
           packingListBlobRef: packingListAdjunto.blobRef,
           observaciones: v.observaciones ?? null,
+          remision: v.remision?.trim() || null,
+          motivoDuplicado: yaRecibida ? v.motivoDuplicado?.trim() || null : null,
           // PR4: null = el almacenista no usó el helper de cabecera.
           ubicacionHelperId: v.ubicacionHelperId ?? null,
           lineas: lineasParaBackend,
@@ -441,6 +454,10 @@ function NuevaRecepcionFormBody({
   function manejarError(error: unknown) {
     if (!esApiError(error)) {
       toast.error('Error inesperado al registrar la recepción.');
+      return;
+    }
+    if (error.code === 'RECEPCION_YA_RECIBIDA') {
+      setYaRecibida(error.problem.detail ?? error.problem.title);
       return;
     }
     const resultado = applyServerErrors(
@@ -554,6 +571,57 @@ function NuevaRecepcionFormBody({
                 />
               </Field>
             </FormCampo>
+
+            <FormCampo span={6}>
+              <Field label="Remisión del proveedor" error={form.formState.errors.remision?.message}>
+                <Controller
+                  name="remision"
+                  control={form.control}
+                  render={({ field }) => (
+                    <Input
+                      value={field.value ?? ''}
+                      onChange={(e) => {
+                        field.onChange(e.target.value || null);
+                        setYaRecibida(null);
+                      }}
+                      onBlur={field.onBlur}
+                      maxLength={50}
+                      placeholder="Ej. R-55"
+                      autoComplete="off"
+                    />
+                  )}
+                />
+              </Field>
+            </FormCampo>
+
+            {yaRecibida && (
+              <FormCampo span={12}>
+                <div className="space-y-2">
+                  <AvisoEnLinea tono="advertencia" titulo="Ya recibida">
+                    {yaRecibida} Si es la misma entrega, cancela y no la registres.
+                  </AvisoEnLinea>
+                  <Field
+                    label="Motivo para registrarla otra vez"
+                    required
+                    error={form.formState.errors.motivoDuplicado?.message}
+                  >
+                    <Controller
+                      name="motivoDuplicado"
+                      control={form.control}
+                      render={({ field }) => (
+                        <Input
+                          value={field.value ?? ''}
+                          onChange={(e) => field.onChange(e.target.value || null)}
+                          onBlur={field.onBlur}
+                          maxLength={500}
+                          autoComplete="off"
+                        />
+                      )}
+                    />
+                  </Field>
+                </div>
+              </FormCampo>
+            )}
 
             <FormCampo span={12}>
               {variante === 'A' && (
@@ -726,11 +794,12 @@ function NuevaRecepcionFormBody({
 
           {avisoServidor && (
             <AvisoEnLinea tono="error" titulo={avisoServidor.titulo}>
-              {avisoServidor.detalle} Revisa las cantidades y los racks de las partidas marcadas.
+              {avisoServidor.detalle}
+              {avisoServidor.titulo === TITULOS_CALLOUT.LISTA_EMPAQUE_VIDRIO ? '' : ' Revisa las cantidades y los racks de las partidas marcadas.'}
             </AvisoEnLinea>
           )}
 
-          <LineasDesdeOc form={form} asignadas={asignadas.porArticulo} />
+          <LineasDesdeOc form={form} asignadas={asignadas.porArticulo} listaEmpaque={variante === 'B'} />
         </form>
       </SheetBody>
 
@@ -774,10 +843,13 @@ function NuevaRecepcionFormBody({
 function LineasDesdeOc({
   form,
   asignadas,
+  listaEmpaque,
 }: {
   form: ReturnType<typeof useForm<RecepcionFormValues>>;
   /** articuloId → racks asignados (para avisar al helper de cabecera). */
   asignadas: ReadonlyMap<string, ReadonlySet<string>>;
+  /** G-3: con lista de empaque el vidrio no se recibe; el servidor lo rechaza (LISTA_EMPAQUE_VIDRIO). */
+  listaEmpaque: boolean;
 }) {
   const ordenCompraId = useWatch({
     control: form.control,
@@ -942,6 +1014,7 @@ function LineasDesdeOc({
                 key={fila.lineaOcId}
                 index={index}
                 fila={fila}
+                vidrioEnListaEmpaque={listaEmpaque && !!fila.medida}
                 control={form.control}
                 coincideConHelper={destinos[index] != null && fila.ubicacionId === destinos[index]}
                 conflictoSub={
@@ -976,6 +1049,7 @@ interface FilaErrors {
 function FilaLineaOc({
   index,
   fila,
+  vidrioEnListaEmpaque,
   control,
   coincideConHelper,
   conflictoSub,
@@ -983,6 +1057,8 @@ function FilaLineaOc({
 }: {
   index: number;
   fila: FilaRecepcionValues;
+  /** G-3: partida de vidrio en una recepción con lista de empaque: no se puede incluir. */
+  vidrioEnListaEmpaque: boolean;
   control: ReturnType<typeof useForm<RecepcionFormValues>>['control'];
   /** PR4: la ubicación de la fila es la misma que el helper de cabecera. */
   coincideConHelper: boolean;
@@ -1028,7 +1104,7 @@ function FilaLineaOc({
                 type="checkbox"
                 className="mt-1 size-4 cursor-pointer accent-brand"
                 checked={field.value}
-                disabled={sinMedidaEnOc}
+                disabled={sinMedidaEnOc || vidrioEnListaEmpaque}
                 onChange={(e) => field.onChange(e.target.checked)}
                 aria-label={`Incluir partida ${fila.posicion} en la recepción`}
               />
@@ -1063,6 +1139,11 @@ function FilaLineaOc({
           {sinMedidaEnOc && (
             <p className="text-xs text-danger-fg" role="alert">
               La línea de la OC no tiene medida; corrígela en Compras.
+            </p>
+          )}
+          {vidrioEnListaEmpaque && (
+            <p className="mb-1 text-xs text-danger-fg" role="alert">
+              La lista de empaque no admite vidrio: recibe estas hojas por la recepción de materia prima.
             </p>
           )}
           {fila.medida && (
@@ -1320,6 +1401,8 @@ type RecepcionFormValues = {
   ordenCompraId: string;
   fechaMovimiento: string;
   observaciones?: string | null;
+  remision?: string | null;
+  motivoDuplicado?: string | null;
   cfdiRecibidoId?: string | null;
   cfdiUuidFiscal?: string | null;
   packingListBlobRef?: string;
@@ -1337,6 +1420,8 @@ function defaultValuesParaVariante(
     ordenCompraId,
     fechaMovimiento: hoyIso,
     observaciones: null,
+    remision: null,
+    motivoDuplicado: null,
     ubicacionHelperId: null,
     filas: [],
   };

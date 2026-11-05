@@ -65,7 +65,10 @@ public sealed record RecepcionDetalle(
     IReadOnlyList<string>? FoliosCancelacion = null,
     // true = el usuario actual NO registró la recepción, así que la separación de funciones no le impide cancelarla
     // (el permiso y el estado Registrado los valida el endpoint / la pantalla).
-    bool RegistradaPorOtroUsuario = false);
+    bool RegistradaPorOtroUsuario = false,
+    // G-3: remisión del proveedor y motivo capturado si repitió remisión/factura de otra recepción de la OC.
+    string? Remision = null,
+    string? MotivoDuplicado = null);
 
 public sealed record RecepcionImportacionDetalle(
     string NumeroPedimento, string NumeroBl, string NumeroContenedor, string Aduana, string? AduanaNombre,
@@ -431,6 +434,8 @@ public sealed class ObtenerRecepcionPorIdHandler
             CanceladaPorNombre: cancelacion?.RegistradoPor is Guid can ? nombres.GetValueOrDefault(can) : null,
             MotivoCancelacion: cancelacion?.Motivo,
             FoliosCancelacion: cancelacion is null ? null : cancelaciones.Select(c => c.Folio!).ToList(),
-            RegistradaPorOtroUsuario: _currentUser?.UserId is Guid yo && mov.RegistradoPor != yo);
+            RegistradaPorOtroUsuario: _currentUser?.UserId is Guid yo && mov.RegistradoPor != yo,
+            Remision: mov.Remision,
+            MotivoDuplicado: mov.MotivoDuplicado);
     }
 }

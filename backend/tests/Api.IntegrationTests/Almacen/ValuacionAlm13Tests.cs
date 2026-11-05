@@ -33,7 +33,7 @@ public class ValuacionAlm13Tests(WebApplicationFactory<Program> factory) : IClas
     private static async Task<Guid> RecibirAsync(AlmacenDbContext db, Ctx ctx, decimal cantidad, decimal precio) =>
         (await new RegistrarRecepcionConFacturaHandler(db, new OcPrecio(ctx, precio), new CapturaEventos(), new UserFake(ctx.UserId),
             new EmpresaFake(ctx.EmpresaId), new DecimalesNulo(), ctx.Periodos, new ConversionIdentidad(), new CxpVacia(), new ProveedorRfc())
-            .Handle(new RegistrarRecepcionConFacturaCommand(ctx.OcId, Fecha, null, "AD662D33-6934-459C-A128-BDF0393E0062", null,
+            .Handle(new RegistrarRecepcionConFacturaCommand(ctx.OcId, Fecha, null, Guid.NewGuid().ToString().ToUpperInvariant(), null,
                 [new RegistrarRecepcionLineaInput(ctx.ArticuloId, ctx.LineaOcId, cantidad, null, null, ctx.RackId)]), default)).RecepcionId;
 
     private static async Task<decimal> CostoPromedioAsync(AlmacenDbContext db, Ctx ctx)

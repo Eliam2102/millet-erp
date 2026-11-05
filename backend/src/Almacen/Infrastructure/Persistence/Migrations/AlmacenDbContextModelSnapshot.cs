@@ -1891,6 +1891,11 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("motivo");
 
+                    b.Property<string>("MotivoDuplicado")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo_duplicado");
+
                     b.Property<Guid?>("OcId")
                         .HasColumnType("uuid")
                         .HasColumnName("oc_id");
@@ -1927,6 +1932,11 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("RegistradoPor")
                         .HasColumnType("uuid")
                         .HasColumnName("registrado_por");
+
+                    b.Property<string>("Remision")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("remision");
 
                     b.Property<Guid?>("RqId")
                         .HasColumnType("uuid")

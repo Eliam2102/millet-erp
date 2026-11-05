@@ -42,7 +42,7 @@ public sealed class SucursalRqF5Tests
         await using var f = new P1Fixture();
         var vale = await f.MovimientoAsync(TipoMovimiento.SalidaPorVale);
         var rq = (await f.Rq.ObtenerAsync(f.DocumentoId, default))!;
-        var h = new RegularizarSalidaPorValeHandler(f.Db, new P1Fixture.RqPort(rq with { SucursalId = Guid.NewGuid() }));
+        var h = new RegularizarSalidaPorValeHandler(f.Db, new P1Fixture.RqPort(rq with { SucursalId = Guid.NewGuid() }), f.Events);
 
         await Error(() => h.Handle(new(vale.Id, f.DocumentoId), default), "VALE_SUCURSAL_DISTINTA");
         vale.PendienteRegularizacion.Should().BeTrue();
@@ -58,7 +58,7 @@ public sealed class SucursalRqF5Tests
         var sucursal = (await f.Db.Almacenes.SingleAsync()).SucursalId;
         var rq = (await f.Rq.ObtenerAsync(f.DocumentoId, default))!;
 
-        await new RegularizarSalidaPorValeHandler(f.Db, new P1Fixture.RqPort(rq with { SucursalId = sucursal }))
+        await new RegularizarSalidaPorValeHandler(f.Db, new P1Fixture.RqPort(rq with { SucursalId = sucursal }), f.Events)
             .Handle(new(vale.Id, f.DocumentoId), default);
         vale.PendienteRegularizacion.Should().BeFalse();
     }
