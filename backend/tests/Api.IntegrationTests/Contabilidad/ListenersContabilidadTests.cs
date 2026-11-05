@@ -56,6 +56,13 @@ public sealed partial class ListenersContabilidadTests(WebApplicationFactory<Pro
         // CXP-12: resultado cambiario no realizado de la revaluación de cierre.
         ("PERDIDA_CAMBIARIA_NO_REALIZADA", "5.5", "Deudora", "Ninguna"),
         ("UTILIDAD_CAMBIARIA_NO_REALIZADA", "4.3", "Acreedora", "Ninguna"),
+        // U-2: depósito y diferencias de corte, comisión del extracto, costo de importación y salidas G-1.
+        ("DEUDORES_FUNCIONARIOS_EMPLEADOS", "1.10", "Deudora", "Ninguna"),
+        ("IVA_ACREDITABLE_PAGADO", "1.11", "Deudora", "Ninguna"),
+        ("GASTOS_IMPORTACION_POR_APLICAR", "1.12", "Deudora", "Ninguna"),
+        ("CONCEPTO_BANCARIO_COMISION_BANCARIA", "5.6", "Deudora", "Ninguna"),
+        ("COSTO_IMPORTACION_A_RESULTADOS", "5.7", "Deudora", "Ninguna"),
+        ("MERMA", "5.8", "Deudora", "Ninguna"),
     ];
 
     private sealed record Escenario(string Suf, HttpClient Admin, Guid Sucursal, Guid Proveedor, Guid[] Clientes, Guid CentroCosto,
