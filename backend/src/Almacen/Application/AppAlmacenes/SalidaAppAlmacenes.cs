@@ -16,16 +16,20 @@ public sealed record SalidaApp(
     string? Causa = null);
 
 /// <summary>
-/// Salidas de la app de Almacenes (F1-MP-07; ACUERDO 28-oct reglas 1–4, correo de Jorge 30-oct punto 4):
+/// Salidas de la app de Almacenes (F1-MP-07; ACUERDO 28-oct reglas 1–4, correos de Jorge 30-oct y 5-nov):
 /// baja existencia del artículo A+W + medida en los almacenes de la sucursal, a costo promedio salvo que el
-/// mensaje traiga el suyo. Sin existencia suficiente NO es error: el mensaje se acepta y queda
-/// <see cref="EnRevision"/> sin mover saldo (bandeja de revisión). No guarda: el llamador hace un solo
+/// mensaje traiga el suyo (promedio de A+W). Sin existencia suficiente (5-nov) no se acepta en silencio: el mensaje
+/// queda <see cref="EnRevision"/> sin mover saldo (bandeja de revisión) y el llamador lo acusa ERROR con
+/// <see cref="FolioRevision"/> y el motivo, para que sus siguientes de la misma referencia esperen. No guarda: el llamador hace un solo
 /// <c>SaveChangesAsync</c> junto con el <c>MensajeApp</c> (idempotencia por mensajeId) y confirma la transacción.
 /// </summary>
 public static class SalidaAppAlmacenes
 {
     public const string Recibido = "RECIBIDO";
     public const string EnRevision = "EN_REVISION";
+
+    /// <summary>Folio del ERP para un mensaje marcado en la bandeja (sin movimiento): determinista, así el DUPLICADO lo repite.</summary>
+    public static string FolioRevision(string mensajeId) => $"REV-{mensajeId}";
 
     public static Task<(string Estado, string? Folio, string? Error)> RegistrarAsync(
         AlmacenDbContext db, IIntegrationEventPublisher events, Guid empresaId, Guid usuarioId, SalidaApp s, CancellationToken ct) =>

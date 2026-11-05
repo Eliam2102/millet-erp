@@ -71,3 +71,28 @@ export function useConsumosEnRevision() {
     },
   });
 }
+
+/**
+ * Salida de la app de Almacenes marcada en la bandeja (5-nov): sin existencia (EN_REVISION, la app recibe ERROR con
+ * folio de revisión) o rechazada por datos (ERROR). Ninguna movió saldo.
+ */
+export interface MensajeAppMarcado {
+  mensajeId: string;
+  tipo: string;
+  estado: 'EN_REVISION' | 'ERROR';
+  referencia: string | null;
+  folio: string | null;
+  error: string | null;
+  recibidoAt: string;
+  payload: string;
+}
+
+export function useMensajesAppMarcados() {
+  return useQuery({
+    queryKey: almacenKeys.mensajesAppMarcados(),
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<MensajeAppMarcado[]>('/api/v1/almacen/mensajes-app/revision', { signal });
+      return data.filter((f) => f.tipo !== 'CONSUMO_COMPONENTE');
+    },
+  });
+}

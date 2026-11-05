@@ -37,6 +37,7 @@ public sealed class SalidaAppAlmacenesGuardado
         await using var tx = _db.Database.IsNpgsql() ? await _db.Database.BeginTransactionAsync(ct) : null;
 
         var (estado, folio, error) = await SalidaAppAlmacenes.RegistrarAsync(_db, _events, empresaId, usuarioId, salidas, ct);
+        if (estado == SalidaAppAlmacenes.EnRevision) folio = SalidaAppAlmacenes.FolioRevision(mensajeId);
 
         _db.MensajesApp.Add(new MensajeApp(mensajeId, tipo,
             referencia?.Length > 100 ? referencia[..100] : referencia, payload, estado, folio, error));

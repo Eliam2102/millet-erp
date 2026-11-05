@@ -7,14 +7,18 @@ namespace Millet.Api.Endpoints.Almacen;
 
 /// <summary>
 /// AJUSTE_SALIDA, ROTURA y SALIDA_MANUAL de la app de Almacenes (F1-MP-07). Lee <c>datos</c> según el contrato v6
-/// §7.1, §8.3 y §8.5: sucursal, movimiento, motivo/origen/mesa/jobid/pedidoAw y <c>almacenes[].grupos[]</c>
-/// (articuloAw, ancho/alto, piezas, costo). Se aplanan los grupos de todos los almacenes (S5: el almacén general
-/// del mensaje se ignora; el ERP decide el sub-almacén) y se resuelven con una sola llamada al puerto; la salida
-/// es todo o nada (S2). <c>costo</c> por grupo (solo SALIDA_MANUAL) es el total en MXN del grupo y, si falta, se
-/// usa el costo promedio (S4). Con medida (vidrio) <c>piezas</c> son hojas enteras y el saldo vive en m²: se baja
-/// piezas × m² de la hoja (de la variante; el <c>m2</c> del grupo, si viene, debe coincidir a 4 decimales) y el
-/// unitario es costo/m². Sin medida, <c>piezas</c> está en la unidad del artículo y el unitario es costo/piezas. Artículo, medida o sucursal inexistente → ERROR sin
-/// mover nada. Sin existencia → se acepta y queda en revisión.
+/// §7.1, §8.3 y §8.5 con las correcciones de TI del 5-nov: sucursal, movimiento, motivo/origen/mesa/jobid/pedidoAw,
+/// <c>documentoPrevio</c> (solo AJUSTE_SALIDA, opcional) y <c>almacenes[].grupos[]</c> (articuloAw, ancho/alto en mm
+/// sin redondear, piezas, costo). Se aplanan los grupos de todos los almacenes (el almacén general y su id se
+/// ignoran: el ERP decide el sub-almacén y no se amarra a ids) y se resuelven con una sola llamada al puerto; la
+/// salida es todo o nada. El costo (solo SALIDA_MANUAL, cualquiera que sea su origen: captura, cancelación de
+/// entrada o devolución de venta) es el promedio de A+W al momento del movimiento: <c>costoM2</c> en vidrio o
+/// <c>costoPieza</c> en material por cantidad; se guarda tal cual llega y nunca se recalcula. Costo de la hoja =
+/// costoM2 × m² de la hoja; del grupo = costoM2 × m2 del grupo. Ya no existe el costo total del grupo ni
+/// <c>origenCosto</c>. Con medida (vidrio) <c>piezas</c> son hojas enteras y el saldo vive en m²: se baja
+/// piezas × m² de la hoja (el <c>m2</c> del grupo, si viene, debe coincidir). Sin medida, <c>piezas</c> es el conteo
+/// de unidades. Artículo, medida o sucursal inexistente → ERROR sin mover nada. Sin existencia → ERROR con folio de
+/// revisión y el mensaje queda marcado (el llamador lo acusa).
 /// </summary>
 public static class AlmacenesAppSalida
 {
@@ -41,7 +45,7 @@ public static class AlmacenesAppSalida
             || almacenes.GetArrayLength() == 0)
             return (null, "almacenes debe ser un arreglo con al menos un elemento.");
 
-        var items = new List<(string Articulo, decimal? Ancho, decimal? Alto, decimal Piezas, decimal? CostoTotal, decimal? M2, string Ruta)>();
+        var items = new List<(string Articulo, decimal? Ancho, decimal? Alto, decimal Piezas, decimal? CostoUnitario, decimal? M2, string Ruta)>();
         var i = 0;
         foreach (var alm in almacenes.EnumerateArray())
         {
@@ -70,12 +74,17 @@ public static class AlmacenesAppSalida
                     return (null, $"{p}.ancho y {p}.alto deben venir juntos y ser mayores que cero, o no venir.");
                 if (!TryNumero(g, "m2", out var m2)) return (null, $"{p}.m2 debe ser numérico.");
                 if (m2 is <= 0) return (null, $"{p}.m2 debe ser mayor que cero.");
-                // v6 §7.1: el costo solo viaja en SALIDA_MANUAL; en AJUSTE_SALIDA y ROTURA se ignora (costo promedio).
+                // Solo SALIDA_MANUAL trae costo (5-nov): promedio de A+W por m² (vidrio) o por pieza (por cantidad).
                 decimal? costo = null;
                 if (tipo == "SALIDA_MANUAL")
                 {
-                    if (!TryNumero(g, "costo", out costo)) return (null, $"{p}.costo debe ser numérico.");
-                    if (costo is < 0) return (null, $"{p}.costo no puede ser negativo.");
+                    if (!TryNumero(g, "costoM2", out var costoM2)) return (null, $"{p}.costoM2 debe ser numérico.");
+                    if (!TryNumero(g, "costoPieza", out var costoPieza)) return (null, $"{p}.costoPieza debe ser numérico.");
+                    if (costoM2 is < 0 || costoPieza is < 0) return (null, $"{p}.costoM2 y {p}.costoPieza no pueden ser negativos.");
+                    var conMedida = ancho is not null;
+                    if (conMedida && costoM2 is null && costoPieza is not null) return (null, $"{p} lleva medida: el costo va en costoM2.");
+                    if (!conMedida && costoPieza is null && costoM2 is not null) return (null, $"{p} no lleva medida: el costo va en costoPieza.");
+                    costo = conMedida ? costoM2 : costoPieza;
                 }
                 items.Add((articulo, ancho, alto, piezas.Value, costo, m2, p));
                 j++;
@@ -93,6 +102,8 @@ public static class AlmacenesAppSalida
         var motivo = $"App Almacenes {tipo} {Texto(datos, "movimiento")}".TrimEnd();
         var detalle = tipo == "AJUSTE_SALIDA"
             ? string.Concat(
+                // El descuento llega al validar el documento previo (no al cortar); el ERP no reserva y solo lo deja en el motivo.
+                DocumentoPrevio(datos) is { Length: > 0 } dp ? $" documento previo {dp}" : "",
                 Texto(datos, "mesa") is { Length: > 0 } mesa ? $" mesa {mesa}" : "",
                 Texto(datos, "jobid") is { Length: > 0 } job ? $" job {job}" : "",
                 Texto(datos, "pedidoAw") is { Length: > 0 } ped ? $" pedido {ped}" : "")
@@ -107,14 +118,23 @@ public static class AlmacenesAppSalida
             var r = resuelto.Grupos[k];
             // Con medida el saldo está en m²: piezas son hojas enteras y la cantidad es hojas × m² de la hoja.
             var cantidad = x.Piezas * (r.AreaHojaM2 ?? 1m);
-            if (r.AreaHojaM2 is not null && x.M2 is { } m2 && Math.Abs(m2 - cantidad) > 0.0001m)
+            // El área de la hoja se redondea a 4 decimales; el m2 del grupo puede venir sin redondear, así que la tolerancia crece con las hojas.
+            if (r.AreaHojaM2 is not null && x.M2 is { } m2 && Math.Abs(m2 - cantidad) > 0.0001m + x.Piezas * 0.00005m)
                 return (null, $"{x.Ruta}.m2 ({m2:0.####}) no coincide con piezas × área de la hoja ({cantidad:0.####}).");
-            // ponytail: redondeo a la precisión de la columna (14,4); el residuo no se redistribuye entre piezas.
-            var costoUnit = x.CostoTotal is { } ct2 ? Math.Round(ct2 / cantidad, 4) : (decimal?)null;
+            // El valor que llega se guarda tal cual (a la precisión de la columna, 14,4); no se recalcula contra A+W.
+            var costoUnit = x.CostoUnitario is { } cu ? Math.Round(cu, 4) : (decimal?)null;
             salidas.Add(new SalidaApp(Tipos[tipo], resuelto.SucursalId, r.ArticuloId, r.UnidadMedida, r.ProductoAwVarianteId,
                 cantidad, costoUnit, motivo, r.AnchoMm, r.AltoMm));
         }
         return (new Resuelta(sp.EmpresaId, sp.Id, salidas), null);
+    }
+
+    // documentoPrevio: el contrato aún no fija su forma; solo se toma si viene como texto o número (otra forma se ignora, sin inventar campos).
+    private static string? DocumentoPrevio(JsonElement datos)
+    {
+        if (!datos.TryGetProperty("documentoPrevio", out var d)) return null;
+        var t = d.ValueKind switch { JsonValueKind.String => d.GetString(), JsonValueKind.Number => d.GetRawText(), _ => null };
+        return t?.Trim() is { Length: > 60 } largo ? largo[..60] : t?.Trim();
     }
 
     private static string? Texto(JsonElement o, string n) =>
