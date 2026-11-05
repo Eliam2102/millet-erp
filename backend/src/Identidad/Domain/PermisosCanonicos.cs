@@ -536,6 +536,7 @@ public static class PermisosCanonicos
     public const string TesoreriaPagosRevertir                  = "tesoreria.pagos.revertir";
     public const string TesoreriaPagosCuentaRegistrar           = "tesoreria.pagos-cuenta.registrar";
     public const string TesoreriaPagosCuentaLigar               = "tesoreria.pagos-cuenta.ligar";
+    public const string TesoreriaPagosCuentaAutorizar           = "tesoreria.pagos-cuenta.autorizar";
     public const string TesoreriaCorridasCrear                  = "tesoreria.corridas.crear";
     public const string TesoreriaCorridasAutorizar              = "tesoreria.corridas.autorizar";
     public const string TesoreriaCorridasEjecutar               = "tesoreria.corridas.ejecutar";
@@ -960,6 +961,7 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000b-0003-0000-0000-000000000002"), TesoreriaPagosRevertir,                "Revertir pagos aplicados (contramovimiento, RN-10)"),
         (Guid.Parse("0000000b-0004-0000-0000-000000000001"), TesoreriaPagosCuentaRegistrar,         "Registrar pagos a cuenta (egreso sin documento, gate RN-2)"),
         (Guid.Parse("0000000b-0004-0000-0000-000000000002"), TesoreriaPagosCuentaLigar,             "Ligar tardíamente un pago a cuenta al pasivo provisionado"),
+        (Guid.Parse("0000000b-0004-0000-0000-000000000003"), TesoreriaPagosCuentaAutorizar,         "Autorizar (firmar) un pago a cuenta; no puede firmarlo quien lo capturó"),
         (Guid.Parse("0000000b-0005-0000-0000-000000000001"), TesoreriaCorridasCrear,                "Crear y armar corridas de pago desde la bandeja de pasivos"),
         (Guid.Parse("0000000b-0005-0000-0000-000000000002"), TesoreriaCorridasAutorizar,            "Autorizar corridas de pago (pasa además por la matriz de autorización)"),
         (Guid.Parse("0000000b-0005-0000-0000-000000000003"), TesoreriaCorridasEjecutar,             "Ejecutar líneas de corridas autorizadas (RN-5)"),

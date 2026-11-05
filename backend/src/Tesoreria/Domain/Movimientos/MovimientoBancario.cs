@@ -51,6 +51,10 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
     /// <summary>Pago a cuenta (§3.4): motivo obligatorio del egreso sin documento ligado.</summary>
     public string? MotivoNoAplicado { get; private set; }
 
+    /// <summary>Firma del pago a cuenta: quien lo autoriza tiene la facultad y no es quien lo capturó.</summary>
+    public Guid? AutorizadoPor { get; private set; }
+    public DateTimeOffset? AutorizadoEn { get; private set; }
+
     public string? MotivoReversa { get; private set; }
     public string? MotivoReclasificacion { get; private set; }
 
@@ -400,6 +404,21 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
             CreadoPor = creadoPor,
             CreadoEn = ahora,
         };
+    }
+
+    public void AutorizarPagoACuenta(Guid usuarioId, DateTimeOffset ahora)
+    {
+        if (Sentido != SentidoMovimiento.Egreso || MotivoNoAplicado is null || ContramovimientoDe is not null)
+            throw new BusinessRuleException("AUTORIZA_NO_ES_PAGO_A_CUENTA", "Solo se autoriza un movimiento registrado como pago a cuenta.");
+        if (usuarioId == Guid.Empty)
+            throw new BusinessRuleException("MOV_USUARIO_VACIO", "El usuario que autoriza es obligatorio.");
+        if (AutorizadoPor is not null)
+            throw new BusinessRuleException("PAGO_CUENTA_YA_AUTORIZADO", "El pago a cuenta ya fue autorizado.");
+        if (usuarioId == CreadoPor)
+            throw new BusinessRuleException("PAGO_CUENTA_MISMO_USUARIO",
+                "Quien capturó el pago a cuenta no puede autorizarlo. Pide la firma a otra persona con la facultad de autorizar.");
+        AutorizadoPor = usuarioId;
+        AutorizadoEn = ahora;
     }
 
     /// <summary>

@@ -49,6 +49,8 @@ public sealed class MovimientoBancarioConfiguration : IEntityTypeConfiguration<M
         builder.Property(e => e.BeneficiarioRef);
         builder.Property(e => e.ContramovimientoDe);
         builder.Property(e => e.MotivoNoAplicado).HasMaxLength(400);
+        builder.Property(e => e.AutorizadoPor);
+        builder.Property(e => e.AutorizadoEn);
         builder.Property(e => e.MotivoReversa).HasMaxLength(400);
         builder.Property(e => e.MotivoReclasificacion).HasMaxLength(400);
         builder.Property(e => e.CreadoPor).IsRequired();

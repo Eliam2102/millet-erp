@@ -1460,15 +1460,12 @@ export function BandejaConciliaciones() {
             </div>
             <div>
               <Label className="text-xs">Puesto del Firmante *</Label>
-              <Select value={firmantePuesto} onValueChange={setFirmantePuesto}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Gerente de Tesorería">Gerente de Tesorería</SelectItem>
-                  <SelectItem value="Jefe de Tesorería">Jefe de Tesorería</SelectItem>
-                </SelectContent>
-              </Select>
+              <Input
+                className="mt-1 text-xs"
+                maxLength={100}
+                value={firmantePuesto}
+                onChange={(e) => setFirmantePuesto(e.target.value)}
+              />
             </div>
           </div>
           <DialogFooter>

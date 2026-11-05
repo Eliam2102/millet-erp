@@ -261,6 +261,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'tesoreria.pagos.revertir',
   'tesoreria.pagos-cuenta.registrar',
   'tesoreria.pagos-cuenta.ligar',
+  'tesoreria.pagos-cuenta.autorizar',
   'tesoreria.corridas.crear',
   'tesoreria.corridas.autorizar',
   'tesoreria.corridas.ejecutar',
