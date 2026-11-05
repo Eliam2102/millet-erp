@@ -187,12 +187,12 @@ public static partial class NormalizadorEventos
 
     /// <summary>
     /// G-1 (86e3yxpb3): salida de inventario sin requisición (consumo, rotura, salida manual, baja por daño). Misma póliza que #14 (cargo
-    /// CONSUMO · abono INVENTARIO por línea). El centro de costo es el del evento; si viaja vacío, la póliza lo declara faltante.
+    /// CONSUMO · abono INVENTARIO por línea). El centro de costo es el de cada línea o, si no, el del evento (equipo que ya capturó el vale); vacío si ninguno lo trae.
     /// </summary>
     private static EventoContable SalidaInventario(Guid eventoId, string payload)
     {
         var s = Leer<SalidaInventarioContrato>(payload);
-        var lineas = (s.Lineas ?? []).Select(l => new LineaEventoContable(null, l.MontoMxn, null, false, ArticuloId: l.ArticuloId)).ToList();
+        var lineas = (s.Lineas ?? []).Select(l => new LineaEventoContable(null, l.MontoMxn, l.CentroCostoId, false, ArticuloId: l.ArticuloId)).ToList();
         return Mxn(SalidaInventarioRegistrada, eventoId, s.EmpresaId, s.FechaMovimiento, Doc(DocSalidaInventario, s.MovimientoId, s.FolioMovimiento),
             s.SucursalId, importes: new() { ["Subtotal"] = lineas.Sum(l => l.Importe) }, lineas: lineas, payload: payload, centroCostoId: s.CentroCostoId);
     }
@@ -412,7 +412,7 @@ public static partial class NormalizadorEventos
     private sealed record SalidaInventarioContrato(Guid EmpresaId, Guid MovimientoId, string? FolioMovimiento, DateOnly FechaMovimiento,
         IReadOnlyList<LineaSalidaInventarioContrato>? Lineas, Guid? SucursalId, Guid? CentroCostoId);
 
-    private sealed record LineaSalidaInventarioContrato(Guid ArticuloId, decimal MontoMxn);
+    private sealed record LineaSalidaInventarioContrato(Guid ArticuloId, decimal MontoMxn, Guid? CentroCostoId);
 
     internal sealed record LineaSalidaContrato(Guid LineaSalidaId, Guid ArticuloId, decimal MontoTotalMxn, Guid? CentroCostoId);
 

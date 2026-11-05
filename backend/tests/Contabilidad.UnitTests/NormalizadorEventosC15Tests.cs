@@ -128,11 +128,12 @@ public class NormalizadorEventosC15Tests
         var e = Normalizar(N.SalidaInventarioRegistrada, new
         {
             EmpresaId = Empresa, OcurridoEn = Ocurrido, MovimientoId = movimiento, FolioMovimiento = "BPD-2026-000001",
-            FechaMovimiento = new DateOnly(2026, 11, 5), Causa = "rotura", SucursalId = Sucursal, CentroCostoId = centro, MontoTotalMxn = 1_200m,
-            Lineas = new object[] { new { LineaId = Guid.NewGuid(), ArticuloId = articulo, UnidadMedida = "HOJA", Cantidad = 1m, CostoUnitarioMxn = 1_200m, MontoMxn = 1_200m } },
+            FechaMovimiento = new DateOnly(2026, 11, 5), Causa = "rotura", SucursalId = Sucursal, MontoTotalMxn = 1_200m,
+            Lineas = new object[] { new { LineaId = Guid.NewGuid(), ArticuloId = articulo, UnidadMedida = "HOJA", Cantidad = 1m, CostoUnitarioMxn = 1_200m, MontoMxn = 1_200m, CentroCostoId = centro } },
         });
 
-        e.CentroCostoId.Should().Be(centro);
+        e.CentroCostoId.Should().BeNull();
+        e.Lineas.Single().CentroCostoId.Should().Be(centro);
         e.SucursalId.Should().Be(Sucursal);
         e.Documento.Should().Match<DocumentoOrigenPoliza>(d => d.Modulo == "almacen" && d.Tipo == "salida_inventario" && d.Id == movimiento);
         e.Importes["Subtotal"].Should().Be(1_200m);
