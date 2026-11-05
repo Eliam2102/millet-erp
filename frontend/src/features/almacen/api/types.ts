@@ -1294,6 +1294,10 @@ export interface TrazabilidadMpFila {
   saldo: number;
   costoUnitarioMxn: number;
   valorSaldo: number;
+  /** Hojas (unidad física del vidrio por medida); null si el artículo no es por medida. La existencia sigue en m². */
+  entradaHojas?: number | null;
+  salidaHojas?: number | null;
+  saldoHojas?: number | null;
 }
 
 /** F1-ALM-15: renglón del kardex de un artículo; saldo, costoPromedioMxn y valorSaldo son los de después del movimiento. */
@@ -1309,6 +1313,10 @@ export interface KardexFila {
   costoUnitarioMxn: number;
   costoPromedioMxn: number;
   valorSaldo: number;
+  /** Hojas (unidad física del vidrio por medida); null si el artículo no es por medida. La existencia sigue en m². */
+  entradaHojas?: number | null;
+  salidaHojas?: number | null;
+  saldoHojas?: number | null;
 }
 
 /**
