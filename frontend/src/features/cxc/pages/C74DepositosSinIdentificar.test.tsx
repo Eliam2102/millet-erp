@@ -122,7 +122,7 @@ describe('C7.4 · depósitos sin identificar', () => {
 
     // R13: sin remittance no se propone.
     expect(screen.getByRole('button', { name: 'Proponer aplicación' })).toBeDisabled();
-    fireEvent.change(screen.getByLabelText(/Remittance del cliente/), { target: { value: 'REM-ACME-77' } });
+    fireEvent.change(screen.getByLabelText(/Aviso de pago del cliente/), { target: { value: 'REM-ACME-77' } });
     fireEvent.click(screen.getByRole('button', { name: 'Proponer aplicación' }));
 
     await waitFor(() => expect(mocks.mutate).toHaveBeenCalled());
