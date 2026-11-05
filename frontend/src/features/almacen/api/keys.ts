@@ -163,6 +163,10 @@ export const almacenKeys = {
   // Desperdicio de mesa y merma de proceso (A4.4)
   mermas: (f: { estado?: string; tipo?: string }) => [...almacenKeys.all, 'mermas', f] as const,
 
+  // Salida por rotura en almacén (ALM-03)
+  salidasRotura: (f: { estado?: string }) => [...almacenKeys.all, 'salidas-rotura', f] as const,
+  motivosRotura: () => [...almacenKeys.all, 'salidas-rotura', 'motivos'] as const,
+
   // Conciliación diaria contra A+W (A4.6)
   conciliacion: {
     existencia: (almacenId: string) => [...almacenKeys.all, 'conciliacion', 'existencia', almacenId] as const,

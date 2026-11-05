@@ -77,6 +77,8 @@ export function SalidasPage() {
   const navigate = useNavigate();
   const puedeRegistrar = useHasPermission(PermisosCanonicos.AlmacenSalidasRegistrar);
   const puedeRegistrarVale = useHasPermission(PermisosCanonicos.AlmacenSalidasPorVale);
+  const puedeRotura = useHasPermission(PermisosCanonicos.AlmacenSalidasRoturaCapturar);
+  const puedeAutorizarRotura = useHasPermission(PermisosCanonicos.AlmacenSalidasRoturaAutorizar);
   const [sheetAbierto, setSheetAbierto] = useState(false);
 
   const subAlmacenesQuery = useSubAlmacenes({ limit: 500 });
@@ -128,6 +130,11 @@ export function SalidasPage() {
         descripcion="Surtido de requisiciones aprobadas y vales urgentes. El comprobante PDF se descarga del detalle."
         acciones={
           <>
+            {(puedeRotura || puedeAutorizarRotura) && (
+              <Button variant="outline" asChild>
+                <Link to="/almacen/salidas-rotura">Salida por rotura</Link>
+              </Button>
+            )}
             {(puedeRegistrar || puedeRegistrarVale) && (
               <Button onClick={() => setSheetAbierto(true)}>
                 <Plus className="mr-2 size-3.5" />

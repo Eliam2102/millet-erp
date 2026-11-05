@@ -108,6 +108,7 @@ public class AlmacenDbContext : BaseDbContext
 
     /// <summary>A4.4: desperdicio de mesa de corte y merma por etapa informados por A+W.</summary>
     public DbSet<Domain.Mermas.MermaProceso> MermasProceso => Set<Domain.Mermas.MermaProceso>();
+    public DbSet<Domain.Roturas.SalidaRotura> SalidasRotura => Set<Domain.Roturas.SalidaRotura>();
 
     /// <summary>A4.6: corridas de la conciliación diaria contra A+W y sus diferencias (salidas no planificadas).</summary>
     public DbSet<Domain.Conciliacion.ConciliacionDiaria> ConciliacionesDiarias => Set<Domain.Conciliacion.ConciliacionDiaria>();
@@ -310,6 +311,22 @@ public class AlmacenDbContext : BaseDbContext
             // A4.4-a: un desperdicio por (sucursal, día, mesa, artículo); la merma no tiene esa llave.
             b.HasIndex(x => new { x.EmpresaId, x.SucursalId, x.Fecha, x.Mesa, x.ArticuloId }).IsUnique()
                 .HasFilter("tipo = 'DESPERDICIO_MESA'");
+            b.HasIndex(x => new { x.EmpresaId, x.Estado, x.Fecha });
+        });
+        modelBuilder.Entity<Domain.Roturas.SalidaRotura>(b =>
+        {
+            b.ToTable("salidas_rotura", t => t.HasCheckConstraint("ck_salidas_rotura_cantidad", "cantidad > 0"));
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).ValueGeneratedNever();
+            b.Property(x => x.Cantidad).HasPrecision(14, 4);
+            b.Property(x => x.UnidadMedida).HasMaxLength(20).IsRequired();
+            b.Property(x => x.MotivoCodigo).HasMaxLength(30).IsRequired();
+            b.Property(x => x.Comentario).HasMaxLength(500);
+            b.Property(x => x.Estado).HasMaxLength(20).IsRequired();
+            b.Property(x => x.MotivoRechazo).HasMaxLength(500);
+            b.Property(x => x.FolioMovimiento).HasMaxLength(30);
+            b.Property(x => x.CostoUnitarioMxn).HasPrecision(14, 4);
+            b.Property(x => x.ValorMxn).HasPrecision(18, 2);
             b.HasIndex(x => new { x.EmpresaId, x.Estado, x.Fecha });
         });
         modelBuilder.Entity<Domain.Conciliacion.ConciliacionDiaria>(b =>

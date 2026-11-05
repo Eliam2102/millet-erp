@@ -32,6 +32,7 @@ import {
   MapPin,
   Network,
   PackageMinus,
+  PackageX,
   PackagePlus,
   PhoneCall,
   Plane,
@@ -264,6 +265,17 @@ const moduloAlmacen: NavModulo = {
           to: '/almacen/salidas',
           icon: PackageMinus,
           permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
+        },
+        {
+          label: 'Salida por rotura',
+          description:
+            'Material que se rompió en el almacén: se captura y otro usuario con facultad lo autoriza; sale a costo promedio.',
+          to: '/almacen/salidas-rotura',
+          icon: PackageX,
+          permissionsAny: [
+            PermisosCanonicos.AlmacenSalidasRoturaCapturar,
+            PermisosCanonicos.AlmacenSalidasRoturaAutorizar,
+          ],
         },
         {
           label: 'Devoluciones',

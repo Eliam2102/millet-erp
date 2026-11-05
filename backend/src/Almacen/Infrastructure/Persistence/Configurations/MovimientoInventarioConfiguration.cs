@@ -24,7 +24,7 @@ public sealed class MovimientoInventarioConfiguration : IEntityTypeConfiguration
         builder.ToTable("movimientos_inventario", t =>
         {
             t.HasCheckConstraint("ck_movimientos_tipo",
-                "tipo BETWEEN 0 AND 12");
+                "tipo BETWEEN 0 AND 13");
             t.HasCheckConstraint("ck_movimientos_estado",
                 "estado BETWEEN 0 AND 3");
         });
