@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Identidad.Domain;
+using Millet.ProductoTerminado.Application.Entregas;
 using Millet.ProductoTerminado.Application.Ports;
 using Millet.ProductoTerminado.Domain;
 using Millet.ProductoTerminado.Infrastructure.Persistence;
@@ -15,7 +16,9 @@ internal static class SalidaMapeo
     public static async Task<HojaSalidaDto> ADtoAsync(ProductoTerminadoDbContext db, IPedidosPtReadPort pedidos, Guid empresaId, SalidaPt s, bool detalle, bool yaEmitida, CancellationToken ct)
     {
         var total = s.Albaranes.Sum(a => a.Piezas.Count);
-        var cabecera = new HojaSalidaDto(s.Id, s.Folio, s.SucursalId, s.Destino, s.Foranea, s.VehiculoId, s.OperadorId, s.Estado.ToString(), s.CreadaAt, s.EmitidaAt, s.CartaPorteFolio, s.Albaranes.Count, total, [], yaEmitida);
+        var entregas = s.Estado == EstadoSalida.Emitida ? await db.Entregas.AsNoTracking().Where(e => e.SalidaPtId == s.Id).ToListAsync(ct) : [];
+        var pendientes = s.Estado == EstadoSalida.Emitida ? s.Albaranes.Count(a => a.Piezas.Count > 0) - entregas.Count : 0;
+        var cabecera = new HojaSalidaDto(s.Id, s.Folio, s.SucursalId, s.Destino, s.Foranea, s.VehiculoId, s.OperadorId, s.Estado.ToString(), s.CreadaAt, s.EmitidaAt, s.CartaPorteFolio, s.Albaranes.Count, total, [], yaEmitida, pendientes);
         if (!detalle) return cabecera;
 
         var pedidoIds = s.Albaranes.Select(a => a.PedidoPtId).ToList();
@@ -38,7 +41,13 @@ internal static class SalidaMapeo
                 mias.GroupBy(p => p.Posicion).Select(g => new AlbaranLineaDto(g.Key, pedido.Posiciones.FirstOrDefault(x => x.Posicion == g.Key)?.Descripcion, g.Count())).ToList(),
                 mias.Select(p => p.Etiqueta).ToList(), pedido.Posiciones.Sum(x => x.PiezasEsperadas),
                 s.Estado == EstadoSalida.Borrador ? delPedido.Where(p => !rotas.Contains(p.Id)).Select(p => p.Etiqueta).ToList() : [],
-                delPedido.Where(p => rotas.Contains(p.Id)).Select(p => p.Etiqueta).ToList());
+                delPedido.Where(p => rotas.Contains(p.Id)).Select(p => p.Etiqueta).ToList(),
+                entregas.FirstOrDefault(e => e.AlbaranPtId == a.Id) is { } en
+                    ? new EntregaDto(en.Id, en.Resultado.ToString(), en.Receptor, en.EntregadaAt, en.Entregadas, en.Rechazadas, en.MotivoRechazo, en.Firma is not null, en.Foto is not null,
+                        mias.Where(p => p.Estado == EstadoPieza.EnRevision).Select(p => p.Etiqueta).ToList(),
+                        en.CobroMonto is { } monto ? new CobroEntregaDto(monto, en.CobroForma ?? "", en.CobroReferencia, en.CobroConciliadoAt) : null)
+                    : null,
+                pedido.Estado115At is not null ? "115" : pedido.EntregadoAt is not null ? "Entregado" : pedido.EnRutaAt is not null ? "71" : null);
         }).ToList();
         return cabecera with { Albaranes = albaranes };
     }

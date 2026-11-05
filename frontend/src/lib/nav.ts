@@ -1248,6 +1248,13 @@ const productoTerminado: NavModulo = {
           permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
         },
         {
+          label: 'Entregas',
+          description: 'Entrega al cliente desde el celular: firma o foto, parcial, rechazo en sitio y paso a 115 si ya está facturado.',
+          to: '/producto-terminado/entregas',
+          icon: Boxes,
+          permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
+        },
+        {
           label: 'Traspasos',
           description: 'Salida de piezas entre sucursales, tránsito y recepción en destino con diferencias.',
           to: '/producto-terminado/traspasos',

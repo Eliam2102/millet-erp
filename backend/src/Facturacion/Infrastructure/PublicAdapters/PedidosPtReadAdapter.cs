@@ -33,4 +33,7 @@ public sealed class PedidosPtReadAdapter(FacturacionDbContext db) : IPedidosPtRe
                     db.SalidasFacturables.Any(s => s.PedidoFacturableId == x.Id) || (x.EstadoOrigen != null && EstadosSalida.Contains(x.EstadoOrigen))),
             })
             .ToDictionaryAsync(x => x.Id, x => x.Info, ct);
+
+    public async Task<Guid?> ObtenerPedidoDeFacturaAsync(Guid empresaId, Guid comprobanteId, CancellationToken ct) =>
+        await db.FacturasVenta.AsNoTracking().Where(f => f.EmpresaId == empresaId && f.Id == comprobanteId).Select(f => f.PedidoFacturableId).FirstOrDefaultAsync(ct);
 }

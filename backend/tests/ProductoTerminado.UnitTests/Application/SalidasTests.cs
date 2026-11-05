@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Millet.Administracion.Application.Abstractions;
 using Millet.Identidad.Domain;
 using Millet.ProductoTerminado.Application;
+using Millet.ProductoTerminado.Application.Entregas;
 using Millet.ProductoTerminado.Application.Ports;
 using Millet.ProductoTerminado.Application.Salidas;
 using Consultas = Millet.ProductoTerminado.Application.Consultas;
@@ -65,6 +66,9 @@ public sealed class SalidasTests
         public CargarPiezaHojaHandler Cargar() => new(T.Db, Acceso, T.Pedidos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
         public DescargarPiezaHojaHandler Descargar() => new(T.Db, Acceso, T.Pedidos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
         public MarcarPiezaRotaHojaHandler Rota() => new(T.Db, Acceso, T.Pedidos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
+        public ConfirmarEntregaHandler Entrega() => new(T.Db, Acceso, T.Pedidos, T.Eventos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
+        public AplicarFacturaPedidoHandler Factura() => new(T.Db, T.Eventos, new RelojFijo(Ahora));
+        public ConciliarCobroEntregaHandler Conciliar() => new(T.Db, T.Pedidos, new RelojFijo(Ahora));
         public void Dispose() => T.Dispose();
     }
 
@@ -341,5 +345,188 @@ public sealed class SalidasTests
         await e.Emitir().Handle(new EmitirHojaSalidaCommand(ruta.Id), default);
         var tarde = () => e.Descargar().Handle(new DescargarPiezaHojaCommand(ruta.Id, "P1-E1"), default);
         (await tarde.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("PT_SALIDA_NO_EDITABLE");
+    }
+
+    // ---- PT5.6 · Entrega con firma y evidencia, parcial, rechazo en sitio; 115 ----
+
+    private const string Png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+
+    private static ConfirmarEntregaCommand Entrega(Guid hoja, Guid albaran, string[]? rechazadas = null, string? firma = Png, string? foto = null, CobroEntregaDto? cobro = null) =>
+        new(hoja, albaran, "Mariana Pech", rechazadas, rechazadas is { Length: > 0 } ? "Vidrio con rayón" : null, firma, foto, cobro);
+
+    /// <summary>Hoja emitida con las <paramref name="cargadas"/> piezas de un pedido de <paramref name="total"/>.</summary>
+    private static async Task<(Entorno E, HojaSalidaDto Hoja)> Emitida(int total, int cargadas)
+    {
+        var e = await Preparar(total);
+        var hoja = await e.Crear().Handle(Hoja(Enumerable.Range(1, cargadas).Select(i => $"P1-E{i}")), default);
+        return (e, await e.Emitir().Handle(new EmitirHojaSalidaCommand(hoja.Id), default));
+    }
+
+    [Fact]
+    public async Task Entrega_completa_con_firma_deja_las_piezas_entregadas_y_avisa_para_el_costo_de_ventas()
+    {
+        var (e, hoja) = await Emitida(3, 3);
+        using var _ = e;
+        var dto = await e.Entrega().Handle(Entrega(hoja.Id, hoja.Albaranes.Single().Id), default);
+
+        var entrega = dto.Albaranes.Single().Entrega!;
+        (entrega.Resultado, entrega.Receptor, entrega.Entregadas, entrega.Rechazadas, entrega.TieneFirma, entrega.TieneFoto).Should().Be(("Entregada", "Mariana Pech", 3, 0, true, false));
+        dto.EntregasPendientes.Should().Be(0);
+        dto.Albaranes.Single().EstadoPedido.Should().Be("Entregado");
+        (await e.T.Db.Piezas.AllAsync(p => p.Estado == EstadoPieza.Entregada)).Should().BeTrue();
+        (await e.T.Db.Movimientos.CountAsync(m => m.Tipo == TipoMovimientoPieza.Entrega)).Should().Be(3);
+        var aviso = e.T.Eventos.Eventos.OfType<EntregaConfirmadaEvent>().Should().ContainSingle().Subject;
+        aviso.Entregadas.Should().Equal(new PosicionEntregada(1, 3));
+        aviso.PedidoCompleto.Should().BeTrue();
+        e.T.Eventos.Eventos.OfType<PedidoFacturadoEntregadoEvent>().Should().BeEmpty("sin factura no es 115");
+    }
+
+    [Fact]
+    public async Task Entrega_sin_firma_ni_foto_se_rechaza_y_con_solo_foto_se_acepta()
+    {
+        var (e, hoja) = await Emitida(2, 2);
+        using var _ = e;
+        var sin = () => e.Entrega().Handle(Entrega(hoja.Id, hoja.Albaranes.Single().Id, firma: null), default);
+        (await sin.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("PT_ENTREGA_SIN_EVIDENCIA");
+        (await e.T.Db.Piezas.AllAsync(p => p.Estado == EstadoPieza.Embarcada)).Should().BeTrue("no se confirmó nada");
+
+        var dto = await e.Entrega().Handle(Entrega(hoja.Id, hoja.Albaranes.Single().Id, firma: null, foto: Png), default);
+        dto.Albaranes.Single().Entrega!.TieneFoto.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Imagen_que_no_es_imagen_se_rechaza()
+    {
+        var (e, hoja) = await Emitida(1, 1);
+        using var _ = e;
+        var act = () => e.Entrega().Handle(Entrega(hoja.Id, hoja.Albaranes.Single().Id, firma: Convert.ToBase64String("no soy una imagen"u8.ToArray())), default);
+        (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("PT_ENTREGA_IMAGEN_INVALIDA");
+    }
+
+    [Fact]
+    public async Task Entrega_parcial_rechaza_en_sitio_las_piezas_indicadas_y_el_pedido_no_queda_entregado()
+    {
+        var (e, hoja) = await Emitida(3, 3);
+        using var _ = e;
+        var dto = await e.Entrega().Handle(Entrega(hoja.Id, hoja.Albaranes.Single().Id, ["P1-E3"]), default);
+
+        var entrega = dto.Albaranes.Single().Entrega!;
+        (entrega.Resultado, entrega.Entregadas, entrega.Rechazadas, entrega.MotivoRechazo).Should().Be(("Parcial", 2, 1, "Vidrio con rayón"));
+        entrega.EtiquetasRechazadas.Should().Equal("P1-E3");
+        (await e.T.Db.Piezas.SingleAsync(p => p.Etiqueta == "P1-E3")).Estado.Should().Be(EstadoPieza.EnRevision);
+        (await e.T.Db.Piezas.CountAsync(p => p.Estado == EstadoPieza.Entregada)).Should().Be(2);
+        dto.Albaranes.Single().EstadoPedido.Should().Be("71");
+        e.T.Eventos.Eventos.OfType<EntregaConfirmadaEvent>().Single().PedidoCompleto.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Rechazo_total_en_sitio_manda_todo_a_revision_y_pide_el_motivo()
+    {
+        var (e, hoja) = await Emitida(2, 2);
+        using var _ = e;
+        var albaran = hoja.Albaranes.Single().Id;
+        var sinMotivo = () => e.Entrega().Handle(Entrega(hoja.Id, albaran, ["P1-E1", "P1-E2"]) with { MotivoRechazo = " " }, default);
+        (await sinMotivo.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("PT_ENTREGA_SIN_MOTIVO");
+
+        var dto = await e.Entrega().Handle(Entrega(hoja.Id, albaran, ["P1-E1", "P1-E2"]), default);
+        dto.Albaranes.Single().Entrega!.Resultado.Should().Be("Rechazada");
+        (await e.T.Db.Piezas.AllAsync(p => p.Estado == EstadoPieza.EnRevision)).Should().BeTrue();
+        (await e.T.Db.Movimientos.CountAsync(m => m.Tipo == TipoMovimientoPieza.RechazoEnSitio)).Should().Be(2);
+    }
+
+    [Fact]
+    public async Task Confirmar_dos_veces_o_una_pieza_ajena_o_una_hoja_sin_emitir_se_rechaza()
+    {
+        var (e, hoja) = await Emitida(2, 2);
+        using var _ = e;
+        var albaran = hoja.Albaranes.Single().Id;
+        var ajena = () => e.Entrega().Handle(Entrega(hoja.Id, albaran, ["X-9"]), default);
+        (await ajena.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("PT_ENTREGA_PIEZA_AJENA");
+        await e.Entrega().Handle(Entrega(hoja.Id, albaran), default);
+        var doble = () => e.Entrega().Handle(Entrega(hoja.Id, albaran), default);
+        (await doble.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("PT_ENTREGA_YA_CONFIRMADA");
+
+        e.T.Saldos.Saldos["P2"] = 0m;
+        e.T.AgregarPedido("P2", 1, 1);
+        await e.T.Escanear("P2-E1", "P2", 1, "1");
+        var borrador = await e.Crear().Handle(Hoja(["P2-E1"], "P2"), default);
+        var sinEmitir = () => e.Entrega().Handle(Entrega(borrador.Id, borrador.Albaranes.Single().Id), default);
+        (await sinEmitir.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("PT_ENTREGA_HOJA_NO_EMITIDA");
+    }
+
+    [Fact]
+    public async Task Pedido_facturado_antes_de_entregar_pasa_a_115_al_entregar_y_avisa_una_sola_vez()
+    {
+        var (e, hoja) = await Emitida(2, 2);
+        using var _ = e;
+        e.T.Pedidos.Pedidos["P1"] = e.T.Pedidos.Pedidos["P1"] with { Estado = "Facturado" };
+        var dto = await e.Entrega().Handle(Entrega(hoja.Id, hoja.Albaranes.Single().Id), default);
+
+        dto.Albaranes.Single().EstadoPedido.Should().Be("115");
+        e.T.Eventos.Eventos.OfType<PedidoFacturadoEntregadoEvent>().Should().ContainSingle().Which.Should().Match<PedidoFacturadoEntregadoEvent>(x => x.Estado == "115" && x.NumeroPedido == "P1");
+        (await e.Factura().Handle(new AplicarFacturaPedidoCommand(EntornoPt.Empresa, e.T.Pedidos.Pedidos["P1"].PedidoFacturableId), default)).Should().BeFalse("ya estaba en 115");
+        e.T.Eventos.Eventos.OfType<PedidoFacturadoEntregadoEvent>().Should().HaveCount(1);
+    }
+
+    [Fact]
+    public async Task Factura_que_llega_despues_de_la_entrega_completa_pasa_el_pedido_a_115()
+    {
+        var (e, hoja) = await Emitida(2, 2);
+        using var _ = e;
+        var factura = e.T.Pedidos.Pedidos["P1"].PedidoFacturableId;
+        await e.Entrega().Handle(Entrega(hoja.Id, hoja.Albaranes.Single().Id), default);
+        e.T.Eventos.Eventos.OfType<PedidoFacturadoEntregadoEvent>().Should().BeEmpty();
+
+        (await e.Factura().Handle(new AplicarFacturaPedidoCommand(EntornoPt.Empresa, factura), default)).Should().BeTrue();
+        e.T.Eventos.Eventos.OfType<PedidoFacturadoEntregadoEvent>().Should().ContainSingle();
+        (await e.T.Db.PedidosPt.SingleAsync()).Estado115At.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task Factura_de_un_pedido_con_piezas_rechazadas_en_sitio_no_lo_pasa_a_115()
+    {
+        var (e, hoja) = await Emitida(3, 3);
+        using var _ = e;
+        await e.Entrega().Handle(Entrega(hoja.Id, hoja.Albaranes.Single().Id, ["P1-E3"]), default);
+        (await e.Factura().Handle(new AplicarFacturaPedidoCommand(EntornoPt.Empresa, e.T.Pedidos.Pedidos["P1"].PedidoFacturableId), default)).Should().BeFalse("faltan piezas por entregar");
+        e.T.Eventos.Eventos.OfType<PedidoFacturadoEntregadoEvent>().Should().BeEmpty();
+        (await e.T.Db.PedidosPt.SingleAsync()).FacturadoAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task Cobro_con_TPV_se_concilia_cuando_la_caja_registra_el_mismo_monto_del_pedido_y_una_sola_vez()
+    {
+        var (e, hoja) = await Emitida(2, 2);
+        using var _ = e;
+        var cobro = new CobroEntregaDto(8500m, "TPV", "VOUCHER-0417");
+        var dto = await e.Entrega().Handle(Entrega(hoja.Id, hoja.Albaranes.Single().Id, cobro: cobro), default);
+        dto.Albaranes.Single().Entrega!.Cobro.Should().Match<CobroEntregaDto>(c => c.Monto == 8500m && c.FormaPago == "TPV" && c.ConciliadoAt == null);
+
+        var comprobante = Guid.NewGuid();
+        e.T.Pedidos.Facturas[comprobante] = e.T.Pedidos.Pedidos["P1"].PedidoFacturableId;
+        (await e.Conciliar().Handle(new ConciliarCobroEntregaCommand(EntornoPt.Empresa, Guid.NewGuid(), comprobante, 100m), default)).Should().BeFalse("otro monto");
+        (await e.Conciliar().Handle(new ConciliarCobroEntregaCommand(EntornoPt.Empresa, Guid.NewGuid(), comprobante, 8500m), default)).Should().BeTrue();
+        (await e.Conciliar().Handle(new ConciliarCobroEntregaCommand(EntornoPt.Empresa, Guid.NewGuid(), comprobante, 8500m), default)).Should().BeFalse("ya conciliado");
+        (await e.T.Db.Entregas.SingleAsync()).CobroConciliadoAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task Cobro_de_una_entrega_rechazada_por_completo_se_rechaza()
+    {
+        var (e, hoja) = await Emitida(1, 1);
+        using var _ = e;
+        var act = () => e.Entrega().Handle(Entrega(hoja.Id, hoja.Albaranes.Single().Id, ["P1-E1"], cobro: new CobroEntregaDto(100m, "TPV", null)), default);
+        (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("PT_ENTREGA_COBRO_SIN_ENTREGA");
+    }
+
+    [Fact]
+    public async Task Evidencia_devuelve_la_firma_y_la_foto_guardadas()
+    {
+        var (e, hoja) = await Emitida(1, 1);
+        using var _ = e;
+        await e.Entrega().Handle(Entrega(hoja.Id, hoja.Albaranes.Single().Id, foto: Png), default);
+        var ev = await new ObtenerEvidenciaEntregaHandler(e.T.Db, e.Acceso).Handle(new ObtenerEvidenciaEntregaQuery(hoja.Id, hoja.Albaranes.Single().Id), default);
+        ev.Firma.Should().StartWith("data:image/png;base64,");
+        ev.Foto.Should().StartWith("data:image/png;base64,");
     }
 }

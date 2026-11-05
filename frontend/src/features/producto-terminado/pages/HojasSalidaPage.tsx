@@ -246,6 +246,7 @@ export function HojasSalidaPage() {
                 <TableHead>Cliente</TableHead>
                 <TableHead>Obra o destino</TableHead>
                 <TableHead>Lo cargado</TableHead>
+                <TableHead>Entrega</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -264,6 +265,10 @@ export function HojasSalidaPage() {
                     </ul>
                     <span className="text-ink-muted">{a.etiquetas.join(', ')}</span>
                     {(a.rotas?.length ?? 0) > 0 && <p className="text-warning-fg">Pendiente de reposición (rota al cargar): {a.rotas!.join(', ')}</p>}
+                  </TableCell>
+                  <TableCell>
+                    {detalle.data.estado !== 'Emitida' ? '—' : a.entrega ? `${a.entrega.resultado === 'Entregada' ? 'Entregada' : a.entrega.resultado === 'Parcial' ? 'Entrega parcial' : 'Rechazada en sitio'} · recibió ${a.entrega.receptor}` : 'Por entregar (en Entregas)'}
+                    {a.estadoPedido === '115' && <p className="text-success-fg">Pedido en 115</p>}
                   </TableCell>
                 </TableRow>
               ))}

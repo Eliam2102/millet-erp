@@ -177,6 +177,10 @@ export function PiezasPage() {
                           <Badge variant="warning">Cargada</Badge>
                         ) : p.estado === 'Embarcada' ? (
                           <Badge variant="neutral">Embarcada</Badge>
+                        ) : p.estado === 'Entregada' ? (
+                          <Badge variant="success">Entregada</Badge>
+                        ) : p.estado === 'EnRevision' ? (
+                          <Badge variant="warning">En revisión</Badge>
                         ) : (
                           <Badge variant="success">En PT</Badge>
                         )}
