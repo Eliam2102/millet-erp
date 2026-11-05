@@ -394,6 +394,7 @@ export const PermisosCanonicos = {
   TesoreriaPagosRevertir: 'tesoreria.pagos.revertir',
   TesoreriaPagosCuentaRegistrar: 'tesoreria.pagos-cuenta.registrar',
   TesoreriaPagosCuentaLigar: 'tesoreria.pagos-cuenta.ligar',
+  TesoreriaPagosCuentaAutorizar: 'tesoreria.pagos-cuenta.autorizar',
   TesoreriaCorridasCrear: 'tesoreria.corridas.crear',
   TesoreriaCorridasAutorizar: 'tesoreria.corridas.autorizar',
   TesoreriaCorridasEjecutar: 'tesoreria.corridas.ejecutar',

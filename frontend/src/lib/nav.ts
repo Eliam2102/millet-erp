@@ -546,6 +546,7 @@ const moduloTesoreria: NavModulo = {
             PermisosCanonicos.TesoreriaMovimientosVer,
             PermisosCanonicos.TesoreriaPagosCuentaRegistrar,
             PermisosCanonicos.TesoreriaPagosCuentaLigar,
+            PermisosCanonicos.TesoreriaPagosCuentaAutorizar,
           ],
         },
         {
