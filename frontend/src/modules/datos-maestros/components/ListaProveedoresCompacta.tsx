@@ -39,7 +39,15 @@ export function ListaProveedoresCompacta({ items, idActivo }: ListaProveedoresCo
                   <EstatusCatalogoBadge estatus={item.estatus} />
                 </>
               }
-              sub={item.claveAw != null ? <span className="font-mono">A+W {item.claveAw}</span> : undefined}
+              sub={
+                item.claveAw != null || item.taxId ? (
+                  <span className="font-mono">
+                    {item.taxId ? `Tax ID ${item.taxId}` : ''}
+                    {item.taxId && item.claveAw != null ? ' · ' : ''}
+                    {item.claveAw != null ? `A+W ${item.claveAw}` : ''}
+                  </span>
+                ) : undefined
+              }
             />
           </Link>
         );

@@ -23,12 +23,17 @@ public sealed record AdjuntoResponse(
     DateTimeOffset SubidoEn,
     DateTimeOffset? BajaEn,
     Guid? BajaPorId,
-    string? BajaMotivo)
+    string? BajaMotivo,
+    ResultadoRevisionAdjunto? ResultadoRevision = null,
+    string? RevisadoPorNombre = null,
+    DateTimeOffset? RevisadoEn = null,
+    string? ObservacionRevision = null)
 {
     public static AdjuntoResponse De(Adjunto a, AdjuntoTipoDocumento tipo, DateOnly hoy) => new(
         a.Id, a.TipoEntidad, a.EntidadId, a.TipoDocumentoId, tipo.Codigo, tipo.Nombre,
         a.NombreArchivo, a.ContentType, a.TamanoBytes, a.HashSha256, a.VigenteHasta, a.EstadoEn(hoy),
-        a.SubidoPorId, a.SubidoEn, a.BajaEn, a.BajaPorId, a.BajaMotivo);
+        a.SubidoPorId, a.SubidoEn, a.BajaEn, a.BajaPorId, a.BajaMotivo,
+        a.ResultadoRevision, a.RevisadoPorNombre, a.RevisadoEn, a.ObservacionRevision);
 }
 
 public sealed record AdjuntoTipoDocumentoResponse(

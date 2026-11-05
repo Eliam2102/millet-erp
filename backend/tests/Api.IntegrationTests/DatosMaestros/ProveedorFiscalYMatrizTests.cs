@@ -147,6 +147,10 @@ public class ProveedorFiscalYMatrizTests
         var excepcion = await admin.PostAsJsonAsync($"{Base}/{prov}/expediente/excepciones",
             new { tipoDocumentoId = TipoContrato, motivo = "Proveedor local sin contrato formal" });
         Assert.Equal(HttpStatusCode.Created, excepcion.StatusCode);
+        var (cxp, _) = await amb.ClienteConPermisosAsync(PermisosCanonicos.DatosMaestrosProveedoresValidar);
+        var excepcionId = (await LeerAsync(excepcion)).GetProperty("id").GetGuid();
+        var resuelta = await cxp.PostAsJsonAsync($"{Base}/{prov}/expediente/excepciones/{excepcionId}/resolver", new { otorgar = true });
+        Assert.Equal(HttpStatusCode.NoContent, resuelta.StatusCode);
 
         var ok = await admin.PostAsync($"{Base}/{prov}/validar", null);
         Assert.Equal(HttpStatusCode.OK, ok.StatusCode);

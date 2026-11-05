@@ -19,6 +19,7 @@ using Millet.DatosMaestros.Domain;
 using Millet.Identidad.Domain;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.SharedKernel.Domain.Adjuntos;
 using Millet.SharedKernel.Domain.Bancos;
 
 namespace Millet.Api.Endpoints.DatosMaestros;
@@ -184,14 +185,40 @@ public static class DatosMaestrosEndpoints
         proveedores.MapPost("/{id:guid}/expediente/excepciones", async (
             Guid id, [FromBody] ExcepcionExpedienteRequest body, IMediator mediator, CancellationToken ct) =>
         {
-            var excepcionId = await mediator.Send(new OtorgarExcepcionExpedienteCommand(id, body.TipoDocumentoId, body.Motivo), ct);
+            var excepcionId = await mediator.Send(new SolicitarExcepcionExpedienteCommand(id, body.TipoDocumentoId, body.Motivo), ct);
             return Results.Created($"/api/v1/datos-maestros/proveedores/{id}/expediente/excepciones/{excepcionId}", new { id = excepcionId });
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
-        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresValidar)
-        .WithName("OtorgarExcepcionExpedienteProveedor")
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresGestionar)
+        .WithName("SolicitarExcepcionExpedienteProveedor")
+        .WithSummary("Pedir una excepción a un documento obligatorio; queda pendiente hasta que otra persona la resuelva (86e3yzemu)")
         .Produces(StatusCodes.Status201Created)
         .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        proveedores.MapPost("/{id:guid}/expediente/excepciones/{excepcionId:guid}/resolver", async (
+            Guid id, Guid excepcionId, [FromBody] ResolverExcepcionRequest body, IMediator mediator, CancellationToken ct) =>
+        {
+            await mediator.Send(new ResolverExcepcionExpedienteCommand(id, excepcionId, body.Otorgar, body.Motivo), ct);
+            return Results.NoContent();
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresValidar)
+        .WithName("ResolverExcepcionExpedienteProveedor")
+        .WithSummary("Otorgar o negar una excepción pendiente; no puede resolverla quien la pidió (86e3yzemu)")
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        proveedores.MapPost("/{id:guid}/expediente/documentos/{adjuntoId:guid}/revisar", async (
+            Guid id, Guid adjuntoId, [FromBody] RevisarDocumentoRequest body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new RevisarDocumentoProveedorCommand(id, adjuntoId, body.Resultado, body.Observacion), ct)))
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresValidar)
+        .WithName("RevisarDocumentoExpedienteProveedor")
+        .WithSummary("Guardar el cotejo del contenido de un documento: quién, cuándo y resultado (86e3yzemu)")
+        .Produces<AdjuntoResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         proveedores.MapPost("/{id:guid}/expediente/excepciones/{excepcionId:guid}/revocar", async (
@@ -1044,6 +1071,10 @@ public static class DatosMaestrosEndpoints
         bool SoloPersonaMoral, Millet.SharedKernel.Domain.Adjuntos.AdjuntoAplicaOrigen AplicaOrigen, bool Activo);
 
     public sealed record ExcepcionExpedienteRequest(Guid TipoDocumentoId, string Motivo);
+
+    public sealed record ResolverExcepcionRequest(bool Otorgar, string? Motivo);
+
+    public sealed record RevisarDocumentoRequest(ResultadoRevisionAdjunto Resultado, string? Observacion);
 
     public sealed record ValidarCuentaBancariaRequest(Guid DocumentoAdjuntoId, bool CotejoCompleto, string? Nota);
 

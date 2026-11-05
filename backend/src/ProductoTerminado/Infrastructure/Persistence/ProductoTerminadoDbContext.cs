@@ -18,6 +18,8 @@ public sealed class ProductoTerminadoDbContext(DbContextOptions<ProductoTerminad
     public DbSet<SalidaPt> Salidas => Set<SalidaPt>();
     public DbSet<AlbaranPt> Albaranes => Set<AlbaranPt>();
     public DbSet<AlbaranPtPieza> AlbaranPiezas => Set<AlbaranPtPieza>();
+    public DbSet<LiquidacionRutaPt> Liquidaciones => Set<LiquidacionRutaPt>();
+    public DbSet<AvisoContraEntregaPt> AvisosContraEntrega => Set<AvisoContraEntregaPt>();
     public DbSet<EntregaPt> Entregas => Set<EntregaPt>();
     public DbSet<SaldoDemo> SaldosDemo => Set<SaldoDemo>();
     public DbSet<EscaneoPt> Escaneos => Set<EscaneoPt>();
@@ -172,6 +174,49 @@ public sealed class ProductoTerminadoDbContext(DbContextOptions<ProductoTerminad
         e.HasIndex(x => new { x.EmpresaId, x.Origen, x.Etiqueta, x.RegistradoAt }).IsUnique().HasDatabaseName("ux_pt_escaneo_origen_etiqueta_hora");
         e.HasIndex(x => x.Resultado).HasDatabaseName("ix_pt_escaneos_abiertos").HasFilter("resultado IN ('Pospuesto','Excepcion','Reposicion')");
         e.HasIndex(x => new { x.EmpresaId, x.Origen, x.RegistradoAt }).HasDatabaseName("ix_pt_escaneos_marca_agua");
+
+        var lq = modelBuilder.Entity<LiquidacionRutaPt>();
+        lq.ToTable("liquidaciones_ruta_pt");
+        lq.HasKey(x => x.Id);
+        lq.Property(x => x.Id).ValueGeneratedNever();
+        lq.Property(x => x.Estado).HasConversion<string>().HasMaxLength(20);
+        lq.Property(x => x.Usuario).HasMaxLength(100);
+        lq.HasIndex(x => x.SalidaPtId).IsUnique();
+        lq.HasOne<SalidaPt>().WithMany().HasForeignKey(x => x.SalidaPtId).OnDelete(DeleteBehavior.Restrict);
+        lq.HasMany(x => x.Albaranes).WithOne().HasForeignKey(x => x.LiquidacionRutaPtId).OnDelete(DeleteBehavior.Restrict);
+        lq.Navigation(x => x.Albaranes).UsePropertyAccessMode(PropertyAccessMode.Field);
+        lq.HasMany(x => x.Imprevistos).WithOne().HasForeignKey(x => x.LiquidacionRutaPtId).OnDelete(DeleteBehavior.Restrict);
+        lq.Navigation(x => x.Imprevistos).UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        var la = modelBuilder.Entity<LiquidacionAlbaranPt>();
+        la.ToTable("liquidacion_albaranes_pt");
+        la.HasKey(x => x.Id);
+        la.Property(x => x.Id).ValueGeneratedNever();
+        la.Ignore(x => x.AggregateRootId);
+        la.Ignore(x => x.Diferencia);
+        la.Ignore(x => x.Conciliado);
+        la.Property(x => x.Esperado).HasPrecision(18, 2);
+        la.Property(x => x.Efectivo).HasPrecision(18, 2);
+        la.Property(x => x.Voucher).HasPrecision(18, 2);
+        la.Property(x => x.VoucherReferencia).HasMaxLength(100);
+        la.HasIndex(x => new { x.LiquidacionRutaPtId, x.AlbaranPtId }).IsUnique();
+        la.HasOne<AlbaranPt>().WithMany().HasForeignKey(x => x.AlbaranPtId).OnDelete(DeleteBehavior.Restrict);
+
+        var ir = modelBuilder.Entity<ImprevistoRutaPt>();
+        ir.ToTable("imprevistos_ruta_pt");
+        ir.HasKey(x => x.Id);
+        ir.Property(x => x.Id).ValueGeneratedNever();
+        ir.Ignore(x => x.AggregateRootId);
+        ir.Property(x => x.Descripcion).HasMaxLength(300);
+        ir.Property(x => x.Importe).HasPrecision(18, 2);
+
+        var av = modelBuilder.Entity<AvisoContraEntregaPt>();
+        av.ToTable("avisos_contra_entrega_pt");
+        av.HasKey(x => x.Id);
+        av.Property(x => x.Id).ValueGeneratedNever();
+        av.Property(x => x.Importe).HasPrecision(18, 2);
+        av.HasIndex(x => x.AlbaranPtId).IsUnique();
+        av.HasOne<AlbaranPt>().WithMany().HasForeignKey(x => x.AlbaranPtId).OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.ApplyConfiguration(new IntegrationEventOutboxEntryConfiguration());
         base.OnModelCreating(modelBuilder);

@@ -14,6 +14,9 @@ public enum TipoAlertaCartera : short
 
     /// <summary>Vencimientos dispararon el auto-bloqueo de la línea de crédito.</summary>
     AutoBloqueoVencimiento = 3,
+
+    /// <summary>Pedido a contra entrega (Crédito 24 h) que el chofer no liquidó en caja el día de la salida (PT5.7, Manual §2.3).</summary>
+    ContraEntregaNoLiquidada = 4,
 }
 
 /// <summary>

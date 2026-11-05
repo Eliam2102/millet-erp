@@ -126,8 +126,8 @@ CREATE TABLE IF NOT EXISTS dbo.aw_retorno (
     folio               text,
     uuid                text,
     importe             numeric(18, 2),
-    forma_pago          text,                           -- tipo 4 (v3): clave SAT
-    moneda              text,                           -- tipo 4 (v3)
+    forma_pago          text,                           -- tipo 4 (v3): KA_ZAHLWEG.BEZ de A+W (EFECTIVO); hasta 40
+    moneda              text,                           -- tipo 4 (v3): KA_WAEHRUNGEN.WAEHRUNG de A+W (PESOSMX); hasta 8
     creada_at           timestamptz NOT NULL DEFAULT now(),
     aplicada_at         timestamptz,
     resultado           smallint CHECK (resultado IS NULL OR resultado IN (1, 2, 3)),  -- NULL pendiente | 1 Aplicada | 2 Rechazada | 3 Desfasada
