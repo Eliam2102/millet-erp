@@ -26,8 +26,36 @@ describe('useEmpleadosAdmin — filtro por sucursal activa', () => {
         const sucursalId = url.searchParams.get('sucursalId');
         const items =
           sucursalId === 'suc-2'
-            ? [{ id: 'emp-2', empresaId: 'e-1', clave: 'EMP-002', nombre: 'Pedro López', email: null, puestoId: null, jefeDirectoId: null, sucursalId: 'suc-2', departamentoId: null, usuarioId: null, estatus: 0 }]
-            : [{ id: 'emp-1', empresaId: 'e-1', clave: 'EMP-001', nombre: 'Juana Pérez', email: null, puestoId: null, jefeDirectoId: null, sucursalId: 'suc-1', departamentoId: null, usuarioId: null, estatus: 0 }];
+            ? [
+                {
+                  id: 'emp-2',
+                  empresaId: 'e-1',
+                  clave: 'EMP-002',
+                  nombre: 'Pedro López',
+                  email: null,
+                  puestoId: null,
+                  jefeDirectoId: null,
+                  sucursalId: 'suc-2',
+                  departamentoId: null,
+                  usuarioId: null,
+                  estatus: 0,
+                },
+              ]
+            : [
+                {
+                  id: 'emp-1',
+                  empresaId: 'e-1',
+                  clave: 'EMP-001',
+                  nombre: 'Juana Pérez',
+                  email: null,
+                  puestoId: null,
+                  jefeDirectoId: null,
+                  sucursalId: 'suc-1',
+                  departamentoId: null,
+                  usuarioId: null,
+                  estatus: 0,
+                },
+              ];
         return HttpResponse.json({ items, offset: 0, limit: 200, total: items.length });
       }),
     );
@@ -52,4 +80,26 @@ describe('useEmpleadosAdmin — filtro por sucursal activa', () => {
 
     useAuthStore.setState({ currentSucursalId: null });
   });
+});
+
+it('Todas las permitidas omite sucursalId y conserva empleados corporativos y de sucursales autorizadas', async () => {
+  useAuthStore.setState({ currentSucursalId: null });
+  const urls: URL[] = [];
+  mswServer.use(
+    http.get('*/api/v1/catalogos/empleados', ({ request }) => {
+      urls.push(new URL(request.url));
+      return HttpResponse.json({
+        items: [
+          { id: 'corporativo', sucursalId: null },
+          { id: 'autorizado', sucursalId: 's-1' },
+        ],
+        total: 2,
+      });
+    }),
+  );
+  const { result } = renderHook(() => useEmpleadosAdmin(), { wrapper: createQueryWrapper() });
+  await waitFor(() => expect(result.current.isSuccess).toBe(true));
+  expect(urls).toHaveLength(1);
+  expect(urls[0].searchParams.has('sucursalId')).toBe(false);
+  expect(result.current.data?.map((e) => e.id)).toEqual(['corporativo', 'autorizado']);
 });
