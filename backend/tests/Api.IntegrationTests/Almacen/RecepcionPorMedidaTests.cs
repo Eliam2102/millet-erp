@@ -63,7 +63,7 @@ public class RecepcionPorMedidaTests(WebApplicationFactory<Program> factory) : I
         new RegistrarRecepcionConFacturaHandler(db, new OcM2(ctx, lineasOc), new CapturaEventos(), new UserFake(ctx.UserId), new EmpresaFake(ctx.EmpresaId),
             decimales, ctx.Periodos, new ConversionM2(), new CxpNulo(), new ProveedorRfc(),
             new Articulos(ligado), new Variantes(ctx.ArticuloId)).Handle(
-            new RegistrarRecepcionConFacturaCommand(ctx.OcId, Fecha, null, "AD662D33-6934-459C-A128-BDF0393E0062", null, lineas), default);
+            new RegistrarRecepcionConFacturaCommand(ctx.OcId, Fecha, null, Guid.NewGuid().ToString().ToUpperInvariant(), null, lineas), default);
 
     internal static async Task<(decimal Cantidad, decimal Costo)?> Fila(AlmacenDbContext db, Guid rack, Guid articulo, Guid? variante)
     {
