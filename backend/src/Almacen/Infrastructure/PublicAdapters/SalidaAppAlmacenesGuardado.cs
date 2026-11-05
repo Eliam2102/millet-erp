@@ -17,10 +17,11 @@ public sealed class SalidaAppAlmacenesGuardado
 {
     private readonly AlmacenDbContext _db;
     private readonly ICurrentEmpresaContext _empresa;
+    private readonly IIntegrationEventPublisher _events;
 
-    public SalidaAppAlmacenesGuardado(AlmacenDbContext db, ICurrentEmpresaContext empresa)
+    public SalidaAppAlmacenesGuardado(AlmacenDbContext db, ICurrentEmpresaContext empresa, IIntegrationEventPublisher events)
     {
-        _db = db; _empresa = empresa;
+        _db = db; _empresa = empresa; _events = events;
     }
 
     /// <summary>
@@ -35,7 +36,7 @@ public sealed class SalidaAppAlmacenesGuardado
         using var bypass = _empresa.Bypass();
         await using var tx = _db.Database.IsNpgsql() ? await _db.Database.BeginTransactionAsync(ct) : null;
 
-        var (estado, folio, error) = await SalidaAppAlmacenes.RegistrarAsync(_db, empresaId, usuarioId, salidas, ct);
+        var (estado, folio, error) = await SalidaAppAlmacenes.RegistrarAsync(_db, _events, empresaId, usuarioId, salidas, ct);
 
         _db.MensajesApp.Add(new MensajeApp(mensajeId, tipo,
             referencia?.Length > 100 ? referencia[..100] : referencia, payload, estado, folio, error));

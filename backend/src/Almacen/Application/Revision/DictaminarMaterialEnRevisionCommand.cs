@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Application.Catalogo;
 using Millet.Almacen.Application.DevolucionesProveedor;
+using Millet.Almacen.Application.Integration;
 using Millet.Almacen.Domain.Catalogo;
 using Millet.Almacen.Domain.DevolucionesProveedor;
 using Millet.Almacen.Domain.Movimientos;
@@ -50,7 +51,8 @@ public sealed class DictaminarMaterialEnRevisionHandler(
     IDecimalesUnidadGuard decimalesGuard,
     IPeriodoContableReadPort periodoContable,
     IAdjuntosEntidadReadPort adjuntos,
-    IComprasOcReadPort ocPort)
+    IComprasOcReadPort ocPort,
+    IIntegrationEventPublisher events)
     : IRequestHandler<DictaminarMaterialEnRevisionCommand, DictamenRevisionResponse>
 {
     public async Task<DictamenRevisionResponse> Handle(
@@ -138,6 +140,8 @@ public sealed class DictaminarMaterialEnRevisionHandler(
                 dictamen = new DictamenRevision(Guid.CreateVersion7(), empresaId, info.LineaRevisionId,
                     info.MovimientoRevisionId, request.Resultado, request.Cantidad, request.Motivo, usuarioId,
                     movimientoSalidaRevisionId: baja.Id);
+                await SalidaInventarioRegistradaIntegrationEvent.PublicarAsync(
+                    events, db, empresaId, baja.Id, info.SubAlmacenRevisionId, "daño", cancellationToken);
                 folio = baja.Folio;
                 break;
 

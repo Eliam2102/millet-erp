@@ -198,7 +198,7 @@ public class RecepcionPorMedidaTests(WebApplicationFactory<Program> factory) : I
             // Lo dañado lleva el mismo lote que la recepción y el dictamen lo hereda al liberar.
             linea.Lote.Should().Be(LoteProveedor);
             await new DictaminarMaterialEnRevisionHandler(db, new UserFake(OtroUsuario), new EmpresaFake(ctx.EmpresaId), new DecimalesNulo(), ctx.Periodos,
-                    new AdjuntosVacios(), new OcM2(ctx))
+                    new AdjuntosVacios(), new OcM2(ctx), new EventosNulo())
                 .Handle(new DictaminarMaterialEnRevisionCommand(linea.Id, ResultadoDictamen.Liberar, 17.8608m, "Sin daño real", Fecha, ctx.RackId), default);
             (await Fila(db, ctx.RackRevisionId, ctx.ArticuloId, VarA))!.Value.Cantidad.Should().Be(8.9304m);
             (await Fila(db, ctx.RackId, ctx.ArticuloId, VarA))!.Value.Cantidad.Should().Be(80.3736m);
@@ -308,6 +308,11 @@ public class RecepcionPorMedidaTests(WebApplicationFactory<Program> factory) : I
     {
         public Task<IReadOnlyDictionary<Guid, int?>> ObtenerDecimalesPorArticulosAsync(IEnumerable<Guid> articuloIds, CancellationToken ct) =>
             Task.FromResult<IReadOnlyDictionary<Guid, int?>>(articuloIds.Distinct().ToDictionary(i => i, _ => (int?)2));
+    }
+
+    private sealed class EventosNulo : Millet.SharedKernel.Application.IIntegrationEventPublisher
+    {
+        public Task PublishAsync(object integrationEvent, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     private sealed class AdjuntosVacios : IAdjuntosEntidadReadPort

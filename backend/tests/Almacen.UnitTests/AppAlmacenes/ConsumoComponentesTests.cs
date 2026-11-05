@@ -89,7 +89,7 @@ public class ConsumoComponentesTests
             Task.FromResult<UsuarioServicioLectura?>(new(Guid.NewGuid(), EmpresaId, true));
     }
 
-    private static (AlmacenDbContext Db, ConsumoComponentesGuardado G) Guardado(bool conNorma)
+    private static (AlmacenDbContext Db, ConsumoComponentesGuardado G) Guardado(bool conNorma, Eventos? eventos = null)
     {
         var db = new AlmacenDbContext(new DbContextOptionsBuilder<AlmacenDbContext>()
             .UseInMemoryDatabase($"consumo-{Guid.NewGuid():N}").Options, new FakeEmpresa());
@@ -100,7 +100,7 @@ public class ConsumoComponentesTests
         db.SaldosInventario.Add(new SaldoInventario(ubi, sub, Separador, 100, 10m, null));
         if (conNorma) db.NormasConsumoComponente.Add(new NormaConsumoComponente(Separador, 1m, 0m, null) { EmpresaId = EmpresaId });
         db.SaveChanges();
-        return (db, new ConsumoComponentesGuardado(db, new FakeEmpresa(), new Resolver(), new Usuario()));
+        return (db, new ConsumoComponentesGuardado(db, new FakeEmpresa(), new Resolver(), new Usuario(), eventos ?? new Eventos()));
     }
 
     private static PiezaComponenteAw Pieza(string sucursal = "MID") =>
@@ -119,6 +119,19 @@ public class ConsumoComponentesTests
         c.Folio.Should().StartWith("M-SAL");
         (await db.Movimientos.Include(m => m.Lineas).SingleAsync()).Lineas.Single().Cantidad.Should().Be(3m);
         (await g.MarcaAguaAsync(EmpresaId, "Real", default)).Should().Be(new DateTime(2026, 11, 4, 9, 2, 18));
+    }
+
+    [Fact]
+    public async Task Descontar_un_componente_publica_un_evento_de_salida_con_motivo_de_composicion()
+    {
+        var eventos = new Eventos();
+        var (_, g) = Guardado(conNorma: true, eventos);
+        await g.RegistrarAsync(EmpresaId, "Real", Pieza(), default);
+        await g.RegistrarAsync(EmpresaId, "Real", Pieza(), default); // mismo escaneo: no duplica el evento
+
+        var ev = eventos.Publicados.OfType<Millet.Almacen.Application.Integration.SalidaInventarioRegistradaIntegrationEvent>().Should().ContainSingle().Subject;
+        ev.Causa.Should().Be("consumo_composicion");
+        ev.MontoTotalMxn.Should().Be(30m);
     }
 
     [Fact]

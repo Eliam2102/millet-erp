@@ -344,6 +344,7 @@ public sealed class BajaPorDanoHandler : IRequestHandler<BajaPorDanoCommand, Baj
     private readonly IDecimalesUnidadGuard _decimalesGuard;
     private readonly IPeriodoContableReadPort _periodoContable;
     private readonly IArticuloReadPort _articulos;
+    private readonly IIntegrationEventPublisher _events;
     private readonly IVarianteVidrioReadPort? _variantes; // opcional solo para pruebas unitarias sin medidas
 
     public BajaPorDanoHandler(
@@ -353,8 +354,10 @@ public sealed class BajaPorDanoHandler : IRequestHandler<BajaPorDanoCommand, Baj
         IDecimalesUnidadGuard decimalesGuard,
         IPeriodoContableReadPort periodoContable,
         IArticuloReadPort articulos,
+        IIntegrationEventPublisher events,
         IVarianteVidrioReadPort? variantes = null)
     {
+        _events = events;
         _variantes = variantes;
         _db = db;
         _currentUser = currentUser;
@@ -487,6 +490,9 @@ public sealed class BajaPorDanoHandler : IRequestHandler<BajaPorDanoCommand, Baj
             "MOV_SIN_USUARIO", "Se requiere usuario autenticado.");
         movimiento.Registrar(folio, registradoPor);
         _db.Movimientos.Add(movimiento);
+        if (!esEntrada)
+            await SalidaInventarioRegistradaIntegrationEvent.PublicarAsync(
+                _events, _db, empresaId, movimientoId, subAlmacenId, "daño", cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
         if (transaccion is not null) await transaccion.CommitAsync(cancellationToken);
 
