@@ -104,6 +104,20 @@ public sealed class AutorizacionVentaActivo : BaseEntity, IPerteneceAEmpresa, IA
         { Motivo = motivo, SolicitadoPor = solicitadoPor.Trim(), Evidencia = evidencia.Trim() };
     }
 
+    public string? MotivoRechazo { get; private set; }
+    public Guid? RechazadoPor { get; private set; }
+    public DateTimeOffset? RechazadoEn { get; private set; }
+    public void Rechazar(Guid actor, string motivo, DateTimeOffset ahora)
+    {
+        if (Estado != EstadoAutorizacionActivo.Autorizada || actor != AutorizadoPor || string.IsNullOrWhiteSpace(motivo) || motivo.Length > 2000)
+            throw new BusinessRuleException("AF_RECHAZO_INVALIDO", "El autorizador debe cerrar una autorización sin usar con motivo de hasta 2000 caracteres.");
+        Estado = EstadoAutorizacionActivo.Cancelada; MotivoRechazo = motivo.Trim(); RechazadoPor = actor; RechazadoEn = ahora;
+    }
+    public void ValidarRegistrador(Guid? actor)
+    {
+        if (actor == null || actor == Guid.Empty || actor == AutorizadoPor)
+            throw new BusinessRuleException("AF_REGISTRADOR_DISTINTO", "El Contador General que registra la venta debe ser distinto del Director de Administración y Finanzas que la autorizó.");
+    }
     public void ValidarParaTimbrar(decimal precio, DateTimeOffset ahora, Guid? factura = null)
     {
         if (precio != PrecioVenta

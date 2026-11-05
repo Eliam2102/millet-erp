@@ -1,3 +1,6 @@
+import { VersionesClase, EquivalenciasSap } from '../components/VersionesClase';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { useCuenta } from '@/features/contabilidad/api/hooks';
 import { CuentaActivoSelector } from '../components/CuentaActivoSelector';
 import { useState } from 'react';
@@ -33,6 +36,8 @@ function CuentaClase({ id }: { id: string | null }) {
 }
 export function ClasesPage() {
   const query = useClasesActivo();
+  const administrar = useHasPermission(P.ActivosFijosClasesAdministrar);
+  const [historial, setHistorial] = useState<string | null>(null);
   const guardar = useGuardarActivo();
   const [editar, setEditar] = useState<Partial<Clase> | null>(null);
   return (
@@ -41,23 +46,26 @@ export function ClasesPage() {
         titulo="Clases de activo"
         descripcion="Clases del catálogo de Millet, cuentas y tasas configurables."
         acciones={
-          <Button
-            onClick={() =>
-              setEditar({
-                activa: true,
-                depreciable: true,
-                tasaConfirmada: false,
-                tasaFiscalAnual: null,
-                tasaContableAnual: null,
-              })
-            }
-          >
-            Nueva clase
-          </Button>
+          administrar ? (
+            <Button
+              onClick={() =>
+                setEditar({
+                  activa: true,
+                  depreciable: true,
+                  tasaConfirmada: false,
+                  tasaFiscalAnual: null,
+                  tasaContableAnual: null,
+                })
+              }
+            >
+              Nueva clase
+            </Button>
+          ) : undefined
         }
       />
       <p className="rounded-lg bg-warning-bg p-3 text-warning-fg">
-        La tasa contable genera póliza; la fiscal se usa sólo en el reporte. Configure las cuentas pendientes antes de depreciar.
+        La tasa contable genera póliza; la fiscal se usa sólo en el reporte. Configure las cuentas
+        pendientes antes de depreciar.
       </p>
       {query.error && (
         <p role="alert" className="text-danger-fg">
@@ -66,57 +74,66 @@ export function ClasesPage() {
       )}
       <div className="rounded-lg bg-surface-card shadow-card-flat">
         <TableContainer maxHeightClassName="">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Clave</TableHead>
-              <TableHead>Nombre</TableHead>
-              <TableHead>Cuenta de activo</TableHead>
-              <TableHead>Depreciación acumulada</TableHead>
-              <TableHead>Gasto</TableHead>
-              <TableHead>Depreciable</TableHead>
-              <TableHead>Tasa contable / fiscal</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead>Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {query.data?.map((c) => (
-              <TableRow key={c.id}>
-                <TableCell className="font-mono">{c.clave}</TableCell>
-                <TableCell>{c.nombre}</TableCell>
-                <TableCell>
-                  <CuentaClase id={c.cuentaActivoId} />
-                </TableCell>
-                <TableCell>
-                  <CuentaClase id={c.cuentaDepreciacionId} />
-                </TableCell>
-                <TableCell>
-                  <CuentaClase id={c.cuentaGastoId} />
-                </TableCell>
-                <TableCell>{c.depreciable ? 'Sí' : 'No'}</TableCell>
-                <TableCell className="tabular-nums">
-                  {c.tasaContableAnual ?? 'Sin tasa'} / {c.tasaFiscalAnual ?? 'Sin tasa'} %
-                  {/* eslint-disable-next-line ds/no-texto-interno -- FICHA_P7 exige el estado de negocio Tasa por confirmar. */}
-                  {!c.tasaConfirmada && <p className="text-warning-fg">Tasa por confirmar</p>}
-                </TableCell>
-                <TableCell>
-                  <Badge variant={c.activa ? 'success' : 'neutral'}>
-                    {c.activa ? 'Activa' : 'Inactiva'}
-                  </Badge>
-                  {c.requiereRevision && <Badge variant="warning">Revisar clase anterior</Badge>}
-                </TableCell>
-                <TableCell>
-                  <Button variant="outline" onClick={() => setEditar(c)}>
-                    Editar
-                  </Button>
-                </TableCell>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Clave</TableHead>
+                <TableHead>Nombre</TableHead>
+                <TableHead>Cuenta de activo</TableHead>
+                <TableHead>Depreciación acumulada</TableHead>
+                <TableHead>Gasto</TableHead>
+                <TableHead>Depreciable</TableHead>
+                <TableHead>Tasa contable / fiscal</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>Acciones</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {query.data?.map((c) => (
+                <TableRow key={c.id}>
+                  <TableCell className="font-mono">{c.clave}</TableCell>
+                  <TableCell>{c.nombre}</TableCell>
+                  <TableCell>
+                    <CuentaClase id={c.cuentaActivoId} />
+                  </TableCell>
+                  <TableCell>
+                    <CuentaClase id={c.cuentaDepreciacionId} />
+                  </TableCell>
+                  <TableCell>
+                    <CuentaClase id={c.cuentaGastoId} />
+                  </TableCell>
+                  <TableCell>{c.depreciable ? 'Sí' : 'No'}</TableCell>
+                  <TableCell className="tabular-nums">
+                    {c.tasaContableAnual ?? 'Sin tasa'} / {c.tasaFiscalAnual ?? 'Sin tasa'} %
+                    {/* eslint-disable-next-line ds/no-texto-interno -- FICHA_P7 exige el estado de negocio Tasa por confirmar. */}
+                    {!c.tasaConfirmada && <p className="text-warning-fg">Tasa por confirmar</p>}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={c.activa ? 'success' : 'neutral'}>
+                      {c.activa ? 'Activa' : 'Inactiva'}
+                    </Badge>
+                    {c.requiereRevision && <Badge variant="warning">Revisar clase anterior</Badge>}
+                  </TableCell>
+                  <TableCell>
+                    <Button variant="outline" onClick={() => setHistorial(c.id)}>
+                      Historial y propuestas
+                    </Button>
+                    {administrar && (
+                      <Button variant="outline" onClick={() => setEditar(c)}>
+                        Editar
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </TableContainer>
       </div>
+      {historial && query.data?.find((c) => c.id === historial) && (
+        <VersionesClase clase={query.data.find((c) => c.id === historial)!} />
+      )}
+      {administrar && <EquivalenciasSap />}
       {editar && (
         <form
           className="grid grid-cols-2 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat"
@@ -169,6 +186,22 @@ export function ClasesPage() {
               )}
             </label>
           ))}
+          {editar.id && (
+            <label className="text-xs">
+              Mes de vigencia para cambios de tasa, cuentas o depreciable
+              <Input
+                type="month"
+                value={editar.vigencia?.slice(0, 7) ?? ''}
+                onChange={(e) =>
+                  setEditar({
+                    ...editar,
+                    vigencia: e.target.value ? `${e.target.value}-01` : undefined,
+                  })
+                }
+              />
+              <span>El cambio se propone a revisión; debe autorizarlo otra persona.</span>
+            </label>
+          )}
           <label className="text-xs">
             Tasa contable anual (genera póliza)
             <Input

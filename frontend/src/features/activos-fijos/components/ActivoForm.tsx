@@ -159,10 +159,17 @@ export function ActivoForm({ activo, onClose }: { activo?: Activo; onClose: () =
     >
       <SheetContent size="lg">
         <SheetHeader>
-          <SheetTitle>{activo ? 'Completar activo' : 'Alta manual de activo'}</SheetTitle>
+          <SheetTitle>
+            {activo?.estado === 1
+              ? 'Editar tasas del activo'
+              : activo
+                ? 'Completar activo'
+                : 'Alta manual de activo'}
+          </SheetTitle>
           <SheetDescription>
-            Complete los datos y conserve el documento de soporte. La capitalización se realiza
-            después.
+            {activo?.estado === 1
+              ? 'Las tasas se aplican a futuras corridas; déjelas vacías para usar las de la clase.'
+              : 'Complete los datos y conserve el documento de soporte. La capitalización se realiza después.'}
           </SheetDescription>
         </SheetHeader>
         <SheetBody>
@@ -173,7 +180,9 @@ export function ActivoForm({ activo, onClose }: { activo?: Activo; onClose: () =
               e.preventDefault();
               guardar.mutate(
                 {
-                  ruta: activo ? `activos/${activo.id}/editar` : 'activos',
+                  ruta: activo
+                    ? `activos/${activo.id}/${activo.estado === 1 ? 'tasas' : 'editar'}`
+                    : 'activos',
                   body: { datos: d },
                   version: activo?.version,
                 },
@@ -181,7 +190,7 @@ export function ActivoForm({ activo, onClose }: { activo?: Activo; onClose: () =
               );
             }}
           >
-            <fieldset className="grid grid-cols-2 gap-4">
+            <fieldset className="grid grid-cols-2 gap-4" disabled={activo?.estado === 1}>
               <legend className="mb-3 font-semibold">Identificación y valores</legend>
               <label className="col-span-2 space-y-1 text-xs">
                 Descripción *
@@ -199,7 +208,13 @@ export function ActivoForm({ activo, onClose }: { activo?: Activo; onClose: () =
                   className="h-ctl-xl w-full rounded-md border border-line-control bg-surface-card px-3"
                   value={d.claseId}
                   onChange={(e) =>
-                    set({ claseId: e.target.value, activoMejoradoId: null, vidaUtilMeses: null })
+                    set({
+                      claseId: e.target.value,
+                      activoMejoradoId: null,
+                      vidaUtilMeses: null,
+                      tasaContableAnual: null,
+                      tasaFiscalAnual: null,
+                    })
                   }
                 >
                   <option value="">Seleccione clase</option>
@@ -250,7 +265,7 @@ export function ActivoForm({ activo, onClose }: { activo?: Activo; onClose: () =
                     <Input
                       required={
                         (k === 'documentoSoporte' && !activo?.ordenCompraId) ||
-                        (k === 'pedimento' && d.importacion !== 0)
+                        (k === 'pedimento' && (d.importacion === 1 || d.importacion === 2))
                       }
                       value={d[k] ?? ''}
                       onChange={(e) => set({ [k]: e.target.value || null })}
@@ -320,6 +335,8 @@ export function ActivoForm({ activo, onClose }: { activo?: Activo; onClose: () =
                   <option value={0}>No</option>
                   <option value={1}>Temporal</option>
                   <option value={2}>Definitiva</option>
+                  {/* eslint-disable-next-line ds/no-texto-interno -- P16 exige este estado de importación. */}
+                  <option value={3}>Por confirmar</option>
                 </select>
               </label>
               <label className="flex items-center gap-2 text-xs">
@@ -331,7 +348,26 @@ export function ActivoForm({ activo, onClose }: { activo?: Activo; onClose: () =
                 Arrendado
               </label>
             </fieldset>
-            <CustodiaFields value={d.custodia} onChange={(custodia) => set({ custodia })} />
+            {!['160', '170'].includes(clases.data?.find((c) => c.id === d.claseId)?.clave ?? '') &&
+              (['tasaContableAnual', 'tasaFiscalAnual'] as const).map((k) => (
+                <label key={k} className="space-y-1 text-xs">
+                  {k === 'tasaContableAnual' ? 'Tasa propia contable' : 'Tasa propia fiscal'}
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.0001"
+                    value={d[k] ?? ''}
+                    onChange={(e) =>
+                      set({ [k]: e.target.value === '' ? null : Number(e.target.value) })
+                    }
+                  />
+                  <span>Déjelo vacío para usar la de la clase.</span>
+                </label>
+              ))}
+            {activo?.estado !== 1 && (
+              <CustodiaFields value={d.custodia} onChange={(custodia) => set({ custodia })} />
+            )}
             {guardar.error && (
               <p role="alert" className="text-danger-fg">
                 {guardar.error.message}

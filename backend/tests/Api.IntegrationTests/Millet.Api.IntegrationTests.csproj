@@ -44,4 +44,5 @@
   <ItemGroup>
     <Compile Include="../Api.UnitTests/PruA/PruARegressionTests.cs" Link="PruA/PruARegressionTests.cs" />
   </ItemGroup>
+  <ItemGroup><EmbeddedResource Include="../ActivosFijos.UnitTests/Recursos/SapMilletP16.xlsx" Link="Recursos/SapMilletP16.xlsx" /></ItemGroup>
 </Project>

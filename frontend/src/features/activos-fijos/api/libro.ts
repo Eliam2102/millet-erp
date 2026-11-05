@@ -20,6 +20,7 @@ export interface Depreciacion {
   acumuladaDespues: number;
 }
 export interface Corrida {
+  sinEfectoContable?: boolean;
   id: string;
   periodo: string;
   revision: number;
@@ -30,6 +31,11 @@ export interface Corrida {
   detalles: Depreciacion[];
 }
 export interface Operacion {
+  activoId?: string;
+  registradoPor?: string;
+  motivoRechazo?: string | null;
+  ventaCancelada?: boolean;
+  revierteA?: string | null;
   id: string;
   tipo: string;
   fecha: string;
@@ -42,6 +48,7 @@ export interface Operacion {
   anulada: boolean;
 }
 export interface FilaLibro {
+  tasaPropia?: boolean;
   activoId: string;
   numero: string;
   clase: string;
@@ -54,6 +61,7 @@ export interface FilaLibro {
 }
 export interface Conciliacion {
   clases: {
+    claseId: string;
     clase: string;
     valorLibro: number;
     acumuladaLibro: number;
@@ -62,6 +70,16 @@ export interface Conciliacion {
     diferenciaValor: number | null;
     diferenciaAcumulada: number | null;
     observacion: string | null;
+  }[];
+  depreciacionPorActivo?: {
+    activoId: string;
+    numero: string;
+    clase: string;
+    importeLibro: number;
+    importePoliza: number | null;
+    diferencia: number | null;
+    diferenciaGrupo: number;
+    causaSugerida: string;
   }[];
   activos: FilaLibro[];
   corridas: Corrida[];
@@ -109,3 +127,13 @@ export function descargarCsv(nombre: string, texto: string) {
   a.click();
   URL.revokeObjectURL(url);
 }
+
+export const nombreOperacion: Record<string, string> = {
+  Baja: 'Baja',
+  Venta: 'Venta',
+  Amortizacion: 'Amortización',
+  Revalorizacion: 'Revalorización',
+  ReversaCapitalizacion: 'Reversa de capitalización',
+  ReversaVenta: 'Reversa de venta',
+  ReversaBaja: 'Reversa de baja',
+};

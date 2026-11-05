@@ -2,8 +2,9 @@ namespace Millet.ActivosFijos.Domain;
 
 public sealed record TasasActivo(decimal? Contable, decimal? Fiscal, string? Observacion)
 {
-    public static TasasActivo Resolver(Activo a, ClaseActivo c, ClaseActivo? mejorada = null)
+    public static TasasActivo Resolver(Activo a, ClaseActivo c, ClaseActivo? mejorada = null, DateOnly? periodo = null)
     {
+        if (periodo is DateOnly mes) { c = c.EnMes(mes); mejorada = mejorada?.EnMes(mes); }
         if (!c.Depreciable) return new(0, 0, "No depreciable");
         if (c.Clave == "160") return a.VidaUtilMeses is int meses
             ? new(decimal.Round(1200m / meses, 4), decimal.Round(1200m / meses, 4), null)
@@ -12,7 +13,9 @@ public sealed record TasasActivo(decimal? Contable, decimal? Fiscal, string? Obs
             ? new(mejorada.Depreciable ? mejorada.TasaContableAnual : 0, mejorada.Depreciable ? mejorada.TasaFiscalAnual : 0,
                 !mejorada.TasaConfirmada ? "Tasa por confirmar con Millet" : null)
             : new(null, null, "Indique el activo que mejora");
-        return new(c.TasaContableAnual, c.TasaFiscalAnual, c.TasaFiscalAnual == null || c.TasaContableAnual == null
+        var contable = a.TasaContableAnual ?? c.TasaContableAnual;
+        var fiscal = a.TasaFiscalAnual ?? c.TasaFiscalAnual;
+        return new(contable, fiscal, fiscal == null || contable == null
             ? "Tasa por confirmar: capture la tasa" : !c.TasaConfirmada
                 ? "Tasa por confirmar con Millet" : null);
     }
@@ -27,7 +30,7 @@ public static class CalculoFiscal
     public static FilaFiscal Calcular(Activo a, ClaseActivo clase, int ejercicio, int mesCorte, bool mismoMes,
         IReadOnlyDictionary<DateOnly, decimal> inpc, ClaseActivo? claseMejorada = null)
     {
-        var tasas = TasasActivo.Resolver(a, clase, claseMejorada);
+        var tasas = TasasActivo.Resolver(a, clase, claseMejorada, new(ejercicio, mesCorte, 1));
         var corte = new DateOnly(ejercicio, mesCorte, 1);
         var inicio = a.InicioUso == null ? corte.AddMonths(1) : CalculoDepreciacion.PrimerMes(a, mismoMes);
         var fin = a.FechaBaja is DateOnly baja && CalculoDepreciacion.Mes(baja) <= corte ? CalculoDepreciacion.Mes(baja).AddMonths(-1) : corte;
@@ -36,9 +39,10 @@ public static class CalculoFiscal
         var meses = Math.Max(0, (fin.Year - desde.Year) * 12 + fin.Month - desde.Month + 1);
         decimal acumulada = 0, historica = 0;
         // Redondea al final del periodo fiscal, sin acumular el redondeo mensual de la póliza.
-        if (tasas.Fiscal is decimal tasa && tasa > 0 && a.Estado != EstadoActivo.PorCapitalizar)
+        if (a.Estado != EstadoActivo.PorCapitalizar)
             for (var mes = inicio; mes <= fin; mes = mes.AddMonths(1))
             {
+                var tasa = TasasActivo.Resolver(a, clase, claseMejorada, mes).Fiscal ?? 0;
                 var inversion = Math.Max(0, a.ValorOriginal + a.Historial.Where(h => CalculoDepreciacion.Mes(h.Fecha) < mes).Sum(h => h.Importe));
                 var deduccion = Math.Min(Math.Max(0, inversion - acumulada), inversion * tasa / 1200m);
                 acumulada += deduccion;

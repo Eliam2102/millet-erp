@@ -5549,6 +5549,48 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("0000000f-0001-0000-0000-000000000031"),
+                            Accion = "solicitar",
+                            Codigo = "activos_fijos.reversas.solicitar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Solicitar reversas de activos fijos (Contador General o capitalizador)",
+                            Modulo = "activos_fijos",
+                            Recurso = "reversas",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000f-0001-0000-0000-000000000032"),
+                            Accion = "autorizar",
+                            Codigo = "activos_fijos.reversas.autorizar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar reversas de activos fijos (Director de Administración y Finanzas)",
+                            Modulo = "activos_fijos",
+                            Recurso = "reversas",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000f-0001-0000-0000-000000000030"),
+                            Accion = "autorizar",
+                            Codigo = "activos_fijos.clases.autorizar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Activos fijos: autorizar versiones de clases",
+                            Modulo = "activos_fijos",
+                            Recurso = "clases",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("0000000f-0001-0000-0000-000000000001"),
                             Accion = "administrar",
                             Codigo = "activos_fijos.clases.administrar",
