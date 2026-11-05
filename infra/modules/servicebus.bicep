@@ -1008,7 +1008,7 @@ resource contabTesoreriaFilter 'Microsoft.ServiceBus/namespaces/topics/subscript
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'tesoreria.pago-factura-proveedor.aplicado.v1\', \'tesoreria.pago-factura-proveedor.revertido.v1\', \'tesoreria.pago-cliente.confirmado.v1\')'
+      sqlExpression: 'user.EventType IN (\'tesoreria.pago-factura-proveedor.aplicado.v1\', \'tesoreria.pago-factura-proveedor.revertido.v1\', \'tesoreria.pago-cliente.confirmado.v1\', \'tesoreria.deposito-caja.confirmado.v1\', \'tesoreria.diferencia-corte.autorizada.v1\', \'tesoreria.diferencia-corte.devolucion-aplicada.v1\', \'tesoreria.movimiento-bancario.registrado.v1\', \'tesoreria.reembolso-nota-credito.actualizado.v1\')'
       compatibilityLevel: 20
     }
   }
@@ -1033,7 +1033,7 @@ resource contabAlmacenFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptio
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'almacen.oc_recepcion.registrada.v1\', \'almacen.recepcion_oc.cancelada.v1\', \'almacen.ajuste_inventario.aplicado.v1\', \'almacen.salida_requisicion.registrada.v1\', \'almacen.devolucion_interna.aplicada.v1\', \'almacen.oc_devolucion.registrada.v1\')'
+      sqlExpression: 'user.EventType IN (\'almacen.oc_recepcion.registrada.v1\', \'almacen.recepcion_oc.cancelada.v1\', \'almacen.ajuste_inventario.aplicado.v1\', \'almacen.salida_requisicion.registrada.v1\', \'almacen.devolucion_interna.aplicada.v1\', \'almacen.oc_devolucion.registrada.v1\', \'almacen.expediente.costo-aplicado.v1\', \'almacen.salida_inventario.registrada.v1\')'
       compatibilityLevel: 20
     }
   }

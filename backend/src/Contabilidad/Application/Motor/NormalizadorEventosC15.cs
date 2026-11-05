@@ -116,7 +116,7 @@ public static partial class NormalizadorEventos
         FacturaAnticipoTimbrada => FacturaAnticipo(eventoId, payload),
         NotaCreditoTimbrada => NotaCreditoVenta(eventoId, payload),
         CobroMostradorRegistrado => CobroNoEfectivo(eventoId, payload),
-        _ => null,
+        _ => NormalizarU2(tipo, eventoId, payload),
     };
 
     // ---------------------------------------------------------------- Almacén
