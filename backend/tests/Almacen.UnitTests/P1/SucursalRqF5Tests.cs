@@ -65,7 +65,7 @@ public sealed class SucursalRqF5Tests
 
     private static Task<RegistrarSalidaResponse> Salir(P1Fixture f, IComprasRequisicionReadPort port) =>
         new RegistrarSalidaConRequisicionHandler(f.Db, port, f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), new P7Support.Conversion(), P7Support.Apartados(f.Db))
-            .Handle(new(f.DocumentoId, P1Fixture.Fecha, null, null, [new(f.ArticuloId, f.LineaId, 1, null, null, null, null, f.BinId)]), default);
+            .Handle(new(f.DocumentoId, P1Fixture.Fecha, Guid.NewGuid(), null, [new(f.ArticuloId, f.LineaId, 1, null, null, null, null, f.BinId)], "Quien recibe"), default);
 
     private static async Task Error(Func<Task> action, string code) => (await Assert.ThrowsAsync<BusinessRuleException>(action)).Code.Should().Be(code);
 }

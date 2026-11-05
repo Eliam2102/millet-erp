@@ -51,6 +51,7 @@ public sealed class LineaMovimientoConfiguration : IEntityTypeConfiguration<Line
         builder.Property(x => x.CantidadRealContada).HasPrecision(14, 4);
         builder.Property(x => x.UbicacionReferencia).HasMaxLength(100);
         builder.Property(x => x.ComentarioLinea).HasMaxLength(500);
+        builder.Property(x => x.EvidenciaBlobRef).HasMaxLength(500);
         // ADR-0047 C7.2a: bin explícito de la línea. Nullable (NULL = ÚNICA).
         builder.Property(x => x.UbicacionId);
 

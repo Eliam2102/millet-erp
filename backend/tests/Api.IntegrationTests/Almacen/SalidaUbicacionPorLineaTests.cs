@@ -383,16 +383,19 @@ public class SalidaUbicacionPorLineaTests : IClassFixture<WebApplicationFactory<
     private static RegistrarSalidaConRequisicionCommand ComandoRq(Ctx ctx, Guid? ubicacionId) =>
         new(RequisicionId: ctx.RqId,
             FechaMovimiento: Fecha,
-            PersonaDestinatariaId: null,
+            PersonaDestinatariaId: Guid.NewGuid(),
             Observaciones: "PR5 regresión",
-            Lineas: new[] { LineaInput(ctx, ubicacionId) });
+            Lineas: new[] { LineaInput(ctx, ubicacionId) },
+            AcuseRecibeNombre: "Quien recibe");
 
     private static RegistrarSalidaPorValeCommand ComandoVale(Ctx ctx, Guid? ubicacionId) =>
         new(FechaMovimiento: Fecha,
             ValeBlobRef: "vales/pr5-test.pdf",
-            PersonaDestinatariaId: null,
+            PersonaDestinatariaId: Guid.NewGuid(),
             Observaciones: "PR5 regresión vale",
-            Lineas: new[] { LineaInput(ctx, ubicacionId) });
+            Lineas: new[] { LineaInput(ctx, ubicacionId) },
+            MotivoUrgencia: "Paro de línea",
+            AcuseRecibeNombre: "Quien recibe");
 
     private static RegistrarSalidaLineaInput LineaInput(Ctx ctx, Guid? ubicacionId) =>
         new(ArticuloId: ctx.ArticuloId,

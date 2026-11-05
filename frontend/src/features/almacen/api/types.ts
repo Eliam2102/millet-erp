@@ -337,6 +337,18 @@ export interface RecepcionLineaItem {
   altoMm?: number | null;
   /** F1-MP-01 S4: lote del proveedor; null = sin lote. */
   lote?: string | null;
+  /** G-10: la partida dañada tiene foto o documento de evidencia. */
+  conEvidencia?: boolean;
+}
+
+/** G-10: partida rechazada en el acto; no suma existencia y el pendiente sigue en la OC. */
+export interface RecepcionRechazoItem {
+  articuloId: string;
+  articuloClave: string | null;
+  articuloDescripcion: string | null;
+  cantidad: number;
+  unidadMedida: string;
+  motivo: string;
 }
 
 /** F1-COM-06: documentos de importación de la recepción. */
@@ -387,6 +399,9 @@ export interface RecepcionDetalle {
   /** G-3: remisión del proveedor y, si repitió remisión/factura de la OC, el motivo capturado. */
   remision?: string | null;
   motivoDuplicado?: string | null;
+  /** G-10: quién recibió físicamente (además de quien capturó) y lo rechazado en el acto. */
+  recibidoPorNombre?: string | null;
+  rechazos?: RecepcionRechazoItem[] | null;
 }
 
 export type MotivoCancelacionRecepcion = 'ARTICULO' | 'CANTIDAD' | 'OC' | 'UBICACION' | 'OTRO';
@@ -467,6 +482,8 @@ export interface RegistrarRecepcionConFacturaCommand {
   /** G-3: remisión del proveedor; con la misma remisión/factura ya recibida en la OC el servidor pide `motivoDuplicado`. */
   remision?: string | null;
   motivoDuplicado?: string | null;
+  /** G-10: quién recibió físicamente; sin dato, la recepción imprime a quien la capturó. */
+  recibidoPorNombre?: string | null;
   /**
    * PR4: helper de cabecera (bin N4) que el almacenista auto-aplicó a las
    * líneas sin ubicación. null = no usó el helper. Solo reportería — la
@@ -490,6 +507,7 @@ export interface RegistrarRecepcionConPackingListCommand {
   /** G-3: ver variante A. */
   remision?: string | null;
   motivoDuplicado?: string | null;
+  recibidoPorNombre?: string | null;
   /** PR4: helper de cabecera (ver variante A). null = no lo usó. */
   ubicacionHelperId: string | null;
   importacion?: import('../schemas/recepcion').ImportacionRecepcionValues | null;
@@ -511,6 +529,10 @@ export interface RegistrarRecepcionLineaInput {
   motivoDano?: string | null;
   /** F1-MP-01 S4: lote del proveedor; obligatorio con artículo ligado a A+W (LOTE_REQUERIDO), opcional si no. */
   lote?: string | null;
+  /** G-10: parte rechazada en el acto (no entra al inventario). Dañado y rechazado exigen evidencia (blobRef del archivo subido). */
+  cantidadRechazada?: number;
+  motivoRechazo?: string | null;
+  evidenciaBlobRef?: string | null;
 }
 
 export interface RegistrarRecepcionResponse {
@@ -610,6 +632,10 @@ export interface SalidaDetalle {
   rqRegularizadoraId: string | null;
   rqRegularizadoraFolio: string | null;
   lineas: SalidaLineaItem[];
+  /** G-10: acuse de quien recibe (nombre y momento) y motivo de la urgencia del vale. */
+  acuseRecibeNombre?: string | null;
+  acuseRecibeAt?: string | null;
+  motivoUrgencia?: string | null;
 }
 
 /**
@@ -624,6 +650,8 @@ export interface RegistrarSalidaConRequisicionCommand {
   personaDestinatariaId: string | null;
   observaciones: string | null;
   lineas: RegistrarSalidaLineaInput[];
+  /** G-10: nombre de quien recibe el material (acuse); sin él no se confirma. */
+  acuseRecibeNombre: string | null;
 }
 
 /**
@@ -638,6 +666,9 @@ export interface RegistrarSalidaPorValeCommand {
   personaDestinatariaId: string | null;
   observaciones: string | null;
   lineas: RegistrarSalidaLineaInput[];
+  /** G-10: motivo de la urgencia y acuse de quien recibe; sin ellos no se confirma. */
+  motivoUrgencia: string | null;
+  acuseRecibeNombre: string | null;
 }
 
 export interface RegistrarSalidaLineaInput {

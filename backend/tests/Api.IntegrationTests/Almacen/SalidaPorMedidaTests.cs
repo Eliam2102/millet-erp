@@ -28,7 +28,7 @@ public class SalidaPorMedidaTests(WebApplicationFactory<Program> factory) : ICla
         new RegistrarSalidaPorValeHandler(db, new CapturaEventos(), new UserFake(ctx.UserId), new EmpresaFake(ctx.EmpresaId), new DecimalesNulo(),
             ctx.Periodos, ctx.Calendario, ctx.Centros, new ConversionM2(), new ApartadosRequisicionService(db, new AlmacenSaldoQueryAdapter(db)),
             new Articulos(true), new Variantes(ctx.ArticuloId))
-            .Handle(new RegistrarSalidaPorValeCommand(Fecha, "vales/medida.pdf", null, null, lineas), default);
+            .Handle(new RegistrarSalidaPorValeCommand(Fecha, "vales/medida.pdf", Guid.NewGuid(), null, lineas, "Cambio de lote en línea 1", "Quien recibe"), default);
 
     [Fact]
     public async Task Vale_por_medida_descuenta_solo_esa_medida_y_la_devolucion_interna_regresa_a_la_misma()

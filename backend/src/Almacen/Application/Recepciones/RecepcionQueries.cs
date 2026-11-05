@@ -68,7 +68,12 @@ public sealed record RecepcionDetalle(
     bool RegistradaPorOtroUsuario = false,
     // G-3: remisión del proveedor y motivo capturado si repitió remisión/factura de otra recepción de la OC.
     string? Remision = null,
-    string? MotivoDuplicado = null);
+    string? MotivoDuplicado = null,
+    // G-10: quién recibió físicamente y partidas rechazadas en el acto (no suman existencia; el pendiente sigue en la OC).
+    string? RecibidoPorNombre = null, IReadOnlyList<RecepcionRechazoItem>? Rechazos = null);
+
+public sealed record RecepcionRechazoItem(
+    Guid ArticuloId, string? ArticuloClave, string? ArticuloDescripcion, decimal Cantidad, string UnidadMedida, string Motivo);
 
 public sealed record RecepcionImportacionDetalle(
     string NumeroPedimento, string NumeroBl, string NumeroContenedor, string Aduana, string? AduanaNombre,
@@ -96,7 +101,9 @@ public sealed record RecepcionLineaItem(
     // F1-MP-01: medida de la hoja (vidrio crudo); null = artículo sin medida.
     Guid? ProductoAwVarianteId = null, decimal? AnchoMm = null, decimal? AltoMm = null,
     // F1-MP-01 S4: lote del proveedor; null = sin lote.
-    string? Lote = null);
+    string? Lote = null,
+    // G-10: la partida dañada tiene foto o documento de evidencia (el archivo no sale de aquí).
+    bool ConEvidencia = false);
 
 public sealed record ListarRecepcionesQuery(
     EstadoMovimiento? Estado,
@@ -420,7 +427,7 @@ public sealed class ObtenerRecepcionPorIdHandler
                         l.UbicacionId is Guid ub && rutasUbicacion.TryGetValue(ub, out var ruta) ? ruta : null,
                         enRevision, enRevision ? l.ComentarioLinea : null,
                         l.LineaOcId is Guid loc ? fracciones.GetValueOrDefault(loc) : null,
-                        l.ProductoAwVarianteId, l.AnchoMm, l.AltoMm, l.Lote);
+                        l.ProductoAwVarianteId, l.AnchoMm, l.AltoMm, l.Lote, l.EvidenciaBlobRef is not null);
                 })
                 .ToList(),
             CfdiUuidFiscal: cfdiUuidFiscal,
@@ -436,6 +443,17 @@ public sealed class ObtenerRecepcionPorIdHandler
             FoliosCancelacion: cancelacion is null ? null : cancelaciones.Select(c => c.Folio!).ToList(),
             RegistradaPorOtroUsuario: _currentUser?.UserId is Guid yo && mov.RegistradoPor != yo,
             Remision: mov.Remision,
-            MotivoDuplicado: mov.MotivoDuplicado);
+            MotivoDuplicado: mov.MotivoDuplicado,
+            RecibidoPorNombre: mov.RecibidoPorNombre,
+            Rechazos: await RechazosAsync(mov.Id, cancellationToken));
+    }
+
+    private async Task<IReadOnlyList<RecepcionRechazoItem>> RechazosAsync(Guid recepcionId, CancellationToken cancellationToken)
+    {
+        var rechazos = await _db.RecepcionRechazos.AsNoTracking().Where(r => r.RecepcionId == recepcionId).OrderBy(r => r.Id).ToListAsync(cancellationToken);
+        if (rechazos.Count == 0) return [];
+        var arts = await _articulos.ObtenerPorIdsAsync(rechazos.Select(r => r.ArticuloId).Distinct().ToArray(), cancellationToken);
+        return rechazos.Select(r => new RecepcionRechazoItem(r.ArticuloId, arts.GetValueOrDefault(r.ArticuloId)?.Clave,
+            arts.GetValueOrDefault(r.ArticuloId)?.Descripcion, r.Cantidad, r.UnidadMedida, r.Motivo)).ToList();
     }
 }
