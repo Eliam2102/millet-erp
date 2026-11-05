@@ -78,7 +78,7 @@ public sealed class ListarAnticiposHandler
                 a.Moneda,
                 a.MontoEntregado,
                 a.MontoAmortizado,
-                a.MontoEntregado - a.MontoAmortizado,
+                a.Origen == OrigenAnticipo.SolicitudComercioExterior ? 0 : a.MontoEntregado - a.MontoAmortizado,
                 a.OrdenCompraId,
                 a.Estado,
                 a.Version,

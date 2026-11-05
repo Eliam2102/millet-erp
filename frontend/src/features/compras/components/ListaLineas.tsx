@@ -35,7 +35,7 @@ export function ListaLineas({ lineas, resolverArticulo, cerrada = false }: Lista
     return (
       <EmptyState
         title="Sin partidas registradas."
-        description="Esta requisición fue creada sin partidas; el editor de UF2-PR3 permitirá agregarlas en estado Borrador."
+        description="Agrega las partidas mientras la requisición esté en borrador."
       />
     );
   }

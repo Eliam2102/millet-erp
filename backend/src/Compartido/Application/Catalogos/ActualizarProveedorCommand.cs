@@ -148,6 +148,8 @@ public sealed class ActualizarProveedorHandler : IRequestHandler<ActualizarProve
         if (request.ClaveAw is int claveAw && claveAw != proveedor.ClaveAw)
             await ClaveAwProveedor.ValidarUnicaAsync(_db, claveAw, proveedor.Id, cancellationToken);
 
+        await TaxIdProveedor.ValidarUnicoAsync(_db, request.TaxId, proveedor.Id, cancellationToken);
+
         // 86e3pdmee: cambiar el tipo de persona no puede dejar un régimen que ya no le corresponde.
         if (request.TipoPersona is { } nuevoTipo && nuevoTipo != proveedor.TipoPersona)
             await ClasificacionFiscalProveedor.ValidarRegimenAsync(

@@ -41,7 +41,7 @@ export function CxpLandingPage() {
     <div className="space-y-6">
       <PageHeader
         titulo="Cuentas por Pagar"
-        descripcion="Ciclo del pasivo proveedor: CFDIs, facturas, notas de crédito, comprobaciones, viáticos, tarjetas corporativas y reportes."
+        descripcion="Consulta y administra las facturas, notas de crédito, comprobaciones y viáticos por pagar."
       />
 
       {!hayCards && (
@@ -108,7 +108,7 @@ const moduloCxpLanding: NavModulo = {
         },
         {
           label: 'Revisión por área',
-          description: 'Facturas asignadas a tu área en espera de liberación. Indicadores de SLA.',
+          description: "Facturas asignadas a tu área en espera de liberación. Plazos de revisión.",
           to: '/cxp/revision',
           icon: Inbox,
           permission: PermisosCanonicos.CuentasPorPagarFacturasLiberarRevision,

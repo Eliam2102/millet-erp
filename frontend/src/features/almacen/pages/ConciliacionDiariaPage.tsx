@@ -1,3 +1,5 @@
+import { problemaUsuario } from '@/lib/error-usuario';
+import { errorUsuario } from '@/lib/error-usuario';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/erp/PageHeader';
@@ -35,13 +37,12 @@ import {
 } from '@/features/almacen/api/useConciliacionDiaria';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError } from '@/lib/api';
 
 const num = (n: number) => n.toLocaleString('es-MX', { maximumFractionDigits: 4 });
 const llave = (l: { articuloId: string; productoAwVarianteId: string | null; lote: string | null }) =>
   `${l.articuloId}|${l.productoAwVarianteId ?? ''}|${l.lote ?? ''}`;
 const hoy = () => new Date().toLocaleDateString('en-CA');
-const errorTexto = (e: unknown, defecto: string) => (esApiError(e) ? (e.problem.detail ?? e.problem.title) : defecto);
+const errorTexto = (e: unknown, defecto: string) => errorUsuario(e, defecto);
 
 /**
  * A4.6 — Conciliación diaria del ERP contra A+W. Se captura el físico por hoja/medida/lote y no hay tolerancia: toda
@@ -120,28 +121,28 @@ export function ConciliacionDiariaPage() {
     <div className="space-y-5">
       <PageHeader
         titulo="Conciliación diaria"
-        descripcion="Existencia del ERP contra el físico que reporta A+W, por hoja, medida y lote. No hay tolerancia: toda diferencia de menos es una salida no planificada que se aclara con la mesa de corte."
+        descripcion="Compara la existencia del ERP con el físico por hoja, medida y lote, y aclara con la mesa de corte cada diferencia sin tolerancia."
       />
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <KpiCard
           etiqueta="Diferencias por aclarar"
-          valor={pendientes.length}
+          valor={diferencias.isSuccess ? pendientes.length : <span className="text-ink-muted">—</span>}
           tono={pendientes.length > 0 ? 'warning' : 'success'}
           subdato="Esperan la aclaración de la mesa de corte"
         />
         <KpiCard
           etiqueta="Valor de salidas no planificadas por aclarar"
-          valor={<MoneyDisplay amount={valorPendiente} currency="MXN" strong />}
+          valor={<MoneyDisplay amount={diferencias.isSuccess ? valorPendiente : null} currency="MXN" />}
           tono="neutral"
         />
-        <KpiCard etiqueta="Corridas registradas" valor={corridas.data?.length ?? 0} tono="info" />
+        <KpiCard etiqueta="Corridas registradas" valor={corridas.isSuccess ? (corridas.data?.length ?? 0) : <span className="text-ink-muted">—</span>} tono="info" />
       </div>
 
       <Tabs defaultValue="conciliar">
         <TabsList aria-label="Secciones de la conciliación">
           <TabsTrigger value="conciliar">Conciliar</TabsTrigger>
-          <TabsTrigger value="aclarar" count={pendientes.length}>
+          <TabsTrigger value="aclarar" count={diferencias.isSuccess ? pendientes.length : undefined}>
             Por aclarar
           </TabsTrigger>
           <TabsTrigger value="historico">Histórico de diferencias</TabsTrigger>
@@ -192,12 +193,12 @@ export function ConciliacionDiariaPage() {
           {ultima &&
             (ultima.diferencias === 0 ? (
               <p role="status" className="rounded-lg border border-line-row bg-surface-card p-3 text-sm">
-                <Badge variant="success">Sin diferencias</Badge> Corrida del {ultima.fecha} registrada: {ultima.lineasComparadas}{' '}
-                línea(s) comparadas, sin salidas no planificadas.
+                <Badge variant="success">Sin diferencias</Badge> Corrida del <DateTimeDisplay value={ultima.fecha} variant="corta" /> registrada: {ultima.lineasComparadas}{' '}
+                partidas comparadas, sin salidas no planificadas.
               </p>
             ) : (
               <AvisoEnLinea tono="advertencia">
-                {`Corrida del ${ultima.fecha}: ${ultima.diferencias} diferencia(s) en ${ultima.lineasComparadas} línea(s). Las salidas no planificadas ya bajaron la existencia y esperan la aclaración de la mesa de corte.`}
+                Corrida del <DateTimeDisplay value={ultima.fecha} variant="corta" />: {ultima.diferencias} diferencia(s) en {ultima.lineasComparadas} partidas. Las salidas no planificadas ya bajaron la existencia y esperan la aclaración de la mesa de corte.
               </AvisoEnLinea>
             ))}
 
@@ -206,7 +207,7 @@ export function ConciliacionDiariaPage() {
           ) : existencia.isError ? (
             <ErrorState
               title="No se pudo cargar la existencia"
-              problem={esApiError(existencia.error) ? existencia.error.problem : undefined}
+              problem={problemaUsuario(existencia.error)}
               onRetry={() => existencia.refetch()}
             />
           ) : existencia.isLoading ? (
@@ -290,7 +291,7 @@ export function ConciliacionDiariaPage() {
                       <TableHead>Día</TableHead>
                       <TableHead>Almacén</TableHead>
                       <TableHead>Físico de</TableHead>
-                      <TableHead className="text-right">Líneas comparadas</TableHead>
+                      <TableHead className="text-right">Partidas comparadas</TableHead>
                       <TableHead className="text-right">Diferencias</TableHead>
                       <TableHead>Corrida</TableHead>
                     </TableRow>

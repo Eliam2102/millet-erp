@@ -64,6 +64,7 @@ export function ExpedientesPage() {
             opciones={[
               { valor: 1, label: 'Abiertos' },
               { valor: 2, label: 'Cancelados' },
+              { valor: 3, label: 'Cerrados' },
             ]}
             valor={search.estado}
             conteos={undefined}

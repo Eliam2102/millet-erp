@@ -297,7 +297,8 @@ public sealed class RegistrarPagoProveedorHandler
                     MetodoPago: pasivo.MetodoPago,
                     ReferenciaBancaria: movimiento.ReferenciaBancaria,
                     CuentaBancariaId: movimiento.CuentaBancariaId,
-                    TipoCambio: pasivo.TipoCambio), cancellationToken);
+                    TipoCambio: pasivo.TipoCambio) { EsAnticipoAgente = pasivo.OrigenTipo == "AnticipoAgente",
+                        SucursalId = pasivo.SucursalAnticipoCeId, ProveedorId = pasivo.ProveedorId }, cancellationToken);
             }
         }
 
@@ -381,6 +382,8 @@ public sealed class RevertirPagoProveedorHandler
         if (movimiento.MotivoNoAplicado is not null)
             throw new BusinessRuleException("PAGO_CUENTA_USAR_DESLIGAR", "Este es un pago a cuenta. Usa Desligar para corregir su aplicación sin registrar un ingreso bancario.");
 
+        var pasivoCe = await _db.PasivosPendientesPago.FirstOrDefaultAsync(p => p.FacturaProveedorId == aplicacion.FacturaProveedorId, cancellationToken);
+        pasivoCe?.ExigirReversaSoportada();
         // RN-10: marca + contramovimiento; nada se borra.
         aplicacion.Revertir(command.Motivo);
         var contramovimiento = movimiento.CrearContramovimiento(
@@ -478,6 +481,8 @@ public sealed class SolicitarCancelacionPasivoHandler : IRequestHandler<Solicita
             throw new EntityNotFoundException("PASIVO_NO_ENCONTRADO",
                 $"El pasivo '{command.FacturaProveedorId}' no está en la bandeja.");
 
+        if (pasivo.OrigenTipo == "AnticipoAgente")
+            throw new BusinessRuleException("CE_CANCELACION_NO_DEFINIDA", "La solicitud de anticipo se gestiona en Comercio Exterior; no se cancela como factura de proveedor.");
         // GI-PR2: la cancelación de un pasivo interno no viaja a CxP como
         // solicitud de factura — se resuelve en su módulo de origen.
         if (pasivo.EsInterno)

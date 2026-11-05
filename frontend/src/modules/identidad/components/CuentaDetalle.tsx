@@ -1,3 +1,5 @@
+import { problemaConsulta } from '@/components/erp/feedback/problema-consulta';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { ArrowLeft, UserCheck } from 'lucide-react';
@@ -16,7 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { ErrorState, PageHeader, TableSkeleton } from '@/components/erp';
 import { TextAreaField } from '@/components/erp/forms/TextAreaField';
-import { esApiError, codigoSoporte } from '@/lib/api';
+import { esApiError } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -28,9 +30,6 @@ import { PermisosPersonalizadosPanel } from '@/modules/identidad/components/Perm
 const SUPER_ADMIN = 'super-admin';
 export const MOTIVO_MINIMO = 15;
 
-function fecha(iso: string | null | undefined) {
-  return iso ? new Date(iso).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' }) : 'Nunca';
-}
 
 /**
  * Ficha de una cuenta sin empleado (86e3yxe9m): datos de la cuenta, su rol por
@@ -51,7 +50,7 @@ export function CuentaDetalle({ usuarioId }: { usuarioId: string }) {
     return (
       <ErrorState
         title="No se pudo consultar la cuenta"
-        problem={esApiError(detalle.error) ? detalle.error.problem : undefined}
+        problem={problemaConsulta(detalle.error)}
         onRetry={() => detalle.refetch()}
       />
     );
@@ -105,7 +104,7 @@ export function CuentaDetalle({ usuarioId }: { usuarioId: string }) {
           </div>
           <div>
             <dt className="text-xs text-ink-muted">Primer acceso</dt>
-            <dd>{fecha(usuario.primerAccesoEn)}</dd>
+            <dd><DateTimeDisplay value={usuario.primerAccesoEn} variant="datetime" /></dd>
           </div>
           <div>
             <dt className="text-xs text-ink-muted">Empleado</dt>
@@ -114,7 +113,7 @@ export function CuentaDetalle({ usuarioId }: { usuarioId: string }) {
         </dl>
         {tecnica && (
           <p className="mt-3 text-xs text-ink-muted">
-            Las cuentas técnicas no corresponden a un empleado (administrador inicial, soporte, QA) y conservan el
+            Las cuentas técnicas no corresponden a un empleado (administrador inicial, soporte, pruebas) y conservan el
             acceso aunque se exija empleado para entrar.
           </p>
         )}
@@ -166,7 +165,7 @@ function ConvertirDialog({
         },
         onError: (error) => {
           if (esApiError(error))
-            toast.error(error.problem.title, { description: error.problem.detail ?? codigoSoporte(error) });
+            toast.error('No se pudo convertir la cuenta. Revisa los datos y tu conexión antes de volver a intentarlo.');
           else toast.error('Error inesperado.');
         },
       },
@@ -203,7 +202,8 @@ function ConvertirDialog({
           <Button type="button" variant="ghost" onClick={() => cerrar(false)} disabled={convertir.isPending}>
             Cancelar
           </Button>
-          <Button type="button" disabled={!motivoValido || convertir.isPending} onClick={confirmar}>
+          <Button type="button" disabled={!motivoValido || convertir.isPending}
+            title={!motivoValido ? `Escribe al menos ${MOTIVO_MINIMO} caracteres para explicar el motivo.` : convertir.isPending ? 'Espera a que termine la conversión.' : undefined} onClick={confirmar}>
             {convertir.isPending ? 'Convirtiendo…' : 'Convertir'}
           </Button>
         </DialogFooter>

@@ -11,9 +11,9 @@ public sealed class EmbarqueExportacionReadAdapter(ComercioExteriorDbContext db,
 {
     public async Task<EmbarqueExportacionLectura> ObtenerAsync(Guid pedidoFacturableId, CancellationToken ct)
     {
-        var expedientes = await db.Expedientes.AsNoTracking().Include(e => e.Participantes).Include(e => e.Documentos)
+        var expedientes = await db.Expedientes.AsNoTracking().Include(e => e.AutorizacionesSalida).Include(e => e.Participantes).Include(e => e.Documentos)
             .Include(e => e.Contenedores).Include(e => e.Partidas).AsSplitQuery()
-            .Where(e => e.Estado == EstadoExpediente.Abierto && e.Partidas.Any(p => p.PedidoFacturableId == pedidoFacturableId && p.Estado != EstadoPartida.Liberada)).ToListAsync(ct);
+            .Where(e => e.Estado != EstadoExpediente.Cancelado && e.Partidas.Any(p => p.PedidoFacturableId == pedidoFacturableId && p.Estado != EstadoPartida.Liberada)).ToListAsync(ct);
         // El vínculo permanece incluso con contenedor cancelado: falta reasignar, nunca evade la compuerta.
         var e = expedientes.OrderByDescending(x => x.Estado == EstadoExpediente.Abierto).ThenByDescending(x => x.CreatedAt).FirstOrDefault();
         if (e is null) return new(false);
@@ -29,6 +29,6 @@ public sealed class EmbarqueExportacionReadAdapter(ComercioExteriorDbContext db,
             bloqueo = ("CE_INCOTERM_REQUERIDO", "Seleccione un Incoterm vigente en el expediente.");
         return new(true, e.Id, e.SucursalId, bloqueo.Codigo is null, bloqueo.Codigo, bloqueo.Motivo, e.Folio,
             e.NumeroPedimentoExportacion, e.ClavePedimento, e.FechaPedimento, incoterm, contenedores, e.AduanaPedimentoExportacion,
-            e.AduanaPedimentoExportacion is { } aduana ? CatalogoAduanas.Aduanas.GetValueOrDefault(aduana) : null);
+            e.AduanaPedimentoExportacion is { } aduana ? CatalogoAduanas.Aduanas.GetValueOrDefault(aduana) : null, e.VersionEmbarque, e.Partidas.Where(p => p.PedidoFacturableId == pedidoFacturableId && p.Estado != EstadoPartida.Liberada && p.AduanalesRevisadoPorId != null).GroupBy(p => p.Posicion).OrderBy(g => g.Key).Select(g => new PartidaAduanalLectura(g.Key, g.First().FraccionArancelaria!, g.First().UnidadAduana!)).ToArray());
     }
 }

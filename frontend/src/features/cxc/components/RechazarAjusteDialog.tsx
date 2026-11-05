@@ -65,7 +65,8 @@ export function RechazarAjusteDialog({ open, onOpenChange, onConfirm, isPending 
           <Button type="button" variant="ghost" onClick={() => handleOpenChange(false)} disabled={isPending}>
             Cancelar
           </Button>
-          <Button type="button" disabled={!motivoValido || isPending} onClick={() => onConfirm(motivo.trim())}>
+          <Button type="button" title={!motivoValido ? 'Escribe el motivo para continuar.' : isPending ? 'Espera a que termine la operación.' : undefined}
+            disabled={!motivoValido || isPending} onClick={() => onConfirm(motivo.trim())}>
             {isPending ? 'Rechazando…' : 'Rechazar ajuste'}
           </Button>
         </DialogFooter>

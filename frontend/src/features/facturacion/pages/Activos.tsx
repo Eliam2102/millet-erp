@@ -10,7 +10,14 @@ import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { Button } from '@/components/ui/button';
 import { motivosDisposicion } from '@/features/activos-fijos/api/motivos-disposicion';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogBody,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -25,11 +32,14 @@ import { EstadoAutorizacionActivo } from '@/features/facturacion/api/types';
 import {
   useAutorizacionesActivo,
   useAutorizarVentaActivo,
+  useRechazarVentaActivo,
 } from '@/features/facturacion/api/useActivos';
 import { EstadoFacturacionBadge } from '@/features/facturacion/components/EstadoFacturacionBadge';
 import type { ActivosSearch } from '@/features/facturacion/lib/activos-search-schema';
 import { esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { useAuthStore } from '@/lib/auth/auth-store';
+import type { AutorizacionActivoItem } from '../api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
@@ -50,6 +60,10 @@ export function Activos() {
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
   const puedeAutorizar = useHasPermission(PermisosCanonicos.FacturacionActivosAutorizar);
+  const usuario = useAuthStore((s) => s.user?.id);
+  const rechazar = useRechazarVentaActivo();
+  const [rechazo, setRechazo] = useState<AutorizacionActivoItem | null>(null);
+  const [motivoRechazo, setMotivoRechazo] = useState('');
   const [formAbierto, setFormAbierto] = useState(false);
   const query = useAutorizacionesActivo(search.estado);
   const [busqueda, setBusqueda] = useState('');
@@ -97,6 +111,54 @@ export function Activos() {
         </Dialog>
       )}
 
+      <Dialog
+        open={!!rechazo}
+        onOpenChange={(open) => {
+          if (!open) setRechazo(null);
+        }}
+      >
+        <DialogContent size="sm">
+          <DialogHeader>
+            <DialogTitle>Rechazar autorización de venta</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (rechazo?.version)
+                rechazar.mutate(
+                  { id: rechazo.id, version: rechazo.version, motivo: motivoRechazo },
+                  {
+                    onSuccess: () => {
+                      setRechazo(null);
+                      setMotivoRechazo('');
+                    },
+                  },
+                );
+            }}
+          >
+            <DialogBody>
+              <label>
+                Motivo *
+                <Input
+                  required
+                  maxLength={2000}
+                  value={motivoRechazo}
+                  onChange={(e) => setMotivoRechazo(e.target.value)}
+                />
+              </label>
+              {rechazar.error && <p role="alert">{rechazar.error.message}</p>}
+            </DialogBody>
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setRechazo(null)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={!motivoRechazo.trim() || rechazar.isPending}>
+                Rechazar venta
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
       <ListadoModulo
         tabs={
           <TabsEstado
@@ -213,6 +275,14 @@ export function Activos() {
                     </TableCell>
                     <TableCell className="px-3 py-2">
                       <EstadoFacturacionBadge entidad="activo" estado={a.estado} />
+                      {a.motivoRechazo && <p>{a.motivoRechazo}</p>}
+                      {puedeAutorizar &&
+                        a.estado === 'Autorizada' &&
+                        a.autorizadoPor === usuario && (
+                          <Button variant="outline" onClick={() => setRechazo(a)}>
+                            Rechazar venta
+                          </Button>
+                        )}
                     </TableCell>
                     <TableCell className="px-3 py-2 font-mono text-xs text-ink-muted">
                       {a.id}

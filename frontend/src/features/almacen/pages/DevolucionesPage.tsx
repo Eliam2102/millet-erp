@@ -169,7 +169,7 @@ export function DevolucionesPage() {
             aria-pressed={search.estado === tab.valor}
             onClick={() => actualizarSearch({ estado: tab.valor as typeof search.estado })}
           >
-            <KpiCard etiqueta={tab.label} valor={conteos.data?.[tab.valor] ?? '—'} />
+            <KpiCard etiqueta={tab.label} valor={conteos.data && !conteos.isError ? (conteos.data[tab.valor] ?? 0) : <span className="text-ink-muted">—</span>} />
           </Button>
         ))}
       </div>
@@ -181,7 +181,7 @@ export function DevolucionesPage() {
             onChange={(estado) =>
               actualizarSearch({ estado: estado as EstadoDevolucionProveedor | undefined })
             }
-            conteos={conteos.data}
+            conteos={conteos.isError ? undefined : conteos.data}
           />
         }
         filtros={

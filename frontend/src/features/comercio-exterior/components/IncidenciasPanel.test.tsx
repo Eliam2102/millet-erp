@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useAuthStore } from '@/lib/auth/auth-store';
 import { IncidenciasPanel } from './IncidenciasPanel';
 import type { ExpedienteDetalle, Incidencia } from '../api/types';
 const mocks = vi.hoisted(() => ({ gestionar: true, guardar: vi.fn() }));
@@ -51,10 +52,57 @@ const data = {
   requisitos: [],
 } as unknown as ExpedienteDetalle;
 beforeEach(() => {
+  useAuthStore.setState({ user: { id: 'u' } as never });
   mocks.gestionar = true;
   mocks.guardar.mockReset().mockResolvedValue({});
 });
 describe('Incidencias del expediente', () => {
+  it('muestra origen automático y diferencia, y guarda seguimiento con motivo', async () => {
+    render(
+      <IncidenciasPanel
+        data={{
+          ...data,
+          incidencias: [
+            {
+              ...incidencia,
+              automatica: true,
+              diferenciaCantidad: 1,
+              fechaCompromiso: '2026-11-10',
+              siguienteAccion: 'Aclarar diferencia',
+            },
+          ],
+        }}
+      />,
+    );
+    expect(screen.getByText('Automática')).toBeInTheDocument();
+    expect(screen.getByText('Diferencia: 1')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Editar fecha y acción' }));
+    fireEvent.change(screen.getByLabelText('Fecha compromiso *'), {
+      target: { value: '2026-11-12' },
+    });
+    fireEvent.change(screen.getByLabelText('Siguiente acción *'), {
+      target: { value: 'Solicitar aclaración al agente' },
+    });
+    fireEvent.change(screen.getByLabelText('Motivo del cambio *'), {
+      target: { value: 'Fecha acordada con agente' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar seguimiento' }));
+    await waitFor(() =>
+      expect(mocks.guardar).toHaveBeenCalledWith({
+        accion: 'incidencias/inc-1/seguimiento',
+        body: {
+          fechaCompromiso: '2026-11-12',
+          siguienteAccion: 'Solicitar aclaración al agente',
+          motivo: 'Fecha acordada con agente',
+        },
+      }),
+    );
+  });
+  it('otro usuario no edita el seguimiento', () => {
+    useAuthStore.setState({ user: { id: 'otro' } as never });
+    render(<IncidenciasPanel data={data} />);
+    expect(screen.queryByRole('button', { name: 'Editar fecha y acción' })).not.toBeInTheDocument();
+  });
   it('muestra bloqueo, historial y antigüedad', () => {
     render(<IncidenciasPanel data={data} />);
     expect(screen.getByRole('note')).toHaveTextContent('cierre físico, documental y financiero');
@@ -86,7 +134,9 @@ describe('Incidencias del expediente', () => {
     );
   });
   it('resolver exige acción y presenta nueva evidencia del pedimento', () => {
-    render(<IncidenciasPanel data={{ ...data, incidencias: [{ ...incidencia, tipo: 2, estado: 2 }] }} />);
+    render(
+      <IncidenciasPanel data={{ ...data, incidencias: [{ ...incidencia, tipo: 2, estado: 2 }] }} />,
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Atender o resolver' }));
     fireEvent.change(screen.getByLabelText('Acción *'), { target: { value: '3' } });
     expect(screen.getByLabelText('Acción tomada *')).toBeRequired();

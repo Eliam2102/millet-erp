@@ -52,6 +52,8 @@ public static class DependencyInjection
         services.AddScoped<RegistroPolizas>();
         services.AddScoped<LecturaPolizas>();
         services.AddScoped<IPolizaContablePort, PolizaContableAdapter>();
+        services.AddScoped<IPolizaContableReadPort, PolizaContableAdapter>();
+        services.AddScoped<IReversaPolizaContablePort, PolizaContableAdapter>();
         // C1.5: entrada única de los listeners (anulaciones, caja, consumo) y datos que el motor completa desde pólizas previas.
         services.AddScoped<Millet.Contabilidad.Application.Motor.ProcesadorEventosContables>();
         services.AddScoped<Millet.Contabilidad.Application.Motor.IEnriquecedorEventoContable, Millet.Contabilidad.Application.Motor.EnriquecedorPolizasOrigen>();

@@ -1,3 +1,6 @@
+import { MoneyDisplay, ErrorState } from '@/components/erp';
+import { problemaConsulta } from '@/components/erp/feedback/problema-consulta';
+import { formatDate } from '@/lib/datetime';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { FileCheck2, Link2 } from 'lucide-react';
@@ -19,7 +22,6 @@ import {
   useFacturasBancoTerminal,
   useLigarFacturaBanco,
 } from '@/features/facturacion/api/useTerminalTarjeta';
-import { esApiError } from '@/lib/api';
 
 function mxn(v: number | null | undefined): string {
   return v == null ? '—' : v.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
@@ -64,8 +66,7 @@ export function FacturaBancoTerminalSection() {
           setCfdiId(null);
           toast.success(`Factura del banco ligada a ${r.cargos} cargo(s) de ${nombreMes(r.anio, r.mes)}.`);
         },
-        onError: (e) =>
-          toast.error(esApiError(e) ? (e.problem.detail ?? e.problem.title) : 'No se pudo ligar la factura del banco.'),
+        onError: () => toast.error('No se pudo ligar la factura del banco. Revisa los datos y tu conexión antes de volver a intentarlo.'),
       },
     );
   }
@@ -109,7 +110,7 @@ export function FacturaBancoTerminalSection() {
           <Label htmlFor="factura-banco-cfdi">Factura del banco (CFDI recibido)</Label>
           <select
             id="factura-banco-cfdi"
-            className="h-9 w-full rounded-md border border-line-control bg-transparent px-3 text-sm shadow-sm"
+            className="h-9 w-full rounded-md border border-line-control bg-transparent px-3 text-sm shadow-card-flat"
             value={cfdiId ?? ''}
             disabled={!valido}
             onChange={(e) => setCfdiId(e.target.value === '' ? null : e.target.value)}
@@ -120,18 +121,21 @@ export function FacturaBancoTerminalSection() {
             {(candidatos.data ?? []).map((f) => (
               <option key={f.id} value={f.id}>
                 {f.rfcEmisor} · {[f.serie, f.folio].filter(Boolean).join('-') || f.uuid.slice(0, 8)} ·{' '}
-                {new Date(f.fechaCfdi).toLocaleDateString('es-MX')} · {mxn(f.total)}
+                {formatDate(f.fechaCfdi)} · {mxn(f.total)}
               </option>
             ))}
           </select>
         </div>
-        <Button size="sm" onClick={onLigar} disabled={ligar.isPending || motivoDeshabilitado != null}>
+        <Button size="sm" onClick={onLigar} disabled={ligar.isPending || motivoDeshabilitado != null} title={motivoDeshabilitado ?? (ligar.isPending ? 'Espera a que termine de ligarse la factura.' : undefined)}>
           <Link2 className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
           Ligar factura
         </Button>
       </div>
       {motivoDeshabilitado && cfdiId != null && <p className="text-xs text-ink-muted">{motivoDeshabilitado}</p>}
 
+      {(candidatos.isError || cuadre.isError || ligadas.isError) && (
+        <ErrorState title="No se pudieron consultar las facturas del banco" problem={problemaConsulta(candidatos.error ?? cuadre.error ?? ligadas.error)} onRetry={() => { void candidatos.refetch(); void cuadre.refetch(); void ligadas.refetch(); }} />
+      )}
       {c && (
         <div className="overflow-x-auto rounded-md border border-line">
           <Table className="w-full text-sm" aria-label="Cuadre de la factura del banco">
@@ -153,12 +157,12 @@ export function FacturaBancoTerminalSection() {
               ).map(([concepto, cargos, factura, diferencia]) => (
                 <TableRow key={concepto}>
                   <TableCell className={concepto === 'Total' ? 'font-medium' : undefined}>{concepto}</TableCell>
-                  <TableCell className="text-right tabular-nums">{mxn(cargos)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{mxn(factura)}</TableCell>
+                  <TableCell className="text-right tabular-nums"><MoneyDisplay amount={cargos} currency="MXN" /></TableCell>
+                  <TableCell className="text-right tabular-nums"><MoneyDisplay amount={factura} currency="MXN" /></TableCell>
                   <TableCell
                     className={`text-right tabular-nums ${diferencia != null && diferencia !== 0 ? 'text-danger-fg' : ''}`}
                   >
-                    {mxn(diferencia)}
+                    <MoneyDisplay amount={diferencia} currency="MXN" />
                   </TableCell>
                 </TableRow>
               ))}

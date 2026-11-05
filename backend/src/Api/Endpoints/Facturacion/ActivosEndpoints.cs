@@ -1,4 +1,8 @@
 using MediatR;
+using Microsoft.EntityFrameworkCore;
+using Millet.Facturacion.Infrastructure.Persistence;
+using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 using Millet.Api.Auth;
 using Millet.Api.Web;
@@ -54,6 +58,20 @@ public static class ActivosEndpoints
         .WithSummary("Bandeja de autorizaciones de venta de activos (Director de Administración y Finanzas)")
         .Produces<IReadOnlyList<AutorizacionActivoItem>>(StatusCodes.Status200OK);
 
+        group.MapPost("/autorizaciones/{id:guid}/rechazar", async (Guid id, RechazoBody datos, HttpRequest req, FacturacionDbContext db, ICurrentUserContext user, IClock clock, CancellationToken ct) =>
+        {
+            if (!int.TryParse(req.Headers.IfMatch.ToString().Trim('"'), out var version) || version < 1) return Results.Problem(statusCode:428,title:"Envíe la versión vigente de la autorización.");
+            await using var tx = await db.Database.BeginTransactionAsync(ct);
+            var a = await db.AutorizacionesVentaActivo.SingleAsync(x => x.Id == id, ct);
+            var llave = $"AF-LIBRO-{a.EmpresaId}";
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({llave}, 0))", ct);
+            await db.Entry(a).ReloadAsync(ct);
+            if (a.Version != version) throw new ConcurrencyException("AutorizacionVentaActivo", id);
+            a.Rechazar(user.UserId ?? Guid.Empty, datos.Motivo, clock.UtcNow);
+            await db.SaveChangesAsync(ct); await tx.CommitAsync(ct); return Results.Ok(a);
+        }).RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionActivosAutorizar)
+            .WithMetadata(new RequireIdempotencyKeyAttribute());
         return app;
     }
+    public sealed record RechazoBody(string Motivo);
 }

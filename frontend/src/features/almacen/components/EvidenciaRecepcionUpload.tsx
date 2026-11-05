@@ -1,3 +1,4 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import { type ChangeEvent, useRef } from 'react';
 import { FileText, Loader2, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -40,8 +41,8 @@ export function EvidenciaRecepcionUpload({
       const r = await subir.mutateAsync({ archivo, idempotencyKey });
       onChange({ blobRef: r.blobRef, nombre: r.nombreArchivo });
     } catch (err) {
-      if (esApiError(err)) toast.error(err.problem.title, { description: codigoSoporte(err) });
-      else toast.error('Error inesperado al subir la evidencia.');
+      if (esApiError(err)) toast.error(errorUsuario(err), { description: codigoSoporte(err) });
+      else toast.error("Error inesperado al subir la evidencia. Revisa los datos del registro; si continúa, avisa a soporte.");
     }
   }
 

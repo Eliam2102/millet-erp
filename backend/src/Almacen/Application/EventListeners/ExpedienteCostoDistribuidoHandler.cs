@@ -28,7 +28,10 @@ public sealed record CostoPartidaAplicado(Guid PartidaId, Guid OcId, Guid Recepc
 public sealed record CostoUbicacionAplicado(Guid UbicacionId, decimal CantidadRemanente, decimal InventarioMxn);
 /// <summary>Contabilidad consume este resultado confirmado, nunca la estimación de la vista previa.</summary>
 public sealed record ExpedienteCostoAplicadoEvent(Guid Empresa, DateTimeOffset Fecha, Guid ExpedienteId, int NumeroVersion,
-    IReadOnlyList<CostoPartidaAplicado> Partidas) : IntegrationEvent("almacen.expediente.costo-aplicado.v1", Empresa, Fecha);
+    IReadOnlyList<CostoPartidaAplicado> Partidas) : IntegrationEvent("almacen.expediente.costo-aplicado.v1", Empresa, Fecha)
+{
+    public Guid? SucursalId { get; init; }
+}
 public sealed class ExpedienteCostoDistribuidoHandler(AlmacenDbContext db, IIntegrationEventPublisher eventos, IClock clock, ILogger<ExpedienteCostoDistribuidoHandler> logger,
     IOptions<IncrementablesImportacionOptions> incrementables)
     : IRequestHandler<AplicarCostoExpedienteCommand>
@@ -123,7 +126,7 @@ public sealed class ExpedienteCostoDistribuidoHandler(AlmacenDbContext db, IInte
         db.EventosProcesados.Add(new EventoProcesado(p.ExpedienteId, llave));
         if (aplicadas.Count > 0)
         {
-            await eventos.PublishAsync(new ExpedienteCostoAplicadoEvent(p.EmpresaId, clock.UtcNow, p.ExpedienteId, p.NumeroVersion, aplicadas), cancellationToken);
+            await eventos.PublishAsync(new ExpedienteCostoAplicadoEvent(p.EmpresaId, clock.UtcNow, p.ExpedienteId, p.NumeroVersion, aplicadas) { SucursalId = p.SucursalId }, cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
         }
         await db.SaveChangesAsync(cancellationToken);

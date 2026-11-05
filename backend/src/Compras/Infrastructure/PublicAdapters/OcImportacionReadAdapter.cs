@@ -6,18 +6,18 @@ namespace Millet.Compras.Infrastructure.PublicAdapters;
 public sealed class OcImportacionReadAdapter(ComprasDbContext db) : IOcImportacionReadPort
 {
     public async Task<IReadOnlyList<OcImportacionLectura>> ObtenerVariasAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
-        (await db.OrdenesCompra.AsNoTracking().Where(o => ids.Contains(o.Id)).ToListAsync(ct)).Select(De).ToArray();
+        (await db.OrdenesCompra.Include(o => o.Lineas).AsNoTracking().Where(o => ids.Contains(o.Id)).ToListAsync(ct)).Select(De).ToArray();
 
     public async Task<IReadOnlyList<Guid>> ObtenerIdsPeriodoAsync(DateOnly desde, DateOnly hasta, IReadOnlyList<Guid>? sucursales, CancellationToken ct)
     {
-        var q = db.OrdenesCompra.AsNoTracking().Where(o => o.EsImportacion && o.FechaDocumento >= desde && o.FechaDocumento < hasta);
+        var q = db.OrdenesCompra.Include(o => o.Lineas).AsNoTracking().Where(o => o.EsImportacion && o.FechaDocumento >= desde && o.FechaDocumento < hasta);
         if (sucursales is not null) q = q.Where(o => sucursales.Contains(o.SucursalDestinoId));
         return await q.Select(o => o.Id).ToArrayAsync(ct);
     }
 
     public async Task<OcImportacionLectura?> ObtenerAsync(Guid id, CancellationToken ct)
     {
-        var oc = await db.OrdenesCompra.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct);
+        var oc = await db.OrdenesCompra.Include(o => o.Lineas).AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct);
         return oc is null ? null : De(oc);
     }
 
@@ -35,8 +35,8 @@ public sealed class OcImportacionReadAdapter(ComprasDbContext db) : IOcImportaci
         var query = origen.AsNoTracking().Where(x => x.EsImportacion && x.Estado == EstadoOrdenCompra.Autorizada);
         if (sucursales is not null)
             query = query.Where(x => sucursales.Contains(x.SucursalDestinoId));
-        return query.OrderByDescending(x => x.CreatedAt).ThenBy(x => x.Id).Take(50);
+        return query.Include(o => o.Lineas).OrderByDescending(x => x.CreatedAt).ThenBy(x => x.Id).Take(50);
     }
 
-    private static OcImportacionLectura De(OrdenCompra oc) => new(oc.Id, oc.Folio.Valor, oc.ProveedorId, oc.Moneda, oc.SucursalDestinoId, oc.Estado, oc.EsImportacion, oc.InformacionImportacion, oc.FechaDocumento);
+    private static OcImportacionLectura De(OrdenCompra oc) => new(oc.Id, oc.Folio.Valor, oc.ProveedorId, oc.Moneda, oc.SucursalDestinoId, oc.Estado, oc.EsImportacion, oc.InformacionImportacion, oc.FechaDocumento, oc.Lineas.Where(l => !l.EsServicio).Select(l => new OcPartidaImportacion(l.Id, l.Posicion, l.DescripcionExtendida ?? "Partida " + l.Posicion, l.Cantidad, l.UnidadMedida, l.CantidadRecibida, l.CantidadFacturada)).ToArray());
 }

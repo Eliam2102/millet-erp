@@ -1,10 +1,6 @@
 import { z } from 'zod';
 import { PaginaSearchShape } from '@/components/erp/data/paginacion';
-import {
-  EstadoAnticipo,
-  EstadoNotaCargo,
-  EstadoNotaCredito,
-} from '@/features/cxp/api/types';
+import { EstadoAnticipo, EstadoNotaCargo, EstadoNotaCredito } from '@/features/cxp/api/types';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -28,6 +24,8 @@ export const AnticiposSearchSchema = z.object({
   estado: z
     .union([
       z.literal(EstadoAnticipo.Abierto),
+      z.literal(EstadoAnticipo.Solicitado),
+      z.literal(EstadoAnticipo.PagadoComercioExterior),
       z.literal(EstadoAnticipo.Amortizado),
       z.literal(EstadoAnticipo.Cancelado),
     ])

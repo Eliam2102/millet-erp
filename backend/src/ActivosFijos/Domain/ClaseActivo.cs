@@ -19,6 +19,20 @@ public sealed class ClaseActivo : BaseEntity, IPerteneceAEmpresa, IAuditable
     public bool RequiereRevision { get; private set; }
     public string Metodo { get; private set; } = "LineaRecta";
     public bool Activa { get; private set; } = true;
+    public List<VersionClaseActivo> Versiones { get; private set; } = [];
+    public ClaseActivo EnMes(DateOnly mes)
+    {
+        var v = Versiones.Where(v => v.Estado == EstadoVersionClase.Vigente && v.Vigencia <= CalculoDepreciacion.Mes(mes))
+            .OrderByDescending(v => v.Vigencia).ThenByDescending(v => v.Numero).FirstOrDefault();
+        var copia = (ClaseActivo)MemberwiseClone();
+        if (v != null) copia.Editar(Nombre, v.TasaFiscalAnual, v.CuentaActivoId, v.CuentaDepreciacionId, v.CuentaGastoId, v.CuentaPuenteId, Activa, v.Depreciable, v.TasaConfirmada, v.TasaContableAnual);
+        return copia;
+    }
+    public void EditarIdentidad(string nombre, bool activa)
+    {
+        if (string.IsNullOrWhiteSpace(nombre) || nombre.Length > 200) throw new BusinessRuleException("AF_CLASE_INVALIDA", "Capture un nombre de hasta 200 caracteres.");
+        Nombre=nombre.Trim(); Activa=activa;
+    }
     private ClaseActivo() { }
     public ClaseActivo(Guid id, Guid empresa, string clave, string nombre, decimal? tasa) : base(id)
     {

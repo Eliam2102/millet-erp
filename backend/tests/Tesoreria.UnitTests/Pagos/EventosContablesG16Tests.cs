@@ -25,7 +25,7 @@ public sealed class EventosContablesG16Tests
     private static readonly DateTimeOffset Ahora = new(2026, 7, 15, 12, 0, 0, TimeSpan.Zero);
     private static readonly DateOnly Fecha = new(2026, 7, 15);
 
-    private static (TesoreriaDbContext Db, CuentaBancaria Cuenta, PasivoPendientePago Pasivo) Escenario(decimal? tipoCambio)
+    private static (TesoreriaDbContext Db, CuentaBancaria Cuenta, PasivoPendientePago Pasivo) Escenario(decimal? tipoCambio, decimal importe = 1000)
     {
         var db = new TesoreriaDbContext(
             new DbContextOptionsBuilder<TesoreriaDbContext>()
@@ -33,12 +33,31 @@ public sealed class EventosContablesG16Tests
             new FakeEmpresa());
         var cuenta = new CuentaBancaria(EmpresaId, "BBVA", "0123456789", null, "MXN");
         var pasivo = new PasivoPendientePago(EmpresaId, Guid.NewGuid(), Guid.NewGuid(), null,
-            1000m, 1000m, "MXN", tipoCambio, new DateOnly(2026, 8, 1), null, "F-1", Ahora, "PUE");
+            importe, importe, "MXN", tipoCambio, new DateOnly(2026, 8, 1), null, "F-1", Ahora, "PUE");
         db.CuentasBancarias.Add(cuenta);
         db.PasivosPendientesPago.Add(pasivo);
         return (db, cuenta, pasivo);
     }
 
+    [Fact]
+    public async Task P19_pago_del_anticipo_50000_sin_nivel2_se_rechaza_y_con_ambas_firmas_publica_referencia_real()
+    {
+        var (db, cuenta, pasivo) = Escenario(1, 50000); await using var _ = db;
+        var sucursal = Guid.NewGuid(); pasivo.MarcarAnticipoAgente(sucursal);
+        var firmas = new AutorizacionPagoComercioExterior(EmpresaId, pasivo.FacturaProveedorId, TipoOperacionComercioExterior.Importacion);
+        firmas.FirmarNivel1(Guid.NewGuid(), Ahora); db.AutorizacionesPagoComercioExterior.Add(firmas); await db.SaveChangesAsync();
+        var eventos = new Captura();
+        var h = new RegistrarPagoProveedorHandler(db, new FakeEmpresa(), new FakeUser(), new Abierto(), ProveedorActivo(), new ElegibleSinLimite(), eventos, new FakeClock());
+        var command = new RegistrarPagoProveedorCommand(cuenta.Id, Fecha, [new(pasivo.FacturaProveedorId, 50000)], "BANCO-P19-REAL");
+        var act = () => h.Handle(command, default);
+        await act.Should().ThrowAsync<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>().Where(e => e.Code == "PAGO_PASIVO_CE_SIN_AUTORIZAR");
+        firmas.FirmarNivel2(Guid.NewGuid(), Ahora); await db.SaveChangesAsync();
+        await h.Handle(command, default);
+        var e = eventos.Eventos.OfType<PagoFacturaProveedorAplicadoIntegrationEvent>().Single();
+        e.EsAnticipoAgente.Should().BeTrue(); e.Monto.Should().Be(50000); e.SucursalId.Should().Be(sucursal);
+        e.ReferenciaBancaria.Should().Be("BANCO-P19-REAL"); e.CuentaBancariaId.Should().Be(cuenta.Id);
+        pasivo.SaldoPendiente.Should().Be(0);
+    }
     [Fact]
     public async Task P3_pago_manual_respeta_recibido_y_no_reutiliza_pagado_ante_evento_atrasado()
     {

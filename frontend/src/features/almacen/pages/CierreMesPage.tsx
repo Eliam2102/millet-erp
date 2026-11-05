@@ -1,3 +1,4 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import { Check, CheckCircle2, TriangleAlert } from 'lucide-react';
@@ -114,16 +115,16 @@ function CierreMesEjecucion() {
               error.code === 'CIERRE_VALES_PENDIENTES'
             ) {
               toast.error('Periodo con pendientes', {
-                description: error.problem.detail ?? error.problem.title,
+                description: errorUsuario(error),
               });
               return;
             }
-            toast.error(error.problem.title, {
+            toast.error(errorUsuario(error), {
               description: codigoSoporte(error),
             });
             return;
           }
-          toast.error('Error inesperado al ejecutar el cierre.');
+          toast.error("Error inesperado al ejecutar el cierre. Revisa los datos del registro; si continúa, avisa a soporte.");
         },
       },
     );
@@ -139,7 +140,7 @@ function CierreMesEjecucion() {
     <div className="space-y-6">
       <PageHeader
         titulo="Cierre de mes"
-        descripcion="Cierra el periodo mensual del módulo Almacén. Una vez cerrado, no podrán registrarse ni editarse movimientos con fecha dentro del periodo."
+        descripcion="Cierra el periodo mensual de Almacén para impedir nuevos movimientos o cambios con fecha dentro del periodo."
       />
 
       <section className="rounded-lg border border-line-row bg-surface-card p-4">

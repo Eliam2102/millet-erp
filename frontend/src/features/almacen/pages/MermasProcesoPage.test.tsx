@@ -47,7 +47,7 @@ const mesa: MermaProceso = {
 };
 
 function datos(items: MermaProceso[]) {
-  hook.useMermasProceso.mockReturnValue({ data: items, isLoading: false, isError: false, refetch: vi.fn() });
+  hook.useMermasProceso.mockReturnValue({ data: items, isSuccess: true, isLoading: false, isError: false, refetch: vi.fn() });
 }
 
 beforeEach(() => {
@@ -86,4 +86,29 @@ describe('MermasProcesoPage', () => {
     render(<MermasProcesoPage />, { wrapper: createQueryWrapper() });
     expect(screen.getByText('Sin registros')).toBeInTheDocument();
   });
+});
+
+  it.each(['cargando', 'error'])('los indicadores no inventan ceros mientras están %s', (estado) => {
+    hook.useMermasProceso.mockReturnValue({ data: undefined, isSuccess: false, isLoading: estado === 'cargando', isError: estado === 'error', refetch: vi.fn() });
+    const { container } = render(<MermasProcesoPage />, { wrapper: createQueryWrapper() });
+    const valores = container.querySelectorAll('span.text-3xl');
+    expect(valores).toHaveLength(3);
+    expect(screen.getByRole('tab', { name: 'Pendientes' })).toBeInTheDocument();
+    valores.forEach((valor) => expect(valor).toHaveTextContent('—'));
+  });
+  it('los indicadores muestran cero cuando ya cargaron sin registros', () => {
+    datos([]);
+    const { container } = render(<MermasProcesoPage />, { wrapper: createQueryWrapper() });
+    expect(container.querySelectorAll('span.text-3xl')[0]).toHaveTextContent('0');
+    expect(container.querySelectorAll('span.text-3xl')[1]).toHaveTextContent('0');
+    const importe = container.querySelectorAll('span.text-3xl')[2];
+    expect(importe).toHaveClass('text-3xl', 'font-semibold', 'tabular-nums');
+    expect(importe.querySelector('.font-medium')).toBeNull();
+  });
+
+it('la decisión rechazada conserva su nombre y usa el tono de rechazo', () => {
+  datos([{ ...base, estado: 'RECHAZADA' }]);
+  render(<MermasProcesoPage />, { wrapper: createQueryWrapper() });
+
+  expect(screen.getByText('Rechazada')).toHaveClass('bg-danger-bg', 'text-danger-fg');
 });

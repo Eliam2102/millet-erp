@@ -195,6 +195,14 @@ const moduloCompras: NavModulo = {
           icon: BarChart3,
           permission: PermisosCanonicos.ComprasOrdenesReportesAnalisisProveedores,
         },
+        {
+          label: 'Envíos a Almacenes',
+          description:
+            'Mensajes de compras de materia prima hacia Almacenes (A+W): hojas, lote y rack que recibe, respuesta y reintento.',
+          to: '/compras/integraciones/alm-compra',
+          icon: Inbox,
+          permission: PermisosCanonicos.ComprasOrdenesLeer,
+        },
       ],
     },
     {
@@ -248,6 +256,22 @@ const moduloAlmacen: NavModulo = {
             'Desperdicio diario de la mesa de corte y merma por etapa y motivo que informa A+W; la merma se autoriza aquí.',
           to: '/almacen/mermas',
           icon: Scale,
+          permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
+        },
+        {
+          label: 'Consumos en revisión',
+          description:
+            'Componentes de piezas terminadas en A+W (argón, separador, PVB) que no se descontaron por falta de norma, factor, sucursal o existencia.',
+          to: '/almacen/consumos-revision',
+          icon: ShieldAlert,
+          permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
+        },
+        {
+          label: 'Mensajes de la app',
+          description:
+            'Salidas de la app de Almacenes que el ERP marcó (sin existencia o con un dato por corregir) y a las que contestó ERROR con folio; los siguientes de su referencia esperan.',
+          to: '/almacen/mensajes-app',
+          icon: ShieldAlert,
           permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
         },
         {
@@ -334,7 +358,10 @@ const moduloAlmacen: NavModulo = {
           to: '/almacen/cierre-mes',
           icon: Lock,
           // 86e3tac2y: quien solo revisa el acta (Dirección de Administración) entra a la misma pantalla.
-          permissionsAny: [PermisosCanonicos.AlmacenCierreMesEjecutar, PermisosCanonicos.AlmacenCierreRevisarActa],
+          permissionsAny: [
+            PermisosCanonicos.AlmacenCierreMesEjecutar,
+            PermisosCanonicos.AlmacenCierreRevisarActa,
+          ],
         },
         {
           label: 'Reportes',
@@ -394,6 +421,14 @@ const moduloAlmacen: NavModulo = {
           to: '/almacen/ubicaciones',
           icon: Boxes,
           permission: PermisosCanonicos.AlmacenUbicacionesRead,
+        },
+        {
+          label: 'Normas de consumo',
+          description:
+            'Consumo por pieza y merma de cada componente (argón, separador, PVB). Sin norma, el consumo queda en revisión y no se descuenta.',
+          to: '/almacen/normas-consumo',
+          icon: Sliders,
+          permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
         },
       ],
     },
@@ -516,7 +551,8 @@ const moduloCuentasPorPagar: NavModulo = {
         },
         {
           label: 'Revaluación de cierre',
-          description: 'Revalúa al cierre de mes los saldos en moneda extranjera y revisa la diferencia por proveedor.',
+          description:
+            'Revalúa al cierre de mes los saldos en moneda extranjera y revisa la diferencia por proveedor.',
           to: '/cxp/revaluacion',
           icon: BarChart3,
           permission: PermisosCanonicos.CuentasPorPagarRevaluacionConsultar,
@@ -646,7 +682,8 @@ const moduloTesoreria: NavModulo = {
         },
         {
           label: 'Diferencias de corte',
-          description: 'Faltantes y sobrantes del efectivo de cada corte de caja: autorizar o rechazar (deudores funcionarios y empleados).',
+          description:
+            'Faltantes y sobrantes del efectivo de cada corte de caja: autorizar o rechazar (deudores funcionarios y empleados).',
           to: '/tesoreria/diferencias-corte',
           icon: Scale,
           permission: PermisosCanonicos.TesoreriaDiferenciasCorteAutorizar,
@@ -1229,42 +1266,56 @@ const productoTerminado: NavModulo = {
       cards: [
         {
           label: 'Piezas',
-          description: 'Piezas en producto terminado por pedido y sucursal, con avance por posición.',
+          description:
+            'Piezas en producto terminado por pedido y sucursal, con avance por posición.',
           to: '/producto-terminado/piezas',
           icon: Boxes,
           permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
         },
         {
           label: 'Salidas pendientes',
-          description: 'Pedidos pagados y completos que aún no salen, con alerta a las 24 y 48 horas.',
+          description:
+            'Pedidos pagados y completos que aún no salen, con alerta a las 24 y 48 horas.',
           to: '/producto-terminado/salidas',
           icon: Boxes,
           permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
         },
         {
           label: 'Hojas de salida',
-          description: 'Albarán por pedido con lo cargado: descuenta el inventario, pasa el pedido a 71 y se imprime para el chofer.',
+          description:
+            'Albarán por pedido con lo cargado: descuenta el inventario, pasa el pedido a 71 y se imprime para el chofer.',
           to: '/producto-terminado/hojas-salida',
           icon: Boxes,
           permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
         },
         {
           label: 'Entregas',
-          description: 'Entrega al cliente desde el celular: firma o foto, parcial, rechazo en sitio y paso a 115 si ya está facturado.',
+          description:
+            'Entrega al cliente desde el celular: firma o foto, parcial, rechazo en sitio y paso a 115 si ya está facturado.',
           to: '/producto-terminado/entregas',
           icon: Boxes,
           permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
         },
         {
+          label: 'Liquidación de ruta',
+          description:
+            'Caja recibe del chofer albaranes firmados, efectivo y vouchers; lo que no cuadra queda con diferencia y la contra entrega sin liquidar se avisa a CxC.',
+          to: '/producto-terminado/liquidacion',
+          icon: Boxes,
+          permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
+        },
+        {
           label: 'Traspasos',
-          description: 'Salida de piezas entre sucursales, tránsito y recepción en destino con diferencias.',
+          description:
+            'Salida de piezas entre sucursales, tránsito y recepción en destino con diferencias.',
           to: '/producto-terminado/traspasos',
           icon: Boxes,
           permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
         },
         {
           label: 'Excepciones de entrada',
-          description: 'Escaneos que no se pudieron dar de alta: reintentar, descartar o marcar revisados.',
+          description:
+            'Escaneos que no se pudieron dar de alta: reintentar, descartar o marcar revisados.',
           to: '/producto-terminado/excepciones',
           icon: Boxes,
           permission: PermisosCanonicos.ProductoTerminadoExcepcionesGestionar,
@@ -1360,11 +1411,25 @@ const activosFijos: NavModulo = {
           permission: PermisosCanonicos.ActivosFijosActivosVer,
         },
         {
+          label: 'Autorizaciones',
+          description: 'Bajas, reversas y correcciones de capitalización.',
+          to: '/activos-fijos/autorizaciones',
+          icon: BookOpen,
+          permissionsAny: [
+            PermisosCanonicos.ActivosFijosBajasAutorizar,
+            PermisosCanonicos.ActivosFijosReversasAutorizar,
+            PermisosCanonicos.ActivosFijosAjustesAutorizar,
+          ],
+        },
+        {
           label: 'Clases',
           description: 'Tasas y cuentas contables.',
           to: '/activos-fijos/clases',
           icon: Layers,
-          permission: PermisosCanonicos.ActivosFijosClasesAdministrar,
+          permissionsAny: [
+            PermisosCanonicos.ActivosFijosClasesAdministrar,
+            PermisosCanonicos.ActivosFijosClasesAutorizar,
+          ],
         },
       ],
     },

@@ -1,3 +1,4 @@
+import { problemaUsuario } from '@/lib/error-usuario';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { CambioEstatusMaestroDialog } from './CambioEstatusMaestroDialog';
 import { useState } from 'react';
@@ -12,7 +13,6 @@ import {
   useReactivarCliente,
 } from '@/modules/datos-maestros/api';
 import { EstatusCatalogo } from '@/modules/datos-maestros/api/types';
-import { esApiError } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { ClienteOrigenAwSection } from '@/modules/datos-maestros/components/ClienteOrigenAwSection';
@@ -44,7 +44,7 @@ export function ClienteDetalle() {
   const reactivar = useReactivarCliente();
 
   if (clienteQuery.isError) {
-    const problem = esApiError(clienteQuery.error) ? clienteQuery.error.problem : undefined;
+    const problem = problemaUsuario(clienteQuery.error);
     return <ErrorState problem={problem} onRetry={() => clienteQuery.refetch()} />;
   }
 

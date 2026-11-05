@@ -1,4 +1,9 @@
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { parseDateOnlyLocal } from '@/lib/datetime';
+import { problemaConsulta } from '@/components/erp/feedback/problema-consulta';
 import {
+  DateTimeDisplay,
   ListadoModulo,
   TabsEstado,
   BarraFiltros,
@@ -19,7 +24,6 @@ import { useConciliacionPolizas } from '@/features/cxc/api/useConciliacionPoliza
 import { EstadoConciliacionCobro, type ConciliacionCobroFila } from '@/features/cxc/api/types';
 import { formatoMonto } from '@/features/cxc/lib/glosario';
 import { usePaginacionLocal } from '../lib/use-paginacion-local';
-import { esApiError } from '@/lib/api';
 
 const ETIQUETA_ESTADO: Record<EstadoConciliacionCobro, { texto: string; tono: 'success' | 'danger' | 'warning' }> = {
   [EstadoConciliacionCobro.Cuadra]: { texto: 'Cuadra', tono: 'success' },
@@ -60,8 +64,7 @@ export function ConciliacionPolizasPage() {
           titulo={<>Conciliación de cobros contra pólizas</>}
           descripcion={
             <>
-              Cada cobro aplicado en cartera contra lo que su póliza abona a clientes. Las diferencias se
-              listan con su causa probable.
+              Compara los cobros aplicados en cartera con sus pólizas y revisa las diferencias con su causa probable.
             </>
           }
         />
@@ -129,7 +132,7 @@ export function ConciliacionPolizasPage() {
         {query.isError ? (
           <ErrorState
             title="No se pudo conciliar"
-            problem={esApiError(query.error) ? query.error.problem : undefined}
+            problem={problemaConsulta(query.error)}
             onRetry={() => query.refetch()}
           />
         ) : query.isLoading ? (
@@ -145,7 +148,7 @@ export function ConciliacionPolizasPage() {
                 ? 'Sin diferencias: la cartera y las pólizas de cobro cuadran en el periodo.'
                 : 'Sin cobros con los filtros actuales.'
             }
-            description={`${query.data?.cobros ?? 0} cobro(s) revisado(s) del ${desde} al ${hasta}.`}
+            description={`${query.data?.cobros ?? 0} cobro(s) revisado(s) del ${desde ? format(parseDateOnlyLocal(desde), 'd MMM yyyy', { locale: es }) : '—'} al ${hasta ? format(parseDateOnlyLocal(hasta), 'd MMM yyyy', { locale: es }) : '—'}.`}
           />
         ) : (
           <div className="overflow-x-auto rounded-md border">
@@ -183,10 +186,10 @@ function FilaConciliacion({ f }: { f: ConciliacionCobroFila }) {
       </TableCell>
       <TableCell className="px-3 py-2">
         {f.documento}
-        <p className="text-2xs text-ink-muted">{f.fecha}</p>
+        <p className="text-2xs text-ink-muted"><DateTimeDisplay value={f.fecha} variant="corta" /></p>
       </TableCell>
       <TableCell className="max-w-56 truncate px-3 py-2">
-        {f.cliente ?? '—'}
+        {f.cliente || <span className="text-ink-muted">—</span>}
         <p className="font-mono text-2xs text-ink-muted">{f.moneda}</p>
       </TableCell>
       <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{formatoMonto(f.importeCartera, f.moneda)}</TableCell>
@@ -195,9 +198,9 @@ function FilaConciliacion({ f }: { f: ConciliacionCobroFila }) {
         {f.polizas.length > 0 && <p className="text-2xs text-ink-muted">{f.polizas.join(', ')}</p>}
       </TableCell>
       <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
-        {f.diferencia === 0 ? '—' : formatoMonto(f.diferencia, f.moneda)}
+        {formatoMonto(f.diferencia, f.moneda)}
       </TableCell>
-      <TableCell className="max-w-96 px-3 py-2 text-xs">{f.causa ?? '—'}</TableCell>
+      <TableCell className="max-w-96 px-3 py-2 text-xs">{f.causa || <span className="text-ink-muted">—</span>}</TableCell>
     </TableRow>
   );
 }

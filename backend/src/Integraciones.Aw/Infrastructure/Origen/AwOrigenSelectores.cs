@@ -76,6 +76,10 @@ public sealed class AwOrigenSelectores(IServiceProvider services, AwOrigenSesion
     public async Task<int> AgregarPagosAsync(string numeroPedido, long versionPedido, string folio,
         IReadOnlyList<AwPagoGrupo> grupos, bool exigirDocumento, CancellationToken ct) =>
         await (await ResolverAsync<IAwRetornoPort>(ct)).AgregarPagosAsync(numeroPedido, versionPedido, folio, grupos, exigirDocumento, ct);
+    public async Task<int?> AgregarEstatusAsync(string numeroPedido, long versionPedido, short estatus, byte? origen, string? usuarioLibera, CancellationToken ct) =>
+        await (await ResolverAsync<IAwRetornoPort>(ct)).AgregarEstatusAsync(numeroPedido, versionPedido, estatus, origen, usuarioLibera, ct);
+    public async Task<int?> AgregarSaldoAsync(string numeroPedido, long versionPedido, decimal saldo, CancellationToken ct) =>
+        await (await ResolverAsync<IAwRetornoPort>(ct)).AgregarSaldoAsync(numeroPedido, versionPedido, saldo, ct);
     public async Task<IReadOnlyList<AwRetornoAcuse>> LeerAcusesPorAtenderAsync(CancellationToken ct) =>
         await (await ResolverAsync<IAwRetornoPort>(ct)).LeerAcusesPorAtenderAsync(ct);
     public async Task<ClienteFiscalLectura?> EnsureClienteDesdeAwAsync(string clienteRef, CancellationToken cancellationToken) =>

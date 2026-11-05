@@ -7,7 +7,7 @@ import { createQueryWrapper } from '@/test/test-query-client';
 import { ProveedorExpedienteSection } from '@/modules/datos-maestros/components/ProveedorExpedienteSection';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
-import { EstadoAdjunto, EstadoExpediente } from '@/components/erp/adjuntos/api/types';
+import { EstadoAdjunto, EstadoExcepcion, EstadoExpediente, ResultadoRevision } from '@/components/erp/adjuntos/api/types';
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children, to, className }: { children: React.ReactNode; to: string; className?: string }) => (
@@ -214,22 +214,32 @@ describe('<ProveedorExpedienteSection>', () => {
   });
 
   describe('excepciones', () => {
-    const conExcepcion = {
+    const conExcepcion = (estado: number, extra = {}) => ({
       ...EXPEDIENTE,
-      completo: true,
-      faltantes: [],
+      completo: estado === EstadoExcepcion.Otorgada,
+      faltantes: estado === EstadoExcepcion.Otorgada ? [] : ['contrato'],
       vencidos: [],
       documentos: [
         {
           ...EXPEDIENTE.documentos[1],
-          estado: EstadoExpediente.Exceptuado,
-          excepcion: { id: 'ex-1', motivo: 'Proveedor extranjero sin contrato', otorgadaPorNombre: 'Ana Pérez', otorgadaEn: '2026-10-10T10:00:00Z' },
+          estado: estado === EstadoExcepcion.Otorgada ? EstadoExpediente.Exceptuado : EstadoExpediente.Faltante,
+          excepcion: {
+            id: 'ex-1',
+            motivo: 'Proveedor extranjero sin contrato',
+            estado,
+            solicitadaPorNombre: 'Luis Compras',
+            solicitadaEn: '2026-10-10T10:00:00Z',
+            resueltaPorNombre: estado === EstadoExcepcion.Pendiente ? null : 'Ana Pérez',
+            resueltaEn: estado === EstadoExcepcion.Pendiente ? null : '2026-10-11T10:00:00Z',
+            motivoResolucion: null,
+            ...extra,
+          },
         },
       ],
-    };
+    });
 
-    it('Exceptuado se muestra con motivo y quién; Revocar pide confirmación y llama al endpoint', async () => {
-      mswServer.use(http.get(`${BASE}/expediente`, () => HttpResponse.json(conExcepcion)));
+    it('Otorgada se muestra con quién la pidió y quién la otorgó; Revocar pide confirmación y llama al endpoint', async () => {
+      mswServer.use(http.get(`${BASE}/expediente`, () => HttpResponse.json(conExcepcion(EstadoExcepcion.Otorgada))));
       let revocada = false;
       mswServer.use(
         http.post(`${BASE}/expediente/excepciones/ex-1/revocar`, () => {
@@ -240,13 +250,13 @@ describe('<ProveedorExpedienteSection>', () => {
       setPermisos([P.DatosMaestrosProveedoresAdjuntosVer, P.DatosMaestrosProveedoresValidar]);
       pintar();
       expect(await screen.findByText('Exceptuado')).toBeInTheDocument();
-      expect(screen.getByText(/Ana Pérez/)).toHaveTextContent('Proveedor extranjero sin contrato');
+      expect(screen.getByText(/Excepción otorgada por Ana Pérez/)).toHaveTextContent('la pidió Luis Compras');
       fireEvent.click(screen.getByRole('button', { name: /revocar excepción de contrato/i }));
       fireEvent.click(await screen.findByRole('button', { name: 'Revocar excepción' }));
       await waitFor(() => expect(revocada).toBe(true));
     });
 
-    it('Exceptuar solo con validar y en obligatorios faltantes/vencidos; envía motivo', async () => {
+    it('Solicitar excepción solo con gestionar y en obligatorios faltantes/vencidos; envía motivo', async () => {
       let body: unknown = null;
       mswServer.use(
         http.post(`${BASE}/expediente/excepciones`, async ({ request }) => {
@@ -257,21 +267,82 @@ describe('<ProveedorExpedienteSection>', () => {
       setPermisos([P.DatosMaestrosProveedoresAdjuntosVer]);
       const { unmount } = pintar();
       await screen.findByText('Faltante');
-      expect(screen.queryByRole('button', { name: /exceptuar/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /solicitar excepción/i })).not.toBeInTheDocument();
       unmount();
 
-      setPermisos([P.DatosMaestrosProveedoresAdjuntosVer, P.DatosMaestrosProveedoresValidar]);
+      setPermisos([P.DatosMaestrosProveedoresAdjuntosVer, P.DatosMaestrosProveedoresGestionar]);
       pintar();
-      expect(await screen.findAllByRole('button', { name: /^exceptuar /i })).toHaveLength(2);
-      fireEvent.click(screen.getByRole('button', { name: /exceptuar contrato/i }));
+      expect(await screen.findAllByRole('button', { name: /^solicitar excepción de /i })).toHaveLength(2);
+      fireEvent.click(screen.getByRole('button', { name: /solicitar excepción de contrato/i }));
       const caja = await screen.findByLabelText(/motivo de la excepción/i);
       fireEvent.change(caja, { target: { value: 'corto' } });
-      expect(screen.getByRole('button', { name: 'Exceptuar' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Solicitar excepción' })).toBeDisabled();
       fireEvent.change(caja, { target: { value: 'Proveedor extranjero sin contrato' } });
-      fireEvent.click(screen.getByRole('button', { name: 'Exceptuar' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Solicitar excepción' }));
       await waitFor(() =>
         expect(body).toEqual({ tipoDocumentoId: 'contrato', motivo: 'Proveedor extranjero sin contrato' }),
       );
+    });
+
+    it('Pendiente muestra quién la pidió; validar puede otorgarla o negarla con motivo', async () => {
+      mswServer.use(http.get(`${BASE}/expediente`, () => HttpResponse.json(conExcepcion(EstadoExcepcion.Pendiente))));
+      const cuerpos: unknown[] = [];
+      mswServer.use(
+        http.post(`${BASE}/expediente/excepciones/ex-1/resolver`, async ({ request }) => {
+          cuerpos.push(await request.json());
+          return new HttpResponse(null, { status: 204 });
+        }),
+      );
+      setPermisos([P.DatosMaestrosProveedoresAdjuntosVer, P.DatosMaestrosProveedoresValidar]);
+      pintar();
+      expect(await screen.findByText(/Excepción pendiente de resolución/)).toBeInTheDocument();
+      expect(screen.getByText(/Pedida por Luis Compras/)).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /solicitar excepción/i })).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: /negar excepción de contrato/i }));
+      const caja = await screen.findByLabelText(/motivo de la negativa/i);
+      fireEvent.change(caja, { target: { value: 'Sin contrato no se paga' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Negar excepción' }));
+      await waitFor(() => expect(cuerpos).toEqual([{ otorgar: false, motivo: 'Sin contrato no se paga' }]));
+
+      fireEvent.click(screen.getByRole('button', { name: /otorgar excepción de contrato/i }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Otorgar excepción' }));
+      await waitFor(() => expect(cuerpos[1]).toEqual({ otorgar: true }));
+    });
+  });
+
+  describe('revisión por documento', () => {
+    it('muestra sin revisar, o quién, cuándo y resultado; rechazar pide motivo', async () => {
+      const revisado = {
+        ...csf,
+        estado: EstadoAdjunto.Vigente,
+        resultadoRevision: ResultadoRevision.Aceptado,
+        revisadoPorNombre: 'Ana Pérez',
+        revisadoEn: '2026-11-05T15:30:00Z',
+        observacionRevision: null,
+      };
+      mswServer.use(
+        http.get(`${BASE}/expediente`, () =>
+          HttpResponse.json({ ...EXPEDIENTE, documentos: [{ ...EXPEDIENTE.documentos[0], actual: revisado }, EXPEDIENTE.documentos[1]] }),
+        ),
+      );
+      const cuerpos: unknown[] = [];
+      mswServer.use(
+        http.post(`${BASE}/expediente/documentos/a-1/revisar`, async ({ request }) => {
+          cuerpos.push(await request.json());
+          return HttpResponse.json(revisado);
+        }),
+      );
+      setPermisos([P.DatosMaestrosProveedoresAdjuntosVer, P.DatosMaestrosProveedoresValidar]);
+      pintar();
+      expect(await screen.findByText('Contenido aceptado')).toBeInTheDocument();
+      expect(screen.getByText(/Revisado por Ana Pérez el /)).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: /rechazar el contenido de constancia/i }));
+      const caja = await screen.findByLabelText(/motivo del rechazo/i);
+      fireEvent.change(caja, { target: { value: 'No coincide el RFC' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Rechazar contenido' }));
+      await waitFor(() => expect(cuerpos).toEqual([{ resultado: ResultadoRevision.Rechazado, observacion: 'No coincide el RFC' }]));
     });
   });
 });

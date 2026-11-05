@@ -19,7 +19,7 @@ public sealed class FinanzasTests
         var concepto = new ConceptoGasto(e.EmpresaId, "HON", "Honorarios");
         e.GuardarGasto(Guid.NewGuid(), new(concepto.Id, otroProveedor ? Guid.NewGuid() : agente, "HON-1", "MXN", 7500, new(2026, 10, 1)), concepto, 1, "MXN");
         var a = e.RegistrarAnticipo(Guid.NewGuid(), agente, "PED", new(150000, 0, 0), new(2026, 10, 1), null, peca);
-        a.Comprobar(new(142500, 0, 0), Guid.NewGuid(), Guid.NewGuid(), new(2026, 10, 2));
+        a.Comprobar(new(142500, 0, 0), Guid.NewGuid(), Guid.NewGuid(), new(2026, 10, 2), Guid.NewGuid());
         if (error != null)
         {
             Assert.Equal(error, Assert.Throws<BusinessRuleException>(() => a.AplicarGastos(e.Gastos)).Code);
@@ -29,7 +29,7 @@ public sealed class FinanzasTests
         a.AplicarGastos(e.Gastos);
         Assert.Equal(150000, a.Aplicado); Assert.Equal(0, a.Saldo);
         var b = e.RegistrarAnticipo(Guid.NewGuid(), agente, "PED-2", new(150000, 0, 0), new(2026, 10, 1), null);
-        b.Comprobar(new(142500, 0, 0), Guid.NewGuid(), Guid.NewGuid(), new(2026, 10, 2));
+        b.Comprobar(new(142500, 0, 0), Guid.NewGuid(), Guid.NewGuid(), new(2026, 10, 2), Guid.NewGuid());
         Assert.Equal("CE_GASTO_YA_APLICADO", Assert.Throws<BusinessRuleException>(() => b.AplicarGastos(e.Gastos)).Code);
         Assert.Equal(142500, b.Aplicado);
         Assert.Equal("CE_GASTO_YA_APLICADO", Assert.Throws<BusinessRuleException>(() => e.GuardarGasto(e.Gastos.Single().Id,
@@ -40,7 +40,7 @@ public sealed class FinanzasTests
     {
         var e = Nuevo();
         var a = e.RegistrarAnticipo(Guid.NewGuid(), Guid.NewGuid(), "PED", new(150000, 0, 0), new(2026, 10, 1), null);
-        a.Comprobar(new(142500, 0, 0), Guid.NewGuid(), Guid.NewGuid(), new(2026, 10, 2));
+        a.Comprobar(new(142500, 0, 0), Guid.NewGuid(), Guid.NewGuid(), new(2026, 10, 2), Guid.NewGuid());
         a.Resolver("saldo-al-agente", 7500, new(2026, 10, 3), "Cuenta agente", Guid.NewGuid(), Guid.NewGuid());
         Assert.Equal(0, a.Saldo);
         Assert.DoesNotContain("Saldo a favor abierto con el agente", e.MotivosFinancieros());
@@ -53,7 +53,7 @@ public sealed class FinanzasTests
     {
         var e = Nuevo();
         var a = e.RegistrarAnticipo(Guid.NewGuid(), Guid.NewGuid(), "PED", new(150000, 0, 0), new(2026, 10, 1), null);
-        a.Comprobar(new(aplicado, 0, 0), Guid.NewGuid(), Guid.NewGuid(), new(2026, 10, 2));
+        a.Comprobar(new(aplicado, 0, 0), Guid.NewGuid(), Guid.NewGuid(), new(2026, 10, 2), Guid.NewGuid());
         Assert.Throws<BusinessRuleException>(() => a.Resolver("saldo-al-agente", importe, new(2026, 10, 3), "Cuenta", evidencia ? Guid.NewGuid() : Guid.Empty, Guid.NewGuid()));
     }
     [Fact]
@@ -145,7 +145,7 @@ public sealed class FinanzasTests
     {
         var e = Nuevo(); var agente = Guid.NewGuid();
         var a = e.RegistrarAnticipo(Guid.NewGuid(), agente, "PED-1", new(140000, 9000, 1000), new(2026, 10, 1), "PAGO-1");
-        a.Comprobar(new(135000, 6500, 1000), Guid.NewGuid(), Guid.NewGuid(), new(2026, 10, 2));
+        a.Comprobar(new(135000, 6500, 1000), Guid.NewGuid(), Guid.NewGuid(), new(2026, 10, 2), Guid.NewGuid());
         Assert.Equal(7500, a.Saldo); Assert.Contains("Saldo a favor abierto con el agente", e.MotivosFinancieros()); Assert.Throws<BusinessRuleException>(e.Cerrar);
         var destino = Nuevo(); destino.EmpresaId = e.EmpresaId;
         var b = destino.RegistrarAnticipo(Guid.NewGuid(), agente, "PED-2", new(10000, 0, 0), new(2026, 10, 2), null);
@@ -173,7 +173,7 @@ public sealed class FinanzasTests
     public void Sin_saldo_cierra_comprobado_y_no_inventa_devolucion()
     {
         var e = Nuevo(); var a = e.RegistrarAnticipo(Guid.NewGuid(), Guid.NewGuid(), "PED", new(100, 0, 0), new(2026, 10, 1), null);
-        a.Comprobar(new(100, 0, 0), Guid.NewGuid(), Guid.NewGuid(), new(2026, 10, 2));
+        a.Comprobar(new(100, 0, 0), Guid.NewGuid(), Guid.NewGuid(), new(2026, 10, 2), Guid.NewGuid());
         Assert.Equal("Comprobado", a.Estado); Assert.Empty(a.Resoluciones);
         Assert.Throws<BusinessRuleException>(() => a.Resolver("devolucion", 1, new(2026, 10, 2), "Ref", Guid.NewGuid(), Guid.NewGuid()));
     }
@@ -181,7 +181,7 @@ public sealed class FinanzasTests
     public void Deuda_con_agente_solo_se_resuelve_con_pago_y_evidencia()
     {
         var e = Nuevo(); var a = e.RegistrarAnticipo(Guid.NewGuid(), Guid.NewGuid(), "PED", new(100, 0, 0), new(2026, 10, 1), null);
-        a.Comprobar(new(120, 0, 0), Guid.NewGuid(), Guid.NewGuid(), new(2026, 10, 2));
+        a.Comprobar(new(120, 0, 0), Guid.NewGuid(), Guid.NewGuid(), new(2026, 10, 2), Guid.NewGuid());
         Assert.Equal("Por pagar al agente", a.Estado);
         a.Resolver("pago-complementario", 20, new(2026, 10, 2), "Pago", Guid.NewGuid(), Guid.NewGuid()); Assert.Equal(0, a.Saldo);
     }

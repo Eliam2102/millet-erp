@@ -24,7 +24,7 @@ public sealed class ConteoActivo : BaseEntity, IPerteneceAEmpresa, IAuditable
             Partidas.Add(new PartidaConteoActivo(this, a));
         }
     }
-    public void Capturar(string? numero, ResultadoConteo resultado, string? ubicacionReal, string evidencia, Guid actor)
+    public void Capturar(string? numero, ResultadoConteo resultado, string? ubicacionReal, string evidencia, Guid actor, string? motivo = null, DateTimeOffset? ahora = null)
     {
         if (CerradoEn != null) throw new BusinessRuleException("AF_CONTEO_CERRADO", "El conteo está cerrado y no admite cambios.");
         numero = string.IsNullOrWhiteSpace(numero) ? null : numero.Trim();
@@ -36,7 +36,7 @@ public sealed class ConteoActivo : BaseEntity, IPerteneceAEmpresa, IAuditable
             if (resultado != ResultadoConteo.Sobrante) throw new BusinessRuleException("AF_NO_ESPERADO", "El número no está en la lista; regístrelo como sobrante.");
             partida = new PartidaConteoActivo(this, null, numero); Partidas.Add(partida);
         }
-        partida.Capturar(resultado, ubicacionReal, evidencia, actor);
+        partida.Capturar(resultado, ubicacionReal, evidencia, actor, motivo, ahora ?? DateTimeOffset.UtcNow);
     }
     public void Cerrar(Guid actor, DateTimeOffset ahora)
     {
@@ -64,6 +64,9 @@ public sealed class PartidaConteoActivo : BaseEntity, IPerteneceAEmpresa, IAudit
     public string? UbicacionReal { get; private set; }
     public string? Evidencia { get; private set; }
     public Guid? CapturadoPor { get; private set; }
+    public DateTimeOffset? CapturadoEn { get; private set; }
+    public string? MotivoRecaptura { get; private set; }
+    public List<CapturaAnteriorConteo> CapturasAnteriores { get; private set; } = [];
     public Guid? AutorizadoPor { get; private set; }
     public DateTimeOffset? AutorizadoEn { get; private set; }
     public string? EvidenciaAutorizacion { get; private set; }
@@ -71,11 +74,18 @@ public sealed class PartidaConteoActivo : BaseEntity, IPerteneceAEmpresa, IAudit
     private PartidaConteoActivo() { }
     internal PartidaConteoActivo(ConteoActivo c, Activo? a, string? numero = null) : base(Guid.CreateVersion7())
     { EmpresaId = c.EmpresaId; ConteoId = c.Id; ActivoId = a?.Id; Numero = a?.Numero ?? numero; DescripcionEsperada = a?.Descripcion ?? "Sobrante"; UbicacionEsperada = a?.Ubicacion; }
-    internal void Capturar(ResultadoConteo resultado, string? ubicacion, string evidencia, Guid actor)
+    internal void Capturar(ResultadoConteo resultado, string? ubicacion, string evidencia, Guid actor, string? motivo, DateTimeOffset ahora)
     {
         if ((ActivoId == null) != (resultado == ResultadoConteo.Sobrante) || resultado == ResultadoConteo.OtraUbicacion && (string.IsNullOrWhiteSpace(ubicacion) || ubicacion.Trim() == UbicacionEsperada))
             throw new BusinessRuleException("AF_RESULTADO_INVALIDO", "Revise el resultado y capture una ubicación real distinta de la esperada.");
+        if (Resultado != ResultadoConteo.Pendiente)
+        {
+            if (string.IsNullOrWhiteSpace(motivo) || motivo.Length > 2000)
+                throw new BusinessRuleException("AF_MOTIVO_RECAPTURA", "Explique el motivo de la recaptura (hasta 2000 caracteres).");
+            CapturasAnteriores.Add(new(this));
+        }
         Resultado = resultado; UbicacionReal = ubicacion?.Trim(); Evidencia = evidencia.Trim(); CapturadoPor = actor;
+        CapturadoEn = ahora; MotivoRecaptura = motivo?.Trim();
     }
     internal void Autorizar(Guid actor, string evidencia, DateTimeOffset ahora)
     {

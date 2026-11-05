@@ -64,6 +64,8 @@ public sealed record PasivoAutorizadoParaPagoIntegrationEvent(
     Guid? SucursalId = null)
     : IntegrationEvent("cuentas_por_pagar.pasivo.autorizado-para-pago.v1", EmpresaId, OcurridoEn)
 {
+    public Guid? SucursalId { get; init; }
+    public int? TipoOperacionCe { get; init; }
     public const string BeneficiarioProveedor = "Proveedor";
     public const string BeneficiarioEmpleado = "Empleado";
     public const string BeneficiarioCajaSucursal = "CajaSucursal";

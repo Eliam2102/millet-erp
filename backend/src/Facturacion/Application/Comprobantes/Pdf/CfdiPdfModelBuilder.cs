@@ -75,18 +75,11 @@ public static class CfdiPdfModelBuilder
     public static CfdiPdfModel DesdeNotaCredito(NotaCredito nc, DatosImpresionCfdi? datos)
     {
         ArgumentNullException.ThrowIfNull(nc);
-        var motivo = nc.Motivo switch
-        {
-            MotivoNotaCredito.Amortizacion => "Aplicación de anticipo / Advance payment application",
-            MotivoNotaCredito.Bonificacion => "Bonificación / Allowance",
-            MotivoNotaCredito.Devolucion => "Devolución / Return",
-            MotivoNotaCredito.DevolucionAnticipo => "Devolución de anticipo / Advance payment refund",
-            _ => nc.Motivo.ToString(),
-        };
         return Armar(nc, datos ?? DatosImpresionCfdi.Vacio, TipoDocumentoPdf.NotaCredito,
             "NOTA DE CRÉDITO", "CREDIT MEMO", "nota-credito",
             [ConceptoUnico(nc, nc.ClaveProdServSat, nc.Descripcion, nc.ClaveUnidadSat)], [IvaUnico(nc)], MedidasEnCero,
-            comentarios: string.IsNullOrWhiteSpace(nc.Comentarios) ? $"Motivo / Reason: {motivo}" : $"Motivo / Reason: {motivo}\n{nc.Comentarios}", ordenCompra: null, referencia: null, condiciones: null,
+            // FMT-6 (86e3yxe8f): «Comentarios - Comments» imprime solo el comentario libre del usuario, en toda NC.
+            comentarios: nc.Comentarios, ordenCompra: null, referencia: null, condiciones: null,
             relaciones: Relacionados(nc));
     }
 
