@@ -122,6 +122,7 @@ import { Route as AppContabilidadPolizasIndexRouteImport } from './routes/_app/c
 import { Route as AppContabilidadPolizasIdRouteImport } from './routes/_app/contabilidad/polizas.$id';
 import { Route as AppContabilidadPolizasSaldosRouteImport } from './routes/_app/contabilidad/polizas.saldos';
 import { Route as AppContabilidadReportesCuentaPuenteRouteImport } from './routes/_app/contabilidad/reportes.cuenta-puente';
+import { Route as AppContabilidadReportesConciliacionAuxiliaresRouteImport } from './routes/_app/contabilidad/reportes.conciliacion-auxiliares';
 import { Route as AppCxcAlertasIndexRouteImport } from './routes/_app/cxc/alertas/index';
 import { Route as AppCxcAnticiposIndexRouteImport } from './routes/_app/cxc/anticipos/index';
 import { Route as AppCxcAplicacionesIndexRouteImport } from './routes/_app/cxc/aplicaciones/index';
@@ -846,6 +847,12 @@ const AppContabilidadReportesCuentaPuenteRoute =
   AppContabilidadReportesCuentaPuenteRouteImport.update({
     id: '/contabilidad/reportes/cuenta-puente',
     path: '/contabilidad/reportes/cuenta-puente',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppContabilidadReportesConciliacionAuxiliaresRoute =
+  AppContabilidadReportesConciliacionAuxiliaresRouteImport.update({
+    id: '/contabilidad/reportes/conciliacion-auxiliares',
+    path: '/contabilidad/reportes/conciliacion-auxiliares',
     getParentRoute: () => AppRoute,
   } as any);
 const AppCxcAlertasIndexRoute = AppCxcAlertasIndexRouteImport.update({
@@ -1579,6 +1586,7 @@ export interface FileRoutesByFullPath {
   '/contabilidad/polizas/$id': typeof AppContabilidadPolizasIdRoute;
   '/contabilidad/polizas/saldos': typeof AppContabilidadPolizasSaldosRoute;
   '/contabilidad/reportes/cuenta-puente': typeof AppContabilidadReportesCuentaPuenteRoute;
+  '/contabilidad/reportes/conciliacion-auxiliares': typeof AppContabilidadReportesConciliacionAuxiliaresRoute;
   '/cxc/aplicaciones/$id': typeof AppCxcAplicacionesIdRoute;
   '/cxc/lineas-credito/$id': typeof AppCxcLineasCreditoIdRoute;
   '/cxp/admin/aprobadores': typeof AppCxpAdminAprobadoresRoute;
@@ -1806,6 +1814,7 @@ export interface FileRoutesByTo {
   '/contabilidad/polizas/$id': typeof AppContabilidadPolizasIdRoute;
   '/contabilidad/polizas/saldos': typeof AppContabilidadPolizasSaldosRoute;
   '/contabilidad/reportes/cuenta-puente': typeof AppContabilidadReportesCuentaPuenteRoute;
+  '/contabilidad/reportes/conciliacion-auxiliares': typeof AppContabilidadReportesConciliacionAuxiliaresRoute;
   '/cxc/aplicaciones/$id': typeof AppCxcAplicacionesIdRoute;
   '/cxc/lineas-credito/$id': typeof AppCxcLineasCreditoIdRoute;
   '/cxp/admin/aprobadores': typeof AppCxpAdminAprobadoresRoute;
@@ -2035,6 +2044,7 @@ export interface FileRoutesById {
   '/_app/contabilidad/polizas/$id': typeof AppContabilidadPolizasIdRoute;
   '/_app/contabilidad/polizas/saldos': typeof AppContabilidadPolizasSaldosRoute;
   '/_app/contabilidad/reportes/cuenta-puente': typeof AppContabilidadReportesCuentaPuenteRoute;
+  '/_app/contabilidad/reportes/conciliacion-auxiliares': typeof AppContabilidadReportesConciliacionAuxiliaresRoute;
   '/_app/cxc/aplicaciones/$id': typeof AppCxcAplicacionesIdRoute;
   '/_app/cxc/lineas-credito/$id': typeof AppCxcLineasCreditoIdRoute;
   '/_app/cxp/admin/aprobadores': typeof AppCxpAdminAprobadoresRoute;
@@ -2264,6 +2274,7 @@ export interface FileRouteTypes {
     | '/contabilidad/polizas/$id'
     | '/contabilidad/polizas/saldos'
     | '/contabilidad/reportes/cuenta-puente'
+    | '/contabilidad/reportes/conciliacion-auxiliares'
     | '/cxc/aplicaciones/$id'
     | '/cxc/lineas-credito/$id'
     | '/cxp/admin/aprobadores'
@@ -2491,6 +2502,7 @@ export interface FileRouteTypes {
     | '/contabilidad/polizas/$id'
     | '/contabilidad/polizas/saldos'
     | '/contabilidad/reportes/cuenta-puente'
+    | '/contabilidad/reportes/conciliacion-auxiliares'
     | '/cxc/aplicaciones/$id'
     | '/cxc/lineas-credito/$id'
     | '/cxp/admin/aprobadores'
@@ -2719,6 +2731,7 @@ export interface FileRouteTypes {
     | '/_app/contabilidad/polizas/$id'
     | '/_app/contabilidad/polizas/saldos'
     | '/_app/contabilidad/reportes/cuenta-puente'
+    | '/_app/contabilidad/reportes/conciliacion-auxiliares'
     | '/_app/cxc/aplicaciones/$id'
     | '/_app/cxc/lineas-credito/$id'
     | '/_app/cxp/admin/aprobadores'
@@ -3657,6 +3670,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppContabilidadReportesCuentaPuenteRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/contabilidad/reportes/conciliacion-auxiliares': {
+      id: '/_app/contabilidad/reportes/conciliacion-auxiliares';
+      path: '/contabilidad/reportes/conciliacion-auxiliares';
+      fullPath: '/contabilidad/reportes/conciliacion-auxiliares';
+      preLoaderRoute: typeof AppContabilidadReportesConciliacionAuxiliaresRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/cxc/alertas/': {
       id: '/_app/cxc/alertas/';
       path: '/cxc/alertas';
@@ -4555,6 +4575,7 @@ interface AppRouteChildren {
   AppContabilidadPolizasIdRoute: typeof AppContabilidadPolizasIdRoute;
   AppContabilidadPolizasSaldosRoute: typeof AppContabilidadPolizasSaldosRoute;
   AppContabilidadReportesCuentaPuenteRoute: typeof AppContabilidadReportesCuentaPuenteRoute;
+  AppContabilidadReportesConciliacionAuxiliaresRoute: typeof AppContabilidadReportesConciliacionAuxiliaresRoute;
   AppCxcAplicacionesIdRoute: typeof AppCxcAplicacionesIdRoute;
   AppCxcLineasCreditoIdRoute: typeof AppCxcLineasCreditoIdRoute;
   AppCxpAdminAprobadoresRoute: typeof AppCxpAdminAprobadoresRoute;
@@ -4785,6 +4806,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppContabilidadPolizasSaldosRoute: AppContabilidadPolizasSaldosRoute,
   AppContabilidadReportesCuentaPuenteRoute:
     AppContabilidadReportesCuentaPuenteRoute,
+  AppContabilidadReportesConciliacionAuxiliaresRoute:
+    AppContabilidadReportesConciliacionAuxiliaresRoute,
   AppCxcAplicacionesIdRoute: AppCxcAplicacionesIdRoute,
   AppCxcLineasCreditoIdRoute: AppCxcLineasCreditoIdRoute,
   AppCxpAdminAprobadoresRoute: AppCxpAdminAprobadoresRoute,

@@ -1173,6 +1173,14 @@ const moduloContabilidad: NavModulo = {
           icon: ArrowLeftRight,
           permission: PermisosCanonicos.ContabilidadPolizasLeer,
         },
+        {
+          label: 'Conciliación de auxiliares',
+          description:
+            'Cuentas de control contra su módulo al corte: clientes, proveedores y bancos; diferencias por documento y su causa.',
+          to: '/contabilidad/reportes/conciliacion-auxiliares',
+          icon: Scale,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
+        },
       ],
     },
   ],
