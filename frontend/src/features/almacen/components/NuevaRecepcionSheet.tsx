@@ -574,11 +574,22 @@ function NuevaRecepcionFormBody({
 
             <FormCampo span={6}>
               <Field label="Remisión del proveedor" error={form.formState.errors.remision?.message}>
-                <Input
-                  {...form.register('remision', { onChange: () => setYaRecibida(null) })}
-                  maxLength={50}
-                  placeholder="Ej. R-55"
-                  autoComplete="off"
+                <Controller
+                  name="remision"
+                  control={form.control}
+                  render={({ field }) => (
+                    <Input
+                      value={field.value ?? ''}
+                      onChange={(e) => {
+                        field.onChange(e.target.value || null);
+                        setYaRecibida(null);
+                      }}
+                      onBlur={field.onBlur}
+                      maxLength={50}
+                      placeholder="Ej. R-55"
+                      autoComplete="off"
+                    />
+                  )}
                 />
               </Field>
             </FormCampo>
@@ -587,14 +598,26 @@ function NuevaRecepcionFormBody({
               <FormCampo span={12}>
                 <div className="space-y-2">
                   <AvisoEnLinea tono="advertencia" titulo="Ya recibida">
-                    {yaRecibida} Registrarla de nuevo solo procede con motivo; si es la misma entrega, cancela.
+                    {yaRecibida} Si es la misma entrega, cancela y no la registres.
                   </AvisoEnLinea>
                   <Field
                     label="Motivo para registrarla otra vez"
                     required
                     error={form.formState.errors.motivoDuplicado?.message}
                   >
-                    <Input {...form.register('motivoDuplicado')} maxLength={500} autoComplete="off" />
+                    <Controller
+                      name="motivoDuplicado"
+                      control={form.control}
+                      render={({ field }) => (
+                        <Input
+                          value={field.value ?? ''}
+                          onChange={(e) => field.onChange(e.target.value || null)}
+                          onBlur={field.onBlur}
+                          maxLength={500}
+                          autoComplete="off"
+                        />
+                      )}
+                    />
                   </Field>
                 </div>
               </FormCampo>
@@ -776,7 +799,7 @@ function NuevaRecepcionFormBody({
             </AvisoEnLinea>
           )}
 
-          <LineasDesdeOc form={form} asignadas={asignadas.porArticulo} />
+          <LineasDesdeOc form={form} asignadas={asignadas.porArticulo} listaEmpaque={variante === 'B'} />
         </form>
       </SheetBody>
 
@@ -820,10 +843,13 @@ function NuevaRecepcionFormBody({
 function LineasDesdeOc({
   form,
   asignadas,
+  listaEmpaque,
 }: {
   form: ReturnType<typeof useForm<RecepcionFormValues>>;
   /** articuloId → racks asignados (para avisar al helper de cabecera). */
   asignadas: ReadonlyMap<string, ReadonlySet<string>>;
+  /** G-3: con lista de empaque el vidrio no se recibe; el servidor lo rechaza (LISTA_EMPAQUE_VIDRIO). */
+  listaEmpaque: boolean;
 }) {
   const ordenCompraId = useWatch({
     control: form.control,
@@ -988,6 +1014,7 @@ function LineasDesdeOc({
                 key={fila.lineaOcId}
                 index={index}
                 fila={fila}
+                vidrioEnListaEmpaque={listaEmpaque && !!fila.medida}
                 control={form.control}
                 coincideConHelper={destinos[index] != null && fila.ubicacionId === destinos[index]}
                 conflictoSub={
@@ -1022,6 +1049,7 @@ interface FilaErrors {
 function FilaLineaOc({
   index,
   fila,
+  vidrioEnListaEmpaque,
   control,
   coincideConHelper,
   conflictoSub,
@@ -1029,6 +1057,8 @@ function FilaLineaOc({
 }: {
   index: number;
   fila: FilaRecepcionValues;
+  /** G-3: partida de vidrio en una recepción con lista de empaque: no se puede incluir. */
+  vidrioEnListaEmpaque: boolean;
   control: ReturnType<typeof useForm<RecepcionFormValues>>['control'];
   /** PR4: la ubicación de la fila es la misma que el helper de cabecera. */
   coincideConHelper: boolean;
@@ -1074,7 +1104,7 @@ function FilaLineaOc({
                 type="checkbox"
                 className="mt-1 size-4 cursor-pointer accent-brand"
                 checked={field.value}
-                disabled={sinMedidaEnOc}
+                disabled={sinMedidaEnOc || vidrioEnListaEmpaque}
                 onChange={(e) => field.onChange(e.target.checked)}
                 aria-label={`Incluir partida ${fila.posicion} en la recepción`}
               />
@@ -1109,6 +1139,11 @@ function FilaLineaOc({
           {sinMedidaEnOc && (
             <p className="text-xs text-danger-fg" role="alert">
               La línea de la OC no tiene medida; corrígela en Compras.
+            </p>
+          )}
+          {vidrioEnListaEmpaque && (
+            <p className="mb-1 text-xs text-danger-fg" role="alert">
+              La lista de empaque no admite vidrio: recibe estas hojas por la recepción de materia prima.
             </p>
           )}
           {fila.medida && (
@@ -1385,6 +1420,8 @@ function defaultValuesParaVariante(
     ordenCompraId,
     fechaMovimiento: hoyIso,
     observaciones: null,
+    remision: null,
+    motivoDuplicado: null,
     ubicacionHelperId: null,
     filas: [],
   };

@@ -37,7 +37,7 @@ internal static class RecepcionDuplicada
         motivo = motivo?.Trim();
         if (string.IsNullOrEmpty(motivo))
             throw new BusinessRuleException("RECEPCION_YA_RECIBIDA",
-                $"Ya recibida: esta remisión o factura ya se recibió en la orden (recepción {previa.Folio}). Para registrarla otra vez captura el motivo.");
+                $"Esta remisión o factura ya fue recibida en la orden (recepción {previa.Folio}). Para registrarla otra vez captura el motivo.");
         return (remision, motivo);
     }
 }

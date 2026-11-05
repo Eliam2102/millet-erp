@@ -31,7 +31,7 @@ public sealed class G3RecepcionYValeTests
 
         var ex = await Assert.ThrowsAsync<BusinessRuleException>(() => ConFactura(f, Guid.NewGuid(), " r-55 "));
         ex.Code.Should().Be("RECEPCION_YA_RECIBIDA");
-        ex.Message.Should().Contain("Ya recibida");
+        ex.Message.Should().Contain("ya fue recibida");
         (await f.Db.Movimientos.CountAsync()).Should().Be(1);
         f.Events.Items.OfType<OcRecepcionRegistradaIntegrationEvent>().Should().ContainSingle();
 
