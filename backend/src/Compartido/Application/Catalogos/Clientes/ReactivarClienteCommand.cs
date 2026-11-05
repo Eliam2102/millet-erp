@@ -1,24 +1,36 @@
+using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Catalogos.Domain;
+using Millet.Compartido.Application.Catalogos;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.DatosMaestros.Application.Clientes;
 
 /// <summary>
-/// Reactiva un cliente dado de baja localmente (<c>Estatus = Activo</c>).
+/// Reactiva un cliente dado de baja localmente (<c>Estatus = Activo</c>) con motivo obligatorio.
 /// Idempotente: si ya está activo no hace nada. Un cliente bloqueado en A+W
 /// (<c>BloqueadoPorAw</c>) no se reactiva localmente; el bloqueo aprobado de
 /// A+W prevalece (V52) y se levanta cuando A+W lo desbloquee.
 /// </summary>
-public sealed record ReactivarClienteCommand(Guid ClienteId) : IRequest;
+public sealed record ReactivarClienteCommand(Guid ClienteId, string Motivo) : IRequest;
+
+public sealed class ReactivarClienteValidator : AbstractValidator<ReactivarClienteCommand>
+{
+    public ReactivarClienteValidator() => MaestroEstatusService.ReglaMotivo(RuleFor(x => x.Motivo));
+}
 
 public sealed class ReactivarClienteHandler : IRequestHandler<ReactivarClienteCommand>
 {
     private readonly CompartidoDbContext _db;
+    private readonly MaestroEstatusService _estatus;
 
-    public ReactivarClienteHandler(CompartidoDbContext db) => _db = db;
+    public ReactivarClienteHandler(CompartidoDbContext db, MaestroEstatusService estatus)
+    {
+        _db = db;
+        _estatus = estatus;
+    }
 
     public async Task Handle(ReactivarClienteCommand request, CancellationToken cancellationToken)
     {
@@ -39,6 +51,8 @@ public sealed class ReactivarClienteHandler : IRequestHandler<ReactivarClienteCo
         {
             cliente.CambiarEstatus(EstatusCatalogo.Activo);
             await _db.SaveChangesAsync(cancellationToken);
+            await _estatus.RegistrarAsync("cliente.reactivar", "Cliente", cliente.Id,
+                $"{cliente.Clave} · {cliente.RazonSocial}", false, request.Motivo.Trim(), cancellationToken);
         }
     }
 }

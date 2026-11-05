@@ -117,10 +117,10 @@ import { Route as AppContabilidadReportesCuentaPuenteRouteImport } from './route
 import { Route as AppCxcAlertasIndexRouteImport } from './routes/_app/cxc/alertas/index';
 import { Route as AppCxcAnticiposIndexRouteImport } from './routes/_app/cxc/anticipos/index';
 import { Route as AppCxcAplicacionesIndexRouteImport } from './routes/_app/cxc/aplicaciones/index';
-import { Route as AppCxcConciliacionPolizasIndexRouteImport } from './routes/_app/cxc/conciliacion-polizas/index';
 import { Route as AppCxcAplicacionesIdRouteImport } from './routes/_app/cxc/aplicaciones/$id';
 import { Route as AppCxcCarteraIndexRouteImport } from './routes/_app/cxc/cartera/index';
 import { Route as AppCxcCobranzaIndexRouteImport } from './routes/_app/cxc/cobranza/index';
+import { Route as AppCxcConciliacionPolizasIndexRouteImport } from './routes/_app/cxc/conciliacion-polizas/index';
 import { Route as AppCxcConciliacionIndexRouteImport } from './routes/_app/cxc/conciliacion/index';
 import { Route as AppCxcEstadoCuentaIndexRouteImport } from './routes/_app/cxc/estado-cuenta/index';
 import { Route as AppCxcLiberacionesIndexRouteImport } from './routes/_app/cxc/liberaciones/index';
@@ -811,12 +811,6 @@ const AppCxcAplicacionesIndexRoute = AppCxcAplicacionesIndexRouteImport.update({
   path: '/cxc/aplicaciones/',
   getParentRoute: () => AppRoute,
 } as any);
-const AppCxcConciliacionPolizasIndexRoute =
-  AppCxcConciliacionPolizasIndexRouteImport.update({
-    id: '/cxc/conciliacion-polizas/',
-    path: '/cxc/conciliacion-polizas/',
-    getParentRoute: () => AppRoute,
-  } as any);
 const AppCxcAplicacionesIdRoute = AppCxcAplicacionesIdRouteImport.update({
   id: '/cxc/aplicaciones/$id',
   path: '/cxc/aplicaciones/$id',
@@ -832,6 +826,12 @@ const AppCxcCobranzaIndexRoute = AppCxcCobranzaIndexRouteImport.update({
   path: '/cxc/cobranza/',
   getParentRoute: () => AppRoute,
 } as any);
+const AppCxcConciliacionPolizasIndexRoute =
+  AppCxcConciliacionPolizasIndexRouteImport.update({
+    id: '/cxc/conciliacion-polizas/',
+    path: '/cxc/conciliacion-polizas/',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppCxcConciliacionIndexRoute = AppCxcConciliacionIndexRouteImport.update({
   id: '/cxc/conciliacion/',
   path: '/cxc/conciliacion/',
@@ -1580,9 +1580,9 @@ export interface FileRoutesByFullPath {
   '/cxc/alertas/': typeof AppCxcAlertasIndexRoute;
   '/cxc/anticipos/': typeof AppCxcAnticiposIndexRoute;
   '/cxc/aplicaciones/': typeof AppCxcAplicacionesIndexRoute;
-  '/cxc/conciliacion-polizas/': typeof AppCxcConciliacionPolizasIndexRoute;
   '/cxc/cartera/': typeof AppCxcCarteraIndexRoute;
   '/cxc/cobranza/': typeof AppCxcCobranzaIndexRoute;
+  '/cxc/conciliacion-polizas/': typeof AppCxcConciliacionPolizasIndexRoute;
   '/cxc/conciliacion/': typeof AppCxcConciliacionIndexRoute;
   '/cxc/estado-cuenta/': typeof AppCxcEstadoCuentaIndexRoute;
   '/cxc/liberaciones/': typeof AppCxcLiberacionesIndexRoute;
@@ -1798,9 +1798,9 @@ export interface FileRoutesByTo {
   '/cxc/alertas': typeof AppCxcAlertasIndexRoute;
   '/cxc/anticipos': typeof AppCxcAnticiposIndexRoute;
   '/cxc/aplicaciones': typeof AppCxcAplicacionesIndexRoute;
-  '/cxc/conciliacion-polizas': typeof AppCxcConciliacionPolizasIndexRoute;
   '/cxc/cartera': typeof AppCxcCarteraIndexRoute;
   '/cxc/cobranza': typeof AppCxcCobranzaIndexRoute;
+  '/cxc/conciliacion-polizas': typeof AppCxcConciliacionPolizasIndexRoute;
   '/cxc/conciliacion': typeof AppCxcConciliacionIndexRoute;
   '/cxc/estado-cuenta': typeof AppCxcEstadoCuentaIndexRoute;
   '/cxc/liberaciones': typeof AppCxcLiberacionesIndexRoute;
@@ -2018,9 +2018,9 @@ export interface FileRoutesById {
   '/_app/cxc/alertas/': typeof AppCxcAlertasIndexRoute;
   '/_app/cxc/anticipos/': typeof AppCxcAnticiposIndexRoute;
   '/_app/cxc/aplicaciones/': typeof AppCxcAplicacionesIndexRoute;
-  '/_app/cxc/conciliacion-polizas/': typeof AppCxcConciliacionPolizasIndexRoute;
   '/_app/cxc/cartera/': typeof AppCxcCarteraIndexRoute;
   '/_app/cxc/cobranza/': typeof AppCxcCobranzaIndexRoute;
+  '/_app/cxc/conciliacion-polizas/': typeof AppCxcConciliacionPolizasIndexRoute;
   '/_app/cxc/conciliacion/': typeof AppCxcConciliacionIndexRoute;
   '/_app/cxc/estado-cuenta/': typeof AppCxcEstadoCuentaIndexRoute;
   '/_app/cxc/liberaciones/': typeof AppCxcLiberacionesIndexRoute;
@@ -2238,9 +2238,9 @@ export interface FileRouteTypes {
     | '/cxc/alertas/'
     | '/cxc/anticipos/'
     | '/cxc/aplicaciones/'
-    | '/cxc/conciliacion-polizas/'
     | '/cxc/cartera/'
     | '/cxc/cobranza/'
+    | '/cxc/conciliacion-polizas/'
     | '/cxc/conciliacion/'
     | '/cxc/estado-cuenta/'
     | '/cxc/liberaciones/'
@@ -2456,9 +2456,9 @@ export interface FileRouteTypes {
     | '/cxc/alertas'
     | '/cxc/anticipos'
     | '/cxc/aplicaciones'
-    | '/cxc/conciliacion-polizas'
     | '/cxc/cartera'
     | '/cxc/cobranza'
+    | '/cxc/conciliacion-polizas'
     | '/cxc/conciliacion'
     | '/cxc/estado-cuenta'
     | '/cxc/liberaciones'
@@ -2675,9 +2675,9 @@ export interface FileRouteTypes {
     | '/_app/cxc/alertas/'
     | '/_app/cxc/anticipos/'
     | '/_app/cxc/aplicaciones/'
-    | '/_app/cxc/conciliacion-polizas/'
     | '/_app/cxc/cartera/'
     | '/_app/cxc/cobranza/'
+    | '/_app/cxc/conciliacion-polizas/'
     | '/_app/cxc/conciliacion/'
     | '/_app/cxc/estado-cuenta/'
     | '/_app/cxc/liberaciones/'
@@ -3510,13 +3510,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCxcAplicacionesIndexRouteImport;
       parentRoute: typeof AppRoute;
     };
-    '/_app/cxc/conciliacion-polizas/': {
-      id: '/_app/cxc/conciliacion-polizas/';
-      path: '/cxc/conciliacion-polizas';
-      fullPath: '/cxc/conciliacion-polizas/';
-      preLoaderRoute: typeof AppCxcConciliacionPolizasIndexRouteImport;
-      parentRoute: typeof AppRoute;
-    };
     '/_app/cxc/aplicaciones/$id': {
       id: '/_app/cxc/aplicaciones/$id';
       path: '/cxc/aplicaciones/$id';
@@ -3531,18 +3524,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCxcCarteraIndexRouteImport;
       parentRoute: typeof AppRoute;
     };
-    '/_app/cxc/conciliacion/': {
-      id: '/_app/cxc/conciliacion/';
-      path: '/cxc/conciliacion';
-      fullPath: '/cxc/conciliacion/';
-      preLoaderRoute: typeof AppCxcConciliacionIndexRouteImport;
-      parentRoute: typeof AppRoute;
-    };
     '/_app/cxc/cobranza/': {
       id: '/_app/cxc/cobranza/';
       path: '/cxc/cobranza';
       fullPath: '/cxc/cobranza/';
       preLoaderRoute: typeof AppCxcCobranzaIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/cxc/conciliacion-polizas/': {
+      id: '/_app/cxc/conciliacion-polizas/';
+      path: '/cxc/conciliacion-polizas';
+      fullPath: '/cxc/conciliacion-polizas/';
+      preLoaderRoute: typeof AppCxcConciliacionPolizasIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/cxc/conciliacion/': {
+      id: '/_app/cxc/conciliacion/';
+      path: '/cxc/conciliacion';
+      fullPath: '/cxc/conciliacion/';
+      preLoaderRoute: typeof AppCxcConciliacionIndexRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/cxc/estado-cuenta/': {
@@ -4439,9 +4439,9 @@ interface AppRouteChildren {
   AppCxcAlertasIndexRoute: typeof AppCxcAlertasIndexRoute;
   AppCxcAnticiposIndexRoute: typeof AppCxcAnticiposIndexRoute;
   AppCxcAplicacionesIndexRoute: typeof AppCxcAplicacionesIndexRoute;
-  AppCxcConciliacionPolizasIndexRoute: typeof AppCxcConciliacionPolizasIndexRoute;
   AppCxcCarteraIndexRoute: typeof AppCxcCarteraIndexRoute;
   AppCxcCobranzaIndexRoute: typeof AppCxcCobranzaIndexRoute;
+  AppCxcConciliacionPolizasIndexRoute: typeof AppCxcConciliacionPolizasIndexRoute;
   AppCxcConciliacionIndexRoute: typeof AppCxcConciliacionIndexRoute;
   AppCxcEstadoCuentaIndexRoute: typeof AppCxcEstadoCuentaIndexRoute;
   AppCxcLiberacionesIndexRoute: typeof AppCxcLiberacionesIndexRoute;
@@ -4667,9 +4667,9 @@ const AppRouteChildren: AppRouteChildren = {
   AppCxcAlertasIndexRoute: AppCxcAlertasIndexRoute,
   AppCxcAnticiposIndexRoute: AppCxcAnticiposIndexRoute,
   AppCxcAplicacionesIndexRoute: AppCxcAplicacionesIndexRoute,
-  AppCxcConciliacionPolizasIndexRoute: AppCxcConciliacionPolizasIndexRoute,
   AppCxcCarteraIndexRoute: AppCxcCarteraIndexRoute,
   AppCxcCobranzaIndexRoute: AppCxcCobranzaIndexRoute,
+  AppCxcConciliacionPolizasIndexRoute: AppCxcConciliacionPolizasIndexRoute,
   AppCxcConciliacionIndexRoute: AppCxcConciliacionIndexRoute,
   AppCxcEstadoCuentaIndexRoute: AppCxcEstadoCuentaIndexRoute,
   AppCxcLiberacionesIndexRoute: AppCxcLiberacionesIndexRoute,

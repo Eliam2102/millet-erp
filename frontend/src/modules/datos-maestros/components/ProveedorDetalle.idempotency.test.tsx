@@ -91,8 +91,9 @@ afterEach(() => {
 
 async function desactivarUnaVez() {
   fireEvent.click(screen.getByRole('button', { name: /^desactivar$/i }));
-  const dialog = await screen.findByRole('alertdialog');
-  fireEvent.click(within(dialog).getByRole('button', { name: /^desactivar$/i }));
+  const dialog = await screen.findByRole('dialog');
+  fireEvent.change(within(dialog).getByLabelText(/motivo/i), { target: { value: 'Ya no se surte' } });
+  fireEvent.click(within(dialog).getByRole('button', { name: /^inactivar$/i }));
 }
 
 describe('<ProveedorDetalle> — Idempotency-Key por acción (regresión Bug B)', () => {
@@ -111,7 +112,7 @@ describe('<ProveedorDetalle> — Idempotency-Key por acción (regresión Bug B)'
     await desactivarUnaVez();
     await waitFor(() => expect(keys).toHaveLength(1));
     await waitFor(() =>
-      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument(),
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
     );
 
     await desactivarUnaVez();
@@ -120,5 +121,29 @@ describe('<ProveedorDetalle> — Idempotency-Key por acción (regresión Bug B)'
     expect(keys[0]).toBeTruthy();
     expect(keys[1]).toBeTruthy();
     expect(keys[0]).not.toBe(keys[1]);
+  });
+
+  it('si hay algo abierto, el diálogo muestra el rechazo del servidor y no cierra', async () => {
+    mswServer.use(
+      http.delete('*/api/v1/catalogos/proveedores/p-1', () =>
+        HttpResponse.json(
+          {
+            title: 'Regla de negocio',
+            status: 422,
+            detail: 'No se puede inactivar al proveedor P-001: tiene pendientes. OC OC-MID2026-000412 (Autorizada).',
+          },
+          { status: 422 },
+        ),
+      ),
+    );
+
+    render(<ProveedorDetalle />, { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(screen.getByText('P-001')).toBeInTheDocument());
+
+    await desactivarUnaVez();
+
+    const alerta = await screen.findByRole('alert');
+    expect(alerta).toHaveTextContent('OC-MID2026-000412');
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 });
