@@ -239,6 +239,6 @@ public sealed class AlmacenContabilidadListenerWorker(ServiceBusClient? client, 
     private static readonly FrozenSet<string> Tipos = FrozenSet.ToFrozenSet(
     [
         NormalizadorEventos.RecepcionOcRegistrada, NormalizadorEventos.RecepcionOcCancelada, NormalizadorEventos.AjusteInventarioAplicado,
-        NormalizadorEventos.SalidaRequisicionRegistrada, NormalizadorEventos.DevolucionInternaAplicada, NormalizadorEventos.DevolucionProveedorRegistrada,
+        NormalizadorEventos.SalidaRequisicionRegistrada, NormalizadorEventos.SalidaInventarioRegistrada, NormalizadorEventos.DevolucionInternaAplicada, NormalizadorEventos.DevolucionProveedorRegistrada,
     ], StringComparer.Ordinal);
 }

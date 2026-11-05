@@ -13,7 +13,8 @@ namespace Millet.Almacen.Application.Integration;
 /// componentes descontados por composición y baja por daño del dictamen de calidad. Una por movimiento.
 /// Consumidor previsto: <b>Contabilidad</b> (póliza de salida a costo, plantilla «Contraste · U-2»).
 /// <c>Causa</c> es el motivo contable: consumo, consumo_composicion, rotura, daño, salida_manual o salida_no_planificada.
-/// <c>CentroCostoId</c> va null mientras ni la app ni el dictamen lo capturen (aditivo: se llenará sin bump de versión).
+/// <c>CentroCostoId</c> (cabecera) y el de cada línea llevan el centro (equipo/máquina) que la línea del movimiento ya trae; null si no lo trae
+/// (hoy ni el mensaje de la app ni el dictamen lo capturan). Ubicación (sucursal → 101-105) y área no se inventan: faltan las reglas de Millet.
 /// </summary>
 public sealed record SalidaInventarioRegistradaIntegrationEvent(
     Guid EmpresaId,
@@ -45,12 +46,13 @@ public sealed record SalidaInventarioRegistradaIntegrationEvent(
         var mov = db.Movimientos.Local.Single(m => m.Id == movimientoId);
         var (almacenId, sucursalId) = await AlmacenSucursalResolver.ResolverAsync(db, subAlmacenId, ct);
         var lineas = mov.Lineas.Select(l => new LineaSalidaInventarioPayload(
-            l.Id, l.ArticuloId, l.UnidadMedida, l.Cantidad, l.CostoUnitarioMxn, l.MontoTotalMxn)).ToList();
+            l.Id, l.ArticuloId, l.UnidadMedida, l.Cantidad, l.CostoUnitarioMxn, l.MontoTotalMxn, l.CentroCostoId)).ToList();
+        var centros = lineas.Select(l => l.CentroCostoId).Distinct().ToList();
         await events.PublishAsync(new SalidaInventarioRegistradaIntegrationEvent(
             empresaId, DateTimeOffset.UtcNow, mov.Id, mov.Folio!, mov.FechaMovimiento, causa, mov.Motivo,
-            almacenId, sucursalId, null, lineas.Sum(l => l.MontoMxn), lineas), ct);
+            almacenId, sucursalId, centros is [{ } unico] ? unico : null, lineas.Sum(l => l.MontoMxn), lineas), ct);
     }
 }
 
 public sealed record LineaSalidaInventarioPayload(
-    Guid LineaId, Guid ArticuloId, string UnidadMedida, decimal Cantidad, decimal CostoUnitarioMxn, decimal MontoMxn);
+    Guid LineaId, Guid ArticuloId, string UnidadMedida, decimal Cantidad, decimal CostoUnitarioMxn, decimal MontoMxn, Guid? CentroCostoId = null);
