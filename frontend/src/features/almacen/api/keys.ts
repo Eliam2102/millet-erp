@@ -163,6 +163,13 @@ export const almacenKeys = {
   // Desperdicio de mesa y merma de proceso (A4.4)
   mermas: (f: { estado?: string; tipo?: string }) => [...almacenKeys.all, 'mermas', f] as const,
 
+  // Conciliación diaria contra A+W (A4.6)
+  conciliacion: {
+    existencia: (almacenId: string) => [...almacenKeys.all, 'conciliacion', 'existencia', almacenId] as const,
+    diferencias: () => [...almacenKeys.all, 'conciliacion', 'diferencias'] as const,
+    corridas: () => [...almacenKeys.all, 'conciliacion', 'corridas'] as const,
+  },
+
   // Recepciones
   recepciones: () => [...almacenKeys.all, 'recepciones'] as const,
   recepcionesList: (filtros: ListarRecepcionesFiltros) =>
