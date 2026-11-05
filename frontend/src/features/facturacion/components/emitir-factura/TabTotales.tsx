@@ -19,6 +19,8 @@ export interface AnticipoAmortizar {
   importe: number;
   /** Folio del anticipo elegido (solo FE: arma la nota de observaciones; no viaja al backend). */
   folio?: string;
+  /** FMT-6: comentario libre de la NC de aplicación; se imprime en «Comentarios - Comments». */
+  comentarioNotaCredito?: string;
 }
 
 export const OBSERVACIONES_MAX = 1000;
@@ -100,6 +102,7 @@ export function TabTotales({
                         anticipos.map((x, i) =>
                           i === index
                             ? {
+                                ...x,
                                 anticipoId: item?.anticipoId ?? '',
                                 folio: item?.folio,
                                 // Propone el saldo; editable abajo.
@@ -138,6 +141,25 @@ export function TabTotales({
                     <Trash2 className="mr-1 h-3 w-3" />
                     Quitar
                   </Button>
+                </div>
+                <div className="sm:col-span-12">
+                  <Label className="text-xs" htmlFor={`anticipo-${index}-comentario-nc`}>
+                    Comentarios de la nota de crédito
+                  </Label>
+                  <Textarea
+                    id={`anticipo-${index}-comentario-nc`}
+                    rows={2}
+                    maxLength={OBSERVACIONES_MAX}
+                    placeholder="Se imprime en «Comentarios - Comments» de la nota de crédito de este anticipo"
+                    value={a.comentarioNotaCredito ?? ''}
+                    onChange={(e) =>
+                      onAnticiposChange(
+                        anticipos.map((x, i) =>
+                          i === index ? { ...x, comentarioNotaCredito: e.target.value } : x,
+                        ),
+                      )
+                    }
+                  />
                 </div>
               </div>
             ))}

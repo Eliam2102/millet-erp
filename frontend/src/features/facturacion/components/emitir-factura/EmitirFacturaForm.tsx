@@ -383,7 +383,11 @@ function FormInner({
               ? anticipos
                   .filter((a) => a.anticipoId.trim().length > 0)
                   // El folio es solo del FE (arma la nota); no viaja al backend.
-                  .map((a) => ({ anticipoId: a.anticipoId, importe: a.importe }))
+                  .map((a) => ({
+                    anticipoId: a.anticipoId,
+                    importe: a.importe,
+                    comentarioNotaCredito: a.comentarioNotaCredito?.trim() || null,
+                  }))
               : null,
           observaciones: values.observaciones ?? '',
           autorizacionId: esActivo ? autorizacionId.trim() : null,
