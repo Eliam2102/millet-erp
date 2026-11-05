@@ -15,7 +15,7 @@ public sealed class IncidenciasTests
     }
     private static Guid Abrir(Expediente e, TipoIncidencia tipo = TipoIncidencia.MercanciaDanada, Guid[]? evidencias = null)
     {
-        var id = Guid.NewGuid(); e.AbrirIncidencia(id, new(tipo, Hoy.AddDays(-2), Actor, "DEMO daño en transporte", EvidenciasIds: evidencias, HitoClave: "entregado"), evidencias ?? [], Actor, Ahora, Hoy); return id;
+        var id = Guid.NewGuid(); e.AbrirIncidencia(id, new(tipo, Hoy.AddDays(-2), Actor, "DEMO daño en transporte", EvidenciasIds: evidencias, HitoClave: "entregado", FechaCompromiso: Hoy, SiguienteAccion: "Revisar descarga"), evidencias ?? [], Actor, Ahora, Hoy); return id;
     }
     [Theory]
     [InlineData(TipoExpediente.Importacion)]
@@ -56,7 +56,8 @@ public sealed class IncidenciasTests
         for (var paso = 0; paso < 2; paso++)
         {
             var ex = Assert.Throws<BusinessRuleException>(() => e.RegistrarHito(hito, Hoy, Actor, null, null, [], [], Hoy));
-            ex.Code.Should().Be("CE_INCIDENCIAS_PENDIENTES"); ex.Message.Should().Contain("DEMO daño en transporte");
+            ex.Code.Should().Be(hito == "cerrado" ? "CE_CIERRE_GERENCIA_REQUERIDO" : "CE_INCIDENCIAS_PENDIENTES");
+            if (hito != "cerrado") ex.Message.Should().Contain("DEMO daño en transporte");
             Assert.Throws<BusinessRuleException>(e.Cerrar).Code.Should().Be("CE_INCIDENCIAS_PENDIENTES");
             if (paso == 0) e.CambiarIncidencia(id, EstadoIncidencia.EnAtencion, "Revisar descarga", null, [], null, Actor, Ahora, []);
         }

@@ -38,6 +38,8 @@ export interface ListarFacturasFiltros {
   alcance?: 'sin-asignar';
   /** F6.1: clase del pedido manual de origen (server-side). */
   clase?: 'VentaDirecta' | 'Emergencia';
+  /** U-1: solo facturas con una NC pendiente de timbrar. */
+  ncPendiente?: boolean;
 }
 
 export const facturacionKeys = {

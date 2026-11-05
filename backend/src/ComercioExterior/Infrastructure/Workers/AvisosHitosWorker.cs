@@ -60,7 +60,7 @@ public sealed class AvisosHitosWorker(IServiceScopeFactory scopes, IClock clock,
             try
             {
                 var ids = await db.Expedientes.AsNoTracking()
-                    .Where(e => e.Estado == EstadoExpediente.Abierto && e.Hitos.Any(h => h.FechaCompromiso < hoy && h.FechaReal == null && !h.Omitido))
+                    .Where(e => e.Estado == EstadoExpediente.Abierto && e.Hitos.Any(h => h.FechaCompromiso < hoy && h.FechaReal == null && !h.Omitido) || e.Estado == EstadoExpediente.Abierto && e.Incidencias.Any(i => (i.Estado == EstadoIncidencia.Abierta || i.Estado == EstadoIncidencia.EnAtencion) && i.FechaCompromiso < hoy && !e.AvisosIncidencias.Any(a => a.IncidenciaId == i.Id && a.EsVencimiento)))
                     .Select(e => new { e.Id, e.EmpresaId }).ToListAsync(ct);
                 var cantidad = 0;
                 foreach (var id in ids)
@@ -68,8 +68,8 @@ public sealed class AvisosHitosWorker(IServiceScopeFactory scopes, IClock clock,
                     await using var tx = await db.Database.BeginTransactionAsync(ct);
                     // Serializa el agregado con sus mutaciones HTTP y relee las fechas bajo el candado.
                     var e = await db.Expedientes.FromSqlInterpolated($"SELECT * FROM comercio_exterior.expedientes WHERE id = {id.Id} AND empresa_id = {id.EmpresaId} FOR UPDATE")
-                        .Include(e => e.Hitos).Include(e => e.Avisos).AsSplitQuery().SingleAsync(ct);
-                    cantidad += e.GenerarAvisos(hoy);
+                        .Include(e => e.Incidencias).Include(e => e.AvisosIncidencias).Include(e => e.Hitos).Include(e => e.Avisos).AsSplitQuery().SingleAsync(ct);
+                    cantidad += e.GenerarAvisos(hoy) + e.GenerarAvisosIncidencias(hoy, clock.UtcNow);
                     await db.SaveChangesAsync(ct);
                     await tx.CommitAsync(ct);
                     db.ChangeTracker.Clear();

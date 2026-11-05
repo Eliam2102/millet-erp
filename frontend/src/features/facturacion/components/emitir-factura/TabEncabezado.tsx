@@ -133,7 +133,7 @@ export function TabEncabezado({
             hint={
               clienteFijo
                 ? 'Cliente del pedido — fijo en esta factura.'
-                : 'Selecciónalo del catálogo; sus datos fiscales vienen del master de clientes.'
+                : 'Selecciónalo del catálogo; sus datos fiscales vienen de su ficha de cliente.'
             }
           >
             <ClienteSelector
@@ -198,7 +198,7 @@ export function TabEncabezado({
         </Campo>
         <Campo label="Método de pago" required>
           <select
-            className="h-9 w-full rounded-md border border-line-control bg-transparent px-3 text-sm shadow-sm"
+            className="h-9 w-full rounded-md border border-line-control bg-transparent px-3 text-sm shadow-card-flat"
             {...form.register('metodoPago', {
               // Matriz SAT (CFDI40105): PPD fija la forma en 99 "Por
               // definir"; al volver a PUE se exige una forma real.
@@ -298,7 +298,7 @@ export function TabEncabezado({
             />
           ) : (
           <select
-            className="h-9 w-full rounded-md border border-line-control bg-transparent px-3 text-sm shadow-sm"
+            className="h-9 w-full rounded-md border border-line-control bg-transparent px-3 text-sm shadow-card-flat"
             {...form.register('comportamientoFiscal', { valueAsNumber: true })}
             disabled={Boolean(embarqueCe?.ligado)}
             title={
@@ -329,13 +329,13 @@ export function TabEncabezado({
       <DatosClienteCampos errors={Object.fromEntries(camposDatosCliente.map(([campo]) => [campo, form.formState.errors[campo]?.message]))} datos={datosCliente} condicionesPagoPlaceholder={metodoPago === 'PUE' ? 'CONTADO' : undefined}
         onChange={(campo, valor) => campo === 'observaciones' ? onObservacionesChange(valor) : form.setValue(campo, valor, { shouldDirty: true, shouldValidate: true })} />
 
-      {/* ── Comercio Exterior (CCE) — solo exportación ───────────── */}
+      {/* ── Comercio exterior (CCE) — solo exportación ───────────── */}
       {esCce && (
-        <Seccion titulo="Comercio Exterior (CCE)">
+        <Seccion titulo="Comercio exterior (CCE)">
           <Campo label="Tipo de operación">
             <Input maxLength={2} {...form.register('cceTipoOperacion')} />
           </Campo>
-          <Campo label="Incoterm" hint="Clave SAT c_INCOTERM (FOB, CIF…).">
+          <Campo label="Incoterm" hint="Condiciones de entrega acordadas (FOB, CIF…).">
             {embarqueCe?.ligado ? (
               <p className="h-ctl-xl py-2 text-sm">{embarqueCe.incoterm}</p>
             ) : (
@@ -356,10 +356,10 @@ export function TabEncabezado({
               {...form.register('cceTcDof', { setValueAs: numeroONull })}
             />
           </Campo>
-          <Campo label="Núm. reg. id. trib. receptor" hint="Tax ID extranjero del receptor.">
+          <Campo label="Núm. reg. id. trib. receptor" hint="Número de identificación fiscal en el extranjero.">
             <Input maxLength={40} {...form.register('cceReceptorNumRegIdTrib')} />
           </Campo>
-          <Campo label="País residencia receptor" hint="Clave SAT c_Pais (USA, CAN…).">
+          <Campo label="País residencia receptor" hint="País del domicilio fiscal del receptor (USA, CAN…).">
             <Controller
               control={form.control}
               name="cceReceptorPaisResidencia"

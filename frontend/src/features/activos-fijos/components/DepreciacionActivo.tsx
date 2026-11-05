@@ -2,11 +2,11 @@ import { motivosDisposicion } from '../api/motivos-disposicion';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+import { ResolverOperacion } from './ResolverOperacion';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { useGuardarActivo } from '../api/hooks';
-import { useLibroQuery, type Corrida, type Operacion } from '../api/libro';
+import { useLibroQuery, nombreOperacion, type Corrida, type Operacion } from '../api/libro';
 import type { Activo } from '../api/types';
 import { TablaLibro } from './TablaLibro';
 import { columnasDepreciacion } from '../components/columnas-depreciacion';
@@ -16,8 +16,7 @@ export function DepreciacionActivo({ activo }: { activo: Activo }) {
   );
   const baja = useHasPermission(P.ActivosFijosBajasRegistrar);
   const ajuste = useHasPermission(P.ActivosFijosAjustesRegistrar);
-  const autorizarBaja = useHasPermission(P.ActivosFijosBajasAutorizar);
-  const autorizarAjuste = useHasPermission(P.ActivosFijosAjustesAutorizar);
+
   const [tipo, setTipo] = useState('');
   const [evidencia, setEvidencia] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -183,9 +182,12 @@ export function DepreciacionActivo({ activo }: { activo: Activo }) {
       />
       <TablaLibro
         titulo="Bajas y ajustes"
-        filas={q.data?.operaciones}
+        filas={q.data?.operaciones.map((o) => ({
+          ...o,
+          tipoNombre: nombreOperacion[o.tipo] ?? o.tipo,
+        }))}
         columnas={[
-          { clave: 'tipo', etiqueta: 'Tipo', tipo: 'texto' },
+          { clave: 'tipoNombre', etiqueta: 'Tipo', tipo: 'texto' },
           { clave: 'fecha', etiqueta: 'Fecha', tipo: 'fecha' },
           { clave: 'motivo', etiqueta: 'Motivo', tipo: 'texto' },
           { clave: 'solicitadoPor', etiqueta: 'Solicitado por', tipo: 'texto' },
@@ -198,28 +200,7 @@ export function DepreciacionActivo({ activo }: { activo: Activo }) {
                 Descargar evidencia
               </a>
             )}
-            {o.polizaId ? (
-              <Badge variant={o.anulada ? 'neutral' : 'success'}>
-                {o.anulada ? 'Anulada' : 'Autorizada'}
-              </Badge>
-            ) : (o.tipo === 'Baja' ? autorizarBaja : autorizarAjuste) ? (
-              <Button
-                variant="outline"
-                disabled={guardar.isPending}
-                title={guardar.isPending ? 'Guardando autorización' : undefined}
-                onClick={() =>
-                  guardar.mutate({
-                    ruta: `operaciones/${o.id}/autorizar`,
-                    body: {},
-                    version: o.version,
-                  })
-                }
-              >
-                Autorizar
-              </Button>
-            ) : (
-              <Badge variant="warning">Pendiente de autorización</Badge>
-            )}
+            <ResolverOperacion operacion={o} />
           </div>
         )}
       />

@@ -35,12 +35,18 @@ public static class ConservacionEndpoints
             var ids = await servicio.SucursalesAsync(sucursalId, ct);
             var responsables = await catalogos.ResponsablesAsync(servicio.Actor, ct);
             var q = from aviso in db.Avisos join activo in db.Activos on aviso.ActivoId equals activo.Id
-                where responsables.Contains(aviso.ResponsableId) && (ids == null || ids.Contains(activo.SucursalId))
+                where aviso.ResueltoEn == null && responsables.Contains(aviso.ResponsableId) && (ids == null || ids.Contains(activo.SucursalId))
                 orderby aviso.FechaAviso descending, activo.Numero
                 select new VencimientoDato(aviso.Id, activo.Id, activo.Numero, activo.Descripcion, aviso.ResponsableId, activo.SucursalId,
                     aviso.EsMantenimiento ? "Próximo mantenimiento" : "Vencimiento de documento", aviso.Vencimiento, aviso.EsMantenimiento);
             return Results.Ok(new { items = await q.Skip(Math.Max(0, offset ?? 0)).Take(10).ToListAsync(ct), total = await q.CountAsync(ct), hoy = clock.HoyLocal() });
         }).RequireAuthorization(Policy(P.ActivosFijosActivosVer));
+        g.MapPost("/activos/{id:guid}/avisos/{fuente:guid}/resolver", async (Guid id, Guid fuente, ResolverAvisoDatos datos, ResolucionAvisosServicio servicio, CancellationToken ct) =>
+        { await servicio.ResolverAsync(id, fuente, datos, ct); return Results.NoContent(); })
+            .RequireAuthorization(Policy(P.ActivosFijosDocumentosGestionar)).WithMetadata(new RequireIdempotencyKeyAttribute());
+        g.MapGet("/activos/{id:guid}/avisos", async (Guid id, ActivoServicio s, ActivosFijosDbContext db, CancellationToken ct) =>
+        { await s.CargarAsync(id, false, ct); return Results.Ok(await db.Avisos.Where(x => x.ActivoId == id).OrderByDescending(x => x.FechaAviso).ToListAsync(ct)); })
+            .RequireAuthorization(Policy(P.ActivosFijosActivosVer));
         g.MapGet("/por-vencer", PorVencer).RequireAuthorization(Policy(P.ActivosFijosActivosVer));
         g.MapGet("/conteos", async (Guid? sucursalId, int? offset, ActivoServicio s, ActivosFijosDbContext db, CancellationToken ct) =>
         {
@@ -49,7 +55,7 @@ public static class ConservacionEndpoints
         }).RequireAuthorization(Policy(P.ActivosFijosActivosVer));
         g.MapGet("/conteos/{id:guid}", async (Guid id, HttpResponse response, ActivoServicio s, ActivosFijosDbContext db, CancellationToken ct) =>
         {
-            var c = await db.Conteos.Include(x => x.Partidas).SingleOrDefaultAsync(x => x.Id == id, ct) ?? throw new EntityNotFoundException("AF_CONTEO_NO_EXISTE", "No existe el conteo.");
+            var c = await db.Conteos.Include(x => x.Partidas).ThenInclude(x => x.CapturasAnteriores).SingleOrDefaultAsync(x => x.Id == id, ct) ?? throw new EntityNotFoundException("AF_CONTEO_NO_EXISTE", "No existe el conteo.");
             await s.SucursalAsync(c.SucursalId, false, ct); return Respuesta(c, response);
         }).RequireAuthorization(Policy(P.ActivosFijosActivosVer));
         g.MapPost("/conteos", async (AbrirConteoActivo d, IMediator m, HttpResponse response, CancellationToken ct) => Respuesta(await m.Send(d, ct), response))
@@ -69,7 +75,7 @@ public static class ConservacionEndpoints
                 await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({item.Id.ToString()}, 0))", ct);
                 var a = await s.CargarAsync(item.Id, true, ct);
                 if (a.Version != item.Version) throw new ConcurrencyException("Activo", a.Id);
-                a.RegistrarImpresion(clock.UtcNow);
+                a.RegistrarImpresion(clock.UtcNow, s.Actor, datos.Motivo);
             }
             await db.SaveChangesAsync(ct); await tx.CommitAsync(ct); return Results.NoContent();
         }).RequireAuthorization(Policy(P.ActivosFijosEtiquetasImprimir)).WithMetadata(new RequireIdempotencyKeyAttribute());
@@ -100,6 +106,6 @@ public static class ConservacionEndpoints
     private static IResult Respuesta(ConteoActivo c, HttpResponse response) { response.Headers.ETag = $"\"{c.Version}\""; return Results.Ok(c); }
     public sealed record MutacionConteo(CapturaConteoDatos? Captura = null, Guid? PartidaId = null, string? Evidencia = null);
     public sealed record ImpresionItem(Guid Id, int Version);
-    public sealed record ImpresionDatos(ImpresionItem[] Activos);
+    public sealed record ImpresionDatos(ImpresionItem[] Activos, string? Motivo = null);
     public sealed record EtiquetaDato(Guid Id, int Version, string Numero, string Descripcion, string Sucursal, string Empresa);
 }

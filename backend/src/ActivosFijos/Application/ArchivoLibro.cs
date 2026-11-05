@@ -17,18 +17,18 @@ public static class ArchivoLibro
     public const int LimiteBytes = 10 * 1024 * 1024;
     public static readonly string[][] Columnas =
     [
-        ["número", "núm. activo", "código", "clave", "ItemCode"],
-        ["clase", "tipo", "tipo de activo", "grupo"],
-        ["descripción", "nombre", "ItemName"],
+        ["número", "Núm.AF", "núm. activo", "código", "clave", "ItemCode"],
+        ["clase", "Clase AF", "tipo", "tipo de activo", "grupo"],
+        ["descripción", "Descripción de activo", "nombre", "ItemName"],
         ["fecha de adquisición", "fecha de compra", "capitalización", "fechaAdquisicion"],
         ["inicio de uso", "fecha de alta", "inicioUso"],
-        ["valor", "valor original", "costo", "APC", "valorOriginal"],
+        ["valor", "Monto original de la inversión", "valor original", "costo", "APC", "valorOriginal"],
         ["depreciación acumulada", "dep. acumulada", "depreciacionAcumulada"],
         ["responsable", "responsableId"], ["sucursal", "sucursalId"], ["ubicación"],
         ["centro de costo", "CeCo", "centroCostoId"], ["equipo", "equipoId"],
-        ["importado"], ["pedimento"], ["arrendado"]
+        ["importado"], ["pedimento"], ["arrendado"], ["Depreciación normal"], ["Origen"], ["Estatus"], ["Tasa contable"], ["Tasa fiscal"]
     ];
-    public static string Normalizar(string texto) => string.Concat(texto.Normalize(NormalizationForm.FormD)
+    public static string Normalizar(string texto) => string.Concat(texto.Replace("\\n", " ").Normalize(NormalizationForm.FormD)
         .Where(c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark && char.IsLetterOrDigit(c))).ToLowerInvariant();
 
     public static DateOnly Fecha(string valor) => DateOnly.TryParseExact(valor, ["yyyy-MM-dd", "dd/MM/yyyy"], CultureInfo.InvariantCulture, DateTimeStyles.None, out var fecha)
@@ -85,7 +85,7 @@ public static class ArchivoLibro
             stream.Position = 0;
             using var libro = new XLWorkbook(stream);
             var sheet = string.IsNullOrWhiteSpace(hoja)
-                ? libro.Worksheets.FirstOrDefault(s => s.FirstRowUsed(XLCellsUsedOptions.Contents) != null)
+                ? libro.Worksheets.FirstOrDefault(s => s.Name.Equals("Base", StringComparison.OrdinalIgnoreCase)) ?? libro.Worksheets.FirstOrDefault(s => s.FirstRowUsed(XLCellsUsedOptions.Contents) != null)
                 : libro.Worksheets.FirstOrDefault(s => s.Name.Equals(hoja, StringComparison.OrdinalIgnoreCase));
             if (sheet == null) throw Invalido("No existe la hoja solicitada o el libro está vacío.");
             var rango = sheet.RangeUsed(XLCellsUsedOptions.Contents);
@@ -119,12 +119,12 @@ public static class ArchivoLibro
         {
             var texto = encabezado.Valores[i];
             if (string.IsNullOrWhiteSpace(texto)) continue;
-            var columna = Array.FindIndex(Columnas, alias => alias.Any(a => Normalizar(a) == Normalizar(texto)));
+            var columna = Normalizar(texto).StartsWith("fechadeadquisicion", StringComparison.Ordinal) ? 3 : Array.FindIndex(Columnas, alias => alias.Any(a => Normalizar(a) == Normalizar(texto)));
             if (columna < 0) avisos.Add(new(encabezado.Numero, "AF_COLUMNA_IGNORADA", $"Se ignora la columna «{texto}».", texto));
             else if (indices[columna] >= 0) errores.Add(new(encabezado.Numero, "AF_COLUMNA_DUPLICADA", $"La columna {Columnas[columna][0]} está repetida.", texto));
             else indices[columna] = i;
         }
-        foreach (var i in new[] { 0, 1, 2, 3, 5, 6 })
+        foreach (var i in new[] { 0, 1, 2, 3, 5 })
             if (indices[i] < 0) errores.Add(new(encabezado.Numero, "AF_COLUMNA_FALTANTE", $"Falta {Columnas[i][0]}. Nombres aceptados: {string.Join(", ", Columnas[i])}.", Columnas[i][0]));
         var mapeadas = new List<FilaLibroArchivo>();
         foreach (var fila in filas.Skip(1))
@@ -132,6 +132,7 @@ public static class ArchivoLibro
             if (fila.Valores.Skip(encabezado.Valores.Length).Any(v => !string.IsNullOrWhiteSpace(v)))
                 errores.Add(new(fila.Numero, "AF_COLUMNAS_INVALIDAS", "Hay valores sin encabezado. Encierre entre comillas los importes CSV que contengan comas."));
             var valores = indices.Select(i => i >= 0 && i < fila.Valores.Length ? fila.Valores[i].Trim() : "").ToArray();
+            if (string.IsNullOrWhiteSpace(valores[0]) && !string.IsNullOrWhiteSpace(valores[1]) && valores.Where((_, i) => i != 1 && i != 15).All(string.IsNullOrWhiteSpace)) continue;
             for (var i = 0; i < valores.Length; i++)
                 if (valores[i] == "[Fórmula: sustituya por su valor]")
                     errores.Add(new(fila.Numero, "AF_FORMULA_NO_ADMITIDA", "Sustituya la fórmula por su valor antes de cargar.", Columnas[i][0]));
@@ -149,14 +150,14 @@ public static class ArchivoLibro
         for (var i = 0; i < ejemplo.Length; i++) hoja.Cell(2, i + 1).Value = ejemplo[i];
         var instrucciones = libro.AddWorksheet("Instrucciones");
         instrucciones.Cell(1, 1).Value = "Elimine la fila EJEMPLO antes de cargar. Corte, versión y totales se capturan en la pantalla. La carga no crea póliza.";
-        string[] ayuda = ["Número SAP único, se conserva como texto.", "Clave o nombre del catálogo listado abajo.", "Descripción del activo.", "Fecha Excel, dd/mm/aaaa o aaaa-mm-dd; nunca mm/dd.", "Opcional; se usa adquisición si falta.", "MXN: número o texto $1,234.56.", "MXN: entre cero y valor original.", "Opcional: correo o nombre de usuario. Sin coincidencia: aviso y sin responsable.", "Clave o nombre de sucursal activa. Necesaria para asignación y permisos.", "Ubicación física (texto).", "Opcional: código de centro de costo activo.", "Opcional: clave de equipo activo del centro indicado.", "Opcional: no, temporal o definitivo; vacío = no.", "Obligatorio para importación temporal o definitiva.", "Opcional: sí/no; vacío = no."];
+        string[] ayuda = ["Número SAP único, se conserva como texto.", "Clave o nombre del catálogo listado abajo.", "Descripción del activo.", "Fecha Excel, dd/mm/aaaa o aaaa-mm-dd; nunca mm/dd.", "Opcional; se usa adquisición si falta.", "MXN: número o texto $1,234.56.", "MXN: entre cero y valor original.", "Opcional: correo o nombre de usuario. Sin coincidencia: aviso y sin responsable.", "Clave o nombre de sucursal activa. Necesaria para asignación y permisos.", "Ubicación física (texto).", "Opcional: código de centro de costo activo.", "Opcional: clave de equipo activo del centro indicado.", "Opcional: no, temporal o definitivo; vacío = no.", "Obligatorio para importación temporal o definitiva.", "Opcional: sí/no; vacío = no.", "Cuota mensual de SAP; permite inferir la tasa propia contable.", "Nacional o Importado; el tipo de importación quedará Por confirmar.", "Propio, Arrendado o Rentado.", "Porcentaje anual de 0 a 100 con cuatro decimales; manda sobre la cuota mensual.", "Porcentaje fiscal anual de 0 a 100 con cuatro decimales."];
         for (var i = 0; i < Columnas.Length; i++)
         {
             instrucciones.Cell(i + 3, 1).Value = Columnas[i][0];
             instrucciones.Cell(i + 3, 2).Value = ayuda[i];
             instrucciones.Cell(i + 3, 3).Value = string.Join(", ", Columnas[i]);
         }
-        var fila = 20;
+        var fila = Columnas.Length + 5;
         foreach (var clase in CatalogoClasesMillet.Clases)
         { instrucciones.Cell(fila, 1).Value = clase.Clave; instrucciones.Cell(fila++, 2).Value = clase.Nombre; }
         hoja.Columns().AdjustToContents(); instrucciones.Columns().AdjustToContents(10, 90);

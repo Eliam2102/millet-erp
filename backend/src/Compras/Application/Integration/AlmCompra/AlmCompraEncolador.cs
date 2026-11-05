@@ -33,7 +33,10 @@ public sealed class AlmCompraEncolador(ComprasDbContext db, CompartidoDbContext 
         await EncolarCompraAsync(oc, previos, recibida ? AlmCompraEnvio.TipoModificada : AlmCompraEnvio.TipoRecibida, ct);
     }
 
-    /// <summary>Pedimento (o BL, ETA, agente) editado en una OC autorizada: COMPRA_MODIFICADA completa, solo si ya se mandó la compra y hay cambio.</summary>
+    /// <summary>
+    /// Pedimento (o BL, ETA, agente) editado en una OC autorizada: COMPRA_MODIFICADA completa, solo si ya se mandó la compra y hay cambio.
+    /// Ventana (TI, 5-nov): solo hasta la entrada; ver <see cref="EncolarCompraAsync"/>.
+    /// </summary>
     public async Task PedimentoActualizadoAsync(Guid ocId, CancellationToken ct)
     {
         var (oc, previos) = await CargarAsync(ocId, ct);
@@ -67,8 +70,24 @@ public sealed class AlmCompraEncolador(ComprasDbContext db, CompartidoDbContext 
             return AlmCompraSobre.Armar(e.MensajeId, e.Tipo, clock.UtcNow, e.Referencia, AlmCompraSobre.DatosCancelada(oc.Folio.Valor,
                 oc.SolicitudesCancelacion.OrderBy(x => x.FechaSolicitud).LastOrDefault()?.MotivoSolicitud ?? oc.MotivoCancelacion));
         var datos = await ConstruirDatosAsync(oc, ct);
+        if (datos is not null && e.Tipo == AlmCompraEnvio.TipoModificada)
+        {
+            if (FueraDeVentana(oc))
+                throw new BusinessRuleException("ALM_COMPRA_MODIFICADA_FUERA_DE_VENTANA", "La compra ya tiene recepción; Almacenes solo acepta COMPRA_MODIFICADA hasta la entrada.");
+            ValidarCamposFijos(await db.AlmCompraEnvios.AsNoTracking().Where(x => x.OrdenCompraId == oc.Id).ToListAsync(ct), datos);
+        }
         return datos is null ? null
             : AlmCompraSobre.Armar(e.MensajeId, e.Tipo, clock.UtcNow, e.Referencia, AlmCompraSobre.DatosCompra(datos));
+    }
+
+    private static bool FueraDeVentana(OrdenCompra oc) => oc.Lineas.Any(l => l.CantidadRecibida > 0);
+
+    private static void ValidarCamposFijos(List<AlmCompraEnvio> previos, AlmCompraDatos datos)
+    {
+        var recibida = previos.FirstOrDefault(p => p.Tipo == AlmCompraEnvio.TipoRecibida && p.Sobre.Length > 0);
+        if (recibida is not null && AlmCompraSobre.CampoFijoDistinto(recibida.Sobre, datos) is { } campo)
+            throw new BusinessRuleException("ALM_COMPRA_MODIFICADA_CAMPO_FIJO",
+                $"Almacenes no acepta cambiar {campo} en una COMPRA_MODIFICADA (debe coincidir con la compra mandada).");
     }
 
     private static bool EstaEnAlmacenes(List<AlmCompraEnvio> previos) =>
@@ -92,6 +111,10 @@ public sealed class AlmCompraEncolador(ComprasDbContext db, CompartidoDbContext 
             if (datos is null) return; // la OC no tiene materia prima
             if (tipo == AlmCompraEnvio.TipoModificada)
             {
+                // Ventana (TI, 5-nov): COMPRA_MODIFICADA solo hasta la entrada. Con recepción en el ERP ya no se manda (Almacenes
+                // acusaría ERROR y detendría la referencia). Lo que Almacenes cerró por su lado lo decide su acuse.
+                if (FueraDeVentana(oc)) return;
+                ValidarCamposFijos(previos, datos);
                 var ultimo = previos.LastOrDefault(p => p.Tipo != AlmCompraEnvio.TipoCancelada && p.Sobre.Length > 0);
                 if (ultimo is not null && AlmCompraSobre.TraeLosMismosDatos(ultimo.Sobre, datos)) return;
             }

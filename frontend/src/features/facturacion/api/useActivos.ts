@@ -12,9 +12,7 @@ const BASE = '/api/v1/facturacion/activos';
 /** <c>useAutorizacionesActivo(estado)</c> — bandeja de autorizaciones (B13). */
 export function useAutorizacionesActivo(estado: number | undefined) {
   return useQuery<AutorizacionActivoItem[]>({
-    queryKey: facturacionKeys.activosAutorizaciones(
-      estado != null ? String(estado) : null,
-    ),
+    queryKey: facturacionKeys.activosAutorizaciones(estado != null ? String(estado) : null),
     queryFn: async ({ signal }) => {
       const params = new URLSearchParams();
       if (estado != null) params.set('estado', String(estado));
@@ -37,18 +35,12 @@ export function useAutorizacionesActivo(estado: number | undefined) {
 export function useAutorizarVentaActivo() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (args: {
-      command: AutorizarVentaActivoCommand;
-      idempotencyKey: string;
-    }) => {
-      const { data } = await apiRequest<AutorizarVentaActivoResponse>(
-        `${BASE}/autorizar`,
-        {
-          method: 'POST',
-          body: args.command,
-          idempotencyKey: args.idempotencyKey,
-        },
-      );
+    mutationFn: async (args: { command: AutorizarVentaActivoCommand; idempotencyKey: string }) => {
+      const { data } = await apiRequest<AutorizarVentaActivoResponse>(`${BASE}/autorizar`, {
+        method: 'POST',
+        body: args.command,
+        idempotencyKey: args.idempotencyKey,
+      });
       return data;
     },
     onSuccess: () => {
@@ -56,5 +48,19 @@ export function useAutorizarVentaActivo() {
         queryKey: [...facturacionKeys.all, 'activos'],
       });
     },
+  });
+}
+
+export function useRechazarVentaActivo() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { id: string; version: number; motivo: string }) =>
+      apiRequest(`${BASE}/autorizaciones/${args.id}/rechazar`, {
+        method: 'POST',
+        body: { motivo: args.motivo },
+        ifMatch: String(args.version),
+        idempotencyKey: crypto.randomUUID(),
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: facturacionKeys.all }),
   });
 }

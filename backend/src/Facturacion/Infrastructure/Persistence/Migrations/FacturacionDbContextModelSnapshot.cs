@@ -92,10 +92,22 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("smallint")
                         .HasColumnName("motivo");
 
+                    b.Property<string>("MotivoRechazo")
+                        .HasColumnType("text")
+                        .HasColumnName("motivo_rechazo");
+
                     b.Property<decimal>("PrecioVenta")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("precio_venta");
+
+                    b.Property<DateTimeOffset?>("RechazadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("rechazado_en");
+
+                    b.Property<Guid?>("RechazadoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("rechazado_por");
 
                     b.Property<string>("SolicitadoPor")
                         .IsRequired()
@@ -4274,6 +4286,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
                         .HasColumnName("aw_numero_pedido");
+
+                    b.Property<string>("AwVendedor")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("aw_vendedor");
 
                     b.Property<long?>("AwVersionNota")
                         .HasColumnType("bigint")

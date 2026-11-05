@@ -84,6 +84,22 @@ public sealed class ProcesarNotaCreditoAwHandler(
             return await RechazarAsync(empresaId, sol, MotivoExcepcion.NcClienteDistinto,
                 $"el cliente '{sol.ClienteRef}' no es el de la factura {factura.Folio}", cancellationToken);
 
+        // La ranura del pedido ya la documenta la NC de ranura que el ERP emite al timbrar la factura: la nota de A+W con ese importe
+        // se da por cubierta (Aplicada, sin crear otra). Sin NC de ranura vigente (el ERP no la conoce) se trata como una nota más.
+        if (sol.EsRanura)
+        {
+            var ranura = await db.NotasCredito.AsNoTracking()
+                .Where(n => n.FacturaRelacionadaId == factura.Id && n.Motivo == MotivoNotaCredito.Ranura
+                            && n.Estado != EstadoTimbrado.Cancelado && n.Estado != EstadoTimbrado.Descartada)
+                .Select(n => new { n.Folio, n.Total }).FirstOrDefaultAsync(cancellationToken);
+            if (ranura is not null && Math.Abs(ranura.Total - sol.Importe) <= 0.02m)
+            {
+                foreach (var abierta in await ExcepcionesAbiertasAsync(empresaId, sol, cancellationToken))
+                    abierta.Resolver(usuarioId: null, clock.UtcNow);
+                return (ResultadoSolicitudAw.Aplicada, null, $"ya cubierta por la NC de ranura {ranura.Folio}; no se crea otra");
+            }
+        }
+
         var saldo = await saldos.ObtenerSaldoAsync(factura.Id, cancellationToken) ?? factura.Total;
         var reservado = await db.NotasCredito
             .Where(n => n.FacturaRelacionadaId == factura.Id && n.Estado == EstadoTimbrado.PorAutorizar)
@@ -106,7 +122,7 @@ public sealed class ProcesarNotaCreditoAwHandler(
             factura.SnapshotEmisor(), factura.FormaPago, factura.Moneda, factura.TipoCambio, fiscal.Year, fiscal.Month,
             factura.CanalVentaId, motivo, factura.Id, sol.Importe,
             tasaIva: baseGravable > 0 ? Math.Round(factura.ImpuestosTrasladados / baseGravable, 2) : 0m,
-            sol.Descripcion, sol.NumeroNota, sol.Version, sol.NumeroPedido, pedido.VersionOrigen);
+            sol.Descripcion, sol.NumeroNota, sol.Version, sol.NumeroPedido, pedido.VersionOrigen, sol.Vendedor);
         nc.AgregarRelacion(factura.Uuid!, motivo.ClaveTipoRelacion());
         db.NotasCredito.Add(nc);
 

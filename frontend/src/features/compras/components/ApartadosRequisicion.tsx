@@ -1,3 +1,4 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,7 +18,6 @@ import {
   stepParaDecimales,
 } from '@/components/erp/forms/decimales-unidad';
 import { useDecimalesUnidad } from '@/components/erp/forms/useDecimalesUnidad';
-import { esApiError } from '@/lib/api/error';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import {
@@ -153,7 +153,7 @@ function LiberarApartadoDialog({
         onSuccess: onClose,
         onError: (e) =>
           setError(
-            esApiError(e) ? (e.problem.detail ?? e.message) : 'No se pudo liberar el apartado.',
+            errorUsuario(e, 'No se pudo liberar el apartado.'),
           ),
         onSettled: () => {
           enVuelo.current = false;

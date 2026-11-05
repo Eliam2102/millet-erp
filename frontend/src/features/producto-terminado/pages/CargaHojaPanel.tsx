@@ -4,7 +4,7 @@ import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { mensajeErrorAccion } from '@/lib/api/error';
+import { errorUsuario as mensajeErrorAccion } from '@/lib/error-usuario';
 import { useCargaHoja } from '../api/hooks';
 import type { AlbaranDto, HojaSalidaDto } from '../api/types';
 
@@ -41,10 +41,10 @@ export function CargaHojaPanel({ hoja, sucursal, onEmitir, emitiendo }: { hoja: 
     <section aria-label="Carga de la ruta" className="flex flex-col gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-base font-medium">Carga de la ruta {hoja.folio}</h2>
+          <h2 className="text-md font-semibold">Carga de la ruta {hoja.folio}</h2>
           <p className="text-ink-muted">{sucursal} a {hoja.destino}</p>
         </div>
-        <p className="text-base font-medium tabular-nums" aria-label="Piezas cargadas">{cargadas} de {esperadas} piezas cargadas</p>
+        <p className="text-md sm:text-sm font-medium tabular-nums" aria-label="Piezas cargadas">{cargadas} de {esperadas} piezas cargadas</p>
       </div>
 
       <form onSubmit={escanear} className="flex flex-col gap-2 sm:flex-row">
@@ -52,7 +52,7 @@ export function CargaHojaPanel({ hoja, sucursal, onEmitir, emitiendo }: { hoja: 
         <Input
           id="escaneo-carga"
           ref={entrada}
-          className="h-12 flex-1 font-mono text-base"
+          className="h-12 flex-1 font-mono text-md sm:text-sm"
           placeholder="Escanea o escribe la etiqueta de la pieza"
           autoComplete="off"
           autoCapitalize="characters"

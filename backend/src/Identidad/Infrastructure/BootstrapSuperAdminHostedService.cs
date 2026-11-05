@@ -281,13 +281,13 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                 p => p.Codigo is PermisosCanonicos.ContabilidadCatalogoLeer or PermisosCanonicos.ContabilidadCatalogoAutorizar),
             (Guid.Parse("0000000f-0011-0000-0000-000000000001"), "director-administracion-finanzas",
                 "Director de Administración y Finanzas", "Autoriza venta, valor de venta y baja de activos fijos.",
-                p => p.Codigo is PermisosCanonicos.FacturacionActivosAutorizar or PermisosCanonicos.ActivosFijosBajasAutorizar
+                p => p.Codigo is PermisosCanonicos.ActivosFijosReversasAutorizar or PermisosCanonicos.ActivosFijosClasesAutorizar or PermisosCanonicos.ActivosFijosActivosVer or PermisosCanonicos.ActivosFijosLeerTodasSucursales or PermisosCanonicos.ActivosFijosGestionarTodasSucursales or PermisosCanonicos.FacturacionActivosAutorizar or PermisosCanonicos.ActivosFijosBajasAutorizar
                     or PermisosCanonicos.DatosMaestrosProveedoresBloquear or PermisosCanonicos.CuentasPorPagarBloqueosLiberarEnLugar
                     // 86e3tac2y: la Dirección revisa el acta del cierre de Almacén.
                     or PermisosCanonicos.AlmacenCierreRevisarActa),
             (Guid.Parse("0000000f-0011-0000-0000-000000000002"), "contador-general",
                 "Contador General", "Registra las bajas autorizadas por el Director de Administración y Finanzas y autoriza las cancelaciones de CFDI (F6.5).",
-                p => p.Codigo is PermisosCanonicos.ActivosFijosBajasRegistrar or PermisosCanonicos.DatosMaestrosProveedoresBloquear
+                p => p.Codigo is PermisosCanonicos.ActivosFijosTrasladosGestionar or PermisosCanonicos.ActivosFijosReversasSolicitar or PermisosCanonicos.ActivosFijosActivosVer or PermisosCanonicos.ActivosFijosLeerTodasSucursales or PermisosCanonicos.ActivosFijosGestionarTodasSucursales or PermisosCanonicos.ActivosFijosBajasRegistrar or PermisosCanonicos.DatosMaestrosProveedoresBloquear
                     or PermisosCanonicos.FacturacionCancelacionesAutorizar or PermisosCanonicos.FacturacionCancelacionesConsultar
                     or PermisosCanonicos.FacturacionFacturasLeer or PermisosCanonicos.FacturacionAnticiposLeer
                     // Perfil corporativo: autoriza cancelaciones de todas las cajas y sucursales,

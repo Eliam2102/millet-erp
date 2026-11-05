@@ -1,3 +1,4 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -5,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { DateTimeDisplay, Field } from '@/components/erp';
-import { esApiError } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { useMiDepartamento } from '@/lib/auth/useMiEmpleado';
@@ -21,9 +21,7 @@ const TITULO: Record<Modo, string> = {
 };
 
 function mensajeError(error: unknown) {
-  return esApiError(error)
-    ? (error.problem.detail ?? error.problem.title)
-    : 'No se pudo guardar. Vuelve a intentarlo.';
+  return errorUsuario(error, 'No se pudo guardar. Vuelve a intentarlo.');
 }
 
 /**
@@ -121,14 +119,14 @@ export function ConfirmacionServicioPanel({ oc }: { oc: OrdenCompraDetalleRespon
       )}
       {confirmada && (
         <p className="text-sm text-ink-secondary">
-          Confirmado por {oc.servicioConfirmadoPorNombre ?? 'usuario no disponible'} el{' '}
+          Confirmado por {oc.servicioConfirmadoPorNombre ?? "Sin responsable"} el{' '}
           <DateTimeDisplay value={oc.servicioConfirmadoEn!} variant="datetime" />
           {oc.servicioConfirmadoComentario ? `: ${oc.servicioConfirmadoComentario}` : '.'}
         </p>
       )}
       {!confirmada && oc.servicioNoConformeEn && (
         <p role="status" className="text-sm text-danger-fg">
-          No conforme ({oc.servicioNoConformePorNombre ?? 'usuario no disponible'},{' '}
+          No conforme ({oc.servicioNoConformePorNombre ?? "Sin responsable"},{' '}
           <DateTimeDisplay value={oc.servicioNoConformeEn} variant="datetime" />
           ): {oc.servicioNoConformeMotivo}
         </p>

@@ -51,6 +51,8 @@ public sealed record PasivoAutorizadoParaPagoPayload(
     decimal? ImpuestosTrasladados = null,
     decimal? Retenciones = null)
 {
+    public Guid? SucursalId { get; init; }
+    public int? TipoOperacionCe { get; init; }
     public const string EventType = "cuentas_por_pagar.pasivo.autorizado-para-pago.v1";
 
     public const string BeneficiarioProveedor = "Proveedor";

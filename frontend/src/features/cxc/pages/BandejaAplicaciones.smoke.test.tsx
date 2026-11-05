@@ -118,6 +118,7 @@ describe('<BandejaAplicaciones> — smoke', () => {
     );
     render(<BandejaAplicaciones />, { wrapper: createQueryWrapper() });
     expect(await screen.findByText('SPEI #123')).toBeInTheDocument();
+    expect(screen.getByText('Propón cómo aplicar depósitos a facturas para que Ingresos confirme o rechace la aplicación.')).toBeInTheDocument();
     expect(await screen.findByText('ACME SA')).toBeInTheDocument();
     expect(within(screen.getByRole('table')).getByText('Propuesta')).toBeInTheDocument();
   });

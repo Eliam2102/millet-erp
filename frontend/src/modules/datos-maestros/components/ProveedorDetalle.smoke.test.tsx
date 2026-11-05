@@ -39,7 +39,7 @@ const PROVEEDOR_DETALLE = {
   id: 'p-1',
   clave: 'P-001',
   claveLegacy: null,
-  razonSocial: 'Acme S.A. de C.V.',
+  razonSocial: "Razón social del proveedor",
   nombreComercial: 'Acme',
   rfc: 'ACM010101ABC',
   tipoPersona: 0,
@@ -102,7 +102,7 @@ describe('<ProveedorDetalle> — smoke', () => {
     expect(rfcInput).toBeInTheDocument();
 
     // Razón social también visible.
-    const razonInput = screen.getByDisplayValue('Acme S.A. de C.V.');
+    const razonInput = screen.getByDisplayValue("Razón social del proveedor");
     expect(razonInput).toBeInTheDocument();
 
     // Botón Desactivar visible (proveedor activo + permiso).

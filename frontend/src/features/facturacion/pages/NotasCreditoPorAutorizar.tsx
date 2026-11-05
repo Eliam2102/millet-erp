@@ -106,6 +106,7 @@ export function NotasCreditoPorAutorizar() {
                 <TableHead>Folio A+W</TableHead>
                 <TableHead>Cliente</TableHead>
                 <TableHead>Factura relacionada</TableHead>
+                <TableHead>Vendedor A+W</TableHead>
                 <TableHead>Motivo</TableHead>
                 <TableHead className="text-right tabular-nums">Importe</TableHead>
                 <TableHead>Fecha</TableHead>
@@ -123,6 +124,7 @@ export function NotasCreditoPorAutorizar() {
                   <TableCell className="font-mono text-xs">
                     {nc.facturaFolio ?? 'Sin factura'}
                   </TableCell>
+                  <TableCell>{nc.vendedorAw ?? '—'}</TableCell>
                   <TableCell>{claveMotivo(nc.motivo)}</TableCell>
                   <TableCell className="text-right tabular-nums">
                     {formatoImporte(nc.total)} {nc.moneda}

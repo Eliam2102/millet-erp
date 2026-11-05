@@ -79,7 +79,7 @@ describe('HojasSalidaPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Ver albaranes' }));
     expect(screen.getByText('Constructora Peninsular')).toBeInTheDocument();
     expect(screen.getByText('260001')).toBeInTheDocument();
-    expect(screen.getByText(/20 pzas · posición 1 · Templado 6 mm/)).toBeInTheDocument();
+    expect(screen.getByText(/20 pzas · partida 1 · Templado 6 mm/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Imprimir hoja de salida/ }));
     expect(imprimir).toHaveBeenCalled();
   });

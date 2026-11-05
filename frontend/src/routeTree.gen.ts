@@ -15,6 +15,7 @@ import { Route as PortalProveedoresRouteImport } from './routes/portal-proveedor
 import { Route as AppIndexRouteImport } from './routes/_app/index';
 import { Route as AppActivosFijosCargaInicialRouteImport } from './routes/_app/activos-fijos/carga-inicial';
 import { Route as AppActivosFijosClasesRouteImport } from './routes/_app/activos-fijos/clases';
+import { Route as AppActivosFijosAutorizacionesRouteImport } from './routes/_app/activos-fijos/autorizaciones';
 import { Route as AppActivosFijosConciliacionRouteImport } from './routes/_app/activos-fijos/conciliacion';
 import { Route as AppActivosFijosConfiguracionLibroRouteImport } from './routes/_app/activos-fijos/configuracion-libro';
 import { Route as AppActivosFijosConteosRouteImport } from './routes/_app/activos-fijos/conteos';
@@ -31,7 +32,10 @@ import { Route as AppAlmacenAlmacenesRouteImport } from './routes/_app/almacen/a
 import { Route as AppAlmacenAsignacionesRouteImport } from './routes/_app/almacen/asignaciones';
 import { Route as AppAlmacenCierreMesRouteImport } from './routes/_app/almacen/cierre-mes';
 import { Route as AppAlmacenConciliacionRouteImport } from './routes/_app/almacen/conciliacion';
+import { Route as AppAlmacenConsumosRevisionRouteImport } from './routes/_app/almacen/consumos-revision';
+import { Route as AppAlmacenMensajesAppRouteImport } from './routes/_app/almacen/mensajes-app';
 import { Route as AppAlmacenMermasRouteImport } from './routes/_app/almacen/mermas';
+import { Route as AppAlmacenNormasConsumoRouteImport } from './routes/_app/almacen/normas-consumo';
 import { Route as AppAlmacenReordenRouteImport } from './routes/_app/almacen/reorden';
 import { Route as AppAlmacenRevisionRouteImport } from './routes/_app/almacen/revision';
 import { Route as AppAlmacenSaldosRouteImport } from './routes/_app/almacen/saldos';
@@ -67,6 +71,7 @@ import { Route as AppFacturacionCancelacionesRouteImport } from './routes/_app/f
 import { Route as AppProductoTerminadoEntregasRouteImport } from './routes/_app/producto-terminado/entregas';
 import { Route as AppProductoTerminadoExcepcionesRouteImport } from './routes/_app/producto-terminado/excepciones';
 import { Route as AppProductoTerminadoHojasSalidaRouteImport } from './routes/_app/producto-terminado/hojas-salida';
+import { Route as AppProductoTerminadoLiquidacionRouteImport } from './routes/_app/producto-terminado/liquidacion';
 import { Route as AppProductoTerminadoPiezasRouteImport } from './routes/_app/producto-terminado/piezas';
 import { Route as AppProductoTerminadoSalidasRouteImport } from './routes/_app/producto-terminado/salidas';
 import { Route as AppProductoTerminadoTraspasosRouteImport } from './routes/_app/producto-terminado/traspasos';
@@ -113,6 +118,7 @@ import { Route as AppComprasOrdenesPartidasAbiertasRouteImport } from './routes/
 import { Route as AppComprasOrdenesPendientesAutorizacionRouteImport } from './routes/_app/compras/ordenes/pendientes-autorizacion';
 import { Route as AppComprasPendientesIndexRouteImport } from './routes/_app/compras/pendientes/index';
 import { Route as AppComprasPendientesIdRouteImport } from './routes/_app/compras/pendientes/$id';
+import { Route as AppComprasIntegracionesAlmCompraRouteImport } from './routes/_app/compras/integraciones/alm-compra';
 import { Route as AppComprasReportesAnalisisProveedoresRouteImport } from './routes/_app/compras/reportes/analisis-proveedores';
 import { Route as AppComprasRequisicionesIndexRouteImport } from './routes/_app/compras/requisiciones/index';
 import { Route as AppComprasRequisicionesIdRouteImport } from './routes/_app/compras/requisiciones/$id';
@@ -267,6 +273,11 @@ const AppActivosFijosClasesRoute = AppActivosFijosClasesRouteImport.update({
   path: '/activos-fijos/clases',
   getParentRoute: () => AppRoute,
 } as any);
+const AppActivosFijosAutorizacionesRoute = AppActivosFijosAutorizacionesRouteImport.update({
+  id: '/activos-fijos/autorizaciones',
+  path: '/activos-fijos/autorizaciones',
+  getParentRoute: () => AppRoute,
+} as any);
 const AppActivosFijosConciliacionRoute =
   AppActivosFijosConciliacionRouteImport.update({
     id: '/activos-fijos/conciliacion',
@@ -353,9 +364,26 @@ const AppAlmacenConciliacionRoute = AppAlmacenConciliacionRouteImport.update({
   path: '/almacen/conciliacion',
   getParentRoute: () => AppRoute,
 } as any);
+const AppAlmacenConsumosRevisionRoute =
+  AppAlmacenConsumosRevisionRouteImport.update({
+    id: '/almacen/consumos-revision',
+    path: '/almacen/consumos-revision',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppAlmacenMensajesAppRoute =
+  AppAlmacenMensajesAppRouteImport.update({
+    id: '/almacen/mensajes-app',
+    path: '/almacen/mensajes-app',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppAlmacenMermasRoute = AppAlmacenMermasRouteImport.update({
   id: '/almacen/mermas',
   path: '/almacen/mermas',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppAlmacenNormasConsumoRoute = AppAlmacenNormasConsumoRouteImport.update({
+  id: '/almacen/normas-consumo',
+  path: '/almacen/normas-consumo',
   getParentRoute: () => AppRoute,
 } as any);
 const AppAlmacenReordenRoute = AppAlmacenReordenRouteImport.update({
@@ -543,6 +571,12 @@ const AppProductoTerminadoHojasSalidaRoute =
   AppProductoTerminadoHojasSalidaRouteImport.update({
     id: '/producto-terminado/hojas-salida',
     path: '/producto-terminado/hojas-salida',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppProductoTerminadoLiquidacionRoute =
+  AppProductoTerminadoLiquidacionRouteImport.update({
+    id: '/producto-terminado/liquidacion',
+    path: '/producto-terminado/liquidacion',
     getParentRoute: () => AppRoute,
   } as any);
 const AppProductoTerminadoPiezasRoute =
@@ -795,6 +829,12 @@ const AppComprasPendientesIdRoute = AppComprasPendientesIdRouteImport.update({
   path: '/compras/pendientes/$id',
   getParentRoute: () => AppRoute,
 } as any);
+const AppComprasIntegracionesAlmCompraRoute =
+  AppComprasIntegracionesAlmCompraRouteImport.update({
+    id: '/compras/integraciones/alm-compra',
+    path: '/compras/integraciones/alm-compra',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppComprasReportesAnalisisProveedoresRoute =
   AppComprasReportesAnalisisProveedoresRouteImport.update({
     id: '/compras/reportes/analisis-proveedores',
@@ -1503,6 +1543,7 @@ export interface FileRoutesByFullPath {
   '/portal-proveedores': typeof PortalProveedoresRoute;
   '/activos-fijos/carga-inicial': typeof AppActivosFijosCargaInicialRoute;
   '/activos-fijos/clases': typeof AppActivosFijosClasesRoute;
+  '/activos-fijos/autorizaciones': typeof AppActivosFijosAutorizacionesRoute;
   '/activos-fijos/conciliacion': typeof AppActivosFijosConciliacionRoute;
   '/activos-fijos/configuracion-libro': typeof AppActivosFijosConfiguracionLibroRoute;
   '/activos-fijos/conteos': typeof AppActivosFijosConteosRoute;
@@ -1517,7 +1558,10 @@ export interface FileRoutesByFullPath {
   '/almacen/asignaciones': typeof AppAlmacenAsignacionesRoute;
   '/almacen/cierre-mes': typeof AppAlmacenCierreMesRoute;
   '/almacen/conciliacion': typeof AppAlmacenConciliacionRoute;
+  '/almacen/consumos-revision': typeof AppAlmacenConsumosRevisionRoute;
+  '/almacen/mensajes-app': typeof AppAlmacenMensajesAppRoute;
   '/almacen/mermas': typeof AppAlmacenMermasRoute;
+  '/almacen/normas-consumo': typeof AppAlmacenNormasConsumoRoute;
   '/almacen/reorden': typeof AppAlmacenReordenRoute;
   '/almacen/revision': typeof AppAlmacenRevisionRoute;
   '/almacen/saldos': typeof AppAlmacenSaldosRoute;
@@ -1548,6 +1592,7 @@ export interface FileRoutesByFullPath {
   '/producto-terminado/entregas': typeof AppProductoTerminadoEntregasRoute;
   '/producto-terminado/excepciones': typeof AppProductoTerminadoExcepcionesRoute;
   '/producto-terminado/hojas-salida': typeof AppProductoTerminadoHojasSalidaRoute;
+  '/producto-terminado/liquidacion': typeof AppProductoTerminadoLiquidacionRoute;
   '/producto-terminado/piezas': typeof AppProductoTerminadoPiezasRoute;
   '/producto-terminado/salidas': typeof AppProductoTerminadoSalidasRoute;
   '/producto-terminado/traspasos': typeof AppProductoTerminadoTraspasosRoute;
@@ -1580,6 +1625,7 @@ export interface FileRoutesByFullPath {
   '/compras/ordenes/partidas-abiertas': typeof AppComprasOrdenesPartidasAbiertasRoute;
   '/compras/ordenes/pendientes-autorizacion': typeof AppComprasOrdenesPendientesAutorizacionRoute;
   '/compras/pendientes/$id': typeof AppComprasPendientesIdRoute;
+  '/compras/integraciones/alm-compra': typeof AppComprasIntegracionesAlmCompraRoute;
   '/compras/reportes/analisis-proveedores': typeof AppComprasReportesAnalisisProveedoresRoute;
   '/compras/requisiciones/$id': typeof AppComprasRequisicionesIdRoute;
   '/contabilidad/catalogo/$id': typeof AppContabilidadCatalogoIdRoute;
@@ -1731,6 +1777,7 @@ export interface FileRoutesByTo {
   '/': typeof AppIndexRoute;
   '/activos-fijos/carga-inicial': typeof AppActivosFijosCargaInicialRoute;
   '/activos-fijos/clases': typeof AppActivosFijosClasesRoute;
+  '/activos-fijos/autorizaciones': typeof AppActivosFijosAutorizacionesRoute;
   '/activos-fijos/conciliacion': typeof AppActivosFijosConciliacionRoute;
   '/activos-fijos/configuracion-libro': typeof AppActivosFijosConfiguracionLibroRoute;
   '/activos-fijos/conteos': typeof AppActivosFijosConteosRoute;
@@ -1745,7 +1792,10 @@ export interface FileRoutesByTo {
   '/almacen/asignaciones': typeof AppAlmacenAsignacionesRoute;
   '/almacen/cierre-mes': typeof AppAlmacenCierreMesRoute;
   '/almacen/conciliacion': typeof AppAlmacenConciliacionRoute;
+  '/almacen/consumos-revision': typeof AppAlmacenConsumosRevisionRoute;
+  '/almacen/mensajes-app': typeof AppAlmacenMensajesAppRoute;
   '/almacen/mermas': typeof AppAlmacenMermasRoute;
+  '/almacen/normas-consumo': typeof AppAlmacenNormasConsumoRoute;
   '/almacen/reorden': typeof AppAlmacenReordenRoute;
   '/almacen/revision': typeof AppAlmacenRevisionRoute;
   '/almacen/saldos': typeof AppAlmacenSaldosRoute;
@@ -1776,6 +1826,7 @@ export interface FileRoutesByTo {
   '/producto-terminado/entregas': typeof AppProductoTerminadoEntregasRoute;
   '/producto-terminado/excepciones': typeof AppProductoTerminadoExcepcionesRoute;
   '/producto-terminado/hojas-salida': typeof AppProductoTerminadoHojasSalidaRoute;
+  '/producto-terminado/liquidacion': typeof AppProductoTerminadoLiquidacionRoute;
   '/producto-terminado/piezas': typeof AppProductoTerminadoPiezasRoute;
   '/producto-terminado/salidas': typeof AppProductoTerminadoSalidasRoute;
   '/producto-terminado/traspasos': typeof AppProductoTerminadoTraspasosRoute;
@@ -1808,6 +1859,7 @@ export interface FileRoutesByTo {
   '/compras/ordenes/partidas-abiertas': typeof AppComprasOrdenesPartidasAbiertasRoute;
   '/compras/ordenes/pendientes-autorizacion': typeof AppComprasOrdenesPendientesAutorizacionRoute;
   '/compras/pendientes/$id': typeof AppComprasPendientesIdRoute;
+  '/compras/integraciones/alm-compra': typeof AppComprasIntegracionesAlmCompraRoute;
   '/compras/reportes/analisis-proveedores': typeof AppComprasReportesAnalisisProveedoresRoute;
   '/compras/requisiciones/$id': typeof AppComprasRequisicionesIdRoute;
   '/contabilidad/catalogo/$id': typeof AppContabilidadCatalogoIdRoute;
@@ -1961,6 +2013,7 @@ export interface FileRoutesById {
   '/_app/': typeof AppIndexRoute;
   '/_app/activos-fijos/carga-inicial': typeof AppActivosFijosCargaInicialRoute;
   '/_app/activos-fijos/clases': typeof AppActivosFijosClasesRoute;
+  '/_app/activos-fijos/autorizaciones': typeof AppActivosFijosAutorizacionesRoute;
   '/_app/activos-fijos/conciliacion': typeof AppActivosFijosConciliacionRoute;
   '/_app/activos-fijos/configuracion-libro': typeof AppActivosFijosConfiguracionLibroRoute;
   '/_app/activos-fijos/conteos': typeof AppActivosFijosConteosRoute;
@@ -1975,7 +2028,10 @@ export interface FileRoutesById {
   '/_app/almacen/asignaciones': typeof AppAlmacenAsignacionesRoute;
   '/_app/almacen/cierre-mes': typeof AppAlmacenCierreMesRoute;
   '/_app/almacen/conciliacion': typeof AppAlmacenConciliacionRoute;
+  '/_app/almacen/consumos-revision': typeof AppAlmacenConsumosRevisionRoute;
+  '/_app/almacen/mensajes-app': typeof AppAlmacenMensajesAppRoute;
   '/_app/almacen/mermas': typeof AppAlmacenMermasRoute;
+  '/_app/almacen/normas-consumo': typeof AppAlmacenNormasConsumoRoute;
   '/_app/almacen/reorden': typeof AppAlmacenReordenRoute;
   '/_app/almacen/revision': typeof AppAlmacenRevisionRoute;
   '/_app/almacen/saldos': typeof AppAlmacenSaldosRoute;
@@ -2006,6 +2062,7 @@ export interface FileRoutesById {
   '/_app/producto-terminado/entregas': typeof AppProductoTerminadoEntregasRoute;
   '/_app/producto-terminado/excepciones': typeof AppProductoTerminadoExcepcionesRoute;
   '/_app/producto-terminado/hojas-salida': typeof AppProductoTerminadoHojasSalidaRoute;
+  '/_app/producto-terminado/liquidacion': typeof AppProductoTerminadoLiquidacionRoute;
   '/_app/producto-terminado/piezas': typeof AppProductoTerminadoPiezasRoute;
   '/_app/producto-terminado/salidas': typeof AppProductoTerminadoSalidasRoute;
   '/_app/producto-terminado/traspasos': typeof AppProductoTerminadoTraspasosRoute;
@@ -2038,6 +2095,7 @@ export interface FileRoutesById {
   '/_app/compras/ordenes/partidas-abiertas': typeof AppComprasOrdenesPartidasAbiertasRoute;
   '/_app/compras/ordenes/pendientes-autorizacion': typeof AppComprasOrdenesPendientesAutorizacionRoute;
   '/_app/compras/pendientes/$id': typeof AppComprasPendientesIdRoute;
+  '/_app/compras/integraciones/alm-compra': typeof AppComprasIntegracionesAlmCompraRoute;
   '/_app/compras/reportes/analisis-proveedores': typeof AppComprasReportesAnalisisProveedoresRoute;
   '/_app/compras/requisiciones/$id': typeof AppComprasRequisicionesIdRoute;
   '/_app/contabilidad/catalogo/$id': typeof AppContabilidadCatalogoIdRoute;
@@ -2191,6 +2249,7 @@ export interface FileRouteTypes {
     | '/portal-proveedores'
     | '/activos-fijos/carga-inicial'
     | '/activos-fijos/clases'
+    | '/activos-fijos/autorizaciones'
     | '/activos-fijos/conciliacion'
     | '/activos-fijos/configuracion-libro'
     | '/activos-fijos/conteos'
@@ -2205,7 +2264,10 @@ export interface FileRouteTypes {
     | '/almacen/asignaciones'
     | '/almacen/cierre-mes'
     | '/almacen/conciliacion'
+    | '/almacen/consumos-revision'
+    | '/almacen/mensajes-app'
     | '/almacen/mermas'
+    | '/almacen/normas-consumo'
     | '/almacen/reorden'
     | '/almacen/revision'
     | '/almacen/saldos'
@@ -2236,6 +2298,7 @@ export interface FileRouteTypes {
     | '/producto-terminado/entregas'
     | '/producto-terminado/excepciones'
     | '/producto-terminado/hojas-salida'
+    | '/producto-terminado/liquidacion'
     | '/producto-terminado/piezas'
     | '/producto-terminado/salidas'
     | '/producto-terminado/traspasos'
@@ -2268,6 +2331,7 @@ export interface FileRouteTypes {
     | '/compras/ordenes/partidas-abiertas'
     | '/compras/ordenes/pendientes-autorizacion'
     | '/compras/pendientes/$id'
+    | '/compras/integraciones/alm-compra'
     | '/compras/reportes/analisis-proveedores'
     | '/compras/requisiciones/$id'
     | '/contabilidad/catalogo/$id'
@@ -2419,6 +2483,7 @@ export interface FileRouteTypes {
     | '/'
     | '/activos-fijos/carga-inicial'
     | '/activos-fijos/clases'
+    | '/activos-fijos/autorizaciones'
     | '/activos-fijos/conciliacion'
     | '/activos-fijos/configuracion-libro'
     | '/activos-fijos/conteos'
@@ -2433,7 +2498,10 @@ export interface FileRouteTypes {
     | '/almacen/asignaciones'
     | '/almacen/cierre-mes'
     | '/almacen/conciliacion'
+    | '/almacen/consumos-revision'
+    | '/almacen/mensajes-app'
     | '/almacen/mermas'
+    | '/almacen/normas-consumo'
     | '/almacen/reorden'
     | '/almacen/revision'
     | '/almacen/saldos'
@@ -2464,6 +2532,7 @@ export interface FileRouteTypes {
     | '/producto-terminado/entregas'
     | '/producto-terminado/excepciones'
     | '/producto-terminado/hojas-salida'
+    | '/producto-terminado/liquidacion'
     | '/producto-terminado/piezas'
     | '/producto-terminado/salidas'
     | '/producto-terminado/traspasos'
@@ -2496,6 +2565,7 @@ export interface FileRouteTypes {
     | '/compras/ordenes/partidas-abiertas'
     | '/compras/ordenes/pendientes-autorizacion'
     | '/compras/pendientes/$id'
+    | '/compras/integraciones/alm-compra'
     | '/compras/reportes/analisis-proveedores'
     | '/compras/requisiciones/$id'
     | '/contabilidad/catalogo/$id'
@@ -2648,6 +2718,7 @@ export interface FileRouteTypes {
     | '/_app/'
     | '/_app/activos-fijos/carga-inicial'
     | '/_app/activos-fijos/clases'
+    | '/_app/activos-fijos/autorizaciones'
     | '/_app/activos-fijos/conciliacion'
     | '/_app/activos-fijos/configuracion-libro'
     | '/_app/activos-fijos/conteos'
@@ -2662,7 +2733,10 @@ export interface FileRouteTypes {
     | '/_app/almacen/asignaciones'
     | '/_app/almacen/cierre-mes'
     | '/_app/almacen/conciliacion'
+    | '/_app/almacen/consumos-revision'
+    | '/_app/almacen/mensajes-app'
     | '/_app/almacen/mermas'
+    | '/_app/almacen/normas-consumo'
     | '/_app/almacen/reorden'
     | '/_app/almacen/revision'
     | '/_app/almacen/saldos'
@@ -2693,6 +2767,7 @@ export interface FileRouteTypes {
     | '/_app/producto-terminado/entregas'
     | '/_app/producto-terminado/excepciones'
     | '/_app/producto-terminado/hojas-salida'
+    | '/_app/producto-terminado/liquidacion'
     | '/_app/producto-terminado/piezas'
     | '/_app/producto-terminado/salidas'
     | '/_app/producto-terminado/traspasos'
@@ -2725,6 +2800,7 @@ export interface FileRouteTypes {
     | '/_app/compras/ordenes/partidas-abiertas'
     | '/_app/compras/ordenes/pendientes-autorizacion'
     | '/_app/compras/pendientes/$id'
+    | '/_app/compras/integraciones/alm-compra'
     | '/_app/compras/reportes/analisis-proveedores'
     | '/_app/compras/requisiciones/$id'
     | '/_app/contabilidad/catalogo/$id'
@@ -2921,6 +2997,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppActivosFijosClasesRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/activos-fijos/autorizaciones': {
+      id: '/_app/activos-fijos/autorizaciones';
+      path: '/activos-fijos/autorizaciones';
+      fullPath: '/activos-fijos/autorizaciones';
+      preLoaderRoute: typeof AppActivosFijosAutorizacionesRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/activos-fijos/conciliacion': {
       id: '/_app/activos-fijos/conciliacion';
       path: '/activos-fijos/conciliacion';
@@ -3033,11 +3116,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAlmacenConciliacionRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/almacen/consumos-revision': {
+      id: '/_app/almacen/consumos-revision';
+      path: '/almacen/consumos-revision';
+      fullPath: '/almacen/consumos-revision';
+      preLoaderRoute: typeof AppAlmacenConsumosRevisionRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/almacen/mensajes-app': {
+      id: '/_app/almacen/mensajes-app';
+      path: '/almacen/mensajes-app';
+      fullPath: '/almacen/mensajes-app';
+      preLoaderRoute: typeof AppAlmacenMensajesAppRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/almacen/mermas': {
       id: '/_app/almacen/mermas';
       path: '/almacen/mermas';
       fullPath: '/almacen/mermas';
       preLoaderRoute: typeof AppAlmacenMermasRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/almacen/normas-consumo': {
+      id: '/_app/almacen/normas-consumo';
+      path: '/almacen/normas-consumo';
+      fullPath: '/almacen/normas-consumo';
+      preLoaderRoute: typeof AppAlmacenNormasConsumoRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/almacen/reorden': {
@@ -3283,6 +3387,13 @@ declare module '@tanstack/react-router' {
       path: '/producto-terminado/hojas-salida';
       fullPath: '/producto-terminado/hojas-salida';
       preLoaderRoute: typeof AppProductoTerminadoHojasSalidaRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/producto-terminado/liquidacion': {
+      id: '/_app/producto-terminado/liquidacion';
+      path: '/producto-terminado/liquidacion';
+      fullPath: '/producto-terminado/liquidacion';
+      preLoaderRoute: typeof AppProductoTerminadoLiquidacionRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/producto-terminado/piezas': {
@@ -3605,6 +3716,13 @@ declare module '@tanstack/react-router' {
       path: '/compras/pendientes/$id';
       fullPath: '/compras/pendientes/$id';
       preLoaderRoute: typeof AppComprasPendientesIdRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/compras/integraciones/alm-compra': {
+      id: '/_app/compras/integraciones/alm-compra';
+      path: '/compras/integraciones/alm-compra';
+      fullPath: '/compras/integraciones/alm-compra';
+      preLoaderRoute: typeof AppComprasIntegracionesAlmCompraRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/compras/reportes/analisis-proveedores': {
@@ -4492,6 +4610,7 @@ interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute;
   AppActivosFijosCargaInicialRoute: typeof AppActivosFijosCargaInicialRoute;
   AppActivosFijosClasesRoute: typeof AppActivosFijosClasesRoute;
+  AppActivosFijosAutorizacionesRoute: typeof AppActivosFijosAutorizacionesRoute;
   AppActivosFijosConciliacionRoute: typeof AppActivosFijosConciliacionRoute;
   AppActivosFijosConfiguracionLibroRoute: typeof AppActivosFijosConfiguracionLibroRoute;
   AppActivosFijosConteosRoute: typeof AppActivosFijosConteosRoute;
@@ -4506,7 +4625,10 @@ interface AppRouteChildren {
   AppAlmacenAsignacionesRoute: typeof AppAlmacenAsignacionesRoute;
   AppAlmacenCierreMesRoute: typeof AppAlmacenCierreMesRoute;
   AppAlmacenConciliacionRoute: typeof AppAlmacenConciliacionRoute;
+  AppAlmacenConsumosRevisionRoute: typeof AppAlmacenConsumosRevisionRoute;
+  AppAlmacenMensajesAppRoute: typeof AppAlmacenMensajesAppRoute;
   AppAlmacenMermasRoute: typeof AppAlmacenMermasRoute;
+  AppAlmacenNormasConsumoRoute: typeof AppAlmacenNormasConsumoRoute;
   AppAlmacenReordenRoute: typeof AppAlmacenReordenRoute;
   AppAlmacenRevisionRoute: typeof AppAlmacenRevisionRoute;
   AppAlmacenSaldosRoute: typeof AppAlmacenSaldosRoute;
@@ -4537,6 +4659,7 @@ interface AppRouteChildren {
   AppProductoTerminadoEntregasRoute: typeof AppProductoTerminadoEntregasRoute;
   AppProductoTerminadoExcepcionesRoute: typeof AppProductoTerminadoExcepcionesRoute;
   AppProductoTerminadoHojasSalidaRoute: typeof AppProductoTerminadoHojasSalidaRoute;
+  AppProductoTerminadoLiquidacionRoute: typeof AppProductoTerminadoLiquidacionRoute;
   AppProductoTerminadoPiezasRoute: typeof AppProductoTerminadoPiezasRoute;
   AppProductoTerminadoSalidasRoute: typeof AppProductoTerminadoSalidasRoute;
   AppProductoTerminadoTraspasosRoute: typeof AppProductoTerminadoTraspasosRoute;
@@ -4569,6 +4692,7 @@ interface AppRouteChildren {
   AppComprasOrdenesPartidasAbiertasRoute: typeof AppComprasOrdenesPartidasAbiertasRoute;
   AppComprasOrdenesPendientesAutorizacionRoute: typeof AppComprasOrdenesPendientesAutorizacionRoute;
   AppComprasPendientesIdRoute: typeof AppComprasPendientesIdRoute;
+  AppComprasIntegracionesAlmCompraRoute: typeof AppComprasIntegracionesAlmCompraRoute;
   AppComprasReportesAnalisisProveedoresRoute: typeof AppComprasReportesAnalisisProveedoresRoute;
   AppComprasRequisicionesIdRoute: typeof AppComprasRequisicionesIdRoute;
   AppContabilidadCatalogoIdRoute: typeof AppContabilidadCatalogoIdRoute;
@@ -4717,6 +4841,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
   AppActivosFijosCargaInicialRoute: AppActivosFijosCargaInicialRoute,
   AppActivosFijosClasesRoute: AppActivosFijosClasesRoute,
+  AppActivosFijosAutorizacionesRoute: AppActivosFijosAutorizacionesRoute,
   AppActivosFijosConciliacionRoute: AppActivosFijosConciliacionRoute,
   AppActivosFijosConfiguracionLibroRoute:
     AppActivosFijosConfiguracionLibroRoute,
@@ -4733,7 +4858,10 @@ const AppRouteChildren: AppRouteChildren = {
   AppAlmacenAsignacionesRoute: AppAlmacenAsignacionesRoute,
   AppAlmacenCierreMesRoute: AppAlmacenCierreMesRoute,
   AppAlmacenConciliacionRoute: AppAlmacenConciliacionRoute,
+  AppAlmacenConsumosRevisionRoute: AppAlmacenConsumosRevisionRoute,
+  AppAlmacenMensajesAppRoute: AppAlmacenMensajesAppRoute,
   AppAlmacenMermasRoute: AppAlmacenMermasRoute,
+  AppAlmacenNormasConsumoRoute: AppAlmacenNormasConsumoRoute,
   AppAlmacenReordenRoute: AppAlmacenReordenRoute,
   AppAlmacenRevisionRoute: AppAlmacenRevisionRoute,
   AppAlmacenSaldosRoute: AppAlmacenSaldosRoute,
@@ -4764,6 +4892,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppProductoTerminadoEntregasRoute: AppProductoTerminadoEntregasRoute,
   AppProductoTerminadoExcepcionesRoute: AppProductoTerminadoExcepcionesRoute,
   AppProductoTerminadoHojasSalidaRoute: AppProductoTerminadoHojasSalidaRoute,
+  AppProductoTerminadoLiquidacionRoute: AppProductoTerminadoLiquidacionRoute,
   AppProductoTerminadoPiezasRoute: AppProductoTerminadoPiezasRoute,
   AppProductoTerminadoSalidasRoute: AppProductoTerminadoSalidasRoute,
   AppProductoTerminadoTraspasosRoute: AppProductoTerminadoTraspasosRoute,
@@ -4798,6 +4927,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppComprasOrdenesPendientesAutorizacionRoute:
     AppComprasOrdenesPendientesAutorizacionRoute,
   AppComprasPendientesIdRoute: AppComprasPendientesIdRoute,
+  AppComprasIntegracionesAlmCompraRoute:
+    AppComprasIntegracionesAlmCompraRoute,
   AppComprasReportesAnalisisProveedoresRoute:
     AppComprasReportesAnalisisProveedoresRoute,
   AppComprasRequisicionesIdRoute: AppComprasRequisicionesIdRoute,

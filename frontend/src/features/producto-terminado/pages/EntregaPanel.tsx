@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { mensajeErrorAccion } from '@/lib/api/error';
+import { errorUsuario as mensajeErrorAccion } from '@/lib/error-usuario';
 import { useConfirmarEntrega } from '../api/hooks';
 import { reducirFoto } from '../lib/imagen';
 import type { AlbaranDto, FormaCobroEntrega } from '../api/types';
@@ -43,7 +43,7 @@ export function EntregaPanel({ hojaId, albaran, onListo, onCancelar }: { hojaId:
 
   const tomarFoto = async (archivo: File | undefined) => {
     if (!archivo) return;
-    try { setFoto(await reducirFoto(archivo)); } catch { setError('No se pudo leer la foto. Intenta de nuevo.'); }
+    try { setFoto(await reducirFoto(archivo)); } catch { setError("No se pudo leer la foto. Elige otra foto o pide la firma de quien recibe. Revisa los datos del registro; si continúa, avisa a soporte."); }
   };
   const enviar = () => {
     setError(null);
@@ -64,7 +64,7 @@ export function EntregaPanel({ hojaId, albaran, onListo, onCancelar }: { hojaId:
     <section aria-label={`Confirmar entrega del pedido ${albaran.numeroPedido}`} className="flex flex-col gap-4 rounded-md border border-line-divider p-3">
       <label className="flex flex-col gap-1 text-sm">
         Quién recibe
-        <Input className="h-12 text-base" autoComplete="off" placeholder="Nombre de quien recibe" value={receptor} onChange={(e) => setReceptor(e.target.value)} />
+        <Input className="h-12 text-md sm:text-sm" autoComplete="off" placeholder="Nombre de quien recibe" value={receptor} onChange={(e) => setReceptor(e.target.value)} />
       </label>
 
       <fieldset className="flex flex-col">
@@ -107,17 +107,17 @@ export function EntregaPanel({ hojaId, albaran, onListo, onCancelar }: { hojaId:
           <div className="grid gap-2 sm:grid-cols-3">
             <label className="flex flex-col gap-1 text-xs text-ink-muted">
               Monto cobrado
-              <Input className="h-12 text-base" inputMode="decimal" placeholder="8500.00" value={monto} onChange={(e) => setMonto(e.target.value)} />
+              <Input className="h-12 text-md sm:text-sm" inputMode="decimal" placeholder="8500.00" value={monto} onChange={(e) => setMonto(e.target.value)} />
             </label>
             <label className="flex flex-col gap-1 text-xs text-ink-muted">
               Forma de cobro
-              <select className="h-12 rounded-md border border-line bg-surface-card px-2 text-base text-ink" value={forma} onChange={(e) => setForma(e.target.value as FormaCobroEntrega)}>
+              <select className="h-12 rounded-md border border-line bg-surface-card px-2 text-md sm:text-sm text-ink" value={forma} onChange={(e) => setForma(e.target.value as FormaCobroEntrega)}>
                 {FORMAS.map((f) => <option key={f} value={f}>{f}</option>)}
               </select>
             </label>
             <label className="flex flex-col gap-1 text-xs text-ink-muted">
               Folio del voucher
-              <Input className="h-12 text-base" placeholder="Folio de la terminal" value={referencia} onChange={(e) => setReferencia(e.target.value)} />
+              <Input className="h-12 text-md sm:text-sm" placeholder="Folio de la terminal" value={referencia} onChange={(e) => setReferencia(e.target.value)} />
             </label>
           </div>
         )}

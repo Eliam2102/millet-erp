@@ -1,3 +1,4 @@
+import { ApiError } from '@/lib/api/error';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { CargaHojaPanel } from './CargaHojaPanel';
@@ -39,7 +40,7 @@ describe('CargaHojaPanel', () => {
   });
 
   it('una pieza rechazada deja el aviso de error y conserva lo escaneado', async () => {
-    carga.mutateAsync.mockRejectedValueOnce(new Error('La pieza 260009-1 es del pedido 260009, que no está en esta ruta.'));
+    carga.mutateAsync.mockRejectedValueOnce(new ApiError({ type: 'about:blank', status: 422, title: 'Pieza de otro pedido', detail: 'La pieza 260009-1 es del pedido 260009, que no está en esta ruta.' }, 422));
     render(<CargaHojaPanel hoja={hoja} sucursal="Chichí Suárez" emitiendo={false} onEmitir={vi.fn()} />);
     const entrada = screen.getByLabelText('Etiqueta de la pieza');
     fireEvent.change(entrada, { target: { value: '260009-1' } });

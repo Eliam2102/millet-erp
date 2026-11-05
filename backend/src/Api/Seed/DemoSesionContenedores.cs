@@ -67,8 +67,12 @@ public sealed partial class DemoSesionSeedHostedService
                     e.AsignarPartida(cid, new(p.Id, numero, p.ClienteId, p.ClienteNombre, sucursalId, true, p.Estado.ToString(), p.VersionOrigen,
                         p.Lineas.Select(l => new LineaEmbarcable(l.Posicion, l.ProductoId, l.ProductoDescripcion, l.Cantidad, l.ClaveUnidadSat!)).ToArray(), null, null), 1, p.Lineas.Single().Cantidad, CapturistaComprasDemoId);
                 }
-                if (i == 1) e.RegistrarEmbarque(cid, new(2026, 10, 12), new(2026, 10, 16));
+
             }
+            foreach (var partida in e.Partidas.ToArray())
+                e.GuardarDatosAduanales(partida.Id, "70071999", "06", CapturistaComprasDemoId, Fecha, true);
+            e.AutorizarSalida(ActorId, Fecha, null, true);
+            e.RegistrarEmbarque(Id($"DEMO-CE/{clave}/CONT-1"), new(2026, 10, 12), new(2026, 10, 16));
             await db.SaveChangesAsync(ct);
         }
     }

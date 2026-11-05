@@ -67,6 +67,8 @@ public sealed class ExpedienteProveedorListadoTests
         await ComprobarAsync();
         var excepcion = new AdjuntoExcepcion("proveedor", proveedor.Id, tipo.Id, "Excepción sintética", null, null, reloj.UtcNow);
         db.AdjuntoExcepciones.Add(excepcion); await db.SaveChangesAsync();
+        await ComprobarAsync(); // pendiente: no cubre el documento
+        excepcion.Otorgar(Guid.NewGuid(), null, reloj.UtcNow); await db.SaveChangesAsync();
         await ComprobarAsync();
         excepcion.Revocar(null, reloj.UtcNow); await db.SaveChangesAsync();
         await ComprobarAsync();

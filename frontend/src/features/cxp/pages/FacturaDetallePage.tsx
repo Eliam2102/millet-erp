@@ -1,3 +1,5 @@
+import { problemaUsuario } from '@/lib/error-usuario';
+import { errorUsuario } from '@/lib/error-usuario';
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { TrazabilidadComprasDialog } from '@/components/erp/trazabilidad/TrazabilidadComprasDialog';
@@ -102,12 +104,12 @@ export function FacturaDetallePage() {
         onSettled: () => setAutorizarAbierto(false),
         onError: (error) => {
           if (esApiError(error)) {
-            toast.error(error.problem.title, {
+            toast.error(errorUsuario(error), {
               description: codigoSoporte(error),
             });
             return;
           }
-          toast.error('Error al autorizar la factura.');
+          toast.error("Error al autorizar la factura. Revisa los datos del registro; si continúa, avisa a soporte.");
         },
       },
     );
@@ -127,7 +129,7 @@ export function FacturaDetallePage() {
       {query.isError ? (
         <ErrorState
           title="No se pudo cargar la factura"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
+          problem={problemaUsuario(query.error)}
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading ? (
@@ -410,9 +412,7 @@ export function FacturaDetallePage() {
                   toast.success('Retenciones marcadas como revisadas');
                 } catch (e) {
                   setErrorRevision(
-                    esApiError(e)
-                      ? (e.problem.detail ?? e.message)
-                      : 'No se pudo guardar la revisión.',
+                    errorUsuario(e, 'No se pudo guardar la revisión.'),
                   );
                 }
               }}

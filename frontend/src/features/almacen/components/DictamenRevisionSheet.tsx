@@ -1,3 +1,4 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { FormCampo } from '@/components/erp/forms/FormGrid';
 import { SheetBody } from '@/components/ui/sheet';
@@ -189,17 +190,17 @@ function Cuerpo({
           setConfirmar(false);
           if (esApiError(error)) {
             if (error.problem.code === 'DICTAMEN_RECHAZO_SIN_EVIDENCIA') {
-              setSinEvidencia(error.problem.detail ?? error.problem.title);
+              setSinEvidencia(errorUsuario(error));
               return;
             }
             if (
               applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)
             )
               return;
-            setErrorServidor(error.problem.detail ?? error.problem.title);
+            setErrorServidor(errorUsuario(error));
             return;
           }
-          setErrorServidor('Error inesperado.');
+          setErrorServidor("Error inesperado. Revisa los datos del registro; si continúa, avisa a soporte.");
         },
       },
     );

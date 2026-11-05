@@ -1,3 +1,6 @@
+import { errorDeReporte } from '@/lib/error-usuario';
+import { problemaUsuario } from '@/lib/error-usuario';
+import { errorUsuario } from '@/lib/error-usuario';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -21,7 +24,6 @@ import {
   type RevaluacionCierreResumen,
 } from '@/features/cxp/api/useRevaluacionCierre';
 import { backendToShellShape } from '@/features/cxp/lib/reportes-adapter';
-import { esApiError } from '@/lib/api';
 import { useFormIdempotencyKey } from '@/lib/api/idempotency';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -81,9 +83,7 @@ export function RevaluacionCierrePage() {
         onError: (error) => {
           setResumen(null);
           toast.error(
-            esApiError(error)
-              ? (error.problem.detail ?? error.problem.title)
-              : 'No se pudo correr la revaluación.',
+            errorUsuario(error, 'No se pudo correr la revaluación.'),
           );
         },
       },
@@ -164,7 +164,7 @@ export function RevaluacionCierrePage() {
         {lista.isError ? (
           <ErrorState
             title="No se pudieron cargar las revaluaciones"
-            problem={esApiError(lista.error) ? lista.error.problem : undefined}
+            problem={problemaUsuario(lista.error)}
             onRetry={() => lista.refetch()}
           />
         ) : lista.isLoading ? (
@@ -219,7 +219,7 @@ export function RevaluacionCierrePage() {
         <ReporteShell
           reporte={reporte.data ? conDecimales(backendToShellShape(reporte.data)) : undefined}
           isLoading={reporte.isLoading}
-          error={esApiError(reporte.error) ? reporte.error : undefined}
+          error={errorDeReporte(reporte.error)}
           onRetry={() => reporte.refetch()}
           nombreArchivo={`revaluacion-cierre-${seleccion.anio}-${String(seleccion.mes).padStart(2, '0')}`}
         />

@@ -1,3 +1,4 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import {
   Table,
   TableHeader,
@@ -129,11 +130,11 @@ export function EditorLineas({ rq }: EditorLineasProps) {
             return;
           }
           if (esApiError(error)) {
-            toast.error(error.problem.title, {
+            toast.error(errorUsuario(error), {
               description: codigoSoporte(error),
             });
           } else {
-            toast.error('Error inesperado al eliminar la partida.');
+            toast.error("Error inesperado al eliminar la partida. Revisa los datos del registro; si continúa, avisa a soporte.");
           }
         },
       },
@@ -349,7 +350,7 @@ function FilaLinea({
           }
           // Conserva lo tecleado y deja el campo abierto: el usuario corrige o reintenta.
           setNotasError(
-            esApiError(error) ? error.problem.title : 'No se pudieron guardar las notas.',
+            errorUsuario(error, 'No se pudieron guardar las notas.'),
           );
         },
       },
@@ -464,9 +465,9 @@ function FilaLinea({
                 ? 'block w-full max-w-xs text-left text-xs hover:underline'
                 : 'block w-full max-w-xs text-left text-xs text-ink-muted'
             }
-            title={canEditarNotas ? 'Click para editar' : undefined}
+            title={canEditarNotas ? "Haz clic para editar" : undefined}
           >
-            {linea.notas ?? (canEditarNotas ? '— click para añadir —' : '—')}
+            {linea.notas ?? (canEditarNotas ? "Agregar notas" : '—')}
           </button>
         )}
       </TableCell>

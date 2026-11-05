@@ -36,8 +36,10 @@ public static class FinanzasEndpoints
             await Mutar(new(id, 0, "anticipo", Anticipo: body), request, response, mediator, ct)).RequireAuthorization(anticipos).WithMetadata(new RequireIdempotencyKeyAttribute());
         padre.MapPost("/anticipos/{anticipoId:guid}/comprobar", async (Guid id, Guid anticipoId, ComprobacionAnticipoDatos body, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) =>
             await Mutar(new(id, 0, "comprobar", anticipoId, Comprobacion: body), request, response, mediator, ct)).RequireAuthorization(anticipos).WithMetadata(new RequireIdempotencyKeyAttribute());
+        padre.MapPost("/anticipos/{anticipoId:guid}/corregir", async (Guid id, Guid anticipoId, ComprobacionAnticipoDatos body, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) =>
+            await Mutar(new(id, 0, "corregir", anticipoId, Comprobacion: body), request, response, mediator, ct)).RequireAuthorization(anticipos).WithMetadata(new RequireIdempotencyKeyAttribute());
         padre.MapPost("/anticipos/{anticipoId:guid}/resolver", async (Guid id, Guid anticipoId, ResolucionAnticipoDatos body, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) =>
-            await Mutar(new(id, 0, "resolver", anticipoId, Resolucion: body), request, response, mediator, ct)).RequireAuthorization(anticipos).WithMetadata(new RequireIdempotencyKeyAttribute());
+            await Mutar(new(id, 0, "resolver", anticipoId, Resolucion: body), request, response, mediator, ct)).RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaPagosCeAutorizarDireccion).WithMetadata(new RequireIdempotencyKeyAttribute());
     }
     private static int? Version(HttpRequest request)
     {

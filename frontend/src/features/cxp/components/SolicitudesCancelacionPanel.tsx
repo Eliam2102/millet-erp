@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { errorUsuario } from '@/lib/error-usuario';
+import { useRef, useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -94,8 +95,8 @@ function RegistrarForm({ cfdiId, onListo }: { cfdiId: string; onListo: () => voi
         },
         onError: (error) =>
           esApiError(error)
-            ? toast.error(error.problem.title, { description: codigoSoporte(error) })
-            : toast.error('Error inesperado al registrar la solicitud.'),
+            ? toast.error(errorUsuario(error), { description: codigoSoporte(error) })
+            : toast.error("Error inesperado al registrar la solicitud. Revisa los datos del registro; si continúa, avisa a soporte."),
       },
     );
   }
@@ -218,6 +219,7 @@ function DecidirForm({ cfdiId, solicitudId }: { cfdiId: string; solicitudId: str
   const idempotencyKey = useFormIdempotencyKey();
   const decidir = useDecidirSolicitudCancelacion(cfdiId);
   const [comentario, setComentario] = useState('');
+  const archivoRef = useRef<HTMLInputElement>(null);
   const [archivo, setArchivo] = useState<File | null>(null);
   const [intento, setIntento] = useState(false);
   const falta = intento && comentario.trim() === '';
@@ -231,8 +233,8 @@ function DecidirForm({ cfdiId, solicitudId }: { cfdiId: string; solicitudId: str
         onSuccess: () => toast.success(aceptar ? 'Solicitud aceptada' : 'Solicitud rechazada'),
         onError: (error) =>
           esApiError(error)
-            ? toast.error(error.problem.title, { description: codigoSoporte(error) })
-            : toast.error('Error inesperado al decidir la solicitud.'),
+            ? toast.error(errorUsuario(error), { description: codigoSoporte(error) })
+            : toast.error("Error inesperado al decidir la solicitud. Revisa los datos del registro; si continúa, avisa a soporte."),
       },
     );
   }
@@ -260,9 +262,16 @@ function DecidirForm({ cfdiId, solicitudId }: { cfdiId: string; solicitudId: str
         <Label htmlFor={`sc-arch-${solicitudId}`}>Archivo de evidencia (opcional)</Label>
         <Input
           id={`sc-arch-${solicitudId}`}
+          ref={archivoRef}
+          className="sr-only"
+          tabIndex={-1}
           type="file"
           onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
         />
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="outline" onClick={() => archivoRef.current?.click()}>Elegir archivo</Button>
+          <span className="truncate text-xs text-ink-muted">{archivo?.name ?? 'Sin archivo'}</span>
+        </div>
       </div>
       <p className="text-xs text-muted-foreground">
         Aceptar o rechazar solo guarda la decisión. Si aceptas y el SAT confirma la cancelación, la

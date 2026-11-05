@@ -1,3 +1,4 @@
+import { problemaUsuario } from '@/lib/error-usuario';
 import { useReactivarArticulo } from '../api/articulos';
 import { estadoUi } from '../lib/estados-ui';
 import { PageHeader } from '@/components/erp/PageHeader';
@@ -12,7 +13,6 @@ import { useAsignacionesList } from '@/features/almacen/api/useAsignaciones';
 import { ErrorState, TableSkeleton } from '@/components/erp';
 import { useArticulo, useDesactivarArticulo } from '@/modules/datos-maestros/api';
 import { EstatusCatalogo } from '@/modules/datos-maestros/api/types';
-import { esApiError } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { ArticuloDatosForm } from '@/modules/datos-maestros/components/ArticuloDatosForm';
@@ -37,7 +37,7 @@ export function ArticuloDetalle() {
   const reactivar = useReactivarArticulo();
 
   if (articuloQuery.isError) {
-    const problem = esApiError(articuloQuery.error) ? articuloQuery.error.problem : undefined;
+    const problem = problemaUsuario(articuloQuery.error);
     return <ErrorState problem={problem} onRetry={() => articuloQuery.refetch()} />;
   }
 

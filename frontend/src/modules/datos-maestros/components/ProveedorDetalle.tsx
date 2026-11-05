@@ -1,10 +1,12 @@
+import { problemaUsuario } from '@/lib/error-usuario';
+import { errorUsuario } from '@/lib/error-usuario';
 import { useReactivarProveedor } from '../api/proveedores';
 import { CambioEstatusMaestroDialog } from './CambioEstatusMaestroDialog';
 import { estadoUi } from '../lib/estados-ui';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiRequest, codigoSoporte } from '@/lib/api';
+import { apiRequest } from '@/lib/api';
 import { ProveedorClasificacionFiscalSection } from './ProveedorClasificacionFiscalSection';
 import { ProveedorToleranciaSection } from './ProveedorToleranciaSection';
 import { Link, useParams } from '@tanstack/react-router';
@@ -93,9 +95,7 @@ export function ProveedorDetalle() {
     },
     onError: (error) =>
       toast.error(
-        esApiError(error)
-          ? (error.problem.detail ?? error.problem.title)
-          : 'No se pudo poner al proveedor en revisión.',
+        errorUsuario(error, 'No se pudo poner al proveedor en revisión.'),
       ),
   });
 
@@ -113,7 +113,7 @@ export function ProveedorDetalle() {
   });
 
   if (proveedorQuery.isError) {
-    const problem = esApiError(proveedorQuery.error) ? proveedorQuery.error.problem : undefined;
+    const problem = problemaUsuario(proveedorQuery.error);
     return <ErrorState problem={problem} onRetry={() => proveedorQuery.refetch()} />;
   }
 
@@ -178,11 +178,11 @@ export function ProveedorDetalle() {
         },
         onError: (error) => {
           if (esApiError(error)) {
-            toast.error(error.problem.title, {
-              description: error.problem.detail ?? codigoSoporte(error),
+            toast.error(errorUsuario(error), {
+              description: errorUsuario(error),
             });
           } else {
-            toast.error('Error al validar el proveedor.');
+            toast.error("Error al validar el proveedor. Revisa los datos del registro; si continúa, avisa a soporte.");
           }
           setConfirmValidar(false);
         },
@@ -206,11 +206,11 @@ export function ProveedorDetalle() {
         },
         onError: (error) => {
           if (esApiError(error)) {
-            toast.error(error.problem.title, {
-              description: error.problem.detail ?? codigoSoporte(error),
+            toast.error(errorUsuario(error), {
+              description: errorUsuario(error),
             });
           } else {
-            toast.error('Error al rechazar el proveedor.');
+            toast.error("Error al rechazar el proveedor. Revisa los datos del registro; si continúa, avisa a soporte.");
           }
         },
       },

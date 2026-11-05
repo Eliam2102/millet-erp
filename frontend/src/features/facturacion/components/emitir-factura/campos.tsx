@@ -1,4 +1,4 @@
-import { Label } from '@/components/ui/label';
+import { Field } from '@/components/erp/forms/Field';
 
 /** Sección de campos del form de emisión (grid 2 columnas). */
 export function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
@@ -19,15 +19,5 @@ interface CampoProps {
 }
 
 export function Campo({ label, required, error, hint, children }: CampoProps) {
-  return (
-    <div className="space-y-1">
-      <Label className="text-xs">
-        {label}
-        {required && <span className="ml-1 text-danger-fg">*</span>}
-      </Label>
-      {children}
-      {hint != null && <p className="text-[11px] leading-tight text-ink-muted">{hint}</p>}
-      {error != null && <p className="text-xs text-danger-fg">{error}</p>}
-    </div>
-  );
+  return <Field label={label} required={required} error={error} hint={hint}>{children}</Field>;
 }

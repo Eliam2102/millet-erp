@@ -267,7 +267,7 @@ function FormInner({
           </Campo>
           <Campo
             label="Cliente (entrega)"
-            hint="Autollena el receptor desde el master; para traslado propio usa los datos del emisor."
+            hint="Autollena el receptor desde su ficha de cliente; para traslado propio usa los datos del emisor."
           >
             <ClienteSelector
               value={clienteId}

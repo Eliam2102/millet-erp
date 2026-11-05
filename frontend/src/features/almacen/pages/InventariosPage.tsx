@@ -105,7 +105,7 @@ export function InventariosPage() {
     <div className="space-y-5">
       <PageHeader
         titulo="Inventario físico"
-        descripcion="Conteos rotativos y anuales. Captura sin sesgo (A6) — el contador NO ve la cantidad teórica."
+        descripcion="Planifica conteos rotativos o anuales y captura las cantidades físicas sin mostrar la existencia teórica."
         acciones={
           <>
             {puedeCrear && (
@@ -134,7 +134,7 @@ export function InventariosPage() {
             aria-pressed={search.estado === tab.valor}
             onClick={() => actualizarSearch({ estado: tab.valor as typeof search.estado })}
           >
-            <KpiCard etiqueta={tab.label} valor={conteos.data?.[tab.valor] ?? '—'} />
+            <KpiCard etiqueta={tab.label} valor={conteos.data && !conteos.isError ? (conteos.data[tab.valor] ?? 0) : <span className="text-ink-muted">—</span>} />
           </Button>
         ))}
       </div>
@@ -144,7 +144,7 @@ export function InventariosPage() {
             opciones={TABS_ESTADO}
             valor={search.estado}
             onChange={(estado) => actualizarSearch({ estado: estado as EstadoConteo | undefined })}
-            conteos={conteos.data}
+            conteos={conteos.isError ? undefined : conteos.data}
           />
         }
         filtros={

@@ -26,6 +26,8 @@ public class SalidasRoturaTests(WebApplicationFactory<Program> factory)
 
     private async Task<(Guid ArticuloId, Guid BinId)> SembrarAsync()
     {
+        using var admin = await ContabTestKit.LoginAsync(factory);
+        await ContabTestKit.AsegurarPeriodosAbiertosAsync(admin, FechaContable.HoyLocal(DateTimeOffset.UtcNow));
         using var scope = factory.Services.CreateScope();
         using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
         var compartido = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
@@ -54,7 +56,7 @@ public class SalidasRoturaTests(WebApplicationFactory<Program> factory)
     private static async Task<Guid> CapturarAsync(HttpClient c, Guid articuloId, Guid binId, decimal cantidad)
     {
         using var r = await c.PostAsJsonAsync(Ruta, new { ubicacionId = binId, articuloId, cantidad, motivoCodigo = "rotura_rack" });
-        Assert.Equal(HttpStatusCode.Created, r.StatusCode);
+        Assert.True(r.StatusCode == HttpStatusCode.Created, await r.Content.ReadAsStringAsync());
         return (await ContabTestKit.Json(r)).GetProperty("id").GetGuid();
     }
 

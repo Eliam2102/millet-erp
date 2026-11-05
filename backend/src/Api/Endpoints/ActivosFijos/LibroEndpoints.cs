@@ -23,27 +23,53 @@ public static class LibroEndpoints
         g.MapPost("/depreciacion/{id:guid}/anular", async (Guid id, MotivoBody datos, HttpRequest req, LibroServicio libro, CancellationToken ct) =>
             Results.Ok(await libro.AnularAsync(id, Version(req), datos.Motivo, ct)))
             .RequireAuthorization(P("depreciacion.anular")).WithMetadata(new RequireIdempotencyKeyAttribute()).AddEndpointFilter(ExigirVersion);
-        g.MapGet("/depreciacion", async (ActivosFijosDbContext db, ActivoServicio acceso, CancellationToken ct) =>
+        g.MapGet("/depreciacion", async (ActivosFijosDbContext db, ActivoServicio acceso, LibroServicio libro, CancellationToken ct) =>
         {
             var ids = await acceso.SucursalesAsync(null, ct);
-            return Results.Ok(await db.Set<CorridaDepreciacion>().AsNoTracking().Include(x => x.Detalles.Where(d => ids == null || ids.Contains(d.SucursalId)))
-                .Where(x => ids == null || x.Detalles.Any(d => ids.Contains(d.SucursalId))).OrderByDescending(x => x.Periodo).ToListAsync(ct));
+            var corridas = await db.Set<CorridaDepreciacion>().AsNoTracking().Include(x => x.Detalles.Where(d => ids == null || ids.Contains(d.SucursalId)))
+                .Where(x => ids == null || x.Detalles.Any(d => ids.Contains(d.SucursalId))).OrderByDescending(x => x.Periodo).ToListAsync(ct);
+            await libro.MarcarEfectoContableAsync(corridas,ct); return Results.Ok(corridas);
         }).RequireAuthorization(P("activos.ver"));
-        g.MapGet("/activos/{id:guid}/libro", async (Guid id, ActivosFijosDbContext db, ActivoServicio acceso, CancellationToken ct) =>
+        g.MapPost("/depreciacion/{id:guid}/recuperar-poliza", async (Guid id, HttpRequest req, LibroServicio libro, CancellationToken ct) => Results.Ok(await libro.RecuperarPolizaAsync(id,Version(req),ct)))
+            .RequireAuthorization(P("depreciacion.correr")).WithMetadata(new RequireIdempotencyKeyAttribute()).AddEndpointFilter(ExigirVersion);
+        g.MapGet("/activos/{id:guid}/libro", async (Guid id, ActivosFijosDbContext db, ActivoServicio acceso, Millet.Facturacion.Domain.Ports.IDisposicionVentaReadPort ventas, CancellationToken ct) =>
         {
-            await acceso.CargarAsync(id, false, ct);
-            return Results.Ok(new { Depreciaciones = await db.Set<CorridaDepreciacion>().AsNoTracking().Include(c => c.Detalles.Where(d => d.ActivoId == id)).Where(c => c.Detalles.Any(d => d.ActivoId == id)).ToListAsync(ct),
+            var a = await acceso.CargarAsync(id, false, ct);
+            return Results.Ok(new { Ventas = await ventas.HistorialAsync(a.Numero, ct), Depreciaciones = await db.Set<CorridaDepreciacion>().AsNoTracking().Include(c => c.Detalles.Where(d => d.ActivoId == id)).Where(c => c.Detalles.Any(d => d.ActivoId == id)).ToListAsync(ct),
                 Operaciones = await db.Set<OperacionLibro>().AsNoTracking().Where(o => o.ActivoId == id).ToListAsync(ct) });
         }).RequireAuthorization(P("activos.ver"));
         g.MapPost("/activos/{id:guid}/operaciones", async (Guid id, SolicitudOperacion datos, HttpRequest req, OperacionesLibroServicio servicio, CancellationToken ct) => Results.Ok(await servicio.RegistrarAsync(id, Version(req), datos, ct)))
             .WithMetadata(new RequireIdempotencyKeyAttribute()).AddEndpointFilter(ExigirVersion); // El servicio selecciona el permiso según el tipo.
         g.MapPost("/operaciones/{id:guid}/autorizar", async (Guid id, HttpRequest req, OperacionesLibroServicio servicio, CancellationToken ct) => Results.Ok(await servicio.AutorizarAsync(id, Version(req), ct)))
             .WithMetadata(new RequireIdempotencyKeyAttribute()).AddEndpointFilter(ExigirVersion);
+        g.MapPost("/operaciones/{id:guid}/rechazar", async (Guid id, MotivoBody datos, HttpRequest req, OperacionesLibroServicio servicio, CancellationToken ct) => Results.Ok(await servicio.RechazarAsync(id, Version(req), datos.Motivo, ct)))
+            .WithMetadata(new RequireIdempotencyKeyAttribute()).AddEndpointFilter(ExigirVersion);
+        g.MapGet("/autorizaciones", async (ActivosFijosDbContext db, ActivoServicio acceso, CancellationToken ct) =>
+        {
+            var ids = await acceso.SucursalesAsync(null, ct);
+            return Results.Ok(await (from o in db.Set<OperacionLibro>().AsNoTracking() join a in db.Activos on o.ActivoId equals a.Id
+                where !o.Anulada && o.PolizaId == null && (ids == null || ids.Contains(a.SucursalId))
+                orderby o.CreatedAt select new { Operacion = o, a.Numero, a.Descripcion }).ToListAsync(ct));
+        }).RequireAuthorization(P("activos.ver"));
         g.MapGet("/carga/plantilla", () => Results.File(System.Text.Encoding.UTF8.GetBytes(CargaLibroServicio.Plantilla), "text/csv", "libro-sap.csv")).RequireAuthorization(P("carga.ejecutar"));
         g.MapGet("/carga/plantilla.xlsx", () => Results.File(ArchivoLibro.PlantillaExcel(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "libro-sap.xlsx")).RequireAuthorization(P("carga.ejecutar"));
         g.MapPost("/carga/previa", async (HttpRequest req, CargaLibroServicio servicio, CancellationToken ct) => Results.Ok(await Cargar(req, servicio, false, ct))).RequireAuthorization(P("carga.ejecutar"));
         g.MapPost("/carga/confirmar", async (HttpRequest req, CargaLibroServicio servicio, CancellationToken ct) => Results.Ok(await Cargar(req, servicio, true, ct)))
             .RequireAuthorization(P("carga.ejecutar")).WithMetadata(new RequireIdempotencyKeyAttribute());
+        g.MapGet("/carga", async (ActivosFijosDbContext db, ActivoServicio acceso, LibroServicio libro, CancellationToken ct) =>
+        {
+            await acceso.SucursalesAsync(null,ct);
+            var cargas = await db.Set<CargaLibro>().AsNoTracking().OrderByDescending(c => c.CreatedAt).ToListAsync(ct);
+            foreach (var carga in cargas)
+                foreach (var sucursal in await db.Activos.IgnoreQueryFilters().Where(a => a.EmpresaId == libro.Empresa && a.DocumentoSoporte == $"SAP:{carga.Id}").Select(a => a.SucursalId).Distinct().ToListAsync(ct)) await acceso.SucursalAsync(sucursal,false,ct);
+            return Results.Ok(cargas);
+        }).RequireAuthorization(P("carga.ejecutar"));
+        g.MapPost("/carga/{id:guid}/anular", async (Guid id,MotivoBody datos,HttpRequest req,CargaLibroServicio servicio,CancellationToken ct) => Results.Ok(await servicio.AnularAsync(id,Version(req),datos.Motivo,ct)))
+            .RequireAuthorization(P("carga.ejecutar")).WithMetadata(new RequireIdempotencyKeyAttribute()).AddEndpointFilter(ExigirVersion);
+        g.MapPost("/conciliacion", async (RegistrarConciliacionBody datos, ReportesLibroServicio servicio,CancellationToken ct) => Results.Ok(await servicio.RegistrarAsync(datos.Periodo,datos.SucursalId,datos.Diferencias,ct)))
+            .RequireAuthorization(P("conciliacion.ver")).WithMetadata(new RequireIdempotencyKeyAttribute());
+        g.MapGet("/conciliacion/historial", async (DateOnly periodo,Guid? sucursalId,ReportesLibroServicio servicio,CancellationToken ct) => Results.Ok(await servicio.HistorialAsync(periodo,sucursalId,ct))).RequireAuthorization(P("conciliacion.ver"));
+        g.MapPut("/conciliacion/{id:guid}", () => Results.Problem(statusCode:422,title:"Una conciliación aceptada no se edita; registre otra conciliación del periodo.")).RequireAuthorization(P("conciliacion.ver"));
         g.MapGet("/conciliacion", async (DateOnly periodo, Guid? sucursalId, ReportesLibroServicio servicio, CancellationToken ct) => Results.Ok(await servicio.ConciliarAsync(periodo, sucursalId, ct))).RequireAuthorization(P("conciliacion.ver"));
         g.MapGet("/reportes/libro", async (DateOnly corte, Guid? sucursalId, ReportesLibroServicio servicio, CancellationToken ct) => Results.Ok(await servicio.LibroAsync(corte, sucursalId, ct))).RequireAuthorization(P("activos.ver"));
         g.MapGet("/configuracion-libro", async (ActivosFijosDbContext db, CancellationToken ct) => Results.Ok(await db.Set<ConfiguracionLibro>().AsNoTracking().SingleOrDefaultAsync(ct))).RequireAuthorization(P("clases.administrar"));
@@ -89,6 +115,7 @@ public static class LibroEndpoints
         }).RequireAuthorization(P("clases.administrar")).WithMetadata(new RequireIdempotencyKeyAttribute());
         return app;
     }
+    public sealed record RegistrarConciliacionBody(DateOnly Periodo, Guid? SucursalId, IReadOnlyList<ClasificacionDiferencia> Diferencias);
     private static async Task<ResultadoCarga> Cargar(HttpRequest req, CargaLibroServicio servicio, bool confirmar, CancellationToken ct)
     {
         if (req.ContentLength > ArchivoLibro.LimiteBytes + 1024 * 1024)
@@ -114,7 +141,7 @@ public static class LibroEndpoints
                 ?? throw new JsonException();
             using var stream = new MemoryStream();
             await archivo.CopyToAsync(stream, ct);
-            return await servicio.EjecutarArchivoAsync(new("", form["versionArchivo"].ToString(), corte, totales), stream.ToArray(), archivo.FileName, form["hoja"].FirstOrDefault(), confirmar, ct);
+            return await servicio.EjecutarArchivoAsync(new("", form["versionArchivo"].ToString(), corte, totales, Guid.TryParse(form["sucursalId"],out var destino) ? destino : null), stream.ToArray(), archivo.FileName, form["hoja"].FirstOrDefault(), confirmar, ct);
         }
         catch (JsonException) { throw new BusinessRuleException("AF_TOTALES_INVALIDOS", "Los totales deben ser una lista de clase, valor y acumulada."); }
         catch (InvalidDataException) { throw new BusinessRuleException("AF_ARCHIVO_INVALIDO", "Revise el formulario y el límite de 10 MB del archivo."); }
