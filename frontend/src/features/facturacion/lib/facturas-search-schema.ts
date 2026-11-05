@@ -25,6 +25,8 @@ export const FacturasSearchSchema = z.object({
   alcance: z.literal('sin-asignar').optional(),
   /** F6.1: clase del pedido manual de origen (server-side). */
   clase: z.enum(['VentaDirecta', 'Emergencia']).optional(),
+  /** U-1: solo facturas con una nota de crédito pendiente de timbrar (server-side). */
+  ncPendiente: z.boolean().optional(),
   offset: z.number().int().min(0).optional(),
   limit: z.number().int().min(1).max(200).optional(),
 });

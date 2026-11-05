@@ -463,6 +463,16 @@ builder.Services
     .AddOptions<Millet.Compras.Application.Integration.AlmCompra.AlmCompraOptions>()
     .Bind(builder.Configuration.GetSection(Millet.Compras.Application.Integration.AlmCompra.AlmCompraOptions.SectionName));
 builder.Services.AddHostedService<Millet.Compras.Infrastructure.Workers.AlmCompraWorker>();
+// Acuerdo 5-nov con TI: lector de alm_mensaje (Almacenes → ERP, sin POST). Apagado por omisión
+// (Integraciones:AlmMensaje:Habilitado); el origen (Simulado | Sql) lo registra AddIntegracionesAwModule.
+builder.Services.AddScoped<Millet.Api.Endpoints.Almacen.AlmacenesAppProcesador>();
+builder.Services.AddScoped<Millet.Almacen.Application.AppAlmacenes.IProcesadorMensajeApp>(
+    sp => sp.GetRequiredService<Millet.Api.Endpoints.Almacen.AlmacenesAppProcesador>());
+builder.Services
+    .AddOptions<Millet.Almacen.Application.AppAlmacenes.AlmMensajeOptions>()
+    .Bind(builder.Configuration.GetSection(Millet.Almacen.Application.AppAlmacenes.AlmMensajeOptions.SectionName));
+builder.Services.AddSingleton<Millet.Almacen.Application.AppAlmacenes.AlmMensajeLector>();
+builder.Services.AddHostedService<Millet.Almacen.Infrastructure.Workers.AlmMensajeWorker>();
 
 // === Compras IConsultarStockPort → adapter real ===
 // Reemplaza el InMemoryConsultarStockPort stub (config-driven que
@@ -735,8 +745,6 @@ builder.Services.AddScoped<Millet.Almacen.Infrastructure.PublicAdapters.Apartado
 // F1-COM-13 (86e3jvu98): puertos de lectura de la tríada para el análisis de proveedores.
 builder.Services.AddScoped<Millet.Compras.Domain.Ports.Almacen.IRecepcionesOcReadPort,
     Millet.Compras.Infrastructure.PublicAdapters.AlmacenRecepcionesOcReadAdapter>();
-builder.Services.AddScoped<Millet.Compras.Domain.Ports.Almacen.IRecepcionesAwReadPort,
-    Millet.Compras.Infrastructure.PublicAdapters.AlmacenRecepcionesAwReadAdapter>();
 builder.Services.AddScoped<Millet.Compras.Domain.Ports.CuentasPorPagar.IFacturasOcReadPort,
     Millet.CuentasPorPagar.Infrastructure.PublicAdapters.CxpFacturasOcReadAdapter>();
 builder.Services.AddScoped<Millet.Compras.Application.Reportes.AnalisisProveedores.NombresAnalisis>();

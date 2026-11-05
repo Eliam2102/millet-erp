@@ -73,12 +73,15 @@ public static class FacturasEndpoints
             [FromQuery] int? limit,
             [FromQuery] string? alcance,
             [FromQuery] ClasePedidoManual? clase,
+            [FromQuery] bool? ncPendiente,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
             // F6.1: ?clase=VentaDirecta|Emergencia filtra por la clase del pedido manual de origen.
+            // U-1: ?ncPendiente=true deja solo las facturas con una NC pendiente de timbrar.
             var response = await mediator.Send(
-                new BandejaFacturasQuery(estado, offset ?? 0, limit ?? 50, AlcanceParam.SoloSinAsignar(alcance), clase),
+                new BandejaFacturasQuery(estado, offset ?? 0, limit ?? 50, AlcanceParam.SoloSinAsignar(alcance), clase,
+                    ncPendiente == true),
                 cancellationToken);
             return Results.Ok(response);
         })

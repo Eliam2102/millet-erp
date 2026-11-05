@@ -28,45 +28,63 @@ el ERP deje. Por eso:
 - El ERP **no escribe nada hacia A+W**. Booking, BL, embarque real, estado aduanal, entrega y
   cierre se quedan en el expediente de exportación.
 
-## Lectura real: tablas del módulo OTR (pendiente de Jorge)
+## Lectura real: tablas del módulo OTR
 
-Revisión del 4-nov con `millet_erp_lector_aw`: el usuario sólo ve las tablas que tiene concedidas
-(11 en `MILMAIN`, 5 de `alcimdb` por `AWPROD_ERP`); ninguna es del módulo OTR. El encabezado del
-pedido, que ya se puede leer, cubre parte de la regla R8:
+La base **`OTR`** está en la misma instancia que `MILMAIN` (SER-DATA\AWBUSINESS). TI confirmó (correo 5-nov)
+`SELECT` para `millet_erp_lector_aw` sobre tres tablas de esquema `SYSADM`; las tablas por pedido siguen
+saliendo de `MILMAIN.SYSADM.BW_AUFTR_KOPF`. Verificado con `SELECT` real el 5-nov:
 
-| Dato R8 | Tabla y columna | Observación (pedidos 2026) |
+| Tabla | Qué trae | Uso en el ERP |
 |---|---|---|
-| Pedido | `SYSADM.BW_AUFTR_KOPF` (número de pedido) | — |
-| Cliente | `BW_AUFTR_KOPF` → `KU_KUNDEN` | Ya se lee para clientes |
-| Ruta | `BW_AUFTR_KOPF.OR_TOUR` | MERIDA, FLORIDA, CANCUN, ONTARIO… |
-| Línea y tránsito | `BW_AUFTR_KOPF.OR_ZOLLTOUR` | Exportación: p. ej. FLORIDA → «LINEA PENINSULAR, T/T 08» |
-| Peso | `BW_AUFTR_KOPF.SU_GEWICHT`, `SU_GEWICHT_TARA` | Casi todos los pedidos |
-| Fecha prevista / real | `BW_AUFTR_KOPF.DATUM_LIEFER_PLAN`, `DATUM_LIEFER_TAT` | Casi todos |
-| Remisión | `BW_AUFTR_KOPF.NR_LIEFERSCHEIN` | — |
-| Empaque | `BW_AUFTR_KOPF.OR_VERPACKUNG` | — |
-| Camión | `BW_AUFTR_KOPF.OR_LKW` | Casi siempre `<indf>` |
-| Dirección de entrega | Por confirmar | — |
-| **Contenedor** | **No encontrado** | Pedir a Jorge |
-| **Bultos** | **No encontrado** | Pedir a Jorge |
-| **Envío o carga** (qué pedidos y posiciones van juntos) | **No encontrado** | Pedir a Jorge |
+| `OTR.SYSADM.OTR_ROUTES` (5,079 rutas) | `ROUTE_ID`, `ROUTE_NAME`, `ROUTE_STATUS`, `DELIVERY_DATE`, `DATETIME_UPDATE` | Ruta, fecha prevista, estatus y versión |
+| `OTR.SYSADM.OTR_CONTAINERS_ACTIONS` | Una fila por pirámide de carga (`CONTAINER_ID`, tipo «PIRAMIDE A.2»; **no** es contenedor marítimo), destino (`LOCATION_NAME1`, `LOCATION_ADDRESS_TEXT`), `DATETIME_UPDATE` | Dirección de entrega, versión. `CUSTOMER_CODE`, `DOCUMENT_NUMBER` e `INVOICE_NUMBER` vienen vacíos en las 48,326 filas |
+| `OTR.SYSADM.OTR_CONTAINER_POSITIONS` (430,253 posiciones) | `ROUTE_ID`, `CONTAINER_ID`, `DOCUMENT_ID` (texto = `BW_AUFTR_KOPF.ID`), `POS_NR`, `POS_QTY`, `POS_TOTAL_WEIGHT`, `DATETIME_UPDATE` | Líneas (pedido, posición, cantidad), piezas y peso |
+| `MILMAIN.SYSADM.BW_AUFTR_KOPF` | `ID`, `AH_IDENT` (cliente A+W), `OR_AVBEREICH` (clave de sucursal), `STATUS` | Cliente y sucursal del envío; pedido existente |
 
-Falta de Jorge: base, instancia y tablas del módulo OTR donde están contenedor, bultos y la carga,
-cómo se detecta un envío nuevo, modificado o cancelado, y `SELECT` sobre ellas para
-`millet_erp_lector_aw`.
+Booking y BL **no existen en OTR**: los captura Comercio Exterior en el ERP y no se mandan a OTR.
+Los renglones de `ROWSTATUS` valen siempre 0 y `REJECTED` siempre 0: no distinguen nada.
 
 ### Lector real (A+W-QA-10)
 
-`OtrTablasAdapter` en modo Real sólo hace `SELECT` sobre las tablas con la forma del contrato de abajo (sin columnas `erp_*`) y
-no escribe nada en A+W. Como no se puede marcar nada allá, el ERP decide qué ya leyó con su propio control: un envío con
-versión menor o igual a la aplicada (`otr_envios.VersionAplicada`) o con esa versión rechazada (`otr_entrada_control`) no se vuelve a
-procesar; los errores técnicos se reintentan hasta `MaxIntentos`. Un cambio en OTR debe llegar como versión mayor.
-**Límite:** los nombres reales de tabla y columna del módulo OTR siguen pendientes de Jorge; el lector está probado contra un
-simulador con la forma del contrato. Cuando Jorge los dé, sólo cambia el `SELECT` (por `AWPROD_ERP`/`OPENQUERY` si aplica).
+`OtrTablasAdapter` (origen Real) hace sólo `SELECT`, con nombres de tres partes (`OTR.SYSADM.*`, `MILMAIN.SYSADM.*`) porque
+las dos bases viven en la misma instancia: **no usa `OPENQUERY`** (sí lo usa producto terminado, que va a otra instancia por
+`AWPROD_ERP`). Usa la conexión de sólo lectura `ConnectionStrings:AwClientesDb` (`millet_erp_lector_aw`, TLS verificado); ya no usa
+`AwIntegracionDb`. No escribe nada en A+W: `MarcarResultadoAsync` no hace nada en Real.
+
+**Un envío = una pirámide** (`ROUTE_ID` + `CONTAINER_ID`); `IdOrigen = "<ROUTE_ID>-<CONTAINER_ID>"`.
+
+| Campo del contrato | Origen en OTR |
+|---|---|
+| `cliente_numero_aw` | `BW_AUFTR_KOPF.AH_IDENT` de los pedidos de la pirámide |
+| `sucursal_clave_aw` | `BW_AUFTR_KOPF.OR_AVBEREICH` |
+| `cliente` / `direccion_entrega` | `LOCATION_NAME1` / `LOCATION_ADDRESS_TEXT` (informativos) |
+| `numero_contenedor` / `ruta` | `CONTAINER_ID` / `ROUTE_NAME` |
+| `bultos` | `SUM(POS_QTY)` (piezas de la pirámide) — supuesto, por confirmar con Comercio Exterior |
+| `peso_kg` | `SUM(POS_TOTAL_WEIGHT)` (no incluye la tara de la pirámide) |
+| `fecha_carga_prevista` | `OTR_ROUTES.DELIVERY_DATE` |
+| líneas | por `(DOCUMENT_ID → numero_pedido, POS_NR → posicion)` con `SUM(POS_QTY)`; unidad `UnidadLinea` |
+| `version` | máx. `DATETIME_UPDATE` de la ruta, la pirámide y sus posiciones, en milisegundos Unix |
+
+`DOCUMENT_ID` se convierte con `TRY_CONVERT(int, …)` (TI usa `CONVERT(INT, …)` en `CONSULTA_PEDIDOS_ESCAN_OTR_ALCIM`). Cuentan sólo las
+posiciones cuyo pedido existe y tiene `STATUS` menor a `EstatusPedidoMenorA` (900, la condición de la consulta de TI).
+Con datos del 5-nov: 27,934 envíos con ruta distinta de 50; la consulta tarda unos 3 s.
+
+**Qué ya leyó el ERP.** Como no se puede marcar nada en A+W, el ERP decide con su control propio: un envío con versión menor o igual a la
+aplicada (`otr_envios.VersionAplicada`) o con esa versión rechazada (`otr_entrada_control`) no se vuelve a procesar; los errores técnicos
+se reintentan hasta `MaxIntentos`. Un cambio llega como una versión mayor (`DATETIME_UPDATE` más reciente). **Límites:** (1) una posición
+que se *borra* en OTR no cambia ningún `DATETIME_UPDATE` y no se detecta; (2) si se vuelve a guardar la ruta, todas sus pirámides suben de
+versión aunque su contenido sea el mismo; (3) 45 pirámides mezclan clientes y 523 mezclan sucursales: se rechazan con
+`CE_OTR_VARIOS_CLIENTES` / `CE_OTR_VARIAS_SUCURSALES` (no se escoge una al azar); decisión pendiente con Comercio Exterior.
+
+**Estatus y cancelación: configurables, sin inventar.** TI explicó sólo 50 = edición, 150 = organizado y 200 = liberado. **Sin explicar:**
+100, 900, 950 y 1000, y cómo se marca una ruta cancelada (TI lo pasó a Comercio Exterior). Por eso `EstatusRutaExcluidos` (por omisión `50`)
+y `EstatusRutaCancelada` (por omisión vacío: nada se cancela) son opciones. Una ruta que sale del conjunto leído (por ejemplo, vuelve a 50) no
+se interpreta como cancelación.
 
 ## Contrato de entrada (origen Demo)
 
-Las tablas siguientes son el **origen Demo de ejemplo** (`tools/aw-origen-demo`) y el formato que
-el lector real de A+W-QA-10 debe entregar al ERP. En real no se escribe `erp_resultado` en A+W.
+Las tablas siguientes son el **origen Demo de ejemplo** (`tools/aw-origen-demo`) y el formato interno que
+el lector Real arma a partir de las tablas de OTR (ver arriba). En real no se escribe `erp_resultado` en A+W.
 
 A+W inserta cabecera y todas sus líneas **en una sola transacción**, de modo que el lector
 nunca encuentre un envío publicado a medias. Cada versión es inmutable; los cambios se
@@ -162,8 +180,13 @@ La bandeja del lanzador contiene sólo los envíos por vincular.
 | `BatchSize` | 50 | 1–1000 |
 | `MaxIntentos` | 5 | > 0, errores técnicos de entrada |
 | `ContratoI134Firmado` | false | Candado real adicional; activar sólo con evidencia de I13.4 firmado |
+| `EstatusRutaExcluidos` | `50` | Real: estatus de ruta que no se leen (coma). 50 = edición (TI) |
+| `EstatusRutaCancelada` | vacío | Real: estatus que cancelan el envío. Vacío hasta que Comercio Exterior defina la regla |
+| `EstatusPedidoMenorA` | 900 | Real: sólo posiciones cuyo pedido A+W tenga `STATUS` menor |
+| `UnidadLinea` | `H87` | Real: unidad de las líneas; debe coincidir con la del pedido en el ERP |
+| `EntregaDesde` | vacío | Real: sólo rutas con `DELIVERY_DATE` igual o posterior (`yyyy-MM-dd`) |
 
-Real se registra únicamente con contrato firmado, conexión `AwIntegracionDb` y
+Real se registra únicamente con contrato firmado, conexión `AwClientesDb` y
 `EntradaHabilitada`; lee en sólo lectura (ver «Lector real») y se enciende en pruebas con las opciones `IntegracionesAw__Exportacion__*`. `Demo` usa la misma selección `AwOrigenSesion`, registro keyed `Demo`
 y `AwOrigenPgDb`; requiere `IntegracionesAw:OrigenDemo:Permitido`, y nunca en Production.
 No hay autenticación simulada: HTTP conserva EntraId + JWT del API y filtro territorial CE.
