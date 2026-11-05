@@ -17,13 +17,23 @@ public sealed record AwPagoGrupo(string FormaPago, string Moneda, decimal Import
 public sealed record AwRetornoAcuse(
     string NumeroPedido, int Secuencia, long VersionPedido, string? TipoDocumento, string? Folio, string? Uuid,
     decimal? Importe, DateTimeOffset? AplicadaAt, byte? Resultado, string? Motivo, int Intentos,
-    byte Tipo = AwRetornoAcuse.TipoDocumentoFila, string? FormaPago = null, string? Moneda = null)
+    byte Tipo = AwRetornoAcuse.TipoDocumentoFila, string? FormaPago = null, string? Moneda = null,
+    short? EstatusDestino = null, byte? Origen = null, string? UsuarioLibera = null)
 {
+    public const byte TipoEstatusFila = 1;
+    public const byte TipoSaldoFila = 2;
+    public const byte OrigenManual = 2;
     public const byte TipoDocumentoFila = 3;
     public const byte TipoPagoFila = 4;
     public const int MaxIntentos = 3;
-    /// <summary>Rechazada con 3 intentos o más: el pedido espera a una persona (SRC-114 3c).</summary>
-    public bool Detenida => Resultado == 2 && Intentos >= MaxIntentos;
+    /// <summary>
+    /// 5-nov: un 70 a un pedido que el servicio ya había liberado vuelve como «nada que hacer»: no es un rechazo ni una falla.
+    /// ponytail: se reconoce por el texto del motivo; si TI lo marca con otro resultado o texto, se ajusta aquí.
+    /// </summary>
+    public bool NadaQueHacer => Tipo == TipoEstatusFila && EstatusDestino == 70
+        && Motivo?.Contains("nada que hacer", StringComparison.OrdinalIgnoreCase) == true;
+    /// <summary>Rechazada con 3 intentos o más: el pedido espera a una persona (SRC-114 3c). Un «nada que hacer» no cuenta.</summary>
+    public bool Detenida => Resultado == 2 && Intentos >= MaxIntentos && !NadaQueHacer;
     /// <summary>A+W ya tenía una versión mayor (resultado 3, SRC-114 3a).</summary>
     public bool Desfasada => Resultado == 3;
 }
@@ -52,6 +62,19 @@ public interface IAwRetornoPort
     Task<int> AgregarPagosAsync(string numeroPedido, long versionPedido, string folio, IReadOnlyList<AwPagoGrupo> grupos,
         bool exigirDocumento, CancellationToken ct);
 
+    /// <summary>
+    /// Fila Estatus (tipo 1): 70 (origen 2 = manual de Crédito y Cobranza, con <paramref name="usuarioLibera"/>) o 115.
+    /// Idempotente como el documento: no inserta (devuelve null) si ya hay una fila de ese estatus que no esté desfasada
+    /// o que tenga una versión igual o mayor. Devuelve la secuencia asignada.
+    /// </summary>
+    Task<int?> AgregarEstatusAsync(string numeroPedido, long versionPedido, short estatus, byte? origen, string? usuarioLibera, CancellationToken ct);
+
+    /// <summary>
+    /// Fila Saldo (tipo 2), solo como cifra de control: una por pedido y solo si el saldo cambió respecto a la última
+    /// fila de saldo. Devuelve la secuencia, o null si no cambió.
+    /// </summary>
+    Task<int?> AgregarSaldoAsync(string numeroPedido, long versionPedido, decimal saldo, CancellationToken ct);
+
     /// <summary>Filas de cualquier tipo desfasadas sin reemplazo y rechazadas con 3 intentos o más.</summary>
     Task<IReadOnlyList<AwRetornoAcuse>> LeerAcusesPorAtenderAsync(CancellationToken ct);
 }
@@ -71,6 +94,9 @@ public sealed record CancelacionRetornoPayload(
 /// orden de llegada no cambian el resultado.
 /// </summary>
 public sealed record PagoRetornoPayload(Guid? ComprobanteId = null, Guid? ReciboPagoId = null);
+
+/// <summary>Pedido que PT pasó a 115 (facturado y entregado) o que Crédito y Cobranza liberó a mano.</summary>
+public sealed record EstatusRetornoPayload(string NumeroPedido, string Estado, string? Motivo = null, string? LiberadoPor = null);
 
 public sealed record AwRetornoConciliacion(int Reemplazadas, int Esperando, int Detenidas);
 
@@ -112,6 +138,40 @@ public sealed class AwRetornoDocumentoService(
     }
 
     /// <summary>
+    /// 86e3jvv6z (5-nov): el 115 sigue yendo a A+W. Devuelve la secuencia, o null si no aplica (pedido sin versión aplicada
+    /// = no es de A+W), ya existía o el canal está apagado.
+    /// </summary>
+    public async Task<int?> RegistrarFacturadoEntregadoAsync(string numeroPedido, CancellationToken ct) =>
+        await RegistrarEstatusAsync(numeroPedido, 115, null, null, ct);
+
+    /// <summary>
+    /// 86e3jvv6z (5-nov): solo la liberación MANUAL de Crédito y Cobranza viaja como 70 (origen manual + usuario que liberó);
+    /// el 70 por pago, saldo o reparto lo decide el servicio de A+W. Sin usuario no se manda (CK_awr_usuario_libera).
+    /// </summary>
+    public async Task<int?> RegistrarLiberacionManualAsync(string numeroPedido, string usuario, CancellationToken ct) =>
+        string.IsNullOrWhiteSpace(usuario) ? null
+            : await RegistrarEstatusAsync(numeroPedido, 70, AwRetornoAcuse.OrigenManual, usuario.Trim(), ct);
+
+    private async Task<int?> RegistrarEstatusAsync(string numeroPedido, short estatus, byte? origen, string? usuario, CancellationToken ct)
+    {
+        var version = await versiones.VersionAplicadaAsync(numeroPedido, ct);
+        if (version is null)
+        {
+            logger.LogWarning("aw_retorno: estatus {Estatus} omitido; el pedido {Pedido} aún no tiene versión aplicada.", estatus, numeroPedido);
+            return null;
+        }
+        return await SinCanalApagadoAsync(() => retorno.AgregarEstatusAsync(numeroPedido, version.Value, estatus, origen, usuario, ct));
+    }
+
+    /// <summary>Saldo del pedido como cifra de control (nunca la fuente): una fila por pedido cuando cambia. Null si no hay fila nueva.</summary>
+    public async Task<int?> RegistrarSaldoControlAsync(string numeroPedido, decimal saldo, CancellationToken ct)
+    {
+        var version = await versiones.VersionAplicadaAsync(numeroPedido, ct);
+        return version is null ? null
+            : await SinCanalApagadoAsync(() => retorno.AgregarSaldoAsync(numeroPedido, version.Value, saldo, ct));
+    }
+
+    /// <summary>
     /// 86e3jvv6z: filas Pago (tipo 4) de cada factura A+W que toca el comprobante, con el importe acumulado por forma
     /// de pago + moneda (SRC-114, SRC-121). Devuelve cuántas filas agregó. Una factura cuyo pedido aún no tiene
     /// versión aplicada se omite con aviso.
@@ -135,19 +195,27 @@ public sealed class AwRetornoDocumentoService(
         return agregadas;
     }
 
-    /// <summary>Equivalencia SAT/ISO → A+W. Dos claves que caen en el mismo valor de A+W se suman en un solo grupo.</summary>
+    /// <summary>Equivalencia SAT/ISO → valor de A+W (BEZ / WAEHRUNG). Dos claves que caen en el mismo valor de A+W se suman en un solo grupo.</summary>
     private List<AwPagoGrupo> Mapear(IReadOnlyList<PagoGrupoAw> grupos) =>
-        grupos.Select(g => (Forma: Valor(opciones.Value.MapeoFormaPagoAw, g.FormaPagoSat, 10, "forma de pago"),
-                            Moneda: Valor(opciones.Value.MapeoMonedaAw, g.Moneda, 3, "moneda"), g.Importe))
+        grupos.Select(g => (Forma: Valor(opciones.Value.MapeoFormaPagoAw, g.FormaPagoSat, MaxFormaPago, "forma de pago"),
+                            Moneda: Valor(opciones.Value.MapeoMonedaAw, g.Moneda, MaxMoneda, "moneda"), g.Importe))
             .GroupBy(g => (g.Forma, g.Moneda))
             .Select(x => new AwPagoGrupo(x.Key.Forma, x.Key.Moneda, x.Sum(g => g.Importe)))
             .ToList();
 
-    private static string Valor(Dictionary<string, string> mapeo, string clave, int maximo, string que)
+    /// <summary>Largo de KA_ZAHLWEG.BEZ y de KA_WAEHRUNGEN.WAEHRUNG en A+W (los valores que se mandan, p. ej. EFECTIVO y PESOSMX).</summary>
+    public const int MaxFormaPago = 40, MaxMoneda = 8;
+
+    private string Valor(Dictionary<string, string> mapeo, string clave, int maximo, string que)
     {
-        var valor = mapeo.Count == 0 ? clave
-            : mapeo.TryGetValue(clave, out var v) ? v
-            : throw new BusinessRuleException("AW_RETORNO_MAPEO_PAGO", $"Sin equivalencia de {que} «{clave}» hacia A+W.");
+        // A+W cruza por nombre y, si alguien renombra la forma de pago o la moneda, deja de cruzar sin dar error: aquí sí se avisa.
+        string valor;
+        if (mapeo.Count == 0) valor = clave;
+        else if (!mapeo.TryGetValue(clave, out valor!))
+        {
+            logger.LogWarning("aw_retorno: la {Que} «{Clave}» no está en la equivalencia hacia A+W (KA_ZAHLWEG.BEZ / KA_WAEHRUNGEN.WAEHRUNG); el pago no se manda hasta completarla.", que, clave);
+            throw new BusinessRuleException("AW_RETORNO_MAPEO_PAGO", $"Sin equivalencia de {que} «{clave}» hacia A+W.");
+        }
         return valor.Length <= maximo ? valor
             : throw new BusinessRuleException("AW_RETORNO_MAPEO_PAGO", $"La {que} «{valor}» excede {maximo} caracteres en aw_retorno.");
     }
@@ -195,9 +263,22 @@ public sealed class AwRetornoDocumentoService(
                         a.NumeroPedido, a.Folio, ex.Message);
                 }
             }
+            else if (a.Desfasada && a.Tipo == AwRetornoAcuse.TipoEstatusFila && a.EstatusDestino is { } estatus)
+            {
+                var version = await versiones.VersionAplicadaAsync(a.NumeroPedido, ct);
+                if (version is null || version <= a.VersionPedido)
+                {
+                    esperando++;
+                    logger.LogWarning("aw_retorno estatus desfasado sin reemplazo: pedido {Pedido} secuencia {Secuencia} (versión {Version}).",
+                        a.NumeroPedido, a.Secuencia, a.VersionPedido);
+                    continue;
+                }
+                if (await retorno.AgregarEstatusAsync(a.NumeroPedido, version.Value, estatus, a.Origen, a.UsuarioLibera, ct) is not null)
+                    reemplazadas++;
+            }
             else if (a.Desfasada && a.Tipo != AwRetornoAcuse.TipoDocumentoFila)
             {
-                esperando++; // tipos 1 y 2: el ERP aún no los escribe (SRC-114 #9).
+                esperando++; // saldo (tipo 2): es solo cifra de control, no se reemplaza; la siguiente variación escribe la vigente.
                 logger.LogWarning("aw_retorno desfasado sin reemplazo (tipo {Tipo}): pedido {Pedido} secuencia {Secuencia}.",
                     a.Tipo, a.NumeroPedido, a.Secuencia);
             }

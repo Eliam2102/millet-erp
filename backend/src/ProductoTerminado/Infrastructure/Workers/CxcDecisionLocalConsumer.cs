@@ -26,9 +26,9 @@ public sealed class CxcDecisionLocalConsumer(IServiceScopeFactory scopes, ILogge
         var p = JsonSerializer.Deserialize<DecisionPayload>(body, Json) ?? throw new JsonException("Payload null.");
         using var scope = scopes.CreateScope();
         using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
-        var liberado = await scope.ServiceProvider.GetRequiredService<IMediator>().Send(new AplicarDecisionCxcCommand(p.EmpresaId, p.PedidoRef, p.Resultado), cancellationToken);
+        var liberado = await scope.ServiceProvider.GetRequiredService<IMediator>().Send(new AplicarDecisionCxcCommand(p.EmpresaId, p.PedidoRef, p.Resultado, p.DecididoPor), cancellationToken);
         logger.LogInformation("Decisión de CxC {Resultado} del pedido {PedidoRef}: {Efecto}", p.Resultado, p.PedidoRef, liberado ? "liberado" : "sin cambio");
     }
 
-    private sealed record DecisionPayload(Guid EmpresaId, string PedidoRef, string Resultado);
+    private sealed record DecisionPayload(Guid EmpresaId, string PedidoRef, string Resultado, Guid? DecididoPor = null);
 }
