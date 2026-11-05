@@ -1,6 +1,6 @@
 import { PageHeader } from '@/components/erp/PageHeader';
 import { Link } from '@tanstack/react-router';
-import { BarChart3, History, Package } from 'lucide-react';
+import { BarChart3, History, Package, Search } from 'lucide-react';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { cn } from '@/lib/utils';
@@ -31,6 +31,14 @@ export function ReportesPage() {
             icon={History}
           />
         )}
+        {puedeAlfak && (
+          <ReporteCard
+            to="/almacen/reportes/trazabilidad-mp"
+            titulo="TRAZABILIDAD-MP"
+            descripcion="Compra (OC), lote, consumos, merma/rotura y saldo con valor de un artículo, filtrable por periodo y almacén."
+            icon={Search}
+          />
+        )}
         {puedeMpCnk && (
           <ReporteCard
             to="/almacen/reportes/mp-cnk"
@@ -55,7 +63,7 @@ function ReporteCard({
   descripcion,
   icon: Icon,
 }: {
-  to: '/almacen/reportes/alfak-historial' | '/almacen/reportes/mp-cnk';
+  to: '/almacen/reportes/alfak-historial' | '/almacen/reportes/trazabilidad-mp' | '/almacen/reportes/mp-cnk';
   titulo: string;
   descripcion: string;
   icon: typeof BarChart3;
