@@ -130,8 +130,10 @@ public sealed class CargarExtractoHandler(
                     && db.Conciliaciones.Any(c => c.Id == l.ConciliacionId && c.CuentaBancariaId == conciliacion.CuentaBancariaId))
                 .Select(l => l.LineaHash!).ToListAsync(cancellationToken)).ToHashSet();
         var idsPrevios = conciliacion.Lineas.Select(l => l.Id).ToHashSet();
+        // Las líneas que ya están en esta conciliación tampoco consumen número de línea al reimportar el archivo.
+        var hashesAqui = conciliacion.Lineas.Where(l => l.LineaHash != null).Select(l => l.LineaHash!).ToHashSet();
 
-        var nuevasLineas = parseResult.Lineas.Where(p => p.LineaHash == null || !hashesEnOtras.Contains(p.LineaHash)).Select(p => ExtractoLinea.Crear(
+        var nuevasLineas = parseResult.Lineas.Where(p => p.LineaHash == null || (!hashesEnOtras.Contains(p.LineaHash) && !hashesAqui.Contains(p.LineaHash))).Select(p => ExtractoLinea.Crear(
             conciliacion.Id,
             numLineaActual++,
             p.Fecha,
@@ -143,7 +145,7 @@ public sealed class CargarExtractoHandler(
             p.LineaHash)).ToList();
 
         decimal? saldoExt = command.SaldoExtracto ?? parseResult.SaldoFinal;
-        conciliacion.CargarLineas(nuevasLineas, saldoExt);
+        var agregadas = conciliacion.CargarLineas(nuevasLineas, saldoExt);
 
         ResumenDepositosAutomaticos? resumenDepositos = null;
         if (command.AutoEmparejar)
@@ -170,7 +172,12 @@ public sealed class CargarExtractoHandler(
         conciliacion.ActualizarSaldoLibros(saldoLibros);
 
         await db.SaveChangesAsync(cancellationToken);
-        return ConciliacionMapper.ToResumen(conciliacion, cuenta) with { Depositos = resumenDepositos };
+        return ConciliacionMapper.ToResumen(conciliacion, cuenta) with
+        {
+            Depositos = resumenDepositos,
+            LineasNuevas = agregadas,
+            LineasDuplicadas = parseResult.Lineas.Count - agregadas,
+        };
     }
 }
 

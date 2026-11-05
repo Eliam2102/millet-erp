@@ -24,7 +24,10 @@ public sealed record ConciliacionResumenResponse(
     DateTimeOffset? CerradaEn,
     string? FirmanteNombre,
     // 86e3ke6yn: solo al importar un extracto; null en el resto de las consultas.
-    ResumenDepositosAutomaticos? Depositos = null);
+    ResumenDepositosAutomaticos? Depositos = null,
+    // Solo al importar un extracto: líneas agregadas y líneas que ya estaban (no se duplican).
+    int? LineasNuevas = null,
+    int? LineasDuplicadas = null);
 
 public sealed record ExtractoLineaMatchResponse(
     Guid Id,
@@ -58,7 +61,8 @@ public sealed record BitacoraConciliacionResponse(
     string Accion,
     string Motivo,
     Guid UsuarioId,
-    DateTimeOffset Fecha);
+    DateTimeOffset Fecha,
+    string? UsuarioNombre = null);
 
 public sealed record MovimientoBancarioConciliacionDto(
     Guid Id,

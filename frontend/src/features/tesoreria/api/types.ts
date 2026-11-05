@@ -747,6 +747,8 @@ export interface ConciliacionResumenResponse {
   firmanteNombre: string | null;
   /** 86e3ke6yn: solo al importar un extracto con emparejamiento automático. */
   depositos?: { autoConfirmados: number; enRevision: number; sinIdentificar: number } | null;
+  lineasNuevas?: number | null;
+  lineasDuplicadas?: number | null;
 }
 
 export interface ExtractoLineaMatchResponse {
@@ -783,6 +785,7 @@ export interface BitacoraConciliacionResponse {
   accion: string;
   motivo: string;
   usuarioId: string;
+  usuarioNombre?: string | null;
   fecha: string;
 }
 
