@@ -1,6 +1,8 @@
 using MediatR;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Millet.Almacen.Application.EventListeners;
 using Millet.Almacen.Application.PublicPorts;
 using Millet.ComercioExterior.Application.Ports;
 using Millet.ComercioExterior.Domain;
@@ -45,8 +47,11 @@ public sealed record AnticipoAgenteSaldoTransferidoEvent(Guid Empresa, DateTimeO
     : IntegrationEvent("comercio_exterior.anticipo-agente.saldo-transferido.v1", Empresa, OcurridoEn);
 
 public sealed class FinanzasServicio(ComercioExteriorDbContext db, ExpedienteServicio servicio,
-    IRecepcionesCostoReadPort recepciones, IClock clock, ICatalogosCeReadPort catalogos)
+    IRecepcionesCostoReadPort recepciones, IClock clock, ICatalogosCeReadPort catalogos, IOptions<IncrementablesImportacionOptions> incrementables)
 {
+    /// <summary>Fernando 4-nov: los incrementables de importación no van a inventario salvo que se active la versión posterior.</summary>
+    public bool IncrementablesAlInventario => incrementables.Value.AlInventario;
+
     public async Task<FinanzasDetalle> ObtenerAsync(Guid id, CancellationToken ct)
     {
         await servicio.PermisoAsync(PermisosCanonicos.ComercioExteriorExpedientesLeer, ct);
@@ -89,7 +94,7 @@ public sealed class FinanzasServicio(ComercioExteriorDbContext db, ExpedienteSer
         await servicio.PermisoAsync(PermisosCanonicos.ComercioExteriorGastosDistribuir, ct);
         var e = await servicio.CargarAsync(id, true, ct);
         if (e.Version != version) throw new ConcurrencyException("Expediente", id);
-        return e.PrepararDistribucion(await ConceptosAsync(e.EmpresaId, ct), await PartidasAsync(e, ct), servicio.Actor, clock.UtcNow);
+        return e.PrepararDistribucion(await ConceptosAsync(e.EmpresaId, ct), await PartidasAsync(e, ct), servicio.Actor, clock.UtcNow, IncrementablesAlInventario);
     }
 }
 
@@ -177,7 +182,8 @@ public sealed class MutarFinanzasHandler(ComercioExteriorDbContext db, Expedient
                 e.GuardarPartidaCosto(p.PartidaId, p.ContenedorId, p.Descripcion, p.ValorAduanaMxn, p.PesoKg, p.Pedimento);
                 break;
             case "distribuir":
-                var distribucion = e.PrepararDistribucion(await finanzas.ConceptosAsync(e.EmpresaId, cancellationToken), await finanzas.PartidasAsync(e, cancellationToken), servicio.Actor, clock.UtcNow);
+                var distribucion = e.PrepararDistribucion(await finanzas.ConceptosAsync(e.EmpresaId, cancellationToken), await finanzas.PartidasAsync(e, cancellationToken), servicio.Actor, clock.UtcNow,
+                    finanzas.IncrementablesAlInventario);
                 e.ConfirmarDistribucion(distribucion);
                 if (e.Tipo == TipoExpediente.Importacion)
                     await eventos.PublishAsync(new ExpedienteCostoDistribuidoEvent(e.EmpresaId, clock.UtcNow, e.Id, e.SucursalId, distribucion.NumeroVersion, distribucion.Partidas), cancellationToken);
