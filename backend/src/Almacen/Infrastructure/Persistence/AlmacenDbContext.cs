@@ -104,6 +104,10 @@ public class AlmacenDbContext : BaseDbContext
     /// <summary>A4.4: desperdicio de mesa de corte y merma por etapa informados por A+W.</summary>
     public DbSet<Domain.Mermas.MermaProceso> MermasProceso => Set<Domain.Mermas.MermaProceso>();
 
+    /// <summary>A4.6: corridas de la conciliación diaria contra A+W y sus diferencias (salidas no planificadas).</summary>
+    public DbSet<Domain.Conciliacion.ConciliacionDiaria> ConciliacionesDiarias => Set<Domain.Conciliacion.ConciliacionDiaria>();
+    public DbSet<Domain.Conciliacion.DiferenciaConciliacion> DiferenciasConciliacion => Set<Domain.Conciliacion.DiferenciaConciliacion>();
+
     /// <summary>F6-PR1: devoluciones a proveedor (sub-flujo 8.B).</summary>
     public DbSet<Domain.Revision.DictamenRevision> DictamenesRevision => Set<Domain.Revision.DictamenRevision>();
     public DbSet<DevolucionAProveedor> DevolucionesProveedor => Set<DevolucionAProveedor>();
@@ -269,6 +273,34 @@ public class AlmacenDbContext : BaseDbContext
             b.HasIndex(x => new { x.EmpresaId, x.SucursalId, x.Fecha, x.Mesa, x.ArticuloId }).IsUnique()
                 .HasFilter("tipo = 'DESPERDICIO_MESA'");
             b.HasIndex(x => new { x.EmpresaId, x.Estado, x.Fecha });
+        });
+        modelBuilder.Entity<Domain.Conciliacion.ConciliacionDiaria>(b =>
+        {
+            b.ToTable("conciliaciones_diarias");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).ValueGeneratedNever();
+            b.Property(x => x.Fuente).HasMaxLength(10).IsRequired();
+            b.HasIndex(x => new { x.EmpresaId, x.AlmacenId, x.Fecha });
+        });
+        modelBuilder.Entity<Domain.Conciliacion.DiferenciaConciliacion>(b =>
+        {
+            b.ToTable("diferencias_conciliacion", t =>
+                t.HasCheckConstraint("ck_diferencias_conciliacion_distintas", "teorico <> fisico"));
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).ValueGeneratedNever();
+            b.Ignore(x => x.Diferencia);
+            b.Property(x => x.Lote).HasMaxLength(50);
+            b.Property(x => x.AreaHojaM2).HasPrecision(14, 6);
+            b.Property(x => x.Teorico).HasPrecision(14, 4);
+            b.Property(x => x.Fisico).HasPrecision(14, 4);
+            b.Property(x => x.Sentido).HasMaxLength(10).IsRequired();
+            b.Property(x => x.CostoUnitarioMxn).HasPrecision(14, 4);
+            b.Property(x => x.ValorMxn).HasPrecision(18, 2);
+            b.Property(x => x.FolioMovimiento).HasMaxLength(200);
+            b.Property(x => x.Estado).HasMaxLength(10).IsRequired();
+            b.Property(x => x.MotivoAclaracion).HasMaxLength(500);
+            b.HasIndex(x => new { x.EmpresaId, x.Estado, x.Fecha });
+            b.HasIndex(x => x.ConciliacionId);
         });
         OnModelCreatingProviderSpecific(modelBuilder);
     }

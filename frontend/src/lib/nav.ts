@@ -249,6 +249,14 @@ const moduloAlmacen: NavModulo = {
           permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
         },
         {
+          label: 'Conciliación diaria',
+          description:
+            'Existencia del ERP contra el físico que reporta A+W. Toda diferencia es una salida no planificada que se aclara con la mesa de corte.',
+          to: '/almacen/conciliacion',
+          icon: ClipboardCheck,
+          permission: PermisosCanonicos.AlmacenInventariosLeer,
+        },
+        {
           label: 'Salidas',
           description:
             'Surtido de requisiciones aprobadas y vales urgentes. Comprobante PDF descargable.',
