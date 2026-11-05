@@ -1,3 +1,4 @@
+import { isValid, parseISO } from 'date-fns';
 import {
   fechaLocalISO,
   formatDate,
@@ -61,7 +62,7 @@ export function DateTimeDisplay({
   className,
   empty = '—',
 }: DateTimeDisplayProps) {
-  if (value == null || value === '') {
+  if (value == null || value === '' || !isValid(parseISO(value))) {
     return (
       <span
         className={cn('text-ink-muted', className)}

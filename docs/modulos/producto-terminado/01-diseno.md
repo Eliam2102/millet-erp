@@ -330,3 +330,11 @@ Rev. 3 · 27-oct-2026 · Respuestas de Jorge del 27-oct (autorizado por Geovany,
 - idempotencia por (`etikettnr`, `bearb_zeit`) y `Reposicion` en lugar de descartar (D6);
 - sucursal desde `OR_AVBEREICH`; sin alta por pedido del taller (S3, S8, Q1, Q4);
 - nota abierta sobre cuándo retiene PT-02 (§6).
+
+## 13. Liquidación del chofer en caja y alerta a CxC (PT5.7)
+
+- **Qué es.** Una `LiquidacionRutaPt` por hoja de salida emitida: por albarán, si volvió firmado y lo cobrado (efectivo y voucher con su folio) contra lo que debía cobrar, más los imprevistos de la ruta (se registran con su importe y no entran a la diferencia de cobro).
+- **Lo que se debe cobrar.** Solo los pedidos a contra entrega (condición de pago «Crédito 24 horas», Manual §2.3) llevan importe esperado, que es el total del pedido. En los demás el esperado es 0: lo que el chofer entregue de más queda como diferencia, no se asume ingreso.
+- **Cierre.** `Cerrada` solo si todos los albaranes volvieron firmados y la diferencia es 0. Con diferencia queda `ConDiferencia`: se puede volver a liquidar (la segunda captura reemplaza a la primera); una `Cerrada` ya no se toca.
+- **Alerta a CxC.** `CerrarDiaContraEntregaCommand` recorre las hojas emitidas hasta el día (hora de Ciudad de México) y, por cada albarán a contra entrega sin conciliar, publica `producto_terminado.contra-entrega.no-liquidada.v1`; CxC lo convierte en una alerta de cartera tipo 4 (`ContraEntregaNoLiquidada`). Es idempotente por albarán (`avisos_contra_entrega_pt`). Lo corre un worker cada 30 minutos pasada la hora de cierre (`ProductoTerminado:CierreContraEntrega:Hora`, 20 por omisión: supuesto a validar con Caja) y el botón «Cerrar el día de caja».
+- **Supuestos.** Plazo de REPARTO V07 = mismo día (manual). El canal call center y el taller de sucursal no se validan aparte: la condición «Crédito 24 horas» ya los implica (Manual §2.3). Sin permiso nuevo: ver = `piezas.ver`, liquidar y cerrar el día = `excepciones.gestionar`.

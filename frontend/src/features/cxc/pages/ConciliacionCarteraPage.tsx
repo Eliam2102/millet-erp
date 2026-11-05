@@ -1,3 +1,4 @@
+import { problemaConsulta } from '@/components/erp/feedback/problema-consulta';
 import { useState, type FormEvent } from 'react';
 import { format, subDays } from 'date-fns';
 import { Scale } from 'lucide-react';
@@ -31,7 +32,7 @@ import { ReporteCxc } from '@/features/cxc/components/ReporteCxc';
 import { adaptarReporteCxc } from '@/features/cxc/lib/reporte-cxc-adapter';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
-import { codigoSoporte, esApiError } from '@/lib/api';
+import { esApiError } from '@/lib/api';
 import { hoyLocalISO, parseDateOnlyLocal } from '@/lib/datetime';
 import { cn } from '@/lib/utils';
 
@@ -74,7 +75,7 @@ export function ConciliacionCarteraPage() {
       {corridas.isError ? (
         <ErrorState
           title="No se pudieron cargar las conciliaciones"
-          problem={esApiError(corridas.error) ? corridas.error.problem : undefined}
+          problem={problemaConsulta(corridas.error)}
           onRetry={() => corridas.refetch()}
         />
       ) : corridas.isLoading ? (
@@ -83,7 +84,7 @@ export function ConciliacionCarteraPage() {
         <EmptyState
           icon={<Scale className="h-8 w-8" strokeWidth={1.6} />}
           title="Todavía no hay conciliaciones"
-          description="La primera corrida programada aparece mañana a las 06:00. También puedes conciliar un día ahora."
+          description="Las conciliaciones programadas se ejecutan a las 06:00; también puedes conciliar un día desde esta pantalla."
         />
       ) : (
         <>
@@ -126,9 +127,7 @@ function ConciliarDia({ onConciliada }: { onConciliada: (id: string) => void }) 
         },
         onError: (error) => {
           if (esApiError(error)) {
-            toast.error(error.problem.title, {
-              description: error.problem.detail ?? codigoSoporte(error),
-            });
+            toast.error('No se pudo conciliar el día. Revisa los datos y tu conexión antes de volver a intentarlo.');
             return;
           }
           toast.error('No se pudo conciliar el día. Revisa tu conexión y vuelve a intentarlo.');

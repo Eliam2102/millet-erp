@@ -193,7 +193,12 @@ describe('<CfdisPage> — smoke', () => {
     expect(screen.getAllByText('Estatus SAT').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Vigente').length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Cancelado/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Sin dato')).toHaveLength(2);
+    const filas = screen.getAllByRole('row').slice(1);
+    const encabezado = screen.getByRole('columnheader', { name: 'Estatus SAT' });
+    const columna = Array.from(encabezado.parentElement!.children).indexOf(encabezado);
+    expect(filas[2].querySelectorAll('td')[columna]).toHaveTextContent(/^—$/);
+    expect(filas[3].querySelectorAll('td')[columna]).toHaveTextContent(/^—$/);
+    expect(screen.queryByText('Sin dato')).not.toBeInTheDocument();
   });
 
   it('muestra el botón "Cargar CFDI" con el permiso cargar-manual', async () => {

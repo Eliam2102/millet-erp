@@ -1,3 +1,4 @@
+import { errorDeReporte } from '@/lib/error-usuario';
 import { ReporteAlmacen } from '../components/ReporteAlmacen';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,6 @@ import { useReporteKardex } from '@/features/almacen/api/useSaldosCierreReportes
 import { useSubAlmacenes } from '@/features/almacen/api/useAlmacenes';
 import { useUbicaciones } from '@/features/almacen/api/useUbicaciones';
 import type { KardexFila } from '@/features/almacen/api/types';
-import { esApiError } from '@/lib/api';
 import { Field } from '@/features/almacen/components/internal/Field';
 
 const SENTINEL_ALL = '__all__';
@@ -39,7 +39,7 @@ export function ReporteKardexPage() {
     <ReporteAlmacen<KardexFila>
       reporte={query.data}
       isLoading={query.isLoading}
-      error={esApiError(query.error) ? query.error : undefined}
+      error={errorDeReporte(query.error)}
       onRetry={() => query.refetch()}
       filtrosUi={
         <div className="flex flex-wrap items-end gap-3">

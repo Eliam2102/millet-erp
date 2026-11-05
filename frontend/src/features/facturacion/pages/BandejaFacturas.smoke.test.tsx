@@ -84,7 +84,7 @@ describe('<BandejaFacturas> — smoke', () => {
     render(<BandejaFacturas />, { wrapper: createQueryWrapper() });
     await waitFor(() => expect(screen.getByText('Público en general')).toBeInTheDocument());
     expect(screen.getByText('A-1')).toBeInTheDocument();
-    expect(screen.getByRole('cell', { name: 'Timbrado' })).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: 'Timbrada' })).toBeInTheDocument();
   });
 
   it('F6.1: badges de clase y filtro «Clase» sincronizado con ?clase=', async () => {

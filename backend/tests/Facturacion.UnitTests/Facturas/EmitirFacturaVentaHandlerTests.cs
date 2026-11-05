@@ -496,6 +496,21 @@ public sealed class EmitirFacturaVentaHandlerTests
     }
 
     [Fact]
+    public async Task Validator_rechaza_comentario_de_nota_de_credito_de_mas_de_1000_caracteres()
+    {
+        // FMT-6: comentario libre de la NC de aplicación de cada anticipo.
+        var validator = new EmitirFacturaVentaValidator(new FakeCanalesVentaReadPort());
+        EmitirFacturaVentaCommand ConComentario(int largo) =>
+            Command() with { Anticipos = [new AnticipoAAmortizar(Guid.NewGuid(), 100m, new string('x', largo))] };
+
+        var larga = await validator.ValidateAsync(ConComentario(1001));
+        var limite = await validator.ValidateAsync(ConComentario(1000));
+
+        larga.Errors.Should().ContainSingle(e => e.PropertyName.EndsWith(nameof(AnticipoAAmortizar.ComentarioNotaCredito)));
+        limite.Errors.Should().NotContain(e => e.PropertyName.EndsWith(nameof(AnticipoAAmortizar.ComentarioNotaCredito)));
+    }
+
+    [Fact]
     public async Task Handle_con_periodo_cerrado_lanza_PERIODO_CERRADO()
     {
         var empresaId = Guid.NewGuid();

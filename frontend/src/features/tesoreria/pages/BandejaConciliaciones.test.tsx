@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -94,12 +94,15 @@ describe('<BandejaConciliaciones>', () => {
     render(<BandejaConciliaciones />, { wrapper: createQueryWrapper() });
 
     expect(await screen.findByRole('heading', { name: 'Conciliación bancaria' })).toBeInTheDocument();
-    expect(await screen.findByText('Saldo Extracto Banco')).toBeInTheDocument();
-    expect(await screen.findByText('Saldo Libros (ERP)')).toBeInTheDocument();
-    expect(await screen.findByText('✓ Conciliación cuadrada ($0.00)')).toBeInTheDocument();
-    expect(await screen.findByText('Cerrar con Acta')).toBeInTheDocument();
+    expect(await screen.findByText('Saldo del extracto bancario')).toBeInTheDocument();
+    expect(await screen.findByText('Saldo en libros')).toBeInTheDocument();
+    expect(await screen.findByText('Conciliación cuadrada ($0.00)')).toBeInTheDocument();
+    expect(await screen.findByText('Cerrar con acta')).toBeInTheDocument();
     expect(await screen.findByText('DEPOSITO CLIENTE ACME')).toBeInTheDocument();
     expect(await screen.findByText('Cobranza cliente')).toBeInTheDocument();
+    const indicadores = document.querySelectorAll('span.text-3xl');
+    expect(indicadores).toHaveLength(3);
+    indicadores.forEach((valor) => expect(valor).toHaveClass('font-semibold', 'tabular-nums'));
   });
 
   it('muestra un cargo del extracto como negativo (el monto del API viene en valor absoluto)', async () => {
@@ -120,4 +123,21 @@ describe('<BandejaConciliaciones>', () => {
     expect(fila).toHaveTextContent('-$661.20');
     expect(fila).not.toHaveTextContent('+$661.20');
   });
+});
+
+it('elige un extracto con botón y muestra su nombre junto al contenido leído', async () => {
+  mswServer.use(
+    http.get('*/api/v1/tesoreria/cuentas', () => HttpResponse.json([mockCuenta])),
+    http.get('*/api/v1/tesoreria/conceptos', () => HttpResponse.json([])),
+    http.get('*/api/v1/tesoreria/conciliaciones', () => HttpResponse.json([mockConciliacion])),
+    http.get('*/api/v1/tesoreria/conciliaciones/00000000-0000-0000-0000-000000000010', () => HttpResponse.json(mockConciliacion)),
+  );
+  render(<BandejaConciliaciones />, { wrapper: createQueryWrapper() });
+  fireEvent.click(await screen.findByRole('button', { name: 'Cargar extracto BBVA' }));
+  expect(screen.getByRole('button', { name: 'Elegir archivo' })).toBeInTheDocument();
+  const archivo = new File(['contenido de prueba'], 'extracto.csv', { type: 'text/csv' });
+  Object.defineProperty(archivo, 'text', { value: async () => 'contenido de prueba' });
+  fireEvent.change(screen.getByLabelText('Archivo del extracto'), { target: { files: [archivo] } });
+  expect(await screen.findByText('extracto.csv')).toBeInTheDocument();
+  expect(screen.getByLabelText('Contenido del extracto')).toHaveValue('contenido de prueba');
 });

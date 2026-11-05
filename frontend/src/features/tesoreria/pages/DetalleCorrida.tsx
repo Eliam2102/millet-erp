@@ -1,3 +1,5 @@
+import { problemaUsuario } from '@/lib/error-usuario';
+import { errorUsuario } from '@/lib/error-usuario';
 import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { X } from 'lucide-react';
@@ -64,7 +66,7 @@ export function DetalleCorrida({ id }: { id: string }) {
     return (
       <ErrorState
         title="No se pudo cargar la corrida"
-        problem={esApiError(query.error) ? query.error.problem : undefined}
+        problem={problemaUsuario(query.error)}
         onRetry={() => query.refetch()}
       />
     );
@@ -80,7 +82,7 @@ export function DetalleCorrida({ id }: { id: string }) {
   const abierta = c.estado === 'Borrador' || c.estado === 'EnAutorizacion';
 
   function alError(error: unknown, fallback: string) {
-    if (esApiError(error)) setAviso(error.problem.detail ?? error.problem.title);
+    if (esApiError(error)) setAviso(errorUsuario(error));
     else toast.error(fallback);
   }
 
@@ -340,7 +342,7 @@ export function DetalleCorrida({ id }: { id: string }) {
           <ul className="space-y-1 text-xs text-ink-secondary">
             {c.firmas.map((f) => (
               <li key={f.usuarioId}>
-                <span className={f.usuarioNombre ? undefined : 'font-mono'}>{f.usuarioNombre ?? f.usuarioId}</span> · {f.roles || 'sin rol'} · <DateTimeDisplay value={f.firmadaEn} variant="corta" />
+                <span className={f.usuarioNombre ? undefined : 'font-mono'}>{f.usuarioNombre?.trim() || 'Sin responsable'}</span> · {f.roles || 'sin rol'} · <DateTimeDisplay value={f.firmadaEn} variant="corta" />
               </li>
             ))}
           </ul>

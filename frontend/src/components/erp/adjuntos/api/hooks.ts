@@ -153,6 +153,34 @@ export function useOtorgarExcepcion(base: string) {
   });
 }
 
+/** Otorga o niega una excepción pendiente (permiso validar; no la resuelve quien la pidió). */
+export function useResolverExcepcion(base: string) {
+  const qc = useQueryClient();
+  return useMutation<unknown, Error, { excepcionId: string; otorgar: boolean; motivo?: string }>({
+    mutationFn: async ({ excepcionId, ...body }) =>
+      apiRequest<void>(`${base}/expediente/excepciones/${excepcionId}/resolver`, {
+        method: 'POST',
+        body,
+        idempotencyKey: crypto.randomUUID(),
+      }),
+    onSuccess: () => invalidar(qc, base),
+  });
+}
+
+/** Guarda el cotejo del contenido de un documento (quién, cuándo y resultado). */
+export function useRevisarDocumento(base: string) {
+  const qc = useQueryClient();
+  return useMutation<unknown, Error, { adjuntoId: string; resultado: number; observacion?: string }>({
+    mutationFn: async ({ adjuntoId, ...body }) =>
+      apiRequest<AdjuntoResponse>(`${base}/expediente/documentos/${adjuntoId}/revisar`, {
+        method: 'POST',
+        body,
+        idempotencyKey: crypto.randomUUID(),
+      }),
+    onSuccess: () => invalidar(qc, base),
+  });
+}
+
 export function useRevocarExcepcion(base: string) {
   const qc = useQueryClient();
   return useMutation<unknown, Error, { excepcionId: string }>({

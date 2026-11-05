@@ -1,3 +1,4 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import { FormCampo } from '@/components/erp/forms/FormGrid';
 import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { erroresDeClasificacion } from '@/modules/datos-maestros/lib/clasificacion-fiscal';
@@ -223,21 +224,28 @@ function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps)
               error.code === 'PROVEEDOR_REGIMEN_NO_APLICA'
             ) {
               setErroresFiscal(
-                erroresDeClasificacion(error.code, error.problem.detail ?? error.problem.title),
+                erroresDeClasificacion(error.code, errorUsuario(error)),
               );
               return;
             }
             if (error.code === 'PROVEEDOR_CLAVE_AW_DUPLICADA') {
               form.setError('claveAw', {
                 type: error.code,
-                message: error.problem.detail ?? 'Ya existe un proveedor con esa clave de A+W.',
+                message: errorUsuario(error, 'Ya existe un proveedor con esa clave de A+W.'),
+              });
+              return;
+            }
+            if (error.code === 'PROVEEDOR_TAXID_DUPLICADO') {
+              form.setError('taxId', {
+                type: error.code,
+                message: error.problem.detail ?? 'Ya existe un proveedor con ese Tax ID.',
               });
               return;
             }
             if (error.code === 'PROVEEDOR_RFC_DUPLICADO') {
               form.setError('rfc', {
                 type: error.code,
-                message: error.problem.detail ?? 'Ya existe un proveedor con ese RFC.',
+                message: errorUsuario(error, 'Ya existe un proveedor con ese RFC.'),
               });
               return;
             }
@@ -246,12 +254,12 @@ function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps)
             ) {
               return;
             }
-            toast.error(error.problem.title, {
+            toast.error(errorUsuario(error), {
               description: codigoSoporte(error),
             });
             return;
           }
-          toast.error('Error inesperado al crear el proveedor.');
+          toast.error("Error inesperado al crear el proveedor. Revisa los datos del registro; si continúa, avisa a soporte.");
         },
       },
     );
@@ -294,7 +302,7 @@ function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps)
               <Input
                 id="nuevo-proveedor-razon"
                 maxLength={254}
-                placeholder="Acme S.A. de C.V."
+                placeholder="Razón social del proveedor"
                 {...form.register('razonSocial')}
               />
             </FormRow>
@@ -357,7 +365,7 @@ function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps)
           </FormCampo>
 
           <FormCampo span={6}>
-            <FormRow label="Email" htmlFor="nuevo-proveedor-email" hint="Opcional." error={form.formState.errors.email?.message}>
+            <FormRow label="Correo electrónico" htmlFor="nuevo-proveedor-email" hint="Opcional." error={form.formState.errors.email?.message}>
               <Controller
                 name="email"
                 control={form.control}

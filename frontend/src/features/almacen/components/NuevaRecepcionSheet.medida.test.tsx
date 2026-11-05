@@ -56,7 +56,7 @@ describe('<NuevaRecepcionSheet> — línea de vidrio sin medida en la OC', () =>
     render(<NuevaRecepcionSheet open onOpenChange={vi.fn()} ordenCompraIdInicial="oc-1" />, {
       wrapper: createQueryWrapper(),
     });
-    expect(screen.getByText('La línea de la OC no tiene medida; corrígela en Compras.')).toBeInTheDocument();
+    expect(screen.getByText('La partida de la OC no tiene medida; corrígela en Compras.')).toBeInTheDocument();
     expect(screen.getByRole('checkbox', { name: /Incluir partida 1/ })).toBeDisabled();
     expect(screen.queryByText(/Demasiados decimales/)).not.toBeInTheDocument();
   });

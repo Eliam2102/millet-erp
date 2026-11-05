@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { MOTIVOS_CANCELACION } from '@/features/facturacion/api/types';
 import { useSolicitarCancelacion } from '@/features/facturacion/api/useFacturas';
-import { mostrarError } from '@/features/facturacion/lib/mostrar-error-cancelacion';
 import { useFormIdempotencyKey } from '@/lib/api';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -52,8 +51,7 @@ export function CancelarComprobanteForm({
           toast.success('Cancelación solicitada: queda pendiente de la autorización del Contador General.');
           onDone();
         },
-        // El motivo real del SAT/PAC viaja en detail; si repite el título no se duplica (O1).
-        onError: (error) => mostrarError(error, 'No se pudo solicitar la cancelación.'),
+        onError: () => toast.error('No se pudo solicitar la cancelación. Revisa el motivo, el comprobante sustituto y tu conexión antes de volver a solicitarla.'),
       },
     );
   }
@@ -62,9 +60,10 @@ export function CancelarComprobanteForm({
     <FormSeccion titulo="Cancelación SAT 4.0">
       <FormCampo span={6}>
         <div>
-          <Label className="text-xs">Motivo SAT *</Label>
+          <Label htmlFor="cancelacion-motivo-sat" className="text-xs">Motivo SAT *</Label>
           <select
-            className="h-9 w-full rounded-md border border-line-control bg-transparent px-3 text-sm shadow-sm"
+            id="cancelacion-motivo-sat"
+            className="h-9 w-full rounded-md border border-line-control bg-transparent px-3 text-sm shadow-card-flat"
             value={motivoSat}
             onChange={(e) => setMotivoSat(e.target.value)}
           >
@@ -79,8 +78,9 @@ export function CancelarComprobanteForm({
       <FormCampo span={4}>
         {requiereSustituto && (
           <div>
-            <Label className="text-xs">UUID sustituto *</Label>
+            <Label htmlFor="cancelacion-uuid-sustituto" className="text-xs">UUID sustituto *</Label>
             <Input
+              id="cancelacion-uuid-sustituto"
               className="font-mono text-xs"
               placeholder="00000000-…"
               value={uuidSustituto}

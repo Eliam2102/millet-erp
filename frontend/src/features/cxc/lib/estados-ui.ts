@@ -112,6 +112,10 @@ export const ESTADOS_UI = {
       tono: 'info',
       texto: ETIQUETA_TIPO_ALERTA[TipoAlertaCartera.AutoBloqueoVencimiento],
     },
+    [TipoAlertaCartera.ContraEntregaNoLiquidada]: {
+      tono: 'danger',
+      texto: ETIQUETA_TIPO_ALERTA[TipoAlertaCartera.ContraEntregaNoLiquidada],
+    },
   },
   anticipo: {
     Abierto: { tono: 'success', texto: 'Abierto' },

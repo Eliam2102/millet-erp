@@ -1,3 +1,5 @@
+import { problemaConsulta } from '@/components/erp/feedback/problema-consulta';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { DialogBody } from '@/components/ui/dialog';
 import { ConfirmacionContent as AlertDialogContent } from '@/modules/administracion/components/ConfirmacionContent';
 import {
@@ -56,7 +58,7 @@ import { useDepartamentos, usePuestos, useSucursales } from '@/features/catalogo
 import type { EmpleadoListItem } from '@/features/catalogos/api';
 import { useHasAllPermissions, useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError, codigoSoporte } from '@/lib/api';
+import { esApiError } from '@/lib/api';
 import { EmpleadoInlineForm } from '@/modules/administracion/components/EmpleadoInlineForm';
 import { EmpleadoAccesoPanel } from '@/modules/administracion/components/EmpleadoAccesoPanel';
 import { CuentasSinEmpleado } from '@/modules/administracion/components/CuentasSinEmpleado';
@@ -123,19 +125,6 @@ function getMotivosReasignacion(
   return motivos;
 }
 
-function formatFecha(iso: string | null | undefined): string | null {
-  if (!iso) return null;
-  try {
-    const d = new Date(iso);
-    return d.toLocaleDateString('es-MX', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  } catch {
-    return null;
-  }
-}
 
 /**
  * <c>&lt;EmpleadosPage/&gt;</c> — Vista ejecutiva y directorio de empleados
@@ -233,9 +222,7 @@ export function EmpleadosPage({ vistaInicial = 'empleados' }: { vistaInicial?: V
 
   function onErrorEstatus(error: Error) {
     if (esApiError(error)) {
-      toast.error(error.problem.title, {
-        description: codigoSoporte(error),
-      });
+      toast.error('No se pudo actualizar el acceso del empleado. Revisa los datos y tu conexión antes de volver a intentarlo.');
     } else {
       toast.error('Error al actualizar el empleado.');
     }
@@ -364,9 +351,7 @@ export function EmpleadosPage({ vistaInicial = 'empleados' }: { vistaInicial?: V
         },
         onError: (err) => {
           if (esApiError(err)) {
-            toast.error(err.problem.title, {
-              description: err.problem.detail,
-            });
+            toast.error('No se pudo actualizar el acceso del empleado. Revisa los datos y tu conexión antes de volver a intentarlo.');
           } else {
             toast.error('No se pudo reenviar el acceso.');
           }
@@ -383,8 +368,7 @@ export function EmpleadosPage({ vistaInicial = 'empleados' }: { vistaInicial?: V
         titulo={<>Seguimiento y directorio de empleados</>}
         descripcion={
           <>
-            Gestión de personal de talleres y plantas, estatus de cuentas ERP y aprovisionamiento en
-            Microsoft Entra ID.
+            Consulta y administra empleados, sus asignaciones y su acceso al ERP con Microsoft.
           </>
         }
         acciones={
@@ -425,28 +409,28 @@ export function EmpleadosPage({ vistaInicial = 'empleados' }: { vistaInicial?: V
           className="text-left rounded-lg focus-visible:outline-brand"
           onClick={() => setFiltroAcceso('sin-login')}
         >
-          <KpiCard etiqueta="Sin iniciar sesión" valor={metricas.sinLogin} tono="warning" />
+          <KpiCard etiqueta="Sin iniciar sesión" valor={query.data != null ? metricas.sinLogin : <span className="text-ink-muted">—</span>} tono="warning" />
         </button>
         <button
           type="button"
           className="text-left rounded-lg focus-visible:outline-brand"
           onClick={() => setFiltroAcceso('sin-acceso')}
         >
-          <KpiCard etiqueta="Sin acceso ERP" valor={metricas.sinAcceso} tono="neutral" />
+          <KpiCard etiqueta="Sin acceso ERP" valor={query.data != null ? metricas.sinAcceso : <span className="text-ink-muted">—</span>} tono="neutral" />
         </button>
         <button
           type="button"
           className="text-left rounded-lg focus-visible:outline-brand"
           onClick={() => setFiltroAcceso('acceso-inactivo')}
         >
-          <KpiCard etiqueta="Acceso inactivo" valor={metricas.inactivos} tono="danger" />
+          <KpiCard etiqueta="Acceso inactivo" valor={query.data != null ? metricas.inactivos : <span className="text-ink-muted">—</span>} tono="danger" />
         </button>
         <button
           type="button"
           className="text-left rounded-lg focus-visible:outline-brand"
           onClick={() => setFiltroAcceso('por-reasignar')}
         >
-          <KpiCard etiqueta="Por reasignar" valor={metricas.porReasignar} tono="warning" />
+          <KpiCard etiqueta="Por reasignar" valor={query.data != null ? metricas.porReasignar : <span className="text-ink-muted">—</span>} tono="warning" />
         </button>
       </div>
       {/* Inline Form de Alta */}
@@ -534,6 +518,7 @@ export function EmpleadosPage({ vistaInicial = 'empleados' }: { vistaInicial?: V
                     <div className="relative min-w-60 flex-1">
                       <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-ink-muted" />
                       <Input
+                        aria-label="Buscar empleados"
                         placeholder="Buscar por nombre, clave, correo o puesto..."
                         value={busqueda}
                         onChange={(e) => setBusqueda(e.target.value)}
@@ -641,7 +626,7 @@ export function EmpleadosPage({ vistaInicial = 'empleados' }: { vistaInicial?: V
             {query.isError ? (
               <ErrorState
                 title="No se pudieron cargar los empleados"
-                problem={esApiError(query.error) ? query.error.problem : undefined}
+                problem={problemaConsulta(query.error)}
                 onRetry={() => query.refetch()}
               />
             ) : query.isLoading ? (
@@ -786,17 +771,17 @@ export function EmpleadosPage({ vistaInicial = 'empleados' }: { vistaInicial?: V
                                       {e.departamentoNombre && (
                                         <span>· {e.departamentoNombre}</span>
                                       )}
-                                      {!e.sucursalId && <Badge variant="info">Corporativo</Badge>}
+                                      {!e.sucursalId && <span className="text-ink-secondary">Corporativo</span>}
                                       {e.sucursalNombre && (
                                         <span className="inline-flex items-center gap-1 font-medium">
                                           <Building2 className="h-3 w-3 text-ink-muted" />
                                           {e.sucursalNombre}
                                           {e.sucursalTipo === TipoSucursal.Planta ? (
-                                            <span className="text-2xs font-semibold text-info-fg bg-info-bg border border-line px-1.5 py-0.2 rounded">
+                                            <span className="text-2xs font-semibold text-info-fg bg-info-bg border border-line px-1.5 py-0.5 rounded">
                                               Planta
                                             </span>
                                           ) : (
-                                            <span className="text-2xs font-semibold text-info-fg bg-info-bg border border-line px-1.5 py-0.2 rounded">
+                                            <span className="text-2xs font-semibold text-info-fg bg-info-bg border border-line px-1.5 py-0.5 rounded">
                                               Taller
                                             </span>
                                           )}
@@ -809,9 +794,7 @@ export function EmpleadosPage({ vistaInicial = 'empleados' }: { vistaInicial?: V
                                           Pendiente de reasignar:
                                         </span>
                                         {motivosReasig.map((m) => (
-                                          <Badge key={m} variant="warning">
-                                            {m}
-                                          </Badge>
+                                          <span key={m} className="text-xs text-warning-fg">{m}</span>
                                         ))}
                                       </div>
                                     )}
@@ -861,20 +844,20 @@ export function EmpleadosPage({ vistaInicial = 'empleados' }: { vistaInicial?: V
                                     {/* Subtexto descriptivo del acceso */}
                                     <div className="text-2xs text-ink-muted mt-0.5 truncate max-w-50">
                                       {accesoActivo && e.primerAccesoEn && (
-                                        <span>1er login: {formatFecha(e.primerAccesoEn)}</span>
+                                        <span>Primer acceso: <DateTimeDisplay value={e.primerAccesoEn} variant="corta" /></span>
                                       )}
                                       {pendientePrimerAcceso && (
                                         <span
                                           title={`Destino: ${e.emailContacto ?? 'correo personal'}`}
                                         >
                                           {e.accesoEnviadoEn
-                                            ? `Enviado ${formatFecha(e.accesoEnviadoEn)}`
+                                            ? <>Enviado <DateTimeDisplay value={e.accesoEnviadoEn} variant="corta" /></>
                                             : e.emailContacto
                                               ? `Enviar a ${e.emailContacto}`
                                               : 'Credencial pendiente'}
                                         </span>
                                       )}
-                                      {enProvision && <span>Creando cuenta en Entra…</span>}
+                                      {enProvision && <span>Creando cuenta Microsoft…</span>}
                                       {!tieneUsuario && <span>Solo ficha de personal</span>}
                                     </div>
                                   </div>

@@ -148,7 +148,7 @@ export function RecepcionesPage() {
             aria-current={search.estado === tab.valor ? 'page' : undefined}
             className="rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
           >
-            <KpiCard etiqueta={tab.label} valor={conteos.data?.[tab.valor] ?? '—'} />
+            <KpiCard etiqueta={tab.label} valor={conteos.data && !conteos.isError ? (conteos.data[tab.valor] ?? 0) : <span className="text-ink-muted">—</span>} />
           </Link>
         ))}
       </div>
@@ -161,7 +161,7 @@ export function RecepcionesPage() {
             onChange={(estado) =>
               actualizarSearch({ estado: estado as EstadoMovimiento | undefined })
             }
-            conteos={conteos.data}
+            conteos={conteos.isError ? undefined : conteos.data}
           />
         }
         filtros={

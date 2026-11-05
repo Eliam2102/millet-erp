@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { ConfirmacionContent } from './ConfirmacionContent';
 import { Button } from '@/components/ui/button';
-import { apiRequest, esApiError } from '@/lib/api';
+import { apiRequest } from '@/lib/api';
 import { apiFetch } from '@/lib/auth/api-client';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -24,6 +24,7 @@ export function EmpresaLogoSection({ empresaId }: { empresaId: string }) {
   const preview = useRef<HTMLImageElement>(null);
   const [confirmarQuitar, setConfirmarQuitar] = useState(false);
   const [errorLocal, setErrorLocal] = useState<string>();
+  const [nombreArchivo, setNombreArchivo] = useState<string>();
   const path = `/api/v1/admin/empresas/${empresaId}/logo`;
   const queryKey = adminKeys.logoEmpresa(empresaId);
   const logo = useQuery({
@@ -62,11 +63,7 @@ export function EmpresaLogoSection({ empresaId }: { empresaId: string }) {
   });
   const error =
     errorLocal ??
-    (guardar.error
-      ? esApiError(guardar.error)
-        ? guardar.error.problem.detail || 'No se pudo guardar el logo. Intenta de nuevo.'
-        : 'No se pudo guardar el logo. Intenta de nuevo.'
-      : undefined);
+    (guardar.error ? 'No se pudo guardar el logo. Revisa que sea PNG o JPG de hasta 1 MB y vuelve a elegirlo.' : undefined);
   return (
     <section
       className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat"
@@ -102,6 +99,7 @@ export function EmpresaLogoSection({ empresaId }: { empresaId: string }) {
               const archivo = event.target.files?.[0];
               event.target.value = '';
               if (!archivo) return;
+              setNombreArchivo(archivo.name);
               if (archivo.size > 1024 * 1024) {
                 setErrorLocal('El logo excede 1 MB. Selecciona una imagen más pequeña.');
                 return;
@@ -117,8 +115,9 @@ export function EmpresaLogoSection({ empresaId }: { empresaId: string }) {
             title={guardar.isPending ? 'Espera a que termine de guardarse el logo' : undefined}
             onClick={() => input.current?.click()}
           >
-            {logo.data ? 'Cambiar' : 'Subir logo'}
+            Elegir archivo
           </Button>
+          <span className="self-center text-xs text-ink-muted">{nombreArchivo ?? 'Sin archivo elegido'}</span>
           {logo.data && (
             <Button
               type="button"

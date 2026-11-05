@@ -1,3 +1,4 @@
+import { problemaConsulta } from '@/components/erp/feedback/problema-consulta';
 import { PageHeader, EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
 
 import { useMemo, type ReactNode } from 'react';
@@ -9,7 +10,6 @@ import { usePropuestasAplicacion } from '@/features/cxc/api/useAplicaciones';
 import { ChipEstadoPropuesta } from '@/features/cxc/components/ChipEstadoPropuesta';
 import { formatoMonto } from '@/features/cxc/lib/glosario';
 import type { AplicacionesSearch } from '@/features/cxc/lib/aplicaciones-search-schema';
-import { esApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 /**
@@ -71,7 +71,7 @@ export function AplicacionesLayout({ idActivo, detalle }: AplicacionesLayoutProp
             </div>
           ) : query.isError ? (
             <ErrorState
-              problem={esApiError(query.error) ? query.error.problem : undefined}
+              problem={problemaConsulta(query.error)}
               onRetry={() => query.refetch()}
             />
           ) : items.length === 0 ? (
@@ -92,7 +92,7 @@ export function AplicacionesLayout({ idActivo, detalle }: AplicacionesLayoutProp
                     className={cn(
                       'block px-3 py-2 transition-colors',
                       p.id === idActivo
-                        ? 'bg-brand/10 hover:bg-brand/15'
+                        ? 'bg-surface-selected shadow-list-selected'
                         : 'hover:bg-surface-muted/40',
                     )}
                     aria-current={p.id === idActivo ? 'page' : undefined}
@@ -110,7 +110,7 @@ export function AplicacionesLayout({ idActivo, detalle }: AplicacionesLayoutProp
                     </div>
                     <div className="mt-1 flex items-center justify-between gap-2 text-xs text-ink-muted">
                       <span className="truncate">
-                        {nombres.get(p.clienteId) ?? '—'}
+                        {nombres.get(p.clienteId) || <span className="text-ink-muted">—</span>}
                       </span>
                       <span className="shrink-0 font-mono tabular-nums">
                         {formatoMonto(p.montoDeposito, p.moneda)}
@@ -143,7 +143,7 @@ function PlaceholderSinSeleccion() {
       <div className="space-y-1 text-ink-muted">
         <FileText className="mx-auto h-8 w-8 opacity-50" aria-hidden="true" />
         <p className="text-sm">Selecciona una propuesta de la lista</p>
-        <p className="text-xs">para revisar el matching y resolverla.</p>
+        <p className="text-xs">para revisar las facturas propuestas y resolverla.</p>
       </div>
     </div>
   );

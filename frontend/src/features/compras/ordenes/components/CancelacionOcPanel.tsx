@@ -1,3 +1,4 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -5,7 +6,6 @@ import { Badge } from '@/components/ui/badge';
 import { DateTimeDisplay } from '@/components/erp';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { useUsuarios, mapById } from '@/features/catalogos/api';
-import { esApiError } from '@/lib/api';
 import type { OrdenCompraDetalleResponse } from '../api/types';
 import { avisoCancelacion, estadoSolicitud, puedeResolverCancelacion, respuestasAlmacenes } from '../lib/cancelacion';
 import { useResolverCancelacionOc } from '../api/useResolverCancelacionOc';
@@ -86,9 +86,7 @@ export function CancelacionOcPanel({ oc }: { oc: OrdenCompraDetalleResponse }) {
               setDecision(null);
             } catch (error) {
               toast.error('No se pudo resolver la cancelación.', {
-                description: esApiError(error)
-                  ? (error.problem.detail ?? error.problem.title)
-                  : 'Vuelve a intentarlo.',
+                description: errorUsuario(error, 'Vuelve a intentarlo.'),
               });
             }
           }}

@@ -116,7 +116,7 @@ export function EmitirFacturaForm(props: EmitirFacturaFormProps) {
 
   if (defaults.isError) {
     return (
-      <div className="space-y-2 rounded-md border border-danger/40 bg-danger-bg/5 px-4 py-3 text-sm">
+      <div className="space-y-2 rounded-md border border-line bg-danger-bg px-4 py-3 text-sm">
         <p>No se pudieron cargar los datos del emisor.</p>
         <Button type="button" variant="outline" size="sm" onClick={() => defaults.refetch()}>
           Reintentar
@@ -270,7 +270,7 @@ function FormInner({
     ce.clavePedimento === 'RT' &&
     comportamiento === ComportamientoFiscal.ExportacionConCce;
   const motivoCe = rtPorConfirmar
-    ? 'La exportación RT sin complemento requiere confirmación de Fiscal (VAL-CE-08).'
+    ? 'La exportación RT sin complemento requiere confirmación de Fiscal.'
     : ce?.motivo;
   const ceBloqueado = Boolean(ce?.ligado && (!ce.listoParaFacturar || rtPorConfirmar));
   const esCce = ce?.ligado
@@ -316,7 +316,7 @@ function FormInner({
   async function onSubmit(values: EmitirFacturaValues) {
     if (ceBloqueado || manualSinClase) return;
     if (esActivo && autorizacionId.trim() === '') {
-      toast.error('La venta de activo fijo requiere el ID de autorización del Director de Administración y Finanzas.');
+      toast.error('La venta de activo fijo requiere la autorización del Director de Administración y Finanzas.');
       return;
     }
     const command = construirComando(values);
@@ -383,7 +383,11 @@ function FormInner({
               ? anticipos
                   .filter((a) => a.anticipoId.trim().length > 0)
                   // El folio es solo del FE (arma la nota); no viaja al backend.
-                  .map((a) => ({ anticipoId: a.anticipoId, importe: a.importe }))
+                  .map((a) => ({
+                    anticipoId: a.anticipoId,
+                    importe: a.importe,
+                    comentarioNotaCredito: a.comentarioNotaCredito?.trim() || null,
+                  }))
               : null,
           observaciones: values.observaciones ?? '',
           autorizacionId: esActivo ? autorizacionId.trim() : null,
@@ -476,7 +480,7 @@ function FormInner({
       {ce?.ligado && <EmbarqueCeResumen datos={ce} bloqueo={ceBloqueado ? motivoCe : null} />}
       {errorVentaDirecta != null ? (
         <AvisoEnLinea
-          tono="error"
+          tono={errorVentaDirecta.destino === 'series' ? 'advertencia' : 'error'}
           titulo={errorVentaDirecta.titulo}
           accion={
             errorVentaDirecta.destino === 'series' && puedeGestionarSeries ? (
@@ -675,7 +679,7 @@ function FormInner({
                 manualSinClase
                   ? 'Clasifica el pedido (venta directa o emergencia) antes de facturarlo.'
                   : ceBloqueado
-                    ? (motivoCe ?? 'Complete el embarque en Comercio Exterior.')
+                    ? (motivoCe ?? 'Completa el embarque en Comercio exterior.')
                     : receptorBloqueado
                       ? 'Receptor incompleto: complétalo en Datos Maestros → Clientes'
                       : undefined
@@ -706,7 +710,7 @@ function BadgeErrores({ cuenta }: { cuenta: number }) {
     <span
       className={cn(
         'inline-flex h-4 min-w-4 items-center justify-center rounded-full',
-        'bg-danger-bg px-1 text-[10px] font-semibold text-danger-fg-foreground',
+        'bg-danger-bg px-1 text-2xs font-semibold text-danger-fg',
       )}
       aria-label={`${cuenta} errores`}
     >

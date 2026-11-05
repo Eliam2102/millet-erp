@@ -1,3 +1,4 @@
+import { ApiError } from '@/lib/api/error';
 import { apiBaseUrl } from '@/lib/auth/config';
 
 /**
@@ -96,8 +97,8 @@ export async function subirCfdi(xml: File, pdf: File | null): Promise<ResultadoS
     throw new PortalSesionExpirada();
   }
   if (r.status === 422) {
-    const problema = (await r.json().catch(() => ({}))) as { detail?: string };
-    throw new Error(problema.detail ?? 'No pudimos aceptar el documento.');
+    const problema = (await r.json().catch(() => ({}))) as { detail?: string; code?: string };
+    throw new ApiError({ type: 'about:blank', title: 'No pudimos aceptar el documento.', status: 422, detail: problema.detail, code: problema.code }, 422);
   }
   if (!r.ok) throw new Error('No se pudo subir el documento. Intenta de nuevo.');
   return (await r.json()) as ResultadoSubida;

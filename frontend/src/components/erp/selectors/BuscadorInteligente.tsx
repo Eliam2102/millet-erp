@@ -172,7 +172,7 @@ export function BuscadorInteligente<TItem extends { id: string }>({
               value={input}
               onChange={(e) => setInput(e.target.value)}
               disabled={disabled}
-              className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm text-ink outline-none placeholder:text-ink-muted disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand placeholder:text-ink-muted disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
           <CommandList aria-busy={cargando}>

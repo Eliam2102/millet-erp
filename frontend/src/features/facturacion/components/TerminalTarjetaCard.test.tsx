@@ -1,9 +1,19 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
+import { toast } from 'sonner';
 import { TerminalTarjetaCard } from './TerminalTarjetaCard';
+
+beforeEach(() => {
+  const banco = '*/api/v1/facturacion/terminal-tarjetas/factura-banco';
+  mswServer.use(
+    http.get(`${banco}/candidatos`, () => HttpResponse.json([])),
+    http.get(`${banco}/cuadre`, () => HttpResponse.json(null)),
+    http.get(banco, () => HttpResponse.json([])),
+  );
+});
 
 describe('86e3vr1tf · terminal de tarjetas', () => {
   it('sube el archivo con el día y muestra el resultado y las ventas sin emparejar', async () => {
@@ -47,4 +57,34 @@ describe('86e3vr1tf · terminal de tarjetas', () => {
     );
     expect(tipoContenido).toMatch(/multipart\/form-data/);
   });
+});
+
+  it('explica por qué no puede cargar y no expone excepciones del servidor', async () => {
+    const error = vi.spyOn(toast, 'error');
+    mswServer.use(
+      http.get('*/api/v1/facturacion/terminal-tarjetas/transacciones', () => HttpResponse.json({ items: [], total: 0 })),
+      http.post('*/api/v1/facturacion/terminal-tarjetas/cargas', () => HttpResponse.json(
+        { title: 'TERMINAL_ERROR', detail: 'Invalid payload at endpoint', status: 500 }, { status: 500 })),
+    );
+    render(<TerminalTarjetaCard />, { wrapper: createQueryWrapper() });
+    const cargar = screen.getByRole('button', { name: 'Cargar archivo' });
+    expect(cargar).toHaveAttribute('title', 'Elige el archivo y el día de las transacciones.');
+    fireEvent.change(screen.getByLabelText('Archivo de la terminal'), { target: { files: [new File(['x'], 'prueba.csv')] } });
+    fireEvent.change(screen.getByLabelText('Día de las transacciones'), { target: { value: '2026-11-03' } });
+    fireEvent.click(cargar);
+    await waitFor(() => expect(error).toHaveBeenCalledWith(
+      'No se pudo cargar el archivo. Revisa los datos y tu conexión antes de volver a intentarlo.',
+    ));
+    error.mockRestore();
+  });
+
+it('distingue un fallo de consulta de una pestaña sin ventas', async () => {
+  mswServer.use(http.get('*/api/v1/facturacion/terminal-tarjetas/transacciones', () => HttpResponse.json(
+    { title: 'TERMINAL_ERROR', detail: 'Invalid payload at endpoint', status: 500 }, { status: 500 },
+  )));
+  render(<TerminalTarjetaCard />, { wrapper: createQueryWrapper() });
+  expect(await screen.findByText('No se pudieron cargar las ventas de la terminal')).toBeInTheDocument();
+  expect(screen.queryByText('Sin ventas en esta pestaña.')).not.toBeInTheDocument();
+  expect(screen.queryByText(/TERMINAL_ERROR|Invalid payload/)).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Reintentar' })).toBeInTheDocument();
 });

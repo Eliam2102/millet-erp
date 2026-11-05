@@ -171,6 +171,10 @@ export const almacenKeys = {
   // Desperdicio de mesa y merma de proceso (A4.4)
   mermas: (f: { estado?: string; tipo?: string }) => [...almacenKeys.all, 'mermas', f] as const,
 
+  // Normas de consumo de componentes y su bandeja de revisión (A4.8)
+  normasConsumo: () => [...almacenKeys.all, 'normas-consumo'] as const,
+  consumosRevision: () => [...almacenKeys.all, 'consumos-revision'] as const,
+
   // Salida por rotura en almacén (ALM-03)
   salidasRotura: (f: { estado?: string }) => [...almacenKeys.all, 'salidas-rotura', f] as const,
   motivosRotura: () => [...almacenKeys.all, 'salidas-rotura', 'motivos'] as const,

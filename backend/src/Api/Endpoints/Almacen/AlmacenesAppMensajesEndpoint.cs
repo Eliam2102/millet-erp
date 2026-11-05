@@ -191,7 +191,7 @@ public static class AlmacenesAppMensajesEndpoint
             return Results.Ok(mensajes.Concat(consumos.Select(c => new FilaBandeja(
                     $"{c.Origen}:{c.Etiqueta}:{c.Operacion}:{c.ComponenteRef}", ConsumoComponenteAw.Tipo, c.Estado,
                     $"Pedido {c.Auftnr} pos {c.Pos}", c.Error, c.RegistradoAt,
-                    JsonSerializer.Serialize(new { c.Etiqueta, c.Operacion, componente = c.ComponenteRef, c.Capas, c.AnchoMm, c.AltoMm, sucursal = c.ClaveSucursal }))))
+                    JsonSerializer.Serialize(new { etiqueta = c.Etiqueta, operacion = c.Operacion, componente = c.ComponenteRef, capas = c.Capas, anchoMm = c.AnchoMm, altoMm = c.AltoMm, sucursal = c.ClaveSucursal }))))
                 .OrderByDescending(f => f.RecibidoAt).Take(500).ToList());
         })
         .RequireAuthorization(Millet.Api.Auth.PermissionPolicyProvider.Prefix

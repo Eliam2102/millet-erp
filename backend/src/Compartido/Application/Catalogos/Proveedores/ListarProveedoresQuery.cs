@@ -43,7 +43,8 @@ public sealed record ProveedorItem(
     bool ExpedienteCompleto = true,
     int DocumentosFaltantes = 0,
     bool Bloqueado = false,
-    string? MotivoBloqueo = null);
+    string? MotivoBloqueo = null,
+    string? TaxId = null);
 
 public sealed record ListarProveedoresResponse(
     IReadOnlyList<ProveedorItem> Items,
@@ -98,6 +99,7 @@ public sealed class ListarProveedoresHandler
             q = q.Where(p =>
                 p.Clave.ToLower().Contains(busqueda.ToLower())
                 || p.Rfc.ToLower().Contains(busqueda.ToLower())
+                || (p.TaxId != null && p.TaxId.ToLower().Contains(busqueda.ToLower()))
                 || PostgresFunctions.Translate(p.RazonSocial.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)
                     .Contains(PostgresFunctions.Translate(busqueda.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino))
                 || (p.NombreComercial != null &&
@@ -124,7 +126,7 @@ public sealed class ListarProveedoresHandler
                 x.Proveedor.Id, x.Proveedor.Clave, x.Proveedor.RazonSocial, x.Proveedor.NombreComercial, x.Proveedor.Rfc,
                 x.Proveedor.TipoPersona, x.Proveedor.CondicionesPagoDias, x.Proveedor.MonedaPreferidaId, x.Proveedor.Estatus,
                 x.Proveedor.ValidadoEn, x.Proveedor.MotivoRechazo, x.Proveedor.ClaveAw, x.Pendientes == 0, x.Pendientes,
-                x.Proveedor.Bloqueado, x.Proveedor.MotivoBloqueo))
+                x.Proveedor.Bloqueado, x.Proveedor.MotivoBloqueo, x.Proveedor.TaxId))
             .ToListAsync(cancellationToken);
 
         return new ListarProveedoresResponse(items, offset, limit, total);
