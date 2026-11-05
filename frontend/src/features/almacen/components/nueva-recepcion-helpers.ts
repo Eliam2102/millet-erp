@@ -50,6 +50,10 @@ export function construirFilas(
         cantidadDanada: 0,
         motivoDano: null,
         lote: null,
+        cantidadRechazada: 0,
+        motivoRechazo: null,
+        evidenciaBlobRef: null,
+        evidenciaNombre: null,
       };
     })
     .filter((f) => f.pendiente > 0);

@@ -65,8 +65,8 @@ public partial class OrdenesCompraEndpointsTests
             Assert.Equal(2, linea.CantidadCapturada); Assert.Equal(caja.Codigo, linea.UnidadCapturada);
             Assert.Equal(24, (await almacen.SaldosInventario.AsNoTracking().SingleAsync(s => s.UbicacionId == bin.Id && s.ArticuloId == articulo.Id)).Cantidad);
             var salida = await client.PostAsJsonAsync("/api/v1/almacen/salidas/vale",
-                new RegistrarSalidaPorValeCommand(new(2026, 10, 9), "blob://DEMO/P7-vale", null, "DEMO P7",
-                    [new RegistrarSalidaLineaInput(articulo.Id, null, 1, CentroCostoSeedId, null, null, null, bin.Id, caja.Codigo)]));
+                new RegistrarSalidaPorValeCommand(new(2026, 10, 9), "blob://DEMO/P7-vale", Guid.NewGuid(), "DEMO P7",
+                    [new RegistrarSalidaLineaInput(articulo.Id, null, 1, CentroCostoSeedId, null, null, null, bin.Id, caja.Codigo)], "DEMO urgencia P7", "DEMO quien recibe"));
             Assert.True(salida.IsSuccessStatusCode,
                 $"Salida DEMO P7: {(int)salida.StatusCode} {await salida.Content.ReadAsStringAsync()}");
             var salidaId = (await ReadJsonAsync(salida)).GetProperty("salidaId").GetGuid();

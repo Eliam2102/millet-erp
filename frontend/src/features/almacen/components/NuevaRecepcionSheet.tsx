@@ -62,6 +62,7 @@ import {
 } from '@/features/almacen/api';
 import { useCfdisParaRecepcion, useLineasRecibibles } from '@/features/almacen/api/useRecepciones';
 import { PackingListUpload } from '@/features/almacen/components/PackingListUpload';
+import { EvidenciaRecepcionUpload } from '@/features/almacen/components/EvidenciaRecepcionUpload';
 import { UbicacionBinSelector } from '@/components/erp/selectors/UbicacionBinSelector';
 import { AsignarUbicacionEnLinea } from '@/features/almacen/components/AsignarUbicacionEnLinea';
 import { UbicacionSelector } from '@/components/erp/selectors/UbicacionSelector';
@@ -165,6 +166,8 @@ const CODIGOS_RECEPCION: Record<string, { campo: string; mensaje?: string } | 'c
   ENTRADA_SIN_ASIGNACION: 'callout',
   RECEPCION_MULTI_SUBALMACEN: 'callout',
   RECEPCION_SUCURSAL_DISTINTA: 'callout',
+  RECEPCION_TODO_RECHAZADO: 'callout',
+  RECEPCION_RECHAZO_LINEA_INVALIDA: 'callout',
   LISTA_EMPAQUE_VIDRIO: 'callout',
 };
 const TITULOS_CALLOUT: Record<string, string> = {
@@ -172,6 +175,8 @@ const TITULOS_CALLOUT: Record<string, string> = {
   ENTRADA_SIN_ASIGNACION: 'Un artículo no está asignado al rack elegido',
   RECEPCION_MULTI_SUBALMACEN: 'Las partidas van a sub-almacenes distintos',
   RECEPCION_SUCURSAL_DISTINTA: 'La orden de compra es de otra sucursal',
+  RECEPCION_TODO_RECHAZADO: 'Todas las partidas se rechazaron en el acto',
+  RECEPCION_RECHAZO_LINEA_INVALIDA: 'Una partida rechazada no es de la orden',
   LISTA_EMPAQUE_VIDRIO: 'La lista de empaque no admite vidrio',
 };
 
@@ -375,6 +380,11 @@ function NuevaRecepcionFormBody({
           motivoDano: (f.cantidadDanada ?? 0) > 0 ? f.motivoDano?.trim() || null : null,
           // E3: el lote del proveedor viaja en ambas variantes; lo dañado a MAT-REV lleva el mismo lote.
           lote: f.lote?.trim() || null,
+          // G-10: lo rechazado en el acto no entra; dañado y rechazado llevan su evidencia.
+          cantidadRechazada: f.cantidadRechazada ?? 0,
+          motivoRechazo: (f.cantidadRechazada ?? 0) > 0 ? f.motivoRechazo?.trim() || null : null,
+          evidenciaBlobRef:
+            (f.cantidadDanada ?? 0) > 0 || (f.cantidadRechazada ?? 0) > 0 ? f.evidenciaBlobRef ?? null : null,
         };
       });
 
@@ -392,6 +402,7 @@ function NuevaRecepcionFormBody({
             observaciones: v.observaciones ?? null,
             remision: v.remision?.trim() || null,
             motivoDuplicado: yaRecibida ? v.motivoDuplicado?.trim() || null : null,
+            recibidoPorNombre: v.recibidoPorNombre?.trim() || null,
             // PR4: null = el almacenista no usó el helper de cabecera.
             ubicacionHelperId: v.ubicacionHelperId ?? null,
             lineas: lineasParaBackend,
@@ -431,6 +442,7 @@ function NuevaRecepcionFormBody({
           observaciones: v.observaciones ?? null,
           remision: v.remision?.trim() || null,
           motivoDuplicado: yaRecibida ? v.motivoDuplicado?.trim() || null : null,
+          recibidoPorNombre: v.recibidoPorNombre?.trim() || null,
           // PR4: null = el almacenista no usó el helper de cabecera.
           ubicacionHelperId: v.ubicacionHelperId ?? null,
           lineas: lineasParaBackend,
@@ -587,6 +599,29 @@ function NuevaRecepcionFormBody({
                       onBlur={field.onBlur}
                       maxLength={50}
                       placeholder="Ej. R-55"
+                      autoComplete="off"
+                    />
+                  )}
+                />
+              </Field>
+            </FormCampo>
+
+            <FormCampo span={6}>
+              <Field
+                label="Recibió físicamente"
+                optional
+                hint="Quien recibió la mercancía en el andén, si no es quien captura. Sin dato, la recepción imprime a quien captura."
+                error={form.formState.errors.recibidoPorNombre?.message}
+              >
+                <Controller
+                  name="recibidoPorNombre"
+                  control={form.control}
+                  render={({ field }) => (
+                    <Input
+                      value={field.value ?? ''}
+                      onChange={(e) => field.onChange(e.target.value || null)}
+                      onBlur={field.onBlur}
+                      maxLength={150}
                       autoComplete="off"
                     />
                   )}
@@ -1016,6 +1051,7 @@ function LineasDesdeOc({
                 fila={fila}
                 vidrioEnListaEmpaque={listaEmpaque && !!fila.medida}
                 control={form.control}
+                setValue={form.setValue}
                 coincideConHelper={destinos[index] != null && fila.ubicacionId === destinos[index]}
                 conflictoSub={
                   conflictos.has(index) && subBaseClave
@@ -1044,6 +1080,9 @@ interface FilaErrors {
   cantidadDanada?: { message?: string };
   motivoDano?: { message?: string };
   lote?: { message?: string };
+  cantidadRechazada?: { message?: string };
+  motivoRechazo?: { message?: string };
+  evidenciaBlobRef?: { message?: string };
 }
 
 function FilaLineaOc({
@@ -1051,6 +1090,7 @@ function FilaLineaOc({
   fila,
   vidrioEnListaEmpaque,
   control,
+  setValue,
   coincideConHelper,
   conflictoSub,
   errors,
@@ -1060,6 +1100,7 @@ function FilaLineaOc({
   /** G-3: partida de vidrio en una recepción con lista de empaque: no se puede incluir. */
   vidrioEnListaEmpaque: boolean;
   control: ReturnType<typeof useForm<RecepcionFormValues>>['control'];
+  setValue: ReturnType<typeof useForm<RecepcionFormValues>>['setValue'];
   /** PR4: la ubicación de la fila es la misma que el helper de cabecera. */
   coincideConHelper: boolean;
   /** Mensaje de conflicto de sub-almacén (RECEPCION_MULTI_SUBALMACEN) para la fila. */
@@ -1073,8 +1114,12 @@ function FilaLineaOc({
   const [detalles, setDetalles] = useState(false);
   // Con hojas dañadas el motivo es obligatorio: los detalles se abren solos para que se vea.
   const danadas = useWatch({ control, name: `filas.${index}.cantidadDanada` as const }) ?? 0;
+  const rechazadas = useWatch({ control, name: `filas.${index}.cantidadRechazada` as const }) ?? 0;
+  const evidenciaNombre = useWatch({ control, name: `filas.${index}.evidenciaNombre` as const });
   const motivoRequerido = incluida && danadas > 0;
-  const detallesAbiertos = detalles || motivoRequerido;
+  const rechazoRequerido = incluida && rechazadas > 0;
+  const evidenciaRequerida = motivoRequerido || rechazoRequerido;
+  const detallesAbiertos = detalles || evidenciaRequerida;
   const lookupFila = useDecimalesUnidad();
   const decResuelto = decimalesDeFila(lookupFila, {
     unidadMedida: fila.unidadMedida,
@@ -1357,6 +1402,69 @@ function FilaLineaOc({
                   />
                 </Field>
               </FormCampo>
+              <FormCampo span={6}>
+                <Field
+                  label={fila.medida ? 'Hojas rechazadas en el acto' : 'Cantidad rechazada en el acto'}
+                  optional
+                  hint="No entra al inventario; queda pendiente en la orden."
+                  error={errors?.cantidadRechazada?.message}
+                >
+                  <Controller
+                    name={`filas.${index}.cantidadRechazada` as const}
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        type="number"
+                        inputMode={fila.medida ? 'numeric' : 'decimal'}
+                        min="0"
+                        step={fila.medida ? 1 : stepParaDecimales(decimalesFila)}
+                        className="tabular-nums"
+                        value={field.value ?? ''}
+                        onChange={(e) =>
+                          field.onChange(e.target.value === '' ? 0 : Number(e.target.value))
+                        }
+                      />
+                    )}
+                  />
+                </Field>
+              </FormCampo>
+              <FormCampo span={6}>
+                <Field
+                  label="Motivo del rechazo"
+                  required={rechazoRequerido}
+                  optional={!rechazoRequerido}
+                  error={errors?.motivoRechazo?.message}
+                >
+                  <Controller
+                    name={`filas.${index}.motivoRechazo` as const}
+                    control={control}
+                    render={({ field }) => (
+                      <Input {...field} value={field.value ?? ''} maxLength={500} />
+                    )}
+                  />
+                </Field>
+              </FormCampo>
+              {evidenciaRequerida && (
+                <FormCampo span={12}>
+                  <Field label="Evidencia del daño o rechazo" required>
+                    <Controller
+                      name={`filas.${index}.evidenciaBlobRef` as const}
+                      control={control}
+                      render={({ field }) => (
+                        <EvidenciaRecepcionUpload
+                          etiqueta={`evidencia, partida ${fila.posicion}`}
+                          nombre={evidenciaNombre}
+                          error={errors?.evidenciaBlobRef?.message}
+                          onChange={(v) => {
+                            field.onChange(v?.blobRef ?? null);
+                            setValue(`filas.${index}.evidenciaNombre` as const, v?.nombre ?? null, { shouldDirty: true });
+                          }}
+                        />
+                      )}
+                    />
+                  </Field>
+                </FormCampo>
+              )}
             </FormGrid>
           </TableCell>
         </TableRow>
@@ -1403,6 +1511,7 @@ type RecepcionFormValues = {
   observaciones?: string | null;
   remision?: string | null;
   motivoDuplicado?: string | null;
+  recibidoPorNombre?: string | null;
   cfdiRecibidoId?: string | null;
   cfdiUuidFiscal?: string | null;
   packingListBlobRef?: string;
@@ -1422,6 +1531,7 @@ function defaultValuesParaVariante(
     observaciones: null,
     remision: null,
     motivoDuplicado: null,
+    recibidoPorNombre: null,
     ubicacionHelperId: null,
     filas: [],
   };

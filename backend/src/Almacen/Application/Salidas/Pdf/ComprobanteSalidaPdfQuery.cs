@@ -33,7 +33,7 @@ public sealed class ComprobanteSalidaPdfHandler(
             s.RegistradoAt is { } r ? FechaContable.HoyLocal(r) : null,
             s.Lineas.OrderBy(l => l.Posicion).Select(l => new RenglonSalidaImpresion(
                 l.Posicion, l.ArticuloClave ?? "", Descripcion(l), l.UnidadMedida, l.Cantidad)).ToList(),
-            Comentarios(s), elaboro, s.PersonaDestinatariaNombre);
+            Comentarios(s), elaboro, s.AcuseRecibeNombre ?? s.PersonaDestinatariaNombre);
         return new ComprobanteSalidaPdf($"{s.Folio}.pdf", ComprobanteSalidaDocumento.Generar(impresion));
     }
 
@@ -52,6 +52,10 @@ public sealed class ComprobanteSalidaPdfHandler(
             ? "VALE URGENTE" + (s.RqRegularizadoraFolio is { } reg ? $" · RQ: {reg}" : "")
             : s.RqFolio is { } folio ? $"RQ: {folio}" : null;
         var entrega = s.PersonaDestinatariaNombre is { } persona ? $"SE ENTREGA A {persona.ToUpperInvariant()}" : null;
-        return string.Join(" ", new[] { rq, s.Observaciones, entrega }.Where(p => !string.IsNullOrWhiteSpace(p)));
+        // G-10: motivo de la urgencia y acuse registrado en el ERP (nombre, fecha y hora local).
+        var motivo = s.MotivoUrgencia is { } m ? $"MOTIVO: {m.ToUpperInvariant()}" : null;
+        var acuse = s.AcuseRecibeNombre is { } nombre && s.AcuseRecibeAt is { } en
+            ? $"ACUSE: {nombre.ToUpperInvariant()} {TimeZoneInfo.ConvertTime(en, FechaContable.ZonaOperacion):dd/MM/yyyy HH:mm}" : null;
+        return string.Join(" ", new[] { rq, motivo, s.Observaciones, entrega, acuse }.Where(p => !string.IsNullOrWhiteSpace(p)));
     }
 }

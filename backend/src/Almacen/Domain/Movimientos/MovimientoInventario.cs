@@ -72,6 +72,11 @@ public sealed class MovimientoInventario : BaseEntity, IPerteneceAEmpresa, IAudi
     // G-3: remisión del proveedor (mayúsculas) y, si repite remisión/factura de otra recepción de la OC, el motivo capturado.
     public string? Remision { get; private set; }
     public string? MotivoDuplicado { get; private set; }
+    // G-10: quién recibió físicamente la mercancía (además del usuario que capturó), acuse de quien recibe la salida y motivo del vale urgente.
+    public string? RecibidoPorNombre { get; private set; }
+    public string? AcuseRecibeNombre { get; private set; }
+    public DateTimeOffset? AcuseRecibeAt { get; private set; }
+    public string? MotivoUrgencia { get; private set; }
     public Guid? RqId { get; private set; }
     public string? ValeBlobRef { get; private set; }
     public Guid? SalidaOrigenId { get; private set; }
@@ -254,6 +259,17 @@ public sealed class MovimientoInventario : BaseEntity, IPerteneceAEmpresa, IAudi
     {
         Remision = remision;
         MotivoDuplicado = motivoDuplicado;
+    }
+
+    /// <summary>G-10: quién recibió físicamente la mercancía de la recepción.</summary>
+    internal void AsentarRecibidoPor(string? nombre) => RecibidoPorNombre = string.IsNullOrWhiteSpace(nombre) ? null : nombre.Trim();
+
+    /// <summary>G-10: acuse de quien recibe la salida (nombre y momento) y, en el vale urgente, el motivo de la urgencia.</summary>
+    internal void AsentarAcuse(string nombre, DateTimeOffset en, string? motivoUrgencia = null)
+    {
+        AcuseRecibeNombre = nombre.Trim();
+        AcuseRecibeAt = en;
+        MotivoUrgencia = string.IsNullOrWhiteSpace(motivoUrgencia) ? null : motivoUrgencia.Trim();
     }
 
     /// <summary>

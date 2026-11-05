@@ -64,6 +64,9 @@ public sealed class LineaMovimiento : BaseEntity, IAuditable
 
     public string? UbicacionReferencia { get; private set; }
     public string? ComentarioLinea { get; private set; }
+    // G-10: foto o documento que respalda lo recibido dañado (nunca sale en las lecturas, ADR-0058).
+    public string? EvidenciaBlobRef { get; private set; }
+    public void AsentarEvidencia(string? blobRef) => EvidenciaBlobRef = string.IsNullOrWhiteSpace(blobRef) ? null : blobRef.Trim();
 
     /// <summary>
     /// ADR-0047 C7.2a: ubicación N4 (bin/rack) explícita de la línea. NULL =
