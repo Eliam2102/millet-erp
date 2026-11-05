@@ -164,6 +164,7 @@ const CODIGOS_RECEPCION: Record<string, { campo: string; mensaje?: string } | 'c
   },
   RECEPCION_EXCEDE_PENDIENTE: 'callout',
   ENTRADA_SIN_ASIGNACION: 'callout',
+  ENTRADA_SIN_UBICACION_REAL: 'callout',
   RECEPCION_MULTI_SUBALMACEN: 'callout',
   RECEPCION_SUCURSAL_DISTINTA: 'callout',
   RECEPCION_TODO_RECHAZADO: 'callout',
@@ -173,6 +174,7 @@ const CODIGOS_RECEPCION: Record<string, { campo: string; mensaje?: string } | 'c
 const TITULOS_CALLOUT: Record<string, string> = {
   RECEPCION_EXCEDE_PENDIENTE: 'Una cantidad excede lo pendiente',
   ENTRADA_SIN_ASIGNACION: 'Un artículo no está asignado al rack elegido',
+  ENTRADA_SIN_UBICACION_REAL: 'Un artículo nuevo no puede recibirse en el almacén general',
   RECEPCION_MULTI_SUBALMACEN: 'Las partidas van a sub-almacenes distintos',
   RECEPCION_SUCURSAL_DISTINTA: 'La orden de compra es de otra sucursal',
   RECEPCION_TODO_RECHAZADO: 'Todas las partidas se rechazaron en el acto',

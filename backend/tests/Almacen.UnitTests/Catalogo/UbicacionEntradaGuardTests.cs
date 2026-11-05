@@ -142,14 +142,34 @@ public class UbicacionEntradaGuardTests
     }
 
     [Fact]
-    public async Task Guard_no_vidrio_a_la_unica_pasa_sin_asignacion_y_deriva_el_sub()
+    public async Task Guard_no_vidrio_a_la_unica_con_existencia_previa_pasa_sin_asignacion_y_deriva_el_sub()
     {
         var (db, subId, _, unicaId, articuloId) = DbConRack();
         await using var _ = db;
+        SembrarSaldo(db, unicaId, subId, articuloId, 4m, 10m);
+        await db.SaveChangesAsync();
 
         var sub = await UbicacionEntradaGuard.ValidarEntradaYDerivarSubAsync(
             db, unicaId, articuloId, CancellationToken.None, ligadoAw: false);
         sub.Should().Be(subId);
+    }
+
+    [Fact]
+    public async Task Guard_articulo_nuevo_a_la_unica_es_rechazado_y_con_rack_asignado_pasa()
+    {
+        var (db, subId, rackId, unicaId, articuloId) = DbConRack();
+        await using var _ = db;
+
+        var aUnica = () => UbicacionEntradaGuard.ValidarUbicacionEntradaAsync(
+            db, unicaId, subId, articuloId, CancellationToken.None, ligadoAw: false);
+        (await aUnica.Should().ThrowAsync<BusinessRuleException>())
+            .Which.Code.Should().Be("ENTRADA_SIN_UBICACION_REAL");
+
+        db.AsignacionesArticuloUbicacion.Add(new AsignacionArticuloUbicacion(Guid.NewGuid(), rackId, articuloId));
+        await db.SaveChangesAsync();
+        var aRack = () => UbicacionEntradaGuard.ValidarUbicacionEntradaAsync(
+            db, rackId, subId, articuloId, CancellationToken.None, ligadoAw: false);
+        await aRack.Should().NotThrowAsync();
     }
 
     [Fact]
@@ -211,6 +231,21 @@ public class UbicacionEntradaGuardTests
             .Which.Code.Should().Be("ASIGNACION_A_UNICA");
     }
 
+    [Fact]
+    public async Task Asignar_servicio_es_rechazado_con_motivo()
+    {
+        var (db, _, rackId, _, articuloId) = DbConRack();
+        await using var _ = db;
+        var handler = new AsignarArticuloAUbicacionHandler(db, new FakeArticulos(esServicio: true));
+
+        var act = () => handler.Handle(
+            new AsignarArticuloAUbicacionCommand(rackId, articuloId), CancellationToken.None);
+        var ex = (await act.Should().ThrowAsync<BusinessRuleException>()).Which;
+        ex.Code.Should().Be("ARTICULO_NO_INVENTARIABLE");
+        ex.Message.Should().Contain("servicio");
+        (await db.AsignacionesArticuloUbicacion.AnyAsync()).Should().BeFalse();
+    }
+
     // ─── Saldo por ubicación (selector de salida) ────────────────────────────
 
     [Fact]
@@ -253,11 +288,11 @@ public class UbicacionEntradaGuardTests
         private sealed class NoOpScope : IDisposable { public void Dispose() { } }
     }
 
-    private sealed class FakeArticulos : IArticuloReadPort
+    private sealed class FakeArticulos(bool esServicio = false) : IArticuloReadPort
     {
         public Task<ArticuloLectura?> ObtenerAsync(Guid articuloId, CancellationToken ct) =>
             Task.FromResult<ArticuloLectura?>(
-                new ArticuloLectura(articuloId, "ART", "Artículo", "PZA", null, true));
+                new ArticuloLectura(articuloId, "ART", "Artículo", "PZA", null, true, EsServicio: esServicio));
         public Task<IReadOnlyDictionary<Guid, ArticuloLectura>> ObtenerPorIdsAsync(
             IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
             Task.FromResult<IReadOnlyDictionary<Guid, ArticuloLectura>>(
