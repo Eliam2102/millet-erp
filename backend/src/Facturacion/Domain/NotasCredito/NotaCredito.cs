@@ -19,7 +19,7 @@ public sealed class NotaCredito : Comprobante
 
     /// <summary>
     /// Comentarios libres de la NC (86e3yy1bh, Millet 4-nov): amplían o explican la nota y/o su factura relacionada.
-    /// Se imprimen en el PDF debajo del motivo y <b>jamás</b> llegan al XML del CFDI.
+    /// Se imprimen solos en «Comentarios - Comments» del PDF, sin el motivo (FMT-6), y <b>jamás</b> llegan al XML del CFDI.
     /// </summary>
     public string? Comentarios { get; private set; }
 

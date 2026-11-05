@@ -99,7 +99,7 @@ public sealed class CfdiPdfFormatoMilletTests
     }
 
     [Fact]
-    public void Nota_de_credito_imprime_los_comentarios_libres_debajo_del_motivo()
+    public void Nota_de_credito_imprime_solo_los_comentarios_libres_sin_el_motivo()
     {
         var nc = NotaCredito.CrearAmortizacion(Empresa, "DEMON-000302", 302, Sucursal, null, null, Receptor, Emisor,
             "03", "MXN", null, 2026, 10, null, Guid.NewGuid(), Guid.NewGuid(), 1160, 0.16m);
@@ -108,11 +108,22 @@ public sealed class CfdiPdfFormatoMilletTests
 
         var m = CfdiPdfModelBuilder.DesdeNotaCredito(nc, Datos);
 
-        m.Comentarios.Should().Be(
-            "Motivo / Reason: Aplicación de anticipo / Advance payment application\nAplica al pedido PED-77 de la obra Torre Norte.");
+        // FMT-6: «Comentarios - Comments» lleva solo el texto del usuario; el motivo ya no se antepone.
+        m.Comentarios.Should().Be("Aplica al pedido PED-77 de la obra Torre Norte.");
         NotaCreditoAmortizacion().Comentarios.Should().BeNull();
-        CfdiPdfModelBuilder.DesdeNotaCredito(NotaCreditoAmortizacion(), Datos).Comentarios
-            .Should().Be("Motivo / Reason: Aplicación de anticipo / Advance payment application");
+        CfdiPdfModelBuilder.DesdeNotaCredito(NotaCreditoAmortizacion(), Datos).Comentarios.Should().BeNull();
+    }
+
+    [Fact]
+    public void Nota_de_credito_de_bonificacion_sin_comentario_no_imprime_el_motivo()
+    {
+        // FMT-6: el bloque «Comentarios - Comments» de toda NC lleva solo el texto del usuario.
+        var nc = NotaCredito.CrearBonificacion(Empresa, "DEMON-000303", 303, Sucursal, null, null, Receptor, Emisor,
+            "03", "MXN", null, 2026, 10, null, Guid.NewGuid(), 116, 0.16m, null);
+
+        CfdiPdfModelBuilder.DesdeNotaCredito(nc, Datos).Comentarios.Should().BeNull();
+        nc.FijarComentarios("Bonificación por pronto pago.");
+        CfdiPdfModelBuilder.DesdeNotaCredito(nc, Datos).Comentarios.Should().Be("Bonificación por pronto pago.");
     }
 
     [Fact]
