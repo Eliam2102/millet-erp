@@ -2348,7 +2348,7 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("ck_movimientos_estado", "estado BETWEEN 0 AND 3");
 
-                            t.HasCheckConstraint("ck_movimientos_tipo", "tipo BETWEEN 0 AND 12");
+                            t.HasCheckConstraint("ck_movimientos_tipo", "tipo BETWEEN 0 AND 13");
                         });
                 });
 
@@ -2678,6 +2678,137 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                             t.HasCheckConstraint("ck_dictamenes_revision_cantidad", "cantidad > 0");
 
                             t.HasCheckConstraint("ck_dictamenes_revision_resultado", "resultado BETWEEN 0 AND 2");
+                        });
+                });
+
+            modelBuilder.Entity("Millet.Almacen.Domain.Roturas.SalidaRotura", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ArticuloId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("articulo_id");
+
+                    b.Property<decimal>("Cantidad")
+                        .HasPrecision(14, 4)
+                        .HasColumnType("numeric(14,4)")
+                        .HasColumnName("cantidad");
+
+                    b.Property<Guid>("CapturadoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("capturado_por");
+
+                    b.Property<string>("Comentario")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("comentario");
+
+                    b.Property<decimal?>("CostoUnitarioMxn")
+                        .HasPrecision(14, 4)
+                        .HasColumnType("numeric(14,4)")
+                        .HasColumnName("costo_unitario_mxn");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DecididoAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("decidido_at");
+
+                    b.Property<Guid?>("DecididoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("decidido_por");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("estado");
+
+                    b.Property<DateOnly>("Fecha")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha");
+
+                    b.Property<string>("FolioMovimiento")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("folio_movimiento");
+
+                    b.Property<string>("MotivoCodigo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("motivo_codigo");
+
+                    b.Property<string>("MotivoRechazo")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo_rechazo");
+
+                    b.Property<Guid?>("MovimientoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("movimiento_id");
+
+                    b.Property<Guid>("SubAlmacenId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sub_almacen_id");
+
+                    b.Property<Guid>("SucursalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sucursal_id");
+
+                    b.Property<Guid>("UbicacionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ubicacion_id");
+
+                    b.Property<string>("UnidadMedida")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("unidad_medida");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<decimal?>("ValorMxn")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("valor_mxn");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_salidas_rotura");
+
+                    b.HasIndex("EmpresaId", "Estado", "Fecha")
+                        .HasDatabaseName("ix_salidas_rotura_empresa_id_estado_fecha");
+
+                    b.ToTable("salidas_rotura", "almacen", t =>
+                        {
+                            t.HasCheckConstraint("ck_salidas_rotura_cantidad", "cantidad > 0");
                         });
                 });
 

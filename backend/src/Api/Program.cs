@@ -967,6 +967,7 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.IUsuarioReadPort,
     Millet.Identidad.Infrastructure.PublicAdapters.UsuarioReadAdapter>();
+builder.Services.AddScoped<Millet.Api.Endpoints.Almacen.SalidasRoturaEndpoints.RoturaLectura>();
 
 // ADR-0047 PR5.C: resuelve el usuario de servicio del reorden (creador/requisitante +
 // empresa de las RQ automáticas). Adapter hospedado en Identidad (dueño del dato).
@@ -1709,6 +1710,7 @@ Millet.Api.Endpoints.Almacen.AlmacenSettingsEndpoints.MapAlmacenSettingsEndpoint
 Millet.Api.Endpoints.Almacen.NormasConsumoEndpoints.MapNormasConsumoEndpoints(app);
 Millet.Api.Endpoints.Almacen.TallerEndpoints.MapTallerEndpoints(app);
 Millet.Api.Endpoints.Almacen.MermasProcesoEndpoints.MapMermasProcesoEndpoints(app);
+Millet.Api.Endpoints.Almacen.SalidasRoturaEndpoints.MapSalidasRoturaEndpoints(app);
 Millet.Api.Endpoints.Almacen.ConciliacionDiariaEndpoints.MapConciliacionDiariaEndpoints(app);
 
 // === Almacén — Recepciones Variante A (F2-PR2) + Saldos materializados ===
