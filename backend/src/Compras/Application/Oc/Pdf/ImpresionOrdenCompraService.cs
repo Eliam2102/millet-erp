@@ -120,7 +120,7 @@ public class ImpresionOrdenCompraService(
                 empresa is null ? [] : PdfDomicilio.Lineas(empresa.Calle, empresa.NumeroExterior, empresa.NumeroInterior,
                     empresa.Colonia, empresa.Ciudad, empresa.Municipio, empresa.Estado, empresa.CodigoPostal, empresa.Pais),
                 await LogoAsync(empresa?.LogoBlobRef, cancellationToken)),
-            Proveedor = new ProveedorImpresion(prov?.Clave ?? "", prov?.RazonSocial ?? "", prov?.Rfc ?? "",
+            Proveedor = new ProveedorImpresion(prov?.Clave ?? "", prov?.RazonSocial ?? "", extranjero ? "" : prov?.Rfc ?? "",
                 prov is null ? [] : PdfDomicilio.Lineas(prov.Calle, prov.NumeroExterior, prov.NumeroInterior, prov.Colonia,
                     prov.Ciudad, prov.Municipio, prov.Estado, prov.CodigoPostal, prov.Pais),
                 extranjero ? prov!.TaxId : null),

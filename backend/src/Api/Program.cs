@@ -240,6 +240,8 @@ if (string.Equals(builder.Configuration["ServiceBus:Modo"], "EmuladorLocal", Str
 // (seeds, outbox, workers): los hosted services arrancan en orden de registro y las migraciones solo dejan
 // particiones hasta octubre de 2026. Por eso este job va registrado antes que todos los demás.
 builder.Services.AddHostedService<AuditPartitionRolloverJob>();
+// 86e3yxe9m: aviso de cuentas que la regla «no hay acceso sin empleado» dejaría fuera.
+builder.Services.AddHostedService<Millet.Api.Auth.CuentasSinEmpleadoAvisoAlArranque>();
 
 if (!string.IsNullOrWhiteSpace(outboxConnString))
 {
