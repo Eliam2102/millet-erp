@@ -1,3 +1,4 @@
+import { estadoUi } from '@/features/facturacion/lib/estados-ui';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,7 +17,6 @@ import {
   useReintentarTimbrado,
 } from '@/features/facturacion/api/useFacturas';
 import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
-import { esApiError } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { Loader2, RotateCcw, Trash2 } from 'lucide-react';
@@ -43,13 +43,18 @@ export interface TimbradoFallidoBannerProps {
   estado: string;
   errorCodigo: string | null;
   errorMensaje: string | null;
+  /**
+   * U-1: el comprobante es una NC pendiente ligada a una factura ya timbrada.
+   * Cambia el texto del descarte: la factura sigue vigente sin esa NC.
+   */
+  esNotaCreditoPendiente?: boolean;
 }
 
 export function TimbradoFallidoBanner({
   comprobanteId,
   estado,
   errorCodigo,
-  errorMensaje,
+  esNotaCreditoPendiente = false,
 }: TimbradoFallidoBannerProps) {
   const puedeReintentar = useHasPermission(
     PermisosCanonicos.FacturacionComprobantesReintentarTimbrado,
@@ -84,10 +89,10 @@ export function TimbradoFallidoBanner({
             toast.success(`Timbrado exitoso — UUID ${r.uuid}.`);
           } else if (r.estado === 'TimbradoFallido') {
             toast.error(
-              `El reintento volvió a fallar: ${r.timbradoErrorCodigo ?? ''} ${r.timbradoErrorMensaje ?? ''}`.trim(),
+              'No se pudo timbrar el comprobante. Revisa sus datos fiscales con Facturación antes de reintentar.',
             );
           } else {
-            toast.info(`El timbrado quedó ${r.estado}.`);
+            toast.info(`Estado del comprobante: ${estadoUi('factura', r.estado).texto}. Consulta el comprobante antes de reintentar.`);
           }
         },
         onError: (error) => {
@@ -112,9 +117,7 @@ export function TimbradoFallidoBanner({
         onError: (error) => {
           if (mostrarErrorReceptorFiscal(error)) return;
           toast.error(
-            esApiError(error)
-              ? (error.problem.detail ?? error.problem.title)
-              : 'Error inesperado al descartar el comprobante.',
+            'No se pudo descartar el comprobante. Revisa su estado con Facturación antes de volver a intentarlo.',
           );
         },
       },
@@ -123,18 +126,14 @@ export function TimbradoFallidoBanner({
 
   return (
     <div
-      className="space-y-2 rounded-md border border-danger/40 bg-danger-bg/5 px-3 py-2 text-sm"
+      className="space-y-2 rounded-md border border-line bg-danger-bg px-3 py-2 text-sm"
       data-print="hidden"
     >
       <p>
         <span className="font-medium text-danger-fg">Timbrado fallido</span>
-        {errorCodigo ? (
-          <>
-            {' — '}
-            <code className="text-xs">{errorCodigo}</code>
-          </>
-        ) : null}
-        {errorMensaje ? `: ${errorMensaje}` : null}
+        {' — '}{esAmbiguo
+          ? 'El servicio no confirmó el timbrado. Verifica el comprobante en FiscalAPI antes de reintentar.'
+          : 'No se pudo timbrar el comprobante. Revisa sus datos fiscales con Facturación antes de reintentar.'}
       </p>
 
       <ErrorTimbradoAviso error={reintentar.error} />
@@ -194,11 +193,22 @@ export function TimbradoFallidoBanner({
           <AlertDialogHeader>
             <AlertDialogTitle>¿Descartar este comprobante?</AlertDialogTitle>
             <AlertDialogDescription>
-              Es definitivo: el comprobante ya no podrá reintentarse y su folio interno queda
-              consumido (hueco consciente en el consecutivo). Si venía de un pedido, el pedido
-              vuelve a quedar facturable. Úsalo cuando el documento ya no deba emitirse (pedido
-              cancelado en origen, captura errónea de raíz) — para corregir datos y volver a timbrar
-              usa &quot;Reintentar timbrado&quot;.
+              {esNotaCreditoPendiente ? (
+                <>
+                  Es definitivo: la nota de crédito ya no podrá reintentarse y su folio interno queda
+                  consumido (hueco consciente en el consecutivo). La factura queda vigente sin esta
+                  nota de crédito y su saldo por cobrar sigue completo. Para volver a intentar el
+                  timbre usa &quot;Reintentar timbrado&quot;.
+                </>
+              ) : (
+                <>
+                  Es definitivo: el comprobante ya no podrá reintentarse y su folio interno queda
+                  consumido (hueco consciente en el consecutivo). Si venía de un pedido, el pedido
+                  vuelve a quedar facturable. Úsalo cuando el documento ya no deba emitirse (pedido
+                  cancelado en origen, captura errónea de raíz) — para corregir datos y volver a
+                  timbrar usa &quot;Reintentar timbrado&quot;.
+                </>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

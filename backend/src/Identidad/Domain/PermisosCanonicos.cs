@@ -637,6 +637,9 @@ public static class PermisosCanonicos
     public const string ActivosFijosEtiquetasImprimir = "activos_fijos.etiquetas.imprimir";
     public const string ActivosFijosConteosGestionar = "activos_fijos.conteos.gestionar";
     public const string ActivosFijosConteosAutorizar = "activos_fijos.conteos.autorizar";
+    public const string ActivosFijosReversasSolicitar = "activos_fijos.reversas.solicitar";
+    public const string ActivosFijosReversasAutorizar = "activos_fijos.reversas.autorizar";
+    public const string ActivosFijosClasesAutorizar = "activos_fijos.clases.autorizar";
     public const string ActivosFijosClasesAdministrar = "activos_fijos.clases.administrar";
     public const string ActivosFijosActivosVer = "activos_fijos.activos.ver";
     public const string ActivosFijosActivosGestionar = "activos_fijos.activos.gestionar";
@@ -646,6 +649,8 @@ public static class PermisosCanonicos
     public const string ActivosFijosGestionarTodasSucursales = "activos_fijos.activos.gestionar-todas-sucursales";
 
     // Comercio Exterior (CE-01a), namespace 0000000e.
+    public const string ComercioExteriorEmbarquesAutorizarSalida = "comercio_exterior.embarques.autorizar_salida";
+    public const string ComercioExteriorExpedientesAprobarCierre = "comercio_exterior.expedientes.aprobar_cierre";
     public const string ComercioExteriorGastosRegistrar = "comercio_exterior.gastos.registrar";
     public const string ComercioExteriorGastosDistribuir = "comercio_exterior.gastos.distribuir";
     public const string ComercioExteriorAnticiposGestionar = "comercio_exterior.anticipos.gestionar";
@@ -1036,6 +1041,8 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000d-0007-0000-0000-000000000003"), ContabilidadRechazosGestionar,          "Reprocesar o descartar (con motivo) los eventos rechazados por el motor de pólizas"),
 
         // CE-01a. Namespace 0000000e, agregado al final para integrar otros PR.
+        (Guid.Parse("0000000e-0007-0000-0000-000000000001"), ComercioExteriorEmbarquesAutorizarSalida, "Autorizar o rechazar la salida de un embarque"),
+        (Guid.Parse("0000000e-0007-0000-0000-000000000002"), ComercioExteriorExpedientesAprobarCierre, "Aprobar el cierre del expediente (Gerencia)"),
         (Guid.Parse("0000000e-0006-0000-0000-000000000001"), ComercioExteriorGastosRegistrar, "Registrar gastos"),
         (Guid.Parse("0000000e-0006-0000-0000-000000000002"), ComercioExteriorGastosDistribuir, "Distribuir gastos"),
         (Guid.Parse("0000000e-0006-0000-0000-000000000003"), ComercioExteriorAnticiposGestionar, "Gestionar anticipos al agente"),
@@ -1072,6 +1079,9 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000f-0006-0000-0000-000000000003"), ActivosFijosEtiquetasImprimir, "Activos fijos: etiquetas.imprimir"),
         (Guid.Parse("0000000f-0006-0000-0000-000000000004"), ActivosFijosConteosGestionar, "Activos fijos: conteos.gestionar"),
         (Guid.Parse("0000000f-0006-0000-0000-000000000005"), ActivosFijosConteosAutorizar, "Activos fijos: conteos.autorizar"),
+        (Guid.Parse("0000000f-0001-0000-0000-000000000031"), ActivosFijosReversasSolicitar, "Solicitar reversas de activos fijos (Contador General o capitalizador)"),
+        (Guid.Parse("0000000f-0001-0000-0000-000000000032"), ActivosFijosReversasAutorizar, "Autorizar reversas de activos fijos (Director de Administración y Finanzas)"),
+        (Guid.Parse("0000000f-0001-0000-0000-000000000030"), ActivosFijosClasesAutorizar, "Activos fijos: autorizar versiones de clases"),
         (Guid.Parse("0000000f-0001-0000-0000-000000000001"), ActivosFijosClasesAdministrar, "Activos fijos: clases.administrar"),
         (Guid.Parse("0000000f-0001-0000-0000-000000000002"), ActivosFijosActivosVer, "Activos fijos: activos.ver"),
         (Guid.Parse("0000000f-0001-0000-0000-000000000003"), ActivosFijosActivosGestionar, "Activos fijos: activos.gestionar"),

@@ -1,3 +1,5 @@
+import { problemaUsuario } from '@/lib/error-usuario';
+import { errorUsuario } from '@/lib/error-usuario';
 import { useState } from 'react';
 import { Inbox } from 'lucide-react';
 import { toast } from 'sonner';
@@ -54,7 +56,7 @@ export function BandejaPagosComercioExterior() {
   const items = query.data?.items ?? [];
 
   function alError(e: unknown, fallback: string) {
-    if (esApiError(e)) setAviso(e.problem.detail ?? e.problem.title);
+    if (esApiError(e)) setAviso(errorUsuario(e));
     else toast.error(fallback);
   }
 
@@ -111,7 +113,7 @@ export function BandejaPagosComercioExterior() {
       {query.isError ? (
         <ErrorState
           title="No se pudieron cargar los pagos"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
+          problem={problemaUsuario(query.error)}
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading ? (

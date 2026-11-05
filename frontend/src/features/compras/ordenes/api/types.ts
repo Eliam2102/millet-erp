@@ -387,6 +387,7 @@ export interface RecepcionImportacion {
 }
 
 export interface OrdenCompraDetalleResponse {
+  transporteCe?: { numeroPedimento: string | null; contenedores: { numero: string; blGuia: string | null }[] } | null;
   recepcionesImportacion?: RecepcionImportacion[];
   /** Proveedor con compras previas recurrentes; ausente si no hay dato. */
   esRecurrente?: boolean;

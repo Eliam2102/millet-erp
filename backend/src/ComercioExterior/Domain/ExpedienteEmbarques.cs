@@ -25,18 +25,19 @@ public sealed partial class Expediente
     }
     public ContenedorExpediente Contenedor(Guid id) => _contenedores.SingleOrDefault(x => x.Id == id)
         ?? throw new EntityNotFoundException("CE_CONTENEDOR_NO_ENCONTRADO", "No existe el contenedor en este expediente.");
-    public void GuardarContenedor(Guid id, DatosContenedor datos)
+    public void GuardarContenedor(Guid id, DatosContenedor datos, Guid? actor = null)
     {
         ExigirAbierto();
         var actual = _contenedores.SingleOrDefault(x => x.Id == id);
         if (actual is null) _contenedores.Add(new(id, EmpresaId, Id, datos));
         else actual.Editar(datos);
-        RevisionContenido++;
+        VersionarEmbarque(actor ?? ResponsableUsuarioId); RevisionContenido++;
     }
     public void RevisarPartidasOtr(IEnumerable<Guid> ids)
     {
         var afectadas = _partidas.Where(p => ids.Contains(p.Id) && p.Estado != EstadoPartida.Liberada).ToArray();
         foreach (var p in afectadas) p.RequerirRevision();
+        if (afectadas.Length > 0) VersionarEmbarque(ResponsableUsuarioId);
         if (afectadas.Length > 0) RevisionContenido++;
     }
     public void RegistrarPedimentoExportacion(string numero, string clave, DateOnly fecha, DateOnly hoy, string? aduana, Guid? documentoId = null)
@@ -67,10 +68,19 @@ public sealed partial class Expediente
 
     public void RegistrarEmbarque(Guid id, DateOnly fecha, DateOnly hoy, IReadOnlyCollection<Guid>? adjuntosVigentes = null)
     {
-        ExigirExportacion();
+        ExigirAbierto();
+        if (Tipo == TipoExpediente.Importacion)
+        {
+            var c = Contenedor(id);
+            ExigirTransporte(c);
+            if (!_partidasImportacion.Any(p => p.ContenedorId == id))
+                throw new BusinessRuleException("CE_EMBARQUE_SIN_PARTIDAS", "Asigne al menos una partida de la OC antes de embarcar.");
+            c.Embarcar(fecha, hoy); RevisionContenido++; return;
+        }
         // Por confirmar con Comercio Exterior
         if (!PedimentoExportacionVigente(adjuntosVigentes))
             throw new BusinessRuleException("CE_EMBARQUE_SIN_PEDIMENTO", "Registre un pedimento de exportación vigente con número, clave A1 o RT y fecha.");
+        if (!SalidaAutorizada) throw new BusinessRuleException("CE_SALIDA_SIN_AUTORIZAR", "Autorice la salida de la versión actual del embarque antes de registrar su fecha real.");
         Contenedor(id).Embarcar(fecha, hoy);
         RevisionContenido++;
     }
@@ -93,7 +103,8 @@ public sealed partial class Expediente
         var vinculo = _vinculosPedidos.SingleOrDefault(v => v.PedidoFacturableId == pedido.Id);
         if (vinculo is null) _vinculosPedidos.Add(new(EmpresaId, Id, pedido.Id));
         else vinculo.Activar();
-        _partidas.Add(new(EmpresaId, Id, contenedor, pedido.Id, posicion, pedido.ClienteId, cantidad, linea.Unidad, pedido.VersionOrigen, actor, propuesta));
+        var nueva = new PartidaEmbarcada(EmpresaId, Id, contenedor, pedido.Id, posicion, pedido.ClienteId, cantidad, linea.Unidad, pedido.VersionOrigen, actor, propuesta);
+        VersionarEmbarque(actor); _partidas.Add(nueva);
         RevisionContenido++;
     }
     private bool Activo(PartidaEmbarcada p) => p.Estado != EstadoPartida.Liberada && Contenedor(p.ContenedorId).Estado == EstadoContenedor.Activo;
@@ -112,29 +123,30 @@ public sealed partial class Expediente
             ?? throw new BusinessRuleException("CE_PEDIDO_NO_ASIGNABLE", "La posición fue eliminada en A+W; retire la partida y asigne de nuevo.");
         ExigirCantidad(pedido.Id, linea);
         p.Confirmar(pedido.VersionOrigen, linea.Unidad, actor);
+        VersionarEmbarque(actor);
         RevisionContenido++;
     }
     public void ActualizarRevisiones(IEnumerable<PedidoEmbarcable> pedidos)
     {
         foreach (var pedido in pedidos)
             foreach (var p in _partidas.Where(p => p.PedidoFacturableId == pedido.Id && p.EstadoActual(pedido.VersionOrigen) != p.Estado))
-            { p.Revisar(pedido.VersionOrigen); RevisionContenido++; }
+            { p.Revisar(pedido.VersionOrigen); VersionarEmbarque(ResponsableUsuarioId); RevisionContenido++; }
     }
     public void QuitarPartida(Guid id, bool tieneFactura)
     {
         ExigirExportacion();
         var p = _partidas.SingleOrDefault(x => x.Id == id) ?? throw new EntityNotFoundException("CE_PARTIDA_NO_ENCONTRADA", "No existe la partida.");
         if (tieneFactura) throw new ConflictException("CE_CONTENEDOR_CON_FACTURA", "Las partidas de un pedido facturado se conservan.");
-        _partidas.Remove(p);
+        _partidas.Remove(p); VersionarEmbarque(ResponsableUsuarioId);
         if (!_partidas.Any(x => x.PedidoFacturableId == p.PedidoFacturableId && x.Estado != EstadoPartida.Liberada))
             _vinculosPedidos.SingleOrDefault(v => v.PedidoFacturableId == p.PedidoFacturableId)?.Liberar();
         RevisionContenido++;
     }
     public void CancelarContenedor(Guid id, string motivo, bool tieneFactura)
     {
-        ExigirExportacion();
+        ExigirAbierto();
         if (tieneFactura) throw new ConflictException("CE_CONTENEDOR_CON_FACTURA", "El contenedor tiene partidas con factura vigente; no se puede quitar.");
-        Contenedor(id).Cancelar(motivo); RevisionContenido++;
+        Contenedor(id).Cancelar(motivo); VersionarEmbarque(ResponsableUsuarioId); RevisionContenido++;
     }
     public (string? Codigo, string? Motivo) BloqueoFacturacion(PedidoEmbarcable pedido, IReadOnlyCollection<Guid>? adjuntos = null)
     {
@@ -149,7 +161,11 @@ public sealed partial class Expediente
             return ("FAC_PEDIDO_NO_EMBARCADO", "El cliente o las posiciones del pedido ya no corresponden al expediente; revise la asignación.");
         var faltas = pedido.Lineas.Select(l => new { Linea = l, Embarcado = partidas.Where(p => p.Posicion == l.Posicion && p.Unidad == l.Unidad && Contenedor(p.ContenedorId).FechaEmbarqueReal != null).Sum(p => p.Cantidad) })
             .Where(x => x.Embarcado != x.Linea.Cantidad).Select(x => $"posición {x.Linea.Posicion}: embarcado {x.Embarcado} de {x.Linea.Cantidad} {x.Linea.Unidad}").ToArray();
-        return faltas.Length > 0 || pedido.Lineas.Count == 0
-            ? ("FAC_PEDIDO_NO_EMBARCADO", "Falta embarcar el 100 % del pedido: " + string.Join("; ", faltas)) : (null, null);
+        if (faltas.Length > 0 || pedido.Lineas.Count == 0)
+            return ("FAC_PEDIDO_NO_EMBARCADO", "Falta embarcar el 100 % del pedido: " + string.Join("; ", faltas));
+        if (!SalidaAutorizada) return ("CE_SALIDA_SIN_AUTORIZAR", "Autorice la salida de la versión actual del embarque en Comercio Exterior.");
+        if (partidas.Any(p => p.AduanalesRevisadoPorId is null))
+            return ("CE_DATOS_ADUANALES_SIN_REVISAR", "Revise la fracción arancelaria y la unidad aduana de todas las partidas en Comercio Exterior antes de emitir la factura.");
+        return (null, null);
     }
 }

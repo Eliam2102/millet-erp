@@ -8,11 +8,15 @@ import { SucursalSelector } from '@/components/erp/selectors/SucursalSelector';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { FormCampo, FormGrid } from '@/components/erp/forms/FormGrid';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
+import { ConfiguracionIncidencias } from '../components/ConfiguracionIncidencias';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { apiRequest, esApiError } from '@/lib/api';
 import { ceKeys } from '../api/hooks';
 import { tiposIncidencia, estadosIncidencia, type IncidenciasReporte } from '../api/types';
 export function IncidenciasPage() {
+  const configurar = useHasPermission(P.AdminParametrosEditar);
   const actual = useAuthStore((s) => s.currentSucursalId);
   const [sucursal, setSucursal] = useState<string | undefined>(actual ?? undefined);
   const [tipo, setTipo] = useState('');
@@ -54,6 +58,12 @@ export function IncidenciasPage() {
         titulo="Incidencias"
         descripcion="Atienda las incidencias pendientes y consulte su antigüedad por expediente, tipo y sucursal."
       />
+      {configurar && (
+        <details>
+          <summary className="cursor-pointer text-brand">Configuración de incidencias</summary>
+          <ConfiguracionIncidencias />
+        </details>
+      )}
       <ReporteShell
         reporte={reporte}
         filasVisibles={reporte?.filas.slice(pagina * 10, pagina * 10 + 10)}

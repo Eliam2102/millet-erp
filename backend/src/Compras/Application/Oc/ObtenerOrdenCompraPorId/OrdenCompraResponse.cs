@@ -105,6 +105,7 @@ public sealed record OrdenCompraResponse(
     public string? UsoCfdiDescripcion { get; init; }
     public string? MetodoPago { get; init; }
     public string? FormaPagoClave { get; init; }
+    public Millet.Compras.Application.PublicPorts.TransporteImportacionCeLectura? TransporteCe { get; init; }
     public string? FormaPagoDescripcion { get; init; }
     public int Impresiones { get; init; }
     public DateTimeOffset? UltimaImpresionEn { get; init; }

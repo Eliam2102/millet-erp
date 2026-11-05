@@ -160,3 +160,13 @@ describe('<SalidasPage> — smoke', () => {
     expect(results.violations).toHaveLength(0);
   });
 });
+
+it('K1: un estado sin registros muestra cero después de cargar los conteos', async () => {
+  mswServer.use(http.get('*/api/v1/almacen/salidas/conteos-por-estado', () => HttpResponse.json([])));
+  const { container } = render(<SalidasPage />, { wrapper: createQueryWrapper() });
+  await waitFor(() => {
+    const valores = container.querySelectorAll('span.text-3xl');
+    expect(valores.length).toBeGreaterThan(0);
+    valores.forEach((valor) => expect(valor).toHaveTextContent(/^0$/));
+  });
+});

@@ -1,3 +1,5 @@
+import { problemaUsuario } from '@/lib/error-usuario';
+import { errorUsuario } from '@/lib/error-usuario';
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import {
   Table,
@@ -19,7 +21,6 @@ import { useSalida } from '@/features/almacen/api/useSalidas';
 import { useValeBlob } from '@/features/almacen/api/useValeBlob';
 import { descargarComprobanteSalida } from '@/features/almacen/api/descargarComprobanteSalida';
 import { type SalidaDetalle } from '@/features/almacen/api/types';
-import { esApiError } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { RegularizarValeSheet } from '@/features/almacen/components/RegularizarValeSheet';
@@ -60,7 +61,7 @@ export function SalidaDetallePage() {
       {query.isError ? (
         <ErrorState
           title="No se pudo cargar la salida"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
+          problem={problemaUsuario(query.error)}
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading ? (
@@ -261,7 +262,7 @@ function Campo({ label, valor, mono }: { label: string; valor: string; mono?: bo
   return (
     <div>
       <dt className="text-xs text-ink-muted">{label}</dt>
-      <dd className={mono ? 'font-mono text-xs break-all' : 'text-sm'}>{valor}</dd>
+      <dd className={!valor?.trim() || valor === '—' ? 'text-sm text-ink-muted' : mono ? 'font-mono text-xs break-all' : 'text-sm'}>{valor?.trim() || '—'}</dd>
     </div>
   );
 }
@@ -287,9 +288,7 @@ function VerValeButton({ salidaId }: { salidaId: string }) {
     }
     if (valeQuery.isError) {
       toast.error('No se pudo cargar el vale.', {
-        description: esApiError(valeQuery.error)
-          ? valeQuery.error.problem.detail
-          : 'Reintenta en unos segundos.',
+        description: errorUsuario(valeQuery.error, 'Reintenta en unos segundos.'),
       });
       return;
     }
@@ -322,7 +321,7 @@ function ImprimirComprobanteButton({ salida }: { salida: SalidaDetalle }) {
       await descargarComprobanteSalida(salida.id, salida.folio);
     } catch (e) {
       toast.error('No se pudo generar el comprobante PDF.', {
-        description: esApiError(e) ? e.problem.detail : 'Reintenta en unos segundos.',
+        description: errorUsuario(e, 'Reintenta en unos segundos.'),
       });
     } finally {
       setGenerando(false);

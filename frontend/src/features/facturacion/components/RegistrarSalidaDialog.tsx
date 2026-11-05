@@ -22,7 +22,6 @@ import {
 } from '@/components/ui/table';
 import type { AvancePartidaPedido } from '@/features/facturacion/api/types';
 import { useRegistrarSalida } from '@/features/facturacion/api/usePedidos';
-import { esApiError } from '@/lib/api';
 import { formatCantidad } from '@/lib/format-cantidad';
 import { Loader2 } from 'lucide-react';
 import { useId, useMemo, useRef, useState } from 'react';
@@ -95,13 +94,11 @@ export function RegistrarSalidaDialog({ pedidoId, avance, onCerrar }: RegistrarS
           );
           onCerrar();
         },
-        onError: (e) => {
+        onError: () => {
           // Una nueva llave para que el siguiente intento con otros datos no choque.
           idempotencyKey.current = crypto.randomUUID();
           setError(
-            esApiError(e)
-              ? (e.problem.detail ?? e.problem.title ?? 'No se pudo registrar la salida.')
-              : 'No se pudo registrar la salida. Revisa tu conexión y vuelve a intentarlo.',
+            'No se pudo registrar la salida. Revisa el folio, las cantidades y tu conexión antes de volver a intentarlo.',
           );
         },
       },
@@ -157,7 +154,7 @@ export function RegistrarSalidaDialog({ pedidoId, avance, onCerrar }: RegistrarS
                     <TableBody>
                       {filas.map((f) => (
                         <TableRow key={f.posicion} className="border-t border-line-row">
-                          <TableCell className="px-3 py-2 text-ink-muted tabular-nums">
+                          <TableCell className="px-3 py-2 text-right text-ink-muted tabular-nums">
                             {f.posicion}
                           </TableCell>
                           <TableCell className="px-3 py-2">{f.descripcion}</TableCell>

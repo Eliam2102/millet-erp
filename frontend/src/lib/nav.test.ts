@@ -245,6 +245,7 @@ describe('navSidebarItems', () => {
       '/almacen/reorden',
       '/almacen/asignaciones',
       '/almacen/ubicaciones',
+      '/almacen/normas-consumo',
     ]);
     // "Almacenes" ya sin el sufijo "y sub-almacenes" (redundante desde que
     // Sub-almacenes tiene card propia).
@@ -254,6 +255,7 @@ describe('navSidebarItems', () => {
       'Reabasto',
       'Ubicación de artículos',
       'Ubicaciones',
+      'Normas de consumo',
     ]);
     const subAlmacenes = config!.cards.find((c) => c.to === '/almacen/sub-almacenes');
     // Mismo gate que su ruta (beforeLoad de sub-almacenes.tsx).

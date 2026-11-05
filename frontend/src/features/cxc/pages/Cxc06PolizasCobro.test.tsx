@@ -138,7 +138,7 @@ beforeEach(() => {
 describe('CXC-06 · ajuste documentado de un cobro corto', () => {
   it('un depósito corto no se propone sin tipo y motivo; con ellos el comando los lleva', async () => {
     render(<NuevaPropuestaAplicacion onClose={() => {}} deposito={deposito} />);
-    fireEvent.change(screen.getByLabelText(/Remittance del cliente/), { target: { value: 'REM-1' } });
+    fireEvent.change(screen.getByLabelText(/Aviso de pago del cliente/), { target: { value: 'REM-1' } });
     fireEvent.click(screen.getByLabelText('Aplicar a FV-10'));
 
     expect(screen.getByText(/no se absorbe solo/)).toBeInTheDocument();
@@ -163,6 +163,8 @@ describe('CXC-06 · ajuste documentado de un cobro corto', () => {
 
     expect(screen.getAllByText('Ajuste por autorizar').length).toBeGreaterThan(0);
     expect(screen.getByText('Comisión bancaria')).toBeInTheDocument();
+    expect(screen.getByText('Aviso de pago')).toBeInTheDocument();
+    expect(screen.queryByText('Remittance')).not.toBeInTheDocument();
     expect(screen.getByText('Comisión del banco del cliente')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Autorizar ajuste' }));
     expect(mocks.autorizar).toHaveBeenCalledWith(
@@ -214,6 +216,15 @@ describe('CXC-06 · ajuste documentado de un cobro corto', () => {
     expect(screen.getAllByText('Ajuste rechazado: No es comisión')).toHaveLength(1);
   });
 
+  it('muestra los datos del ajuste faltantes con guion en tono secundario', () => {
+    mocks.propuesta = propuestaConAjuste({ tipoAjuste: null, motivoAjuste: null, ajustePorAutorizar: false });
+    render(<DetalleAplicacion />);
+    const tipo = screen.getByText('Tipo (cuenta)').nextElementSibling!;
+    expect(within(tipo as HTMLElement).getByText('—')).toHaveClass('text-ink-muted');
+    const motivo = screen.getByText('Motivo').nextElementSibling!;
+    expect(within(motivo as HTMLElement).getByText('—')).toHaveClass('text-ink-muted');
+  });
+
   it('lista por omisión las diferencias con su causa probable', () => {
     const r: ConciliacionCobrosResponse = {
       desde: '2026-11-01',
@@ -260,5 +271,9 @@ describe('CXC-06 · ajuste documentado de un cobro corto', () => {
     expect(screen.queryByText('PR-000001')).not.toBeInTheDocument();
     fireEvent.mouseDown(screen.getByRole('tab', { name: /Cuadran/ }), { button: 0, ctrlKey: false });
     expect(screen.getByText('PR-000001')).toBeInTheDocument();
+    const fila = screen.getByText('PR-000001').closest('tr')!;
+    expect(within(fila).getAllByText('$0.00 MXN')).toHaveLength(1);
+    expect(within(fila).getByText(/3 nov/)).toBeInTheDocument();
+    expect(within(fila).queryByText('2026-11-03')).not.toBeInTheDocument();
   });
 });

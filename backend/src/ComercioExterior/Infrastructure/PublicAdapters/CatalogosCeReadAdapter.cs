@@ -8,7 +8,7 @@ using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.ComercioExterior.Infrastructure.PublicAdapters;
-public sealed class CatalogosCeReadAdapter(CompartidoDbContext db, IdentidadDbContext identidad, IClock clock, IUsuarioSucursalReadPort sucursales) : ICatalogosCeReadPort
+public sealed class CatalogosCeReadAdapter(CompartidoDbContext db, IdentidadDbContext identidad, IClock clock, IUsuarioSucursalReadPort sucursales, Millet.ComercioExterior.Infrastructure.Persistence.ComercioExteriorDbContext ce) : ICatalogosCeReadPort
 {
     public async Task<IReadOnlyList<ReferenciaCe>> ReferenciasAsync(string tipo, string q, CancellationToken ct)
     {
@@ -53,8 +53,9 @@ public sealed class CatalogosCeReadAdapter(CompartidoDbContext db, IdentidadDbCo
         var tipos = await db.AdjuntoTiposDocumento.AsNoTracking().Where(x => x.TipoEntidad == Entidad && x.Activo && x.Codigo.StartsWith(prefijo)).OrderBy(x => x.Orden).ToListAsync(ct);
         if (tipos.Count == 0)
             throw new BusinessRuleException("CE_REQUISITOS_NO_CONFIGURADOS", "El catálogo de requisitos no está configurado para esta operación.");
+        var hitos = await ce.RequisitosHitos.AsNoTracking().Where(x => x.Tipo == tipo).ToDictionaryAsync(x => x.TipoDocumentoId, x => x.HitoClave, ct);
         // PLATFORM-TODO(<CeRequisitoCondicional>): condicional fijo por clave hasta configurar la regla.
-        return tipos.Select(x => new RequisitoDocumento(x.Id, x.Codigo, x.Nombre, x.Obligatorio, x.Codigo is "IMP_REGULATORIOS" or "EXP_ORIGEN" or "EXP_ISF" or "EXP_CARTA_PORTE")).ToArray();
+        return tipos.Select(x => new RequisitoDocumento(x.Id, x.Codigo, x.Nombre, x.Obligatorio, x.Codigo is "IMP_REGULATORIOS" or "EXP_ORIGEN" or "EXP_ISF" or "EXP_CARTA_PORTE", hitos.GetValueOrDefault(x.Id))).ToArray();
     }
 
     public async Task<IReadOnlyList<Guid>> AdjuntosVigentesAsync(Guid expediente, CancellationToken ct)

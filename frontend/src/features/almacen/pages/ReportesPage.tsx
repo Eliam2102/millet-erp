@@ -19,14 +19,14 @@ export function ReportesPage() {
     <div className="space-y-6">
       <PageHeader
         titulo="Reportes de Almacén"
-        descripcion="Reportes operativos basados en saldos y movimientos del módulo. Cada reporte se exporta a PDF e imprime desde su pantalla."
+        descripcion="Consulta, exporta e imprime los saldos y movimientos del almacén."
       />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {puedeAlfak && (
           <ReporteCard
             to="/almacen/reportes/alfak-historial"
-            titulo="ALFAK-HISTORIAL-ALMACEN"
+            titulo="Historial de movimientos"
             descripcion="Movimientos del periodo agrupados por sub-almacén / artículo: saldo inicial, entradas, salidas, ajustes, saldo final, CPP y valor."
             icon={History}
           />
@@ -34,15 +34,15 @@ export function ReportesPage() {
         {puedeAlfak && (
           <ReporteCard
             to="/almacen/reportes/kardex"
-            titulo="KARDEX-ALMACEN"
-            descripcion="Movimientos de un artículo por sub-almacén, ubicación y periodo, con saldo, costo promedio y valor después de cada uno. Cuadra con el cierre."
+            titulo="Kardex de almacén"
+            descripcion="Consulta los movimientos de un artículo por sub-almacén, ubicación y periodo, con sus saldos, costos y cuadre contra el cierre."
             icon={BookOpen}
           />
         )}
         {puedeAlfak && (
           <ReporteCard
             to="/almacen/reportes/trazabilidad-mp"
-            titulo="TRAZABILIDAD-MP"
+            titulo="Trazabilidad de materia prima"
             descripcion="Compra (OC), lote, consumos, merma/rotura y saldo con valor de un artículo, filtrable por periodo y almacén."
             icon={Search}
           />
@@ -50,7 +50,7 @@ export function ReportesPage() {
         {puedeMpCnk && (
           <ReporteCard
             to="/almacen/reportes/mp-cnk"
-            titulo="SAP-REPORTE-EXISTENCIA-MP-CNK"
+            titulo="Existencia de materia prima en Conkal"
             descripcion="Inventario diario de materiales directos no-vidrio (interlayer, silicones, pinturas, sellantes)."
             icon={Package}
           />

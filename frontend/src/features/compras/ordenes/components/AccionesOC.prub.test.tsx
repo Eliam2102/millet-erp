@@ -16,13 +16,13 @@ beforeEach(() => { vi.clearAllMocks(); useAuthStore.setState({ permisos: [Permis
 describe('Motivos de rechazo de negocio en órdenes', () => {
   it.each([
     [EstadoOrdenCompra.Borrador, 'Transmitir a autorización', 'Transmitir', 'Adjunta la cotización antes de transmitir la orden.'],
-    [EstadoOrdenCompra.EnAutorizacionJefeCompras, 'Aprobar Nivel 1', 'Aprobar Nivel 1', 'Quien capturó la orden de compra no puede autorizarla.'],
+    [EstadoOrdenCompra.EnAutorizacionJefeCompras, "Aprobar nivel 1", "Aprobar nivel 1", 'Quien capturó la orden de compra no puede autorizarla.'],
   ] as const)('muestra el motivo del servidor al ejecutar %s', async (estado, boton, confirmar, motivo) => {
     mocks.ejecutar.mockRejectedValue(new ApiError({ type: 'business', title: 'Regla de negocio', status: 422, detail: motivo }, 422));
     const oc = { id: 'oc-prub', folio: 'OC-MID-1', estado, lineas: [], total: 100, adjuntos: [], autorizaciones: [] } as unknown as OrdenCompraDetalleResponse;
     render(<AccionesOC oc={oc} />, { wrapper: createQueryWrapper() });
     fireEvent.click(screen.getByRole('button', { name: boton }));
     fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: confirmar }));
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(motivo));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(estado === EstadoOrdenCompra.Borrador ? motivo : `${motivo} Revisa los datos y resuelve lo pendiente antes de continuar.`));
   });
 });

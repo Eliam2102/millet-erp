@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Millet.Api.Auth;
@@ -11,7 +12,7 @@ namespace Millet.Api.Endpoints.Compras;
 
 /// <summary>
 /// Bandeja ERP → Almacenes (86e3jvu83 · C3.2): estado de cada COMPRA_RECIBIDA / COMPRA_CANCELADA / COMPRA_MODIFICADA y reintento
-/// de lo que no llegó a escribirse. El tablero (I13.6) es la segunda rebanada; esto es solo la lectura y el reintento.
+/// de lo que no llegó a escribirse. El tablero (I13.6) está en Compras › Envíos a Almacenes y consume esta lectura y el reintento.
 /// Reutiliza <c>compras.ordenes.leer</c> y <c>compras.ordenes.logistica</c> (sin permisos nuevos).
 /// </summary>
 public static class AlmCompraEnviosEndpoints
@@ -19,7 +20,8 @@ public static class AlmCompraEnviosEndpoints
     public sealed record AlmCompraEnvioResponse(
         Guid Id, Guid OrdenCompraId, string Referencia, long Secuencia, string MensajeId, string Tipo, string Estado,
         int Intentos, DateTimeOffset? ProximoIntentoEn, string? UltimoError, string? CompraIdAlmacenes,
-        DateTimeOffset? EnviadoEn, DateTimeOffset? AcuseEn, DateTimeOffset CreatedAt);
+        DateTimeOffset? EnviadoEn, DateTimeOffset? AcuseEn, DateTimeOffset CreatedAt,
+        JsonElement? Datos);
 
     public static IEndpointRouteBuilder MapAlmCompraEnviosEndpoints(this IEndpointRouteBuilder app)
     {
@@ -31,11 +33,11 @@ public static class AlmCompraEnviosEndpoints
             var q = db.AlmCompraEnvios.AsNoTracking().AsQueryable();
             if (!string.IsNullOrWhiteSpace(estado)) q = q.Where(e => e.Estado == estado);
             if (ordenCompraId is Guid oc) q = q.Where(e => e.OrdenCompraId == oc);
-            var filas = await q.OrderByDescending(e => e.Secuencia).Take(200)
-                .Select(e => new AlmCompraEnvioResponse(e.Id, e.OrdenCompraId, e.Referencia, e.Secuencia, e.MensajeId, e.Tipo,
-                    e.Estado, e.Intentos, e.ProximoIntentoEn, e.UltimoError, e.CompraIdAlmacenes, e.EnviadoEn, e.AcuseEn, e.CreatedAt))
-                .ToListAsync(ct);
-            return Results.Ok(filas);
+            var filas = await q.OrderByDescending(e => e.Secuencia).Take(200).ToListAsync(ct);
+            // `datos` = lo que recibe Almacenes (hojas, lote, rack…): el tablero (I13.6) lo resume en pantalla.
+            return Results.Ok(filas.Select(e => new AlmCompraEnvioResponse(e.Id, e.OrdenCompraId, e.Referencia, e.Secuencia, e.MensajeId, e.Tipo,
+                e.Estado, e.Intentos, e.ProximoIntentoEn, e.UltimoError, e.CompraIdAlmacenes, e.EnviadoEn, e.AcuseEn, e.CreatedAt,
+                e.Sobre.Length == 0 ? null : JsonDocument.Parse(e.Sobre).RootElement.GetProperty("datos").Clone())));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesLeer)
         .WithName("ListarAlmCompraEnvios")

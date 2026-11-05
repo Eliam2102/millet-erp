@@ -9,7 +9,7 @@ namespace Millet.CuentasPorPagar.Domain.AnticipoProveedor;
 /// proveedor que documenta el anticipo. Se amortiza contra facturas
 /// finales vía <c>AplicarAnticipoAFacturaCommand</c>.
 /// </summary>
-public enum OrigenAnticipo { Cfdi = 1, SaldoComercioExterior = 2 }
+public enum OrigenAnticipo { Cfdi = 1, SaldoComercioExterior = 2, SolicitudComercioExterior = 3 }
 
 public sealed class AnticipoProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRelevante, IAuditable
 {
@@ -40,8 +40,9 @@ public sealed class AnticipoProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalm
     public decimal MontoAmortizado { get; private set; }
 
     /// <summary>Saldo amortizable = MontoEntregado - MontoAmortizado. Derivado.</summary>
-    public decimal SaldoAmortizable => MontoEntregado - MontoAmortizado;
+    public decimal SaldoAmortizable => Origen == OrigenAnticipo.SolicitudComercioExterior ? 0 : MontoEntregado - MontoAmortizado;
 
+    public Guid? SucursalId { get; private set; }
     public Guid? OrdenCompraId { get; private set; }
 
     public EstadoAnticipo Estado { get; private set; }
@@ -72,6 +73,20 @@ public sealed class AnticipoProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalm
         };
     }
 
+    public static AnticipoProveedor SolicitarComercioExterior(Guid id, Guid empresa, Guid agente, decimal importe,
+        DateOnly fecha, string folioExpediente, Guid? oc, DateTimeOffset ahora, Guid? sucursal = null)
+    {
+        if (id == Guid.Empty) throw new BusinessRuleException("ANTICIPO_ORIGEN_CE_INVALIDO", "Falta el anticipo de origen.");
+        var a = DesdeSaldoComercioExterior(empresa, agente, importe, fecha, folioExpediente, id.ToString(), ahora);
+        a.Id = id; a.Origen = OrigenAnticipo.SolicitudComercioExterior;
+        a.Estado = EstadoAnticipo.Solicitado; a.OrdenCompraId = oc; a.SucursalId = sucursal; return a;
+    }
+    public void ConfirmarPagoComercioExterior(decimal acumulado)
+    {
+        if (Origen != OrigenAnticipo.SolicitudComercioExterior || acumulado < 0 || acumulado > MontoEntregado)
+            throw new BusinessRuleException("ANTICIPO_PAGO_INVALIDO", "El pago no corresponde al importe solicitado.");
+        Estado = acumulado == MontoEntregado ? EstadoAnticipo.PagadoComercioExterior : EstadoAnticipo.Solicitado;
+    }
     public static AnticipoProveedor Capturar(
         Guid empresaId,
         Guid? cfdiRecibidoId,
@@ -130,7 +145,9 @@ public sealed class AnticipoProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalm
     /// </summary>
     public void Amortizar(decimal monto, DateTimeOffset ahora)
     {
-        if (Estado == EstadoAnticipo.Cancelado)
+        if (Origen == OrigenAnticipo.SolicitudComercioExterior)
+            throw new BusinessRuleException("ANTICIPO_COMPROBACION_EN_CE", "Este anticipo se comprueba en Comercio Exterior; solo el saldo trasladado al agente se amortiza aquí.");
+        if (Estado is EstadoAnticipo.Cancelado or EstadoAnticipo.Solicitado)
         {
             throw new BusinessRuleException(
                 "ANTICIPO_CANCELADO",
@@ -159,6 +176,8 @@ public sealed class AnticipoProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalm
 
     public void Cancelar(string motivo, DateTimeOffset ahora)
     {
+        if (Origen == OrigenAnticipo.SolicitudComercioExterior)
+            throw new BusinessRuleException("ANTICIPO_COMPROBACION_EN_CE", "El documento del anticipo al agente se gestiona en Comercio Exterior, no se cancela como un CFDI de anticipo.");
         if (FechaCancelacion is not null) throw new BusinessRuleException("DOCUMENTO_YA_CANCELADO", "El documento ya está cancelado.");
         if (Estado == EstadoAnticipo.Amortizado)
         {

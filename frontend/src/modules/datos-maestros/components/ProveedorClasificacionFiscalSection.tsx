@@ -1,3 +1,4 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import { FormCampo } from '@/components/erp/forms/FormGrid';
 import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { erroresDeClasificacion } from '@/modules/datos-maestros/lib/clasificacion-fiscal';
@@ -57,7 +58,7 @@ export function ProveedorClasificacionFiscalSection({
         },
         onError: (error) => {
           if (esApiError(error)) {
-            const mensaje = error.problem.detail ?? error.problem.title;
+            const mensaje = errorUsuario(error);
             const campo = erroresDeClasificacion(error.code, mensaje);
             if (Object.keys(campo).length > 0) {
               setErrores(campo);
@@ -67,7 +68,7 @@ export function ProveedorClasificacionFiscalSection({
             return;
           }
           toast.error('No se pudo guardar la clasificación fiscal', {
-            description: 'Intenta de nuevo.',
+            description: 'Revisa los datos y vuelve a abrir el registro; si continúa, avisa a soporte.',
           });
         },
       },

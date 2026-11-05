@@ -14,6 +14,7 @@ export interface NotaCreditoPorAutorizar {
   folioAw: string | null;
   facturaFolio: string | null;
   fechaRecibida: string | null;
+  vendedorAw?: string | null;
 }
 export interface AutorizarNotaCreditoResultado {
   id: string;

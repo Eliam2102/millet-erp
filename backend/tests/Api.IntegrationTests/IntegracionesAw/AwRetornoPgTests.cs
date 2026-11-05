@@ -443,6 +443,51 @@ public class AwRetornoPgTests(WebApplicationFactory<Program> factory)
         (await adapter.LeerAcusesPorAtenderAsync(default)).Should().BeEmpty();
     }
 
+    // ===== 5-nov (respuesta de TI): cobro cancelado entre varios, 70 manual, 115 y saldo de control =====
+    [Fact]
+    public async Task Cancelar_uno_de_varios_cobros_manda_la_suma_de_los_que_quedan_y_el_cero_lleva_secuencia_posterior()
+    {
+        var adapter = Adapter();
+        await adapter.AgregarDocumentoAsync(Doc("900101", "UUID-A", version: 1, folio: "F-1"), default);
+        await adapter.AgregarPagosAsync("900101", 1, "F-1", [new("EFECTIVO", "PESOSMX", 300m)], true, default); // dos cobros: 100 + 200
+        await adapter.AgregarPagosAsync("900101", 1, "F-1", [new("EFECTIVO", "PESOSMX", 200m)], true, default); // se cancela el de 100
+        await adapter.AgregarPagosAsync("900101", 1, "F-1", [], true, default);                                  // se cancela el último
+
+        (await FilasAsync("900101")).Skip(1).Should().Equal(
+            "2|4|1|F-1|300.00|-|0", "3|4|1|F-1|200.00|-|0", "4|4|1|F-1|0.00|-|0");
+    }
+
+    [Fact]
+    public async Task La_liberacion_manual_y_el_115_se_escriben_una_sola_vez_y_el_70_exige_usuario()
+    {
+        var adapter = Adapter();
+        (await adapter.AgregarEstatusAsync("900101", 1, 70, 2, "usuario-cobranza", default)).Should().Be(1);
+        (await adapter.AgregarEstatusAsync("900101", 1, 70, 2, "usuario-cobranza", default)).Should().BeNull(); // reentrega
+        (await adapter.AgregarEstatusAsync("900101", 1, 115, null, null, default)).Should().Be(2);
+        await FluentActions.Awaiting(() => adapter.AgregarEstatusAsync("900202", 1, 70, 2, null, default))
+            .Should().ThrowAsync<PostgresException>(); // CK_awr_usuario_libera
+    }
+
+    [Fact]
+    public async Task El_saldo_de_control_deja_una_fila_por_pedido_solo_cuando_cambia()
+    {
+        var adapter = Adapter();
+        (await adapter.AgregarSaldoAsync("900101", 1, 500m, default)).Should().Be(1);
+        (await adapter.AgregarSaldoAsync("900101", 1, 500m, default)).Should().BeNull();
+        (await adapter.AgregarSaldoAsync("900101", 1, 0m, default)).Should().Be(2);
+        (await adapter.AgregarSaldoAsync("900202", 1, 500m, default)).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Un_70_nada_que_hacer_no_se_lee_como_detenido_en_el_acuse_real()
+    {
+        var adapter = Adapter();
+        await adapter.AgregarEstatusAsync("900101", 1, 70, 2, "usuario-cobranza", default);
+        await EjecutarAsync("UPDATE dbo.aw_retorno SET resultado = 2, intentos = 3, motivo = 'Nada que hacer: ya estaba liberado' WHERE tipo = 1");
+        var acuse = (await adapter.LeerAcusesPorAtenderAsync(default)).Should().ContainSingle().Subject;
+        (acuse.EstatusDestino, acuse.Origen, acuse.NadaQueHacer, acuse.Detenida).Should().Be(((short?)70, (byte?)2, true, false));
+    }
+
     // ===== Criterio 5: misma tabla en el canal demo =====
     [Fact]
     public async Task La_tabla_demo_tiene_las_restricciones_del_script_14()

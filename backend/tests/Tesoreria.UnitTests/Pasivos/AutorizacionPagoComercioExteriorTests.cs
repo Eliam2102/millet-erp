@@ -48,6 +48,31 @@ public sealed class AutorizacionPagoComercioExteriorTests
         new PasivosParaCorridaHandler(db, new Proveedores()).Handle(new PasivosParaCorridaQuery("MXN"), default);
 
     [Fact]
+    public void P19_reversa_del_anticipo_no_se_trata_como_factura()
+    {
+        var pasivo = Pasivo(); pasivo.ExigirReversaSoportada();
+        pasivo.MarcarAnticipoAgente(Guid.NewGuid());
+        var act = () => pasivo.ExigirReversaSoportada();
+        act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "CE_REVERSA_NO_DEFINIDA");
+    }
+    [Fact]
+    public async Task P19_solicitud_de_50000_proyecta_el_anticipo_y_exige_las_dos_firmas()
+    {
+        await using var db = Db(); var id = Guid.NewGuid();
+        var p = new Millet.Tesoreria.Application.EventListeners.PasivoAutorizadoParaPagoPayload(Empresa, Ahora, id,
+            Guid.NewGuid(), null, 50000, 50000, "MXN", 1, new(2026, 11, 5), null, "CE-P19",
+            OrigenTipo: "AnticipoAgente", OrigenId: id) { SucursalId = Guid.NewGuid(), TipoOperacionCe = 1 };
+        await new Millet.Tesoreria.Application.EventListeners.ProyectarPasivoAutorizadoHandler(db, new Clock())
+            .Handle(new(Guid.NewGuid(), p), default);
+        var a = await db.PasivosPendientesPago.SingleAsync();
+        a.OrigenTipo.Should().Be("AnticipoAgente"); a.SucursalAnticipoCeId.Should().Be(p.SucursalId);
+        (await Candidatos(db)).Items.Should().BeEmpty();
+        await Firmar(db, ComprasMp, Nivel1Importacion).Handle(new(id, 1), default);
+        (await Candidatos(db)).Items.Should().BeEmpty();
+        await Firmar(db, DirectorFinanzas, Direccion).Handle(new(id, 2), default);
+        (await Candidatos(db)).Items.Should().ContainSingle(x => x.FacturaProveedorId == id);
+    }
+    [Fact]
     public async Task CA_a_sin_la_firma_de_Direccion_el_pasivo_no_es_seleccionable_ni_se_arma()
     {
         await using var db = Db();

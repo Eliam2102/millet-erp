@@ -28,7 +28,7 @@ public sealed class ActivoServicio(ActivosFijosDbContext db, ICurrentUserContext
     }
     public async Task<Activo> CargarAsync(Guid id, bool escribir, CancellationToken ct)
     {
-        var a = await db.Activos.Include(x => x.Historial).Include(x => x.Traslados).AsSplitQuery().SingleOrDefaultAsync(x => x.Id == id, ct)
+        var a = await db.Activos.Include(x => x.Historial).Include(x => x.Impresiones).Include(x => x.Traslados).AsSplitQuery().SingleOrDefaultAsync(x => x.Id == id, ct)
             ?? throw new EntityNotFoundException("AF_NO_EXISTE", "No existe el activo.");
         await SucursalAsync(a.SucursalId, escribir, ct);
         a.CustodiaDescripcion = await catalogos.DescribirAsync(a.Custodia(), ct);
@@ -40,12 +40,13 @@ public sealed class ActivoServicio(ActivosFijosDbContext db, ICurrentUserContext
         }
         return a;
     }
-    public async Task<ClaseActivo> ClaseAsync(Guid id, CancellationToken ct) => await db.Clases.SingleOrDefaultAsync(x => x.Id == id && x.Activa, ct)
+    public async Task<ClaseActivo> ClaseAsync(Guid id, CancellationToken ct) => await db.Clases.Include(x => x.Versiones).SingleOrDefaultAsync(x => x.Id == id && x.Activa, ct)
         ?? throw new BusinessRuleException("AF_CLASE_INACTIVA", "Seleccione una clase activa.");
     public async Task ValidarTasasActivoAsync(DatosActivo datos, Guid? id, CancellationToken ct)
     {
         var clase = await ClaseAsync(datos.ClaseId, ct);
-        if ((datos.VidaUtilMeses != null && clase.Clave != "160") || datos.VidaUtilMeses is < 1 or > 600
+        if ((clase.Clave is "160" or "170" && (datos.TasaContableAnual != null || datos.TasaFiscalAnual != null))
+            || (datos.VidaUtilMeses != null && clase.Clave != "160") || datos.VidaUtilMeses is < 1 or > 600
             || (datos.ActivoMejoradoId != null && clase.Clave != "170"))
             throw new BusinessRuleException("AF_TASA_ACTIVO_INVALIDA", "Vida útil de 1 a 600 meses sólo para clase 160; activo mejorado sólo para clase 170.");
         if (datos.ActivoMejoradoId is Guid mejorado)
@@ -65,6 +66,7 @@ public sealed class ActivoServicio(ActivosFijosDbContext db, ICurrentUserContext
     }
     public async Task<Guid> PolizaAsync(Activo a, ClaseActivo clase, Guid documento, DateOnly fecha, decimal importe, string llave, string concepto, CancellationToken ct)
     {
+        clase=clase.EnMes(fecha);
         if (clase.CuentaActivoId is not Guid activo || clase.CuentaPuenteId is not Guid puente || activo == puente)
             throw new BusinessRuleException("AF_CUENTAS_PENDIENTES", "Configure cuentas distintas de activo y puente; las clases DEMO requieren validación contable.");
         var nodos = await centros.ObtenerAsync([a.EquipoId ?? a.CentroCostoId], ct);

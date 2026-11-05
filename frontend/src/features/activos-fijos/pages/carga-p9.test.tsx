@@ -8,7 +8,10 @@ vi.mock('../api/hooks', () => ({
   AF_BASE: '/api/v1/activos-fijos',
   afKeys: { all: ['af'] },
   useClasesActivo: () => ({ data: [] }),
+  useGuardarActivo: () => ({ mutate: vi.fn() }),
 }));
+vi.mock('../api/libro', () => ({ useLibroQuery: () => ({ data: [] }), descargarCsv: vi.fn() }));
+vi.mock('@/components/erp/selectors/SucursalSelector', () => ({ SucursalSelector: () => null }));
 vi.mock('../components/TablaLibro', () => ({
   TablaLibro: ({ titulo, filas }: { titulo: string; filas: unknown[] }) => (
     <section aria-label={titulo}>{JSON.stringify(filas)}</section>

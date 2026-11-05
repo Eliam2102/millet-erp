@@ -20,7 +20,7 @@ import type { AvancePosicionDto } from '../api/types';
 import { textoMotivoPedido } from '../lib/motivos-ui';
 
 const PAGE_SIZE = 25;
-const columnas = 'grid grid-cols-[minmax(0,1.4fr)_120px_90px_90px_minmax(0,1fr)_270px_170px] items-center';
+const columnas = 'grid grid-cols-[minmax(0,1.4fr)_90px_64px_64px_minmax(0,1fr)_150px_140px] items-center';
 
 const avanceUi: Record<AvancePosicionDto['avanceFisico'], { texto: string; tono: 'neutral' | 'warning' | 'success' }> = {
   SinPiezas: { texto: 'Sin piezas', tono: 'neutral' },
@@ -41,15 +41,15 @@ export function PiezasPage() {
   });
   const sucursales = useSucursales();
   const nombreSucursal = (id: string) =>
-    sucursales.data?.items.find((s) => s.id === id)?.nombre ?? id.slice(0, 8);
+    sucursales.data?.items.find((s) => s.id === id)?.nombre ?? 'Sin sucursal';
   const items = q.data?.items ?? [];
 
   return (
     <main className="flex h-full min-h-0 flex-col gap-5 overflow-auto text-sm">
-      <Breadcrumbs items={[{ label: 'Producto Terminado' }, { label: 'Piezas' }]} />
+      <Breadcrumbs items={[{ label: "Producto terminado" }, { label: 'Piezas' }]} />
       <PageHeader
         titulo="Piezas en producto terminado"
-        descripcion="Consulta las piezas escaneadas por pedido y sucursal, con su avance por posición."
+        descripcion="Consulta las piezas escaneadas por pedido y sucursal, con su avance por partida."
       />
       {pedidoBuscado && q.data && (q.data.estadoPedido || q.data.avance.length > 0) && (
         <section aria-label="Estado del pedido" className="flex flex-wrap items-center gap-3 rounded-lg bg-surface-card p-4 shadow-card-flat">
@@ -71,11 +71,11 @@ export function PiezasPage() {
         </section>
       )}
       {pedidoBuscado && q.data && q.data.avance.length > 0 && (
-        <section aria-label="Avance por posición" className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <section aria-label="Avance por partida" className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {q.data.avance.map((a) => (
             <article key={a.posicion} className="rounded-lg bg-surface-card p-4 shadow-card-flat">
               <header className="flex items-center justify-between gap-2">
-                <h2 className="text-md font-semibold">Posición {a.posicion}</h2>
+                <h2 className="text-md font-semibold">Partida {a.posicion}</h2>
                 <Badge variant={avanceUi[a.avanceFisico].tono}>{avanceUi[a.avanceFisico].texto}</Badge>
               </header>
               {a.descripcion && <p className="mt-1 truncate text-xs text-ink-muted">{a.descripcion}</p>}
@@ -153,7 +153,7 @@ export function PiezasPage() {
               <Table className="grid min-w-0 text-sm">
                 <TableHeader className="h-9 bg-surface-subtle text-left text-2xs uppercase text-ink-muted">
                   <TableRow className={`${columnas} h-9`}>
-                    {['Etiqueta', 'Pedido', 'Posición', 'N.º de pieza', 'Sucursal', 'Estado', 'Escaneada'].map((x) => (
+                    {['Etiqueta', 'Pedido', 'Partida', 'N.º de pieza', 'Sucursal', 'Estado', 'Escaneada'].map((x) => (
                       <TableHead key={x} className="px-3">
                         {x}
                       </TableHead>

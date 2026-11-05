@@ -89,6 +89,7 @@ export function DesbloquearLineaDialog({
           </Button>
           <Button
             type="button"
+            title={!motivoValido ? 'Escribe el motivo para continuar.' : isPending ? 'Espera a que termine la operación.' : undefined}
             disabled={!motivoValido || isPending}
             onClick={() => onConfirm(motivo.trim())}
           >

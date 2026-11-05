@@ -1,3 +1,4 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import { useState, type ReactNode } from 'react';
 import {
   CheckCircle2,
@@ -32,7 +33,6 @@ import {
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { useMiEmpleado } from '@/lib/auth/useMiEmpleado';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError } from '@/lib/api';
 
 /** Campos mínimos de la solicitud: la lista y el detalle los comparten. */
 export type SolicitudAccionable = Pick<
@@ -97,7 +97,7 @@ export function AccionesViatico({
     p.then(
       () => toast.success(etiqueta),
       (error) =>
-        toast.error(esApiError(error) ? error.problem.title : 'Error al ejecutar la acción.'),
+        toast.error(errorUsuario(error, 'Error al ejecutar la acción.')),
     ).finally(() => setDialogo(null));
   }
 
@@ -312,7 +312,7 @@ export function AccionesViatico({
               setDialogo(null);
             } catch (e) {
               setErrorMotivo(
-                esApiError(e) ? (e.problem.detail ?? e.problem.title) : 'No se pudo devolver la solicitud.',
+                errorUsuario(e, 'No se pudo devolver la solicitud.'),
               );
             }
           }}
@@ -335,7 +335,7 @@ export function AccionesViatico({
               setDialogo(null);
             } catch (e) {
               setErrorMotivo(
-                esApiError(e) ? (e.problem.detail ?? e.problem.title) : 'No se pudo reenviar la solicitud.',
+                errorUsuario(e, 'No se pudo reenviar la solicitud.'),
               );
             }
           }}
@@ -362,7 +362,7 @@ export function AccionesViatico({
               setDialogo(null);
             } catch (e) {
               setErrorMotivo(
-                esApiError(e) ? (e.problem.detail ?? e.problem.title) : 'No se pudo rechazar la solicitud.',
+                errorUsuario(e, 'No se pudo rechazar la solicitud.'),
               );
             }
           }}

@@ -19,6 +19,7 @@ public static partial class NormalizadorEventos
     public const string RecepcionOcCancelada = "almacen.recepcion_oc.cancelada.v1";
     public const string AjusteInventarioAplicado = "almacen.ajuste_inventario.aplicado.v1";
     public const string SalidaRequisicionRegistrada = "almacen.salida_requisicion.registrada.v1";
+    public const string SalidaInventarioRegistrada = "almacen.salida_inventario.registrada.v1";
     public const string DevolucionInternaAplicada = "almacen.devolucion_interna.aplicada.v1";
     public const string DevolucionProveedorRegistrada = "almacen.oc_devolucion.registrada.v1";
     public const string FacturaProveedorCancelada = "cuentas_por_pagar.factura.cancelada.v1";
@@ -42,6 +43,7 @@ public static partial class NormalizadorEventos
     public static readonly (string Modulo, string Tipo) DocRecepcion = ("almacen", "recepcion_oc");
     public static readonly (string Modulo, string Tipo) DocAjuste = ("almacen", "ajuste_inventario");
     public static readonly (string Modulo, string Tipo) DocSalida = ("almacen", "salida_requisicion");
+    public static readonly (string Modulo, string Tipo) DocSalidaInventario = ("almacen", "salida_inventario");
     public static readonly (string Modulo, string Tipo) DocDevolucionInterna = ("almacen", "devolucion_interna");
     public static readonly (string Modulo, string Tipo) DocDevolucionProveedor = ("almacen", "devolucion_proveedor");
     public static readonly (string Modulo, string Tipo) DocFacturaProveedor = ("cuentas_por_pagar", "factura_proveedor");
@@ -106,10 +108,12 @@ public static partial class NormalizadorEventos
         DevolucionProveedorRegistrada => DevolucionProveedor(eventoId, payload),
         AjusteInventarioAplicado => Ajuste(eventoId, payload),
         SalidaRequisicionRegistrada => Salida(eventoId, payload),
+        SalidaInventarioRegistrada => SalidaInventario(eventoId, payload),
         NotaCreditoProveedorRegistrada => NotaProveedor(tipo, eventoId, payload, DocNotaCreditoProveedor, TipoDocumentoPuente.NotaCredito),
         NotaCargoAutorizada => NotaProveedor(tipo, eventoId, payload, DocNotaCargo, TipoDocumentoPuente.NotaCargo),
         AnticipoProveedorCapturado => AnticipoProveedor(eventoId, payload),
         RevaluacionCierreRegistrada or RevaluacionCierreRevertida => RevaluacionCierre(tipo, eventoId, payload),
+        PagoAnticipoAgente => PagoProveedor(eventoId, payload),
         PagoProveedorAplicado => PagoProveedor(eventoId, payload),
         PagoClienteConfirmado => PagoCliente(eventoId, payload),
         FacturaVentaTimbrada => FacturaVenta(eventoId, payload),
@@ -182,6 +186,18 @@ public static partial class NormalizadorEventos
             s.SucursalId, importes: new() { ["Subtotal"] = lineas.Sum(l => l.Importe) }, lineas: lineas, payload: payload);
     }
 
+    /// <summary>
+    /// G-1 (86e3yxpb3): salida de inventario sin requisición (consumo, rotura, salida manual, baja por daño). Misma póliza que #14 (cargo
+    /// CONSUMO · abono INVENTARIO por línea). El centro de costo es el de cada línea o, si no, el del evento (equipo que ya capturó el vale); vacío si ninguno lo trae.
+    /// </summary>
+    private static EventoContable SalidaInventario(Guid eventoId, string payload)
+    {
+        var s = Leer<SalidaInventarioContrato>(payload);
+        var lineas = (s.Lineas ?? []).Select(l => new LineaEventoContable(null, l.MontoMxn, l.CentroCostoId, false, ArticuloId: l.ArticuloId)).ToList();
+        return Mxn(SalidaInventarioRegistrada, eventoId, s.EmpresaId, s.FechaMovimiento, Doc(DocSalidaInventario, s.MovimientoId, s.FolioMovimiento),
+            s.SucursalId, importes: new() { ["Subtotal"] = lineas.Sum(l => l.Importe) }, lineas: lineas, payload: payload, centroCostoId: s.CentroCostoId);
+    }
+
     // ---------------------------------------------------------------- CxP
 
     /// <summary>
@@ -232,6 +248,11 @@ public static partial class NormalizadorEventos
     private static EventoContable PagoProveedor(Guid eventoId, string payload)
     {
         var p = Leer<PagoProveedorContrato>(payload);
+        if (p.EsAnticipoAgente)
+            return new(PagoAnticipoAgente, eventoId, p.EmpresaId, p.FechaPago, Doc(DocPagoProveedor, p.PagoId, p.ReferenciaBancaria),
+                p.SucursalId, p.ProveedorId, null, null, null, MonedaDe(p.Moneda), p.TipoCambio,
+                new Dictionary<string, decimal?> { ["Total"] = p.Monto }, [], payload,
+                LlaveOverride: $"{PagoAnticipoAgente}:{p.PagoId}");
         return new(PagoProveedorAplicado, eventoId, p.EmpresaId, p.FechaPago, Doc(DocPagoProveedor, p.PagoId, p.ReferenciaBancaria),
             null, null, null, null, null, MonedaDe(p.Moneda), p.TipoCambio,
             new Dictionary<string, decimal?> { ["Total"] = p.Monto }, [], payload, FacturaOrigenId: p.FacturaProveedorId);
@@ -394,6 +415,11 @@ public static partial class NormalizadorEventos
     private sealed record SalidaContrato(Guid EmpresaId, Guid SalidaId, string? FolioSalida, DateOnly FechaMovimiento,
         IReadOnlyList<LineaSalidaContrato>? Lineas, Guid? SucursalId);
 
+    private sealed record SalidaInventarioContrato(Guid EmpresaId, Guid MovimientoId, string? FolioMovimiento, DateOnly FechaMovimiento,
+        IReadOnlyList<LineaSalidaInventarioContrato>? Lineas, Guid? SucursalId, Guid? CentroCostoId);
+
+    private sealed record LineaSalidaInventarioContrato(Guid ArticuloId, decimal MontoMxn, Guid? CentroCostoId);
+
     internal sealed record LineaSalidaContrato(Guid LineaSalidaId, Guid ArticuloId, decimal MontoTotalMxn, Guid? CentroCostoId);
 
     /// <summary>Salida de requisición para registrar el consumo contabilizado por línea (#15a, V64).</summary>
@@ -417,7 +443,7 @@ public static partial class NormalizadorEventos
         decimal? Perdida, decimal? Utilidad);
 
     private sealed record PagoProveedorContrato(Guid EmpresaId, Guid FacturaProveedorId, Guid PagoId, decimal Monto, string? Moneda,
-        DateOnly FechaPago, string? ReferenciaBancaria, decimal? TipoCambio);
+        DateOnly FechaPago, string? ReferenciaBancaria, decimal? TipoCambio, bool EsAnticipoAgente = false, Guid? SucursalId = null, Guid? ProveedorId = null);
 
     private sealed record PagoRevertidoContrato(Guid PagoOriginalId, string? Motivo);
 

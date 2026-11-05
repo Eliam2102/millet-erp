@@ -10,7 +10,7 @@ namespace Millet.ActivosFijos.Application;
 public sealed record RegistrarDocumentoActivo(Guid Id, int Version, DocumentoActivoDatos Datos) : IRequest<DocumentoActivo>;
 public sealed record RegistrarMantenimientoActivo(Guid Id, int Version, MantenimientoDatos Datos) : IRequest<MantenimientoActivo>;
 public sealed record AbrirConteoActivo(Guid SucursalId, string? Ubicacion) : IRequest<ConteoActivo>;
-public sealed record CapturaConteoDatos(string? Numero, ResultadoConteo Resultado, string? UbicacionReal, string Evidencia);
+public sealed record CapturaConteoDatos(string? Numero, ResultadoConteo Resultado, string? UbicacionReal, string Evidencia, string? Motivo = null);
 public sealed record MutarConteoActivo(Guid Id, int Version, string Accion, CapturaConteoDatos? Captura = null, Guid? PartidaId = null, string? Evidencia = null) : IRequest<ConteoActivo>;
 public sealed class ConservacionHandlers(ActivosFijosDbContext db, ActivoServicio servicio, IConservacionReadPort lectura, ICapitalizacionProveedorReadPort facturas, ICurrentEmpresaContext empresa, ICatalogosActivoReadPort catalogos, IClock clock) :
     IRequestHandler<RegistrarDocumentoActivo, DocumentoActivo>, IRequestHandler<RegistrarMantenimientoActivo, MantenimientoActivo>, IRequestHandler<AbrirConteoActivo, ConteoActivo>, IRequestHandler<MutarConteoActivo, ConteoActivo>
@@ -24,7 +24,18 @@ public sealed class ConservacionHandlers(ActivosFijosDbContext db, ActivoServici
         await lectura.ValidarAdjuntoAsync(a.Id, request.Datos, cancellationToken);
         var previo = request.Datos.ReemplazaA is Guid id ? await db.Documentos.SingleOrDefaultAsync(x => x.Id == id && x.ActivoId == a.Id, cancellationToken) : null;
         var d = new DocumentoActivo(a, request.Datos, previo);
-        db.Documentos.Add(d); Tocar(a);
+        db.Documentos.Add(d);
+        if (previo?.VigenteHasta is DateOnly vence && d.VigenteHasta > vence)
+        {
+            var avisos = await db.Avisos.Where(x => x.FuenteId == previo.Id && x.Vencimiento == vence && x.ResueltoEn == null).ToListAsync(cancellationToken);
+            if (avisos.Count == 0 && !await db.Avisos.AnyAsync(x => x.FuenteId == previo.Id && x.Vencimiento == vence && x.ResueltoEn != null, cancellationToken))
+            {
+                var aviso = new AvisoActivo(a, previo.Id, false, vence <= clock.HoyLocal() ? TipoAvisoActivo.Vencido : TipoAvisoActivo.PorVencer, vence, clock.HoyLocal());
+                db.Avisos.Add(aviso); avisos.Add(aviso);
+            }
+            foreach (var aviso in avisos) aviso.Resolver("Renovado", null, d, servicio.Actor, clock.UtcNow);
+        }
+        Tocar(a);
         await db.SaveChangesAsync(cancellationToken); await tx.CommitAsync(cancellationToken); return d;
     }
     public async Task<MantenimientoActivo> Handle(RegistrarMantenimientoActivo request, CancellationToken cancellationToken)
@@ -53,13 +64,13 @@ public sealed class ConservacionHandlers(ActivosFijosDbContext db, ActivoServici
         await servicio.PermisoAsync(request.Accion == "autorizar" ? PermisosCanonicos.ActivosFijosConteosAutorizar : PermisosCanonicos.ActivosFijosConteosGestionar, cancellationToken);
         await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
         await BloquearAsync(request.Id, cancellationToken);
-        var c = await db.Conteos.Include(x => x.Partidas).SingleOrDefaultAsync(x => x.Id == request.Id, cancellationToken) ?? throw new EntityNotFoundException("AF_CONTEO_NO_EXISTE", "No existe el conteo.");
+        var c = await db.Conteos.Include(x => x.Partidas).ThenInclude(x => x.CapturasAnteriores).SingleOrDefaultAsync(x => x.Id == request.Id, cancellationToken) ?? throw new EntityNotFoundException("AF_CONTEO_NO_EXISTE", "No existe el conteo.");
         await servicio.SucursalAsync(c.SucursalId, true, cancellationToken); Version(c, request.Version);
         switch (request.Accion)
         {
             case "capturar":
                 var d = request.Captura ?? throw new BusinessRuleException("AF_CAPTURA_REQUERIDA", "Capture el resultado.");
-                c.Capturar(d.Numero, d.Resultado, d.UbicacionReal, d.Evidencia, servicio.Actor); break;
+                c.Capturar(d.Numero, d.Resultado, d.UbicacionReal, d.Evidencia, servicio.Actor, d.Motivo, clock.UtcNow); break;
             case "cerrar": c.Cerrar(servicio.Actor, clock.UtcNow); break;
             case "autorizar": c.Autorizar(request.PartidaId ?? Guid.Empty, servicio.Actor, request.Evidencia ?? "", clock.UtcNow); break;
             default: throw new BusinessRuleException("AF_ACCION_INVALIDA", "Acción desconocida.");

@@ -183,6 +183,10 @@ public class ConsumoComponentesTests(WebApplicationFactory<Program> factory)
             Assert.Equal("CONSUMO_COMPONENTE", fila.GetProperty("tipo").GetString());
             Assert.Equal("EN_REVISION", fila.GetProperty("estado").GetString());
             Assert.Contains("Sin norma", fila.GetProperty("error").GetString());
+            // La pantalla de consumos en revisión lee estos nombres del payload.
+            using var payload = System.Text.Json.JsonDocument.Parse(fila.GetProperty("payload").GetString()!);
+            Assert.Equal(etiqueta, payload.RootElement.GetProperty("etiqueta").GetString());
+            Assert.Equal(Ancho, payload.RootElement.GetProperty("anchoMm").GetDecimal());
 
             using var put = await editor.PutAsJsonAsync($"{Normas}/{separador.ArticuloId}",
                 new { consumoPorUnidad = 1m, porcentajeMerma = 0m, factorM3PorM2 = (decimal?)null });

@@ -10,7 +10,9 @@ const OPCIONES = [
 
 describe('<TabsEstado>', () => {
   it('muestra el conteo por estado, la suma en «Todos» y 0 para los estados ausentes', () => {
-    render(<TabsEstado opciones={OPCIONES} valor={undefined} onChange={() => {}} conteos={{ 2: 5 }} />);
+    render(
+      <TabsEstado opciones={OPCIONES} valor={undefined} onChange={() => {}} conteos={{ 2: 5 }} />,
+    );
     expect(screen.getByRole('tab', { name: /Todos/ })).toHaveTextContent('5');
     expect(screen.getByRole('tab', { name: /Borrador/ })).toHaveTextContent('0');
     expect(screen.getByRole('tab', { name: /Registrado/ })).toHaveTextContent('5');
@@ -18,9 +20,14 @@ describe('<TabsEstado>', () => {
 
   it('no muestra números mientras los conteos cargan y avisa el estado elegido', () => {
     const onChange = vi.fn();
-    render(<TabsEstado opciones={OPCIONES} valor={undefined} onChange={onChange} conteos={undefined} />);
+    render(
+      <TabsEstado opciones={OPCIONES} valor={undefined} onChange={onChange} conteos={undefined} />,
+    );
     expect(screen.getByRole('tab', { name: 'Registrado' })).toBeInTheDocument();
-    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Registrado' }), { button: 0, ctrlKey: false });
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Registrado' }), {
+      button: 0,
+      ctrlKey: false,
+    });
     expect(onChange).toHaveBeenCalledWith(2);
   });
 });
@@ -44,4 +51,17 @@ describe('<BarraFiltros>', () => {
     expect(onLimpiar).toHaveBeenCalled();
     expect(screen.getByText('3 cosas')).toBeInTheDocument();
   });
+});
+
+it('acepta un total explícito para pestañas que se solapan sin sumar duplicados', () => {
+  render(
+    <TabsEstado
+      opciones={OPCIONES}
+      valor={undefined}
+      onChange={() => {}}
+      conteos={{ 1: 4, 2: 3 }}
+      total={5}
+    />,
+  );
+  expect(screen.getByRole('tab', { name: 'Todos5' })).toBeInTheDocument();
 });

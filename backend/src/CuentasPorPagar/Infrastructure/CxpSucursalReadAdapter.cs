@@ -54,9 +54,9 @@ public sealed class CxpSucursalReadAdapter(CuentasPorPagarDbContext db, ICompras
         if (tipo == "anticipo_proveedor")
         {
             var ordenes = (await compras.ListarAsync("orden_compra", ct)).ToDictionary(x => x.Id, x => x.Sucursales);
-            var anticipos = await db.AnticiposProveedor.AsNoTracking().Select(x => new { x.Id, x.OrdenCompraId }).ToListAsync(ct);
+            var anticipos = await db.AnticiposProveedor.AsNoTracking().Select(x => new { x.Id, x.OrdenCompraId, x.SucursalId }).ToListAsync(ct);
             return anticipos.Select(x => new DocumentoSucursales(x.Id,
-                x.OrdenCompraId is Guid id ? ordenes.GetValueOrDefault(id) ?? Array.Empty<Guid>() : Array.Empty<Guid>())).ToArray();
+                x.SucursalId is Guid sucursal ? [sucursal] : x.OrdenCompraId is Guid id ? ordenes.GetValueOrDefault(id) ?? Array.Empty<Guid>() : Array.Empty<Guid>())).ToArray();
         }
         if (tipo == "nota_credito_proveedor")
         {
