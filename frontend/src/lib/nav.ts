@@ -1228,6 +1228,13 @@ const productoTerminado: NavModulo = {
           permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
         },
         {
+          label: 'Hojas de salida',
+          description: 'Albarán por pedido con lo cargado: descuenta el inventario, pasa el pedido a 71 y se imprime para el chofer.',
+          to: '/producto-terminado/hojas-salida',
+          icon: Boxes,
+          permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
+        },
+        {
           label: 'Traspasos',
           description: 'Salida de piezas entre sucursales, tránsito y recepción en destino con diferencias.',
           to: '/producto-terminado/traspasos',

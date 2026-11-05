@@ -18,6 +18,8 @@ public sealed class PedidoPt : BaseEntity, IAuditable, IPerteneceAEmpresa
     public EstadoLiberacion? Liberacion { get; private set; }
     public string? MotivoLiberacion { get; private set; }
     public DateTimeOffset? LiberacionAt { get; private set; }
+    /// <summary>Primera salida emitida: el pedido pasa a 71 (en ruta). No cambia con las salidas siguientes.</summary>
+    public DateTimeOffset? EnRutaAt { get; private set; }
     public IReadOnlyCollection<PedidoPtPosicion> Posiciones => _posiciones;
 
     private PedidoPt() { }
@@ -44,6 +46,13 @@ public sealed class PedidoPt : BaseEntity, IAuditable, IPerteneceAEmpresa
     }
 
     /// <summary>Pasa a 70 con su motivo. Devuelve false si ya estaba liberado (un solo cambio, aunque llegue repetido).</summary>
+    public bool MarcarEnRuta(DateTimeOffset ahora)
+    {
+        if (EnRutaAt is not null) return false;
+        EnRutaAt = ahora;
+        return true;
+    }
+
     public bool Liberar(string motivo, DateTimeOffset ahora)
     {
         if (Liberacion == EstadoLiberacion.Liberado) return false;
