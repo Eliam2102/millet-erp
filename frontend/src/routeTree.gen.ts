@@ -97,6 +97,7 @@ import { Route as AppAlmacenRecepcionesIndexRouteImport } from './routes/_app/al
 import { Route as AppAlmacenRecepcionesIdRouteImport } from './routes/_app/almacen/recepciones/$id';
 import { Route as AppAlmacenReportesIndexRouteImport } from './routes/_app/almacen/reportes/index';
 import { Route as AppAlmacenReportesAlfakHistorialRouteImport } from './routes/_app/almacen/reportes/alfak-historial';
+import { Route as AppAlmacenReportesKardexRouteImport } from './routes/_app/almacen/reportes/kardex';
 import { Route as AppAlmacenReportesMpCnkRouteImport } from './routes/_app/almacen/reportes/mp-cnk';
 import { Route as AppAlmacenReportesTrazabilidadMpRouteImport } from './routes/_app/almacen/reportes/trazabilidad-mp';
 import { Route as AppAlmacenSalidasIndexRouteImport } from './routes/_app/almacen/salidas/index';
@@ -700,6 +701,12 @@ const AppAlmacenReportesAlfakHistorialRoute =
   AppAlmacenReportesAlfakHistorialRouteImport.update({
     id: '/almacen/reportes/alfak-historial',
     path: '/almacen/reportes/alfak-historial',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppAlmacenReportesKardexRoute =
+  AppAlmacenReportesKardexRouteImport.update({
+    id: '/almacen/reportes/kardex',
+    path: '/almacen/reportes/kardex',
     getParentRoute: () => AppRoute,
   } as any);
 const AppAlmacenReportesMpCnkRoute = AppAlmacenReportesMpCnkRouteImport.update({
@@ -1541,6 +1548,7 @@ export interface FileRoutesByFullPath {
   '/almacen/inventarios/$id': typeof AppAlmacenInventariosIdRouteWithChildren;
   '/almacen/recepciones/$id': typeof AppAlmacenRecepcionesIdRoute;
   '/almacen/reportes/alfak-historial': typeof AppAlmacenReportesAlfakHistorialRoute;
+  '/almacen/reportes/kardex': typeof AppAlmacenReportesKardexRoute;
   '/almacen/reportes/mp-cnk': typeof AppAlmacenReportesMpCnkRoute;
   '/almacen/reportes/trazabilidad-mp': typeof AppAlmacenReportesTrazabilidadMpRoute;
   '/almacen/salidas/$id': typeof AppAlmacenSalidasIdRoute;
@@ -1765,6 +1773,7 @@ export interface FileRoutesByTo {
   '/almacen/inventarios/$id': typeof AppAlmacenInventariosIdRouteWithChildren;
   '/almacen/recepciones/$id': typeof AppAlmacenRecepcionesIdRoute;
   '/almacen/reportes/alfak-historial': typeof AppAlmacenReportesAlfakHistorialRoute;
+  '/almacen/reportes/kardex': typeof AppAlmacenReportesKardexRoute;
   '/almacen/reportes/mp-cnk': typeof AppAlmacenReportesMpCnkRoute;
   '/almacen/reportes/trazabilidad-mp': typeof AppAlmacenReportesTrazabilidadMpRoute;
   '/almacen/salidas/$id': typeof AppAlmacenSalidasIdRoute;
@@ -1991,6 +2000,7 @@ export interface FileRoutesById {
   '/_app/almacen/inventarios/$id': typeof AppAlmacenInventariosIdRouteWithChildren;
   '/_app/almacen/recepciones/$id': typeof AppAlmacenRecepcionesIdRoute;
   '/_app/almacen/reportes/alfak-historial': typeof AppAlmacenReportesAlfakHistorialRoute;
+  '/_app/almacen/reportes/kardex': typeof AppAlmacenReportesKardexRoute;
   '/_app/almacen/reportes/mp-cnk': typeof AppAlmacenReportesMpCnkRoute;
   '/_app/almacen/reportes/trazabilidad-mp': typeof AppAlmacenReportesTrazabilidadMpRoute;
   '/_app/almacen/salidas/$id': typeof AppAlmacenSalidasIdRoute;
@@ -2217,6 +2227,7 @@ export interface FileRouteTypes {
     | '/almacen/inventarios/$id'
     | '/almacen/recepciones/$id'
     | '/almacen/reportes/alfak-historial'
+    | '/almacen/reportes/kardex'
     | '/almacen/reportes/mp-cnk'
     | '/almacen/reportes/trazabilidad-mp'
     | '/almacen/salidas/$id'
@@ -2441,6 +2452,7 @@ export interface FileRouteTypes {
     | '/almacen/inventarios/$id'
     | '/almacen/recepciones/$id'
     | '/almacen/reportes/alfak-historial'
+    | '/almacen/reportes/kardex'
     | '/almacen/reportes/mp-cnk'
     | '/almacen/reportes/trazabilidad-mp'
     | '/almacen/salidas/$id'
@@ -2666,6 +2678,7 @@ export interface FileRouteTypes {
     | '/_app/almacen/inventarios/$id'
     | '/_app/almacen/recepciones/$id'
     | '/_app/almacen/reportes/alfak-historial'
+    | '/_app/almacen/reportes/kardex'
     | '/_app/almacen/reportes/mp-cnk'
     | '/_app/almacen/reportes/trazabilidad-mp'
     | '/_app/almacen/salidas/$id'
@@ -3442,6 +3455,13 @@ declare module '@tanstack/react-router' {
       path: '/almacen/reportes/alfak-historial';
       fullPath: '/almacen/reportes/alfak-historial';
       preLoaderRoute: typeof AppAlmacenReportesAlfakHistorialRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/almacen/reportes/kardex': {
+      id: '/_app/almacen/reportes/kardex';
+      path: '/almacen/reportes/kardex';
+      fullPath: '/almacen/reportes/kardex';
+      preLoaderRoute: typeof AppAlmacenReportesKardexRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/almacen/reportes/mp-cnk': {
@@ -4478,6 +4498,7 @@ interface AppRouteChildren {
   AppAlmacenInventariosIdRoute: typeof AppAlmacenInventariosIdRouteWithChildren;
   AppAlmacenRecepcionesIdRoute: typeof AppAlmacenRecepcionesIdRoute;
   AppAlmacenReportesAlfakHistorialRoute: typeof AppAlmacenReportesAlfakHistorialRoute;
+  AppAlmacenReportesKardexRoute: typeof AppAlmacenReportesKardexRoute;
   AppAlmacenReportesMpCnkRoute: typeof AppAlmacenReportesMpCnkRoute;
   AppAlmacenReportesTrazabilidadMpRoute: typeof AppAlmacenReportesTrazabilidadMpRoute;
   AppAlmacenSalidasIdRoute: typeof AppAlmacenSalidasIdRoute;
@@ -4701,6 +4722,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAlmacenInventariosIdRoute: AppAlmacenInventariosIdRouteWithChildren,
   AppAlmacenRecepcionesIdRoute: AppAlmacenRecepcionesIdRoute,
   AppAlmacenReportesAlfakHistorialRoute: AppAlmacenReportesAlfakHistorialRoute,
+  AppAlmacenReportesKardexRoute: AppAlmacenReportesKardexRoute,
   AppAlmacenReportesMpCnkRoute: AppAlmacenReportesMpCnkRoute,
   AppAlmacenReportesTrazabilidadMpRoute: AppAlmacenReportesTrazabilidadMpRoute,
   AppAlmacenSalidasIdRoute: AppAlmacenSalidasIdRoute,

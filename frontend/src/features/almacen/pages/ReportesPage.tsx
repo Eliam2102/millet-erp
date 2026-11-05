@@ -1,6 +1,6 @@
 import { PageHeader } from '@/components/erp/PageHeader';
 import { Link } from '@tanstack/react-router';
-import { BarChart3, History, Package, Search } from 'lucide-react';
+import { BarChart3, BookOpen, History, Package, Search } from 'lucide-react';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { cn } from '@/lib/utils';
@@ -29,6 +29,14 @@ export function ReportesPage() {
             titulo="ALFAK-HISTORIAL-ALMACEN"
             descripcion="Movimientos del periodo agrupados por sub-almacén / artículo: saldo inicial, entradas, salidas, ajustes, saldo final, CPP y valor."
             icon={History}
+          />
+        )}
+        {puedeAlfak && (
+          <ReporteCard
+            to="/almacen/reportes/kardex"
+            titulo="KARDEX-ALMACEN"
+            descripcion="Movimientos de un artículo por sub-almacén, ubicación y periodo, con saldo, costo promedio y valor después de cada uno. Cuadra con el cierre."
+            icon={BookOpen}
           />
         )}
         {puedeAlfak && (
@@ -63,7 +71,7 @@ function ReporteCard({
   descripcion,
   icon: Icon,
 }: {
-  to: '/almacen/reportes/alfak-historial' | '/almacen/reportes/trazabilidad-mp' | '/almacen/reportes/mp-cnk';
+  to: '/almacen/reportes/alfak-historial' | '/almacen/reportes/kardex' | '/almacen/reportes/trazabilidad-mp' | '/almacen/reportes/mp-cnk';
   titulo: string;
   descripcion: string;
   icon: typeof BarChart3;

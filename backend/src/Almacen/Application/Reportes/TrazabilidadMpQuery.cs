@@ -72,13 +72,7 @@ public sealed class TrazabilidadMpHandler(AlmacenDbContext db, IArticuloReadPort
             .OrderBy(l => l.FechaMovimiento).ThenByDescending(l => l.Tipo.EsEntrada()).ThenBy(l => l.Folio, StringComparer.Ordinal)
             .ToList();
 
-        var folios = lineas.Where(l => l.Folio != null && l.Tipo == TipoMovimiento.SalidaConsumo).Select(l => l.Folio!).Distinct().ToList();
-        var ordenes = folios.Count == 0 ? new Dictionary<string, string>()
-            : (await db.ConsumosComponenteAw.AsNoTracking().Where(c => c.Folio != null && folios.Contains(c.Folio)).Select(c => new { Folio = c.Folio!, c.Auftnr }).ToListAsync(ct))
-                .GroupBy(c => c.Folio).ToDictionary(g => g.Key, g => string.Join(", ", g.Select(c => c.Auftnr).Distinct()));
-        var ocIds = lineas.Where(l => l.OcId != null).Select(l => l.OcId!.Value).Distinct().ToList();
-        var foliosOc = ocs is null || ocIds.Count == 0 ? new Dictionary<Guid, string>()
-            : (await ocs.ObtenerFoliosAsync(ocIds, ct)).ToDictionary(x => x.Key, x => x.Value);
+        var (ordenes, foliosOc) = await ResolverReferenciasAsync(db, ocs, lineas, ct);
 
         var filas = new List<TrazabilidadMpFila>();
         decimal saldo = 0m, valor = 0m, entradas = 0m, salidas = 0m;
@@ -124,7 +118,21 @@ public sealed class TrazabilidadMpHandler(AlmacenDbContext db, IArticuloReadPort
         _ => ConceptoAjuste,
     };
 
-    private static string? Referencia(LineaKardex l, Dictionary<string, string> ordenes, Dictionary<Guid, string> foliosOc)
+    /// <summary>Orden A+W de los consumos y folio de las OC de las líneas, para la columna de documento origen (también la usa el kardex).</summary>
+    internal static async Task<(Dictionary<string, string> Ordenes, Dictionary<Guid, string> FoliosOc)> ResolverReferenciasAsync(
+        AlmacenDbContext db, IComprasOcReadPort? ocs, IReadOnlyList<LineaKardex> lineas, CancellationToken ct)
+    {
+        var folios = lineas.Where(l => l.Folio != null && l.Tipo == TipoMovimiento.SalidaConsumo).Select(l => l.Folio!).Distinct().ToList();
+        var ordenes = folios.Count == 0 ? new Dictionary<string, string>()
+            : (await db.ConsumosComponenteAw.AsNoTracking().Where(c => c.Folio != null && folios.Contains(c.Folio)).Select(c => new { Folio = c.Folio!, c.Auftnr }).ToListAsync(ct))
+                .GroupBy(c => c.Folio).ToDictionary(g => g.Key, g => string.Join(", ", g.Select(c => c.Auftnr).Distinct()));
+        var ocIds = lineas.Where(l => l.OcId != null).Select(l => l.OcId!.Value).Distinct().ToList();
+        var foliosOc = ocs is null || ocIds.Count == 0 ? new Dictionary<Guid, string>()
+            : (await ocs.ObtenerFoliosAsync(ocIds, ct)).ToDictionary(x => x.Key, x => x.Value);
+        return (ordenes, foliosOc);
+    }
+
+    internal static string? Referencia(LineaKardex l, Dictionary<string, string> ordenes, Dictionary<Guid, string> foliosOc)
     {
         if (l.OcId is { } oc) return foliosOc.TryGetValue(oc, out var f) ? $"OC {f}" : "OC";
         if (l.Folio != null && ordenes.TryGetValue(l.Folio, out var o)) return $"Orden A+W {o}";
