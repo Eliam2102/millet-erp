@@ -251,6 +251,14 @@ const moduloAlmacen: NavModulo = {
           permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
         },
         {
+          label: 'Consumos en revisión',
+          description:
+            'Componentes de piezas terminadas en A+W (argón, separador, PVB) que no se descontaron por falta de norma, factor, sucursal o existencia.',
+          to: '/almacen/consumos-revision',
+          icon: ShieldAlert,
+          permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
+        },
+        {
           label: 'Conciliación diaria',
           description:
             'Existencia del ERP contra el físico que reporta A+W. Toda diferencia es una salida no planificada que se aclara con la mesa de corte.',
@@ -394,6 +402,14 @@ const moduloAlmacen: NavModulo = {
           to: '/almacen/ubicaciones',
           icon: Boxes,
           permission: PermisosCanonicos.AlmacenUbicacionesRead,
+        },
+        {
+          label: 'Normas de consumo',
+          description:
+            'Consumo por pieza y merma de cada componente (argón, separador, PVB). Sin norma, el consumo queda en revisión y no se descuenta.',
+          to: '/almacen/normas-consumo',
+          icon: Sliders,
+          permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
         },
       ],
     },
