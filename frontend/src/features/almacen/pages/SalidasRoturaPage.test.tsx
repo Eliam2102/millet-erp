@@ -53,7 +53,7 @@ const autorizada: SalidaRotura = {
 };
 
 function datos(items: SalidaRotura[]) {
-  hook.useSalidasRotura.mockReturnValue({ data: items, isLoading: false, isError: false, refetch: vi.fn() });
+  hook.useSalidasRotura.mockReturnValue({ data: items, isSuccess: true, isLoading: false, isError: false, refetch: vi.fn() });
 }
 const dar = (...p: string[]) => p.forEach((x) => permisos.activos.add(x));
 
@@ -115,4 +115,37 @@ describe('SalidasRoturaPage', () => {
     expect(screen.getByText('Fernando Alejos')).toBeInTheDocument();
     expect(screen.getAllByText('M-ROT2026-000001').length).toBeGreaterThan(0);
   });
+});
+
+  it.each(['cargando', 'error'])('los indicadores no inventan ceros mientras están %s', (estado) => {
+    hook.useSalidasRotura.mockReturnValue({ data: undefined, isSuccess: false, isLoading: estado === 'cargando', isError: estado === 'error', refetch: vi.fn() });
+    const { container } = render(<SalidasRoturaPage />, { wrapper: createQueryWrapper() });
+    const valores = container.querySelectorAll('span.text-3xl');
+    expect(valores).toHaveLength(3);
+    expect(screen.getByRole('tab', { name: 'Pendientes' })).toBeInTheDocument();
+    valores.forEach((valor) => expect(valor).toHaveTextContent('—'));
+  });
+  it('los indicadores muestran cero cuando ya cargaron sin registros', () => {
+    datos([]);
+    const { container } = render(<SalidasRoturaPage />, { wrapper: createQueryWrapper() });
+    expect(container.querySelectorAll('span.text-3xl')[0]).toHaveTextContent('0');
+    expect(container.querySelectorAll('span.text-3xl')[1]).toHaveTextContent('0');
+    const importe = container.querySelectorAll('span.text-3xl')[2];
+    expect(importe).toHaveClass('text-3xl', 'font-semibold', 'tabular-nums');
+    expect(importe.querySelector('.font-medium')).toBeNull();
+  });
+
+it('la decisión rechazada conserva su nombre y usa el tono de rechazo', () => {
+  datos([{ ...pendiente, estado: 'RECHAZADA' }]);
+  render(<SalidasRoturaPage />, { wrapper: createQueryWrapper() });
+  fireEvent.mouseDown(screen.getByRole('tab', { name: /^Rechazadas/ }));
+  expect(screen.getByText('Rechazada')).toHaveClass('bg-danger-bg', 'text-danger-fg');
+});
+
+it('no calcula un total de cero si una rotura autorizada no trae su valor', () => {
+  datos([{ ...autorizada, valorMxn: null }]);
+  const { container } = render(<SalidasRoturaPage />, { wrapper: createQueryWrapper() });
+  const importe = container.querySelectorAll('span.text-3xl')[2];
+  expect(importe).toHaveTextContent(/^—$/);
+  expect(importe.querySelector('.text-ink-muted')).toBeInTheDocument();
 });

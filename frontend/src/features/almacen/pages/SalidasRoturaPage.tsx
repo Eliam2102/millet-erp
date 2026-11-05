@@ -1,3 +1,5 @@
+import { problemaUsuario } from '@/lib/error-usuario';
+import { errorUsuario } from '@/lib/error-usuario';
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
@@ -32,13 +34,12 @@ import { CapturarRoturaSheet } from '@/features/almacen/components/CapturarRotur
 import { useDecidirRotura, useSalidasRotura, type SalidaRotura } from '@/features/almacen/api/useSalidasRotura';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError } from '@/lib/api';
 
 const ESTADOS = { 1: 'PENDIENTE', 2: 'AUTORIZADA', 3: 'RECHAZADA' } as const;
 const ESTADO_UI: Record<SalidaRotura['estado'], { texto: string; variante: BadgeProps['variant'] }> = {
   PENDIENTE: { texto: 'Pendiente de autorizar', variante: 'warning' },
   AUTORIZADA: { texto: 'Autorizada', variante: 'success' },
-  RECHAZADA: { texto: 'Rechazada', variante: 'neutral' },
+  RECHAZADA: { texto: 'Rechazada', variante: 'danger' },
 };
 const num = (n: number) => n.toLocaleString('es-MX', { maximumFractionDigits: 4 });
 const mxn = (n: number | null) => (n === null ? '—' : n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' }));
@@ -60,12 +61,15 @@ export function SalidasRoturaPage() {
   const decidir = useDecidirRotura();
   const todas = query.data ?? [];
   const items = tab ? todas.filter((r) => r.estado === ESTADOS[tab as 1 | 2 | 3]) : todas;
+  const autorizadas = todas.filter((r) => r.estado === 'AUTORIZADA');
   const conteos = {
     1: todas.filter((r) => r.estado === 'PENDIENTE').length,
-    2: todas.filter((r) => r.estado === 'AUTORIZADA').length,
+    2: autorizadas.length,
     3: todas.filter((r) => r.estado === 'RECHAZADA').length,
   };
-  const valorAutorizado = todas.filter((r) => r.estado === 'AUTORIZADA').reduce((s, r) => s + (r.valorMxn ?? 0), 0);
+  const valorAutorizado = autorizadas.some((r) => r.valorMxn == null)
+    ? null
+    : autorizadas.reduce((s, r) => s + (r.valorMxn ?? 0), 0);
 
   function resolver(accion: 'autorizar' | 'rechazar', r: SalidaRotura) {
     decidir.mutate(
@@ -78,7 +82,7 @@ export function SalidasRoturaPage() {
           setMotivoRechazo(null);
         },
         onError: (e) => {
-          toast.error(esApiError(e) ? (e.problem.detail ?? e.problem.title) : 'No se pudo guardar la decisión');
+          toast.error(errorUsuario(e, 'No se pudo guardar la decisión'));
           setAutorizando(null);
         },
       },
@@ -89,7 +93,7 @@ export function SalidasRoturaPage() {
     <div className="space-y-5">
       <PageHeader
         titulo="Salida por rotura"
-        descripcion="Material que se rompió en el almacén: sale de la existencia a costo promedio. La captura queda pendiente hasta que otro usuario con facultad la autoriza."
+        descripcion="Captura el material roto para que otro usuario autorizado apruebe su salida de existencias a costo promedio."
         acciones={
           puedeCapturar && (
             <Button onClick={() => setCapturando(true)}>
@@ -103,14 +107,14 @@ export function SalidasRoturaPage() {
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <KpiCard
           etiqueta="Pendientes de autorizar"
-          valor={conteos[1]}
+          valor={query.isSuccess ? conteos[1] : <span className="text-ink-muted">—</span>}
           tono={conteos[1] > 0 ? 'warning' : 'success'}
           subdato="No bajan el saldo hasta autorizarse"
         />
-        <KpiCard etiqueta="Autorizadas" valor={conteos[2]} tono="info" />
+        <KpiCard etiqueta="Autorizadas" valor={query.isSuccess ? conteos[2] : <span className="text-ink-muted">—</span>} tono="info" />
         <KpiCard
           etiqueta="Valor dado de baja a costo"
-          valor={<MoneyDisplay amount={valorAutorizado} currency="MXN" strong />}
+          valor={<MoneyDisplay amount={query.isSuccess ? valorAutorizado : null} currency="MXN" />}
           tono="neutral"
           subdato="Cantidad × costo promedio vigente"
         />
@@ -126,7 +130,7 @@ export function SalidasRoturaPage() {
             ]}
             valor={tab}
             onChange={setTab}
-            conteos={conteos}
+            conteos={query.isSuccess ? conteos : undefined}
             aria-label="Filtrar por estado"
           />
         }
@@ -134,7 +138,7 @@ export function SalidasRoturaPage() {
         {query.isError ? (
           <ErrorState
             title="No se pudieron cargar las salidas por rotura"
-            problem={esApiError(query.error) ? query.error.problem : undefined}
+            problem={problemaUsuario(query.error)}
             onRetry={() => query.refetch()}
           />
         ) : query.isLoading ? (

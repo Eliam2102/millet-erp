@@ -1,3 +1,5 @@
+import { problemaUsuario } from '@/lib/error-usuario';
+import { errorUsuario } from '@/lib/error-usuario';
 import { IndicadorAlmacenBadge } from '../components/IndicadorAlmacenBadge';
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { PageHeader } from '@/components/erp/PageHeader';
@@ -24,7 +26,6 @@ import {
 import { ActivosRecibidosOc } from '@/features/almacen/components/ActivosRecibidosOc';
 import { useRecepcion } from '@/features/almacen/api/useRecepciones';
 import { EstadoMovimiento, MOTIVOS_CANCELACION_RECEPCION } from '@/features/almacen/api/types';
-import { esApiError } from '@/lib/api';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { formatCantidad } from '@/lib/format-cantidad';
@@ -81,7 +82,7 @@ export function RecepcionDetallePage() {
       {query.isError ? (
         <ErrorState
           title="No se pudo cargar la recepción"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
+          problem={problemaUsuario(query.error)}
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading ? (
@@ -445,7 +446,7 @@ function ImprimirRecepcionButton({ recepcionId, folio }: { recepcionId: string; 
       await descargarComprobanteRecepcion(recepcionId, folio);
     } catch (e) {
       toast.error('No se pudo generar la recepción en PDF.', {
-        description: esApiError(e) ? e.problem.detail : 'Reintenta en unos segundos.',
+        description: errorUsuario(e, 'Reintenta en unos segundos.'),
       });
     } finally {
       setGenerando(false);
@@ -464,7 +465,7 @@ function Campo({ label, valor, mono }: { label: string; valor: string; mono?: bo
   return (
     <div>
       <dt className="text-xs text-ink-muted">{label}</dt>
-      <dd className={mono ? 'font-mono text-xs break-all' : 'text-sm'}>{valor}</dd>
+      <dd className={!valor?.trim() || valor === '—' ? 'text-sm text-ink-muted' : mono ? 'font-mono text-xs break-all' : 'text-sm'}>{valor?.trim() || '—'}</dd>
     </div>
   );
 }

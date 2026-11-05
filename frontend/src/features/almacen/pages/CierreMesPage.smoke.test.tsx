@@ -120,7 +120,7 @@ describe('<CierreMesPage> — cierre y toasts', () => {
       ),
     );
     expect(toastMock.error).toHaveBeenCalledWith('Periodo con pendientes', {
-      description: '2 conteos pendientes en el periodo.',
+      description: 'Hay conteos pendientes en el periodo. Aplícalos o cancélalos antes de cerrar.',
     });
   });
 });
