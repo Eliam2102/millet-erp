@@ -1,3 +1,4 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,7 +11,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { esApiError } from '@/lib/api';
 
 interface Props {
   /** `null` = cerrado. */
@@ -33,7 +33,7 @@ export function CambioEstatusMaestroDialog({ modo, etiqueta, pending, error, onC
   const trim = motivo.trim();
   const valido = trim.length >= 5 && trim.length <= 500;
   const inactivar = modo === 'desactivar';
-  const mensaje = error == null ? null : esApiError(error) ? (error.problem.detail ?? error.problem.title) : error.message;
+  const mensaje = error == null ? null : errorUsuario(error);
 
   return (
     <Dialog
