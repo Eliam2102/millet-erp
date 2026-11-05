@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -296,5 +298,69 @@ public sealed partial class ListenersContabilidadTests
             sm.Partidas.Should().Contain(x => x.CuentaId == e.Cuentas["INVENTARIO"] && x.Abono == 300m);
         }
         finally { await LimpiarAsync(e); }
+    }
+
+    // ---------------------------------------------------------------- H1 · reglas de dimensión de K10.2 (C-03)
+
+    /// <summary>
+    /// H1 (QA de U-2): con la regla C-03 activa (cuentas de gasto piden ubicación y área), el costo de importación y la salida G-1 sin
+    /// centro de costo se quedan en la bandeja con «Dato faltante»; la salida con el centro del vale (equipo, de ahí se derivan área y
+    /// ubicación) sí genera su póliza. Las reglas cuelgan de la cuenta padre de gastos del escenario y se borran al final.
+    /// </summary>
+    [Fact]
+    public async Task U2_H1_con_la_regla_C03_activa_lo_que_pega_en_gastos_sin_centro_queda_en_la_bandeja()
+    {
+        Escenario? e = null;
+        Guid? gastos = null;
+        try
+        {
+            e = await PrepararAsync();
+            using (var scope = factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<ContabilidadDbContext>();
+                gastos = await db.Cuentas.IgnoreQueryFilters().Where(c => c.Id == e.Cuentas["MERMA"]).Select(c => c.PadreId).SingleAsync();
+            }
+            foreach (var dim in new[] { "Dim1", "Dim2" })
+                (await e.Admin.PostAsJsonAsync($"{Base}/reglas-dimension", new
+                {
+                    cuentaId = gastos, tipoDocumentoId = (Guid?)null, dimension = dim, requerimiento = "Obligatorio",
+                    vigenteDesde = new DateOnly(2026, 1, 1), vigenteHasta = (DateOnly?)null, esPrueba = true, nota = "FIX regla C-03 (H1)",
+                })).StatusCode.Should().Be(HttpStatusCode.Created);
+
+            // Costo de importación: la parte vendida pega en gasto (COSTO_IMPORTACION_A_RESULTADOS) y el evento no trae centro.
+            var expediente = Guid.NewGuid();
+            var eventoCosto = await Almacen(new ExpedienteCostoAplicadoEvent(EmpresaBootstrapId, Ahora, expediente, 1,
+                [new CostoPartidaAplicado(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 10_000m, 8_000m, 2_000m)],
+                e.Sucursal));
+            (await PolizasAsync(expediente)).Should().BeEmpty();
+            (await RechazoAsync(eventoCosto))!.Causa.Should().Be(CausaRechazoContable.DatoFaltante);
+
+            // Salida G-1 por rotura sin centro: MERMA es gasto → bandeja.
+            var sinCentro = Guid.NewGuid();
+            var eventoSinCentro = await Almacen(new SalidaInventarioRegistradaIntegrationEvent(EmpresaBootstrapId, Ahora, sinCentro, "SAL-FIX-H1A", Hoy(),
+                "rotura", "FIX", Guid.NewGuid(), e.Sucursal, null, 300m, [new LineaSalidaInventarioPayload(Guid.NewGuid(), Guid.NewGuid(), "PZA", 3m, 100m, 300m)]));
+            (await PolizasAsync(sinCentro)).Should().BeEmpty();
+            (await RechazoAsync(eventoSinCentro))!.Causa.Should().Be(CausaRechazoContable.DatoFaltante);
+
+            // La misma salida con el centro del vale (equipo): el validador deriva área y ubicación y la póliza nace.
+            var conCentro = Guid.NewGuid();
+            var eventoConCentro = await Almacen(new SalidaInventarioRegistradaIntegrationEvent(EmpresaBootstrapId, Ahora, conCentro, "SAL-FIX-H1B", Hoy(),
+                "rotura", "FIX", Guid.NewGuid(), e.Sucursal, e.CentroCosto, 300m,
+                [new LineaSalidaInventarioPayload(Guid.NewGuid(), Guid.NewGuid(), "PZA", 3m, 100m, 300m, e.CentroCosto)]));
+            (await RechazoAsync(eventoConCentro)).Should().BeNull();
+            var sm = (await PolizasAsync(conCentro)).Should().ContainSingle().Subject;
+            sm.Partidas.Should().Contain(x => x.CuentaId == e.Cuentas["MERMA"] && x.Cargo == 300m);
+        }
+        finally
+        {
+            if (gastos is { } padre)
+            {
+                using var scope = factory.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<ContabilidadDbContext>();
+                await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.reglas_dimension_uso WHERE regla_id IN (SELECT id FROM contabilidad.reglas_dimension WHERE cuenta_id = {0})", padre);
+                await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.reglas_dimension WHERE cuenta_id = {0}", padre);
+            }
+            await LimpiarAsync(e);
+        }
     }
 }
