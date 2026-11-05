@@ -1,3 +1,5 @@
+import { MoneyDisplay, ErrorState, TableSkeleton } from '@/components/erp';
+import { problemaConsulta } from '@/components/erp/feedback/problema-consulta';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { CreditCard, RefreshCw, Upload } from 'lucide-react';
@@ -20,7 +22,6 @@ import {
   useTransaccionesTerminal,
   type CargaTerminal,
 } from '@/features/facturacion/api/useTerminalTarjeta';
-import { esApiError } from '@/lib/api';
 import { FacturaBancoTerminalSection } from './FacturaBancoTerminalSection';
 
 const PESTANAS = [
@@ -29,9 +30,6 @@ const PESTANAS = [
   { valor: EstadoTransaccionTerminal.Rechazada, etiqueta: 'Rechazadas' },
 ] as const;
 
-function mxn(v: number | null): string {
-  return v == null ? '—' : v.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
-}
 
 /**
  * 86e3vr1tf · Parte A: el supervisor de caja sube el archivo diario de la
@@ -61,8 +59,7 @@ export function TerminalTarjetaCard() {
           setResultado(r);
           toast.success(`Archivo cargado: ${r.nuevos} venta(s) nuevas, ${r.emparejados} emparejada(s).`);
         },
-        onError: (e) =>
-          toast.error(esApiError(e) ? (e.problem.detail ?? e.problem.title) : 'No se pudo cargar el archivo.'),
+        onError: () => toast.error('No se pudo cargar el archivo. Revisa los datos y tu conexión antes de volver a intentarlo.'),
       },
     );
   }
@@ -72,8 +69,7 @@ export function TerminalTarjetaCard() {
       { idempotencyKey: crypto.randomUUID() },
       {
         onSuccess: (r) => toast.success(`${r.emparejados} venta(s) emparejadas en el reintento.`),
-        onError: (e) =>
-          toast.error(esApiError(e) ? (e.problem.detail ?? e.problem.title) : 'No se pudo reintentar.'),
+        onError: () => toast.error('No se pudo reintentar. Revisa los datos y tu conexión antes de volver a intentarlo.'),
       },
     );
   }
@@ -114,7 +110,8 @@ export function TerminalTarjetaCard() {
           <Label htmlFor="terminal-fecha">Día de las transacciones</Label>
           <Input id="terminal-fecha" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
         </div>
-        <Button size="sm" onClick={onCargar} disabled={cargar.isPending || archivo == null || fecha === ''}>
+        <Button size="sm" onClick={onCargar} disabled={cargar.isPending || archivo == null || fecha === ''}
+          title={archivo == null || fecha === '' ? 'Elige el archivo y el día de las transacciones.' : cargar.isPending ? 'Espera a que termine de cargarse el archivo.' : undefined}>
           <Upload className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
           Cargar archivo
         </Button>
@@ -142,7 +139,9 @@ export function TerminalTarjetaCard() {
         </TabsList>
       </Tabs>
 
-      {items.length === 0 ? (
+      {transacciones.isError ? (
+        <ErrorState title="No se pudieron cargar las ventas de la terminal" problem={problemaConsulta(transacciones.error)} onRetry={() => transacciones.refetch()} />
+      ) : transacciones.isLoading ? <TableSkeleton rows={3} /> : items.length === 0 ? (
         <p className="text-sm text-ink-muted">Sin ventas en esta pestaña.</p>
       ) : (
         <div className="overflow-x-auto rounded-md border border-line">
@@ -163,13 +162,13 @@ export function TerminalTarjetaCard() {
               {items.map((t) => (
                 <TableRow key={t.id}>
                   <TableCell className="font-mono text-xs">{t.noOperacion}</TableCell>
-                  <TableCell className="font-mono text-xs">{t.autorizacion ?? '—'}</TableCell>
-                  <TableCell className="text-right tabular-nums">{mxn(t.importe)}</TableCell>
-                  <TableCell className="text-xs">{t.folioComprobante ?? '—'}</TableCell>
-                  <TableCell className="text-right tabular-nums">{mxn(t.comision)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{mxn(t.ivaComision)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{mxn(t.neto)}</TableCell>
-                  <TableCell className="text-xs">{t.folioLiquidacion ?? '—'}</TableCell>
+                  <TableCell className="font-mono text-xs">{t.autorizacion || <span className="text-ink-muted">—</span>}</TableCell>
+                  <TableCell className="text-right tabular-nums"><MoneyDisplay amount={t.importe} currency={t.moneda} /></TableCell>
+                  <TableCell className="text-xs">{t.folioComprobante || <span className="text-ink-muted">—</span>}</TableCell>
+                  <TableCell className="text-right tabular-nums"><MoneyDisplay amount={t.comision} currency={t.moneda} /></TableCell>
+                  <TableCell className="text-right tabular-nums"><MoneyDisplay amount={t.ivaComision} currency={t.moneda} /></TableCell>
+                  <TableCell className="text-right tabular-nums"><MoneyDisplay amount={t.neto} currency={t.moneda} /></TableCell>
+                  <TableCell className="text-xs">{t.folioLiquidacion || <span className="text-ink-muted">—</span>}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

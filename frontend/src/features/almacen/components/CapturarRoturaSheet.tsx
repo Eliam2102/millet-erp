@@ -1,3 +1,4 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -85,7 +86,7 @@ function Formulario({ onListo, onCancel }: { onListo: () => void; onCancel: () =
           onListo();
         },
         onError: (error) =>
-          toast.error(esApiError(error) ? (error.problem.detail ?? error.problem.title) : 'No se pudo capturar la rotura', {
+          toast.error(errorUsuario(error, 'No se pudo capturar la rotura'), {
             description: esApiError(error) ? codigoSoporte(error) : undefined,
           }),
       },

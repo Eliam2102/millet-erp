@@ -1,3 +1,5 @@
+import { problemaUsuario } from '@/lib/error-usuario';
+import { errorUsuario } from '@/lib/error-usuario';
 import { MontoMovimiento } from '@/components/erp/display/MontoMovimiento';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { BarraFiltros, TabsEstado, PaginacionTabla } from '@/components/erp';
@@ -49,8 +51,8 @@ export function BandejaPagosACuenta() {
       {
         onSuccess: () => toast.success('Pago a cuenta autorizado'),
         onError: (e) =>
-          toast.error(esApiError(e) ? e.problem.title : 'No se pudo autorizar el pago a cuenta', {
-            description: esApiError(e) ? e.problem.detail : undefined,
+          toast.error(errorUsuario(e, 'No se pudo autorizar el pago a cuenta'), {
+            description: esApiError(e) ? errorUsuario(e) : undefined,
           }),
       },
     );
@@ -74,8 +76,7 @@ export function BandejaPagosACuenta() {
         titulo={<>Pagos a cuenta</>}
         descripcion={
           <>
-            Egresos sin documento ligado, con antigüedad. Máximo uno abierto por proveedor; liga el
-            abierto cuando CxP provisione.
+            Registra los egresos sin factura vinculada y relaciónalos después con el pasivo de CxP, con un máximo de uno abierto por proveedor.
           </>
         }
         acciones={
@@ -113,7 +114,7 @@ export function BandejaPagosACuenta() {
         {query.isError ? (
           <ErrorState
             title="No se pudieron cargar los pagos a cuenta"
-            problem={esApiError(query.error) ? query.error.problem : undefined}
+            problem={problemaUsuario(query.error)}
             onRetry={() => query.refetch()}
           />
         ) : query.isLoading ? (
@@ -132,7 +133,7 @@ export function BandejaPagosACuenta() {
           <EmptyState
             icon={<HandCoins className="h-10 w-10" />}
             title="Sin pagos a cuenta abiertos."
-            description="Cuando ocurra un pago urgente sin factura, regístralo aquí — el limbo se registra, no se oculta."
+            description="Registra un pago urgente sin factura desde «Nuevo pago a cuenta»."
           />
         ) : (
           <div className="overflow-x-auto rounded-md border">

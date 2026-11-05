@@ -1,3 +1,4 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import { useMemo, useState } from 'react';
 import { CheckCircle2, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
@@ -59,7 +60,7 @@ export function TallerCierrePage() {
     <div className="space-y-6">
       <PageHeader
         titulo="Taller de sucursal"
-        descripcion="Cierre de día del almacenista. Los pedidos internos Serie 9000 descargan el inventario de hojas del taller; no se facturan."
+        descripcion="Registra el cierre diario del taller con las hojas descargadas por pedidos internos Serie 9000, que no se facturan."
       />
 
       <section className="grid gap-4 rounded-lg border border-line-row bg-surface-card p-4 sm:grid-cols-2 lg:max-w-2xl">
@@ -166,7 +167,7 @@ export function TallerCierrePage() {
                         {d.estado === 'RECIBIDO' ? (
                           <Badge variant="success">Descargado</Badge>
                         ) : (
-                          <span title={d.error ?? undefined}>
+                          <span title="Revisa el pedido en A+W y vuelve a procesar la descarga.">
                             <Badge variant="warning">En revisión</Badge>
                           </span>
                         )}
@@ -245,10 +246,10 @@ function CierreForm({
         onSuccess: () => toast.success(corrigiendo ? 'Cierre corregido' : 'Día cerrado'),
         onError: (error) =>
           esApiError(error)
-            ? toast.error(error.problem.detail ?? error.problem.title, {
+            ? toast.error(errorUsuario(error), {
                 description: codigoSoporte(error),
               })
-            : toast.error('No se pudo guardar el cierre.'),
+            : toast.error("No se pudo guardar el cierre. Revisa los datos del registro; si continúa, avisa a soporte."),
       },
     );
   }
@@ -275,7 +276,7 @@ function CierreForm({
             onChange={(e) => setHojas(e.target.value)}
           />
         </Field>
-        <Field label="Retazos tomados" required hint="Se cuentan, no se valúan (F2-RET).">
+        <Field label="Retazos tomados" required hint="Indica cuántos retazos se usaron.">
           <Input
             type="number"
             min={0}
@@ -288,7 +289,7 @@ function CierreForm({
         <Field
           label="m² cortados en el día"
           required
-          hint="Vendidos o cortados; si Facturación no trae el m² por línea, se captura aquí."
+          hint="Vendidos o cortados; si Facturación no trae el m² por partida, se captura aquí."
         >
           <Input
             type="number"

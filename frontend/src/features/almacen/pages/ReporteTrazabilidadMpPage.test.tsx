@@ -13,7 +13,7 @@ vi.mock('@/components/erp', async (importOriginal) => ({
 }));
 
 const reporte = {
-  titulo: 'TRAZABILIDAD-MP',
+  titulo: "Trazabilidad de materia prima",
   generadoEn: '2027-03-31T18:00:00Z',
   filtrosAplicados: { articulo: 'VID-6 · Vidrio flotado 6 mm', lote: 'L-100' },
   columnas: [

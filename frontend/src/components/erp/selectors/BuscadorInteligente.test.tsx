@@ -44,6 +44,7 @@ describe('<BuscadorInteligente>', () => {
   it('tiene una sola caja de búsqueda', () => {
     renderBuscador();
     expect(screen.getAllByRole('textbox')).toHaveLength(1);
+    expect(screen.getByRole('textbox', { name: 'Buscar cosa' })).toHaveClass('focus-visible:outline-2', 'focus-visible:outline-brand');
     expect(screen.getByRole('textbox', { name: 'Buscar cosa' })).toHaveAttribute(
       'placeholder',
       'Buscar por clave o nombre…',

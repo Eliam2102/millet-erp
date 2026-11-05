@@ -21,6 +21,9 @@ describe('PropuestaAplicacionSchema', () => {
       PropuestaAplicacionSchema.safeParse({ ...base, remittanceRef: '' })
         .success,
     ).toBe(false);
+    const resultado = PropuestaAplicacionSchema.safeParse({ ...base, remittanceRef: '' });
+    if (resultado.success) throw new Error('Se esperaba rechazo del aviso vacío');
+    expect(resultado.error.issues[0].message).toBe('Sin aviso de pago del cliente no se puede proponer');
   });
 
   it('rechaza monto <= 0 y depósito sin referencia', () => {

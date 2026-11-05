@@ -1,3 +1,4 @@
+import { problemaConsulta } from '@/components/erp/feedback/problema-consulta';
 import { FormGrid, FormCampo, PageHeader, ErrorState } from '@/components/erp';
 
 import { useEffect, useState } from 'react';
@@ -36,7 +37,7 @@ import {
   type EditarLineaCreditoValues,
 } from '@/features/cxc/schemas/linea-credito';
 import type { LineasSearch } from '@/features/cxc/lib/lineas-search-schema';
-import { applyServerErrors, esApiError, codigoSoporte } from '@/lib/api';
+import { applyServerErrors, esApiError } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 
@@ -55,7 +56,7 @@ export function DetalleLineaCredito() {
       {query.isError ? (
         <ErrorState
           title="No se pudo cargar la línea de crédito"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
+          problem={problemaConsulta(query.error)}
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading || query.data == null ? (
@@ -100,9 +101,7 @@ function Contenido({ linea }: { linea: LineaCreditoResponse }) {
         onConflicto(error.traceId);
         return;
       }
-      toast.error(error.problem.title, {
-        description: error.problem.detail ?? codigoSoporte(error),
-      });
+      toast.error('No se pudo actualizar la línea de crédito. Revisa los datos y tu conexión antes de volver a intentarlo.');
       return;
     }
     toast.error(fallback);
@@ -196,10 +195,10 @@ function Contenido({ linea }: { linea: LineaCreditoResponse }) {
               <Dato etiqueta="Origen">{ETIQUETA_ORIGEN_LINEA[linea.origen]}</Dato>
               <Dato etiqueta="Clasificación">{linea.clasificacion ?? 'Sin clasificar'}</Dato>
               <Dato etiqueta="RFC">
-                <span className="font-mono">{cliente?.rfc ?? '—'}</span>
+                <span className="font-mono">{cliente?.rfc || <span className="text-ink-muted">—</span>}</span>
               </Dato>
               <Dato etiqueta="Clave del cliente">
-                <span className="font-mono">{cliente?.clave ?? '—'}</span>
+                <span className="font-mono">{cliente?.clave || <span className="text-ink-muted">—</span>}</span>
               </Dato>
             </dl>
           ) : (
@@ -210,7 +209,7 @@ function Contenido({ linea }: { linea: LineaCreditoResponse }) {
             />
           )}
           <p className="mt-4 text-xs text-ink-muted">
-            Cliente, moneda y origen son inmutables: para cambiarlos se bloquea esta línea y se crea
+            Cliente, moneda y origen no se pueden editar: para cambiarlos se bloquea esta línea y se crea
             otra.
           </p>
         </section>
@@ -346,9 +345,7 @@ function EditarLineaInlineForm({
             ) {
               return;
             }
-            toast.error(error.problem.title, {
-              description: error.problem.detail ?? undefined,
-            });
+            toast.error('No se pudo actualizar la línea de crédito. Revisa los datos y tu conexión antes de volver a intentarlo.');
             return;
           }
           toast.error('Error inesperado al actualizar la línea.');

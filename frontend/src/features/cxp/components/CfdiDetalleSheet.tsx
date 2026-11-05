@@ -1,3 +1,5 @@
+import { formatMoney } from '@/lib/money';
+import { errorUsuario } from '@/lib/error-usuario';
 import { useState } from 'react';
 import { Download, FileText } from 'lucide-react';
 import { toast } from 'sonner';
@@ -10,6 +12,8 @@ import {
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { esApiError } from '@/lib/api';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
+import { SheetBody } from '@/components/ui/sheet';
 import { fechaLocalISO } from '@/lib/datetime';
 import {
   useCfdiDetalle,
@@ -48,14 +52,14 @@ export function CfdiDetalleSheet({
 }: CfdiDetalleSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" size="legacy">
+      <SheetContent side="right" size="lg">
         <SheetHeader>
           <SheetTitle>Detalle del CFDI</SheetTitle>
           <SheetDescription className="font-mono text-xs">
             {cfdi?.uuidCfdi ?? ''}
           </SheetDescription>
         </SheetHeader>
-        {open && cfdi && <Detalle cfdiId={cfdi.id} />}
+        <SheetBody>{open && cfdi && <Detalle cfdiId={cfdi.id} />}</SheetBody>
       </SheetContent>
     </Sheet>
   );
@@ -77,7 +81,7 @@ function Detalle({ cfdiId }: { cfdiId: string }) {
       await descargarXmlCfdi(d.id, d.uuidCfdi);
     } catch (error) {
       toast.error(
-        esApiError(error) ? error.problem.title : 'Error al descargar el XML.',
+        errorUsuario(error, 'Error al descargar el XML.'),
       );
     } finally {
       setDescargando(false);
@@ -98,7 +102,7 @@ function Detalle({ cfdiId }: { cfdiId: string }) {
   }
 
   return (
-    <div className="space-y-4 px-4 pb-6">
+    <div className="space-y-4">
       <section className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-md border p-4 text-sm md:grid-cols-3">
         <Metadato label="RFC emisor" valor={d.rfcEmisor} mono />
         <Metadato label="Tipo" valor={TipoCfdiLabels[d.tipo]} />
@@ -107,8 +111,8 @@ function Detalle({ cfdiId }: { cfdiId: string }) {
           valor={d.serie ? `${d.serie}-${d.folio ?? ''}` : (d.folio ?? '—')}
           mono
         />
-        <Metadato label="Fecha CFDI" valor={fechaLocalISO(d.fechaCfdi)} />
-        <Metadato label="Recepción" valor={fechaLocalISO(d.fechaRecepcion)} />
+        <Metadato label="Fecha CFDI" valor={<DateTimeDisplay value={d.fechaCfdi ? fechaLocalISO(d.fechaCfdi) : null} variant="media" />} />
+        <Metadato label="Recepción" valor={<DateTimeDisplay value={d.fechaRecepcion ? fechaLocalISO(d.fechaRecepcion) : null} variant="media" />} />
         <Metadato label="Canal" valor={CanalOrigenCfdiLabels[d.canalOrigen]} />
         <Metadato label="Subtotal" valor={monto(d.subtotal, d.moneda)} mono />
         <Metadato
@@ -205,7 +209,7 @@ function Detalle({ cfdiId }: { cfdiId: string }) {
           <p className="rounded-md border border-dashed px-3 py-3 text-xs text-muted-foreground">
             No se pudo leer el XML del CFDI
             {esApiError(parseadoQuery.error)
-              ? ` (${parseadoQuery.error.problem.title})`
+              ? ` (${errorUsuario(parseadoQuery.error)})`
               : ''}
             . Los importes del encabezado provienen de la importación.
           </p>
@@ -235,17 +239,17 @@ function Detalle({ cfdiId }: { cfdiId: string }) {
                     <td className="max-w-72 truncate px-3 py-2">
                       {l.descripcion}
                     </td>
-                    <td className="px-3 py-2 text-right font-mono">
+                    <td className="px-3 py-2 text-right font-mono tabular-nums">
                       {l.cantidad}
                     </td>
                     <td className="px-3 py-2 text-xs">
                       {l.unidad ?? l.claveUnidad}
                     </td>
-                    <td className="px-3 py-2 text-right font-mono">
-                      {l.valorUnitario.toFixed(2)}
+                    <td className="px-3 py-2 text-right font-mono tabular-nums">
+                      {monto(l.valorUnitario, d.moneda)}
                     </td>
-                    <td className="px-3 py-2 text-right font-mono">
-                      {l.importe.toFixed(2)}
+                    <td className="px-3 py-2 text-right font-mono tabular-nums">
+                      {monto(l.importe, d.moneda)}
                     </td>
                   </tr>
                 ))}
@@ -264,25 +268,17 @@ function Metadato({
   mono,
 }: {
   label: string;
-  valor: string;
+  valor: React.ReactNode;
   mono?: boolean;
 }) {
   return (
     <div>
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className={mono ? 'break-all font-mono text-xs' : ''}>{valor}</dd>
+      <dd className={valor == null || valor === '' || valor === '—' ? 'text-ink-muted' : mono ? 'break-all font-mono text-xs tabular-nums' : ''}>{valor == null || valor === '' ? '—' : valor}</dd>
     </div>
   );
 }
 
-function monto(v: number, moneda: string): string {
-  try {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: moneda,
-      minimumFractionDigits: 2,
-    }).format(v);
-  } catch {
-    return `${v.toFixed(2)} ${moneda}`;
-  }
+function monto(v: number | null | undefined, moneda: string): string {
+  return v != null && Number.isFinite(v) ? formatMoney({ amount: v, currency: moneda }) : '—';
 }

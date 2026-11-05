@@ -11,7 +11,6 @@ using Millet.Facturacion.Domain.Pedidos;
 using Millet.Facturacion.Infrastructure.Persistence;
 using Millet.Integraciones.Fiscal.Domain.Ports;
 using Millet.SharedKernel.Application;
-using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Facturacion.Application.NotasCredito;
 
@@ -29,8 +28,8 @@ namespace Millet.Facturacion.Application.NotasCredito;
 /// emisión directa (<c>EmitirFacturaVentaHandler</c>), reintento
 /// (<c>ReintentarTimbradoHandler</c>) y pedimento diferido
 /// (<c>AplicarPedimentoHandler</c>). Idempotente: si la factura ya tiene una
-/// NC de ranura vigente, no emite otra. Si la NC no queda timbrada, LANZA —
-/// mismo rollback total que la NC de amortización (§3.bis.4).
+/// NC de ranura vigente (timbrada o pendiente de timbrar), no emite otra. Si
+/// la NC no queda timbrada, queda pendiente de timbrar (U-1); el caller guarda.
 /// </para>
 /// </summary>
 public static class NcRanuraEmisor
@@ -128,18 +127,18 @@ public static class NcRanuraEmisor
             nc, CfdiEmisionBuilder.DesdeNotaCredito(nc, ahora),
             fiscal, cfdiRepo, ahora, cancellationToken);
 
-        if (timbre.Estado != TimbradoEstado.Timbrado || string.IsNullOrWhiteSpace(timbre.Uuid))
-            throw new BusinessRuleException(
-                "NC_RANURA_NO_TIMBRADA",
-                $"La NC de la ranura del pedido {pedido.NumeroPedido} no se timbró " +
-                $"({timbre.Estado}); se aborta la operación (rollback total).");
-
         db.NotasCredito.Add(nc);
 
-        await eventos.PublishAsync(EventosContablesFacturacion.NotaCreditoTimbrada(nc, ahora, factura.Id, clienteId: pedido.ClienteId),
-            cancellationToken);
+        // U-1 (86e3yxn2p): si la NC no timbra, la factura timbrada NO se pierde:
+        // la NC queda pendiente de timbrar (TimbradoFallido o en proceso) ligada a
+        // la factura, con el motivo del PAC, y se reintenta desde la bandeja. Su
+        // evento contable (póliza #9) sale solo cuando quede timbrada.
+        if (timbre.Estado == TimbradoEstado.Timbrado && !string.IsNullOrWhiteSpace(timbre.Uuid))
+            await eventos.PublishAsync(EventosContablesFacturacion.NotaCreditoTimbrada(nc, ahora, factura.Id, clienteId: pedido.ClienteId),
+                cancellationToken);
 
-        return new NotaCreditoRanuraEmitida(nc.Id, nc.Folio, nc.Uuid, nc.Total);
+        return new NotaCreditoRanuraEmitida(nc.Id, nc.Folio, nc.Uuid, nc.Total,
+            nc.Estado.ToString(), nc.TimbradoErrorCodigo, nc.TimbradoErrorMensaje);
     }
 }
 
@@ -148,4 +147,8 @@ public sealed record NotaCreditoRanuraEmitida(
     Guid Id,
     string Folio,
     string? Uuid,
-    decimal Total);
+    decimal Total,
+    // U-1: «Timbrado» o el estado en que quedó pendiente, con el motivo del PAC.
+    string Estado = "Timbrado",
+    string? TimbradoErrorCodigo = null,
+    string? TimbradoErrorMensaje = null);

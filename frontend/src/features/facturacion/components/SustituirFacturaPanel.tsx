@@ -1,8 +1,9 @@
+import { problemaConsulta } from '@/components/erp/feedback/problema-consulta';
 import { ErrorState } from '@/components/erp';
 import { EmitirFacturaForm } from '@/features/facturacion/components/emitir-factura/EmitirFacturaForm';
 import { useDatosSustitucion } from '@/features/facturacion/api/useFacturas';
 import { prefillSustitucion } from '@/features/facturacion/lib/prefill-sustitucion';
-import { esApiError } from '@/lib/api';
+import { estadoUi } from '@/features/facturacion/lib/estados-ui';
 import { useNavigate } from '@tanstack/react-router';
 import { toast } from 'sonner';
 
@@ -21,7 +22,7 @@ export function SustituirFacturaPanel({ facturaId, onDone }: { facturaId: string
     return (
       <ErrorState
         title="No se puede sustituir la factura"
-        problem={esApiError(datos.error) ? datos.error.problem : undefined}
+        problem={problemaConsulta(datos.error)}
         onRetry={() => void datos.refetch()}
       />
     );
@@ -37,7 +38,7 @@ export function SustituirFacturaPanel({ facturaId, onDone }: { facturaId: string
           toast.success(
             res.estado === 'Timbrado'
               ? `Sustituta ${res.folio} timbrada. La cancelación de ${datos.data.sustituyeFolio} queda pendiente de autorización.`
-              : `Sustituta ${res.folio} guardada (${res.estado}). Al timbrarla se pedirá la cancelación de ${datos.data.sustituyeFolio}.`,
+              : `Sustituta ${res.folio} guardada (${estadoUi('factura', res.estado).texto}). Al timbrarla se pedirá la cancelación de ${datos.data.sustituyeFolio}.`,
           );
           onDone();
           void navigate({ to: '/facturacion/facturas/$id', params: { id: res.id } });

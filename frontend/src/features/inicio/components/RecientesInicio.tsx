@@ -89,7 +89,7 @@ export function RecientesInicio({
                   <Link
                     to="/admin/auditoria"
                     search={{}}
-                    title={resumen}
+                    title={detalle}
                     className="flex h-full min-w-0 flex-col gap-1 rounded-md border border-line-row bg-surface-subtle px-3 py-2 transition-colors hover:border-line-control hover:bg-surface-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                   >
                     <span className="flex min-w-0 items-baseline gap-2">

@@ -1,3 +1,4 @@
+import { problemaUsuario } from '@/lib/error-usuario';
 import { KpiCard } from '@/components/erp/display/KpiCard';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { PageHeader } from '@/components/erp/PageHeader';
@@ -47,7 +48,6 @@ import {
 } from '@/features/almacen/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError } from '@/lib/api';
 import { NuevaSalidaSheet } from '@/features/almacen/components/NuevaSalidaSheet';
 import type { SalidasSearch } from '@/features/almacen/lib/salidas-search-schema';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -127,7 +127,7 @@ export function SalidasPage() {
     <div className="space-y-5">
       <PageHeader
         titulo="Salidas"
-        descripcion="Surtido de requisiciones aprobadas y vales urgentes. El comprobante PDF se descarga del detalle."
+        descripcion="Surte requisiciones aprobadas o registra vales urgentes y descarga el comprobante desde su detalle."
         acciones={
           <>
             {(puedeRotura || puedeAutorizarRotura) && (
@@ -158,7 +158,7 @@ export function SalidasPage() {
             aria-pressed={search.estado === tab.valor}
             onClick={() => actualizarSearch({ estado: tab.valor as typeof search.estado })}
           >
-            <KpiCard etiqueta={tab.label} valor={conteos.data?.[tab.valor] ?? '—'} />
+            <KpiCard etiqueta={tab.label} valor={conteos.data && !conteos.isError ? (conteos.data[tab.valor] ?? 0) : <span className="text-ink-muted">—</span>} />
           </Button>
         ))}
       </div>
@@ -170,7 +170,7 @@ export function SalidasPage() {
             onChange={(estado) =>
               actualizarSearch({ estado: estado as EstadoMovimiento | undefined })
             }
-            conteos={conteos.data}
+            conteos={conteos.isError ? undefined : conteos.data}
           />
         }
         filtros={
@@ -193,7 +193,7 @@ export function SalidasPage() {
         {query.isError ? (
           <ErrorState
             title="No se pudieron cargar las salidas"
-            problem={esApiError(query.error) ? query.error.problem : undefined}
+            problem={problemaUsuario(query.error)}
             onRetry={() => query.refetch()}
           />
         ) : query.isLoading ? (

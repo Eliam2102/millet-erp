@@ -99,7 +99,7 @@ public sealed class CfdiPdfFormatoMilletTests
     }
 
     [Fact]
-    public void Nota_de_credito_imprime_los_comentarios_libres_debajo_del_motivo()
+    public void Nota_de_credito_imprime_solo_los_comentarios_libres_sin_el_motivo()
     {
         var nc = NotaCredito.CrearAmortizacion(Empresa, "DEMON-000302", 302, Sucursal, null, null, Receptor, Emisor,
             "03", "MXN", null, 2026, 10, null, Guid.NewGuid(), Guid.NewGuid(), 1160, 0.16m);
@@ -108,11 +108,22 @@ public sealed class CfdiPdfFormatoMilletTests
 
         var m = CfdiPdfModelBuilder.DesdeNotaCredito(nc, Datos);
 
-        m.Comentarios.Should().Be(
-            "Motivo / Reason: Aplicación de anticipo / Advance payment application\nAplica al pedido PED-77 de la obra Torre Norte.");
+        // FMT-6: «Comentarios - Comments» lleva solo el texto del usuario; el motivo ya no se antepone.
+        m.Comentarios.Should().Be("Aplica al pedido PED-77 de la obra Torre Norte.");
         NotaCreditoAmortizacion().Comentarios.Should().BeNull();
-        CfdiPdfModelBuilder.DesdeNotaCredito(NotaCreditoAmortizacion(), Datos).Comentarios
-            .Should().Be("Motivo / Reason: Aplicación de anticipo / Advance payment application");
+        CfdiPdfModelBuilder.DesdeNotaCredito(NotaCreditoAmortizacion(), Datos).Comentarios.Should().BeNull();
+    }
+
+    [Fact]
+    public void Nota_de_credito_de_bonificacion_sin_comentario_no_imprime_el_motivo()
+    {
+        // FMT-6: el bloque «Comentarios - Comments» de toda NC lleva solo el texto del usuario.
+        var nc = NotaCredito.CrearBonificacion(Empresa, "DEMON-000303", 303, Sucursal, null, null, Receptor, Emisor,
+            "03", "MXN", null, 2026, 10, null, Guid.NewGuid(), 116, 0.16m, null);
+
+        CfdiPdfModelBuilder.DesdeNotaCredito(nc, Datos).Comentarios.Should().BeNull();
+        nc.FijarComentarios("Bonificación por pronto pago.");
+        CfdiPdfModelBuilder.DesdeNotaCredito(nc, Datos).Comentarios.Should().Be("Bonificación por pronto pago.");
     }
 
     [Fact]
@@ -235,6 +246,30 @@ public sealed class CfdiPdfFormatoMilletTests
         var m = CfdiPdfModelBuilder.DesdeFactura(f, Datos, new Dictionary<Guid, string> { [producto] = "VIDB0002" });
 
         m.Conceptos.Select(CfdiMilletDocument.Codigo).Should().Equal("VIDB0002 / 30171710", "30171700");
+    }
+
+    [Theory]
+    [InlineData(269.10)]
+    [InlineData(1269.10)]
+    public void El_total_SqFt_Piez2_queda_en_un_renglon_con_su_valor(double pie2)
+    {
+        var f = FacturaVenta.CrearBorrador(Empresa, "DEMOF-000104", 104, Sucursal, null, null, Receptor, Emisor,
+            "PUE", "03", "MXN", null, 2026, 10, 1, ComportamientoFiscal.MostradorInmediato, null, null, null, false);
+        f.AgregarLinea(null, "30171700", "VIDRIO TEMPLADO DEMO", "H87", 1, 1000, 0, "02", 0.16m, null, null,
+            referencia: "PED-DEMO-1", pesoKg: 190.75m, areaPie2: (decimal)pie2);
+        f.RecalcularTotales();
+        Timbrar(f, "00000000-0000-4000-8000-000000000104");
+
+        var pdf = new QuestPdfFacturaGenerator().Generar(CfdiPdfModelBuilder.DesdeFactura(f, Datos)).Contenido;
+
+        using var doc = UglyToad.PdfPig.PdfDocument.Open(pdf);
+        var letras = doc.GetPage(1).Letters.Where(l => !string.IsNullOrWhiteSpace(l.Value)).ToList();
+        var texto = string.Concat(letras.Select(l => l.Value));
+        var buscado = $"SqFt/Piez2:{((decimal)pie2).ToString("#,##0.00", System.Globalization.CultureInfo.InvariantCulture)}";
+        var inicio = texto.IndexOf(buscado, StringComparison.Ordinal);
+        inicio.Should().BeGreaterThanOrEqualTo(0, $"el PDF debe contener «{buscado}»");
+        letras.Skip(inicio).Take(buscado.Length).Select(l => Math.Round(l.StartBaseLine.Y, 1)).Distinct()
+            .Should().ContainSingle("rótulo y valor van en el mismo renglón");
     }
 
     private static int Paginas(byte[] pdf) =>

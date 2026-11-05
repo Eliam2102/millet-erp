@@ -21,11 +21,11 @@ const VARIANTE: Record<AlmCompraEnvio['estado'], 'success' | 'warning' | 'danger
 };
 const ETIQUETA_TIPO: Record<AlmCompraEnvio['tipo'], string> = {
   COMPRA_RECIBIDA: 'Compra (OC autorizada)',
-  COMPRA_MODIFICADA: 'Compra modificada / entrada',
+  COMPRA_MODIFICADA: 'Compra modificada',
   COMPRA_CANCELADA: 'Cancelación',
 };
 
-/** Qué recibe A+W de este mensaje: hojas, lote y rack (CA3.10) y, en importación, pedimento, BL, aduana y fracción (CA12.2). */
+/** Qué recibe Almacenes de este mensaje: la compra (hojas, lote del proveedor, pedimento). La recepción y el rack no viajan (TI, 5-nov). */
 function Detalle({ e }: { e: AlmCompraEnvio }) {
   const d = e.datos;
   if (!d) return <p className="text-sm text-ink-muted">El mensaje no se pudo armar: {e.ultimoError}</p>;
@@ -36,7 +36,7 @@ function Detalle({ e }: { e: AlmCompraEnvio }) {
       <Table aria-label="Hojas que recibe A+W">
         <TableHeader>
           <TableRow><TableHead>Línea</TableHead><TableHead>Artículo A+W</TableHead><TableHead>Medida (mm)</TableHead>
-            <TableHead className="text-right">Hojas</TableHead><TableHead>Lote</TableHead><TableHead>Rack</TableHead><TableHead>Pedimento</TableHead></TableRow>
+            <TableHead className="text-right">Hojas</TableHead><TableHead>Lote</TableHead><TableHead>Pedimento</TableHead></TableRow>
         </TableHeader>
         <TableBody>
           {(d.lineas ?? []).map((l) => (
@@ -44,26 +44,12 @@ function Detalle({ e }: { e: AlmCompraEnvio }) {
               <TableCell>{l.lineaErp}</TableCell><TableCell>{l.articuloAw}</TableCell>
               <TableCell>{l.ancho && l.alto ? `${l.ancho} × ${l.alto}` : '—'}</TableCell>
               <TableCell className="text-right tabular-nums">{l.piezas}</TableCell>
-              <TableCell>{l.lote ?? '—'}</TableCell><TableCell className="text-ink-muted">al recibir</TableCell>
+              <TableCell>{l.lote ?? '—'}</TableCell>
               <TableCell>{l.pedimento ?? '—'}</TableCell>
             </TableRow>
           ))}
-          {(d.recepciones ?? []).flatMap((r) => r.lineas.map((l, i) => (
-            <TableRow key={`r${r.folio}${l.lineaErp}${i}`} data-testid="fila-recepcion">
-              <TableCell>{l.lineaErp}</TableCell><TableCell>Entrada {r.folio}</TableCell><TableCell>—</TableCell>
-              <TableCell className="text-right tabular-nums">{l.piezas}</TableCell>
-              <TableCell>{l.lote ?? '—'}</TableCell><TableCell>{l.rack ?? '—'}</TableCell>
-              <TableCell>{r.importacion?.pedimento ?? '—'}</TableCell>
-            </TableRow>
-          )))}
         </TableBody>
       </Table>
-      {(d.recepciones ?? []).filter((r) => r.importacion).map((r) => (
-        <p key={r.folio} data-testid="importacion">
-          Entrada {r.folio} · importación: BL {r.importacion!.bl} · contenedor {r.importacion!.contenedor} · aduana {r.importacion!.aduana} ·
-          clave de pedimento {r.importacion!.clavePedimento} · fracción {r.lineas.map((l) => l.fraccion).filter(Boolean).join(', ') || '—'}
-        </p>
-      ))}
     </div>
   );
 }

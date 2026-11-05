@@ -1,3 +1,4 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
 import type { ImportacionRecepcionValues } from '../schemas/recepcion';
@@ -467,11 +468,11 @@ function NuevaRecepcionFormBody({
 
   function manejarError(error: unknown) {
     if (!esApiError(error)) {
-      toast.error('Error inesperado al registrar la recepción.');
+      toast.error("Error inesperado al registrar la recepción. Revisa los datos del registro; si continúa, avisa a soporte.");
       return;
     }
     if (error.code === 'RECEPCION_YA_RECIBIDA') {
-      setYaRecibida(error.problem.detail ?? error.problem.title);
+      setYaRecibida(errorUsuario(error));
       return;
     }
     const resultado = applyServerErrors(
@@ -483,12 +484,12 @@ function NuevaRecepcionFormBody({
       // El servidor no indica la línea: se deja el aviso persistente sobre las líneas.
       setAvisoServidor({
         titulo: TITULOS_CALLOUT[error.code ?? ''] ?? 'No se pudo registrar',
-        detalle: error.problem.detail ?? error.problem.title,
+        detalle: errorUsuario(error),
       });
       return;
     }
     if (resultado) return;
-    toast.error(error.problem.title, {
+    toast.error(errorUsuario(error), {
       description: codigoSoporte(error),
     });
   }
@@ -554,7 +555,7 @@ function NuevaRecepcionFormBody({
             <FormCampo span={6}>
               <Field
                 label="Ubicación por defecto (opcional)"
-                hint="Aplica a los consumibles y refacciones; los artículos de A+W eligen su rack en cada partida."
+                hint="Aplica a insumos y refacciones; elige el rack de los artículos de A+W en cada partida."
                 error={form.formState.errors.ubicacionHelperId?.message}
               >
                 <Controller
@@ -1185,7 +1186,7 @@ function FilaLineaOc({
         <TableCell className="align-top">
           {sinMedidaEnOc && (
             <p className="text-xs text-danger-fg" role="alert">
-              La línea de la OC no tiene medida; corrígela en Compras.
+              La partida de la OC no tiene medida; corrígela en Compras.
             </p>
           )}
           {vidrioEnListaEmpaque && (

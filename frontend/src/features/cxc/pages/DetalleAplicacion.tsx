@@ -1,4 +1,5 @@
-import { ResumenImportes, MontoMovimiento, PageHeader, ErrorState } from '@/components/erp';
+import { problemaConsulta } from '@/components/erp/feedback/problema-consulta';
+import { DateTimeDisplay, ResumenImportes, MontoMovimiento, PageHeader, ErrorState } from '@/components/erp';
 
 import {
   Table,
@@ -32,7 +33,7 @@ import {
 } from '@/features/cxc/api/types';
 import { formatoMonto } from '@/features/cxc/lib/glosario';
 import type { AplicacionesSearch } from '@/features/cxc/lib/aplicaciones-search-schema';
-import { esApiError, codigoSoporte } from '@/lib/api';
+import { esApiError } from '@/lib/api';
 
 const ETIQUETA_TIPO_AJUSTE: Record<TipoAjusteCobro, string> = {
   [TipoAjusteCobro.ComisionBancaria]: 'Comisión bancaria',
@@ -48,7 +49,7 @@ export function DetalleAplicacion() {
       {query.isError ? (
         <ErrorState
           title="No se pudo cargar la propuesta"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
+          problem={problemaConsulta(query.error)}
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading || query.data == null ? (
@@ -77,7 +78,7 @@ function Contenido({ p }: { p: PropuestaAplicacionResponse }) {
           mono
           titulo={p.depositoRef}
           estado={<ChipEstadoPropuesta estado={p.estado} ajustePorAutorizar={p.ajustePorAutorizar} />}
-          descripcion={cliente?.razonSocial ?? '—'}
+          descripcion={cliente?.razonSocial || '—'}
           acciones={
             <div className="flex items-center gap-1.5">
               <Button variant="ghost" size="icon" asChild aria-label="Cerrar detalle">
@@ -106,7 +107,7 @@ function Contenido({ p }: { p: PropuestaAplicacionResponse }) {
           <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 lg:grid-cols-4 text-sm">
             <div>
               <dt className="text-xs text-ink-muted">Cliente</dt>
-              <dd className="truncate">{cliente?.razonSocial ?? '—'}</dd>
+              <dd className="truncate">{cliente?.razonSocial || <span className="text-ink-muted">—</span>}</dd>
             </div>
             <div>
               <dt className="text-xs text-ink-muted">Monto</dt>
@@ -115,13 +116,13 @@ function Contenido({ p }: { p: PropuestaAplicacionResponse }) {
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-ink-muted">Remittance</dt>
-              <dd className="truncate text-xs">{p.remittanceRef}</dd>
+              <dt className="text-xs text-ink-muted">Aviso de pago</dt>
+              <dd className="truncate text-xs">{p.remittanceRef || <span className="text-ink-muted">Sin referencia</span>}</dd>
             </div>
             <div>
               <dt className="text-xs text-ink-muted">Ajuste no fiscal</dt>
               <dd className="font-mono tabular-nums">
-                {p.ajusteNoFiscal !== 0 ? formatoMonto(p.ajusteNoFiscal, p.moneda) : '—'}
+                {p.ajusteNoFiscal !== 0 ? formatoMonto(p.ajusteNoFiscal, p.moneda) : <span className="text-ink-muted">—</span>}
               </dd>
             </div>
           </dl>
@@ -214,7 +215,7 @@ function PanelAjuste({ p }: { p: PropuestaAplicacionResponse }) {
   const puedeAutorizar = porAutorizar && !esQuienPropuso && tienePermiso;
 
   function onError(error: unknown) {
-    if (esApiError(error)) toast.error(error.problem.title, { description: error.problem.detail ?? codigoSoporte(error) });
+    if (esApiError(error)) toast.error('No se pudo resolver el ajuste. Revisa los datos y tu conexión antes de volver a intentarlo.');
     else toast.error('Error inesperado.');
   }
 
@@ -278,23 +279,21 @@ function PanelAjuste({ p }: { p: PropuestaAplicacionResponse }) {
         </div>
         <div>
           <dt className="text-xs text-ink-muted">Tipo (cuenta)</dt>
-          <dd>{p.tipoAjuste != null ? ETIQUETA_TIPO_AJUSTE[p.tipoAjuste] : '—'}</dd>
+          <dd>{p.tipoAjuste != null ? ETIQUETA_TIPO_AJUSTE[p.tipoAjuste] : <span className="text-ink-muted">—</span>}</dd>
         </div>
         <div>
           <dt className="text-xs text-ink-muted">Autorización</dt>
           <dd>
             {p.ajusteAutorizadoEn
-              ? `Autorizado el ${new Date(p.ajusteAutorizadoEn).toLocaleString('es-MX')}`
+              ? <>Autorizado el <DateTimeDisplay value={p.ajusteAutorizadoEn} variant="datetime" /></>
               : rechazado
-                ? `Rechazado${p.resueltaEn ? ` el ${new Date(p.resueltaEn).toLocaleString('es-MX')}` : ''}`
-                : porAutorizar
-                  ? 'Pendiente'
-                  : '—'}
+                ? <>Rechazado{p.resueltaEn && <> el <DateTimeDisplay value={p.resueltaEn} variant="datetime" /></>}</>
+                : porAutorizar ? 'Pendiente' : <span className="text-ink-muted">—</span>}
           </dd>
         </div>
         <div className="col-span-2 lg:col-span-4">
           <dt className="text-xs text-ink-muted">Motivo</dt>
-          <dd className="whitespace-pre-wrap">{p.motivoAjuste ?? '—'}</dd>
+          <dd className="whitespace-pre-wrap">{p.motivoAjuste || <span className="text-ink-muted">—</span>}</dd>
         </div>
         {rechazado && p.motivoRechazo && (
           <div className="col-span-2 lg:col-span-4">
