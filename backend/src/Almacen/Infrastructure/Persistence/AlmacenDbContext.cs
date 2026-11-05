@@ -134,6 +134,10 @@ public class AlmacenDbContext : BaseDbContext
     /// <summary>F1-ALM-13: foto de la valuación al cierre mensual.</summary>
     public DbSet<ValuacionCierre> ValuacionesCierre => Set<ValuacionCierre>();
 
+    /// <summary>86e3tac2y: acta del cierre mensual y avisos dentro del ERP.</summary>
+    public DbSet<ActaCierreMes> ActasCierre => Set<ActaCierreMes>();
+    public DbSet<Domain.Avisos.AvisoAlmacen> AvisosAlmacen => Set<Domain.Avisos.AvisoAlmacen>();
+
     /// <summary>
     /// Outbox de eventos de integración del módulo Almacén. Lo escribe
     /// <c>OutboxSaveChangesInterceptor</c> drenando el buffer scoped
@@ -148,9 +152,16 @@ public class AlmacenDbContext : BaseDbContext
 
     public DbSet<RecepcionActivo> RecepcionesActivos => Set<RecepcionActivo>();
 
+    public DbSet<RecepcionRechazo> RecepcionRechazos => Set<RecepcionRechazo>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("almacen");
+        var rechazo = modelBuilder.Entity<RecepcionRechazo>();
+        rechazo.ToTable("recepcion_rechazos"); rechazo.HasKey(x => x.Id); rechazo.Property(x => x.Id).ValueGeneratedNever();
+        rechazo.Property(x => x.Cantidad).HasPrecision(18, 4); rechazo.Property(x => x.Motivo).HasMaxLength(500);
+        rechazo.Property(x => x.UnidadMedida).HasMaxLength(20);
+        rechazo.Property(x => x.EvidenciaBlobRef).HasMaxLength(500); rechazo.HasIndex(x => x.RecepcionId);
         var importacion = modelBuilder.Entity<RecepcionImportacion>();
         importacion.ToTable("recepciones_importacion"); importacion.HasKey(x => x.Id);
         importacion.Property(x => x.Id).ValueGeneratedNever();
@@ -223,6 +234,29 @@ public class AlmacenDbContext : BaseDbContext
             b.Property(x => x.ValorMxn).HasPrecision(18, 2);
             b.HasOne<PeriodoCerrado>().WithMany().HasForeignKey(x => x.PeriodoCerradoId).OnDelete(DeleteBehavior.Cascade);
             b.HasIndex(x => new { x.EmpresaId, x.Anio, x.Mes, x.SubAlmacenId });
+        });
+        modelBuilder.Entity<ActaCierreMes>(b =>
+        {
+            b.ToTable("actas_cierre");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).ValueGeneratedNever();
+            b.Property(x => x.Estado).HasMaxLength(20).IsRequired();
+            b.Property(x => x.ContenidoJson).HasColumnType("jsonb").IsRequired();
+            b.HasOne<PeriodoCerrado>().WithMany().HasForeignKey(x => x.PeriodoCerradoId).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => new { x.EmpresaId, x.Anio, x.Mes }).IsUnique();
+        });
+        modelBuilder.Entity<Domain.Avisos.AvisoAlmacen>(b =>
+        {
+            b.ToTable("avisos");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).ValueGeneratedNever();
+            b.Property(x => x.Tipo).HasMaxLength(30).IsRequired();
+            b.Property(x => x.Titulo).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Mensaje).HasMaxLength(500).IsRequired();
+            b.Property(x => x.Ruta).HasMaxLength(200);
+            // Un mismo vale, ajuste o acta avisa una sola vez a cada destinatario.
+            b.HasIndex(x => new { x.UsuarioDestinoId, x.Tipo, x.ReferenciaId }).IsUnique();
+            b.HasIndex(x => new { x.UsuarioDestinoId, x.CreadoAt });
         });
         modelBuilder.Entity<NormaConsumoComponente>(b =>
         {

@@ -26,11 +26,12 @@ public sealed record AlbaranLineaDto(int Posicion, string? Descripcion, int Piez
 
 /// <summary>PT5.4: <c>Esperadas</c> son las piezas del pedido; <c>Disponibles</c> (solo en carga) las que se pueden cargar; <c>Rotas</c> las pendientes de reposición.</summary>
 public sealed record AlbaranDto(Guid Id, string Folio, int Secuencia, string NumeroPedido, string Cliente, string? Destino, DateTimeOffset? EmitidoAt, int Total, IReadOnlyList<AlbaranLineaDto> Lineas, IReadOnlyList<string> Etiquetas,
-    int Esperadas = 0, IReadOnlyList<string>? Disponibles = null, IReadOnlyList<string>? Rotas = null);
+    int Esperadas = 0, IReadOnlyList<string>? Disponibles = null, IReadOnlyList<string>? Rotas = null,
+    Entregas.EntregaDto? Entrega = null, string? EstadoPedido = null);
 
-/// <summary><c>Albaranes</c> solo viene en el detalle. <c>YaEmitida</c>: la emisión se pidió de nuevo y no cambió nada.</summary>
+/// <summary><c>Albaranes</c> solo viene en el detalle. <c>YaEmitida</c>: la emisión se pidió de nuevo y no cambió nada. <c>EntregasPendientes</c> (PT5.6): albaranes con piezas sin confirmar.</summary>
 public sealed record HojaSalidaDto(
     Guid Id, string Folio, Guid SucursalId, string Destino, bool Foranea, Guid? VehiculoId, Guid? OperadorId, string Estado, DateTimeOffset CreadaAt, DateTimeOffset? EmitidaAt,
-    string? CartaPorteFolio, int Pedidos, int Piezas, IReadOnlyList<AlbaranDto> Albaranes, bool YaEmitida = false);
+    string? CartaPorteFolio, int Pedidos, int Piezas, IReadOnlyList<AlbaranDto> Albaranes, bool YaEmitida = false, int EntregasPendientes = 0);
 
 public sealed record HojasSalidaPagina(IReadOnlyList<HojaSalidaDto> Items, int Total);

@@ -254,6 +254,9 @@ export const PermisosCanonicos = {
   AlmacenMermasAutorizar: 'almacen.mermas.autorizar',
   AlmacenSalidasRoturaCapturar: 'almacen.salidas.rotura-capturar',
   AlmacenSalidasRoturaAutorizar: 'almacen.salidas.rotura-autorizar',
+  AlmacenCierreRevisarActa: 'almacen.cierre.revisar-acta',
+  AlmacenAvisosValeVencido: 'almacen.avisos.vale-vencido',
+  AlmacenAvisosAjusteMayor: 'almacen.avisos.ajuste-mayor',
   AlmacenDevolucionesProveedorRegistrar: 'almacen.devoluciones-proveedor.registrar',
 
   AlmacenInventariosLeer: 'almacen.inventarios.leer',

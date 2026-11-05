@@ -61,10 +61,34 @@ public sealed class TrazabilidadMpTests
         r.Filas.Select(f => (f.Concepto, f.Saldo)).Should().Equal((TrazabilidadMpHandler.ConceptoSaldoInicial, 50m), (TrazabilidadMpHandler.ConceptoConsumo, 45m));
     }
 
-    private static void Mov(InMemoryAlmacenDbContext db, TipoMovimiento tipo, decimal cantidad, DateOnly fecha, string lote, Guid? oc = null, string? motivo = null)
+    [Fact]
+    public async Task Muestra_hojas_junto_a_los_m2_y_el_folio_de_la_requisicion_con_su_motivo()
+    {
+        await using var db = await CrearDbAsync();
+        const decimal hoja = 8.9304m; // 2440 × 3660 mm
+        Mov(db, TipoMovimiento.EntradaCompra, 50 * hoja, new(2027, 3, 1), "L-100", oc: Oc, variante: Variante);
+        Mov(db, TipoMovimiento.BajaPorDano, 2 * hoja, new(2027, 3, 6), "L-100", motivo: "Rotura en mesa", variante: Variante);
+        Mov(db, TipoMovimiento.SalidaConsumo, 10 * hoja, new(2027, 3, 5), "L-100", rq: Rq, comentario: "Pedido de corte", variante: Variante);
+        await db.SaveChangesAsync();
+
+        var r = await new TrazabilidadMpHandler(db, new ArticulosDoble(), new OcDoble(), new RqDoble(), new VarianteDoble())
+            .Handle(new TrazabilidadMpQuery(Articulo, new(2027, 3, 1), new(2027, 3, 31), "L-100"), default);
+
+        r.Filas.Select(f => (f.Referencia, f.EntradaHojas, f.SalidaHojas, f.SaldoHojas)).Should().Equal(
+            ("OC OC-77", 50m, 0m, 50m),
+            ("Requisición RQ-12 · Pedido de corte", 0m, 10m, 40m),
+            ("Rotura en mesa", 0m, 2m, 38m));
+        r.Totales!["saldoHojas"].Should().Be(38m);
+    }
+
+    private static readonly Guid Rq = Guid.NewGuid(), Variante = Guid.NewGuid();
+
+    private static void Mov(InMemoryAlmacenDbContext db, TipoMovimiento tipo, decimal cantidad, DateOnly fecha, string lote, Guid? oc = null, string? motivo = null,
+        Guid? rq = null, string? comentario = null, Guid? variante = null)
     {
         var m = new MovimientoInventario(Guid.CreateVersion7(), tipo, P1Fixture.EmpresaId, fecha);
-        m.AgregarLinea(new(Guid.NewGuid(), m.Id, 1, Articulo, cantidad, "PZA", 900m, ubicacionId: Rack, lote: lote));
+        m.AgregarLinea(new(Guid.NewGuid(), m.Id, 1, Articulo, cantidad, "PZA", 900m, ubicacionId: Rack, lote: lote, comentarioLinea: comentario, productoAwVarianteId: variante, anchoMm: variante is null ? null : 2440m, altoMm: variante is null ? null : 3660m));
+        if (rq != null) typeof(MovimientoInventario).GetProperty(nameof(MovimientoInventario.RqId))!.SetValue(m, rq);
         m.Registrar(FolioMovimiento.Construir(tipo, 2027, ++_folio), Guid.NewGuid());
         if (oc != null) typeof(MovimientoInventario).GetProperty(nameof(MovimientoInventario.OcId))!.SetValue(m, oc);
         if (motivo != null) typeof(MovimientoInventario).GetProperty(nameof(MovimientoInventario.Motivo))!.SetValue(m, motivo);
@@ -95,5 +119,20 @@ public sealed class TrazabilidadMpTests
         public Task<OcLectura?> ObtenerAsync(Guid ocId, CancellationToken ct) => Task.FromResult<OcLectura?>(null);
         public Task<IReadOnlyDictionary<Guid, string>> ObtenerFoliosAsync(IReadOnlyCollection<Guid> ocIds, CancellationToken ct) =>
             Task.FromResult<IReadOnlyDictionary<Guid, string>>(ocIds.ToDictionary(i => i, _ => "OC-77"));
+    }
+
+    private sealed class RqDoble : IComprasRequisicionReadPort
+    {
+        public Task<RequisicionLectura?> ObtenerAsync(Guid rqId, CancellationToken ct) => Task.FromResult<RequisicionLectura?>(null);
+        public Task<IReadOnlyDictionary<Guid, string>> ObtenerFoliosAsync(IReadOnlyCollection<Guid> rqIds, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, string>>(rqIds.ToDictionary(i => i, _ => "RQ-12"));
+    }
+
+    private sealed class VarianteDoble : IVarianteVidrioReadPort
+    {
+        public Task<VarianteVidrioLectura> ObtenerAsync(Guid articuloId, Guid varianteId, CancellationToken ct) => throw new NotSupportedException();
+        public Task<IReadOnlyDictionary<Guid, VarianteVidrioLectura>> ObtenerPorIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, VarianteVidrioLectura>>(ids.ToDictionary(i => i, i => new VarianteVidrioLectura(i, "2440x3660", 2440m, 3660m, 6m)));
+        public Task<IReadOnlyList<VarianteVidrioLectura>> ListarPorArticuloAsync(Guid articuloId, CancellationToken ct) => throw new NotSupportedException();
     }
 }

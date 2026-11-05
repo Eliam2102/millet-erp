@@ -60,7 +60,8 @@ public sealed class ArticuloReadAdapter : IArticuloReadPort
                 a.PrecioReferenciaMonto,
                 a.PrecioReferenciaMoneda,
                 Categoria: a.Categoria,
-                ProductoAwId: a.ProductoAwId))
+                ProductoAwId: a.ProductoAwId,
+                EsServicio: a.Naturaleza == Naturaleza.Servicio))
             .FirstOrDefaultAsync(cancellationToken);
 
         return articulo;
@@ -92,7 +93,8 @@ public sealed class ArticuloReadAdapter : IArticuloReadPort
                 a.PrecioReferenciaMonto,
                 a.PrecioReferenciaMoneda,
                 Categoria: a.Categoria,
-                ProductoAwId: a.ProductoAwId))
+                ProductoAwId: a.ProductoAwId,
+                EsServicio: a.Naturaleza == Naturaleza.Servicio))
             .ToDictionaryAsync(a => a.Id, cancellationToken);
     }
 }

@@ -157,7 +157,7 @@ const moduloAlmacenLanding: NavModulo = {
             'Cerrar periodo mensual. Valida que no haya conteos ni movimientos pendientes.',
           to: '/almacen/cierre-mes',
           icon: Lock,
-          permission: PermisosCanonicos.AlmacenCierreMesEjecutar,
+          permissionsAny: [PermisosCanonicos.AlmacenCierreMesEjecutar, PermisosCanonicos.AlmacenCierreRevisarActa],
         },
         {
           label: 'Reportes',

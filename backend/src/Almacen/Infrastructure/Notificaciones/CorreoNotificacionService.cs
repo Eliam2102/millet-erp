@@ -18,10 +18,7 @@ public sealed class AvisosAlmacenOptions
     /// <summary>Finanzas: ajuste de inventario de nivel 3 aprobado.</summary>
     public List<string> Finanzas { get; set; } = [];
 
-    /// <summary>Coordinador: vale urgente sin regularizar, día 1 del plazo vencido (A14).</summary>
-    public List<string> Coordinador { get; set; } = [];
-
-    /// <summary>Jefe de Almacén: vale urgente sin regularizar, día 2 en adelante (A14).</summary>
+    /// <summary>Jefe de Almacén: vale urgente vencido sin regularizar (una sola vez por vale, 86e3tac2y).</summary>
     public List<string> JefeAlmacen { get; set; } = [];
 
     internal static IReadOnlyList<string> Validos(IEnumerable<string> correos) =>
@@ -69,24 +66,20 @@ public sealed class CorreoNotificacionService(
     {
         // PLATFORM-TODO(<NotificacionService>): avisar también a la persona que recibió el vale
         // (personaDestinatariaId) cuando exista un puerto de lectura de su correo.
-        // A14: día 1 → Coordinador; día 2 en adelante → Jefe de Almacén.
-        var (clave, lista) = diaDelSla <= 1
-            ? ("Coordinador", options.Value.Coordinador)
-            : ("JefeAlmacen", options.Value.JefeAlmacen);
-        var para = AvisosAlmacenOptions.Validos(lista);
+        var para = AvisosAlmacenOptions.Validos(options.Value.JefeAlmacen);
         if (para.Count == 0)
         {
-            logger.LogWarning("[AvisosAlmacen] Sin correos en {Seccion}:{Clave}; el aviso del vale {Folio} no se envió.",
-                AvisosAlmacenOptions.SectionName, clave, folioVale);
+            logger.LogWarning("[AvisosAlmacen] Sin correos en {Seccion}:JefeAlmacen; el aviso del vale {Folio} no se envió.",
+                AvisosAlmacenOptions.SectionName, folioVale);
             return;
         }
         var folio = WebUtility.HtmlEncode(folioVale);
         var html = "<div style='font-family:Arial,sans-serif;max-width:600px;margin:auto'>" +
                    "<h2>Vale urgente sin regularizar</h2>" +
                    $"<p>El vale <strong>{folio}</strong> venció el {fechaLimite.ToString("dd/MM/yyyy HH:mm", Mx)} " +
-                   $"y sigue sin regularizar (día {diaDelSla} del plazo).</p>" +
+                   "y sigue sin regularizar con una requisición.</p>" +
                    "<p>Regularízalo en el ERP, Almacén › Salidas.</p></div>";
         await correo.EnviarAsync(new MensajeCorreo(null, Modulo, "vale-sin-regularizar", movimientoValeId, para,
-            $"Vale {folioVale} sin regularizar (día {diaDelSla})", html), cancellationToken);
+            $"Vale {folioVale} sin regularizar", html), cancellationToken);
     }
 }

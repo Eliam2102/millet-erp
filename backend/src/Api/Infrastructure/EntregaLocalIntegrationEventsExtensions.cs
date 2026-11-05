@@ -75,6 +75,8 @@ public static class EntregaLocalIntegrationEventsExtensions
             sp.GetRequiredService<IServiceScopeFactory>(), sp.GetRequiredService<ILogger<Millet.CuentasPorCobrar.Infrastructure.Workers.ProductoTerminadoLocalConsumer>>()));
         services.AddSingleton<ILocalIntegrationEventConsumer>(sp => new Millet.ProductoTerminado.Infrastructure.Workers.CxcDecisionLocalConsumer(
             sp.GetRequiredService<IServiceScopeFactory>(), sp.GetRequiredService<ILogger<Millet.ProductoTerminado.Infrastructure.Workers.CxcDecisionLocalConsumer>>()));
+        services.AddSingleton<ILocalIntegrationEventConsumer>(sp => new Millet.ProductoTerminado.Infrastructure.Workers.FacturacionLocalConsumer(
+            sp.GetRequiredService<IServiceScopeFactory>(), sp.GetRequiredService<ILogger<Millet.ProductoTerminado.Infrastructure.Workers.FacturacionLocalConsumer>>()));
         Consumidor<Millet.Tesoreria.Infrastructure.Workers.CuentasPorPagarEventListenerWorker>(services, (c, f, l) => new(c, f, l));
         Consumidor<Millet.Tesoreria.Infrastructure.Workers.CuentasPorCobrarEventListenerWorker>(services, (c, f, l) => new(c, f, l));
         Consumidor<Millet.Tesoreria.Infrastructure.Workers.FacturacionEventListenerWorker>(services, (c, f, l) => new(c, f, l));

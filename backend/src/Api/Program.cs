@@ -968,6 +968,10 @@ builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.IUsuarioReadPort,
     Millet.Identidad.Infrastructure.PublicAdapters.UsuarioReadAdapter>();
 builder.Services.AddScoped<Millet.Api.Endpoints.Almacen.SalidasRoturaEndpoints.RoturaLectura>();
+// 86e3tac2y: destinatarios de los avisos de Almacén por permiso (adapter en Identidad, dueña del dato).
+builder.Services.AddScoped<
+    Millet.Almacen.Domain.Ports.IDestinatariosAvisoReadPort,
+    Millet.Identidad.Infrastructure.PublicAdapters.DestinatariosAvisoReadAdapter>();
 
 // ADR-0047 PR5.C: resuelve el usuario de servicio del reorden (creador/requisitante +
 // empresa de las RQ automáticas). Adapter hospedado en Identidad (dueño del dato).
@@ -1029,6 +1033,7 @@ builder.Services.AddScoped<Millet.CuentasPorPagar.Domain.Ports.Portal.IReppPorta
 builder.Services.AddScoped<Millet.Contabilidad.Application.CuentaPuente.IOrdenCompraPuentePort, Millet.Api.Infrastructure.Adapters.OrdenCompraPuenteAdapter>();
 // FIX-12: nombre del cajero en el corte y la liquidación de caja (Facturación no referencia Identidad).
 builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.IUsuariosReadPort, Millet.Api.Infrastructure.Adapters.FacturacionUsuariosReadAdapter>();
+builder.Services.AddScoped<Millet.CuentasPorPagar.Domain.Ports.Administracion.IUsuarioNombreReadPort, Millet.Api.Infrastructure.Adapters.CxpUsuarioNombreReadAdapter>();
 // 86e3tfdve: cuenta beneficiaria del complemento de pago desde la cuenta bancaria de Millet (dueño: Tesorería).
 builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.ICuentaBancariaMilletReadPort, Millet.Api.Infrastructure.Adapters.CuentaBancariaMilletReadAdapter>();
 builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.ICuentaOrdenanteMovimientoReadPort, Millet.Api.Infrastructure.Adapters.CuentaOrdenanteMovimientoReadAdapter>();
@@ -1753,6 +1758,7 @@ Millet.Api.Endpoints.Almacen.Reportes.ReportesEndpoints.MapReportesEndpoints(app
 
 // === Almacén — Cierre de mes (F8-PR2) ===
 Millet.Api.Endpoints.Almacen.Cierre.CierreEndpoints.MapCierreEndpoints(app);
+Millet.Api.Endpoints.Almacen.AvisosAlmacenEndpoints.MapAvisosAlmacenEndpoints(app);
 
 // === Administración — CRUD Empresas + Sucursales + Departamentos (F-Admin-PR2.3) ===
 Millet.Api.Endpoints.Administracion.EmpresasEndpoints.MapEmpresasEndpoints(app);

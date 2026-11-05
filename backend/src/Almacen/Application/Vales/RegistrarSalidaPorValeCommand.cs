@@ -39,7 +39,9 @@ public sealed record RegistrarSalidaPorValeCommand(
     string ValeBlobRef,
     Guid? PersonaDestinatariaId,
     string? Observaciones,
-    IReadOnlyList<RegistrarSalidaLineaInput> Lineas) : IRequest<RegistrarSalidaResponse>;
+    IReadOnlyList<RegistrarSalidaLineaInput> Lineas,
+    // G-10: motivo de la urgencia (obligatorio) y acuse de quien recibe (obligatorio junto con el destinatario).
+    string? MotivoUrgencia = null, string? AcuseRecibeNombre = null) : IRequest<RegistrarSalidaResponse>;
 
 public sealed class RegistrarSalidaPorValeValidator
     : AbstractValidator<RegistrarSalidaPorValeCommand>
@@ -187,6 +189,9 @@ public sealed class RegistrarSalidaPorValeHandler
         foreach (var centro in request.Lineas.Select(l => l.CentroCostoId).OfType<Guid>().Distinct())
             await _centros.ValidarAsync(centro, cancellationToken);
         var limite = await _calendario.SumarHorasAsync(request.FechaMovimiento, 48, cancellationToken);
+        if (string.IsNullOrWhiteSpace(request.MotivoUrgencia))
+            throw new BusinessRuleException("VALE_SIN_MOTIVO", "Indica el motivo de la urgencia para confirmar el vale.");
+        SalidaAcuse.Exigir(request.PersonaDestinatariaId, request.AcuseRecibeNombre);
 
         var movimientoId = Guid.CreateVersion7();
         var movimiento = new MovimientoInventario(
@@ -206,6 +211,7 @@ public sealed class RegistrarSalidaPorValeHandler
             });
 
         movimiento.EstablecerPlazoRegularizacion(limite);
+        movimiento.AsentarAcuse(request.AcuseRecibeNombre!, DateTimeOffset.UtcNow, request.MotivoUrgencia);
 
         if (!string.IsNullOrWhiteSpace(request.Observaciones))
         {

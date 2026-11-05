@@ -145,6 +145,49 @@ export interface AlbaranDto {
   esperadas?: number;
   disponibles?: string[];
   rotas?: string[];
+  /** PT5.6: confirmación de la entrega (null mientras falta) y estado del pedido (`71` en ruta, `Entregado` sin factura, `115` facturado y entregado). */
+  entrega?: EntregaDto | null;
+  estadoPedido?: '71' | 'Entregado' | '115' | null;
+}
+
+export type ResultadoEntrega = 'Entregada' | 'Parcial' | 'Rechazada';
+export type FormaCobroEntrega = 'TPV' | 'Efectivo' | 'Transferencia' | 'Cheque';
+
+/** Cobro contra entrega del chofer; `conciliadoAt` se llena cuando la caja liquida la ruta y el voucher coincide. */
+export interface CobroEntregaDto {
+  monto: number;
+  formaPago: FormaCobroEntrega;
+  referencia: string | null;
+  conciliadoAt?: string | null;
+}
+
+export interface EntregaDto {
+  id: string;
+  resultado: ResultadoEntrega;
+  receptor: string;
+  entregadaAt: string;
+  entregadas: number;
+  rechazadas: number;
+  motivoRechazo: string | null;
+  tieneFirma: boolean;
+  tieneFoto: boolean;
+  etiquetasRechazadas: string[];
+  cobro: CobroEntregaDto | null;
+}
+
+/** Firma y foto como data URL (PNG la firma; JPEG o PNG la foto). Se necesita al menos una. */
+export interface ConfirmarEntregaBody {
+  receptor: string;
+  rechazadas: string[];
+  motivoRechazo: string | null;
+  firma: string | null;
+  foto: string | null;
+  cobro: { monto: number; formaPago: FormaCobroEntrega; referencia: string | null } | null;
+}
+
+export interface EntregaEvidenciaDto {
+  firma: string | null;
+  foto: string | null;
 }
 
 /** `albaranes` solo viene en el detalle; `yaEmitida` = se pidió emitir de nuevo y no cambió nada. */
@@ -164,6 +207,8 @@ export interface HojaSalidaDto {
   piezas: number;
   albaranes: AlbaranDto[];
   yaEmitida: boolean;
+  /** PT5.6: albaranes con piezas cuya entrega aún no se confirma (solo hojas emitidas). */
+  entregasPendientes?: number;
 }
 
 export interface HojasSalidaPagina {

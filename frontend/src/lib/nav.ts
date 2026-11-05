@@ -330,10 +330,11 @@ const moduloAlmacen: NavModulo = {
         {
           label: 'Cierre de mes',
           description:
-            'Ejecutar cierre mensual del módulo Almacén. Valida que no haya conteos ni movimientos pendientes.',
+            'Ejecutar cierre mensual del módulo Almacén y revisar sus actas. Valida que no haya conteos ni movimientos pendientes.',
           to: '/almacen/cierre-mes',
           icon: Lock,
-          permission: PermisosCanonicos.AlmacenCierreMesEjecutar,
+          // 86e3tac2y: quien solo revisa el acta (Dirección de Administración) entra a la misma pantalla.
+          permissionsAny: [PermisosCanonicos.AlmacenCierreMesEjecutar, PermisosCanonicos.AlmacenCierreRevisarActa],
         },
         {
           label: 'Reportes',
@@ -1244,6 +1245,13 @@ const productoTerminado: NavModulo = {
           label: 'Hojas de salida',
           description: 'Albarán por pedido con lo cargado: descuenta el inventario, pasa el pedido a 71 y se imprime para el chofer.',
           to: '/producto-terminado/hojas-salida',
+          icon: Boxes,
+          permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
+        },
+        {
+          label: 'Entregas',
+          description: 'Entrega al cliente desde el celular: firma o foto, parcial, rechazo en sitio y paso a 115 si ya está facturado.',
+          to: '/producto-terminado/entregas',
           icon: Boxes,
           permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
         },

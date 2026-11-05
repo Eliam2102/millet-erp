@@ -86,6 +86,13 @@ export function AsignacionSheet({ open, onOpenChange }: AsignacionSheetProps) {
         });
         return;
       }
+      if (error.code === 'ARTICULO_NO_INVENTARIABLE') {
+        form.setError('articuloId', {
+          type: error.code,
+          message: error.problem.detail ?? 'Es un servicio (no inventariable); no se asigna a una ubicación.',
+        });
+        return;
+      }
       if (applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)) {
         return;
       }
