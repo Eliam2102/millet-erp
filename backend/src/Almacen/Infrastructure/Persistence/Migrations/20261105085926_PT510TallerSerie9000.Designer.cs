@@ -13,7 +13,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Millet.Almacen.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AlmacenDbContext))]
-    [Migration("20261105080138_PT510TallerSerie9000")]
+    [Migration("20261105085926_PT510TallerSerie9000")]
     partial class PT510TallerSerie9000
     {
         /// <inheritdoc />
@@ -1576,6 +1576,139 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasName("pk_mensajes_app");
 
                     b.ToTable("mensajes_app", "almacen");
+                });
+
+            modelBuilder.Entity("Millet.Almacen.Domain.Mermas.MermaProceso", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ArticuloId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("articulo_id");
+
+                    b.Property<DateTimeOffset?>("AutorizadoAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("autorizado_at");
+
+                    b.Property<Guid?>("AutorizadoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("autorizado_por");
+
+                    b.Property<decimal>("CostoUnitarioM2Mxn")
+                        .HasPrecision(14, 4)
+                        .HasColumnType("numeric(14,4)")
+                        .HasColumnName("costo_unitario_m2mxn");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("estado");
+
+                    b.Property<string>("Etapa")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("etapa");
+
+                    b.Property<DateOnly>("Fecha")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha");
+
+                    b.Property<decimal?>("Kg")
+                        .HasPrecision(14, 4)
+                        .HasColumnType("numeric(14,4)")
+                        .HasColumnName("kg");
+
+                    b.Property<decimal>("M2")
+                        .HasPrecision(14, 4)
+                        .HasColumnType("numeric(14,4)")
+                        .HasColumnName("m2");
+
+                    b.Property<string>("MensajeId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("mensaje_id");
+
+                    b.Property<string>("Mesa")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("mesa");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("motivo");
+
+                    b.Property<string>("MotivoRechazo")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo_rechazo");
+
+                    b.Property<Guid>("SucursalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sucursal_id");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("tipo");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<decimal>("ValorMxn")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("valor_mxn");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_mermas_proceso");
+
+                    b.HasIndex("EmpresaId", "Estado", "Fecha")
+                        .HasDatabaseName("ix_mermas_proceso_empresa_id_estado_fecha");
+
+                    b.HasIndex("EmpresaId", "SucursalId", "Fecha", "Mesa", "ArticuloId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_mermas_proceso_empresa_id_sucursal_id_fecha_mesa_articulo_id")
+                        .HasFilter("tipo = 'DESPERDICIO_MESA'");
+
+                    b.ToTable("mermas_proceso", "almacen", t =>
+                        {
+                            t.HasCheckConstraint("ck_mermas_proceso_kg", "kg IS NULL OR kg > 0");
+
+                            t.HasCheckConstraint("ck_mermas_proceso_m2", "m2 > 0");
+                        });
                 });
 
             modelBuilder.Entity("Millet.Almacen.Domain.Movimientos.FolioSecuenciaMovimiento", b =>
