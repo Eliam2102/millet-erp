@@ -5,6 +5,7 @@ using Millet.Compartido.Application.Catalogos.Proveedores;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Compartido.UnitTests.Adjuntos;
 using Millet.DatosMaestros.Application.Catalogos;
+using Millet.DatosMaestros.Application.Proveedores;
 using Millet.DatosMaestros.Domain;
 using Millet.SharedKernel.Application.Exceptions;
 using Millet.SharedKernel.Domain.Adjuntos;
@@ -62,20 +63,7 @@ public sealed class ProveedorCompletoTests
         await editar.Handle(new ActualizarProveedorCommand(a.Id, TaxId: "DE-811907980", Calle: "Industriestrasse 12"), default);
     }
 
-    [Fact]
-    public async Task El_listado_encuentra_al_extranjero_por_su_Tax_ID()
-    {
-        var (db, _, _) = Contextos();
-        await using var _db = db;
-        var crear = new CrearProveedorHandler(db);
-        await crear.Handle(Alta("P000301", "XEXX010101000", "ES-B12345678"), default);
-        await crear.Handle(Alta("P000302", "XEXX010101000", null), default);
-
-        var lista = await new ListarProveedoresHandler(db, new FakeClock()).Handle(new ListarProveedoresQuery(Q: "b12345"), default);
-        var item = Assert.Single(lista.Items);
-        Assert.Equal("P000301", item.Clave);
-        Assert.Equal("ES-B12345678", item.TaxId);
-    }
+    // La búsqueda por Tax ID usa Translate (solo Postgres): se prueba en pantalla y en CI (integración).
 
     [Fact]
     public void Revisar_un_documento_guarda_quien_cuando_y_resultado_y_rechazar_exige_observacion()

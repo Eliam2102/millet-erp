@@ -29,7 +29,11 @@ import {
   useDarDeBajaAdjunto,
   useEnlaceAdjunto,
   useOtorgarExcepcion,
+  useResolverExcepcion,
+  useRevisarDocumento,
   useRevocarExcepcion,
+  EstadoExcepcion,
+  ResultadoRevision,
   useExpediente,
   useSubirAdjunto,
   useTiposDocumento,
@@ -73,6 +77,7 @@ export function ProveedorExpedienteSection({
   const canSubir = useHasPermission(PermisosCanonicos.DatosMaestrosProveedoresAdjuntosSubir);
   const canBaja = useHasPermission(PermisosCanonicos.DatosMaestrosProveedoresAdjuntosBaja);
   const canValidar = useHasPermission(PermisosCanonicos.DatosMaestrosProveedoresValidar);
+  const canSolicitar = useHasPermission(PermisosCanonicos.DatosMaestrosProveedoresGestionar);
   const base = `/api/v1/datos-maestros/proveedores/${proveedorId}`;
   const [verBajas, setVerBajas] = useState(false);
 
@@ -166,6 +171,7 @@ export function ProveedorExpedienteSection({
             base={base}
             canSubir={canSubir}
             canExceptuar={canValidar}
+            canSolicitar={canSolicitar}
             onDescargar={(adjuntoId) => enlace.mutateAsync({ adjuntoId })}
           />
         ))}
@@ -202,23 +208,34 @@ function FilaExpediente({
   base,
   canSubir,
   canExceptuar,
+  canSolicitar,
   onDescargar,
 }: {
   doc: ExpedienteDocumento;
   base: string;
   canSubir: boolean;
   canExceptuar: boolean;
+  canSolicitar: boolean;
   onDescargar: (adjuntoId: string) => Promise<unknown>;
 }) {
   const [abierto, setAbierto] = useState(false);
   const [exceptuando, setExceptuando] = useState(false);
   const [revocando, setRevocando] = useState(false);
   const [errorExcepcion, setErrorExcepcion] = useState<string | null>(null);
+  const [negando, setNegando] = useState(false);
+  const [otorgando, setOtorgando] = useState(false);
+  const [rechazando, setRechazando] = useState(false);
+  const [errorRevision, setErrorRevision] = useState<string | null>(null);
   const otorgar = useOtorgarExcepcion(base);
+  const resolver = useResolverExcepcion(base);
+  const revisar = useRevisarDocumento(base);
   const revocar = useRevocarExcepcion(base);
+  const excepcion = doc.excepcion;
+  const pendiente = excepcion?.estado === EstadoExcepcion.Pendiente;
   const puedeExceptuar =
-    canExceptuar &&
+    canSolicitar &&
     doc.obligatorio &&
+    !pendiente &&
     (doc.estado === EstadoExpediente.Faltante || doc.estado === EstadoExpediente.Vencido);
   const puedeRevocar =
     canExceptuar && doc.estado === EstadoExpediente.Exceptuado && !!doc.excepcion;
@@ -283,10 +300,36 @@ function FilaExpediente({
                 setErrorExcepcion(null);
                 setExceptuando(true);
               }}
-              aria-label={`Exceptuar ${doc.nombre}`}
+              aria-label={`Solicitar excepción de ${doc.nombre}`}
             >
-              Exceptuar
+              Solicitar excepción
             </Button>
+          )}
+          {pendiente && canExceptuar && (
+            <>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setErrorExcepcion(null);
+                  setOtorgando(true);
+                }}
+                aria-label={`Otorgar excepción de ${doc.nombre}`}
+              >
+                Otorgar
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setErrorExcepcion(null);
+                  setNegando(true);
+                }}
+                aria-label={`Negar excepción de ${doc.nombre}`}
+              >
+                Negar
+              </Button>
+            </>
           )}
           {puedeRevocar && (
             <Button
@@ -315,10 +358,108 @@ function FilaExpediente({
           )}
         </div>
       </div>
-      {doc.estado === EstadoExpediente.Exceptuado && doc.excepcion && (
-        <p className="mt-1 text-xs text-ink-muted" data-component="expediente-excepcion">
-          Exceptuado por {doc.excepcion.otorgadaPorNombre} el{' '}
-          {format(new Date(doc.excepcion.otorgadaEn), 'dd/MM/yyyy')}. Motivo: {doc.excepcion.motivo}
+      {actual && actual.estado !== EstadoAdjunto.Baja && (
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs" data-component="expediente-revision">
+          {actual.resultadoRevision ? (
+            <>
+              <Badge variant={actual.resultadoRevision === ResultadoRevision.Aceptado ? 'success' : 'danger'}>
+                {actual.resultadoRevision === ResultadoRevision.Aceptado ? 'Contenido aceptado' : 'Contenido rechazado'}
+              </Badge>
+              <span className="text-ink-muted">
+                Revisado por {actual.revisadoPorNombre ?? 'un usuario'}
+                {actual.revisadoEn ? ` el ${format(new Date(actual.revisadoEn), 'dd/MM/yyyy HH:mm')}` : ''}
+                {actual.observacionRevision ? `: ${actual.observacionRevision}` : ''}
+              </span>
+            </>
+          ) : (
+            <Badge variant="neutral">Sin revisar</Badge>
+          )}
+          {canExceptuar && (
+            <>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={revisar.isPending}
+                aria-label={`Aceptar el contenido de ${doc.nombre}`}
+                onClick={async () => {
+                  setErrorRevision(null);
+                  try {
+                    await revisar.mutateAsync({ adjuntoId: actual.id, resultado: ResultadoRevision.Aceptado });
+                    toast.success('Documento aceptado.');
+                  } catch (err) {
+                    setErrorRevision(mensajeErrorAdjunto(err));
+                  }
+                }}
+              >
+                Aceptar contenido
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                aria-label={`Rechazar el contenido de ${doc.nombre}`}
+                onClick={() => {
+                  setErrorRevision(null);
+                  setRechazando(true);
+                }}
+              >
+                Rechazar contenido
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+      {errorRevision && !rechazando && (
+        <p role="alert" className="mt-1 text-xs text-danger-fg">
+          {errorRevision}
+        </p>
+      )}
+      {rechazando && actual && (
+        <MotivoBajaDialog
+          nombreArchivo={doc.nombre}
+          titulo={`Rechazar el contenido de ${doc.nombre}`}
+          descripcion="Queda registrado quién lo revisó, cuándo y por qué se rechaza. El archivo se conserva."
+          etiqueta="Motivo del rechazo"
+          accion="Rechazar contenido"
+          variante="secondary-danger"
+          minimo={5}
+          error={errorRevision}
+          onCerrar={() => setRechazando(false)}
+          onConfirmar={async (motivo) => {
+            try {
+              await revisar.mutateAsync({ adjuntoId: actual.id, resultado: ResultadoRevision.Rechazado, observacion: motivo });
+              toast.success('Documento rechazado.');
+              setRechazando(false);
+            } catch (err) {
+              setErrorRevision(mensajeErrorAdjunto(err));
+            }
+          }}
+        />
+      )}
+      {excepcion && (
+        <p className="mt-1 text-xs text-ink-muted" data-component="expediente-excepcion" data-estado-excepcion={excepcion.estado}>
+          {excepcion.estado === EstadoExcepcion.Pendiente && (
+            <>
+              <strong className="font-medium text-warning-note-fg">Excepción pendiente de resolución.</strong>{' '}
+              Pedida por {excepcion.solicitadaPorNombre ?? 'un usuario'} el{' '}
+              {format(new Date(excepcion.solicitadaEn), 'dd/MM/yyyy')}. Motivo: {excepcion.motivo}
+            </>
+          )}
+          {excepcion.estado === EstadoExcepcion.Otorgada && (
+            <>
+              Excepción otorgada por {excepcion.resueltaPorNombre ?? 'un usuario'} el{' '}
+              {excepcion.resueltaEn ? format(new Date(excepcion.resueltaEn), 'dd/MM/yyyy') : ''}; la pidió{' '}
+              {excepcion.solicitadaPorNombre ?? 'un usuario'} el {format(new Date(excepcion.solicitadaEn), 'dd/MM/yyyy')}.
+              Motivo: {excepcion.motivo}
+            </>
+          )}
+          {excepcion.estado === EstadoExcepcion.Negada && (
+            <>
+              Excepción negada por {excepcion.resueltaPorNombre ?? 'un usuario'} el{' '}
+              {excepcion.resueltaEn ? format(new Date(excepcion.resueltaEn), 'dd/MM/yyyy') : ''}
+              {excepcion.motivoResolucion ? `: ${excepcion.motivoResolucion}` : ''}. La había pedido{' '}
+              {excepcion.solicitadaPorNombre ?? 'un usuario'}.
+            </>
+          )}
         </p>
       )}
       {errorExcepcion && !exceptuando && (
@@ -329,10 +470,10 @@ function FilaExpediente({
       {exceptuando && (
         <MotivoBajaDialog
           nombreArchivo={doc.nombre}
-          titulo={`Exceptuar ${doc.nombre}`}
-          descripcion="El documento deja de contar como faltante o vencido. Queda registrado quién lo exceptuó y por qué; puedes revocar la excepción después."
+          titulo={`Solicitar excepción de ${doc.nombre}`}
+          descripcion="La solicitud queda pendiente: el documento sigue faltando hasta que otra persona la otorgue o la niegue."
           etiqueta="Motivo de la excepción"
-          accion="Exceptuar"
+          accion="Solicitar excepción"
           variante="default"
           minimo={10}
           error={errorExcepcion}
@@ -340,7 +481,7 @@ function FilaExpediente({
           onConfirmar={async (motivo) => {
             try {
               await otorgar.mutateAsync({ tipoDocumentoId: doc.tipoDocumentoId, motivo });
-              toast.success('Excepción registrada.');
+              toast.success('Excepción solicitada; queda pendiente de resolución.');
               setExceptuando(false);
             } catch (err) {
               setErrorExcepcion(mensajeErrorAdjunto(err));
@@ -348,6 +489,53 @@ function FilaExpediente({
           }}
         />
       )}
+      {negando && (
+        <MotivoBajaDialog
+          nombreArchivo={doc.nombre}
+          titulo={`Negar la excepción de ${doc.nombre}`}
+          descripcion="El documento sigue siendo obligatorio. Queda registrado quién la negó, cuándo y por qué."
+          etiqueta="Motivo de la negativa"
+          accion="Negar excepción"
+          variante="secondary-danger"
+          minimo={5}
+          error={errorExcepcion}
+          onCerrar={() => setNegando(false)}
+          onConfirmar={async (motivo) => {
+            try {
+              await resolver.mutateAsync({ excepcionId: excepcion!.id, otorgar: false, motivo });
+              toast.success('Excepción negada.');
+              setNegando(false);
+            } catch (err) {
+              setErrorExcepcion(mensajeErrorAdjunto(err));
+            }
+          }}
+        />
+      )}
+      <AlertDialog open={otorgando} onOpenChange={setOtorgando}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Otorgar la excepción</AlertDialogTitle>
+            <AlertDialogDescription>
+              {doc.nombre} dejará de contar como faltante. Queda registrado quién la otorgó y cuándo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                try {
+                  await resolver.mutateAsync({ excepcionId: excepcion!.id, otorgar: true });
+                  toast.success('Excepción otorgada.');
+                } catch (err) {
+                  setErrorExcepcion(mensajeErrorAdjunto(err));
+                }
+              }}
+            >
+              Otorgar excepción
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <AlertDialog open={revocando} onOpenChange={setRevocando}>
         <AlertDialogContent>
           <AlertDialogHeader>
