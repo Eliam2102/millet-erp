@@ -39,6 +39,7 @@ import { EstadoReembolsoNcBadge } from '@/features/facturacion/components/Estado
 import { IntentosTimbradoPanel } from '@/features/facturacion/components/IntentosTimbradoPanel';
 import { SolicitarReembolsoNcDialog } from '@/features/facturacion/components/SolicitarReembolsoNcDialog';
 import { SustituirFacturaPanel } from '@/features/facturacion/components/SustituirFacturaPanel';
+import { NotasCreditoPendientesAviso } from '@/features/facturacion/components/NotasCreditoPendientesAviso';
 import { TimbradoFallidoBanner } from '@/features/facturacion/components/TimbradoFallidoBanner';
 import { TrazabilidadFacturacion } from '@/features/facturacion/components/TrazabilidadFacturacion';
 import { descargarArchivo } from '@/features/facturacion/lib/descargas';
@@ -279,6 +280,8 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
         errorCodigo={f.timbradoErrorCodigo}
         errorMensaje={f.timbradoErrorMensaje}
       />
+
+      <NotasCreditoPendientesAviso notas={f.notasCreditoPendientes ?? []} />
 
       <AvisoSustitucion f={f} />
 
