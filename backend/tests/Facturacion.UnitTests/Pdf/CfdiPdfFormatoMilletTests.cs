@@ -91,7 +91,6 @@ public sealed class CfdiPdfFormatoMilletTests
         new CfdiMilletDocument(m).Titulo.Should().Be("NOTA DE CRÉDITO/CREDIT MEMO:DEMON 000301");
         m.Conceptos.Should().ContainSingle().Which.ClaveUnidad.Should().Be("ACT");
         m.Relacionados.Should().Equal(
-            new CfdiRelacionadoPdf("00000000-0000-4000-8000-000000000201", "07 - CFDI por aplicación de anticipo"),
             new CfdiRelacionadoPdf("00000000-0000-4000-8000-000000000101", "07 - CFDI por aplicación de anticipo"));
         m.TotalesFisicos.Should().Be(new TotalesFisicosPdf(0, 0, 1));
         m.Impuestos.Should().ContainSingle().Which.Nombre.Should().Be("002 IVA");
@@ -185,9 +184,9 @@ public sealed class CfdiPdfFormatoMilletTests
         CfdiMilletDocument.FilasCfdi(m).Select(r => r.Etiqueta).Should().Equal(
             "N° Orden de compra/Purchase order:", "N° Referencia/Reference", "Certificado CSD/CSD Certificate:",
             "Certificado del SAT/Sat Certificate Serial Number:", "Fecha de Timbrado/Certification date:",
-            "Folio Fiscal/Invoice id (uuid):", "Tipo Comprobante:");
+            "Folio Fiscal/Invoice id (uuid):", "Tipo Comprobante/Voucher type:");
         var filas = CfdiMilletDocument.FilasCfdi(m);
-        (filas[0].Valor, filas[1].Valor, filas[^1].Valor).Should().Be((null, null, "Ingreso"));
+        (filas[0].Valor, filas[1].Valor, filas[^1].Valor).Should().Be((null, null, "Ingreso/Income"));
         new QuestPdfFacturaGenerator().Generar(m).Contenido.Should().NotBeEmpty();
     }
 
@@ -235,7 +234,6 @@ public sealed class CfdiPdfFormatoMilletTests
     {
         var nc = NotaCredito.CrearAmortizacion(Empresa, "DEMON-000301", 301, Sucursal, null, null, Receptor, Emisor,
             "03", "MXN", null, 2026, 10, null, Guid.NewGuid(), Guid.NewGuid(), 1160, 0.16m);
-        nc.AgregarRelacion("00000000-0000-4000-8000-000000000201", "07");
         nc.AgregarRelacion("00000000-0000-4000-8000-000000000101", "07");
         Timbrar(nc, "00000000-0000-4000-8000-000000000301");
         return nc;

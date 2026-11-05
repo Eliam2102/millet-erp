@@ -186,8 +186,19 @@ public sealed class CfdiMilletDocument(CfdiPdfModel m) : IDocument
         ("Certificado del SAT/Sat Certificate Serial Number:", modelo.Cabecera.NoCertificadoSat),
         ("Fecha de Timbrado/Certification date:", modelo.Cabecera.FechaTimbrado?.ToString("yyyy-MM-ddTHH:mm:ss", Numeros)),
         ("Folio Fiscal/Invoice id (uuid):", modelo.Cabecera.Uuid?.ToUpperInvariant()),
-        ("Tipo Comprobante:", modelo.TipoComprobante),
+        ("Tipo Comprobante/Voucher type:", TipoBilingue(modelo.TipoComprobante)),
     ];
+
+    private static string TipoBilingue(string tipo) => tipo switch
+    {
+        "Ingreso" => "Ingreso/Income",
+        "Egreso" => "Egreso/Expense",
+        "Traslado" => "Traslado/Transfer",
+        "Pago" => "Pago/Payment",
+        _ => tipo,
+    };
+
+    private const decimal M2PorPie2 = 0.09290304m;
 
     private void TablaConceptos(IContainer container)
     {
@@ -240,7 +251,8 @@ public sealed class CfdiMilletDocument(CfdiPdfModel m) : IDocument
             fila.RelativeItem(1.15f).AlignBottom().Row(medidas =>
             {
                 medidas.RelativeItem().Text($"Total Kg.:{(t.Kg is null ? "" : Medida(t.Kg.Value))}");
-                medidas.RelativeItem().Text($"Total Pie².:{(t.Pie2 is null ? "" : Medida(t.Pie2.Value))}");
+                medidas.RelativeItem().Text($"Total Pies²/SqFt:{(t.Pie2 is null ? "" : Medida(t.Pie2.Value))}");
+                medidas.RelativeItem().Text($"Total M²/SqM:{(t.Pie2 is null ? "" : Medida(t.Pie2.Value * M2PorPie2))}");
                 medidas.RelativeItem().Text($"Total Qty.:{t.Piezas.ToString("#,##0.##", Numeros)}");
             });
             if (!MuestraImpuestos)

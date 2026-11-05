@@ -105,7 +105,7 @@ public sealed class AplicarAnticipoAFacturaHandler(
             factura.CajaId, user.UserId, receptor, factura.SnapshotEmisor(), factura.FormaPago, factura.Moneda,
             factura.TipoCambio, ahora.Year, ahora.Month, factura.CanalVentaId, anticipo.Id, factura.Id,
             command.Importe, TasaIvaEstandar);
-        nc.AgregarRelacion(facturaAnticipo.Uuid!, MotivoNotaCredito.Amortizacion.ClaveTipoRelacion());
+        // Millet (4-nov): la NC de aplicación relaciona solo la factura de venta; el UUID del anticipo va en la factura.
         nc.AgregarRelacion(factura.Uuid!, MotivoNotaCredito.Amortizacion.ClaveTipoRelacion());
 
         await TimbradoEjecutor.TimbrarYAplicarAsync(db, nc, CfdiEmisionBuilder.DesdeNotaCredito(nc, ahora),
