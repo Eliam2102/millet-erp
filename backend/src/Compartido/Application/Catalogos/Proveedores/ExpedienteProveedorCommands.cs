@@ -92,13 +92,14 @@ public sealed class GuardarTipoDocumentoProveedorHandler(
     }
 }
 
-public sealed record OtorgarExcepcionExpedienteCommand(Guid ProveedorId, Guid TipoDocumentoId, string Motivo) : IRequest<Guid>;
+/// <summary>86e3yzemu: pedir la excepción la deja pendiente; la resuelve otra persona (<see cref="ResolverExcepcionExpedienteCommand"/>).</summary>
+public sealed record SolicitarExcepcionExpedienteCommand(Guid ProveedorId, Guid TipoDocumentoId, string Motivo) : IRequest<Guid>;
 
-public sealed class OtorgarExcepcionExpedienteHandler(
+public sealed class SolicitarExcepcionExpedienteHandler(
     CompartidoDbContext db, ICurrentUserContext usuario, ICurrentEmpresaContext empresa, IClock clock, IAuditLogWriter audit)
-    : IRequestHandler<OtorgarExcepcionExpedienteCommand, Guid>
+    : IRequestHandler<SolicitarExcepcionExpedienteCommand, Guid>
 {
-    public async Task<Guid> Handle(OtorgarExcepcionExpedienteCommand request, CancellationToken cancellationToken)
+    public async Task<Guid> Handle(SolicitarExcepcionExpedienteCommand request, CancellationToken cancellationToken)
     {
         var proveedor = await db.Proveedores.AsNoTracking().FirstOrDefaultAsync(p => p.Id == request.ProveedorId, cancellationToken)
             ?? throw new EntityNotFoundException("PROVEEDOR_NO_ENCONTRADO", "No existe el proveedor solicitado.");
@@ -108,8 +109,8 @@ public sealed class OtorgarExcepcionExpedienteHandler(
         if (!tipo.EsObligatorioPara(proveedor.TipoPersona == TipoPersonaProveedor.Moral))
             throw new BusinessRuleException("ADJUNTO_EXCEPCION_NO_APLICA", "Solo se exceptúan documentos obligatorios.");
         if (await db.AdjuntoExcepciones.AnyAsync(x => x.TipoEntidad == ProveedorAdjuntoPropietario.Tipo && x.EntidadId == proveedor.Id
-                && x.TipoDocumentoId == tipo.Id && x.RevocadaEn == null, cancellationToken))
-            throw new ConflictException("ADJUNTO_EXCEPCION_DUPLICADA", "Ya hay una excepción vigente para ese documento.");
+                && x.TipoDocumentoId == tipo.Id && x.RevocadaEn == null && x.Estado != EstadoExcepcionAdjunto.Negada, cancellationToken))
+            throw new ConflictException("ADJUNTO_EXCEPCION_DUPLICADA", "Ya hay una excepción pendiente o vigente para ese documento.");
 
         var excepcion = new AdjuntoExcepcion(ProveedorAdjuntoPropietario.Tipo, proveedor.Id, tipo.Id, request.Motivo,
             usuario.UserId, usuario.UserName, clock.UtcNow);
@@ -120,11 +121,71 @@ public sealed class OtorgarExcepcionExpedienteHandler(
             entidadId: proveedor.Id, aggregateRootId: proveedor.Id,
             actorNombre: usuario.UserName ?? "Usuario", actorTipo: "usuario", actorEmail: usuario.Email,
             entidadEtiqueta: $"{proveedor.Clave} · {proveedor.RazonSocial}",
-            resumen: $"Excepción al documento «{tipo.Nombre}»: {excepcion.Motivo}",
+            resumen: $"Excepción solicitada al documento «{tipo.Nombre}»: {excepcion.Motivo}",
             usuarioId: usuario.UserId, empresaId: empresa.Current,
             cambios: JsonSerializer.Serialize(new { tipoDocumento = tipo.Codigo, excepcion.Motivo }),
             cancellationToken: cancellationToken);
         return excepcion.Id;
+    }
+}
+
+/// <summary>Otorga o niega una excepción pendiente (la persona que resuelve no puede ser quien la pidió).</summary>
+public sealed record ResolverExcepcionExpedienteCommand(Guid ProveedorId, Guid ExcepcionId, bool Otorgar, string? Motivo) : IRequest;
+
+public sealed class ResolverExcepcionExpedienteHandler(
+    CompartidoDbContext db, ICurrentUserContext usuario, ICurrentEmpresaContext empresa, IClock clock, IAuditLogWriter audit)
+    : IRequestHandler<ResolverExcepcionExpedienteCommand>
+{
+    public async Task Handle(ResolverExcepcionExpedienteCommand request, CancellationToken cancellationToken)
+    {
+        var excepcion = await db.AdjuntoExcepciones.FirstOrDefaultAsync(x =>
+                x.Id == request.ExcepcionId && x.EntidadId == request.ProveedorId && x.TipoEntidad == ProveedorAdjuntoPropietario.Tipo, cancellationToken)
+            ?? throw new EntityNotFoundException("ADJUNTO_EXCEPCION_NO_ENCONTRADA", "No existe la excepción.");
+        if (request.Otorgar) excepcion.Otorgar(usuario.UserId, usuario.UserName, clock.UtcNow, request.Motivo);
+        else excepcion.Negar(usuario.UserId, usuario.UserName, clock.UtcNow, request.Motivo);
+        var tipo = await db.AdjuntoTiposDocumento.AsNoTracking().FirstAsync(t => t.Id == excepcion.TipoDocumentoId, cancellationToken);
+        var proveedor = await db.Proveedores.AsNoTracking().FirstAsync(p => p.Id == request.ProveedorId, cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+        await audit.RegistrarAsync(
+            operacion: "proveedor.expediente-excepcion-resuelta", modulo: "DatosMaestros", entidad: "Proveedor",
+            entidadId: proveedor.Id, aggregateRootId: proveedor.Id,
+            actorNombre: usuario.UserName ?? "Usuario", actorTipo: "usuario", actorEmail: usuario.Email,
+            entidadEtiqueta: $"{proveedor.Clave} · {proveedor.RazonSocial}",
+            resumen: $"Excepción al documento «{tipo.Nombre}» {(request.Otorgar ? "otorgada" : "negada")}.",
+            usuarioId: usuario.UserId, empresaId: empresa.Current,
+            cambios: JsonSerializer.Serialize(new { tipoDocumento = tipo.Codigo, estado = excepcion.Estado.ToString(), excepcion.MotivoResolucion }),
+            cancellationToken: cancellationToken);
+    }
+}
+
+/// <summary>86e3yzemu: cotejo del contenido de un documento del expediente (quién, cuándo y resultado).</summary>
+public sealed record RevisarDocumentoProveedorCommand(Guid ProveedorId, Guid AdjuntoId, ResultadoRevisionAdjunto Resultado, string? Observacion)
+    : IRequest<AdjuntoResponse>;
+
+public sealed class RevisarDocumentoProveedorHandler(
+    CompartidoDbContext db, ICurrentUserContext usuario, ICurrentEmpresaContext empresa, IClock clock, IAuditLogWriter audit)
+    : IRequestHandler<RevisarDocumentoProveedorCommand, AdjuntoResponse>
+{
+    public async Task<AdjuntoResponse> Handle(RevisarDocumentoProveedorCommand request, CancellationToken cancellationToken)
+    {
+        var proveedor = await db.Proveedores.AsNoTracking().FirstOrDefaultAsync(p => p.Id == request.ProveedorId, cancellationToken)
+            ?? throw new EntityNotFoundException("PROVEEDOR_NO_ENCONTRADO", "No existe el proveedor solicitado.");
+        var adjunto = await AdjuntoSoporte.CargarAsync(db, ProveedorAdjuntoPropietario.Tipo, request.ProveedorId, request.AdjuntoId, true, cancellationToken);
+        adjunto.Revisar(request.Resultado, request.Observacion,
+            usuario.UserId ?? throw new ForbiddenException("USUARIO_REQUERIDO", "No se pudo identificar al usuario que revisa."),
+            usuario.UserName, clock.UtcNow);
+        await db.SaveChangesAsync(cancellationToken);
+        var tipo = await AdjuntoSoporte.CargarTipoAsync(db, adjunto.TipoDocumentoId, cancellationToken);
+        await audit.RegistrarAsync(
+            operacion: "proveedor.expediente-revision", modulo: "DatosMaestros", entidad: "Proveedor",
+            entidadId: proveedor.Id, aggregateRootId: proveedor.Id,
+            actorNombre: usuario.UserName ?? "Usuario", actorTipo: "usuario", actorEmail: usuario.Email,
+            entidadEtiqueta: $"{proveedor.Clave} · {proveedor.RazonSocial}",
+            resumen: $"Documento «{tipo.Nombre}» {(request.Resultado == ResultadoRevisionAdjunto.Aceptado ? "aceptado" : "rechazado")} tras revisar su contenido.",
+            usuarioId: usuario.UserId, empresaId: empresa.Current,
+            cambios: JsonSerializer.Serialize(new { tipoDocumento = tipo.Codigo, resultado = request.Resultado.ToString(), adjunto.ObservacionRevision }),
+            cancellationToken: cancellationToken);
+        return AdjuntoResponse.De(adjunto, tipo, AdjuntoSoporte.Hoy(clock));
     }
 }
 

@@ -38,6 +38,13 @@ public class ExpedienteMatrizTests
         var excepcion = await admin.PostAsJsonAsync($"{Base}/{prov}/expediente/excepciones",
             new { tipoDocumentoId = TipoContrato, motivo = "Proveedor local chico sin contrato formal" });
         Assert.Equal(HttpStatusCode.Created, excepcion.StatusCode);
+        // 86e3yzemu: pedida no cubre el documento; la resuelve otra persona.
+        exp = await LeerAsync(await admin.GetAsync($"{Base}/{prov}/expediente"));
+        Assert.Contains("contrato", exp.GetProperty("faltantes").EnumerateArray().Select(f => f.GetString()));
+        var (cxp, _) = await amb.ClienteConPermisosAsync(PermisosCanonicos.DatosMaestrosProveedoresValidar);
+        var excepcionId = (await LeerAsync(excepcion)).GetProperty("id").GetGuid();
+        var resuelta = await cxp.PostAsJsonAsync($"{Base}/{prov}/expediente/excepciones/{excepcionId}/resolver", new { otorgar = true });
+        Assert.Equal(HttpStatusCode.NoContent, resuelta.StatusCode);
         exp = await LeerAsync(await admin.GetAsync($"{Base}/{prov}/expediente"));
         Assert.DoesNotContain("contrato", exp.GetProperty("faltantes").EnumerateArray().Select(f => f.GetString()));
         var contrato = exp.GetProperty("documentos").EnumerateArray().Single(d => d.GetProperty("codigo").GetString() == "contrato");
