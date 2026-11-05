@@ -16,6 +16,8 @@ interface TabsEstadoProps {
   onChange: (estado: number | undefined) => void;
   /** Conteos por estado del backend; <c>undefined</c> mientras cargan. */
   conteos: Record<number, number> | undefined;
+  /** Total explícito para pestañas que se solapan. */
+  total?: number;
   'aria-label'?: string;
 }
 
@@ -32,6 +34,7 @@ export function TabsEstado({
   valor,
   onChange,
   conteos,
+  total,
   'aria-label': ariaLabel = 'Filtrar por estado',
 }: TabsEstadoProps) {
   const todos = conteos ? opciones.reduce((s, o) => s + (conteos[o.valor] ?? 0), 0) : undefined;
@@ -41,7 +44,7 @@ export function TabsEstado({
       onValueChange={(v) => onChange(v === TODOS ? undefined : Number(v))}
     >
       <TabsList aria-label={ariaLabel} className="gap-3 px-1">
-        <TabsTrigger value={TODOS} count={todos} aria-controls={undefined}>
+        <TabsTrigger value={TODOS} count={total ?? todos} aria-controls={undefined}>
           Todos
         </TabsTrigger>
         {opciones.map((o) => (

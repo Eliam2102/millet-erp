@@ -52,6 +52,8 @@ public sealed class AppSalidaResolverAdapter : IAppSalidaResolverPort
             var variante = await _maestros.ProductosAwVariantes.AsNoTracking()
                 .Where(v => v.ProductoAwId == articulo.ProductoAwId
                     && ((v.AnchoMm == ancho && v.AltoMm == alto) || (v.AnchoMm == alto && v.AltoMm == ancho)))
+                // Si el catálogo trae las dos orientaciones como variantes distintas, gana la del mismo orden y luego la de menor Id (determinista).
+                .OrderBy(v => v.AnchoMm == ancho ? 0 : 1).ThenBy(v => v.Id)
                 .Select(v => new { v.Id, v.AnchoMm, v.AltoMm }).FirstOrDefaultAsync(ct);
             if (variante is null)
                 return Fallo($"No existe la medida {ancho:0.##}x{alto:0.##} del artículo A+W {clave}.");

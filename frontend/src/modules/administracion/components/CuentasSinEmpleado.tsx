@@ -142,7 +142,7 @@ export function CuentasSinEmpleado({ onCrearEmpleado }: Props) {
 }
 
 /** Liga la cuenta a un empleado activo sin acceso (POST /colaboradores/{id}/acceso, cuenta existente). */
-function LigarCuentaForm({
+export function LigarCuentaForm({
   cuenta,
   onCerrar,
 }: {

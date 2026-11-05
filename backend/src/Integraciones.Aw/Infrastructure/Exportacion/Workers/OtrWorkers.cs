@@ -23,6 +23,26 @@ public sealed class OtrOptions
     public int BatchSize { get; set; } = 50;
     public int MaxIntentos { get; set; } = 5;
     public bool ContratoI134Firmado { get; set; }
+    // Sólo origen Real. El significado de los estatus de ruta lo confirma TI de Millet: por eso son opciones y no reglas fijas.
+    /// <summary>Estatus de ruta que no se leen, separados por coma. 50 = en edición (TI).</summary>
+    public string EstatusRutaExcluidos { get; set; } = "50";
+    /// <summary>Estatus de ruta que cancelan el envío, separados por coma. Vacío hasta que TI diga cómo se marca una ruta cancelada.</summary>
+    public string EstatusRutaCancelada { get; set; } = "";
+    /// <summary>Sólo cuentan las posiciones cuyo pedido de A+W tenga STATUS menor a este valor (consulta de TI: &lt; 900).</summary>
+    public int EstatusPedidoMenorA { get; set; } = 900;
+    /// <summary>Código de unidad de las líneas; debe coincidir con la unidad de la posición del pedido en el ERP.</summary>
+    public string UnidadLinea { get; set; } = "H87";
+    /// <summary>Si se indica, sólo se leen rutas con fecha de entrega igual o posterior.</summary>
+    public DateOnly? EntregaDesde { get; set; }
+    internal static bool ListaValida(string? texto) => Lista(texto, out _);
+    internal static bool Lista(string? texto, out int[] valores)
+    {
+        var partes = (texto ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var lista = new int[partes.Length]; valores = lista;
+        for (var i = 0; i < partes.Length; i++)
+            if (!int.TryParse(partes[i], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out lista[i])) return false;
+        return true;
+    }
 }
 public sealed class OtrEntradaWorker(IServiceScopeFactory scopes, IOptions<OtrOptions> options, ILogger<OtrEntradaWorker> logger) : BackgroundService
 {

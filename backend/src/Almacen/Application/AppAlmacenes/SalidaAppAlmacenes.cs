@@ -13,19 +13,23 @@ namespace Millet.Almacen.Application.AppAlmacenes;
 public sealed record SalidaApp(
     TipoMovimiento Tipo, Guid SucursalId, Guid ArticuloId, string UnidadMedida, Guid? ProductoAwVarianteId,
     decimal Cantidad, decimal? CostoUnitarioMxn, string Motivo, decimal? AnchoMm = null, decimal? AltoMm = null,
-    string? Causa = null);
+    string? Causa = null, string? ArticuloAw = null);
 
 /// <summary>
-/// Salidas de la app de Almacenes (F1-MP-07; ACUERDO 28-oct reglas 1–4, correo de Jorge 30-oct punto 4):
+/// Salidas de la app de Almacenes (F1-MP-07; ACUERDO 28-oct reglas 1–4, correos de Jorge 30-oct y 5-nov):
 /// baja existencia del artículo A+W + medida en los almacenes de la sucursal, a costo promedio salvo que el
-/// mensaje traiga el suyo. Sin existencia suficiente NO es error: el mensaje se acepta y queda
-/// <see cref="EnRevision"/> sin mover saldo (bandeja de revisión). No guarda: el llamador hace un solo
+/// mensaje traiga el suyo (promedio de A+W). Sin existencia suficiente (5-nov) no se acepta en silencio: el mensaje
+/// queda <see cref="EnRevision"/> sin mover saldo (bandeja de revisión) y el llamador lo acusa ERROR con
+/// <see cref="FolioRevision"/> y el motivo, para que sus siguientes de la misma referencia esperen. No guarda: el llamador hace un solo
 /// <c>SaveChangesAsync</c> junto con el <c>MensajeApp</c> (idempotencia por mensajeId) y confirma la transacción.
 /// </summary>
 public static class SalidaAppAlmacenes
 {
     public const string Recibido = "RECIBIDO";
     public const string EnRevision = "EN_REVISION";
+
+    /// <summary>Folio del ERP para un mensaje marcado en la bandeja (sin movimiento): determinista, así el DUPLICADO lo repite.</summary>
+    public static string FolioRevision(string mensajeId) => $"REV-{mensajeId}";
 
     public static Task<(string Estado, string? Folio, string? Error)> RegistrarAsync(
         AlmacenDbContext db, IIntegrationEventPublisher events, Guid empresaId, Guid usuarioId, SalidaApp s, CancellationToken ct) =>
@@ -75,7 +79,7 @@ public static class SalidaAppAlmacenes
                 var m = grp.First();
                 var medida = m.AnchoMm is null ? "" : $" {m.AnchoMm:0.####}x{m.AltoMm:0.####}";
                 return (EnRevision, null,
-                    $"Sin existencia suficiente (artículo {m.ArticuloId}{medida}): disponible {disponible:0.####}, solicitada {pedida:0.####}.");
+                    $"Sin existencia suficiente (artículo A+W {m.ArticuloAw ?? m.ArticuloId.ToString()}{medida} mm): disponible {disponible:0.####} {m.UnidadMedida}, solicitada {pedida:0.####} {m.UnidadMedida}.");
             }
             restante[(articuloId, varianteId)] = saldos.Select(x => (x, x.CantidadDisponible)).ToList();
         }
