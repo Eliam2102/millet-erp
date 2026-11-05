@@ -1,3 +1,4 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { CircleCheck, FileText, Inbox, LogOut, TriangleAlert, Upload } from 'lucide-react';
@@ -84,7 +85,7 @@ function Acceso({ alEntrar }: { alEntrar: () => void }) {
     try {
       await accion();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Intenta de nuevo.');
+      setError(errorUsuario(e));
     } finally {
       setOcupado(false);
     }
@@ -211,7 +212,7 @@ function ErrorCarga({ q }: { q: UseQueryResult }) {
     <Alert variant="destructive" className="flex flex-wrap items-center justify-between gap-3">
       <div>
         <AlertTitle>No pudimos cargar tu información</AlertTitle>
-        <AlertDescription>{q.error instanceof Error ? q.error.message : 'Intenta de nuevo.'}</AlertDescription>
+        <AlertDescription>{errorUsuario(q.error)}</AlertDescription>
       </div>
       <Button variant="outline" size="sm" onClick={() => void q.refetch()}>Reintentar</Button>
     </Alert>
@@ -445,7 +446,7 @@ function SubirDocumento({ alExpirar, ir }: { alExpirar: () => void; ir: (s: Secc
       setPdf(null);
     } catch (e) {
       if (e instanceof PortalSesionExpirada) return alExpirar();
-      setResultado({ ok: false, texto: e instanceof Error ? e.message : 'Intenta de nuevo.' });
+      setResultado({ ok: false, texto: errorUsuario(e, 'No pudimos aceptar el documento.') });
     } finally {
       setOcupado(false);
     }
