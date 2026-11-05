@@ -12,6 +12,9 @@ internal sealed class FakePedidosPort : IPedidosPtReadPort
     public Dictionary<string, PedidoPtOrigen> Pedidos { get; } = new();
     public Task<PedidoPtOrigen?> ObtenerPorNumeroAsync(Guid empresaId, string numeroPedido, CancellationToken ct) =>
         Task.FromResult(Pedidos.GetValueOrDefault(numeroPedido));
+    public Dictionary<Guid, Guid> Facturas { get; } = new();
+    public Task<Guid?> ObtenerPedidoDeFacturaAsync(Guid empresaId, Guid comprobanteId, CancellationToken ct) =>
+        Task.FromResult(Facturas.TryGetValue(comprobanteId, out var p) ? (Guid?)p : null);
     public Dictionary<Guid, PedidoMonitorOrigen> Monitor { get; } = new();
     public Task<IReadOnlyDictionary<Guid, PedidoMonitorOrigen>> ObtenerParaMonitorAsync(Guid empresaId, IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
         Task.FromResult<IReadOnlyDictionary<Guid, PedidoMonitorOrigen>>(Monitor.Where(k => ids.Contains(k.Key)).ToDictionary(k => k.Key, k => k.Value));
