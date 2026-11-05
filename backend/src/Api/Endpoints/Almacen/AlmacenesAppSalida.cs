@@ -124,7 +124,7 @@ public static class AlmacenesAppSalida
             // El valor que llega se guarda tal cual (a la precisión de la columna, 14,4); no se recalcula contra A+W.
             var costoUnit = x.CostoUnitario is { } cu ? Math.Round(cu, 4) : (decimal?)null;
             salidas.Add(new SalidaApp(Tipos[tipo], resuelto.SucursalId, r.ArticuloId, r.UnidadMedida, r.ProductoAwVarianteId,
-                cantidad, costoUnit, motivo, r.AnchoMm, r.AltoMm));
+                cantidad, costoUnit, motivo, r.AnchoMm, r.AltoMm, ArticuloAw: x.Articulo.Trim()));
         }
         return (new Resuelta(sp.EmpresaId, sp.Id, salidas), null);
     }

@@ -13,7 +13,7 @@ namespace Millet.Almacen.Application.AppAlmacenes;
 public sealed record SalidaApp(
     TipoMovimiento Tipo, Guid SucursalId, Guid ArticuloId, string UnidadMedida, Guid? ProductoAwVarianteId,
     decimal Cantidad, decimal? CostoUnitarioMxn, string Motivo, decimal? AnchoMm = null, decimal? AltoMm = null,
-    string? Causa = null);
+    string? Causa = null, string? ArticuloAw = null);
 
 /// <summary>
 /// Salidas de la app de Almacenes (F1-MP-07; ACUERDO 28-oct reglas 1–4, correos de Jorge 30-oct y 5-nov):
@@ -79,7 +79,7 @@ public static class SalidaAppAlmacenes
                 var m = grp.First();
                 var medida = m.AnchoMm is null ? "" : $" {m.AnchoMm:0.####}x{m.AltoMm:0.####}";
                 return (EnRevision, null,
-                    $"Sin existencia suficiente (artículo {m.ArticuloId}{medida}): disponible {disponible:0.####}, solicitada {pedida:0.####}.");
+                    $"Sin existencia suficiente (artículo A+W {m.ArticuloAw ?? m.ArticuloId.ToString()}{medida} mm): disponible {disponible:0.####} {m.UnidadMedida}, solicitada {pedida:0.####} {m.UnidadMedida}.");
             }
             restante[(articuloId, varianteId)] = saldos.Select(x => (x, x.CantidadDisponible)).ToList();
         }
