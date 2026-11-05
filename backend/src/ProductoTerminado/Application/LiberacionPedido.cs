@@ -31,12 +31,12 @@ public sealed class LiberacionPedido(ProductoTerminadoDbContext db, ISaldoPedido
         return motivo is not null && await LiberarAsync(pedido, motivo, ct);
     }
 
-    public async Task<bool> LiberarAsync(PedidoPt pedido, string motivo, CancellationToken ct)
+    public async Task<bool> LiberarAsync(PedidoPt pedido, string motivo, CancellationToken ct, string? liberadoPor = null)
     {
         var ahora = clock.UtcNow;
         if (!pedido.Liberar(motivo, ahora)) return false;
         await eventos.PublishAsync(new PedidoEstadoCambiadoEvent(pedido.EmpresaId, ahora, pedido.Id, pedido.NumeroPedido,
-            nameof(EstadoLiberacion.Liberado), motivo, null, null, null), ct);
+            nameof(EstadoLiberacion.Liberado), motivo, null, null, null, liberadoPor), ct);
         return true;
     }
 
