@@ -97,6 +97,6 @@ public sealed partial class LibroHttpTests
         using var captura=await Post(cliente,$"conteos/{cid}/capturar",new {captura=new {numero="FIX-P4-MONTACARGAS",resultado=1,evidencia="Foto anterior"}},c.GetProperty("version").GetInt32());captura.EnsureSuccessStatusCode();c=await captura.Content.ReadFromJsonAsync<JsonElement>();
         using var sinRazon=await Post(cliente,$"conteos/{cid}/capturar",new {captura=new {numero="FIX-P4-MONTACARGAS",resultado=2,evidencia="Foto nueva"}},c.GetProperty("version").GetInt32());Assert.Equal(HttpStatusCode.UnprocessableEntity,sinRazon.StatusCode);
         using var recaptura=await Post(cliente,$"conteos/{cid}/capturar",new {captura=new {numero="FIX-P4-MONTACARGAS",resultado=2,evidencia="Foto nueva",motivo="Error de lectura"}},c.GetProperty("version").GetInt32());recaptura.EnsureSuccessStatusCode();
-        c=await cliente.GetFromJsonAsync<JsonElement>($"{Base}/conteos/{cid}");Assert.Equal("Foto anterior",c.GetProperty("partidas")[0].GetProperty("capturasAnteriores")[0].GetProperty("evidencia").GetString());
+        c=await cliente.GetFromJsonAsync<JsonElement>($"{Base}/conteos/{cid}");Assert.Equal("Foto anterior",Assert.Single(c.GetProperty("partidas").EnumerateArray(),p=>p.GetProperty("activoId").GetGuid()==id).GetProperty("capturasAnteriores")[0].GetProperty("evidencia").GetString());
     }
 }

@@ -36,6 +36,7 @@ public sealed class P17Tests
         a.Trasladar(id,origen with { Ubicacion="Destino" },"Traslado",new(2026,5,1),Guid.NewGuid(),ahora);
         a.CorregirTraslado(id,origen,"Destino erróneo",Guid.NewGuid(),ahora);
         Assert.Equal(origen,a.Custodia()); Assert.True(a.Traslados[0].Corregido); Assert.Equal(id,a.Traslados[1].CorrigeA);
+        Assert.Equal(a.Traslados[0].Origen,a.Traslados[1].Origen); Assert.NotSame(a.Traslados[0].Origen,a.Traslados[1].Origen);
         Assert.Equal(origen,CalculoDepreciacion.CustodiaAFecha(a,new(2026,4,30)));
         Assert.Throws<BusinessRuleException>(()=>a.CorregirTraslado(id,origen,"Otra",Guid.NewGuid(),ahora));
     }

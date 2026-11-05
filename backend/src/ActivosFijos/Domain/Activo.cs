@@ -210,7 +210,7 @@ public sealed class TrasladoActivo : BaseEntity, IPerteneceAEmpresa, IAuditable
     public bool Corregido { get; private set; }
     public Guid? CorrigeA { get; private set; }
     internal void MarcarCorregido() => Corregido = true;
-    internal void LigarCorreccion(TrasladoActivo original) { CorrigeA = original.Id; Origen = original.Origen; }
+    internal void LigarCorreccion(TrasladoActivo original) { CorrigeA = original.Id; Origen = original.Origen with { }; }
     public DateOnly FechaEfectiva { get; private set; }
     [System.ComponentModel.DataAnnotations.Schema.NotMapped]
     public string? RegistradoPorNombre { get; set; }

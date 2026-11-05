@@ -24,7 +24,7 @@ public sealed partial class LibroHttpTests
         }
         using var cliente=await e.ClienteAsync(true,permisosCe:false,permisosAf:true);var actual=await cliente.GetFromJsonAsync<JsonElement>($"{Base}/activos/{id}");
         using var corregir=await Post(cliente,$"activos/{id}/corregir-traslado",new {trasladoId=traslado,destino=new {responsableId=e.Responsable,sucursalId=e.SucursalId,ubicacion="Destino corregido",centroCostoId=actual.GetProperty("centroCostoId").GetGuid(),equipoId=(Guid?)null},motivo="Error de ubicación"},actual.GetProperty("version").GetInt32());
-        Assert.Equal(confirmado ? HttpStatusCode.UnprocessableEntity : HttpStatusCode.OK,corregir.StatusCode);
+        Assert.True(corregir.StatusCode == (confirmado ? HttpStatusCode.UnprocessableEntity : HttpStatusCode.OK), await corregir.Content.ReadAsStringAsync());
         if(!confirmado) {actual=await cliente.GetFromJsonAsync<JsonElement>($"{Base}/activos/{id}");Assert.Equal("Destino corregido",actual.GetProperty("ubicacion").GetString());var historial=actual.GetProperty("traslados").EnumerateArray().ToList();Assert.True(historial.Single(t=>t.GetProperty("id").GetGuid()==traslado).GetProperty("corregido").GetBoolean());Assert.Contains(historial,t=>t.GetProperty("corrigeA").ValueKind!=JsonValueKind.Null&&t.GetProperty("corrigeA").GetGuid()==traslado);}
     }
 }

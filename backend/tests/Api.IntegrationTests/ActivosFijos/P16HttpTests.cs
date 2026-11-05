@@ -50,19 +50,19 @@ public sealed partial class LibroHttpTests
     {
         await using var e=await ExpedientesHttpTests.Escenario.CrearAsync();var id=await Preparar(e,false);
         using var cliente=await e.ClienteAsync(true,permisosCe:false,permisosAf:true);
-        using var r=await Post(cliente,"depreciacion",new {periodo="2027-02-01"});r.EnsureSuccessStatusCode();var corrida=(await r.Content.ReadFromJsonAsync<CorridaDepreciacion>())!;
+        using var r=await Post(cliente,"depreciacion",new {periodo="2027-02-01"});r.EnsureSuccessStatusCode();var corrida=(await r.Content.ReadFromJsonAsync<CorridaP21>())!;
         using(var scope=e.Scope())
         {
             using var bypass=scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
             await scope.ServiceProvider.GetRequiredService<IPolizaContablePort>().AnularPorDocumentoOrigenAsync("ActivosFijos","Depreciacion",corrida.Id,"Prueba P16",default);
         }
-        var historial=await cliente.GetFromJsonAsync<List<CorridaDepreciacion>>($"{Base}/depreciacion");Assert.True(historial!.Single(c => c.Id == corrida.Id).SinEfectoContable);
+        var historial=await cliente.GetFromJsonAsync<List<CorridaP21>>($"{Base}/depreciacion");Assert.True(historial!.Single(c => c.Id == corrida.Id).SinEfectoContable);
         var conciliacion=await cliente.GetFromJsonAsync<ReporteConciliacion>($"{Base}/conciliacion?periodo=2027-02-01");Assert.Equal(4166.67m,conciliacion!.DepreciacionPorActivo!.Single(a => a.ActivoId == id).Diferencia);
         Guid? nueva=null;
         for(var intento=0;intento<2;intento++)
         {
             using var recuperar=await Post(cliente,$"depreciacion/{corrida.Id}/recuperar-poliza",new {},corrida.Version);recuperar.EnsureSuccessStatusCode();
-            var actual=(await recuperar.Content.ReadFromJsonAsync<CorridaDepreciacion>())!;
+            var actual=(await recuperar.Content.ReadFromJsonAsync<CorridaP21>())!;
             Assert.NotEqual(corrida.PolizaId,actual.PolizaId);if(nueva != null) Assert.Equal(nueva,actual.PolizaId);nueva=actual.PolizaId;
         }
         var cuadra=await cliente.GetFromJsonAsync<ReporteConciliacion>($"{Base}/conciliacion?periodo=2027-02-01");Assert.Equal(0,cuadra!.DepreciacionPorActivo!.Single(a => a.ActivoId == id).Diferencia);
@@ -84,7 +84,7 @@ public sealed partial class LibroHttpTests
             var a=await db.Activos.SingleAsync(a => a.Numero == "P16-CARGA");
             db.Add(new CorridaDepreciacion { EmpresaId=a.EmpresaId,Periodo=new(2027,2,1),Revision=1,Detalles=[new() {EmpresaId=a.EmpresaId,ActivoId=a.Id,Numero=a.Numero,ClaseId=a.ClaseId,Importe=1}] });await db.SaveChangesAsync();
         }
-        var cargas=await cliente.GetFromJsonAsync<List<CargaLibro>>($"{Base}/carga");var carga=cargas!.Single(c => c.Id == lote.CargaId);
+        var cargas=await cliente.GetFromJsonAsync<List<CargaP21>>($"{Base}/carga");var carga=cargas!.Single(c => c.Id == lote.CargaId);
         using var anular=await Post(cliente,$"carga/{carga.Id}/anular",new {motivo="Corregir archivo"},carga.Version);
         Assert.Equal(depreciar ? HttpStatusCode.UnprocessableEntity : HttpStatusCode.OK,anular.StatusCode);
         if(!depreciar) {using var recargar=await Post(cliente,"carga/confirmar",datos);recargar.EnsureSuccessStatusCode();var nuevo=(await recargar.Content.ReadFromJsonAsync<ResultadoCarga>())!;Assert.True(nuevo.Valida);Assert.False(nuevo.Idempotente);Assert.NotEqual(lote.CargaId,nuevo.CargaId);}
@@ -139,6 +139,8 @@ public sealed partial class LibroHttpTests
         using var previa=await Post(cliente,"carga/previa",new SolicitudCarga(csv,"P16",new(2027,1,31),[]));previa.EnsureSuccessStatusCode();var r=(await previa.Content.ReadFromJsonAsync<ResultadoCarga>())!;
         Assert.True(r.Valida);var activo=Assert.Single(r.Activos!);Assert.Equal("153",activo.Clase);Assert.Equal(15,activo.TasaContablePropia);Assert.Equal(12,activo.TasaFiscalPropia);
     }
+    private sealed record CorridaP21(Guid Id, int Version, Guid? PolizaId, bool SinEfectoContable);
+    private sealed record CargaP21(Guid Id, int Version);
     private sealed record ActivoP16(Guid ClaseId);
     private sealed record VersionP16(Guid Id,int Version,EstadoVersionClase Estado);
     private sealed record ClaseP16(Guid Id,int Version,string Clave,string Nombre,Guid? CuentaActivoId,Guid? CuentaDepreciacionId,Guid? CuentaGastoId,Guid? CuentaPuenteId,List<VersionP16> Versiones);

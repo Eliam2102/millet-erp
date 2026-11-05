@@ -77,7 +77,9 @@ public sealed class MutarActivoHandler(ActivosFijosDbContext db, ActivoServicio 
                 if (await db.Set<CorridaDepreciacion>().AnyAsync(x => !x.Anulada && x.Periodo >= CalculoDepreciacion.Mes(a.InicioUso!.Value), cancellationToken))
                     throw new BusinessRuleException("AF_PERIODO_YA_DEPRECIADO", "Anule las corridas desde el inicio de uso antes de capitalizar retroactivamente.");
                 var clase = await servicio.ClaseAsync(a.ClaseId, cancellationToken);
-                a.Capitalizar(await servicio.PolizaAsync(a, clase, a.Id, a.InicioUso!.Value, a.ValorOriginal, $"AF-CAP-{a.Id}-R{await db.Set<OperacionLibro>().CountAsync(x => x.ActivoId == a.Id && x.Tipo == "ReversaCapitalizacion" && x.PolizaId != null, cancellationToken)}", $"Alta {a.Numero}", cancellationToken), servicio.Actor); break;
+                var reversas = await db.Set<OperacionLibro>().CountAsync(x => x.ActivoId == a.Id && x.Tipo == "ReversaCapitalizacion" && x.PolizaId != null, cancellationToken);
+                var llaveCapitalizacion = reversas == 0 ? $"AF-CAP-{a.Id}" : $"AF-CAP-{a.Id}-R{reversas}";
+                a.Capitalizar(await servicio.PolizaAsync(a, clase, a.Id, a.InicioUso!.Value, a.ValorOriginal, llaveCapitalizacion, $"Alta {a.Numero}", cancellationToken), servicio.Actor); break;
             case "mejora":
             case "nota-credito":
                 var ajuste = request.Ajuste ?? throw new BusinessRuleException("AF_AJUSTE_REQUERIDO", "Capture el ajuste.");
