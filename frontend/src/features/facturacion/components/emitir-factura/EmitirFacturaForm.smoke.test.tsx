@@ -1181,11 +1181,32 @@ describe('<EmitirFacturaForm> — observaciones con anticipos aplicados (86e3tfd
         observaciones: NOTA,
         // El folio es solo del FE: no viaja en los anticipos del comando.
         anticipos: [
-          { anticipoId: '00000012-0000-4000-8000-000000000012', importe: 5000 },
-          { anticipoId: '00000015-0000-4000-8000-000000000015', importe: 1200 },
+          { anticipoId: '00000012-0000-4000-8000-000000000012', importe: 5000, comentarioNotaCredito: null },
+          { anticipoId: '00000015-0000-4000-8000-000000000015', importe: 1200, comentarioNotaCredito: null },
         ],
       }),
     );
+  });
+
+  it('FMT-6: el comentario de la NC de cada anticipo lo escribe el usuario y viaja con ese anticipo', async () => {
+    const emitidas = mockEmision();
+    renderForm();
+    await elegirDosAnticipos();
+
+    fireEvent.change(screen.getAllByLabelText('Comentarios de la nota de crédito')[0], {
+      target: { value: 'Anticipo de la obra Mérida aplicado a esta factura' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Emitir y timbrar/i }));
+
+    await waitFor(() => expect(emitidas).toHaveLength(1));
+    expect((emitidas[0] as { anticipos: unknown }).anticipos).toEqual([
+      {
+        anticipoId: '00000012-0000-4000-8000-000000000012',
+        importe: 5000,
+        comentarioNotaCredito: 'Anticipo de la obra Mérida aplicado a esta factura',
+      },
+      { anticipoId: '00000015-0000-4000-8000-000000000015', importe: 1200, comentarioNotaCredito: null },
+    ]);
   });
 
   it('si el cajero editó las observaciones, cambiar anticipos no las sobrescribe', async () => {
