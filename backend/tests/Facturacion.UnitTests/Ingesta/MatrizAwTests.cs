@@ -259,6 +259,57 @@ public sealed class MatrizAwTests
         (await db.PedidosFacturables.CountAsync()).Should().Be(1);
     }
 
+    [Fact]
+    public async Task Version_repetida_con_cambios_se_detiene_en_bandeja_y_el_pedido_no_cambia()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var wb = new FakeAwWriteBackPort();
+        await Handler(db, wb, Datos(), Cliente())
+            .Handle(new ProcesarSolicitudAwCommand(empresaId, Sol(OperacionAw.Alta, version: 3)), CancellationToken.None);
+        var cambiado = Datos() with { PayloadCrudo = "{\"pedido\":\"AW-1\",\"cantidad\":5}" };
+
+        var r = await Handler(db, wb, cambiado, Cliente())
+            .Handle(new ProcesarSolicitudAwCommand(empresaId, Sol(OperacionAw.Alta, version: 3)), CancellationToken.None);
+
+        r.Resultado.Should().Be(ResultadoSolicitudAw.Rechazada);
+        var ex = await db.ExcepcionesImportacion.SingleAsync();
+        ex.Motivo.Should().Be(MotivoExcepcion.VersionRepetidaConCambios);
+        ex.Resuelto.Should().BeFalse();
+        (await db.PedidosFacturables.Include(p => p.Lineas).SingleAsync()).Lineas.Single().Cantidad.Should().Be(2m);
+        wb.Ultimo!.Resultado.Should().Be(ResultadoSolicitudAw.Rechazada);
+    }
+
+    [Fact]
+    public async Task Version_repetida_identica_se_ignora_sin_excepcion()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var handler = Handler(db, new FakeAwWriteBackPort(), Datos(), Cliente());
+        await handler.Handle(new ProcesarSolicitudAwCommand(empresaId, Sol(OperacionAw.Alta, version: 3)), CancellationToken.None);
+
+        var r = await handler.Handle(new ProcesarSolicitudAwCommand(empresaId, Sol(OperacionAw.Alta, version: 3)), CancellationToken.None);
+
+        r.Resultado.Should().Be(ResultadoSolicitudAw.Aplicada);
+        (await db.ExcepcionesImportacion.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Version_anterior_fuera_de_orden_se_ignora_como_repetida()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        await Handler(db, new FakeAwWriteBackPort(), Datos(), Cliente())
+            .Handle(new ProcesarSolicitudAwCommand(empresaId, Sol(OperacionAw.Alta, version: 3)), CancellationToken.None);
+        var cambiado = Datos() with { PayloadCrudo = "{\"otro\":1}" };
+
+        var r = await Handler(db, new FakeAwWriteBackPort(), cambiado, Cliente())
+            .Handle(new ProcesarSolicitudAwCommand(empresaId, Sol(OperacionAw.Modificacion, version: 2)), CancellationToken.None);
+
+        r.Resultado.Should().Be(ResultadoSolicitudAw.Aplicada);
+        (await db.ExcepcionesImportacion.CountAsync()).Should().Be(0);
+    }
+
     // ---- Modificación ----
 
     [Fact]
