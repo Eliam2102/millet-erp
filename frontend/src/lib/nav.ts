@@ -330,17 +330,11 @@ const moduloAlmacen: NavModulo = {
         {
           label: 'Cierre de mes',
           description:
-            'Ejecutar cierre mensual del módulo Almacén. Valida que no haya conteos ni movimientos pendientes.',
+            'Ejecutar cierre mensual del módulo Almacén y revisar sus actas. Valida que no haya conteos ni movimientos pendientes.',
           to: '/almacen/cierre-mes',
           icon: Lock,
-          permission: PermisosCanonicos.AlmacenCierreMesEjecutar,
-        },
-        {
-          label: 'Actas del cierre',
-          description: 'Revisar el acta de cada cierre mensual del módulo Almacén (Dirección de Administración).',
-          to: '/almacen/cierre-mes',
-          icon: Lock,
-          permission: PermisosCanonicos.AlmacenCierreRevisarActa,
+          // 86e3tac2y: quien solo revisa el acta (Dirección de Administración) entra a la misma pantalla.
+          permissionsAny: [PermisosCanonicos.AlmacenCierreMesEjecutar, PermisosCanonicos.AlmacenCierreRevisarActa],
         },
         {
           label: 'Reportes',

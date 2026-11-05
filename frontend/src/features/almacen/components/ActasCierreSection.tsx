@@ -45,7 +45,7 @@ function ActaCard({ acta, puedeRevisar }: { acta: ActaCierre; puedeRevisar: bool
         {' '}Vales atendidos: {vales.length ? vales.map((v) => v.folio).join(', ') : 'ninguno'}.
       </p>
       {acta.estado === 'REVISADA'
-        ? <p className="text-xs text-ink-muted">Revisada por {acta.revisadaPor} el {acta.revisadaAt && fecha(acta.revisadaAt)}.</p>
+        ? <p className="text-xs text-ink-muted">Revisada por {acta.revisadaPor} el {acta.revisadaAt && fecha(acta.revisadaAt)}</p>
         : puedeRevisar
           ? <Button size="sm" disabled={revisar.isPending}
             onClick={() => revisar.mutate(acta.id, {
