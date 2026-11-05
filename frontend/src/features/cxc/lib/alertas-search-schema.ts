@@ -13,6 +13,7 @@ export const AlertasSearchSchema = z.object({
       z.literal(TipoAlertaCartera.Solunion90d),
       z.literal(TipoAlertaCartera.ExcesoCredito),
       z.literal(TipoAlertaCartera.AutoBloqueoVencimiento),
+      z.literal(TipoAlertaCartera.ContraEntregaNoLiquidada),
     ])
     .optional(),
   clienteId: z.string().optional(),
