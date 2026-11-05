@@ -266,6 +266,15 @@ public sealed class DesactivarCuentaHandler(ContabilidadDbContext db, Solicitude
         if (await db.Cuentas.AnyAsync(c => c.PadreId == cuenta.Id && c.Estatus == EstatusCatalogo.Activo, cancellationToken))
             throw new BusinessRuleException("CONTAB_CUENTA_BAJA_CON_HIJAS_ACTIVAS",
                 $"La cuenta {cuenta.Codigo} tiene hijas activas; desactívelas primero (no hay baja en cascada).");
+        // C1.7-b (Plano C1 §5.1): no se da de baja una cuenta con saldo. Cuentan las pólizas autorizadas y las anuladas con su
+        // anulación (suman cero); los borradores no mueven saldo.
+        var saldo = await (from x in db.PolizasPartidas
+                           join p in db.Polizas on x.PolizaId equals p.Id
+                           where x.CuentaId == cuenta.Id && p.Estado != EstadoPoliza.Borrador
+                           select x.Cargo - x.Abono).SumAsync(cancellationToken);
+        if (saldo != 0m)
+            throw new BusinessRuleException("CONTAB_CUENTA_BAJA_CON_SALDO",
+                $"La cuenta {cuenta.Codigo} tiene saldo de {saldo:N2}; para darla de baja su saldo debe ser cero.");
         cuenta.Desactivar();
         return CuentaResponse.De(cuenta);
     }
