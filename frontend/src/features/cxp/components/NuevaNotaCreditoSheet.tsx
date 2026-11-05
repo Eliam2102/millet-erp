@@ -1,3 +1,4 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -246,7 +247,7 @@ function NuevaNcForm({
               )
             )
               return;
-            toast.error(error.problem.title);
+            toast.error(errorUsuario(error));
             return;
           }
           toast.error('Error al capturar NC.');

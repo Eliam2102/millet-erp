@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import {
   EstatusSatCfdi,
@@ -7,7 +7,7 @@ import {
 
 /**
  * Badge del estatus del CFDI ante el SAT. El significado siempre va en texto
- * (Cancelado incluye la fecha); sin dato se muestra "Sin dato".
+ * (Cancelado incluye la fecha); sin dato se muestra «—».
  */
 export function EstatusSatBadge({
   estatus,
@@ -18,16 +18,11 @@ export function EstatusSatBadge({
 }) {
   const label = estatus != null ? EstatusSatCfdiLabels[estatus] : undefined;
   if (!label) {
-    return <span className="text-xs text-muted-foreground">Sin dato</span>;
+    return <span className="text-xs text-ink-muted">—</span>;
   }
   const cancelado = estatus === EstatusSatCfdi.Cancelado;
   return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
-        cancelado ? 'bg-danger-bg text-danger-fg' : 'bg-success-bg text-success-fg',
-      )}
-    >
+    <Badge variant={cancelado ? 'danger' : 'success'} className="gap-1">
       {label}
       {cancelado && fechaCancelacion ? (
         <>
@@ -36,6 +31,6 @@ export function EstatusSatBadge({
           <DateTimeDisplay value={fechaCancelacion} variant="corta" />
         </>
       ) : null}
-    </span>
+    </Badge>
   );
 }

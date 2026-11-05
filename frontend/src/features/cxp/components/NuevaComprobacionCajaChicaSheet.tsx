@@ -1,3 +1,4 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useEffect, useState } from 'react';
 import { Controller, useFieldArray, useForm } from 'react-hook-form';
@@ -73,7 +74,7 @@ export function NuevaComprobacionCajaChicaSheet({
       open={open}
       onOpenChange={(next) => (next ? onOpenChange(next) : solicitarCierre())}
     >
-      <SheetContent side="right" size="wide">
+      <SheetContent side="right" size="lg">
         <SheetHeader>
           <SheetTitle>Nueva comprobación — Caja chica</SheetTitle>
           <SheetDescription>
@@ -238,10 +239,10 @@ function Form({
               )
             )
               return;
-            toast.error(error.problem.title);
+            toast.error(errorUsuario(error));
             return;
           }
-          toast.error('Error al crear comprobación.');
+          toast.error("Error al crear comprobación. Revisa los datos del registro; si continúa, avisa a soporte.");
         },
       },
     );

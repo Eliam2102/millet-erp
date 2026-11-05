@@ -1,3 +1,4 @@
+import { problemaUsuario } from '@/lib/error-usuario';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +10,6 @@ import { useSolicitudViaticos } from '@/features/cxp/api/useViaticos';
 import { AccionesViatico } from '@/features/cxp/components/AccionesViatico';
 import { CapturarComprobacionViaticosSheet } from '@/features/cxp/components/CapturarComprobacionViaticosSheet';
 import { EstadoSolicitudViaticos, TipoDestinoViaticoLabels } from '@/features/cxp/api/types';
-import { esApiError } from '@/lib/api';
 import { EstadoSolicitudViaticosChip } from '@/features/cxp/components/EstadoChips';
 import { Campo, Importe } from '@/features/cxp/components/DetalleCampos';
 import {
@@ -47,7 +47,7 @@ export function ViaticoDetallePage() {
       {query.isError ? (
         <ErrorState
           title="No se pudo cargar la solicitud de viáticos"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
+          problem={problemaUsuario(query.error)}
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading ? (
@@ -228,7 +228,7 @@ export function ViaticoDetallePage() {
 
           <section className="space-y-2">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Líneas de la comprobación ({query.data.lineas.length})
+              Partidas de la comprobación ({query.data.lineas.length})
             </h2>
             {query.data.lineas.length === 0 ? (
               <p className="rounded-md border p-4 text-sm text-muted-foreground">
