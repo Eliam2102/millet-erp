@@ -97,8 +97,18 @@ public sealed class FiscalCfdiReceiverAdapter : IFiscalCfdiReceiver
         // 1) Dedupe por UUID. Si ya existe no se reingresa (idempotente), pero se
         //    actualiza el estatus SAT; si el CFDI ya es pasivo y el SAT lo reporta
         //    cancelado, la factura vigente pasa a revisión (nunca se cancela sola).
+        // UuidCfdi es un VO con value converter: EF no traduce .Valor, se compara el VO completo.
+        UuidCfdi uuidBuscado;
+        try { uuidBuscado = UuidCfdi.Parse(uuidNormalizado); }
+        catch (BusinessRuleException ex)
+        {
+            _logger.LogWarning(ex,
+                "[FiscalCfdiReceiverAdapter] UUID {Uuid} con formato inválido — descartando.", payload.Uuid);
+            return;
+        }
+
         var existente = await _db.CfdisRecibidos
-            .Where(c => c.UuidCfdi.Valor == uuidNormalizado)
+            .Where(c => c.UuidCfdi == uuidBuscado)
             .FirstOrDefaultAsync(cancellationToken);
 
         if (existente is not null)
