@@ -1,3 +1,4 @@
+import { TOAST_CANCELACION_REGISTRADA } from '@/features/compras/ordenes/lib/cancelacion';
 import type { RevisionPreviaOc } from '@/features/compras/ordenes/lib/revision-previa-oc';
 import { ConMotivo } from '@/features/compras/components/ConMotivo';
 import { useState } from 'react';
@@ -342,7 +343,7 @@ export function AccionesOC({ oc, revision }: AccionesOCProps) {
         open={cancelar1Open}
         onOpenChange={setCancelar1Open}
         titulo={`Cancelar OC ${oc.folio}`}
-        descripcion="Esta OC pasará a estado Cancelada. Si está autorizada sin recepciones, las RQs de origen se liberan completas. Selecciona un motivo del catálogo."
+        descripcion="Esta OC pasará a estado Cancelada y, si está autorizada sin recepciones, las RQs de origen se liberan completas. Si ya se envió a Almacenes, queda como «cancelación solicitada a Almacenes» hasta que Almacenes responda (si ya tiene entrada, no procede). Selecciona un motivo del catálogo."
         aplicaA={MotivoRechazoAplicaA.Cancelacion as MotivoRechazoAplicaA}
         ctaLabel="Cancelar OC"
         isPending={cancelarMut.isPending}
@@ -356,7 +357,7 @@ export function AccionesOC({ oc, revision }: AccionesOCProps) {
               },
               idempotencyKey: crypto.randomUUID(),
             });
-            toast.success(`OC ${oc.folio} cancelada.`);
+            toast.success(TOAST_CANCELACION_REGISTRADA(oc.folio));
             setCancelar1Open(false);
           } catch (err) {
             if (
@@ -389,7 +390,7 @@ export function AccionesOC({ oc, revision }: AccionesOCProps) {
               command: values,
               idempotencyKey: crypto.randomUUID(),
             });
-            toast.success(`Cancelación de OC ${oc.folio} solicitada. Pendiente de Dirección.`);
+            toast.success(`Cancelación de OC ${oc.folio} solicitada. Pendiente de Dirección (y, si ya está en Almacenes, de su respuesta).`);
             setCancelarDobleOpen(false);
           } catch (err) {
             if (

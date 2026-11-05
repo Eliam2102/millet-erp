@@ -107,7 +107,10 @@ public sealed class CancelarOrdenCompraHandler : IRequestHandler<CancelarOrdenCo
         if (_almCompra is not null && await _almCompra.EnviadaAAlmacenesAsync(oc.Id, cancellationToken))
         {
             oc.SolicitarCancelacionAlmacenes(userId, _clock.UtcNow, command.MotivoCancelacionId, command.MotivoCancelacionTexto);
-            await _almCompra.EncolarCancelacionAsync(oc.Id, command.MotivoCancelacionTexto, cancellationToken);
+            // Contrato v6: el motivo viaja con la cancelación (descripción del catálogo y, si hay, el texto libre).
+            var motivoAlmacenes = string.IsNullOrWhiteSpace(command.MotivoCancelacionTexto)
+                ? motivo.Descripcion : $"{motivo.Descripcion}: {command.MotivoCancelacionTexto}";
+            await _almCompra.EncolarCancelacionAsync(oc.Id, motivoAlmacenes, cancellationToken);
             await _db.SaveChangesAsync(cancellationToken);
             return;
         }

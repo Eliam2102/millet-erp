@@ -249,6 +249,9 @@ public partial class OrdenesCompraEndpointsTests
         Assert.Equal((Millet.Compras.Domain.Oc.EstadoOrdenCompra.CancelacionSolicitada, (Guid?)oc.OcId), (estado, rqEn));
         var c = (await EnviosAsync(oc.OcId))[1];
         Assert.Equal(("COMPRA_CANCELADA", "PENDIENTE", $"ERP-{oc.FolioOc}-C1"), (c.Tipo, c.Estado, c.MensajeId));
+        // Contrato v6: el motivo de la cancelación viaja en COMPRA_CANCELADA.
+        using (var doc = JsonDocument.Parse(c.Sobre))
+            Assert.False(string.IsNullOrWhiteSpace(doc.RootElement.GetProperty("datos").GetProperty("motivo").GetString()));
         var detalle = await DetalleOcAsync(client, oc.OcId);
         Assert.True(detalle.GetProperty("solicitudesCancelacion")[0].GetProperty("esperaAlmacenes").GetBoolean());
 

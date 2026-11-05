@@ -35,7 +35,8 @@ public sealed class ResolverCancelacionOcHandler(ComprasDbContext db, ICurrentUs
             if (almCompra is not null && await almCompra.EnviadaAAlmacenesAsync(oc.Id, cancellationToken))
             {
                 oc.ConfirmarCancelacionConRecepcionesEsperaAlmacenes(userId, clock.UtcNow, command.Motivo);
-                await almCompra.EncolarCancelacionAsync(oc.Id, command.Motivo, cancellationToken);
+                await almCompra.EncolarCancelacionAsync(oc.Id,
+                    oc.SolicitudesCancelacion.OrderBy(x => x.FechaSolicitud).Last().MotivoSolicitud, cancellationToken);
                 await db.SaveChangesAsync(cancellationToken);
                 return;
             }

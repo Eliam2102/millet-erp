@@ -61,10 +61,11 @@ public sealed class AlmCompraEncolador(ComprasDbContext db, CompartidoDbContext 
     /// <summary>Rearma el sobre de una fila que falló al armarse (para «reintentar»). Devuelve <c>null</c> si la OC ya no genera compra.</summary>
     public async Task<string?> ReconstruirSobreAsync(AlmCompraEnvio e, CancellationToken ct)
     {
-        var oc = await db.OrdenesCompra.Include(o => o.Lineas).FirstOrDefaultAsync(o => o.Id == e.OrdenCompraId, ct)
+        var oc = await db.OrdenesCompra.Include(o => o.Lineas).Include(o => o.SolicitudesCancelacion).FirstOrDefaultAsync(o => o.Id == e.OrdenCompraId, ct)
             ?? throw new EntityNotFoundException("ORDEN_COMPRA_NO_ENCONTRADA", "La OC del mensaje ya no existe.");
         if (e.Tipo == AlmCompraEnvio.TipoCancelada)
-            return AlmCompraSobre.Armar(e.MensajeId, e.Tipo, clock.UtcNow, e.Referencia, AlmCompraSobre.DatosCancelada(oc.Folio.Valor, null));
+            return AlmCompraSobre.Armar(e.MensajeId, e.Tipo, clock.UtcNow, e.Referencia, AlmCompraSobre.DatosCancelada(oc.Folio.Valor,
+                oc.SolicitudesCancelacion.OrderBy(x => x.FechaSolicitud).LastOrDefault()?.MotivoSolicitud ?? oc.MotivoCancelacion));
         var datos = await ConstruirDatosAsync(oc, ct);
         return datos is null ? null
             : AlmCompraSobre.Armar(e.MensajeId, e.Tipo, clock.UtcNow, e.Referencia, AlmCompraSobre.DatosCompra(datos));
