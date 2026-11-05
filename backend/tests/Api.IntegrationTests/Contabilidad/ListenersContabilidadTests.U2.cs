@@ -324,7 +324,7 @@ public sealed partial class ListenersContabilidadTests
                 (await e.Admin.PostAsJsonAsync($"{Base}/reglas-dimension", new
                 {
                     cuentaId = gastos, tipoDocumentoId = (Guid?)null, dimension = dim, requerimiento = "Obligatorio",
-                    vigenteDesde = new DateOnly(2026, 1, 1), vigenteHasta = (DateOnly?)null, esPrueba = true, nota = "FIX regla C-03 (H1)",
+                    vigenteDesde = Hoy(), vigenteHasta = (DateOnly?)null, esPrueba = true, nota = "FIX regla C-03 (H1)",
                 })).StatusCode.Should().Be(HttpStatusCode.Created);
 
             // Costo de importación: la parte vendida pega en gasto (COSTO_IMPORTACION_A_RESULTADOS) y el evento no trae centro.
