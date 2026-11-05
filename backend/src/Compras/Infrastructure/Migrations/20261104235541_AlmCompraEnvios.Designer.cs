@@ -14,8 +14,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Millet.Compras.Infrastructure.Migrations
 {
     [DbContext(typeof(ComprasDbContext))]
-    [Migration("20261104221440_AlmCompraEnviosYCancelacionAlmacenes")]
-    partial class AlmCompraEnviosYCancelacionAlmacenes
+    [Migration("20261104235541_AlmCompraEnvios")]
+    partial class AlmCompraEnvios
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

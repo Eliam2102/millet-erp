@@ -5,6 +5,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Millet.Compartido.Infrastructure.Persistence;
+using Millet.DatosMaestros.Domain;
 using Millet.Compras.Application.Integration.AlmCompra;
 using Millet.Compras.Application.Oc.ActualizarNumeroPedimento;
 using Millet.Compras.Application.Oc.Autorizar;
@@ -29,9 +30,29 @@ public partial class OrdenesCompraEndpointsTests
 
     private sealed record OcApp(Guid OcId, string FolioOc, string? FolioRq, Guid LineaOcId, Guid RqId, Guid ProveedorId);
 
+    /// <summary>Como el sembrado de la app, pero con clave de artículo A+W numérica (el contrato la manda como entero).</summary>
+    private async Task<SembradoApp> SembrarProveedorYArticuloMpAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+        var n = Guid.NewGuid().ToString("N").ToUpperInvariant();
+        var claveAw = Random.Shared.Next(1_000_000, 2_000_000_000);
+        var prov = new Proveedor(Guid.CreateVersion7(), $"MP-{n[..10]}", $"Proveedor MP {n[..6]}", $"MPX{n[..9]}",
+            Millet.Catalogos.Domain.TipoPersonaProveedor.Moral, Millet.Catalogos.Domain.EstatusCatalogo.Activo);
+        prov.AsignarClaveAw(claveAw);
+        var refAw = Random.Shared.Next(100_000, 999_999).ToString() + Random.Shared.Next(100, 999);
+        var prod = new ProductoAw(Guid.CreateVersion7(), refAw, "Vidrio de prueba MP", "M2");
+        var art = new Articulo(Guid.CreateVersion7(), $"MP-{n[10..22]}", "Vidrio de prueba MP", "PZA");
+        art.AsignarProductoAw(prod.Id);
+        db.AddRange(prov, prod, art);
+        await db.SaveChangesAsync();
+        return new(prov.Id, claveAw, refAw);
+    }
+
     private async Task<OcApp> SembrarOcAppAutorizadaAsync(HttpClient client, ModoOc modo = ModoOc.AppRq, bool proveedorSinClaveAw = false)
     {
-        var s = await SembrarProveedorYArticuloAppAsync();
+        var s = await SembrarProveedorYArticuloMpAsync();
         var response = await client.PostAsJsonAsync(EndpointBase, ValidBody());
         response.EnsureSuccessStatusCode();
         var id = (await ReadJsonAsync(response)).GetProperty("id").GetGuid();
@@ -268,7 +289,8 @@ public partial class OrdenesCompraEndpointsTests
         }
         await ProcesarBandejaAsync();
         var m = (await EnviosAsync(oc.OcId)).Last();
-        Assert.Equal(("COMPRA_MODIFICADA", "PROCESADO"), (m.Tipo, m.Estado));
+        // Salió (no quedó PENDIENTE detrás de la cancelación rechazada); el simulador la rechaza porque la entrada sigue cerrada.
+        Assert.Equal(("COMPRA_MODIFICADA", "ERROR"), (m.Tipo, m.Estado));
     }
 
     [Fact]
