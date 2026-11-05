@@ -4,8 +4,8 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { EmpleadosPage } from '@/modules/administracion/components/EmpleadosPage';
 
 interface EmpleadosSearch {
-  /** <c>sin-empleado</c> abre la vista «Cuentas sin empleado» (86e3x6cpw). */
-  vista?: 'sin-empleado';
+  /** <c>sin-empleado</c> abre «Cuentas sin empleado» (86e3x6cpw); <c>tecnicas</c>, «Cuentas técnicas» (86e3yxe9m). */
+  vista?: 'sin-empleado' | 'tecnicas';
 }
 
 /**
@@ -19,7 +19,7 @@ interface EmpleadosSearch {
  */
 export const Route = createFileRoute('/_app/admin/empleados/')({
   validateSearch: (search: Record<string, unknown>): EmpleadosSearch =>
-    search.vista === 'sin-empleado' ? { vista: 'sin-empleado' } : {},
+    search.vista === 'sin-empleado' || search.vista === 'tecnicas' ? { vista: search.vista } : {},
   beforeLoad: () => {
     const permisos = useAuthStore.getState().permisos;
     if (!permisos.includes(PermisosCanonicos.AdminEmpleadosGestionar)) {
@@ -31,5 +31,5 @@ export const Route = createFileRoute('/_app/admin/empleados/')({
 
 function EmpleadosIndexRoute() {
   const { vista } = Route.useSearch();
-  return <EmpleadosPage vistaInicial={vista === 'sin-empleado' ? 'sin-empleado' : 'empleados'} />;
+  return <EmpleadosPage vistaInicial={vista ?? 'empleados'} />;
 }

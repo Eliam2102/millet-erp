@@ -103,6 +103,29 @@ public static class ColaboradoresEndpoints
         .Produces<CuentasSinEmpleadoResponse>()
         .ProducesProblem(StatusCodes.Status403Forbidden);
 
+        group.MapGet("/cuentas-tecnicas", async (
+            [FromQuery] string? buscar,
+            [FromQuery] int? limit,
+            IMediator mediator,
+            IAuthorizationService authorization,
+            HttpContext httpContext,
+            ICurrentUserContext currentUser,
+            ICurrentUserPermissions permisos,
+            IUsuarioSucursalReadPort usuarioSucursales,
+            CancellationToken ct) =>
+        {
+            // Mismo acceso que «Cuentas sin empleado»: perfil corporativo (86e3yxe9m).
+            if (!await TienePermisoAsync(authorization, httpContext, PermisosCanonicos.IdentidadUsuariosCrear))
+                return Results.Forbid();
+            if (!await EmpleadoSucursalScope.EsCorporativoAsync(currentUser, permisos, usuarioSucursales, ct))
+                return Results.Forbid();
+            return Results.Ok(await mediator.Send(new ListarCuentasTecnicasQuery(buscar, limit ?? 50), ct));
+        })
+        .WithName("ListarCuentasTecnicas")
+        .WithSummary("Cuentas técnicas del ERP (no corresponden a un empleado)")
+        .Produces<CuentasTecnicasResponse>()
+        .ProducesProblem(StatusCodes.Status403Forbidden);
+
         group.MapGet("/por-usuario/{usuarioId:guid}", async (
             Guid usuarioId,
             IMediator mediator,

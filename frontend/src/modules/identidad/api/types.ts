@@ -95,6 +95,10 @@ export interface UsuarioResponse {
   activo: boolean;
   version: number;
   empleadoId?: string | null;
+  /** 86e3yxe9m: cuenta que no corresponde a un empleado (administrador inicial, soporte, QA). */
+  esCuentaTecnica?: boolean;
+  /** 86e3yxe9m: primer inicio de sesión; null si nunca ha entrado. */
+  primerAccesoEn?: string | null;
 }
 
 /**
