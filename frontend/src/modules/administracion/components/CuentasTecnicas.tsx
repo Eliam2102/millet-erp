@@ -1,20 +1,18 @@
+import { problemaConsulta } from '@/components/erp/feedback/problema-consulta';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { Search, ShieldCheck, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
-import { esApiError } from '@/lib/api';
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { useCuentasTecnicas } from '@/modules/administracion/api/empleados';
 
-function fecha(iso: string | null) {
-  return iso ? new Date(iso).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' }) : 'Nunca';
-}
 
 /**
  * Vista «Cuentas técnicas» de Empleados (86e3yxe9m): cuentas que no corresponden a
- * un empleado (administrador inicial, soporte, QA). La vista «Cuentas sin empleado»
+ * un empleado (administrador inicial, soporte, pruebas). La vista «Cuentas sin empleado»
  * las excluye; aquí se ven con su rol, primer acceso y estado, y el nombre lleva a la
  * ficha de la cuenta.
  */
@@ -50,7 +48,7 @@ export function CuentasTecnicas() {
       {query.isError ? (
         <ErrorState
           title="No se pudieron consultar las cuentas técnicas"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
+          problem={problemaConsulta(query.error)}
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading ? (
@@ -85,7 +83,7 @@ export function CuentasTecnicas() {
               </div>
               <div className="min-w-36 text-xs">
                 <p className="text-ink-muted">Primer acceso</p>
-                <p>{fecha(c.primerAccesoEn)}</p>
+                <p><DateTimeDisplay value={c.primerAccesoEn} variant="datetime" /></p>
               </div>
               <Badge variant={c.activo ? 'success' : 'danger'}>{c.activo ? 'Activa' : 'Desactivada'}</Badge>
             </li>

@@ -1,3 +1,4 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import { useState } from 'react';
 import { ConMotivo } from '@/features/compras/components/ConMotivo';
 import { Link } from '@tanstack/react-router';
@@ -204,10 +205,10 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
     }
     if (esApiError(error)) {
       toast.error(`No se pudo ${accionLabel.toLowerCase()}`, {
-        description: error.problem.detail ?? error.problem.title,
+        description: errorUsuario(error),
       });
     } else {
-      toast.error(`Error inesperado al ${accionLabel.toLowerCase()}.`);
+      toast.error(errorUsuario(error, `No se pudo ${accionLabel.toLowerCase()}.`));
     }
   }
 
@@ -400,7 +401,7 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
               onClick={() => setConfirmacion({ tipo: 'aprobar', nivel: NivelAutorizacion.Nivel1 })}
             >
               <ShieldCheck className="mr-2 h-4 w-4" />
-              Aprobar Nivel 1
+              Aprobar nivel 1
             </Button>
           </ConMotivo>
         )}
@@ -426,7 +427,7 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
               onClick={() => setConfirmacion({ tipo: 'aprobar', nivel: NivelAutorizacion.Nivel2 })}
             >
               <ShieldCheck className="mr-2 h-4 w-4" />
-              Aprobar Nivel 2
+              Aprobar nivel 2
             </Button>
           </ConMotivo>
         )}
@@ -553,7 +554,7 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirmacion?.tipo === 'transmitir' &&
-                'La RQ pasará a EnAutorización y los autorizadores podrán firmarla. No podrás editar partidas estructuralmente después.'}
+                "La requisición pasará a autorización y quedará bloqueada la edición de sus partidas."}
               {confirmacion?.tipo === 'aprobar' &&
                 'Tu firma queda registrada con tu usuario y la fecha actual. No puedes deshacerla; solo se puede rechazar la RQ por un autorizador.'}
             </AlertDialogDescription>
@@ -592,7 +593,7 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
               setModalDevolverAbierto(false);
             } catch (e) {
               setErrorDevolver(
-                esApiError(e) ? (e.problem.detail ?? e.problem.title) : 'No se pudo devolver la requisición.',
+                errorUsuario(e, 'No se pudo devolver la requisición.'),
               );
             }
           }}
@@ -624,7 +625,7 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
         isPending={eliminar.isPending}
         aviso={
           rq.origen === OrigenRequisicion.Sistema
-            ? 'Esta requisición la creó el motor de reabasto. Si el artículo sigue por debajo del objetivo, volverá a proponerla en el próximo barrido.'
+            ? "Esta requisición se generó para reponer existencias; si el artículo sigue por debajo del objetivo, el sistema volverá a solicitarlo."
             : undefined
         }
       />

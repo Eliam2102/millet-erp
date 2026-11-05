@@ -120,7 +120,7 @@ describe('<AsignacionesPage> — smoke', () => {
     );
     await waitFor(() =>
       expect(
-        screen.getByText(/Elige el artículo y la ubicación donde vivirá/i),
+        screen.getByText(/Asigna un artículo a la ubicación donde se almacenará/i),
       ).toBeInTheDocument(),
     );
   });

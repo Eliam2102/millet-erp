@@ -267,6 +267,14 @@ const moduloAlmacen: NavModulo = {
           permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
         },
         {
+          label: 'Mensajes de la app',
+          description:
+            'Salidas de la app de Almacenes que el ERP marcó (sin existencia o con un dato por corregir) y a las que contestó ERROR con folio; los siguientes de su referencia esperan.',
+          to: '/almacen/mensajes-app',
+          icon: ShieldAlert,
+          permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
+        },
+        {
           label: 'Conciliación diaria',
           description:
             'Existencia del ERP contra el físico que reporta A+W. Toda diferencia es una salida no planificada que se aclara con la mesa de corte.',

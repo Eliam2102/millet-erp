@@ -42,7 +42,7 @@ export function MoneyDisplay(props: MoneyDisplayProps) {
         ? { amount: props.amount, currency: props.currency }
         : null;
 
-  if (money == null) {
+  if (money == null || !Number.isFinite(money.amount)) {
     return (
       <span
         className={cn('text-ink-muted', className)}

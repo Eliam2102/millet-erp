@@ -250,11 +250,12 @@ public sealed class CfdiMilletDocument(CfdiPdfModel m) : IDocument
         {
             fila.RelativeItem(1.15f).AlignBottom().Row(medidas =>
             {
-                medidas.Spacing(6);
-                medidas.RelativeItem().Text($"Total Kg.:{(t.Kg is null ? "" : Medida(t.Kg.Value))}");
-                medidas.RelativeItem().Text($"Total SqFt/Piez2:{(t.Pie2 is null ? "" : Medida(t.Pie2.Value))}");
-                medidas.RelativeItem().Text($"Total M²/SqM:{(t.Pie2 is null ? "" : Medida(t.Pie2.Value * M2PorPie2))}");
-                medidas.RelativeItem().Text($"Total Qty.:{t.Piezas.ToString("#,##0.##", Numeros)}");
+                // Anchos según el largo de cada rótulo: con columnas iguales el valor de SqFt/Piez2 se partía en dos renglones.
+                medidas.Spacing(4);
+                medidas.RelativeItem(1f).Text($"Total Kg.:{(t.Kg is null ? "" : Medida(t.Kg.Value))}");
+                medidas.RelativeItem(1.5f).Text($"Total SqFt/Piez2:{(t.Pie2 is null ? "" : Medida(t.Pie2.Value))}");
+                medidas.RelativeItem(1.2f).Text($"Total M²/SqM:{(t.Pie2 is null ? "" : Medida(t.Pie2.Value * M2PorPie2))}");
+                medidas.RelativeItem(0.75f).Text($"Total Qty.:{t.Piezas.ToString("#,##0.##", Numeros)}");
             });
             if (!MuestraImpuestos)
             {

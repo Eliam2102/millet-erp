@@ -28,7 +28,7 @@ describe('Logo para documentos impresos', () => {
     mswServer.use(
       http.put('*/api/v1/admin/empresas/e-1/logo', () =>
         HttpResponse.json(
-          { title: 'Error', status: 422, code: 'EMPRESA_LOGO_FORMATO' },
+          { title: 'EMPRESA_LOGO_FORMATO', detail: 'Invalid payload at endpoint', status: 422, code: 'EMPRESA_LOGO_FORMATO' },
           { status: 422 },
         ),
       ),
@@ -39,18 +39,19 @@ describe('Logo para documentos impresos', () => {
       target: { files: [new File(['x'], 'ficticio.png', { type: 'image/png' })] },
     });
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'No se pudo guardar el logo. Intenta de nuevo.',
+      'No se pudo guardar el logo. Revisa que sea PNG o JPG de hasta 1 MB y vuelve a elegirlo.',
     );
+    expect(screen.queryByText(/Invalid payload|EMPRESA_LOGO_FORMATO/)).not.toBeInTheDocument();
   });
   it('sin permiso muestra la sección sin acciones', async () => {
     render(<EmpresaLogoSection empresaId="e-1" />, { wrapper: createQueryWrapper() });
     expect(await screen.findByText('Sin logo')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Subir logo' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Elegir archivo' })).not.toBeInTheDocument();
   });
   it('con permiso permite subir y rechaza archivos mayores a 1 MB', async () => {
     useAuthStore.setState({ permisos: [PermisosCanonicos.AdminEmpresasEditar] });
     render(<EmpresaLogoSection empresaId="e-1" />, { wrapper: createQueryWrapper() });
-    expect(await screen.findByRole('button', { name: 'Subir logo' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Elegir archivo' })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Archivo de logo'), {
       target: { files: [new File([new Uint8Array(1048577)], 'demo.png', { type: 'image/png' })] },
     });
@@ -121,6 +122,6 @@ describe('Logo para documentos impresos', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
     expect(guardar).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: 'Cambiar' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Elegir archivo' })).toBeInTheDocument();
   });
 });

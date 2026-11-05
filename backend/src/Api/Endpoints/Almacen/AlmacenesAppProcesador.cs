@@ -1,0 +1,135 @@
+using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using Millet.Almacen.Application.AppAlmacenes;
+using Millet.Almacen.Domain.Idempotencia;
+using Millet.Almacen.Domain.Ports;
+using Millet.Almacen.Infrastructure.Persistence;
+using Millet.Almacen.Infrastructure.PublicAdapters;
+
+namespace Millet.Api.Endpoints.Almacen;
+
+/// <summary>
+/// Manejador único de los mensajes de la app de Almacenes: lo usan el endpoint HTTP (contrato v1, retirado por TI el 5-nov)
+/// y el lector de <c>alm_mensaje</c> (<see cref="AlmMensajeLector"/>), de modo que ambos acusan igual. Idempotente por
+/// <c>mensajeId</c>: el mismo mensaje dos veces = DUPLICADO con el mismo folio y sin aplicar nada.
+/// Salida sin existencia (5-nov): acuse ERROR con folio de revisión y motivo; el mensaje queda marcado en la bandeja
+/// (EN_REVISION) y la app, al reprocesarlo, lo vuelve a evaluar.
+/// </summary>
+public sealed class AlmacenesAppProcesador(
+    AlmacenDbContext db, IComprasCrearRqAppPort rqApp, IAppSalidaResolverPort salidaResolver,
+    IUsuarioServicioReadPort usuarioServicio, SalidaAppAlmacenesGuardado salidasGuardado,
+    MermaProcesoAppGuardado mermasGuardado) : IProcesadorMensajeApp
+{
+    private static readonly string[] TiposSalida = [.. AlmacenesAppSalida.Tipos.Keys, .. AlmacenesAppMerma.Tipos];
+
+    /// <summary>Forma del sobre (tipo, version, datos, mensajeId ≤ 64); null = válido.</summary>
+    public static string? ErrorDeSobre(JsonElement root)
+    {
+        var id = Str(root, "mensajeId");
+        if (string.IsNullOrWhiteSpace(id) || id.Length > 64) return "mensajeId requerido (hasta 64)";
+        var tipo = Str(root, "tipo");
+        if (string.IsNullOrWhiteSpace(tipo) || tipo.Length > 100
+            || !root.TryGetProperty("datos", out var datos) || datos.ValueKind != JsonValueKind.Object
+            || !root.TryGetProperty("version", out var ver) || ver.ValueKind != JsonValueKind.Number)
+            return "sobre inválido: tipo, version y datos son requeridos";
+        return null;
+    }
+
+    private static string? Str(JsonElement root, string n) =>
+        root.ValueKind == JsonValueKind.Object && root.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.String
+            ? v.GetString() : null;
+
+    public async Task<AcuseApp> ProcesarAsync(JsonElement root, CancellationToken ct)
+    {
+        if (ErrorDeSobre(root) is { } malo) return new AcuseApp(Str(root, "mensajeId"), "ERROR", null, malo);
+        var mensajeId = Str(root, "mensajeId")!;
+        var tipo = Str(root, "tipo")!;
+        var datos = root.GetProperty("datos");
+
+        var previo = await db.MensajesApp.AsNoTracking().FirstOrDefaultAsync(m => m.MensajeId == mensajeId, ct);
+        // A4.3-a: una salida rechazada (ERROR) o sin existencia (EN_REVISION, también acusada ERROR) quedó en la bandeja sin
+        // mover saldo; cuando la app reprocesa el mismo mensajeId (ya corregido el dato o llegada la existencia) se evalúa
+        // otra vez y sale de la bandeja.
+        if (previo is { Estado: "ERROR" or SalidaAppAlmacenes.EnRevision } && TiposSalida.Contains(previo.Tipo))
+        {
+            await db.MensajesApp.Where(m => m.MensajeId == mensajeId && (m.Estado == "ERROR" || m.Estado == SalidaAppAlmacenes.EnRevision))
+                .ExecuteDeleteAsync(ct);
+            previo = null;
+        }
+        if (previo is null)
+        {
+            var referencia = Str(root, "referencia");
+            string estado; string? folio, error;
+            if (AlmacenesAppSalida.Tipos.ContainsKey(tipo))
+            {
+                // Las salidas mueven existencia: movimiento y MensajeApp se confirman juntos en el guardado.
+                var (resuelta, errorSalida) = await AlmacenesAppSalida.ManejarAsync(tipo, datos, salidaResolver, usuarioServicio, ct);
+                // Un ERROR de datos (artículo/medida/sucursal sin dar de alta, campo inválido) no descuenta nada y queda en la
+                // bandeja de excepciones (A4.3-a) con folio de revisión; la app lo corrige y reprocesa el mismo mensajeId.
+                if (resuelta is null) return await ErrorMarcadoAsync(mensajeId, tipo, referencia, root, errorSalida, ct);
+                var g = await salidasGuardado.GuardarAsync(mensajeId, tipo, referencia, root.GetRawText(),
+                    resuelta.EmpresaId, resuelta.UsuarioId, resuelta.Salidas, ct);
+                if (g.Estado == "ERROR") return new AcuseApp(mensajeId, g.Estado, g.Folio, g.Error);
+                if (!g.Duplicado)
+                    // Sin existencia (5-nov): ya no se acepta en silencio. El mensaje quedó EN_REVISION con su folio de
+                    // revisión y la app recibe ERROR; los siguientes de la misma referencia esperan.
+                    return g.Estado == SalidaAppAlmacenes.EnRevision
+                        ? new AcuseApp(mensajeId, "ERROR", g.Folio, g.Error)
+                        : new AcuseApp(mensajeId, g.Estado, g.Folio, g.Error);
+                previo = await db.MensajesApp.AsNoTracking().FirstAsync(m => m.MensajeId == mensajeId, ct);
+            }
+            else if (AlmacenesAppMerma.Tipos.Contains(tipo))
+            {
+                // A4.4: desperdicio de mesa y merma de proceso; el desperdicio avisa a Contabilidad, la merma queda pendiente.
+                var (resuelta, errorMerma) = await AlmacenesAppMerma.ManejarAsync(tipo, datos, salidaResolver, usuarioServicio, ct);
+                if (resuelta is null) return await ErrorMarcadoAsync(mensajeId, tipo, referencia, root, errorMerma, ct);
+                var g = await mermasGuardado.GuardarAsync(mensajeId, tipo, referencia, root.GetRawText(),
+                    resuelta.EmpresaId, resuelta.Merma, ct);
+                if (!g.Duplicado) return new AcuseApp(mensajeId, g.Estado, null, g.Error);
+                previo = await db.MensajesApp.AsNoTracking().FirstAsync(m => m.MensajeId == mensajeId, ct);
+            }
+            else
+            {
+                // Punto de enchufe de handlers: un case por tipo.
+                (estado, folio, error) = tipo switch
+                {
+                    "REQUISICION_ENVIADA" => await AlmacenesAppRequisicionEnviada.ManejarAsync(datos, rqApp, ct),
+                    _ => ("ERROR", (string?)null, (string?)"tipo aún no soportado"),
+                };
+                if (tipo == "REQUISICION_ENVIADA" && estado == "ERROR")
+                    return new AcuseApp(mensajeId, estado, folio, error);
+                db.MensajesApp.Add(new MensajeApp(mensajeId, tipo,
+                    referencia?.Length > 100 ? referencia[..100] : referencia, root.GetRawText(), estado, folio, error));
+                try
+                {
+                    await db.SaveChangesAsync(ct);
+                    return new AcuseApp(mensajeId, estado, folio, error);
+                }
+                catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: "23505" })
+                {
+                    db.ChangeTracker.Clear();
+                    previo = await db.MensajesApp.AsNoTracking().FirstAsync(m => m.MensajeId == mensajeId, ct);
+                }
+            }
+        }
+
+        // Mismo folio (y error, si lo hubo) que la primera vez; nada nuevo se crea.
+        return new AcuseApp(mensajeId, "DUPLICADO", previo.Folio, previo.Error);
+    }
+
+    /// <summary>ERROR de datos: queda en la bandeja con folio de revisión y no mueve saldo.</summary>
+    private async Task<AcuseApp> ErrorMarcadoAsync(
+        string mensajeId, string tipo, string? referencia, JsonElement root, string? error, CancellationToken ct)
+    {
+        var folio = SalidaAppAlmacenes.FolioRevision(mensajeId);
+        db.MensajesApp.Add(new MensajeApp(mensajeId, tipo,
+            referencia?.Length > 100 ? referencia[..100] : referencia, root.GetRawText(), "ERROR", folio,
+            error?.Length > 1000 ? error[..1000] : error));
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: "23505" })
+        {
+            db.ChangeTracker.Clear(); // otro envío del mismo mensajeId ganó la carrera; el acuse sigue siendo ERROR
+        }
+        return new AcuseApp(mensajeId, "ERROR", folio, error);
+    }
+}

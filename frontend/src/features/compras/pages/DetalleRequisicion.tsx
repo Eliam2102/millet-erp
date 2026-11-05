@@ -1,3 +1,4 @@
+import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useContext } from 'react';
 import { RecurrenciaContext } from '@/features/compras/components/recurrencia-context';
@@ -211,10 +212,10 @@ export function DetalleRequisicion() {
           </div>
         )}
         {rq.estado === EstadoRequisicion.EnAutorizacion && rq.pendienteConfigurarAprobador && (
-          <div role="status" className="rounded-md border border-warning bg-warning-bg px-3 py-2 text-sm text-warning-fg">
-            <p className="font-medium">Pendiente de configurar el aprobador</p>
-            <p>No hay política de nivel 2 para este departamento. No se autoriza ni se bloquea hasta que se configure.</p>
-          </div>
+          <AvisoEnLinea tono="advertencia" titulo="Pendiente de configurar el aprobador">
+            Falta la política de nivel 2 de este departamento; pide al administrador que revise la configuración en{' '}
+            <a href="/compras/admin/aprobadores" className="underline">Aprobadores</a>.
+          </AvisoEnLinea>
         )}
 
         <CabeceraRequisicion rq={rq} resolverNombre={resolverNombre} />

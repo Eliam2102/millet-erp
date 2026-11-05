@@ -173,7 +173,7 @@ describe('<DictamenRevisionSheet>', () => {
         new ApiError({ type: 'x', title: 'Regla de negocio', status: 422, detail, code: 'DICTAMEN_RECHAZO_SIN_EVIDENCIA' }, 422),
       );
     });
-    expect(await screen.findByText(detail)).toBeInTheDocument();
+    expect(await screen.findByText('Falta la evidencia del material rechazado. Adjunta una foto o documento en la recepción para continuar.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Agregar evidencia' })).toBeInTheDocument();
   });
 });

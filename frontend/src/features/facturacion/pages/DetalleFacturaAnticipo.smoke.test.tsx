@@ -79,6 +79,10 @@ describe('<DetalleFacturaAnticipo> — smoke (ANT-PR2)', () => {
     // KPIs del saldo (13-A/13-H)
     expect(screen.getByText('Cobrado')).toBeInTheDocument();
     expect(screen.getByText('Disponible')).toBeInTheDocument();
+    expect(screen.getByText('Disponible').nextElementSibling).toHaveClass('text-3xl', 'font-semibold', 'tabular-nums');
+    expect(screen.getByText('Disponible').nextElementSibling).toHaveTextContent('$660.00');
+    expect(screen.getByText('Anticipo en pesos')).toBeInTheDocument();
+    expect(screen.getAllByText('Timbrada')).toHaveLength(3);
     // Vinculación: factura final con link + NC de amortización
     expect(screen.getByText('VEN-000003')).toBeInTheDocument();
     expect(screen.getByText('NC-000001')).toBeInTheDocument();
@@ -106,16 +110,31 @@ describe('<DetalleFacturaAnticipo> — smoke (ANT-PR2)', () => {
     render(<DetalleFacturaAnticipo />, { wrapper: createQueryWrapper() });
 
     await waitFor(() =>
-      expect(screen.getByText(/CFDI40100/)).toBeInTheDocument(),
+      expect(screen.getByText(/No se pudo timbrar el comprobante/)).toBeInTheDocument(),
     );
-    expect(screen.getByText(/Rechazo del PAC/)).toBeInTheDocument();
+    expect(screen.queryByText(/CFDI40100|Rechazo del PAC/)).not.toBeInTheDocument();
+  });
+
+
+  it('distingue un saldo faltante de un importe en cero', async () => {
+    mswServer.use(
+      http.get('*/api/v1/facturacion/anticipos/facturas/fa-1', () => HttpResponse.json({
+        ...detalle, anticipo: { ...detalle.anticipo, saldoDisponible: null, montoAmortizado: 0 },
+      })),
+      http.get('*/api/v1/facturacion/comprobantes/fa-1/cancelar', () => HttpResponse.json({ estadoSolicitud: null })),
+    );
+    render(<DetalleFacturaAnticipo />, { wrapper: createQueryWrapper() });
+    await screen.findByText('Disponible');
+    expect(screen.getByText('Disponible').nextElementSibling).toHaveTextContent('—');
+    expect(screen.getByText('Disponible').nextElementSibling?.firstElementChild).toHaveClass('text-ink-muted');
+    expect(screen.getByText('Amortizado').nextElementSibling).toHaveTextContent('$0.00');
   });
 
   it('estado error', async () => {
     mswServer.use(
       http.get('*/api/v1/facturacion/anticipos/facturas/fa-1', () =>
         HttpResponse.json(
-          { type: 'about:blank', title: 'Boom', status: 500 },
+          { type: 'about:blank', title: 'INTERNAL_ERROR', detail: 'Invalid payload at endpoint', status: 500 },
           { status: 500, headers: { 'Content-Type': 'application/problem+json' } },
         ),
       ),
@@ -129,5 +148,6 @@ describe('<DetalleFacturaAnticipo> — smoke (ANT-PR2)', () => {
         screen.getByText(/No se pudo cargar la factura de anticipo/i),
       ).toBeInTheDocument(),
     );
+    expect(screen.queryByText(/INTERNAL_ERROR|Invalid payload/)).not.toBeInTheDocument();
   });
 });

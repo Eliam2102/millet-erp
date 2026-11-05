@@ -1,3 +1,5 @@
+import { problemaUsuario } from '@/lib/error-usuario';
+import { errorUsuario } from '@/lib/error-usuario';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { BarraFiltros, TabsEstado, PaginacionTabla } from '@/components/erp';
 import { PageHeader } from '@/components/erp/PageHeader';
@@ -31,7 +33,6 @@ import { esPasivoSeleccionable } from '@/features/tesoreria/lib/pagos';
 import type { PagosSearch } from '@/features/tesoreria/lib/pagos-search-schema';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError } from '@/lib/api';
 
 const FROM = '/_app/tesoreria/pagos/' as const;
 
@@ -107,7 +108,7 @@ export function BandejaPagos() {
           setCancelando(null);
         },
         onError: (error) => {
-          toast.error(esApiError(error) ? error.problem.title : 'No se pudo enviar la solicitud');
+          toast.error(errorUsuario(error, 'No se pudo enviar la solicitud'));
         },
       },
     );
@@ -119,8 +120,7 @@ export function BandejaPagos() {
         titulo={<>Pagos a proveedor</>}
         descripcion={
           <>
-            Pasivos autorizados por CxP. Selecciona pasivos del mismo proveedor para registrar un
-            pago.
+            Selecciona los pasivos autorizados por CxP del mismo proveedor y moneda para registrar un pago.
           </>
         }
         acciones={
@@ -212,7 +212,7 @@ export function BandejaPagos() {
         {query.isError ? (
           <ErrorState
             title="No se pudo cargar la bandeja de pasivos"
-            problem={esApiError(query.error) ? query.error.problem : undefined}
+            problem={problemaUsuario(query.error)}
             onRetry={() => query.refetch()}
           />
         ) : query.isLoading ? (

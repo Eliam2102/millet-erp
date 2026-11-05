@@ -156,6 +156,17 @@ public sealed class Anticipo : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRelev
     }
 
     /// <summary>
+    /// U-1 (86e3yxn2p): libera el importe comprometido con una factura cuya NC de
+    /// amortización no se timbró y se descartó. Solo quita la vinculación sin NC.
+    /// </summary>
+    public void LiberarVinculacion(Guid facturaVentaId)
+    {
+        var vinculacion = _vinculaciones.FirstOrDefault(v => v.FacturaVentaId == facturaVentaId && v.NcAmortizacionId is null);
+        if (vinculacion is not null)
+            _vinculaciones.Remove(vinculacion);
+    }
+
+    /// <summary>
     /// Registra la amortización de un anticipo con su NC (Momento 3, §6.3). Reduce
     /// el saldo (<see cref="MontoAmortizado"/> += importe) y asocia la NC a la
     /// vinculación. Si la factura ya estaba pre-vinculada (M2 vía

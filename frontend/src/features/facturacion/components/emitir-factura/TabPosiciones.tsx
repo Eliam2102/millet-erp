@@ -90,7 +90,7 @@ export function TabPosiciones({
       {desdePedido && (
         <p className="text-xs text-ink-muted">
           Partidas del pedido — cantidades y precios vienen del pedido y los datos fiscales del
-          master del artículo. Editar solo expone lo comercial; lo fiscal se corrige en Datos
+          catálogo del artículo. Editar solo expone lo comercial; lo fiscal se corrige en Datos
           Maestros → Productos A+W.
         </p>
       )}

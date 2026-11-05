@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useSucursales } from '@/features/catalogos/api';
-import { mensajeErrorAccion } from '@/lib/api/error';
+import { errorUsuario as mensajeErrorAccion } from '@/lib/error-usuario';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { useCrearTraspaso, useRecibirTraspaso, useTraspaso, useTraspasos } from '../api/hooks';
@@ -27,7 +27,7 @@ export function TraspasosPage() {
   const operar = useAuthStore((s) => s.permisos.includes(P.ProductoTerminadoExcepcionesGestionar));
   const lista = useTraspasos({ pageSize: 50 });
   const sucursales = useSucursales();
-  const nombre = (id: string) => sucursales.data?.items.find((s) => s.id === id)?.nombre ?? id.slice(0, 8);
+  const nombre = (id: string) => sucursales.data?.items.find((s) => s.id === id)?.nombre ?? 'Sin sucursal';
   const crear = useCrearTraspaso();
   const recibir = useRecibirTraspaso();
 
@@ -59,10 +59,10 @@ export function TraspasosPage() {
 
   return (
     <main className="flex h-full min-h-0 flex-col gap-5 overflow-auto text-sm">
-      <Breadcrumbs items={[{ label: 'Producto Terminado' }, { label: 'Traspasos' }]} />
+      <Breadcrumbs items={[{ label: "Producto terminado" }, { label: 'Traspasos' }]} />
       <PageHeader
         titulo="Traspasos entre sucursales"
-        descripcion="Las piezas salen de la sucursal origen, viajan en tránsito y entran al PT de destino al recibirse. Lo que no llega queda como diferencia pendiente."
+        descripcion="Registra la salida y recepción de piezas entre sucursales y revisa las diferencias pendientes."
       />
       {error && (
         <AvisoEnLinea tono="error" titulo="No se pudo completar la acción">

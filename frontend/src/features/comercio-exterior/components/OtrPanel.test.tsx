@@ -106,7 +106,7 @@ it('la sección muestra versión, línea pendiente, y conflicto', () => {
   render(<OtrPanel expedienteId="exp" />);
   expect(screen.getByText('Vinculado')).toBeInTheDocument();
   expect(screen.getByText('Versión 2')).toBeInTheDocument();
-  expect(screen.getByText('CE_OTR_PEDIDO_INEXISTENTE')).toBeInTheDocument();
+  expect(screen.getByText('El pedido no está registrado. Revisa el número de pedido en A+W.')).toBeInTheDocument();
 });
 it.each([
   ['Usar OTR', true],
@@ -167,4 +167,10 @@ it('filtra estados cargados y pagina diez envíos sin ofrecer vincular los ya vi
   expect(screen.getByRole('button', { name: 'Página anterior' })).toBeDisabled();
   fireEvent.mouseDown(screen.getByRole('tab', { name: 'Todos' }), { button: 0, ctrlKey: false });
   expect(screen.getByText('1–10 de 13')).toBeInTheDocument();
+});
+
+it('los conflictos muestran el nombre de negocio del campo', () => {
+  render(<OtrDetalle envio={envio} />);
+  expect(screen.getByText(/Peso \(kg\)/)).toBeInTheDocument();
+  expect(screen.queryByText(/PesoKg/)).not.toBeInTheDocument();
 });

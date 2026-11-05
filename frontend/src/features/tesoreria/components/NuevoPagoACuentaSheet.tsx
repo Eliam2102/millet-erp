@@ -1,3 +1,4 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
 import { SheetFooter } from '@/components/ui/sheet';
@@ -19,7 +20,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ProveedorSelector } from '@/components/erp/selectors/ProveedorSelector';
 import { CuentaBancariaSelector } from './CuentaBancariaSelector';
 import { useRegistrarPagoACuenta } from '@/features/tesoreria/api/useTesoreria';
-import { esApiError, useBodyScopedIdempotencyKey, codigoSoporte } from '@/lib/api';
+import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
 
 export interface NuevoPagoACuentaSheetProps {
   open: boolean;
@@ -94,10 +95,10 @@ export function NuevoPagoACuentaSheet({ open, onOpenChange }: NuevoPagoACuentaSh
         },
         onError: (error) => {
           toast.error(
-            esApiError(error) ? error.problem.title : 'No se pudo registrar el pago a cuenta',
+            errorUsuario(error, 'No se pudo registrar el pago a cuenta'),
             {
               description: esApiError(error)
-                ? (error.problem.detail ?? codigoSoporte(error))
+                ? (errorUsuario(error))
                 : undefined,
             },
           );
@@ -112,8 +113,7 @@ export function NuevoPagoACuentaSheet({ open, onOpenChange }: NuevoPagoACuentaSh
         <SheetHeader>
           <SheetTitle>Nuevo pago a cuenta</SheetTitle>
           <SheetDescription>
-            Egreso ejecutado en banca sin documento ligado. El limbo se registra, no se oculta —
-            máximo uno abierto por proveedor.
+            Registra un pago ejecutado en el banco sin factura vinculada, con un máximo de uno abierto por proveedor.
           </SheetDescription>
         </SheetHeader>
 

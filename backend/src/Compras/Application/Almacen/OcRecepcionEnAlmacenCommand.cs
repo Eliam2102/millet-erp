@@ -1,7 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Millet.Compras.Application.Integration.AlmCompra;
 using Millet.Compras.Domain.Idempotencia;
 using Millet.Compras.Domain.Oc.Events;
 using Millet.Compras.Domain.Ports.OrdenCompra;
@@ -59,15 +58,12 @@ public sealed class OcRecepcionEnAlmacenHandler
     private readonly ComprasDbContext _db;
     private readonly IPublisher _publisher;
     private readonly ILogger<OcRecepcionEnAlmacenHandler> _logger;
-    private readonly AlmCompraEncolador? _almCompra;
 
     public OcRecepcionEnAlmacenHandler(
         ComprasDbContext db,
         IPublisher publisher,
-        ILogger<OcRecepcionEnAlmacenHandler> logger,
-        AlmCompraEncolador? almCompra = null)
+        ILogger<OcRecepcionEnAlmacenHandler> logger)
     {
-        _almCompra = almCompra;
         _db = db;
         _publisher = publisher;
         _logger = logger;
@@ -183,9 +179,6 @@ public sealed class OcRecepcionEnAlmacenHandler
         {
             await _publisher.Publish(cerrada, cancellationToken);
         }
-
-        // CA13.8: la entrada confirmada se manda a Almacenes en la misma transacción (COMPRA_MODIFICADA con hojas, lote y rack).
-        if (_almCompra is not null) await _almCompra.RecepcionConfirmadaAsync(oc.Id, cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
 

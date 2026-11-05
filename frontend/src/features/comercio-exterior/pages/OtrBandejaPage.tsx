@@ -42,7 +42,7 @@ export function OtrBandejaPage() {
       <Breadcrumbs items={[{ label: 'Comercio Exterior' }, { label: 'Bandeja OTR' }]} />
       <PageHeader
         titulo="Bandeja OTR"
-        descripcion="Vincule cada envío de contenedor a un expediente de exportación del mismo cliente."
+        descripcion="Vincula cada envío de contenedor a un expediente de exportación del mismo cliente."
       />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Button

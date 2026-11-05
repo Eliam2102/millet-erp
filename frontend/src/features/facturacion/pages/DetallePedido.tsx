@@ -1,3 +1,6 @@
+import { problemaConsulta } from '@/components/erp/feedback/problema-consulta';
+import { formatMoney } from '@/lib/money';
+import { formatCantidad } from '@/lib/format-cantidad';
 import { AvisoEnLinea, ErrorState } from '@/components/erp';
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { PageHeader } from '@/components/erp/PageHeader';
@@ -39,7 +42,6 @@ import {
 } from '@/features/facturacion/lib/glosario';
 import type { PedidosSearch } from '@/features/facturacion/lib/pedidos-search-schema';
 import { ChipTimbrado } from '@/features/facturacion/pages/BandejaFacturas';
-import { esApiError } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { useQueryClient } from '@tanstack/react-query';
@@ -69,7 +71,7 @@ export function DetallePedido() {
       {/* Sub-topbar del detalle (§6.5): cerrar vuelve a la bandeja
           preservando los filtros activos. */}
       <div
-        className="sticky top-0 z-10 flex items-center justify-end gap-2 border-b bg-surface-page/95 pb-2 backdrop-blur border-line"
+        className="sticky top-0 z-10 flex items-center justify-end gap-2 border-b bg-surface-page pb-2 border-line"
         data-print="hidden"
       >
         <Button variant="ghost" size="sm" asChild aria-label="Cerrar detalle">
@@ -82,7 +84,7 @@ export function DetallePedido() {
       {query.isError ? (
         <ErrorState
           title="No se pudo cargar el pedido"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
+          problem={problemaConsulta(query.error)}
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading || query.data == null ? (
@@ -153,11 +155,9 @@ function Contenido({
           });
           setProformaEnVisor(proforma);
         },
-        onError: (error) => {
+        onError: () => {
           toast.error('No se pudo generar la proforma.', {
-            description: esApiError(error)
-              ? (error.problem.detail ?? error.problem.title)
-              : 'Revisa tu conexión y vuelve a intentarlo.',
+            description: 'Revisa los datos del pedido y tu conexión antes de volver a intentarlo.',
           });
         },
       },
@@ -365,7 +365,7 @@ function Contenido({
           <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="space-y-0.5 sm:col-span-2">
               <dt className="text-xs text-ink-muted">Motivo</dt>
-              <dd className="text-sm text-ink">{p.motivoEmergencia ?? '—'}</dd>
+              <dd className="text-sm text-ink">{p.motivoEmergencia || <span className="text-ink-muted">—</span>}</dd>
             </div>
             <div className="space-y-0.5">
               <dt className="text-xs text-ink-muted">Pedido A+W para conciliar</dt>
@@ -441,25 +441,25 @@ function Contenido({
             <TableBody>
               {p.lineas.map((l) => (
                 <TableRow key={l.posicion} className="border-t border-line">
-                  <TableCell className="px-3 py-2 text-ink-muted">{l.posicion}</TableCell>
+                  <TableCell className="px-3 py-2 text-right text-ink-muted tabular-nums">{l.posicion}</TableCell>
                   <TableCell className="px-3 py-2">{l.productoDescripcion}</TableCell>
                   {mostrarSat && (
                     <TableCell className="px-3 py-2 font-mono text-xs">
-                      {l.claveProdServSat ?? '—'} · {l.claveUnidadSat ?? '—'}
+                      {l.claveProdServSat || <span className="text-ink-muted">—</span>} · {l.claveUnidadSat || <span className="text-ink-muted">—</span>}
                     </TableCell>
                   )}
                   <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
-                    {l.cantidad.toFixed(2)}
+                    {formatCantidad(l.cantidad)}
                   </TableCell>
                   <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
-                    {l.precio.toFixed(2)}
+                    {formatMoney({ amount: l.precio, currency: p.moneda })}
                   </TableCell>
                   <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
-                    {l.descuento.toFixed(2)}
+                    {formatMoney({ amount: l.descuento, currency: p.moneda })}
                   </TableCell>
                   {mostrarPedimento && (
                     <TableCell className="px-3 py-2 text-center">
-                      {l.requierePedimento ? 'Sí' : '—'}
+                      {l.requierePedimento ? 'Sí' : <span className="text-ink-muted">—</span>}
                     </TableCell>
                   )}
                 </TableRow>
@@ -472,7 +472,7 @@ function Contenido({
         {p.ranura != null && p.ranura > 0 && (
           <p className="text-right text-sm text-warning-fg tabular-nums">
             Ranura (descuento del pedido — la factura va por el total; se documenta con nota de
-            crédito y la caja cobra el neto): −{p.ranura.toFixed(2)} {p.moneda}
+            crédito y la caja cobra el neto): −{formatMoney({ amount: p.ranura, currency: p.moneda })}
           </p>
         )}
         <p className="text-xs text-ink-muted">
@@ -517,12 +517,12 @@ function Contenido({
                   <TableRow key={a.anticipoId} className="border-t border-line">
                     <TableCell className="px-3 py-2 font-mono text-xs">{a.folio}</TableCell>
                     <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
-                      {a.montoCobrado.toFixed(2)}
+                      {formatMoney({ amount: a.montoCobrado, currency: p.moneda })}
                     </TableCell>
                     <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
-                      {a.saldo.toFixed(2)}
+                      {formatMoney({ amount: a.saldo, currency: p.moneda })}
                     </TableCell>
-                    <TableCell className="px-3 py-2">{a.estado}</TableCell>
+                    <TableCell className="px-3 py-2"><EstadoFacturacionBadge entidad="anticipo" estado={a.estado} /></TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -557,16 +557,16 @@ function Contenido({
                   <TableRow key={c.id} className="border-t hover:bg-surface-muted/30 border-line">
                     <TableCell className="px-3 py-2 font-mono text-xs">{c.folio}</TableCell>
                     <TableCell className="px-3 py-2 font-mono text-xs">
-                      {c.uuid ? `${c.uuid.slice(0, 8)}…${c.uuid.slice(-4)}` : '—'}
+                      {c.uuid ? `${c.uuid.slice(0, 8)}…${c.uuid.slice(-4)}` : <span className="text-ink-muted">—</span>}
                     </TableCell>
                     <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
-                      {c.total.toFixed(2)} {c.moneda}
+                      {formatMoney({ amount: c.total, currency: c.moneda })}
                     </TableCell>
                     <TableCell className="px-3 py-2">
                       <ChipTimbrado estado={c.estado} />
                     </TableCell>
                     <TableCell className="px-3 py-2 text-center">
-                      {c.vigente ? <Badge variant="success">Vigente</Badge> : '—'}
+                      {c.vigente ? <Badge variant="success">Vigente</Badge> : <span className="text-ink-muted">—</span>}
                     </TableCell>
                     <TableCell className="px-3 py-2 text-right tabular-nums">
                       <Link

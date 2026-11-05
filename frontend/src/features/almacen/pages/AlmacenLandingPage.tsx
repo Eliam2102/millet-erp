@@ -38,7 +38,7 @@ export function AlmacenLandingPage() {
     <div className="space-y-6">
       <PageHeader
         titulo="Almacén"
-        descripcion="Inventario físico no-vidrio: recepciones, salidas, devoluciones, conteos y reportes."
+        descripcion="Consulta el inventario y registra recepciones, salidas, devoluciones y conteos."
       />
 
       {!hayCards && (

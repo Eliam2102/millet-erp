@@ -12,18 +12,10 @@ export interface AlmCompraLineaDatos {
   pedimento?: string;
 }
 
-export interface AlmCompraRecepcionDatos {
-  folio?: string;
-  fecha: string;
-  importacion?: { pedimento: string; bl: string; contenedor: string; aduana: string; clavePedimento: string };
-  lineas: { lineaErp: string; piezas: number; lote?: string; rack?: string; fraccion?: string }[];
-}
-
 export interface AlmCompraDatos {
   folio: string;
   proveedor?: { claveAw: number; nombre: string };
   lineas?: AlmCompraLineaDatos[];
-  recepciones?: AlmCompraRecepcionDatos[];
   motivo?: string;
 }
 

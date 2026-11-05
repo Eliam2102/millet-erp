@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import axe, { type AxeResults } from 'axe-core';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
-import { createQueryWrapper } from '@/test/test-query-client';
+import { createQueryWrapper, createTestQueryClient } from '@/test/test-query-client';
 import { RecepcionesPage } from '@/features/almacen/pages/RecepcionesPage';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { EstadoMovimiento } from '@/features/almacen/api/types';
@@ -202,4 +202,34 @@ it('muestra conteos en KPIs enlazados y sus pestañas', async () => {
   expect(borrador.querySelector('.text-3xl')).toHaveTextContent('7');
   expect(validado.querySelector('.tabular-nums')).toHaveTextContent('12');
   expect(screen.getByRole('tab', { name: /Borrador.*7/ })).toBeInTheDocument();
+});
+
+it('K1: un estado ausente vale cero cuando los conteos cargaron', async () => {
+  mswServer.use(
+    http.get('*/api/v1/almacen/recepciones/conteos-por-estado', () => HttpResponse.json([])),
+  );
+  render(<RecepcionesPage />, { wrapper: createQueryWrapper() });
+  const enlace = await screen.findByRole('link', { name: 'Borrador 0' });
+  expect(enlace.querySelector('.text-3xl')).toHaveTextContent('0');
+  expect(enlace).toHaveAttribute('href', `/almacen/recepciones?estado=${EstadoMovimiento.Borrador}`);
+});
+it.each(['carga', 'error'])('K1: conserva «—» durante %s de los conteos', async (estado) => {
+  mswServer.use(
+    http.get('*/api/v1/almacen/recepciones/conteos-por-estado', () => estado === 'error'
+      ? new HttpResponse(null, { status: 500 }) : new Promise(() => {})),
+  );
+  render(<RecepcionesPage />, { wrapper: createQueryWrapper() });
+  expect(await screen.findByRole('link', { name: 'Borrador —' })).toBeInTheDocument();
+});
+
+it('K1: una recarga fallida oculta los conteos anteriores en KPIs y pestañas', async () => {
+  const client = createTestQueryClient();
+  mswServer.use(http.get('*/api/v1/almacen/recepciones/conteos-por-estado', () =>
+    HttpResponse.json([{ estado: EstadoMovimiento.Borrador, total: 7 }])));
+  render(<RecepcionesPage />, { wrapper: createQueryWrapper(client) });
+  expect(await screen.findByRole('link', { name: 'Borrador 7' })).toBeInTheDocument();
+  mswServer.use(http.get('*/api/v1/almacen/recepciones/conteos-por-estado', () => new HttpResponse(null, { status: 500 })));
+  await act(async () => { await client.refetchQueries({ predicate: (q) => q.queryKey.includes('conteos-por-estado') }); });
+  expect(await screen.findByRole('link', { name: 'Borrador —' })).toBeInTheDocument();
+  expect(screen.queryByRole('tab', { name: /Borrador.*7/ })).not.toBeInTheDocument();
 });
