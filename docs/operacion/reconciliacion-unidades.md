@@ -32,10 +32,15 @@ Normalización antes de matchear: `upper(btrim(regexp_replace(valor, '\.$', ''))
 | `ML` | `ML` |
 | `HR` | `HR` |
 | `PAR` | `PAR` |
+| `CAJA` | `CAJA` (SAT XBX) |
+| `ROLLO` | `ROLLO` (SAT RK) |
+| `PAQ`, `PAQUETE`, `PAQUETES` | `PAQ` (SAT XPK) |
+
+`CAJA`, `ROLLO` y `PAQ` se dieron de alta el 4-nov (P-200, Fernando Alejos) con factor nominal 1: no convierten a `PZA`.
 
 **No se auto-mapean** (quedan FK NULL + legacy intacto, para revisión / Etapa 3):
-`PPZA`, `PSP` (revisión manual), y el empaque variable `CAJA`, `PAQ`,
-`PAQUETE`, `PQT`, `ROLLO`, `TAMBO`, `CUBETA`, `GALON`, `KIT`, `SET`, `BLOCK`
+`PPZA`, `PSP` (revisión manual), y el empaque variable `PQT`, `TAMBO`,
+`CUBETA`, `GALON`, `KIT`, `SET`, `BLOCK`
 (equivalencia dependiente del producto → la resuelve la Etapa 3).
 
 ## Script 1 — Reconciliación (idempotente)
@@ -51,7 +56,8 @@ WITH mapa(legacy_norm, codigo) AS (
         ('METRO', 'M'),
         ('ML', 'ML'),
         ('HR', 'HR'),
-        ('PAR', 'PAR')
+        ('PAR', 'PAR'),
+        ('CAJA', 'CAJA'), ('ROLLO', 'ROLLO'), ('PAQ', 'PAQ'), ('PAQUETE', 'PAQ'), ('PAQUETES', 'PAQ')
 )
 UPDATE compartido.articulos a
 SET unidad_medida_id = u.id
@@ -133,7 +139,8 @@ WITH mapa(legacy_norm, codigo) AS (
         ('METRO', 'M'),
         ('ML', 'ML'),
         ('HR', 'HR'),
-        ('PAR', 'PAR')
+        ('PAR', 'PAR'),
+        ('CAJA', 'CAJA'), ('ROLLO', 'ROLLO'), ('PAQ', 'PAQ'), ('PAQUETE', 'PAQ'), ('PAQUETES', 'PAQ')
 )
 UPDATE compartido.articulos a
 SET unidad_medida_id = u.id

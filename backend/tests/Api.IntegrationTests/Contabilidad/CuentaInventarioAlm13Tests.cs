@@ -15,9 +15,10 @@ using static Millet.Api.IntegrationTests.Contabilidad.ContabTestKit;
 namespace Millet.Api.IntegrationTests.Contabilidad;
 
 /// <summary>
-/// F1-ALM-13-a, lado Contabilidad, contra el API y Postgres reales: Almacén lee por su puerto la cuenta del rol INVENTARIO de la
-/// sucursal (la misma que usa el motor) y su saldo al corte solo con las partidas de esa sucursal. El endpoint del cuadre responde
-/// con su forma de reporte. Año lejano propio y cuentas FIX; se limpia al terminar.
+/// F1-ALM-13-a, lado Contabilidad, contra el API y Postgres reales: Almacén lee por su puerto la cuenta del rol INVENTARIO_{grupo}
+/// (la misma que usa el motor; Fernando 4-nov: una cuenta por tipo para todas las sucursales) y su saldo al corte de toda la empresa
+/// o de las sucursales que se pidan. El endpoint del cuadre responde con su forma de reporte. Año lejano propio y cuentas FIX; se
+/// limpia al terminar.
 /// </summary>
 [Collection(ApiCompartida.Nombre)]
 public class CuentaInventarioAlm13Tests(WebApplicationFactory<Program> factory)
@@ -25,13 +26,15 @@ public class CuentaInventarioAlm13Tests(WebApplicationFactory<Program> factory)
     private static Guid Id(JsonElement e) => e.GetProperty("id").GetGuid();
 
     [Fact]
-    public async Task Almacen_lee_la_cuenta_INVENTARIO_de_la_sucursal_y_su_saldo_al_corte()
+    public async Task Almacen_lee_la_cuenta_del_grupo_y_su_saldo_de_toda_la_empresa_al_corte()
     {
         var suf = Sufijo();
         var anio = Random.Shared.Next(2100, 2990);
         await using var f = factory.ConEmpresa(EmpresaBootstrapId);
         var admin = await LoginAsync(f);
         Guid? tipo = null, sucursal = null, otra = null;
+        var grupo = $"FIX VIDRIO {suf}";
+        var codigoRol = "INVENTARIO_" + Millet.Contabilidad.Application.Motor.GenerarPolizaDesdeEventoHandler.Clasificador(grupo);
         try
         {
             await AsegurarPeriodosAbiertosAsync(admin, new DateOnly(anio, 10, 1), new DateOnly(anio, 11, 1));
@@ -47,12 +50,12 @@ public class CuentaInventarioAlm13Tests(WebApplicationFactory<Program> factory)
             tipo = Id(await Json(t));
             var rol = await admin.PostAsJsonAsync($"{Base}/motor/roles", new
             {
-                Codigo = "INVENTARIO", Descripcion = "FIX inventario de la sucursal", CuentaId = inventario, SucursalId = sucursal,
+                Codigo = codigoRol, Descripcion = "FIX inventario del grupo", CuentaId = inventario, SucursalId = (Guid?)null,
                 Moneda = (string?)null, VigenteDesde = new DateOnly(anio, 1, 1),
             });
             Assert.Equal(HttpStatusCode.Created, rol.StatusCode);
 
-            // Compras a $900 (oct) y a $1,000 (nov) en la sucursal; una partida de otra sucursal en la misma cuenta no cuenta.
+            // Compras a $900 (oct) y a $1,000 (nov) en la sucursal y $777 (nov) en otra: la cuenta es de toda la empresa.
             await PolizaAsync(f, clave, new(anio, 10, 10), sucursal.Value, inventario, proveedores, 9_000m);
             await PolizaAsync(f, clave, new(anio, 11, 10), sucursal.Value, inventario, proveedores, 10_000m);
             await PolizaAsync(f, clave, new(anio, 11, 12), otra.Value, inventario, proveedores, 777m);
@@ -61,11 +64,15 @@ public class CuentaInventarioAlm13Tests(WebApplicationFactory<Program> factory)
             using (var scope = f.Services.CreateScope())
             {
                 var puerto = scope.ServiceProvider.GetRequiredService<IInventarioContableReadPort>();
-                var octubre = await puerto.ObtenerAsync(new DateOnly(anio, 10, 31), [sucursal.Value], default);
-                Assert.Equal((inventario, 9_000m), (octubre[sucursal.Value].CuentaId!.Value, octubre[sucursal.Value].Saldo!.Value));
-                var noviembre = await puerto.ObtenerAsync(new DateOnly(anio, 11, 30), [sucursal.Value], default);
-                Assert.Equal(19_000m, noviembre[sucursal.Value].Saldo);
-                Assert.Equal(Codigo(suf, "1.1"), noviembre[sucursal.Value].CuentaCodigo);
+                (Guid, string?) a = (sucursal.Value, grupo), b = (otra.Value, grupo), sinRol = (sucursal.Value, $"FIX OTRO {suf}");
+                var octubre = await puerto.ObtenerAsync(new DateOnly(anio, 10, 31), [a, b], null, default);
+                Assert.Equal((inventario, 9_000m), (octubre[a].CuentaId!.Value, octubre[a].Saldo!.Value));
+                var noviembre = await puerto.ObtenerAsync(new DateOnly(anio, 11, 30), [a, b, sinRol], null, default);
+                Assert.Equal((19_777m, 19_777m), (noviembre[a].Saldo!.Value, noviembre[b].Saldo!.Value));
+                Assert.Equal(Codigo(suf, "1.1"), noviembre[b].CuentaCodigo);
+                Assert.NotEqual(inventario, noviembre[sinRol].CuentaId); // sin rol del grupo: la del rol INVENTARIO (o ninguna), nunca otra adivinada
+                var soloSucursal = await puerto.ObtenerAsync(new DateOnly(anio, 11, 30), [a], [sucursal.Value], default);
+                Assert.Equal(19_000m, soloSucursal[a].Saldo);
             }
 
             var reporte = await admin.GetAsync($"/api/v1/almacen/reportes/cuadre-inventario?anio={anio}&mes=11");
@@ -80,11 +87,8 @@ public class CuentaInventarioAlm13Tests(WebApplicationFactory<Program> factory)
             Sobre.Value = null;
             using var scope = factory.Services.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<ContabilidadDbContext>();
-            if (sucursal is { } s)
-            {
-                await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.roles_cuenta_cambios WHERE rol_cuenta_id IN (SELECT id FROM contabilidad.roles_cuenta WHERE sucursal_id = {0})", s);
-                await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.roles_cuenta WHERE sucursal_id = {0}", s);
-            }
+            await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.roles_cuenta_cambios WHERE rol_cuenta_id IN (SELECT id FROM contabilidad.roles_cuenta WHERE codigo = {0})", codigoRol);
+            await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.roles_cuenta WHERE codigo = {0}", codigoRol);
             if (tipo is { } tp)
             {
                 await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.reglas_dimension_uso WHERE consumidor = 'POLIZA' AND referencia IN (SELECT id::text FROM contabilidad.polizas WHERE tipo_operacion_id = {0})", tp);

@@ -9,25 +9,19 @@ namespace Millet.Contabilidad.Infrastructure.PublicAdapters;
 /// <summary>Adaptador de <see cref="IRolCuentaSaldoReadPort"/>: resuelve el rol como el motor y lee el saldo con <see cref="ISaldosContablesReadPort"/>.</summary>
 public sealed class RolCuentaSaldoReadAdapter(ContabilidadDbContext db, ISaldosContablesReadPort saldos) : IRolCuentaSaldoReadPort
 {
-    public async Task<IReadOnlyDictionary<Guid, SaldoRolSucursal>> ObtenerAsync(string rol, DateOnly corte, IReadOnlyCollection<Guid> sucursales, CancellationToken ct)
+    public async Task<IReadOnlyDictionary<(Guid SucursalId, string? Clasificador), SaldoRolSucursal>> ObtenerAsync(string rol, DateOnly corte,
+        IReadOnlyCollection<(Guid SucursalId, string? Clasificador)> claves, IReadOnlyCollection<Guid>? sucursalesSaldo, CancellationToken ct)
     {
-        var roles = await db.RolesCuenta.AsNoTracking().Where(r => r.Codigo == rol && r.DeletedAt == null).ToListAsync(ct);
-        var cuentaPorSucursal = sucursales.Distinct().ToDictionary(s => s,
-            s => GenerarPolizaDesdeEventoHandler.Rol(roles, rol, s, Poliza.MonedaNacional, corte)?.CuentaId);
-        var ids = cuentaPorSucursal.Values.OfType<Guid>().Distinct().ToList();
+        var prefijo = rol + "_";
+        var roles = await db.RolesCuenta.AsNoTracking().Where(r => (r.Codigo == rol || r.Codigo.StartsWith(prefijo)) && r.DeletedAt == null).ToListAsync(ct);
+        var cuentaPorClave = claves.Distinct().ToDictionary(k => k,
+            k => GenerarPolizaDesdeEventoHandler.CuentaPorClasificador(roles, rol, k.Clasificador, k.SucursalId, Poliza.MonedaNacional, corte));
+        var ids = cuentaPorClave.Values.OfType<Guid>().Distinct().ToList();
         var cuentas = await db.Cuentas.AsNoTracking().Where(c => ids.Contains(c.Id))
             .Select(c => new { c.Id, c.Codigo, c.Nombre }).ToDictionaryAsync(c => c.Id, ct);
-        var resultado = new Dictionary<Guid, SaldoRolSucursal>();
-        foreach (var (sucursal, cuentaId) in cuentaPorSucursal)
-        {
-            if (cuentaId is not { } id || !cuentas.TryGetValue(id, out var c))
-            {
-                resultado[sucursal] = new(null, null, null, null);
-                continue;
-            }
-            var saldo = await saldos.ObtenerAsync(corte, [id], [sucursal], ct);
-            resultado[sucursal] = new(id, c.Codigo, c.Nombre, saldo.GetValueOrDefault(id));
-        }
-        return resultado;
+        IReadOnlyDictionary<Guid, decimal> saldo = ids.Count == 0 ? new Dictionary<Guid, decimal>() : await saldos.ObtenerAsync(corte, ids, sucursalesSaldo, ct);
+        return cuentaPorClave.ToDictionary(x => x.Key, x => x.Value is { } id && cuentas.TryGetValue(id, out var c)
+            ? new SaldoRolSucursal(id, c.Codigo, c.Nombre, saldo.GetValueOrDefault(id))
+            : new SaldoRolSucursal(null, null, null, null));
     }
 }

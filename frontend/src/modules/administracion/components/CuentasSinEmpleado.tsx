@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from '@tanstack/react-router';
 import { Link2, Search, UserPlus, UserRound, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -88,8 +89,23 @@ export function CuentasSinEmpleado({ onCrearEmpleado }: Props) {
             <li key={c.objectId} className="space-y-3 p-3 text-sm">
               <div className="flex flex-wrap items-center gap-2">
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium text-ink">{c.nombre}</p>
+                  {c.usuarioId ? (
+                    <Link
+                      to="/admin/usuarios/$id"
+                      params={{ id: c.usuarioId }}
+                      className="font-medium text-ink hover:underline"
+                    >
+                      {c.nombre}
+                    </Link>
+                  ) : (
+                    <p className="font-medium text-ink">{c.nombre}</p>
+                  )}
                   <p className="truncate font-mono text-xs text-ink-muted">{c.correo}</p>
+                  {!c.usuarioId && (
+                    <p className="text-xs text-ink-muted">
+                      Aún no entra al ERP: no tiene rol. Se asigna al crear su empleado.
+                    </p>
+                  )}
                 </div>
                 <Badge variant={c.yaEntroAlErp ? 'success' : 'neutral'}>
                   {c.yaEntroAlErp ? 'Ya entró al ERP' : 'Sin entrar'}

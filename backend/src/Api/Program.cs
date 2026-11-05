@@ -240,6 +240,8 @@ if (string.Equals(builder.Configuration["ServiceBus:Modo"], "EmuladorLocal", Str
 // (seeds, outbox, workers): los hosted services arrancan en orden de registro y las migraciones solo dejan
 // particiones hasta octubre de 2026. Por eso este job va registrado antes que todos los demás.
 builder.Services.AddHostedService<AuditPartitionRolloverJob>();
+// 86e3yxe9m: aviso de cuentas que la regla «no hay acceso sin empleado» dejaría fuera.
+builder.Services.AddHostedService<Millet.Api.Auth.CuentasSinEmpleadoAvisoAlArranque>();
 
 if (!string.IsNullOrWhiteSpace(outboxConnString))
 {
@@ -358,6 +360,9 @@ builder.Services
     .AddOptions<Millet.Almacen.Infrastructure.Workers.ReordenWorkerOptions>()
     .Bind(builder.Configuration.GetSection(Millet.Almacen.Infrastructure.Workers.ReordenWorkerOptions.SectionName));
 builder.Services.AddHostedService<Millet.Almacen.Infrastructure.Workers.ReordenWorker>();
+// F1-ALM-13 (Fernando 4-nov): los incrementables de importación no suben el inventario (false por omisión; «versión posterior»).
+builder.Services.AddOptions<Millet.Almacen.Application.EventListeners.IncrementablesImportacionOptions>()
+    .Bind(builder.Configuration.GetSection(Millet.Almacen.Application.EventListeners.IncrementablesImportacionOptions.SectionName));
 builder.Services.AddOptions<Millet.Almacen.Application.Reorden.ReordenConsumoOptions>()
     .Bind(builder.Configuration.GetSection(Millet.Almacen.Application.Reorden.ReordenConsumoOptions.SectionName));
 
@@ -1073,6 +1078,10 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Contabilidad.Application.Ports.ICuentaBancariaContabilidadPort,
     Millet.Tesoreria.Infrastructure.PublicAdapters.CuentaBancariaContabilidadAdapter>();
+// F1-ALM-13: grupo del artículo para la cuenta de inventario por tipo (rol INVENTARIO_{grupo}).
+builder.Services.AddScoped<
+    Millet.Contabilidad.Application.Ports.IArticuloContabilidadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.ArticuloContabilidadAdapter>();
 
 // === Flujo 2 de Integraciones.Aw: ingesta de pedidos en firme (ADR-0048) ===
 // Adapters reales del reader/write-back sobre MILLET_INTEGRACION (tabla-puente

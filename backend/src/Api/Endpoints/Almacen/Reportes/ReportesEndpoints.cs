@@ -46,6 +46,21 @@ public static class ReportesEndpoints
         .WithSummary("Cuadre del cierre: valuación del ALFAK contra el saldo de la cuenta de inventario por sucursal")
         .Produces<ReporteResponse<CuadreInventarioFila>>(StatusCodes.Status200OK);
 
+        // F1-MP-09: trazabilidad de un artículo (y lote): compras, consumos, merma y saldo. Mismo permiso que el ALFAK (es su detalle).
+        app.MapGet("/api/v1/almacen/reportes/trazabilidad-mp", async (
+            [FromQuery] Guid articuloId,
+            [FromQuery] DateOnly desde,
+            [FromQuery] DateOnly hasta,
+            [FromQuery] string? lote,
+            [FromQuery] Guid? subAlmacenId,
+            IMediator mediator,
+            CancellationToken ct) => Results.Ok(await mediator.Send(new TrazabilidadMpQuery(articuloId, desde, hasta, lote, subAlmacenId), ct)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenReportesAlfak)
+        .WithTags("Almacen")
+        .WithName("ReporteTrazabilidadMp")
+        .WithSummary("TRAZABILIDAD-MP — compra, lote, consumo, merma y saldo de un artículo")
+        .Produces<ReporteResponse<TrazabilidadMpFila>>(StatusCodes.Status200OK);
+
         // SAP-REPORTE-EXISTENCIA-MP-CNK
         app.MapGet("/api/v1/almacen/reportes/mp-cnk", async (
             [FromQuery] Guid? subAlmacenId,

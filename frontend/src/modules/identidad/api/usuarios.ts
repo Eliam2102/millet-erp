@@ -316,3 +316,37 @@ function buildListarPath(filtros: ListarUsuariosFiltros): string {
     ? `/api/v1/identidad/usuarios/admin?${query}`
     : '/api/v1/identidad/usuarios/admin';
 }
+
+export interface ConvertirEnCuentaDePersonaArgs {
+  id: string;
+  versionEsperada: number;
+  motivo: string;
+  idempotencyKey: string;
+}
+
+/**
+ * 86e3yxe9m: quita la marca de cuenta técnica
+ * (<c>POST /identidad/usuarios/{id}/convertir-en-cuenta-de-persona</c>). Solo
+ * super administrador, con motivo; queda en la bitácora.
+ */
+export function useConvertirEnCuentaDePersona() {
+  const queryClient = useQueryClient();
+  return useMutation<UsuarioResponse, Error, ConvertirEnCuentaDePersonaArgs>({
+    mutationFn: async ({ id, versionEsperada, motivo, idempotencyKey }) => {
+      const { data } = await apiRequest<UsuarioResponse>(
+        `/api/v1/identidad/usuarios/${id}/convertir-en-cuenta-de-persona`,
+        {
+          method: 'POST',
+          body: { motivo },
+          idempotencyKey,
+          headers: { 'X-Expected-Version': String(versionEsperada) },
+        },
+      );
+      return data;
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: identidadKeys.usuario(vars.id) });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'colaboradores'] });
+    },
+  });
+}

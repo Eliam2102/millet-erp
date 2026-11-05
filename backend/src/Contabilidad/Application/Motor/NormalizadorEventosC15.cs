@@ -121,7 +121,7 @@ public static partial class NormalizadorEventos
     {
         var r = Leer<RecepcionRegistradaContrato>(payload);
         var lineas = (r.Lineas ?? []).Where(l => !l.EsActivoFijo)
-            .Select(l => new LineaEventoContable(l.LineaOcId, l.MontoTotalMxn, l.CentroCostoId, false)).ToList();
+            .Select(l => new LineaEventoContable(l.LineaOcId, l.MontoTotalMxn, l.CentroCostoId, false, ArticuloId: l.ArticuloId)).ToList();
         return Mxn(RecepcionOcRegistrada, eventoId, r.EmpresaId, r.FechaMovimiento,
             Doc(DocRecepcion, r.RecepcionId, r.FolioRecepcion), r.SucursalId, ordenCompraId: r.OrdenCompraId,
             importes: new() { ["Subtotal"] = lineas.Sum(l => l.Importe) }, lineas: lineas, payload: payload,
@@ -132,7 +132,7 @@ public static partial class NormalizadorEventos
     private static EventoContable DevolucionProveedor(Guid eventoId, string payload)
     {
         var d = Leer<DevolucionProveedorContrato>(payload);
-        var lineas = (d.Lineas ?? []).Select(l => new LineaEventoContable(l.LineaOcId, l.MontoTotalMxn, null, false)).ToList();
+        var lineas = (d.Lineas ?? []).Select(l => new LineaEventoContable(l.LineaOcId, l.MontoTotalMxn, null, false, ArticuloId: l.ArticuloId)).ToList();
         return Mxn(DevolucionProveedorRegistrada, eventoId, d.EmpresaId, FechaContable.HoyLocal(d.OcurridoEn),
             Doc(DocDevolucionProveedor, d.DevolucionId, d.FolioMovimiento), d.SucursalId, proveedorId: d.ProveedorId,
             ordenCompraId: d.OrdenCompraOrigenId, importes: new() { ["Subtotal"] = lineas.Sum(l => l.Importe) }, lineas: lineas,
@@ -142,6 +142,7 @@ public static partial class NormalizadorEventos
     /// <summary>
     /// #13 AS: faltante (ajuste negativo) cargo AJUSTE_INVENTARIO o MERMA · abono INVENTARIO; sobrante al revés. MERMA solo si el
     /// motivo lo dice (hoy Almacén no publica motivo ni centro de costo: todo va a AJUSTE_INVENTARIO).
+    /// F1-ALM-13: una línea por movimiento con signo (sobrante +, faltante −) para el inventario por grupo de artículo (plantilla v2).
     /// </summary>
     private static EventoContable Ajuste(Guid eventoId, string payload)
     {
@@ -158,8 +159,11 @@ public static partial class NormalizadorEventos
                 ["FaltanteMerma"] = esMerma ? faltante : 0m,
                 ["FaltanteTotal"] = faltante,
                 ["Sobrante"] = sobrante,
+                ["Neto"] = sobrante - faltante,
             },
-            lineas: [], payload: payload);
+            lineas: [.. movimientos.Select(m => new LineaEventoContable(null, EsNegativo(m.Tipo) ? -Math.Abs(m.MontoMxn) : Math.Abs(m.MontoMxn),
+                null, false, ArticuloId: m.ArticuloId))],
+            payload: payload);
 
         static bool EsNegativo(string? tipo) => tipo?.Contains("Negativo", StringComparison.OrdinalIgnoreCase) == true;
     }
@@ -168,7 +172,7 @@ public static partial class NormalizadorEventos
     private static EventoContable Salida(Guid eventoId, string payload)
     {
         var s = Leer<SalidaContrato>(payload);
-        var lineas = (s.Lineas ?? []).Select(l => new LineaEventoContable(null, l.MontoTotalMxn, l.CentroCostoId, false)).ToList();
+        var lineas = (s.Lineas ?? []).Select(l => new LineaEventoContable(null, l.MontoTotalMxn, l.CentroCostoId, false, ArticuloId: l.ArticuloId)).ToList();
         return Mxn(SalidaRequisicionRegistrada, eventoId, s.EmpresaId, s.FechaMovimiento, Doc(DocSalida, s.SalidaId, s.FolioSalida),
             s.SucursalId, importes: new() { ["Subtotal"] = lineas.Sum(l => l.Importe) }, lineas: lineas, payload: payload);
     }
@@ -354,7 +358,7 @@ public static partial class NormalizadorEventos
     private sealed record RecepcionRegistradaContrato(Guid EmpresaId, DateTimeOffset OcurridoEn, Guid RecepcionId, string? FolioRecepcion,
         Guid OrdenCompraId, DateOnly FechaMovimiento, IReadOnlyList<LineaRecepcionContrato>? Lineas, Guid? SucursalId);
 
-    private sealed record LineaRecepcionContrato(Guid? LineaOcId, decimal MontoTotalMxn, bool EsActivoFijo, Guid? CentroCostoId);
+    private sealed record LineaRecepcionContrato(Guid? LineaOcId, decimal MontoTotalMxn, bool EsActivoFijo, Guid? CentroCostoId, Guid? ArticuloId);
 
     private sealed record RecepcionCanceladaContrato(Guid RecepcionId, string? MotivoTexto);
 
@@ -362,12 +366,12 @@ public static partial class NormalizadorEventos
         Guid ProveedorId, Guid? FacturaProveedorOrigenId, Guid? OrdenCompraOrigenId, IReadOnlyList<LineaDevolucionProveedorContrato>? Lineas,
         Guid? SucursalId);
 
-    private sealed record LineaDevolucionProveedorContrato(Guid? LineaOcId, decimal MontoTotalMxn);
+    private sealed record LineaDevolucionProveedorContrato(Guid? LineaOcId, decimal MontoTotalMxn, Guid? ArticuloId);
 
     private sealed record AjusteContrato(Guid EmpresaId, DateTimeOffset OcurridoEn, Guid ConteoId,
         IReadOnlyList<AjusteMovimientoContrato>? MovimientosGenerados, Guid? SucursalId, Guid? CentroCostoId, string? Motivo);
 
-    private sealed record AjusteMovimientoContrato(string? Tipo, decimal MontoMxn);
+    private sealed record AjusteMovimientoContrato(string? Tipo, decimal MontoMxn, Guid? ArticuloId);
 
     private sealed record SalidaContrato(Guid EmpresaId, Guid SalidaId, string? FolioSalida, DateOnly FechaMovimiento,
         IReadOnlyList<LineaSalidaContrato>? Lineas, Guid? SucursalId);
