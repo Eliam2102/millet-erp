@@ -456,8 +456,8 @@ function FilaExpediente({
             <>
               Excepción negada por {excepcion.resueltaPorNombre ?? 'un usuario'} el{' '}
               {excepcion.resueltaEn ? format(new Date(excepcion.resueltaEn), 'dd/MM/yyyy') : ''}
-              {excepcion.motivoResolucion ? `: ${excepcion.motivoResolucion}` : ''}. La había pedido{' '}
-              {excepcion.solicitadaPorNombre ?? 'un usuario'}.
+              {excepcion.motivoResolucion ? `. Motivo: ${excepcion.motivoResolucion}` : ''} (la pidió{' '}
+              {excepcion.solicitadaPorNombre ?? 'un usuario'})
             </>
           )}
         </p>

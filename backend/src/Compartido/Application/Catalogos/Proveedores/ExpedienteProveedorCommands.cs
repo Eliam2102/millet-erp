@@ -147,7 +147,7 @@ public sealed class ResolverExcepcionExpedienteHandler(
         var proveedor = await db.Proveedores.AsNoTracking().FirstAsync(p => p.Id == request.ProveedorId, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         await audit.RegistrarAsync(
-            operacion: "proveedor.expediente-excepcion-resuelta", modulo: "DatosMaestros", entidad: "Proveedor",
+            operacion: "proveedor.excepcion-resuelta", modulo: "DatosMaestros", entidad: "Proveedor",
             entidadId: proveedor.Id, aggregateRootId: proveedor.Id,
             actorNombre: usuario.UserName ?? "Usuario", actorTipo: "usuario", actorEmail: usuario.Email,
             entidadEtiqueta: $"{proveedor.Clave} · {proveedor.RazonSocial}",
