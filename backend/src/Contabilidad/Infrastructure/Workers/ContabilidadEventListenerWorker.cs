@@ -204,7 +204,8 @@ public sealed class CuentasPorPagarContabilidadListenerWorker(ServiceBusClient? 
     [
         NormalizadorEventos.FacturaProveedorRegistrada, NormalizadorEventos.FacturaProveedorCancelada,
         NormalizadorEventos.NotaCreditoProveedorRegistrada, NormalizadorEventos.NotaCargoAutorizada, NormalizadorEventos.AnticipoProveedorCapturado,
-    ], StringComparer.Ordinal);
+        NormalizadorEventos.RevaluacionCierreRegistrada, NormalizadorEventos.RevaluacionCierreRevertida,
+    ],StringComparer.Ordinal);
 }
 
 /// <summary>C1.5 · <c>tesoreria-events</c>: pago a proveedor, su reversa y pago de cliente (#5, #6, #12).</summary>

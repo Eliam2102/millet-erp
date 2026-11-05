@@ -349,6 +349,8 @@ export const PermisosCanonicos = {
   CuentasPorPagarReportesAntiguedad: 'cuentas_por_pagar.reportes.antiguedad',
   CuentasPorPagarReportesDiot: 'cuentas_por_pagar.reportes.diot',
   CuentasPorPagarReportesTc: 'cuentas_por_pagar.reportes.tc',
+  CuentasPorPagarRevaluacionEjecutar: 'cuentas_por_pagar.revaluacion.ejecutar',
+  CuentasPorPagarRevaluacionConsultar: 'cuentas_por_pagar.revaluacion.consultar',
 
   CuentasPorPagarCfdisLeer: 'cuentas_por_pagar.cfdis.leer',
   CuentasPorPagarCfdisCargarManual: 'cuentas_por_pagar.cfdis.cargar-manual',

@@ -57,6 +57,7 @@ import { Route as AppCxcIndexRouteImport } from './routes/_app/cxc/index';
 import { Route as AppCxpIndexRouteImport } from './routes/_app/cxp/index';
 import { Route as AppCxpAnticiposRouteImport } from './routes/_app/cxp/anticipos';
 import { Route as AppCxpCfdisRouteImport } from './routes/_app/cxp/cfdis';
+import { Route as AppCxpRevaluacionRouteImport } from './routes/_app/cxp/revaluacion';
 import { Route as AppCxpRevisionRouteImport } from './routes/_app/cxp/revision';
 import { Route as AppFacturacionIndexRouteImport } from './routes/_app/facturacion/index';
 import { Route as AppFacturacionAyudaRouteImport } from './routes/_app/facturacion/ayuda';
@@ -482,6 +483,11 @@ const AppCxpAnticiposRoute = AppCxpAnticiposRouteImport.update({
 const AppCxpCfdisRoute = AppCxpCfdisRouteImport.update({
   id: '/cxp/cfdis',
   path: '/cxp/cfdis',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppCxpRevaluacionRoute = AppCxpRevaluacionRouteImport.update({
+  id: '/cxp/revaluacion',
+  path: '/cxp/revaluacion',
   getParentRoute: () => AppRoute,
 } as any);
 const AppCxpRevisionRoute = AppCxpRevisionRouteImport.update({
@@ -1492,6 +1498,7 @@ export interface FileRoutesByFullPath {
   '/contabilidad/periodos': typeof AppContabilidadPeriodosRoute;
   '/cxp/anticipos': typeof AppCxpAnticiposRoute;
   '/cxp/cfdis': typeof AppCxpCfdisRoute;
+  '/cxp/revaluacion': typeof AppCxpRevaluacionRoute;
   '/cxp/revision': typeof AppCxpRevisionRoute;
   '/facturacion/ayuda': typeof AppFacturacionAyudaRoute;
   '/facturacion/caja': typeof AppFacturacionCajaRoute;
@@ -1713,6 +1720,7 @@ export interface FileRoutesByTo {
   '/contabilidad/periodos': typeof AppContabilidadPeriodosRoute;
   '/cxp/anticipos': typeof AppCxpAnticiposRoute;
   '/cxp/cfdis': typeof AppCxpCfdisRoute;
+  '/cxp/revaluacion': typeof AppCxpRevaluacionRoute;
   '/cxp/revision': typeof AppCxpRevisionRoute;
   '/facturacion/ayuda': typeof AppFacturacionAyudaRoute;
   '/facturacion/caja': typeof AppFacturacionCajaRoute;
@@ -1936,6 +1944,7 @@ export interface FileRoutesById {
   '/_app/contabilidad/periodos': typeof AppContabilidadPeriodosRoute;
   '/_app/cxp/anticipos': typeof AppCxpAnticiposRoute;
   '/_app/cxp/cfdis': typeof AppCxpCfdisRoute;
+  '/_app/cxp/revaluacion': typeof AppCxpRevaluacionRoute;
   '/_app/cxp/revision': typeof AppCxpRevisionRoute;
   '/_app/facturacion/ayuda': typeof AppFacturacionAyudaRoute;
   '/_app/facturacion/caja': typeof AppFacturacionCajaRoute;
@@ -2159,6 +2168,7 @@ export interface FileRouteTypes {
     | '/contabilidad/periodos'
     | '/cxp/anticipos'
     | '/cxp/cfdis'
+    | '/cxp/revaluacion'
     | '/cxp/revision'
     | '/facturacion/ayuda'
     | '/facturacion/caja'
@@ -2380,6 +2390,7 @@ export interface FileRouteTypes {
     | '/contabilidad/periodos'
     | '/cxp/anticipos'
     | '/cxp/cfdis'
+    | '/cxp/revaluacion'
     | '/cxp/revision'
     | '/facturacion/ayuda'
     | '/facturacion/caja'
@@ -2602,6 +2613,7 @@ export interface FileRouteTypes {
     | '/_app/contabilidad/periodos'
     | '/_app/cxp/anticipos'
     | '/_app/cxp/cfdis'
+    | '/_app/cxp/revaluacion'
     | '/_app/cxp/revision'
     | '/_app/facturacion/ayuda'
     | '/_app/facturacion/caja'
@@ -3124,6 +3136,13 @@ declare module '@tanstack/react-router' {
       path: '/cxp/cfdis';
       fullPath: '/cxp/cfdis';
       preLoaderRoute: typeof AppCxpCfdisRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/cxp/revaluacion': {
+      id: '/_app/cxp/revaluacion';
+      path: '/cxp/revaluacion';
+      fullPath: '/cxp/revaluacion';
+      preLoaderRoute: typeof AppCxpRevaluacionRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/cxp/revision': {
@@ -4390,6 +4409,7 @@ interface AppRouteChildren {
   AppContabilidadPeriodosRoute: typeof AppContabilidadPeriodosRoute;
   AppCxpAnticiposRoute: typeof AppCxpAnticiposRoute;
   AppCxpCfdisRoute: typeof AppCxpCfdisRoute;
+  AppCxpRevaluacionRoute: typeof AppCxpRevaluacionRoute;
   AppCxpRevisionRoute: typeof AppCxpRevisionRoute;
   AppFacturacionAyudaRoute: typeof AppFacturacionAyudaRoute;
   AppFacturacionCajaRoute: typeof AppFacturacionCajaRoute;
@@ -4610,6 +4630,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppContabilidadPeriodosRoute: AppContabilidadPeriodosRoute,
   AppCxpAnticiposRoute: AppCxpAnticiposRoute,
   AppCxpCfdisRoute: AppCxpCfdisRoute,
+  AppCxpRevaluacionRoute: AppCxpRevaluacionRoute,
   AppCxpRevisionRoute: AppCxpRevisionRoute,
   AppFacturacionAyudaRoute: AppFacturacionAyudaRoute,
   AppFacturacionCajaRoute: AppFacturacionCajaRoute,

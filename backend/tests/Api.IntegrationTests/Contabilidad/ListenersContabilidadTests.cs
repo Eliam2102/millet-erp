@@ -53,6 +53,9 @@ public sealed partial class ListenersContabilidadTests(WebApplicationFactory<Pro
         // CXC-06: cuentas del ajuste documentado de un cobro corto.
         ("COMISIONES_BANCARIAS", "5.3", "Deudora", "Ninguna"),
         ("DIFERENCIAS_EN_COBRO", "5.4", "Deudora", "Ninguna"),
+        // CXP-12: resultado cambiario no realizado de la revaluación de cierre.
+        ("PERDIDA_CAMBIARIA_NO_REALIZADA", "5.5", "Deudora", "Ninguna"),
+        ("UTILIDAD_CAMBIARIA_NO_REALIZADA", "4.3", "Acreedora", "Ninguna"),
     ];
 
     private sealed record Escenario(string Suf, HttpClient Admin, Guid Sucursal, Guid Proveedor, Guid[] Clientes, Guid CentroCosto,
