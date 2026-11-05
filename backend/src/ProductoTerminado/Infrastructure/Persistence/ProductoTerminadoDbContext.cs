@@ -18,6 +18,7 @@ public sealed class ProductoTerminadoDbContext(DbContextOptions<ProductoTerminad
     public DbSet<SalidaPt> Salidas => Set<SalidaPt>();
     public DbSet<AlbaranPt> Albaranes => Set<AlbaranPt>();
     public DbSet<AlbaranPtPieza> AlbaranPiezas => Set<AlbaranPtPieza>();
+    public DbSet<EntregaPt> Entregas => Set<EntregaPt>();
     public DbSet<SaldoDemo> SaldosDemo => Set<SaldoDemo>();
     public DbSet<EscaneoPt> Escaneos => Set<EscaneoPt>();
     public DbSet<IntegrationEventOutboxEntry> OutboxEntries => Set<IntegrationEventOutboxEntry>();
@@ -136,6 +137,22 @@ public sealed class ProductoTerminadoDbContext(DbContextOptions<ProductoTerminad
         ap.Ignore(x => x.AggregateRootId);
         ap.HasIndex(x => new { x.AlbaranPtId, x.PiezaId }).IsUnique();
         ap.HasOne<PiezaPt>().WithMany().HasForeignKey(x => x.PiezaId).OnDelete(DeleteBehavior.Restrict);
+
+        var en = modelBuilder.Entity<EntregaPt>();
+        en.ToTable("entregas_pt");
+        en.HasKey(x => x.Id);
+        en.Property(x => x.Id).ValueGeneratedNever();
+        en.Property(x => x.Resultado).HasConversion<string>().HasMaxLength(20);
+        en.Property(x => x.Receptor).HasMaxLength(200);
+        en.Property(x => x.MotivoRechazo).HasMaxLength(500);
+        en.Property(x => x.CobroMonto).HasPrecision(18, 2);
+        en.Property(x => x.CobroForma).HasMaxLength(20);
+        en.Property(x => x.CobroReferencia).HasMaxLength(100);
+        en.Property(x => x.Usuario).HasMaxLength(100);
+        en.HasIndex(x => x.AlbaranPtId).IsUnique();
+        en.HasIndex(x => x.PedidoPtId);
+        en.HasIndex(x => x.CobroConciliadoAt).HasDatabaseName("ix_pt_entregas_cobro_pendiente").HasFilter("cobro_monto IS NOT NULL AND cobro_conciliado_at IS NULL");
+        en.HasOne<AlbaranPt>().WithMany().HasForeignKey(x => x.AlbaranPtId).OnDelete(DeleteBehavior.Restrict);
 
         var e = modelBuilder.Entity<EscaneoPt>();
         e.ToTable("escaneos");

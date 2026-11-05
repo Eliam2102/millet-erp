@@ -68,4 +68,18 @@ public sealed class PiezaPt : BaseEntity, IAuditable, IPerteneceAEmpresa, IBelon
         if (Estado != EstadoPieza.Cargada) throw new BusinessRuleException("PT_PIEZA_NO_CARGADA", $"La pieza {Etiqueta} no está cargada.");
         Estado = EstadoPieza.Embarcada;
     }
+
+    /// <summary>El cliente la recibió.</summary>
+    public void Entregar()
+    {
+        if (Estado != EstadoPieza.Embarcada) throw new BusinessRuleException("PT_PIEZA_NO_EMBARCADA", $"La pieza {Etiqueta} no salió en una hoja emitida.");
+        Estado = EstadoPieza.Entregada;
+    }
+
+    /// <summary>El cliente la rechazó en sitio: regresa en revisión (PT5.8 decide su destino).</summary>
+    public void RechazarEnSitio()
+    {
+        if (Estado != EstadoPieza.Embarcada) throw new BusinessRuleException("PT_PIEZA_NO_EMBARCADA", $"La pieza {Etiqueta} no salió en una hoja emitida.");
+        Estado = EstadoPieza.EnRevision;
+    }
 }

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest, esConflictoConcurrencia, useBodyScopedIdempotencyKey } from '@/lib/api';
 import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialog-context';
-import type { CrearHojaSalidaBody, EscaneoDto, EscaneosPagina, HojaSalidaDto, HojasSalidaPagina, PiezasPagina, ResultadoEscaneo, SalidasPendientesPagina, TraspasoDto, TraspasosPagina } from './types';
+import type { ConfirmarEntregaBody, CrearHojaSalidaBody, EntregaEvidenciaDto, EscaneoDto, EscaneosPagina, HojaSalidaDto, HojasSalidaPagina, PiezasPagina, ResultadoEscaneo, SalidasPendientesPagina, TraspasoDto, TraspasosPagina } from './types';
 
 const BASE = '/api/v1/producto-terminado';
 
@@ -162,5 +162,25 @@ export function useCargaHoja() {
       (await apiRequest<HojaSalidaDto>(`${BASE}/hojas-salida/${id}/${accion}`, { method: 'POST', body: { etiqueta }, idempotencyKey: keyFor({ id, accion, etiqueta, intento }) })).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.all }),
     onError: () => setIntento((n) => n + 1),
+  });
+}
+
+/** Confirma la entrega de un albarán (PT5.6). La llave lleva el cuerpo: reenviar lo mismo (red inestable en el celular) no repite la confirmación. */
+export function useConfirmarEntrega() {
+  const qc = useQueryClient();
+  const keyFor = useBodyScopedIdempotencyKey();
+  return useMutation({
+    mutationFn: async ({ hojaId, albaranId, body }: { hojaId: string; albaranId: string; body: ConfirmarEntregaBody }) =>
+      (await apiRequest<HojaSalidaDto>(`${BASE}/hojas-salida/${hojaId}/albaranes/${albaranId}/entrega`, { method: 'POST', body, idempotencyKey: keyFor({ hojaId, albaranId, body }) })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.all }),
+  });
+}
+
+/** Firma y foto de una entrega: solo se piden al abrir la evidencia. */
+export function useEvidenciaEntrega(hojaId: string, albaranId: string, activa: boolean) {
+  return useQuery({
+    queryKey: [...ptKeys.all, 'entrega-evidencia', hojaId, albaranId],
+    enabled: activa,
+    queryFn: async ({ signal }) => (await apiRequest<EntregaEvidenciaDto>(`${BASE}/hojas-salida/${hojaId}/albaranes/${albaranId}/entrega/evidencia`, { signal })).data,
   });
 }

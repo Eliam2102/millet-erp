@@ -134,4 +134,34 @@ public class PtHojaSalidaHttpTests
         Assert.Equal([2m], await _d.SalidasFacturacionAsync(facturable));
         Assert.Equal(HttpStatusCode.UnprocessableEntity, (await Pieza("descargar", etiquetas[0])).StatusCode);
     }
+
+    private const string Png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+
+    [Fact]
+    public async Task PT5_6_entrega_pide_firma_o_evidencia_y_guarda_parcial_con_rechazo_en_sitio()
+    {
+        var (a, numero, _, etiquetas) = await PrepararAsync(3);
+        using var cliente = await _d.ClienteAsync(Operativo, a);
+        var id = (await Json(await cliente.PostAsJsonAsync($"{Base}/hojas-salida", Hoja(a, numero, etiquetas)))).GetProperty("id").GetGuid();
+        var emitida = await Json(await cliente.PostAsync($"{Base}/hojas-salida/{id}/emitir", null));
+        var albaran = emitida.GetProperty("albaranes")[0].GetProperty("id").GetGuid();
+        var url = $"{Base}/hojas-salida/{id}/albaranes/{albaran}/entrega";
+
+        // PT5.6-a: sin firma ni foto el ERP no confirma.
+        var sin = await cliente.PostAsJsonAsync(url, new { receptor = "Mariana Pech" });
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, sin.StatusCode);
+
+        var ok = await Json(await cliente.PostAsJsonAsync(url, new { receptor = "Mariana Pech", firma = Png, rechazadas = new[] { etiquetas[2] }, motivoRechazo = "Vidrio con rayón" }));
+        var entrega = ok.GetProperty("albaranes")[0].GetProperty("entrega");
+        Assert.Equal("Parcial", entrega.GetProperty("resultado").GetString());
+        Assert.Equal(2, entrega.GetProperty("entregadas").GetInt32());
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await cliente.PostAsJsonAsync(url, new { receptor = "Mariana Pech", firma = Png })).StatusCode);
+
+        var evidencia = await Json(await cliente.GetAsync($"{url}/evidencia"));
+        Assert.StartsWith("data:image/png;base64,", evidencia.GetProperty("firma").GetString());
+
+        var piezas = await Json(await cliente.GetAsync($"{Base}/piezas?pedido={numero}&sucursalId={a}&pageSize=50"));
+        var estados = piezas.GetProperty("items").EnumerateArray().Select(x => x.GetProperty("estado").GetString()!).Order().ToArray();
+        Assert.Equal("EnRevision,Entregada,Entregada", string.Join(',', estados));
+    }
 }

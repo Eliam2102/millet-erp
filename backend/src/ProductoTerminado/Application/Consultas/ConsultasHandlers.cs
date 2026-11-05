@@ -56,7 +56,7 @@ public sealed class ListarPiezasHandler(ProductoTerminadoDbContext db, PtAcceso 
             var est = await db.PedidosPt.AsNoTracking().Where(o => o.NumeroPedido == numero)
                 .Select(o => new { o.Liberacion, o.MotivoLiberacion, o.LiberacionAt }).FirstOrDefaultAsync(cancellationToken);
             estadoPedido = est?.Liberacion is { } l ? new EstadoPedidoDto(l.ToString(), est.MotivoLiberacion, est.LiberacionAt) : null;
-            var cuentas = await consulta.GroupBy(x => x.p.Posicion).Select(g => new { Posicion = g.Key, N = g.Count(), EnPt = g.Count(x => x.p.Estado == EstadoPieza.EnPT), Cargadas = g.Count(x => x.p.Estado == EstadoPieza.Cargada), Entregadas = g.Count(x => x.p.Estado == EstadoPieza.Embarcada) }).ToListAsync(cancellationToken);
+            var cuentas = await consulta.GroupBy(x => x.p.Posicion).Select(g => new { Posicion = g.Key, N = g.Count(), EnPt = g.Count(x => x.p.Estado == EstadoPieza.EnPT), Cargadas = g.Count(x => x.p.Estado == EstadoPieza.Cargada), Entregadas = g.Count(x => x.p.Estado == EstadoPieza.Embarcada || x.p.Estado == EstadoPieza.Entregada) }).ToListAsync(cancellationToken);
             avance = posiciones.Select(pos =>
             {
                 var cuenta = cuentas.FirstOrDefault(c => c.Posicion == pos.Posicion);
