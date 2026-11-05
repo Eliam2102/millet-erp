@@ -38,6 +38,7 @@ export function NotasCreditoPendientesAviso({ notas }: { notas: NotaCreditoPendi
             estado={nc.estado}
             errorCodigo={nc.timbradoErrorCodigo}
             errorMensaje={nc.timbradoErrorMensaje}
+            esNotaCreditoPendiente
           />
         </div>
       ))}
