@@ -270,6 +270,7 @@ if (!string.IsNullOrWhiteSpace(outboxConnString))
     // (pagos, reversas, REPP, cancelaciones).
     builder.Services.AddHostedService<Millet.CuentasPorPagar.Infrastructure.Workers.TesoreriaEventListenerWorker>();
     builder.Services.AddHostedService<Millet.CuentasPorPagar.Infrastructure.Workers.ComercioExteriorEventListenerWorker>();
+    builder.Services.AddHostedService<Millet.ComercioExterior.Infrastructure.Workers.AlmacenEventListenerWorker>();
     builder.Services.AddHostedService<Millet.ComercioExterior.Infrastructure.Workers.FacturacionEventListenerWorker>();
     builder.Services.AddHostedService<Millet.ComercioExterior.Infrastructure.Workers.TesoreriaEventListenerWorker>();
     builder.Services.AddHostedService<Millet.Tesoreria.Infrastructure.Workers.ComercioExteriorEventListenerWorker>();
@@ -1973,6 +1974,7 @@ Millet.Api.Endpoints.CuentasPorCobrar.AlertasEndpoints.MapAlertasEndpoints(app);
 // === Tesorería — Cuentas con saldo + libro de movimientos (TES-PR2) ===
 Millet.Api.Endpoints.Inicio.ResumenesInicioEndpoints.MapResumenesInicioEndpoints(app);
 
+Millet.Api.Endpoints.ComercioExterior.ConfiguracionCeEndpoints.MapConfiguracionCe(app);
 Millet.Api.Endpoints.ComercioExterior.ExpedientesEndpoints.MapExpedientesCe(app);
 Millet.Api.Endpoints.ActivosFijos.ActivosEndpoints.MapActivosFijos(app);
 Millet.Api.Endpoints.ComercioExterior.OtrEndpoints.MapOtrCe(app);

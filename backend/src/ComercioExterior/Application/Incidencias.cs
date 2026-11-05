@@ -13,18 +13,18 @@ public sealed record CambiarIncidenciaDatos(EstadoIncidencia Estado, string? Acc
     Guid[]? EvidenciasIds = null, string? Motivo = null, string? NuevoPedimento = null, Guid? AdjuntoPedimentoId = null);
 public sealed record CrearIncidenciaCommand(Guid ExpedienteId, int Version, DatosIncidencia Datos) : IRequest<ExpedienteDetalle>;
 public sealed record CambiarIncidenciaCommand(Guid ExpedienteId, Guid IncidenciaId, int Version, CambiarIncidenciaDatos Datos) : IRequest<ExpedienteDetalle>;
-public sealed record HistorialIncidenciaDto(EstadoIncidencia Estado, Guid ActorId, DateTimeOffset Fecha, string? Motivo);
+public sealed record HistorialIncidenciaDto(EstadoIncidencia Estado, Guid ActorId, DateTimeOffset Fecha, string? Motivo, DateOnly? FechaCompromisoAnterior = null, string? SiguienteAccionAnterior = null, DateOnly? FechaCompromisoNueva = null, string? SiguienteAccionNueva = null);
 public sealed record IncidenciaDto(Guid Id, TipoIncidencia Tipo, EstadoIncidencia Estado, DateOnly Fecha, Guid ResponsableUsuarioId,
     string ResponsableNombre, string Motivo, string? Descripcion, Guid? ParticipanteId, Guid[] DocumentosIds, Guid[] EvidenciasIds,
     string? AccionCorrectiva, string? EfectoPosterior, string? HitoClave, Guid? ContenedorId, Guid? PartidaId,
-    string? PedimentoAnterior, string? PedimentoNuevo, string? MotivoCancelacion, int AntiguedadDias, IReadOnlyList<HistorialIncidenciaDto> Historial, DateOnly? FechaCompromiso = null, string? SiguienteAccion = null, decimal? CantidadAnterior = null, decimal? CantidadNueva = null, Guid? AjusteAutorizadoPorId = null);
+    string? PedimentoAnterior, string? PedimentoNuevo, string? MotivoCancelacion, int AntiguedadDias, IReadOnlyList<HistorialIncidenciaDto> Historial, DateOnly? FechaCompromiso = null, string? SiguienteAccion = null, decimal? CantidadAnterior = null, decimal? CantidadNueva = null, Guid? AjusteAutorizadoPorId = null, bool Automatica = false, decimal? DiferenciaCantidad = null);
 public sealed record AvisoIncidenciaDto(Guid Id, Guid IncidenciaId, Guid DestinatarioUsuarioId, DateTimeOffset Fecha);
 public static class IncidenciaMap
 {
     public static IncidenciaDto Dto(IncidenciaExpediente i, IReadOnlyDictionary<Guid, string> nombres, DateOnly hoy) => new(i.Id, i.Tipo, i.Estado, i.Fecha, i.ResponsableUsuarioId,
         nombres.GetValueOrDefault(i.ResponsableUsuarioId, "Sin responsable"), i.Motivo, i.Descripcion, i.ParticipanteId, i.DocumentosIds, i.EvidenciasIds,
         i.AccionCorrectiva, i.EfectoPosterior, i.HitoClave, i.ContenedorId, i.PartidaId, i.PedimentoAnterior, i.PedimentoNuevo, i.MotivoCancelacion,
-        Antiguedad(i, hoy), i.Historial.OrderBy(h => h.Fecha).ThenBy(h => h.Estado).Select(h => new HistorialIncidenciaDto(h.Estado, h.ActorId, h.Fecha, h.Motivo)).ToArray(), i.FechaCompromiso, i.SiguienteAccion, i.CantidadAnterior, i.CantidadNueva, i.AjusteAutorizadoPorId);
+        Antiguedad(i, hoy), i.Historial.OrderBy(h => h.Fecha).ThenBy(h => h.Estado).Select(h => new HistorialIncidenciaDto(h.Estado, h.ActorId, h.Fecha, h.Motivo, h.FechaCompromisoAnterior, h.SiguienteAccionAnterior, h.FechaCompromisoNueva, h.SiguienteAccionNueva)).ToArray(), i.FechaCompromiso, i.SiguienteAccion, i.CantidadAnterior, i.CantidadNueva, i.AjusteAutorizadoPorId, i.Automatica, i.DiferenciaCantidad);
     public static int Antiguedad(IncidenciaExpediente i, DateOnly hoy) => Math.Max(0,
         (i.Pendiente ? hoy : FechaContable.HoyLocal(i.Historial.Max(h => h.Fecha))).DayNumber - i.Fecha.DayNumber);
 }

@@ -13,6 +13,7 @@ import {
   useEnlaceAdjunto,
 } from '@/components/erp/adjuntos/api/hooks';
 import { EstadoAdjunto } from '@/components/erp/adjuntos/api/types';
+import { useAuthStore } from '@/lib/auth/auth-store';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
@@ -28,6 +29,8 @@ const control = 'h-ctl-xl w-full rounded-md border border-line-control bg-surfac
 export function IncidenciasPanel({ data }: { data: ExpedienteDetalle }) {
   const gestionar =
     useHasPermission(P.ComercioExteriorIncidenciasGestionar) && data.expediente.estado === 1;
+  const usuarioId = useAuthStore((s) => s.user?.id);
+  const [seguimiento, setSeguimiento] = useState<Incidencia | null>(null);
   const [seleccion, setSeleccion] = useState<Incidencia | 'nueva' | null>(null);
   const incidencias = data.incidencias ?? [];
   const ver = useHasPermission(P.ComercioExteriorExpedientesAdjuntosVer);
@@ -58,6 +61,10 @@ export function IncidenciasPanel({ data }: { data: ExpedienteDetalle }) {
               {estadosIncidencia[i.estado]}
             </Badge>
           </div>
+          {i.automatica && <Badge variant="info">Automática</Badge>}
+          {i.diferenciaCantidad != null && (
+            <p className="tabular-nums">Diferencia: {i.diferenciaCantidad}</p>
+          )}
           <p>{i.motivo}</p>
           <p className="text-xs text-ink-muted">
             {i.fecha} · {i.responsableNombre} · {i.antiguedadDias} días
@@ -120,10 +127,22 @@ export function IncidenciasPanel({ data }: { data: ExpedienteDetalle }) {
                 <li key={n}>
                   {estadosIncidencia[h.estado]} · {new Date(h.fecha).toLocaleString('es-MX')} ·{' '}
                   {h.motivo}
+                  {h.fechaCompromisoNueva && (
+                    <span>
+                      {' '}
+                      · Fecha: {h.fechaCompromisoAnterior} → {h.fechaCompromisoNueva} · Acción:{' '}
+                      {h.siguienteAccionAnterior} → {h.siguienteAccionNueva}
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
           </details>
+          {gestionar && i.estado < 3 && usuarioId === i.responsableUsuarioId && (
+            <Button variant="outline" onClick={() => setSeguimiento(i)}>
+              Editar fecha y acción
+            </Button>
+          )}
           {gestionar && i.estado < 3 && (
             <Button variant="outline" onClick={() => setSeleccion(i)}>
               Atender o resolver
@@ -135,6 +154,14 @@ export function IncidenciasPanel({ data }: { data: ExpedienteDetalle }) {
         <p role="alert" className="text-danger-fg">
           No se pudo descargar la evidencia. Revise que el archivo siga disponible.
         </p>
+      )}
+      {seguimiento && (
+        <SeguimientoForm
+          key={`${seguimiento.id}-${data.expediente.version}`}
+          data={data}
+          incidencia={seguimiento}
+          onClose={() => setSeguimiento(null)}
+        />
       )}
       {seleccion && (
         <IncidenciaForm
@@ -639,7 +666,10 @@ function ReferenciaAfectada({
   if (q.isError)
     return <p role="alert">No se pudo consultar el contenedor o la partida afectada.</p>;
   const contenedor = q.data?.data.contenedores.find((c) => c.id === incidencia.contenedorId);
-  const partida = q.data?.data.partidas.find((p) => p.id === incidencia.partidaId);
+  const partida = [
+    ...(q.data?.data.partidas ?? []),
+    ...(q.data?.data.partidasImportacion ?? []),
+  ].find((p) => p.id === incidencia.partidaId);
   return (
     <p className="text-xs text-ink-muted">
       {incidencia.contenedorId && `Contenedor afectado: ${contenedor?.numero ?? 'Sin número'}. `}
@@ -686,5 +716,91 @@ function AjusteCantidad({
         </p>
       )}
     </div>
+  );
+}
+
+function SeguimientoForm({
+  data,
+  incidencia,
+  onClose,
+}: {
+  data: ExpedienteDetalle;
+  incidencia: Incidencia;
+  onClose: () => void;
+}) {
+  const accion = useAccionExpediente(data.expediente.id);
+  const [fechaCompromiso, setFecha] = useState(incidencia.fechaCompromiso ?? '');
+  const [siguienteAccion, setAccion] = useState(incidencia.siguienteAccion ?? '');
+  const [motivo, setMotivo] = useState('');
+  async function guardar(e: FormEvent) {
+    e.preventDefault();
+    try {
+      await accion.mutateAsync({
+        accion: `incidencias/${incidencia.id}/seguimiento`,
+        body: { fechaCompromiso, siguienteAccion, motivo },
+      });
+      onClose();
+    } catch {
+      /* El error se muestra en el formulario. */
+    }
+  }
+  return (
+    <form onSubmit={guardar} className="space-y-4 rounded-lg border border-line-control p-4">
+      <FormSeccion titulo="Cambiar fecha y siguiente acción">
+        <FormCampo span={6}>
+          <Label htmlFor="seg-fecha">Fecha compromiso *</Label>
+          <Input
+            id="seg-fecha"
+            type="date"
+            required
+            min={incidencia.fecha}
+            value={fechaCompromiso}
+            onChange={(e) => setFecha(e.target.value)}
+          />
+        </FormCampo>
+        <FormCampo span={12}>
+          <Label htmlFor="seg-accion">Siguiente acción *</Label>
+          <Input
+            id="seg-accion"
+            required
+            maxLength={2000}
+            value={siguienteAccion}
+            onChange={(e) => setAccion(e.target.value)}
+          />
+        </FormCampo>
+        <FormCampo span={12}>
+          <Label htmlFor="seg-motivo">Motivo del cambio *</Label>
+          <Input
+            id="seg-motivo"
+            required
+            minLength={5}
+            maxLength={500}
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+          />
+        </FormCampo>
+        <FormCampo span={12}>
+          {accion.isError && (
+            <p role="alert" className="text-danger-fg">
+              {esApiError(accion.error)
+                ? (accion.error.problem.detail ?? accion.error.problem.title)
+                : 'No se pudo guardar el seguimiento.'}
+            </p>
+          )}
+          <div className="flex gap-2">
+            <Button
+              type="submit"
+              disabled={accion.isPending}
+              title={accion.isPending ? 'Guardando seguimiento.' : undefined}
+            >
+              Guardar seguimiento
+            </Button>
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Descartar
+            </Button>
+          </div>
+        </FormCampo>
+      </FormSeccion>
+    </form>
   );
 }

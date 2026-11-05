@@ -1111,3 +1111,28 @@ resource tesoreriaCeP19Filter 'Microsoft.ServiceBus/namespaces/topics/subscripti
     }
   }
 }
+
+// P20: CE concilia faltantes y sobrantes al registrar la recepción de Almacén.
+resource ceAlmacenP20 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
+  parent: almacenEventsTopic
+  name: 'comercio-exterior-almacen-sub'
+  properties: {
+    deadLetteringOnMessageExpiration: true
+    deadLetteringOnFilterEvaluationExceptions: true
+    maxDeliveryCount: 5
+    defaultMessageTimeToLive: 'P1D'
+    lockDuration: 'PT1M'
+    enableBatchedOperations: true
+  }
+}
+resource ceAlmacenP20Filter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01' = {
+  parent: ceAlmacenP20
+  name: 'EventTypeFilter'
+  properties: {
+    filterType: 'SqlFilter'
+    sqlFilter: {
+      sqlExpression: 'user.EventType IN (\'almacen.oc_recepcion.registrada.v1\')'
+      compatibilityLevel: 20
+    }
+  }
+}

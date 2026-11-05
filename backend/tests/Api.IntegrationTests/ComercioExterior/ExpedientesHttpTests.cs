@@ -556,7 +556,7 @@ public sealed class ExpedientesHttpTests
             responsableUsuarioId = Responsable,
             clientes = Array.Empty<string>()
         };
-        public async Task<HttpClient> ClienteAsync(bool permisos, bool asociar = true, bool soloLeer = false, bool leerTodas = false, bool gestionarTodas = false, bool facturacion = false, bool permisosCe = true, bool permisosAf = false)
+        public async Task<HttpClient> ClienteAsync(bool permisos, bool asociar = true, bool soloLeer = false, bool leerTodas = false, bool gestionarTodas = false, bool facturacion = false, bool permisosCe = true, bool permisosAf = false, bool permisosAlmacen = false)
         {
             using var scope = _factory.Services.CreateScope();
             using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
@@ -568,7 +568,8 @@ public sealed class ExpedientesHttpTests
             db.Roles.Add(rol);
             if (permisos)
                 foreach (var p in PermisosCanonicos.Todos.Where(p =>
-                    (permisosAf && p.Codigo.StartsWith("activos_fijos.", StringComparison.Ordinal) && !p.Codigo.Contains("todas-sucursales", StringComparison.Ordinal))
+                    (permisosAlmacen && p.Codigo.StartsWith("almacen.", StringComparison.Ordinal))
+                    || (permisosAf && p.Codigo.StartsWith("activos_fijos.", StringComparison.Ordinal) && !p.Codigo.Contains("todas-sucursales", StringComparison.Ordinal))
                     || (permisosCe && p.Codigo.StartsWith("comercio_exterior.", StringComparison.Ordinal) && !p.Codigo.Contains("todas-sucursales", StringComparison.Ordinal) && (!soloLeer || p.Codigo == PermisosCanonicos.ComercioExteriorExpedientesLeer))
                     || (facturacion && p.Codigo.StartsWith("facturacion.", StringComparison.Ordinal) && !p.Codigo.Contains("todas-sucursales", StringComparison.Ordinal))))
                     db.RolPermisos.Add(new RolPermiso(Guid.NewGuid(), rol.Id, p.Id));

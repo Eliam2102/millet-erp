@@ -338,6 +338,8 @@ export const estadosIncidencia = {
   4: 'Cancelada',
 } as const;
 export interface Incidencia {
+  automatica?: boolean;
+  diferenciaCantidad?: number | null;
   cantidadAnterior?: number | null;
   cantidadNueva?: number | null;
   ajusteAutorizadoPorId?: string | null;
@@ -368,6 +370,10 @@ export interface Incidencia {
     actorId: string;
     fecha: string;
     motivo: string | null;
+    fechaCompromisoAnterior?: string | null;
+    siguienteAccionAnterior?: string | null;
+    fechaCompromisoNueva?: string | null;
+    siguienteAccionNueva?: string | null;
   }[];
 }
 export interface IncidenciasReporte {

@@ -11,6 +11,9 @@ public static class IncidenciasEndpoints
 {
     public static void MapIncidenciasCe(this RouteGroupBuilder padre)
     {
+        padre.MapPost("/incidencias/{incidenciaId:guid}/seguimiento", async (Guid id, Guid incidenciaId, SeguimientoIncidenciaDatos body, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) =>
+            Version(request) is int v ? Respuesta(await mediator.Send(new EditarSeguimientoIncidenciaCommand(id, incidenciaId, v, body), ct), response) : FaltaVersion())
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComercioExteriorIncidenciasGestionar).WithMetadata(new RequireIdempotencyKeyAttribute());
         padre.MapPost("/incidencias/{incidenciaId:guid}/autorizar-ajuste", async (Guid id, Guid incidenciaId, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) =>
             Version(request) is int v ? Respuesta(await mediator.Send(new AutorizarAjusteCommand(id, incidenciaId, v), ct), response) : FaltaVersion())
             .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComercioExteriorExpedientesEditar).WithMetadata(new RequireIdempotencyKeyAttribute());

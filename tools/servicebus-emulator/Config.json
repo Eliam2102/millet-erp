@@ -193,6 +193,29 @@
                     }
                   }
                 ]
+              },
+              {
+                "Name": "comercio-exterior-almacen-sub",
+                "Properties": {
+                  "DeadLetteringOnMessageExpiration": false,
+                  "DefaultMessageTimeToLive": "PT1H",
+                  "LockDuration": "PT1M",
+                  "MaxDeliveryCount": 10,
+                  "ForwardDeadLetteredMessagesTo": "",
+                  "ForwardTo": "",
+                  "RequiresSession": false
+                },
+                "Rules": [
+                  {
+                    "Name": "EventTypeFilter",
+                    "Properties": {
+                      "FilterType": "Sql",
+                      "SqlFilter": {
+                        "SqlExpression": "user.EventType IN ('almacen.oc_recepcion.registrada.v1')"
+                      }
+                    }
+                  }
+                ]
               }
             ]
           },

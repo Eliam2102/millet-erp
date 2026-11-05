@@ -25,6 +25,9 @@ public sealed partial class ComercioExteriorDbContext(DbContextOptions<ComercioE
     {
         modelBuilder.HasDefaultSchema(SchemaName);
         modelBuilder.HasSequence<long>("folio_seq", SchemaName);
+        var config = modelBuilder.Entity<ConfiguracionCe>();
+        config.ToTable("configuracion"); config.HasKey(x => x.Id); config.Property(x => x.Id).ValueGeneratedNever();
+        config.HasIndex(x => x.EmpresaId).IsUnique();
         var rh = modelBuilder.Entity<RequisitoHitoConfiguracion>();
         rh.ToTable("requisitos_hitos"); rh.HasKey(x => x.Id); rh.Property(x => x.Id).ValueGeneratedNever();
         rh.Property(x => x.Tipo).HasConversion<string>(); rh.Property(x => x.HitoClave).HasMaxLength(40);
@@ -109,6 +112,7 @@ public sealed partial class ComercioExteriorDbContext(DbContextOptions<ComercioE
         e.Navigation(x => x.PartidasImportacion).UsePropertyAccessMode(PropertyAccessMode.Field);
         var pi = modelBuilder.Entity<PartidaImportacion>();
         pi.ToTable("partidas_importacion"); pi.HasKey(x => x.Id); pi.Property(x => x.Id).ValueGeneratedNever();
+        pi.Property(x => x.CantidadRecibida).HasPrecision(18, 6);
         pi.Ignore(x => x.AggregateRootId); pi.Property(x => x.Cantidad).HasPrecision(18, 6); pi.Property(x => x.Unidad).HasMaxLength(20);
         pi.HasOne<ContenedorExpediente>().WithMany().HasForeignKey(x => x.ContenedorId).OnDelete(DeleteBehavior.Restrict);
         e.HasMany(x => x.Partidas).WithOne().HasForeignKey(x => x.ExpedienteId).OnDelete(DeleteBehavior.Restrict);
