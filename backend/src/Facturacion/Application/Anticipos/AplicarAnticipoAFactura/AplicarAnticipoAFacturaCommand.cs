@@ -24,7 +24,7 @@ namespace Millet.Facturacion.Application.Anticipos.AplicarAnticipoAFactura;
 /// con el movimiento ligado a la NC (rastro anticipo → NC → factura). Si el anticipo ya tenía apartado un importe para esa
 /// factura (vincular), este paso lo convierte en aplicación por ese mismo importe.
 /// </summary>
-public sealed record AplicarAnticipoAFacturaCommand(Guid AnticipoId, Guid FacturaVentaId, decimal Importe)
+public sealed record AplicarAnticipoAFacturaCommand(Guid AnticipoId, Guid FacturaVentaId, decimal Importe, string? Comentarios = null)
     : IRequest<AplicarAnticipoAFacturaResponse>;
 
 public sealed record AplicarAnticipoAFacturaResponse(
@@ -37,6 +37,7 @@ public sealed class AplicarAnticipoAFacturaValidator : AbstractValidator<Aplicar
         RuleFor(c => c.AnticipoId).NotEmpty();
         RuleFor(c => c.FacturaVentaId).NotEmpty();
         RuleFor(c => c.Importe).GreaterThan(0);
+        RuleFor(c => c.Comentarios).MaximumLength(NotaCredito.ComentariosMaxLength);
     }
 }
 
@@ -105,7 +106,8 @@ public sealed class AplicarAnticipoAFacturaHandler(
             factura.CajaId, user.UserId, receptor, factura.SnapshotEmisor(), factura.FormaPago, factura.Moneda,
             factura.TipoCambio, ahora.Year, ahora.Month, factura.CanalVentaId, anticipo.Id, factura.Id,
             command.Importe, TasaIvaEstandar);
-        nc.AgregarRelacion(facturaAnticipo.Uuid!, MotivoNotaCredito.Amortizacion.ClaveTipoRelacion());
+        nc.FijarComentarios(command.Comentarios);
+        // Millet (4-nov): la NC de aplicación relaciona solo la factura de venta; el UUID del anticipo va en la factura.
         nc.AgregarRelacion(factura.Uuid!, MotivoNotaCredito.Amortizacion.ClaveTipoRelacion());
 
         await TimbradoEjecutor.TimbrarYAplicarAsync(db, nc, CfdiEmisionBuilder.DesdeNotaCredito(nc, ahora),

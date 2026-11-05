@@ -3,6 +3,7 @@ import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { TextAreaField } from '@/components/erp/forms/TextAreaField';
 import { Label } from '@/components/ui/label';
 import {
   Table,
@@ -428,6 +429,7 @@ function DevolucionesAnticipo({ f }: { f: FacturaAnticipoDetalleResponse }) {
   const [banco, setBanco] = useState('');
   const [clabe, setClabe] = useState('');
   const [titular, setTitular] = useState('');
+  const [comentarios, setComentarios] = useState<string | null>(null);
   const idempotencyKey = useFormIdempotencyKey();
   const emitir = useEmitirNcDevolucionAnticipo(f.id);
   const devoluciones = anticipo.devoluciones ?? [];
@@ -452,6 +454,7 @@ function DevolucionesAnticipo({ f }: { f: FacturaAnticipoDetalleResponse }) {
           montoTotal: importe,
           tasaIva: tasaIva.trim() === '' ? null : Number(tasaIva),
           reembolso: { banco: banco.trim(), clabe, titular: titular.trim() },
+          comentarios,
         },
         idempotencyKey,
       },
@@ -544,6 +547,18 @@ function DevolucionesAnticipo({ f }: { f: FacturaAnticipoDetalleResponse }) {
               id="dev-anticipo-titular"
               value={titular}
               onChange={(e) => setTitular(e.target.value)}
+            />
+          </div>
+          <div className="sm:col-span-4">
+            <Label className="text-xs" htmlFor="dev-anticipo-comentarios">
+              Comentarios (se imprimen en la nota de crédito)
+            </Label>
+            <TextAreaField
+              value={comentarios}
+              onChange={setComentarios}
+              minRows={2}
+              maxLength={1000}
+              textareaProps={{ id: 'dev-anticipo-comentarios' }}
             />
           </div>
           <div className="flex justify-end gap-2 sm:col-span-4">

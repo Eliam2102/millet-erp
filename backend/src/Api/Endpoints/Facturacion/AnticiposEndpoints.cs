@@ -77,7 +77,7 @@ public static class AnticiposEndpoints
             CancellationToken cancellationToken) =>
         {
             var response = await mediator.Send(
-                new AplicarAnticipoAFacturaCommand(id, body.FacturaVentaId, body.Importe), cancellationToken);
+                new AplicarAnticipoAFacturaCommand(id, body.FacturaVentaId, body.Importe, body.Comentarios), cancellationToken);
             return Results.Ok(response);
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
@@ -189,5 +189,5 @@ public static class AnticiposEndpoints
     }
 
     /// <summary>Body de la vinculación de anticipo a factura final.</summary>
-    public sealed record VincularAnticipoRequest(Guid FacturaVentaId, decimal Importe);
+    public sealed record VincularAnticipoRequest(Guid FacturaVentaId, decimal Importe, string? Comentarios = null);
 }

@@ -27,7 +27,8 @@ public sealed record EmitirNotaCreditoDevolucionAnticipoCommand(
     Guid AnticipoId,
     decimal MontoTotal,
     decimal? TasaIva,
-    ReembolsoClienteRequest Reembolso) : IRequest<EmitirNotaCreditoDevolucionAnticipoResponse>;
+    ReembolsoClienteRequest Reembolso,
+    string? Comentarios = null) : IRequest<EmitirNotaCreditoDevolucionAnticipoResponse>;
 
 public sealed record EmitirNotaCreditoDevolucionAnticipoResponse(
     Guid Id, string Estado, string? Uuid, string Folio, decimal Total, decimal SaldoAnticipo);
@@ -40,6 +41,7 @@ public sealed class EmitirNotaCreditoDevolucionAnticipoValidator : AbstractValid
         RuleFor(c => c.MontoTotal).GreaterThan(0);
         RuleFor(c => c.TasaIva).GreaterThanOrEqualTo(0).When(c => c.TasaIva.HasValue);
         RuleFor(c => c.Reembolso).NotNull().SetValidator(new ReembolsoClienteRequestValidator());
+        RuleFor(c => c.Comentarios).MaximumLength(NotaCredito.ComentariosMaxLength);
     }
 }
 
@@ -92,6 +94,7 @@ public sealed class EmitirNotaCreditoDevolucionAnticipoHandler(
             receptor, factura.SnapshotEmisor(), factura.FormaPago, factura.Moneda, factura.TipoCambio, ahora.Year, ahora.Month,
             factura.CanalVentaId, anticipo.Id, command.MontoTotal, command.TasaIva,
             command.Reembolso.Banco, command.Reembolso.Clabe, command.Reembolso.Titular);
+        nc.FijarComentarios(command.Comentarios);
         nc.AgregarRelacion(factura.Uuid!, MotivoNotaCredito.DevolucionAnticipo.ClaveTipoRelacion());
 
         // El saldo se compromete antes de timbrar (como la vinculación): no se devuelve dos veces el mismo anticipo.
