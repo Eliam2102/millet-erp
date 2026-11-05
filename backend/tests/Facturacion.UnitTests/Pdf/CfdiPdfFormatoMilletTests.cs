@@ -248,6 +248,30 @@ public sealed class CfdiPdfFormatoMilletTests
         m.Conceptos.Select(CfdiMilletDocument.Codigo).Should().Equal("VIDB0002 / 30171710", "30171700");
     }
 
+    [Theory]
+    [InlineData(269.10)]
+    [InlineData(1269.10)]
+    public void El_total_SqFt_Piez2_queda_en_un_renglon_con_su_valor(double pie2)
+    {
+        var f = FacturaVenta.CrearBorrador(Empresa, "DEMOF-000104", 104, Sucursal, null, null, Receptor, Emisor,
+            "PUE", "03", "MXN", null, 2026, 10, 1, ComportamientoFiscal.MostradorInmediato, null, null, null, false);
+        f.AgregarLinea(null, "30171700", "VIDRIO TEMPLADO DEMO", "H87", 1, 1000, 0, "02", 0.16m, null, null,
+            referencia: "PED-DEMO-1", pesoKg: 190.75m, areaPie2: (decimal)pie2);
+        f.RecalcularTotales();
+        Timbrar(f, "00000000-0000-4000-8000-000000000104");
+
+        var pdf = new QuestPdfFacturaGenerator().Generar(CfdiPdfModelBuilder.DesdeFactura(f, Datos)).Contenido;
+
+        using var doc = UglyToad.PdfPig.PdfDocument.Open(pdf);
+        var letras = doc.GetPage(1).Letters.Where(l => !string.IsNullOrWhiteSpace(l.Value)).ToList();
+        var texto = string.Concat(letras.Select(l => l.Value));
+        var buscado = $"SqFt/Piez2:{((decimal)pie2).ToString("#,##0.00", System.Globalization.CultureInfo.InvariantCulture)}";
+        var inicio = texto.IndexOf(buscado, StringComparison.Ordinal);
+        inicio.Should().BeGreaterThanOrEqualTo(0, $"el PDF debe contener «{buscado}»");
+        letras.Skip(inicio).Take(buscado.Length).Select(l => Math.Round(l.StartBaseLine.Y, 1)).Distinct()
+            .Should().ContainSingle("rótulo y valor van en el mismo renglón");
+    }
+
     private static int Paginas(byte[] pdf) =>
         Regex.Count(Encoding.Latin1.GetString(pdf), @"/Type\s*/Page(?!s)");
 
