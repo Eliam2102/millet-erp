@@ -199,6 +199,14 @@ const moduloCxcLanding: NavModulo = {
           icon: Scale,
           permission: PermisosCanonicos.CuentasPorCobrarCarteraLeer,
         },
+        {
+          label: 'Conciliación con pólizas',
+          description:
+            'Cobros aplicados en cartera contra sus pólizas: diferencias con su causa probable (CXC-06).',
+          to: '/cxc/conciliacion-polizas',
+          icon: Scale,
+          permission: PermisosCanonicos.CuentasPorCobrarCarteraLeer,
+        },
       ],
     },
   ],

@@ -24,7 +24,8 @@ public sealed class PropuestaAplicacionAggregateTests
         decimal tolerancia = 50m) =>
         PropuestaAplicacionPago.Crear(
             Guid.NewGuid(), Guid.NewGuid(), "DEP-123", montoDeposito, "USD",
-            remittance, lineas ?? UnaLinea, tolerancia, Guid.NewGuid());
+            remittance, lineas ?? UnaLinea, tolerancia, Guid.NewGuid(),
+            tipoAjuste: TipoAjusteCobro.ComisionBancaria, motivoAjuste: "Comisión del banco del cliente");
 
     [Fact]
     public void Crear_cuadrada_sin_ajuste_OK()

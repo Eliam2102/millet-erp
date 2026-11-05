@@ -110,7 +110,48 @@ public static class PropuestasAplicacionEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        // CXC-06 (86e3qddef): el ajuste documentado de un cobro corto lo autoriza o rechaza otra persona (no quien propuso).
+        // Supuesto «a validar»: usa el permiso existente aplicacion-pago.confirmar (Ingresos), sin permiso nuevo.
+        propuestas.MapPost("/{id:guid}/autorizar-ajuste", async (
+            Guid id,
+            [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            if (expectedVersion is not int v)
+                return Results.Problem(title: "X-Expected-Version requerido", statusCode: StatusCodes.Status428PreconditionRequired);
+            return Results.Ok(await mediator.Send(new AutorizarAjustePropuestaCommand(id, v), cancellationToken));
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarAplicacionPagoConfirmar)
+        .WithName("AutorizarAjustePropuestaAplicacion")
+        .WithSummary("Autoriza el ajuste documentado de un cobro corto (CXC-06)")
+        .Produces<PropuestaAplicacionResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        propuestas.MapPost("/{id:guid}/rechazar-ajuste", async (
+            Guid id,
+            [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
+            [FromBody] RechazarAjusteBody body,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            if (expectedVersion is not int v)
+                return Results.Problem(title: "X-Expected-Version requerido", statusCode: StatusCodes.Status428PreconditionRequired);
+            return Results.Ok(await mediator.Send(new RechazarAjustePropuestaCommand(id, v, body.Motivo), cancellationToken));
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarAplicacionPagoConfirmar)
+        .WithName("RechazarAjustePropuestaAplicacion")
+        .WithSummary("Rechaza el ajuste de un cobro corto: la propuesta queda rechazada (CXC-06)")
+        .Produces<PropuestaAplicacionResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         return app;
     }
 
+    public sealed record RechazarAjusteBody(string Motivo);
 }

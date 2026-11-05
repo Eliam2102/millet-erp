@@ -50,6 +50,9 @@ public sealed partial class ListenersContabilidadTests(WebApplicationFactory<Pro
         ("DESCUENTOS_SOBRE_VENTAS", "4.2", "Deudora", "Ninguna"),
         ("CONSUMO", "5.1", "Deudora", "Ninguna"),
         ("AJUSTE_INVENTARIO", "5.2", "Deudora", "Ninguna"),
+        // CXC-06: cuentas del ajuste documentado de un cobro corto.
+        ("COMISIONES_BANCARIAS", "5.3", "Deudora", "Ninguna"),
+        ("DIFERENCIAS_EN_COBRO", "5.4", "Deudora", "Ninguna"),
     ];
 
     private sealed record Escenario(string Suf, HttpClient Admin, Guid Sucursal, Guid Proveedor, Guid[] Clientes, Guid CentroCosto,

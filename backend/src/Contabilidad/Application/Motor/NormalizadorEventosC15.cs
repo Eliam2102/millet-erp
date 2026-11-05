@@ -219,15 +219,30 @@ public static partial class NormalizadorEventos
             new Dictionary<string, decimal?> { ["Total"] = p.Monto }, [], payload, FacturaOrigenId: p.FacturaProveedorId);
     }
 
-    /// <summary>#12 PR: cargo BANCOS · abono CLIENTES. Sucursal: de la póliza RF de la primera factura pagada (enriquecedor).</summary>
+    /// <summary>
+    /// #12 PR: cargo BANCOS por el depósito · abono CLIENTES por lo aplicado a cartera. Sucursal: de la póliza RF de la primera factura
+    /// pagada (enriquecedor). CXC-06: con un ajuste autorizado lo aplicado es mayor que el depósito; la diferencia (<c>Ajuste</c>) la
+    /// carga el enriquecedor a la cuenta de su tipo (<c>AjusteComision</c> o <c>AjusteDiferencia</c>), así cartera y póliza cuadran.
+    /// Sin desglose de facturas, lo aplicado es el depósito (eventos anteriores).
+    /// </summary>
     private static EventoContable PagoCliente(Guid eventoId, string payload)
     {
         var p = Leer<PagoClienteContrato>(payload);
+        var aplicado = p.Facturas is { Count: > 0 } fs ? fs.Sum(f => f.ImporteAplicado) + p.SaldoAFavorPorIdentificar : p.Monto;
+        var ajuste = Math.Max(0m, aplicado - p.Monto);
         return new(PagoClienteConfirmado, eventoId, p.EmpresaId, p.FechaValor, Doc(DocPagoCliente, p.MovimientoBancarioId, p.Referencia),
             null, null, p.ClienteId, null, null, MonedaDe(p.Moneda), null,
-            new Dictionary<string, decimal?> { ["Total"] = p.Monto }, [], payload,
+            new Dictionary<string, decimal?>
+            {
+                ["Total"] = p.Monto, ["Aplicado"] = p.Monto + ajuste, ["Ajuste"] = ajuste,
+                ["AjusteComision"] = 0m, ["AjusteDiferencia"] = 0m,
+            },
+            [], payload,
             FacturaOrigenId: p.Facturas is { Count: > 0 } facturas ? facturas[0].FacturaVentaId : null);
     }
+
+    /// <summary>CXC-06: propuesta de CxC del pago de cliente (para leer su ajuste autorizado).</summary>
+    internal static Guid? PropuestaDelPagoCliente(string payload) => Leer<PagoClienteContrato>(payload).PropuestaId;
 
     // ---------------------------------------------------------------- Facturación
 
@@ -386,7 +401,8 @@ public static partial class NormalizadorEventos
     private sealed record PagoRevertidoContrato(Guid PagoOriginalId, string? Motivo);
 
     private sealed record PagoClienteContrato(Guid EmpresaId, Guid ClienteId, Guid MovimientoBancarioId, decimal Monto, string? Moneda,
-        DateOnly FechaValor, string? Referencia, IReadOnlyList<PagoClienteFacturaContrato>? Facturas);
+        DateOnly FechaValor, string? Referencia, IReadOnlyList<PagoClienteFacturaContrato>? Facturas, Guid? PropuestaId = null,
+        decimal SaldoAFavorPorIdentificar = 0m);
 
     private sealed record PagoClienteFacturaContrato(Guid FacturaVentaId, decimal ImporteAplicado);
 
