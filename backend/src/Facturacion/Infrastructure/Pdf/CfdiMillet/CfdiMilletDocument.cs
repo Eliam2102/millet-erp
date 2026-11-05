@@ -250,8 +250,9 @@ public sealed class CfdiMilletDocument(CfdiPdfModel m) : IDocument
         {
             fila.RelativeItem(1.15f).AlignBottom().Row(medidas =>
             {
+                medidas.Spacing(6);
                 medidas.RelativeItem().Text($"Total Kg.:{(t.Kg is null ? "" : Medida(t.Kg.Value))}");
-                medidas.RelativeItem().Text($"Total Pies²/SqFt:{(t.Pie2 is null ? "" : Medida(t.Pie2.Value))}");
+                medidas.RelativeItem().Text($"Total SqFt/Piez2:{(t.Pie2 is null ? "" : Medida(t.Pie2.Value))}");
                 medidas.RelativeItem().Text($"Total M²/SqM:{(t.Pie2 is null ? "" : Medida(t.Pie2.Value * M2PorPie2))}");
                 medidas.RelativeItem().Text($"Total Qty.:{t.Piezas.ToString("#,##0.##", Numeros)}");
             });
@@ -269,10 +270,10 @@ public sealed class CfdiMilletDocument(CfdiPdfModel m) : IDocument
                     c.RelativeColumn();
                     c.RelativeColumn();
                 });
-                tabla.Cell().AlignCenter().Text("Tipo Impuesto");
-                tabla.Cell().AlignCenter().Text("TasaOCuota");
-                tabla.Cell().AlignCenter().Text("TipoFactor");
-                tabla.Cell().AlignRight().Text("Importe");
+                tabla.Cell().AlignCenter().Text("Tipo Impuesto/Tax type");
+                tabla.Cell().AlignCenter().Text("TasaOCuota/Rate");
+                tabla.Cell().AlignCenter().Text("TipoFactor/Factor type");
+                tabla.Cell().AlignRight().Text("Importe/Amount");
                 foreach (var i in m.Impuestos)
                 {
                     tabla.Cell().PaddingTop(3).AlignCenter().Text(i.EsRetencion ? $"{i.Nombre} Ret." : i.Nombre);
@@ -607,8 +608,8 @@ public sealed class CfdiMilletDocument(CfdiPdfModel m) : IDocument
                 c.ConstantColumn(7.6f, Unit.Centimetre);
                 c.RelativeColumn();
             });
-            tabla.Cell().PaddingBottom(4).Text("Cfdi Relacionado UUID");
-            tabla.Cell().PaddingBottom(4).Text("TipoRelacionCFDI");
+            tabla.Cell().PaddingBottom(4).Text("Cfdi Relacionado UUID/Related CFDI UUID");
+            tabla.Cell().PaddingBottom(4).Text("TipoRelacionCFDI/Relation type");
             foreach (var r in m.Relacionados)
             {
                 tabla.Cell().PaddingBottom(2).Text(r.Uuid.ToUpperInvariant());
