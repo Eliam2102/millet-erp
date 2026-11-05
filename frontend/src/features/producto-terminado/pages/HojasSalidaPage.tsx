@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useSucursales } from '@/features/catalogos/api';
-import { mensajeErrorAccion } from '@/lib/api/error';
+import { errorUsuario as mensajeErrorAccion } from '@/lib/error-usuario';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { useAccionHojaSalida, useCrearHojaSalida, useHojaSalida, useHojasSalida } from '../api/hooks';
@@ -37,7 +37,7 @@ export function HojasSalidaPage() {
   const operar = useAuthStore((s) => s.permisos.includes(P.ProductoTerminadoExcepcionesGestionar));
   const lista = useHojasSalida({ pageSize: 50 });
   const sucursales = useSucursales();
-  const nombre = (id: string) => sucursales.data?.items.find((s) => s.id === id)?.nombre ?? id.slice(0, 8);
+  const nombre = (id: string) => sucursales.data?.items.find((s) => s.id === id)?.nombre ?? 'Sin sucursal';
   const crear = useCrearHojaSalida();
   const accion = useAccionHojaSalida();
 
@@ -95,17 +95,17 @@ export function HojasSalidaPage() {
     setAviso(null);
     accion
       .mutateAsync({ id, accion: a, estado })
-      .then((h) => setAviso(h.yaEmitida ? 'La hoja ya estaba emitida: no se descontó ni se registró nada otra vez.' : a === 'emitir' ? 'Hoja emitida: piezas descontadas, salida registrada en Facturación y pedidos en ruta (71).' : 'Hoja cancelada: las piezas volvieron a PT.'))
+      .then((h) => setAviso(h.yaEmitida ? 'La hoja ya estaba emitida: no se descontó ni se registró nada otra vez.' : a === 'emitir' ? "Hoja emitida: piezas descontadas, salida registrada en Facturación y pedidos en ruta." : 'Hoja cancelada: las piezas volvieron a PT.'))
       .catch(falla);
   };
 
   return (
     <main className="flex h-full min-h-0 flex-col gap-5 overflow-auto text-sm">
       <div data-print="hidden" className="flex flex-col gap-5">
-        <Breadcrumbs items={[{ label: 'Producto Terminado' }, { label: 'Hojas de salida' }]} />
+        <Breadcrumbs items={[{ label: "Producto terminado" }, { label: 'Hojas de salida' }]} />
         <PageHeader
           titulo="Hojas de salida y albaranes"
-          descripcion="Lo que el chofer lleva en la ruta: un albarán por pedido, en el orden de entrega. Se arma la ruta y se carga pieza por pieza (también desde el celular). Al emitir se descuentan las piezas una sola vez, se registra la salida para facturar solo lo embarcado y los pedidos pasan a 71."
+          descripcion="Arma la ruta, carga las piezas y emite un albarán por pedido para registrar lo que lleva el chofer."
         />
         {error && (
           <AvisoEnLinea tono="error" titulo="No se pudo completar la acción">
@@ -227,7 +227,7 @@ export function HojasSalidaPage() {
         <section aria-label="Hoja de salida" className="flex flex-col gap-3 rounded-lg bg-surface-card p-4 shadow-card-flat print:shadow-none">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-base font-medium">Hoja de salida {detalle.data.folio}</h2>
+              <h2 className="text-md font-semibold">Hoja de salida {detalle.data.folio}</h2>
               <p className="text-ink-muted">
                 {nombre(detalle.data.sucursalId)} a {detalle.data.destino} · <DateTimeDisplay value={detalle.data.emitidaAt ?? detalle.data.creadaAt} variant="datetime" />
                 {detalle.data.cartaPorteFolio ? ` · Carta Porte ${detalle.data.cartaPorteFolio}` : ''}
@@ -260,15 +260,15 @@ export function HojasSalidaPage() {
                   <TableCell>
                     <ul>
                       {a.lineas.map((l) => (
-                        <li key={l.posicion}>{l.piezas} pzas · posición {l.posicion}{l.descripcion ? ` · ${l.descripcion}` : ''}</li>
+                        <li key={l.posicion}>{l.piezas} pzas · partida {l.posicion}{l.descripcion ? ` · ${l.descripcion}` : ''}</li>
                       ))}
                     </ul>
                     <span className="text-ink-muted">{a.etiquetas.join(', ')}</span>
-                    {(a.rotas?.length ?? 0) > 0 && <p className="text-warning-fg">Pendiente de reposición (rota al cargar): {a.rotas!.join(', ')}</p>}
+                    {(a.rotas?.length ?? 0) > 0 && <p className="text-warning-fg">Pendiente de repartida (rota al cargar): {a.rotas!.join(', ')}</p>}
                   </TableCell>
                   <TableCell>
                     {detalle.data.estado !== 'Emitida' ? '—' : a.entrega ? `${a.entrega.resultado === 'Entregada' ? 'Entregada' : a.entrega.resultado === 'Parcial' ? 'Entrega parcial' : 'Rechazada en sitio'} · recibió ${a.entrega.receptor}` : 'Por entregar (en Entregas)'}
-                    {a.estadoPedido === '115' && <p className="text-success-fg">Pedido en 115</p>}
+                    {a.estadoPedido === '115' && <p className="text-success-fg">Facturado y entregado</p>}
                   </TableCell>
                 </TableRow>
               ))}
