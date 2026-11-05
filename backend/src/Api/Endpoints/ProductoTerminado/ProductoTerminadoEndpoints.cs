@@ -8,6 +8,7 @@ using Millet.ProductoTerminado.Application.Consultas;
 using Millet.Integraciones.Aw.Infrastructure.Origen;
 using Millet.ProductoTerminado.Application.Escaneos;
 using Millet.ProductoTerminado.Application.Liberacion;
+using Millet.ProductoTerminado.Application.Liquidacion;
 using Millet.ProductoTerminado.Application.Salidas;
 using Millet.ProductoTerminado.Application.Traspasos;
 
@@ -105,6 +106,23 @@ public static class ProductoTerminadoEndpoints
             .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar)
             .WithMetadata(new RequireIdempotencyKeyAttribute());
 
+        // Liquidación del chofer en caja (PT5.7) y cierre del día de la contra entrega. El alcance por sucursal lo aplican los handlers (PtAcceso).
+        var liquidaciones = g.MapGroup("/liquidaciones");
+        liquidaciones.MapGet("", async ([FromQuery] string? estado, [FromQuery] Guid? sucursalId, [FromQuery] int? page, [FromQuery] int? pageSize, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ListarLiquidacionesQuery(estado, sucursalId, page ?? 1, pageSize ?? 50), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoPiezasVer);
+        liquidaciones.MapGet("/{salidaId:guid}", async (Guid salidaId, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ObtenerLiquidacionQuery(salidaId), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoPiezasVer);
+        liquidaciones.MapPost("/{salidaId:guid}", async (Guid salidaId, LiquidarBody body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new LiquidarRutaPtCommand(salidaId, body.Albaranes, body.Imprevistos ?? []), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar)
+            .WithMetadata(new RequireIdempotencyKeyAttribute());
+        liquidaciones.MapPost("/cierre-dia", async (IMediator mediator, CancellationToken ct) =>
+            Results.Ok(new { avisos = await mediator.Send(new CerrarDiaContraEntregaCommand(), ct) }))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar)
+            .WithMetadata(new RequireIdempotencyKeyAttribute());
+
         // Solo Demo (PT5.2): el saldo de prueba simula el cobro de caja. Nunca se mapea en Production; además exige el origen Demo de A+W.
         // PLATFORM-TODO(<SaldoPorPedidoFacturacion>): se retira cuando Facturación (Uziel) publique el saldo por pedido.
         if (!app.ServiceProvider.GetRequiredService<IHostEnvironment>().IsProduction())
@@ -129,6 +147,8 @@ public static class ProductoTerminadoEndpoints
 
     /// <summary>Sin cuerpo o sin <c>PiezaIds</c> = recepción total.</summary>
     public sealed record RecibirBody(IReadOnlyList<Guid>? PiezaIds);
+
+    public sealed record LiquidarBody(IReadOnlyList<LiquidacionAlbaranInput> Albaranes, IReadOnlyList<ImprevistoInput>? Imprevistos);
 
     public sealed record SaldoDemoBody(decimal Saldo);
 }

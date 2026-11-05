@@ -584,6 +584,8 @@ export const TipoAlertaCartera = {
   ExcesoCredito: 2,
   /** Vencimientos dispararon el auto-bloqueo de la línea. */
   AutoBloqueoVencimiento: 3,
+  /** Pedido a contra entrega que el chofer no liquidó en caja el día de la salida (PT5.7). */
+  ContraEntregaNoLiquidada: 4,
 } as const satisfies Record<string, number>;
 export type TipoAlertaCartera =
   (typeof TipoAlertaCartera)[keyof typeof TipoAlertaCartera];

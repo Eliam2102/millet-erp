@@ -66,6 +66,7 @@ import { Route as AppFacturacionCajaRouteImport } from './routes/_app/facturacio
 import { Route as AppFacturacionCancelacionesRouteImport } from './routes/_app/facturacion/cancelaciones';
 import { Route as AppProductoTerminadoExcepcionesRouteImport } from './routes/_app/producto-terminado/excepciones';
 import { Route as AppProductoTerminadoHojasSalidaRouteImport } from './routes/_app/producto-terminado/hojas-salida';
+import { Route as AppProductoTerminadoLiquidacionRouteImport } from './routes/_app/producto-terminado/liquidacion';
 import { Route as AppProductoTerminadoPiezasRouteImport } from './routes/_app/producto-terminado/piezas';
 import { Route as AppProductoTerminadoSalidasRouteImport } from './routes/_app/producto-terminado/salidas';
 import { Route as AppProductoTerminadoTraspasosRouteImport } from './routes/_app/producto-terminado/traspasos';
@@ -535,6 +536,12 @@ const AppProductoTerminadoHojasSalidaRoute =
   AppProductoTerminadoHojasSalidaRouteImport.update({
     id: '/producto-terminado/hojas-salida',
     path: '/producto-terminado/hojas-salida',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppProductoTerminadoLiquidacionRoute =
+  AppProductoTerminadoLiquidacionRouteImport.update({
+    id: '/producto-terminado/liquidacion',
+    path: '/producto-terminado/liquidacion',
     getParentRoute: () => AppRoute,
   } as any);
 const AppProductoTerminadoPiezasRoute =
@@ -1533,6 +1540,7 @@ export interface FileRoutesByFullPath {
   '/facturacion/cancelaciones': typeof AppFacturacionCancelacionesRoute;
   '/producto-terminado/excepciones': typeof AppProductoTerminadoExcepcionesRoute;
   '/producto-terminado/hojas-salida': typeof AppProductoTerminadoHojasSalidaRoute;
+  '/producto-terminado/liquidacion': typeof AppProductoTerminadoLiquidacionRoute;
   '/producto-terminado/piezas': typeof AppProductoTerminadoPiezasRoute;
   '/producto-terminado/salidas': typeof AppProductoTerminadoSalidasRoute;
   '/producto-terminado/traspasos': typeof AppProductoTerminadoTraspasosRoute;
@@ -1759,6 +1767,7 @@ export interface FileRoutesByTo {
   '/facturacion/cancelaciones': typeof AppFacturacionCancelacionesRoute;
   '/producto-terminado/excepciones': typeof AppProductoTerminadoExcepcionesRoute;
   '/producto-terminado/hojas-salida': typeof AppProductoTerminadoHojasSalidaRoute;
+  '/producto-terminado/liquidacion': typeof AppProductoTerminadoLiquidacionRoute;
   '/producto-terminado/piezas': typeof AppProductoTerminadoPiezasRoute;
   '/producto-terminado/salidas': typeof AppProductoTerminadoSalidasRoute;
   '/producto-terminado/traspasos': typeof AppProductoTerminadoTraspasosRoute;
@@ -1987,6 +1996,7 @@ export interface FileRoutesById {
   '/_app/facturacion/cancelaciones': typeof AppFacturacionCancelacionesRoute;
   '/_app/producto-terminado/excepciones': typeof AppProductoTerminadoExcepcionesRoute;
   '/_app/producto-terminado/hojas-salida': typeof AppProductoTerminadoHojasSalidaRoute;
+  '/_app/producto-terminado/liquidacion': typeof AppProductoTerminadoLiquidacionRoute;
   '/_app/producto-terminado/piezas': typeof AppProductoTerminadoPiezasRoute;
   '/_app/producto-terminado/salidas': typeof AppProductoTerminadoSalidasRoute;
   '/_app/producto-terminado/traspasos': typeof AppProductoTerminadoTraspasosRoute;
@@ -2215,6 +2225,7 @@ export interface FileRouteTypes {
     | '/facturacion/cancelaciones'
     | '/producto-terminado/excepciones'
     | '/producto-terminado/hojas-salida'
+    | '/producto-terminado/liquidacion'
     | '/producto-terminado/piezas'
     | '/producto-terminado/salidas'
     | '/producto-terminado/traspasos'
@@ -2441,6 +2452,7 @@ export interface FileRouteTypes {
     | '/facturacion/cancelaciones'
     | '/producto-terminado/excepciones'
     | '/producto-terminado/hojas-salida'
+    | '/producto-terminado/liquidacion'
     | '/producto-terminado/piezas'
     | '/producto-terminado/salidas'
     | '/producto-terminado/traspasos'
@@ -2668,6 +2680,7 @@ export interface FileRouteTypes {
     | '/_app/facturacion/cancelaciones'
     | '/_app/producto-terminado/excepciones'
     | '/_app/producto-terminado/hojas-salida'
+    | '/_app/producto-terminado/liquidacion'
     | '/_app/producto-terminado/piezas'
     | '/_app/producto-terminado/salidas'
     | '/_app/producto-terminado/traspasos'
@@ -3250,6 +3263,13 @@ declare module '@tanstack/react-router' {
       path: '/producto-terminado/hojas-salida';
       fullPath: '/producto-terminado/hojas-salida';
       preLoaderRoute: typeof AppProductoTerminadoHojasSalidaRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/producto-terminado/liquidacion': {
+      id: '/_app/producto-terminado/liquidacion';
+      path: '/producto-terminado/liquidacion';
+      fullPath: '/producto-terminado/liquidacion';
+      preLoaderRoute: typeof AppProductoTerminadoLiquidacionRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/producto-terminado/piezas': {
@@ -4496,6 +4516,7 @@ interface AppRouteChildren {
   AppFacturacionCancelacionesRoute: typeof AppFacturacionCancelacionesRoute;
   AppProductoTerminadoExcepcionesRoute: typeof AppProductoTerminadoExcepcionesRoute;
   AppProductoTerminadoHojasSalidaRoute: typeof AppProductoTerminadoHojasSalidaRoute;
+  AppProductoTerminadoLiquidacionRoute: typeof AppProductoTerminadoLiquidacionRoute;
   AppProductoTerminadoPiezasRoute: typeof AppProductoTerminadoPiezasRoute;
   AppProductoTerminadoSalidasRoute: typeof AppProductoTerminadoSalidasRoute;
   AppProductoTerminadoTraspasosRoute: typeof AppProductoTerminadoTraspasosRoute;
@@ -4721,6 +4742,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppFacturacionCancelacionesRoute: AppFacturacionCancelacionesRoute,
   AppProductoTerminadoExcepcionesRoute: AppProductoTerminadoExcepcionesRoute,
   AppProductoTerminadoHojasSalidaRoute: AppProductoTerminadoHojasSalidaRoute,
+  AppProductoTerminadoLiquidacionRoute: AppProductoTerminadoLiquidacionRoute,
   AppProductoTerminadoPiezasRoute: AppProductoTerminadoPiezasRoute,
   AppProductoTerminadoSalidasRoute: AppProductoTerminadoSalidasRoute,
   AppProductoTerminadoTraspasosRoute: AppProductoTerminadoTraspasosRoute,
