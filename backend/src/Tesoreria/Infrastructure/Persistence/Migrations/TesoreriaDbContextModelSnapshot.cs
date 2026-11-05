@@ -2608,6 +2608,91 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Millet.Tesoreria.Domain.Pasivos.AutorizacionPagoComercioExterior", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<Guid>("FacturaProveedorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("factura_proveedor_id");
+
+                    b.Property<string>("MotivoRechazo")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("motivo_rechazo");
+
+                    b.Property<DateTimeOffset?>("Nivel1En")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("nivel1en");
+
+                    b.Property<Guid?>("Nivel1UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("nivel1usuario_id");
+
+                    b.Property<DateTimeOffset?>("Nivel2En")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("nivel2en");
+
+                    b.Property<Guid?>("Nivel2UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("nivel2usuario_id");
+
+                    b.Property<DateTimeOffset?>("RechazadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("rechazado_en");
+
+                    b.Property<Guid?>("RechazadoPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("rechazado_por_id");
+
+                    b.Property<short>("Tipo")
+                        .HasColumnType("smallint")
+                        .HasColumnName("tipo");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_autorizacion_pago_comercio_exterior");
+
+                    b.HasIndex("FacturaProveedorId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_autorizacion_pago_ce_factura");
+
+                    b.ToTable("autorizacion_pago_comercio_exterior", "tesoreria", t =>
+                        {
+                            t.HasCheckConstraint("ck_autorizacion_pago_ce_tipo", "tipo IN (1, 2)");
+                        });
+                });
+
             modelBuilder.Entity("Millet.Tesoreria.Domain.Pasivos.PasivoPendientePago", b =>
                 {
                     b.Property<Guid>("Id")
