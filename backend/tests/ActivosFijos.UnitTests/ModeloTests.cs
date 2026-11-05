@@ -12,6 +12,8 @@ public sealed class ModeloTests
         using var db=new ActivosFijosDbContext(new DbContextOptionsBuilder<ActivosFijosDbContext>().UseNpgsql("Host=invalid;Database=af_test").UseSnakeCaseNamingConvention().Options,new Empresa());
         foreach(var type in new[]{typeof(Activo),typeof(ClaseActivo),typeof(TrasladoActivo),typeof(MovimientoValorActivo),typeof(CorridaDepreciacion),typeof(OperacionLibro),typeof(ConfiguracionLibro),typeof(CargaLibro),typeof(DocumentoActivo),typeof(MantenimientoActivo),typeof(ConteoActivo),typeof(PartidaConteoActivo),typeof(AvisoActivo),typeof(InpcMensual),typeof(VersionClaseActivo),typeof(EquivalenciaClaseSap),typeof(ConciliacionLibro)})
         { var entity=db.Model.FindEntityType(type)!;Assert.NotEmpty(entity.GetDeclaredQueryFilters());Assert.True(entity.FindProperty("Version")!.IsConcurrencyToken);Assert.Equal("activos_fijos",entity.GetSchema()); }
+        Assert.Contains(db.Model.FindEntityType(typeof(OperacionLibro))!.GetIndexes(), x => x.IsUnique && x.GetDatabaseName() == "ux_operacion_baja_pendiente"
+            && x.GetFilter() == "tipo = 'Baja' AND poliza_id IS NULL AND NOT anulada AND rechazado_en IS NULL");
         Assert.Contains(db.Model.FindEntityType(typeof(AvisoActivo))!.GetIndexes(),x=>x.IsUnique && x.Properties.Any(p=>p.Name=="FuenteId") && x.Properties.Any(p=>p.Name=="Tipo"));
         Assert.Contains(db.Model.FindEntityType(typeof(TrasladoActivo))!.GetIndexes(),x=>x.IsUnique && x.GetFilter()=="aceptado_en IS NULL");
         Assert.Contains(db.Model.FindEntityType(typeof(Activo))!.GetIndexes(),x=>x.IsUnique && x.Properties.Any(p=>p.Name=="UnidadRecepcion"));

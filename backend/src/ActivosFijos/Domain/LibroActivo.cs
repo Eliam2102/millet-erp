@@ -107,6 +107,16 @@ public sealed class OperacionLibro : BaseEntity, IPerteneceAEmpresa, IAuditable
     public string? MotivoRechazo { get; private set; }
     public Guid? RechazadoPor { get; private set; }
     public DateTimeOffset? RechazadoEn { get; private set; }
+    public string? MotivoRetiro { get; private set; }
+    public Guid? RetiradoPor { get; private set; }
+    public DateTimeOffset? RetiradoEn { get; private set; }
+    public void Retirar(Guid actor, string motivo, DateTimeOffset ahora)
+    {
+        if (actor == Guid.Empty || actor != RegistradoPor || PolizaId != null || Anulada || Tipo is not ("Baja" or "Venta")
+            || string.IsNullOrWhiteSpace(motivo) || motivo.Trim().Length is < 5 or > 500)
+            throw new BusinessRuleException("AF_RETIRO_INVALIDO", "Sólo quien registró puede retirar una baja o venta pendiente con motivo de 5 a 500 caracteres.");
+        MotivoRetiro = motivo.Trim(); RetiradoPor = actor; RetiradoEn = ahora; Anulada = true;
+    }
     public bool VentaCancelada { get; set; }
     public void Rechazar(Guid actor, string motivo, DateTimeOffset ahora)
     {

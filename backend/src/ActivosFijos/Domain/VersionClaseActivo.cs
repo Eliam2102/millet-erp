@@ -12,6 +12,13 @@ public sealed class VersionClaseActivo : BaseEntity, IPerteneceAEmpresa, IAudita
     public Guid PropuestoPor { get; set; }
     public Guid? ResueltoPor { get; private set; }
     public DateTimeOffset? ResueltoEn { get; private set; }
+    public string? MotivoCambio { get; private set; }
+    public void CapturarMotivo(string? motivo)
+    {
+        if (string.IsNullOrWhiteSpace(motivo) || motivo.Trim().Length is < 5 or > 500)
+            throw new BusinessRuleException("AF_MOTIVO_REQUERIDO", "Capture el motivo del cambio de 5 a 500 caracteres.");
+        MotivoCambio = motivo.Trim();
+    }
     public string? MotivoRechazo { get; private set; }
     public decimal? TasaContableAnual { get; set; }
     public decimal? TasaFiscalAnual { get; set; }
@@ -24,8 +31,13 @@ public sealed class VersionClaseActivo : BaseEntity, IPerteneceAEmpresa, IAudita
     public VersionClaseActivo() : base(Guid.CreateVersion7()) { }
     public void ValidarVigencia(DateOnly? ultimoMes)
     {
-        if (Vigencia == default || Vigencia.Day != 1 || (ultimoMes != null && Vigencia <= ultimoMes))
+        if (Vigencia == default || Vigencia.Day != 1)
             throw new BusinessRuleException("AF_VIGENCIA_INVALIDA", "Seleccione el primer día de un mes posterior al último mes con corrida confirmada.");
+        if (ultimoMes is DateOnly ultimo && Vigencia <= ultimo)
+        {
+            var mes = ultimo.ToString("MMMM yyyy", System.Globalization.CultureInfo.GetCultureInfo("es-MX"));
+            throw new BusinessRuleException("AF_VIGENCIA_EN_MES_DEPRECIADO", $"{char.ToUpperInvariant(mes[0])}{mes[1..]} ya está depreciado");
+        }
     }
     public void Resolver(Guid actor, bool autorizar, string? motivo, DateTimeOffset ahora)
     {

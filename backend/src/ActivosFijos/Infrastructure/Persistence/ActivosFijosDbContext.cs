@@ -79,6 +79,11 @@ public sealed partial class ActivosFijosDbContext(DbContextOptions<ActivosFijosD
         operacion.ToTable("operaciones_libro"); operacion.HasKey(x => x.Id); operacion.Property(x => x.Id).ValueGeneratedNever();
         operacion.Property(x => x.SolicitadoPor).HasMaxLength(200).IsRequired();
         operacion.HasIndex(x => new { x.EmpresaId, x.FacturaId }).IsUnique();
+        operacion.HasIndex(x => new { x.EmpresaId, x.ActivoId }).IsUnique().HasDatabaseName("ux_operacion_baja_pendiente")
+            .HasFilter("tipo = 'Baja' AND poliza_id IS NULL AND NOT anulada AND rechazado_en IS NULL");
+        operacion.Property(x => x.MotivoRetiro).HasMaxLength(500);
+        v.Property(x => x.MotivoCambio).HasMaxLength(500);
+        c.Ignore(x => x.PropuestaPendiente); c.Ignore(x => x.ProximaVersionDesde);
         operacion.HasOne<Activo>().WithMany().HasForeignKey(x => x.ActivoId).OnDelete(DeleteBehavior.Restrict);
         var configuracion = modelBuilder.Entity<ConfiguracionLibro>();
         configuracion.ToTable("configuracion_libro"); configuracion.HasKey(x => x.Id); configuracion.Property(x => x.Id).ValueGeneratedNever();

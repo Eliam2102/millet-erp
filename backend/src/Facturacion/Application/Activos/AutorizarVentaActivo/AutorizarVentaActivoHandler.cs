@@ -46,7 +46,10 @@ public sealed class AutorizarVentaActivoHandler : IRequestHandler<AutorizarVenta
         var activo = await _activos.ObtenerAsync(command.ActivoRef, cancellationToken)
             ?? throw new EntityNotFoundException(
                 "ACTIVO_NO_EXISTE",
-                $"El activo '{command.ActivoRef}' no está dado de alta como activo fijo; no está disponible para venta o tiene una baja pendiente.");
+                $"El activo '{command.ActivoRef}' no está dado de alta como activo fijo; no está disponible para venta.");
+
+        if (activo.BajaPendiente)
+            throw new BusinessRuleException("ACTIVO_BAJA_PENDIENTE", "Tiene una solicitud de baja pendiente");
 
         var autorizacion = AutorizacionVentaActivo.Crear(
             empresaId, activo.ActivoRef, activo.Descripcion, activo.ValorEnLibros + activo.DepreciacionAcumulada, activo.DepreciacionAcumulada,

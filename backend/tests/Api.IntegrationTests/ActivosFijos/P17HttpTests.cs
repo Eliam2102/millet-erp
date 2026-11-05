@@ -32,7 +32,8 @@ public sealed partial class LibroHttpTests
         using(var ventaClient=await e.ClienteAsync(true,facturacion:true,permisosCe:false))
         using(var ventaReq=new HttpRequestMessage(HttpMethod.Post,"/api/v1/facturacion/activos/autorizar") { Content=JsonContent.Create(new {activoRef="FIX-P4-MONTACARGAS",precioVenta=100,motivo=5,solicitadoPor="Área usuaria",evidencia="Factura"}) })
         {
-            ventaReq.Headers.Add("Idempotency-Key",Guid.NewGuid().ToString());using var ventaRespuesta=await ventaClient.SendAsync(ventaReq);Assert.Equal(HttpStatusCode.NotFound,ventaRespuesta.StatusCode);
+            ventaReq.Headers.Add("Idempotency-Key",Guid.NewGuid().ToString());using var ventaRespuesta=await ventaClient.SendAsync(ventaReq);Assert.Equal(HttpStatusCode.UnprocessableEntity,ventaRespuesta.StatusCode);
+            Assert.Contains("ACTIVO_BAJA_PENDIENTE", await ventaRespuesta.Content.ReadAsStringAsync());
         }
         using var duplicada=await Post(captura,$"activos/{id}/operaciones",datos,version);Assert.Equal(HttpStatusCode.UnprocessableEntity,duplicada.StatusCode);
         using var vacio=await Post(daf,$"operaciones/{op.GetProperty("id").GetGuid()}/rechazar",new {motivo=" "},op.GetProperty("version").GetInt32());Assert.Equal(HttpStatusCode.UnprocessableEntity,vacio.StatusCode);
@@ -45,6 +46,7 @@ public sealed partial class LibroHttpTests
             var fact=scope.ServiceProvider.GetRequiredService<FacturacionDbContext>();fact.AutorizacionesVentaActivo.Add(AutorizacionVentaActivo.Crear(activo.EmpresaId,activo.Numero,activo.Descripcion,activo.ValorActual,0,false,100,Guid.NewGuid(),DateTimeOffset.UtcNow,MotivoDisposicionActivo.Venta,"Área usuaria","Soporte"));await fact.SaveChangesAsync();
         }
         using var ventaAbierta=await Post(captura,$"activos/{id}/operaciones",datos,version);Assert.Equal(HttpStatusCode.UnprocessableEntity,ventaAbierta.StatusCode);
+        Assert.Contains("Tiene una autorización de venta vigente",(await ventaAbierta.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("detail").GetString());
     }
     [Fact] public async Task P17_reversa_baja_autorizada_reintegra_y_siguiente_corrida_recupera_meses()
     {
