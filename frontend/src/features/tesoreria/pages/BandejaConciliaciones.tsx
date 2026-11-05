@@ -1157,14 +1157,19 @@ export function BandejaConciliaciones() {
               onClick={async () => {
                 if (!conciliacion) return;
                 try {
-                  await cargarExtractoMutation.mutateAsync({
+                  const resumen = await cargarExtractoMutation.mutateAsync({
                     id: conciliacion.id,
                     contenidoArchivo: contenidoExtracto.trim(),
                     formato: formatoExtracto,
                     saldoExtracto: saldoFinalExtracto ? parseFloat(saldoFinalExtracto) : undefined,
                     autoEmparejar: autoEmparejarAlCargar,
                   });
-                  toast.success('Extracto cargado y procesado correctamente');
+                  const dep = resumen.depositos;
+                  toast.success('Extracto cargado y procesado correctamente', {
+                    description: dep
+                      ? `Depósitos: ${dep.autoConfirmados} confirmados solos, ${dep.enRevision} en revisión, ${dep.sinIdentificar} sin identificar.`
+                      : undefined,
+                  });
                   setModalCargarExtracto(false);
                   setContenidoExtracto('');
                 } catch (err: unknown) {

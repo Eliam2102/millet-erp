@@ -21,7 +21,9 @@ namespace Millet.Tesoreria.Application.EventListeners;
 public sealed record PropuestaFacturaPayload(
     Guid FacturaVentaId,
     string Folio,
-    decimal ImporteAplicado);
+    decimal ImporteAplicado,
+    // 86e3ke6yn (aditivo): saldo de la factura tras aplicar este importe; null = CxC no lo informó.
+    decimal? SaldoInsolutoDespues = null);
 
 /// <summary>
 /// Espejo de <c>cuentas_por_cobrar.propuesta-aplicacion.creada.v1</c>

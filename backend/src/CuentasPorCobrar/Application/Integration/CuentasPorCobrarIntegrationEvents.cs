@@ -32,7 +32,9 @@ public sealed record AlertaCarteraGeneradaEvent(
 public sealed record PropuestaAplicacionFacturaDetalle(
     Guid FacturaVentaId,
     string Folio,
-    decimal ImporteAplicado);
+    decimal ImporteAplicado,
+    // 86e3ke6yn (aditivo): saldo de la factura tras aplicar este importe (lo usa la regla de depósito automático).
+    decimal? SaldoInsolutoDespues = null);
 
 // TES-PR7: extensión ADITIVA con Facturas[] (ver record de arriba).
 // Aditivo = consumidores existentes no se afectan; cambios incompatibles
