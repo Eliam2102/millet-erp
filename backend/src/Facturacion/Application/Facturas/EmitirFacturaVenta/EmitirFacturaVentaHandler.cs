@@ -463,6 +463,7 @@ public sealed class EmitirFacturaVentaHandler
                 "AUTORIZACION_NO_DISPONIBLE",
                 $"La autorización ya fue {autorizacion.Estado} y no puede reutilizarse.");
 
+        autorizacion.ValidarRegistrador(_user.UserId);
         return autorizacion;
     }
 

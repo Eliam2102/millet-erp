@@ -53,11 +53,18 @@ public sealed class CorridaDepreciacion : BaseEntity, IPerteneceAEmpresa, IAudit
     public Guid EmpresaId { get; set; }
     public DateOnly Periodo { get; set; }
     public int Revision { get; set; }
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public bool SinEfectoContable { get; set; }
     public Guid? PolizaId { get; set; }
     public bool Anulada { get; set; }
     public string? MotivoAnulacion { get; set; }
     public List<DetalleDepreciacion> Detalles { get; set; } = [];
     public CorridaDepreciacion() : base(Guid.CreateVersion7()) { }
+    public static void ValidarTasas(IEnumerable<DetalleDepreciacion> filas)
+    {
+        var faltantes = filas.Where(f => f.Tasa == null).Select(f => f.Numero).ToList();
+        if (faltantes.Count > 0) throw new BusinessRuleException("AF_CORRIDA_SIN_TASA", $"Capture la tasa antes de confirmar: {string.Join(", ", faltantes)}.");
+    }
 }
 /// <summary>Renglón inmutable de una corrida; la auditoría vive en <see cref="CorridaDepreciacion"/> (ADR-0008).</summary>
 public sealed class DetalleDepreciacion : BaseEntity, IPerteneceAEmpresa, INotAudited
@@ -96,6 +103,17 @@ public sealed class OperacionLibro : BaseEntity, IPerteneceAEmpresa, IAuditable
     public Guid? AutorizadoPor { get; set; }
     public Guid? PolizaId { get; set; }
     public Guid? FacturaId { get; set; }
+    public Guid? RevierteA { get; set; }
+    public string? MotivoRechazo { get; private set; }
+    public Guid? RechazadoPor { get; private set; }
+    public DateTimeOffset? RechazadoEn { get; private set; }
+    public bool VentaCancelada { get; set; }
+    public void Rechazar(Guid actor, string motivo, DateTimeOffset ahora)
+    {
+        if (actor == Guid.Empty || actor == RegistradoPor || PolizaId != null || Anulada || string.IsNullOrWhiteSpace(motivo) || motivo.Length > 2000)
+            throw new BusinessRuleException("AF_RECHAZO_INVALIDO", "Otra persona debe rechazar una solicitud pendiente con motivo de hasta 2000 caracteres.");
+        MotivoRechazo = motivo.Trim(); RechazadoPor = actor; RechazadoEn = ahora; Anulada = true;
+    }
     public bool Anulada { get; set; }
     public OperacionLibro() : base(Guid.CreateVersion7()) { }
     // El catálogo se exige al capturar; las bajas históricas conservan su motivo original.
@@ -140,6 +158,8 @@ public sealed class CargaLibro : BaseEntity, IPerteneceAEmpresa, IAuditable
     public string VersionArchivo { get; set; } = "";
     public DateOnly Corte { get; set; }
     public string CuadreJson { get; set; } = "";
+    public bool Anulada { get; set; }
+    public string? MotivoAnulacion { get; set; }
     public CargaLibro() : base(Guid.CreateVersion7()) { }
 }
 
@@ -151,24 +171,24 @@ public static class CalculoDepreciacion
     public static DateOnly Cierre(DateOnly fecha) => Mes(fecha).AddMonths(1).AddDays(-1);
     public static DetalleDepreciacion Calcular(Activo a, ClaseActivo clase, DateOnly periodo, decimal revalorizacion = 0, bool mismoMes = false, ClaseActivo? claseMejorada = null)
     {
-        var resuelta = TasasActivo.Resolver(a, clase, claseMejorada);
+        var resuelta = TasasActivo.Resolver(a, clase, claseMejorada, periodo);
         var mes = Mes(periodo);
         var movimientos = a.Historial.Where(x => Mes(x.Fecha) < mes).Sum(x => x.Importe);
         var @base = a.ValorOriginal + movimientos + revalorizacion;
-        var importe = clase.Depreciable && resuelta.Contable is decimal tasa && a.Estado == EstadoActivo.Activo && a.InicioUso != null && PrimerMes(a, mismoMes) <= mes
+        var importe = resuelta.Contable is decimal tasa && a.Estado == EstadoActivo.Activo && a.InicioUso != null && PrimerMes(a, mismoMes) <= mes
             && (a.CorteCarga == null || mes > a.CorteCarga)
             ? Math.Min(a.ValorEnLibros, Math.Max(0, decimal.Round(@base * tasa / 1200m, 2, MidpointRounding.AwayFromZero))) : 0;
         // Reconstruye la custodia al cierre, incluso si hay traslados posteriores.
         var custodia = CustodiaAFecha(a, Cierre(mes));
         return new() { EmpresaId = a.EmpresaId, ActivoId = a.Id, Numero = a.Numero, ClaseId = a.ClaseId,
             SucursalId = custodia.SucursalId, CentroCostoId = custodia.CentroCostoId, EquipoId = custodia.EquipoId,
-            Observacion = resuelta.Observacion,
+            Observacion = a.TasaContableAnual != null ? string.Join(" · ", new[] { "Tasa propia", resuelta.Observacion }.Where(x => x != null)) : resuelta.Observacion,
             Clase = clase.Clave, Base = @base, Tasa = resuelta.Contable, Importe = importe, AcumuladaAntes = a.DepreciacionAcumulada };
     }
     public static CustodiaActivo CustodiaAFecha(Activo a, DateOnly corte)
     {
         var custodia = a.Custodia();
-        foreach (var t in a.Traslados.Where(x => x.AceptadoEn != null)
+        foreach (var t in a.Traslados.Where(x => x.AceptadoEn != null && !x.Corregido)
             .OrderByDescending(x => x.FechaEfectiva).ThenByDescending(x => x.RegistradoEn).ThenByDescending(x => x.Id))
             if (t.FechaEfectiva > corte) custodia = t.Origen;
         return custodia;

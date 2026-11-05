@@ -1,3 +1,7 @@
+import { SucursalSelector } from '@/components/erp/selectors/SucursalSelector';
+import { useAuthStore } from '@/lib/auth/auth-store';
+import { useGuardarActivo } from '../api/hooks';
+import { useLibroQuery } from '../api/libro';
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
@@ -12,6 +16,14 @@ import { TablaLibro } from '../components/TablaLibro';
 const plantilla =
   'numero,clase,descripcion,fechaAdquisicion,inicioUso,valorOriginal,depreciacionAcumulada,responsableId,sucursalId,ubicacion,centroCostoId,equipoId,importado,pedimento,arrendado\n';
 export function CargaInicialPage() {
+  const actual = useAuthStore((s) => s.currentSucursalId);
+  const [sucursal, setSucursal] = useState(actual ?? '');
+  const lotes =
+    useLibroQuery<
+      { id: string; version: number; versionArchivo: string; corte: string; anulada: boolean }[]
+    >('carga');
+  const anular = useGuardarActivo();
+  const [motivoAnulacion, setMotivoAnulacion] = useState('');
   const [archivo, setArchivo] = useState<File>();
   const [hoja, setHoja] = useState('');
   const [corte, setCorte] = useState('2026-10-31');
@@ -28,6 +40,7 @@ export function CargaInicialPage() {
       form.set('corte', corte);
       form.set('versionArchivo', versionArchivo);
       form.set('hoja', hoja);
+      if (sucursal) form.set('sucursalId', sucursal);
       form.set(
         'totales',
         JSON.stringify(Object.entries(totales).map(([clase, t]) => ({ clase, ...t }))),
@@ -134,7 +147,17 @@ export function CargaInicialPage() {
         </label>
       </div>
       <label className="block">
-        Nombre de hoja (opcional; se usa la primera con datos)
+        Sucursal de destino cuando falta en el archivo
+        <SucursalSelector
+          value={sucursal || null}
+          onChange={(id) => {
+            setSucursal(id ?? '');
+            setResultado(undefined);
+          }}
+        />
+      </label>
+      <label className="block">
+        Nombre de hoja (opcional; se usa Base si existe, o la primera con datos)
         <Input
           value={hoja}
           disabled={cargar.isPending}
@@ -215,6 +238,46 @@ export function CargaInicialPage() {
           {cargar.error?.message || errorArchivo}
         </p>
       )}
+      <section className="space-y-3">
+        <h2 className="font-semibold">Lotes de carga</h2>
+        <label>
+          Motivo de anulación
+          <Input
+            maxLength={500}
+            value={motivoAnulacion}
+            onChange={(e) => setMotivoAnulacion(e.target.value)}
+          />
+        </label>
+        {lotes.data?.map((l) => (
+          <div key={l.id} className="flex items-center gap-3">
+            <span>
+              {l.versionArchivo} · {l.corte}
+            </span>
+            {l.anulada ? (
+              <Badge variant="neutral">Anulada</Badge>
+            ) : (
+              <Button
+                variant="outline"
+                disabled={!motivoAnulacion.trim() || anular.isPending}
+                onClick={() =>
+                  anular.mutate({
+                    ruta: `carga/${l.id}/anular`,
+                    version: l.version,
+                    body: { motivo: motivoAnulacion },
+                  })
+                }
+              >
+                Anular carga
+              </Button>
+            )}
+          </div>
+        ))}
+        {(lotes.error || anular.error) && (
+          <p role="alert" className="text-danger-fg">
+            {(lotes.error || anular.error)?.message}
+          </p>
+        )}
+      </section>
       {resultado && (
         <>
           <Badge variant={resultado.valida ? 'success' : 'danger'}>

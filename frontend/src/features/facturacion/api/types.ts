@@ -836,6 +836,8 @@ export interface AutorizarVentaActivoResponse {
 
 /** Item de la bandeja de autorizaciones de venta de activo. */
 export interface AutorizacionActivoItem {
+  version?: number;
+  motivoRechazo?: string | null;
   motivo: number;
   solicitadoPor: string;
   evidencia: string;

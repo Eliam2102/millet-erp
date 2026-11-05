@@ -12,7 +12,7 @@ namespace Millet.ActivosFijos.Application;
 
 public sealed class LibroServicio(ActivosFijosDbContext db, ActivoServicio acceso, ICurrentEmpresaContext empresa,
     ITransaccionPolizaActivo transaccion, IPolizaContablePort polizas, IPeriodoContableConsultaPort periodos,
-    ICentroCostoContabilidadPort centros, ICatalogosActivoReadPort? catalogos = null)
+    ICentroCostoContabilidadPort centros, ICatalogosActivoReadPort? catalogos = null, IPolizaContableReadPort? lecturaPolizas = null)
 {
     public Guid Empresa => empresa.Current ?? throw new UnauthorizedAccessException();
     public async Task<bool> MismoMesAsync(CancellationToken ct) =>
@@ -21,11 +21,11 @@ public sealed class LibroServicio(ActivosFijosDbContext db, ActivoServicio acces
     {
         var mismoMes = await MismoMesAsync(ct);
         var activos = await db.Activos.Where(x => x.Estado == EstadoActivo.Activo && x.InicioUso != null)
-            .Join(db.Clases.Where(c => c.Depreciable && (c.TasaContableAnual > 0 || c.Clave == "160" || c.Clave == "170")), a => a.ClaseId, c => c.Id, (a, c) => a).ToListAsync(ct);
-        var clases = await db.Clases.ToDictionaryAsync(c => c.Id, ct);
+            .Join(db.Clases, a => a.ClaseId, c => c.Id, (a, c) => a).ToListAsync(ct);
+        var clases = await db.Clases.Include(x => x.Versiones).ToDictionaryAsync(c => c.Id, ct);
         var todos = await db.Activos.ToDictionaryAsync(a => a.Id, ct);
         return activos.Where(a => TasasActivo.Resolver(a, clases[a.ClaseId],
-            a.ActivoMejoradoId is Guid id && todos.TryGetValue(id, out var mejorado) ? clases[mejorado.ClaseId] : null).Contable > 0)
+            a.ActivoMejoradoId is Guid id && todos.TryGetValue(id, out var mejorado) ? clases[mejorado.ClaseId] : null, CalculoDepreciacion.PrimerMes(a,mismoMes)).Contable != 0)
             .Select(a => (DateOnly?)CalculoDepreciacion.PrimerMes(a, mismoMes)).Min();
     }
     public async Task BloquearAsync(CancellationToken ct)
@@ -81,14 +81,15 @@ public sealed class LibroServicio(ActivosFijosDbContext db, ActivoServicio acces
                 throw new BusinessRuleException("AF_MESES_PENDIENTES", "Ejecute primero el primer mes pendiente del libro.");
         }
         var filas = await PreviaInternaAsync(periodo, verificarAlcance, ct);
+        CorridaDepreciacion.ValidarTasas(filas);
         var revision = (await db.Set<CorridaDepreciacion>().Where(x => x.Periodo == periodo).MaxAsync(x => (int?)x.Revision, ct) ?? 0) + 1;
         var corrida = new CorridaDepreciacion { EmpresaId = Empresa, Periodo = periodo, Revision = revision, Detalles = filas.ToList() };
         foreach (var f in corrida.Detalles) f.CorridaId = corrida.Id;
         var partidas = new List<PartidaRequest>();
-        var clases = await db.Clases.ToDictionaryAsync(x => x.Id, ct);
+        var clases = await db.Clases.Include(x => x.Versiones).ToDictionaryAsync(x => x.Id, ct);
         foreach (var grupo in filas.Where(x => x.Importe > 0).GroupBy(x => new { x.ClaseId, x.SucursalId, x.CentroCostoId, x.EquipoId }))
         {
-            var c = clases[grupo.Key.ClaseId];
+            var c = clases[grupo.Key.ClaseId].EnMes(periodo);
             if (c.CuentaGastoId == c.CuentaDepreciacionId) throw new BusinessRuleException("AF_CUENTAS_IGUALES", "Gasto y depreciación acumulada deben usar cuentas distintas.");
             var importe = grupo.Sum(x => x.Importe);
             partidas.Add(await PartidaAsync(c.CuentaGastoId, importe, 0, grupo.Key.SucursalId, grupo.Key.EquipoId ?? grupo.Key.CentroCostoId, "Depreciación mensual", ct));
@@ -103,11 +104,27 @@ public sealed class LibroServicio(ActivosFijosDbContext db, ActivoServicio acces
     private async Task<IReadOnlyList<DetalleDepreciacion>> PreviaInternaAsync(DateOnly periodo, bool alcance, CancellationToken ct, bool escribir = true)
     {
         var activos = await db.Activos.Include(x => x.Historial).Include(x => x.Traslados).AsSplitQuery().Where(x => x.Estado == EstadoActivo.Activo).ToListAsync(ct);
-        var clases = await db.Clases.ToDictionaryAsync(x => x.Id, ct);
+        var clases = await db.Clases.Include(x => x.Versiones).ToDictionaryAsync(x => x.Id, ct);
         var ajustes = await db.Set<OperacionLibro>().Where(x => x.Tipo == "Revalorizacion" && x.PolizaId != null && !x.Anulada && x.Fecha < CalculoDepreciacion.Mes(periodo)).ToListAsync(ct);
         var mismoMes = await MismoMesAsync(ct);
         var todos = await db.Activos.AsNoTracking().ToDictionaryAsync(a => a.Id, ct);
         var filas = activos.Select(a => CalculoDepreciacion.Calcular(a, clases[a.ClaseId], periodo, ajustes.Where(x => x.ActivoId == a.Id).Sum(x => x.Importe), mismoMes, a.ActivoMejoradoId is Guid id && todos.TryGetValue(id, out var mejorado) ? clases[mejorado.ClaseId] : null)).ToList();
+        // Una disposición revertida conserva las corridas históricas: recupera sólo meses sin cargo al activo.
+        var disposiciones = await db.Set<OperacionLibro>().Where(x => x.Anulada && x.PolizaId != null && (x.Tipo == "Venta" || x.Tipo == "Baja")).ToListAsync(ct);
+        foreach (var a in activos.Where(a => disposiciones.Any(o => o.ActivoId == a.Id)))
+        {
+            var ultima = await db.Set<CorridaDepreciacion>().Where(c => !c.Anulada && c.Detalles.Any(d => d.ActivoId == a.Id && d.Importe > 0))
+                .MaxAsync(c => (DateOnly?)c.Periodo, ct);
+            var desde = ultima?.AddMonths(1) ?? CalculoDepreciacion.PrimerMes(a, mismoMes);
+            var baja = disposiciones.Where(o => o.ActivoId == a.Id).Min(o => CalculoDepreciacion.Mes(o.Fecha));
+            if (desde < baja) desde = baja;
+            var fila = filas.Single(f => f.ActivoId == a.Id);
+            var importe = fila.Importe;
+            for (var mes = desde; mes < CalculoDepreciacion.Mes(periodo); mes = mes.AddMonths(1))
+                importe += CalculoDepreciacion.Calcular(a, clases[a.ClaseId], mes, ajustes.Where(o => o.ActivoId == a.Id && o.Fecha < mes).Sum(o => o.Importe), mismoMes,
+                    a.ActivoMejoradoId is Guid id && todos.TryGetValue(id, out var mejorado) ? clases[mejorado.ClaseId] : null).Importe;
+            fila.Importe = Math.Min(a.ValorEnLibros, importe);
+        }
         if (alcance) foreach (var sucursal in filas.Select(x => x.SucursalId).Distinct()) await acceso.SucursalAsync(sucursal, escribir, ct);
         if (catalogos != null) foreach (var f in filas)
         {
@@ -115,6 +132,28 @@ public sealed class LibroServicio(ActivosFijosDbContext db, ActivoServicio acces
             f.Sucursal = descripcion.Sucursal ?? "Sin sucursal"; f.CentroCosto = descripcion.CentroCosto ?? "Sin centro"; f.Equipo = descripcion.Equipo;
         }
         return filas;
+    }
+    public async Task MarcarEfectoContableAsync(IEnumerable<CorridaDepreciacion> corridas, CancellationToken ct)
+    {
+        foreach (var c in corridas)
+            c.SinEfectoContable = !c.Anulada && c.Detalles.Any(d => d.Importe > 0) && (c.PolizaId == null
+                || (await lecturaPolizas!.ObtenerAsync(c.PolizaId.Value, ct))?.Estado != EstadoPoliza.Autorizada);
+    }
+    public async Task<CorridaDepreciacion> RecuperarPolizaAsync(Guid id, int version, CancellationToken ct)
+    {
+        await acceso.PermisoAsync("activos_fijos.depreciacion.correr", ct);
+        await using var tx = await db.Database.BeginTransactionAsync(ct); await BloquearAsync(ct);
+        await using var enlace = await transaccion.VincularAsync(ct);
+        var c = await db.Set<CorridaDepreciacion>().Include(c => c.Detalles).SingleAsync(c => c.Id == id, ct);
+        foreach (var sucursal in c.Detalles.Select(d => d.SucursalId).Distinct()) await acceso.SucursalAsync(sucursal,true,ct);
+        if (c.Anulada) throw new BusinessRuleException("AF_CORRIDA_ANULADA","La corrida está anulada.");
+        var previa = c.PolizaId is Guid poliza ? await lecturaPolizas!.ObtenerAsync(poliza,ct) : null;
+        if (previa?.Estado == EstadoPoliza.Autorizada) return c;
+        if (c.Version != version) throw new ConcurrencyException("Corrida",id);
+        if (previa == null || previa.Estado != EstadoPoliza.Anulada) throw new BusinessRuleException("AF_POLIZA_NO_RECUPERABLE","No se encontró una póliza anulada de esta corrida; revise Contabilidad.");
+        await PeriodoAsync(c.Periodo,ct);
+        c.PolizaId = await RegistrarAsync(c.Id,"Depreciacion",CalculoDepreciacion.Cierre(c.Periodo),$"AF-DEP-REC-{c.Id}-{previa.Id}",previa.Partidas,ct);
+        await db.SaveChangesAsync(ct); await tx.CommitAsync(ct); return c;
     }
     public async Task<CorridaDepreciacion> AnularAsync(Guid id, int version, string motivo, CancellationToken ct)
     {
