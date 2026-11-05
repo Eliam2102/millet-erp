@@ -118,6 +118,13 @@ export const FilaSalidaSchema = z
 
 export type FilaSalidaValues = z.infer<typeof FilaSalidaSchema>;
 
+const DESTINATARIO_REQUERIDO = 'Elige el destinatario de la salida.';
+const AcuseNombreSchema = z
+  .string({ message: 'Captura el nombre de quien recibe.' })
+  .trim()
+  .min(1, 'Captura el nombre de quien recibe.')
+  .max(150, 'Máximo 150 caracteres');
+
 const alMenosUnaFilaIncluida: (
   v: { filas: FilaSalidaValues[] },
   ctx: z.RefinementCtx,
@@ -146,7 +153,9 @@ export const RegistrarSalidaConRqSchema = z
     fechaMovimiento: z
       .string()
       .regex(DATE_ONLY_RE, 'Fecha en formato YYYY-MM-DD'),
-    personaDestinatariaId: z.string().regex(UUID_SHAPE_RE).nullish(),
+    // G-10: destinatario y acuse de quien recibe obligatorios para confirmar la salida.
+    personaDestinatariaId: z.string({ message: DESTINATARIO_REQUERIDO }).regex(UUID_SHAPE_RE, DESTINATARIO_REQUERIDO),
+    acuseRecibeNombre: AcuseNombreSchema,
     observaciones: z.string().max(500, 'Máximo 500 caracteres').nullish(),
     // PR5: helper de cabecera — bin que el almacenista auto-aplica a las filas
     // vacías cuyo artículo tenga existencia ahí. Estado SÓLO del formulario:
@@ -180,7 +189,10 @@ export const RegistrarSalidaPorValeSchema = z.object({
     .string()
     .min(1, 'Adjunto del vale requerido')
     .max(500, 'Máximo 500 caracteres'),
-  personaDestinatariaId: z.string().regex(UUID_SHAPE_RE).nullish(),
+  personaDestinatariaId: z.string({ message: DESTINATARIO_REQUERIDO }).regex(UUID_SHAPE_RE, DESTINATARIO_REQUERIDO),
+  acuseRecibeNombre: AcuseNombreSchema,
+  // G-10: el motivo de la urgencia es obligatorio para confirmar el vale.
+  motivoUrgencia: z.string().trim().min(1, 'Indica el motivo de la urgencia.').max(500, 'Máximo 500 caracteres'),
   observaciones: z.string().max(500, 'Máximo 500 caracteres').nullish(),
   // Helper de cabecera "Ubicación por defecto" (form-only, NO viaja al backend);
   // mismo andamiaje que la variante A. El dato que manda es el ubicacionId de

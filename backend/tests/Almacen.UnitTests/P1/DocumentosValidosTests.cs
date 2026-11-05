@@ -106,7 +106,7 @@ public sealed class DocumentosValidosTests
         if (packing) await new RegistrarRecepcionConPackingListHandler(f.Db, port, f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), new P7Support.Conversion()).Handle(new(f.DocumentoId, P1Fixture.Fecha, "packing.pdf", null, lineas), default);
         else await new RegistrarRecepcionConFacturaHandler(f.Db, port, f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), new P7Support.Conversion(), CfdiFake.Valido(), new ProveedorRfcFake()).Handle(new(f.DocumentoId, P1Fixture.Fecha, Guid.NewGuid(), null, null, lineas), default);
     }
-    private static async Task Salir(P1Fixture f, IComprasRequisicionReadPort port, RegistrarSalidaLineaInput[] lineas) => await new RegistrarSalidaConRequisicionHandler(f.Db, port, f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), new P7Support.Conversion(), P7Support.Apartados(f.Db)).Handle(new(f.DocumentoId, P1Fixture.Fecha, null, null, lineas), default);
+    private static async Task Salir(P1Fixture f, IComprasRequisicionReadPort port, RegistrarSalidaLineaInput[] lineas) => await new RegistrarSalidaConRequisicionHandler(f.Db, port, f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), new P7Support.Conversion(), P7Support.Apartados(f.Db)).Handle(new(f.DocumentoId, P1Fixture.Fecha, Guid.NewGuid(), null, lineas, "Quien recibe"), default);
     private static async Task Rechaza(P1Fixture f, Func<Task> action, string codigo)
     {
         var ex = await Assert.ThrowsAsync<BusinessRuleException>(action);

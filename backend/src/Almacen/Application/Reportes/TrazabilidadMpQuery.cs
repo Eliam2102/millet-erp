@@ -48,9 +48,14 @@ public sealed record TrazabilidadMpFila(
     decimal Salida,
     decimal Saldo,
     decimal CostoUnitarioMxn,
-    decimal ValorSaldo);
+    decimal ValorSaldo,
+    // Hojas (unidad física del vidrio por medida); null si el artículo no es por medida. La existencia sigue en m².
+    decimal? EntradaHojas = null,
+    decimal? SalidaHojas = null,
+    decimal? SaldoHojas = null);
 
-public sealed class TrazabilidadMpHandler(AlmacenDbContext db, IArticuloReadPort articulos, IComprasOcReadPort? ocs = null)
+public sealed class TrazabilidadMpHandler(AlmacenDbContext db, IArticuloReadPort articulos, IComprasOcReadPort? ocs = null,
+    IComprasRequisicionReadPort? requisiciones = null, IVarianteVidrioReadPort? variantes = null)
     : IRequestHandler<TrazabilidadMpQuery, ReporteResponse<TrazabilidadMpFila>>
 {
     public const string ConceptoSaldoInicial = "Saldo inicial";
@@ -72,27 +77,36 @@ public sealed class TrazabilidadMpHandler(AlmacenDbContext db, IArticuloReadPort
             .OrderBy(l => l.FechaMovimiento).ThenByDescending(l => l.Tipo.EsEntrada()).ThenBy(l => l.Folio, StringComparer.Ordinal)
             .ToList();
 
-        var (ordenes, foliosOc) = await ResolverReferenciasAsync(db, ocs, lineas, ct);
+        var (ordenes, foliosOc, foliosRq) = await ResolverReferenciasAsync(db, ocs, requisiciones, lineas, ct);
+        var medidas = await MedidasAsync(variantes, lineas, ct);
 
         var filas = new List<TrazabilidadMpFila>();
-        decimal saldo = 0m, valor = 0m, entradas = 0m, salidas = 0m;
+        decimal saldo = 0m, valor = 0m, entradas = 0m, salidas = 0m, saldoHojas = 0m;
+        var conHojas = medidas.Count > 0 && lineas.Any(l => MedidaReporte.Hojas(l.ProductoAwVarianteId, l.Cantidad, medidas) != null);
         foreach (var l in lineas)
         {
             var signo = l.Tipo.EsEntrada() ? 1m : -1m;
             saldo += signo * l.Cantidad;
             valor += signo * Math.Round(l.Cantidad * l.CostoUnitarioMxn, 2);
+            var hojas = MedidaReporte.Hojas(l.ProductoAwVarianteId, l.Cantidad, medidas) ?? 0m;
+            saldoHojas += signo * hojas;
             if (l.FechaMovimiento < request.Desde) continue;
             if (signo > 0) entradas += l.Cantidad; else salidas += l.Cantidad;
-            filas.Add(new TrazabilidadMpFila(l.FechaMovimiento, l.Folio, Concepto(l.Tipo), Referencia(l, ordenes, foliosOc), l.Lote,
-                l.SubAlmacenNombre, signo > 0 ? l.Cantidad : 0m, signo < 0 ? l.Cantidad : 0m, saldo, l.CostoUnitarioMxn, valor));
+            filas.Add(new TrazabilidadMpFila(l.FechaMovimiento, l.Folio, Concepto(l.Tipo), Referencia(l, ordenes, foliosOc, foliosRq), l.Lote,
+                l.SubAlmacenNombre, signo > 0 ? l.Cantidad : 0m, signo < 0 ? l.Cantidad : 0m, saldo, l.CostoUnitarioMxn, valor,
+                conHojas && signo > 0 ? hojas : conHojas ? 0m : null, conHojas && signo < 0 ? hojas : conHojas ? 0m : null, conHojas ? saldoHojas : null));
         }
         // Saldo inicial = el saldo corrido justo antes de la primera fila del periodo.
         var previas = lineas.Where(l => l.FechaMovimiento < request.Desde).ToList();
         var inicial = previas.Sum(l => (l.Tipo.EsEntrada() ? 1m : -1m) * l.Cantidad);
         var valorInicial = previas.Sum(l => (l.Tipo.EsEntrada() ? 1m : -1m) * Math.Round(l.Cantidad * l.CostoUnitarioMxn, 2));
+        var hojasIniciales = previas.Sum(l => (l.Tipo.EsEntrada() ? 1m : -1m) * (MedidaReporte.Hojas(l.ProductoAwVarianteId, l.Cantidad, medidas) ?? 0m));
         if (previas.Count > 0)
-            filas.Insert(0, new TrazabilidadMpFila(request.Desde, null, ConceptoSaldoInicial, null, lote, null, 0m, 0m, inicial, 0m, valorInicial));
+            filas.Insert(0, new TrazabilidadMpFila(request.Desde, null, ConceptoSaldoInicial, null, lote, null, 0m, 0m, inicial, 0m, valorInicial,
+                conHojas ? 0m : null, conHojas ? 0m : null, conHojas ? hojasIniciales : null));
 
+        var totales = new Dictionary<string, decimal> { ["entrada"] = entradas, ["salida"] = salidas, ["saldo"] = saldo, ["valorSaldo"] = valor };
+        if (conHojas) totales["saldoHojas"] = saldoHojas;
         var art = (await articulos.ObtenerPorIdsAsync([request.ArticuloId], ct)).GetValueOrDefault(request.ArticuloId);
         return new ReporteResponse<TrazabilidadMpFila>(
             Titulo: "TRAZABILIDAD-MP",
@@ -107,7 +121,7 @@ public sealed class TrazabilidadMpHandler(AlmacenDbContext db, IArticuloReadPort
             },
             Columnas: Columnas,
             Filas: filas,
-            Totales: new Dictionary<string, decimal> { ["entrada"] = entradas, ["salida"] = salidas, ["saldo"] = saldo, ["valorSaldo"] = valor });
+            Totales: totales);
     }
 
     internal static string Concepto(TipoMovimiento tipo) => tipo switch
@@ -118,9 +132,15 @@ public sealed class TrazabilidadMpHandler(AlmacenDbContext db, IArticuloReadPort
         _ => ConceptoAjuste,
     };
 
-    /// <summary>Orden A+W de los consumos y folio de las OC de las líneas, para la columna de documento origen (también la usa el kardex).</summary>
-    internal static async Task<(Dictionary<string, string> Ordenes, Dictionary<Guid, string> FoliosOc)> ResolverReferenciasAsync(
-        AlmacenDbContext db, IComprasOcReadPort? ocs, IReadOnlyList<LineaKardex> lineas, CancellationToken ct)
+    /// <summary>Medidas de hoja de las variantes de las líneas, para mostrar hojas junto a los m² (también las usa el kardex).</summary>
+    internal static async Task<IReadOnlyDictionary<Guid, VarianteVidrioLectura>> MedidasAsync(
+        IVarianteVidrioReadPort? variantes, IReadOnlyList<LineaKardex> lineas, CancellationToken ct) =>
+        variantes is null ? new Dictionary<Guid, VarianteVidrioLectura>()
+            : await variantes.ObtenerPorIdsAsync(lineas.Where(l => l.ProductoAwVarianteId != null).Select(l => l.ProductoAwVarianteId!.Value).Distinct().ToArray(), ct);
+
+    /// <summary>Orden A+W de los consumos, folio de las OC y de las requisiciones de las líneas, para la columna de documento origen (también la usa el kardex).</summary>
+    internal static async Task<(Dictionary<string, string> Ordenes, Dictionary<Guid, string> FoliosOc, Dictionary<Guid, string> FoliosRq)> ResolverReferenciasAsync(
+        AlmacenDbContext db, IComprasOcReadPort? ocs, IComprasRequisicionReadPort? requisiciones, IReadOnlyList<LineaKardex> lineas, CancellationToken ct)
     {
         var folios = lineas.Where(l => l.Folio != null && l.Tipo == TipoMovimiento.SalidaConsumo).Select(l => l.Folio!).Distinct().ToList();
         var ordenes = folios.Count == 0 ? new Dictionary<string, string>()
@@ -129,14 +149,19 @@ public sealed class TrazabilidadMpHandler(AlmacenDbContext db, IArticuloReadPort
         var ocIds = lineas.Where(l => l.OcId != null).Select(l => l.OcId!.Value).Distinct().ToList();
         var foliosOc = ocs is null || ocIds.Count == 0 ? new Dictionary<Guid, string>()
             : (await ocs.ObtenerFoliosAsync(ocIds, ct)).ToDictionary(x => x.Key, x => x.Value);
-        return (ordenes, foliosOc);
+        var rqIds = lineas.Where(l => l.RqId != null).Select(l => l.RqId!.Value).Distinct().ToList();
+        var foliosRq = requisiciones is null || rqIds.Count == 0 ? new Dictionary<Guid, string>()
+            : (await requisiciones.ObtenerFoliosAsync(rqIds, ct)).ToDictionary(x => x.Key, x => x.Value);
+        return (ordenes, foliosOc, foliosRq);
     }
 
-    internal static string? Referencia(LineaKardex l, Dictionary<string, string> ordenes, Dictionary<Guid, string> foliosOc)
+    internal static string? Referencia(LineaKardex l, Dictionary<string, string> ordenes, Dictionary<Guid, string> foliosOc, Dictionary<Guid, string> foliosRq)
     {
+        var motivo = l.Motivo ?? l.Comentario;
         if (l.OcId is { } oc) return foliosOc.TryGetValue(oc, out var f) ? $"OC {f}" : "OC";
         if (l.Folio != null && ordenes.TryGetValue(l.Folio, out var o)) return $"Orden A+W {o}";
-        return l.Motivo;
+        if (l.RqId is { } rq) return $"Requisición {(foliosRq.TryGetValue(rq, out var r) ? r : "")}".TrimEnd() + (motivo is null ? "" : $" · {motivo}");
+        return motivo;
     }
 
     public static readonly IReadOnlyList<ColumnaDescriptor> Columnas =
@@ -152,5 +177,8 @@ public sealed class TrazabilidadMpHandler(AlmacenDbContext db, IArticuloReadPort
         new("saldo", "Saldo", "numero", "right"),
         new("costoUnitarioMxn", "Costo unit.", "moneda", "right"),
         new("valorSaldo", "Valor saldo", "moneda", "right"),
+        new("entradaHojas", "Entrada (hojas)", "numero", "right"),
+        new("salidaHojas", "Salida (hojas)", "numero", "right"),
+        new("saldoHojas", "Saldo (hojas)", "numero", "right"),
     ];
 }

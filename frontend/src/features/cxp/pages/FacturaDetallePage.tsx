@@ -24,6 +24,7 @@ import { EstadoPasivo, MotivoCancelacionLabels } from '@/features/cxp/api/types'
 import { esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { SolicitudesCancelacionPanel } from '@/features/cxp/components/SolicitudesCancelacionPanel';
 import { EstadoPasivoChip } from '@/features/cxp/components/EstadoPasivoChip';
 import { CancelarFacturaSheet } from '@/features/cxp/components/CancelarFacturaSheet';
 import { EnviarRevisionSheet } from '@/features/cxp/components/EnviarRevisionSheet';
@@ -441,7 +442,8 @@ export function FacturaDetallePage() {
                 { etiqueta: 'Cargos aplicados', monto: query.data.cargosAplicadosTotal ?? 0 },
                 { etiqueta: 'Retenido por recepción pendiente', monto: query.data.retenido },
                 { etiqueta: 'Pagado', monto: query.data.importePagado },
-                { etiqueta: 'Saldo pendiente', monto: query.data.saldoPendiente, destacado: true },
+                // Una factura cancelada ya no es un pasivo: no queda saldo por pagar (P8.7).
+                { etiqueta: 'Saldo pendiente', monto: query.data.estado === EstadoPasivo.Cancelada ? 0 : query.data.saldoPendiente, destacado: true },
                 { etiqueta: 'Elegible para pago', monto: query.data.elegible, destacado: true },
               ]}
             />
@@ -452,6 +454,9 @@ export function FacturaDetallePage() {
             tipo="factura_proveedor"
             permiso="cuentas_por_pagar.facturas"
           />
+          {query.data.cfdiRecibidoId && (
+            <SolicitudesCancelacionPanel cfdiId={query.data.cfdiRecibidoId} />
+          )}
           <section className="space-y-2">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Partidas ({query.data.lineas.length})
