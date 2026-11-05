@@ -1,13 +1,15 @@
 namespace Millet.Contabilidad.Application.PublicPorts;
 
 /// <summary>
-/// Saldo deudor al corte de la cuenta que el motor usa para un rol en cada sucursal (ALM-13-a: rol INVENTARIO). La cuenta sale con la
-/// misma regla que el motor al generar la póliza (rol de la sucursal antes que el genérico, MXN, vigente al corte); el saldo solo
-/// cuenta las partidas de esa sucursal. <c>CuentaId</c> nulo = el rol no tiene cuenta configurada para la sucursal.
+/// Cuenta y saldo deudor al corte que el motor usa para un rol (ALM-13-a: rol INVENTARIO). Cada clave (sucursal, clasificador) se
+/// resuelve con la misma regla del motor (rol <c>{rol}_{clasificador}</c> con cuenta y, si no, el rol base; el de la sucursal antes
+/// que el genérico; MXN; vigente al corte). El saldo es de la cuenta en <paramref name="sucursalesSaldo"/> (null = toda la empresa).
+/// <c>CuentaId</c> nulo = sin cuenta configurada para esa clave.
 /// </summary>
 public interface IRolCuentaSaldoReadPort
 {
-    Task<IReadOnlyDictionary<Guid, SaldoRolSucursal>> ObtenerAsync(string rol, DateOnly corte, IReadOnlyCollection<Guid> sucursales, CancellationToken ct);
+    Task<IReadOnlyDictionary<(Guid SucursalId, string? Clasificador), SaldoRolSucursal>> ObtenerAsync(string rol, DateOnly corte,
+        IReadOnlyCollection<(Guid SucursalId, string? Clasificador)> claves, IReadOnlyCollection<Guid>? sucursalesSaldo, CancellationToken ct);
 }
 
 public sealed record SaldoRolSucursal(Guid? CuentaId, string? CuentaCodigo, string? CuentaNombre, decimal? Saldo);

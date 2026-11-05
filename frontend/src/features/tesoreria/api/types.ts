@@ -474,6 +474,9 @@ export interface PagoACuentaAbiertoResponse {
   motivo: string;
   estadoAplicacion: EstadoAplicacionMovimiento;
   antiguedadDias: number;
+  creadoPor: string;
+  /** Fecha de la firma; null mientras el pago a cuenta espera autorización. */
+  autorizadoEn: string | null;
 }
 
 // ---------------------------------------------------------------- Depósitos (TES-FE-PR4b)
@@ -516,6 +519,11 @@ export interface DepositoConfirmacionResponse {
   cajeroNombre?: string | null;
   /** Corte de caja: historial de fichas. */
   fichas?: DepositoFichaResponse[] | null;
+  /** 86e3ke6yn: se confirmó sola al importar el extracto. */
+  confirmacionAutomatica?: boolean;
+  reglaAutomatica?: string | null;
+  /** 86e3ke6yn: por qué la regla automática lo dejó para revisión humana. */
+  motivoRevision?: string | null;
 }
 
 // ---------------------------------------------------------------- REPP recibido (TES-FE-PR6b)
@@ -737,6 +745,10 @@ export interface ConciliacionResumenResponse {
   lineasEnTransito: number;
   cerradaEn: string | null;
   firmanteNombre: string | null;
+  /** 86e3ke6yn: solo al importar un extracto con emparejamiento automático. */
+  depositos?: { autoConfirmados: number; enRevision: number; sinIdentificar: number } | null;
+  lineasNuevas?: number | null;
+  lineasDuplicadas?: number | null;
 }
 
 export interface ExtractoLineaMatchResponse {
@@ -773,6 +785,7 @@ export interface BitacoraConciliacionResponse {
   accion: string;
   motivo: string;
   usuarioId: string;
+  usuarioNombre?: string | null;
   fecha: string;
 }
 

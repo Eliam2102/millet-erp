@@ -74,7 +74,7 @@ public sealed class DocumentosValidosTests
         await using var f = new P1Fixture();
         var vale = await f.MovimientoAsync(Domain.Movimientos.TipoMovimiento.SalidaPorVale, 11);
         var rq = (await f.Rq.ObtenerAsync(f.DocumentoId, default))!;
-        var h = new RegularizarSalidaPorValeHandler(f.Db, new P1Fixture.RqPort(estado is null ? null : rq with { Estado = estado }));
+        var h = new RegularizarSalidaPorValeHandler(f.Db, new P1Fixture.RqPort(estado is null ? null : rq with { Estado = estado }), f.Events);
         var ex = await Assert.ThrowsAsync<BusinessRuleException>(() => h.Handle(new(vale.Id, f.DocumentoId), default));
         ex.Code.Should().Be("VALE_RQ_REGULARIZADORA_INVALIDA");
         vale.PendienteRegularizacion.Should().BeTrue();
@@ -84,7 +84,7 @@ public sealed class DocumentosValidosTests
     {
         await using var f = new P1Fixture();
         var vale = await f.MovimientoAsync(Domain.Movimientos.TipoMovimiento.SalidaPorVale);
-        await new RegularizarSalidaPorValeHandler(f.Db, f.Rq).Handle(new(vale.Id, f.DocumentoId), default);
+        await new RegularizarSalidaPorValeHandler(f.Db, f.Rq, f.Events).Handle(new(vale.Id, f.DocumentoId), default);
         vale.PendienteRegularizacion.Should().BeFalse();
     }
     [Fact]
@@ -106,7 +106,7 @@ public sealed class DocumentosValidosTests
         if (packing) await new RegistrarRecepcionConPackingListHandler(f.Db, port, f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), new P7Support.Conversion()).Handle(new(f.DocumentoId, P1Fixture.Fecha, "packing.pdf", null, lineas), default);
         else await new RegistrarRecepcionConFacturaHandler(f.Db, port, f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), new P7Support.Conversion(), CfdiFake.Valido(), new ProveedorRfcFake()).Handle(new(f.DocumentoId, P1Fixture.Fecha, Guid.NewGuid(), null, null, lineas), default);
     }
-    private static async Task Salir(P1Fixture f, IComprasRequisicionReadPort port, RegistrarSalidaLineaInput[] lineas) => await new RegistrarSalidaConRequisicionHandler(f.Db, port, f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), new P7Support.Conversion(), P7Support.Apartados(f.Db)).Handle(new(f.DocumentoId, P1Fixture.Fecha, null, null, lineas), default);
+    private static async Task Salir(P1Fixture f, IComprasRequisicionReadPort port, RegistrarSalidaLineaInput[] lineas) => await new RegistrarSalidaConRequisicionHandler(f.Db, port, f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), new P7Support.Conversion(), P7Support.Apartados(f.Db)).Handle(new(f.DocumentoId, P1Fixture.Fecha, Guid.NewGuid(), null, lineas, "Quien recibe"), default);
     private static async Task Rechaza(P1Fixture f, Func<Task> action, string codigo)
     {
         var ex = await Assert.ThrowsAsync<BusinessRuleException>(action);

@@ -17,7 +17,7 @@ import { useState } from 'react';
 import { HandCoins, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
-import { usePagosACuentaAbiertos } from '@/features/tesoreria/api/useTesoreria';
+import { useAutorizarPagoACuenta, usePagosACuentaAbiertos } from '@/features/tesoreria/api/useTesoreria';
 import type { PagoACuentaAbiertoResponse } from '@/features/tesoreria/api/types';
 import { EstadoAplicacionBadge } from '@/features/tesoreria/components/Badges';
 import { LigarPagoACuentaDialog } from '@/features/tesoreria/components/LigarPagoACuentaDialog';
@@ -25,7 +25,9 @@ import { NuevoPagoACuentaSheet } from '@/features/tesoreria/components/NuevoPago
 import { formatoMonto } from '@/features/tesoreria/lib/formato';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError } from '@/lib/api';
+import { useAuthStore } from '@/lib/auth/auth-store';
+import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
+import { toast } from 'sonner';
 
 /**
  * <c>Pagos a cuenta abiertos</c> (TES-FE-PR4, P2 / §3.4): read model con
@@ -35,6 +37,24 @@ import { esApiError } from '@/lib/api';
 export function BandejaPagosACuenta() {
   const puedeRegistrar = useHasPermission(PermisosCanonicos.TesoreriaPagosCuentaRegistrar);
   const puedeLigar = useHasPermission(PermisosCanonicos.TesoreriaPagosCuentaLigar);
+
+  const puedeAutorizar = useHasPermission(PermisosCanonicos.TesoreriaPagosCuentaAutorizar);
+  const usuarioId = useAuthStore((s) => s.user?.id);
+  const autorizar = useAutorizarPagoACuenta();
+  const keyFor = useBodyScopedIdempotencyKey();
+
+  function firmar(p: PagoACuentaAbiertoResponse) {
+    autorizar.mutate(
+      { movimientoId: p.movimientoId, idempotencyKey: keyFor({ accion: 'autorizar', id: p.movimientoId }) },
+      {
+        onSuccess: () => toast.success('Pago a cuenta autorizado'),
+        onError: (e) =>
+          toast.error(esApiError(e) ? e.problem.title : 'No se pudo autorizar el pago a cuenta', {
+            description: esApiError(e) ? e.problem.detail : undefined,
+          }),
+      },
+    );
+  }
 
   const query = usePagosACuentaAbiertos({ incluirParciales: true, limit: 200 });
 
@@ -158,8 +178,25 @@ export function BandejaPagosACuenta() {
                     </TableCell>
                     <TableCell className="px-3 py-2">
                       <EstadoAplicacionBadge estado={p.estadoAplicacion} />
+                      {p.autorizadoEn == null && (
+                        <p className="mt-1 text-xs text-ink-muted">Pendiente de autorización</p>
+                      )}
                     </TableCell>
-                    <TableCell className="px-3 py-2 text-right">
+                    <TableCell className="space-x-2 px-3 py-2 text-right">
+                      {puedeAutorizar && p.autorizadoEn == null && (
+                        <Button
+                          size="sm"
+                          disabled={autorizar.isPending || p.creadoPor === usuarioId}
+                          title={
+                            p.creadoPor === usuarioId
+                              ? 'Quien capturó el pago no puede autorizarlo; pide la firma a otra persona'
+                              : undefined
+                          }
+                          onClick={() => firmar(p)}
+                        >
+                          Autorizar
+                        </Button>
+                      )}
                       {puedeLigar && p.proveedorId != null && (
                         <Button variant="outline" size="sm" onClick={() => setLigando(p)}>
                           Ligar

@@ -139,3 +139,40 @@ export function useCrearPropuestaAplicacion() {
     },
   });
 }
+
+/** <c>useAutorizarAjuste()</c> — CXC-06: otra persona autoriza el ajuste documentado del cobro corto. */
+export function useAutorizarAjuste() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { id: string; versionEsperada: number; idempotencyKey: string }) => {
+      const { data } = await apiRequest<PropuestaAplicacionResponse>(`${BASE}/${args.id}/autorizar-ajuste`, {
+        method: 'POST',
+        idempotencyKey: args.idempotencyKey,
+        headers: { 'X-Expected-Version': String(args.versionEsperada) },
+      });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: cxcKeys.propuestas() });
+    },
+  });
+}
+
+/** <c>useRechazarAjuste()</c> — CXC-06: rechazar el ajuste rechaza la propuesta (motivo obligatorio). */
+export function useRechazarAjuste() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { id: string; versionEsperada: number; motivo: string; idempotencyKey: string }) => {
+      const { data } = await apiRequest<PropuestaAplicacionResponse>(`${BASE}/${args.id}/rechazar-ajuste`, {
+        method: 'POST',
+        body: { motivo: args.motivo },
+        idempotencyKey: args.idempotencyKey,
+        headers: { 'X-Expected-Version': String(args.versionEsperada) },
+      });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: cxcKeys.propuestas() });
+    },
+  });
+}

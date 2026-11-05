@@ -32,6 +32,7 @@ public sealed class NotaCreditoConfiguration : IEntityTypeConfiguration<NotaCred
         builder.Property(e => e.ReembolsoActualizadoEn);
         builder.Property(e => e.ReembolsoPagadoEl);
         builder.Property(e => e.ReembolsoReferencia).HasMaxLength(100);
+        builder.Property(e => e.Comentarios).HasMaxLength(NotaCredito.ComentariosMaxLength);
         builder.Property(e => e.ReembolsoMotivoResolucion).HasMaxLength(400);
         builder.Ignore(e => e.DebeSolicitarReembolsoProgramado);
 

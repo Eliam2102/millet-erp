@@ -10,7 +10,8 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 export const Route = createFileRoute('/_app/almacen/cierre-mes')({
   beforeLoad: () => {
     const permisos = useAuthStore.getState().permisos;
-    if (!permisos.includes(PermisosCanonicos.AlmacenCierreMesEjecutar)) {
+    if (!permisos.includes(PermisosCanonicos.AlmacenCierreMesEjecutar)
+      && !permisos.includes(PermisosCanonicos.AlmacenCierreRevisarActa)) {
       throw redirect({ to: '/almacen' });
     }
   },

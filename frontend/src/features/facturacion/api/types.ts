@@ -462,6 +462,8 @@ export interface NotaCreditoDevolucionAnticipoCommand {
   montoTotal: number;
   tasaIva: number | null;
   reembolso: ReembolsoClienteRequest;
+  /** Texto libre que se imprime en el PDF de la NC (≤ 1000). */
+  comentarios?: string | null;
 }
 
 export interface NotaCreditoDevolucionAnticipoResponse {
@@ -1497,6 +1499,8 @@ export interface NotaCreditoBonificacionCommand {
   descripcion: string | null;
   /** F6.3: «Devolver dinero al cliente»; al timbrar se pide a Tesorería el reembolso con esta cuenta. */
   reembolso?: ReembolsoClienteRequest | null;
+  /** Texto libre que se imprime en el PDF de la NC (≤ 1000). */
+  comentarios?: string | null;
 }
 
 /** F6.3: cuenta destino del reembolso al cliente (CLABE de 18 dígitos). */

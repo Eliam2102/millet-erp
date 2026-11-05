@@ -626,8 +626,7 @@ public sealed class EmitirFacturaVentaHandler
                 montoTotal: a.Importe,
                 tasaIva: tasaIvaEstandar);
 
-            if (!string.IsNullOrWhiteSpace(a.FacturaAnticipo.Uuid))
-                nc.AgregarRelacion(a.FacturaAnticipo.Uuid!, "07");
+            // Millet (4-nov): la NC de aplicación relaciona solo la factura de venta (el anticipo va en la factura).
             if (!string.IsNullOrWhiteSpace(factura.Uuid))
                 nc.AgregarRelacion(factura.Uuid!, "07");
 

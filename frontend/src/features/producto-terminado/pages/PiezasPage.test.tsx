@@ -54,6 +54,38 @@ describe('PiezasPage', () => {
     expect(container.textContent).not.toContain('69');
   });
 
+  it('una pieza entregada o rechazada en sitio (PT5.6) no se muestra como En PT', () => {
+    state.usePiezas.mockReturnValue(
+      ok({
+        items: [
+          { id: 'p1', etiqueta: 'ETQ-001', numeroPedido: 'PED-1', posicion: 1, numeroPieza: 1, sucursalId: 'suc-1', estado: 'Entregada', escaneadaAt: '2026-10-20T18:00:00Z' },
+          { id: 'p2', etiqueta: 'ETQ-002', numeroPedido: 'PED-1', posicion: 1, numeroPieza: 2, sucursalId: 'suc-1', estado: 'EnRevision', escaneadaAt: '2026-10-20T18:00:00Z' },
+        ],
+        total: 2,
+        avance: [],
+      }),
+    );
+    render(<PiezasPage />);
+    expect(screen.getByText('Entregada')).toBeInTheDocument();
+    expect(screen.getByText('En revisión')).toBeInTheDocument();
+    expect(screen.queryByText('En PT')).not.toBeInTheDocument();
+  });
+
+  it('una pieza en tránsito muestra En tránsito con su destino, no En PT', () => {
+    state.usePiezas.mockReturnValue(
+      ok({
+        items: [
+          { id: 'p1', etiqueta: 'ETQ-001', numeroPedido: 'PED-1', posicion: 1, numeroPieza: 1, sucursalId: 'suc-1', estado: 'EnTransito', escaneadaAt: '2026-10-20T18:00:00Z', sucursalDestinoId: 'suc-1' },
+        ],
+        total: 1,
+        avance: [],
+      }),
+    );
+    render(<PiezasPage />);
+    expect(screen.getAllByText('En tránsito a Conkal').length).toBeGreaterThan(0);
+    expect(screen.queryByText('En PT')).not.toBeInTheDocument();
+  });
+
   it.each([
     ['Retenido', 'SaldoPendiente', 'Saldo pendiente'],
     ['Liberado', 'SaldoCubierto', 'Saldo cubierto'],

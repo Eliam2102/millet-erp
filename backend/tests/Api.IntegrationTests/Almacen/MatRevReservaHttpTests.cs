@@ -295,7 +295,7 @@ public class MatRevReservaHttpTests : IClassFixture<WebApplicationFactory<Progra
                     lineas = new[]
                     {
                         new { articuloId = ctx.ArticuloId, lineaOcId = ctx.LineaOcId, cantidad = 10m, ubicacionId = ctx.RackId,
-                              cantidadDanada = 2m, motivoDano = "Hojas rotas" },
+                              cantidadDanada = 2m, motivoDano = "Hojas rotas", evidenciaBlobRef = "blob://evidencia/hojas-rotas.jpg" },
                     },
                 });
                 Assert.True(resp.StatusCode == HttpStatusCode.Created, await resp.Content.ReadAsStringAsync());

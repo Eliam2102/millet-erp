@@ -212,8 +212,8 @@ public sealed partial class P6SucursalEndpointsTests
             "vale-detalle" => client.GetAsync($"/api/v1/almacen/salidas/{d["vale_p7"]}/vale"),
             "recepcion-factura" => client.PostAsJsonAsync("/api/v1/almacen/recepciones/", new RegistrarRecepcionConFacturaCommand(d["oc"], new(2026, 10, 9), null, Guid.NewGuid().ToString(), "DEMO P6b", entradas)),
             "recepcion-packing" => client.PostAsJsonAsync("/api/v1/almacen/recepciones/packing-list", new RegistrarRecepcionConPackingListCommand(d["oc"], new(2026, 10, 9), "DEMO-P6b.pdf", null, entradas)),
-            "salida-rq" => client.PostAsJsonAsync("/api/v1/almacen/salidas/", new RegistrarSalidaConRequisicionCommand(d["rq"], new(2026, 10, 9), null, "DEMO P6b", salidas)),
-            "salida-vale" => client.PostAsJsonAsync("/api/v1/almacen/salidas/vale", new RegistrarSalidaPorValeCommand(new(2026, 10, 9), "DEMO-P6b.pdf", null, "DEMO P6b", salidas)),
+            "salida-rq" => client.PostAsJsonAsync("/api/v1/almacen/salidas/", new RegistrarSalidaConRequisicionCommand(d["rq"], new(2026, 10, 9), Guid.NewGuid(), "DEMO P6b", salidas, "DEMO quien recibe")),
+            "salida-vale" => client.PostAsJsonAsync("/api/v1/almacen/salidas/vale", new RegistrarSalidaPorValeCommand(new(2026, 10, 9), "DEMO-P6b.pdf", Guid.NewGuid(), "DEMO P6b", salidas, "DEMO urgencia P6b", "DEMO quien recibe")),
             "regularizar" => client.PostAsJsonAsync($"/api/v1/almacen/salidas/{d["vale_p7"]}/regularizar", new RegularizarValeRequest(d["rq"])),
             "reorden-detalle" => client.GetAsync($"/api/v1/almacen/reorden/{d["config_p7"]}"),
             // Otro artículo exclusivo evita duplicar la config existente del fixture.

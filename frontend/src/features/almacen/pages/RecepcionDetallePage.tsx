@@ -7,7 +7,8 @@ import { TipoDocumentoTrazabilidad } from '@/components/erp/trazabilidad/types';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Link, useParams } from '@tanstack/react-router';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Printer } from 'lucide-react';
+import { descargarComprobanteRecepcion } from '@/features/almacen/api/descargarComprobanteSalida';
 import { Button } from '@/components/ui/button';
 import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
 import { ErrorState, DetalleSkeleton } from '@/components/erp';
@@ -134,6 +135,7 @@ export function RecepcionDetallePage() {
                       Capturar la recepción correcta
                     </Button>
                   )}
+                <ImprimirRecepcionButton recepcionId={query.data.id} folio={query.data.folio} />
                 <TrazabilidadComprasDialog tipo={TipoDocumentoTrazabilidad.Recepcion} id={id} />
               </>
             }
@@ -180,6 +182,16 @@ export function RecepcionDetallePage() {
               valor={query.data.facturaFolio ?? '—'}
               mono={!!query.data.facturaFolio}
             />
+            {query.data.remision && <Campo label="Remisión" valor={query.data.remision} mono />}
+            <Campo
+              label="Recibió físicamente"
+              valor={query.data.recibidoPorNombre ?? query.data.registradoPorNombre ?? '—'}
+            />
+            {query.data.motivoDuplicado && (
+              <div className="md:col-span-2">
+                <Campo label="Motivo de recepción repetida" valor={query.data.motivoDuplicado} />
+              </div>
+            )}
             {query.data.importacion && (
               <>
                 <Campo label="Pedimento" valor={query.data.importacion.numeroPedimento} mono />
@@ -250,6 +262,47 @@ export function RecepcionDetallePage() {
             </section>
           )}
 
+          {(query.data.rechazos?.length ?? 0) > 0 && (
+            <section className="space-y-2" aria-labelledby="rechazos-recepcion">
+              <h2
+                id="rechazos-recepcion"
+                className="text-sm font-semibold uppercase tracking-wide text-ink-muted"
+              >
+                Rechazado en el acto ({query.data.rechazos?.length})
+              </h2>
+              <AvisoEnLinea tono="advertencia">
+                Lo rechazado no entró al inventario: sigue pendiente en la orden de compra.
+              </AvisoEnLinea>
+              <TableContainer className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Artículo</TableHead>
+                      <TableHead className="text-right">Cantidad</TableHead>
+                      <TableHead>UM</TableHead>
+                      <TableHead>Motivo</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {query.data.rechazos?.map((r, i) => (
+                      <TableRow key={`${r.articuloId}-${i}`}>
+                        <TableCell>
+                          {r.articuloClave && (
+                            <span className="font-mono text-xs text-ink-muted">{r.articuloClave}</span>
+                          )}
+                          <div>{r.articuloDescripcion ?? '—'}</div>
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">{formatCantidad(r.cantidad, 2)}</TableCell>
+                        <TableCell>{r.unidadMedida}</TableCell>
+                        <TableCell>{r.motivo}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </section>
+          )}
+
           <section className="space-y-2">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">
               Partidas ({query.data.lineas.length})
@@ -292,6 +345,9 @@ export function RecepcionDetallePage() {
                               <IndicadorAlmacenBadge estado="revision" />
                               {l.motivoDano && (
                                 <p className="text-xs text-ink-muted">{l.motivoDano}</p>
+                              )}
+                              {l.conEvidencia && (
+                                <p className="text-xs text-ink-muted">Con evidencia adjunta</p>
                               )}
                             </div>
                           )}
@@ -376,6 +432,31 @@ export function RecepcionDetallePage() {
         </div>
       )}
     </div>
+  );
+}
+
+/** G-10: descarga el PDF de la recepción (folio, OC, proveedor, partidas, rechazos y quién recibió) para firmarlo. */
+function ImprimirRecepcionButton({ recepcionId, folio }: { recepcionId: string; folio: string }) {
+  const [generando, setGenerando] = useState(false);
+
+  async function imprimir() {
+    setGenerando(true);
+    try {
+      await descargarComprobanteRecepcion(recepcionId, folio);
+    } catch (e) {
+      toast.error('No se pudo generar la recepción en PDF.', {
+        description: esApiError(e) ? e.problem.detail : 'Reintenta en unos segundos.',
+      });
+    } finally {
+      setGenerando(false);
+    }
+  }
+
+  return (
+    <Button type="button" variant="outline" onClick={imprimir} disabled={generando}>
+      <Printer className="mr-2 size-3.5" />
+      {generando ? 'Generando PDF…' : 'Imprimir recepción'}
+    </Button>
   );
 }
 

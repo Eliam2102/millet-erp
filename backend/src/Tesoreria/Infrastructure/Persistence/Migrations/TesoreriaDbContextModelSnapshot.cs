@@ -1595,6 +1595,12 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("cliente_id");
 
+                    b.Property<bool>("ConfirmacionAutomatica")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("confirmacion_automatica");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -1624,6 +1630,10 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasColumnType("smallint")
                         .HasColumnName("estado");
 
+                    b.Property<Guid?>("ExtractoLineaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("extracto_linea_id");
+
                     b.Property<string>("FacturasJson")
                         .IsRequired()
                         .HasColumnType("jsonb")
@@ -1644,6 +1654,11 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(400)")
                         .HasColumnName("motivo_rechazo");
 
+                    b.Property<string>("MotivoRevision")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("motivo_revision");
+
                     b.Property<Guid?>("MovimientoId")
                         .HasColumnType("uuid")
                         .HasColumnName("movimiento_id");
@@ -1655,6 +1670,11 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("PropuestoPor")
                         .HasColumnType("uuid")
                         .HasColumnName("propuesto_por");
+
+                    b.Property<string>("ReglaAutomatica")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("regla_automatica");
 
                     b.Property<bool>("ReppTimbrado")
                         .HasColumnType("boolean")
@@ -2413,6 +2433,14 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<DateTimeOffset?>("AutorizadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("autorizado_en");
+
+                    b.Property<Guid?>("AutorizadoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("autorizado_por");
+
                     b.Property<Guid?>("BeneficiarioRef")
                         .HasColumnType("uuid")
                         .HasColumnName("beneficiario_ref");
@@ -2577,6 +2605,91 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                             t.HasCheckConstraint("ck_movimiento_bancario_monto_positivo", "monto > 0");
 
                             t.HasCheckConstraint("ck_movimiento_bancario_sentido", "sentido IN (1, 2)");
+                        });
+                });
+
+            modelBuilder.Entity("Millet.Tesoreria.Domain.Pasivos.AutorizacionPagoComercioExterior", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<Guid>("FacturaProveedorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("factura_proveedor_id");
+
+                    b.Property<string>("MotivoRechazo")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("motivo_rechazo");
+
+                    b.Property<DateTimeOffset?>("Nivel1En")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("nivel1en");
+
+                    b.Property<Guid?>("Nivel1UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("nivel1usuario_id");
+
+                    b.Property<DateTimeOffset?>("Nivel2En")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("nivel2en");
+
+                    b.Property<Guid?>("Nivel2UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("nivel2usuario_id");
+
+                    b.Property<DateTimeOffset?>("RechazadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("rechazado_en");
+
+                    b.Property<Guid?>("RechazadoPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("rechazado_por_id");
+
+                    b.Property<short>("Tipo")
+                        .HasColumnType("smallint")
+                        .HasColumnName("tipo");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_autorizacion_pago_comercio_exterior");
+
+                    b.HasIndex("FacturaProveedorId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_autorizacion_pago_ce_factura");
+
+                    b.ToTable("autorizacion_pago_comercio_exterior", "tesoreria", t =>
+                        {
+                            t.HasCheckConstraint("ck_autorizacion_pago_ce_tipo", "tipo IN (1, 2)");
                         });
                 });
 

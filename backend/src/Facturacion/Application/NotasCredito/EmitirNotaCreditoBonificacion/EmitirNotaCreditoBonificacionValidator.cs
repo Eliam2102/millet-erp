@@ -1,4 +1,5 @@
 using FluentValidation;
+using Millet.Facturacion.Domain.NotasCredito;
 
 namespace Millet.Facturacion.Application.NotasCredito.EmitirNotaCreditoBonificacion;
 
@@ -10,6 +11,7 @@ public sealed class EmitirNotaCreditoBonificacionValidator : AbstractValidator<E
         RuleFor(c => c.FacturaVentaId).NotEmpty();
         RuleFor(c => c.MontoTotal).GreaterThan(0);
         RuleFor(c => c.TasaIva).GreaterThanOrEqualTo(0).When(c => c.TasaIva.HasValue);
+        RuleFor(c => c.Comentarios).MaximumLength(NotaCredito.ComentariosMaxLength);
         RuleFor(c => c.Reembolso!).SetValidator(new ReembolsoClienteRequestValidator()).When(c => c.Reembolso is not null);
     }
 }

@@ -13,6 +13,7 @@ import {
   PackageMinus,
   PackagePlus,
   RotateCcw,
+  Scissors,
   Warehouse,
 } from 'lucide-react';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -143,12 +144,20 @@ const moduloAlmacenLanding: NavModulo = {
       label: 'Cierre y reportes',
       cards: [
         {
+          label: 'Taller de sucursal',
+          description:
+            'Cierre de día del almacenista: descargas por pedido interno Serie 9000 y factor de optimización.',
+          to: '/almacen/taller',
+          icon: Scissors,
+          permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
+        },
+        {
           label: 'Cierre de mes',
           description:
             'Cerrar periodo mensual. Valida que no haya conteos ni movimientos pendientes.',
           to: '/almacen/cierre-mes',
           icon: Lock,
-          permission: PermisosCanonicos.AlmacenCierreMesEjecutar,
+          permissionsAny: [PermisosCanonicos.AlmacenCierreMesEjecutar, PermisosCanonicos.AlmacenCierreRevisarActa],
         },
         {
           label: 'Reportes',

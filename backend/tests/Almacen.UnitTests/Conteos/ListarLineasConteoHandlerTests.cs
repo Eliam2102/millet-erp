@@ -77,7 +77,7 @@ public class ListarLineasConteoHandlerTests
     public async Task Comparacion_enriquece_igual_y_conserva_las_variaciones()
     {
         await using var db = await NuevaDbAsync();
-        var conteoId = await SembrarConteoAsync(db, capturar: true);
+        var conteoId = await SembrarConteoAsync(db, capturar: true, cerrarCaptura: true);
 
         var articulos = new FakeArticuloReadPort
         {
@@ -103,6 +103,22 @@ public class ListarLineasConteoHandlerTests
         capturada.VariacionAbsoluta.Should().Be(30m);
     }
 
+    // G-3 criterio 4: mientras el conteo está en captura, el aprobador no ve el teórico.
+    [Fact]
+    public async Task Comparacion_se_rechaza_mientras_el_conteo_esta_en_captura_y_abre_al_cerrarla()
+    {
+        await using var db = await NuevaDbAsync();
+        var enCaptura = await SembrarConteoAsync(db, capturar: true);
+        var cerrado = await SembrarConteoAsync(db, capturar: true, cerrarCaptura: true);
+        var handler = new ListarLineasComparacionHandler(db, new FakeArticuloReadPort());
+
+        var act = () => handler.Handle(new ListarLineasComparacionQuery(enCaptura), CancellationToken.None);
+
+        (await act.Should().ThrowAsync<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>())
+            .Which.Code.Should().Be("CONTEO_COMPARACION_EN_CAPTURA");
+        (await handler.Handle(new ListarLineasComparacionQuery(cerrado), CancellationToken.None)).Should().HaveCount(3);
+    }
+
     // ─── Infra de test ───
 
     private static ArticuloLectura Lectura(Guid id, string clave, string descripcion) =>
@@ -112,7 +128,7 @@ public class ListarLineasConteoHandlerTests
     /// Conteo con 3 líneas en la zona HG1: ArticuloA en los racks HG1-06 y
     /// HG1-05 (insertadas en desorden a propósito) y ArticuloB en HG1-05.
     /// </summary>
-    private static async Task<Guid> SembrarConteoAsync(AlmacenDbContext db, bool capturar = false)
+    private static async Task<Guid> SembrarConteoAsync(AlmacenDbContext db, bool capturar = false, bool cerrarCaptura = false)
     {
         var subAlmacenId = Guid.NewGuid();
         db.SubAlmacenes.Add(new SubAlmacen(
@@ -146,6 +162,11 @@ public class ListarLineasConteoHandlerTests
         {
             conteo.Iniciar(new ConteoUmbrales(5m, 1000m, 1000m, 10000m));
             lineaCapturable.Capturar(30m, capturadoPor: Guid.NewGuid());
+            if (cerrarCaptura)
+            {
+                foreach (var l in conteo.Lineas.Where(l => l != lineaCapturable)) l.Capturar(0m, capturadoPor: Guid.NewGuid());
+                conteo.EnviarAConciliacion();
+            }
         }
 
         db.Conteos.Add(conteo);

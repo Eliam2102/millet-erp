@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Compras.Application;
+using Millet.Compras.Application.Integration.AlmCompra;
 using Millet.Compras.Domain;
 using Millet.Compras.Domain.Oc;
 using Millet.Compras.Domain.Oc.Events;
@@ -25,6 +26,7 @@ namespace Millet.Compras.Application.Oc.Cancelar;
 public sealed class CancelarOrdenCompraHandler : IRequestHandler<CancelarOrdenCompraCommand>
 {
     private readonly ComprasDbContext _db;
+    private readonly AlmCompraEncolador? _almCompra;
     private readonly ICurrentUserContext _currentUser;
     private readonly IClock _clock;
     private readonly IPublisher _publisher;
@@ -35,8 +37,10 @@ public sealed class CancelarOrdenCompraHandler : IRequestHandler<CancelarOrdenCo
         ICurrentUserContext currentUser,
         IClock clock,
         IPublisher publisher,
-        IRecepcionesOcReadPort recepciones)
+        IRecepcionesOcReadPort recepciones,
+        AlmCompraEncolador? almCompra = null)
     {
+        _almCompra = almCompra;
         _db = db;
         _currentUser = currentUser;
         _clock = clock;
@@ -96,6 +100,19 @@ public sealed class CancelarOrdenCompraHandler : IRequestHandler<CancelarOrdenCo
         if (recibidoEnAlmacen > 0m)
         {
             throw new BusinessRuleException(OrdenCompra.CodigoCancelarConRecepcion, OrdenCompra.MensajeCancelarConRecepcion);
+        }
+
+        // 86e3jvu83: una OC ya mandada a Almacenes no se cancela sola: queda en espera, se encola COMPRA_CANCELADA y la cancelación
+        // (con su liberación de RQ) se aplica cuando Almacenes acuse PROCESADO. Si acusa ERROR, la OC vuelve a su estado.
+        if (_almCompra is not null && await _almCompra.EnviadaAAlmacenesAsync(oc.Id, cancellationToken))
+        {
+            oc.SolicitarCancelacionAlmacenes(userId, _clock.UtcNow, command.MotivoCancelacionId, command.MotivoCancelacionTexto);
+            // Contrato v6: el motivo viaja con la cancelación (descripción del catálogo y, si hay, el texto libre).
+            var motivoAlmacenes = string.IsNullOrWhiteSpace(command.MotivoCancelacionTexto)
+                ? motivo.Descripcion : $"{motivo.Descripcion}: {command.MotivoCancelacionTexto}";
+            await _almCompra.EncolarCancelacionAsync(oc.Id, motivoAlmacenes, cancellationToken);
+            await _db.SaveChangesAsync(cancellationToken);
+            return;
         }
 
         var resultado = oc.Cancelar(

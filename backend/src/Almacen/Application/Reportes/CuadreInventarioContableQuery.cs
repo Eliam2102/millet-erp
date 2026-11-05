@@ -10,9 +10,11 @@ namespace Millet.Almacen.Application.Reportes;
 
 /// <summary>
 /// F1-ALM-13-a: cuadre del cierre de mes. Compara la valuación del ALFAK al último día del mes (la foto del cierre si el mes ya se
-/// cerró) contra el saldo de la cuenta de inventario en Contabilidad, por sucursal. La cuenta es la del rol <c>INVENTARIO</c> con
-/// la que Contabilidad registra los movimientos de almacén; si no hay cuenta configurada se dice, no se inventa. El detalle por
-/// almacén solo trae la valuación: la cuenta se configura por sucursal.
+/// cerró) contra el saldo de la cuenta de inventario en Contabilidad, por cuenta y para toda la empresa (Contabilidad, Fernando
+/// Alejos 4-nov: una cuenta por tipo de artículo para todas las sucursales). La cuenta de cada artículo es la del rol
+/// <c>INVENTARIO_{grupo}</c> (o <c>INVENTARIO</c>) con la que Contabilidad registra los movimientos de almacén; un grupo sin cuenta
+/// se lista como «sin cuenta configurada», no se adivina. Mercancías en tránsito (115.05) no entra: ningún grupo apunta a ella.
+/// El detalle por almacén solo trae la valuación.
 /// <para>Cuadre contra el kardex (misma cuenta que hará el kardex 86e3tac22): por almacén y artículo, valuación al cierre =
 /// valuación al cierre anterior + movimientos del mes valorizados con el costo de cada línea. Solo se listan los que no cuadran;
 /// la diferencia es un cambio de valor sin movimiento (p. ej. incrementables de CE o restauración de costo al cancelar).</para>
@@ -32,11 +34,12 @@ public sealed class CuadreInventarioContableQueryValidator : AbstractValidator<C
     }
 }
 
-/// <summary><c>Nivel</c> = «Sucursal» (con cuenta, saldo y diferencia) o «Almacén» (solo valuación). Diferencia = valuación − saldo.</summary>
-/// «Kardex» = almacén y artículo cuya valuación no es la del cierre anterior más los movimientos del mes (<c>SaldoContable</c> nulo).
+/// <summary><c>Nivel</c> = «Cuenta» (empresa: cuenta con sus grupos, saldo y diferencia; o un grupo sin cuenta) o «Almacén» (solo
+/// valuación). Diferencia = valuación − saldo.
+/// «Kardex» = almacén y artículo cuya valuación no es la del cierre anterior más los movimientos del mes (<c>SaldoContable</c> nulo).</summary>
 public sealed record CuadreInventarioFila(
-    string Nivel, Guid SucursalId, string? Sucursal, string? Almacen, string? Cuenta,
-    decimal Valuacion, decimal? SaldoContable, decimal? Diferencia, string? Observacion, string? Articulo = null);
+    string Nivel, Guid? SucursalId, string? Sucursal, string? Almacen, string? Cuenta,
+    decimal Valuacion, decimal? SaldoContable, decimal? Diferencia, string? Observacion, string? Articulo = null, string? Grupo = null);
 
 public sealed class CuadreInventarioContableHandler(
     AlmacenDbContext db, IInventarioContableReadPort contabilidad, ISucursalReadPort sucursales, ICurrentEmpresaContext empresa,
@@ -45,7 +48,8 @@ public sealed class CuadreInventarioContableHandler(
 {
     // ponytail: tolerancia fija por redondeo a centavos de cada grupo (medida, lote); si Contabilidad pide cero exacto, valuar sin redondear por grupo.
     public const decimal ToleranciaKardex = 0.10m;
-    public const string SinCuenta = "Sin cuenta configurada (rol INVENTARIO en Contabilidad)";
+    public const string SinCuenta = "Sin cuenta configurada (rol INVENTARIO_{grupo} o INVENTARIO en Contabilidad)";
+    public const string SinGrupo = "(sin grupo)";
 
     public async Task<ReporteResponse<CuadreInventarioFila>> Handle(CuadreInventarioContableQuery request, CancellationToken cancellationToken)
     {
@@ -76,25 +80,15 @@ public sealed class CuadreInventarioContableHandler(
             ids.Add(id);
             nombres[id] = s is null ? null : $"{s.Clave} · {s.Nombre}";
         }
-        var cuentas = await contabilidad.ObtenerAsync(corte, ids, ct);
-
-        var filas = new List<CuadreInventarioFila>();
+        var filas = await PorCuentaAsync(request, corte, valuacion, porSub.ToDictionary(x => x.Key, x => x.Value.SucursalId), ids, ct);
         foreach (var id in ids.OrderBy(i => nombres[i]))
-        {
-            var detalle = valorPorAlmacen.Where(x => x.Key.SucursalId == id).OrderBy(x => x.Key.Almacen).ToList();
-            var total = detalle.Sum(x => x.Value);
-            var c = cuentas.GetValueOrDefault(id);
-            filas.Add(c?.CuentaId is null
-                ? new("Sucursal", id, nombres[id], null, null, total, null, null, SinCuenta)
-                : new("Sucursal", id, nombres[id], null, $"{c.CuentaCodigo} · {c.CuentaNombre}", total, c.Saldo ?? 0m,
-                    total - (c.Saldo ?? 0m), total == (c.Saldo ?? 0m) ? "Cuadra" : "No cuadra"));
-            filas.AddRange(detalle.Select(x => new CuadreInventarioFila("Almacén", id, nombres[id], x.Key.Almacen, null, x.Value, null, null, null)));
-        }
+            filas.AddRange(valorPorAlmacen.Where(x => x.Key.SucursalId == id).OrderBy(x => x.Key.Almacen)
+                .Select(x => new CuadreInventarioFila("Almacén", id, nombres[id], x.Key.Almacen, null, x.Value, null, null, null)));
 
         var kardex = await KardexAsync(request, corte, valuacion, porSub.ToDictionary(x => x.Key, x => (x.Value.SucursalId, $"{x.Value.Clave} · {x.Value.Nombre}")), ct);
-        filas.AddRange(kardex.Where(k => ids.Contains(k.SucursalId)).Select(k => k with { Sucursal = nombres[k.SucursalId] }));
+        filas.AddRange(kardex.Where(k => ids.Contains(k.SucursalId!.Value)).Select(k => k with { Sucursal = nombres[k.SucursalId!.Value] }));
 
-        var conCuenta = filas.Where(f => f.Nivel == "Sucursal" && f.SaldoContable is not null).ToList();
+        var conCuenta = filas.Where(f => f.Nivel == "Cuenta" && f.SaldoContable is not null).ToList();
         return new ReporteResponse<CuadreInventarioFila>(
             Titulo: "CUADRE-INVENTARIO-CONTABILIDAD",
             GeneradoEn: DateTimeOffset.UtcNow,
@@ -108,10 +102,43 @@ public sealed class CuadreInventarioContableHandler(
             Filas: filas,
             Totales: new Dictionary<string, decimal>
             {
-                ["valuacion"] = filas.Where(f => f.Nivel == "Sucursal").Sum(f => f.Valuacion),
+                ["valuacion"] = filas.Where(f => f.Nivel == "Cuenta").Sum(f => f.Valuacion),
                 ["saldoContable"] = conCuenta.Sum(f => f.SaldoContable!.Value),
                 ["diferencia"] = conCuenta.Sum(f => f.Diferencia!.Value),
             });
+    }
+
+    /// <summary>
+    /// Valuación de las sucursales de la empresa agrupada por la cuenta de inventario de cada (sucursal, grupo de artículo). Una fila
+    /// por cuenta (con sus grupos) contra su saldo de toda la empresa (o de las sucursales permitidas si el usuario no las ve todas) y
+    /// una fila por grupo sin cuenta.
+    /// </summary>
+    private async Task<List<CuadreInventarioFila>> PorCuentaAsync(CuadreInventarioContableQuery request, DateOnly corte,
+        List<AlfakHistorialFila> valuacion, Dictionary<Guid, Guid> sucursalDeSub, List<Guid> ids, CancellationToken ct)
+    {
+        var lineas = valuacion.Where(f => sucursalDeSub.TryGetValue(f.SubAlmacenId, out var s) && ids.Contains(s)).ToList();
+        var maestros = lineas.Count == 0 ? new Dictionary<Guid, ArticuloLectura>()
+            : await articulos.ObtenerPorIdsAsync(lineas.Select(f => f.ArticuloId).Distinct().ToArray(), ct);
+        var conClave = lineas.Select(f => (Clave: (sucursalDeSub[f.SubAlmacenId], maestros.GetValueOrDefault(f.ArticuloId)?.Categoria), f.ValorInventarioFinal)).ToList();
+        var cuentas = await contabilidad.ObtenerAsync(corte, [.. conClave.Select(x => x.Clave).Distinct()],
+            request.SucursalesPermitidas is null ? null : ids, ct);
+        static string Grupos(IEnumerable<string?> gs) => string.Join(", ", gs.Select(g => g ?? SinGrupo).Distinct().Order());
+
+        var porCuenta = conClave.Select(x => (x.Clave.Item2, Cuenta: cuentas.GetValueOrDefault(x.Clave), x.ValorInventarioFinal)).ToList();
+        var filas = porCuenta.Where(x => x.Cuenta?.CuentaId is not null).GroupBy(x => x.Cuenta!.CuentaId!.Value)
+            .Select(g =>
+            {
+                var c = g.First().Cuenta!;
+                var total = g.Sum(x => x.ValorInventarioFinal);
+                var saldo = c.Saldo ?? 0m;
+                return new CuadreInventarioFila("Cuenta", null, null, null, $"{c.CuentaCodigo} · {c.CuentaNombre}", total, saldo, total - saldo,
+                    total == saldo ? "Cuadra" : "No cuadra", Grupo: Grupos(g.Select(x => x.Item1)));
+            })
+            .OrderBy(f => f.Cuenta, StringComparer.Ordinal).ToList();
+        filas.AddRange(porCuenta.Where(x => x.Cuenta?.CuentaId is null).GroupBy(x => x.Item1 ?? SinGrupo)
+            .OrderBy(g => g.Key, StringComparer.Ordinal)
+            .Select(g => new CuadreInventarioFila("Cuenta", null, null, null, null, g.Sum(x => x.ValorInventarioFinal), null, null, SinCuenta, Grupo: g.Key)));
+        return filas;
     }
 
     /// <summary>Almacén y artículo donde cierre ≠ cierre anterior + movimientos valorizados del mes (tolerancia por redondeo: <see cref="ToleranciaKardex"/>).</summary>
@@ -159,6 +186,7 @@ public sealed class CuadreInventarioContableHandler(
         new("sucursal", "Sucursal", "texto"),
         new("almacen", "Almacén", "texto"),
         new("articulo", "Artículo", "texto"),
+        new("grupo", "Grupo de artículo", "texto"),
         new("cuenta", "Cuenta de inventario", "texto"),
         new("valuacion", "Valuación", "moneda", "right"),
         new("saldoContable", "Saldo contable", "moneda", "right"),

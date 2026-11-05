@@ -42,6 +42,9 @@ public sealed class SolicitudViaticosConfiguration : IEntityTypeConfiguration<So
         builder.Property(e => e.RechazadoPor);
         builder.Property(e => e.FechaRechazo);
         builder.Property(e => e.MotivoRechazo).HasMaxLength(1000);
+        builder.Property(e => e.ComentarioDevolucion).HasMaxLength(1000);
+        builder.Property(e => e.DevueltoPor);
+        builder.Property(e => e.FechaDevolucion);
 
         builder.Property(e => e.FechaSolicitud).IsRequired();
         builder.Property(e => e.FechaAnticipoPagado);

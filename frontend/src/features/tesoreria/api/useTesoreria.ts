@@ -325,6 +325,23 @@ export function useRegistrarPagoACuenta() {
   });
 }
 
+/** <c>useAutorizarPagoACuenta()</c> — firma del pago a cuenta (otra persona que quien lo capturó). */
+export function useAutorizarPagoACuenta() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { movimientoId: string; idempotencyKey: string }) => {
+      const { data } = await apiRequest<PagoACuentaResponse>(
+        `${BASE}/pagos-cuenta/${args.movimientoId}/autorizar`,
+        { method: 'POST', idempotencyKey: args.idempotencyKey },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.all });
+    },
+  });
+}
+
 /** <c>useLigarPagoACuenta()</c> — liga tardía sin re-desembolso (emite aplicado.v1). */
 export function useLigarPagoACuenta() {
   const queryClient = useQueryClient();
@@ -1191,6 +1208,7 @@ export function useCrearConciliacion() {
       const { data } = await apiRequest<ConciliacionResumenResponse>(`${BASE}/conciliaciones`, {
         method: 'POST',
         body: input,
+        idempotencyKey: crypto.randomUUID(),
       });
       return data;
     },
@@ -1207,6 +1225,7 @@ export function useCargarExtracto() {
       const { data } = await apiRequest<ConciliacionResumenResponse>(`${BASE}/conciliaciones/${id}/extracto`, {
         method: 'POST',
         body,
+        idempotencyKey: crypto.randomUUID(),
       });
       return data;
     },
@@ -1224,6 +1243,7 @@ export function useEmparejarAutomatico() {
       const { data } = await apiRequest<ResultadoEmparejamientoResponse>(`${BASE}/conciliaciones/${id}/emparejar-automatico`, {
         method: 'POST',
         body,
+        idempotencyKey: crypto.randomUUID(),
       });
       return data;
     },
@@ -1241,6 +1261,7 @@ export function useEmparejarManual() {
       const { data } = await apiRequest<ExtractoLineaResponse>(`${BASE}/conciliaciones/${id}/emparejar-manual`, {
         method: 'POST',
         body,
+        idempotencyKey: crypto.randomUUID(),
       });
       return data;
     },
@@ -1258,6 +1279,7 @@ export function useDesemparejarLinea() {
       const { data } = await apiRequest<ExtractoLineaResponse>(`${BASE}/conciliaciones/${id}/desemparejar`, {
         method: 'POST',
         body,
+        idempotencyKey: crypto.randomUUID(),
       });
       return data;
     },
@@ -1275,6 +1297,7 @@ export function useAltaAsistida() {
       const { data } = await apiRequest<ExtractoLineaResponse>(`${BASE}/conciliaciones/${id}/alta-asistida`, {
         method: 'POST',
         body,
+        idempotencyKey: crypto.randomUUID(),
       });
       return data;
     },
@@ -1293,6 +1316,7 @@ export function useMarcarPartidaTransito() {
       const { data } = await apiRequest<ExtractoLineaResponse>(`${BASE}/conciliaciones/${id}/partidas-transito`, {
         method: 'POST',
         body,
+        idempotencyKey: crypto.randomUUID(),
       });
       return data;
     },
@@ -1309,6 +1333,7 @@ export function useCerrarConciliacion() {
     mutationFn: async ({ id, firmanteNombre, firmantePuesto }) => {
       const resp = await apiFetch(`${BASE}/conciliaciones/${id}/cerrar`, {
         method: 'POST',
+        headers: { 'Idempotency-Key': crypto.randomUUID() },
         body: JSON.stringify({ firmanteNombre, firmantePuesto }),
       });
       if (!resp.ok) {
@@ -1339,6 +1364,7 @@ export function useReabrirConciliacion() {
       const { data } = await apiRequest<ConciliacionResumenResponse>(`${BASE}/conciliaciones/${id}/reabrir`, {
         method: 'POST',
         body: { motivo },
+        idempotencyKey: crypto.randomUUID(),
       });
       return data;
     },

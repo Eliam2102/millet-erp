@@ -26,9 +26,12 @@ public sealed class ProyectarPasivoAutorizadoHandler : IRequestHandler<Proyectar
     private readonly TesoreriaDbContext _db;
     private readonly IClock _clock;
 
-    public ProyectarPasivoAutorizadoHandler(TesoreriaDbContext db, IClock clock)
+    private readonly Millet.Tesoreria.Domain.Ports.IPasivoComercioExteriorReadPort? _comercioExterior;
+
+    public ProyectarPasivoAutorizadoHandler(TesoreriaDbContext db, IClock clock,
+        Millet.Tesoreria.Domain.Ports.IPasivoComercioExteriorReadPort? comercioExterior = null)
     {
-        _db = db; _clock = clock;
+        _db = db; _clock = clock; _comercioExterior = comercioExterior;
     }
 
     public async Task Handle(ProyectarPasivoAutorizadoCommand command, CancellationToken cancellationToken)
@@ -87,6 +90,10 @@ public sealed class ProyectarPasivoAutorizadoHandler : IRequestHandler<Proyectar
                 metodoPago: p.MetodoPago,
                 subtotal: p.Subtotal, impuestosTrasladados: p.ImpuestosTrasladados, retenciones: p.Retenciones);
         }
+
+        // I13.3: si es un pasivo de comercio exterior queda pendiente de sus dos autorizaciones.
+        await Application.Pasivos.PagosComercioExterior.MarcarAsync(_db, _comercioExterior,
+            [(p.EmpresaId, p.FacturaProveedorId, p.OrdenCompraId)], cancellationToken);
 
         // Marca de idempotencia en la MISMA transacción que la proyección
         // (cuidados-infra §2.3).

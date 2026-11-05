@@ -129,6 +129,22 @@ export interface AlfakHistorialFiltros {
   articuloId?: string;
 }
 
+export interface TrazabilidadMpFiltros {
+  articuloId: string;
+  desde: string; // YYYY-MM-DD
+  hasta: string;
+  lote?: string;
+  subAlmacenId?: string;
+}
+
+export interface KardexFiltros {
+  articuloId: string;
+  desde: string; // YYYY-MM-DD
+  hasta: string;
+  subAlmacenId?: string;
+  ubicacionId?: string;
+}
+
 export interface MpCnkFiltros {
   subAlmacenId?: string;
 }
@@ -151,6 +167,20 @@ export const almacenKeys = {
   // Material en revisión (ALM-04)
   revision: (f: { soloPendientes: boolean; q?: string }) =>
     [...almacenKeys.all, 'revision', f] as const,
+
+  // Desperdicio de mesa y merma de proceso (A4.4)
+  mermas: (f: { estado?: string; tipo?: string }) => [...almacenKeys.all, 'mermas', f] as const,
+
+  // Salida por rotura en almacén (ALM-03)
+  salidasRotura: (f: { estado?: string }) => [...almacenKeys.all, 'salidas-rotura', f] as const,
+  motivosRotura: () => [...almacenKeys.all, 'salidas-rotura', 'motivos'] as const,
+
+  // Conciliación diaria contra A+W (A4.6)
+  conciliacion: {
+    existencia: (almacenId: string) => [...almacenKeys.all, 'conciliacion', 'existencia', almacenId] as const,
+    diferencias: () => [...almacenKeys.all, 'conciliacion', 'diferencias'] as const,
+    corridas: () => [...almacenKeys.all, 'conciliacion', 'corridas'] as const,
+  },
 
   // Recepciones
   recepciones: () => [...almacenKeys.all, 'recepciones'] as const,
@@ -209,6 +239,8 @@ export const almacenKeys = {
   cierrePeriodos: () => [...almacenKeys.all, 'cierre-mes', 'periodos'] as const,
   cierreRevision: (anio: number, mes: number) =>
     [...almacenKeys.all, 'cierre-mes', 'revision-previa', anio, mes] as const,
+  cierreActas: () => [...almacenKeys.all, 'cierre-mes', 'actas'] as const,
+  avisos: () => [...almacenKeys.all, 'avisos'] as const,
 
   // Reabasto / reorden (config N1-N2)
   reorden: () => [...almacenKeys.all, 'reorden'] as const,
@@ -233,6 +265,10 @@ export const almacenKeys = {
   reportes: () => [...almacenKeys.all, 'reportes'] as const,
   reporteAlfak: (filtros: AlfakHistorialFiltros) =>
     [...almacenKeys.reportes(), 'alfak', filtros] as const,
+  reporteTrazabilidadMp: (filtros: TrazabilidadMpFiltros) =>
+    [...almacenKeys.reportes(), 'trazabilidad-mp', filtros] as const,
+  reporteKardex: (filtros: KardexFiltros) =>
+    [...almacenKeys.reportes(), 'kardex', filtros] as const,
   reporteCuadreInventario: (anio: number, mes: number) =>
     [...almacenKeys.reportes(), 'cuadre-inventario', anio, mes] as const,
   reporteMpCnk: (filtros: MpCnkFiltros) =>

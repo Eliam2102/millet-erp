@@ -194,6 +194,14 @@ const moduloCxpLanding: NavModulo = {
           icon: CreditCard,
           permission: PermisosCanonicos.CuentasPorPagarReportesTc,
         },
+        {
+          label: 'Revaluación de cierre',
+          description:
+            'Revalúa al cierre de mes los saldos en moneda extranjera y revisa la diferencia por proveedor.',
+          to: '/cxp/revaluacion',
+          icon: BarChart3,
+          permission: PermisosCanonicos.CuentasPorPagarRevaluacionConsultar,
+        },
       ],
     },
     {

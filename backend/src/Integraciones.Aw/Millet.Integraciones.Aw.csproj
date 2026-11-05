@@ -28,6 +28,8 @@
     <!-- PT-01: el adaptador PT implementa IPtSucursalPorClaveAwPort (puerto definido por Producto Terminado). Sin ciclo: PT no referencia Aw. -->
     <ProjectReference Include="..\ProductoTerminado\Millet.ProductoTerminado.csproj" />
     <ProjectReference Include="..\Almacen\Millet.Almacen.csproj" />
+    <!-- 86e3jvu83 (C3.2): los adaptadores de alm_compra implementan IAlmCompraTransporte, puerto que DEFINE Compras (dueño del outbox). Sin ciclo: Compras no referencia Aw. -->
+    <ProjectReference Include="..\Compras\Millet.Compras.csproj" />
   </ItemGroup>
 
   <ItemGroup>

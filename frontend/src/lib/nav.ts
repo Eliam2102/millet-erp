@@ -32,6 +32,7 @@ import {
   MapPin,
   Network,
   PackageMinus,
+  PackageX,
   PackagePlus,
   PhoneCall,
   Plane,
@@ -40,6 +41,7 @@ import {
   Repeat,
   RotateCcw,
   Scale,
+  Scissors,
   ShieldAlert,
   ShoppingCart,
   Sliders,
@@ -241,12 +243,39 @@ const moduloAlmacen: NavModulo = {
           permission: PermisosCanonicos.AlmacenEntradasLeer,
         },
         {
+          label: 'Desperdicio y merma',
+          description:
+            'Desperdicio diario de la mesa de corte y merma por etapa y motivo que informa A+W; la merma se autoriza aquí.',
+          to: '/almacen/mermas',
+          icon: Scale,
+          permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
+        },
+        {
+          label: 'Conciliación diaria',
+          description:
+            'Existencia del ERP contra el físico que reporta A+W. Toda diferencia es una salida no planificada que se aclara con la mesa de corte.',
+          to: '/almacen/conciliacion',
+          icon: ClipboardCheck,
+          permission: PermisosCanonicos.AlmacenInventariosLeer,
+        },
+        {
           label: 'Salidas',
           description:
             'Surtido de requisiciones aprobadas y vales urgentes. Comprobante PDF descargable.',
           to: '/almacen/salidas',
           icon: PackageMinus,
           permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
+        },
+        {
+          label: 'Salida por rotura',
+          description:
+            'Material que se rompió en el almacén: se captura y otro usuario con facultad lo autoriza; sale a costo promedio.',
+          to: '/almacen/salidas-rotura',
+          icon: PackageX,
+          permissionsAny: [
+            PermisosCanonicos.AlmacenSalidasRoturaCapturar,
+            PermisosCanonicos.AlmacenSalidasRoturaAutorizar,
+          ],
         },
         {
           label: 'Devoluciones',
@@ -291,12 +320,21 @@ const moduloAlmacen: NavModulo = {
       label: 'Cierre y reportes',
       cards: [
         {
+          label: 'Taller de sucursal',
+          description:
+            'Cierre de día del almacenista: descargas por pedido interno Serie 9000 y factor de optimización.',
+          to: '/almacen/taller',
+          icon: Scissors,
+          permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
+        },
+        {
           label: 'Cierre de mes',
           description:
-            'Ejecutar cierre mensual del módulo Almacén. Valida que no haya conteos ni movimientos pendientes.',
+            'Ejecutar cierre mensual del módulo Almacén y revisar sus actas. Valida que no haya conteos ni movimientos pendientes.',
           to: '/almacen/cierre-mes',
           icon: Lock,
-          permission: PermisosCanonicos.AlmacenCierreMesEjecutar,
+          // 86e3tac2y: quien solo revisa el acta (Dirección de Administración) entra a la misma pantalla.
+          permissionsAny: [PermisosCanonicos.AlmacenCierreMesEjecutar, PermisosCanonicos.AlmacenCierreRevisarActa],
         },
         {
           label: 'Reportes',
@@ -476,6 +514,13 @@ const moduloCuentasPorPagar: NavModulo = {
           icon: CreditCard,
           permission: PermisosCanonicos.CuentasPorPagarReportesTc,
         },
+        {
+          label: 'Revaluación de cierre',
+          description: 'Revalúa al cierre de mes los saldos en moneda extranjera y revisa la diferencia por proveedor.',
+          to: '/cxp/revaluacion',
+          icon: BarChart3,
+          permission: PermisosCanonicos.CuentasPorPagarRevaluacionConsultar,
+        },
       ],
     },
     {
@@ -546,6 +591,20 @@ const moduloTesoreria: NavModulo = {
             PermisosCanonicos.TesoreriaMovimientosVer,
             PermisosCanonicos.TesoreriaPagosCuentaRegistrar,
             PermisosCanonicos.TesoreriaPagosCuentaLigar,
+            PermisosCanonicos.TesoreriaPagosCuentaAutorizar,
+          ],
+        },
+        {
+          label: 'Pagos de comercio exterior',
+          description:
+            'Autorización en dos niveles de los pagos de importación y exportación antes de la corrida.',
+          to: '/tesoreria/pagos-comercio-exterior',
+          icon: ClipboardList,
+          permissionsAny: [
+            PermisosCanonicos.TesoreriaPagosCeAutorizarImportacion,
+            PermisosCanonicos.TesoreriaPagosCeAutorizarExportacion,
+            PermisosCanonicos.TesoreriaPagosCeAutorizarDireccion,
+            PermisosCanonicos.TesoreriaPasivosVer,
           ],
         },
         {
@@ -802,6 +861,14 @@ const moduloCuentasPorCobrar: NavModulo = {
           description:
             'Lo timbrado, cobrado y cancelado en Facturación contra la cartera, día por día, con sus diferencias.',
           to: '/cxc/conciliacion',
+          icon: Scale,
+          permission: PermisosCanonicos.CuentasPorCobrarCarteraLeer,
+        },
+        {
+          label: 'Conciliación con pólizas',
+          description:
+            'Cobros aplicados en cartera contra sus pólizas: diferencias con su causa probable (CXC-06).',
+          to: '/cxc/conciliacion-polizas',
           icon: Scale,
           permission: PermisosCanonicos.CuentasPorCobrarCarteraLeer,
         },
@@ -1171,6 +1238,27 @@ const productoTerminado: NavModulo = {
           label: 'Salidas pendientes',
           description: 'Pedidos pagados y completos que aún no salen, con alerta a las 24 y 48 horas.',
           to: '/producto-terminado/salidas',
+          icon: Boxes,
+          permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
+        },
+        {
+          label: 'Hojas de salida',
+          description: 'Albarán por pedido con lo cargado: descuenta el inventario, pasa el pedido a 71 y se imprime para el chofer.',
+          to: '/producto-terminado/hojas-salida',
+          icon: Boxes,
+          permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
+        },
+        {
+          label: 'Entregas',
+          description: 'Entrega al cliente desde el celular: firma o foto, parcial, rechazo en sitio y paso a 115 si ya está facturado.',
+          to: '/producto-terminado/entregas',
+          icon: Boxes,
+          permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
+        },
+        {
+          label: 'Traspasos',
+          description: 'Salida de piezas entre sucursales, tránsito y recepción en destino con diferencias.',
+          to: '/producto-terminado/traspasos',
           icon: Boxes,
           permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
         },

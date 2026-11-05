@@ -63,6 +63,11 @@ public sealed class SolicitudViaticos : BaseEntity, IPerteneceAEmpresa, IAuditab
     public DateTimeOffset? FechaRechazo { get; private set; }
     public string? MotivoRechazo { get; private set; }
 
+    /// <summary>Comentario de quien devolvió la solicitud a corregir (visible mientras está Devuelta).</summary>
+    public string? ComentarioDevolucion { get; private set; }
+    public Guid? DevueltoPor { get; private set; }
+    public DateTimeOffset? FechaDevolucion { get; private set; }
+
     public DateTimeOffset? FechaAnticipoPagado { get; private set; }
     public DateTimeOffset? FechaComprobacion { get; private set; }
     public DateTimeOffset? FechaLiquidacion { get; private set; }
@@ -203,6 +208,73 @@ public sealed class SolicitudViaticos : BaseEntity, IPerteneceAEmpresa, IAuditab
         RechazadoPor = usuarioId;
         FechaRechazo = ahora;
         MotivoRechazo = motivo.Trim();
+    }
+
+    /// <summary>
+    /// Devuelve la solicitud a corregir sin cerrarla (Rechazar sigue siendo el cierre
+    /// definitivo). Las firmas previas se conservan; al reenviar se reanuda el paso
+    /// observado. No genera anticipo.
+    /// </summary>
+    public void Devolver(Guid usuarioId, string comentario, DateTimeOffset ahora)
+    {
+        if (Estado is not (EstadoSolicitudViaticos.Solicitada
+                           or EstadoSolicitudViaticos.RequiereDireccionFinanzas))
+            throw new BusinessRuleException(
+                "VIA_NO_DEVOLVIBLE",
+                $"Solo se devuelve a corregir antes del anticipo, mientras espera firma (actual: {Estado}).");
+        if (string.IsNullOrWhiteSpace(comentario))
+            throw new BusinessRuleException("VIA_COMENTARIO_VACIO",
+                "El comentario de la devolución es obligatorio.");
+
+        Estado = EstadoSolicitudViaticos.Devuelta;
+        DevueltoPor = usuarioId;
+        FechaDevolucion = ahora;
+        ComentarioDevolucion = comentario.Trim();
+    }
+
+    /// <summary>
+    /// El empleado corrige monto, fechas y justificación de una solicitud Devuelta y la
+    /// reenvía. Vuelve al paso que la devolvió: sin firma del jefe → Solicitada; con firma
+    /// del jefe (la devolvió DF) → RequiereDireccionFinanzas.
+    /// </summary>
+    public void Reenviar(
+        decimal montoSolicitado,
+        DateOnly fechaSalida,
+        DateOnly fechaRegreso,
+        decimal topePolitica,
+        int diasMaxPolitica,
+        string? justificacionExceso)
+    {
+        if (Estado != EstadoSolicitudViaticos.Devuelta)
+            throw new BusinessRuleException(
+                "VIA_NO_REENVIABLE",
+                $"Solo se reenvía una solicitud devuelta (actual: {Estado}).");
+        if (montoSolicitado <= 0)
+            throw new BusinessRuleException("VIA_MONTO_INVALIDO",
+                "El monto solicitado debe ser > 0.");
+        if (fechaRegreso < fechaSalida)
+            throw new BusinessRuleException("VIA_FECHAS_INVALIDAS",
+                "La fecha de regreso no puede ser anterior a la salida.");
+
+        var dias = fechaRegreso.DayNumber - fechaSalida.DayNumber + 1;
+        var excede = montoSolicitado > topePolitica || dias > diasMaxPolitica;
+        if (excede && string.IsNullOrWhiteSpace(justificacionExceso))
+            throw new BusinessRuleException(
+                "VIA_JUSTIFICACION_REQUERIDA",
+                "La solicitud excede política — se requiere justificación.");
+
+        MontoSolicitado = montoSolicitado;
+        FechaSalida = fechaSalida;
+        FechaRegreso = fechaRegreso;
+        TopePoliticaSnapshot = topePolitica;
+        ExcedePolitica = excede;
+        JustificacionExceso = justificacionExceso?.Trim();
+        Estado = AutorizadoPorJefe is null
+            ? EstadoSolicitudViaticos.Solicitada
+            : EstadoSolicitudViaticos.RequiereDireccionFinanzas;
+        ComentarioDevolucion = null;
+        DevueltoPor = null;
+        FechaDevolucion = null;
     }
 
     /// <summary>

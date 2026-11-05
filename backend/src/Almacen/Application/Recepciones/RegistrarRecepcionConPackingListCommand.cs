@@ -47,7 +47,11 @@ public sealed record RegistrarRecepcionConPackingListCommand(
     // líneas vacías en el sheet). Opcional — null = no usó el helper. Solo
     // reportería; la ubicación efectiva de cada línea viaja en cada
     // RegistrarRecepcionLineaInput.UbicacionId y es la que manda.
-    Guid? UbicacionHelperId = null, ImportacionRecepcionInput? Importacion = null) : IRequest<RegistrarRecepcionResponse>;
+    Guid? UbicacionHelperId = null, ImportacionRecepcionInput? Importacion = null,
+    // G-3: remisión del proveedor y motivo para registrar otra vez la misma remisión de la OC (RECEPCION_YA_RECIBIDA).
+    string? Remision = null, string? MotivoDuplicado = null,
+    // G-10: quién recibió físicamente la mercancía; sin dato, la recepción imprime a quien la capturó.
+    string? RecibidoPorNombre = null) : IRequest<RegistrarRecepcionResponse>;
 
 public sealed class RegistrarRecepcionConPackingListValidator
     : AbstractValidator<RegistrarRecepcionConPackingListCommand>
@@ -62,12 +66,23 @@ public sealed class RegistrarRecepcionConPackingListValidator
         RuleFor(c => c.Observaciones!).MaximumLength(500)
             .When(c => c.Observaciones is not null)
             .WithMessage("Las observaciones no pueden exceder 500 caracteres.");
+        RuleFor(c => c.Remision!).MaximumLength(RecepcionDuplicada.RemisionMaxLength)
+            .When(c => c.Remision is not null)
+            .WithMessage("La remisión no puede exceder 50 caracteres.");
+        RuleFor(c => c.MotivoDuplicado!).MaximumLength(500)
+            .When(c => c.MotivoDuplicado is not null)
+            .WithMessage("El motivo no puede exceder 500 caracteres.");
+        RuleFor(c => c.RecibidoPorNombre!).MaximumLength(150)
+            .When(c => c.RecibidoPorNombre is not null)
+            .WithMessage("El nombre de quien recibió no puede exceder 150 caracteres.");
         RuleFor(c => c.Lineas).NotEmpty();
         RuleForEach(c => c.Lineas).ChildRules(linea =>
         {
             linea.RuleFor(l => l.ArticuloId).NotEqual(Guid.Empty);
-            linea.RuleFor(l => l.Cantidad).GreaterThan(0);
+            linea.RuleFor(l => l.Cantidad).GreaterThan(0).When(l => l.CantidadRechazada <= 0);
+            linea.RuleFor(l => l.Cantidad).GreaterThanOrEqualTo(0);
             linea.RuleFor(l => l.UnidadCapturada).MaximumLength(20);
+            RecepcionRechazos.ReglasDeCondicion(linea);
 
             linea.RuleFor(l => l.UbicacionReferencia!).MaximumLength(100)
                 .When(l => l.UbicacionReferencia is not null);
@@ -128,6 +143,9 @@ public sealed class RegistrarRecepcionConPackingListHandler
     public async Task<RegistrarRecepcionResponse> Handle(
         RegistrarRecepcionConPackingListCommand request, CancellationToken cancellationToken)
     {
+        // G-10: lo rechazado en el acto no entra; la recepción sigue solo con lo aceptado.
+        var (aceptadas, rechazadas) = RecepcionRechazos.Separar(request.Lineas);
+        request = request with { Lineas = aceptadas };
         // D5: serializa recepciones de la misma OC (advisory lock); ponytail: lock por OC, por línea si el volumen lo pide.
         await using var transaccion = await DevolucionesProveedor.DevolucionOrigenLock.AbrirAsync(_db, request.OrdenCompraId, cancellationToken);
         // 1. Validar OC.
@@ -142,6 +160,9 @@ public sealed class RegistrarRecepcionConPackingListHandler
         // F8-PR2: validar periodo cerrado.
         await Cierre.PeriodoCerradoValidator.LanzarSiCerradoAsync(
             _db, empresaId, request.FechaMovimiento, _periodoContable, cancellationToken);
+        // G-3: misma remisión ya recibida en la OC → exige motivo.
+        var (remision, motivoDuplicado) = await RecepcionDuplicada.ValidarAsync(_db, request.OrdenCompraId, request.Remision,
+            null, null, request.MotivoDuplicado, cancellationToken);
 
         var conversiones = new List<ConversionUnidad>();
         // F1-MP-01: la medida se valida contra el producto A+W vigente del artículo en cada recepción.
@@ -150,6 +171,10 @@ public sealed class RegistrarRecepcionConPackingListHandler
         foreach (var input in request.Lineas)
         {
             var lineaOc = oc!.Lineas.Single(l => l.LineaId == input.LineaOcId);
+            // G-3: el vidrio (partida con medida A+W) entra por la recepción de materia prima, no por lista de empaque.
+            if (lineaOc.ProductoAwVarianteId is not null)
+                throw new BusinessRuleException("LISTA_EMPAQUE_VIDRIO",
+                    "La lista de empaque no admite vidrio: recibe las hojas por la recepción de materia prima.");
             // E1: la medida la fija la línea de la OC; quien recibe no la elige.
             var variante = await RecepcionVariante.ResolverAsync(_articulos, _variantes, input.ArticuloId, lineaOc.ProductoAwVarianteId, cancellationToken);
             variantes.Add(variante);
@@ -180,6 +205,7 @@ public sealed class RegistrarRecepcionConPackingListHandler
             ocId: request.OrdenCompraId,
             ocLineaId: null,
             packingListBlobRef: request.PackingListBlobRef);
+        movimiento.AsentarRemision(remision, motivoDuplicado);
 
         if (!string.IsNullOrWhiteSpace(request.Observaciones))
         {
@@ -279,6 +305,7 @@ public sealed class RegistrarRecepcionConPackingListHandler
                         empresaId: empresaId,
                         fechaMovimiento: request.FechaMovimiento);
                     movimientoRevision.VincularRecepcionVarianteB(request.OrdenCompraId, null, request.PackingListBlobRef);
+                    movimientoRevision.AsentarRemision(remision, motivoDuplicado);
                 }
                 var lineaRevId = Guid.CreateVersion7();
                 var lineaRev = new LineaMovimiento(
@@ -295,6 +322,7 @@ public sealed class RegistrarRecepcionConPackingListHandler
                     lineaOcId: lineaOcId,
                     productoAwVarianteId: variantes[idx]?.VarianteId, anchoMm: variantes[idx]?.AnchoMm, altoMm: variantes[idx]?.AltoMm, lote: lotes[idx]);
                 lineaRev.AsentarCaptura(input.CantidadDanada, conversion.UnidadCapturada);
+                lineaRev.AsentarEvidencia(input.EvidenciaBlobRef);
                 movimientoRevision.AgregarLinea(lineaRev);
 
                 payloadLineas.Add(new LineaRecepcionPayload(
@@ -317,6 +345,7 @@ public sealed class RegistrarRecepcionConPackingListHandler
             // Sin bin no hay almacén que comparar: la sucursal destino de la OC la verifica el endpoint (alcance del usuario sobre la OC o permiso de todas las sucursales).
             var folioActivo = await Catalogo.FolioMovimientoLock.SiguienteEntradaCompraAsync(_db, request.FechaMovimiento.Year, cancellationToken);
             foreach (var ra in _db.RecepcionesActivos.Local.Where(x => x.RecepcionId == movimientoId)) ra.Folio = folioActivo;
+            RecepcionRechazos.Registrar(_db, empresaId, movimientoId, oc!, rechazadas);
             await _events.PublishAsync(new OcRecepcionRegistradaIntegrationEvent(empresaId, DateTimeOffset.UtcNow,
                 movimientoId, folioActivo, request.OrdenCompraId, request.FechaMovimiento, true, null, null,
                 request.Observaciones, payloadLineas, SucursalId: oc!.SucursalDestinoId), cancellationToken);
@@ -340,6 +369,8 @@ public sealed class RegistrarRecepcionConPackingListHandler
 
         // ALM-04: principal efectivo = el de lo disponible; si todo llegó dañado, el de revisión.
         var principal = movimiento.Lineas.Count > 0 ? movimiento : movimientoRevision!;
+        principal.AsentarRecibidoPor(request.RecibidoPorNombre);
+        RecepcionRechazos.Registrar(_db, empresaId, principal.Id, oc!, rechazadas);
         if (importacion is not null) { importacion.VincularRecepcion(principal.Id); _db.RecepcionesImportacion.Add(importacion); }
         foreach (var recepcionActivo in _db.RecepcionesActivos.Local.Where(x => x.RecepcionId == movimientoId))
             recepcionActivo.VincularRecepcion(principal.Id);

@@ -18,6 +18,14 @@ public sealed class PedidoPt : BaseEntity, IAuditable, IPerteneceAEmpresa
     public EstadoLiberacion? Liberacion { get; private set; }
     public string? MotivoLiberacion { get; private set; }
     public DateTimeOffset? LiberacionAt { get; private set; }
+    /// <summary>Primera salida emitida: el pedido pasa a 71 (en ruta). No cambia con las salidas siguientes.</summary>
+    public DateTimeOffset? EnRutaAt { get; private set; }
+    /// <summary>PT5.6: todas las piezas esperadas del pedido fueron recibidas por el cliente.</summary>
+    public DateTimeOffset? EntregadoAt { get; private set; }
+    /// <summary>PT5.6: Facturación ya tiene un CFDI vigente del pedido.</summary>
+    public DateTimeOffset? FacturadoAt { get; private set; }
+    /// <summary>PT5.6: 115 = facturado y entregado (Manual, Anexo A). Se fija una sola vez.</summary>
+    public DateTimeOffset? Estado115At { get; private set; }
     public IReadOnlyCollection<PedidoPtPosicion> Posiciones => _posiciones;
 
     private PedidoPt() { }
@@ -44,6 +52,35 @@ public sealed class PedidoPt : BaseEntity, IAuditable, IPerteneceAEmpresa
     }
 
     /// <summary>Pasa a 70 con su motivo. Devuelve false si ya estaba liberado (un solo cambio, aunque llegue repetido).</summary>
+    public bool MarcarEnRuta(DateTimeOffset ahora)
+    {
+        if (EnRutaAt is not null) return false;
+        EnRutaAt = ahora;
+        return true;
+    }
+
+    public bool MarcarEntregado(DateTimeOffset ahora)
+    {
+        if (EntregadoAt is not null) return false;
+        EntregadoAt = ahora;
+        return true;
+    }
+
+    public bool MarcarFacturado(DateTimeOffset ahora)
+    {
+        if (FacturadoAt is not null) return false;
+        FacturadoAt = ahora;
+        return true;
+    }
+
+    /// <summary>Pasa a 115 cuando ya está facturado y entregado. Devuelve true solo la primera vez.</summary>
+    public bool Cerrar115(DateTimeOffset ahora)
+    {
+        if (Estado115At is not null || EntregadoAt is null || FacturadoAt is null) return false;
+        Estado115At = ahora;
+        return true;
+    }
+
     public bool Liberar(string motivo, DateTimeOffset ahora)
     {
         if (Liberacion == EstadoLiberacion.Liberado) return false;

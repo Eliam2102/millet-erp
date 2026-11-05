@@ -28,7 +28,9 @@ public sealed record PagoACuentaAbiertoResponse(
     string? ReferenciaBancaria,
     string Motivo,
     EstadoAplicacionMovimiento EstadoAplicacion,
-    int AntiguedadDias);
+    int AntiguedadDias,
+    Guid CreadoPor,
+    DateTimeOffset? AutorizadoEn);
 
 public sealed record PagosACuentaAbiertosQuery(
     Guid? ProveedorId = null,
@@ -115,7 +117,9 @@ public sealed class PagosACuentaAbiertosHandler
                 ReferenciaBancaria: m.ReferenciaBancaria,
                 Motivo: m.MotivoNoAplicado!,
                 EstadoAplicacion: m.EstadoAplicacion,
-                AntiguedadDias: hoy.DayNumber - m.FechaValor.DayNumber);
+                AntiguedadDias: hoy.DayNumber - m.FechaValor.DayNumber,
+                CreadoPor: m.CreadoPor,
+                AutorizadoEn: m.AutorizadoEn);
         }).ToList();
 
         return new PagedResponse<PagoACuentaAbiertoResponse>(responses, offset, limit, total);

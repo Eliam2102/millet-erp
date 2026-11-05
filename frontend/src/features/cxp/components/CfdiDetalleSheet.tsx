@@ -23,6 +23,7 @@ import {
 } from '@/features/cxp/api/types';
 import { EstatusSatBadge } from '@/features/cxp/components/EstatusSatBadge';
 import { EstadoCfdiBadge } from '@/features/cxp/components/EstadoCfdiBadge';
+import { SolicitudesCancelacionPanel } from '@/features/cxp/components/SolicitudesCancelacionPanel';
 import { descargarXmlCfdi } from '@/features/cxp/lib/cfdi-archivos';
 
 /**
@@ -188,6 +189,8 @@ function Detalle({ cfdiId }: { cfdiId: string }) {
             No se pudo cargar el PDF.
           </p>
         ))}
+
+      <SolicitudesCancelacionPanel cfdiId={d.id} facturaId={d.documentoDestinoId} />
 
       <section className="space-y-2">
         <h3 className="text-sm font-medium">

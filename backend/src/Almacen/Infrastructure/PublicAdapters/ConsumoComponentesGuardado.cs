@@ -15,7 +15,7 @@ namespace Millet.Almacen.Infrastructure.PublicAdapters;
 /// → revisión, con folio). Sucursal (D7) y artículo se resuelven con el mismo puerto que las salidas de la app.
 /// </summary>
 public sealed class ConsumoComponentesGuardado(AlmacenDbContext db, ICurrentEmpresaContext empresa,
-    IAppSalidaResolverPort resolver, IUsuarioServicioReadPort usuarioServicio)
+    IAppSalidaResolverPort resolver, IUsuarioServicioReadPort usuarioServicio, IIntegrationEventPublisher events)
 {
     /// <summary>Hora del último escaneo registrado para el origen (marca de agua del lector).</summary>
     public async Task<DateTime?> MarcaAguaAsync(Guid empresaId, string origen, CancellationToken ct)
@@ -97,8 +97,9 @@ public sealed class ConsumoComponentesGuardado(AlmacenDbContext db, ICurrentEmpr
         cantidad *= c.Capas;
 
         var motivo = $"A+W consumo por composición: operación {c.Operacion} pieza {c.Etiqueta} pedido {c.Auftnr} pos {c.Pos}";
-        var (estado, folio, errorSalida) = await SalidaAppAlmacenes.RegistrarAsync(db, c.EmpresaId, usuario.Id,
-            new SalidaApp(TipoMovimiento.SalidaConsumo, r.SucursalId, g.ArticuloId, g.UnidadMedida, null, cantidad.Value, null, motivo), ct);
+        var (estado, folio, errorSalida) = await SalidaAppAlmacenes.RegistrarAsync(db, events, c.EmpresaId, usuario.Id,
+            new SalidaApp(TipoMovimiento.SalidaConsumo, r.SucursalId, g.ArticuloId, g.UnidadMedida, null, cantidad.Value, null, motivo,
+                Causa: "consumo_composicion"), ct);
         c.Resolver(estado, cantidad, folio, errorSalida);
     }
 }

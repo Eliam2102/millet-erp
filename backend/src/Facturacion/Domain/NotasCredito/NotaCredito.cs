@@ -15,6 +15,29 @@ public sealed class NotaCredito : Comprobante
 {
     public MotivoNotaCredito Motivo { get; private set; }
 
+    public const int ComentariosMaxLength = 1000;
+
+    /// <summary>
+    /// Comentarios libres de la NC (86e3yy1bh, Millet 4-nov): amplían o explican la nota y/o su factura relacionada.
+    /// Se imprimen en el PDF debajo del motivo y <b>jamás</b> llegan al XML del CFDI.
+    /// </summary>
+    public string? Comentarios { get; private set; }
+
+    /// <summary>Fija los comentarios (≤ <see cref="ComentariosMaxLength"/>). Vacío = sin comentarios. Solo antes de timbrar.</summary>
+    public void FijarComentarios(string? texto)
+    {
+        if (Estado is not EstadoTimbrado.Borrador)
+            throw new BusinessRuleException("NC_INMUTABLE",
+                $"No se pueden cambiar los comentarios de una nota de crédito en estado {Estado}.");
+
+        var limpio = string.IsNullOrWhiteSpace(texto) ? null : texto.Trim();
+        if (limpio is { Length: > ComentariosMaxLength })
+            throw new BusinessRuleException("NC_COMENTARIOS_LARGOS",
+                $"Los comentarios no pueden exceder {ComentariosMaxLength} caracteres.");
+
+        Comentarios = limpio;
+    }
+
     /// <summary>Anticipo que se amortiza (solo motivo Amortización).</summary>
     public Guid? AnticipoOrigenId { get; private set; }
 

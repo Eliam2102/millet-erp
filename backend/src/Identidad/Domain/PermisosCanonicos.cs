@@ -302,6 +302,12 @@ public static class PermisosCanonicos
     public const string AlmacenDevolucionesProveedorAutorizar          = "almacen.devoluciones-proveedor.autorizar";
     public const string AlmacenCuarentenaDictaminar                    = "almacen.cuarentena.dictaminar";
     public const string AlmacenRecepcionesCancelar                     = "almacen.recepciones.cancelar";
+    public const string AlmacenMermasAutorizar                         = "almacen.mermas.autorizar";
+    public const string AlmacenSalidasRoturaCapturar                   = "almacen.salidas.rotura-capturar";
+    public const string AlmacenSalidasRoturaAutorizar                  = "almacen.salidas.rotura-autorizar";
+    public const string AlmacenCierreRevisarActa                       = "almacen.cierre.revisar-acta";
+    public const string AlmacenAvisosValeVencido                       = "almacen.avisos.vale-vencido";
+    public const string AlmacenAvisosAjusteMayor                       = "almacen.avisos.ajuste-mayor";
     public const string AlmacenDevolucionesProveedorRegistrar          = "almacen.devoluciones-proveedor.registrar";
 
     public const string AlmacenInventariosLeer                         = "almacen.inventarios.leer";
@@ -396,6 +402,8 @@ public static class PermisosCanonicos
     public const string CuentasPorPagarReportesAntiguedad              = "cuentas_por_pagar.reportes.antiguedad";
     public const string CuentasPorPagarReportesDiot                    = "cuentas_por_pagar.reportes.diot";
     public const string CuentasPorPagarReportesTc                      = "cuentas_por_pagar.reportes.tc";
+    public const string CuentasPorPagarRevaluacionEjecutar             = "cuentas_por_pagar.revaluacion.ejecutar";
+    public const string CuentasPorPagarRevaluacionConsultar            = "cuentas_por_pagar.revaluacion.consultar";
 
     public const string CuentasPorPagarCfdisLeer                       = "cuentas_por_pagar.cfdis.leer";
     public const string CuentasPorPagarCfdisCargarManual               = "cuentas_por_pagar.cfdis.cargar-manual";
@@ -536,6 +544,12 @@ public static class PermisosCanonicos
     public const string TesoreriaPagosRevertir                  = "tesoreria.pagos.revertir";
     public const string TesoreriaPagosCuentaRegistrar           = "tesoreria.pagos-cuenta.registrar";
     public const string TesoreriaPagosCuentaLigar               = "tesoreria.pagos-cuenta.ligar";
+    public const string TesoreriaPagosCuentaAutorizar           = "tesoreria.pagos-cuenta.autorizar";
+    // I13.3 (86e3ke4cx): pagos de comercio exterior en dos niveles. Nivel 1 por tipo (Compras de MP / Documentación de
+    // Exportación); nivel 2 la Dirección (Administración y Finanzas o Comercialización, basta una firma).
+    public const string TesoreriaPagosCeAutorizarImportacion    = "tesoreria.pagos-ce.autorizar-importacion";
+    public const string TesoreriaPagosCeAutorizarExportacion    = "tesoreria.pagos-ce.autorizar-exportacion";
+    public const string TesoreriaPagosCeAutorizarDireccion      = "tesoreria.pagos-ce.autorizar-direccion";
     public const string TesoreriaCorridasCrear                  = "tesoreria.corridas.crear";
     public const string TesoreriaCorridasAutorizar              = "tesoreria.corridas.autorizar";
     public const string TesoreriaCorridasEjecutar               = "tesoreria.corridas.ejecutar";
@@ -849,7 +863,9 @@ public static class PermisosCanonicos
         (Guid.Parse("00000007-0009-0000-0000-000000000001"), CuentasPorPagarCfdisLeer,                    "Consultar CFDIs recibidos"),
         (Guid.Parse("00000007-0009-0000-0000-000000000002"), CuentasPorPagarCfdisCargarManual,            "Cargar CFDI manualmente (canal de respaldo)"),
         (Guid.Parse("00000007-0009-0000-0000-000000000003"), CuentasPorPagarCfdisDescartar,               "Descartar CFDI por duplicado o error"),
-        (Guid.Parse("00000007-0011-0000-0000-000000000001"), CuentasPorPagarPortalAdministrar,            "Administrar el acceso de un proveedor al portal de proveedores (correos autorizados)"),
+        (Guid.Parse("00000007-0012-0000-0000-000000000001"), CuentasPorPagarRevaluacionEjecutar,          "Correr la revaluación de cierre de saldos por pagar en moneda extranjera"),
+        (Guid.Parse("00000007-0012-0000-0000-000000000002"), CuentasPorPagarRevaluacionConsultar,         "Consultar la revaluación de cierre y su reporte por proveedor y documento"),
+        (Guid.Parse("00000007-0011-0000-0000-000000000001"), CuentasPorPagarPortalAdministrar,           "Administrar el acceso de un proveedor al portal de proveedores (correos autorizados)"),
         (Guid.Parse("00000007-0010-0000-0000-000000000001"), CuentasPorPagarReposicionesLeer,             "Consultar reposiciones de caja chica y saldos por reponer"),
         (Guid.Parse("00000007-0010-0000-0000-000000000002"), CuentasPorPagarReposicionesAdministrar,      "Configurar mínimo de reposición por sucursal y emitir cortes manuales"),
         // Integración A+W (PR A). Namespace 00000006-*.
@@ -885,6 +901,12 @@ public static class PermisosCanonicos
         (Guid.Parse("00000008-0005-0000-0000-000000000003"), AlmacenDevolucionesProveedorRegistrar,       "Registrar la salida física de la devolución a proveedor"),
         (Guid.Parse("00000008-000f-0000-0000-000000000001"), AlmacenCuarentenaDictaminar,                 "Dictaminar material en revisión: liberar, rechazar al proveedor o dar de baja (Gerente de almacén/calidad)"),
         (Guid.Parse("00000008-0010-0000-0000-000000000001"), AlmacenRecepcionesCancelar,                  "Cancelar con motivo una recepción mal capturada (distinto de quien la registró)"),
+        (Guid.Parse("00000008-0011-0000-0000-000000000001"), AlmacenMermasAutorizar,                      "Autorizar o rechazar una merma de proceso por etapa y motivo (A4.4); sin autorización queda pendiente"),
+        (Guid.Parse("00000008-0012-0000-0000-000000000001"), AlmacenSalidasRoturaCapturar,                "Capturar una salida por rotura de material en el almacén (ALM-03); no afecta el saldo hasta que se autorice"),
+        (Guid.Parse("00000008-0012-0000-0000-000000000002"), AlmacenSalidasRoturaAutorizar,               "Autorizar o rechazar una salida por rotura (Jefe o Gerente de almacén, distinto de quien la capturó)"),
+        (Guid.Parse("00000008-1a01-0000-0000-000000000001"), AlmacenCierreRevisarActa,                    "Marcar como revisada el acta del cierre mensual de Almacén (Director de Administración)"),
+        (Guid.Parse("00000008-1a01-0000-0000-000000000002"), AlmacenAvisosValeVencido,                    "Recibir el aviso de vale urgente vencido sin regularizar de su sucursal (Jefe de almacén)"),
+        (Guid.Parse("00000008-1a01-0000-0000-000000000003"), AlmacenAvisosAjusteMayor,                    "Recibir el aviso de ajuste de inventario mayor (nivel 3) aprobado (Finanzas)"),
         (Guid.Parse("00000008-0006-0000-0000-000000000001"), AlmacenInventariosLeer,                      "Consultar conteos de inventario físico"),
         (Guid.Parse("00000008-0006-0000-0000-000000000002"), AlmacenInventariosCrear,                     "Crear y planificar conteos de inventario (rotativo y anual)"),
         (Guid.Parse("00000008-0006-0000-0000-000000000003"), AlmacenInventariosCapturar,                  "Capturar conteo sin ver cantidad teórica (captura sin sesgo, A6)"),
@@ -960,7 +982,11 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000b-0003-0000-0000-000000000002"), TesoreriaPagosRevertir,                "Revertir pagos aplicados (contramovimiento, RN-10)"),
         (Guid.Parse("0000000b-0004-0000-0000-000000000001"), TesoreriaPagosCuentaRegistrar,         "Registrar pagos a cuenta (egreso sin documento, gate RN-2)"),
         (Guid.Parse("0000000b-0004-0000-0000-000000000002"), TesoreriaPagosCuentaLigar,             "Ligar tardíamente un pago a cuenta al pasivo provisionado"),
-        (Guid.Parse("0000000b-0005-0000-0000-000000000001"), TesoreriaCorridasCrear,                "Crear y armar corridas de pago desde la bandeja de pasivos"),
+        (Guid.Parse("0000000b-0004-0000-0000-000000000003"), TesoreriaPagosCuentaAutorizar,         "Autorizar (firmar) un pago a cuenta; no puede firmarlo quien lo capturó"),
+        (Guid.Parse("0000000b-000e-0000-0000-000000000001"), TesoreriaPagosCeAutorizarImportacion,  "Autorizar (nivel 1) pagos de importación: Compras de MP"),
+        (Guid.Parse("0000000b-000e-0000-0000-000000000002"), TesoreriaPagosCeAutorizarExportacion,  "Autorizar (nivel 1) pagos de exportación: Documentación de Exportación"),
+        (Guid.Parse("0000000b-000e-0000-0000-000000000003"), TesoreriaPagosCeAutorizarDireccion,    "Autorizar (nivel 2) pagos de comercio exterior: Dirección de Administración y Finanzas o Director de Comercialización; basta una firma y no puede ser quien firmó el nivel 1"),
+        (Guid.Parse("0000000b-0005-0000-0000-000000000001"), TesoreriaCorridasCrear,               "Crear y armar corridas de pago desde la bandeja de pasivos"),
         (Guid.Parse("0000000b-0005-0000-0000-000000000002"), TesoreriaCorridasAutorizar,            "Autorizar corridas de pago (pasa además por la matriz de autorización)"),
         (Guid.Parse("0000000b-0005-0000-0000-000000000003"), TesoreriaCorridasEjecutar,             "Ejecutar líneas de corridas autorizadas (RN-5)"),
         (Guid.Parse("0000000b-0006-0000-0000-000000000001"), TesoreriaDepositosConfirmar,           "Confirmar depósitos de cliente contra propuestas de CxC (RN-6)"),

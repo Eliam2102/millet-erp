@@ -179,33 +179,52 @@ public sealed class P3FacturaConOcTests
         detalle.RecepcionFolio.Should().Be("REC-P3-FICTICIA");
     }
 
-    [Theory]
-    [InlineData(9.9505, true)]  // recibido 199.01 + tolerancia 0.99 = 200.00: pasa exacto
-    [InlineData(9.95, false)]   // recibido 199.00 + 0.99 = 199.99: la factura de 200.00 excede 0.01
-    public async Task Factura_contra_recibido_pasa_hasta_la_tolerancia_de_dinero_y_un_centavo_mas_se_rechaza(decimal recibido, bool pasa)
+    [Fact]
+    public async Task Factura_mayor_que_lo_recibido_se_registra_completa_y_retiene_el_excedente_por_recepcion_pendiente()
     {
-        await using var a = new Ambiente(recibido: recibido);
-        var captura = () => a.Handler.Handle(a.Command(10, 20), default);
-        if (pasa) (await captura()).Estado.Should().Be(EstadoPasivo.Capturada);
-        else
-        {
-            var error = (await captura.Should().ThrowAsync<BusinessRuleException>()).Which;
-            error.Code.Should().Be("FACTURA_EXCEDE_RECIBIDO");
-            error.Message.Should().Contain("200.00").And.Contain("199.00");
-        }
+        // 86e3yxpy4 · criterios 1 y 2: OC de 10 a 100 con 6 recibidas; factura por 10.
+        await using var a = new Ambiente(precioOc: 100, recibido: 6);
+        var respuesta = await a.Handler.Handle(a.Command(10, 100), default);
+        respuesta.Estado.Should().Be(EstadoPasivo.Capturada);
+        var factura = await a.Db.FacturasProveedor.SingleAsync(f => f.Id == respuesta.Id);
+        factura.Total.Should().Be(1000);
+        var antes = await a.Elegibilidad.CalcularAsync(factura, default);
+        antes.ElegiblePendiente.Should().Be(600); antes.Retenido.Should().Be(400);
+        // Llegan las 4 restantes: lo retenido se libera y la factura queda elegible completa.
+        a.ActualizarRecibido(10);
+        var despues = await a.Elegibilidad.CalcularAsync(factura, default);
+        despues.ElegiblePendiente.Should().Be(1000); despues.Retenido.Should().Be(0);
     }
 
     [Fact]
-    public async Task Factura_ligada_a_recepcion_no_excede_lo_recibido_en_esa_recepcion()
+    public async Task Pasivo_autorizado_con_recepcion_pendiente_propone_solo_lo_no_retenido_y_la_recepcion_libera_el_resto()
+    {
+        // 86e3yxpy4 · criterio 3: la corrida de pagos toma SaldoPendiente del pasivo autorizado.
+        await using var a = new Ambiente(precioOc: 100, recibido: 6);
+        var respuesta = await a.Handler.Handle(a.Command(10, 100), default);
+        var factura = await a.Db.FacturasProveedor.SingleAsync(f => f.Id == respuesta.Id);
+        factura.Autorizar(null, a.Ahora);
+        await a.Db.SaveChangesAsync();
+        await a.RecibirAsync(6);
+        a.Eventos.Integraciones.Clear();
+        await a.Recepciones.Handle(a.Recepcion(0.0001m), default);
+        a.Eventos.Integraciones.OfType<PasivoAutorizadoParaPagoIntegrationEvent>().Single().SaldoPendiente.Should().Be(600.01m);
+        a.Eventos.Integraciones.Clear();
+        a.ActualizarRecibido(10);
+        await a.Recepciones.Handle(a.Recepcion(4), default);
+        a.Eventos.Integraciones.OfType<PasivoAutorizadoParaPagoIntegrationEvent>().Single().SaldoPendiente.Should().Be(1000);
+    }
+
+    [Fact]
+    public async Task Factura_ligada_a_recepcion_retiene_lo_que_excede_lo_recibido_en_esa_recepcion()
     {
         await using var a = new Ambiente(); // Compras ve las 10 recibidas en dos recepciones (6 y 4).
         await a.RecibirAsync(6);
         var rec = a.Recepcion(4);
         await a.Recepciones.Handle(rec, default);
-        var excede = () => a.Handler.Handle(a.Command(10, 20) with { RecepcionId = rec.Payload.RecepcionId }, default);
-        (await excede.Should().ThrowAsync<BusinessRuleException>()).Which.Message.Should().Contain("REC-P3-FICTICIA");
-        (await a.Handler.Handle(a.Command(4, 20) with { RecepcionId = rec.Payload.RecepcionId }, default))
-            .Estado.Should().Be(EstadoPasivo.Capturada);
+        var excede = await a.Handler.Handle(a.Command(10, 20) with { RecepcionId = rec.Payload.RecepcionId }, default);
+        excede.Estado.Should().Be(EstadoPasivo.Capturada);
+        (await a.Elegibilidad.CalcularAsync(await a.Db.FacturasProveedor.SingleAsync(f => f.Id == excede.Id), default)).Retenido.Should().Be(120);
     }
 
     [Fact]
@@ -213,8 +232,8 @@ public sealed class P3FacturaConOcTests
     {
         await using var a = new Ambiente(cantidadOc: 12); // OC de 12, recibidas 10: a la OC aún le quedan 2 por facturar.
         var primera = await a.Handler.Handle(a.Command(10, 20), default);
-        var otra = () => a.Handler.Handle(a.Command(1, 20), default);
-        (await otra.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("FACTURA_EXCEDE_RECIBIDO");
+        var otra = await a.Handler.Handle(a.Command(1, 20), default); // ya no se rechaza: queda retenida por completo
+        (await a.Elegibilidad.CalcularAsync(await a.Db.FacturasProveedor.SingleAsync(f => f.Id == otra.Id), default)).ElegiblePendiente.Should().Be(0);
         var f = await a.Db.FacturasProveedor.SingleAsync(x => x.Id == primera.Id);
         f.Cancelar(MotivoCancelacion.ErrorCaptura, "prueba", null, a.Ahora);
         await a.Db.SaveChangesAsync();
@@ -385,24 +404,19 @@ public sealed class P3FacturaConOcTests
     }
 
     [Fact]
-    public async Task G14_factura_antes_de_mercancia_se_rechaza_y_recepcion_no_se_comparte_entre_facturas()
+    public async Task G14_factura_antes_de_mercancia_se_registra_retenida_y_recepcion_no_se_comparte_entre_facturas()
     {
-        // F1-CXP-01 (rev. 9-oct): la captura que excede lo recibido se rechaza; la retención del pago no la sustituye.
+        // 86e3yxpy4: la factura antes de la mercancía se registra; lo recibido se reparte por orden de captura, sin compartirse.
         await using var a = new Ambiente(recibido: 0);
-        var antes = () => a.Handler.Handle(a.Command(6, 20), default);
-        (await antes.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("FACTURA_EXCEDE_RECIBIDO");
-        (await a.Db.FacturasProveedor.AnyAsync()).Should().BeFalse();
-        await a.RecibirAsync(8);
+        var antes = await a.Handler.Handle(a.Command(6, 20), default);
+        var f0 = await a.Db.FacturasProveedor.SingleAsync(f => f.Id == antes.Id);
+        (await a.Elegibilidad.CalcularAsync(f0, default)).ElegiblePendiente.Should().Be(0);
         a.ActualizarRecibido(8);
-        var primera = await a.Handler.Handle(a.Command(6, 20), default);
-        // Quedan 2 recibidos sin facturar (40): 4 piezas (80) exceden aunque la OC aún tenga 4 pendientes.
-        var excede = () => a.Handler.Handle(a.Command(4, 20), default);
-        (await excede.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("FACTURA_EXCEDE_RECIBIDO");
-        var segunda = await a.Handler.Handle(a.Command(2, 20), default);
-        var f1 = await a.Db.FacturasProveedor.SingleAsync(f => f.Id == primera.Id);
+        var f1 = f0; // la primera factura (6) toma 6 de las 8 recibidas
+        var segunda = await a.Handler.Handle(a.Command(4, 20), default);
         var f2 = await a.Db.FacturasProveedor.SingleAsync(f => f.Id == segunda.Id);
         (await a.Elegibilidad.CalcularAsync(f1, default)).ElegiblePendiente.Should().Be(120);
-        (await a.Elegibilidad.CalcularAsync(f2, default)).ElegiblePendiente.Should().Be(40);
+        (await a.Elegibilidad.CalcularAsync(f2, default)).ElegiblePendiente.Should().Be(40); // quedan 2 de 4 piezas
     }
 
     internal sealed class Ambiente : IAsyncDisposable, ICurrentEmpresaContext, IClock, IComprasOcReadPort, IProveedorReadPort, ICfdiBlobStorage, Millet.CuentasPorPagar.Domain.Ports.Administracion.IToleranciaGeneralReadPort

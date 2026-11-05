@@ -235,7 +235,7 @@ export function BandejaAplicaciones() {
                     </TableCell>
                     <TableCell className="px-3 py-2 tabular-nums">{p.facturas.length}</TableCell>
                     <TableCell className="px-3 py-2">
-                      <ChipEstadoPropuesta estado={p.estado} />
+                      <ChipEstadoPropuesta estado={p.estado} ajustePorAutorizar={p.ajustePorAutorizar} />
                     </TableCell>
                     <TableCell className="px-3 py-2 text-right">
                       <Button variant="outline" size="sm" asChild>

@@ -32,9 +32,14 @@ internal static class CorridaArmado
 
     /// <summary>Valida y agrega los pasivos: pagables (hook <see cref="PasivosPagables"/>), libres de otra corrida viva y con proveedor/cuenta validados.</summary>
     public static async Task AgregarPasivosAsync(TesoreriaDbContext db, IProveedorBancoReadPort proveedores, CorridaPago corrida,
-        IReadOnlyCollection<Guid> facturaIds, CancellationToken cancellationToken)
+        IReadOnlyCollection<Guid> facturaIds, CancellationToken cancellationToken, IPasivoComercioExteriorReadPort? comercioExterior = null)
     {
         var ct = cancellationToken;
+        // I13.3: si el gasto de comercio exterior se ligó después de proyectar el pasivo, se marca aquí antes de decidir si es pagable.
+        var porMarcar = await db.PasivosPendientesPago.AsNoTracking()
+            .Where(p => facturaIds.Contains(p.FacturaProveedorId) && p.TipoBeneficiario == Domain.Pasivos.PasivoPendientePago.BeneficiarioProveedor).ToListAsync(ct);
+        if (await Pasivos.PagosComercioExterior.MarcarAsync(db, comercioExterior, porMarcar.Select(p => (p.EmpresaId, p.FacturaProveedorId, p.OrdenCompraId)), ct))
+            await db.SaveChangesAsync(ct);
         var pasivos = await PasivosPagables.Elegibles(db, null).Where(p => facturaIds.Contains(p.FacturaProveedorId)).ToListAsync(ct);
         var faltan = facturaIds.Except(pasivos.Select(p => p.FacturaProveedorId)).ToList();
         if (faltan.Count > 0)
@@ -80,7 +85,7 @@ public sealed class CrearCorridaValidator : AbstractValidator<CrearCorridaComman
 }
 
 public sealed class CrearCorridaHandler(TesoreriaDbContext db, ICurrentEmpresaContext empresa, ICurrentUserContext user,
-    IProveedorBancoReadPort proveedores, IClock clock) : IRequestHandler<CrearCorridaCommand, CorridaResponse>
+    IProveedorBancoReadPort proveedores, IClock clock, IPasivoComercioExteriorReadPort? comercioExterior = null) : IRequestHandler<CrearCorridaCommand, CorridaResponse>
 {
     public async Task<CorridaResponse> Handle(CrearCorridaCommand command, CancellationToken cancellationToken)
     {
@@ -92,7 +97,7 @@ public sealed class CrearCorridaHandler(TesoreriaDbContext db, ICurrentEmpresaCo
             throw new BusinessRuleException("CORRIDA_CUENTA_INACTIVA", "La cuenta bancaria está inactiva.");
 
         var corrida = CorridaPago.Crear(empresaId, command.Nombre, cuenta.Id, cuenta.Moneda, usuarioId, clock.UtcNow);
-        await CorridaArmado.AgregarPasivosAsync(db, proveedores, corrida, command.Facturas, ct);
+        await CorridaArmado.AgregarPasivosAsync(db, proveedores, corrida, command.Facturas, ct, comercioExterior);
         db.CorridasPago.Add(corrida);
         await db.SaveChangesAsync(ct);
         return await CorridaLectura.ToResponseAsync(db, proveedores, corrida, ct);
@@ -112,14 +117,14 @@ public sealed class AgregarPasivosCorridaValidator : AbstractValidator<AgregarPa
     }
 }
 
-public sealed class AgregarPasivosCorridaHandler(TesoreriaDbContext db, IProveedorBancoReadPort proveedores)
+public sealed class AgregarPasivosCorridaHandler(TesoreriaDbContext db, IProveedorBancoReadPort proveedores, IPasivoComercioExteriorReadPort? comercioExterior = null)
     : IRequestHandler<AgregarPasivosCorridaCommand, CorridaResponse>
 {
     public async Task<CorridaResponse> Handle(AgregarPasivosCorridaCommand command, CancellationToken cancellationToken)
     {
         var ct = cancellationToken;
         var c = await CorridaArmado.CargarAsync(db, command.Id, command.VersionEsperada, ct);
-        await CorridaArmado.AgregarPasivosAsync(db, proveedores, c, command.Facturas.Distinct().ToList(), ct);
+        await CorridaArmado.AgregarPasivosAsync(db, proveedores, c, command.Facturas.Distinct().ToList(), ct, comercioExterior);
         await db.SaveChangesAsync(ct);
         return await CorridaLectura.ToResponseAsync(db, proveedores, c, ct);
     }

@@ -251,6 +251,7 @@ public sealed class LigarPagoACuentaHandler
         PasivosPagables.ExigirOpinionCumplimiento(infoProveedor!, "LIGA_PASIVO_DETENIDO_DOCUMENTACION");
         if (pasivo.PagoBloqueado)
             throw new BusinessRuleException("PASIVO_NO_AUTORIZADO_CXP", "CxP retiró la autorización del pasivo. Debe autorizarse de nuevo antes de pagar.");
+        await Pasivos.PagosComercioExterior.ExigirAutorizadosAsync(_db, [command.FacturaProveedorId], "LIGA_PASIVO_CE_SIN_AUTORIZAR", cancellationToken);
 
         var yaLigada = await _db.AplicacionesPagoProveedor.AnyAsync(
             a => a.MovimientoId == movimiento.Id
@@ -300,5 +301,33 @@ public sealed class LigarPagoACuentaHandler
             movimiento.Monto, movimiento.Moneda, movimiento.FechaValor,
             movimiento.ReferenciaBancaria,
             [new AplicacionPagoResponse(aplicacion.Id, aplicacion.FacturaProveedorId, aplicacion.ImporteAplicado, aplicacion.Revertida)]);
+    }
+}
+
+// --------------------------------------------------- Autorizar (firma)
+
+public sealed record AutorizarPagoACuentaCommand(Guid MovimientoId) : IRequest<PagoACuentaResponse>;
+
+/// <summary>
+/// Firma del pago a cuenta: la facultad la exige el endpoint
+/// (tesoreria.pagos-cuenta.autorizar); aquí se exige que firme otra persona que quien lo capturó.
+/// </summary>
+public sealed class AutorizarPagoACuentaHandler(
+    TesoreriaDbContext db, ICurrentUserContext currentUser, IClock clock)
+    : IRequestHandler<AutorizarPagoACuentaCommand, PagoACuentaResponse>
+{
+    public async Task<PagoACuentaResponse> Handle(AutorizarPagoACuentaCommand command, CancellationToken cancellationToken)
+    {
+        if (currentUser.UserId is not Guid usuarioId)
+            throw new ForbiddenException("USUARIO_NO_IDENTIFICADO", "No se pudo identificar al usuario que autoriza el pago a cuenta.");
+
+        var m = await db.MovimientosBancarios.FirstOrDefaultAsync(x => x.Id == command.MovimientoId, cancellationToken)
+            ?? throw new EntityNotFoundException("MOV_NO_ENCONTRADO", $"No se encontró el movimiento '{command.MovimientoId}'.");
+
+        m.AutorizarPagoACuenta(usuarioId, clock.UtcNow);
+        await db.SaveChangesAsync(cancellationToken);
+
+        return new PagoACuentaResponse(m.Id, m.CuentaBancariaId, m.BeneficiarioRef, m.Monto, m.Moneda, m.FechaValor,
+            m.ReferenciaBancaria, m.MotivoNoAplicado!, m.EstadoAplicacion);
     }
 }

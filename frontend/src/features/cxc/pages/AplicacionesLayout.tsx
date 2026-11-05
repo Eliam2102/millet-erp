@@ -106,7 +106,7 @@ export function AplicacionesLayout({ idActivo, detalle }: AplicacionesLayoutProp
                       >
                         {p.depositoRef}
                       </span>
-                      <ChipEstadoPropuesta estado={p.estado} />
+                      <ChipEstadoPropuesta estado={p.estado} ajustePorAutorizar={p.ajustePorAutorizar} />
                     </div>
                     <div className="mt-1 flex items-center justify-between gap-2 text-xs text-ink-muted">
                       <span className="truncate">

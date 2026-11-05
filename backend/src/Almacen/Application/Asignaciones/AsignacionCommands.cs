@@ -83,6 +83,10 @@ public sealed class AsignarArticuloAUbicacionHandler
             throw new BusinessRuleException(
                 "ARTICULO_INACTIVO",
                 $"El artículo '{articulo.Clave}' está inactivo; no se puede asignar.");
+        if (articulo.EsServicio)
+            throw new BusinessRuleException(
+                "ARTICULO_NO_INVENTARIABLE",
+                $"El artículo '{articulo.Clave}' es un servicio (no inventariable); solo los artículos inventariables se asignan a una ubicación.");
 
         await using var tx = await _db.Database.BeginTransactionAsync(cancellationToken);
 

@@ -379,7 +379,7 @@ public class CrudCatalogosEndpointsTests : IClassFixture<StubsWebApplicationFact
         crearRq.EnsureSuccessStatusCode();
         var rqId = (await ReadJsonAsync(crearRq)).GetProperty("id").GetGuid();
 
-        (await client.DeleteAsync($"/api/v1/catalogos/proveedores/{proveedorId}"))
+        (await DeleteConMotivoAsync(client, $"/api/v1/catalogos/proveedores/{proveedorId}"))
             .EnsureSuccessStatusCode();
 
         var detalleProveedor = await client.GetAsync($"/api/v1/catalogos/proveedores/{proveedorId}");
@@ -444,7 +444,7 @@ public class CrudCatalogosEndpointsTests : IClassFixture<StubsWebApplicationFact
             "/api/v1/catalogos/proveedores", BuildProveedorBody());
         var id = (await ReadJsonAsync(crearResp)).GetProperty("id").GetGuid();
 
-        var deleteResp = await client.DeleteAsync($"/api/v1/catalogos/proveedores/{id}");
+        var deleteResp = await DeleteConMotivoAsync(client, $"/api/v1/catalogos/proveedores/{id}");
         Assert.Equal(HttpStatusCode.NoContent, deleteResp.StatusCode);
 
         var detalle = await client.GetAsync($"/api/v1/catalogos/proveedores/{id}");
@@ -461,8 +461,8 @@ public class CrudCatalogosEndpointsTests : IClassFixture<StubsWebApplicationFact
             "/api/v1/catalogos/proveedores", BuildProveedorBody());
         var id = (await ReadJsonAsync(crearResp)).GetProperty("id").GetGuid();
 
-        var first = await client.DeleteAsync($"/api/v1/catalogos/proveedores/{id}");
-        var second = await client.DeleteAsync($"/api/v1/catalogos/proveedores/{id}");
+        var first = await DeleteConMotivoAsync(client, $"/api/v1/catalogos/proveedores/{id}");
+        var second = await DeleteConMotivoAsync(client, $"/api/v1/catalogos/proveedores/{id}");
         Assert.Equal(HttpStatusCode.NoContent, first.StatusCode);
         Assert.Equal(HttpStatusCode.NoContent, second.StatusCode);
     }
@@ -542,7 +542,7 @@ public class CrudCatalogosEndpointsTests : IClassFixture<StubsWebApplicationFact
             "/api/v1/catalogos/articulos", BuildArticuloBody());
         var id = (await ReadJsonAsync(crearResp)).GetProperty("id").GetGuid();
 
-        var deleteResp = await client.DeleteAsync($"/api/v1/catalogos/articulos/{id}");
+        var deleteResp = await DeleteConMotivoAsync(client, $"/api/v1/catalogos/articulos/{id}");
         Assert.Equal(HttpStatusCode.NoContent, deleteResp.StatusCode);
 
         var detalle = await client.GetAsync($"/api/v1/catalogos/articulos/{id}");
@@ -550,7 +550,76 @@ public class CrudCatalogosEndpointsTests : IClassFixture<StubsWebApplicationFact
         Assert.Equal((int)EstatusCatalogo.Inactivo, json.GetProperty("estatus").GetInt32());
     }
 
+    // --- Inactivar con motivo y revisando lo abierto (G-6) ---
+
+    [Fact]
+    public async Task DesactivarProveedor_Sin_Motivo_Retorna_400_o_422()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var id = (await ReadJsonAsync(await client.PostAsJsonAsync("/api/v1/catalogos/proveedores", BuildProveedorBody()))).GetProperty("id").GetGuid();
+
+        var resp = await DeleteConMotivoAsync(client, $"/api/v1/catalogos/proveedores/{id}", "");
+
+        Assert.True(resp.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.UnprocessableEntity, resp.StatusCode.ToString());
+        var detalle = await ReadJsonAsync(await client.GetAsync($"/api/v1/catalogos/proveedores/{id}"));
+        Assert.NotEqual((int)EstatusCatalogo.Inactivo, detalle.GetProperty("estatus").GetInt32());
+    }
+
+    [Fact]
+    public async Task DesactivarProveedor_Con_OC_Abierta_Es_422_Y_Nombra_La_OC_Y_Sin_Pendientes_Queda_En_Bitacora()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var id = (await ReadJsonAsync(await client.PostAsJsonAsync("/api/v1/catalogos/proveedores", BuildProveedorBody()))).GetProperty("id").GetGuid();
+        await ValidarProveedorAsync(id);
+        var folio = $"OC-MID2026-{Random.Shared.Next(100000, 999999)}";
+        Guid ocId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            using var bypass = scope.ServiceProvider.GetRequiredService<Millet.SharedKernel.Application.ICurrentEmpresaContext>().Bypass();
+            var comprasDb = scope.ServiceProvider.GetRequiredService<Millet.Compras.Infrastructure.ComprasDbContext>();
+            var oc = new Millet.Compras.Domain.Oc.OrdenCompra(Guid.CreateVersion7(), Guid.CreateVersion7(),
+                Millet.Compras.Domain.Oc.Folio.Parse(folio), 2026, id, Guid.CreateVersion7(),
+                Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(),
+                new DateOnly(2026, 11, 3), sinRequisicionPrevia: true, motivoSinRequisicion: "Prueba G-6", usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
+            oc.AgregarLineaManual(Guid.CreateVersion7(), Guid.CreateVersion7(), 4m, "PZA", 250m, Guid.CreateVersion7());
+            oc.EnviarAAutorizacion(DateTimeOffset.UtcNow);
+            comprasDb.OrdenesCompra.Add(oc);
+            await comprasDb.SaveChangesAsync();
+            ocId = oc.Id;
+        }
+
+        var rechazo = await DeleteConMotivoAsync(client, $"/api/v1/catalogos/proveedores/{id}");
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, rechazo.StatusCode);
+        Assert.Contains(folio, await rechazo.Content.ReadAsStringAsync());
+        var aun = await ReadJsonAsync(await client.GetAsync($"/api/v1/catalogos/proveedores/{id}"));
+        Assert.Equal((int)EstatusCatalogo.Activo, aun.GetProperty("estatus").GetInt32());
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            using var bypass = scope.ServiceProvider.GetRequiredService<Millet.SharedKernel.Application.ICurrentEmpresaContext>().Bypass();
+            var comprasDb = scope.ServiceProvider.GetRequiredService<Millet.Compras.Infrastructure.ComprasDbContext>();
+            await comprasDb.OrdenesCompra.Where(o => o.Id == ocId).ExecuteDeleteAsync();
+        }
+
+        Assert.Equal(HttpStatusCode.NoContent, (await DeleteConMotivoAsync(client, $"/api/v1/catalogos/proveedores/{id}", "Cerró operaciones")).StatusCode);
+
+        var sinMotivo = await client.PostAsync($"/api/v1/catalogos/proveedores/{id}/reactivar", null);
+        Assert.True(sinMotivo.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.UnprocessableEntity, sinMotivo.StatusCode.ToString());
+        var conMotivo = await client.PostAsJsonAsync($"/api/v1/catalogos/proveedores/{id}/reactivar", new { motivo = "Retomamos el suministro" });
+        Assert.Equal(HttpStatusCode.NoContent, conMotivo.StatusCode);
+
+        using var scope2 = _factory.Services.CreateScope();
+        using var bypass2 = scope2.ServiceProvider.GetRequiredService<Millet.SharedKernel.Application.ICurrentEmpresaContext>().Bypass();
+        var core = scope2.ServiceProvider.GetRequiredService<CoreDbContext>();
+        var resumenes = await core.AuditLog.AsNoTracking().Where(a => a.EntidadId == id).Select(a => a.Resumen).ToListAsync();
+        Assert.Contains(resumenes, r => r.Contains("inactivado") && r.Contains("Cerró operaciones"));
+        Assert.Contains(resumenes, r => r.Contains("reactivado") && r.Contains("Retomamos el suministro"));
+    }
+
     // --- Helpers ---
+
+    private static Task<HttpResponseMessage> DeleteConMotivoAsync(HttpClient client, string url, string motivo = "Baja de prueba") =>
+        client.SendAsync(new HttpRequestMessage(HttpMethod.Delete, url) { Content = JsonContent.Create(new { motivo }) });
 
     private async Task<HttpClient> CreateSuperAdminClientAsync()
     {

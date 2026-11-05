@@ -178,7 +178,8 @@ public sealed class ObtenerOrdenCompraPorIdHandler
             SolicitudesCancelacion = oc.SolicitudesCancelacion.OrderBy(s => s.FechaSolicitud)
                 .Select(s => new SolicitudCancelacionOcResponse(s.Id, s.SolicitanteId,
                     s.FechaSolicitud, s.MotivoCancelacionId, s.MotivoSolicitud,
-                    s.ResolutorId, s.FechaResolucion, s.Confirmada, s.MotivoResolucion)).ToList(),
+                    s.ResolutorId, s.FechaResolucion, s.Confirmada, s.MotivoResolucion)
+                { EsperaAlmacenes = s.EsperaAlmacenes, RespuestaAlmacenes = s.RespuestaAlmacenes }).ToList(),
             EstadoComercialProveedor = oc.EstadoComercialProveedor,
             FechaCompromisoProveedor = oc.FechaCompromisoProveedor,
             RespuestasProveedor = oc.RespuestasProveedor.OrderByDescending(r => r.Numero)

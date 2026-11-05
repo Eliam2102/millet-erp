@@ -500,6 +500,43 @@ solo de eventos de Facturación; la conciliación comprueba que cada evento lleg
 
 ---
 
+### 11.6 Pólizas de cobro conciliadas con la cartera (F1-CXC-02 · CXC-06)
+
+**Ajuste documentado de un cobro corto.**
+- Un depósito menor que lo aplicado, dentro de la tolerancia no fiscal, ya no se absorbe solo.
+- Quien propone documenta el ajuste con su tipo (`TipoAjusteCobro`: comisión bancaria o diferencia menor) y su motivo. El tipo define la cuenta de la póliza. Sin tipo o sin motivo, la propuesta se rechaza (`PAP_AJUSTE_SIN_TIPO`, `PAP_AJUSTE_SIN_MOTIVO`).
+- La propuesta queda «Ajuste por autorizar». No se publica `propuesta-aplicacion.creada.v1`, así que Tesorería no la ve.
+- Otra persona la autoriza (`POST …/propuestas-aplicacion/{id}/autorizar-ajuste`) y entonces se publica a Tesorería. También puede rechazarla con motivo (`…/rechazar-ajuste`), y la propuesta queda rechazada.
+- Quien propuso no autoriza su propio ajuste (`PAP_AJUSTE_MISMO_USUARIO`).
+- Supuesto «a validar»: autorizar usa el permiso existente `aplicacion-pago.confirmar`.
+
+**Póliza del pago de cliente (#12, versión 2 de la plantilla).**
+
+| Partida | Rol | Importe |
+|---|---|---|
+| Cargo | `BANCOS` | Depósito |
+| Cargo | `COMISIONES_BANCARIAS` o `DIFERENCIAS_EN_COBRO` | Ajuste, según su tipo |
+| Abono | `CLIENTES` (auxiliar cliente) | Lo aplicado en cartera |
+
+- Así la cartera y la póliza cuadran.
+- Contabilidad lee el ajuste autorizado con el puerto `IAjusteCobroContablePort`, que CxC implementa.
+- Sin ajuste autorizado, el evento va a la bandeja de rechazos (`DatoFaltante · AjusteAutorizado`) y el faltante no se absorbe.
+- La póliza nace una sola vez por evento: la llave de idempotencia del motor es tipo + id del evento.
+- El rol `DIFERENCIAS_EN_COBRO` se siembra sin cuenta; Contabilidad lo mapea.
+
+**Conciliación de cobros contra pólizas.**
+- Endpoint `GET /cartera/conciliacion-polizas?desde&hasta`, pantalla `/cxc/conciliacion-polizas`.
+- Cruza cada cobro aplicado en cartera con su póliza. Los datos de Contabilidad se leen con `ICobrosContabilizadosReadPort`.
+
+| Cobro en cartera | Póliza contra la que se cruza |
+|---|---|
+| REP de una propuesta (el REP queda guardado en `propuesta.recibo_pago_id`) | Póliza del pago de cliente, por movimiento bancario |
+| Cobro de mostrador | Póliza del cobro (no efectivo) más la liquidación del efectivo al cerrar la caja |
+
+- Cada cobro sale como «Cuadra», «Diferencia» o «En tránsito», con su causa probable: sin póliza, póliza duplicada, importe distinto, efectivo sin liquidar o pago confirmado sin REP.
+- Es un reporte corporativo: pide `cartera.leer` y `cartera.leer-todas-sucursales`.
+- Es distinta de C7.7, que concilia la cartera contra Facturación.
+
 ## 12. Frontend — patrones aplicables
 
 Ver [`05-frontend-diseno.md`](05-frontend-diseno.md). Resumen: rutas `/cxc/*`,
@@ -530,3 +567,4 @@ patrones P1–P4 de `frontend/docs/patrones-compras.md`, reportes con
 | v0.3 | 2026-10-21 | F1-CXC-05: anticipos con su aplicación a la factura final (§6.1, §11, §11.2) |
 | v0.4 | 2026-11-02 | F1-CXC-06 · C7.5: bloqueo automático por plazo + tolerancia, desbloqueo al pagar y manual con motivo, alerta del seguro anticipada (§9, §11.4) |
 | v0.5 | 2026-11-04 | F1-CXC-01 · C7.7: conciliación diaria de cartera contra Facturación (§6.1, §9, §10, §11, §11.5) |
+| v0.6 | 2026-11-04 | F1-CXC-02 · CXC-06: ajuste documentado y autorizado de un cobro corto, póliza #12 con el ajuste y conciliación de cobros contra pólizas (§11.6) |

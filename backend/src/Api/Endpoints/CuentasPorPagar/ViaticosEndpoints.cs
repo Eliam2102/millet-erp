@@ -200,6 +200,50 @@ public static class ViaticosEndpoints
         .Produces<TransicionViaticosResponse>(StatusCodes.Status200OK)
         .ProducesValidationProblem();
 
+        group.MapPost("/{id:guid}/devolver", async (
+            Guid id,
+            [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
+            [FromBody] DevolverBody body,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            if (expectedVersion is not int v)
+                return Results.Problem(title: "X-Expected-Version requerido", statusCode: StatusCodes.Status428PreconditionRequired);
+
+            var response = await mediator.Send(
+                new DevolverSolicitudViaticosCommand(id, v, body.Comentario), cancellationToken);
+            return Results.Ok(response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarViaticosAutorizarJefe)
+        .WithName("DevolverSolicitudViaticos")
+        .WithSummary("Devuelve a corregir (sin cerrar) con comentario obligatorio")
+        .Produces<TransicionViaticosResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem();
+
+        group.MapPost("/{id:guid}/reenviar", async (
+            Guid id,
+            [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
+            [FromBody] ReenviarBody body,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            if (expectedVersion is not int v)
+                return Results.Problem(title: "X-Expected-Version requerido", statusCode: StatusCodes.Status428PreconditionRequired);
+
+            var response = await mediator.Send(
+                new ReenviarSolicitudViaticosCommand(
+                    id, v, body.MontoSolicitado, body.FechaSalida, body.FechaRegreso, body.JustificacionExceso),
+                cancellationToken);
+            return Results.Ok(response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarViaticosSolicitar)
+        .WithName("ReenviarSolicitudViaticos")
+        .WithSummary("El empleado corrige una solicitud devuelta y la reenvía a firma")
+        .Produces<TransicionViaticosResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem();
+
         // Serie detalles CxP: detalle completo para el master-detail del FE.
         group.MapGet("/{id:guid}", async (
             Guid id,
@@ -224,4 +268,6 @@ public static class ViaticosEndpoints
     public sealed record CapturarComprobacionBody(IReadOnlyList<CapturarLineaViaticosInput> Lineas);
 
     public sealed record RechazarBody(string Motivo);
+    public sealed record DevolverBody(string Comentario);
+    public sealed record ReenviarBody(decimal MontoSolicitado, DateOnly FechaSalida, DateOnly FechaRegreso, string? JustificacionExceso);
 }

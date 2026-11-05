@@ -207,6 +207,7 @@ public sealed class CuentasPorPagarContabilidadListenerWorker(ServiceBusClient? 
     [
         NormalizadorEventos.FacturaProveedorRegistrada, NormalizadorEventos.FacturaProveedorCancelada,
         NormalizadorEventos.NotaCreditoProveedorRegistrada, NormalizadorEventos.NotaCargoAutorizada, NormalizadorEventos.AnticipoProveedorCapturado,
+        NormalizadorEventos.RevaluacionCierreRegistrada, NormalizadorEventos.RevaluacionCierreRevertida,
         NormalizadorEventos.GastoRegistrado, NormalizadorEventos.PasivoAutorizadoParaPago, NormalizadorEventos.EstadoCuentaTcCerrado,
         NormalizadorEventos.AnticipoProveedorAmortizado,
     ], StringComparer.Ordinal);

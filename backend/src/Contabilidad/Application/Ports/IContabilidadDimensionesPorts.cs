@@ -71,3 +71,12 @@ public interface ICuentaBancariaContabilidadPort
     Task<IReadOnlyDictionary<Guid, AuxiliarContable>> ObtenerAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct);
     Task<IReadOnlyList<AuxiliarContable>> BuscarAsync(string? q, int limite, CancellationToken ct);
 }
+
+/// <summary>
+/// Puerto de CONSUMIDOR para artículos (F1-ALM-13): grupo del artículo (grupo SAP, <c>Articulo.Categoria</c>) por id, para el rol
+/// <c>INVENTARIO_{grupo}</c>. Lo implementa Compartido. Los ids que no existen o sin grupo no aparecen.
+/// </summary>
+public interface IArticuloContabilidadPort
+{
+    Task<IReadOnlyDictionary<Guid, string>> GruposAsync(IReadOnlyCollection<Guid> articuloIds, CancellationToken ct);
+}
