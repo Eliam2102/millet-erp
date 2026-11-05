@@ -1,23 +1,31 @@
+using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.SharedKernel.Application.Exceptions;
-using Millet.Administracion.Domain;
-using Millet.Almacen.Domain;
 using Millet.Catalogos.Domain;
-using Millet.DatosMaestros.Domain;
-using Millet.SharedKernel.Domain;
+using Millet.Compartido.Application.Catalogos;
 using Millet.Compartido.Infrastructure.Persistence;
 
 namespace Millet.DatosMaestros.Application.Catalogos;
 
-/// <summary>Reactiva el registro. Si ya está activo, no escribe cambios.</summary>
-public sealed record ReactivarProveedorCommand(Guid ProveedorId) : IRequest;
+/// <summary>Reactiva el registro con motivo obligatorio. Si ya está activo, no escribe cambios.</summary>
+public sealed record ReactivarProveedorCommand(Guid ProveedorId, string Motivo) : IRequest;
+
+public sealed class ReactivarProveedorValidator : AbstractValidator<ReactivarProveedorCommand>
+{
+    public ReactivarProveedorValidator() => MaestroEstatusService.ReglaMotivo(RuleFor(x => x.Motivo));
+}
 
 public sealed class ReactivarProveedorHandler : IRequestHandler<ReactivarProveedorCommand>
 {
     private readonly CompartidoDbContext _db;
+    private readonly MaestroEstatusService _estatus;
 
-    public ReactivarProveedorHandler(CompartidoDbContext db) => _db = db;
+    public ReactivarProveedorHandler(CompartidoDbContext db, MaestroEstatusService estatus)
+    {
+        _db = db;
+        _estatus = estatus;
+    }
 
     public async Task Handle(ReactivarProveedorCommand request, CancellationToken cancellationToken)
     {
@@ -33,5 +41,7 @@ public sealed class ReactivarProveedorHandler : IRequestHandler<ReactivarProveed
 
         proveedor.CambiarEstatus(EstatusCatalogo.Activo);
         await _db.SaveChangesAsync(cancellationToken);
+        await _estatus.RegistrarAsync("proveedor.reactivar", "Proveedor", proveedor.Id,
+            $"{proveedor.Clave} · {proveedor.RazonSocial}", false, request.Motivo.Trim(), cancellationToken);
     }
 }

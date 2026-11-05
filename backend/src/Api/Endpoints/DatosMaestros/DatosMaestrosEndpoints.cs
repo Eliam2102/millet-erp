@@ -606,9 +606,9 @@ public static class DatosMaestrosEndpoints
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         clientes.MapDelete("/{id:guid}", async (
-            Guid id, IMediator mediator, CancellationToken ct) =>
+            Guid id, [FromBody] Catalogos.CatalogosEndpoints.MotivoEstatusPayload body, IMediator mediator, CancellationToken ct) =>
         {
-            await mediator.Send(new DesactivarClienteCommand(id), ct);
+            await mediator.Send(new DesactivarClienteCommand(id, body.Motivo ?? ""), ct);
             return Results.NoContent();
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
@@ -621,9 +621,9 @@ public static class DatosMaestrosEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound);
 
         clientes.MapPost("/{id:guid}/reactivar", async (
-            Guid id, IMediator mediator, CancellationToken ct) =>
+            Guid id, [FromBody] Catalogos.CatalogosEndpoints.MotivoEstatusPayload body, IMediator mediator, CancellationToken ct) =>
         {
-            await mediator.Send(new ReactivarClienteCommand(id), ct);
+            await mediator.Send(new ReactivarClienteCommand(id, body.Motivo ?? ""), ct);
             return Results.NoContent();
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())

@@ -45,9 +45,9 @@ public sealed class CargasMaestrosEndpointsTests(WebApplicationFactory<Program> 
         using var scope = factory.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
         var id = catalogo == "articulos" ? await db.Articulos.Where(x => x.Clave == clave).Select(x => x.Id).SingleAsync()
             : await db.Proveedores.Where(x => x.ClaveLegacy == clave).Select(x => x.Id).SingleAsync();
-        (await client.DeleteAsync($"/api/v1/catalogos/{catalogo}/{id}")).EnsureSuccessStatusCode();
-        (await client.PostAsync($"/api/v1/catalogos/{catalogo}/{id}/reactivar", null)).EnsureSuccessStatusCode();
-        (await client.PostAsync($"/api/v1/catalogos/{catalogo}/{id}/reactivar", null)).EnsureSuccessStatusCode();
+        (await client.SendAsync(new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/catalogos/{catalogo}/{id}") { Content = JsonContent.Create(new { motivo = "Baja de prueba" }) })).EnsureSuccessStatusCode();
+        (await client.PostAsJsonAsync($"/api/v1/catalogos/{catalogo}/{id}/reactivar", new { motivo = "Se retoma" })).EnsureSuccessStatusCode();
+        (await client.PostAsJsonAsync($"/api/v1/catalogos/{catalogo}/{id}/reactivar", new { motivo = "Se retoma" })).EnsureSuccessStatusCode();
         var estado = catalogo == "articulos" ? await db.Articulos.AsNoTracking().Where(x => x.Id == id).Select(x => x.Estatus).SingleAsync()
             : await db.Proveedores.AsNoTracking().Where(x => x.Id == id).Select(x => x.Estatus).SingleAsync();
         Assert.Equal(EstatusCatalogo.Activo, estado);
