@@ -64,6 +64,10 @@ public sealed class MovimientoPieza : BaseEntity, IAuditable, IPerteneceAEmpresa
     public static MovimientoPieza Paso(PiezaPt pieza, TipoMovimientoPieza tipo, EstadoPieza anterior, Guid albaranId, DateTimeOffset ocurridoAt, string usuario)
         => new(pieza, tipo, anterior, albaranId.ToString(), ocurridoAt, usuario);
 
+    /// <summary>Carga pieza por pieza (PT5.4): la referencia lleva el instante, porque una pieza puede cargarse, descargarse y cargarse otra vez en el mismo albarán.</summary>
+    public static MovimientoPieza PasoPieza(PiezaPt pieza, TipoMovimientoPieza tipo, EstadoPieza anterior, Guid albaranId, DateTimeOffset ocurridoAt, string usuario)
+        => new(pieza, tipo, anterior, $"{albaranId}/{ocurridoAt.UtcTicks}", ocurridoAt, usuario);
+
     public static MovimientoPieza TrasladoSalida(PiezaPt pieza, Guid destino, Guid traspasoId, DateTimeOffset ocurridoAt, string usuario)
         => new(pieza, TipoMovimientoPieza.TrasladoSalida, EstadoPieza.EnPT, EstadoPieza.EnTransito, pieza.SucursalId, destino, traspasoId, ocurridoAt, usuario);
 

@@ -91,6 +91,20 @@ public static class ProductoTerminadoEndpoints
             .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar)
             .WithMetadata(new RequireIdempotencyKeyAttribute());
 
+        // Carga física pieza por pieza (PT5.4) sobre la hoja en Borrador.
+        hojas.MapPost("/{id:guid}/cargar", async (Guid id, PiezaHojaBody body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new CargarPiezaHojaCommand(id, body.Etiqueta), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar)
+            .WithMetadata(new RequireIdempotencyKeyAttribute());
+        hojas.MapPost("/{id:guid}/descargar", async (Guid id, PiezaHojaBody body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new DescargarPiezaHojaCommand(id, body.Etiqueta), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar)
+            .WithMetadata(new RequireIdempotencyKeyAttribute());
+        hojas.MapPost("/{id:guid}/rota", async (Guid id, PiezaHojaBody body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new MarcarPiezaRotaHojaCommand(id, body.Etiqueta), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar)
+            .WithMetadata(new RequireIdempotencyKeyAttribute());
+
         // Solo Demo (PT5.2): el saldo de prueba simula el cobro de caja. Nunca se mapea en Production; además exige el origen Demo de A+W.
         // PLATFORM-TODO(<SaldoPorPedidoFacturacion>): se retira cuando Facturación (Uziel) publique el saldo por pedido.
         if (!app.ServiceProvider.GetRequiredService<IHostEnvironment>().IsProduction())

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest, esConflictoConcurrencia, useBodyScopedIdempotencyKey } from '@/lib/api';
 import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialog-context';
@@ -148,5 +149,18 @@ export function useAccionHojaSalida() {
     mutationFn: async ({ id, accion, estado }: { id: string; accion: 'emitir' | 'cancelar'; estado: string }) =>
       (await apiRequest<HojaSalidaDto>(`${BASE}/hojas-salida/${id}/${accion}`, { method: 'POST', idempotencyKey: keyFor({ id, accion, estado }) })).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.all }),
+  });
+}
+
+/** Carga física pieza por pieza (PT5.4). El intento va en la llave: tras un rechazo, escanear la misma etiqueta otra vez llega al servidor y no repite la respuesta guardada. */
+export function useCargaHoja() {
+  const qc = useQueryClient();
+  const keyFor = useBodyScopedIdempotencyKey();
+  const [intento, setIntento] = useState(0);
+  return useMutation({
+    mutationFn: async ({ id, accion, etiqueta }: { id: string; accion: 'cargar' | 'descargar' | 'rota'; etiqueta: string }) =>
+      (await apiRequest<HojaSalidaDto>(`${BASE}/hojas-salida/${id}/${accion}`, { method: 'POST', body: { etiqueta }, idempotencyKey: keyFor({ id, accion, etiqueta, intento }) })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.all }),
+    onError: () => setIntento((n) => n + 1),
   });
 }
