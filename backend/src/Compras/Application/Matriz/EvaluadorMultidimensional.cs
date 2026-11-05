@@ -24,7 +24,7 @@ namespace Millet.Compras.Application.Matriz;
 ///
 /// <list type="number">
 ///   <item><b>Naturaleza:</b> <c>Critico</c> o <c>Riesgo</c> → N1+N2 directo.</item>
-///   <item><b>Sin umbral vigente:</b> no se puede decidir, se exige N2 (fail-safe).</item>
+///   <item><b>Sin umbral vigente:</b> no se puede decidir; <c>SinPolitica</c> (pendiente de configurar el aprobador, no autoriza ni fuerza N2).</item>
 ///   <item>
 ///     <b>Monto</b> (modo <c>SoloMonto</c> o <c>Ambos</c>): Σ cantidad × precio estimado
 ///     &gt; umbral de monto → N1+N2, sin consultar stock.
@@ -89,10 +89,10 @@ public sealed class EvaluadorMultidimensional : IRequiereNivelEvaluator
         var umbral = filas.FirstOrDefault(u => u.DepartamentoId == requisicion.DepartamentoId)
                      ?? filas.FirstOrDefault(u => u.DepartamentoId == EvaluadorNivelOc.UmbralGeneralId);
 
-        // Sin umbral vigente no se puede decidir: se exige N2. Ficha C3.1 §7 y plano Compras paso 10.
+        // Sin umbral vigente no se puede decidir ni se fuerza N2: pendiente de configurar el aprobador.
         if (umbral is null)
         {
-            return RequiereNivel.N1YN2;
+            return RequiereNivel.SinPolitica;
         }
 
         var incluyeMonto = umbral.ModoNivel2 is ModoNivel2.SoloMonto or ModoNivel2.Ambos;

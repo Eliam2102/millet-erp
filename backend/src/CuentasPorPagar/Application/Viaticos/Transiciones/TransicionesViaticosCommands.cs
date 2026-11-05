@@ -295,3 +295,127 @@ public sealed class RechazarSolicitudViaticosHandler
         return new TransicionViaticosResponse(s.Id, s.Estado, s.Version);
     }
 }
+
+// ---------------------------------------------------- DevolverSolicitud
+
+public sealed record DevolverSolicitudViaticosCommand(Guid Id, int VersionEsperada, string Comentario)
+    : IRequest<TransicionViaticosResponse>;
+
+public sealed class DevolverSolicitudViaticosValidator
+    : AbstractValidator<DevolverSolicitudViaticosCommand>
+{
+    public DevolverSolicitudViaticosValidator()
+    {
+        RuleFor(c => c.Id).NotEmpty();
+        RuleFor(c => c.Comentario).NotEmpty().MaximumLength(1000);
+    }
+}
+
+/// <summary>
+/// Devuelve a corregir (sin cerrar): quien autoriza deja un comentario y la
+/// solicitud pasa a <c>Devuelta</c>. No emite pasivo ni anticipo.
+/// </summary>
+public sealed class DevolverSolicitudViaticosHandler
+    : IRequestHandler<DevolverSolicitudViaticosCommand, TransicionViaticosResponse>
+{
+    private readonly CuentasPorPagarDbContext _db;
+    private readonly ICurrentUserContext _currentUser;
+    private readonly IClock _clock;
+
+    public DevolverSolicitudViaticosHandler(
+        CuentasPorPagarDbContext db, ICurrentUserContext currentUser, IClock clock)
+    {
+        _db = db; _currentUser = currentUser; _clock = clock;
+    }
+
+    public async Task<TransicionViaticosResponse> Handle(
+        DevolverSolicitudViaticosCommand command, CancellationToken cancellationToken)
+    {
+        var s = await _db.SolicitudesViaticos
+            .FirstOrDefaultAsync(x => x.Id == command.Id, cancellationToken)
+            ?? throw new EntityNotFoundException("VIA_NO_ENCONTRADA",
+                $"No se encontró la solicitud '{command.Id}'.");
+        if (s.Version != command.VersionEsperada)
+            throw new ConcurrencyException(nameof(SolicitudViaticos), s.Id);
+
+        var usuarioId = _currentUser.UserId
+            ?? throw new ForbiddenException("USUARIO_NO_AUTENTICADO",
+                "Se requiere usuario autenticado para devolver.");
+        s.Devolver(usuarioId, command.Comentario, _clock.UtcNow);
+        await _db.SaveChangesAsync(cancellationToken);
+        return new TransicionViaticosResponse(s.Id, s.Estado, s.Version);
+    }
+}
+
+// ---------------------------------------------------- ReenviarSolicitud
+
+public sealed record ReenviarSolicitudViaticosCommand(
+    Guid Id,
+    int VersionEsperada,
+    decimal MontoSolicitado,
+    DateOnly FechaSalida,
+    DateOnly FechaRegreso,
+    string? JustificacionExceso) : IRequest<TransicionViaticosResponse>;
+
+public sealed class ReenviarSolicitudViaticosValidator
+    : AbstractValidator<ReenviarSolicitudViaticosCommand>
+{
+    public ReenviarSolicitudViaticosValidator()
+    {
+        RuleFor(c => c.Id).NotEmpty();
+        RuleFor(c => c.MontoSolicitado).GreaterThan(0);
+    }
+}
+
+/// <summary>
+/// El empleado corrige una solicitud <c>Devuelta</c> y la reenvía: se recalcula
+/// el tope con la política vigente del puesto + destino y vuelve a firma.
+/// Solo el empleado solicitante puede reenviarla.
+/// </summary>
+public sealed class ReenviarSolicitudViaticosHandler
+    : IRequestHandler<ReenviarSolicitudViaticosCommand, TransicionViaticosResponse>
+{
+    private readonly CuentasPorPagarDbContext _db;
+    private readonly ICurrentUserContext _currentUser;
+    private readonly IEmpleadoReadPort _empleados;
+
+    public ReenviarSolicitudViaticosHandler(
+        CuentasPorPagarDbContext db, ICurrentUserContext currentUser, IEmpleadoReadPort empleados)
+    {
+        _db = db; _currentUser = currentUser; _empleados = empleados;
+    }
+
+    public async Task<TransicionViaticosResponse> Handle(
+        ReenviarSolicitudViaticosCommand command, CancellationToken cancellationToken)
+    {
+        var s = await _db.SolicitudesViaticos
+            .FirstOrDefaultAsync(x => x.Id == command.Id, cancellationToken)
+            ?? throw new EntityNotFoundException("VIA_NO_ENCONTRADA",
+                $"No se encontró la solicitud '{command.Id}'.");
+        if (s.Version != command.VersionEsperada)
+            throw new ConcurrencyException(nameof(SolicitudViaticos), s.Id);
+
+        var usuarioId = _currentUser.UserId
+            ?? throw new ForbiddenException("USUARIO_NO_AUTENTICADO",
+                "Se requiere usuario autenticado para reenviar.");
+        var empleado = await _empleados.ObtenerPorUsuarioAsync(usuarioId, cancellationToken);
+        if (empleado?.Id != s.EmpleadoId)
+            throw new ForbiddenException("VIA_SOLO_SOLICITANTE",
+                "Solo quien solicitó los viáticos puede corregirlos y reenviarlos.");
+
+        var politica = await _db.PoliticasViaticos
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                p => p.PuestoId == s.PuestoId && p.TipoDestino == s.TipoDestino,
+                cancellationToken)
+            ?? throw new BusinessRuleException(
+                "VIA_POLITICA_NO_DEFINIDA",
+                "Ya no hay política de viáticos para el puesto y destino de esta solicitud.");
+
+        var dias = command.FechaRegreso.DayNumber - command.FechaSalida.DayNumber + 1;
+        s.Reenviar(command.MontoSolicitado, command.FechaSalida, command.FechaRegreso,
+            politica.CalcularTope(dias), politica.DiasMax, command.JustificacionExceso);
+        await _db.SaveChangesAsync(cancellationToken);
+        return new TransicionViaticosResponse(s.Id, s.Estado, s.Version);
+    }
+}

@@ -32,4 +32,7 @@ public enum EstadoSolicitudViaticos
 
     /// <summary>Rechazada por jefe o por DF antes del anticipo.</summary>
     Rechazada                   = 8,
+
+    /// <summary>Devuelta a corregir por quien autoriza (con comentario); el empleado la corrige y reenvía.</summary>
+    Devuelta                    = 9,
 }

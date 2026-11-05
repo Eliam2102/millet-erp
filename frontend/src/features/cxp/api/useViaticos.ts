@@ -4,6 +4,8 @@ import { cxpKeys, type ListarViaticosFiltros } from '@/features/cxp/api/keys';
 import type {
   CapturarComprobacionViaticosCommand,
   CapturarComprobacionViaticosResponse,
+  DevolverSolicitudViaticosCommand,
+  ReenviarSolicitudViaticosCommand,
   LiberarComprobacionViaticosResponse,
   PagedResponse,
   RechazarSolicitudViaticosCommand,
@@ -202,6 +204,60 @@ export function useRechazarSolicitudViaticos() {
     }) => {
       const { data } = await apiRequest<TransicionViaticosResponse>(
         `/api/v1/cuentas-por-pagar/viaticos/${args.id}/rechazar`,
+        {
+          method: 'POST',
+          body: args.command,
+          idempotencyKey: args.idempotencyKey,
+          headers: { 'X-Expected-Version': String(args.versionEsperada) },
+        },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: cxpKeys.viaticos() });
+    },
+  });
+}
+
+/** Devolver a corregir (no cierra): comentario obligatorio; el empleado corrige y reenvía. */
+export function useDevolverSolicitudViaticos() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      id: string;
+      versionEsperada: number;
+      command: DevolverSolicitudViaticosCommand;
+      idempotencyKey: string;
+    }) => {
+      const { data } = await apiRequest<TransicionViaticosResponse>(
+        `/api/v1/cuentas-por-pagar/viaticos/${args.id}/devolver`,
+        {
+          method: 'POST',
+          body: args.command,
+          idempotencyKey: args.idempotencyKey,
+          headers: { 'X-Expected-Version': String(args.versionEsperada) },
+        },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: cxpKeys.viaticos() });
+    },
+  });
+}
+
+/** El empleado corrige una solicitud devuelta y la reenvía a firma. */
+export function useReenviarSolicitudViaticos() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      id: string;
+      versionEsperada: number;
+      command: ReenviarSolicitudViaticosCommand;
+      idempotencyKey: string;
+    }) => {
+      const { data } = await apiRequest<TransicionViaticosResponse>(
+        `/api/v1/cuentas-por-pagar/viaticos/${args.id}/reenviar`,
         {
           method: 'POST',
           body: args.command,

@@ -183,6 +183,7 @@ const TABS_ESTADO = [
   { valor: EstadoSolicitudViaticos.ComprobacionCapturada, label: 'Comprobación capturada' },
   { valor: EstadoSolicitudViaticos.Liquidada, label: 'Liquidada' },
   { valor: EstadoSolicitudViaticos.Rechazada, label: 'Rechazada' },
+  { valor: EstadoSolicitudViaticos.Devuelta, label: 'Devuelta a corregir' },
 ] as const;
 
 interface FiltrosProps {
