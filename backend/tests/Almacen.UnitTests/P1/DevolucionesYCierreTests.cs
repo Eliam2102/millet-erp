@@ -201,7 +201,7 @@ public sealed class DevolucionesYCierreTests
         await f.Db.SaveChangesAsync();
         var h = new EjecutarCierreMensualHandler(f.Db, f.Context, f.Context);
         await Error(() => h.Handle(new(2026, 9), default), "CIERRE_VALES_PENDIENTES");
-        await new RegularizarSalidaPorValeHandler(f.Db, f.Rq).Handle(new(vale.Id, f.DocumentoId), default);
+        await new RegularizarSalidaPorValeHandler(f.Db, f.Rq, f.Events).Handle(new(vale.Id, f.DocumentoId), default);
         await h.Handle(new(2026, 9), default);
         (await f.Db.Set<PeriodoCerrado>().CountAsync()).Should().Be(1);
     }

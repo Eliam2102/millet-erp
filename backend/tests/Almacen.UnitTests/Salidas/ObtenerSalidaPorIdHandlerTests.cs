@@ -119,7 +119,7 @@ public class ObtenerSalidaPorIdHandlerTests
         pendiente.Vencido.Should().BeTrue();
         pendiente.FechaLimiteRegularizacion.Should().Be(limite);
 
-        await new Millet.Almacen.Application.Vales.RegularizarSalidaPorValeHandler(f.Db, f.Rq)
+        await new Millet.Almacen.Application.Vales.RegularizarSalidaPorValeHandler(f.Db, f.Rq, f.Events)
             .Handle(new(vale.Id, f.DocumentoId), default);
         var regularizado = (await handler.Handle(new(vale.Id), default))!;
         regularizado.PendienteRegularizacion.Should().BeFalse();
