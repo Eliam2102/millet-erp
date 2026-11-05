@@ -162,6 +162,6 @@ public sealed class AlmCompraEncolador(ComprasDbContext db, CompartidoDbContext 
                 l.LoteProveedor, AlmCompraSobre.FormatoPedimento(oc.InfoImportNumeroPedimento), null, costoM2, costoPieza));
         }
         return new AlmCompraDatos(oc.Folio.Valor, claveAw, proveedor.RazonSocial, oc.Moneda, oc.TipoCambio,
-            oc.FechaDocumento, lineas);
+            oc.FechaDocumento, AlmCompraSobre.AgruparMedidaGirada(lineas));
     }
 }

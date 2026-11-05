@@ -61,6 +61,22 @@ public sealed class AlmCompraSobreTests
     }
 
     [Fact]
+    public void Medida_girada_es_la_misma_hoja_y_se_agrupa_sin_tocar_el_material_por_cantidad()
+    {
+        var a = new AlmCompraLinea("1", null, null, 100006, null, 3302, 6100, 4, "L-7781", null, null, 210.5m, 4237.8m);
+        var b = a with { LineaErp = "2", Ancho = 6100, Alto = 3302, Piezas = 6 };
+        var otraMedida = a with { LineaErp = "3", Ancho = 3300, Alto = 6100 };
+        var sinMedida1 = new AlmCompraLinea("4", null, null, 200010, null, null, null, 24, null, null, null, null, 25m);
+        var sinMedida2 = sinMedida1 with { LineaErp = "5" };
+
+        var r = AlmCompraSobre.AgruparMedidaGirada([a, b, otraMedida, sinMedida1, sinMedida2]);
+
+        r.Should().HaveCount(4);
+        r[0].Should().Match<AlmCompraLinea>(l => l.Ancho == 6100 && l.Alto == 3302 && l.Piezas == 10);
+        r.Select(l => l.LineaErp).Should().Equal("1", "3", "4", "5");
+    }
+
+    [Fact]
     public void MensajeId_es_determinista_y_cabe_en_64()
     {
         AlmCompraSobre.MensajeId("OC-5521", Guid.Empty, "COMPRA_MODIFICADA", 2).Should().Be("ERP-OC-5521-M2");
