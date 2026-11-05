@@ -97,7 +97,33 @@ public sealed class DepositoConfirmacion : BaseEntity, IPerteneceAEmpresa, IAudi
     public Guid? ResueltaPor { get; private set; }
     public DateTimeOffset? ResueltaEn { get; private set; }
 
+    /// <summary>86e3ke6yn: se confirmó sola al importar el extracto (regla automática), no a mano.</summary>
+    public bool ConfirmacionAutomatica { get; private set; }
+    public string? ReglaAutomatica { get; private set; }
+
+    /// <summary>86e3ke6yn: línea del extracto que coincidió con la propuesta (auto o en revisión).</summary>
+    public Guid? ExtractoLineaId { get; private set; }
+
+    /// <summary>86e3ke6yn: por qué la regla automática no confirmó; el depósito sigue pendiente para un humano.</summary>
+    public string? MotivoRevision { get; private set; }
+
     private DepositoConfirmacion() { }
+
+    public void MarcarConfirmacionAutomatica(string regla, Guid extractoLineaId)
+    {
+        ConfirmacionAutomatica = true;
+        ReglaAutomatica = regla;
+        ExtractoLineaId = extractoLineaId;
+        MotivoRevision = null;
+    }
+
+    public void MarcarEnRevision(string motivo, Guid extractoLineaId)
+    {
+        ConfirmacionAutomatica = false;
+        ReglaAutomatica = null;
+        ExtractoLineaId = extractoLineaId;
+        MotivoRevision = motivo.Length > 400 ? motivo[..400] : motivo;
+    }
 
     /// <summary>Proyección de <c>cuentas_por_cobrar.propuesta-aplicacion.creada.v1</c> (listener PR-7).</summary>
     public static DepositoConfirmacion CrearDesdePropuesta(

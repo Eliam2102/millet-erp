@@ -1225,6 +1225,7 @@ export function useCargarExtracto() {
       const { data } = await apiRequest<ConciliacionResumenResponse>(`${BASE}/conciliaciones/${id}/extracto`, {
         method: 'POST',
         body,
+        idempotencyKey: crypto.randomUUID(),
       });
       return data;
     },
@@ -1242,6 +1243,7 @@ export function useEmparejarAutomatico() {
       const { data } = await apiRequest<ResultadoEmparejamientoResponse>(`${BASE}/conciliaciones/${id}/emparejar-automatico`, {
         method: 'POST',
         body,
+        idempotencyKey: crypto.randomUUID(),
       });
       return data;
     },
@@ -1259,6 +1261,7 @@ export function useEmparejarManual() {
       const { data } = await apiRequest<ExtractoLineaResponse>(`${BASE}/conciliaciones/${id}/emparejar-manual`, {
         method: 'POST',
         body,
+        idempotencyKey: crypto.randomUUID(),
       });
       return data;
     },
@@ -1276,6 +1279,7 @@ export function useDesemparejarLinea() {
       const { data } = await apiRequest<ExtractoLineaResponse>(`${BASE}/conciliaciones/${id}/desemparejar`, {
         method: 'POST',
         body,
+        idempotencyKey: crypto.randomUUID(),
       });
       return data;
     },
@@ -1293,6 +1297,7 @@ export function useAltaAsistida() {
       const { data } = await apiRequest<ExtractoLineaResponse>(`${BASE}/conciliaciones/${id}/alta-asistida`, {
         method: 'POST',
         body,
+        idempotencyKey: crypto.randomUUID(),
       });
       return data;
     },
@@ -1311,6 +1316,7 @@ export function useMarcarPartidaTransito() {
       const { data } = await apiRequest<ExtractoLineaResponse>(`${BASE}/conciliaciones/${id}/partidas-transito`, {
         method: 'POST',
         body,
+        idempotencyKey: crypto.randomUUID(),
       });
       return data;
     },

@@ -54,6 +54,15 @@ Falta de Jorge: base, instancia y tablas del módulo OTR donde están contenedor
 cómo se detecta un envío nuevo, modificado o cancelado, y `SELECT` sobre ellas para
 `millet_erp_lector_aw`.
 
+### Lector real (A+W-QA-10)
+
+`OtrTablasAdapter` en modo Real sólo hace `SELECT` sobre las tablas con la forma del contrato de abajo (sin columnas `erp_*`) y
+no escribe nada en A+W. Como no se puede marcar nada allá, el ERP decide qué ya leyó con su propio control: un envío con
+versión menor o igual a la aplicada (`otr_envios.VersionAplicada`) o con esa versión rechazada (`otr_entrada_control`) no se vuelve a
+procesar; los errores técnicos se reintentan hasta `MaxIntentos`. Un cambio en OTR debe llegar como versión mayor.
+**Límite:** los nombres reales de tabla y columna del módulo OTR siguen pendientes de Jorge; el lector está probado contra un
+simulador con la forma del contrato. Cuando Jorge los dé, sólo cambia el `SELECT` (por `AWPROD_ERP`/`OPENQUERY` si aplica).
+
 ## Contrato de entrada (origen Demo)
 
 Las tablas siguientes son el **origen Demo de ejemplo** (`tools/aw-origen-demo`) y el formato que
@@ -155,7 +164,7 @@ La bandeja del lanzador contiene sólo los envíos por vincular.
 | `ContratoI134Firmado` | false | Candado real adicional; activar sólo con evidencia de I13.4 firmado |
 
 Real se registra únicamente con contrato firmado, conexión `AwIntegracionDb` y
-`EntradaHabilitada`; hoy apunta al modelo de tablas puente y queda apagado hasta A+W-QA-10. `Demo` usa la misma selección `AwOrigenSesion`, registro keyed `Demo`
+`EntradaHabilitada`; lee en sólo lectura (ver «Lector real») y se enciende en pruebas con las opciones `IntegracionesAw__Exportacion__*`. `Demo` usa la misma selección `AwOrigenSesion`, registro keyed `Demo`
 y `AwOrigenPgDb`; requiere `IntegracionesAw:OrigenDemo:Permitido`, y nunca en Production.
 No hay autenticación simulada: HTTP conserva EntraId + JWT del API y filtro territorial CE.
 Ver requiere `expedientes.leer`; gestionar usa `otr.gestionar` y alcance CE por sucursal.

@@ -26,12 +26,13 @@ public sealed class OtrHttpTests
     private const string Base = "/api/v1/comercio-exterior/otr";
     private const string Expedientes = "/api/v1/comercio-exterior/expedientes";
     private static readonly Guid Cliente = DemoSesionSeedHostedService.Id("DEMO-CLI-EXP-1");
-    private static Task<ExpedientesHttpTests.Escenario> Escenario(Action<IServiceCollection>? configurar = null) => ExpedientesHttpTests.Escenario.CrearAsync(s =>
+    private static Task<ExpedientesHttpTests.Escenario> Escenario(Action<IServiceCollection>? configurar = null, bool lectorReal = false) => ExpedientesHttpTests.Escenario.CrearAsync(s =>
     {
         s.Configure<OtrOptions>(o => { o.EntradaHabilitada = true; o.EmpresaId = DemoSesionSeedHostedService.EmpresaId; o.MaxIntentos = 2; });
         s.AddSingleton<IAwOrigenActivo, OrigenDemo>();
         configurar?.Invoke(s);
-        s.AddKeyedScoped<OtrTablasAdapter>("Demo", (sp, _) => new(() => new NpgsqlConnection(sp.GetRequiredService<ComercioExteriorDbContext>().Database.GetConnectionString()), true));
+        s.AddKeyedScoped<OtrTablasAdapter>("Demo", (sp, _) => new(() => new NpgsqlConnection(sp.GetRequiredService<ComercioExteriorDbContext>().Database.GetConnectionString()), true,
+            lectorReal ? ct => OtrDependencyInjection.YaLeidoAsync(sp.GetRequiredService<ComercioExteriorDbContext>(), DemoSesionSeedHostedService.EmpresaId, ct) : null));
     });
     private sealed class OrigenDemo : IAwOrigenActivo
     {
@@ -81,6 +82,25 @@ public sealed class OtrHttpTests
     {
         var req = new HttpRequestMessage(HttpMethod.Post, ruta); if (body is not null) req.Content = JsonContent.Create(body);
         req.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString()); req.Headers.TryAddWithoutValidation("If-Match", etag); return c.SendAsync(req);
+    }
+    [Fact]
+    public async Task Lector_real_solo_lee_no_duplica_registra_nueva_version_y_no_crea_clientes()
+    {
+        await using var e = await Escenario(lectorReal: true); await Preparar(e);
+        await Insertar(e, "DEMO-OTR-3", 1, 70, "DEMO-OTR-PED-CE02");
+        await Sql(e, "UPDATE dbo.aw_otr_envio SET cliente_numero_aw='DEMO-DESCONOCIDO' WHERE otr_envio_id='DEMO-OTR-3'");
+        Assert.Equal(3, await Entrada(e)); Assert.Equal(0, await Entrada(e));
+        await Insertar(e, "DEMO-OTR-1", 2, 125, "DEMO-OTR-PED-CE02", "Modificacion");
+        Assert.Equal(1, await Entrada(e)); Assert.Equal(0, await Entrada(e));
+        using var scope = e.Scope(); using var b = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var db = scope.ServiceProvider.GetRequiredService<ComercioExteriorDbContext>();
+        Assert.Equal(3, await db.OtrEnvios.CountAsync());
+        Assert.Equal(2, (await db.OtrEnvios.SingleAsync(x => x.IdOrigen == "DEMO-OTR-1")).VersionAplicada);
+        var sinCliente = await db.OtrEnvios.SingleAsync(x => x.IdOrigen == "DEMO-OTR-3");
+        Assert.Equal(EstadoOtrEnvio.PorVincular, sinCliente.Estado); Assert.Equal("CE_OTR_CLIENTE_DESCONOCIDO", sinCliente.MotivoVinculacion);
+        await using var c = new NpgsqlConnection(db.Database.GetConnectionString()); await c.OpenAsync();
+        await using var cmd = new NpgsqlCommand("SELECT count(*) FROM dbo.aw_otr_envio WHERE erp_resultado IS NOT NULL OR erp_motivo IS NOT NULL OR erp_procesada_at IS NOT NULL", c);
+        Assert.Equal(0L, await cmd.ExecuteScalarAsync()); // A+W no recibe ninguna escritura del ERP.
     }
     [Fact]
     public async Task Entrada_versiones_propuestas_y_embarque_se_quedan_en_el_erp_sin_salida_hacia_aw()

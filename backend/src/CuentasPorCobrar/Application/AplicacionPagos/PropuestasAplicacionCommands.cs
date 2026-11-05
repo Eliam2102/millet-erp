@@ -99,7 +99,8 @@ internal static class PropuestaAplicacionMapper
     /// </summary>
     public static Task PublicarCreadaAsync(
         IIntegrationEventPublisher eventos, PropuestaAplicacionPago propuesta,
-        IReadOnlyDictionary<Guid, FacturaCartera> cartera, DateTimeOffset ahora, CancellationToken ct) =>
+        IReadOnlyDictionary<Guid, FacturaCartera> cartera, DateTimeOffset ahora, CancellationToken ct,
+        IReadOnlyDictionary<Guid, decimal>? saldosInsolutos = null) =>
         eventos.PublishAsync(new PropuestaAplicacionPagoCreadaEvent(
             EmpresaId: propuesta.EmpresaId,
             OcurridoEn: ahora,
@@ -118,7 +119,8 @@ internal static class PropuestaAplicacionMapper
                 .Select(f =>
                 {
                     var c = cartera[f.FacturaCarteraId];
-                    return new PropuestaAplicacionFacturaDetalle(c.FacturaVentaId, c.Folio, f.ImporteAplicado);
+                    return new PropuestaAplicacionFacturaDetalle(c.FacturaVentaId, c.Folio, f.ImporteAplicado,
+                        saldosInsolutos != null && saldosInsolutos.TryGetValue(c.Id, out var saldo) ? saldo : null);
                 })
                 .ToList(),
             MovimientoBancarioId: propuesta.MovimientoBancarioId), ct);
@@ -366,7 +368,7 @@ public sealed class CrearPropuestaAplicacionHandler
         // CXC-06: con ajuste, la propuesta espera la autorización de otra persona antes de llegar a Tesorería.
         if (!propuesta.AjustePorAutorizar)
             await PropuestaAplicacionMapper.PublicarCreadaAsync(
-                _eventos, propuesta, facturas.Values.ToDictionary(f => f.Id), _clock.UtcNow, cancellationToken);
+                _eventos, propuesta, facturas.Values.ToDictionary(f => f.Id), _clock.UtcNow, cancellationToken, saldosInsolutos);
 
         await _db.SaveChangesAsync(cancellationToken);
         if (transaction is not null) await transaction.CommitAsync(cancellationToken);

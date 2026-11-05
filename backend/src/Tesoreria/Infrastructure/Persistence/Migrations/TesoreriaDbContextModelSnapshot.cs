@@ -1595,6 +1595,12 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("cliente_id");
 
+                    b.Property<bool>("ConfirmacionAutomatica")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("confirmacion_automatica");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -1624,6 +1630,10 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasColumnType("smallint")
                         .HasColumnName("estado");
 
+                    b.Property<Guid?>("ExtractoLineaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("extracto_linea_id");
+
                     b.Property<string>("FacturasJson")
                         .IsRequired()
                         .HasColumnType("jsonb")
@@ -1644,6 +1654,11 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(400)")
                         .HasColumnName("motivo_rechazo");
 
+                    b.Property<string>("MotivoRevision")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("motivo_revision");
+
                     b.Property<Guid?>("MovimientoId")
                         .HasColumnType("uuid")
                         .HasColumnName("movimiento_id");
@@ -1655,6 +1670,11 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("PropuestoPor")
                         .HasColumnType("uuid")
                         .HasColumnName("propuesto_por");
+
+                    b.Property<string>("ReglaAutomatica")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("regla_automatica");
 
                     b.Property<bool>("ReppTimbrado")
                         .HasColumnType("boolean")

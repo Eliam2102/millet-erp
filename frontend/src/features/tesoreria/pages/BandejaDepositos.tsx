@@ -261,6 +261,16 @@ export function BandejaDepositos() {
                     </TableCell>
                     <TableCell className="px-3 py-2">
                       <EstadoDepositoBadge estado={d.estado} />
+                      {d.estado === EstadoDepositoConfirmacion.Pendiente && d.motivoRevision != null && (
+                        <p className="mt-1 max-w-56 text-xs text-warning-fg" title={d.motivoRevision}>
+                          En revisión: {d.motivoRevision}
+                        </p>
+                      )}
+                      {d.confirmacionAutomatica === true && (
+                        <p className="mt-1 text-xs text-ink-muted" title={d.reglaAutomatica ?? undefined}>
+                          Confirmado por regla automática
+                        </p>
+                      )}
                     </TableCell>
                     <TableCell className="px-3 py-2">
                       {d.estado === EstadoDepositoConfirmacion.Confirmada &&
