@@ -28,6 +28,7 @@ function deposito(id: string, propuestoPor: string): DepositoConfirmacionRespons
     recibidoEn: '2026-10-26T12:00:00Z',
     version: 1,
     propuestoPor,
+    motivoRevision: id === 'ajeno' ? 'Cheque: se confirma a mano.' : null,
   } as DepositoConfirmacionResponse;
 }
 
@@ -64,5 +65,11 @@ describe('Depósitos por confirmar · R12 (C7.4)', () => {
     expect(propio).toHaveAccessibleDescription('No puedes confirmar una propuesta que tú hiciste');
     expect(propio!.parentElement).toHaveAttribute('title', 'No puedes confirmar una propuesta que tú hiciste');
     expect(botones.filter((b) => !b.hasAttribute('disabled'))).toHaveLength(1);
+  });
+
+  it('muestra por qué la regla automática dejó el depósito en revisión (86e3ke6yn)', () => {
+    render(<BandejaDepositos />);
+    expect(screen.getByText('En revisión: Cheque: se confirma a mano.')).toBeInTheDocument();
+    expect(screen.getAllByText(/^En revisión:/)).toHaveLength(1);
   });
 });

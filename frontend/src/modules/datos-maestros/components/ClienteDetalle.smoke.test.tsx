@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -162,9 +162,11 @@ describe('<ClienteDetalle> — smoke', () => {
       ),
     );
     let llamadas = 0;
+    let motivo: unknown;
     mswServer.use(
-      http.post('*/api/v1/datos-maestros/clientes/c-1/reactivar', () => {
+      http.post('*/api/v1/datos-maestros/clientes/c-1/reactivar', async ({ request }) => {
         llamadas += 1;
+        motivo = ((await request.json()) as { motivo: string }).motivo;
         return new HttpResponse(null, { status: 204 });
       }),
     );
@@ -179,8 +181,14 @@ describe('<ClienteDetalle> — smoke', () => {
     ).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /^reactivar$/i }));
+    const dialog = await screen.findByRole('dialog');
+    const confirmar = within(dialog).getByRole('button', { name: /^reactivar$/i });
+    expect(confirmar).toBeDisabled(); // sin motivo no se puede reactivar
+    fireEvent.change(within(dialog).getByLabelText(/motivo/i), { target: { value: 'Regresa a operar' } });
+    fireEvent.click(confirmar);
 
     await waitFor(() => expect(llamadas).toBe(1));
+    expect(motivo).toBe('Regresa a operar');
   });
 
   it('muestra la sección de origen A+W y no dice Sincronizado con Error', async () => {

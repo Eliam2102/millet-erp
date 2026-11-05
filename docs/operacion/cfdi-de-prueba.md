@@ -76,8 +76,8 @@ debe salir «Sin diferencia».
 - **UUID único** (`CFDI_DUPLICADO`, `FACTURA_DUPLICADA`): UUID aleatorio en cada corrida.
 - **Emisor = proveedor** (captura en CxP y `PORTAL_RFC_NO_COINCIDE` del portal): se toma
   del proveedor de la OC.
-- **Importes** (conciliación con la OC y `FACTURA_EXCEDE_RECIBIDO`): mismo precio, descuento
-  e IVA que la OC y, por omisión, solo lo recibido.
+- **Importes** (conciliación con la OC): mismo precio, descuento
+  e IVA que la OC y, por omisión, solo lo recibido (si excede lo recibido se registra y el excedente queda retenido).
 - **Receptor mapeado** (`RFC_RECEPTOR_NO_MAPEADO`): solo aplica al buzón de correo
   (`Workers:RfcsReceptores`). La carga manual y el portal no lo piden. Para mandarlo por
   correo, el RFC de la empresa debe estar en ese mapeo del servidor.

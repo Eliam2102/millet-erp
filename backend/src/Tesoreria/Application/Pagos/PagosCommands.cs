@@ -169,6 +169,8 @@ public sealed class RegistrarPagoProveedorHandler
         if (faltantes.Count > 0)
             throw new BusinessRuleException("PAGO_PASIVO_NO_AUTORIZADO",
                 $"Pasivo(s) no presentes en la bandeja de autorizados: {string.Join(", ", faltantes)} (RN-1).");
+        // I13.3: un pasivo de comercio exterior necesita sus dos autorizaciones también fuera de la corrida.
+        await Pasivos.PagosComercioExterior.ExigirAutorizadosAsync(_db, facturaIds, "PAGO_PASIVO_CE_SIN_AUTORIZAR", cancellationToken);
 
         // GI-PR3 (doc 12): los pasivos internos SÍ se pagan por este flujo,
         // pero emiten su propio evento (préstamo de viáticos → vuelta a

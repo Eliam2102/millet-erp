@@ -1,4 +1,5 @@
 import { useReactivarProveedor } from '../api/proveedores';
+import { CambioEstatusMaestroDialog } from './CambioEstatusMaestroDialog';
 import { estadoUi } from '../lib/estados-ui';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
@@ -70,7 +71,7 @@ export function ProveedorDetalle() {
     from: '/_app/admin/datos-maestros/proveedores/$id',
   });
   const proveedorQuery = useProveedor(id);
-  const [confirmDesactivar, setConfirmDesactivar] = useState(false);
+  const [dialogoEstatus, setDialogoEstatus] = useState<'desactivar' | 'reactivar' | null>(null);
   const [confirmValidar, setConfirmValidar] = useState(false);
   const [modalRechazar, setModalRechazar] = useState(false);
   const [motivoRechazo, setMotivoRechazo] = useState('');
@@ -152,23 +153,16 @@ export function ProveedorDetalle() {
   const motivoTrim = motivoRechazo.trim();
   const motivoValido = motivoTrim.length >= 5 && motivoTrim.length <= 500;
 
-  function handleConfirmarDesactivar() {
-    desactivar.mutate(
-      { id: proveedor.id, idempotencyKey: crypto.randomUUID() },
+  function handleConfirmarEstatus(motivo: string) {
+    const mutacion = dialogoEstatus === 'desactivar' ? desactivar : reactivar;
+    mutacion.mutate(
+      { id: proveedor.id, motivo, idempotencyKey: crypto.randomUUID() },
       {
         onSuccess: () => {
-          toast.success(`Proveedor ${proveedor.clave} desactivado`);
-          setConfirmDesactivar(false);
-        },
-        onError: (error) => {
-          if (esApiError(error)) {
-            toast.error(error.problem.title, {
-              description: codigoSoporte(error),
-            });
-          } else {
-            toast.error('Error al desactivar el proveedor.');
-          }
-          setConfirmDesactivar(false);
+          toast.success(
+            `Proveedor ${proveedor.clave} ${dialogoEstatus === 'desactivar' ? 'desactivado' : 'reactivado'}`,
+          );
+          setDialogoEstatus(null);
         },
       },
     );
@@ -287,14 +281,12 @@ export function ProveedorDetalle() {
                 variant="ghost"
                 size="sm"
                 disabled={reactivar.isPending}
-                onClick={() =>
-                  reactivar.mutate(
-                    { id: proveedor.id, idempotencyKey: crypto.randomUUID() },
-                    { onError: (e) => toast.error(e.message) },
-                  )
-                }
+                onClick={() => {
+                  reactivar.reset();
+                  setDialogoEstatus('reactivar');
+                }}
               >
-                {reactivar.isPending ? 'Reactivando…' : 'Reactivar'}
+                Reactivar
               </Button>
             )}
             {canDesactivar && activo && (
@@ -302,7 +294,10 @@ export function ProveedorDetalle() {
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => setConfirmDesactivar(true)}
+                onClick={() => {
+                  desactivar.reset();
+                  setDialogoEstatus('desactivar');
+                }}
               >
                 <PowerOff className="mr-1.5 h-4 w-4" />
                 Desactivar
@@ -526,26 +521,14 @@ export function ProveedorDetalle() {
         </DialogContent>
       </Dialog>
 
-      {/* Diálogo de Confirmación para Desactivar */}
-      <AlertDialog open={confirmDesactivar} onOpenChange={setConfirmDesactivar}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Desactivar proveedor</AlertDialogTitle>
-            <AlertDialogDescription>
-              ¿Confirmas desactivar al proveedor{' '}
-              <span className="font-mono font-semibold">{proveedor.clave}</span>? Las requisiciones
-              históricas se conservan. El artículo deja de estar disponible para nuevas
-              requisiciones.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={desactivar.isPending}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmarDesactivar} disabled={desactivar.isPending}>
-              {desactivar.isPending ? 'Desactivando…' : 'Desactivar'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <CambioEstatusMaestroDialog
+        modo={dialogoEstatus}
+        etiqueta={`proveedor ${proveedor.clave}`}
+        pending={desactivar.isPending || reactivar.isPending}
+        error={dialogoEstatus === 'desactivar' ? desactivar.error : reactivar.error}
+        onConfirm={handleConfirmarEstatus}
+        onCancel={() => setDialogoEstatus(null)}
+      />
     </div>
   );
 }

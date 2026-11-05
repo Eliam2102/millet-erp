@@ -343,7 +343,7 @@ resource almacenEventsComprasSubscriptionFilter 'Microsoft.ServiceBus/namespaces
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'almacen.oc_recepcion.registrada.v1\', \'almacen.oc_devolucion.registrada.v1\', \'almacen.oc_devolucion.conciliada.v1\', \'almacen.recepcion_oc.cancelada.v1\', \'almacen.salida_requisicion.registrada.v1\', \'almacen.recepcion_activo.anulada.v1\')'
+      sqlExpression: 'user.EventType IN (\'almacen.oc_recepcion.registrada.v1\', \'almacen.oc_devolucion.registrada.v1\', \'almacen.oc_devolucion.conciliada.v1\', \'almacen.recepcion_oc.cancelada.v1\', \'almacen.salida_requisicion.registrada.v1\', \'almacen.recepcion_activo.anulada.v1\', \'almacen.vale_regularizado.v1\')'
       compatibilityLevel: 20
     }
   }
@@ -983,7 +983,7 @@ resource contabCxpFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/r
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'cuentas_por_pagar.factura.registrada.v1\', \'cuentas_por_pagar.factura.cancelada.v1\', \'cuentas_por_pagar.nota-credito.registrada.v1\', \'cuentas_por_pagar.nota-cargo.autorizada.v1\', \'cuentas_por_pagar.anticipo.capturado.v1\')'
+      sqlExpression: 'user.EventType IN (\'cuentas_por_pagar.factura.registrada.v1\', \'cuentas_por_pagar.factura.cancelada.v1\', \'cuentas_por_pagar.nota-credito.registrada.v1\', \'cuentas_por_pagar.nota-cargo.autorizada.v1\', \'cuentas_por_pagar.anticipo.capturado.v1\', \'cuentas_por_pagar.revaluacion.registrada.v1\', \'cuentas_por_pagar.revaluacion.revertida.v1\')'
       compatibilityLevel: 20
     }
   }

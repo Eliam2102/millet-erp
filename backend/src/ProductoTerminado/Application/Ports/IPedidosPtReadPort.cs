@@ -11,6 +11,9 @@ public interface IPedidosPtReadPort
 
     /// <summary>Cliente, destino y señal de salida de los pedidos indicados (PT5.3). Ids de otra empresa no se devuelven.</summary>
     Task<IReadOnlyDictionary<Guid, PedidoMonitorOrigen>> ObtenerParaMonitorAsync(Guid empresaId, IReadOnlyCollection<Guid> pedidoFacturableIds, CancellationToken ct);
+
+    /// <summary>PT5.6: pedido al que pertenece una factura (para conciliar el voucher cobrado en caja). <c>null</c> si no es de un pedido.</summary>
+    Task<Guid?> ObtenerPedidoDeFacturaAsync(Guid empresaId, Guid comprobanteId, CancellationToken ct);
 }
 
 /// <summary><c>TieneSalida</c>: hay una SalidaFacturable en Facturación o el estatus A+W es 72/115 (71 no cuenta: es el traspaso al Portal de Salidas).</summary>

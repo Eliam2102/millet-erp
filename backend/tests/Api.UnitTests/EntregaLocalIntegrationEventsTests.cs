@@ -34,7 +34,7 @@ public sealed class EntregaLocalIntegrationEventsTests
     }
 
     [Fact]
-    public void En_Development_con_la_opcion_activa_registra_el_sender_local_y_los_24_consumidores()
+    public void En_Development_con_la_opcion_activa_registra_el_sender_local_y_los_25_consumidores()
     {
         var services = new ServiceCollection().AddLogging();
 
@@ -44,9 +44,9 @@ public sealed class EntregaLocalIntegrationEventsTests
         using var sp = services.BuildServiceProvider();
         Assert.IsType<LocalDispatchIntegrationEventBusSender>(sp.GetRequiredService<IIntegrationEventBusSender>());
         var consumidores = sp.GetServices<ILocalIntegrationEventConsumer>().ToList();
-        // PT5.2 suma dos consumidores locales (CxC pide la decisión al retener; PT aplica la de CxC). 21 workers con Service Bus (P14: CxP escucha a Comercio Exterior; TR-01 suma el retorno A+W; C1.5 suma los 4 de Contabilidad); ComprasActivoWorker aporta uno por topic.
-        Assert.Equal(24, consumidores.Count);
-        Assert.Equal(24, consumidores.Select(c => c.GetType()).Distinct().Count());
+        // PT5.2 suma dos consumidores locales (CxC pide la decisión al retener; PT aplica la de CxC); PT5.6 suma uno más (PT escucha a Facturación: factura timbrada para el 115 y cobro de caja para conciliar el voucher). 21 workers con Service Bus (P14: CxP escucha a Comercio Exterior; TR-01 suma el retorno A+W; C1.5 suma los 4 de Contabilidad); ComprasActivoWorker aporta uno por topic.
+        Assert.Equal(25, consumidores.Count);
+        Assert.Equal(25, consumidores.Select(c => c.GetType()).Distinct().Count());
         Assert.Contains(consumidores, c => c is Millet.Contabilidad.Infrastructure.Workers.FacturacionContabilidadListenerWorker
             && c.TopicName == "facturacion-events");
         Assert.Contains(consumidores, c => c is Millet.Contabilidad.Infrastructure.Workers.CuentasPorPagarContabilidadListenerWorker

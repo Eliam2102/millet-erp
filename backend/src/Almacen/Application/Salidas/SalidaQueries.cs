@@ -74,7 +74,9 @@ public sealed record SalidaDetalle(
     IReadOnlyList<SalidaLineaItem> Lineas,
     bool PendienteRegularizacion = false,
     DateTimeOffset? FechaLimiteRegularizacion = null,
-    bool Vencido = false);
+    bool Vencido = false,
+    // G-10: acuse de quien recibe (nombre y momento) y motivo de la urgencia del vale.
+    string? AcuseRecibeNombre = null, DateTimeOffset? AcuseRecibeAt = null, string? MotivoUrgencia = null);
 
 public sealed record SalidaLineaItem(
     Guid Id,
@@ -424,7 +426,8 @@ public sealed class ObtenerSalidaPorIdHandler
             Lineas: lineas,
             PendienteRegularizacion: mov.PendienteRegularizacion,
             FechaLimiteRegularizacion: mov.FechaLimiteRegularizacion,
-            Vencido: mov.PendienteRegularizacion && mov.FechaLimiteRegularizacion <= DateTimeOffset.UtcNow);
+            Vencido: mov.PendienteRegularizacion && mov.FechaLimiteRegularizacion <= DateTimeOffset.UtcNow,
+            AcuseRecibeNombre: mov.AcuseRecibeNombre, AcuseRecibeAt: mov.AcuseRecibeAt, MotivoUrgencia: mov.MotivoUrgencia);
     }
 
     /// <summary>

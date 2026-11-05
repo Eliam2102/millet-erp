@@ -57,7 +57,12 @@ public sealed record DepositoConfirmacionResponse(
     decimal? DiferenciaImporte = null,
     bool? Conciliado = null,
     // Solo en la bandeja: cajero del corte, para distinguir varios cortes.
-    string? CajeroNombre = null);
+    string? CajeroNombre = null,
+    // 86e3ke6yn: confirmación automática al importar el extracto, o por qué quedó en revisión.
+    bool ConfirmacionAutomatica = false,
+    string? ReglaAutomatica = null,
+    string? MotivoRevision = null,
+    Guid? ExtractoLineaId = null);
 
 public sealed record DepositoFichaResponse(
     Guid Id, Guid MovimientoId, decimal Importe, DateOnly FechaFicha, string? NumeroFicha,
@@ -67,14 +72,14 @@ internal static class DepositoMapper
 {
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
 
-    public static IReadOnlyList<DepositoFacturaResponse> ParseFacturas(string facturasJson)
+    public static IReadOnlyList<DepositoFacturaResponse> ParseFacturas(string facturasJson) =>
+        ParsePayload(facturasJson).Select(f => new DepositoFacturaResponse(f.FacturaVentaId, f.Folio, f.ImporteAplicado)).ToList();
+
+    public static IReadOnlyList<PropuestaFacturaPayload> ParsePayload(string facturasJson)
     {
         try
         {
-            var facturas = JsonSerializer.Deserialize<List<PropuestaFacturaPayload>>(facturasJson, JsonOpts);
-            return facturas is null
-                ? []
-                : facturas.Select(f => new DepositoFacturaResponse(f.FacturaVentaId, f.Folio, f.ImporteAplicado)).ToList();
+            return JsonSerializer.Deserialize<List<PropuestaFacturaPayload>>(facturasJson, JsonOpts) ?? [];
         }
         catch (JsonException)
         {
@@ -95,7 +100,9 @@ internal static class DepositoMapper
                 .Select(f => new DepositoFichaResponse(f.Id, f.MovimientoId, f.Importe, f.FechaFicha, f.NumeroFicha,
                     f.SoporteTipo, f.SoporteFolio, f.ConfirmadaEn)).ToList(),
             diferencia?.Estado, diferencia?.Importe,
-            d.CajaSesionId is null ? null : d.Estado == EstadoDepositoConfirmacion.Confirmada && (diferencia is null || diferencia.Autorizada));
+            d.CajaSesionId is null ? null : d.Estado == EstadoDepositoConfirmacion.Confirmada && (diferencia is null || diferencia.Autorizada),
+            ConfirmacionAutomatica: d.ConfirmacionAutomatica, ReglaAutomatica: d.ReglaAutomatica,
+            MotivoRevision: d.MotivoRevision, ExtractoLineaId: d.ExtractoLineaId);
 }
 
 // --------------------------------------------------- Confirmar
@@ -224,10 +231,27 @@ public sealed class ConfirmarDepositoHandler
                 .FirstOrDefaultAsync(x => x.CajaSesionId == deposito.CajaSesionId, cancellationToken));
         }
 
-        // RN-6 + cotejo monto/moneda contra lo disponible, validados en el dominio.
-        deposito.Confirmar(movimiento, usuarioId, _clock.UtcNow, DepositoDisponible.Disponible(movimiento, aplicadoPrevio));
+        return await ConfirmacionDeposito.ConfirmarContraMovimientoAsync(_db, _publisher, _clock, empresaId,
+            usuarioId, deposito, movimiento, movimientoNuevo: command.Ingreso is not null, aplicadoPrevio, cancellationToken);
+    }
+}
 
-        if (command.Ingreso is not null) _db.MovimientosBancarios.Add(movimiento);
+/// <summary>
+/// Camino único de confirmación de un depósito contra un movimiento (propuesta CxC o viáticos):
+/// lo usan la confirmación manual y la regla automática (86e3ke6yn). El llamador toma el lock
+/// y hace sus revisiones previas; aquí se confirma, aplica el ingreso, publica y guarda.
+/// </summary>
+internal static class ConfirmacionDeposito
+{
+    public static async Task<DepositoConfirmacionResponse> ConfirmarContraMovimientoAsync(
+        TesoreriaDbContext db, IIntegrationEventPublisher publisher, IClock clock, Guid empresaId, Guid usuarioId,
+        DepositoConfirmacion deposito, Domain.Movimientos.MovimientoBancario movimiento, bool movimientoNuevo,
+        decimal aplicadoPrevio, CancellationToken cancellationToken)
+    {
+        // RN-6 + cotejo monto/moneda contra lo disponible, validados en el dominio.
+        deposito.Confirmar(movimiento, usuarioId, clock.UtcNow, DepositoDisponible.Disponible(movimiento, aplicadoPrevio));
+
+        if (movimientoNuevo) db.MovimientosBancarios.Add(movimiento);
 
         // La confirmación ES el documento que aplica el ingreso (§4.2). C7.4: aplica
         // lo propuesto; el saldo a favor por identificar deja el movimiento
@@ -235,13 +259,13 @@ public sealed class ConfirmarDepositoHandler
         movimiento.ActualizarEstadoAplicacion(aplicadoPrevio + deposito.ImporteAplicadoDe(movimiento.Monto));
 
         // Solo las propuestas de CxC disparan el ciclo fiscal (REPP); los
-        // cortes de caja se cubren con fichas (arriba) — el mostrador timbró lo suyo.
+        // cortes de caja se cubren con fichas — el mostrador timbró lo suyo.
         if (deposito.PropuestaCxcId is Guid propuestaId && deposito.ClienteId is Guid clienteId)
         {
             var facturas = DepositoMapper.ParseFacturas(deposito.FacturasJson);
-            await _publisher.PublishAsync(new PagoClienteConfirmadoIntegrationEvent(
+            await publisher.PublishAsync(new PagoClienteConfirmadoIntegrationEvent(
                 EmpresaId: empresaId,
-                OcurridoEn: _clock.UtcNow,
+                OcurridoEn: clock.UtcNow,
                 PropuestaId: propuestaId,
                 ClienteId: clienteId,
                 MovimientoBancarioId: movimiento.Id,
@@ -259,7 +283,7 @@ public sealed class ConfirmarDepositoHandler
                     .ToList()), cancellationToken);
         }
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
         return DepositoMapper.ToResponse(deposito);
     }
 }

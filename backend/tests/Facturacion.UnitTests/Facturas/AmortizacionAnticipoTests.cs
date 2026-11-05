@@ -134,8 +134,7 @@ public sealed class AmortizacionAnticipoTests
         nc.Estado.Should().Be(EstadoTimbrado.Timbrado);
         nc.Tipo.Should().Be(TipoComprobante.Egreso);
         nc.AnticipoOrigenId.Should().Be(anticipo.AnticipoId);
-        nc.Relaciones.Should().HaveCount(2); // factura de anticipo + factura final
-        nc.Relaciones.Should().OnlyContain(r => r.TipoRelacion == "07");
+        nc.Relaciones.Should().ContainSingle(r => r.TipoRelacion == "07" && r.UuidRelacionado == resp.Uuid); // solo la factura final
 
         var factura = await db.FacturasVenta.Include(f => f.Relaciones).SingleAsync();
         factura.Relaciones.Should().ContainSingle(r => r.TipoRelacion == "07");

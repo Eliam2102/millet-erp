@@ -34,6 +34,14 @@ public sealed class PropuestaAplicacionPagoConfiguration : IEntityTypeConfigurat
         builder.Property(e => e.Moneda).HasMaxLength(3).IsRequired();
         builder.Property(e => e.RemittanceRef).HasMaxLength(120).IsRequired();
         builder.Property(e => e.AjusteNoFiscal).HasPrecision(14, 2).IsRequired();
+        // CXC-06: ajuste documentado (tipo = cuenta por rol, motivo, autorización) y REP que cierra la propuesta.
+        builder.Property(e => e.TipoAjuste).HasConversion<short?>();
+        builder.Property(e => e.MotivoAjuste).HasMaxLength(400);
+        builder.Property(e => e.AjusteAutorizadoPor);
+        builder.Property(e => e.AjusteAutorizadoEn);
+        builder.Property(e => e.ReciboPagoId);
+        builder.Ignore(e => e.AjustePorAutorizar);
+        builder.HasIndex(e => e.ReciboPagoId).HasDatabaseName("ix_propuesta_aplicacion_recibo_pago");
 
         builder.Property(e => e.Estado).HasConversion<short>().IsRequired();
         builder.Property(e => e.MotivoRechazo).HasMaxLength(400);

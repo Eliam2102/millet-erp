@@ -148,15 +148,17 @@ export function useActualizarCliente() {
 
 export interface DesactivarClienteArgs {
   id: string;
+  motivo: string;
   idempotencyKey: string;
 }
 
 export function useDesactivarCliente() {
   const queryClient = useQueryClient();
   return useMutation<void, Error, DesactivarClienteArgs>({
-    mutationFn: async ({ id, idempotencyKey }) => {
+    mutationFn: async ({ id, motivo, idempotencyKey }) => {
       await apiRequest<void>(`/api/v1/datos-maestros/clientes/${id}`, {
         method: 'DELETE',
+        body: { motivo },
         idempotencyKey,
       });
     },
@@ -174,9 +176,10 @@ export function useDesactivarCliente() {
 export function useReactivarCliente() {
   const queryClient = useQueryClient();
   return useMutation<void, Error, DesactivarClienteArgs>({
-    mutationFn: async ({ id, idempotencyKey }) => {
+    mutationFn: async ({ id, motivo, idempotencyKey }) => {
       await apiRequest<void>(`/api/v1/datos-maestros/clientes/${id}/reactivar`, {
         method: 'POST',
+        body: { motivo },
         idempotencyKey,
       });
     },

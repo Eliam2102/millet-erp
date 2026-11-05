@@ -58,7 +58,7 @@ describe('rutas viejas de «Cuentas de acceso» (86e3x6cpw)', () => {
     });
   });
 
-  it('/admin/usuarios/$id sin empleado (404) lleva a «Cuentas sin empleado»', async () => {
+  it('/admin/usuarios/$id sin empleado (404) se queda en la ficha de la cuenta (86e3yxe9m)', async () => {
     mswServer.use(
       http.get('*/api/v1/admin/colaboradores/por-usuario/u-1', () =>
         HttpResponse.json(
@@ -72,10 +72,8 @@ describe('rutas viejas de «Cuentas de acceso» (86e3x6cpw)', () => {
         ),
       ),
     );
-    expect(await destino(detalle.options.beforeLoad as Guard)).toMatchObject({
-      to: '/admin/empleados',
-      search: { vista: 'sin-empleado' },
-    });
+    const guard = detalle.options.beforeLoad as Guard;
+    await expect(guard({ params: { id: 'u-1' } })).resolves.toBeUndefined();
   });
 
   it('/admin/usuarios/$id sin permiso de Empleados lleva a inicio', async () => {

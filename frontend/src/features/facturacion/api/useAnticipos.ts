@@ -186,12 +186,12 @@ export function useEmitirNcDevolucionAnticipo(facturaAnticipoId: string) {
 export function useAplicarAnticipoAFactura(facturaVentaId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (args: { anticipoId: string; importe: number; idempotencyKey: string }) => {
+    mutationFn: async (args: { anticipoId: string; importe: number; comentarios?: string | null; idempotencyKey: string }) => {
       const { data } = await apiRequest<AplicarAnticipoAFacturaResponse>(
         `${BASE}/${args.anticipoId}/aplicar`,
         {
           method: 'POST',
-          body: { facturaVentaId, importe: args.importe },
+          body: { facturaVentaId, importe: args.importe, ...(args.comentarios ? { comentarios: args.comentarios } : {}) },
           idempotencyKey: args.idempotencyKey,
         },
       );

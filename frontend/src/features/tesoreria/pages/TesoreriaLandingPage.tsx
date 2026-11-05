@@ -111,6 +111,19 @@ const moduloTesoreriaLanding: NavModulo = {
           ],
         },
         {
+          label: 'Pagos de comercio exterior',
+          description:
+            'Autorización en dos niveles de los pagos de importación y exportación antes de la corrida.',
+          to: '/tesoreria/pagos-comercio-exterior',
+          icon: ClipboardList,
+          permissionsAny: [
+            PermisosCanonicos.TesoreriaPagosCeAutorizarImportacion,
+            PermisosCanonicos.TesoreriaPagosCeAutorizarExportacion,
+            PermisosCanonicos.TesoreriaPagosCeAutorizarDireccion,
+            PermisosCanonicos.TesoreriaPasivosVer,
+          ],
+        },
+        {
           label: 'Corridas de pago',
           description:
             'Lotes de pasivos autorizables como unidad con oficio de cartera imprimible.',

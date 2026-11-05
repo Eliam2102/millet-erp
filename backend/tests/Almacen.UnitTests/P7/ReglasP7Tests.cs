@@ -95,7 +95,7 @@ public sealed class ReglasP7Tests
         await using var f = new P1Fixture();
         var rq = (await f.Rq.ObtenerAsync(f.DocumentoId, default))!;
         var port = new P1Fixture.RqPort(rq with { Lineas = [rq.Lineas[0] with { CantidadSolicitada = 24, CantidadDisponibleEntregar = 24 }] });
-        await new RegistrarSalidaConRequisicionHandler(f.Db, port, f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), new P7Support.Conversion(), P7Support.Apartados(f.Db)).Handle(new(f.DocumentoId, P1Fixture.Fecha, null, null, [new(f.ArticuloId, f.LineaId, 2, null, null, null, null, f.BinId, "CAJA")]), default);
+        await new RegistrarSalidaConRequisicionHandler(f.Db, port, f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), new P7Support.Conversion(), P7Support.Apartados(f.Db)).Handle(new(f.DocumentoId, P1Fixture.Fecha, Guid.NewGuid(), null, [new(f.ArticuloId, f.LineaId, 2, null, null, null, null, f.BinId, "CAJA")], "Quien recibe"), default);
         var linea = (await f.Db.Movimientos.Include(m => m.Lineas).SingleAsync()).Lineas.Single();
         linea.Cantidad.Should().Be(24);
         linea.CantidadCapturada.Should().Be(2);

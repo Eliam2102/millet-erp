@@ -300,6 +300,10 @@ export interface SolicitudCancelacionOc {
   fechaResolucion: string | null;
   confirmada: boolean | null;
   motivoResolucion: string | null;
+  /** 86e3jvu83: la cancelación espera la respuesta de Almacenes a COMPRA_CANCELADA. */
+  esperaAlmacenes?: boolean;
+  /** 86e3jvu83: respuesta de Almacenes cuando rechazó la cancelación. */
+  respuestaAlmacenes?: string | null;
 }
 
 /** F1-COM-11: fecha prometida por el proveedor para una cantidad de una línea. */

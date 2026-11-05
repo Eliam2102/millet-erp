@@ -1,4 +1,5 @@
 import { NotificacionesCompras } from './NotificacionesCompras';
+import { NotificacionesAlmacen } from './NotificacionesAlmacen';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from '@tanstack/react-router';
 import { HelpCircle, Menu, PanelLeftOpen, Search, Settings } from 'lucide-react';
@@ -247,6 +248,7 @@ export function Topbar({ onMenuClick, onExpandPanel }: TopbarProps = {}) {
         )}
 
         <NotificacionesCompras />
+        <NotificacionesAlmacen />
         {usuarioPuedeVerAdmin && (
           <Button variant="ghost" size="icon" asChild aria-label="Configuración">
             <Link to="/admin">

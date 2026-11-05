@@ -54,7 +54,7 @@ public sealed class CompensacionAnticipoEntregaLocalTests(WebApplicationFactory<
         respuesta.StatusCode.Should().Be(HttpStatusCode.OK, cuerpo);
         var ncId = JsonDocument.Parse(cuerpo).RootElement.GetProperty("notaCreditoId").GetGuid();
 
-        // Facturación: NC de amortización timbrada con relación 07 al anticipo y a la factura; el anticipo baja su saldo.
+        // Facturación: NC de amortización timbrada con relación 07 solo a la factura de venta; el anticipo baja su saldo.
         using (var scope = app.Services.CreateScope())
         {
             using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
@@ -63,7 +63,7 @@ public sealed class CompensacionAnticipoEntregaLocalTests(WebApplicationFactory<
             nc.Estado.Should().Be(EstadoTimbrado.Timbrado);
             nc.Motivo.Should().Be(MotivoNotaCredito.Amortizacion);
             nc.FacturaRelacionadaId.Should().Be(facturaId);
-            nc.Relaciones.Should().HaveCount(2).And.OnlyContain(r => r.TipoRelacion == "07");
+            nc.Relaciones.Should().ContainSingle().Which.TipoRelacion.Should().Be("07");
             (await fac.Anticipos.AsNoTracking().SingleAsync(a => a.Id == anticipoId)).Saldo.Should().Be(580m);
         }
 

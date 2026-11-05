@@ -116,6 +116,12 @@ public class AsignacionArticuloUbicacionTests
             Assert.Equal(EstatusCatalogo.Activo, asigD.Estatus);   // sigue activa
             var saldoD = await LeerSaldo(db, ubicId, artD);
             Assert.Equal(3m, saldoD!.Cantidad);                    // saldo sin cambio
+
+            // ── 5. G-9: un servicio (no inventariable) se rechaza con motivo y no deja asignación ni saldo ──
+            var exServicio = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+                mediator.Send(new AsignarArticuloAUbicacionCommand(ubicId, FakeArticuloReadPort.ServicioId)));
+            Assert.Equal("ARTICULO_NO_INVENTARIABLE", exServicio.Code);
+            Assert.Null(await LeerSaldo(db, ubicId, FakeArticuloReadPort.ServicioId));
         }
         finally
         {
@@ -133,9 +139,11 @@ public class AsignacionArticuloUbicacionTests
 
     private sealed class FakeArticuloReadPort : IArticuloReadPort
     {
+        public static readonly Guid ServicioId = Guid.NewGuid();
+
         public Task<ArticuloLectura?> ObtenerAsync(Guid articuloId, CancellationToken cancellationToken) =>
             Task.FromResult<ArticuloLectura?>(
-                new ArticuloLectura(articuloId, "TEST", "Artículo de prueba", "PZA", null, EsActivo: true));
+                new ArticuloLectura(articuloId, "TEST", "Artículo de prueba", "PZA", null, EsActivo: true, EsServicio: articuloId == ServicioId));
 
         public Task<IReadOnlyDictionary<Guid, ArticuloLectura>> ObtenerPorIdsAsync(
             IReadOnlyCollection<Guid> articuloIds, CancellationToken cancellationToken) =>

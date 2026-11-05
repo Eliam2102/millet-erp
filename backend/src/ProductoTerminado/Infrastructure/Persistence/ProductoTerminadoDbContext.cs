@@ -14,6 +14,11 @@ public sealed class ProductoTerminadoDbContext(DbContextOptions<ProductoTerminad
     public DbSet<PedidoPtPosicion> Posiciones => Set<PedidoPtPosicion>();
     public DbSet<PiezaPt> Piezas => Set<PiezaPt>();
     public DbSet<MovimientoPieza> Movimientos => Set<MovimientoPieza>();
+    public DbSet<TraspasoPt> Traspasos => Set<TraspasoPt>();
+    public DbSet<SalidaPt> Salidas => Set<SalidaPt>();
+    public DbSet<AlbaranPt> Albaranes => Set<AlbaranPt>();
+    public DbSet<AlbaranPtPieza> AlbaranPiezas => Set<AlbaranPtPieza>();
+    public DbSet<EntregaPt> Entregas => Set<EntregaPt>();
     public DbSet<SaldoDemo> SaldosDemo => Set<SaldoDemo>();
     public DbSet<EscaneoPt> Escaneos => Set<EscaneoPt>();
     public DbSet<IntegrationEventOutboxEntry> OutboxEntries => Set<IntegrationEventOutboxEntry>();
@@ -77,6 +82,77 @@ public sealed class ProductoTerminadoDbContext(DbContextOptions<ProductoTerminad
         m.Property(x => x.Usuario).HasMaxLength(100);
         m.HasIndex(x => new { x.PiezaId, x.Tipo, x.Referencia }).IsUnique();
         m.HasOne<PiezaPt>().WithMany().HasForeignKey(x => x.PiezaId).OnDelete(DeleteBehavior.Restrict);
+
+        var t = modelBuilder.Entity<TraspasoPt>();
+        t.ToTable("traspasos_pt");
+        t.HasKey(x => x.Id);
+        t.Property(x => x.Id).ValueGeneratedNever();
+        t.Property(x => x.Estado).HasConversion<string>().HasMaxLength(20);
+        t.HasIndex(x => new { x.EmpresaId, x.Estado, x.SalidaAt });
+        t.HasMany(x => x.Piezas).WithOne().HasForeignKey(x => x.TraspasoPtId).OnDelete(DeleteBehavior.Restrict);
+        t.Navigation(x => x.Piezas).UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        var tp = modelBuilder.Entity<TraspasoPtPieza>();
+        tp.ToTable("traspaso_pt_piezas");
+        tp.HasKey(x => x.Id);
+        tp.Property(x => x.Id).ValueGeneratedNever();
+        tp.Ignore(x => x.AggregateRootId);
+        tp.HasIndex(x => new { x.TraspasoPtId, x.PiezaId }).IsUnique();
+        tp.HasOne<PiezaPt>().WithMany().HasForeignKey(x => x.PiezaId).OnDelete(DeleteBehavior.Restrict);
+
+        var sp = modelBuilder.Entity<SalidaPt>();
+        sp.ToTable("salidas_pt");
+        sp.HasKey(x => x.Id);
+        sp.Property(x => x.Id).ValueGeneratedNever();
+        sp.Property(x => x.Folio).HasMaxLength(40);
+        sp.Property(x => x.Destino).HasMaxLength(200);
+        sp.Property(x => x.OrigenCodigoPostal).HasMaxLength(5);
+        sp.Property(x => x.OrigenEstado).HasMaxLength(3);
+        sp.Property(x => x.DestinoCodigoPostal).HasMaxLength(5);
+        sp.Property(x => x.DestinoEstado).HasMaxLength(3);
+        sp.Property(x => x.DistanciaKm).HasPrecision(12, 2);
+        sp.Property(x => x.PesoKg).HasPrecision(12, 2);
+        sp.Property(x => x.CartaPorteFolio).HasMaxLength(40);
+        sp.Property(x => x.Estado).HasConversion<string>().HasMaxLength(20);
+        sp.HasIndex(x => new { x.EmpresaId, x.Folio }).IsUnique();
+        sp.HasIndex(x => new { x.EmpresaId, x.Estado, x.CreadaAt });
+        sp.HasMany(x => x.Albaranes).WithOne().HasForeignKey(x => x.SalidaPtId).OnDelete(DeleteBehavior.Restrict);
+        sp.Navigation(x => x.Albaranes).UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        var al = modelBuilder.Entity<AlbaranPt>();
+        al.ToTable("albaranes_pt");
+        al.HasKey(x => x.Id);
+        al.Property(x => x.Id).ValueGeneratedNever();
+        al.Property(x => x.Folio).HasMaxLength(60);
+        al.HasIndex(x => new { x.EmpresaId, x.Folio }).IsUnique();
+        al.HasIndex(x => new { x.SalidaPtId, x.PedidoPtId }).IsUnique();
+        al.HasOne<PedidoPt>().WithMany().HasForeignKey(x => x.PedidoPtId).OnDelete(DeleteBehavior.Restrict);
+        al.HasMany(x => x.Piezas).WithOne().HasForeignKey(x => x.AlbaranPtId).OnDelete(DeleteBehavior.Restrict);
+        al.Navigation(x => x.Piezas).UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        var ap = modelBuilder.Entity<AlbaranPtPieza>();
+        ap.ToTable("albaran_pt_piezas");
+        ap.HasKey(x => x.Id);
+        ap.Property(x => x.Id).ValueGeneratedNever();
+        ap.Ignore(x => x.AggregateRootId);
+        ap.HasIndex(x => new { x.AlbaranPtId, x.PiezaId }).IsUnique();
+        ap.HasOne<PiezaPt>().WithMany().HasForeignKey(x => x.PiezaId).OnDelete(DeleteBehavior.Restrict);
+
+        var en = modelBuilder.Entity<EntregaPt>();
+        en.ToTable("entregas_pt");
+        en.HasKey(x => x.Id);
+        en.Property(x => x.Id).ValueGeneratedNever();
+        en.Property(x => x.Resultado).HasConversion<string>().HasMaxLength(20);
+        en.Property(x => x.Receptor).HasMaxLength(200);
+        en.Property(x => x.MotivoRechazo).HasMaxLength(500);
+        en.Property(x => x.CobroMonto).HasPrecision(18, 2);
+        en.Property(x => x.CobroForma).HasMaxLength(20);
+        en.Property(x => x.CobroReferencia).HasMaxLength(100);
+        en.Property(x => x.Usuario).HasMaxLength(100);
+        en.HasIndex(x => x.AlbaranPtId).IsUnique();
+        en.HasIndex(x => x.PedidoPtId);
+        en.HasIndex(x => x.CobroConciliadoAt).HasDatabaseName("ix_pt_entregas_cobro_pendiente").HasFilter("cobro_monto IS NOT NULL AND cobro_conciliado_at IS NULL");
+        en.HasOne<AlbaranPt>().WithMany().HasForeignKey(x => x.AlbaranPtId).OnDelete(DeleteBehavior.Restrict);
 
         var e = modelBuilder.Entity<EscaneoPt>();
         e.ToTable("escaneos");

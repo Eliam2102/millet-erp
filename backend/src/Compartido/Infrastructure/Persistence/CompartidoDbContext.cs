@@ -1067,6 +1067,11 @@ public sealed class CompartidoDbContext : BaseDbContext
             // Conteo (base PZA)
             SeedUnidadMedida("00000002-0007-0000-0000-000000000001", "PZA", "Pieza", DimensionUnidad.Conteo, 1m, 0, true, seedTime),
             SeedUnidadMedida("00000002-0007-0000-0000-000000000002", "PAR", "Par", DimensionUnidad.Conteo, 2m, 0, false, seedTime),
+            // P-200 (Fernando Alejos 4-nov): empaques de la carga SAP con su clave SAT. ponytail: factor nominal 1, no convierten a
+            // PZA (el contenido varía por artículo; ADR-0046 Etapa 3 lo llevará en el artículo). Nada convierte por factor hoy.
+            SeedUnidadMedida("00000002-0007-0000-0000-00000000000d", "CAJA", "Caja (SAT XBX)", DimensionUnidad.Conteo, 1m, 0, false, seedTime),
+            SeedUnidadMedida("00000002-0007-0000-0000-00000000000e", "ROLLO", "Rollo (SAT RK)", DimensionUnidad.Conteo, 1m, 0, false, seedTime),
+            SeedUnidadMedida("00000002-0007-0000-0000-00000000000f", "PAQ", "Paquete (SAT XPK)", DimensionUnidad.Conteo, 1m, 0, false, seedTime),
             // Peso (base KG)
             SeedUnidadMedida("00000002-0007-0000-0000-000000000003", "KG", "Kilogramo", DimensionUnidad.Peso, 1m, 3, true, seedTime),
             SeedUnidadMedida("00000002-0007-0000-0000-000000000004", "G", "Gramo", DimensionUnidad.Peso, 0.001m, 2, false, seedTime),

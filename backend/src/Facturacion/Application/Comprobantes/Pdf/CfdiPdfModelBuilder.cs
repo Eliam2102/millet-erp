@@ -86,7 +86,7 @@ public static class CfdiPdfModelBuilder
         return Armar(nc, datos ?? DatosImpresionCfdi.Vacio, TipoDocumentoPdf.NotaCredito,
             "NOTA DE CRÉDITO", "CREDIT MEMO", "nota-credito",
             [ConceptoUnico(nc, nc.ClaveProdServSat, nc.Descripcion, nc.ClaveUnidadSat)], [IvaUnico(nc)], MedidasEnCero,
-            comentarios: $"Motivo / Reason: {motivo}", ordenCompra: null, referencia: null, condiciones: null,
+            comentarios: string.IsNullOrWhiteSpace(nc.Comentarios) ? $"Motivo / Reason: {motivo}" : $"Motivo / Reason: {motivo}\n{nc.Comentarios}", ordenCompra: null, referencia: null, condiciones: null,
             relaciones: Relacionados(nc));
     }
 

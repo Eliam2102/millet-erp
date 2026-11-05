@@ -107,6 +107,12 @@ public sealed class RecuentoVigenteConteoTests(WebApplicationFactory<Program> fa
                 using (var j1 = JsonDocument.Parse(await r1.Content.ReadAsStringAsync()))
                     Assert.Equal(1, j1.RootElement.GetProperty("secuencia").GetInt32());
 
+                // La comparación del aprobador solo se abre al cerrar la captura (G-3).
+                var paraConciliar = await db.Conteos.Include(x => x.Lineas).FirstAsync(x => x.Id == conteoId);
+                paraConciliar.EnviarAConciliacion();
+                await db.SaveChangesAsync();
+                db.ChangeTracker.Clear();
+
                 var comp1 = await LeerLineaAsync(client, conteoId, lineaId);
                 Assert.Equal(4m, comp1.GetProperty("cantidadRealCapturada").GetDecimal());
                 Assert.Equal(99m, comp1.GetProperty("cantidadVigente").GetDecimal());
@@ -129,7 +135,6 @@ public sealed class RecuentoVigenteConteoTests(WebApplicationFactory<Program> fa
 
                 // Aprobación (dominio) y aplicación con la cantidad vigente 98: ajuste de -2, no de -96.
                 var paraAprobar = await db.Conteos.Include(x => x.Lineas).FirstAsync(x => x.Id == conteoId);
-                paraAprobar.EnviarAConciliacion();
                 paraAprobar.Aprobar(actorId);
                 await db.SaveChangesAsync();
                 db.ChangeTracker.Clear();

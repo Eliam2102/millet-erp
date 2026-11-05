@@ -111,6 +111,13 @@ describe('P8: alerta fiscal y obra en detalle', () => {
     expect(await screen.findByRole('region', { name: 'Adjuntos' })).toBeInTheDocument();
   });
 
+  it('una factura cancelada no deja saldo pendiente', () => {
+    escenario.cancelada = true;
+    render(<FacturaDetallePage />, { wrapper: createQueryWrapper() });
+    expect(importe('Saldo pendiente')).toContain('0.00');
+    escenario.cancelada = false;
+  });
+
   it('muestra la marca de no deducible con su IVA no acreditable solo si hay clasificación', () => {
     escenario.noDeducible = true;
     const { unmount } = render(<FacturaDetallePage />, { wrapper: createQueryWrapper() });

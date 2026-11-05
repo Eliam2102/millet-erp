@@ -1068,6 +1068,7 @@ export const EstadoSolicitudViaticos = {
   ComprobacionCapturada: 6,
   Liquidada: 7,
   Rechazada: 8,
+  Devuelta: 9,
 } as const satisfies Record<string, number>;
 export type EstadoSolicitudViaticos =
   (typeof EstadoSolicitudViaticos)[keyof typeof EstadoSolicitudViaticos];
@@ -1087,6 +1088,7 @@ export const EstadoSolicitudViaticosLabels: Record<EstadoSolicitudViaticos, stri
   [EstadoSolicitudViaticos.ComprobacionCapturada]: 'Comprobación capturada',
   [EstadoSolicitudViaticos.Liquidada]: 'Liquidada',
   [EstadoSolicitudViaticos.Rechazada]: 'Rechazada',
+  [EstadoSolicitudViaticos.Devuelta]: 'Devuelta a corregir',
 };
 
 export const TipoDestinoViaticoLabels: Record<TipoDestinoViatico, string> = {
@@ -1167,6 +1169,9 @@ export interface SolicitudViaticosDetalle {
   rechazadoPor: string | null;
   fechaRechazo: string | null;
   motivoRechazo: string | null;
+  /** Comentario de quien la devolvió a corregir (solo en estado Devuelta). */
+  comentarioDevolucion?: string | null;
+  fechaDevolucion?: string | null;
   fechaSolicitud: string;
   fechaAnticipoPagado: string | null;
   fechaComprobacion: string | null;
@@ -1247,6 +1252,17 @@ export interface TransicionViaticosResponse {
 
 export interface RechazarSolicitudViaticosCommand {
   motivo: string;
+}
+
+export interface DevolverSolicitudViaticosCommand {
+  comentario: string;
+}
+
+export interface ReenviarSolicitudViaticosCommand {
+  montoSolicitado: number;
+  fechaSalida: string;
+  fechaRegreso: string;
+  justificacionExceso: string | null;
 }
 
 // ─── Tarjetas de Crédito + Movimientos (FE-F6-PR1) ────────────────────

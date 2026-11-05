@@ -6,6 +6,7 @@ using Millet.Integraciones.Aw.Application;
 using Millet.Integraciones.Aw.Application.Ports;
 using Millet.Integraciones.Aw.Application.Workers;
 using Millet.Integraciones.Aw.Infrastructure.Adapters;
+using Millet.Integraciones.Aw.Infrastructure.AlmCompra;
 using Millet.Integraciones.Aw.Infrastructure.Repositories;
 
 namespace Millet.Integraciones.Aw.Infrastructure;
@@ -49,6 +50,9 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(SoketiOptions.SectionName));
 
         services.AddScoped<IEntidadExternaRepository, EntidadExternaRepository>();
+
+        // 86e3jvu83 (C3.2): transporte ERP → Almacenes (alm_compra): Simulado por omisión, Sql apagado hasta que exista la tabla.
+        services.AddAlmCompraTransporte(configuration);
 
         // ───────── PR Soketi — Agent realtime publisher ─────────
         //

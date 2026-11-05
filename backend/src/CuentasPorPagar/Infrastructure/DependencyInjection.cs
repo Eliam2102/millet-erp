@@ -115,6 +115,7 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(NotaCreditoEnEsperaOptions.SectionName));
         services.AddHostedService<NotaCreditoEnEsperaMatchWorker>();
         services.AddHostedService<FaltaReppWorker>();
+        services.AddHostedService<ReversaRevaluacionWorker>();
         services.AddHostedService<AvisoPagoPortalWorker>();
 
         // GI-PR1 (doc 12): emisor de reposiciones de caja chica —
