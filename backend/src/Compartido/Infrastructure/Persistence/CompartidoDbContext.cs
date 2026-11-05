@@ -322,7 +322,9 @@ public sealed class CompartidoDbContext : BaseDbContext
         x.Ignore(e => e.Vigente);
         x.Property(e => e.TipoEntidad).HasMaxLength(60).IsRequired();
         x.Property(e => e.Motivo).HasMaxLength(500).IsRequired();
-        x.Property(e => e.OtorgadaPorNombre).HasMaxLength(200);
+        x.Property(e => e.SolicitadaPorNombre).HasMaxLength(200);
+        x.Property(e => e.ResueltaPorNombre).HasMaxLength(200);
+        x.Property(e => e.MotivoResolucion).HasMaxLength(500);
         x.HasOne<AdjuntoTipoDocumento>().WithMany().HasForeignKey(e => e.TipoDocumentoId).OnDelete(DeleteBehavior.Restrict);
         x.HasIndex(e => new { e.TipoEntidad, e.EntidadId });
     }
@@ -383,6 +385,8 @@ public sealed class CompartidoDbContext : BaseDbContext
         adjunto.Property(x => x.SubidoPorId).IsRequired();
         adjunto.Property(x => x.SubidoEn).IsRequired();
         adjunto.Property(x => x.BajaMotivo).HasMaxLength(500);
+        adjunto.Property(x => x.RevisadoPorNombre).HasMaxLength(200);
+        adjunto.Property(x => x.ObservacionRevision).HasMaxLength(500);
 
         adjunto.HasIndex(x => new { x.TipoEntidad, x.EntidadId });
         adjunto.HasIndex(x => new { x.EntidadId, x.TipoDocumentoId });

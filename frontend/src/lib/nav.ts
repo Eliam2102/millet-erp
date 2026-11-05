@@ -195,6 +195,14 @@ const moduloCompras: NavModulo = {
           icon: BarChart3,
           permission: PermisosCanonicos.ComprasOrdenesReportesAnalisisProveedores,
         },
+        {
+          label: 'Envíos a Almacenes',
+          description:
+            'Mensajes de compras de materia prima hacia Almacenes (A+W): hojas, lote y rack que recibe, respuesta y reintento.',
+          to: '/compras/integraciones/alm-compra',
+          icon: Inbox,
+          permission: PermisosCanonicos.ComprasOrdenesLeer,
+        },
       ],
     },
     {
@@ -248,6 +256,14 @@ const moduloAlmacen: NavModulo = {
             'Desperdicio diario de la mesa de corte y merma por etapa y motivo que informa A+W; la merma se autoriza aquí.',
           to: '/almacen/mermas',
           icon: Scale,
+          permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
+        },
+        {
+          label: 'Consumos en revisión',
+          description:
+            'Componentes de piezas terminadas en A+W (argón, separador, PVB) que no se descontaron por falta de norma, factor, sucursal o existencia.',
+          to: '/almacen/consumos-revision',
+          icon: ShieldAlert,
           permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
         },
         {
@@ -394,6 +410,14 @@ const moduloAlmacen: NavModulo = {
           to: '/almacen/ubicaciones',
           icon: Boxes,
           permission: PermisosCanonicos.AlmacenUbicacionesRead,
+        },
+        {
+          label: 'Normas de consumo',
+          description:
+            'Consumo por pieza y merma de cada componente (argón, separador, PVB). Sin norma, el consumo queda en revisión y no se descuenta.',
+          to: '/almacen/normas-consumo',
+          icon: Sliders,
+          permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
         },
       ],
     },

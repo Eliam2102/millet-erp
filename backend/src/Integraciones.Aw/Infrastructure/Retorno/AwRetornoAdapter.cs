@@ -10,7 +10,7 @@ namespace Millet.Integraciones.Aw.Infrastructure.Retorno;
 /// <summary>
 /// <see cref="IAwRetornoPort"/> sobre <c>dbo.aw_retorno</c>. El mismo SQL corre en SQL Server (Real) y en
 /// PostgreSQL (Demo, tools/aw-origen-demo/schema.sql); solo cambia el candado por pedido (<paramref name="sqlCandado"/>).
-/// Solo INSERT y SELECT: el ERP no actualiza ni borra filas (script 14). Tipos 3 (Documento) y 4 (Pago, v3). El candado serializa por pedido la
+/// Solo INSERT y SELECT: el ERP no actualiza ni borra filas (script 14). Tipos 1 (Estatus: 70 manual y 115), 2 (Saldo, solo control), 3 (Documento) y 4 (Pago, v3). El candado serializa por pedido la
 /// lectura de la secuencia y el INSERT; UNIQUE(numero_pedido, secuencia) es la red de seguridad.
 /// </summary>
 public sealed class AwRetornoAdapter(
@@ -32,8 +32,21 @@ public sealed class AwRetornoAdapter(
     private const string SqlSecuencia = "SELECT COALESCE(MAX(secuencia), 0) + 1 FROM dbo.aw_retorno WHERE numero_pedido = @pedido";
     // Un solo INSERT para todos los tipos: cada tipo llena sus columnas y deja nulas las demás (los CHECK del script 14 cuidan la forma).
     private const string SqlInsertar = """
-        INSERT INTO dbo.aw_retorno (numero_pedido, secuencia, tipo, version_pedido, tipo_documento, folio, uuid, importe, forma_pago, moneda)
-        VALUES (@pedido, @secuencia, @tipo, @version, @tipoDoc, @folio, @uuid, @importe, @formaPago, @moneda)
+        INSERT INTO dbo.aw_retorno (numero_pedido, secuencia, tipo, version_pedido, tipo_documento, folio, uuid, importe, forma_pago, moneda,
+                                    estatus_destino, origen, usuario_libera, saldo)
+        VALUES (@pedido, @secuencia, @tipo, @version, @tipoDoc, @folio, @uuid, @importe, @formaPago, @moneda,
+                @estatus, @origen, @usuarioLibera, @saldo)
+        """;
+    // Misma regla que el documento: una fila de ese estatus no desfasada, o con esta versión o mayor, ya cubre la reentrega.
+    private const string SqlExisteEstatus = """
+        SELECT COUNT(*) FROM dbo.aw_retorno
+         WHERE numero_pedido = @pedido AND tipo = 1 AND estatus_destino = @estatus
+           AND (resultado IS NULL OR resultado <> 3 OR version_pedido >= @version)
+        """;
+    private const string SqlUltimoSaldo = """
+        SELECT r.saldo FROM dbo.aw_retorno r
+         WHERE r.numero_pedido = @pedido AND r.tipo = 2
+           AND r.secuencia = (SELECT MAX(x.secuencia) FROM dbo.aw_retorno x WHERE x.numero_pedido = r.numero_pedido AND x.tipo = 2)
         """;
     private const string SqlExisteFactura = """
         SELECT COUNT(*) FROM dbo.aw_retorno
@@ -51,7 +64,8 @@ public sealed class AwRetornoAdapter(
     // «Sin reemplazo» = no hay fila posterior con la misma llave del tipo (documento: uuid + tipo; pago: folio + forma + moneda).
     private const string SqlAcuses = """
         SELECT r.numero_pedido, r.secuencia, r.version_pedido, r.tipo_documento, r.folio, r.uuid, r.importe,
-               r.aplicada_at, r.resultado, r.motivo, r.intentos, r.tipo, r.forma_pago, r.moneda
+               r.aplicada_at, r.resultado, r.motivo, r.intentos, r.tipo, r.forma_pago, r.moneda,
+               r.estatus_destino, r.origen, r.usuario_libera
           FROM dbo.aw_retorno r
          WHERE (r.resultado = 3 AND NOT EXISTS (SELECT 1 FROM dbo.aw_retorno n
                     WHERE n.numero_pedido = r.numero_pedido AND n.tipo = r.tipo AND n.secuencia > r.secuencia
@@ -89,6 +103,57 @@ public sealed class AwRetornoAdapter(
         await InsertarAsync(cn, tx, documento.NumeroPedido, secuencia, AwRetornoAcuse.TipoDocumentoFila, documento.VersionPedido,
             documento.TipoDocumento, documento.Folio, documento.Uuid, documento.Importe, null, null, ct);
 
+        await tx.CommitAsync(ct);
+        return secuencia;
+    }
+
+    public async Task<int?> AgregarEstatusAsync(string numeroPedido, long versionPedido, short estatus, byte? origen,
+        string? usuarioLibera, CancellationToken ct)
+    {
+        await using var cn = await AbrirAsync(ct);
+        await using var tx = await cn.BeginTransactionAsync(ct);
+        await CandadoAsync(cn, tx, numeroPedido, ct);
+
+        await using (var existe = Comando(cn, tx, SqlExisteEstatus))
+        {
+            P(existe, "@pedido", DbType.String, numeroPedido);
+            P(existe, "@estatus", DbType.Int16, estatus);
+            P(existe, "@version", DbType.Int64, versionPedido);
+            if (Convert.ToInt32(await existe.ExecuteScalarAsync(ct)) > 0)
+            {
+                await tx.RollbackAsync(ct);
+                return null;
+            }
+        }
+
+        var secuencia = await SiguienteSecuenciaAsync(cn, tx, numeroPedido, ct);
+        await InsertarAsync(cn, tx, numeroPedido, secuencia, AwRetornoAcuse.TipoEstatusFila, versionPedido,
+            null, null, null, null, null, null, ct, estatus, origen, usuarioLibera);
+        await tx.CommitAsync(ct);
+        return secuencia;
+    }
+
+    public async Task<int?> AgregarSaldoAsync(string numeroPedido, long versionPedido, decimal saldo, CancellationToken ct)
+    {
+        await using var cn = await AbrirAsync(ct);
+        await using var tx = await cn.BeginTransactionAsync(ct);
+        await CandadoAsync(cn, tx, numeroPedido, ct);
+
+        // La columna es decimal(18,2): se compara ya redondeado, o cada lectura parecería un cambio.
+        saldo = Math.Round(saldo, 2, MidpointRounding.AwayFromZero);
+        await using (var ultimo = Comando(cn, tx, SqlUltimoSaldo))
+        {
+            P(ultimo, "@pedido", DbType.String, numeroPedido);
+            if (await ultimo.ExecuteScalarAsync(ct) is { } v and not DBNull && Convert.ToDecimal(v) == saldo)
+            {
+                await tx.RollbackAsync(ct);
+                return null;
+            }
+        }
+
+        var secuencia = await SiguienteSecuenciaAsync(cn, tx, numeroPedido, ct);
+        await InsertarAsync(cn, tx, numeroPedido, secuencia, AwRetornoAcuse.TipoSaldoFila, versionPedido,
+            null, null, null, null, null, null, ct, saldo: saldo);
         await tx.CommitAsync(ct);
         return secuencia;
     }
@@ -163,7 +228,8 @@ public sealed class AwRetornoAdapter(
     }
 
     private async Task InsertarAsync(DbConnection cn, DbTransaction tx, string numeroPedido, int secuencia, byte tipo, long version,
-        string? tipoDocumento, string? folio, string? uuid, decimal? importe, string? formaPago, string? moneda, CancellationToken ct)
+        string? tipoDocumento, string? folio, string? uuid, decimal? importe, string? formaPago, string? moneda, CancellationToken ct,
+        short? estatus = null, byte? origen = null, string? usuarioLibera = null, decimal? saldo = null)
     {
         await using var ins = Comando(cn, tx, SqlInsertar);
         P(ins, "@pedido", DbType.String, numeroPedido);
@@ -176,6 +242,10 @@ public sealed class AwRetornoAdapter(
         P(ins, "@importe", DbType.Decimal, importe);
         P(ins, "@formaPago", DbType.String, formaPago);
         P(ins, "@moneda", DbType.String, moneda);
+        P(ins, "@estatus", DbType.Int16, estatus);
+        P(ins, "@origen", DbType.Int16, origen is null ? null : (short)origen);
+        P(ins, "@usuarioLibera", DbType.String, usuarioLibera);
+        P(ins, "@saldo", DbType.Decimal, saldo);
         await ins.ExecuteNonQueryAsync(ct);
     }
 
@@ -193,7 +263,9 @@ public sealed class AwRetornoAdapter(
                 r.IsDBNull(7) ? null : r.GetFieldValue<DateTimeOffset>(7),
                 r.IsDBNull(8) ? null : Convert.ToByte(r.GetValue(8)),
                 r.IsDBNull(9) ? null : r.GetString(9), r.GetInt32(10),
-                Convert.ToByte(r.GetValue(11)), r.IsDBNull(12) ? null : r.GetString(12), r.IsDBNull(13) ? null : r.GetString(13)));
+                Convert.ToByte(r.GetValue(11)), r.IsDBNull(12) ? null : r.GetString(12), r.IsDBNull(13) ? null : r.GetString(13),
+                r.IsDBNull(14) ? null : Convert.ToInt16(r.GetValue(14)), r.IsDBNull(15) ? null : Convert.ToByte(r.GetValue(15)),
+                r.IsDBNull(16) ? null : r.GetString(16)));
         return lista;
     }
 

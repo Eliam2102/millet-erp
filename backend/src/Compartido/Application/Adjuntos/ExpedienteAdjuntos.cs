@@ -27,7 +27,10 @@ public sealed record ExpedienteDocumentoResponse(
     AdjuntoResponse? Actual,
     ExcepcionResponse? Excepcion = null);
 
-public sealed record ExcepcionResponse(Guid Id, string Motivo, string? OtorgadaPorNombre, DateTimeOffset OtorgadaEn);
+/// <summary>La excepción más reciente no revocada del tipo: pendiente, otorgada o negada, con quién y cuándo.</summary>
+public sealed record ExcepcionResponse(
+    Guid Id, string Motivo, EstadoExcepcionAdjunto Estado, string? SolicitadaPorNombre, DateTimeOffset SolicitadaEn,
+    string? ResueltaPorNombre, DateTimeOffset? ResueltaEn, string? MotivoResolucion);
 
 /// <summary>
 /// Expediente documental de una entidad. <c>Completo</c> = todos los tipos obligatorios aplicables
@@ -62,7 +65,7 @@ public static class ExpedienteAdjuntos
             && (t.AplicaOrigen != AdjuntoAplicaOrigen.SoloNacional || p.Origen != Millet.DatosMaestros.Domain.OrigenProveedor.Extranjero)
             && (t.AplicaOrigen != AdjuntoAplicaOrigen.SoloExtranjero || p.Origen == Millet.DatosMaestros.Domain.OrigenProveedor.Extranjero)
             && (p.TipoPersona == Millet.Catalogos.Domain.TipoPersonaProveedor.Moral ? t.ObligatorioPersonaMoral : t.ObligatorioPersonaFisica)
-            && !db.AdjuntoExcepciones.Any(x => x.TipoEntidad == "proveedor" && x.EntidadId == p.Id && x.TipoDocumentoId == t.Id && x.RevocadaEn == null)
+            && !db.AdjuntoExcepciones.Any(x => x.TipoEntidad == "proveedor" && x.EntidadId == p.Id && x.TipoDocumentoId == t.Id && x.Estado == EstadoExcepcionAdjunto.Otorgada && x.RevocadaEn == null)
         let actual = db.Adjuntos.Where(a => a.TipoEntidad == "proveedor" && a.EntidadId == p.Id && a.TipoDocumentoId == t.Id && a.BajaEn == null)
             .OrderByDescending(a => a.SubidoEn).FirstOrDefault()
         where actual == null || actual.VigenteHasta < hoy
@@ -83,7 +86,7 @@ public static class ExpedienteAdjuntos
         where t.TipoEntidad == "proveedor" && t.Activo && t.Codigo == CodigoOpinionCumplimiento
             && (t.AplicaOrigen != AdjuntoAplicaOrigen.SoloNacional || p.Origen != Millet.DatosMaestros.Domain.OrigenProveedor.Extranjero)
             && (t.AplicaOrigen != AdjuntoAplicaOrigen.SoloExtranjero || p.Origen == Millet.DatosMaestros.Domain.OrigenProveedor.Extranjero)
-            && !db.AdjuntoExcepciones.Any(x => x.TipoEntidad == "proveedor" && x.EntidadId == p.Id && x.TipoDocumentoId == t.Id && x.RevocadaEn == null)
+            && !db.AdjuntoExcepciones.Any(x => x.TipoEntidad == "proveedor" && x.EntidadId == p.Id && x.TipoDocumentoId == t.Id && x.Estado == EstadoExcepcionAdjunto.Otorgada && x.RevocadaEn == null)
         let actual = db.Adjuntos.Where(a => a.TipoEntidad == "proveedor" && a.EntidadId == p.Id && a.TipoDocumentoId == t.Id && a.BajaEn == null)
             .OrderByDescending(a => a.SubidoEn).FirstOrDefault()
         where actual == null || actual.VigenteHasta < hoy
@@ -136,13 +139,14 @@ public static class ExpedienteAdjuntos
                     EstadoAdjunto.PorVencer => EstadoExpedienteDocumento.PorVencer,
                     _ => EstadoExpedienteDocumento.Vigente, // Vigente o SinVigencia
                 };
-            var excepcion = excepciones.Where(x => x.TipoDocumentoId == tipo.Id).OrderByDescending(x => x.OtorgadaEn).FirstOrDefault();
-            if (excepcion is not null && obligatorioTipo && estado is EstadoExpedienteDocumento.Faltante or EstadoExpedienteDocumento.Vencido)
+            var excepcion = excepciones.Where(x => x.TipoDocumentoId == tipo.Id).OrderByDescending(x => x.SolicitadaEn).FirstOrDefault();
+            if (excepcion is { Vigente: true } && obligatorioTipo && estado is EstadoExpedienteDocumento.Faltante or EstadoExpedienteDocumento.Vencido)
                 estado = EstadoExpedienteDocumento.Exceptuado;
             documentos.Add(new ExpedienteDocumentoResponse(
                 tipo.Id, tipo.Codigo, tipo.Nombre, obligatorioTipo, tipo.VigenciaMeses, estado,
                 actual is null ? null : AdjuntoResponse.De(actual, tipo, hoy),
-                excepcion is null ? null : new ExcepcionResponse(excepcion.Id, excepcion.Motivo, excepcion.OtorgadaPorNombre, excepcion.OtorgadaEn)));
+                excepcion is null ? null : new ExcepcionResponse(excepcion.Id, excepcion.Motivo, excepcion.Estado, excepcion.SolicitadaPorNombre, excepcion.SolicitadaEn,
+                    excepcion.ResueltaPorNombre, excepcion.ResueltaEn, excepcion.MotivoResolucion)));
         }
 
         var obligatorios = documentos.Where(d => d.Obligatorio).ToList();

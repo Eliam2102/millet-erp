@@ -290,6 +290,25 @@ depende del GRUPPE para pedidos nacionales.
 
 ---
 
+## 8. Retorno ERP → A+W (`aw_retorno`) · decisiones de TI del 5-nov (86e3jvv6z)
+
+El ERP solo INSERTa filas en `aw_retorno` (script 14) y lee el acuse; la aplica el servicio de TI. Filas que escribe:
+
+| Tipo | Qué | Cuándo |
+|---|---|---|
+| 3 Documento | `FacturaFinal`, `NotaCredito`, `Cancelacion` | evento de Facturación (factura/NC timbrada, comprobante cancelado) |
+| 4 Pago | un grupo por factura + forma + moneda, con el importe **acumulado** | cobro de mostrador registrado o cancelado, REPP timbrado o cancelado |
+| 1 Estatus 115 | «facturado y entregado» (una sola vez) | `producto_terminado.pedido.facturado-entregado.v1` |
+| 1 Estatus 70 | **solo** liberación manual de Crédito y Cobranza: `origen = 2` + `usuario_libera` | `pedido.estado-cambiado.v1` con `Liberado`, motivo `DecisionCxc` y decidida por una persona |
+| 2 Saldo | cifra de control: una fila por pedido solo cuando el saldo cambia; nunca es la fuente | junto con cada 115 / 70 manual |
+
+Reglas confirmadas:
+- **Forma de pago y moneda** van con el valor de A+W: `forma_pago` = `KA_ZAHLWEG.BEZ` (EFECTIVO, TARJETA CREDITO…, hasta 40) y `moneda` = `KA_WAEHRUNGEN.WAEHRUNG` (pesos = `PESOSMX`, no MXN; hasta 8). El ERP mantiene la equivalencia en `IntegracionesAw:Pedidos:MapeoFormaPagoAw` / `MapeoMonedaAw` (appsettings). A+W cruza por nombre: si lo renombran deja de cruzar sin error; el ERP **avisa en el log** (y no manda el pago) cuando una clave no está en la equivalencia. La equivalencia no se lee en vivo de `KA_ZAHLWEG`/`KA_WAEHRUNGEN`: es configuración que se revisa contra esos catálogos.
+- **Cobro cancelado**: fila nueva del mismo grupo con la suma de los cobros que quedan; en 0 solo si no queda ninguno. La secuencia es única y creciente por pedido, así el cero siempre es posterior al pago que anula.
+- **70**: el ERP no lo manda por pago, saldo ni reparto (lo decide el servicio). Una decisión automática de CxC (usuario de sistema) tampoco viaja. Un 70 a un pedido ya liberado vuelve del servicio como «nada que hacer»: no cuenta como fila detenida ni como falla (se reconoce por el motivo; si TI lo marca distinto, se ajusta en `AwRetornoAcuse.NadaQueHacer`). `usuario_libera` es el id del usuario del ERP; A+W no lo valida, queda en su bitácora.
+- **Notas de crédito de A+W (lectura)**: `AwNotasCreditoLectorAdapter`, solo SELECT, apagado (`IntegracionesAw:NotasCreditoLectura:Habilitada`) hasta que TI otorgue SELECT sobre `BW_GUTSCH_KOPF`, `BW_GUTSCH_HIST` y `BW_GUTSCH_POS` a `millet_erp_lector_aw` (solo lectura, conexión directa `ConnectionStrings:AwClientesDb`). El vendedor (`KA_FIRMA_MITARB`) no se lee porque ese usuario aún no tiene la tabla. Filtros: estatus 95; solo con pedido original (≠ 0); del historial el último registro de esa transición (por `DATUM` y luego `ID`); sin clientes internos de almacén (`KU_KUNDEN.GRUPPE = 'MOVIMIENTO INTERNO'`). Verificado en A+W: `AH_HAUPT_AUFTR` = `BW_AUFTR_KOPF.ID` (el JOIN deja fuera 327 notas cuyo pedido ya no existe). Ambos valores quedan configurables (`ColumnaPedidoPadre`, `GrupoClientesInternos`). La NC de A+W no tiene folio de factura ni UUID: solo pedido y número de nota. Aún no hay consumidor que convierta estas lecturas en notas del ERP.
+- **Clientes y obras**: A+W no crea clientes ni obras de forma automática (proceso manual, sin SQL); el ERP **no** tiene ni debe tener salida de altas hacia A+W y no necesita rango de numeración. La clave de A+W del cliente se guarda en `ReferenciaExterna` (`Origen = Aw`, ver `LigarAw` en doc 05) y el id de la obra (`KA_OBJEKT.ID`) viaja como `ObraId` en pedido, factura y anticipo.
+
 ## Anexo A — Procedencia: diseño JSON de mayo 2026 (no construido)
 
 El contrato de las vistas deriva de un diseño previo de integración por JSON
