@@ -1871,6 +1871,9 @@ Millet.Api.Endpoints.CuentasPorPagar.EstadosCuentaTcEndpoints.MapEstadosCuentaTc
 // === Cuentas por Pagar — Reportes operativos (F8-PR1, ADR-0036) ===
 Millet.Api.Endpoints.CuentasPorPagar.ReportesEndpoints.MapReportesEndpoints(app);
 
+// === Cuentas por Pagar — Revaluación de cierre en moneda extranjera (CXP-12) ===
+Millet.Api.Endpoints.CuentasPorPagar.RevaluacionCierreEndpoints.MapRevaluacionCierreEndpoints(app);
+
 // === Integraciones AW: cotizaciones REST API (PR D) ===
 // 6 endpoints bajo /api/v1/integraciones/aw/cotizaciones. Auth via
 // PermisosCanonicos.IntegracionesAwCotizaciones{Crear,Consultar,Reintentar}.

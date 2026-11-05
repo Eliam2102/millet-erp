@@ -25,6 +25,8 @@ public static partial class NormalizadorEventos
     public const string NotaCreditoProveedorRegistrada = "cuentas_por_pagar.nota-credito.registrada.v1";
     public const string NotaCargoAutorizada = "cuentas_por_pagar.nota-cargo.autorizada.v1";
     public const string AnticipoProveedorCapturado = "cuentas_por_pagar.anticipo.capturado.v1";
+    public const string RevaluacionCierreRegistrada = "cuentas_por_pagar.revaluacion.registrada.v1";
+    public const string RevaluacionCierreRevertida = "cuentas_por_pagar.revaluacion.revertida.v1";
     public const string PagoProveedorAplicado = "tesoreria.pago-factura-proveedor.aplicado.v1";
     public const string PagoProveedorRevertido = "tesoreria.pago-factura-proveedor.revertido.v1";
     public const string PagoClienteConfirmado = "tesoreria.pago-cliente.confirmado.v1";
@@ -46,7 +48,9 @@ public static partial class NormalizadorEventos
     public static readonly (string Modulo, string Tipo) DocNotaCreditoProveedor = ("cuentas_por_pagar", "nota_credito_proveedor");
     public static readonly (string Modulo, string Tipo) DocNotaCargo = ("cuentas_por_pagar", "nota_cargo");
     public static readonly (string Modulo, string Tipo) DocAnticipoProveedor = ("cuentas_por_pagar", "anticipo_proveedor");
-    public static readonly (string Modulo, string Tipo) DocPagoProveedor = ("tesoreria", "pago_factura_proveedor");
+    public static readonly (string Modulo, string Tipo) DocRevaluacionCierre = ("cuentas_por_pagar", "revaluacion_cierre");
+    public static readonly (string Modulo, string Tipo) DocRevaluacionCierreReversa = ("cuentas_por_pagar", "revaluacion_cierre_reversa");
+    public static readonly (string Modulo, string Tipo) DocPagoProveedor =("tesoreria", "pago_factura_proveedor");
     public static readonly (string Modulo, string Tipo) DocPagoCliente = ("tesoreria", "pago_cliente");
     public static readonly (string Modulo, string Tipo) DocComprobante = ("facturacion", "comprobante");
     public static readonly (string Modulo, string Tipo) DocCobro = ("facturacion", "cobro_mostrador");
@@ -105,6 +109,7 @@ public static partial class NormalizadorEventos
         NotaCreditoProveedorRegistrada => NotaProveedor(tipo, eventoId, payload, DocNotaCreditoProveedor, TipoDocumentoPuente.NotaCredito),
         NotaCargoAutorizada => NotaProveedor(tipo, eventoId, payload, DocNotaCargo, TipoDocumentoPuente.NotaCargo),
         AnticipoProveedorCapturado => AnticipoProveedor(eventoId, payload),
+        RevaluacionCierreRegistrada or RevaluacionCierreRevertida => RevaluacionCierre(tipo, eventoId, payload),
         PagoProveedorAplicado => PagoProveedor(eventoId, payload),
         PagoClienteConfirmado => PagoCliente(eventoId, payload),
         FacturaVentaTimbrada => FacturaVenta(eventoId, payload),
@@ -206,6 +211,19 @@ public static partial class NormalizadorEventos
         return new(AnticipoProveedorCapturado, eventoId, a.EmpresaId, FechaContable.HoyLocal(a.OcurridoEn),
             Doc(DocAnticipoProveedor, a.AnticipoId, null), a.SucursalId, a.ProveedorId, null, null, null,
             MonedaDe(a.Moneda), a.TipoCambio, new Dictionary<string, decimal?> { ["Total"] = a.MontoEntregado }, [], payload);
+    }
+
+    /// <summary>
+    /// CXP-12 · revaluación de cierre (no realizada), una póliza por proveedor y sucursal. Registrada: fecha = último día del mes; pérdida = cargo
+    /// pérdida cambiaria · abono PROVEEDORES, utilidad al revés. Revertida: el día 1 siguiente, con los lados contrarios (plantilla propia).
+    /// </summary>
+    private static EventoContable RevaluacionCierre(string tipo, Guid eventoId, string payload)
+    {
+        var r = Leer<RevaluacionCierreContrato>(payload);
+        var reversa = tipo == RevaluacionCierreRevertida;
+        return Mxn(tipo, eventoId, r.EmpresaId, (reversa ? r.FechaReversa : r.FechaCierre) ?? throw new EventoIlegibleException("El evento no trae la fecha."),
+            Doc(reversa ? DocRevaluacionCierreReversa : DocRevaluacionCierre, r.RevaluacionId, null), r.SucursalId,
+            new() { ["Perdida"] = r.Perdida, ["Utilidad"] = r.Utilidad }, [], payload, proveedorId: r.ProveedorId);
     }
 
     // ---------------------------------------------------------------- Tesorería
@@ -394,6 +412,9 @@ public static partial class NormalizadorEventos
 
     private sealed record AnticipoProveedorContrato(Guid EmpresaId, DateTimeOffset OcurridoEn, Guid AnticipoId, Guid ProveedorId,
         decimal MontoEntregado, string? Moneda, decimal? TipoCambio, Guid? SucursalId);
+
+    private sealed record RevaluacionCierreContrato(Guid EmpresaId, Guid RevaluacionId, Guid ProveedorId, Guid? SucursalId, DateOnly? FechaCierre, DateOnly? FechaReversa,
+        decimal? Perdida, decimal? Utilidad);
 
     private sealed record PagoProveedorContrato(Guid EmpresaId, Guid FacturaProveedorId, Guid PagoId, decimal Monto, string? Moneda,
         DateOnly FechaPago, string? ReferenciaBancaria, decimal? TipoCambio);

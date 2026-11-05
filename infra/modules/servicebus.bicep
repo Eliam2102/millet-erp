@@ -983,7 +983,7 @@ resource contabCxpFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/r
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'cuentas_por_pagar.factura.registrada.v1\', \'cuentas_por_pagar.factura.cancelada.v1\', \'cuentas_por_pagar.nota-credito.registrada.v1\', \'cuentas_por_pagar.nota-cargo.autorizada.v1\', \'cuentas_por_pagar.anticipo.capturado.v1\')'
+      sqlExpression: 'user.EventType IN (\'cuentas_por_pagar.factura.registrada.v1\', \'cuentas_por_pagar.factura.cancelada.v1\', \'cuentas_por_pagar.nota-credito.registrada.v1\', \'cuentas_por_pagar.nota-cargo.autorizada.v1\', \'cuentas_por_pagar.anticipo.capturado.v1\', \'cuentas_por_pagar.revaluacion.registrada.v1\', \'cuentas_por_pagar.revaluacion.revertida.v1\')'
       compatibilityLevel: 20
     }
   }
