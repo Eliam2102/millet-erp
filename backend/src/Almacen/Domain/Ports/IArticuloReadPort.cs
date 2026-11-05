@@ -41,4 +41,6 @@ public sealed record ArticuloLectura(
     // Categoría del artículo (familia del conteo).
     string? Categoria = null,
     // E07 D5: familia A+W del vidrio crudo; con valor, la línea exige variante de medida.
-    Guid? ProductoAwId = null);
+    Guid? ProductoAwId = null,
+    // G-9: Naturaleza Servicio = no inventariable; no se asigna a ubicación.
+    bool EsServicio = false);
