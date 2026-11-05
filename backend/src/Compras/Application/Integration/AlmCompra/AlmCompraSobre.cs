@@ -12,10 +12,24 @@ public sealed record AlmCompraLinea(
     // Fórmula pendiente (Dirección/Jorge): hoy siempre null, así que no se escribe.
     decimal? CostoMedioM2 = null);
 
-/// <summary>Contenido de la compra completa (no en diferencias, regla de Jorge para COMPRA_MODIFICADA).</summary>
+/// <summary>
+/// Lo que Almacén recibió contra una línea de la compra: hojas, lote y rack; <c>fraccion</c> solo en importación.
+/// Campo aditivo del supuesto de C3.2 (no está en v6): pendiente del visto bueno por escrito de Jorge.
+/// </summary>
+public sealed record AlmCompraRecepcionLinea(string LineaErp, int Piezas, string? Lote, string? Rack, string? Fraccion);
+
+/// <summary>Documentos de la entrada de importación (pedimento, BL, contenedor, aduana, clave de pedimento). En compras nacionales no existe.</summary>
+public sealed record AlmCompraImportacion(string Pedimento, string Bl, string Contenedor, string Aduana, string ClavePedimento);
+
+public sealed record AlmCompraRecepcion(string? Folio, DateOnly Fecha, AlmCompraImportacion? Importacion, IReadOnlyList<AlmCompraRecepcionLinea> Lineas);
+
+/// <summary>
+/// Contenido de la compra completa (no en diferencias, regla de Jorge para COMPRA_MODIFICADA). <paramref name="Recepciones"/>
+/// son las entradas confirmadas en el ERP (CA13.8); <c>null</c> mientras no haya ninguna, así la COMPRA_RECIBIDA no cambia.
+/// </summary>
 public sealed record AlmCompraDatos(
     string Folio, int ProveedorClaveAw, string ProveedorNombre, string Moneda, decimal? TipoCambio,
-    DateOnly FechaCompra, IReadOnlyList<AlmCompraLinea> Lineas);
+    DateOnly FechaCompra, IReadOnlyList<AlmCompraLinea> Lineas, IReadOnlyList<AlmCompraRecepcion>? Recepciones = null);
 
 /// <summary>Armado del sobre v1 y reglas puras de cantidad y costo.</summary>
 public static class AlmCompraSobre
@@ -54,6 +68,7 @@ public static class AlmCompraSobre
         tipoCambio = d.Moneda == "MXN" ? null : d.TipoCambio,
         fechaCompra = d.FechaCompra,
         lineas = d.Lineas,
+        recepciones = d.Recepciones,
     };
 
     /// <summary>¿El <c>datos</c> de un sobre ya enviado es idéntico a la compra actual? Evita mandar una COMPRA_MODIFICADA sin cambios.</summary>

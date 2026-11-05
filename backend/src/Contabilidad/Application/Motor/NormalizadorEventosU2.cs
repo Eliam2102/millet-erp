@@ -5,8 +5,8 @@ namespace Millet.Contabilidad.Application.Motor;
 
 /// <summary>
 /// U-2 (86e3yxngq) · eventos que ya se publicaban y Contabilidad no recibía: Tesorería (depósito del corte, diferencias de corte,
-/// movimiento bancario del extracto y reembolso de NC), costo de importación aplicado por Almacén y salidas de inventario fuera de
-/// requisición (G-1, #417). Mismo molde que C1.5: espejo del contrato JSON, importes con nombre y plantilla sembrada por migración.
+/// movimiento bancario del extracto y reembolso de NC), costo de importación aplicado por Almacén. La salida sin requisición (G-1) la
+/// lee #445 en NormalizadorEventosC15; U-2 solo le agrega los importes por causa. Mismo molde que C1.5: espejo del contrato JSON, importes con nombre y plantilla sembrada por migración.
 /// Un importe con signo (p. ej. <c>Neto</c>) invierte el lado en el motor: así una sola plantilla cubre faltante y sobrante, egreso e
 /// ingreso, o un costo que sube y uno que baja.
 /// </summary>
@@ -19,7 +19,6 @@ public static partial class NormalizadorEventos
     public const string MovimientoBancarioRegistrado = "tesoreria.movimiento-bancario.registrado.v1";
     public const string ReembolsoNotaCreditoActualizado = "tesoreria.reembolso-nota-credito.actualizado.v1";
     public const string ExpedienteCostoAplicado = "almacen.expediente.costo-aplicado.v1";
-    public const string SalidaInventarioRegistrada = "almacen.salida_inventario.registrada.v1";
 
     // ---- Documento origen ----
     public static readonly (string Modulo, string Tipo) DocDepositoCaja = ("tesoreria", "deposito_caja");
@@ -28,7 +27,6 @@ public static partial class NormalizadorEventos
     public static readonly (string Modulo, string Tipo) DocMovimientoBancario = ("tesoreria", "movimiento_bancario");
     public static readonly (string Modulo, string Tipo) DocReembolsoCliente = ("tesoreria", "reembolso_nota_credito");
     public static readonly (string Modulo, string Tipo) DocExpedienteCosto = ("almacen", "expediente_costo");
-    public static readonly (string Modulo, string Tipo) DocSalidaInventario = ("almacen", "salida_inventario");
 
     /// <summary>Tesorería publica el estado de la devolución; solo «Pagada» mueve dinero.</summary>
     private const string ReembolsoPagado = "Pagada";
@@ -41,7 +39,6 @@ public static partial class NormalizadorEventos
         MovimientoBancarioRegistrado => MovimientoBancario(eventoId, payload),
         ReembolsoNotaCreditoActualizado => ReembolsoNotaCredito(eventoId, payload),
         ExpedienteCostoAplicado => CostoImportacion(eventoId, payload),
-        SalidaInventarioRegistrada => SalidaInventario(eventoId, payload),
         _ => null,
     };
 
@@ -142,31 +139,6 @@ public static partial class NormalizadorEventos
             lineas, payload);
     }
 
-    /// <summary>
-    /// SM: salida de inventario sin requisición (G-1): app de Almacenes, componentes por composición, baja por daño y salida no
-    /// planificada. El cargo depende de la causa: consumo → CONSUMO, rotura o daño → MERMA, salida manual o no planificada →
-    /// AJUSTE_INVENTARIO · abono INVENTARIO por artículo (rol por grupo). Sin centro de costo: el evento aún no lo trae.
-    /// </summary>
-    private static EventoContable SalidaInventario(Guid eventoId, string payload)
-    {
-        var s = Leer<SalidaInventarioContrato>(payload);
-        var lineas = (s.Lineas ?? []).Select(l => new LineaEventoContable(null, l.MontoMxn, s.CentroCostoId, false, ArticuloId: l.ArticuloId)).ToList();
-        var total = lineas.Sum(l => l.Importe);
-        var causa = (s.Causa ?? string.Empty).Trim().ToLowerInvariant();
-        var merma = causa is "rotura" or "daño" or "dano";
-        var ajuste = causa is "salida_manual" or "salida_no_planificada";
-        return Mxn(SalidaInventarioRegistrada, eventoId, s.EmpresaId, s.FechaMovimiento, Doc(DocSalidaInventario, s.MovimientoId, s.FolioMovimiento),
-            s.SucursalId,
-            new()
-            {
-                ["Consumo"] = merma || ajuste ? 0m : total,
-                ["Merma"] = merma ? total : 0m,
-                ["Ajuste"] = ajuste ? total : 0m,
-                ["Subtotal"] = total,
-            },
-            lineas, payload, centroCostoId: s.CentroCostoId);
-    }
-
     // ---- Espejos de contrato ----
 
     private sealed record DepositoCajaContrato(Guid EmpresaId, Guid DepositoId, Guid? SucursalId, decimal Importe, string? Moneda,
@@ -192,10 +164,6 @@ public static partial class NormalizadorEventos
 
     private sealed record CostoPartidaContrato(Guid ArticuloId, decimal DiferenciaMxn, decimal InventarioMxn, decimal GastoImportacionMxn);
 
-    private sealed record SalidaInventarioContrato(Guid EmpresaId, Guid MovimientoId, string? FolioMovimiento, DateOnly FechaMovimiento,
-        string? Causa, Guid? SucursalId, Guid? CentroCostoId, IReadOnlyList<LineaSalidaInventarioContrato>? Lineas);
-
-    private sealed record LineaSalidaInventarioContrato(Guid ArticuloId, decimal MontoMxn);
 
     private const string SentidoEgreso = "Egreso";
 

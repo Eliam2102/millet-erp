@@ -735,6 +735,8 @@ builder.Services.AddScoped<Millet.Almacen.Infrastructure.PublicAdapters.Apartado
 // F1-COM-13 (86e3jvu98): puertos de lectura de la tríada para el análisis de proveedores.
 builder.Services.AddScoped<Millet.Compras.Domain.Ports.Almacen.IRecepcionesOcReadPort,
     Millet.Compras.Infrastructure.PublicAdapters.AlmacenRecepcionesOcReadAdapter>();
+builder.Services.AddScoped<Millet.Compras.Domain.Ports.Almacen.IRecepcionesAwReadPort,
+    Millet.Compras.Infrastructure.PublicAdapters.AlmacenRecepcionesAwReadAdapter>();
 builder.Services.AddScoped<Millet.Compras.Domain.Ports.CuentasPorPagar.IFacturasOcReadPort,
     Millet.CuentasPorPagar.Infrastructure.PublicAdapters.CxpFacturasOcReadAdapter>();
 builder.Services.AddScoped<Millet.Compras.Application.Reportes.AnalisisProveedores.NombresAnalisis>();

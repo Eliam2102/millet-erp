@@ -246,8 +246,8 @@ public sealed class AlmacenContabilidadListenerWorker(ServiceBusClient? client, 
     private static readonly FrozenSet<string> Tipos = FrozenSet.ToFrozenSet(
     [
         NormalizadorEventos.RecepcionOcRegistrada, NormalizadorEventos.RecepcionOcCancelada, NormalizadorEventos.AjusteInventarioAplicado,
-        NormalizadorEventos.SalidaRequisicionRegistrada, NormalizadorEventos.DevolucionInternaAplicada, NormalizadorEventos.DevolucionProveedorRegistrada,
-        // U-2 (86e3yxngq): costo de importación aplicado y salidas sin requisición (G-1).
-        NormalizadorEventos.ExpedienteCostoAplicado, NormalizadorEventos.SalidaInventarioRegistrada,
+        NormalizadorEventos.SalidaRequisicionRegistrada, NormalizadorEventos.SalidaInventarioRegistrada, NormalizadorEventos.DevolucionInternaAplicada, NormalizadorEventos.DevolucionProveedorRegistrada,
+        // U-2 (86e3yxngq): costo de importación aplicado.
+        NormalizadorEventos.ExpedienteCostoAplicado,
     ], StringComparer.Ordinal);
 }
