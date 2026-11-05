@@ -1271,6 +1271,8 @@ export interface FacturaBandejaItem extends ClasificacionPedidoLectura {
   total: number;
   moneda: string;
   fechaTimbrado: string | null;
+  /** U-1: la factura tiene una NC (ranura o anticipo) pendiente de timbrar. */
+  notaCreditoPendiente?: boolean;
 }
 
 /** Línea del detalle de un comprobante. */
@@ -1346,6 +1348,8 @@ export interface ComprobanteDetalleResponse {
   totalPorCobrar: number;
   /** [Decisión 13-K] NC timbradas que acreditan a esta factura. */
   notasCreditoAplicadas: NotaCreditoAplicadaDetalle[] | null;
+  /** U-1: NC ligadas a la factura que no quedaron timbradas (no acreditan). */
+  notasCreditoPendientes?: NotaCreditoPendienteDetalle[] | null;
   /** FAC-08b: en la original, la factura que la sustituye (relación 04). */
   sustituidaPor?: SustitucionReferencia | null;
   /** FAC-08b: en la sustituta, la factura original. */
@@ -1423,6 +1427,18 @@ export interface CobroFacturaDetalle {
 }
 
 /** NC timbrada que acredita a la factura ([Decisión 13-K]). */
+/** U-1: NC pendiente de timbrar ligada a la factura, con el motivo del PAC. */
+export interface NotaCreditoPendienteDetalle {
+  id: string;
+  folio: string;
+  motivo: string;
+  total: number;
+  estado: string;
+  timbradoErrorCodigo: string | null;
+  timbradoErrorMensaje: string | null;
+  version: number;
+}
+
 export interface NotaCreditoAplicadaDetalle {
   id: string;
   folio: string;
