@@ -21,8 +21,7 @@ public sealed class SaldosHistoricos(CuentasPorPagarDbContext db, IProveedorRead
         string? obra, CancellationToken cancellationToken)
     {
         var fin = FinExclusivo(corte);
-        var q = db.FacturasProveedor.AsNoTracking().Include(f => f.Movimientos).Include(f => f.Bitacora)
-            .Where(f => f.FechaDocumento < fin && (f.FechaCancelacion == null || f.FechaCancelacion >= fin));
+        var q = VigentesAlCorte(db.FacturasProveedor.AsNoTracking().Include(f => f.Movimientos).Include(f => f.Bitacora), corte);
         if (proveedorId is Guid p) q = q.Where(f => f.ProveedorId == p);
         if (sucursalId is Guid s)
         {
@@ -42,7 +41,7 @@ public sealed class SaldosHistoricos(CuentasPorPagarDbContext db, IProveedorRead
         foreach (var f in facturas)
         {
             VerificarHistorial(f);
-            var saldo = f.Total - f.Movimientos.Where(m => m.Fecha <= corte).Sum(m => m.Monto);
+            var saldo = SaldoAlCorte(f, corte);
             if (saldo <= 0) continue;
             if (!maestro.TryGetValue(f.ProveedorId, out var proveedor))
                 maestro[f.ProveedorId] = proveedor = await proveedores.ObtenerAsync(f.ProveedorId, cancellationToken);
@@ -54,12 +53,26 @@ public sealed class SaldosHistoricos(CuentasPorPagarDbContext db, IProveedorRead
         return resultado;
     }
 
+    /// <summary>Facturas registradas al corte y no canceladas antes del corte.</summary>
+    public static IQueryable<Factura> VigentesAlCorte(IQueryable<Factura> q, DateOnly corte)
+    {
+        var fin = FinExclusivo(corte);
+        return q.Where(f => f.FechaDocumento < fin && (f.FechaCancelacion == null || f.FechaCancelacion >= fin));
+    }
+
+    /// <summary>Saldo de la factura al corte: total menos las aplicaciones con fecha ≤ corte.</summary>
+    public static decimal SaldoAlCorte(Factura f, DateOnly corte) => f.Total - f.Movimientos.Where(m => m.Fecha <= corte).Sum(m => m.Monto);
+
+    /// <summary>¿El historial de aplicaciones cubre los acumulados de la factura? (si no, el saldo al corte no es reconstruible).</summary>
+    public static bool HistorialCompleto(Factura f) =>
+        f.Movimientos.Where(m => m.Tipo == TipoMovimientoPasivo.Pago).Sum(m => m.Monto) == f.ImportePagado &&
+        f.Movimientos.Where(m => m.Tipo == TipoMovimientoPasivo.Anticipo).Sum(m => m.Monto) == f.AnticipoAplicadoTotal &&
+        f.Movimientos.Where(m => m.Tipo == TipoMovimientoPasivo.NotaCredito).Sum(m => m.Monto) == f.NcAplicadasTotal &&
+        f.Movimientos.Where(m => m.Tipo == TipoMovimientoPasivo.NotaCargo).Sum(m => m.Monto) == f.CargosAplicadosTotal;
+
     public static void VerificarHistorial(Factura f)
     {
-        if (f.Movimientos.Where(m => m.Tipo == TipoMovimientoPasivo.Pago).Sum(m => m.Monto) != f.ImportePagado ||
-            f.Movimientos.Where(m => m.Tipo == TipoMovimientoPasivo.Anticipo).Sum(m => m.Monto) != f.AnticipoAplicadoTotal ||
-            f.Movimientos.Where(m => m.Tipo == TipoMovimientoPasivo.NotaCredito).Sum(m => m.Monto) != f.NcAplicadasTotal ||
-            f.Movimientos.Where(m => m.Tipo == TipoMovimientoPasivo.NotaCargo).Sum(m => m.Monto) != f.CargosAplicadosTotal)
+        if (!HistorialCompleto(f))
             throw new BusinessRuleException("CXP_HISTORICO_POR_CONFIRMAR",
                 "Por confirmar: hay aplicaciones anteriores a P8 sin fecha reconstruible. Completa el historial antes de usar el auxiliar para conciliar con Contabilidad.");
     }
