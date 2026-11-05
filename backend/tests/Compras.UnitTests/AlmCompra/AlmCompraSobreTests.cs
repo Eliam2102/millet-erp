@@ -82,4 +82,23 @@ public sealed class AlmCompraSobreTests
         AlmCompraSobre.MensajeId("OC-5521", Guid.Empty, "COMPRA_MODIFICADA", 2).Should().Be("ERP-OC-5521-M2");
         AlmCompraSobre.MensajeId(new string('X', 80), Guid.Empty, "COMPRA_CANCELADA", 1).Length.Should().BeLessThanOrEqualTo(64);
     }
+
+    [Fact]
+    public void Sin_entradas_el_sobre_no_trae_recepciones_y_con_entrada_lleva_hojas_lote_rack_e_importacion_solo_si_hay()
+    {
+        AlmCompraSobre.Armar("m", "COMPRA_RECIBIDA", DateTimeOffset.UnixEpoch, "OC-5521", AlmCompraSobre.DatosCompra(Datos())).Should().NotContain("recepciones");
+
+        var nacional = new AlmCompraRecepcion("EC-1", new DateOnly(2026, 11, 5), null, [new("1", 48, "L-7781", "R-A01", null)]);
+        var importada = new AlmCompraRecepcion("EC-2", new DateOnly(2026, 11, 5),
+            new("26 47 3456 6001234", "MAEU123456", "MSCU1234567", "470", "A1"), [new("1", 2, "L-7781", "R-A02", "70051001")]);
+        var sobre = AlmCompraSobre.Armar("ERP-OC-5521-M1", "COMPRA_MODIFICADA", DateTimeOffset.UnixEpoch, "OC-5521",
+            AlmCompraSobre.DatosCompra(Datos() with { Recepciones = [nacional, importada] }));
+
+        var rec = JsonDocument.Parse(sobre).RootElement.GetProperty("datos").GetProperty("recepciones");
+        rec[0].TryGetProperty("importacion", out _).Should().BeFalse();
+        rec[0].GetProperty("lineas")[0].GetProperty("rack").GetString().Should().Be("R-A01");
+        rec[0].GetProperty("lineas")[0].GetProperty("piezas").GetInt32().Should().Be(48);
+        rec[1].GetProperty("importacion").GetProperty("bl").GetString().Should().Be("MAEU123456");
+        rec[1].GetProperty("lineas")[0].GetProperty("fraccion").GetString().Should().Be("70051001");
+    }
 }

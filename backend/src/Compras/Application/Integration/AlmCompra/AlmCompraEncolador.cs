@@ -3,6 +3,7 @@ using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Compras.Domain;
 using Millet.Compras.Domain.AlmCompra;
 using Millet.Compras.Domain.Oc;
+using Millet.Compras.Domain.Ports.Almacen;
 using Millet.Compras.Infrastructure;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
@@ -22,7 +23,7 @@ namespace Millet.Compras.Application.Integration.AlmCompra;
 /// de cancelar deja la OC en espera y encola COMPRA_CANCELADA; el resultado lo aplica el procesador al llegar el acuse.
 /// </para>
 /// </summary>
-public sealed class AlmCompraEncolador(ComprasDbContext db, CompartidoDbContext maestros, IClock clock)
+public sealed class AlmCompraEncolador(ComprasDbContext db, CompartidoDbContext maestros, IClock clock, IRecepcionesAwReadPort recepcionesAw)
 {
     /// <summary>OC autorizada: COMPRA_RECIBIDA; si ya se mandó una (reautorización tras reabrir), COMPRA_MODIFICADA si cambió algo.</summary>
     public async Task OcAutorizadaAsync(Guid ocId, CancellationToken ct)
@@ -40,6 +41,13 @@ public sealed class AlmCompraEncolador(ComprasDbContext db, CompartidoDbContext 
         if (oc is null || !EstaEnAlmacenes(previos)) return;
         await EncolarCompraAsync(oc, previos, AlmCompraEnvio.TipoModificada, ct);
     }
+
+    /// <summary>
+    /// Entrada confirmada en el ERP (CA13.8, CA3.10, CA12.2): COMPRA_MODIFICADA completa con las entradas (hojas, lote, rack y, en
+    /// importación, pedimento, BL, contenedor, aduana, clave y fracción). Solo si la compra ya se mandó. Supuesto de C3.2: v6 solo define
+    /// COMPRA_RECIBIDA al crear la compra; este bloque es aditivo y espera el visto bueno por escrito de Jorge.
+    /// </summary>
+    public Task RecepcionConfirmadaAsync(Guid ocId, CancellationToken ct) => PedimentoActualizadoAsync(ocId, ct);
 
     /// <summary>
     /// ¿La compra ya se mandó a Almacenes y sigue viva allá? Sí si hay un COMPRA_RECIBIDA armado y no rechazado, sin una
@@ -162,6 +170,28 @@ public sealed class AlmCompraEncolador(ComprasDbContext db, CompartidoDbContext 
                 l.LoteProveedor, AlmCompraSobre.FormatoPedimento(oc.InfoImportNumeroPedimento), null, costoM2, costoPieza));
         }
         return new AlmCompraDatos(oc.Folio.Valor, claveAw, proveedor.RazonSocial, oc.Moneda, oc.TipoCambio,
-            oc.FechaDocumento, AlmCompraSobre.AgruparMedidaGirada(lineas));
+            oc.FechaDocumento, AlmCompraSobre.AgruparMedidaGirada(lineas), await RecepcionesAsync(oc, mp, ct));
+    }
+
+    /// <summary>Entradas confirmadas de las líneas que son materia prima, en hojas; <c>null</c> si no hay ninguna.</summary>
+    private async Task<IReadOnlyList<AlmCompraRecepcion>?> RecepcionesAsync(OrdenCompra oc, List<LineaOrdenCompra> mp, CancellationToken ct)
+    {
+        var recepciones = new List<AlmCompraRecepcion>();
+        foreach (var r in await recepcionesAw.ListarPorOcAsync(oc.Id, ct))
+        {
+            var filas = new List<AlmCompraRecepcionLinea>();
+            foreach (var x in r.Lineas)
+            {
+                if (mp.FirstOrDefault(l => l.Id == x.LineaOcId) is not { } l) continue;
+                var (piezas, _, _, _) = AlmCompraSobre.Calcular(l.UnidadMedida, x.Cantidad, 0m, 0m, l.AnchoMm, l.AltoMm);
+                filas.Add(new AlmCompraRecepcionLinea(l.Posicion.ToString(), piezas, x.Lote ?? l.LoteProveedor, x.Rack, x.FraccionArancelaria));
+            }
+            if (filas.Count == 0) continue;
+            var i = r.Importacion;
+            recepciones.Add(new AlmCompraRecepcion(r.Folio, r.Fecha,
+                i is null ? null : new AlmCompraImportacion(AlmCompraSobre.FormatoPedimento(i.NumeroPedimento)!, i.NumeroBl, i.NumeroContenedor, i.Aduana, i.ClavePedimento),
+                filas));
+        }
+        return recepciones.Count == 0 ? null : recepciones;
     }
 }

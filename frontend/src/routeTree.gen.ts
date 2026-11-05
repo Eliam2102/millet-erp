@@ -116,6 +116,7 @@ import { Route as AppComprasOrdenesPartidasAbiertasRouteImport } from './routes/
 import { Route as AppComprasOrdenesPendientesAutorizacionRouteImport } from './routes/_app/compras/ordenes/pendientes-autorizacion';
 import { Route as AppComprasPendientesIndexRouteImport } from './routes/_app/compras/pendientes/index';
 import { Route as AppComprasPendientesIdRouteImport } from './routes/_app/compras/pendientes/$id';
+import { Route as AppComprasIntegracionesAlmCompraRouteImport } from './routes/_app/compras/integraciones/alm-compra';
 import { Route as AppComprasReportesAnalisisProveedoresRouteImport } from './routes/_app/compras/reportes/analisis-proveedores';
 import { Route as AppComprasRequisicionesIndexRouteImport } from './routes/_app/compras/requisiciones/index';
 import { Route as AppComprasRequisicionesIdRouteImport } from './routes/_app/compras/requisiciones/$id';
@@ -814,6 +815,12 @@ const AppComprasPendientesIdRoute = AppComprasPendientesIdRouteImport.update({
   path: '/compras/pendientes/$id',
   getParentRoute: () => AppRoute,
 } as any);
+const AppComprasIntegracionesAlmCompraRoute =
+  AppComprasIntegracionesAlmCompraRouteImport.update({
+    id: '/compras/integraciones/alm-compra',
+    path: '/compras/integraciones/alm-compra',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppComprasReportesAnalisisProveedoresRoute =
   AppComprasReportesAnalisisProveedoresRouteImport.update({
     id: '/compras/reportes/analisis-proveedores',
@@ -1596,6 +1603,7 @@ export interface FileRoutesByFullPath {
   '/compras/ordenes/partidas-abiertas': typeof AppComprasOrdenesPartidasAbiertasRoute;
   '/compras/ordenes/pendientes-autorizacion': typeof AppComprasOrdenesPendientesAutorizacionRoute;
   '/compras/pendientes/$id': typeof AppComprasPendientesIdRoute;
+  '/compras/integraciones/alm-compra': typeof AppComprasIntegracionesAlmCompraRoute;
   '/compras/reportes/analisis-proveedores': typeof AppComprasReportesAnalisisProveedoresRoute;
   '/compras/requisiciones/$id': typeof AppComprasRequisicionesIdRoute;
   '/contabilidad/catalogo/$id': typeof AppContabilidadCatalogoIdRoute;
@@ -1826,6 +1834,7 @@ export interface FileRoutesByTo {
   '/compras/ordenes/partidas-abiertas': typeof AppComprasOrdenesPartidasAbiertasRoute;
   '/compras/ordenes/pendientes-autorizacion': typeof AppComprasOrdenesPendientesAutorizacionRoute;
   '/compras/pendientes/$id': typeof AppComprasPendientesIdRoute;
+  '/compras/integraciones/alm-compra': typeof AppComprasIntegracionesAlmCompraRoute;
   '/compras/reportes/analisis-proveedores': typeof AppComprasReportesAnalisisProveedoresRoute;
   '/compras/requisiciones/$id': typeof AppComprasRequisicionesIdRoute;
   '/contabilidad/catalogo/$id': typeof AppContabilidadCatalogoIdRoute;
@@ -2058,6 +2067,7 @@ export interface FileRoutesById {
   '/_app/compras/ordenes/partidas-abiertas': typeof AppComprasOrdenesPartidasAbiertasRoute;
   '/_app/compras/ordenes/pendientes-autorizacion': typeof AppComprasOrdenesPendientesAutorizacionRoute;
   '/_app/compras/pendientes/$id': typeof AppComprasPendientesIdRoute;
+  '/_app/compras/integraciones/alm-compra': typeof AppComprasIntegracionesAlmCompraRoute;
   '/_app/compras/reportes/analisis-proveedores': typeof AppComprasReportesAnalisisProveedoresRoute;
   '/_app/compras/requisiciones/$id': typeof AppComprasRequisicionesIdRoute;
   '/_app/contabilidad/catalogo/$id': typeof AppContabilidadCatalogoIdRoute;
@@ -2290,6 +2300,7 @@ export interface FileRouteTypes {
     | '/compras/ordenes/partidas-abiertas'
     | '/compras/ordenes/pendientes-autorizacion'
     | '/compras/pendientes/$id'
+    | '/compras/integraciones/alm-compra'
     | '/compras/reportes/analisis-proveedores'
     | '/compras/requisiciones/$id'
     | '/contabilidad/catalogo/$id'
@@ -2520,6 +2531,7 @@ export interface FileRouteTypes {
     | '/compras/ordenes/partidas-abiertas'
     | '/compras/ordenes/pendientes-autorizacion'
     | '/compras/pendientes/$id'
+    | '/compras/integraciones/alm-compra'
     | '/compras/reportes/analisis-proveedores'
     | '/compras/requisiciones/$id'
     | '/contabilidad/catalogo/$id'
@@ -2751,6 +2763,7 @@ export interface FileRouteTypes {
     | '/_app/compras/ordenes/partidas-abiertas'
     | '/_app/compras/ordenes/pendientes-autorizacion'
     | '/_app/compras/pendientes/$id'
+    | '/_app/compras/integraciones/alm-compra'
     | '/_app/compras/reportes/analisis-proveedores'
     | '/_app/compras/requisiciones/$id'
     | '/_app/contabilidad/catalogo/$id'
@@ -3651,6 +3664,13 @@ declare module '@tanstack/react-router' {
       path: '/compras/pendientes/$id';
       fullPath: '/compras/pendientes/$id';
       preLoaderRoute: typeof AppComprasPendientesIdRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/compras/integraciones/alm-compra': {
+      id: '/_app/compras/integraciones/alm-compra';
+      path: '/compras/integraciones/alm-compra';
+      fullPath: '/compras/integraciones/alm-compra';
+      preLoaderRoute: typeof AppComprasIntegracionesAlmCompraRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/compras/reportes/analisis-proveedores': {
@@ -4611,6 +4631,7 @@ interface AppRouteChildren {
   AppComprasOrdenesPartidasAbiertasRoute: typeof AppComprasOrdenesPartidasAbiertasRoute;
   AppComprasOrdenesPendientesAutorizacionRoute: typeof AppComprasOrdenesPendientesAutorizacionRoute;
   AppComprasPendientesIdRoute: typeof AppComprasPendientesIdRoute;
+  AppComprasIntegracionesAlmCompraRoute: typeof AppComprasIntegracionesAlmCompraRoute;
   AppComprasReportesAnalisisProveedoresRoute: typeof AppComprasReportesAnalisisProveedoresRoute;
   AppComprasRequisicionesIdRoute: typeof AppComprasRequisicionesIdRoute;
   AppContabilidadCatalogoIdRoute: typeof AppContabilidadCatalogoIdRoute;
@@ -4842,6 +4863,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppComprasOrdenesPendientesAutorizacionRoute:
     AppComprasOrdenesPendientesAutorizacionRoute,
   AppComprasPendientesIdRoute: AppComprasPendientesIdRoute,
+  AppComprasIntegracionesAlmCompraRoute:
+    AppComprasIntegracionesAlmCompraRoute,
   AppComprasReportesAnalisisProveedoresRoute:
     AppComprasReportesAnalisisProveedoresRoute,
   AppComprasRequisicionesIdRoute: AppComprasRequisicionesIdRoute,
