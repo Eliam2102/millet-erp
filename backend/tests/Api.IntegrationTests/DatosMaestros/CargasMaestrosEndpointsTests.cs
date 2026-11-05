@@ -129,6 +129,11 @@ public sealed class CargasMaestrosEndpointsTests(WebApplicationFactory<Program> 
                     tipoDocumentoId = doc.GetProperty("tipoDocumentoId").GetGuid(), motivo = "Excepción sintética de integración",
                 });
                 respuesta.EnsureSuccessStatusCode();
+                // 86e3yzemu: la excepción queda pendiente hasta que otra persona la otorga.
+                var (resolutor, _) = await ambiente.ClienteConPermisosAsync(Millet.Identidad.Domain.PermisosCanonicos.DatosMaestrosProveedoresValidar);
+                var excepcionId = (await respuesta.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+                using var resuelta = await resolutor.PostAsJsonAsync($"{baseUrl}/expediente/excepciones/{excepcionId}/resolver", new { otorgar = true });
+                resuelta.EnsureSuccessStatusCode();
             }
             else
             {
