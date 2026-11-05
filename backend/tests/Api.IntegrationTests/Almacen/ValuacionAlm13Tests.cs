@@ -214,13 +214,14 @@ public class ValuacionAlm13Tests(WebApplicationFactory<Program> factory) : IClas
         });
     }
 
+    // Acotado a la sucursal de la prueba: la empresa real de Compartido la comparten otras pruebas (el cuadre suma toda la empresa).
     private async Task<ReporteResponse<CuadreInventarioFila>> CuadreAsync(AlmacenDbContext db, Ctx ctx, decimal saldoContable)
     {
         db.ChangeTracker.Clear();
         using var scope = factory.Services.CreateScope();
         return await new CuadreInventarioContableHandler(db, new InventarioDoble(saldoContable),
                 scope.ServiceProvider.GetRequiredService<ISucursalReadPort>(), new EmpresaFake(ctx.EmpresaId), new ArticulosUnidad())
-            .Handle(new CuadreInventarioContableQuery(2027, 4), default);
+            .Handle(new CuadreInventarioContableQuery(2027, 4) { SucursalesPermitidas = [ctx.SucursalId] }, default);
     }
 
     // ─────────────────────────── Dobles ───────────────────────────
