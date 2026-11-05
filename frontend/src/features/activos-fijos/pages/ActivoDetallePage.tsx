@@ -1,4 +1,6 @@
 import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
+import { HistorialActivo } from '../components/HistorialActivo';
+import { ReversaActivo } from '../components/ReversaActivo';
 import { DepreciacionActivo } from '../components/DepreciacionActivo';
 import { ImprimirEtiquetas } from '../components/ImprimirEtiquetas';
 import { DocumentosActivo } from '../components/DocumentosActivo';
@@ -32,6 +34,7 @@ export function ActivoDetallePage() {
   const guardar = useGuardarActivo();
   const [editar, setEditar] = useState(false);
   const [destino, setDestino] = useState<Custodia | null>(null);
+  const [corregir, setCorregir] = useState<string | null>(null);
   const [documento, setDocumento] = useState('');
   const [ajuste, setAjuste] = useState<'mejora' | 'nota-credito' | null>(null);
   const gestionar = useHasPermission(P.ActivosFijosActivosGestionar);
@@ -48,6 +51,7 @@ export function ActivoDetallePage() {
       {
         onSuccess: () => {
           setDestino(null);
+          setCorregir(null);
           setAjuste(null);
         },
       },
@@ -84,6 +88,11 @@ export function ActivoDetallePage() {
               Completar datos
             </Button>
           )}
+          {gestionar && a.estado === 1 && (
+            <Button variant="outline" onClick={() => setEditar(true)}>
+              Editar tasas
+            </Button>
+          )}
           {capitalizar && a.estado === 0 && (
             <Button onClick={() => accion('capitalizar')}>Capitalizar</Button>
           )}
@@ -97,11 +106,13 @@ export function ActivoDetallePage() {
             {guardar.error.message}
           </p>
         )}
+        <ReversaActivo activo={a} />
         <Tabs defaultValue="datos">
           <TabsList>
             <TabsTrigger value="datos">Datos</TabsTrigger>
             <TabsTrigger value="valores">Valores e historial</TabsTrigger>
             <TabsTrigger value="traslados">Traslados</TabsTrigger>
+            <TabsTrigger value="historial">Historial</TabsTrigger>
             <TabsTrigger value="origen">Origen</TabsTrigger>
             <TabsTrigger value="depreciacion">Depreciación</TabsTrigger>
             <TabsTrigger value="documentos">Documentos</TabsTrigger>
@@ -121,7 +132,16 @@ export function ActivoDetallePage() {
                 Adquisición: a.fechaAdquisicion,
                 'Inicio de uso': a.inicioUso,
                 Ubicación: a.ubicacion,
-                Importación: ['No', 'Temporal', 'Definitiva'][a.importacion],
+                'Tasa propia contable':
+                  a.tasaContableAnual == null
+                    ? 'Usa la clase'
+                    : `${a.tasaContableAnual} % · tasa propia`,
+                'Tasa propia fiscal':
+                  a.tasaFiscalAnual == null
+                    ? 'Usa la clase'
+                    : `${a.tasaFiscalAnual} % · tasa propia`,
+                // eslint-disable-next-line ds/no-texto-interno -- P16 exige este estado de importación.
+                Importación: ['No', 'Temporal', 'Definitiva', 'Por confirmar'][a.importacion],
                 Pedimento: a.pedimento,
                 Arrendado: a.arrendado ? 'Sí' : 'No',
               }).map(([k, v]) => (
@@ -230,7 +250,14 @@ export function ActivoDetallePage() {
               {a.traslados.map((t) => (
                 <div key={t.id} className="border-b border-line-row py-3">
                   <p>
-                    {t.fechaEfectiva} · {t.motivo}
+                    {t.fechaEfectiva} · {t.motivo}{' '}
+                    {t.corregido && <Badge variant="neutral">Corregido</Badge>}{' '}
+                    {t.corrigeA && (
+                      <span>
+                        · Corrección del traslado{' '}
+                        {a.traslados.find((x) => x.id === t.corrigeA)?.fechaEfectiva}
+                      </span>
+                    )}
                   </p>
                   <p>
                     {t.origen.ubicacion} ({t.origenDescripcion?.sucursal ?? 'Sin registrar'}){' → '}
@@ -249,6 +276,24 @@ export function ActivoDetallePage() {
                     {' → '}
                     {t.destinoDescripcion?.equipo ?? 'Sin equipo'}
                   </p>
+                  {trasladar &&
+                    !t.corregido &&
+                    a.estado === 1 &&
+                    t.id ===
+                      [...a.traslados].sort(
+                        (x, y) =>
+                          y.registradoEn.localeCompare(x.registradoEn) || y.id.localeCompare(x.id),
+                      )[0]?.id && (
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setCorregir(t.id);
+                          setDestino(t.origen);
+                        }}
+                      >
+                        Corregir traslado
+                      </Button>
+                    )}
                   <p className="text-xs text-ink-muted">
                     Registró: {t.registradoPorNombre ?? t.registradoPor} · {t.registradoEn}
                   </p>
@@ -282,11 +327,12 @@ export function ActivoDetallePage() {
                     window.confirm('¿Cerrar el traslado y descartar la captura?')
                   )
                     setDestino(null);
+                  setCorregir(null);
                 }}
               >
                 <SheetContent size="lg">
                   <SheetHeader>
-                    <SheetTitle>Trasladar activo</SheetTitle>
+                    <SheetTitle>{corregir ? 'Corregir traslado' : 'Trasladar activo'}</SheetTitle>
                     <SheetDescription>
                       El Contador General registra el cambio de custodia directamente.
                     </SheetDescription>
@@ -297,7 +343,8 @@ export function ActivoDetallePage() {
                       onSubmit={(e) => {
                         e.preventDefault();
                         const f = new FormData(e.currentTarget);
-                        accion('trasladar', {
+                        accion(corregir ? 'corregir-traslado' : 'trasladar', {
+                          trasladoId: corregir,
                           destino,
                           motivo: String(f.get('motivo')).trim(),
                           fechaEfectiva: f.get('fechaEfectiva'),
@@ -313,6 +360,7 @@ export function ActivoDetallePage() {
                               <label className="space-y-1 text-xs">
                                 Fecha efectiva *
                                 <Input
+                                  disabled={!!corregir}
                                   name="fechaEfectiva"
                                   type="date"
                                   required
@@ -353,12 +401,13 @@ export function ActivoDetallePage() {
                           onClick={() => {
                             if (window.confirm('¿Cerrar el traslado y descartar la captura?'))
                               setDestino(null);
+                            setCorregir(null);
                           }}
                         >
                           Cancelar
                         </Button>
                         <Button type="submit" disabled={guardar.isPending}>
-                          Registrar traslado
+                          {corregir ? 'Registrar corrección' : 'Registrar traslado'}
                         </Button>
                       </SheetFooter>
                     </form>
@@ -369,6 +418,9 @@ export function ActivoDetallePage() {
           </TabsContent>
           <TabsContent value="depreciacion">
             <DepreciacionActivo activo={a} />
+          </TabsContent>
+          <TabsContent value="historial">
+            <HistorialActivo activo={a} />
           </TabsContent>
           <TabsContent value="origen">
             <dl className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat">

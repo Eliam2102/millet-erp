@@ -49,7 +49,7 @@ public sealed class MutarActivoHandler(ActivosFijosDbContext db, ActivoServicio 
     public async Task<Activo> Handle(MutarActivoCommand request, CancellationToken cancellationToken)
     {
         var permiso = request.Accion switch { "capitalizar" or "mejora" or "nota-credito" => PermisosCanonicos.ActivosFijosCapitalizar,
-            "trasladar" => PermisosCanonicos.ActivosFijosTrasladosGestionar, "editar" => PermisosCanonicos.ActivosFijosActivosGestionar,
+            "trasladar" or "corregir-traslado" => PermisosCanonicos.ActivosFijosTrasladosGestionar, "editar" or "tasas" => PermisosCanonicos.ActivosFijosActivosGestionar,
             _ => throw new BusinessRuleException("AF_ACCION_INVALIDA", "Acción desconocida.") };
         await servicio.PermisoAsync(permiso, cancellationToken);
         await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
@@ -66,13 +66,18 @@ public sealed class MutarActivoHandler(ActivosFijosDbContext db, ActivoServicio 
                 var datos = request.Datos ?? throw new BusinessRuleException("AF_DATOS_REQUERIDOS", "Capture los datos.");
                 await servicio.SucursalAsync(datos.Custodia.SucursalId, true, cancellationToken);
                 await catalogos.ValidarCustodiaAsync(datos.Custodia, false, cancellationToken); await servicio.ClaseAsync(datos.ClaseId, cancellationToken); await servicio.ValidarTasasActivoAsync(datos, a.Id, cancellationToken); a.Completar(datos); break;
+            case "tasas":
+                var tasas = request.Datos ?? throw new BusinessRuleException("AF_DATOS_REQUERIDOS","Capture las tasas.");
+                if (tasas.ClaseId != a.ClaseId) throw new BusinessRuleException("AF_CLASE_INVALIDA","Conserve la clase del activo al modificar sus tasas.");
+                await servicio.ValidarTasasActivoAsync(tasas,a.Id,cancellationToken);
+                a.EditarTasas(tasas.TasaContableAnual,tasas.TasaFiscalAnual); break;
             case "capitalizar":
                 if (a.Estado == EstadoActivo.Activo) break;
                 a.ValidarCapitalizacion(); await catalogos.ValidarCustodiaAsync(a.Custodia(), true, cancellationToken);
                 if (await db.Set<CorridaDepreciacion>().AnyAsync(x => !x.Anulada && x.Periodo >= CalculoDepreciacion.Mes(a.InicioUso!.Value), cancellationToken))
                     throw new BusinessRuleException("AF_PERIODO_YA_DEPRECIADO", "Anule las corridas desde el inicio de uso antes de capitalizar retroactivamente.");
                 var clase = await servicio.ClaseAsync(a.ClaseId, cancellationToken);
-                a.Capitalizar(await servicio.PolizaAsync(a, clase, a.Id, a.InicioUso!.Value, a.ValorOriginal, $"AF-CAP-{a.Id}", $"Alta {a.Numero}", cancellationToken)); break;
+                a.Capitalizar(await servicio.PolizaAsync(a, clase, a.Id, a.InicioUso!.Value, a.ValorOriginal, $"AF-CAP-{a.Id}-R{await db.Set<OperacionLibro>().CountAsync(x => x.ActivoId == a.Id && x.Tipo == "ReversaCapitalizacion" && x.PolizaId != null, cancellationToken)}", $"Alta {a.Numero}", cancellationToken), servicio.Actor); break;
             case "mejora":
             case "nota-credito":
                 var ajuste = request.Ajuste ?? throw new BusinessRuleException("AF_AJUSTE_REQUERIDO", "Capture el ajuste.");
@@ -99,27 +104,58 @@ public sealed class MutarActivoHandler(ActivosFijosDbContext db, ActivoServicio 
                 var poliza = await servicio.PolizaAsync(a, await servicio.ClaseAsync(a.ClaseId, cancellationToken), ajuste.DocumentoId, ajuste.Fecha,
                     credito ? -ajuste.Importe : ajuste.Importe, $"AF-{(credito ? "NC" : "MEJ")}-{a.Id}-{ajuste.DocumentoId}", ajuste.Descripcion, cancellationToken);
                 a.Ajustar(ajuste.DocumentoId, ajuste.FacturaId, ajuste.Fecha, ajuste.Importe, credito, ajuste.Descripcion, poliza); break;
+            case "corregir-traslado":
             case "trasladar":
                 var destino = request.Destino ?? throw new BusinessRuleException("AF_TRASLADO_INVALIDO", "Capture el destino completo.");
-                a.Trasladar(Guid.CreateVersion7(), destino, request.Motivo ?? "", request.FechaEfectiva ?? default, servicio.Actor, clock.UtcNow);
+                if (request.Accion == "corregir-traslado")
+                {
+                    var original = a.Traslados.SingleOrDefault(x => x.Id == request.TrasladoId)
+                        ?? throw new BusinessRuleException("AF_TRASLADO_NO_EXISTE", "Seleccione el último traslado para corregirlo.");
+                    if (await db.Set<CorridaDepreciacion>().AnyAsync(x => !x.Anulada && x.Periodo == CalculoDepreciacion.Mes(original.FechaEfectiva), cancellationToken))
+                        throw new BusinessRuleException("AF_PERIODO_YA_DEPRECIADO", "No puede corregir un traslado cuyo mes tiene depreciación confirmada.");
+                    a.CorregirTraslado(original.Id, destino, request.Motivo ?? "", servicio.Actor, clock.UtcNow);
+                }
+                else a.Trasladar(Guid.CreateVersion7(), destino, request.Motivo ?? "", request.FechaEfectiva ?? default, servicio.Actor, clock.UtcNow);
                 await servicio.SucursalAsync(destino.SucursalId, true, cancellationToken);
                 await catalogos.ValidarCustodiaAsync(destino, true, cancellationToken); break;
         }
         await db.SaveChangesAsync(cancellationToken); await tx.CommitAsync(cancellationToken); return a;
     }
 }
-public sealed class GuardarClaseHandler(ActivosFijosDbContext db, ActivoServicio servicio, ICurrentEmpresaContext empresa) : IRequestHandler<GuardarClaseCommand, ClaseActivo>
+public sealed class GuardarClaseHandler(ActivosFijosDbContext db, ActivoServicio servicio, ICurrentEmpresaContext empresa, LibroServicio libro, IClock clock) : IRequestHandler<GuardarClaseCommand, ClaseActivo>
 {
     public async Task<ClaseActivo> Handle(GuardarClaseCommand request, CancellationToken cancellationToken)
     {
         await servicio.PermisoAsync(PermisosCanonicos.ActivosFijosClasesAdministrar, cancellationToken); await servicio.ValidarCuentasAsync(request.Datos, cancellationToken);
         var d = request.Datos;
-        var c = request.Id is Guid id ? await db.Clases.SingleOrDefaultAsync(x => x.Id == id, cancellationToken) ?? throw new EntityNotFoundException("AF_CLASE_NO_EXISTE", "No existe la clase.")
+        await using var tx = await db.Database.BeginTransactionAsync(cancellationToken); await libro.BloquearAsync(cancellationToken);
+        var c = request.Id is Guid id ? await db.Clases.Include(x => x.Versiones).SingleOrDefaultAsync(x => x.Id == id, cancellationToken) ?? throw new EntityNotFoundException("AF_CLASE_NO_EXISTE", "No existe la clase.")
             : new ClaseActivo(Guid.CreateVersion7(), empresa.Current ?? throw new UnauthorizedAccessException(), d.Clave, d.Nombre, d.TasaFiscalAnual);
         if (request.Id != null && c.Version != request.Version) throw new ConcurrencyException("ClaseActivo", c.Id);
         if (await db.Clases.AnyAsync(x => x.Clave == c.Clave && x.Id != c.Id, cancellationToken)) throw new BusinessRuleException("AF_CLAVE_DUPLICADA", "Ya existe esta clave.");
-        c.Editar(d.Nombre, d.TasaFiscalAnual, d.CuentaActivoId, d.CuentaDepreciacionId, d.CuentaGastoId, d.CuentaPuenteId, d.Activa, d.Depreciable, d.TasaConfirmada, d.TasaContableAnual);
-        if (request.Id == null) db.Clases.Add(c);
-        await db.SaveChangesAsync(cancellationToken); return c;
+        var propuesta = new ClaseActivo(Guid.CreateVersion7(), c.EmpresaId, c.Clave, d.Nombre, d.TasaFiscalAnual);
+        propuesta.Editar(d.Nombre, d.TasaFiscalAnual, d.CuentaActivoId, d.CuentaDepreciacionId, d.CuentaGastoId, d.CuentaPuenteId, d.Activa, d.Depreciable, d.TasaConfirmada, d.TasaContableAnual);
+        if (request.Id == null)
+        {
+            c.Editar(d.Nombre, d.TasaFiscalAnual, d.CuentaActivoId, d.CuentaDepreciacionId, d.CuentaGastoId, d.CuentaPuenteId, d.Activa, d.Depreciable, d.TasaConfirmada, d.TasaContableAnual);
+            c.Versiones.Add(VersionClaseActivo.Desde(c, 1, DateOnly.MinValue, servicio.Actor, true)); db.Clases.Add(c);
+        }
+        else
+        {
+            var actual = c.EnMes(Millet.SharedKernel.Application.FechaContable.HoyLocal(clock.UtcNow));
+            if (actual.TasaContableAnual != d.TasaContableAnual || actual.TasaFiscalAnual != d.TasaFiscalAnual || actual.Depreciable != d.Depreciable
+                || actual.TasaConfirmada != d.TasaConfirmada || actual.CuentaActivoId != d.CuentaActivoId || actual.CuentaDepreciacionId != d.CuentaDepreciacionId
+                || actual.CuentaGastoId != d.CuentaGastoId || actual.CuentaPuenteId != d.CuentaPuenteId)
+            {
+                if (c.Versiones.Any(v => v.Estado == EstadoVersionClase.EnRevision)) throw new BusinessRuleException("AF_PROPUESTA_PENDIENTE", "Resuelva primero la propuesta pendiente.");
+                if (c.Versiones.Count == 0) c.Versiones.Add(VersionClaseActivo.Desde(c, 1, DateOnly.MinValue, servicio.Actor, true));
+                var v = VersionClaseActivo.Desde(propuesta, c.Versiones.Max(v => v.Numero)+1, d.Vigencia ?? default, servicio.Actor);
+                v.ClaseId=c.Id;
+                v.ValidarVigencia(await db.Set<CorridaDepreciacion>().Where(x => !x.Anulada).MaxAsync(x => (DateOnly?)x.Periodo,cancellationToken));
+                c.Versiones.Add(v);
+            }
+            c.EditarIdentidad(d.Nombre,d.Activa);
+        }
+        await db.SaveChangesAsync(cancellationToken); await tx.CommitAsync(cancellationToken); return c;
     }
 }

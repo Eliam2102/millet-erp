@@ -15,6 +15,7 @@ import { Route as PortalProveedoresRouteImport } from './routes/portal-proveedor
 import { Route as AppIndexRouteImport } from './routes/_app/index';
 import { Route as AppActivosFijosCargaInicialRouteImport } from './routes/_app/activos-fijos/carga-inicial';
 import { Route as AppActivosFijosClasesRouteImport } from './routes/_app/activos-fijos/clases';
+import { Route as AppActivosFijosAutorizacionesRouteImport } from './routes/_app/activos-fijos/autorizaciones';
 import { Route as AppActivosFijosConciliacionRouteImport } from './routes/_app/activos-fijos/conciliacion';
 import { Route as AppActivosFijosConfiguracionLibroRouteImport } from './routes/_app/activos-fijos/configuracion-libro';
 import { Route as AppActivosFijosConteosRouteImport } from './routes/_app/activos-fijos/conteos';
@@ -265,6 +266,11 @@ const AppActivosFijosCargaInicialRoute =
 const AppActivosFijosClasesRoute = AppActivosFijosClasesRouteImport.update({
   id: '/activos-fijos/clases',
   path: '/activos-fijos/clases',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppActivosFijosAutorizacionesRoute = AppActivosFijosAutorizacionesRouteImport.update({
+  id: '/activos-fijos/autorizaciones',
+  path: '/activos-fijos/autorizaciones',
   getParentRoute: () => AppRoute,
 } as any);
 const AppActivosFijosConciliacionRoute =
@@ -1503,6 +1509,7 @@ export interface FileRoutesByFullPath {
   '/portal-proveedores': typeof PortalProveedoresRoute;
   '/activos-fijos/carga-inicial': typeof AppActivosFijosCargaInicialRoute;
   '/activos-fijos/clases': typeof AppActivosFijosClasesRoute;
+  '/activos-fijos/autorizaciones': typeof AppActivosFijosAutorizacionesRoute;
   '/activos-fijos/conciliacion': typeof AppActivosFijosConciliacionRoute;
   '/activos-fijos/configuracion-libro': typeof AppActivosFijosConfiguracionLibroRoute;
   '/activos-fijos/conteos': typeof AppActivosFijosConteosRoute;
@@ -1731,6 +1738,7 @@ export interface FileRoutesByTo {
   '/': typeof AppIndexRoute;
   '/activos-fijos/carga-inicial': typeof AppActivosFijosCargaInicialRoute;
   '/activos-fijos/clases': typeof AppActivosFijosClasesRoute;
+  '/activos-fijos/autorizaciones': typeof AppActivosFijosAutorizacionesRoute;
   '/activos-fijos/conciliacion': typeof AppActivosFijosConciliacionRoute;
   '/activos-fijos/configuracion-libro': typeof AppActivosFijosConfiguracionLibroRoute;
   '/activos-fijos/conteos': typeof AppActivosFijosConteosRoute;
@@ -1961,6 +1969,7 @@ export interface FileRoutesById {
   '/_app/': typeof AppIndexRoute;
   '/_app/activos-fijos/carga-inicial': typeof AppActivosFijosCargaInicialRoute;
   '/_app/activos-fijos/clases': typeof AppActivosFijosClasesRoute;
+  '/_app/activos-fijos/autorizaciones': typeof AppActivosFijosAutorizacionesRoute;
   '/_app/activos-fijos/conciliacion': typeof AppActivosFijosConciliacionRoute;
   '/_app/activos-fijos/configuracion-libro': typeof AppActivosFijosConfiguracionLibroRoute;
   '/_app/activos-fijos/conteos': typeof AppActivosFijosConteosRoute;
@@ -2191,6 +2200,7 @@ export interface FileRouteTypes {
     | '/portal-proveedores'
     | '/activos-fijos/carga-inicial'
     | '/activos-fijos/clases'
+    | '/activos-fijos/autorizaciones'
     | '/activos-fijos/conciliacion'
     | '/activos-fijos/configuracion-libro'
     | '/activos-fijos/conteos'
@@ -2419,6 +2429,7 @@ export interface FileRouteTypes {
     | '/'
     | '/activos-fijos/carga-inicial'
     | '/activos-fijos/clases'
+    | '/activos-fijos/autorizaciones'
     | '/activos-fijos/conciliacion'
     | '/activos-fijos/configuracion-libro'
     | '/activos-fijos/conteos'
@@ -2648,6 +2659,7 @@ export interface FileRouteTypes {
     | '/_app/'
     | '/_app/activos-fijos/carga-inicial'
     | '/_app/activos-fijos/clases'
+    | '/_app/activos-fijos/autorizaciones'
     | '/_app/activos-fijos/conciliacion'
     | '/_app/activos-fijos/configuracion-libro'
     | '/_app/activos-fijos/conteos'
@@ -2919,6 +2931,13 @@ declare module '@tanstack/react-router' {
       path: '/activos-fijos/clases';
       fullPath: '/activos-fijos/clases';
       preLoaderRoute: typeof AppActivosFijosClasesRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/activos-fijos/autorizaciones': {
+      id: '/_app/activos-fijos/autorizaciones';
+      path: '/activos-fijos/autorizaciones';
+      fullPath: '/activos-fijos/autorizaciones';
+      preLoaderRoute: typeof AppActivosFijosAutorizacionesRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/activos-fijos/conciliacion': {
@@ -4492,6 +4511,7 @@ interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute;
   AppActivosFijosCargaInicialRoute: typeof AppActivosFijosCargaInicialRoute;
   AppActivosFijosClasesRoute: typeof AppActivosFijosClasesRoute;
+  AppActivosFijosAutorizacionesRoute: typeof AppActivosFijosAutorizacionesRoute;
   AppActivosFijosConciliacionRoute: typeof AppActivosFijosConciliacionRoute;
   AppActivosFijosConfiguracionLibroRoute: typeof AppActivosFijosConfiguracionLibroRoute;
   AppActivosFijosConteosRoute: typeof AppActivosFijosConteosRoute;
@@ -4717,6 +4737,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
   AppActivosFijosCargaInicialRoute: AppActivosFijosCargaInicialRoute,
   AppActivosFijosClasesRoute: AppActivosFijosClasesRoute,
+  AppActivosFijosAutorizacionesRoute: AppActivosFijosAutorizacionesRoute,
   AppActivosFijosConciliacionRoute: AppActivosFijosConciliacionRoute,
   AppActivosFijosConfiguracionLibroRoute:
     AppActivosFijosConfiguracionLibroRoute,

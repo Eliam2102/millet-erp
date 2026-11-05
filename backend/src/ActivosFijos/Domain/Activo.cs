@@ -3,21 +3,25 @@ using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.ActivosFijos.Domain;
 
-public enum EstadoActivo { PorCapitalizar, Activo, DadoDeBaja }
-public enum TipoImportacionActivo { No, Temporal, Definitivo }
+public enum EstadoActivo { PorCapitalizar, Activo, DadoDeBaja, VentaCanceladaPendienteReversa }
+public enum TipoImportacionActivo { No, Temporal, Definitivo, PorConfirmar }
 public sealed record CustodiaActivo(Guid ResponsableId, Guid SucursalId, string Ubicacion, Guid CentroCostoId, Guid? EquipoId);
 public sealed record CustodiaDescripcion(string? Responsable, string? Sucursal, string? CentroCosto, string? Equipo);
 public sealed record DatosActivo(string Descripcion, Guid ClaseId, string? Marca, string? Modelo, string? NumeroSerie,
     DateOnly FechaAdquisicion, DateOnly? InicioUso, decimal ValorMonedaOriginal, string Moneda, decimal TipoCambio,
-    CustodiaActivo Custodia, TipoImportacionActivo Importacion, string? Pedimento, bool Arrendado, string? DocumentoSoporte, Guid? ActivoMejoradoId = null, int? VidaUtilMeses = null);
+    CustodiaActivo Custodia, TipoImportacionActivo Importacion, string? Pedimento, bool Arrendado, string? DocumentoSoporte, Guid? ActivoMejoradoId = null, int? VidaUtilMeses = null, decimal? TasaContableAnual = null, decimal? TasaFiscalAnual = null);
 
 public sealed partial class Activo : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
+    public bool CargaAnulada { get; private set; }
+    public void AnularCarga() => CargaAnulada = true;
     public string Numero { get; private set; } = "";
     public string Descripcion { get; private set; } = "";
     public Guid? ActivoMejoradoId { get; private set; }
     public int? VidaUtilMeses { get; private set; }
+    public decimal? TasaContableAnual { get; private set; }
+    public decimal? TasaFiscalAnual { get; private set; }
     public Guid ClaseId { get; private set; }
     public string? Marca { get; private set; }
     public string? Modelo { get; private set; }
@@ -47,11 +51,42 @@ public sealed partial class Activo : BaseEntity, IPerteneceAEmpresa, IAuditable
     public Guid? LineaFacturaId { get; private set; }
     public Guid? FacturaProveedorId { get; private set; }
     public Guid? PolizaAltaId { get; private set; }
+    public Guid? CapitalizadoPor { get; private set; }
     public EstadoActivo Estado { get; private set; }
     [System.ComponentModel.DataAnnotations.Schema.NotMapped]
     public CustodiaDescripcion? CustodiaDescripcion { get; set; }
     public DateTimeOffset? UltimaImpresionEn { get; private set; }
-    public void RegistrarImpresion(DateTimeOffset ahora) => UltimaImpresionEn = ahora;
+    public List<ImpresionEtiquetaActivo> Impresiones { get; private set; } = [];
+    public void RegistrarImpresion(DateTimeOffset ahora, Guid actor, string? motivo)
+    {
+        if (actor == Guid.Empty || (UltimaImpresionEn != null && motivo is not ("Reposición por daño" or "Pérdida" or "Cambio de datos")))
+            throw new BusinessRuleException("AF_MOTIVO_IMPRESION", "Seleccione el motivo de reposición: daño, pérdida o cambio de datos.");
+        Impresiones.Add(new(this, ahora, actor, UltimaImpresionEn == null ? "Primera" : motivo!));
+        UltimaImpresionEn = ahora;
+    }
+    public void RevertirCapitalizacion(bool depreciacionConfirmada, bool dependencias)
+    {
+        ValidarReversaCapitalizacion(depreciacionConfirmada, dependencias);
+        Estado = EstadoActivo.PorCapitalizar; PolizaAltaId = null; CapitalizadoPor = null;
+    }
+    public void ValidarReversaCapitalizacion(bool depreciacionConfirmada, bool dependencias)
+    {
+        if (Estado != EstadoActivo.Activo || PolizaAltaId == null || CorteCarga != null || DepreciacionAcumulada != 0 || depreciacionConfirmada
+            || dependencias || Historial.Count != 0 || Traslados.Count != 0)
+            throw new BusinessRuleException("AF_REVERSA_CAPITALIZACION_INVALIDA", "Sólo puede revertir una capitalización sin depreciación confirmada, mejoras, traslados ni disposición.");
+    }
+    public void MarcarVentaCancelada()
+    {
+        if (Estado == EstadoActivo.DadoDeBaja) Estado = EstadoActivo.VentaCanceladaPendienteReversa;
+    }
+    public void CorregirTraslado(Guid originalId, CustodiaActivo destino, string motivo, Guid actor, DateTimeOffset ahora)
+    {
+        var original = Traslados.OrderByDescending(x => x.RegistradoEn).ThenByDescending(x => x.Id).FirstOrDefault();
+        if (original == null || original.Id != originalId || original.Corregido)
+            throw new BusinessRuleException("AF_CORRECCION_TRASLADO_INVALIDA", "Sólo puede corregir el último traslado vigente.");
+        Trasladar(Guid.CreateVersion7(), destino, motivo, original.FechaEfectiva, actor, ahora);
+        original.MarcarCorregido(); Traslados[^1].LigarCorreccion(original);
+    }
     public bool EnTraslado => Traslados.Any(x => x.AceptadoEn == null);
     public List<MovimientoValorActivo> Historial { get; private set; } = [];
     public List<TrasladoActivo> Traslados { get; private set; } = [];
@@ -70,17 +105,25 @@ public sealed partial class Activo : BaseEntity, IPerteneceAEmpresa, IAuditable
         if (string.IsNullOrWhiteSpace(d.Descripcion) || d.Descripcion.Length > 500 || d.ClaseId == Guid.Empty || d.Custodia.SucursalId == Guid.Empty
             || (OrdenCompraId == null && string.IsNullOrWhiteSpace(d.DocumentoSoporte))
             || d.ValorMonedaOriginal < 0 || d.TipoCambio <= 0 || d.Moneda.Length != 3 || (d.Moneda == "MXN" && d.TipoCambio != 1)
-            || !Enum.IsDefined(d.Importacion) || (d.Importacion != TipoImportacionActivo.No && string.IsNullOrWhiteSpace(d.Pedimento))
+            || !Enum.IsDefined(d.Importacion) || (d.Importacion is TipoImportacionActivo.Temporal or TipoImportacionActivo.Definitivo && string.IsNullOrWhiteSpace(d.Pedimento))
+            || !TasaValida(d.TasaContableAnual) || !TasaValida(d.TasaFiscalAnual)
             || d.VidaUtilMeses is < 1 or > 600 || d.ActivoMejoradoId == Guid.Empty || d.ActivoMejoradoId == Id
             || d.FechaAdquisicion == default || d.InicioUso < d.FechaAdquisicion)
             throw new BusinessRuleException("AF_DATOS_INVALIDOS", "Revise descripción, clase, sucursal, fechas, valor, moneda, tipo de cambio y pedimento.");
         if (FacturaProveedorId != null && (ValorMonedaOriginal != d.ValorMonedaOriginal || Moneda != d.Moneda || TipoCambio != d.TipoCambio))
             throw new BusinessRuleException("AF_VALOR_FACTURA", "El valor conciliado se modifica desde la factura de proveedor.");
+        TasaContableAnual = d.TasaContableAnual; TasaFiscalAnual = d.TasaFiscalAnual;
         ActivoMejoradoId = d.ActivoMejoradoId; VidaUtilMeses = d.VidaUtilMeses;
         Descripcion = d.Descripcion.Trim(); ClaseId = d.ClaseId; Marca = d.Marca; Modelo = d.Modelo; NumeroSerie = d.NumeroSerie;
         FechaAdquisicion = d.FechaAdquisicion; InicioUso = d.InicioUso; ValorMonedaOriginal = d.ValorMonedaOriginal;
         Moneda = d.Moneda; TipoCambio = d.TipoCambio; ValorOriginal = decimal.Round(d.ValorMonedaOriginal * d.TipoCambio, 2); ValorActual = ValorOriginal;
         AplicarCustodia(d.Custodia); Importacion = d.Importacion; Pedimento = d.Pedimento; Arrendado = d.Arrendado; DocumentoSoporte = d.DocumentoSoporte;
+    }
+    public static bool TasaValida(decimal? tasa) => tasa == null || (tasa >= 0 && tasa <= 100 && decimal.Round(tasa.Value, 4) == tasa);
+    public void EditarTasas(decimal? contable, decimal? fiscal)
+    {
+        if (Estado != EstadoActivo.Activo || !TasaValida(contable) || !TasaValida(fiscal)) throw new BusinessRuleException("AF_TASA_ACTIVO_INVALIDA","Capture tasas de 0 a 100 con hasta cuatro decimales para un activo vigente.");
+        TasaContableAnual=contable; TasaFiscalAnual=fiscal;
     }
     public void ConciliarFactura(Guid factura, decimal valor, string moneda, decimal tc, Guid? lineaFactura = null)
     {
@@ -95,12 +138,12 @@ public sealed partial class Activo : BaseEntity, IPerteneceAEmpresa, IAuditable
         if (Estado != EstadoActivo.PorCapitalizar || InicioUso == null || ResponsableId == Guid.Empty || CentroCostoId == Guid.Empty || ValorOriginal <= 0 || (OrdenCompraId != null && FacturaProveedorId == null))
             throw new BusinessRuleException("AF_CAPITALIZACION_INCOMPLETA", "Complete inicio de uso, responsable, centro de costo y valor conciliado antes de capitalizar.");
     }
-    public void Capitalizar(Guid poliza)
+    public void Capitalizar(Guid poliza, Guid? actor = null)
     {
         if (Estado == EstadoActivo.Activo && PolizaAltaId == poliza) return;
         ValidarCapitalizacion();
         if (poliza == Guid.Empty) throw new BusinessRuleException("AF_POLIZA_REQUERIDA", "La capitalización requiere póliza.");
-        PolizaAltaId = poliza; Estado = EstadoActivo.Activo;
+        PolizaAltaId = poliza; CapitalizadoPor = actor; Estado = EstadoActivo.Activo;
     }
     public void ValidarAjuste(Guid documento, Guid factura, decimal importe, bool credito, string descripcion)
     {
@@ -164,6 +207,10 @@ public sealed class TrasladoActivo : BaseEntity, IPerteneceAEmpresa, IAuditable
     public DateTimeOffset RegistradoEn { get; private set; }
     public DateTimeOffset? AceptadoEn { get; private set; }
     public string Motivo { get; private set; } = "";
+    public bool Corregido { get; private set; }
+    public Guid? CorrigeA { get; private set; }
+    internal void MarcarCorregido() => Corregido = true;
+    internal void LigarCorreccion(TrasladoActivo original) { CorrigeA = original.Id; Origen = original.Origen; }
     public DateOnly FechaEfectiva { get; private set; }
     [System.ComponentModel.DataAnnotations.Schema.NotMapped]
     public string? RegistradoPorNombre { get; set; }

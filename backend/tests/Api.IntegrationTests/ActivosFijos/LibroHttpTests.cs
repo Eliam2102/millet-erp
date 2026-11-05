@@ -18,6 +18,7 @@ using Millet.Contabilidad.Domain;
 using Millet.Contabilidad.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 namespace Millet.Api.IntegrationTests.ActivosFijos;
+[Collection(ApiCompartida.Nombre)]
 public sealed partial class LibroHttpTests
 {
     private const string Base = "/api/v1/activos-fijos";
@@ -92,7 +93,7 @@ public sealed partial class LibroHttpTests
         }
         venta.Cancelada=true;await Consumir();await Consumir();
         using var ver=e.Scope();using var lectura=ver.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();var af=ver.ServiceProvider.GetRequiredService<ActivosFijosDbContext>();
-        Assert.Equal(EstadoActivo.Activo,(await af.Activos.SingleAsync(x=>x.Id==id)).Estado);Assert.True((await af.Set<OperacionLibro>().SingleAsync()).Anulada);
+        Assert.Equal(EstadoActivo.VentaCanceladaPendienteReversa,(await af.Activos.SingleAsync(x=>x.Id==id)).Estado);Assert.False((await af.Set<OperacionLibro>().SingleAsync()).Anulada);Assert.True((await af.Set<OperacionLibro>().SingleAsync()).VentaCancelada);
     }
     [Fact] public async Task CA9_CA13_Baja_con_evidencia_y_segundo_autorizador_registra_perdida_revalorizacion_apagada()
     {
@@ -154,7 +155,8 @@ public sealed partial class LibroHttpTests
     private sealed class VentaFixture:IVentaActivoReadPort
     {
         public bool Cancelada {get;set;}
-        public Task<VentaActivoLectura?> ObtenerAsync(Guid factura,CancellationToken ct)=>Task.FromResult<VentaActivoLectura?>(new(DemoSesionSeedHostedService.EmpresaId,"FIX-P4-MONTACARGAS",300000,new(2027,6,1),Cancelada));
+        public DateOnly Fecha {get;set;} = new(2027,6,1);
+        public Task<VentaActivoLectura?> ObtenerAsync(Guid factura,CancellationToken ct)=>Task.FromResult<VentaActivoLectura?>(new(DemoSesionSeedHostedService.EmpresaId,"FIX-P4-MONTACARGAS",300000,Fecha,Cancelada));
     }
     private static async Task<HttpResponseMessage> Post(HttpClient cliente,string ruta,object body,int? version=null)
     {

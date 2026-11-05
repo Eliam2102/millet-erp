@@ -81,5 +81,5 @@ public sealed class ConservacionTests
         Assert.Equal(3, c.Partidas.Count);
     }
     [Fact] public void Impresion_conserva_numero_SAP_y_registra_fecha()
-    { var a = Activo(); var ahora = DateTimeOffset.UtcNow; a.RegistrarImpresion(ahora); Assert.Equal("SAP-00001", a.Numero); Assert.Equal(ahora, a.UltimaImpresionEn); }
+    { var a = Activo(); var ahora = DateTimeOffset.UtcNow; a.RegistrarImpresion(ahora, Guid.NewGuid(), null); Assert.Equal("SAP-00001", a.Numero); Assert.Equal(ahora, a.UltimaImpresionEn); }
 }
