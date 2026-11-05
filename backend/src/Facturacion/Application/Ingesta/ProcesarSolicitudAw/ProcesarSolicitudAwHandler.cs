@@ -76,6 +76,20 @@ public sealed class ProcesarSolicitudAwHandler
         if (control is not null && sol.Version <= control.UltimaVersionAplicada)
         {
             control.TocarLectura(ahora);
+            // Misma versión con contenido distinto: se detiene en la bandeja, el pedido no cambia.
+            // Versiones menores (fuera de orden) siguen como repetidas.
+            if (sol.Version == control.UltimaVersionAplicada && sol.Operacion != OperacionAw.Cancelacion
+                && control.Estado == EstadoIngesta.Importado
+                && (await _reader.LeerDatosPedidoAsync(sol.NumeroPedido, cancellationToken)).Datos is DatosPedidoAw actual
+                && Hash(actual.PayloadCrudo) != control.HashContenido)
+            {
+                const string detalle = "versión repetida con cambios: A+W reenvió la versión ya aplicada con contenido distinto — reenvíe con una versión nueva";
+                (await ObtenerOAbrirExcepcionAsync(empresaId, sol.NumeroPedido, MotivoExcepcion.VersionRepetidaConCambios, detalle, cancellationToken))
+                    .Actualizar(MotivoExcepcion.VersionRepetidaConCambios, detalle);
+                await _db.SaveChangesAsync(cancellationToken);
+                return await ResultadoAsync(sol, control.PedidoFacturableId, EstadoFacturacion(control.Estado),
+                    ResultadoSolicitudAw.Rechazada, detalle, cancellationToken);
+            }
             await _db.SaveChangesAsync(cancellationToken);
             return await ResultadoAsync(sol, control.PedidoFacturableId, EstadoFacturacion(control.Estado),
                 ResultadoSolicitudAw.Aplicada, "versión ya aplicada (idempotente)", cancellationToken);
