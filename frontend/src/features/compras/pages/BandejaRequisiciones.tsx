@@ -1,3 +1,4 @@
+import { problemaUsuario } from '@/lib/error-usuario';
 import { EstadoRequisicion, estadoToString } from '@/features/compras/api/types';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { TabsEstado } from '@/components/erp/data/TabsEstado';
@@ -27,7 +28,6 @@ import {
 import { useRequisiciones } from '@/features/compras/api';
 import { OrigenBadge } from '@/features/compras/components/OrigenBadge';
 import { departamentoLabel, requisitanteLabel } from '@/features/compras/lib/nombres';
-import { esApiError } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { FiltrosBandeja } from '@/features/compras/components/FiltrosBandeja';
@@ -178,7 +178,7 @@ function RenderTabla({ query, itemsFiltrados, canCrear, search }: RenderTablaPro
   }
 
   if (query.isError) {
-    const problem = esApiError(query.error) ? query.error.problem : undefined;
+    const problem = problemaUsuario(query.error);
     return <ErrorState problem={problem} onRetry={() => query.refetch()} />;
   }
 

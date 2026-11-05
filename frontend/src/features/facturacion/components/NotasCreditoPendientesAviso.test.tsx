@@ -22,7 +22,7 @@ describe('U-1 · aviso «nota de crédito pendiente» en la factura', () => {
     const aviso = screen.getByRole('region', { name: 'Nota de crédito pendiente' });
     expect(within(aviso).getByRole('note')).toHaveTextContent('Nota de crédito pendiente.');
     expect(within(aviso).getByText('NC-FIX-1')).toBeInTheDocument();
-    expect(within(aviso).getByText(/PAC caído \(FIX\)/)).toBeInTheDocument();
+    expect(within(aviso).getByText(/No se pudo timbrar el comprobante/)).toBeInTheDocument();
     expect(within(aviso).getByRole('button', { name: /Reintentar timbrado/ })).toBeEnabled();
   });
 

@@ -83,3 +83,9 @@ describe('<DateTimeDisplay>', () => {
     expect(el).toHaveClass('text-danger-fg', 'font-medium');
   });
 });
+
+it.each(['Invalid Date', '2026-13-01', '2026-02-30'])('una fecha inválida (%s) no rompe la pantalla ni se presenta como fecha real', (value) => {
+  render(<DateTimeDisplay value={value} variant="datetime" />);
+  expect(screen.getByText('—')).toHaveClass('text-ink-muted');
+  expect(screen.queryByText(value)).not.toBeInTheDocument();
+});

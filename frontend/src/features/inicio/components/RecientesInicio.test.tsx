@@ -10,12 +10,14 @@ vi.mock('@tanstack/react-router', () => ({
     children,
     to,
     className,
+    title,
   }: {
     children: React.ReactNode;
     to: string;
     className?: string;
+    title?: string;
   }) => (
-    <a href={to} className={className}>
+    <a href={to} className={className} title={title}>
       {children}
     </a>
   ),
@@ -80,4 +82,5 @@ it('no repite la etiqueta en el detalle, muestra «vacío» y recorta sin desbor
   const detalle = await screen.findByText('Modificó · Notas: vacío → 9');
   expect(detalle).toHaveClass('line-clamp-2', 'break-words');
   expect(detalle.closest('a')).toHaveClass('min-w-0');
+  expect(detalle.closest('a')).toHaveAttribute('title', 'Modificó · Notas: vacío → 9');
 });

@@ -24,7 +24,7 @@ export function FirmaPad({ valor, onChange }: { valor: string | null; onChange: 
     const { x, y } = punto(e);
     ctx.lineWidth = 3;
     ctx.lineCap = 'round';
-    ctx.strokeStyle = '#0f172a';
+    ctx.strokeStyle = getComputedStyle(lienzo.current!).color;
     ctx.beginPath();
     ctx.moveTo(x, y);
   };
@@ -49,7 +49,7 @@ export function FirmaPad({ valor, onChange }: { valor: string | null; onChange: 
         aria-label="Firma de quien recibe"
         width={600}
         height={240}
-        className="h-40 w-full touch-none rounded-md border border-line bg-surface-card sm:h-48"
+        className="h-40 w-full touch-none rounded-md border border-line bg-surface-card text-ink sm:h-48"
         onPointerDown={empezar}
         onPointerMove={mover}
         onPointerUp={terminar}
@@ -57,7 +57,7 @@ export function FirmaPad({ valor, onChange }: { valor: string | null; onChange: 
       />
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs text-ink-muted">{valor ? 'Firma capturada.' : 'Pide que firme con el dedo dentro del recuadro.'}</p>
-        <Button type="button" variant="outline" size="sm" className="min-h-11" disabled={!valor} onClick={() => onChange(null)}>
+        <Button type="button" variant="outline" size="sm" className="min-h-11" disabled={!valor} title={!valor ? 'Captura una firma para poder borrarla.' : undefined} onClick={() => onChange(null)}>
           <Eraser className="size-4" aria-hidden="true" /> Borrar firma
         </Button>
       </div>

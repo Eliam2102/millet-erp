@@ -1,3 +1,4 @@
+import { errorDeReporte } from '@/lib/error-usuario';
 import { ReporteAlmacen } from '../components/ReporteAlmacen';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -16,7 +17,6 @@ import {
 } from '@/features/almacen/api/useSaldosCierreReportes';
 import { useSubAlmacenes } from '@/features/almacen/api/useAlmacenes';
 import type { AlfakHistorialFila, CuadreInventarioFila } from '@/features/almacen/api/types';
-import { esApiError } from '@/lib/api';
 import { Field } from '@/features/almacen/components/internal/Field';
 
 const SENTINEL_ALL = '__all__';
@@ -52,7 +52,7 @@ export function ReporteAlfakPage() {
       <ReporteAlmacen<AlfakHistorialFila>
         reporte={query.data}
         isLoading={query.isLoading}
-        error={esApiError(query.error) ? query.error : undefined}
+        error={errorDeReporte(query.error)}
         onRetry={() => query.refetch()}
         filtrosUi={
           <div className="flex flex-wrap items-end gap-3">
@@ -105,7 +105,7 @@ export function ReporteAlfakPage() {
       <ReporteAlmacen<CuadreInventarioFila>
         reporte={cuadre.data}
         isLoading={cuadre.isLoading}
-        error={esApiError(cuadre.error) ? cuadre.error : undefined}
+        error={errorDeReporte(cuadre.error)}
         onRetry={() => cuadre.refetch()}
       />
     </div>

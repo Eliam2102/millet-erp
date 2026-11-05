@@ -42,3 +42,13 @@ describe('<MoneyDisplay>', () => {
     expect(screen.getByText('—')).toHaveClass('text-ink-muted');
   });
 });
+
+it.each([NaN, Infinity, -Infinity])('un monto inválido (%s) se distingue de cero', (amount) => {
+  render(<MoneyDisplay amount={amount} currency="MXN" />);
+  expect(screen.getByText('—')).toHaveClass('text-ink-muted');
+  expect(screen.queryByText('$0.00')).not.toBeInTheDocument();
+});
+it('conserva un cero monetario que sí fue recibido', () => {
+  render(<MoneyDisplay amount={0} currency="MXN" />);
+  expect(screen.getByText('$0.00')).toHaveClass('tabular-nums');
+});

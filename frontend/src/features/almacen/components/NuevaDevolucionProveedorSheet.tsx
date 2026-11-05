@@ -1,3 +1,4 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
 import { SheetBody } from '@/components/ui/sheet';
@@ -260,12 +261,12 @@ function FormBody({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: ()
             ) {
               return;
             }
-            toast.error(error.problem.title, {
+            toast.error(errorUsuario(error), {
               description: codigoSoporte(error),
             });
             return;
           }
-          toast.error('Error inesperado al iniciar la devolución.');
+          toast.error("Error inesperado al iniciar la devolución. Revisa los datos del registro; si continúa, avisa a soporte.");
         },
       },
     );

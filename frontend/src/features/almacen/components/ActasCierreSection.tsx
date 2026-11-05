@@ -1,14 +1,15 @@
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
+import { errorUsuario } from '@/lib/error-usuario';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
-import { esApiError } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useActasCierre, useRevisarActaCierre, type ActaCierre } from '@/features/almacen/api/useAvisosAlmacen';
 
 const MXN = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
-const fecha = (iso: string) => new Date(iso).toLocaleString('es-MX');
+
 
 function ActaCard({ acta, puedeRevisar }: { acta: ActaCierre; puedeRevisar: boolean }) {
   const revisar = useRevisarActaCierre();
@@ -19,7 +20,7 @@ function ActaCard({ acta, puedeRevisar }: { acta: ActaCierre; puedeRevisar: bool
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="text-sm font-semibold text-ink-strong">Acta del cierre {periodo}</h3>
-          <p className="text-xs text-ink-muted">Ejecutó {acta.ejecutadoPor} el {fecha(acta.ejecutadoAt)}</p>
+          <p className="text-xs text-ink-muted">Ejecutó {acta.ejecutadoPor} el <DateTimeDisplay value={acta.ejecutadoAt} variant="datetime" /></p>
         </div>
         {acta.estado === 'REVISADA'
           ? <Badge variant="success">Revisada</Badge>
@@ -27,7 +28,7 @@ function ActaCard({ acta, puedeRevisar }: { acta: ActaCierre; puedeRevisar: bool
       </header>
       <table className="w-full text-sm">
         <thead className="text-left text-xs text-ink-muted">
-          <tr><th className="py-1 font-medium">Almacén</th><th className="py-1 text-right font-medium">Renglones</th><th className="py-1 text-right font-medium">Valor del inventario</th></tr>
+          <tr><th className="py-1 font-medium">Almacén</th><th className="py-1 text-right font-medium">Partidas</th><th className="py-1 text-right font-medium">Valor del inventario</th></tr>
         </thead>
         <tbody>
           {almacenes.map((a) => (
@@ -45,12 +46,12 @@ function ActaCard({ acta, puedeRevisar }: { acta: ActaCierre; puedeRevisar: bool
         {' '}Vales atendidos: {vales.length ? vales.map((v) => v.folio).join(', ') : 'ninguno'}.
       </p>
       {acta.estado === 'REVISADA'
-        ? <p className="text-xs text-ink-muted">Revisada por {acta.revisadaPor} el {acta.revisadaAt && fecha(acta.revisadaAt)}</p>
+        ? <p className="text-xs text-ink-muted">Revisada por {acta.revisadaPor} el <DateTimeDisplay value={acta.revisadaAt} variant="datetime" /></p>
         : puedeRevisar
           ? <Button size="sm" disabled={revisar.isPending}
             onClick={() => revisar.mutate(acta.id, {
               onSuccess: () => toast.success('Acta marcada como revisada', { description: `Periodo ${periodo}.` }),
-              onError: (e) => toast.error(esApiError(e) ? e.problem.detail ?? e.problem.title : 'No se pudo marcar el acta.'),
+              onError: (e) => toast.error(errorUsuario(e, 'No se pudo marcar el acta.')),
             })}>Marcar revisada</Button>
           : <p className="text-xs text-ink-muted">La revisa la Dirección de Administración.</p>}
     </article>

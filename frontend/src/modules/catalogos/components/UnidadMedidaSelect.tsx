@@ -47,7 +47,7 @@ export function UnidadMedidaSelect({
         <SelectValue placeholder="Selecciona una unidad…" />
       </SelectTrigger>
       <SelectContent>
-        {permitirVacio && <SelectItem value={SIN_ASIGNAR}>— sin asignar —</SelectItem>}
+        {permitirVacio && <SelectItem value={SIN_ASIGNAR}>Sin asignar</SelectItem>}
         {activas.map((u) => (
           <SelectItem key={u.id} value={u.id}>
             {u.codigo} · {u.nombre}

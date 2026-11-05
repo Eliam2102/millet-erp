@@ -1,3 +1,4 @@
+import { problemaUsuario } from '@/lib/error-usuario';
 import { TabsEstado } from '@/components/erp/data/TabsEstado';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { BarraFiltros } from '@/components/erp/data/BarraFiltros';
@@ -52,7 +53,6 @@ import {
 } from '@/features/compras/lib/resultados-masivos';
 import { useDepartamentos, mapById } from '@/features/catalogos/api';
 import { departamentoLabel, requisitanteLabel } from '@/features/compras/lib/nombres';
-import { esApiError } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import {
@@ -361,7 +361,7 @@ export function BandejaPendientes() {
           />
         ) : query.isError ? (
           <ErrorState
-            problem={esApiError(query.error) ? query.error.problem : undefined}
+            problem={problemaUsuario(query.error)}
             onRetry={() => query.refetch()}
           />
         ) : (query.data?.total ?? 0) === 0 ? (

@@ -1,3 +1,4 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { IndicadorAlmacenBadge } from './IndicadorAlmacenBadge';
 import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
@@ -352,7 +353,7 @@ function NuevaSalidaFormBody({
 
   function manejarError(error: unknown) {
     if (!esApiError(error)) {
-      toast.error('Error inesperado al registrar la salida.');
+      toast.error("Error inesperado al registrar la salida. Revisa los datos del registro; si continúa, avisa a soporte.");
       return;
     }
     setAvisoServidor(null);
@@ -366,7 +367,7 @@ function NuevaSalidaFormBody({
     if (error.code === 'SALIDA_SUCURSAL_DISTINTA') {
       form.setError('requisicionId', {
         type: error.code,
-        message: error.problem.detail ?? 'La requisición es de otra sucursal.',
+        message: "La requisición es de otra sucursal.",
       });
       return;
     }
@@ -380,13 +381,13 @@ function NuevaSalidaFormBody({
       const aviso = AVISOS_SALIDA[error.code ?? ''];
       setAvisoServidor({
         titulo: aviso?.titulo ?? 'No se pudo registrar',
-        detalle: `${error.problem.detail ?? error.problem.title} ${aviso?.ayuda ?? ''}`.trim(),
+        detalle: `${errorUsuario(error)} ${aviso?.ayuda ?? ''}`.trim(),
         sucursal: error.code === 'SALIDA_SUCURSAL_REQUERIDA',
       });
       return;
     }
     if (resultado) return;
-    toast.error(error.problem.title, {
+    toast.error(errorUsuario(error), {
       description: codigoSoporte(error),
     });
   }

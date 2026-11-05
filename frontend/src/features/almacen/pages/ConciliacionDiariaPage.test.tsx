@@ -4,17 +4,17 @@ import { createQueryWrapper } from '@/test/test-query-client';
 import { ConciliacionDiariaPage } from '@/features/almacen/pages/ConciliacionDiariaPage';
 import type { CorridaConciliacion, DiferenciaConciliacion } from '@/features/almacen/api/useConciliacionDiaria';
 
-const hook = vi.hoisted(() => ({ aclarar: vi.fn() }));
+const hook = vi.hoisted(() => ({ aclarar: vi.fn(), ejecutar: vi.fn() }));
 const permiso = vi.hoisted(() => ({ tiene: true }));
-const datos = vi.hoisted(() => ({ difs: [] as unknown[], corridas: [] as unknown[] }));
+const datos = vi.hoisted(() => ({ difs: [] as unknown[], corridas: [] as unknown[], existencia: [] as unknown[] }));
 
 vi.mock('@/lib/auth/useHasPermission', () => ({ useHasPermission: () => permiso.tiene }));
-vi.mock('@/features/almacen/api/useAlmacenes', () => ({ useAlmacenes: () => ({ data: { items: [] } }) }));
+vi.mock('@/features/almacen/api/useAlmacenes', () => ({ useAlmacenes: () => ({ data: { items: [{ id: 'a-1', clave: 'MP-CNK', nombre: 'Materia prima de prueba' }] } }) }));
 vi.mock('@/features/almacen/api/useConciliacionDiaria', () => ({
-  useExistenciaConciliacion: () => ({ data: [], isLoading: false, isError: false }),
-  useDiferenciasConciliacion: () => ({ data: datos.difs, isLoading: false, isError: false }),
-  useCorridasConciliacion: () => ({ data: datos.corridas, isLoading: false, isError: false }),
-  useEjecutarConciliacion: () => ({ mutate: vi.fn(), isPending: false }),
+  useExistenciaConciliacion: () => ({ data: datos.existencia, isLoading: false, isError: false }),
+  useDiferenciasConciliacion: () => ({ data: datos.difs, isSuccess: true, isLoading: false, isError: false }),
+  useCorridasConciliacion: () => ({ data: datos.corridas, isSuccess: true, isLoading: false, isError: false }),
+  useEjecutarConciliacion: () => ({ mutate: hook.ejecutar, isPending: false }),
   useAclararDiferencia: () => ({ mutate: hook.aclarar, isPending: false }),
 }));
 
@@ -35,6 +35,7 @@ beforeEach(() => {
   permiso.tiene = true;
   datos.difs = [falta];
   datos.corridas = [limpia];
+  datos.existencia = [];
 });
 
 describe('ConciliacionDiariaPage', () => {
@@ -63,4 +64,26 @@ describe('ConciliacionDiariaPage', () => {
     fireEvent.mouseDown(screen.getByRole('tab', { name: /Por aclarar/ }));
     expect(screen.queryByRole('button', { name: 'Aclarar' })).not.toBeInTheDocument();
   });
+});
+
+it.each([0, 1])('el resultado con %s diferencias muestra la fecha formateada y no código de la vista', async (diferencias) => {
+  datos.existencia = [falta];
+  hook.ejecutar.mockImplementationOnce((_comando: unknown, opciones: { onSuccess: (c: CorridaConciliacion) => void }) => {
+    opciones.onSuccess({ ...limpia, fecha: '2026-11-04', diferencias });
+  });
+  render(<ConciliacionDiariaPage />, { wrapper: createQueryWrapper() });
+  fireEvent.keyDown(screen.getByRole('combobox', { name: 'Almacén' }), { key: 'ArrowDown' });
+  fireEvent.click(await screen.findByRole('option', { name: /MP-CNK/ }));
+  fireEvent.change(screen.getByLabelText('Día a conciliar'), { target: { value: '2026-11-04' } });
+  const captura = screen.getByLabelText(/Físico de FL6/);
+  fireEvent.change(captura, { target: { value: '9' } });
+  fireEvent.blur(captura);
+  fireEvent.click(screen.getByRole('button', { name: /^Conciliar/ }));
+  const resultado = await screen.findByText(/Corrida del/);
+  expect(resultado).toHaveTextContent('4 nov');
+  expect(resultado).not.toHaveTextContent(/DateTimeDisplay|2026-11-04|\$</);
+  expect(hook.ejecutar).toHaveBeenCalledWith({
+    almacenId: 'a-1', fecha: '2026-11-04', fuente: 'AW',
+    lineas: [{ articuloId: 'art-1', productoAwVarianteId: 'v-1', lote: 'L-2611', fisico: 9 }],
+  }, expect.anything());
 });

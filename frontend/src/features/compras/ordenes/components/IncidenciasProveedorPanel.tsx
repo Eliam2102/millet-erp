@@ -1,3 +1,4 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +15,6 @@ import {
 import { DateTimeDisplay, Field } from '@/components/erp';
 import { FormCampo, FormGrid } from '@/components/erp/forms/FormGrid';
 import { UsuarioSelector } from '@/components/erp/selectors/UsuarioSelector';
-import { esApiError } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { hoyLocalISO } from '@/lib/datetime';
@@ -45,9 +45,7 @@ export function EstadoIncidenciaBadge({ incidencia }: { incidencia: IncidenciaPr
 }
 
 function mensajeError(error: unknown) {
-  return esApiError(error)
-    ? (error.problem.detail ?? error.problem.title)
-    : 'No se pudo guardar. Vuelve a intentarlo.';
+  return errorUsuario(error, 'No se pudo guardar. Vuelve a intentarlo.');
 }
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
@@ -373,7 +371,7 @@ function IncidenciaItem({
       <p className="text-ink-secondary">
         {partida} · <span className="tabular-nums">{i.cantidad}</span> pza · Compromiso vigente:{' '}
         <DateTimeDisplay value={i.fechaCompromisoVigente} /> · Responsable:{' '}
-        {i.responsableNombre ?? 'Usuario no disponible'}
+        {i.responsableNombre ?? "Sin responsable"}
       </p>
       {i.descripcion && <p className="text-ink-secondary">{i.descripcion}</p>}
       {i.avisoVencidaEnviadoEn && (

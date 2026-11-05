@@ -13,7 +13,7 @@ vi.mock('@/components/erp', async (importOriginal) => ({
 }));
 
 const reporte = {
-  titulo: 'KARDEX-ALMACEN',
+  titulo: "Kardex de almacén",
   generadoEn: '2027-10-31T18:00:00Z',
   filtrosAplicados: { articulo: 'SIL-01 · Silicón estructural', saldo_final: '24', saldo_cierre: '24', cuadra_con_cierre: 'sí' },
   columnas: [

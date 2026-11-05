@@ -294,6 +294,8 @@ export interface EmitirAnticipoResponse {
 export interface AnticipoAAmortizar {
   anticipoId: string;
   importe: number;
+  /** FMT-6: comentario libre de la NC de aplicación; se imprime en «Comentarios - Comments». */
+  comentarioNotaCredito?: string | null;
 }
 
 /**

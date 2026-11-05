@@ -31,16 +31,22 @@ describe('mensajeErrorTransmision', () => {
     );
   });
 
-  it('para otros códigos devuelve el detail del servidor', () => {
-    expect(mensajeErrorTransmision(problema('TRANSMITIR_SIN_LINEAS'))).toBe('Detalle del servidor');
+  it('traduce la falta de partidas con una acción concreta', () => {
+    expect(mensajeErrorTransmision(problema('TRANSMITIR_SIN_LINEAS'))).toBe('Agrega al menos una partida antes de enviar la orden a autorización.');
   });
 
-  it('para errores que no son ApiError usa el message del Error', () => {
-    expect(mensajeErrorTransmision(new Error('red caída'))).toBe('red caída');
+  it('los errores inesperados no publican la excepción', () => {
+    expect(mensajeErrorTransmision(new Error('red caída'))).toBe('No se pudo completar la acción. Revisa tu conexión y vuelve a cargar el registro; si continúa, avisa a soporte.');
   });
 });
 
 it('conserva los nombres de los datos fiscales que faltan al enviar', () => {
   const detail = 'Captura uso de CFDI, método de pago en los datos para la factura del proveedor antes de enviar a autorización.';
   expect(mensajeErrorTransmision(problema('OC_DATOS_FACTURA_INCOMPLETOS', detail))).toBe(detail);
+});
+
+it('un error técnico al pedir precios no se publica como motivo de negocio', () => {
+  const mensaje = mensajeErrorTransmision(problema('OC_PRECIO_REQUERIDO', 'payload SQL endpoint'));
+  expect(mensaje).toContain('Captura el precio de las partidas sin precio');
+  expect(mensaje).not.toMatch(/payload|SQL|endpoint/);
 });

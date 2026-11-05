@@ -1,3 +1,4 @@
+import { problemaConsulta } from '@/components/erp/feedback/problema-consulta';
 import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { Link2, Search, UserPlus, UserRound, X } from 'lucide-react';
@@ -61,7 +62,7 @@ export function CuentasSinEmpleado({ onCrearEmpleado }: Props) {
       {query.isError ? (
         <ErrorState
           title="No se pudieron consultar las cuentas sin empleado"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
+          problem={problemaConsulta(query.error)}
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading ? (
@@ -184,7 +185,7 @@ function LigarCuentaForm({
             toast.error('Asigna departamento y puesto al empleado antes de ligarle la cuenta.');
             return;
           }
-          toast.error(esApiError(err) ? err.problem.title : 'No se pudo ligar la cuenta.');
+          toast.error('No se pudo ligar la cuenta. Revisa el empleado, el rol y tu conexión antes de volver a intentarlo.');
         },
       },
     );
@@ -231,7 +232,8 @@ function LigarCuentaForm({
             ))}
         </select>
       </label>
-      <Button size="sm" disabled={!empleadoId || !rolId || dar.isPending} onClick={ligar}>
+      <Button size="sm" disabled={!empleadoId || !rolId || dar.isPending}
+        title={!empleadoId || !rolId ? 'Elige el empleado y el rol para ligar la cuenta.' : dar.isPending ? 'Espera a que termine de ligarse la cuenta.' : undefined} onClick={ligar}>
         {dar.isPending ? 'Ligando…' : 'Ligar cuenta'}
       </Button>
       <Button size="sm" variant="ghost" onClick={onCerrar}>

@@ -80,7 +80,7 @@ function llenarYEnviar() {
   fireEvent.change(screen.getByPlaceholderText('P-001'), {
     target: { value: 'P-010' },
   });
-  fireEvent.change(screen.getByPlaceholderText('Acme S.A. de C.V.'), {
+  fireEvent.change(screen.getByPlaceholderText('Razón social del proveedor'), {
     target: { value: 'Otro Proveedor SA' },
   });
   fireEvent.change(screen.getByPlaceholderText('ACM010101ABC'), {
@@ -123,7 +123,7 @@ describe('<SheetNuevoProveedor>', () => {
     await waitFor(() =>
       expect(
         screen.getByText(
-          'Ya existe el proveedor P-002 · Otro Proveedor SA con RFC OTR010101AAA.',
+          'Ya existe el proveedor P-002 · Otro Proveedor SA con RFC OTR010101AAA. Revisa los datos y resuelve lo pendiente antes de continuar.',
         ),
       ).toBeInTheDocument(),
     );
@@ -227,7 +227,7 @@ describe('<SheetNuevoProveedor>', () => {
 
     await screen.findByPlaceholderText('P-001');
     fireEvent.change(screen.getByPlaceholderText('P-001'), { target: { value: 'EXT-01' } });
-    fireEvent.change(screen.getByPlaceholderText('Acme S.A. de C.V.'), { target: { value: 'Glass Corp LLC' } });
+    fireEvent.change(screen.getByPlaceholderText('Razón social del proveedor'), { target: { value: 'Glass Corp LLC' } });
     expect(screen.getByPlaceholderText('ACM010101ABC')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Origen'), { target: { value: '1' } });
     await waitFor(() => expect(screen.queryByPlaceholderText('ACM010101ABC')).not.toBeInTheDocument());
@@ -257,7 +257,7 @@ describe('<SheetNuevoProveedor>', () => {
     );
     await screen.findByPlaceholderText('P-001');
     fireEvent.change(screen.getByPlaceholderText('P-001'), { target: { value: 'NAC-01' } });
-    fireEvent.change(screen.getByPlaceholderText('Acme S.A. de C.V.'), { target: { value: 'Nacional SA' } });
+    fireEvent.change(screen.getByPlaceholderText('Razón social del proveedor'), { target: { value: 'Nacional SA' } });
     fireEvent.change(screen.getByLabelText('Origen'), { target: { value: '0' } });
     fireEvent.click(screen.getByRole('button', { name: /crear proveedor/i }));
     expect(await screen.findByText('El RFC debe tener 12 o 13 caracteres')).toBeInTheDocument();

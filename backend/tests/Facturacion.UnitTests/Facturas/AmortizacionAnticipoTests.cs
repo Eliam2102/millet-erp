@@ -124,7 +124,8 @@ public sealed class AmortizacionAnticipoTests
         var anticipo = await EmitirAnticipoHandler(db, empresaId, sender, fiscal).Handle(AnticipoCommand(), CancellationToken.None);
 
         var resp = await FacturaHandler(db, empresaId, sender, fiscal)
-            .Handle(FacturaCommand([new AnticipoAAmortizar(anticipo.AnticipoId, 500m)]), CancellationToken.None);
+            .Handle(FacturaCommand([new AnticipoAAmortizar(anticipo.AnticipoId, 500m, "  Aplicación del anticipo de obra  ")]),
+                CancellationToken.None);
 
         resp.Estado.Should().Be("Timbrado");
         resp.NotasCreditoAmortizacion.Should().HaveCount(1);
@@ -136,6 +137,7 @@ public sealed class AmortizacionAnticipoTests
         nc.Tipo.Should().Be(TipoComprobante.Egreso);
         nc.AnticipoOrigenId.Should().Be(anticipo.AnticipoId);
         nc.Relaciones.Should().ContainSingle(r => r.TipoRelacion == "07" && r.UuidRelacionado == resp.Uuid); // solo la factura final
+        nc.Comentarios.Should().Be("Aplicación del anticipo de obra"); // FMT-6: comentario libre capturado al emitir
 
         var factura = await db.FacturasVenta.Include(f => f.Relaciones).SingleAsync();
         factura.Relaciones.Should().ContainSingle(r => r.TipoRelacion == "07");

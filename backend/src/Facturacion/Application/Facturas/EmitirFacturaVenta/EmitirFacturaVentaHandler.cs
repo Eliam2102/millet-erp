@@ -577,7 +577,7 @@ public sealed class EmitirFacturaVentaHandler
                     $"El CFDI del anticipo ({facturaAnticipo.Folio}) no está timbrado " +
                     $"(estado: {facturaAnticipo.Estado}); resuélvelo (reintentar o descartar) antes de amortizar.");
 
-            resultado.Add(new AnticipoAmortizable(anticipo, facturaAnticipo, sol.Importe));
+            resultado.Add(new AnticipoAmortizable(anticipo, facturaAnticipo, sol.Importe, sol.ComentarioNotaCredito));
         }
 
         return resultado;
@@ -633,6 +633,8 @@ public sealed class EmitirFacturaVentaHandler
             // Millet (4-nov): la NC de aplicación relaciona solo la factura de venta (el anticipo va en la factura).
             if (!string.IsNullOrWhiteSpace(factura.Uuid))
                 nc.AgregarRelacion(factura.Uuid!, "07");
+            // FMT-6 (86e3yxe8f): comentario libre que captura el usuario para esta NC.
+            nc.FijarComentarios(a.ComentarioNotaCredito);
 
             var timbre = await TimbradoEjecutor.TimbrarYAplicarAsync(_db, 
                 nc, CfdiEmisionBuilder.DesdeNotaCredito(nc, ahora),
@@ -671,7 +673,8 @@ public sealed class EmitirFacturaVentaHandler
     private sealed record AnticipoAmortizable(
         Millet.Facturacion.Domain.Anticipos.Anticipo Anticipo,
         Millet.Facturacion.Domain.Anticipos.FacturaAnticipo FacturaAnticipo,
-        decimal Importe);
+        decimal Importe,
+        string? ComentarioNotaCredito);
 
     private async Task ValidarCatalogosSatAsync(
         EmitirFacturaVentaCommand command,

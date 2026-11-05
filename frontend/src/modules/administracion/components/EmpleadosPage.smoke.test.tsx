@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { http, HttpResponse } from 'msw';
+import { http, HttpResponse, delay } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
 import { EmpleadosPage } from '@/modules/administracion/components/EmpleadosPage';
@@ -314,4 +314,17 @@ describe('<EmpleadosPage> — smoke (ADM-FE-PR1)', () => {
     render(<EmpleadosPage />, { wrapper: createQueryWrapper() });
     expect(await screen.findByRole('button', { name: /dar acceso/i })).toBeInTheDocument();
   });
+});
+
+it('no presenta ceros de empleados mientras los indicadores todavía cargan', async () => {
+  mswServer.use(http.get('*/api/v1/catalogos/empleados', async () => {
+    await delay(100);
+    return HttpResponse.json(EMPLEADOS);
+  }));
+  render(<EmpleadosPage />, { wrapper: createQueryWrapper() });
+  const indicador = screen.getByRole('button', { name: /Sin iniciar sesión —/ });
+  expect(indicador).toBeInTheDocument();
+  expect(indicador.querySelector('.text-3xl')).toHaveClass('font-semibold', 'tabular-nums');
+  await screen.findByText('Juana Pérez');
+  expect(screen.queryByRole('button', { name: /Sin iniciar sesión —/ })).not.toBeInTheDocument();
 });
