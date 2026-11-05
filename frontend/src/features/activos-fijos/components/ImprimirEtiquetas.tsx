@@ -16,11 +16,25 @@ function ImprimirEtiquetasAccion({
   claseId?: string;
 }) {
   const qc = useQueryClient();
+  const [motivo, setMotivo] = useState('');
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState('');
   const [mensaje, setMensaje] = useState('');
   return (
     <div className="space-y-2">
+      <label className="text-xs">
+        Motivo de impresión
+        <select
+          value={motivo}
+          onChange={(e) => setMotivo(e.target.value)}
+          className="block h-9 rounded-md border border-line-control bg-surface-card px-3"
+        >
+          <option value="">Primera impresión</option>
+          <option>Reposición por daño</option>
+          <option>Pérdida</option>
+          <option>Cambio de datos</option>
+        </select>
+      </label>
       <Button
         variant="outline"
         disabled={ocupado}
@@ -37,6 +51,14 @@ function ImprimirEtiquetasAccion({
             const { data } = await apiRequest<Etiqueta[]>(`${AF_BASE}/etiquetas?${parametros}`);
             const { generarEtiquetas } = await import('../etiquetas/generar');
             const blob = await generarEtiquetas(data);
+            await apiRequest(`${AF_BASE}/etiquetas/registrar-impresion`, {
+              method: 'POST',
+              body: {
+                motivo: motivo || null,
+                activos: data.map((e) => ({ id: e.id, version: e.version })),
+              },
+              idempotencyKey: crypto.randomUUID(),
+            });
             const url = URL.createObjectURL(blob);
             const enlace = document.createElement('a');
             enlace.href = url;
@@ -44,11 +66,6 @@ function ImprimirEtiquetasAccion({
             enlace.click();
             setTimeout(() => URL.revokeObjectURL(url), 60000);
             // La entrega del PDF sí es observable; la salida física de la impresora no lo es.
-            await apiRequest(`${AF_BASE}/etiquetas/registrar-impresion`, {
-              method: 'POST',
-              body: { activos: data.map((e) => ({ id: e.id, version: e.version })) },
-              idempotencyKey: crypto.randomUUID(),
-            });
             await qc.invalidateQueries({ queryKey: afKeys.all });
             setMensaje(`PDF generado: ${data.length} etiquetas. Impresión registrada.`);
           } catch (e) {

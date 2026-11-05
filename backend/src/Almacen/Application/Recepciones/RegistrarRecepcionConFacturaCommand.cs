@@ -396,7 +396,7 @@ public sealed class RegistrarRecepcionConFacturaHandler
             RecepcionRechazos.Registrar(_db, empresaId, movimientoId, oc, rechazadas);
             await _events.PublishAsync(new OcRecepcionRegistradaIntegrationEvent(empresaId, DateTimeOffset.UtcNow,
                 movimientoId, folioActivo, request.OrdenCompraId, request.FechaMovimiento, false, request.CfdiRecibidoId, request.CfdiUuidFiscal,
-                request.Observaciones, payloadLineas, SucursalId: oc!.SucursalDestinoId), cancellationToken);
+                request.Observaciones, payloadLineas, SucursalId: oc!.SucursalDestinoId, RegistradoPorId: _currentUser.UserId ?? Guid.Empty), cancellationToken);
             await _db.SaveChangesAsync(cancellationToken);
             if (transaccion is not null) await transaccion.CommitAsync(cancellationToken);
             return new RegistrarRecepcionResponse(movimientoId, folioActivo);
@@ -464,7 +464,7 @@ public sealed class RegistrarRecepcionConFacturaHandler
             Observaciones: request.Observaciones,
             Lineas: payloadLineas,
             AlmacenId: almacenId,
-            SucursalId: sucursalId), cancellationToken);
+            SucursalId: sucursalId, RegistradoPorId: _currentUser.UserId ?? Guid.Empty), cancellationToken);
 
         // 8. SaveChanges: dispara el trigger PG que actualiza saldos +
         //    el interceptor del outbox que persiste el evento. Todo en

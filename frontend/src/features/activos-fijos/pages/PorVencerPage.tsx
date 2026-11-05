@@ -1,3 +1,4 @@
+import { ResolverAviso } from '../components/ResolverAviso';
 import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { PageHeader } from '@/components/erp/PageHeader';
@@ -91,6 +92,7 @@ export function PorVencerPage() {
                 <TableHead>Documento o mantenimiento</TableHead>
                 <TableHead>Vence</TableHead>
                 <TableHead>Estado</TableHead>
+                <TableHead>Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -115,6 +117,9 @@ export function PorVencerPage() {
                     <Badge variant={v.vence <= query.data.hoy ? 'danger' : 'warning'}>
                       {v.vence <= query.data.hoy ? 'Vencido' : 'Por vencer'}
                     </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <ResolverAviso aviso={v} />
                   </TableCell>
                 </TableRow>
               ))}

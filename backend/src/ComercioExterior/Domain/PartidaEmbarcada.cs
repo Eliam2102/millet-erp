@@ -12,6 +12,12 @@ public sealed class PartidaEmbarcada : BaseEntity, IAuditable, IPerteneceAEmpres
     public Guid PedidoFacturableId { get; private set; }
     public int Posicion { get; private set; }
     public Guid ClienteId { get; private set; }
+    public string? FraccionArancelaria { get; private set; }
+    public string? UnidadAduana { get; private set; }
+    public Guid? AduanalesRevisadoPorId { get; private set; }
+    public DateTimeOffset? AduanalesRevisadoEn { get; private set; }
+    public decimal? PesoKg { get; private set; }
+    public int? Bultos { get; private set; }
     public decimal Cantidad { get; private set; }
     public string Unidad { get; private set; } = "";
     public long? VersionOrigenAsignada { get; private set; }
@@ -27,6 +33,20 @@ public sealed class PartidaEmbarcada : BaseEntity, IAuditable, IPerteneceAEmpres
         Posicion = posicion; ClienteId = cliente; Cantidad = cantidad; Unidad = unidad;
         VersionOrigenAsignada = version; ConfirmadoPorId = propuesta ? Guid.Empty : actor;
         if (propuesta) Estado = EstadoPartida.RequiereRevision;
+    }
+    internal void GuardarDatosAduanales(string fraccion, string unidad, Guid actor, DateTimeOffset fecha, bool revisar)
+    {
+        if (string.IsNullOrWhiteSpace(fraccion) || fraccion.Length > 20 || string.IsNullOrWhiteSpace(unidad) || unidad.Length > 20 || actor == Guid.Empty)
+            throw new BusinessRuleException("CE_DATOS_ADUANALES_INVALIDOS", "Capture fracción arancelaria y unidad aduana (máximo 20 caracteres) e identifique a quien los revisa.");
+        FraccionArancelaria = fraccion.Trim(); UnidadAduana = unidad.Trim();
+        AduanalesRevisadoPorId = revisar ? actor : null; AduanalesRevisadoEn = revisar ? fecha : null;
+    }
+    internal void AjustarCantidad(decimal nueva) => Cantidad = nueva;
+    internal void GuardarPacking(decimal pesoKg, int bultos)
+    {
+        if (pesoKg < 0 || pesoKg >= 1_000_000_000_000m || decimal.Round(pesoKg, 6) != pesoKg || bultos < 0)
+            throw new BusinessRuleException("CE_PACKING_INVALIDO", "Capture peso y bultos no negativos; el peso admite hasta seis decimales.");
+        PesoKg = pesoKg; Bultos = bultos;
     }
     public EstadoPartida EstadoActual(long? version) => Estado != EstadoPartida.Liberada && version != VersionOrigenAsignada ? EstadoPartida.RequiereRevision : Estado;
     internal void RequerirRevision() { if (Estado != EstadoPartida.Liberada) Estado = EstadoPartida.RequiereRevision; }

@@ -53,7 +53,7 @@ public sealed class AvisosActivosWorker(IServiceScopeFactory scopes, IClock cloc
             foreach (var f in fuentes)
             {
                 var tipo = AvisoActivo.TipoPendiente(f.Fecha, hoy, opciones.Dias(a.EmpresaId));
-                if (tipo == null || await db.Avisos.AnyAsync(x => x.FuenteId == f.Id && x.Tipo == tipo && x.EmpresaId == a.EmpresaId, ct)) continue;
+                if (tipo == null || await db.Avisos.AnyAsync(x => x.FuenteId == f.Id && x.Vencimiento == f.Fecha && (x.Tipo == tipo || x.ResueltoEn != null) && x.EmpresaId == a.EmpresaId, ct)) continue;
                 db.Avisos.Add(new AvisoActivo(a, f.Id, f.Mantenimiento, tipo.Value, f.Fecha, hoy)); cantidad++;
             }
         }

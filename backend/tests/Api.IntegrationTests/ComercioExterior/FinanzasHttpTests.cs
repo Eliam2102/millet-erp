@@ -10,6 +10,7 @@ using Millet.SharedKernel.Application;
 
 namespace Millet.Api.IntegrationTests.ComercioExterior;
 /// <summary>Requiere PostgreSQL aislado; se deja para la corrida Docker de integración.</summary>
+[Collection(ApiCompartida.Nombre)]
 public sealed class FinanzasHttpTests
 {
     private const string Base = "/api/v1/comercio-exterior/expedientes";
@@ -56,9 +57,10 @@ public sealed class FinanzasHttpTests
         using var scope = e.Scope(); using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
         var maestros = scope.ServiceProvider.GetRequiredService<Millet.Compartido.Infrastructure.Persistence.CompartidoDbContext>();
         var proveedor = await maestros.Proveedores.SingleAsync(p => p.Clave == "DEMO-PROV-ACT");
-        var anticipo = await Send(client, $"{Base}/{id}/anticipos", new { agenteId = proveedor.Id, pedimento = "TEST-ANT", impuestos = new { iva = 150000, igi = 0, prv = 0 }, fecha = "2026-10-01" }, primera.Headers.ETag!.Tag);
+        var soporte = await e.AdjuntoAsync(id, await e.TipoAsync("IMP_PEDIMENTO"));
+        var anticipo = await Send(client, $"{Base}/{id}/anticipos", new { agenteId = proveedor.Id, soporteCalculoId = soporte, importe = 150000, pedimento = "TEST-ANT", impuestos = new { iva = 150000, igi = 0, prv = 0 }, fecha = "2026-10-01" }, primera.Headers.ETag!.Tag);
         anticipo.EnsureSuccessStatusCode();
-        var cierre = await Send(client, $"{Base}/{id}/cerrar", new { }, anticipo.Headers.ETag!.Tag);
+        var cierre = await Send(client, $"{Base}/{id}/cerrar-financiero", new { }, anticipo.Headers.ETag!.Tag);
         Assert.Equal(HttpStatusCode.UnprocessableEntity, cierre.StatusCode);
         Assert.Contains("Anticipos sin comprobar", await cierre.Content.ReadAsStringAsync(), StringComparison.Ordinal);
         var db = scope.ServiceProvider.GetRequiredService<ComercioExteriorDbContext>();

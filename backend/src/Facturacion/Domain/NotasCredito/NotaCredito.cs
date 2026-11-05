@@ -164,6 +164,8 @@ public sealed class NotaCredito : Comprobante
     /// <summary>Pedido A+W de la factura origen y su versión al recibir la nota: salen en la fila NotaCredito de <c>aw_retorno</c>.</summary>
     public string? AwNumeroPedido { get; private set; }
     public long? AwVersionPedido { get; private set; }
+    /// <summary>Vendedor de la nota en A+W (informativo; no viaja al CFDI).</summary>
+    public string? AwVendedor { get; private set; }
 
     public Guid? AutorizadaPorId { get; private set; }
     public DateTimeOffset? AutorizadaEn { get; private set; }
@@ -476,7 +478,8 @@ public sealed class NotaCredito : Comprobante
         string awNumeroNota,
         long awVersionNota,
         string? awNumeroPedido,
-        long? awVersionPedido)
+        long? awVersionPedido,
+        string? awVendedor = null)
     {
         if (motivo is not (MotivoNotaCredito.Bonificacion or MotivoNotaCredito.Devolucion))
             throw new BusinessRuleException("NC_MOTIVO_AW_INVALIDO", "A+W solo manda notas de bonificación o devolución.");
@@ -497,6 +500,7 @@ public sealed class NotaCredito : Comprobante
         nc.AwVersionNota = awVersionNota;
         nc.AwNumeroPedido = awNumeroPedido;
         nc.AwVersionPedido = awVersionPedido;
+        nc.AwVendedor = awVendedor is { Length: > 120 } v ? v[..120] : awVendedor;
         DesglosarTotales(nc, montoTotal, tasaIva);
         if (motivo == MotivoNotaCredito.Devolucion)
             nc.ImporteAfectaInventario = nc.Subtotal;

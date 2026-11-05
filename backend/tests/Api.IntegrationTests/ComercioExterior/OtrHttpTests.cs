@@ -132,16 +132,19 @@ public sealed class OtrHttpTests
         await Sql(e, "UPDATE dbo.aw_otr_envio SET erp_resultado=NULL WHERE otr_envio_id='DEMO-OTR-1' AND version=2"); await Entrada(e);
         var repetido = (await Json(await admin.GetAsync($"{Base}?expedienteId={expediente}")))[0]; Assert.Equal(actual.GetProperty("hash").GetString(), repetido.GetProperty("hash").GetString()); Assert.Equal(actual.GetProperty("version").GetInt32(), repetido.GetProperty("version").GetInt32());
         var hoy = FechaContable.HoyLocal(e.Ahora);
+        var evidenciaDespacho = await e.AdjuntoAsync(expediente, await e.TipoAsync("EXP_PEDIMENTO"));
         using (var scope = e.Scope())
         using (scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass())
         {
             var db = scope.ServiceProvider.GetRequiredService<ComercioExteriorDbContext>(); var exp = await db.Expedientes.Include(x => x.Hitos).Include(x => x.Participantes).SingleAsync(x => x.Id == expediente);
             exp.AgregarParticipante(Guid.NewGuid(), "DEMO agente", TipoParticipante.AgenteAduanal, null, PapelParticipante.Captura, null, null);
-            foreach (var h in exp.Hitos.Where(h => h.Orden > 1 && h.Orden < 9).OrderBy(h => h.Orden)) exp.RegistrarHito(h.Clave, hoy, e.Responsable, null, null, [], [], hoy);
+            foreach (var h in exp.Hitos.Where(h => h.Orden > 1 && h.Orden < 9).OrderBy(h => h.Orden)) exp.RegistrarHito(h.Clave, hoy, e.Responsable, evidenciaDespacho, null, [], [evidenciaDespacho], hoy);
             await db.SaveChangesAsync();
         }
         var detalle = await admin.GetAsync($"{Expedientes}/{expediente}"); detalle.EnsureSuccessStatusCode();
-        var embarcado = await Post(admin, $"{Expedientes}/{expediente}/hitos/embarcado/real", new { fechaReal = hoy, responsableUsuarioId = e.Responsable }, detalle.Headers.ETag!.Tag); embarcado.EnsureSuccessStatusCode();
+        using var autorizador = await e.ClienteAsync(true);
+        var autorizada = await Post(autorizador, $"{Expedientes}/{expediente}/autorizar-salida", new { }, detalle.Headers.ETag!.Tag); autorizada.EnsureSuccessStatusCode();
+        var embarcado = await Post(admin, $"{Expedientes}/{expediente}/hitos/embarcado/real", new { fechaReal = hoy, responsableUsuarioId = e.Responsable }, autorizada.Headers.ETag!.Tag); embarcado.EnsureSuccessStatusCode();
         var contenedores = await admin.GetAsync($"{Expedientes}/{expediente}/contenedores");
         using var patch = new HttpRequestMessage(HttpMethod.Patch, $"{Expedientes}/{expediente}/contenedores/{contenedor}") { Content = JsonContent.Create(new { numero = "DEMO-C", booking = "DEMO-BOOK", ruta = "DEMO-R", pesoKg = 125, bultos = 2 }) };
         patch.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString()); patch.Headers.TryAddWithoutValidation("If-Match", contenedores.Headers.ETag!.Tag); (await admin.SendAsync(patch)).EnsureSuccessStatusCode();

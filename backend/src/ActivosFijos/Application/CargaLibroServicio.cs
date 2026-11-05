@@ -7,11 +7,12 @@ using Millet.ActivosFijos.Infrastructure.Persistence;
 using Millet.SharedKernel.Application.Exceptions;
 namespace Millet.ActivosFijos.Application;
 public sealed record TotalSap(string Clase, decimal Valor, decimal Acumulada);
-public sealed record SolicitudCarga(string Csv, string VersionArchivo, DateOnly Corte, IReadOnlyList<TotalSap> Totales);
+public sealed record SolicitudCarga(string Csv, string VersionArchivo, DateOnly Corte, IReadOnlyList<TotalSap> Totales, Guid? SucursalId = null);
 public sealed record ErrorCarga(int Renglon, string Codigo, string Mensaje, string? Columna = null);
-public sealed record CuadreCarga(string Clase, decimal Valor, decimal Acumulada, decimal Neto, decimal? ValorSap, decimal? AcumuladaSap,
+public sealed record CuadreCarga(string Clase, decimal Valor, decimal? Acumulada, decimal? Neto, decimal? ValorSap, decimal? AcumuladaSap,
     decimal? DiferenciaValor, decimal? DiferenciaAcumulada);
-public sealed record ResultadoCarga(bool Valida, IReadOnlyList<ErrorCarga> Errores, IReadOnlyList<CuadreCarga> Cuadre, Guid? CargaId = null, bool Idempotente = false, IReadOnlyList<ErrorCarga>? Avisos = null);
+public sealed record ResultadoCarga(bool Valida, IReadOnlyList<ErrorCarga> Errores, IReadOnlyList<CuadreCarga> Cuadre, Guid? CargaId = null, bool Idempotente = false, IReadOnlyList<ErrorCarga>? Avisos = null, IReadOnlyList<ActivoCargaPrevia>? Activos = null);
+public sealed record ActivoCargaPrevia(string Numero,string Clase,decimal Valor,decimal? TasaContablePropia,decimal? TasaFiscalPropia,decimal? Acumulada);
 public sealed class CargaLibroServicio(ActivosFijosDbContext db, ActivoServicio acceso, LibroServicio libro, ICatalogosActivoReadPort catalogos)
 {
     public const string Plantilla = "numero,clase,descripcion,fechaAdquisicion,inicioUso,valorOriginal,depreciacionAcumulada,responsableId,sucursalId,ubicacion,centroCostoId,equipoId,importado,pedimento,arrendado\n";
@@ -34,7 +35,7 @@ public sealed class CargaLibroServicio(ActivosFijosDbContext db, ActivoServicio 
         if (tabla.Errores.Count > 0) return new(false, tabla.Errores, [], Avisos: tabla.Avisos);
         await using var tx = confirmar ? await db.Database.BeginTransactionAsync(ct) : null;
         if (confirmar) await libro.BloquearAsync(ct);
-        var anterior = await db.Set<CargaLibro>().SingleOrDefaultAsync(x => x.Huella == huella && x.VersionArchivo == request.VersionArchivo, ct);
+        var anterior = await db.Set<CargaLibro>().SingleOrDefaultAsync(x => !x.Anulada && x.Huella == huella && x.VersionArchivo == request.VersionArchivo, ct);
         if (anterior != null)
         {
             if (anterior.Corte != request.Corte) throw new BusinessRuleException("AF_CARGA_CORTE_DISTINTO", "El archivo y versión ya se cargaron con otro corte.");
@@ -44,8 +45,10 @@ public sealed class CargaLibroServicio(ActivosFijosDbContext db, ActivoServicio 
             return new(true, [], JsonSerializer.Deserialize<List<CuadreCarga>>(anterior.CuadreJson)!, anterior.Id, true);
         }
         var carga = new CargaLibro { EmpresaId = libro.Empresa, Huella = huella, VersionArchivo = request.VersionArchivo, Corte = request.Corte };
-        var errores = new List<ErrorCarga>(); var activos = new List<Activo>();
-        var clases = await db.Clases.Where(x => x.Activa).ToDictionaryAsync(x => x.Clave, ct);
+        var errores = new List<ErrorCarga>(); var activos = new List<Activo>(); var sinAcumuladaIds=new HashSet<Guid>();
+        var clases = (await db.Clases.Include(x => x.Versiones).Where(x => x.Activa).ToListAsync(ct)).Select(c => c.EnMes(request.Corte)).ToDictionary(c => c.Clave);
+        var equivalencias = await db.Set<EquivalenciaClaseSap>().ToDictionaryAsync(x => x.ClaseSap, x => x.ClaveErp, ct);
+        foreach (var (sap, erp) in EquivalenciaClaseSap.Iniciales) equivalencias.TryAdd(ArchivoLibro.Normalizar(sap), erp);
         var numeros = (await db.Activos.Select(x => x.Numero).ToListAsync(ct)).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var avisos = tabla.Avisos.ToList();
         var referencias = new Dictionary<(string, string), IReadOnlyList<ReferenciaCarga>>();
@@ -74,6 +77,7 @@ public sealed class CargaLibroServicio(ActivosFijosDbContext db, ActivoServicio 
                 if (!numeros.Add(f[0])) throw new BusinessRuleException("AF_NUMERO_DUPLICADO", "Número repetido en el archivo o libro.");
                 columna = "clase";
                 var coincidencias = clases.Values.Where(c => ArchivoLibro.Normalizar(c.Clave) == ArchivoLibro.Normalizar(f[1]) || ArchivoLibro.Normalizar(c.Nombre) == ArchivoLibro.Normalizar(f[1])).ToList();
+                if (coincidencias.Count == 0 && equivalencias.TryGetValue(ArchivoLibro.Normalizar(f[1]), out var claveErp) && clases.TryGetValue(claveErp, out var equivalente)) coincidencias.Add(equivalente);
                 if (coincidencias.Count != 1) throw new BusinessRuleException("AF_CLASE_NO_EXISTE", coincidencias.Count == 0 ? "La clase no existe o está inactiva." : $"Clase ambigua: {string.Join("; ", coincidencias.Select(c => c.Clave + " · " + c.Nombre))}.");
                 var clase = coincidencias[0];
                 columna = "descripción";
@@ -84,26 +88,49 @@ public sealed class CargaLibroServicio(ActivosFijosDbContext db, ActivoServicio 
                 if (inicio > request.Corte) throw new FormatException("El inicio de uso no puede ser posterior al corte.");
                 columna = "valor"; var valor = ArchivoLibro.Monto(f[5]);
                 if (valor <= 0) throw new FormatException("El valor debe ser mayor que cero.");
-                columna = "depreciación acumulada"; var acumulada = ArchivoLibro.Monto(f[6]);
+                columna = "depreciación acumulada";
+                var sinAcumulada = string.IsNullOrWhiteSpace(f[6]);
+                if (sinAcumulada)
+                {
+                    var aviso = new ErrorCarga(renglon, "AF_CARGA_SIN_ACUMULADA", $"{f[0]}: falta depreciación acumulada; complétela antes de confirmar.", columna);
+                    avisos.Add(aviso); if (confirmar) errores.Add(aviso);
+                }
+                var acumulada = sinAcumulada ? 0 : ArchivoLibro.Monto(f[6]);
                 if (acumulada < 0 || acumulada > decimal.Round(valor, 2)) throw new FormatException("La depreciación acumulada debe estar entre cero y el valor del activo.");
                 columna = "importado";
-                var importacion = ArchivoLibro.Normalizar(f[12]) switch { "" or "no" => TipoImportacionActivo.No, "temporal" => TipoImportacionActivo.Temporal, "definitivo" => TipoImportacionActivo.Definitivo, _ => throw new FormatException("Importado debe ser no, temporal o definitivo.") };
+                var importacion = ArchivoLibro.Normalizar(string.IsNullOrWhiteSpace(f[12]) ? f[16] : f[12]) switch { "" or "no" or "nacional" => TipoImportacionActivo.No, "importado" => TipoImportacionActivo.PorConfirmar, "temporal" => TipoImportacionActivo.Temporal, "definitivo" => TipoImportacionActivo.Definitivo, _ => throw new FormatException("Importado debe ser no, temporal o definitivo.") };
                 columna = "pedimento";
-                if (importacion != TipoImportacionActivo.No && string.IsNullOrWhiteSpace(f[13])) throw new FormatException("Capture el pedimento del activo importado.");
+                if (importacion is TipoImportacionActivo.Temporal or TipoImportacionActivo.Definitivo && string.IsNullOrWhiteSpace(f[13])) throw new FormatException("Capture el pedimento del activo importado.");
                 columna = "arrendado";
-                var arrendado = ArchivoLibro.Normalizar(f[14]) switch { "si" => true, "" or "no" => false, _ => throw new FormatException("Arrendado debe ser sí o no.") };
+                if (importacion == TipoImportacionActivo.PorConfirmar) avisos.Add(new(renglon,"AF_IMPORTACION_POR_CONFIRMAR",$"{f[0]}: importado con tipo Por confirmar; complete tipo y pedimento.","origen"));
+                var arrendado = ArchivoLibro.Normalizar(string.IsNullOrWhiteSpace(f[14]) ? f[17] : f[14]) switch { "si" or "arrendado" or "rentado" => true, "" or "no" or "propio" => false, _ => throw new FormatException("Arrendado debe ser sí o no.") };
                 var responsable = await Resolver(7, "responsable", true);
-                var sucursal = await Resolver(8, "sucursal", false);
+                var sucursal = string.IsNullOrWhiteSpace(f[8]) && request.SucursalId is Guid destino ? destino : await Resolver(8, "sucursal", false);
                 await acceso.SucursalAsync(sucursal, true, ct);
                 var centro = await Resolver(10, "centro de costo", true);
                 var equipo = await Resolver(11, "equipo", true);
                 var custodia = new CustodiaActivo(responsable, sucursal, f[9], centro, equipo == Guid.Empty ? null : equipo);
                 columna = "custodia";
                 await catalogos.ValidarCustodiaAsync(custodia, false, ct);
+                columna = "tasa";
+                var tasaContable = string.IsNullOrWhiteSpace(f[18]) ? (decimal?)null : ArchivoLibro.Monto(f[18]);
+                var tasaFiscal = string.IsNullOrWhiteSpace(f[19]) ? (decimal?)null : ArchivoLibro.Monto(f[19]);
+                if (tasaContable == null && !string.IsNullOrWhiteSpace(f[15]))
+                {
+                    var mensual = ArchivoLibro.Monto(f[15]);
+                    if (mensual < 0) throw new FormatException("La depreciación mensual no puede ser negativa.");
+                    var inferida = decimal.Round(mensual * 1200m / valor,4,MidpointRounding.AwayFromZero);
+                    if (clase.TasaContableAnual == null || Math.Abs(inferida-clase.TasaContableAnual.Value) > 0.1m)
+                    {
+                        tasaContable=inferida;
+                        avisos.Add(new(renglon,"AF_TASA_PROPIA",FormattableString.Invariant($"{f[0]}: {inferida:0.####} % contra {clase.TasaContableAnual:0.####} % de la clase"),"tasa contable"));
+                    }
+                }
+                if (clase.Clave is "160" or "170" && (tasaContable != null || tasaFiscal != null)) throw new BusinessRuleException("AF_TASA_ACTIVO_INVALIDA","Las clases 160 y 170 requieren vida útil o activo mejorado; no admiten tasa propia.");
                 columna = "datos del activo";
-                var a = new Activo(Guid.CreateVersion7(), libro.Empresa, f[0], new(f[2], clase.Id, null, null, null, adquisicion, inicio, valor, "MXN", 1, custodia, importacion, f[13], arrendado, $"SAP:{carga.Id}"));
+                var a = new Activo(Guid.CreateVersion7(), libro.Empresa, f[0], new(f[2], clase.Id, null, null, null, adquisicion, inicio, valor, "MXN", 1, custodia, importacion, f[13], arrendado, $"SAP:{carga.Id}", TasaContableAnual:tasaContable, TasaFiscalAnual:tasaFiscal));
                 columna = "depreciación acumulada / corte";
-                a.CargarLibro(request.Corte, acumulada); activos.Add(a);
+                a.CargarLibro(request.Corte, acumulada); activos.Add(a); if (sinAcumulada) sinAcumuladaIds.Add(a.Id);
             }
             catch (BusinessRuleException e) { errores.Add(new(renglon, e.Code, e.Message, columna)); }
             catch (Exception e) when (e is FormatException or OverflowException) { errores.Add(new(renglon, "AF_FORMATO_INVALIDO", e is OverflowException ? "El importe excede el rango permitido." : e.Message, columna)); }
@@ -116,7 +143,7 @@ public sealed class CargaLibroServicio(ActivosFijosDbContext db, ActivoServicio 
         var cuadre = clases.Values.Where(c => activos.Any(a => a.ClaseId == c.Id) || request.Totales.Any(x => x.Clase == c.Clave)).Select(c =>
         {
             var valor = activos.Where(a => a.ClaseId == c.Id).Sum(a => a.ValorActual);
-            var acumulada = activos.Where(a => a.ClaseId == c.Id).Sum(a => a.DepreciacionAcumulada);
+            decimal? acumulada = activos.Any(a => a.ClaseId == c.Id && sinAcumuladaIds.Contains(a.Id)) ? null : activos.Where(a => a.ClaseId == c.Id).Sum(a => a.DepreciacionAcumulada);
             var sap = request.Totales.FirstOrDefault(x => x.Clase == c.Clave);
             return new CuadreCarga(c.Clave, valor, acumulada, valor - acumulada, sap?.Valor, sap?.Acumulada, sap == null ? null : valor - sap.Valor, sap == null ? null : acumulada - sap.Acumulada);
         }).ToList();
@@ -126,6 +153,25 @@ public sealed class CargaLibroServicio(ActivosFijosDbContext db, ActivoServicio 
             carga.CuadreJson = JsonSerializer.Serialize(cuadre); db.Add(carga); db.Activos.AddRange(activos);
             await db.SaveChangesAsync(ct); await tx!.CommitAsync(ct);
         }
-        return new(errores.Count == 0, errores, cuadre, confirmar && errores.Count == 0 ? carga.Id : null, Avisos: avisos);
+        return new(errores.Count == 0, errores, cuadre, confirmar && errores.Count == 0 ? carga.Id : null, Avisos: avisos, Activos: activos.Select(a => new ActivoCargaPrevia(a.Numero,clases.Values.Single(c => c.Id == a.ClaseId).Clave,a.ValorOriginal,a.TasaContableAnual,a.TasaFiscalAnual,sinAcumuladaIds.Contains(a.Id) ? null : a.AcumuladaCarga)).ToList());
     }
+    public async Task<CargaLibro> AnularAsync(Guid id, int version, string motivo, CancellationToken ct)
+    {
+        await acceso.PermisoAsync("activos_fijos.carga.ejecutar",ct);
+        if (string.IsNullOrWhiteSpace(motivo) || motivo.Length > 500) throw new BusinessRuleException("AF_MOTIVO_REQUERIDO","Capture un motivo de hasta 500 caracteres.");
+        await using var tx = await db.Database.BeginTransactionAsync(ct); await libro.BloquearAsync(ct);
+        var carga = await db.Set<CargaLibro>().SingleAsync(c => c.Id == id,ct);
+        if (carga.Anulada) return carga;
+        if (carga.Version != version) throw new ConcurrencyException("CargaLibro",id);
+        var activos = await db.Activos.Where(a => a.DocumentoSoporte == $"SAP:{id}").ToListAsync(ct);
+        foreach (var sucursal in activos.Select(a => a.SucursalId).Distinct()) await acceso.SucursalAsync(sucursal,true,ct);
+        var ids = activos.Select(a => a.Id).ToList();
+        if (await db.Set<CorridaDepreciacion>().AnyAsync(c => !c.Anulada && c.Detalles.Any(d => ids.Contains(d.ActivoId)),ct))
+            throw new BusinessRuleException("AF_CARGA_CON_CORRIDA","Anule las corridas confirmadas de los activos del lote antes de anular la carga.");
+        if (await db.Set<OperacionLibro>().AnyAsync(o => ids.Contains(o.ActivoId) && !o.Anulada,ct) || await db.Set<MovimientoValorActivo>().AnyAsync(m => ids.Contains(m.ActivoId),ct))
+            throw new BusinessRuleException("AF_CARGA_CON_MOVIMIENTOS","El lote tiene movimientos posteriores; revíselos antes de anularlo.");
+        foreach (var a in activos) a.AnularCarga(); carga.Anulada=true; carga.MotivoAnulacion=motivo.Trim();
+        await db.SaveChangesAsync(ct); await tx.CommitAsync(ct); return carga;
+    }
+
 }

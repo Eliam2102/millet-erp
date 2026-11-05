@@ -11,7 +11,7 @@ public sealed class AnticipoProveedorConfiguration : IEntityTypeConfiguration<An
         builder.ToTable("anticipos_proveedor", t =>
         {
             t.HasCheckConstraint("ck_anticipo_monto_entregado_positivo", "monto_entregado > 0");
-            t.HasCheckConstraint("ck_anticipo_origen", "(origen = 1 AND uuid_cfdi IS NOT NULL AND referencia_origen IS NULL) OR (origen = 2 AND uuid_cfdi IS NULL AND cfdi_recibido_id IS NULL AND referencia_origen IS NOT NULL)");
+            t.HasCheckConstraint("ck_anticipo_origen", "(origen = 1 AND uuid_cfdi IS NOT NULL AND referencia_origen IS NULL) OR (origen IN (2, 3) AND uuid_cfdi IS NULL AND cfdi_recibido_id IS NULL AND referencia_origen IS NOT NULL)");
             t.HasCheckConstraint("ck_anticipo_monto_amortizado_valido",
                 "monto_amortizado >= 0 AND monto_amortizado <= monto_entregado");
         });

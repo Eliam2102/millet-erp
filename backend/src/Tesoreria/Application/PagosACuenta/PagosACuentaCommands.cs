@@ -292,7 +292,8 @@ public sealed class LigarPagoACuentaHandler
             MetodoPago: pasivo.MetodoPago,
             ReferenciaBancaria: movimiento.ReferenciaBancaria,
             CuentaBancariaId: movimiento.CuentaBancariaId,
-            TipoCambio: pasivo.TipoCambio), cancellationToken);
+            TipoCambio: pasivo.TipoCambio) { EsAnticipoAgente = pasivo.OrigenTipo == "AnticipoAgente",
+                SucursalId = pasivo.SucursalAnticipoCeId, ProveedorId = pasivo.ProveedorId }, cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
 

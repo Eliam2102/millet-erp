@@ -283,6 +283,11 @@ internal static class ConfirmacionDeposito
                     .ToList()), cancellationToken);
         }
 
+        if (deposito.DevolucionCeId is Guid devolucion)
+            await publisher.PublishAsync(new AnticipoAgenteDevolucionConfirmadaEvent(empresaId, clock.UtcNow,
+                deposito.AnticipoAgenteId!.Value, devolucion, deposito.MontoEsperado!.Value,
+                movimiento.ReferenciaBancaria, movimiento.FechaValor, deposito.SucursalId!.Value,
+                deposito.AgenteCeId!.Value, movimiento.CuentaBancariaId, movimiento.Id), cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return DepositoMapper.ToResponse(deposito);
     }

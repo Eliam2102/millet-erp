@@ -135,6 +135,7 @@ export function ConteosPage() {
                     resultado,
                     ubicacionReal: f.get('ubicacionReal') || null,
                     evidencia: f.get('evidencia'),
+                    motivo: f.get('motivoRecaptura'),
                   },
                 });
               }}
@@ -190,6 +191,14 @@ export function ConteosPage() {
               <Button type="submit" disabled={guardar.isPending} title="Guardar la captura actual">
                 Registrar resultado
               </Button>
+              <label className="text-xs">
+                Motivo de recaptura
+                <Input
+                  name="motivoRecaptura"
+                  maxLength={2000}
+                  required={c.partidas.some((p) => p.numero === numero.trim() && p.resultado !== 0)}
+                />
+              </label>
               <Button
                 type="button"
                 variant="outline"
@@ -230,7 +239,22 @@ export function ConteosPage() {
                     Esperada: {p.ubicacionEsperada ?? 'Sin ubicación'}
                     <p>Real: {p.ubicacionReal ?? 'Sin registrar'}</p>
                   </TableCell>
-                  <TableCell>{p.evidencia ?? 'Sin capturar'}</TableCell>
+                  <TableCell>
+                    {p.evidencia ?? 'Sin capturar'}
+                    {!!p.capturasAnteriores?.length && (
+                      <details>
+                        <summary>Historial de la partida ({p.capturasAnteriores.length})</summary>
+                        {p.capturasAnteriores.map((h) => (
+                          <p key={h.id}>
+                            {resultadosConteo[h.resultado]} · {h.evidencia} ·{' '}
+                            {h.ubicacionReal ?? 'Sin ubicación'} · {h.capturadoPor} ·{' '}
+                            {h.capturadoEn ? formatDateTime(h.capturadoEn) : 'Sin fecha histórica'}
+                          </p>
+                        ))}
+                        <p>Motivo de la última recaptura: {p.motivoRecaptura}</p>
+                      </details>
+                    )}
+                  </TableCell>
                   <TableCell>
                     {p.propuesta ? (
                       <>

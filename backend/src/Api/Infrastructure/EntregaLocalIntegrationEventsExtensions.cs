@@ -64,6 +64,10 @@ public static class EntregaLocalIntegrationEventsExtensions
         Consumidor<Millet.Almacen.Infrastructure.Workers.CxpEventListenerWorker>(services, (c, f, l) => new(c, f, l));
         Consumidor<Millet.CuentasPorPagar.Infrastructure.Workers.AlmacenEventListenerWorker>(services, (c, f, l) => new(c, f, l));
         Consumidor<Millet.CuentasPorPagar.Infrastructure.Workers.TesoreriaEventListenerWorker>(services, (c, f, l) => new(c, f, l));
+        Consumidor<Millet.ComercioExterior.Infrastructure.Workers.TesoreriaEventListenerWorker>(services, (c, f, l) => new(c, f, l));
+        Consumidor<Millet.Tesoreria.Infrastructure.Workers.ComercioExteriorEventListenerWorker>(services, (c, f, l) => new(c, f, l));
+        Consumidor<Millet.ComercioExterior.Infrastructure.Workers.AlmacenEventListenerWorker>(services, (c, f, l) => new(c, f, l));
+        Consumidor<Millet.ComercioExterior.Infrastructure.Workers.FacturacionEventListenerWorker>(services, (c, f, l) => new(c, f, l));
         Consumidor<Millet.CuentasPorPagar.Infrastructure.Workers.ComercioExteriorEventListenerWorker>(services, (c, f, l) => new(c, f, l));
         Consumidor<Millet.CuentasPorPagar.Infrastructure.Workers.ComprasEventListenerWorker>(services, (c, f, l) => new(c, f, l));
         Consumidor<Millet.Compras.Infrastructure.Workers.CxpEventListenerWorker>(services, (c, f, l) => new(c, f, l));

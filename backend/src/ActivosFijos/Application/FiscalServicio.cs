@@ -23,7 +23,7 @@ public sealed class FiscalServicio(ActivosFijosDbContext db, ActivoServicio acce
         var ids = await acceso.SucursalesAsync(null, ct);
         var corte = CalculoDepreciacion.Cierre(new(ejercicio, mesCorte, 1));
         var activos = await db.Activos.AsNoTracking().Include(a => a.Historial).Include(a => a.Traslados).AsSplitQuery().ToListAsync(ct);
-        var clases = await db.Clases.AsNoTracking().ToDictionaryAsync(c => c.Id, ct);
+        var clases = await db.Clases.AsNoTracking().Include(x => x.Versiones).ToDictionaryAsync(c => c.Id, ct);
         var indices = (await db.Set<InpcMensual>().AsNoTracking().ToListAsync(ct)).ToDictionary(x => new DateOnly(x.Anio, x.Mes, 1), x => x.Valor);
         var mismoMes = await libro.MismoMesAsync(ct);
         var todos = activos.ToDictionary(a => a.Id);
