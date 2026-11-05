@@ -144,6 +144,20 @@ public sealed class LiquidacionTests
     }
 
     [Fact]
+    public async Task La_liquidacion_llega_precargada_con_lo_que_el_chofer_capturo_al_entregar()
+    {
+        var (e, hoja) = await HojaEmitida();
+        using var _ = e;
+        var albaran = await e.T.Db.Albaranes.SingleAsync();
+        e.T.Db.Entregas.Add(EntregaPt.Crear(EntornoPt.Empresa, albaran.SalidaPtId, albaran, 2, 0, null, "Residente de obra", [1, 2, 3], null, 8500m, "TPV", "TPV-004821", Ahora, "chofer"));
+        await e.T.Db.SaveChangesAsync();
+
+        var dto = await new ObtenerLiquidacionHandler(e.T.Db, e.Acceso, e.T.Pedidos, new EmpresaFija(EntornoPt.Empresa)).Handle(new ObtenerLiquidacionQuery(hoja.Id), default);
+        var l = dto.Albaranes.Single();
+        (dto.Estado, l.Firmado, l.Voucher, l.VoucherReferencia, l.Diferencia).Should().Be(("Pendiente", true, 8500m, "TPV-004821", 0m));
+    }
+
+    [Fact]
     public async Task Cierre_del_dia_avisa_a_CxC_la_contra_entrega_sin_liquidar_una_sola_vez()
     {
         var (e, hoja) = await HojaEmitida(conContado: true);

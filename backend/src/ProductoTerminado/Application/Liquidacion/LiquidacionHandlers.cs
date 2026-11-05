@@ -24,6 +24,9 @@ internal static class LiquidacionMapeo
         var albaranIds = albaranes.Select(a => a.Id).ToList();
         var avisados = (await db.AvisosContraEntrega.AsNoTracking().Where(x => albaranIds.Contains(x.AlbaranPtId)).Select(x => x.AlbaranPtId).ToListAsync(ct)).ToHashSet();
 
+        // PT5.6: lo que el chofer ya capturó al entregar (firma o foto, cobro) llega precargado; Caja lo confirma o lo corrige.
+        var entregas = await db.Entregas.AsNoTracking().Where(x => albaranIds.Contains(x.AlbaranPtId)).Select(x => new { x.AlbaranPtId, x.CobroMonto, x.CobroForma, x.CobroReferencia }).ToDictionaryAsync(x => x.AlbaranPtId, ct);
+
         var lineas = new List<LiquidacionLineaDto>();
         foreach (var a in albaranes)
         {
@@ -32,8 +35,12 @@ internal static class LiquidacionMapeo
             var esperado = contra ? (await pedidos.ObtenerPorNumeroAsync(empresaId, pedido.NumeroPedido, ct))?.Total ?? 0m : 0m;
             var l = liq?.Albaranes.FirstOrDefault(x => x.AlbaranPtId == a.Id);
             var cliente = clientes.GetValueOrDefault(pedido.PedidoFacturableId)?.ClienteNombre ?? "";
+            var e = entregas.GetValueOrDefault(a.Id);
+            var tpv = e?.CobroForma == "TPV";
+            var efectivo = e?.CobroForma == "Efectivo" ? e.CobroMonto ?? 0m : 0m;
+            var voucher = tpv ? e!.CobroMonto ?? 0m : 0m;
             lineas.Add(l is null
-                ? new LiquidacionLineaDto(a.Id, a.Folio, pedido.NumeroPedido, cliente, contra, esperado, false, 0m, 0m, null, esperado, false, avisados.Contains(a.Id))
+                ? new LiquidacionLineaDto(a.Id, a.Folio, pedido.NumeroPedido, cliente, contra, esperado, e is not null, efectivo, voucher, tpv ? e!.CobroReferencia : null, esperado - efectivo - voucher, false, avisados.Contains(a.Id))
                 : new LiquidacionLineaDto(a.Id, a.Folio, pedido.NumeroPedido, cliente, contra, l.Esperado, l.Firmado, l.Efectivo, l.Voucher, l.VoucherReferencia, l.Diferencia, l.Conciliado, avisados.Contains(a.Id)));
         }
         var cobrado = lineas.Sum(x => x.Efectivo + x.Voucher);

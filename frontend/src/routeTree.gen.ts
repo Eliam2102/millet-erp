@@ -64,6 +64,7 @@ import { Route as AppFacturacionIndexRouteImport } from './routes/_app/facturaci
 import { Route as AppFacturacionAyudaRouteImport } from './routes/_app/facturacion/ayuda';
 import { Route as AppFacturacionCajaRouteImport } from './routes/_app/facturacion/caja';
 import { Route as AppFacturacionCancelacionesRouteImport } from './routes/_app/facturacion/cancelaciones';
+import { Route as AppProductoTerminadoEntregasRouteImport } from './routes/_app/producto-terminado/entregas';
 import { Route as AppProductoTerminadoExcepcionesRouteImport } from './routes/_app/producto-terminado/excepciones';
 import { Route as AppProductoTerminadoHojasSalidaRouteImport } from './routes/_app/producto-terminado/hojas-salida';
 import { Route as AppProductoTerminadoLiquidacionRouteImport } from './routes/_app/producto-terminado/liquidacion';
@@ -524,6 +525,12 @@ const AppFacturacionCancelacionesRoute =
   AppFacturacionCancelacionesRouteImport.update({
     id: '/facturacion/cancelaciones',
     path: '/facturacion/cancelaciones',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppProductoTerminadoEntregasRoute =
+  AppProductoTerminadoEntregasRouteImport.update({
+    id: '/producto-terminado/entregas',
+    path: '/producto-terminado/entregas',
     getParentRoute: () => AppRoute,
   } as any);
 const AppProductoTerminadoExcepcionesRoute =
@@ -1538,6 +1545,7 @@ export interface FileRoutesByFullPath {
   '/facturacion/ayuda': typeof AppFacturacionAyudaRoute;
   '/facturacion/caja': typeof AppFacturacionCajaRoute;
   '/facturacion/cancelaciones': typeof AppFacturacionCancelacionesRoute;
+  '/producto-terminado/entregas': typeof AppProductoTerminadoEntregasRoute;
   '/producto-terminado/excepciones': typeof AppProductoTerminadoExcepcionesRoute;
   '/producto-terminado/hojas-salida': typeof AppProductoTerminadoHojasSalidaRoute;
   '/producto-terminado/liquidacion': typeof AppProductoTerminadoLiquidacionRoute;
@@ -1765,6 +1773,7 @@ export interface FileRoutesByTo {
   '/facturacion/ayuda': typeof AppFacturacionAyudaRoute;
   '/facturacion/caja': typeof AppFacturacionCajaRoute;
   '/facturacion/cancelaciones': typeof AppFacturacionCancelacionesRoute;
+  '/producto-terminado/entregas': typeof AppProductoTerminadoEntregasRoute;
   '/producto-terminado/excepciones': typeof AppProductoTerminadoExcepcionesRoute;
   '/producto-terminado/hojas-salida': typeof AppProductoTerminadoHojasSalidaRoute;
   '/producto-terminado/liquidacion': typeof AppProductoTerminadoLiquidacionRoute;
@@ -1994,6 +2003,7 @@ export interface FileRoutesById {
   '/_app/facturacion/ayuda': typeof AppFacturacionAyudaRoute;
   '/_app/facturacion/caja': typeof AppFacturacionCajaRoute;
   '/_app/facturacion/cancelaciones': typeof AppFacturacionCancelacionesRoute;
+  '/_app/producto-terminado/entregas': typeof AppProductoTerminadoEntregasRoute;
   '/_app/producto-terminado/excepciones': typeof AppProductoTerminadoExcepcionesRoute;
   '/_app/producto-terminado/hojas-salida': typeof AppProductoTerminadoHojasSalidaRoute;
   '/_app/producto-terminado/liquidacion': typeof AppProductoTerminadoLiquidacionRoute;
@@ -2223,6 +2233,7 @@ export interface FileRouteTypes {
     | '/facturacion/ayuda'
     | '/facturacion/caja'
     | '/facturacion/cancelaciones'
+    | '/producto-terminado/entregas'
     | '/producto-terminado/excepciones'
     | '/producto-terminado/hojas-salida'
     | '/producto-terminado/liquidacion'
@@ -2450,6 +2461,7 @@ export interface FileRouteTypes {
     | '/facturacion/ayuda'
     | '/facturacion/caja'
     | '/facturacion/cancelaciones'
+    | '/producto-terminado/entregas'
     | '/producto-terminado/excepciones'
     | '/producto-terminado/hojas-salida'
     | '/producto-terminado/liquidacion'
@@ -2678,6 +2690,7 @@ export interface FileRouteTypes {
     | '/_app/facturacion/ayuda'
     | '/_app/facturacion/caja'
     | '/_app/facturacion/cancelaciones'
+    | '/_app/producto-terminado/entregas'
     | '/_app/producto-terminado/excepciones'
     | '/_app/producto-terminado/hojas-salida'
     | '/_app/producto-terminado/liquidacion'
@@ -3249,6 +3262,13 @@ declare module '@tanstack/react-router' {
       path: '/facturacion/cancelaciones';
       fullPath: '/facturacion/cancelaciones';
       preLoaderRoute: typeof AppFacturacionCancelacionesRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/producto-terminado/entregas': {
+      id: '/_app/producto-terminado/entregas';
+      path: '/producto-terminado/entregas';
+      fullPath: '/producto-terminado/entregas';
+      preLoaderRoute: typeof AppProductoTerminadoEntregasRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/producto-terminado/excepciones': {
@@ -4514,6 +4534,7 @@ interface AppRouteChildren {
   AppFacturacionAyudaRoute: typeof AppFacturacionAyudaRoute;
   AppFacturacionCajaRoute: typeof AppFacturacionCajaRoute;
   AppFacturacionCancelacionesRoute: typeof AppFacturacionCancelacionesRoute;
+  AppProductoTerminadoEntregasRoute: typeof AppProductoTerminadoEntregasRoute;
   AppProductoTerminadoExcepcionesRoute: typeof AppProductoTerminadoExcepcionesRoute;
   AppProductoTerminadoHojasSalidaRoute: typeof AppProductoTerminadoHojasSalidaRoute;
   AppProductoTerminadoLiquidacionRoute: typeof AppProductoTerminadoLiquidacionRoute;
@@ -4740,6 +4761,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppFacturacionAyudaRoute: AppFacturacionAyudaRoute,
   AppFacturacionCajaRoute: AppFacturacionCajaRoute,
   AppFacturacionCancelacionesRoute: AppFacturacionCancelacionesRoute,
+  AppProductoTerminadoEntregasRoute: AppProductoTerminadoEntregasRoute,
   AppProductoTerminadoExcepcionesRoute: AppProductoTerminadoExcepcionesRoute,
   AppProductoTerminadoHojasSalidaRoute: AppProductoTerminadoHojasSalidaRoute,
   AppProductoTerminadoLiquidacionRoute: AppProductoTerminadoLiquidacionRoute,

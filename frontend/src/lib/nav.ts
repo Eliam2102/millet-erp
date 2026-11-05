@@ -1249,6 +1249,13 @@ const productoTerminado: NavModulo = {
           permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
         },
         {
+          label: 'Entregas',
+          description: 'Entrega al cliente desde el celular: firma o foto, parcial, rechazo en sitio y paso a 115 si ya está facturado.',
+          to: '/producto-terminado/entregas',
+          icon: Boxes,
+          permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
+        },
+        {
           label: 'Liquidación de ruta',
           description: 'Caja recibe del chofer albaranes firmados, efectivo y vouchers; lo que no cuadra queda con diferencia y la contra entrega sin liquidar se avisa a CxC.',
           to: '/producto-terminado/liquidacion',
