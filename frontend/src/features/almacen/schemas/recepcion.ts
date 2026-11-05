@@ -73,25 +73,62 @@ export const FilaRecepcionSchema = z
     motivoDano: z.string().max(500, 'Máximo 500 caracteres').nullish(),
     // F1-MP-01 S4 (E3): lote del proveedor. Obligatorio con medida (artículo ligado a A+W; el servidor revalida con LOTE_REQUERIDO).
     lote: z.string().max(50, 'Máximo 50 caracteres').nullish(),
+    // G-10: parte rechazada en el acto (no entra al inventario; el pendiente sigue en la OC). Dañado y rechazado exigen evidencia.
+    cantidadRechazada: z.number().nonnegative('La cantidad rechazada no puede ser negativa').optional(),
+    motivoRechazo: z.string().max(500, 'Máximo 500 caracteres').nullish(),
+    evidenciaBlobRef: z.string().max(500).nullish(),
+    evidenciaNombre: z.string().nullish(),
   })
   .superRefine((v, ctx) => {
     if (!v.incluida) return;
-    if (v.medida && !v.lote?.trim()) {
+    const rechazada = v.cantidadRechazada ?? 0;
+    // Partida rechazada por completo: no entra nada, así que no pide lote ni rack.
+    const soloRechazo = v.cantidad === 0 && rechazada > 0;
+    if (rechazada > 0 && !v.motivoRechazo?.trim()) {
+      ctx.addIssue({ code: 'custom', path: ['motivoRechazo'], message: 'Indica el motivo del rechazo.' });
+    }
+    if ((v.cantidadDanada > 0 || rechazada > 0) && !v.evidenciaBlobRef) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['evidenciaBlobRef'],
+        message: 'Adjunta una foto o documento como evidencia del daño o del rechazo.',
+      });
+    }
+    if (v.medida && !soloRechazo && !v.lote?.trim()) {
       ctx.addIssue({ code: 'custom', path: ['lote'], message: 'Captura el lote del proveedor.' });
     }
     if (v.medida) {
       const hojasMax = Math.floor(v.pendiente / v.medida.areaHojaM2 + 1e-6);
-      const mensaje = !Number.isInteger(v.cantidad) || v.cantidad <= 0
+      const mensaje = !Number.isInteger(v.cantidad) || (v.cantidad <= 0 && !soloRechazo)
         ? 'Con medida, captura la cantidad en hojas enteras.'
         : !Number.isInteger(v.cantidadDanada) || v.cantidadDanada > v.cantidad
           ? 'Las hojas dañadas son enteras y no pueden exceder las recibidas.'
-          : v.cantidad > hojasMax
-            ? `Excede lo pendiente de la orden de compra (${hojasMax} hojas). Almacén recibe exacto.`
-            : null;
+          : !Number.isInteger(rechazada)
+            ? 'Las hojas rechazadas son enteras.'
+            : v.cantidad + rechazada > hojasMax
+              ? `Excede lo pendiente de la orden de compra (${hojasMax} hojas). Almacén recibe exacto.`
+              : null;
       if (mensaje) {
         ctx.addIssue({ code: 'custom', path: ['cantidad'], message: mensaje });
         return;
       }
+    }
+    if (soloRechazo) {
+      if (v.cantidadDanada > 0) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['cantidadDanada'],
+          message: 'La cantidad dañada no puede ser mayor que la cantidad recibida.',
+        });
+      }
+      if (!v.medida && v.cantidad + rechazada > v.pendiente) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['cantidadRechazada'],
+          message: `Excede lo pendiente de la orden de compra (${Number(v.pendiente.toFixed(4))}).`,
+        });
+      }
+      return;
     }
     if (v.cantidad <= 0) {
       ctx.addIssue({
@@ -160,6 +197,13 @@ const alMenosUnaFilaIncluida = (
       path: ['filas'],
       message: 'Marca al menos una línea para recibir.',
     });
+  } else if (!v.filas.some((f) => f.incluida && f.cantidad > 0)) {
+    // G-10: el servidor tampoco registra una recepción donde todo se rechazó (RECEPCION_TODO_RECHAZADO).
+    ctx.addIssue({
+      code: 'custom',
+      path: ['filas'],
+      message: 'Todas las partidas están rechazadas: no hay recepción que registrar.',
+    });
   }
 };
 
@@ -184,6 +228,8 @@ export const RegistrarRecepcionFacturaSchema = z
     observaciones: z.string().max(500, 'Máximo 500 caracteres').nullish(),
     remision: RemisionSchema,
     motivoDuplicado: MotivoDuplicadoSchema,
+    // G-10: quién recibió físicamente (opcional; sin dato se imprime a quien capturó).
+    recibidoPorNombre: z.string().max(150, 'Máximo 150 caracteres').nullish(),
     // PR4: helper de cabecera — bin N4 que el almacenista auto-aplica a las
     // filas sin ubicación. Opcional; null = no usó el helper. No sustituye a
     // ubicacionId por fila (que sigue siendo el dato que manda).
@@ -220,6 +266,8 @@ export const RegistrarRecepcionPackingListSchema = z
     observaciones: z.string().max(500, 'Máximo 500 caracteres').nullish(),
     remision: RemisionSchema,
     motivoDuplicado: MotivoDuplicadoSchema,
+    // G-10: quién recibió físicamente (opcional; sin dato se imprime a quien capturó).
+    recibidoPorNombre: z.string().max(150, 'Máximo 150 caracteres').nullish(),
     // PR4: helper de cabecera (ver variante A).
     ubicacionHelperId: z.string().regex(UUID_SHAPE_RE).nullish(),
     filas: z.array(FilaRecepcionSchema),

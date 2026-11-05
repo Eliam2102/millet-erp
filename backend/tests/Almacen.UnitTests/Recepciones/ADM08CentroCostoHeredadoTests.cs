@@ -36,8 +36,8 @@ public sealed class ADM08CentroCostoHeredadoTests
         var port = new P1Fixture.RqPort(rq with { Lineas = [rq.Lineas[0] with { CentroCostoId = centroDepartamento }] });
         await new RegistrarSalidaConRequisicionHandler(f.Db, port, f.Events, f.Context, f.Context, f.Guard,
             new PeriodoContableStub(true), new P7Support.Conversion(), P7Support.Apartados(f.Db))
-            .Handle(new(f.DocumentoId, P1Fixture.Fecha, null, null,
-                [new(f.ArticuloId, f.LineaId, 1, Guid.NewGuid(), null, null, null, f.BinId)]), default);
+            .Handle(new(f.DocumentoId, P1Fixture.Fecha, Guid.NewGuid(), null,
+                [new(f.ArticuloId, f.LineaId, 1, Guid.NewGuid(), null, null, null, f.BinId)], "Quien recibe"), default);
         var linea = (await f.Db.Movimientos.Include(x => x.Lineas).SingleAsync()).Lineas.Single();
         Assert.Equal(centroDepartamento, linea.CentroCostoId);
     }

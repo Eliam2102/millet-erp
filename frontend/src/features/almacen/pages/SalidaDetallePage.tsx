@@ -120,6 +120,15 @@ export function SalidaDetallePage() {
             />
             <Campo label="Requisición" valor={query.data.rqFolio ?? '—'} mono={query.data.rqFolio != null} />
             <Campo label="Persona destinataria" valor={query.data.personaDestinatariaNombre ?? '—'} />
+            {query.data.acuseRecibeNombre && (
+              <Campo
+                label="Acuse de recibido"
+                valor={`${query.data.acuseRecibeNombre}${query.data.acuseRecibeAt ? ` · ${formatDateTime(query.data.acuseRecibeAt)}` : ''}`}
+              />
+            )}
+            {query.data.motivoUrgencia && (
+              <Campo label="Motivo de la urgencia" valor={query.data.motivoUrgencia} />
+            )}
             {query.data.esPorVale && query.data.valeBlobRef && (
               <Campo label="Vale escaneado" valor={query.data.valeBlobRef} mono />
             )}

@@ -53,6 +53,9 @@ public sealed class MovimientoInventarioConfiguration : IEntityTypeConfiguration
         builder.Property(x => x.PackingListBlobRef).HasMaxLength(500);
         builder.Property(x => x.Remision).HasMaxLength(50);
         builder.Property(x => x.MotivoDuplicado).HasMaxLength(500);
+        builder.Property(x => x.RecibidoPorNombre).HasMaxLength(150);
+        builder.Property(x => x.AcuseRecibeNombre).HasMaxLength(150);
+        builder.Property(x => x.MotivoUrgencia).HasMaxLength(500);
         builder.Property(x => x.RqId);
         builder.Property(x => x.ValeBlobRef).HasMaxLength(500);
         builder.Property(x => x.SalidaOrigenId);

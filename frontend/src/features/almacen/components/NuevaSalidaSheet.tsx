@@ -260,6 +260,7 @@ function NuevaSalidaFormBody({
             // Salida-por-línea C2: sin subAlmacenId — el backend lo deriva del bin.
             fechaMovimiento: v.fechaMovimiento,
             personaDestinatariaId: v.personaDestinatariaId ?? null,
+            acuseRecibeNombre: v.acuseRecibeNombre.trim(),
             observaciones: v.observaciones ?? null,
             lineas: lineasParaBackend,
           },
@@ -314,6 +315,8 @@ function NuevaSalidaFormBody({
           fechaMovimiento: v.fechaMovimiento,
           valeBlobRef: valeAdjunto.blobRef,
           personaDestinatariaId: v.personaDestinatariaId ?? null,
+          motivoUrgencia: v.motivoUrgencia.trim(),
+          acuseRecibeNombre: v.acuseRecibeNombre.trim(),
           observaciones: v.observaciones ?? null,
           lineas: v.lineas.map((l) => ({
             articuloId: l.articuloId,
@@ -463,7 +466,8 @@ function NuevaSalidaFormBody({
 
             <FormCampo span={6}>
               <Field
-                label="Persona destinataria (opcional)"
+                label="Persona destinataria"
+                required
                 error={form.formState.errors.personaDestinatariaId?.message}
               >
                 <Controller
@@ -478,6 +482,41 @@ function NuevaSalidaFormBody({
                 />
               </Field>
             </FormCampo>
+
+            <FormCampo span={6}>
+              <Field
+                label="Recibe (acuse)"
+                required
+                hint="Nombre de quien recibe el material; el ERP guarda la fecha y hora de la confirmación."
+                error={form.formState.errors.acuseRecibeNombre?.message}
+              >
+                <Controller
+                  name="acuseRecibeNombre"
+                  control={form.control}
+                  render={({ field }) => (
+                    <Input {...field} value={field.value ?? ''} maxLength={150} />
+                  )}
+                />
+              </Field>
+            </FormCampo>
+
+            {variante === 'B' && (
+              <FormCampo span={12}>
+                <Field
+                  label="Motivo de la urgencia"
+                  required
+                  error={form.formState.errors.motivoUrgencia?.message}
+                >
+                  <Controller
+                    name="motivoUrgencia"
+                    control={form.control}
+                    render={({ field }) => (
+                      <Input {...field} value={field.value ?? ''} maxLength={500} />
+                    )}
+                  />
+                </Field>
+              </FormCampo>
+            )}
           </FormSeccion>
 
           {variante === 'B' && (
@@ -1502,6 +1541,8 @@ type SalidaFormValues = {
   requisicionId?: string;
   fechaMovimiento: string;
   personaDestinatariaId?: string | null;
+  acuseRecibeNombre?: string;
+  motivoUrgencia?: string;
   observaciones?: string | null;
   valeBlobRef?: string;
   // PR5 (variante A): bin de cabecera que auto-aplica a las filas vacías con
@@ -1530,6 +1571,7 @@ function defaultValuesParaVariante(variante: Variante, hoyIso: string): SalidaFo
   const base: SalidaFormValues = {
     fechaMovimiento: hoyIso,
     personaDestinatariaId: null,
+    acuseRecibeNombre: '',
     observaciones: null,
   };
   if (variante === 'A') {
@@ -1538,6 +1580,7 @@ function defaultValuesParaVariante(variante: Variante, hoyIso: string): SalidaFo
   return {
     ...base,
     valeBlobRef: '',
+    motivoUrgencia: '',
     ubicacionHelperId: null,
     lineas: [
       {

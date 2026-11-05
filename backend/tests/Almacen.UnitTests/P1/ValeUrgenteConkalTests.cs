@@ -22,7 +22,7 @@ public sealed class ValeUrgenteConkalTests
         var h = new RegistrarSalidaPorValeHandler(f.Db, f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true),
             new P1Fixture.Calendario(), new P1Fixture.Centros(), new P7Support.Conversion(), P7Support.Apartados(f.Db));
 
-        await h.Handle(new(P1Fixture.Fecha, "vale.pdf", null, null, [new(f.ArticuloId, null, 1, Guid.NewGuid(), null, null, null, f.BinId)]), default);
+        await h.Handle(new(P1Fixture.Fecha, "vale.pdf", Guid.NewGuid(), null, [new(f.ArticuloId, null, 1, Guid.NewGuid(), null, null, null, f.BinId)], "Falla de la línea", "Quien recibe"), default);
 
         var vale = await f.Db.Movimientos.SingleAsync();
         vale.PendienteRegularizacion.Should().BeTrue();
