@@ -23,7 +23,9 @@ public sealed record BandejaFacturasQuery(
     int Offset,
     int Limit,
     bool SoloSinAsignar = false,
-    ClasePedidoManual? Clase = null) : IRequest<BandejaFacturasResponse>;
+    ClasePedidoManual? Clase = null,
+    // U-1 (86e3yxn2p): solo facturas con una NC pendiente de timbrar.
+    bool SoloNcPendiente = false) : IRequest<BandejaFacturasResponse>;
 
 public sealed record BandejaFacturasResponse(
     IReadOnlyList<FacturaBandejaItem> Items,
@@ -43,7 +45,9 @@ public sealed record FacturaBandejaItem(
     // manual clasificado (A+W, Planta Pintura, sin pedido o legacy).
     string? ClaseManual = null,
     string? SubtipoVentaDirecta = null,
-    bool EsEmergencia = false);
+    bool EsEmergencia = false,
+    // U-1: la factura tiene una NC (ranura o anticipo) pendiente de timbrar.
+    bool NotaCreditoPendiente = false);
 
 public sealed class BandejaFacturasHandler
     : IRequestHandler<BandejaFacturasQuery, BandejaFacturasResponse>
@@ -70,6 +74,10 @@ public sealed class BandejaFacturasHandler
             q = q.Where(f => _db.PedidosFacturables.Any(p =>
                 p.Id == f.PedidoFacturableId && p.Origen == OrigenPedido.Manual && p.ClaseManual == clase));
 
+        if (query.SoloNcPendiente)
+            q = q.Where(f => _db.NotasCredito.Any(n => n.FacturaRelacionadaId == f.Id
+                && (n.Estado == EstadoTimbrado.TimbradoFallido || n.Estado == EstadoTimbrado.TimbradoEnProceso)));
+
         (q, var sinAsignarCount) = await AlcanceBandejaHelper.AplicarAsync(
             _alcance, q, query.SoloSinAsignar, cancellationToken);
 
@@ -91,6 +99,8 @@ public sealed class BandejaFacturasHandler
                     Origen = p == null ? (OrigenPedido?)null : p.Origen,
                     ClaseManual = p == null ? null : p.ClaseManual,
                     SubtipoVentaDirecta = p == null ? null : p.SubtipoVentaDirecta,
+                    NcPendiente = _db.NotasCredito.Any(n => n.FacturaRelacionadaId == f.Id
+                        && (n.Estado == EstadoTimbrado.TimbradoFallido || n.Estado == EstadoTimbrado.TimbradoEnProceso)),
                 })
             .ToListAsync(cancellationToken);
 
@@ -103,7 +113,8 @@ public sealed class BandejaFacturasHandler
                     r.ReceptorRfc, r.Total, r.Moneda, r.FechaTimbrado,
                     clase?.ToString(),
                     clase is null ? null : r.SubtipoVentaDirecta?.ToString(),
-                    clase == ClasePedidoManual.Emergencia);
+                    clase == ClasePedidoManual.Emergencia,
+                    r.NcPendiente);
             })
             .ToList();
 

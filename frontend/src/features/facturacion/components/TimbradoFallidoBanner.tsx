@@ -43,12 +43,18 @@ export interface TimbradoFallidoBannerProps {
   estado: string;
   errorCodigo: string | null;
   errorMensaje: string | null;
+  /**
+   * U-1: el comprobante es una NC pendiente ligada a una factura ya timbrada.
+   * Cambia el texto del descarte: la factura sigue vigente sin esa NC.
+   */
+  esNotaCreditoPendiente?: boolean;
 }
 
 export function TimbradoFallidoBanner({
   comprobanteId,
   estado,
   errorCodigo,
+  esNotaCreditoPendiente = false,
 }: TimbradoFallidoBannerProps) {
   const puedeReintentar = useHasPermission(
     PermisosCanonicos.FacturacionComprobantesReintentarTimbrado,
@@ -187,11 +193,22 @@ export function TimbradoFallidoBanner({
           <AlertDialogHeader>
             <AlertDialogTitle>¿Descartar este comprobante?</AlertDialogTitle>
             <AlertDialogDescription>
-              Es definitivo: el comprobante ya no podrá reintentarse y su folio interno queda
-              consumido (hueco consciente en el consecutivo). Si venía de un pedido, el pedido
-              vuelve a quedar facturable. Úsalo cuando el documento ya no deba emitirse (pedido
-              cancelado en origen, captura errónea de raíz) — para corregir datos y volver a timbrar
-              usa &quot;Reintentar timbrado&quot;.
+              {esNotaCreditoPendiente ? (
+                <>
+                  Es definitivo: la nota de crédito ya no podrá reintentarse y su folio interno queda
+                  consumido (hueco consciente en el consecutivo). La factura queda vigente sin esta
+                  nota de crédito y su saldo por cobrar sigue completo. Para volver a intentar el
+                  timbre usa &quot;Reintentar timbrado&quot;.
+                </>
+              ) : (
+                <>
+                  Es definitivo: el comprobante ya no podrá reintentarse y su folio interno queda
+                  consumido (hueco consciente en el consecutivo). Si venía de un pedido, el pedido
+                  vuelve a quedar facturable. Úsalo cuando el documento ya no deba emitirse (pedido
+                  cancelado en origen, captura errónea de raíz) — para corregir datos y volver a
+                  timbrar usa &quot;Reintentar timbrado&quot;.
+                </>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

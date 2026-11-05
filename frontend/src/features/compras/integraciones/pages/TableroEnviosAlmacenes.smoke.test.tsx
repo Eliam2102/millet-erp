@@ -19,19 +19,14 @@ const recibida = {
   compraIdAlmacenes: '1',
   datos: { folio: 'OC-MID2026-000050', lineas: [{ lineaErp: '1', articuloAw: 41036, piezas: 50, lote: 'VF6-2611-A' }] },
 };
-const entrada = {
+const modificada = {
   ...base, id: 'e-2', secuencia: 2, mensajeId: 'ERP-OC-MID2026-000050-M1', tipo: 'COMPRA_MODIFICADA', estado: 'ERROR',
   ultimoError: 'Transporte simulado: falla',
-  datos: {
-    folio: 'OC-MID2026-000050', lineas: [],
-    recepciones: [{ folio: 'EC-000012', fecha: '2026-11-05',
-      importacion: { pedimento: '26 47 3456 6001234', bl: 'MAEU123456', contenedor: 'MSCU1234567', aduana: '470', clavePedimento: 'A1' },
-      lineas: [{ lineaErp: '1', piezas: 48, lote: 'VF6-2611-A', rack: 'R-A01', fraccion: '70051001' }] }],
-  },
+  datos: { folio: 'OC-MID2026-000050', lineas: [{ lineaErp: '1', articuloAw: 41036, ancho: 3302, alto: 6100, piezas: 48, lote: 'VF6-2611-A', pedimento: '26 47 3456 6001234' }] },
 };
 
 beforeEach(() => {
-  mswServer.use(http.get('*/api/v1/compras/integraciones/alm-compra/envios', () => HttpResponse.json([entrada, recibida])));
+  mswServer.use(http.get('*/api/v1/compras/integraciones/alm-compra/envios', () => HttpResponse.json([modificada, recibida])));
   useAuthStore.setState({
     status: 'authenticated', accessToken: 't', expiresAt: new Date(Date.now() + 3600_000),
     user: { id: 'u', email: 't@e.com', nombre: 'T' }, empresas: [], currentEmpresaId: 'e',
@@ -41,7 +36,7 @@ beforeEach(() => {
 afterEach(() => useAuthStore.setState({ status: 'idle', accessToken: null, expiresAt: null, user: null, empresas: [], currentEmpresaId: null, permisos: [], errorMessage: null }));
 
 describe('<TableroEnviosAlmacenes>', () => {
-  it('muestra hojas, lote, rack e importación y reintenta solo lo que falló', async () => {
+  it('muestra hojas, lote y pedimento (sin recepción ni rack) y reintenta solo lo que falló', async () => {
     const reintentos: string[] = [];
     mswServer.use(http.post('*/api/v1/compras/integraciones/alm-compra/envios/:id/reintentar', ({ params, request }) => {
       reintentos.push(`${params.id}:${request.headers.get('Idempotency-Key') ? 'idem' : 'sin-key'}`);
@@ -52,12 +47,11 @@ describe('<TableroEnviosAlmacenes>', () => {
     expect(screen.getAllByRole('button', { name: 'Reintentar' })).toHaveLength(1);
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Qué recibe A+W' })[0]);
-    const fila = await screen.findByTestId('fila-recepcion');
-    expect(fila).toHaveTextContent('48');
-    expect(fila).toHaveTextContent('VF6-2611-A');
-    expect(fila).toHaveTextContent('R-A01');
-    expect(screen.getByTestId('importacion')).toHaveTextContent('BL MAEU123456');
-    expect(screen.getByTestId('importacion')).toHaveTextContent('fracción 70051001');
+    const fila = await screen.findByText('3302 × 6100');
+    expect(fila.closest('tr')).toHaveTextContent('VF6-2611-A');
+    expect(fila.closest('tr')).toHaveTextContent('26 47 3456 6001234');
+    expect(screen.queryByText('Rack')).toBeNull();
+    expect(screen.queryByTestId('fila-recepcion')).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
     await waitFor(() => expect(reintentos).toEqual(['e-2:idem']));

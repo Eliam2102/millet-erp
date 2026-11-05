@@ -3,7 +3,6 @@ using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Compras.Domain;
 using Millet.Compras.Domain.AlmCompra;
 using Millet.Compras.Domain.Oc;
-using Millet.Compras.Domain.Ports.Almacen;
 using Millet.Compras.Infrastructure;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
@@ -23,7 +22,7 @@ namespace Millet.Compras.Application.Integration.AlmCompra;
 /// de cancelar deja la OC en espera y encola COMPRA_CANCELADA; el resultado lo aplica el procesador al llegar el acuse.
 /// </para>
 /// </summary>
-public sealed class AlmCompraEncolador(ComprasDbContext db, CompartidoDbContext maestros, IClock clock, IRecepcionesAwReadPort recepcionesAw)
+public sealed class AlmCompraEncolador(ComprasDbContext db, CompartidoDbContext maestros, IClock clock)
 {
     /// <summary>OC autorizada: COMPRA_RECIBIDA; si ya se mandó una (reautorización tras reabrir), COMPRA_MODIFICADA si cambió algo.</summary>
     public async Task OcAutorizadaAsync(Guid ocId, CancellationToken ct)
@@ -34,20 +33,16 @@ public sealed class AlmCompraEncolador(ComprasDbContext db, CompartidoDbContext 
         await EncolarCompraAsync(oc, previos, recibida ? AlmCompraEnvio.TipoModificada : AlmCompraEnvio.TipoRecibida, ct);
     }
 
-    /// <summary>Pedimento (o BL, ETA, agente) editado en una OC autorizada: COMPRA_MODIFICADA completa, solo si ya se mandó la compra y hay cambio.</summary>
+    /// <summary>
+    /// Pedimento (o BL, ETA, agente) editado en una OC autorizada: COMPRA_MODIFICADA completa, solo si ya se mandó la compra y hay cambio.
+    /// Ventana (TI, 5-nov): solo hasta la entrada; ver <see cref="EncolarCompraAsync"/>.
+    /// </summary>
     public async Task PedimentoActualizadoAsync(Guid ocId, CancellationToken ct)
     {
         var (oc, previos) = await CargarAsync(ocId, ct);
         if (oc is null || !EstaEnAlmacenes(previos)) return;
         await EncolarCompraAsync(oc, previos, AlmCompraEnvio.TipoModificada, ct);
     }
-
-    /// <summary>
-    /// Entrada confirmada en el ERP (CA13.8, CA3.10, CA12.2): COMPRA_MODIFICADA completa con las entradas (hojas, lote, rack y, en
-    /// importación, pedimento, BL, contenedor, aduana, clave y fracción). Solo si la compra ya se mandó. Supuesto de C3.2: v6 solo define
-    /// COMPRA_RECIBIDA al crear la compra; este bloque es aditivo y espera el visto bueno por escrito de Jorge.
-    /// </summary>
-    public Task RecepcionConfirmadaAsync(Guid ocId, CancellationToken ct) => PedimentoActualizadoAsync(ocId, ct);
 
     /// <summary>
     /// ¿La compra ya se mandó a Almacenes y sigue viva allá? Sí si hay un COMPRA_RECIBIDA armado y no rechazado, sin una
@@ -75,8 +70,24 @@ public sealed class AlmCompraEncolador(ComprasDbContext db, CompartidoDbContext 
             return AlmCompraSobre.Armar(e.MensajeId, e.Tipo, clock.UtcNow, e.Referencia, AlmCompraSobre.DatosCancelada(oc.Folio.Valor,
                 oc.SolicitudesCancelacion.OrderBy(x => x.FechaSolicitud).LastOrDefault()?.MotivoSolicitud ?? oc.MotivoCancelacion));
         var datos = await ConstruirDatosAsync(oc, ct);
+        if (datos is not null && e.Tipo == AlmCompraEnvio.TipoModificada)
+        {
+            if (FueraDeVentana(oc))
+                throw new BusinessRuleException("ALM_COMPRA_MODIFICADA_FUERA_DE_VENTANA", "La compra ya tiene recepción; Almacenes solo acepta COMPRA_MODIFICADA hasta la entrada.");
+            ValidarCamposFijos(await db.AlmCompraEnvios.AsNoTracking().Where(x => x.OrdenCompraId == oc.Id).ToListAsync(ct), datos);
+        }
         return datos is null ? null
             : AlmCompraSobre.Armar(e.MensajeId, e.Tipo, clock.UtcNow, e.Referencia, AlmCompraSobre.DatosCompra(datos));
+    }
+
+    private static bool FueraDeVentana(OrdenCompra oc) => oc.Lineas.Any(l => l.CantidadRecibida > 0);
+
+    private static void ValidarCamposFijos(List<AlmCompraEnvio> previos, AlmCompraDatos datos)
+    {
+        var recibida = previos.FirstOrDefault(p => p.Tipo == AlmCompraEnvio.TipoRecibida && p.Sobre.Length > 0);
+        if (recibida is not null && AlmCompraSobre.CampoFijoDistinto(recibida.Sobre, datos) is { } campo)
+            throw new BusinessRuleException("ALM_COMPRA_MODIFICADA_CAMPO_FIJO",
+                $"Almacenes no acepta cambiar {campo} en una COMPRA_MODIFICADA (debe coincidir con la compra mandada).");
     }
 
     private static bool EstaEnAlmacenes(List<AlmCompraEnvio> previos) =>
@@ -100,6 +111,10 @@ public sealed class AlmCompraEncolador(ComprasDbContext db, CompartidoDbContext 
             if (datos is null) return; // la OC no tiene materia prima
             if (tipo == AlmCompraEnvio.TipoModificada)
             {
+                // Ventana (TI, 5-nov): COMPRA_MODIFICADA solo hasta la entrada. Con recepción en el ERP ya no se manda (Almacenes
+                // acusaría ERROR y detendría la referencia). Lo que Almacenes cerró por su lado lo decide su acuse.
+                if (FueraDeVentana(oc)) return;
+                ValidarCamposFijos(previos, datos);
                 var ultimo = previos.LastOrDefault(p => p.Tipo != AlmCompraEnvio.TipoCancelada && p.Sobre.Length > 0);
                 if (ultimo is not null && AlmCompraSobre.TraeLosMismosDatos(ultimo.Sobre, datos)) return;
             }
@@ -170,28 +185,6 @@ public sealed class AlmCompraEncolador(ComprasDbContext db, CompartidoDbContext 
                 l.LoteProveedor, AlmCompraSobre.FormatoPedimento(oc.InfoImportNumeroPedimento), null, costoM2, costoPieza));
         }
         return new AlmCompraDatos(oc.Folio.Valor, claveAw, proveedor.RazonSocial, oc.Moneda, oc.TipoCambio,
-            oc.FechaDocumento, AlmCompraSobre.AgruparMedidaGirada(lineas), await RecepcionesAsync(oc, mp, ct));
-    }
-
-    /// <summary>Entradas confirmadas de las líneas que son materia prima, en hojas; <c>null</c> si no hay ninguna.</summary>
-    private async Task<IReadOnlyList<AlmCompraRecepcion>?> RecepcionesAsync(OrdenCompra oc, List<LineaOrdenCompra> mp, CancellationToken ct)
-    {
-        var recepciones = new List<AlmCompraRecepcion>();
-        foreach (var r in await recepcionesAw.ListarPorOcAsync(oc.Id, ct))
-        {
-            var filas = new List<AlmCompraRecepcionLinea>();
-            foreach (var x in r.Lineas)
-            {
-                if (mp.FirstOrDefault(l => l.Id == x.LineaOcId) is not { } l) continue;
-                var (piezas, _, _, _) = AlmCompraSobre.Calcular(l.UnidadMedida, x.Cantidad, 0m, 0m, l.AnchoMm, l.AltoMm);
-                filas.Add(new AlmCompraRecepcionLinea(l.Posicion.ToString(), piezas, x.Lote ?? l.LoteProveedor, x.Rack, x.FraccionArancelaria));
-            }
-            if (filas.Count == 0) continue;
-            var i = r.Importacion;
-            recepciones.Add(new AlmCompraRecepcion(r.Folio, r.Fecha,
-                i is null ? null : new AlmCompraImportacion(AlmCompraSobre.FormatoPedimento(i.NumeroPedimento)!, i.NumeroBl, i.NumeroContenedor, i.Aduana, i.ClavePedimento),
-                filas));
-        }
-        return recepciones.Count == 0 ? null : recepciones;
+            oc.FechaDocumento, AlmCompraSobre.AgruparMedidaGirada(lineas));
     }
 }

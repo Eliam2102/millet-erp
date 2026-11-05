@@ -58,7 +58,16 @@ public sealed record ComprobanteDetalleResponse(
     // sustituta, la original y, si el Contador General no autorizó, el motivo del rechazo.
     SustitucionReferencia? SustituidaPor = null,
     SustitucionReferencia? SustituyeA = null,
-    string? SustitucionRechazadaMotivo = null);
+    string? SustitucionRechazadaMotivo = null,
+    // U-1 (86e3yxn2p): NC ligadas a la factura que no quedaron timbradas (ranura o
+    // amortización). Mientras haya alguna, la factura muestra «nota de crédito
+    // pendiente» y no acreditan: el por cobrar sigue siendo la factura completa.
+    IReadOnlyList<NotaCreditoPendienteDetalle>? NotasCreditoPendientes = null);
+
+/// <summary>U-1: NC pendiente de timbrar ligada a la factura, con el motivo del PAC.</summary>
+public sealed record NotaCreditoPendienteDetalle(
+    Guid Id, string Folio, string Motivo, decimal Total, string Estado,
+    string? TimbradoErrorCodigo, string? TimbradoErrorMensaje, int Version);
 
 /// <summary>Factura del otro lado de una sustitución (FAC-08b).</summary>
 public sealed record SustitucionReferencia(Guid Id, string Folio, string? Uuid, string Estado);
@@ -174,6 +183,15 @@ public sealed class ComprobanteDetalleHandler
                 ReembolsoReferencia: n.ReembolsoReferencia, ReembolsoMotivoResolucion: n.ReembolsoMotivoResolucion))
             .ToList();
         var totalAcreditado = ncAplicadas.Sum(n => n.Total);
+        var ncPendientes = (await _db.NotasCredito.AsNoTracking()
+                .Where(n => n.FacturaRelacionadaId == f.Id
+                    && (n.Estado == EstadoTimbrado.TimbradoFallido || n.Estado == EstadoTimbrado.TimbradoEnProceso))
+                .OrderBy(n => n.FolioNumero)
+                .Select(n => new { n.Id, n.Folio, n.Motivo, n.Total, n.Estado, n.TimbradoErrorCodigo, n.TimbradoErrorMensaje, n.Version })
+                .ToListAsync(cancellationToken))
+            .Select(n => new NotaCreditoPendienteDetalle(n.Id, n.Folio, n.Motivo.ToString(), n.Total, n.Estado.ToString(),
+                n.TimbradoErrorCodigo, n.TimbradoErrorMensaje, n.Version))
+            .ToList();
 
         // Solo el cobro Registrado descuenta; cancelarlo restaura el saldo.
         var cobro = f.MetodoPago == "PUE"
@@ -250,7 +268,8 @@ public sealed class ComprobanteDetalleHandler
             TotalKg: f.TotalKg, TotalPie2: f.TotalPie2, TotalPiezas: f.TotalPiezas,
             NoCertificadoEmisor: f.NoCertificadoEmisor, CadenaOriginalTimbre: f.CadenaOriginalTimbre,
             ClienteId: await Integration.ClienteContableFacturacion.ResolverAsync(_db, f, cancellationToken),
-            SustituidaPor: sustituidaPor, SustituyeA: sustituyeA, SustitucionRechazadaMotivo: sustitucionRechazada);
+            SustituidaPor: sustituidaPor, SustituyeA: sustituyeA, SustitucionRechazadaMotivo: sustitucionRechazada,
+            NotasCreditoPendientes: ncPendientes);
     }
 
     /// <summary>FAC-08b: motivo con el que no se autorizó cancelar la original por la sustituta, si así fue.</summary>

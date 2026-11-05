@@ -300,6 +300,16 @@ public sealed class ReintentarTimbradoHandler
 
         if (nc.Estado == EstadoTimbrado.Timbrado)
         {
+            // U-1 (86e3yxn2p): la NC de amortización que quedó pendiente al emitir la
+            // factura dejó el importe comprometido; timbrada, ya amortiza el anticipo.
+            if (nc.Motivo == MotivoNotaCredito.Amortizacion
+                && nc.AnticipoOrigenId is Guid anticipoId && nc.FacturaRelacionadaId is Guid facturaId)
+            {
+                var anticipo = await _db.Anticipos.Include(a => a.Vinculaciones)
+                    .FirstOrDefaultAsync(a => a.Id == anticipoId, ct);
+                if (anticipo is not null && anticipo.Vinculaciones.Any(v => v.FacturaVentaId == facturaId && v.NcAmortizacionId is null))
+                    anticipo.RegistrarAmortizacion(facturaId, nc.Id, nc.Total, ahora);
+            }
             await _eventos.PublishAsync(EventosContablesFacturacion.NotaCreditoTimbrada(
                 nc, ahora, clienteId: await ClienteContableFacturacion.ResolverAsync(_db, nc, ct)), ct);
             // F6.3: el reembolso programado al emitir sale cuando por fin queda timbrada.
