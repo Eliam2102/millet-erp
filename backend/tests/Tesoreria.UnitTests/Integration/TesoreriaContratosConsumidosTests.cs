@@ -49,7 +49,7 @@ public sealed class TesoreriaContratosConsumidosTests
             NumeroFacturas: 2,
             Facturas:
             [
-                new PropuestaAplicacionFacturaDetalle(facturaA, "VEN-101", 5_000m),
+                new PropuestaAplicacionFacturaDetalle(facturaA, "VEN-101", 5_000m, 0m),
                 new PropuestaAplicacionFacturaDetalle(facturaB, "VEN-102", 2_510m),
             ]);
 
@@ -60,7 +60,7 @@ public sealed class TesoreriaContratosConsumidosTests
             evento.DepositoRef, evento.MontoDeposito, evento.Moneda, evento.AjusteNoFiscal,
             evento.NumeroFacturas,
             [
-                new PropuestaFacturaPayload(facturaA, "VEN-101", 5_000m),
+                new PropuestaFacturaPayload(facturaA, "VEN-101", 5_000m, 0m),
                 new PropuestaFacturaPayload(facturaB, "VEN-102", 2_510m),
             ]));
 
