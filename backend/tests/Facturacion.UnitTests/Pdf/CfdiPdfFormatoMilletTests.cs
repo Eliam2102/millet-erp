@@ -9,6 +9,7 @@ using Millet.Facturacion.Domain.NotasCredito;
 using Millet.Facturacion.Domain.Ports;
 using Millet.Facturacion.Infrastructure.Pdf;
 using Millet.Facturacion.Infrastructure.Pdf.CfdiMillet;
+using Millet.SharedKernel.Application.Exceptions;
 using Xunit;
 
 namespace Millet.Facturacion.UnitTests.Pdf;
@@ -95,6 +96,37 @@ public sealed class CfdiPdfFormatoMilletTests
         m.TotalesFisicos.Should().Be(new TotalesFisicosPdf(0, 0, 1));
         m.Impuestos.Should().ContainSingle().Which.Nombre.Should().Be("002 IVA");
         m.NombreArchivo.Should().Be("nota-credito-DEMON-000301.pdf");
+    }
+
+    [Fact]
+    public void Nota_de_credito_imprime_los_comentarios_libres_debajo_del_motivo()
+    {
+        var nc = NotaCredito.CrearAmortizacion(Empresa, "DEMON-000302", 302, Sucursal, null, null, Receptor, Emisor,
+            "03", "MXN", null, 2026, 10, null, Guid.NewGuid(), Guid.NewGuid(), 1160, 0.16m);
+        nc.FijarComentarios("  Aplica al pedido PED-77 de la obra Torre Norte.  ");
+        Timbrar(nc, "00000000-0000-4000-8000-000000000302");
+
+        var m = CfdiPdfModelBuilder.DesdeNotaCredito(nc, Datos);
+
+        m.Comentarios.Should().Be(
+            "Motivo / Reason: Aplicación de anticipo / Advance payment application\nAplica al pedido PED-77 de la obra Torre Norte.");
+        NotaCreditoAmortizacion().Comentarios.Should().BeNull();
+        CfdiPdfModelBuilder.DesdeNotaCredito(NotaCreditoAmortizacion(), Datos).Comentarios
+            .Should().Be("Motivo / Reason: Aplicación de anticipo / Advance payment application");
+    }
+
+    [Fact]
+    public void Comentarios_de_nota_de_credito_no_cambian_despues_de_timbrar_ni_pasan_de_1000()
+    {
+        var nc = NotaCredito.CrearAmortizacion(Empresa, "DEMON-000303", 303, Sucursal, null, null, Receptor, Emisor,
+            "03", "MXN", null, 2026, 10, null, Guid.NewGuid(), Guid.NewGuid(), 1160, 0.16m);
+
+        nc.Invoking(n => n.FijarComentarios(new string('x', NotaCredito.ComentariosMaxLength + 1)))
+            .Should().Throw<BusinessRuleException>().Which.Code.Should().Be("NC_COMENTARIOS_LARGOS");
+
+        Timbrar(nc, "00000000-0000-4000-8000-000000000303");
+        nc.Invoking(n => n.FijarComentarios("tarde"))
+            .Should().Throw<BusinessRuleException>().Which.Code.Should().Be("NC_INMUTABLE");
     }
 
     [Fact]

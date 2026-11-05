@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/erp/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { TextAreaField } from '@/components/erp/forms/TextAreaField';
 import { Label } from '@/components/ui/label';
 import {
   Table,
@@ -701,6 +702,7 @@ function AplicarAnticipoForm({
 }) {
   const [anticipo, setAnticipo] = useState<AnticipoEstadoCuenta | null>(null);
   const [importe, setImporte] = useState('');
+  const [comentarios, setComentarios] = useState<string | null>(null);
   const idempotencyKey = useFormIdempotencyKey();
   const aplicar = useAplicarAnticipoAFactura(facturaId);
   const tope = anticipo ? Math.min(anticipo.saldo, porCobrar) : porCobrar;
@@ -721,7 +723,7 @@ function AplicarAnticipoForm({
       return;
     }
     aplicar.mutate(
-      { anticipoId: anticipo.anticipoId, importe: monto, idempotencyKey },
+      { anticipoId: anticipo.anticipoId, importe: monto, comentarios, idempotencyKey },
       {
         onSuccess: (res) => {
           toast.success(`Anticipo aplicado con la NC ${res.folio} por ${res.importe.toFixed(2)}.`);
@@ -762,6 +764,18 @@ function AplicarAnticipoForm({
         />
       </div>
       <p className="self-end text-xs text-ink-muted">Por cobrar: {porCobrar.toFixed(2)}</p>
+      <div className="sm:col-span-4">
+        <Label className="text-xs" htmlFor="aplicar-anticipo-comentarios">
+          Comentarios (se imprimen en la nota de crédito)
+        </Label>
+        <TextAreaField
+          value={comentarios}
+          onChange={setComentarios}
+          minRows={2}
+          maxLength={1000}
+          textareaProps={{ id: 'aplicar-anticipo-comentarios' }}
+        />
+      </div>
       <div className="sm:col-span-4 flex justify-end gap-2">
         <Button variant="ghost" size="sm" onClick={onDone} disabled={aplicar.isPending}>
           Cancelar
@@ -788,6 +802,7 @@ function NcBonificacionForm({
   const [montoTotal, setMontoTotal] = useState('');
   const [tasaIva, setTasaIva] = useState('0.16');
   const [descripcion, setDescripcion] = useState('');
+  const [comentarios, setComentarios] = useState<string | null>(null);
   // F6.3: «Devolver dinero al cliente» con la cuenta destino; al timbrar, la solicitud llega a Tesorería.
   const [devolver, setDevolver] = useState(false);
   const [banco, setBanco] = useState('');
@@ -813,6 +828,7 @@ function NcBonificacionForm({
           montoTotal: monto,
           tasaIva: tasaIva.trim() === '' ? null : Number(tasaIva),
           descripcion: descripcion.trim() || null,
+          comentarios,
           reembolso: devolver
             ? { banco: banco.trim(), clabe: clabe.trim(), titular: titular.trim() }
             : null,
@@ -867,6 +883,18 @@ function NcBonificacionForm({
       <div className="sm:col-span-2">
         <Label className="text-xs">Descripción</Label>
         <Input value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
+      </div>
+      <div className="sm:col-span-4">
+        <Label className="text-xs" htmlFor="nc-bonificacion-comentarios">
+          Comentarios (se imprimen en la nota de crédito)
+        </Label>
+        <TextAreaField
+          value={comentarios}
+          onChange={setComentarios}
+          minRows={2}
+          maxLength={1000}
+          textareaProps={{ id: 'nc-bonificacion-comentarios' }}
+        />
       </div>
       {puedeReembolsar && (
         <div className="sm:col-span-4 flex items-center gap-2">
