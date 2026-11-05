@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest, esConflictoConcurrencia, useBodyScopedIdempotencyKey } from '@/lib/api';
 import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialog-context';
-import type { EscaneoDto, EscaneosPagina, PiezasPagina, ResultadoEscaneo, SalidasPendientesPagina } from './types';
+import type { EscaneoDto, EscaneosPagina, PiezasPagina, ResultadoEscaneo, SalidasPendientesPagina, TraspasoDto, TraspasosPagina } from './types';
 
 const BASE = '/api/v1/producto-terminado';
 
@@ -70,5 +70,46 @@ export function useSalidasPendientes(f: {
     queryFn: async ({ signal }) =>
       (await apiRequest<SalidasPendientesPagina>(`${BASE}/salidas-pendientes${qs(f)}`, { signal })).data,
     refetchInterval: 60_000,
+  });
+}
+
+export function useTraspasos(f: { estado?: string; page?: number; pageSize?: number }) {
+  return useQuery({
+    queryKey: [...ptKeys.all, 'traspasos', f],
+    queryFn: async ({ signal }) =>
+      (await apiRequest<TraspasosPagina>(`${BASE}/traspasos${qs(f)}`, { signal })).data,
+  });
+}
+
+export function useTraspaso(id: string | null) {
+  return useQuery({
+    queryKey: [...ptKeys.all, 'traspaso', id],
+    enabled: id !== null,
+    queryFn: async ({ signal }) => (await apiRequest<TraspasoDto>(`${BASE}/traspasos/${id}`, { signal })).data,
+  });
+}
+
+export function useCrearTraspaso() {
+  const qc = useQueryClient();
+  const keyFor = useBodyScopedIdempotencyKey();
+  return useMutation({
+    mutationFn: (body: { sucursalOrigenId: string; sucursalDestinoId: string; etiquetas: string[] }) =>
+      apiRequest<TraspasoDto>(`${BASE}/traspasos`, { method: 'POST', body, idempotencyKey: keyFor(body) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.all }),
+  });
+}
+
+/** `piezaIds` ausente = recepción total; una lista parcial deja la diferencia pendiente. */
+export function useRecibirTraspaso() {
+  const qc = useQueryClient();
+  const keyFor = useBodyScopedIdempotencyKey();
+  return useMutation({
+    mutationFn: ({ id, piezaIds }: { id: string; piezaIds?: string[] }) =>
+      apiRequest<TraspasoDto>(`${BASE}/traspasos/${id}/recibir`, {
+        method: 'POST',
+        body: piezaIds ? { piezaIds } : undefined,
+        idempotencyKey: keyFor({ id, piezaIds }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.all }),
   });
 }

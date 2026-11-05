@@ -20,7 +20,7 @@ import type { AvancePosicionDto } from '../api/types';
 import { textoMotivoPedido } from '../lib/motivos-ui';
 
 const PAGE_SIZE = 25;
-const columnas = 'grid grid-cols-[minmax(0,1.4fr)_120px_90px_90px_minmax(0,1fr)_110px_170px] items-center';
+const columnas = 'grid grid-cols-[minmax(0,1.4fr)_120px_90px_90px_minmax(0,1fr)_270px_170px] items-center';
 
 const avanceUi: Record<AvancePosicionDto['avanceFisico'], { texto: string; tono: 'neutral' | 'warning' | 'success' }> = {
   SinPiezas: { texto: 'Sin piezas', tono: 'neutral' },
@@ -169,7 +169,13 @@ export function PiezasPage() {
                       <TableCell className="px-3 tabular-nums">{p.numeroPieza}</TableCell>
                       <TableCell className="min-w-0 truncate px-3">{nombreSucursal(p.sucursalId)}</TableCell>
                       <TableCell className="px-3">
-                        <Badge variant="success">En PT</Badge>
+                        {p.estado === 'EnTransito' ? (
+                          <Badge variant="info">
+                            En tránsito{p.sucursalDestinoId ? ` a ${nombreSucursal(p.sucursalDestinoId)}` : ''}
+                          </Badge>
+                        ) : (
+                          <Badge variant="success">En PT</Badge>
+                        )}
                       </TableCell>
                       <TableCell className="px-3 tabular-nums">
                         <DateTimeDisplay value={p.escaneadaAt} variant="datetime" />

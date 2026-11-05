@@ -1,8 +1,11 @@
 namespace Millet.ProductoTerminado.Domain;
 
-public enum EstadoPieza { EnPT }
+public enum EstadoPieza { EnPT, EnTransito }
 
-public enum TipoMovimientoPieza { Alta, Reposicion }
+public enum TipoMovimientoPieza { Alta, Reposicion, TrasladoSalida, TrasladoRecepcion }
+
+/// <summary>EnTransito (sin recibir) -> ConDiferencia (recepción parcial, faltan piezas) -> Recibido (llegaron todas).</summary>
+public enum EstadoTraspaso { EnTransito, ConDiferencia, Recibido }
 
 public enum ResultadoEscaneo { Alta, Pospuesto, Excepcion, Reposicion }
 

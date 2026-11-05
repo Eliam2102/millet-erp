@@ -9,7 +9,7 @@ public sealed record ListarPiezasQuery(string? Pedido, Guid? SucursalId, int Pag
 /// <summary>Bandeja de escaneos abiertos (Pospuesto, Excepcion, Reposicion sin resolver).</summary>
 public sealed record ListarEscaneosQuery(string? Resultado, int Page, int PageSize) : IRequest<EscaneosPagina>;
 
-public sealed record PiezaDto(Guid Id, string Etiqueta, string NumeroPedido, int Posicion, int NumeroPieza, Guid SucursalId, string Estado, DateTimeOffset EscaneadaAt);
+public sealed record PiezaDto(Guid Id, string Etiqueta, string NumeroPedido, int Posicion, int NumeroPieza, Guid SucursalId, string Estado, DateTimeOffset EscaneadaAt, Guid? SucursalDestinoId = null);
 
 /// <summary>
 /// Indicadores por posición (PT5.2), todos calculados: Esperadas (A+W), Terminadas (piezas dadas de alta con la regla SRC-114),

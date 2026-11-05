@@ -1175,6 +1175,13 @@ const productoTerminado: NavModulo = {
           permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
         },
         {
+          label: 'Traspasos',
+          description: 'Salida de piezas entre sucursales, tránsito y recepción en destino con diferencias.',
+          to: '/producto-terminado/traspasos',
+          icon: Boxes,
+          permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
+        },
+        {
           label: 'Excepciones de entrada',
           description: 'Escaneos que no se pudieron dar de alta: reintentar, descartar o marcar revisados.',
           to: '/producto-terminado/excepciones',

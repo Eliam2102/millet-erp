@@ -73,7 +73,7 @@ internal sealed class PtDatos(WebApplicationFactory<Program> factory)
     }
 
     /// <summary>Pieza en PT en <paramref name="sucursalFisica"/> con su escaneo Alta.</summary>
-    public async Task PiezaAsync(string numeroPedido, Guid sucursalFisica, int numeroPieza)
+    public async Task<string> PiezaAsync(string numeroPedido, Guid sucursalFisica, int numeroPieza)
     {
         using var scope = factory.Services.CreateScope();
         using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
@@ -87,6 +87,7 @@ internal sealed class PtDatos(WebApplicationFactory<Program> factory)
         db.Escaneos.Add(e);
         db.Piezas.Add(pieza);
         await db.SaveChangesAsync();
+        return etiqueta;
     }
 
     /// <summary>Escaneo abierto en bandeja. <paramref name="resultado"/>: Pospuesto, Excepcion o Reposicion.</summary>
