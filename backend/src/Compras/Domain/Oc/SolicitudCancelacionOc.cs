@@ -17,6 +17,15 @@ public sealed class SolicitudCancelacionOc : BaseEntity, IAuditable, IBelongsToA
     public bool? Confirmada { get; private set; }
     public string? MotivoResolucion { get; private set; }
 
+    /// <summary>
+    /// 86e3jvu83: la cancelación quedó condicionada a la respuesta de Almacenes (COMPRA_CANCELADA enviada). Mientras sea
+    /// <c>true</c> la OC sigue en <see cref="EstadoOrdenCompra.CancelacionSolicitada"/> y nadie la resuelve a mano.
+    /// </summary>
+    public bool EsperaAlmacenes { get; private set; }
+
+    /// <summary>Respuesta de Almacenes cuando rechazó la cancelación (aviso visible en el detalle de la OC).</summary>
+    public string? RespuestaAlmacenes { get; private set; }
+
     private SolicitudCancelacionOc() { }
 
     internal SolicitudCancelacionOc(Guid id, Guid ocId, EstadoOrdenCompra estado,
@@ -43,6 +52,25 @@ public sealed class SolicitudCancelacionOc : BaseEntity, IAuditable, IBelongsToA
         FechaResolucion = fecha;
         Confirmada = confirmar;
         MotivoResolucion = motivo.Trim();
+    }
+
+    internal void EsperarAlmacenes() => EsperaAlmacenes = true;
+
+    internal void CerrarEspera(DateTimeOffset fecha)
+    {
+        EsperaAlmacenes = false;
+        FechaResolucion ??= fecha;
+        Confirmada ??= true;
+    }
+
+    /// <summary>Almacenes rechazó: la solicitud queda resuelta como no confirmada, con su respuesta.</summary>
+    internal void RechazarPorAlmacenes(DateTimeOffset fecha, string respuesta)
+    {
+        EsperaAlmacenes = false;
+        FechaResolucion ??= fecha;
+        Confirmada = false;
+        RespuestaAlmacenes = respuesta.Length <= 500 ? respuesta : respuesta[..500];
+        MotivoResolucion ??= RespuestaAlmacenes;
     }
 
     private static void ValidarFirma(Guid usuarioId, string motivo)

@@ -14,5 +14,5 @@ public static class PendientesAutorizacionLectura
 
     public static IQueryable<OrdenCompra> Ordenes(IQueryable<OrdenCompra> query, bool nivel1, bool nivel2) =>
         query.Where(o => (nivel1 && o.Estado == EstadoOrdenCompra.EnAutorizacionJefeCompras) ||
-            (nivel2 && (o.Estado == EstadoOrdenCompra.EnAutorizacionDireccion || o.Estado == EstadoOrdenCompra.CancelacionSolicitada)));
+            (nivel2 && (o.Estado == EstadoOrdenCompra.EnAutorizacionDireccion || (o.Estado == EstadoOrdenCompra.CancelacionSolicitada && !o.SolicitudesCancelacion.Any(s => s.EsperaAlmacenes)))));
 }
