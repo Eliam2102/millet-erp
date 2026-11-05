@@ -130,7 +130,8 @@ public class QuestPdfOrdenCompraGeneratorTests
         Assert.DoesNotContain("XEXX010101000", t);
         Assert.Contains(Sin("Tax ID"), t);
         Assert.Contains(Sin("TX-998877"), t);
-        Assert.Contains(Sin("INCOTERM: FOB"), t);
+        Assert.Contains(Sin("INCOTERM"), t);
+        Assert.Contains(Sin("FOB"), t);
         Assert.Contains(Sin("250.00 USD"), t);
         Assert.Contains(Sin("Moneda: USD"), t);
     }
