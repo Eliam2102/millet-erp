@@ -54,7 +54,7 @@ public sealed partial class Expediente
         if (acumulado - actual + nueva > cantidadPedida) throw new BusinessRuleException("CE_CANTIDAD_EXCEDE_PEDIDO", "El ajuste excede la cantidad pedida de la partida.");
         if (p is not null) p.AjustarCantidad(nueva); else imp!.AjustarCantidad(nueva);
         i.AutorizarAjuste(actor, fecha);
-        if (imp?.CantidadRecibida is decimal recibida) RecalcularIncidenciaRecepcion(imp, recibida, imp.FechaRecepcion!.Value, imp.CompromisoRecepcion!.Value, actor, fecha);
+        if (imp?.CantidadRecibida is not null) RecalcularIncidenciaRecepcion(imp, imp.FechaRecepcion!.Value, imp.CompromisoRecepcion!.Value, actor, fecha);
         VersionarEmbarque(actor); RevisionContenido++;
     }
     private static void ExigirEvidencias(IEnumerable<Guid> ids, IReadOnlyCollection<Guid> vigentes)

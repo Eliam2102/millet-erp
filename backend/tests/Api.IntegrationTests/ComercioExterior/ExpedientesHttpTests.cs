@@ -42,8 +42,8 @@ public sealed class ExpedientesHttpTests
         Assert.Equal("EXW", dto.GetProperty("incotermCodigo").GetString());
         Assert.Equal("USD", dto.GetProperty("expediente").GetProperty("moneda").GetString());
         var repetido = await admin.PostAsJsonAsync(Base, escenario.Importacion());
-        Assert.Equal(HttpStatusCode.Conflict, repetido.StatusCode);
-        Assert.Equal("CE_OC_CON_EXPEDIENTE", (await Json(repetido)).GetProperty("code").GetString());
+        Assert.Equal(HttpStatusCode.Created, repetido.StatusCode);
+        Assert.NotEqual(id, (await Json(repetido)).GetProperty("expediente").GetProperty("id").GetGuid());
         using var ninguno = await escenario.ClienteAsync(false);
         Assert.Equal(HttpStatusCode.Forbidden, (await ninguno.GetAsync($"{Base}/{id}")).StatusCode);
         using var otraSucursal = await escenario.ClienteAsync(true, asociar: false);
@@ -120,24 +120,24 @@ public sealed class ExpedientesHttpTests
         Assert.Equal("CE_OC_NO_VIGENTE", (await Json(respuesta)).GetProperty("code").GetString());
         var lista = await client.GetAsync($"{Base}/ordenes-importacion");
         lista.EnsureSuccessStatusCode();
-        Assert.Empty((await Json(lista)).EnumerateArray());
+        Assert.DoesNotContain((await Json(lista)).EnumerateArray(), x => x.GetProperty("id").GetGuid() == escenario.OcId);
     }
 
     [Fact]
-    public async Task Selector_excluye_oc_con_expediente_y_respeta_alcance_de_gestion()
+    public async Task Selector_permite_oc_con_expediente_y_respeta_alcance_de_gestion()
     {
         await using var escenario = await Escenario.CrearAsync();
         using var client = await escenario.ClienteAsync(true);
         var lista = await client.GetAsync($"{Base}/ordenes-importacion");
         lista.EnsureSuccessStatusCode();
-        Assert.Single((await Json(lista)).EnumerateArray());
+        Assert.Contains((await Json(lista)).EnumerateArray(), x => x.GetProperty("id").GetGuid() == escenario.OcId);
         using var lecturaGlobal = await escenario.ClienteAsync(true, asociar: false, leerTodas: true);
         Assert.Empty((await Json(await lecturaGlobal.GetAsync($"{Base}/ordenes-importacion"))).EnumerateArray());
         using var gestionGlobal = await escenario.ClienteAsync(true, asociar: false, gestionarTodas: true);
-        Assert.Single((await Json(await gestionGlobal.GetAsync($"{Base}/ordenes-importacion"))).EnumerateArray());
+        Assert.Contains((await Json(await gestionGlobal.GetAsync($"{Base}/ordenes-importacion"))).EnumerateArray(), x => x.GetProperty("id").GetGuid() == escenario.OcId);
         var creado = await client.PostAsJsonAsync(Base, escenario.Importacion());
         creado.EnsureSuccessStatusCode();
-        Assert.Empty((await Json(await client.GetAsync($"{Base}/ordenes-importacion"))).EnumerateArray());
+        Assert.Contains((await Json(await client.GetAsync($"{Base}/ordenes-importacion"))).EnumerateArray(), x => x.GetProperty("id").GetGuid() == escenario.OcId);
     }
 
     [Fact]
@@ -374,6 +374,7 @@ public sealed class ExpedientesHttpTests
         public Guid Responsable { get; } = DemoSesionSeedHostedService.CapturistaComprasDemoId;
         private Guid Sucursal { get; set; }
         public Guid SucursalId => Sucursal;
+        public Guid OcId => Oc;
         private Guid Oc { get; set; }
 
         private Escenario(string conexion, string conexionAdmin, string baseDatos, Action<IServiceCollection>? servicios)
@@ -556,7 +557,7 @@ public sealed class ExpedientesHttpTests
             responsableUsuarioId = Responsable,
             clientes = Array.Empty<string>()
         };
-        public async Task<HttpClient> ClienteAsync(bool permisos, bool asociar = true, bool soloLeer = false, bool leerTodas = false, bool gestionarTodas = false, bool facturacion = false, bool permisosCe = true, bool permisosAf = false, bool permisosAlmacen = false)
+        public async Task<HttpClient> ClienteAsync(bool permisos, bool asociar = true, bool soloLeer = false, bool leerTodas = false, bool gestionarTodas = false, bool facturacion = false, bool permisosCe = true, bool permisosAf = false, bool permisosAlmacen = false, bool autorizarSaldoCe = false)
         {
             using var scope = _factory.Services.CreateScope();
             using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
@@ -568,7 +569,8 @@ public sealed class ExpedientesHttpTests
             db.Roles.Add(rol);
             if (permisos)
                 foreach (var p in PermisosCanonicos.Todos.Where(p =>
-                    (permisosAlmacen && p.Codigo.StartsWith("almacen.", StringComparison.Ordinal))
+                    (autorizarSaldoCe && p.Codigo == PermisosCanonicos.TesoreriaPagosCeAutorizarDireccion)
+                    || (permisosAlmacen && p.Codigo.StartsWith("almacen.", StringComparison.Ordinal))
                     || (permisosAf && p.Codigo.StartsWith("activos_fijos.", StringComparison.Ordinal) && !p.Codigo.Contains("todas-sucursales", StringComparison.Ordinal))
                     || (permisosCe && p.Codigo.StartsWith("comercio_exterior.", StringComparison.Ordinal) && !p.Codigo.Contains("todas-sucursales", StringComparison.Ordinal) && (!soloLeer || p.Codigo == PermisosCanonicos.ComercioExteriorExpedientesLeer))
                     || (facturacion && p.Codigo.StartsWith("facturacion.", StringComparison.Ordinal) && !p.Codigo.Contains("todas-sucursales", StringComparison.Ordinal))))

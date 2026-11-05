@@ -70,9 +70,11 @@ public sealed class IncidenciaExpediente : BaseEntity, IAuditable, IPerteneceAEm
         _historial.Add(new(this, actor, ahora, Motivo));
     }
     internal void MarcarAutomatica(decimal diferencia) { Automatica = true; DiferenciaCantidad = diferencia; }
-    internal void ActualizarDiferencia(decimal diferencia, Guid actor, DateTimeOffset ahora)
+    internal void ActualizarDiferencia(decimal diferencia, Guid actor, DateTimeOffset ahora, string? asignacion = null)
     {
-        ExigirPendiente();
+        if (diferencia == 0 && !Pendiente) return;
+        if (!Pendiente) { Estado = EstadoIncidencia.Abierta; AccionCorrectiva = null; }
+        Descripcion = asignacion ?? Descripcion;
         DiferenciaCantidad = Math.Abs(diferencia);
         if (diferencia == 0)
         {

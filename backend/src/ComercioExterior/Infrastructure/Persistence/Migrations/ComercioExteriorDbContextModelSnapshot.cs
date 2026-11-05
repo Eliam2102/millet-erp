@@ -1092,9 +1092,7 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_expedientes_empresa_id_folio");
 
                     b.HasIndex("EmpresaId", "OcId")
-                        .IsUnique()
-                        .HasDatabaseName("ux_ce_oc_abierta")
-                        .HasFilter("oc_id IS NOT NULL AND estado = 'Abierto'");
+                        .HasDatabaseName("ix_ce_oc");
 
                     b.HasIndex("EmpresaId", "SucursalId", "Estado")
                         .HasDatabaseName("ix_expedientes_empresa_id_sucursal_id_estado");

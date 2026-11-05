@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Millet.Contabilidad.Application.Motor;
 using Millet.Contabilidad.Domain;
+using Millet.SharedKernel.Application;
 using Millet.Contabilidad.Infrastructure.Persistence;
 using static Millet.Api.IntegrationTests.Contabilidad.ContabTestKit;
 namespace Millet.Api.IntegrationTests.Contabilidad;
@@ -30,6 +31,7 @@ public sealed class P19PolizasCeTests(WebApplicationFactory<Program> factory)
             cuentas[rol] = (await CrearCuenta(client, Codigo(suf, numero), $"FIX {rol}", padre)).GetProperty("id").GetGuid();
         using (var scope = factory.Services.CreateScope())
         {
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
             var db = scope.ServiceProvider.GetRequiredService<ContabilidadDbContext>();
             foreach (var (rol, cuenta) in cuentas)
             {

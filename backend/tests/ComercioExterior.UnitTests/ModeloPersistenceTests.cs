@@ -45,7 +45,7 @@ public sealed class ModeloPersistenceTests
 
         var vinculo = db.Model.FindEntityType(typeof(Millet.ComercioExterior.Domain.VinculoPedidoExpediente))!;
         Assert.Contains(vinculo.GetIndexes(), i => i.IsUnique && i.GetDatabaseName() == "ux_ce_pedido_expediente_abierto" && i.GetFilter() == "activo");
-        Assert.Contains(db.Model.FindEntityType(typeof(Millet.ComercioExterior.Domain.Expediente))!.GetIndexes(), i => i.GetDatabaseName() == "ux_ce_oc_abierta" && i.IsUnique);
+        Assert.Contains(db.Model.FindEntityType(typeof(Millet.ComercioExterior.Domain.Expediente))!.GetIndexes(), i => i.GetDatabaseName() == "ix_ce_oc" && !i.IsUnique);
     }
 
     [Fact]

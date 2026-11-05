@@ -89,6 +89,32 @@ public sealed class P20RecepcionTests
         e.GenerarAvisosIncidencias(Viernes.AddDays(6), Ahora.AddDays(6)).Should().Be(0);
         e.AvisosIncidencias.Single(a => a.EsVencimiento).DestinatarioUsuarioId.Should().Be(Actor);
     }
+    [Theory]
+    [InlineData(9, 1)]
+    [InlineData(10, 0)]
+    public void Partida_repartida_compara_suma_y_actualiza_una_incidencia(decimal recibida, int incidencias)
+    {
+        var e = new Expediente(Guid.NewGuid(), Guid.NewGuid(), "P22", TipoExpediente.Importacion, Guid.NewGuid(), "Prueba reparto", Guid.NewGuid(), Guid.NewGuid(), "USD", Actor, []);
+        var linea = Guid.NewGuid();
+        e.AgregarParticipante(Guid.NewGuid(), "Agente ficticio", TipoParticipante.AgenteAduanal, null, PapelParticipante.Captura, null, null);
+        e.AgregarParticipante(Guid.NewGuid(), "Naviera ficticia", TipoParticipante.Naviera, null, PapelParticipante.Captura, null, null);
+        foreach (var cantidad in new[] { 6m, 4m })
+        {
+            var c = Guid.NewGuid(); e.GuardarContenedor(c, new(c.ToString(), null, null, "BL", null, null, null, null, ModalidadTransporte.Maritimo));
+            e.AsignarPartidaImportacion(c, linea, 1, cantidad, 10, "PZA", Actor); e.RegistrarEmbarque(c, Viernes, Viernes);
+        }
+        var evento = Guid.NewGuid(); var partida = e.PartidasImportacion.First().Id;
+        e.ConciliarRecepcion(evento, partida, recibida, Viernes, Viernes.AddDays(4), Capturista, Ahora);
+        e.ConciliarRecepcion(evento, partida, recibida, Viernes, Viernes.AddDays(4), Capturista, Ahora);
+        Assert.Equal(incidencias, e.Incidencias.Count);
+        Assert.Equal(recibida, e.PartidasImportacion.Sum(p => p.CantidadRecibida));
+        if (incidencias == 0) return;
+        Assert.Equal(1m, e.Incidencias.Single().DiferenciaCantidad);
+        e.ConciliarRecepcion(Guid.NewGuid(), partida, 10, Viernes, Viernes.AddDays(4), Capturista, Ahora);
+        Assert.Equal(EstadoIncidencia.Resuelta, Assert.Single(e.Incidencias).Estado);
+        e.ConciliarRecepcion(Guid.NewGuid(), partida, 9, Viernes, Viernes.AddDays(4), Capturista, Ahora);
+        Assert.Equal(EstadoIncidencia.Abierta, Assert.Single(e.Incidencias).Estado);
+    }
     private sealed class Calendario(DateOnly? festivo = null) : Millet.SharedKernel.Application.Calendario.ICalendarioHabil
     {
         public Task<int> ContarDiasAsync(DateOnly desde, DateOnly hasta, CancellationToken ct) => Task.FromResult(Millet.SharedKernel.Application.Calendario.CalendarioHabil.ContarDias(desde, hasta, festivo is DateOnly f ? new HashSet<DateOnly> { f } : new HashSet<DateOnly>()));

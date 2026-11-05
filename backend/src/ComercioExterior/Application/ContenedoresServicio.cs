@@ -52,6 +52,7 @@ public sealed class ContenedoresServicio(ComercioExteriorDbContext db, Expedient
     public async Task<ContenedoresDetalle> DetalleAsync(Expediente e, CancellationToken ct)
     {
         var oc = e.OcId is Guid ocId ? await compras.ObtenerAsync(ocId, ct) : null;
+        var otras = oc is null ? new Dictionary<Guid, decimal>() : await servicio.CantidadesImportacionOtrosAsync(e, ct);
         var origen = await pedidos.ObtenerAsync(e.Partidas.Select(p => p.PedidoFacturableId).Distinct().ToArray(), ct);
         var versiones = origen.ToDictionary(p => p.Id, p => p.VersionOrigen);
         return new(e.Version, e.ClavePedimento is null || e.FechaPedimento is null ? null :
@@ -60,7 +61,7 @@ public sealed class ContenedoresServicio(ComercioExteriorDbContext db, Expedient
             e.Contenedores.OrderBy(c => c.CreatedAt).ThenBy(c => c.Id).Select(c => new ContenedorDto(c.Id, c.Numero, c.Sello, c.Booking, c.BlGuia, c.Ruta, c.FechaCargaPrevista, c.FechaEmbarqueReal, c.PesoKg, c.Bultos, c.Estado, c.MotivoCancelacion, c.Modalidad)).ToArray(),
             e.Partidas.Select(p => new PartidaDto(p.Id, p.ContenedorId, p.PedidoFacturableId, p.Posicion, p.ClienteId, p.Cantidad, p.Unidad, p.VersionOrigenAsignada,
                 p.Estado == EstadoPartida.Liberada ? EstadoPartida.Liberada : versiones.TryGetValue(p.PedidoFacturableId, out var version) ? p.EstadoActual(version) : EstadoPartida.RequiereRevision, p.ConfirmadoPorId, p.PesoKg, p.Bultos, p.FraccionArancelaria, p.UnidadAduana, p.AduanalesRevisadoPorId)).ToArray(), origen, CatalogoAduanas.Aduanas, e.PartidasImportacion.Select(p => new PartidaImportacionDto(p.Id, p.ContenedorId, p.OcLineaId, p.Posicion, p.Cantidad, p.Unidad)).ToArray(),
-            oc?.Partidas?.Select(l => new OcPartidaRemanente(l.Id, l.Posicion, l.Descripcion, l.Cantidad, l.Unidad, e.RemanenteImportacion(l.Id, l.Cantidad))).ToArray(), e.VersionEmbarque, e.SalidaAutorizada, e.AutorizacionesSalida.OrderBy(a => a.Secuencia).Select(a => new AutorizacionSalidaDto(a.VersionEmbarque, a.ActorId, a.Fecha, a.Autorizada, a.Motivo)).ToArray());
+            oc?.Partidas?.Select(l => new OcPartidaRemanente(l.Id, l.Posicion, l.Descripcion, l.Cantidad, l.Unidad, e.RemanenteImportacion(l.Id, l.Cantidad - otras.GetValueOrDefault(l.Id)))).ToArray(), e.VersionEmbarque, e.SalidaAutorizada, e.AutorizacionesSalida.OrderBy(a => a.Secuencia).Select(a => new AutorizacionSalidaDto(a.VersionEmbarque, a.ActorId, a.Fecha, a.Autorizada, a.Motivo)).ToArray());
     }
 }
 
@@ -74,6 +75,8 @@ public sealed class MutarContenedorHandler(ComercioExteriorDbContext db, Expedie
         var ids = await db.Partidas.AsNoTracking().Where(p => p.ExpedienteId == request.ExpedienteId && p.Estado != EstadoPartida.Liberada)
             .Select(p => p.PedidoFacturableId).Distinct().ToListAsync(cancellationToken);
         if (request.Partida is not null) ids.Add(request.Partida.PedidoFacturableId);
+        var ocBloqueo = await db.Expedientes.Where(e => e.Id == request.ExpedienteId).Select(e => e.OcId).SingleOrDefaultAsync(cancellationToken);
+        if (ocBloqueo is Guid ocCompartida) ids.Add(ocCompartida);
         await PedidoEmbarqueLock.ExecuteAsync(db, ids, async token =>
         {
             var e = await servicio.CargarAsync(request.ExpedienteId, true, token);
@@ -110,7 +113,8 @@ public sealed class MutarContenedorHandler(ComercioExteriorDbContext db, Expedie
                     var imp = request.Importacion ?? throw new BusinessRuleException("CE_PARTIDA_DATOS_INVALIDOS", "Seleccione una partida de la OC.");
                     var oc = e.OcId is Guid ocId ? await compras.ObtenerAsync(ocId, token) : null;
                     var linea = oc?.Partidas?.SingleOrDefault(l => l.Id == imp.OcLineaId) ?? throw new BusinessRuleException("CE_PARTIDA_DATOS_INVALIDOS", "La partida no pertenece a la OC del expediente.");
-                    e.AsignarPartidaImportacion(request.ContenedorId ?? Guid.Empty, linea.Id, linea.Posicion, imp.Cantidad, linea.Cantidad, linea.Unidad, servicio.Actor);
+                    var otras = await servicio.CantidadesImportacionOtrosAsync(e, token);
+                    e.AsignarPartidaImportacion(request.ContenedorId ?? Guid.Empty, linea.Id, linea.Posicion, imp.Cantidad, linea.Cantidad - otras.GetValueOrDefault(linea.Id), linea.Unidad, servicio.Actor);
                     break;
                 case "quitar-importacion":
                     var retirarImp = e.PartidasImportacion.SingleOrDefault(p => p.Id == request.PartidaId) ?? throw new EntityNotFoundException("CE_PARTIDA_NO_ENCONTRADA", "No existe la partida de importación.");

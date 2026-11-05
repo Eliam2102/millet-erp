@@ -35,11 +35,16 @@ public sealed class ExpedienteServicio(ComercioExteriorDbContext db, ICatalogosC
 
     public async Task<IReadOnlyList<OcImportacionLectura>> OrdenesImportacionAsync(string? q, CancellationToken ct)
     {
-        var ordenes = await compras.ListarAsync(await SucursalesAsync(null, ct, escribir: true), q, ct);
-        var ids = ordenes.Select(x => x.Id).ToArray();
-        var abiertas = await db.Expedientes.Where(x => x.OcId != null && ids.Contains(x.OcId.Value) && x.Estado == EstadoExpediente.Abierto).Select(x => x.OcId!.Value).ToListAsync(ct);
-        return ordenes.Where(x => !abiertas.Contains(x.Id)).ToArray();
+        return await compras.ListarAsync(await SucursalesAsync(null, ct, escribir: true), q, ct);
     }
+
+    public async Task<Dictionary<Guid, decimal>> CantidadesImportacionOtrosAsync(Expediente e, CancellationToken ct) =>
+        await (from partida in db.Set<PartidaImportacion>()
+            join contenedor in db.Contenedores on partida.ContenedorId equals contenedor.Id
+            join expediente in db.Expedientes on partida.ExpedienteId equals expediente.Id
+            where expediente.OcId == e.OcId && expediente.Id != e.Id && expediente.Estado != EstadoExpediente.Cancelado && contenedor.Estado == EstadoContenedor.Activo
+            group partida by partida.OcLineaId into partidas
+            select new { Linea = partidas.Key, Cantidad = partidas.Sum(p => p.Cantidad) }).ToDictionaryAsync(x => x.Linea, x => x.Cantidad, ct);
 
     public async Task<Expediente> CargarAsync(Guid id, bool escribir, CancellationToken ct)
     {

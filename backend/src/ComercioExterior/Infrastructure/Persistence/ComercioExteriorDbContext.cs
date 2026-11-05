@@ -54,7 +54,7 @@ public sealed partial class ComercioExteriorDbContext(DbContextOptions<ComercioE
         e.Property(x => x.Tipo).HasConversion<string>();
         e.Property(x => x.Estado).HasConversion<string>();
         e.HasIndex(x => new { x.EmpresaId, x.Folio }).IsUnique();
-        e.HasIndex(x => new { x.EmpresaId, x.OcId }).IsUnique().HasDatabaseName("ux_ce_oc_abierta").HasFilter("oc_id IS NOT NULL AND estado = 'Abierto'");
+        e.HasIndex(x => new { x.EmpresaId, x.OcId }).HasDatabaseName("ix_ce_oc");
         e.HasIndex(x => new { x.EmpresaId, x.SucursalId, x.Estado });
         e.HasMany(x => x.Participantes).WithOne().HasForeignKey(x => x.ExpedienteId).OnDelete(DeleteBehavior.Restrict);
         e.Navigation(x => x.Participantes).UsePropertyAccessMode(PropertyAccessMode.Field);

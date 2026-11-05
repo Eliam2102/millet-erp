@@ -9,7 +9,6 @@ using Millet.Compras.Application.PublicPorts;
 using Millet.Identidad.Domain;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
-using Npgsql;
 
 namespace Millet.ComercioExterior.Application;
 public sealed class CrearExpedienteHandler(ComercioExteriorDbContext db, ExpedienteServicio servicio, ICatalogosCeReadPort catalogos, IOcImportacionReadPort compras, ICurrentEmpresaContext empresa, IClock clock, IIntegrationEventPublisher eventos) : IRequestHandler<CrearExpedienteCommand, ExpedienteDetalle>
@@ -24,8 +23,6 @@ public sealed class CrearExpedienteHandler(ComercioExteriorDbContext db, Expedie
             throw new BusinessRuleException("CE_OC_NO_VIGENTE", "La OC debe estar autorizada o con recepción en curso.");
         if (request.Tipo == TipoExpediente.Importacion && (oc is null || !oc.EsImportacion || oc.InformacionImportacion is not { } info || info.EsVacio))
             throw new BusinessRuleException("CE_OC_SIN_IMPORTACION", "La OC no tiene datos de importación.");
-        if (oc is not null && await db.Expedientes.AnyAsync(x => x.OcId == oc.Id && x.Estado == EstadoExpediente.Abierto, cancellationToken))
-            throw new ConflictException("CE_OC_CON_EXPEDIENTE", "La OC ya tiene un expediente abierto.");
         var incoterm = request.IncotermId ?? (oc?.InformacionImportacion?.IncotermId ?? (request.Tipo == TipoExpediente.Exportacion ? await catalogos.IncotermDdpAsync(cancellationToken) : Guid.Empty));
         // Cambiar la propuesta de la OC/DDP es una edición y exige su permiso específico.
         var propuesto = oc?.InformacionImportacion?.IncotermId ?? (request.Tipo == TipoExpediente.Exportacion ? await catalogos.IncotermDdpAsync(cancellationToken) : Guid.Empty);
@@ -41,14 +38,7 @@ public sealed class CrearExpedienteHandler(ComercioExteriorDbContext db, Expedie
         e.InicializarHitos(oc?.FechaDocumento ?? clock.HoyLocal());
         db.Expedientes.Add(e);
         await eventos.PublishAsync(new ExpedienteCeAbiertoEvent(e.EmpresaId, clock.UtcNow, e.Id, e.Folio), cancellationToken);
-        try
-        {
-            await db.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateException ex)when (ex.InnerException is PostgresException { ConstraintName: "ux_ce_oc_abierta" })
-        {
-            throw new ConflictException("CE_OC_CON_EXPEDIENTE", "La OC ya tiene un expediente abierto.", ex);
-        }
+        await db.SaveChangesAsync(cancellationToken);
 
         return await servicio.DetalleAsync(e, cancellationToken);
     }

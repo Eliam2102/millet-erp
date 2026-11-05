@@ -26,6 +26,8 @@ public class ConciliacionDiariaTests(WebApplicationFactory<Program> factory)
 
     private async Task<(Guid ArticuloId, Guid AlmacenId)> SembrarAsync()
     {
+        using var admin = await ContabTestKit.LoginAsync(factory);
+        await ContabTestKit.AsegurarPeriodosAbiertosAsync(admin, FechaContable.HoyLocal(DateTimeOffset.UtcNow));
         using var scope = factory.Services.CreateScope();
         using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
         var compartido = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
@@ -75,7 +77,7 @@ public class ConciliacionDiariaTests(WebApplicationFactory<Program> factory)
         try
         {
             using var r = await gestor.PostAsJsonAsync(Ruta, Cuerpo(s.AlmacenId, s.ArticuloId, 9m));
-            Assert.Equal(HttpStatusCode.OK, r.StatusCode);
+            Assert.True(r.StatusCode == HttpStatusCode.OK, await r.Content.ReadAsStringAsync());
             var corrida = await ContabTestKit.Json(r);
             Assert.Equal(1, corrida.GetProperty("diferencias").GetInt32());
             var d = corrida.GetProperty("detalle")[0];
@@ -125,7 +127,7 @@ public class ConciliacionDiariaTests(WebApplicationFactory<Program> factory)
         try
         {
             using var r = await gestor.PostAsJsonAsync(Ruta, Cuerpo(s.AlmacenId, s.ArticuloId, 10m));
-            Assert.Equal(HttpStatusCode.OK, r.StatusCode);
+            Assert.True(r.StatusCode == HttpStatusCode.OK, await r.Content.ReadAsStringAsync());
             var corrida = await ContabTestKit.Json(r);
             Assert.Equal(0, corrida.GetProperty("diferencias").GetInt32());
             Assert.Equal(1, corrida.GetProperty("lineasComparadas").GetInt32());

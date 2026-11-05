@@ -69,8 +69,7 @@ public sealed class CrearIncidenciaValidator : AbstractValidator<CrearIncidencia
         RuleFor(x => x.ExpedienteId).NotEmpty(); RuleFor(x => x.Version).GreaterThan(0); RuleFor(x => x.Datos).NotNull();
         When(x => x.Datos != null, () => {
             RuleFor(x => x.Datos.Tipo).IsInEnum(); RuleFor(x => x.Datos.Fecha).NotEmpty(); RuleFor(x => x.Datos.ResponsableUsuarioId).NotEmpty();
-            RuleFor(x => x.Datos.FechaCompromiso).NotNull().WithMessage("Capture la fecha compromiso.");
-            RuleFor(x => x.Datos.SiguienteAccion).NotEmpty().MaximumLength(2000).WithMessage("Capture la siguiente acción (máximo 2000 caracteres).");
+            RuleFor(x => x.Datos.SiguienteAccion).MaximumLength(2000).WithMessage("Capture la siguiente acción (máximo 2000 caracteres).");
             RuleFor(x => x.Datos.Motivo).NotEmpty().MinimumLength(5).MaximumLength(500);
             RuleFor(x => x.Datos.Descripcion).MaximumLength(2000); RuleFor(x => x.Datos.AccionCorrectiva).MaximumLength(2000); RuleFor(x => x.Datos.EfectoPosterior).MaximumLength(2000);
             RuleFor(x => x.Datos.DocumentosIds).Must(x => x == null || x.Length <= 100); RuleFor(x => x.Datos.EvidenciasIds).Must(x => x == null || x.Length <= 100);
