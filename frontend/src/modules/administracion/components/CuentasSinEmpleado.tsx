@@ -101,6 +101,11 @@ export function CuentasSinEmpleado({ onCrearEmpleado }: Props) {
                     <p className="font-medium text-ink">{c.nombre}</p>
                   )}
                   <p className="truncate font-mono text-xs text-ink-muted">{c.correo}</p>
+                  {!c.usuarioId && (
+                    <p className="text-xs text-ink-muted">
+                      Aún no entra al ERP: no tiene rol. Se asigna al crear su empleado.
+                    </p>
+                  )}
                 </div>
                 <Badge variant={c.yaEntroAlErp ? 'success' : 'neutral'}>
                   {c.yaEntroAlErp ? 'Ya entró al ERP' : 'Sin entrar'}
