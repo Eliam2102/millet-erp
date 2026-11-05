@@ -49,9 +49,14 @@ public sealed record KardexFila(
     decimal Saldo,
     decimal CostoUnitarioMxn,
     decimal CostoPromedioMxn,
-    decimal ValorSaldo);
+    decimal ValorSaldo,
+    // Hojas (unidad física del vidrio por medida); null si el artículo no es por medida. La existencia sigue en m².
+    decimal? EntradaHojas = null,
+    decimal? SalidaHojas = null,
+    decimal? SaldoHojas = null);
 
-public sealed class KardexHandler(AlmacenDbContext db, IArticuloReadPort articulos, IComprasOcReadPort? ocs = null)
+public sealed class KardexHandler(AlmacenDbContext db, IArticuloReadPort articulos, IComprasOcReadPort? ocs = null,
+    IComprasRequisicionReadPort? requisiciones = null, IVarianteVidrioReadPort? variantes = null)
     : IRequestHandler<KardexQuery, ReporteResponse<KardexFila>>
 {
     public const string TipoSaldoInicial = "Saldo inicial";
@@ -74,7 +79,9 @@ public sealed class KardexHandler(AlmacenDbContext db, IArticuloReadPort articul
                 && (request.UbicacionId == null || l.UbicacionId == request.UbicacionId))
             .OrderBy(l => l.FechaMovimiento).ThenByDescending(l => l.Tipo.EsEntrada()).ThenBy(l => l.Folio, StringComparer.Ordinal)
             .ToList();
-        var (ordenes, foliosOc) = await TrazabilidadMpHandler.ResolverReferenciasAsync(db, ocs, lineas, ct);
+        var (ordenes, foliosOc, foliosRq) = await TrazabilidadMpHandler.ResolverReferenciasAsync(db, ocs, requisiciones, lineas, ct);
+        var medidas = await TrazabilidadMpHandler.MedidasAsync(variantes, lineas, ct);
+        var conHojas = medidas.Count > 0 && lineas.Any(l => MedidaReporte.Hojas(l.ProductoAwVarianteId, l.Cantidad, medidas) != null);
 
         // La clave de la ubicación solo es única dentro de su sub-almacén: se antepone la clave del almacén.
         var subs = lineas.Select(l => l.SubAlmacenId).Distinct().ToList();
@@ -82,18 +89,22 @@ public sealed class KardexHandler(AlmacenDbContext db, IArticuloReadPort articul
                                where subs.Contains(s.Id) select new { s.Id, a.Clave }).ToDictionaryAsync(x => x.Id, x => x.Clave, ct);
 
         var filas = new List<KardexFila>();
-        decimal saldo = 0m, valor = 0m, entradas = 0m, salidas = 0m, saldoInicial = 0m, valorInicial = 0m;
+        decimal saldo = 0m, valor = 0m, entradas = 0m, salidas = 0m, saldoInicial = 0m, valorInicial = 0m, saldoHojas = 0m, hojasIniciales = 0m;
         foreach (var l in lineas)
         {
             var signo = l.Tipo.EsEntrada() ? 1m : -1m;
             saldo += signo * l.Cantidad;
             valor += signo * Math.Round(l.Cantidad * l.CostoUnitarioMxn, 2);
-            if (l.FechaMovimiento < request.Desde) { saldoInicial = saldo; valorInicial = valor; continue; }
+            var hojas = MedidaReporte.Hojas(l.ProductoAwVarianteId, l.Cantidad, medidas) ?? 0m;
+            saldoHojas += signo * hojas;
+            if (l.FechaMovimiento < request.Desde) { saldoInicial = saldo; valorInicial = valor; hojasIniciales = saldoHojas; continue; }
             if (signo > 0) entradas += l.Cantidad; else salidas += l.Cantidad;
-            filas.Add(new KardexFila(l.FechaMovimiento, l.Folio, Etiqueta(l.Tipo), TrazabilidadMpHandler.Referencia(l, ordenes, foliosOc), $"{almacenes.GetValueOrDefault(l.SubAlmacenId)} · {l.Ubicacion}",
-                signo > 0 ? l.Cantidad : 0m, signo < 0 ? l.Cantidad : 0m, saldo, l.CostoUnitarioMxn, CostoPromedio(valor, saldo), valor));
+            filas.Add(new KardexFila(l.FechaMovimiento, l.Folio, Etiqueta(l.Tipo), TrazabilidadMpHandler.Referencia(l, ordenes, foliosOc, foliosRq), $"{almacenes.GetValueOrDefault(l.SubAlmacenId)} · {l.Ubicacion}",
+                signo > 0 ? l.Cantidad : 0m, signo < 0 ? l.Cantidad : 0m, saldo, l.CostoUnitarioMxn, CostoPromedio(valor, saldo), valor,
+                conHojas && signo > 0 ? hojas : conHojas ? 0m : null, conHojas && signo < 0 ? hojas : conHojas ? 0m : null, conHojas ? saldoHojas : null));
         }
-        filas.Insert(0, new KardexFila(request.Desde, null, TipoSaldoInicial, null, null, 0m, 0m, saldoInicial, 0m, CostoPromedio(valorInicial, saldoInicial), valorInicial));
+        filas.Insert(0, new KardexFila(request.Desde, null, TipoSaldoInicial, null, null, 0m, 0m, saldoInicial, 0m, CostoPromedio(valorInicial, saldoInicial), valorInicial,
+            conHojas ? 0m : null, conHojas ? 0m : null, conHojas ? hojasIniciales : null));
 
         var art = (await articulos.ObtenerPorIdsAsync([request.ArticuloId], ct)).GetValueOrDefault(request.ArticuloId);
         var filtros = new Dictionary<string, string?>
@@ -168,5 +179,8 @@ public sealed class KardexHandler(AlmacenDbContext db, IArticuloReadPort articul
         new("costoUnitarioMxn", "Costo unit.", "moneda", "right"),
         new("costoPromedioMxn", "Costo prom.", "moneda", "right"),
         new("valorSaldo", "Valor", "moneda", "right"),
+        new("entradaHojas", "Entrada (hojas)", "numero", "right"),
+        new("salidaHojas", "Salida (hojas)", "numero", "right"),
+        new("saldoHojas", "Saldo (hojas)", "numero", "right"),
     ];
 }

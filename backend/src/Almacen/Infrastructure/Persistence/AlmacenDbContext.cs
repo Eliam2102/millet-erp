@@ -152,9 +152,16 @@ public class AlmacenDbContext : BaseDbContext
 
     public DbSet<RecepcionActivo> RecepcionesActivos => Set<RecepcionActivo>();
 
+    public DbSet<RecepcionRechazo> RecepcionRechazos => Set<RecepcionRechazo>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("almacen");
+        var rechazo = modelBuilder.Entity<RecepcionRechazo>();
+        rechazo.ToTable("recepcion_rechazos"); rechazo.HasKey(x => x.Id); rechazo.Property(x => x.Id).ValueGeneratedNever();
+        rechazo.Property(x => x.Cantidad).HasPrecision(18, 4); rechazo.Property(x => x.Motivo).HasMaxLength(500);
+        rechazo.Property(x => x.UnidadMedida).HasMaxLength(20);
+        rechazo.Property(x => x.EvidenciaBlobRef).HasMaxLength(500); rechazo.HasIndex(x => x.RecepcionId);
         var importacion = modelBuilder.Entity<RecepcionImportacion>();
         importacion.ToTable("recepciones_importacion"); importacion.HasKey(x => x.Id);
         importacion.Property(x => x.Id).ValueGeneratedNever();

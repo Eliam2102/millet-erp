@@ -128,8 +128,8 @@ public class EventosContablesG16Tests
             new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(periodoAbierto), new P7Support.Conversion(), P7Support.Apartados(db));
 
         Func<Task> registrar = async () => await h.Handle(new RegistrarSalidaConRequisicionCommand(Guid.NewGuid(), new DateOnly(2026, 5, 23),
-            null, null,
-            [new RegistrarSalidaLineaInput(ArticuloId, ArticuloId, 1m, null, null, null, null, BinId)]), default);
+            Guid.NewGuid(), null,
+            [new RegistrarSalidaLineaInput(ArticuloId, ArticuloId, 1m, null, null, null, null, BinId)], "Quien recibe"), default);
 
         if (!await VerificarPeriodoAsync(registrar, periodoAbierto, db, events)) return;
 
@@ -149,8 +149,8 @@ public class EventosContablesG16Tests
         await db.SaveChangesAsync();
         var h = new RegistrarSalidaPorValeHandler(db, events, new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(periodoAbierto), new P1Fixture.Calendario(), new P1Fixture.Centros(), new P7Support.Conversion(), P7Support.Apartados(db));
 
-        Func<Task> registrar = async () => await h.Handle(new RegistrarSalidaPorValeCommand(new DateOnly(2026, 5, 23), "blob://vale", null, null,
-            [new RegistrarSalidaLineaInput(ArticuloId, ArticuloId, 1m, null, null, null, null, BinId)]), default);
+        Func<Task> registrar = async () => await h.Handle(new RegistrarSalidaPorValeCommand(new DateOnly(2026, 5, 23), "blob://vale", Guid.NewGuid(), null,
+            [new RegistrarSalidaLineaInput(ArticuloId, ArticuloId, 1m, null, null, null, null, BinId)], "Falla de la línea", "Quien recibe"), default);
 
         if (!await VerificarPeriodoAsync(registrar, periodoAbierto, db, events)) return;
 

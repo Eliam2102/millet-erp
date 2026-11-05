@@ -2185,6 +2185,11 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
 
+                    b.Property<string>("EvidenciaBlobRef")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("evidencia_blob_ref");
+
                     b.Property<Guid?>("LineaFacturaId")
                         .HasColumnType("uuid")
                         .HasColumnName("linea_factura_id");
@@ -2305,6 +2310,15 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<DateTimeOffset?>("AcuseRecibeAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("acuse_recibe_at");
+
+                    b.Property<string>("AcuseRecibeNombre")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("acuse_recibe_nombre");
+
                     b.Property<Guid?>("CfdiRecibidoId")
                         .HasColumnType("uuid")
                         .HasColumnName("cfdi_recibido_id");
@@ -2382,6 +2396,11 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("motivo_duplicado");
 
+                    b.Property<string>("MotivoUrgencia")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo_urgencia");
+
                     b.Property<Guid?>("OcId")
                         .HasColumnType("uuid")
                         .HasColumnName("oc_id");
@@ -2410,6 +2429,11 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("RecepcionOrigenId")
                         .HasColumnType("uuid")
                         .HasColumnName("recepcion_origen_id");
+
+                    b.Property<string>("RecibidoPorNombre")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("recibido_por_nombre");
 
                     b.Property<DateTimeOffset?>("RegistradoAt")
                         .HasColumnType("timestamp with time zone")
@@ -2736,6 +2760,89 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_recepcion_importacion_partidas_recepcion_importacion_id");
 
                     b.ToTable("recepcion_importacion_partidas", "almacen");
+                });
+
+            modelBuilder.Entity("Millet.Almacen.Domain.Movimientos.RecepcionRechazo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ArticuloId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("articulo_id");
+
+                    b.Property<decimal>("Cantidad")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("cantidad");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<string>("EvidenciaBlobRef")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("evidencia_blob_ref");
+
+                    b.Property<Guid>("LineaOcId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("linea_oc_id");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo");
+
+                    b.Property<Guid>("OrdenCompraId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("orden_compra_id");
+
+                    b.Property<Guid>("RecepcionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recepcion_id");
+
+                    b.Property<string>("UnidadMedida")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("unidad_medida");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_recepcion_rechazos");
+
+                    b.HasIndex("RecepcionId")
+                        .HasDatabaseName("ix_recepcion_rechazos_recepcion_id");
+
+                    b.ToTable("recepcion_rechazos", "almacen");
                 });
 
             modelBuilder.Entity("Millet.Almacen.Domain.Revision.DictamenRevision", b =>
