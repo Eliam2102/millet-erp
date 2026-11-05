@@ -12,7 +12,7 @@ namespace Millet.Integraciones.Aw.Infrastructure.NotasCredito;
 public sealed class AwNotasCreditoLecturaOptions
 {
     public const string SectionName = "IntegracionesAw:NotasCreditoLectura";
-    /// <summary>Apagado por defecto: el usuario millet_erp_integracion (conexión AwIntegracionDb; ya lee BW_AUFTR_KOPF y KA_FIRMA_MITARB) aún no tiene permiso sobre BW_GUTSCH_KOPF, _HIST y _POS (los concede TI).</summary>
+    /// <summary>Apagado por defecto: el usuario de solo lectura millet_erp_lector_aw (conexión directa a MILMAIN, ConnectionStrings:AwClientesDb) aún no tiene SELECT sobre BW_GUTSCH_KOPF, _HIST y _POS (los concede TI). El vendedor (KA_FIRMA_MITARB) no se lee: ese usuario no la tiene hoy.</summary>
     public bool Habilitada { get; set; }
     /// <summary>Columna de BW_GUTSCH_KOPF con el pedido original (candidata: AH_HAUPT_AUFTR, sin confirmar). Vacía = no se lee.</summary>
     public string? ColumnaPedidoPadre { get; set; }
