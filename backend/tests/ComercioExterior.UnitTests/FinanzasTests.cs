@@ -76,6 +76,15 @@ public sealed class FinanzasTests
     }
     [Fact]
     public void CA3_centavos_suman_exactamente_y_empate_es_estable() => Assert.Equal(Tercios, ProrrateoGastos.Repartir(100, [1, 1, 1]));
+    [Fact]
+    public void Alm13_sin_incrementables_al_inventario_todo_va_a_gasto_y_el_costo_no_cambia()
+    {
+        // Fernando 4-nov: los incrementables de importación no se suman al inventario («para una versión posterior»).
+        var e = Nuevo(); var c = new ConceptoGasto(e.EmpresaId, "FLETE", "Flete"); Gasto(e, c, 10000);
+        var d = e.PrepararDistribucion([c], [Partidas()[0] with { CostoPromedioMxn = 100 }], Guid.NewGuid(), DateTimeOffset.UtcNow,
+            incrementablesAlInventario: false);
+        Assert.Equal((0m, 10000m, 100m), (d.Partidas[0].InventarioMxn, d.Partidas[0].GastoImportacionMxn, d.Partidas[0].CostoUnitarioDespues));
+    }
     [Theory]
     [InlineData(400, 0, 10000)]
     [InlineData(1000, 10000, 0)]

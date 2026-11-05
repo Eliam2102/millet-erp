@@ -3237,6 +3237,54 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         },
                         new
                         {
+                            Id = new Guid("00000002-0007-0000-0000-00000000000d"),
+                            Codigo = "CAJA",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Decimales = 0,
+                            Dimension = (short)0,
+                            EsBase = false,
+                            Estatus = (short)0,
+                            FactorABase = 1m,
+                            Nombre = "Caja (SAT XBX)",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000002-0007-0000-0000-00000000000e"),
+                            Codigo = "ROLLO",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Decimales = 0,
+                            Dimension = (short)0,
+                            EsBase = false,
+                            Estatus = (short)0,
+                            FactorABase = 1m,
+                            Nombre = "Rollo (SAT RK)",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000002-0007-0000-0000-00000000000f"),
+                            Codigo = "PAQ",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Decimales = 0,
+                            Dimension = (short)0,
+                            EsBase = false,
+                            Estatus = (short)0,
+                            FactorABase = 1m,
+                            Nombre = "Paquete (SAT XPK)",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000002-0007-0000-0000-000000000003"),
                             Codigo = "KG",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
