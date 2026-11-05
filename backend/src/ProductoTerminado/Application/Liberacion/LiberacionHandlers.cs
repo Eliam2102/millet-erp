@@ -15,7 +15,7 @@ public sealed class AplicarDecisionCxcHandler(ProductoTerminadoDbContext db, Lib
         var numero = c.PedidoRef.Trim();
         var pedido = await db.PedidosPt.FirstOrDefaultAsync(x => x.EmpresaId == c.EmpresaId && x.NumeroPedido == numero, cancellationToken);
         if (pedido is not { Liberacion: EstadoLiberacion.Retenido }) return false;
-        if (!await liberacion.LiberarAsync(pedido, MotivosPt.DecisionCxc, cancellationToken)) return false;
+        if (!await liberacion.LiberarAsync(pedido, MotivosPt.DecisionCxc, cancellationToken, c.DecididoPor?.ToString())) return false;
         await db.SaveChangesAsync(cancellationToken);
         return true;
     }

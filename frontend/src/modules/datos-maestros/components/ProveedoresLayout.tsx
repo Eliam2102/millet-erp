@@ -86,7 +86,7 @@ export function ProveedoresLayout({ idActivo, detalle }: ProveedoresLayoutProps)
         <MaestroFiltros
           busqueda={busquedaInput}
           onBusqueda={setBusquedaInput}
-          placeholder="Clave, RFC, nombre o razón social…"
+          placeholder="Clave, RFC, Tax ID, nombre o razón social…"
           ariaLabel="Buscar proveedor"
           estatus={estatus}
           onEstatus={setEstatus}
