@@ -16,8 +16,8 @@ namespace Millet.Facturacion.UnitTests.Facturas;
 
 /// <summary>
 /// F4-PR2 — emisión de factura final con amortización de anticipos (M2+M3):
-/// la NC de amortización se autogenera + timbra en la misma transacción y reduce
-/// el saldo; cualquier fallo hace rollback total.
+/// la NC de amortización se autogenera, se timbra y reduce el saldo. U-1: si la
+/// NC no timbra, la factura timbrada se guarda y la NC queda pendiente.
 /// </summary>
 public sealed class AmortizacionAnticipoTests
 {
@@ -94,9 +94,10 @@ public sealed class AmortizacionAnticipoTests
         new(db, sender, new FakePeriodoContablePort(), new FakeCatalogosSatReadPort(), fiscal ?? new FakeFiscalApiClient(),
             new FakeCfdiRepositorioPort(), EmpresasFiscal(empresaId), new FakeIntegrationEventPublisher(), new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
 
-    private static EmitirFacturaVentaHandler FacturaHandler(FacturacionDbContext db, Guid empresaId, ISender sender, ICfdiTimbradoPort fiscal) =>
+    private static EmitirFacturaVentaHandler FacturaHandler(FacturacionDbContext db, Guid empresaId, ISender sender, ICfdiTimbradoPort fiscal,
+        FakeIntegrationEventPublisher? eventos = null) =>
         new(db, sender, new FakePeriodoContablePort(), new FakeCatalogosSatReadPort(), fiscal,
-            new FakeCfdiRepositorioPort(), EmpresasFiscal(empresaId), new FakeIntegrationEventPublisher(), new FakeContabilidadAsientoPort(), new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
+            new FakeCfdiRepositorioPort(), EmpresasFiscal(empresaId), eventos ?? new FakeIntegrationEventPublisher(), new FakeContabilidadAsientoPort(), new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
 
     private static EmitirFacturaAnticipoCommand AnticipoCommand(decimal montoBase = 1000m) => new(
         Guid.NewGuid(), Guid.NewGuid(), RfcCliente, "Cliente Maquila", "601", "97000", "G03", "MEX",
@@ -123,7 +124,8 @@ public sealed class AmortizacionAnticipoTests
         var anticipo = await EmitirAnticipoHandler(db, empresaId, sender, fiscal).Handle(AnticipoCommand(), CancellationToken.None);
 
         var resp = await FacturaHandler(db, empresaId, sender, fiscal)
-            .Handle(FacturaCommand([new AnticipoAAmortizar(anticipo.AnticipoId, 500m)]), CancellationToken.None);
+            .Handle(FacturaCommand([new AnticipoAAmortizar(anticipo.AnticipoId, 500m, "  Aplicación del anticipo de obra  ")]),
+                CancellationToken.None);
 
         resp.Estado.Should().Be("Timbrado");
         resp.NotasCreditoAmortizacion.Should().HaveCount(1);
@@ -134,8 +136,8 @@ public sealed class AmortizacionAnticipoTests
         nc.Estado.Should().Be(EstadoTimbrado.Timbrado);
         nc.Tipo.Should().Be(TipoComprobante.Egreso);
         nc.AnticipoOrigenId.Should().Be(anticipo.AnticipoId);
-        nc.Relaciones.Should().HaveCount(2); // factura de anticipo + factura final
-        nc.Relaciones.Should().OnlyContain(r => r.TipoRelacion == "07");
+        nc.Relaciones.Should().ContainSingle(r => r.TipoRelacion == "07" && r.UuidRelacionado == resp.Uuid); // solo la factura final
+        nc.Comentarios.Should().Be("Aplicación del anticipo de obra"); // FMT-6: comentario libre capturado al emitir
 
         var factura = await db.FacturasVenta.Include(f => f.Relaciones).SingleAsync();
         factura.Relaciones.Should().ContainSingle(r => r.TipoRelacion == "07");
@@ -194,24 +196,83 @@ public sealed class AmortizacionAnticipoTests
     }
 
     [Fact]
-    public async Task Si_la_NC_no_timbra_hace_rollback_total()
+    public async Task Si_la_NC_no_timbra_la_factura_se_guarda_y_la_NC_queda_pendiente_U1()
     {
         var empresaId = Guid.NewGuid();
         using var db = NewDb(empresaId);
         var sender = new FakeSenderFoliosUnicos();
         var anticipo = await EmitirAnticipoHandler(db, empresaId, sender).Handle(AnticipoCommand(), CancellationToken.None);
+        var eventos = new FakeIntegrationEventPublisher();
 
-        var act = () => FacturaHandler(db, empresaId, sender, new FakeFiscalFallaEnLaNc())
+        var resp = await FacturaHandler(db, empresaId, sender, new FakeFiscalFallaEnLaNc(), eventos)
             .Handle(FacturaCommand([new AnticipoAAmortizar(anticipo.AnticipoId, 500m)]), CancellationToken.None);
 
-        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "NC_AMORTIZACION_NO_TIMBRADA");
+        // U-1 (86e3yxn2p): la factura timbrada no se pierde; la NC queda pendiente con el motivo.
+        resp.Estado.Should().Be("Timbrado");
+        resp.NotasCreditoAmortizacion!.Single().Estado.Should().Be("TimbradoFallido");
+        (await db.FacturasVenta.SingleAsync()).Estado.Should().Be(EstadoTimbrado.Timbrado);
+        var nc = await db.NotasCredito.SingleAsync();
+        (nc.Estado, nc.TimbradoErrorCodigo).Should().Be((EstadoTimbrado.TimbradoFallido, "PAC-99"));
+        eventos.Publicados.Should().NotContain(e => e is Millet.Facturacion.Application.Integration.NotaCreditoTimbradaIntegrationEvent);
 
-        // Rollback: ni factura ni NC persistidas; el anticipo intacto.
-        (await db.FacturasVenta.CountAsync()).Should().Be(0);
-        (await db.NotasCredito.CountAsync()).Should().Be(0);
+        // El importe queda comprometido con la factura sin reducir el saldo.
         var anticipoBd = await db.Anticipos.Include(a => a.Vinculaciones).SingleAsync();
         anticipoBd.Saldo.Should().Be(1160m);
         anticipoBd.MontoAmortizado.Should().Be(0m);
+        anticipoBd.SaldoDisponible.Should().Be(660m);
+        anticipoBd.Vinculaciones.Single().NcAmortizacionId.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Criterio3_con_dos_anticipos_si_falla_la_segunda_NC_quedan_la_factura_y_la_primera_U1()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var sender = new FakeSenderFoliosUnicos();
+        var uuids = new FakeFiscalUuidsUnicos();
+        var a1 = await EmitirAnticipoHandler(db, empresaId, sender, uuids).Handle(AnticipoCommand(), CancellationToken.None);
+        var a2 = await EmitirAnticipoHandler(db, empresaId, sender, uuids).Handle(AnticipoCommand(), CancellationToken.None);
+
+        // 1 = factura, 2 = NC del primer anticipo, 3 = NC del segundo (falla).
+        var fiscal = new NotasCredito.NcPendienteTimbrarTests.FakeFiscalGuion(3);
+        var resp = await FacturaHandler(db, empresaId, sender, fiscal)
+            .Handle(FacturaCommand([new AnticipoAAmortizar(a1.AnticipoId, 500m), new AnticipoAAmortizar(a2.AnticipoId, 300m)]),
+                CancellationToken.None);
+
+        resp.Estado.Should().Be("Timbrado");
+        resp.NotasCreditoAmortizacion!.Select(n => n.Estado).Should().Equal("Timbrado", "TimbradoFallido");
+        var ncs = await db.NotasCredito.AsNoTracking().ToListAsync();
+        ncs.Single(n => n.AnticipoOrigenId == a1.AnticipoId).Estado.Should().Be(EstadoTimbrado.Timbrado);
+        var pendiente = ncs.Single(n => n.AnticipoOrigenId == a2.AnticipoId);
+        pendiente.Estado.Should().Be(EstadoTimbrado.TimbradoFallido);
+        (await db.Anticipos.SingleAsync(a => a.Id == a1.AnticipoId)).MontoAmortizado.Should().Be(500m);
+        (await db.Anticipos.SingleAsync(a => a.Id == a2.AnticipoId)).MontoAmortizado.Should().Be(0m);
+
+        // Reintento desde la bandeja: la NC timbra y entonces sí amortiza el anticipo.
+        var reintento = new Millet.Facturacion.Application.Timbrado.ReintentarTimbrado.ReintentarTimbradoHandler(
+            db, sender, new FakePeriodoContablePort(true), fiscal, new FakeCfdiRepositorioPort(), new FakeIntegrationEventPublisher(),
+            new FakeContabilidadAsientoPort(), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
+        (await reintento.Handle(new(pendiente.Id), CancellationToken.None)).Estado.Should().Be("Timbrado");
+        var a2Bd = await db.Anticipos.Include(a => a.Vinculaciones).SingleAsync(a => a.Id == a2.AnticipoId);
+        a2Bd.MontoAmortizado.Should().Be(300m);
+        a2Bd.Vinculaciones.Single().NcAmortizacionId.Should().Be(pendiente.Id);
+    }
+
+    [Fact]
+    public async Task Descartar_la_NC_de_amortizacion_pendiente_libera_el_importe_comprometido_U1()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var sender = new FakeSenderFoliosUnicos();
+        var anticipo = await EmitirAnticipoHandler(db, empresaId, sender).Handle(AnticipoCommand(), CancellationToken.None);
+        var resp = await FacturaHandler(db, empresaId, sender, new FakeFiscalFallaEnLaNc())
+            .Handle(FacturaCommand([new AnticipoAAmortizar(anticipo.AnticipoId, 500m)]), CancellationToken.None);
+
+        await new Millet.Facturacion.Application.Timbrado.DescartarComprobante.DescartarComprobanteHandler(db, new FakeClock(Ahora))
+            .Handle(new(resp.NotasCreditoAmortizacion!.Single().Id), CancellationToken.None);
+
+        var anticipoBd = await db.Anticipos.Include(a => a.Vinculaciones).SingleAsync();
+        anticipoBd.SaldoDisponible.Should().Be(1160m);
         anticipoBd.Vinculaciones.Should().BeEmpty();
     }
 

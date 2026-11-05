@@ -5,6 +5,7 @@ using Millet.Api.Auth;
 using Millet.Api.Web;
 using Millet.CuentasPorCobrar.Application.Anticipos;
 using Millet.CuentasPorCobrar.Application.Cartera;
+using Millet.CuentasPorCobrar.Application.ConciliacionPolizas;
 using Millet.CuentasPorCobrar.Application.Reportes.AntiguedadSaldos;
 using Millet.CuentasPorCobrar.Application.Reportes.Comun;
 using Millet.CuentasPorCobrar.Application.Reportes.EstadoCuenta;
@@ -49,6 +50,22 @@ public static class CarteraEndpoints
         .WithName("ObtenerSaldoGrupoCliente")
         .WithSummary("Saldo por moneda de cada cliente del grupo de unificación por RFC (vacío si no hay grupo)")
         .Produces<SaldoGrupoClienteResponse>(StatusCodes.Status200OK);
+
+        // CXC-06 (86e3qddef): cobros aplicados en cartera contra sus pólizas. Reporte corporativo (todas las sucursales, ADR-0051):
+        // pide además el permiso de lectura de todas las sucursales.
+        cartera.MapGet("/cartera/conciliacion-polizas", async (
+            [FromQuery] DateOnly desde,
+            [FromQuery] DateOnly hasta,
+            [FromQuery] Guid? clienteId,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new ConciliacionCobrosPolizasQuery(desde, hasta, clienteId), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarCarteraLeer)
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarCarteraLeerTodasSucursales)
+        .WithName("ConciliarCobrosContraPolizas")
+        .WithSummary("Conciliación de cobros aplicados en cartera contra sus pólizas, con diferencias y causa probable (CXC-06)")
+        .Produces<ConciliacionCobrosResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem();
 
         // CXC-PR6: reportes ADR-0036 (JSON estructurado → <ReporteShell>).
         cartera.MapGet("/cartera/antiguedad", async (

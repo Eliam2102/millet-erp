@@ -69,3 +69,15 @@ describe('86e3xt2q8 · factura mensual del banco', () => {
     await waitFor(() => expect(enviado).toEqual({ anio: 2026, mes: 10, cfdiRecibidoId: 'f1' }));
   });
 });
+
+it('muestra la causa y la acción cuando no puede consultar las facturas', async () => {
+  mswServer.use(
+    http.get(`${BASE}/candidatos`, () => HttpResponse.json({ title: 'CFDI_ERROR', detail: 'Invalid payload', status: 500 }, { status: 500 })),
+    http.get(`${BASE}/cuadre`, () => HttpResponse.json(cuadre(null))),
+    http.get(BASE, () => HttpResponse.json([])),
+  );
+  render(<FacturaBancoTerminalSection />, { wrapper: createQueryWrapper() });
+  expect(await screen.findByText('No se pudieron consultar las facturas del banco')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Reintentar' })).toBeInTheDocument();
+  expect(screen.queryByText(/CFDI_ERROR|Invalid payload/)).not.toBeInTheDocument();
+});

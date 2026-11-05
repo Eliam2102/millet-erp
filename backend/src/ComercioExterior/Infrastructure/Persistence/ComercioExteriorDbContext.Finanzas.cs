@@ -34,6 +34,7 @@ public sealed partial class ComercioExteriorDbContext
         c.Property(x => x.Codigo).HasMaxLength(30); c.Property(x => x.Nombre).HasMaxLength(200); c.Ignore(x => x.EsIvaImportacion);
         c.HasIndex(x => new { x.EmpresaId, x.Codigo }).IsUnique();
         var g = b.Entity<GastoExpediente>(); g.ToTable("gastos_expediente"); g.HasKey(x => x.Id); g.Property(x => x.Id).ValueGeneratedNever();
+        g.HasIndex(x => new { x.EmpresaId, x.FacturaProveedorId }).IsUnique().HasFilter("factura_proveedor_id IS NOT NULL AND deleted_at IS NULL");
         g.HasIndex(x => new { x.EmpresaId, x.OrdenServicioId, x.ExpedienteId });
         g.Property(x => x.OrdenServicioFolio).HasMaxLength(40);
         g.Property(x => x.OrdenServicioMoneda).HasMaxLength(3);
@@ -46,7 +47,7 @@ public sealed partial class ComercioExteriorDbContext
         d.HasIndex(x => new { x.ExpedienteId, x.NumeroVersion }).IsUnique(); Json(d.Property(x => x.Renglones)); Json(d.Property(x => x.Partidas));
         var a = b.Entity<AnticipoAgente>(); a.ToTable("anticipos_agente"); a.HasKey(x => x.Id); a.Property(x => x.Id).ValueGeneratedNever(); a.Ignore(x => x.AggregateRootId);
         a.Ignore(x => x.Anticipado); a.Ignore(x => x.Aplicado); a.Ignore(x => x.Diferencia); a.Ignore(x => x.Saldo); a.Ignore(x => x.Estado);
-        a.HasIndex(x => new { x.EmpresaId, x.AgenteId }); Json(a.Property(x => x.Resoluciones));
+        a.HasIndex(x => new { x.EmpresaId, x.AgenteId }); Json(a.Property(x => x.Resoluciones)); Json(a.Property(x => x.HistorialComprobaciones)); Json(a.Property(x => x.PagosRecibidos)); Json(a.Property(x => x.DepositosRecibidos)); Json(a.Property(x => x.DevolucionAprobada));
         foreach (var tipo in new[] { typeof(GastoExpediente), typeof(PartidaCosto), typeof(AnticipoAgente) })
             foreach (var property in b.Entity(tipo).Metadata.GetProperties().Where(x => x.ClrType == typeof(decimal) || x.ClrType == typeof(decimal?)))
                 b.Entity(tipo).Property(property.Name).HasPrecision(20, property.Name is "TipoCambio" or "TipoCambioSugerido" or "OrdenServicioTipoCambio" or "PesoKg" ? 6 : 2);

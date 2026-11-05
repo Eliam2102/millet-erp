@@ -459,6 +459,13 @@ export const EstadoPropuestaAplicacion = {
 export type EstadoPropuestaAplicacion =
   (typeof EstadoPropuestaAplicacion)[keyof typeof EstadoPropuestaAplicacion];
 
+/** CXC-06: tipo del ajuste documentado de un cobro corto (define la cuenta de la póliza). */
+export const TipoAjusteCobro = {
+  ComisionBancaria: 1,
+  DiferenciaMenor: 2,
+} as const satisfies Record<string, number>;
+export type TipoAjusteCobro = (typeof TipoAjusteCobro)[keyof typeof TipoAjusteCobro];
+
 /** Mirror de backend <c>PropuestaFacturaResponse</c>. */
 export interface PropuestaFacturaResponse {
   facturaCarteraId: string;
@@ -492,6 +499,13 @@ export interface PropuestaAplicacionResponse {
   version: number;
   /** C7.4: depósito bancario identificado (o confirmado por Tesorería). */
   movimientoBancarioId?: string | null;
+  /** CXC-06: ajuste documentado de un depósito corto y su autorización. */
+  tipoAjuste?: TipoAjusteCobro | null;
+  motivoAjuste?: string | null;
+  ajusteAutorizadoPor?: string | null;
+  ajusteAutorizadoEn?: string | null;
+  /** CXC-06: el ajuste espera autorización; Tesorería aún no ve la propuesta. */
+  ajustePorAutorizar?: boolean;
 }
 
 /** Línea del payload de creación (mirror de <c>PropuestaFacturaLinea</c>). */
@@ -512,6 +526,9 @@ export interface CrearPropuestaAplicacionCommand {
   facturas: PropuestaFacturaLinea[];
   /** C7.4: depósito sin identificar que se identifica con esta propuesta. */
   movimientoBancarioId?: string | null;
+  /** CXC-06: obligatorios cuando el depósito es menor que lo aplicado. */
+  tipoAjuste?: TipoAjusteCobro | null;
+  motivoAjuste?: string | null;
 }
 
 /**
@@ -567,6 +584,8 @@ export const TipoAlertaCartera = {
   ExcesoCredito: 2,
   /** Vencimientos dispararon el auto-bloqueo de la línea. */
   AutoBloqueoVencimiento: 3,
+  /** Pedido a contra entrega que el chofer no liquidó en caja el día de la salida (PT5.7). */
+  ContraEntregaNoLiquidada: 4,
 } as const satisfies Record<string, number>;
 export type TipoAlertaCartera =
   (typeof TipoAlertaCartera)[keyof typeof TipoAlertaCartera];
@@ -688,4 +707,40 @@ export interface EnviarEstadoCuentaArgs {
   mensaje?: string;
   pdf: Blob;
   nombreArchivo: string;
+}
+
+/** CXC-06: estado de un cobro en la conciliación de cartera contra pólizas. */
+export const EstadoConciliacionCobro = {
+  Cuadra: 1,
+  Diferencia: 2,
+  EnTransito: 3,
+} as const satisfies Record<string, number>;
+export type EstadoConciliacionCobro =
+  (typeof EstadoConciliacionCobro)[keyof typeof EstadoConciliacionCobro];
+
+/** Mirror de backend <c>ConciliacionCobroFila</c>. */
+export interface ConciliacionCobroFila {
+  documento: string;
+  documentoId: string;
+  clienteId: string | null;
+  cliente: string | null;
+  moneda: string;
+  fecha: string;
+  importeCartera: number;
+  importePolizas: number;
+  diferencia: number;
+  polizas: string[];
+  estado: EstadoConciliacionCobro;
+  causa: string | null;
+}
+
+/** Mirror de backend <c>ConciliacionCobrosResponse</c>. */
+export interface ConciliacionCobrosResponse {
+  desde: string;
+  hasta: string;
+  cobros: number;
+  cuadran: number;
+  conDiferencia: number;
+  enTransito: number;
+  filas: ConciliacionCobroFila[];
 }

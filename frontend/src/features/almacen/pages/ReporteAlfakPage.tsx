@@ -1,3 +1,4 @@
+import { errorDeReporte } from '@/lib/error-usuario';
 import { ReporteAlmacen } from '../components/ReporteAlmacen';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -10,10 +11,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ArticuloSelector } from '@/components/erp';
-import { useReporteAlfakHistorial } from '@/features/almacen/api/useSaldosCierreReportes';
+import {
+  useReporteAlfakHistorial,
+  useReporteCuadreInventario,
+} from '@/features/almacen/api/useSaldosCierreReportes';
 import { useSubAlmacenes } from '@/features/almacen/api/useAlmacenes';
-import type { AlfakHistorialFila } from '@/features/almacen/api/types';
-import { esApiError } from '@/lib/api';
+import type { AlfakHistorialFila, CuadreInventarioFila } from '@/features/almacen/api/types';
 import { Field } from '@/features/almacen/components/internal/Field';
 
 const SENTINEL_ALL = '__all__';
@@ -40,60 +43,72 @@ export function ReporteAlfakPage() {
     articuloId,
   });
 
+  // F1-ALM-13-a: el cuadre se toma al cierre del mes de «Hasta» (valuación vs cuenta de inventario y vs kardex).
+  const [anioCorte, mesCorte] = hasta.split('-').map(Number);
+  const cuadre = useReporteCuadreInventario(anioCorte ?? 0, mesCorte ?? 0);
+
   return (
-    <ReporteAlmacen<AlfakHistorialFila>
-      reporte={query.data}
-      isLoading={query.isLoading}
-      error={esApiError(query.error) ? query.error : undefined}
-      onRetry={() => query.refetch()}
-      filtrosUi={
-        <div className="flex flex-wrap items-end gap-3">
-          <Field label="Desde">
-            <Input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} />
-          </Field>
-          <Field label="Hasta">
-            <Input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} />
-          </Field>
-          <Field label="Sub-almacén (opcional)">
-            <Select
-              value={subAlmacenId ?? SENTINEL_ALL}
-              onValueChange={(v) => setSubAlmacenId(v === SENTINEL_ALL ? undefined : v)}
+    <div className="space-y-8">
+      <ReporteAlmacen<AlfakHistorialFila>
+        reporte={query.data}
+        isLoading={query.isLoading}
+        error={errorDeReporte(query.error)}
+        onRetry={() => query.refetch()}
+        filtrosUi={
+          <div className="flex flex-wrap items-end gap-3">
+            <Field label="Desde">
+              <Input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} />
+            </Field>
+            <Field label="Hasta">
+              <Input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} />
+            </Field>
+            <Field label="Sub-almacén (opcional)">
+              <Select
+                value={subAlmacenId ?? SENTINEL_ALL}
+                onValueChange={(v) => setSubAlmacenId(v === SENTINEL_ALL ? undefined : v)}
+              >
+                <SelectTrigger className="w-56">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
+                  {(subAlmacenesQuery.data?.items ?? []).map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.clave} · {s.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="Artículo (opcional)">
+              <ArticuloSelector
+                value={articuloId ?? null}
+                onChange={(id) => setArticuloId(id ?? undefined)}
+                placeholder="Todos los artículos"
+                className="w-72"
+              />
+            </Field>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setSubAlmacenId(undefined);
+                setArticuloId(undefined);
+                setDesde(inicioMes);
+                setHasta(finMes);
+              }}
             >
-              <SelectTrigger className="w-56">
-                <SelectValue placeholder="Todos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-                {(subAlmacenesQuery.data?.items ?? []).map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.clave} · {s.nombre}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label="Artículo (opcional)">
-            <ArticuloSelector
-              value={articuloId ?? null}
-              onChange={(id) => setArticuloId(id ?? undefined)}
-              placeholder="Todos los artículos"
-              className="w-72"
-            />
-          </Field>
-          <Button
-            variant="ghost"
-            onClick={() => {
-              setSubAlmacenId(undefined);
-              setArticuloId(undefined);
-              setDesde(inicioMes);
-              setHasta(finMes);
-            }}
-          >
-            Limpiar filtros
-          </Button>
-        </div>
-      }
-    />
+              Limpiar filtros
+            </Button>
+          </div>
+        }
+      />
+      <ReporteAlmacen<CuadreInventarioFila>
+        reporte={cuadre.data}
+        isLoading={cuadre.isLoading}
+        error={errorDeReporte(cuadre.error)}
+        onRetry={() => cuadre.refetch()}
+      />
+    </div>
   );
 }
 

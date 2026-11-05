@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 using Millet.SharedKernel.Application.Integration;
+using Millet.Tesoreria.Application.Depositos;
 using Millet.Tesoreria.Application.Integration;
 using Millet.Tesoreria.Domain.Conciliaciones;
 using Millet.Tesoreria.Domain.Conciliaciones.Actas;
@@ -99,10 +100,14 @@ public sealed class CargarExtractoHandler(
     TesoreriaDbContext db,
     ICurrentUserContext userContext,
     IClock clock,
-    ExtractoParserFactory parserFactory)
+    ExtractoParserFactory parserFactory,
+    DepositoAutomaticoProcesador depositos)
     : IRequestHandler<CargarExtractoCommand, ConciliacionResumenResponse>
 {
-    public async Task<ConciliacionResumenResponse> Handle(CargarExtractoCommand command, CancellationToken cancellationToken)
+    public Task<ConciliacionResumenResponse> Handle(CargarExtractoCommand command, CancellationToken cancellationToken) =>
+        DepositoAutomaticoProcesador.EjecutarBajoLockAsync(db, ct => HandleAsync(command, ct), cancellationToken);
+
+    private async Task<ConciliacionResumenResponse> HandleAsync(CargarExtractoCommand command, CancellationToken cancellationToken)
     {
         var conciliacion = await db.Conciliaciones
             .Include(c => c.Lineas)
@@ -118,7 +123,17 @@ public sealed class CargarExtractoHandler(
 
         int numLineaActual = conciliacion.Lineas.Count > 0 ? conciliacion.Lineas.Max(l => l.NumeroLinea) + 1 : 1;
 
-        var nuevasLineas = parseResult.Lineas.Select(p => ExtractoLinea.Crear(
+        // Una línea ya importada en otra conciliación de la misma cuenta (mismo hash) no se vuelve a cargar.
+        var hashes = parseResult.Lineas.Where(p => p.LineaHash != null).Select(p => p.LineaHash!).Distinct().ToList();
+        var hashesEnOtras = (await db.ExtractoLineas.AsNoTracking()
+                .Where(l => l.LineaHash != null && hashes.Contains(l.LineaHash) && l.ConciliacionId != conciliacion.Id
+                    && db.Conciliaciones.Any(c => c.Id == l.ConciliacionId && c.CuentaBancariaId == conciliacion.CuentaBancariaId))
+                .Select(l => l.LineaHash!).ToListAsync(cancellationToken)).ToHashSet();
+        var idsPrevios = conciliacion.Lineas.Select(l => l.Id).ToHashSet();
+        // Las líneas que ya están en esta conciliación tampoco consumen número de línea al reimportar el archivo.
+        var hashesAqui = conciliacion.Lineas.Where(l => l.LineaHash != null).Select(l => l.LineaHash!).ToHashSet();
+
+        var nuevasLineas = parseResult.Lineas.Where(p => p.LineaHash == null || (!hashesEnOtras.Contains(p.LineaHash) && !hashesAqui.Contains(p.LineaHash))).Select(p => ExtractoLinea.Crear(
             conciliacion.Id,
             numLineaActual++,
             p.Fecha,
@@ -130,8 +145,9 @@ public sealed class CargarExtractoHandler(
             p.LineaHash)).ToList();
 
         decimal? saldoExt = command.SaldoExtracto ?? parseResult.SaldoFinal;
-        conciliacion.CargarLineas(nuevasLineas, saldoExt);
+        var agregadas = conciliacion.CargarLineas(nuevasLineas, saldoExt);
 
+        ResumenDepositosAutomaticos? resumenDepositos = null;
         if (command.AutoEmparejar)
         {
             var movimientos = await db.MovimientosBancarios
@@ -145,6 +161,10 @@ public sealed class CargarExtractoHandler(
                 new EmparejamientoOptions(),
                 userContext.UserId ?? Guid.Empty,
                 clock.UtcNow);
+
+            // 86e3ke6yn: solo las líneas nuevas de este archivo.
+            resumenDepositos = await depositos.ProcesarAsync(conciliacion, cuenta,
+                conciliacion.Lineas.Where(l => !idsPrevios.Contains(l.Id)).ToList(), crearSinIdentificar: true, cancellationToken);
         }
 
         decimal saldoLibros = await ConciliacionCalculos.CalcularSaldoLibrosAsync(
@@ -152,7 +172,12 @@ public sealed class CargarExtractoHandler(
         conciliacion.ActualizarSaldoLibros(saldoLibros);
 
         await db.SaveChangesAsync(cancellationToken);
-        return ConciliacionMapper.ToResumen(conciliacion, cuenta);
+        return ConciliacionMapper.ToResumen(conciliacion, cuenta) with
+        {
+            Depositos = resumenDepositos,
+            LineasNuevas = agregadas,
+            LineasDuplicadas = parseResult.Lineas.Count - agregadas,
+        };
     }
 }
 
@@ -175,10 +200,14 @@ public sealed class EmparejarAutomaticoValidator : AbstractValidator<EmparejarAu
 public sealed class EmparejarAutomaticoHandler(
     TesoreriaDbContext db,
     ICurrentUserContext userContext,
-    IClock clock)
+    IClock clock,
+    DepositoAutomaticoProcesador depositos)
     : IRequestHandler<EmparejarAutomaticoCommand, ResultadoEmparejamiento>
 {
-    public async Task<ResultadoEmparejamiento> Handle(EmparejarAutomaticoCommand command, CancellationToken cancellationToken)
+    public Task<ResultadoEmparejamiento> Handle(EmparejarAutomaticoCommand command, CancellationToken cancellationToken) =>
+        DepositoAutomaticoProcesador.EjecutarBajoLockAsync(db, ct => HandleAsync(command, ct), cancellationToken);
+
+    private async Task<ResultadoEmparejamiento> HandleAsync(EmparejarAutomaticoCommand command, CancellationToken cancellationToken)
     {
         var conciliacion = await db.Conciliaciones
             .Include(c => c.Lineas)
@@ -204,6 +233,11 @@ public sealed class EmparejarAutomaticoHandler(
             options,
             userContext.UserId ?? Guid.Empty,
             clock.UtcNow);
+
+        // 86e3ke6yn: una línea sin propuesta no crea ingreso aquí (puede ser un alta asistida pendiente); solo al importar.
+        var cuenta = await db.CuentasBancarias.FirstOrDefaultAsync(c => c.Id == conciliacion.CuentaBancariaId, cancellationToken)
+            ?? throw new EntityNotFoundException("CUENTA_NO_ENCONTRADA", "No se encontró la cuenta bancaria.");
+        await depositos.ProcesarAsync(conciliacion, cuenta, conciliacion.Lineas.ToList(), crearSinIdentificar: false, cancellationToken);
 
         await db.SaveChangesAsync(cancellationToken);
         return resultado;

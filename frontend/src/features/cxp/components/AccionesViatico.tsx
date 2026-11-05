@@ -1,7 +1,10 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import { useState, type ReactNode } from 'react';
 import {
   CheckCircle2,
   ClipboardCheck,
+  CornerUpLeft,
+  Pencil,
   Send,
   Unlock,
   Wallet,
@@ -13,9 +16,12 @@ import { cn } from '@/lib/utils';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccionDialog';
 import { MotivoDialog } from '@/components/erp/feedback/MotivoDialog';
+import { ReenviarViaticosDialog } from '@/features/cxp/components/ReenviarViaticosDialog';
 import {
   useAutorizarPorDfViaticos,
   useAutorizarPorJefeViaticos,
+  useDevolverSolicitudViaticos,
+  useReenviarSolicitudViaticos,
   useLiberarComprobacionViaticos,
   useMarcarAnticipoPagadoViaticos,
   useRechazarSolicitudViaticos,
@@ -27,15 +33,19 @@ import {
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { useMiEmpleado } from '@/lib/auth/useMiEmpleado';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError } from '@/lib/api';
 
 /** Campos mínimos de la solicitud: la lista y el detalle los comparten. */
 export type SolicitudAccionable = Pick<
   SolicitudViaticosListItem,
   'id' | 'version' | 'estado' | 'destino' | 'montoSolicitado' | 'excedePolitica'
->;
+> & {
+  /** Solo el detalle los trae; precargan el formulario de corrección. */
+  fechaSalida?: string;
+  fechaRegreso?: string;
+  comentarioDevolucion?: string | null;
+};
 
-type Dialogo = 'autJefe' | 'autDf' | 'pagado' | 'liberar' | 'rechazar' | null;
+type Dialogo = 'autJefe' | 'autDf' | 'pagado' | 'liberar' | 'rechazar' | 'devolver' | 'reenviar' | null;
 
 export const MOTIVO_SIN_EMPLEADO =
   'Tu usuario no está ligado a un empleado; pide que lo liguen en Administración → Empleados.';
@@ -65,6 +75,9 @@ export function AccionesViatico({
   const marcarPagado = useMarcarAnticipoPagadoViaticos();
   const liberar = useLiberarComprobacionViaticos();
   const rechazar = useRechazarSolicitudViaticos();
+  const devolver = useDevolverSolicitudViaticos();
+  const reenviar = useReenviarSolicitudViaticos();
+  const puedeSolicitar = useHasPermission(PermisosCanonicos.CuentasPorPagarViaticosSolicitar);
   const puedeAutJefe = useHasPermission(PermisosCanonicos.CuentasPorPagarViaticosAutorizarJefe);
   const puedeAutDf = useHasPermission(PermisosCanonicos.CuentasPorPagarViaticosAutorizarDf);
   const puedeMarcarPagado = useHasPermission(PermisosCanonicos.CuentasPorPagarViaticosMarcarPagado);
@@ -76,7 +89,7 @@ export function AccionesViatico({
 
   const pendiente =
     autJefe.isPending || autDf.isPending || marcarPagado.isPending ||
-    liberar.isPending || rechazar.isPending;
+    liberar.isPending || rechazar.isPending || devolver.isPending || reenviar.isPending;
   const sinEmpleado = tieneEmpleado === false;
   const base = { id: s.id, versionEsperada: s.version };
 
@@ -84,7 +97,7 @@ export function AccionesViatico({
     p.then(
       () => toast.success(etiqueta),
       (error) =>
-        toast.error(esApiError(error) ? error.problem.title : 'Error al ejecutar la acción.'),
+        toast.error(errorUsuario(error, 'Error al ejecutar la acción.')),
     ).finally(() => setDialogo(null));
   }
 
@@ -116,7 +129,7 @@ export function AccionesViatico({
 
   const monto = <MoneyDisplay amount={s.montoSolicitado} currency={moneda} strong />;
   const quien = empleadoNombre ? ` de ${empleadoNombre}` : '';
-  const resumen: Record<Exclude<Dialogo, 'rechazar' | null>, { titulo: string; verbo: string; texto: ReactNode }> = {
+  const resumen: Record<Exclude<Dialogo, 'rechazar' | 'devolver' | 'reenviar' | null>, { titulo: string; verbo: string; texto: ReactNode }> = {
     autJefe: {
       titulo: 'Autorizar como jefe',
       verbo: 'Autorizar como jefe',
@@ -157,7 +170,10 @@ export function AccionesViatico({
       ),
     },
   };
-  const abierto = dialogo !== null && dialogo !== 'rechazar' ? resumen[dialogo] : null;
+  const abierto =
+    dialogo !== null && dialogo !== 'rechazar' && dialogo !== 'devolver' && dialogo !== 'reenviar'
+      ? resumen[dialogo]
+      : null;
   const ayudaId = `sin-empleado-${s.id}`;
 
   return (
@@ -212,6 +228,36 @@ export function AccionesViatico({
         s.estado === EstadoSolicitudViaticos.RequiereDireccionFinanzas) &&
         puedeAutJefe && (
           <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setErrorMotivo(null);
+              setDialogo('devolver');
+            }}
+            disabled={pendiente}
+          >
+            <CornerUpLeft className="mr-1 size-3.5" aria-hidden="true" />
+            Devolver para corregir
+          </Button>
+        )}
+      {s.estado === EstadoSolicitudViaticos.Devuelta && puedeSolicitar && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setErrorMotivo(null);
+            setDialogo('reenviar');
+          }}
+          disabled={pendiente}
+        >
+          <Pencil className="mr-1 size-3.5" aria-hidden="true" />
+          Corregir y reenviar
+        </Button>
+      )}
+      {(s.estado === EstadoSolicitudViaticos.Solicitada ||
+        s.estado === EstadoSolicitudViaticos.RequiereDireccionFinanzas) &&
+        puedeAutJefe && (
+          <Button
             variant="ghost"
             size="sm"
             className="text-danger-fg"
@@ -244,6 +290,57 @@ export function AccionesViatico({
           onConfirmar={confirmar}
         />
       )}
+      {dialogo === 'devolver' && (
+        <MotivoDialog
+          titulo="Devolver solicitud de viáticos para corregir"
+          descripcion={<>Viáticos{quien} a {s.destino}. No se cierra: el solicitante ve tu comentario, la corrige y la reenvía.</>}
+          etiqueta="Comentario para el solicitante"
+          min={5}
+          max={500}
+          verbo="Devolver para corregir"
+          variante="default"
+          error={errorMotivo}
+          onCerrar={() => setDialogo(null)}
+          onConfirmar={async (comentario) => {
+            try {
+              await devolver.mutateAsync({
+                ...base,
+                command: { comentario },
+                idempotencyKey: crypto.randomUUID(),
+              });
+              toast.success('Solicitud devuelta para corregir');
+              setDialogo(null);
+            } catch (e) {
+              setErrorMotivo(
+                errorUsuario(e, 'No se pudo devolver la solicitud.'),
+              );
+            }
+          }}
+        />
+      )}
+      {dialogo === 'reenviar' && (
+        <ReenviarViaticosDialog
+          inicial={s}
+          comentario={s.comentarioDevolucion}
+          error={errorMotivo}
+          onCerrar={() => setDialogo(null)}
+          onConfirmar={async (command) => {
+            try {
+              await reenviar.mutateAsync({
+                ...base,
+                command,
+                idempotencyKey: crypto.randomUUID(),
+              });
+              toast.success('Solicitud reenviada a firma');
+              setDialogo(null);
+            } catch (e) {
+              setErrorMotivo(
+                errorUsuario(e, 'No se pudo reenviar la solicitud.'),
+              );
+            }
+          }}
+        />
+      )}
       {dialogo === 'rechazar' && (
         <MotivoDialog
           titulo="Rechazar solicitud de viáticos"
@@ -265,7 +362,7 @@ export function AccionesViatico({
               setDialogo(null);
             } catch (e) {
               setErrorMotivo(
-                esApiError(e) ? (e.problem.detail ?? e.problem.title) : 'No se pudo rechazar la solicitud.',
+                errorUsuario(e, 'No se pudo rechazar la solicitud.'),
               );
             }
           }}

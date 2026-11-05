@@ -165,6 +165,20 @@ describe('<CxcLandingPage> — indicadores + accesibilidad', () => {
     expect(await screen.findByText(/500\.00 USD/)).toBeInTheDocument();
   });
 
+  it('la portada enlaza la conciliación de cartera en Reportes (C7.7)', async () => {
+    mockIndicadores();
+    render(<CxcLandingPage />, { wrapper: createQueryWrapper() });
+    const tarjeta = (await screen.findByText('Conciliación de cartera')).closest('a');
+    expect(tarjeta).toHaveAttribute('href', '/cxc/conciliacion');
+  });
+
+  it('sin cartera.leer no muestra la tarjeta de conciliación', async () => {
+    useAuthStore.setState({ permisos: ['cuentas_por_cobrar.lineas-credito.leer'] });
+    render(<CxcLandingPage />, { wrapper: createQueryWrapper() });
+    await screen.findByRole('heading', { name: 'Cuentas por cobrar', level: 1 });
+    expect(screen.queryByText('Conciliación de cartera')).not.toBeInTheDocument();
+  });
+
   it('sin cartera.leer no renderiza indicadores', async () => {
     useAuthStore.setState({
       permisos: ['cuentas_por_cobrar.lineas-credito.leer'],

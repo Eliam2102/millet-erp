@@ -68,6 +68,33 @@ public sealed partial class Adjunto : BaseEntity, IAuditable, IBelongsToAggregat
 
     public bool EstaDeBaja => BajaEn is not null;
 
+    // Revisión del contenido (86e3yzemu · ADM-proveedor-05): quién lo cotejó, cuándo y con qué resultado.
+    public ResultadoRevisionAdjunto? ResultadoRevision { get; private set; }
+    public Guid? RevisadoPorId { get; private set; }
+    public string? RevisadoPorNombre { get; private set; }
+    public DateTimeOffset? RevisadoEn { get; private set; }
+    public string? ObservacionRevision { get; private set; }
+
+    /// <summary>Cotejo del contenido; rechazar exige observación (5-500). Una revisión nueva reemplaza la anterior (la bitácora conserva el historial).</summary>
+    public void Revisar(ResultadoRevisionAdjunto resultado, string? observacion, Guid usuarioId, string? usuarioNombre, DateTimeOffset cuando)
+    {
+        if (EstaDeBaja)
+            throw new BusinessRuleException("ADJUNTO_DADO_DE_BAJA", "El adjunto está dado de baja; no se puede revisar.");
+        if (!Enum.IsDefined(resultado))
+            throw new BusinessRuleException("ADJUNTO_REVISION_RESULTADO_INVALIDO", "El resultado de la revisión debe ser aceptado o rechazado.");
+        var limpia = string.IsNullOrWhiteSpace(observacion) ? null : observacion.Trim();
+        if (limpia is { Length: > 500 } || (resultado == ResultadoRevisionAdjunto.Rechazado && limpia is not { Length: >= 5 }))
+            throw new BusinessRuleException("ADJUNTO_REVISION_OBSERVACION_INVALIDA",
+                "Al rechazar un documento explica el motivo (de 5 a 500 caracteres).");
+        if (usuarioId == Guid.Empty)
+            throw new BusinessRuleException("ADJUNTO_USUARIO_REQUERIDO", "El usuario que revisa el adjunto es requerido.");
+        ResultadoRevision = resultado;
+        RevisadoPorId = usuarioId;
+        RevisadoPorNombre = usuarioNombre;
+        RevisadoEn = cuando;
+        ObservacionRevision = limpia;
+    }
+
     private Adjunto() { }
 
     public Adjunto(

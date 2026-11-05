@@ -322,7 +322,9 @@ public sealed class CompartidoDbContext : BaseDbContext
         x.Ignore(e => e.Vigente);
         x.Property(e => e.TipoEntidad).HasMaxLength(60).IsRequired();
         x.Property(e => e.Motivo).HasMaxLength(500).IsRequired();
-        x.Property(e => e.OtorgadaPorNombre).HasMaxLength(200);
+        x.Property(e => e.SolicitadaPorNombre).HasMaxLength(200);
+        x.Property(e => e.ResueltaPorNombre).HasMaxLength(200);
+        x.Property(e => e.MotivoResolucion).HasMaxLength(500);
         x.HasOne<AdjuntoTipoDocumento>().WithMany().HasForeignKey(e => e.TipoDocumentoId).OnDelete(DeleteBehavior.Restrict);
         x.HasIndex(e => new { e.TipoEntidad, e.EntidadId });
     }
@@ -383,6 +385,8 @@ public sealed class CompartidoDbContext : BaseDbContext
         adjunto.Property(x => x.SubidoPorId).IsRequired();
         adjunto.Property(x => x.SubidoEn).IsRequired();
         adjunto.Property(x => x.BajaMotivo).HasMaxLength(500);
+        adjunto.Property(x => x.RevisadoPorNombre).HasMaxLength(200);
+        adjunto.Property(x => x.ObservacionRevision).HasMaxLength(500);
 
         adjunto.HasIndex(x => new { x.TipoEntidad, x.EntidadId });
         adjunto.HasIndex(x => new { x.EntidadId, x.TipoDocumentoId });
@@ -1067,6 +1071,11 @@ public sealed class CompartidoDbContext : BaseDbContext
             // Conteo (base PZA)
             SeedUnidadMedida("00000002-0007-0000-0000-000000000001", "PZA", "Pieza", DimensionUnidad.Conteo, 1m, 0, true, seedTime),
             SeedUnidadMedida("00000002-0007-0000-0000-000000000002", "PAR", "Par", DimensionUnidad.Conteo, 2m, 0, false, seedTime),
+            // P-200 (Fernando Alejos 4-nov): empaques de la carga SAP con su clave SAT. ponytail: factor nominal 1, no convierten a
+            // PZA (el contenido varía por artículo; ADR-0046 Etapa 3 lo llevará en el artículo). Nada convierte por factor hoy.
+            SeedUnidadMedida("00000002-0007-0000-0000-00000000000d", "CAJA", "Caja (SAT XBX)", DimensionUnidad.Conteo, 1m, 0, false, seedTime),
+            SeedUnidadMedida("00000002-0007-0000-0000-00000000000e", "ROLLO", "Rollo (SAT RK)", DimensionUnidad.Conteo, 1m, 0, false, seedTime),
+            SeedUnidadMedida("00000002-0007-0000-0000-00000000000f", "PAQ", "Paquete (SAT XPK)", DimensionUnidad.Conteo, 1m, 0, false, seedTime),
             // Peso (base KG)
             SeedUnidadMedida("00000002-0007-0000-0000-000000000003", "KG", "Kilogramo", DimensionUnidad.Peso, 1m, 3, true, seedTime),
             SeedUnidadMedida("00000002-0007-0000-0000-000000000004", "G", "Gramo", DimensionUnidad.Peso, 0.001m, 2, false, seedTime),

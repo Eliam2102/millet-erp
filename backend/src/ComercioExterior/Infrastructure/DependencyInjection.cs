@@ -9,6 +9,7 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddComercioExteriorModule(this IServiceCollection services)
     {
+        services.AddScoped<Millet.Compras.Application.PublicPorts.ITransporteImportacionCeReadPort, TransporteImportacionCeReadAdapter>();
         services.AddScoped<ExpedienteServicio>();
         services.AddScoped<FinanzasServicio>();
         services.AddScoped<OrdenesServicioServicio>();

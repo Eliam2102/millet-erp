@@ -9,6 +9,7 @@ import {
 import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { PageHeader } from '@/components/erp/PageHeader';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -49,6 +50,7 @@ export function BandejaFacturas() {
   const query = useListarFacturas({
     estado: search.estado,
     clase: search.clase,
+    ncPendiente: search.ncPendiente,
     limit: 200,
     alcance: search.alcance,
   });
@@ -117,10 +119,19 @@ export function BandejaFacturas() {
                   value={search.clase}
                   onChange={(clase) => actualizarSearch({ clase })}
                 />
-                {(search.estado != null || search.clase != null) && (
+                <Button
+                  variant={search.ncPendiente ? 'secondary' : 'ghost'}
+                  aria-pressed={search.ncPendiente === true}
+                  onClick={() => actualizarSearch({ ncPendiente: search.ncPendiente ? undefined : true })}
+                >
+                  NC pendiente de timbrar
+                </Button>
+                {(search.estado != null || search.clase != null || search.ncPendiente) && (
                   <Button
                     variant="ghost"
-                    onClick={() => actualizarSearch({ estado: undefined, clase: undefined })}
+                    onClick={() =>
+                      actualizarSearch({ estado: undefined, clase: undefined, ncPendiente: undefined })
+                    }
                   >
                     Limpiar
                   </Button>
@@ -170,7 +181,7 @@ export function BandejaFacturas() {
           <EmptyState
             title="Sin facturas"
             description={
-              search.estado != null || search.clase != null || q.length > 0
+              search.estado != null || search.clase != null || search.ncPendiente || q.length > 0
                 ? 'No hay facturas que coincidan con los filtros.'
                 : 'Aún no hay facturas emitidas. Emite una con "Nueva factura".'
             }
@@ -207,6 +218,11 @@ export function BandejaFacturas() {
                     </TableCell>
                     <TableCell className="px-3 py-2">
                       <ChipTimbrado estado={f.estado} />
+                      {f.notaCreditoPendiente && (
+                        <Badge variant="warning" className="mt-1">
+                          NC pendiente
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell className="px-3 py-2 text-right tabular-nums">
                       <Link

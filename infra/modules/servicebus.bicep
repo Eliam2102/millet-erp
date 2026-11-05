@@ -343,7 +343,7 @@ resource almacenEventsComprasSubscriptionFilter 'Microsoft.ServiceBus/namespaces
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'almacen.oc_recepcion.registrada.v1\', \'almacen.oc_devolucion.registrada.v1\', \'almacen.oc_devolucion.conciliada.v1\', \'almacen.recepcion_oc.cancelada.v1\', \'almacen.salida_requisicion.registrada.v1\', \'almacen.recepcion_activo.anulada.v1\')'
+      sqlExpression: 'user.EventType IN (\'almacen.oc_recepcion.registrada.v1\', \'almacen.oc_devolucion.registrada.v1\', \'almacen.oc_devolucion.conciliada.v1\', \'almacen.recepcion_oc.cancelada.v1\', \'almacen.salida_requisicion.registrada.v1\', \'almacen.recepcion_activo.anulada.v1\', \'almacen.vale_regularizado.v1\')'
       compatibilityLevel: 20
     }
   }
@@ -931,7 +931,7 @@ resource comercioExteriorCxpFilter 'Microsoft.ServiceBus/namespaces/topics/subsc
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType = \'comercio_exterior.anticipo-agente.saldo-transferido.v1\''
+      sqlExpression: 'user.EventType IN (\'comercio_exterior.anticipo-agente.saldo-transferido.v1\', \'comercio_exterior.anticipo-agente.solicitado.v1\')'
       compatibilityLevel: 20
     }
   }
@@ -983,7 +983,7 @@ resource contabCxpFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/r
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'cuentas_por_pagar.factura.registrada.v1\', \'cuentas_por_pagar.factura.cancelada.v1\', \'cuentas_por_pagar.nota-credito.registrada.v1\', \'cuentas_por_pagar.nota-cargo.autorizada.v1\', \'cuentas_por_pagar.anticipo.capturado.v1\')'
+      sqlExpression: 'user.EventType IN (\'cuentas_por_pagar.factura.registrada.v1\', \'cuentas_por_pagar.factura.cancelada.v1\', \'cuentas_por_pagar.nota-credito.registrada.v1\', \'cuentas_por_pagar.nota-cargo.autorizada.v1\', \'cuentas_por_pagar.anticipo.capturado.v1\', \'cuentas_por_pagar.revaluacion.registrada.v1\', \'cuentas_por_pagar.revaluacion.revertida.v1\')'
       compatibilityLevel: 20
     }
   }
@@ -1008,7 +1008,7 @@ resource contabTesoreriaFilter 'Microsoft.ServiceBus/namespaces/topics/subscript
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'tesoreria.pago-factura-proveedor.aplicado.v1\', \'tesoreria.pago-factura-proveedor.revertido.v1\', \'tesoreria.pago-cliente.confirmado.v1\')'
+      sqlExpression: 'user.EventType IN (\'tesoreria.pago-factura-proveedor.aplicado.v1\', \'tesoreria.pago-factura-proveedor.revertido.v1\', \'tesoreria.pago-cliente.confirmado.v1\', \'tesoreria.anticipo-agente.devolucion-confirmada.v1\')'
       compatibilityLevel: 20
     }
   }
@@ -1033,7 +1033,105 @@ resource contabAlmacenFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptio
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'almacen.oc_recepcion.registrada.v1\', \'almacen.recepcion_oc.cancelada.v1\', \'almacen.ajuste_inventario.aplicado.v1\', \'almacen.salida_requisicion.registrada.v1\', \'almacen.devolucion_interna.aplicada.v1\', \'almacen.oc_devolucion.registrada.v1\')'
+      sqlExpression: 'user.EventType IN (\'almacen.oc_recepcion.registrada.v1\', \'almacen.recepcion_oc.cancelada.v1\', \'almacen.ajuste_inventario.aplicado.v1\', \'almacen.salida_requisicion.registrada.v1\', \'almacen.salida_inventario.registrada.v1\', \'almacen.expediente.costo-aplicado.v1\', \'almacen.devolucion_interna.aplicada.v1\', \'almacen.oc_devolucion.registrada.v1\')'
+      compatibilityLevel: 20
+    }
+  }
+}
+
+// P18: CE conserva UUID, timbrado, cancelación y relación de sustitución del embarque.
+resource ceFacturacionSubscription 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
+  parent: facturacionEventsTopic
+  name: 'comercio-exterior-facturacion-sub'
+  properties: {
+    deadLetteringOnMessageExpiration: true
+    deadLetteringOnFilterEvaluationExceptions: true
+    maxDeliveryCount: 5
+    defaultMessageTimeToLive: 'P1D'
+    lockDuration: 'PT1M'
+    enableBatchedOperations: true
+  }
+}
+resource ceFacturacionFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01' = {
+  parent: ceFacturacionSubscription
+  name: 'EventTypeFilter'
+  properties: {
+    filterType: 'SqlFilter'
+    sqlFilter: {
+      sqlExpression: 'user.EventType IN (\'facturacion.factura-venta.timbrada.v1\', \'facturacion.comprobante.cancelado.v1\')'
+      compatibilityLevel: 20
+    }
+  }
+}
+
+resource ceTesoreriaP19 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
+  parent: tesoreriaEventsTopic
+  name: 'comercio-exterior-tesoreria-sub'
+  properties: {
+    deadLetteringOnMessageExpiration: true
+    deadLetteringOnFilterEvaluationExceptions: true
+    maxDeliveryCount: 5
+    defaultMessageTimeToLive: 'P1D'
+    lockDuration: 'PT1M'
+    enableBatchedOperations: true
+  }
+}
+resource ceTesoreriaP19Filter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01' = {
+  parent: ceTesoreriaP19
+  name: 'EventTypeFilter'
+  properties: {
+    filterType: 'SqlFilter'
+    sqlFilter: {
+      sqlExpression: 'user.EventType IN (\'tesoreria.pago-factura-proveedor.aplicado.v1\', \'tesoreria.anticipo-agente.devolucion-confirmada.v1\')'
+      compatibilityLevel: 20
+    }
+  }
+}
+
+resource tesoreriaCeP19 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
+  parent: comercioExteriorEventsTopic
+  name: 'tesoreria-comercio-exterior-sub'
+  properties: {
+    deadLetteringOnMessageExpiration: true
+    deadLetteringOnFilterEvaluationExceptions: true
+    maxDeliveryCount: 5
+    defaultMessageTimeToLive: 'P1D'
+    lockDuration: 'PT1M'
+    enableBatchedOperations: true
+  }
+}
+resource tesoreriaCeP19Filter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01' = {
+  parent: tesoreriaCeP19
+  name: 'EventTypeFilter'
+  properties: {
+    filterType: 'SqlFilter'
+    sqlFilter: {
+      sqlExpression: 'user.EventType IN (\'comercio_exterior.anticipo-agente.devolucion-aprobada.v1\')'
+      compatibilityLevel: 20
+    }
+  }
+}
+
+// P20: CE concilia faltantes y sobrantes al registrar la recepción de Almacén.
+resource ceAlmacenP20 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
+  parent: almacenEventsTopic
+  name: 'comercio-exterior-almacen-sub'
+  properties: {
+    deadLetteringOnMessageExpiration: true
+    deadLetteringOnFilterEvaluationExceptions: true
+    maxDeliveryCount: 5
+    defaultMessageTimeToLive: 'P1D'
+    lockDuration: 'PT1M'
+    enableBatchedOperations: true
+  }
+}
+resource ceAlmacenP20Filter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01' = {
+  parent: ceAlmacenP20
+  name: 'EventTypeFilter'
+  properties: {
+    filterType: 'SqlFilter'
+    sqlFilter: {
+      sqlExpression: 'user.EventType IN (\'almacen.oc_recepcion.registrada.v1\')'
       compatibilityLevel: 20
     }
   }

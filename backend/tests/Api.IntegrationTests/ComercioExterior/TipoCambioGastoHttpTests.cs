@@ -45,11 +45,25 @@ public sealed class TipoCambioGastoHttpTests
                 await maestros.SaveChangesAsync();
             }
         }
+        var facturas = new Dictionary<string, Guid>();
+        using (var scope = e.Scope())
+        {
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var cxp = scope.ServiceProvider.GetRequiredService<Millet.CuentasPorPagar.Infrastructure.Persistence.CuentasPorPagarDbContext>();
+            var fecha = new DateTimeOffset(2026, 10, 21, 12, 0, 0, TimeSpan.Zero);
+            foreach (var folio in new[] { "TC-1", "TC-2", "TC-BX", "TC-MXN" })
+            {
+                var factura = Millet.CuentasPorPagar.Domain.FacturaProveedor.FacturaProveedor.CapturarSinOc(DemoSesionSeedHostedService.EmpresaId, null, Guid.NewGuid().ToString(),
+                    proveedor, e.SucursalId, folio, null, fecha, fecha, new DateOnly(2026, 11, 21), "USD", 18.35m, 1000, 0, 0, 0, 1000, "P22 preparación P19", fecha);
+                cxp.FacturasProveedor.Add(factura); facturas.Add(folio, factura.Id);
+            }
+            await cxp.SaveChangesAsync();
+        }
         object Gasto(string factura, object? extra = null) => new Dictionary<string, object?>
         {
             ["conceptoId"] = concepto, ["proveedorId"] = proveedor, ["factura"] = factura, ["moneda"] = "USD", ["importe"] = 1000,
-            ["fechaFactura"] = "2026-10-21",
-        }.Concat(extra is null ? [] : JsonSerializer.Deserialize<Dictionary<string, object?>>(JsonSerializer.Serialize(extra))!).ToDictionary(x => x.Key, x => x.Value);
+            ["fechaFactura"] = "2026-10-21", ["facturaProveedorId"] = facturas.GetValueOrDefault(factura),
+        }.Concat(extra is null ? [] : JsonSerializer.Deserialize<Dictionary<string, object?>>(JsonSerializer.Serialize(extra))!).GroupBy(x => x.Key).ToDictionary(x => x.Key, x => x.Last().Value);
         var etag = inicial.Headers.ETag!.Tag;
         var sinCambio = await Post(client, id, "gastos", Gasto("TC-1"), etag); sinCambio.EnsureSuccessStatusCode();
         var g1 = (await sinCambio.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("gastos").EnumerateArray().Single();
@@ -69,7 +83,7 @@ public sealed class TipoCambioGastoHttpTests
             using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
             var cxp = scope.ServiceProvider.GetRequiredService<Millet.CuentasPorPagar.Infrastructure.Persistence.CuentasPorPagarDbContext>();
             var fecha = new DateTimeOffset(2026, 10, 21, 12, 0, 0, TimeSpan.Zero);
-            var factura = Millet.CuentasPorPagar.Domain.FacturaProveedor.FacturaProveedor.CapturarSinOc(DemoSesionSeedHostedService.EmpresaId, null, null,
+            var factura = Millet.CuentasPorPagar.Domain.FacturaProveedor.FacturaProveedor.CapturarSinOc(DemoSesionSeedHostedService.EmpresaId, null, Guid.NewGuid().ToString(),
                 proveedor, e.SucursalId, "TC-CFDI", null, fecha, fecha, new DateOnly(2026, 11, 21), "USD", 18.35m, 1000, 0, 0, 0, 1000, "K10.6-CE prueba", fecha);
             cxp.Set<Millet.CuentasPorPagar.Domain.FacturaProveedor.FacturaProveedor>().Add(factura);
             await cxp.SaveChangesAsync(); facturaId = factura.Id;

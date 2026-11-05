@@ -1,8 +1,10 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import { useState } from 'react';
 import { ConMotivo } from '@/features/compras/components/ConMotivo';
 import { Link } from '@tanstack/react-router';
 import {
   Ban,
+  CornerUpLeft,
   FileSpreadsheet,
   Lock,
   ShoppingCart,
@@ -30,6 +32,7 @@ import {
   accionAprobarNivel2,
   accionCancelar,
   accionCerrarManual,
+  accionDevolver,
   accionConvertirAOc,
   accionVerCotizaciones,
   accionEliminarRequisicion,
@@ -46,11 +49,13 @@ import {
   useAutorizarRequisicion,
   useCancelarRequisicion,
   useCerrarManualRequisicion,
+  useDevolverRequisicion,
   useEliminarRequisicion,
   useRechazarRequisicion,
   useTransmitirRequisicion,
 } from '@/features/compras/api/useWorkflow';
 import { ModalMotivo } from '@/features/compras/components/ModalMotivo';
+import { MotivoDialog } from '@/components/erp/feedback/MotivoDialog';
 import { esApiError } from '@/lib/api';
 import { esConflictoConcurrencia } from '@/lib/api/error';
 import { useAuthStore } from '@/lib/auth/auth-store';
@@ -104,6 +109,7 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
   const transmitir = useTransmitirRequisicion();
   const autorizar = useAutorizarRequisicion();
   const rechazar = useRechazarRequisicion();
+  const devolver = useDevolverRequisicion();
   const eliminar = useEliminarRequisicion();
   const cancelar = useCancelarRequisicion();
   const cerrarManual = useCerrarManualRequisicion();
@@ -118,6 +124,8 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
 
   const [confirmacion, setConfirmacion] = useState<ConfirmacionSimple>(null);
   const [modalRechazoAbierto, setModalRechazoAbierto] = useState(false);
+  const [modalDevolverAbierto, setModalDevolverAbierto] = useState(false);
+  const [errorDevolver, setErrorDevolver] = useState<string | null>(null);
   const [modalEliminarAbierto, setModalEliminarAbierto] = useState(false);
   const [modalCancelarAbierto, setModalCancelarAbierto] = useState(false);
   const [modalCerrarManualAbierto, setModalCerrarManualAbierto] = useState(false);
@@ -136,6 +144,7 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
       ? rq.autorizaciones.find((a) => a.nivel === NivelAutorizacion.Nivel1)
       : undefined;
   const accRechazar = accionRechazar(rq, permisos);
+  const accDevolver = accionDevolver(rq, permisos);
   const accEliminar = accionEliminarRequisicion(rq, permisos, userId);
   const accCancelar = accionCancelar(rq, permisos);
   const accCerrarManual = accionCerrarManual(rq, permisos);
@@ -164,6 +173,7 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
     accN1.visible ||
     accN2.visible ||
     accRechazar.visible ||
+    accDevolver.visible ||
     accEliminar.visible ||
     accCancelar.visible ||
     accCerrarManual.visible ||
@@ -195,10 +205,10 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
     }
     if (esApiError(error)) {
       toast.error(`No se pudo ${accionLabel.toLowerCase()}`, {
-        description: error.problem.detail ?? error.problem.title,
+        description: errorUsuario(error),
       });
     } else {
-      toast.error(`Error inesperado al ${accionLabel.toLowerCase()}.`);
+      toast.error(errorUsuario(error, `No se pudo ${accionLabel.toLowerCase()}.`));
     }
   }
 
@@ -358,6 +368,7 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
     transmitir.isPending ||
     autorizar.isPending ||
     rechazar.isPending ||
+    devolver.isPending ||
     eliminar.isPending ||
     cancelar.isPending ||
     cerrarManual.isPending;
@@ -390,7 +401,7 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
               onClick={() => setConfirmacion({ tipo: 'aprobar', nivel: NivelAutorizacion.Nivel1 })}
             >
               <ShieldCheck className="mr-2 h-4 w-4" />
-              Aprobar Nivel 1
+              Aprobar nivel 1
             </Button>
           </ConMotivo>
         )}
@@ -416,9 +427,23 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
               onClick={() => setConfirmacion({ tipo: 'aprobar', nivel: NivelAutorizacion.Nivel2 })}
             >
               <ShieldCheck className="mr-2 h-4 w-4" />
-              Aprobar Nivel 2
+              Aprobar nivel 2
             </Button>
           </ConMotivo>
+        )}
+        {accDevolver.visible && (
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={!accDevolver.habilitada || isPending}
+            onClick={() => {
+              setErrorDevolver(null);
+              setModalDevolverAbierto(true);
+            }}
+          >
+            <CornerUpLeft className="mr-2 h-4 w-4" />
+            Devolver para corregir
+          </Button>
         )}
         {accRechazar.visible && (
           <Button
@@ -529,7 +554,7 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirmacion?.tipo === 'transmitir' &&
-                'La RQ pasará a EnAutorización y los autorizadores podrán firmarla. No podrás editar partidas estructuralmente después.'}
+                "La requisición pasará a autorización y quedará bloqueada la edición de sus partidas."}
               {confirmacion?.tipo === 'aprobar' &&
                 'Tu firma queda registrada con tu usuario y la fecha actual. No puedes deshacerla; solo se puede rechazar la RQ por un autorizador.'}
             </AlertDialogDescription>
@@ -548,6 +573,32 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Devolver a corregir: comentario obligatorio, no cierra la RQ */}
+      {modalDevolverAbierto && (
+        <MotivoDialog
+          titulo={`Devolver ${rq.folio} para corregir`}
+          descripcion="Vuelve a Borrador con tu comentario. Las firmas ya dadas quedan como historia y, al reenviarla, solo se piden las que faltan."
+          etiqueta="Comentario para quien la capturó"
+          min={5}
+          max={500}
+          verbo="Devolver para corregir"
+          variante="default"
+          error={errorDevolver}
+          onCerrar={() => setModalDevolverAbierto(false)}
+          onConfirmar={async (comentario) => {
+            try {
+              await devolver.mutateAsync({ requisicionId: rq.id, comentario });
+              toast.success('Requisición devuelta para corregir');
+              setModalDevolverAbierto(false);
+            } catch (e) {
+              setErrorDevolver(
+                errorUsuario(e, 'No se pudo devolver la requisición.'),
+              );
+            }
+          }}
+        />
+      )}
 
       {/* Modal con motivo para Rechazar */}
       <ModalMotivo
@@ -574,7 +625,7 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
         isPending={eliminar.isPending}
         aviso={
           rq.origen === OrigenRequisicion.Sistema
-            ? 'Esta requisición la creó el motor de reabasto. Si el artículo sigue por debajo del objetivo, volverá a proponerla en el próximo barrido.'
+            ? "Esta requisición se generó para reponer existencias; si el artículo sigue por debajo del objetivo, el sistema volverá a solicitarlo."
             : undefined
         }
       />

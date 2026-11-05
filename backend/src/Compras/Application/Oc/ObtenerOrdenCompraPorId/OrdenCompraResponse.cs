@@ -105,6 +105,7 @@ public sealed record OrdenCompraResponse(
     public string? UsoCfdiDescripcion { get; init; }
     public string? MetodoPago { get; init; }
     public string? FormaPagoClave { get; init; }
+    public Millet.Compras.Application.PublicPorts.TransporteImportacionCeLectura? TransporteCe { get; init; }
     public string? FormaPagoDescripcion { get; init; }
     public int Impresiones { get; init; }
     public DateTimeOffset? UltimaImpresionEn { get; init; }
@@ -163,7 +164,13 @@ public sealed record AutorizacionOcResponse(Guid Id, int Ciclo, NivelAutorizacio
 
 public sealed record SolicitudCancelacionOcResponse(Guid Id, Guid SolicitanteId,
     DateTimeOffset FechaSolicitud, Guid MotivoCancelacionId, string MotivoSolicitud,
-    Guid? ResolutorId, DateTimeOffset? FechaResolucion, bool? Confirmada, string? MotivoResolucion);
+    Guid? ResolutorId, DateTimeOffset? FechaResolucion, bool? Confirmada, string? MotivoResolucion)
+{
+    /// <summary>86e3jvu83: espera la respuesta de Almacenes a COMPRA_CANCELADA.</summary>
+    public bool EsperaAlmacenes { get; init; }
+    /// <summary>86e3jvu83: respuesta de Almacenes si rechazó la cancelación («ya tiene entrada...»).</summary>
+    public string? RespuestaAlmacenes { get; init; }
+}
 
 /// <summary>Precio cotizado por unidad de la requisición de una partida (para avisar si la línea de la OC se aparta de él).</summary>
 public sealed record PrecioCotizadoLineaResponse(Guid LineaRequisicionId, decimal PrecioPorUnidadRequisicion);

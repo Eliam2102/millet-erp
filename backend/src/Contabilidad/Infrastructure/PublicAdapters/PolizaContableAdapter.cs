@@ -10,8 +10,14 @@ namespace Millet.Contabilidad.Infrastructure.PublicAdapters;
 
 /// <summary>Implementa <see cref="IPolizaContablePort"/> con las mismas piezas que las pólizas manuales.</summary>
 public sealed class PolizaContableAdapter(ContabilidadDbContext db, RegistroPolizas registro, IClock clock,
-    IEnumerable<IPolizaAutomaticaObservador> observadores) : IPolizaContablePort
+    IEnumerable<IPolizaAutomaticaObservador> observadores) : IPolizaContablePort, IPolizaContableReadPort, IReversaPolizaContablePort
 {
+    public async Task<PolizaContableLectura?> ObtenerAsync(Guid id, CancellationToken ct)
+    {
+        var p = await db.Polizas.AsNoTracking().Include(p => p.Partidas).SingleOrDefaultAsync(p => p.Id == id, ct);
+        return p == null ? null : new(p.Id, p.Estado, p.Partidas.OrderBy(x => x.Linea).Select(x => new PartidaRequest(x.CuentaId, x.Concepto, x.Cargo, x.Abono, x.SucursalId,
+            Dim1Id:x.Dim1Id, Dim2Id:x.Dim2Id, Dim3Id:x.Dim3Id)).ToList());
+    }
     public const string UsuarioMotor = "motor-contable";
 
     public async Task<PolizaRegistrada> RegistrarAutomaticaAsync(SolicitudPolizaAutomatica solicitud, CancellationToken ct)
@@ -80,6 +86,20 @@ public sealed class PolizaContableAdapter(ContabilidadDbContext db, RegistroPoli
             await db.SaveChangesAsync(t);
         }, ct);
         return resultado;
+    }
+
+    public async Task<ReversaPolizaContable> RevertirAsync(Guid polizaId, string motivo, DateOnly destino, Guid actor, CancellationToken ct)
+    {
+        Poliza? inversa = null;
+        await registro.EnTransaccionAsync(async t =>
+        {
+            var original = await db.Polizas.Include(x => x.Partidas).SingleAsync(x => x.Id == polizaId, t);
+            if (original.Estado != EstadoPoliza.Autorizada) throw new BusinessRuleException("CONTAB_REVERSA_INVALIDA", "La póliza de origen debe estar autorizada.");
+            var cerrado = await registro.RechazoPeriodoAsync(original.PeriodoAnio, original.PeriodoNumero, original.Origen, t, original.EmpresaId);
+            inversa = await registro.AnularAsync(original, motivo, cerrado == null ? null : (destino.Year, destino.Month), destino, actor, actor.ToString(), clock.UtcNow, t);
+            await db.SaveChangesAsync(t); await NotificarAsync(inversa, original.Id, [], t); await db.SaveChangesAsync(t);
+        }, ct);
+        return new(inversa!.Id, inversa.Fecha);
     }
 
     /// <summary>C1.4 ↔ K10.5: avisa a los observadores dentro de la transacción (las partidas conservan su orden: línea = índice + 1).</summary>

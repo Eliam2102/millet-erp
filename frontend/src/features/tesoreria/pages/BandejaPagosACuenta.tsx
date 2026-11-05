@@ -1,3 +1,5 @@
+import { problemaUsuario } from '@/lib/error-usuario';
+import { errorUsuario } from '@/lib/error-usuario';
 import { MontoMovimiento } from '@/components/erp/display/MontoMovimiento';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { BarraFiltros, TabsEstado, PaginacionTabla } from '@/components/erp';
@@ -17,7 +19,7 @@ import { useState } from 'react';
 import { HandCoins, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
-import { usePagosACuentaAbiertos } from '@/features/tesoreria/api/useTesoreria';
+import { useAutorizarPagoACuenta, usePagosACuentaAbiertos } from '@/features/tesoreria/api/useTesoreria';
 import type { PagoACuentaAbiertoResponse } from '@/features/tesoreria/api/types';
 import { EstadoAplicacionBadge } from '@/features/tesoreria/components/Badges';
 import { LigarPagoACuentaDialog } from '@/features/tesoreria/components/LigarPagoACuentaDialog';
@@ -25,7 +27,9 @@ import { NuevoPagoACuentaSheet } from '@/features/tesoreria/components/NuevoPago
 import { formatoMonto } from '@/features/tesoreria/lib/formato';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError } from '@/lib/api';
+import { useAuthStore } from '@/lib/auth/auth-store';
+import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
+import { toast } from 'sonner';
 
 /**
  * <c>Pagos a cuenta abiertos</c> (TES-FE-PR4, P2 / §3.4): read model con
@@ -35,6 +39,24 @@ import { esApiError } from '@/lib/api';
 export function BandejaPagosACuenta() {
   const puedeRegistrar = useHasPermission(PermisosCanonicos.TesoreriaPagosCuentaRegistrar);
   const puedeLigar = useHasPermission(PermisosCanonicos.TesoreriaPagosCuentaLigar);
+
+  const puedeAutorizar = useHasPermission(PermisosCanonicos.TesoreriaPagosCuentaAutorizar);
+  const usuarioId = useAuthStore((s) => s.user?.id);
+  const autorizar = useAutorizarPagoACuenta();
+  const keyFor = useBodyScopedIdempotencyKey();
+
+  function firmar(p: PagoACuentaAbiertoResponse) {
+    autorizar.mutate(
+      { movimientoId: p.movimientoId, idempotencyKey: keyFor({ accion: 'autorizar', id: p.movimientoId }) },
+      {
+        onSuccess: () => toast.success('Pago a cuenta autorizado'),
+        onError: (e) =>
+          toast.error(errorUsuario(e, 'No se pudo autorizar el pago a cuenta'), {
+            description: esApiError(e) ? errorUsuario(e) : undefined,
+          }),
+      },
+    );
+  }
 
   const query = usePagosACuentaAbiertos({ incluirParciales: true, limit: 200 });
 
@@ -54,8 +76,7 @@ export function BandejaPagosACuenta() {
         titulo={<>Pagos a cuenta</>}
         descripcion={
           <>
-            Egresos sin documento ligado, con antigüedad. Máximo uno abierto por proveedor; liga el
-            abierto cuando CxP provisione.
+            Registra los egresos sin factura vinculada y relaciónalos después con el pasivo de CxP, con un máximo de uno abierto por proveedor.
           </>
         }
         acciones={
@@ -93,7 +114,7 @@ export function BandejaPagosACuenta() {
         {query.isError ? (
           <ErrorState
             title="No se pudieron cargar los pagos a cuenta"
-            problem={esApiError(query.error) ? query.error.problem : undefined}
+            problem={problemaUsuario(query.error)}
             onRetry={() => query.refetch()}
           />
         ) : query.isLoading ? (
@@ -112,7 +133,7 @@ export function BandejaPagosACuenta() {
           <EmptyState
             icon={<HandCoins className="h-10 w-10" />}
             title="Sin pagos a cuenta abiertos."
-            description="Cuando ocurra un pago urgente sin factura, regístralo aquí — el limbo se registra, no se oculta."
+            description="Registra un pago urgente sin factura desde «Nuevo pago a cuenta»."
           />
         ) : (
           <div className="overflow-x-auto rounded-md border">
@@ -158,8 +179,25 @@ export function BandejaPagosACuenta() {
                     </TableCell>
                     <TableCell className="px-3 py-2">
                       <EstadoAplicacionBadge estado={p.estadoAplicacion} />
+                      {p.autorizadoEn == null && (
+                        <p className="mt-1 text-xs text-ink-muted">Pendiente de autorización</p>
+                      )}
                     </TableCell>
-                    <TableCell className="px-3 py-2 text-right">
+                    <TableCell className="space-x-2 px-3 py-2 text-right">
+                      {puedeAutorizar && p.autorizadoEn == null && (
+                        <Button
+                          size="sm"
+                          disabled={autorizar.isPending || p.creadoPor === usuarioId}
+                          title={
+                            p.creadoPor === usuarioId
+                              ? 'Quien capturó el pago no puede autorizarlo; pide la firma a otra persona'
+                              : undefined
+                          }
+                          onClick={() => firmar(p)}
+                        >
+                          Autorizar
+                        </Button>
+                      )}
                       {puedeLigar && p.proveedorId != null && (
                         <Button variant="outline" size="sm" onClick={() => setLigando(p)}>
                           Ligar

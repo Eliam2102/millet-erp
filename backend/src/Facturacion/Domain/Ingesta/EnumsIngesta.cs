@@ -59,5 +59,7 @@ public enum MotivoExcepcion : short
     NcClienteDistinto = 15,
     /// <summary>Nota de crédito de A+W: el importe excede el saldo de la factura de origen.</summary>
     NcImporteExcedeSaldo = 16,
+    /// <summary>A+W reenvió la misma versión de un pedido con contenido distinto: se detiene, el pedido no cambia.</summary>
+    VersionRepetidaConCambios = 17,
     Otro = 99,
 }

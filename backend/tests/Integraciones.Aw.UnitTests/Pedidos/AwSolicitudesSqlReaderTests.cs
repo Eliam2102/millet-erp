@@ -144,6 +144,33 @@ public class AwSolicitudesSqlReaderTests
         Assert.Equal(1, payload.RootElement.GetProperty("componentes").GetArrayLength());
     }
 
+    /// <summary>
+    /// PT5.10 · CA5.12: hoja con 7 cortes cotizada en A+W (5 sin costo de maquila, 2 cotizados). El importe que llega a
+    /// Facturación es el de A+W tal cual: el ERP no recalcula por número de cortes.
+    /// </summary>
+    [Fact]
+    public void Construir_CorteConSieteCortes_ConservaElImporteCotizadoPorAw()
+    {
+        var hoja = Linea(1) with
+        {
+            ProductoRef = "100245", Descripcion = "VIDRIO FLOAT CLARO 6MM 2440x3660 CON 7 CORTES",
+            Cantidad = 1m, ImportePieza = 4386.20m, DescuentoPorcentaje = 0m, Descuento = 0m,
+        };
+        var cortes = new[]
+        {
+            Componente(1) with { ProductoRef = "100245", Descripcion = "HOJA FLOAT CLARO 6MM", Importe = 4000m },
+            Componente(1) with { ProductoRef = "CORTE", Descripcion = "CORTE ADICIONAL 6 Y 7", Importe = 386.20m },
+        };
+
+        var datos = Construir(Cabecera(), new[] { hoja }, cortes, SucursalId, CanalVentaId, OpcionesCompletas(), NullLogger.Instance);
+
+        Assert.NotNull(datos);
+        var linea = Assert.Single(datos!.Lineas);
+        Assert.Equal(4386.20m, linea.Precio);
+        Assert.Equal(1m, linea.Cantidad);
+        Assert.Equal(0m, linea.Descuento);
+    }
+
 
     // ------------------------------------------------------------------
     // IVA de documento + bruto→neto (FAC-DET-PR2)

@@ -105,8 +105,9 @@ afterEach(() => {
 
 async function desactivarUnaVez() {
   fireEvent.click(screen.getByRole('button', { name: /^desactivar$/i }));
-  const dialog = await screen.findByRole('alertdialog');
-  fireEvent.click(within(dialog).getByRole('button', { name: /^desactivar$/i }));
+  const dialog = await screen.findByRole('dialog');
+  fireEvent.change(within(dialog).getByLabelText(/motivo/i), { target: { value: 'Ya no se surte' } });
+  fireEvent.click(within(dialog).getByRole('button', { name: /^inactivar$/i }));
 }
 
 describe('<ArticuloDetalle> — Idempotency-Key por acción (regresión Bug B)', () => {
@@ -125,7 +126,7 @@ describe('<ArticuloDetalle> — Idempotency-Key por acción (regresión Bug B)',
     await desactivarUnaVez();
     await waitFor(() => expect(keys).toHaveLength(1));
     await waitFor(() =>
-      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument(),
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
     );
 
     await desactivarUnaVez();

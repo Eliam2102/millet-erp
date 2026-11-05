@@ -45,9 +45,11 @@ public static class DependencyInjection
         services.AddScoped<Millet.Facturacion.Application.Timbrado.ValidadorReceptorFiscal>();
         services.AddScoped<Millet.ComercioExterior.Application.Ports.IPedidosEmbarcablesReadPort, PublicAdapters.PedidosEmbarcablesReadAdapter>();
         services.AddScoped<Millet.ProductoTerminado.Application.Ports.IPedidosPtReadPort, PublicAdapters.PedidosPtReadAdapter>();
+        services.AddScoped<Millet.ProductoTerminado.Application.Ports.IFacturacionSalidaPort, PublicAdapters.FacturacionSalidaAdapter>();
         services.AddScoped<ICatalogosSatReadPort, CompartidoCatalogosSatReadAdapter>();
         services.AddScoped<IReppBancarioReadPort, ReppBancarioReadAdapter>();
         services.AddScoped<Millet.CuentasPorCobrar.Domain.Ports.Facturacion.IReppPendientesReadPort, PublicAdapters.ReppPendientesReadAdapter>();
+        services.AddScoped<Millet.CuentasPorCobrar.Domain.Ports.Facturacion.IConciliacionFacturacionReadPort, PublicAdapters.ConciliacionCarteraReadAdapter>();
         services.AddScoped<Millet.Facturacion.Application.Repp.Pendientes.ReppPendienteServicio>();
 
         // --- Master de Cliente/Producto: adapters REALES sobre Compartido ---

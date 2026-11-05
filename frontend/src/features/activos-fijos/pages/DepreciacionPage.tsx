@@ -21,6 +21,9 @@ export function DepreciacionPage() {
   );
   const historial = useLibroQuery<Corrida[]>('depreciacion');
   const guardar = useGuardarActivo();
+  const correr = useHasPermission(P.ActivosFijosDepreciacionCorrer);
+  const faltantes = previa.data?.filter((f) => f.tasa == null) ?? [];
+  const avisos = previa.data?.filter((f) => f.observacion && f.tasa != null) ?? [];
   const anular = useHasPermission(P.ActivosFijosDepreciacionAnular);
   const corrida = historial.data?.find((c) => c.periodo === `${periodo}-01` && !c.anulada);
   return (
@@ -54,15 +57,23 @@ export function DepreciacionPage() {
           Vista previa
         </Button>
         <Button
-          disabled={!previa.data || consultado !== periodo || guardar.isPending || !!corrida}
+          disabled={
+            !previa.data ||
+            consultado !== periodo ||
+            guardar.isPending ||
+            !!corrida ||
+            faltantes.length > 0
+          }
           title={
-            corrida
-              ? 'El periodo ya está confirmado'
-              : !previa.data
-                ? 'Consulte la vista previa primero'
-                : guardar.isPending
-                  ? 'Guardando corrida'
-                  : undefined
+            faltantes.length > 0
+              ? 'Complete las tasas faltantes'
+              : corrida
+                ? 'El periodo ya está confirmado'
+                : !previa.data
+                  ? 'Consulte la vista previa primero'
+                  : guardar.isPending
+                    ? 'Guardando corrida'
+                    : undefined
           }
           onClick={() =>
             guardar.mutate({ ruta: 'depreciacion', body: { periodo: `${periodo}-01` } })
@@ -77,6 +88,16 @@ export function DepreciacionPage() {
           {(previa.error || historial.error || guardar.error)?.message}
         </p>
       )}
+      {faltantes.length > 0 && (
+        <p role="alert" className="text-danger-fg">
+          Complete la tasa antes de confirmar: {faltantes.map((f) => f.numero).join(', ')}.
+        </p>
+      )}
+      {avisos.map((f) => (
+        <p key={f.activoId} className="text-warning-fg">
+          {f.numero}: {f.observacion}
+        </p>
+      ))}
       {consultado && (
         <TablaLibro
           titulo={`Vista previa ${consultado}`}
@@ -122,7 +143,26 @@ export function DepreciacionPage() {
           { clave: 'motivoAnulacion', etiqueta: 'Motivo de anulación', tipo: 'texto' },
         ]}
         accionFila={(c) =>
-          c.anulada ? (
+          c.sinEfectoContable ? (
+            <div className="space-y-2">
+              <Badge variant="warning">Sin efecto contable</Badge>
+              {correr && (
+                <Button
+                  variant="outline"
+                  disabled={guardar.isPending}
+                  onClick={() =>
+                    guardar.mutate({
+                      ruta: `depreciacion/${c.id}/recuperar-poliza`,
+                      version: c.version,
+                      body: {},
+                    })
+                  }
+                >
+                  Generar póliza de nuevo
+                </Button>
+              )}
+            </div>
+          ) : c.anulada ? (
             <Badge variant="neutral">Anulada</Badge>
           ) : anular ? (
             <Button

@@ -38,6 +38,8 @@ export interface ListarFacturasFiltros {
   alcance?: 'sin-asignar';
   /** F6.1: clase del pedido manual de origen (server-side). */
   clase?: 'VentaDirecta' | 'Emergencia';
+  /** U-1: solo facturas con una NC pendiente de timbrar. */
+  ncPendiente?: boolean;
 }
 
 export const facturacionKeys = {
@@ -51,6 +53,9 @@ export const facturacionKeys = {
     [...facturacionKeys.pedidos(), 'byId', id] as const,
   pedidoComprobantes: (id: string) =>
     [...facturacionKeys.pedidos(), 'byId', id, 'comprobantes'] as const,
+  // FAC-08: salidas parciales del pedido y su avance.
+  pedidoSalidas: (id: string) =>
+    [...facturacionKeys.pedidos(), 'byId', id, 'salidas'] as const,
   // U1.8a: última proforma (sin valor fiscal) del pedido.
   pedidoUltimaProforma: (id: string) =>
     [...facturacionKeys.pedidos(), 'byId', id, 'proforma-ultima'] as const,

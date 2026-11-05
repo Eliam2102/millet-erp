@@ -166,7 +166,7 @@ describe('navSidebarItems', () => {
     const reglasSerie = cxc.secciones[0].cards.find((c) => c.to === '/cxc/reglas-serie');
     expect(reglasSerie?.permission).toBe(PermisosCanonicos.CuentasPorCobrarReglasSerieGestionar);
     const reportes = cxc.secciones[1].cards.map((c) => c.to);
-    expect(reportes).toEqual(['/cxc/cartera', '/cxc/estado-cuenta']);
+    expect(reportes).toEqual(['/cxc/cartera', '/cxc/estado-cuenta', '/cxc/conciliacion', '/cxc/conciliacion-polizas']);
   });
 
   it('Facturación prioriza Venta y agrupa caja, complementos, revisión, configuración y reportes', () => {
@@ -245,6 +245,7 @@ describe('navSidebarItems', () => {
       '/almacen/reorden',
       '/almacen/asignaciones',
       '/almacen/ubicaciones',
+      '/almacen/normas-consumo',
     ]);
     // "Almacenes" ya sin el sufijo "y sub-almacenes" (redundante desde que
     // Sub-almacenes tiene card propia).
@@ -254,6 +255,7 @@ describe('navSidebarItems', () => {
       'Reabasto',
       'Ubicación de artículos',
       'Ubicaciones',
+      'Normas de consumo',
     ]);
     const subAlmacenes = config!.cards.find((c) => c.to === '/almacen/sub-almacenes');
     // Mismo gate que su ruta (beforeLoad de sub-almacenes.tsx).

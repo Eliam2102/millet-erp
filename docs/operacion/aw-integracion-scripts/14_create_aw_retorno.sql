@@ -29,6 +29,11 @@
    estatus y el usuario los pone A+W. Mismas restricciones de v2 (no se relajó ninguna); la v2 ya
    creada se actualiza con el bloque «v3» de abajo.
 
+   v4 (respuesta de TI del 5-nov): forma_pago = KA_ZAHLWEG.BEZ y moneda = KA_WAEHRUNGEN.WAEHRUNG (pesos = PESOSMX),
+   por eso se ensanchan a nvarchar(40) y nvarchar(8); bloque «v4» de abajo para una tabla ya creada. El cobro cancelado
+   es una fila nueva del grupo con el importe acumulado de los cobros que quedan (0 solo si no queda ninguno). El 70
+   solo viaja como liberación manual (origen 2 + usuario_libera). La fila de saldo (tipo 2) es cifra de control.
+
    Estatus que devuelve el ERP: 70 (liberado) y 115 (facturado y entregado).
    El 71 no: lo pone A+W al emitir la hoja de salida, y el 72 el programa de
    salidas (TI, 26-oct, pregunta 1).
@@ -64,8 +69,8 @@ BEGIN
         importe             decimal(18, 2)    NULL,      -- tipo 4: suma del grupo folio + forma_pago + moneda
 
         -- tipo 4 (v3): folio = folio de la factura a la que se aplicó el pago
-        forma_pago          nvarchar(10)      NULL,      -- clave SAT de forma de pago (01, 03, ...)
-        moneda              nvarchar(3)       NULL,      -- MXN | USD
+        forma_pago          nvarchar(40)      NULL,      -- v4: KA_ZAHLWEG.BEZ de A+W (EFECTIVO, TARJETA CREDITO...)
+        moneda              nvarchar(8)       NULL,      -- v4: KA_WAEHRUNGEN.WAEHRUNG de A+W (PESOSMX, USD...), no el ISO
 
         creada_at           datetimeoffset(3) NOT NULL
             CONSTRAINT DF_awr_creada_at DEFAULT SYSDATETIMEOFFSET(),
@@ -98,9 +103,9 @@ GO
 
 /* v3 sobre una v2 ya creada: columnas de pago y restricciones de tipo 4. Idempotente. */
 IF COL_LENGTH('dbo.aw_retorno', 'forma_pago') IS NULL
-    ALTER TABLE dbo.aw_retorno ADD forma_pago nvarchar(10) NULL;
+    ALTER TABLE dbo.aw_retorno ADD forma_pago nvarchar(40) NULL;
 IF COL_LENGTH('dbo.aw_retorno', 'moneda') IS NULL
-    ALTER TABLE dbo.aw_retorno ADD moneda nvarchar(3) NULL;
+    ALTER TABLE dbo.aw_retorno ADD moneda nvarchar(8) NULL;
 GO
 IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_awr_tipo'
            AND parent_object_id = OBJECT_ID('dbo.aw_retorno') AND definition NOT LIKE '%4%')
@@ -120,6 +125,13 @@ IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_awr_pago'
                AND parent_object_id = OBJECT_ID('dbo.aw_retorno'))
     ALTER TABLE dbo.aw_retorno ADD CONSTRAINT CK_awr_pago
         CHECK (tipo <> 4 OR (folio IS NOT NULL AND forma_pago IS NOT NULL AND moneda IS NOT NULL AND importe IS NOT NULL));
+GO
+
+/* v4: ensancha forma_pago y moneda en una tabla ya creada (v3 las creó nvarchar(10) y nvarchar(3)). Idempotente. */
+IF COL_LENGTH('dbo.aw_retorno', 'forma_pago') < 80   -- bytes: nvarchar(40) = 80
+    ALTER TABLE dbo.aw_retorno ALTER COLUMN forma_pago nvarchar(40) NULL;
+IF COL_LENGTH('dbo.aw_retorno', 'moneda') < 16       -- nvarchar(8) = 16
+    ALTER TABLE dbo.aw_retorno ALTER COLUMN moneda nvarchar(8) NULL;
 GO
 
 /* Barrido de la tarea de TI: pendientes y rechazadas con menos de 3 intentos,

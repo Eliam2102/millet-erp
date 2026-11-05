@@ -80,7 +80,7 @@ public sealed class AplicarAnticipoAFacturaTests
         nc.Motivo.Should().Be(MotivoNotaCredito.Amortizacion);
         nc.FacturaRelacionadaId.Should().Be(factura.Id);
         nc.AnticipoOrigenId.Should().Be(anticipo.Id);
-        nc.Relaciones.Should().HaveCount(2).And.OnlyContain(r => r.TipoRelacion == "07");
+        nc.Relaciones.Should().ContainSingle(r => r.TipoRelacion == "07" && r.UuidRelacionado == factura.Uuid); // solo la factura de venta
         var evento = _eventos.Publicados.OfType<NotaCreditoTimbradaIntegrationEvent>().Single();
         evento.FacturaRelacionadaId.Should().Be(factura.Id, "CxC la descuenta del saldo de la factura");
         evento.AnticipoOrigenId.Should().Be(anticipo.Id);

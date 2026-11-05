@@ -54,6 +54,8 @@ vi.mock('../api/hooks', () => ({
   useClasesActivo: () => ({ data: [] }),
   useGuardarActivo: () => ({ mutate: state.mutate, isPending: false }),
 }));
+vi.mock('../api/libro', () => ({ useLibroQuery: () => ({ data: { operaciones: [] } }) }));
+vi.mock('../components/HistorialActivo', () => ({ HistorialActivo: () => null }));
 vi.mock('../components/DepreciacionActivo', () => ({ DepreciacionActivo: () => null }));
 vi.mock('../components/ImprimirEtiquetas', () => ({ ImprimirEtiquetas: () => null }));
 vi.mock('../components/DocumentosActivo', () => ({ DocumentosActivo: () => null }));

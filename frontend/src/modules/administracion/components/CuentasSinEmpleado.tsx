@@ -1,4 +1,6 @@
+import { problemaConsulta } from '@/components/erp/feedback/problema-consulta';
 import { useState } from 'react';
+import { Link } from '@tanstack/react-router';
 import { Link2, Search, UserPlus, UserRound, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -60,7 +62,7 @@ export function CuentasSinEmpleado({ onCrearEmpleado }: Props) {
       {query.isError ? (
         <ErrorState
           title="No se pudieron consultar las cuentas sin empleado"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
+          problem={problemaConsulta(query.error)}
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading ? (
@@ -88,8 +90,23 @@ export function CuentasSinEmpleado({ onCrearEmpleado }: Props) {
             <li key={c.objectId} className="space-y-3 p-3 text-sm">
               <div className="flex flex-wrap items-center gap-2">
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium text-ink">{c.nombre}</p>
+                  {c.usuarioId ? (
+                    <Link
+                      to="/admin/usuarios/$id"
+                      params={{ id: c.usuarioId }}
+                      className="font-medium text-ink hover:underline"
+                    >
+                      {c.nombre}
+                    </Link>
+                  ) : (
+                    <p className="font-medium text-ink">{c.nombre}</p>
+                  )}
                   <p className="truncate font-mono text-xs text-ink-muted">{c.correo}</p>
+                  {!c.usuarioId && (
+                    <p className="text-xs text-ink-muted">
+                      Aún no entra al ERP: no tiene rol. Se asigna al crear su empleado.
+                    </p>
+                  )}
                 </div>
                 <Badge variant={c.yaEntroAlErp ? 'success' : 'neutral'}>
                   {c.yaEntroAlErp ? 'Ya entró al ERP' : 'Sin entrar'}
@@ -125,7 +142,7 @@ export function CuentasSinEmpleado({ onCrearEmpleado }: Props) {
 }
 
 /** Liga la cuenta a un empleado activo sin acceso (POST /colaboradores/{id}/acceso, cuenta existente). */
-function LigarCuentaForm({
+export function LigarCuentaForm({
   cuenta,
   onCerrar,
 }: {
@@ -168,7 +185,7 @@ function LigarCuentaForm({
             toast.error('Asigna departamento y puesto al empleado antes de ligarle la cuenta.');
             return;
           }
-          toast.error(esApiError(err) ? err.problem.title : 'No se pudo ligar la cuenta.');
+          toast.error('No se pudo ligar la cuenta. Revisa el empleado, el rol y tu conexión antes de volver a intentarlo.');
         },
       },
     );
@@ -215,7 +232,8 @@ function LigarCuentaForm({
             ))}
         </select>
       </label>
-      <Button size="sm" disabled={!empleadoId || !rolId || dar.isPending} onClick={ligar}>
+      <Button size="sm" disabled={!empleadoId || !rolId || dar.isPending}
+        title={!empleadoId || !rolId ? 'Elige el empleado y el rol para ligar la cuenta.' : dar.isPending ? 'Espera a que termine de ligarse la cuenta.' : undefined} onClick={ligar}>
         {dar.isPending ? 'Ligando…' : 'Ligar cuenta'}
       </Button>
       <Button size="sm" variant="ghost" onClick={onCerrar}>

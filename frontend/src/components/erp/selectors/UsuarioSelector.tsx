@@ -51,7 +51,7 @@ export function UsuarioSelector({
       renderItem={(u) => (
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium">{u.nombre}</p>
-          <p className="truncate text-xs text-muted-foreground">{u.email}</p>
+          <p className="truncate text-xs text-ink-muted">{u.email}</p>
         </div>
       )}
       placeholder={placeholder}

@@ -50,6 +50,11 @@ public sealed class EmitirFacturaVentaValidator : AbstractValidator<EmitirFactur
             .MaximumLength(FacturaVenta.ObservacionesMaxLength)
             .WithMessage($"Las observaciones no pueden exceder {FacturaVenta.ObservacionesMaxLength} caracteres.");
 
+        // FMT-6: comentario libre de cada NC de aplicación de anticipo.
+        RuleForEach(c => c.Anticipos).ChildRules(a => a.RuleFor(x => x.ComentarioNotaCredito)
+            .MaximumLength(Millet.Facturacion.Domain.NotasCredito.NotaCredito.ComentariosMaxLength))
+            .When(c => c.Anticipos is not null);
+
         RuleFor(c => c.Lineas).NotEmpty().WithMessage("La factura debe tener al menos una línea.");
         RuleForEach(c => c.Lineas).ChildRules(l =>
         {

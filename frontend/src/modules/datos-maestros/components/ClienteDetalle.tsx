@@ -1,19 +1,11 @@
+import { problemaUsuario } from '@/lib/error-usuario';
 import { PageHeader } from '@/components/erp/PageHeader';
+import { CambioEstatusMaestroDialog } from './CambioEstatusMaestroDialog';
 import { useState } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
 import { Power, PowerOff, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { ErrorState, TableSkeleton } from '@/components/erp';
 import {
   useCliente,
@@ -21,7 +13,6 @@ import {
   useReactivarCliente,
 } from '@/modules/datos-maestros/api';
 import { EstatusCatalogo } from '@/modules/datos-maestros/api/types';
-import { esApiError, codigoSoporte } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { ClienteOrigenAwSection } from '@/modules/datos-maestros/components/ClienteOrigenAwSection';
@@ -46,14 +37,14 @@ export function ClienteDetalle() {
     from: '/_app/admin/datos-maestros/clientes/$id',
   });
   const clienteQuery = useCliente(id);
-  const [confirmDesactivar, setConfirmDesactivar] = useState(false);
+  const [dialogoEstatus, setDialogoEstatus] = useState<'desactivar' | 'reactivar' | null>(null);
 
   const canGestionar = useHasPermission(PermisosCanonicos.DatosMaestrosClientesGestionar);
   const desactivar = useDesactivarCliente();
   const reactivar = useReactivarCliente();
 
   if (clienteQuery.isError) {
-    const problem = esApiError(clienteQuery.error) ? clienteQuery.error.problem : undefined;
+    const problem = problemaUsuario(clienteQuery.error);
     return <ErrorState problem={problem} onRetry={() => clienteQuery.refetch()} />;
   }
 
@@ -77,47 +68,18 @@ export function ClienteDetalle() {
     !cliente.codigoPostalFiscal ? { etiqueta: 'Código postal fiscal', campo: 'codigoPostalFiscal' } : null,
   ] as (ItemFalta | null)[]).filter((f): f is ItemFalta => f !== null);
 
-  function handleConfirmarDesactivar() {
-    desactivar.mutate(
+  function handleConfirmarEstatus(motivo: string) {
+    const mutacion = dialogoEstatus === 'desactivar' ? desactivar : reactivar;
+    mutacion.mutate(
       // Key fresca por acción: el detalle queda montado al navegar entre
-      // clientes; una key estable replicaría el 204 cacheado del 1º y NO
-      // desactivaría el 2º (ADR-0020).
-      { id: cliente.id, idempotencyKey: crypto.randomUUID() },
+      // clientes; una key estable replicaría el 204 cacheado del 1º (ADR-0020).
+      { id: cliente.id, motivo, idempotencyKey: crypto.randomUUID() },
       {
         onSuccess: () => {
-          toast.success(`Cliente ${cliente.clave} desactivado`);
-          setConfirmDesactivar(false);
-        },
-        onError: (error) => {
-          if (esApiError(error)) {
-            toast.error(error.problem.title, {
-              description: codigoSoporte(error),
-            });
-          } else {
-            toast.error('Error al desactivar el cliente.');
-          }
-          setConfirmDesactivar(false);
-        },
-      },
-    );
-  }
-
-  function handleReactivar() {
-    reactivar.mutate(
-      // Key fresca por acción (ADR-0020); misma razón que en desactivar.
-      { id: cliente.id, idempotencyKey: crypto.randomUUID() },
-      {
-        onSuccess: () => {
-          toast.success(`Cliente ${cliente.clave} reactivado`);
-        },
-        onError: (error) => {
-          if (esApiError(error)) {
-            toast.error(error.problem.title, {
-              description: codigoSoporte(error),
-            });
-          } else {
-            toast.error('Error al reactivar el cliente.');
-          }
+          toast.success(
+            `Cliente ${cliente.clave} ${dialogoEstatus === 'desactivar' ? 'desactivado' : 'reactivado'}`,
+          );
+          setDialogoEstatus(null);
         },
       },
     );
@@ -152,7 +114,10 @@ export function ClienteDetalle() {
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => setConfirmDesactivar(true)}
+                onClick={() => {
+                  desactivar.reset();
+                  setDialogoEstatus('desactivar');
+                }}
               >
                 <PowerOff className="mr-1.5 h-4 w-4" />
                 Desactivar
@@ -163,8 +128,10 @@ export function ClienteDetalle() {
                 type="button"
                 variant="ghost"
                 size="sm"
-                disabled={reactivar.isPending}
-                onClick={handleReactivar}
+                onClick={() => {
+                  reactivar.reset();
+                  setDialogoEstatus('reactivar');
+                }}
               >
                 <Power className="mr-1.5 h-4 w-4" />
                 Reactivar
@@ -186,24 +153,14 @@ export function ClienteDetalle() {
         <ClienteSaldoGrupoSection clienteId={cliente.id} />
       </div>
 
-      <AlertDialog open={confirmDesactivar} onOpenChange={setConfirmDesactivar}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Desactivar cliente</AlertDialogTitle>
-            <AlertDialogDescription>
-              ¿Confirmas desactivar al cliente{' '}
-              <span className="font-mono font-semibold">{cliente.clave}</span>? Los documentos
-              históricos se conservan y el registro mantiene su relación con A+W.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={desactivar.isPending}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmarDesactivar} disabled={desactivar.isPending}>
-              {desactivar.isPending ? 'Desactivando…' : 'Desactivar'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <CambioEstatusMaestroDialog
+        modo={dialogoEstatus}
+        etiqueta={`cliente ${cliente.clave}`}
+        pending={desactivar.isPending || reactivar.isPending}
+        error={dialogoEstatus === 'desactivar' ? desactivar.error : reactivar.error}
+        onConfirm={handleConfirmarEstatus}
+        onCancel={() => setDialogoEstatus(null)}
+      />
     </div>
   );
 }

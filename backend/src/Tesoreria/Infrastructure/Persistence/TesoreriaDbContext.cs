@@ -52,6 +52,9 @@ public sealed class TesoreriaDbContext : BaseDbContext
     /// <summary>Proyección de pasivos autorizados por CxP — solo mutada por listener y aplicaciones (PR-3).</summary>
     public DbSet<PasivoPendientePago> PasivosPendientesPago => Set<PasivoPendientePago>();
 
+    /// <summary>I13.3: autorización en dos niveles de los pasivos de comercio exterior.</summary>
+    public DbSet<AutorizacionPagoComercioExterior> AutorizacionesPagoComercioExterior => Set<AutorizacionPagoComercioExterior>();
+
     /// <summary>Corridas de pago con máquina de estados RN-5 (PR-5).</summary>
     public DbSet<CorridaPago> CorridasPago => Set<CorridaPago>();
     public DbSet<PoliticaFirmaCorrida> PoliticasFirmaCorrida => Set<PoliticaFirmaCorrida>();
@@ -103,6 +106,7 @@ public sealed class TesoreriaDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new MovimientoBancarioConfiguration());
         modelBuilder.ApplyConfiguration(new AplicacionPagoProveedorConfiguration());
         modelBuilder.ApplyConfiguration(new PasivoPendientePagoConfiguration());
+        modelBuilder.ApplyConfiguration(new AutorizacionPagoComercioExteriorConfiguration());
         modelBuilder.ApplyConfiguration(new CorridaPagoConfiguration());
         modelBuilder.ApplyConfiguration(new CorridaPagoLineaConfiguration());
         modelBuilder.ApplyConfiguration(new CorridaPagoFirmaConfiguration());

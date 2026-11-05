@@ -274,11 +274,11 @@ public sealed class F1AFundacionesEndpointsTests(WebApplicationFactory<Program> 
         try
         {
             var alta=await Json(await c.PostAsJsonAsync("/api/v1/datos-maestros/clientes",Alta(referencia,rfc))); var id=alta.GetProperty("id").GetGuid(); ids.Add(id);
-            Assert.Equal(HttpStatusCode.NoContent,(await c.DeleteAsync($"/api/v1/datos-maestros/clientes/{id}")).StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent,(await c.SendAsync(new HttpRequestMessage(HttpMethod.Delete,$"/api/v1/datos-maestros/clientes/{id}"){Content=JsonContent.Create(new{motivo="Baja local de prueba"})})).StatusCode);
             var inactivo=await Json(await c.GetAsync($"/api/v1/datos-maestros/clientes/{id}"));
             Assert.Equal("Inactivo",inactivo.GetProperty("estatus").GetString()); Assert.Equal(Guid.Parse(Clasificacion),inactivo.GetProperty("clasificacionId").GetGuid());
             Assert.Equal(HttpStatusCode.NoContent,(await c.PatchAsJsonAsync($"/api/v1/datos-maestros/clientes/{id}",new { clasificacionId=Clasificacion,telefono="9990000001" })).StatusCode);
-            Assert.Equal(HttpStatusCode.NoContent,(await c.PostAsync($"/api/v1/datos-maestros/clientes/{id}/reactivar",null)).StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent,(await c.PostAsJsonAsync($"/api/v1/datos-maestros/clientes/{id}/reactivar",new{motivo="Regresa a operar"})).StatusCode);
             Assert.Equal("Activo",(await Json(await c.GetAsync($"/api/v1/datos-maestros/clientes/{id}"))).GetProperty("estatus").GetString());
         }
         finally { await LimpiarAsync(referencia,ids); }
@@ -287,17 +287,17 @@ public sealed class F1AFundacionesEndpointsTests(WebApplicationFactory<Program> 
     [Fact]
     public async Task Reactivar_con_la_misma_Idempotency_Key_repite_204_y_deja_el_cliente_activo()
     {
-        // M-92: el segundo reactivar con la misma clave y cuerpo vacío es replay del 204 (Idempotent-Replayed).
+        // M-92: el segundo reactivar con la misma clave y cuerpo es replay del 204 (Idempotent-Replayed).
         using var c=await ClienteAsync(); var referencia="F1A-"+Guid.NewGuid().ToString("N")[..8]; var ids=new List<Guid>();
         var rfc="FIA261010"+Guid.NewGuid().ToString("N")[..3].ToUpperInvariant();
         try
         {
             var alta=await Json(await c.PostAsJsonAsync("/api/v1/datos-maestros/clientes",Alta(referencia,rfc))); var id=alta.GetProperty("id").GetGuid(); ids.Add(id);
-            Assert.Equal(HttpStatusCode.NoContent,(await c.DeleteAsync($"/api/v1/datos-maestros/clientes/{id}")).StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent,(await c.SendAsync(new HttpRequestMessage(HttpMethod.Delete,$"/api/v1/datos-maestros/clientes/{id}"){Content=JsonContent.Create(new{motivo="Baja local de prueba"})})).StatusCode);
             var key=Guid.NewGuid().ToString("D");
-            using var primera=new HttpRequestMessage(HttpMethod.Post,$"/api/v1/datos-maestros/clientes/{id}/reactivar");
+            using var primera=new HttpRequestMessage(HttpMethod.Post,$"/api/v1/datos-maestros/clientes/{id}/reactivar"){Content=JsonContent.Create(new{motivo="Regresa a operar"})};
             primera.Headers.Add("Idempotency-Key",key);
-            using var segunda=new HttpRequestMessage(HttpMethod.Post,$"/api/v1/datos-maestros/clientes/{id}/reactivar");
+            using var segunda=new HttpRequestMessage(HttpMethod.Post,$"/api/v1/datos-maestros/clientes/{id}/reactivar"){Content=JsonContent.Create(new{motivo="Regresa a operar"})};
             segunda.Headers.Add("Idempotency-Key",key);
             Assert.Equal(HttpStatusCode.NoContent,(await c.SendAsync(primera)).StatusCode);
             var replay=await c.SendAsync(segunda);

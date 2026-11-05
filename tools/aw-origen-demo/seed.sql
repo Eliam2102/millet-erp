@@ -1,7 +1,7 @@
 -- Seed 100 % sintético del origen de demo. Borra y reinserta todo (sirve también para deshacer cambios a mano).
 -- Referencias <= 100000, como el sandbox de A+W (las reales de productos empiezan en 100002).
 -- Casos incluidos a propósito: cliente sin NAME1 (id 58) y producto sin descripción (46) = error por fila;
--- producto con unidad sin equivalencia (47) = pendiente; producto en baja (45); condición de pago sin coincidencia.
+-- producto con unidad sin equivalencia (47, Tambo; Rollo ya tiene unidad desde P-200, Fernando 4-nov: CAJA=XBX, ROLLO=RK, PAQ=XPK) = pendiente; producto en baja (45); condición de pago sin coincidencia.
 -- Régimen fiscal (U1.8b, KA_BONITAET.FREMD_KEY): 601 en pares, 612 en nones, 616 en RFC genéricos; '<indf>' sin clave en
 -- múltiplos de 7 y una calificación sin catálogo (id 59) para ver "Sin dato en A+W" en el reporte de diferencias.
 TRUNCATE aw_origen.ku_kunden, aw_origen.ka_zahlbed, aw_origen.ka_bonitaet, aw_origen.erp_articulo;
@@ -124,4 +124,4 @@ WHERE f.producto_ref IN (1, 2, 9, 10);
 INSERT INTO aw_origen.erp_articulo (producto_ref, descripcion, unidad_medida, baja, transaction_time, codigo_modelo, grupo, tipo, wgr, wgr_descripcion, variantes) VALUES
  (45, 'VIDRIO FLOAT CLARO 4MM (DESCONTINUADO)', 'm²', true,  TIMESTAMP '2026-01-01 10:00:00', 'FLOAT CLARO', 'Float', 'Vidrio plano', '310', 'VIDRIO FLOAT', '[{"claveVariante":"BASE","altoMm":null,"anchoMm":null,"espesorMm":4,"composicion":null}]'),
  (46, '',                                       'm²', false, NULL, 'SIN DESCRIPCION', 'Float', 'Vidrio plano', '310', 'VIDRIO FLOAT', '[]'),
- (47, 'ROLLO DE PELICULA DEMO',                 'Rollo', false, NULL, 'PELICULA', 'Accesorios', 'Producto', NULL, NULL, '[]');
+ (47, 'TAMBO DE RESINA DEMO',                    'Tambo', false, NULL, 'PELICULA', 'Accesorios', 'Producto', NULL, NULL, '[]');

@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Millet.Compartido.Application.Catalogos;
 using Millet.Compartido.Infrastructure.Persistence;
+using Millet.Compartido.UnitTests.Adjuntos;
 using Millet.DatosMaestros.Application.Clientes;
 using Millet.DatosMaestros.Application.ProductosAw;
 using Millet.DatosMaestros.Domain;
@@ -297,7 +299,7 @@ public sealed class F1AFundacionesTests
         var cliente = new Cliente(Guid.NewGuid(), "MAN-R", "FICTICIO", rfc: "AAA010101AAA");
         cliente.AplicarBloqueoAw(true);
         db.Add(cliente); await db.SaveChangesAsync();
-        var ex = await Assert.ThrowsAsync<BusinessRuleException>(() => new ReactivarClienteHandler(db).Handle(new(cliente.Id), CancellationToken.None));
+        var ex = await Assert.ThrowsAsync<BusinessRuleException>(() => new ReactivarClienteHandler(db, new MaestroEstatusService([], new FakeAudit(), new FakeUser(), new FakeEmpresa())).Handle(new(cliente.Id, "Regresa a operar"), CancellationToken.None));
         Assert.Equal("CLIENTE_BLOQUEADO_POR_AW", ex.Code);
     }
 

@@ -123,6 +123,60 @@ public sealed class NotaCreditoAwTests
         nc.ImporteAfectaInventario.Should().Be(1000m);
     }
 
+    // ---- 86e3jvv6z: lectura directa de A+W (ranura ya documentada por el ERP, vendedor) ----
+
+    private static void SembrarNcRanura(FacturacionDbContext db, Guid empresa, FacturaVenta f, decimal monto) =>
+        db.NotasCredito.Add(NotaCredito.CrearRanura(empresa, "NC-R1", 99, f.SucursalId, null, null, Receptor(),
+            new DatosFiscalesEmisor("BBB010101BBB", "Millet", "601", "76120"), "03", "MXN", null, 2026, 10, (short)1, f.Id, monto, 0.16m, "Ranura"));
+
+    [Fact]
+    public async Task Nota_de_ranura_de_A_W_ya_cubierta_por_la_NC_de_ranura_del_ERP_no_se_duplica()
+    {
+        var (h, db, puente, empresa, f) = await EscenarioAsync();
+        SembrarNcRanura(db, empresa, f, 600m);
+        await db.SaveChangesAsync();
+
+        var r = await h.Handle(new ProcesarNotaCreditoAwCommand(empresa, Sol(importe: 600.01m) with { EsRanura = true }), CancellationToken.None);
+
+        r.Resultado.Should().Be(ResultadoSolicitudAw.Aplicada);
+        r.NotaCreditoId.Should().BeNull();
+        r.Motivo.Should().Contain("NC-R1");
+        (await db.NotasCredito.CountAsync()).Should().Be(1);
+        puente.Acuses.Should().ContainSingle(a => a.Resultado == ResultadoSolicitudAw.Aplicada);
+    }
+
+    [Fact]
+    public async Task Nota_de_ranura_sin_NC_de_ranura_en_el_ERP_se_crea_como_una_nota_mas()
+    {
+        var (h, db, _, empresa, _) = await EscenarioAsync();
+
+        await h.Handle(new ProcesarNotaCreditoAwCommand(empresa, Sol(importe: 600m) with { EsRanura = true }), CancellationToken.None);
+
+        (await db.NotasCredito.CountAsync()).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Nota_marcada_ranura_con_importe_distinto_al_de_la_NC_de_ranura_se_crea()
+    {
+        var (h, db, _, empresa, f) = await EscenarioAsync();
+        SembrarNcRanura(db, empresa, f, 600m);
+        await db.SaveChangesAsync();
+
+        await h.Handle(new ProcesarNotaCreditoAwCommand(empresa, Sol(importe: 900m) with { EsRanura = true }), CancellationToken.None);
+
+        (await db.NotasCredito.CountAsync()).Should().Be(2);
+    }
+
+    [Fact]
+    public async Task El_vendedor_de_A_W_queda_en_la_nota()
+    {
+        var (h, db, _, empresa, _) = await EscenarioAsync();
+
+        await h.Handle(new ProcesarNotaCreditoAwCommand(empresa, Sol() with { Vendedor = "Vendedor Prueba" }), CancellationToken.None);
+
+        (await db.NotasCredito.SingleAsync()).AwVendedor.Should().Be("Vendedor Prueba");
+    }
+
     // ---- Criterio 2: dos veces → una sola nota ----
 
     [Fact]

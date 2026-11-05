@@ -5,6 +5,8 @@ public sealed class DatosActivoValidator : AbstractValidator<DatosActivo>
 {
     public DatosActivoValidator()
     {
+        RuleFor(x=>x.TasaContableAnual).Must(Activo.TasaValida).WithMessage("Capture una tasa de 0 a 100 con hasta cuatro decimales.");
+        RuleFor(x=>x.TasaFiscalAnual).Must(Activo.TasaValida).WithMessage("Capture una tasa de 0 a 100 con hasta cuatro decimales.");
         RuleFor(x=>x.Descripcion).NotEmpty().MaximumLength(500);RuleFor(x=>x.ClaseId).NotEmpty();
         RuleFor(x=>x.Moneda).NotEmpty().Matches("^[A-Z]{3}$");RuleFor(x=>x.TipoCambio).GreaterThan(0);
         RuleFor(x=>x.ValorMonedaOriginal).GreaterThanOrEqualTo(0);RuleFor(x=>x.Custodia).NotNull();

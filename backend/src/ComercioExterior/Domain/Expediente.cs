@@ -11,7 +11,8 @@ public enum TipoExpediente
 public enum EstadoExpediente
 {
     Abierto = 1,
-    Cancelado = 2
+    Cancelado = 2,
+    Cerrado = 3
 }
 
 public enum EstadoDocumento
@@ -27,7 +28,7 @@ public enum PapelParticipante
     Autoriza = 3
 }
 
-public sealed record RequisitoDocumento(Guid Id, string Codigo, string Nombre, bool Obligatorio, bool Condicional);
+public sealed record RequisitoDocumento(Guid Id, string Codigo, string Nombre, bool Obligatorio, bool Condicional, string? HitoClave = "documentacion-completa");
 public sealed class DocumentosFaltantesException(IReadOnlyList<RequisitoDocumento> faltantes) : BusinessRuleException("CE_DOCUMENTOS_FALTANTES", "Faltan documentos obligatorios: " + string.Join(", ", faltantes.Select(r => r.Nombre)))
 {
     public IReadOnlyList<RequisitoDocumento> Faltantes { get; } = faltantes;
@@ -87,7 +88,7 @@ public sealed partial class Expediente : BaseEntity, IAuditable, IPerteneceAEmpr
     public void ExigirAbierto()
     {
         if (Estado != EstadoExpediente.Abierto)
-            throw new BusinessRuleException("CE_EXPEDIENTE_NO_ABIERTO", "El expediente está cancelado y conserva su histórico.");
+            throw new BusinessRuleException("CE_EXPEDIENTE_NO_ABIERTO", "El expediente está cerrado o cancelado y conserva su histórico.");
     }
 
     internal static string MotivoValido(string? motivo)
@@ -161,6 +162,7 @@ public sealed partial class Expediente : BaseEntity, IAuditable, IPerteneceAEmpr
             NumeroPedimentoExportacion = nuevo.NumeroPedimento;
         }
         if (requisito.Codigo == "IMP_PEDIMENTO") NumeroPedimentoVigenteImportacion = nuevo.NumeroPedimento;
+        CierreDocumentalPorId = null; CierreDocumentalEn = null;
         _documentos.Add(nuevo);
         RevisionPendiente = true;
         RevisadoPorId = null;
@@ -171,6 +173,7 @@ public sealed partial class Expediente : BaseEntity, IAuditable, IPerteneceAEmpr
     {
         ExigirAbierto();
         if (!_documentos.Any(d => d.AdjuntoId == adjuntoId && d.Estado == EstadoDocumento.Vigente)) return;
+        CierreDocumentalPorId = null; CierreDocumentalEn = null;
         RevisionPendiente = true;
         RevisadoPorId = null;
         RevisionContenido++;

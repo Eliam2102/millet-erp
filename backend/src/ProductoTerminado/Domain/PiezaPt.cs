@@ -1,3 +1,4 @@
+using Millet.SharedKernel.Application.Exceptions;
 using Millet.SharedKernel.Domain;
 
 namespace Millet.ProductoTerminado.Domain;
@@ -33,4 +34,52 @@ public sealed class PiezaPt : BaseEntity, IAuditable, IPerteneceAEmpresa, IBelon
 
     public static PiezaPt Alta(Guid empresa, PedidoPt pedido, int posicion, int numeroPieza, string etiqueta, Guid sucursalId, DateTimeOffset escaneadaAt, Guid escaneoId)
         => new(empresa, pedido.Id, posicion, numeroPieza, etiqueta, sucursalId, escaneadaAt, escaneoId);
+
+    /// <summary>Sale a tránsito; conserva su sucursal de origen hasta que se reciba.</summary>
+    public void SalirATransito()
+    {
+        if (Estado != EstadoPieza.EnPT) throw new BusinessRuleException("PT_PIEZA_NO_EN_PT", $"La pieza {Etiqueta} no está en PT.");
+        Estado = EstadoPieza.EnTransito;
+    }
+
+    /// <summary>Entra al PT de la sucursal destino.</summary>
+    public void Recibir(Guid sucursalDestinoId)
+    {
+        if (Estado != EstadoPieza.EnTransito) throw new BusinessRuleException("PT_PIEZA_NO_EN_TRANSITO", $"La pieza {Etiqueta} no está en tránsito.");
+        Estado = EstadoPieza.EnPT;
+        SucursalId = sucursalDestinoId;
+    }
+
+    /// <summary>Entra al camión. La pieza que PT5.4 ya cargó se acepta tal cual.</summary>
+    public void Cargar()
+    {
+        if (Estado is not (EstadoPieza.EnPT or EstadoPieza.Cargada)) throw new BusinessRuleException("PT_PIEZA_NO_CARGABLE", $"La pieza {Etiqueta} no está en PT.");
+        Estado = EstadoPieza.Cargada;
+    }
+
+    public void RevertirCarga()
+    {
+        if (Estado != EstadoPieza.Cargada) throw new BusinessRuleException("PT_PIEZA_NO_CARGADA", $"La pieza {Etiqueta} no está cargada.");
+        Estado = EstadoPieza.EnPT;
+    }
+
+    public void Embarcar()
+    {
+        if (Estado != EstadoPieza.Cargada) throw new BusinessRuleException("PT_PIEZA_NO_CARGADA", $"La pieza {Etiqueta} no está cargada.");
+        Estado = EstadoPieza.Embarcada;
+    }
+
+    /// <summary>El cliente la recibió.</summary>
+    public void Entregar()
+    {
+        if (Estado != EstadoPieza.Embarcada) throw new BusinessRuleException("PT_PIEZA_NO_EMBARCADA", $"La pieza {Etiqueta} no salió en una hoja emitida.");
+        Estado = EstadoPieza.Entregada;
+    }
+
+    /// <summary>El cliente la rechazó en sitio: regresa en revisión (PT5.8 decide su destino).</summary>
+    public void RechazarEnSitio()
+    {
+        if (Estado != EstadoPieza.Embarcada) throw new BusinessRuleException("PT_PIEZA_NO_EMBARCADA", $"La pieza {Etiqueta} no salió en una hoja emitida.");
+        Estado = EstadoPieza.EnRevision;
+    }
 }

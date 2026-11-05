@@ -1,3 +1,5 @@
+import { useAuthStore } from '@/lib/auth/auth-store';
+import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { ClasesPage } from './ClasesPage';
@@ -31,7 +33,10 @@ vi.mock('@/features/contabilidad/api/hooks', () => ({
   }),
 }));
 vi.mock('../components/CuentaActivoSelector', () => ({ CuentaActivoSelector: () => null }));
-beforeEach(() => state.mutate.mockReset());
+beforeEach(() => {
+  state.mutate.mockReset();
+  useAuthStore.setState({ permisos: [P.ActivosFijosClasesAdministrar] });
+});
 it('muestra cuentas, tasa pendiente y revisión sin transformar una tasa vacía en cero', () => {
   render(<ClasesPage />);
   expect(screen.getByText('165.01 · Telefonía')).toBeInTheDocument();

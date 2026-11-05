@@ -294,6 +294,8 @@ export interface EmitirAnticipoResponse {
 export interface AnticipoAAmortizar {
   anticipoId: string;
   importe: number;
+  /** FMT-6: comentario libre de la NC de aplicación; se imprime en «Comentarios - Comments». */
+  comentarioNotaCredito?: string | null;
 }
 
 /**
@@ -462,6 +464,8 @@ export interface NotaCreditoDevolucionAnticipoCommand {
   montoTotal: number;
   tasaIva: number | null;
   reembolso: ReembolsoClienteRequest;
+  /** Texto libre que se imprime en el PDF de la NC (≤ 1000). */
+  comentarios?: string | null;
 }
 
 export interface NotaCreditoDevolucionAnticipoResponse {
@@ -832,6 +836,8 @@ export interface AutorizarVentaActivoResponse {
 
 /** Item de la bandeja de autorizaciones de venta de activo. */
 export interface AutorizacionActivoItem {
+  version?: number;
+  motivoRechazo?: string | null;
   motivo: number;
   solicitadoPor: string;
   evidencia: string;
@@ -1042,6 +1048,73 @@ export interface PedidoComprobanteItem {
   vigente: boolean;
 }
 
+// ─── Salidas parciales del pedido (FAC-08) ─────────────────────────────
+
+/** Origen de la salida (mirror numérico de OrigenSalidaFacturable). */
+export const OrigenSalidaFacturable = {
+  ProductoTerminado: 1,
+  ContenedorExportacion: 2,
+  Manual: 3,
+} as const;
+export type OrigenSalidaFacturableValor =
+  (typeof OrigenSalidaFacturable)[keyof typeof OrigenSalidaFacturable];
+
+/** Avance de una partida del pedido: pedida, en salidas y facturada. */
+export interface AvancePartidaPedido {
+  posicion: number;
+  descripcion: string;
+  pedida: number;
+  enSalidas: number;
+  facturada: number;
+}
+
+export interface SalidaFacturableItemLinea {
+  posicion: number;
+  cantidad: number;
+  importe: number;
+}
+
+/** Una parcialidad del pedido con su factura vigente (null = pendiente o cancelada). */
+export interface SalidaFacturableItem {
+  id: string;
+  numeroParcialidad: number;
+  origen: OrigenSalidaFacturableValor;
+  referencia: string;
+  registradaEn: string;
+  total: number;
+  facturaId: string | null;
+  folio: string | null;
+  uuid: string | null;
+  estadoFactura: string | null;
+  lineas: SalidaFacturableItemLinea[];
+}
+
+/** GET /pedidos-facturables/{id}/salidas. */
+export interface PedidoSalidasResponse {
+  pedidoFacturableId: string;
+  totalPedido: number;
+  totalFacturado: number;
+  avance: AvancePartidaPedido[];
+  salidas: SalidaFacturableItem[];
+}
+
+/** Body de POST /pedidos-facturables/{id}/salidas (origen Manual por omisión). */
+export interface RegistrarSalidaCommand {
+  referencia: string;
+  lineas: Array<{ posicion: number; cantidad: number }>;
+}
+
+export interface SalidaFacturableResponse {
+  id: string;
+  pedidoFacturableId: string;
+  numeroParcialidad: number;
+  origen: OrigenSalidaFacturableValor;
+  referencia: string;
+  total: number;
+  yaRegistrada: boolean;
+  lineas: SalidaFacturableItemLinea[];
+}
+
 // ─── Emisión / comprobantes (FE-F1-PR2) ───────────────────────────────
 
 /**
@@ -1109,6 +1182,8 @@ export interface EmitirFacturaVentaCommand {
   /** Liga la factura al pedido origen (B2). Si se provee, al timbrar el
    * backend transiciona el pedido a `Facturado`. */
   pedidoFacturableId?: string | null;
+  /** FAC-08: factura solo esta parcialidad del pedido; el pedido sigue abierto. */
+  salidaFacturableId?: string | null;
   /** Anticipos a amortizar (relación 07). El backend emite la NC de
    * amortización atómica con el timbre de la factura final. */
   anticipos?: AnticipoAAmortizar[] | null;
@@ -1200,6 +1275,8 @@ export interface FacturaBandejaItem extends ClasificacionPedidoLectura {
   total: number;
   moneda: string;
   fechaTimbrado: string | null;
+  /** U-1: la factura tiene una NC (ranura o anticipo) pendiente de timbrar. */
+  notaCreditoPendiente?: boolean;
 }
 
 /** Línea del detalle de un comprobante. */
@@ -1275,6 +1352,8 @@ export interface ComprobanteDetalleResponse {
   totalPorCobrar: number;
   /** [Decisión 13-K] NC timbradas que acreditan a esta factura. */
   notasCreditoAplicadas: NotaCreditoAplicadaDetalle[] | null;
+  /** U-1: NC ligadas a la factura que no quedaron timbradas (no acreditan). */
+  notasCreditoPendientes?: NotaCreditoPendienteDetalle[] | null;
   /** FAC-08b: en la original, la factura que la sustituye (relación 04). */
   sustituidaPor?: SustitucionReferencia | null;
   /** FAC-08b: en la sustituta, la factura original. */
@@ -1352,6 +1431,18 @@ export interface CobroFacturaDetalle {
 }
 
 /** NC timbrada que acredita a la factura ([Decisión 13-K]). */
+/** U-1: NC pendiente de timbrar ligada a la factura, con el motivo del PAC. */
+export interface NotaCreditoPendienteDetalle {
+  id: string;
+  folio: string;
+  motivo: string;
+  total: number;
+  estado: string;
+  timbradoErrorCodigo: string | null;
+  timbradoErrorMensaje: string | null;
+  version: number;
+}
+
 export interface NotaCreditoAplicadaDetalle {
   id: string;
   folio: string;
@@ -1428,6 +1519,8 @@ export interface NotaCreditoBonificacionCommand {
   descripcion: string | null;
   /** F6.3: «Devolver dinero al cliente»; al timbrar se pide a Tesorería el reembolso con esta cuenta. */
   reembolso?: ReembolsoClienteRequest | null;
+  /** Texto libre que se imprime en el PDF de la NC (≤ 1000). */
+  comentarios?: string | null;
 }
 
 /** F6.3: cuenta destino del reembolso al cliente (CLABE de 18 dígitos). */

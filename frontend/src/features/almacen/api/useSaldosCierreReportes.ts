@@ -3,12 +3,17 @@ import { apiRequest } from '@/lib/api';
 import {
   almacenKeys,
   type AlfakHistorialFiltros,
+  type TrazabilidadMpFiltros,
+  type KardexFiltros,
   type HijosJerarquiaParams,
   type ListarSaldosFiltros,
   type MpCnkFiltros,
 } from '@/features/almacen/api/keys';
 import type {
   AlfakHistorialFila,
+  TrazabilidadMpFila,
+  KardexFila,
+  CuadreInventarioFila,
   EjecutarCierreMensualCommand,
   EjecutarCierreMensualResponse,
   ExistenciaMpCnkFila,
@@ -203,6 +208,65 @@ export function useReporteAlfakHistorial(filtros: AlfakHistorialFiltros) {
       return data;
     },
     enabled: !!filtros.desde && !!filtros.hasta,
+  });
+}
+
+/** F1-MP-09: compras, consumos, merma y saldo de un artículo (y lote). Sin artículo no consulta. */
+export function useReporteTrazabilidadMp(filtros: TrazabilidadMpFiltros) {
+  return useQuery({
+    queryKey: almacenKeys.reporteTrazabilidadMp(filtros),
+    queryFn: async ({ signal }) => {
+      const params = new URLSearchParams({
+        articuloId: filtros.articuloId,
+        desde: filtros.desde,
+        hasta: filtros.hasta,
+      });
+      if (filtros.lote) params.set('lote', filtros.lote);
+      if (filtros.subAlmacenId) params.set('subAlmacenId', filtros.subAlmacenId);
+      const { data } = await apiRequest<ReporteResponse<TrazabilidadMpFila>>(
+        `/api/v1/almacen/reportes/trazabilidad-mp?${params}`,
+        { signal },
+      );
+      return data;
+    },
+    enabled: !!filtros.articuloId && !!filtros.desde && !!filtros.hasta,
+  });
+}
+
+/** F1-ALM-15: kardex de un artículo por sub-almacén/ubicación y periodo. Sin artículo no consulta. */
+export function useReporteKardex(filtros: KardexFiltros) {
+  return useQuery({
+    queryKey: almacenKeys.reporteKardex(filtros),
+    queryFn: async ({ signal }) => {
+      const params = new URLSearchParams({
+        articuloId: filtros.articuloId,
+        desde: filtros.desde,
+        hasta: filtros.hasta,
+      });
+      if (filtros.subAlmacenId) params.set('subAlmacenId', filtros.subAlmacenId);
+      if (filtros.ubicacionId) params.set('ubicacionId', filtros.ubicacionId);
+      const { data } = await apiRequest<ReporteResponse<KardexFila>>(
+        `/api/v1/almacen/reportes/kardex?${params}`,
+        { signal },
+      );
+      return data;
+    },
+    enabled: !!filtros.articuloId && !!filtros.desde && !!filtros.hasta,
+  });
+}
+
+/** F1-ALM-13-a: valuación al cierre del mes contra la cuenta de inventario y contra el kardex. */
+export function useReporteCuadreInventario(anio: number, mes: number) {
+  return useQuery({
+    queryKey: almacenKeys.reporteCuadreInventario(anio, mes),
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<ReporteResponse<CuadreInventarioFila>>(
+        `/api/v1/almacen/reportes/cuadre-inventario?anio=${anio}&mes=${mes}`,
+        { signal },
+      );
+      return data;
+    },
+    enabled: anio > 0 && mes >= 1 && mes <= 12,
   });
 }
 

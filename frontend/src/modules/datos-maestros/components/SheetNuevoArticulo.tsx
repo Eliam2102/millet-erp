@@ -1,3 +1,4 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import { FormCampo } from '@/components/erp/forms/FormGrid';
 import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
@@ -180,12 +181,12 @@ function NuevoArticuloForm({ onClose, onDirtyChange }: NuevoArticuloFormProps) {
             ) {
               return;
             }
-            toast.error(error.problem.title, {
+            toast.error(errorUsuario(error), {
               description: codigoSoporte(error),
             });
             return;
           }
-          toast.error('Error inesperado al crear el artículo.');
+          toast.error("Error inesperado al crear el artículo. Revisa los datos del registro; si continúa, avisa a soporte.");
         },
       },
     );

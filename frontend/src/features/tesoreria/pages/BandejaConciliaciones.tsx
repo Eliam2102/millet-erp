@@ -1,11 +1,11 @@
-import { useState, useMemo } from 'react';
+import { KpiCard } from '@/components/erp/display/KpiCard';
+import { errorUsuario } from '@/lib/error-usuario';
+import { useState, useMemo, useRef } from 'react';
 import {
   Scale,
   Plus,
   UploadCloud,
   RefreshCw,
-  CheckCircle2,
-  AlertCircle,
   Unlink,
   Link2,
   FileDown,
@@ -56,7 +56,6 @@ import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError } from '@/lib/api';
 import {
   useCuentasBancarias,
   useConceptos,
@@ -101,6 +100,8 @@ const MESES = [
 const ANIOS = [2024, 2025, 2026, 2027];
 
 export function BandejaConciliaciones() {
+  const archivoRef = useRef<HTMLInputElement>(null);
+  const [nombreArchivo, setNombreArchivo] = useState<string | null>(null);
   const ahora = new Date();
   const [cuentaId, setCuentaId] = useState<string>('');
   const [anio, setAnio] = useState<number>(ahora.getFullYear());
@@ -126,7 +127,7 @@ export function BandejaConciliaciones() {
   }
 
   // Preseleccionar conciliación del periodo si existe
-  const conciliaciones = conciliacionesQuery.data ?? [];
+  const conciliaciones = useMemo(() => conciliacionesQuery.data ?? [], [conciliacionesQuery.data]);
   const conciliacionActivaResumen = useMemo(() => {
     if (conciliacionSeleccionadaId) {
       return conciliaciones.find((c) => c.id === conciliacionSeleccionadaId) ?? conciliaciones[0] ?? null;
@@ -233,7 +234,7 @@ export function BandejaConciliaciones() {
       toast.success('Movimiento registrado y emparejado con éxito (póliza emitida)');
       setModalAltaAsistida(null);
     } catch (err: unknown) {
-      toast.error(esApiError(err) ? err.problem.detail : 'Error al registrar alta asistida');
+      toast.error(errorUsuario(err, 'Error al registrar alta asistida'));
     }
   };
 
@@ -249,11 +250,11 @@ export function BandejaConciliaciones() {
         extractoLineaId: modalDesemparejar.id,
         motivo: motivoDesemparejar.trim(),
       });
-      toast.success('Línea desemparejada y registrada en bitácora de auditoría');
+      toast.success("Partida desemparejada y registrada en bitácora de auditoría");
       setModalDesemparejar(null);
       setMotivoDesemparejar('');
     } catch (err: unknown) {
-      toast.error(esApiError(err) ? err.problem.detail : 'Error al desemparejar');
+      toast.error(errorUsuario(err, 'Error al desemparejar'));
     }
   };
 
@@ -274,7 +275,7 @@ export function BandejaConciliaciones() {
       setModalPartidaTransito(null);
       setTransitoResponsable('');
     } catch (err: unknown) {
-      toast.error(esApiError(err) ? err.problem.detail : 'Error al marcar en tránsito');
+      toast.error(errorUsuario(err, 'Error al marcar en tránsito'));
     }
   };
 
@@ -295,7 +296,7 @@ export function BandejaConciliaciones() {
 
   const handleEmparejarManualSubmit = async () => {
     if (!conciliacion || !lineaSeleccionada || movimientosSeleccionadosIds.length === 0) {
-      toast.error('Selecciona una línea de extracto y al menos un movimiento contable');
+      toast.error("Selecciona una partida de extracto y al menos un movimiento contable");
       return;
     }
     try {
@@ -308,7 +309,7 @@ export function BandejaConciliaciones() {
       setLineaExtractoSeleccionadaId(null);
       setMovimientosSeleccionadosIds([]);
     } catch (err: unknown) {
-      toast.error(esApiError(err) ? err.problem.detail : 'Error al realizar emparejamiento manual');
+      toast.error(errorUsuario(err, 'Error al realizar emparejamiento manual'));
     }
   };
 
@@ -326,7 +327,7 @@ export function BandejaConciliaciones() {
       );
       setModalAutoEmparejar(false);
     } catch (err: unknown) {
-      toast.error(esApiError(err) ? err.problem.detail : 'Error en emparejamiento automático');
+      toast.error(errorUsuario(err, 'Error en emparejamiento automático'));
     }
   };
 
@@ -334,7 +335,7 @@ export function BandejaConciliaciones() {
   const handleCerrarSubmit = async () => {
     if (!conciliacion) return;
     if (conciliacion.diferencia !== 0) {
-      toast.error('La conciliación solo puede cerrarse con diferencia $0.00 (RN-7)');
+      toast.error("La conciliación solo puede cerrarse con diferencia $0.00.");
       return;
     }
     if (!firmanteNombre.trim() || !firmantePuesto.trim()) {
@@ -350,7 +351,7 @@ export function BandejaConciliaciones() {
       toast.success('Conciliación cerrada con éxito. Descargando acta oficial en PDF...');
       setModalCerrar(false);
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Error al cerrar conciliación');
+      toast.error(err instanceof Error ? errorUsuario(err) : 'Error al cerrar conciliación');
     }
   };
 
@@ -369,7 +370,7 @@ export function BandejaConciliaciones() {
       setModalReabrir(false);
       setMotivoReabrir('');
     } catch (err: unknown) {
-      toast.error(esApiError(err) ? err.problem.detail : 'Error al reabrir conciliación');
+      toast.error(errorUsuario(err, 'Error al reabrir conciliación'));
     }
   };
 
@@ -385,7 +386,7 @@ export function BandejaConciliaciones() {
     <div className="flex h-full min-h-0 flex-col gap-5 text-sm text-ink p-6 overflow-y-auto">
       <PageHeader
         titulo="Conciliación bancaria"
-        descripcion="Cruce mensual de extracto BBVA ↔ movimientos internos por cuenta con emparejamiento multinivel en 3 pasos, partidas en tránsito, alta asistida de comisiones/intereses y cierre cuadrado con acta en PDF."
+        descripcion="Compara el extracto bancario con los movimientos registrados y cierra la conciliación con un acta en PDF."
         acciones={
           puedeOperar ? (
             <Button onClick={() => setModalNueva(true)} size="sm">
@@ -397,12 +398,12 @@ export function BandejaConciliaciones() {
       />
 
       {/* Barra de Filtros / Selector de Periodo y Cuenta */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 rounded-lg bg-surface border border-edge">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-4 p-4 rounded-lg bg-surface border border-edge">
         <div>
-          <Label className="text-xs text-ink-muted">Cuenta Bancaria</Label>
+          <Label className="text-xs text-ink-muted">Cuenta bancaria</Label>
           <Select value={cuentaId} onValueChange={(val) => setCuentaId(val)}>
             <SelectTrigger className="mt-1">
-              <SelectValue placeholder="Seleccione cuenta..." />
+              <SelectValue placeholder="Elige una cuenta…" />
             </SelectTrigger>
             <SelectContent>
               {cuentasQuery.data?.map((c) => (
@@ -449,7 +450,7 @@ export function BandejaConciliaciones() {
         <div className="flex items-end">
           {conciliaciones.length > 1 && (
             <div className="w-full">
-              <Label className="text-xs text-ink-muted">Conciliación Activa</Label>
+              <Label className="text-xs text-ink-muted">Conciliación activa</Label>
               <Select
                 value={activoId ?? ''}
                 onValueChange={(val) => setConciliacionSeleccionadaId(val)}
@@ -490,65 +491,32 @@ export function BandejaConciliaciones() {
       ) : (
         <div className="flex flex-col gap-6">
           {/* Tarjetas de Control Financiero y Estado */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Saldo Banco */}
-            <div className="p-4 rounded-lg bg-surface border border-edge flex flex-col justify-between">
-              <span className="text-xs font-medium text-ink-muted uppercase tracking-wider">
-                Saldo Extracto Banco
-              </span>
-              <div className="mt-2 text-2xl font-bold tracking-tight">
-                <MoneyDisplay amount={conciliacion.saldoExtracto} currency={conciliacion.moneda} />
-              </div>
-              <span className="text-xs text-ink-muted mt-1">Corte fin de mes</span>
-            </div>
-
-            {/* Saldo Libros */}
-            <div className="p-4 rounded-lg bg-surface border border-edge flex flex-col justify-between">
-              <span className="text-xs font-medium text-ink-muted uppercase tracking-wider">
-                Saldo Libros (ERP)
-              </span>
-              <div className="mt-2 text-2xl font-bold tracking-tight">
-                <MoneyDisplay amount={conciliacion.saldoLibros} currency={conciliacion.moneda} />
-              </div>
-              <span className="text-xs text-ink-muted mt-1">Movimientos conciliados</span>
-            </div>
-
-            {/* Diferencia */}
-            <div
-              className={`p-4 rounded-lg border flex flex-col justify-between ${
-                conciliacion.diferencia === 0
-                  ? 'bg-success-bg border-success text-success-fg'
-                  : 'bg-danger-bg border-danger text-danger-fg'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium uppercase tracking-wider">
-                  Diferencia
-                </span>
-                {conciliacion.diferencia === 0 ? (
-                  <CheckCircle2 className="h-4 w-4 text-success-fg" />
-                ) : (
-                  <AlertCircle className="h-4 w-4 text-danger-fg" />
-                )}
-              </div>
-              <div className="mt-2 text-2xl font-bold tracking-tight">
-                <MoneyDisplay amount={conciliacion.diferencia} currency={conciliacion.moneda} />
-              </div>
-              <span className="text-xs mt-1 font-medium">
-                {conciliacion.diferencia === 0
-                  ? '✓ Conciliación cuadrada ($0.00)'
-                  : '⚠ Descuadre pendiente'}
-              </span>
-            </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+            <KpiCard
+              etiqueta="Saldo del extracto bancario"
+              valor={<MoneyDisplay amount={conciliacion.saldoExtracto} currency={conciliacion.moneda} />}
+              subdato="Corte fin de mes"
+            />
+            <KpiCard
+              etiqueta="Saldo en libros"
+              valor={<MoneyDisplay amount={conciliacion.saldoLibros} currency={conciliacion.moneda} />}
+              subdato="Movimientos conciliados"
+            />
+            <KpiCard
+              etiqueta="Diferencia"
+              valor={<MoneyDisplay amount={conciliacion.diferencia} currency={conciliacion.moneda} />}
+              tono={conciliacion.diferencia === 0 ? 'success' : 'danger'}
+              subdato={conciliacion.diferencia === 0 ? 'Conciliación cuadrada ($0.00)' : 'Descuadre pendiente'}
+            />
 
             {/* Estado y Acciones Rápidas */}
-            <div className="p-4 rounded-lg bg-surface border border-edge flex flex-col justify-between">
+            <div className="flex flex-col justify-between rounded-lg bg-surface-card p-4 shadow-card">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-ink-muted uppercase tracking-wider">
                   Estado
                 </span>
                 <Badge
-                  variant={conciliacion.estado === EstadoConciliacion.Cerrada ? 'default' : 'outline'}
+                  variant={conciliacion.estado === EstadoConciliacion.Cerrada ? 'success' : 'warning'}
                   className={
                     conciliacion.estado === EstadoConciliacion.Cerrada
                       ? 'bg-success-bg text-success-fg border-success'
@@ -572,7 +540,7 @@ export function BandejaConciliaciones() {
                   </div>
                 ) : (
                   <div>
-                    <p>{conciliacion.lineas.filter((l) => l.estado === EstadoExtractoLinea.Emparejada).length} de {conciliacion.lineas.length} líneas emparejadas</p>
+                    <p>{conciliacion.lineas.filter((l) => l.estado === EstadoExtractoLinea.Emparejada).length} de {conciliacion.lineas.length} partidas emparejadas</p>
                     <p className="text-warning-fg">
                       {conciliacion.lineas.filter((l) => l.estado === EstadoExtractoLinea.EnRevision).length} en revisión
                     </p>
@@ -591,7 +559,7 @@ export function BandejaConciliaciones() {
                       onClick={() => setModalCerrar(true)}
                     >
                       <Lock className="mr-1.5 h-3.5 w-3.5" />
-                      Cerrar con Acta
+                      Cerrar con acta
                     </Button>
                   )
                 ) : (
@@ -609,6 +577,8 @@ export function BandejaConciliaciones() {
                       <Button
                         variant="secondary"
                         size="sm"
+                        title="Reabrir conciliación (requiere motivo)"
+                        aria-label="Reabrir conciliación"
                         onClick={() => setModalReabrir(true)}
                       >
                         <Unlock className="h-3.5 w-3.5" />
@@ -627,10 +597,15 @@ export function BandejaConciliaciones() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setModalCargarExtracto(true)}
+                  onClick={() => {
+                    setAutoEmparejarAlCargar(true);
+                    setSaldoFinalExtracto('');
+                    setContenidoExtracto('');
+                    setModalCargarExtracto(true);
+                  }}
                 >
                   <UploadCloud className="mr-1.5 h-4 w-4" />
-                  Cargar Extracto BBVA
+                  Cargar extracto BBVA
                 </Button>
 
                 <Button
@@ -640,14 +615,14 @@ export function BandejaConciliaciones() {
                   disabled={conciliacion.lineas.length === 0}
                 >
                   <RefreshCw className="mr-1.5 h-4 w-4" />
-                  Emparejamiento 3 Pasos
+                  Emparejamiento en 3 pasos
                 </Button>
               </div>
 
               {lineaSeleccionada && (
                 <div className="flex items-center gap-3 bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-md">
                   <span className="text-xs font-medium">
-                    Línea #{lineaSeleccionada.numeroLinea} seleccionada ({lineaSeleccionada.sentido === 2 ? '-' : '+'}
+                    Partida #{lineaSeleccionada.numeroLinea} seleccionada ({lineaSeleccionada.sentido === 2 ? '-' : '+'}
                     {Math.abs(lineaSeleccionada.monto)}) ↔ {movimientosSeleccionadosIds.length} movs (Total: {totalMovimientosSeleccionados.toFixed(2)})
                   </span>
                   <Button
@@ -656,7 +631,7 @@ export function BandejaConciliaciones() {
                     onClick={handleEmparejarManualSubmit}
                   >
                     <Link2 className="mr-1 h-3.5 w-3.5" />
-                    Emparejar Manual
+                    Emparejar manualmente
                   </Button>
                   <Button
                     variant="ghost"
@@ -676,9 +651,9 @@ export function BandejaConciliaciones() {
           {/* Tabs: Workspace de Emparejamiento / Bitácora */}
           <Tabs defaultValue="matching" className="w-full">
             <TabsList>
-              <TabsTrigger value="matching">Emparejamiento Extracto ↔ Libros</TabsTrigger>
+              <TabsTrigger value="matching">Extracto y libros</TabsTrigger>
               <TabsTrigger value="bitacora">
-                Bitácora de Auditoría ({conciliacion.bitacora.length})
+                Bitácora de auditoría ({conciliacion.bitacora.length})
               </TabsTrigger>
             </TabsList>
 
@@ -689,9 +664,9 @@ export function BandejaConciliaciones() {
                 <div className="flex flex-col gap-3 rounded-lg border border-edge bg-surface p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-base font-semibold">Extracto Bancario</h3>
+                      <h3 className="text-md font-semibold">Extracto bancario</h3>
                       <p className="text-xs text-ink-muted">
-                        Líneas reportadas por el banco ({conciliacion.lineas.length})
+                        Partidas reportadas por el banco ({conciliacion.lineas.length})
                       </p>
                     </div>
 
@@ -733,7 +708,7 @@ export function BandejaConciliaciones() {
                         {lineasFiltradas.length === 0 ? (
                           <TableRow>
                             <TableCell colSpan={6} className="text-center py-8 text-ink-muted text-xs">
-                              No hay líneas con el filtro seleccionado
+                              No hay partidas con el filtro seleccionado
                             </TableCell>
                           </TableRow>
                         ) : (
@@ -748,20 +723,20 @@ export function BandejaConciliaciones() {
                                   {linea.numeroLinea}
                                 </TableCell>
                                 <TableCell className="text-xs whitespace-nowrap">
-                                  {linea.fecha.substring(0, 10)}
+                                  <DateTimeDisplay value={linea.fecha} variant="corta" />
                                 </TableCell>
                                 <TableCell className="text-xs">
                                   <div className="font-medium truncate max-w-[200px]" title={linea.descripcion}>
                                     {linea.descripcion}
                                   </div>
                                   {linea.referencia && (
-                                    <div className="text-[11px] text-ink-muted truncate max-w-[200px]" title={linea.referencia}>
+                                    <div className="text-2xs text-ink-muted truncate max-w-[200px]" title={linea.referencia}>
                                       Ref: {linea.referencia}
                                     </div>
                                   )}
                                   {linea.candidatosRevisionIds?.length > 1 && (
-                                    <div className="text-[10px] text-warning-fg font-medium">
-                                      ⚠ {linea.candidatosRevisionIds.length} candidatos posibles
+                                    <div className="text-2xs text-warning-fg font-medium">
+                                      {linea.candidatosRevisionIds.length} candidatos posibles
                                     </div>
                                   )}
                                 </TableCell>
@@ -774,7 +749,7 @@ export function BandejaConciliaciones() {
                                 <TableCell className="text-center text-xs">
                                   <Badge
                                     variant="outline"
-                                    className={`text-[10px] px-1.5 py-0.5 ${
+                                    className={`text-2xs px-1.5 py-0.5 ${
                                       linea.estado === EstadoExtractoLinea.Emparejada
                                         ? 'border-success text-success-fg bg-success-bg'
                                         : linea.estado === EstadoExtractoLinea.EnRevision
@@ -827,7 +802,7 @@ export function BandejaConciliaciones() {
                                             variant={esSeleccionada ? 'default' : 'outline'}
                                             size="icon"
                                             className="h-7 w-7"
-                                            title="Seleccionar para matching manual"
+                                            title="Seleccionar para emparejamiento manual"
                                             onClick={() => {
                                               if (esSeleccionada) {
                                                 setLineaExtractoSeleccionadaId(null);
@@ -856,7 +831,7 @@ export function BandejaConciliaciones() {
                 <div className="flex flex-col gap-3 rounded-lg border border-edge bg-surface p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-base font-semibold">Movimientos del Libro Auxiliar</h3>
+                      <h3 className="text-md font-semibold">Movimientos del libro auxiliar</h3>
                       <p className="text-xs text-ink-muted">
                         Movimientos registrados en Tesorería durante el período ({conciliacion.movimientosPeriodo.length})
                       </p>
@@ -912,14 +887,14 @@ export function BandejaConciliaciones() {
                                   </TableCell>
                                 )}
                                 <TableCell className="text-xs whitespace-nowrap">
-                                  {mov.fechaValor.substring(0, 10)}
+                                  <DateTimeDisplay value={mov.fechaValor} variant="corta" />
                                 </TableCell>
                                 <TableCell className="text-xs">
                                   <div className="font-medium truncate max-w-[200px]">
                                     {mov.conceptoNombre || 'Sin concepto'}
                                   </div>
                                   {mov.referenciaBancaria && (
-                                    <div className="text-[11px] text-ink-muted truncate max-w-[200px]">
+                                    <div className="text-2xs text-ink-muted truncate max-w-[200px]">
                                       Ref: {mov.referenciaBancaria}
                                     </div>
                                   )}
@@ -933,7 +908,7 @@ export function BandejaConciliaciones() {
                                 <TableCell className="text-center text-xs">
                                   <Badge
                                     variant="outline"
-                                    className={`text-[10px] px-1.5 py-0.5 ${
+                                    className={`text-2xs px-1.5 py-0.5 ${
                                       esConciliado
                                         ? 'border-success text-success-fg bg-success-bg'
                                         : 'border-edge text-ink-muted'
@@ -956,7 +931,7 @@ export function BandejaConciliaciones() {
             {/* TAB BITÁCORA */}
             <TabsContent value="bitacora" className="mt-4">
               <div className="rounded-lg border border-edge bg-surface p-4">
-                <h3 className="text-base font-semibold mb-3">Bitácora de Auditoría</h3>
+                <h3 className="text-md font-semibold mb-3">Bitácora de auditoría</h3>
                 {conciliacion.bitacora.length === 0 ? (
                   <p className="text-xs text-ink-muted py-6 text-center">
                     No hay registros en la bitácora aún. Todas las desemparejaciones, aperturas, cierres y reaperturas se auditan aquí.
@@ -966,7 +941,7 @@ export function BandejaConciliaciones() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="w-36">Fecha y Hora</TableHead>
+                          <TableHead className="w-36">Fecha y hora</TableHead>
                           <TableHead className="w-32">Acción</TableHead>
                           <TableHead>Motivo / Justificación</TableHead>
                           <TableHead className="w-40">Usuario</TableHead>
@@ -984,8 +959,8 @@ export function BandejaConciliaciones() {
                             <TableCell className="text-xs text-ink">
                               {b.motivo}
                             </TableCell>
-                            <TableCell className="text-xs text-ink-muted font-mono">
-                              {b.usuarioId.substring(0, 8)}...
+                            <TableCell className="text-xs text-ink-muted">
+                              {b.usuarioNombre?.trim() || 'Sin responsable'}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -1010,7 +985,7 @@ export function BandejaConciliaciones() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div>
-              <Label className="text-xs">Cuenta Bancaria</Label>
+              <Label className="text-xs">Cuenta bancaria</Label>
               <Select value={cuentaId} onValueChange={setCuentaId}>
                 <SelectTrigger className="mt-1">
                   <SelectValue />
@@ -1057,7 +1032,7 @@ export function BandejaConciliaciones() {
               </div>
             </div>
             <div>
-              <Label className="text-xs">Saldo Extracto Inicial (Opcional)</Label>
+              <Label className="text-xs">Saldo inicial del extracto (opcional)</Label>
               <Input
                 type="number"
                 step="0.01"
@@ -1085,11 +1060,11 @@ export function BandejaConciliaciones() {
                   setModalNueva(false);
                   setConciliacionSeleccionadaId(res.id);
                 } catch (err: unknown) {
-                  toast.error(esApiError(err) ? err.problem.detail : 'Error al abrir conciliación');
+                  toast.error(errorUsuario(err, 'Error al abrir conciliación'));
                 }
               }}
             >
-              Abrir Conciliación
+              Abrir conciliación
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1101,7 +1076,7 @@ export function BandejaConciliaciones() {
           <DialogHeader>
             <DialogTitle>Cargar extracto bancario BBVA</DialogTitle>
             <DialogDescription>
-              Pega el texto del estado de cuenta o sube un archivo CSV/TXT exportado de BBVA Bancomer.
+              Pega el texto del estado de cuenta o elige un archivo CSV/TXT exportado de BBVA Bancomer.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -1117,7 +1092,7 @@ export function BandejaConciliaciones() {
               </Select>
             </div>
             <div>
-              <Label className="text-xs">Saldo Final del Extracto (Opcional si viene en encabezado)</Label>
+              <Label className="text-xs">Saldo final del extracto (opcional si está en el encabezado)</Label>
               <Input
                 type="number"
                 step="0.01"
@@ -1128,8 +1103,28 @@ export function BandejaConciliaciones() {
               />
             </div>
             <div>
-              <Label className="text-xs">Contenido del extracto (Pegar texto o arrastrar archivo)</Label>
+              <Label className="text-xs">Contenido del extracto (pegar texto o elegir archivo)</Label>
+              <Input
+                ref={archivoRef}
+                tabIndex={-1}
+                type="file"
+                accept=".csv,.txt,text/csv,text/plain"
+                aria-label="Archivo del extracto"
+                className="sr-only"
+                onChange={async (e) => {
+                  const archivo = e.target.files?.[0];
+                  if (archivo) {
+                    setNombreArchivo(archivo.name);
+                    setContenidoExtracto(await archivo.text());
+                  }
+                }}
+              />
+              <div className="mt-1 flex items-center gap-2">
+                <Button type="button" variant="outline" onClick={() => archivoRef.current?.click()}>Elegir archivo</Button>
+                <span className="truncate text-xs text-ink-muted">{nombreArchivo ?? 'Sin archivo'}</span>
+              </div>
               <Textarea
+                aria-label="Contenido del extracto"
                 rows={8}
                 placeholder="01/10/2026,PAGO PROVEEDOR,REF12345,1500.00,0.00&#10;02/10/2026,DEPOSITO CLIENTE,CLI999,0.00,25000.00"
                 className="mt-1 font-mono text-xs"
@@ -1157,22 +1152,30 @@ export function BandejaConciliaciones() {
               onClick={async () => {
                 if (!conciliacion) return;
                 try {
-                  await cargarExtractoMutation.mutateAsync({
+                  const resumen = await cargarExtractoMutation.mutateAsync({
                     id: conciliacion.id,
                     contenidoArchivo: contenidoExtracto.trim(),
                     formato: formatoExtracto,
                     saldoExtracto: saldoFinalExtracto ? parseFloat(saldoFinalExtracto) : undefined,
                     autoEmparejar: autoEmparejarAlCargar,
                   });
-                  toast.success('Extracto cargado y procesado correctamente');
+                  const dep = resumen.depositos;
+                  toast.success('Extracto cargado y procesado correctamente', {
+                    description: [
+                      `Líneas nuevas: ${resumen.lineasNuevas ?? 0}. Ya estaban cargadas: ${resumen.lineasDuplicadas ?? 0}.`,
+                      dep
+                        ? `Depósitos: ${dep.autoConfirmados} confirmados solos, ${dep.enRevision} en revisión, ${dep.sinIdentificar} sin identificar.`
+                        : null,
+                    ].filter(Boolean).join(' '),
+                  });
                   setModalCargarExtracto(false);
                   setContenidoExtracto('');
                 } catch (err: unknown) {
-                  toast.error(esApiError(err) ? err.problem.detail : 'Error al cargar extracto');
+                  toast.error(errorUsuario(err, 'Error al cargar extracto'));
                 }
               }}
             >
-              Cargar y Procesar
+              Cargar y procesar
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1182,7 +1185,7 @@ export function BandejaConciliaciones() {
       <Dialog open={modalAutoEmparejar} onOpenChange={setModalAutoEmparejar}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Emparejamiento Automático (3 Pasos)</DialogTitle>
+            <DialogTitle>Emparejamiento automático en 3 pasos</DialogTitle>
             <DialogDescription>
               Ejecuta el motor de cruce multinivel: (1) Referencia exacta + importe, (2) Importe + fecha exacta, (3) Tolerancia de importe y ventana de fechas.
             </DialogDescription>
@@ -1190,7 +1193,7 @@ export function BandejaConciliaciones() {
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label className="text-xs">Tolerancia Importe (±$)</Label>
+                <Label className="text-xs">Tolerancia de importe (±$)</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -1198,21 +1201,21 @@ export function BandejaConciliaciones() {
                   value={toleranciaImporte}
                   onChange={(e) => setToleranciaImporte(e.target.value)}
                 />
-                <span className="text-[10px] text-ink-muted">Default: ±$1.00</span>
+                <span className="text-2xs text-ink-muted">Por omisión: ±$1.00</span>
               </div>
               <div>
-                <Label className="text-xs">Ventana de Días (±)</Label>
+                <Label className="text-xs">Ventana de días (±)</Label>
                 <Input
                   type="number"
                   className="mt-1 font-mono"
                   value={ventanaDias}
                   onChange={(e) => setVentanaDias(e.target.value)}
                 />
-                <span className="text-[10px] text-ink-muted">Default: ±3 días</span>
+                <span className="text-2xs text-ink-muted">Por omisión: ±3 días</span>
               </div>
             </div>
             <div className="text-xs text-ink-muted bg-warning-bg border border-warning p-2.5 rounded text-warning-fg">
-              <span className="font-semibold">Regla de seguridad:</span> Si una línea encuentra más de 1 movimiento candidato idéntico, NO se empareja sola; se envía a <b>En revisión</b> para validación humana.
+              <span className="font-semibold">Regla de seguridad:</span> Si una partida encuentra más de 1 movimiento candidato idéntico, NO se empareja sola; se envía a <b>En revisión</b> para validación humana.
             </div>
           </div>
           <DialogFooter>
@@ -1223,7 +1226,7 @@ export function BandejaConciliaciones() {
               disabled={autoEmparejarMutation.isPending}
               onClick={handleAutoEmparejarSubmit}
             >
-              Iniciar Emparejamiento
+              Iniciar emparejamiento
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1243,16 +1246,16 @@ export function BandejaConciliaciones() {
               <div className="bg-surface border border-edge p-3 rounded-md text-xs">
                 <p className="font-semibold text-ink">{modalAltaAsistida.descripcion}</p>
                 <p className="text-ink-muted">
-                  Fecha: {modalAltaAsistida.fecha.substring(0, 10)} · Monto: {modalAltaAsistida.sentido === 2 ? '-' : '+'}
+                  Fecha: <DateTimeDisplay value={modalAltaAsistida.fecha} variant="media" /> · Monto: {modalAltaAsistida.sentido === 2 ? '-' : '+'}
                   {Math.abs(modalAltaAsistida.monto)} {conciliacion?.moneda}
                 </p>
               </div>
 
               <div>
-                <Label className="text-xs">Concepto Principal</Label>
+                <Label className="text-xs">Concepto principal</Label>
                 <Select value={altaConceptoId} onValueChange={setAltaConceptoId}>
                   <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Seleccione concepto..." />
+                    <SelectValue placeholder="Elige un concepto…" />
                   </SelectTrigger>
                   <SelectContent>
                     {conceptosQuery.data?.map((c) => (
@@ -1296,7 +1299,7 @@ export function BandejaConciliaciones() {
                         <Label className="text-xs">Concepto de IVA</Label>
                         <Select value={altaConceptoIvaId} onValueChange={setAltaConceptoIvaId}>
                           <SelectTrigger className="mt-1">
-                            <SelectValue placeholder="Seleccione concepto IVA..." />
+                            <SelectValue placeholder="Elige un concepto de IVA…" />
                           </SelectTrigger>
                           <SelectContent>
                             {conceptosQuery.data?.map((c) => (
@@ -1310,7 +1313,7 @@ export function BandejaConciliaciones() {
 
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <Label className="text-xs">Monto Base</Label>
+                          <Label className="text-xs">Monto base</Label>
                           <Input
                             type="number"
                             step="0.01"
@@ -1320,7 +1323,7 @@ export function BandejaConciliaciones() {
                           />
                         </div>
                         <div>
-                          <Label className="text-xs">Monto IVA</Label>
+                          <Label className="text-xs">Monto de IVA</Label>
                           <Input
                             type="number"
                             step="0.01"
@@ -1344,7 +1347,7 @@ export function BandejaConciliaciones() {
               disabled={altaAsistidaMutation.isPending || !altaConceptoId}
               onClick={handleAltaAsistidaSubmit}
             >
-              Crear Movimiento y Emparejar
+              Registrar movimiento y emparejar
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1354,9 +1357,9 @@ export function BandejaConciliaciones() {
       <Dialog open={!!modalDesemparejar} onOpenChange={(val) => !val && setModalDesemparejar(null)}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Desemparejar línea</DialogTitle>
+            <DialogTitle>Desemparejar partida</DialogTitle>
             <DialogDescription>
-              La línea y sus movimientos quedarán libres nuevamente. Se requiere un motivo para la bitácora de auditoría (CA9.5 / T9.2-a).
+              La partida del extracto y sus movimientos quedarán libres; indica el motivo para registrarlo en la bitácora.
             </DialogDescription>
           </DialogHeader>
           <div className="py-3">
@@ -1378,7 +1381,7 @@ export function BandejaConciliaciones() {
               disabled={desemparejarMutation.isPending || !motivoDesemparejar.trim()}
               onClick={handleDesemparejarSubmit}
             >
-              Desemparejar y Registrar
+              Desemparejar y registrar
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1388,14 +1391,14 @@ export function BandejaConciliaciones() {
       <Dialog open={!!modalPartidaTransito} onOpenChange={(val) => !val && setModalPartidaTransito(null)}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Marcar como Partida en Tránsito</DialogTitle>
+            <DialogTitle>Marcar como partida en tránsito</DialogTitle>
             <DialogDescription>
               Identifica movimientos bancarios que corresponden a operaciones del período pero aún no reflejadas.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-3">
             <div>
-              <Label className="text-xs">Tipo de Partida en Tránsito</Label>
+              <Label className="text-xs">Tipo de partida en tránsito</Label>
               <Select
                 value={transitoTipo.toString()}
                 onValueChange={(val) => setTransitoTipo(parseInt(val, 10) as PartidaTransitoTipo)}
@@ -1434,7 +1437,7 @@ export function BandejaConciliaciones() {
               disabled={transitoMutation.isPending || !transitoResponsable.trim()}
               onClick={handlePartidaTransitoSubmit}
             >
-              Guardar en Tránsito
+              Registrar en tránsito
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1451,7 +1454,7 @@ export function BandejaConciliaciones() {
           </DialogHeader>
           <div className="grid gap-4 py-3">
             <div>
-              <Label className="text-xs">Nombre del Firmante *</Label>
+              <Label className="text-xs">Nombre del firmante *</Label>
               <Input
                 className="mt-1 text-xs"
                 value={firmanteNombre}
@@ -1459,16 +1462,13 @@ export function BandejaConciliaciones() {
               />
             </div>
             <div>
-              <Label className="text-xs">Puesto del Firmante *</Label>
-              <Select value={firmantePuesto} onValueChange={setFirmantePuesto}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Gerente de Tesorería">Gerente de Tesorería</SelectItem>
-                  <SelectItem value="Jefe de Tesorería">Jefe de Tesorería</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label className="text-xs">Puesto del firmante *</Label>
+              <Input
+                className="mt-1 text-xs"
+                maxLength={100}
+                value={firmantePuesto}
+                onChange={(e) => setFirmantePuesto(e.target.value)}
+              />
             </div>
           </div>
           <DialogFooter>
@@ -1479,7 +1479,7 @@ export function BandejaConciliaciones() {
               disabled={cerrarMutation.isPending || !firmanteNombre.trim()}
               onClick={handleCerrarSubmit}
             >
-              Firmar, Cerrar y Descargar Acta
+              Firmar, cerrar y descargar acta
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1513,7 +1513,7 @@ export function BandejaConciliaciones() {
               disabled={reabrirMutation.isPending || !motivoReabrir.trim()}
               onClick={handleReabrirSubmit}
             >
-              Reabrir Período
+              Reabrir periodo
             </Button>
           </DialogFooter>
         </DialogContent>

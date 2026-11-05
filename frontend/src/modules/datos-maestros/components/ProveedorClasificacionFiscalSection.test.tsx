@@ -63,6 +63,6 @@ describe('Clasificación fiscal del proveedor', () => {
     mostrar(0, 'SIN_RETENCION', null);
     fireEvent.click(screen.getByRole('button', { name: 'Editar clasificación' }));
     fireEvent.click(screen.getByRole('button', { name: 'Guardar clasificación' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Un proveedor nacional requiere régimen fiscal.');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Elige el régimen fiscal del proveedor nacional.');
   });
 });

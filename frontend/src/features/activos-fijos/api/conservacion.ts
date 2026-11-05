@@ -49,7 +49,19 @@ export const resultadosConteo = [
   'Encontrado en otra ubicación',
   'Sobrante',
 ];
+export interface CapturaAnterior {
+  id: string;
+  resultado: number;
+  ubicacionReal: string | null;
+  evidencia: string | null;
+  capturadoPor: string | null;
+  capturadoEn: string | null;
+  motivoRecaptura: string | null;
+}
 export interface PartidaConteo {
+  capturasAnteriores?: CapturaAnterior[];
+  capturadoEn?: string | null;
+  motivoRecaptura?: string | null;
   id: string;
   numero: string | null;
   descripcionEsperada: string;

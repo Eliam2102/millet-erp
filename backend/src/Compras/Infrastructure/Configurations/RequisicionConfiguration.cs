@@ -94,6 +94,9 @@ public sealed class RequisicionConfiguration : IEntityTypeConfiguration<Requisic
         builder.Property(r => r.MotivoTerminacionTexto).HasMaxLength(500);
         builder.Property(r => r.ActorTerminacionId);
         builder.Property(r => r.FechaTerminacion);
+        builder.Property(r => r.ComentarioDevolucion).HasMaxLength(500);
+        builder.Property(r => r.DevueltaPorId);
+        builder.Property(r => r.FechaDevolucion);
 
         // F4-PR1 (OC): compromiso exclusivo con OC activa. FK lógica a
         // compras.ordenes_compra(id); intencionalmente NO se declara FK

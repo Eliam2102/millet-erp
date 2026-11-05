@@ -7,7 +7,16 @@ import { ApiError } from '@/lib/api/error';
  * que el vale: el endpoint pide Bearer, así que se baja como Blob.
  */
 export async function descargarComprobanteSalida(salidaId: string, folio: string): Promise<void> {
-  const response = await apiFetch(`/api/v1/almacen/salidas/${salidaId}/comprobante`);
+  await descargarComprobante(`/api/v1/almacen/salidas/${salidaId}/comprobante`, folio);
+}
+
+/** G-10: comprobante imprimible de la recepción (<c>GET /recepciones/{id}/comprobante</c>), mismo patrón. */
+export async function descargarComprobanteRecepcion(recepcionId: string, folio: string): Promise<void> {
+  await descargarComprobante(`/api/v1/almacen/recepciones/${recepcionId}/comprobante`, folio);
+}
+
+async function descargarComprobante(ruta: string, folio: string): Promise<void> {
+  const response = await apiFetch(ruta);
   if (!response.ok) {
     let problem;
     try {

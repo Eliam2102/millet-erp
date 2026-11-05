@@ -88,6 +88,10 @@ export const CODIGOS_SALIDA: Record<string, 'callout'> = {
   SALIDA_EXISTENCIA_APARTADA: 'callout',
   SALIDA_UBICACION_REQUERIDA: 'callout',
   SALIDA_SUCURSAL_REQUERIDA: 'callout',
+  // G-10: el servidor también exige destinatario, acuse y motivo de urgencia.
+  SALIDA_SIN_DESTINATARIO: 'callout',
+  SALIDA_SIN_ACUSE: 'callout',
+  VALE_SIN_MOTIVO: 'callout',
 };
 
 /** Título del aviso y cómo se destraba cada código de `CODIGOS_SALIDA`. */
@@ -117,4 +121,7 @@ export const AVISOS_SALIDA: Record<string, { titulo: string; ayuda: string }> = 
     titulo: 'El almacén no tiene sucursal configurada',
     ayuda: 'Asigna la sucursal al almacén y vuelve a registrar.',
   },
+  SALIDA_SIN_DESTINATARIO: { titulo: 'Falta el destinatario', ayuda: 'Elige la persona destinataria y vuelve a confirmar.' },
+  SALIDA_SIN_ACUSE: { titulo: 'Falta el acuse de quien recibe', ayuda: 'Captura el nombre de quien recibe y vuelve a confirmar.' },
+  VALE_SIN_MOTIVO: { titulo: 'Falta el motivo de la urgencia', ayuda: 'Indica por qué el vale no pasó por requisición.' },
 };

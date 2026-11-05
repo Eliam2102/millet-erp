@@ -117,6 +117,30 @@ public class NormalizadorEventosC15Tests
     }
 
     [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void SalidaInventario_G1_lee_el_evento_de_almacen_con_su_centro_de_costo_o_sin_el(bool conCentro)
+    {
+        // Payload tal como lo publica Almacén (SalidaInventarioRegistradaIntegrationEvent): rotura de 1 hoja a $1,200.
+        var centro = conCentro ? Guid.NewGuid() : (Guid?)null;
+        var movimiento = Guid.NewGuid();
+        var articulo = Guid.NewGuid();
+        var e = Normalizar(N.SalidaInventarioRegistrada, new
+        {
+            EmpresaId = Empresa, OcurridoEn = Ocurrido, MovimientoId = movimiento, FolioMovimiento = "BPD-2026-000001",
+            FechaMovimiento = new DateOnly(2026, 11, 5), Causa = "rotura", SucursalId = Sucursal, MontoTotalMxn = 1_200m,
+            Lineas = new object[] { new { LineaId = Guid.NewGuid(), ArticuloId = articulo, UnidadMedida = "HOJA", Cantidad = 1m, CostoUnitarioMxn = 1_200m, MontoMxn = 1_200m, CentroCostoId = centro } },
+        });
+
+        e.CentroCostoId.Should().BeNull();
+        e.Lineas.Single().CentroCostoId.Should().Be(centro);
+        e.SucursalId.Should().Be(Sucursal);
+        e.Documento.Should().Match<DocumentoOrigenPoliza>(d => d.Modulo == "almacen" && d.Tipo == "salida_inventario" && d.Id == movimiento);
+        e.Importes["Subtotal"].Should().Be(1_200m);
+        e.Lineas.Should().ContainSingle().Which.Should().Match<LineaEventoContable>(l => l.Importe == 1_200m && l.ArticuloId == articulo);
+    }
+
+    [Theory]
     [InlineData(N.NotaCreditoProveedorRegistrada, "nota_credito_proveedor", TipoDocumentoPuente.NotaCredito)]
     [InlineData(N.NotaCargoAutorizada, "nota_cargo", TipoDocumentoPuente.NotaCargo)]
     public void Nota_de_proveedor_PC_referencia_el_puente_por_su_factura_origen_y_sin_retenciones_usa_cero(

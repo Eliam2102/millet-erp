@@ -61,7 +61,8 @@ public sealed record EmitirFacturaVentaCommand(
     Guid? SustituyeComprobanteId = null) : IRequest<EmitirFacturaVentaResponse>;
 
 /// <summary>Anticipo a amortizar contra la factura final, con el importe a aplicar.</summary>
-public sealed record AnticipoAAmortizar(Guid AnticipoId, decimal Importe);
+/// <param name="ComentarioNotaCredito">FMT-6: comentario libre de la NC de aplicación; se imprime en «Comentarios - Comments».</param>
+public sealed record AnticipoAAmortizar(Guid AnticipoId, decimal Importe, string? ComentarioNotaCredito = null);
 
 /// <summary>Datos del Complemento de Comercio Exterior para una factura de exportación (F7-PR1).</summary>
 public sealed record EmitirFacturaVentaCce(
@@ -126,4 +127,8 @@ public sealed record NotaCreditoAmortizacionEmitida(
     string Folio,
     string? Uuid,
     decimal Total,
-    decimal SaldoAnticipoRestante);
+    decimal SaldoAnticipoRestante,
+    // U-1: «Timbrado» o el estado en que quedó pendiente, con el motivo del PAC.
+    string Estado = "Timbrado",
+    string? TimbradoErrorCodigo = null,
+    string? TimbradoErrorMensaje = null);

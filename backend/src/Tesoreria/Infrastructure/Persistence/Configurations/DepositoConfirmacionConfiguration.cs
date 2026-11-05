@@ -17,7 +17,7 @@ public sealed class DepositoConfirmacionConfiguration : IEntityTypeConfiguration
             // proyección del depósito esperado tronaba con 23514 (5
             // reintentos → DLQ, incidente dev 2026-07-17).
             t.HasCheckConstraint("ck_deposito_confirmacion_origen",
-                "propuesta_cxc_id IS NOT NULL OR caja_sesion_id IS NOT NULL OR solicitud_viaticos_id IS NOT NULL");
+                "propuesta_cxc_id IS NOT NULL OR caja_sesion_id IS NOT NULL OR solicitud_viaticos_id IS NOT NULL OR devolucion_ce_id IS NOT NULL");
         });
 
         builder.HasKey(e => e.Id);
@@ -35,6 +35,7 @@ public sealed class DepositoConfirmacionConfiguration : IEntityTypeConfiguration
         builder.Property(e => e.MotivoRechazo).HasMaxLength(400);
         builder.Property(e => e.CajaSesionId);
         builder.Property(e => e.SolicitudViaticosId);
+        builder.HasIndex(e => e.DevolucionCeId).IsUnique().HasFilter("devolucion_ce_id IS NOT NULL");
         builder.Property(e => e.DiaCorte);
         builder.Property(e => e.SucursalId);
         builder.Property(e => e.CajeroId);
@@ -47,6 +48,10 @@ public sealed class DepositoConfirmacionConfiguration : IEntityTypeConfiguration
         builder.Property(e => e.Moneda).HasMaxLength(3);
         builder.Property(e => e.ResueltaPor);
         builder.Property(e => e.ResueltaEn);
+        builder.Property(e => e.ConfirmacionAutomatica).IsRequired().HasDefaultValue(false);
+        builder.Property(e => e.ReglaAutomatica).HasMaxLength(400);
+        builder.Property(e => e.ExtractoLineaId);
+        builder.Property(e => e.MotivoRevision).HasMaxLength(400);
 
         builder.HasOne<MovimientoBancario>()
             .WithMany()

@@ -1,3 +1,5 @@
+import { problemaUsuario } from '@/lib/error-usuario';
+import { errorUsuario } from '@/lib/error-usuario';
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { TrazabilidadComprasDialog } from '@/components/erp/trazabilidad/TrazabilidadComprasDialog';
@@ -24,6 +26,7 @@ import { EstadoPasivo, MotivoCancelacionLabels } from '@/features/cxp/api/types'
 import { esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { SolicitudesCancelacionPanel } from '@/features/cxp/components/SolicitudesCancelacionPanel';
 import { EstadoPasivoChip } from '@/features/cxp/components/EstadoPasivoChip';
 import { CancelarFacturaSheet } from '@/features/cxp/components/CancelarFacturaSheet';
 import { EnviarRevisionSheet } from '@/features/cxp/components/EnviarRevisionSheet';
@@ -101,12 +104,12 @@ export function FacturaDetallePage() {
         onSettled: () => setAutorizarAbierto(false),
         onError: (error) => {
           if (esApiError(error)) {
-            toast.error(error.problem.title, {
+            toast.error(errorUsuario(error), {
               description: codigoSoporte(error),
             });
             return;
           }
-          toast.error('Error al autorizar la factura.');
+          toast.error("Error al autorizar la factura. Revisa los datos del registro; si continúa, avisa a soporte.");
         },
       },
     );
@@ -126,7 +129,7 @@ export function FacturaDetallePage() {
       {query.isError ? (
         <ErrorState
           title="No se pudo cargar la factura"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
+          problem={problemaUsuario(query.error)}
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading ? (
@@ -409,9 +412,7 @@ export function FacturaDetallePage() {
                   toast.success('Retenciones marcadas como revisadas');
                 } catch (e) {
                   setErrorRevision(
-                    esApiError(e)
-                      ? (e.problem.detail ?? e.message)
-                      : 'No se pudo guardar la revisión.',
+                    errorUsuario(e, 'No se pudo guardar la revisión.'),
                   );
                 }
               }}
@@ -439,9 +440,10 @@ export function FacturaDetallePage() {
                 { etiqueta: 'Anticipo aplicado', monto: query.data.anticipoAplicadoTotal },
                 { etiqueta: 'NC aplicadas', monto: query.data.ncAplicadasTotal },
                 { etiqueta: 'Cargos aplicados', monto: query.data.cargosAplicadosTotal ?? 0 },
-                { etiqueta: 'Retenido por falta de recepción', monto: query.data.retenido },
+                { etiqueta: 'Retenido por recepción pendiente', monto: query.data.retenido },
                 { etiqueta: 'Pagado', monto: query.data.importePagado },
-                { etiqueta: 'Saldo pendiente', monto: query.data.saldoPendiente, destacado: true },
+                // Una factura cancelada ya no es un pasivo: no queda saldo por pagar (P8.7).
+                { etiqueta: 'Saldo pendiente', monto: query.data.estado === EstadoPasivo.Cancelada ? 0 : query.data.saldoPendiente, destacado: true },
                 { etiqueta: 'Elegible para pago', monto: query.data.elegible, destacado: true },
               ]}
             />
@@ -452,6 +454,9 @@ export function FacturaDetallePage() {
             tipo="factura_proveedor"
             permiso="cuentas_por_pagar.facturas"
           />
+          {query.data.cfdiRecibidoId && (
+            <SolicitudesCancelacionPanel cfdiId={query.data.cfdiRecibidoId} />
+          )}
           <section className="space-y-2">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Partidas ({query.data.lineas.length})

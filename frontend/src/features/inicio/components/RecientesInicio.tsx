@@ -76,36 +76,39 @@ export function RecientesInicio({
             <p className="text-xs text-ink-muted">Sin actividad reciente.</p>
           </CardContent>
         ) : (
-          <ul className="grid grid-cols-1 gap-2 px-4 pb-3 md:grid-cols-3">
+          <ul className="grid grid-cols-1 gap-2 px-3 pb-3 md:grid-cols-3">
             {query.data.items.map((evento) => {
               const etiqueta = evento.entidadEtiqueta
                 ? textoActividad(evento.entidadEtiqueta, evento.entidad)
                 : nombreEntidad(evento.entidad);
               const conId = etiqueta.match(/^(.*) ([a-f0-9]{7,8})$/i);
+              const resumen = textoActividad(evento.resumen || evento.operacion, evento.entidad);
+              const detalle = detalleActividad(resumen, etiqueta);
               return (
-                <li key={evento.id} className="min-w-0 rounded-md bg-surface-subtle">
+                <li key={evento.id} className="min-w-0">
                   <Link
                     to="/admin/auditoria"
                     search={{}}
-                    className="flex flex-col items-start gap-1 rounded-md px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand hover:bg-surface-subtle"
+                    title={detalle}
+                    className="flex h-full min-w-0 flex-col gap-1 rounded-md border border-line-row bg-surface-subtle px-3 py-2 transition-colors hover:border-line-control hover:bg-surface-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                   >
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium text-ink">
+                    <span className="flex min-w-0 items-baseline gap-2">
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
                         {conId ? conId[1] : etiqueta}
                         {conId && (
                           <span className="ml-1 font-mono text-xs text-ink-muted">{conId[2]}</span>
                         )}
                       </span>
-                      <span
-                        className="block truncate text-xs text-ink-secondary"
-                        title={textoActividad(evento.resumen || evento.operacion, evento.entidad)}
+                      <time
+                        dateTime={evento.timestamp}
+                        className="shrink-0 whitespace-nowrap text-xs text-ink-muted"
                       >
-                        {textoActividad(evento.resumen || evento.operacion, evento.entidad)}
-                      </span>
+                        {formatRelative(evento.timestamp)}
+                      </time>
                     </span>
-                    <time dateTime={evento.timestamp} className="text-xs text-ink-muted">
-                      {formatRelative(evento.timestamp)}
-                    </time>
+                    <span className="line-clamp-2 break-words text-xs text-ink-secondary">
+                      {detalle}
+                    </span>
                   </Link>
                 </li>
               );
@@ -115,4 +118,20 @@ export function RecientesInicio({
       </Card>
     </section>
   );
+}
+
+/**
+ * Quita del resumen la etiqueta que ya se muestra como título
+ * («Modificó Linea requisicion 01a1a39c — Notas: …» → «Modificó · Notas: …»)
+ * y muestra los valores nulos como «vacío».
+ */
+function detalleActividad(resumen: string, etiqueta: string): string {
+  let texto = resumen;
+  const i = etiqueta ? texto.indexOf(etiqueta) : -1;
+  if (i > 0) {
+    const verbo = texto.slice(0, i).trim();
+    const resto = texto.slice(i + etiqueta.length).replace(/^\s*[—–-]\s*/, '').trim();
+    texto = resto ? `${verbo} · ${resto}` : verbo;
+  }
+  return texto.replace(/\bnull\b/g, 'vacío');
 }

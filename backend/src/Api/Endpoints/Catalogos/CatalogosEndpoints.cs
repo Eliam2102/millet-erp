@@ -98,6 +98,7 @@ public static class CatalogosEndpoints
                 query = query.Where(p =>
                     p.Clave.ToLower().Contains(busqueda.ToLower())
                     || p.Rfc.ToLower().Contains(busqueda.ToLower())
+                    || (p.TaxId != null && p.TaxId.ToLower().Contains(busqueda.ToLower()))
                     || PostgresFunctions.Translate(p.RazonSocial.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)
                         .Contains(PostgresFunctions.Translate(busqueda.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino))
                     || (p.NombreComercial != null &&
@@ -461,10 +462,11 @@ public static class CatalogosEndpoints
 
         proveedores.MapDelete("/{id:guid}", async (
             Guid id,
+            [FromBody] MotivoEstatusPayload body,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
-            await mediator.Send(new DesactivarProveedorCommand(id), cancellationToken);
+            await mediator.Send(new DesactivarProveedorCommand(id, body.Motivo ?? ""), cancellationToken);
             return Results.NoContent();
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
@@ -472,7 +474,8 @@ public static class CatalogosEndpoints
         .WithName("DesactivarProveedor")
         .WithSummary("Desactivar proveedor (soft delete, B.5)")
         .WithDescription(
-            "Soft delete: setea `Estatus = Inactivo`. Idempotente: si " +
+            "Soft delete con body `{ motivo }` obligatorio (5 a 500). Rechaza con 422 " +
+            "`MAESTRO_CON_PENDIENTES` si tiene OC abiertas o saldo por pagar. Idempotente: si " +
             "ya está Inactivo, retorna 204 sin cambios. Las RQs " +
             "históricas siguen funcionando con el id; las nuevas RQs " +
             "se bloquean por la validación cross-table de F7-PR1. " +
@@ -564,10 +567,11 @@ public static class CatalogosEndpoints
 
         articulos.MapDelete("/{id:guid}", async (
             Guid id,
+            [FromBody] MotivoEstatusPayload body,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
-            await mediator.Send(new DesactivarArticuloCommand(id), cancellationToken);
+            await mediator.Send(new DesactivarArticuloCommand(id, body.Motivo ?? ""), cancellationToken);
             return Results.NoContent();
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
@@ -580,9 +584,9 @@ public static class CatalogosEndpoints
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound);
 
-        articulos.MapPost("/{id:guid}/reactivar", async (Guid id, IMediator mediator, CancellationToken ct) =>
+        articulos.MapPost("/{id:guid}/reactivar", async (Guid id, [FromBody] MotivoEstatusPayload body, IMediator mediator, CancellationToken ct) =>
         {
-            await mediator.Send(new ReactivarArticuloCommand(id), ct);
+            await mediator.Send(new ReactivarArticuloCommand(id, body.Motivo ?? ""), ct);
             return Results.NoContent();
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
@@ -590,9 +594,9 @@ public static class CatalogosEndpoints
         .WithName("ReactivarArticulo")
         .WithSummary("Reactivar articulo");
 
-        proveedores.MapPost("/{id:guid}/reactivar", async (Guid id, IMediator mediator, CancellationToken ct) =>
+        proveedores.MapPost("/{id:guid}/reactivar", async (Guid id, [FromBody] MotivoEstatusPayload body, IMediator mediator, CancellationToken ct) =>
         {
-            await mediator.Send(new ReactivarProveedorCommand(id), ct);
+            await mediator.Send(new ReactivarProveedorCommand(id, body.Motivo ?? ""), ct);
             return Results.NoContent();
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
@@ -604,6 +608,9 @@ public static class CatalogosEndpoints
     }
 
     public sealed record PonerProveedorEnRevisionPayload(string Motivo);
+
+    /// <summary>Body de inactivar/reactivar proveedor, cliente y artículo: motivo obligatorio (5 a 500).</summary>
+    public sealed record MotivoEstatusPayload(string? Motivo);
 
     /// <summary>Body del POST /articulos/reclasificar-naturaleza.</summary>
     public sealed record ReclasificarNaturalezaArticulosRequest(

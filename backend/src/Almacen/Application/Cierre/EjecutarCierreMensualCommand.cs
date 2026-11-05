@@ -1,10 +1,12 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.Almacen.Application.Reportes;
 using Millet.Almacen.Domain.Cierre;
 using Millet.Almacen.Domain.Conteos;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Domain.Ports;
+using Millet.Almacen.Infrastructure.Notificaciones;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
@@ -28,7 +30,7 @@ namespace Millet.Almacen.Application.Cierre;
 /// </summary>
 public sealed record EjecutarCierreMensualCommand(int Anio, int Mes) : IRequest<EjecutarCierreMensualResponse>;
 
-public sealed record EjecutarCierreMensualResponse(Guid PeriodoId, int Anio, int Mes, DateTimeOffset CerradoAt);
+public sealed record EjecutarCierreMensualResponse(Guid PeriodoId, int Anio, int Mes, DateTimeOffset CerradoAt, Guid? ActaId = null);
 
 public sealed class EjecutarCierreMensualValidator : AbstractValidator<EjecutarCierreMensualCommand>
 {
@@ -45,13 +47,15 @@ public sealed class EjecutarCierreMensualHandler
     private readonly AlmacenDbContext _db;
     private readonly ICurrentUserContext _currentUser;
     private readonly ICurrentEmpresaContext _currentEmpresa;
+    private readonly AvisosInternosNotificacionService? _avisos;
 
     public EjecutarCierreMensualHandler(
         AlmacenDbContext db,
         ICurrentUserContext currentUser,
-        ICurrentEmpresaContext currentEmpresa)
+        ICurrentEmpresaContext currentEmpresa,
+        AvisosInternosNotificacionService? avisos = null)
     {
-        _db = db; _currentUser = currentUser; _currentEmpresa = currentEmpresa;
+        _db = db; _currentUser = currentUser; _currentEmpresa = currentEmpresa; _avisos = avisos;
     }
 
     public async Task<EjecutarCierreMensualResponse> Handle(
@@ -111,9 +115,28 @@ public sealed class EjecutarCierreMensualHandler
             mes: request.Mes,
             cerradoPor: cerradoPor);
         _db.Set<PeriodoCerrado>().Add(periodo);
+        await TomarFotoValuacionAsync(_db, periodo, cancellationToken);
+        // 86e3tac2y: el acta nace «por revisar» en la misma transacción del cierre.
+        var acta = await ActaCierre.CrearAsync(_db, periodo, cancellationToken);
+        _db.ActasCierre.Add(acta);
         await _db.SaveChangesAsync(cancellationToken);
+        // El aviso a los revisores va después de persistir; un fallo del aviso no deshace el cierre.
+        if (_avisos is not null)
+            await _avisos.NotificarActaPorRevisarAsync(empresaId, acta.Id, request.Anio, request.Mes, cancellationToken);
 
-        return new EjecutarCierreMensualResponse(periodo.Id, request.Anio, request.Mes, periodo.CerradoAt);
+        return new EjecutarCierreMensualResponse(periodo.Id, request.Anio, request.Mes, periodo.CerradoAt, acta.Id);
+    }
+
+    /// <summary>
+    /// F1-ALM-13: foto de la valuación del ALFAK al último día del mes, en la misma transacción del cierre. Guarda todos los grupos
+    /// (también los que quedaron en cero) para que el ALFAK del mes cerrado no vuelva a calcularlos.
+    /// </summary>
+    public static async Task TomarFotoValuacionAsync(AlmacenDbContext db, PeriodoCerrado periodo, CancellationToken ct)
+    {
+        var corte = new DateOnly(periodo.Anio, periodo.Mes, DateTime.DaysInMonth(periodo.Anio, periodo.Mes));
+        foreach (var f in await AlfakHistorialAlmacenHandler.CalcularAsync(db, corte, corte, null, null, null, ct))
+            db.ValuacionesCierre.Add(new ValuacionCierre(periodo, f.SubAlmacenId, f.ArticuloId, f.ProductoAwVarianteId, f.Lote,
+                f.SaldoFinal, f.ValorInventarioFinal));
     }
 }
 

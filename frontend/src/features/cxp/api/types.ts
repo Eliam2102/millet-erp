@@ -674,6 +674,8 @@ export interface VincularFacturaNotaCreditoResponse {
 // ─── Anticipos (FE-F4-PR1) ────────────────────────────────────────────
 
 export const EstadoAnticipo = {
+  Solicitado: 4,
+  PagadoComercioExterior: 5,
   Abierto: 1,
   Amortizado: 2,
   Cancelado: 3,
@@ -681,6 +683,8 @@ export const EstadoAnticipo = {
 export type EstadoAnticipo = (typeof EstadoAnticipo)[keyof typeof EstadoAnticipo];
 
 export const EstadoAnticipoLabels: Record<EstadoAnticipo, string> = {
+  [EstadoAnticipo.Solicitado]: 'Solicitado a Tesorería',
+  [EstadoAnticipo.PagadoComercioExterior]: 'Pagado (comprobación en CE)',
   [EstadoAnticipo.Abierto]: 'Abierto',
   [EstadoAnticipo.Amortizado]: 'Amortizado',
   [EstadoAnticipo.Cancelado]: 'Cancelado',
@@ -688,7 +692,7 @@ export const EstadoAnticipoLabels: Record<EstadoAnticipo, string> = {
 
 export interface AnticipoListItem {
   id: string;
-  origen?: 1 | 2;
+  origen?: 1 | 2 | 3;
   uuidCfdi: string | null;
   proveedorId: string;
   serie: string;
@@ -1068,6 +1072,7 @@ export const EstadoSolicitudViaticos = {
   ComprobacionCapturada: 6,
   Liquidada: 7,
   Rechazada: 8,
+  Devuelta: 9,
 } as const satisfies Record<string, number>;
 export type EstadoSolicitudViaticos =
   (typeof EstadoSolicitudViaticos)[keyof typeof EstadoSolicitudViaticos];
@@ -1087,6 +1092,7 @@ export const EstadoSolicitudViaticosLabels: Record<EstadoSolicitudViaticos, stri
   [EstadoSolicitudViaticos.ComprobacionCapturada]: 'Comprobación capturada',
   [EstadoSolicitudViaticos.Liquidada]: 'Liquidada',
   [EstadoSolicitudViaticos.Rechazada]: 'Rechazada',
+  [EstadoSolicitudViaticos.Devuelta]: 'Devuelta a corregir',
 };
 
 export const TipoDestinoViaticoLabels: Record<TipoDestinoViatico, string> = {
@@ -1167,6 +1173,9 @@ export interface SolicitudViaticosDetalle {
   rechazadoPor: string | null;
   fechaRechazo: string | null;
   motivoRechazo: string | null;
+  /** Comentario de quien la devolvió a corregir (solo en estado Devuelta). */
+  comentarioDevolucion?: string | null;
+  fechaDevolucion?: string | null;
   fechaSolicitud: string;
   fechaAnticipoPagado: string | null;
   fechaComprobacion: string | null;
@@ -1247,6 +1256,17 @@ export interface TransicionViaticosResponse {
 
 export interface RechazarSolicitudViaticosCommand {
   motivo: string;
+}
+
+export interface DevolverSolicitudViaticosCommand {
+  comentario: string;
+}
+
+export interface ReenviarSolicitudViaticosCommand {
+  montoSolicitado: number;
+  fechaSalida: string;
+  fechaRegreso: string;
+  justificacionExceso: string | null;
 }
 
 // ─── Tarjetas de Crédito + Movimientos (FE-F6-PR1) ────────────────────

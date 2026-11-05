@@ -43,7 +43,7 @@ public sealed partial class DemoSesionSeedHostedService
             }
             var incidencia = Id(clave + "/INCIDENCIA");
             e.AbrirIncidencia(incidencia, new(rectificacion ? TipoIncidencia.RectificacionPedimento : TipoIncidencia.MercanciaDanada, hoy, CapturistaComprasDemoId,
-                rectificacion ? "DEMO corrección de clasificación del pedimento" : "DEMO mercancía dañada al descargar", EvidenciasIds: [archivos[^1]], HitoClave: rectificacion ? "despacho-aduanal" : "entregado"), archivos, CapturistaComprasDemoId, Fecha, hoy);
+                rectificacion ? "DEMO corrección de clasificación del pedimento" : "DEMO mercancía dañada al descargar", EvidenciasIds: [archivos[^1]], HitoClave: rectificacion ? "despacho-aduanal" : "entregado", FechaCompromiso: hoy.AddDays(1), SiguienteAccion: "DEMO revisar y conciliar la incidencia"), archivos, CapturistaComprasDemoId, Fecha, hoy);
             if (rectificacion) e.CambiarIncidencia(incidencia, EstadoIncidencia.EnAtencion, "DEMO revisión del pedimento", null, [], null, CapturistaComprasDemoId, Fecha, archivos);
             if (rectificacion) e.CambiarIncidencia(incidencia, EstadoIncidencia.Resuelta, "DEMO se corrigió la clasificación y se emitió nuevo pedimento", "DEMO usar pedimento rectificado en IVA", [], null,
                 CapturistaComprasDemoId, Fecha, archivos, requisito, archivos[1], "DEMO-PED-RECTIFICADO");

@@ -12,6 +12,11 @@ public static class HoraAw
         return new DateTimeOffset(local, Zona.GetUtcOffset(local)).ToUniversalTime();
     }
 
+    /// <summary>Día calendario en Ciudad de México de un instante (para «el mismo día»).</summary>
+    public static DateOnly FechaLocal(DateTimeOffset instante) => DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(instante, Zona).DateTime);
+
+    public static int HoraLocal(DateTimeOffset instante) => TimeZoneInfo.ConvertTime(instante, Zona).Hour;
+
     private static TimeZoneInfo Resolver()
     {
         foreach (var id in new[] { "America/Mexico_City", "Central Standard Time (Mexico)" })

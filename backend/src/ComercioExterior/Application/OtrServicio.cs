@@ -1,5 +1,4 @@
 using System.Globalization;
-using Microsoft.Extensions.Configuration;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.ComercioExterior.Application.Ports;
@@ -14,18 +13,15 @@ public sealed record AplicarEnvioOtr(Guid EmpresaId, OtrEntrada Entrada) : IRequ
 public sealed record VincularEnvioOtr(Guid Id, int Version, Guid ExpedienteId) : IRequest<OtrDetalle>;
 public sealed record AbrirExpedienteDesdeEnvioOtr(Guid Id, int Version, Guid ResponsableUsuarioId, string Moneda) : IRequest<OtrDetalle>;
 public sealed record ResolverConflictoOtr(Guid Id, int Version, Guid ConflictoId, bool UsarOtr, string Motivo) : IRequest<OtrDetalle>;
-public sealed record ReintentarSalidaOtr(Guid Id, int Version, Guid SalidaId) : IRequest<OtrDetalle>;
 public sealed record OtrCandidato(Guid Id, string Folio);
 public sealed record OtrLineaDto(Guid Id, long VersionOrigen, string NumeroPedido, int Posicion, decimal Cantidad, string Unidad, EstadoOtrLinea Estado, string? Motivo, Guid? PartidaId);
 public sealed record OtrConflictoDto(Guid Id, long VersionOrigen, string Campo, string ValorOtr, string ValorErp, string ActorErp, DateTimeOffset FechaErp, DateTimeOffset RecibidoAt, Guid? ResueltoPorId, DateTimeOffset? ResueltoAt, bool? UsarOtr, string? Motivo, string Estado, long? SuperadoPorVersion);
-public sealed record OtrSalidaDto(Guid Id, string Tipo, int VersionErp, EstadoOtrSalida Estado, int Intentos, string? UltimoError, DateTimeOffset? AcuseAt, string? AcuseResultado, string? AcuseMotivo, int Intento, Guid? ReemplazadaPorId, bool SinAcuse);
-public sealed record OtrDetalle(Guid Id, string IdOrigen, int Version, long VersionAplicada, string Hash, Guid SucursalId, Guid ClienteId, Guid? ExpedienteId, Guid? ContenedorId, EstadoOtrEnvio Estado, OtrContenido Contenido, IReadOnlyList<OtrLineaDto> Lineas, IReadOnlyList<OtrConflictoDto> Conflictos, IReadOnlyList<OtrSalidaDto> Salidas, string? MotivoVinculacion);
+public sealed record OtrDetalle(Guid Id, string IdOrigen, int Version, long VersionAplicada, string Hash, Guid SucursalId, Guid ClienteId, Guid? ExpedienteId, Guid? ContenedorId, EstadoOtrEnvio Estado, OtrContenido Contenido, IReadOnlyList<OtrLineaDto> Lineas, IReadOnlyList<OtrConflictoDto> Conflictos, string? MotivoVinculacion);
 
 public sealed class OtrServicio(ComercioExteriorDbContext db, IPedidosEmbarcablesReadPort pedidos, ExpedienteServicio seguridad,
-    ICatalogosCeReadPort catalogos, IClock clock, ICurrentEmpresaContext empresa, IIntegrationEventPublisher eventos, IConfiguration config) :
+    ICatalogosCeReadPort catalogos, IClock clock, ICurrentEmpresaContext empresa, IIntegrationEventPublisher eventos) :
     IRequestHandler<AplicarEnvioOtr, bool>, IRequestHandler<VincularEnvioOtr, OtrDetalle>,
-    IRequestHandler<AbrirExpedienteDesdeEnvioOtr, OtrDetalle>, IRequestHandler<ResolverConflictoOtr, OtrDetalle>,
-    IRequestHandler<ReintentarSalidaOtr, OtrDetalle>
+    IRequestHandler<AbrirExpedienteDesdeEnvioOtr, OtrDetalle>, IRequestHandler<ResolverConflictoOtr, OtrDetalle>
 {
     private IQueryable<OtrEnvio> Envios => db.OtrEnvios.Include(x => x.Lineas).Include(x => x.Conflictos).AsSplitQuery();
     private IQueryable<Expediente> Expedientes => db.Expedientes.Include(x => x.Participantes).Include(x => x.Contenedores)
@@ -34,12 +30,11 @@ public sealed class OtrServicio(ComercioExteriorDbContext db, IPedidosEmbarcable
     {
         await seguridad.PermisoAsync(PermisosCanonicos.ComercioExteriorExpedientesLeer, cancellationToken);
         var sucursales = await seguridad.SucursalesAsync(null, cancellationToken);
-        var vencimiento = clock.UtcNow.AddMinutes(-config.GetValue<int>("IntegracionesAw:Exportacion:AcuseVencidoMinutos", 1440));
-        var q = Envios.Where(x => expediente == null ? x.Estado == EstadoOtrEnvio.PorVincular || db.OtrSalidas.Any(s => s.OtrEnvioId == x.Id && (s.Estado == EstadoOtrSalida.Fallida || (s.Estado == EstadoOtrSalida.Entregada && s.AcuseAt == null && s.UltimoIntentoAt <= vencimiento))) : x.ExpedienteId == expediente);
+        var q = Envios.Where(x => expediente == null ? x.Estado == EstadoOtrEnvio.PorVincular : x.ExpedienteId == expediente);
         if (expediente is Guid id) await seguridad.CargarAsync(id, false, cancellationToken);
         if (sucursales is not null) q = q.Where(x => sucursales.Contains(x.SucursalId));
         var result = new List<OtrDetalle>();
-        foreach (var envio in await q.OrderBy(x => x.CreatedAt).ThenBy(x => x.Id).ToListAsync(cancellationToken)) result.Add(await DetalleAsync(envio, cancellationToken));
+        foreach (var envio in await q.OrderBy(x => x.CreatedAt).ThenBy(x => x.Id).ToListAsync(cancellationToken)) result.Add(Detalle(envio));
         return result;
     }
     public async Task<IReadOnlyList<OtrCandidato>> CandidatosAsync(Guid id, CancellationToken cancellationToken)
@@ -51,10 +46,9 @@ public sealed class OtrServicio(ComercioExteriorDbContext db, IPedidosEmbarcable
         return await db.Expedientes.Where(x => x.Tipo == TipoExpediente.Exportacion && x.Estado == EstadoExpediente.Abierto && x.SucursalId == envio.SucursalId && x.Participantes.Any(p => p.ClienteId == envio.ClienteId))
             .OrderBy(x => x.Folio).Select(x => new OtrCandidato(x.Id, x.Folio)).ToArrayAsync(cancellationToken);
     }
-    public async Task<OtrDetalle> DetalleAsync(OtrEnvio x, CancellationToken cancellationToken) => new(x.Id, x.IdOrigen, x.Version, x.VersionAplicada, x.Hash, x.SucursalId, x.ClienteId, x.ExpedienteId, x.ContenedorId, x.Estado, x.Contenido(),
+    public static OtrDetalle Detalle(OtrEnvio x) => new(x.Id, x.IdOrigen, x.Version, x.VersionAplicada, x.Hash, x.SucursalId, x.ClienteId, x.ExpedienteId, x.ContenedorId, x.Estado, x.Contenido(),
         x.Lineas.OrderBy(l => l.VersionOrigen).ThenBy(l => l.NumeroPedido).ThenBy(l => l.Posicion).Select(l => new OtrLineaDto(l.Id, l.VersionOrigen, l.NumeroPedido, l.Posicion, l.Cantidad, l.Unidad, l.Estado, l.Motivo, l.PartidaId)).ToArray(),
-        x.Conflictos.Select(c => new OtrConflictoDto(c.Id, c.VersionOrigen, c.Campo, c.ValorOtr, c.ValorErp, c.ActorErp, c.FechaErp, c.RecibidoAt, c.ResueltoPorId, c.ResueltoAt, c.UsarOtr, c.Motivo, c.Estado, c.SuperadoPorVersion)).ToArray(),
-        await db.OtrSalidas.Where(s => s.OtrEnvioId == x.Id).OrderByDescending(s => s.VersionErp).Select(s => new OtrSalidaDto(s.Id, s.Tipo, s.VersionErp, s.Estado, s.Intentos, s.UltimoError, s.AcuseAt, s.AcuseResultado, s.AcuseMotivo, s.Intento, s.ReemplazadaPorId, s.Estado == EstadoOtrSalida.Entregada && s.AcuseAt == null && s.UltimoIntentoAt <= clock.UtcNow.AddMinutes(-config.GetValue<int>("IntegracionesAw:Exportacion:AcuseVencidoMinutos", 1440)))).ToArrayAsync(cancellationToken), x.MotivoVinculacion);
+        x.Conflictos.Select(c => new OtrConflictoDto(c.Id, c.VersionOrigen, c.Campo, c.ValorOtr, c.ValorErp, c.ActorErp, c.FechaErp, c.RecibidoAt, c.ResueltoPorId, c.ResueltoAt, c.UsarOtr, c.Motivo, c.Estado, c.SuperadoPorVersion)).ToArray(), x.MotivoVinculacion);
 
     private async Task BloquearAsync(string clave, CancellationToken cancellationToken) =>
         await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({clave}, 0))", cancellationToken);
@@ -140,7 +134,7 @@ public sealed class OtrServicio(ComercioExteriorDbContext db, IPedidosEmbarcable
         await BloquearPedidosAsync(envio, cancellationToken);
         var e = await seguridad.CargarAsync(request.ExpedienteId, true, cancellationToken);
         envio.Vincular(e); await ProponerAsync(envio, e, seguridad.Actor, cancellationToken);
-        await db.SaveChangesAsync(cancellationToken); await tx.CommitAsync(cancellationToken); return await DetalleAsync(envio, cancellationToken);
+        await db.SaveChangesAsync(cancellationToken); await tx.CommitAsync(cancellationToken); return Detalle(envio);
     }
     public async Task<OtrDetalle> Handle(AbrirExpedienteDesdeEnvioOtr request, CancellationToken cancellationToken)
     {
@@ -160,7 +154,7 @@ public sealed class OtrServicio(ComercioExteriorDbContext db, IPedidosEmbarcable
         e.InicializarHitos(clock.HoyLocal()); db.Expedientes.Add(e);
         envio.Vincular(e); await ProponerAsync(envio, e, seguridad.Actor, cancellationToken);
         await eventos.PublishAsync(new ExpedienteCeAbiertoEvent(e.EmpresaId, clock.UtcNow, e.Id, e.Folio), cancellationToken);
-        await db.SaveChangesAsync(cancellationToken); await tx.CommitAsync(cancellationToken); return await DetalleAsync(envio, cancellationToken);
+        await db.SaveChangesAsync(cancellationToken); await tx.CommitAsync(cancellationToken); return Detalle(envio);
     }
     public async Task<OtrDetalle> Handle(ResolverConflictoOtr request, CancellationToken cancellationToken)
     {
@@ -191,14 +185,6 @@ public sealed class OtrServicio(ComercioExteriorDbContext db, IPedidosEmbarcable
             else linea.Pendiente("CE_OTR_CONSERVAR_ERP: " + request.Motivo);
         }
         else e.GuardarContenedor(envio.ContenedorId!.Value, envio.Resolver(request.ConflictoId, request.UsarOtr, request.Motivo, seguridad.Actor, clock.UtcNow, e.Contenedor(envio.ContenedorId.Value)));
-        await db.SaveChangesAsync(cancellationToken); await tx.CommitAsync(cancellationToken); return await DetalleAsync(envio, cancellationToken);
-    }
-    public async Task<OtrDetalle> Handle(ReintentarSalidaOtr request, CancellationToken cancellationToken)
-    {
-        await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
-        var envio = await GestionarAsync(request.Id, request.Version, cancellationToken);
-        var salida = await db.OtrSalidas.SingleOrDefaultAsync(x => x.Id == request.SalidaId && x.OtrEnvioId == envio.Id, cancellationToken)
-            ?? throw new EntityNotFoundException("CE_OTR_SALIDA_NO_ENCONTRADA", "No existe la salida.");
-        db.OtrSalidas.Add(salida.Reintentar()); envio.RegistrarCambio(); await db.SaveChangesAsync(cancellationToken); await tx.CommitAsync(cancellationToken); return await DetalleAsync(envio, cancellationToken);
+        await db.SaveChangesAsync(cancellationToken); await tx.CommitAsync(cancellationToken); return Detalle(envio);
     }
 }

@@ -84,6 +84,16 @@ public static class PagosACuentaEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        pagosCuenta.MapPost("/{movimientoId:guid}/autorizar", async (
+            Guid movimientoId, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new AutorizarPagoACuentaCommand(movimientoId), ct)))
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaPagosCuentaAutorizar)
+        .WithName("AutorizarPagoACuenta")
+        .Produces<PagoACuentaResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         pagosCuenta.MapPost("/{movimientoId:guid}/aplicaciones/{aplicacionId:guid}/desligar", async (
             Guid movimientoId, Guid aplicacionId, [FromBody] DesligarBody body, IMediator mediator, CancellationToken ct) =>
         {

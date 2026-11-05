@@ -73,6 +73,8 @@ vi.mock('@/features/cxc/api/useAplicaciones', () => ({
   }),
   useToleranciasNoFiscal: () => ({ data: { MXN: 1000 }, isSuccess: true, isError: false }),
   useCrearPropuestaAplicacion: () => ({ mutate: mocks.mutate, isPending: false }),
+  useAutorizarAjuste: () => ({ mutate: vi.fn(), isPending: false }),
+  useRechazarAjuste: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 vi.mock('@/lib/auth/useHasPermission', () => ({ useHasPermission: () => true }));
 
@@ -120,7 +122,7 @@ describe('C7.4 · depósitos sin identificar', () => {
 
     // R13: sin remittance no se propone.
     expect(screen.getByRole('button', { name: 'Proponer aplicación' })).toBeDisabled();
-    fireEvent.change(screen.getByLabelText(/Remittance del cliente/), { target: { value: 'REM-ACME-77' } });
+    fireEvent.change(screen.getByLabelText(/Aviso de pago del cliente/), { target: { value: 'REM-ACME-77' } });
     fireEvent.click(screen.getByRole('button', { name: 'Proponer aplicación' }));
 
     await waitFor(() => expect(mocks.mutate).toHaveBeenCalled());

@@ -2833,6 +2833,34 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000007-0012-0000-0000-000000000001"),
+                            Accion = "ejecutar",
+                            Codigo = "cuentas_por_pagar.revaluacion.ejecutar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Correr la revaluación de cierre de saldos por pagar en moneda extranjera",
+                            Modulo = "cuentas_por_pagar",
+                            Recurso = "revaluacion",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000007-0012-0000-0000-000000000002"),
+                            Accion = "consultar",
+                            Codigo = "cuentas_por_pagar.revaluacion.consultar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Consultar la revaluación de cierre y su reporte por proveedor y documento",
+                            Modulo = "cuentas_por_pagar",
+                            Recurso = "revaluacion",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000007-0011-0000-0000-000000000001"),
                             Accion = "administrar",
                             Codigo = "cuentas_por_pagar.portal.administrar",
@@ -3275,6 +3303,90 @@ namespace Millet.Identidad.Infrastructure.Migrations
                             Descripcion = "Cancelar con motivo una recepción mal capturada (distinto de quien la registró)",
                             Modulo = "almacen",
                             Recurso = "recepciones",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000008-0011-0000-0000-000000000001"),
+                            Accion = "autorizar",
+                            Codigo = "almacen.mermas.autorizar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar o rechazar una merma de proceso por etapa y motivo (A4.4); sin autorización queda pendiente",
+                            Modulo = "almacen",
+                            Recurso = "mermas",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000008-0012-0000-0000-000000000001"),
+                            Accion = "rotura-capturar",
+                            Codigo = "almacen.salidas.rotura-capturar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Capturar una salida por rotura de material en el almacén (ALM-03); no afecta el saldo hasta que se autorice",
+                            Modulo = "almacen",
+                            Recurso = "salidas",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000008-0012-0000-0000-000000000002"),
+                            Accion = "rotura-autorizar",
+                            Codigo = "almacen.salidas.rotura-autorizar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar o rechazar una salida por rotura (Jefe o Gerente de almacén, distinto de quien la capturó)",
+                            Modulo = "almacen",
+                            Recurso = "salidas",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000008-1a01-0000-0000-000000000001"),
+                            Accion = "revisar-acta",
+                            Codigo = "almacen.cierre.revisar-acta",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Marcar como revisada el acta del cierre mensual de Almacén (Director de Administración)",
+                            Modulo = "almacen",
+                            Recurso = "cierre",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000008-1a01-0000-0000-000000000002"),
+                            Accion = "vale-vencido",
+                            Codigo = "almacen.avisos.vale-vencido",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Recibir el aviso de vale urgente vencido sin regularizar de su sucursal (Jefe de almacén)",
+                            Modulo = "almacen",
+                            Recurso = "avisos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000008-1a01-0000-0000-000000000003"),
+                            Accion = "ajuste-mayor",
+                            Codigo = "almacen.avisos.ajuste-mayor",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Recibir el aviso de ajuste de inventario mayor (nivel 3) aprobado (Finanzas)",
+                            Modulo = "almacen",
+                            Recurso = "avisos",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1
@@ -4121,6 +4233,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("0000000a-0007-0000-0000-000000000001"),
+                            Accion = "ejecutar",
+                            Codigo = "cuentas_por_cobrar.conciliacion.ejecutar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Ejecutar a demanda la conciliación diaria de cartera contra facturación",
+                            Modulo = "cuentas_por_cobrar",
+                            Recurso = "conciliacion",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("0000000b-0001-0000-0000-000000000001"),
                             Accion = "ver",
                             Codigo = "tesoreria.cuentas.ver",
@@ -4241,6 +4367,62 @@ namespace Millet.Identidad.Infrastructure.Migrations
                             Descripcion = "Ligar tardíamente un pago a cuenta al pasivo provisionado",
                             Modulo = "tesoreria",
                             Recurso = "pagos-cuenta",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000b-0004-0000-0000-000000000003"),
+                            Accion = "autorizar",
+                            Codigo = "tesoreria.pagos-cuenta.autorizar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar (firmar) un pago a cuenta; no puede firmarlo quien lo capturó",
+                            Modulo = "tesoreria",
+                            Recurso = "pagos-cuenta",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000b-000e-0000-0000-000000000001"),
+                            Accion = "autorizar-importacion",
+                            Codigo = "tesoreria.pagos-ce.autorizar-importacion",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar (nivel 1) pagos de importación: Compras de MP",
+                            Modulo = "tesoreria",
+                            Recurso = "pagos-ce",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000b-000e-0000-0000-000000000002"),
+                            Accion = "autorizar-exportacion",
+                            Codigo = "tesoreria.pagos-ce.autorizar-exportacion",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar (nivel 1) pagos de exportación: Documentación de Exportación",
+                            Modulo = "tesoreria",
+                            Recurso = "pagos-ce",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000b-000e-0000-0000-000000000003"),
+                            Accion = "autorizar-direccion",
+                            Codigo = "tesoreria.pagos-ce.autorizar-direccion",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar (nivel 2) pagos de comercio exterior: Dirección de Administración y Finanzas o Director de Comercialización; basta una firma y no puede ser quien firmó el nivel 1",
+                            Modulo = "tesoreria",
+                            Recurso = "pagos-ce",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1
@@ -4863,6 +5045,34 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("0000000e-0007-0000-0000-000000000001"),
+                            Accion = "autorizar_salida",
+                            Codigo = "comercio_exterior.embarques.autorizar_salida",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar o rechazar la salida de un embarque",
+                            Modulo = "comercio_exterior",
+                            Recurso = "embarques",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000e-0007-0000-0000-000000000002"),
+                            Accion = "aprobar_cierre",
+                            Codigo = "comercio_exterior.expedientes.aprobar_cierre",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Aprobar el cierre del expediente (Gerencia)",
+                            Modulo = "comercio_exterior",
+                            Recurso = "expedientes",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("0000000e-0006-0000-0000-000000000001"),
                             Accion = "registrar",
                             Codigo = "comercio_exterior.gastos.registrar",
@@ -5361,6 +5571,48 @@ namespace Millet.Identidad.Infrastructure.Migrations
                             Descripcion = "Activos fijos: conteos.autorizar",
                             Modulo = "activos_fijos",
                             Recurso = "conteos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000f-0001-0000-0000-000000000031"),
+                            Accion = "solicitar",
+                            Codigo = "activos_fijos.reversas.solicitar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Solicitar reversas de activos fijos (Contador General o capitalizador)",
+                            Modulo = "activos_fijos",
+                            Recurso = "reversas",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000f-0001-0000-0000-000000000032"),
+                            Accion = "autorizar",
+                            Codigo = "activos_fijos.reversas.autorizar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar reversas de activos fijos (Director de Administración y Finanzas)",
+                            Modulo = "activos_fijos",
+                            Recurso = "reversas",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000f-0001-0000-0000-000000000030"),
+                            Accion = "autorizar",
+                            Codigo = "activos_fijos.clases.autorizar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Activos fijos: autorizar versiones de clases",
+                            Modulo = "activos_fijos",
+                            Recurso = "clases",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1

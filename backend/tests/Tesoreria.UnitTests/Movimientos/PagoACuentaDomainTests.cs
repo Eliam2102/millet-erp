@@ -81,4 +81,31 @@ public sealed class PagoACuentaDomainTests
 
         act.Should().Throw<BusinessRuleException>().Which.Code.Should().Be("MOV_APLICACION_EXCEDE_MONTO");
     }
+
+    // --------------------------------------------------- Firma (86e3yxq6n)
+
+    [Fact]
+    public void Autorizar_quien_lo_capturo_se_rechaza()
+    {
+        var m = PagoACuenta(Guid.NewGuid());
+
+        var act = () => m.AutorizarPagoACuenta(m.CreadoPor, Ahora);
+
+        act.Should().Throw<BusinessRuleException>().Which.Code.Should().Be("PAGO_CUENTA_MISMO_USUARIO");
+        m.AutorizadoPor.Should().BeNull();
+    }
+
+    [Fact]
+    public void Autorizar_otra_persona_firma_y_no_se_firma_dos_veces()
+    {
+        var m = PagoACuenta(Guid.NewGuid());
+        var otro = Guid.NewGuid();
+
+        m.AutorizarPagoACuenta(otro, Ahora);
+
+        m.AutorizadoPor.Should().Be(otro);
+        m.AutorizadoEn.Should().Be(Ahora);
+        var act = () => m.AutorizarPagoACuenta(Guid.NewGuid(), Ahora);
+        act.Should().Throw<BusinessRuleException>().Which.Code.Should().Be("PAGO_CUENTA_YA_AUTORIZADO");
+    }
 }

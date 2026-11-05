@@ -1,3 +1,4 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -5,9 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { DateTimeDisplay } from '@/components/erp';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { useUsuarios, mapById } from '@/features/catalogos/api';
-import { esApiError } from '@/lib/api';
-import { EstadoOrdenCompra, type OrdenCompraDetalleResponse } from '../api/types';
-import { puedeResolverCancelacion } from '../lib/cancelacion';
+import type { OrdenCompraDetalleResponse } from '../api/types';
+import { avisoCancelacion, estadoSolicitud, puedeResolverCancelacion, respuestasAlmacenes } from '../lib/cancelacion';
 import { useResolverCancelacionOc } from '../api/useResolverCancelacionOc';
 import { ResolverCancelacionDialog } from './ResolverCancelacionDialog';
 
@@ -20,6 +20,7 @@ export function CancelacionOcPanel({ oc }: { oc: OrdenCompraDetalleResponse }) {
   const [decision, setDecision] = useState<boolean | null>(null);
   const solicitudes = oc.solicitudesCancelacion ?? [];
   if (!solicitudes.length) return null;
+  const aviso = avisoCancelacion(oc.estado, solicitudes);
   const puedeResolver = puedeResolverCancelacion(oc.estado, solicitudes, usuario?.id, permisos);
   const nombre = (id: string) => nombres.get(id)?.nombre ?? '—';
   return (
@@ -28,30 +29,32 @@ export function CancelacionOcPanel({ oc }: { oc: OrdenCompraDetalleResponse }) {
       aria-label="Firmas de cancelación"
     >
       <h2 className="text-md font-semibold">Firmas de cancelación</h2>
-      {oc.estado === EstadoOrdenCompra.CancelacionSolicitada && (
+      {aviso && (
         <p role="note" className="rounded-md bg-warning-note-bg p-3 text-warning-note-fg">
-          Cancelación solicitada. No se puede recibir ni facturar hasta que Dirección resuelva con
-          una persona distinta a quien solicitó.
+          {aviso}
         </p>
       )}
+      {respuestasAlmacenes(solicitudes).map((r) => (
+        <p key={r} role="alert" className="rounded-md bg-warning-note-bg p-3 text-warning-note-fg">
+          Almacenes rechazó la cancelación: {r}
+        </p>
+      ))}
       {solicitudes.map((s) => (
         <div key={s.id} className="space-y-1 border-b border-line-divider pb-3 text-sm">
           <p>
             Firma 1 · {nombre(s.solicitanteId)} · <DateTimeDisplay value={s.fechaSolicitud} />
           </p>
           <p className="text-ink-secondary">{s.motivoSolicitud}</p>
-          {s.resolutorId && s.fechaResolucion ? (
-            <>
-              <p>
-                Firma 2 · {nombre(s.resolutorId)} · <DateTimeDisplay value={s.fechaResolucion} />{' '}
-                <Badge variant={s.confirmada ? 'neutral' : 'info'}>
-                  {s.confirmada ? 'Cancelación confirmada' : 'Cancelación rechazada'}
-                </Badge>
-              </p>
-              <p className="text-ink-secondary">{s.motivoResolucion}</p>
-            </>
-          ) : (
-            <Badge variant="warning">Pendiente de Dirección</Badge>
+          {s.resolutorId && s.fechaResolucion && (
+            <p>
+              Firma 2 · {nombre(s.resolutorId)} · <DateTimeDisplay value={s.fechaResolucion} />
+            </p>
+          )}
+          <p>
+            <Badge variant={estadoSolicitud(s).variante}>{estadoSolicitud(s).texto}</Badge>
+          </p>
+          {s.resolutorId && s.fechaResolucion && s.motivoResolucion && (
+            <p className="text-ink-secondary">{s.motivoResolucion}</p>
           )}
         </div>
       ))}
@@ -77,15 +80,13 @@ export function CancelacionOcPanel({ oc }: { oc: OrdenCompraDetalleResponse }) {
               });
               toast.success(
                 command.confirmar
-                  ? 'Cancelación confirmada.'
+                  ? 'Cancelación confirmada. Si la OC ya estaba en Almacenes, espera su respuesta.'
                   : 'Solicitud rechazada. La OC recuperó su estado anterior.',
               );
               setDecision(null);
             } catch (error) {
               toast.error('No se pudo resolver la cancelación.', {
-                description: esApiError(error)
-                  ? (error.problem.detail ?? error.problem.title)
-                  : 'Vuelve a intentarlo.',
+                description: errorUsuario(error, 'Vuelve a intentarlo.'),
               });
             }
           }}

@@ -1,6 +1,7 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { FormCampo, FormGrid } from '@/components/erp/forms/FormGrid';
-import { estadosOtr, estadosPartidaOtr, estadosSalidaOtr } from '../lib/estados-ui';
+import { estadosOtr, estadosPartidaOtr } from '../lib/estados-ui';
 import {
   Table,
   TableHeader,
@@ -31,7 +32,6 @@ import { MonedaSelector } from '@/components/erp/selectors/MonedaSelector';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
-import { esApiError } from '@/lib/api';
 import { useOtrEnvios, useOtrAccion, useOtrCandidatos, type OtrEnvio } from '../api/otr';
 
 export function OtrPanel({
@@ -65,7 +65,7 @@ export function OtrPanel({
       </p>
       {q.data.length === 0 && (
         <p className="text-ink-muted">
-          Sin envíos OTR vinculados. Vincule uno desde{' '}
+          Sin envíos OTR vinculados. Vincula uno desde{' '}
           <Link className="text-brand" to="/comercio-exterior/otr">
             Envíos OTR por vincular
           </Link>
@@ -81,7 +81,6 @@ export function OtrPanel({
 export function OtrDetalle({ envio, abierto = true }: { envio: OtrEnvio; abierto?: boolean }) {
   const permisoGestionar = useHasPermission(P.ComercioExteriorOtrGestionar);
   const gestionar = permisoGestionar && abierto && envio.estado === 2;
-  const accion = useOtrAccion();
   return (
     <article className="space-y-4 rounded-lg bg-surface-card p-4 shadow-card-flat">
       <header className="flex flex-wrap items-center gap-3">
@@ -131,7 +130,9 @@ export function OtrDetalle({ envio, abierto = true }: { envio: OtrEnvio; abierto
                   <Badge variant={estadosPartidaOtr[l.estado].tono}>
                     {estadosPartidaOtr[l.estado].texto}
                   </Badge>
-                  <p className="text-xs text-ink-muted">{l.motivo}</p>
+                  {l.motivo && <p className="text-xs text-ink-muted">{l.motivo === 'CE_OTR_PEDIDO_INEXISTENTE'
+                    ? 'El pedido no está registrado. Revisa el número de pedido en A+W.'
+                    : 'La partida requiere revisión. Comprueba sus datos con A+W antes de vincularla.'}</p>}
                 </TableCell>
               </TableRow>
             ))}
@@ -145,53 +146,14 @@ export function OtrDetalle({ envio, abierto = true }: { envio: OtrEnvio; abierto
           <Conflicto key={c.id} envio={envio} conflicto={c} gestionar={gestionar} />
         ))}
       </section>
-      <section className="space-y-2" aria-label="Salidas OTR">
-        <h4 className="font-medium">Salidas y acuse A+W</h4>
-        {envio.salidas.length === 0 && <p className="text-ink-muted">Sin salidas.</p>}
-        {envio.salidas.map((s) => (
-          <div
-            className="flex flex-wrap items-center gap-3 border-b border-line-row py-3"
-            key={s.id}
-          >
-            <span>
-              {s.tipo} · versión ERP {s.versionErp} · intento {s.intento}
-            </span>
-            <Badge variant={s.sinAcuse ? 'warning' : estadosSalidaOtr[s.estado].tono}>
-              {s.sinAcuse ? 'Sin acuse' : estadosSalidaOtr[s.estado].texto}
-            </Badge>
-            <span className="text-xs text-ink-muted">Intentos: {s.intentos}</span>
-            {s.acuseAt && (
-              <span>
-                {s.acuseResultado} · <DateTimeDisplay value={s.acuseAt} />
-              </span>
-            )}
-            {s.acuseMotivo && <p>{s.acuseMotivo}</p>}
-            {s.ultimoError && <p className="text-danger-fg">{s.ultimoError}</p>}
-            {permisoGestionar && s.estado === 4 && (
-              <Button
-                variant="outline"
-                disabled={accion.isPending}
-                title={accion.isPending ? 'Guardando reintento.' : undefined}
-                onClick={() => {
-                  void accion
-                    .mutateAsync({ envio, ruta: `salidas/${s.id}/reintentar` })
-                    .catch(() => {});
-                }}
-              >
-                Reintentar salida
-              </Button>
-            )}
-          </div>
-        ))}
-      </section>
-      {accion.isError && (
-        <p role="alert" className="text-danger-fg">
-          {esApiError(accion.error) ? accion.error.message : 'No se pudo reintentar la salida.'}
-        </p>
-      )}
     </article>
   );
 }
+const CAMPOS_OTR: Record<string, string> = {
+  Numero: 'Número de contenedor', Ruta: 'Ruta', PesoKg: 'Peso (kg)', Bultos: 'Bultos',
+  FechaCargaPrevista: 'Fecha de carga prevista', DireccionEntrega: 'Dirección de entrega', Producto: 'Producto',
+};
+
 function Conflicto({
   envio,
   conflicto: c,
@@ -212,7 +174,7 @@ function Conflicto({
   return (
     <div className="space-y-2 rounded-md border border-line p-3">
       <p className="font-medium">
-        {linea ? `Pedido ${linea.numeroPedido} · partida ${linea.posicion}` : c.campo} · versión OTR{' '}
+        {linea ? `Pedido ${linea.numeroPedido} · partida ${linea.posicion}` : (CAMPOS_OTR[c.campo] ?? 'Dato del envío')} · versión OTR{' '}
         {c.versionOrigen}
       </p>
       <p>
@@ -277,7 +239,7 @@ function Conflicto({
       )}
       {accion.isError && (
         <p role="alert" className="text-danger-fg">
-          {esApiError(accion.error) ? accion.error.message : 'No se pudo resolver el conflicto.'}
+          {errorUsuario(accion.error, 'No se pudo resolver el conflicto.')}
         </p>
       )}
     </div>
@@ -309,8 +271,7 @@ export function VincularOtrSheet({ envio, onClose }: { envio: OtrEnvio; onClose:
         <SheetHeader>
           <SheetTitle>Vincular {envio.idOrigen}</SheetTitle>
           <SheetDescription>
-            Seleccione un expediente de exportación abierto del mismo cliente o abra uno desde el
-            envío.
+            Elige un expediente de exportación abierto del mismo cliente o crea uno desde el envío.
           </SheetDescription>
         </SheetHeader>
         <SheetBody className="space-y-5">
@@ -329,7 +290,7 @@ export function VincularOtrSheet({ envio, onClose }: { envio: OtrEnvio; onClose:
                 value={expediente}
                 onChange={(e) => setExpediente(e.target.value)}
               >
-                <option value="">Seleccione un expediente</option>
+                <option value="">Elige un expediente</option>
                 {candidatos.data?.map((e) => (
                   <option key={e.id} value={e.id}>
                     {e.folio}
@@ -381,7 +342,7 @@ export function VincularOtrSheet({ envio, onClose }: { envio: OtrEnvio; onClose:
                   disabled={!responsable || !moneda || accion.isPending}
                   title={
                     !responsable || !moneda
-                      ? 'Seleccione responsable y moneda.'
+                      ? "Elige responsable y moneda."
                       : accion.isPending
                         ? 'Abriendo expediente.'
                         : undefined
@@ -397,7 +358,7 @@ export function VincularOtrSheet({ envio, onClose }: { envio: OtrEnvio; onClose:
           )}
           {accion.isError && (
             <p role="alert" className="text-danger-fg">
-              {esApiError(accion.error) ? accion.error.message : 'No se pudo vincular el envío.'}
+              {errorUsuario(accion.error, 'No se pudo vincular el envío.')}
             </p>
           )}
         </SheetBody>
@@ -409,7 +370,7 @@ export function VincularOtrSheet({ envio, onClose }: { envio: OtrEnvio; onClose:
             disabled={!expediente || accion.isPending}
             title={
               !expediente
-                ? 'Seleccione un expediente abierto.'
+                ? "Elige un expediente abierto."
                 : accion.isPending
                   ? 'Guardando vínculo.'
                   : undefined

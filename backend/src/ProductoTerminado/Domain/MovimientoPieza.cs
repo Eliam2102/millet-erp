@@ -32,6 +32,48 @@ public sealed class MovimientoPieza : BaseEntity, IAuditable, IPerteneceAEmpresa
         Usuario = "sistema";
     }
 
+    private MovimientoPieza(PiezaPt pieza, TipoMovimientoPieza tipo, EstadoPieza anterior, EstadoPieza nuevo, Guid origen, Guid destino, Guid traspasoId, DateTimeOffset ocurridoAt, string usuario) : base(Guid.CreateVersion7())
+    {
+        EmpresaId = pieza.EmpresaId;
+        PiezaId = pieza.Id;
+        Tipo = tipo;
+        SucursalOrigenId = origen;
+        SucursalDestinoId = destino;
+        EstadoAnterior = anterior.ToString();
+        EstadoNuevo = nuevo.ToString();
+        Referencia = traspasoId.ToString();
+        OcurridoAt = ocurridoAt;
+        Usuario = usuario;
+    }
+
+    /// <summary>Llamar antes de <c>SalirATransito</c>: lee la sucursal de origen de la pieza. Referencia = traspaso_id (idempotente por pieza y traspaso).</summary>
+    private MovimientoPieza(PiezaPt pieza, TipoMovimientoPieza tipo, EstadoPieza anterior, string referencia, DateTimeOffset ocurridoAt, string usuario) : base(Guid.CreateVersion7())
+    {
+        EmpresaId = pieza.EmpresaId;
+        PiezaId = pieza.Id;
+        Tipo = tipo;
+        SucursalOrigenId = pieza.SucursalId;
+        EstadoAnterior = anterior.ToString();
+        EstadoNuevo = pieza.Estado.ToString();
+        Referencia = referencia;
+        OcurridoAt = ocurridoAt;
+        Usuario = usuario;
+    }
+
+    /// <summary>Se llama después de cambiar el estado de la pieza; <c>referencia</c> es el albarán.</summary>
+    public static MovimientoPieza Paso(PiezaPt pieza, TipoMovimientoPieza tipo, EstadoPieza anterior, Guid albaranId, DateTimeOffset ocurridoAt, string usuario)
+        => new(pieza, tipo, anterior, albaranId.ToString(), ocurridoAt, usuario);
+
+    /// <summary>Carga pieza por pieza (PT5.4): la referencia lleva el instante, porque una pieza puede cargarse, descargarse y cargarse otra vez en el mismo albarán.</summary>
+    public static MovimientoPieza PasoPieza(PiezaPt pieza, TipoMovimientoPieza tipo, EstadoPieza anterior, Guid albaranId, DateTimeOffset ocurridoAt, string usuario)
+        => new(pieza, tipo, anterior, $"{albaranId}/{ocurridoAt.UtcTicks}", ocurridoAt, usuario);
+
+    public static MovimientoPieza TrasladoSalida(PiezaPt pieza, Guid destino, Guid traspasoId, DateTimeOffset ocurridoAt, string usuario)
+        => new(pieza, TipoMovimientoPieza.TrasladoSalida, EstadoPieza.EnPT, EstadoPieza.EnTransito, pieza.SucursalId, destino, traspasoId, ocurridoAt, usuario);
+
+    public static MovimientoPieza TrasladoRecepcion(PiezaPt pieza, Guid origen, Guid destino, Guid traspasoId, DateTimeOffset ocurridoAt, string usuario)
+        => new(pieza, TipoMovimientoPieza.TrasladoRecepcion, EstadoPieza.EnTransito, EstadoPieza.EnPT, origen, destino, traspasoId, ocurridoAt, usuario);
+
     public static MovimientoPieza Alta(PiezaPt pieza, string referencia, DateTimeOffset ocurridoAt)
         => new(pieza, TipoMovimientoPieza.Alta, null, referencia, ocurridoAt);
 

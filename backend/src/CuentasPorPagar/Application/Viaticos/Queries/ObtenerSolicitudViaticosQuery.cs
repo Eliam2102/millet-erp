@@ -74,7 +74,9 @@ public sealed record SolicitudViaticosDetalleResponse(
     int Version,
     string? EmpleadoNombre = null,
     string? JefeDirectoNombre = null,
-    string? PuestoNombre = null);
+    string? PuestoNombre = null,
+    string? ComentarioDevolucion = null,
+    DateTimeOffset? FechaDevolucion = null);
 
 public sealed class ObtenerSolicitudViaticosHandler
     : IRequestHandler<ObtenerSolicitudViaticosQuery, SolicitudViaticosDetalleResponse>
@@ -139,6 +141,8 @@ public sealed class ObtenerSolicitudViaticosHandler
             lineas, s.Version,
             EmpleadoNombre: empleado?.Nombre,
             JefeDirectoNombre: jefe?.Nombre,
-            PuestoNombre: puesto?.Nombre);
+            PuestoNombre: puesto?.Nombre,
+            ComentarioDevolucion: s.ComentarioDevolucion,
+            FechaDevolucion: s.FechaDevolucion);
     }
 }

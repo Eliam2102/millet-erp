@@ -80,7 +80,7 @@ describe('<BandejaFacturasAnticipo> — smoke (ANT-PR2)', () => {
     expect(screen.getByText('Cliente Maquila')).toBeInTheDocument();
     expect(screen.getByText('660.00')).toBeInTheDocument();
     expect(screen.getByText('Abierto')).toBeInTheDocument();
-    expect(screen.getByRole('cell', { name: 'Timbrado' })).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: 'Timbrada' })).toBeInTheDocument();
   });
 
   it('estado error', async () => {

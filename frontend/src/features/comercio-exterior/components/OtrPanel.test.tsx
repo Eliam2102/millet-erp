@@ -77,22 +77,6 @@ const envio: OtrEnvio = {
       motivo: null,
     },
   ],
-  salidas: [
-    {
-      id: 'sal1',
-      tipo: 'hito',
-      versionErp: 7,
-      estado: 4,
-      intentos: 5,
-      intento: 1,
-      reemplazadaPorId: null,
-      sinAcuse: false,
-      ultimoError: 'CE_OTR_SIN_ACUSE',
-      acuseAt: null,
-      acuseResultado: null,
-      acuseMotivo: null,
-    },
-  ],
 };
 beforeEach(() => {
   state.mutar.mockReset().mockResolvedValue({});
@@ -102,7 +86,7 @@ beforeEach(() => {
   });
 });
 it('la bandeja muestra envíos por vincular y abre el selector de expediente', () => {
-  state.data = [{ ...envio, estado: 1, expedienteId: null, salidas: [] }];
+  state.data = [{ ...envio, estado: 1, expedienteId: null }];
   render(<OtrBandejaPage />);
   expect(screen.getByRole('heading', { name: 'Bandeja OTR' })).toBeInTheDocument();
   expect(screen.getByRole('tab', { name: 'Por vincular' })).toHaveAttribute(
@@ -118,14 +102,11 @@ it('la bandeja muestra envíos por vincular y abre el selector de expediente', (
     body: { expedienteId: 'exp' },
   });
 });
-it('la sección muestra versión, línea pendiente, conflicto y falta de acuse', () => {
+it('la sección muestra versión, línea pendiente, y conflicto', () => {
   render(<OtrPanel expedienteId="exp" />);
   expect(screen.getByText('Vinculado')).toBeInTheDocument();
   expect(screen.getByText('Versión 2')).toBeInTheDocument();
-  expect(screen.getByText('CE_OTR_PEDIDO_INEXISTENTE')).toBeInTheDocument();
-  expect(screen.getByText('CE_OTR_SIN_ACUSE')).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Reintentar salida' }));
-  expect(state.mutar).toHaveBeenCalledWith({ envio, ruta: 'salidas/sal1/reintentar' });
+  expect(screen.getByText('El pedido no está registrado. Revisa el número de pedido en A+W.')).toBeInTheDocument();
 });
 it.each([
   ['Usar OTR', true],
@@ -144,14 +125,12 @@ it.each([
     body: { usarOtr, motivo: 'DEMO decisión revisada' },
   });
 });
-it('lectura oculta reintentar y gestión lo conserva con expediente cerrado', () => {
+it('lectura oculta resolver conflicto y expediente cerrado también', () => {
   useAuthStore.setState({ permisos: [P.ComercioExteriorExpedientesLeer] });
   const view = render(<OtrDetalle envio={envio} />);
   expect(screen.queryByRole('button', { name: 'Usar OTR' })).not.toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: 'Reintentar salida' })).not.toBeInTheDocument();
   useAuthStore.setState({ permisos: [P.ComercioExteriorOtrGestionar] });
   view.rerender(<OtrDetalle envio={envio} abierto={false} />);
-  expect(screen.getByRole('button', { name: 'Reintentar salida' })).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Usar OTR' })).not.toBeInTheDocument();
 });
 it('la bandeja vacía explica el estado real', () => {
@@ -166,27 +145,6 @@ it('identifica el pedido y posición al resolver un conflicto de asignación man
   expect(screen.getByText('Pedido DEMO-PED · partida 1 · versión OTR 2')).toBeInTheDocument();
 });
 
-it.each([1, 3] as const)('permite reintentar una salida de un envío con estado %s', (estado) => {
-  render(<OtrDetalle envio={{ ...envio, estado }} abierto={false} />);
-  fireEvent.click(screen.getByRole('button', { name: 'Reintentar salida' }));
-  expect(state.mutar).toHaveBeenCalled();
-});
-it('la bandeja incluye fallidas y sin acuse de expedientes vinculados', () => {
-  state.data = [
-    envio,
-    {
-      ...envio,
-      id: 'otr2',
-      idOrigen: 'DEMO-OTR-2',
-      salidas: [{ ...envio.salidas[0], estado: 2, sinAcuse: true }],
-    },
-  ];
-  render(<OtrBandejaPage />);
-  expect(screen.getByRole('heading', { name: 'Salidas fallidas o sin acuse' })).toBeInTheDocument();
-  expect(screen.getByText('Sin acuse')).toBeInTheDocument();
-  expect(screen.getByText('Fallida')).toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: 'Vincular envío' })).not.toBeInTheDocument();
-});
 
 it('filtra estados cargados y pagina diez envíos sin ofrecer vincular los ya vinculados', () => {
   state.data = Array.from({ length: 12 }, (_, i) => ({
@@ -194,9 +152,8 @@ it('filtra estados cargados y pagina diez envíos sin ofrecer vincular los ya vi
     id: `otr-${i}`,
     idOrigen: `OTR-PRUEBA-${i + 1}`,
     estado: 1,
-    salidas: [],
   }));
-  state.data.push({ ...envio, id: 'vinculado', idOrigen: 'OTR-VINCULADO', salidas: [] });
+  state.data.push({ ...envio, id: 'vinculado', idOrigen: 'OTR-VINCULADO' });
   render(<OtrBandejaPage />);
   expect(screen.getAllByRole('row')).toHaveLength(11);
   fireEvent.click(screen.getByRole('button', { name: 'Página siguiente' }));
@@ -210,4 +167,10 @@ it('filtra estados cargados y pagina diez envíos sin ofrecer vincular los ya vi
   expect(screen.getByRole('button', { name: 'Página anterior' })).toBeDisabled();
   fireEvent.mouseDown(screen.getByRole('tab', { name: 'Todos' }), { button: 0, ctrlKey: false });
   expect(screen.getByText('1–10 de 13')).toBeInTheDocument();
+});
+
+it('los conflictos muestran el nombre de negocio del campo', () => {
+  render(<OtrDetalle envio={envio} />);
+  expect(screen.getByText(/Peso \(kg\)/)).toBeInTheDocument();
+  expect(screen.queryByText(/PesoKg/)).not.toBeInTheDocument();
 });

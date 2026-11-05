@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Domain.Idempotencia;
 using Millet.Almacen.Domain.Saldos;
@@ -27,8 +28,12 @@ public sealed record CostoPartidaAplicado(Guid PartidaId, Guid OcId, Guid Recepc
 public sealed record CostoUbicacionAplicado(Guid UbicacionId, decimal CantidadRemanente, decimal InventarioMxn);
 /// <summary>Contabilidad consume este resultado confirmado, nunca la estimación de la vista previa.</summary>
 public sealed record ExpedienteCostoAplicadoEvent(Guid Empresa, DateTimeOffset Fecha, Guid ExpedienteId, int NumeroVersion,
-    IReadOnlyList<CostoPartidaAplicado> Partidas) : IntegrationEvent("almacen.expediente.costo-aplicado.v1", Empresa, Fecha);
-public sealed class ExpedienteCostoDistribuidoHandler(AlmacenDbContext db, IIntegrationEventPublisher eventos, IClock clock, ILogger<ExpedienteCostoDistribuidoHandler> logger)
+    IReadOnlyList<CostoPartidaAplicado> Partidas) : IntegrationEvent("almacen.expediente.costo-aplicado.v1", Empresa, Fecha)
+{
+    public Guid? SucursalId { get; init; }
+}
+public sealed class ExpedienteCostoDistribuidoHandler(AlmacenDbContext db, IIntegrationEventPublisher eventos, IClock clock, ILogger<ExpedienteCostoDistribuidoHandler> logger,
+    IOptions<IncrementablesImportacionOptions> incrementables)
     : IRequestHandler<AplicarCostoExpedienteCommand>
 {
     public const string EventType = "comercio_exterior.expediente.costo-distribuido.v1";
@@ -88,7 +93,8 @@ public sealed class ExpedienteCostoDistribuidoHandler(AlmacenDbContext db, IInte
                 var saldoUbicacion = await db.SaldosInventario.SingleOrDefaultAsync(s => s.UbicacionId == ubicacion && s.ArticuloId == l.ArticuloId, cancellationToken);
                 enExistencia += Math.Min(saldoUbicacion?.Cantidad ?? 0, remanente);
             }
-            var tieneSalidas = enExistencia < l.CantidadRecibida;
+            // Fernando 4-nov: mientras los incrementables no vayan a inventario, todo el ajuste va a gasto de importación.
+            var tieneSalidas = enExistencia < l.CantidadRecibida || !incrementables.Value.AlInventario;
             var ubicaciones = remanentes.Keys.Concat(anteriores.Select(x => x.UbicacionId)).Append(l.UbicacionId).Distinct().Order().ToList();
             List<CostoUbicacionAplicado> detalle = [];
             decimal diferenciaRestante = l.DiferenciaMxn, cantidadRestante = l.CantidadRecibida;
@@ -120,7 +126,7 @@ public sealed class ExpedienteCostoDistribuidoHandler(AlmacenDbContext db, IInte
         db.EventosProcesados.Add(new EventoProcesado(p.ExpedienteId, llave));
         if (aplicadas.Count > 0)
         {
-            await eventos.PublishAsync(new ExpedienteCostoAplicadoEvent(p.EmpresaId, clock.UtcNow, p.ExpedienteId, p.NumeroVersion, aplicadas), cancellationToken);
+            await eventos.PublishAsync(new ExpedienteCostoAplicadoEvent(p.EmpresaId, clock.UtcNow, p.ExpedienteId, p.NumeroVersion, aplicadas) { SucursalId = p.SucursalId }, cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
         }
         await db.SaveChangesAsync(cancellationToken);

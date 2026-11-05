@@ -15,12 +15,12 @@ export const PropuestaAplicacionSchema = z.object({
     .string()
     .min(1, 'La referencia del depósito es obligatoria')
     .max(80, 'Máximo 80 caracteres'),
-  montoDeposito: z.number().positive('El monto del depósito debe ser > 0'),
+  montoDeposito: z.number().positive('El monto del depósito debe ser mayor a cero'),
   moneda: z.enum(MONEDAS_LINEA_CREDITO),
   /** Regla 2.1 del levantamiento: sin remittance no hay propuesta. */
   remittanceRef: z
     .string()
-    .min(1, 'Sin remittance del cliente no se puede proponer')
+    .min(1, 'Sin aviso de pago del cliente no se puede proponer')
     .max(120, 'Máximo 120 caracteres'),
 });
 
