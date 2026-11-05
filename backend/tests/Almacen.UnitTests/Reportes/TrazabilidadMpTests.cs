@@ -87,9 +87,8 @@ public sealed class TrazabilidadMpTests
         Guid? rq = null, string? comentario = null, Guid? variante = null)
     {
         var m = new MovimientoInventario(Guid.CreateVersion7(), tipo, P1Fixture.EmpresaId, fecha);
-        m.AgregarLinea(new(Guid.NewGuid(), m.Id, 1, Articulo, cantidad, "PZA", 900m, ubicacionId: Rack, lote: lote, productoAwVarianteId: variante, anchoMm: variante is null ? null : 2440m, altoMm: variante is null ? null : 3660m));
+        m.AgregarLinea(new(Guid.NewGuid(), m.Id, 1, Articulo, cantidad, "PZA", 900m, ubicacionId: Rack, lote: lote, comentarioLinea: comentario, productoAwVarianteId: variante, anchoMm: variante is null ? null : 2440m, altoMm: variante is null ? null : 3660m));
         if (rq != null) typeof(MovimientoInventario).GetProperty(nameof(MovimientoInventario.RqId))!.SetValue(m, rq);
-        if (comentario != null) typeof(MovimientoInventario).GetProperty(nameof(MovimientoInventario.ComentarioLibre))!.SetValue(m, comentario);
         m.Registrar(FolioMovimiento.Construir(tipo, 2027, ++_folio), Guid.NewGuid());
         if (oc != null) typeof(MovimientoInventario).GetProperty(nameof(MovimientoInventario.OcId))!.SetValue(m, oc);
         if (motivo != null) typeof(MovimientoInventario).GetProperty(nameof(MovimientoInventario.Motivo))!.SetValue(m, motivo);

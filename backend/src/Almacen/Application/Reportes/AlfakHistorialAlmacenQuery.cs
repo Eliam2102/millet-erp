@@ -145,7 +145,7 @@ public sealed class AlfakHistorialAlmacenHandler
                && (sucursales == null
                    || AlcanceSucursalAlmacen.SubAlmacenesPermitidos(db, sucursales!).Contains(v.SubAlmacenId))
             select new LineaKardex(v.SubAlmacenId, sa.Nombre, l.ArticuloId, l.ProductoAwVarianteId, l.Lote,
-                m.Tipo, m.FechaMovimiento, l.Cantidad, l.CostoUnitarioMxn, m.OcId, m.Folio, m.Motivo, v.Id, v.Clave, m.RqId, m.ComentarioLibre);
+                m.Tipo, m.FechaMovimiento, l.Cantidad, l.CostoUnitarioMxn, m.OcId, m.Folio, m.Motivo, v.Id, v.Clave, m.RqId, m.ComentarioLibre ?? l.ComentarioLinea);
 
     /// <summary>
     /// Filas del ALFAK sin enriquecer (sin medida ni artículo). Lo usan el reporte y el cierre mensual para la foto de la valuación.
