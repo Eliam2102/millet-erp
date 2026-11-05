@@ -40,6 +40,7 @@ import {
   Repeat,
   RotateCcw,
   Scale,
+  Scissors,
   ShieldAlert,
   ShoppingCart,
   Sliders,
@@ -290,6 +291,14 @@ const moduloAlmacen: NavModulo = {
     {
       label: 'Cierre y reportes',
       cards: [
+        {
+          label: 'Taller de sucursal',
+          description:
+            'Cierre de día del almacenista: descargas por pedido interno Serie 9000 y factor de optimización.',
+          to: '/almacen/taller',
+          icon: Scissors,
+          permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
+        },
         {
           label: 'Cierre de mes',
           description:

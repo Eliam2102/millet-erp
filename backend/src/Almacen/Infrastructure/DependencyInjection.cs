@@ -35,6 +35,7 @@ public static class DependencyInjection
         services.AddScoped<IUsuarioServicioReadPort, NoOpUsuarioServicioReadPort>();
         services.AddScoped<SalidaAppAlmacenesGuardado>();
         services.AddScoped<ConsumoComponentesGuardado>();
+        services.AddScoped<DescargaTallerGuardado>();
         services.AddScoped<IComprasCrearRqSistemaPort, NoOpComprasCrearRqSistemaPort>();
         services.AddScoped<IArticuloReadPort, NoOpArticuloReadPort>();
         services.AddScoped<IVarianteVidrioReadPort, NoOpVarianteVidrioReadPort>();

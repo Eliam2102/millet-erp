@@ -35,6 +35,7 @@ import { Route as AppAlmacenRevisionRouteImport } from './routes/_app/almacen/re
 import { Route as AppAlmacenSaldosRouteImport } from './routes/_app/almacen/saldos';
 import { Route as AppAlmacenSaldosJerarquiaRouteImport } from './routes/_app/almacen/saldos-jerarquia';
 import { Route as AppAlmacenSubAlmacenesRouteImport } from './routes/_app/almacen/sub-almacenes';
+import { Route as AppAlmacenTallerRouteImport } from './routes/_app/almacen/taller';
 import { Route as AppAlmacenUbicacionesRouteImport } from './routes/_app/almacen/ubicaciones';
 import { Route as AppCentrosCostoIndexRouteImport } from './routes/_app/centros-costo/index';
 import { Route as AppCentrosCostoAsignacionesRouteImport } from './routes/_app/centros-costo/asignaciones';
@@ -117,10 +118,10 @@ import { Route as AppContabilidadReportesCuentaPuenteRouteImport } from './route
 import { Route as AppCxcAlertasIndexRouteImport } from './routes/_app/cxc/alertas/index';
 import { Route as AppCxcAnticiposIndexRouteImport } from './routes/_app/cxc/anticipos/index';
 import { Route as AppCxcAplicacionesIndexRouteImport } from './routes/_app/cxc/aplicaciones/index';
-import { Route as AppCxcConciliacionPolizasIndexRouteImport } from './routes/_app/cxc/conciliacion-polizas/index';
 import { Route as AppCxcAplicacionesIdRouteImport } from './routes/_app/cxc/aplicaciones/$id';
 import { Route as AppCxcCarteraIndexRouteImport } from './routes/_app/cxc/cartera/index';
 import { Route as AppCxcCobranzaIndexRouteImport } from './routes/_app/cxc/cobranza/index';
+import { Route as AppCxcConciliacionPolizasIndexRouteImport } from './routes/_app/cxc/conciliacion-polizas/index';
 import { Route as AppCxcConciliacionIndexRouteImport } from './routes/_app/cxc/conciliacion/index';
 import { Route as AppCxcEstadoCuentaIndexRouteImport } from './routes/_app/cxc/estado-cuenta/index';
 import { Route as AppCxcLiberacionesIndexRouteImport } from './routes/_app/cxc/liberaciones/index';
@@ -362,6 +363,11 @@ const AppAlmacenSaldosJerarquiaRoute =
 const AppAlmacenSubAlmacenesRoute = AppAlmacenSubAlmacenesRouteImport.update({
   id: '/almacen/sub-almacenes',
   path: '/almacen/sub-almacenes',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppAlmacenTallerRoute = AppAlmacenTallerRouteImport.update({
+  id: '/almacen/taller',
+  path: '/almacen/taller',
   getParentRoute: () => AppRoute,
 } as any);
 const AppAlmacenUbicacionesRoute = AppAlmacenUbicacionesRouteImport.update({
@@ -811,12 +817,6 @@ const AppCxcAplicacionesIndexRoute = AppCxcAplicacionesIndexRouteImport.update({
   path: '/cxc/aplicaciones/',
   getParentRoute: () => AppRoute,
 } as any);
-const AppCxcConciliacionPolizasIndexRoute =
-  AppCxcConciliacionPolizasIndexRouteImport.update({
-    id: '/cxc/conciliacion-polizas/',
-    path: '/cxc/conciliacion-polizas/',
-    getParentRoute: () => AppRoute,
-  } as any);
 const AppCxcAplicacionesIdRoute = AppCxcAplicacionesIdRouteImport.update({
   id: '/cxc/aplicaciones/$id',
   path: '/cxc/aplicaciones/$id',
@@ -832,6 +832,12 @@ const AppCxcCobranzaIndexRoute = AppCxcCobranzaIndexRouteImport.update({
   path: '/cxc/cobranza/',
   getParentRoute: () => AppRoute,
 } as any);
+const AppCxcConciliacionPolizasIndexRoute =
+  AppCxcConciliacionPolizasIndexRouteImport.update({
+    id: '/cxc/conciliacion-polizas/',
+    path: '/cxc/conciliacion-polizas/',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppCxcConciliacionIndexRoute = AppCxcConciliacionIndexRouteImport.update({
   id: '/cxc/conciliacion/',
   path: '/cxc/conciliacion/',
@@ -1456,6 +1462,7 @@ export interface FileRoutesByFullPath {
   '/almacen/saldos': typeof AppAlmacenSaldosRoute;
   '/almacen/saldos-jerarquia': typeof AppAlmacenSaldosJerarquiaRoute;
   '/almacen/sub-almacenes': typeof AppAlmacenSubAlmacenesRoute;
+  '/almacen/taller': typeof AppAlmacenTallerRoute;
   '/almacen/ubicaciones': typeof AppAlmacenUbicacionesRoute;
   '/centros-costo/asignaciones': typeof AppCentrosCostoAsignacionesRoute;
   '/centros-costo/configuracion': typeof AppCentrosCostoConfiguracionRoute;
@@ -1580,9 +1587,9 @@ export interface FileRoutesByFullPath {
   '/cxc/alertas/': typeof AppCxcAlertasIndexRoute;
   '/cxc/anticipos/': typeof AppCxcAnticiposIndexRoute;
   '/cxc/aplicaciones/': typeof AppCxcAplicacionesIndexRoute;
-  '/cxc/conciliacion-polizas/': typeof AppCxcConciliacionPolizasIndexRoute;
   '/cxc/cartera/': typeof AppCxcCarteraIndexRoute;
   '/cxc/cobranza/': typeof AppCxcCobranzaIndexRoute;
+  '/cxc/conciliacion-polizas/': typeof AppCxcConciliacionPolizasIndexRoute;
   '/cxc/conciliacion/': typeof AppCxcConciliacionIndexRoute;
   '/cxc/estado-cuenta/': typeof AppCxcEstadoCuentaIndexRoute;
   '/cxc/liberaciones/': typeof AppCxcLiberacionesIndexRoute;
@@ -1674,6 +1681,7 @@ export interface FileRoutesByTo {
   '/almacen/saldos': typeof AppAlmacenSaldosRoute;
   '/almacen/saldos-jerarquia': typeof AppAlmacenSaldosJerarquiaRoute;
   '/almacen/sub-almacenes': typeof AppAlmacenSubAlmacenesRoute;
+  '/almacen/taller': typeof AppAlmacenTallerRoute;
   '/almacen/ubicaciones': typeof AppAlmacenUbicacionesRoute;
   '/centros-costo/asignaciones': typeof AppCentrosCostoAsignacionesRoute;
   '/centros-costo/configuracion': typeof AppCentrosCostoConfiguracionRoute;
@@ -1798,9 +1806,9 @@ export interface FileRoutesByTo {
   '/cxc/alertas': typeof AppCxcAlertasIndexRoute;
   '/cxc/anticipos': typeof AppCxcAnticiposIndexRoute;
   '/cxc/aplicaciones': typeof AppCxcAplicacionesIndexRoute;
-  '/cxc/conciliacion-polizas': typeof AppCxcConciliacionPolizasIndexRoute;
   '/cxc/cartera': typeof AppCxcCarteraIndexRoute;
   '/cxc/cobranza': typeof AppCxcCobranzaIndexRoute;
+  '/cxc/conciliacion-polizas': typeof AppCxcConciliacionPolizasIndexRoute;
   '/cxc/conciliacion': typeof AppCxcConciliacionIndexRoute;
   '/cxc/estado-cuenta': typeof AppCxcEstadoCuentaIndexRoute;
   '/cxc/liberaciones': typeof AppCxcLiberacionesIndexRoute;
@@ -1894,6 +1902,7 @@ export interface FileRoutesById {
   '/_app/almacen/saldos': typeof AppAlmacenSaldosRoute;
   '/_app/almacen/saldos-jerarquia': typeof AppAlmacenSaldosJerarquiaRoute;
   '/_app/almacen/sub-almacenes': typeof AppAlmacenSubAlmacenesRoute;
+  '/_app/almacen/taller': typeof AppAlmacenTallerRoute;
   '/_app/almacen/ubicaciones': typeof AppAlmacenUbicacionesRoute;
   '/_app/centros-costo/asignaciones': typeof AppCentrosCostoAsignacionesRoute;
   '/_app/centros-costo/configuracion': typeof AppCentrosCostoConfiguracionRoute;
@@ -2018,9 +2027,9 @@ export interface FileRoutesById {
   '/_app/cxc/alertas/': typeof AppCxcAlertasIndexRoute;
   '/_app/cxc/anticipos/': typeof AppCxcAnticiposIndexRoute;
   '/_app/cxc/aplicaciones/': typeof AppCxcAplicacionesIndexRoute;
-  '/_app/cxc/conciliacion-polizas/': typeof AppCxcConciliacionPolizasIndexRoute;
   '/_app/cxc/cartera/': typeof AppCxcCarteraIndexRoute;
   '/_app/cxc/cobranza/': typeof AppCxcCobranzaIndexRoute;
+  '/_app/cxc/conciliacion-polizas/': typeof AppCxcConciliacionPolizasIndexRoute;
   '/_app/cxc/conciliacion/': typeof AppCxcConciliacionIndexRoute;
   '/_app/cxc/estado-cuenta/': typeof AppCxcEstadoCuentaIndexRoute;
   '/_app/cxc/liberaciones/': typeof AppCxcLiberacionesIndexRoute;
@@ -2114,6 +2123,7 @@ export interface FileRouteTypes {
     | '/almacen/saldos'
     | '/almacen/saldos-jerarquia'
     | '/almacen/sub-almacenes'
+    | '/almacen/taller'
     | '/almacen/ubicaciones'
     | '/centros-costo/asignaciones'
     | '/centros-costo/configuracion'
@@ -2238,9 +2248,9 @@ export interface FileRouteTypes {
     | '/cxc/alertas/'
     | '/cxc/anticipos/'
     | '/cxc/aplicaciones/'
-    | '/cxc/conciliacion-polizas/'
     | '/cxc/cartera/'
     | '/cxc/cobranza/'
+    | '/cxc/conciliacion-polizas/'
     | '/cxc/conciliacion/'
     | '/cxc/estado-cuenta/'
     | '/cxc/liberaciones/'
@@ -2332,6 +2342,7 @@ export interface FileRouteTypes {
     | '/almacen/saldos'
     | '/almacen/saldos-jerarquia'
     | '/almacen/sub-almacenes'
+    | '/almacen/taller'
     | '/almacen/ubicaciones'
     | '/centros-costo/asignaciones'
     | '/centros-costo/configuracion'
@@ -2456,9 +2467,9 @@ export interface FileRouteTypes {
     | '/cxc/alertas'
     | '/cxc/anticipos'
     | '/cxc/aplicaciones'
-    | '/cxc/conciliacion-polizas'
     | '/cxc/cartera'
     | '/cxc/cobranza'
+    | '/cxc/conciliacion-polizas'
     | '/cxc/conciliacion'
     | '/cxc/estado-cuenta'
     | '/cxc/liberaciones'
@@ -2551,6 +2562,7 @@ export interface FileRouteTypes {
     | '/_app/almacen/saldos'
     | '/_app/almacen/saldos-jerarquia'
     | '/_app/almacen/sub-almacenes'
+    | '/_app/almacen/taller'
     | '/_app/almacen/ubicaciones'
     | '/_app/centros-costo/asignaciones'
     | '/_app/centros-costo/configuracion'
@@ -2675,9 +2687,9 @@ export interface FileRouteTypes {
     | '/_app/cxc/alertas/'
     | '/_app/cxc/anticipos/'
     | '/_app/cxc/aplicaciones/'
-    | '/_app/cxc/conciliacion-polizas/'
     | '/_app/cxc/cartera/'
     | '/_app/cxc/cobranza/'
+    | '/_app/cxc/conciliacion-polizas/'
     | '/_app/cxc/conciliacion/'
     | '/_app/cxc/estado-cuenta/'
     | '/_app/cxc/liberaciones/'
@@ -2934,6 +2946,13 @@ declare module '@tanstack/react-router' {
       path: '/almacen/sub-almacenes';
       fullPath: '/almacen/sub-almacenes';
       preLoaderRoute: typeof AppAlmacenSubAlmacenesRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/almacen/taller': {
+      id: '/_app/almacen/taller';
+      path: '/almacen/taller';
+      fullPath: '/almacen/taller';
+      preLoaderRoute: typeof AppAlmacenTallerRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/almacen/ubicaciones': {
@@ -3510,13 +3529,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCxcAplicacionesIndexRouteImport;
       parentRoute: typeof AppRoute;
     };
-    '/_app/cxc/conciliacion-polizas/': {
-      id: '/_app/cxc/conciliacion-polizas/';
-      path: '/cxc/conciliacion-polizas';
-      fullPath: '/cxc/conciliacion-polizas/';
-      preLoaderRoute: typeof AppCxcConciliacionPolizasIndexRouteImport;
-      parentRoute: typeof AppRoute;
-    };
     '/_app/cxc/aplicaciones/$id': {
       id: '/_app/cxc/aplicaciones/$id';
       path: '/cxc/aplicaciones/$id';
@@ -3531,18 +3543,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCxcCarteraIndexRouteImport;
       parentRoute: typeof AppRoute;
     };
-    '/_app/cxc/conciliacion/': {
-      id: '/_app/cxc/conciliacion/';
-      path: '/cxc/conciliacion';
-      fullPath: '/cxc/conciliacion/';
-      preLoaderRoute: typeof AppCxcConciliacionIndexRouteImport;
-      parentRoute: typeof AppRoute;
-    };
     '/_app/cxc/cobranza/': {
       id: '/_app/cxc/cobranza/';
       path: '/cxc/cobranza';
       fullPath: '/cxc/cobranza/';
       preLoaderRoute: typeof AppCxcCobranzaIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/cxc/conciliacion-polizas/': {
+      id: '/_app/cxc/conciliacion-polizas/';
+      path: '/cxc/conciliacion-polizas';
+      fullPath: '/cxc/conciliacion-polizas/';
+      preLoaderRoute: typeof AppCxcConciliacionPolizasIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/cxc/conciliacion/': {
+      id: '/_app/cxc/conciliacion/';
+      path: '/cxc/conciliacion';
+      fullPath: '/cxc/conciliacion/';
+      preLoaderRoute: typeof AppCxcConciliacionIndexRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/cxc/estado-cuenta/': {
@@ -4315,6 +4334,7 @@ interface AppRouteChildren {
   AppAlmacenSaldosRoute: typeof AppAlmacenSaldosRoute;
   AppAlmacenSaldosJerarquiaRoute: typeof AppAlmacenSaldosJerarquiaRoute;
   AppAlmacenSubAlmacenesRoute: typeof AppAlmacenSubAlmacenesRoute;
+  AppAlmacenTallerRoute: typeof AppAlmacenTallerRoute;
   AppAlmacenUbicacionesRoute: typeof AppAlmacenUbicacionesRoute;
   AppCentrosCostoAsignacionesRoute: typeof AppCentrosCostoAsignacionesRoute;
   AppCentrosCostoConfiguracionRoute: typeof AppCentrosCostoConfiguracionRoute;
@@ -4439,9 +4459,9 @@ interface AppRouteChildren {
   AppCxcAlertasIndexRoute: typeof AppCxcAlertasIndexRoute;
   AppCxcAnticiposIndexRoute: typeof AppCxcAnticiposIndexRoute;
   AppCxcAplicacionesIndexRoute: typeof AppCxcAplicacionesIndexRoute;
-  AppCxcConciliacionPolizasIndexRoute: typeof AppCxcConciliacionPolizasIndexRoute;
   AppCxcCarteraIndexRoute: typeof AppCxcCarteraIndexRoute;
   AppCxcCobranzaIndexRoute: typeof AppCxcCobranzaIndexRoute;
+  AppCxcConciliacionPolizasIndexRoute: typeof AppCxcConciliacionPolizasIndexRoute;
   AppCxcConciliacionIndexRoute: typeof AppCxcConciliacionIndexRoute;
   AppCxcEstadoCuentaIndexRoute: typeof AppCxcEstadoCuentaIndexRoute;
   AppCxcLiberacionesIndexRoute: typeof AppCxcLiberacionesIndexRoute;
@@ -4532,6 +4552,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAlmacenSaldosRoute: AppAlmacenSaldosRoute,
   AppAlmacenSaldosJerarquiaRoute: AppAlmacenSaldosJerarquiaRoute,
   AppAlmacenSubAlmacenesRoute: AppAlmacenSubAlmacenesRoute,
+  AppAlmacenTallerRoute: AppAlmacenTallerRoute,
   AppAlmacenUbicacionesRoute: AppAlmacenUbicacionesRoute,
   AppCentrosCostoAsignacionesRoute: AppCentrosCostoAsignacionesRoute,
   AppCentrosCostoConfiguracionRoute: AppCentrosCostoConfiguracionRoute,
@@ -4667,9 +4688,9 @@ const AppRouteChildren: AppRouteChildren = {
   AppCxcAlertasIndexRoute: AppCxcAlertasIndexRoute,
   AppCxcAnticiposIndexRoute: AppCxcAnticiposIndexRoute,
   AppCxcAplicacionesIndexRoute: AppCxcAplicacionesIndexRoute,
-  AppCxcConciliacionPolizasIndexRoute: AppCxcConciliacionPolizasIndexRoute,
   AppCxcCarteraIndexRoute: AppCxcCarteraIndexRoute,
   AppCxcCobranzaIndexRoute: AppCxcCobranzaIndexRoute,
+  AppCxcConciliacionPolizasIndexRoute: AppCxcConciliacionPolizasIndexRoute,
   AppCxcConciliacionIndexRoute: AppCxcConciliacionIndexRoute,
   AppCxcEstadoCuentaIndexRoute: AppCxcEstadoCuentaIndexRoute,
   AppCxcLiberacionesIndexRoute: AppCxcLiberacionesIndexRoute,
