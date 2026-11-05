@@ -348,7 +348,7 @@ public sealed class RegistrarRecepcionConPackingListHandler
             RecepcionRechazos.Registrar(_db, empresaId, movimientoId, oc!, rechazadas);
             await _events.PublishAsync(new OcRecepcionRegistradaIntegrationEvent(empresaId, DateTimeOffset.UtcNow,
                 movimientoId, folioActivo, request.OrdenCompraId, request.FechaMovimiento, true, null, null,
-                request.Observaciones, payloadLineas, SucursalId: oc!.SucursalDestinoId), cancellationToken);
+                request.Observaciones, payloadLineas, SucursalId: oc!.SucursalDestinoId, RegistradoPorId: _currentUser.UserId ?? Guid.Empty), cancellationToken);
             await _db.SaveChangesAsync(cancellationToken);
             if (transaccion is not null) await transaccion.CommitAsync(cancellationToken);
             return new RegistrarRecepcionResponse(movimientoId, folioActivo);
@@ -415,7 +415,7 @@ public sealed class RegistrarRecepcionConPackingListHandler
             Observaciones: request.Observaciones,
             Lineas: payloadLineas,
             AlmacenId: almacenId,
-            SucursalId: sucursalId), cancellationToken);
+            SucursalId: sucursalId, RegistradoPorId: _currentUser.UserId ?? Guid.Empty), cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
         if (transaccion is not null) await transaccion.CommitAsync(cancellationToken);

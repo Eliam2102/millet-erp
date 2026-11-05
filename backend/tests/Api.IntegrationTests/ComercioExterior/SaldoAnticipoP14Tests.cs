@@ -1,4 +1,6 @@
 using System.Net.Http.Headers;
+using MediatR;
+using Millet.ComercioExterior.Application;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
@@ -26,7 +28,7 @@ public sealed class SaldoAnticipoP14Tests
     public async Task Resolver_publica_saldo_CxP_lo_lista_sin_duplicar_y_aplica_a_factura()
     {
         await using var escenario = await ExpedientesHttpTests.Escenario.CrearAsync();
-        using var client = await escenario.ClienteAsync(true);
+        using var client = await escenario.ClienteAsync(true, autorizarSaldoCe: true);
         const string ruta = "/api/v1/comercio-exterior/expedientes";
         using var creado = await client.PostAsJsonAsync(ruta, escenario.Importacion());
         creado.EnsureSuccessStatusCode();
@@ -43,8 +45,29 @@ public sealed class SaldoAnticipoP14Tests
             var e = await db.Expedientes.Include(e => e.Anticipos).SingleAsync(e => e.Id == id);
             var maestros = sp.GetRequiredService<Millet.Compartido.Infrastructure.Persistence.CompartidoDbContext>();
             agente = await maestros.Proveedores.Where(p => p.Clave == "DEMO-PROV-ACT").Select(p => p.Id).SingleAsync();
-            var a = e.RegistrarAnticipo(Guid.NewGuid(), agente, "P14-TEST", new(150000, 0, 0), new(2026, 10, 1), "P14");
-            a.Comprobar(new(142500, 0, 0), evidencia, evidencia, new(2026, 10, 2));
+            using var solicitud = new HttpRequestMessage(HttpMethod.Post, $"{ruta}/{id}/anticipos")
+            {
+                Content = JsonContent.Create(new { agenteId = agente, pedimento = "P14-TEST", impuestos = new { iva = 150000, igi = 0, prv = 0 }, fecha = "2026-10-01", soporteCalculoId = evidencia, importe = 150000 })
+            };
+            solicitud.Headers.TryAddWithoutValidation("If-Match", creado.Headers.ETag!.Tag);
+            solicitud.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString());
+            using var solicitado = await client.SendAsync(solicitud); solicitado.EnsureSuccessStatusCode();
+            await db.Entry(e).ReloadAsync();
+            db.Entry(e).Collection(x => x.Anticipos).IsLoaded = false;
+            await db.Entry(e).Collection(x => x.Anticipos).LoadAsync();
+            var a = Assert.Single(e.Anticipos);
+            var tesoreria = sp.GetRequiredService<Millet.Tesoreria.Infrastructure.Persistence.TesoreriaDbContext>();
+            var firmas = new Millet.Tesoreria.Domain.Pasivos.AutorizacionPagoComercioExterior(e.EmpresaId, a.Id,
+                Millet.Tesoreria.Domain.Pasivos.TipoOperacionComercioExterior.Importacion);
+            firmas.FirmarNivel1(Guid.NewGuid(), DateTimeOffset.UtcNow);
+            firmas.FirmarNivel2(Guid.NewGuid(), DateTimeOffset.UtcNow);
+            Assert.True(firmas.Autorizada);
+            tesoreria.AutorizacionesPagoComercioExterior.Add(firmas);
+            await tesoreria.SaveChangesAsync();
+            await sp.GetRequiredService<IMediator>().Send(new RecibirPagoAnticipoCeCommand(
+                new(e.EmpresaId, a.Id, Guid.NewGuid(), 150000, "P14 transferencia autorizada", Guid.Empty, Guid.Empty), false));
+            Assert.Equal(150000, a.PagadoMxn);
+            a.Comprobar(new(142500, 0, 0), evidencia, evidencia, new(2026, 10, 2), Guid.NewGuid());
             anticipoId = a.Id;
             await db.SaveChangesAsync();
         }

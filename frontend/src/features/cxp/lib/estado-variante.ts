@@ -55,6 +55,8 @@ export const ESTADO_NOTA_CREDITO = armar(EstadoNotaCreditoLabels, {
 });
 
 export const ESTADO_ANTICIPO = armar(EstadoAnticipoLabels, {
+  [EstadoAnticipo.Solicitado]: 'warning',
+  [EstadoAnticipo.PagadoComercioExterior]: 'success',
   [EstadoAnticipo.Abierto]: 'info',
   [EstadoAnticipo.Amortizado]: 'success',
   [EstadoAnticipo.Cancelado]: 'neutral',

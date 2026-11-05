@@ -2,6 +2,7 @@
 export const estadosExpediente = {
   1: { tono: 'info', texto: 'Abierto' },
   2: { tono: 'neutral', texto: 'Cancelado' },
+  3: { tono: 'success', texto: 'Cerrado' },
 } as const;
 export const estadosOtr = {
   1: { tono: 'warning', texto: 'Por vincular' },

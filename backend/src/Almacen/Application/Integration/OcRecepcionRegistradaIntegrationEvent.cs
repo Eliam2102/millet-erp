@@ -43,7 +43,7 @@ public sealed record OcRecepcionRegistradaIntegrationEvent(
     IReadOnlyList<LineaRecepcionPayload> Lineas,
     // G1.6: dimensiones contables opcionales, aditivas (sin bump de versión).
     Guid? AlmacenId = null,
-    Guid? SucursalId = null)
+    Guid? SucursalId = null, Guid RegistradoPorId = default)
     : IntegrationEvent("almacen.oc_recepcion.registrada.v1", EmpresaId, OcurridoEn);
 
 /// <summary>

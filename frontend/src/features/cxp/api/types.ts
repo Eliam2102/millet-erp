@@ -674,6 +674,8 @@ export interface VincularFacturaNotaCreditoResponse {
 // ─── Anticipos (FE-F4-PR1) ────────────────────────────────────────────
 
 export const EstadoAnticipo = {
+  Solicitado: 4,
+  PagadoComercioExterior: 5,
   Abierto: 1,
   Amortizado: 2,
   Cancelado: 3,
@@ -681,6 +683,8 @@ export const EstadoAnticipo = {
 export type EstadoAnticipo = (typeof EstadoAnticipo)[keyof typeof EstadoAnticipo];
 
 export const EstadoAnticipoLabels: Record<EstadoAnticipo, string> = {
+  [EstadoAnticipo.Solicitado]: 'Solicitado a Tesorería',
+  [EstadoAnticipo.PagadoComercioExterior]: 'Pagado (comprobación en CE)',
   [EstadoAnticipo.Abierto]: 'Abierto',
   [EstadoAnticipo.Amortizado]: 'Amortizado',
   [EstadoAnticipo.Cancelado]: 'Cancelado',
@@ -688,7 +692,7 @@ export const EstadoAnticipoLabels: Record<EstadoAnticipo, string> = {
 
 export interface AnticipoListItem {
   id: string;
-  origen?: 1 | 2;
+  origen?: 1 | 2 | 3;
   uuidCfdi: string | null;
   proveedorId: string;
   serie: string;

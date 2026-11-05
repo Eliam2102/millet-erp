@@ -8,4 +8,6 @@ public enum EstadoAnticipo
     Abierto    = 1,
     Amortizado = 2,
     Cancelado  = 3,
+    Solicitado = 4,
+    PagadoComercioExterior = 5,
 }

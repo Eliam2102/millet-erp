@@ -1,3 +1,4 @@
+import { Label } from '@/components/ui/label';
 import { errorUsuario } from '@/lib/error-usuario';
 import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
@@ -913,9 +914,9 @@ function LineasDesdeOc({
     ultimaOcCargada.current = ocId;
     form.setValue('filas', construirFilas(ocQuery.data.lineas, recibiblesQuery.data));
     form.setValue('importacion', ocQuery.data.esImportacion ? {
-      numeroPedimento: ocQuery.data.infoImportNumeroPedimento ?? '',
-      numeroBl: ocQuery.data.infoImportNumeroBl ?? '',
-      numeroContenedor: ocQuery.data.infoImportNumeroContenedor ?? '',
+      numeroPedimento: ocQuery.data.transporteCe?.numeroPedimento ?? ocQuery.data.infoImportNumeroPedimento ?? '',
+      numeroBl: ocQuery.data.transporteCe?.contenedores.length === 1 ? ocQuery.data.transporteCe.contenedores[0].blGuia ?? '' : ocQuery.data.infoImportNumeroBl ?? '',
+      numeroContenedor: ocQuery.data.transporteCe?.contenedores.length === 1 ? ocQuery.data.transporteCe.contenedores[0].numero : ocQuery.data.infoImportNumeroContenedor ?? '',
       aduana: '', clavePedimento: '',
     } : null);
   }, [ocId, ocQuery.data, recibiblesQuery.data, form]);
@@ -1545,12 +1546,31 @@ function defaultValuesParaVariante(
 }
 
 function DatosImportacionRecepcion({ form }: { form: import('react-hook-form').UseFormReturn<RecepcionFormValues> }) {
+  const ocId = useWatch({ control: form.control, name: 'ordenCompraId' });
+  const oc = useOrdenCompra(ocId || null);
+  const propuestas = oc.data?.transporteCe?.contenedores ?? [];
   const catalogo = useQuery({
     queryKey: ['almacen', 'catalogos-importacion'],
     queryFn: async () => (await apiRequest<{ demo: boolean; aduanas: Record<string, string>; clavesPedimento: Record<string, string> }>('/api/v1/almacen/recepciones/catalogos-importacion')).data,
   });
   return (
     <FormSeccion titulo="Datos de importación" descripcion="Pedimento, BL o guía aérea y contenedor son obligatorios para confirmar. Aduanas y claves de pedimento: lista parcial mientras se carga el catálogo SAT completo.">
+        {propuestas.length > 1 && (
+          <FormCampo span={6}>
+            <Label htmlFor="recepcion-contenedor-ce">Propuesta del expediente</Label>
+            <select id="recepcion-contenedor-ce" className="h-ctl-xl w-full rounded-md border border-line-control bg-surface-card px-3" defaultValue=""
+              onChange={(e) => {
+                const c = propuestas.find((c) => c.numero === e.target.value);
+                if (c) {
+                  form.setValue('importacion.numeroContenedor', c.numero, { shouldDirty: true });
+                  form.setValue('importacion.numeroBl', c.blGuia ?? '', { shouldDirty: true });
+                }
+              }}>
+              <option value="">Seleccione el contenedor recibido</option>
+              {propuestas.map((c) => <option key={c.numero} value={c.numero}>{c.numero}</option>)}
+            </select>
+          </FormCampo>
+        )}
         {([['numeroPedimento', 'Número de pedimento'], ['numeroBl', 'BL o guía aérea'], ['numeroContenedor', 'Número de contenedor']] as const).map(([campo, etiqueta]) => (
           <FormCampo key={campo} span={6}>
             <Field label={etiqueta} required error={form.formState.errors.importacion?.[campo]?.message}>

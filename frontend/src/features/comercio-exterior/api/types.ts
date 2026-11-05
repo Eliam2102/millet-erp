@@ -20,7 +20,7 @@ export interface ExpedienteFila {
   referencia: string;
   sucursalId: string;
   sucursalNombre: string;
-  estado: 1 | 2;
+  estado: 1 | 2 | 3;
   revisionPendiente: boolean;
   moneda: string;
   responsableNombre: string;
@@ -29,6 +29,7 @@ export interface ExpedienteFila {
   avisos: number;
 }
 export interface Requisito {
+  hitoClave?: string | null;
   id: string;
   codigo: string;
   nombre: string;
@@ -59,6 +60,25 @@ export interface Participante {
   clienteId: string | null;
 }
 export interface ExpedienteDetalle {
+  cierres?: {
+    dimension: string;
+    usuarioNombre?: string | null;
+    usuarioId: string | null;
+    fecha: string | null;
+    faltantes: string[];
+  }[];
+  cierreAprobadoPorId?: string | null;
+  cierreAprobadoEn?: string | null;
+  facturas?: {
+    id: string;
+    pedidoFacturableId: string;
+    versionEmbarque: number;
+    uuid: string;
+    folio: string;
+    fechaTimbrado: string | null;
+    cancelada: boolean;
+    uuidOriginal: string | null;
+  }[];
   expediente: ExpedienteFila;
   ocId: string | null;
   ocFolio: string | null;
@@ -153,6 +173,7 @@ export interface Filtros {
 }
 
 export interface Contenedor {
+  modalidad?: 1 | 2 | 3 | null;
   id: string;
   numero: string | null;
   sello: string | null;
@@ -179,6 +200,11 @@ export interface PedimentoExportacion {
   documentoId?: string | null;
 }
 export interface PartidaEmbarcada {
+  fraccionArancelaria?: string | null;
+  unidadAduana?: string | null;
+  aduanalesRevisadoPorId?: string | null;
+  pesoKg?: number | null;
+  bultos?: number | null;
   id: string;
   contenedorId: string;
   pedidoFacturableId: string;
@@ -211,6 +237,31 @@ export interface PedidoEmbarcable {
   facturaUuid: string | null;
 }
 export interface ContenedoresDetalle {
+  versionEmbarque?: number;
+  salidaAutorizada?: boolean;
+  autorizaciones?: {
+    versionEmbarque: number;
+    actorId: string;
+    fecha: string;
+    autorizada: boolean;
+    motivo: string | null;
+  }[];
+  partidasImportacion?: {
+    id: string;
+    contenedorId: string;
+    ocLineaId: string;
+    posicion: number;
+    cantidad: number;
+    unidad: string;
+  }[];
+  partidasOc?: {
+    id: string;
+    posicion: number;
+    descripcion: string;
+    cantidad: number;
+    unidad: string;
+    remanente: number;
+  }[];
   aduanas: Record<string, string>;
   version: number;
   pedimento: PedimentoExportacion | null;
@@ -277,6 +328,8 @@ export const tiposIncidencia = {
   7: 'Rotura en transporte',
   8: 'Documento incorrecto',
   9: 'Otra',
+  10: 'Mercancía sobrante',
+  11: 'Ajuste de cantidades',
 } as const;
 export const estadosIncidencia = {
   1: 'Abierta',
@@ -285,6 +338,13 @@ export const estadosIncidencia = {
   4: 'Cancelada',
 } as const;
 export interface Incidencia {
+  automatica?: boolean;
+  diferenciaCantidad?: number | null;
+  cantidadAnterior?: number | null;
+  cantidadNueva?: number | null;
+  ajusteAutorizadoPorId?: string | null;
+  fechaCompromiso?: string | null;
+  siguienteAccion?: string | null;
   id: string;
   tipo: keyof typeof tiposIncidencia;
   estado: keyof typeof estadosIncidencia;
@@ -310,6 +370,10 @@ export interface Incidencia {
     actorId: string;
     fecha: string;
     motivo: string | null;
+    fechaCompromisoAnterior?: string | null;
+    siguienteAccionAnterior?: string | null;
+    fechaCompromisoNueva?: string | null;
+    siguienteAccionNueva?: string | null;
   }[];
 }
 export interface IncidenciasReporte {

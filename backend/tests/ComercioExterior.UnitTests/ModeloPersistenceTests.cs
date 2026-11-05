@@ -15,6 +15,8 @@ public sealed class ModeloPersistenceTests
         using var db = new ComercioExteriorDbContext(new DbContextOptionsBuilder<ComercioExteriorDbContext>().UseNpgsql("Host=invalid;Database=ce_test").UseSnakeCaseNamingConvention().Options, new Empresa());
         foreach (var type in new[]
         {
+            typeof(Millet.ComercioExterior.Domain.ConfiguracionCe),
+            typeof(Millet.ComercioExterior.Domain.PartidaImportacion),
             typeof(Millet.ComercioExterior.Domain.Expediente),
             typeof(Millet.ComercioExterior.Domain.GastoExpediente),
             typeof(Millet.ComercioExterior.Domain.PartidaCosto),
@@ -43,7 +45,7 @@ public sealed class ModeloPersistenceTests
 
         var vinculo = db.Model.FindEntityType(typeof(Millet.ComercioExterior.Domain.VinculoPedidoExpediente))!;
         Assert.Contains(vinculo.GetIndexes(), i => i.IsUnique && i.GetDatabaseName() == "ux_ce_pedido_expediente_abierto" && i.GetFilter() == "activo");
-        Assert.Contains(db.Model.FindEntityType(typeof(Millet.ComercioExterior.Domain.Expediente))!.GetIndexes(), i => i.GetDatabaseName() == "ux_ce_oc_abierta" && i.IsUnique);
+        Assert.Contains(db.Model.FindEntityType(typeof(Millet.ComercioExterior.Domain.Expediente))!.GetIndexes(), i => i.GetDatabaseName() == "ix_ce_oc" && !i.IsUnique);
     }
 
     [Fact]
@@ -65,6 +67,19 @@ public sealed class ModeloPersistenceTests
         var sql = Millet.Compras.Infrastructure.PublicAdapters.OcImportacionReadAdapter.CrearConsulta(db, [Guid.NewGuid()], q).ToQueryString();
         Assert.Contains("ILIKE", sql, StringComparison.Ordinal);
         Assert.Contains("LIMIT", sql, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Migracion_consolidada_usa_json_valido_y_snapshot_actual()
+    {
+        var migracion = new Millet.ComercioExterior.Infrastructure.Persistence.Migrations.P18P19ComercioExterior();
+        foreach (var columna in migracion.UpOperations.OfType<Microsoft.EntityFrameworkCore.Migrations.Operations.AddColumnOperation>().Where(c => c.ColumnType == "jsonb" && c.DefaultValue is string))
+        {
+            using var json = System.Text.Json.JsonDocument.Parse((string)columna.DefaultValue!);
+            Assert.Equal(System.Text.Json.JsonValueKind.Array, json.RootElement.ValueKind);
+        }
+        using var db = new ComercioExteriorDbContext(new DbContextOptionsBuilder<ComercioExteriorDbContext>().UseNpgsql("Host=invalid;Database=ce_test").UseSnakeCaseNamingConvention().Options, new Empresa());
+        Assert.False(db.Database.HasPendingModelChanges());
     }
 
     private sealed class Empresa : ICurrentEmpresaContext

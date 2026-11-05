@@ -15,6 +15,8 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'datos_maestros.clientes.cargar', 'datos_maestros.articulos.cargar', 'datos_maestros.proveedores.cargar',
   'datos_maestros.productos-aw-fiscal.cargar', 'centros_costo.catalogo.cargar',
   'datos_maestros.proveedores.bloquear', 'cuentas_por_pagar.bloqueos.liberar-en-lugar',
+  'comercio_exterior.embarques.autorizar_salida',
+  'comercio_exterior.expedientes.aprobar_cierre',
   'activos_fijos.clases.autorizar',
   'activos_fijos.reversas.solicitar',
   'activos_fijos.reversas.autorizar',

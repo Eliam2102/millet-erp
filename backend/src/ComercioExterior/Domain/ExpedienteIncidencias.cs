@@ -24,11 +24,38 @@ public sealed partial class Expediente
             (datos.DocumentosIds ?? []).Any(d => !_documentos.Any(x => x.Id == d)) ||
             datos.HitoClave is not null && !_hitos.Any(x => x.Clave == datos.HitoClave) ||
             datos.ContenedorId is Guid c && !_contenedores.Any(x => x.Id == c) ||
-            datos.PartidaId is Guid partida && !_partidas.Any(x => x.Id == partida && (datos.ContenedorId == null || x.ContenedorId == datos.ContenedorId)))
+            datos.PartidaId is Guid partida && !_partidas.Any(x => x.Id == partida && (datos.ContenedorId == null || x.ContenedorId == datos.ContenedorId)) && !_partidasImportacion.Any(x => x.Id == partida && (datos.ContenedorId == null || x.ContenedorId == datos.ContenedorId)))
             throw new BusinessRuleException("CE_INCIDENCIA_REFERENCIA_INVALIDA", "Seleccione participantes, documentos, hito, contenedor y partida del mismo expediente.");
         ExigirEvidencias(datos.EvidenciasIds ?? [], adjuntosVigentes);
         var i = new IncidenciaExpediente(id, this, datos, actor, ahora);
         _incidencias.Add(i); _avisosIncidencias.Add(new(i, ResponsableUsuarioId, ahora)); RevisionContenido++;
+    }
+    public int GenerarAvisosIncidencias(DateOnly hoy, DateTimeOffset ahora)
+    {
+        if (Estado != EstadoExpediente.Abierto) return 0;
+        var pendientes = _incidencias.Where(i => i.Pendiente && i.FechaCompromiso < hoy && !_avisosIncidencias.Any(a => a.IncidenciaId == i.Id && a.EsVencimiento)).ToArray();
+        foreach (var i in pendientes) _avisosIncidencias.Add(new(i, i.ResponsableUsuarioId, ahora, true));
+        return pendientes.Length;
+    }
+    public void AutorizarAjuste(Guid id, Guid actor, DateTimeOffset fecha, bool facturada, decimal cantidadPedida)
+    {
+        ExigirAbierto();
+        var i = _incidencias.SingleOrDefault(i => i.Id == id && i.Tipo == TipoIncidencia.AjusteCantidades) ?? throw new EntityNotFoundException("CE_INCIDENCIA_NO_ENCONTRADA", "Seleccione una incidencia de ajuste de cantidades.");
+        i.ExigirPendiente();
+        if (actor == Guid.Empty || actor == i.CreadoPorId) throw new BusinessRuleException("CE_AJUSTE_SEPARACION_FUNCIONES", "El ajuste debe autorizarlo una persona distinta de quien lo solicitó.");
+        if (facturada) throw new BusinessRuleException("CE_AJUSTE_PARTIDA_FACTURADA", "La partida ya está facturada. Corrija la diferencia mediante una nota de crédito en Facturación.");
+        var p = _partidas.SingleOrDefault(p => p.Id == i.PartidaId);
+        var imp = _partidasImportacion.SingleOrDefault(p => p.Id == i.PartidaId);
+        var actual = p?.Cantidad ?? imp?.Cantidad;
+        if (actual != i.CantidadAnterior || i.CantidadNueva is not decimal nueva)
+            throw new BusinessRuleException("CE_AJUSTE_OBSOLETO", "La cantidad de la partida cambió. Registre una nueva solicitud de ajuste.");
+        var acumulado = p is not null ? _partidas.Where(x => x.PedidoFacturableId == p.PedidoFacturableId && x.Posicion == p.Posicion && x.Estado != EstadoPartida.Liberada && Contenedor(x.ContenedorId).Estado == EstadoContenedor.Activo).Sum(x => x.Cantidad)
+            : _partidasImportacion.Where(x => x.OcLineaId == imp!.OcLineaId && Contenedor(x.ContenedorId).Estado == EstadoContenedor.Activo).Sum(x => x.Cantidad);
+        if (acumulado - actual + nueva > cantidadPedida) throw new BusinessRuleException("CE_CANTIDAD_EXCEDE_PEDIDO", "El ajuste excede la cantidad pedida de la partida.");
+        if (p is not null) p.AjustarCantidad(nueva); else imp!.AjustarCantidad(nueva);
+        i.AutorizarAjuste(actor, fecha);
+        if (imp?.CantidadRecibida is not null) RecalcularIncidenciaRecepcion(imp, imp.FechaRecepcion!.Value, imp.CompromisoRecepcion!.Value, actor, fecha);
+        VersionarEmbarque(actor); RevisionContenido++;
     }
     private static void ExigirEvidencias(IEnumerable<Guid> ids, IReadOnlyCollection<Guid> vigentes)
     {
@@ -41,6 +68,8 @@ public sealed partial class Expediente
         ExigirAbierto();
         var i = _incidencias.SingleOrDefault(x => x.Id == id) ?? throw new EntityNotFoundException("CE_INCIDENCIA_NO_ENCONTRADA", "No existe la incidencia en el expediente.");
         i.ExigirPendiente();
+        if (i.Tipo == TipoIncidencia.AjusteCantidades && estado == EstadoIncidencia.Resuelta)
+            throw new BusinessRuleException("CE_AJUSTE_REQUIERE_AUTORIZACION", "Use Autorizar ajuste para resolver y aplicar el cambio de cantidad.");
         var evidencias = i.EvidenciasIds.Concat(nuevasEvidencias).Distinct().ToArray();
         // Las referencias históricas se conservan aunque un archivo venza; los nuevos deben estar vigentes.
         ExigirEvidencias(nuevasEvidencias, vigentes);

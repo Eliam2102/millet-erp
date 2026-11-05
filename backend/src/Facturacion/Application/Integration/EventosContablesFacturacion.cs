@@ -31,7 +31,7 @@ public static class EventosContablesFacturacion
         IReadOnlyDictionary<Guid, string?>? tiposProducto = null,
         PedidoFacturable? pedido = null) =>
         new(
-            f.EmpresaId, ocurridoEn, f.Id, f.Uuid!, f.Total, f.Moneda, f.PedidoFacturableId,
+            f.EmpresaId, ocurridoEn, f.Id, f.Uuid!, f.Total, f.Moneda, f.PedidoFacturableId ?? f.DatosEmbarqueCe?.PedidoFacturableId,
             f.ReceptorRfc, f.ReceptorNombre, f.Folio, f.MetodoPago, f.FechaTimbrado,
             Subtotal: f.Subtotal,
             Descuento: f.Descuento,
@@ -52,7 +52,9 @@ public static class EventosContablesFacturacion
                     l.ImpuestoTrasladadoImporte))
                 .ToList(),
             NumeroPedidoAw: pedido is { Origen: OrigenPedido.Aw } ? pedido.NumeroPedido : null,
-            VersionPedidoAw: pedido is { Origen: OrigenPedido.Aw } ? pedido.VersionOrigen : null);
+            VersionPedidoAw: pedido is { Origen: OrigenPedido.Aw } ? pedido.VersionOrigen : null,
+            ExpedienteCeId: f.DatosEmbarqueCe?.ExpedienteId, VersionEmbarqueCe: f.DatosEmbarqueCe?.VersionEmbarque,
+            UuidOriginal: f.Relaciones.FirstOrDefault(r => r.TipoRelacion == "04")?.UuidRelacionado);
 
     public static ComprobanteCanceladoIntegrationEvent ComprobanteCancelado(
         Comprobante c, DateTimeOffset ocurridoEn, PedidoFacturable? pedido = null)
@@ -60,7 +62,9 @@ public static class EventosContablesFacturacion
         var aw = c is FacturaVenta && pedido is { Origen: OrigenPedido.Aw };
         return new(c.EmpresaId, ocurridoEn, c.Id, c.Tipo.ToString(), c.Uuid ?? string.Empty,
             NumeroPedidoAw: aw ? pedido!.NumeroPedido : null, VersionPedidoAw: aw ? pedido!.VersionOrigen : null,
-            Folio: c.Folio, Total: c.Total);
+            Folio: c.Folio, Total: c.Total, ExpedienteCeId: (c as FacturaVenta)?.DatosEmbarqueCe?.ExpedienteId,
+            VersionEmbarqueCe: (c as FacturaVenta)?.DatosEmbarqueCe?.VersionEmbarque, PedidoFacturableId: (c as FacturaVenta)?.PedidoFacturableId ?? (c as FacturaVenta)?.DatosEmbarqueCe?.PedidoFacturableId,
+            FechaTimbrado: c.FechaTimbrado, UuidOriginal: c.Relaciones.FirstOrDefault(r => r.TipoRelacion == "04")?.UuidRelacionado);
     }
 
     public static FacturaAnticipoTimbradaIntegrationEvent FacturaAnticipoTimbrada(

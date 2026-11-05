@@ -13,7 +13,7 @@ public sealed class IncidenciasHttpTests
         await using var e = await ExpedientesHttpTests.Escenario.CrearAsync(); using var c = await e.ClienteAsync(true);
         var creado = await c.PostAsJsonAsync(Base, e.Importacion()); creado.EnsureSuccessStatusCode();
         var id = (await Json(creado)).GetProperty("expediente").GetProperty("id").GetGuid(); var etag = creado.Headers.ETag!.Tag;
-        var datos = new DatosIncidencia(TipoIncidencia.MercanciaDanada, new DateOnly(2026, 10, 15), e.Responsable, "FIX-CE mercancía dañada", HitoClave: "entregado");
+        var datos = new DatosIncidencia(TipoIncidencia.MercanciaDanada, new DateOnly(2026, 10, 15), e.Responsable, "FIX-CE mercancía dañada", HitoClave: "entregado", FechaCompromiso: new(2026, 10, 16), SiguienteAccion: "Revisar descarga");
         using var ninguno = await e.ClienteAsync(false); using var ajeno = await e.ClienteAsync(true, asociar: false);
         foreach (var client in new[] { ninguno, ajeno })
         {
@@ -29,8 +29,8 @@ public sealed class IncidenciasHttpTests
         Assert.Single(dto.GetProperty("avisosIncidencias").EnumerateArray());
         foreach (var client in new[] { ninguno, ajeno })
             Assert.Equal(HttpStatusCode.Forbidden, (await Send(client, $"{Base}/{id}/incidencias/{incidencia}/estado", new { estado = 2 }, etag)).StatusCode);
-        var cerrado = await Send(c, $"{Base}/{id}/cerrar", null, etag);
-        Assert.Equal("CE_INCIDENCIAS_PENDIENTES", (await Json(cerrado)).GetProperty("code").GetString());
+        var cerrado = await Send(c, $"{Base}/{id}/cerrar-financiero", null, etag);
+        Assert.Equal("CE_CIERRE_PENDIENTE", (await Json(cerrado)).GetProperty("code").GetString());
         foreach (var body in new object[] { new { estado = 3 }, new { estado = 3, accionTomada = "Se repuso la pieza" } })
             Assert.Equal(HttpStatusCode.UnprocessableEntity, (await Send(c, $"{Base}/{id}/incidencias/{incidencia}/estado", body, etag)).StatusCode);
         var atencion = await Send(c, $"{Base}/{id}/incidencias/{incidencia}/estado", new { estado = 2, accionTomada = "Revisando descarga" }, etag); atencion.EnsureSuccessStatusCode();
@@ -38,7 +38,7 @@ public sealed class IncidenciasHttpTests
         var cancelada = await Send(c, $"{Base}/{id}/incidencias/{incidencia}/estado", new { estado = 4, motivo = "Capturada por error" }, atencion.Headers.ETag!.Tag); cancelada.EnsureSuccessStatusCode();
         Assert.Equal(3, (await Json(cancelada)).GetProperty("incidencias")[0].GetProperty("historial").GetArrayLength());
         // Sin incidencias pendientes ni gastos o anticipos abiertos, el cierre financiero procede (CE-06).
-        (await Send(c, $"{Base}/{id}/cerrar", null, cancelada.Headers.ETag!.Tag)).EnsureSuccessStatusCode();
+        (await Send(c, $"{Base}/{id}/cerrar-financiero", null, cancelada.Headers.ETag!.Tag)).EnsureSuccessStatusCode();
         var reporte = await c.GetAsync($"/api/v1/comercio-exterior/incidencias?expedienteId={id}&soloAbiertas=true"); reporte.EnsureSuccessStatusCode();
         Assert.Empty((await Json(reporte)).GetProperty("filas").EnumerateArray());
         Assert.Equal(HttpStatusCode.Forbidden, (await ajeno.GetAsync($"/api/v1/comercio-exterior/incidencias?expedienteId={id}")).StatusCode);
@@ -51,7 +51,7 @@ public sealed class IncidenciasHttpTests
         var id = (await Json(creado)).GetProperty("expediente").GetProperty("id").GetGuid(); var etag = creado.Headers.ETag!.Tag;
         var tipo = await e.TipoAsync("IMP_PEDIMENTO"); var a = await e.AdjuntoAsync(id, tipo); var b = await e.AdjuntoAsync(id, tipo);
         var original = await Send(c, $"{Base}/{id}/documentos", new { tipoDocumentoId = tipo, adjuntoId = a, numeroPedimento = "FIX-ORIGINAL", noAplica = false }, etag); original.EnsureSuccessStatusCode();
-        var alta = await Send(c, $"{Base}/{id}/incidencias", new DatosIncidencia(TipoIncidencia.RectificacionPedimento, new DateOnly(2026, 10, 15), e.Responsable, "FIX-CE rectificar pedimento", EvidenciasIds: [b]), original.Headers.ETag!.Tag); alta.EnsureSuccessStatusCode();
+        var alta = await Send(c, $"{Base}/{id}/incidencias", new DatosIncidencia(TipoIncidencia.RectificacionPedimento, new DateOnly(2026, 10, 15), e.Responsable, "FIX-CE rectificar pedimento", EvidenciasIds: [b], FechaCompromiso: new(2026, 10, 16), SiguienteAccion: "Revisar pedimento"), original.Headers.ETag!.Tag); alta.EnsureSuccessStatusCode();
         var incidencia = (await Json(alta)).GetProperty("incidencias")[0].GetProperty("id").GetGuid();
         var atencion = await Send(c, $"{Base}/{id}/incidencias/{incidencia}/estado", new { estado = 2 }, alta.Headers.ETag!.Tag); atencion.EnsureSuccessStatusCode();
         var resuelta = await Send(c, $"{Base}/{id}/incidencias/{incidencia}/estado", new { estado = 3, accionTomada = "Se rectificó clasificación", nuevoPedimento = "FIX-RECTIFICADO", adjuntoPedimentoId = b }, atencion.Headers.ETag!.Tag); resuelta.EnsureSuccessStatusCode();

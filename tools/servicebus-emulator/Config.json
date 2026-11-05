@@ -188,7 +188,30 @@
                     "Properties": {
                       "FilterType": "Sql",
                       "SqlFilter": {
-                        "SqlExpression": "user.EventType IN ('almacen.oc_recepcion.registrada.v1', 'almacen.recepcion_oc.cancelada.v1', 'almacen.ajuste_inventario.aplicado.v1', 'almacen.salida_requisicion.registrada.v1', 'almacen.salida_inventario.registrada.v1', 'almacen.devolucion_interna.aplicada.v1', 'almacen.oc_devolucion.registrada.v1')"
+                        "SqlExpression": "user.EventType IN ('almacen.oc_recepcion.registrada.v1', 'almacen.recepcion_oc.cancelada.v1', 'almacen.ajuste_inventario.aplicado.v1', 'almacen.salida_requisicion.registrada.v1', 'almacen.salida_inventario.registrada.v1', 'almacen.expediente.costo-aplicado.v1', 'almacen.devolucion_interna.aplicada.v1', 'almacen.oc_devolucion.registrada.v1')"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "Name": "comercio-exterior-almacen-sub",
+                "Properties": {
+                  "DeadLetteringOnMessageExpiration": false,
+                  "DefaultMessageTimeToLive": "PT1H",
+                  "LockDuration": "PT1M",
+                  "MaxDeliveryCount": 10,
+                  "ForwardDeadLetteredMessagesTo": "",
+                  "ForwardTo": "",
+                  "RequiresSession": false
+                },
+                "Rules": [
+                  {
+                    "Name": "EventTypeFilter",
+                    "Properties": {
+                      "FilterType": "Sql",
+                      "SqlFilter": {
+                        "SqlExpression": "user.EventType IN ('almacen.oc_recepcion.registrada.v1')"
                       }
                     }
                   }
@@ -433,6 +456,19 @@
                     }
                   }
                 ]
+              },
+              {
+                "Name": "comercio-exterior-facturacion-sub",
+                "Properties": {
+                  "DeadLetteringOnMessageExpiration": false,
+                  "DefaultMessageTimeToLive": "PT1H",
+                  "LockDuration": "PT1M",
+                  "MaxDeliveryCount": 10,
+                  "ForwardDeadLetteredMessagesTo": "",
+                  "ForwardTo": "",
+                  "RequiresSession": false
+                },
+                "Rules": []
               }
             ]
           },
@@ -563,7 +599,30 @@
                     "Properties": {
                       "FilterType": "Sql",
                       "SqlFilter": {
-                        "SqlExpression": "user.EventType IN ('tesoreria.pago-factura-proveedor.aplicado.v1', 'tesoreria.pago-factura-proveedor.revertido.v1', 'tesoreria.pago-cliente.confirmado.v1')"
+                        "SqlExpression": "user.EventType IN ('tesoreria.pago-factura-proveedor.aplicado.v1', 'tesoreria.pago-factura-proveedor.revertido.v1', 'tesoreria.pago-cliente.confirmado.v1', 'tesoreria.anticipo-agente.devolucion-confirmada.v1')"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "Name": "comercio-exterior-tesoreria-sub",
+                "Properties": {
+                  "DeadLetteringOnMessageExpiration": false,
+                  "DefaultMessageTimeToLive": "PT1H",
+                  "LockDuration": "PT1M",
+                  "MaxDeliveryCount": 10,
+                  "ForwardDeadLetteredMessagesTo": "",
+                  "ForwardTo": "",
+                  "RequiresSession": false
+                },
+                "Rules": [
+                  {
+                    "Name": "EventTypeFilter",
+                    "Properties": {
+                      "FilterType": "Sql",
+                      "SqlFilter": {
+                        "SqlExpression": "user.EventType IN ('tesoreria.pago-factura-proveedor.aplicado.v1', 'tesoreria.anticipo-agente.devolucion-confirmada.v1')"
                       }
                     }
                   }
@@ -591,6 +650,29 @@
                   "RequiresSession": false
                 },
                 "Rules": []
+              },
+              {
+                "Name": "tesoreria-comercio-exterior-sub",
+                "Properties": {
+                  "DeadLetteringOnMessageExpiration": false,
+                  "DefaultMessageTimeToLive": "PT1H",
+                  "LockDuration": "PT1M",
+                  "MaxDeliveryCount": 10,
+                  "ForwardDeadLetteredMessagesTo": "",
+                  "ForwardTo": "",
+                  "RequiresSession": false
+                },
+                "Rules": [
+                  {
+                    "Name": "EventTypeFilter",
+                    "Properties": {
+                      "FilterType": "Sql",
+                      "SqlFilter": {
+                        "SqlExpression": "user.EventType IN ('comercio_exterior.anticipo-agente.devolucion-aprobada.v1')"
+                      }
+                    }
+                  }
+                ]
               }
             ]
           }
