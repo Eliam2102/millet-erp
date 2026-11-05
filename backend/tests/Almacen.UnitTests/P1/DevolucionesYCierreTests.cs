@@ -133,10 +133,13 @@ public sealed class DevolucionesYCierreTests
         if (cerrado) await Cerrar(f);
         Task Ejecutar() => reincorporar
             ? new ReincorporacionTrasRevisionHandler(f.Db, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), new P1Fixture.ArticulosConUnidad()).Handle(new(f.SubId, P1Fixture.Fecha, "Revisión", [new(f.ArticuloId, 1, f.BinId)]), default)
-            : new BajaPorDanoHandler(f.Db, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), new P1Fixture.ArticulosConUnidad()).Handle(new(f.SubId, P1Fixture.Fecha, "Daño", [new(f.ArticuloId, 1, f.BinId)]), default);
+            : new BajaPorDanoHandler(f.Db, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), new P1Fixture.ArticulosConUnidad(), f.Events).Handle(new(f.SubId, P1Fixture.Fecha, "Daño", [new(f.ArticuloId, 1, f.BinId)]), default);
         if (cerrado) await Error(Ejecutar, "PERIODO_CERRADO"); else await Ejecutar();
         // Reincorporar crea el par LIB (sale de MAT-REV) + REI (entra al destino); baja es un solo movimiento.
         (await f.Db.Movimientos.CountAsync()).Should().Be(cerrado ? 0 : reincorporar ? 2 : 1);
+        // G-1 criterio 3: solo la baja por daño aplicada avisa; reincorporar es traslado y un periodo cerrado no deja evento.
+        f.Events.Items.OfType<Millet.Almacen.Application.Integration.SalidaInventarioRegistradaIntegrationEvent>()
+            .Select(e => e.Causa).Should().HaveCount(!cerrado && !reincorporar ? 1 : 0);
     }
     [Fact]
     public async Task Salida_proveedor_en_periodo_cerrado_no_genera_movimiento_ni_evento()
