@@ -195,6 +195,14 @@ const moduloCompras: NavModulo = {
           icon: BarChart3,
           permission: PermisosCanonicos.ComprasOrdenesReportesAnalisisProveedores,
         },
+        {
+          label: 'Envíos a Almacenes',
+          description:
+            'Mensajes de compras de materia prima hacia Almacenes (A+W): hojas, lote y rack que recibe, respuesta y reintento.',
+          to: '/compras/integraciones/alm-compra',
+          icon: Inbox,
+          permission: PermisosCanonicos.ComprasOrdenesLeer,
+        },
       ],
     },
     {
