@@ -28,6 +28,7 @@ vi.mock('../api/hooks', () => ({
   useHojaSalida: state.detalle,
   useAccionHojaSalida: () => ({ mutateAsync: state.accion, isPending: false }),
   useCrearHojaSalida: () => ({ mutateAsync: state.crear, isPending: false }),
+  useCargaHoja: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 const hoja = (estado: string) => ({

@@ -19,6 +19,7 @@ import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { useAccionHojaSalida, useCrearHojaSalida, useHojaSalida, useHojasSalida } from '../api/hooks';
 import type { EstadoHojaSalida } from '../api/types';
+import { CargaHojaPanel } from './CargaHojaPanel';
 
 // Texto además del color: el estado no depende solo de la vista.
 const estadoUi: Record<EstadoHojaSalida, { texto: string; tono: 'info' | 'success' | 'neutral' }> = {
@@ -59,7 +60,7 @@ export function HojasSalidaPage() {
 
   const cargados = pedidos
     .map((p) => ({ numeroPedido: p.numero.trim(), etiquetas: p.etiquetas.split('\n').map((l) => l.trim()).filter(Boolean) }))
-    .filter((p) => p.numeroPedido && p.etiquetas.length > 0);
+    .filter((p) => p.numeroPedido);
   const datosCartaPorte = !foranea || (!!vehiculo && !!operador && Number(distancia) > 0 && Number(peso) > 0 && /^\d{5}$/.test(cpOrigen) && /^[A-Za-z]{3}$/.test(estadoOrigen) && /^\d{5}$/.test(cp) && /^[A-Za-z]{3}$/.test(estadoDestino));
   const puedeCrear = !!sucursal && destino.trim() !== '' && cargados.length > 0 && datosCartaPorte && !crear.isPending;
   const falla = (e: unknown) => setError(mensajeErrorAccion(e));
@@ -104,7 +105,7 @@ export function HojasSalidaPage() {
         <Breadcrumbs items={[{ label: 'Producto Terminado' }, { label: 'Hojas de salida' }]} />
         <PageHeader
           titulo="Hojas de salida y albaranes"
-          descripcion="Lo que el chofer lleva en la ruta: un albarán por pedido, en el orden de entrega. Al emitir se descuentan las piezas una sola vez, se registra la salida para facturar solo lo embarcado y los pedidos pasan a 71."
+          descripcion="Lo que el chofer lleva en la ruta: un albarán por pedido, en el orden de entrega. Se arma la ruta y se carga pieza por pieza (también desde el celular). Al emitir se descuentan las piezas una sola vez, se registra la salida para facturar solo lo embarcado y los pedidos pasan a 71."
         />
         {error && (
           <AvisoEnLinea tono="error" titulo="No se pudo completar la acción">
@@ -112,6 +113,9 @@ export function HojasSalidaPage() {
           </AvisoEnLinea>
         )}
         {aviso && <p role="status" className="rounded-md bg-success-bg p-3 text-success-fg">{aviso}</p>}
+        {operar && abierto && detalle.data?.estado === 'Borrador' && (
+          <CargaHojaPanel hoja={detalle.data} sucursal={nombre(detalle.data.sucursalId)} emitiendo={accion.isPending} onEmitir={() => ejecutar(detalle.data!.id, 'emitir', 'Borrador')} />
+        )}
         {operar && (
           <section aria-label="Nueva hoja de salida" className="flex flex-col gap-3 rounded-lg bg-surface-card p-4 shadow-card-flat">
             <div className="flex flex-wrap items-center gap-3">
@@ -157,7 +161,7 @@ export function HojasSalidaPage() {
                 <div key={i} className="flex flex-wrap items-start gap-3">
                   <span className="mt-2 w-24 text-ink-muted">Entrega {i + 1}</span>
                   <Input className="w-40" aria-label={`Pedido de la entrega ${i + 1}`} placeholder="Número de pedido" value={p.numero} onChange={(e) => cambiar(i, { numero: e.target.value })} />
-                  <Textarea className="min-h-16 w-96" aria-label={`Etiquetas cargadas del pedido ${i + 1}`} placeholder="Una etiqueta cargada por renglón" value={p.etiquetas} onChange={(e) => cambiar(i, { etiquetas: e.target.value })} />
+                  <Textarea className="min-h-16 w-96" aria-label={`Etiquetas cargadas del pedido ${i + 1}`} placeholder="Etiquetas ya cargadas, una por renglón (opcional: también se cargan una por una)" value={p.etiquetas} onChange={(e) => cambiar(i, { etiquetas: e.target.value })} />
                 </div>
               ))}
               <div>
@@ -201,7 +205,7 @@ export function HojasSalidaPage() {
                   <TableCell>{h.cartaPorteFolio ?? (h.foranea ? 'Al emitir' : 'No aplica')}</TableCell>
                   <TableCell className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={() => setAbierto(abierto === h.id ? null : h.id)}>
-                      {abierto === h.id ? 'Ocultar' : 'Ver albaranes'}
+                      {abierto === h.id ? 'Ocultar' : h.estado === 'Borrador' && operar ? 'Cargar' : 'Ver albaranes'}
                     </Button>
                     {operar && h.estado === 'Borrador' && (
                       <>
@@ -219,7 +223,7 @@ export function HojasSalidaPage() {
           </Table>
         )}
       </div>
-      {abierto && detalle.data && (
+      {abierto && detalle.data && !(operar && detalle.data.estado === 'Borrador') && (
         <section aria-label="Hoja de salida" className="flex flex-col gap-3 rounded-lg bg-surface-card p-4 shadow-card-flat print:shadow-none">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -259,6 +263,7 @@ export function HojasSalidaPage() {
                       ))}
                     </ul>
                     <span className="text-ink-muted">{a.etiquetas.join(', ')}</span>
+                    {(a.rotas?.length ?? 0) > 0 && <p className="text-warning-fg">Pendiente de reposición (rota al cargar): {a.rotas!.join(', ')}</p>}
                   </TableCell>
                 </TableRow>
               ))}
