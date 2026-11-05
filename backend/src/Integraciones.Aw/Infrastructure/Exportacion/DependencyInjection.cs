@@ -1,4 +1,6 @@
 using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
+using Millet.ComercioExterior.Infrastructure.Persistence;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Millet.ComercioExterior.Application.Ports;
@@ -17,9 +19,10 @@ public static class OtrDependencyInjection
         var options = config.GetSection(OtrOptions.SectionName).Get<OtrOptions>() ?? new();
         void Registrar(string key, bool pg)
         {
-            services.AddKeyedScoped<OtrTablasAdapter>(key, (_, _) => new(() => pg
+            services.AddKeyedScoped<OtrTablasAdapter>(key, (sp, _) => new(() => pg
                 ? new AwOrigenPg.Fabrica(config).CreateConnection()
-                : new SqlConnection(AwSqlTls.Validar(config.GetConnectionString("AwIntegracionDb")!, "AwIntegracionDb")), pg));
+                : new SqlConnection(AwSqlTls.Validar(config.GetConnectionString("AwIntegracionDb")!, "AwIntegracionDb")), pg,
+                pg ? null : ct => YaLeidoAsync(sp.GetRequiredService<ComercioExteriorDbContext>(), options.EmpresaId, ct)));
             if (key == "Demo" || options.EntradaHabilitada)
                 services.AddKeyedScoped<IOtrEntradaReader>(key, (sp, _) => sp.GetRequiredKeyedService<OtrTablasAdapter>(key));
         }
@@ -29,6 +32,14 @@ public static class OtrDependencyInjection
         services.AddScoped<IOtrEntradaReader>(sp => sp.GetRequiredService<OtrOrigenSelector>());
         services.AddHostedService<OtrEntradaWorker>();
         return services;
+    }
+    /// <summary>Control del ERP: un envío ya está leído si su versión ya se aplicó o quedó rechazada; los errores técnicos se reintentan.</summary>
+    public static async Task<Func<string, long, bool>> YaLeidoAsync(ComercioExteriorDbContext db, Guid? empresa, CancellationToken ct)
+    {
+        var aplicadas = await db.OtrEnvios.AsNoTracking().Where(x => x.EmpresaId == empresa).ToDictionaryAsync(x => x.IdOrigen, x => x.VersionAplicada, ct);
+        var rechazadas = (await db.OtrEntradasControl.AsNoTracking().Where(x => x.EmpresaId == empresa && x.Rechazada).Select(x => new { x.IdOrigen, x.VersionOrigen }).ToListAsync(ct))
+            .Select(x => (x.IdOrigen, x.VersionOrigen)).ToHashSet();
+        return (id, version) => (aplicadas.TryGetValue(id, out var v) && version <= v) || rechazadas.Contains((id, version));
     }
 }
 public sealed class OtrOrigenSelector(IServiceProvider services, AwOrigenSesion sesion) : IOtrEntradaReader
