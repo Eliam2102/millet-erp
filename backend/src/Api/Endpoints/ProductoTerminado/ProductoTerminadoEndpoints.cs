@@ -8,6 +8,7 @@ using Millet.ProductoTerminado.Application.Consultas;
 using Millet.Integraciones.Aw.Infrastructure.Origen;
 using Millet.ProductoTerminado.Application.Escaneos;
 using Millet.ProductoTerminado.Application.Liberacion;
+using Millet.ProductoTerminado.Application.Entregas;
 using Millet.ProductoTerminado.Application.Salidas;
 using Millet.ProductoTerminado.Application.Traspasos;
 
@@ -104,6 +105,15 @@ public static class ProductoTerminadoEndpoints
             Results.Ok(await mediator.Send(new MarcarPiezaRotaHojaCommand(id, body.Etiqueta), ct)))
             .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar)
             .WithMetadata(new RequireIdempotencyKeyAttribute());
+
+        // Entrega con firma y evidencia, parcial y rechazo en sitio (PT5.6): una confirmación por albarán de una hoja emitida.
+        hojas.MapPost("/{id:guid}/albaranes/{albaranId:guid}/entrega", async (Guid id, Guid albaranId, EntregaBody body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ConfirmarEntregaCommand(id, albaranId, body.Receptor, body.Rechazadas, body.MotivoRechazo, body.Firma, body.Foto, body.Cobro), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar)
+            .WithMetadata(new RequireIdempotencyKeyAttribute());
+        hojas.MapGet("/{id:guid}/albaranes/{albaranId:guid}/entrega/evidencia", async (Guid id, Guid albaranId, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ObtenerEvidenciaEntregaQuery(id, albaranId), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoPiezasVer);
 
         // Solo Demo (PT5.2): el saldo de prueba simula el cobro de caja. Nunca se mapea en Production; además exige el origen Demo de A+W.
         // PLATFORM-TODO(<SaldoPorPedidoFacturacion>): se retira cuando Facturación (Uziel) publique el saldo por pedido.
