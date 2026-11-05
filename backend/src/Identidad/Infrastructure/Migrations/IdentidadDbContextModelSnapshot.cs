@@ -3351,6 +3351,48 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000008-1a01-0000-0000-000000000001"),
+                            Accion = "revisar-acta",
+                            Codigo = "almacen.cierre.revisar-acta",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Marcar como revisada el acta del cierre mensual de Almacén (Director de Administración)",
+                            Modulo = "almacen",
+                            Recurso = "cierre",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000008-1a01-0000-0000-000000000002"),
+                            Accion = "vale-vencido",
+                            Codigo = "almacen.avisos.vale-vencido",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Recibir el aviso de vale urgente vencido sin regularizar de su sucursal (Jefe de almacén)",
+                            Modulo = "almacen",
+                            Recurso = "avisos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000008-1a01-0000-0000-000000000003"),
+                            Accion = "ajuste-mayor",
+                            Codigo = "almacen.avisos.ajuste-mayor",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Recibir el aviso de ajuste de inventario mayor (nivel 3) aprobado (Finanzas)",
+                            Modulo = "almacen",
+                            Recurso = "avisos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000008-0006-0000-0000-000000000001"),
                             Accion = "leer",
                             Codigo = "almacen.inventarios.leer",
