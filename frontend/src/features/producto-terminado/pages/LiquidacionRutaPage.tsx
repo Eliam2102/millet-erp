@@ -126,7 +126,7 @@ function PanelLiquidacion({ dto, operar }: { dto: LiquidacionDto; operar: boolea
                   <Input aria-label={`Folio del voucher ${a.albaranFolio}`} className="w-36" value={l.referencia} disabled={!editable || numero(l.voucher) === 0} onChange={(e) => cambiar(a.albaranId, { referencia: e.target.value })} />
                 </TableCell>
                 <TableCell>
-                  {dif === 0 ? <Badge variant="success">Cuadra</Badge> : <Badge variant="warning">{dif > 0 ? 'Falta' : 'Sobra'} <MoneyDisplay amount={Math.abs(dif)} currency="MXN" /></Badge>}
+                  {dif === 0 ? <Badge variant="success">Cuadra</Badge> : <Badge variant="warning" className="gap-1">{dif > 0 ? 'Falta' : 'Sobra'} <MoneyDisplay amount={Math.abs(dif)} currency="MXN" /></Badge>}
                 </TableCell>
               </TableRow>
             );
