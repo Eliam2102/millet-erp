@@ -4261,6 +4261,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("0000000b-0004-0000-0000-000000000003"),
+                            Accion = "autorizar",
+                            Codigo = "tesoreria.pagos-cuenta.autorizar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar (firmar) un pago a cuenta; no puede firmarlo quien lo capturó",
+                            Modulo = "tesoreria",
+                            Recurso = "pagos-cuenta",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("0000000b-0005-0000-0000-000000000001"),
                             Accion = "crear",
                             Codigo = "tesoreria.corridas.crear",
