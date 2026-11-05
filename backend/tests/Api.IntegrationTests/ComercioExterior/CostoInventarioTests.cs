@@ -22,7 +22,8 @@ public sealed class CostoInventarioTests
     public async Task P8_P10_traslado_conserva_existencia_y_salida_lleva_todo_a_gasto(
         int liberadas, int consumidas, decimal costoRevision, decimal costoRack, decimal gastoImportacion)
     {
-        await using var escenario = await ExpedientesHttpTests.Escenario.CrearAsync();
+        // Reparto a inventario de Millet 26-oct: solo con la «versión posterior» activada (Fernando 4-nov).
+        await using var escenario = await ExpedientesHttpTests.Escenario.CrearAsync(AlInventario);
         using var scope = escenario.Scope(); var sp = scope.ServiceProvider;
         using var bypass = sp.GetRequiredService<ICurrentEmpresaContext>().Bypass();
         var db = sp.GetRequiredService<AlmacenDbContext>();
@@ -131,6 +132,35 @@ public sealed class CostoInventarioTests
         Assert.Equal(2, await almacen.Set<AjusteCostoExpediente>().CountAsync(a => a.ExpedienteId == expediente));
         Assert.Equal(2, await almacen.Set<IntegrationEventOutboxEntry>().CountAsync(x => x.EventType == "almacen.expediente.costo-aplicado.v1"));
     }
+    private static void AlInventario(IServiceCollection s) =>
+        s.Configure<IncrementablesImportacionOptions>(o => o.AlInventario = true);
+
+    [Fact]
+    public async Task Alm13_por_omision_el_incrementable_no_sube_el_inventario_y_todo_va_a_gasto_de_importacion()
+    {
+        // Fernando 4-nov: los incrementables de importación no se suman al inventario («para una versión posterior»).
+        await using var escenario = await ExpedientesHttpTests.Escenario.CrearAsync();
+        using var scope = escenario.Scope(); var sp = scope.ServiceProvider;
+        using var bypass = sp.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var almacen = sp.GetRequiredService<AlmacenDbContext>();
+        var empresa = DemoSesionSeedHostedService.EmpresaId;
+        var expediente = Guid.NewGuid();
+        var recepcion = DemoSesionSeedHostedService.Id("DEMO-CE-P1-RECEPCION");
+        var ubicacion = DemoSesionSeedHostedService.Id("DEMO-CE-P1-RACK");
+        var linea = await almacen.LineasMovimiento.FirstAsync(l => l.MovimientoId == recepcion);
+        var movimiento = await almacen.Movimientos.SingleAsync(m => m.Id == recepcion);
+        var inicial = await almacen.SaldosInventario.AsNoTracking().SingleAsync(s => s.UbicacionId == ubicacion && s.ArticuloId == linea.ArticuloId);
+        var payload = new CostoExpedientePayload(empresa, expediente, escenario.SucursalId, 1,
+            [new(linea.Id, movimiento.OcId!.Value, recepcion, linea.ArticuloId, ubicacion, 1000, 10000, 10000)]);
+
+        await sp.GetRequiredService<IMediator>().Send(new AplicarCostoExpedienteCommand(payload));
+
+        var ajuste = await almacen.Set<AjusteCostoExpediente>().SingleAsync(a => a.ExpedienteId == expediente);
+        Assert.Equal((0m, 10000m), (ajuste.InventarioMxn, ajuste.CostoVentasMxn));
+        var saldo = await almacen.SaldosInventario.AsNoTracking().SingleAsync(s => s.UbicacionId == ubicacion && s.ArticuloId == linea.ArticuloId);
+        Assert.Equal((inicial.ValorInventarioMxn, inicial.CostoPromedioMxn), (saldo.ValorInventarioMxn, saldo.CostoPromedioMxn));
+    }
+
     [Fact]
     public async Task Distribucion_persiste_historial_y_outbox_en_la_misma_transaccion()
     {

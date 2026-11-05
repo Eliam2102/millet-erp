@@ -14,7 +14,7 @@ public sealed class ArticulosCarga(CompartidoDbContext db) : IAdaptadorCargaMaes
     public IReadOnlyList<ColumnaCarga> Columnas { get; } = [
         new("Clave", "Obligatoria; clave SAP ItemCode, hasta 20 caracteres.", "item_code", "ItemCode"),
         new("Nombre", "Obligatorio para alta; hasta 254 caracteres."),
-        new("Unidad de medida", "Obligatoria para alta; código de unidad activa. PIEZA=PZA, LITRO=L, METRO=M.", "unidad_medida"),
+        new("Unidad de medida", "Obligatoria para alta; código de unidad activa. PIEZA=PZA, LITRO=L, METRO=M, CAJA, ROLLO y PAQ o PAQUETE=PAQ.", "unidad_medida"),
         new("Inventariable", "Y o N; N se carga como Servicio, Y como Estándar.", "invnt_item"),
         new("Código de grupo", "Opcional; grupos 142 a 147 se excluyen por pertenecer a A+W.", "grupo_cod"),
         new("Categoría", "Opcional; nombre de categoría activa (hasta 100 caracteres).", "categoria"),
@@ -47,7 +47,7 @@ public sealed class ArticulosCarga(CompartidoDbContext db) : IAdaptadorCargaMaes
         if (await db.ProductosAw.AnyAsync(x => x.ReferenciaExterna == clave, ct) || await db.Set<ProductoAwComponente>().AnyAsync(x => x.ComponenteRef == clave, ct))
             throw Error("Clave", "Esta clave corresponde a A+W. Use la sincronización de productos.");
         var unidadTexto = f.Texto("Unidad de medida")?.TrimEnd('.').ToUpperInvariant();
-        unidadTexto = unidadTexto switch { "PIEZA" => "PZA", "LITRO" => "L", "METRO" => "M", _ => unidadTexto };
+        unidadTexto = unidadTexto switch { "PIEZA" => "PZA", "LITRO" => "L", "METRO" => "M", "PAQUETE" or "PAQUETES" => "PAQ", _ => unidadTexto };
         var unidad = unidadTexto is null ? p?.UnidadMedidaId : await db.UnidadesMedida.Where(x => x.Codigo == unidadTexto && x.Estatus == EstatusCatalogo.Activo).Select(x => (Guid?)x.Id).SingleOrDefaultAsync(ct);
         if (unidad is null && (p is null || unidadTexto is not null)) throw Error("Unidad de medida", "Elija un código de unidad de medida activa del catálogo.");
         var categoriaTexto = f.Texto("Categoría");

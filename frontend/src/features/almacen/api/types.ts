@@ -1241,10 +1241,13 @@ export interface AlfakHistorialFila {
   hojasFinal?: number | null;
 }
 
-/** F1-ALM-13-a: fila del cuadre del cierre (Sucursal, Almacén o Kardex). Diferencia = valuación − saldo (o − kardex). */
+/**
+ * F1-ALM-13-a: fila del cuadre del cierre. «Cuenta» = cuenta de inventario por tipo de artículo para toda la empresa (o grupo sin
+ * cuenta); «Almacén» = detalle de valuación; «Kardex» = diferencia contra el kardex. Diferencia = valuación − saldo (o − kardex).
+ */
 export interface CuadreInventarioFila {
-  nivel: 'Sucursal' | 'Almacén' | 'Kardex';
-  sucursalId: string;
+  nivel: 'Cuenta' | 'Almacén' | 'Kardex';
+  sucursalId: string | null;
   sucursal: string | null;
   almacen: string | null;
   articulo: string | null;
@@ -1253,6 +1256,7 @@ export interface CuadreInventarioFila {
   saldoContable: number | null;
   diferencia: number | null;
   observacion: string | null;
+  grupo: string | null;
 }
 
 export interface ExistenciaMpCnkFila {
