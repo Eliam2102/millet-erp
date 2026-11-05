@@ -968,6 +968,10 @@ builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.IUsuarioReadPort,
     Millet.Identidad.Infrastructure.PublicAdapters.UsuarioReadAdapter>();
 builder.Services.AddScoped<Millet.Api.Endpoints.Almacen.SalidasRoturaEndpoints.RoturaLectura>();
+// 86e3tac2y: destinatarios de los avisos de Almacén por permiso (adapter en Identidad, dueña del dato).
+builder.Services.AddScoped<
+    Millet.Almacen.Domain.Ports.IDestinatariosAvisoReadPort,
+    Millet.Identidad.Infrastructure.PublicAdapters.DestinatariosAvisoReadAdapter>();
 
 // ADR-0047 PR5.C: resuelve el usuario de servicio del reorden (creador/requisitante +
 // empresa de las RQ automáticas). Adapter hospedado en Identidad (dueño del dato).
@@ -1753,6 +1757,7 @@ Millet.Api.Endpoints.Almacen.Reportes.ReportesEndpoints.MapReportesEndpoints(app
 
 // === Almacén — Cierre de mes (F8-PR2) ===
 Millet.Api.Endpoints.Almacen.Cierre.CierreEndpoints.MapCierreEndpoints(app);
+Millet.Api.Endpoints.Almacen.AvisosAlmacenEndpoints.MapAvisosAlmacenEndpoints(app);
 
 // === Administración — CRUD Empresas + Sucursales + Departamentos (F-Admin-PR2.3) ===
 Millet.Api.Endpoints.Administracion.EmpresasEndpoints.MapEmpresasEndpoints(app);

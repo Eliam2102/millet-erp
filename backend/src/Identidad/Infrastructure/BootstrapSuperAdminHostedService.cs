@@ -282,7 +282,9 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
             (Guid.Parse("0000000f-0011-0000-0000-000000000001"), "director-administracion-finanzas",
                 "Director de Administración y Finanzas", "Autoriza venta, valor de venta y baja de activos fijos.",
                 p => p.Codigo is PermisosCanonicos.FacturacionActivosAutorizar or PermisosCanonicos.ActivosFijosBajasAutorizar
-                    or PermisosCanonicos.DatosMaestrosProveedoresBloquear or PermisosCanonicos.CuentasPorPagarBloqueosLiberarEnLugar),
+                    or PermisosCanonicos.DatosMaestrosProveedoresBloquear or PermisosCanonicos.CuentasPorPagarBloqueosLiberarEnLugar
+                    // 86e3tac2y: la Dirección revisa el acta del cierre de Almacén.
+                    or PermisosCanonicos.AlmacenCierreRevisarActa),
             (Guid.Parse("0000000f-0011-0000-0000-000000000002"), "contador-general",
                 "Contador General", "Registra las bajas autorizadas por el Director de Administración y Finanzas y autoriza las cancelaciones de CFDI (F6.5).",
                 p => p.Codigo is PermisosCanonicos.ActivosFijosBajasRegistrar or PermisosCanonicos.DatosMaestrosProveedoresBloquear
@@ -290,7 +292,9 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                     or PermisosCanonicos.FacturacionFacturasLeer or PermisosCanonicos.FacturacionAnticiposLeer
                     // Perfil corporativo: autoriza cancelaciones de todas las cajas y sucursales,
                     // así que ve el detalle de cualquier comprobante (sin esto, 404 por alcance de caja).
-                    or PermisosCanonicos.FacturacionCajaLeerTodas),
+                    or PermisosCanonicos.FacturacionCajaLeerTodas
+                    // 86e3tac2y: Finanzas recibe el aviso del ajuste de inventario mayor (supuesto: lo recibe el Contador General).
+                    or PermisosCanonicos.AlmacenAvisosAjusteMayor),
             // REQ-PERM (86e3xd4uz): los 80 usuarios del Portal de Requisiciones. Equivalencia en
             // docs/operacion/equivalencia-permisos-portal-requisiciones.md.
             (Guid.Parse("00000010-0001-0000-0000-000000000001"), "requisitante",

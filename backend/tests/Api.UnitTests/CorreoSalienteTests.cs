@@ -270,25 +270,22 @@ public sealed class CorreoSalienteTests
     }
 
     [Fact]
-    public async Task Almacen_avisa_a_Finanzas_y_el_vale_al_Coordinador_el_dia_1_y_al_Jefe_el_dia_2()
+    public async Task Almacen_avisa_a_Finanzas_y_el_vale_vencido_al_Jefe_de_almacen()
     {
         var transporte = new CorreoSalienteEnMemoria();
         var servicio = new CorreoNotificacionService(transporte, Options.Create(new AvisosAlmacenOptions
         {
             Finanzas = ["finanzas@millet.example", "no-es-correo"],
-            Coordinador = ["coordinador@millet.example"],
             JefeAlmacen = ["jefe@millet.example"],
         }), NullLogger<CorreoNotificacionService>.Instance);
 
         await servicio.NotificarAjusteNivel3AprobadoAsync(new AvisoAjusteNivel3(Guid.NewGuid(), Guid.NewGuid(), 12500m,
             Guid.NewGuid(), DateTimeOffset.UtcNow, [new ConteoAlmacenSucursal(Guid.NewGuid(), Guid.NewGuid())]), CancellationToken.None);
-        await servicio.NotificarValeSinRegularizarAsync(Guid.NewGuid(), "VU-0007", null, DateTimeOffset.UtcNow, 1, CancellationToken.None);
         await servicio.NotificarValeSinRegularizarAsync(Guid.NewGuid(), "VU-0007", null, DateTimeOffset.UtcNow, 2, CancellationToken.None);
 
         Assert.Collection(transporte.Enviados,
             m => { Assert.Equal(["finanzas@millet.example"], m.Para); Assert.Equal("ajuste-nivel-3", m.Tipo); },
-            m => { Assert.Equal(["coordinador@millet.example"], m.Para); Assert.Contains("VU-0007", m.Asunto); },
-            m => { Assert.Equal(["jefe@millet.example"], m.Para); Assert.Contains("día 2", m.Asunto); });
+            m => { Assert.Equal(["jefe@millet.example"], m.Para); Assert.Contains("VU-0007", m.Asunto); });
     }
 
     [Fact]

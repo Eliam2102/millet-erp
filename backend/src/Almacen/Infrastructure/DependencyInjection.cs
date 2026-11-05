@@ -66,7 +66,11 @@ public static class DependencyInjection
 
         // F5-PR1 / 86e3txv0n: avisos por el transporte único de correo; los
         // destinatarios salen de Almacen:Avisos (se enlaza en Program.cs).
-        services.AddScoped<INotificacionService, Notificaciones.CorreoNotificacionService>();
+        services.AddScoped<Notificaciones.CorreoNotificacionService>();
+        services.AddScoped<Notificaciones.AvisosInternosNotificacionService>();
+        services.AddScoped<INotificacionService>(sp => sp.GetRequiredService<Notificaciones.AvisosInternosNotificacionService>());
+        // Sin adapter de Identidad (pruebas de módulo) nadie recibe avisos; Program.cs registra el real.
+        services.AddScoped<IDestinatariosAvisoReadPort, Stubs.NoOpDestinatariosAvisoReadPort>();
 
         return services;
     }

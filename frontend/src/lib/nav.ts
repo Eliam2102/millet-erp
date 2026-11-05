@@ -336,6 +336,13 @@ const moduloAlmacen: NavModulo = {
           permission: PermisosCanonicos.AlmacenCierreMesEjecutar,
         },
         {
+          label: 'Actas del cierre',
+          description: 'Revisar el acta de cada cierre mensual del módulo Almacén (Dirección de Administración).',
+          to: '/almacen/cierre-mes',
+          icon: Lock,
+          permission: PermisosCanonicos.AlmacenCierreRevisarActa,
+        },
+        {
           label: 'Reportes',
           description:
             'ALFAK-HISTORIAL-ALMACEN (cierre de mes) y SAP-REPORTE-EXISTENCIA-MP-CNK (inventario diario MP).',
