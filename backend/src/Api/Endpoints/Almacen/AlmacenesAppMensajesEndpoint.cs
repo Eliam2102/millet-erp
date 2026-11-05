@@ -17,7 +17,7 @@ namespace Millet.Api.Endpoints.Almacen;
 public static class AlmacenesAppMensajesEndpoint
 {
     private const int MaxBytes = 1_000_000;
-    private static readonly string[] TiposSalida = [.. AlmacenesAppSalida.Tipos.Keys];
+    private static readonly string[] TiposSalida = [.. AlmacenesAppSalida.Tipos.Keys, .. AlmacenesAppMerma.Tipos];
 
     public sealed record Acuse(string? MensajeId, string Estado, string? Folio, string? Error);
 
@@ -30,7 +30,8 @@ public static class AlmacenesAppMensajesEndpoint
             Millet.Almacen.Domain.Ports.IComprasCrearRqAppPort rqApp,
             Millet.Almacen.Domain.Ports.IAppSalidaResolverPort salidaResolver,
             Millet.Almacen.Domain.Ports.IUsuarioServicioReadPort usuarioServicio,
-            Millet.Almacen.Infrastructure.PublicAdapters.SalidaAppAlmacenesGuardado salidasGuardado, CancellationToken ct) =>
+            Millet.Almacen.Infrastructure.PublicAdapters.SalidaAppAlmacenesGuardado salidasGuardado,
+            Millet.Almacen.Infrastructure.PublicAdapters.MermaProcesoAppGuardado mermasGuardado, CancellationToken ct) =>
         {
             var keyConfigurada = configuration["Integraciones:AlmacenesApp:ApiKey"];
             if (string.IsNullOrWhiteSpace(keyConfigurada))
@@ -75,7 +76,7 @@ public static class AlmacenesAppMensajesEndpoint
                     .FirstOrDefaultAsync(m => m.MensajeId == mensajeId, ct);
                 // A4.3-a: una salida rechazada quedó en la bandeja sin mover saldo; cuando la app reenvía el
                 // mismo mensajeId (ya corregido el dato en el ERP) se procesa otra vez y sale de la bandeja.
-                if (previo is { Estado: "ERROR" } && AlmacenesAppSalida.Tipos.ContainsKey(previo.Tipo))
+                if (previo is { Estado: "ERROR" } && TiposSalida.Contains(previo.Tipo))
                 {
                     await db.MensajesApp.Where(m => m.MensajeId == mensajeId && m.Estado == "ERROR").ExecuteDeleteAsync(ct);
                     previo = null;
@@ -112,6 +113,27 @@ public static class AlmacenesAppMensajesEndpoint
                             return g.Estado == Millet.Almacen.Application.AppAlmacenes.SalidaAppAlmacenes.EnRevision
                                 ? Results.Json(new Acuse(mensajeId, "RECIBIDO", null, null))
                                 : Results.Json(new Acuse(mensajeId, g.Estado, g.Folio, g.Error));
+                        previo = await db.MensajesApp.AsNoTracking().FirstAsync(m => m.MensajeId == mensajeId, ct);
+                    }
+                    else if (AlmacenesAppMerma.Tipos.Contains(tipo))
+                    {
+                        // A4.4: desperdicio de mesa y merma de proceso; el desperdicio avisa a Contabilidad, la merma queda pendiente.
+                        var (resuelta, errorMerma) = await AlmacenesAppMerma.ManejarAsync(tipo, datos, salidaResolver, usuarioServicio, ct);
+                        if (resuelta is null)
+                        {
+                            db.MensajesApp.Add(new MensajeApp(mensajeId, tipo,
+                                referencia?.Length > 100 ? referencia[..100] : referencia, root.GetRawText(), "ERROR", null,
+                                errorMerma?.Length > 1000 ? errorMerma[..1000] : errorMerma));
+                            try { await db.SaveChangesAsync(ct); }
+                            catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: "23505" })
+                            {
+                                db.ChangeTracker.Clear();
+                            }
+                            return Results.Json(new Acuse(mensajeId, "ERROR", null, errorMerma));
+                        }
+                        var g = await mermasGuardado.GuardarAsync(mensajeId, tipo, referencia, root.GetRawText(),
+                            resuelta.EmpresaId, resuelta.Merma, ct);
+                        if (!g.Duplicado) return Results.Json(new Acuse(mensajeId, g.Estado, null, g.Error));
                         previo = await db.MensajesApp.AsNoTracking().FirstAsync(m => m.MensajeId == mensajeId, ct);
                     }
                     else

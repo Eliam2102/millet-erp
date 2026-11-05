@@ -102,9 +102,14 @@ public class AlmacenDbContext : BaseDbContext
     public DbSet<NormaConsumoComponente> NormasConsumoComponente => Set<NormaConsumoComponente>();
     public DbSet<ConsumoComponenteAw> ConsumosComponenteAw => Set<ConsumoComponenteAw>();
 
+<<<<<<< HEAD
     /// <summary>PT5.10: descargas del taller por pedido interno Serie 9000 y cierres de día del almacenista.</summary>
     public DbSet<DescargaTallerAw> DescargasTallerAw => Set<DescargaTallerAw>();
     public DbSet<CierreTaller> CierresTaller => Set<CierreTaller>();
+=======
+    /// <summary>A4.4: desperdicio de mesa de corte y merma por etapa informados por A+W.</summary>
+    public DbSet<Domain.Mermas.MermaProceso> MermasProceso => Set<Domain.Mermas.MermaProceso>();
+>>>>>>> origin/develop
 
     /// <summary>F6-PR1: devoluciones a proveedor (sub-flujo 8.B).</summary>
     public DbSet<Domain.Revision.DictamenRevision> DictamenesRevision => Set<Domain.Revision.DictamenRevision>();
@@ -247,6 +252,7 @@ public class AlmacenDbContext : BaseDbContext
             b.HasIndex(x => new { x.EmpresaId, x.Origen, x.Etiqueta, x.Operacion, x.ComponenteRef }).IsUnique();
             b.HasIndex(x => new { x.EmpresaId, x.Estado, x.IntentadoAt });
         });
+<<<<<<< HEAD
         modelBuilder.Entity<DescargaTallerAw>(b =>
         {
             b.ToTable("descargas_taller_aw");
@@ -279,6 +285,32 @@ public class AlmacenDbContext : BaseDbContext
             b.Property(x => x.Notas).HasMaxLength(500);
             // Un cierre por taller y día.
             b.HasIndex(x => new { x.EmpresaId, x.SucursalId, x.Fecha }).IsUnique();
+=======
+        modelBuilder.Entity<Domain.Mermas.MermaProceso>(b =>
+        {
+            b.ToTable("mermas_proceso", t =>
+            {
+                t.HasCheckConstraint("ck_mermas_proceso_m2", "m2 > 0");
+                t.HasCheckConstraint("ck_mermas_proceso_kg", "kg IS NULL OR kg > 0");
+            });
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).ValueGeneratedNever();
+            b.Property(x => x.Tipo).HasMaxLength(20).IsRequired();
+            b.Property(x => x.Mesa).HasMaxLength(30);
+            b.Property(x => x.Etapa).HasMaxLength(20).IsRequired();
+            b.Property(x => x.Motivo).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Kg).HasPrecision(14, 4);
+            b.Property(x => x.M2).HasPrecision(14, 4);
+            b.Property(x => x.CostoUnitarioM2Mxn).HasPrecision(14, 4);
+            b.Property(x => x.ValorMxn).HasPrecision(18, 2);
+            b.Property(x => x.Estado).HasMaxLength(20).IsRequired();
+            b.Property(x => x.MensajeId).HasMaxLength(64);
+            b.Property(x => x.MotivoRechazo).HasMaxLength(500);
+            // A4.4-a: un desperdicio por (sucursal, día, mesa, artículo); la merma no tiene esa llave.
+            b.HasIndex(x => new { x.EmpresaId, x.SucursalId, x.Fecha, x.Mesa, x.ArticuloId }).IsUnique()
+                .HasFilter("tipo = 'DESPERDICIO_MESA'");
+            b.HasIndex(x => new { x.EmpresaId, x.Estado, x.Fecha });
+>>>>>>> origin/develop
         });
         OnModelCreatingProviderSpecific(modelBuilder);
     }

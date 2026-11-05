@@ -88,8 +88,8 @@ public class TallerSerie9000Tests(WebApplicationFactory<Program> factory)
 
     private static string Folio() => Random.Shared.NextInt64(90_000_000, 99_999_999).ToString();
 
-    // Fecha propia por corrida: el cierre es único por taller y día y la base de prueba se comparte.
-    private static DateOnly FechaUnica() => new DateOnly(2025, 1, 1).AddDays(Random.Shared.Next(0, 3000));
+    // Fecha propia por corrida (siempre pasada: no se cierra un día futuro): el cierre es único por taller y día y la base de prueba se comparte.
+    private static DateOnly FechaUnica() => new DateOnly(2025, 1, 1).AddDays(Random.Shared.Next(0, 600));
 
     [Fact]
     public async Task PT5_10_a_pedido_9000_baja_3_hojas_de_esa_medida_y_si_llega_dos_veces_baja_una_sola_vez()

@@ -242,6 +242,14 @@ const moduloAlmacen: NavModulo = {
           permission: PermisosCanonicos.AlmacenEntradasLeer,
         },
         {
+          label: 'Desperdicio y merma',
+          description:
+            'Desperdicio diario de la mesa de corte y merma por etapa y motivo que informa A+W; la merma se autoriza aquí.',
+          to: '/almacen/mermas',
+          icon: Scale,
+          permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
+        },
+        {
           label: 'Salidas',
           description:
             'Surtido de requisiciones aprobadas y vales urgentes. Comprobante PDF descargable.',

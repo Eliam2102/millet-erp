@@ -1706,7 +1706,11 @@ Millet.Api.Endpoints.Almacen.Reorden.AlmacenReordenEndpoints.MapAlmacenReordenEn
 // === Almacén — Configuración del módulo (interruptor de reabasto automático) ===
 Millet.Api.Endpoints.Almacen.AlmacenSettingsEndpoints.MapAlmacenSettingsEndpoints(app);
 Millet.Api.Endpoints.Almacen.NormasConsumoEndpoints.MapNormasConsumoEndpoints(app);
+<<<<<<< HEAD
 Millet.Api.Endpoints.Almacen.TallerEndpoints.MapTallerEndpoints(app);
+=======
+Millet.Api.Endpoints.Almacen.MermasProcesoEndpoints.MapMermasProcesoEndpoints(app);
+>>>>>>> origin/develop
 
 // === Almacén — Recepciones Variante A (F2-PR2) + Saldos materializados ===
 Millet.Api.Endpoints.Almacen.Recepciones.RecepcionesEndpoints.MapRecepcionesEndpoints(app);
