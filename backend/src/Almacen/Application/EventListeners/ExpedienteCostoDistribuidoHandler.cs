@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Domain.Idempotencia;
 using Millet.Almacen.Domain.Saldos;
@@ -28,7 +29,8 @@ public sealed record CostoUbicacionAplicado(Guid UbicacionId, decimal CantidadRe
 /// <summary>Contabilidad consume este resultado confirmado, nunca la estimación de la vista previa.</summary>
 public sealed record ExpedienteCostoAplicadoEvent(Guid Empresa, DateTimeOffset Fecha, Guid ExpedienteId, int NumeroVersion,
     IReadOnlyList<CostoPartidaAplicado> Partidas) : IntegrationEvent("almacen.expediente.costo-aplicado.v1", Empresa, Fecha);
-public sealed class ExpedienteCostoDistribuidoHandler(AlmacenDbContext db, IIntegrationEventPublisher eventos, IClock clock, ILogger<ExpedienteCostoDistribuidoHandler> logger)
+public sealed class ExpedienteCostoDistribuidoHandler(AlmacenDbContext db, IIntegrationEventPublisher eventos, IClock clock, ILogger<ExpedienteCostoDistribuidoHandler> logger,
+    IOptions<IncrementablesImportacionOptions> incrementables)
     : IRequestHandler<AplicarCostoExpedienteCommand>
 {
     public const string EventType = "comercio_exterior.expediente.costo-distribuido.v1";
@@ -88,7 +90,8 @@ public sealed class ExpedienteCostoDistribuidoHandler(AlmacenDbContext db, IInte
                 var saldoUbicacion = await db.SaldosInventario.SingleOrDefaultAsync(s => s.UbicacionId == ubicacion && s.ArticuloId == l.ArticuloId, cancellationToken);
                 enExistencia += Math.Min(saldoUbicacion?.Cantidad ?? 0, remanente);
             }
-            var tieneSalidas = enExistencia < l.CantidadRecibida;
+            // Fernando 4-nov: mientras los incrementables no vayan a inventario, todo el ajuste va a gasto de importación.
+            var tieneSalidas = enExistencia < l.CantidadRecibida || !incrementables.Value.AlInventario;
             var ubicaciones = remanentes.Keys.Concat(anteriores.Select(x => x.UbicacionId)).Append(l.UbicacionId).Distinct().Order().ToList();
             List<CostoUbicacionAplicado> detalle = [];
             decimal diferenciaRestante = l.DiferenciaMxn, cantidadRestante = l.CantidadRecibida;

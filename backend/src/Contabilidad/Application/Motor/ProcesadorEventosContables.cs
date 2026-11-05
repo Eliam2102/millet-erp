@@ -375,7 +375,8 @@ public sealed class EnriquecedorPolizasOrigen(ContabilidadDbContext db) : IEnriq
                     ? devuelta.MontoTotalMxn - asignado
                     : Math.Round(devuelta.MontoTotalMxn * origen[i].Monto / base_, 2, MidpointRounding.AwayFromZero);
                 asignado += importe;
-                lineas.Add(new LineaEventoContable(null, importe, origen[i].CentroCostoId, false, CuentaId: origen[i].CuentaId));
+                lineas.Add(new LineaEventoContable(null, importe, origen[i].CentroCostoId, false, CuentaId: origen[i].CuentaId,
+                    ArticuloId: devuelta.ArticuloId));
             }
         }
         return e with { Lineas = lineas, SucursalId = e.SucursalId ?? await SucursalDeAsync(consumos[0].PolizaId, ct) };
@@ -388,4 +389,25 @@ public sealed class EnriquecedorPolizasOrigen(ContabilidadDbContext db) : IEnriq
     private static RechazoMotorException Espera(Guid documentoId, string que) =>
         new(CausaRechazoContable.DatoFaltante, ProcesadorEventosContables.Espera(documentoId),
             $"Falta {que}; el evento se contabiliza en cuanto se registre.");
+}
+
+/// <summary>
+/// F1-ALM-13 (Contabilidad, Fernando Alejos 4-nov): una cuenta de inventario por tipo de artículo para toda la empresa. Pone el grupo del
+/// artículo (grupo SAP de Datos Maestros) como <see cref="LineaEventoContable.Clasificador"/> de cada línea de Almacén; la plantilla
+/// con <see cref="LineaPlantillaContable.RolPorClasificador"/> usa el rol <c>INVENTARIO_{grupo}</c> si tiene cuenta y, si no, el
+/// rol INVENTARIO. Corre después de <see cref="EnriquecedorPolizasOrigen"/> (la devolución interna arma ahí sus líneas).
+/// </summary>
+public sealed class EnriquecedorGrupoArticulo(Ports.IArticuloContabilidadPort articulos) : IEnriquecedorEventoContable
+{
+    public async Task<EventoContable> EnriquecerAsync(EventoContable evento, CancellationToken ct)
+    {
+        var ids = evento.Lineas.Where(l => l.Clasificador is null).Select(l => l.ArticuloId).OfType<Guid>().Distinct().ToList();
+        if (ids.Count == 0) return evento;
+        var grupos = await articulos.GruposAsync(ids, ct);
+        return evento with
+        {
+            Lineas = [.. evento.Lineas.Select(l => l.Clasificador is null && l.ArticuloId is { } a && grupos.GetValueOrDefault(a) is { } g
+                ? l with { Clasificador = g } : l)],
+        };
+    }
 }

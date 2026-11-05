@@ -1,7 +1,10 @@
 using Factura = Millet.CuentasPorPagar.Domain.FacturaProveedor.FacturaProveedor;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Millet.CuentasPorPagar.Application.EventListeners.Tesoreria;
+using Millet.CuentasPorPagar.Application.FacturaProveedor.CancelarFactura;
 using Millet.CuentasPorPagar.Domain.Cfdi;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
@@ -171,6 +174,68 @@ public sealed class FiscalCfdiReceiverAdapterTests
             r.MotivoRevisionId.Should().Be(Factura.MotivoCfdiCanceladoSatId);
             r.DependenciaRevisoraId.Should().Be(CancelacionPasivoSolicitadaHandler.DependenciaCxpId);
             r.Estado.Should().NotBe(EstadoPasivo.Cancelada);
+        }
+        finally { ctx.Dispose(); }
+    }
+
+    // P8.7: solo una solicitud aceptada + confirmación del SAT cancela el pasivo.
+    private static async Task AceptarSolicitudAsync(CuentasPorPagarDbContext db)
+    {
+        var cfdi = await db.CfdisRecibidos.SingleAsync();
+        var sol = SolicitudCancelacionCfdi.Registrar(EmpresaId, cfdi.Id, AreaSolicitudCancelacion.Compras, Ahora, null, null);
+        sol.Decidir(true, "Acuse", null, null, null, Ahora);
+        db.SolicitudesCancelacionCfdi.Add(sol);
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+    }
+
+    [Fact]
+    public async Task Solicitud_aceptada_y_SAT_Cancelado_cancela_la_factura_capturada()
+    {
+        var (adapter, db, _, ctx) = Build();
+        try
+        {
+            var f = await SeedFacturaAsync(db, EstadoSeed.Capturada);
+            await AceptarSolicitudAsync(db);
+            await adapter.IngresarCfdiAsync(NewPayload("Cancelado", FechaCancel), CancellationToken.None);
+
+            var r = await ReloadAsync(db, f.Id);
+            r.Estado.Should().Be(EstadoPasivo.Cancelada);
+            r.MotivoDeCancelacion.Should().Be(MotivoCancelacion.CfdiCanceladoEnSat);
+            (await CfdiAsync(db)).EstatusSat.Should().Be(EstatusSatCfdi.Cancelado);
+        }
+        finally { ctx.Dispose(); }
+    }
+
+    [Fact]
+    public async Task Solicitud_aceptada_y_SAT_Vigente_no_cambia_nada()
+    {
+        var (adapter, db, _, ctx) = Build();
+        try
+        {
+            var f = await SeedFacturaAsync(db, EstadoSeed.Capturada);
+            await AceptarSolicitudAsync(db);
+            await adapter.IngresarCfdiAsync(NewPayload("Vigente", null), CancellationToken.None);
+
+            (await ReloadAsync(db, f.Id)).Estado.Should().Be(EstadoPasivo.Capturada);
+            (await CfdiAsync(db)).EstatusSat.Should().Be(EstatusSatCfdi.Vigente);
+        }
+        finally { ctx.Dispose(); }
+    }
+
+    [Fact]
+    public async Task Solicitud_aceptada_y_SAT_Cancelado_con_factura_autorizada_la_manda_a_revision()
+    {
+        var (adapter, db, _, ctx) = Build();
+        try
+        {
+            var f = await SeedFacturaAsync(db, EstadoSeed.Autorizada);
+            await AceptarSolicitudAsync(db);
+            await adapter.IngresarCfdiAsync(NewPayload("Cancelado", FechaCancel), CancellationToken.None);
+
+            var r = await ReloadAsync(db, f.Id);
+            r.Estado.Should().Be(EstadoPasivo.EnRevision);
+            r.MotivoRevisionId.Should().Be(Factura.MotivoCfdiCanceladoSatId);
         }
         finally { ctx.Dispose(); }
     }
@@ -537,9 +602,19 @@ public sealed class FiscalCfdiReceiverAdapterTests
         var clock = new FakeClock(Ahora);
         var parser = parserFactory?.Invoke() ?? new CannedParser();
         var blob = new StubCfdiBlobStorage();
+        var mediator = new Mediator(new ServiceCollection()
+            .AddSingleton<IRequestHandler<CancelarFacturaCommand, CancelarFacturaResponse>>(
+                new CancelarFacturaHandler(db, new UsuarioPrueba(), new Mediator(new ServiceCollection().BuildServiceProvider()), clock))
+            .BuildServiceProvider());
         var adapter = new FiscalCfdiReceiverAdapter(db, parser, blob, clock,
-            NullLogger<FiscalCfdiReceiverAdapter>.Instance);
+            NullLogger<FiscalCfdiReceiverAdapter>.Instance, mediator);
         return (adapter, db, blob, db);
+    }
+
+    private sealed class UsuarioPrueba : ICurrentUserContext
+    {
+        public Guid? UserId => null;
+        public string? UserName => "test";
     }
 
     /// <summary>

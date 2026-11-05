@@ -18,26 +18,31 @@ public sealed class CuadreInventarioContableTests
     private static readonly Guid SucA = Guid.NewGuid(), SucB = Guid.NewGuid();
     private static readonly Guid SubA = Guid.NewGuid(), SubB = Guid.NewGuid();
     private static readonly Guid RackA = Guid.NewGuid(), RackB = Guid.NewGuid();
-    private static readonly Guid Articulo = Guid.NewGuid();
+    private static readonly Guid Articulo = Guid.NewGuid(), Otro = Guid.NewGuid();
     private static readonly Guid Cuenta = Guid.NewGuid();
 
     [Fact]
-    public async Task Noviembre_cerrado_compara_la_foto_contra_la_cuenta_y_avisa_la_sucursal_sin_cuenta()
+    public async Task Noviembre_cerrado_compara_la_foto_por_cuenta_de_tipo_para_toda_la_empresa_y_avisa_el_grupo_sin_cuenta()
     {
+        // Fernando 4-nov: una cuenta por tipo de artículo para todas las sucursales. El vidrio de A y B va a la misma cuenta.
         await using var db = await CrearDbAsync();
-        var periodo = await CerrarAsync(db, (SubA, 10m, 9_000m), (SubB, 5m, 500m));
+        var periodo = await CerrarAsync(db, (SubA, Articulo, 10m, 9_000m), (SubB, Articulo, 5m, 500m), (SubB, Otro, 2m, 300m));
+        var contabilidad = new ContabilidadDoble(new() { ["VIDRIO FLOTADO"] = new(Cuenta, "115.02.01.00", "MATERIA PRIMA - VIDRIO", 9_000m) });
 
-        var r = await Handler(db, new() { [SucA] = new(Cuenta, "1150-001", "Inventario MP", 8_000m), [SucB] = new(null, null, null, null) })
-            .Handle(new CuadreInventarioContableQuery(2027, 11), default);
+        var r = await Handler(db, contabilidad).Handle(new CuadreInventarioContableQuery(2027, 11), default);
 
-        var a = r.Filas.Single(f => f.Nivel == "Sucursal" && f.SucursalId == SucA);
-        (a.Valuacion, a.SaldoContable, a.Diferencia, a.Observacion, a.Cuenta).Should().Be((9_000m, 8_000m, 1_000m, "No cuadra", "1150-001 · Inventario MP"));
-        r.Filas.Single(f => f.Nivel == "Almacén" && f.SucursalId == SucA).Valuacion.Should().Be(9_000m);
-        var b = r.Filas.Single(f => f.Nivel == "Sucursal" && f.SucursalId == SucB);
-        (b.Valuacion, b.SaldoContable, b.Diferencia, b.Observacion).Should().Be((500m, (decimal?)null, (decimal?)null, CuadreInventarioContableHandler.SinCuenta));
-        r.Totales!["valuacion"].Should().Be(9_500m);
-        (r.Totales["saldoContable"], r.Totales["diferencia"]).Should().Be((8_000m, 1_000m));
+        var cuenta = r.Filas.Single(f => f.Nivel == "Cuenta" && f.Cuenta != null);
+        (cuenta.Valuacion, cuenta.SaldoContable, cuenta.Diferencia, cuenta.Observacion, cuenta.Cuenta, cuenta.Grupo, cuenta.SucursalId)
+            .Should().Be((9_500m, 9_000m, 500m, "No cuadra", "115.02.01.00 · MATERIA PRIMA - VIDRIO", "VIDRIO FLOTADO", (Guid?)null));
+        var sinCuenta = r.Filas.Single(f => f.Nivel == "Cuenta" && f.Cuenta == null);
+        (sinCuenta.Valuacion, sinCuenta.SaldoContable, sinCuenta.Grupo, sinCuenta.Observacion)
+            .Should().Be((300m, (decimal?)null, "ALUMINIO", CuadreInventarioContableHandler.SinCuenta));
+        r.Filas.Where(f => f.Nivel == "Almacén").Select(f => (f.SucursalId, f.Valuacion)).Should().Equal(((Guid?)SucA, 9_000m), (SucB, 800m));
+        r.Totales!["valuacion"].Should().Be(9_800m);
+        (r.Totales["saldoContable"], r.Totales["diferencia"]).Should().Be((9_000m, 500m));
         r.FiltrosAplicados["foto_cierre"].Should().Be("sí");
+        contabilidad.Claves.Should().BeEquivalentTo([(SucA, (string?)"VIDRIO FLOTADO"), (SucB, "VIDRIO FLOTADO"), (SucB, "ALUMINIO")]);
+        contabilidad.SucursalesSaldo.Should().BeNull("sin restricción de sucursales el saldo es de toda la empresa");
         periodo.Mes.Should().Be(11);
     }
 
@@ -45,19 +50,19 @@ public sealed class CuadreInventarioContableTests
     public async Task Cuadra_cuando_el_saldo_es_igual_a_la_valuacion()
     {
         await using var db = await CrearDbAsync();
-        await CerrarAsync(db, (SubA, 10m, 9_000m), (SubB, 5m, 0m));
+        await CerrarAsync(db, (SubA, Articulo, 10m, 9_000m), (SubB, Articulo, 5m, 0m));
 
-        var r = await Handler(db, new() { [SucA] = new(Cuenta, "1150", "Inventario", 9_000m), [SucB] = new(Cuenta, "1150", "Inventario", 0m) })
+        var r = await Handler(db, new ContabilidadDoble(new() { ["VIDRIO FLOTADO"] = new(Cuenta, "1150", "Inventario", 9_000m) }))
             .Handle(new CuadreInventarioContableQuery(2027, 11), default);
 
-        r.Filas.Where(f => f.Nivel == "Sucursal").Should().OnlyContain(f => f.Diferencia == 0m && f.Observacion == "Cuadra");
+        r.Filas.Where(f => f.Nivel == "Cuenta").Should().ContainSingle().Which.Should().Match<CuadreInventarioFila>(f => f.Diferencia == 0m && f.Observacion == "Cuadra");
     }
 
     [Fact]
     public async Task La_foto_del_cierre_manda_solo_al_ultimo_dia_del_mes()
     {
         await using var db = await CrearDbAsync();
-        await CerrarAsync(db, (SubA, 10m, 9_000m));
+        await CerrarAsync(db, (SubA, Articulo, 10m, 9_000m));
         var calculada = new AlfakHistorialFila(SubA, Articulo, 0m, 10m, 0m, 0m, 0m, 10m, 1_000m, 10_000m, null, null, null);
 
         var fin = await AlfakHistorialAlmacenHandler.AplicarFotoCierreAsync(db, new DateOnly(2027, 11, 30), [calculada], default);
@@ -112,25 +117,25 @@ public sealed class CuadreInventarioContableTests
         MedidaReporte.Hojas(null, (decimal)m2, medidas).Should().BeNull();
     }
 
-    private static CuadreInventarioContableHandler Handler(InMemoryAlmacenDbContext db, Dictionary<Guid, CuentaInventarioSaldo> cuentas) =>
-        new(db, new ContabilidadDoble(cuentas), new SucursalesDoble(), new P1Fixture.Contexto(), new ArticulosDoble());
+    private static CuadreInventarioContableHandler Handler(InMemoryAlmacenDbContext db, ContabilidadDoble contabilidad) =>
+        new(db, contabilidad, new SucursalesDoble(), new P1Fixture.Contexto(), new ArticulosDoble());
 
-    private static async Task<PeriodoCerrado> CerrarAsync(InMemoryAlmacenDbContext db, params (Guid Sub, decimal Cantidad, decimal Valor)[] grupos)
+    private static async Task<PeriodoCerrado> CerrarAsync(InMemoryAlmacenDbContext db, params (Guid Sub, Guid Articulo, decimal Cantidad, decimal Valor)[] grupos)
     {
-        foreach (var (sub, cantidad, _) in grupos)
-            Movimiento(db, TipoMovimiento.EntradaCompra, sub == SubA ? RackA : RackB, cantidad, new(2027, 11, 10));
+        foreach (var (sub, articulo, cantidad, _) in grupos)
+            Movimiento(db, TipoMovimiento.EntradaCompra, sub == SubA ? RackA : RackB, cantidad, new(2027, 11, 10), articulo);
         var periodo = new PeriodoCerrado(Guid.NewGuid(), P1Fixture.EmpresaId, 2027, 11, Guid.NewGuid());
         db.PeriodosCerrados.Add(periodo);
-        foreach (var (sub, cantidad, valor) in grupos)
-            db.ValuacionesCierre.Add(new ValuacionCierre(periodo, sub, Articulo, null, null, cantidad, valor));
+        foreach (var (sub, articulo, cantidad, valor) in grupos)
+            db.ValuacionesCierre.Add(new ValuacionCierre(periodo, sub, articulo, null, null, cantidad, valor));
         await db.SaveChangesAsync();
         return periodo;
     }
 
-    private static void Movimiento(InMemoryAlmacenDbContext db, TipoMovimiento tipo, Guid rack, decimal cantidad, DateOnly fecha)
+    private static void Movimiento(InMemoryAlmacenDbContext db, TipoMovimiento tipo, Guid rack, decimal cantidad, DateOnly fecha, Guid? articulo = null)
     {
         var m = new MovimientoInventario(Guid.CreateVersion7(), tipo, P1Fixture.EmpresaId, fecha);
-        m.AgregarLinea(new(Guid.NewGuid(), m.Id, 1, Articulo, cantidad, "PZA", 900m, ubicacionId: rack));
+        m.AgregarLinea(new(Guid.NewGuid(), m.Id, 1, articulo ?? Articulo, cantidad, "PZA", 900m, ubicacionId: rack));
         m.Registrar(FolioMovimiento.Construir(tipo, 2027, db.Movimientos.Local.Count + 1), Guid.NewGuid());
         db.Movimientos.Add(m);
     }
@@ -150,18 +155,30 @@ public sealed class CuadreInventarioContableTests
         return db;
     }
 
-    private sealed class ContabilidadDoble(Dictionary<Guid, CuentaInventarioSaldo> cuentas) : IInventarioContableReadPort
+    /// <summary>Doble de Contabilidad: cuenta por grupo de artículo (como el rol INVENTARIO_{grupo}); los demás grupos, sin cuenta.</summary>
+    private sealed class ContabilidadDoble(Dictionary<string, CuentaInventarioSaldo> porGrupo) : IInventarioContableReadPort
     {
-        public Task<IReadOnlyDictionary<Guid, CuentaInventarioSaldo>> ObtenerAsync(DateOnly corte, IReadOnlyCollection<Guid> sucursales, CancellationToken ct) =>
-            Task.FromResult<IReadOnlyDictionary<Guid, CuentaInventarioSaldo>>(
-                sucursales.Where(cuentas.ContainsKey).ToDictionary(s => s, s => cuentas[s]));
+        public IReadOnlyCollection<(Guid SucursalId, string? Grupo)> Claves { get; private set; } = [];
+        public IReadOnlyCollection<Guid>? SucursalesSaldo { get; private set; } = [];
+
+        public Task<IReadOnlyDictionary<(Guid SucursalId, string? Grupo), CuentaInventarioSaldo>> ObtenerAsync(DateOnly corte,
+            IReadOnlyCollection<(Guid SucursalId, string? Grupo)> claves, IReadOnlyCollection<Guid>? sucursalesSaldo, CancellationToken ct)
+        {
+            (Claves, SucursalesSaldo) = (claves, sucursalesSaldo);
+            return Task.FromResult<IReadOnlyDictionary<(Guid SucursalId, string? Grupo), CuentaInventarioSaldo>>(claves.ToDictionary(k => k,
+                k => k.Grupo is { } g && porGrupo.TryGetValue(g, out var c) ? c : new CuentaInventarioSaldo(null, null, null, null)));
+        }
     }
 
     private sealed class ArticulosDoble : IArticuloReadPort
     {
         public Task<ArticuloLectura?> ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<ArticuloLectura?>(null);
         public Task<IReadOnlyDictionary<Guid, ArticuloLectura>> ObtenerPorIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
-            Task.FromResult<IReadOnlyDictionary<Guid, ArticuloLectura>>(new Dictionary<Guid, ArticuloLectura>());
+            Task.FromResult<IReadOnlyDictionary<Guid, ArticuloLectura>>(new Dictionary<Guid, ArticuloLectura>
+            {
+                [Articulo] = new(Articulo, "VID-FIX", "Vidrio FIX", "PZA", null, true, Categoria: "VIDRIO FLOTADO"),
+                [Otro] = new(Otro, "ALU-FIX", "Aluminio FIX", "PZA", null, true, Categoria: "ALUMINIO"),
+            }.Where(x => ids.Contains(x.Key)).ToDictionary());
     }
 
     private sealed class SucursalesDoble : ISucursalReadPort
