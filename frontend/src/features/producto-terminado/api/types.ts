@@ -19,11 +19,11 @@ export interface AvancePosicionDto {
   descripcion: string | null;
   esperadas: number;
   terminadas: number;
-  /** Terminadas que no están cargadas ni entregadas. */
+  /** Terminadas que siguen en PT: ni cargadas ni entregadas. */
   enPt: number;
-  /** 0 hasta que exista la carga (PT5.4+). */
+  /** Piezas en el camión (hoja de salida en borrador o carga de PT5.4). */
   cargadas: number;
-  /** 0 hasta que exista la entrega (PT5.4+). */
+  /** Piezas embarcadas con albarán emitido (PT5.5). */
   entregadas: number;
   /** Esperadas - terminadas. */
   pendientes: number;
@@ -119,4 +119,65 @@ export interface TraspasoDto {
 export interface TraspasosPagina {
   items: TraspasoDto[];
   total: number;
+}
+
+export type EstadoHojaSalida = 'Borrador' | 'Emitida' | 'Cancelada';
+
+export interface AlbaranLineaDto {
+  posicion: number;
+  descripcion: string | null;
+  piezas: number;
+}
+
+/** Albarán de un pedido en la hoja; `secuencia` es el orden de entrega. */
+export interface AlbaranDto {
+  id: string;
+  folio: string;
+  secuencia: number;
+  numeroPedido: string;
+  cliente: string;
+  destino: string | null;
+  emitidoAt: string | null;
+  total: number;
+  lineas: AlbaranLineaDto[];
+  etiquetas: string[];
+}
+
+/** `albaranes` solo viene en el detalle; `yaEmitida` = se pidió emitir de nuevo y no cambió nada. */
+export interface HojaSalidaDto {
+  id: string;
+  folio: string;
+  sucursalId: string;
+  destino: string;
+  foranea: boolean;
+  vehiculoId: string | null;
+  operadorId: string | null;
+  estado: EstadoHojaSalida;
+  creadaAt: string;
+  emitidaAt: string | null;
+  cartaPorteFolio: string | null;
+  pedidos: number;
+  piezas: number;
+  albaranes: AlbaranDto[];
+  yaEmitida: boolean;
+}
+
+export interface HojasSalidaPagina {
+  items: HojaSalidaDto[];
+  total: number;
+}
+
+export interface CrearHojaSalidaBody {
+  sucursalId: string;
+  destino: string;
+  foranea: boolean;
+  vehiculoId?: string | null;
+  operadorId?: string | null;
+  distanciaKm?: number | null;
+  pesoKg?: number | null;
+  origenCodigoPostal?: string | null;
+  origenEstado?: string | null;
+  destinoCodigoPostal?: string | null;
+  destinoEstado?: string | null;
+  pedidos: { numeroPedido: string; etiquetas: string[] }[];
 }

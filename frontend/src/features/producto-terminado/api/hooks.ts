@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest, esConflictoConcurrencia, useBodyScopedIdempotencyKey } from '@/lib/api';
 import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialog-context';
-import type { EscaneoDto, EscaneosPagina, PiezasPagina, ResultadoEscaneo, SalidasPendientesPagina, TraspasoDto, TraspasosPagina } from './types';
+import type { CrearHojaSalidaBody, EscaneoDto, EscaneosPagina, HojaSalidaDto, HojasSalidaPagina, PiezasPagina, ResultadoEscaneo, SalidasPendientesPagina, TraspasoDto, TraspasosPagina } from './types';
 
 const BASE = '/api/v1/producto-terminado';
 
@@ -110,6 +110,43 @@ export function useRecibirTraspaso() {
         body: piezaIds ? { piezaIds } : undefined,
         idempotencyKey: keyFor({ id, piezaIds }),
       }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.all }),
+  });
+}
+
+export function useHojasSalida(f: { estado?: string; page?: number; pageSize?: number }) {
+  return useQuery({
+    queryKey: [...ptKeys.all, 'hojas-salida', f],
+    queryFn: async ({ signal }) =>
+      (await apiRequest<HojasSalidaPagina>(`${BASE}/hojas-salida${qs(f)}`, { signal })).data,
+  });
+}
+
+export function useHojaSalida(id: string | null) {
+  return useQuery({
+    queryKey: [...ptKeys.all, 'hoja-salida', id],
+    enabled: id !== null,
+    queryFn: async ({ signal }) => (await apiRequest<HojaSalidaDto>(`${BASE}/hojas-salida/${id}`, { signal })).data,
+  });
+}
+
+export function useCrearHojaSalida() {
+  const qc = useQueryClient();
+  const keyFor = useBodyScopedIdempotencyKey();
+  return useMutation({
+    mutationFn: async (body: CrearHojaSalidaBody) =>
+      (await apiRequest<HojaSalidaDto>(`${BASE}/hojas-salida`, { method: 'POST', body, idempotencyKey: keyFor(body) })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.all }),
+  });
+}
+
+/** Emitir una hoja ya emitida no cambia nada: la respuesta trae `yaEmitida`. El estado va en la llave para que ese reintento llegue al servidor y no repita la respuesta guardada. */
+export function useAccionHojaSalida() {
+  const qc = useQueryClient();
+  const keyFor = useBodyScopedIdempotencyKey();
+  return useMutation({
+    mutationFn: async ({ id, accion, estado }: { id: string; accion: 'emitir' | 'cancelar'; estado: string }) =>
+      (await apiRequest<HojaSalidaDto>(`${BASE}/hojas-salida/${id}/${accion}`, { method: 'POST', idempotencyKey: keyFor({ id, accion, estado }) })).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.all }),
   });
 }
