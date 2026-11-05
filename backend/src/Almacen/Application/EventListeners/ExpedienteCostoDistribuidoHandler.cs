@@ -26,9 +26,12 @@ public sealed record CostoPartidaAplicado(Guid PartidaId, Guid OcId, Guid Recepc
     public IReadOnlyList<CostoUbicacionAplicado> Ubicaciones { get; init; } = [];
 }
 public sealed record CostoUbicacionAplicado(Guid UbicacionId, decimal CantidadRemanente, decimal InventarioMxn);
-/// <summary>Contabilidad consume este resultado confirmado, nunca la estimación de la vista previa.</summary>
+/// <summary>
+/// Contabilidad consume este resultado confirmado, nunca la estimación de la vista previa (U-2, 86e3yxngq: póliza de inventario y
+/// gasto contra gastos de importación por aplicar). <c>SucursalId</c> (aditivo) = la del expediente, que la póliza exige.
+/// </summary>
 public sealed record ExpedienteCostoAplicadoEvent(Guid Empresa, DateTimeOffset Fecha, Guid ExpedienteId, int NumeroVersion,
-    IReadOnlyList<CostoPartidaAplicado> Partidas) : IntegrationEvent("almacen.expediente.costo-aplicado.v1", Empresa, Fecha);
+    IReadOnlyList<CostoPartidaAplicado> Partidas, Guid? SucursalId = null) : IntegrationEvent("almacen.expediente.costo-aplicado.v1", Empresa, Fecha);
 public sealed class ExpedienteCostoDistribuidoHandler(AlmacenDbContext db, IIntegrationEventPublisher eventos, IClock clock, ILogger<ExpedienteCostoDistribuidoHandler> logger,
     IOptions<IncrementablesImportacionOptions> incrementables)
     : IRequestHandler<AplicarCostoExpedienteCommand>
@@ -123,7 +126,7 @@ public sealed class ExpedienteCostoDistribuidoHandler(AlmacenDbContext db, IInte
         db.EventosProcesados.Add(new EventoProcesado(p.ExpedienteId, llave));
         if (aplicadas.Count > 0)
         {
-            await eventos.PublishAsync(new ExpedienteCostoAplicadoEvent(p.EmpresaId, clock.UtcNow, p.ExpedienteId, p.NumeroVersion, aplicadas), cancellationToken);
+            await eventos.PublishAsync(new ExpedienteCostoAplicadoEvent(p.EmpresaId, clock.UtcNow, p.ExpedienteId, p.NumeroVersion, aplicadas, p.SucursalId), cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
         }
         await db.SaveChangesAsync(cancellationToken);
