@@ -285,6 +285,10 @@ Plano 1.7.1 §11: «sin acuse no afirmar liberado en A+W». El estado `Liberado`
 17. **S17 (PT5.3)** Con salida parcial, el pedido sale del monitor con la primera salida.
 18. **S18 (PT5.3)** Un pedido con piezas en dos sucursales aparece una vez por sucursal física de la pieza.
 19. **S19 (PT5.3)** «Destino» es el nombre de la obra del pedido; las alertas son solo en pantalla (sin aviso por correo).
+20. **S20 (PT5.5)** Hoja de salida con un albarán por pedido, en orden de entrega. La hoja nace en `Borrador` y sus piezas pasan a `Cargada` (si PT5.4 ya las cargó se aceptan tal cual); al emitir pasan a `Embarcada`, una sola vez (único `(pieza, Salida, albarán)`). Solo salen pedidos liberados (70). Emitir de nuevo regresa `yaEmitida` y no cambia nada. Solo se cancela una hoja en `Borrador`.
+21. **S21 (PT5.5)** La salida real alimenta a Facturación por el puerto `IFacturacionSalidaPort`: al emitir registra una `SalidaFacturable` por albarán (referencia = folio del albarán, origen Producto terminado), así se factura y entrega solo lo embarcado y el resto queda pendiente. El avance por posición cuenta `Cargadas` y `Entregadas` de las piezas reales. El lector `ISalidasParcialesReader` sigue como stub solo para Comercio Exterior.
+22. **S22 (PT5.5)** Foránea o carretera federal: al emitir se timbra una Carta Porte de traslado (T) con vehículo, operador, peso y mercancía de la hoja, con el origen, destino, CP y clave de estado capturados en la hoja. La Carta Porte se guarda en la hoja antes de registrar la salida, para que un reintento no emita otra. Clave SAT del bien y origen de la hoja: provisionales hasta la Carta Porte real de Logística (D15).
+23. **S23 (PT5.5)** El pedido pasa a 71 (`EnRutaAt`) con la primera hoja emitida y se publica `producto_terminado.pedido.en-ruta.v1`; el acuse en A+W es de U1.5. Fuera: descuento de hojas enteras de Almacén (falta saber cómo identifica Millet una partida de hoja entera) y cancelar una hoja ya emitida.
 
 ## 12. Preguntas abiertas
 

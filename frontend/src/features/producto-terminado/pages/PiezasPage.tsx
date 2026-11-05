@@ -173,6 +173,10 @@ export function PiezasPage() {
                           <Badge variant="info">
                             En tránsito{p.sucursalDestinoId ? ` a ${nombreSucursal(p.sucursalDestinoId)}` : ''}
                           </Badge>
+                        ) : p.estado === 'Cargada' ? (
+                          <Badge variant="warning">Cargada</Badge>
+                        ) : p.estado === 'Embarcada' ? (
+                          <Badge variant="neutral">Embarcada</Badge>
                         ) : (
                           <Badge variant="success">En PT</Badge>
                         )}

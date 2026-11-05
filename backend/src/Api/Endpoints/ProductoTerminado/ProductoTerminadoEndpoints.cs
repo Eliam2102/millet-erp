@@ -8,6 +8,7 @@ using Millet.ProductoTerminado.Application.Consultas;
 using Millet.Integraciones.Aw.Infrastructure.Origen;
 using Millet.ProductoTerminado.Application.Escaneos;
 using Millet.ProductoTerminado.Application.Liberacion;
+using Millet.ProductoTerminado.Application.Salidas;
 using Millet.ProductoTerminado.Application.Traspasos;
 
 namespace Millet.Api.Endpoints.ProductoTerminado;
@@ -66,6 +67,27 @@ public static class ProductoTerminadoEndpoints
             .WithMetadata(new RequireIdempotencyKeyAttribute());
         traspasos.MapPost("/{id:guid}/recibir", async (Guid id, RecibirBody? body, IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(new RecibirTraspasoCommand(id, body?.PiezaIds), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar)
+            .WithMetadata(new RequireIdempotencyKeyAttribute());
+
+        // Hoja de salida y albaranes (PT5.5). El alcance por sucursal lo aplican los handlers (PtAcceso).
+        var hojas = g.MapGroup("/hojas-salida");
+        hojas.MapGet("", async ([FromQuery] string? estado, [FromQuery] Guid? sucursalId, [FromQuery] int? page, [FromQuery] int? pageSize, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ListarHojasSalidaQuery(estado, sucursalId, page ?? 1, pageSize ?? 50), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoPiezasVer);
+        hojas.MapGet("/{id:guid}", async (Guid id, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ObtenerHojaSalidaQuery(id), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoPiezasVer);
+        hojas.MapPost("", async (CrearHojaSalidaCommand cmd, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(cmd, ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar)
+            .WithMetadata(new RequireIdempotencyKeyAttribute());
+        hojas.MapPost("/{id:guid}/emitir", async (Guid id, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new EmitirHojaSalidaCommand(id), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar)
+            .WithMetadata(new RequireIdempotencyKeyAttribute());
+        hojas.MapPost("/{id:guid}/cancelar", async (Guid id, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new CancelarHojaSalidaCommand(id), ct)))
             .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar)
             .WithMetadata(new RequireIdempotencyKeyAttribute());
 
