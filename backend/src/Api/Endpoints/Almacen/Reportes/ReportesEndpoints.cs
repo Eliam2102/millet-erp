@@ -61,6 +61,21 @@ public static class ReportesEndpoints
         .WithSummary("TRAZABILIDAD-MP — compra, lote, consumo, merma y saldo de un artículo")
         .Produces<ReporteResponse<TrazabilidadMpFila>>(StatusCodes.Status200OK);
 
+        // F1-ALM-15: kardex de un artículo por almacén, ubicación y periodo. Mismo permiso y alcance por sucursal que el ALFAK.
+        app.MapGet("/api/v1/almacen/reportes/kardex", async (
+            [FromQuery] Guid articuloId,
+            [FromQuery] DateOnly desde,
+            [FromQuery] DateOnly hasta,
+            [FromQuery] Guid? subAlmacenId,
+            [FromQuery] Guid? ubicacionId,
+            IMediator mediator,
+            CancellationToken ct) => Results.Ok(await mediator.Send(new KardexQuery(articuloId, desde, hasta, subAlmacenId, ubicacionId), ct)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenReportesAlfak)
+        .WithTags("Almacen")
+        .WithName("ReporteKardex")
+        .WithSummary("KARDEX-ALMACEN — movimientos de un artículo con saldo, costo y valor después de cada uno")
+        .Produces<ReporteResponse<KardexFila>>(StatusCodes.Status200OK);
+
         // SAP-REPORTE-EXISTENCIA-MP-CNK
         app.MapGet("/api/v1/almacen/reportes/mp-cnk", async (
             [FromQuery] Guid? subAlmacenId,

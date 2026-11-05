@@ -1265,6 +1265,21 @@ export interface TrazabilidadMpFila {
   valorSaldo: number;
 }
 
+/** F1-ALM-15: renglón del kardex de un artículo; saldo, costoPromedioMxn y valorSaldo son los de después del movimiento. */
+export interface KardexFila {
+  fecha: string;
+  folio: string | null;
+  tipo: string;
+  documento: string | null;
+  ubicacion: string | null;
+  entrada: number;
+  salida: number;
+  saldo: number;
+  costoUnitarioMxn: number;
+  costoPromedioMxn: number;
+  valorSaldo: number;
+}
+
 /**
  * F1-ALM-13-a: fila del cuadre del cierre. «Cuenta» = cuenta de inventario por tipo de artículo para toda la empresa (o grupo sin
  * cuenta); «Almacén» = detalle de valuación; «Kardex» = diferencia contra el kardex. Diferencia = valuación − saldo (o − kardex).
