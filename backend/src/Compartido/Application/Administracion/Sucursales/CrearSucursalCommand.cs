@@ -81,9 +81,11 @@ public sealed class CrearSucursalHandler
 
         if (command.ClaveAw is not null)
         {
-            var claveAwExiste = await _db.Sucursales.AsNoTracking()
-                .AnyAsync(s => s.ClaveAw == command.ClaveAw.Trim(), cancellationToken);
-            if (claveAwExiste)
+            var nuevas = Sucursal.ClavesAw(command.ClaveAw);
+            var otras = await _db.Sucursales.AsNoTracking()
+                .Where(s => s.ClaveAw != null)
+                .Select(s => s.ClaveAw!).ToListAsync(cancellationToken);
+            if (otras.Any(o => Sucursal.ClavesAw(o).Intersect(nuevas).Any()))
             {
                 throw new ConflictException(
                     "SUCURSAL_CLAVE_AW_DUPLICADA",
