@@ -65,11 +65,14 @@ public sealed class ReglaDepositoAutomaticoTests
             .Candidatos.Should().ContainSingle().Which.Should().BeSameAs(p);
     }
 
-    [Fact]
-    public void Monto_igual_al_umbral_va_a_revision()
+    [Theory]
+    [InlineData(185.50)]
+    [InlineData(100_000)]
+    [InlineData(480_000)]
+    public void Sin_tope_de_monto_cualquier_importe_con_respaldo_se_confirma_solo(decimal monto)
     {
-        var p = Propuesta(100_000m);
-        Revision(Evaluar(Linea(100_000m), [p]), "umbral");
+        var p = Propuesta(monto, facturas: Facturas((monto, 0m)));
+        Evaluar(Linea(monto), [p]).Should().BeOfType<ResultadoReglaDeposito.AutoConfirmar>();
     }
 
     [Fact]

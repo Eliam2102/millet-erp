@@ -3,13 +3,10 @@ using Millet.Tesoreria.Domain.Depositos;
 
 namespace Millet.Tesoreria.Application.Depositos;
 
-/// <summary>Sección <c>Tesoreria:DepositoAutomatico</c> (86e3ke6yn). Umbral en MXN pendiente de validar con Millet (V30).</summary>
+/// <summary>Sección <c>Tesoreria:DepositoAutomatico</c> (86e3ke6yn)..</summary>
 public sealed class DepositoAutomaticoOptions
 {
     public const string SectionName = "Tesoreria:DepositoAutomatico";
-
-    /// <summary>Un depósito igual o mayor a este monto (MXN) siempre pasa a revisión humana.</summary>
-    public decimal UmbralMxn { get; set; } = 100_000m;
 
     /// <summary>Fragmentos de la descripción del extracto que delatan un cheque (sin mayúsculas). Solo en appsettings: Bind agrega a un arreglo con valor por omisión.</summary>
     public string[] PalabrasCheque { get; set; } = [];
@@ -43,12 +40,12 @@ public abstract record ResultadoReglaDeposito
 /// <summary>
 /// 86e3ke6yn: decide si un abono del extracto se confirma solo. Auto únicamente si TODO se cumple:
 /// referencia igual (normalizada) y monto exacto, respaldo de factura única saldada, no es cheque,
-/// monto menor al umbral, un solo candidato, MXN. Cualquier duda va a revisión.
+/// un solo candidato, MXN. Cualquier duda va a revisión.
 /// </summary>
 public static class ReglaDepositoAutomatico
 {
     public const string ReglaTextoAuto =
-        "Referencia y monto exactos, una factura saldada, no es cheque, bajo el umbral, un solo candidato";
+        "Referencia y monto exactos, una factura saldada, no es cheque, un solo candidato";
 
     public static ResultadoReglaDeposito Evaluar(
         ExtractoLinea linea, IReadOnlyList<DepositoConfirmacion> candidatos,
@@ -72,8 +69,6 @@ public static class ReglaDepositoAutomatico
 
         if (EsCheque(linea.Descripcion, opciones))
             return Revision("Cheque: se confirma a mano.");
-        if (linea.Monto >= opciones.UmbralMxn)
-            return Revision($"El monto ({linea.Monto:N2}) es igual o mayor al umbral de {opciones.UmbralMxn:N2} MXN.");
         if (!EsMxn(contexto.MonedaCuenta) || !EsMxn(d.Moneda))
             return Revision("La moneda no es MXN.");
 
