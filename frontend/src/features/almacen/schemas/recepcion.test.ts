@@ -173,3 +173,17 @@ describe('RegistrarRecepcionFacturaSchema — medida de la línea de OC (E1)', (
     expect(mensajes(conFila({ cantidad: 5, cantidadDanada: 1, motivoDano: ' ' }))).toContain('Indica el motivo del daño.');
   });
 });
+
+describe('RegistrarRecepcionFacturaSchema — remisión y motivo de recepción repetida (G-3)', () => {
+  const conCfdi = { ...base, cfdiRecibidoId: '019e0000-0000-7000-8000-0000000000cc', cfdiUuidFiscal: null };
+
+  it('acepta remisión y motivo opcionales', () => {
+    expect(RegistrarRecepcionFacturaSchema.safeParse({ ...conCfdi, remision: 'R-55', motivoDuplicado: 'Segundo camión' }).success).toBe(true);
+    expect(RegistrarRecepcionFacturaSchema.safeParse(conCfdi).success).toBe(true);
+  });
+
+  it('rechaza remisión de más de 50 caracteres y motivo de más de 500', () => {
+    expect(RegistrarRecepcionFacturaSchema.safeParse({ ...conCfdi, remision: 'R'.repeat(51) }).success).toBe(false);
+    expect(RegistrarRecepcionFacturaSchema.safeParse({ ...conCfdi, motivoDuplicado: 'm'.repeat(501) }).success).toBe(false);
+  });
+});

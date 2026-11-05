@@ -165,12 +165,14 @@ const CODIGOS_RECEPCION: Record<string, { campo: string; mensaje?: string } | 'c
   ENTRADA_SIN_ASIGNACION: 'callout',
   RECEPCION_MULTI_SUBALMACEN: 'callout',
   RECEPCION_SUCURSAL_DISTINTA: 'callout',
+  LISTA_EMPAQUE_VIDRIO: 'callout',
 };
 const TITULOS_CALLOUT: Record<string, string> = {
   RECEPCION_EXCEDE_PENDIENTE: 'Una cantidad excede lo pendiente',
   ENTRADA_SIN_ASIGNACION: 'Un artículo no está asignado al rack elegido',
   RECEPCION_MULTI_SUBALMACEN: 'Las partidas van a sub-almacenes distintos',
   RECEPCION_SUCURSAL_DISTINTA: 'La orden de compra es de otra sucursal',
+  LISTA_EMPAQUE_VIDRIO: 'La lista de empaque no admite vidrio',
 };
 
 function NuevaRecepcionFormBody({
@@ -223,6 +225,8 @@ function NuevaRecepcionFormBody({
     titulo: string;
     detalle: string;
   } | null>(null);
+  // G-3: el servidor avisó que esa remisión/factura ya se recibió en la OC; solo continúa con motivo.
+  const [yaRecibida, setYaRecibida] = useState<string | null>(null);
 
   function solicitarVariante(siguiente: Variante) {
     if (siguiente === variante) return;
@@ -233,6 +237,7 @@ function NuevaRecepcionFormBody({
   function cambiarVariante(siguiente: Variante) {
     setVarianteSolicitada(null);
     setAvisoServidor(null);
+    setYaRecibida(null);
     setVariante(siguiente);
     setPackingListAdjunto(null);
     setCapturaUuidManual(false);
@@ -319,6 +324,10 @@ function NuevaRecepcionFormBody({
 
   function onSubmit(values: RecepcionFormValues) {
     setAvisoServidor(null);
+    if (yaRecibida && !values.motivoDuplicado?.trim()) {
+      form.setError('motivoDuplicado', { type: 'required', message: 'Captura el motivo para registrarla otra vez.' });
+      return;
+    }
     // Un solo sub-almacén por recepción: el conflicto ya se ve por línea.
     const subs = new Map(
       (ubicacionesQuery.data?.items ?? []).map((u) => [
@@ -381,6 +390,8 @@ function NuevaRecepcionFormBody({
             // Mayúsculas como el VO UuidCfdi de CxP (el backend re-normaliza).
             cfdiUuidFiscal: v.cfdiUuidFiscal?.trim().toUpperCase() ?? null,
             observaciones: v.observaciones ?? null,
+            remision: v.remision?.trim() || null,
+            motivoDuplicado: yaRecibida ? v.motivoDuplicado?.trim() || null : null,
             // PR4: null = el almacenista no usó el helper de cabecera.
             ubicacionHelperId: v.ubicacionHelperId ?? null,
             lineas: lineasParaBackend,
@@ -418,6 +429,8 @@ function NuevaRecepcionFormBody({
           fechaMovimiento: v.fechaMovimiento,
           packingListBlobRef: packingListAdjunto.blobRef,
           observaciones: v.observaciones ?? null,
+          remision: v.remision?.trim() || null,
+          motivoDuplicado: yaRecibida ? v.motivoDuplicado?.trim() || null : null,
           // PR4: null = el almacenista no usó el helper de cabecera.
           ubicacionHelperId: v.ubicacionHelperId ?? null,
           lineas: lineasParaBackend,
@@ -441,6 +454,10 @@ function NuevaRecepcionFormBody({
   function manejarError(error: unknown) {
     if (!esApiError(error)) {
       toast.error('Error inesperado al registrar la recepción.');
+      return;
+    }
+    if (error.code === 'RECEPCION_YA_RECIBIDA') {
+      setYaRecibida(error.problem.detail ?? error.problem.title);
       return;
     }
     const resultado = applyServerErrors(
@@ -554,6 +571,34 @@ function NuevaRecepcionFormBody({
                 />
               </Field>
             </FormCampo>
+
+            <FormCampo span={6}>
+              <Field label="Remisión del proveedor" error={form.formState.errors.remision?.message}>
+                <Input
+                  {...form.register('remision', { onChange: () => setYaRecibida(null) })}
+                  maxLength={50}
+                  placeholder="Ej. R-55"
+                  autoComplete="off"
+                />
+              </Field>
+            </FormCampo>
+
+            {yaRecibida && (
+              <FormCampo span={12}>
+                <div className="space-y-2">
+                  <AvisoEnLinea tono="advertencia" titulo="Ya recibida">
+                    {yaRecibida} Registrarla de nuevo solo procede con motivo; si es la misma entrega, cancela.
+                  </AvisoEnLinea>
+                  <Field
+                    label="Motivo para registrarla otra vez"
+                    required
+                    error={form.formState.errors.motivoDuplicado?.message}
+                  >
+                    <Input {...form.register('motivoDuplicado')} maxLength={500} autoComplete="off" />
+                  </Field>
+                </div>
+              </FormCampo>
+            )}
 
             <FormCampo span={12}>
               {variante === 'A' && (
@@ -726,7 +771,8 @@ function NuevaRecepcionFormBody({
 
           {avisoServidor && (
             <AvisoEnLinea tono="error" titulo={avisoServidor.titulo}>
-              {avisoServidor.detalle} Revisa las cantidades y los racks de las partidas marcadas.
+              {avisoServidor.detalle}
+              {avisoServidor.titulo === TITULOS_CALLOUT.LISTA_EMPAQUE_VIDRIO ? '' : ' Revisa las cantidades y los racks de las partidas marcadas.'}
             </AvisoEnLinea>
           )}
 
@@ -1320,6 +1366,8 @@ type RecepcionFormValues = {
   ordenCompraId: string;
   fechaMovimiento: string;
   observaciones?: string | null;
+  remision?: string | null;
+  motivoDuplicado?: string | null;
   cfdiRecibidoId?: string | null;
   cfdiUuidFiscal?: string | null;
   packingListBlobRef?: string;

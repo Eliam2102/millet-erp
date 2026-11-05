@@ -140,6 +140,10 @@ export const FilaRecepcionSchema = z
 
 export type FilaRecepcionValues = z.infer<typeof FilaRecepcionSchema>;
 
+// G-3: remisión del proveedor (opcional) y motivo para registrar otra vez la misma remisión/factura de la OC.
+const RemisionSchema = z.string().max(50, 'Máximo 50 caracteres').nullish();
+const MotivoDuplicadoSchema = z.string().max(500, 'Máximo 500 caracteres').nullish();
+
 /**
  * Refinement compartido por Variante A y B: al menos UNA fila debe
  * estar incluida en la recepción. Tipado explícito sin
@@ -178,6 +182,8 @@ export const RegistrarRecepcionFacturaSchema = z
       .regex(UUID_SHAPE_RE, 'Folio fiscal con formato UUID (8-4-4-4-12 hex)')
       .nullish(),
     observaciones: z.string().max(500, 'Máximo 500 caracteres').nullish(),
+    remision: RemisionSchema,
+    motivoDuplicado: MotivoDuplicadoSchema,
     // PR4: helper de cabecera — bin N4 que el almacenista auto-aplica a las
     // filas sin ubicación. Opcional; null = no usó el helper. No sustituye a
     // ubicacionId por fila (que sigue siendo el dato que manda).
@@ -212,6 +218,8 @@ export const RegistrarRecepcionPackingListSchema = z
       .min(1, 'Adjunto del lista de empaque requerido')
       .max(500, 'Máximo 500 caracteres'),
     observaciones: z.string().max(500, 'Máximo 500 caracteres').nullish(),
+    remision: RemisionSchema,
+    motivoDuplicado: MotivoDuplicadoSchema,
     // PR4: helper de cabecera (ver variante A).
     ubicacionHelperId: z.string().regex(UUID_SHAPE_RE).nullish(),
     filas: z.array(FilaRecepcionSchema),

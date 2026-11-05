@@ -69,6 +69,9 @@ public sealed class MovimientoInventario : BaseEntity, IPerteneceAEmpresa, IAudi
     // para que la conciliación diferida matchee por igualdad exacta.
     public string? CfdiUuidFiscal { get; private set; }
     public string? PackingListBlobRef { get; private set; }
+    // G-3: remisión del proveedor (mayúsculas) y, si repite remisión/factura de otra recepción de la OC, el motivo capturado.
+    public string? Remision { get; private set; }
+    public string? MotivoDuplicado { get; private set; }
     public Guid? RqId { get; private set; }
     public string? ValeBlobRef { get; private set; }
     public Guid? SalidaOrigenId { get; private set; }
@@ -244,6 +247,13 @@ public sealed class MovimientoInventario : BaseEntity, IPerteneceAEmpresa, IAudi
         OcId = ocId;
         OcLineaId = ocLineaId;
         PackingListBlobRef = packingListBlobRef;
+    }
+
+    /// <summary>G-3: remisión del proveedor y, si repite remisión/factura de otra recepción de la OC, el motivo capturado.</summary>
+    internal void AsentarRemision(string? remision, string? motivoDuplicado)
+    {
+        Remision = remision;
+        MotivoDuplicado = motivoDuplicado;
     }
 
     /// <summary>

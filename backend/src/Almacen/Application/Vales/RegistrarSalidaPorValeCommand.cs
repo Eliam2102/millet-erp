@@ -341,11 +341,13 @@ public sealed class RegularizarSalidaPorValeHandler
     private readonly AlmacenDbContext _db;
 
     private readonly IComprasRequisicionReadPort _rqPort;
+    private readonly IIntegrationEventPublisher _events;
 
-    public RegularizarSalidaPorValeHandler(AlmacenDbContext db, IComprasRequisicionReadPort rqPort)
+    public RegularizarSalidaPorValeHandler(AlmacenDbContext db, IComprasRequisicionReadPort rqPort, IIntegrationEventPublisher events)
     {
         _db = db;
         _rqPort = rqPort;
+        _events = events;
     }
 
     public async Task Handle(
@@ -385,6 +387,27 @@ public sealed class RegularizarSalidaPorValeHandler
         }
 
         mov.RegularizarVale(request.RqRegularizadoraId);
+
+        // G-3: lo surtido por el vale se descuenta del saldo de la RQ (por línea, en orden) y Compras lo recibe por evento.
+        // Es idempotente: RegularizarVale rechaza un segundo intento, así que el evento sale una sola vez.
+        var pendientePorLinea = rq.Lineas.ToDictionary(l => l.LineaId, l => l.CantidadDisponibleEntregar);
+        var lineasEvento = new List<LineaSalidaPayload>();
+        foreach (var l in mov.Lineas)
+        {
+            var porAsignar = l.Cantidad;
+            foreach (var lineaRq in rq.Lineas.Where(x => x.ArticuloId == l.ArticuloId))
+            {
+                var tomado = Math.Min(porAsignar, pendientePorLinea[lineaRq.LineaId]);
+                if (tomado <= 0) continue;
+                pendientePorLinea[lineaRq.LineaId] -= tomado;
+                porAsignar -= tomado;
+                lineasEvento.Add(new LineaSalidaPayload(l.Id, l.ArticuloId, l.UnidadMedida, tomado, l.CostoUnitarioMxn,
+                    Math.Round(tomado * l.CostoUnitarioMxn, 2), l.CentroCostoId, l.ProyectoId, LineaRqId: lineaRq.LineaId, UbicacionId: l.UbicacionId));
+                if (porAsignar <= 0) break;
+            }
+        }
+        await _events.PublishAsync(new ValeRegularizadoIntegrationEvent(
+            mov.EmpresaId, DateTimeOffset.UtcNow, mov.Id, mov.Folio ?? string.Empty, rq.Id, EsPorVale: true, lineasEvento), cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
     }
 }

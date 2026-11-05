@@ -51,6 +51,8 @@ public sealed class MovimientoInventarioConfiguration : IEntityTypeConfiguration
         builder.Property(x => x.CfdiRecibidoId);
         builder.Property(x => x.CfdiUuidFiscal).HasMaxLength(36);
         builder.Property(x => x.PackingListBlobRef).HasMaxLength(500);
+        builder.Property(x => x.Remision).HasMaxLength(50);
+        builder.Property(x => x.MotivoDuplicado).HasMaxLength(500);
         builder.Property(x => x.RqId);
         builder.Property(x => x.ValeBlobRef).HasMaxLength(500);
         builder.Property(x => x.SalidaOrigenId);

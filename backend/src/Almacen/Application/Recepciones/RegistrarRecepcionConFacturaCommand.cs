@@ -42,7 +42,9 @@ public sealed record RegistrarRecepcionConFacturaCommand(
     // líneas vacías en el sheet). Opcional — null = no usó el helper. Solo
     // reportería; la ubicación efectiva de cada línea viaja en cada
     // RegistrarRecepcionLineaInput.UbicacionId y es la que manda.
-    Guid? UbicacionHelperId = null, ImportacionRecepcionInput? Importacion = null) : IRequest<RegistrarRecepcionResponse>;
+    Guid? UbicacionHelperId = null, ImportacionRecepcionInput? Importacion = null,
+    // G-3: remisión del proveedor y motivo para registrar otra vez la misma remisión/factura de la OC (RECEPCION_YA_RECIBIDA).
+    string? Remision = null, string? MotivoDuplicado = null) : IRequest<RegistrarRecepcionResponse>;
 
 public sealed record RegistrarRecepcionLineaInput(
     Guid ArticuloId,
@@ -80,6 +82,12 @@ public sealed class RegistrarRecepcionConFacturaValidator
         RuleFor(c => c.Observaciones!).MaximumLength(500)
             .When(c => c.Observaciones is not null)
             .WithMessage("Las observaciones no pueden exceder 500 caracteres.");
+        RuleFor(c => c.Remision!).MaximumLength(RecepcionDuplicada.RemisionMaxLength)
+            .When(c => c.Remision is not null)
+            .WithMessage("La remisión no puede exceder 50 caracteres.");
+        RuleFor(c => c.MotivoDuplicado!).MaximumLength(500)
+            .When(c => c.MotivoDuplicado is not null)
+            .WithMessage("El motivo no puede exceder 500 caracteres.");
         RuleFor(c => c.Lineas).NotEmpty();
         RuleForEach(c => c.Lineas).ChildRules(linea =>
         {
@@ -166,6 +174,9 @@ public sealed class RegistrarRecepcionConFacturaHandler
         // F8-PR2: validar periodo cerrado (cross-cutting §6.1).
         await Cierre.PeriodoCerradoValidator.LanzarSiCerradoAsync(
             _db, empresaId, request.FechaMovimiento, _periodoContable, cancellationToken);
+        // G-3: misma remisión/factura ya recibida en la OC → exige motivo.
+        var (remision, motivoDuplicado) = await RecepcionDuplicada.ValidarAsync(_db, request.OrdenCompraId, request.Remision,
+            request.CfdiRecibidoId, request.CfdiUuidFiscal, request.MotivoDuplicado, cancellationToken);
 
         var conversiones = new List<ConversionUnidad>();
         // F1-MP-01: la medida se valida contra el producto A+W vigente del artículo en cada recepción.
@@ -209,6 +220,7 @@ public sealed class RegistrarRecepcionConFacturaHandler
             ocLineaId: null, // La referencia obligatoria se conserva en cada línea.
             cfdiRecibidoId: request.CfdiRecibidoId,
             cfdiUuidFiscal: request.CfdiUuidFiscal);
+        movimiento.AsentarRemision(remision, motivoDuplicado);
 
         if (!string.IsNullOrWhiteSpace(request.Observaciones))
         {
@@ -311,6 +323,7 @@ public sealed class RegistrarRecepcionConFacturaHandler
                         empresaId: empresaId,
                         fechaMovimiento: request.FechaMovimiento);
                     movimientoRevision.VincularRecepcionVarianteA(request.OrdenCompraId, null, request.CfdiRecibidoId, request.CfdiUuidFiscal);
+                    movimientoRevision.AsentarRemision(remision, motivoDuplicado);
                 }
                 var lineaRevId = Guid.CreateVersion7();
                 var lineaRev = new LineaMovimiento(
