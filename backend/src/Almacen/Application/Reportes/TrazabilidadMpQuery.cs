@@ -114,7 +114,7 @@ public sealed class TrazabilidadMpHandler(AlmacenDbContext db, IArticuloReadPort
     {
         TipoMovimiento.EntradaCompra => ConceptoCompra,
         TipoMovimiento.SalidaConsumo or TipoMovimiento.SalidaPorVale => ConceptoConsumo,
-        TipoMovimiento.BajaPorDano => ConceptoMerma,
+        TipoMovimiento.BajaPorDano or TipoMovimiento.SalidaPorRotura => ConceptoMerma,
         _ => ConceptoAjuste,
     };
 

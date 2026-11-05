@@ -66,7 +66,7 @@ public sealed class SalidaPt : BaseEntity, IAuditable, IPerteneceAEmpresa
         if (Estado == EstadoSalida.Emitida) return false;
         if (Estado == EstadoSalida.Cancelada) throw new BusinessRuleException("PT_SALIDA_CANCELADA", "La hoja de salida está cancelada.");
         (Estado, EmitidaAt) = (EstadoSalida.Emitida, ahora);
-        foreach (var a in _albaranes) a.Emitir(ahora);
+        foreach (var a in _albaranes.Where(a => a.Piezas.Count > 0)) a.Emitir(ahora);
         return true;
     }
 

@@ -141,6 +141,10 @@ export interface AlbaranDto {
   total: number;
   lineas: AlbaranLineaDto[];
   etiquetas: string[];
+  /** PT5.4: piezas del pedido, las que se pueden cargar todavía (solo en carga) y las rotas pendientes de reposición. */
+  esperadas?: number;
+  disponibles?: string[];
+  rotas?: string[];
 }
 
 /** `albaranes` solo viene en el detalle; `yaEmitida` = se pidió emitir de nuevo y no cambió nada. */
@@ -179,5 +183,6 @@ export interface CrearHojaSalidaBody {
   origenEstado?: string | null;
   destinoCodigoPostal?: string | null;
   destinoEstado?: string | null;
+  /** Sin etiquetas arma solo la ruta; las piezas se cargan después, una por una. */
   pedidos: { numeroPedido: string; etiquetas: string[] }[];
 }

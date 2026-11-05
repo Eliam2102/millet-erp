@@ -17,7 +17,7 @@ public sealed class CrearHojaSalidaValidator : AbstractValidator<CrearHojaSalida
         RuleForEach(x => x.Pedidos).ChildRules(p =>
         {
             p.RuleFor(x => x.NumeroPedido).NotEmpty().MaximumLength(50);
-            p.RuleFor(x => x.Etiquetas).NotEmpty().Must(e => e.Count <= 500).WithMessage("Máximo 500 piezas por pedido.");
+            p.RuleFor(x => x.Etiquetas).Must(e => e.Count <= 500).WithMessage("Máximo 500 piezas por pedido.");
             p.RuleForEach(x => x.Etiquetas).NotEmpty().MaximumLength(100);
         });
     }

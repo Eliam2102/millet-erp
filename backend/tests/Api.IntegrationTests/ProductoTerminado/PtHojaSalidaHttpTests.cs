@@ -109,4 +109,29 @@ public class PtHojaSalidaHttpTests
         Assert.Equal(HttpStatusCode.Forbidden, (await ajeno.PostAsJsonAsync($"{Base}/hojas-salida", Hoja(a, numero, etiquetas))).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await soloVer.PostAsJsonAsync($"{Base}/hojas-salida", Hoja(a, numero, etiquetas))).StatusCode);
     }
+
+    [Fact]
+    public async Task PT5_4_carga_pieza_por_pieza_con_una_rota_el_albaran_y_la_salida_llevan_solo_lo_cargado()
+    {
+        var (a, numero, facturable, etiquetas) = await PrepararAsync(3);
+        var (_, _, _, ajenas) = await PrepararAsync(1);
+        using var cliente = await _d.ClienteAsync(Operativo, a);
+
+        var ruta = await Json(await cliente.PostAsJsonAsync($"{Base}/hojas-salida", Hoja(a, numero, [])));
+        var id = ruta.GetProperty("id").GetGuid();
+        Assert.Equal(3, ruta.GetProperty("albaranes")[0].GetProperty("disponibles").GetArrayLength());
+
+        async Task<HttpResponseMessage> Pieza(string accion, string etiqueta) => await cliente.PostAsJsonAsync($"{Base}/hojas-salida/{id}/{accion}", new { etiqueta });
+        Assert.Equal(HttpStatusCode.OK, (await Pieza("cargar", etiquetas[0])).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await Pieza("cargar", etiquetas[1])).StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await Pieza("cargar", ajenas[0])).StatusCode);
+        var rota = await Json(await Pieza("rota", etiquetas[2]));
+        Assert.Equal(etiquetas[2], rota.GetProperty("albaranes")[0].GetProperty("rotas")[0].GetString());
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await Pieza("cargar", etiquetas[2])).StatusCode);
+
+        var emitida = await Json(await cliente.PostAsync($"{Base}/hojas-salida/{id}/emitir", null));
+        Assert.Equal(2, emitida.GetProperty("albaranes")[0].GetProperty("total").GetInt32());
+        Assert.Equal([2m], await _d.SalidasFacturacionAsync(facturable));
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await Pieza("descargar", etiquetas[0])).StatusCode);
+    }
 }

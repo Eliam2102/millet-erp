@@ -36,6 +36,7 @@ import { Route as AppAlmacenReordenRouteImport } from './routes/_app/almacen/reo
 import { Route as AppAlmacenRevisionRouteImport } from './routes/_app/almacen/revision';
 import { Route as AppAlmacenSaldosRouteImport } from './routes/_app/almacen/saldos';
 import { Route as AppAlmacenSaldosJerarquiaRouteImport } from './routes/_app/almacen/saldos-jerarquia';
+import { Route as AppAlmacenSalidasRoturaRouteImport } from './routes/_app/almacen/salidas-rotura';
 import { Route as AppAlmacenSubAlmacenesRouteImport } from './routes/_app/almacen/sub-almacenes';
 import { Route as AppAlmacenTallerRouteImport } from './routes/_app/almacen/taller';
 import { Route as AppAlmacenUbicacionesRouteImport } from './routes/_app/almacen/ubicaciones';
@@ -376,6 +377,11 @@ const AppAlmacenSaldosJerarquiaRoute =
     path: '/almacen/saldos-jerarquia',
     getParentRoute: () => AppRoute,
   } as any);
+const AppAlmacenSalidasRoturaRoute = AppAlmacenSalidasRoturaRouteImport.update({
+  id: '/almacen/salidas-rotura',
+  path: '/almacen/salidas-rotura',
+  getParentRoute: () => AppRoute,
+} as any);
 const AppAlmacenSubAlmacenesRoute = AppAlmacenSubAlmacenesRouteImport.update({
   id: '/almacen/sub-almacenes',
   path: '/almacen/sub-almacenes',
@@ -1502,6 +1508,7 @@ export interface FileRoutesByFullPath {
   '/almacen/revision': typeof AppAlmacenRevisionRoute;
   '/almacen/saldos': typeof AppAlmacenSaldosRoute;
   '/almacen/saldos-jerarquia': typeof AppAlmacenSaldosJerarquiaRoute;
+  '/almacen/salidas-rotura': typeof AppAlmacenSalidasRoturaRoute;
   '/almacen/sub-almacenes': typeof AppAlmacenSubAlmacenesRoute;
   '/almacen/taller': typeof AppAlmacenTallerRoute;
   '/almacen/ubicaciones': typeof AppAlmacenUbicacionesRoute;
@@ -1727,6 +1734,7 @@ export interface FileRoutesByTo {
   '/almacen/revision': typeof AppAlmacenRevisionRoute;
   '/almacen/saldos': typeof AppAlmacenSaldosRoute;
   '/almacen/saldos-jerarquia': typeof AppAlmacenSaldosJerarquiaRoute;
+  '/almacen/salidas-rotura': typeof AppAlmacenSalidasRoturaRoute;
   '/almacen/sub-almacenes': typeof AppAlmacenSubAlmacenesRoute;
   '/almacen/taller': typeof AppAlmacenTallerRoute;
   '/almacen/ubicaciones': typeof AppAlmacenUbicacionesRoute;
@@ -1954,6 +1962,7 @@ export interface FileRoutesById {
   '/_app/almacen/revision': typeof AppAlmacenRevisionRoute;
   '/_app/almacen/saldos': typeof AppAlmacenSaldosRoute;
   '/_app/almacen/saldos-jerarquia': typeof AppAlmacenSaldosJerarquiaRoute;
+  '/_app/almacen/salidas-rotura': typeof AppAlmacenSalidasRoturaRoute;
   '/_app/almacen/sub-almacenes': typeof AppAlmacenSubAlmacenesRoute;
   '/_app/almacen/taller': typeof AppAlmacenTallerRoute;
   '/_app/almacen/ubicaciones': typeof AppAlmacenUbicacionesRoute;
@@ -2181,6 +2190,7 @@ export interface FileRouteTypes {
     | '/almacen/revision'
     | '/almacen/saldos'
     | '/almacen/saldos-jerarquia'
+    | '/almacen/salidas-rotura'
     | '/almacen/sub-almacenes'
     | '/almacen/taller'
     | '/almacen/ubicaciones'
@@ -2406,6 +2416,7 @@ export interface FileRouteTypes {
     | '/almacen/revision'
     | '/almacen/saldos'
     | '/almacen/saldos-jerarquia'
+    | '/almacen/salidas-rotura'
     | '/almacen/sub-almacenes'
     | '/almacen/taller'
     | '/almacen/ubicaciones'
@@ -2632,6 +2643,7 @@ export interface FileRouteTypes {
     | '/_app/almacen/revision'
     | '/_app/almacen/saldos'
     | '/_app/almacen/saldos-jerarquia'
+    | '/_app/almacen/salidas-rotura'
     | '/_app/almacen/sub-almacenes'
     | '/_app/almacen/taller'
     | '/_app/almacen/ubicaciones'
@@ -3028,6 +3040,13 @@ declare module '@tanstack/react-router' {
       path: '/almacen/saldos-jerarquia';
       fullPath: '/almacen/saldos-jerarquia';
       preLoaderRoute: typeof AppAlmacenSaldosJerarquiaRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/almacen/salidas-rotura': {
+      id: '/_app/almacen/salidas-rotura';
+      path: '/almacen/salidas-rotura';
+      fullPath: '/almacen/salidas-rotura';
+      preLoaderRoute: typeof AppAlmacenSalidasRoturaRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/almacen/sub-almacenes': {
@@ -4452,6 +4471,7 @@ interface AppRouteChildren {
   AppAlmacenRevisionRoute: typeof AppAlmacenRevisionRoute;
   AppAlmacenSaldosRoute: typeof AppAlmacenSaldosRoute;
   AppAlmacenSaldosJerarquiaRoute: typeof AppAlmacenSaldosJerarquiaRoute;
+  AppAlmacenSalidasRoturaRoute: typeof AppAlmacenSalidasRoturaRoute;
   AppAlmacenSubAlmacenesRoute: typeof AppAlmacenSubAlmacenesRoute;
   AppAlmacenTallerRoute: typeof AppAlmacenTallerRoute;
   AppAlmacenUbicacionesRoute: typeof AppAlmacenUbicacionesRoute;
@@ -4676,6 +4696,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAlmacenRevisionRoute: AppAlmacenRevisionRoute,
   AppAlmacenSaldosRoute: AppAlmacenSaldosRoute,
   AppAlmacenSaldosJerarquiaRoute: AppAlmacenSaldosJerarquiaRoute,
+  AppAlmacenSalidasRoturaRoute: AppAlmacenSalidasRoturaRoute,
   AppAlmacenSubAlmacenesRoute: AppAlmacenSubAlmacenesRoute,
   AppAlmacenTallerRoute: AppAlmacenTallerRoute,
   AppAlmacenUbicacionesRoute: AppAlmacenUbicacionesRoute,

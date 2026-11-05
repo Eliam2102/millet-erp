@@ -62,6 +62,9 @@ public sealed class SalidasTests
         public CrearHojaSalidaHandler Crear() => new(T.Db, Acceso, T.Pedidos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
         public EmitirHojaSalidaHandler Emitir() => new(T.Db, Acceso, T.Pedidos, Facturacion, T.Eventos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
         public CancelarHojaSalidaHandler Cancelar() => new(T.Db, Acceso, T.Pedidos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
+        public CargarPiezaHojaHandler Cargar() => new(T.Db, Acceso, T.Pedidos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
+        public DescargarPiezaHojaHandler Descargar() => new(T.Db, Acceso, T.Pedidos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
+        public MarcarPiezaRotaHojaHandler Rota() => new(T.Db, Acceso, T.Pedidos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
         public void Dispose() => T.Dispose();
     }
 
@@ -218,5 +221,125 @@ public sealed class SalidasTests
         await e.Emitir().Handle(new EmitirHojaSalidaCommand(otra.Id), default);
         var act = () => e.Cancelar().Handle(new CancelarHojaSalidaCommand(otra.Id), default);
         (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("PT_SALIDA_NO_CANCELABLE");
+    }
+
+    private static CrearHojaSalidaCommand Ruta(params string[] pedidos) =>
+        Hoja([], pedidos[0]) with { Pedidos = pedidos.Select(p => new PedidoCargadoDto(p, [])).ToList() };
+
+    private static async Task<Entorno> PrepararRuta(params (string Pedido, int Piezas)[] pedidos)
+    {
+        var t = new EntornoPt();
+        foreach (var (pedido, piezas) in pedidos)
+        {
+            t.Saldos.Saldos[pedido] = 0m;
+            t.AgregarPedido(pedido, 1, piezas);
+            for (var i = 1; i <= piezas; i++) await t.Escanear($"{pedido}-E{i}", pedido, 1, i.ToString());
+        }
+        return new Entorno(t);
+    }
+
+    private static Task<HojaSalidaDto> Cargar(Entorno e, Guid hoja, string etiqueta) => e.Cargar().Handle(new CargarPiezaHojaCommand(hoja, etiqueta), default);
+
+    [Fact]
+    public async Task CA5_4_ruta_de_3_pedidos_2_completos_y_1_con_pieza_rota_el_albaran_lleva_solo_lo_cargado()
+    {
+        using var e = await PrepararRuta(("P1", 2), ("P2", 2), ("P3", 3));
+        var ruta = await e.Crear().Handle(Ruta("P1", "P2", "P3"), default);
+        ruta.Albaranes.Select(a => a.Total).Should().Equal(0, 0, 0);
+        ruta.Albaranes.Select(a => a.Disponibles!.Count).Should().Equal(2, 2, 3);
+
+        foreach (var et in new[] { "P1-E1", "P1-E2", "P2-E1", "P2-E2", "P3-E1", "P3-E2" }) await Cargar(e, ruta.Id, et);
+        var parcial = await e.Rota().Handle(new MarcarPiezaRotaHojaCommand(ruta.Id, "P3-E3"), default);
+        parcial.Albaranes.Single(a => a.NumeroPedido == "P3").Rotas.Should().Equal("P3-E3");
+
+        var dto = await e.Emitir().Handle(new EmitirHojaSalidaCommand(ruta.Id), default);
+        dto.Albaranes.Select(a => (a.NumeroPedido, a.Total, a.Esperadas)).Should().Equal(("P1", 2, 2), ("P2", 2, 2), ("P3", 2, 3));
+        dto.Albaranes.Single(a => a.NumeroPedido == "P3").Etiquetas.Should().NotContain("P3-E3");
+        e.Facturacion.Salidas.Select(s => s.Lineas.Single().Cantidad).Should().Equal(2m, 2m, 2m);
+        (await e.T.Db.Piezas.CountAsync(p => p.Estado == EstadoPieza.Embarcada)).Should().Be(6, "el inventario baja solo por lo cargado");
+        (await e.T.Db.Piezas.SingleAsync(p => p.Etiqueta == "P3-E3")).Estado.Should().Be(EstadoPieza.EnPT);
+        dto.Albaranes.Single(a => a.NumeroPedido == "P3").Rotas.Should().BeEquivalentTo(["P3-E3"], "queda como reposición");
+    }
+
+    [Fact]
+    public async Task Una_pieza_que_no_es_de_la_ruta_se_rechaza_y_no_cambia_nada()
+    {
+        using var e = await PrepararRuta(("P1", 1), ("P2", 1));
+        var ruta = await e.Crear().Handle(Ruta("P1"), default);
+        var act = () => Cargar(e, ruta.Id, "P2-E1");
+        (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("PT_CARGA_FUERA_DE_RUTA");
+        var inexistente = () => Cargar(e, ruta.Id, "XX-1");
+        (await inexistente.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("PT_CARGA_PIEZA_NO_EXISTE");
+        (await e.T.Db.Piezas.AllAsync(p => p.Estado == EstadoPieza.EnPT)).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task PT5_4_a_pedido_con_saldo_pendiente_no_entra_a_la_ruta_ni_se_carga_si_dejo_de_estar_liberado()
+    {
+        using var e = await PrepararRuta(("P1", 1));
+        e.T.Saldos.Saldos["P2"] = 500m;
+        e.T.AgregarPedido("P2", 1, 1);
+        await e.T.Escanear("P2-E1", "P2", 1, "1");
+        var noSale = () => e.Crear().Handle(Ruta("P1", "P2"), default);
+        (await noSale.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("PT_PEDIDO_NO_LIBERADO");
+
+        var ruta = await e.Crear().Handle(Ruta("P1"), default);
+        var pedido = await e.T.Db.PedidosPt.SingleAsync(p => p.NumeroPedido == "P1");
+        e.T.Db.Entry(pedido).Property(x => x.Liberacion).CurrentValue = EstadoLiberacion.Retenido;
+        var act = () => Cargar(e, ruta.Id, "P1-E1");
+        (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("PT_PEDIDO_NO_LIBERADO");
+    }
+
+    [Fact]
+    public async Task Cargar_dos_veces_o_en_otra_hoja_se_rechaza_y_descargar_devuelve_la_pieza_a_PT()
+    {
+        using var e = await PrepararRuta(("P1", 2));
+        var ruta = await e.Crear().Handle(Ruta("P1"), default);
+        var otra = await e.Crear().Handle(Ruta("P1"), default);
+        await Cargar(e, ruta.Id, "P1-E1");
+        var doble = () => Cargar(e, ruta.Id, "P1-E1");
+        (await doble.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("PT_CARGA_YA_CARGADA");
+        var enOtra = () => Cargar(e, otra.Id, "P1-E1");
+        (await enOtra.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("PT_SALIDA_PIEZA_YA_EN_HOJA");
+
+        var dto = await e.Descargar().Handle(new DescargarPiezaHojaCommand(ruta.Id, "P1-E1"), default);
+        dto.Albaranes.Single().Total.Should().Be(0);
+        (await e.T.Db.Piezas.SingleAsync(p => p.Etiqueta == "P1-E1")).Estado.Should().Be(EstadoPieza.EnPT);
+        (await Cargar(e, ruta.Id, "P1-E1")).Albaranes.Single().Total.Should().Be(1, "se puede volver a cargar");
+        var sinCargar = () => e.Descargar().Handle(new DescargarPiezaHojaCommand(ruta.Id, "P1-E2"), default);
+        (await sinCargar.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("PT_CARGA_NO_CARGADA");
+    }
+
+    [Fact]
+    public async Task Pieza_rota_ya_cargada_sale_del_albaran_no_se_vuelve_a_cargar_y_la_reposicion_la_libera()
+    {
+        using var e = await PrepararRuta(("P1", 2));
+        var ruta = await e.Crear().Handle(Ruta("P1"), default);
+        await Cargar(e, ruta.Id, "P1-E1");
+        var dto = await e.Rota().Handle(new MarcarPiezaRotaHojaCommand(ruta.Id, "P1-E1"), default);
+        dto.Albaranes.Single().Total.Should().Be(0);
+        (await e.T.Db.Piezas.SingleAsync(p => p.Etiqueta == "P1-E1")).Estado.Should().Be(EstadoPieza.EnPT);
+        var act = () => Cargar(e, ruta.Id, "P1-E1");
+        (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("PT_CARGA_PIEZA_ROTA");
+
+        // A+W la vuelve a terminar con la misma etiqueta: el movimiento de reposición es el último.
+        var pieza = await e.T.Db.Piezas.SingleAsync(p => p.Etiqueta == "P1-E1");
+        e.T.Db.Movimientos.Add(MovimientoPieza.Reposicion(pieza, "reposicion-1", Ahora.AddHours(1)));
+        await e.T.Db.SaveChangesAsync();
+        (await Cargar(e, ruta.Id, "P1-E1")).Albaranes.Single().Total.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Emitir_una_hoja_sin_piezas_cargadas_se_rechaza_y_no_se_edita_una_hoja_emitida()
+    {
+        using var e = await PrepararRuta(("P1", 1));
+        var ruta = await e.Crear().Handle(Ruta("P1"), default);
+        var vacia = () => e.Emitir().Handle(new EmitirHojaSalidaCommand(ruta.Id), default);
+        (await vacia.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("PT_SALIDA_SIN_PIEZAS");
+
+        await Cargar(e, ruta.Id, "P1-E1");
+        await e.Emitir().Handle(new EmitirHojaSalidaCommand(ruta.Id), default);
+        var tarde = () => e.Descargar().Handle(new DescargarPiezaHojaCommand(ruta.Id, "P1-E1"), default);
+        (await tarde.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("PT_SALIDA_NO_EDITABLE");
     }
 }

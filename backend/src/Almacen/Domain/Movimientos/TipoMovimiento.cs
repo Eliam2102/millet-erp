@@ -53,6 +53,9 @@ public enum TipoMovimiento : short
 
     /// <summary>Faltante que deja la conciliación diaria contra A+W (A4.6); se aclara después con la mesa de corte. Folio SNP.</summary>
     SalidaNoPlanificada = 12,
+
+    /// <summary>Rotura de material en el almacén, autorizada por un Jefe o Gerente distinto de quien la capturó; sale a costo promedio (ALM-03). Folio ROT.</summary>
+    SalidaPorRotura = 13,
 }
 
 internal static class TipoMovimientoExtensions
@@ -79,6 +82,7 @@ internal static class TipoMovimientoExtensions
         TipoMovimiento.SalidaPorLiberacionRevision => "LIB",
         TipoMovimiento.CancelacionEntradaCompra => "CEN",
         TipoMovimiento.SalidaNoPlanificada => "SNP",
+        TipoMovimiento.SalidaPorRotura => "ROT",
         _ => "MOV",
     };
 

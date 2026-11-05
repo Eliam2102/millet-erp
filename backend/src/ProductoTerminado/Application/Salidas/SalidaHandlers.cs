@@ -24,16 +24,31 @@ internal static class SalidaMapeo
         var piezaIds = s.Albaranes.SelectMany(a => a.Piezas.Select(p => p.PiezaId)).ToList();
         var piezas = await db.Piezas.AsNoTracking().Where(p => piezaIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, ct);
 
-        var albaranes = s.Albaranes.OrderBy(a => a.Secuencia).Select(a =>
+        var sucursalEnPt = s.SucursalId;
+        var enPt = await db.Piezas.AsNoTracking().Where(p => pedidoIds.Contains(p.PedidoPtId) && p.Estado == EstadoPieza.EnPT && p.SucursalId == sucursalEnPt).ToListAsync(ct);
+        var rotas = await RotasAsync(db, enPt.Select(p => p.Id).ToList(), ct);
+
+        var albaranes = s.Albaranes.Where(a => s.Estado != EstadoSalida.Emitida || a.Piezas.Count > 0).OrderBy(a => a.Secuencia).Select(a =>
         {
             var pedido = pedidosPt[a.PedidoPtId];
             var mias = a.Piezas.Select(p => piezas[p.PiezaId]).OrderBy(p => p.Posicion).ThenBy(p => p.NumeroPieza).ToList();
             var cliente = origen.GetValueOrDefault(pedido.PedidoFacturableId);
+            var delPedido = enPt.Where(p => p.PedidoPtId == a.PedidoPtId).OrderBy(p => p.Posicion).ThenBy(p => p.NumeroPieza).ToList();
             return new AlbaranDto(a.Id, a.Folio, a.Secuencia, pedido.NumeroPedido, cliente?.ClienteNombre ?? "", cliente?.Destino, a.EmitidoAt, mias.Count,
                 mias.GroupBy(p => p.Posicion).Select(g => new AlbaranLineaDto(g.Key, pedido.Posiciones.FirstOrDefault(x => x.Posicion == g.Key)?.Descripcion, g.Count())).ToList(),
-                mias.Select(p => p.Etiqueta).ToList());
+                mias.Select(p => p.Etiqueta).ToList(), pedido.Posiciones.Sum(x => x.PiezasEsperadas),
+                s.Estado == EstadoSalida.Borrador ? delPedido.Where(p => !rotas.Contains(p.Id)).Select(p => p.Etiqueta).ToList() : [],
+                delPedido.Where(p => rotas.Contains(p.Id)).Select(p => p.Etiqueta).ToList());
         }).ToList();
         return cabecera with { Albaranes = albaranes };
+    }
+
+    /// <summary>Piezas cuyo último movimiento es la rotura en carga: siguen en PT pero no se cargan hasta su reposición.</summary>
+    public static async Task<HashSet<Guid>> RotasAsync(ProductoTerminadoDbContext db, IReadOnlyCollection<Guid> piezaIds, CancellationToken ct)
+    {
+        var movs = await db.Movimientos.AsNoTracking().Where(m => piezaIds.Contains(m.PiezaId)).OrderByDescending(m => m.OcurridoAt).ThenByDescending(m => m.Id)
+            .Select(m => new { m.PiezaId, m.Tipo }).ToListAsync(ct);
+        return movs.GroupBy(m => m.PiezaId).Where(g => g.First().Tipo == TipoMovimientoPieza.RotaEnCarga).Select(g => g.Key).ToHashSet();
     }
 
     public static IQueryable<SalidaPt> Completa(ProductoTerminadoDbContext db) => db.Salidas.Include(x => x.Albaranes).ThenInclude(a => a.Piezas);
@@ -60,7 +75,7 @@ public sealed class CrearHojaSalidaHandler(ProductoTerminadoDbContext db, PtAcce
         if (sinPedido.Count > 0) throw new EntityNotFoundException("PT_PEDIDO_NO_ENCONTRADO", $"Pedidos sin piezas en PT: {string.Join(", ", sinPedido)}");
         var noLiberados = pedidos.Values.Where(p => p.Liberacion != EstadoLiberacion.Liberado).Select(p => p.NumeroPedido).ToList();
         if (noLiberados.Count > 0)
-            throw new BusinessRuleException("PT_PEDIDO_NO_LIBERADO", $"Solo salen pedidos liberados (70). No liberados: {string.Join(", ", noLiberados)}");
+            throw new BusinessRuleException("PT_PEDIDO_NO_LIBERADO", $"Solo se cargan pedidos liberados por caja (70): con saldo pendiente no se carga sin liberación. Sin liberar: {string.Join(", ", noLiberados)}");
 
         var piezas = await db.Piezas.Where(p => etiquetas.Contains(p.Etiqueta)).ToDictionaryAsync(p => p.Etiqueta, cancellationToken);
         var faltan = etiquetas.Except(piezas.Keys).ToList();
@@ -112,11 +127,14 @@ public sealed class EmitirHojaSalidaHandler(ProductoTerminadoDbContext db, PtAcc
         if (s.Estado == EstadoSalida.Emitida) return await SalidaMapeo.ADtoAsync(db, pedidosPort, empresaId, s, true, true, cancellationToken);
         if (s.Estado == EstadoSalida.Cancelada) throw new BusinessRuleException("PT_SALIDA_CANCELADA", "La hoja de salida está cancelada.");
 
-        var piezaIds = s.Albaranes.SelectMany(a => a.Piezas.Select(p => p.PiezaId)).ToList();
+        // PT5.4: un pedido sin nada cargado (todo roto o pendiente) no lleva albarán ni pasa a 71.
+        var conPiezas = s.Albaranes.Where(a => a.Piezas.Count > 0).ToList();
+        if (conPiezas.Count == 0) throw new BusinessRuleException("PT_SALIDA_SIN_PIEZAS", "La hoja no tiene piezas cargadas: no hay nada que emitir.");
+        var piezaIds = conPiezas.SelectMany(a => a.Piezas.Select(p => p.PiezaId)).ToList();
         var piezas = await db.Piezas.Where(p => piezaIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, cancellationToken);
         var descargadas = piezas.Values.Where(p => p.Estado != EstadoPieza.Cargada).Select(p => p.Etiqueta).ToList();
         if (descargadas.Count > 0) throw new BusinessRuleException("PT_PIEZA_NO_CARGADA", $"Piezas que ya no están cargadas: {string.Join(", ", descargadas)}");
-        var pedidoIds = s.Albaranes.Select(a => a.PedidoPtId).ToList();
+        var pedidoIds = conPiezas.Select(a => a.PedidoPtId).ToList();
         var pedidos = await db.PedidosPt.Where(p => pedidoIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, cancellationToken);
 
         var ahora = clock.UtcNow;
@@ -124,18 +142,18 @@ public sealed class EmitirHojaSalidaHandler(ProductoTerminadoDbContext db, PtAcc
         if (s.Foranea && s.CartaPorteId is null)
         {
             var cp = await facturacion.EmitirCartaPorteAsync(new SolicitudCartaPorte(s.SucursalId, Origen, s.OrigenCodigoPostal!, s.OrigenEstado!, s.Destino, s.DestinoCodigoPostal!, s.DestinoEstado!, s.DistanciaKm!.Value,
-                s.VehiculoId!.Value, s.OperadorId!.Value, s.Albaranes.Count == 1 ? pedidos[s.Albaranes.First().PedidoPtId].PedidoFacturableId : null, ahora,
+                s.VehiculoId!.Value, s.OperadorId!.Value, conPiezas.Count == 1 ? pedidos[conPiezas[0].PedidoPtId].PedidoFacturableId : null, ahora,
                 [new MercanciaSalida($"Vidrio terminado, {piezaIds.Count} piezas")], s.PesoKg!.Value), cancellationToken);
             s.AsignarCartaPorte(cp.Id, cp.Folio);
             await db.SaveChangesAsync(cancellationToken);
         }
 
         // Facturación valida que no exceda lo pedido y es idempotente por folio de albarán, así reintentar tras un fallo no duplica.
-        foreach (var a in s.Albaranes.OrderBy(a => a.Secuencia))
+        foreach (var a in conPiezas.OrderBy(a => a.Secuencia))
             await facturacion.RegistrarSalidaAsync(pedidos[a.PedidoPtId].PedidoFacturableId, a.Folio,
                 a.Piezas.Select(p => piezas[p.PiezaId]).GroupBy(p => p.Posicion).OrderBy(g => g.Key).Select(g => (g.Key, (decimal)g.Count())).ToList(), cancellationToken);
 
-        foreach (var a in s.Albaranes)
+        foreach (var a in conPiezas)
         {
             foreach (var pa in a.Piezas)
             {

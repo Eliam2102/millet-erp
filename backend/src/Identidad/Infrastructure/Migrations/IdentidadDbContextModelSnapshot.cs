@@ -3323,6 +3323,34 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000008-0012-0000-0000-000000000001"),
+                            Accion = "rotura-capturar",
+                            Codigo = "almacen.salidas.rotura-capturar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Capturar una salida por rotura de material en el almacén (ALM-03); no afecta el saldo hasta que se autorice",
+                            Modulo = "almacen",
+                            Recurso = "salidas",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000008-0012-0000-0000-000000000002"),
+                            Accion = "rotura-autorizar",
+                            Codigo = "almacen.salidas.rotura-autorizar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar o rechazar una salida por rotura (Jefe o Gerente de almacén, distinto de quien la capturó)",
+                            Modulo = "almacen",
+                            Recurso = "salidas",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000008-0006-0000-0000-000000000001"),
                             Accion = "leer",
                             Codigo = "almacen.inventarios.leer",
