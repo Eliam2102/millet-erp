@@ -126,4 +126,8 @@ public sealed record NotaCreditoAmortizacionEmitida(
     string Folio,
     string? Uuid,
     decimal Total,
-    decimal SaldoAnticipoRestante);
+    decimal SaldoAnticipoRestante,
+    // U-1: «Timbrado» o el estado en que quedó pendiente, con el motivo del PAC.
+    string Estado = "Timbrado",
+    string? TimbradoErrorCodigo = null,
+    string? TimbradoErrorMensaje = null);
