@@ -55,6 +55,71 @@ public sealed class SolicitudViaticosAggregateTests
     }
 
     [Fact]
+    public void Devolver_desde_Solicitada_pasa_a_Devuelta_con_comentario_sin_anticipo()
+    {
+        var s = Solicitar();
+        s.Devolver(Guid.NewGuid(), "  El monto no cuadra con la agenda  ", DateTimeOffset.UtcNow);
+
+        s.Estado.Should().Be(EstadoSolicitudViaticos.Devuelta);
+        s.ComentarioDevolucion.Should().Be("El monto no cuadra con la agenda");
+        s.FechaAnticipoPagado.Should().BeNull();
+    }
+
+    [Fact]
+    public void Devolver_exige_comentario_y_estado_previo_al_anticipo()
+    {
+        var s = Solicitar();
+        var sinComentario = () => s.Devolver(Guid.NewGuid(), " ", DateTimeOffset.UtcNow);
+        sinComentario.Should().Throw<BusinessRuleException>().Which.Code.Should().Be("VIA_COMENTARIO_VACIO");
+
+        s.AutorizarPorJefe(s.JefeDirectoId, DateTimeOffset.UtcNow);
+        var yaAutorizada = () => s.Devolver(Guid.NewGuid(), "x", DateTimeOffset.UtcNow);
+        yaAutorizada.Should().Throw<BusinessRuleException>().Which.Code.Should().Be("VIA_NO_DEVOLVIBLE");
+    }
+
+    [Fact]
+    public void Reenviar_con_monto_corregido_vuelve_a_Solicitada_y_limpia_el_comentario()
+    {
+        // Criterio 3: devuelta, el empleado corrige el monto y reenvía; vuelve a pasar por autorización.
+        var s = Solicitar(monto: 5000m);
+        s.Devolver(Guid.NewGuid(), "Baja el monto", DateTimeOffset.UtcNow);
+
+        s.Reenviar(4200m, s.FechaSalida, s.FechaRegreso, 6000m, 10, null);
+
+        s.Estado.Should().Be(EstadoSolicitudViaticos.Solicitada);
+        s.MontoSolicitado.Should().Be(4200m);
+        s.ComentarioDevolucion.Should().BeNull();
+        s.FechaAnticipoPagado.Should().BeNull();
+        s.AutorizadoPorJefe.Should().BeNull();
+    }
+
+    [Fact]
+    public void Reenviar_tras_devolver_DF_conserva_firma_del_jefe_y_vuelve_a_DF()
+    {
+        var s = Solicitar(monto: 7000m, topePolitica: 6000m, justificacion: "Evento de cliente");
+        var jefe = s.JefeDirectoId;
+        s.AutorizarPorJefe(jefe, DateTimeOffset.UtcNow);
+        s.Devolver(Guid.NewGuid(), "Detalla el exceso", DateTimeOffset.UtcNow);
+
+        s.Reenviar(7000m, s.FechaSalida, s.FechaRegreso, 6000m, 10, "Evento de cliente, 3 asistentes");
+
+        s.Estado.Should().Be(EstadoSolicitudViaticos.RequiereDireccionFinanzas);
+        s.AutorizadoPorJefe.Should().Be(jefe);
+    }
+
+    [Fact]
+    public void Reenviar_solo_desde_Devuelta_y_exige_justificacion_si_excede()
+    {
+        var s = Solicitar();
+        var noDevuelta = () => s.Reenviar(1000m, s.FechaSalida, s.FechaRegreso, 6000m, 10, null);
+        noDevuelta.Should().Throw<BusinessRuleException>().Which.Code.Should().Be("VIA_NO_REENVIABLE");
+
+        s.Devolver(Guid.NewGuid(), "x", DateTimeOffset.UtcNow);
+        var sinJustif = () => s.Reenviar(9000m, s.FechaSalida, s.FechaRegreso, 6000m, 10, null);
+        sinJustif.Should().Throw<BusinessRuleException>().Which.Code.Should().Be("VIA_JUSTIFICACION_REQUERIDA");
+    }
+
+    [Fact]
     public void Solicitar_dentro_de_politica_no_marca_excede()
     {
         var s = Solicitar(monto: 5000m, topePolitica: 6000m);

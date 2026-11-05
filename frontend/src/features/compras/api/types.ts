@@ -422,6 +422,11 @@ export interface RequisicionResponse {
   /** C3.1: quién firma cada nivel según la matriz; null = sin configurar (basta el permiso). */
   autorizadorN1Id?: string | null;
   autorizadorN2Id?: string | null;
+  /** Devuelta a corregir: comentario de quien la devolvió (visible en Borrador). */
+  comentarioDevolucion?: string | null;
+  fechaDevolucion?: string | null;
+  /** Sin política de nivel 2 vigente: queda pendiente de configurar el aprobador. */
+  pendienteConfigurarAprobador?: boolean;
 }
 
 /**

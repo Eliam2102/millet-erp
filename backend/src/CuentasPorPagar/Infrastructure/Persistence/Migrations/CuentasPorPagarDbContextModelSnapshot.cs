@@ -4088,6 +4088,11 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("autorizado_por_jefe");
 
+                    b.Property<string>("ComentarioDevolucion")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("comentario_devolucion");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -4105,6 +4110,10 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasMaxLength(400)
                         .HasColumnType("character varying(400)")
                         .HasColumnName("destino");
+
+                    b.Property<Guid?>("DevueltoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("devuelto_por");
 
                     b.Property<decimal?>("DiferenciaLiquidacion")
                         .HasPrecision(18, 4)
@@ -4142,6 +4151,10 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("FechaComprobacion")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("fecha_comprobacion");
+
+                    b.Property<DateTimeOffset?>("FechaDevolucion")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("fecha_devolucion");
 
                     b.Property<DateTimeOffset?>("FechaLiquidacion")
                         .HasColumnType("timestamp with time zone")
