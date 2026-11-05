@@ -1,6 +1,12 @@
+using Factura = Millet.CuentasPorPagar.Domain.FacturaProveedor.FacturaProveedor;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Millet.CuentasPorPagar.Application.EventListeners.Tesoreria;
+using Millet.CuentasPorPagar.Application.FacturaProveedor.CancelarFactura;
 using Millet.CuentasPorPagar.Domain.Cfdi;
+using Millet.CuentasPorPagar.Domain.FacturaProveedor;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
 using Millet.CuentasPorPagar.Infrastructure.PublicAdapters;
 using Millet.Integraciones.Fiscal.Domain.Ports;
@@ -101,12 +107,419 @@ public sealed class FiscalCfdiReceiverAdapterTests
         finally { ctx.Dispose(); }
     }
 
+    // ─────────────────────── Estatus SAT (86e3ke0z5) ────────────────────
+
+    [Fact]
+    public async Task Nuevo_Vigente_persiste_estatus_vigente_sin_fecha()
+    {
+        var (adapter, db, _, ctx) = Build();
+        try
+        {
+            await adapter.IngresarCfdiAsync(NewPayload(), CancellationToken.None);
+            var c = await CfdiAsync(db);
+            c.EstatusSat.Should().Be(EstatusSatCfdi.Vigente);
+            c.FechaCancelacionSat.Should().BeNull();
+        }
+        finally { ctx.Dispose(); }
+    }
+
+    [Fact]
+    public async Task Nuevo_Cancelado_persiste_estatus_y_fecha()
+    {
+        var (adapter, db, _, ctx) = Build();
+        try
+        {
+            await adapter.IngresarCfdiAsync(NewPayload("Cancelado", FechaCancel), CancellationToken.None);
+            var c = await CfdiAsync(db);
+            c.EstatusSat.Should().Be(EstatusSatCfdi.Cancelado);
+            c.FechaCancelacionSat.Should().Be(FechaCancel);
+        }
+        finally { ctx.Dispose(); }
+    }
+
+    [Fact]
+    public async Task Existente_Vigente_luego_Cancelado_actualiza_solo_estatus()
+    {
+        var (adapter, db, blob, ctx) = Build();
+        try
+        {
+            await adapter.IngresarCfdiAsync(NewPayload(), CancellationToken.None);
+            var antes = await CfdiAsync(db);
+            await adapter.IngresarCfdiAsync(NewPayload("Cancelado", FechaCancel), CancellationToken.None);
+
+            (await db.CfdisRecibidos.CountAsync()).Should().Be(1);
+            var c = await CfdiAsync(db);
+            c.EstatusSat.Should().Be(EstatusSatCfdi.Cancelado);
+            c.FechaCancelacionSat.Should().Be(FechaCancel);
+            c.XmlBlobRef.Should().Be(antes.XmlBlobRef);
+            c.XmlHashSha256.Should().Be(antes.XmlHashSha256);
+            c.CanalOrigen.Should().Be(antes.CanalOrigen);
+            c.FechaRecepcion.Should().Be(antes.FechaRecepcion);
+            blob.Subidas.Should().HaveCount(1);
+        }
+        finally { ctx.Dispose(); }
+    }
+
+    [Fact]
+    public async Task Pasivo_Capturada_y_CFDI_Cancelado_pasa_a_revision_sin_cancelar()
+    {
+        var (adapter, db, _, ctx) = Build();
+        try
+        {
+            var f = await SeedFacturaAsync(db, EstadoSeed.Capturada);
+            await adapter.IngresarCfdiAsync(NewPayload("Cancelado", FechaCancel), CancellationToken.None);
+
+            var r = await ReloadAsync(db, f.Id);
+            r.Estado.Should().Be(EstadoPasivo.EnRevision);
+            r.MotivoRevisionId.Should().Be(Factura.MotivoCfdiCanceladoSatId);
+            r.DependenciaRevisoraId.Should().Be(CancelacionPasivoSolicitadaHandler.DependenciaCxpId);
+            r.Estado.Should().NotBe(EstadoPasivo.Cancelada);
+        }
+        finally { ctx.Dispose(); }
+    }
+
+    // P8.7: solo una solicitud aceptada + confirmación del SAT cancela el pasivo.
+    private static async Task AceptarSolicitudAsync(CuentasPorPagarDbContext db)
+    {
+        var cfdi = await db.CfdisRecibidos.SingleAsync();
+        var sol = SolicitudCancelacionCfdi.Registrar(EmpresaId, cfdi.Id, AreaSolicitudCancelacion.Compras, Ahora, null, null);
+        sol.Decidir(true, "Acuse", null, null, null, Ahora);
+        db.SolicitudesCancelacionCfdi.Add(sol);
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+    }
+
+    [Fact]
+    public async Task Solicitud_aceptada_y_SAT_Cancelado_cancela_la_factura_capturada()
+    {
+        var (adapter, db, _, ctx) = Build();
+        try
+        {
+            var f = await SeedFacturaAsync(db, EstadoSeed.Capturada);
+            await AceptarSolicitudAsync(db);
+            await adapter.IngresarCfdiAsync(NewPayload("Cancelado", FechaCancel), CancellationToken.None);
+
+            var r = await ReloadAsync(db, f.Id);
+            r.Estado.Should().Be(EstadoPasivo.Cancelada);
+            r.MotivoDeCancelacion.Should().Be(MotivoCancelacion.CfdiCanceladoEnSat);
+            (await CfdiAsync(db)).EstatusSat.Should().Be(EstatusSatCfdi.Cancelado);
+        }
+        finally { ctx.Dispose(); }
+    }
+
+    [Fact]
+    public async Task Solicitud_aceptada_y_SAT_Vigente_no_cambia_nada()
+    {
+        var (adapter, db, _, ctx) = Build();
+        try
+        {
+            var f = await SeedFacturaAsync(db, EstadoSeed.Capturada);
+            await AceptarSolicitudAsync(db);
+            await adapter.IngresarCfdiAsync(NewPayload("Vigente", null), CancellationToken.None);
+
+            (await ReloadAsync(db, f.Id)).Estado.Should().Be(EstadoPasivo.Capturada);
+            (await CfdiAsync(db)).EstatusSat.Should().Be(EstatusSatCfdi.Vigente);
+        }
+        finally { ctx.Dispose(); }
+    }
+
+    [Fact]
+    public async Task Solicitud_aceptada_y_SAT_Cancelado_con_factura_autorizada_la_manda_a_revision()
+    {
+        var (adapter, db, _, ctx) = Build();
+        try
+        {
+            var f = await SeedFacturaAsync(db, EstadoSeed.Autorizada);
+            await AceptarSolicitudAsync(db);
+            await adapter.IngresarCfdiAsync(NewPayload("Cancelado", FechaCancel), CancellationToken.None);
+
+            var r = await ReloadAsync(db, f.Id);
+            r.Estado.Should().Be(EstadoPasivo.EnRevision);
+            r.MotivoRevisionId.Should().Be(Factura.MotivoCfdiCanceladoSatId);
+        }
+        finally { ctx.Dispose(); }
+    }
+
+    [Fact]
+    public async Task Mismo_payload_Cancelado_dos_veces_no_truena_ni_cambia_la_revision()
+    {
+        var (adapter, db, _, ctx) = Build();
+        try
+        {
+            var f = await SeedFacturaAsync(db, EstadoSeed.Capturada);
+            await adapter.IngresarCfdiAsync(NewPayload("Cancelado", FechaCancel), CancellationToken.None);
+            var primera = (await ReloadAsync(db, f.Id)).FechaEntradaRevision;
+
+            var act = () => adapter.IngresarCfdiAsync(NewPayload("Cancelado", FechaCancel), CancellationToken.None);
+            await act.Should().NotThrowAsync();
+
+            var r = await ReloadAsync(db, f.Id);
+            r.Estado.Should().Be(EstadoPasivo.EnRevision);
+            r.FechaEntradaRevision.Should().Be(primera);
+        }
+        finally { ctx.Dispose(); }
+    }
+
+    [Fact]
+    public async Task Reentrega_Cancelado_tras_liberar_revision_no_reenvia_a_revision()
+    {
+        var (adapter, db, _, ctx) = Build();
+        try
+        {
+            var f = await SeedFacturaAsync(db, EstadoSeed.Capturada);
+            await adapter.IngresarCfdiAsync(NewPayload("Cancelado", FechaCancel), CancellationToken.None);
+
+            var enRev = await ReloadAsync(db, f.Id);
+            enRev.Estado.Should().Be(EstadoPasivo.EnRevision);
+            enRev.LiberarRevision("Aclarado con el proveedor", null, Ahora);
+            await db.SaveChangesAsync();
+            (await ReloadAsync(db, f.Id)).Estado.Should().Be(EstadoPasivo.Capturada);
+
+            await adapter.IngresarCfdiAsync(NewPayload("Cancelado", FechaCancel), CancellationToken.None);
+
+            (await ReloadAsync(db, f.Id)).Estado.Should().Be(EstadoPasivo.Capturada);
+        }
+        finally { ctx.Dispose(); }
+    }
+
+    [Fact]
+    public async Task Pasivo_Autorizada_y_CFDI_Cancelado_pasa_a_revision()
+    {
+        var (adapter, db, _, ctx) = Build();
+        try
+        {
+            var f = await SeedFacturaAsync(db, EstadoSeed.Autorizada);
+            await adapter.IngresarCfdiAsync(NewPayload("Cancelado", FechaCancel), CancellationToken.None);
+            (await ReloadAsync(db, f.Id)).Estado.Should().Be(EstadoPasivo.EnRevision);
+        }
+        finally { ctx.Dispose(); }
+    }
+
+    [Fact]
+    public async Task Pasivo_Cancelada_no_truena_actualiza_CFDI_y_no_toca_la_factura()
+    {
+        var (adapter, db, _, ctx) = Build();
+        try
+        {
+            var f = await SeedFacturaAsync(db, EstadoSeed.Cancelada);
+            var act = () => adapter.IngresarCfdiAsync(NewPayload("Cancelado", FechaCancel), CancellationToken.None);
+            await act.Should().NotThrowAsync();
+
+            (await CfdiAsync(db)).EstatusSat.Should().Be(EstatusSatCfdi.Cancelado);
+            (await ReloadAsync(db, f.Id)).Estado.Should().Be(EstadoPasivo.Cancelada);
+        }
+        finally { ctx.Dispose(); }
+    }
+
+    [Fact]
+    public async Task Pasivo_Pagada_no_truena_y_sigue_Pagada()
+    {
+        var (adapter, db, _, ctx) = Build();
+        try
+        {
+            var f = await SeedFacturaAsync(db, EstadoSeed.Pagada);
+            var act = () => adapter.IngresarCfdiAsync(NewPayload("Cancelado", FechaCancel), CancellationToken.None);
+            await act.Should().NotThrowAsync();
+
+            (await CfdiAsync(db)).EstatusSat.Should().Be(EstatusSatCfdi.Cancelado);
+            (await ReloadAsync(db, f.Id)).Estado.Should().Be(EstadoPasivo.Pagada);
+        }
+        finally { ctx.Dispose(); }
+    }
+
+    [Fact]
+    public async Task Pasivo_EnRevision_por_falta_REPP_no_sobrescribe_el_motivo()
+    {
+        var (adapter, db, _, ctx) = Build();
+        try
+        {
+            var f = await SeedFacturaAsync(db, EstadoSeed.EnRevisionRepp);
+            await adapter.IngresarCfdiAsync(NewPayload("Cancelado", FechaCancel), CancellationToken.None);
+
+            var r = await ReloadAsync(db, f.Id);
+            r.Estado.Should().Be(EstadoPasivo.EnRevision);
+            r.MotivoRevisionId.Should().Be(Factura.MotivoFaltaReppId);
+        }
+        finally { ctx.Dispose(); }
+    }
+
+    [Fact]
+    public async Task Cancelado_a_Vigente_limpia_fecha_y_no_toca_la_factura()
+    {
+        var (adapter, db, _, ctx) = Build();
+        try
+        {
+            var f = await SeedFacturaAsync(db, EstadoSeed.Capturada);
+            await adapter.IngresarCfdiAsync(NewPayload("Cancelado", FechaCancel), CancellationToken.None);
+            await adapter.IngresarCfdiAsync(NewPayload("Vigente"), CancellationToken.None);
+
+            var c = await CfdiAsync(db);
+            c.EstatusSat.Should().Be(EstatusSatCfdi.Vigente);
+            c.FechaCancelacionSat.Should().BeNull();
+            (await ReloadAsync(db, f.Id)).Estado.Should().Be(EstadoPasivo.EnRevision);
+        }
+        finally { ctx.Dispose(); }
+    }
+
+    [Fact]
+    public async Task DocumentoDestino_inexistente_no_truena_y_actualiza_estatus()
+    {
+        var (adapter, db, _, ctx) = Build();
+        try
+        {
+            await SeedFacturaAsync(db, EstadoSeed.Capturada, destinoOverride: Guid.NewGuid());
+            var act = () => adapter.IngresarCfdiAsync(NewPayload("Cancelado", FechaCancel), CancellationToken.None);
+            await act.Should().NotThrowAsync();
+            (await CfdiAsync(db)).EstatusSat.Should().Be(EstatusSatCfdi.Cancelado);
+        }
+        finally { ctx.Dispose(); }
+    }
+
+    [Fact]
+    public async Task DocumentoDestino_anticipo_existente_no_truena_actualiza_estatus_y_no_lo_toca()
+    {
+        var (adapter, db, _, ctx) = Build();
+        try
+        {
+            var a = Domain.AnticipoProveedor.AnticipoProveedor.Capturar(
+                empresaId: EmpresaId, cfdiRecibidoId: Guid.NewGuid(), uuidCfdi: Uuid, proveedorId: Guid.NewGuid(),
+                serie: "FANT", folioProveedor: "ANT-001", fechaCfdi: Ahora, moneda: "MXN", tipoCambio: null,
+                montoEntregado: 1000m, ordenCompraId: Guid.NewGuid(), capturadoPor: Guid.NewGuid(), ahora: Ahora);
+            db.AnticiposProveedor.Add(a);
+            await db.SaveChangesAsync();
+            await SeedFacturaAsync(db, EstadoSeed.Capturada, destinoOverride: a.Id);
+
+            var act = () => adapter.IngresarCfdiAsync(NewPayload("Cancelado", FechaCancel), CancellationToken.None);
+            await act.Should().NotThrowAsync();
+
+            (await CfdiAsync(db)).EstatusSat.Should().Be(EstatusSatCfdi.Cancelado);
+            var despues = await db.AnticiposProveedor.SingleAsync(x => x.Id == a.Id);
+            despues.Estado.Should().Be(Domain.AnticipoProveedor.EstadoAnticipo.Abierto);
+            despues.SaldoAmortizable.Should().Be(1000m);
+        }
+        finally { ctx.Dispose(); }
+    }
+
+    [Fact]
+    public async Task Misma_UUID_de_otra_empresa_no_toca_la_fila_existente()
+    {
+        var (adapter, db, _, ctx) = Build();
+        try
+        {
+            await adapter.IngresarCfdiAsync(NewPayload(), CancellationToken.None);
+            await adapter.IngresarCfdiAsync(
+                NewPayload("Cancelado", FechaCancel, empresaId: Guid.NewGuid()), CancellationToken.None);
+
+            var c = await CfdiAsync(db);
+            c.EstatusSat.Should().Be(EstatusSatCfdi.Vigente);
+            c.FechaCancelacionSat.Should().BeNull();
+        }
+        finally { ctx.Dispose(); }
+    }
+
+    [Theory]
+    [InlineData("CANCELADO")]
+    [InlineData("cancelado")]
+    public async Task Estatus_cancelado_se_interpreta_sin_importar_mayusculas(string estatus)
+    {
+        var (adapter, db, _, ctx) = Build();
+        try
+        {
+            await adapter.IngresarCfdiAsync(NewPayload(), CancellationToken.None);
+            await adapter.IngresarCfdiAsync(NewPayload(estatus, FechaCancel), CancellationToken.None);
+            (await CfdiAsync(db)).EstatusSat.Should().Be(EstatusSatCfdi.Cancelado);
+        }
+        finally { ctx.Dispose(); }
+    }
+
+    [Theory]
+    [InlineData("Xyz")]
+    [InlineData("")]
+    public async Task Estatus_desconocido_o_vacio_no_cambia_el_estatus_ni_truena(string estatus)
+    {
+        var (adapter, db, _, ctx) = Build();
+        try
+        {
+            await adapter.IngresarCfdiAsync(NewPayload(), CancellationToken.None);
+            var act = () => adapter.IngresarCfdiAsync(NewPayload(estatus, FechaCancel), CancellationToken.None);
+            await act.Should().NotThrowAsync();
+
+            var c = await CfdiAsync(db);
+            c.EstatusSat.Should().Be(EstatusSatCfdi.Vigente);
+            c.FechaCancelacionSat.Should().BeNull();
+        }
+        finally { ctx.Dispose(); }
+    }
+
+    [Fact]
+    public async Task Cancelado_sin_fecha_guarda_estatus_y_fecha_nula()
+    {
+        var (adapter, db, _, ctx) = Build();
+        try
+        {
+            await adapter.IngresarCfdiAsync(NewPayload("Cancelado", null), CancellationToken.None);
+            var c = await CfdiAsync(db);
+            c.EstatusSat.Should().Be(EstatusSatCfdi.Cancelado);
+            c.FechaCancelacionSat.Should().BeNull();
+        }
+        finally { ctx.Dispose(); }
+    }
+
+    [Fact]
+    public async Task UUID_con_espacios_y_minusculas_actualiza_la_fila_existente()
+    {
+        var (adapter, db, _, ctx) = Build();
+        try
+        {
+            await adapter.IngresarCfdiAsync(NewPayload(), CancellationToken.None);
+            await adapter.IngresarCfdiAsync(
+                NewPayload("Cancelado", FechaCancel, uuid: $"  {Uuid.ToLowerInvariant()}  "), CancellationToken.None);
+
+            (await db.CfdisRecibidos.CountAsync()).Should().Be(1);
+            (await CfdiAsync(db)).EstatusSat.Should().Be(EstatusSatCfdi.Cancelado);
+        }
+        finally { ctx.Dispose(); }
+    }
+
+    [Fact]
+    public async Task XML_invalido_con_UUID_existente_igual_actualiza_el_estatus()
+    {
+        // El dedupe y la actualización de estatus ocurren antes de parsear el XML.
+        var (adapter, db, _, ctx) = Build(parserFactory: () => new ThrowingParser());
+        try
+        {
+            await SeedFacturaAsync(db, EstadoSeed.Capturada);
+            var act = () => adapter.IngresarCfdiAsync(NewPayload("Cancelado", FechaCancel), CancellationToken.None);
+            await act.Should().NotThrowAsync();
+            (await CfdiAsync(db)).EstatusSat.Should().Be(EstatusSatCfdi.Cancelado);
+        }
+        finally { ctx.Dispose(); }
+    }
+
+    [Fact]
+    public async Task Doscientas_reentregas_Cancelado_no_truenan()
+    {
+        var (adapter, db, _, ctx) = Build();
+        try
+        {
+            var f = await SeedFacturaAsync(db, EstadoSeed.Capturada);
+            for (var i = 0; i < 200; i++)
+                await adapter.IngresarCfdiAsync(NewPayload("Cancelado", FechaCancel), CancellationToken.None);
+
+            (await ReloadAsync(db, f.Id)).Estado.Should().Be(EstadoPasivo.EnRevision);
+            (await db.CfdisRecibidos.CountAsync()).Should().Be(1);
+        }
+        finally { ctx.Dispose(); }
+    }
+
     // ─────────────────────── Helpers ────────────────────────────────────
 
-    private static CfdiCosechadoPayload NewPayload() =>
-        new(EmpresaId:             EmpresaId,
+    private static CfdiCosechadoPayload NewPayload(
+        string? estatus = "Vigente", DateTimeOffset? fechaCancelacion = null,
+        string? uuid = null, Guid? empresaId = null) =>
+        new(EmpresaId:             empresaId ?? EmpresaId,
             RfcReceptorMillet:     "MIL010101AAA",
-            Uuid:                  Uuid,
+            Uuid:                  uuid ?? Uuid,
             RfcEmisor:             "PROV010101AAA",
             NombreEmisor:          "Proveedor SA",
             RfcReceptor:           "MIL010101AAA",
@@ -115,11 +528,65 @@ public sealed class FiscalCfdiReceiverAdapterTests
             FechaCertificacionSat: Ahora,
             Total:                 1160m,
             TipoComprobante:       "I",
-            EstatusSat:            "Vigente",
-            FechaCancelacion:      null,
+            EstatusSat:            estatus!,
+            FechaCancelacion:      fechaCancelacion,
             SolicitudDescargaId:   SolicitudId,
             RequestIdExterno:      "req-ext-99",
             XmlBytes:              FakeXml);
+
+    private static readonly DateTimeOffset FechaCancel = new(2026, 11, 2, 0, 0, 0, TimeSpan.Zero);
+
+    private enum EstadoSeed { Capturada, Autorizada, Cancelada, Pagada, EnRevisionRepp }
+
+    /// <summary>Siembra un CFDI convertido en pasivo, ligado a una factura en el estado pedido.</summary>
+    private static async Task<Factura> SeedFacturaAsync(
+        CuentasPorPagarDbContext db, EstadoSeed estado, Guid? destinoOverride = null)
+    {
+        var f = Factura.CapturarConOc(
+            empresaId: EmpresaId, cfdiRecibidoId: null, uuidCfdi: null, proveedorId: Guid.NewGuid(), sucursalId: Guid.NewGuid(),
+            folioProveedor: "F-9A", serieProveedor: "A", fechaDocumento: Ahora, fechaContabilizacion: Ahora,
+            fechaVencimiento: DateOnly.FromDateTime(Ahora.UtcDateTime.AddDays(30)), moneda: "MXN", tipoCambio: null,
+            subtotal: 1000m, descuentos: 0m, impuestosTrasladados: 160m, retenciones: 0m, total: 1160m,
+            ordenCompraId: Guid.NewGuid(), encargadoComprasSnapshot: null, tolerancia: Tolerancia.MontoAbsoluto(0.99m),
+            diferenciaContraOc: 0m, redondeoAplicado: 0m, ahora: Ahora);
+
+        switch (estado)
+        {
+            case EstadoSeed.Autorizada: f.Autorizar(null, Ahora); break;
+            case EstadoSeed.Cancelada: f.Cancelar(MotivoCancelacion.OtroConTexto, "prueba", null, Ahora); break;
+            case EstadoSeed.Pagada:
+                f.Autorizar(null, Ahora);
+                f.RegistrarPago(1160m, Ahora, "pago prueba");
+                break;
+            case EstadoSeed.EnRevisionRepp:
+                f.EnviarARevision(Factura.MotivoFaltaReppId, CancelacionPasivoSolicitadaHandler.DependenciaCxpId, null, Ahora);
+                break;
+        }
+
+        var cfdi = CfdiRecibido.Ingresar(
+            EmpresaId, UuidCfdi.Parse(Uuid), RfcMexicano.Parse("PROV010101AAA"), RfcMexicano.Parse("MIL010101AAA"),
+            Millet.CuentasPorPagar.Domain.Cfdi.TipoCfdi.Ingreso, "F1", "A", Ahora, 1160m, 1000m, 160m, 0m, "MXN", null,
+            CanalOrigenCfdi.DescargaSat, Ahora, "cxp/blob.xml", null, "hash",
+            estatusSat: EstatusSatCfdi.Vigente);
+        cfdi.MarcarConvertidoEnPasivo(destinoOverride ?? f.Id);
+        db.FacturasProveedor.Add(f);
+        db.CfdisRecibidos.Add(cfdi);
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+        return f;
+    }
+
+    private static async Task<Factura> ReloadAsync(CuentasPorPagarDbContext db, Guid id)
+    {
+        db.ChangeTracker.Clear();
+        return await db.FacturasProveedor.SingleAsync(x => x.Id == id);
+    }
+
+    private static async Task<CfdiRecibido> CfdiAsync(CuentasPorPagarDbContext db)
+    {
+        db.ChangeTracker.Clear();
+        return await db.CfdisRecibidos.SingleAsync();
+    }
 
     private static (FiscalCfdiReceiverAdapter Adapter,
                     CuentasPorPagarDbContext Db,
@@ -135,9 +602,19 @@ public sealed class FiscalCfdiReceiverAdapterTests
         var clock = new FakeClock(Ahora);
         var parser = parserFactory?.Invoke() ?? new CannedParser();
         var blob = new StubCfdiBlobStorage();
+        var mediator = new Mediator(new ServiceCollection()
+            .AddSingleton<IRequestHandler<CancelarFacturaCommand, CancelarFacturaResponse>>(
+                new CancelarFacturaHandler(db, new UsuarioPrueba(), new Mediator(new ServiceCollection().BuildServiceProvider()), clock))
+            .BuildServiceProvider());
         var adapter = new FiscalCfdiReceiverAdapter(db, parser, blob, clock,
-            NullLogger<FiscalCfdiReceiverAdapter>.Instance);
+            NullLogger<FiscalCfdiReceiverAdapter>.Instance, mediator);
         return (adapter, db, blob, db);
+    }
+
+    private sealed class UsuarioPrueba : ICurrentUserContext
+    {
+        public Guid? UserId => null;
+        public string? UserName => "test";
     }
 
     /// <summary>

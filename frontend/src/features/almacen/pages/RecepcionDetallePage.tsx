@@ -180,6 +180,12 @@ export function RecepcionDetallePage() {
               valor={query.data.facturaFolio ?? '—'}
               mono={!!query.data.facturaFolio}
             />
+            {query.data.remision && <Campo label="Remisión" valor={query.data.remision} mono />}
+            {query.data.motivoDuplicado && (
+              <div className="md:col-span-2">
+                <Campo label="Motivo de recepción repetida" valor={query.data.motivoDuplicado} />
+              </div>
+            )}
             {query.data.importacion && (
               <>
                 <Campo label="Pedimento" valor={query.data.importacion.numeroPedimento} mono />

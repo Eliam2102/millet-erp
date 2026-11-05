@@ -72,17 +72,20 @@ public class ConciliacionDominioTests
     }
 
     [Fact]
-    public void Cierre_con_firmante_rol_no_autorizado_lanza_excepcion()
+    public void Cierre_no_depende_del_texto_del_puesto_la_facultad_la_exige_el_endpoint()
     {
         var conc = Conciliacion.Crear(EmpresaId, CuentaBancariaId, 2026, 9, 5_000m);
         var linea = ExtractoLinea.Crear(conc.Id, 1, new DateOnly(2026, 9, 1), "Línea", "R", cargo: null, abono: 5_000m);
         linea.Emparejar(Guid.NewGuid(), MatchTipo.Manual, 5_000m, UsuarioId, Ahora);
         conc.CargarLineas(new[] { linea }, 5_000m);
 
-        var act = () => conc.Cerrar(UsuarioId, "Juan Pérez", "Auxiliar Contable", 5_000m, Ahora);
+        conc.Cerrar(UsuarioId, "Juan Pérez", "Auxiliar Contable", 5_000m, Ahora);
 
-        act.Should().Throw<BusinessRuleException>()
-            .Where(e => e.Code == "CONCILIACION_FIRMANTE_ROL_INVALIDO");
+        conc.Estado.Should().Be(EstadoConciliacion.Cerrada);
+
+        var sinPuesto = Conciliacion.Crear(EmpresaId, CuentaBancariaId, 2026, 10, 0m);
+        var act = () => sinPuesto.Cerrar(UsuarioId, "Juan Pérez", " ", 0m, Ahora);
+        act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "CONCILIACION_FIRMANTE_OBLIGATORIO");
     }
 
     [Fact]

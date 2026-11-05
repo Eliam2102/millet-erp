@@ -12,6 +12,7 @@ import { BANCO_MILLET, PROVS, grupo, seed, sql, sumaNeto, type Prov } from './_d
 test.use({ role: 'super-admin', viewport: { width: 1600, height: 900 } });
 test.describe.configure({ mode: 'serial' });
 test.setTimeout(240_000);
+test.skip(true, 'T9.3 layout de pago en lote oculto en la UI: pagos masivos son Fase 2 (Eliam, 03-nov).');
 test.beforeAll(() => seed());
 
 const S: { A?: string; B?: string; C?: string } = {};

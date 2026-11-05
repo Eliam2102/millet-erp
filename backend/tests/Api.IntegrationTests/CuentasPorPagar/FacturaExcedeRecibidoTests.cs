@@ -13,8 +13,8 @@ using Millet.SharedKernel.Application;
 namespace Millet.Api.IntegrationTests.CuentasPorPagar;
 
 /// <summary>
-/// F1-CXP-01 (revisión 9-oct): la captura contra OC cuyo neto excede lo recibido sin facturar (más la tolerancia de dinero del
-/// proveedor) se rechaza con 422 <c>FACTURA_EXCEDE_RECIBIDO</c> y no deja factura. OC ficticia de 10 piezas a 20.
+/// 86e3yxpy4: la captura contra OC cuyo neto excede lo recibido sin facturar se registra completa (201); el detalle deja el
+/// excedente como retenido y solo lo recibido como elegible para pago. OC ficticia de 10 piezas a 20.
 /// </summary>
 [Collection(ApiCompartida.Nombre)]
 public sealed class FacturaExcedeRecibidoTests(WebApplicationFactory<Program> factory)
@@ -22,7 +22,7 @@ public sealed class FacturaExcedeRecibidoTests(WebApplicationFactory<Program> fa
     private const string Facturas = "/api/v1/cuentas-por-pagar/facturas";
 
     [Fact]
-    public async Task Rechaza_lo_que_excede_lo_recibido_acumulando_facturas_previas_con_la_tolerancia_del_proveedor()
+    public async Task Registra_lo_que_excede_lo_recibido_y_retiene_el_excedente()
     {
         var oc = new OcDemo();
         await using var ambiente = new AdjuntosProveedorAmbiente(factory, services =>
@@ -35,8 +35,6 @@ public sealed class FacturaExcedeRecibidoTests(WebApplicationFactory<Program> fa
         using var admin = await ambiente.SuperAdminAsync();
         try
         {
-            (await admin.PutAsJsonAsync($"{AdjuntosProveedorAmbiente.Base}/{proveedorId}/tolerancia", new { montoMxn = 0.99m }))
-                .EnsureSuccessStatusCode();
             Task<HttpResponseMessage> Capturar(Guid ocId, decimal cantidad)
             {
                 var ahora = DateTimeOffset.UtcNow;
@@ -45,29 +43,24 @@ public sealed class FacturaExcedeRecibidoTests(WebApplicationFactory<Program> fa
                     cantidad * 20, 0, 0, 0, cantidad * 20,
                     [new(oc.ArticuloId, null, "Material DEMO", cantidad, "H87", "Pieza", 20, cantidad * 20, null, ocId, null)]));
             }
-            async Task Rechazada(HttpResponseMessage r)
-            {
-                Assert.Equal(HttpStatusCode.UnprocessableEntity, r.StatusCode);
-                Assert.Contains("FACTURA_EXCEDE_RECIBIDO", await r.Content.ReadAsStringAsync());
-            }
 
-            // Factura antes de la recepción.
+            // Factura de 10 con 6 recibidas: se registra completa (200) con 80 retenidos y 120 elegibles.
+            var parcial = oc.Nueva(6);
+            var creada = await Capturar(parcial, 10);
+            Assert.Equal(HttpStatusCode.Created, creada.StatusCode);
+            var id = (await creada.Content.ReadFromJsonAsync<CapturarFacturaConOcResponse>())!.Id;
+            var detalle = await admin.GetFromJsonAsync<System.Text.Json.JsonElement>($"{Facturas}/{id}");
+            Assert.Equal(80m, detalle.GetProperty("retenido").GetDecimal());
+            Assert.Equal(120m, detalle.GetProperty("elegible").GetDecimal());
+            // Sin recepción alguna también se registra, todo retenido.
             var sinRecepcion = oc.Nueva(0);
-            await Rechazada(await Capturar(sinRecepcion, 10));
-            // Borde: recibido 199.01 + 0.99 = 200.00 pasa; recibido 199.00 + 0.99 deja fuera la factura de 200.00 por un centavo.
-            Assert.Equal(HttpStatusCode.Created, (await Capturar(oc.Nueva(9.9505m), 10)).StatusCode);
-            await Rechazada(await Capturar(oc.Nueva(9.95m), 10));
-            // Parciales: con 8 recibidas, 6 pasan; 4 más exceden (quedan 2) y 2 pasan.
-            var parcial = oc.Nueva(8);
-            Assert.Equal(HttpStatusCode.Created, (await Capturar(parcial, 6)).StatusCode);
-            await Rechazada(await Capturar(parcial, 4));
-            Assert.Equal(HttpStatusCode.Created, (await Capturar(parcial, 2)).StatusCode);
+            Assert.Equal(HttpStatusCode.Created, (await Capturar(sinRecepcion, 10)).StatusCode);
 
             using var scope = ambiente.Factory.Services.CreateScope();
             using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
             var db = scope.ServiceProvider.GetRequiredService<CuentasPorPagarDbContext>();
-            Assert.False(await db.FacturasProveedor.AnyAsync(f => f.OrdenCompraId == sinRecepcion));
-            Assert.Equal(2, await db.FacturasProveedor.CountAsync(f => f.OrdenCompraId == parcial));
+            Assert.Equal(1, await db.FacturasProveedor.CountAsync(f => f.OrdenCompraId == sinRecepcion));
+            Assert.Equal(1, await db.FacturasProveedor.CountAsync(f => f.OrdenCompraId == parcial));
         }
         finally
         {

@@ -384,6 +384,9 @@ export interface RecepcionDetalle {
   foliosCancelacion?: string[] | null;
   /** true = el usuario actual NO la registró (único caso en que puede cancelarla). */
   registradaPorOtroUsuario?: boolean;
+  /** G-3: remisión del proveedor y, si repitió remisión/factura de la OC, el motivo capturado. */
+  remision?: string | null;
+  motivoDuplicado?: string | null;
 }
 
 export type MotivoCancelacionRecepcion = 'ARTICULO' | 'CANTIDAD' | 'OC' | 'UBICACION' | 'OTRO';
@@ -461,6 +464,9 @@ export interface RegistrarRecepcionConFacturaCommand {
   cfdiRecibidoId: string | null;
   cfdiUuidFiscal: string | null;
   observaciones: string | null;
+  /** G-3: remisión del proveedor; con la misma remisión/factura ya recibida en la OC el servidor pide `motivoDuplicado`. */
+  remision?: string | null;
+  motivoDuplicado?: string | null;
   /**
    * PR4: helper de cabecera (bin N4) que el almacenista auto-aplicó a las
    * líneas sin ubicación. null = no usó el helper. Solo reportería — la
@@ -481,6 +487,9 @@ export interface RegistrarRecepcionConPackingListCommand {
   fechaMovimiento: string;
   packingListBlobRef: string;
   observaciones: string | null;
+  /** G-3: ver variante A. */
+  remision?: string | null;
+  motivoDuplicado?: string | null;
   /** PR4: helper de cabecera (ver variante A). null = no lo usó. */
   ubicacionHelperId: string | null;
   importacion?: import('../schemas/recepcion').ImportacionRecepcionValues | null;
@@ -874,8 +883,9 @@ export interface RegistrarSalidaDevolucionAProveedorCommand {
 }
 
 export interface RegistrarSalidaDevolucionAProveedorResponse {
+  devolucionId: string;
   movimientoSalidaId: string;
-  folioMovimientoSalida: string;
+  folioSalida: string;
 }
 
 // ─── Conteos / Inventario físico (FE-F5-PR1) ────────────────────────────────
@@ -1236,6 +1246,41 @@ export interface AlfakHistorialFila {
   saldoFinal: number;
   costoPromedioFinal: number;
   valorInventarioFinal: number;
+  /** F1-ALM-13: hojas (unidad física) del vidrio por medida al saldo final; null si no es por medida. */
+  hojasFinal?: number | null;
+}
+
+/** F1-MP-09: línea del kardex de un artículo/lote; saldo y valorSaldo son corridos (incluyen el saldo inicial). */
+export interface TrazabilidadMpFila {
+  fecha: string;
+  folio: string | null;
+  concepto: string;
+  referencia: string | null;
+  lote: string | null;
+  subAlmacenNombre: string | null;
+  entrada: number;
+  salida: number;
+  saldo: number;
+  costoUnitarioMxn: number;
+  valorSaldo: number;
+}
+
+/**
+ * F1-ALM-13-a: fila del cuadre del cierre. «Cuenta» = cuenta de inventario por tipo de artículo para toda la empresa (o grupo sin
+ * cuenta); «Almacén» = detalle de valuación; «Kardex» = diferencia contra el kardex. Diferencia = valuación − saldo (o − kardex).
+ */
+export interface CuadreInventarioFila {
+  nivel: 'Cuenta' | 'Almacén' | 'Kardex';
+  sucursalId: string | null;
+  sucursal: string | null;
+  almacen: string | null;
+  articulo: string | null;
+  cuenta: string | null;
+  valuacion: number;
+  saldoContable: number | null;
+  diferencia: number | null;
+  observacion: string | null;
+  grupo: string | null;
 }
 
 export interface ExistenciaMpCnkFila {

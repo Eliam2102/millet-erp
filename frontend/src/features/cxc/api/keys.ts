@@ -85,6 +85,9 @@ export const cxcKeys = {
 
   // Aplicación de pagos (CXC-FE-PR6)
   propuestas: () => [...cxcKeys.all, 'propuestas-aplicacion'] as const,
+  /** CXC-06: conciliación de cobros contra pólizas. */
+  conciliacionPolizas: (desde: string, hasta: string) =>
+    [...cxcKeys.all, 'conciliacion-polizas', desde, hasta] as const,
   propuestasList: (filtros: Record<string, unknown>) =>
     [...cxcKeys.propuestas(), 'list', filtros] as const,
   propuestaById: (id: string) =>
@@ -99,4 +102,9 @@ export const cxcKeys = {
   alertas: () => [...cxcKeys.all, 'alertas'] as const,
   alertasList: (filtros: Record<string, unknown>) =>
     [...cxcKeys.alertas(), 'list', filtros] as const,
+
+  // Conciliación diaria de cartera contra Facturación (C7.7)
+  conciliaciones: () => [...cxcKeys.all, 'conciliaciones'] as const,
+  conciliacionesList: () => [...cxcKeys.conciliaciones(), 'list'] as const,
+  conciliacionById: (id: string) => [...cxcKeys.conciliaciones(), 'byId', id] as const,
 };

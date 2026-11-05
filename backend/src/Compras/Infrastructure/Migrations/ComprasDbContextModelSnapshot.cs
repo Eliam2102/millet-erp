@@ -25,6 +25,135 @@ namespace Millet.Compras.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Millet.Compras.Domain.AlmCompra.AlmCompraEnvio", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("AcuseEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("acuse_en");
+
+                    b.Property<string>("CompraIdAlmacenes")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("compra_id_almacenes");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<DateTimeOffset?>("EnviadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("enviado_en");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("estado");
+
+                    b.Property<int>("Intentos")
+                        .HasColumnType("integer")
+                        .HasColumnName("intentos");
+
+                    b.Property<string>("MensajeId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("mensaje_id");
+
+                    b.Property<Guid>("OrdenCompraId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("orden_compra_id");
+
+                    b.Property<int>("Ordinal")
+                        .HasColumnType("integer")
+                        .HasColumnName("ordinal");
+
+                    b.Property<DateTimeOffset?>("ProximoIntentoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("proximo_intento_en");
+
+                    b.Property<string>("Referencia")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("referencia");
+
+                    b.Property<long>("Secuencia")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("secuencia");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Secuencia"));
+
+                    b.Property<string>("Sobre")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("sobre");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("tipo");
+
+                    b.Property<string>("UltimoError")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("ultimo_error");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_alm_compra_envios");
+
+                    b.HasIndex("Estado")
+                        .HasDatabaseName("ix_alm_compra_envios_estado");
+
+                    b.HasIndex("MensajeId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_alm_compra_envios_mensaje_id");
+
+                    b.HasIndex("OrdenCompraId", "Tipo")
+                        .HasDatabaseName("ix_alm_compra_envios_oc_tipo");
+
+                    b.HasIndex("Referencia", "Secuencia")
+                        .HasDatabaseName("ix_alm_compra_envios_referencia_secuencia");
+
+                    b.ToTable("alm_compra_envios", "compras", t =>
+                        {
+                            t.HasCheckConstraint("ck_alm_compra_envios_estado", "estado IN ('PENDIENTE','ENVIADO','PROCESADO','DUPLICADO','ERROR','RECHAZADO')");
+
+                            t.HasCheckConstraint("ck_alm_compra_envios_tipo", "tipo IN ('COMPRA_RECIBIDA','COMPRA_CANCELADA','COMPRA_MODIFICADA')");
+                        });
+                });
+
             modelBuilder.Entity("Millet.Compras.Domain.AprobadorDepartamento", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2301,6 +2430,10 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
 
+                    b.Property<bool>("EsperaAlmacenes")
+                        .HasColumnType("boolean")
+                        .HasColumnName("espera_almacenes");
+
                     b.Property<short>("EstadoAnterior")
                         .HasColumnType("smallint")
                         .HasColumnName("estado_anterior");
@@ -2335,6 +2468,10 @@ namespace Millet.Compras.Infrastructure.Migrations
                     b.Property<Guid?>("ResolutorId")
                         .HasColumnType("uuid")
                         .HasColumnName("resolutor_id");
+
+                    b.Property<string>("RespuestaAlmacenes")
+                        .HasColumnType("text")
+                        .HasColumnName("respuesta_almacenes");
 
                     b.Property<Guid>("SolicitanteId")
                         .HasColumnType("uuid")
@@ -2542,6 +2679,11 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("smallint")
                         .HasColumnName("clasificacion");
 
+                    b.Property<string>("ComentarioDevolucion")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("comentario_devolucion");
+
                     b.Property<Guid?>("ComprometidaEnOcId")
                         .HasColumnType("uuid")
                         .HasColumnName("comprometida_en_oc_id");
@@ -2571,6 +2713,10 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("descripcion");
 
+                    b.Property<Guid?>("DevueltaPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("devuelta_por_id");
+
                     b.Property<Guid>("EmpresaId")
                         .HasColumnType("uuid")
                         .HasColumnName("empresa_id");
@@ -2578,6 +2724,10 @@ namespace Millet.Compras.Infrastructure.Migrations
                     b.Property<short>("Estado")
                         .HasColumnType("smallint")
                         .HasColumnName("estado");
+
+                    b.Property<DateTimeOffset?>("FechaDevolucion")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("fecha_devolucion");
 
                     b.Property<DateOnly?>("FechaEntregaDeseada")
                         .HasColumnType("date")
@@ -3015,6 +3165,16 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasFilter("published_at IS NULL");
 
                     b.ToTable("integration_events_outbox", "compras");
+                });
+
+            modelBuilder.Entity("Millet.Compras.Domain.AlmCompra.AlmCompraEnvio", b =>
+                {
+                    b.HasOne("Millet.Compras.Domain.Oc.OrdenCompra", null)
+                        .WithMany()
+                        .HasForeignKey("OrdenCompraId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_alm_compra_envios_orden_compra");
                 });
 
             modelBuilder.Entity("Millet.Compras.Domain.Autorizacion", b =>

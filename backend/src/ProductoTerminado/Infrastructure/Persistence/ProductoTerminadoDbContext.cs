@@ -14,6 +14,7 @@ public sealed class ProductoTerminadoDbContext(DbContextOptions<ProductoTerminad
     public DbSet<PedidoPtPosicion> Posiciones => Set<PedidoPtPosicion>();
     public DbSet<PiezaPt> Piezas => Set<PiezaPt>();
     public DbSet<MovimientoPieza> Movimientos => Set<MovimientoPieza>();
+    public DbSet<TraspasoPt> Traspasos => Set<TraspasoPt>();
     public DbSet<SaldoDemo> SaldosDemo => Set<SaldoDemo>();
     public DbSet<EscaneoPt> Escaneos => Set<EscaneoPt>();
     public DbSet<IntegrationEventOutboxEntry> OutboxEntries => Set<IntegrationEventOutboxEntry>();
@@ -77,6 +78,23 @@ public sealed class ProductoTerminadoDbContext(DbContextOptions<ProductoTerminad
         m.Property(x => x.Usuario).HasMaxLength(100);
         m.HasIndex(x => new { x.PiezaId, x.Tipo, x.Referencia }).IsUnique();
         m.HasOne<PiezaPt>().WithMany().HasForeignKey(x => x.PiezaId).OnDelete(DeleteBehavior.Restrict);
+
+        var t = modelBuilder.Entity<TraspasoPt>();
+        t.ToTable("traspasos_pt");
+        t.HasKey(x => x.Id);
+        t.Property(x => x.Id).ValueGeneratedNever();
+        t.Property(x => x.Estado).HasConversion<string>().HasMaxLength(20);
+        t.HasIndex(x => new { x.EmpresaId, x.Estado, x.SalidaAt });
+        t.HasMany(x => x.Piezas).WithOne().HasForeignKey(x => x.TraspasoPtId).OnDelete(DeleteBehavior.Restrict);
+        t.Navigation(x => x.Piezas).UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        var tp = modelBuilder.Entity<TraspasoPtPieza>();
+        tp.ToTable("traspaso_pt_piezas");
+        tp.HasKey(x => x.Id);
+        tp.Property(x => x.Id).ValueGeneratedNever();
+        tp.Ignore(x => x.AggregateRootId);
+        tp.HasIndex(x => new { x.TraspasoPtId, x.PiezaId }).IsUnique();
+        tp.HasOne<PiezaPt>().WithMany().HasForeignKey(x => x.PiezaId).OnDelete(DeleteBehavior.Restrict);
 
         var e = modelBuilder.Entity<EscaneoPt>();
         e.ToTable("escaneos");

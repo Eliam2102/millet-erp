@@ -72,4 +72,9 @@ public sealed record RequisicionResponse(
     bool AlmacenCubreTodo = false,
     // C3.1: quién debe firmar cada nivel según la matriz (null = sin configurar, basta el permiso).
     Guid? AutorizadorN1Id = null,
-    Guid? AutorizadorN2Id = null);
+    Guid? AutorizadorN2Id = null,
+    // Devolución a corregir: comentario de quien la devolvió (visible en Borrador devuelta).
+    string? ComentarioDevolucion = null,
+    DateTimeOffset? FechaDevolucion = null,
+    // Sin política de nivel 2 vigente: queda pendiente de configurar el aprobador.
+    bool PendienteConfigurarAprobador = false);

@@ -6,7 +6,7 @@ namespace Millet.Tesoreria.Domain.Conciliaciones;
 /// <summary>
 /// Agregado raíz de conciliación bancaria mensual por cuenta (§4.1 / §5 DDL).
 /// Invariante central (RN-7): solo cierra con diferencia 0 (saldo cuadrado) y acta firmada
-/// por el Gerente o Jefe de Tesorería.
+/// por quien tiene la facultad de cerrar conciliación.
 /// </summary>
 public sealed class Conciliacion : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
@@ -113,7 +113,7 @@ public sealed class Conciliacion : BaseEntity, IPerteneceAEmpresa, IAuditable
 
     /// <summary>
     /// Cierre de la conciliación (RN-7). Exige saldo cuadrado (Diferencia == 0),
-    /// sin líneas pendientes ni en revisión, y firma válida de Gerente o Jefe de Tesorería.
+    /// sin líneas pendientes ni en revisión, y firma de quien tiene la facultad de cerrar conciliación.
     /// </summary>
     public void Cerrar(
         Guid usuarioId,
@@ -128,13 +128,10 @@ public sealed class Conciliacion : BaseEntity, IPerteneceAEmpresa, IAuditable
         if (string.IsNullOrWhiteSpace(firmanteNombre))
             throw new BusinessRuleException("CONCILIACION_FIRMANTE_OBLIGATORIO", "El nombre del firmante es obligatorio para emitir el acta.");
 
-        if (string.IsNullOrWhiteSpace(firmantePuesto) ||
-            (!firmantePuesto.Contains("Gerente", StringComparison.OrdinalIgnoreCase) &&
-             !firmantePuesto.Contains("Jefe", StringComparison.OrdinalIgnoreCase)))
-        {
-            throw new BusinessRuleException("CONCILIACION_FIRMANTE_ROL_INVALIDO",
-                "El acta de conciliación debe ser firmada por el Gerente o Jefe de Tesorería.");
-        }
+        // La facultad «Cerrar conciliación» (tesoreria.conciliacion.cerrar) la exige el endpoint;
+        // el puesto es solo el texto del acta, ya no autoriza por contener «Gerente» o «Jefe».
+        if (string.IsNullOrWhiteSpace(firmantePuesto))
+            throw new BusinessRuleException("CONCILIACION_FIRMANTE_OBLIGATORIO", "El puesto del firmante es obligatorio para emitir el acta.");
 
         var pendientes = _lineas.Count(l => l.Estado == EstadoExtractoLinea.Pendiente || l.Estado == EstadoExtractoLinea.EnRevision);
         if (pendientes > 0)

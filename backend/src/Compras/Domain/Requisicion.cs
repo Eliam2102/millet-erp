@@ -114,6 +114,11 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
     public Guid? ActorTerminacionId { get; private set; }
     public DateTimeOffset? FechaTerminacion { get; private set; }
 
+    // --- Devolución a corregir (no es terminal): vive mientras está en Borrador devuelta ---
+    public string? ComentarioDevolucion { get; private set; }
+    public Guid? DevueltaPorId { get; private set; }
+    public DateTimeOffset? FechaDevolucion { get; private set; }
+
     // --- F4-PR1 (OC): compromiso exclusivo con una OC activa ---
     // Diseño OC §3.bis.1. Una RQ Autorizada puede estar en uno de dos
     // lugares: el pool de disponibles (ComprometidaEnOcId = null) o
@@ -458,6 +463,9 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         }
 
         Estado = EstadoRequisicion.EnAutorizacion;
+        ComentarioDevolucion = null;
+        DevueltaPorId = null;
+        FechaDevolucion = null;
 
         return new Events.RequisicionEnviadaAAutorizacionEvent(
             RequisicionId: Id,
@@ -492,6 +500,15 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             throw new BusinessRuleException(
                 "AUTORIZAR_SOLO_EN_AUTORIZACION",
                 $"Solo se puede autorizar en estado EnAutorizacion (actual: {Estado}).");
+        }
+
+        // Sin política de nivel 2: N1 se registra pero no autoriza (CumpleMatriz es false);
+        // N2 no se fuerza: queda pendiente hasta que se configure el aprobador.
+        if (nivel == NivelAutorizacion.Nivel2 && requiereNivel == Matriz.RequiereNivel.SinPolitica)
+        {
+            throw new BusinessRuleException(
+                "REQUISICION_PENDIENTE_CONFIGURAR_APROBADOR",
+                "Pendiente de configurar el aprobador: no hay política de nivel 2 para este departamento.");
         }
 
         // Misma regla que la OC (OC_AUTOAUTORIZACION): quien creó la RQ no la autoriza.
@@ -563,6 +580,35 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
                 && _autorizaciones.Any(a => a.Nivel == NivelAutorizacion.Nivel2),
             _ => false,
         };
+    }
+
+    /// <summary>
+    /// Devuelve a corregir (<c>EnAutorizacion → Borrador</c>) con comentario
+    /// obligatorio; no es terminal (Rechazar sigue siendo el cierre definitivo).
+    /// Las firmas ya registradas se conservan como historia: al reenviarse
+    /// (<see cref="EnviarAAutorizacion"/>) solo se piden los niveles que faltan,
+    /// es decir, desde el nivel que la devolvió.
+    /// </summary>
+    public void Devolver(Guid actorId, string comentario, DateTimeOffset fechaHora)
+    {
+        if (Estado != EstadoRequisicion.EnAutorizacion)
+        {
+            throw new BusinessRuleException(
+                "DEVOLVER_SOLO_DESDE_EN_AUTORIZACION",
+                $"Solo se puede devolver una requisición en EnAutorizacion (actual: {Estado}).");
+        }
+
+        if (string.IsNullOrWhiteSpace(comentario))
+        {
+            throw new BusinessRuleException(
+                "DEVOLVER_COMENTARIO_REQUERIDO",
+                "El comentario es obligatorio para devolver la requisición a corregir.");
+        }
+
+        Estado = EstadoRequisicion.Borrador;
+        ComentarioDevolucion = comentario.Trim();
+        DevueltaPorId = actorId;
+        FechaDevolucion = fechaHora;
     }
 
     // --- F2-PR4: rechazar y eliminar ---
@@ -769,6 +815,24 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         // el handler ni el contrato; el retorno queda muerto hasta una limpieza
         // posterior. `ocurridoEn` se conserva por la firma.
         return null;
+    }
+
+    /// <summary>
+    /// F-01: tras una devolución a proveedor (o la cancelación de una recepción)
+    /// la línea de RQ baja al recibido neto de sus líneas de OC. Solo baja: lo
+    /// que falta sumar lo empareja la siguiente recepción
+    /// (<c>OcRecepcionEnAlmacenHandler.DeltaRequisicion</c>).
+    /// </summary>
+    public void AjustarRecepcionAlNeto(Guid lineaId, decimal recibidoNetoOc)
+    {
+        if (Estado != EstadoRequisicion.EnSurtido)
+        {
+            throw new BusinessRuleException(
+                "RECEPCION_SOLO_DESDE_ENSURTIDO",
+                $"Solo se pueden ajustar recepciones en EnSurtido (actual: {Estado}).");
+        }
+
+        BuscarLineaOLanzar(lineaId).BajarRecepcionA(recibidoNetoOc);
     }
 
     /// <summary>
@@ -1025,7 +1089,7 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         {
             throw new BusinessRuleException(
                 "RQ_YA_COMPROMETIDA_EN_OTRA_OC",
-                $"La RQ ya está comprometida en la OC '{existente}'. No puede asignarse a otra.");
+                $"La RQ '{Folio.Valor}' ya está comprometida en otra orden de compra. No puede asignarse a otra.");
         }
 
         ComprometidaEnOcId = ordenCompraId;

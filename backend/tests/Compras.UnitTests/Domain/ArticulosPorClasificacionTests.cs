@@ -23,6 +23,19 @@ public class ArticulosPorClasificacionTests
     [InlineData(Clasificacion.OrdenCompra, null, Naturaleza.Servicio, false)]
     [InlineData(Clasificacion.MateriaPrima, null, Naturaleza.Estandar, false)]
     [InlineData(Clasificacion.Pinturas, "Otra", Naturaleza.Estandar, false)]
+    // Grupos SAP con dobles espacios (OITB tal cual) hacen match normalizado.
+    [InlineData(Clasificacion.MateriaPrima, "INSUMOS  PRODUCCION", Naturaleza.Estandar, true)]
+    [InlineData(Clasificacion.OrdenCompra, "INSUMOS  PRODUCCION", Naturaleza.Estandar, false)]
+    [InlineData(Clasificacion.OrdenCompra, "PRENDAS  SEGURIDAD", Naturaleza.Estandar, true)]
+    [InlineData(Clasificacion.Pinturas, "PINTURAS Y QUIMICOS", Naturaleza.Estandar, true)]
+    [InlineData(Clasificacion.Servicio, "SERVICIOS", Naturaleza.Estandar, true)]
+    [InlineData(Clasificacion.OrdenCompra, "SERVICIOS", Naturaleza.Estandar, false)]
+    // (AF) no mapeado: cae en OrdenCompra por la regla por defecto.
+    [InlineData(Clasificacion.OrdenCompra, "(AF) MOB Y EQ  OFICI", Naturaleza.Estandar, true)]
+    // Excluidos: fuera de toda RQ.
+    [InlineData(Clasificacion.OrdenCompra, "ANTICIPOS", Naturaleza.Estandar, false)]
+    [InlineData(Clasificacion.Servicio, "ANTICIPOS", Naturaleza.Servicio, false)]
+    [InlineData(Clasificacion.MateriaPrima, "VIDRIO DEL CLIENTE", Naturaleza.Estandar, false)]
     public void Aplica_y_Filtro_coinciden(
         Clasificacion clasificacion, string? categoria, Naturaleza naturaleza, bool esperado)
     {

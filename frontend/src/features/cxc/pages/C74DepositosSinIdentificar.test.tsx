@@ -73,6 +73,8 @@ vi.mock('@/features/cxc/api/useAplicaciones', () => ({
   }),
   useToleranciasNoFiscal: () => ({ data: { MXN: 1000 }, isSuccess: true, isError: false }),
   useCrearPropuestaAplicacion: () => ({ mutate: mocks.mutate, isPending: false }),
+  useAutorizarAjuste: () => ({ mutate: vi.fn(), isPending: false }),
+  useRechazarAjuste: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 vi.mock('@/lib/auth/useHasPermission', () => ({ useHasPermission: () => true }));
 

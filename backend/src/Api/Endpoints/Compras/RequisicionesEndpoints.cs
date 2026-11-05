@@ -16,8 +16,10 @@ using Millet.Compras.Application.Listar;
 using Millet.Compras.Application.Motivos;
 using Millet.Compras.Application.ObtenerRequisicionPorId;
 using Millet.Compras.Application.PreviewCubrimiento;
+using Millet.Compras.Application.Devolver;
 using Millet.Compras.Application.Rechazar;
 using Millet.Compras.Domain;
+using Millet.Compras.Domain.Ports.Identidad;
 using Millet.Compras.Infrastructure;
 using Millet.Identidad.Application;
 using Millet.Identidad.Domain;
@@ -117,10 +119,12 @@ public static class RequisicionesEndpoints
             ICurrentUserContext currentUser,
             ICurrentUserPermissions permisos,
             IUsuarioSucursalReadPort usuarioSucursales,
+            IUsuarioReadPort usuarios,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
             await RqSucursalScope.VerificarAsync(id, db, currentUser, permisos, usuarioSucursales, cancellationToken);
+            await RqDepartamentoScope.VerificarAsync(id, db, currentUser, permisos, usuarios, cancellationToken);
             var response = await mediator.Send(new ObtenerRequisicionPorIdQuery(id), cancellationToken);
             // ETag con Version (cuidado §2.4 [P1]). El cliente devuelve
             // este valor en If-Match al hacer mutaciones futuras.
@@ -151,9 +155,11 @@ public static class RequisicionesEndpoints
             ICurrentUserContext currentUser,
             ICurrentUserPermissions permisos,
             IUsuarioSucursalReadPort usuarioSucursales,
+            IUsuarioReadPort usuarios,
             CancellationToken cancellationToken) =>
         {
             await RqSucursalScope.VerificarAsync(id, db, currentUser, permisos, usuarioSucursales, cancellationToken);
+            await RqDepartamentoScope.VerificarAsync(id, db, currentUser, permisos, usuarios, cancellationToken);
             var response = await mediator.Send(
                 new PreviewCubrimientoQuery(id), cancellationToken);
             return Results.Ok(response);
@@ -501,6 +507,36 @@ public static class RequisicionesEndpoints
         .ProducesProblem(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        // Devolver a corregir (EnAutorizacion → Borrador, no terminal). Mismo permiso
+        // que rechazar: quien puede cerrar definitivamente también puede devolver.
+        group.MapPost("/{id:guid}/devolver", async (
+            Guid id,
+            [FromBody] DevolverRequisicionRequest request,
+            IMediator mediator,
+            ComprasDbContext scopeDb,
+            ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
+            CancellationToken cancellationToken) =>
+        {
+            await RqSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
+            await mediator.Send(new DevolverRequisicionCommand(id, request.Comentario), cancellationToken);
+            return Results.NoContent();
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasRequisicionesRechazar)
+        .WithName("DevolverRequisicion")
+        .WithSummary("Devolver a corregir (EnAutorización → Borrador) con comentario obligatorio")
+        .WithDescription(
+            "La requisición regresa a Borrador con el comentario visible; las firmas " +
+            "previas se conservan como historia y al reenviarse se piden las que faltan. " +
+            "No cierra la requisición (Rechazar sigue siendo el cierre definitivo).")
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         // F2-PR4: eliminar (Borrador o EnAutorizacion → Eliminada). POST
         // con body por las mismas razones que /rechazar; el flujo no
         // toca DeletedAt — solo cambia estado.
@@ -619,9 +655,11 @@ public static class RequisicionesEndpoints
             ICurrentUserContext scopeUser,
             ICurrentUserPermissions scopePermisos,
             IUsuarioSucursalReadPort scopeSucursales,
+            IUsuarioReadPort usuarios,
             CancellationToken cancellationToken) =>
         {
             await RqSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: false);
+            await RqDepartamentoScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, usuarios, cancellationToken);
             return Results.Ok(await mediator.Send(new ObtenerApartadosRequisicionQuery(id), cancellationToken));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasRequisicionesLeer)
@@ -675,6 +713,9 @@ public static class RequisicionesEndpoints
             [FromQuery] int? offset,
             [FromQuery] int? limit,
             IMediator mediator,
+            ICurrentUserContext currentUser,
+            ICurrentUserPermissions permisos,
+            IUsuarioReadPort usuarios,
             CancellationToken cancellationToken) =>
         {
             var response = await mediator.Send(
@@ -684,7 +725,11 @@ public static class RequisicionesEndpoints
                     requisitanteId,
                     offset ?? 0,
                     limit ?? 50,
-                    q),
+                    q)
+                {
+                    AlcanceDepartamento = await RqDepartamentoScope.ResolverAsync(
+                        currentUser, permisos, usuarios, detalle: false, cancellationToken),
+                },
                 cancellationToken);
             return Results.Ok(response);
         })
@@ -765,9 +810,11 @@ public static class RequisicionesEndpoints
             ICurrentUserContext currentUser,
             ICurrentUserPermissions permisos,
             IUsuarioSucursalReadPort usuarioSucursales,
+            IUsuarioReadPort usuarios,
             CancellationToken cancellationToken) =>
         {
             await RqSucursalScope.VerificarAsync(id, db, currentUser, permisos, usuarioSucursales, cancellationToken);
+            await RqDepartamentoScope.VerificarAsync(id, db, currentUser, permisos, usuarios, cancellationToken);
             var response = await mediator.Send(
                 new Millet.Compras.Application.Historico.ObtenerHistoricoQuery(id),
                 cancellationToken);
@@ -803,6 +850,7 @@ public static class RequisicionesEndpoints
 
     /// <summary>Body común para POST /rechazar y POST /eliminar.</summary>
     public sealed record TerminarRequisicionRequest(Guid MotivoId, string? MotivoTexto);
+    public sealed record DevolverRequisicionRequest(string Comentario);
     public sealed record LiberarApartadoRequest(decimal Cantidad, string Motivo, bool? MandarACompra);
 
     /// <summary>

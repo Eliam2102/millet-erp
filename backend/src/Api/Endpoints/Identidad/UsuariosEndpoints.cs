@@ -190,6 +190,32 @@ public static class UsuariosEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        // --- CONVERTIR CUENTA TÉCNICA EN CUENTA DE PERSONA (86e3yxe9m) ---
+        group.MapPost("/{id:guid}/convertir-en-cuenta-de-persona", async (
+            Guid id,
+            [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
+            [FromBody] ConvertirEnCuentaDePersonaPayload payload,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            if (expectedVersion is not int version)
+                return Results.Problem(title: "X-Expected-Version requerido", statusCode: StatusCodes.Status428PreconditionRequired);
+            var response = await mediator.Send(
+                new ConvertirEnCuentaDePersonaCommand(id, version, payload.Motivo ?? string.Empty), ct);
+            return Results.Ok(response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.IdentidadUsuariosEditar)
+        .WithName("ConvertirEnCuentaDePersona")
+        .WithSummary("Quita la marca de cuenta técnica (solo super administrador, con motivo)")
+        .Produces<UsuarioResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+        .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+
         // --- REACTIVAR ---
         group.MapPost("/{id:guid}/reactivar", async (
             Guid id,
@@ -342,3 +368,6 @@ public sealed record UsuarioListItem(
     string Nombre,
     Guid? DepartamentoId,
     bool Activo);
+
+/// <summary>Cuerpo de <c>POST /{id}/convertir-en-cuenta-de-persona</c> (86e3yxe9m).</summary>
+public sealed record ConvertirEnCuentaDePersonaPayload(string? Motivo);

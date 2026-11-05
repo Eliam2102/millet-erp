@@ -1,8 +1,11 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Compras.Application;
+using Millet.Compras.Application.Integration.AlmCompra;
 using Millet.Compras.Domain;
+using Millet.Compras.Domain.Oc;
 using Millet.Compras.Domain.Oc.Events;
+using Millet.Compras.Domain.Ports.Almacen;
 using Millet.Compras.Infrastructure;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
@@ -23,20 +26,26 @@ namespace Millet.Compras.Application.Oc.Cancelar;
 public sealed class CancelarOrdenCompraHandler : IRequestHandler<CancelarOrdenCompraCommand>
 {
     private readonly ComprasDbContext _db;
+    private readonly AlmCompraEncolador? _almCompra;
     private readonly ICurrentUserContext _currentUser;
     private readonly IClock _clock;
     private readonly IPublisher _publisher;
+    private readonly IRecepcionesOcReadPort _recepciones;
 
     public CancelarOrdenCompraHandler(
         ComprasDbContext db,
         ICurrentUserContext currentUser,
         IClock clock,
-        IPublisher publisher)
+        IPublisher publisher,
+        IRecepcionesOcReadPort recepciones,
+        AlmCompraEncolador? almCompra = null)
     {
+        _almCompra = almCompra;
         _db = db;
         _currentUser = currentUser;
         _clock = clock;
         _publisher = publisher;
+        _recepciones = recepciones;
     }
 
     public async Task Handle(CancelarOrdenCompraCommand command, CancellationToken cancellationToken)
@@ -83,6 +92,27 @@ public sealed class CancelarOrdenCompraHandler : IRequestHandler<CancelarOrdenCo
             throw new BusinessRuleException(
                 "MOTIVO_CANCELACION_TEXTO_REQUERIDO",
                 $"El motivo '{motivo.Clave}' permite texto libre y requiere descripción adicional.");
+        }
+
+        // F-RQOC-02: el sub-estado de recepción de la OC se actualiza por evento (asíncrono). Lo recibido
+        // en Almacén se consulta directo para no cancelar con una sola firma una OC que ya tiene material.
+        var recibidoEnAlmacen = (await _recepciones.ListarPorOcAsync([oc.Id], cancellationToken)).Sum(r => r.Cantidad);
+        if (recibidoEnAlmacen > 0m)
+        {
+            throw new BusinessRuleException(OrdenCompra.CodigoCancelarConRecepcion, OrdenCompra.MensajeCancelarConRecepcion);
+        }
+
+        // 86e3jvu83: una OC ya mandada a Almacenes no se cancela sola: queda en espera, se encola COMPRA_CANCELADA y la cancelación
+        // (con su liberación de RQ) se aplica cuando Almacenes acuse PROCESADO. Si acusa ERROR, la OC vuelve a su estado.
+        if (_almCompra is not null && await _almCompra.EnviadaAAlmacenesAsync(oc.Id, cancellationToken))
+        {
+            oc.SolicitarCancelacionAlmacenes(userId, _clock.UtcNow, command.MotivoCancelacionId, command.MotivoCancelacionTexto);
+            // Contrato v6: el motivo viaja con la cancelación (descripción del catálogo y, si hay, el texto libre).
+            var motivoAlmacenes = string.IsNullOrWhiteSpace(command.MotivoCancelacionTexto)
+                ? motivo.Descripcion : $"{motivo.Descripcion}: {command.MotivoCancelacionTexto}";
+            await _almCompra.EncolarCancelacionAsync(oc.Id, motivoAlmacenes, cancellationToken);
+            await _db.SaveChangesAsync(cancellationToken);
+            return;
         }
 
         var resultado = oc.Cancelar(

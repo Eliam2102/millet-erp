@@ -28,7 +28,7 @@ public sealed class OtrHttpTests
     private static readonly Guid Cliente = DemoSesionSeedHostedService.Id("DEMO-CLI-EXP-1");
     private static Task<ExpedientesHttpTests.Escenario> Escenario(Action<IServiceCollection>? configurar = null) => ExpedientesHttpTests.Escenario.CrearAsync(s =>
     {
-        s.Configure<OtrOptions>(o => { o.EntradaHabilitada = true; o.SalidaHabilitada = true; o.EmpresaId = DemoSesionSeedHostedService.EmpresaId; o.MaxIntentos = 2; });
+        s.Configure<OtrOptions>(o => { o.EntradaHabilitada = true; o.EmpresaId = DemoSesionSeedHostedService.EmpresaId; o.MaxIntentos = 2; });
         s.AddSingleton<IAwOrigenActivo, OrigenDemo>();
         configurar?.Invoke(s);
         s.AddKeyedScoped<OtrTablasAdapter>("Demo", (sp, _) => new(() => new NpgsqlConnection(sp.GetRequiredService<ComercioExteriorDbContext>().Database.GetConnectionString()), true));
@@ -75,8 +75,6 @@ public sealed class OtrHttpTests
         """, new NpgsqlParameter("id", id), new("v", version), new NpgsqlParameter("cliente", "DEMO-CLI-EXP-1"), new("sucursal", "DEMO-OTR-MID"), new("peso", peso), new("op", operacion), new("pedido", pedido));
     private static async Task<int> Entrada(ExpedientesHttpTests.Escenario e)
     { using var scope = e.Scope(); using var w = ActivatorUtilities.CreateInstance<OtrEntradaWorker>(scope.ServiceProvider); return await w.CorrerUnaVezAsync(CancellationToken.None); }
-    private static async Task<int> Salida(ExpedientesHttpTests.Escenario e)
-    { using var scope = e.Scope(); using var w = ActivatorUtilities.CreateInstance<OtrSalidaWorker>(scope.ServiceProvider); return await w.CorrerUnaVezAsync(CancellationToken.None); }
     private static async Task<JsonElement> Json(HttpResponseMessage r)
     { using var doc = JsonDocument.Parse(await r.Content.ReadAsStringAsync()); return doc.RootElement.Clone(); }
     private static Task<HttpResponseMessage> Post(HttpClient c, string ruta, object? body, string etag)
@@ -85,7 +83,7 @@ public sealed class OtrHttpTests
         req.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString()); req.Headers.TryAddWithoutValidation("If-Match", etag); return c.SendAsync(req);
     }
     [Fact]
-    public async Task Entrada_versiones_propuestas_salida_atomica_acuse_y_max_intentos()
+    public async Task Entrada_versiones_propuestas_y_embarque_se_quedan_en_el_erp_sin_salida_hacia_aw()
     {
         await using var e = await Escenario(); await Preparar(e); using var admin = await e.ClienteAsync(true);
         Assert.Equal(2, await Entrada(e));
@@ -124,41 +122,18 @@ public sealed class OtrHttpTests
         }
         var detalle = await admin.GetAsync($"{Expedientes}/{expediente}"); detalle.EnsureSuccessStatusCode();
         var embarcado = await Post(admin, $"{Expedientes}/{expediente}/hitos/embarcado/real", new { fechaReal = hoy, responsableUsuarioId = e.Responsable }, detalle.Headers.ETag!.Tag); embarcado.EnsureSuccessStatusCode();
-        var salidaAntes = (await Json(await admin.GetAsync($"{Base}?expedienteId={expediente}")))[0].GetProperty("salidas"); Assert.Contains(salidaAntes.EnumerateArray(), s => s.GetProperty("tipo").GetString() == "hito");
-        await Salida(e); await Salida(e); // Segunda entrega: la tabla puente no duplica filas.
-        using (var scope = e.Scope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<ComercioExteriorDbContext>(); await using var c = new NpgsqlConnection(db.Database.GetConnectionString()); await c.OpenAsync();
-            await using var cmd = new NpgsqlCommand("SELECT count(*) FROM dbo.erp_otr_estado", c); Assert.Equal(salidaAntes.GetArrayLength(), Convert.ToInt32(await cmd.ExecuteScalarAsync(), System.Globalization.CultureInfo.InvariantCulture));
-        }
-        await Sql(e, "UPDATE dbo.erp_otr_estado SET aw_acuse_at=now(),aw_resultado='Aplicada',aw_motivo='DEMO leído'"); await Salida(e);
-        var acusadas = (await Json(await admin.GetAsync($"{Base}?expedienteId={expediente}")))[0].GetProperty("salidas"); Assert.All(acusadas.EnumerateArray(), s => Assert.Equal(3, s.GetProperty("estado").GetInt32()));
         var contenedores = await admin.GetAsync($"{Expedientes}/{expediente}/contenedores");
         using var patch = new HttpRequestMessage(HttpMethod.Patch, $"{Expedientes}/{expediente}/contenedores/{contenedor}") { Content = JsonContent.Create(new { numero = "DEMO-C", booking = "DEMO-BOOK", ruta = "DEMO-R", pesoKg = 125, bultos = 2 }) };
         patch.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString()); patch.Headers.TryAddWithoutValidation("If-Match", contenedores.Headers.ETag!.Tag); (await admin.SendAsync(patch)).EnsureSuccessStatusCode();
-        await Salida(e); await Salida(e); await Salida(e);
-        var entregada = (await Json(await admin.GetAsync($"{Base}?expedienteId={expediente}")))[0].GetProperty("salidas").EnumerateArray().Single(x => x.GetProperty("tipo").GetString() == "booking");
-        Assert.Equal(2, entregada.GetProperty("estado").GetInt32()); Assert.Equal(1, entregada.GetProperty("intentos").GetInt32());
-        await Sql(e, "UPDATE comercio_exterior.otr_salidas SET ultimo_intento_at=now()-interval '2 days' WHERE tipo='booking'");
-        var vencida = (await Json(await admin.GetAsync(Base))).EnumerateArray().Single(x => x.GetProperty("id").GetGuid() == id);
-        Assert.True(vencida.GetProperty("salidas").EnumerateArray().Single(x => x.GetProperty("tipo").GetString() == "booking").GetProperty("sinAcuse").GetBoolean());
+        using (var scope = e.Scope())
+        using (scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass())
+        {
+            // A+W no lee lo que el ERP deja (Jorge, 1-nov): booking, embarque e hitos se quedan en el expediente.
+            var db = scope.ServiceProvider.GetRequiredService<ComercioExteriorDbContext>();
+            Assert.Equal("DEMO-BOOK", (await db.Contenedores.SingleAsync(c => c.Id == contenedor)).Booking);
+            Assert.Empty(await db.OtrSalidas.ToArrayAsync());
+        }
         using (var ajeno = await e.ClienteAsync(true, asociar: false)) Assert.Empty((await Json(await ajeno.GetAsync(Base))).EnumerateArray());
-        await Sql(e, "UPDATE dbo.erp_otr_estado SET aw_acuse_at=now(),aw_resultado='Rechazada',aw_motivo='DEMO revisar' WHERE tipo='booking'"); await Salida(e);
-        var fallida = (await Json(await admin.GetAsync($"{Base}?expedienteId={expediente}")))[0]; var salida = fallida.GetProperty("salidas").EnumerateArray().Single(x => x.GetProperty("tipo").GetString() == "booking"); Assert.Equal(4, salida.GetProperty("estado").GetInt32()); Assert.Equal(1, salida.GetProperty("intentos").GetInt32());
-        var reintento = await Post(admin, $"{Base}/{id}/salidas/{salida.GetProperty("id").GetGuid()}/reintentar", null, $"\"{fallida.GetProperty("version").GetInt32()}\""); reintento.EnsureSuccessStatusCode();
-        var salidas = (await Json(reintento)).GetProperty("salidas");
-        var original = salidas.EnumerateArray().Single(x => x.GetProperty("id").GetGuid() == salida.GetProperty("id").GetGuid());
-        Assert.Equal(5, original.GetProperty("estado").GetInt32());
-        var nueva = salidas.EnumerateArray().Single(x => x.GetProperty("id").GetGuid() == original.GetProperty("reemplazadaPorId").GetGuid());
-        Assert.Equal(2, nueva.GetProperty("intento").GetInt32()); Assert.Equal(salida.GetProperty("versionErp").GetInt32(), nueva.GetProperty("versionErp").GetInt32());
-        await Salida(e);
-        await Sql(e, "UPDATE dbo.erp_otr_estado SET aw_acuse_at=now(),aw_resultado='Aplicada',aw_motivo='DEMO reintento aplicado' WHERE salida_id=@id", new NpgsqlParameter("id", nueva.GetProperty("id").GetGuid())); await Salida(e);
-        var final = (await Json(await admin.GetAsync($"{Base}?expedienteId={expediente}")))[0].GetProperty("salidas");
-        Assert.Equal(3, final.EnumerateArray().Single(x => x.GetProperty("id").GetGuid() == nueva.GetProperty("id").GetGuid()).GetProperty("estado").GetInt32());
-        using var scopeFinal = e.Scope(); var dbFinal = scopeFinal.ServiceProvider.GetRequiredService<ComercioExteriorDbContext>();
-        await using var conexion = new NpgsqlConnection(dbFinal.Database.GetConnectionString()); await conexion.OpenAsync();
-        await using var comprobar = new NpgsqlCommand("SELECT aw_resultado FROM dbo.erp_otr_estado WHERE salida_id=@id", conexion); comprobar.Parameters.AddWithValue("id", salida.GetProperty("id").GetGuid());
-        Assert.Equal("Rechazada", await comprobar.ExecuteScalarAsync());
     }
     private sealed class PedidosConError : IPedidosEmbarcablesReadPort
     {
@@ -229,25 +204,6 @@ public sealed class OtrHttpTests
         await using var c = new NpgsqlConnection(db.Database.GetConnectionString()); await c.OpenAsync();
         await using var cmd = new NpgsqlCommand("SELECT erp_resultado,erp_motivo FROM dbo.aw_otr_envio WHERE otr_envio_id='DEMO-OTR-1'", c); await using var reader = await cmd.ExecuteReaderAsync(); Assert.True(await reader.ReadAsync());
         Assert.Equal("Rechazada", reader.GetString(0)); Assert.Equal("CE_OTR_VERSION_CONTENIDO_DISTINTO", reader.GetString(1));
-    }
-    [Fact]
-    public async Task Acuse_tardio_se_aplica_aunque_haya_vencido_la_espera()
-    {
-        await using var e = await Escenario(); await Preparar(e); await Entrada(e); Guid salidaId;
-        using (var scope = e.Scope())
-        {
-            using var b = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass(); var db = scope.ServiceProvider.GetRequiredService<ComercioExteriorDbContext>();
-            var envio = await db.OtrEnvios.FirstAsync(); var salida = new OtrSalida(envio.EmpresaId, envio.Id, "cerrado", 1, "{}");
-            salidaId = salida.Id; salida.Intentar(2, DateTimeOffset.UtcNow.AddDays(-2)); salida.Entregada(); db.OtrSalidas.Add(salida); await db.SaveChangesAsync();
-            await scope.ServiceProvider.GetRequiredKeyedService<OtrTablasAdapter>("Demo").EntregarAsync(new(salida.Id, envio.IdOrigen, salida.Tipo, salida.VersionErp, salida.ValorJson), CancellationToken.None);
-        }
-        await Salida(e); await Salida(e); await Salida(e);
-        using var admin = await e.ClienteAsync(true); var bandeja = await Json(await admin.GetAsync(Base));
-        var pendiente = bandeja.EnumerateArray().SelectMany(x => x.GetProperty("salidas").EnumerateArray()).Single(s => s.GetProperty("id").GetGuid() == salidaId);
-        Assert.Equal(2, pendiente.GetProperty("estado").GetInt32()); Assert.True(pendiente.GetProperty("sinAcuse").GetBoolean()); Assert.Equal(1, pendiente.GetProperty("intentos").GetInt32());
-        await Sql(e, "UPDATE dbo.erp_otr_estado SET aw_acuse_at=now(),aw_resultado='Aplicada' WHERE salida_id=@id", new NpgsqlParameter("id", salidaId)); await Salida(e);
-        using var final = e.Scope(); using var bypass = final.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
-        Assert.Equal(EstadoOtrSalida.Acusada, (await final.ServiceProvider.GetRequiredService<ComercioExteriorDbContext>().OtrSalidas.SingleAsync(s => s.Id == salidaId)).Estado);
     }
     [Theory][InlineData(true)][InlineData(false)]
     public async Task Piezas_editadas_manualmente_generan_conflicto_y_decision_auditada(bool usarOtr)

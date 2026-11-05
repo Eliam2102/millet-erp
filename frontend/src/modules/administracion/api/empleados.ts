@@ -177,6 +177,41 @@ export function useCuentasSinEmpleado(buscar: string, enabled = true) {
   });
 }
 
+/** 86e3yxe9m: cuenta técnica del ERP (no corresponde a un empleado). */
+export interface CuentaTecnica {
+  usuarioId: string;
+  nombre: string;
+  correo: string;
+  /** Nombres de sus roles en la empresa actual. */
+  roles: string[];
+  primerAccesoEn: string | null;
+  activo: boolean;
+  estadoAcceso: number;
+}
+
+export interface CuentasTecnicasResponse {
+  items: CuentaTecnica[];
+  total: number;
+}
+
+/** Cuentas técnicas (<c>GET /admin/colaboradores/cuentas-tecnicas</c>, sólo perfil corporativo). */
+export function useCuentasTecnicas(buscar: string, enabled = true) {
+  const texto = buscar.trim();
+  return useQuery<CuentasTecnicasResponse>({
+    queryKey: ['admin', 'colaboradores', 'cuentas-tecnicas', texto],
+    enabled,
+    queryFn: async ({ signal }) => {
+      const qs = new URLSearchParams({ limit: '50' });
+      if (texto) qs.set('buscar', texto);
+      const { data } = await apiRequest<CuentasTecnicasResponse>(
+        `/api/v1/admin/colaboradores/cuentas-tecnicas?${qs.toString()}`,
+        { signal },
+      );
+      return data;
+    },
+  });
+}
+
 /**
  * Empleado ligado a una cuenta del ERP (contrato 2). Devuelve <c>null</c> si la
  * cuenta no tiene empleado (404), para redirigir las rutas viejas de usuarios.

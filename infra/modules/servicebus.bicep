@@ -343,7 +343,7 @@ resource almacenEventsComprasSubscriptionFilter 'Microsoft.ServiceBus/namespaces
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'almacen.oc_recepcion.registrada.v1\', \'almacen.oc_devolucion.registrada.v1\', \'almacen.oc_devolucion.conciliada.v1\', \'almacen.recepcion_oc.cancelada.v1\', \'almacen.salida_requisicion.registrada.v1\', \'almacen.recepcion_activo.anulada.v1\')'
+      sqlExpression: 'user.EventType IN (\'almacen.oc_recepcion.registrada.v1\', \'almacen.oc_devolucion.registrada.v1\', \'almacen.oc_devolucion.conciliada.v1\', \'almacen.recepcion_oc.cancelada.v1\', \'almacen.salida_requisicion.registrada.v1\', \'almacen.recepcion_activo.anulada.v1\', \'almacen.vale_regularizado.v1\')'
       compatibilityLevel: 20
     }
   }
@@ -548,7 +548,7 @@ resource facturacionEventsCxcSubscriptionFilter 'Microsoft.ServiceBus/namespaces
 }
 
 // Subscription consumida por Integraciones.Aw FacturacionRetornoListenerWorker
-// (TR-01): factura-venta timbrada → fila Documento de aw_retorno.
+// (TR-01): factura-venta timbrada → fila Documento de aw_retorno; 86e3jvv6z: cobros y REPP → filas Pago.
 // Referencia: backend/src/Integraciones.Aw/Infrastructure/Retorno/AwRetornoWorkers.cs
 resource facturacionEventsAwSubscription 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
   parent: facturacionEventsTopic
@@ -569,7 +569,7 @@ resource facturacionEventsAwSubscriptionFilter 'Microsoft.ServiceBus/namespaces/
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'facturacion.factura-venta.timbrada.v1\', \'facturacion.comprobante.cancelado.v1\', \'facturacion.nota-credito.timbrada.v1\')'
+      sqlExpression: 'user.EventType IN (\'facturacion.factura-venta.timbrada.v1\', \'facturacion.comprobante.cancelado.v1\', \'facturacion.nota-credito.timbrada.v1\', \'facturacion.cobro-mostrador.registrado.v1\', \'facturacion.cobro-mostrador.cancelado.v1\', \'facturacion.recibo-pago.timbrado.v1\')'
       compatibilityLevel: 20
     }
   }

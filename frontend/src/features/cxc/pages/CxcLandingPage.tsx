@@ -12,6 +12,7 @@ import {
   ListChecks,
   PhoneCall,
   Receipt,
+  Scale,
   Unlock,
 } from 'lucide-react';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -188,6 +189,22 @@ const moduloCxcLanding: NavModulo = {
             'Estado de cuenta por cliente: facturas, pagos, NCs y saldo corriente. Impresión limpia.',
           to: '/cxc/estado-cuenta',
           icon: FileText,
+          permission: PermisosCanonicos.CuentasPorCobrarCarteraLeer,
+        },
+        {
+          label: 'Conciliación de cartera',
+          description:
+            'Lo timbrado, cobrado y cancelado en Facturación contra la cartera, día por día, con sus diferencias.',
+          to: '/cxc/conciliacion',
+          icon: Scale,
+          permission: PermisosCanonicos.CuentasPorCobrarCarteraLeer,
+        },
+        {
+          label: 'Conciliación con pólizas',
+          description:
+            'Cobros aplicados en cartera contra sus pólizas: diferencias con su causa probable (CXC-06).',
+          to: '/cxc/conciliacion-polizas',
+          icon: Scale,
           permission: PermisosCanonicos.CuentasPorCobrarCarteraLeer,
         },
       ],

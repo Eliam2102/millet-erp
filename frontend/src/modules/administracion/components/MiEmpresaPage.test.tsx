@@ -152,11 +152,11 @@ it.each(['Vigente', 'Vencido'])('presenta CSD %s desde el backend', async (estad
   expect(await screen.findByText(estado)).toBeVisible();
 });
 
-it('presenta configuración ausente sin inventar fechas', async () => {
+it.each([204, 404])('presenta configuración ausente (%i) sin inventar fechas', async (status) => {
   mswServer.use(
     http.get(
       '*/api/v1/integraciones/fiscal/configuracion/e-1/1',
-      () => new HttpResponse(null, { status: 404 }),
+      () => new HttpResponse(null, { status }),
     ),
   );
   render(<MiEmpresaPage />, { wrapper: createQueryWrapper() });

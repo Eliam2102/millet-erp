@@ -1,5 +1,5 @@
 -- DEMO sintético. Pase sucursal_clave_aw y cliente_numero_aw de los catálogos DEMO.
--- No borra resultados ni salidas: repetir la carga es inocuo.
+-- No borra resultados: repetir la carga es inocuo.
 -- psql -v sucursal_clave_aw='MID' -v cliente_numero_aw='DEMO-CLI-EXP-1' -f otr.sql
 BEGIN;
 INSERT INTO dbo.aw_otr_envio (otr_envio_id,version,cliente_numero_aw,sucursal_clave_aw,cliente,direccion_entrega,producto,numero_contenedor,ruta,bultos,peso_kg,fecha_carga_prevista,operacion)

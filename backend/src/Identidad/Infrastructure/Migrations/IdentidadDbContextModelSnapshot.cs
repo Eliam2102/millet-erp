@@ -4121,6 +4121,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("0000000a-0007-0000-0000-000000000001"),
+                            Accion = "ejecutar",
+                            Codigo = "cuentas_por_cobrar.conciliacion.ejecutar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Ejecutar a demanda la conciliación diaria de cartera contra facturación",
+                            Modulo = "cuentas_por_cobrar",
+                            Recurso = "conciliacion",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("0000000b-0001-0000-0000-000000000001"),
                             Accion = "ver",
                             Codigo = "tesoreria.cuentas.ver",
@@ -4239,6 +4253,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Descripcion = "Ligar tardíamente un pago a cuenta al pasivo provisionado",
+                            Modulo = "tesoreria",
+                            Recurso = "pagos-cuenta",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000b-0004-0000-0000-000000000003"),
+                            Accion = "autorizar",
+                            Codigo = "tesoreria.pagos-cuenta.autorizar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar (firmar) un pago a cuenta; no puede firmarlo quien lo capturó",
                             Modulo = "tesoreria",
                             Recurso = "pagos-cuenta",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),

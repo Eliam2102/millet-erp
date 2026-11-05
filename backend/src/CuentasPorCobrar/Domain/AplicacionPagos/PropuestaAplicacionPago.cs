@@ -12,6 +12,16 @@ public enum EstadoPropuestaAplicacion : short
 }
 
 /// <summary>
+/// CXC-06 (86e3qddef): tipo del ajuste documentado de un cobro corto. Define la cuenta de la póliza por rol de Contabilidad
+/// (supuesto «a validar»): comisión bancaria → <c>COMISIONES_BANCARIAS</c>; diferencia menor → <c>DIFERENCIAS_EN_COBRO</c>.
+/// </summary>
+public enum TipoAjusteCobro : short
+{
+    ComisionBancaria = 1,
+    DiferenciaMenor = 2,
+}
+
+/// <summary>
 /// Propuesta de aplicación de pago (§3.1 del 00-levantamiento, §4.1-4.2
 /// del 01-diseño, CXC-PR7): matching depósito ↔ facturas construido desde
 /// el remittance del cliente. CxC propone; Tesorería confirma o rechaza contra el banco.
@@ -44,6 +54,22 @@ public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IA
     /// <summary>Diferencia depósito − Σ importes; solo ≤ 0 y dentro de tolerancia.</summary>
     public decimal AjusteNoFiscal { get; private set; }
 
+    /// <summary>CXC-06: tipo del ajuste (cuenta de la póliza); null si no hay ajuste.</summary>
+    public TipoAjusteCobro? TipoAjuste { get; private set; }
+
+    /// <summary>CXC-06: motivo documentado del ajuste; obligatorio cuando hay ajuste.</summary>
+    public string? MotivoAjuste { get; private set; }
+
+    /// <summary>CXC-06: quién autorizó el ajuste (nunca quien propuso) y cuándo.</summary>
+    public Guid? AjusteAutorizadoPor { get; private set; }
+    public DateTimeOffset? AjusteAutorizadoEn { get; private set; }
+
+    /// <summary>CXC-06: REP timbrado de la propuesta (correlaciona el movimiento de cartera con la póliza del cobro).</summary>
+    public Guid? ReciboPagoId { get; private set; }
+
+    /// <summary>CXC-06: el ajuste espera autorización; mientras tanto la propuesta no se envía a Tesorería.</summary>
+    public bool AjustePorAutorizar => AjusteNoFiscal < 0 && AjusteAutorizadoEn is null && Estado == EstadoPropuestaAplicacion.Propuesta;
+
     public EstadoPropuestaAplicacion Estado { get; private set; }
     public string? MotivoRechazo { get; private set; }
     public Guid? ResueltaPor { get; private set; }
@@ -62,7 +88,8 @@ public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IA
         string moneda,
         string remittanceRef,
         IReadOnlyList<(string FacturaUuid, Guid FacturaCarteraId, decimal ImporteAplicado, int? NumParcialidad)> lineas,
-        decimal toleranciaNoFiscal, Guid? propuestoPor = null, Guid? movimientoBancarioId = null)
+        decimal toleranciaNoFiscal, Guid? propuestoPor = null, Guid? movimientoBancarioId = null,
+        TipoAjusteCobro? tipoAjuste = null, string? motivoAjuste = null)
     {
         if (clienteId == Guid.Empty)
             throw new BusinessRuleException("PAP_CLIENTE_VACIO", "El cliente es obligatorio.");
@@ -88,6 +115,17 @@ public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IA
             throw new BusinessRuleException("PAP_TOLERANCIA_EXCEDIDA",
                 $"La diferencia ({ajuste}) excede la tolerancia no fiscal ({toleranciaNoFiscal} {moneda}).");
 
+        // CXC-06: un faltante dentro de la tolerancia no se absorbe solo; se documenta (tipo = cuenta, y motivo) y se autoriza.
+        var conAjuste = ajuste < 0;
+        if (conAjuste && tipoAjuste is null)
+            throw new BusinessRuleException("PAP_AJUSTE_SIN_TIPO",
+                $"El depósito es {Math.Abs(ajuste):N2} {moneda} menor que lo aplicado: indica si es comisión bancaria o diferencia menor.");
+        if (conAjuste && string.IsNullOrWhiteSpace(motivoAjuste))
+            throw new BusinessRuleException("PAP_AJUSTE_SIN_MOTIVO",
+                "El motivo del ajuste es obligatorio: queda documentado en la póliza del cobro.");
+        if (tipoAjuste is { } t && !Enum.IsDefined(t))
+            throw new BusinessRuleException("PAP_AJUSTE_TIPO_INVALIDO", "El tipo de ajuste no es válido.");
+
         var propuesta = new PropuestaAplicacionPago
         {
             Id = Guid.CreateVersion7(),
@@ -103,6 +141,8 @@ public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IA
             // C7.4: depósito sin identificar que CxC identificó (Tesorería lo
             // preselecciona); al confirmar, Tesorería informa el movimiento real.
             MovimientoBancarioId = movimientoBancarioId,
+            TipoAjuste = conAjuste ? tipoAjuste : null,
+            MotivoAjuste = conAjuste ? motivoAjuste!.Trim() : null,
             Estado = EstadoPropuestaAplicacion.Propuesta,
         };
 
@@ -142,7 +182,30 @@ public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IA
         ResueltaEn = ahora;
     }
 
-    public void MarcarReppTimbrado() => ReppTimbrado = true;
+    /// <summary>
+    /// CXC-06: autoriza el ajuste documentado. Separación de funciones: quien propuso no autoriza su propio ajuste.
+    /// </summary>
+    public void AutorizarAjuste(Guid usuarioId, DateTimeOffset ahora)
+    {
+        AsegurarPropuesta();
+        if (AjusteNoFiscal >= 0)
+            throw new BusinessRuleException("PAP_SIN_AJUSTE", "La propuesta no tiene ajuste que autorizar.");
+        if (AjusteAutorizadoEn is not null)
+            throw new BusinessRuleException("PAP_AJUSTE_YA_AUTORIZADO", "El ajuste ya fue autorizado.");
+        if (usuarioId == Guid.Empty)
+            throw new BusinessRuleException("PAP_AUTORIZADOR_NO_IDENTIFICADO", "No se identificó a quien autoriza.");
+        if (PropuestoPor == usuarioId)
+            throw new BusinessRuleException("PAP_AJUSTE_MISMO_USUARIO",
+                "Quien propone el cobro no puede autorizar su propio ajuste. Solicita la autorización a otra persona.");
+        AjusteAutorizadoPor = usuarioId;
+        AjusteAutorizadoEn = ahora;
+    }
+
+    public void MarcarReppTimbrado(Guid? reciboPagoId = null)
+    {
+        ReppTimbrado = true;
+        ReciboPagoId ??= reciboPagoId;
+    }
 
     private void AsegurarPropuesta()
     {

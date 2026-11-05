@@ -1330,6 +1330,11 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
     /// con el estado previo para que listeners (Notificaciones,
     /// Requisiciones — liberación) sepan el contexto.
     /// </summary>
+    public const string CodigoCancelarConRecepcion = "OC_CANCELAR_CON_RECEPCION";
+
+    public const string MensajeCancelarConRecepcion =
+        "Esta orden de compra ya tiene material recibido en Almacén. Para cancelarla usa «Solicitar cancelación», que requiere dos firmas.";
+
     public CancelarResultado Cancelar(
         Guid usuarioId,
         DateTimeOffset fechaHora,
@@ -1345,9 +1350,7 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
 
         if (SubEstadoRecepcion != SubEstadoRecepcion.SinRecepcion)
         {
-            throw new BusinessRuleException(
-                "OC_CANCELAR_CON_RECEPCION",
-                "Cancelar OCs con recepciones parciales requiere doble autorización (F5-PR4 maneja ese caso).");
+            throw new BusinessRuleException(CodigoCancelarConRecepcion, MensajeCancelarConRecepcion);
         }
 
         if (motivoCancelacionId == Guid.Empty)
@@ -1421,6 +1424,73 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         return new CancelarConRecepcionesResultado(evento, liberaciones);
     }
 
+    /// <summary>La OC espera la respuesta de Almacenes a COMPRA_CANCELADA (86e3jvu83).</summary>
+    public bool CancelacionEsperaAlmacenes => _solicitudesCancelacion.Any(s => s.EsperaAlmacenes);
+
+    /// <summary>
+    /// 86e3jvu83: cancelación de una OC ya mandada a Almacenes, condicionada a su acuse. Misma mecánica de
+    /// <see cref="EstadoOrdenCompra.CancelacionSolicitada"/>: conserva el estado previo; no hay evento ni liberación de RQ hasta el acuse.
+    /// </summary>
+    public void SolicitarCancelacionAlmacenes(Guid usuarioId, DateTimeOffset fechaHora, Guid motivoCancelacionId, string? motivoTexto)
+    {
+        if (EstadosTerminales.Contains(Estado))
+            throw new BusinessRuleException("OC_CANCELAR_ESTADO_TERMINAL",
+                $"No se puede cancelar una OC en estado terminal (actual: {Estado}).");
+        if (Estado != EstadoOrdenCompra.Autorizada)
+            throw new BusinessRuleException("OC_CANCELACION_ESTADO_INVALIDO",
+                "Solo se puede cancelar una OC autorizada que ya se mandó a Almacenes.");
+        if (motivoTexto is { Length: > 500 })
+            throw new BusinessRuleException("OC_CANCELAR_TEXTO_DEMASIADO_LARGO", "El texto del motivo no puede exceder 500 caracteres.");
+        var s = new SolicitudCancelacionOc(Guid.CreateVersion7(), Id, Estado, usuarioId, fechaHora, motivoCancelacionId,
+            string.IsNullOrWhiteSpace(motivoTexto) ? "Cancelación solicitada desde Compras" : motivoTexto);
+        s.EsperarAlmacenes();
+        _solicitudesCancelacion.Add(s);
+        Estado = EstadoOrdenCompra.CancelacionSolicitada;
+    }
+
+    /// <summary>Segunda firma de una cancelación con recepciones cuando la compra ya está en Almacenes: queda esperando su acuse.</summary>
+    public void ConfirmarCancelacionConRecepcionesEsperaAlmacenes(Guid usuarioId, DateTimeOffset fechaHora, string motivo)
+    {
+        var solicitud = SolicitudPendiente();
+        solicitud.Resolver(usuarioId, fechaHora, true, motivo);
+        solicitud.EsperarAlmacenes();
+    }
+
+    /// <summary>Almacenes aceptó (PROCESADO/DUPLICADO): se cancela y se liberan las RQ con faltante, con los mismos eventos de siempre.</summary>
+    public CancelarConRecepcionesResultado FinalizarCancelacionAlmacenes(DateTimeOffset fechaHora)
+    {
+        var s = SolicitudEsperandoAlmacenes();
+        s.CerrarEspera(fechaHora);
+        Estado = EstadoOrdenCompra.Cancelada;
+        MotivoCancelacionId = s.MotivoCancelacionId;
+        MotivoCancelacion = s.MotivoSolicitud;
+        var liberaciones = _lineas
+            .Where(l => l.RequisicionId.HasValue && l.Cantidad > l.CantidadRecibida)
+            .Select(l => new LineaRqLiberacionParcial(l.RequisicionId!.Value, l.Id, l.Cantidad - l.CantidadRecibida)).ToList();
+        var evento = new Events.OrdenCompraCanceladaEvent(Id, EmpresaId, Folio.Valor, s.EstadoAnterior, s.MotivoCancelacionId,
+            s.MotivoSolicitud, CompradorTitularId, s.ResolutorId ?? s.SolicitanteId, fechaHora);
+        return new CancelarConRecepcionesResultado(evento, liberaciones);
+    }
+
+    /// <summary>Almacenes rechazó (ERROR): la OC vuelve a su estado previo y la respuesta queda en la solicitud.</summary>
+    public void RevertirCancelacionAlmacenes(DateTimeOffset fechaHora, string respuesta)
+    {
+        var s = SolicitudEsperandoAlmacenes();
+        s.RechazarPorAlmacenes(fechaHora, respuesta);
+        Estado = s.EstadoAnterior;
+    }
+
+    /// <summary>¿La cancelación espera a Almacenes y fue por la vía de dos firmas (había material recibido)?</summary>
+    public bool CancelacionAlmacenesEsDeDobleFirma => SolicitudEsperandoAlmacenes().Confirmada == true;
+
+    private SolicitudCancelacionOc SolicitudEsperandoAlmacenes()
+    {
+        if (Estado != EstadoOrdenCompra.CancelacionSolicitada || !CancelacionEsperaAlmacenes)
+            throw new BusinessRuleException("OC_CANCELACION_NO_ESPERA_ALMACENES",
+                "La orden de compra no tiene una cancelación esperando la respuesta de Almacenes.");
+        return _solicitudesCancelacion.Single(s => s.EsperaAlmacenes);
+    }
+
     public void RechazarCancelacion(Guid usuarioId, DateTimeOffset fechaHora, string motivo)
     {
         var solicitud = SolicitudPendiente();
@@ -1430,6 +1500,9 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
 
     private SolicitudCancelacionOc SolicitudPendiente()
     {
+        if (CancelacionEsperaAlmacenes)
+            throw new BusinessRuleException("OC_CANCELACION_ESPERA_ALMACENES",
+                "La cancelación espera la respuesta de Almacenes; no se puede resolver a mano.");
         if (Estado != EstadoOrdenCompra.CancelacionSolicitada)
             throw new BusinessRuleException("OC_CANCELACION_NO_SOLICITADA",
                 "La orden de compra no tiene una solicitud de cancelación pendiente.");

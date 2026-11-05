@@ -29,6 +29,13 @@ export const EstadoCfdiRecibido = {
 } as const satisfies Record<string, number>;
 export type EstadoCfdiRecibido = (typeof EstadoCfdiRecibido)[keyof typeof EstadoCfdiRecibido];
 
+/** Estatus del CFDI ante el SAT (consulta de validación). */
+export const EstatusSatCfdi = {
+  Vigente: 1,
+  Cancelado: 2,
+} as const satisfies Record<string, number>;
+export type EstatusSatCfdi = (typeof EstatusSatCfdi)[keyof typeof EstatusSatCfdi];
+
 /** Tipo del CFDI según el SAT (00-Ingreso, 01-Egreso, etc.). */
 export const TipoCfdi = {
   Desconocido: 0,
@@ -51,6 +58,8 @@ export const CanalOrigenCfdi = {
 export type CanalOrigenCfdi = (typeof CanalOrigenCfdi)[keyof typeof CanalOrigenCfdi];
 
 export interface CfdiListItem {
+  estatusSat?: EstatusSatCfdi | null;
+  fechaCancelacionSat?: string | null;
   id: string;
   uuidCfdi: string;
   rfcEmisor: string;
@@ -118,6 +127,8 @@ export interface CfdiLineaParseada {
 
 /** Respuesta de GET /cfdis/{id} — detalle para el viewer de la bandeja. */
 export interface CfdiDetalle {
+  estatusSat?: EstatusSatCfdi | null;
+  fechaCancelacionSat?: string | null;
   id: string;
   uuidCfdi: string;
   rfcEmisor: string;
@@ -148,6 +159,11 @@ export const EstadoCfdiRecibidoLabels: Record<EstadoCfdiRecibido, string> = {
   [EstadoCfdiRecibido.ConvertidoEnPasivo]: 'Convertido en pasivo',
   [EstadoCfdiRecibido.Duplicado]: 'Duplicado',
   [EstadoCfdiRecibido.Descartado]: 'Descartado',
+};
+
+export const EstatusSatCfdiLabels: Record<EstatusSatCfdi, string> = {
+  [EstatusSatCfdi.Vigente]: 'Vigente',
+  [EstatusSatCfdi.Cancelado]: 'Cancelado',
 };
 
 export const TipoCfdiLabels: Record<TipoCfdi, string> = {
@@ -1052,6 +1068,7 @@ export const EstadoSolicitudViaticos = {
   ComprobacionCapturada: 6,
   Liquidada: 7,
   Rechazada: 8,
+  Devuelta: 9,
 } as const satisfies Record<string, number>;
 export type EstadoSolicitudViaticos =
   (typeof EstadoSolicitudViaticos)[keyof typeof EstadoSolicitudViaticos];
@@ -1071,6 +1088,7 @@ export const EstadoSolicitudViaticosLabels: Record<EstadoSolicitudViaticos, stri
   [EstadoSolicitudViaticos.ComprobacionCapturada]: 'Comprobación capturada',
   [EstadoSolicitudViaticos.Liquidada]: 'Liquidada',
   [EstadoSolicitudViaticos.Rechazada]: 'Rechazada',
+  [EstadoSolicitudViaticos.Devuelta]: 'Devuelta a corregir',
 };
 
 export const TipoDestinoViaticoLabels: Record<TipoDestinoViatico, string> = {
@@ -1151,6 +1169,9 @@ export interface SolicitudViaticosDetalle {
   rechazadoPor: string | null;
   fechaRechazo: string | null;
   motivoRechazo: string | null;
+  /** Comentario de quien la devolvió a corregir (solo en estado Devuelta). */
+  comentarioDevolucion?: string | null;
+  fechaDevolucion?: string | null;
   fechaSolicitud: string;
   fechaAnticipoPagado: string | null;
   fechaComprobacion: string | null;
@@ -1231,6 +1252,17 @@ export interface TransicionViaticosResponse {
 
 export interface RechazarSolicitudViaticosCommand {
   motivo: string;
+}
+
+export interface DevolverSolicitudViaticosCommand {
+  comentario: string;
+}
+
+export interface ReenviarSolicitudViaticosCommand {
+  montoSolicitado: number;
+  fechaSalida: string;
+  fechaRegreso: string;
+  justificacionExceso: string | null;
 }
 
 // ─── Tarjetas de Crédito + Movimientos (FE-F6-PR1) ────────────────────

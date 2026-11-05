@@ -8,6 +8,9 @@ public enum RequiereNivel
 {
     SoloN1 = 1,
     N1YN2 = 2,
+
+    /// <summary>Sin umbral/política vigente: no se decide ni se fuerza N2; pendiente de configurar el aprobador.</summary>
+    SinPolitica = 3,
 }
 
 /// <summary>

@@ -71,6 +71,24 @@ public sealed class ReglasP7Tests
         f.Events.Items.Should().ContainSingle();
     }
 
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task Recepcion_en_otra_sucursal_avisa_la_sucursal_antes_que_la_asignacion(bool packing)
+    {
+        await using var f = new P1Fixture();
+        // F-RQOC-06: el artículo no está asignado al rack y la OC es de otra sucursal; manda la sucursal.
+        f.Db.AsignacionesArticuloUbicacion.RemoveRange(await f.Db.AsignacionesArticuloUbicacion.ToListAsync());
+        await f.Db.SaveChangesAsync();
+        var oc = (await f.Oc.ObtenerAsync(f.DocumentoId, default))!;
+        var port = new P1Fixture.OcPort(oc with { SucursalDestinoId = Guid.NewGuid() });
+        RegistrarRecepcionLineaInput[] lineas = [new(f.ArticuloId, f.LineaId, 1, null, null, f.BinId, null)];
+        var conv = new P7Support.Conversion();
+        var ex = await Assert.ThrowsAsync<BusinessRuleException>(() => packing
+            ? new RegistrarRecepcionConPackingListHandler(f.Db, port, f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), conv).Handle(new(f.DocumentoId, P1Fixture.Fecha, "packing.pdf", null, lineas), default)
+            : new RegistrarRecepcionConFacturaHandler(f.Db, port, f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), conv, CfdiFake.Valido(), new ProveedorRfcFake()).Handle(new(f.DocumentoId, P1Fixture.Fecha, Guid.NewGuid(), null, null, lineas), default));
+        ex.Code.Should().Be("RECEPCION_SUCURSAL_DISTINTA");
+    }
+
     [Fact]
     public async Task Salida_convierte_caja_a_base_y_respeta_tope_documental()
     {
@@ -188,6 +206,34 @@ public sealed class ReglasP7Tests
         apartada.Code.Should().Be("SALIDA_EXISTENCIA_APARTADA");
         var sinExistencia = await Assert.ThrowsAsync<BusinessRuleException>(() => servicio.ConsumirAsync(sucursal, Guid.NewGuid(), Guid.NewGuid(), f.ArticuloId, 6, default));
         sinExistencia.Code.Should().Be("SALIDA_STOCK_INSUFICIENTE");
+    }
+
+    [Fact]
+    public async Task ALM36_salida_sin_autorizado_con_existencia_apartada_para_otra_rq_lo_dice()
+    {
+        await using var f = new P1Fixture();
+        var saldo = await f.Db.SaldosInventario.SingleAsync();
+        f.Db.SaldosInventario.Remove(saldo);
+        f.Db.SaldosInventario.Add(new(f.BinId, f.SubId, f.ArticuloId, 6, 25));
+        await f.Db.SaveChangesAsync();
+        var sucursal = (await f.Db.Almacenes.SingleAsync()).SucursalId;
+        var servicio = P7Support.Apartados(f.Db);
+        // RQ-A aparta las 6; la RQ-B (la de la salida) quedó sin nada autorizado desde almacén.
+        (await servicio.ApartarAsync(P1Fixture.EmpresaId, sucursal, Guid.NewGuid(), Guid.NewGuid(), f.ArticuloId, 6, default)).Should().Be(6);
+        var rq = (await f.Rq.ObtenerAsync(f.DocumentoId, default))!;
+        var port = new P1Fixture.RqPort(rq with { SucursalId = sucursal, Lineas = [rq.Lineas[0] with { CantidadDisponibleEntregar = 0 }] });
+        var ex = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            new RegistrarSalidaConRequisicionHandler(f.Db, port, f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), new P7Support.Conversion(), servicio)
+                .Handle(new(f.DocumentoId, P1Fixture.Fecha, null, null, [new(f.ArticuloId, f.LineaId, 4, null, null, null, null, f.BinId, null)]), default));
+        ex.Code.Should().Be("SALIDA_EXISTENCIA_APARTADA");
+        ex.Message.Should().Contain("apartada para otra requisición");
+
+        // Sin apartados ajenos, el motivo sigue siendo lo autorizado.
+        await servicio.LiberarAsync((await f.Db.ApartadosRequisicion.SingleAsync()).RequisicionId, default);
+        var sinApartar = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            new RegistrarSalidaConRequisicionHandler(f.Db, port, f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), new P7Support.Conversion(), servicio)
+                .Handle(new(f.DocumentoId, P1Fixture.Fecha, null, null, [new(f.ArticuloId, f.LineaId, 4, null, null, null, null, f.BinId, null)]), default));
+        sinApartar.Code.Should().Be("SALIDA_EXCEDE_AUTORIZADO");
     }
 
     [Fact]

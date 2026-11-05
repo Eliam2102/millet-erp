@@ -474,6 +474,9 @@ export interface PagoACuentaAbiertoResponse {
   motivo: string;
   estadoAplicacion: EstadoAplicacionMovimiento;
   antiguedadDias: number;
+  creadoPor: string;
+  /** Fecha de la firma; null mientras el pago a cuenta espera autorización. */
+  autorizadoEn: string | null;
 }
 
 // ---------------------------------------------------------------- Depósitos (TES-FE-PR4b)

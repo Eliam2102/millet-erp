@@ -1,3 +1,4 @@
+using Millet.SharedKernel.Application.Exceptions;
 using Millet.SharedKernel.Domain;
 
 namespace Millet.ProductoTerminado.Domain;
@@ -33,4 +34,19 @@ public sealed class PiezaPt : BaseEntity, IAuditable, IPerteneceAEmpresa, IBelon
 
     public static PiezaPt Alta(Guid empresa, PedidoPt pedido, int posicion, int numeroPieza, string etiqueta, Guid sucursalId, DateTimeOffset escaneadaAt, Guid escaneoId)
         => new(empresa, pedido.Id, posicion, numeroPieza, etiqueta, sucursalId, escaneadaAt, escaneoId);
+
+    /// <summary>Sale a tránsito; conserva su sucursal de origen hasta que se reciba.</summary>
+    public void SalirATransito()
+    {
+        if (Estado != EstadoPieza.EnPT) throw new BusinessRuleException("PT_PIEZA_NO_EN_PT", $"La pieza {Etiqueta} no está en PT.");
+        Estado = EstadoPieza.EnTransito;
+    }
+
+    /// <summary>Entra al PT de la sucursal destino.</summary>
+    public void Recibir(Guid sucursalDestinoId)
+    {
+        if (Estado != EstadoPieza.EnTransito) throw new BusinessRuleException("PT_PIEZA_NO_EN_TRANSITO", $"La pieza {Etiqueta} no está en tránsito.");
+        Estado = EstadoPieza.EnPT;
+        SucursalId = sucursalDestinoId;
+    }
 }

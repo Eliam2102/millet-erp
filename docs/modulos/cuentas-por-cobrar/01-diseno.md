@@ -164,6 +164,7 @@ Todo enum persistido con `HasCheckConstraint` + mirror FE (incidente 2026-07-11)
 | `IClienteReadPort` | DatosMaestros | Nombre/RFC/datos del cliente para bandejas y reportes |
 | `IFacturacionAnticiposReadPort` | Facturación (**nuevo**, promueve `AnticipoSaldoDetalle` desde `Facturacion.Application`) | Lista de saldos de anticipo por cliente (§1.4 levantamiento) |
 | `IFacturacionAplicacionesAnticipoReadPort` | Facturación (`FacturacionAplicacionesAnticipoReadAdapter`, F1-CXC-05) | Anticipos con sus aplicaciones a factura final (§11.2) |
+| `IConciliacionFacturacionReadPort` | Facturación (`ConciliacionCarteraReadAdapter`, C7.7) | Comprobantes de un día contable que debieron llegar a la cartera (§11.5) |
 | `IUsuarioReadPort` | Identidad | Nombres en auditoría (calco del de Almacén) |
 | `ISucursalReadPort` / `ITipoCambioReadPort` | Administración/Compartido | Solo si el reporte lo exige; evitar consumos prematuros |
 
@@ -238,6 +239,7 @@ exista el emisor (A2).
 | `OutboxPublisherWorker<CuentasPorCobrarDbContext>` | Drena outbox → `cuentas-por-cobrar-events` |
 | `FacturacionEventListenerWorker` (en CxC) | `facturacion-events` → proyección `factura_cartera` + saldo 13-K; idempotente por id de origen |
 | `AlertaCarteraWorker` | Evaluación programada (diaria): SOLUNION 90d, exceso de crédito, bloqueo automático por vencimiento y desbloqueo de los que ya no aplican (§11.4) |
+| `ConciliacionCarteraWorker` | C7.7: a partir de `CuentasPorCobrar:Conciliacion:HoraLocal` (06:00 de Millet) concilia el día anterior; una corrida programada por día (§11.5) |
 | `TesoreriaEventListenerWorker` (en CxC) | **Diferido** hasta A2 — consume `PagoClienteConfirmadoEvent` |
 
 ---
@@ -257,6 +259,8 @@ Namespace `0000000a-*`; recurso `0001`=líneas, `0002`=liberación,
 | `0000000a-0004-…-0001` | `cuentas_por_cobrar.cartera.leer` | Cartera, antigüedad, estado de cuenta, alertas |
 | `0000000a-0005-…-0001` | `cuentas_por_cobrar.aplicacion-pago.proponer` | Crear propuestas de aplicación |
 | `0000000a-0005-…-0002` | `cuentas_por_cobrar.aplicacion-pago.confirmar` | Confirmar/rechazar (Ingresos, interino A2) |
+| `0000000a-0006-…-0001` | `cuentas_por_cobrar.reglas-serie.gestionar` | Reglas de liberación por serie (C7.2) |
+| `0000000a-0007-…-0001` | `cuentas_por_cobrar.conciliacion.ejecutar` | Conciliar la cartera a demanda (C7.7). Supuesto a validar: lo reciben los roles con `cobranza.registrar` |
 
 ---
 
@@ -276,6 +280,7 @@ ETag; errores RFC 7807.
 | `/anticipos` | GET?clienteId= (proxy a `IFacturacionAnticiposReadPort`) · GET /aplicaciones?clienteId=&estado= (F1-CXC-05, §11.2) |
 | `/alertas` | GET · POST/{id}/atender |
 | `/credito-disponible/{clienteId}` | GET (con bandera `datoIncompleto`) |
+| `/conciliaciones` | GET?desde=&hasta= · GET/{id} (reporte ADR-0036 de diferencias) · POST (conciliar un día a demanda, C7.7, §11.5) |
 
 ### 11.1 Estado de cuenta al cliente (F1-CXC-09 · C7.8)
 
@@ -453,7 +458,84 @@ ETag; errores RFC 7807.
   tres columnas y marca como automáticos los bloqueos vigentes cuyo motivo
   empieza con «Auto-bloqueo:».
 
+### 11.5 Conciliación diaria de cartera contra Facturación (F1-CXC-01 · C7.7)
+
+R19: la cartera se concilia diariamente. La proyección `factura_cartera` vive
+solo de eventos de Facturación; la conciliación comprueba que cada evento llegó.
+
+- **Qué se compara.** El puerto `IConciliacionFacturacionReadPort` (adaptador en
+  Facturación) devuelve lo registrado en un día contable (hora de Mérida, el
+  mismo `FechaContable` de los eventos):
+  - facturas de venta timbradas (sin anticipos);
+  - NC con su factura relacionada o la factura que amortizan;
+  - REP por factura pagada;
+  - cobros de mostrador sobre facturas de venta;
+  - comprobantes cuya cancelación aceptó el SAT ese día.
+- **Diferencias** (`ComparadorConciliacion`, función pura), cada una con su
+  causa probable:
+
+  | Diferencia | Causa probable |
+  |---|---|
+  | Factura no está en cartera | No se procesó el evento de factura timbrada (C7.7-a) |
+  | NC no reflejada | No se procesó el evento de la NC (C7.7-c) |
+  | Pago no reflejado | No se procesó el evento del REP o del cobro |
+  | Cancelación pendiente | Cancelado en Facturación y vigente en cartera |
+  | Importe distinto | Total o aplicación diferente en cartera |
+  | Cancelado solo en cartera | Cancelado en cartera y vigente en Facturación |
+
+- **Registro.** Cada corrida queda en `conciliacion_cartera`, con sus
+  diferencias en `conciliacion_cartera_diferencia`. Un día sin diferencias
+  también se registra (C7.7-b). Volver a conciliar crea otra corrida; no
+  sobrescribe.
+- **Programada y a demanda.** `ConciliacionCarteraWorker` concilia el día
+  anterior a partir de las 06:00 de Millet: una vez por día, con advisory lock,
+  y en bypass para cada empresa. A demanda, `POST /conciliaciones` concilia la
+  empresa del usuario con el permiso `conciliacion.ejecutar`.
+- **Pantalla `/cxc/conciliacion`:** corridas con su resultado, botón «Conciliar
+  día» y las diferencias de la corrida elegida, exportables a PDF y Excel.
+- **Supuestos a validar:**
+  - la hora de la corrida (06:00);
+  - las diferencias se ven en pantalla, sin aviso por correo;
+  - los roles que reciben el permiso.
+
 ---
+
+### 11.6 Pólizas de cobro conciliadas con la cartera (F1-CXC-02 · CXC-06)
+
+**Ajuste documentado de un cobro corto.**
+- Un depósito menor que lo aplicado, dentro de la tolerancia no fiscal, ya no se absorbe solo.
+- Quien propone documenta el ajuste con su tipo (`TipoAjusteCobro`: comisión bancaria o diferencia menor) y su motivo. El tipo define la cuenta de la póliza. Sin tipo o sin motivo, la propuesta se rechaza (`PAP_AJUSTE_SIN_TIPO`, `PAP_AJUSTE_SIN_MOTIVO`).
+- La propuesta queda «Ajuste por autorizar». No se publica `propuesta-aplicacion.creada.v1`, así que Tesorería no la ve.
+- Otra persona la autoriza (`POST …/propuestas-aplicacion/{id}/autorizar-ajuste`) y entonces se publica a Tesorería. También puede rechazarla con motivo (`…/rechazar-ajuste`), y la propuesta queda rechazada.
+- Quien propuso no autoriza su propio ajuste (`PAP_AJUSTE_MISMO_USUARIO`).
+- Supuesto «a validar»: autorizar usa el permiso existente `aplicacion-pago.confirmar`.
+
+**Póliza del pago de cliente (#12, versión 2 de la plantilla).**
+
+| Partida | Rol | Importe |
+|---|---|---|
+| Cargo | `BANCOS` | Depósito |
+| Cargo | `COMISIONES_BANCARIAS` o `DIFERENCIAS_EN_COBRO` | Ajuste, según su tipo |
+| Abono | `CLIENTES` (auxiliar cliente) | Lo aplicado en cartera |
+
+- Así la cartera y la póliza cuadran.
+- Contabilidad lee el ajuste autorizado con el puerto `IAjusteCobroContablePort`, que CxC implementa.
+- Sin ajuste autorizado, el evento va a la bandeja de rechazos (`DatoFaltante · AjusteAutorizado`) y el faltante no se absorbe.
+- La póliza nace una sola vez por evento: la llave de idempotencia del motor es tipo + id del evento.
+- El rol `DIFERENCIAS_EN_COBRO` se siembra sin cuenta; Contabilidad lo mapea.
+
+**Conciliación de cobros contra pólizas.**
+- Endpoint `GET /cartera/conciliacion-polizas?desde&hasta`, pantalla `/cxc/conciliacion-polizas`.
+- Cruza cada cobro aplicado en cartera con su póliza. Los datos de Contabilidad se leen con `ICobrosContabilizadosReadPort`.
+
+| Cobro en cartera | Póliza contra la que se cruza |
+|---|---|
+| REP de una propuesta (el REP queda guardado en `propuesta.recibo_pago_id`) | Póliza del pago de cliente, por movimiento bancario |
+| Cobro de mostrador | Póliza del cobro (no efectivo) más la liquidación del efectivo al cerrar la caja |
+
+- Cada cobro sale como «Cuadra», «Diferencia» o «En tránsito», con su causa probable: sin póliza, póliza duplicada, importe distinto, efectivo sin liquidar o pago confirmado sin REP.
+- Es un reporte corporativo: pide `cartera.leer` y `cartera.leer-todas-sucursales`.
+- Es distinta de C7.7, que concilia la cartera contra Facturación.
 
 ## 12. Frontend — patrones aplicables
 
@@ -484,3 +566,5 @@ patrones P1–P4 de `frontend/docs/patrones-compras.md`, reportes con
 | v0.2 | 2026-10-20 | F1-CXC-09 · C7.8: envío del estado de cuenta, bloqueo por REP pendientes (§11.1) y PLATFORM-TODO `<EnvioEstadoCuentaCliente>` (§13) |
 | v0.3 | 2026-10-21 | F1-CXC-05: anticipos con su aplicación a la factura final (§6.1, §11, §11.2) |
 | v0.4 | 2026-11-02 | F1-CXC-06 · C7.5: bloqueo automático por plazo + tolerancia, desbloqueo al pagar y manual con motivo, alerta del seguro anticipada (§9, §11.4) |
+| v0.5 | 2026-11-04 | F1-CXC-01 · C7.7: conciliación diaria de cartera contra Facturación (§6.1, §9, §10, §11, §11.5) |
+| v0.6 | 2026-11-04 | F1-CXC-02 · CXC-06: ajuste documentado y autorizado de un cobro corto, póliza #12 con el ajuste y conciliación de cobros contra pólizas (§11.6) |

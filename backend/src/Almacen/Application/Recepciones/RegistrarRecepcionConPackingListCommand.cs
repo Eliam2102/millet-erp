@@ -47,7 +47,9 @@ public sealed record RegistrarRecepcionConPackingListCommand(
     // líneas vacías en el sheet). Opcional — null = no usó el helper. Solo
     // reportería; la ubicación efectiva de cada línea viaja en cada
     // RegistrarRecepcionLineaInput.UbicacionId y es la que manda.
-    Guid? UbicacionHelperId = null, ImportacionRecepcionInput? Importacion = null) : IRequest<RegistrarRecepcionResponse>;
+    Guid? UbicacionHelperId = null, ImportacionRecepcionInput? Importacion = null,
+    // G-3: remisión del proveedor y motivo para registrar otra vez la misma remisión de la OC (RECEPCION_YA_RECIBIDA).
+    string? Remision = null, string? MotivoDuplicado = null) : IRequest<RegistrarRecepcionResponse>;
 
 public sealed class RegistrarRecepcionConPackingListValidator
     : AbstractValidator<RegistrarRecepcionConPackingListCommand>
@@ -62,6 +64,12 @@ public sealed class RegistrarRecepcionConPackingListValidator
         RuleFor(c => c.Observaciones!).MaximumLength(500)
             .When(c => c.Observaciones is not null)
             .WithMessage("Las observaciones no pueden exceder 500 caracteres.");
+        RuleFor(c => c.Remision!).MaximumLength(RecepcionDuplicada.RemisionMaxLength)
+            .When(c => c.Remision is not null)
+            .WithMessage("La remisión no puede exceder 50 caracteres.");
+        RuleFor(c => c.MotivoDuplicado!).MaximumLength(500)
+            .When(c => c.MotivoDuplicado is not null)
+            .WithMessage("El motivo no puede exceder 500 caracteres.");
         RuleFor(c => c.Lineas).NotEmpty();
         RuleForEach(c => c.Lineas).ChildRules(linea =>
         {
@@ -142,6 +150,9 @@ public sealed class RegistrarRecepcionConPackingListHandler
         // F8-PR2: validar periodo cerrado.
         await Cierre.PeriodoCerradoValidator.LanzarSiCerradoAsync(
             _db, empresaId, request.FechaMovimiento, _periodoContable, cancellationToken);
+        // G-3: misma remisión ya recibida en la OC → exige motivo.
+        var (remision, motivoDuplicado) = await RecepcionDuplicada.ValidarAsync(_db, request.OrdenCompraId, request.Remision,
+            null, null, request.MotivoDuplicado, cancellationToken);
 
         var conversiones = new List<ConversionUnidad>();
         // F1-MP-01: la medida se valida contra el producto A+W vigente del artículo en cada recepción.
@@ -150,6 +161,10 @@ public sealed class RegistrarRecepcionConPackingListHandler
         foreach (var input in request.Lineas)
         {
             var lineaOc = oc!.Lineas.Single(l => l.LineaId == input.LineaOcId);
+            // G-3: el vidrio (partida con medida A+W) entra por la recepción de materia prima, no por lista de empaque.
+            if (lineaOc.ProductoAwVarianteId is not null)
+                throw new BusinessRuleException("LISTA_EMPAQUE_VIDRIO",
+                    "La lista de empaque no admite vidrio: recibe las hojas por la recepción de materia prima.");
             // E1: la medida la fija la línea de la OC; quien recibe no la elige.
             var variante = await RecepcionVariante.ResolverAsync(_articulos, _variantes, input.ArticuloId, lineaOc.ProductoAwVarianteId, cancellationToken);
             variantes.Add(variante);
@@ -180,6 +195,7 @@ public sealed class RegistrarRecepcionConPackingListHandler
             ocId: request.OrdenCompraId,
             ocLineaId: null,
             packingListBlobRef: request.PackingListBlobRef);
+        movimiento.AsentarRemision(remision, motivoDuplicado);
 
         if (!string.IsNullOrWhiteSpace(request.Observaciones))
         {
@@ -191,6 +207,8 @@ public sealed class RegistrarRecepcionConPackingListHandler
         var posicion = 1;
         var posicionRevision = 1;
         var payloadLineas = new List<LineaRecepcionPayload>(request.Lineas.Count);
+        await Catalogo.SucursalDestinoGuard.ValidarUbicacionesAsync(_db, oc!.SucursalDestinoId,
+            request.Lineas.Select(l => l.UbicacionId), "RECEPCION_SUCURSAL_DISTINTA", "La orden de compra está dirigida a otra sucursal: recibe la mercancía en un almacén de la sucursal destino de la orden.", cancellationToken);
         var subsDerivados = new HashSet<Guid>();
         // ALM-04: lo dañado va a un segundo movimiento EntradaCompra en MAT-REV (el trigger prohíbe dos sub-almacenes en uno).
         MovimientoInventario? movimientoRevision = null;
@@ -277,6 +295,7 @@ public sealed class RegistrarRecepcionConPackingListHandler
                         empresaId: empresaId,
                         fechaMovimiento: request.FechaMovimiento);
                     movimientoRevision.VincularRecepcionVarianteB(request.OrdenCompraId, null, request.PackingListBlobRef);
+                    movimientoRevision.AsentarRemision(remision, motivoDuplicado);
                 }
                 var lineaRevId = Guid.CreateVersion7();
                 var lineaRev = new LineaMovimiento(

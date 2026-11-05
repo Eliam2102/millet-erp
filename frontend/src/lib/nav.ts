@@ -546,6 +546,7 @@ const moduloTesoreria: NavModulo = {
             PermisosCanonicos.TesoreriaMovimientosVer,
             PermisosCanonicos.TesoreriaPagosCuentaRegistrar,
             PermisosCanonicos.TesoreriaPagosCuentaLigar,
+            PermisosCanonicos.TesoreriaPagosCuentaAutorizar,
           ],
         },
         {
@@ -795,6 +796,22 @@ const moduloCuentasPorCobrar: NavModulo = {
             'Estado de cuenta por cliente: facturas, pagos, NCs y saldo corriente. Impresión limpia.',
           to: '/cxc/estado-cuenta',
           icon: FileText,
+          permission: PermisosCanonicos.CuentasPorCobrarCarteraLeer,
+        },
+        {
+          label: 'Conciliación de cartera',
+          description:
+            'Lo timbrado, cobrado y cancelado en Facturación contra la cartera, día por día, con sus diferencias.',
+          to: '/cxc/conciliacion',
+          icon: Scale,
+          permission: PermisosCanonicos.CuentasPorCobrarCarteraLeer,
+        },
+        {
+          label: 'Conciliación con pólizas',
+          description:
+            'Cobros aplicados en cartera contra sus pólizas: diferencias con su causa probable (CXC-06).',
+          to: '/cxc/conciliacion-polizas',
+          icon: Scale,
           permission: PermisosCanonicos.CuentasPorCobrarCarteraLeer,
         },
       ],
@@ -1127,7 +1144,7 @@ const comercioExterior: NavModulo = {
         },
         {
           label: 'Bandeja OTR',
-          description: 'Vincular envíos y revisar salidas fallidas o sin acuse.',
+          description: 'Vincular envíos OTR a un expediente de exportación.',
           to: '/comercio-exterior/otr',
           icon: FileText,
           permission: PermisosCanonicos.ComercioExteriorExpedientesLeer,
@@ -1163,6 +1180,13 @@ const productoTerminado: NavModulo = {
           label: 'Salidas pendientes',
           description: 'Pedidos pagados y completos que aún no salen, con alerta a las 24 y 48 horas.',
           to: '/producto-terminado/salidas',
+          icon: Boxes,
+          permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
+        },
+        {
+          label: 'Traspasos',
+          description: 'Salida de piezas entre sucursales, tránsito y recepción en destino con diferencias.',
+          to: '/producto-terminado/traspasos',
           icon: Boxes,
           permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
         },

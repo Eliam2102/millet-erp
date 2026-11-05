@@ -5,6 +5,7 @@ using Millet.Almacen.Domain.Conteos;
 using Millet.Almacen.Domain.Ports;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Almacen.Application.Conteos;
 
@@ -375,6 +376,14 @@ public sealed class ListarLineasComparacionHandler
     public async Task<IReadOnlyList<LineaConteoComparacionDto>> Handle(
         ListarLineasComparacionQuery request, CancellationToken cancellationToken)
     {
+        // Captura sin sesgo (A6): el teórico se ve hasta cerrar la captura (G-3, criterio 4).
+        var estado = await _db.Set<ConteoInventario>().AsNoTracking().Where(c => c.Id == request.ConteoId)
+            .Select(c => (EstadoConteo?)c.Estado).FirstOrDefaultAsync(cancellationToken)
+            ?? throw new EntityNotFoundException("CONTEO_NO_ENCONTRADO", $"No existe conteo con id '{request.ConteoId}'.");
+        if (estado is EstadoConteo.Planificado or EstadoConteo.EnCurso)
+            throw new BusinessRuleException("CONTEO_COMPARACION_EN_CAPTURA",
+                "La comparación contra el teórico se consulta hasta que termine la captura del conteo.");
+
         var filas = await (
             from l in _db.Set<LineaConteo>().AsNoTracking()
             join u in _db.Ubicaciones.AsNoTracking() on l.UbicacionId equals u.Id

@@ -94,4 +94,41 @@ describe('<AccionesViatico>', () => {
     expect(confirmar).toBeEnabled();
     expect(prompt).not.toHaveBeenCalled();
   });
+
+  it('«Devolver para corregir» exige comentario y envía POST /devolver con la versión', async () => {
+    meConEmpleado('e-1');
+    const llamada = vi.fn();
+    mswServer.use(
+      http.post('*/api/v1/cuentas-por-pagar/viaticos/v-1/devolver', async ({ request }) => {
+        llamada(await request.json(), request.headers.get('X-Expected-Version'));
+        return HttpResponse.json({ id: 'v-1', estado: 9, version: 4 });
+      }),
+    );
+    render(<AccionesViatico s={solicitud(EstadoSolicitudViaticos.Solicitada)} />, {
+      wrapper: createQueryWrapper(),
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Devolver para corregir' }));
+    await screen.findByLabelText('Comentario para el solicitante');
+    const botones = screen.getAllByRole('button', { name: 'Devolver para corregir' });
+    const enDialogo = botones[botones.length - 1]!;
+    expect(enDialogo).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Comentario para el solicitante'), {
+      target: { value: 'El monto no cuadra con la agenda' },
+    });
+    fireEvent.click(enDialogo);
+    await waitFor(() => expect(llamada).toHaveBeenCalledWith({ comentario: 'El monto no cuadra con la agenda' }, '3'));
+  });
+
+  it('una solicitud devuelta ofrece «Corregir y reenviar» al solicitante y no la autorización', () => {
+    meConEmpleado('e-1');
+    useAuthStore.setState({
+      permisos: ['cuentas_por_pagar.viaticos.autorizar-jefe', 'cuentas_por_pagar.viaticos.solicitar'],
+    });
+    render(<AccionesViatico s={solicitud(EstadoSolicitudViaticos.Devuelta)} />, {
+      wrapper: createQueryWrapper(),
+    });
+    expect(screen.getByRole('button', { name: 'Corregir y reenviar' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Autorizar como jefe' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Rechazar' })).toBeNull();
+  });
 });

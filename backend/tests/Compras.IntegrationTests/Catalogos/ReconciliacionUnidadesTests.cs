@@ -20,6 +20,8 @@ public class ReconciliacionUnidadesTests : IClassFixture<StubsWebApplicationFact
     private static readonly Guid PzaId = Guid.Parse("00000002-0007-0000-0000-000000000001");
     private static readonly Guid ParId = Guid.Parse("00000002-0007-0000-0000-000000000002");
     private static readonly Guid LId = Guid.Parse("00000002-0007-0000-0000-000000000005");
+    private static readonly Guid CajaId = Guid.Parse("00000002-0007-0000-0000-00000000000d");
+    private static readonly Guid PaqId = Guid.Parse("00000002-0007-0000-0000-00000000000f");
 
     // Mantener en sync con docs/operacion/reconciliacion-unidades.md.
     private const string ReconciliacionSql = """
@@ -31,7 +33,8 @@ public class ReconciliacionUnidadesTests : IClassFixture<StubsWebApplicationFact
                 ('METRO', 'M'),
                 ('ML', 'ML'),
                 ('HR', 'HR'),
-                ('PAR', 'PAR')
+                ('PAR', 'PAR'),
+                ('CAJA', 'CAJA'), ('ROLLO', 'ROLLO'), ('PAQ', 'PAQ'), ('PAQUETE', 'PAQ'), ('PAQUETES', 'PAQ')
         )
         UPDATE compartido.articulos a
         SET unidad_medida_id = u.id
@@ -53,7 +56,7 @@ public class ReconciliacionUnidadesTests : IClassFixture<StubsWebApplicationFact
     {
         var prefijo = $"RUM{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}";
         var ids = await SeedArticulosAsync(prefijo,
-            "PZA.", "pza", "LITRO", "CAJA", "PPZA", "PSP");
+            "PZA.", "pza", "LITRO", "CAJA", "Paquete", "PPZA", "PSP", "CUBETA");
 
         await EjecutarReconciliacionAsync();
 
@@ -62,8 +65,12 @@ public class ReconciliacionUnidadesTests : IClassFixture<StubsWebApplicationFact
         Assert.Equal(PzaId, await FkDeAsync(ids["pza"]));
         Assert.Equal(LId, await FkDeAsync(ids["LITRO"]));
 
-        // Empaque variable + PPZA/PSP → NULL, legacy intacto (no auto-map).
-        await AssertNullConLegacyAsync(ids["CAJA"], "CAJA");
+        // P-200 (Fernando 4-nov): CAJA y PAQUETE ya tienen unidad (SAT XBX y XPK).
+        Assert.Equal(CajaId, await FkDeAsync(ids["CAJA"]));
+        Assert.Equal(PaqId, await FkDeAsync(ids["Paquete"]));
+
+        // Empaque variable sin unidad + PPZA/PSP → NULL, legacy intacto (no auto-map).
+        await AssertNullConLegacyAsync(ids["CUBETA"], "CUBETA");
         await AssertNullConLegacyAsync(ids["PPZA"], "PPZA");
         await AssertNullConLegacyAsync(ids["PSP"], "PSP");
     }

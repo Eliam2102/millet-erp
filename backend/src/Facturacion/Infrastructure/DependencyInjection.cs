@@ -48,6 +48,7 @@ public static class DependencyInjection
         services.AddScoped<ICatalogosSatReadPort, CompartidoCatalogosSatReadAdapter>();
         services.AddScoped<IReppBancarioReadPort, ReppBancarioReadAdapter>();
         services.AddScoped<Millet.CuentasPorCobrar.Domain.Ports.Facturacion.IReppPendientesReadPort, PublicAdapters.ReppPendientesReadAdapter>();
+        services.AddScoped<Millet.CuentasPorCobrar.Domain.Ports.Facturacion.IConciliacionFacturacionReadPort, PublicAdapters.ConciliacionCarteraReadAdapter>();
         services.AddScoped<Millet.Facturacion.Application.Repp.Pendientes.ReppPendienteServicio>();
 
         // --- Master de Cliente/Producto: adapters REALES sobre Compartido ---
@@ -123,6 +124,7 @@ public static class DependencyInjection
         services.AddScoped<IAwWriteBackPort, StubAwWriteBackPort>();
         services.AddScoped<IAwNotasCreditoPort, StubAwNotasCreditoPort>();
         services.AddScoped<IAwVersionPedidoReadPort, AwVersionPedidoReadAdapter>();
+        services.AddScoped<IAwPagosReadPort, AwPagosReadAdapter>();
 
         // --- F3-PR2: auto-provisión de master A+W — stub hasta DatosMaestros ---
         // CERRADO por ADR-0048 (PR4): AwMasterProvisioningAdapter (Integraciones.Aw)

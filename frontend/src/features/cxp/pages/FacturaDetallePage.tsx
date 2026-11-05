@@ -188,9 +188,9 @@ export function FacturaDetallePage() {
             </AvisoEnLinea>
           )}
 
-          {/* Sub-topbar con acciones contextuales */}
+          {/* Sub-topbar con acciones contextuales; sin acciones (Pagada, Cancelada sin motivo) no se pinta. */}
           <div
-            className="flex flex-wrap gap-2 rounded-md border bg-muted/30 px-3 py-2"
+            className="flex flex-wrap gap-2 rounded-md border bg-muted/30 px-3 py-2 empty:hidden"
             data-print="hidden"
           >
             {query.data.estado !== EstadoPasivo.Cancelada &&
@@ -439,7 +439,7 @@ export function FacturaDetallePage() {
                 { etiqueta: 'Anticipo aplicado', monto: query.data.anticipoAplicadoTotal },
                 { etiqueta: 'NC aplicadas', monto: query.data.ncAplicadasTotal },
                 { etiqueta: 'Cargos aplicados', monto: query.data.cargosAplicadosTotal ?? 0 },
-                { etiqueta: 'Retenido por falta de recepción', monto: query.data.retenido },
+                { etiqueta: 'Retenido por recepción pendiente', monto: query.data.retenido },
                 { etiqueta: 'Pagado', monto: query.data.importePagado },
                 { etiqueta: 'Saldo pendiente', monto: query.data.saldoPendiente, destacado: true },
                 { etiqueta: 'Elegible para pago', monto: query.data.elegible, destacado: true },

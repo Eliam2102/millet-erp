@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 using Millet.Tesoreria.Application.Integration;
+using Millet.Tesoreria.Application.Corridas;
 using Millet.Tesoreria.Application.Pagos;
 using Millet.Tesoreria.Domain.Movimientos;
 using Millet.Tesoreria.Domain.Ports;
@@ -56,7 +57,8 @@ public sealed class RegistrarPagoACuentaValidator : AbstractValidator<RegistrarP
         RuleFor(c => c.ProveedorId).NotEmpty().WithMessage("Selecciona el proveedor del pago a cuenta.");
         RuleFor(c => c.FechaValor).NotEmpty();
         RuleFor(c => c.Motivo).NotEmpty().MaximumLength(400);
-        RuleFor(c => c.ReferenciaBancaria).MaximumLength(120);
+        RuleFor(c => c.ReferenciaBancaria).NotEmpty().WithMessage("Captura la referencia (folio) que dio el banco.")
+            .MaximumLength(120);
     }
 }
 
@@ -86,6 +88,16 @@ public sealed class RegistrarPagoACuentaHandler
     public async Task<PagoACuentaResponse> Handle(
         RegistrarPagoACuentaCommand command, CancellationToken cancellationToken)
     {
+        if (!_db.Database.IsRelational()) return await RegistrarAsync(command, cancellationToken);
+        PagoACuentaResponse? resultado = null;
+        // Mismo candado que el pago directo: la referencia única se comprueba sin carrera entre ambos flujos.
+        await Millet.SharedKernel.Infrastructure.Persistence.PostgresAdvisoryLock.ExecuteAsync(_db, 0x50335F5041474F,
+            async ct => resultado = await RegistrarAsync(command, ct), cancellationToken);
+        return resultado!;
+    }
+
+    private async Task<PagoACuentaResponse> RegistrarAsync(RegistrarPagoACuentaCommand command, CancellationToken cancellationToken)
+    {
         if (_currentEmpresa.Current is not Guid empresaId)
             throw new ForbiddenException("EMPRESA_NO_SELECCIONADA",
                 "El usuario no tiene una empresa seleccionada.");
@@ -106,6 +118,18 @@ public sealed class RegistrarPagoACuentaHandler
         if (!abierto)
             throw new BusinessRuleException("MOV_PERIODO_CERRADO",
                 $"El período {command.FechaValor.Year}/{command.FechaValor.Month:00} está cerrado.");
+
+        // Brecha 12: un folio del banco respalda un solo egreso por cuenta. Reintento idéntico → mismo resultado.
+        if (await ReferenciaPagoUnica.BuscarAsync(_db, cuenta.Id, command.ReferenciaBancaria, cancellationToken) is { } previo)
+        {
+            var mismo = previo.MotivoNoAplicado is not null && previo.BeneficiarioRef == command.ProveedorId
+                && previo.Monto == command.Monto && previo.FechaValor == command.FechaValor
+                && !await ReferenciaPagoUnica.RevertidoAsync(_db, previo.Id, cancellationToken);
+            if (!mismo) throw ReferenciaPagoUnica.Duplicada(previo);
+            return new PagoACuentaResponse(
+                previo.Id, previo.CuentaBancariaId, previo.BeneficiarioRef, previo.Monto, previo.Moneda, previo.FechaValor,
+                previo.ReferenciaBancaria, previo.MotivoNoAplicado!, previo.EstadoAplicacion);
+        }
 
         // RN-2: máximo un pago no aplicado abierto por proveedor. El índice
         // parcial único es el backstop ante dobles submit; aquí se valida
@@ -175,14 +199,17 @@ public sealed class LigarPagoACuentaHandler
     private readonly ICurrentEmpresaContext _currentEmpresa;
     private readonly IIntegrationEventPublisher _publisher;
     private readonly IClock _clock;
+    private readonly IProveedorBancoReadPort _proveedores;
 
     public LigarPagoACuentaHandler(
         TesoreriaDbContext db,
         ICurrentEmpresaContext currentEmpresa,
         IIntegrationEventPublisher publisher,
-        IClock clock)
+        IClock clock,
+        IProveedorBancoReadPort proveedores)
     {
         _db = db; _currentEmpresa = currentEmpresa; _publisher = publisher; _clock = clock;
+        _proveedores = proveedores;
     }
 
     public async Task<PagoProveedorResponse> Handle(
@@ -216,6 +243,14 @@ public sealed class LigarPagoACuentaHandler
         if (movimiento.Moneda != pasivo.Moneda)
             throw new BusinessRuleException("PAGO_CROSS_MONEDA",
                 $"El movimiento es {movimiento.Moneda} y el pasivo {pasivo.Moneda} (RN-3).");
+
+        // F-FIN-03: ligar liquida la factura; misma detención que el pago directo y la corrida
+        // (proveedor bloqueado/en revisión, sin 32-D vigente, autorización retirada por CxP).
+        var infoProveedor = await _proveedores.ObtenerAsync(pasivo.ProveedorId, cancellationToken);
+        ReglasDestinoProveedor.Resolver(infoProveedor, movimiento.Moneda, null);
+        PasivosPagables.ExigirOpinionCumplimiento(infoProveedor!, "LIGA_PASIVO_DETENIDO_DOCUMENTACION");
+        if (pasivo.PagoBloqueado)
+            throw new BusinessRuleException("PASIVO_NO_AUTORIZADO_CXP", "CxP retiró la autorización del pasivo. Debe autorizarse de nuevo antes de pagar.");
 
         var yaLigada = await _db.AplicacionesPagoProveedor.AnyAsync(
             a => a.MovimientoId == movimiento.Id
@@ -265,5 +300,33 @@ public sealed class LigarPagoACuentaHandler
             movimiento.Monto, movimiento.Moneda, movimiento.FechaValor,
             movimiento.ReferenciaBancaria,
             [new AplicacionPagoResponse(aplicacion.Id, aplicacion.FacturaProveedorId, aplicacion.ImporteAplicado, aplicacion.Revertida)]);
+    }
+}
+
+// --------------------------------------------------- Autorizar (firma)
+
+public sealed record AutorizarPagoACuentaCommand(Guid MovimientoId) : IRequest<PagoACuentaResponse>;
+
+/// <summary>
+/// Firma del pago a cuenta: la facultad la exige el endpoint
+/// (tesoreria.pagos-cuenta.autorizar); aquí se exige que firme otra persona que quien lo capturó.
+/// </summary>
+public sealed class AutorizarPagoACuentaHandler(
+    TesoreriaDbContext db, ICurrentUserContext currentUser, IClock clock)
+    : IRequestHandler<AutorizarPagoACuentaCommand, PagoACuentaResponse>
+{
+    public async Task<PagoACuentaResponse> Handle(AutorizarPagoACuentaCommand command, CancellationToken cancellationToken)
+    {
+        if (currentUser.UserId is not Guid usuarioId)
+            throw new ForbiddenException("USUARIO_NO_IDENTIFICADO", "No se pudo identificar al usuario que autoriza el pago a cuenta.");
+
+        var m = await db.MovimientosBancarios.FirstOrDefaultAsync(x => x.Id == command.MovimientoId, cancellationToken)
+            ?? throw new EntityNotFoundException("MOV_NO_ENCONTRADO", $"No se encontró el movimiento '{command.MovimientoId}'.");
+
+        m.AutorizarPagoACuenta(usuarioId, clock.UtcNow);
+        await db.SaveChangesAsync(cancellationToken);
+
+        return new PagoACuentaResponse(m.Id, m.CuentaBancariaId, m.BeneficiarioRef, m.Monto, m.Moneda, m.FechaValor,
+            m.ReferenciaBancaria, m.MotivoNoAplicado!, m.EstadoAplicacion);
     }
 }

@@ -2433,6 +2433,14 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<DateTimeOffset?>("AutorizadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("autorizado_en");
+
+                    b.Property<Guid?>("AutorizadoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("autorizado_por");
+
                     b.Property<Guid?>("BeneficiarioRef")
                         .HasColumnType("uuid")
                         .HasColumnName("beneficiario_ref");

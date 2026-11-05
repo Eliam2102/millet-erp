@@ -60,6 +60,7 @@ public sealed class PagoCuentaProveedorTests(WebApplicationFactory<Program> fact
                 cu.Validar(Guid.NewGuid(), "Validador", Guid.NewGuid(), true, null, ahora);
                 var compartido = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
                 compartido.CuentasBancariasProveedor.AddRange(cm, cu);
+                await AdjuntosProveedorAmbiente.AgregarOpinionCumplimientoAsync(compartido, provId);
                 await compartido.SaveChangesAsync();
                 mxn = cm.Id; usd = cu.Id;
                 var tes = scope.ServiceProvider.GetRequiredService<TesoreriaDbContext>();
@@ -101,7 +102,7 @@ public sealed class PagoCuentaProveedorTests(WebApplicationFactory<Program> fact
         c.PostAsJsonAsync("/api/v1/tesoreria/pagos/", new
         {
             cuentaBancariaId = egreso, fechaValor = DateOnly.FromDateTime(DateTime.Today),
-            cuentaProveedorId, aplicaciones = new[] { new { facturaProveedorId = facturaId, importe = 100m } },
+            cuentaProveedorId, referenciaBancaria = $"PCP-{Guid.NewGuid():N}", aplicaciones = new[] { new { facturaProveedorId = facturaId, importe = 100m } },
         });
 
     private static async Task<Guid> MovimientoIdAsync(HttpResponseMessage r)

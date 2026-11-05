@@ -657,7 +657,8 @@ public sealed class CerrarConciliacionValidator : AbstractValidator<CerrarConcil
 public sealed class CerrarConciliacionHandler(
     TesoreriaDbContext db,
     ICurrentUserContext userContext,
-    IClock clock)
+    IClock clock,
+    Millet.Tesoreria.Domain.Ports.DatosMaestros.IEmpresaActaReadPort empresas)
     : IRequestHandler<CerrarConciliacionCommand, byte[]>
 {
     public async Task<byte[]> Handle(CerrarConciliacionCommand command, CancellationToken cancellationToken)
@@ -670,6 +671,10 @@ public sealed class CerrarConciliacionHandler(
 
         var cuenta = await db.CuentasBancarias.FirstOrDefaultAsync(c => c.Id == conciliacion.CuentaBancariaId, cancellationToken)
             ?? throw new EntityNotFoundException("CUENTA_NO_ENCONTRADA", "No se encontró la cuenta bancaria.");
+
+        // El acta lleva la razón social y el RFC vigentes de la empresa de la conciliación.
+        var empresa = await empresas.ObtenerAsync(conciliacion.EmpresaId, cancellationToken)
+            ?? throw new EntityNotFoundException("EMPRESA_NO_ENCONTRADA", "No se encontró la empresa de la conciliación.");
 
         decimal saldoLibros = await ConciliacionCalculos.CalcularSaldoLibrosAsync(
             db, cuenta, conciliacion.PeriodoAnio, conciliacion.PeriodoMes, cancellationToken);
@@ -695,8 +700,8 @@ public sealed class CerrarConciliacionHandler(
 
         var datosActa = new DatosActaConciliacion(
             conciliacion.Id,
-            "Vidrios Millet de México S.A. de C.V.",
-            "VMI900101XYZ",
+            empresa.RazonSocial,
+            empresa.Rfc,
             cuenta.Banco,
             Millet.SharedKernel.Domain.Bancos.NumeroCuenta.Crear(cuenta.NumeroCuenta).Enmascarado,
             cuenta.Moneda,

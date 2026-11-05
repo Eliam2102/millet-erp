@@ -28,6 +28,9 @@ public static class DependencyInjection
         services.AddScoped<Millet.Contabilidad.Application.Catalogo.SolicitudesCatalogo>();
         services.AddScoped<ICuentaContableReadPort, CuentaContableReadAdapter>();
         services.AddScoped<ISaldosContablesReadPort, SaldosContablesReadAdapter>();
+        // CXC-06: pólizas de cobro para la conciliación de cartera de CxC.
+        services.AddScoped<ICobrosContabilizadosReadPort, CobrosContabilizadosReadAdapter>();
+        services.AddScoped<IRolCuentaSaldoReadPort, RolCuentaSaldoReadAdapter>();
 
         // F1-CON-02: reglas de dimensión. Los puertos ICentroCostoContabilidadPort e ISucursalContabilidadPort los
         // implementan sus dueños (CentrosCosto, Compartido) y se cablean en Program.cs.
@@ -52,6 +55,10 @@ public static class DependencyInjection
         // C1.5: entrada única de los listeners (anulaciones, caja, consumo) y datos que el motor completa desde pólizas previas.
         services.AddScoped<Millet.Contabilidad.Application.Motor.ProcesadorEventosContables>();
         services.AddScoped<Millet.Contabilidad.Application.Motor.IEnriquecedorEventoContable, Millet.Contabilidad.Application.Motor.EnriquecedorPolizasOrigen>();
+        // CXC-06: ajuste autorizado del cobro corto (#12); el puerto lo implementa CxC.
+        services.AddScoped<Millet.Contabilidad.Application.Motor.IEnriquecedorEventoContable, Millet.Contabilidad.Application.Motor.EnriquecedorAjusteCobro>();
+        // F1-ALM-13: después del de pólizas origen (orden de registro = orden de ejecución). IArticuloContabilidadPort lo cablea Program.cs.
+        services.AddScoped<Millet.Contabilidad.Application.Motor.IEnriquecedorEventoContable, Millet.Contabilidad.Application.Motor.EnriquecedorGrupoArticulo>();
 
         // K10.4: pólizas recurrentes con reversa automática; el generador corre también como proceso de fondo.
         services.AddScoped<GeneradorRecurrentes>();

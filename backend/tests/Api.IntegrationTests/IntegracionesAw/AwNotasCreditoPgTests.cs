@@ -134,7 +134,7 @@ public class AwNotasCreditoPgTests(WebApplicationFactory<Program> factory)
     public async Task La_nota_timbrada_deja_la_fila_Documento_NotaCredito_en_aw_retorno_una_sola_vez()
     {
         var retorno = new AwRetornoAdapter(new AwOrigenPg.Fabrica(_cs), Opciones, AwRetornoAdapter.CandadoPostgres);
-        var servicio = new AwRetornoDocumentoService(retorno, new SinVersiones(), NullLogger<AwRetornoDocumentoService>.Instance);
+        var servicio = new AwRetornoDocumentoService(retorno, new SinVersiones(), new SinPagos(), Opciones, NullLogger<AwRetornoDocumentoService>.Instance);
         var nota = new FacturaTimbradaRetornoPayload("UUID-NC-1", 1500m, "NC-000001", "900101", 3);
 
         (await servicio.RegistrarNotaCreditoAsync(nota, default)).Should().Be(1);
@@ -150,5 +150,13 @@ public class AwNotasCreditoPgTests(WebApplicationFactory<Program> factory)
     private sealed class SinVersiones : IAwVersionPedidoReadPort
     {
         public Task<long?> VersionAplicadaAsync(string numeroPedido, CancellationToken ct) => Task.FromResult<long?>(null);
+    }
+
+    private sealed class SinPagos : IAwPagosReadPort
+    {
+        public Task<IReadOnlyList<PagosFacturaAw>> PorComprobanteAsync(Guid comprobanteId, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<PagosFacturaAw>>([]);
+        public Task<PagosFacturaAw?> PorFolioAsync(string numeroPedidoAw, string folio, CancellationToken ct) =>
+            Task.FromResult<PagosFacturaAw?>(null);
     }
 }

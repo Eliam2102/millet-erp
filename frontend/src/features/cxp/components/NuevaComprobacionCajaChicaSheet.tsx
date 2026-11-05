@@ -37,7 +37,7 @@ import type { CfdiListItem } from '@/features/cxp/api/types';
 import { CfdiPorProcesarPicker } from '@/features/cxp/components/CfdiPorProcesarPicker';
 import { CargarCfdiSheet } from '@/features/cxp/components/CargarCfdiSheet';
 import { ClasificacionNoDeducibleCampo } from '@/features/cxp/components/ClasificacionNoDeducibleCampo';
-import { useProveedor } from '@/features/catalogos/api';
+import { fetchProveedoresPorRfc, useProveedor } from '@/features/catalogos/api';
 import {
   EmpleadoSelector,
   Field,
@@ -166,6 +166,23 @@ function Form({
    * NuevaNotaCreditoSheet). <c>null</c> quita el vínculo sin borrar los
    * importes ya capturados.
    */
+  /**
+   * El proveedor sale del RFC emisor (mismo patrón que NuevaNotaCreditoSheet): solo se llena si la línea no
+   * tiene uno y hay un único proveedor con ese RFC; si no, queda el selector manual.
+   */
+  function precargarProveedor(index: number, cfdi: CfdiListItem) {
+    if (form.getValues(`cfdis.${index}.proveedorId`)) return;
+    fetchProveedoresPorRfc(cfdi.rfcEmisor)
+      .then((m) => {
+        if (m.length !== 1 || form.getValues(`cfdis.${index}.proveedorId`)) return;
+        if (form.getValues(`cfdis.${index}.cfdiRecibidoId`) !== cfdi.id) return;
+        form.setValue(`cfdis.${index}.proveedorId`, m[0].id, { shouldValidate: true });
+      })
+      .catch(() => {
+        // Selector manual como respaldo.
+      });
+  }
+
   function vincularCfdiEnLinea(index: number, cfdi: CfdiListItem | null) {
     form.setValue(`cfdis.${index}.cfdiRecibidoId`, cfdi?.id ?? null);
     form.setValue(`cfdis.${index}.uuidCfdi`, cfdi?.uuidCfdi ?? null, {
@@ -181,6 +198,7 @@ function Form({
       cfdi.impuestosTrasladados,
     );
     form.setValue(`cfdis.${index}.retenciones`, cfdi.retenciones);
+    precargarProveedor(index, cfdi);
     form.setValue(`cfdis.${index}.total`, cfdi.total, {
       shouldValidate: true,
     });

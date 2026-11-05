@@ -259,6 +259,92 @@ public class RequisicionTests
         Assert.Equal(ahora, rq.FechaTerminacion);
     }
 
+    // --- Devolver a corregir (G-2) ---
+
+    private static Guid FirmarN1(Requisicion rq, Millet.Compras.Domain.Matriz.RequiereNivel nivel)
+    {
+        var firmante = Guid.CreateVersion7();
+        rq.RegistrarAutorizacion(Guid.CreateVersion7(), NivelAutorizacion.Nivel1, firmante,
+            DateTimeOffset.UtcNow, nivel);
+        return firmante;
+    }
+
+    [Fact]
+    public void Devolver_Nivel2_RegresaABorrador_ConComentario_Y_ConservaFirmaNivel1()
+    {
+        // Criterio 1: firma 1 de 2; el nivel 2 la devuelve con comentario.
+        var rq = CrearEnAutorizacion();
+        FirmarN1(rq, Millet.Compras.Domain.Matriz.RequiereNivel.N1YN2);
+        var actor = Guid.CreateVersion7();
+
+        rq.Devolver(actor, "  falta centro de costo ", DateTimeOffset.UtcNow);
+
+        Assert.Equal(EstadoRequisicion.Borrador, rq.Estado);
+        Assert.Equal("falta centro de costo", rq.ComentarioDevolucion);
+        Assert.Equal(actor, rq.DevueltaPorId);
+        Assert.Single(rq.Autorizaciones, a => a.Nivel == NivelAutorizacion.Nivel1);
+    }
+
+    [Fact]
+    public void Reenviar_TrasDevolver_PideNivel2_Y_ConservaNivel1()
+    {
+        // Criterio 2: al reenviar pide otra vez N2; N1 queda como historia y no se vuelve a pedir.
+        var rq = CrearEnAutorizacion();
+        var n1 = FirmarN1(rq, Millet.Compras.Domain.Matriz.RequiereNivel.N1YN2);
+        rq.Devolver(Guid.CreateVersion7(), "falta centro de costo", DateTimeOffset.UtcNow);
+
+        rq.EnviarAAutorizacion(DateTimeOffset.UtcNow);
+
+        Assert.Equal(EstadoRequisicion.EnAutorizacion, rq.Estado);
+        Assert.Null(rq.ComentarioDevolucion);
+        Assert.Equal(n1, rq.Autorizaciones.Single().UsuarioId);
+        var dup = Assert.Throws<BusinessRuleException>(() => rq.RegistrarAutorizacion(
+            Guid.CreateVersion7(), NivelAutorizacion.Nivel1, Guid.CreateVersion7(),
+            DateTimeOffset.UtcNow, Millet.Compras.Domain.Matriz.RequiereNivel.N1YN2));
+        Assert.Equal("AUTORIZACION_NIVEL_DUPLICADO", dup.Code);
+
+        var res = rq.RegistrarAutorizacion(Guid.CreateVersion7(), NivelAutorizacion.Nivel2,
+            Guid.CreateVersion7(), DateTimeOffset.UtcNow, Millet.Compras.Domain.Matriz.RequiereNivel.N1YN2);
+        Assert.NotNull(res.MatrizSatisfecha);
+        Assert.Equal(EstadoRequisicion.Autorizada, rq.Estado);
+    }
+
+    [Fact]
+    public void Devolver_SinComentario_Throw()
+    {
+        var rq = CrearEnAutorizacion();
+
+        var ex = Assert.Throws<BusinessRuleException>(() =>
+            rq.Devolver(Guid.CreateVersion7(), "  ", DateTimeOffset.UtcNow));
+
+        Assert.Equal("DEVOLVER_COMENTARIO_REQUERIDO", ex.Code);
+        Assert.Equal(EstadoRequisicion.EnAutorizacion, rq.Estado);
+    }
+
+    [Fact]
+    public void Devolver_DesdeBorrador_Throw()
+    {
+        var ex = Assert.Throws<BusinessRuleException>(() =>
+            CrearValida().Devolver(Guid.CreateVersion7(), "x", DateTimeOffset.UtcNow));
+
+        Assert.Equal("DEVOLVER_SOLO_DESDE_EN_AUTORIZACION", ex.Code);
+    }
+
+    [Fact]
+    public void SinPolitica_Nivel1_NoAutoriza_Y_Nivel2_QuedaPendienteDeConfigurarAprobador()
+    {
+        // Criterio 4: ni se autoriza ni se bloquea en falso.
+        var rq = CrearEnAutorizacion();
+        FirmarN1(rq, Millet.Compras.Domain.Matriz.RequiereNivel.SinPolitica);
+
+        Assert.Equal(EstadoRequisicion.EnAutorizacion, rq.Estado);
+        var ex = Assert.Throws<BusinessRuleException>(() => rq.RegistrarAutorizacion(
+            Guid.CreateVersion7(), NivelAutorizacion.Nivel2, Guid.CreateVersion7(),
+            DateTimeOffset.UtcNow, Millet.Compras.Domain.Matriz.RequiereNivel.SinPolitica));
+        Assert.Equal("REQUISICION_PENDIENTE_CONFIGURAR_APROBADOR", ex.Code);
+        Assert.Equal(EstadoRequisicion.EnAutorizacion, rq.Estado);
+    }
+
     [Fact]
     public void Rechazar_Should_Throw_When_NoEstaEnAutorizacion()
     {
@@ -740,6 +826,46 @@ public class RequisicionTests
         Assert.Equal("CUBRIMIENTO_RECIBIDA_EXCEDE_COMPRA", ex.Code);
         // No mutó la línea (recepción atómica).
         Assert.Equal(0m, rq.Lineas.Single().CantidadRecibida);
+    }
+
+    [Fact]
+    public void RegistrarRecepcion_TrasDevolucionDePiezaDanada_UsaNetoDeLaOc()
+    {
+        // F-01 (recorrido 04-nov): 1.ª recepción de 4 con 1 dañada (OC = 4, RQ = 4),
+        // devolución de la dañada (OC = 3) y 2.ª recepción de 3 (OC = 6). Sumar la
+        // cantidad bruta daba 4 + 3 = 7 > 6 y la RQ se quedaba atrás.
+        var rq = CrearEnSurtido(); // 10 = 4 almacén + 6 compra
+        var lineaId = rq.Lineas.Single().Id;
+        rq.RegistrarRecepcion(lineaId, 4m, DateTimeOffset.UtcNow);
+
+        Assert.Throws<BusinessRuleException>(() => rq.RegistrarRecepcion(lineaId, 3m, DateTimeOffset.UtcNow));
+
+        var delta = Millet.Compras.Application.Almacen.OcRecepcionEnAlmacenHandler.DeltaRequisicion(
+            netoOc: 6m, recibidaRq: rq.Lineas.Single().CantidadRecibida);
+        rq.RegistrarRecepcion(lineaId, delta, DateTimeOffset.UtcNow);
+
+        Assert.Equal(6m, rq.Lineas.Single().CantidadRecibida);
+        Assert.Equal(0m, rq.Lineas.Single().Cubrimiento.CantidadPendiente);
+    }
+
+    [Fact]
+    public void AjustarRecepcionAlNeto_TrasDevolucion_BajaLaRqYLaSiguienteRecepcionLaEmpareja()
+    {
+        // F-01 (recorrido 04-nov): tras la devolución la OC baja a 5/6 y la RQ seguía en 6/6.
+        var rq = CrearEnSurtido(); // 10 = 4 almacén + 6 compra
+        var lineaId = rq.Lineas.Single().Id;
+        rq.RegistrarRecepcion(lineaId, 6m, DateTimeOffset.UtcNow);
+
+        rq.AjustarRecepcionAlNeto(lineaId, 5m);
+        Assert.Equal(5m, rq.Lineas.Single().CantidadRecibida);
+
+        rq.AjustarRecepcionAlNeto(lineaId, 8m); // solo baja
+        Assert.Equal(5m, rq.Lineas.Single().CantidadRecibida);
+
+        var delta = Millet.Compras.Application.Almacen.OcRecepcionEnAlmacenHandler.DeltaRequisicion(
+            netoOc: 6m, recibidaRq: rq.Lineas.Single().CantidadRecibida);
+        rq.RegistrarRecepcion(lineaId, delta, DateTimeOffset.UtcNow);
+        Assert.Equal(6m, rq.Lineas.Single().CantidadRecibida);
     }
 
     [Fact]

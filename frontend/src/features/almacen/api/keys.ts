@@ -129,6 +129,14 @@ export interface AlfakHistorialFiltros {
   articuloId?: string;
 }
 
+export interface TrazabilidadMpFiltros {
+  articuloId: string;
+  desde: string; // YYYY-MM-DD
+  hasta: string;
+  lote?: string;
+  subAlmacenId?: string;
+}
+
 export interface MpCnkFiltros {
   subAlmacenId?: string;
 }
@@ -233,6 +241,10 @@ export const almacenKeys = {
   reportes: () => [...almacenKeys.all, 'reportes'] as const,
   reporteAlfak: (filtros: AlfakHistorialFiltros) =>
     [...almacenKeys.reportes(), 'alfak', filtros] as const,
+  reporteTrazabilidadMp: (filtros: TrazabilidadMpFiltros) =>
+    [...almacenKeys.reportes(), 'trazabilidad-mp', filtros] as const,
+  reporteCuadreInventario: (anio: number, mes: number) =>
+    [...almacenKeys.reportes(), 'cuadre-inventario', anio, mes] as const,
   reporteMpCnk: (filtros: MpCnkFiltros) =>
     [...almacenKeys.reportes(), 'mp-cnk', filtros] as const,
 };

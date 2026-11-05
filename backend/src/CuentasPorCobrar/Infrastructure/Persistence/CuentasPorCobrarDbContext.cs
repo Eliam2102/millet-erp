@@ -3,6 +3,7 @@ using Millet.CuentasPorCobrar.Domain.Alertas;
 using Millet.CuentasPorCobrar.Domain.AplicacionPagos;
 using Millet.CuentasPorCobrar.Domain.Cartera;
 using Millet.CuentasPorCobrar.Domain.Cobranza;
+using Millet.CuentasPorCobrar.Domain.Conciliacion;
 using Millet.CuentasPorCobrar.Domain.EstadoCuenta;
 using Millet.CuentasPorCobrar.Domain.Eventos;
 using Millet.CuentasPorCobrar.Domain.Liberacion;
@@ -74,6 +75,9 @@ public sealed class CuentasPorCobrarDbContext : BaseDbContext
     /// <summary>Envíos del estado de cuenta al cliente — rastro auditable (C7.8).</summary>
     public DbSet<EstadoCuentaEnvio> EstadoCuentaEnvios => Set<EstadoCuentaEnvio>();
 
+    /// <summary>Corridas de la conciliación diaria de cartera contra Facturación (C7.7).</summary>
+    public DbSet<ConciliacionCartera> ConciliacionesCartera => Set<ConciliacionCartera>();
+
     /// <summary>
     /// Outbox de eventos de integración del módulo (ADR-0009). Lo escribe
     /// <c>OutboxSaveChangesInterceptor</c> drenando el buffer scoped
@@ -101,5 +105,7 @@ public sealed class CuentasPorCobrarDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new PropuestaAplicacionFacturaConfiguration());
         modelBuilder.ApplyConfiguration(new AlertaCarteraConfiguration());
         modelBuilder.ApplyConfiguration(new EstadoCuentaEnvioConfiguration());
+        modelBuilder.ApplyConfiguration(new ConciliacionCarteraConfiguration());
+        modelBuilder.ApplyConfiguration(new DiferenciaConciliacionConfiguration());
     }
 }

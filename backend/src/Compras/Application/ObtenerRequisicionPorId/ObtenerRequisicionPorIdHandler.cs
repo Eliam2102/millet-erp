@@ -10,6 +10,7 @@ using Millet.Compras.Domain.Ports.Administracion;
 using Millet.Compras.Domain.Ports.Almacen;
 using Millet.Compras.Domain.Ports.DatosMaestros;
 using Millet.Compras.Domain.Ports.Identidad;
+using Millet.Compras.Domain.Matriz;
 using Millet.Compras.Domain.Ports.Matriz;
 using Millet.Compras.Infrastructure;
 using Millet.SharedKernel.Application.Exceptions;
@@ -51,6 +52,7 @@ public sealed class ObtenerRequisicionPorIdHandler : IRequestHandler<ObtenerRequ
     private readonly IConversionUnidadPort _conversion;
     private readonly ILogger<ObtenerRequisicionPorIdHandler> _logger;
     private readonly IResolverAutorizadorPort _autorizadores;
+    private readonly IRequiereNivelEvaluator _evaluator;
 
     public ObtenerRequisicionPorIdHandler(
         ComprasDbContext db,
@@ -63,8 +65,10 @@ public sealed class ObtenerRequisicionPorIdHandler : IRequestHandler<ObtenerRequ
         IConsultarStockPort stock,
         IConversionUnidadPort conversion,
         ILogger<ObtenerRequisicionPorIdHandler> logger,
-        IResolverAutorizadorPort autorizadores)
+        IResolverAutorizadorPort autorizadores,
+        IRequiereNivelEvaluator evaluator)
     {
+        _evaluator = evaluator;
         _autorizadores = autorizadores;
         _db = db;
         _mapper = mapper;
@@ -160,6 +164,8 @@ public sealed class ObtenerRequisicionPorIdHandler : IRequestHandler<ObtenerRequ
             EnAlmacen = enAlmacen,
             AlmacenCubreTodo = almacenCubreTodo,
             AutorizadorN1Id = enAutorizacion ? await _autorizadores.ResolverN1Async(requisicion, cancellationToken) : null,
+            PendienteConfigurarAprobador = enAutorizacion
+                && await EvaluarPendienteConfigurarAsync(requisicion, cancellationToken),
             AutorizadorN2Id = enAutorizacion ? await _autorizadores.ResolverN2Async(requisicion, cancellationToken) : null,
             // Se encadenan las reconstrucciones: cada `with` solo toca sus
             // campos, así que artículo, CC-Máquina y saldos se pueblan sin pisarse.
@@ -169,6 +175,20 @@ public sealed class ObtenerRequisicionPorIdHandler : IRequestHandler<ObtenerRequ
         };
 
         return response;
+    }
+
+    /// <summary>Sin política vigente la matriz da <c>SinPolitica</c>; si evaluar falla, no se marca (nunca 500).</summary>
+    private async Task<bool> EvaluarPendienteConfigurarAsync(Requisicion requisicion, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _evaluator.EvaluarAsync(requisicion, cancellationToken) == RequiereNivel.SinPolitica;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "No se pudo evaluar la política de la requisición {RequisicionId}.", requisicion.Id);
+            return false;
+        }
     }
 
     /// <summary>

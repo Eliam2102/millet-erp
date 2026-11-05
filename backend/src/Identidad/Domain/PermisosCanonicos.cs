@@ -513,6 +513,8 @@ public static class PermisosCanonicos
     public const string CuentasPorCobrarAplicacionPagoConfirmar = "cuentas_por_cobrar.aplicacion-pago.confirmar";
     // C7.2 (86e3kdxy6): administrar las reglas de liberación por serie.
     public const string CuentasPorCobrarReglasSerieGestionar    = "cuentas_por_cobrar.reglas-serie.gestionar";
+    // C7.7 (86e3jvv4q): conciliar la cartera a demanda; leer las corridas usa cartera.leer.
+    public const string CuentasPorCobrarConciliacionEjecutar    = "cuentas_por_cobrar.conciliacion.ejecutar";
 
     // ----- Tesorería / Bancos (TES-PR1) -----
     // Namespace GUID 0000000b-* reservado para el módulo Tesorería.
@@ -534,6 +536,7 @@ public static class PermisosCanonicos
     public const string TesoreriaPagosRevertir                  = "tesoreria.pagos.revertir";
     public const string TesoreriaPagosCuentaRegistrar           = "tesoreria.pagos-cuenta.registrar";
     public const string TesoreriaPagosCuentaLigar               = "tesoreria.pagos-cuenta.ligar";
+    public const string TesoreriaPagosCuentaAutorizar           = "tesoreria.pagos-cuenta.autorizar";
     public const string TesoreriaCorridasCrear                  = "tesoreria.corridas.crear";
     public const string TesoreriaCorridasAutorizar              = "tesoreria.corridas.autorizar";
     public const string TesoreriaCorridasEjecutar               = "tesoreria.corridas.ejecutar";
@@ -946,6 +949,7 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000a-0005-0000-0000-000000000001"), CuentasPorCobrarAplicacionPagoProponer,  "Crear propuestas de aplicación de pago desde depósitos"),
         (Guid.Parse("0000000a-0005-0000-0000-000000000002"), CuentasPorCobrarAplicacionPagoConfirmar, "Confirmar o rechazar propuestas de aplicación de pago (Ingresos)"),
         (Guid.Parse("0000000a-0006-0000-0000-000000000001"), CuentasPorCobrarReglasSerieGestionar,    "Dar de alta, cambiar y activar o desactivar las reglas de liberación por serie"),
+        (Guid.Parse("0000000a-0007-0000-0000-000000000001"), CuentasPorCobrarConciliacionEjecutar,    "Ejecutar a demanda la conciliación diaria de cartera contra facturación"),
 
         // Tesorería / Bancos (TES-PR1). Namespace 0000000b-*.
         (Guid.Parse("0000000b-0001-0000-0000-000000000001"), TesoreriaCuentasVer,                   "Consultar el catálogo de cuentas bancarias propias y sus saldos"),
@@ -957,6 +961,7 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000b-0003-0000-0000-000000000002"), TesoreriaPagosRevertir,                "Revertir pagos aplicados (contramovimiento, RN-10)"),
         (Guid.Parse("0000000b-0004-0000-0000-000000000001"), TesoreriaPagosCuentaRegistrar,         "Registrar pagos a cuenta (egreso sin documento, gate RN-2)"),
         (Guid.Parse("0000000b-0004-0000-0000-000000000002"), TesoreriaPagosCuentaLigar,             "Ligar tardíamente un pago a cuenta al pasivo provisionado"),
+        (Guid.Parse("0000000b-0004-0000-0000-000000000003"), TesoreriaPagosCuentaAutorizar,         "Autorizar (firmar) un pago a cuenta; no puede firmarlo quien lo capturó"),
         (Guid.Parse("0000000b-0005-0000-0000-000000000001"), TesoreriaCorridasCrear,                "Crear y armar corridas de pago desde la bandeja de pasivos"),
         (Guid.Parse("0000000b-0005-0000-0000-000000000002"), TesoreriaCorridasAutorizar,            "Autorizar corridas de pago (pasa además por la matriz de autorización)"),
         (Guid.Parse("0000000b-0005-0000-0000-000000000003"), TesoreriaCorridasEjecutar,             "Ejecutar líneas de corridas autorizadas (RN-5)"),
