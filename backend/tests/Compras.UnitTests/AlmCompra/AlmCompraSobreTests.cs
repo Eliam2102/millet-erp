@@ -72,7 +72,7 @@ public sealed class AlmCompraSobreTests
         var r = AlmCompraSobre.AgruparMedidaGirada([a, b, otraMedida, sinMedida1, sinMedida2]);
 
         r.Should().HaveCount(4);
-        r[0].Should().Match<AlmCompraLinea>(l => l.Ancho == 6100 && l.Alto == 3302 && l.Piezas == 10);
+        r[0].Should().Match<AlmCompraLinea>(l => l.Ancho == 3302 && l.Alto == 6100 && l.Piezas == 10);
         r.Select(l => l.LineaErp).Should().Equal("1", "3", "4", "5");
     }
 

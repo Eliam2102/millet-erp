@@ -14,7 +14,7 @@ Estado: construido contra transporte **simulado**. La tabla `alm_compra` no exis
 ## Sobre v1 (campos)
 `mensajeId, tipo, version=1, fecha, origen="ERP", referencia` (referencia = folio OC, campo agregado, opcional) + `datos`:
 `folio, proveedor{claveAw,nombre}, moneda, tipoCambio (solo si moneda≠MXN), fechaCompra, lineas[]`.
-Línea: `lineaErp, requisicion y posicion (solo si viene de una RQ de la app; FolioExterno), articuloAw, ancho, alto, piezas, lote, pedimento ("26 47 3456 6001234"), costoM2, costoPieza`. Nulos no viajan. `costoMedioM2` y `etiqueta` no se mandan; `articuloAlmacenAw` no se manda (Jorge 30-oct). Medida girada = misma hoja: `ancho` es el lado mayor y las líneas que solo difieren en la orientación (mismo artículo, lote, pedimento, RQ y costo) se juntan sumando piezas; el material por cantidad va sin ancho ni alto (Jorge 30-oct y 1-nov).
+Línea: `lineaErp, requisicion y posicion (solo si viene de una RQ de la app; FolioExterno), articuloAw, ancho, alto, piezas, lote, pedimento ("26 47 3456 6001234"), costoM2, costoPieza`. Nulos no viajan. `costoMedioM2` y `etiqueta` no se mandan; `articuloAlmacenAw` no se manda (Jorge 30-oct). Medida girada = misma hoja: las líneas que solo difieren en la orientación (mismo artículo, lote, pedimento, RQ y costo) se juntan en una sola, sumando piezas y con la orientación de la primera; el material por cantidad va sin ancho ni alto (Jorge 30-oct y 1-nov).
 `COMPRA_CANCELADA.datos = {folio, motivo?}`; `COMPRA_MODIFICADA.datos` = igual que RECIBIDA. Estos dos formatos son supuesto: v6 solo define RECIBIDA.
 
 ## Compatibilidad

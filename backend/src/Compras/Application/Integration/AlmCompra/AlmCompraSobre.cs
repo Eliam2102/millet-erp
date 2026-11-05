@@ -85,13 +85,13 @@ public static class AlmCompraSobre
     }
 
     /// <summary>
-    /// Medida girada = misma hoja (Jorge 30-oct y 1-nov): 3302 × 6100 y 6100 × 3302 son una sola existencia. Deja el ancho como el
-    /// lado mayor y junta las líneas que solo difieren en la orientación (mismo artículo, lote, pedimento, RQ y costo), sumando piezas.
-    /// Sin medida (material por cantidad) no se toca.
+    /// Medida girada = misma hoja (Jorge 30-oct y 1-nov): 3302 × 6100 y 6100 × 3302 son una sola existencia. Junta las
+    /// líneas que solo difieren en la orientación (mismo artículo, lote, pedimento, RQ y costo), sumando piezas;
+    /// la línea que queda conserva la orientación de la primera. Sin medida (material por cantidad) no se toca.
     /// </summary>
     public static IReadOnlyList<AlmCompraLinea> AgruparMedidaGirada(IEnumerable<AlmCompraLinea> lineas) => lineas
-        .Select(l => l is { Ancho: int a, Alto: int h } && a < h ? l with { Ancho = h, Alto = a } : l)
-        .GroupBy(l => (l.Ancho is null ? l.LineaErp : null, l.Requisicion, l.Posicion, l.ArticuloAw, l.Ancho, l.Alto, l.Lote, l.Pedimento, l.CostoM2, l.CostoPieza))
+        .GroupBy(l => (l.Ancho is null ? l.LineaErp : null, l.Requisicion, l.Posicion, l.ArticuloAw,
+            Math.Max(l.Ancho ?? 0, l.Alto ?? 0), Math.Min(l.Ancho ?? 0, l.Alto ?? 0), l.Lote, l.Pedimento, l.CostoM2, l.CostoPieza))
         .Select(g => g.Count() == 1 ? g.First() : g.First() with { Piezas = g.Sum(x => x.Piezas) })
         .ToList();
 
