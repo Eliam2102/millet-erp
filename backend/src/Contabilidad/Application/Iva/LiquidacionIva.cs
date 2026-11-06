@@ -77,15 +77,8 @@ public sealed class LiquidacionIvaHandlers(ContabilidadDbContext db, ICumplimien
         var ids = movimientos.Select(r => r.SaldoIvaDocumentoId).Distinct().ToList();
         var saldos = await db.SaldosIvaDocumento.AsNoTracking().Where(s => ids.Contains(s.Id)).ToDictionaryAsync(s => s.Id, ct);
 
-        decimal Suma(LadoIva lado, Func<ReclasificacionIva, decimal> campo) =>
-            movimientos.Where(r => saldos[r.SaldoIvaDocumentoId].Lado == lado).Sum(campo);
-        var trasladado = Suma(LadoIva.Trasladado, r => r.IvaMxn);
-        var acreditable = Suma(LadoIva.Acreditable, r => r.IvaMxn);
-        var retenidoClientes = Suma(LadoIva.Trasladado, r => r.IvaRetenidoMxn);
-        var retenidoProveedores = Suma(LadoIva.Acreditable, r => r.IvaRetenidoMxn);
-        var neto = trasladado - acreditable - retenidoClientes;
-        var resumen = new ResumenLiquidacionIva(trasladado, acreditable, retenidoClientes, retenidoProveedores, Math.Max(neto, 0m),
-            Math.Max(-neto, 0m));
+        var resumen = Resumen(movimientos, saldos);
+        var (trasladado, acreditable) = (resumen.IvaTrasladadoCobrado, resumen.IvaAcreditablePagado);
 
         var cuadre = new List<CuadreRolIva>
         {
@@ -135,6 +128,35 @@ public sealed class LiquidacionIvaHandlers(ContabilidadDbContext db, ICumplimien
             partidas, DocumentoOrigen: new DocumentoOrigenRequest(DocLiquidacion.Modulo, DocLiquidacion.Tipo, Guid.CreateVersion7(), folio, null))), ct);
     }
 
+    /// <summary>
+    /// K10.7-a/c: IVA a cargo = trasladado cobrado − acreditable pagado − IVA retenido por clientes. El IVA retenido a proveedores
+    /// (fletes, honorarios) no resta: se entera aparte y se muestra como «por enterar» (supuesto a validar, doc 15 §4).
+    /// </summary>
+    public static ResumenLiquidacionIva Resumen(IReadOnlyCollection<ReclasificacionIva> movimientos,
+        IReadOnlyDictionary<Guid, SaldoIvaDocumento> saldos)
+    {
+        decimal Suma(LadoIva lado, Func<ReclasificacionIva, decimal> campo) =>
+            movimientos.Where(r => saldos[r.SaldoIvaDocumentoId].Lado == lado).Sum(campo);
+        var trasladado = Suma(LadoIva.Trasladado, r => r.IvaMxn);
+        var acreditable = Suma(LadoIva.Acreditable, r => r.IvaMxn);
+        var retenidoClientes = Suma(LadoIva.Trasladado, r => r.IvaRetenidoMxn);
+        var retenidoProveedores = Suma(LadoIva.Acreditable, r => r.IvaRetenidoMxn);
+        var neto = trasladado - acreditable - retenidoClientes;
+        return new ResumenLiquidacionIva(trasladado, acreditable, retenidoClientes, retenidoProveedores, Math.Max(neto, 0m),
+            Math.Max(-neto, 0m));
+    }
+
+    /// <summary>K10.7-b: motivos por los que el documento no tiene su soporte fiscal completo (vacío = completo).</summary>
+    public static IReadOnlyList<string> MotivosPendiente(SaldoIvaDocumento s, string? metodoPago, bool? tieneRep)
+    {
+        var motivos = new List<string>();
+        if (string.IsNullOrWhiteSpace(s.Uuid)) motivos.Add("Sin CFDI");
+        if (s.Estado == EstadoSaldoIva.Cancelado) motivos.Add("Documento cancelado");
+        else if (!s.Saldado) motivos.Add(s.Lado == LadoIva.Acreditable ? "Con saldo por pagar" : "Con saldo por cobrar");
+        if (metodoPago == "PPD" && tieneRep != true) motivos.Add("PPD pagado sin REP");
+        return motivos;
+    }
+
     private static (DateOnly Desde, DateOnly Hasta) Mes(int anio, int mes)
     {
         var desde = new DateOnly(anio, mes, 1);
@@ -170,11 +192,7 @@ public sealed class LiquidacionIvaHandlers(ContabilidadDbContext db, ICumplimien
             var s = saldos[g.Key];
             var dato = (s.Lado == LadoIva.Acreditable ? cxp : fac).GetValueOrDefault(s.DocumentoId);
             var metodo = dato?.MetodoPago ?? s.MetodoPago;
-            var motivos = new List<string>();
-            if (string.IsNullOrWhiteSpace(s.Uuid)) motivos.Add("Sin CFDI");
-            if (s.Estado == EstadoSaldoIva.Cancelado) motivos.Add("Documento cancelado");
-            else if (!s.Saldado) motivos.Add(s.Lado == LadoIva.Acreditable ? "Con saldo por pagar" : "Con saldo por cobrar");
-            if (metodo == "PPD" && dato?.TieneRep != true) motivos.Add("PPD pagado sin REP");
+            var motivos = MotivosPendiente(s, metodo, dato?.TieneRep);
             return new DocumentoLiquidacionIva(s.Id, s.Lado, s.OrigenTipo, s.DocumentoId, s.Folio, s.Uuid, metodo, s.Fecha, s.Moneda, s.Base,
                 s.Iva, g.Sum(r => r.Importe), g.Sum(r => r.IvaMxn), g.Sum(r => r.IvaRetenidoMxn), s.IvaPendiente, s.Saldo, motivos.Count == 0,
                 motivos);
