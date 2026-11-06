@@ -80,6 +80,17 @@ public sealed class ActivosTests
         await act.Should().ThrowAsync<EntityNotFoundException>().Where(e => e.Code == "ACTIVO_NO_EXISTE");
     }
 
+    [Fact]
+    public async Task Autorizar_con_baja_pendiente_rechaza_sin_registrar_venta()
+    {
+        var empresa = Guid.NewGuid(); using var db = NewDb(empresa);
+        var activo = new ActivoFijoLectura("AF-1", "Equipo", 1000, 0, false, BajaPendiente: true);
+        var error = await Assert.ThrowsAsync<BusinessRuleException>(() => AutorizarHandler(db, empresa, activo).Handle(
+            new AutorizarVentaActivoCommand("AF-1", 500, MotivoDisposicionActivo.Venta, "Transportes", "Factura"), default));
+        Assert.Equal("ACTIVO_BAJA_PENDIENTE", error.Code); Assert.Equal("Tiene una solicitud de baja pendiente", error.Message);
+        Assert.Empty(await db.AutorizacionesVentaActivo.ToListAsync());
+    }
+
     // ---- Emisión con autorización ----
 
     private static EmitirFacturaVentaHandler EmitirHandler(FacturacionDbContext db, Guid empresaId) =>

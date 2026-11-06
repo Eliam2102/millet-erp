@@ -67,7 +67,7 @@ public sealed record AutorizacionPagoComercioExteriorResponse(
     Guid ProveedorId, string? ProveedorRazonSocial, string? FolioProveedor, decimal SaldoPendiente, string Moneda, DateOnly FechaVencimiento,
     Guid? Nivel1UsuarioId, string? Nivel1Nombre, DateTimeOffset? Nivel1En,
     Guid? Nivel2UsuarioId, string? Nivel2Nombre, DateTimeOffset? Nivel2En,
-    string? MotivoRechazo, bool PuedoFirmar, bool PuedoRechazar);
+    string? MotivoRechazo, bool PuedoFirmar, bool PuedoRechazar, bool EsAnticipoAgente = false);
 
 internal static class AutorizacionPagoCeLectura
 {
@@ -99,7 +99,7 @@ internal static class AutorizacionPagoCeLectura
                 a.MotivoRechazo,
                 // Quien firmó el nivel 1 ve el nivel 2 deshabilitado en la pantalla; el servidor lo impide (CE_PAGO_MISMA_PERSONA).
                 PuedoFirmar: puedeNivel || (a.Rechazada && nivel1),
-                PuedoRechazar: a.NivelPendiente is not null && puedeNivel);
+                PuedoRechazar: a.NivelPendiente is not null && puedeNivel, EsAnticipoAgente: p.OrigenTipo == "AnticipoAgente");
         }).ToList();
     }
 

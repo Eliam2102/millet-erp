@@ -18,6 +18,11 @@ public sealed class EnvioOc : BaseEntity, IAuditable, IBelongsToAggregate, IPert
     public string Modo { get; private set; } = "";
     public string Resultado { get; private set; } = "pendiente";
 
+    /// <summary>Acuse o evidencia de entrega del proveedor (G-11): aceptar el envío no equivale a que llegó.</summary>
+    public DateTimeOffset? AcuseFecha { get; private set; }
+    public string? AcuseReferencia { get; private set; }
+    public string? AcuseUsuarioNombre { get; private set; }
+
     private EnvioOc() { }
 
     public static string? MotivoBloqueo(OrdenCompra oc)
@@ -57,5 +62,21 @@ public sealed class EnvioOc : BaseEntity, IAuditable, IBelongsToAggregate, IPert
     }
 
     internal void Completar(bool simulado) => Resultado = Modo == "manual" ? "registrado" : simulado ? "simulado" : "aceptado";
+    public void RegistrarAcuse(string? referencia, string usuarioNombre, DateTimeOffset fecha)
+    {
+        if (Resultado is not ("aceptado" or "registrado"))
+            throw new BusinessRuleException("OC_ACUSE_ENVIO_NO_ENTREGABLE",
+                "Solo se registra el acuse de un envío aceptado o registrado manualmente; uno simulado o fallido no llegó al proveedor.");
+        if (AcuseFecha is not null)
+            throw new BusinessRuleException("OC_ACUSE_YA_REGISTRADO", "Este envío ya tiene su acuse registrado.");
+        referencia = referencia?.Trim();
+        if (string.IsNullOrEmpty(referencia) || referencia.Length > 300)
+            throw new BusinessRuleException("OC_ACUSE_REFERENCIA_REQUERIDA",
+                "Indica la evidencia del acuse (por ejemplo, el correo o folio con que el proveedor acusó de recibido), máximo 300 caracteres.");
+        AcuseReferencia = referencia;
+        AcuseUsuarioNombre = usuarioNombre;
+        AcuseFecha = fecha;
+    }
+
     internal void Fallar() => Resultado = "fallido";
 }

@@ -81,6 +81,9 @@ export interface VersionClase extends Omit<Clase, 'versiones'> {
   motivoRechazo: string | null;
 }
 export interface Clase {
+  motivoCambio?: string | null;
+  propuestaPendiente?: boolean;
+  proximaVersionDesde?: string | null;
   versiones?: VersionClase[];
   vigencia?: string;
   id: string;

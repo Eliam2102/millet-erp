@@ -52,6 +52,7 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
     { _periodos = new(periodos); _clock = clock; _publisher = publisher; }
 
     private readonly IIntegrationEventPublisher? _publisher;
+    public DbSet<ComprobacionAnticipoCe> ComprobacionesAnticipoCe => Set<ComprobacionAnticipoCe>();
     public DbSet<ConfiguracionAnticipoProveedor> ConfiguracionesAnticipoProveedor => Set<ConfiguracionAnticipoProveedor>();
 
     private readonly Application.Periodos.PeriodoCerradoValidator _periodos;
@@ -259,6 +260,8 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
     {
         modelBuilder.HasDefaultSchema(SchemaName);
         base.OnModelCreating(modelBuilder);
+        var ce = modelBuilder.Entity<ComprobacionAnticipoCe>();
+        ce.ToTable("comprobaciones_anticipo_ce"); ce.HasKey(x => x.Id); ce.Property(x => x.Id).ValueGeneratedNever();
 
         modelBuilder.ApplyConfiguration(new IntegrationEventOutboxEntryConfiguration());
         modelBuilder.ApplyConfiguration(new CfdiRecibidoConfiguration());

@@ -63,6 +63,54 @@ public sealed class EnviosOcTests
     }
 
     [Fact]
+    public async Task G11_Acuse_GuardaEvidenciaYNoSeDuplica()
+    {
+        using var f = new Fixture();
+        f.Correo.EsSimulado = false;
+        var envio = await f.Enviar();
+        Assert.Equal("aceptado", envio.Resultado);
+        var respuesta = await new RegistrarAcuseEnvioOcHandler(f.Db, f.Usuario, f.Reloj)
+            .Handle(new RegistrarAcuseEnvioOcCommand(f.Oc.Id, envio.Id, "  Correo de acuse P-4471  "), default);
+        Assert.Equal("Correo de acuse P-4471", respuesta.AcuseReferencia);
+        Assert.Equal(f.Reloj.UtcNow, respuesta.AcuseFecha);
+        Assert.NotNull(respuesta.AcuseUsuarioNombre);
+        var duplicado = await Assert.ThrowsAsync<BusinessRuleException>(() => new RegistrarAcuseEnvioOcHandler(f.Db, f.Usuario, f.Reloj)
+            .Handle(new RegistrarAcuseEnvioOcCommand(f.Oc.Id, envio.Id, "otro"), default));
+        Assert.Equal("OC_ACUSE_YA_REGISTRADO", duplicado.Code);
+    }
+
+    [Theory]
+    [InlineData("simulado")]
+    [InlineData("fallido")]
+    public async Task G11_Acuse_RechazaEnvioQueNoLlego(string resultado)
+    {
+        using var f = new Fixture();
+        f.Correo.EsSimulado = resultado == "simulado";
+        f.Correo.Falla = resultado == "fallido";
+        var envio = await f.Enviar();
+        Assert.Equal(resultado, envio.Resultado);
+        var error = await Assert.ThrowsAsync<BusinessRuleException>(() => new RegistrarAcuseEnvioOcHandler(f.Db, f.Usuario, f.Reloj)
+            .Handle(new RegistrarAcuseEnvioOcCommand(f.Oc.Id, envio.Id, "Correo P-1"), default));
+        Assert.Equal("OC_ACUSE_ENVIO_NO_ENTREGABLE", error.Code);
+    }
+
+    [Fact]
+    public async Task G11_Acuse_ManualRequiereReferenciaYOtraOcNoLoVe()
+    {
+        using var f = new Fixture();
+        var envio = await f.Enviar(modo: "manual");
+        var sinReferencia = await Assert.ThrowsAsync<BusinessRuleException>(() => new RegistrarAcuseEnvioOcHandler(f.Db, f.Usuario, f.Reloj)
+            .Handle(new RegistrarAcuseEnvioOcCommand(f.Oc.Id, envio.Id, " "), default));
+        Assert.Equal("OC_ACUSE_REFERENCIA_REQUERIDA", sinReferencia.Code);
+        await Assert.ThrowsAsync<EntityNotFoundException>(() => new RegistrarAcuseEnvioOcHandler(f.Db, f.Usuario, f.Reloj)
+            .Handle(new RegistrarAcuseEnvioOcCommand(Guid.NewGuid(), envio.Id, "Correo P-1"), default));
+        var ok = await new RegistrarAcuseEnvioOcHandler(f.Db, f.Usuario, f.Reloj)
+            .Handle(new RegistrarAcuseEnvioOcCommand(f.Oc.Id, envio.Id, "Llamada con ventas, folio 88"), default);
+        Assert.Equal("registrado", ok.Resultado);
+        Assert.NotNull(ok.AcuseFecha);
+    }
+
+    [Fact]
     public async Task G18d_Reenvio_CreaSegundoRegistro_NoDuplicaOc()
     {
         using var f = new Fixture();

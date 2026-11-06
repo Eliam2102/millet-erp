@@ -20,9 +20,9 @@ public sealed partial class Expediente
         if (Tipo == TipoExpediente.Importacion && _gastos.Any(g => !g.ExcluidoDelCosto) &&
             _distribuciones.OrderByDescending(d => d.NumeroVersion).FirstOrDefault()?.RevisionFinanciera != RevisionFinanciera)
             motivos.Add("Gastos sin distribuir");
-        if (_anticipos.Any(a => a.Aplicado is null)) motivos.Add("Anticipos sin comprobar");
-        if (_anticipos.Any(a => a.Saldo > 0)) motivos.Add("Saldo a favor abierto con el agente");
-        if (_anticipos.Any(a => a.Saldo < 0)) motivos.Add("Por pagar al agente");
+        if (_anticipos.Any(a => a.MotivoCancelacion is null && a.Aplicado is null)) motivos.Add("Anticipos sin comprobar");
+        if (_anticipos.Any(a => a.MotivoCancelacion is null && a.Saldo > 0)) motivos.Add("Saldo a favor abierto con el agente");
+        if (_anticipos.Any(a => a.MotivoCancelacion is null && a.Saldo < 0)) motivos.Add("Por pagar al agente");
         return motivos;
     }
     public void MarcarCambioFinanciero(bool requiereDistribuir = false)

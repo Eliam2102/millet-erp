@@ -79,13 +79,12 @@ public sealed class PiezasPtOrigenSelector(IServiceProvider services, AwOrigenSe
 }
 
 /// <summary>
-/// Saldo por pedido según el origen de A+W activo: Demo usa el saldo de prueba; Real, el adaptador provisional «no cubierto».
-/// PLATFORM-TODO(&lt;SaldoPorPedidoFacturacion&gt;): cuando Facturación (Uziel) publique el puerto, Real lo usa y se retira el provisional.
+/// Saldo por pedido según el origen de A+W activo: Demo usa el saldo de prueba; Real, el saldo de Facturación y la cartera de CxC (U-3).
 /// </summary>
 public sealed class SaldoPedidoSelector(IServiceProvider services, AwOrigenSesion sesion) : ISaldoPedidoReadPort
 {
     public async Task<decimal?> ObtenerAsync(Guid empresaId, string numeroPedido, CancellationToken ct) =>
         await (await sesion.EsDemoAsync(ct)
             ? (ISaldoPedidoReadPort)services.GetRequiredService<SaldoPedidoDemoAdapter>()
-            : services.GetRequiredService<SaldoPedidoProvisionalAdapter>()).ObtenerAsync(empresaId, numeroPedido, ct);
+            : services.GetRequiredService<Millet.Facturacion.Infrastructure.PublicAdapters.SaldoPedidoReadAdapter>()).ObtenerAsync(empresaId, numeroPedido, ct);
 }

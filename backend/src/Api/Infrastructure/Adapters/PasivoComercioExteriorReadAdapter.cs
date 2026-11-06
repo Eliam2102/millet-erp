@@ -13,8 +13,24 @@ namespace Millet.Api.Infrastructure.Adapters;
 /// Comercio Exterior ni Compras. Bypass del filtro de empresa: lo invoca el listener de CxP, fuera de un request.
 /// </summary>
 public sealed class PasivoComercioExteriorReadAdapter(
-    ComercioExteriorDbContext ce, ComprasDbContext compras, ICurrentEmpresaContext empresaContext) : IPasivoComercioExteriorReadPort
+    ComercioExteriorDbContext ce, ComprasDbContext compras, ICurrentEmpresaContext empresaContext) : IPasivoComercioExteriorReadPort, IAnticipoCeCancelacionPort
 {
+    public async Task CancelarAnticipoAsync(Guid id, string motivo, CancellationToken ct)
+    {
+        var a = await ce.AnticiposAgente.SingleAsync(a => a.Id == id, ct);
+        a.Cancelar(motivo);
+        await ce.SaveChangesAsync(ct);
+    }
+    public async Task ExigirAnticipoVigenteAsync(Guid anticipoId, CancellationToken ct)
+    {
+        var a = await ce.AnticiposAgente.AsNoTracking().SingleAsync(a => a.Id == anticipoId, ct);
+        if (a.MotivoCancelacion is not null) throw new Millet.SharedKernel.Application.Exceptions.BusinessRuleException("CE_ANTICIPO_CANCELADO", "La solicitud de anticipo está cancelada.");
+    }
+    public async Task ExigirSinComprobacionAsync(Guid anticipoId, CancellationToken ct)
+    {
+        var a = await ce.AnticiposAgente.AsNoTracking().SingleAsync(a => a.Id == anticipoId, ct);
+        if (a.Aplicado is not null) throw new Millet.SharedKernel.Application.Exceptions.BusinessRuleException("CE_COMPROBACION_APROBADA", "No se puede revertir el pago: el anticipo ya tiene comprobación.");
+    }
     public async Task<TipoOperacionComercioExterior?> TipoAsync(Guid facturaProveedorId, Guid? ordenCompraId, CancellationToken cancellationToken)
     {
         using var bypass = empresaContext.Bypass();

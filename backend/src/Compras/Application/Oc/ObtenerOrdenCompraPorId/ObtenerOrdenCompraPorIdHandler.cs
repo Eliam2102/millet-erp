@@ -187,7 +187,7 @@ public sealed class ObtenerOrdenCompraPorIdHandler
             EstadoComercialProveedor = oc.EstadoComercialProveedor,
             FechaCompromisoProveedor = oc.FechaCompromisoProveedor,
             RespuestasProveedor = oc.RespuestasProveedor.OrderByDescending(r => r.Numero)
-                .Select(r => RespuestaProveedorMapper.ToResponse(r, r.Numero == oc.RespuestasProveedor.Max(x => x.Numero))).ToList(),
+                .Select(r => RespuestaProveedorMapper.ToResponse(r, !r.Anulada && r.Numero == oc.RespuestasProveedor.Where(x => !x.Anulada).Max(x => x.Numero))).ToList(),
             Incidencias = await IncidenciaProveedorMapper.ToResponsesAsync(oc.Incidencias, _db, _usuarios,
                 FechaContable.HoyLocal(_clock.UtcNow), cancellationToken),
         };

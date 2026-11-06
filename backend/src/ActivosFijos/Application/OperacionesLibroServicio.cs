@@ -23,9 +23,13 @@ public sealed class OperacionesLibroServicio(ActivosFijosDbContext db, ActivoSer
         var a = await acceso.CargarAsync(activoId, true, ct);
         if (a.Version != version) throw new ConcurrencyException("Activo", a.Id);
         if (datos.Tipo is not ("ReversaVenta" or "ReversaBaja") && a.Estado != EstadoActivo.Activo) throw new BusinessRuleException("AF_ACTIVO_NO_VIGENTE", "El activo no está vigente.");
-        if (datos.Tipo == "Baja" && (await db.Set<OperacionLibro>().AnyAsync(x => x.ActivoId == a.Id && x.Tipo == "Baja" && x.PolizaId == null && !x.Anulada, ct)
-            || await ventas.TieneAbiertaAsync(a.Numero, ct)))
-            throw new BusinessRuleException("AF_DISPOSICION_PENDIENTE", "Resuelva la baja o autorización de venta pendiente antes de solicitar otra baja.");
+        if (datos.Tipo == "Baja")
+        {
+            var pendiente = await db.Set<OperacionLibro>().Where(x => x.ActivoId == a.Id && x.Tipo == "Baja" && x.PolizaId == null && !x.Anulada).Select(x => (DateOnly?)x.Fecha).FirstOrDefaultAsync(ct);
+            if (pendiente is DateOnly fecha) throw BajaPendiente(fecha);
+            if (await ventas.TieneAbiertaAsync(a.Numero, ct))
+                throw new BusinessRuleException("AF_VENTA_AUTORIZADA_ABIERTA", "Tiene una autorización de venta vigente");
+        }
         if (datos.Tipo.StartsWith("Reversa", StringComparison.Ordinal))
         {
             if (await db.Set<OperacionLibro>().AnyAsync(x => x.ActivoId == a.Id && x.Tipo.StartsWith("Reversa") && x.PolizaId == null && !x.Anulada, ct))
@@ -40,7 +44,15 @@ public sealed class OperacionesLibroServicio(ActivosFijosDbContext db, ActivoSer
         var op = new OperacionLibro { EmpresaId = a.EmpresaId, ActivoId = a.Id, Tipo = datos.Tipo, Fecha = datos.Fecha,
             Importe = datos.Importe, Motivo = datos.Motivo, Evidencia = datos.Evidencia, SolicitadoPor = datos.SolicitadoPor?.Trim() ?? "", RegistradoPor = acceso.Actor, RevierteA = datos.RevierteA };
         if (op.Tipo == "Baja") op.ValidarSolicitudBaja();
-        db.Add(op); await db.SaveChangesAsync(ct); await tx.CommitAsync(ct); return op;
+        db.Add(op);
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: "23505", ConstraintName: "ux_operacion_baja_pendiente" })
+        {
+            await tx.RollbackAsync(ct);
+            var fecha = await db.Set<OperacionLibro>().Where(x => x.ActivoId == a.Id && x.Tipo == "Baja" && x.PolizaId == null && !x.Anulada).Select(x => x.Fecha).FirstAsync(ct);
+            throw BajaPendiente(fecha);
+        }
+        await tx.CommitAsync(ct); return op;
     }
     public async Task<OperacionLibro> AutorizarAsync(Guid id, int version, CancellationToken ct)
     {
@@ -76,7 +88,7 @@ public sealed class OperacionesLibroServicio(ActivosFijosDbContext db, ActivoSer
             throw new BusinessRuleException("AF_MESES_PENDIENTES", "Complete la depreciación hasta el mes anterior antes de autorizar este ajuste o baja.");
         if (op.Tipo == "Baja")
         {
-            if (await ventas.TieneAbiertaAsync(a.Numero, ct)) throw new BusinessRuleException("AF_VENTA_PENDIENTE", "Cierre la autorización de venta antes de autorizar la baja.");
+            if (await ventas.TieneAbiertaAsync(a.Numero, ct)) throw new BusinessRuleException("AF_VENTA_PENDIENTE", "Tiene una autorización de venta vigente");
             await BajaAsync(a, op, cfg, 0, ct);
         }
         else
@@ -138,6 +150,17 @@ public sealed class OperacionesLibroServicio(ActivosFijosDbContext db, ActivoSer
             || tipo == "ReversaBaja" && (origen.Tipo != "Baja" || a.Estado != EstadoActivo.DadoDeBaja))
             throw new BusinessRuleException("AF_REVERSA_INVALIDA", "Seleccione la baja contabilizada o venta cancelada pendiente de reversa.");
         return origen;
+    }
+    private static BusinessRuleException BajaPendiente(DateOnly fecha) => new("AF_BAJA_PENDIENTE_EXISTENTE",
+        $"Ya hay una baja pendiente registrada el {fecha.ToString("dd-MMM-yyyy", System.Globalization.CultureInfo.GetCultureInfo("es-MX"))}");
+    public async Task<OperacionLibro> RetirarAsync(Guid id, int version, string motivo, CancellationToken ct)
+    {
+        await using var tx = await db.Database.BeginTransactionAsync(ct); await libro.BloquearAsync(ct);
+        var op = await db.Set<OperacionLibro>().SingleAsync(x => x.Id == id, ct);
+        await acceso.PermisoAsync(Permiso(op.Tipo, false), ct); await acceso.CargarAsync(op.ActivoId, true, ct);
+        if (op.Version != version) throw new ConcurrencyException("OperacionLibro", op.Id);
+        op.Retirar(acceso.Actor, motivo, clock.UtcNow);
+        await db.SaveChangesAsync(ct); await tx.CommitAsync(ct); return op;
     }
     public async Task<OperacionLibro> RechazarAsync(Guid id, int version, string motivo, CancellationToken ct)
     {

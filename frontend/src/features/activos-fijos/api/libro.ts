@@ -33,6 +33,7 @@ export interface Corrida {
 export interface Operacion {
   activoId?: string;
   registradoPor?: string;
+  motivoRetiro?: string | null;
   motivoRechazo?: string | null;
   ventaCancelada?: boolean;
   revierteA?: string | null;

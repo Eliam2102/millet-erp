@@ -152,7 +152,7 @@ public sealed class GuardarClaseHandler(ActivosFijosDbContext db, ActivoServicio
                 if (c.Versiones.Any(v => v.Estado == EstadoVersionClase.EnRevision)) throw new BusinessRuleException("AF_PROPUESTA_PENDIENTE", "Resuelva primero la propuesta pendiente.");
                 if (c.Versiones.Count == 0) c.Versiones.Add(VersionClaseActivo.Desde(c, 1, DateOnly.MinValue, servicio.Actor, true));
                 var v = VersionClaseActivo.Desde(propuesta, c.Versiones.Max(v => v.Numero)+1, d.Vigencia ?? default, servicio.Actor);
-                v.ClaseId=c.Id;
+                v.ClaseId=c.Id; v.CapturarMotivo(d.MotivoCambio);
                 v.ValidarVigencia(await db.Set<CorridaDepreciacion>().Where(x => !x.Anulada).MaxAsync(x => (DateOnly?)x.Periodo,cancellationToken));
                 c.Versiones.Add(v);
             }

@@ -109,6 +109,7 @@ public sealed class MutarExpedienteHandler(ComercioExteriorDbContext db, Expedie
                 else
                 {
                     e.RegistrarHito(h.Clave, h.FechaReal ?? throw new BusinessRuleException("CE_FECHA_REAL_REQUERIDA", "Capture la fecha real."), h.ResponsableUsuarioId, h.EvidenciaAdjuntoId, h.Motivo, await catalogos.RequisitosAsync(e.Tipo, cancellationToken), await catalogos.AdjuntosVigentesAsync(e.Id, cancellationToken), clock.HoyLocal());
+                    if (e.Tipo == TipoExpediente.Importacion && h.Clave == "despacho-aduanal") e.RegistrarAduanaEntrada(h.AduanaEntrada);
                     await eventos.PublishAsync(new ExpedienteCeHitoRegistradoEvent(e.EmpresaId, clock.UtcNow, e.Id, h.Clave, h.FechaReal!.Value, h.ResponsableUsuarioId), cancellationToken);
                 }
                 break;

@@ -54,6 +54,7 @@ export function VersionesClase({ clase }: { clase: Clase }) {
               ),
             )}
           </p>
+          {v.motivoCambio && <p>Motivo del cambio: {v.motivoCambio}</p>}
           {v.motivoRechazo && <p>Motivo: {v.motivoRechazo}</p>}
           {v.estado === 0 && autorizar && (
             <div className="space-y-2">

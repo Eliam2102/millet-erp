@@ -931,7 +931,7 @@ resource comercioExteriorCxpFilter 'Microsoft.ServiceBus/namespaces/topics/subsc
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'comercio_exterior.anticipo-agente.saldo-transferido.v1\', \'comercio_exterior.anticipo-agente.solicitado.v1\')'
+      sqlExpression: 'user.EventType IN (\'comercio_exterior.anticipo-agente.saldo-transferido.v1\', \'comercio_exterior.anticipo-agente.solicitado.v1\', \'comercio_exterior.anticipo-agente.gastos-aplicados.v1\')'
       compatibilityLevel: 20
     }
   }
@@ -1008,7 +1008,7 @@ resource contabTesoreriaFilter 'Microsoft.ServiceBus/namespaces/topics/subscript
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'tesoreria.pago-factura-proveedor.aplicado.v1\', \'tesoreria.pago-factura-proveedor.revertido.v1\', \'tesoreria.pago-cliente.confirmado.v1\', \'tesoreria.anticipo-agente.devolucion-confirmada.v1\')'
+      sqlExpression: 'user.EventType IN (\'tesoreria.pago-factura-proveedor.aplicado.v1\', \'tesoreria.pago-factura-proveedor.revertido.v1\', \'tesoreria.pago-cliente.confirmado.v1\', \'tesoreria.anticipo-agente.devolucion-confirmada.v1\', \'tesoreria.deposito-caja.confirmado.v1\', \'tesoreria.diferencia-corte.autorizada.v1\', \'tesoreria.diferencia-corte.devolucion-aplicada.v1\', \'tesoreria.movimiento-bancario.registrado.v1\', \'tesoreria.reembolso-nota-credito.actualizado.v1\')'
       compatibilityLevel: 20
     }
   }
@@ -1082,7 +1082,7 @@ resource ceTesoreriaP19Filter 'Microsoft.ServiceBus/namespaces/topics/subscripti
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'tesoreria.pago-factura-proveedor.aplicado.v1\', \'tesoreria.anticipo-agente.devolucion-confirmada.v1\')'
+      sqlExpression: 'user.EventType IN (\'tesoreria.pago-factura-proveedor.revertido.v1\', \'tesoreria.pago-factura-proveedor.aplicado.v1\', \'tesoreria.anticipo-agente.devolucion-confirmada.v1\')'
       compatibilityLevel: 20
     }
   }

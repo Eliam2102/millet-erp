@@ -184,6 +184,29 @@ public class SucursalTests
     }
 
     [Fact]
+    public void ClaveAw_Should_Accept_Aliases_And_Normalize()
+    {
+        var s = new Sucursal(
+            Guid.CreateVersion7(), EmpresaId, "101", "Conkal", TipoSucursal.Planta,
+            "Calle 1", "100", "Col", "Conkal", "Conkal", "Yucatán", "97345", "México",
+            claveAw: "CONKAL, periferico,OBRAS");
+        Sucursal.ClavesAw(s.ClaveAw).Should().Equal("CONKAL", "PERIFERICO", "OBRAS");
+    }
+
+    [Theory]
+    [InlineData("CONKAL,,OBRAS")]
+    [InlineData("OBRAS,obras")]
+    [InlineData("CONKAL,")]
+    public void ClaveAw_Should_Reject_EmptyOrRepeatedAliases(string claveAw)
+    {
+        var act = () => new Sucursal(
+            Guid.CreateVersion7(), EmpresaId, "101", "Conkal", TipoSucursal.Planta,
+            "Calle 1", "100", "Col", "Conkal", "Conkal", "Yucatán", "97345", "México",
+            claveAw: claveAw);
+        act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "SUCURSAL_CLAVE_AW_INVALIDA");
+    }
+
+    [Fact]
     public void Constructor_Should_Accept_Planta_And_Taller()
     {
         var taller = new Sucursal(

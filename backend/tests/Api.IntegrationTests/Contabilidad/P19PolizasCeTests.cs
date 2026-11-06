@@ -27,7 +27,7 @@ public sealed class P19PolizasCeTests(WebApplicationFactory<Program> factory)
         sucursalResp.EnsureSuccessStatusCode(); var sucursal = (await Json(sucursalResp)).GetProperty("id").GetGuid();
         var padre = (await CrearCuenta(client, Codigo(suf, "1"), "FIX CE padre")).GetProperty("id").GetGuid();
         var cuentas = new Dictionary<string, Guid>();
-        foreach (var (rol, numero) in new[] { ("INVENTARIO", "1.1"), ("GASTO_IMPORTACION", "1.2"), ("GASTOS_IMPORTACION_POR_APLICAR", "1.3"), ("BANCOS", "1.4"), ("ANTICIPO_AGENTE_ADUANAL", "1.5") })
+        foreach (var (rol, numero) in new[] { ("INVENTARIO", "1.1"), ("GASTO_IMPORTACION", "1.2"), ("GASTOS_IMPORTACION_POR_APLICAR", "1.3"), ("BANCOS", "1.4"), ("ANTICIPO_A_PROVEEDORES", "1.5") })
             cuentas[rol] = (await CrearCuenta(client, Codigo(suf, numero), $"FIX {rol}", padre)).GetProperty("id").GetGuid();
         using (var scope = factory.Services.CreateScope())
         {
@@ -42,14 +42,17 @@ public sealed class P19PolizasCeTests(WebApplicationFactory<Program> factory)
         }
         var tipo = caso == "costo" ? NormalizadorEventos.CostoImportacionAplicado : caso == "pago" ? NormalizadorEventos.PagoProveedorAplicado : NormalizadorEventos.DevolucionAnticipoAgente;
         var expediente = Guid.NewGuid(); var evento = Guid.NewGuid();
+        var (proveedor, _) = await MotorTerceros.SembrarAsync(factory);
         var payload = new { EmpresaId = EmpresaBootstrapId, OcurridoEn = DateTimeOffset.UtcNow, ExpedienteId = expediente,
-            SucursalId = sucursal, NumeroVersion = 1, PagoId = expediente, FacturaProveedorId = Guid.NewGuid(),
-            DevolucionId = expediente, EsAnticipoAgente = caso == "pago", ProveedorId = Guid.NewGuid(),
+            SucursalId = sucursal, NumeroVersion = 1, PagoId = expediente, FacturaProveedorId = proveedor,
+            DevolucionId = expediente, EsAnticipoAgente = caso == "pago", ProveedorId = proveedor,
             Monto = inventario + gasto, FechaPago = fecha, FechaValor = fecha, ReferenciaBancaria = "FIX-BANCO-P19", Moneda = "MXN",
             Partidas = new[] { new { ArticuloId = Guid.NewGuid(),
                 DiferenciaMxn = inventario + gasto, InventarioMxn = inventario, GastoImportacionMxn = gasto } } };
         using var primera = await client.PostAsJsonAsync("/api/v1/contabilidad/motor/eventos", new { tipo, eventoId = evento, payload });
-        primera.EnsureSuccessStatusCode(); var id = (await Json(primera)).GetProperty("poliza").GetProperty("id").GetGuid();
+        primera.EnsureSuccessStatusCode(); var resultado = await Json(primera);
+        Assert.True(resultado.GetProperty("poliza").ValueKind == JsonValueKind.Object, resultado.ToString());
+        var id = resultado.GetProperty("poliza").GetProperty("id").GetGuid();
         using var repetida = await client.PostAsJsonAsync("/api/v1/contabilidad/motor/eventos", new { tipo, eventoId = evento, payload });
         repetida.EnsureSuccessStatusCode(); Assert.Equal(id, (await Json(repetida)).GetProperty("poliza").GetProperty("id").GetGuid());
         using var verificar = factory.Services.CreateScope(); var contexto = verificar.ServiceProvider.GetRequiredService<ContabilidadDbContext>();
@@ -63,10 +66,16 @@ public sealed class P19PolizasCeTests(WebApplicationFactory<Program> factory)
         }
         else
         {
-            var cargo = caso == "pago" ? "ANTICIPO_AGENTE_ADUANAL" : "BANCOS";
-            var abono = caso == "pago" ? "BANCOS" : "ANTICIPO_AGENTE_ADUANAL";
+            var cargo = caso == "pago" ? "ANTICIPO_A_PROVEEDORES" : "BANCOS";
+            var abono = caso == "pago" ? "BANCOS" : "ANTICIPO_A_PROVEEDORES";
             Assert.Equal(inventario, poliza.Partidas.Single(p => p.CuentaId == cuentas[cargo]).Cargo);
             Assert.Equal(inventario, poliza.Partidas.Single(p => p.CuentaId == cuentas[abono]).Abono);
+            Assert.Equal(proveedor, poliza.Partidas.Single(p => p.CuentaId == cuentas["ANTICIPO_A_PROVEEDORES"]).ProveedorId);
+            if (caso == "pago")
+            {
+                using var reversa = await client.PostAsJsonAsync("/api/v1/contabilidad/motor/eventos", new { tipo = NormalizadorEventos.PagoProveedorRevertido, eventoId = Guid.NewGuid(), payload = new { EmpresaId = EmpresaBootstrapId, PagoOriginalId = expediente, Motivo = "Pago equivocado P23" } });
+                reversa.EnsureSuccessStatusCode(); await contexto.Entry(poliza).ReloadAsync(); Assert.Equal(EstadoPoliza.Anulada, poliza.Estado);
+            }
         }
     }
 }

@@ -106,7 +106,7 @@ public sealed class HitosTests
     {
         var e = Crear();
         foreach (var h in e.Hitos.Where(h => h.Orden is > 1 and < 6).OrderBy(h => h.Orden)) Real(e, h.Clave);
-        var r = new RequisitoDocumento(Guid.NewGuid(), "IMP_PEDIMENTO", "Pedimento", true, false);
+        var r = new RequisitoDocumento(Guid.NewGuid(), "IMP_PEDIMENTO", "Pedimento", true, false, "documentacion-completa");
         var ex = Assert.Throws<DocumentosFaltantesException>(() => e.RegistrarHito("documentacion-completa", Hoy, Actor, null, null, [r], [], Hoy));
         ex.Code.Should().Be("CE_DOCUMENTOS_FALTANTES");
         ex.Faltantes.Should().Equal(r);
@@ -210,6 +210,41 @@ public sealed class HitosTests
         e.CambiarCompromiso("planeado", Hoy.AddDays(-2), Actor, "Regresa a fecha DEMO");
         e.GenerarAvisos(Hoy).Should().Be(0);
         e.Avisos.Should().ContainSingle();
+    }
+
+    [Theory]
+    [InlineData(TipoExpediente.Importacion)]
+    [InlineData(TipoExpediente.Exportacion)]
+    public void Requisitos_de_etapas_anteriores_son_acumulativos_solo_en_importacion(TipoExpediente tipo)
+    {
+        var e = Crear(tipo);
+        Real(e, "planeado");
+        var requisito = new RequisitoDocumento(Guid.NewGuid(), "FIX_DOCUMENTO", "Documento de planeación", true, false, "planeado");
+        if (tipo == TipoExpediente.Importacion)
+            Assert.Throws<DocumentosFaltantesException>(() => e.RegistrarHito("booking-confirmado", Hoy, Actor, null, null, [requisito], [], Hoy));
+        else
+        {
+            e.RegistrarHito("booking-confirmado", Hoy, Actor, null, null, [requisito], [], Hoy);
+            e.Hitos.Single(h => h.Clave == "booking-confirmado").FechaReal.Should().Be(Hoy);
+        }
+    }
+
+    [Fact]
+    public void Documento_sin_etapa_no_bloquea_y_despacho_conserva_evidencia_obligatoria()
+    {
+        var e = Crear();
+        var sinEtapa = new RequisitoDocumento(Guid.NewGuid(), "IMP_PEDIMENTO", "Pedimento", true, false, null);
+        e.RegistrarHito("planeado", Hoy, Actor, null, null, [sinEtapa], [], Hoy);
+        e.AgregarParticipante(Guid.NewGuid(), "Agente", TipoParticipante.AgenteAduanal, null, PapelParticipante.Captura, null, null);
+        foreach (var h in e.Hitos.Where(h => h.Orden > 2 && h.Clave != "despacho-aduanal").OrderBy(h => h.Orden))
+        {
+            if (h.Orden >= e.Hitos.Single(x => x.Clave == "despacho-aduanal").Orden) break;
+            Real(e, h.Clave);
+        }
+        Codigo(() => e.RegistrarHito("despacho-aduanal", Hoy, Actor, null, null, [sinEtapa], [], Hoy), "CE_EVIDENCIA_HITO_REQUERIDA");
+        Real(e, "despacho-aduanal");
+        Real(e, "embarcado");
+        e.Hitos.Single(h => h.Clave == "embarcado").FechaReal.Should().Be(Hoy);
     }
 
 }

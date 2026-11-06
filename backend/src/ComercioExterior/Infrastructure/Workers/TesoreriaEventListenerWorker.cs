@@ -112,10 +112,10 @@ public sealed class TesoreriaEventListenerWorker : BackgroundService, ILocalInte
             var empresaContext = sp.GetRequiredService<ICurrentEmpresaContext>();
             using var bypass = empresaContext.Bypass();
 
-            if (eventType is "tesoreria.pago-factura-proveedor.aplicado.v1" or "tesoreria.anticipo-agente.devolucion-confirmada.v1")
+            if (eventType is "tesoreria.pago-factura-proveedor.aplicado.v1" or "tesoreria.anticipo-agente.devolucion-confirmada.v1" or "tesoreria.pago-factura-proveedor.revertido.v1")
             {
                 var payload = JsonSerializer.Deserialize<PagoAnticipoCePayload>(body, JsonOpts) ?? throw new JsonException("Payload null.");
-                await mediator.Send(new RecibirPagoAnticipoCeCommand(payload, eventType == "tesoreria.anticipo-agente.devolucion-confirmada.v1"), cancellationToken);
+                await mediator.Send(new RecibirPagoAnticipoCeCommand(payload, eventType == "tesoreria.anticipo-agente.devolucion-confirmada.v1", eventType == "tesoreria.pago-factura-proveedor.revertido.v1"), cancellationToken);
             }
 
             if (smbArgs is not null)

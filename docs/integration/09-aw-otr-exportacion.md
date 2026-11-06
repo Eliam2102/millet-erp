@@ -204,3 +204,9 @@ inexistente a propósito. No se eliminan resultados ni controles ERP al resembra
 
 Frecuencia real A+W, equivalencias cliente/sucursal, tolerancias de volumen, retención,
 responsables de recuperación y firma I13.4: **Por confirmar con Millet y Jorge**.
+
+## Sucursal por clave A+W (alias) y dirección de entrega
+
+- `compartido.sucursales.clave_aw` admite varias claves separadas por coma (la primera es la principal, el resto alias, máx. 40 caracteres en total). Se edita donde ya se edita `ClaveAw` (crear/actualizar sucursal). Una clave no puede repetirse entre sucursales. Respuesta de TI (30-oct): Conkal = `CONKAL,PERIFERICO,OBRAS`; Circuito = `CIRCUITO`; Chichí Suárez = `COTTOLENGO`; Cancún = `CANCUN`.
+- `REPOSICIONES`, `REEMPLAZOS`, `REPOSICIÓN CON COSTO`, `RETRABAJO`, `MUESTRAS` **no son sucursales**: no se configuran como alias y el envío queda `PorVincular` con `CE_OTR_SUCURSAL_DESCONOCIDA`. Pendiente de decisión de administración: heredar la sucursal del pedido original.
+- La dirección de entrega sale de `LOCATION_ADDRESS_TEXT` y, si viene vacía, de `LOCATION_ADDRESS`. Antes solo se usaba la primera y, al venir vacía, el envío se rechazaba con `CE_OTR_DATOS_INVALIDOS`.

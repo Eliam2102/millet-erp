@@ -1063,6 +1063,10 @@ builder.Services.AddCentrosCostoModule();
 builder.Services.AddComprasReadPorts();
 builder.Services.AddComercioExteriorModule();
 builder.Services.AddProductoTerminadoModule();
+builder.Services.AddScoped<Millet.Tesoreria.Domain.Ports.IAnticipoCeCancelacionPort, Millet.Api.Infrastructure.Adapters.PasivoComercioExteriorReadAdapter>();
+builder.Services.AddScoped<Millet.Tesoreria.Application.PublicPorts.IAutorizacionPagoCeReadPort, Millet.Tesoreria.Infrastructure.PublicAdapters.AutorizacionPagoCeReadAdapter>();
+builder.Services.AddScoped<Millet.CuentasPorPagar.Application.PublicPorts.IComprobacionAnticipoCeReadPort, Millet.CuentasPorPagar.Infrastructure.PublicAdapters.ComprobacionAnticipoCeReadAdapter>();
+builder.Services.AddScoped<Millet.CuentasPorPagar.Application.PublicPorts.IPagosFacturaCeReadPort, Millet.Api.Infrastructure.Adapters.PagosFacturaCeReadAdapter>();
 builder.Services.AddScoped<Millet.CuentasPorPagar.Application.PublicPorts.IFacturaGastoReadPort, Millet.CuentasPorPagar.Infrastructure.PublicAdapters.FacturaGastoReadAdapter>();
 // 86e3xt2q8: Caja elige la factura mensual del banco del buzón de CFDI recibidos de CxP (solo lectura).
 builder.Services.AddScoped<Millet.CuentasPorPagar.Application.PublicPorts.ICfdiRecibidoPublicReadPort, Millet.CuentasPorPagar.Infrastructure.PublicAdapters.CfdiRecibidoPublicReadAdapter>();
@@ -1717,6 +1721,7 @@ Millet.Api.Endpoints.Contabilidad.ContabilidadRecurrentesEndpoints.MapContabilid
 Millet.Api.Endpoints.Contabilidad.ContabilidadMotorEndpoints.MapContabilidadMotorEndpoints(app, app.Environment);
 // === Contabilidad — conciliación de la cuenta puente recepción–factura por OC (K10.5) ===
 Millet.Api.Endpoints.Contabilidad.ContabilidadCuentaPuenteEndpoints.MapContabilidadCuentaPuenteEndpoints(app);
+Millet.Api.Endpoints.Contabilidad.ContabilidadReportesEndpoints.MapContabilidadReportesEndpoints(app);
 
 // === Almacén — CRUD asignación artículo→ubicación (OITW, ADR-0047 PR3) ===
 Millet.Api.Endpoints.Almacen.Asignaciones.AlmacenAsignacionesEndpoints.MapAlmacenAsignacionesEndpoints(app);

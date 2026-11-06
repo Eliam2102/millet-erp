@@ -46,6 +46,8 @@ public static class DependencyInjection
         services.AddScoped<Millet.ComercioExterior.Application.Ports.IPedidosEmbarcablesReadPort, PublicAdapters.PedidosEmbarcablesReadAdapter>();
         services.AddScoped<Millet.ProductoTerminado.Application.Ports.IPedidosPtReadPort, PublicAdapters.PedidosPtReadAdapter>();
         services.AddScoped<Millet.ProductoTerminado.Application.Ports.IFacturacionSalidaPort, PublicAdapters.FacturacionSalidaAdapter>();
+        // U-3 (86e3yxp2b): saldo real por pedido; lo elige SaldoPedidoSelector en el canal Real.
+        services.AddScoped<PublicAdapters.SaldoPedidoReadAdapter>();
         services.AddScoped<ICatalogosSatReadPort, CompartidoCatalogosSatReadAdapter>();
         services.AddScoped<IReppBancarioReadPort, ReppBancarioReadAdapter>();
         services.AddScoped<Millet.CuentasPorCobrar.Domain.Ports.Facturacion.IReppPendientesReadPort, PublicAdapters.ReppPendientesReadAdapter>();

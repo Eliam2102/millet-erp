@@ -26,48 +26,81 @@ export function ResolverOperacion({ operacion: o }: { operacion: Operacion }) {
         : P.ActivosFijosAjustesAutorizar,
   );
   const [rechazar, setRechazar] = useState(false);
+  const [retirar, setRetirar] = useState(false);
   const [motivo, setMotivo] = useState('');
   if (o.anulada)
     return (
       <div>
-        <Badge variant="neutral">{o.motivoRechazo ? 'Rechazada' : 'Anulada'}</Badge>
-        {o.motivoRechazo && <p>{o.motivoRechazo}</p>}
+        <Badge variant="neutral">
+          {o.motivoRetiro ? 'Retirada' : o.motivoRechazo ? 'Rechazada' : 'Anulada'}
+        </Badge>
+        {o.motivoRetiro && <p>Retirada: {o.motivoRetiro}</p>}
+        {o.motivoRechazo && <p>Rechazada: {o.motivoRechazo}</p>}
       </div>
     );
   if (o.polizaId) return <Badge variant="success">Autorizada</Badge>;
-  if (!permitido) return <Badge variant="warning">Pendiente de autorización</Badge>;
   const mismaPersona = o.registradoPor === usuario;
+  const puedeRetirar = mismaPersona && (o.tipo === 'Baja' || o.tipo === 'Venta');
+  if (!permitido && !puedeRetirar)
+    return <Badge variant="warning">Pendiente de autorización</Badge>;
   return (
     <div className="flex gap-2">
-      <Button
-        variant="outline"
-        disabled={mismaPersona || guardar.isPending}
-        title={mismaPersona ? 'Debe resolver otra persona' : undefined}
-        onClick={() =>
-          guardar.mutate({ ruta: `operaciones/${o.id}/autorizar`, version: o.version, body: {} })
-        }
-      >
-        Autorizar
-      </Button>
-      <Button
-        variant="outline"
-        disabled={mismaPersona || guardar.isPending}
-        title={mismaPersona ? 'Debe resolver otra persona' : undefined}
-        onClick={() => setRechazar(true)}
-      >
-        Rechazar
-      </Button>
+      {permitido && (
+        <>
+          <Button
+            variant="outline"
+            disabled={mismaPersona || guardar.isPending}
+            title={mismaPersona ? 'Debe resolver otra persona' : undefined}
+            onClick={() =>
+              guardar.mutate({
+                ruta: `operaciones/${o.id}/autorizar`,
+                version: o.version,
+                body: {},
+              })
+            }
+          >
+            Autorizar
+          </Button>
+          <Button
+            variant="outline"
+            disabled={mismaPersona || guardar.isPending}
+            title={mismaPersona ? 'Debe resolver otra persona' : undefined}
+            onClick={() => {
+              setRetirar(false);
+              setRechazar(true);
+            }}
+          >
+            Rechazar
+          </Button>
+        </>
+      )}
+      {puedeRetirar && (
+        <Button
+          variant="outline"
+          disabled={guardar.isPending}
+          onClick={() => {
+            setRetirar(true);
+            setRechazar(true);
+          }}
+        >
+          Retirar
+        </Button>
+      )}
       {guardar.error && <p role="alert">{guardar.error.message}</p>}
       <Dialog open={rechazar} onOpenChange={setRechazar}>
         <DialogContent size="sm">
           <DialogHeader>
-            <DialogTitle>Rechazar solicitud</DialogTitle>
+            <DialogTitle>{retirar ? 'Retirar solicitud' : 'Rechazar solicitud'}</DialogTitle>
           </DialogHeader>
           <form
             onSubmit={(e) => {
               e.preventDefault();
               guardar.mutate(
-                { ruta: `operaciones/${o.id}/rechazar`, version: o.version, body: { motivo } },
+                {
+                  ruta: `operaciones/${o.id}/${retirar ? 'retirar' : 'rechazar'}`,
+                  version: o.version,
+                  body: { motivo },
+                },
                 { onSuccess: () => setRechazar(false) },
               );
             }}
@@ -77,7 +110,8 @@ export function ResolverOperacion({ operacion: o }: { operacion: Operacion }) {
                 Motivo *
                 <Input
                   required
-                  maxLength={2000}
+                  minLength={retirar ? 5 : 1}
+                  maxLength={retirar ? 500 : 2000}
                   value={motivo}
                   onChange={(e) => setMotivo(e.target.value)}
                 />
@@ -88,8 +122,11 @@ export function ResolverOperacion({ operacion: o }: { operacion: Operacion }) {
               <Button type="button" variant="ghost" onClick={() => setRechazar(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={!motivo.trim() || guardar.isPending}>
-                Rechazar solicitud
+              <Button
+                type="submit"
+                disabled={motivo.trim().length < (retirar ? 5 : 1) || guardar.isPending}
+              >
+                {retirar ? 'Retirar solicitud' : 'Rechazar solicitud'}
               </Button>
             </DialogFooter>
           </form>

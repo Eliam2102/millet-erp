@@ -20,6 +20,19 @@ public sealed class RespuestaProveedorOc : BaseEntity, IAuditable, IBelongsToAgg
     public Guid RegistradaPorId { get; private set; }
     public DateTimeOffset RegistradaEn { get; private set; }
 
+    /// <summary>Respuesta marcada como errónea (ligada a la orden equivocada, etc.): se conserva en el historial pero ya no cuenta.</summary>
+    public DateTimeOffset? AnuladaEn { get; private set; }
+    public Guid? AnuladaPorId { get; private set; }
+    public string? MotivoAnulacion { get; private set; }
+    public bool Anulada => AnuladaEn is not null;
+
+    internal void Anular(string motivo, Guid usuarioId, DateTimeOffset ahora)
+    {
+        AnuladaEn = ahora;
+        AnuladaPorId = usuarioId;
+        MotivoAnulacion = motivo;
+    }
+
     private readonly List<CompromisoEntregaOc> _compromisos = [];
     public IReadOnlyCollection<CompromisoEntregaOc> Compromisos => _compromisos.AsReadOnly();
 
