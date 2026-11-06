@@ -48,12 +48,12 @@ public sealed class AutorizacionPagoComercioExteriorTests
         new PasivosParaCorridaHandler(db, new Proveedores()).Handle(new PasivosParaCorridaQuery("MXN"), default);
 
     [Fact]
-    public void P19_reversa_del_anticipo_no_se_trata_como_factura()
+    public void P23_anticipo_no_se_desliga_como_pago_a_cuenta()
     {
-        var pasivo = Pasivo(); pasivo.ExigirReversaSoportada();
+        var pasivo = Pasivo(); pasivo.ExigirDesligarSoportado();
         pasivo.MarcarAnticipoAgente(Guid.NewGuid());
-        var act = () => pasivo.ExigirReversaSoportada();
-        act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "CE_REVERSA_NO_DEFINIDA");
+        var act = () => pasivo.ExigirDesligarSoportado();
+        act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "CE_ANTICIPO_NO_LIGABLE");
     }
     [Fact]
     public async Task P19_solicitud_de_50000_proyecta_el_anticipo_y_exige_las_dos_firmas()

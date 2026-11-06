@@ -151,7 +151,7 @@ export function BandejaPagosComercioExterior() {
                     <TableRow key={p.facturaProveedorId} className="hover:bg-surface-subtle">
                       <TableCell>{p.tipo === 'Importacion' ? 'Importación' : 'Exportación'}</TableCell>
                       <TableCell>{p.proveedorRazonSocial ?? '—'}</TableCell>
-                      <TableCell className="font-mono text-xs">{p.folioProveedor ?? '—'}</TableCell>
+                      <TableCell className="font-mono text-xs">{p.esAnticipoAgente ? `Anticipo al agente · ${p.folioProveedor ?? ''}` : (p.folioProveedor ?? '—')}</TableCell>
                       <TableCell className="text-right">
                         <MoneyDisplay amount={p.saldoPendiente} currency={p.moneda} strong />
                       </TableCell>

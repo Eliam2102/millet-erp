@@ -1651,6 +1651,10 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("facturas_json");
 
+                    b.Property<DateOnly?>("FechaMinimaCe")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_minima_ce");
+
                     b.Property<string>("Moneda")
                         .HasMaxLength(3)
                         .HasColumnType("character varying(3)")
@@ -1754,6 +1758,11 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("EmpresaId", "Estado")
                         .HasDatabaseName("ix_deposito_confirmacion_empresa_estado");
+
+                    b.HasIndex(new[] { "MovimientoId" }, "ux_devolucion_ce_movimiento")
+                        .IsUnique()
+                        .HasDatabaseName("ux_devolucion_ce_movimiento")
+                        .HasFilter("devolucion_ce_id IS NOT NULL AND movimiento_id IS NOT NULL");
 
                     b.ToTable("deposito_confirmacion", "tesoreria", t =>
                         {

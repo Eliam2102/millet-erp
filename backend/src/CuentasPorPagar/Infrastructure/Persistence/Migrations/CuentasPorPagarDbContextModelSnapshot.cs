@@ -229,6 +229,10 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(25)")
                         .HasColumnName("serie");
 
+                    b.Property<Guid?>("SucursalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sucursal_id");
+
                     b.Property<decimal?>("TipoCambio")
                         .HasPrecision(18, 6)
                         .HasColumnType("numeric(18,6)")
@@ -241,10 +245,6 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                     b.Property<string>("UpdatedBy")
                         .HasColumnType("text")
                         .HasColumnName("updated_by");
-
-                    b.Property<Guid?>("SucursalId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("sucursal_id");
 
                     b.Property<string>("UuidCfdi")
                         .HasMaxLength(36)
@@ -281,8 +281,57 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("ck_anticipo_monto_entregado_positivo", "monto_entregado > 0");
 
-                            t.HasCheckConstraint("ck_anticipo_origen", "(origen = 1 AND uuid_cfdi IS NOT NULL AND referencia_origen IS NULL) OR (origen IN (2, 3) AND uuid_cfdi IS NULL AND cfdi_recibido_id IS NULL AND referencia_origen IS NOT NULL)");
+                            t.HasCheckConstraint("ck_anticipo_origen", "(origen = 1 AND uuid_cfdi IS NOT NULL AND referencia_origen IS NULL) OR (origen IN (2, 3, 4) AND uuid_cfdi IS NULL AND cfdi_recibido_id IS NULL AND referencia_origen IS NOT NULL)");
                         });
+                });
+
+            modelBuilder.Entity("Millet.CuentasPorPagar.Domain.AnticipoProveedor.ComprobacionAnticipoCe", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<string>("Error")
+                        .HasColumnType("text")
+                        .HasColumnName("error");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("integer")
+                        .HasColumnName("revision");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_comprobaciones_anticipo_ce");
+
+                    b.ToTable("comprobaciones_anticipo_ce", "cuentas_por_pagar");
                 });
 
             modelBuilder.Entity("Millet.CuentasPorPagar.Domain.AnticipoProveedor.ConfiguracionAnticipoProveedor", b =>

@@ -241,7 +241,9 @@ describe('CE-01a', () => {
   });
   it('muestra faltantes, versiones y motivo de sustitución', () => {
     render(<DocumentosPanel data={data} />, { wrapper: createQueryWrapper() });
-    expect(screen.getByRole('note')).toHaveTextContent('Faltan: Pedimento');
+    expect(screen.getByText(/Faltan: Pedimento/)).toBeInTheDocument();
+    expect(screen.getByText(/Hay tipos de documento sin etapa asignada/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Ir a la configuración' })).toHaveAttribute('href', '#ce-configuracion-documentos');
     expect(screen.getByText('Versión 1')).toBeInTheDocument();
     expect(screen.getByText('Versión 2')).toBeInTheDocument();
     expect(screen.getByText('Reemplazada')).toBeInTheDocument();

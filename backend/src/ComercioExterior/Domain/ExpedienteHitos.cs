@@ -49,8 +49,6 @@ public sealed partial class Expediente
                 throw new BusinessRuleException("CE_EMBARQUE_PENDIENTE", "Registre el embarque real de los contenedores y sus partidas de la OC antes de completar el hito.");
             foreach (var c in activos) ExigirTransporte(c);
         }
-        if (requisitos.Any(r => r.HitoClave is null))
-            throw new BusinessRuleException("CE_DOCUMENTOS_SIN_HITO", "Configure el hito requerido de cada documento en la pestaña Documentos antes de registrar hitos.");
         var hito = Hito(clave);
         ExigirAnteriores(hito);
         var anteriorReal = _hitos.Where(h => h.Orden < hito.Orden && h.FechaReal != null).Max(h => h.FechaReal);
@@ -61,7 +59,7 @@ public sealed partial class Expediente
         if (clave is "despacho-aduanal" or "liberado" && evidencia is null)
             throw new BusinessRuleException("CE_EVIDENCIA_HITO_REQUERIDA", clave == "despacho-aduanal" ? "Adjunte el pedimento pagado para registrar el despacho aduanal." : "Adjunte el documento de liberación para completar el hito.");
         {
-            var faltantes = Faltantes(requisitos.Where(r => r.HitoClave == clave).ToArray(), adjuntosVigentes);
+            var faltantes = Faltantes(requisitos.Where(r => r.HitoClave == clave || Tipo == TipoExpediente.Importacion && r.HitoClave is not null && _hitos.Any(h => h.Clave == r.HitoClave && h.Orden <= hito.Orden)).ToArray(), adjuntosVigentes);
             if (faltantes.Count > 0) throw new DocumentosFaltantesException(faltantes);
         }
         if (clave == "despacho-aduanal" && !_participantes.Any(p => p.Tipo == TipoParticipante.AgenteAduanal))

@@ -134,11 +134,10 @@ public sealed class PasivoPendientePago : BaseEntity, IPerteneceAEmpresa, IAudit
         OrigenId = facturaProveedorId;
     }
 
-    public void ExigirReversaSoportada()
+    public void ExigirDesligarSoportado()
     {
-        // shortcut: CE no define cómo revertir comprobaciones o devoluciones; ampliar con ese circuito aprobado.
         if (OrigenTipo == "AnticipoAgente")
-            throw new BusinessRuleException("CE_REVERSA_NO_DEFINIDA", "El pago del anticipo al agente requiere un procedimiento de reversa de Comercio Exterior; no se puede revertir como factura.");
+            throw new BusinessRuleException("CE_ANTICIPO_NO_LIGABLE", "El anticipo al agente no es un pago a cuenta; use la reversa de pagos de Tesorería.");
     }
     public void MarcarAnticipoAgente(Guid sucursal)
     {

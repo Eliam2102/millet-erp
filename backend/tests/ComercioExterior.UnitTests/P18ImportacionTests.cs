@@ -23,6 +23,7 @@ public sealed class P18ImportacionTests
         e.RemanenteImportacion(linea, 10).Should().Be(4);
         var ex = Assert.Throws<BusinessRuleException>(() => e.AsignarPartidaImportacion(c, linea, 1, 5, 10, "PZA", Actor));
         ex.Code.Should().Be("CE_CANTIDAD_EXCEDE_OC");
+        ex.Message.Should().Contain("pedido 10, ya embarcado 6, intenta 5");
         e.PartidasImportacion.Should().ContainSingle();
     }
     [Fact]
@@ -46,4 +47,14 @@ public sealed class P18ImportacionTests
         e.AgregarParticipante(Guid.NewGuid(), "Naviera prueba", TipoParticipante.Naviera, null, PapelParticipante.Captura, null, null);
         Assert.Throws<BusinessRuleException>(() => e.RegistrarEmbarque(c, Hoy, Hoy)).Code.Should().Be("CE_EMBARQUE_SIN_PARTIDAS");
     }
+    [Fact]
+    public void Aduana_de_entrada_se_valida_contra_catalogo_y_se_conserva()
+    {
+        var e = Crear();
+        Assert.Throws<BusinessRuleException>(() => e.RegistrarAduanaEntrada(null));
+        Assert.Throws<BusinessRuleException>(() => e.RegistrarAduanaEntrada("inexistente"));
+        var aduana = Millet.SharedKernel.Domain.CatalogoAduanas.Aduanas.Keys.First();
+        e.RegistrarAduanaEntrada(aduana); Assert.Equal(aduana, e.AduanaEntrada);
+    }
+
 }

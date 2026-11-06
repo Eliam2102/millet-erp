@@ -60,6 +60,8 @@ export interface Participante {
   clienteId: string | null;
 }
 export interface ExpedienteDetalle {
+  aduanaEntrada?: string | null;
+  aduanas?: Record<string, string>;
   cierres?: {
     dimension: string;
     usuarioNombre?: string | null;

@@ -17,7 +17,7 @@ import {
 import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { FormCampo } from '@/components/erp/forms/FormGrid';
 import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
-import { ErrorState } from '@/components/erp';
+import { ErrorState, DateTimeDisplay } from '@/components/erp';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { apiRequest, esApiError } from '@/lib/api';
@@ -1003,6 +1003,8 @@ function Anticipos({ data, finanzas: f }: { data: ExpedienteDetalle; finanzas: F
     useHasPermission(P.ComercioExteriorAnticiposGestionar) && data.expediente.estado === 1;
   const aprobar =
     useHasPermission(P.TesoreriaPagosCeAutorizarDireccion) && data.expediente.estado === 1;
+  const cancelar = useMutarFinanzas(data.expediente.id);
+  const [motivoCancelacion, setMotivoCancelacion] = useState('');
   const [corregir, setCorregir] = useState(false);
   const [nuevo, setNuevo] = useState(false);
   const [seleccion, setSeleccion] = useState<Anticipo | null>(null);
@@ -1012,6 +1014,31 @@ function Anticipos({ data, finanzas: f }: { data: ExpedienteDetalle; finanzas: F
   return (
     <div className="space-y-4">
       {gestionar && <Button onClick={() => setNuevo(true)}>Solicitar anticipo</Button>}
+      {gestionar && (
+        <FormCampo span={6}>
+          <Label htmlFor="ce-cancelar-anticipo">Motivo para cancelar una solicitud sin pago</Label>
+          <Input
+            id="ce-cancelar-anticipo"
+            value={motivoCancelacion}
+            onChange={(e) => setMotivoCancelacion(e.target.value)}
+            maxLength={400}
+          />
+        </FormCampo>
+      )}
+      {cancelar.isError && (
+        <p role="alert" className="text-danger-fg">
+          {errorTexto(cancelar.error)}
+        </p>
+      )}
+      {f.pendientes.map((p) => (
+        <p
+          key={p}
+          role="note"
+          className="rounded-md bg-warning-note-bg px-3 py-2.5 text-warning-note-fg"
+        >
+          {p}
+        </p>
+      ))}
       {nuevo && <NuevoAnticipo data={data} onClose={() => setNuevo(false)} />}
       <TableContainer maxHeightClassName="">
         <Table>
@@ -1050,7 +1077,7 @@ function Anticipos({ data, finanzas: f }: { data: ExpedienteDetalle; finanzas: F
                   {((gestionar &&
                     a.aplicado === null &&
                     (!a.soporteCalculoId || a.estado === 'Pagado')) ||
-                    (aprobar &&
+                    ((aprobar || (gestionar && (a.saldo ?? 0) > 0)) &&
                       a.aplicado !== null &&
                       a.saldo !== 0 &&
                       !a.devolucionPendienteId)) && (
@@ -1061,12 +1088,12 @@ function Anticipos({ data, finanzas: f }: { data: ExpedienteDetalle; finanzas: F
                         setSeleccion(a);
                       }}
                     >
-                      {a.aplicado === null ? 'Comprobar' : 'Aprobar resolución'}
+                      {a.aplicado === null ? 'Comprobar' : 'Resolver saldo'}
                     </Button>
                   )}
                   {gestionar &&
                     a.aplicado !== null &&
-                    a.saldo !== 0 &&
+                    a.resoluciones.length === 0 &&
                     !a.devolucionPendienteId && (
                       <Button
                         variant="ghost"
@@ -1078,9 +1105,49 @@ function Anticipos({ data, finanzas: f }: { data: ExpedienteDetalle; finanzas: F
                         Corregir comprobación
                       </Button>
                     )}
+                  {gestionar && ['Solicitado', 'Autorizado'].includes(a.estado) && (
+                    <Button
+                      variant="ghost"
+                      disabled={!motivoCancelacion.trim() || cancelar.isPending}
+                      title={
+                        !motivoCancelacion.trim() ? 'Capture el motivo de cancelación.' : undefined
+                      }
+                      onClick={() => {
+                        void cancelar
+                          .mutateAsync({
+                            ruta: `anticipos/${a.id}/cancelar`,
+                            body: { motivo: motivoCancelacion },
+                          })
+                          .catch(() => {});
+                      }}
+                    >
+                      Cancelar solicitud
+                    </Button>
+                  )}
+                  {f.autorizaciones
+                    ?.filter((firma) => firma.anticipoId === a.id)
+                    .map((firma) => (
+                      <div key={firma.anticipoId} className="text-xs text-ink-muted">
+                        <p>{firma.estado}</p>
+                        <p>
+                          Firma nivel 1:{' '}
+                          {firma.nivel1UsuarioId
+                            ? (f.nombres[firma.nivel1UsuarioId] ?? 'Usuario firmante')
+                            : 'Pendiente'}{' '}
+                          {firma.nivel1En && <DateTimeDisplay value={firma.nivel1En} />}
+                        </p>
+                        <p>
+                          Firma nivel 2:{' '}
+                          {firma.nivel2UsuarioId
+                            ? (f.nombres[firma.nivel2UsuarioId] ?? 'Usuario firmante')
+                            : 'Pendiente'}{' '}
+                          {firma.nivel2En && <DateTimeDisplay value={firma.nivel2En} />}
+                        </p>
+                      </div>
+                    ))}
                   {a.referenciaPago && (
                     <p className="text-xs text-ink-muted">
-                      Referencia bancaria: {a.referenciaPago}
+                      Referencia bancaria: {a.referenciaPago} {a.fechaPago && <DateTimeDisplay value={a.fechaPago} />}
                     </p>
                   )}
                   {a.devolucionPendienteId && (
@@ -1267,6 +1334,7 @@ export function ResolverAnticipo({
   corregir?: boolean;
   onClose: () => void;
 }) {
+  const direccion = useHasPermission(P.TesoreriaPagosCeAutorizarDireccion);
   const comprobando = a.aplicado === null || corregir;
   const accion = useMutarFinanzas(data.expediente.id);
   const [tipo, setTipo] = useState(a.saldo && a.saldo < 0 ? 'pago-complementario' : 'devolucion');
@@ -1302,7 +1370,7 @@ export function ResolverAnticipo({
         };
     void accion
       .mutateAsync({
-        ruta: `anticipos/${a.id}/${corregir ? 'corregir' : comprobando ? 'comprobar' : 'resolver'}`,
+        ruta: `anticipos/${a.id}/${corregir ? 'corregir' : comprobando ? 'comprobar' : tipo === 'devolucion' ? 'devolucion' : 'resolver'}`,
         body,
       })
       .then(onClose)
@@ -1376,9 +1444,11 @@ export function ResolverAnticipo({
               >
                 {(a.saldo ?? 0) > 0 ? (
                   <>
-                    <option value="devolucion">Aprobar devolución a depositar</option>
-                    <option value="saldo-al-agente">Dejar saldo en la cuenta del agente</option>
-                    <option value="compensar">Compensar en otro anticipo</option>
+                    <option value="devolucion">Registrar devolución pendiente de aprobación</option>
+                    {direccion && (
+                      <option value="saldo-al-agente">Dejar saldo en la cuenta del agente</option>
+                    )}
+                    {direccion && <option value="compensar">Compensar en otro anticipo</option>}
                   </>
                 ) : (
                   <option value="pago-complementario">Pago complementario al agente</option>

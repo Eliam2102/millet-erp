@@ -9,5 +9,12 @@ namespace Millet.Tesoreria.Domain.Ports;
 /// </summary>
 public interface IPasivoComercioExteriorReadPort
 {
+    Task ExigirAnticipoVigenteAsync(Guid anticipoId, CancellationToken ct) => throw new NotSupportedException();
+    Task ExigirSinComprobacionAsync(Guid anticipoId, CancellationToken ct) => throw new NotSupportedException("Valide la comprobación del anticipo antes de revertir.");
     Task<TipoOperacionComercioExterior?> TipoAsync(Guid facturaProveedorId, Guid? ordenCompraId, CancellationToken cancellationToken);
+}
+
+public interface IAnticipoCeCancelacionPort
+{
+    Task CancelarAnticipoAsync(Guid id, string motivo, CancellationToken ct);
 }

@@ -94,6 +94,10 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasColumnType("date")
                         .HasColumnName("fecha_comprobacion");
 
+                    b.Property<DateOnly?>("FechaPago")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_pago");
+
                     b.Property<decimal>("GastosAplicadosMxn")
                         .HasPrecision(20, 2)
                         .HasColumnType("numeric(20,2)")
@@ -129,6 +133,14 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasColumnType("numeric(20,2)")
                         .HasColumnName("iva_aplicado");
 
+                    b.Property<string>("MotivoCancelacion")
+                        .HasColumnType("text")
+                        .HasColumnName("motivo_cancelacion");
+
+                    b.Property<string>("MotivoReversa")
+                        .HasColumnType("text")
+                        .HasColumnName("motivo_reversa");
+
                     b.Property<decimal>("PagadoMxn")
                         .HasPrecision(20, 2)
                         .HasColumnType("numeric(20,2)")
@@ -142,6 +154,11 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("jsonb")
                         .HasColumnName("pagos_recibidos");
+
+                    b.Property<string>("PagosRevertidos")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("pagos_revertidos");
 
                     b.Property<string>("Pedimento")
                         .IsRequired()
@@ -170,6 +187,10 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("jsonb")
                         .HasColumnName("resoluciones");
+
+                    b.Property<int>("RevisionComprobacion")
+                        .HasColumnType("integer")
+                        .HasColumnName("revision_comprobacion");
 
                     b.Property<Guid?>("SoporteCalculoId")
                         .HasColumnType("uuid")
@@ -898,6 +919,10 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<string>("AduanaEntrada")
+                        .HasColumnType("text")
+                        .HasColumnName("aduana_entrada");
 
                     b.Property<string>("AduanaPedimentoExportacion")
                         .HasMaxLength(10)

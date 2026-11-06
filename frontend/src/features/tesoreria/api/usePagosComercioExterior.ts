@@ -11,6 +11,7 @@ export type EstadoPagoComercioExterior =
   | 'Rechazado';
 
 export interface AutorizacionPagoComercioExteriorResponse {
+  esAnticipoAgente?: boolean;
   facturaProveedorId: string;
   tipo: 'Importacion' | 'Exportacion';
   estado: EstadoPagoComercioExterior;

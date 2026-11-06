@@ -931,7 +931,7 @@ resource comercioExteriorCxpFilter 'Microsoft.ServiceBus/namespaces/topics/subsc
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'comercio_exterior.anticipo-agente.saldo-transferido.v1\', \'comercio_exterior.anticipo-agente.solicitado.v1\')'
+      sqlExpression: 'user.EventType IN (\'comercio_exterior.anticipo-agente.saldo-transferido.v1\', \'comercio_exterior.anticipo-agente.solicitado.v1\', \'comercio_exterior.anticipo-agente.gastos-aplicados.v1\')'
       compatibilityLevel: 20
     }
   }
@@ -1082,7 +1082,7 @@ resource ceTesoreriaP19Filter 'Microsoft.ServiceBus/namespaces/topics/subscripti
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'tesoreria.pago-factura-proveedor.aplicado.v1\', \'tesoreria.anticipo-agente.devolucion-confirmada.v1\')'
+      sqlExpression: 'user.EventType IN (\'tesoreria.pago-factura-proveedor.revertido.v1\', \'tesoreria.pago-factura-proveedor.aplicado.v1\', \'tesoreria.anticipo-agente.devolucion-confirmada.v1\')'
       compatibilityLevel: 20
     }
   }

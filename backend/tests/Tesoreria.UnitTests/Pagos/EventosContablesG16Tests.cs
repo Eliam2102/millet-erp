@@ -47,7 +47,7 @@ public sealed class EventosContablesG16Tests
         var firmas = new AutorizacionPagoComercioExterior(EmpresaId, pasivo.FacturaProveedorId, TipoOperacionComercioExterior.Importacion);
         firmas.FirmarNivel1(Guid.NewGuid(), Ahora); db.AutorizacionesPagoComercioExterior.Add(firmas); await db.SaveChangesAsync();
         var eventos = new Captura();
-        var h = new RegistrarPagoProveedorHandler(db, new FakeEmpresa(), new FakeUser(), new Abierto(), ProveedorActivo(), new ElegibleSinLimite(), eventos, new FakeClock());
+        var h = new RegistrarPagoProveedorHandler(db, new FakeEmpresa(), new FakeUser(), new Abierto(), ProveedorActivo(), new ElegibleSinLimite(), eventos, new FakeClock(), new CeVigente());
         var command = new RegistrarPagoProveedorCommand(cuenta.Id, Fecha, [new(pasivo.FacturaProveedorId, 50000)], "BANCO-P19-REAL");
         var act = () => h.Handle(command, default);
         await act.Should().ThrowAsync<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>().Where(e => e.Code == "PAGO_PASIVO_CE_SIN_AUTORIZAR");
@@ -57,6 +57,11 @@ public sealed class EventosContablesG16Tests
         e.EsAnticipoAgente.Should().BeTrue(); e.Monto.Should().Be(50000); e.SucursalId.Should().Be(sucursal);
         e.ReferenciaBancaria.Should().Be("BANCO-P19-REAL"); e.CuentaBancariaId.Should().Be(cuenta.Id);
         pasivo.SaldoPendiente.Should().Be(0);
+        await new RevertirPagoProveedorHandler(db, new FakeEmpresa(), new FakeUser(), new Abierto(), eventos, new FakeClock(), new CeVigente())
+            .Handle(new(e.PagoId, "Pago equivocado"), default);
+        pasivo.SaldoPendiente.Should().Be(50000);
+        eventos.Eventos.OfType<PagoFacturaProveedorRevertidoIntegrationEvent>().Should().ContainSingle(x => x.PagoOriginalId == e.PagoId);
+
     }
     [Fact]
     public async Task P3_pago_manual_respeta_recibido_y_no_reutiliza_pagado_ante_evento_atrasado()
@@ -335,6 +340,14 @@ public sealed class EventosContablesG16Tests
     private sealed class ElegibleSinLimite : Millet.Tesoreria.Domain.Ports.IElegibleFacturaReadPort
     {
         public Task<decimal> ObtenerLimiteAcumuladoAsync(Guid id, CancellationToken ct) => Task.FromResult(decimal.MaxValue);
+    }
+
+    private sealed class CeVigente : IPasivoComercioExteriorReadPort
+    {
+        public Task ExigirAnticipoVigenteAsync(Guid anticipoId, CancellationToken ct) => Task.CompletedTask;
+        public Task ExigirSinComprobacionAsync(Guid anticipoId, CancellationToken ct) => Task.CompletedTask;
+        public Task<TipoOperacionComercioExterior?> TipoAsync(Guid facturaProveedorId, Guid? ordenCompraId, CancellationToken cancellationToken)
+            => Task.FromResult<TipoOperacionComercioExterior?>(null);
     }
 
 }

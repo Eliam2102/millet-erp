@@ -6,5 +6,5 @@ public sealed record AnticipoAgenteSolicitadoEvent(Guid Empresa, DateTimeOffset 
     Guid AgenteId, decimal ImporteMxn, DateOnly Fecha, Guid SoporteCalculoId)
     : IntegrationEvent("comercio_exterior.anticipo-agente.solicitado.v1", Empresa, FechaEvento);
 public sealed record AnticipoAgenteDevolucionAprobadaEvent(Guid Empresa, DateTimeOffset FechaEvento, Guid ExpedienteId,
-    string FolioExpediente, Guid SucursalId, Guid AnticipoAgenteId, Guid AgenteId, Guid DevolucionId, decimal ImporteMxn)
+    string FolioExpediente, Guid SucursalId, Guid AnticipoAgenteId, Guid AgenteId, Guid DevolucionId, decimal ImporteMxn, Guid? RegistradoPor = null, DateOnly? FechaComprobacion = null)
     : IntegrationEvent("comercio_exterior.anticipo-agente.devolucion-aprobada.v1", Empresa, FechaEvento);

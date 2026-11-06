@@ -85,6 +85,7 @@ public sealed class RegistrarPagoProveedorHandler
     private readonly IElegibleFacturaReadPort _elegible;
     private readonly IIntegrationEventPublisher _publisher;
     private readonly IClock _clock;
+    private readonly IPasivoComercioExteriorReadPort? _ce;
 
     public RegistrarPagoProveedorHandler(
         TesoreriaDbContext db,
@@ -94,7 +95,7 @@ public sealed class RegistrarPagoProveedorHandler
         IProveedorBancoReadPort proveedorBancoPort,
         IElegibleFacturaReadPort elegible,
         IIntegrationEventPublisher publisher,
-        IClock clock)
+        IClock clock, IPasivoComercioExteriorReadPort? ce = null)
     {
         _db = db;
         _currentEmpresa = currentEmpresa;
@@ -103,7 +104,7 @@ public sealed class RegistrarPagoProveedorHandler
         _proveedorBancoPort = proveedorBancoPort;
         _elegible = elegible;
         _publisher = publisher;
-        _clock = clock;
+        _clock = clock; _ce = ce;
     }
 
     public async Task<PagoProveedorResponse> Handle(
@@ -171,6 +172,11 @@ public sealed class RegistrarPagoProveedorHandler
                 $"Pasivo(s) no presentes en la bandeja de autorizados: {string.Join(", ", faltantes)} (RN-1).");
         // I13.3: un pasivo de comercio exterior necesita sus dos autorizaciones también fuera de la corrida.
         await Pasivos.PagosComercioExterior.ExigirAutorizadosAsync(_db, facturaIds, "PAGO_PASIVO_CE_SIN_AUTORIZAR", cancellationToken);
+        foreach (var anticipo in pasivos.Values.Where(p => p.OrigenTipo == "AnticipoAgente"))
+        {
+            if (_ce is null) throw new BusinessRuleException("CE_VALIDACION_NO_DISPONIBLE", "No se pudo validar la solicitud del anticipo.");
+            await _ce.ExigirAnticipoVigenteAsync(anticipo.FacturaProveedorId, cancellationToken);
+        }
 
         // GI-PR3 (doc 12): los pasivos internos SÍ se pagan por este flujo,
         // pero emiten su propio evento (préstamo de viáticos → vuelta a
@@ -336,6 +342,7 @@ public sealed class RevertirPagoProveedorHandler
     private readonly IPeriodoContablePort _periodoContable;
     private readonly IIntegrationEventPublisher _publisher;
     private readonly IClock _clock;
+    private readonly Millet.Tesoreria.Domain.Ports.IPasivoComercioExteriorReadPort? _ce;
 
     public RevertirPagoProveedorHandler(
         TesoreriaDbContext db,
@@ -343,14 +350,21 @@ public sealed class RevertirPagoProveedorHandler
         ICurrentUserContext currentUser,
         IPeriodoContablePort periodoContable,
         IIntegrationEventPublisher publisher,
-        IClock clock)
+        IClock clock, Millet.Tesoreria.Domain.Ports.IPasivoComercioExteriorReadPort? ce = null)
     {
         _db = db; _currentEmpresa = currentEmpresa; _currentUser = currentUser;
-        _periodoContable = periodoContable; _publisher = publisher; _clock = clock;
+        _periodoContable = periodoContable; _publisher = publisher; _clock = clock; _ce = ce;
     }
 
-    public async Task<PagoProveedorResponse> Handle(
-        RevertirPagoProveedorCommand command, CancellationToken cancellationToken)
+    public async Task<PagoProveedorResponse> Handle(RevertirPagoProveedorCommand command, CancellationToken cancellationToken)
+    {
+        if (!_db.Database.IsRelational()) return await RevertirAsync(command, cancellationToken);
+        PagoProveedorResponse? resultado = null;
+        await Millet.SharedKernel.Infrastructure.Persistence.PostgresAdvisoryLock.ExecuteAsync(_db, 0x50335F5041474F,
+            async ct => resultado = await RevertirAsync(command, ct), cancellationToken);
+        return resultado!;
+    }
+    private async Task<PagoProveedorResponse> RevertirAsync(RevertirPagoProveedorCommand command, CancellationToken cancellationToken)
     {
         if (_currentEmpresa.Current is not Guid empresaId)
             throw new ForbiddenException("EMPRESA_NO_SELECCIONADA",
@@ -383,7 +397,11 @@ public sealed class RevertirPagoProveedorHandler
             throw new BusinessRuleException("PAGO_CUENTA_USAR_DESLIGAR", "Este es un pago a cuenta. Usa Desligar para corregir su aplicación sin registrar un ingreso bancario.");
 
         var pasivoCe = await _db.PasivosPendientesPago.FirstOrDefaultAsync(p => p.FacturaProveedorId == aplicacion.FacturaProveedorId, cancellationToken);
-        pasivoCe?.ExigirReversaSoportada();
+        if (pasivoCe?.OrigenTipo == "AnticipoAgente")
+        {
+            if (_ce is null) throw new BusinessRuleException("CE_REVERSA_NO_DISPONIBLE", "No se pudo validar la comprobación del anticipo.");
+            await _ce.ExigirSinComprobacionAsync(aplicacion.FacturaProveedorId, cancellationToken);
+        }
         // RN-10: marca + contramovimiento; nada se borra.
         aplicacion.Revertir(command.Motivo);
         var contramovimiento = movimiento.CrearContramovimiento(
@@ -453,19 +471,26 @@ public sealed class SolicitarCancelacionPasivoHandler : IRequestHandler<Solicita
     private readonly ICurrentUserContext _currentUser;
     private readonly IIntegrationEventPublisher _publisher;
     private readonly IClock _clock;
+    private readonly Millet.Tesoreria.Domain.Ports.IAnticipoCeCancelacionPort? _ce;
 
     public SolicitarCancelacionPasivoHandler(
         TesoreriaDbContext db,
         ICurrentEmpresaContext currentEmpresa,
         ICurrentUserContext currentUser,
         IIntegrationEventPublisher publisher,
-        IClock clock)
+        IClock clock, Millet.Tesoreria.Domain.Ports.IAnticipoCeCancelacionPort? ce = null)
     {
         _db = db; _currentEmpresa = currentEmpresa; _currentUser = currentUser;
-        _publisher = publisher; _clock = clock;
+        _publisher = publisher; _clock = clock; _ce = ce;
     }
 
     public async Task Handle(SolicitarCancelacionPasivoCommand command, CancellationToken cancellationToken)
+    {
+        if (!_db.Database.IsRelational()) { await CancelarAsync(command, cancellationToken); return; }
+        await Millet.SharedKernel.Infrastructure.Persistence.PostgresAdvisoryLock.ExecuteAsync(_db, 0x50335F5041474F,
+            ct => CancelarAsync(command, ct), cancellationToken);
+    }
+    private async Task CancelarAsync(SolicitarCancelacionPasivoCommand command, CancellationToken cancellationToken)
     {
         if (_currentEmpresa.Current is not Guid empresaId)
             throw new ForbiddenException("EMPRESA_NO_SELECCIONADA",
@@ -475,14 +500,20 @@ public sealed class SolicitarCancelacionPasivoHandler : IRequestHandler<Solicita
                 "No se pudo identificar al usuario solicitante.");
 
         var pasivo = await _db.PasivosPendientesPago
-            .AsNoTracking()
             .FirstOrDefaultAsync(p => p.FacturaProveedorId == command.FacturaProveedorId, cancellationToken);
         if (pasivo is null)
             throw new EntityNotFoundException("PASIVO_NO_ENCONTRADO",
                 $"El pasivo '{command.FacturaProveedorId}' no está en la bandeja.");
 
         if (pasivo.OrigenTipo == "AnticipoAgente")
-            throw new BusinessRuleException("CE_CANCELACION_NO_DEFINIDA", "La solicitud de anticipo se gestiona en Comercio Exterior; no se cancela como factura de proveedor.");
+        {
+            if (pasivo.MontoTotal != pasivo.SaldoPendiente || await _db.AplicacionesPagoProveedor.AnyAsync(a => a.FacturaProveedorId == pasivo.FacturaProveedorId && !a.Revertida, cancellationToken)) throw new BusinessRuleException("CE_ANTICIPO_PAGADO", "Revierta el pago antes de cancelar el anticipo.");
+            if (_ce is null) throw new BusinessRuleException("CE_CANCELACION_NO_DISPONIBLE", "No se pudo validar el anticipo.");
+            await _ce.CancelarAnticipoAsync(command.FacturaProveedorId, command.Motivo, cancellationToken);
+            pasivo.RetirarDePago(command.Motivo, _clock.UtcNow);
+            var firma = await _db.AutorizacionesPagoComercioExterior.SingleOrDefaultAsync(a => a.FacturaProveedorId == command.FacturaProveedorId, cancellationToken);
+            if (firma is not null) _db.AutorizacionesPagoComercioExterior.Remove(firma);
+        }
         // GI-PR2: la cancelación de un pasivo interno no viaja a CxP como
         // solicitud de factura — se resuelve en su módulo de origen.
         if (pasivo.EsInterno)

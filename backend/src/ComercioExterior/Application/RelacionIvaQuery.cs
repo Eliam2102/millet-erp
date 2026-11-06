@@ -13,7 +13,7 @@ namespace Millet.ComercioExterior.Application;
 public sealed record RelacionIvaQuery(int Anio, int Mes, Guid? SucursalId = null) : IRequest<RelacionIvaReporte>;
 public sealed record RelacionIvaFila(string Periodo, string Expediente, string Tipo, string? Oc, string? Pedimento,
     string? Clave, string? Bl, string? Contenedor, string? Cliente, string? Pedido, string? Factura, string? Uuid,
-    DateOnly? FechaEmbarque, string? EntradaAlmacen);
+    DateOnly? FechaEmbarque, string? EntradaAlmacen, string? AduanaEntrada = null);
 public sealed record ColumnaRelacionIva(string Clave, string Etiqueta, string Tipo = "texto");
 public sealed record RelacionIvaReporte(string Titulo, DateTimeOffset GeneradoEn, IReadOnlyDictionary<string, string?> FiltrosAplicados,
     IReadOnlyList<ColumnaRelacionIva> Columnas, IReadOnlyList<RelacionIvaFila> Filas);
@@ -46,7 +46,7 @@ public sealed class RelacionIvaHandler(ComercioExteriorDbContext db, ExpedienteS
                 if (!ocs.TryGetValue(oid, out var oc)) continue;
                 // PLATFORM-TODO(<CeRelacionEntradas>): Almacén aún no expone un puerto de entradas por OC.
                 filas.Add(new(periodo, e.Folio, "Importación", oc.Folio, e.PedimentoVigente(oc.InformacionImportacion?.NumeroPedimento),
-                    null, oc.InformacionImportacion?.NumeroBl, oc.InformacionImportacion?.NumeroContenedor, null, null, null, null, null, null));
+                    null, oc.InformacionImportacion?.NumeroBl, oc.InformacionImportacion?.NumeroContenedor, null, null, null, null, null, null, e.AduanaEntrada));
                 continue;
             }
             foreach (var c in e.Contenedores.Where(c => c.Estado == EstadoContenedor.Activo && c.FechaEmbarqueReal >= desde && c.FechaEmbarqueReal < hasta))
@@ -62,6 +62,6 @@ public sealed class RelacionIvaHandler(ComercioExteriorDbContext db, ExpedienteS
             [new("periodo", "Periodo"), new("expediente", "Expediente"), new("tipo", "Operación"), new("oc", "OC"),
                 new("pedimento", "Pedimento"), new("clave", "Clave"), new("bl", "BL o guía"), new("contenedor", "Contenedor"),
                 new("cliente", "Cliente"), new("pedido", "Pedido"), new("factura", "Factura"), new("uuid", "UUID"),
-                new("fechaEmbarque", "Fecha de embarque", "fecha"), new("entradaAlmacen", "Entrada de almacén")], filas);
+                new("fechaEmbarque", "Fecha de embarque", "fecha"), new("entradaAlmacen", "Entrada de almacén"), new("aduanaEntrada", "Aduana de entrada")], filas);
     }
 }

@@ -4,6 +4,7 @@ import { NuevoAnticipo, ResolverAnticipo } from './FinanzasPanel';
 import type { Anticipo, Gasto } from '../api/finanzas';
 import type { ExpedienteDetalle } from '../api/types';
 
+vi.mock('@/lib/auth/useHasPermission', () => ({ useHasPermission: () => true }));
 const mocks = vi.hoisted(() => ({ mutateAsync: vi.fn().mockResolvedValue({}) }));
 vi.mock('../api/finanzas', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../api/finanzas')>()),
