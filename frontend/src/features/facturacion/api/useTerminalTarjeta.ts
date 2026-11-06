@@ -155,6 +155,8 @@ export interface FacturaBancoTerminal {
   total: number;
   cargos: number;
   ligadaEn: string;
+  /** Cargos − (comisión + IVA del CFDI), a lo más $0.01; va a redondeo en la póliza. */
+  redondeo?: number;
 }
 
 const facturaKeys = {
@@ -194,7 +196,7 @@ export function useFacturasBancoTerminal() {
   });
 }
 
-/** Liga la factura del banco a los cargos del mes; el backend la rechaza si no cuadra al centavo. */
+/** Liga la factura del banco a los cargos del mes; el backend la rechaza si la diferencia pasa de $0.01. */
 export function useLigarFacturaBanco() {
   const queryClient = useQueryClient();
   return useMutation({
