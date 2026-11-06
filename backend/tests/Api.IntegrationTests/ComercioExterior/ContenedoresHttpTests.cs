@@ -148,7 +148,9 @@ public sealed class ContenedoresHttpTests
         var alta = await Enviar(c, HttpMethod.Post, $"{Base}/{ExpId}/contenedores", new { numero = "DEMO-FAC08-C1", blGuia = "DEMO-BL-FAC08" }, retirar.Headers.ETag!.Tag); alta.EnsureSuccessStatusCode();
         var cid = (await Body(alta)).GetProperty("contenedores").EnumerateArray().Single(x => x.GetProperty("numero").GetString() == "DEMO-FAC08-C1").GetProperty("id").GetGuid();
         var asignar = await Enviar(c, HttpMethod.Post, $"{Base}/{ExpId}/contenedores/{cid}/partidas", new { pedidoFacturableId = p1, posicion = 1, cantidad = 30 }, alta.Headers.ETag!.Tag); asignar.EnsureSuccessStatusCode();
-        var embarcar = await Enviar(c, HttpMethod.Post, $"{Base}/{ExpId}/contenedores/{cid}/embarcar", new { fecha = "2026-10-12" }, asignar.Headers.ETag!.Tag); embarcar.EnsureSuccessStatusCode();
+        // Desde #464 el embarque exige datos aduanales revisados y la salida autorizada por otra persona.
+        var autorizado = await PrepararSalidaAsync(e);
+        var embarcar = await Enviar(c, HttpMethod.Post, $"{Base}/{ExpId}/contenedores/{cid}/embarcar", new { fecha = "2026-10-12" }, autorizado); embarcar.EnsureSuccessStatusCode();
 
         // Sin salida, el pedido completo sigue bloqueado: solo se embarcó una parte.
         var completo = await Emitir(e, c, p1);
