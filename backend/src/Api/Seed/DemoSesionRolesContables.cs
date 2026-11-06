@@ -42,6 +42,9 @@ public sealed partial class DemoSesionSeedHostedService
         ("990.30.00.00", "DEMO Acreedores diversos", NaturalezaCuenta.Acreedora, CuentaControl.Ninguna, ["ACREEDORES_DIVERSOS"]),
     ];
 
+    /// <summary>Códigos de las cuentas que declara este sembrador; la prueba del seed cuenta contra esta lista.</summary>
+    public static IReadOnlyList<string> CodigosCuentasRolesDemo => [.. CuentasRolesDemo.Select(c => c.Codigo)];
+
     private static async Task SembrarRolesContablesAsync(IServiceProvider sp, CancellationToken ct)
     {
         var db = sp.GetRequiredService<ContabilidadDbContext>();
