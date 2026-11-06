@@ -15,8 +15,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { facturacionKeys } from '@/features/facturacion/api/keys';
-import { ComportamientoFiscal } from '@/features/facturacion/api/types';
+import { ComportamientoFiscal, OrigenSalidaFacturable } from '@/features/facturacion/api/types';
 import {
+  useEmbarqueCeSalida,
   usePedido,
   usePedidoComprobantes,
   usePedidoSalidas,
@@ -125,6 +126,12 @@ function Contenido({
   // FAC-08: un pedido con salidas parciales se factura por salida, no completo.
   const salidas = usePedidoSalidas(p.id, puedeLeerFacturas);
   const haySalidas = (salidas.data?.salidas.length ?? 0) > 0;
+  // FAC-08 Fase 1: la factura de la salida de un contenedor usa la compuerta de ese contenedor.
+  const salidaContenedorId =
+    salidaEnEmision?.origen === OrigenSalidaFacturable.ContenedorExportacion ? salidaEnEmision.id : null;
+  const embarqueSalida = useEmbarqueCeSalida(p.id, salidaContenedorId);
+  const embarqueCeEmision =
+    salidaContenedorId != null && embarqueSalida.isSuccess ? embarqueSalida.data : p.embarqueCe;
   // U1.8a: proforma sin valor fiscal (no consume folio) antes de timbrar.
   const ultimaProforma = useUltimaProforma(p.id, puedeLeerFacturas);
   const generarProforma = useGenerarProforma();
@@ -193,6 +200,15 @@ function Contenido({
         })
     : p.lineas.map((l) => ({ l, cantidad: l.cantidad, descuento: l.descuento }));
 
+  if (modoEmision && salidaContenedorId != null && embarqueSalida.isPending) {
+    return (
+      <div className="space-y-3" aria-busy="true">
+        <div className="h-9 w-72 animate-pulse rounded bg-surface-muted" />
+        <div className="h-64 w-full animate-pulse rounded bg-surface-muted" />
+      </div>
+    );
+  }
+
   if (modoEmision) {
     return (
       <div className="space-y-5">
@@ -214,7 +230,7 @@ function Contenido({
             pedidoFacturableId: p.id,
             salidaFacturableId: salidaEnEmision?.id ?? null,
             numeroParcialidad: salidaEnEmision?.numeroParcialidad ?? null,
-            embarqueCe: p.embarqueCe,
+            embarqueCe: embarqueCeEmision,
             // F6.1: clase del pedido manual (serie de Venta directa, activo).
             origen: p.origen,
             claseManual: p.claseManual ?? null,

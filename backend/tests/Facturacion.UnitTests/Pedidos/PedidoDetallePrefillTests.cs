@@ -1,3 +1,4 @@
+using Millet.ComercioExterior.Application.PublicPorts;
 using Microsoft.EntityFrameworkCore;
 using Millet.Facturacion.Application.Pedidos.Queries;
 using Millet.Facturacion.Domain.Facturas;
@@ -129,5 +130,45 @@ public sealed class PedidoDetallePrefillTests
         linea.ClaveProdServSat.Should().BeNull();
         linea.ObjetoImp.Should().BeNull();
         linea.TasaIvaTraslado.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Detalle_con_la_salida_de_un_contenedor_pide_el_embarque_de_ese_contenedor()
+    {
+        // FAC-08 Fase 1 (H1 de QA): la pantalla de la factura de la salida usa la compuerta del contenedor,
+        // no la del 100 % del pedido.
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var pedido = await SembrarPedidoAsync(db, empresaId, Guid.NewGuid(), productoId: null);
+        var contenedorId = Guid.NewGuid();
+        var salida = SalidaFacturable.Registrar(pedido, [], OrigenSalidaFacturable.ContenedorExportacion,
+            "QA-C1-0001", [(1, 1m)], DateTimeOffset.UtcNow, contenedorId);
+        db.SalidasFacturables.Add(salida);
+        await db.SaveChangesAsync();
+        var embarques = new EmbarquesQueRegistran();
+        var handler = new PedidoFacturableDetalleHandler(db, new FakeClientesReadPort(), new FakeProductosReadPort(),
+            new FakeCanalesVentaReadPort(), new FakeAlcanceCajaEvaluator(), new FakeCurrentUserPermissions(), embarques);
+
+        var conSalida = await handler.Handle(new PedidoFacturableDetalleQuery(pedido.Id, salida.Id), CancellationToken.None);
+        var sinSalida = await handler.Handle(new PedidoFacturableDetalleQuery(pedido.Id), CancellationToken.None);
+        var salidaAjena = await handler.Handle(new PedidoFacturableDetalleQuery(pedido.Id, Guid.NewGuid()), CancellationToken.None);
+
+        conSalida.EmbarqueCe!.ListoParaFacturar.Should().BeTrue();
+        sinSalida.EmbarqueCe!.ListoParaFacturar.Should().BeFalse();
+        salidaAjena.EmbarqueCe!.ListoParaFacturar.Should().BeFalse();
+        embarques.Contenedores.Should().Equal(contenedorId, null, null);
+    }
+
+    /// <summary>Contenedor embarcado al 50 % del pedido: listo con ese contenedor, bloqueado para el pedido completo.</summary>
+    private sealed class EmbarquesQueRegistran : IEmbarqueExportacionReadPort
+    {
+        public List<Guid?> Contenedores { get; } = [];
+
+        public Task<EmbarqueExportacionLectura> ObtenerAsync(Guid pedidoFacturableId, Guid? contenedorId, CancellationToken ct)
+        {
+            Contenedores.Add(contenedorId);
+            return Task.FromResult(new EmbarqueExportacionLectura(true, ListoParaFacturar: contenedorId is not null,
+                CodigoBloqueo: contenedorId is null ? "FAC_PEDIDO_NO_EMBARCADO" : null));
+        }
     }
 }

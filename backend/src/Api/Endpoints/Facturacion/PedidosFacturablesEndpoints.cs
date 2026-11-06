@@ -64,11 +64,12 @@ public static class PedidosFacturablesEndpoints
         // GET: detalle del pedido con líneas + versión (ETag para If-Match). B1.
         group.MapGet("/{id:guid}", async (
             Guid id,
+            Guid? salidaId,
             IMediator mediator,
             HttpResponse response,
             CancellationToken cancellationToken) =>
         {
-            var detalle = await mediator.Send(new PedidoFacturableDetalleQuery(id), cancellationToken);
+            var detalle = await mediator.Send(new PedidoFacturableDetalleQuery(id, salidaId), cancellationToken);
             response.Headers.ETag = $"\"{detalle.Version.ToString(CultureInfo.InvariantCulture)}\"";
             return Results.Ok(detalle);
         })

@@ -785,6 +785,46 @@ describe('<DetallePedido> — proforma (U1.8a)', () => {
       ]);
     });
 
+    it('FAC-08 Fase 1: la salida de un contenedor con el pedido al 50 % usa la compuerta de ese contenedor', async () => {
+      setPermisos(permisosCompletos);
+      const embarque = (listo: boolean, contenedores: string[]) => ({
+        ligado: true, expedienteId: 'e-1', sucursalId: null, listoParaFacturar: listo,
+        codigoBloqueo: listo ? null : 'FAC_PEDIDO_NO_EMBARCADO',
+        motivo: listo ? null : 'Falta embarcar el 100 % del pedido: posición 1: embarcado 1 de 2 H87',
+        folioExpediente: 'CE-EXP-1', numeroPedimento: '26 47 3000 6000001', clavePedimento: 'A1',
+        fechaPedimento: '2026-11-05', incoterm: 'FOB',
+        contenedores: contenedores.map((numero) => ({ id: numero, numero, blGuia: 'BL', fechaEmbarqueReal: '2026-11-06' })),
+      });
+      const salidasPedidas: Array<string | null> = [];
+      prepararPedido(
+        [{ id: 's-1', numeroParcialidad: 1, cantidad: 1, importe: 100, origen: 2, referencia: 'QA-C1-0001' }],
+        1,
+        0,
+      );
+      mswServer.use(
+        http.get('*/api/v1/facturacion/pedidos-facturables/p-1', ({ request }) => {
+          const salidaId = new URL(request.url).searchParams.get('salidaId');
+          salidasPedidas.push(salidaId);
+          return HttpResponse.json({
+            ...pedido('Importado'),
+            // Pedido al 50 %: completo, bloqueado; con la salida, solo su contenedor y listo.
+            embarqueCe: salidaId === 's-1' ? embarque(true, ['QA-C1-0001']) : embarque(false, ['QA-C1-0001']),
+          });
+        }),
+      );
+      render(<DetallePedido />, { wrapper: createQueryWrapper() });
+      fireEvent.click(await screen.findByRole('button', { name: 'Facturar la parcialidad 1' }));
+      expect(await screen.findByTestId('emitir-factura-form')).toBeInTheDocument();
+      const prefill = prefillSpy.mock.calls.at(-1)?.[0] as {
+        salidaFacturableId: string;
+        embarqueCe: { listoParaFacturar: boolean; contenedores: Array<{ numero: string }> };
+      };
+      expect(prefill.salidaFacturableId).toBe('s-1');
+      expect(prefill.embarqueCe.listoParaFacturar).toBe(true);
+      expect(prefill.embarqueCe.contenedores.map((c) => c.numero)).toEqual(['QA-C1-0001']);
+      expect(salidasPedidas).toContain('s-1');
+    });
+
     it('registra una salida con la cantidad capturada y llave de idempotencia', async () => {
       setPermisos(permisosCompletos);
       prepararPedido([], 0, 0);
