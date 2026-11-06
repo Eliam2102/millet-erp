@@ -103,19 +103,31 @@ public sealed class LiquidacionIvaHandlers(ContabilidadDbContext db, ICumplimien
         var fecha = Mes(c.Anio, c.Mes).Hasta;
         var roles = await db.RolesCuenta.AsNoTracking().Where(x => x.DeletedAt == null).ToListAsync(ct);
         var partidas = new List<PartidaRequest>();
-        void Agregar(string rol, string concepto, decimal cargo, decimal abono)
+        Guid? CuentaDe(string rol) => roles.Where(x => x.Codigo == rol && (x.SucursalId is null || x.SucursalId == c.SucursalId)
+                && x.Moneda is null && x.VigenteEn(fecha) && x.CuentaId is not null)
+            .OrderByDescending(x => x.SucursalId is null ? 0 : 1).ThenByDescending(x => x.VigenteDesde).Select(x => x.CuentaId).FirstOrDefault();
+        void Agregar(string rol, string concepto, decimal cargo, decimal abono, string? clasificador = null)
         {
             if (cargo == 0m && abono == 0m) return;
-            var cuenta = roles.Where(x => x.Codigo == rol && (x.SucursalId is null || x.SucursalId == c.SucursalId)
-                    && x.Moneda is null && x.VigenteEn(fecha) && x.CuentaId is not null)
-                .OrderByDescending(x => x.SucursalId is null ? 0 : 1).ThenByDescending(x => x.VigenteDesde).Select(x => x.CuentaId).FirstOrDefault()
+            // 86e3zcbjw: la retención de cada concepto sale de la cuenta a la que la cargó la factura ({rol}_{concepto}); si no, del rol base.
+            var cuenta = (clasificador is null ? null : CuentaDe($"{rol}_{clasificador}")) ?? CuentaDe(rol)
                 ?? throw new BusinessRuleException("CONTAB_IVA_ROL_SIN_CUENTA",
                     $"El rol {rol} no tiene cuenta asignada: Contabilidad debe mapearlo en Roles de cuenta.");
             partidas.Add(new PartidaRequest(cuenta, concepto, cargo, abono, c.SucursalId));
         }
         Agregar(RolTrasladadoCobrado, "IVA trasladado cobrado del mes", r.IvaTrasladadoCobrado, 0m);
         Agregar(RolAcreditablePagado, "IVA acreditable pagado del mes", 0m, r.IvaAcreditablePagado);
-        Agregar(RolRetencionesClientes, "IVA retenido por clientes del mes", 0m, r.IvaRetenidoPorClientes);
+        var porConcepto = await RetencionesClientesPorConceptoAsync(c.Anio, c.Mes, ct);
+        // Centavos de redondeo entre el total y la suma por concepto: al concepto mayor, para no exigir cuenta al rol base por ellos.
+        var resto = r.IvaRetenidoPorClientes - porConcepto.Sum(x => x.Importe);
+        if (porConcepto.Count > 0 && resto != 0m && Math.Abs(resto) <= 0.05m)
+        {
+            var mayor = porConcepto.IndexOf(porConcepto.MaxBy(x => x.Importe));
+            porConcepto[mayor] = (porConcepto[mayor].Clasificador, porConcepto[mayor].Importe + resto);
+        }
+        foreach (var (clasificador, importe) in porConcepto)
+            Agregar(RolRetencionesClientes, $"IVA retenido por clientes del mes ({clasificador})", 0m, importe, clasificador);
+        Agregar(RolRetencionesClientes, "IVA retenido por clientes del mes", 0m, r.IvaRetenidoPorClientes - porConcepto.Sum(x => x.Importe));
         Agregar(RolPorPagar, "IVA a cargo del mes", 0m, r.IvaACargo);
         Agregar(RolAFavor, "IVA a favor del mes", r.IvaAFavor, 0m);
         if (partidas.Count < 2)
@@ -126,6 +138,19 @@ public sealed class LiquidacionIvaHandlers(ContabilidadDbContext db, ICumplimien
             throw new BusinessRuleException("CONTAB_IVA_TIPO_POLIZA", $"No existe el tipo de póliza {ClaveTipoPoliza} (asiento contable).");
         return await mediator.Send(new CrearPolizaCommand(new PolizaManualRequest(tipo, fecha, $"Liquidación de IVA {c.Mes:D2}/{c.Anio}",
             partidas, DocumentoOrigen: new DocumentoOrigenRequest(DocLiquidacion.Modulo, DocLiquidacion.Tipo, Guid.CreateVersion7(), folio, null))), ct);
+    }
+
+    /// <summary>86e3zcbjw: IVA retenido por clientes en los cobros del mes, por concepto (en MXN, como quedó en cada cobro).</summary>
+    private async Task<List<(string Clasificador, decimal Importe)>> RetencionesClientesPorConceptoAsync(int anio, int mes, CancellationToken ct)
+    {
+        var (desde, hasta) = Mes(anio, mes);
+        var movimientos = await db.ReclasificacionesIva.AsNoTracking()
+            .Where(r => r.Tipo == TipoMovimientoIva.Pago && r.AnuladaEn == null && r.Fecha >= desde && r.Fecha <= hasta)
+            .Join(db.SaldosIvaDocumento.AsNoTracking().Where(s => s.Lado == LadoIva.Trasladado), r => r.SaldoIvaDocumentoId, s => s.Id, (r, s) => r)
+            .ToListAsync(ct);
+        return [.. movimientos.SelectMany(r => r.Retenciones)
+            .Where(x => RetencionSaldoIva.ImpuestoDe(x.Clasificador) == "IVA" && x.Clasificador != "IVA")
+            .GroupBy(x => x.Clasificador).Select(g => (g.Key, g.Sum(x => x.ImporteMxn))).Where(x => x.Item2 != 0m).OrderBy(x => x.Key)];
     }
 
     /// <summary>

@@ -69,6 +69,8 @@ public sealed partial class ListenersContabilidadTests(WebApplicationFactory<Pro
         ("IVA_POR_PAGAR", "2.7", "Acreedora", "Ninguna"),
         ("IVA_A_FAVOR", "1.01", "Deudora", "Ninguna"),
         ("RETENCIONES_CLIENTES", "1.02", "Deudora", "Ninguna"),
+        // 86e3zcbjw: retención por concepto (la de fletes a proveedores se abona al pagar).
+        ("RETENCIONES_POR_PAGAR_FLETES_IVA", "2.8", "Acreedora", "Ninguna"),
     ];
 
     private sealed record Escenario(string Suf, HttpClient Admin, Guid Sucursal, Guid Proveedor, Guid[] Clientes, Guid CentroCosto,
