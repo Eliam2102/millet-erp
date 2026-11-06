@@ -13,8 +13,9 @@ using static Millet.Api.IntegrationTests.Almacen.RecepcionPorMedidaTests;
 namespace Millet.Api.IntegrationTests.Almacen;
 
 /// <summary>
-/// 86e3tfet2 con Postgres real y los triggers del ledger: lo que no es vidrio y ya tiene existencia en la ÚNICA ("almacén general") del sub-almacén entra sin
-/// asignación artículo→ubicación (un artículo nuevo exige rack, G-9); el vidrio sigue exigiendo rack; una recepción no cruza sub-almacenes; cancelar regresa la ÚNICA a 0 y
+/// Acuerdo 28-oct con Postgres real y los triggers del ledger: consumibles y refacciones sin A+W,
+/// nuevos o con existencia previa, entran a la ÚNICA ("almacén general") sin asignación.
+/// El rack asignado sigue admitiendo entradas; el vidrio sigue exigiendo rack; cancelar regresa la ÚNICA a 0 y
 /// crear un sub-almacén crea su ÚNICA. Reusa el fixture aislado de ALM-04.
 /// </summary>
 [Collection(ApiCompartida.Nombre)]
@@ -40,10 +41,6 @@ public class RecepcionAlmacenGeneralTests(WebApplicationFactory<Program> factory
             await db.Database.ExecuteSqlInterpolatedAsync($@"
                 INSERT INTO almacen.ubicaciones (id, sub_almacen_id, clave, nombre, estatus, es_default, version, created_at, updated_at)
                 VALUES ({unicaId}, {ctx.SubDisponibleId}, 'ÚNICA', 'Almacén general', 0, true, 0, NOW(), NOW())");
-            // G-9: la ÚNICA solo recibe artículos con existencia previa ahí (histórico); el artículo "otro" lo tiene.
-            await db.Database.ExecuteSqlInterpolatedAsync($@"
-                INSERT INTO almacen.saldos_inventario (ubicacion_id, sub_almacen_id, articulo_id, cantidad, costo_promedio_mxn, ultima_actualizacion_at)
-                VALUES ({unicaId}, {ctx.SubDisponibleId}, {otroArticulo}, 0, 0, NOW())");
             IReadOnlyList<OcLineaLectura> lineasOc =
             [
                 new(ctx.LineaOcId, ctx.ArticuloId, "M2", 178.6080m, 0m, 180m, ProductoAwVarianteId: VarA, AnchoMm: 2440m, AltoMm: 3660m),
@@ -105,14 +102,32 @@ public class RecepcionAlmacenGeneralTests(WebApplicationFactory<Program> factory
     }
 
     [Fact]
-    public async Task Articulo_nuevo_sin_existencia_previa_no_entra_a_la_unica()
+    public async Task Articulo_nuevo_sin_aw_y_sin_existencia_previa_entra_a_la_unica_sin_asignacion()
     {
         await EjecutarAsync(async (db, ctx, unica, otro, lineasOc) =>
         {
-            await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM almacen.saldos_inventario WHERE ubicacion_id = {unica} AND articulo_id = {otro}");
+            (await db.SaldosInventario.AnyAsync(s => s.UbicacionId == unica && s.ArticuloId == otro)).Should().BeFalse();
+            (await db.AsignacionesArticuloUbicacion.AnyAsync(a => a.ArticuloId == otro)).Should().BeFalse();
 
-            var aUnica = () => Recibir(db, ctx, ctx.ArticuloId, lineasOc, NoVidrio(otro, unica));
-            (await aUnica.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("ENTRADA_SIN_UBICACION_REAL");
+            await Recibir(db, ctx, ctx.ArticuloId, lineasOc, NoVidrio(otro, unica));
+
+            (await LeerSaldoAsync(db, unica, otro)).Should().Be(10m);
+            (await db.AsignacionesArticuloUbicacion.AnyAsync(a => a.ArticuloId == otro)).Should().BeFalse();
+        });
+    }
+
+    [Fact]
+    public async Task Articulo_sin_aw_con_rack_asignado_entra_a_su_rack()
+    {
+        await EjecutarAsync(async (db, ctx, unica, otro, lineasOc) =>
+        {
+            db.AsignacionesArticuloUbicacion.Add(new AsignacionArticuloUbicacion(Guid.NewGuid(), ctx.RackId, otro));
+            await db.SaveChangesAsync();
+
+            await Recibir(db, ctx, ctx.ArticuloId, lineasOc, NoVidrio(otro, ctx.RackId));
+
+            (await LeerSaldoAsync(db, ctx.RackId, otro)).Should().Be(10m);
+            (await db.SaldosInventario.AnyAsync(s => s.UbicacionId == unica && s.ArticuloId == otro)).Should().BeFalse();
         });
     }
 

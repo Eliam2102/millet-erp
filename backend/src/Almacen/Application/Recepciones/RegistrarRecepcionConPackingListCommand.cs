@@ -240,8 +240,8 @@ public sealed class RegistrarRecepcionConPackingListHandler
                     EsActivoFijo: true, ClaseActivoId: afOrigen.ClaseActivoId, CentroCostoId: afOrigen.CentroCostoId));
                 continue;
             }
-            // C7.2b: bin real obligatorio + asignación activa + no ÚNICA. Sin
-            // sub de cabecera: el guard DERIVA el sub del bin y lo retorna.
+            // Ubicación obligatoria: sin A+W admite almacén general; un rack exige asignación.
+            // Sin sub de cabecera: el guard deriva el sub de la ubicación y lo retorna.
             if (input.UbicacionId is null || input.UbicacionId == Guid.Empty)
                 throw new BusinessRuleException("RECEPCION_UBICACION_REQUERIDA", "La línea de inventario requiere ubicación (rack o almacén general).");
             var subLinea = await UbicacionEntradaGuard.ValidarEntradaYDerivarSubAsync(
