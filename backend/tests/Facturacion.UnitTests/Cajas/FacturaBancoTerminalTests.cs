@@ -62,6 +62,66 @@ public sealed class FacturaBancoTerminalTests
         _eventos.Publicados.Should().BeEmpty();
     }
 
+    [Theory]
+    [InlineData(6_000.01, 960, 6_960.01, -0.01)] // la factura trae un centavo más que los cargos (a favor del banco)
+    [InlineData(5_999.99, 960, 6_959.99, 0.01)]  // un centavo menos (en contra)
+    [InlineData(6_000, 960.01, 6_960.01, -0.01)] // el centavo en el IVA
+    public async Task C1_86e3zcbjx_con_un_centavo_de_diferencia_cuadra_liga_y_el_evento_lleva_el_redondeo(
+        double subtotal, double iva, double total, double redondeo)
+    {
+        using var db = NewDb();
+        await SembrarCargosAsync(db, 2026, 10, 30);
+        var cfdi = _cfdis.Agregar((decimal)subtotal, (decimal)iva, (decimal)total);
+
+        var cuadre = await Handler(db).Handle(new CuadreFacturaBancoQuery(2026, 10, cfdi.Id), default);
+        cuadre.Cuadra.Should().BeTrue();
+        var r = await Handler(db).Handle(new LigarFacturaBancoTerminalCommand(2026, 10, cfdi.Id), default);
+
+        r.Total.Should().Be(6_960m, "la factura guarda lo que el banco cargó");
+        r.Redondeo.Should().Be((decimal)redondeo);
+        var f = await db.FacturasBancoTerminal.SingleAsync();
+        f.ComisionFactura.Should().Be((decimal)subtotal);
+        f.IvaFactura.Should().Be((decimal)iva);
+        var evento = _eventos.Publicados.OfType<TerminalFacturaBancoLigadaIntegrationEvent>().Single();
+        evento.ComisionFactura.Should().Be((decimal)subtotal);
+        evento.IvaFactura.Should().Be((decimal)iva);
+        evento.Redondeo.Should().Be((decimal)redondeo);
+        (evento.ComisionFactura + evento.IvaFactura + evento.Redondeo).Should().Be(evento.Total, "la póliza cuadra contra lo que salió del banco");
+    }
+
+    [Theory]
+    [InlineData(6_000.02, 960, 6_960.02)]
+    [InlineData(5_999.98, 960, 6_959.98)]
+    [InlineData(6_000.01, 960.01, 6_960.02)] // un centavo en cada uno: el total ya pasa de la tolerancia
+    public async Task C1_86e3zcbjx_con_dos_centavos_no_cuadra_y_no_liga(double subtotal, double iva, double total)
+    {
+        using var db = NewDb();
+        await SembrarCargosAsync(db, 2026, 10, 30);
+        var cfdi = _cfdis.Agregar((decimal)subtotal, (decimal)iva, (decimal)total);
+
+        (await Handler(db).Handle(new CuadreFacturaBancoQuery(2026, 10, cfdi.Id), default)).Cuadra.Should().BeFalse();
+        var ligar = () => Handler(db).Handle(new LigarFacturaBancoTerminalCommand(2026, 10, cfdi.Id), default);
+        (await ligar.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "TERMINAL_FACTURA_NO_CUADRA"))
+            .Which.Message.Should().Contain("0.01");
+        (await db.FacturasBancoTerminal.AnyAsync()).Should().BeFalse();
+        _eventos.Publicados.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task C2_86e3zcbjx_el_evento_lleva_la_sucursal_con_mas_comision_del_mes()
+    {
+        using var db = NewDb();
+        var chica = Guid.NewGuid();
+        var grande = Guid.NewGuid();
+        await SembrarCargosAsync(db, 2026, 10, 2, prefijo: "A", sucursal: chica);
+        await SembrarCargosAsync(db, 2026, 10, 3, prefijo: "B", sucursal: grande);
+        var cfdi = _cfdis.Agregar(1_000m, 160m, 1_160m);
+
+        await Handler(db).Handle(new LigarFacturaBancoTerminalCommand(2026, 10, cfdi.Id), default);
+
+        _eventos.Publicados.OfType<TerminalFacturaBancoLigadaIntegrationEvent>().Single().SucursalId.Should().Be(grande);
+    }
+
     [Fact]
     public async Task El_total_cuadra_pero_el_iva_no_entonces_no_liga()
     {
@@ -123,7 +183,8 @@ public sealed class FacturaBancoTerminalTests
             new FakeEmpresaContext(Empresa));
 
     /// <summary>Un cargo diario (liquidación de una venta de 10,000: comisión 200, IVA 32, neto 9,768) por día.</summary>
-    private static async Task SembrarCargosAsync(FacturacionDbContext db, int anio, int mes, int dias, string prefijo = "OCT")
+    private static async Task SembrarCargosAsync(FacturacionDbContext db, int anio, int mes, int dias, string prefijo = "OCT",
+        Guid? sucursal = null)
     {
         var carga = CargaTerminal.Iniciar(Empresa, "prueba.xls", $"HUELLA-{prefijo}", new DateOnly(anio, mes, 1), Guid.NewGuid(), Ahora);
         db.CargasTerminal.Add(carga);
@@ -132,7 +193,7 @@ public sealed class FacturaBancoTerminalTests
             var t = TransaccionTerminal.Registrar(Empresa, carga.Id, new RenglonTerminal(
                 $"{prefijo}-{d:00}", new DateTime(anio, mes, d, 12, 0, 0), 10_000m, "MXN", "4321", $"{d:000000}", "Aprobada", true,
                 200m, 32m, 9_768m, $"LIQ-{prefijo}-{d:00}"));
-            t.Emparejar(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+            t.Emparejar(Guid.NewGuid(), Guid.NewGuid(), sucursal ?? Guid.NewGuid());
             db.TransaccionesTerminal.Add(t);
             db.LiquidacionesTerminal.Add(LiquidacionTerminal.Crear(Empresa, carga.Id, t.FolioLiquidacion!, new DateOnly(anio, mes, d), [t]));
         }
