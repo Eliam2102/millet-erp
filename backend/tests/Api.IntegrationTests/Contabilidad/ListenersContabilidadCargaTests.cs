@@ -108,8 +108,9 @@ public sealed partial class ListenersContabilidadTests
         await Tesoreria(new PagoFacturaProveedorAplicadoIntegrationEvent(EmpresaBootstrapId, Ahora, factura, Guid.NewGuid(), 1_160m, "MXN", Hoy(),
             "Transferencia", "REF-CARGA"));
 
-        await Facturacion(FacturaVenta(e, Guid.NewGuid(), cliente));
-        await Facturacion(Cobro(e, Guid.NewGuid(), cliente, ("04", 2_320m)));
+        var venta = Guid.NewGuid();
+        await Facturacion(FacturaVenta(e, venta, cliente));
+        await Facturacion(CobroDe(e, Guid.NewGuid(), cliente, venta, ("04", 2_320m)));
 
         var sesion = Guid.NewGuid();
         await Facturacion(Cobro(e, sesion, cliente, ("01", 500m)));

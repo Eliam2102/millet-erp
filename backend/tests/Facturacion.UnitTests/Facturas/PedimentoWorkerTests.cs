@@ -60,7 +60,6 @@ public sealed class PedimentoWorkerTests
         services.AddSingleton<ISalidasPedimentosReader>(new FakeReader(
             new PedimentoSalida(facturaId, "15  47  3001  0001234", new DateOnly(2026, 5, 20), "ID-1")));
         services.AddSingleton<Millet.SharedKernel.Application.IIntegrationEventPublisher>(new Millet.Facturacion.UnitTests.TestDoubles.FakeIntegrationEventPublisher());
-        services.AddScoped<Millet.Facturacion.Domain.Ports.IContabilidadAsientoPort>(_ => new Millet.Facturacion.UnitTests.TestDoubles.FakeContabilidadAsientoPort());
         services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(
             typeof(Millet.Facturacion.Application.AssemblyMarker).Assembly));
         services.AddOptions<PedimentoSalidasOptions>();

@@ -60,6 +60,7 @@ public static class DependencyInjection
         services.AddScoped<IReversaPolizaContablePort, PolizaContableAdapter>();
         // C1.5: entrada única de los listeners (anulaciones, caja, consumo) y datos que el motor completa desde pólizas previas.
         services.AddScoped<Millet.Contabilidad.Application.Motor.ProcesadorEventosContables>();
+        services.AddScoped<Millet.Contabilidad.Application.Motor.ControlIvaDocumentos>();
         services.AddScoped<Millet.Contabilidad.Application.Motor.IEnriquecedorEventoContable, Millet.Contabilidad.Application.Motor.EnriquecedorPolizasOrigen>();
         // CXC-06: ajuste autorizado del cobro corto (#12); el puerto lo implementa CxC.
         services.AddScoped<Millet.Contabilidad.Application.Motor.IEnriquecedorEventoContable, Millet.Contabilidad.Application.Motor.EnriquecedorAjusteCobro>();

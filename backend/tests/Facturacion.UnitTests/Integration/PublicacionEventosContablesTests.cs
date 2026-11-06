@@ -69,8 +69,7 @@ public sealed class PublicacionEventosContablesTests
 
     private ReintentarTimbradoHandler Reintentar(FacturacionDbContext db) => new(db,
         new FakeSender(new ReservarFolioResponse("NC-U16", 2, "")), new FakePeriodoContablePort(), _pac,
-        new FakeCfdiRepositorioPort(), _eventos, new FakeContabilidadAsientoPort(),
-        new FakeClock(Ahora.AddDays(1)), ReceptorFiscalTestFactory.Crear(db), Productos());
+        new FakeCfdiRepositorioPort(), _eventos, new FakeClock(Ahora.AddDays(1)), ReceptorFiscalTestFactory.Crear(db), Productos());
 
     private EmitirFacturaVentaCommand Venta(Guid? pedidoId = null) => new(
         _sucursal, Receptor.Rfc, Receptor.Nombre, "601", "97000", "G03", "MEX", Emisor.Rfc, "601",
@@ -82,7 +81,7 @@ public sealed class PublicacionEventosContablesTests
         new(db, new FakeSender(new ReservarFolioResponse("F-U16", 1, "")), new FakePeriodoContablePort(),
             catalogos, _pac, new FakeCfdiRepositorioPort(),
             new FakeEmpresaFiscalReadPort(new EmpresaFiscalLectura(_empresa, Emisor.Rfc, "Millet", "601", 0.16m, "76120")),
-            _eventos, new FakeContabilidadAsientoPort(), new FakeEmpresaContext(_empresa),
+            _eventos, new FakeEmpresaContext(_empresa),
             new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db), Productos());
 
     [Fact]

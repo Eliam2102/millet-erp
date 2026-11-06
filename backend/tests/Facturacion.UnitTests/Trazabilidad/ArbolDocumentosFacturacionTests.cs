@@ -79,7 +79,7 @@ public sealed class ArbolDocumentosFacturacionTests
         FacturacionDbContext db, Guid empresaId, ISender sender, ICfdiTimbradoPort fiscal) =>
         new(db, sender, new FakePeriodoContablePort(), new FakeCatalogosSatReadPort(), fiscal,
             new FakeCfdiRepositorioPort(), EmpresasFiscal(empresaId), new FakeIntegrationEventPublisher(),
-            new FakeContabilidadAsientoPort(), new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
+            new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
 
     private static EmitirFacturaAnticipoCommand AnticipoCommand(decimal montoBase = 1000m) => new(
         Guid.NewGuid(), Guid.NewGuid(), RfcCliente, "Cliente Maquila", "601", "97000", "G03", "MEX",

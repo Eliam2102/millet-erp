@@ -90,13 +90,13 @@ public sealed class NcPendienteTimbrarTests
         new(db, new FakeSenderFoliosUnicos(), new FakePeriodoContablePort(),
             new FakeCatalogosSatReadPort(), fiscal, new FakeCfdiRepositorioPort(),
             new FakeEmpresaFiscalReadPort(new EmpresaFiscalLectura(empresaId, "MIL010101AAA", "Millet", "601", 0.16m, "76120")),
-            eventos, new FakeContabilidadAsientoPort(),
+            eventos,
             new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
 
     private static ReintentarTimbradoHandler ReintentoHandler(FacturacionDbContext db, ICfdiTimbradoPort fiscal,
         FakeIntegrationEventPublisher eventos) =>
         new(db, new FakeSenderFoliosUnicos(), new FakePeriodoContablePort(true), fiscal, new FakeCfdiRepositorioPort(), eventos,
-            new FakeContabilidadAsientoPort(), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
+            new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
 
     private static EmitirFacturaVentaCommand Command(Guid pedidoId) => new(
         Guid.NewGuid(), "AAA010101AAA", "Cliente FIX", "601", "97000", "G03", "MEX",

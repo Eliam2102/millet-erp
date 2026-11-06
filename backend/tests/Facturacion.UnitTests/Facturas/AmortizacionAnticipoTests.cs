@@ -97,7 +97,7 @@ public sealed class AmortizacionAnticipoTests
     private static EmitirFacturaVentaHandler FacturaHandler(FacturacionDbContext db, Guid empresaId, ISender sender, ICfdiTimbradoPort fiscal,
         FakeIntegrationEventPublisher? eventos = null) =>
         new(db, sender, new FakePeriodoContablePort(), new FakeCatalogosSatReadPort(), fiscal,
-            new FakeCfdiRepositorioPort(), EmpresasFiscal(empresaId), eventos ?? new FakeIntegrationEventPublisher(), new FakeContabilidadAsientoPort(), new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
+            new FakeCfdiRepositorioPort(), EmpresasFiscal(empresaId), eventos ?? new FakeIntegrationEventPublisher(), new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
 
     private static EmitirFacturaAnticipoCommand AnticipoCommand(decimal montoBase = 1000m) => new(
         Guid.NewGuid(), Guid.NewGuid(), RfcCliente, "Cliente Maquila", "601", "97000", "G03", "MEX",
@@ -251,7 +251,7 @@ public sealed class AmortizacionAnticipoTests
         // Reintento desde la bandeja: la NC timbra y entonces sí amortiza el anticipo.
         var reintento = new Millet.Facturacion.Application.Timbrado.ReintentarTimbrado.ReintentarTimbradoHandler(
             db, sender, new FakePeriodoContablePort(true), fiscal, new FakeCfdiRepositorioPort(), new FakeIntegrationEventPublisher(),
-            new FakeContabilidadAsientoPort(), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
+            new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
         (await reintento.Handle(new(pendiente.Id), CancellationToken.None)).Estado.Should().Be("Timbrado");
         var a2Bd = await db.Anticipos.Include(a => a.Vinculaciones).SingleAsync(a => a.Id == a2.AnticipoId);
         a2Bd.MontoAmortizado.Should().Be(300m);

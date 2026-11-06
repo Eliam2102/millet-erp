@@ -264,18 +264,6 @@ public sealed class FakeIntegrationEventPublisher : IIntegrationEventPublisher
     }
 }
 
-/// <summary>Puerto de asientos contables NoOp para tests (F10-PR1).</summary>
-public sealed class FakeContabilidadAsientoPort : IContabilidadAsientoPort
-{
-    public int Veces { get; private set; }
-
-    public Task RegistrarAsientoAsync(AsientoContableSolicitud solicitud, CancellationToken cancellationToken)
-    {
-        Veces++;
-        return Task.CompletedTask;
-    }
-}
-
 /// <summary>
 /// Evaluador de alcance de Cajas configurable (CAJAS-PR2). Default = alcance
 /// Total (comportamiento pre-Capa A) y bucket "Sin asignar" sobre cero cajas

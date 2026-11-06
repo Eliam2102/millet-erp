@@ -48,7 +48,6 @@ public sealed class EmitirFacturaVentaHandler
     private readonly ICfdiRepositorioPort _cfdiRepo;
     private readonly IEmpresaFiscalReadPort _empresasFiscal;
     private readonly IIntegrationEventPublisher _eventos;
-    private readonly IContabilidadAsientoPort _contabilidad;
     private readonly ICurrentEmpresaContext _empresa;
     private readonly ICurrentUserContext _user;
     private readonly IClock _clock;
@@ -66,7 +65,6 @@ public sealed class EmitirFacturaVentaHandler
         ICfdiRepositorioPort cfdiRepo,
         IEmpresaFiscalReadPort empresasFiscal,
         IIntegrationEventPublisher eventos,
-        IContabilidadAsientoPort contabilidad,
         ICurrentEmpresaContext empresa,
         ICurrentUserContext user,
         IClock clock, ValidadorReceptorFiscal receptorFiscal,
@@ -86,7 +84,6 @@ public sealed class EmitirFacturaVentaHandler
         _cfdiRepo = cfdiRepo;
         _empresasFiscal = empresasFiscal;
         _eventos = eventos;
-        _contabilidad = contabilidad;
         _empresa = empresa;
         _user = user;
         _clock = clock;
@@ -363,16 +360,14 @@ public sealed class EmitirFacturaVentaHandler
                 "FACTURA_NO_TIMBRADA_PARA_AMORTIZAR",
                 "No se pueden amortizar anticipos: la factura no quedó timbrada.");
 
-        // 9. F10-PR1: evento de integración + asiento contable (al Outbox en la
-        // misma TX vía el interceptor). Solo si quedó Timbrada.
+        // 9. F10-PR1: evento de integración (al Outbox en la misma TX vía el
+        // interceptor); Contabilidad arma la póliza desde el evento (C1.5). Solo si quedó Timbrada.
         if (factura.Estado == EstadoTimbrado.Timbrado)
         {
             await _eventos.PublishAsync(EventosContablesFacturacion.FacturaVentaTimbrada(
                 factura, ahora, command.ClienteId ?? pedido?.ClienteId,
                 await EventosContablesFacturacion.TiposProductoAsync(_productos, factura, cancellationToken), pedido),
                 cancellationToken);
-            await _contabilidad.RegistrarAsientoAsync(new AsientoContableSolicitud(
-                factura.Id, "FacturaVenta", $"Factura {factura.Folio}", factura.Total, factura.Moneda, anio, mes), cancellationToken);
         }
 
         // [Decisión 01-G] G5: el pedido queda tomado por su factura desde el
