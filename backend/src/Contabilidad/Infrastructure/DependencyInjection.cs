@@ -77,6 +77,7 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(Millet.Contabilidad.Application.CuentaPuente.CuentaPuenteOpciones.Seccion));
         services.AddScoped<Millet.Contabilidad.Application.CuentaPuente.RegistroMovimientosPuente>();
         services.AddScoped<Millet.Contabilidad.Application.CuentaPuente.LecturaCuentaPuente>();
+        services.AddScoped<Millet.Contabilidad.Application.Reportes.LecturaReportesContables>();
         services.AddScoped<Millet.Contabilidad.Application.PublicPorts.IPolizaAutomaticaObservador,
             Millet.Contabilidad.Application.CuentaPuente.ObservadorCuentaPuente>();
         return services;

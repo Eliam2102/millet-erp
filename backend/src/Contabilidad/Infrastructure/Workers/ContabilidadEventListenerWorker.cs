@@ -208,7 +208,10 @@ public sealed class CuentasPorPagarContabilidadListenerWorker(ServiceBusClient? 
     ],StringComparer.Ordinal);
 }
 
-/// <summary>C1.5 · <c>tesoreria-events</c>: pago a proveedor, su reversa y pago de cliente (#5, #6, #12).</summary>
+/// <summary>
+/// C1.5 · <c>tesoreria-events</c>: pago a proveedor, su reversa y pago de cliente (#5, #6, #12). U-2: depósito del corte, diferencias
+/// de corte, movimientos del extracto y reembolso de NC.
+/// </summary>
 public sealed class TesoreriaContabilidadListenerWorker(ServiceBusClient? client, IServiceScopeFactory scopeFactory,
     ILogger<TesoreriaContabilidadListenerWorker> logger) : ContabilidadEventListenerWorker(client, scopeFactory, logger)
 {
@@ -222,6 +225,10 @@ public sealed class TesoreriaContabilidadListenerWorker(ServiceBusClient? client
     private static readonly FrozenSet<string> Tipos = FrozenSet.ToFrozenSet(
     [
         NormalizadorEventos.DevolucionAnticipoAgente, NormalizadorEventos.PagoProveedorAplicado, NormalizadorEventos.PagoProveedorRevertido, NormalizadorEventos.PagoClienteConfirmado,
+        // U-2 (86e3yxngq): depósito del corte, diferencias de corte, alta desde el extracto y reembolso de NC.
+        NormalizadorEventos.DepositoCajaConfirmado, NormalizadorEventos.DiferenciaCorteAutorizada,
+        NormalizadorEventos.DiferenciaCorteDevolucionAplicada, NormalizadorEventos.MovimientoBancarioRegistrado,
+        NormalizadorEventos.ReembolsoNotaCreditoActualizado,
     ], StringComparer.Ordinal);
 }
 

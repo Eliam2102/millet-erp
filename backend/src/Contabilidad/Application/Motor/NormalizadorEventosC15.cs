@@ -120,7 +120,7 @@ public static partial class NormalizadorEventos
         FacturaAnticipoTimbrada => FacturaAnticipo(eventoId, payload),
         NotaCreditoTimbrada => NotaCreditoVenta(eventoId, payload),
         CobroMostradorRegistrado => CobroNoEfectivo(eventoId, payload),
-        _ => null,
+        _ => NormalizarU2(tipo, eventoId, payload),
     };
 
     // ---------------------------------------------------------------- Almacén
@@ -194,8 +194,20 @@ public static partial class NormalizadorEventos
     {
         var s = Leer<SalidaInventarioContrato>(payload);
         var lineas = (s.Lineas ?? []).Select(l => new LineaEventoContable(null, l.MontoMxn, l.CentroCostoId, false, ArticuloId: l.ArticuloId)).ToList();
+        // U-2 (86e3yxngq): la plantilla v2 carga según la causa (consumo → CONSUMO, rotura o daño → MERMA, salida manual o no
+        // planificada → AJUSTE_INVENTARIO). La v1 (#445) solo lee Subtotal.
+        var total = lineas.Sum(l => l.Importe);
+        var causa = (s.Causa ?? string.Empty).Trim().ToLowerInvariant();
+        var merma = causa is "rotura" or "daño" or "dano";
+        var ajuste = causa is "salida_manual" or "salida_no_planificada";
         return Mxn(SalidaInventarioRegistrada, eventoId, s.EmpresaId, s.FechaMovimiento, Doc(DocSalidaInventario, s.MovimientoId, s.FolioMovimiento),
-            s.SucursalId, importes: new() { ["Subtotal"] = lineas.Sum(l => l.Importe) }, lineas: lineas, payload: payload, centroCostoId: s.CentroCostoId);
+            s.SucursalId, importes: new()
+            {
+                ["Subtotal"] = total,
+                ["Consumo"] = merma || ajuste ? 0m : total,
+                ["Merma"] = merma ? total : 0m,
+                ["Ajuste"] = ajuste ? total : 0m,
+            }, lineas: lineas, payload: payload, centroCostoId: s.CentroCostoId);
     }
 
     // ---------------------------------------------------------------- CxP
@@ -416,7 +428,7 @@ public static partial class NormalizadorEventos
         IReadOnlyList<LineaSalidaContrato>? Lineas, Guid? SucursalId);
 
     private sealed record SalidaInventarioContrato(Guid EmpresaId, Guid MovimientoId, string? FolioMovimiento, DateOnly FechaMovimiento,
-        IReadOnlyList<LineaSalidaInventarioContrato>? Lineas, Guid? SucursalId, Guid? CentroCostoId);
+        IReadOnlyList<LineaSalidaInventarioContrato>? Lineas, Guid? SucursalId, Guid? CentroCostoId, string? Causa = null);
 
     private sealed record LineaSalidaInventarioContrato(Guid ArticuloId, decimal MontoMxn, Guid? CentroCostoId);
 
