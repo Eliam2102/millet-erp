@@ -6,6 +6,7 @@ using Millet.Compartido.Infrastructure.Persistence;
 using Millet.DatosMaestros.Domain;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.SharedKernel.Application.Incidencias;
 using Millet.SharedKernel.Domain.Adjuntos;
 using Millet.SharedKernel.Domain.Bancos;
 
@@ -147,11 +148,13 @@ public sealed class ValidarCuentaBancariaProveedorHandler
     private readonly ICurrentEmpresaContext _empresa;
     private readonly IClock _clock;
     private readonly IAuditLogWriter _audit;
+    private readonly IIncidenciasPort? _incidencias;
 
     public ValidarCuentaBancariaProveedorHandler(
-        CompartidoDbContext db, ICurrentUserContext currentUser, ICurrentEmpresaContext empresa, IClock clock, IAuditLogWriter audit)
+        CompartidoDbContext db, ICurrentUserContext currentUser, ICurrentEmpresaContext empresa, IClock clock, IAuditLogWriter audit,
+        IIncidenciasPort? incidencias = null)
     {
-        _db = db; _currentUser = currentUser; _empresa = empresa; _clock = clock; _audit = audit;
+        _db = db; _currentUser = currentUser; _empresa = empresa; _clock = clock; _audit = audit; _incidencias = incidencias;
     }
 
     public async Task<CuentaBancariaProveedorDto> Handle(
@@ -180,6 +183,9 @@ public sealed class ValidarCuentaBancariaProveedorHandler
         await _db.SaveChangesAsync(cancellationToken);
         await CuentasBancariasProveedor.AuditarAsync(_audit, _currentUser, _empresa, proveedor, cuenta,
             "proveedor.cuenta-validada", "validada contra estado de cuenta", request.Nota, cancellationToken);
+        // U-4 (86e3yzemw, ADM-cuentas-07): la cuenta validada resuelve la aclaración pendiente de su moneda.
+        if (_incidencias is not null)
+            await IncidenciasProveedor.ResolverCuentaAsync(_incidencias, proveedor.Id, cuenta, cancellationToken);
         return CuentasBancariasProveedor.ADto(cuenta, true, _currentUser.UserId);
     }
 }
@@ -198,11 +204,13 @@ public sealed class CambiarCuentaBancariaProveedorHandler
     private readonly ICurrentEmpresaContext _empresa;
     private readonly IAuditLogWriter _audit;
     private readonly IClock _clock;
+    private readonly IIncidenciasPort? _incidencias;
 
     public CambiarCuentaBancariaProveedorHandler(
-        CompartidoDbContext db, ICurrentUserContext currentUser, ICurrentEmpresaContext empresa, IAuditLogWriter audit, IClock clock)
+        CompartidoDbContext db, ICurrentUserContext currentUser, ICurrentEmpresaContext empresa, IAuditLogWriter audit, IClock clock,
+        IIncidenciasPort? incidencias = null)
     {
-        _db = db; _currentUser = currentUser; _empresa = empresa; _audit = audit; _clock = clock;
+        _db = db; _currentUser = currentUser; _empresa = empresa; _audit = audit; _clock = clock; _incidencias = incidencias;
     }
 
     public async Task<CuentaBancariaProveedorDto> Handle(
@@ -238,6 +246,10 @@ public sealed class CambiarCuentaBancariaProveedorHandler
         await _db.SaveChangesAsync(cancellationToken);
         await CuentasBancariasProveedor.AuditarAsync(_audit, _currentUser, _empresa, proveedor, cuenta,
             $"proveedor.cuenta-{operacion}", resumen, request.Motivo, cancellationToken);
+        // U-4 (86e3yzemw, ADM-cuentas-07): el cambio de cuenta rechazado abre la aclaración con quien la capturó.
+        if (_incidencias is not null && request.Accion == AccionCuentaBancariaProveedor.Rechazar)
+            await IncidenciasProveedor.AbrirCuentaRechazadaAsync(_incidencias, _db, proveedor, cuenta, _currentUser.UserId,
+                DateOnly.FromDateTime(_clock.UtcNow.UtcDateTime), cancellationToken);
         return CuentasBancariasProveedor.ADto(cuenta, true, _currentUser.UserId);
     }
 }
