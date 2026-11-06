@@ -4,6 +4,8 @@
 
 > **Nota 28-oct-2026 (acuerdo de Almacenes con TI, ClickUp 86e3wyrg4):** la materia prima de A+W (vidrio y herrajes, artículos con clave A+W) **no requiere rack en el ERP**. El rack, la hoja y el lote los lleva la aplicación de Almacenes de Millet. En el ERP esa materia prima vive en el almacén general (EXPORTACIÓN, OBRAS, GENERAL) con existencia por `articuloAw` + medida, en m². La jerarquía de 4 niveles y la ubicación obligatoria de este ADR siguen vigentes para lo que no está en A+W (consumibles y refacciones), que se recibe sin rack en el almacén general. Detalle: `docs/modulos/almacen/02-diseno-articulo-variante-medida.md` (corrección del 28-oct).
 
+> **Aplicación del acuerdo 28-oct a consumibles y refacciones:** los artículos sin A+W se reciben en la ÚNICA (almacén general) sin asignación, tanto nuevos como con existencia previa. MAT-REV sigue rechazando entradas a su ÚNICA; un rack real exige asignación activa. Esta regla reemplaza para esos artículos la prohibición histórica de entrar a la ÚNICA de C7.2/C7.2b y el bloqueo de artículos nuevos de la parte 2 del PR #440. Se conserva la parte 1 del #440 (solo inventariables). La regla de A+W del guard no se modifica en esta corrección; su alineación con el acuerdo sigue pendiente.
+
 - **Estado**: Aceptada (enmendada 2026-07-06 — el reorden sube a Nivel 1/2; ver Enmienda)
 - **Fecha**: 2026-07-03 (refinado 2026-07-03: cut a 7 PRs — captura de bin real partida a PR7)
 - **Decisores**: Eduardo Paredes (owner), Victor
@@ -515,14 +517,16 @@ Se adopta la opción 1, con los siguientes puntos (cerrados con dirección):
        > **Decisión cerrada (2026-07-08) — modelo de negocio del bin:** el
        > `ubicacion_id` va **en la línea** (`lineas_movimiento`), no en el encabezado
        > (una recepción puede repartir N artículos en N racks). Se **obliga bin** (no
-       > fallback pasivo), con **asimetría**: las ENTRADAS exigen ubicación real —
-       > prohibido entrar a la ÚNICA (`ENTRADA_A_UBICACION_UNICA`) — y además exigen
-       > **asignación activa** del artículo a esa ubicación
+       > fallback pasivo). **Actualización por acuerdo 28-oct:** consumibles y
+       > refacciones sin A+W entran a la ÚNICA sin asignación ni existencia previa,
+       > salvo MAT-REV. Si se elige un rack, se exige **asignación activa**
        > (`ENTRADA_SIN_ASIGNACION`, validación de handler, patrón
-       > `REORDEN_SIN_ASIGNACION`); las SALIDAS aceptan ubicación real **o la ÚNICA**,
-       > para agotar el stock histórico. Un artículo puede vivir en varias ubicaciones
-       > (el almacenista elige entre las asignadas). La ÚNICA solo se drena, nunca
-       > recibe → **muere sola**; no hay migración/redistribución de saldos.
+       > `REORDEN_SIN_ASIGNACION`). Las SALIDAS aceptan rack **o la ÚNICA**.
+       > Un artículo puede vivir en varias ubicaciones (el almacenista elige).
+       > La prohibición original de recibir en la ÚNICA queda sustituida para
+       > consumibles y refacciones; no hay migración/redistribución de saldos.
+       > La restricción de A+W aún presente en código se revisará por separado
+       > contra el acuerdo indicado al inicio de este ADR.
        >
        > **Sub-cut de C7.2 (2026-07-08), mismo criterio que C7.1 — el riesgo aislado:**
        > - **C7.2a — esquema + trigger + lecturas (backend puro, sin cambio de
@@ -545,8 +549,9 @@ Se adopta la opción 1, con los siguientes puntos (cerrados con dirección):
        >   2026-07-08, un solo PR backend+FE).** Los **8 handlers** ahora aceptan
        >   `ubicacion_id` por línea: entradas (recepción factura/packing, devolución
        >   interna, reincorporación) validadas por el guard compartido
-       >   `UbicacionEntradaGuard` (pertenece al sub-almacén + no-ÚNICA
-       >   `ENTRADA_A_UBICACION_UNICA` + asignación activa `ENTRADA_SIN_ASIGNACION`);
+       >   `UbicacionEntradaGuard` (pertenece al sub-almacén; tras el acuerdo del
+       >   28-oct, sin A+W admite ÚNICA salvo MAT-REV y un rack requiere asignación
+       >   activa `ENTRADA_SIN_ASIGNACION`; A+W conserva su restricción pendiente de revisión);
        >   salidas (RQ, vale, devolución a proveedor —bin al **registrar**—, baja por
        >   daño) mandan el bin sin exigir asignación, y las 3 lecturas de costo
        >   snapshot pasan a llavear por el bin elegido (`?? ÚNICA` de fallback).
