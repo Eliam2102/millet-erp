@@ -1224,6 +1224,20 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<DateTimeOffset?>("AcuseFecha")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("acuse_fecha");
+
+                    b.Property<string>("AcuseReferencia")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("acuse_referencia");
+
+                    b.Property<string>("AcuseUsuarioNombre")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("acuse_usuario_nombre");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -2327,6 +2341,14 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<DateTimeOffset?>("AnuladaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("anulada_en");
+
+                    b.Property<Guid?>("AnuladaPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("anulada_por_id");
+
                     b.Property<string>("ContactoProveedor")
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)")
@@ -2357,6 +2379,11 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
                         .HasColumnName("motivo");
+
+                    b.Property<string>("MotivoAnulacion")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo_anulacion");
 
                     b.Property<int>("Numero")
                         .HasColumnType("integer")

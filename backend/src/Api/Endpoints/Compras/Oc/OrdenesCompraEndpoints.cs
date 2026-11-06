@@ -270,6 +270,22 @@ public static class OrdenesCompraEndpoints
         .Produces<EnvioOcResponse>()
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        group.MapPost("/{id:guid}/envios/{envioId:guid}/acuse", async (
+            Guid id, Guid envioId, [FromBody] RegistrarAcuseEnvioOcRequest body, IMediator mediator,
+            ComprasDbContext db, ICurrentUserContext scopeUser, ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales, CancellationToken cancellationToken) =>
+        {
+            await OcSucursalScope.VerificarAsync(id, db, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
+            return Results.Ok(await mediator.Send(new RegistrarAcuseEnvioOcCommand(id, envioId, body.Referencia), cancellationToken));
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesCrear)
+        .WithName("RegistrarAcuseEnvioOrdenCompra")
+        .WithSummary("Guardar la evidencia de entrega o el acuse del proveedor de un envío aceptado")
+        .Produces<EnvioOcResponse>()
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         // --- F6-PR1: descargar PDF de la OC ---
         group.MapGet("/{id:guid}/pdf", async (
             Guid id,
@@ -1502,6 +1518,23 @@ public static class OrdenesCompraEndpoints
         .ProducesProblem(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        group.MapPost("/{id:guid}/respuestas-proveedor/{respuestaId:guid}/anular", async (
+            Guid id, Guid respuestaId, [FromBody] AnularRespuestaProveedorRequest body, IMediator mediator,
+            ComprasDbContext scopeDb, ICurrentUserContext scopeUser, ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales, CancellationToken cancellationToken) =>
+        {
+            await OcSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
+            return Results.Ok(await mediator.Send(new AnularRespuestaProveedorCommand(id, respuestaId, body.Motivo), cancellationToken));
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesRegistrarRespuestaProveedor)
+        .WithName("AnularRespuestaProveedorOrdenCompra")
+        .WithSummary("Marcar como errónea una respuesta del proveedor (ligada a la orden equivocada) sin borrarla")
+        .WithDescription("Motivo obligatorio. La respuesta queda en el historial con quién y cuándo; el estado comercial y el compromiso de la orden vuelven a la última respuesta vigente.")
+        .Produces<RespuestaProveedorOcResponse>()
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         // F1-COM-11: evidencia por respuesta del proveedor (servicio genérico G1.2, ADR-0058).
         group.MapGroup("/respuestas-proveedor/{id:guid}").MapAdjuntos("oc_respuesta_proveedor",
             PermisosCanonicos.ComprasOrdenesLeer, PermisosCanonicos.ComprasOrdenesRegistrarRespuestaProveedor,
@@ -2032,4 +2065,6 @@ public static class OrdenesCompraEndpoints
     public sealed record ReprogramarIncidenciaProveedorRequest(DateOnly FechaCompromiso, string Motivo);
     public sealed record CerrarIncidenciaProveedorRequest(string Motivo);
     public sealed record RegistrarEnvioOcRequest(string? Destinatario, string Modo);
+    public sealed record RegistrarAcuseEnvioOcRequest(string? Referencia);
+    public sealed record AnularRespuestaProveedorRequest(string? Motivo);
 }

@@ -10,6 +10,10 @@ export interface EnvioOc {
   fecha: string;
   modo: 'correo' | 'manual';
   resultado: 'pendiente' | 'registrado' | 'simulado' | 'aceptado' | 'fallido';
+  /** G-11: evidencia de entrega / acuse del proveedor. */
+  acuseFecha?: string | null;
+  acuseReferencia?: string | null;
+  acuseUsuarioNombre?: string | null;
 }
 export interface EnviosOc {
   correoProveedor: string | null;
@@ -42,6 +46,22 @@ export function useRegistrarEnvioOc(id: string) {
           method: 'POST',
           body: { destinatario, modo },
           idempotencyKey,
+        })
+      ).data,
+    onSuccess: () => client.invalidateQueries({ queryKey: ordenesKeys.detail(id) }),
+  });
+}
+
+/** G-11: guarda la evidencia de entrega o el acuse del proveedor de un envío aceptado. */
+export function useRegistrarAcuseEnvioOc(id: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ envioId, referencia }: { envioId: string; referencia: string }) =>
+      (
+        await apiRequest<EnvioOc>(`/api/v1/compras/ordenes/${id}/envios/${envioId}/acuse`, {
+          method: 'POST',
+          body: { referencia },
+          idempotencyKey: crypto.randomUUID(),
         })
       ).data,
     onSuccess: () => client.invalidateQueries({ queryKey: ordenesKeys.detail(id) }),

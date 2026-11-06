@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { DateTimeDisplay } from '@/components/erp';
 import { DocumentoAdjuntosSection } from '@/components/erp/adjuntos/DocumentoAdjuntosSection';
 import { useUsuarios, mapById } from '@/features/catalogos/api';
@@ -21,6 +22,7 @@ import {
   TipoRespuestaProveedorOc,
   type OrdenCompraDetalleResponse,
 } from '../api/types';
+import { useAnularRespuestaProveedor } from '../api/useAnularRespuestaProveedor';
 import { useRegistrarRespuestaProveedor } from '../api/useRegistrarRespuestaProveedor';
 import { EstadoComercialProveedorBadge } from './EstadoComercialProveedorBadge';
 import { RegistrarRespuestaProveedorSheet } from './RegistrarRespuestaProveedorSheet';
@@ -33,6 +35,10 @@ export function RespuestaProveedorPanel({ oc }: { oc: OrdenCompraDetalleResponse
     PermisosCanonicos.ComprasOrdenesRegistrarRespuestaProveedor,
   );
   const mutation = useRegistrarRespuestaProveedor();
+  const anular = useAnularRespuestaProveedor(oc.id);
+  const [anulando, setAnulando] = useState<string | null>(null);
+  const [motivoAnulacion, setMotivoAnulacion] = useState('');
+  const [errorAnulacion, setErrorAnulacion] = useState<string | null>(null);
   const [abierto, setAbierto] = useState(false);
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
   const respuestas = oc.respuestasProveedor ?? [];
@@ -76,19 +82,98 @@ export function RespuestaProveedorPanel({ oc }: { oc: OrdenCompraDetalleResponse
         <div key={r.id} className="space-y-1 border-t border-line-divider pt-3 text-sm">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-medium">Respuesta {r.numero}</span>
-            <Badge variant={r.tipo == null ? 'neutral' : r.tipo === TipoRespuestaProveedorOc.Confirmacion ? 'info' : 'danger'}>
-              {r.tipo == null ? 'Sin clasificar' : r.tipo === TipoRespuestaProveedorOc.Confirmacion ? 'Confirmación' : 'Rechazo'}
+            <Badge
+              variant={
+                r.tipo == null
+                  ? 'neutral'
+                  : r.tipo === TipoRespuestaProveedorOc.Confirmacion
+                    ? 'info'
+                    : 'danger'
+              }
+            >
+              {r.tipo == null
+                ? 'Sin clasificar'
+                : r.tipo === TipoRespuestaProveedorOc.Confirmacion
+                  ? 'Confirmación'
+                  : 'Rechazo'}
             </Badge>
-            <Badge variant={r.vigente ? 'success' : 'neutral'}>
-              {r.vigente ? 'Vigente' : 'Reemplazada'}
-            </Badge>
+            {r.anuladaEn ? (
+              <Badge variant="danger">Errónea</Badge>
+            ) : (
+              <Badge variant={r.vigente ? 'success' : 'neutral'}>
+                {r.vigente ? 'Vigente' : 'Reemplazada'}
+              </Badge>
+            )}
             {r.tieneDiferencias && <Badge variant="warning">Con diferencias</Badge>}
           </div>
           <p className="text-ink-secondary">
-            Fecha de respuesta: {r.fechaRespuesta ? <DateTimeDisplay value={r.fechaRespuesta} /> : 'Sin fecha'} · Registró{' '}
-            {nombre(r.registradaPorId)}{' '}
+            Fecha de respuesta:{' '}
+            {r.fechaRespuesta ? <DateTimeDisplay value={r.fechaRespuesta} /> : 'Sin fecha'} ·
+            Registró {nombre(r.registradaPorId)}{' '}
             <DateTimeDisplay value={r.registradaEn} variant="datetime" />
           </p>
+          {r.anuladaEn && (
+            <p className="text-danger-fg">
+              Marcada como errónea el <DateTimeDisplay value={r.anuladaEn} variant="datetime" />
+              {r.anuladaPorId ? ` por ${nombre(r.anuladaPorId)}` : ''}: {r.motivoAnulacion}
+            </p>
+          )}
+          {puedeRegistrar && !r.anuladaEn && anulando !== r.id && (
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setAnulando(r.id);
+                setMotivoAnulacion('');
+                setErrorAnulacion(null);
+              }}
+            >
+              Marcar como errónea
+            </Button>
+          )}
+          {anulando === r.id && (
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-end gap-2">
+                <label className="block space-y-1">
+                  <span>Motivo (por ejemplo, se registró en la orden equivocada) *</span>
+                  <Input
+                    value={motivoAnulacion}
+                    maxLength={500}
+                    onChange={(e) => setMotivoAnulacion(e.target.value)}
+                  />
+                </label>
+                <Button
+                  disabled={!motivoAnulacion.trim() || anular.isPending}
+                  onClick={async () => {
+                    setErrorAnulacion(null);
+                    try {
+                      await anular.mutateAsync({
+                        respuestaId: r.id,
+                        motivo: motivoAnulacion.trim(),
+                      });
+                      toast.success('La respuesta quedó marcada como errónea.');
+                      setAnulando(null);
+                    } catch (error) {
+                      setErrorAnulacion(
+                        esApiError(error)
+                          ? (error.problem.detail ?? error.problem.title)
+                          : 'No se pudo marcar la respuesta. Vuelve a intentarlo.',
+                      );
+                    }
+                  }}
+                >
+                  Confirmar
+                </Button>
+                <Button variant="secondary" onClick={() => setAnulando(null)}>
+                  Cancelar
+                </Button>
+              </div>
+              {errorAnulacion && (
+                <p role="alert" className="text-danger-fg">
+                  {errorAnulacion}
+                </p>
+              )}
+            </div>
+          )}
           {r.contactoProveedor && (
             <p className="text-ink-secondary">Contacto: {r.contactoProveedor}</p>
           )}

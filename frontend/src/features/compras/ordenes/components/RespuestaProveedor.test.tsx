@@ -15,6 +15,11 @@ vi.mock('@/features/catalogos/api', () => ({
   mapById: (items: { id: string }[] | undefined) => new Map((items ?? []).map((i) => [i.id, i])),
 }));
 
+const anular = vi.hoisted(() => vi.fn());
+vi.mock('../api/useAnularRespuestaProveedor', () => ({
+  useAnularRespuestaProveedor: () => ({ mutateAsync: anular, isPending: false }),
+}));
+
 vi.mock('@/components/erp/adjuntos/DocumentoAdjuntosSection', () => ({
   DocumentoAdjuntosSection: ({ base, tipo, permisos }: { base: string; tipo: string; permisos?: { baja?: string } }) => (
     <div data-testid="adjuntos" data-base={base} data-tipo={tipo} data-con-baja={String(permisos?.baja !== undefined)} />
@@ -164,4 +169,27 @@ it('sin archivo muestra un mensaje claro y no envía', () => {
   fireEvent.click(screen.getByRole('button', { name: 'Registrar respuesta' }));
   expect(screen.getByRole('alert')).toHaveTextContent('Adjunta el archivo de evidencia');
   expect(submit).not.toHaveBeenCalled();
+});
+
+it('G-11 marca una respuesta como errónea con motivo y la deja visible en el historial', async () => {
+    permiso.value = true;
+    anular.mockResolvedValue({});
+    const { rerender } = render(
+      <RespuestaProveedorPanel oc={ocDePrueba([respuesta(1, true)])} />,
+      { wrapper: createQueryWrapper() },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Marcar como errónea' }));
+    const confirmar = screen.getByRole('button', { name: 'Confirmar' });
+    expect(confirmar).toBeDisabled();
+    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: 'Orden equivocada' } });
+    fireEvent.click(confirmar);
+    await waitFor(() => expect(anular).toHaveBeenCalledWith({ respuestaId: 'r-1', motivo: 'Orden equivocada' }));
+    rerender(
+      <RespuestaProveedorPanel
+        oc={ocDePrueba([{ ...respuesta(1, false), anuladaEn: '2026-11-05T16:00:00Z', anuladaPorId: 'u-1', motivoAnulacion: 'Orden equivocada' }])}
+      />,
+    );
+    expect(screen.getByText('Errónea')).toBeInTheDocument();
+    expect(screen.getByText(/Orden equivocada/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Marcar como errónea' })).toBeNull();
 });

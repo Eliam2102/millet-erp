@@ -143,4 +143,48 @@ public sealed class OrdenCompraRespuestaProveedorTests
         Assert.False(r.TieneDiferencias);
         Assert.Equal(4, oc.Lineas.Single().CantidadRecibida);
     }
+
+    [Fact]
+    public void Anular_respuesta_la_conserva_y_regresa_a_la_anterior_vigente()
+    {
+        var oc = Autorizada();
+        var primera = Confirmar(oc, C(oc, 10, 20));
+        var segunda = Confirmar(oc, C(oc, 8, 25));
+        Assert.Equal(EstadoComercialProveedorOc.ConfirmadaConDiferencias, oc.EstadoComercialProveedor);
+        var usuario = Guid.NewGuid();
+        oc.AnularRespuestaProveedor(segunda.Id, "  Se registró en la orden equivocada ", usuario, DateTimeOffset.UtcNow);
+        Assert.Equal(2, oc.RespuestasProveedor.Count);
+        Assert.True(segunda.Anulada);
+        Assert.Equal(usuario, segunda.AnuladaPorId);
+        Assert.Equal("Se registró en la orden equivocada", segunda.MotivoAnulacion);
+        Assert.False(primera.Anulada);
+        Assert.Single(segunda.Compromisos);
+        Assert.Equal(EstadoComercialProveedorOc.Confirmada, oc.EstadoComercialProveedor);
+        Assert.Equal(new DateOnly(2026, 10, 20), oc.FechaCompromisoProveedor);
+    }
+
+    [Fact]
+    public void Anular_la_unica_respuesta_deja_la_orden_sin_respuesta()
+    {
+        var oc = Autorizada();
+        var r = Confirmar(oc, C(oc, 10, 20));
+        oc.AnularRespuestaProveedor(r.Id, "Era de otra orden", Guid.NewGuid(), DateTimeOffset.UtcNow);
+        Assert.Equal(EstadoComercialProveedorOc.SinRespuesta, oc.EstadoComercialProveedor);
+        Assert.Null(oc.FechaCompromisoProveedor);
+        Assert.Single(oc.RespuestasProveedor);
+        // La correcta se registra después y toma el siguiente número.
+        var nueva = Confirmar(oc, C(oc, 10, 22));
+        Assert.Equal(2, nueva.Numero);
+    }
+
+    [Fact]
+    public void Anular_exige_motivo_no_repite_y_valida_que_exista()
+    {
+        var oc = Autorizada();
+        var r = Confirmar(oc, C(oc, 10, 20));
+        Assert.Equal("OC_RESPUESTA_MOTIVO_ANULACION_REQUERIDO", Codigo(() => oc.AnularRespuestaProveedor(r.Id, " ", Guid.NewGuid(), DateTimeOffset.UtcNow)));
+        oc.AnularRespuestaProveedor(r.Id, "Equivocada", Guid.NewGuid(), DateTimeOffset.UtcNow);
+        Assert.Equal("OC_RESPUESTA_YA_ANULADA", Codigo(() => oc.AnularRespuestaProveedor(r.Id, "Otra vez", Guid.NewGuid(), DateTimeOffset.UtcNow)));
+        Assert.Throws<EntityNotFoundException>(() => oc.AnularRespuestaProveedor(Guid.NewGuid(), "x", Guid.NewGuid(), DateTimeOffset.UtcNow));
+    }
 }
