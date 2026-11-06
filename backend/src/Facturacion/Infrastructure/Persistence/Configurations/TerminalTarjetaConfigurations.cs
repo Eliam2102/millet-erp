@@ -84,6 +84,9 @@ public sealed class FacturaBancoTerminalConfiguration : IEntityTypeConfiguration
         builder.Property(e => e.Comision).HasPrecision(18, 2);
         builder.Property(e => e.IvaComision).HasPrecision(18, 2);
         builder.Property(e => e.Total).HasPrecision(18, 2);
+        builder.Property(e => e.ComisionFactura).HasPrecision(18, 2);
+        builder.Property(e => e.IvaFactura).HasPrecision(18, 2);
+        builder.Property(e => e.Redondeo).HasPrecision(18, 2);
         // Un CFDI del banco ampara un solo mes.
         builder.HasIndex(e => new { e.EmpresaId, e.UuidCfdi }).IsUnique().HasDatabaseName("ux_terminal_factura_banco_empresa_uuid");
         builder.HasIndex(e => new { e.EmpresaId, e.CfdiRecibidoId }).IsUnique().HasDatabaseName("ux_terminal_factura_banco_empresa_cfdi");
