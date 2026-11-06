@@ -155,15 +155,18 @@ public class UbicacionEntradaGuardTests
     }
 
     [Fact]
-    public async Task Guard_articulo_nuevo_a_la_unica_es_rechazado_y_con_rack_asignado_pasa()
+    public async Task Guard_articulo_nuevo_sin_aw_a_la_unica_pasa_sin_asignacion_y_con_rack_asignado_pasa()
     {
         var (db, subId, rackId, unicaId, articuloId) = DbConRack();
         await using var _ = db;
 
         var aUnica = () => UbicacionEntradaGuard.ValidarUbicacionEntradaAsync(
             db, unicaId, subId, articuloId, CancellationToken.None, ligadoAw: false);
-        (await aUnica.Should().ThrowAsync<BusinessRuleException>())
-            .Which.Code.Should().Be("ENTRADA_SIN_UBICACION_REAL");
+        await aUnica.Should().NotThrowAsync();
+        var sub = await UbicacionEntradaGuard.ValidarEntradaYDerivarSubAsync(
+            db, unicaId, articuloId, CancellationToken.None, ligadoAw: false);
+        sub.Should().Be(subId);
+        (await db.AsignacionesArticuloUbicacion.AnyAsync()).Should().BeFalse();
 
         db.AsignacionesArticuloUbicacion.Add(new AsignacionArticuloUbicacion(Guid.NewGuid(), rackId, articuloId));
         await db.SaveChangesAsync();
