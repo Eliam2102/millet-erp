@@ -1219,6 +1219,13 @@ builder.Services
         Millet.Facturacion.Infrastructure.Workers.TimbradoPendienteOptions.SectionName));
 builder.Services.AddHostedService<Millet.Facturacion.Infrastructure.Workers.TimbradoPendienteWorker>();
 
+// F6.8: aviso a Fiscal de contingencias de timbrado abiertas al cerrar el mes.
+builder.Services
+    .AddOptions<Millet.Facturacion.Infrastructure.Workers.ContingenciasAlertaOptions>()
+    .Bind(builder.Configuration.GetSection(
+        Millet.Facturacion.Infrastructure.Workers.ContingenciasAlertaOptions.SectionName));
+builder.Services.AddHostedService<Millet.Facturacion.Infrastructure.Workers.ContingenciasAlertaWorker>();
+
 // F7-PR2: worker de pedimentos del Sistema de Salidas (empareja Hoja de Salida ↔
 // pedimento vía ISalidasPedimentosReader [stub en dev] y aplica a las facturas
 // retenidas en PendientePedimento).
@@ -1951,6 +1958,9 @@ Millet.Api.Endpoints.Facturacion.NotasCreditoEndpoints.MapFacturacionNotasCredit
 
 // === Facturación — Comprobantes: cancelación SAT (F5-PR2) ===
 Millet.Api.Endpoints.Facturacion.ComprobantesEndpoints.MapFacturacionComprobantesEndpoints(app);
+
+// === Facturación — Bitácora de contingencias de timbrado (F6.8) ===
+Millet.Api.Endpoints.Facturacion.ContingenciasEndpoints.MapFacturacionContingenciasEndpoints(app);
 
 // === Facturación — REPP: complemento de pago (F6) ===
 Millet.Api.Endpoints.Facturacion.ReppEndpoints.MapFacturacionReppEndpoints(app);

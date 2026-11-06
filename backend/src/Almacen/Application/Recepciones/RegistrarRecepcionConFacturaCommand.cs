@@ -54,9 +54,8 @@ public sealed record RegistrarRecepcionLineaInput(
     decimal Cantidad,
     string? UbicacionReferencia,
     string? Comentario,
-    // C7.2b: bin real destino (rack N4). Obligatorio en entradas — el
-    // artículo debe estar asignado y no puede ir a la ÚNICA. Nullable en el
-    // tipo por compat de construcción; el validator lo exige.
+    // Ubicación destino obligatoria: almacén general sin asignación para artículos sin A+W,
+    // o rack con asignación activa. Nullable por compatibilidad de construcción.
     Guid? UbicacionId = null, string? UnidadCapturada = null,
     // ALM-04: parte de Cantidad que llegó dañada; va a material en revisión (MAT-REV), no a disponible.
     decimal CantidadDanada = 0m, string? MotivoDano = null, string? FraccionArancelaria = null,
@@ -270,8 +269,8 @@ public sealed class RegistrarRecepcionConFacturaHandler
                     EsActivoFijo: true, ClaseActivoId: afOrigen.ClaseActivoId, CentroCostoId: afOrigen.CentroCostoId));
                 continue;
             }
-            // C7.2b: bin real obligatorio + asignación activa + no ÚNICA. Sin
-            // sub de cabecera: el guard DERIVA el sub del bin y lo retorna.
+            // Ubicación obligatoria: sin A+W admite almacén general; un rack exige asignación.
+            // Sin sub de cabecera: el guard deriva el sub de la ubicación y lo retorna.
             if (input.UbicacionId is null || input.UbicacionId == Guid.Empty)
                 throw new BusinessRuleException("RECEPCION_UBICACION_REQUERIDA", "La línea de inventario requiere ubicación (rack o almacén general).");
             var subLinea = await UbicacionEntradaGuard.ValidarEntradaYDerivarSubAsync(
