@@ -158,6 +158,8 @@ function HitoForm({
   const [motivo, setMotivo] = useState('');
   const [responsable, setResponsable] = useState<string | null>(hito.responsableUsuarioId);
   const [evidencia, setEvidencia] = useState('');
+  const [aduana, setAduana] = useState(data.aduanaEntrada ?? '');
+  const requiereEvidencia = ['despacho-aduanal', 'liberado'].includes(hito.clave);
   const puedeLeerUsuarios = useHasPermission(P.IdentidadUsuariosLeer);
   const puedeVerAdjuntos = useHasPermission(P.ComercioExteriorExpedientesAdjuntosVer);
   const adjuntos = useAdjuntos(`${CE_BASE}/${data.expediente.id}`, { enabled: puedeVerAdjuntos });
@@ -177,6 +179,7 @@ function HitoForm({
           responsableUsuarioId: responsable,
           evidenciaAdjuntoId: operacion === 'real' && evidencia ? evidencia : null,
           motivo: motivo.trim() || null,
+          aduanaEntrada: aduana || null,
         },
       });
       onClose();
@@ -243,13 +246,37 @@ function HitoForm({
             )}
           </div>
         </FormCampo>
+        {operacion === 'real' &&
+          hito.clave === 'despacho-aduanal' &&
+          data.expediente.tipo === 1 && (
+            <FormCampo span={6}>
+              <Label htmlFor={`ce-h-aduana-${hito.id}`}>Aduana de entrada *</Label>
+              <select
+                id={`ce-h-aduana-${hito.id}`}
+                required
+                value={aduana}
+                onChange={(e) => setAduana(e.target.value)}
+                className="h-ctl-xl w-full rounded-md border border-line-control bg-surface-card px-3"
+              >
+                <option value="">Seleccione la aduana</option>
+                {Object.entries(data.aduanas ?? {}).map(([clave, nombre]) => (
+                  <option key={clave} value={clave}>
+                    {clave} · {nombre}
+                  </option>
+                ))}
+              </select>
+            </FormCampo>
+          )}
         {operacion === 'real' && puedeVerAdjuntos && (
           <>
             <FormCampo span={6} className="space-y-1.5">
-              <Label htmlFor={`ce-h-evidencia-${hito.id}`}>Evidencia (opcional)</Label>
+              <Label htmlFor={`ce-h-evidencia-${hito.id}`}>
+                {requiereEvidencia ? 'Evidencia *' : 'Evidencia (opcional)'}
+              </Label>
               <select
                 id={`ce-h-evidencia-${hito.id}`}
                 className="h-ctl-xl w-full rounded-md border border-line-control bg-surface-card px-3"
+                required={requiereEvidencia}
                 value={evidencia}
                 onChange={(e) => setEvidencia(e.target.value)}
               >

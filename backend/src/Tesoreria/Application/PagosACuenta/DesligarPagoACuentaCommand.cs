@@ -38,7 +38,7 @@ public sealed class DesligarPagoACuentaHandler(TesoreriaDbContext db, IIntegrati
             ?? throw new EntityNotFoundException("PAGO_NO_ENCONTRADO", "No se encontró la aplicación en este pago a cuenta.");
         var pasivo = await db.PasivosPendientesPago.FirstOrDefaultAsync(p => p.FacturaProveedorId == aplicacion.FacturaProveedorId, cancellationToken)
             ?? throw new EntityNotFoundException("PAGO_PASIVO_NO_ENCONTRADO", "No se encontró el pasivo de la aplicación.");
-        pasivo.ExigirReversaSoportada();
+        pasivo.ExigirDesligarSoportado();
         aplicacion.Revertir(command.Motivo);
         pasivo.RevertirPago(aplicacion.ImporteAplicado);
         movimiento.ActualizarEstadoAplicacion(aplicaciones.Where(a => !a.Revertida).Sum(a => a.ImporteAplicado));

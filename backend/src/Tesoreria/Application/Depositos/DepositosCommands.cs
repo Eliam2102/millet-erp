@@ -137,16 +137,17 @@ public sealed class ConfirmarDepositoHandler
     private readonly IIntegrationEventPublisher _publisher;
     private readonly IClock _clock;
     private readonly IPeriodoContablePort? _periodos;
+    private readonly ICurrentUserPermissions? _permisos;
 
     public ConfirmarDepositoHandler(
         TesoreriaDbContext db,
         ICurrentEmpresaContext currentEmpresa,
         ICurrentUserContext currentUser,
         IIntegrationEventPublisher publisher,
-        IClock clock, IPeriodoContablePort? periodos = null)
+        IClock clock, IPeriodoContablePort? periodos = null, ICurrentUserPermissions? permisos = null)
     {
         _db = db; _currentEmpresa = currentEmpresa; _currentUser = currentUser;
-        _publisher = publisher; _clock = clock; _periodos = periodos;
+        _publisher = publisher; _clock = clock; _periodos = periodos; _permisos = permisos;
     }
 
     public async Task<DepositoConfirmacionResponse> Handle(
@@ -179,6 +180,8 @@ public sealed class ConfirmarDepositoHandler
         if (deposito.Version != command.VersionEsperada)
             throw new ConcurrencyException(nameof(DepositoConfirmacion), deposito.Id);
 
+        if (deposito.DevolucionCeId is not null && (_permisos is null || !await _permisos.TieneAsync(Millet.Identidad.Domain.PermisosCanonicos.TesoreriaPagosCeAutorizarDireccion, cancellationToken)))
+            throw new ForbiddenException("CE_DEVOLUCION_SIN_FACULTAD", "La devolución requiere la aprobación de nivel 2.");
         var movimiento = command.Ingreso is not null
             ? await new RegistrarMovimientoIngresoHandler(_db, _currentEmpresa, _currentUser,
                 _periodos ?? throw new InvalidOperationException("Falta el puerto contable."), _clock)
@@ -249,6 +252,11 @@ internal static class ConfirmacionDeposito
         decimal aplicadoPrevio, CancellationToken cancellationToken)
     {
         // RN-6 + cotejo monto/moneda contra lo disponible, validados en el dominio.
+        if (deposito.DevolucionCeId is not null)
+        {
+            var usado = await db.DepositosConfirmacion.AsNoTracking().FirstOrDefaultAsync(d => d.MovimientoId == movimiento.Id && d.DevolucionCeId != null && d.Id != deposito.Id, cancellationToken);
+            if (usado is not null) throw new BusinessRuleException("CE_DEPOSITO_YA_USADO", $"Ese depósito ya se usó en el expediente {(usado.DepositoRef ?? "Sin folio").Replace("Devolución CE ", "")}");
+        }
         deposito.Confirmar(movimiento, usuarioId, clock.UtcNow, DepositoDisponible.Disponible(movimiento, aplicadoPrevio));
 
         if (movimientoNuevo) db.MovimientosBancarios.Add(movimiento);

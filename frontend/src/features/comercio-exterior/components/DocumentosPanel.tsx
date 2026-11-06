@@ -69,7 +69,18 @@ export function DocumentosPanel({ data }: { data: ExpedienteDetalle }) {
   );
   return (
     <section className="space-y-5">
-      <div className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat">
+      {data.requisitos.some((r) => !r.hitoClave) && (
+        <p role="note" className="rounded-md bg-warning-note-bg px-3 py-2.5 text-warning-note-fg">
+          Hay tipos de documento sin etapa asignada.{' '}
+          <a className="underline" href="#ce-configuracion-documentos">
+            Ir a la configuración
+          </a>
+        </p>
+      )}
+      <div
+        id="ce-configuracion-documentos"
+        className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat"
+      >
         <h3 className="font-semibold">Documentos requeridos por hito</h3>
         <p className="text-xs text-ink-muted">
           Esta configuración aplica a todos los expedientes del mismo tipo de operación.

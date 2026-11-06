@@ -44,4 +44,24 @@ public sealed class P19AnticiposTests
         Assert.Equal(47000, a.HistorialComprobaciones.Single().Impuestos.Total);
         Assert.Equal(4000, a.Saldo);
     }
+    [Fact]
+    public void Reversa_es_idempotente_y_solo_sin_comprobacion()
+    {
+        var a = Nuevo(); a.Solicitar(Guid.NewGuid(), 50000);
+        var pago = Guid.NewGuid(); a.RegistrarPago(pago, 50000, "TRF-123");
+        a.RevertirPago(pago, 50000, "Pago equivocado"); a.RevertirPago(pago, 50000, "Pago equivocado");
+        Assert.Equal(0, a.PagadoMxn); Assert.Equal("Autorizado", a.Estado);
+        var segundo = Guid.NewGuid(); a.RegistrarPago(segundo, 50000, "TRF-124");
+        a.Comprobar(new(47000, 0, 0), Guid.NewGuid(), Guid.NewGuid(), new(2026,10,2), Guid.NewGuid());
+        Assert.Throws<BusinessRuleException>(() => a.RevertirPago(segundo, 50000, "Pago equivocado"));
+    }
+    [Fact]
+    public void Solicitud_cancelada_no_admite_pago_y_exige_motivo()
+    {
+        var a = Nuevo(); a.Solicitar(Guid.NewGuid(), 50000);
+        Assert.Throws<BusinessRuleException>(() => a.Cancelar(" "));
+        a.Cancelar("Solicitud duplicada"); Assert.Equal("Cancelado", a.Estado);
+        Assert.Throws<BusinessRuleException>(() => a.RegistrarPago(Guid.NewGuid(), 50000, "TRF-123"));
+    }
+
 }

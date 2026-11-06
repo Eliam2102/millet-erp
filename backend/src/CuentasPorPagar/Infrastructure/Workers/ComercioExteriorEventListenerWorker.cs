@@ -112,6 +112,8 @@ public sealed class ComercioExteriorEventListenerWorker : BackgroundService, ILo
             var empresaContext = sp.GetRequiredService<ICurrentEmpresaContext>();
             using var bypass = empresaContext.Bypass();
 
+            if (eventType == AnticipoGastosAplicadosHandler.EventType)
+                await mediator.Send(new AplicarGastosAnticipoCeCommand(JsonSerializer.Deserialize<GastosAnticipoCePayload>(body, JsonOpts) ?? throw new JsonException("Payload null.")), cancellationToken);
             if (eventType == AnticipoAgenteSolicitadoHandler.EventType)
             {
                 var payload = JsonSerializer.Deserialize<SolicitudAnticipoAgentePayload>(body, JsonOpts) ?? throw new JsonException("Payload null.");

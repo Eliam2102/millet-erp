@@ -27,6 +27,8 @@ public sealed class DepositoConfirmacionConfiguration : IEntityTypeConfiguration
         builder.Property(e => e.PropuestoPor);
         builder.Property(e => e.SaldoAFavorPorIdentificar).HasPrecision(18, 2);
         builder.Property(e => e.MovimientoId);
+        builder.HasIndex(e => e.MovimientoId).HasDatabaseName("ix_deposito_confirmacion_movimiento_id");
+        builder.HasIndex(e => e.MovimientoId, "ux_devolucion_ce_movimiento").IsUnique().HasFilter("devolucion_ce_id IS NOT NULL AND movimiento_id IS NOT NULL").HasDatabaseName("ux_devolucion_ce_movimiento");
         // C7.4: derivado de MovimientoId mientras la confirmación está Pendiente (sin columna).
         builder.Ignore(e => e.MovimientoSugeridoId);
         builder.Property(e => e.PropuestaCxcId);

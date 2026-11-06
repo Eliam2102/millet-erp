@@ -637,6 +637,14 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
     /// Aplica un monto de AnticipoProveedor al saldo de la factura
     /// (F6-PR2). Mismo patrón que <see cref="AplicarNotaCredito"/>.
     /// </summary>
+    public void RevertirAnticipo(Guid anticipoId, DateOnly fecha)
+    {
+        var monto = _movimientos.Where(m => m.DocumentoId == anticipoId && m.Tipo == TipoMovimientoPasivo.Anticipo).Sum(m => m.Monto);
+        if (monto == 0) return;
+        AnticipoAplicadoTotal -= monto;
+        _movimientos.Add(new(Id, anticipoId, TipoMovimientoPasivo.Anticipo, fecha, -monto));
+    }
+
     public void AplicarAnticipo(decimal monto, DateOnly fecha, Guid? anticipoId = null)
     {
         if (Estado is EstadoPasivo.Cancelada or EstadoPasivo.Pagada)

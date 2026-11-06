@@ -17,7 +17,7 @@ public sealed class FinanzasTests
     {
         var e = Nuevo(); var agente = Guid.NewGuid();
         var concepto = new ConceptoGasto(e.EmpresaId, "HON", "Honorarios");
-        e.GuardarGasto(Guid.NewGuid(), new(concepto.Id, otroProveedor ? Guid.NewGuid() : agente, "HON-1", "MXN", 7500, new(2026, 10, 1)), concepto, 1, "MXN");
+        e.GuardarGasto(Guid.NewGuid(), new(concepto.Id, otroProveedor ? Guid.NewGuid() : agente, "HON-1", "MXN", 7500, new(2026, 10, 1), FacturaProveedorId: Guid.NewGuid()), concepto, 1, "MXN");
         var a = e.RegistrarAnticipo(Guid.NewGuid(), agente, "PED", new(150000, 0, 0), new(2026, 10, 1), null, peca);
         a.Comprobar(new(142500, 0, 0), Guid.NewGuid(), Guid.NewGuid(), new(2026, 10, 2), Guid.NewGuid());
         if (error != null)

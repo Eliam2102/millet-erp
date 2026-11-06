@@ -35,6 +35,14 @@ public sealed class PartidaImportacion : BaseEntity, IAuditable, IPerteneceAEmpr
 
 public sealed partial class Expediente
 {
+    public string? AduanaEntrada { get; private set; }
+    public void RegistrarAduanaEntrada(string? aduana)
+    {
+        if (Tipo != TipoExpediente.Importacion || aduana is null || !CatalogoAduanas.Aduanas.ContainsKey(aduana))
+            throw new BusinessRuleException("CE_ADUANA_INVALIDA", "Seleccione la aduana de entrada del catálogo.");
+        AduanaEntrada = aduana; RevisionContenido++;
+    }
+
     private readonly List<PartidaImportacion> _partidasImportacion = [];
     public IReadOnlyCollection<PartidaImportacion> PartidasImportacion => _partidasImportacion.AsReadOnly();
     public decimal RemanenteImportacion(Guid linea, decimal pedido) => pedido - _partidasImportacion
@@ -45,7 +53,7 @@ public sealed partial class Expediente
         if (Tipo != TipoExpediente.Importacion) throw new BusinessRuleException("CE_SOLO_IMPORTACION", "Seleccione un expediente de importación.");
         var c = Contenedor(contenedor); c.ExigirActivo();
         if (c.FechaEmbarqueReal is not null) throw new BusinessRuleException("CE_EMBARQUE_YA_REGISTRADO", "El embarque ya está registrado; solicite un ajuste de cantidades.");
-        if (cantidad > RemanenteImportacion(linea, pedido)) throw new BusinessRuleException("CE_CANTIDAD_EXCEDE_OC", "La cantidad embarcada acumulada excede lo pedido en la partida de la OC.");
+        if (cantidad > RemanenteImportacion(linea, pedido)) throw new BusinessRuleException("CE_CANTIDAD_EXCEDE_OC", $"Partida {linea}: pedido {pedido}, ya embarcado {pedido - RemanenteImportacion(linea, pedido)}, intenta {cantidad}.");
         _partidasImportacion.Add(new(this, contenedor, linea, posicion, cantidad, unidad, actor)); RevisionContenido++;
     }
     public void QuitarPartidaImportacion(Guid id)
