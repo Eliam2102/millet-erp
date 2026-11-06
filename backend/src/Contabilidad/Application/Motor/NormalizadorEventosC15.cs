@@ -187,6 +187,17 @@ public static partial class NormalizadorEventos
     }
 
     /// <summary>
+    /// Campo de importe que carga una salida de inventario según su causa (U-2): rotura o daño → Merma; salida manual o no planificada →
+    /// Ajuste; lo demás → Consumo. H1 (86e3z5w25) lo usa también para saber qué cuenta, y qué dimensiones, exige la salida al capturarla.
+    /// </summary>
+    public static string CampoSalidaInventario(string? causa) => (causa ?? string.Empty).Trim().ToLowerInvariant() switch
+    {
+        "rotura" or "daño" or "dano" => "Merma",
+        "salida_manual" or "salida_no_planificada" => "Ajuste",
+        _ => "Consumo",
+    };
+
+    /// <summary>
     /// G-1 (86e3yxpb3): salida de inventario sin requisición (consumo, rotura, salida manual, baja por daño). Misma póliza que #14 (cargo
     /// CONSUMO · abono INVENTARIO por línea). El centro de costo es el de cada línea o, si no, el del evento (equipo que ya capturó el vale); vacío si ninguno lo trae.
     /// </summary>
@@ -197,9 +208,9 @@ public static partial class NormalizadorEventos
         // U-2 (86e3yxngq): la plantilla v2 carga según la causa (consumo → CONSUMO, rotura o daño → MERMA, salida manual o no
         // planificada → AJUSTE_INVENTARIO). La v1 (#445) solo lee Subtotal.
         var total = lineas.Sum(l => l.Importe);
-        var causa = (s.Causa ?? string.Empty).Trim().ToLowerInvariant();
-        var merma = causa is "rotura" or "daño" or "dano";
-        var ajuste = causa is "salida_manual" or "salida_no_planificada";
+        var campo = CampoSalidaInventario(s.Causa);
+        var merma = campo == "Merma";
+        var ajuste = campo == "Ajuste";
         return Mxn(SalidaInventarioRegistrada, eventoId, s.EmpresaId, s.FechaMovimiento, Doc(DocSalidaInventario, s.MovimientoId, s.FolioMovimiento),
             s.SucursalId, importes: new()
             {
