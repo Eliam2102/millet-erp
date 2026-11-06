@@ -7,6 +7,6 @@ public sealed class ActivosFijosReadAdapter(ActivosFijosDbContext db) : IActivos
 {
     public async Task<ActivoFijoLectura?> ObtenerAsync(string activoRef, CancellationToken cancellationToken) =>
         await db.Activos.AsNoTracking().Where(x => x.Numero == activoRef && x.Estado == EstadoActivo.Activo)
-            .Select(x => new ActivoFijoLectura(x.Numero, x.Descripcion, x.ValorActual - x.DepreciacionAcumulada, x.DepreciacionAcumulada, x.Importacion != TipoImportacionActivo.No))
+            .Select(x => new ActivoFijoLectura(x.Numero, x.Descripcion, x.ValorActual - x.DepreciacionAcumulada, x.DepreciacionAcumulada, x.Importacion != TipoImportacionActivo.No, db.Set<OperacionLibro>().Any(o => o.ActivoId == x.Id && o.Tipo == "Baja" && o.PolizaId == null && !o.Anulada)))
             .SingleOrDefaultAsync(cancellationToken);
 }

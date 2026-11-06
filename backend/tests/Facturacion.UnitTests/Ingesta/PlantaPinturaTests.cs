@@ -79,6 +79,7 @@ public sealed class PlantaPinturaTests
 
         resp.Resultado.Should().Be(ResultadoSolicitudAw.Rechazada);
         resp.MotivoExcepcion.Should().Be(MotivoExcepcion.ClienteNoExiste);
+        resp.Detalle.Should().Contain("cliente_clave='CLI-1'"); // el acuse dice qué campo y qué valor no cuadró
         (await db.ExcepcionesImportacion.SingleAsync()).Motivo.Should().Be(MotivoExcepcion.ClienteNoExiste);
         (await db.PedidosFacturables.CountAsync()).Should().Be(0);
     }
@@ -94,6 +95,21 @@ public sealed class PlantaPinturaTests
 
         resp.Resultado.Should().Be(ResultadoSolicitudAw.Rechazada);
         resp.MotivoExcepcion.Should().Be(MotivoExcepcion.ArticuloNoExiste);
+        resp.Detalle.Should().Contain("servicio_clave='PRD-1'");
+    }
+
+    [Fact]
+    public async Task Cantidad_invalida_indica_campo_y_valor_en_el_acuse()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var p = Pedido() with { Lineas = [Pedido().Lineas[0] with { Cantidad = 0m }] };
+
+        var resp = await Handler(db, Cliente(), Producto())
+            .Handle(new ImportarPedidoPlantaPinturaCommand(empresaId, p), CancellationToken.None);
+
+        resp.Resultado.Should().Be(ResultadoSolicitudAw.Rechazada);
+        resp.Detalle.Should().Contain("m2=0");
     }
 
     [Fact]
@@ -146,7 +162,7 @@ public sealed class PlantaPinturaTests
             .Handle(new ImportarPedidoPlantaPinturaCommand(empresaId, p), CancellationToken.None);
 
         resp.MotivoExcepcion.Should().Be(MotivoExcepcion.IvaNoCuadra);
-        resp.Detalle.Should().NotBeNullOrEmpty();
+        resp.Detalle.Should().Contain("iva_porcentaje=8");
     }
 
     [Fact]

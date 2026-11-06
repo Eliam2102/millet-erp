@@ -10,6 +10,18 @@ public sealed class TasasFiscalTests
             new(Guid.NewGuid(), Guid.NewGuid(), "FICTICIO", Guid.NewGuid(), null), TipoImportacionActivo.No, null, false, "FICTICIO", mejorado, vida));
         a.Capitalizar(Guid.NewGuid()); return (a,c);
     }
+    [Fact] public void E4e_Fiscal_aplica_tasa_anterior_hasta_mayo_y_nueva_desde_junio()
+    {
+        var (a, c) = Crear(valor: 120000);
+        c.Versiones.Add(VersionClaseActivo.Desde(c, 1, new(2000,1,1), Guid.NewGuid(), true));
+        var v = VersionClaseActivo.Desde(c, 2, new(2026,6,1), Guid.NewGuid());
+        v.TasaFiscalAnual = 50; v.Resolver(Guid.NewGuid(), true, null, DateTimeOffset.UtcNow); c.Versiones.Add(v);
+        var mayo = CalculoFiscal.Calcular(a,c,2026,5,false,new Dictionary<DateOnly,decimal>());
+        var anual = CalculoFiscal.Calcular(a,c,2026,12,false,new Dictionary<DateOnly,decimal>());
+        Assert.Equal(10000, mayo.DeduccionHistorica); // Febrero-mayo: 4 × 2500.
+        Assert.Equal(45000, anual.DeduccionHistorica); // Más junio-diciembre: 7 × 5000.
+        Assert.Equal(50, anual.TasaFiscal);
+    }
     [Fact] public void Tasas_separadas_e_INPC_ficticio()
     {
         var (a,c) = Crear();

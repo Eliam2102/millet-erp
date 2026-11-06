@@ -122,7 +122,41 @@ describe('RegistrarRecepcionFacturaSchema — cantidad dañada (ALM-04)', () => 
 
   it('acepta dañada cero sin motivo y dañada con motivo', () => {
     expect(conFila({ cantidadDanada: 0 }).success).toBe(true);
-    expect(conFila({ cantidadDanada: 2, motivoDano: 'Hojas rotas' }).success).toBe(true);
+    expect(conFila({ cantidadDanada: 2, motivoDano: 'Hojas rotas', evidenciaBlobRef: 'blob://evidencia/dano.jpg' }).success).toBe(true);
+  });
+});
+
+describe('RegistrarRecepcionFacturaSchema — rechazo en el acto y evidencia (G-10)', () => {
+  const conFila = (extra: object, filas: object[] = []) =>
+    RegistrarRecepcionFacturaSchema.safeParse({
+      ...base,
+      cfdiRecibidoId: '019e0000-0000-7000-8000-0000000000cc',
+      filas: [{ ...filaIncluida, ...extra }, ...filas],
+    });
+  const mensajes = (r: ReturnType<typeof conFila>) => (r.success ? [] : r.error.issues.map((i) => i.message));
+  const evidencia = 'Adjunta una foto o documento como evidencia del daño o del rechazo.';
+
+  it('dañado sin evidencia se rechaza; con evidencia pasa', () => {
+    expect(mensajes(conFila({ cantidadDanada: 2, motivoDano: 'Golpe' }))).toContain(evidencia);
+    expect(conFila({ cantidadDanada: 2, motivoDano: 'Golpe', evidenciaBlobRef: 'blob://x' }).success).toBe(true);
+  });
+
+  it('rechazado sin evidencia o sin motivo se rechaza', () => {
+    expect(mensajes(conFila({ cantidad: 7, cantidadRechazada: 3, motivoRechazo: 'No es lo pedido' }))).toContain(evidencia);
+    expect(mensajes(conFila({ cantidad: 7, cantidadRechazada: 3, evidenciaBlobRef: 'blob://x' }))).toContain('Indica el motivo del rechazo.');
+    expect(conFila({ cantidad: 7, cantidadRechazada: 3, motivoRechazo: 'No es lo pedido', evidenciaBlobRef: 'blob://x' }).success).toBe(true);
+  });
+
+  it('una partida rechazada por completo no pide rack y no puede exceder lo pendiente', () => {
+    const total = { cantidad: 0, cantidadRechazada: 10, motivoRechazo: 'Medida distinta', evidenciaBlobRef: 'blob://x', ubicacionId: null };
+    const otra = { ...filaIncluida, lineaOcId: '019e0000-0000-7000-8000-000000000009', ubicacionId: '019e0000-0000-7000-8000-000000000003' };
+    expect(conFila(total, [otra]).success).toBe(true);
+    expect(mensajes(conFila({ ...total, cantidadRechazada: 11 }, [otra]))).toContain('Excede lo pendiente de la orden de compra (10).');
+  });
+
+  it('si todas las partidas se rechazan no hay recepción que registrar', () => {
+    const total = { cantidad: 0, cantidadRechazada: 10, motivoRechazo: 'Medida distinta', evidenciaBlobRef: 'blob://x', ubicacionId: null };
+    expect(mensajes(conFila(total))).toContain('Todas las partidas están rechazadas: no hay recepción que registrar.');
   });
 });
 
@@ -150,7 +184,7 @@ describe('RegistrarRecepcionFacturaSchema — medida de la línea de OC (E1)', (
 
   it('acepta hojas enteras hasta el pendiente en hojas, con dañadas enteras', () => {
     expect(conFila({}).success).toBe(true);
-    expect(conFila({ cantidad: 5, cantidadDanada: 2, motivoDano: 'Hojas rotas' }).success).toBe(true);
+    expect(conFila({ cantidad: 5, cantidadDanada: 2, motivoDano: 'Hojas rotas', evidenciaBlobRef: 'blob://x' }).success).toBe(true);
   });
 
   it('rechaza 21 hojas: excede lo pendiente (20 hojas)', () => {
@@ -171,5 +205,19 @@ describe('RegistrarRecepcionFacturaSchema — medida de la línea de OC (E1)', (
 
   it('el motivo del daño sigue siendo obligatorio con hojas dañadas', () => {
     expect(mensajes(conFila({ cantidad: 5, cantidadDanada: 1, motivoDano: ' ' }))).toContain('Indica el motivo del daño.');
+  });
+});
+
+describe('RegistrarRecepcionFacturaSchema — remisión y motivo de recepción repetida (G-3)', () => {
+  const conCfdi = { ...base, cfdiRecibidoId: '019e0000-0000-7000-8000-0000000000cc', cfdiUuidFiscal: null };
+
+  it('acepta remisión y motivo opcionales', () => {
+    expect(RegistrarRecepcionFacturaSchema.safeParse({ ...conCfdi, remision: 'R-55', motivoDuplicado: 'Segundo camión' }).success).toBe(true);
+    expect(RegistrarRecepcionFacturaSchema.safeParse(conCfdi).success).toBe(true);
+  });
+
+  it('rechaza remisión de más de 50 caracteres y motivo de más de 500', () => {
+    expect(RegistrarRecepcionFacturaSchema.safeParse({ ...conCfdi, remision: 'R'.repeat(51) }).success).toBe(false);
+    expect(RegistrarRecepcionFacturaSchema.safeParse({ ...conCfdi, motivoDuplicado: 'm'.repeat(501) }).success).toBe(false);
   });
 });

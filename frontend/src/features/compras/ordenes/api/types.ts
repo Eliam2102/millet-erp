@@ -300,6 +300,10 @@ export interface SolicitudCancelacionOc {
   fechaResolucion: string | null;
   confirmada: boolean | null;
   motivoResolucion: string | null;
+  /** 86e3jvu83: la cancelación espera la respuesta de Almacenes a COMPRA_CANCELADA. */
+  esperaAlmacenes?: boolean;
+  /** 86e3jvu83: respuesta de Almacenes cuando rechazó la cancelación. */
+  respuestaAlmacenes?: string | null;
 }
 
 /** F1-COM-11: fecha prometida por el proveedor para una cantidad de una línea. */
@@ -325,6 +329,10 @@ export interface RespuestaProveedorOc {
   registradaEn: string;
   vigente: boolean;
   compromisos: CompromisoEntregaOc[];
+  /** G-11: respuesta marcada como errónea; se conserva en el historial. */
+  anuladaEn?: string | null;
+  anuladaPorId?: string | null;
+  motivoAnulacion?: string | null;
 }
 
 /** F1-COM-07: fecha compromiso de una incidencia (historial inmutable; la de mayor número es la vigente). */
@@ -383,6 +391,7 @@ export interface RecepcionImportacion {
 }
 
 export interface OrdenCompraDetalleResponse {
+  transporteCe?: { numeroPedimento: string | null; contenedores: { numero: string; blGuia: string | null }[] } | null;
   recepcionesImportacion?: RecepcionImportacion[];
   /** Proveedor con compras previas recurrentes; ausente si no hay dato. */
   esRecurrente?: boolean;

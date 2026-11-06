@@ -29,6 +29,7 @@ import { apiRequest, esApiError } from '@/lib/api';
 import { CE_BASE, useAccionExpediente, useExpediente, useExpedientes } from '../api/hooks';
 import { EstadoExpedienteBadge } from '../components/EstadoExpedienteBadge';
 import { OtrPanel } from '../components/OtrPanel';
+import { CierresPanel, FacturasPanel } from '../components/CierresPanel';
 import { ContenedoresPanel } from '../components/ContenedoresPanel';
 import { IncidenciasPanel } from '../components/IncidenciasPanel';
 import { HitosPanel } from '../components/HitosPanel';
@@ -52,7 +53,7 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
   const lista = useExpedientes({});
   const data = query.data?.data;
   const editar = useHasPermission(P.ComercioExteriorExpedientesEditar);
-  const cerrar = useHasPermission(P.ComercioExteriorExpedientesCerrar);
+  const cerrar = useHasPermission(P.ComercioExteriorExpedientesAprobarCierre);
   const cancelar = useHasPermission(P.ComercioExteriorExpedientesCancelar);
   const accion = useAccionExpediente(id);
   const [edicion, setEdicion] = useState(false);
@@ -245,15 +246,17 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
             <TabsTrigger value="hitos">Hitos</TabsTrigger>
             {data.expediente.tipo === 2 && (
               <>
-                <TabsTrigger value="contenedores">Contenedores</TabsTrigger>
                 <TabsTrigger value="otr">A+W OTR</TabsTrigger>
               </>
             )}
+            <TabsTrigger value="contenedores">Contenedores</TabsTrigger>
             <TabsTrigger value="gastos">Gastos</TabsTrigger>
             <TabsTrigger value="anticipos">Anticipo al agente</TabsTrigger>
             <TabsTrigger value="bitacora">Bitácora</TabsTrigger>
           </TabsList>
           <TabsContent value="resumen" className="space-y-4">
+            <CierresPanel data={data} />
+            <FacturasPanel data={data} />
             <h2 className="text-md font-semibold">Datos de la operación</h2>
             {data.motivoCancelacion && <p>Cancelación: {data.motivoCancelacion}</p>}
             {(data.ocId || data.informacionImportacion) && (
@@ -318,11 +321,9 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
           <TabsContent value="hitos">
             <HitosPanel data={data} />
           </TabsContent>
-          {data.expediente.tipo === 2 && (
-            <TabsContent value="contenedores">
-              <ContenedoresPanel data={data} />
-            </TabsContent>
-          )}
+          <TabsContent value="contenedores">
+            <ContenedoresPanel data={data} />
+          </TabsContent>
           {data.expediente.tipo === 2 && (
             <TabsContent value="otr">
               <OtrPanel expedienteId={id} abierto={abierto} />

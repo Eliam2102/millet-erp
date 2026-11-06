@@ -21,7 +21,9 @@ public sealed record UsuarioResponse(
     Guid? DepartamentoId,
     bool Activo,
     int Version,
-    Guid? EmpleadoId = null);
+    Guid? EmpleadoId = null,
+    bool EsCuentaTecnica = false,
+    DateTimeOffset? PrimerAccesoEn = null);
 
 /// <summary>
 /// Página de usuarios (F-Admin-PR4.2). Mismo shape que <c>ListarRolesResponse</c>.

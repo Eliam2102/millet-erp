@@ -93,6 +93,27 @@ public static class RecepcionesEndpoints
         .Produces<RecepcionDetalle>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound);
 
+        // --- Comprobante imprimible de la recepción (G-10) ---
+        group.MapGet("/{id:guid}/comprobante", async (
+            Guid id,
+            DocumentoSucursalScope documentos,
+            IMediator mediator,
+            HttpResponse response,
+            CancellationToken ct) =>
+        {
+            await documentos.VerificarAsync("recepcion", id, PermisosCanonicos.AlmacenEntradasLeerTodasSucursales, ct);
+            var pdf = await mediator.Send(new Millet.Almacen.Application.Recepciones.Pdf.ComprobanteRecepcionPdfQuery(id), ct);
+            if (pdf is null) return Results.NotFound();
+            // Se dibuja al momento con los datos vigentes; no se guarda.
+            response.Headers.CacheControl = "no-store";
+            return Results.File(pdf.Contenido, "application/pdf", pdf.NombreArchivo);
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenEntradasLeer)
+        .WithName("ObtenerComprobanteRecepcion")
+        .WithSummary("PDF de la recepción con quién recibió, partidas y rechazos")
+        .Produces(StatusCodes.Status200OK, contentType: "application/pdf")
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
         // --- CFDI por procesar del proveedor de la OC (selector de la recepción) ---
         group.MapGet("/ordenes/{ordenCompraId:guid}/cfdis", async (
             Guid ordenCompraId,

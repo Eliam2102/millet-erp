@@ -9,7 +9,7 @@ const timbrado: Record<string, EstadoUi> = Object.fromEntries(
   Object.entries(ETIQUETA_ESTADO_TIMBRADO).map(([estado, texto]) => [
     estado,
     {
-      texto,
+      texto: estado === 'Timbrado' ? 'Timbrada' : estado === 'CancelacionPendiente' ? 'Cancelación en proceso' : texto,
       tono:
         estado === 'Timbrado'
           ? 'success'

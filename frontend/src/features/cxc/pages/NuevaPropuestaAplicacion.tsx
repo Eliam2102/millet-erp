@@ -1,4 +1,4 @@
-import { ResumenImportes, FormSeccion, FormCampo } from '@/components/erp';
+import { DateTimeDisplay, ResumenImportes, FormSeccion, FormCampo } from '@/components/erp';
 
 import { SheetBody, SheetFooter } from '@/components/ui/sheet';
 
@@ -10,6 +10,8 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { TextAreaField } from '@/components/erp/forms/TextAreaField';
 import { ClienteSelectorCxc } from '@/features/cxc/components/ClienteSelectorCxc';
 import { MatchingAplicacionTable } from '@/features/cxc/components/MatchingAplicacionTable';
 import {
@@ -19,6 +21,7 @@ import {
 } from '@/features/cxc/api/useAplicaciones';
 import {
   MONEDAS_LINEA_CREDITO,
+  TipoAjusteCobro,
   type DepositoPorIdentificarItem,
 } from '@/features/cxc/api/types';
 import { formatoMonto } from '@/features/cxc/lib/glosario';
@@ -27,7 +30,7 @@ import {
   PropuestaAplicacionSchema,
   type PropuestaAplicacionValues,
 } from '@/features/cxc/schemas/propuesta-aplicacion';
-import { applyServerErrors, esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
+import { applyServerErrors, esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 /**
@@ -36,7 +39,7 @@ import { cn } from '@/lib/utils';
  * moneda, referencia, remittance) + facturas abiertas del cliente con
  * checkbox e importe editable inline. Footer con Σ aplicado, diferencia
  * y — si el depósito viene corto dentro de tolerancia — el ajuste no
- * fiscal (comisión bancaria) que NO genera CFDI. Sin remittance el
+ * fiscal (comisión bancaria) que NO genera CFDI. Sin aviso de pago el
  * botón queda deshabilitado.
  */
 export interface NuevaPropuestaAplicacionProps {
@@ -74,6 +77,9 @@ export function NuevaPropuestaAplicacion({
 
   // Selección del matching: uuid → importe (estado local, no del form).
   const [seleccion, setSeleccion] = useState<Map<string, number>>(new Map());
+  // CXC-06: ajuste documentado de un depósito corto (tipo = cuenta de la póliza, y motivo).
+  const [tipoAjuste, setTipoAjuste] = useState<TipoAjusteCobro | null>(null);
+  const [motivoAjuste, setMotivoAjuste] = useState('');
 
   const [clienteId, moneda, montoDeposito, remittanceRef] = useWatch({
     control: form.control,
@@ -130,8 +136,10 @@ export function NuevaPropuestaAplicacion({
   }
 
   const sinRemittance = (remittanceRef ?? '').trim() === '';
+  const ajusteIncompleto = esAjusteNoFiscal && (tipoAjuste == null || motivoAjuste.trim() === '');
   const puedeProponer =
     !sinRemittance &&
+    !ajusteIncompleto &&
     seleccion.size > 0 &&
     !importesInvalidos &&
     !excedeTolerancia &&
@@ -154,6 +162,7 @@ export function NuevaPropuestaAplicacion({
             importeAplicado,
           })),
           movimientoBancarioId: deposito?.movimientoBancarioId ?? null,
+          ...(esAjusteNoFiscal ? { tipoAjuste, motivoAjuste: motivoAjuste.trim() } : {}),
         },
         idempotencyKey,
       },
@@ -167,9 +176,12 @@ export function NuevaPropuestaAplicacion({
                   f.saldoInsoluto != null ? ` · saldo insoluto ${formatoMonto(f.saldoInsoluto, res.moneda)}` : ''
                 }`,
             );
+          const avisos = res.ajustePorAutorizar
+            ? ['El ajuste espera la autorización de otra persona; después la propuesta pasa a Tesorería.', ...parcialidades]
+            : parcialidades;
           toast.success(
             `Propuesta creada para el depósito ${res.depositoRef} (${res.facturas.length} factura${res.facturas.length === 1 ? '' : 's'}).`,
-            parcialidades.length > 0 ? { description: parcialidades.join(' · ') } : undefined,
+            avisos.length > 0 ? { description: avisos.join(' · ') } : undefined,
           );
           onClose({ force: true });
         },
@@ -188,13 +200,7 @@ export function NuevaPropuestaAplicacion({
               e.campo.startsWith('facturas'),
             );
             if (mapeado && errsLinea.length === 0) return;
-            toast.error(error.problem.title, {
-              description:
-                error.problem.detail ??
-                (errsLinea.length > 0
-                  ? errsLinea.map((e) => e.mensaje).join(' · ')
-                  : codigoSoporte(error)),
-            });
+            toast.error('No se pudo crear la propuesta. Revisa los datos y tu conexión antes de volver a intentarlo.');
             return;
           }
           toast.error('Error inesperado al crear la propuesta.');
@@ -217,7 +223,7 @@ export function NuevaPropuestaAplicacion({
             data-testid="deposito-identificado"
           >
             Identificando el depósito {deposito.referencia ?? 'sin referencia'} · {deposito.cuenta} ·{' '}
-            {deposito.fechaValor.slice(0, 10)} · disponible{' '}
+            <DateTimeDisplay value={deposito.fechaValor} variant="media" /> · disponible{' '}
             {formatoMonto(deposito.disponible, deposito.moneda)}. No se aplica hasta que Tesorería
             confirme.
           </p>
@@ -257,7 +263,7 @@ export function NuevaPropuestaAplicacion({
           </FormCampo>
           <FormCampo span={6} className="space-y-1">
             <Label htmlFor="remittanceRef" className="text-xs">
-              Remittance del cliente <span className="text-danger-fg">*</span>
+              Aviso de pago del cliente <span className="text-danger-fg">*</span>
             </Label>
             <Input
               id="remittanceRef"
@@ -266,7 +272,7 @@ export function NuevaPropuestaAplicacion({
               {...form.register('remittanceRef')}
             />
             <p className="text-2xs leading-tight text-ink-muted">
-              Sin remittance no se puede proponer.
+              Sin aviso de pago no se puede proponer.
             </p>
             {form.formState.errors.remittanceRef && (
               <p className="text-xs text-danger-fg">
@@ -326,7 +332,7 @@ export function NuevaPropuestaAplicacion({
                 size="sm"
                 onClick={sugerir}
                 disabled={crear.isPending || !facturas.data?.length || !((montoDeposito || 0) > 0)}
-                title="Llena los importes de la factura más antigua a la más reciente; revisa y propón (V61)."
+                title="Llena los importes de la factura más antigua a la más reciente; revisa y propón."
               >
                 Sugerir
               </Button>
@@ -377,10 +383,51 @@ export function NuevaPropuestaAplicacion({
             </p>
           )}
           {esAjusteNoFiscal && (
-            <p className="text-xs text-warning-fg ">
-              La diferencia se registrará como ajuste no fiscal (p. ej. comisión bancaria) dentro de
-              la tolerancia de {formatoMonto(tolerancia, moneda)} — NO genera CFDI.
-            </p>
+            <div className="space-y-2">
+              <p className="text-xs text-warning-fg">
+                El depósito es {formatoMonto(-diferencia, moneda)} menor que lo aplicado. Está dentro de la
+                tolerancia de {formatoMonto(tolerancia, moneda)} y no genera CFDI, pero no se absorbe solo:
+                documenta el ajuste. Otra persona debe autorizarlo antes de que la propuesta pase a Tesorería.
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label htmlFor="tipo-ajuste" className="text-xs">
+                    Tipo de ajuste (cuenta) *
+                  </Label>
+                  <Select
+                    value={tipoAjuste == null ? '' : String(tipoAjuste)}
+                    onValueChange={(v) => setTipoAjuste(Number(v) as TipoAjusteCobro)}
+                  >
+                    <SelectTrigger id="tipo-ajuste" aria-label="Tipo de ajuste">
+                      <SelectValue placeholder="Elige el tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={String(TipoAjusteCobro.ComisionBancaria)}>
+                        Comisión bancaria
+                      </SelectItem>
+                      <SelectItem value={String(TipoAjusteCobro.DiferenciaMenor)}>
+                        Diferencia menor en cobro
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="motivo-ajuste" className="text-xs">
+                    Motivo del ajuste *
+                  </Label>
+                  <TextAreaField
+                    value={motivoAjuste}
+                    onChange={(v) => setMotivoAjuste(v ?? '')}
+                    maxLength={400}
+                    minRows={2}
+                    textareaProps={{
+                      id: 'motivo-ajuste',
+                      placeholder: 'p. ej. Comisión del banco del cliente por transferencia internacional',
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
           )}
           {faltaTolerancia && (
             <p className="text-xs text-ink-muted">
@@ -400,10 +447,17 @@ export function NuevaPropuestaAplicacion({
           disabled={crear.isPending || !puedeProponer}
           title={
             sinRemittance
-              ? 'Sin remittance del cliente no se puede proponer.'
-              : seleccion.size === 0
+              ? 'Sin aviso de pago del cliente no se puede proponer.'
+              : ajusteIncompleto
+                ? 'Indica el tipo y el motivo del ajuste.'
+                : seleccion.size === 0
                 ? 'Selecciona al menos una factura.'
-                : undefined
+                : importesInvalidos ? 'Corrige los importes de las facturas.'
+                : excedeTolerancia ? 'La diferencia excede la tolerancia; corrige los importes.'
+                : faltaTolerancia ? 'Espera a que cargue la tolerancia o vuelve a consultarla.'
+                : excedeDeposito ? 'El monto excede lo disponible del depósito.'
+                : !(montoDeposito > 0) ? 'Captura un monto de depósito mayor a cero.'
+                : crear.isPending ? 'Espera a que se cree la propuesta.' : undefined
           }
         >
           {crear.isPending ? 'Proponiendo…' : 'Proponer aplicación'}

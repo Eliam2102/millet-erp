@@ -29,6 +29,8 @@ public static class DependencyInjection
         // CXC-PR3: resolución RFC → cliente para la proyección de cartera.
         services.AddScoped<IClienteReadPort, ClienteReadPortAdapter>();
         services.AddScoped<IBeneficiarioCreditoReadPort, BeneficiarioCreditoReadPortAdapter>();
+        // CXC-06: ajuste autorizado del cobro corto para la póliza #12 (Contabilidad lo lee por puerto).
+        services.AddScoped<Millet.Contabilidad.Application.PublicPorts.IAjusteCobroContablePort, Adapters.AjusteCobroContableAdapter>();
 
         // CXC-PR6: buckets de antigüedad configurables (levantamiento §1.2).
         services
@@ -48,6 +50,12 @@ public static class DependencyInjection
             .AddOptions<Application.Alertas.AlertasCarteraOptions>()
             .Bind(configuration.GetSection(Application.Alertas.AlertasCarteraOptions.SectionName));
         services.AddHostedService<Workers.AlertaCarteraWorker>();
+
+        // C7.7: conciliación diaria de cartera contra Facturación.
+        services
+            .AddOptions<Workers.ConciliacionCarteraOptions>()
+            .Bind(configuration.GetSection(Workers.ConciliacionCarteraOptions.SectionName));
+        services.AddHostedService<Workers.ConciliacionCarteraWorker>();
 
         // C7.8: correo del estado de cuenta por el transporte único de correo
         // (Correo:Proveedor, 86e3txv0n); NoOp deja el envío en Registrado.

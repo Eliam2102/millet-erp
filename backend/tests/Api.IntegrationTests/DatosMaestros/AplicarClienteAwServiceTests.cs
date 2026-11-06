@@ -144,7 +144,7 @@ public class AplicarClienteAwServiceTests
         var id = antes[0].Id;
 
         using (var scope = _factory.Services.CreateScope())
-            await scope.ServiceProvider.GetRequiredService<MediatR.IMediator>().Send(new DesactivarClienteCommand(id));
+            await scope.ServiceProvider.GetRequiredService<MediatR.IMediator>().Send(new DesactivarClienteCommand(id, "Baja local de prueba"));
 
         // Releer con cambio comercial: no reactiva, no toca fiscales, mantiene la identidad.
         var res = await Aplicar(Snap(r) with

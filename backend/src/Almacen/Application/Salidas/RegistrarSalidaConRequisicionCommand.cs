@@ -46,7 +46,9 @@ public sealed record RegistrarSalidaConRequisicionCommand(
     DateOnly FechaMovimiento,
     Guid? PersonaDestinatariaId,
     string? Observaciones,
-    IReadOnlyList<RegistrarSalidaLineaInput> Lineas) : IRequest<RegistrarSalidaResponse>;
+    IReadOnlyList<RegistrarSalidaLineaInput> Lineas,
+    // G-10: acuse de quien recibe el material (obligatorio junto con el destinatario); la fecha y hora las fija el servidor al confirmar.
+    string? AcuseRecibeNombre = null) : IRequest<RegistrarSalidaResponse>;
 
 public sealed record RegistrarSalidaLineaInput(
     Guid ArticuloId,
@@ -255,12 +257,14 @@ public sealed class RegistrarSalidaConRequisicionHandler
         await _decimalesGuard.ValidarAsync(
             request.Lineas.Select((l, i) => new CantidadAValidar(l.ArticuloId, conversiones[i].CantidadBase, Derivada: variantes[i] is not null)),
             cancellationToken);
+        SalidaAcuse.Exigir(request.PersonaDestinatariaId, request.AcuseRecibeNombre);
 
         var movimiento = new MovimientoInventario(
             id: movimientoId,
             tipo: TipoMovimiento.SalidaConsumo,
             empresaId: empresaId,
             fechaMovimiento: request.FechaMovimiento);
+        movimiento.AsentarAcuse(request.AcuseRecibeNombre!, DateTimeOffset.UtcNow);
 
         // Vincular salida a RQ + destinatarios.
         typeof(MovimientoInventario)

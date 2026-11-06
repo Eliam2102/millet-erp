@@ -1,3 +1,4 @@
+import { SalidaPanel, PackingPartida, AduanalesPartida } from './SalidaPanel';
 import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { PaginacionTabla } from '@/components/erp';
 import { FormSeccion } from '@/components/erp/forms/FormSeccion';
@@ -100,19 +101,22 @@ export function ContenedoresPanel({ data }: { data: ExpedienteDetalle }) {
         <div>
           <h2 className="text-md font-semibold">Contenedores y partidas</h2>
           <p className="text-xs text-ink-muted">
-            Asigne cada partida y registre su embarque real para liberar la factura completa del
-            pedido.
+            Asigne las partidas al contenedor y registre los datos del transporte y su embarque
+            real.
           </p>
         </div>
         {gestionar && <Button onClick={() => setEdicion('nuevo')}>Agregar contenedor</Button>}
       </div>
-      <PedimentoForm
-        key={`${d.version}-pedimento`}
-        id={id}
-        d={d}
-        gestionar={gestionar}
-        documentos={data}
-      />
+      {data.expediente.tipo === 2 && (
+        <PedimentoForm
+          key={`${d.version}-pedimento`}
+          id={id}
+          d={d}
+          gestionar={gestionar}
+          documentos={data}
+        />
+      )}
+      {data.expediente.tipo === 2 && <SalidaPanel data={data} d={d} />}
       {error && (
         <p role="alert" className="text-danger-fg">
           {error}
@@ -142,7 +146,9 @@ export function ContenedoresPanel({ data }: { data: ExpedienteDetalle }) {
                     {c.numero ?? 'Por asignar'}
                   </TableCell>
                   <TableCell className="px-3">{c.blGuia ?? 'Pendiente'}</TableCell>
-                  <TableCell className="px-3">{c.booking ?? <span className="text-ink-muted">Sin booking</span>}</TableCell>
+                  <TableCell className="px-3">
+                    {c.booking ?? <span className="text-ink-muted">Sin booking</span>}
+                  </TableCell>
                   <TableCell className="px-3">
                     {c.fechaEmbarqueReal ? (
                       <DateTimeDisplay value={c.fechaEmbarqueReal} />
@@ -205,96 +211,116 @@ export function ContenedoresPanel({ data }: { data: ExpedienteDetalle }) {
               ))}
             </select>
           </FormCampo>
-          <div className="overflow-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Pedido · cliente</TableHead>
-                  <TableHead>Partida</TableHead>
-                  <TableHead className="text-right">Cantidad</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Factura</TableHead>
-                  <TableHead>Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {d.partidas
-                  .filter((p) => p.contenedorId === contenedor.id)
-                  .map((p) => (
-                    <TableRow key={p.id}>
-                      <TableCell>
-                        <span className="font-mono text-xs">
-                          {pedido(p.pedidoFacturableId)?.numeroPedido ?? <span className="text-ink-muted">Sin número</span>}
-                        </span>
-                        <p className="text-xs text-ink-muted">
-                          {pedido(p.pedidoFacturableId)?.clienteNombre}
-                        </p>
-                      </TableCell>
-                      <TableCell className="tabular-nums">{p.posicion}</TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {p.cantidad} {p.unidad}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={estadosPartida[p.estado].tono}>
-                          {estadosPartida[p.estado].texto}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {pedido(p.pedidoFacturableId)?.facturaFolio
-                          ? `Facturado: ${pedido(p.pedidoFacturableId)?.facturaFolio} · ${pedido(p.pedidoFacturableId)?.facturaUuid ?? 'UUID pendiente'}`
-                          : 'Sin factura vigente'}
-                      </TableCell>
-                      <TableCell>
-                        {' '}
-                        {gestionar && p.estado !== 3 && (
-                          <div className="flex gap-2">
-                            {p.estado === 2 && (
+          {data.expediente.tipo === 1 && (
+            <PartidasImportacion id={id} d={d} contenedorId={contenedor.id} gestionar={gestionar} />
+          )}
+          {data.expediente.tipo === 2 && (
+            <div className="overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Pedido · cliente</TableHead>
+                    <TableHead>Partida</TableHead>
+                    <TableHead className="text-right">Cantidad</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead>Factura</TableHead>
+                    <TableHead>Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {d.partidas
+                    .filter((p) => p.contenedorId === contenedor.id)
+                    .map((p) => (
+                      <TableRow key={p.id}>
+                        <TableCell>
+                          <span className="font-mono text-xs">
+                            {pedido(p.pedidoFacturableId)?.numeroPedido ?? (
+                              <span className="text-ink-muted">Sin número</span>
+                            )}
+                          </span>
+                          <p className="text-xs text-ink-muted">
+                            {pedido(p.pedidoFacturableId)?.clienteNombre}
+                          </p>
+                        </TableCell>
+                        <TableCell className="tabular-nums">{p.posicion}</TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {p.cantidad} {p.unidad}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={estadosPartida[p.estado].tono}>
+                            {estadosPartida[p.estado].texto}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {pedido(p.pedidoFacturableId)?.facturaFolio
+                            ? `Facturado: ${pedido(p.pedidoFacturableId)?.facturaFolio} · ${pedido(p.pedidoFacturableId)?.facturaUuid ?? 'UUID pendiente'}`
+                            : 'Sin factura vigente'}
+                        </TableCell>
+                        <TableCell>
+                          <AduanalesPartida
+                            key={`${p.id}-${p.fraccionArancelaria}`}
+                            id={id}
+                            p={p}
+                            abierto={data.expediente.estado === 1}
+                          />
+                          {gestionar && p.estado !== 3 && (
+                            <div className="flex gap-2">
+                              {p.estado === 2 && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={mutar.isPending}
+                                  title={mutar.isPending ? 'Guardando confirmación.' : undefined}
+                                  onClick={() => {
+                                    void mutar
+                                      .mutateAsync({ ruta: `partidas/${p.id}/confirmar` })
+                                      .catch(() => {});
+                                  }}
+                                >
+                                  Confirmar partida
+                                </Button>
+                              )}
+                              <PackingPartida id={id} p={p} />
                               <Button
                                 size="sm"
-                                variant="outline"
-                                disabled={mutar.isPending}
-                                title={mutar.isPending ? 'Guardando confirmación.' : undefined}
+                                variant="ghost"
+                                disabled={
+                                  mutar.isPending || pedido(p.pedidoFacturableId)?.facturaVigente
+                                }
+                                title={
+                                  pedido(p.pedidoFacturableId)?.facturaVigente
+                                    ? 'La partida tiene una factura vigente.'
+                                    : mutar.isPending
+                                      ? 'Guardando cambios.'
+                                      : undefined
+                                }
                                 onClick={() => {
                                   void mutar
-                                    .mutateAsync({ ruta: `partidas/${p.id}/confirmar` })
+                                    .mutateAsync({ ruta: `partidas/${p.id}`, method: 'DELETE' })
                                     .catch(() => {});
                                 }}
                               >
-                                Confirmar partida
+                                Retirar partida
                               </Button>
-                            )}
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              disabled={
-                                mutar.isPending || pedido(p.pedidoFacturableId)?.facturaVigente
-                              }
-                              title={
-                                pedido(p.pedidoFacturableId)?.facturaVigente
-                                  ? 'La partida tiene una factura vigente.'
-                                  : mutar.isPending
-                                    ? 'Guardando cambios.'
-                                    : undefined
-                              }
-                              onClick={() => {
-                                void mutar
-                                  .mutateAsync({ ruta: `partidas/${p.id}`, method: 'DELETE' })
-                                  .catch(() => {});
-                              }}
-                            >
-                              Retirar partida
-                            </Button>
-                          </div>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-              </TableBody>
-            </Table>
-          </div>
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
           {gestionar && (
             <>
-              <AsignarPartida key={contenedor.id} data={data} d={d} contenedorId={contenedor.id} />
+              {data.expediente.tipo === 2 && (
+                <AsignarPartida
+                  key={contenedor.id}
+                  data={data}
+                  d={d}
+                  contenedorId={contenedor.id}
+                />
+              )}
               <div className="flex gap-2">
                 <Button
                   variant="outline"
@@ -334,8 +360,7 @@ export function ContenedoresPanel({ data }: { data: ExpedienteDetalle }) {
                             />
                           </FormCampo>
                           <p className="text-xs text-ink-muted">
-                            Requiere número de contenedor, BL o guía y pedimento de exportación
-                            vigente.
+                            Requiere BL o guía, partidas y los participantes del transporte.
                           </p>
                         </>
                       ) : (
@@ -628,6 +653,24 @@ function ContenedorForm({
                   }
                 />
               </Campo>
+              <Campo label="Modalidad de transporte" id="ce-c-modalidad">
+                <select
+                  id="ce-c-modalidad"
+                  className={selectClass}
+                  value={datos.modalidad ?? ''}
+                  onChange={(e) =>
+                    setDatos({
+                      ...datos,
+                      modalidad: e.target.value ? (Number(e.target.value) as 1 | 2 | 3) : null,
+                    })
+                  }
+                >
+                  <option value="">Seleccione la modalidad</option>
+                  <option value="1">Marítimo</option>
+                  <option value="2">Terrestre</option>
+                  <option value="3">Aéreo</option>
+                </select>
+              </Campo>
               <Campo label="Bultos" id="ce-c-bultos">
                 <Input
                   id="ce-c-bultos"
@@ -848,5 +891,148 @@ function Campo({ label, id, children }: { label: string; id: string; children: R
       </Label>
       {children}
     </FormCampo>
+  );
+}
+
+function PartidasImportacion({
+  id,
+  d,
+  contenedorId,
+  gestionar,
+}: {
+  id: string;
+  d: ContenedoresDetalle;
+  contenedorId: string;
+  gestionar: boolean;
+}) {
+  const mutar = useMutarContenedor(id);
+  const [linea, setLinea] = useState('');
+  const [cantidad, setCantidad] = useState('');
+  const partidas = d.partidasImportacion ?? [];
+  return (
+    <div className="space-y-4">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Partida de OC</TableHead>
+            <TableHead>Pedido</TableHead>
+            <TableHead>Remanente por embarcar</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {(d.partidasOc ?? []).map((l) => (
+            <TableRow key={l.id}>
+              <TableCell>
+                {l.posicion} · {l.descripcion}
+              </TableCell>
+              <TableCell>
+                {l.cantidad} {l.unidad}
+              </TableCell>
+              <TableCell>
+                {l.remanente} {l.unidad}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Partida embarcada</TableHead>
+            <TableHead>Cantidad en este contenedor</TableHead>
+            <TableHead>Acciones</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {partidas
+            .filter((p) => p.contenedorId === contenedorId)
+            .map((p) => (
+              <TableRow key={p.id}>
+                <TableCell>{p.posicion}</TableCell>
+                <TableCell>
+                  {p.cantidad} {p.unidad}
+                </TableCell>
+                <TableCell>
+                  {gestionar && (
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        void mutar
+                          .mutateAsync({ ruta: `partidas-importacion/${p.id}`, method: 'DELETE' })
+                          .catch(() => {});
+                      }}
+                    >
+                      Retirar partida
+                    </Button>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+        </TableBody>
+      </Table>
+      {gestionar && (
+        <form
+          className="space-y-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void mutar
+              .mutateAsync({
+                ruta: `contenedores/${contenedorId}/partidas-importacion`,
+                body: { ocLineaId: linea, cantidad: Number(cantidad) },
+              })
+              .then(() => setCantidad(''))
+              .catch(() => {});
+          }}
+        >
+          <FormGrid>
+            <FormCampo span={6}>
+              <Label htmlFor="ce-imp-linea">Partida de la OC *</Label>
+              <select
+                id="ce-imp-linea"
+                className={selectClass}
+                required
+                value={linea}
+                onChange={(e) => setLinea(e.target.value)}
+              >
+                <option value="">Seleccione una partida</option>
+                {(d.partidasOc ?? [])
+                  .filter((l) => l.remanente > 0)
+                  .map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.posicion} · {l.descripcion}
+                    </option>
+                  ))}
+              </select>
+            </FormCampo>
+            <FormCampo span={3}>
+              <Label htmlFor="ce-imp-cantidad">Cantidad embarcada *</Label>
+              <Input
+                id="ce-imp-cantidad"
+                type="number"
+                min="0.000001"
+                step="0.000001"
+                required
+                value={cantidad}
+                onChange={(e) => setCantidad(e.target.value)}
+              />
+            </FormCampo>
+          </FormGrid>
+          <Button
+            type="submit"
+            disabled={mutar.isPending}
+            title={mutar.isPending ? 'Guardando partida.' : undefined}
+          >
+            Asignar partida de la OC
+          </Button>
+        </form>
+      )}
+      {mutar.isError && (
+        <p role="alert" className="text-danger-fg">
+          {esApiError(mutar.error)
+            ? (mutar.error.problem.detail ?? mutar.error.problem.title)
+            : 'No se pudo guardar la partida.'}
+        </p>
+      )}
+    </div>
   );
 }

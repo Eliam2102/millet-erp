@@ -15,6 +15,7 @@ export const ViaticosSearchSchema = z.object({
       z.literal(EstadoSolicitudViaticos.ComprobacionCapturada),
       z.literal(EstadoSolicitudViaticos.Liquidada),
       z.literal(EstadoSolicitudViaticos.Rechazada),
+      z.literal(EstadoSolicitudViaticos.Devuelta),
     ])
     .optional(),
   empleadoId: z.string().regex(UUID_RE).optional(),

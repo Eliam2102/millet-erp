@@ -1,4 +1,5 @@
-import { ResumenImportes, MontoMovimiento, PageHeader, ErrorState } from '@/components/erp';
+import { problemaConsulta } from '@/components/erp/feedback/problema-consulta';
+import { DateTimeDisplay, ResumenImportes, MontoMovimiento, PageHeader, ErrorState } from '@/components/erp';
 
 import {
   Table,
@@ -10,18 +11,34 @@ import {
 } from '@/components/ui/table';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { X } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 
-import { usePropuestaAplicacion } from '@/features/cxc/api/useAplicaciones';
+import {
+  usePropuestaAplicacion,
+  useAutorizarAjuste,
+  useRechazarAjuste,
+} from '@/features/cxc/api/useAplicaciones';
+import { RechazarAjusteDialog } from '@/features/cxc/components/RechazarAjusteDialog';
+import { useAuthStore } from '@/lib/auth/auth-store';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useClientesLookupCxc } from '@/features/cxc/api/useLineasCredito';
 import { ChipEstadoPropuesta } from '@/features/cxc/components/ChipEstadoPropuesta';
 import {
   EstadoPropuestaAplicacion,
+  TipoAjusteCobro,
   type PropuestaAplicacionResponse,
 } from '@/features/cxc/api/types';
 import { formatoMonto } from '@/features/cxc/lib/glosario';
 import type { AplicacionesSearch } from '@/features/cxc/lib/aplicaciones-search-schema';
 import { esApiError } from '@/lib/api';
+
+const ETIQUETA_TIPO_AJUSTE: Record<TipoAjusteCobro, string> = {
+  [TipoAjusteCobro.ComisionBancaria]: 'Comisión bancaria',
+  [TipoAjusteCobro.DiferenciaMenor]: 'Diferencia menor en cobro',
+};
 
 export function DetalleAplicacion() {
   const { id } = useParams({ from: '/_app/cxc/aplicaciones/$id' });
@@ -32,7 +49,7 @@ export function DetalleAplicacion() {
       {query.isError ? (
         <ErrorState
           title="No se pudo cargar la propuesta"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
+          problem={problemaConsulta(query.error)}
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading || query.data == null ? (
@@ -60,8 +77,8 @@ function Contenido({ p }: { p: PropuestaAplicacionResponse }) {
         <PageHeader
           mono
           titulo={p.depositoRef}
-          estado={<ChipEstadoPropuesta estado={p.estado} />}
-          descripcion={cliente?.razonSocial ?? '—'}
+          estado={<ChipEstadoPropuesta estado={p.estado} ajustePorAutorizar={p.ajustePorAutorizar} />}
+          descripcion={cliente?.razonSocial || '—'}
           acciones={
             <div className="flex items-center gap-1.5">
               <Button variant="ghost" size="icon" asChild aria-label="Cerrar detalle">
@@ -74,7 +91,9 @@ function Contenido({ p }: { p: PropuestaAplicacionResponse }) {
         />
       </div>
 
-      {p.estado === EstadoPropuestaAplicacion.Rechazada && p.motivoRechazo && (
+      {p.ajusteNoFiscal < 0 && <PanelAjuste p={p} />}
+
+      {p.estado === EstadoPropuestaAplicacion.Rechazada && p.motivoRechazo && !esAjusteRechazado(p) && (
         <div className="rounded-md border border-line bg-danger-bg px-4 py-3 text-sm text-danger-fg">
           <p className="font-medium">Propuesta rechazada</p>
           <p>{p.motivoRechazo}</p>
@@ -88,7 +107,7 @@ function Contenido({ p }: { p: PropuestaAplicacionResponse }) {
           <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 lg:grid-cols-4 text-sm">
             <div>
               <dt className="text-xs text-ink-muted">Cliente</dt>
-              <dd className="truncate">{cliente?.razonSocial ?? '—'}</dd>
+              <dd className="truncate">{cliente?.razonSocial || <span className="text-ink-muted">—</span>}</dd>
             </div>
             <div>
               <dt className="text-xs text-ink-muted">Monto</dt>
@@ -97,13 +116,13 @@ function Contenido({ p }: { p: PropuestaAplicacionResponse }) {
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-ink-muted">Remittance</dt>
-              <dd className="truncate text-xs">{p.remittanceRef}</dd>
+              <dt className="text-xs text-ink-muted">Aviso de pago</dt>
+              <dd className="truncate text-xs">{p.remittanceRef || <span className="text-ink-muted">Sin referencia</span>}</dd>
             </div>
             <div>
               <dt className="text-xs text-ink-muted">Ajuste no fiscal</dt>
               <dd className="font-mono tabular-nums">
-                {p.ajusteNoFiscal !== 0 ? formatoMonto(p.ajusteNoFiscal, p.moneda) : '—'}
+                {p.ajusteNoFiscal !== 0 ? formatoMonto(p.ajusteNoFiscal, p.moneda) : <span className="text-ink-muted">—</span>}
               </dd>
             </div>
           </dl>
@@ -117,11 +136,6 @@ function Contenido({ p }: { p: PropuestaAplicacionResponse }) {
                   : ''}
               </p>
             )}
-          {p.ajusteNoFiscal !== 0 && (
-            <p className="mt-3 text-xs text-warning-fg">
-              Diferencia dentro de tolerancia registrada como ajuste no fiscal (no genera CFDI).
-            </p>
-          )}
         </section>
 
         {/* ── Matching propuesto ───────────────────────────────── */}
@@ -170,5 +184,146 @@ function Contenido({ p }: { p: PropuestaAplicacionResponse }) {
         timbrar el REP.
       </p>
     </div>
+  );
+}
+
+/**
+ * CXC-06: ajuste documentado de un depósito corto. Se muestra importe, tipo (cuenta), motivo y autorización. Mientras espera,
+ * otra persona con permiso (nunca quien propuso) lo autoriza (la propuesta pasa a Tesorería) o lo rechaza (la propuesta queda
+ * rechazada).
+ */
+/** Rechazar el ajuste rechaza la propuesta con «Ajuste rechazado: …» (RechazarAjustePropuestaCommand); el panel lo dice (QA O1). */
+function esAjusteRechazado(p: PropuestaAplicacionResponse) {
+  return (
+    p.estado === EstadoPropuestaAplicacion.Rechazada &&
+    !p.ajusteAutorizadoEn &&
+    (p.motivoRechazo?.startsWith('Ajuste rechazado:') ?? false)
+  );
+}
+
+function PanelAjuste({ p }: { p: PropuestaAplicacionResponse }) {
+  const usuarioId = useAuthStore((s) => s.user?.id ?? null);
+  // CXC-06: autoriza o rechaza con el permiso existente aplicacion-pago.confirmar (supuesto «a validar»).
+  const tienePermiso = useHasPermission(PermisosCanonicos.CuentasPorCobrarAplicacionPagoConfirmar);
+  const autorizar = useAutorizarAjuste();
+  const rechazar = useRechazarAjuste();
+  const [rechazando, setRechazando] = useState(false);
+
+  const porAutorizar = p.ajustePorAutorizar === true;
+  const rechazado = esAjusteRechazado(p);
+  const esQuienPropuso = usuarioId != null && p.propuestoPor === usuarioId;
+  const puedeAutorizar = porAutorizar && !esQuienPropuso && tienePermiso;
+
+  function onError(error: unknown) {
+    if (esApiError(error)) toast.error('No se pudo resolver el ajuste. Revisa los datos y tu conexión antes de volver a intentarlo.');
+    else toast.error('Error inesperado.');
+  }
+
+  return (
+    <section
+      className={
+        porAutorizar
+          ? 'rounded-md border border-line bg-warning-bg p-4 text-sm'
+          : 'rounded-md border bg-surface-card p-4 text-sm'
+      }
+      aria-label="Ajuste del cobro"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h3 className="font-medium">
+            {porAutorizar ? 'Ajuste por autorizar' : rechazado ? 'Ajuste rechazado' : 'Ajuste documentado'}
+          </h3>
+          <p className="text-xs text-ink-muted">
+            El depósito es {formatoMonto(-p.ajusteNoFiscal, p.moneda)} menor que lo aplicado. No genera
+            CFDI; la póliza del cobro carga la diferencia a la cuenta de su tipo.
+          </p>
+        </div>
+        {puedeAutorizar && (
+          <div className="flex gap-2" data-print="hidden">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setRechazando(true)}
+              disabled={autorizar.isPending || rechazar.isPending}
+            >
+              Rechazar ajuste
+            </Button>
+            <Button
+              type="button"
+              disabled={autorizar.isPending || rechazar.isPending}
+              onClick={() =>
+                autorizar.mutate(
+                  { id: p.id, versionEsperada: p.version, idempotencyKey: crypto.randomUUID() },
+                  {
+                    onSuccess: () => toast.success('Ajuste autorizado. La propuesta pasa a Tesorería.'),
+                    onError,
+                  },
+                )
+              }
+            >
+              {autorizar.isPending ? 'Autorizando…' : 'Autorizar ajuste'}
+            </Button>
+          </div>
+        )}
+      </div>
+      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 lg:grid-cols-4">
+        <div>
+          <dt className="text-xs text-ink-muted">Importe aplicado</dt>
+          <dd className="font-mono tabular-nums">
+            {formatoMonto(p.facturas.reduce((a, f) => a + f.importeAplicado, 0), p.moneda)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-ink-muted">Ajuste</dt>
+          <dd className="font-mono tabular-nums">{formatoMonto(-p.ajusteNoFiscal, p.moneda)}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-ink-muted">Tipo (cuenta)</dt>
+          <dd>{p.tipoAjuste != null ? ETIQUETA_TIPO_AJUSTE[p.tipoAjuste] : <span className="text-ink-muted">—</span>}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-ink-muted">Autorización</dt>
+          <dd>
+            {p.ajusteAutorizadoEn
+              ? <>Autorizado el <DateTimeDisplay value={p.ajusteAutorizadoEn} variant="datetime" /></>
+              : rechazado
+                ? <>Rechazado{p.resueltaEn && <> el <DateTimeDisplay value={p.resueltaEn} variant="datetime" /></>}</>
+                : porAutorizar ? 'Pendiente' : <span className="text-ink-muted">—</span>}
+          </dd>
+        </div>
+        <div className="col-span-2 lg:col-span-4">
+          <dt className="text-xs text-ink-muted">Motivo</dt>
+          <dd className="whitespace-pre-wrap">{p.motivoAjuste || <span className="text-ink-muted">—</span>}</dd>
+        </div>
+        {rechazado && p.motivoRechazo && (
+          <div className="col-span-2 lg:col-span-4">
+            <dt className="text-xs text-ink-muted">Motivo del rechazo</dt>
+            <dd className="whitespace-pre-wrap">{p.motivoRechazo}</dd>
+          </div>
+        )}
+      </dl>
+      {porAutorizar && esQuienPropuso && (
+        <p className="mt-3 text-xs text-ink-muted">
+          Tú propusiste este cobro: otra persona con permiso debe autorizar el ajuste.
+        </p>
+      )}
+      <RechazarAjusteDialog
+        open={rechazando}
+        onOpenChange={setRechazando}
+        isPending={rechazar.isPending}
+        onConfirm={(motivo) =>
+          rechazar.mutate(
+            { id: p.id, versionEsperada: p.version, motivo, idempotencyKey: crypto.randomUUID() },
+            {
+              onSuccess: () => {
+                setRechazando(false);
+                toast.success('Ajuste rechazado. La propuesta quedó rechazada.');
+              },
+              onError,
+            },
+          )
+        }
+      />
+    </section>
   );
 }

@@ -9,6 +9,7 @@ using Millet.Facturacion.Domain.NotasCredito;
 using Millet.Facturacion.Domain.Ports;
 using Millet.Facturacion.Infrastructure.Pdf;
 using Millet.Facturacion.Infrastructure.Pdf.CfdiMillet;
+using Millet.SharedKernel.Application.Exceptions;
 using Xunit;
 
 namespace Millet.Facturacion.UnitTests.Pdf;
@@ -91,11 +92,52 @@ public sealed class CfdiPdfFormatoMilletTests
         new CfdiMilletDocument(m).Titulo.Should().Be("NOTA DE CRÉDITO/CREDIT MEMO:DEMON 000301");
         m.Conceptos.Should().ContainSingle().Which.ClaveUnidad.Should().Be("ACT");
         m.Relacionados.Should().Equal(
-            new CfdiRelacionadoPdf("00000000-0000-4000-8000-000000000201", "07 - CFDI por aplicación de anticipo"),
             new CfdiRelacionadoPdf("00000000-0000-4000-8000-000000000101", "07 - CFDI por aplicación de anticipo"));
         m.TotalesFisicos.Should().Be(new TotalesFisicosPdf(0, 0, 1));
         m.Impuestos.Should().ContainSingle().Which.Nombre.Should().Be("002 IVA");
         m.NombreArchivo.Should().Be("nota-credito-DEMON-000301.pdf");
+    }
+
+    [Fact]
+    public void Nota_de_credito_imprime_solo_los_comentarios_libres_sin_el_motivo()
+    {
+        var nc = NotaCredito.CrearAmortizacion(Empresa, "DEMON-000302", 302, Sucursal, null, null, Receptor, Emisor,
+            "03", "MXN", null, 2026, 10, null, Guid.NewGuid(), Guid.NewGuid(), 1160, 0.16m);
+        nc.FijarComentarios("  Aplica al pedido PED-77 de la obra Torre Norte.  ");
+        Timbrar(nc, "00000000-0000-4000-8000-000000000302");
+
+        var m = CfdiPdfModelBuilder.DesdeNotaCredito(nc, Datos);
+
+        // FMT-6: «Comentarios - Comments» lleva solo el texto del usuario; el motivo ya no se antepone.
+        m.Comentarios.Should().Be("Aplica al pedido PED-77 de la obra Torre Norte.");
+        NotaCreditoAmortizacion().Comentarios.Should().BeNull();
+        CfdiPdfModelBuilder.DesdeNotaCredito(NotaCreditoAmortizacion(), Datos).Comentarios.Should().BeNull();
+    }
+
+    [Fact]
+    public void Nota_de_credito_de_bonificacion_sin_comentario_no_imprime_el_motivo()
+    {
+        // FMT-6: el bloque «Comentarios - Comments» de toda NC lleva solo el texto del usuario.
+        var nc = NotaCredito.CrearBonificacion(Empresa, "DEMON-000303", 303, Sucursal, null, null, Receptor, Emisor,
+            "03", "MXN", null, 2026, 10, null, Guid.NewGuid(), 116, 0.16m, null);
+
+        CfdiPdfModelBuilder.DesdeNotaCredito(nc, Datos).Comentarios.Should().BeNull();
+        nc.FijarComentarios("Bonificación por pronto pago.");
+        CfdiPdfModelBuilder.DesdeNotaCredito(nc, Datos).Comentarios.Should().Be("Bonificación por pronto pago.");
+    }
+
+    [Fact]
+    public void Comentarios_de_nota_de_credito_no_cambian_despues_de_timbrar_ni_pasan_de_1000()
+    {
+        var nc = NotaCredito.CrearAmortizacion(Empresa, "DEMON-000303", 303, Sucursal, null, null, Receptor, Emisor,
+            "03", "MXN", null, 2026, 10, null, Guid.NewGuid(), Guid.NewGuid(), 1160, 0.16m);
+
+        nc.Invoking(n => n.FijarComentarios(new string('x', NotaCredito.ComentariosMaxLength + 1)))
+            .Should().Throw<BusinessRuleException>().Which.Code.Should().Be("NC_COMENTARIOS_LARGOS");
+
+        Timbrar(nc, "00000000-0000-4000-8000-000000000303");
+        nc.Invoking(n => n.FijarComentarios("tarde"))
+            .Should().Throw<BusinessRuleException>().Which.Code.Should().Be("NC_INMUTABLE");
     }
 
     [Fact]
@@ -185,9 +227,9 @@ public sealed class CfdiPdfFormatoMilletTests
         CfdiMilletDocument.FilasCfdi(m).Select(r => r.Etiqueta).Should().Equal(
             "N° Orden de compra/Purchase order:", "N° Referencia/Reference", "Certificado CSD/CSD Certificate:",
             "Certificado del SAT/Sat Certificate Serial Number:", "Fecha de Timbrado/Certification date:",
-            "Folio Fiscal/Invoice id (uuid):", "Tipo Comprobante:");
+            "Folio Fiscal/Invoice id (uuid):", "Tipo Comprobante/Voucher type:");
         var filas = CfdiMilletDocument.FilasCfdi(m);
-        (filas[0].Valor, filas[1].Valor, filas[^1].Valor).Should().Be((null, null, "Ingreso"));
+        (filas[0].Valor, filas[1].Valor, filas[^1].Valor).Should().Be((null, null, "Ingreso/Income"));
         new QuestPdfFacturaGenerator().Generar(m).Contenido.Should().NotBeEmpty();
     }
 
@@ -204,6 +246,30 @@ public sealed class CfdiPdfFormatoMilletTests
         var m = CfdiPdfModelBuilder.DesdeFactura(f, Datos, new Dictionary<Guid, string> { [producto] = "VIDB0002" });
 
         m.Conceptos.Select(CfdiMilletDocument.Codigo).Should().Equal("VIDB0002 / 30171710", "30171700");
+    }
+
+    [Theory]
+    [InlineData(269.10)]
+    [InlineData(1269.10)]
+    public void El_total_SqFt_Piez2_queda_en_un_renglon_con_su_valor(double pie2)
+    {
+        var f = FacturaVenta.CrearBorrador(Empresa, "DEMOF-000104", 104, Sucursal, null, null, Receptor, Emisor,
+            "PUE", "03", "MXN", null, 2026, 10, 1, ComportamientoFiscal.MostradorInmediato, null, null, null, false);
+        f.AgregarLinea(null, "30171700", "VIDRIO TEMPLADO DEMO", "H87", 1, 1000, 0, "02", 0.16m, null, null,
+            referencia: "PED-DEMO-1", pesoKg: 190.75m, areaPie2: (decimal)pie2);
+        f.RecalcularTotales();
+        Timbrar(f, "00000000-0000-4000-8000-000000000104");
+
+        var pdf = new QuestPdfFacturaGenerator().Generar(CfdiPdfModelBuilder.DesdeFactura(f, Datos)).Contenido;
+
+        using var doc = UglyToad.PdfPig.PdfDocument.Open(pdf);
+        var letras = doc.GetPage(1).Letters.Where(l => !string.IsNullOrWhiteSpace(l.Value)).ToList();
+        var texto = string.Concat(letras.Select(l => l.Value));
+        var buscado = $"SqFt/Piez2:{((decimal)pie2).ToString("#,##0.00", System.Globalization.CultureInfo.InvariantCulture)}";
+        var inicio = texto.IndexOf(buscado, StringComparison.Ordinal);
+        inicio.Should().BeGreaterThanOrEqualTo(0, $"el PDF debe contener «{buscado}»");
+        letras.Skip(inicio).Take(buscado.Length).Select(l => Math.Round(l.StartBaseLine.Y, 1)).Distinct()
+            .Should().ContainSingle("rótulo y valor van en el mismo renglón");
     }
 
     private static int Paginas(byte[] pdf) =>
@@ -235,7 +301,6 @@ public sealed class CfdiPdfFormatoMilletTests
     {
         var nc = NotaCredito.CrearAmortizacion(Empresa, "DEMON-000301", 301, Sucursal, null, null, Receptor, Emisor,
             "03", "MXN", null, 2026, 10, null, Guid.NewGuid(), Guid.NewGuid(), 1160, 0.16m);
-        nc.AgregarRelacion("00000000-0000-4000-8000-000000000201", "07");
         nc.AgregarRelacion("00000000-0000-4000-8000-000000000101", "07");
         Timbrar(nc, "00000000-0000-4000-8000-000000000301");
         return nc;

@@ -20,9 +20,9 @@ public sealed partial class Expediente
         if (Tipo == TipoExpediente.Importacion && _gastos.Any(g => !g.ExcluidoDelCosto) &&
             _distribuciones.OrderByDescending(d => d.NumeroVersion).FirstOrDefault()?.RevisionFinanciera != RevisionFinanciera)
             motivos.Add("Gastos sin distribuir");
-        if (_anticipos.Any(a => a.Aplicado is null)) motivos.Add("Anticipos sin comprobar");
-        if (_anticipos.Any(a => a.Saldo > 0)) motivos.Add("Saldo a favor abierto con el agente");
-        if (_anticipos.Any(a => a.Saldo < 0)) motivos.Add("Por pagar al agente");
+        if (_anticipos.Any(a => a.MotivoCancelacion is null && a.Aplicado is null)) motivos.Add("Anticipos sin comprobar");
+        if (_anticipos.Any(a => a.MotivoCancelacion is null && a.Saldo > 0)) motivos.Add("Saldo a favor abierto con el agente");
+        if (_anticipos.Any(a => a.MotivoCancelacion is null && a.Saldo < 0)) motivos.Add("Por pagar al agente");
         return motivos;
     }
     public void MarcarCambioFinanciero(bool requiereDistribuir = false)
@@ -59,7 +59,10 @@ public sealed partial class Expediente
         if (nueva) _partidasCosto.Add(partida);
         MarcarCambioFinanciero(true);
     }
-    public DistribucionGasto PrepararDistribucion(IReadOnlyList<ConceptoGasto> conceptos, IReadOnlyList<BasePartidaCosto> partidas, Guid usuario, DateTimeOffset fecha)
+    /// <param name="incrementablesAlInventario">Fernando 4-nov: false (configuración por omisión) = todo el ajuste de importación va a
+    /// gasto y el costo unitario no cambia; true = reparto a inventario de Millet 26-oct (versión posterior).</param>
+    public DistribucionGasto PrepararDistribucion(IReadOnlyList<ConceptoGasto> conceptos, IReadOnlyList<BasePartidaCosto> partidas, Guid usuario, DateTimeOffset fecha,
+        bool incrementablesAlInventario = true)
     {
         ExigirAbierto();
         if (usuario == Guid.Empty || partidas.Select(p => p.PartidaId).Distinct().Count() != partidas.Count || partidas.Any(p => p.Cantidad <= 0))
@@ -76,7 +79,7 @@ public sealed partial class Expediente
             var delta = total - (anterior?.Partidas.SingleOrDefault(a => a.PartidaId == p.PartidaId)?.ImporteMxn ?? 0);
             // Millet, 26-oct-2026, Opción A: con salidas, todo el ajuste va a gastos de importación.
             var tieneSalidas = Tipo == TipoExpediente.Importacion && p.Existencia < p.Cantidad;
-            var inventario = Tipo == TipoExpediente.Importacion && !tieneSalidas ? delta : 0;
+            var inventario = Tipo == TipoExpediente.Importacion && !tieneSalidas && incrementablesAlInventario ? delta : 0;
             return new CostoPartidaDistribuido(p.PartidaId, p.Descripcion, p.ClienteId, p.OcId, p.RecepcionId,
                 p.ArticuloId, p.UbicacionId, p.Cantidad, total, delta, inventario, Tipo == TipoExpediente.Importacion ? delta - inventario : 0,
                 p.CostoPromedioMxn, p.CostoPromedioMxn + (p.ExistenciaTotal > 0 ? inventario / p.ExistenciaTotal : 0))

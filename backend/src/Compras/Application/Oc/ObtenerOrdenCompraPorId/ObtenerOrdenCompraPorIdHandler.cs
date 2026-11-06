@@ -38,6 +38,7 @@ namespace Millet.Compras.Application.Oc.ObtenerOrdenCompraPorId;
 public sealed class ObtenerOrdenCompraPorIdHandler
     : IRequestHandler<ObtenerOrdenCompraPorIdQuery, OrdenCompraResponse>
 {
+    private readonly Millet.Compras.Application.PublicPorts.ITransporteImportacionCeReadPort? _transporteCe;
     private readonly ComprasDbContext _db;
     private readonly IMapper _mapper;
     private readonly IArticuloReadPort _articulos;
@@ -55,8 +56,9 @@ public sealed class ObtenerOrdenCompraPorIdHandler
         IProveedorReadPort proveedores,
         IDim3ReadPort centrosCosto,
         IClock clock, ICatalogoSatReadPort catalogos,
-        IUsuarioReadPort usuarios, Millet.Almacen.Application.PublicPorts.IRecepcionesImportacionReadPort importaciones)
+        IUsuarioReadPort usuarios, Millet.Almacen.Application.PublicPorts.IRecepcionesImportacionReadPort importaciones, Millet.Compras.Application.PublicPorts.ITransporteImportacionCeReadPort? transporteCe = null)
     {
+        _transporteCe = transporteCe;
         _db = db;
         _mapper = mapper;
         _articulos = articulos;
@@ -149,8 +151,10 @@ public sealed class ObtenerOrdenCompraPorIdHandler
         var idsServicio = new Guid?[] { oc.CompradorTitularId, oc.ServicioConfirmadoPorId, oc.ServicioNoConformePorId }.OfType<Guid>().Distinct().ToArray();
         var nombresServicio = await _usuarios.ObtenerNombresAsync(idsServicio, cancellationToken);
 
+        var transporte = oc.EsImportacion && _transporteCe is not null ? await _transporteCe.ObtenerAsync(oc.Id, cancellationToken) : null;
         return response with
         {
+            TransporteCe = transporte,
             CompradorNombre = nombresServicio.GetValueOrDefault(oc.CompradorTitularId),
             ServicioConfirmadoPorNombre = oc.ServicioConfirmadoPorId is Guid cp ? nombresServicio.GetValueOrDefault(cp) : null,
             ServicioNoConformePorNombre = oc.ServicioNoConformePorId is Guid np ? nombresServicio.GetValueOrDefault(np) : null,
@@ -178,11 +182,12 @@ public sealed class ObtenerOrdenCompraPorIdHandler
             SolicitudesCancelacion = oc.SolicitudesCancelacion.OrderBy(s => s.FechaSolicitud)
                 .Select(s => new SolicitudCancelacionOcResponse(s.Id, s.SolicitanteId,
                     s.FechaSolicitud, s.MotivoCancelacionId, s.MotivoSolicitud,
-                    s.ResolutorId, s.FechaResolucion, s.Confirmada, s.MotivoResolucion)).ToList(),
+                    s.ResolutorId, s.FechaResolucion, s.Confirmada, s.MotivoResolucion)
+                { EsperaAlmacenes = s.EsperaAlmacenes, RespuestaAlmacenes = s.RespuestaAlmacenes }).ToList(),
             EstadoComercialProveedor = oc.EstadoComercialProveedor,
             FechaCompromisoProveedor = oc.FechaCompromisoProveedor,
             RespuestasProveedor = oc.RespuestasProveedor.OrderByDescending(r => r.Numero)
-                .Select(r => RespuestaProveedorMapper.ToResponse(r, r.Numero == oc.RespuestasProveedor.Max(x => x.Numero))).ToList(),
+                .Select(r => RespuestaProveedorMapper.ToResponse(r, !r.Anulada && r.Numero == oc.RespuestasProveedor.Where(x => !x.Anulada).Max(x => x.Numero))).ToList(),
             Incidencias = await IncidenciaProveedorMapper.ToResponsesAsync(oc.Incidencias, _db, _usuarios,
                 FechaContable.HoyLocal(_clock.UtcNow), cancellationToken),
         };

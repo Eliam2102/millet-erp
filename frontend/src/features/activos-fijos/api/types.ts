@@ -6,6 +6,8 @@ export interface Custodia {
   equipoId: string | null;
 }
 export interface DatosActivo {
+  tasaContableAnual?: number | null;
+  tasaFiscalAnual?: number | null;
   activoMejoradoId?: string | null;
   vidaUtilMeses?: number | null;
   descripcion: string;
@@ -45,6 +47,8 @@ export interface Activo extends Omit<DatosActivo, 'custodia'>, Custodia {
   recepcionId: string | null;
   facturaProveedorId: string | null;
   polizaAltaId: string | null;
+  capitalizadoPor?: string | null;
+  impresiones?: { id: string; fecha: string; impresoPor: string; motivo: string }[];
   historial: {
     id: string;
     fecha: string;
@@ -64,10 +68,24 @@ export interface Activo extends Omit<DatosActivo, 'custodia'>, Custodia {
     registradoPorNombre?: string | null;
     motivo: string;
     fechaEfectiva: string;
+    corregido?: boolean;
+    corrigeA?: string | null;
     aceptadoEn: string | null;
   }[];
 }
+export interface VersionClase extends Omit<Clase, 'versiones'> {
+  numero: number;
+  vigencia: string;
+  estado: number;
+  propuestoPor: string;
+  motivoRechazo: string | null;
+}
 export interface Clase {
+  motivoCambio?: string | null;
+  propuestaPendiente?: boolean;
+  proximaVersionDesde?: string | null;
+  versiones?: VersionClase[];
+  vigencia?: string;
   id: string;
   version: number;
   clave: string;
@@ -83,6 +101,11 @@ export interface Clase {
   cuentaPuenteId: string | null;
   activa: boolean;
 }
-export const estadoActivo = ['Por capitalizar', 'Activo', 'Dado de baja'] as const;
+export const estadoActivo = [
+  'Por capitalizar',
+  'Activo',
+  'Dado de baja',
+  'Venta cancelada · pendiente de reversa',
+] as const;
 export const dinero = (valor: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(valor);

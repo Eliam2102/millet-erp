@@ -240,6 +240,8 @@ if (string.Equals(builder.Configuration["ServiceBus:Modo"], "EmuladorLocal", Str
 // (seeds, outbox, workers): los hosted services arrancan en orden de registro y las migraciones solo dejan
 // particiones hasta octubre de 2026. Por eso este job va registrado antes que todos los demás.
 builder.Services.AddHostedService<AuditPartitionRolloverJob>();
+// 86e3yxe9m: aviso de cuentas que la regla «no hay acceso sin empleado» dejaría fuera.
+builder.Services.AddHostedService<Millet.Api.Auth.CuentasSinEmpleadoAvisoAlArranque>();
 
 if (!string.IsNullOrWhiteSpace(outboxConnString))
 {
@@ -268,6 +270,10 @@ if (!string.IsNullOrWhiteSpace(outboxConnString))
     // (pagos, reversas, REPP, cancelaciones).
     builder.Services.AddHostedService<Millet.CuentasPorPagar.Infrastructure.Workers.TesoreriaEventListenerWorker>();
     builder.Services.AddHostedService<Millet.CuentasPorPagar.Infrastructure.Workers.ComercioExteriorEventListenerWorker>();
+    builder.Services.AddHostedService<Millet.ComercioExterior.Infrastructure.Workers.AlmacenEventListenerWorker>();
+    builder.Services.AddHostedService<Millet.ComercioExterior.Infrastructure.Workers.FacturacionEventListenerWorker>();
+    builder.Services.AddHostedService<Millet.ComercioExterior.Infrastructure.Workers.TesoreriaEventListenerWorker>();
+    builder.Services.AddHostedService<Millet.Tesoreria.Infrastructure.Workers.ComercioExteriorEventListenerWorker>();
 
     // Triada: listener Service Bus para eventos de Compras
     // (OC autorizada, OC cancelada). Cierra inbound Compras → CxP
@@ -358,6 +364,9 @@ builder.Services
     .AddOptions<Millet.Almacen.Infrastructure.Workers.ReordenWorkerOptions>()
     .Bind(builder.Configuration.GetSection(Millet.Almacen.Infrastructure.Workers.ReordenWorkerOptions.SectionName));
 builder.Services.AddHostedService<Millet.Almacen.Infrastructure.Workers.ReordenWorker>();
+// F1-ALM-13 (Fernando 4-nov): los incrementables de importación no suben el inventario (false por omisión; «versión posterior»).
+builder.Services.AddOptions<Millet.Almacen.Application.EventListeners.IncrementablesImportacionOptions>()
+    .Bind(builder.Configuration.GetSection(Millet.Almacen.Application.EventListeners.IncrementablesImportacionOptions.SectionName));
 builder.Services.AddOptions<Millet.Almacen.Application.Reorden.ReordenConsumoOptions>()
     .Bind(builder.Configuration.GetSection(Millet.Almacen.Application.Reorden.ReordenConsumoOptions.SectionName));
 
@@ -451,6 +460,23 @@ builder.Services
     .AddOptions<Millet.Compras.Infrastructure.Workers.IncidenciaVencidaOptions>()
     .Bind(builder.Configuration.GetSection(Millet.Compras.Infrastructure.Workers.IncidenciaVencidaOptions.SectionName));
 builder.Services.AddHostedService<Millet.Compras.Infrastructure.Workers.IncidenciaVencidaWorker>();
+// 86e3jvu83 (C3.2): bandeja ERP → Almacenes (COMPRA_RECIBIDA/CANCELADA/MODIFICADA). Worker apagado por omisión
+// (Integraciones:AlmCompra:Habilitado); el transporte (Simulado | Sql) lo registra AddIntegracionesAwModule.
+builder.Services.AddComprasAlmCompra();
+builder.Services
+    .AddOptions<Millet.Compras.Application.Integration.AlmCompra.AlmCompraOptions>()
+    .Bind(builder.Configuration.GetSection(Millet.Compras.Application.Integration.AlmCompra.AlmCompraOptions.SectionName));
+builder.Services.AddHostedService<Millet.Compras.Infrastructure.Workers.AlmCompraWorker>();
+// Acuerdo 5-nov con TI: lector de alm_mensaje (Almacenes → ERP, sin POST). Apagado por omisión
+// (Integraciones:AlmMensaje:Habilitado); el origen (Simulado | Sql) lo registra AddIntegracionesAwModule.
+builder.Services.AddScoped<Millet.Api.Endpoints.Almacen.AlmacenesAppProcesador>();
+builder.Services.AddScoped<Millet.Almacen.Application.AppAlmacenes.IProcesadorMensajeApp>(
+    sp => sp.GetRequiredService<Millet.Api.Endpoints.Almacen.AlmacenesAppProcesador>());
+builder.Services
+    .AddOptions<Millet.Almacen.Application.AppAlmacenes.AlmMensajeOptions>()
+    .Bind(builder.Configuration.GetSection(Millet.Almacen.Application.AppAlmacenes.AlmMensajeOptions.SectionName));
+builder.Services.AddSingleton<Millet.Almacen.Application.AppAlmacenes.AlmMensajeLector>();
+builder.Services.AddHostedService<Millet.Almacen.Infrastructure.Workers.AlmMensajeWorker>();
 
 // === Compras IConsultarStockPort → adapter real ===
 // Reemplaza el InMemoryConsultarStockPort stub (config-driven que
@@ -670,6 +696,23 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Compartido.Application.Ports.IOcLineaAbiertaConMedidaReadPort,
     Millet.Compras.Infrastructure.PublicAdapters.OcLineaAbiertaConMedidaReadAdapter>();
+// Inactivar proveedor, cliente o artículo: cada módulo aporta lo que tiene abierto (OC, saldos, pedidos).
+builder.Services.AddScoped<Millet.Compartido.Application.Catalogos.MaestroEstatusService>();
+builder.Services.AddScoped<
+    Millet.Compartido.Application.Ports.IPendientesMaestroReadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.ExistenciaArticuloPendienteAdapter>();
+builder.Services.AddScoped<
+    Millet.Compartido.Application.Ports.IPendientesMaestroReadPort,
+    Millet.Compras.Infrastructure.PublicAdapters.OcPendientesMaestroReadAdapter>();
+builder.Services.AddScoped<
+    Millet.Compartido.Application.Ports.IPendientesMaestroReadPort,
+    Millet.CuentasPorPagar.Infrastructure.PublicAdapters.SaldoProveedorPendienteReadAdapter>();
+builder.Services.AddScoped<
+    Millet.Compartido.Application.Ports.IPendientesMaestroReadPort,
+    Millet.CuentasPorCobrar.Infrastructure.Adapters.SaldoClientePendienteReadAdapter>();
+builder.Services.AddScoped<
+    Millet.Compartido.Application.Ports.IPendientesMaestroReadPort,
+    Millet.Facturacion.Infrastructure.PublicAdapters.PedidosPendientesClienteReadAdapter>();
 builder.Services.AddSingleton<
     Millet.SharedKernel.Application.Adjuntos.IAdjuntoEnlaceTokenService,
     Millet.Compartido.Infrastructure.Adjuntos.AdjuntoEnlaceTokenService>();
@@ -938,6 +981,11 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.IUsuarioReadPort,
     Millet.Identidad.Infrastructure.PublicAdapters.UsuarioReadAdapter>();
+builder.Services.AddScoped<Millet.Api.Endpoints.Almacen.SalidasRoturaEndpoints.RoturaLectura>();
+// 86e3tac2y: destinatarios de los avisos de Almacén por permiso (adapter en Identidad, dueña del dato).
+builder.Services.AddScoped<
+    Millet.Almacen.Domain.Ports.IDestinatariosAvisoReadPort,
+    Millet.Identidad.Infrastructure.PublicAdapters.DestinatariosAvisoReadAdapter>();
 
 // ADR-0047 PR5.C: resuelve el usuario de servicio del reorden (creador/requisitante +
 // empresa de las RQ automáticas). Adapter hospedado en Identidad (dueño del dato).
@@ -991,6 +1039,7 @@ builder.Services.AddCuentasPorCobrarModule(builder.Configuration, builder.Enviro
 // docs/modulos/tesoreria/01-diseno.md §6.
 builder.Services.AddTesoreriaModule(builder.Configuration);
 builder.Services.AddScoped<Millet.Tesoreria.Domain.Ports.ICorteNombresReadPort, Millet.Api.Infrastructure.Adapters.CorteNombresReadAdapter>();
+builder.Services.AddScoped<Millet.Tesoreria.Domain.Ports.IPasivoComercioExteriorReadPort, Millet.Api.Infrastructure.Adapters.PasivoComercioExteriorReadAdapter>();
 builder.Services.AddScoped<Millet.Tesoreria.Domain.Ports.IElegibleFacturaReadPort, Millet.Api.Infrastructure.Adapters.ElegibleFacturaReadPortAdapter>();
 builder.Services.AddScoped<Millet.CuentasPorPagar.Domain.Ports.Tesoreria.IPagosProveedorReadPort, Millet.Api.Infrastructure.Adapters.PagosProveedorReadPortAdapter>();
 builder.Services.AddScoped<Millet.CuentasPorPagar.Domain.Ports.Portal.IReppPortalPort, Millet.Api.Infrastructure.Adapters.ReppPortalAdapter>();
@@ -998,6 +1047,7 @@ builder.Services.AddScoped<Millet.CuentasPorPagar.Domain.Ports.Portal.IReppPorta
 builder.Services.AddScoped<Millet.Contabilidad.Application.CuentaPuente.IOrdenCompraPuentePort, Millet.Api.Infrastructure.Adapters.OrdenCompraPuenteAdapter>();
 // FIX-12: nombre del cajero en el corte y la liquidación de caja (Facturación no referencia Identidad).
 builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.IUsuariosReadPort, Millet.Api.Infrastructure.Adapters.FacturacionUsuariosReadAdapter>();
+builder.Services.AddScoped<Millet.CuentasPorPagar.Domain.Ports.Administracion.IUsuarioNombreReadPort, Millet.Api.Infrastructure.Adapters.CxpUsuarioNombreReadAdapter>();
 // 86e3tfdve: cuenta beneficiaria del complemento de pago desde la cuenta bancaria de Millet (dueño: Tesorería).
 builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.ICuentaBancariaMilletReadPort, Millet.Api.Infrastructure.Adapters.CuentaBancariaMilletReadAdapter>();
 builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.ICuentaOrdenanteMovimientoReadPort, Millet.Api.Infrastructure.Adapters.CuentaOrdenanteMovimientoReadAdapter>();
@@ -1013,6 +1063,10 @@ builder.Services.AddCentrosCostoModule();
 builder.Services.AddComprasReadPorts();
 builder.Services.AddComercioExteriorModule();
 builder.Services.AddProductoTerminadoModule();
+builder.Services.AddScoped<Millet.Tesoreria.Domain.Ports.IAnticipoCeCancelacionPort, Millet.Api.Infrastructure.Adapters.PasivoComercioExteriorReadAdapter>();
+builder.Services.AddScoped<Millet.Tesoreria.Application.PublicPorts.IAutorizacionPagoCeReadPort, Millet.Tesoreria.Infrastructure.PublicAdapters.AutorizacionPagoCeReadAdapter>();
+builder.Services.AddScoped<Millet.CuentasPorPagar.Application.PublicPorts.IComprobacionAnticipoCeReadPort, Millet.CuentasPorPagar.Infrastructure.PublicAdapters.ComprobacionAnticipoCeReadAdapter>();
+builder.Services.AddScoped<Millet.CuentasPorPagar.Application.PublicPorts.IPagosFacturaCeReadPort, Millet.Api.Infrastructure.Adapters.PagosFacturaCeReadAdapter>();
 builder.Services.AddScoped<Millet.CuentasPorPagar.Application.PublicPorts.IFacturaGastoReadPort, Millet.CuentasPorPagar.Infrastructure.PublicAdapters.FacturaGastoReadAdapter>();
 // 86e3xt2q8: Caja elige la factura mensual del banco del buzón de CFDI recibidos de CxP (solo lectura).
 builder.Services.AddScoped<Millet.CuentasPorPagar.Application.PublicPorts.ICfdiRecibidoPublicReadPort, Millet.CuentasPorPagar.Infrastructure.PublicAdapters.CfdiRecibidoPublicReadAdapter>();
@@ -1076,6 +1130,20 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Contabilidad.Application.Ports.ICuentaBancariaContabilidadPort,
     Millet.Tesoreria.Infrastructure.PublicAdapters.CuentaBancariaContabilidadAdapter>();
+// F1-CON-09: conciliación de auxiliares. Cada auxiliar al corte lo lee su dueño (CxP, CxC, Tesorería).
+builder.Services.AddScoped<
+    Millet.Contabilidad.Application.ConciliacionAuxiliares.IAuxiliarProveedoresReadPort,
+    Millet.CuentasPorPagar.Infrastructure.PublicAdapters.AuxiliarProveedoresContabilidadAdapter>();
+builder.Services.AddScoped<
+    Millet.Contabilidad.Application.ConciliacionAuxiliares.ISaldoCarteraAlCorteReadPort,
+    Millet.CuentasPorCobrar.Infrastructure.PublicAdapters.SaldoCarteraContabilidadAdapter>();
+builder.Services.AddScoped<
+    Millet.Contabilidad.Application.ConciliacionAuxiliares.ISaldosBancariosAlCorteReadPort,
+    Millet.Tesoreria.Infrastructure.PublicAdapters.SaldosBancariosContabilidadAdapter>();
+// F1-ALM-13: grupo del artículo para la cuenta de inventario por tipo (rol INVENTARIO_{grupo}).
+builder.Services.AddScoped<
+    Millet.Contabilidad.Application.Ports.IArticuloContabilidadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.ArticuloContabilidadAdapter>();
 
 // === Flujo 2 de Integraciones.Aw: ingesta de pedidos en firme (ADR-0048) ===
 // Adapters reales del reader/write-back sobre MILLET_INTEGRACION (tabla-puente
@@ -1629,6 +1697,7 @@ app.MapRequisicionesEndpoints();
 app.MapLineasEndpoints();
 app.MapAprobadoresEndpoints();
 app.MapComprasSettingsEndpoints();
+app.MapAlmCompraEnviosEndpoints();
 app.MapUmbralesAprobacionEndpoints();
 app.MapCotizacionesEndpoints();
 
@@ -1665,6 +1734,8 @@ Millet.Api.Endpoints.Contabilidad.ContabilidadRecurrentesEndpoints.MapContabilid
 Millet.Api.Endpoints.Contabilidad.ContabilidadMotorEndpoints.MapContabilidadMotorEndpoints(app, app.Environment);
 // === Contabilidad — conciliación de la cuenta puente recepción–factura por OC (K10.5) ===
 Millet.Api.Endpoints.Contabilidad.ContabilidadCuentaPuenteEndpoints.MapContabilidadCuentaPuenteEndpoints(app);
+Millet.Api.Endpoints.Contabilidad.ContabilidadConciliacionAuxiliaresEndpoints.MapContabilidadConciliacionAuxiliaresEndpoints(app);
+Millet.Api.Endpoints.Contabilidad.ContabilidadReportesEndpoints.MapContabilidadReportesEndpoints(app);
 Millet.Api.Endpoints.Contabilidad.ContabilidadIvaEndpoints.MapContabilidadIvaEndpoints(app);
 
 // === Almacén — CRUD asignación artículo→ubicación (OITW, ADR-0047 PR3) ===
@@ -1675,6 +1746,11 @@ Millet.Api.Endpoints.Almacen.Reorden.AlmacenReordenEndpoints.MapAlmacenReordenEn
 
 // === Almacén — Configuración del módulo (interruptor de reabasto automático) ===
 Millet.Api.Endpoints.Almacen.AlmacenSettingsEndpoints.MapAlmacenSettingsEndpoints(app);
+Millet.Api.Endpoints.Almacen.NormasConsumoEndpoints.MapNormasConsumoEndpoints(app);
+Millet.Api.Endpoints.Almacen.TallerEndpoints.MapTallerEndpoints(app);
+Millet.Api.Endpoints.Almacen.MermasProcesoEndpoints.MapMermasProcesoEndpoints(app);
+Millet.Api.Endpoints.Almacen.SalidasRoturaEndpoints.MapSalidasRoturaEndpoints(app);
+Millet.Api.Endpoints.Almacen.ConciliacionDiariaEndpoints.MapConciliacionDiariaEndpoints(app);
 
 // === Almacén — Recepciones Variante A (F2-PR2) + Saldos materializados ===
 Millet.Api.Endpoints.Almacen.Recepciones.RecepcionesEndpoints.MapRecepcionesEndpoints(app);
@@ -1716,6 +1792,7 @@ Millet.Api.Endpoints.Almacen.Reportes.ReportesEndpoints.MapReportesEndpoints(app
 
 // === Almacén — Cierre de mes (F8-PR2) ===
 Millet.Api.Endpoints.Almacen.Cierre.CierreEndpoints.MapCierreEndpoints(app);
+Millet.Api.Endpoints.Almacen.AvisosAlmacenEndpoints.MapAvisosAlmacenEndpoints(app);
 
 // === Administración — CRUD Empresas + Sucursales + Departamentos (F-Admin-PR2.3) ===
 Millet.Api.Endpoints.Administracion.EmpresasEndpoints.MapEmpresasEndpoints(app);
@@ -1839,6 +1916,9 @@ Millet.Api.Endpoints.CuentasPorPagar.EstadosCuentaTcEndpoints.MapEstadosCuentaTc
 // === Cuentas por Pagar — Reportes operativos (F8-PR1, ADR-0036) ===
 Millet.Api.Endpoints.CuentasPorPagar.ReportesEndpoints.MapReportesEndpoints(app);
 
+// === Cuentas por Pagar — Revaluación de cierre en moneda extranjera (CXP-12) ===
+Millet.Api.Endpoints.CuentasPorPagar.RevaluacionCierreEndpoints.MapRevaluacionCierreEndpoints(app);
+
 // === Integraciones AW: cotizaciones REST API (PR D) ===
 // 6 endpoints bajo /api/v1/integraciones/aw/cotizaciones. Auth via
 // PermisosCanonicos.IntegracionesAwCotizaciones{Crear,Consultar,Reintentar}.
@@ -1905,6 +1985,7 @@ Millet.Api.Endpoints.CuentasPorCobrar.ClientesLookupEndpoints.MapClientesLookupC
 
 // === Cuentas por Cobrar — Cartera: saldo neto 13-K + anticipos (CXC-PR3) ===
 Millet.Api.Endpoints.CuentasPorCobrar.CarteraEndpoints.MapCarteraEndpoints(app);
+Millet.Api.Endpoints.CuentasPorCobrar.ConciliacionesEndpoints.MapConciliacionesEndpoints(app);
 
 // === Cuentas por Cobrar — Liberación de pedidos + overrides (CXC-PR4) ===
 Millet.Api.Endpoints.CuentasPorCobrar.LiberacionesEndpoints.MapLiberacionesEndpoints(app);
@@ -1921,6 +2002,7 @@ Millet.Api.Endpoints.CuentasPorCobrar.AlertasEndpoints.MapAlertasEndpoints(app);
 // === Tesorería — Cuentas con saldo + libro de movimientos (TES-PR2) ===
 Millet.Api.Endpoints.Inicio.ResumenesInicioEndpoints.MapResumenesInicioEndpoints(app);
 
+Millet.Api.Endpoints.ComercioExterior.ConfiguracionCeEndpoints.MapConfiguracionCe(app);
 Millet.Api.Endpoints.ComercioExterior.ExpedientesEndpoints.MapExpedientesCe(app);
 Millet.Api.Endpoints.ActivosFijos.ActivosEndpoints.MapActivosFijos(app);
 Millet.Api.Endpoints.ComercioExterior.OtrEndpoints.MapOtrCe(app);
@@ -1932,6 +2014,7 @@ Millet.Api.Endpoints.Tesoreria.MovimientosEndpoints.MapTesoreriaMovimientosEndpo
 
 // === Tesorería — Bandeja de pasivos pendientes de pago (TES-PR3) ===
 Millet.Api.Endpoints.Tesoreria.PasivosEndpoints.MapTesoreriaPasivosEndpoints(app);
+Millet.Api.Endpoints.Tesoreria.PagosComercioExteriorEndpoints.MapTesoreriaPagosComercioExteriorEndpoints(app);
 
 // === Tesorería — Pago a proveedor + reversa (TES-PR4, contrato congelado) ===
 Millet.Api.Endpoints.Tesoreria.PagosEndpoints.MapTesoreriaPagosEndpoints(app);

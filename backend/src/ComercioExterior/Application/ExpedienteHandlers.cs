@@ -9,7 +9,6 @@ using Millet.Compras.Application.PublicPorts;
 using Millet.Identidad.Domain;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
-using Npgsql;
 
 namespace Millet.ComercioExterior.Application;
 public sealed class CrearExpedienteHandler(ComercioExteriorDbContext db, ExpedienteServicio servicio, ICatalogosCeReadPort catalogos, IOcImportacionReadPort compras, ICurrentEmpresaContext empresa, IClock clock, IIntegrationEventPublisher eventos) : IRequestHandler<CrearExpedienteCommand, ExpedienteDetalle>
@@ -24,8 +23,6 @@ public sealed class CrearExpedienteHandler(ComercioExteriorDbContext db, Expedie
             throw new BusinessRuleException("CE_OC_NO_VIGENTE", "La OC debe estar autorizada o con recepción en curso.");
         if (request.Tipo == TipoExpediente.Importacion && (oc is null || !oc.EsImportacion || oc.InformacionImportacion is not { } info || info.EsVacio))
             throw new BusinessRuleException("CE_OC_SIN_IMPORTACION", "La OC no tiene datos de importación.");
-        if (oc is not null && await db.Expedientes.AnyAsync(x => x.OcId == oc.Id && x.Estado == EstadoExpediente.Abierto, cancellationToken))
-            throw new ConflictException("CE_OC_CON_EXPEDIENTE", "La OC ya tiene un expediente abierto.");
         var incoterm = request.IncotermId ?? (oc?.InformacionImportacion?.IncotermId ?? (request.Tipo == TipoExpediente.Exportacion ? await catalogos.IncotermDdpAsync(cancellationToken) : Guid.Empty));
         // Cambiar la propuesta de la OC/DDP es una edición y exige su permiso específico.
         var propuesto = oc?.InformacionImportacion?.IncotermId ?? (request.Tipo == TipoExpediente.Exportacion ? await catalogos.IncotermDdpAsync(cancellationToken) : Guid.Empty);
@@ -41,29 +38,23 @@ public sealed class CrearExpedienteHandler(ComercioExteriorDbContext db, Expedie
         e.InicializarHitos(oc?.FechaDocumento ?? clock.HoyLocal());
         db.Expedientes.Add(e);
         await eventos.PublishAsync(new ExpedienteCeAbiertoEvent(e.EmpresaId, clock.UtcNow, e.Id, e.Folio), cancellationToken);
-        try
-        {
-            await db.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateException ex)when (ex.InnerException is PostgresException { ConstraintName: "ux_ce_oc_abierta" })
-        {
-            throw new ConflictException("CE_OC_CON_EXPEDIENTE", "La OC ya tiene un expediente abierto.", ex);
-        }
+        await db.SaveChangesAsync(cancellationToken);
 
         return await servicio.DetalleAsync(e, cancellationToken);
     }
 }
 
-public sealed class MutarExpedienteHandler(ComercioExteriorDbContext db, ExpedienteServicio servicio, ICatalogosCeReadPort catalogos, IIntegrationEventPublisher eventos, IClock clock, IPedidosEmbarcablesReadPort pedidos) : IRequestHandler<MutarExpedienteCommand, ExpedienteDetalle>
+public sealed class MutarExpedienteHandler(ComercioExteriorDbContext db, ExpedienteServicio servicio, ICatalogosCeReadPort catalogos, IIntegrationEventPublisher eventos, IClock clock, IPedidosEmbarcablesReadPort pedidos, IOcImportacionReadPort compras) : IRequestHandler<MutarExpedienteCommand, ExpedienteDetalle>
 {
     public async Task<ExpedienteDetalle> Handle(MutarExpedienteCommand request, CancellationToken cancellationToken)
     {
         var permiso = request.Accion switch
         {
-            "cerrar" => PermisosCanonicos.ComercioExteriorExpedientesCerrar,
+            "cerrar" => PermisosCanonicos.ComercioExteriorExpedientesAprobarCierre,
+            "cerrar-fisico" or "cerrar-documental" or "cerrar-financiero" => PermisosCanonicos.ComercioExteriorExpedientesCerrar,
             "hito-compromiso" or "hito-real" or "hito-omitir" => PermisosCanonicos.ComercioExteriorExpedientesHitosRegistrar,
             "cancelar" => PermisosCanonicos.ComercioExteriorExpedientesCancelar,
-            "revisar-documentos" => PermisosCanonicos.ComercioExteriorExpedientesDocumentosRevisar,
+            "requisito-hito" or "revisar-documentos" => PermisosCanonicos.ComercioExteriorExpedientesDocumentosRevisar,
             "documentos" => PermisosCanonicos.ComercioExteriorExpedientesAdjuntosSubir,
             "editar" or "participantes" => PermisosCanonicos.ComercioExteriorExpedientesEditar,
             _ => throw new BusinessRuleException("CE_ACCION_INVALIDA", "Acción desconocida.")};
@@ -87,8 +78,24 @@ public sealed class MutarExpedienteHandler(ComercioExteriorDbContext db, Expedie
         e.ExigirAbierto();
         switch (request.Accion)
         {
+            case "requisito-hito":
+                var rh = request.RequisitoHito ?? throw new BusinessRuleException("CE_DOCUMENTO_INVALIDO", "Seleccione el requisito y su hito.");
+                if (!(await catalogos.RequisitosAsync(e.Tipo, cancellationToken)).Any(r => r.Id == rh.TipoDocumentoId))
+                    throw new BusinessRuleException("CE_TIPO_DOCUMENTO_INVALIDO", "El documento no corresponde al tipo de operación.");
+                var config = await db.RequisitosHitos.SingleOrDefaultAsync(x => x.Tipo == e.Tipo && x.TipoDocumentoId == rh.TipoDocumentoId, cancellationToken);
+                if (config is null) db.RequisitosHitos.Add(new(e.EmpresaId, e.Tipo, rh.TipoDocumentoId, rh.HitoClave));
+                else config.Cambiar(rh.HitoClave);
+                break;
             case "cerrar":
-                e.Cerrar();
+            case "cerrar-fisico":
+            case "cerrar-documental":
+            case "cerrar-financiero":
+                var requisitosCierre = await catalogos.RequisitosAsync(e.Tipo, cancellationToken);
+                var adjuntosCierre = await catalogos.AdjuntosVigentesAsync(e.Id, cancellationToken);
+                var ocCierre = e.OcId is Guid ocId ? await compras.ObtenerAsync(ocId, cancellationToken) : null;
+                var recibidas = ocCierre?.Partidas?.ToDictionary(p => p.Id, p => p.CantidadRecibida) ?? [];
+                if (request.Accion == "cerrar") e.AprobarCierre(servicio.Actor, clock.UtcNow, requisitosCierre, adjuntosCierre, recibidas);
+                else e.CerrarDimension(request.Accion[7..], servicio.Actor, clock.UtcNow, requisitosCierre, adjuntosCierre, recibidas);
                 break;
             case "hito-compromiso":
             case "hito-real":
@@ -102,6 +109,7 @@ public sealed class MutarExpedienteHandler(ComercioExteriorDbContext db, Expedie
                 else
                 {
                     e.RegistrarHito(h.Clave, h.FechaReal ?? throw new BusinessRuleException("CE_FECHA_REAL_REQUERIDA", "Capture la fecha real."), h.ResponsableUsuarioId, h.EvidenciaAdjuntoId, h.Motivo, await catalogos.RequisitosAsync(e.Tipo, cancellationToken), await catalogos.AdjuntosVigentesAsync(e.Id, cancellationToken), clock.HoyLocal());
+                    if (e.Tipo == TipoExpediente.Importacion && h.Clave == "despacho-aduanal") e.RegistrarAduanaEntrada(h.AduanaEntrada);
                     await eventos.PublishAsync(new ExpedienteCeHitoRegistradoEvent(e.EmpresaId, clock.UtcNow, e.Id, h.Clave, h.FechaReal!.Value, h.ResponsableUsuarioId), cancellationToken);
                 }
                 break;

@@ -1,3 +1,4 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
 import { DialogBody } from '@/components/ui/dialog';
 import { SheetBody } from '@/components/ui/sheet';
@@ -337,7 +338,7 @@ function RegistrarSalidaBody({
         },
         onError: (e) => {
           if (esApiError(e) && e.code) {
-            setAvisoServidor(e.problem.detail ?? e.problem.title);
+            setAvisoServidor(errorUsuario(e));
             return;
           }
           manejarError(e);
@@ -483,10 +484,10 @@ function RegistrarSalidaBody({
 
 function manejarError(error: unknown) {
   if (esApiError(error)) {
-    toast.error(error.problem.title, {
+    toast.error(errorUsuario(error), {
       description: codigoSoporte(error),
     });
     return;
   }
-  toast.error('Error inesperado.');
+  toast.error("Error inesperado. Revisa los datos del registro; si continúa, avisa a soporte.");
 }

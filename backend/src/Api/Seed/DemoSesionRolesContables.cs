@@ -38,9 +38,16 @@ public sealed partial class DemoSesionSeedHostedService
         ("990.23.00.00", "DEMO Merma", NaturalezaCuenta.Deudora, CuentaControl.Ninguna, ["MERMA"]),
         ("990.24.00.00", "DEMO Impuestos retenidos por clientes", NaturalezaCuenta.Deudora, CuentaControl.Ninguna, ["RETENCIONES_CLIENTES"]),
         ("990.25.00.00", "DEMO Cobros con otra forma de pago", NaturalezaCuenta.Deudora, CuentaControl.Ninguna, ["COBROS_OTRAS_FORMAS"]),
-        ("990.26.00.00", "DEMO Deudores funcionarios y empleados (cuenta de prueba)", NaturalezaCuenta.Deudora, CuentaControl.Ninguna, ["DEUDORES_FUNCIONARIOS_EMPLEADOS"]),
+        ("990.26.00.00", "DEMO Deudores funcionarios y empleados (cuenta de prueba)", NaturalezaCuenta.Deudora, CuentaControl.Ninguna, ["DEUDORES_FUNCIONARIOS_EMPLEADOS", "CONTRAPARTIDA_GASTO_VIATICOS"]),
         ("990.27.00.00", "DEMO Comisiones bancarias (cuenta de prueba)", NaturalezaCuenta.Deudora, CuentaControl.Ninguna, ["COMISIONES_BANCARIAS"]),
+        // C1.5b (86e3vrh7y): caja chica, tarjetas corporativas y pasivos internos (V12 pendiente).
+        ("990.28.00.00", "DEMO Fondo fijo de caja chica", NaturalezaCuenta.Deudora, CuentaControl.Ninguna, ["CONTRAPARTIDA_GASTO_CAJA_CHICA"]),
+        ("990.29.00.00", "DEMO Tarjetas corporativas por pagar", NaturalezaCuenta.Acreedora, CuentaControl.Ninguna, ["CONTRAPARTIDA_GASTO_TARJETA"]),
+        ("990.30.00.00", "DEMO Acreedores diversos", NaturalezaCuenta.Acreedora, CuentaControl.Ninguna, ["ACREEDORES_DIVERSOS"]),
     ];
+
+    /// <summary>Códigos de las cuentas que declara este sembrador; la prueba del seed cuenta contra esta lista.</summary>
+    public static IReadOnlyList<string> CodigosCuentasRolesDemo => [.. CuentasRolesDemo.Select(c => c.Codigo)];
 
     private static async Task SembrarRolesContablesAsync(IServiceProvider sp, CancellationToken ct)
     {

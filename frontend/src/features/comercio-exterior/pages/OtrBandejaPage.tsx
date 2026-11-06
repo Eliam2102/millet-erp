@@ -20,7 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { useOtrEnvios, type OtrEnvio } from '../api/otr';
-import { OtrDetalle, VincularOtrSheet } from '../components/OtrPanel';
+import { VincularOtrSheet } from '../components/OtrPanel';
 const columnas = 'grid grid-cols-[150px_minmax(0,1.6fr)_160px_64px_130px_160px] items-center';
 export function OtrBandejaPage() {
   const q = useOtrEnvios();
@@ -37,14 +37,12 @@ export function OtrBandejaPage() {
           .toLocaleLowerCase('es-MX')
           .includes(texto.toLocaleLowerCase('es-MX')),
     ) ?? [];
-  const incidencias =
-    q.data?.filter((e) => e.salidas.some((s) => s.estado === 4 || s.sinAcuse)) ?? [];
   return (
     <main className="flex h-full min-h-0 flex-col gap-5 overflow-auto text-sm">
       <Breadcrumbs items={[{ label: 'Comercio Exterior' }, { label: 'Bandeja OTR' }]} />
       <PageHeader
         titulo="Bandeja OTR"
-        descripcion="Vincule cada envío de contenedor a un expediente de exportación del mismo cliente."
+        descripcion="Vincula cada envío de contenedor a un expediente de exportación del mismo cliente."
       />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Button
@@ -62,12 +60,6 @@ export function OtrBandejaPage() {
             tono="warning"
           />
         </Button>
-        <KpiCard
-          etiqueta="Envíos con salidas fallidas o sin acuse"
-          valor={q.data ? incidencias.length : '—'}
-          tono="danger"
-          href="#incidencias-otr"
-        />
       </div>
       <p
         role="note"
@@ -205,28 +197,6 @@ export function OtrBandejaPage() {
             </div>
           </ListadoModulo>
         </div>
-      )}
-      {!q.isError && q.data && (
-        <section
-          id="incidencias-otr"
-          aria-label="Salidas fallidas o sin acuse"
-          className="space-y-3 pb-5"
-        >
-          <h2 className="text-md font-semibold">Salidas fallidas o sin acuse</h2>
-          {incidencias.length === 0 && (
-            <p className="text-ink-muted">Sin salidas fallidas ni acuses vencidos.</p>
-          )}
-          {incidencias.map((envio) => (
-            <OtrDetalle
-              key={envio.id}
-              abierto={false}
-              envio={{
-                ...envio,
-                salidas: envio.salidas.filter((s) => s.estado === 4 || s.sinAcuse),
-              }}
-            />
-          ))}
-        </section>
       )}
       {seleccion && <VincularOtrSheet envio={seleccion} onClose={() => setSeleccion(undefined)} />}
     </main>

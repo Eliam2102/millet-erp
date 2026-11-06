@@ -218,7 +218,7 @@ describe('<BandejaRequisiciones> — smoke', () => {
     expect(screen.getAllByText('Sistema')).toHaveLength(1);
   });
 
-  it('estado error: muestra ErrorState con problem detail', async () => {
+  it('estado error: explica cómo continuar sin mostrar detalles internos', async () => {
     mswServer.use(
       http.get('*/api/v1/compras/requisiciones', () =>
         HttpResponse.json(
@@ -237,9 +237,10 @@ describe('<BandejaRequisiciones> — smoke', () => {
     );
     render(<BandejaRequisiciones />, { wrapper: createQueryWrapper() });
     await waitFor(() =>
-      expect(screen.getByText('Error de servidor')).toBeInTheDocument(),
+      expect(screen.getByText('No se pudo cargar la información')).toBeInTheDocument(),
     );
-    expect(screen.getByText(/Algo falló en el backend/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Algo falló en el backend/i)).not.toBeInTheDocument();
+    expect(screen.getByText('No se pudo completar la acción. Revisa tu conexión y vuelve a cargar el registro; si continúa, avisa a soporte.')).toBeInTheDocument();
   });
 
   it('botón "Nueva requisición" visible con permiso crear', async () => {

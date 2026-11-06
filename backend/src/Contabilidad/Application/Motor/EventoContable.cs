@@ -25,9 +25,11 @@ public sealed record EventoContable(
 /// C1.5 (aditivo): <see cref="ClienteId"/> = auxiliar por línea (liquidación de efectivo: un abono por cobro y su cliente);
 /// <see cref="Clasificador"/> = sufijo de rol por línea (ventas por tipo de producto); <see cref="CuentaId"/> = cuenta fija de la línea
 /// (devolución interna: la misma cuenta de la póliza de consumo, V64).
+/// F1-ALM-13: <see cref="ArticuloId"/> = artículo de la línea de Almacén; <see cref="EnriquecedorGrupoArticulo"/> pone su grupo como
+/// <see cref="Clasificador"/> para el rol <c>INVENTARIO_{grupo}</c>.
 /// </summary>
 public sealed record LineaEventoContable(Guid? LineaOcId, decimal Importe, Guid? CentroCostoId, bool EsServicio,
-    Guid? ClienteId = null, string? Clasificador = null, Guid? CuentaId = null);
+    Guid? ClienteId = null, string? Clasificador = null, Guid? CuentaId = null, Guid? ArticuloId = null);
 
 /// <summary>El payload no se puede leer como el contrato del tipo (no es rechazo de negocio: es un evento corrupto).</summary>
 public sealed class EventoIlegibleException(string mensaje) : Exception(mensaje);
@@ -48,8 +50,10 @@ public static partial class NormalizadorEventos
     {
         try
         {
-            return tipo == FacturaProveedorRegistrada ? FacturaProveedor(eventoId, payload)
-                : NormalizarC15(tipo, eventoId, payload) ?? Generico(tipo, eventoId, payload);
+            return tipo == DevolucionAnticipoAgente ? DevolucionAgente(eventoId, payload)
+                : tipo == CostoImportacionAplicado ? CostoImportacion(eventoId, payload)
+                : tipo == FacturaProveedorRegistrada ? FacturaProveedor(eventoId, payload)
+                : NormalizarC15(tipo, eventoId, payload) ?? NormalizarC15b(tipo, eventoId, payload) ?? Generico(tipo, eventoId, payload);
         }
         catch (JsonException e)
         {

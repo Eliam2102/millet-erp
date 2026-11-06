@@ -263,15 +263,17 @@ export function useCambiarCuentaBancariaProveedor() {
 
 export interface DesactivarProveedorArgs {
   id: string;
+  motivo: string;
   idempotencyKey: string;
 }
 
 export function useDesactivarProveedor() {
   const queryClient = useQueryClient();
   return useMutation<void, Error, DesactivarProveedorArgs>({
-    mutationFn: async ({ id, idempotencyKey }) => {
+    mutationFn: async ({ id, motivo, idempotencyKey }) => {
       await apiRequest<void>(`/api/v1/catalogos/proveedores/${id}`, {
         method: 'DELETE',
+        body: { motivo },
         idempotencyKey,
       });
     },
@@ -427,9 +429,9 @@ export function useActualizarClasificacionFiscalProveedor() {
 
 export function useReactivarProveedor() {
   const queryClient = useQueryClient();
-  return useMutation<void, Error, { id: string; idempotencyKey: string }>({
-    mutationFn: async ({ id, idempotencyKey }) => {
-      await apiRequest<void>(`/api/v1/catalogos/proveedores/${id}/reactivar`, { method: 'POST', idempotencyKey });
+  return useMutation<void, Error, DesactivarProveedorArgs>({
+    mutationFn: async ({ id, motivo, idempotencyKey }) => {
+      await apiRequest<void>(`/api/v1/catalogos/proveedores/${id}/reactivar`, { method: 'POST', body: { motivo }, idempotencyKey });
     },
     onSuccess: (_data, vars) => {
       void queryClient.invalidateQueries({ queryKey: datosMaestrosKeys.proveedores() });

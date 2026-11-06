@@ -32,12 +32,14 @@ public sealed class NotaCreditoConfiguration : IEntityTypeConfiguration<NotaCred
         builder.Property(e => e.ReembolsoActualizadoEn);
         builder.Property(e => e.ReembolsoPagadoEl);
         builder.Property(e => e.ReembolsoReferencia).HasMaxLength(100);
+        builder.Property(e => e.Comentarios).HasMaxLength(NotaCredito.ComentariosMaxLength);
         builder.Property(e => e.ReembolsoMotivoResolucion).HasMaxLength(400);
         builder.Ignore(e => e.DebeSolicitarReembolsoProgramado);
 
         // 86e3wjt5r: origen A+W. El índice único es la red de seguridad de la idempotencia por número de nota.
         builder.Property(e => e.AwNumeroNota).HasMaxLength(50);
         builder.Property(e => e.AwNumeroPedido).HasMaxLength(50);
+        builder.Property(e => e.AwVendedor).HasMaxLength(120);
         builder.HasIndex(e => e.AwNumeroNota)
             .IsUnique()
             .HasDatabaseName("ux_nota_credito_aw_numero_nota")

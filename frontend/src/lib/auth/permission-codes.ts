@@ -27,6 +27,9 @@ export const PermisosCanonicos = {
   ActivosFijosEtiquetasImprimir: 'activos_fijos.etiquetas.imprimir',
   ActivosFijosConteosGestionar: 'activos_fijos.conteos.gestionar',
   ActivosFijosConteosAutorizar: 'activos_fijos.conteos.autorizar',
+  ActivosFijosClasesAutorizar: 'activos_fijos.clases.autorizar',
+  ActivosFijosReversasSolicitar: 'activos_fijos.reversas.solicitar',
+  ActivosFijosReversasAutorizar: 'activos_fijos.reversas.autorizar',
   ActivosFijosClasesAdministrar: 'activos_fijos.clases.administrar',
   ActivosFijosActivosVer: 'activos_fijos.activos.ver',
   ActivosFijosActivosGestionar: 'activos_fijos.activos.gestionar',
@@ -251,6 +254,12 @@ export const PermisosCanonicos = {
   AlmacenDevolucionesProveedorAutorizar: 'almacen.devoluciones-proveedor.autorizar',
   AlmacenCuarentenaDictaminar: 'almacen.cuarentena.dictaminar',
   AlmacenRecepcionesCancelar: 'almacen.recepciones.cancelar',
+  AlmacenMermasAutorizar: 'almacen.mermas.autorizar',
+  AlmacenSalidasRoturaCapturar: 'almacen.salidas.rotura-capturar',
+  AlmacenSalidasRoturaAutorizar: 'almacen.salidas.rotura-autorizar',
+  AlmacenCierreRevisarActa: 'almacen.cierre.revisar-acta',
+  AlmacenAvisosValeVencido: 'almacen.avisos.vale-vencido',
+  AlmacenAvisosAjusteMayor: 'almacen.avisos.ajuste-mayor',
   AlmacenDevolucionesProveedorRegistrar: 'almacen.devoluciones-proveedor.registrar',
 
   AlmacenInventariosLeer: 'almacen.inventarios.leer',
@@ -348,6 +357,8 @@ export const PermisosCanonicos = {
   CuentasPorPagarReportesAntiguedad: 'cuentas_por_pagar.reportes.antiguedad',
   CuentasPorPagarReportesDiot: 'cuentas_por_pagar.reportes.diot',
   CuentasPorPagarReportesTc: 'cuentas_por_pagar.reportes.tc',
+  CuentasPorPagarRevaluacionEjecutar: 'cuentas_por_pagar.revaluacion.ejecutar',
+  CuentasPorPagarRevaluacionConsultar: 'cuentas_por_pagar.revaluacion.consultar',
 
   CuentasPorPagarCfdisLeer: 'cuentas_por_pagar.cfdis.leer',
   CuentasPorPagarCfdisCargarManual: 'cuentas_por_pagar.cfdis.cargar-manual',
@@ -376,6 +387,8 @@ export const PermisosCanonicos = {
     'cuentas_por_cobrar.aplicacion-pago.confirmar',
   // C7.2 (86e3kdxy6): administrar reglas de liberación por serie.
   CuentasPorCobrarReglasSerieGestionar: 'cuentas_por_cobrar.reglas-serie.gestionar',
+  // C7.7 (86e3jvv4q): conciliar la cartera a demanda.
+  CuentasPorCobrarConciliacionEjecutar: 'cuentas_por_cobrar.conciliacion.ejecutar',
 
   // Tesorería / Bancos — mirror manual de backend PermisosCanonicos.cs
   // §"Tesorería" (namespace GUID 0000000b-*). Los 19 permisos se
@@ -392,6 +405,10 @@ export const PermisosCanonicos = {
   TesoreriaPagosRevertir: 'tesoreria.pagos.revertir',
   TesoreriaPagosCuentaRegistrar: 'tesoreria.pagos-cuenta.registrar',
   TesoreriaPagosCuentaLigar: 'tesoreria.pagos-cuenta.ligar',
+  TesoreriaPagosCuentaAutorizar: 'tesoreria.pagos-cuenta.autorizar',
+  TesoreriaPagosCeAutorizarImportacion: 'tesoreria.pagos-ce.autorizar-importacion',
+  TesoreriaPagosCeAutorizarExportacion: 'tesoreria.pagos-ce.autorizar-exportacion',
+  TesoreriaPagosCeAutorizarDireccion: 'tesoreria.pagos-ce.autorizar-direccion',
   TesoreriaCorridasCrear: 'tesoreria.corridas.crear',
   TesoreriaCorridasAutorizar: 'tesoreria.corridas.autorizar',
   TesoreriaCorridasEjecutar: 'tesoreria.corridas.ejecutar',
@@ -502,6 +519,8 @@ export const PermisosCanonicos = {
   ContabilidadMotorLeer: 'contabilidad.motor.leer',
   ContabilidadRolesCuentaAdministrar: 'contabilidad.roles-cuenta.administrar',
   ContabilidadRechazosGestionar: 'contabilidad.rechazos.gestionar',
+  ComercioExteriorEmbarquesAutorizarSalida: 'comercio_exterior.embarques.autorizar_salida',
+  ComercioExteriorExpedientesAprobarCierre: 'comercio_exterior.expedientes.aprobar_cierre',
   ComercioExteriorGastosRegistrar: 'comercio_exterior.gastos.registrar',
   ComercioExteriorGastosDistribuir: 'comercio_exterior.gastos.distribuir',
   ComercioExteriorAnticiposGestionar: 'comercio_exterior.anticipos.gestionar',

@@ -46,6 +46,26 @@ public sealed class PagoFacturaProveedorAplicadoHandler : IRequestHandler<PagoFa
         }
 
         var p = request.Payload;
+        var anticipo = await _db.AnticiposProveedor.FirstOrDefaultAsync(a => a.Id == p.FacturaProveedorId && a.EmpresaId == p.EmpresaId &&
+            a.Origen == Domain.AnticipoProveedor.OrigenAnticipo.SolicitudComercioExterior, cancellationToken);
+        if (anticipo is not null)
+        {
+            await using var tx = _db.Database.IsRelational() ? await _db.Database.BeginTransactionAsync(cancellationToken) : null;
+            if (_db.Database.IsRelational())
+            {
+                await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({anticipo.Id.ToString()}, 19))", cancellationToken);
+                await _db.Entry(anticipo).ReloadAsync(cancellationToken);
+                if (await YaProcesado(request.EventId, EventType, cancellationToken)) return;
+            }
+            if (!await _db.PagosProveedorLocal.AnyAsync(x => x.PagoId == p.PagoId, cancellationToken))
+                _db.PagosProveedorLocal.Add(new(anticipo.EmpresaId, anticipo.Id, p.PagoId, p.Monto, p.FechaPago));
+            var acumulado = (await _db.PagosProveedorLocal.Where(x => x.FacturaProveedorId == anticipo.Id && !x.Revertido).ToListAsync(cancellationToken))
+                .Concat(_db.PagosProveedorLocal.Local.Where(x => x.FacturaProveedorId == anticipo.Id && !x.Revertido)).DistinctBy(x => x.PagoId).Sum(x => x.Importe);
+            anticipo.ConfirmarPagoComercioExterior(acumulado);
+            await RegistrarProcesado(request.EventId, EventType, "Pago de anticipo al agente", cancellationToken);
+            if (tx is not null) await tx.CommitAsync(cancellationToken);
+            return;
+        }
         var factura = await _db.FacturasProveedor
             .FirstOrDefaultAsync(f => f.Id == p.FacturaProveedorId, cancellationToken);
         if (factura is null)
@@ -141,6 +161,19 @@ public sealed class PagoFacturaProveedorRevertidoHandler : IRequestHandler<PagoF
         if (dedup) return;
 
         var p = request.Payload;
+        var anticipoCe = await _db.AnticiposProveedor.FirstOrDefaultAsync(a => a.Id == p.FacturaProveedorId && a.Origen == Domain.AnticipoProveedor.OrigenAnticipo.SolicitudComercioExterior, cancellationToken);
+        if (anticipoCe is not null)
+        {
+            var pagoCe = await _db.PagosProveedorLocal.SingleOrDefaultAsync(x => x.PagoId == p.PagoOriginalId, cancellationToken);
+            if (pagoCe is null)
+            {
+                pagoCe = new(anticipoCe.EmpresaId, anticipoCe.Id, p.PagoOriginalId, p.MontoRevertido, p.FechaReversa);
+                _db.PagosProveedorLocal.Add(pagoCe);
+            }
+            pagoCe.Revertir();
+            var pagosCe = await _db.PagosProveedorLocal.Where(x => x.FacturaProveedorId == anticipoCe.Id).ToListAsync(cancellationToken);
+            anticipoCe.ConfirmarPagoComercioExterior(pagosCe.Where(x => !x.Revertido).Sum(x => x.Importe));
+        }
         var factura = await _db.FacturasProveedor
             .FirstOrDefaultAsync(f => f.Id == p.FacturaProveedorId, cancellationToken);
         if (factura is not null)
@@ -285,6 +318,12 @@ public sealed class CancelacionPasivoSolicitadaHandler : IRequestHandler<Cancela
         if (dedup) return;
 
         var p = request.Payload;
+        var anticipoCe = await _db.AnticiposProveedor.SingleOrDefaultAsync(a => a.Id == request.Payload.FacturaProveedorId && a.Origen == Domain.AnticipoProveedor.OrigenAnticipo.SolicitudComercioExterior, cancellationToken);
+        if (anticipoCe is not null)
+        {
+            anticipoCe.CancelarSolicitudCe(request.Payload.Motivo, _clock.UtcNow);
+            await _db.SaveChangesAsync(cancellationToken); return;
+        }
         var factura = await _db.FacturasProveedor
             .FirstOrDefaultAsync(f => f.Id == p.FacturaProveedorId, cancellationToken);
         if (factura is not null

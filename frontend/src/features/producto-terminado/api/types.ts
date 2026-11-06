@@ -10,6 +10,8 @@ export interface PiezaDto {
   sucursalId: string;
   estado: string;
   escaneadaAt: string;
+  /** Solo en tránsito: sucursal a la que va. */
+  sucursalDestinoId?: string | null;
 }
 
 export interface AvancePosicionDto {
@@ -17,11 +19,11 @@ export interface AvancePosicionDto {
   descripcion: string | null;
   esperadas: number;
   terminadas: number;
-  /** Terminadas que no están cargadas ni entregadas. */
+  /** Terminadas que siguen en PT: ni cargadas ni entregadas. */
   enPt: number;
-  /** 0 hasta que exista la carga (PT5.4+). */
+  /** Piezas en el camión (hoja de salida en borrador o carga de PT5.4). */
   cargadas: number;
-  /** 0 hasta que exista la entrega (PT5.4+). */
+  /** Piezas embarcadas con albarán emitido (PT5.5). */
   entregadas: number;
   /** Esperadas - terminadas. */
   pendientes: number;
@@ -90,4 +92,142 @@ export interface SalidasPendientesPagina {
   total: number;
   con24h: number;
   con48h: number;
+}
+
+export type EstadoTraspaso = 'EnTransito' | 'ConDiferencia' | 'Recibido';
+
+export interface TraspasoPiezaDto {
+  piezaId: string;
+  etiqueta: string;
+  numeroPedido: string;
+  recibida: boolean;
+}
+
+/** `piezas` solo viene en el detalle; `pendientes` = piezas aún en tránsito. */
+export interface TraspasoDto {
+  id: string;
+  sucursalOrigenId: string;
+  sucursalDestinoId: string;
+  estado: EstadoTraspaso;
+  salidaAt: string;
+  recibidoAt: string | null;
+  total: number;
+  pendientes: number;
+  piezas: TraspasoPiezaDto[];
+}
+
+export interface TraspasosPagina {
+  items: TraspasoDto[];
+  total: number;
+}
+
+export type EstadoHojaSalida = 'Borrador' | 'Emitida' | 'Cancelada';
+
+export interface AlbaranLineaDto {
+  posicion: number;
+  descripcion: string | null;
+  piezas: number;
+}
+
+/** Albarán de un pedido en la hoja; `secuencia` es el orden de entrega. */
+export interface AlbaranDto {
+  id: string;
+  folio: string;
+  secuencia: number;
+  numeroPedido: string;
+  cliente: string;
+  destino: string | null;
+  emitidoAt: string | null;
+  total: number;
+  lineas: AlbaranLineaDto[];
+  etiquetas: string[];
+  /** PT5.4: piezas del pedido, las que se pueden cargar todavía (solo en carga) y las rotas pendientes de reposición. */
+  esperadas?: number;
+  disponibles?: string[];
+  rotas?: string[];
+  /** PT5.6: confirmación de la entrega (null mientras falta) y estado del pedido (`71` en ruta, `Entregado` sin factura, `115` facturado y entregado). */
+  entrega?: EntregaDto | null;
+  estadoPedido?: '71' | 'Entregado' | '115' | null;
+}
+
+export type ResultadoEntrega = 'Entregada' | 'Parcial' | 'Rechazada';
+export type FormaCobroEntrega = 'TPV' | 'Efectivo' | 'Transferencia' | 'Cheque';
+
+/** Cobro contra entrega del chofer; `conciliadoAt` se llena cuando la caja liquida la ruta y el voucher coincide. */
+export interface CobroEntregaDto {
+  monto: number;
+  formaPago: FormaCobroEntrega;
+  referencia: string | null;
+  conciliadoAt?: string | null;
+}
+
+export interface EntregaDto {
+  id: string;
+  resultado: ResultadoEntrega;
+  receptor: string;
+  entregadaAt: string;
+  entregadas: number;
+  rechazadas: number;
+  motivoRechazo: string | null;
+  tieneFirma: boolean;
+  tieneFoto: boolean;
+  etiquetasRechazadas: string[];
+  cobro: CobroEntregaDto | null;
+}
+
+/** Firma y foto como data URL (PNG la firma; JPEG o PNG la foto). Se necesita al menos una. */
+export interface ConfirmarEntregaBody {
+  receptor: string;
+  rechazadas: string[];
+  motivoRechazo: string | null;
+  firma: string | null;
+  foto: string | null;
+  cobro: { monto: number; formaPago: FormaCobroEntrega; referencia: string | null } | null;
+}
+
+export interface EntregaEvidenciaDto {
+  firma: string | null;
+  foto: string | null;
+}
+
+/** `albaranes` solo viene en el detalle; `yaEmitida` = se pidió emitir de nuevo y no cambió nada. */
+export interface HojaSalidaDto {
+  id: string;
+  folio: string;
+  sucursalId: string;
+  destino: string;
+  foranea: boolean;
+  vehiculoId: string | null;
+  operadorId: string | null;
+  estado: EstadoHojaSalida;
+  creadaAt: string;
+  emitidaAt: string | null;
+  cartaPorteFolio: string | null;
+  pedidos: number;
+  piezas: number;
+  albaranes: AlbaranDto[];
+  yaEmitida: boolean;
+  /** PT5.6: albaranes con piezas cuya entrega aún no se confirma (solo hojas emitidas). */
+  entregasPendientes?: number;
+}
+
+export interface HojasSalidaPagina {
+  items: HojaSalidaDto[];
+  total: number;
+}
+
+export interface CrearHojaSalidaBody {
+  sucursalId: string;
+  destino: string;
+  foranea: boolean;
+  vehiculoId?: string | null;
+  operadorId?: string | null;
+  distanciaKm?: number | null;
+  pesoKg?: number | null;
+  origenCodigoPostal?: string | null;
+  origenEstado?: string | null;
+  destinoCodigoPostal?: string | null;
+  destinoEstado?: string | null;
+  /** Sin etiquetas arma solo la ruta; las piezas se cargan después, una por una. */
+  pedidos: { numeroPedido: string; etiquetas: string[] }[];
 }

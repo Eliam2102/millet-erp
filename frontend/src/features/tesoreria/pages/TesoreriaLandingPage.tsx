@@ -111,6 +111,19 @@ const moduloTesoreriaLanding: NavModulo = {
           ],
         },
         {
+          label: 'Pagos de comercio exterior',
+          description:
+            'Autorización en dos niveles de los pagos de importación y exportación antes de la corrida.',
+          to: '/tesoreria/pagos-comercio-exterior',
+          icon: ClipboardList,
+          permissionsAny: [
+            PermisosCanonicos.TesoreriaPagosCeAutorizarImportacion,
+            PermisosCanonicos.TesoreriaPagosCeAutorizarExportacion,
+            PermisosCanonicos.TesoreriaPagosCeAutorizarDireccion,
+            PermisosCanonicos.TesoreriaPasivosVer,
+          ],
+        },
+        {
           label: 'Corridas de pago',
           description:
             'Lotes de pasivos autorizables como unidad con oficio de cartera imprimible.',
@@ -144,7 +157,7 @@ const moduloTesoreriaLanding: NavModulo = {
         {
           label: 'Conciliación bancaria',
           description:
-            'Carga de extracto por perfil de banco, matching asistido y cierre con acta (saldo cuadrado).',
+            "Carga el extracto bancario, relaciona sus movimientos y cierra la conciliación con un acta.",
           to: '/tesoreria/conciliacion',
           icon: Scale,
           permissionsAny: [
@@ -155,7 +168,7 @@ const moduloTesoreriaLanding: NavModulo = {
         {
           label: 'REPP de proveedor',
           description:
-            'Pagos PPD sin complemento recibido (SLA 5 días) y registro del REPP que libera la revisión en CxP.',
+            "Pagos PPD sin complemento recibido (plazo de 5 días) y registro del REPP que libera la revisión en CxP.",
           to: '/tesoreria/repp',
           icon: ReceiptText,
           permission: PermisosCanonicos.TesoreriaReppRegistrar,

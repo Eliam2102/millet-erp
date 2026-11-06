@@ -23,8 +23,8 @@ namespace Millet.Compras.Application.Matriz;
 /// <see cref="Oc.EvaluadorNivelOc.UmbralGeneralId"/>).
 ///
 /// <list type="number">
+///   <item><b>Sin umbral vigente:</b> no se puede decidir; <c>SinPolitica</c> (pendiente de configurar el aprobador, no autoriza ni fuerza N2), tampoco por criticidad.</item>
 ///   <item><b>Naturaleza:</b> <c>Critico</c> o <c>Riesgo</c> → N1+N2 directo.</item>
-///   <item><b>Sin umbral vigente:</b> no se puede decidir, se exige N2 (fail-safe).</item>
 ///   <item>
 ///     <b>Monto</b> (modo <c>SoloMonto</c> o <c>Ambos</c>): Σ cantidad × precio estimado
 ///     &gt; umbral de monto → N1+N2, sin consultar stock.
@@ -69,13 +69,6 @@ public sealed class EvaluadorMultidimensional : IRequiereNivelEvaluator
         Requisicion requisicion,
         CancellationToken cancellationToken = default)
     {
-        // Capa 1: naturaleza más restrictiva.
-        var naturaleza = await _naturaleza.ResolverMasRestrictivaAsync(requisicion, cancellationToken);
-        if (naturaleza == Naturaleza.Critico || naturaleza == Naturaleza.Riesgo)
-        {
-            return RequiereNivel.N1YN2;
-        }
-
         // Umbral vigente del departamento; si no hay, el de la fila general.
         var hoy = DateOnly.FromDateTime(_clock.UtcNow.UtcDateTime);
         var filas = await _db.UmbralesAprobacionDepartamento.AsNoTracking()
@@ -89,11 +82,19 @@ public sealed class EvaluadorMultidimensional : IRequiereNivelEvaluator
         var umbral = filas.FirstOrDefault(u => u.DepartamentoId == requisicion.DepartamentoId)
                      ?? filas.FirstOrDefault(u => u.DepartamentoId == EvaluadorNivelOc.UmbralGeneralId);
 
-        // Sin umbral vigente no se puede decidir: se exige N2. Ficha C3.1 §7 y plano Compras paso 10.
+        // Sin umbral vigente no se puede decidir ni se fuerza N2: pendiente de configurar el aprobador.
         if (umbral is null)
+        {
+            return RequiereNivel.SinPolitica;
+        }
+
+        // Naturaleza más restrictiva (solo con política vigente: la criticidad no inventa el nivel).
+        var naturaleza = await _naturaleza.ResolverMasRestrictivaAsync(requisicion, cancellationToken);
+        if (naturaleza == Naturaleza.Critico || naturaleza == Naturaleza.Riesgo)
         {
             return RequiereNivel.N1YN2;
         }
+
 
         var incluyeMonto = umbral.ModoNivel2 is ModoNivel2.SoloMonto or ModoNivel2.Ambos;
         var incluyeDisponibilidad = umbral.ModoNivel2 is ModoNivel2.SoloDisponibilidad or ModoNivel2.Ambos;

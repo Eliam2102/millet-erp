@@ -1,3 +1,5 @@
+import { Label } from '@/components/ui/label';
+import { errorUsuario } from '@/lib/error-usuario';
 import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
 import type { ImportacionRecepcionValues } from '../schemas/recepcion';
@@ -62,6 +64,7 @@ import {
 } from '@/features/almacen/api';
 import { useCfdisParaRecepcion, useLineasRecibibles } from '@/features/almacen/api/useRecepciones';
 import { PackingListUpload } from '@/features/almacen/components/PackingListUpload';
+import { EvidenciaRecepcionUpload } from '@/features/almacen/components/EvidenciaRecepcionUpload';
 import { UbicacionBinSelector } from '@/components/erp/selectors/UbicacionBinSelector';
 import { AsignarUbicacionEnLinea } from '@/features/almacen/components/AsignarUbicacionEnLinea';
 import { UbicacionSelector } from '@/components/erp/selectors/UbicacionSelector';
@@ -163,14 +166,22 @@ const CODIGOS_RECEPCION: Record<string, { campo: string; mensaje?: string } | 'c
   },
   RECEPCION_EXCEDE_PENDIENTE: 'callout',
   ENTRADA_SIN_ASIGNACION: 'callout',
+  ENTRADA_SIN_UBICACION_REAL: 'callout',
   RECEPCION_MULTI_SUBALMACEN: 'callout',
   RECEPCION_SUCURSAL_DISTINTA: 'callout',
+  RECEPCION_TODO_RECHAZADO: 'callout',
+  RECEPCION_RECHAZO_LINEA_INVALIDA: 'callout',
+  LISTA_EMPAQUE_VIDRIO: 'callout',
 };
 const TITULOS_CALLOUT: Record<string, string> = {
   RECEPCION_EXCEDE_PENDIENTE: 'Una cantidad excede lo pendiente',
   ENTRADA_SIN_ASIGNACION: 'Un artículo no está asignado al rack elegido',
+  ENTRADA_SIN_UBICACION_REAL: 'Un artículo nuevo no puede recibirse en el almacén general',
   RECEPCION_MULTI_SUBALMACEN: 'Las partidas van a sub-almacenes distintos',
   RECEPCION_SUCURSAL_DISTINTA: 'La orden de compra es de otra sucursal',
+  RECEPCION_TODO_RECHAZADO: 'Todas las partidas se rechazaron en el acto',
+  RECEPCION_RECHAZO_LINEA_INVALIDA: 'Una partida rechazada no es de la orden',
+  LISTA_EMPAQUE_VIDRIO: 'La lista de empaque no admite vidrio',
 };
 
 function NuevaRecepcionFormBody({
@@ -223,6 +234,8 @@ function NuevaRecepcionFormBody({
     titulo: string;
     detalle: string;
   } | null>(null);
+  // G-3: el servidor avisó que esa remisión/factura ya se recibió en la OC; solo continúa con motivo.
+  const [yaRecibida, setYaRecibida] = useState<string | null>(null);
 
   function solicitarVariante(siguiente: Variante) {
     if (siguiente === variante) return;
@@ -233,6 +246,7 @@ function NuevaRecepcionFormBody({
   function cambiarVariante(siguiente: Variante) {
     setVarianteSolicitada(null);
     setAvisoServidor(null);
+    setYaRecibida(null);
     setVariante(siguiente);
     setPackingListAdjunto(null);
     setCapturaUuidManual(false);
@@ -319,6 +333,10 @@ function NuevaRecepcionFormBody({
 
   function onSubmit(values: RecepcionFormValues) {
     setAvisoServidor(null);
+    if (yaRecibida && !values.motivoDuplicado?.trim()) {
+      form.setError('motivoDuplicado', { type: 'required', message: 'Captura el motivo para registrarla otra vez.' });
+      return;
+    }
     // Un solo sub-almacén por recepción: el conflicto ya se ve por línea.
     const subs = new Map(
       (ubicacionesQuery.data?.items ?? []).map((u) => [
@@ -366,6 +384,11 @@ function NuevaRecepcionFormBody({
           motivoDano: (f.cantidadDanada ?? 0) > 0 ? f.motivoDano?.trim() || null : null,
           // E3: el lote del proveedor viaja en ambas variantes; lo dañado a MAT-REV lleva el mismo lote.
           lote: f.lote?.trim() || null,
+          // G-10: lo rechazado en el acto no entra; dañado y rechazado llevan su evidencia.
+          cantidadRechazada: f.cantidadRechazada ?? 0,
+          motivoRechazo: (f.cantidadRechazada ?? 0) > 0 ? f.motivoRechazo?.trim() || null : null,
+          evidenciaBlobRef:
+            (f.cantidadDanada ?? 0) > 0 || (f.cantidadRechazada ?? 0) > 0 ? f.evidenciaBlobRef ?? null : null,
         };
       });
 
@@ -381,6 +404,9 @@ function NuevaRecepcionFormBody({
             // Mayúsculas como el VO UuidCfdi de CxP (el backend re-normaliza).
             cfdiUuidFiscal: v.cfdiUuidFiscal?.trim().toUpperCase() ?? null,
             observaciones: v.observaciones ?? null,
+            remision: v.remision?.trim() || null,
+            motivoDuplicado: yaRecibida ? v.motivoDuplicado?.trim() || null : null,
+            recibidoPorNombre: v.recibidoPorNombre?.trim() || null,
             // PR4: null = el almacenista no usó el helper de cabecera.
             ubicacionHelperId: v.ubicacionHelperId ?? null,
             lineas: lineasParaBackend,
@@ -418,6 +444,9 @@ function NuevaRecepcionFormBody({
           fechaMovimiento: v.fechaMovimiento,
           packingListBlobRef: packingListAdjunto.blobRef,
           observaciones: v.observaciones ?? null,
+          remision: v.remision?.trim() || null,
+          motivoDuplicado: yaRecibida ? v.motivoDuplicado?.trim() || null : null,
+          recibidoPorNombre: v.recibidoPorNombre?.trim() || null,
           // PR4: null = el almacenista no usó el helper de cabecera.
           ubicacionHelperId: v.ubicacionHelperId ?? null,
           lineas: lineasParaBackend,
@@ -440,7 +469,11 @@ function NuevaRecepcionFormBody({
 
   function manejarError(error: unknown) {
     if (!esApiError(error)) {
-      toast.error('Error inesperado al registrar la recepción.');
+      toast.error("Error inesperado al registrar la recepción. Revisa los datos del registro; si continúa, avisa a soporte.");
+      return;
+    }
+    if (error.code === 'RECEPCION_YA_RECIBIDA') {
+      setYaRecibida(errorUsuario(error));
       return;
     }
     const resultado = applyServerErrors(
@@ -452,12 +485,12 @@ function NuevaRecepcionFormBody({
       // El servidor no indica la línea: se deja el aviso persistente sobre las líneas.
       setAvisoServidor({
         titulo: TITULOS_CALLOUT[error.code ?? ''] ?? 'No se pudo registrar',
-        detalle: error.problem.detail ?? error.problem.title,
+        detalle: errorUsuario(error),
       });
       return;
     }
     if (resultado) return;
-    toast.error(error.problem.title, {
+    toast.error(errorUsuario(error), {
       description: codigoSoporte(error),
     });
   }
@@ -523,7 +556,7 @@ function NuevaRecepcionFormBody({
             <FormCampo span={6}>
               <Field
                 label="Ubicación por defecto (opcional)"
-                hint="Aplica a los consumibles y refacciones; los artículos de A+W eligen su rack en cada partida."
+                hint="Aplica a insumos y refacciones; elige el rack de los artículos de A+W en cada partida."
                 error={form.formState.errors.ubicacionHelperId?.message}
               >
                 <Controller
@@ -554,6 +587,80 @@ function NuevaRecepcionFormBody({
                 />
               </Field>
             </FormCampo>
+
+            <FormCampo span={6}>
+              <Field label="Remisión del proveedor" error={form.formState.errors.remision?.message}>
+                <Controller
+                  name="remision"
+                  control={form.control}
+                  render={({ field }) => (
+                    <Input
+                      value={field.value ?? ''}
+                      onChange={(e) => {
+                        field.onChange(e.target.value || null);
+                        setYaRecibida(null);
+                      }}
+                      onBlur={field.onBlur}
+                      maxLength={50}
+                      placeholder="Ej. R-55"
+                      autoComplete="off"
+                    />
+                  )}
+                />
+              </Field>
+            </FormCampo>
+
+            <FormCampo span={6}>
+              <Field
+                label="Recibió físicamente"
+                optional
+                hint="Quien recibió la mercancía en el andén, si no es quien captura. Sin dato, la recepción imprime a quien captura."
+                error={form.formState.errors.recibidoPorNombre?.message}
+              >
+                <Controller
+                  name="recibidoPorNombre"
+                  control={form.control}
+                  render={({ field }) => (
+                    <Input
+                      value={field.value ?? ''}
+                      onChange={(e) => field.onChange(e.target.value || null)}
+                      onBlur={field.onBlur}
+                      maxLength={150}
+                      autoComplete="off"
+                    />
+                  )}
+                />
+              </Field>
+            </FormCampo>
+
+            {yaRecibida && (
+              <FormCampo span={12}>
+                <div className="space-y-2">
+                  <AvisoEnLinea tono="advertencia" titulo="Ya recibida">
+                    {yaRecibida} Si es la misma entrega, cancela y no la registres.
+                  </AvisoEnLinea>
+                  <Field
+                    label="Motivo para registrarla otra vez"
+                    required
+                    error={form.formState.errors.motivoDuplicado?.message}
+                  >
+                    <Controller
+                      name="motivoDuplicado"
+                      control={form.control}
+                      render={({ field }) => (
+                        <Input
+                          value={field.value ?? ''}
+                          onChange={(e) => field.onChange(e.target.value || null)}
+                          onBlur={field.onBlur}
+                          maxLength={500}
+                          autoComplete="off"
+                        />
+                      )}
+                    />
+                  </Field>
+                </div>
+              </FormCampo>
+            )}
 
             <FormCampo span={12}>
               {variante === 'A' && (
@@ -726,11 +833,12 @@ function NuevaRecepcionFormBody({
 
           {avisoServidor && (
             <AvisoEnLinea tono="error" titulo={avisoServidor.titulo}>
-              {avisoServidor.detalle} Revisa las cantidades y los racks de las partidas marcadas.
+              {avisoServidor.detalle}
+              {avisoServidor.titulo === TITULOS_CALLOUT.LISTA_EMPAQUE_VIDRIO ? '' : ' Revisa las cantidades y los racks de las partidas marcadas.'}
             </AvisoEnLinea>
           )}
 
-          <LineasDesdeOc form={form} asignadas={asignadas.porArticulo} />
+          <LineasDesdeOc form={form} asignadas={asignadas.porArticulo} listaEmpaque={variante === 'B'} />
         </form>
       </SheetBody>
 
@@ -774,10 +882,13 @@ function NuevaRecepcionFormBody({
 function LineasDesdeOc({
   form,
   asignadas,
+  listaEmpaque,
 }: {
   form: ReturnType<typeof useForm<RecepcionFormValues>>;
   /** articuloId → racks asignados (para avisar al helper de cabecera). */
   asignadas: ReadonlyMap<string, ReadonlySet<string>>;
+  /** G-3: con lista de empaque el vidrio no se recibe; el servidor lo rechaza (LISTA_EMPAQUE_VIDRIO). */
+  listaEmpaque: boolean;
 }) {
   const ordenCompraId = useWatch({
     control: form.control,
@@ -803,9 +914,9 @@ function LineasDesdeOc({
     ultimaOcCargada.current = ocId;
     form.setValue('filas', construirFilas(ocQuery.data.lineas, recibiblesQuery.data));
     form.setValue('importacion', ocQuery.data.esImportacion ? {
-      numeroPedimento: ocQuery.data.infoImportNumeroPedimento ?? '',
-      numeroBl: ocQuery.data.infoImportNumeroBl ?? '',
-      numeroContenedor: ocQuery.data.infoImportNumeroContenedor ?? '',
+      numeroPedimento: ocQuery.data.transporteCe?.numeroPedimento ?? ocQuery.data.infoImportNumeroPedimento ?? '',
+      numeroBl: ocQuery.data.transporteCe?.contenedores.length === 1 ? ocQuery.data.transporteCe.contenedores[0].blGuia ?? '' : ocQuery.data.infoImportNumeroBl ?? '',
+      numeroContenedor: ocQuery.data.transporteCe?.contenedores.length === 1 ? ocQuery.data.transporteCe.contenedores[0].numero : ocQuery.data.infoImportNumeroContenedor ?? '',
       aduana: '', clavePedimento: '',
     } : null);
   }, [ocId, ocQuery.data, recibiblesQuery.data, form]);
@@ -942,7 +1053,9 @@ function LineasDesdeOc({
                 key={fila.lineaOcId}
                 index={index}
                 fila={fila}
+                vidrioEnListaEmpaque={listaEmpaque && !!fila.medida}
                 control={form.control}
+                setValue={form.setValue}
                 coincideConHelper={destinos[index] != null && fila.ubicacionId === destinos[index]}
                 conflictoSub={
                   conflictos.has(index) && subBaseClave
@@ -971,19 +1084,27 @@ interface FilaErrors {
   cantidadDanada?: { message?: string };
   motivoDano?: { message?: string };
   lote?: { message?: string };
+  cantidadRechazada?: { message?: string };
+  motivoRechazo?: { message?: string };
+  evidenciaBlobRef?: { message?: string };
 }
 
 function FilaLineaOc({
   index,
   fila,
+  vidrioEnListaEmpaque,
   control,
+  setValue,
   coincideConHelper,
   conflictoSub,
   errors,
 }: {
   index: number;
   fila: FilaRecepcionValues;
+  /** G-3: partida de vidrio en una recepción con lista de empaque: no se puede incluir. */
+  vidrioEnListaEmpaque: boolean;
   control: ReturnType<typeof useForm<RecepcionFormValues>>['control'];
+  setValue: ReturnType<typeof useForm<RecepcionFormValues>>['setValue'];
   /** PR4: la ubicación de la fila es la misma que el helper de cabecera. */
   coincideConHelper: boolean;
   /** Mensaje de conflicto de sub-almacén (RECEPCION_MULTI_SUBALMACEN) para la fila. */
@@ -997,8 +1118,12 @@ function FilaLineaOc({
   const [detalles, setDetalles] = useState(false);
   // Con hojas dañadas el motivo es obligatorio: los detalles se abren solos para que se vea.
   const danadas = useWatch({ control, name: `filas.${index}.cantidadDanada` as const }) ?? 0;
+  const rechazadas = useWatch({ control, name: `filas.${index}.cantidadRechazada` as const }) ?? 0;
+  const evidenciaNombre = useWatch({ control, name: `filas.${index}.evidenciaNombre` as const });
   const motivoRequerido = incluida && danadas > 0;
-  const detallesAbiertos = detalles || motivoRequerido;
+  const rechazoRequerido = incluida && rechazadas > 0;
+  const evidenciaRequerida = motivoRequerido || rechazoRequerido;
+  const detallesAbiertos = detalles || evidenciaRequerida;
   const lookupFila = useDecimalesUnidad();
   const decResuelto = decimalesDeFila(lookupFila, {
     unidadMedida: fila.unidadMedida,
@@ -1028,7 +1153,7 @@ function FilaLineaOc({
                 type="checkbox"
                 className="mt-1 size-4 cursor-pointer accent-brand"
                 checked={field.value}
-                disabled={sinMedidaEnOc}
+                disabled={sinMedidaEnOc || vidrioEnListaEmpaque}
                 onChange={(e) => field.onChange(e.target.checked)}
                 aria-label={`Incluir partida ${fila.posicion} en la recepción`}
               />
@@ -1062,7 +1187,12 @@ function FilaLineaOc({
         <TableCell className="align-top">
           {sinMedidaEnOc && (
             <p className="text-xs text-danger-fg" role="alert">
-              La línea de la OC no tiene medida; corrígela en Compras.
+              La partida de la OC no tiene medida; corrígela en Compras.
+            </p>
+          )}
+          {vidrioEnListaEmpaque && (
+            <p className="mb-1 text-xs text-danger-fg" role="alert">
+              La lista de empaque no admite vidrio: recibe estas hojas por la recepción de materia prima.
             </p>
           )}
           {fila.medida && (
@@ -1276,6 +1406,69 @@ function FilaLineaOc({
                   />
                 </Field>
               </FormCampo>
+              <FormCampo span={6}>
+                <Field
+                  label={fila.medida ? 'Hojas rechazadas en el acto' : 'Cantidad rechazada en el acto'}
+                  optional
+                  hint="No entra al inventario; queda pendiente en la orden."
+                  error={errors?.cantidadRechazada?.message}
+                >
+                  <Controller
+                    name={`filas.${index}.cantidadRechazada` as const}
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        type="number"
+                        inputMode={fila.medida ? 'numeric' : 'decimal'}
+                        min="0"
+                        step={fila.medida ? 1 : stepParaDecimales(decimalesFila)}
+                        className="tabular-nums"
+                        value={field.value ?? ''}
+                        onChange={(e) =>
+                          field.onChange(e.target.value === '' ? 0 : Number(e.target.value))
+                        }
+                      />
+                    )}
+                  />
+                </Field>
+              </FormCampo>
+              <FormCampo span={6}>
+                <Field
+                  label="Motivo del rechazo"
+                  required={rechazoRequerido}
+                  optional={!rechazoRequerido}
+                  error={errors?.motivoRechazo?.message}
+                >
+                  <Controller
+                    name={`filas.${index}.motivoRechazo` as const}
+                    control={control}
+                    render={({ field }) => (
+                      <Input {...field} value={field.value ?? ''} maxLength={500} />
+                    )}
+                  />
+                </Field>
+              </FormCampo>
+              {evidenciaRequerida && (
+                <FormCampo span={12}>
+                  <Field label="Evidencia del daño o rechazo" required>
+                    <Controller
+                      name={`filas.${index}.evidenciaBlobRef` as const}
+                      control={control}
+                      render={({ field }) => (
+                        <EvidenciaRecepcionUpload
+                          etiqueta={`evidencia, partida ${fila.posicion}`}
+                          nombre={evidenciaNombre}
+                          error={errors?.evidenciaBlobRef?.message}
+                          onChange={(v) => {
+                            field.onChange(v?.blobRef ?? null);
+                            setValue(`filas.${index}.evidenciaNombre` as const, v?.nombre ?? null, { shouldDirty: true });
+                          }}
+                        />
+                      )}
+                    />
+                  </Field>
+                </FormCampo>
+              )}
             </FormGrid>
           </TableCell>
         </TableRow>
@@ -1320,6 +1513,9 @@ type RecepcionFormValues = {
   ordenCompraId: string;
   fechaMovimiento: string;
   observaciones?: string | null;
+  remision?: string | null;
+  motivoDuplicado?: string | null;
+  recibidoPorNombre?: string | null;
   cfdiRecibidoId?: string | null;
   cfdiUuidFiscal?: string | null;
   packingListBlobRef?: string;
@@ -1337,6 +1533,9 @@ function defaultValuesParaVariante(
     ordenCompraId,
     fechaMovimiento: hoyIso,
     observaciones: null,
+    remision: null,
+    motivoDuplicado: null,
+    recibidoPorNombre: null,
     ubicacionHelperId: null,
     filas: [],
   };
@@ -1347,12 +1546,31 @@ function defaultValuesParaVariante(
 }
 
 function DatosImportacionRecepcion({ form }: { form: import('react-hook-form').UseFormReturn<RecepcionFormValues> }) {
+  const ocId = useWatch({ control: form.control, name: 'ordenCompraId' });
+  const oc = useOrdenCompra(ocId || null);
+  const propuestas = oc.data?.transporteCe?.contenedores ?? [];
   const catalogo = useQuery({
     queryKey: ['almacen', 'catalogos-importacion'],
     queryFn: async () => (await apiRequest<{ demo: boolean; aduanas: Record<string, string>; clavesPedimento: Record<string, string> }>('/api/v1/almacen/recepciones/catalogos-importacion')).data,
   });
   return (
     <FormSeccion titulo="Datos de importación" descripcion="Pedimento, BL o guía aérea y contenedor son obligatorios para confirmar. Aduanas y claves de pedimento: lista parcial mientras se carga el catálogo SAT completo.">
+        {propuestas.length > 1 && (
+          <FormCampo span={6}>
+            <Label htmlFor="recepcion-contenedor-ce">Propuesta del expediente</Label>
+            <select id="recepcion-contenedor-ce" className="h-ctl-xl w-full rounded-md border border-line-control bg-surface-card px-3" defaultValue=""
+              onChange={(e) => {
+                const c = propuestas.find((c) => c.numero === e.target.value);
+                if (c) {
+                  form.setValue('importacion.numeroContenedor', c.numero, { shouldDirty: true });
+                  form.setValue('importacion.numeroBl', c.blGuia ?? '', { shouldDirty: true });
+                }
+              }}>
+              <option value="">Seleccione el contenedor recibido</option>
+              {propuestas.map((c) => <option key={c.numero} value={c.numero}>{c.numero}</option>)}
+            </select>
+          </FormCampo>
+        )}
         {([['numeroPedimento', 'Número de pedimento'], ['numeroBl', 'BL o guía aérea'], ['numeroContenedor', 'Número de contenedor']] as const).map(([campo, etiqueta]) => (
           <FormCampo key={campo} span={6}>
             <Field label={etiqueta} required error={form.formState.errors.importacion?.[campo]?.message}>

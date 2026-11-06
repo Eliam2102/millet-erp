@@ -11,16 +11,80 @@ La «Orden de Transporte» del glosario de CxP es un concepto distinto.
 
 ## Frontera y dependencias
 
-El flujo 3 vive en `Integraciones.Aw/Infrastructure/Exportacion/`. Implementa los puertos
-`IOtrEntradaReader` y `IOtrSalidaWriter` definidos por Comercio Exterior. La dependencia es
+El flujo 3 vive en `Integraciones.Aw/Infrastructure/Exportacion/`. Implementa el puerto
+`IOtrEntradaReader` definido por Comercio Exterior. La dependencia es
 `Integraciones.Aw → ComercioExterior`; CE no referencia A+W. No usa `AwSolicitudesWorker`,
 `IngestaControl`, EDI, drop service ni consumidores de eventos propios en Service Bus.
 
-SQL Server real: **exclusivamente** `MILLET_INTEGRACION.dbo.aw_otr_envio`,
-`aw_otr_envio_linea` y `erp_otr_estado`. Son tablas puente **nuevas, definidas por el ERP**
-(D18). No hay INSERT/UPDATE/DELETE contra tablas internas de A+W.
+**Modelo vigente (4-nov-2026).** Jorge (TI Millet, correo del 1-nov, punto 2): en A+W OTR no se
+pueden agregar eventos ni personalizaciones, así que A+W no escribe en tablas puente ni lee lo que
+el ERP deje. Por eso:
 
-## Contrato de entrada
+- El ERP **sólo lee** las tablas del módulo OTR, en modo de sólo lectura, con el usuario
+  `millet_erp_lector_aw` (igual que producto terminado por `AWPROD_ERP`). El lector real va en
+  A+W-QA-10; ver «Lectura real» abajo.
+- Las tablas puente `aw_otr_envio`, `aw_otr_envio_linea` y `erp_otr_estado` **no existen en
+  `MILLET_INTEGRACION`**. Los scripts 12 y 13 y el usuario `aw_otr` se retiraron.
+- El ERP **no escribe nada hacia A+W**. Booking, BL, embarque real, estado aduanal, entrega y
+  cierre se quedan en el expediente de exportación.
+
+## Lectura real: tablas del módulo OTR
+
+La base **`OTR`** está en la misma instancia que `MILMAIN` (SER-DATA\AWBUSINESS). TI confirmó (correo 5-nov)
+`SELECT` para `millet_erp_lector_aw` sobre tres tablas de esquema `SYSADM`; las tablas por pedido siguen
+saliendo de `MILMAIN.SYSADM.BW_AUFTR_KOPF`. Verificado con `SELECT` real el 5-nov:
+
+| Tabla | Qué trae | Uso en el ERP |
+|---|---|---|
+| `OTR.SYSADM.OTR_ROUTES` (5,079 rutas) | `ROUTE_ID`, `ROUTE_NAME`, `ROUTE_STATUS`, `DELIVERY_DATE`, `DATETIME_UPDATE` | Ruta, fecha prevista, estatus y versión |
+| `OTR.SYSADM.OTR_CONTAINERS_ACTIONS` | Una fila por pirámide de carga (`CONTAINER_ID`, tipo «PIRAMIDE A.2»; **no** es contenedor marítimo), destino (`LOCATION_NAME1`, `LOCATION_ADDRESS_TEXT`), `DATETIME_UPDATE` | Dirección de entrega, versión. `CUSTOMER_CODE`, `DOCUMENT_NUMBER` e `INVOICE_NUMBER` vienen vacíos en las 48,326 filas |
+| `OTR.SYSADM.OTR_CONTAINER_POSITIONS` (430,253 posiciones) | `ROUTE_ID`, `CONTAINER_ID`, `DOCUMENT_ID` (texto = `BW_AUFTR_KOPF.ID`), `POS_NR`, `POS_QTY`, `POS_TOTAL_WEIGHT`, `DATETIME_UPDATE` | Líneas (pedido, posición, cantidad), piezas y peso |
+| `MILMAIN.SYSADM.BW_AUFTR_KOPF` | `ID`, `AH_IDENT` (cliente A+W), `OR_AVBEREICH` (clave de sucursal), `STATUS` | Cliente y sucursal del envío; pedido existente |
+
+Booking y BL **no existen en OTR**: los captura Comercio Exterior en el ERP y no se mandan a OTR.
+Los renglones de `ROWSTATUS` valen siempre 0 y `REJECTED` siempre 0: no distinguen nada.
+
+### Lector real (A+W-QA-10)
+
+`OtrTablasAdapter` (origen Real) hace sólo `SELECT`, con nombres de tres partes (`OTR.SYSADM.*`, `MILMAIN.SYSADM.*`) porque
+las dos bases viven en la misma instancia: **no usa `OPENQUERY`** (sí lo usa producto terminado, que va a otra instancia por
+`AWPROD_ERP`). Usa la conexión de sólo lectura `ConnectionStrings:AwClientesDb` (`millet_erp_lector_aw`, TLS verificado); ya no usa
+`AwIntegracionDb`. No escribe nada en A+W: `MarcarResultadoAsync` no hace nada en Real.
+
+**Un envío = una pirámide** (`ROUTE_ID` + `CONTAINER_ID`); `IdOrigen = "<ROUTE_ID>-<CONTAINER_ID>"`.
+
+| Campo del contrato | Origen en OTR |
+|---|---|
+| `cliente_numero_aw` | `BW_AUFTR_KOPF.AH_IDENT` de los pedidos de la pirámide |
+| `sucursal_clave_aw` | `BW_AUFTR_KOPF.OR_AVBEREICH` |
+| `cliente` / `direccion_entrega` | `LOCATION_NAME1` / `LOCATION_ADDRESS_TEXT` (informativos) |
+| `numero_contenedor` / `ruta` | `CONTAINER_ID` / `ROUTE_NAME` |
+| `bultos` | `SUM(POS_QTY)` (piezas de la pirámide) — supuesto, por confirmar con Comercio Exterior |
+| `peso_kg` | `SUM(POS_TOTAL_WEIGHT)` (no incluye la tara de la pirámide) |
+| `fecha_carga_prevista` | `OTR_ROUTES.DELIVERY_DATE` |
+| líneas | por `(DOCUMENT_ID → numero_pedido, POS_NR → posicion)` con `SUM(POS_QTY)`; unidad `UnidadLinea` |
+| `version` | máx. `DATETIME_UPDATE` de la ruta, la pirámide y sus posiciones, en milisegundos Unix |
+
+`DOCUMENT_ID` se convierte con `TRY_CONVERT(int, …)` (TI usa `CONVERT(INT, …)` en `CONSULTA_PEDIDOS_ESCAN_OTR_ALCIM`). Cuentan sólo las
+posiciones cuyo pedido existe y tiene `STATUS` menor a `EstatusPedidoMenorA` (900, la condición de la consulta de TI).
+Con datos del 5-nov: 27,934 envíos con ruta distinta de 50; la consulta tarda unos 3 s.
+
+**Qué ya leyó el ERP.** Como no se puede marcar nada en A+W, el ERP decide con su control propio: un envío con versión menor o igual a la
+aplicada (`otr_envios.VersionAplicada`) o con esa versión rechazada (`otr_entrada_control`) no se vuelve a procesar; los errores técnicos
+se reintentan hasta `MaxIntentos`. Un cambio llega como una versión mayor (`DATETIME_UPDATE` más reciente). **Límites:** (1) una posición
+que se *borra* en OTR no cambia ningún `DATETIME_UPDATE` y no se detecta; (2) si se vuelve a guardar la ruta, todas sus pirámides suben de
+versión aunque su contenido sea el mismo; (3) 45 pirámides mezclan clientes y 523 mezclan sucursales: se rechazan con
+`CE_OTR_VARIOS_CLIENTES` / `CE_OTR_VARIAS_SUCURSALES` (no se escoge una al azar); decisión pendiente con Comercio Exterior.
+
+**Estatus y cancelación: configurables, sin inventar.** TI explicó sólo 50 = edición, 150 = organizado y 200 = liberado. **Sin explicar:**
+100, 900, 950 y 1000, y cómo se marca una ruta cancelada (TI lo pasó a Comercio Exterior). Por eso `EstatusRutaExcluidos` (por omisión `50`)
+y `EstatusRutaCancelada` (por omisión vacío: nada se cancela) son opciones. Una ruta que sale del conjunto leído (por ejemplo, vuelve a 50) no
+se interpreta como cancelación.
+
+## Contrato de entrada (origen Demo)
+
+Las tablas siguientes son el **origen Demo de ejemplo** (`tools/aw-origen-demo`) y el formato interno que
+el lector Real arma a partir de las tablas de OTR (ver arriba). En real no se escribe `erp_resultado` en A+W.
 
 A+W inserta cabecera y todas sus líneas **en una sola transacción**, de modo que el lector
 nunca encuentre un envío publicado a medias. Cada versión es inmutable; los cambios se
@@ -93,44 +157,16 @@ El índice de barrido selecciona `erp_resultado IS NULL` o `Error`, orden por id
 - Cancelación de origen: vínculo Cancelado, partidas en revisión; pedidos y facturas se
   conservan. Un id cancelado no se reactiva (`CE_OTR_CANCELADO`); se requiere un nuevo id.
 - Cierre financiero sigue bloqueado por CE-03 (`CE_CIERRE_FINANCIERO_PENDIENTE`). El
-  contrato de salida de cierre está preparado, sin habilitar el cierre en CE-04.
+  cierre no se informa a A+W (ver «Regreso a A+W: no aplica»).
 
-## Salida, transacción y acuse
+## Regreso a A+W: no aplica
 
-CE genera `comercio_exterior.otr_salidas` dentro del mismo `SaveChangesAsync` que el hito,
-booking o embarque. No se usa Service Bus para consumir eventos del propio módulo. Llave
-única `(envío, tipo, versión ERP, intento)`; versión ERP = máximo + 1 por envío y tipo, considerando filas persistidas y las nuevas del mismo guardado. Es independiente de la versión del expediente.
-Tipos: `hito`, `booking`, `booking-cancelado`, `embarque`, `contenedor-cancelado`,
-`despacho-aduanal`, `liberado`, `entregado`, `cerrado`, `estado-expediente`.
+Hasta el 4-nov el ERP generaba salidas (`otr_salidas`) y las entregaba a `erp_otr_estado` para que
+A+W las acusara. Se retiró: A+W no lee esa tabla. La tabla `comercio_exterior.otr_salidas` se
+conserva sólo como historial y ya no crece. Si Millet necesita ver el booking en OTR, iría como un
+tipo nuevo en `aw_retorno`, que aplica el servicio de Windows de TI (fuera de alcance hoy).
 
-`dbo.erp_otr_estado`:
-
-| Columna | Tipo SQL Server | Quién escribe |
-|---|---|---|
-| `salida_id` | uniqueidentifier PK | ERP, nuevo id por reintento manual; estable durante reintentos automáticos de entrega |
-| `otr_envio_id` | nvarchar(100) | ERP |
-| `tipo` | nvarchar(50) | ERP |
-| `version_erp` | int > 0 | ERP; contador por envío y tipo |
-| `intento` | int > 0, DEFAULT 1 | ERP; UNIQUE con envío, tipo y versión ERP |
-| `valor_json` | nvarchar(max), ISJSON | ERP; estado e hitos con fechas, booking, embarque y cancelación del contenedor |
-| `creada_at` | datetimeoffset(3) | Default al insertar ERP |
-| `aw_acuse_at` | datetimeoffset(3), opcional | **Sólo A+W** |
-| `aw_resultado` | nvarchar(30), opcional | **Sólo A+W**: `Aplicada` o `Rechazada` |
-| `aw_motivo` | nvarchar(500), opcional | **Sólo A+W** |
-
-Ejemplo de `valor_json`:
-
-```json
-{"expedienteId":"00000000-0000-0000-0000-000000000001","estado":"Abierto","hito":"entregado","hitos":[{"Clave":"entregado","FechaReal":"2026-10-16"}],"contenedor":[{"Booking":"DEMO-BOOK","FechaEmbarqueReal":"2026-10-15","estado":"Activo"}]}
-```
-
-A+W debe ignorar duplicados por `(envío,tipo,versión ERP,intento)`, aplicar versiones ERP superiores y permitir un intento nuevo de una versión antes rechazada. Una versión ya aplicada se confirma también como Aplicada. A+W escribe fecha, resultado y motivo juntos tras aplicar. ERP sólo inserta y lee: nunca modifica columnas `aw_*` ni borra filas puente.
-
-Estados locales: Pendiente → Entregada → Acusada. `MaxIntentos` limita exclusivamente errores al insertar. Una salida Entregada conserva su estado mientras no llegue el acuse y se consulta en cada ciclo, sin reentregarla. Al superar `AcuseVencidoMinutos` aparece marcada «Sin acuse» en la bandeja, sin cambiar su estado. Un acuse tardío Aplicada pasa a Acusada.
-
-Acuse Rechazada → Fallida. El reintento manual crea otra salida Pendiente con nuevo `salida_id`, misma versión ERP e `intento + 1`; la fallida queda Reemplazada con `ReemplazadaPorId`. La fila y el rechazo originales permanecen en el puente. Está disponible con permiso OTR y alcance de sucursal, incluso tras cierre o cancelación.
-
-La bandeja del lanzador contiene dos listas: envíos por vincular, y salidas Fallidas o Sin acuse de todos los expedientes dentro del alcance de sucursal.
+La bandeja del lanzador contiene sólo los envíos por vincular.
 
 ## Encendido, Demo y operación
 
@@ -138,25 +174,26 @@ La bandeja del lanzador contiene dos listas: envíos por vincular, y salidas Fal
 
 | Clave | Omisión | Regla |
 |---|---|---|
-| `EntradaHabilitada` | false | Independiente de salida y de flujos 1/2 |
-| `SalidaHabilitada` | false | Independiente de entrada y de flujos 1/2 |
+| `EntradaHabilitada` | false | Independiente de flujos 1/2 |
 | `EmpresaId` | null | Vacío o Guid.Empty: no procesa ni abre conexiones |
 | `IntervalSeconds` | 120 | > 0; espera inicial antes del primer barrido |
 | `BatchSize` | 50 | 1–1000 |
-| `MaxIntentos` | 5 | > 0, errores técnicos de entrada y errores de entrega de salida |
-| `AcuseVencidoMinutos` | 1440 | > 0; marca visual Sin acuse sin cambiar el estado Entregada |
+| `MaxIntentos` | 5 | > 0, errores técnicos de entrada |
 | `ContratoI134Firmado` | false | Candado real adicional; activar sólo con evidencia de I13.4 firmado |
+| `EstatusRutaExcluidos` | `50` | Real: estatus de ruta que no se leen (coma). 50 = edición (TI) |
+| `EstatusRutaCancelada` | vacío | Real: estatus que cancelan el envío. Vacío hasta que Comercio Exterior defina la regla |
+| `EstatusPedidoMenorA` | 900 | Real: sólo posiciones cuyo pedido A+W tenga `STATUS` menor |
+| `UnidadLinea` | `H87` | Real: unidad de las líneas; debe coincidir con la del pedido en el ERP |
+| `EntregaDesde` | vacío | Real: sólo rutas con `DELIVERY_DATE` igual o posterior (`yyyy-MM-dd`) |
 
-Real se registra únicamente con contrato firmado, conexión `AwIntegracionDb` y bandera de
-la dirección activa. `Demo` usa la misma selección `AwOrigenSesion`, registro keyed `Demo`
+Real se registra únicamente con contrato firmado, conexión `AwClientesDb` y
+`EntradaHabilitada`; lee en sólo lectura (ver «Lector real») y se enciende en pruebas con las opciones `IntegracionesAw__Exportacion__*`. `Demo` usa la misma selección `AwOrigenSesion`, registro keyed `Demo`
 y `AwOrigenPgDb`; requiere `IntegracionesAw:OrigenDemo:Permitido`, y nunca en Production.
 No hay autenticación simulada: HTTP conserva EntraId + JWT del API y filtro territorial CE.
 Ver requiere `expedientes.leer`; gestionar usa `otr.gestionar` y alcance CE por sucursal.
 
-Scripts para Jorge: [12](../operacion/aw-integracion-scripts/12_create_otr_tables.sql) y
-[13](../operacion/aw-integracion-scripts/13_grant_otr.sql). Login ERP existente
-`millet_erp_integracion`; login propuesto A+W `aw_otr`, por confirmar. No ejecutar scripts
-sin acuerdo; no conceden permisos sobre tablas internas del proveedor.
+Los scripts 12 (tablas puente) y 13 (permisos y usuario `aw_otr`) se retiraron el 4-nov: Jorge no
+los corrió y el modelo no aplica. Para OTR no se crea nada en `MILLET_INTEGRACION`.
 
 Demo sintética: `tools/aw-origen-demo/schema.sql` y `otr.sql`. Después de preparar el origen,
 `aw-origen-demo.sh otr` carga dos envíos y la versión 2 del primero (peso 100 → 125).
@@ -167,3 +204,9 @@ inexistente a propósito. No se eliminan resultados ni controles ERP al resembra
 
 Frecuencia real A+W, equivalencias cliente/sucursal, tolerancias de volumen, retención,
 responsables de recuperación y firma I13.4: **Por confirmar con Millet y Jorge**.
+
+## Sucursal por clave A+W (alias) y dirección de entrega
+
+- `compartido.sucursales.clave_aw` admite varias claves separadas por coma (la primera es la principal, el resto alias, máx. 40 caracteres en total). Se edita donde ya se edita `ClaveAw` (crear/actualizar sucursal). Una clave no puede repetirse entre sucursales. Respuesta de TI (30-oct): Conkal = `CONKAL,PERIFERICO,OBRAS`; Circuito = `CIRCUITO`; Chichí Suárez = `COTTOLENGO`; Cancún = `CANCUN`.
+- `REPOSICIONES`, `REEMPLAZOS`, `REPOSICIÓN CON COSTO`, `RETRABAJO`, `MUESTRAS` **no son sucursales**: no se configuran como alias y el envío queda `PorVincular` con `CE_OTR_SUCURSAL_DESCONOCIDA`. Pendiente de decisión de administración: heredar la sucursal del pedido original.
+- La dirección de entrega sale de `LOCATION_ADDRESS_TEXT` y, si viene vacía, de `LOCATION_ADDRESS`. Antes solo se usaba la primera y, al venir vacía, el envío se rechazaba con `CE_OTR_DATOS_INVALIDOS`.

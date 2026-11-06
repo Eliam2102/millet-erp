@@ -90,6 +90,26 @@ export function useRechazarRequisicion() {
   });
 }
 
+// ─── Devolver a corregir (EnAutorizacion → Borrador, no terminal) ───
+
+export interface DevolverArgs {
+  requisicionId: string;
+  comentario: string;
+}
+
+export function useDevolverRequisicion() {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, DevolverArgs>({
+    mutationFn: async ({ requisicionId, comentario }) => {
+      await apiRequest<void>(
+        `/api/v1/compras/requisiciones/${requisicionId}/devolver`,
+        { method: 'POST', body: { comentario } },
+      );
+    },
+    onSuccess: () => invalidarFamiliaCompras(queryClient),
+  });
+}
+
 // ─── Eliminar (Borrador / EnAutorizacion → Eliminada) ───────────────
 
 export interface EliminarArgs {

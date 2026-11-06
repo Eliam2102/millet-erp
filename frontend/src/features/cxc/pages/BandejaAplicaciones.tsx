@@ -1,3 +1,4 @@
+import { problemaConsulta } from '@/components/erp/feedback/problema-consulta';
 import {
   ListadoModulo,
   TabsEstado,
@@ -38,7 +39,6 @@ import { ETIQUETA_ESTADO_PROPUESTA, formatoMonto } from '@/features/cxc/lib/glos
 import type { AplicacionesSearch } from '@/features/cxc/lib/aplicaciones-search-schema';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError } from '@/lib/api';
 
 const FROM = '/_app/cxc/aplicaciones/' as const;
 
@@ -106,7 +106,7 @@ export function BandejaAplicaciones() {
     <div className="flex min-h-0 flex-col gap-5">
       <PageHeader
         titulo={<>Aplicación de pagos</>}
-        descripcion={<>Propuestas de matching depósito ↔ facturas; Ingresos confirma o rechaza.</>}
+        descripcion={<>Propón cómo aplicar depósitos a facturas para que Ingresos confirme o rechace la aplicación.</>}
         acciones={
           <>
             {puedeProponer && (
@@ -174,7 +174,7 @@ export function BandejaAplicaciones() {
         ) : query.isError ? (
           <ErrorState
             title="No se pudieron cargar las propuestas"
-            problem={esApiError(query.error) ? query.error.problem : undefined}
+            problem={problemaConsulta(query.error)}
             onRetry={() => query.refetch()}
           />
         ) : query.isLoading ? (
@@ -212,7 +212,7 @@ export function BandejaAplicaciones() {
                   <TableHead className="px-3 py-2 font-medium">Cliente</TableHead>
                   <TableHead className="px-3 py-2 text-right font-medium">Monto</TableHead>
                   <TableHead className="px-3 py-2 text-right font-medium">Ajuste</TableHead>
-                  <TableHead className="px-3 py-2 font-medium">Facturas</TableHead>
+                  <TableHead className="px-3 py-2 text-right font-medium">Facturas</TableHead>
                   <TableHead className="px-3 py-2 font-medium">Estado</TableHead>
                   <TableHead className="px-3 py-2" />
                 </TableRow>
@@ -225,17 +225,17 @@ export function BandejaAplicaciones() {
                       <p className="max-w-48 truncate text-2xs text-ink-muted">{p.remittanceRef}</p>
                     </TableCell>
                     <TableCell className="max-w-56 truncate px-3 py-2">
-                      {nombres.get(p.clienteId) ?? '—'}
+                      {nombres.get(p.clienteId) || <span className="text-ink-muted">—</span>}
                     </TableCell>
                     <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
                       {formatoMonto(p.montoDeposito, p.moneda)}
                     </TableCell>
                     <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
-                      {p.ajusteNoFiscal !== 0 ? formatoMonto(p.ajusteNoFiscal, p.moneda) : '—'}
+                      {p.ajusteNoFiscal !== 0 ? formatoMonto(p.ajusteNoFiscal, p.moneda) : <span className="text-ink-muted">—</span>}
                     </TableCell>
-                    <TableCell className="px-3 py-2 tabular-nums">{p.facturas.length}</TableCell>
+                    <TableCell className="px-3 py-2 text-right tabular-nums">{p.facturas.length}</TableCell>
                     <TableCell className="px-3 py-2">
-                      <ChipEstadoPropuesta estado={p.estado} />
+                      <ChipEstadoPropuesta estado={p.estado} ajustePorAutorizar={p.ajustePorAutorizar} />
                     </TableCell>
                     <TableCell className="px-3 py-2 text-right">
                       <Button variant="outline" size="sm" asChild>

@@ -112,6 +112,43 @@ function pedido(estado: string) {
   };
 }
 
+/** FAC-08: respuesta de GET /salidas sobre la partida 1 del pedido (2 piezas). */
+function salidasDe(
+  salidas: Array<{
+    id: string;
+    numeroParcialidad: number;
+    cantidad: number;
+    importe: number;
+    facturaId?: string | null;
+    folio?: string | null;
+    estadoFactura?: string | null;
+  }>,
+  enSalidas: number,
+  facturada: number,
+) {
+  return {
+    pedidoFacturableId: 'p-1',
+    totalPedido: 200,
+    totalFacturado: salidas.filter((s) => s.facturaId).reduce((a, s) => a + s.importe, 0),
+    avance: [
+      { posicion: 1, descripcion: 'Vidrio templado 6mm', pedida: 2, enSalidas, facturada },
+    ],
+    salidas: salidas.map((s) => ({
+      id: s.id,
+      numeroParcialidad: s.numeroParcialidad,
+      origen: 3,
+      referencia: `SAL-${s.numeroParcialidad}`,
+      registradaEn: '2026-11-02T16:00:00Z',
+      total: s.importe,
+      facturaId: s.facturaId ?? null,
+      folio: s.folio ?? null,
+      uuid: null,
+      estadoFactura: s.estadoFactura ?? null,
+      lineas: [{ posicion: 1, cantidad: s.cantidad, importe: s.importe }],
+    })),
+  };
+}
+
 function setPermisos(permisos: string[]) {
   useAuthStore.setState({
     status: 'authenticated',
@@ -138,6 +175,10 @@ beforeEach(() => {
     http.get(
       '*/api/v1/facturacion/pedidos-facturables/p-1/proformas/ultima',
       () => new HttpResponse(null, { status: 204 }),
+    ),
+    // FAC-08: por omisión el pedido no tiene salidas parciales.
+    http.get('*/api/v1/facturacion/pedidos-facturables/p-1/salidas', () =>
+      HttpResponse.json(salidasDe([], 1, 0)),
     ),
   );
 });
@@ -216,7 +257,7 @@ describe('<DetallePedido> — smoke', () => {
     render(<DetallePedido />, { wrapper: createQueryWrapper() });
     expect(await screen.findByText(/Anticipos del pedido \(1\)/)).toBeInTheDocument();
     expect(screen.getByText('FANT-7')).toBeInTheDocument();
-    expect(screen.getAllByText('1160.00')).toHaveLength(2); // cobrado y saldo
+    expect(screen.getAllByText('$1,160.00')).toHaveLength(2); // cobrado y saldo
   });
 
   it('86e3tfdw2: pedido a crédito muestra badge «Crédito» y la condición de pago', async () => {
@@ -277,7 +318,7 @@ describe('<DetallePedido> — smoke', () => {
     render(<DetallePedido />, { wrapper: createQueryWrapper() });
     await waitFor(() => expect(screen.getByText('Cliente Demo SA')).toBeInTheDocument());
     expect(screen.getByText(/Ranura \(descuento del pedido/i)).toBeInTheDocument();
-    expect(screen.getByText(/−250\.50 MXN/)).toBeInTheDocument();
+    expect(screen.getByText(/−\$250\.50/)).toBeInTheDocument();
   });
 
   it('"Facturar" visible en Importado + permiso emitir; monta la emisión in-place con prefill', async () => {
@@ -633,6 +674,147 @@ describe('<DetallePedido> — proforma (U1.8a)', () => {
       await waitFor(() =>
         expect(screen.queryByRole('button', { name: 'Cobrar en caja' })).not.toBeInTheDocument(),
       );
+    });
+  });
+
+  describe('FAC-08: salidas parciales', () => {
+    const permisosCompletos = [
+      'facturacion.facturas.leer',
+      'facturacion.facturas.emitir',
+      'facturacion.pedidos.capturar',
+    ];
+
+    function prepararPedido(salidas: Parameters<typeof salidasDe>[0], enSalidas: number, facturada: number) {
+      mswServer.use(
+        http.get('*/api/v1/facturacion/pedidos-facturables/p-1', () =>
+          HttpResponse.json(pedido('Importado')),
+        ),
+        http.get('*/api/v1/facturacion/pedidos-facturables/p-1/comprobantes', () =>
+          HttpResponse.json([]),
+        ),
+        http.get('*/api/v1/facturacion/pedidos-facturables/p-1/salidas', () =>
+          HttpResponse.json(salidasDe(salidas, enSalidas, facturada)),
+        ),
+      );
+    }
+
+    it('sin salidas ofrece registrar una y deja facturar el pedido completo', async () => {
+      setPermisos(permisosCompletos);
+      prepararPedido([], 0, 0);
+      render(<DetallePedido />, { wrapper: createQueryWrapper() });
+      expect(await screen.findByText(/Salidas parciales \(0\)/)).toBeInTheDocument();
+      expect(screen.getByText(/El pedido no tiene salidas parciales/)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Registrar salida/ })).toBeEnabled();
+      expect(screen.getByRole('button', { name: /^Facturar$/ })).toBeEnabled();
+    });
+
+    it('con salidas muestra avance y parcialidades, y el pedido ya no se factura completo', async () => {
+      setPermisos(permisosCompletos);
+      prepararPedido(
+        [
+          { id: 's-1', numeroParcialidad: 1, cantidad: 1, importe: 100, facturaId: 'f-1', folio: 'FV 10', estadoFactura: 'Timbrado' },
+          { id: 's-2', numeroParcialidad: 2, cantidad: 1, importe: 100 },
+        ],
+        2,
+        1,
+      );
+      render(<DetallePedido />, { wrapper: createQueryWrapper() });
+      expect(await screen.findByText(/Salidas parciales \(2\)/)).toBeInTheDocument();
+      const parcialidad1 = screen.getByTestId('salida-1');
+      expect(within(parcialidad1).getByText('FV 10')).toBeInTheDocument();
+      expect(within(parcialidad1).getByText('Timbrada')).toBeInTheDocument();
+      const parcialidad2 = screen.getByTestId('salida-2');
+      expect(within(parcialidad2).getByText('Por facturar')).toBeInTheDocument();
+      expect(within(parcialidad2).getByText('Sin factura')).toBeInTheDocument();
+      // La parcialidad facturada no ofrece volver a facturarse.
+      expect(
+        screen.queryByRole('button', { name: 'Facturar la parcialidad 1' }),
+      ).not.toBeInTheDocument();
+      const completo = screen.getByRole('button', { name: /^Facturar$/ });
+      expect(completo).toBeDisabled();
+      expect(completo).toHaveAttribute('title', expect.stringMatching(/salidas parciales/));
+      // Todas las piezas ya salieron: no hay más que registrar.
+      expect(screen.getByRole('button', { name: /Registrar salida/ })).toBeDisabled();
+    });
+
+    it('facturar una parcialidad precarga solo sus cantidades y la liga a la salida', async () => {
+      setPermisos(permisosCompletos);
+      prepararPedido([{ id: 's-2', numeroParcialidad: 2, cantidad: 1, importe: 95 }], 1, 0);
+      render(<DetallePedido />, { wrapper: createQueryWrapper() });
+      fireEvent.click(await screen.findByRole('button', { name: 'Facturar la parcialidad 2' }));
+      expect(await screen.findByTestId('emitir-factura-form')).toBeInTheDocument();
+      expect(screen.getByText(/parcialidad 2/)).toBeInTheDocument();
+      const prefill = prefillSpy.mock.calls.at(-1)?.[0] as {
+        salidaFacturableId: string;
+        numeroParcialidad: number;
+        lineas: Array<{ cantidad: number; valorUnitario: number; descuento: number }>;
+      };
+      expect(prefill.salidaFacturableId).toBe('s-2');
+      expect(prefill.numeroParcialidad).toBe(2);
+      // 1 pieza × $100 con importe de la salida $95 → descuento $5.
+      expect(prefill.lineas).toEqual([
+        expect.objectContaining({ cantidad: 1, valorUnitario: 100, descuento: 5 }),
+      ]);
+    });
+
+    it('registra una salida con la cantidad capturada y llave de idempotencia', async () => {
+      setPermisos(permisosCompletos);
+      prepararPedido([], 0, 0);
+      let body: unknown = null;
+      let llave: string | null = null;
+      mswServer.use(
+        http.post('*/api/v1/facturacion/pedidos-facturables/p-1/salidas', async ({ request }) => {
+          body = await request.json();
+          llave = request.headers.get('Idempotency-Key');
+          return HttpResponse.json(
+            { id: 's-1', pedidoFacturableId: 'p-1', numeroParcialidad: 1, origen: 3, referencia: 'SAL-A', total: 100, yaRegistrada: false, lineas: [] },
+            { status: 201 },
+          );
+        }),
+      );
+      render(<DetallePedido />, { wrapper: createQueryWrapper() });
+      fireEvent.click(await screen.findByRole('button', { name: /Registrar salida/ }));
+      const dialogo = await screen.findByRole('dialog');
+      const registrar = within(dialogo).getByRole('button', { name: 'Registrar salida' });
+      expect(registrar).toBeDisabled();
+      fireEvent.change(within(dialogo).getByLabelText(/Folio de salida o contenedor/), {
+        target: { value: ' SAL-A ' },
+      });
+      fireEvent.change(
+        within(dialogo).getByLabelText('Cantidad de la partida 1 en esta salida'),
+        { target: { value: '1' } },
+      );
+      expect(registrar).toBeEnabled();
+      fireEvent.click(registrar);
+      await waitFor(() => expect(body).not.toBeNull());
+      expect(body).toEqual({ referencia: 'SAL-A', lineas: [{ posicion: 1, cantidad: 1 }] });
+      expect(llave).toBeTruthy();
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    });
+
+    it('no deja registrar más de lo pendiente de salir', async () => {
+      setPermisos(permisosCompletos);
+      prepararPedido([{ id: 's-1', numeroParcialidad: 1, cantidad: 1, importe: 100 }], 1, 0);
+      render(<DetallePedido />, { wrapper: createQueryWrapper() });
+      fireEvent.click(await screen.findByRole('button', { name: /Registrar salida/ }));
+      const dialogo = await screen.findByRole('dialog');
+      fireEvent.change(within(dialogo).getByLabelText(/Folio de salida o contenedor/), {
+        target: { value: 'SAL-B' },
+      });
+      fireEvent.change(
+        within(dialogo).getByLabelText('Cantidad de la partida 1 en esta salida'),
+        { target: { value: '2' } },
+      );
+      expect(within(dialogo).getByText('Máximo 1.')).toBeInTheDocument();
+      expect(within(dialogo).getByRole('button', { name: 'Registrar salida' })).toBeDisabled();
+    });
+
+    it('sin permiso de captura no ofrece registrar salidas', async () => {
+      setPermisos(['facturacion.facturas.leer', 'facturacion.facturas.emitir']);
+      prepararPedido([], 0, 0);
+      render(<DetallePedido />, { wrapper: createQueryWrapper() });
+      expect(await screen.findByText(/Salidas parciales \(0\)/)).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Registrar salida/ })).not.toBeInTheDocument();
     });
   });
 });

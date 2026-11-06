@@ -21,6 +21,18 @@ public sealed partial class ActivosFijosDbContext(DbContextOptions<ActivosFijosD
         var c = modelBuilder.Entity<ClaseActivo>();
         c.ToTable("clases"); c.HasKey(x => x.Id); c.Property(x => x.Id).ValueGeneratedNever();
         c.HasIndex(x => new { x.EmpresaId, x.Clave }).IsUnique();
+        c.HasMany(x => x.Versiones).WithOne().HasForeignKey(x => x.ClaseId).OnDelete(DeleteBehavior.Restrict);
+        var v = modelBuilder.Entity<VersionClaseActivo>();
+        v.ToTable("versiones_clase"); v.HasKey(x => x.Id); v.Property(x => x.Id).ValueGeneratedNever();
+        v.HasIndex(x => new { x.EmpresaId, x.ClaseId, x.Numero }).IsUnique();
+        v.HasIndex(x => new { x.EmpresaId, x.ClaseId }).IsUnique().HasFilter("estado = 0");
+        var eq = modelBuilder.Entity<EquivalenciaClaseSap>();
+        eq.ToTable("equivalencias_sap"); eq.HasKey(x => x.Id); eq.Property(x => x.Id).ValueGeneratedNever();
+        eq.Property(x => x.ClaseSap).HasMaxLength(100); eq.Property(x => x.ClaveErp).HasMaxLength(20);
+        eq.HasIndex(x => new { x.EmpresaId, x.ClaseSap }).IsUnique();
+        var conciliacion = modelBuilder.Entity<ConciliacionLibro>();
+        conciliacion.ToTable("conciliaciones"); conciliacion.HasKey(x => x.Id); conciliacion.Property(x => x.Id).ValueGeneratedNever();
+        conciliacion.HasIndex(x => new { x.EmpresaId,x.Periodo,x.SucursalId,x.Huella });
         c.Property(x => x.Clave).HasMaxLength(20); c.Property(x => x.Nombre).HasMaxLength(200);
         c.Property(x => x.TasaFiscalAnual).HasPrecision(5, 2);
         var fechaSemilla = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
@@ -34,7 +46,7 @@ public sealed partial class ActivosFijosDbContext(DbContextOptions<ActivosFijosD
         inpc.HasIndex(x => new { x.EmpresaId, x.Anio, x.Mes }).IsUnique();
         var a = modelBuilder.Entity<Activo>();
         a.ToTable("activos"); a.HasKey(x => x.Id); a.Property(x => x.Id).ValueGeneratedNever();
-        a.HasIndex(x => new { x.EmpresaId, x.Numero }).IsUnique();
+        a.HasIndex(x => new { x.EmpresaId, x.Numero }).IsUnique().HasFilter("NOT carga_anulada");
         a.HasIndex(x => new { x.EmpresaId, x.RecepcionId, x.LineaOcId, x.UnidadRecepcion }).IsUnique();
         a.HasIndex(x => new { x.EmpresaId, x.SucursalId, x.Estado });
         a.HasOne<Activo>().WithMany().HasForeignKey(x => x.ActivoMejoradoId).OnDelete(DeleteBehavior.Restrict);
@@ -43,6 +55,9 @@ public sealed partial class ActivosFijosDbContext(DbContextOptions<ActivosFijosD
         a.Ignore(x => x.ValorEnLibros); a.Ignore(x => x.EnTraslado);
         a.Property(x => x.Estado).HasConversion<string>(); a.Property(x => x.Importacion).HasConversion<string>();
         a.HasMany(x => x.Historial).WithOne().HasForeignKey(x => x.ActivoId).OnDelete(DeleteBehavior.Restrict);
+        a.HasMany(x => x.Impresiones).WithOne().HasForeignKey(x => x.ActivoId).OnDelete(DeleteBehavior.Restrict);
+        var impresion = modelBuilder.Entity<ImpresionEtiquetaActivo>();
+        impresion.ToTable("impresiones_etiqueta"); impresion.HasKey(x => x.Id); impresion.Property(x => x.Id).ValueGeneratedNever();
         a.HasMany(x => x.Traslados).WithOne().HasForeignKey(x => x.ActivoId).OnDelete(DeleteBehavior.Restrict);
         var h = modelBuilder.Entity<MovimientoValorActivo>();
         h.ToTable("movimientos_valor"); h.HasKey(x => x.Id); h.Property(x => x.Id).ValueGeneratedNever();
@@ -64,19 +79,28 @@ public sealed partial class ActivosFijosDbContext(DbContextOptions<ActivosFijosD
         operacion.ToTable("operaciones_libro"); operacion.HasKey(x => x.Id); operacion.Property(x => x.Id).ValueGeneratedNever();
         operacion.Property(x => x.SolicitadoPor).HasMaxLength(200).IsRequired();
         operacion.HasIndex(x => new { x.EmpresaId, x.FacturaId }).IsUnique();
+        operacion.HasIndex(x => new { x.EmpresaId, x.ActivoId }).IsUnique().HasDatabaseName("ux_operacion_baja_pendiente")
+            .HasFilter("tipo = 'Baja' AND poliza_id IS NULL AND NOT anulada AND rechazado_en IS NULL");
+        operacion.Property(x => x.MotivoRetiro).HasMaxLength(500);
+        v.Property(x => x.MotivoCambio).HasMaxLength(500);
+        c.Ignore(x => x.PropuestaPendiente); c.Ignore(x => x.ProximaVersionDesde);
         operacion.HasOne<Activo>().WithMany().HasForeignKey(x => x.ActivoId).OnDelete(DeleteBehavior.Restrict);
         var configuracion = modelBuilder.Entity<ConfiguracionLibro>();
         configuracion.ToTable("configuracion_libro"); configuracion.HasKey(x => x.Id); configuracion.Property(x => x.Id).ValueGeneratedNever();
         configuracion.HasIndex(x => x.EmpresaId).IsUnique();
         var carga = modelBuilder.Entity<CargaLibro>();
         carga.ToTable("cargas_libro"); carga.HasKey(x => x.Id); carga.Property(x => x.Id).ValueGeneratedNever();
-        carga.HasIndex(x => new { x.EmpresaId, x.Huella, x.VersionArchivo }).IsUnique();
+        carga.HasIndex(x => new { x.EmpresaId, x.Huella, x.VersionArchivo }).IsUnique().HasFilter("NOT anulada");
         ConfigurarConservacion(modelBuilder);
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
             foreach (var p in entity.GetProperties().Where(x => (Nullable.GetUnderlyingType(x.ClrType) ?? x.ClrType) == typeof(decimal))) { p.SetPrecision(18); p.SetScale(p.Name == "TipoCambio" ? 6 : 2); }
         c.Property(x => x.TasaContableAnual).HasPrecision(18, 4);
         c.Property(x => x.TasaFiscalAnual).HasPrecision(18, 4);
         inpc.Property(x => x.Valor).HasPrecision(18, 6);
+        a.Property(x => x.TasaContableAnual).HasPrecision(9,4); a.Property(x => x.TasaFiscalAnual).HasPrecision(9,4);
+        v.Property(x => x.TasaContableAnual).HasPrecision(18,4); v.Property(x => x.TasaFiscalAnual).HasPrecision(18,4);
+        a.ToTable("activos", t => t.HasCheckConstraint("ck_activo_tasas", "(tasa_contable_anual IS NULL OR tasa_contable_anual BETWEEN 0 AND 100) AND (tasa_fiscal_anual IS NULL OR tasa_fiscal_anual BETWEEN 0 AND 100)"));
         base.OnModelCreating(modelBuilder);
+        a.HasQueryFilter(x => (QueryFilterIsBypassed || x.EmpresaId == QueryFilterCurrentEmpresaId) && !x.CargaAnulada);
     }
 }

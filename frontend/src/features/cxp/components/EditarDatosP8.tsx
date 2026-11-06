@@ -1,3 +1,4 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +15,6 @@ import { useRetenciones } from '@/features/cxp/api/useRetenciones';
 import type { FacturaDetalle } from '@/features/cxp/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError } from '@/lib/api';
 import { CONCEPTO_SIN_RETENCION, etiquetaConcepto } from '@/features/cxp/lib/retenciones-p8';
 
 /** Edición previa a autorización. Conserva el control de versión del pasivo. */
@@ -48,9 +48,7 @@ export function EditarDatosP8({ factura }: { factura: FacturaDetalle }) {
           {
             onError: (e) =>
               setError(
-                esApiError(e)
-                  ? (e.problem.detail ?? e.message)
-                  : 'No se pudieron guardar los datos.',
+                errorUsuario(e, 'No se pudieron guardar los datos.'),
               ),
           },
         );

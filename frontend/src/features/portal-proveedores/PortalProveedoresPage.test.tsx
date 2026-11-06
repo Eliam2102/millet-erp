@@ -26,7 +26,7 @@ it('sin sesión del ERP muestra el acceso por correo y no redirige a /login', ()
 });
 
 it('pide código, entra con el código y muestra la factura detenida por falta de complemento', async () => {
-  const fetchMock = vi.fn(async (url: string) => {
+  const fetchMock = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async (url) => {
     if (url.endsWith('/codigo')) return new Response(null, { status: 202 });
     if (url.endsWith('/sesion')) return json({ token: 'tok', expiraEn: '2026-10-30T20:00:00Z' });
     if (url.endsWith('/facturas')) {
@@ -98,7 +98,7 @@ it('sube el XML y distingue «Recibimos tu documento» de «Ya lo teníamos»; m
     json({ code: 'PORTAL_RFC_NO_COINCIDE', detail: 'El RFC del emisor del CFDI no coincide con el de tu empresa.' }, 422),
   ];
   sessionStorage.setItem('millet.portal-proveedores.token', 'tok');
-  const fetchMock = vi.fn(async (url: string) => (url.endsWith('/facturas') ? json([]) : respuestas.shift()!));
+  const fetchMock = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async (url) => (url.endsWith('/facturas') ? json([]) : respuestas.shift()!));
   vi.stubGlobal('fetch', fetchMock);
   montar();
 
@@ -112,7 +112,7 @@ it('sube el XML y distingue «Recibimos tu documento» de «Ya lo teníamos»; m
   await enviar();
   expect(await screen.findByText('Ya lo teníamos.')).toBeTruthy();
   await enviar();
-  expect(await screen.findByText(/no coincide con el de tu empresa/)).toBeTruthy();
+  expect(await screen.findByText('El RFC del emisor del CFDI no coincide con el de tu empresa. Revisa el RFC del XML y carga un documento de tu empresa.')).toBeTruthy();
   const post = fetchMock.mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === 'POST');
   expect((post?.[1] as RequestInit).headers).toEqual({ Authorization: 'Bearer tok' });
   expect((post?.[1] as RequestInit).body).toBeInstanceOf(FormData);

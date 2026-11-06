@@ -1,3 +1,4 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import { SheetFooter } from '@/components/ui/sheet';
 import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import {
@@ -33,7 +34,7 @@ import { useCuentasProveedorPago, useRegistrarPago } from '@/features/tesoreria/
 import type { CuentaProveedorPago, PasivoPendienteResponse } from '@/features/tesoreria/api/types';
 import { CONCEPTO_PAGO_PROVEEDOR_ID } from '@/features/tesoreria/api/types';
 import { formatoMonto } from '@/features/tesoreria/lib/formato';
-import { esApiError, useBodyScopedIdempotencyKey, codigoSoporte } from '@/lib/api';
+import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
 
 export interface RegistrarPagoSheetProps {
   /** Pasivos seleccionados en la bandeja (mismo proveedor y moneda — validado aquí y en backend). */
@@ -174,12 +175,12 @@ export function RegistrarPagoSheet({
               'PROVEEDOR_CUENTA_OTRA_MONEDA',
             ].includes(error.code ?? '')
           ) {
-            setErrorCuenta(error.problem.detail ?? error.problem.title);
+            setErrorCuenta(errorUsuario(error));
             return;
           }
-          toast.error(esApiError(error) ? error.problem.title : 'No se pudo registrar el pago', {
+          toast.error(errorUsuario(error, 'No se pudo registrar el pago'), {
             description: esApiError(error)
-              ? (error.problem.detail ?? codigoSoporte(error))
+              ? (errorUsuario(error))
               : undefined,
           });
         },

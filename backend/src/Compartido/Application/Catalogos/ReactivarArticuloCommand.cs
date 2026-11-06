@@ -1,23 +1,31 @@
+using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.SharedKernel.Application.Exceptions;
-using Millet.Administracion.Domain;
-using Millet.Almacen.Domain;
 using Millet.Catalogos.Domain;
-using Millet.DatosMaestros.Domain;
-using Millet.SharedKernel.Domain;
+using Millet.Compartido.Application.Catalogos;
 using Millet.Compartido.Infrastructure.Persistence;
 
 namespace Millet.DatosMaestros.Application.Catalogos;
 
-/// <summary>Reactiva el registro. Si ya está activo, no escribe cambios.</summary>
-public sealed record ReactivarArticuloCommand(Guid ArticuloId) : IRequest;
+/// <summary>Reactiva el registro con motivo obligatorio. Si ya está activo, no escribe cambios.</summary>
+public sealed record ReactivarArticuloCommand(Guid ArticuloId, string Motivo) : IRequest;
+
+public sealed class ReactivarArticuloValidator : AbstractValidator<ReactivarArticuloCommand>
+{
+    public ReactivarArticuloValidator() => MaestroEstatusService.ReglaMotivo(RuleFor(x => x.Motivo));
+}
 
 public sealed class ReactivarArticuloHandler : IRequestHandler<ReactivarArticuloCommand>
 {
     private readonly CompartidoDbContext _db;
+    private readonly MaestroEstatusService _estatus;
 
-    public ReactivarArticuloHandler(CompartidoDbContext db) => _db = db;
+    public ReactivarArticuloHandler(CompartidoDbContext db, MaestroEstatusService estatus)
+    {
+        _db = db;
+        _estatus = estatus;
+    }
 
     public async Task Handle(ReactivarArticuloCommand request, CancellationToken cancellationToken)
     {
@@ -31,5 +39,7 @@ public sealed class ReactivarArticuloHandler : IRequestHandler<ReactivarArticulo
 
         articulo.CambiarEstatus(EstatusCatalogo.Activo);
         await _db.SaveChangesAsync(cancellationToken);
+        await _estatus.RegistrarAsync("articulo.reactivar", "Articulo", articulo.Id,
+            $"{articulo.Clave} · {articulo.Nombre}", false, request.Motivo.Trim(), cancellationToken);
     }
 }

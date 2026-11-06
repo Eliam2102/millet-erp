@@ -40,7 +40,10 @@ public static class PasivosPagables
 
     public static IQueryable<PasivoPendientePago> Elegibles(TesoreriaDbContext db, IReadOnlyList<Guid>? documentosPermitidos) =>
         PasivosPendientesLectura.Consultar(db, documentosPermitidos, soloConSaldo: true)
-            .Where(p => p.TipoBeneficiario == PasivoPendientePago.BeneficiarioProveedor);
+            .Where(p => p.TipoBeneficiario == PasivoPendientePago.BeneficiarioProveedor)
+            // I13.3: el pasivo de comercio exterior solo es seleccionable con el nivel 1 y el nivel 2 firmados y sin rechazo.
+            .Where(p => !db.AutorizacionesPagoComercioExterior.Any(a => a.FacturaProveedorId == p.FacturaProveedorId
+                && !(a.Nivel1UsuarioId != null && a.Nivel2UsuarioId != null && a.RechazadoEn == null)));
 
     /// <summary>Elegibles que no están en ninguna corrida viva.</summary>
     public static IQueryable<PasivoPendientePago> Libres(TesoreriaDbContext db, IReadOnlyList<Guid>? documentosPermitidos) =>

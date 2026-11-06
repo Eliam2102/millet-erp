@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Application.AppAlmacenes;
+using Millet.Almacen.Application.Integration;
 using Millet.Almacen.Domain.Catalogo;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Domain.Saldos;
@@ -45,7 +46,7 @@ public class SalidaAppAlmacenesTests
     public async Task Tres_hojas_generan_una_salida_de_3_a_costo_promedio()
     {
         var (db, _, ubiA, _, _) = Db();
-        var (estado, folio, error) = await SalidaAppAlmacenes.RegistrarAsync(db, EmpresaId, Usuario, Salida(3), default);
+        var (estado, folio, error) = await SalidaAppAlmacenes.RegistrarAsync(db, new Eventos(), EmpresaId, Usuario, Salida(3), default);
         await db.SaveChangesAsync();
 
         estado.Should().Be(SalidaAppAlmacenes.Recibido);
@@ -60,7 +61,7 @@ public class SalidaAppAlmacenesTests
     public async Task Usa_el_costo_del_mensaje_cuando_viene()
     {
         var (db, _, _, _, _) = Db();
-        await SalidaAppAlmacenes.RegistrarAsync(db, EmpresaId, Usuario, Salida(2, 85.5m, TipoMovimiento.AjusteNegativo), default);
+        await SalidaAppAlmacenes.RegistrarAsync(db, new Eventos(), EmpresaId, Usuario, Salida(2, 85.5m, TipoMovimiento.AjusteNegativo), default);
         await db.SaveChangesAsync();
 
         var mov = await db.Movimientos.Include(m => m.Lineas).SingleAsync();
@@ -72,7 +73,7 @@ public class SalidaAppAlmacenesTests
     public async Task Sin_existencia_suficiente_queda_en_revision_y_no_mueve_saldo()
     {
         var (db, _, _, _, _) = Db();
-        var (estado, folio, error) = await SalidaAppAlmacenes.RegistrarAsync(db, EmpresaId, Usuario, Salida(11), default);
+        var (estado, folio, error) = await SalidaAppAlmacenes.RegistrarAsync(db, new Eventos(), EmpresaId, Usuario, Salida(11), default);
         await db.SaveChangesAsync();
 
         estado.Should().Be(SalidaAppAlmacenes.EnRevision);
@@ -88,7 +89,7 @@ public class SalidaAppAlmacenesTests
         db.SaldosInventario.Add(new SaldoInventario(ubiB, subB, Articulo, 4, 120m, Variante));
         await db.SaveChangesAsync();
 
-        var (estado, folio, _) = await SalidaAppAlmacenes.RegistrarAsync(db, EmpresaId, Usuario, Salida(12), default);
+        var (estado, folio, _) = await SalidaAppAlmacenes.RegistrarAsync(db, new Eventos(), EmpresaId, Usuario, Salida(12), default);
         await db.SaveChangesAsync();
 
         estado.Should().Be(SalidaAppAlmacenes.Recibido);
@@ -104,7 +105,7 @@ public class SalidaAppAlmacenesTests
     {
         var (db, _, _, _, _) = Db();
         var (estado, folio, error) = await SalidaAppAlmacenes.RegistrarAsync(
-            db, EmpresaId, Usuario, [Salida(6), Salida(6)], default);
+            db, new Eventos(), EmpresaId, Usuario, [Salida(6), Salida(6)], default);
         await db.SaveChangesAsync();
 
         estado.Should().Be(SalidaAppAlmacenes.EnRevision);
@@ -121,7 +122,7 @@ public class SalidaAppAlmacenesTests
         await db.SaveChangesAsync();
 
         var (estado, _, _) = await SalidaAppAlmacenes.RegistrarAsync(
-            db, EmpresaId, Usuario, [Salida(8, 90m), Salida(5, 110m)], default);
+            db, new Eventos(), EmpresaId, Usuario, [Salida(8, 90m), Salida(5, 110m)], default);
         await db.SaveChangesAsync();
 
         estado.Should().Be(SalidaAppAlmacenes.Recibido);
@@ -143,7 +144,7 @@ public class SalidaAppAlmacenesTests
 
         var corto = new SalidaApp(TipoMovimiento.SalidaConsumo, Sucursal, otro, "PZA", null, 3, null, "App Almacenes AJUSTE_SALIDA");
         var (estado, folio, error) = await SalidaAppAlmacenes.RegistrarAsync(
-            db, EmpresaId, Usuario, [Salida(3), corto], default);
+            db, new Eventos(), EmpresaId, Usuario, [Salida(3), corto], default);
         await db.SaveChangesAsync();
 
         estado.Should().Be(SalidaAppAlmacenes.EnRevision);
@@ -152,11 +153,64 @@ public class SalidaAppAlmacenesTests
         (await db.Movimientos.CountAsync()).Should().Be(0);
     }
 
+    [Fact]
+    public async Task Rotura_de_una_hoja_publica_un_evento_a_costo_con_motivo_sucursal_y_almacen()
+    {
+        var (db, _, _, _, _) = Db();
+        var eventos = new Eventos();
+        var rotura = new SalidaApp(TipoMovimiento.BajaPorDano, Sucursal, Articulo, "PZA", Variante, 1, 1200m,
+            "App Almacenes ROTURA: se quebró en el corte", 2440m, 3660m);
+        await SalidaAppAlmacenes.RegistrarAsync(db, eventos, EmpresaId, Usuario, rotura, default);
+        await db.SaveChangesAsync();
+
+        var ev = eventos.Publicados.OfType<SalidaInventarioRegistradaIntegrationEvent>().Should().ContainSingle().Subject;
+        ev.MontoTotalMxn.Should().Be(1200m);
+        ev.Causa.Should().Be("rotura");
+        ev.Motivo.Should().Contain("ROTURA");
+        ev.SucursalId.Should().Be(Sucursal);
+        ev.AlmacenId.Should().NotBeNull();
+        ev.FolioMovimiento.Should().StartWith("M-BAJ");
+        ev.Lineas.Should().ContainSingle(l => l.ArticuloId == Articulo && l.Cantidad == 1 && l.MontoMxn == 1200m);
+    }
+
+    [Fact]
+    public async Task Sin_existencia_no_publica_evento_porque_no_hay_movimiento()
+    {
+        var (db, _, _, _, _) = Db();
+        var eventos = new Eventos();
+        await SalidaAppAlmacenes.RegistrarAsync(db, eventos, EmpresaId, Usuario, Salida(11), default);
+        eventos.Publicados.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Una_salida_con_dos_tipos_publica_un_evento_por_movimiento()
+    {
+        var (db, _, _, _, _) = Db();
+        var eventos = new Eventos();
+        await SalidaAppAlmacenes.RegistrarAsync(db, eventos, EmpresaId, Usuario,
+            [Salida(1, tipo: TipoMovimiento.SalidaConsumo), Salida(2, 85.5m, TipoMovimiento.AjusteNegativo)], default);
+        await db.SaveChangesAsync();
+
+        var causas = eventos.Publicados.OfType<SalidaInventarioRegistradaIntegrationEvent>().Select(e => e.Causa).ToList();
+        causas.Should().BeEquivalentTo("consumo", "salida_manual");
+    }
+
     private sealed class FakeEmpresa(Guid current) : ICurrentEmpresaContext
     {
         public Guid? Current { get; } = current;
         public bool IsBypassed => false;
         public IDisposable Bypass() => new NoOpScope();
         private sealed class NoOpScope : IDisposable { public void Dispose() { } }
+    }
+}
+
+/// <summary>Publicador de prueba: guarda lo que se encoló.</summary>
+public sealed class Eventos : IIntegrationEventPublisher
+{
+    public List<object> Publicados { get; } = [];
+    public Task PublishAsync(object integrationEvent, CancellationToken cancellationToken)
+    {
+        Publicados.Add(integrationEvent);
+        return Task.CompletedTask;
     }
 }

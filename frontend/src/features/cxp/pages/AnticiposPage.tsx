@@ -11,12 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  EmptyState,
-  ErrorState,
-  ProveedorSelector,
-  TableSkeleton,
-} from '@/components/erp';
+import { EmptyState, ErrorState, ProveedorSelector, TableSkeleton } from '@/components/erp';
 import { useAnticipos } from '@/features/cxp/api/useNotasYAnticipos';
 import { EstadoAnticipo } from '@/features/cxp/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -38,9 +33,7 @@ const SENTINEL_ALL = '__all__';
 export function AnticiposPage() {
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
-  const puedeCapturar = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarAnticiposCapturar,
-  );
+  const puedeCapturar = useHasPermission(PermisosCanonicos.CuentasPorPagarAnticiposCapturar);
   const [sheetAbierto, setSheetAbierto] = useState(false);
 
   const query = useAnticipos({
@@ -79,10 +72,7 @@ export function AnticiposPage() {
             value={search.estado != null ? String(search.estado) : SENTINEL_ALL}
             onValueChange={(v) =>
               actualizarSearch({
-                estado:
-                  v === SENTINEL_ALL
-                    ? undefined
-                    : (Number(v) as EstadoAnticipo),
+                estado: v === SENTINEL_ALL ? undefined : (Number(v) as EstadoAnticipo),
               })
             }
           >
@@ -91,15 +81,15 @@ export function AnticiposPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-              <SelectItem value={String(EstadoAnticipo.Abierto)}>
-                Abierto
+              <SelectItem value={String(EstadoAnticipo.PagadoComercioExterior)}>
+                Pagado (comprobación en CE)
               </SelectItem>
-              <SelectItem value={String(EstadoAnticipo.Amortizado)}>
-                Amortizado
+              <SelectItem value={String(EstadoAnticipo.Solicitado)}>
+                Solicitado a Tesorería
               </SelectItem>
-              <SelectItem value={String(EstadoAnticipo.Cancelado)}>
-                Cancelado
-              </SelectItem>
+              <SelectItem value={String(EstadoAnticipo.Abierto)}>Abierto</SelectItem>
+              <SelectItem value={String(EstadoAnticipo.Amortizado)}>Amortizado</SelectItem>
+              <SelectItem value={String(EstadoAnticipo.Cancelado)}>Cancelado</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -107,9 +97,7 @@ export function AnticiposPage() {
           <label className="text-xs text-muted-foreground">Proveedor</label>
           <ProveedorSelector
             value={search.proveedorId ?? null}
-            onChange={(id) =>
-              actualizarSearch({ proveedorId: id ?? undefined })
-            }
+            onChange={(id) => actualizarSearch({ proveedorId: id ?? undefined })}
             placeholder="Todos los proveedores"
             className="w-56"
           />
@@ -117,9 +105,7 @@ export function AnticiposPage() {
         {(search.estado != null || search.proveedorId) && (
           <Button
             variant="ghost"
-            onClick={() =>
-              actualizarSearch({ estado: undefined, proveedorId: undefined })
-            }
+            onClick={() => actualizarSearch({ estado: undefined, proveedorId: undefined })}
           >
             Limpiar
           </Button>
@@ -161,7 +147,7 @@ export function AnticiposPage() {
                 <th className="px-3 py-2 text-left">UUID</th>
                 <th className="px-3 py-2 text-left">Proveedor</th>
                 <th className="px-3 py-2 text-left">Folio</th>
-                <th className="px-3 py-2 text-right">Entregado</th>
+                <th className="px-3 py-2 text-right">Importe del documento</th>
                 <th className="px-3 py-2 text-right">Amortizado</th>
                 <th className="px-3 py-2 text-right">Saldo</th>
                 <th className="px-3 py-2 text-left">Estado</th>
@@ -172,7 +158,11 @@ export function AnticiposPage() {
               {items.map((a) => (
                 <tr key={a.id} className="border-t hover:bg-muted/30">
                   <td className="px-3 py-2 font-mono text-xs">
-                    {a.origen === 2 ? `Saldo de Comercio Exterior · ${a.folioProveedor}` : abreviar(a.uuidCfdi ?? '')}
+                    {a.origen === 3
+                      ? `Solicitud de Comercio Exterior · ${a.folioProveedor}`
+                      : a.origen === 2
+                        ? `Saldo de Comercio Exterior · ${a.folioProveedor}`
+                        : abreviar(a.uuidCfdi ?? '')}
                   </td>
                   <td className="max-w-56 truncate px-3 py-2">
                     {a.proveedorNombre ?? (
@@ -196,7 +186,15 @@ export function AnticiposPage() {
                   <td className="px-3 py-2">
                     <EstadoAnticipoChip estado={a.estado} />
                   </td>
-                  <td className="px-3 py-2"><DocumentoP4Acciones tipo="anticipos" documento={a} /></td>
+                  <td className="px-3 py-2">
+                    {a.origen === 3 ? (
+                      <span className="text-xs text-muted-foreground">
+                        Comprobación en Comercio Exterior
+                      </span>
+                    ) : (
+                      <DocumentoP4Acciones tipo="anticipos" documento={a} />
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -212,4 +210,3 @@ export function AnticiposPage() {
 function abreviar(uuid: string): string {
   return uuid.length > 12 ? `${uuid.slice(0, 8)}…${uuid.slice(-4)}` : uuid;
 }
-

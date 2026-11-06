@@ -1,3 +1,5 @@
+import { useAuthStore } from '@/lib/auth/auth-store';
+import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { ClasesPage } from './ClasesPage';
@@ -8,6 +10,8 @@ vi.mock('../api/hooks', () => ({
     data: [
       {
         id: 'c',
+        propuestaPendiente: true,
+        proximaVersionDesde: '2026-03-01',
         version: 1,
         clave: '165',
         nombre: 'Telefonía',
@@ -31,7 +35,10 @@ vi.mock('@/features/contabilidad/api/hooks', () => ({
   }),
 }));
 vi.mock('../components/CuentaActivoSelector', () => ({ CuentaActivoSelector: () => null }));
-beforeEach(() => state.mutate.mockReset());
+beforeEach(() => {
+  state.mutate.mockReset();
+  useAuthStore.setState({ permisos: [P.ActivosFijosClasesAdministrar] });
+});
 it('muestra cuentas, tasa pendiente y revisión sin transformar una tasa vacía en cero', () => {
   render(<ClasesPage />);
   expect(screen.getByText('165.01 · Telefonía')).toBeInTheDocument();
@@ -78,9 +85,36 @@ it('guarda tasas contable y fiscal diferentes', () => {
     target: { value: '30' },
   });
   fireEvent.click(screen.getByRole('button', { name: 'Guardar clase' }));
+  expect(state.mutate).not.toHaveBeenCalled();
+  expect(screen.getByLabelText(/Mes de vigencia/)).toBeRequired();
+  expect(screen.getByLabelText('Motivo del cambio *')).toBeRequired();
+  fireEvent.change(screen.getByLabelText(/Mes de vigencia/), { target: { value: '2026-03' } });
+  fireEvent.change(screen.getByLabelText('Motivo del cambio *'), { target: { value: 'Nueva política contable' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Guardar clase' }));
   expect(state.mutate).toHaveBeenCalledWith(
     expect.objectContaining({
       body: expect.objectContaining({ tasaContableAnual: 33, tasaFiscalAnual: 30 }),
+    }),
+    expect.anything(),
+  );
+});
+
+it('muestra el cambio pendiente y exige motivo al indicar mes de propuesta', () => {
+  render(<ClasesPage />);
+  expect(screen.getByText('Cambio pendiente desde marzo de 2026')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+  fireEvent.change(screen.getByLabelText(/Mes de vigencia/), { target: { value: '2026-03' } });
+  const motivo = screen.getByLabelText('Motivo del cambio *');
+  expect(motivo).toBeRequired();
+  expect(motivo).toHaveAttribute('minlength', '5');
+  fireEvent.change(motivo, { target: { value: 'Nueva política contable' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Guardar clase' }));
+  expect(state.mutate).toHaveBeenCalledWith(
+    expect.objectContaining({
+      body: expect.objectContaining({
+        vigencia: '2026-03-01',
+        motivoCambio: 'Nueva política contable',
+      }),
     }),
     expect.anything(),
   );

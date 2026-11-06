@@ -163,7 +163,7 @@ describe('<ApartadosRequisicion>', () => {
     noCompra();
     fireEvent.click(enviar);
     await waitFor(() => expect(keys).toHaveLength(1));
-    await screen.findByText('No hay apartado pendiente.');
+    await screen.findByText('No hay existencia apartada pendiente. Recarga la requisición para revisar lo disponible.');
     fireEvent.click(enviar);
     await waitFor(() => expect(keys).toHaveLength(2));
     expect(keys[1]).toBe(keys[0]);
@@ -174,7 +174,7 @@ describe('<ApartadosRequisicion>', () => {
     expect(keys[2]).not.toBe(keys[0]);
   });
 
-  it('muestra el detail del 422 inline', async () => {
+  it('traduce la causa del 422 con una acción para continuar', async () => {
     mswServer.use(
       http.post(URL_LIBERAR, () =>
         HttpResponse.json(
@@ -195,7 +195,7 @@ describe('<ApartadosRequisicion>', () => {
     fireEvent.change(screen.getByLabelText(/motivo/i), { target: { value: 'x' } });
     noCompra();
     fireEvent.click(dialog.querySelector('button:last-of-type') as HTMLButtonElement);
-    expect(await screen.findByText('No hay apartado pendiente.')).toBeInTheDocument();
+    expect(await screen.findByText('No hay existencia apartada pendiente. Recarga la requisición para revisar lo disponible.')).toBeInTheDocument();
   });
 
   it('exige elegir si va a compra y manda true al elegir Sí', async () => {

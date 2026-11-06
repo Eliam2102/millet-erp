@@ -1,3 +1,4 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import { Check, CheckCircle2, TriangleAlert } from 'lucide-react';
@@ -19,6 +20,9 @@ import {
 } from '@/features/almacen/api/useSaldosCierreReportes';
 import { esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import { Field } from '@/features/almacen/components/internal/Field';
+import { ActasCierreSection } from '@/features/almacen/components/ActasCierreSection';
+import { useAuthStore } from '@/lib/auth/auth-store';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 
 const MES_NOMBRES = [
   '',
@@ -53,8 +57,22 @@ const claveDe = (anio: number, mes: number) => `${anio}-${String(mes).padStart(2
  * <para>Permiso: <c>almacen.cierre-mes.ejecutar</c>. Idempotency-Key
  * obligatorio en el endpoint backend. El cierre aplica a todas las
  * sucursales (ADR-0051, bypass <c>almacen.cierre-mes.gestionar-todas-sucursales</c>).</para>
+ *
+ * <para>86e3tac2y: debajo del cierre van las actas; quien solo tiene
+ * <c>almacen.cierre.revisar-acta</c> (Dirección de Administración) ve únicamente las actas.</para>
  */
 export function CierreMesPage() {
+  const puedeEjecutar = useAuthStore((s) => s.permisos.includes(PermisosCanonicos.AlmacenCierreMesEjecutar));
+  if (puedeEjecutar) return <CierreMesEjecucion />;
+  return (
+    <div className="space-y-6">
+      <PageHeader titulo="Actas del cierre" descripcion="Revisa el acta de cada cierre mensual del módulo Almacén." />
+      <ActasCierreSection />
+    </div>
+  );
+}
+
+function CierreMesEjecucion() {
   const idempotencyKey = useFormIdempotencyKey();
   const ejecutar = useEjecutarCierreMes();
   const periodosQuery = usePeriodosCierre();
@@ -97,16 +115,16 @@ export function CierreMesPage() {
               error.code === 'CIERRE_VALES_PENDIENTES'
             ) {
               toast.error('Periodo con pendientes', {
-                description: error.problem.detail ?? error.problem.title,
+                description: errorUsuario(error),
               });
               return;
             }
-            toast.error(error.problem.title, {
+            toast.error(errorUsuario(error), {
               description: codigoSoporte(error),
             });
             return;
           }
-          toast.error('Error inesperado al ejecutar el cierre.');
+          toast.error("Error inesperado al ejecutar el cierre. Revisa los datos del registro; si continúa, avisa a soporte.");
         },
       },
     );
@@ -122,7 +140,7 @@ export function CierreMesPage() {
     <div className="space-y-6">
       <PageHeader
         titulo="Cierre de mes"
-        descripcion="Cierra el periodo mensual del módulo Almacén. Una vez cerrado, no podrán registrarse ni editarse movimientos con fecha dentro del periodo."
+        descripcion="Cierra el periodo mensual de Almacén para impedir nuevos movimientos o cambios con fecha dentro del periodo."
       />
 
       <section className="rounded-lg border border-line-row bg-surface-card p-4">
@@ -217,6 +235,8 @@ export function CierreMesPage() {
           </p>
         )}
       </div>
+
+      <ActasCierreSection />
 
       <ConfirmarAccionDialog
         open={confirmOpen}

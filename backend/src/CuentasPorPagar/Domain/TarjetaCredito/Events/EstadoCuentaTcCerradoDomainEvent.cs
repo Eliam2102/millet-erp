@@ -15,4 +15,6 @@ public sealed record EstadoCuentaTcCerradoDomainEvent(
     decimal TotalBancoMxn,
     Guid FacturaProveedorId,
     decimal? DiferenciaCambiariaMxn,
-    DateTimeOffset OcurridoEn) : INotification;
+    DateTimeOffset OcurridoEn,
+    Guid? BancoProveedorId = null,
+    Guid? SucursalId = null) : INotification;

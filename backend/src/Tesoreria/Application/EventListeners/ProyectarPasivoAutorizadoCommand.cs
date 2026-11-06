@@ -26,9 +26,12 @@ public sealed class ProyectarPasivoAutorizadoHandler : IRequestHandler<Proyectar
     private readonly TesoreriaDbContext _db;
     private readonly IClock _clock;
 
-    public ProyectarPasivoAutorizadoHandler(TesoreriaDbContext db, IClock clock)
+    private readonly Millet.Tesoreria.Domain.Ports.IPasivoComercioExteriorReadPort? _comercioExterior;
+
+    public ProyectarPasivoAutorizadoHandler(TesoreriaDbContext db, IClock clock,
+        Millet.Tesoreria.Domain.Ports.IPasivoComercioExteriorReadPort? comercioExterior = null)
     {
-        _db = db; _clock = clock;
+        _db = db; _clock = clock; _comercioExterior = comercioExterior;
     }
 
     public async Task Handle(ProyectarPasivoAutorizadoCommand command, CancellationToken cancellationToken)
@@ -87,6 +90,21 @@ public sealed class ProyectarPasivoAutorizadoHandler : IRequestHandler<Proyectar
                 metodoPago: p.MetodoPago,
                 subtotal: p.Subtotal, impuestosTrasladados: p.ImpuestosTrasladados, retenciones: p.Retenciones);
         }
+
+        if (p.OrigenTipo == "AnticipoAgente")
+        {
+            var anticipo = dbPasivo();
+            anticipo.MarcarAnticipoAgente(p.SucursalId ?? Guid.Empty);
+            if (p.TipoOperacionCe is not (1 or 2)) throw new InvalidOperationException("Falta el tipo de operación de CE.");
+            if (!await _db.AutorizacionesPagoComercioExterior.AnyAsync(a => a.FacturaProveedorId == p.FacturaProveedorId, cancellationToken))
+                _db.AutorizacionesPagoComercioExterior.Add(new(p.EmpresaId, p.FacturaProveedorId,
+                    (TipoOperacionComercioExterior)p.TipoOperacionCe.Value));
+        }
+        PasivoPendientePago dbPasivo() => existente ?? _db.PasivosPendientesPago.Local.Single(x => x.FacturaProveedorId == p.FacturaProveedorId);
+
+        // I13.3: si es un pasivo de comercio exterior queda pendiente de sus dos autorizaciones.
+        if (p.OrigenTipo != "AnticipoAgente") await Application.Pasivos.PagosComercioExterior.MarcarAsync(_db, _comercioExterior,
+            [(p.EmpresaId, p.FacturaProveedorId, p.OrdenCompraId)], cancellationToken);
 
         // Marca de idempotencia en la MISMA transacción que la proyección
         // (cuidados-infra §2.3).

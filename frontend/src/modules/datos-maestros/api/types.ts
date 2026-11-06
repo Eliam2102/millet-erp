@@ -80,6 +80,8 @@ export interface ProveedorItem {
   /** Bloqueo total (86e3tactf): marca aparte del estatus de alta. */
   bloqueado?: boolean;
   motivoBloqueo?: string | null;
+  /** Identificación fiscal del proveedor extranjero (86e3yzemu). */
+  taxId?: string | null;
 }
 
 export interface ListarProveedoresResponse {

@@ -1,9 +1,10 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { ResolverAnticipo } from './FinanzasPanel';
+import { NuevoAnticipo, ResolverAnticipo } from './FinanzasPanel';
 import type { Anticipo, Gasto } from '../api/finanzas';
 import type { ExpedienteDetalle } from '../api/types';
 
+vi.mock('@/lib/auth/useHasPermission', () => ({ useHasPermission: () => true }));
 const mocks = vi.hoisted(() => ({ mutateAsync: vi.fn().mockResolvedValue({}) }));
 vi.mock('../api/finanzas', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../api/finanzas')>()),
@@ -13,6 +14,13 @@ vi.mock('../api/finanzas', async (importOriginal) => ({
 vi.mock('../api/hooks', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../api/hooks')>()),
   useExpedientes: () => ({ data: undefined }),
+}));
+vi.mock('./ReferenciaSelector', () => ({
+  ReferenciaSelector: ({ onChange }: { onChange: (id: string) => void }) => (
+    <button type="button" onClick={() => onChange('agente')}>
+      Elegir agente de prueba
+    </button>
+  ),
 }));
 const data = {
   expediente: { id: 'e' },
@@ -75,5 +83,67 @@ describe('P14 anticipo del agente', () => {
         }),
       }),
     );
+  });
+});
+
+describe('P19 corrección de comprobación', () => {
+  it('envía una nueva comprobación con motivo a la ruta de corrección', async () => {
+    render(
+      <ResolverAnticipo
+        data={data}
+        a={{ ...a, aplicado: 47000, saldo: 3000 }}
+        corregir
+        onClose={() => {}}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('Motivo de corrección *'), {
+      target: { value: 'Impuestos corregidos' },
+    });
+    fireEvent.change(screen.getByLabelText('IVA MXN *'), { target: { value: '46000' } });
+    fireEvent.change(screen.getByLabelText('Pedimento pagado *'), { target: { value: 'doc' } });
+    fireEvent.change(screen.getByLabelText('Comprobante de pago o resolución *'), {
+      target: { value: 'doc' },
+    });
+    fireEvent.change(screen.getByLabelText('Fecha *'), { target: { value: '2026-10-04' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    await waitFor(() =>
+      expect(mocks.mutateAsync).toHaveBeenCalledWith({
+        ruta: 'anticipos/a/corregir',
+        body: expect.objectContaining({
+          motivo: 'Impuestos corregidos',
+          impuestos: { iva: 46000, igi: 0, prv: 0 },
+        }),
+      }),
+    );
+  });
+});
+
+describe('P19 solicitud de anticipo', () => {
+  it('requiere cálculo e importe y envía solicitud sin referencia manual', async () => {
+    render(<NuevoAnticipo data={data} onClose={() => {}} />);
+    expect(screen.getByLabelText('Cálculo de impuestos (archivo) *')).toBeRequired();
+    expect(screen.queryByLabelText('Referencia del pago de Tesorería')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Elegir agente de prueba' }));
+    fireEvent.change(screen.getByLabelText('Pedimento *'), { target: { value: 'PED-P19' } });
+    fireEvent.change(screen.getByLabelText('IVA MXN *'), { target: { value: '50000' } });
+    fireEvent.change(screen.getByLabelText('Importe solicitado MXN *'), {
+      target: { value: '50000' },
+    });
+    fireEvent.change(screen.getByLabelText('Cálculo de impuestos (archivo) *'), {
+      target: { value: 'doc' },
+    });
+    fireEvent.change(screen.getByLabelText('Fecha *'), { target: { value: '2026-10-01' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Solicitar anticipo' }));
+    await waitFor(() =>
+      expect(mocks.mutateAsync).toHaveBeenCalledWith({
+        ruta: 'anticipos',
+        body: expect.objectContaining({
+          agenteId: 'agente',
+          importe: 50000,
+          soporteCalculoId: 'doc',
+        }),
+      }),
+    );
+    expect(mocks.mutateAsync.mock.lastCall?.[0].body).not.toHaveProperty('referenciaPago');
   });
 });

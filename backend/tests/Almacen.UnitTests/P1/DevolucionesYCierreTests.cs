@@ -133,10 +133,13 @@ public sealed class DevolucionesYCierreTests
         if (cerrado) await Cerrar(f);
         Task Ejecutar() => reincorporar
             ? new ReincorporacionTrasRevisionHandler(f.Db, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), new P1Fixture.ArticulosConUnidad()).Handle(new(f.SubId, P1Fixture.Fecha, "Revisión", [new(f.ArticuloId, 1, f.BinId)]), default)
-            : new BajaPorDanoHandler(f.Db, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), new P1Fixture.ArticulosConUnidad()).Handle(new(f.SubId, P1Fixture.Fecha, "Daño", [new(f.ArticuloId, 1, f.BinId)]), default);
+            : new BajaPorDanoHandler(f.Db, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), new P1Fixture.ArticulosConUnidad(), f.Events).Handle(new(f.SubId, P1Fixture.Fecha, "Daño", [new(f.ArticuloId, 1, f.BinId)]), default);
         if (cerrado) await Error(Ejecutar, "PERIODO_CERRADO"); else await Ejecutar();
         // Reincorporar crea el par LIB (sale de MAT-REV) + REI (entra al destino); baja es un solo movimiento.
         (await f.Db.Movimientos.CountAsync()).Should().Be(cerrado ? 0 : reincorporar ? 2 : 1);
+        // G-1 criterio 3: solo la baja por daño aplicada avisa; reincorporar es traslado y un periodo cerrado no deja evento.
+        f.Events.Items.OfType<Millet.Almacen.Application.Integration.SalidaInventarioRegistradaIntegrationEvent>()
+            .Select(e => e.Causa).Should().HaveCount(!cerrado && !reincorporar ? 1 : 0);
     }
     [Fact]
     public async Task Salida_proveedor_en_periodo_cerrado_no_genera_movimiento_ni_evento()
@@ -198,7 +201,7 @@ public sealed class DevolucionesYCierreTests
         await f.Db.SaveChangesAsync();
         var h = new EjecutarCierreMensualHandler(f.Db, f.Context, f.Context);
         await Error(() => h.Handle(new(2026, 9), default), "CIERRE_VALES_PENDIENTES");
-        await new RegularizarSalidaPorValeHandler(f.Db, f.Rq).Handle(new(vale.Id, f.DocumentoId), default);
+        await new RegularizarSalidaPorValeHandler(f.Db, f.Rq, f.Events).Handle(new(vale.Id, f.DocumentoId), default);
         await h.Handle(new(2026, 9), default);
         (await f.Db.Set<PeriodoCerrado>().CountAsync()).Should().Be(1);
     }
@@ -208,7 +211,7 @@ public sealed class DevolucionesYCierreTests
     {
         await using var f = new P1Fixture();
         var h = new RegistrarSalidaPorValeHandler(f.Db, f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), new P1Fixture.Calendario(), invalido ? new CentroInactivo() : new P1Fixture.Centros(), new P7Support.Conversion(), P7Support.Apartados(f.Db));
-        Task Ejecutar() => h.Handle(new(P1Fixture.Fecha, "vale.pdf", null, null, [new(f.ArticuloId, null, 1, Guid.NewGuid(), null, null, null, f.BinId)]), default);
+        Task Ejecutar() => h.Handle(new(P1Fixture.Fecha, "vale.pdf", Guid.NewGuid(), null, [new(f.ArticuloId, null, 1, Guid.NewGuid(), null, null, null, f.BinId)], "Falla de la línea", "Quien recibe"), default);
         if (invalido)
         {
             await Error(Ejecutar, "CECO_INVALIDO");

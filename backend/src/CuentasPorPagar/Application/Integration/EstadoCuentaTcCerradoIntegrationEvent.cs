@@ -15,5 +15,8 @@ public sealed record EstadoCuentaTcCerradoIntegrationEvent(
     Guid TarjetaId,
     decimal TotalBancoMxn,
     Guid FacturaProveedorId,
-    decimal? DiferenciaCambiariaMxn)
+    decimal? DiferenciaCambiariaMxn,
+    // C1.5b (aditivo): banco emisor (proveedor de la factura agregada) y sucursal del titular, para la póliza de Contabilidad.
+    Guid? ProveedorId = null,
+    Guid? SucursalId = null)
     : IntegrationEvent("cuentas_por_pagar.estado-cuenta-tc.cerrado.v1", EmpresaId, OcurridoEn);

@@ -18,3 +18,8 @@ describe('presentación de estados de Facturación', () => {
     expect(estadoUi('anticipo', null)).toEqual({ tono: 'neutral', texto: '—' });
   });
 });
+
+it('muestra los textos de comprobantes del sistema de diseño sin cambiar el enum', () => {
+  expect(estadoUi('factura', 'Timbrado')).toEqual({ tono: 'success', texto: 'Timbrada' });
+  expect(estadoUi('factura', 'CancelacionPendiente')).toEqual({ tono: 'neutral', texto: 'Cancelación en proceso' });
+});

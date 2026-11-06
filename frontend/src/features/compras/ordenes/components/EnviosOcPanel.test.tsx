@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EnviosOcPanel } from './EnviosOcPanel';
 const mocks = vi.hoisted(() => ({
   enviar: vi.fn(),
+  acusar: vi.fn(),
   invalidar: vi.fn(),
   descargar: vi.fn(),
   permiso: true,
@@ -21,6 +22,7 @@ vi.mock('@tanstack/react-query', async (original) => ({
 vi.mock('../api/useEnviosOc', () => ({
   useEnviosOc: () => ({ data: mocks.data, isPending: false, error: null }),
   useRegistrarEnvioOc: () => ({ mutateAsync: mocks.enviar, isPending: false }),
+  useRegistrarAcuseEnvioOc: () => ({ mutateAsync: mocks.acusar, isPending: false }),
 }));
 vi.mock('../api/usePdfOrdenCompra', () => ({ descargarPdfOrdenCompra: mocks.descargar }));
 vi.mock('@/lib/auth/useHasPermission', () => ({ useHasPermission: () => mocks.permiso }));
@@ -109,7 +111,9 @@ describe('Envíos OC — datos DEMO ficticios', () => {
       expect(screen.getByRole('button', { name: 'Marcar como enviada' })).toBeEnabled(),
     );
     expect(mocks.descargar).toHaveBeenCalledWith('oc-demo');
-    expect(mocks.invalidar).toHaveBeenCalledWith({ queryKey: ['compras', 'ordenes', 'detail', 'oc-demo'] });
+    expect(mocks.invalidar).toHaveBeenCalledWith({
+      queryKey: ['compras', 'ordenes', 'detail', 'oc-demo'],
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Marcar como enviada' }));
     await waitFor(() =>
       expect(mocks.enviar).toHaveBeenCalledWith(expect.objectContaining({ modo: 'manual' })),
@@ -165,5 +169,60 @@ describe('Envíos OC — datos DEMO ficticios', () => {
     expect(
       screen.queryByRole('button', { name: /Probar envío \(simulado\)|Enviar al proveedor/ }),
     ).not.toBeInTheDocument();
+  });
+  it('G-11 un envío aceptado pide el acuse del proveedor y lo guarda con su evidencia', async () => {
+    mocks.data.esSimulado = false;
+    mocks.data.envios = [
+      {
+        id: 'env-1',
+        destinatario: 'proveedor-demo@example.test',
+        usuarioNombre: 'Ana',
+        fecha: '2026-11-05T15:00:00Z',
+        modo: 'correo',
+        resultado: 'aceptado',
+      },
+    ];
+    mocks.acusar.mockResolvedValue({});
+    render(<EnviosOcPanel ordenCompraId="oc-demo" />);
+    expect(
+      screen.getByText(/falta la evidencia de que el proveedor lo recibió/),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar acuse del proveedor' }));
+    const guardar = screen.getByRole('button', { name: 'Guardar acuse' });
+    expect(guardar).toBeDisabled();
+    fireEvent.change(screen.getByLabelText(/Evidencia del acuse/), {
+      target: { value: 'Correo P-4471' },
+    });
+    fireEvent.click(guardar);
+    await waitFor(() =>
+      expect(mocks.acusar).toHaveBeenCalledWith({ envioId: 'env-1', referencia: 'Correo P-4471' }),
+    );
+  });
+  it('G-11 un envío con acuse lo muestra y un simulado no ofrece acuse', () => {
+    mocks.data.envios = [
+      {
+        id: 'env-1',
+        destinatario: 'a@example.test',
+        usuarioNombre: 'Ana',
+        fecha: '2026-11-05T15:00:00Z',
+        modo: 'correo',
+        resultado: 'aceptado',
+        acuseFecha: '2026-11-05T16:00:00Z',
+        acuseReferencia: 'Correo P-4471',
+        acuseUsuarioNombre: 'Luis',
+      },
+      {
+        id: 'env-2',
+        destinatario: 'a@example.test',
+        usuarioNombre: 'Ana',
+        fecha: '2026-11-05T14:00:00Z',
+        modo: 'correo',
+        resultado: 'simulado',
+      },
+    ];
+    render(<EnviosOcPanel ordenCompraId="oc-demo" />);
+    expect(screen.getByText('Acuse del proveedor')).toBeInTheDocument();
+    expect(screen.getByText(/Correo P-4471/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Registrar acuse del proveedor' })).toBeNull();
   });
 });

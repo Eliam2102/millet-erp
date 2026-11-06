@@ -182,6 +182,7 @@ public sealed class CancelarRecepcionHandler(
     [
         TipoMovimiento.SalidaConsumo, TipoMovimiento.SalidaPorVale, TipoMovimiento.SalidaPorDevolucionAProveedor,
         TipoMovimiento.AjusteNegativo, TipoMovimiento.BajaPorDano, TipoMovimiento.SalidaPorLiberacionRevision,
+        TipoMovimiento.SalidaNoPlanificada, TipoMovimiento.SalidaPorRotura,
     ];
 
     private static BusinessRuleException YaCancelada() =>

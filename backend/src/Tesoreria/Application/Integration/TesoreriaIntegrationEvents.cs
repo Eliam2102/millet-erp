@@ -42,6 +42,9 @@ public sealed record PagoFacturaProveedorAplicadoIntegrationEvent(
     decimal? TipoCambio = null)
     : IntegrationEvent(WireEventType, EmpresaId, OcurridoEn)
 {
+    public bool EsAnticipoAgente { get; init; }
+    public Guid? SucursalId { get; init; }
+    public Guid? ProveedorId { get; init; }
     public const string WireEventType = "tesoreria.pago-factura-proveedor.aplicado.v1";
 }
 
@@ -221,6 +224,9 @@ public sealed record PropuestaAplicacionRechazadaIntegrationEvent(
 /// <c>tesoreria.movimiento-bancario.registrado.v1</c> (T9.2 / 01-diseño §8.1 / C1):
 /// Alta desde conciliación bancaria (comisión, interés, depósito no registrado).
 /// Contabilidad consume este evento para emitir la póliza contable correspondiente.
+/// U-2 (86e3yxngq, aditivo): <c>SucursalId</c> = sucursal del movimiento (la póliza la exige); <c>MovimientoBaseId</c> = en el
+/// movimiento de IVA de un alta «comisión + IVA», el id de su base: Contabilidad ya lo contabilizó con la base (campo <c>Iva</c>)
+/// y no genera otra póliza.
 /// </summary>
 public sealed record MovimientoBancarioRegistradoIntegrationEvent(
     Guid EmpresaId,
@@ -234,7 +240,9 @@ public sealed record MovimientoBancarioRegistradoIntegrationEvent(
     string? ReferenciaBancaria,
     Guid? ConceptoId,
     string? ConceptoNombre = null,
-    decimal? Iva = null)
+    decimal? Iva = null,
+    Guid? SucursalId = null,
+    Guid? MovimientoBaseId = null)
     : IntegrationEvent(WireEventType, EmpresaId, OcurridoEn)
 {
     public const string WireEventType = "tesoreria.movimiento-bancario.registrado.v1";

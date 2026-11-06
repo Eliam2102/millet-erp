@@ -128,7 +128,7 @@ public sealed class EmitirFacturaVentaHandler
                 if (string.IsNullOrWhiteSpace(embarque.Incoterm))
                     throw new BusinessRuleException("CE_INCOTERM_REQUERIDO", "Seleccione un Incoterm vigente en el expediente.");
                 copiaCe = new(embarque.FolioExpediente!, embarque.NumeroPedimento!, embarque.ClavePedimento!, embarque.FechaPedimento!.Value,
-                    embarque.Incoterm, Array.AsReadOnly(embarque.Contenedores!.Select(c => new ContenedorFacturaCe(c.Numero, c.BlGuia, c.FechaEmbarqueReal)).ToArray()), embarque.Aduana, embarque.AduanaNombre);
+                    embarque.Incoterm, Array.AsReadOnly(embarque.Contenedores!.Select(c => new ContenedorFacturaCe(c.Numero, c.BlGuia, c.FechaEmbarqueReal)).ToArray()), embarque.Aduana, embarque.AduanaNombre, embarque.ExpedienteId, embarque.VersionEmbarque, pedidoCe);
                 if (embarque.ClavePedimento == "RT")
                 {
                     command = command with { Cce = null };
@@ -142,7 +142,8 @@ public sealed class EmitirFacturaVentaHandler
                 {
                     if (command.Cce is null) throw new BusinessRuleException("FAC_CCE_REQUERIDO", "Complete las mercancías y el receptor del CCE para la exportación A1.");
                     command = command with { ComportamientoFiscal = ComportamientoFiscal.ExportacionConCce,
-                        Cce = command.Cce with { ClaveDePedimento = "A1", Incoterm = embarque.Incoterm } };
+                        Cce = command.Cce with { ClaveDePedimento = "A1", Incoterm = embarque.Incoterm,
+                            Lineas = DatosAduanalesFactura.Aplicar(command.Cce.Lineas, embarque.DatosAduanales) } };
                 }
             }
         }
@@ -303,6 +304,7 @@ public sealed class EmitirFacturaVentaHandler
         if (salida is not null) factura.LigarSalida(salida.Id, salida.PedidoFacturableId);
 
         if (copiaCe is not null) factura.TomarEmbarqueCe(copiaCe);
+        else if (sustituida?.DatosEmbarqueCe is { } copiaOriginal) factura.TomarEmbarqueCe(copiaOriginal with { PedidoFacturableId = sustituida.PedidoFacturableId });
 
         // 5.quater F9: vincula + consume la autorización de venta de activo fijo.
         if (autorizacion is not null)
@@ -351,27 +353,12 @@ public sealed class EmitirFacturaVentaHandler
         await SustitucionCfdi.SolicitarCancelacionOriginalAsync(
             _db, factura, _user.UserId, _user.UserName, ahora, cancellationToken);
 
-        // 8. F4-PR2: amortizar (generar + timbrar una NC por anticipo) si la
-        // factura quedó Timbrada. Atómico: cualquier fallo lanza y el SaveChanges
-        // único de abajo no llega a ocurrir (rollback total, §3.bis.4).
-        IReadOnlyList<NotaCreditoAmortizacionEmitida> ncResp = [];
-        if (anticipos.Count > 0)
-        {
-            if (factura.Estado != EstadoTimbrado.Timbrado)
-                throw new BusinessRuleException(
-                    "FACTURA_NO_TIMBRADA_PARA_AMORTIZAR",
-                    "No se pueden amortizar anticipos: la factura no quedó timbrada.");
-            ncResp = await AmortizarAnticiposAsync(factura, receptor, anticipos, anio, mes, ahora, cancellationToken);
-        }
-
-        // 8.bis RANURA-PR2: NC automática por la ranura del pedido A+W
-        // (relación 01) — la factura va por el total y la caja cobra
-        // total − NC ([Decisión 13-K]). Solo si quedó Timbrada; si el timbre
-        // falló, la emite el reintento (ReintentarTimbradoHandler). Si la NC
-        // no timbra, NcRanuraEmisor lanza (rollback total, como amortización).
-        var ncRanura = await NcRanuraEmisor.EmitirSiAplicaAsync(
-            _db, _sender, _fiscal, _cfdiRepo, _eventos,
-            factura, pedido, _user.UserId, ahora, _receptorFiscal, cancellationToken);
+        // 8. F4-PR2: las NC de amortización solo se emiten sobre una factura
+        // timbrada; si el timbre de la factura falló, se aborta sin guardar nada.
+        if (anticipos.Count > 0 && factura.Estado != EstadoTimbrado.Timbrado)
+            throw new BusinessRuleException(
+                "FACTURA_NO_TIMBRADA_PARA_AMORTIZAR",
+                "No se pueden amortizar anticipos: la factura no quedó timbrada.");
 
         // 9. F10-PR1: evento de integración (al Outbox en la misma TX vía el
         // interceptor); Contabilidad arma la póliza desde el evento (C1.5). Solo si quedó Timbrada.
@@ -406,8 +393,27 @@ public sealed class EmitirFacturaVentaHandler
             }
         }
 
+        // U-1 (86e3yxn2p): la factura timbrada ya existe ante el SAT; se guarda
+        // ANTES de emitir sus notas. Cada nota (amortización, ranura) se guarda
+        // en su propia operación y, si no timbra, queda pendiente de timbrar
+        // ligada a la factura, con el motivo, para reintentarla desde la bandeja.
         _db.FacturasVenta.Add(factura);
         await _db.SaveChangesAsync(cancellationToken);
+
+        // 10. F4-PR2: una NC por anticipo (relación 07 a la factura final).
+        IReadOnlyList<NotaCreditoAmortizacionEmitida> ncResp = anticipos.Count > 0
+            ? await AmortizarAnticiposAsync(factura, receptor, anticipos, anio, mes, ahora, cancellationToken)
+            : [];
+
+        // 11. RANURA-PR2: NC automática por la ranura del pedido A+W
+        // (relación 01) — la factura va por el total y la caja cobra
+        // total − NC acreditadas ([Decisión 13-K]). Solo si quedó Timbrada; si
+        // el timbre falló, la emite el reintento (ReintentarTimbradoHandler).
+        var ncRanura = await NcRanuraEmisor.EmitirSiAplicaAsync(
+            _db, _sender, _fiscal, _cfdiRepo, _eventos,
+            factura, pedido, _user.UserId, ahora, _receptorFiscal, cancellationToken);
+        if (ncRanura is not null)
+            await _db.SaveChangesAsync(cancellationToken);
 
         return new EmitirFacturaVentaResponse(
             Id: factura.Id,
@@ -452,6 +458,7 @@ public sealed class EmitirFacturaVentaHandler
                 "AUTORIZACION_NO_DISPONIBLE",
                 $"La autorización ya fue {autorizacion.Estado} y no puede reutilizarse.");
 
+        autorizacion.ValidarRegistrador(_user.UserId);
         return autorizacion;
     }
 
@@ -568,7 +575,7 @@ public sealed class EmitirFacturaVentaHandler
                     $"El CFDI del anticipo ({facturaAnticipo.Folio}) no está timbrado " +
                     $"(estado: {facturaAnticipo.Estado}); resuélvelo (reintentar o descartar) antes de amortizar.");
 
-            resultado.Add(new AnticipoAmortizable(anticipo, facturaAnticipo, sol.Importe));
+            resultado.Add(new AnticipoAmortizable(anticipo, facturaAnticipo, sol.Importe, sol.ComentarioNotaCredito));
         }
 
         return resultado;
@@ -577,8 +584,8 @@ public sealed class EmitirFacturaVentaHandler
     /// <summary>
     /// Por cada anticipo: reserva folio de NC, autogenera la NC de amortización
     /// (relación 07 a la factura de anticipo y a la factura final), la timbra
-    /// (stub) y reduce el saldo del anticipo. Si una NC no queda Timbrada, lanza
-    /// (rollback total). Tasa de IVA estándar para el desglose; el detalle fiscal
+    /// y reduce el saldo del anticipo. U-1: cada NC se guarda en su propia
+    /// operación; si no queda Timbrada, queda pendiente de timbrar. Tasa de IVA estándar para el desglose; el detalle fiscal
     /// exacto lo afina F12.
     /// </summary>
     private async Task<IReadOnlyList<NotaCreditoAmortizacionEmitida>> AmortizarAnticiposAsync(
@@ -621,32 +628,40 @@ public sealed class EmitirFacturaVentaHandler
                 montoTotal: a.Importe,
                 tasaIva: tasaIvaEstandar);
 
-            if (!string.IsNullOrWhiteSpace(a.FacturaAnticipo.Uuid))
-                nc.AgregarRelacion(a.FacturaAnticipo.Uuid!, "07");
+            // Millet (4-nov): la NC de aplicación relaciona solo la factura de venta (el anticipo va en la factura).
             if (!string.IsNullOrWhiteSpace(factura.Uuid))
                 nc.AgregarRelacion(factura.Uuid!, "07");
+            // FMT-6 (86e3yxe8f): comentario libre que captura el usuario para esta NC.
+            nc.FijarComentarios(a.ComentarioNotaCredito);
 
             var timbre = await TimbradoEjecutor.TimbrarYAplicarAsync(_db, 
                 nc, CfdiEmisionBuilder.DesdeNotaCredito(nc, ahora),
                 _fiscal, _cfdiRepo, ahora, cancellationToken);
 
-            if (timbre.Estado != TimbradoEstado.Timbrado || string.IsNullOrWhiteSpace(timbre.Uuid))
-                throw new BusinessRuleException(
-                    "NC_AMORTIZACION_NO_TIMBRADA",
-                    $"La NC de amortización del anticipo {a.Anticipo.Id} no se timbró " +
-                    $"({timbre.Estado}); se aborta la emisión (rollback total).");
-
-            a.Anticipo.RegistrarAmortizacion(factura.Id, nc.Id, a.Importe, ahora);
             _db.NotasCredito.Add(nc);
+            if (timbre.Estado == TimbradoEstado.Timbrado && !string.IsNullOrWhiteSpace(timbre.Uuid))
+            {
+                a.Anticipo.RegistrarAmortizacion(factura.Id, nc.Id, a.Importe, ahora);
 
-            // F10-PR1: evento de NC de amortización timbrada.
-            await _eventos.PublishAsync(EventosContablesFacturacion.NotaCreditoTimbrada(
-                nc, ahora, factura.Id, a.Anticipo.Id, a.Anticipo.ClienteId),
-                cancellationToken);
+                // F10-PR1: evento de NC de amortización timbrada.
+                await _eventos.PublishAsync(EventosContablesFacturacion.NotaCreditoTimbrada(
+                    nc, ahora, factura.Id, a.Anticipo.Id, a.Anticipo.ClienteId),
+                    cancellationToken);
+            }
+            else
+            {
+                // U-1: la NC queda pendiente de timbrar. El importe queda comprometido
+                // con esta factura (no se usa en otra) sin reducir el saldo; el
+                // reintento timbrado lo amortiza y descartarla lo libera.
+                a.Anticipo.Vincular(factura.Id, a.Importe, ahora);
+            }
+            await _db.SaveChangesAsync(cancellationToken);
 
             emitidas.Add(new NotaCreditoAmortizacionEmitida(
                 Id: nc.Id, AnticipoId: a.Anticipo.Id, Folio: nc.Folio, Uuid: nc.Uuid,
-                Total: nc.Total, SaldoAnticipoRestante: a.Anticipo.Saldo));
+                Total: nc.Total, SaldoAnticipoRestante: a.Anticipo.Saldo,
+                Estado: nc.Estado.ToString(), TimbradoErrorCodigo: nc.TimbradoErrorCodigo,
+                TimbradoErrorMensaje: nc.TimbradoErrorMensaje));
         }
 
         return emitidas;
@@ -656,7 +671,8 @@ public sealed class EmitirFacturaVentaHandler
     private sealed record AnticipoAmortizable(
         Millet.Facturacion.Domain.Anticipos.Anticipo Anticipo,
         Millet.Facturacion.Domain.Anticipos.FacturaAnticipo FacturaAnticipo,
-        decimal Importe);
+        decimal Importe,
+        string? ComentarioNotaCredito);
 
     private async Task ValidarCatalogosSatAsync(
         EmitirFacturaVentaCommand command,

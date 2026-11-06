@@ -62,7 +62,13 @@ public sealed record PropuestaAplicacionResponse(
     int Version,
     Guid? PropuestoPor = null,
     decimal SaldoAFavorPorIdentificar = 0,
-    Guid? MovimientoBancarioId = null);
+    Guid? MovimientoBancarioId = null,
+    // CXC-06 (aditivo): ajuste documentado y su autorización.
+    TipoAjusteCobro? TipoAjuste = null,
+    string? MotivoAjuste = null,
+    Guid? AjusteAutorizadoPor = null,
+    DateTimeOffset? AjusteAutorizadoEn = null,
+    bool AjustePorAutorizar = false);
 
 internal static class PropuestaAplicacionMapper
 {
@@ -84,7 +90,40 @@ internal static class PropuestaAplicacionMapper
                 folios.TryGetValue(f.FacturaCarteraId, out var folio) ? folio : null,
                 f.ImporteAplicado, f.NumParcialidad,
                 saldosInsolutos != null && saldosInsolutos.TryGetValue(f.FacturaCarteraId, out var saldo) ? saldo : null)).ToList(),
-            p.Version, p.PropuestoPor, p.SaldoAFavorPorIdentificar, p.MovimientoBancarioId);
+            p.Version, p.PropuestoPor, p.SaldoAFavorPorIdentificar, p.MovimientoBancarioId,
+            p.TipoAjuste, p.MotivoAjuste, p.AjusteAutorizadoPor, p.AjusteAutorizadoEn, p.AjustePorAutorizar);
+
+    /// <summary>
+    /// Envía la propuesta a Tesorería (<c>propuesta-aplicacion.creada.v1</c>). CXC-06: una propuesta con ajuste solo sale cuando el
+    /// ajuste está autorizado; antes, Tesorería no la ve y no puede confirmarla.
+    /// </summary>
+    public static Task PublicarCreadaAsync(
+        IIntegrationEventPublisher eventos, PropuestaAplicacionPago propuesta,
+        IReadOnlyDictionary<Guid, FacturaCartera> cartera, DateTimeOffset ahora, CancellationToken ct,
+        IReadOnlyDictionary<Guid, decimal>? saldosInsolutos = null) =>
+        eventos.PublishAsync(new PropuestaAplicacionPagoCreadaEvent(
+            EmpresaId: propuesta.EmpresaId,
+            OcurridoEn: ahora,
+            PropuestaId: propuesta.Id,
+            ClienteId: propuesta.ClienteId,
+            DepositoRef: propuesta.DepositoRef,
+            MontoDeposito: propuesta.MontoDeposito,
+            Moneda: propuesta.Moneda,
+            AjusteNoFiscal: propuesta.AjusteNoFiscal,
+            NumeroFacturas: propuesta.Facturas.Count,
+            PropuestoPor: propuesta.PropuestoPor,
+            SaldoAFavorPorIdentificar: propuesta.SaldoAFavorPorIdentificar,
+            // TES-PR7: FacturaVentaId (no FacturaCarteraId) — es el id que
+            // Facturación entiende cuando Tesorería confirma el depósito.
+            Facturas: propuesta.Facturas
+                .Select(f =>
+                {
+                    var c = cartera[f.FacturaCarteraId];
+                    return new PropuestaAplicacionFacturaDetalle(c.FacturaVentaId, c.Folio, f.ImporteAplicado,
+                        saldosInsolutos != null && saldosInsolutos.TryGetValue(c.Id, out var saldo) ? saldo : null);
+                })
+                .ToList(),
+            MovimientoBancarioId: propuesta.MovimientoBancarioId), ct);
 
     public static async Task<PropuestaAplicacionResponse> ToResponseAsync(
         CuentasPorCobrarDbContext db, PropuestaAplicacionPago p, CancellationToken ct,
@@ -150,7 +189,10 @@ public sealed record CrearPropuestaAplicacionCommand(
     string Moneda,
     string RemittanceRef,
     IReadOnlyList<PropuestaFacturaLinea> Facturas,
-    Guid? MovimientoBancarioId = null) : IRequest<PropuestaAplicacionResponse>;
+    Guid? MovimientoBancarioId = null,
+    // CXC-06: obligatorios cuando el depósito es menor que lo aplicado (ajuste dentro de la tolerancia).
+    TipoAjusteCobro? TipoAjuste = null,
+    string? MotivoAjuste = null) : IRequest<PropuestaAplicacionResponse>;
 
 public sealed class CrearPropuestaAplicacionValidator : AbstractValidator<CrearPropuestaAplicacionCommand>
 {
@@ -163,6 +205,8 @@ public sealed class CrearPropuestaAplicacionValidator : AbstractValidator<CrearP
         RuleFor(c => c.RemittanceRef).NotEmpty().MaximumLength(120);
         RuleFor(c => c.Facturas).NotEmpty();
         RuleFor(c => c.MovimientoBancarioId).NotEqual(Guid.Empty).When(c => c.MovimientoBancarioId is not null);
+        RuleFor(c => c.TipoAjuste).IsInEnum().When(c => c.TipoAjuste is not null);
+        RuleFor(c => c.MotivoAjuste).MaximumLength(400);
         RuleForEach(c => c.Facturas).ChildRules(f =>
         {
             f.RuleFor(x => x.FacturaUuid).NotEmpty().MaximumLength(36);
@@ -316,33 +360,15 @@ public sealed class CrearPropuestaAplicacionHandler
             remittanceRef: command.RemittanceRef,
             lineas: lineas,
             toleranciaNoFiscal: tolerancia, propuestoPor: usuarioId,
-            movimientoBancarioId: deposito?.MovimientoBancarioId);
+            movimientoBancarioId: deposito?.MovimientoBancarioId,
+            tipoAjuste: command.TipoAjuste, motivoAjuste: command.MotivoAjuste);
 
         _db.PropuestasAplicacionPago.Add(propuesta);
 
-        await _eventos.PublishAsync(new PropuestaAplicacionPagoCreadaEvent(
-            EmpresaId: empresaId,
-            OcurridoEn: _clock.UtcNow,
-            PropuestaId: propuesta.Id,
-            ClienteId: propuesta.ClienteId,
-            DepositoRef: propuesta.DepositoRef,
-            MontoDeposito: propuesta.MontoDeposito,
-            Moneda: propuesta.Moneda,
-            AjusteNoFiscal: propuesta.AjusteNoFiscal,
-            NumeroFacturas: propuesta.Facturas.Count,
-            PropuestoPor: usuarioId,
-            SaldoAFavorPorIdentificar: propuesta.SaldoAFavorPorIdentificar,
-            // TES-PR7: FacturaVentaId (no FacturaCarteraId) — es el id que
-            // Facturación entiende cuando Tesorería confirma el depósito.
-            Facturas: propuesta.Facturas
-                .Select(f =>
-                {
-                    var cartera = facturas[f.FacturaUuid];
-                    return new PropuestaAplicacionFacturaDetalle(
-                        cartera.FacturaVentaId, cartera.Folio, f.ImporteAplicado);
-                })
-                .ToList(),
-            MovimientoBancarioId: propuesta.MovimientoBancarioId), cancellationToken);
+        // CXC-06: con ajuste, la propuesta espera la autorización de otra persona antes de llegar a Tesorería.
+        if (!propuesta.AjustePorAutorizar)
+            await PropuestaAplicacionMapper.PublicarCreadaAsync(
+                _eventos, propuesta, facturas.Values.ToDictionary(f => f.Id), _clock.UtcNow, cancellationToken, saldosInsolutos);
 
         await _db.SaveChangesAsync(cancellationToken);
         if (transaction is not null) await transaction.CommitAsync(cancellationToken);

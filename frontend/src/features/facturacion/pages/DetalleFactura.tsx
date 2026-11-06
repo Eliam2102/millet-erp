@@ -1,11 +1,16 @@
+import { problemaConsulta } from '@/components/erp/feedback/problema-consulta';
+import { formatMoney } from '@/lib/money';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { formatCantidad } from '@/lib/format-cantidad';
 import { DatosClienteFactura } from '../components/DatosClienteFactura';
 import { ErrorState } from '@/components/erp';
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { PageHeader } from '@/components/erp/PageHeader';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { TextAreaField } from '@/components/erp/forms/TextAreaField';
 import { Label } from '@/components/ui/label';
 import {
   Table,
@@ -34,6 +39,7 @@ import { EstadoReembolsoNcBadge } from '@/features/facturacion/components/Estado
 import { IntentosTimbradoPanel } from '@/features/facturacion/components/IntentosTimbradoPanel';
 import { SolicitarReembolsoNcDialog } from '@/features/facturacion/components/SolicitarReembolsoNcDialog';
 import { SustituirFacturaPanel } from '@/features/facturacion/components/SustituirFacturaPanel';
+import { NotasCreditoPendientesAviso } from '@/features/facturacion/components/NotasCreditoPendientesAviso';
 import { TimbradoFallidoBanner } from '@/features/facturacion/components/TimbradoFallidoBanner';
 import { TrazabilidadFacturacion } from '@/features/facturacion/components/TrazabilidadFacturacion';
 import { descargarArchivo } from '@/features/facturacion/lib/descargas';
@@ -41,7 +47,7 @@ import type { FacturasSearch } from '@/features/facturacion/lib/facturas-search-
 import { ETIQUETA_MOTIVO_NC, ETIQUETA_TIPO_RELACION } from '@/features/facturacion/lib/glosario';
 import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
 import { ChipTimbrado } from '@/features/facturacion/pages/BandejaFacturas';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { useFormIdempotencyKey } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
@@ -69,7 +75,7 @@ export function DetalleFactura() {
       {query.isError ? (
         <ErrorState
           title="No se pudo cargar la factura"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
+          problem={problemaConsulta(query.error)}
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading || query.data == null ? (
@@ -116,8 +122,8 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
       } else {
         await descargarArchivo(`${BASE}/${f.id}/pdf?formato=termica`, `${f.folio}-termica.pdf`);
       }
-    } catch (error) {
-      toast.error(esApiError(error) ? error.problem.title : 'No se pudo descargar el archivo.');
+    } catch {
+      toast.error('No se pudo descargar el archivo. Revisa tu conexión y vuelve a intentarlo.');
     }
   }
 
@@ -125,8 +131,8 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
   async function descargarNc(ncId: string, folio: string, tipo: 'xml' | 'pdf') {
     try {
       await descargarArchivo(`${NC_BASE}/${ncId}/${tipo}`, `${folio}.${tipo}`);
-    } catch (error) {
-      toast.error(esApiError(error) ? error.problem.title : 'No se pudo descargar el archivo.');
+    } catch {
+      toast.error('No se pudo descargar el archivo. Revisa tu conexión y vuelve a intentarlo.');
     }
   }
 
@@ -134,12 +140,12 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
     <div className="space-y-5">
       <DatosClienteFactura factura={f} puedeEditar={puedeEmitir} />
       {(f.noCertificadoEmisor || f.cadenaOriginalTimbre) && <dl className="space-y-2 text-sm">
-        <div><dt>Certificado del emisor</dt><dd className="font-mono">{f.noCertificadoEmisor ?? '—'}</dd></div>
-        <div><dt>Cadena original del timbre</dt><dd className="break-all font-mono text-xs">{f.cadenaOriginalTimbre ?? '—'}</dd></div>
+        <div><dt>Certificado del emisor</dt><dd className="font-mono">{f.noCertificadoEmisor || <span className="text-ink-muted">—</span>}</dd></div>
+        <div><dt>Cadena original del timbre</dt><dd className="break-all font-mono text-xs">{f.cadenaOriginalTimbre || <span className="text-ink-muted">—</span>}</dd></div>
       </dl>}
       <dl className="flex flex-wrap gap-5 text-sm tabular-nums">
-        <div><dt>Total de kilos</dt><dd>{f.lineas.some(l => l.pesoKg != null) ? formatCantidad(f.totalKg) : '—'}</dd></div>
-        <div><dt>Total de pies²</dt><dd>{f.lineas.some(l => l.areaPie2 != null) ? formatCantidad(f.totalPie2) : '—'}</dd></div>
+        <div><dt>Total de kilos</dt><dd>{f.lineas.some(l => l.pesoKg != null) ? formatCantidad(f.totalKg) : <span className="text-ink-muted">—</span>}</dd></div>
+        <div><dt>Total de pies²</dt><dd>{f.lineas.some(l => l.areaPie2 != null) ? formatCantidad(f.totalPie2) : <span className="text-ink-muted">—</span>}</dd></div>
         <div><dt>Total de piezas</dt><dd>{formatCantidad(f.totalPiezas)}</dd></div>
       </dl>
       {f.datosEmbarqueCe && <EmbarqueCeResumen datos={f.datosEmbarqueCe} />}
@@ -165,6 +171,7 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
                     size="sm"
                     onClick={() => descargar('xml')}
                     disabled={!timbrada}
+                    title={!timbrada ? 'El XML se genera al timbrar el comprobante.' : undefined}
                   >
                     <FileCode className="mr-1 h-4 w-4" />
                     XML
@@ -246,6 +253,7 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
         <AplicarAnticipoForm
           facturaId={f.id}
           clienteId={f.clienteId}
+          moneda={f.moneda}
           porCobrar={f.totalPorCobrar ?? 0}
           onDone={() => setAccion(null)}
         />
@@ -254,6 +262,7 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
         <NcBonificacionForm
           facturaId={f.id}
           totalFactura={f.total}
+          moneda={f.moneda}
           puedeReembolsar={puedeReembolsar}
           onDone={() => setAccion(null)}
         />
@@ -271,6 +280,8 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
         errorCodigo={f.timbradoErrorCodigo}
         errorMensaje={f.timbradoErrorMensaje}
       />
+
+      <NotasCreditoPendientesAviso notas={f.notasCreditoPendientes ?? []} />
 
       <AvisoSustitucion f={f} />
 
@@ -290,11 +301,7 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
             <Dato label="Moneda">{f.moneda}</Dato>
             <Dato label="Método de pago">{f.metodoPago ?? <span className="text-ink-muted">Sin método de pago</span>}</Dato>
             <Dato label="Fecha de timbrado">
-              {f.fechaTimbrado
-                ? new Date(f.fechaTimbrado).toLocaleString('es-MX', {
-                    timeZone: 'America/Mexico_City',
-                  })
-                : '—'}
+              <DateTimeDisplay value={f.fechaTimbrado} variant="datetime" />
             </Dato>
             <Dato label="Versión">{f.version}</Dato>
           </dl>
@@ -319,7 +326,7 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
                 <TableBody>
                   {f.lineas.map((l) => (
                     <TableRow key={l.posicion} className="border-t border-line">
-                      <TableCell className="px-3 py-2 text-ink-muted">{l.posicion}</TableCell>
+                      <TableCell className="px-3 py-2 text-right text-ink-muted tabular-nums">{l.posicion}</TableCell>
                       <TableCell className="px-3 py-2">{l.descripcion}
                         {l.referencia && <p className="text-xs text-ink-muted">{l.referencia}</p>}
                         {(l.pesoKg != null || l.areaPie2 != null) && <p className="text-xs text-ink-muted tabular-nums">Peso: {l.pesoKg ?? '—'} kg · Área: {l.areaPie2 ?? '—'} pies²</p>}
@@ -328,16 +335,16 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
                         {l.claveProdServSat} · {l.claveUnidadSat}
                       </TableCell>
                       <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
-                        {l.cantidad.toFixed(2)}
+                        {formatCantidad(l.cantidad)}
                       </TableCell>
                       <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
-                        {l.valorUnitario.toFixed(2)}
+                        {formatMoney({ amount: l.valorUnitario, currency: f.moneda })}
                       </TableCell>
                       <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
-                        {l.descuento.toFixed(2)}
+                        {formatMoney({ amount: l.descuento, currency: f.moneda })}
                       </TableCell>
                       <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
-                        {l.importe.toFixed(2)}
+                        {formatMoney({ amount: l.importe, currency: f.moneda })}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -394,10 +401,10 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
                             {ETIQUETA_MOTIVO_NC[nc.motivo] ?? nc.motivo}
                           </TableCell>
                           <TableCell className="px-3 py-2 font-mono text-xs">
-                            {nc.uuid ?? '—'}
+                            {nc.uuid || <span className="text-ink-muted">—</span>}
                           </TableCell>
                           <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
-                            {nc.total.toFixed(2)}
+                            {formatMoney({ amount: nc.total, currency: f.moneda })}
                           </TableCell>
                           <TableCell className="px-3 py-2">
                             {nc.reembolsoSolicitado || nc.estadoReembolso ? (
@@ -489,10 +496,10 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
                             {r.uuidRelacionado}
                           </TableCell>
                           <TableCell className="px-3 py-2 font-mono text-xs">
-                            {r.folio ?? '—'}
+                            {r.folio || <span className="text-ink-muted">—</span>}
                           </TableCell>
                           <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
-                            {r.total != null ? r.total.toFixed(2) : '—'}
+                            {r.total != null ? formatMoney({ amount: r.total, currency: f.moneda }) : <span className="text-ink-muted">—</span>}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -540,15 +547,15 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
                       {(envios.data ?? []).map((e) => (
                         <TableRow key={e.id} className="border-t border-line">
                           <TableCell className="px-3 py-2">{e.destinatario}</TableCell>
-                          <TableCell className="px-3 py-2">{e.estado}</TableCell>
+                          <TableCell className="px-3 py-2"><Badge variant={e.estado === 'Enviado' ? 'success' : e.estado === 'Fallido' ? 'danger' : 'warning'}>{e.estado === 'Enviado' ? 'Enviado' : e.estado === 'Fallido' ? 'Fallido' : 'Pendiente'}</Badge></TableCell>
                           <TableCell className="px-3 py-2 text-right tabular-nums">
                             {e.intentos}
                           </TableCell>
                           <TableCell className="px-3 py-2 text-xs text-ink-muted">
-                            {e.enviadoAt ? new Date(e.enviadoAt).toLocaleString('es-MX') : '—'}
+                            <DateTimeDisplay value={e.enviadoAt} variant="datetime" />
                           </TableCell>
                           <TableCell className="px-3 py-2 text-xs text-danger-fg">
-                            {e.ultimoError ?? '—'}
+                            {e.ultimoError ? 'No se pudo entregar el correo. Revisa el destinatario y solicita el reenvío.' : <span className="text-ink-muted">—</span>}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -579,12 +586,12 @@ function ReenviarCorreo({ facturaId }: { facturaId: string }) {
       { id: facturaId, destinatario: email, idempotencyKey },
       {
         onSuccess: () => {
-          toast.success('Reenvío encolado.');
+          toast.success('Correo pendiente de envío.');
           setDestinatario('');
         },
         onError: (error) => {
           if (mostrarErrorReceptorFiscal(error)) return;
-          toast.error(esApiError(error) ? error.problem.title : 'No se pudo reenviar.');
+          toast.error('No se pudo reenviar. Revisa tu conexión y vuelve a intentarlo.');
         },
       },
     );
@@ -658,20 +665,20 @@ function PedimentoForm({ facturaId }: { facturaId: string }) {
         <ErrorTimbradoAviso error={aplicar.error} />
       </div>
       <div className="sm:col-span-2">
-        <Label className="text-xs">Pedimento *</Label>
+        <Label htmlFor="pedimento-numero" className="text-xs">Pedimento *</Label>
         <Input
-          placeholder="15  47  3807  5000123"
+          id="pedimento-numero" placeholder="15  47  3807  5000123"
           value={pedimento}
           onChange={(e) => setPedimento(e.target.value)}
         />
       </div>
       <div>
-        <Label className="text-xs">Fecha doc. aduanero</Label>
-        <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+        <Label htmlFor="pedimento-fecha" className="text-xs">Fecha doc. aduanero</Label>
+        <Input id="pedimento-fecha" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
       </div>
       <div>
-        <Label className="text-xs">Identificación mercancía</Label>
-        <Input value={identificacion} onChange={(e) => setIdentificacion(e.target.value)} />
+        <Label htmlFor="pedimento-identificacion" className="text-xs">Identificación mercancía</Label>
+        <Input id="pedimento-identificacion" value={identificacion} onChange={(e) => setIdentificacion(e.target.value)} />
       </div>
       <div className="sm:col-span-4 flex justify-end">
         <Button size="sm" onClick={enviar} disabled={aplicar.isPending}>
@@ -691,16 +698,19 @@ function PedimentoForm({ facturaId }: { facturaId: string }) {
 function AplicarAnticipoForm({
   facturaId,
   clienteId,
+  moneda,
   porCobrar,
   onDone,
 }: {
   facturaId: string;
   clienteId: string;
+  moneda: string;
   porCobrar: number;
   onDone: () => void;
 }) {
   const [anticipo, setAnticipo] = useState<AnticipoEstadoCuenta | null>(null);
   const [importe, setImporte] = useState('');
+  const [comentarios, setComentarios] = useState<string | null>(null);
   const idempotencyKey = useFormIdempotencyKey();
   const aplicar = useAplicarAnticipoAFactura(facturaId);
   const tope = anticipo ? Math.min(anticipo.saldo, porCobrar) : porCobrar;
@@ -717,18 +727,18 @@ function AplicarAnticipoForm({
       return;
     }
     if (!(monto > 0) || monto > tope) {
-      toast.error(`El importe debe ser mayor a 0 y no exceder ${tope.toFixed(2)}.`);
+      toast.error(`El importe debe ser mayor a 0 y no exceder ${formatMoney({ amount: tope, currency: moneda })}.`);
       return;
     }
     aplicar.mutate(
-      { anticipoId: anticipo.anticipoId, importe: monto, idempotencyKey },
+      { anticipoId: anticipo.anticipoId, importe: monto, comentarios, idempotencyKey },
       {
         onSuccess: (res) => {
-          toast.success(`Anticipo aplicado con la NC ${res.folio} por ${res.importe.toFixed(2)}.`);
+          toast.success(`Anticipo aplicado con la NC ${res.folio} por ${formatMoney({ amount: res.importe, currency: moneda })}.`);
           onDone();
         },
-        onError: (error) =>
-          toast.error(esApiError(error) ? error.problem.title : 'No se pudo aplicar el anticipo.'),
+        onError: () =>
+          toast.error('No se pudo aplicar el anticipo. Revisa tu conexión y vuelve a intentarlo.'),
       },
     );
   }
@@ -761,7 +771,19 @@ function AplicarAnticipoForm({
           onChange={(e) => setImporte(e.target.value)}
         />
       </div>
-      <p className="self-end text-xs text-ink-muted">Por cobrar: {porCobrar.toFixed(2)}</p>
+      <p className="self-end text-xs text-ink-muted">Por cobrar: {formatMoney({ amount: porCobrar, currency: moneda })}</p>
+      <div className="sm:col-span-4">
+        <Label className="text-xs" htmlFor="aplicar-anticipo-comentarios">
+          Comentarios (se imprimen en la nota de crédito)
+        </Label>
+        <TextAreaField
+          value={comentarios}
+          onChange={setComentarios}
+          minRows={2}
+          maxLength={1000}
+          textareaProps={{ id: 'aplicar-anticipo-comentarios' }}
+        />
+      </div>
       <div className="sm:col-span-4 flex justify-end gap-2">
         <Button variant="ghost" size="sm" onClick={onDone} disabled={aplicar.isPending}>
           Cancelar
@@ -777,17 +799,20 @@ function AplicarAnticipoForm({
 function NcBonificacionForm({
   facturaId,
   totalFactura,
+  moneda,
   puedeReembolsar,
   onDone,
 }: {
   facturaId: string;
   totalFactura: number;
+  moneda: string;
   puedeReembolsar: boolean;
   onDone: () => void;
 }) {
   const [montoTotal, setMontoTotal] = useState('');
   const [tasaIva, setTasaIva] = useState('0.16');
   const [descripcion, setDescripcion] = useState('');
+  const [comentarios, setComentarios] = useState<string | null>(null);
   // F6.3: «Devolver dinero al cliente» con la cuenta destino; al timbrar, la solicitud llega a Tesorería.
   const [devolver, setDevolver] = useState(false);
   const [banco, setBanco] = useState('');
@@ -813,6 +838,7 @@ function NcBonificacionForm({
           montoTotal: monto,
           tasaIva: tasaIva.trim() === '' ? null : Number(tasaIva),
           descripcion: descripcion.trim() || null,
+          comentarios,
           reembolso: devolver
             ? { banco: banco.trim(), clabe: clabe.trim(), titular: titular.trim() }
             : null,
@@ -821,12 +847,12 @@ function NcBonificacionForm({
       },
       {
         onSuccess: (res) => {
-          toast.success(`NC ${res.folio} emitida por ${res.total.toFixed(2)}.`);
+          toast.success(`NC ${res.folio} emitida por ${formatMoney({ amount: res.total, currency: moneda })}.`);
           onDone();
         },
         onError: (error) => {
           if (mostrarErrorReceptorFiscal(error)) return;
-          toast.error(esApiError(error) ? error.problem.title : 'No se pudo emitir la NC.');
+          toast.error('No se pudo emitir la NC. Revisa tu conexión y vuelve a intentarlo.');
         },
       },
     );
@@ -844,29 +870,41 @@ function NcBonificacionForm({
         <ErrorTimbradoAviso error={emitir.error} />
       </div>
       <div>
-        <Label className="text-xs">Monto total *</Label>
+        <Label htmlFor="nc-monto" className="text-xs">Monto total *</Label>
         <Input
           type="number"
           step="0.01"
           min="0"
-          value={montoTotal}
+          id="nc-monto" value={montoTotal}
           onChange={(e) => setMontoTotal(e.target.value)}
         />
       </div>
       <div>
-        <Label className="text-xs">Tasa IVA</Label>
+        <Label htmlFor="nc-tasa" className="text-xs">Tasa IVA</Label>
         <Input
           type="number"
           step="0.01"
           min="0"
           max="1"
-          value={tasaIva}
+          id="nc-tasa" value={tasaIva}
           onChange={(e) => setTasaIva(e.target.value)}
         />
       </div>
       <div className="sm:col-span-2">
-        <Label className="text-xs">Descripción</Label>
-        <Input value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
+        <Label htmlFor="nc-descripcion" className="text-xs">Descripción</Label>
+        <Input id="nc-descripcion" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
+      </div>
+      <div className="sm:col-span-4">
+        <Label className="text-xs" htmlFor="nc-bonificacion-comentarios">
+          Comentarios (se imprimen en la nota de crédito)
+        </Label>
+        <TextAreaField
+          value={comentarios}
+          onChange={setComentarios}
+          minRows={2}
+          maxLength={1000}
+          textareaProps={{ id: 'nc-bonificacion-comentarios' }}
+        />
       </div>
       {puedeReembolsar && (
         <div className="sm:col-span-4 flex items-center gap-2">

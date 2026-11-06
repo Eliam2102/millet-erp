@@ -1,3 +1,6 @@
+import { problemaConsulta } from '@/components/erp/feedback/problema-consulta';
+import { formatMoney } from '@/lib/money';
+import { formatCantidad } from '@/lib/format-cantidad';
 import { AvisoEnLinea, ErrorState } from '@/components/erp';
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { PageHeader } from '@/components/erp/PageHeader';
@@ -13,15 +16,23 @@ import {
 } from '@/components/ui/table';
 import { facturacionKeys } from '@/features/facturacion/api/keys';
 import { ComportamientoFiscal } from '@/features/facturacion/api/types';
-import { usePedido, usePedidoComprobantes } from '@/features/facturacion/api/usePedidos';
+import {
+  usePedido,
+  usePedidoComprobantes,
+  usePedidoSalidas,
+} from '@/features/facturacion/api/usePedidos';
 import { useGenerarProforma, useUltimaProforma } from '@/features/facturacion/api/useProformas';
-import type { ProformaPedidoResponse } from '@/features/facturacion/api/types';
+import type {
+  ProformaPedidoResponse,
+  SalidaFacturableItem,
+} from '@/features/facturacion/api/types';
 import { ClasePedidoBadge } from '@/features/facturacion/components/ClasePedidoBadge';
 import { BadgeCredito } from '@/features/facturacion/components/BadgeCredito';
 import { AvisoCobrarEnCaja } from '@/features/facturacion/components/CobrarEnCajaLink';
 import { EmitirFacturaForm } from '@/features/facturacion/components/emitir-factura/EmitirFacturaForm';
 import { EstadoFacturacionBadge } from '@/features/facturacion/components/EstadoFacturacionBadge';
 import { ProformaPedidoCard } from '@/features/facturacion/components/ProformaPedidoCard';
+import { SalidasPedido } from '@/features/facturacion/components/SalidasPedido';
 import { VisorProformaDialog } from '@/features/facturacion/components/VisorProformaDialog';
 import { useNuevoPedido } from '@/features/facturacion/components/nuevo-pedido-context';
 import { TrazabilidadFacturacion } from '@/features/facturacion/components/TrazabilidadFacturacion';
@@ -31,7 +42,6 @@ import {
 } from '@/features/facturacion/lib/glosario';
 import type { PedidosSearch } from '@/features/facturacion/lib/pedidos-search-schema';
 import { ChipTimbrado } from '@/features/facturacion/pages/BandejaFacturas';
-import { esApiError } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { useQueryClient } from '@tanstack/react-query';
@@ -61,7 +71,7 @@ export function DetallePedido() {
       {/* Sub-topbar del detalle (§6.5): cerrar vuelve a la bandeja
           preservando los filtros activos. */}
       <div
-        className="sticky top-0 z-10 flex items-center justify-end gap-2 border-b bg-surface-page/95 pb-2 backdrop-blur border-line"
+        className="sticky top-0 z-10 flex items-center justify-end gap-2 border-b bg-surface-page pb-2 border-line"
         data-print="hidden"
       >
         <Button variant="ghost" size="sm" asChild aria-label="Cerrar detalle">
@@ -74,7 +84,7 @@ export function DetallePedido() {
       {query.isError ? (
         <ErrorState
           title="No se pudo cargar el pedido"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
+          problem={problemaConsulta(query.error)}
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading || query.data == null ? (
@@ -105,11 +115,16 @@ function Contenido({
   const queryClient = useQueryClient();
   const nuevoPedido = useNuevoPedido();
   const [modoEmision, setModoEmision] = useState(false);
+  // FAC-08: parcialidad que se está facturando (null = el pedido completo).
+  const [salidaEnEmision, setSalidaEnEmision] = useState<SalidaFacturableItem | null>(null);
   const [emitida, setEmitida] = useState<{ id: string; folio: string } | null>(null);
   const puedeEmitir = useHasPermission(PermisosCanonicos.FacturacionFacturasEmitir);
   const puedeEditar = useHasPermission(PermisosCanonicos.FacturacionPedidosCapturar);
   const puedeLeerFacturas = useHasPermission(PermisosCanonicos.FacturacionFacturasLeer);
   const facturable = p.estado === 'Importado';
+  // FAC-08: un pedido con salidas parciales se factura por salida, no completo.
+  const salidas = usePedidoSalidas(p.id, puedeLeerFacturas);
+  const haySalidas = (salidas.data?.salidas.length ?? 0) > 0;
   // U1.8a: proforma sin valor fiscal (no consume folio) antes de timbrar.
   const ultimaProforma = useUltimaProforma(p.id, puedeLeerFacturas);
   const generarProforma = useGenerarProforma();
@@ -140,11 +155,9 @@ function Contenido({
           });
           setProformaEnVisor(proforma);
         },
-        onError: (error) => {
+        onError: () => {
           toast.error('No se pudo generar la proforma.', {
-            description: esApiError(error)
-              ? (error.problem.detail ?? error.problem.title)
-              : 'Revisa tu conexión y vuelve a intentarlo.',
+            description: 'Revisa los datos del pedido y tu conexión antes de volver a intentarlo.',
           });
         },
       },
@@ -157,6 +170,28 @@ function Contenido({
   // F6.1: pedido manual legacy sin clase → no se puede facturar hasta clasificarlo.
   const manualSinClase = p.origen === 'Manual' && p.claseManual == null;
   const esEmergencia = p.esEmergencia === true || p.claseManual === 'Emergencia';
+  const bloqueoEmision = manualSinClase
+    ? 'Clasifica el pedido (venta directa o emergencia) antes de facturarlo.'
+    : undefined;
+
+  function cerrarEmision() {
+    setModoEmision(false);
+    setSalidaEnEmision(null);
+  }
+
+  // FAC-08: con parcialidad, las partidas son las de la salida (mismas
+  // posiciones y cantidades, en orden). El descuento sale del importe que la
+  // salida ya calculó, así la suma de las facturas cuadra con el pedido.
+  const lineasEmision = salidaEnEmision
+    ? [...salidaEnEmision.lineas]
+        .sort((a, b) => a.posicion - b.posicion)
+        .flatMap((sl) => {
+          const l = p.lineas.find((x) => x.posicion === sl.posicion);
+          if (l == null) return [];
+          const bruto = sl.cantidad * l.precio;
+          return [{ l, cantidad: sl.cantidad, descuento: Math.max(0, redondear2(bruto - sl.importe)) }];
+        })
+    : p.lineas.map((l) => ({ l, cantidad: l.cantidad, descuento: l.descuento }));
 
   if (modoEmision) {
     return (
@@ -169,11 +204,16 @@ function Contenido({
             estado={<ChipEstadoPedido estado={p.estado} />}
           />
           <ClasePedidoBadge clasificacion={p} />
-          <span className="text-sm text-ink-muted">Emitiendo factura · {p.clienteNombre}</span>
+          <span className="text-sm text-ink-muted">
+            Emitiendo factura · {p.clienteNombre}
+            {salidaEnEmision && ` · parcialidad ${salidaEnEmision.numeroParcialidad}`}
+          </span>
         </div>
         <EmitirFacturaForm
           prefill={{
             pedidoFacturableId: p.id,
+            salidaFacturableId: salidaEnEmision?.id ?? null,
+            numeroParcialidad: salidaEnEmision?.numeroParcialidad ?? null,
             embarqueCe: p.embarqueCe,
             // F6.1: clase del pedido manual (serie de Venta directa, activo).
             origen: p.origen,
@@ -204,14 +244,14 @@ function Contenido({
             referenciaCliente: p.numeroPedido,
             observaciones: p.comentarios,
             condicionesPago: p.condicionPagoOrigen,
-            lineas: p.lineas.map((l) => ({
+            lineas: lineasEmision.map(({ l, cantidad, descuento }) => ({
               productoId: l.productoId,
               claveProdServSat: l.claveProdServSat ?? '',
               descripcion: l.productoDescripcion,
               claveUnidadSat: l.claveUnidadSat ?? '',
-              cantidad: l.cantidad,
+              cantidad,
               valorUnitario: l.precio,
-              descuento: l.descuento,
+              descuento,
               requierePedimento: l.requierePedimento,
               objetoImp: l.objetoImp,
               tasaIvaTraslado: l.tasaIvaTraslado,
@@ -219,11 +259,11 @@ function Contenido({
               tasaRetencionIsr: l.tasaRetencionIsr,
             })),
           }}
-          onCancel={() => setModoEmision(false)}
+          onCancel={cerrarEmision}
           onEditarPedido={
             puedeEditar && editable
               ? () => {
-                  setModoEmision(false);
+                  cerrarEmision();
                   nuevoPedido.abrir(p);
                 }
               : undefined
@@ -233,7 +273,7 @@ function Contenido({
             void queryClient.invalidateQueries({
               queryKey: facturacionKeys.pedidos(),
             });
-            setModoEmision(false);
+            cerrarEmision();
           }}
         />
       </div>
@@ -293,11 +333,11 @@ function Contenido({
           {puedeEmitir && facturable && (
             <Button
               onClick={() => setModoEmision(true)}
-              disabled={manualSinClase}
+              disabled={manualSinClase || haySalidas}
               title={
-                manualSinClase
-                  ? 'Clasifica el pedido (venta directa o emergencia) antes de facturarlo.'
-                  : undefined
+                haySalidas
+                  ? 'El pedido se factura por salidas parciales: factura cada parcialidad en «Salidas parciales».'
+                  : bloqueoEmision
               }
             >
               <Receipt className="mr-2 h-4 w-4" />
@@ -325,7 +365,7 @@ function Contenido({
           <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="space-y-0.5 sm:col-span-2">
               <dt className="text-xs text-ink-muted">Motivo</dt>
-              <dd className="text-sm text-ink">{p.motivoEmergencia ?? '—'}</dd>
+              <dd className="text-sm text-ink">{p.motivoEmergencia || <span className="text-ink-muted">—</span>}</dd>
             </div>
             <div className="space-y-0.5">
               <dt className="text-xs text-ink-muted">Pedido A+W para conciliar</dt>
@@ -401,25 +441,25 @@ function Contenido({
             <TableBody>
               {p.lineas.map((l) => (
                 <TableRow key={l.posicion} className="border-t border-line">
-                  <TableCell className="px-3 py-2 text-ink-muted">{l.posicion}</TableCell>
+                  <TableCell className="px-3 py-2 text-right text-ink-muted tabular-nums">{l.posicion}</TableCell>
                   <TableCell className="px-3 py-2">{l.productoDescripcion}</TableCell>
                   {mostrarSat && (
                     <TableCell className="px-3 py-2 font-mono text-xs">
-                      {l.claveProdServSat ?? '—'} · {l.claveUnidadSat ?? '—'}
+                      {l.claveProdServSat || <span className="text-ink-muted">—</span>} · {l.claveUnidadSat || <span className="text-ink-muted">—</span>}
                     </TableCell>
                   )}
                   <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
-                    {l.cantidad.toFixed(2)}
+                    {formatCantidad(l.cantidad)}
                   </TableCell>
                   <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
-                    {l.precio.toFixed(2)}
+                    {formatMoney({ amount: l.precio, currency: p.moneda })}
                   </TableCell>
                   <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
-                    {l.descuento.toFixed(2)}
+                    {formatMoney({ amount: l.descuento, currency: p.moneda })}
                   </TableCell>
                   {mostrarPedimento && (
                     <TableCell className="px-3 py-2 text-center">
-                      {l.requierePedimento ? 'Sí' : '—'}
+                      {l.requierePedimento ? 'Sí' : <span className="text-ink-muted">—</span>}
                     </TableCell>
                   )}
                 </TableRow>
@@ -432,13 +472,29 @@ function Contenido({
         {p.ranura != null && p.ranura > 0 && (
           <p className="text-right text-sm text-warning-fg tabular-nums">
             Ranura (descuento del pedido — la factura va por el total; se documenta con nota de
-            crédito y la caja cobra el neto): −{p.ranura.toFixed(2)} {p.moneda}
+            crédito y la caja cobra el neto): −{formatMoney({ amount: p.ranura, currency: p.moneda })}
           </p>
         )}
         <p className="text-xs text-ink-muted">
           Los impuestos y el total fiscal se calculan al preparar la factura.
         </p>
       </section>
+
+      {puedeLeerFacturas && (
+        <SalidasPedido
+          pedidoId={p.id}
+          moneda={p.moneda}
+          facturable={facturable}
+          puedeCapturar={puedeEditar}
+          puedeEmitir={puedeEmitir}
+          bloqueoEmision={bloqueoEmision}
+          salidas={salidas}
+          onFacturarSalida={(s) => {
+            setSalidaEnEmision(s);
+            setModoEmision(true);
+          }}
+        />
+      )}
 
       {(p.anticiposLigados?.length ?? 0) > 0 && (
         <section className="space-y-2">
@@ -461,12 +517,12 @@ function Contenido({
                   <TableRow key={a.anticipoId} className="border-t border-line">
                     <TableCell className="px-3 py-2 font-mono text-xs">{a.folio}</TableCell>
                     <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
-                      {a.montoCobrado.toFixed(2)}
+                      {formatMoney({ amount: a.montoCobrado, currency: p.moneda })}
                     </TableCell>
                     <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
-                      {a.saldo.toFixed(2)}
+                      {formatMoney({ amount: a.saldo, currency: p.moneda })}
                     </TableCell>
-                    <TableCell className="px-3 py-2">{a.estado}</TableCell>
+                    <TableCell className="px-3 py-2"><EstadoFacturacionBadge entidad="anticipo" estado={a.estado} /></TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -501,16 +557,16 @@ function Contenido({
                   <TableRow key={c.id} className="border-t hover:bg-surface-muted/30 border-line">
                     <TableCell className="px-3 py-2 font-mono text-xs">{c.folio}</TableCell>
                     <TableCell className="px-3 py-2 font-mono text-xs">
-                      {c.uuid ? `${c.uuid.slice(0, 8)}…${c.uuid.slice(-4)}` : '—'}
+                      {c.uuid ? `${c.uuid.slice(0, 8)}…${c.uuid.slice(-4)}` : <span className="text-ink-muted">—</span>}
                     </TableCell>
                     <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
-                      {c.total.toFixed(2)} {c.moneda}
+                      {formatMoney({ amount: c.total, currency: c.moneda })}
                     </TableCell>
                     <TableCell className="px-3 py-2">
                       <ChipTimbrado estado={c.estado} />
                     </TableCell>
                     <TableCell className="px-3 py-2 text-center">
-                      {c.vigente ? <Badge variant="success">Vigente</Badge> : '—'}
+                      {c.vigente ? <Badge variant="success">Vigente</Badge> : <span className="text-ink-muted">—</span>}
                     </TableCell>
                     <TableCell className="px-3 py-2 text-right tabular-nums">
                       <Link
@@ -537,6 +593,10 @@ function Contenido({
 
 export function ChipEstadoPedido({ estado }: { estado: string }) {
   return <EstadoFacturacionBadge entidad="pedido" estado={estado} />;
+}
+
+function redondear2(v: number): number {
+  return Math.round(v * 100) / 100;
 }
 
 function Dato({ label, children }: { label: string; children: React.ReactNode }) {

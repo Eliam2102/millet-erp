@@ -73,6 +73,20 @@ public sealed class DepositoConfirmacion : BaseEntity, IPerteneceAEmpresa, IAudi
     /// del depósito con que el empleado devuelve la diferencia negativa
     /// de su liquidación. Null para propuestas CxC y expectativas de Caja.
     /// </summary>
+    public DateOnly? FechaMinimaCe { get; private set; }
+    public Guid? DevolucionCeId { get; private set; }
+    public Guid? AnticipoAgenteId { get; private set; }
+    public Guid? AgenteCeId { get; private set; }
+    public static DepositoConfirmacion CrearExpectativaCe(Guid empresa, Guid sucursal, Guid devolucion,
+        Guid anticipo, Guid agente, decimal importe, string folio, Guid? registradoPor = null, DateOnly? fechaComprobacion = null)
+    {
+        if (empresa == Guid.Empty || sucursal == Guid.Empty || devolucion == Guid.Empty || anticipo == Guid.Empty ||
+            agente == Guid.Empty || importe <= 0 || decimal.Round(importe, 2) != importe)
+            throw new BusinessRuleException("DEP_ORIGEN_CE_INVALIDO", "Revise las referencias y el importe de la devolución al agente.");
+        return new() { Id = Guid.CreateVersion7(), EmpresaId = empresa, SucursalId = sucursal,
+            DevolucionCeId = devolucion, AnticipoAgenteId = anticipo, AgenteCeId = agente,
+            FechaMinimaCe = fechaComprobacion, PropuestoPor = registradoPor, DepositoRef = $"Devolución CE {folio}", MontoEsperado = importe, Moneda = "MXN" };
+    }
     public Guid? SolicitudViaticosId { get; private set; }
 
     /// <summary>Se marca al consumir <c>facturacion.recibo-pago.timbrado.v1</c> (ciclo fiscal cerrado).</summary>
@@ -97,7 +111,33 @@ public sealed class DepositoConfirmacion : BaseEntity, IPerteneceAEmpresa, IAudi
     public Guid? ResueltaPor { get; private set; }
     public DateTimeOffset? ResueltaEn { get; private set; }
 
+    /// <summary>86e3ke6yn: se confirmó sola al importar el extracto (regla automática), no a mano.</summary>
+    public bool ConfirmacionAutomatica { get; private set; }
+    public string? ReglaAutomatica { get; private set; }
+
+    /// <summary>86e3ke6yn: línea del extracto que coincidió con la propuesta (auto o en revisión).</summary>
+    public Guid? ExtractoLineaId { get; private set; }
+
+    /// <summary>86e3ke6yn: por qué la regla automática no confirmó; el depósito sigue pendiente para un humano.</summary>
+    public string? MotivoRevision { get; private set; }
+
     private DepositoConfirmacion() { }
+
+    public void MarcarConfirmacionAutomatica(string regla, Guid extractoLineaId)
+    {
+        ConfirmacionAutomatica = true;
+        ReglaAutomatica = regla;
+        ExtractoLineaId = extractoLineaId;
+        MotivoRevision = null;
+    }
+
+    public void MarcarEnRevision(string motivo, Guid extractoLineaId)
+    {
+        ConfirmacionAutomatica = false;
+        ReglaAutomatica = null;
+        ExtractoLineaId = extractoLineaId;
+        MotivoRevision = motivo.Length > 400 ? motivo[..400] : motivo;
+    }
 
     /// <summary>Proyección de <c>cuentas_por_cobrar.propuesta-aplicacion.creada.v1</c> (listener PR-7).</summary>
     public static DepositoConfirmacion CrearDesdePropuesta(
@@ -225,6 +265,8 @@ public sealed class DepositoConfirmacion : BaseEntity, IPerteneceAEmpresa, IAudi
             throw new BusinessRuleException("DEP_USUARIO_VACIO", "El usuario que confirma es obligatorio.");
         if (PropuestaCxcId is not null && (PropuestoPor is null || PropuestoPor == Guid.Empty))
             throw new BusinessRuleException("DEP_PROPONENTE_NO_IDENTIFICADO", "La propuesta no identifica quién la creó. Recházala y solicita una nueva a CxC.");
+        if (DevolucionCeId is not null && PropuestoPor is null)
+            throw new BusinessRuleException("CE_REGISTRADOR_NO_IDENTIFICADO", "La devolución no identifica quién la registró.");
         if (PropuestoPor == usuarioId)
             throw new BusinessRuleException("DEP_MISMO_USUARIO", "Quien propone el cobro no puede confirmarlo. Solicita la confirmación a otra persona de Tesorería.");
         if (movimiento.Sentido != SentidoMovimiento.Ingreso)
@@ -249,6 +291,10 @@ public sealed class DepositoConfirmacion : BaseEntity, IPerteneceAEmpresa, IAudi
         if (porAplicar <= 0 || (PropuestaCxcId is null && movimiento.EstadoAplicacion != EstadoAplicacionMovimiento.NoAplicado))
             throw new BusinessRuleException("DEP_MOVIMIENTO_YA_APLICADO",
                 "El movimiento ya está aplicado a otro documento.");
+        if (DevolucionCeId is not null && movimiento.FechaValor < FechaMinimaCe)
+            throw new BusinessRuleException("CE_DEPOSITO_FECHA_INVALIDA", "El depósito debe ser posterior o igual a la comprobación.");
+        if (DevolucionCeId is not null && MontoEsperado != porAplicar)
+            throw new BusinessRuleException("DEP_MONTO_NO_COINCIDE", "El depósito debe coincidir con la devolución aprobada de Comercio Exterior.");
         if (Moneda is not null && movimiento.Moneda != Moneda)
             throw new BusinessRuleException("DEP_MONEDA_DISTINTA",
                 $"El movimiento es {movimiento.Moneda} y el depósito esperado es {Moneda}.");

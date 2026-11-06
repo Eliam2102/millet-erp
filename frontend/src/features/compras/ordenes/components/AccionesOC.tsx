@@ -1,3 +1,4 @@
+import { TOAST_CANCELACION_REGISTRADA } from '@/features/compras/ordenes/lib/cancelacion';
 import type { RevisionPreviaOc } from '@/features/compras/ordenes/lib/revision-previa-oc';
 import { ConMotivo } from '@/features/compras/components/ConMotivo';
 import { useState } from 'react';
@@ -17,7 +18,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useFormIdempotencyKey } from '@/lib/api';
-import { mensajeErrorAccion } from '@/lib/api/error';
+import { errorUsuario as mensajeErrorAccion } from '@/lib/error-usuario';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialog-context';
@@ -184,7 +185,7 @@ export function AccionesOC({ oc, revision }: AccionesOCProps) {
             data-action="aprobar-n1"
           >
             <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
-            Aprobar Nivel 1
+            Aprobar nivel 1
           </Button>
         </ConMotivo>
       )}
@@ -198,7 +199,7 @@ export function AccionesOC({ oc, revision }: AccionesOCProps) {
             data-action="aprobar-n2"
           >
             <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
-            Aprobar Nivel 2
+            Aprobar nivel 2
           </Button>
         </ConMotivo>
       )}
@@ -301,7 +302,7 @@ export function AccionesOC({ oc, revision }: AccionesOCProps) {
         descripcion={
           oc.estado === /* EnAutorizacionJefeCompras */ 2
             ? 'Esta OC volverá a Rechazada y el comprador podrá editar y re-transmitir. Selecciona un motivo del catálogo.'
-            : 'Esta OC volverá a Rechazada (vuelve al inbox del comprador). Selecciona un motivo del catálogo.'
+            : "La orden volverá al comprador como rechazada; elige un motivo del catálogo."
         }
         aplicaA={MotivoRechazoAplicaA.OrdenCompra as MotivoRechazoAplicaA}
         ctaLabel="Rechazar"
@@ -342,7 +343,7 @@ export function AccionesOC({ oc, revision }: AccionesOCProps) {
         open={cancelar1Open}
         onOpenChange={setCancelar1Open}
         titulo={`Cancelar OC ${oc.folio}`}
-        descripcion="Esta OC pasará a estado Cancelada. Si está autorizada sin recepciones, las RQs de origen se liberan completas. Selecciona un motivo del catálogo."
+        descripcion="Esta OC pasará a estado Cancelada y, si está autorizada sin recepciones, las RQs de origen se liberan completas. Si ya se envió a Almacenes, queda como «cancelación solicitada a Almacenes» hasta que Almacenes responda (si ya tiene entrada, no procede). Selecciona un motivo del catálogo."
         aplicaA={MotivoRechazoAplicaA.Cancelacion as MotivoRechazoAplicaA}
         ctaLabel="Cancelar OC"
         isPending={cancelarMut.isPending}
@@ -356,7 +357,7 @@ export function AccionesOC({ oc, revision }: AccionesOCProps) {
               },
               idempotencyKey: crypto.randomUUID(),
             });
-            toast.success(`OC ${oc.folio} cancelada.`);
+            toast.success(TOAST_CANCELACION_REGISTRADA(oc.folio));
             setCancelar1Open(false);
           } catch (err) {
             if (
@@ -389,7 +390,7 @@ export function AccionesOC({ oc, revision }: AccionesOCProps) {
               command: values,
               idempotencyKey: crypto.randomUUID(),
             });
-            toast.success(`Cancelación de OC ${oc.folio} solicitada. Pendiente de Dirección.`);
+            toast.success(`Cancelación de OC ${oc.folio} solicitada. Pendiente de Dirección (y, si ya está en Almacenes, de su respuesta).`);
             setCancelarDobleOpen(false);
           } catch (err) {
             if (
@@ -564,7 +565,7 @@ function getConfig(action: Exclude<ConfirmAction, null>, folio: string) {
     return {
       titulo: `¿Transmitir OC ${folio} a autorización?`,
       descripcion:
-        'La OC entrará al inbox de Nivel 1 (Jefe Compras). Los campos quedan congelados; cualquier ajuste posterior requiere rechazo + re-transmisión.',
+        "La orden pasará a la bandeja del jefe de Compras; para ajustarla deberá rechazarse y enviarse de nuevo a autorización.",
       cta: 'Transmitir',
     };
   }
@@ -572,8 +573,8 @@ function getConfig(action: Exclude<ConfirmAction, null>, folio: string) {
     return {
       titulo: `¿Aprobar OC ${folio} (Nivel 1)?`,
       descripcion:
-        'La OC pasará al inbox de Nivel 2 (Dirección). Tu firma queda registrada en el histórico de autorización.',
-      cta: 'Aprobar Nivel 1',
+        "La orden pasará a la bandeja de Dirección y tu firma quedará en el historial de autorización.",
+      cta: "Aprobar nivel 1",
     };
   }
   // aprobar-n2
@@ -581,6 +582,6 @@ function getConfig(action: Exclude<ConfirmAction, null>, folio: string) {
     titulo: `¿Aprobar OC ${folio} (Nivel 2)?`,
     descripcion:
       'La OC pasará a Autorizada — se genera el PDF, se asigna la fecha de contabilización y se notifica al proveedor. No se puede revertir sin Cancelar (1 firma o doble firma).',
-    cta: 'Aprobar Nivel 2',
+    cta: "Aprobar nivel 2",
   };
 }

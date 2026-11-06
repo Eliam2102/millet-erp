@@ -23,7 +23,9 @@ namespace Millet.Facturacion.Application.Timbrado.DescartarComprobante;
 /// <item><c>FacturaAnticipo</c>: cancela el agregado <c>Anticipo</c> (se creó
 /// en la emisión aunque el timbre fallara; sin CFDI vigente no debe quedar
 /// amortizable).</item>
-/// <item>NC / REPP / Carta Porte: sin efectos adicionales (una fallida no
+/// <item>NC de amortización pendiente (U-1): libera el importe comprometido
+/// con su factura en el anticipo.</item>
+/// <item>Otras NC / REPP / Carta Porte: sin efectos adicionales (una fallida no
 /// aplicó saldos ni publicó eventos).</item>
 /// </list>
 /// </summary>
@@ -80,6 +82,18 @@ public sealed class DescartarComprobanteHandler
                 var anticipo = await _db.Anticipos
                     .FirstOrDefaultAsync(a => a.FacturaAnticipoId == comprobante.Id, cancellationToken);
                 anticipo?.Cancelar();
+                break;
+
+            // U-1 (86e3yxn2p): descartar la NC de amortización pendiente libera el
+            // importe que quedó comprometido con su factura.
+            case Millet.Facturacion.Domain.NotasCredito.NotaCredito
+            {
+                Motivo: Millet.Facturacion.Domain.NotasCredito.MotivoNotaCredito.Amortizacion,
+                AnticipoOrigenId: { } anticipoOrigenId, FacturaRelacionadaId: { } facturaRelacionadaId,
+            }:
+                var anticipoNc = await _db.Anticipos.Include(a => a.Vinculaciones)
+                    .FirstOrDefaultAsync(a => a.Id == anticipoOrigenId, cancellationToken);
+                anticipoNc?.LiberarVinculacion(facturaRelacionadaId);
                 break;
         }
 

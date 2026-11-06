@@ -1,3 +1,4 @@
+using Millet.Catalogos.Domain;
 using Microsoft.EntityFrameworkCore;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Compras.Application.Matriz;
@@ -116,9 +117,25 @@ public sealed class EvaluadorMultidimensionalModoTests
     }
 
     [Fact]
-    public async Task Sin_Umbral_Vigente_Exige_N2()
+    public async Task Sin_Umbral_Vigente_Queda_Pendiente_De_Configurar_Aprobador()
     {
         var nivel = await EvaluarAsync(null, 20_000m, null, 100m, 1m, 10m);
+
+        Assert.Equal(RequiereNivel.SinPolitica, nivel);
+    }
+
+    [Fact]
+    public async Task Articulo_Critico_Sin_Umbral_Vigente_Tambien_Queda_Pendiente_De_Politica()
+    {
+        var nivel = await EvaluarAsync(null, 20_000m, null, 100m, 1m, 10m, naturaleza: Naturaleza.Critico);
+
+        Assert.Equal(RequiereNivel.SinPolitica, nivel);
+    }
+
+    [Fact]
+    public async Task Articulo_Critico_Con_Umbral_Vigente_Sigue_Forzando_N2()
+    {
+        var nivel = await EvaluarAsync(ModoNivel2.SoloMonto, 20_000m, null, 100m, 1m, 10m, naturaleza: Naturaleza.Critico);
 
         Assert.Equal(RequiereNivel.N1YN2, nivel);
     }
@@ -170,7 +187,8 @@ public sealed class EvaluadorMultidimensionalModoTests
         decimal disponible,
         bool esServicio = false,
         Guid? departamentoFila = null,
-        List<Guid>? consultas = null)
+        List<Guid>? consultas = null,
+        Naturaleza naturaleza = Naturaleza.Estandar)
     {
         var dbName = Guid.NewGuid().ToString();
         var empresa = new BypassedEmpresaContext();
@@ -186,6 +204,12 @@ public sealed class EvaluadorMultidimensionalModoTests
                 Empresa, departamentoFila ?? Departamento, hoy.AddDays(-1), umbral,
                 modoNivel2: m, montoMinimoDisponibilidad: minimo));
             await db.SaveChangesAsync();
+        }
+
+        if (naturaleza != Naturaleza.Estandar)
+        {
+            compartido.Articulos.Add(new Millet.DatosMaestros.Domain.Articulo(Articulo, "ART-CRIT", "Refacción crítica", "PZA", naturaleza));
+            await compartido.SaveChangesAsync();
         }
 
         var requisicion = new Requisicion(

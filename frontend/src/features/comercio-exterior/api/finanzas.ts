@@ -18,6 +18,7 @@ export interface Gasto {
   proveedorId: string;
   factura: string;
   facturaProveedorId: string | null;
+  impuestoPeca?: boolean;
   moneda: string;
   importe: number;
   importeMxn: number;
@@ -74,6 +75,16 @@ export interface Distribucion {
   }[];
 }
 export interface Anticipo {
+  fechaPago?: string | null;
+  soporteCalculoId?: string | null;
+  referenciaPago?: string | null;
+  devolucionPendienteId?: string | null;
+  historialComprobaciones?: {
+    impuestos: { iva: number; igi: number; prv: number };
+    gastosMxn: number;
+    fecha: string;
+    motivo: string;
+  }[];
   cuentaPeca?: boolean;
   id: string;
   agenteId: string;
@@ -111,6 +122,14 @@ export interface OrdenServicioResumen {
   diferencia: number;
 }
 export interface Finanzas {
+  autorizaciones?: {
+    anticipoId: string;
+    estado: string;
+    nivel1UsuarioId: string | null;
+    nivel1En: string | null;
+    nivel2UsuarioId: string | null;
+    nivel2En: string | null;
+  }[];
   ordenesServicio: OrdenServicioResumen[];
   nombres: Record<string, string>;
   version: number;

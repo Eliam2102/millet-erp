@@ -14,6 +14,10 @@ const cierre = vi.hoisted(() => ({
 const toastMock = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 
 vi.mock('sonner', () => ({ toast: toastMock }));
+vi.mock('@/features/almacen/api/useAvisosAlmacen', () => ({
+  useActasCierre: () => ({ data: [], isError: false }),
+  useRevisarActaCierre: () => ({ mutate: vi.fn(), isPending: false }),
+}));
 vi.mock('@/features/almacen/api/useSaldosCierreReportes', () => ({
   useEjecutarCierreMes: () => ({ mutate: cierre.mutate, isPending: false }),
   usePeriodosCierre: () => ({ data: cierre.periodos }),
@@ -116,7 +120,7 @@ describe('<CierreMesPage> — cierre y toasts', () => {
       ),
     );
     expect(toastMock.error).toHaveBeenCalledWith('Periodo con pendientes', {
-      description: '2 conteos pendientes en el periodo.',
+      description: 'Hay conteos pendientes en el periodo. Aplícalos o cancélalos antes de cerrar.',
     });
   });
 });

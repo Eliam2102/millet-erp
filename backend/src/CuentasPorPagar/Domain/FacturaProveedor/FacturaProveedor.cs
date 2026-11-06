@@ -484,6 +484,9 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
         return linea;
     }
 
+    /// <summary>Código del bloqueo de <see cref="Cancelar"/> cuando la factura tiene anticipos aplicados (C1.5b).</summary>
+    public const string CodigoConAnticipoAplicado = "FACTURA_PROVEEDOR_CON_ANTICIPO_APLICADO";
+
     /// <summary>
     /// Cancela la factura con motivo (§A7). Solo aplica desde
     /// <see cref="EstadoPasivo.Capturada"/> o
@@ -507,6 +510,14 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
             throw new BusinessRuleException(
                 "FACTURA_PAGADA_NO_CANCELABLE",
                 "Una factura pagada no puede cancelarse en este flujo. Coordinar con Tesorería.");
+        }
+        // C1.5b: la aplicación del anticipo ya generó su póliza de amortización; cancelar dejaría el anticipo consumido sin factura.
+        // La reversa (desaplicar con evento espejo) es una tarea aparte.
+        if (AnticipoAplicadoTotal > 0)
+        {
+            throw new BusinessRuleException(
+                CodigoConAnticipoAplicado,
+                "La factura tiene anticipos aplicados; no se puede cancelar mientras exista la aplicación.");
         }
         if (Estado == EstadoPasivo.Autorizada)
         {
@@ -637,6 +648,14 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
     /// Aplica un monto de AnticipoProveedor al saldo de la factura
     /// (F6-PR2). Mismo patrón que <see cref="AplicarNotaCredito"/>.
     /// </summary>
+    public void RevertirAnticipo(Guid anticipoId, DateOnly fecha)
+    {
+        var monto = _movimientos.Where(m => m.DocumentoId == anticipoId && m.Tipo == TipoMovimientoPasivo.Anticipo).Sum(m => m.Monto);
+        if (monto == 0) return;
+        AnticipoAplicadoTotal -= monto;
+        _movimientos.Add(new(Id, anticipoId, TipoMovimientoPasivo.Anticipo, fecha, -monto));
+    }
+
     public void AplicarAnticipo(decimal monto, DateOnly fecha, Guid? anticipoId = null)
     {
         if (Estado is EstadoPasivo.Cancelada or EstadoPasivo.Pagada)

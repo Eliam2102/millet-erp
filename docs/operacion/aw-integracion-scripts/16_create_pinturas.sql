@@ -1,4 +1,7 @@
--- PROPUESTA · no se ejecuta sin visto bueno de TI (Millet) y de Jorge
+-- PROPUESTA v2 · no se ejecuta sin visto bueno de TI (Millet) y de Jorge
+-- v2 (5-nov) recoge lo pedido por TI el 30-oct y 1-nov: clave de cliente numérica; contacto y celular en
+-- pinturas_cliente; el portal solo SELECT e INSERT (sin UPDATE); sin reenvío (orden transmitida = cerrada);
+-- obras compartidas A+W/Pinturas. Si la v1 ya se aplicó en alguna base, ejecute antes el rollback del final.
 -- Portal de Pinturas (ASP.NET WebForms, BD Pinturas_NEW) <-> ERP, vía MILLET_INTEGRACION(_DEV).
 -- Ejecutar en SER-DATA\AWBUSINESS como sysadmin, con: sqlcmd -b -v Password="..." -i 16_create_pinturas.sql
 -- (-b para que el guard de BD detenga el resto de lotes). No ejecutar en una base interna del proveedor A+W.
@@ -8,20 +11,24 @@
 --     pinturas_cliente, pinturas_servicio, pinturas_obra, pinturas_empleado
 --     · Sin borrado físico: la baja es activo = 0; updated_at marca el último cambio publicado.
 --     · pinturas_servicio NO lleva precio: el precio por m2 se queda en el catálogo local de Pinturas.
---     · Obra viaja como texto (clave + nombre), sin validación contra proyectos por ahora.
---     · Cliente: solo lo que el ERP tiene hoy (sin contacto ni celular).
+--     · Obra viaja como texto (clave + nombre); la clave es única entre las de A+W y las de Pinturas.
+--     · Cliente: clave numérica propia de Pinturas (el portal la convierte a entero; numeración distinta a la de A+W);
+--       incluye contacto y celular desde el arranque (el portal los copia al presupuesto).
+--     · Servicio: conserva la clave actual de SAP (p. ej. SER95224), por eso es texto.
+--     · Obra: catálogo compartido; origen = AW (viene de KA_OBJEKT, referencia_aw = su ID) o PINTURAS (alta manual).
 --   Pedido que INSERTA Pinturas y el ERP LEE y confirma:
 --     pinturas_pedido (una fila por orden transmitida, línea única; folio_orden único = idempotencia)
---     · Reenvío tras error: el portal corrige la orden y la reenvía con el MISMO folio = UPDATE de la fila con los datos
---       corregidos y erp_resultado/erp_error en NULL (vuelve a la cola). El ERP ignora un folio que ya generó un
---       PedidoFacturable (erp_resultado = 1), así que una orden creada no se puede duplicar.
+--     · Sin reenvío: una orden transmitida queda cerrada; el portal solo tiene INSERT y SELECT (sin UPDATE ni DELETE).
+--       Si el ERP la rechaza, se captura una orden nueva con folio nuevo.
 --     · Acuse del ERP: erp_resultado (1 creado, 2 error), erp_pedido_id (PedidoFacturable.Id),
---       erp_error, erp_procesado_at. Pendientes = erp_resultado IS NULL.
+--       erp_error (en rechazo: qué campo y qué valor no cuadró, p. ej. «cliente_clave=123: no existe en el ERP»),
+--       erp_procesado_at. Pendientes = erp_resultado IS NULL.
 -- Logins: millet_erp_integracion (ya existe, 04_create_login.sql) y millet_pinturas_portal (nuevo).
 -- La contraseña NO va en este script ni en el repo: se pasa por SQLCMD var (-v Password=...).
 -- Después de crearla -> secreto de Key Vault / configuración del portal.
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
+SET QUOTED_IDENTIFIER ON; -- sqlcmd lo abre en OFF y el índice filtrado lo exige
 GO
 IF DB_NAME() NOT IN (N'MILLET_INTEGRACION',N'MILLET_INTEGRACION_DEV')
     THROW 50001, 'Seleccione la BD puente MILLET_INTEGRACION(_DEV).', 1;
@@ -30,17 +37,19 @@ BEGIN TRANSACTION;
 -- Catálogos publicados por el ERP.
 IF OBJECT_ID(N'dbo.pinturas_cliente', N'U') IS NULL
 CREATE TABLE dbo.pinturas_cliente (
-    clave nvarchar(50) NOT NULL PRIMARY KEY,
+    clave int NOT NULL PRIMARY KEY, -- numérica; el rango propio de Pinturas lo define Millet y lo aplica el ERP
     razon_social nvarchar(200) NOT NULL,
     nombre_comercial nvarchar(200) NULL,
+    contacto nvarchar(200) NULL,
     telefono nvarchar(50) NULL,
+    celular nvarchar(50) NULL,
     email nvarchar(200) NULL,
     activo bit NOT NULL DEFAULT 1,
     updated_at datetime2(3) NOT NULL DEFAULT SYSUTCDATETIME()
 );
 IF OBJECT_ID(N'dbo.pinturas_servicio', N'U') IS NULL
 CREATE TABLE dbo.pinturas_servicio (
-    clave nvarchar(50) NOT NULL PRIMARY KEY,
+    clave nvarchar(50) NOT NULL PRIMARY KEY, -- clave actual del servicio (p. ej. SER95224)
     nombre nvarchar(200) NOT NULL, -- color y acabado
     activo bit NOT NULL DEFAULT 1,
     updated_at datetime2(3) NOT NULL DEFAULT SYSUTCDATETIME()
@@ -49,6 +58,8 @@ IF OBJECT_ID(N'dbo.pinturas_obra', N'U') IS NULL
 CREATE TABLE dbo.pinturas_obra (
     clave nvarchar(50) NOT NULL PRIMARY KEY,
     nombre nvarchar(200) NOT NULL,
+    origen nvarchar(10) NOT NULL DEFAULT N'PINTURAS' CHECK (origen IN (N'AW', N'PINTURAS')),
+    referencia_aw nvarchar(50) NULL, -- ID de la obra en A+W (KA_OBJEKT) cuando origen = AW
     activo bit NOT NULL DEFAULT 1,
     updated_at datetime2(3) NOT NULL DEFAULT SYSUTCDATETIME()
 );
@@ -65,7 +76,7 @@ IF OBJECT_ID(N'dbo.pinturas_pedido', N'U') IS NULL
 CREATE TABLE dbo.pinturas_pedido (
     id bigint IDENTITY(1,1) NOT NULL PRIMARY KEY,
     folio_orden nvarchar(50) NOT NULL UNIQUE, -- folio de la orden de Pinturas: clave de idempotencia
-    cliente_clave nvarchar(50) NOT NULL,
+    cliente_clave int NOT NULL,
     cliente_nombre nvarchar(200) NOT NULL,
     obra_clave nvarchar(50) NULL,
     obra_nombre nvarchar(200) NULL,
@@ -81,7 +92,7 @@ CREATE TABLE dbo.pinturas_pedido (
     erp_error nvarchar(500) NULL,
     erp_procesado_at datetime2(3) NULL
 );
--- Longitudes (folio_orden y claves nvarchar(50)): a confirmar con TI contra Pinturas_NEW.
+-- Longitudes (folio_orden, claves de servicio/obra/empleado nvarchar(50)): a confirmar con TI contra Pinturas_NEW.
 -- Cola de pendientes del ERP.
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.pinturas_pedido') AND name = N'ix_pinturas_pedido_pendiente')
 CREATE INDEX ix_pinturas_pedido_pendiente ON dbo.pinturas_pedido (creado_at, id) WHERE erp_resultado IS NULL;
@@ -120,21 +131,20 @@ GRANT SELECT, INSERT, UPDATE ON dbo.pinturas_empleado TO millet_erp_integracion;
 GRANT SELECT ON dbo.pinturas_pedido TO millet_erp_integracion;
 GRANT UPDATE (erp_resultado, erp_pedido_id, erp_error, erp_procesado_at) ON dbo.pinturas_pedido TO millet_erp_integracion;
 
--- Portal: solo lee los catálogos; inserta pedidos, lee el acuse y, para reenviar un pedido con error, corrige
--- los datos de la orden y deja en NULL erp_resultado y erp_error. erp_pedido_id y erp_procesado_at son solo del ERP.
+-- Portal: solo lee los catálogos; inserta pedidos y lee el acuse. Sin UPDATE ni DELETE (sin reenvío).
+-- El REVOKE limpia cualquier UPDATE que haya dejado la v1.
 GRANT SELECT ON dbo.pinturas_cliente  TO millet_pinturas_portal;
 GRANT SELECT ON dbo.pinturas_servicio TO millet_pinturas_portal;
 GRANT SELECT ON dbo.pinturas_obra     TO millet_pinturas_portal;
 GRANT SELECT ON dbo.pinturas_empleado TO millet_pinturas_portal;
 GRANT SELECT, INSERT ON dbo.pinturas_pedido TO millet_pinturas_portal;
-GRANT UPDATE (cliente_clave, cliente_nombre, obra_clave, obra_nombre, comentarios, servicio_clave, m2, precio_m2, iva_porcentaje,
-             erp_resultado, erp_error) ON dbo.pinturas_pedido TO millet_pinturas_portal;
-DENY DELETE ON dbo.pinturas_pedido TO millet_pinturas_portal;
+REVOKE UPDATE ON dbo.pinturas_pedido FROM millet_pinturas_portal;
+DENY UPDATE, DELETE ON dbo.pinturas_pedido TO millet_pinturas_portal;
 COMMIT;
 GO
 
 -- Verificación (esperado: 5 tablas; SELECT, INSERT, UPDATE del ERP en catálogos y SELECT + UPDATE de 4 columnas en pedido;
--- portal: SELECT en 5, INSERT y UPDATE de 11 columnas en pedido, DENY DELETE en pedido; índice filtrado con filtro erp_resultado IS NULL).
+-- portal: SELECT en 5, INSERT en pedido, DENY UPDATE y DENY DELETE en pedido; índice filtrado con filtro erp_resultado IS NULL).
 SELECT name FROM sys.tables WHERE name LIKE N'pinturas[_]%' ORDER BY name;
 SELECT pr.name AS principal, OBJECT_NAME(p.major_id) AS objeto, p.permission_name, p.state_desc,
        COL_NAME(p.major_id, p.minor_id) AS columna

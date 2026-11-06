@@ -145,6 +145,7 @@ public sealed class EmitirNotaCreditoBonificacionHandler
             tasaIva: command.TasaIva,
             descripcion: command.Descripcion);
 
+        nc.FijarComentarios(command.Comentarios);
         if (!string.IsNullOrWhiteSpace(factura.Uuid))
             nc.AgregarRelacion(factura.Uuid!, "01");
         if (command.Reembolso is { } reembolso)

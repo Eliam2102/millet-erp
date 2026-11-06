@@ -126,7 +126,7 @@ export function ReceptorIncompletoBanner({
         </>
       ) : (
         <>
-          Datos fiscales del cliente incompletos en el master — solicita que los completen en Datos
+          Datos fiscales del cliente incompletos en su ficha — solicita que los completen en Datos
           Maestros → Clientes para poder emitir.
         </>
       )}

@@ -68,10 +68,11 @@ public class AlmacenesAppSalidasTests
         return new(art.Id, refAw);
     }
 
-    private static object Grupo(string articuloAw, int piezas, int ancho = 2440, int alto = 3660, decimal? costo = null) =>
-        costo is null
+    // 5-nov: el costo es el promedio de A+W por m² (costoM2); ya no hay costo total del grupo.
+    private static object Grupo(string articuloAw, int piezas, int ancho = 2440, int alto = 3660, decimal? costoM2 = null) =>
+        costoM2 is null
             ? new { articuloAw, ancho, alto, lote = "L1", piezas }
-            : new { articuloAw, ancho, alto, lote = "L1", piezas, costo };
+            : new { articuloAw, ancho, alto, lote = "L1", piezas, costoM2 };
 
     private static HttpRequestMessage Req(string id, string tipo, object datos)
     {
@@ -248,16 +249,19 @@ public class AlmacenesAppSalidasTests
     }
 
     [Fact]
-    public async Task Varios_grupos_con_uno_corto_acusa_RECIBIDO_queda_EN_REVISION_y_no_mueve_saldo()
+    public async Task Varios_grupos_con_uno_corto_acusa_ERROR_con_folio_y_motivo_queda_EN_REVISION_y_no_mueve_saldo()
     {
         var corto = await SembrarAsync(1);
         var sobrado = await SembrarAsync(10);
         await using var f = ConLlave();
         var id = Guid.NewGuid().ToString();
-        var a = await Acuse(await f.CreateClient().SendAsync(Req(id, "ROTURA",
-            DatosV6("ROTURA", 4, [Grupo(sobrado.ArticuloAw, 2), Grupo(corto.ArticuloAw, 2)], motivo: "Rotura en mesa"))));
+        var datos = DatosV6("ROTURA", 4, [Grupo(sobrado.ArticuloAw, 2), Grupo(corto.ArticuloAw, 2)], motivo: "Rotura en mesa");
+        var a = await Acuse(await f.CreateClient().SendAsync(Req(id, "ROTURA", datos)));
 
-        Assert.Equal("RECIBIDO", a.GetProperty("estado").GetString());
+        // 5-nov (TI): ya no se acepta en silencio; ERROR con folio de revisión y el motivo.
+        Assert.Equal("ERROR", a.GetProperty("estado").GetString());
+        Assert.Equal($"REV-{id}", a.GetProperty("folio").GetString());
+        Assert.Contains("Sin existencia suficiente", a.GetProperty("error").GetString());
         Assert.Equal(10 * Area, await DisponibleAsync(sobrado.ArticuloId));
         Assert.Equal(1 * Area, await DisponibleAsync(corto.ArticuloId));
         Assert.Equal(0, await MovimientosAsync(sobrado.ArticuloId) + await MovimientosAsync(corto.ArticuloId));
@@ -267,35 +271,112 @@ public class AlmacenesAppSalidasTests
         Assert.Equal("EN_REVISION", fila.Estado);
         // Es la misma consulta que alimenta GET /api/v1/almacen/mensajes-app/revision (J6).
         Assert.Contains(await db.MensajesApp.AsNoTracking().Where(m => m.Estado == "EN_REVISION").Select(m => m.MensajeId).ToListAsync(), x => x == id);
+        Assert.Equal($"REV-{id}", fila.Folio);
+
+        // La app reprocesa el mismo mensajeId cuando ya hay existencia: se evalúa otra vez, descuenta y sale de la bandeja.
+        var repuesto = await SembrarAsync(10, refAw: corto.ArticuloAw + "X");
+        var a2 = await Acuse(await f.CreateClient().SendAsync(Req(id, "ROTURA",
+            DatosV6("ROTURA", 4, [Grupo(sobrado.ArticuloAw, 2), Grupo(repuesto.ArticuloAw, 2)], motivo: "Rotura en mesa"))));
+        Assert.Equal("RECIBIDO", a2.GetProperty("estado").GetString());
+        Assert.Equal(8 * Area, await DisponibleAsync(sobrado.ArticuloId));
+        // Y un tercer envío ya es DUPLICADO con el mismo folio, sin aplicar nada.
+        var a3 = await Acuse(await f.CreateClient().SendAsync(Req(id, "ROTURA", datos)));
+        Assert.Equal("DUPLICADO", a3.GetProperty("estado").GetString());
+        Assert.Equal(a2.GetProperty("folio").GetString(), a3.GetProperty("folio").GetString());
+        Assert.Equal(8 * Area, await DisponibleAsync(sobrado.ArticuloId));
     }
 
     [Fact]
-    public async Task SALIDA_MANUAL_con_costo_de_grupo_y_3_hojas_calcula_el_unitario_por_m2()
+    public async Task SALIDA_MANUAL_toma_costoM2_de_A_W_tal_cual_y_el_costo_de_la_hoja_y_del_grupo_salen_de_el()
     {
         var s = await SembrarAsync(10);
         await using var f = ConLlave();
         var a = await Acuse(await f.CreateClient().SendAsync(Req(Guid.NewGuid().ToString(), "SALIDA_MANUAL",
-            DatosV6("MANUAL", 3, [Grupo(s.ArticuloAw, 3, costo: 535.824m)], motivo: "Muestra"))));
+            DatosV6("MANUAL", 3, [Grupo(s.ArticuloAw, 3, costoM2: 20m)], motivo: "Muestra"))));
         Assert.Equal("RECIBIDO", a.GetProperty("estado").GetString());
-        // 3 hojas = 26.7912 m²; costo del grupo 535.824 (≠ promedio) → 20 MXN/m²: el unitario es costo/m², no costo/piezas.
-        using (var scope = _factory.Services.CreateScope())
-        {
-            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
-            var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
-            var l = await db.LineasMovimiento.AsNoTracking().SingleAsync(x => x.ArticuloId == s.ArticuloId);
-            Assert.Equal(20m, l.CostoUnitarioMxn);
-            Assert.Equal(3 * Area, l.Cantidad);
-        }
+        // costoM2 20 (≠ promedio del saldo, 100): se guarda tal cual; costo del grupo = 20 × 26.7912 m² = 535.824.
+        using var scope = _factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
+        var l = await db.LineasMovimiento.AsNoTracking().SingleAsync(x => x.ArticuloId == s.ArticuloId);
+        Assert.Equal(20m, l.CostoUnitarioMxn);
+        Assert.Equal(3 * Area, l.Cantidad);
+        Assert.Equal(535.824m, l.CostoUnitarioMxn * l.Cantidad);
         Assert.Equal(TipoMovimiento.AjusteNegativo, Assert.Single(await MovsAsync(s.ArticuloId)).Tipo);
+    }
 
-        var s2 = await SembrarAsync(10);
-        var a2 = await Acuse(await f.CreateClient().SendAsync(Req(Guid.NewGuid().ToString(), "SALIDA_MANUAL",
-            DatosV6("MANUAL", 3, [Grupo(s2.ArticuloAw, 3, costo: 2679.12m)], motivo: "Muestra"))));
-        Assert.Equal("RECIBIDO", a2.GetProperty("estado").GetString());
-        using var scope2 = _factory.Services.CreateScope();
-        using var bypass2 = scope2.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
-        var db2 = scope2.ServiceProvider.GetRequiredService<AlmacenDbContext>();
-        Assert.Equal(100m, (await db2.LineasMovimiento.AsNoTracking().SingleAsync(x => x.ArticuloId == s2.ArticuloId)).CostoUnitarioMxn);
+    [Fact]
+    public async Task SALIDA_MANUAL_sin_costo_usa_el_promedio_y_la_misma_regla_vale_si_nace_de_una_cancelacion_de_entrada()
+    {
+        var s = await SembrarAsync(10);
+        var c = await SembrarAsync(10);
+        await using var f = ConLlave();
+        var sin = await Acuse(await f.CreateClient().SendAsync(Req(Guid.NewGuid().ToString(), "SALIDA_MANUAL",
+            DatosV6("MANUAL", 1, [Grupo(s.ArticuloAw, 1)], motivo: "Muestra"))));
+        Assert.Equal("RECIBIDO", sin.GetProperty("estado").GetString());
+        var cancelacion = new
+        {
+            movimiento = "CANC", sucursal = "MID", piezas = 1, motivo = "Cancelación de entrada", origen = "CANCELACION_ENTRADA",
+            almacenes = new[] { new { almacenGeneral = new { id = 7, nombre = "OBRAS", tipo = "OBRAS" }, piezas = 1, grupos = new[] { Grupo(c.ArticuloAw, 1, costoM2: 37.5m) } } },
+        };
+        var canc = await Acuse(await f.CreateClient().SendAsync(Req(Guid.NewGuid().ToString(), "SALIDA_MANUAL", cancelacion)));
+        Assert.Equal("RECIBIDO", canc.GetProperty("estado").GetString());
+
+        using var scope = _factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
+        Assert.Equal(100m, (await db.LineasMovimiento.AsNoTracking().SingleAsync(x => x.ArticuloId == s.ArticuloId)).CostoUnitarioMxn);
+        Assert.Equal(37.5m, (await db.LineasMovimiento.AsNoTracking().SingleAsync(x => x.ArticuloId == c.ArticuloId)).CostoUnitarioMxn);
+    }
+
+    [Fact]
+    public async Task SALIDA_MANUAL_con_medida_exige_costoM2_y_ya_no_acepta_el_costo_total_del_grupo()
+    {
+        var s = await SembrarAsync(10);
+        var datos = DatosV6("MANUAL", 1, [new { articuloAw = s.ArticuloAw, ancho = 2440, alto = 3660, piezas = 1, costoPieza = 893.04m }], motivo: "Muestra");
+        await AssertErrorSinEfectosAsync(s, datos, "costoM2", "SALIDA_MANUAL");
+    }
+
+    [Fact]
+    public async Task SALIDA_MANUAL_sin_medida_toma_costoPieza_por_pieza()
+    {
+        var s = await SembrarAsync(10, conVariante: false);
+        await using var f = ConLlave();
+        var a = await Acuse(await f.CreateClient().SendAsync(Req(Guid.NewGuid().ToString(), "SALIDA_MANUAL",
+            DatosV6("MANUAL", 4, [new { articuloAw = s.ArticuloAw, piezas = 4, costoPieza = 12.5m }], motivo: "Consumo"))));
+        Assert.Equal("RECIBIDO", a.GetProperty("estado").GetString());
+        Assert.Equal(6m, await DisponibleAsync(s.ArticuloId));
+        using var scope = _factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
+        var l = await db.LineasMovimiento.AsNoTracking().SingleAsync(x => x.ArticuloId == s.ArticuloId);
+        Assert.Equal((12.5m, 4m), (l.CostoUnitarioMxn, l.Cantidad));
+    }
+
+    [Fact]
+    public async Task AJUSTE_SALIDA_con_documentoPrevio_descuenta_al_llegar_la_validacion_y_lo_deja_en_el_motivo()
+    {
+        var s = await SembrarAsync(10);
+        await using var f = ConLlave();
+        // Entre el corte y la validación el ERP no tiene nada apartado: la hoja sigue disponible hasta que llega el mensaje.
+        Assert.Equal(10 * Area, await DisponibleAsync(s.ArticuloId));
+        var datos = new
+        {
+            movimiento = "AJUSTE", sucursal = "MID", piezas = 2, documentoPrevio = "DP-0077", mesa = "HEGLA1",
+            almacenes = new[] { new { almacenGeneral = new { id = 1, nombre = "GENERAL", tipo = "GENERAL" }, piezas = 2, grupos = new[] { Grupo(s.ArticuloAw, 2) } } },
+        };
+        var a = await Acuse(await f.CreateClient().SendAsync(Req(Guid.NewGuid().ToString(), "AJUSTE_SALIDA", datos)));
+
+        Assert.Equal("RECIBIDO", a.GetProperty("estado").GetString());
+        Assert.Equal(8 * Area, await DisponibleAsync(s.ArticuloId));
+        Assert.Contains("documento previo DP-0077", Assert.Single(await MovsAsync(s.ArticuloId)).Motivo);
+    }
+
+    [Fact]
+    public async Task AJUSTE_SALIDA_con_un_renglon_en_cero_da_ERROR_y_no_mueve_nada()
+    {
+        var s = await SembrarAsync(10);
+        await AssertErrorSinEfectosAsync(s, DatosV6("AJUSTE", 0, [Grupo(s.ArticuloAw, 0)]), "piezas debe ser mayor que cero");
     }
 
     [Fact]
@@ -454,12 +535,52 @@ public class AlmacenesAppSalidasTests
             Assert.Equal(HttpStatusCode.Forbidden, prohibido.StatusCode);
 
             var lista = await ContabTestKit.Json(await conPermiso.GetAsync(ruta));
-            Assert.Contains(lista.EnumerateArray(), x => x.GetProperty("mensajeId").GetString() == id);
+            var fila = Assert.Single(lista.EnumerateArray(), x => x.GetProperty("mensajeId").GetString() == id);
+            Assert.Equal("EN_REVISION", fila.GetProperty("estado").GetString());
+            Assert.Equal($"REV-{id}", fila.GetProperty("folio").GetString());
         }
         finally
         {
             await ContabTestKit.LimpiarClienteAsync(sinPermiso);
             await ContabTestKit.LimpiarClienteAsync(conPermiso);
         }
+    }
+
+    [Fact]
+    public async Task Lector_alm_mensaje_con_el_manejador_real_acusa_ERROR_con_folio_frena_la_referencia_y_sigue_con_las_demas()
+    {
+        var corto = await SembrarAsync(1);
+        var otro = await SembrarAsync(10);
+        var origen = _factory.Services.GetRequiredService<Millet.Integraciones.Aw.Infrastructure.AlmMensaje.SimuladoAlmMensajeOrigen>();
+        var lector = _factory.Services.GetRequiredService<Millet.Almacen.Application.AppAlmacenes.AlmMensajeLector>();
+        var n = Guid.NewGuid().ToString("N")[..10];
+        string Sobre(string id, string tipo, string referencia, object datos) => JsonSerializer.Serialize(new
+        {
+            mensajeId = id, tipo, version = 1, fecha = "2026-11-05T10:00:00-06:00", origen = "AlmacenRQ_MP", referencia, datos,
+        });
+        var (m1, m2, m3) = ($"L1-{n}", $"L2-{n}", $"L3-{n}");
+        // m1: pide 2 hojas y hay 1 (sin existencia); m2: misma referencia, sí alcanzaría; m3: otra referencia.
+        origen.Encolar(m1, "SALIDA_MANUAL", $"RQ-{n}", Sobre(m1, "SALIDA_MANUAL", $"RQ-{n}",
+            DatosV6("MANUAL", 2, [Grupo(corto.ArticuloAw, 2)], motivo: "Muestra")));
+        origen.Encolar(m2, "AJUSTE_SALIDA", $"RQ-{n}", Sobre(m2, "AJUSTE_SALIDA", $"RQ-{n}",
+            DatosV6("AJUSTE", 1, [Grupo(corto.ArticuloAw, 1)])));
+        origen.Encolar(m3, "AJUSTE_SALIDA", $"RQ2-{n}", Sobre(m3, "AJUSTE_SALIDA", $"RQ2-{n}",
+            DatosV6("AJUSTE", 1, [Grupo(otro.ArticuloAw, 1)])));
+
+        var tick = await lector.ProcesarAsync(default);
+
+        Assert.Equal(2, tick.Procesados);
+        var a1 = origen.AcuseDe(m1)!;
+        Assert.Equal(("ERROR", $"REV-{m1}"), (a1.Estado, a1.Folio));
+        Assert.Contains("Sin existencia suficiente", a1.Error);
+        Assert.Null(origen.AcuseDe(m2)); // espera: su referencia tiene un ERROR sin revisar
+        Assert.Equal("RECIBIDO", origen.AcuseDe(m3)!.Estado);
+        Assert.Equal(1 * Area, await DisponibleAsync(corto.ArticuloId)); // ni m1 ni m2 descontaron
+        Assert.Equal(9 * Area, await DisponibleAsync(otro.ArticuloId));
+
+        // Otro ciclo: m2 sigue esperando y el mismo m3 no se aplica otra vez.
+        await lector.ProcesarAsync(default);
+        Assert.Null(origen.AcuseDe(m2));
+        Assert.Equal(9 * Area, await DisponibleAsync(otro.ArticuloId));
     }
 }

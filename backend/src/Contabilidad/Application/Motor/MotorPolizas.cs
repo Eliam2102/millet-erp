@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Contabilidad.Application.Polizas;
@@ -38,7 +39,7 @@ public sealed class RechazoMotorException(CausaRechazoContable causa, string? de
 }
 
 public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IPolizaContablePort puerto, IClock clock,
-    ICentroCostoContabilidadPort centros, IEnumerable<IEnriquecedorEventoContable> enriquecedores)
+    ICentroCostoContabilidadPort centros, IEnumerable<IEnriquecedorEventoContable> enriquecedores, ILogger<GenerarPolizaDesdeEventoHandler>? logger = null)
     : IRequestHandler<GenerarPolizaDesdeEventoCommand, ResultadoMotor>
 {
     public async Task<ResultadoMotor> Handle(GenerarPolizaDesdeEventoCommand request, CancellationToken cancellationToken)
@@ -101,12 +102,14 @@ public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IP
                     _ => (null, null, OrigenMovimiento.Automatica),
                 };
                 // El rol se resuelve solo si la línea mueve dinero (GASTO sin servicios o retenciones en cero no exigen cuenta).
-                // C1.5: una cuenta fija de la línea (V64) o el rol con sufijo del clasificador (VENTAS_<tipo>) si existe; si no, el rol base.
-                var cuentaPartida = linea?.CuentaId
-                    ?? (l.RolPorClasificador && linea?.Clasificador is { Length: > 0 } clasificador
-                        && CuentaOpcional(roles, $"{l.Rol}_{Clasificador(clasificador)}", sucursal, e.Moneda, e.FechaContable) is { } porTipo
-                            ? porTipo
-                            : cuenta ??= Cuenta(roles, l.Rol, sucursal, e.Moneda, e.FechaContable));
+                // C1.5: con rol por clasificador, el rol con sufijo (VENTAS_<tipo>, INVENTARIO_<grupo>) si tiene cuenta; si no, el rol base.
+                // Sin él, la cuenta fija de la línea (V64: la del consumo en la devolución interna) o el rol base.
+                var cuentaPartida = (l.RolPorClasificador ? CuentaPorClasificador(roles, l.Rol, linea?.Clasificador, sucursal, e.Moneda, e.FechaContable)
+                        : linea?.CuentaId)
+                    ?? (cuenta ??= Cuenta(roles, l.Rol, sucursal, e.Moneda, e.FechaContable));
+                if (e.Tipo == NormalizadorEventos.CostoImportacionAplicado && l.RolPorClasificador &&
+                    (linea?.Clasificador is null || CuentaOpcional(roles, $"{l.Rol}_{Clasificador(linea.Clasificador)}", sucursal, e.Moneda, e.FechaContable) is null))
+                    logger?.LogWarning("Prorrateo CE {Expediente}: falta cuenta específica del artículo {Articulo}; se usa el rol configurable {Rol}.", e.Documento.Id, linea?.ArticuloId, l.Rol);
                 var mxn = Math.Round(importe * tc, 2, MidpointRounding.AwayFromZero);
                 var cargo = l.Lado == LadoPartida.Cargo ? mxn : 0m;
                 var abono = l.Lado == LadoPartida.Abono ? mxn : 0m;
@@ -188,9 +191,30 @@ public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IP
         ? new ReferenciaPuente(oc, lineaOcId, e.TipoPuente, e.Documento.Id, e.FacturaOrigenId)
         : e.FacturaOrigenId is { } factura ? new ReferenciaPuente(Guid.Empty, lineaOcId, e.TipoPuente, e.Documento.Id, factura) : null;
 
-    /// <summary>Normaliza el clasificador para el sufijo del rol: mayúsculas, dígitos y guion bajo.</summary>
-    internal static string Clasificador(string valor) =>
-        new([.. valor.Trim().ToUpperInvariant().Select(c => char.IsAsciiLetterUpper(c) || char.IsAsciiDigit(c) ? c : '_')]);
+    /// <summary>
+    /// Normaliza el clasificador para el sufijo del rol: mayúsculas sin acentos, dígitos y un solo guion bajo entre palabras
+    /// (F1-ALM-13: «PINT.ELEC.QUÍM. (MP)» → PINT_ELEC_QUIM_MP; «INSUMOS  PRODUCCION» de SAP con doble espacio → INSUMOS_PRODUCCION).
+    /// </summary>
+    public static string Clasificador(string valor)
+    {
+        var sb = new System.Text.StringBuilder();
+        foreach (var c in valor.Normalize(System.Text.NormalizationForm.FormD).ToUpperInvariant())
+        {
+            if (char.IsAsciiLetterUpper(c) || char.IsAsciiDigit(c)) sb.Append(c);
+            else if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark
+                && sb.Length > 0 && sb[^1] != '_') sb.Append('_');
+        }
+        return sb.ToString().TrimEnd('_');
+    }
+
+    /// <summary>
+    /// C1.5 / F1-ALM-13: cuenta del rol <c>{rol}_{clasificador}</c> si existe con cuenta; si no, la del rol base (null si no tiene).
+    /// La misma regla la usa el cuadre de inventario de Almacén (<c>IRolCuentaSaldoReadPort</c>) para que póliza y cuadre coincidan.
+    /// </summary>
+    internal static Guid? CuentaPorClasificador(List<RolCuenta> roles, string rol, string? clasificador, Guid sucursal, string moneda, DateOnly fecha) =>
+        (clasificador is { Length: > 0 } c && Clasificador(c) is { Length: > 0 } sufijo
+            ? CuentaOpcional(roles, $"{rol}_{sufijo}", sucursal, moneda, fecha) : null)
+        ?? Rol(roles, rol, sucursal, moneda, fecha)?.CuentaId;
 
     /// <summary>El rol más específico vigente (sucursal y moneda exactas antes que el genérico). Sin cuenta → RolSinCuenta.</summary>
     private static Guid Cuenta(List<RolCuenta> roles, string codigo, Guid sucursal, string moneda, DateOnly fecha)
@@ -204,7 +228,7 @@ public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IP
     private static Guid? CuentaOpcional(List<RolCuenta> roles, string codigo, Guid sucursal, string moneda, DateOnly fecha) =>
         Rol(roles, codigo, sucursal, moneda, fecha)?.CuentaId;
 
-    private static RolCuenta? Rol(List<RolCuenta> roles, string codigo, Guid sucursal, string moneda, DateOnly fecha) =>
+    internal static RolCuenta? Rol(List<RolCuenta> roles, string codigo, Guid sucursal, string moneda, DateOnly fecha) =>
         roles.Where(r => r.Codigo == codigo && r.VigenteEn(fecha)
                 && (r.SucursalId is null || r.SucursalId == sucursal) && (r.Moneda is null || r.Moneda == moneda))
             .OrderByDescending(r => (r.SucursalId is null ? 0 : 2) + (r.Moneda is null ? 0 : 1)).ThenByDescending(r => r.VigenteDesde)

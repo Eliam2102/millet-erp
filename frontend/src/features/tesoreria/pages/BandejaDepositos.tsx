@@ -1,3 +1,5 @@
+import { problemaUsuario } from '@/lib/error-usuario';
+import { errorUsuario } from '@/lib/error-usuario';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { BarraFiltros, TabsEstado, PaginacionTabla } from '@/components/erp';
 import { usePaginacionLocal } from '../lib/use-paginacion-local';
@@ -43,7 +45,7 @@ import { formatDate } from '@/lib/datetime';
 import { origenDeposito } from '@/features/tesoreria/lib/depositos';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError, codigoSoporte } from '@/lib/api';
+import { esApiError } from '@/lib/api';
 
 const FILTRO_TODOS = 'todos';
 const MENSAJE_PROPIA = 'No puedes confirmar una propuesta que tú hiciste';
@@ -106,9 +108,9 @@ export function BandejaDepositos() {
           setRechazando(null);
         },
         onError: (error) => {
-          toast.error(esApiError(error) ? error.problem.title : 'No se pudo rechazar', {
+          toast.error(errorUsuario(error, 'No se pudo rechazar'), {
             description: esApiError(error)
-              ? (error.problem.detail ?? codigoSoporte(error))
+              ? (errorUsuario(error))
               : undefined,
           });
         },
@@ -124,9 +126,7 @@ export function BandejaDepositos() {
         titulo={<>Depósitos pendientes</>}
         descripcion={
           <>
-            Propuestas de CxC y expectativas de Caja. Confirmar registra el hecho bancario y dispara
-            la emisión del REPP en Facturación — el timbrado fiscal se refleja aparte en el badge
-            REPP.
+            Confirma los depósitos propuestos por CxC o Caja y consulta por separado el estado fiscal de su complemento de pago.
           </>
         }
       />
@@ -184,7 +184,7 @@ export function BandejaDepositos() {
         ) : query.isError ? (
           <ErrorState
             title="No se pudieron cargar los depósitos"
-            problem={esApiError(query.error) ? query.error.problem : undefined}
+            problem={problemaUsuario(query.error)}
             onRetry={() => query.refetch()}
           />
         ) : query.isLoading ? (
@@ -203,7 +203,7 @@ export function BandejaDepositos() {
           <EmptyState
             icon={<Inbox className="h-10 w-10" />}
             title="Sin depósitos en este filtro."
-            description="Las propuestas aparecen cuando CxC hace el matching depósito ↔ facturas; las expectativas, al cerrar sesiones de caja con efectivo."
+            description="Las propuestas aparecen cuando CxC relaciona depósitos con facturas; los depósitos de caja, al cerrar sesiones con efectivo."
           />
         ) : (
           <div className="overflow-x-auto rounded-md border">
@@ -261,6 +261,16 @@ export function BandejaDepositos() {
                     </TableCell>
                     <TableCell className="px-3 py-2">
                       <EstadoDepositoBadge estado={d.estado} />
+                      {d.estado === EstadoDepositoConfirmacion.Pendiente && d.motivoRevision != null && (
+                        <p className="mt-1 max-w-56 text-xs text-warning-fg" title={d.motivoRevision}>
+                          En revisión: {d.motivoRevision}
+                        </p>
+                      )}
+                      {d.confirmacionAutomatica === true && (
+                        <p className="mt-1 text-xs text-ink-muted" title={d.reglaAutomatica ?? undefined}>
+                          Confirmado por regla automática
+                        </p>
+                      )}
                     </TableCell>
                     <TableCell className="px-3 py-2">
                       {d.estado === EstadoDepositoConfirmacion.Confirmada &&

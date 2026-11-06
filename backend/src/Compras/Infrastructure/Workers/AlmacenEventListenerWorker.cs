@@ -186,7 +186,9 @@ public sealed class AlmacenEventListenerWorker : BackgroundService, ILocalIntegr
 
                 // ADR-0043: canal de entrega. Acumula CantidadEntregada por
                 // línea de RQ. El handler deduplica + muta la RQ en la misma TX.
+                // G-3: la regularización de un vale urgente trae la misma forma (RqId + LineaRqId por línea).
                 case SalidaRequisicionEnAlmacenHandler.EventType:
+                case "almacen.vale_regularizado.v1":
                 {
                     var payload = JsonSerializer.Deserialize<SalidaRequisicionRegistradaAlmacenPayload>(body, JsonOpts)
                         ?? throw new JsonException("Payload null.");

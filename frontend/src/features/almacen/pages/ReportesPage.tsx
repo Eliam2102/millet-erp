@@ -1,6 +1,6 @@
 import { PageHeader } from '@/components/erp/PageHeader';
 import { Link } from '@tanstack/react-router';
-import { BarChart3, History, Package } from 'lucide-react';
+import { BarChart3, BookOpen, History, Package, Search } from 'lucide-react';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { cn } from '@/lib/utils';
@@ -19,22 +19,38 @@ export function ReportesPage() {
     <div className="space-y-6">
       <PageHeader
         titulo="Reportes de Almacén"
-        descripcion="Reportes operativos basados en saldos y movimientos del módulo. Cada reporte se exporta a PDF e imprime desde su pantalla."
+        descripcion="Consulta, exporta e imprime los saldos y movimientos del almacén."
       />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {puedeAlfak && (
           <ReporteCard
             to="/almacen/reportes/alfak-historial"
-            titulo="ALFAK-HISTORIAL-ALMACEN"
+            titulo="Historial de movimientos"
             descripcion="Movimientos del periodo agrupados por sub-almacén / artículo: saldo inicial, entradas, salidas, ajustes, saldo final, CPP y valor."
             icon={History}
+          />
+        )}
+        {puedeAlfak && (
+          <ReporteCard
+            to="/almacen/reportes/kardex"
+            titulo="Kardex de almacén"
+            descripcion="Consulta los movimientos de un artículo por sub-almacén, ubicación y periodo, con sus saldos, costos y cuadre contra el cierre."
+            icon={BookOpen}
+          />
+        )}
+        {puedeAlfak && (
+          <ReporteCard
+            to="/almacen/reportes/trazabilidad-mp"
+            titulo="Trazabilidad de materia prima"
+            descripcion="Compra (OC), lote, consumos, merma/rotura y saldo con valor de un artículo, filtrable por periodo y almacén."
+            icon={Search}
           />
         )}
         {puedeMpCnk && (
           <ReporteCard
             to="/almacen/reportes/mp-cnk"
-            titulo="SAP-REPORTE-EXISTENCIA-MP-CNK"
+            titulo="Existencia de materia prima en Conkal"
             descripcion="Inventario diario de materiales directos no-vidrio (interlayer, silicones, pinturas, sellantes)."
             icon={Package}
           />
@@ -55,7 +71,7 @@ function ReporteCard({
   descripcion,
   icon: Icon,
 }: {
-  to: '/almacen/reportes/alfak-historial' | '/almacen/reportes/mp-cnk';
+  to: '/almacen/reportes/alfak-historial' | '/almacen/reportes/kardex' | '/almacen/reportes/trazabilidad-mp' | '/almacen/reportes/mp-cnk';
   titulo: string;
   descripcion: string;
   icon: typeof BarChart3;

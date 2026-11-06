@@ -7,6 +7,7 @@ using Millet.CuentasPorPagar.Domain.FacturaProveedor;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor.Events;
 using Millet.CuentasPorPagar.Domain.NotaCargo.Events;
 using Millet.CuentasPorPagar.Domain.NotaCreditoProveedor.Events;
+using Millet.CuentasPorPagar.Domain.TarjetaCredito.Events;
 using Millet.SharedKernel.Application;
 
 namespace Millet.CuentasPorPagar.UnitTests.Integration;
@@ -118,6 +119,21 @@ public sealed class EventosContablesG16Tests
         e.CuentaBancariaId.Should().Be(cuenta);
         e.Moneda.Should().Be("USD");
         e.TipoCambio.Should().Be(17.5m);
+    }
+
+    [Fact]
+    public async Task C15b_cierre_de_estado_de_cuenta_propaga_banco_emisor_y_sucursal()
+    {
+        var publisher = new CapturingPublisher();
+        var banco = Guid.NewGuid();
+        await new EstadoCuentaTcCerradoMapper(publisher).Handle(new EstadoCuentaTcCerradoDomainEvent(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 2_320m, Guid.NewGuid(), null, DateTimeOffset.UtcNow,
+            BancoProveedorId: banco, SucursalId: Sucursal), CancellationToken.None);
+
+        var e = publisher.Published.Should().BeOfType<EstadoCuentaTcCerradoIntegrationEvent>().Subject;
+        e.ProveedorId.Should().Be(banco);
+        e.SucursalId.Should().Be(Sucursal);
+        e.TotalBancoMxn.Should().Be(2_320m);
     }
 
     [Fact]

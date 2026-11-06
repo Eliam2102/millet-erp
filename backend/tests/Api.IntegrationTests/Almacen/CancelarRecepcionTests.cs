@@ -30,7 +30,7 @@ public class CancelarRecepcionTests(WebApplicationFactory<Program> factory) : IC
     private static async Task<Guid> RecibirAsync(AlmacenDbContext db, Ctx ctx, decimal cantidad, decimal danada, decimal precio)
     {
         var r = await HandlerRecepcionConPrecio(db, new CapturaEventos(), ctx, precio).Handle(
-            new RegistrarRecepcionConFacturaCommand(ctx.OcId, Fecha, null, "AD662D33-6934-459C-A128-BDF0393E0062", null,
+            new RegistrarRecepcionConFacturaCommand(ctx.OcId, Fecha, null, Guid.NewGuid().ToString().ToUpperInvariant(), null,
                 [new RegistrarRecepcionLineaInput(ctx.ArticuloId, ctx.LineaOcId, cantidad, null, null, ctx.RackId,
                     CantidadDanada: danada, MotivoDano: danada > 0 ? "Hojas rotas" : null)]),
             CancellationToken.None);

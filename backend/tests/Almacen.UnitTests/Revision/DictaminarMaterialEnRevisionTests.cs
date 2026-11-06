@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Application.DevolucionesInternas;
+using Millet.Almacen.Application.Integration;
 using Millet.Almacen.Application.Revision;
 using Millet.Almacen.Domain.Catalogo;
 using Millet.Almacen.Domain.DevolucionesProveedor;
@@ -67,12 +68,16 @@ public class DictaminarMaterialEnRevisionTests
     }
 
     private static DictaminarMaterialEnRevisionHandler Handler(
-        InMemoryAlmacenDbContext db, params AdjuntoEvidenciaLectura[] evidencias)
+        InMemoryAlmacenDbContext db, params AdjuntoEvidenciaLectura[] evidencias) =>
+        Handler(db, new Millet.Almacen.UnitTests.AppAlmacenes.Eventos(), evidencias);
+
+    private static DictaminarMaterialEnRevisionHandler Handler(
+        InMemoryAlmacenDbContext db, Millet.Almacen.UnitTests.AppAlmacenes.Eventos eventos, params AdjuntoEvidenciaLectura[] evidencias)
     {
         var ctx = new P1Fixture.Contexto();
         var oc = new OcLectura(OcId, "OC-1", ProveedorId, EmpresaId, "Autorizada", []);
         return new(db, ctx, ctx, new P1Fixture.Decimales(), new PeriodoContableStub(true),
-            new FakeAdjuntos(evidencias), new P1Fixture.OcPort(oc));
+            new FakeAdjuntos(evidencias), new P1Fixture.OcPort(oc), eventos);
     }
 
     private static async Task Error(Func<Task> act, string code) =>
@@ -132,11 +137,17 @@ public class DictaminarMaterialEnRevisionTests
     public async Task Baja_crea_baja_por_dano_en_el_bin_de_revision()
     {
         var s = await SembrarAsync();
-        await Handler(s.Db).Handle(new(s.LineaRevisionId, ResultadoDictamen.Baja, 1m, "Rota", Fecha, null), default);
+        var eventos = new Millet.Almacen.UnitTests.AppAlmacenes.Eventos();
+        await Handler(s.Db, eventos).Handle(new(s.LineaRevisionId, ResultadoDictamen.Baja, 1m, "Rota", Fecha, null), default);
 
         var baja = await s.Db.Movimientos.Include(m => m.Lineas).SingleAsync(m => m.Tipo == TipoMovimiento.BajaPorDano);
         baja.Lineas.Single().UbicacionId.Should().Be(s.RevBinId);
         (await s.Db.DictamenesRevision.SingleAsync()).MovimientoEntradaId.Should().BeNull();
+        // G-1 criterio 3: la baja por daño avisa a Contabilidad con motivo «daño», a costo.
+        var ev = eventos.Publicados.OfType<SalidaInventarioRegistradaIntegrationEvent>().Should().ContainSingle().Subject;
+        ev.Causa.Should().Be("daño");
+        ev.FolioMovimiento.Should().Be(baja.Folio);
+        ev.MontoTotalMxn.Should().Be(10m);
     }
 
     // Saldo 8.A ajeno a recepciones: 3 unidades en un segundo bin de MAT-REV, sin línea de recepción en revisión.
@@ -158,7 +169,7 @@ public class DictaminarMaterialEnRevisionTests
     private static BajaPorDanoHandler Bajador(Ctx s)
     {
         var ctx = new P1Fixture.Contexto();
-        return new(s.Db, ctx, ctx, new P1Fixture.Decimales(), new PeriodoContableStub(true), new P1Fixture.ArticulosConUnidad());
+        return new(s.Db, ctx, ctx, new P1Fixture.Decimales(), new PeriodoContableStub(true), new P1Fixture.ArticulosConUnidad(), new Millet.Almacen.UnitTests.AppAlmacenes.Eventos());
     }
 
     [Fact]

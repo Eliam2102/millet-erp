@@ -1,12 +1,17 @@
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.DependencyInjection;
+using Millet.Almacen.Application.Cierre;
 using Millet.Almacen.Application.EventListeners;
 using Millet.Almacen.Application.Recepciones;
 using Millet.Almacen.Application.Reportes;
+using Millet.Almacen.Domain.Cierre;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Domain.Ports;
+using Millet.Administracion.Domain;
 using Millet.Almacen.Infrastructure.Persistence;
+using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Api.IntegrationTests.Contabilidad;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.UnidadesMedida;
@@ -28,7 +33,7 @@ public class ValuacionAlm13Tests(WebApplicationFactory<Program> factory) : IClas
     private static async Task<Guid> RecibirAsync(AlmacenDbContext db, Ctx ctx, decimal cantidad, decimal precio) =>
         (await new RegistrarRecepcionConFacturaHandler(db, new OcPrecio(ctx, precio), new CapturaEventos(), new UserFake(ctx.UserId),
             new EmpresaFake(ctx.EmpresaId), new DecimalesNulo(), ctx.Periodos, new ConversionIdentidad(), new CxpVacia(), new ProveedorRfc())
-            .Handle(new RegistrarRecepcionConFacturaCommand(ctx.OcId, Fecha, null, "AD662D33-6934-459C-A128-BDF0393E0062", null,
+            .Handle(new RegistrarRecepcionConFacturaCommand(ctx.OcId, Fecha, null, Guid.NewGuid().ToString().ToUpperInvariant(), null,
                 [new RegistrarRecepcionLineaInput(ctx.ArticuloId, ctx.LineaOcId, cantidad, null, null, ctx.RackId)]), default)).RecepcionId;
 
     private static async Task<decimal> CostoPromedioAsync(AlmacenDbContext db, Ctx ctx)
@@ -160,7 +165,76 @@ public class ValuacionAlm13Tests(WebApplicationFactory<Program> factory) : IClas
         });
     }
 
+    /// <summary>
+    /// ALM-13-a con Postgres real: compras a $900 (marzo, mes cerrado con foto) y a $1,000 (abril). El cierre de abril vale 19,000 y
+    /// cuadra contra la cuenta de inventario (doble del puerto de Contabilidad con 19,000) y contra el kardex (9,000 + 10 × 1,000).
+    /// Un ajuste de valor sin movimiento después del cierre de marzo no cambia la cifra de marzo (foto) y el kardex de abril lo señala.
+    /// </summary>
+    [Fact]
+    public async Task ALM_13_a_el_cierre_cuadra_con_la_cuenta_y_con_el_kardex_y_la_foto_fija_el_mes_cerrado()
+    {
+        await new CuarentenaRecepcionTests(factory).EjecutarConFixtureAsync(async (db, ctx) =>
+        {
+            // Sucursal real en Compartido: el cuadre la lee con el adaptador productivo y filtra por su EmpresaId.
+            using var scopeSuc = factory.Services.CreateScope();
+            var compartido = scopeSuc.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+            var empresaReal = await compartido.Empresas.AsNoTracking().OrderBy(e => e.Id).Select(e => e.Id).FirstAsync();
+            var sucursal = new Sucursal(ctx.SucursalId, empresaReal, $"C{ctx.SucursalId:N}"[..12], "Sucursal cuadre", TipoSucursal.Planta,
+                "Calle prueba", "1", "Centro", "Mérida", "Mérida", "Yucatán", "97000", "México");
+            compartido.Add(sucursal);
+            await compartido.SaveChangesAsync();
+            var marzo = await RecibirAsync(db, ctx, 10m, 900m);
+            await FecharAsync(db, marzo, new DateOnly(2027, 3, 10));
+            var periodo = new PeriodoCerrado(Guid.NewGuid(), ctx.EmpresaId, 2027, 3, ctx.UserId);
+            db.PeriodosCerrados.Add(periodo);
+            await EjecutarCierreMensualHandler.TomarFotoValuacionAsync(db, periodo, default);
+            await db.SaveChangesAsync();
+            try
+            {
+                await RecibirAsync(db, ctx, 10m, 1000m);   // abril
+
+                var cuadre = await CuadreAsync(db, ctx with { EmpresaId = empresaReal }, 19_000m);
+                var suc = cuadre.Filas.Single(f => f.Nivel == "Cuenta");
+                (suc.Valuacion, suc.SaldoContable, suc.Diferencia, suc.Observacion).Should().Be((19_000m, 19_000m, 0m, "Cuadra"));
+                cuadre.Filas.Should().NotContain(f => f.Nivel == "Kardex");
+
+                // Ajuste de valor sin movimiento (p. ej. incrementable de CE) después del cierre de marzo: +500.
+                await db.Database.ExecuteSqlInterpolatedAsync(
+                    $"UPDATE almacen.saldos_inventario SET costo_promedio_mxn = 975 WHERE ubicacion_id = {ctx.RackId} AND articulo_id = {ctx.ArticuloId}");
+                (await AlfakAsync(db, ctx, new DateOnly(2027, 3, 31))).ValorInventarioFinal.Should().Be(9_000m);
+                var kardex = (await CuadreAsync(db, ctx with { EmpresaId = empresaReal }, 19_000m)).Filas.Single(f => f.Nivel == "Kardex");
+                (kardex.Valuacion, kardex.Diferencia).Should().Be((19_500m, 500m));
+            }
+            finally
+            {
+                await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM almacen.periodos_cerrados WHERE empresa_id = {ctx.EmpresaId}");
+                compartido.Remove(sucursal);
+                await compartido.SaveChangesAsync();
+            }
+        });
+    }
+
+    // Acotado a la sucursal de la prueba: la empresa real de Compartido la comparten otras pruebas (el cuadre suma toda la empresa).
+    private async Task<ReporteResponse<CuadreInventarioFila>> CuadreAsync(AlmacenDbContext db, Ctx ctx, decimal saldoContable)
+    {
+        db.ChangeTracker.Clear();
+        using var scope = factory.Services.CreateScope();
+        return await new CuadreInventarioContableHandler(db, new InventarioDoble(saldoContable),
+                scope.ServiceProvider.GetRequiredService<ISucursalReadPort>(), new EmpresaFake(ctx.EmpresaId), new ArticulosUnidad())
+            .Handle(new CuadreInventarioContableQuery(2027, 4) { SucursalesPermitidas = [ctx.SucursalId] }, default);
+    }
+
     // ─────────────────────────── Dobles ───────────────────────────
+
+    private sealed class InventarioDoble(decimal saldo) : IInventarioContableReadPort
+    {
+        private readonly Guid _cuenta = Guid.NewGuid();
+
+        public Task<IReadOnlyDictionary<(Guid SucursalId, string? Grupo), CuentaInventarioSaldo>> ObtenerAsync(DateOnly corte,
+            IReadOnlyCollection<(Guid SucursalId, string? Grupo)> claves, IReadOnlyCollection<Guid>? sucursalesSaldo, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyDictionary<(Guid SucursalId, string? Grupo), CuentaInventarioSaldo>>(
+                claves.ToDictionary(k => k, _ => new CuentaInventarioSaldo(_cuenta, "1150", "Inventario", saldo)));
+    }
 
     private sealed class RelojFijo : IClock
     {

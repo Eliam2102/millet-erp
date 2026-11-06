@@ -32,6 +32,19 @@ public sealed class DepositoConfirmacionTests
             """[{"FacturaVentaId":"3fa85f64-5717-4562-b3fc-2c963f66afa6","Folio":"VEN-1","ImporteAplicado":5000.00}]""", propuestoPor: Guid.NewGuid());
 
     [Fact]
+    public void P19_devolucion_ce_exige_importe_exacto_y_conserva_origen()
+    {
+        var devolucion = Guid.NewGuid();
+        var d = DepositoConfirmacion.CrearExpectativaCe(EmpresaId, Guid.NewGuid(), devolucion, Guid.NewGuid(), Guid.NewGuid(), 3000, "CE-P19", Guid.NewGuid());
+        var act = () => d.Confirmar(Ingreso(2999), UsuarioId, Ahora);
+        act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "DEP_MONTO_NO_COINCIDE");
+        var mismo = () => d.Confirmar(Ingreso(3000), d.PropuestoPor!.Value, Ahora);
+        mismo.Should().Throw<BusinessRuleException>().Where(e => e.Code == "DEP_MISMO_USUARIO");
+        var movimiento = Ingreso(3000); d.Confirmar(movimiento, UsuarioId, Ahora);
+        d.Estado.Should().Be(EstadoDepositoConfirmacion.Confirmada); d.DevolucionCeId.Should().Be(devolucion);
+        d.MovimientoId.Should().Be(movimiento.Id);
+    }
+    [Fact]
     public void Quien_propone_no_confirma_aunque_tenga_todos_los_permisos()
     {
         var deposito = DepositoConfirmacion.CrearDesdePropuesta(EmpresaId, Guid.NewGuid(), Guid.NewGuid(), "P5", 5000, "MXN", "[]", UsuarioId);

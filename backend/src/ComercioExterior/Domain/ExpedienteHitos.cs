@@ -36,9 +36,19 @@ public sealed partial class Expediente
         IReadOnlyList<RequisitoDocumento> requisitos, IReadOnlyCollection<Guid> adjuntosVigentes, DateOnly hoy)
     {
         ExigirAbierto();
+        if (clave == "cerrado") throw new BusinessRuleException("CE_CIERRE_GERENCIA_REQUERIDO", "Complete los tres cierres y solicite la aprobación de Gerencia desde el resumen del expediente.");
         if (clave is "documentacion-completa" or "entregado" or "cerrado") ExigirSinIncidencias();
         if (clave == "cerrado" && MotivosFinancieros().Count > 0)
             throw new BusinessRuleException("CE_CIERRE_FINANCIERO_PENDIENTE", string.Join("; ", MotivosFinancieros()));
+        if (clave == "embarcado" && Tipo == TipoExpediente.Exportacion && !SalidaAutorizada)
+            throw new BusinessRuleException("CE_SALIDA_SIN_AUTORIZAR", "Autorice la salida de la versión actual del embarque antes de completar el hito.");
+        if (clave == "embarcado" && Tipo == TipoExpediente.Importacion)
+        {
+            var activos = _contenedores.Where(c => c.Estado == EstadoContenedor.Activo).ToArray();
+            if (activos.Length == 0 || activos.Any(c => c.FechaEmbarqueReal is null))
+                throw new BusinessRuleException("CE_EMBARQUE_PENDIENTE", "Registre el embarque real de los contenedores y sus partidas de la OC antes de completar el hito.");
+            foreach (var c in activos) ExigirTransporte(c);
+        }
         var hito = Hito(clave);
         ExigirAnteriores(hito);
         var anteriorReal = _hitos.Where(h => h.Orden < hito.Orden && h.FechaReal != null).Max(h => h.FechaReal);
@@ -46,9 +56,10 @@ public sealed partial class Expediente
             throw new BusinessRuleException("CE_FECHA_REAL_INVALIDA", "La fecha real debe estar entre el hito anterior y hoy.");
         if (evidencia is Guid a && !adjuntosVigentes.Contains(a))
             throw new BusinessRuleException("CE_ADJUNTO_INVALIDO", "La evidencia debe ser un adjunto vigente del expediente.");
-        if (clave == "documentacion-completa")
+        if (clave is "despacho-aduanal" or "liberado" && evidencia is null)
+            throw new BusinessRuleException("CE_EVIDENCIA_HITO_REQUERIDA", clave == "despacho-aduanal" ? "Adjunte el pedimento pagado para registrar el despacho aduanal." : "Adjunte el documento de liberación para completar el hito.");
         {
-            var faltantes = Faltantes(requisitos, adjuntosVigentes);
+            var faltantes = Faltantes(requisitos.Where(r => r.HitoClave == clave || Tipo == TipoExpediente.Importacion && r.HitoClave is not null && _hitos.Any(h => h.Clave == r.HitoClave && h.Orden <= hito.Orden)).ToArray(), adjuntosVigentes);
             if (faltantes.Count > 0) throw new DocumentosFaltantesException(faltantes);
         }
         if (clave == "despacho-aduanal" && !_participantes.Any(p => p.Tipo == TipoParticipante.AgenteAduanal))
@@ -67,7 +78,7 @@ public sealed partial class Expediente
     public void OmitirHito(string clave, string motivo, Guid responsable)
     {
         ExigirAbierto();
-        if (clave is "solicitado" or "documentacion-completa" or "despacho-aduanal" or "entregado" or "cerrado")
+        if (clave is "solicitado" or "documentacion-completa" or "despacho-aduanal" or "liberado" or "embarcado" or "entregado" or "cerrado")
             throw new BusinessRuleException("CE_HITO_NO_OMITIBLE", "Este hito es obligatorio y no se puede omitir.");
         var hito = Hito(clave);
         ExigirAnteriores(hito);

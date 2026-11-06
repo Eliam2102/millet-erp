@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Domain;
 using Millet.Almacen.Domain.Catalogo;
 using Millet.Almacen.Domain.Cierre;
+using Millet.Almacen.Domain.Consumo;
+using Millet.Almacen.Domain.Taller;
 using Millet.Almacen.Domain.Conteos;
 using Millet.Almacen.Domain.DevolucionesProveedor;
 using Millet.Almacen.Domain.Idempotencia;
@@ -96,6 +98,22 @@ public class AlmacenDbContext : BaseDbContext
     /// <summary>ALM-APP-2: mensajes recibidos de la app de Almacenes (idempotencia por mensajeId).</summary>
     public DbSet<MensajeApp> MensajesApp => Set<MensajeApp>();
 
+    /// <summary>A4.8: normas de consumo por artículo componente y consumos por composición leídos de A+W.</summary>
+    public DbSet<NormaConsumoComponente> NormasConsumoComponente => Set<NormaConsumoComponente>();
+    public DbSet<ConsumoComponenteAw> ConsumosComponenteAw => Set<ConsumoComponenteAw>();
+
+    /// <summary>PT5.10: descargas del taller por pedido interno Serie 9000 y cierres de día del almacenista.</summary>
+    public DbSet<DescargaTallerAw> DescargasTallerAw => Set<DescargaTallerAw>();
+    public DbSet<CierreTaller> CierresTaller => Set<CierreTaller>();
+
+    /// <summary>A4.4: desperdicio de mesa de corte y merma por etapa informados por A+W.</summary>
+    public DbSet<Domain.Mermas.MermaProceso> MermasProceso => Set<Domain.Mermas.MermaProceso>();
+    public DbSet<Domain.Roturas.SalidaRotura> SalidasRotura => Set<Domain.Roturas.SalidaRotura>();
+
+    /// <summary>A4.6: corridas de la conciliación diaria contra A+W y sus diferencias (salidas no planificadas).</summary>
+    public DbSet<Domain.Conciliacion.ConciliacionDiaria> ConciliacionesDiarias => Set<Domain.Conciliacion.ConciliacionDiaria>();
+    public DbSet<Domain.Conciliacion.DiferenciaConciliacion> DiferenciasConciliacion => Set<Domain.Conciliacion.DiferenciaConciliacion>();
+
     /// <summary>F6-PR1: devoluciones a proveedor (sub-flujo 8.B).</summary>
     public DbSet<Domain.Revision.DictamenRevision> DictamenesRevision => Set<Domain.Revision.DictamenRevision>();
     public DbSet<DevolucionAProveedor> DevolucionesProveedor => Set<DevolucionAProveedor>();
@@ -113,6 +131,13 @@ public class AlmacenDbContext : BaseDbContext
     /// <summary>F8-PR2: periodos cerrados (cierre de mes).</summary>
     public DbSet<PeriodoCerrado> PeriodosCerrados => Set<PeriodoCerrado>();
 
+    /// <summary>F1-ALM-13: foto de la valuación al cierre mensual.</summary>
+    public DbSet<ValuacionCierre> ValuacionesCierre => Set<ValuacionCierre>();
+
+    /// <summary>86e3tac2y: acta del cierre mensual y avisos dentro del ERP.</summary>
+    public DbSet<ActaCierreMes> ActasCierre => Set<ActaCierreMes>();
+    public DbSet<Domain.Avisos.AvisoAlmacen> AvisosAlmacen => Set<Domain.Avisos.AvisoAlmacen>();
+
     /// <summary>
     /// Outbox de eventos de integración del módulo Almacén. Lo escribe
     /// <c>OutboxSaveChangesInterceptor</c> drenando el buffer scoped
@@ -127,9 +152,16 @@ public class AlmacenDbContext : BaseDbContext
 
     public DbSet<RecepcionActivo> RecepcionesActivos => Set<RecepcionActivo>();
 
+    public DbSet<RecepcionRechazo> RecepcionRechazos => Set<RecepcionRechazo>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("almacen");
+        var rechazo = modelBuilder.Entity<RecepcionRechazo>();
+        rechazo.ToTable("recepcion_rechazos"); rechazo.HasKey(x => x.Id); rechazo.Property(x => x.Id).ValueGeneratedNever();
+        rechazo.Property(x => x.Cantidad).HasPrecision(18, 4); rechazo.Property(x => x.Motivo).HasMaxLength(500);
+        rechazo.Property(x => x.UnidadMedida).HasMaxLength(20);
+        rechazo.Property(x => x.EvidenciaBlobRef).HasMaxLength(500); rechazo.HasIndex(x => x.RecepcionId);
         var importacion = modelBuilder.Entity<RecepcionImportacion>();
         importacion.ToTable("recepciones_importacion"); importacion.HasKey(x => x.Id);
         importacion.Property(x => x.Id).ValueGeneratedNever();
@@ -191,6 +223,173 @@ public class AlmacenDbContext : BaseDbContext
             b.Property(a => a.MotivoLiberacion).HasMaxLength(500);
             b.HasIndex(a => a.LineaRequisicionId).IsUnique();
             b.HasIndex(a => new { a.SucursalId, a.ArticuloId });
+        });
+        modelBuilder.Entity<ValuacionCierre>(b =>
+        {
+            b.ToTable("valuaciones_cierre");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).ValueGeneratedNever();
+            b.Property(x => x.Lote).HasMaxLength(50);
+            b.Property(x => x.Cantidad).HasPrecision(18, 4);
+            b.Property(x => x.ValorMxn).HasPrecision(18, 2);
+            b.HasOne<PeriodoCerrado>().WithMany().HasForeignKey(x => x.PeriodoCerradoId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(x => new { x.EmpresaId, x.Anio, x.Mes, x.SubAlmacenId });
+        });
+        modelBuilder.Entity<ActaCierreMes>(b =>
+        {
+            b.ToTable("actas_cierre");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).ValueGeneratedNever();
+            b.Property(x => x.Estado).HasMaxLength(20).IsRequired();
+            b.Property(x => x.ContenidoJson).HasColumnType("jsonb").IsRequired();
+            b.HasOne<PeriodoCerrado>().WithMany().HasForeignKey(x => x.PeriodoCerradoId).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => new { x.EmpresaId, x.Anio, x.Mes }).IsUnique();
+        });
+        modelBuilder.Entity<Domain.Avisos.AvisoAlmacen>(b =>
+        {
+            b.ToTable("avisos");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).ValueGeneratedNever();
+            b.Property(x => x.Tipo).HasMaxLength(30).IsRequired();
+            b.Property(x => x.Titulo).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Mensaje).HasMaxLength(500).IsRequired();
+            b.Property(x => x.Ruta).HasMaxLength(200);
+            // Un mismo vale, ajuste o acta avisa una sola vez a cada destinatario.
+            b.HasIndex(x => new { x.UsuarioDestinoId, x.Tipo, x.ReferenciaId }).IsUnique();
+            b.HasIndex(x => new { x.UsuarioDestinoId, x.CreadoAt });
+        });
+        modelBuilder.Entity<NormaConsumoComponente>(b =>
+        {
+            b.ToTable("normas_consumo_componente");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).ValueGeneratedNever();
+            b.Property(x => x.ConsumoPorUnidad).HasPrecision(14, 6);
+            b.Property(x => x.PorcentajeMerma).HasPrecision(7, 4);
+            b.Property(x => x.FactorM3PorM2).HasPrecision(14, 6);
+            b.HasIndex(x => new { x.EmpresaId, x.ArticuloId }).IsUnique();
+        });
+        modelBuilder.Entity<ConsumoComponenteAw>(b =>
+        {
+            b.ToTable("consumos_componente_aw");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).ValueGeneratedNever();
+            b.Property(x => x.Origen).HasMaxLength(10).IsRequired();
+            b.Property(x => x.Etiqueta).HasMaxLength(50).IsRequired();
+            b.Property(x => x.ComponenteRef).HasMaxLength(50).IsRequired();
+            b.Property(x => x.Auftnr).HasMaxLength(50).IsRequired();
+            b.Property(x => x.AnchoMm).HasPrecision(14, 4);
+            b.Property(x => x.AltoMm).HasPrecision(14, 4);
+            b.Property(x => x.ClaveSucursal).HasMaxLength(50);
+            b.Property(x => x.BearbZeit).HasColumnType("timestamp without time zone");
+            b.Property(x => x.Estado).HasMaxLength(20).IsRequired();
+            b.Property(x => x.Cantidad).HasPrecision(14, 4);
+            b.Property(x => x.Folio).HasMaxLength(100);
+            b.Property(x => x.Error).HasMaxLength(1000);
+            // D2: un componente de una pieza en una operación se descuenta una sola vez.
+            b.HasIndex(x => new { x.EmpresaId, x.Origen, x.Etiqueta, x.Operacion, x.ComponenteRef }).IsUnique();
+            b.HasIndex(x => new { x.EmpresaId, x.Estado, x.IntentadoAt });
+        });
+        modelBuilder.Entity<DescargaTallerAw>(b =>
+        {
+            b.ToTable("descargas_taller_aw");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).ValueGeneratedNever();
+            b.Property(x => x.Origen).HasMaxLength(10).IsRequired();
+            b.Property(x => x.NumeroPedido).HasMaxLength(50).IsRequired();
+            b.Property(x => x.ArticuloRef).HasMaxLength(50).IsRequired();
+            b.Property(x => x.Cantidad).HasPrecision(14, 4);
+            b.Property(x => x.AnchoMm).HasPrecision(14, 4);
+            b.Property(x => x.AltoMm).HasPrecision(14, 4);
+            b.Property(x => x.ClaveSucursal).HasMaxLength(50);
+            b.Property(x => x.M2).HasPrecision(14, 4);
+            b.Property(x => x.Estado).HasMaxLength(20).IsRequired();
+            b.Property(x => x.Folio).HasMaxLength(100);
+            b.Property(x => x.Error).HasMaxLength(1000);
+            // Una posición de un pedido Serie 9000 baja el inventario una sola vez.
+            b.HasIndex(x => new { x.EmpresaId, x.Origen, x.NumeroPedido, x.Posicion }).IsUnique();
+            b.HasIndex(x => new { x.EmpresaId, x.Estado, x.IntentadoAt });
+            b.HasIndex(x => new { x.EmpresaId, x.SucursalId, x.FechaPedido });
+        });
+        modelBuilder.Entity<CierreTaller>(b =>
+        {
+            b.ToTable("cierres_taller");
+            b.Property(x => x.HojasTomadas).HasPrecision(14, 4);
+            b.Property(x => x.RetazosTomados).HasPrecision(14, 4);
+            b.Property(x => x.M2Descargados).HasPrecision(14, 4);
+            b.Property(x => x.M2Cortados).HasPrecision(14, 4);
+            b.Property(x => x.FactorOptimizacion).HasPrecision(14, 4);
+            b.Property(x => x.Notas).HasMaxLength(500);
+            // Un cierre por taller y día.
+            b.HasIndex(x => new { x.EmpresaId, x.SucursalId, x.Fecha }).IsUnique();
+        });
+        modelBuilder.Entity<Domain.Mermas.MermaProceso>(b =>
+        {
+            b.ToTable("mermas_proceso", t =>
+            {
+                t.HasCheckConstraint("ck_mermas_proceso_m2", "m2 > 0");
+                t.HasCheckConstraint("ck_mermas_proceso_kg", "kg IS NULL OR kg > 0");
+            });
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).ValueGeneratedNever();
+            b.Property(x => x.Tipo).HasMaxLength(20).IsRequired();
+            b.Property(x => x.Mesa).HasMaxLength(30);
+            b.Property(x => x.Etapa).HasMaxLength(20).IsRequired();
+            b.Property(x => x.Motivo).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Kg).HasPrecision(14, 4);
+            b.Property(x => x.M2).HasPrecision(14, 4);
+            b.Property(x => x.CostoUnitarioM2Mxn).HasPrecision(14, 4);
+            b.Property(x => x.ValorMxn).HasPrecision(18, 2);
+            b.Property(x => x.Estado).HasMaxLength(20).IsRequired();
+            b.Property(x => x.MensajeId).HasMaxLength(64);
+            b.Property(x => x.MotivoRechazo).HasMaxLength(500);
+            // A4.4-a: un desperdicio por (sucursal, día, mesa, artículo); la merma no tiene esa llave.
+            b.HasIndex(x => new { x.EmpresaId, x.SucursalId, x.Fecha, x.Mesa, x.ArticuloId }).IsUnique()
+                .HasFilter("tipo = 'DESPERDICIO_MESA'");
+            b.HasIndex(x => new { x.EmpresaId, x.Estado, x.Fecha });
+        });
+        modelBuilder.Entity<Domain.Roturas.SalidaRotura>(b =>
+        {
+            b.ToTable("salidas_rotura", t => t.HasCheckConstraint("ck_salidas_rotura_cantidad", "cantidad > 0"));
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).ValueGeneratedNever();
+            b.Property(x => x.Cantidad).HasPrecision(14, 4);
+            b.Property(x => x.UnidadMedida).HasMaxLength(20).IsRequired();
+            b.Property(x => x.MotivoCodigo).HasMaxLength(30).IsRequired();
+            b.Property(x => x.Comentario).HasMaxLength(500);
+            b.Property(x => x.Estado).HasMaxLength(20).IsRequired();
+            b.Property(x => x.MotivoRechazo).HasMaxLength(500);
+            b.Property(x => x.FolioMovimiento).HasMaxLength(30);
+            b.Property(x => x.CostoUnitarioMxn).HasPrecision(14, 4);
+            b.Property(x => x.ValorMxn).HasPrecision(18, 2);
+            b.HasIndex(x => new { x.EmpresaId, x.Estado, x.Fecha });
+        });
+        modelBuilder.Entity<Domain.Conciliacion.ConciliacionDiaria>(b =>
+        {
+            b.ToTable("conciliaciones_diarias");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).ValueGeneratedNever();
+            b.Property(x => x.Fuente).HasMaxLength(10).IsRequired();
+            b.HasIndex(x => new { x.EmpresaId, x.AlmacenId, x.Fecha });
+        });
+        modelBuilder.Entity<Domain.Conciliacion.DiferenciaConciliacion>(b =>
+        {
+            b.ToTable("diferencias_conciliacion", t =>
+                t.HasCheckConstraint("ck_diferencias_conciliacion_distintas", "teorico <> fisico"));
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).ValueGeneratedNever();
+            b.Ignore(x => x.Diferencia);
+            b.Property(x => x.Lote).HasMaxLength(50);
+            b.Property(x => x.AreaHojaM2).HasPrecision(14, 6);
+            b.Property(x => x.Teorico).HasPrecision(14, 4);
+            b.Property(x => x.Fisico).HasPrecision(14, 4);
+            b.Property(x => x.Sentido).HasMaxLength(10).IsRequired();
+            b.Property(x => x.CostoUnitarioMxn).HasPrecision(14, 4);
+            b.Property(x => x.ValorMxn).HasPrecision(18, 2);
+            b.Property(x => x.FolioMovimiento).HasMaxLength(200);
+            b.Property(x => x.Estado).HasMaxLength(10).IsRequired();
+            b.Property(x => x.MotivoAclaracion).HasMaxLength(500);
+            b.HasIndex(x => new { x.EmpresaId, x.Estado, x.Fecha });
+            b.HasIndex(x => x.ConciliacionId);
         });
         OnModelCreatingProviderSpecific(modelBuilder);
     }

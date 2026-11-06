@@ -134,6 +134,17 @@ public sealed class PasivoPendientePago : BaseEntity, IPerteneceAEmpresa, IAudit
         OrigenId = facturaProveedorId;
     }
 
+    public void ExigirDesligarSoportado()
+    {
+        if (OrigenTipo == "AnticipoAgente")
+            throw new BusinessRuleException("CE_ANTICIPO_NO_LIGABLE", "El anticipo al agente no es un pago a cuenta; use la reversa de pagos de Tesorería.");
+    }
+    public void MarcarAnticipoAgente(Guid sucursal)
+    {
+        if (sucursal == Guid.Empty) throw new BusinessRuleException("CE_SUCURSAL_REQUERIDA", "La solicitud debe identificar su sucursal.");
+        OrigenTipo = "AnticipoAgente"; SucursalAnticipoCeId = sucursal;
+    }
+    public Guid? SucursalAnticipoCeId { get; private set; }
     /// <summary>
     /// Factory de pasivos INTERNOS (GI-PR2, doc 12): reposición de caja
     /// chica o préstamo de viáticos. <c>FacturaProveedorId</c> almacena el

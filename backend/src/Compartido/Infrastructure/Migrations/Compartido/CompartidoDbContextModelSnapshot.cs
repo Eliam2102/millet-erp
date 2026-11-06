@@ -3237,6 +3237,54 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         },
                         new
                         {
+                            Id = new Guid("00000002-0007-0000-0000-00000000000d"),
+                            Codigo = "CAJA",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Decimales = 0,
+                            Dimension = (short)0,
+                            EsBase = false,
+                            Estatus = (short)0,
+                            FactorABase = 1m,
+                            Nombre = "Caja (SAT XBX)",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000002-0007-0000-0000-00000000000e"),
+                            Codigo = "ROLLO",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Decimales = 0,
+                            Dimension = (short)0,
+                            EsBase = false,
+                            Estatus = (short)0,
+                            FactorABase = 1m,
+                            Nombre = "Rollo (SAT RK)",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000002-0007-0000-0000-00000000000f"),
+                            Codigo = "PAQ",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Decimales = 0,
+                            Dimension = (short)0,
+                            EsBase = false,
+                            Estatus = (short)0,
+                            FactorABase = 1m,
+                            Nombre = "Paquete (SAT XPK)",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000002-0007-0000-0000-000000000003"),
                             Codigo = "KG",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
@@ -6230,6 +6278,28 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("character varying(255)")
                         .HasColumnName("nombre_archivo");
 
+                    b.Property<string>("ObservacionRevision")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("observacion_revision");
+
+                    b.Property<short?>("ResultadoRevision")
+                        .HasColumnType("smallint")
+                        .HasColumnName("resultado_revision");
+
+                    b.Property<DateTimeOffset?>("RevisadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revisado_en");
+
+                    b.Property<Guid?>("RevisadoPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("revisado_por_id");
+
+                    b.Property<string>("RevisadoPorNombre")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("revisado_por_nombre");
+
                     b.Property<DateTimeOffset>("SubidoEn")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("subido_en");
@@ -6314,24 +6384,33 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("uuid")
                         .HasColumnName("entidad_id");
 
+                    b.Property<short>("Estado")
+                        .HasColumnType("smallint")
+                        .HasColumnName("estado");
+
                     b.Property<string>("Motivo")
                         .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
                         .HasColumnName("motivo");
 
-                    b.Property<DateTimeOffset>("OtorgadaEn")
+                    b.Property<string>("MotivoResolucion")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo_resolucion");
+
+                    b.Property<DateTimeOffset?>("ResueltaEn")
                         .HasColumnType("timestamp with time zone")
-                        .HasColumnName("otorgada_en");
+                        .HasColumnName("resuelta_en");
 
-                    b.Property<Guid?>("OtorgadaPorId")
+                    b.Property<Guid?>("ResueltaPorId")
                         .HasColumnType("uuid")
-                        .HasColumnName("otorgada_por_id");
+                        .HasColumnName("resuelta_por_id");
 
-                    b.Property<string>("OtorgadaPorNombre")
+                    b.Property<string>("ResueltaPorNombre")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
-                        .HasColumnName("otorgada_por_nombre");
+                        .HasColumnName("resuelta_por_nombre");
 
                     b.Property<DateTimeOffset?>("RevocadaEn")
                         .HasColumnType("timestamp with time zone")
@@ -6340,6 +6419,19 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                     b.Property<Guid?>("RevocadaPorId")
                         .HasColumnType("uuid")
                         .HasColumnName("revocada_por_id");
+
+                    b.Property<DateTimeOffset>("SolicitadaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("solicitada_en");
+
+                    b.Property<Guid?>("SolicitadaPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("solicitada_por_id");
+
+                    b.Property<string>("SolicitadaPorNombre")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("solicitada_por_nombre");
 
                     b.Property<Guid>("TipoDocumentoId")
                         .HasColumnType("uuid")

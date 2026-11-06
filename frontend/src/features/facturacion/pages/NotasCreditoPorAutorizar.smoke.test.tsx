@@ -16,6 +16,7 @@ const nc = {
   total: 1500,
   moneda: 'MXN',
   folioAw: 'NC-100',
+  vendedorAw: 'Vendedor Prueba',
   facturaFolio: 'F-000001',
   fechaRecibida: '2026-10-31T10:00:00Z',
 };
@@ -64,6 +65,7 @@ describe('Notas de crédito por autorizar', () => {
     render(<NotasCreditoPorAutorizar />, { wrapper: createQueryWrapper() });
     await screen.findByText('NC-100');
     expect(screen.getByText('F-000001')).toBeInTheDocument();
+    expect(screen.getByText('Vendedor Prueba')).toBeInTheDocument();
     expect(screen.getByText('01 · Bonificación')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Autorizar' }));
     expect(autorizadas).toBe(0);

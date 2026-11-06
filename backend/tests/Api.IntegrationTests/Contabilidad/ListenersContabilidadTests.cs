@@ -50,8 +50,20 @@ public sealed partial class ListenersContabilidadTests(WebApplicationFactory<Pro
         ("DESCUENTOS_SOBRE_VENTAS", "4.2", "Deudora", "Ninguna"),
         ("CONSUMO", "5.1", "Deudora", "Ninguna"),
         ("AJUSTE_INVENTARIO", "5.2", "Deudora", "Ninguna"),
+        // CXC-06: cuentas del ajuste documentado de un cobro corto.
+        ("COMISIONES_BANCARIAS", "5.3", "Deudora", "Ninguna"),
+        ("DIFERENCIAS_EN_COBRO", "5.4", "Deudora", "Ninguna"),
+        // CXP-12: resultado cambiario no realizado de la revaluación de cierre.
+        ("PERDIDA_CAMBIARIA_NO_REALIZADA", "5.5", "Deudora", "Ninguna"),
+        ("UTILIDAD_CAMBIARIA_NO_REALIZADA", "4.3", "Acreedora", "Ninguna"),
+        // U-2: depósito y diferencias de corte, comisión del extracto, costo de importación y salidas G-1.
+        ("DEUDORES_FUNCIONARIOS_EMPLEADOS", "1.10", "Deudora", "Ninguna"),
+        ("IVA_ACREDITABLE_PAGADO", "1.11", "Deudora", "Ninguna"),
+        ("GASTOS_IMPORTACION_POR_APLICAR", "1.12", "Deudora", "Ninguna"),
+        ("CONCEPTO_BANCARIO_COMISION_BANCARIA", "5.6", "Deudora", "Ninguna"),
+        ("GASTO_IMPORTACION", "5.7", "Deudora", "Ninguna"),
+        ("MERMA", "5.8", "Deudora", "Ninguna"),
         // C1.6: reclasificación de IVA al pagar o cobrar.
-        ("IVA_ACREDITABLE_PAGADO", "1.0", "Deudora", "Ninguna"),
         ("IVA_TRASLADADO_COBRADO", "2.6", "Acreedora", "Ninguna"),
         // K10.7: póliza de liquidación de IVA.
         ("IVA_POR_PAGAR", "2.7", "Acreedora", "Ninguna"),

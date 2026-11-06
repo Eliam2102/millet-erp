@@ -116,7 +116,7 @@ export function EmitirFacturaForm(props: EmitirFacturaFormProps) {
 
   if (defaults.isError) {
     return (
-      <div className="space-y-2 rounded-md border border-danger/40 bg-danger-bg/5 px-4 py-3 text-sm">
+      <div className="space-y-2 rounded-md border border-line bg-danger-bg px-4 py-3 text-sm">
         <p>No se pudieron cargar los datos del emisor.</p>
         <Button type="button" variant="outline" size="sm" onClick={() => defaults.refetch()}>
           Reintentar
@@ -134,7 +134,12 @@ export function EmitirFacturaForm(props: EmitirFacturaFormProps) {
   }
   return (
     <FormInner
-      key={props.prefill?.sustituye?.id ?? props.prefill?.pedidoFacturableId ?? 'manual'}
+      key={
+        props.prefill?.sustituye?.id ??
+        (props.prefill?.pedidoFacturableId
+          ? `${props.prefill.pedidoFacturableId}:${props.prefill.salidaFacturableId ?? 'pedido'}`
+          : 'manual')
+      }
       {...props}
       emisor={defaults.data}
     />
@@ -265,7 +270,7 @@ function FormInner({
     ce.clavePedimento === 'RT' &&
     comportamiento === ComportamientoFiscal.ExportacionConCce;
   const motivoCe = rtPorConfirmar
-    ? 'La exportación RT sin complemento requiere confirmación de Fiscal (VAL-CE-08).'
+    ? 'La exportación RT sin complemento requiere confirmación de Fiscal.'
     : ce?.motivo;
   const ceBloqueado = Boolean(ce?.ligado && (!ce.listoParaFacturar || rtPorConfirmar));
   const esCce = ce?.ligado
@@ -311,12 +316,14 @@ function FormInner({
   async function onSubmit(values: EmitirFacturaValues) {
     if (ceBloqueado || manualSinClase) return;
     if (esActivo && autorizacionId.trim() === '') {
-      toast.error('La venta de activo fijo requiere el ID de autorización del Director de Administración y Finanzas.');
+      toast.error('La venta de activo fijo requiere la autorización del Director de Administración y Finanzas.');
       return;
     }
     const command = construirComando(values);
     const pedidoId = prefill?.pedidoFacturableId;
-    if (!pedidoId) {
+    // FAC-08: la proforma es del pedido completo; contra una parcialidad
+    // siempre habría diferencias, así que no se compara.
+    if (!pedidoId || prefill?.salidaFacturableId) {
       emitirComando(command);
       return;
     }
@@ -369,13 +376,18 @@ function FormInner({
           facturaAgrupada: false,
           clienteId,
           pedidoFacturableId: prefill?.pedidoFacturableId ?? null,
+          salidaFacturableId: prefill?.salidaFacturableId ?? null,
           sustituyeComprobanteId: prefill?.sustituye?.id ?? null,
           anticipos:
             anticipos.filter((a) => a.anticipoId.trim().length > 0).length > 0
               ? anticipos
                   .filter((a) => a.anticipoId.trim().length > 0)
                   // El folio es solo del FE (arma la nota); no viaja al backend.
-                  .map((a) => ({ anticipoId: a.anticipoId, importe: a.importe }))
+                  .map((a) => ({
+                    anticipoId: a.anticipoId,
+                    importe: a.importe,
+                    comentarioNotaCredito: a.comentarioNotaCredito?.trim() || null,
+                  }))
               : null,
           observaciones: values.observaciones ?? '',
           autorizacionId: esActivo ? autorizacionId.trim() : null,
@@ -468,7 +480,7 @@ function FormInner({
       {ce?.ligado && <EmbarqueCeResumen datos={ce} bloqueo={ceBloqueado ? motivoCe : null} />}
       {errorVentaDirecta != null ? (
         <AvisoEnLinea
-          tono="error"
+          tono={errorVentaDirecta.destino === 'series' ? 'advertencia' : 'error'}
           titulo={errorVentaDirecta.titulo}
           accion={
             errorVentaDirecta.destino === 'series' && puedeGestionarSeries ? (
@@ -525,11 +537,21 @@ function FormInner({
           </span>
         </p>
       )}
-      {prefill?.pedidoFacturableId && (
+      {prefill?.pedidoFacturableId && !prefill.salidaFacturableId && (
         <div className="rounded-md border border-brand/30 bg-brand/5 px-3 py-2 text-sm">
           Facturando un pedido — partidas, datos comerciales y fiscales vienen precargados desde el
           pedido y los catálogos. Revisa y completa lo que falte. Al timbrar, el pedido pasa a{' '}
           <span className="font-medium">Facturado</span>.
+        </div>
+      )}
+      {prefill?.salidaFacturableId && (
+        <div
+          data-testid="aviso-factura-parcialidad"
+          className="rounded-md border border-brand/30 bg-brand/5 px-3 py-2 text-sm"
+        >
+          Facturando la parcialidad {prefill.numeroParcialidad ?? ''} del pedido — las partidas
+          llevan solo las cantidades de esa salida. Al timbrar, la parcialidad queda facturada y el
+          pedido sigue abierto para las siguientes salidas.
         </div>
       )}
 
@@ -657,7 +679,7 @@ function FormInner({
                 manualSinClase
                   ? 'Clasifica el pedido (venta directa o emergencia) antes de facturarlo.'
                   : ceBloqueado
-                    ? (motivoCe ?? 'Complete el embarque en Comercio Exterior.')
+                    ? (motivoCe ?? 'Completa el embarque en Comercio exterior.')
                     : receptorBloqueado
                       ? 'Receptor incompleto: complétalo en Datos Maestros → Clientes'
                       : undefined
@@ -688,7 +710,7 @@ function BadgeErrores({ cuenta }: { cuenta: number }) {
     <span
       className={cn(
         'inline-flex h-4 min-w-4 items-center justify-center rounded-full',
-        'bg-danger-bg px-1 text-[10px] font-semibold text-danger-fg-foreground',
+        'bg-danger-bg px-1 text-2xs font-semibold text-danger-fg',
       )}
       aria-label={`${cuenta} errores`}
     >

@@ -1,3 +1,4 @@
+import { problemaUsuario } from '@/lib/error-usuario';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -37,7 +38,6 @@ import {
 } from '@/features/cxp/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError } from '@/lib/api';
 import { EstatusSatBadge } from '@/features/cxp/components/EstatusSatBadge';
 import { EstadoCfdiBadge } from '@/features/cxp/components/EstadoCfdiBadge';
 import { CapturarFacturaSheet } from '@/features/cxp/components/CapturarFacturaSheet';
@@ -144,7 +144,7 @@ export function CfdisPage() {
     <div className="space-y-4">
       <PageHeader
         titulo="CFDIs recibidos"
-        descripcion="CFDI que enviaron los proveedores. Marca duplicados, descarta CFDIs no aplicables o abre el flujo de captura desde aquí."
+        descripcion="Revisa los CFDI recibidos de proveedores, marca duplicados o captura las facturas correspondientes."
         acciones={
           <>
             {puedeCargarManual && (
@@ -164,7 +164,7 @@ export function CfdisPage() {
       {query.isError ? (
         <ErrorState
           title="No se pudieron cargar los CFDIs"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
+          problem={problemaUsuario(query.error)}
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading ? (
@@ -192,7 +192,7 @@ export function CfdisPage() {
             search.rfcEmisor ||
             search.soloVencidos
               ? 'No hay CFDIs que coincidan con los filtros aplicados.'
-              : 'Aún no se han recibido CFDIs. Los CFDIs entran por descarga SAT, mailbox o carga manual.'
+              : "Aún no hay CFDI recibidos por descarga del SAT, correo o carga manual."
           }
         />
       ) : (

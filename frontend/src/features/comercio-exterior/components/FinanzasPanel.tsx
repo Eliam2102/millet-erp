@@ -17,7 +17,7 @@ import {
 import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { FormCampo } from '@/components/erp/forms/FormGrid';
 import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
-import { ErrorState } from '@/components/erp';
+import { ErrorState, DateTimeDisplay } from '@/components/erp';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { apiRequest, esApiError } from '@/lib/api';
@@ -586,6 +586,7 @@ function GastoForm({
       conceptoId: concepto,
       proveedorId: proveedor,
       factura: d.get('factura'),
+      impuestoPeca: d.get('impuestoPeca') === 'on',
       moneda: d.get('moneda'),
       importe: Number(d.get('importe')),
       fechaFactura: d.get('fechaFactura'),
@@ -706,7 +707,13 @@ function GastoForm({
             </p>
           </Campo>
         )}
-        <Campo label="UUID o folio de factura *" id="fg-factura">
+        <FormCampo span={6}>
+          <label className="flex items-center gap-2">
+            <Checkbox name="impuestoPeca" defaultChecked={gasto?.impuestoPeca} /> Impuesto PECA sin
+            factura (con pedimento)
+          </label>
+        </FormCampo>
+        <Campo label="UUID de factura de CxP o referencia PECA *" id="fg-factura">
           <Input
             id="fg-factura"
             name="factura"
@@ -994,6 +1001,11 @@ function BasesForm({
 function Anticipos({ data, finanzas: f }: { data: ExpedienteDetalle; finanzas: Finanzas }) {
   const gestionar =
     useHasPermission(P.ComercioExteriorAnticiposGestionar) && data.expediente.estado === 1;
+  const aprobar =
+    useHasPermission(P.TesoreriaPagosCeAutorizarDireccion) && data.expediente.estado === 1;
+  const cancelar = useMutarFinanzas(data.expediente.id);
+  const [motivoCancelacion, setMotivoCancelacion] = useState('');
+  const [corregir, setCorregir] = useState(false);
   const [nuevo, setNuevo] = useState(false);
   const [seleccion, setSeleccion] = useState<Anticipo | null>(null);
   const nombres = new Map(
@@ -1001,8 +1013,33 @@ function Anticipos({ data, finanzas: f }: { data: ExpedienteDetalle; finanzas: F
   );
   return (
     <div className="space-y-4">
-      {gestionar && <Button onClick={() => setNuevo(true)}>Registrar anticipo</Button>}
-      {nuevo && <NuevoAnticipo id={data.expediente.id} onClose={() => setNuevo(false)} />}
+      {gestionar && <Button onClick={() => setNuevo(true)}>Solicitar anticipo</Button>}
+      {gestionar && (
+        <FormCampo span={6}>
+          <Label htmlFor="ce-cancelar-anticipo">Motivo para cancelar una solicitud sin pago</Label>
+          <Input
+            id="ce-cancelar-anticipo"
+            value={motivoCancelacion}
+            onChange={(e) => setMotivoCancelacion(e.target.value)}
+            maxLength={400}
+          />
+        </FormCampo>
+      )}
+      {cancelar.isError && (
+        <p role="alert" className="text-danger-fg">
+          {errorTexto(cancelar.error)}
+        </p>
+      )}
+      {f.pendientes.map((p) => (
+        <p
+          key={p}
+          role="note"
+          className="rounded-md bg-warning-note-bg px-3 py-2.5 text-warning-note-fg"
+        >
+          {p}
+        </p>
+      ))}
+      {nuevo && <NuevoAnticipo data={data} onClose={() => setNuevo(false)} />}
       <TableContainer maxHeightClassName="">
         <Table>
           <TableHeader>
@@ -1037,10 +1074,84 @@ function Anticipos({ data, finanzas: f }: { data: ExpedienteDetalle; finanzas: F
                   <Badge variant={a.saldo === 0 ? 'success' : 'warning'}>{a.estado}</Badge>
                 </TableCell>
                 <TableCell>
-                  {gestionar && (a.aplicado === null || a.saldo !== 0) && (
-                    <Button variant="ghost" onClick={() => setSeleccion(a)}>
+                  {((gestionar &&
+                    a.aplicado === null &&
+                    (!a.soporteCalculoId || a.estado === 'Pagado')) ||
+                    ((aprobar || (gestionar && (a.saldo ?? 0) > 0)) &&
+                      a.aplicado !== null &&
+                      a.saldo !== 0 &&
+                      !a.devolucionPendienteId)) && (
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setCorregir(false);
+                        setSeleccion(a);
+                      }}
+                    >
                       {a.aplicado === null ? 'Comprobar' : 'Resolver saldo'}
                     </Button>
+                  )}
+                  {gestionar &&
+                    a.aplicado !== null &&
+                    a.resoluciones.length === 0 &&
+                    !a.devolucionPendienteId && (
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          setCorregir(true);
+                          setSeleccion(a);
+                        }}
+                      >
+                        Corregir comprobación
+                      </Button>
+                    )}
+                  {gestionar && ['Solicitado', 'Autorizado'].includes(a.estado) && (
+                    <Button
+                      variant="ghost"
+                      disabled={!motivoCancelacion.trim() || cancelar.isPending}
+                      title={
+                        !motivoCancelacion.trim() ? 'Capture el motivo de cancelación.' : undefined
+                      }
+                      onClick={() => {
+                        void cancelar
+                          .mutateAsync({
+                            ruta: `anticipos/${a.id}/cancelar`,
+                            body: { motivo: motivoCancelacion },
+                          })
+                          .catch(() => {});
+                      }}
+                    >
+                      Cancelar solicitud
+                    </Button>
+                  )}
+                  {f.autorizaciones
+                    ?.filter((firma) => firma.anticipoId === a.id)
+                    .map((firma) => (
+                      <div key={firma.anticipoId} className="text-xs text-ink-muted">
+                        <p>{firma.estado}</p>
+                        <p>
+                          Firma nivel 1:{' '}
+                          {firma.nivel1UsuarioId
+                            ? (f.nombres[firma.nivel1UsuarioId] ?? 'Usuario firmante')
+                            : 'Pendiente'}{' '}
+                          {firma.nivel1En && <DateTimeDisplay value={firma.nivel1En} />}
+                        </p>
+                        <p>
+                          Firma nivel 2:{' '}
+                          {firma.nivel2UsuarioId
+                            ? (f.nombres[firma.nivel2UsuarioId] ?? 'Usuario firmante')
+                            : 'Pendiente'}{' '}
+                          {firma.nivel2En && <DateTimeDisplay value={firma.nivel2En} />}
+                        </p>
+                      </div>
+                    ))}
+                  {a.referenciaPago && (
+                    <p className="text-xs text-ink-muted">
+                      Referencia bancaria: {a.referenciaPago} {a.fechaPago && <DateTimeDisplay value={a.fechaPago} />}
+                    </p>
+                  )}
+                  {a.devolucionPendienteId && (
+                    <p role="status">Esperando el depósito en Tesorería.</p>
                   )}
                 </TableCell>
               </TableRow>
@@ -1054,9 +1165,24 @@ function Anticipos({ data, finanzas: f }: { data: ExpedienteDetalle; finanzas: F
           data={data}
           a={seleccion}
           gastos={f.gastos}
+          corregir={corregir}
           onClose={() => setSeleccion(null)}
         />
       )}
+      {f.anticipos
+        .filter((a) => (a.historialComprobaciones?.length ?? 0) > 0)
+        .map((a) => (
+          <details key={`historial-${a.id}`}>
+            <summary>Historial de comprobación del pedimento {a.pedimento}</summary>
+            {a.historialComprobaciones?.map((c, i) => (
+              <p key={i} className="py-2 tabular-nums">
+                Versión {i + 1} · {c.fecha} ·{' '}
+                {dinero(c.impuestos.iva + c.impuestos.igi + c.impuestos.prv + c.gastosMxn)} ·{' '}
+                {c.motivo}
+              </p>
+            ))}
+          </details>
+        ))}
       {f.anticipos.map(
         (a) =>
           a.resoluciones.length > 0 && (
@@ -1099,7 +1225,8 @@ function Impuestos() {
     </>
   );
 }
-function NuevoAnticipo({ id, onClose }: { id: string; onClose: () => void }) {
+export function NuevoAnticipo({ data, onClose }: { data: ExpedienteDetalle; onClose: () => void }) {
+  const id = data.expediente.id;
   const [agente, setAgente] = useState<string | null>(null);
   const accion = useMutarFinanzas(id);
   return (
@@ -1120,7 +1247,8 @@ function NuevoAnticipo({ id, onClose }: { id: string; onClose: () => void }) {
                 prv: Number(d.get('prv')),
               },
               fecha: d.get('fecha'),
-              referenciaPago: d.get('referencia') || null,
+              soporteCalculoId: d.get('soporteCalculoId'),
+              importe: Number(d.get('importe')),
               cuentaPeca: d.get('cuentaPeca') === 'on',
             },
           })
@@ -1145,9 +1273,28 @@ function NuevoAnticipo({ id, onClose }: { id: string; onClose: () => void }) {
         <Campo label="Fecha *" id="ant-fecha">
           <Input id="ant-fecha" name="fecha" type="date" required />
         </Campo>
-        <Campo label="Referencia del pago de Tesorería" id="ant-ref">
-          <Input id="ant-ref" name="referencia" maxLength={200} />
+        <Campo label="Importe solicitado MXN *" id="ant-importe">
+          <Input id="ant-importe" name="importe" type="number" min="0.01" step="0.01" required />
         </Campo>
+        <Campo label="Cálculo de impuestos (archivo) *" id="ant-soporte">
+          <select id="ant-soporte" name="soporteCalculoId" required className={selectClass}>
+            <option value="">Selecciona un archivo vigente de Documentos</option>
+            {data.documentos
+              .filter((d) => d.estado === 1 && d.adjuntoId)
+              .map((d) => (
+                <option key={d.id} value={d.adjuntoId!}>
+                  {data.requisitos.find((r) => r.id === d.tipoDocumentoId)?.nombre ?? 'Documento'} ·
+                  versión {d.numeroVersion}
+                </option>
+              ))}
+          </select>
+        </Campo>
+        <FormCampo span={12}>
+          <p className="text-xs text-ink-muted">
+            Adjunta primero el cálculo en Documentos. Tesorería solicitará las dos firmas y
+            devolverá la referencia bancaria al pagar.
+          </p>
+        </FormCampo>
         <FormCampo span={12}>
           {accion.isError && (
             <p role="alert" className="text-danger-fg">
@@ -1164,7 +1311,7 @@ function NuevoAnticipo({ id, onClose }: { id: string; onClose: () => void }) {
                   : undefined
             }
           >
-            Guardar anticipo
+            Solicitar anticipo
           </Button>
           <Button type="button" variant="ghost" onClick={onClose}>
             Descartar
@@ -1178,13 +1325,17 @@ export function ResolverAnticipo({
   data,
   a,
   gastos = [],
+  corregir = false,
   onClose,
 }: {
   data: ExpedienteDetalle;
   a: Anticipo;
   gastos?: Gasto[];
+  corregir?: boolean;
   onClose: () => void;
 }) {
+  const direccion = useHasPermission(P.TesoreriaPagosCeAutorizarDireccion);
+  const comprobando = a.aplicado === null || corregir;
   const accion = useMutarFinanzas(data.expediente.id);
   const [tipo, setTipo] = useState(a.saldo && a.saldo < 0 ? 'pago-complementario' : 'devolucion');
   const [destino, setDestino] = useState('');
@@ -1195,31 +1346,31 @@ export function ResolverAnticipo({
   function submit(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     const d = new FormData(ev.currentTarget);
-    const body =
-      a.aplicado === null
-        ? {
-            impuestos: {
-              iva: Number(d.get('iva')),
-              igi: Number(d.get('igi')),
-              prv: Number(d.get('prv')),
-            },
-            gastoIds: a.cuentaPeca ? [] : d.getAll('gastoIds'),
-            pedimentoPagadoId: d.get('pedimentoPagadoId'),
-            comprobantePagoId: d.get('evidencia'),
-            fecha: d.get('fecha'),
-          }
-        : {
-            tipo,
-            importe: Number(d.get('importe')),
-            fecha: d.get('fecha'),
-            referencia: d.get('referencia'),
-            evidenciaId: d.get('evidencia'),
-            anticipoDestinoId: tipo === 'compensar' ? d.get('anticipoDestino') : null,
-            versionDestino: tipo === 'compensar' ? destinoQuery.data?.data.version : null,
-          };
+    const body = comprobando
+      ? {
+          impuestos: {
+            iva: Number(d.get('iva')),
+            igi: Number(d.get('igi')),
+            prv: Number(d.get('prv')),
+          },
+          ...(corregir ? { motivo: d.get('motivo') } : {}),
+          gastoIds: a.cuentaPeca ? [] : d.getAll('gastoIds'),
+          pedimentoPagadoId: d.get('pedimentoPagadoId'),
+          comprobantePagoId: d.get('evidencia'),
+          fecha: d.get('fecha'),
+        }
+      : {
+          tipo,
+          importe: Number(d.get('importe')),
+          fecha: d.get('fecha'),
+          referencia: d.get('referencia'),
+          evidenciaId: d.get('evidencia'),
+          anticipoDestinoId: tipo === 'compensar' ? d.get('anticipoDestino') : null,
+          versionDestino: tipo === 'compensar' ? destinoQuery.data?.data.version : null,
+        };
     void accion
       .mutateAsync({
-        ruta: `anticipos/${a.id}/${a.aplicado === null ? 'comprobar' : 'resolver'}`,
+        ruta: `anticipos/${a.id}/${corregir ? 'corregir' : comprobando ? 'comprobar' : tipo === 'devolucion' ? 'devolucion' : 'resolver'}`,
         body,
       })
       .then(onClose)
@@ -1240,20 +1391,41 @@ export function ResolverAnticipo({
   );
   return (
     <form onSubmit={submit} className="rounded-lg border border-dashed border-line-control p-4">
-      <FormSeccion titulo={a.aplicado === null ? 'Comprobar anticipo' : 'Resolver saldo'}>
-        {a.aplicado === null ? (
+      <FormSeccion
+        titulo={
+          corregir
+            ? 'Corregir comprobación'
+            : comprobando
+              ? 'Comprobar anticipo'
+              : 'Aprobar resolución del saldo'
+        }
+      >
+        {comprobando ? (
           <>
             <Impuestos />
+            {corregir && (
+              <Campo label="Motivo de corrección *" id="res-motivo">
+                <Input id="res-motivo" name="motivo" required maxLength={500} />
+              </Campo>
+            )}
             {selectorEvidencia('pedimentoPagadoId', 'Pedimento pagado *')}
             {!a.cuentaPeca && (
               <FormCampo span={12}>
                 <fieldset className="space-y-2">
                   <legend>Gastos del agente a comprobar</legend>
                   {gastos
-                    .filter((g) => g.proveedorId === a.agenteId && !g.anticipoAgenteId)
+                    .filter(
+                      (g) =>
+                        g.proveedorId === a.agenteId &&
+                        (!g.anticipoAgenteId || (corregir && g.anticipoAgenteId === a.id)),
+                    )
                     .map((g) => (
                       <label key={g.id} className="flex items-center gap-2">
-                        <Checkbox name="gastoIds" value={g.id} />
+                        <Checkbox
+                          name="gastoIds"
+                          value={g.id}
+                          defaultChecked={corregir && g.anticipoAgenteId === a.id}
+                        />
                         {g.concepto} · {g.factura} · {dinero(g.importeMxn)}
                       </label>
                     ))}
@@ -1272,9 +1444,11 @@ export function ResolverAnticipo({
               >
                 {(a.saldo ?? 0) > 0 ? (
                   <>
-                    <option value="devolucion">Devolución recibida</option>
-                    <option value="saldo-al-agente">Dejar saldo en la cuenta del agente</option>
-                    <option value="compensar">Compensar en otro anticipo</option>
+                    <option value="devolucion">Registrar devolución pendiente de aprobación</option>
+                    {direccion && (
+                      <option value="saldo-al-agente">Dejar saldo en la cuenta del agente</option>
+                    )}
+                    {direccion && <option value="compensar">Compensar en otro anticipo</option>}
                   </>
                 ) : (
                   <option value="pago-complementario">Pago complementario al agente</option>

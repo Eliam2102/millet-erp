@@ -18,5 +18,7 @@ public sealed class EstadoCuentaTcCerradoMapper : INotificationHandler<EstadoCue
             TarjetaId: notification.TarjetaId,
             TotalBancoMxn: notification.TotalBancoMxn,
             FacturaProveedorId: notification.FacturaProveedorId,
-            DiferenciaCambiariaMxn: notification.DiferenciaCambiariaMxn), cancellationToken);
+            DiferenciaCambiariaMxn: notification.DiferenciaCambiariaMxn,
+            ProveedorId: notification.BancoProveedorId,
+            SucursalId: notification.SucursalId), cancellationToken);
 }

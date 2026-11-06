@@ -9,9 +9,10 @@ using Millet.SharedKernel.Application.Exceptions;
 namespace Millet.Compras.Application.Oc.Envios;
 
 public sealed record EnvioOcResponse(Guid Id, string Destinatario, Guid UsuarioId, string UsuarioNombre,
-    DateTimeOffset Fecha, string Modo, string Resultado)
+    DateTimeOffset Fecha, string Modo, string Resultado,
+    DateTimeOffset? AcuseFecha = null, string? AcuseReferencia = null, string? AcuseUsuarioNombre = null)
 {
-    public static EnvioOcResponse From(EnvioOc e) => new(e.Id, e.Destinatario, e.UsuarioId, e.UsuarioNombre, e.Fecha, e.Modo, e.Resultado);
+    public static EnvioOcResponse From(EnvioOc e) => new(e.Id, e.Destinatario, e.UsuarioId, e.UsuarioNombre, e.Fecha, e.Modo, e.Resultado, e.AcuseFecha, e.AcuseReferencia, e.AcuseUsuarioNombre);
 }
 public sealed record EnviosOcResponse(string? CorreoProveedor, bool EsSimulado, bool PuedeEnviar,
     string? MotivoBloqueo, IReadOnlyList<EnvioOcResponse> Envios);

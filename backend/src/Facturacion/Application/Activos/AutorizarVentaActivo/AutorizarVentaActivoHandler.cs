@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Millet.Facturacion.Domain.Activos;
 using Millet.Facturacion.Domain.Ports;
 using Millet.Facturacion.Infrastructure.Persistence;
@@ -37,10 +38,18 @@ public sealed class AutorizarVentaActivoHandler : IRequestHandler<AutorizarVenta
         if (_user.UserId is not Guid autorizadoPor)
             throw new ForbiddenException("USUARIO_NO_AUTENTICADO", "No hay usuario autenticado (Director de Administración y Finanzas) en el contexto.");
 
+        await using var tx = _db.Database.IsRelational() ? await _db.Database.BeginTransactionAsync(cancellationToken) : null;
+        var llave = $"AF-LIBRO-{empresaId}";
+        if (tx != null) await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({llave}, 0))", cancellationToken);
+        if (await _db.AutorizacionesVentaActivo.AnyAsync(x => x.ActivoRef == command.ActivoRef && x.Estado == EstadoAutorizacionActivo.Autorizada, cancellationToken))
+            throw new BusinessRuleException("AF_VENTA_PENDIENTE", "Ya existe una autorización de venta abierta para este activo.");
         var activo = await _activos.ObtenerAsync(command.ActivoRef, cancellationToken)
             ?? throw new EntityNotFoundException(
                 "ACTIVO_NO_EXISTE",
-                $"El activo '{command.ActivoRef}' no está dado de alta como activo fijo; no se puede autorizar su venta.");
+                $"El activo '{command.ActivoRef}' no está dado de alta como activo fijo; no está disponible para venta.");
+
+        if (activo.BajaPendiente)
+            throw new BusinessRuleException("ACTIVO_BAJA_PENDIENTE", "Tiene una solicitud de baja pendiente");
 
         var autorizacion = AutorizacionVentaActivo.Crear(
             empresaId, activo.ActivoRef, activo.Descripcion, activo.ValorEnLibros + activo.DepreciacionAcumulada, activo.DepreciacionAcumulada,
@@ -49,6 +58,7 @@ public sealed class AutorizarVentaActivoHandler : IRequestHandler<AutorizarVenta
         _db.AutorizacionesVentaActivo.Add(autorizacion);
         await _db.SaveChangesAsync(cancellationToken);
 
+        if (tx != null) await tx.CommitAsync(cancellationToken);
         return new AutorizarVentaActivoResponse(
             autorizacion.Id, autorizacion.Descripcion, autorizacion.ValorNetoEnLibros, autorizacion.UtilidadOPerdida);
     }

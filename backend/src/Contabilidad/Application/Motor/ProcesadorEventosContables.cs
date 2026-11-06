@@ -345,6 +345,13 @@ public sealed class EnriquecedorPolizasOrigen(ContabilidadDbContext db) : IEnriq
                     ?? throw Espera(factura, "la póliza de la factura de proveedor pagada");
                 return e with { ProveedorId = e.ProveedorId ?? tt.ProveedorId, SucursalId = e.SucursalId ?? tt.SucursalId, FacturaOrigenId = null };
             }
+            case NormalizadorEventos.AnticipoProveedorAmortizado when e.SucursalId is null && e.FacturaOrigenId is { } factura:
+            {
+                // C1.5b: la factura no traía sucursal; sale de su póliza (TT, o la del estado de cuenta si es la agregada de tarjeta).
+                var tt = await PartidaOrigenAsync(e.EmpresaId, NormalizadorEventos.DocFacturaProveedor, factura, conProveedor: false, ct)
+                    ?? throw Espera(factura, "la póliza de la factura a la que se aplicó el anticipo");
+                return e with { SucursalId = tt.SucursalId, FacturaOrigenId = null };
+            }
             case NormalizadorEventos.PagoClienteConfirmado when e.SucursalId is null && e.FacturaOrigenId is { } factura:
             {
                 var rf = await PartidaOrigenAsync(e.EmpresaId, NormalizadorEventos.DocComprobante, factura, conProveedor: false, ct)
@@ -367,6 +374,15 @@ public sealed class EnriquecedorPolizasOrigen(ContabilidadDbContext db) : IEnriq
                     "La salida trae líneas sin centro de costo y la plantilla de consumo lo pide.");
             case NormalizadorEventos.DevolucionInternaAplicada:
                 return await DevolucionInternaAsync(e, ct);
+            case NormalizadorEventos.ReembolsoNotaCreditoActualizado when e.FacturaOrigenId is { } notaCredito:
+            {
+                // U-2: el reembolso de una NC regresa el dinero al cliente de la NC; cliente y sucursal salen de su póliza RC.
+                var rc = await PartidaOrigenAsync(e.EmpresaId, NormalizadorEventos.DocComprobante, notaCredito, conProveedor: false, ct)
+                    ?? throw Espera(notaCredito, "la póliza de la nota de crédito reembolsada");
+                var cliente = e.ClienteId ?? await ClienteDelComprobanteAsync(db, e.EmpresaId, notaCredito, ct)
+                    ?? throw Espera(notaCredito, "la póliza de la nota de crédito reembolsada (con su cliente)");
+                return e with { ClienteId = cliente, SucursalId = e.SucursalId ?? rc.SucursalId, FacturaOrigenId = null };
+            }
             default:
                 return e;
         }
@@ -420,7 +436,8 @@ public sealed class EnriquecedorPolizasOrigen(ContabilidadDbContext db) : IEnriq
                     ? devuelta.MontoTotalMxn - asignado
                     : Math.Round(devuelta.MontoTotalMxn * origen[i].Monto / base_, 2, MidpointRounding.AwayFromZero);
                 asignado += importe;
-                lineas.Add(new LineaEventoContable(null, importe, origen[i].CentroCostoId, false, CuentaId: origen[i].CuentaId));
+                lineas.Add(new LineaEventoContable(null, importe, origen[i].CentroCostoId, false, CuentaId: origen[i].CuentaId,
+                    ArticuloId: devuelta.ArticuloId));
             }
         }
         return e with { Lineas = lineas, SucursalId = e.SucursalId ?? await SucursalDeAsync(consumos[0].PolizaId, ct) };
@@ -433,4 +450,25 @@ public sealed class EnriquecedorPolizasOrigen(ContabilidadDbContext db) : IEnriq
     private static RechazoMotorException Espera(Guid documentoId, string que) =>
         new(CausaRechazoContable.DatoFaltante, ProcesadorEventosContables.Espera(documentoId),
             $"Falta {que}; el evento se contabiliza en cuanto se registre.");
+}
+
+/// <summary>
+/// F1-ALM-13 (Contabilidad, Fernando Alejos 4-nov): una cuenta de inventario por tipo de artículo para toda la empresa. Pone el grupo del
+/// artículo (grupo SAP de Datos Maestros) como <see cref="LineaEventoContable.Clasificador"/> de cada línea de Almacén; la plantilla
+/// con <see cref="LineaPlantillaContable.RolPorClasificador"/> usa el rol <c>INVENTARIO_{grupo}</c> si tiene cuenta y, si no, el
+/// rol INVENTARIO. Corre después de <see cref="EnriquecedorPolizasOrigen"/> (la devolución interna arma ahí sus líneas).
+/// </summary>
+public sealed class EnriquecedorGrupoArticulo(Ports.IArticuloContabilidadPort articulos) : IEnriquecedorEventoContable
+{
+    public async Task<EventoContable> EnriquecerAsync(EventoContable evento, CancellationToken ct)
+    {
+        var ids = evento.Lineas.Where(l => l.Clasificador is null).Select(l => l.ArticuloId).OfType<Guid>().Distinct().ToList();
+        if (ids.Count == 0) return evento;
+        var grupos = await articulos.GruposAsync(ids, ct);
+        return evento with
+        {
+            Lineas = [.. evento.Lineas.Select(l => l.Clasificador is null && l.ArticuloId is { } a && grupos.GetValueOrDefault(a) is { } g
+                ? l with { Clasificador = g } : l)],
+        };
+    }
 }

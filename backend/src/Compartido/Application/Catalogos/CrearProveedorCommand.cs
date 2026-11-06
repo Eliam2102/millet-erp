@@ -126,6 +126,8 @@ public sealed class CrearProveedorHandler
         if (request.ClaveAw is int claveAw)
             await ClaveAwProveedor.ValidarUnicaAsync(_db, claveAw, proveedorId: null, cancellationToken);
 
+        await TaxIdProveedor.ValidarUnicoAsync(_db, request.TaxId, proveedorId: null, cancellationToken);
+
         // RFC único (F1-ADM-05), excepto genéricos SAT: cualquier estatus
         // cuenta como duplicado. RFC genérico + misma razón social no se
         // rechaza ni se fusiona: se crea en EnRevision para que alguien lo

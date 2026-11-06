@@ -69,6 +69,51 @@ export function DocumentosPanel({ data }: { data: ExpedienteDetalle }) {
   );
   return (
     <section className="space-y-5">
+      {data.requisitos.some((r) => !r.hitoClave) && (
+        <p role="note" className="rounded-md bg-warning-note-bg px-3 py-2.5 text-warning-note-fg">
+          Hay tipos de documento sin etapa asignada.{' '}
+          <a className="underline" href="#ce-configuracion-documentos">
+            Ir a la configuración
+          </a>
+        </p>
+      )}
+      <div
+        id="ce-configuracion-documentos"
+        className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat"
+      >
+        <h3 className="font-semibold">Documentos requeridos por hito</h3>
+        <p className="text-xs text-ink-muted">
+          Esta configuración aplica a todos los expedientes del mismo tipo de operación.
+        </p>
+        {data.requisitos.map((r) => (
+          <FormCampo key={r.id} span={6}>
+            <Label htmlFor={`ce-requisito-hito-${r.id}`}>{r.nombre}</Label>
+            <select
+              id={`ce-requisito-hito-${r.id}`}
+              className="h-ctl-xl w-full rounded-md border border-line-control bg-surface-card px-3 text-sm"
+              disabled={!revisar || accion.isPending || data.expediente.estado !== 1}
+              value={r.hitoClave ?? ''}
+              onChange={(e) => {
+                void accion
+                  .mutateAsync({
+                    accion: 'requisito-hito',
+                    body: { tipoDocumentoId: r.id, hitoClave: e.target.value },
+                  })
+                  .catch(() => {});
+              }}
+            >
+              <option value="">Seleccione el hito requerido</option>
+              {data.hitos
+                .filter((h) => h.clave !== 'solicitado' && h.clave !== 'cerrado')
+                .map((h) => (
+                  <option key={h.clave} value={h.clave}>
+                    {h.nombre}
+                  </option>
+                ))}
+            </select>
+          </FormCampo>
+        ))}
+      </div>
       {subir && (
         <div className="space-y-1.5">
           <FormCampo span={6} className="space-y-1.5">

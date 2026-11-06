@@ -1,3 +1,4 @@
+import { errorUsuario } from '@/lib/error-usuario';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useEffect, useState } from 'react';
 import { Controller, useFieldArray, useForm } from 'react-hook-form';
@@ -66,7 +67,7 @@ export function CapturarComprobacionViaticosSheet({
       open={open}
       onOpenChange={(next) => (next ? onOpenChange(next) : solicitarCierre())}
     >
-      <SheetContent side="right" size="wide">
+      <SheetContent side="right" size="lg">
         <SheetHeader>
           <SheetTitle>Comprobar viáticos</SheetTitle>
           <SheetDescription>
@@ -218,7 +219,7 @@ function Form({ solicitud, onCancel, onCaptured, onDirtyChange }: FormProps) {
               )
             )
               return;
-            toast.error(error.problem.title);
+            toast.error(errorUsuario(error));
             return;
           }
           toast.error('Error al capturar comprobación.');
@@ -233,7 +234,7 @@ function Form({ solicitud, onCancel, onCaptured, onDirtyChange }: FormProps) {
       <section className="space-y-2">
         <header className="flex items-center justify-between">
           <h3 className="text-sm font-medium">
-            Líneas de gasto ({fields.length})
+            Partidas de gasto ({fields.length})
           </h3>
           <Button
             type="button"
@@ -242,7 +243,7 @@ function Form({ solicitud, onCancel, onCaptured, onDirtyChange }: FormProps) {
             onClick={() => append(defaultLinea('MXN'))}
           >
             <Plus className="mr-1 size-3.5" />
-            Agregar línea
+            Agregar partida
           </Button>
         </header>
 

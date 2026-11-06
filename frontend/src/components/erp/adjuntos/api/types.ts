@@ -45,7 +45,20 @@ export interface AdjuntoResponse {
   bajaEn: string | null;
   bajaPorId: string | null;
   bajaMotivo: string | null;
+  /** Cotejo del contenido (86e3yzemu); null = sin revisar. */
+  resultadoRevision?: ResultadoRevision | null;
+  revisadoPorNombre?: string | null;
+  revisadoEn?: string | null;
+  observacionRevision?: string | null;
 }
+
+/** Resultado de revisar un documento (ResultadoRevisionAdjunto.cs). */
+export const ResultadoRevision = { Aceptado: 1, Rechazado: 2 } as const;
+export type ResultadoRevision = (typeof ResultadoRevision)[keyof typeof ResultadoRevision];
+
+/** Estado de una excepción al documento obligatorio (EstadoExcepcionAdjunto.cs). */
+export const EstadoExcepcion = { Pendiente: 0, Otorgada: 1, Negada: 2 } as const;
+export type EstadoExcepcion = (typeof EstadoExcepcion)[keyof typeof EstadoExcepcion];
 
 export interface TipoDocumentoAdjunto {
   id: string;
@@ -72,8 +85,12 @@ export interface ExpedienteDocumento {
 export interface ExcepcionDocumento {
   id: string;
   motivo: string;
-  otorgadaPorNombre: string;
-  otorgadaEn: string;
+  estado: EstadoExcepcion;
+  solicitadaPorNombre: string | null;
+  solicitadaEn: string;
+  resueltaPorNombre: string | null;
+  resueltaEn: string | null;
+  motivoResolucion: string | null;
 }
 
 export interface Expediente {

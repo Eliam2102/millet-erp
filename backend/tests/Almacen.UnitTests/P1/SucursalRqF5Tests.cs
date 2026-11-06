@@ -42,7 +42,7 @@ public sealed class SucursalRqF5Tests
         await using var f = new P1Fixture();
         var vale = await f.MovimientoAsync(TipoMovimiento.SalidaPorVale);
         var rq = (await f.Rq.ObtenerAsync(f.DocumentoId, default))!;
-        var h = new RegularizarSalidaPorValeHandler(f.Db, new P1Fixture.RqPort(rq with { SucursalId = Guid.NewGuid() }));
+        var h = new RegularizarSalidaPorValeHandler(f.Db, new P1Fixture.RqPort(rq with { SucursalId = Guid.NewGuid() }), f.Events);
 
         await Error(() => h.Handle(new(vale.Id, f.DocumentoId), default), "VALE_SUCURSAL_DISTINTA");
         vale.PendienteRegularizacion.Should().BeTrue();
@@ -58,14 +58,14 @@ public sealed class SucursalRqF5Tests
         var sucursal = (await f.Db.Almacenes.SingleAsync()).SucursalId;
         var rq = (await f.Rq.ObtenerAsync(f.DocumentoId, default))!;
 
-        await new RegularizarSalidaPorValeHandler(f.Db, new P1Fixture.RqPort(rq with { SucursalId = sucursal }))
+        await new RegularizarSalidaPorValeHandler(f.Db, new P1Fixture.RqPort(rq with { SucursalId = sucursal }), f.Events)
             .Handle(new(vale.Id, f.DocumentoId), default);
         vale.PendienteRegularizacion.Should().BeFalse();
     }
 
     private static Task<RegistrarSalidaResponse> Salir(P1Fixture f, IComprasRequisicionReadPort port) =>
         new RegistrarSalidaConRequisicionHandler(f.Db, port, f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), new P7Support.Conversion(), P7Support.Apartados(f.Db))
-            .Handle(new(f.DocumentoId, P1Fixture.Fecha, null, null, [new(f.ArticuloId, f.LineaId, 1, null, null, null, null, f.BinId)]), default);
+            .Handle(new(f.DocumentoId, P1Fixture.Fecha, Guid.NewGuid(), null, [new(f.ArticuloId, f.LineaId, 1, null, null, null, null, f.BinId)], "Quien recibe"), default);
 
     private static async Task Error(Func<Task> action, string code) => (await Assert.ThrowsAsync<BusinessRuleException>(action)).Code.Should().Be(code);
 }

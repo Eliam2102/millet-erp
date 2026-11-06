@@ -29,7 +29,8 @@ public sealed class CeResponsableHitoTests
         identidad.AddRange(usuario, rol, sucursal, new UsuarioEmpresaRol(Guid.NewGuid(), usuario.Id, empresa.Current.Value, rol.Id));
         if (asociado) identidad.UsuarioSucursales.Add(new UsuarioSucursal(Guid.NewGuid(), usuario.Id, sucursal.Id, empresa.Current.Value));
         await identidad.SaveChangesAsync();
-        var adapter = new CatalogosCeReadAdapter(catalogos, identidad, new Reloj(), new UsuarioSucursalReadAdapter(identidad));
+        using var ce = new Millet.ComercioExterior.Infrastructure.Persistence.ComercioExteriorDbContext(new DbContextOptionsBuilder<Millet.ComercioExterior.Infrastructure.Persistence.ComercioExteriorDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, empresa);
+        var adapter = new CatalogosCeReadAdapter(catalogos, identidad, new Reloj(), new UsuarioSucursalReadAdapter(identidad), ce);
         if (activo && asociado)
             await adapter.ValidarResponsableAsync(sucursal.Id, usuario.Id, CancellationToken.None);
         else
@@ -39,6 +40,28 @@ public sealed class CeResponsableHitoTests
         }
     }
 
+    [Fact]
+    public async Task Recepcion_propone_transporte_y_pedimento_del_expediente_sin_cambiar_la_oc()
+    {
+        var empresa = new Empresa();
+        using var db = new Millet.ComercioExterior.Infrastructure.Persistence.ComercioExteriorDbContext(new DbContextOptionsBuilder<Millet.ComercioExterior.Infrastructure.Persistence.ComercioExteriorDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, empresa);
+        var actor = Guid.NewGuid(); var oc = Guid.NewGuid();
+        var e = new Millet.ComercioExterior.Domain.Expediente(Guid.NewGuid(), empresa.Current!.Value, "IMP-P18", Millet.ComercioExterior.Domain.TipoExpediente.Importacion, Guid.NewGuid(), "Propuesta para recepción", oc, Guid.NewGuid(), "USD", actor, []);
+        e.GuardarContenedor(Guid.NewGuid(), new("CONT-P18", null, null, "BL-P18", null, null, null, null));
+        e.RegistrarDocumento(Guid.NewGuid(), new(Guid.NewGuid(), "IMP_PEDIMENTO", "Pedimento", true, false), Guid.NewGuid(), null, actor, "PED-P18");
+        db.Expedientes.Add(e); await db.SaveChangesAsync();
+        var propuesta = await new TransporteImportacionCeReadAdapter(db).ObtenerAsync(oc, CancellationToken.None);
+        Assert.Equal("PED-P18", propuesta!.NumeroPedimento);
+        Assert.Equal("CONT-P18", Assert.Single(propuesta.Contenedores).Numero);
+        Assert.Equal("BL-P18", propuesta.Contenedores[0].BlGuia);
+        Assert.Equal(oc, e.OcId);
+        var segundo = new Millet.ComercioExterior.Domain.Expediente(Guid.NewGuid(), empresa.Current.Value, "IMP-P22", Millet.ComercioExterior.Domain.TipoExpediente.Importacion, e.SucursalId, "Segundo envío de la OC", oc, e.IncotermId, "USD", actor, []);
+        segundo.GuardarContenedor(Guid.NewGuid(), new("CONT-P22", null, null, "BL-P22", null, null, null, null));
+        db.Expedientes.Add(segundo); await db.SaveChangesAsync();
+        propuesta = await new TransporteImportacionCeReadAdapter(db).ObtenerAsync(oc, CancellationToken.None);
+        Assert.Equal("PED-P18", propuesta!.NumeroPedimento);
+        Assert.Collection(propuesta.Contenedores, c => Assert.Equal("CONT-P18", c.Numero), c => Assert.Equal("CONT-P22", c.Numero));
+    }
     private sealed class Empresa : ICurrentEmpresaContext
     {
         public Guid? Current { get; } = Guid.NewGuid();

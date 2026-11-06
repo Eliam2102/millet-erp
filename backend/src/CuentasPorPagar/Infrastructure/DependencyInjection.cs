@@ -42,6 +42,7 @@ public static class DependencyInjection
         // con `CuentasPorPagar:Cfdi:BlobStorage:ConnectionString` configurada
         // (KV en QA/Prod) se usa Azure Blob real; sin ella, el stub filesystem
         // local (dev). Cierra PLATFORM-TODO(<CfdiBlobStorage>).
+        services.AddScoped<Millet.CuentasPorPagar.Application.FacturaProveedor.AplicarAnticipo.AplicarAnticipoAFacturaHandler>();
         services.AddScoped<Millet.CuentasPorPagar.Application.PublicPorts.ICapitalizacionProveedorReadPort, PublicAdapters.CapitalizacionProveedorReadAdapter>();
         services.AddSingleton<IXmlCfdiParser, XmlCfdiParser>();
         services
@@ -115,6 +116,7 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(NotaCreditoEnEsperaOptions.SectionName));
         services.AddHostedService<NotaCreditoEnEsperaMatchWorker>();
         services.AddHostedService<FaltaReppWorker>();
+        services.AddHostedService<ReversaRevaluacionWorker>();
         services.AddHostedService<AvisoPagoPortalWorker>();
 
         // GI-PR1 (doc 12): emisor de reposiciones de caja chica —

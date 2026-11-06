@@ -337,6 +337,26 @@ amortización → reducir el saldo del/los anticipo(s). Si cualquier paso falla,
 rollback completo. (FSM asíncrona-tolerante: si el timbre del PAC queda en
 proceso, ambos quedan `TimbradoEnProceso` y se resuelven juntos.)
 
+> **Actualización U-1 (86e3yxn2p, nov-2026).** Ya no hay rollback de la
+> factura timbrada: su CFDI ya existe ante el SAT. Ahora:
+>
+> - La factura se guarda primero, con su evento contable.
+> - Después, cada NC (amortización o ranura) se emite y se guarda en su propia operación.
+>
+> Si una NC no timbra, queda **pendiente de timbrar** (`TimbradoFallido` o
+> `TimbradoEnProceso`), ligada a su factura y con el motivo del PAC:
+>
+> - **Anticipo:** su importe queda comprometido con esa factura (vinculación
+>   sin NC). El saldo no se reduce hasta que la NC se timbra.
+> - **Aviso y bandeja:** la factura muestra «nota de crédito pendiente» y la
+>   bandeja permite filtrarlas.
+> - **Reintento:** se hace con el reintento de timbrado del comprobante. Al
+>   timbrar, nace el evento de la NC (póliza #9) y, si es de anticipo, se amortiza.
+> - **Descarte:** descartar la NC libera el importe comprometido.
+> - **Cobranza:** mientras tanto, el saldo es la factura completa.
+>
+> Si el timbre de la factura falla, nada cambia: con anticipos se aborta sin guardar.
+
 ### 3.bis.5 Pedimento: compuerta condicional, nunca global
 
 **Solo un subconjunto de facturas requiere pedimento.** El pedimento (número

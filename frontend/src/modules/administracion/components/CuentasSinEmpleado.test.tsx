@@ -11,8 +11,18 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
   const original = await importOriginal<typeof import('@tanstack/react-router')>();
   return {
     ...original,
-    Link: ({ children, params }: { children: React.ReactNode; params?: { id: string } }) => (
-      <a href={`/admin/empleados/${params?.id ?? ''}`}>{children}</a>
+    Link: ({
+      children,
+      params,
+      ...props
+    }: {
+      children: React.ReactNode;
+      params?: { id: string };
+      role?: React.AriaRole;
+    }) => (
+      <a {...props} href={`/admin/empleados/${params?.id ?? ''}`}>
+        {children}
+      </a>
     ),
   };
 });
@@ -105,6 +115,7 @@ function setPermisos(permisos: string[]) {
     user: { id: 'u-1', email: 'admin@millet.mx', nombre: 'Admin' },
     empresas: [],
     currentEmpresaId: 'e-1',
+    currentSucursalId: null,
     permisos,
     errorMessage: null,
   });
@@ -113,6 +124,7 @@ function setPermisos(permisos: string[]) {
 beforeEach(() => {
   busquedas = [];
   mswServer.use(
+    http.get('*/api/v1/admin/colaboradores/cuentas-tecnicas', () => HttpResponse.json(vacio)),
     http.get('*/api/v1/catalogos/empleados', () => HttpResponse.json(EMPLEADOS)),
     http.get('*/api/v1/catalogos/puestos', () => HttpResponse.json(vacio)),
     http.get('*/api/v1/catalogos/sucursales', () => HttpResponse.json(vacio)),
@@ -151,19 +163,17 @@ afterEach(() => {
 
 async function abrirVista() {
   render(<EmpleadosPage />, { wrapper: createQueryWrapper() });
-  const tab = await screen.findByRole('tab', { name: /Cuentas sin empleado \(3\)/ });
+  const tab = await screen.findByRole('tab', { name: /Cuentas sin empleado3/ });
   fireEvent.mouseDown(tab);
   fireEvent.click(tab);
-  return screen.findByRole('list', { name: 'Cuentas sin empleado' });
+  return screen.findByRole('table');
 }
 
 describe('Empleados · vista «Cuentas sin empleado» (86e3x6cpw)', () => {
   it('la pestaña aparece con el conteo sólo con los permisos del contrato', async () => {
     setPermisos(PERMISOS_VISTA);
     render(<EmpleadosPage />, { wrapper: createQueryWrapper() });
-    expect(
-      await screen.findByRole('tab', { name: /Cuentas sin empleado \(3\)/ }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('tab', { name: /Cuentas sin empleado3/ })).toBeInTheDocument();
   });
 
   it.each([
@@ -183,25 +193,35 @@ describe('Empleados · vista «Cuentas sin empleado» (86e3x6cpw)', () => {
   it('lista nombre, correo y chips; la deshabilitada no ofrece acciones', async () => {
     setPermisos(PERMISOS_VISTA);
     const lista = await abrirVista();
-    const filas = within(lista).getAllByRole('listitem');
+    const filas = within(lista).getAllByRole('row').slice(1);
     expect(filas).toHaveLength(3);
 
     expect(within(filas[0]).getByText('ficticia.uno@millet.mx')).toBeInTheDocument();
-    expect(within(filas[0]).getByText('Ya entró al ERP')).toBeInTheDocument();
-    expect(within(filas[1]).getByText('Sin entrar')).toBeInTheDocument();
-    expect(
-      within(filas[1]).getByRole('button', { name: /Crear empleado con esta cuenta/ }),
-    ).toBeInTheDocument();
-
-    expect(within(filas[2]).getByText('Deshabilitada')).toBeInTheDocument();
-    expect(within(filas[2]).queryAllByRole('button')).toHaveLength(0);
+    expect(within(filas[0]).getByText('Acceso activo')).toBeInTheDocument();
+    expect(within(filas[1]).getByText('Sin iniciar sesión')).toBeInTheDocument();
+    await abrirAcciones(filas[2]);
+    expect(within(filas[2]).getByText('Acceso bloqueado')).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /Dar de alta|Ligar/ })).not.toBeInTheDocument();
   });
 
-  it('el buscador consulta al backend con el texto tras la pausa', async () => {
+  it('la cuenta ligada permite abrir su ficha y la cuenta sin usuario ofrece el alta (86e3yxe9m)', async () => {
+    setPermisos(PERMISOS_VISTA);
+    const lista = await abrirVista();
+    const filas = within(lista).getAllByRole('row').slice(1);
+    await abrirAcciones(filas[0]);
+    expect(screen.getByRole('menuitem', { name: 'Ver cuenta' })).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    await abrirAcciones(filas[1]);
+    expect(screen.queryByRole('menuitem', { name: 'Ver cuenta' })).not.toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Dar de alta como empleado' })).toBeInTheDocument();
+  });
+
+  it('el buscador compartido consulta las cuentas por nombre tras la pausa', async () => {
     setPermisos(PERMISOS_VISTA);
     await abrirVista();
-    fireEvent.change(screen.getByLabelText('Buscar cuenta'), { target: { value: 'Dos' } });
+    fireEvent.change(screen.getByLabelText('Buscar empleados'), { target: { value: 'Dos' } });
     await waitFor(() => expect(busquedas).toContain('Dos'));
+    expect(await screen.findByRole('tab', { name: 'Cuentas sin empleado1' })).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByText('Cuenta Ficticia Uno')).not.toBeInTheDocument());
     expect(screen.getByText('Cuenta Ficticia Dos')).toBeInTheDocument();
   });
@@ -214,7 +234,9 @@ describe('Empleados · vista «Cuentas sin empleado» (86e3x6cpw)', () => {
       ),
     );
     render(<EmpleadosPage vistaInicial="sin-empleado" />, { wrapper: createQueryWrapper() });
-    expect(await screen.findByText('Todas las cuentas tienen empleado')).toBeInTheDocument();
+    expect(
+      await screen.findByText('No se encontraron registros con los filtros aplicados'),
+    ).toBeInTheDocument();
   });
 
   it('estado de error con reintento', async () => {
@@ -229,19 +251,16 @@ describe('Empleados · vista «Cuentas sin empleado» (86e3x6cpw)', () => {
     );
     render(<EmpleadosPage vistaInicial="sin-empleado" />, { wrapper: createQueryWrapper() });
     expect(
-      await screen.findByText(
-        'No se pudieron consultar las cuentas sin empleado',
-        {},
-        { timeout: 4000 },
-      ),
+      await screen.findByText('No se pudieron consultar las cuentas', {}, { timeout: 4000 }),
     ).toBeInTheDocument();
   });
 
   it('«Crear empleado con esta cuenta» abre el alta con el nombre de la cuenta', async () => {
     setPermisos(PERMISOS_VISTA);
     const lista = await abrirVista();
-    const fila = within(lista).getAllByRole('listitem')[1];
-    fireEvent.click(within(fila).getByRole('button', { name: /Crear empleado con esta cuenta/ }));
+    const fila = within(lista).getAllByRole('row').slice(1)[1];
+    await abrirAcciones(fila);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Dar de alta como empleado' }));
 
     const form = await screen.findByRole('form', { name: /agregar empleado/i });
     expect(within(form).getByPlaceholderText('Juana Pérez')).toHaveValue('Cuenta Ficticia Dos');
@@ -262,18 +281,20 @@ describe('Empleados · vista «Cuentas sin empleado» (86e3x6cpw)', () => {
       }),
     );
     const lista = await abrirVista();
-    const fila = within(lista).getAllByRole('listitem')[0];
-    fireEvent.click(within(fila).getByRole('button', { name: /Ligar a empleado existente/ }));
+    const fila = within(lista).getAllByRole('row').slice(1)[0];
+    await abrirAcciones(fila);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Ligar a empleado existente' }));
+    const dialogo = await screen.findByRole('dialog');
 
-    const selectEmpleado = await within(fila).findByLabelText('Empleado sin cuenta');
+    const selectEmpleado = await within(dialogo).findByLabelText('Empleado sin cuenta');
     // Sólo empleados activos sin cuenta.
     expect(within(selectEmpleado).queryByText(/Empleado Con Cuenta/)).not.toBeInTheDocument();
     await within(selectEmpleado).findByText(/EMP-001 · Empleado Sin Cuenta/);
     fireEvent.change(selectEmpleado, { target: { value: 'emp-1' } });
-    const selectRol = within(fila).getByLabelText('Rol en la empresa');
+    const selectRol = within(dialogo).getByLabelText('Rol en la empresa');
     await within(selectRol).findByText('Vendedor');
     fireEvent.change(selectRol, { target: { value: 'rol-1' } });
-    fireEvent.click(within(fila).getByRole('button', { name: 'Ligar cuenta' }));
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Ligar cuenta' }));
 
     await waitFor(() => expect(body).not.toBeNull());
     expect(url).toContain('/api/v1/admin/colaboradores/emp-1/acceso');
@@ -286,3 +307,10 @@ describe('Empleados · vista «Cuentas sin empleado» (86e3x6cpw)', () => {
     });
   });
 });
+
+async function abrirAcciones(fila: HTMLElement) {
+  fireEvent.keyDown(within(fila).getByRole('button', { name: /Acciones de/ }), {
+    key: 'ArrowDown',
+  });
+  await screen.findByRole('menu');
+}

@@ -11,6 +11,7 @@ describe('<EstatusSatBadge>', () => {
   it('Vigente muestra "Vigente"', () => {
     const { container } = render(<EstatusSatBadge estatus={EstatusSatCfdi.Vigente} />);
     expect(container).toHaveTextContent('Vigente');
+    expect(container.querySelector('[data-slot="badge"]')).toHaveClass('bg-success-bg');
     textoSinBasura(container.textContent);
   });
 
@@ -22,6 +23,7 @@ describe('<EstatusSatBadge>', () => {
       />,
     );
     expect(container).toHaveTextContent('Cancelado');
+    expect(container.querySelector('[data-slot="badge"]')).toHaveClass('bg-danger-bg', 'text-danger-fg');
     // 12:00Z = 06:00 en México: sigue siendo el 2 de noviembre.
     expect(container).toHaveTextContent(/Cancelado\s*·\s*2 nov/);
     // Espacio real tras la etiqueta: el separador va aria-hidden.
@@ -29,9 +31,9 @@ describe('<EstatusSatBadge>', () => {
     textoSinBasura(container.textContent);
   });
 
-  it.each([null, undefined])('estatus %s muestra "Sin dato"', (estatus) => {
+  it.each([null, undefined])('estatus %s muestra «—»', (estatus) => {
     const { container } = render(<EstatusSatBadge estatus={estatus} />);
-    expect(container).toHaveTextContent('Sin dato');
+    expect(container).toHaveTextContent('—');
     textoSinBasura(container.textContent);
   });
 });

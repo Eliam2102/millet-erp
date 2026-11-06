@@ -189,7 +189,10 @@ public sealed class FacturacionContabilidadListenerWorker(ServiceBusClient? clie
     ], StringComparer.Ordinal);
 }
 
-/// <summary>C1.5 · <c>cuentas-por-pagar-events</c>: factura (#2, C1.4), cancelación, NC, nota de cargo y anticipo de proveedor (#3–#4).</summary>
+/// <summary>
+/// C1.5 · <c>cuentas-por-pagar-events</c>: factura (#2, C1.4), cancelación, NC, nota de cargo y anticipo de proveedor (#3–#4).
+/// C1.5b: gasto de caja chica, viáticos y tarjeta; pasivos internos; cierre del estado de cuenta de tarjeta y amortización del anticipo.
+/// </summary>
 public sealed class CuentasPorPagarContabilidadListenerWorker(ServiceBusClient? client, IServiceScopeFactory scopeFactory,
     ILogger<CuentasPorPagarContabilidadListenerWorker> logger) : ContabilidadEventListenerWorker(client, scopeFactory, logger)
 {
@@ -204,10 +207,16 @@ public sealed class CuentasPorPagarContabilidadListenerWorker(ServiceBusClient? 
     [
         NormalizadorEventos.FacturaProveedorRegistrada, NormalizadorEventos.FacturaProveedorCancelada,
         NormalizadorEventos.NotaCreditoProveedorRegistrada, NormalizadorEventos.NotaCargoAutorizada, NormalizadorEventos.AnticipoProveedorCapturado,
+        NormalizadorEventos.RevaluacionCierreRegistrada, NormalizadorEventos.RevaluacionCierreRevertida,
+        NormalizadorEventos.GastoRegistrado, NormalizadorEventos.PasivoAutorizadoParaPago, NormalizadorEventos.EstadoCuentaTcCerrado,
+        NormalizadorEventos.AnticipoProveedorAmortizado,
     ], StringComparer.Ordinal);
 }
 
-/// <summary>C1.5 · <c>tesoreria-events</c>: pago a proveedor, su reversa y pago de cliente (#5, #6, #12).</summary>
+/// <summary>
+/// C1.5 · <c>tesoreria-events</c>: pago a proveedor, su reversa y pago de cliente (#5, #6, #12). U-2: depósito del corte, diferencias
+/// de corte, movimientos del extracto y reembolso de NC.
+/// </summary>
 public sealed class TesoreriaContabilidadListenerWorker(ServiceBusClient? client, IServiceScopeFactory scopeFactory,
     ILogger<TesoreriaContabilidadListenerWorker> logger) : ContabilidadEventListenerWorker(client, scopeFactory, logger)
 {
@@ -220,7 +229,11 @@ public sealed class TesoreriaContabilidadListenerWorker(ServiceBusClient? client
 
     private static readonly FrozenSet<string> Tipos = FrozenSet.ToFrozenSet(
     [
-        NormalizadorEventos.PagoProveedorAplicado, NormalizadorEventos.PagoProveedorRevertido, NormalizadorEventos.PagoClienteConfirmado,
+        NormalizadorEventos.DevolucionAnticipoAgente, NormalizadorEventos.PagoProveedorAplicado, NormalizadorEventos.PagoProveedorRevertido, NormalizadorEventos.PagoClienteConfirmado,
+        // U-2 (86e3yxngq): depósito del corte, diferencias de corte, alta desde el extracto y reembolso de NC.
+        NormalizadorEventos.DepositoCajaConfirmado, NormalizadorEventos.DiferenciaCorteAutorizada,
+        NormalizadorEventos.DiferenciaCorteDevolucionAplicada, NormalizadorEventos.MovimientoBancarioRegistrado,
+        NormalizadorEventos.ReembolsoNotaCreditoActualizado,
     ], StringComparer.Ordinal);
 }
 
@@ -237,7 +250,7 @@ public sealed class AlmacenContabilidadListenerWorker(ServiceBusClient? client, 
 
     private static readonly FrozenSet<string> Tipos = FrozenSet.ToFrozenSet(
     [
-        NormalizadorEventos.RecepcionOcRegistrada, NormalizadorEventos.RecepcionOcCancelada, NormalizadorEventos.AjusteInventarioAplicado,
-        NormalizadorEventos.SalidaRequisicionRegistrada, NormalizadorEventos.DevolucionInternaAplicada, NormalizadorEventos.DevolucionProveedorRegistrada,
+        NormalizadorEventos.CostoImportacionAplicado, NormalizadorEventos.RecepcionOcRegistrada, NormalizadorEventos.RecepcionOcCancelada, NormalizadorEventos.AjusteInventarioAplicado,
+        NormalizadorEventos.SalidaRequisicionRegistrada, NormalizadorEventos.SalidaInventarioRegistrada, NormalizadorEventos.DevolucionInternaAplicada, NormalizadorEventos.DevolucionProveedorRegistrada,
     ], StringComparer.Ordinal);
 }

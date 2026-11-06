@@ -1,8 +1,12 @@
+import { problemaConsulta } from '@/components/erp/feedback/problema-consulta';
+import { formatMoney } from '@/lib/money';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { ErrorState } from '@/components/erp';
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { TextAreaField } from '@/components/erp/forms/TextAreaField';
 import { Label } from '@/components/ui/label';
 import {
   Table,
@@ -31,7 +35,7 @@ import type { FacturasAnticipoSearch } from '@/features/facturacion/lib/facturas
 import { ETIQUETA_TIPO_RELACION } from '@/features/facturacion/lib/glosario';
 import { ChipTimbrado } from '@/features/facturacion/pages/BandejaFacturas';
 import { ChipEstadoAnticipo } from '@/features/facturacion/pages/BandejaFacturasAnticipo';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { useFormIdempotencyKey } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
@@ -57,7 +61,7 @@ export function DetalleFacturaAnticipo() {
       {query.isError ? (
         <ErrorState
           title="No se pudo cargar la factura de anticipo"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
+          problem={problemaConsulta(query.error)}
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading || query.data == null ? (
@@ -88,16 +92,16 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
   async function descargar(tipo: 'xml' | 'pdf') {
     try {
       await descargarArchivo(`${BASE}/${f.id}/${tipo}`, `${f.folio}.${tipo}`);
-    } catch (error) {
-      toast.error(esApiError(error) ? error.problem.title : 'No se pudo descargar el archivo.');
+    } catch {
+      toast.error('No se pudo descargar el archivo. Revisa tu conexión y vuelve a intentarlo.');
     }
   }
 
   async function descargarNc(ncId: string, folio: string, tipo: 'xml' | 'pdf') {
     try {
       await descargarArchivo(`${NC_BASE}/${ncId}/${tipo}`, `${folio}.${tipo}`);
-    } catch (error) {
-      toast.error(esApiError(error) ? error.problem.title : 'No se pudo descargar el archivo.');
+    } catch {
+      toast.error('No se pudo descargar el archivo. Revisa tu conexión y vuelve a intentarlo.');
     }
   }
 
@@ -124,6 +128,7 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
                     size="sm"
                     onClick={() => descargar('xml')}
                     disabled={!timbrada}
+                    title={!timbrada ? 'El XML se genera al timbrar el comprobante.' : undefined}
                   >
                     <FileCode className="mr-1 h-4 w-4" />
                     XML
@@ -156,7 +161,7 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
               </div>
             }
           />
-          <span className="text-xs text-ink-muted">{f.tipoAnticipo}</span>
+          <span className="text-xs text-ink-muted">{f.tipoAnticipo === 'ClientesMxp' ? 'Anticipo en pesos' : f.tipoAnticipo === 'ClientesUsd' ? 'Anticipo en dólares' : 'Anticipo'}</span>
         </div>
         {f.uuid && <p className="font-mono text-xs text-ink-muted">UUID {f.uuid}</p>}
       </div>
@@ -187,11 +192,7 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
             </Dato>
             <Dato label="Moneda">{f.moneda}</Dato>
             <Dato label="Fecha de timbrado">
-              {f.fechaTimbrado
-                ? new Date(f.fechaTimbrado).toLocaleString('es-MX', {
-                    timeZone: 'America/Mexico_City',
-                  })
-                : '—'}
+              <DateTimeDisplay value={f.fechaTimbrado} variant="datetime" />
             </Dato>
             <Dato label="Versión">{f.version}</Dato>
           </dl>
@@ -212,7 +213,7 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
                 <TableRow>
                   <TableCell>{f.descripcion}</TableCell>
                   <TableCell className="font-mono">84111506 · E48</TableCell>
-                  <TableCell className="text-right tabular-nums">{f.subtotal.toFixed(2)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{formatMoney({ amount: f.subtotal, currency: f.moneda })}</TableCell>
                 </TableRow>
               </TableBody>
             </Table>
@@ -296,12 +297,12 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
                               </Link>
                               {v.facturaEstado && (
                                 <span className="ml-2 text-xs text-ink-muted">
-                                  {v.facturaEstado}
+                                  <ChipTimbrado estado={v.facturaEstado} />
                                 </span>
                               )}
                             </TableCell>
                             <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
-                              {v.importe.toFixed(2)}
+                              {formatMoney({ amount: v.importe, currency: f.moneda })}
                             </TableCell>
                             <TableCell className="px-3 py-2">
                               {v.ncFolio ? (
@@ -309,13 +310,13 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
                                   <span className="font-mono text-xs">{v.ncFolio}</span>
                                   {v.ncEstado && (
                                     <span className="ml-2 text-xs text-ink-muted">
-                                      {v.ncEstado}
+                                      <ChipTimbrado estado={v.ncEstado} />
                                     </span>
                                   )}
                                 </>
                               ) : (
                                 <span className="text-xs text-ink-muted">
-                                  Pendiente (compromiso M2)
+                                  Pendiente de emisión
                                 </span>
                               )}
                             </TableCell>
@@ -386,10 +387,10 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
                             {r.uuidRelacionado}
                           </TableCell>
                           <TableCell className="px-3 py-2 font-mono text-xs">
-                            {r.folio ?? '—'}
+                            {r.folio || <span className="text-ink-muted">—</span>}
                           </TableCell>
                           <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
-                            {r.total != null ? r.total.toFixed(2) : '—'}
+                            {r.total != null ? formatMoney({ amount: r.total, currency: f.moneda }) : <span className="text-ink-muted">—</span>}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -428,6 +429,7 @@ function DevolucionesAnticipo({ f }: { f: FacturaAnticipoDetalleResponse }) {
   const [banco, setBanco] = useState('');
   const [clabe, setClabe] = useState('');
   const [titular, setTitular] = useState('');
+  const [comentarios, setComentarios] = useState<string | null>(null);
   const idempotencyKey = useFormIdempotencyKey();
   const emitir = useEmitirNcDevolucionAnticipo(f.id);
   const devoluciones = anticipo.devoluciones ?? [];
@@ -437,7 +439,7 @@ function DevolucionesAnticipo({ f }: { f: FacturaAnticipoDetalleResponse }) {
     const importe = Number(monto);
     if (!(importe > 0) || importe > disponible) {
       toast.error(
-        `El importe debe ser mayor a 0 y no exceder el disponible (${disponible.toFixed(2)}).`,
+        `El importe debe ser mayor a 0 y no exceder el disponible (${formatMoney({ amount: disponible, currency: f.moneda })}).`,
       );
       return;
     }
@@ -452,18 +454,19 @@ function DevolucionesAnticipo({ f }: { f: FacturaAnticipoDetalleResponse }) {
           montoTotal: importe,
           tasaIva: tasaIva.trim() === '' ? null : Number(tasaIva),
           reembolso: { banco: banco.trim(), clabe, titular: titular.trim() },
+          comentarios,
         },
         idempotencyKey,
       },
       {
         onSuccess: (res) => {
           toast.success(
-            `NC ${res.folio} emitida; se pidió a Tesorería el reembolso de ${res.total.toFixed(2)}.`,
+            `NC ${res.folio} emitida; se pidió a Tesorería el reembolso de ${formatMoney({ amount: res.total, currency: f.moneda })}.`,
           );
           setAbierto(false);
         },
-        onError: (error) =>
-          toast.error(esApiError(error) ? error.problem.title : 'No se pudo devolver el anticipo.'),
+        onError: () =>
+          toast.error('No se pudo devolver el anticipo. Revisa tu conexión y vuelve a intentarlo.'),
       },
     );
   }
@@ -485,7 +488,7 @@ function DevolucionesAnticipo({ f }: { f: FacturaAnticipoDetalleResponse }) {
         >
           <p className="text-xs text-ink-muted sm:col-span-4">
             Se emite una nota de crédito por devolución (relación 01 a este anticipo) y Tesorería
-            recibe la solicitud de reembolso. Disponible: {disponible.toFixed(2)} {f.moneda}.
+            recibe la solicitud de reembolso. Disponible: {formatMoney({ amount: disponible, currency: f.moneda })}.
           </p>
           <div>
             <Label className="text-xs" htmlFor="dev-anticipo-monto">
@@ -546,6 +549,18 @@ function DevolucionesAnticipo({ f }: { f: FacturaAnticipoDetalleResponse }) {
               onChange={(e) => setTitular(e.target.value)}
             />
           </div>
+          <div className="sm:col-span-4">
+            <Label className="text-xs" htmlFor="dev-anticipo-comentarios">
+              Comentarios (se imprimen en la nota de crédito)
+            </Label>
+            <TextAreaField
+              value={comentarios}
+              onChange={setComentarios}
+              minRows={2}
+              maxLength={1000}
+              textareaProps={{ id: 'dev-anticipo-comentarios' }}
+            />
+          </div>
           <div className="flex justify-end gap-2 sm:col-span-4">
             <Button
               variant="ghost"
@@ -580,7 +595,7 @@ function DevolucionesAnticipo({ f }: { f: FacturaAnticipoDetalleResponse }) {
                     <ChipTimbrado estado={d.estado} />
                   </TableCell>
                   <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
-                    {d.total.toFixed(2)}
+                    {formatMoney({ amount: d.total, currency: f.moneda })}
                   </TableCell>
                   <TableCell className="px-3 py-2">
                     {d.estadoReembolso || d.estado === 'Timbrado' ? (
@@ -607,10 +622,10 @@ function DevolucionesAnticipo({ f }: { f: FacturaAnticipoDetalleResponse }) {
 
 function Kpi({ label, valor, moneda }: { label: string; valor: number; moneda: string }) {
   return (
-    <div className="rounded-md border p-3 border-line">
+    <div className="rounded-lg bg-surface-card px-4 py-3.5 shadow-card-flat">
       <div className="text-xs text-ink-muted">{label}</div>
-      <div className="font-mono text-lg font-semibold tabular-nums">
-        {valor.toFixed(2)} <span className="text-xs font-normal">{moneda}</span>
+      <div className="text-3xl font-semibold tabular-nums">
+        {Number.isFinite(valor) ? formatMoney({ amount: valor, currency: moneda }) : <span className="text-ink-muted">—</span>}
       </div>
     </div>
   );
