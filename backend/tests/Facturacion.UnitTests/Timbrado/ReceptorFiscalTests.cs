@@ -139,7 +139,7 @@ public sealed class ReceptorFiscalTests
         var handler = new EmitirFacturaVentaHandler(db, sender, new FakePeriodoContablePort(), catalogos,
             pac, new FakeCfdiRepositorioPort(),
             new FakeEmpresaFiscalReadPort(new EmpresaFiscalLectura(empresaId, Emisor.Rfc, Emisor.Nombre, Emisor.RegimenFiscal, 0.16m, Emisor.LugarExpedicion)),
-            new FakeIntegrationEventPublisher(), new FakeContabilidadAsientoPort(), new FakeEmpresaContext(empresaId),
+            new FakeIntegrationEventPublisher(), new FakeEmpresaContext(empresaId),
             new FakeUserContext(Guid.NewGuid()), new FakeClock(DateTimeOffset.UtcNow), new ValidadorReceptorFiscal(clientes, catalogos, db));
         var command = new EmitirFacturaVentaCommand(Guid.NewGuid(), Receptor.Rfc, Receptor.Nombre, Receptor.RegimenFiscal,
             Receptor.CodigoPostal, Receptor.UsoCfdi, Receptor.Pais, Emisor.Rfc, Emisor.RegimenFiscal, "PUE", "01", "MXN", null,

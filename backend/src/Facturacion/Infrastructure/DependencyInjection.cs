@@ -143,10 +143,6 @@ public static class DependencyInjection
         // PLATFORM-TODO(<ActivosFijos>)
         services.AddScoped<IActivosFijosReadPort, NoOpActivosFijosReadPort>();
 
-        // --- F10-PR1: asientos contables — stub hasta el módulo Contabilidad ---
-        // PLATFORM-TODO(<ContabilidadAsientos>)
-        services.AddScoped<IContabilidadAsientoPort, NoOpContabilidadAsientoPort>();
-
         // --- F10-PR2: ingesta Planta Pintura — stub hasta Integraciones.Origenes ---
         // PLATFORM-TODO(<PlantaPinturaOrigenes>)
         services.AddScoped<IPlantaPinturaPedidosReader, StubPlantaPinturaPedidosReader>();

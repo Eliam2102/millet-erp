@@ -61,7 +61,6 @@ public sealed class EmitirFacturaVentaHandlerTests
             new FakeCfdiRepositorioPort(),
             new FakeEmpresaFiscalReadPort(new EmpresaFiscalLectura(empresaId, "MIL010101AAA", "Millet", "601", 0.16m, "76120")),
             new FakeIntegrationEventPublisher(),
-            new FakeContabilidadAsientoPort(),
             new FakeEmpresaContext(empresaId),
             new FakeUserContext(Guid.NewGuid()),
             new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db, receptorRfc, "616", "76120"), embarques: embarques, productos: productos, plazoCredito: plazoCredito);
@@ -583,7 +582,6 @@ public sealed class EmitirFacturaVentaHandlerTests
             new FakeCfdiRepositorioPort(),
             new FakeEmpresaFiscalReadPort(new EmpresaFiscalLectura(empresaId, "MIL010101AAA", "Millet", "601", 0.16m, "76120")),
             new FakeIntegrationEventPublisher(),
-            new FakeContabilidadAsientoPort(),
             new FakeEmpresaContext(current: null),
             new FakeUserContext(Guid.NewGuid()),
             new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db, "XAXX010101000", "616", "76120"));

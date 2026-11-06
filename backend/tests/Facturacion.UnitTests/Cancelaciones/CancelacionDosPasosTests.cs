@@ -363,8 +363,7 @@ public sealed class CancelacionDosPasosTests
 
         var emitFacturaHandler = new EmitirFacturaVentaHandler(db, sender, new FakePeriodoContablePort(),
             new FakeCatalogosSatReadPort(), fiscal, new FakeCfdiRepositorioPort(), empresasFiscal,
-            new FakeIntegrationEventPublisher(), new FakeContabilidadAsientoPort(),
-            new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
+            new FakeIntegrationEventPublisher(), new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
         await emitFacturaHandler.Handle(new EmitirFacturaVentaCommand(
             Guid.NewGuid(), Rfc, "Cliente", "601", "97000", "G03", "MEX", "BBB010101BBB", "601",
             "PUE", "03", "MXN", null, (short)7, ComportamientoFiscal.ConAnticipo, null, null, false,

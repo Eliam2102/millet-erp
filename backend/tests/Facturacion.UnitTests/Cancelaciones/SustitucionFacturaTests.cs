@@ -92,8 +92,7 @@ public sealed class SustitucionFacturaTests
         new(db, new FakeSenderFolios(), new FakePeriodoContablePort(),
             new FakeCatalogosSatReadPort(), new FakeFiscalUuids(), new FakeCfdiRepositorioPort(),
             new FakeEmpresaFiscalReadPort(new EmpresaFiscalLectura(empresaId, "MIL010101AAA", "Millet", "601", 0.16m, "76120")),
-            new FakeIntegrationEventPublisher(), new FakeContabilidadAsientoPort(),
-            new FakeEmpresaContext(empresaId), new FakeUserContext(Ingresos, "Ingresos"), new FakeClock(Ahora),
+            new FakeIntegrationEventPublisher(), new FakeEmpresaContext(empresaId), new FakeUserContext(Ingresos, "Ingresos"), new FakeClock(Ahora),
             ReceptorFiscalTestFactory.Crear(db));
 
     private static EmitirFacturaVentaCommand Sustituta(Guid originalId, Guid? pedidoId = null) => new(

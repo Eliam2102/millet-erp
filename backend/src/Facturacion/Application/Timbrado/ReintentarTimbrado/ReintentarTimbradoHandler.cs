@@ -52,7 +52,6 @@ public sealed class ReintentarTimbradoHandler
     private readonly ICfdiTimbradoPort _fiscal;
     private readonly ICfdiRepositorioPort _cfdiRepo;
     private readonly IIntegrationEventPublisher _eventos;
-    private readonly IContabilidadAsientoPort _contabilidad;
     private readonly IClock _clock;
     private readonly IProductosReadPort? _productos;
     private readonly IEmpresaFiscalReadPort? _empresaFiscal;
@@ -64,7 +63,6 @@ public sealed class ReintentarTimbradoHandler
         ICfdiTimbradoPort fiscal,
         ICfdiRepositorioPort cfdiRepo,
         IIntegrationEventPublisher eventos,
-        IContabilidadAsientoPort contabilidad,
         IClock clock, ValidadorReceptorFiscal receptorFiscal,
         // U1.6: tipo A+W de las líneas en el evento contable; opcional para no
         // romper composiciones existentes (sin puerto, TipoProducto = null).
@@ -77,7 +75,6 @@ public sealed class ReintentarTimbradoHandler
         _fiscal = fiscal;
         _cfdiRepo = cfdiRepo;
         _eventos = eventos;
-        _contabilidad = contabilidad;
         _clock = clock;
         _productos = productos;
         _empresaFiscal = empresaFiscal;
@@ -216,9 +213,6 @@ public sealed class ReintentarTimbradoHandler
                     ? await _db.PedidosFacturables.AsNoTracking().FirstOrDefaultAsync(p => p.Id == pedidoEvt, ct)
                     : null),
                 ct);
-            await _contabilidad.RegistrarAsientoAsync(new AsientoContableSolicitud(
-                factura.Id, "FacturaVenta", $"Factura {factura.Folio}", factura.Total, factura.Moneda,
-                factura.PeriodoAnio, factura.PeriodoMes), ct);
         }
 
         if (factura.PedidoFacturableId is Guid pedidoId
