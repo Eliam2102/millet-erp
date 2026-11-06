@@ -248,12 +248,20 @@ function TablaSalidas({
               <TableCell className="px-3 py-2">
                 {s.estadoFactura ? (
                   <EstadoFacturacionBadge entidad="factura" estado={s.estadoFactura} />
+                ) : s.descartadaEn ? (
+                  <span className="flex flex-col gap-0.5">
+                    <Badge variant="neutral">Descartada</Badge>
+                    <span className="text-xs text-ink-muted">
+                      {formatDateTime(s.descartadaEn)}
+                      {s.motivoDescarte ? ` · ${s.motivoDescarte}` : ''}
+                    </span>
+                  </span>
                 ) : (
                   <Badge variant="warning">Por facturar</Badge>
                 )}
               </TableCell>
               <TableCell className="px-3 py-2 text-right" data-print="hidden">
-                {s.facturaId == null && puedeEmitir && (
+                {s.facturaId == null && !s.descartadaEn && puedeEmitir && (
                   <Button
                     size="sm"
                     onClick={() => onFacturarSalida(s)}

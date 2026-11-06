@@ -10,5 +10,11 @@ public sealed record EmbarqueExportacionLectura(bool Ligado, Guid? ExpedienteId 
 
 public interface IEmbarqueExportacionReadPort
 {
-    Task<EmbarqueExportacionLectura> ObtenerAsync(Guid pedidoFacturableId, CancellationToken ct);
+    Task<EmbarqueExportacionLectura> ObtenerAsync(Guid pedidoFacturableId, CancellationToken ct) => ObtenerAsync(pedidoFacturableId, null, ct);
+
+    /// <summary>
+    /// FAC-08: con <paramref name="contenedorId"/> (factura de la salida de un contenedor) la compuerta y los
+    /// contenedores del CCE se limitan a ese contenedor.
+    /// </summary>
+    Task<EmbarqueExportacionLectura> ObtenerAsync(Guid pedidoFacturableId, Guid? contenedorId, CancellationToken ct);
 }

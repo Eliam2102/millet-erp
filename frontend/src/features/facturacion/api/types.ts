@@ -900,6 +900,12 @@ export interface PedidoClienteFiscal {
   formaPagoDefault: string | null;
   metodoPagoDefault: string | null;
   esGenerico: boolean;
+  /** Receptor extranjero (CCE) del catálogo del cliente. */
+  numRegIdTrib?: string | null;
+  paisResidencia?: string | null;
+  domicilioExtranjeroCalle?: string | null;
+  domicilioExtranjeroEstado?: string | null;
+  domicilioExtranjeroCodigoPostal?: string | null;
 }
 
 /**
@@ -1087,6 +1093,9 @@ export interface SalidaFacturableItem {
   uuid: string | null;
   estadoFactura: string | null;
   lineas: SalidaFacturableItemLinea[];
+  /** FAC-08: la salida se descartó porque su origen se canceló (contenedor cancelado en CE); ya no se factura. */
+  descartadaEn?: string | null;
+  motivoDescarte?: string | null;
 }
 
 /** GET /pedidos-facturables/{id}/salidas. */

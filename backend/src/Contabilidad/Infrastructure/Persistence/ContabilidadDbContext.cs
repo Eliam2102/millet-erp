@@ -53,6 +53,9 @@ public sealed class ContabilidadDbContext : BaseDbContext
     public DbSet<EventoContableProcesado> EventosProcesados => Set<EventoContableProcesado>();
     public DbSet<CobroEfectivoCaja> CobrosEfectivoCaja => Set<CobroEfectivoCaja>();
     public DbSet<ConsumoContabilizado> ConsumosContabilizados => Set<ConsumoContabilizado>();
+    // C1.6: saldo de IVA por documento y su reclasificación al pagar o cobrar (base de K10.7).
+    public DbSet<SaldoIvaDocumento> SaldosIvaDocumento => Set<SaldoIvaDocumento>();
+    public DbSet<ReclasificacionIva> ReclasificacionesIva => Set<ReclasificacionIva>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

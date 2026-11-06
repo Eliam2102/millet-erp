@@ -25,6 +25,10 @@ public sealed partial class DemoSesionSeedHostedService
         ("990.14.00.00", "DEMO IVA acreditable pagado", NaturalezaCuenta.Deudora, CuentaControl.Ninguna, ["IVA_ACREDITABLE_PAGADO"]),
         ("990.15.00.00", "DEMO Ventas", NaturalezaCuenta.Acreedora, CuentaControl.Ninguna, ["VENTAS"]),
         ("990.16.00.00", "DEMO IVA trasladado no cobrado", NaturalezaCuenta.Acreedora, CuentaControl.Ninguna, ["IVA_TRASLADADO_NO_COBRADO"]),
+        // C1.6 y K10.7: reclasificación del IVA trasladado al cobrar y liquidación mensual de IVA.
+        ("990.31.00.00", "DEMO IVA trasladado cobrado", NaturalezaCuenta.Acreedora, CuentaControl.Ninguna, ["IVA_TRASLADADO_COBRADO"]),
+        ("990.32.00.00", "DEMO IVA por pagar", NaturalezaCuenta.Acreedora, CuentaControl.Ninguna, ["IVA_POR_PAGAR"]),
+        ("990.33.00.00", "DEMO IVA a favor", NaturalezaCuenta.Deudora, CuentaControl.Ninguna, ["IVA_A_FAVOR"]),
         ("990.17.00.00", "DEMO Anticipos de clientes", NaturalezaCuenta.Acreedora, CuentaControl.Ninguna, ["ANTICIPOS_DE_CLIENTES"]),
         ("990.18.00.00", "DEMO Descuentos sobre ventas", NaturalezaCuenta.Deudora, CuentaControl.Ninguna, ["DESCUENTOS_SOBRE_VENTAS"]),
         ("990.19.00.00", "DEMO Efectivo en caja cobranza", NaturalezaCuenta.Deudora, CuentaControl.Ninguna, ["EFECTIVO_CAJA_COBRANZA", "CAJA"]),
@@ -40,6 +44,9 @@ public sealed partial class DemoSesionSeedHostedService
         ("990.28.00.00", "DEMO Fondo fijo de caja chica", NaturalezaCuenta.Deudora, CuentaControl.Ninguna, ["CONTRAPARTIDA_GASTO_CAJA_CHICA"]),
         ("990.29.00.00", "DEMO Tarjetas corporativas por pagar", NaturalezaCuenta.Acreedora, CuentaControl.Ninguna, ["CONTRAPARTIDA_GASTO_TARJETA"]),
         ("990.30.00.00", "DEMO Acreedores diversos", NaturalezaCuenta.Acreedora, CuentaControl.Ninguna, ["ACREEDORES_DIVERSOS"]),
+        // PCV: costo de ventas de la entrega de PT (cuentas por operación: 501.01.00.00 y 115.04.00.00 cuando Contabilidad las mapee).
+        ("990.31.00.00", "DEMO Costo de ventas", NaturalezaCuenta.Deudora, CuentaControl.Ninguna, ["COSTO_DE_VENTAS"]),
+        ("990.32.00.00", "DEMO Inventario de producto terminado", NaturalezaCuenta.Deudora, CuentaControl.Ninguna, ["INVENTARIO_PT"]),
     ];
 
     /// <summary>Códigos de las cuentas que declara este sembrador; la prueba del seed cuenta contra esta lista.</summary>

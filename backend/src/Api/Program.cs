@@ -326,6 +326,10 @@ if (!string.IsNullOrWhiteSpace(outboxConnString))
     // (Bicep en el mismo PR; deploy de infra manual con what-if).
     builder.Services.AddHostedService<Millet.Facturacion.Infrastructure.Workers.TesoreriaEventListenerWorker>();
 
+    // FAC-08 Fase 1: contenedor embarcado/cancelado en Comercio Exterior → salidas facturables por pedido.
+    // Subscription `facturacion-ce-sub` en `comercio-exterior-events` (Bicep en el mismo PR; deploy manual con what-if).
+    builder.Services.AddHostedService<Millet.Facturacion.Infrastructure.Workers.ComercioExteriorEventListenerWorker>();
+
     // TR-01: factura timbrada → fila Documento de aw_retorno. Subscription
     // `integraciones-aw-subscription` en `facturacion-events` (Bicep en el mismo PR).
     builder.Services.AddHostedService<Millet.Integraciones.Aw.Infrastructure.Retorno.FacturacionRetornoListenerWorker>();
@@ -1076,6 +1080,9 @@ builder.Services.AddScoped<Millet.CuentasPorPagar.Application.PublicPorts.IFactu
 // 86e3xt2q8: Caja elige la factura mensual del banco del buzón de CFDI recibidos de CxP (solo lectura).
 builder.Services.AddScoped<Millet.CuentasPorPagar.Application.PublicPorts.ICfdiRecibidoPublicReadPort, Millet.CuentasPorPagar.Infrastructure.PublicAdapters.CfdiRecibidoPublicReadAdapter>();
 builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.ICfdiRecibidoBancoReadPort, Millet.Api.Infrastructure.Adapters.CfdiRecibidoBancoReadAdapter>();
+// K10.7: marca de cumplimiento de la liquidación de IVA (CxP: método de pago y REP recibido; Facturación: REP timbrado).
+builder.Services.AddScoped<Millet.CuentasPorPagar.Application.PublicPorts.IFacturaProveedorFiscalReadPort, Millet.CuentasPorPagar.Infrastructure.PublicAdapters.FacturaProveedorFiscalReadAdapter>();
+builder.Services.AddScoped<Millet.Contabilidad.Application.Ports.ICumplimientoIvaReadPort, Millet.Api.Infrastructure.Adapters.CumplimientoIvaReadAdapter>();
 builder.Services.AddOptions<Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorkerOptions>()
     .Bind(builder.Configuration.GetSection(Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorkerOptions.SectionName))
     .Validate(o => o.Interval > TimeSpan.Zero, "ComercioExterior:AvisosHitos:Interval debe ser mayor que cero.")
@@ -1745,6 +1752,7 @@ Millet.Api.Endpoints.Contabilidad.ContabilidadMotorEndpoints.MapContabilidadMoto
 Millet.Api.Endpoints.Contabilidad.ContabilidadCuentaPuenteEndpoints.MapContabilidadCuentaPuenteEndpoints(app);
 Millet.Api.Endpoints.Contabilidad.ContabilidadConciliacionAuxiliaresEndpoints.MapContabilidadConciliacionAuxiliaresEndpoints(app);
 Millet.Api.Endpoints.Contabilidad.ContabilidadReportesEndpoints.MapContabilidadReportesEndpoints(app);
+Millet.Api.Endpoints.Contabilidad.ContabilidadIvaEndpoints.MapContabilidadIvaEndpoints(app);
 
 // === Almacén — CRUD asignación artículo→ubicación (OITW, ADR-0047 PR3) ===
 Millet.Api.Endpoints.Almacen.Asignaciones.AlmacenAsignacionesEndpoints.MapAlmacenAsignacionesEndpoints(app);

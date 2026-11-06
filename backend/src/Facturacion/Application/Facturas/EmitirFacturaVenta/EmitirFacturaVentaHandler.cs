@@ -48,7 +48,6 @@ public sealed class EmitirFacturaVentaHandler
     private readonly ICfdiRepositorioPort _cfdiRepo;
     private readonly IEmpresaFiscalReadPort _empresasFiscal;
     private readonly IIntegrationEventPublisher _eventos;
-    private readonly IContabilidadAsientoPort _contabilidad;
     private readonly ICurrentEmpresaContext _empresa;
     private readonly ICurrentUserContext _user;
     private readonly IClock _clock;
@@ -66,7 +65,6 @@ public sealed class EmitirFacturaVentaHandler
         ICfdiRepositorioPort cfdiRepo,
         IEmpresaFiscalReadPort empresasFiscal,
         IIntegrationEventPublisher eventos,
-        IContabilidadAsientoPort contabilidad,
         ICurrentEmpresaContext empresa,
         ICurrentUserContext user,
         IClock clock, ValidadorReceptorFiscal receptorFiscal,
@@ -86,7 +84,6 @@ public sealed class EmitirFacturaVentaHandler
         _cfdiRepo = cfdiRepo;
         _empresasFiscal = empresasFiscal;
         _eventos = eventos;
-        _contabilidad = contabilidad;
         _empresa = empresa;
         _user = user;
         _clock = clock;
@@ -100,14 +97,19 @@ public sealed class EmitirFacturaVentaHandler
         EmitirFacturaVentaCommand command,
         CancellationToken cancellationToken)
     {
+        // FAC-08 Fase 1: la factura de la salida de un contenedor se compuerta con ese contenedor, no con el 100 % del pedido.
+        var contenedorId = command.SalidaFacturableId is Guid salidaCe && _embarques is not null
+            ? await _db.SalidasFacturables.Where(s => s.Id == salidaCe && s.Origen == OrigenSalidaFacturable.ContenedorExportacion)
+                .Select(s => s.OrigenId).FirstOrDefaultAsync(cancellationToken)
+            : null;
         var embarque = command.PedidoFacturableId is Guid id && _embarques is not null
-            ? await _embarques.ObtenerAsync(id, cancellationToken) : null;
+            ? await _embarques.ObtenerAsync(id, contenedorId, cancellationToken) : null;
         if (embarque?.Ligado == true)
         {
             EmitirFacturaVentaResponse? resultado = null;
             await PedidoEmbarqueLock.ExecuteAsync(_db, [command.PedidoFacturableId!.Value], async ct =>
             {
-                var actual = await _embarques!.ObtenerAsync(command.PedidoFacturableId.Value, ct);
+                var actual = await _embarques!.ObtenerAsync(command.PedidoFacturableId.Value, contenedorId, ct);
                 resultado = await EmitirAsync(command, actual, ct);
             }, cancellationToken);
             return resultado!;
@@ -363,16 +365,14 @@ public sealed class EmitirFacturaVentaHandler
                 "FACTURA_NO_TIMBRADA_PARA_AMORTIZAR",
                 "No se pueden amortizar anticipos: la factura no quedó timbrada.");
 
-        // 9. F10-PR1: evento de integración + asiento contable (al Outbox en la
-        // misma TX vía el interceptor). Solo si quedó Timbrada.
+        // 9. F10-PR1: evento de integración (al Outbox en la misma TX vía el
+        // interceptor); Contabilidad arma la póliza desde el evento (C1.5). Solo si quedó Timbrada.
         if (factura.Estado == EstadoTimbrado.Timbrado)
         {
             await _eventos.PublishAsync(EventosContablesFacturacion.FacturaVentaTimbrada(
                 factura, ahora, command.ClienteId ?? pedido?.ClienteId,
                 await EventosContablesFacturacion.TiposProductoAsync(_productos, factura, cancellationToken), pedido),
                 cancellationToken);
-            await _contabilidad.RegistrarAsientoAsync(new AsientoContableSolicitud(
-                factura.Id, "FacturaVenta", $"Factura {factura.Folio}", factura.Total, factura.Moneda, anio, mes), cancellationToken);
         }
 
         // [Decisión 01-G] G5: el pedido queda tomado por su factura desde el
@@ -477,7 +477,7 @@ public sealed class EmitirFacturaVentaHandler
     {
         if (command.SalidaFacturableId is not Guid salidaId)
         {
-            if (pedido is not null && await _db.SalidasFacturables.AnyAsync(s => s.PedidoFacturableId == pedido.Id, cancellationToken))
+            if (pedido is not null && await _db.SalidasFacturables.AnyAsync(s => s.PedidoFacturableId == pedido.Id && s.DescartadaEn == null, cancellationToken))
                 throw new BusinessRuleException("PEDIDO_CON_SALIDAS",
                     "El pedido ya se factura por salidas parciales; factura la salida pendiente.");
             return null;
@@ -488,6 +488,9 @@ public sealed class EmitirFacturaVentaHandler
         var salida = await _db.SalidasFacturables.Include(s => s.Lineas)
             .FirstOrDefaultAsync(s => s.Id == salidaId && s.PedidoFacturableId == pedido.Id, cancellationToken)
             ?? throw new EntityNotFoundException("SALIDA_NO_ENCONTRADA", $"El pedido no tiene la salida {salidaId}.");
+        if (salida.Descartada)
+            throw new BusinessRuleException("SALIDA_DESCARTADA",
+                $"La parcialidad {salida.NumeroParcialidad} se descartó ({salida.MotivoDescarte}); no se factura.");
 
         if (await _db.FacturasVenta.AnyAsync(f => f.SalidaFacturableId == salidaId
                 && f.Estado != EstadoTimbrado.Cancelado && f.Estado != EstadoTimbrado.Descartada, cancellationToken))
