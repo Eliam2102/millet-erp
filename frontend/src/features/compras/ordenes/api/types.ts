@@ -329,6 +329,10 @@ export interface RespuestaProveedorOc {
   registradaEn: string;
   vigente: boolean;
   compromisos: CompromisoEntregaOc[];
+  /** G-11: respuesta marcada como errónea; se conserva en el historial. */
+  anuladaEn?: string | null;
+  anuladaPorId?: string | null;
+  motivoAnulacion?: string | null;
 }
 
 /** F1-COM-07: fecha compromiso de una incidencia (historial inmutable; la de mayor número es la vigente). */

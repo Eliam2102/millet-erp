@@ -158,7 +158,7 @@ public static class ReglasAnalisisProveedores
             .MaxBy(i => i.Numero);
         if (incidencia is not null) return (incidencia.FechaCompromisoVigente, "incidencia");
 
-        var promesa = oc.RespuestasProveedor.OrderByDescending(r => r.Numero)
+        var promesa = oc.RespuestasProveedor.Where(r => !r.Anulada).OrderByDescending(r => r.Numero)
             .Select(r => r.Compromisos.Where(c => c.LineaOrdenCompraId == l.Id).Select(c => (DateOnly?)c.FechaPrometida).Max())
             .FirstOrDefault(fecha => fecha is not null);
         if (promesa is not null) return (promesa, "promesa-proveedor");

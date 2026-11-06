@@ -8,7 +8,12 @@ import { DateTimeDisplay } from '@/components/erp';
 import { esApiError } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
-import { useEnviosOc, useRegistrarEnvioOc, type EnvioOc } from '../api/useEnviosOc';
+import {
+  useEnviosOc,
+  useRegistrarAcuseEnvioOc,
+  useRegistrarEnvioOc,
+  type EnvioOc,
+} from '../api/useEnviosOc';
 import { descargarPdfOrdenCompra } from '../api/usePdfOrdenCompra';
 
 const resultados: Record<EnvioOc['resultado'], string> = {
@@ -25,6 +30,10 @@ export function EnviosOcPanel({ ordenCompraId, folio }: { ordenCompraId: string;
   const puedeRegistrar = useHasPermission(PermisosCanonicos.ComprasOrdenesCrear);
   const consulta = useEnviosOc(ordenCompraId);
   const enviar = useRegistrarEnvioOc(ordenCompraId);
+  const acusar = useRegistrarAcuseEnvioOc(ordenCompraId);
+  const [acuseDe, setAcuseDe] = useState<string | null>(null);
+  const [acuseTexto, setAcuseTexto] = useState('');
+  const [errorAcuse, setErrorAcuse] = useState<string | null>(null);
   const [capturado, setCapturado] = useState<string | null>(null);
   const [descargado, setDescargado] = useState(false);
   const [descargando, setDescargando] = useState(false);
@@ -56,6 +65,21 @@ export function EnviosOcPanel({ ordenCompraId, folio }: { ordenCompraId: string;
       );
     } finally {
       setDescargando(false);
+    }
+  }
+
+  async function guardarAcuse(envioId: string) {
+    setErrorAcuse(null);
+    try {
+      await acusar.mutateAsync({ envioId, referencia: acuseTexto.trim() });
+      setAcuseDe(null);
+      setAcuseTexto('');
+    } catch (error) {
+      setErrorAcuse(
+        esApiError(error)
+          ? (error.problem.detail ?? 'No se pudo guardar el acuse.')
+          : 'No se pudo guardar el acuse. Vuelve a intentarlo.',
+      );
     }
   }
 
@@ -189,6 +213,64 @@ export function EnviosOcPanel({ ordenCompraId, folio }: { ordenCompraId: string;
               <p className="text-ink-muted">
                 Registró: <span>{envio.usuarioNombre}</span>
               </p>
+              {envio.acuseFecha ? (
+                <p>
+                  <Badge variant="success">Acuse del proveedor</Badge>{' '}
+                  <DateTimeDisplay value={envio.acuseFecha} variant="datetime" /> ·{' '}
+                  {envio.acuseReferencia}
+                  {envio.acuseUsuarioNombre && (
+                    <span className="text-ink-muted"> · Registró {envio.acuseUsuarioNombre}</span>
+                  )}
+                </p>
+              ) : (
+                (envio.resultado === 'aceptado' || envio.resultado === 'registrado') && (
+                  <div className="space-y-1">
+                    <p className="text-ink-muted">
+                      {envio.resultado === 'aceptado'
+                        ? 'Aceptado por el servicio de correo; falta la evidencia de que el proveedor lo recibió.'
+                        : 'Falta la evidencia de que el proveedor lo recibió.'}
+                    </p>
+                    {puedeRegistrar && acuseDe !== envio.id && (
+                      <Button
+                        variant="secondary"
+                        onClick={() => {
+                          setAcuseDe(envio.id);
+                          setAcuseTexto('');
+                          setErrorAcuse(null);
+                        }}
+                      >
+                        Registrar acuse del proveedor
+                      </Button>
+                    )}
+                    {puedeRegistrar && acuseDe === envio.id && (
+                      <div className="flex flex-wrap items-end gap-2">
+                        <label className="block space-y-1">
+                          <span>Evidencia del acuse (correo o folio del proveedor) *</span>
+                          <Input
+                            value={acuseTexto}
+                            maxLength={300}
+                            onChange={(e) => setAcuseTexto(e.target.value)}
+                          />
+                        </label>
+                        <Button
+                          disabled={!acuseTexto.trim() || acusar.isPending}
+                          onClick={() => void guardarAcuse(envio.id)}
+                        >
+                          Guardar acuse
+                        </Button>
+                        <Button variant="secondary" onClick={() => setAcuseDe(null)}>
+                          Cancelar
+                        </Button>
+                      </div>
+                    )}
+                    {acuseDe === envio.id && errorAcuse && (
+                      <p role="alert" className="text-danger-fg">
+                        {errorAcuse}
+                      </p>
+                    )}
+                  </div>
+                )
+              )}
             </div>
           ))}
         </>

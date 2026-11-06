@@ -10,5 +10,5 @@ internal static class RespuestaProveedorMapper
             r.TieneDiferencias, r.RegistradaPorId, r.RegistradaEn, vigente,
             r.Compromisos.OrderBy(c => c.FechaPrometida)
                 .Select(c => new CompromisoEntregaOcResponse(c.Id, c.LineaOrdenCompraId, c.Cantidad, c.FechaPrometida))
-                .ToList());
+                .ToList(), r.AnuladaEn, r.AnuladaPorId, r.MotivoAnulacion);
 }

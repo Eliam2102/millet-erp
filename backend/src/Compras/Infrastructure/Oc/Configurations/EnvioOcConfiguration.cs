@@ -19,6 +19,8 @@ public sealed class EnvioOcConfiguration : IEntityTypeConfiguration<EnvioOc>
         builder.Property(e => e.UsuarioNombre).HasMaxLength(256).IsRequired();
         builder.Property(e => e.Modo).HasMaxLength(12).IsRequired();
         builder.Property(e => e.Resultado).HasMaxLength(16).IsRequired();
+        builder.Property(e => e.AcuseReferencia).HasMaxLength(300);
+        builder.Property(e => e.AcuseUsuarioNombre).HasMaxLength(256);
         builder.Property(e => e.PdfBlobUrl).HasColumnType("text").IsRequired();
         // El PDF puede regenerarse: conservar su identidad y blob sin FK al registro reemplazable.
         builder.HasOne<OrdenCompra>().WithMany().HasForeignKey(e => e.OrdenCompraId).OnDelete(DeleteBehavior.Restrict);

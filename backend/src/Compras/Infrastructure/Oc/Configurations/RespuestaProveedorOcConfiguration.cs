@@ -17,6 +17,8 @@ public sealed class RespuestaProveedorOcConfiguration : IEntityTypeConfiguration
         builder.Property(r => r.Evidencia).HasMaxLength(300);
         builder.Property(r => r.ContactoProveedor).HasMaxLength(120);
         builder.Property(r => r.Motivo).HasMaxLength(500);
+        builder.Property(r => r.MotivoAnulacion).HasMaxLength(500);
+        builder.Ignore(r => r.Anulada);
         builder.HasIndex(r => new { r.OrdenCompraId, r.Numero }).IsUnique()
             .HasDatabaseName("ux_oc_respuestas_proveedor_numero");
         builder.HasMany(r => r.Compromisos).WithOne()

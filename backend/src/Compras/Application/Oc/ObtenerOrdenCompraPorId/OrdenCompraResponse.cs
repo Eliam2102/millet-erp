@@ -181,4 +181,5 @@ public sealed record CotizacionElegidaOcResponse(
 
 public sealed record CompromisoEntregaOcResponse(Guid Id, Guid LineaOrdenCompraId, decimal Cantidad, DateOnly FechaPrometida);
 
-public sealed record RespuestaProveedorOcResponse(Guid Id, int Numero, TipoRespuestaProveedorOc? Tipo, DateOnly? FechaRespuesta, string? Evidencia, string? ContactoProveedor, string? Motivo, bool TieneDiferencias, Guid RegistradaPorId, DateTimeOffset RegistradaEn, bool Vigente, IReadOnlyList<CompromisoEntregaOcResponse> Compromisos);
+public sealed record RespuestaProveedorOcResponse(Guid Id, int Numero, TipoRespuestaProveedorOc? Tipo, DateOnly? FechaRespuesta, string? Evidencia, string? ContactoProveedor, string? Motivo, bool TieneDiferencias, Guid RegistradaPorId, DateTimeOffset RegistradaEn, bool Vigente, IReadOnlyList<CompromisoEntregaOcResponse> Compromisos,
+    DateTimeOffset? AnuladaEn = null, Guid? AnuladaPorId = null, string? MotivoAnulacion = null);

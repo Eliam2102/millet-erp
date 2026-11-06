@@ -1585,6 +1585,33 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
     }
 
     /// <summary>
+    /// Marca una respuesta como errónea (ligada a la orden equivocada, capturada de más) sin borrarla:
+    /// queda en el historial con quién y por qué. El estado comercial y el compromiso vuelven a la última
+    /// respuesta vigente, o a «sin respuesta» si no queda ninguna. La correcta se registra aparte, en la orden que corresponda.
+    /// </summary>
+    public RespuestaProveedorOc AnularRespuestaProveedor(Guid respuestaId, string? motivo, Guid usuarioId, DateTimeOffset ahora)
+    {
+        var respuesta = _respuestasProveedor.FirstOrDefault(r => r.Id == respuestaId)
+            ?? throw new EntityNotFoundException("OC_RESPUESTA_NO_ENCONTRADA", "No se encontró la respuesta del proveedor en esta orden.");
+        if (usuarioId == Guid.Empty)
+            throw new BusinessRuleException("OC_RESPUESTA_USUARIO_REQUERIDO", "La corrección requiere el usuario que la registra.");
+        if (respuesta.Anulada)
+            throw new BusinessRuleException("OC_RESPUESTA_YA_ANULADA", "Esta respuesta ya está marcada como errónea.");
+        motivo = motivo?.Trim();
+        if (string.IsNullOrEmpty(motivo) || motivo.Length > 500)
+            throw new BusinessRuleException("OC_RESPUESTA_MOTIVO_ANULACION_REQUERIDO",
+                "Indica por qué la respuesta es errónea (por ejemplo, se registró en la orden equivocada), máximo 500 caracteres.");
+        respuesta.Anular(motivo, usuarioId, ahora);
+        var vigente = _respuestasProveedor.Where(r => !r.Anulada).MaxBy(r => r.Numero);
+        EstadoComercialProveedor = vigente is null ? EstadoComercialProveedorOc.SinRespuesta
+            : vigente.Tipo is null ? EstadoComercialProveedorOc.RespuestaRegistrada
+            : vigente.Tipo == TipoRespuestaProveedorOc.Rechazo ? EstadoComercialProveedorOc.Rechazada
+            : vigente.TieneDiferencias ? EstadoComercialProveedorOc.ConfirmadaConDiferencias : EstadoComercialProveedorOc.Confirmada;
+        FechaCompromisoProveedor = vigente is { Compromisos.Count: > 0 } ? vigente.Compromisos.Max(c => c.FechaPrometida) : null;
+        return respuesta;
+    }
+
+    /// <summary>
     /// Registra una incidencia del proveedor sobre una línea (F1-COM-07). Faltante y atraso cubren
     /// piezas pendientes; dañado cubre piezas ya recibidas (en revisión). No modifica cantidades,
     /// recepción, facturación ni pago.
