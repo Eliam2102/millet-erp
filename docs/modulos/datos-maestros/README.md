@@ -109,6 +109,22 @@ estable y sabremos qué patrones reusar.
 
 ## Cambios
 
+### 2026-11-06 — incidencias de proveedor (U-4, 86e3yzemw)
+
+Los dos pasos de proveedor de la oleada 1 abren su incidencia en la pieza común
+(`compartido.incidencias`, `IIncidenciasPort`):
+
+| Paso | Cuándo se abre | Responsable | Evidencia | Se retoma en | Se resuelve sola |
+|---|---|---|---|---|---|
+| Documento observado (`adm.proveedor.documento-observado`) | Al rechazar el contenido de un documento del expediente | Quien subió el documento; si ya no existe, quien lo revisó | El documento observado | Expediente del proveedor | Al aceptar un documento del mismo tipo |
+| Aclarar cambio de cuenta bancaria (`adm.proveedor.cuenta-bancaria`) | Al rechazar una cuenta por validar | Quien capturó la cuenta; si no hay, quien la rechazó | El estado de cuenta vigente más reciente del proveedor | Cuentas bancarias del proveedor | Al validar una cuenta de la misma moneda |
+
+- **Una incidencia pendiente por caso:** una por proveedor y tipo de documento, y
+  una por proveedor y moneda. Otro rechazo del mismo caso no la duplica.
+- **Evidencia:** la incidencia apunta al mismo archivo, que no se vuelve a subir.
+- **Detalle del proveedor:** muestra la sección «Incidencias» a quien tenga
+  `compartido.incidencias.ver`.
+
 ### 2026-05-09 — placeholder inicial
 
 Creado al separar el scope del CRUD de catálogos cross-empresa del
