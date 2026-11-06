@@ -41,11 +41,15 @@ public sealed class CobroEfectivoCaja : IPerteneceAEmpresa, INotAudited
     public DateTimeOffset CobradoEn { get; private set; }
     public EstadoCobroEfectivo Estado { get; private set; }
     public Guid? PolizaLiquidacionId { get; private set; }
+    /// <summary>C1.6: comprobante cobrado; la liquidación reclasifica su IVA en proporción al efectivo.</summary>
+    public Guid? ComprobanteId { get; private set; }
 
     private CobroEfectivoCaja() { }
 
-    public CobroEfectivoCaja(Guid cobroId, Guid empresaId, Guid cajaSesionId, Guid? sucursalId, Guid? clienteId, decimal importe, DateTimeOffset cobradoEn)
+    public CobroEfectivoCaja(Guid cobroId, Guid empresaId, Guid cajaSesionId, Guid? sucursalId, Guid? clienteId, decimal importe, DateTimeOffset cobradoEn,
+        Guid? comprobanteId = null)
     {
+        ComprobanteId = comprobanteId;
         CobroId = cobroId;
         EmpresaId = empresaId;
         CajaSesionId = cajaSesionId;
