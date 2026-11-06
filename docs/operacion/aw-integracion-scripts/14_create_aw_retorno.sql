@@ -1,5 +1,5 @@
 /* =============================================================================
-   14_create_aw_retorno.sql — Tabla de retorno ERP → A+W (aw_retorno), v3
+   14_create_aw_retorno.sql — Tabla de retorno ERP → A+W (aw_retorno), v4
    Ejecutar en: MILLET_INTEGRACION_DEV primero; MILLET_INTEGRACION al arranque
    (cambiar USE). Idempotente. PROPUESTA: no se ejecuta sin visto bueno de TI.
 
@@ -133,6 +133,11 @@ IF COL_LENGTH('dbo.aw_retorno', 'forma_pago') < 80   -- bytes: nvarchar(40) = 80
 IF COL_LENGTH('dbo.aw_retorno', 'moneda') < 16       -- nvarchar(8) = 16
     ALTER TABLE dbo.aw_retorno ALTER COLUMN moneda nvarchar(8) NULL;
 GO
+
+/* Comprobación v4 (debe devolver forma_pago = 40 y moneda = 8; con la v3 sin ensanchar devuelve 10 y 3,
+   y un pago con moneda PESOSMX fallaría al insertarse):
+   SELECT COLUMN_NAME, CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS
+   WHERE TABLE_NAME = 'aw_retorno' AND COLUMN_NAME IN ('forma_pago', 'moneda'); */
 
 /* Barrido de la tarea de TI: pendientes y rechazadas con menos de 3 intentos,
    en orden estricto por pedido y secuencia (d). */
