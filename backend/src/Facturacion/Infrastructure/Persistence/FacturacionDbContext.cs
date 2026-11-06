@@ -178,6 +178,7 @@ public sealed class FacturacionDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new FacturaAnticipoConfiguration());
         modelBuilder.ApplyConfiguration(new AnticipoConfiguration());
         modelBuilder.ApplyConfiguration(new AnticipoVinculacionConfiguration());
+        modelBuilder.ApplyConfiguration(new AnticipoLiberacionConfiguration());
         modelBuilder.ApplyConfiguration(new NotaCreditoConfiguration());
         modelBuilder.ApplyConfiguration(new RelacionCfdiConfiguration());
         modelBuilder.ApplyConfiguration(new SolicitudCancelacionConfiguration());

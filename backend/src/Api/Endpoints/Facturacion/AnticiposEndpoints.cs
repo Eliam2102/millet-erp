@@ -5,6 +5,7 @@ using Millet.Api.Auth;
 using Millet.Api.Web;
 using Millet.Facturacion.Application.Anticipos.AplicarAnticipoAFactura;
 using Millet.Facturacion.Application.Anticipos.EmitirFacturaAnticipo;
+using Millet.Facturacion.Application.Anticipos.LiberarApartado;
 using Millet.Facturacion.Application.Comprobantes.Queries;
 using Millet.Facturacion.Domain.Ports;
 using Millet.Facturacion.Application.Anticipos.Queries;
@@ -68,6 +69,31 @@ public static class AnticiposEndpoints
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // POST: U-4 (86e3yzemw · flujo 3) — libera con motivo el importe apartado del anticipo {id} con una factura.
+        group.MapPost("/{id:guid}/liberar-apartado", async (
+            Guid id,
+            LiberarApartadoAnticipoRequest body,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+                Results.Ok(await mediator.Send(
+                    new LiberarApartadoAnticipoCommand(id, body.FacturaVentaId, body.Motivo ?? string.Empty), cancellationToken)))
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionAnticiposLiberarApartado)
+        .WithName("LiberarApartadoAnticipo")
+        .WithSummary("Libera con motivo el importe apartado (vinculado sin NC) de un anticipo")
+        .Produces<LiberacionApartadoResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // GET: U-4 — apartados vigentes y liberaciones del anticipo {id}.
+        group.MapGet("/{id:guid}/apartados", async (Guid id, IMediator mediator, CancellationToken cancellationToken) =>
+                Results.Ok(await mediator.Send(new ObtenerApartadosAnticipoQuery(id), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionAnticiposLeer)
+        .WithName("ObtenerApartadosAnticipo")
+        .Produces<ApartadosAnticipoResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound);
 
         // POST: F1-CXC-05 Parte 2 — aplica el anticipo {id} a una factura ya timbrada (NC de amortización, relación 07).
         group.MapPost("/{id:guid}/aplicar", async (
@@ -191,3 +217,6 @@ public static class AnticiposEndpoints
     /// <summary>Body de la vinculación de anticipo a factura final.</summary>
     public sealed record VincularAnticipoRequest(Guid FacturaVentaId, decimal Importe, string? Comentarios = null);
 }
+
+/// <summary>Cuerpo de <c>POST /{id}/liberar-apartado</c> (U-4).</summary>
+public sealed record LiberarApartadoAnticipoRequest(Guid FacturaVentaId, string? Motivo);
