@@ -50,6 +50,25 @@ public sealed class AplicacionesP8Tests
         pub.Eventos.OfType<PasivoAutorizadoParaPagoIntegrationEvent>().Single().SaldoPendiente.Should().Be(900);
         (await a.Db.MovimientosPasivo.SingleAsync()).DocumentoId.Should().Be(anticipo.Id);
     }
+    [Fact]
+    public async Task C15b_anticipo_aplicado_publica_la_amortizacion_para_su_poliza()
+    {
+        // C1.5b (86e3vrh7y): la amortización del anticipo genera póliza en Contabilidad; el evento lleva proveedor, monto y la
+        // sucursal de la factura, y su documento es el movimiento de la aplicación.
+        await using var a = new P8Fixture(); var f = a.Nueva(); f.Autorizar(null, f.FechaDocumento);
+        var anticipo = Domain.AnticipoProveedor.AnticipoProveedor.Capturar(a.Current!.Value, null, Guid.NewGuid().ToString(),
+            a.Proveedor, "FANT", "FIX-C15B", a.UtcNow, "MXN", null, 100, null, null, a.UtcNow);
+        a.Db.AddRange(f, anticipo); await a.Db.SaveChangesAsync();
+        var pub = new Publicador(a.Db); var mapper = new PasivoAutorizadoParaPagoMapper(pub, a.Db, new ElegibilidadFacturaService(a.Db, a));
+        await new AplicarAnticipoAFacturaHandler(a.Db, a, mapper, new(pub, a.Db), pub)
+            .Handle(new(f.Id, f.Version, anticipo.Id, anticipo.Version, 60), default);
+        var e = pub.Eventos.OfType<AnticipoProveedorAmortizadoIntegrationEvent>().Single();
+        e.EventType.Should().Be("cuentas_por_pagar.anticipo.amortizado.v1");
+        e.AnticipoId.Should().Be(anticipo.Id); e.FacturaProveedorId.Should().Be(f.Id); e.ProveedorId.Should().Be(a.Proveedor);
+        e.Monto.Should().Be(60); e.Moneda.Should().Be("MXN"); e.SucursalId.Should().Be(a.Sucursal);
+        e.AplicacionId.Should().Be((await a.Db.MovimientosPasivo.SingleAsync()).Id);
+        e.TipoCambioFactura.Should().Be(f.TipoCambio, "tipo de cambio de la factura para CON-11; no se calcula diferencia aquí");
+    }
     [Theory]
     [InlineData(false)] [InlineData(true)]
     public async Task NC_formalizada_no_duplica_cargo_solo_si_el_movimiento_consta_aplicado(bool historialCargo)

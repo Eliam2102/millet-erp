@@ -325,9 +325,15 @@ public sealed partial class DemoSesionSeedTests
             Assert.True(p.CerradoEn <= DateTimeOffset.UtcNow, "El cierre del sembrador no debe tener una fecha futura.");
         });
         Assert.Equal(EstadoPeriodo.Abierto, periodos.Single(p => p.Numero == 10).Estado);
-        // 7 del catálogo DEMO + 19 de los roles contables de C1.5 (990.10–990.27 y DEMO-PUENTE; 990.01/.02/.03/.05 se reutilizan)
-        // + 3 de la cuenta puente K10.5 (DEMO-INVENTARIO, DEMO-PROVEEDORES, DEMO-IVA-PEND); DEMO-PUENTE es la misma cuenta en ambos.
-        Assert.Equal(29, await contabilidad.Cuentas.CountAsync(c => c.Nombre.StartsWith("DEMO")));
+        // 7 del catálogo DEMO + 3 de la cuenta puente K10.5 (DEMO-INVENTARIO, DEMO-PROVEEDORES, DEMO-IVA-PEND) + las que declara el
+        // sembrador de roles contables (C1.5, C1.5b…), salvo 990.01/.02/.03/.05, que reutiliza del catálogo; DEMO-PUENTE es la misma
+        // cuenta en K10.5 y en los roles, y se cuenta una vez. Se compara contra la lista del sembrador para que una cuenta DEMO nueva no rompa la prueba.
+        var codigosRoles = DemoSesionSeedHostedService.CodigosCuentasRolesDemo.ToArray();
+        string[] reutilizadasDelCatalogo = ["990.01.00.00", "990.02.00.00", "990.03.00.00", "990.05.00.00"];
+        var sembradas = await contabilidad.Cuentas.Where(c => codigosRoles.Contains(c.Codigo)).Select(c => c.Codigo).ToListAsync();
+        Assert.Empty(codigosRoles.Except(sembradas));
+        Assert.Equal(7 + 3 + codigosRoles.Except(reutilizadasDelCatalogo).Count(),
+            await contabilidad.Cuentas.CountAsync(c => c.Nombre.StartsWith("DEMO")));
         // K10.5: OC-DEMO-K105-01..04 en la puente; saldadas 01 y 04, deudora 02 (+5,000) y acreedora 03 (−3,000). Requiere la migración K105MovimientosPuente.
         var puente = await contabilidad.MovimientosPuente.ToListAsync();
         Assert.Equal(4, puente.Select(m => m.OrdenCompraFolio).Distinct().Count());

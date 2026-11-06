@@ -124,7 +124,8 @@ public sealed class ReposicionCajaChicaEmisor
                     : PasivoAutorizadoParaPagoIntegrationEvent.BeneficiarioEmpleado,
                 BeneficiarioId: beneficiarioId,
                 OrigenTipo: PasivoAutorizadoParaPagoIntegrationEvent.OrigenReposicionCajaChica,
-                OrigenId: reposicion.Id), cancellationToken);
+                OrigenId: reposicion.Id,
+                SucursalId: sucursalId), cancellationToken);
 
             ultima = reposicion;
         }
