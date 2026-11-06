@@ -7291,6 +7291,25 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000011-0008-0000-0000-000000000001"),
+                            Activo = true,
+                            AplicaOrigen = (short)0,
+                            Codigo = "evidencia_incidencia",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Evidencia de la incidencia",
+                            Obligatorio = false,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
+                            Orden = 1,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "incidencia",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
                         });
                 });
 
@@ -7410,6 +7429,279 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             t.ExcludeFromMigrations();
                         });
+                });
+
+            modelBuilder.Entity("Millet.SharedKernel.Domain.Incidencias.Incidencia", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("AbiertaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("abierta_en");
+
+                    b.Property<Guid?>("AbiertaPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("abierta_por_id");
+
+                    b.Property<string>("AbiertaPorNombre")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("abierta_por_nombre");
+
+                    b.Property<bool>("Automatica")
+                        .HasColumnType("boolean")
+                        .HasColumnName("automatica");
+
+                    b.Property<string>("CodigoMotivo")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("codigo_motivo");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Detalle")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("detalle");
+
+                    b.Property<string>("DetalleClave")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("detalle_clave");
+
+                    b.Property<string>("DocumentoEtiqueta")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("documento_etiqueta");
+
+                    b.Property<Guid>("DocumentoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("documento_id");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<short>("Estado")
+                        .HasColumnType("smallint")
+                        .HasColumnName("estado");
+
+                    b.Property<DateOnly?>("FechaCompromiso")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_compromiso");
+
+                    b.Property<string>("Modulo")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("modulo");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("motivo");
+
+                    b.Property<long>("Numero")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("numero");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Numero"));
+
+                    b.Property<string>("Paso")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("paso");
+
+                    b.Property<string>("PasoReanudacion")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("paso_reanudacion");
+
+                    b.Property<string>("Resolucion")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("resolucion");
+
+                    b.Property<string>("ResponsableNombre")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("responsable_nombre");
+
+                    b.Property<Guid>("ResponsableUsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("responsable_usuario_id");
+
+                    b.Property<DateTimeOffset?>("ResueltaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resuelta_en");
+
+                    b.Property<Guid?>("ResueltaPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("resuelta_por_id");
+
+                    b.Property<string>("ResueltaPorNombre")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("resuelta_por_nombre");
+
+                    b.Property<string>("RutaReanudacion")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("ruta_reanudacion");
+
+                    b.Property<Guid?>("SucursalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sucursal_id");
+
+                    b.Property<string>("TipoDocumento")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("tipo_documento");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_incidencias");
+
+                    b.HasIndex("Numero")
+                        .IsUnique()
+                        .HasDatabaseName("ix_incidencias_numero");
+
+                    b.HasIndex("DocumentoId", "Paso")
+                        .HasDatabaseName("ix_incidencias_documento_id_paso");
+
+                    b.HasIndex("ResponsableUsuarioId", "Estado")
+                        .HasDatabaseName("ix_incidencias_responsable_usuario_id_estado");
+
+                    b.HasIndex("EmpresaId", "Modulo", "Estado")
+                        .HasDatabaseName("ix_incidencias_empresa_id_modulo_estado");
+
+                    b.HasIndex("EmpresaId", "Paso", "DocumentoId", "DetalleClave")
+                        .IsUnique()
+                        .HasDatabaseName("ux_incidencias_pendiente")
+                        .HasFilter("estado IN (1, 2)");
+
+                    b.ToTable("incidencias", "compartido", t =>
+                        {
+                            t.HasCheckConstraint("ck_incidencias_estado", "estado BETWEEN 1 AND 4");
+
+                            t.HasCheckConstraint("ck_incidencias_motivo", "char_length(motivo) BETWEEN 5 AND 1000");
+
+                            t.HasCheckConstraint("ck_incidencias_resuelta_coherente", "(estado = 3 AND resuelta_en IS NOT NULL AND resolucion IS NOT NULL) OR (estado <> 3 AND resuelta_en IS NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("Millet.SharedKernel.Domain.Incidencias.IncidenciaMovimiento", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Accion")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("accion");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<DateTimeOffset>("En")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("en");
+
+                    b.Property<short?>("EstadoAnterior")
+                        .HasColumnType("smallint")
+                        .HasColumnName("estado_anterior");
+
+                    b.Property<short>("EstadoNuevo")
+                        .HasColumnType("smallint")
+                        .HasColumnName("estado_nuevo");
+
+                    b.Property<Guid>("IncidenciaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("incidencia_id");
+
+                    b.Property<string>("Nota")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("nota");
+
+                    b.Property<int>("Orden")
+                        .HasColumnType("integer")
+                        .HasColumnName("orden");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<Guid?>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.Property<string>("UsuarioNombre")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("usuario_nombre");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_incidencia_historial");
+
+                    b.HasIndex("IncidenciaId", "Orden")
+                        .IsUnique()
+                        .HasDatabaseName("ix_incidencia_historial_incidencia_id_orden");
+
+                    b.ToTable("incidencia_historial", "compartido");
                 });
 
             modelBuilder.Entity("Millet.SharedKernel.Infrastructure.Outbox.IntegrationEventOutboxEntry", b =>
@@ -7879,6 +8171,16 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasConstraintName("fk_adjunto_excepciones_adjunto_tipos_documento_tipo_documento_");
                 });
 
+            modelBuilder.Entity("Millet.SharedKernel.Domain.Incidencias.IncidenciaMovimiento", b =>
+                {
+                    b.HasOne("Millet.SharedKernel.Domain.Incidencias.Incidencia", null)
+                        .WithMany("Historial")
+                        .HasForeignKey("IncidenciaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_incidencia_historial_incidencias_incidencia_id");
+                });
+
             modelBuilder.Entity("Millet.DatosMaestros.Domain.DiferenciaFiscalAwCorrida", b =>
                 {
                     b.Navigation("Filas");
@@ -7889,6 +8191,11 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                     b.Navigation("Componentes");
 
                     b.Navigation("Variantes");
+                });
+
+            modelBuilder.Entity("Millet.SharedKernel.Domain.Incidencias.Incidencia", b =>
+                {
+                    b.Navigation("Historial");
                 });
 #pragma warning restore 612, 618
         }

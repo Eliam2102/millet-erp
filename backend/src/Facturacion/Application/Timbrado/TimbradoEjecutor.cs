@@ -128,6 +128,11 @@ public static class TimbradoEjecutor
             errorMensaje: timbre.ErrorMensaje,
             registradoAt: ahora));
 
+        // F6.8: bitácora de contingencias (causa externa) y su regularización al timbrar.
+        await Contingencias.ContingenciasTimbrado.AplicarIntentoAsync(
+            db, comprobante, timbre.ErrorCodigo, timbre.ErrorMensaje,
+            timbrado: comprobante.Estado == EstadoTimbrado.Timbrado, ahora, cancellationToken);
+
         return timbre;
     }
 }

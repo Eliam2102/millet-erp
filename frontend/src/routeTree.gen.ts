@@ -68,6 +68,7 @@ import { Route as AppFacturacionIndexRouteImport } from './routes/_app/facturaci
 import { Route as AppFacturacionAyudaRouteImport } from './routes/_app/facturacion/ayuda';
 import { Route as AppFacturacionCajaRouteImport } from './routes/_app/facturacion/caja';
 import { Route as AppFacturacionCancelacionesRouteImport } from './routes/_app/facturacion/cancelaciones';
+import { Route as AppFacturacionContingenciasRouteImport } from './routes/_app/facturacion/contingencias';
 import { Route as AppProductoTerminadoEntregasRouteImport } from './routes/_app/producto-terminado/entregas';
 import { Route as AppProductoTerminadoExcepcionesRouteImport } from './routes/_app/producto-terminado/excepciones';
 import { Route as AppProductoTerminadoHojasSalidaRouteImport } from './routes/_app/producto-terminado/hojas-salida';
@@ -76,6 +77,8 @@ import { Route as AppProductoTerminadoPiezasRouteImport } from './routes/_app/pr
 import { Route as AppProductoTerminadoSalidasRouteImport } from './routes/_app/producto-terminado/salidas';
 import { Route as AppProductoTerminadoTraspasosRouteImport } from './routes/_app/producto-terminado/traspasos';
 import { Route as AppSistemaDisenoIndexRouteImport } from './routes/_app/sistema-diseno/index';
+import { Route as AppIncidenciasIndexRouteImport } from './routes/_app/incidencias/index';
+import { Route as AppIncidenciasIdRouteImport } from './routes/_app/incidencias/$id';
 import { Route as AppTesoreriaIndexRouteImport } from './routes/_app/tesoreria/index';
 import { Route as AppActivosFijosActivosIndexRouteImport } from './routes/_app/activos-fijos/activos/index';
 import { Route as AppActivosFijosActivosIdRouteImport } from './routes/_app/activos-fijos/activos/$id';
@@ -559,6 +562,12 @@ const AppFacturacionCancelacionesRoute =
     path: '/facturacion/cancelaciones',
     getParentRoute: () => AppRoute,
   } as any);
+const AppFacturacionContingenciasRoute =
+  AppFacturacionContingenciasRouteImport.update({
+    id: '/facturacion/contingencias',
+    path: '/facturacion/contingencias',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppProductoTerminadoEntregasRoute =
   AppProductoTerminadoEntregasRouteImport.update({
     id: '/producto-terminado/entregas',
@@ -604,6 +613,16 @@ const AppProductoTerminadoTraspasosRoute =
 const AppSistemaDisenoIndexRoute = AppSistemaDisenoIndexRouteImport.update({
   id: '/sistema-diseno/',
   path: '/sistema-diseno/',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppIncidenciasIndexRoute = AppIncidenciasIndexRouteImport.update({
+  id: '/incidencias/',
+  path: '/incidencias/',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppIncidenciasIdRoute = AppIncidenciasIdRouteImport.update({
+  id: '/incidencias/$id',
+  path: '/incidencias/$id',
   getParentRoute: () => AppRoute,
 } as any);
 const AppTesoreriaIndexRoute = AppTesoreriaIndexRouteImport.update({
@@ -1617,6 +1636,7 @@ export interface FileRoutesByFullPath {
   '/facturacion/ayuda': typeof AppFacturacionAyudaRoute;
   '/facturacion/caja': typeof AppFacturacionCajaRoute;
   '/facturacion/cancelaciones': typeof AppFacturacionCancelacionesRoute;
+  '/facturacion/contingencias': typeof AppFacturacionContingenciasRoute;
   '/producto-terminado/entregas': typeof AppProductoTerminadoEntregasRoute;
   '/producto-terminado/excepciones': typeof AppProductoTerminadoExcepcionesRoute;
   '/producto-terminado/hojas-salida': typeof AppProductoTerminadoHojasSalidaRoute;
@@ -1632,6 +1652,8 @@ export interface FileRoutesByFullPath {
   '/cxp/': typeof AppCxpIndexRoute;
   '/facturacion/': typeof AppFacturacionIndexRoute;
   '/sistema-diseno/': typeof AppSistemaDisenoIndexRoute;
+  '/incidencias/': typeof AppIncidenciasIndexRoute;
+  '/incidencias/$id': typeof AppIncidenciasIdRoute;
   '/tesoreria/': typeof AppTesoreriaIndexRoute;
   '/activos-fijos/activos/$id': typeof AppActivosFijosActivosIdRoute;
   '/admin/$modulo/settings': typeof AppAdminModuloSettingsRoute;
@@ -1855,6 +1877,7 @@ export interface FileRoutesByTo {
   '/facturacion/ayuda': typeof AppFacturacionAyudaRoute;
   '/facturacion/caja': typeof AppFacturacionCajaRoute;
   '/facturacion/cancelaciones': typeof AppFacturacionCancelacionesRoute;
+  '/facturacion/contingencias': typeof AppFacturacionContingenciasRoute;
   '/producto-terminado/entregas': typeof AppProductoTerminadoEntregasRoute;
   '/producto-terminado/excepciones': typeof AppProductoTerminadoExcepcionesRoute;
   '/producto-terminado/hojas-salida': typeof AppProductoTerminadoHojasSalidaRoute;
@@ -1870,6 +1893,8 @@ export interface FileRoutesByTo {
   '/cxp': typeof AppCxpIndexRoute;
   '/facturacion': typeof AppFacturacionIndexRoute;
   '/sistema-diseno': typeof AppSistemaDisenoIndexRoute;
+  '/incidencias': typeof AppIncidenciasIndexRoute;
+  '/incidencias/$id': typeof AppIncidenciasIdRoute;
   '/tesoreria': typeof AppTesoreriaIndexRoute;
   '/activos-fijos/activos/$id': typeof AppActivosFijosActivosIdRoute;
   '/admin/$modulo/settings': typeof AppAdminModuloSettingsRoute;
@@ -2095,6 +2120,7 @@ export interface FileRoutesById {
   '/_app/facturacion/ayuda': typeof AppFacturacionAyudaRoute;
   '/_app/facturacion/caja': typeof AppFacturacionCajaRoute;
   '/_app/facturacion/cancelaciones': typeof AppFacturacionCancelacionesRoute;
+  '/_app/facturacion/contingencias': typeof AppFacturacionContingenciasRoute;
   '/_app/producto-terminado/entregas': typeof AppProductoTerminadoEntregasRoute;
   '/_app/producto-terminado/excepciones': typeof AppProductoTerminadoExcepcionesRoute;
   '/_app/producto-terminado/hojas-salida': typeof AppProductoTerminadoHojasSalidaRoute;
@@ -2110,6 +2136,8 @@ export interface FileRoutesById {
   '/_app/cxp/': typeof AppCxpIndexRoute;
   '/_app/facturacion/': typeof AppFacturacionIndexRoute;
   '/_app/sistema-diseno/': typeof AppSistemaDisenoIndexRoute;
+  '/_app/incidencias/': typeof AppIncidenciasIndexRoute;
+  '/_app/incidencias/$id': typeof AppIncidenciasIdRoute;
   '/_app/tesoreria/': typeof AppTesoreriaIndexRoute;
   '/_app/activos-fijos/activos/$id': typeof AppActivosFijosActivosIdRoute;
   '/_app/admin/$modulo/settings': typeof AppAdminModuloSettingsRoute;
@@ -2335,6 +2363,7 @@ export interface FileRouteTypes {
     | '/facturacion/ayuda'
     | '/facturacion/caja'
     | '/facturacion/cancelaciones'
+    | '/facturacion/contingencias'
     | '/producto-terminado/entregas'
     | '/producto-terminado/excepciones'
     | '/producto-terminado/hojas-salida'
@@ -2350,6 +2379,8 @@ export interface FileRouteTypes {
     | '/cxp/'
     | '/facturacion/'
     | '/sistema-diseno/'
+    | '/incidencias/'
+    | '/incidencias/$id'
     | '/tesoreria/'
     | '/activos-fijos/activos/$id'
     | '/admin/$modulo/settings'
@@ -2573,6 +2604,7 @@ export interface FileRouteTypes {
     | '/facturacion/ayuda'
     | '/facturacion/caja'
     | '/facturacion/cancelaciones'
+    | '/facturacion/contingencias'
     | '/producto-terminado/entregas'
     | '/producto-terminado/excepciones'
     | '/producto-terminado/hojas-salida'
@@ -2588,6 +2620,8 @@ export interface FileRouteTypes {
     | '/cxp'
     | '/facturacion'
     | '/sistema-diseno'
+    | '/incidencias'
+    | '/incidencias/$id'
     | '/tesoreria'
     | '/activos-fijos/activos/$id'
     | '/admin/$modulo/settings'
@@ -2812,6 +2846,7 @@ export interface FileRouteTypes {
     | '/_app/facturacion/ayuda'
     | '/_app/facturacion/caja'
     | '/_app/facturacion/cancelaciones'
+    | '/_app/facturacion/contingencias'
     | '/_app/producto-terminado/entregas'
     | '/_app/producto-terminado/excepciones'
     | '/_app/producto-terminado/hojas-salida'
@@ -2827,6 +2862,8 @@ export interface FileRouteTypes {
     | '/_app/cxp/'
     | '/_app/facturacion/'
     | '/_app/sistema-diseno/'
+    | '/_app/incidencias/'
+    | '/_app/incidencias/$id'
     | '/_app/tesoreria/'
     | '/_app/activos-fijos/activos/$id'
     | '/_app/admin/$modulo/settings'
@@ -3420,6 +3457,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFacturacionCancelacionesRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/facturacion/contingencias': {
+      id: '/_app/facturacion/contingencias';
+      path: '/facturacion/contingencias';
+      fullPath: '/facturacion/contingencias';
+      preLoaderRoute: typeof AppFacturacionContingenciasRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/producto-terminado/entregas': {
       id: '/_app/producto-terminado/entregas';
       path: '/producto-terminado/entregas';
@@ -3474,6 +3518,20 @@ declare module '@tanstack/react-router' {
       path: '/sistema-diseno';
       fullPath: '/sistema-diseno/';
       preLoaderRoute: typeof AppSistemaDisenoIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/incidencias/': {
+      id: '/_app/incidencias/';
+      path: '/incidencias';
+      fullPath: '/incidencias/';
+      preLoaderRoute: typeof AppIncidenciasIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/incidencias/$id': {
+      id: '/_app/incidencias/$id';
+      path: '/incidencias/$id';
+      fullPath: '/incidencias/$id';
+      preLoaderRoute: typeof AppIncidenciasIdRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/tesoreria/': {
@@ -4736,6 +4794,7 @@ interface AppRouteChildren {
   AppFacturacionAyudaRoute: typeof AppFacturacionAyudaRoute;
   AppFacturacionCajaRoute: typeof AppFacturacionCajaRoute;
   AppFacturacionCancelacionesRoute: typeof AppFacturacionCancelacionesRoute;
+  AppFacturacionContingenciasRoute: typeof AppFacturacionContingenciasRoute;
   AppProductoTerminadoEntregasRoute: typeof AppProductoTerminadoEntregasRoute;
   AppProductoTerminadoExcepcionesRoute: typeof AppProductoTerminadoExcepcionesRoute;
   AppProductoTerminadoHojasSalidaRoute: typeof AppProductoTerminadoHojasSalidaRoute;
@@ -4751,6 +4810,8 @@ interface AppRouteChildren {
   AppCxpIndexRoute: typeof AppCxpIndexRoute;
   AppFacturacionIndexRoute: typeof AppFacturacionIndexRoute;
   AppSistemaDisenoIndexRoute: typeof AppSistemaDisenoIndexRoute;
+  AppIncidenciasIndexRoute: typeof AppIncidenciasIndexRoute;
+  AppIncidenciasIdRoute: typeof AppIncidenciasIdRoute;
   AppTesoreriaIndexRoute: typeof AppTesoreriaIndexRoute;
   AppActivosFijosActivosIdRoute: typeof AppActivosFijosActivosIdRoute;
   AppAdminModuloSettingsRoute: typeof AppAdminModuloSettingsRoute;
@@ -4973,6 +5034,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppFacturacionAyudaRoute: AppFacturacionAyudaRoute,
   AppFacturacionCajaRoute: AppFacturacionCajaRoute,
   AppFacturacionCancelacionesRoute: AppFacturacionCancelacionesRoute,
+  AppFacturacionContingenciasRoute: AppFacturacionContingenciasRoute,
   AppProductoTerminadoEntregasRoute: AppProductoTerminadoEntregasRoute,
   AppProductoTerminadoExcepcionesRoute: AppProductoTerminadoExcepcionesRoute,
   AppProductoTerminadoHojasSalidaRoute: AppProductoTerminadoHojasSalidaRoute,
@@ -4988,6 +5050,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppCxpIndexRoute: AppCxpIndexRoute,
   AppFacturacionIndexRoute: AppFacturacionIndexRoute,
   AppSistemaDisenoIndexRoute: AppSistemaDisenoIndexRoute,
+  AppIncidenciasIndexRoute: AppIncidenciasIndexRoute,
+  AppIncidenciasIdRoute: AppIncidenciasIdRoute,
   AppTesoreriaIndexRoute: AppTesoreriaIndexRoute,
   AppActivosFijosActivosIdRoute: AppActivosFijosActivosIdRoute,
   AppAdminModuloSettingsRoute: AppAdminModuloSettingsRoute,

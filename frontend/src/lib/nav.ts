@@ -3,6 +3,7 @@ import {
   ArrowLeftRight,
   ArrowRightLeft,
   Ban,
+  CloudOff,
   Banknote,
   BarChart3,
   Bell,
@@ -1049,6 +1050,14 @@ const moduloFacturacion: NavModulo = {
           icon: Ban,
           permission: PermisosCanonicos.FacturacionCancelacionesConsultar,
         },
+        {
+          label: 'Contingencias de timbrado',
+          description:
+            'Caídas del PAC, SAT, internet o certificado y su regularización a más tardar el día 3 del mes siguiente; reporte mensual.',
+          to: '/facturacion/contingencias',
+          icon: CloudOff,
+          permission: PermisosCanonicos.FacturacionFacturasLeer,
+        },
       ],
     },
     {
@@ -1572,6 +1581,17 @@ const rutasFueraDelMenu: readonly Pick<NavCard, 'to' | 'permission' | 'permissio
   { to: '/admin/mi-empresa', permission: PermisosCanonicos.AdminEmpresasLeer },
   { to: '/compras/trazabilidad', permission: PermisosCanonicos.ComprasOrdenesLeer },
   { to: '/compras/articulos', permission: PermisosCanonicos.ComprasOrdenesLeer },
+  // U-4 · «Mis incidencias»: cualquier permiso de incidencias.
+  {
+    to: '/incidencias',
+    permissionsAny: [
+      PermisosCanonicos.CompartidoIncidenciasVer,
+      PermisosCanonicos.CompartidoIncidenciasRegistrar,
+      PermisosCanonicos.CompartidoIncidenciasGestionar,
+      PermisosCanonicos.CompartidoIncidenciasLeerTodasSucursales,
+      PermisosCanonicos.CompartidoIncidenciasGestionarTodasSucursales,
+    ],
+  },
 ];
 
 function contieneRuta(base: string, pathname: string): boolean {
