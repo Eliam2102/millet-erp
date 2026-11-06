@@ -19,11 +19,14 @@ public sealed record PedidoSalidasResponse(
 
 public sealed record AvancePosicionPedido(int Posicion, string Descripcion, decimal Pedida, decimal EnSalidas, decimal Facturada);
 
-/// <summary>Factura vigente de la salida (null si está pendiente de facturar o se canceló).</summary>
+/// <summary>
+/// Factura vigente de la salida (null si está pendiente de facturar o se canceló). <c>DescartadaEn</c>: la salida se
+/// descartó porque su origen se canceló (contenedor cancelado en CE) y ya no se factura.
+/// </summary>
 public sealed record SalidaFacturableItem(
     Guid Id, int NumeroParcialidad, OrigenSalidaFacturable Origen, string Referencia, DateTimeOffset RegistradaEn,
     decimal Total, Guid? FacturaId, string? Folio, string? Uuid, string? EstadoFactura,
-    IReadOnlyList<SalidaFacturableItemLinea> Lineas);
+    IReadOnlyList<SalidaFacturableItemLinea> Lineas, DateTimeOffset? DescartadaEn = null, string? MotivoDescarte = null);
 
 public sealed record SalidaFacturableItemLinea(int Posicion, decimal Cantidad, decimal Importe);
 
@@ -52,11 +55,12 @@ public sealed class PedidoSalidasHandler(FacturacionDbContext db) : IRequestHand
             var f = facturaDe.GetValueOrDefault(s.Id);
             return new SalidaFacturableItem(s.Id, s.NumeroParcialidad, s.Origen, s.Referencia, s.RegistradaEn, s.Total,
                 f?.Id, f?.Folio, f?.Uuid, f?.Estado.ToString(),
-                s.Lineas.OrderBy(l => l.Posicion).Select(l => new SalidaFacturableItemLinea(l.Posicion, l.Cantidad, l.Importe)).ToList());
+                s.Lineas.OrderBy(l => l.Posicion).Select(l => new SalidaFacturableItemLinea(l.Posicion, l.Cantidad, l.Importe)).ToList(),
+                s.DescartadaEn, s.MotivoDescarte);
         }).ToList();
 
         var facturadas = salidas.Where(s => facturaDe.ContainsKey(s.Id)).SelectMany(s => s.Lineas).ToList();
-        var enSalidas = salidas.SelectMany(s => s.Lineas).ToList();
+        var enSalidas = salidas.Where(s => !s.Descartada).SelectMany(s => s.Lineas).ToList();
         var avance = pedido.Lineas.OrderBy(l => l.Posicion).Select(l => new AvancePosicionPedido(
             l.Posicion, l.ProductoDescripcion, l.Cantidad,
             enSalidas.Where(x => x.Posicion == l.Posicion).Sum(x => x.Cantidad),

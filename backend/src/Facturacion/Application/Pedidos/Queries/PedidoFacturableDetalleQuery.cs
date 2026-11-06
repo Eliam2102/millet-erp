@@ -36,7 +36,11 @@ public static class PermisoPedidoCredito
     public const string PermisoLeerCredito = "facturacion.pedidos.leer-credito";
 }
 
-public sealed record PedidoFacturableDetalleQuery(Guid Id) : IRequest<PedidoFacturableDetalleResponse>;
+/// <param name="SalidaId">
+/// FAC-08 Fase 1: al facturar la salida de un contenedor de exportación, el embarque de CE
+/// (compuerta y contenedores del CCE) se limita a ese contenedor, igual que al emitir.
+/// </param>
+public sealed record PedidoFacturableDetalleQuery(Guid Id, Guid? SalidaId = null) : IRequest<PedidoFacturableDetalleResponse>;
 
 public sealed record PedidoFacturableDetalleResponse(
     Guid Id,
@@ -95,7 +99,13 @@ public sealed record PedidoClienteFiscal(
     string? UsoCfdiDefault,
     string? FormaPagoDefault,
     string? MetodoPagoDefault,
-    bool EsGenerico);
+    bool EsGenerico,
+    // FAC-08 (H2 de QA): receptor extranjero del catálogo para el CCE de la factura del pedido o de su salida.
+    string? NumRegIdTrib = null,
+    string? PaisResidencia = null,
+    string? DomicilioExtranjeroCalle = null,
+    string? DomicilioExtranjeroEstado = null,
+    string? DomicilioExtranjeroCodigoPostal = null);
 
 public sealed record PedidoFacturableLineaDetalle(
     int Posicion,
@@ -164,7 +174,9 @@ public sealed class PedidoFacturableDetalleHandler
             : new PedidoClienteFiscal(
                 clienteMaster.Rfc, clienteMaster.RegimenFiscal, clienteMaster.CodigoPostalFiscal,
                 clienteMaster.UsoCfdiDefault, clienteMaster.FormaPagoDefault,
-                clienteMaster.MetodoPagoDefault, clienteMaster.EsGenerico);
+                clienteMaster.MetodoPagoDefault, clienteMaster.EsGenerico,
+                clienteMaster.NumRegIdTrib, clienteMaster.PaisResidencia, clienteMaster.DomicilioExtranjeroCalle,
+                clienteMaster.DomicilioExtranjeroEstado, clienteMaster.DomicilioExtranjeroCodigoPostal);
 
         // Un lookup por producto distinto; el mismo producto puede repetirse
         // en varias posiciones del pedido.
@@ -202,6 +214,15 @@ public sealed class PedidoFacturableDetalleHandler
             })
             .ToList();
 
+        // FAC-08 Fase 1: con la salida de un contenedor, la compuerta es la de ese contenedor.
+        var contenedorId = query.SalidaId is Guid salidaId && _embarques is not null
+            ? await _db.SalidasFacturables.AsNoTracking()
+                .Where(s => s.Id == salidaId && s.PedidoFacturableId == pedido.Id
+                    && s.Origen == OrigenSalidaFacturable.ContenedorExportacion)
+                .Select(s => s.OrigenId).FirstOrDefaultAsync(cancellationToken)
+            : null;
+        var embarqueCe = _embarques is null ? null : await _embarques.ObtenerAsync(pedido.Id, contenedorId, cancellationToken);
+
         // FAC-ING-PR2: nombre desde el catálogo (antes enum.ToString()). Un
         // id sin fila en el catálogo no bloquea el detalle — display crudo.
         var canalVentaNombre = await _canalesVenta.ObtenerNombreAsync(pedido.CanalVentaId, cancellationToken)
@@ -212,7 +233,7 @@ public sealed class PedidoFacturableDetalleHandler
             pedido.SucursalId, pedido.ClienteId, pedido.ClienteNombre,
             pedido.CanalVentaId, canalVentaNombre, pedido.ComportamientoFiscal.ToString(),
             pedido.Moneda, pedido.ObraId, pedido.ObraNombre, pedido.Comentarios, pedido.ComprobanteVigenteId,
-            pedido.Total, pedido.Ranura, pedido.Version, clienteFiscal, lineas, _embarques is null ? null : await _embarques.ObtenerAsync(pedido.Id, cancellationToken),
+            pedido.Total, pedido.Ranura, pedido.Version, clienteFiscal, lineas, embarqueCe,
             pedido.ClaseManual?.ToString(), pedido.SubtipoVentaDirecta?.ToString(), pedido.EsEmergencia,
             pedido.MotivoEmergencia, pedido.ReferenciaPedidoAw,
             pedido.EsCredito, pedido.MetodoPagoOrigen, pedido.CondicionPagoOrigen,

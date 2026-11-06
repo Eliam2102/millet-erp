@@ -133,6 +133,83 @@ public sealed class SalidasParcialesFacturaTests : IClassFixture<SalidasParciale
         await AssertProblemAsync(excede, HttpStatusCode.UnprocessableEntity, "SALIDA_EXCEDE_PEDIDO");
     }
 
+    [Fact]
+    public async Task Contenedores_de_CE_dan_una_salida_por_pedido_y_al_cancelar_se_descarta_o_va_a_revision()
+    {
+        var client = await SuperAdminAsync();
+        var sucursal = Guid.NewGuid();
+        await CrearSerieAsync(client, sucursal);
+        var a = await CrearPedidoAwAsync(sucursal);
+        var b = await CrearPedidoAwAsync(sucursal);
+        var (c1, c2) = (Guid.NewGuid(), Guid.NewGuid());
+        var (n1, n2) = ($"ITCE{Guid.NewGuid():N}"[..14], $"ITCE{Guid.NewGuid():N}"[..14]);
+
+        // Contenedor 1 lleva 60 de A y 100 de B (misma referencia, dos pedidos); contenedor 2 lleva 40 de A.
+        await EntregarCeAsync(Embarcado(c1, n1, (a, 60m), (b, 100m)));
+        await EntregarCeAsync(Embarcado(c1, n1, (a, 60m), (b, 100m)));  // reentrega
+        await EntregarCeAsync(Embarcado(c2, n2, (a, 40m)));
+
+        Guid sa1, sa2;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var db = scope.ServiceProvider.GetRequiredService<FacturacionDbContext>();
+            var salidas = await db.SalidasFacturables.AsNoTracking().Where(s => s.PedidoFacturableId == a || s.PedidoFacturableId == b)
+                .OrderBy(s => s.PedidoFacturableId == a ? 0 : 1).ThenBy(s => s.NumeroParcialidad).ToListAsync();
+            Assert.Equal(3, salidas.Count);
+            Assert.All(salidas, s => Assert.Equal(OrigenSalidaFacturable.ContenedorExportacion, s.Origen));
+            Assert.Equal([(n1, 600m), (n2, 400m), (n1, 1000m)], salidas.Select(s => (s.Referencia, s.Total)));
+            (sa1, sa2) = (salidas[0].Id, salidas[1].Id);
+        }
+
+        // Cada contenedor de A se factura por separado.
+        var f1 = await client.PostAsJsonAsync(Facturas, EmitirBody(sucursal, a, sa1, 60m));
+        Assert.True(f1.StatusCode == HttpStatusCode.Created, await f1.Content.ReadAsStringAsync());
+
+        // Cancelar el contenedor 1 (salida de A facturada) → revisión; cancelar el 2 (sin factura) → descarte.
+        await EntregarCeAsync(Cancelado(c1, n1, a, b));
+        await EntregarCeAsync(Cancelado(c2, n2, a));
+        await EntregarCeAsync(Cancelado(c2, n2, a));  // reentrega
+
+        var descartada = await client.PostAsJsonAsync(Facturas, EmitirBody(sucursal, a, sa2, 40m));
+        await AssertProblemAsync(descartada, HttpStatusCode.UnprocessableEntity, "SALIDA_DESCARTADA");
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var db = scope.ServiceProvider.GetRequiredService<FacturacionDbContext>();
+            Assert.False((await db.SalidasFacturables.AsNoTracking().SingleAsync(s => s.Id == sa1)).Descartada);
+            Assert.True((await db.SalidasFacturables.AsNoTracking().SingleAsync(s => s.Id == sa2)).Descartada);
+            Assert.True((await db.SalidasFacturables.AsNoTracking().SingleAsync(s => s.PedidoFacturableId == b)).Descartada);
+            var numeroA = await db.PedidosFacturables.Where(p => p.Id == a).Select(p => p.NumeroPedido).SingleAsync();
+            var revision = await db.ExcepcionesImportacion.AsNoTracking().Where(x => x.PedidoRef == numeroA && !x.Resuelto).ToListAsync();
+            Assert.Single(revision);
+            Assert.Equal(Millet.Facturacion.Domain.Ingesta.MotivoExcepcion.CancelacionSobreFacturado, revision[0].Motivo);
+            Assert.Contains(n1, revision[0].Detalle);
+        }
+
+        var avance = await client.GetFromJsonAsync<JsonElement>($"{Pedidos}/{a}/salidas");
+        Assert.Equal(60m, avance.GetProperty("avance")[0].GetProperty("enSalidas").GetDecimal());
+    }
+
+    private static Millet.ComercioExterior.Application.ContenedorEmbarcadoEvent Embarcado(Guid contenedor, string numero, params (Guid Pedido, decimal Cantidad)[] pedidos) =>
+        new(Empresa, DateTimeOffset.UtcNow, Guid.NewGuid(), "CE-EXP-FIX", contenedor, numero, "FIX-BL", new DateOnly(2026, 11, 4),
+            pedidos.Select(p => new Millet.ComercioExterior.Application.PedidoContenedorEvento(p.Pedido, "",
+                [new Millet.ComercioExterior.Application.LineaContenedorEvento(1, p.Cantidad, "H87")])).ToArray());
+
+    private static Millet.ComercioExterior.Application.ContenedorCanceladoEvent Cancelado(Guid contenedor, string numero, params Guid[] pedidos) =>
+        new(Empresa, DateTimeOffset.UtcNow, Guid.NewGuid(), "CE-EXP-FIX", contenedor, numero, "FIX naviera canceló",
+            pedidos.Select(p => new Millet.ComercioExterior.Application.PedidoContenedorEvento(p, "", [])).ToArray());
+
+    private Task EntregarCeAsync(Millet.SharedKernel.Application.Integration.IntegrationEvent ev)
+    {
+        Millet.SharedKernel.Application.Integration.ILocalIntegrationEventConsumer consumidor =
+            new Millet.Facturacion.Infrastructure.Workers.ComercioExteriorEventListenerWorker(null!,
+                _factory.Services.GetRequiredService<IServiceScopeFactory>(),
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<Millet.Facturacion.Infrastructure.Workers.ComercioExteriorEventListenerWorker>.Instance);
+        return consumidor.ConsumirLocalAsync(ev.EventType, Guid.NewGuid(), JsonSerializer.Serialize(ev, ev.GetType()), CancellationToken.None);
+    }
+
     // ----- Helpers -----
 
     private async Task<Guid> CrearPedidoAwAsync(Guid sucursal)
