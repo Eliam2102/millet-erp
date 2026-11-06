@@ -7,7 +7,7 @@ public sealed record ActivosPagina(IReadOnlyList<Activo> Items, int Total);
 public sealed record ObtenerActivoQuery(Guid Id) : IRequest<Activo>;
 public sealed record AjusteActivoDatos(Guid DocumentoId, Guid FacturaId, DateOnly Fecha, decimal Importe, string Descripcion);
 public sealed record MutarActivoCommand(Guid Id, int Version, string Accion, DatosActivo? Datos = null, CustodiaActivo? Destino = null, AjusteActivoDatos? Ajuste = null, string? Motivo = null, DateOnly? FechaEfectiva = null, Guid? TrasladoId = null) : IRequest<Activo>;
-public sealed record ClaseActivoDatos(string Clave, string Nombre, decimal? TasaFiscalAnual, Guid? CuentaActivoId, Guid? CuentaDepreciacionId, Guid? CuentaGastoId, Guid? CuentaPuenteId, bool Activa, bool Depreciable = true, bool TasaConfirmada = false, decimal? TasaContableAnual = null, DateOnly? Vigencia = null);
+public sealed record ClaseActivoDatos(string Clave, string Nombre, decimal? TasaFiscalAnual, Guid? CuentaActivoId, Guid? CuentaDepreciacionId, Guid? CuentaGastoId, Guid? CuentaPuenteId, bool Activa, bool Depreciable = true, bool TasaConfirmada = false, decimal? TasaContableAnual = null, DateOnly? Vigencia = null, string? MotivoCambio = null);
 public sealed record GuardarClaseCommand(Guid? Id, int? Version, ClaseActivoDatos Datos) : IRequest<ClaseActivo>;
 public sealed record ReferenciaCarga(Guid Id, string Nombre);
 public interface ICatalogosActivoReadPort

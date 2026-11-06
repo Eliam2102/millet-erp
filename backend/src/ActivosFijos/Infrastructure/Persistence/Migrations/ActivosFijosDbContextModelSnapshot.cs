@@ -1816,6 +1816,11 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("motivo_rechazo");
 
+                    b.Property<string>("MotivoRetiro")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo_retiro");
+
                     b.Property<Guid?>("PolizaId")
                         .HasColumnType("uuid")
                         .HasColumnName("poliza_id");
@@ -1831,6 +1836,14 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("RegistradoPor")
                         .HasColumnType("uuid")
                         .HasColumnName("registrado_por");
+
+                    b.Property<DateTimeOffset?>("RetiradoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("retirado_en");
+
+                    b.Property<Guid?>("RetiradoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("retirado_por");
 
                     b.Property<Guid?>("RevierteA")
                         .HasColumnType("uuid")
@@ -1869,6 +1882,11 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ActivoId")
                         .HasDatabaseName("ix_operaciones_libro_activo_id");
+
+                    b.HasIndex("EmpresaId", "ActivoId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_operacion_baja_pendiente")
+                        .HasFilter("tipo = 'Baja' AND poliza_id IS NULL AND NOT anulada AND rechazado_en IS NULL");
 
                     b.HasIndex("EmpresaId", "FacturaId")
                         .IsUnique()
@@ -2136,6 +2154,11 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                     b.Property<int>("Estado")
                         .HasColumnType("integer")
                         .HasColumnName("estado");
+
+                    b.Property<string>("MotivoCambio")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo_cambio");
 
                     b.Property<string>("MotivoRechazo")
                         .HasColumnType("text")
