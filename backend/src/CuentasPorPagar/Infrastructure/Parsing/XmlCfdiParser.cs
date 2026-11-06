@@ -140,7 +140,26 @@ public sealed class XmlCfdiParser : IXmlCfdiParser
                 Tasa: null,
                 ParseDecimal(AttrOrEmpty(r, "Importe"))))
             .ToList();
-        return nodos is { Count: > 0 } ? nodos : null;
+        if (nodos is not { Count: > 0 }) return null;
+
+        // 86e3zcbjw: la retención es por línea. Las retenciones de los conceptos dan la tasa y la base sobre la que se retuvo (puede ser
+        // solo parte de las líneas). Con una sola tasa por impuesto se conserva el importe del comprobante (el que cuadra con el total);
+        // con varias, una entrada por tasa con lo de sus conceptos.
+        var porConcepto = comprobante.Element(NsCfdi + "Conceptos")?.Elements(NsCfdi + "Concepto")
+            .SelectMany(c => c.Element(NsCfdi + "Impuestos")?.Element(NsCfdi + "Retenciones")?.Elements(NsCfdi + "Retencion") ?? [])
+            .Select(r => (Impuesto: AttrOrEmpty(r, "Impuesto").Trim(), Tasa: ParseDecimalOrNull(AttrOrNull(r, "TasaOCuota")),
+                Base: ParseDecimal(AttrOrEmpty(r, "Base")), Importe: ParseDecimal(AttrOrEmpty(r, "Importe"))))
+            .ToList() ?? [];
+        if (porConcepto.Count == 0) return nodos;
+        var resultado = new List<RetencionCfdi>();
+        foreach (var nodo in nodos)
+        {
+            var tasas = porConcepto.Where(r => r.Impuesto == nodo.Impuesto).GroupBy(r => r.Tasa).ToList();
+            if (tasas.Count == 0) resultado.Add(nodo);
+            else if (tasas.Count == 1) resultado.Add(nodo with { Tasa = tasas[0].Key, Base = tasas[0].Sum(r => r.Base) });
+            else resultado.AddRange(tasas.Select(g => new RetencionCfdi(nodo.Impuesto, g.Key, g.Sum(r => r.Importe), g.Sum(r => r.Base))));
+        }
+        return resultado;
     }
 
     private static List<CfdiRelacionadosParseados>? ParseCfdiRelacionados(XElement comprobante)
