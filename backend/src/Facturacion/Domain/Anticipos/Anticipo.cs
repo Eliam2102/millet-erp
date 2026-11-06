@@ -64,6 +64,10 @@ public sealed class Anticipo : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRelev
     private readonly List<AnticipoVinculacion> _vinculaciones = [];
     public IReadOnlyCollection<AnticipoVinculacion> Vinculaciones => _vinculaciones.AsReadOnly();
 
+    private readonly List<AnticipoLiberacion> _liberaciones = [];
+    /// <summary>U-4: apartados liberados a mano (con usuario y motivo).</summary>
+    public IReadOnlyCollection<AnticipoLiberacion> Liberaciones => _liberaciones.AsReadOnly();
+
     /// <summary>
     /// Saldo aún vinculable: <c>Saldo</c> menos lo comprometido por vinculaciones
     /// sin NC. Evita comprometer más de lo cobrado entre M2 y M3.
@@ -164,6 +168,34 @@ public sealed class Anticipo : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRelev
         var vinculacion = _vinculaciones.FirstOrDefault(v => v.FacturaVentaId == facturaVentaId && v.NcAmortizacionId is null);
         if (vinculacion is not null)
             _vinculaciones.Remove(vinculacion);
+    }
+
+    public const int MotivoLiberacionMin = 5;
+    public const int MotivoLiberacionMax = 500;
+
+    /// <summary>
+    /// U-4 (86e3yzemw · flujo 3): libera de forma explícita el importe apartado (vinculado sin NC) con
+    /// <paramref name="facturaVentaId"/> porque no corresponde. Reúsa <see cref="LiberarVinculacion"/> y deja
+    /// constancia (usuario, motivo, importe). Un apartado ya amortizado con su NC no se libera: se cancela la NC.
+    /// </summary>
+    public AnticipoLiberacion LiberarApartado(Guid facturaVentaId, string motivo, Guid usuarioId, string usuarioNombre, DateTimeOffset ahora)
+    {
+        var texto = (motivo ?? string.Empty).Trim();
+        if (texto.Length < MotivoLiberacionMin || texto.Length > MotivoLiberacionMax)
+            throw new BusinessRuleException("ANTICIPO_MOTIVO_REQUERIDO",
+                $"Indique por qué se libera el apartado ({MotivoLiberacionMin} a {MotivoLiberacionMax} caracteres).");
+        var vinculos = _vinculaciones.Where(v => v.FacturaVentaId == facturaVentaId).ToList();
+        if (vinculos.Count == 0)
+            throw new BusinessRuleException("ANTICIPO_APARTADO_NO_ENCONTRADO", "El anticipo no tiene importe apartado para esa factura.");
+        var apartado = vinculos.FirstOrDefault(v => v.NcAmortizacionId is null)
+            ?? throw new BusinessRuleException("ANTICIPO_APARTADO_YA_AMORTIZADO",
+                "El importe ya se amortizó con su nota de crédito; para revertirlo se cancela la nota de crédito.");
+
+        LiberarVinculacion(facturaVentaId);
+        var liberacion = new AnticipoLiberacion(Guid.CreateVersion7(), Id, facturaVentaId, apartado.Importe, texto,
+            usuarioId, string.IsNullOrWhiteSpace(usuarioNombre) ? "Usuario" : usuarioNombre.Trim(), ahora);
+        _liberaciones.Add(liberacion);
+        return liberacion;
     }
 
     /// <summary>
