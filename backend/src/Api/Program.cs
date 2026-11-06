@@ -684,6 +684,11 @@ builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoProp
 builder.Services.AddScoped<
     Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario,
     Millet.Compartido.Application.Adjuntos.ProveedorAdjuntoPropietario>();
+// U-4 (86e3yzemw): incidencias comunes del ERP (servicio, puerto para los módulos, nombres y evidencia).
+builder.Services.AddScoped<Millet.Compartido.Application.Incidencias.IncidenciasServicio>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Incidencias.IIncidenciasPort, Millet.Compartido.Infrastructure.PublicAdapters.IncidenciasAdapter>();
+builder.Services.AddScoped<Millet.Compartido.Application.Incidencias.IIncidenciaUsuariosReadPort, Millet.Api.Infrastructure.Adapters.IncidenciaUsuariosReadAdapter>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Compartido.Application.Incidencias.IncidenciaAdjuntoPropietario>();
 builder.Services
     .AddOptions<Millet.Compartido.Infrastructure.Adjuntos.AdjuntoEnlaceOptions>()
     .Bind(builder.Configuration.GetSection(
@@ -1997,6 +2002,7 @@ Millet.Api.Endpoints.CuentasPorCobrar.AlertasEndpoints.MapAlertasEndpoints(app);
 
 // === Tesorería — Cuentas con saldo + libro de movimientos (TES-PR2) ===
 Millet.Api.Endpoints.Inicio.ResumenesInicioEndpoints.MapResumenesInicioEndpoints(app);
+Millet.Api.Endpoints.Incidencias.IncidenciasEndpoints.MapIncidenciasEndpoints(app);
 
 Millet.Api.Endpoints.ComercioExterior.ConfiguracionCeEndpoints.MapConfiguracionCe(app);
 Millet.Api.Endpoints.ComercioExterior.ExpedientesEndpoints.MapExpedientesCe(app);
