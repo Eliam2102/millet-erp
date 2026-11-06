@@ -104,7 +104,7 @@ export function RespuestaProveedorPanel({ oc }: { oc: OrdenCompraDetalleResponse
                 {r.vigente ? 'Vigente' : 'Reemplazada'}
               </Badge>
             )}
-            {r.tieneDiferencias && <Badge variant="warning">Con diferencias</Badge>}
+            {r.tieneDiferencias && !r.anuladaEn && <Badge variant="warning">Con diferencias</Badge>}
           </div>
           <p className="text-ink-secondary">
             Fecha de respuesta:{' '}
