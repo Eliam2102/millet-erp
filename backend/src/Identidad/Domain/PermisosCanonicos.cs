@@ -677,6 +677,15 @@ public static class PermisosCanonicos
     public const string ProductoTerminadoExcepcionesGestionar = "producto_terminado.excepciones.gestionar";
     public const string ProductoTerminadoExcepcionesGestionarTodasSucursales = "producto_terminado.excepciones.gestionar-todas-sucursales";
 
+    // U-4 (86e3yzemw): incidencias comunes del ERP; el responsable siempre ve y atiende las suyas (ADR-0051 para el bypass).
+    public const string CompartidoIncidenciasVer = "compartido.incidencias.ver";
+    public const string CompartidoIncidenciasRegistrar = "compartido.incidencias.registrar";
+    public const string CompartidoIncidenciasGestionar = "compartido.incidencias.gestionar";
+    public const string CompartidoIncidenciasLeerTodasSucursales = "compartido.incidencias.leer-todas-sucursales";
+    public const string CompartidoIncidenciasGestionarTodasSucursales = "compartido.incidencias.gestionar-todas-sucursales";
+    // U-4 · flujo 3 de anticipo: liberar con motivo un importe apartado (vinculado sin NC) que no corresponde.
+    public const string FacturacionAnticiposLiberarApartado = "facturacion.anticipos.liberar-apartado";
+
     /// <summary>
     /// Catálogo completo: <c>(Id determinista, Codigo, Descripcion)</c>.
     /// Usado por la migration de seed y por el bootstrap del SuperAdmin
@@ -1096,5 +1105,11 @@ public static class PermisosCanonicos
         (Guid.Parse("00000004-0090-0000-0000-000000000005"), CentrosCostoCatalogoCargar, "Cargar desde Excel o CSV: catalogo"),
         (Guid.Parse("00000004-0091-0000-0000-000000000001"), DatosMaestrosProveedoresBloquear, "Bloquear y desbloquear al proveedor completo (sin pagos ni OC nuevas)"),
         (Guid.Parse("00000004-0091-0000-0000-000000000002"), CuentasPorPagarBloqueosLiberarEnLugar, "Liberar un bloqueo (proveedor o factura) en lugar de quien lo pidió, con motivo"),
+        (Guid.Parse("00000011-0001-0000-0000-000000000001"), CompartidoIncidenciasVer, "Consultar incidencias de las sucursales asociadas"),
+        (Guid.Parse("00000011-0001-0000-0000-000000000002"), CompartidoIncidenciasRegistrar, "Registrar incidencias y subir su evidencia"),
+        (Guid.Parse("00000011-0001-0000-0000-000000000003"), CompartidoIncidenciasGestionar, "Atender, resolver, cancelar o reasignar incidencias de otros"),
+        (Guid.Parse("00000011-0001-0000-0000-000000000004"), CompartidoIncidenciasLeerTodasSucursales, "Consultar incidencias de todas las sucursales"),
+        (Guid.Parse("00000011-0001-0000-0000-000000000005"), CompartidoIncidenciasGestionarTodasSucursales, "Gestionar incidencias de todas las sucursales"),
+        (Guid.Parse("00000009-0003-0000-0000-000000000004"), FacturacionAnticiposLiberarApartado, "Liberar con motivo el importe apartado de un anticipo que no corresponde"),
     };
 }
