@@ -91,6 +91,10 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("cobrado_en");
 
+                    b.Property<Guid?>("ComprobanteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("comprobante_id");
+
                     b.Property<Guid>("EmpresaId")
                         .HasColumnType("uuid")
                         .HasColumnName("empresa_id");
@@ -1667,6 +1671,93 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                     b.ToTable("rechazos_contables", "contabilidad");
                 });
 
+            modelBuilder.Entity("Millet.Contabilidad.Domain.ReclasificacionIva", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("AnuladaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("anulada_en");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<DateOnly>("Fecha")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha");
+
+                    b.Property<decimal>("Importe")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("importe");
+
+                    b.Property<decimal>("Iva")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("iva");
+
+                    b.Property<decimal>("IvaMxn")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("iva_mxn");
+
+                    b.Property<decimal>("IvaRetenido")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("iva_retenido");
+
+                    b.Property<decimal>("IvaRetenidoMxn")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("iva_retenido_mxn");
+
+                    b.Property<Guid>("PagoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("pago_id");
+
+                    b.Property<string>("PagoModulo")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("pago_modulo");
+
+                    b.Property<string>("PagoTipo")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("pago_tipo");
+
+                    b.Property<Guid>("PolizaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("poliza_id");
+
+                    b.Property<Guid>("SaldoIvaDocumentoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("saldo_iva_documento_id");
+
+                    b.Property<short>("Tipo")
+                        .HasColumnType("smallint")
+                        .HasColumnName("tipo");
+
+                    b.HasKey("Id")
+                        .HasName("pk_reclasificaciones_iva");
+
+                    b.HasIndex("SaldoIvaDocumentoId")
+                        .HasDatabaseName("ix_reclasificaciones_iva_saldo_iva_documento_id");
+
+                    b.HasIndex("EmpresaId", "Fecha")
+                        .HasDatabaseName("ix_reclasificaciones_iva_fecha");
+
+                    b.HasIndex("EmpresaId", "PagoModulo", "PagoTipo", "PagoId", "SaldoIvaDocumentoId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_reclasificaciones_iva_pago_documento");
+
+                    b.ToTable("reclasificaciones_iva", "contabilidad");
+                });
+
             modelBuilder.Entity("Millet.Contabilidad.Domain.ReglaDimension", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1958,6 +2049,130 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_roles_cuenta_cambios_rol");
 
                     b.ToTable("roles_cuenta_cambios", "contabilidad");
+                });
+
+            modelBuilder.Entity("Millet.Contabilidad.Domain.SaldoIvaDocumento", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Aplicado")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("aplicado");
+
+                    b.Property<decimal>("Base")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("base");
+
+                    b.Property<Guid>("DocumentoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("documento_id");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<short>("Estado")
+                        .HasColumnType("smallint")
+                        .HasColumnName("estado");
+
+                    b.Property<DateOnly>("Fecha")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha");
+
+                    b.Property<string>("Folio")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("folio");
+
+                    b.Property<decimal>("Iva")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("iva");
+
+                    b.Property<decimal>("IvaReclasificado")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("iva_reclasificado");
+
+                    b.Property<decimal>("IvaRetenido")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("iva_retenido");
+
+                    b.Property<decimal>("IvaRetenidoReclasificado")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("iva_retenido_reclasificado");
+
+                    b.Property<short>("Lado")
+                        .HasColumnType("smallint")
+                        .HasColumnName("lado");
+
+                    b.Property<string>("MetodoPago")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("metodo_pago");
+
+                    b.Property<string>("Moneda")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("moneda");
+
+                    b.Property<string>("OrigenModulo")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("origen_modulo");
+
+                    b.Property<string>("OrigenTipo")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("origen_tipo");
+
+                    b.Property<Guid>("PolizaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("poliza_id");
+
+                    b.Property<Guid?>("SucursalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sucursal_id");
+
+                    b.Property<Guid?>("TerceroId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tercero_id");
+
+                    b.Property<decimal?>("TipoCambio")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("numeric(18,6)")
+                        .HasColumnName("tipo_cambio");
+
+                    b.Property<string>("Uuid")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("uuid");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_saldos_iva_documento");
+
+                    b.HasIndex("EmpresaId", "Lado", "Fecha")
+                        .HasDatabaseName("ix_saldos_iva_documento_lado_fecha");
+
+                    b.HasIndex("EmpresaId", "OrigenModulo", "OrigenTipo", "DocumentoId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_saldos_iva_documento_documento");
+
+                    b.ToTable("saldos_iva_documento", "contabilidad");
                 });
 
             modelBuilder.Entity("Millet.Contabilidad.Domain.SolicitudCatalogo", b =>
@@ -2583,6 +2798,16 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_polizas_partidas_polizas_poliza_id");
+                });
+
+            modelBuilder.Entity("Millet.Contabilidad.Domain.ReclasificacionIva", b =>
+                {
+                    b.HasOne("Millet.Contabilidad.Domain.SaldoIvaDocumento", null)
+                        .WithMany()
+                        .HasForeignKey("SaldoIvaDocumentoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_reclasificaciones_iva_saldos_iva_documento_saldo_iva_docume");
                 });
 
             modelBuilder.Entity("Millet.Contabilidad.Domain.ReglaDimension", b =>

@@ -97,6 +97,8 @@ public static class EntregaLocalIntegrationEventsExtensions
         Consumidor<Millet.Contabilidad.Infrastructure.Workers.CuentasPorPagarContabilidadListenerWorker>(services, (c, f, l) => new(c, f, l));
         Consumidor<Millet.Contabilidad.Infrastructure.Workers.TesoreriaContabilidadListenerWorker>(services, (c, f, l) => new(c, f, l));
         Consumidor<Millet.Contabilidad.Infrastructure.Workers.AlmacenContabilidadListenerWorker>(services, (c, f, l) => new(c, f, l));
+        // PCV: costo de ventas de la entrega de PT; solo entrega local como los demás consumidores de PT (falta el topic en Service Bus).
+        Consumidor<Millet.Contabilidad.Infrastructure.Workers.ProductoTerminadoContabilidadListenerWorker>(services, (c, f, l) => new(c, f, l));
         // ComprasActivoWorker escucha dos topics: un consumidor local por topic.
         services.AddSingleton<ILocalIntegrationEventConsumer>(sp => new Millet.ActivosFijos.Infrastructure.Workers.ComprasActivoAlmacenLocalConsumer(
             sp.GetRequiredService<IServiceScopeFactory>(), sp.GetRequiredService<ILogger<Millet.ActivosFijos.Infrastructure.Workers.ComprasActivoWorker>>()));

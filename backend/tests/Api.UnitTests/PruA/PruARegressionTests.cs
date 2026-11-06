@@ -308,7 +308,7 @@ public sealed class PruARegressionTests
         empresa.ActualizarDatos(razonSocial: a.RazonSocial); await a.Maestros.SaveChangesAsync();
         var folio = factura.Folio;
         var h = new ReintentarTimbradoHandler(a.Fac, a.Sender, a.PeriodoFac, a.Pac, new FakeCfdiRepositorioPort(), a.Eventos,
-            new FakeContabilidadAsientoPort(), a, ReceptorFiscalTestFactory.Crear(a.Fac), empresaFiscal: new EmpresaFiscalReadAdapter(a.Maestros));
+            a, ReceptorFiscalTestFactory.Crear(a.Fac), empresaFiscal: new EmpresaFiscalReadAdapter(a.Maestros));
         var r = await h.Handle(new(factura.Id), default);
         Assert.Equal(folio, r.Folio); Assert.Equal("Timbrado", r.Estado);
         Assert.Equal(a.RazonSocial, a.Pac.Emision!.Emisor.Nombre);

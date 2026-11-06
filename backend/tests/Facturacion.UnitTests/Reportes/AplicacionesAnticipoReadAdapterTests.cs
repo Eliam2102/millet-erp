@@ -70,7 +70,7 @@ public sealed class AplicacionesAnticipoReadAdapterTests
         var handler = new EmitirFacturaVentaHandler(
             e.Db, e.Sender, new FakePeriodoContablePort(), new FakeCatalogosSatReadPort(), e.Fiscal,
             new FakeCfdiRepositorioPort(), EmpresasFiscal(e.EmpresaId), new FakeIntegrationEventPublisher(),
-            new FakeContabilidadAsientoPort(), new FakeEmpresaContext(e.EmpresaId), new FakeUserContext(Guid.NewGuid()),
+            new FakeEmpresaContext(e.EmpresaId), new FakeUserContext(Guid.NewGuid()),
             new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(e.Db));
         var resp = await handler.Handle(new EmitirFacturaVentaCommand(
             SucursalId: Guid.NewGuid(),

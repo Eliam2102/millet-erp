@@ -63,6 +63,12 @@ public sealed partial class ListenersContabilidadTests(WebApplicationFactory<Pro
         ("CONCEPTO_BANCARIO_COMISION_BANCARIA", "5.6", "Deudora", "Ninguna"),
         ("GASTO_IMPORTACION", "5.7", "Deudora", "Ninguna"),
         ("MERMA", "5.8", "Deudora", "Ninguna"),
+        // C1.6: reclasificación de IVA al pagar o cobrar.
+        ("IVA_TRASLADADO_COBRADO", "2.6", "Acreedora", "Ninguna"),
+        // K10.7: póliza de liquidación de IVA.
+        ("IVA_POR_PAGAR", "2.7", "Acreedora", "Ninguna"),
+        ("IVA_A_FAVOR", "1.01", "Deudora", "Ninguna"),
+        ("RETENCIONES_CLIENTES", "1.02", "Deudora", "Ninguna"),
     ];
 
     private sealed record Escenario(string Suf, HttpClient Admin, Guid Sucursal, Guid Proveedor, Guid[] Clientes, Guid CentroCosto,
@@ -130,6 +136,8 @@ public sealed partial class ListenersContabilidadTests(WebApplicationFactory<Pro
         await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.roles_cuenta_cambios WHERE cuenta_nueva_id IN (SELECT id FROM contabilidad.cuentas_contables WHERE codigo LIKE {0})", $"FIX-{e.Suf}-%");
         await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.rechazos_contables WHERE payload::text LIKE {0}", $"%{e.Sucursal}%");
         await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.cobros_efectivo_caja WHERE sucursal_id = {0}", e.Sucursal);
+        await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.reclasificaciones_iva WHERE saldo_iva_documento_id IN (SELECT id FROM contabilidad.saldos_iva_documento WHERE sucursal_id = {0})", e.Sucursal);
+        await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.saldos_iva_documento WHERE sucursal_id = {0}", e.Sucursal);
         await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.consumos_contabilizados WHERE poliza_id IN (SELECT poliza_id FROM contabilidad.polizas_partidas WHERE sucursal_id = {0})", e.Sucursal);
         await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.reglas_dimension_uso WHERE consumidor = 'POLIZA' AND referencia IN (SELECT p.id::text FROM contabilidad.polizas p JOIN contabilidad.polizas_partidas x ON x.poliza_id = p.id WHERE x.sucursal_id = {0})", e.Sucursal);
         await db.Database.ExecuteSqlRawAsync("UPDATE contabilidad.polizas SET anulada_por_poliza_id = NULL, poliza_anulada_id = NULL WHERE id IN (SELECT poliza_id FROM contabilidad.polizas_partidas WHERE sucursal_id = {0})", e.Sucursal);
@@ -190,7 +198,12 @@ public sealed partial class ListenersContabilidadTests(WebApplicationFactory<Pro
             FechaContable: Hoy(), Lineas: [new FacturaLineaContablePayload(null, "30171500", "PT", subtotal, 0m, iva)]);
 
     private static CobroMostradorRegistradoIntegrationEvent Cobro(Escenario e, Guid sesion, Guid cliente, params (string Forma, decimal Importe)[] formas) =>
-        new(EmpresaBootstrapId, Ahora, Guid.CreateVersion7(), sesion, Guid.NewGuid(), Guid.NewGuid(), "FacturaVenta", "Mostrador",
+        CobroDe(e, sesion, cliente, Guid.NewGuid(), formas);
+
+    /// <summary>C1.6: cobro de un comprobante con RF (la parte no efectivo espera la póliza del comprobante para tomar su IVA).</summary>
+    private static CobroMostradorRegistradoIntegrationEvent CobroDe(Escenario e, Guid sesion, Guid cliente, Guid comprobante,
+        params (string Forma, decimal Importe)[] formas) =>
+        new(EmpresaBootstrapId, Ahora, Guid.CreateVersion7(), sesion, Guid.NewGuid(), comprobante, "FacturaVenta", "Mostrador",
             formas.Sum(f => f.Importe), [.. formas.Select(f => new CobroFormaPagoAplicada(f.Forma, f.Importe))], e.Sucursal, cliente, "MXN");
 
     /// <summary>Venta directa (sin pedido): Facturación publica el cobro sin cliente; solo trae el comprobante cobrado.</summary>
@@ -280,7 +293,7 @@ public sealed partial class ListenersContabilidadTests(WebApplicationFactory<Pro
             e = await PrepararAsync();
             var factura = Guid.NewGuid();
             await Facturacion(FacturaVenta(e, factura, e.Clientes[0]));
-            var cobro = Cobro(e, Guid.NewGuid(), e.Clientes[0], ("04", 2_320m));
+            var cobro = CobroDe(e, Guid.NewGuid(), e.Clientes[0], factura, ("04", 2_320m));
             await Facturacion(cobro);
 
             var rf = (await PolizasAsync(factura)).Should().ContainSingle().Subject;
@@ -440,8 +453,11 @@ public sealed partial class ListenersContabilidadTests(WebApplicationFactory<Pro
                     "UPDATE contabilidad.roles_cuenta SET cuenta_id = {0} WHERE empresa_id = {1} AND codigo = 'COBROS_CHEQUE'",
                     e.Cuentas["COBROS_CHEQUE"], EmpresaBootstrapId);
             var sesion = Guid.NewGuid();
-            var transferencia = Cobro(e, sesion, e.Clientes[0], ("03", 1_500m));
-            var cheque = Cobro(e, sesion, e.Clientes[1], ("02", 700m));
+            var (rfTransferencia, rfCheque) = (Guid.NewGuid(), Guid.NewGuid());
+            await Facturacion(FacturaVenta(e, rfTransferencia, e.Clientes[0], 1_293.10m, 206.90m));
+            await Facturacion(FacturaVenta(e, rfCheque, e.Clientes[1], 603.45m, 96.55m));
+            var transferencia = CobroDe(e, sesion, e.Clientes[0], rfTransferencia, ("03", 1_500m));
+            var cheque = CobroDe(e, sesion, e.Clientes[1], rfCheque, ("02", 700m));
             await Facturacion(transferencia);
             await Facturacion(cheque);
 

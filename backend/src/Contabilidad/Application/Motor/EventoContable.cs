@@ -53,7 +53,8 @@ public static partial class NormalizadorEventos
             return tipo == DevolucionAnticipoAgente ? DevolucionAgente(eventoId, payload)
                 : tipo == CostoImportacionAplicado ? CostoImportacion(eventoId, payload)
                 : tipo == FacturaProveedorRegistrada ? FacturaProveedor(eventoId, payload)
-                : NormalizarC15(tipo, eventoId, payload) ?? NormalizarC15b(tipo, eventoId, payload) ?? Generico(tipo, eventoId, payload);
+                : NormalizarC15(tipo, eventoId, payload) ?? NormalizarC15b(tipo, eventoId, payload)
+                    ?? NormalizarPcv(tipo, eventoId, payload) ?? Generico(tipo, eventoId, payload);
         }
         catch (JsonException e)
         {
@@ -75,14 +76,13 @@ public static partial class NormalizadorEventos
     private static EventoContable FacturaProveedor(Guid eventoId, string payload)
     {
         var f = JsonSerializer.Deserialize<FacturaProveedorRegistradaContrato>(payload, Json) ?? throw new EventoIlegibleException("Payload vacío.");
-        var retenciones = f.RetencionesTotal ?? 0m;
         var importes = new Dictionary<string, decimal?>
         {
             ["Subtotal"] = f.Subtotal,
             ["Iva"] = f.Iva,
             ["RetencionesTotal"] = f.RetencionesTotal,
             ["Total"] = f.TotalFactura,
-            ["TotalMenosRetenciones"] = f.TotalFactura - retenciones,
+            ["TotalMenosRetenciones"] = f.TotalFactura, // el Total del CFDI ya viene neto de retenciones
         };
         var lineas = (f.Lineas ?? []).Select(l => new LineaEventoContable(l.LineaOcId, l.Importe, l.CentroCostoId, l.EsServicio ?? false)).ToList();
         return new(FacturaProveedorRegistrada, eventoId, f.EmpresaId, FechaContable.HoyLocal(f.OcurridoEn),
