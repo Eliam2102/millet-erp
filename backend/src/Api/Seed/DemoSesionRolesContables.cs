@@ -40,6 +40,9 @@ public sealed partial class DemoSesionSeedHostedService
         ("990.28.00.00", "DEMO Fondo fijo de caja chica", NaturalezaCuenta.Deudora, CuentaControl.Ninguna, ["CONTRAPARTIDA_GASTO_CAJA_CHICA"]),
         ("990.29.00.00", "DEMO Tarjetas corporativas por pagar", NaturalezaCuenta.Acreedora, CuentaControl.Ninguna, ["CONTRAPARTIDA_GASTO_TARJETA"]),
         ("990.30.00.00", "DEMO Acreedores diversos", NaturalezaCuenta.Acreedora, CuentaControl.Ninguna, ["ACREEDORES_DIVERSOS"]),
+        // PCV: costo de ventas de la entrega de PT (cuentas por operación: 501.01.00.00 y 115.04.00.00 cuando Contabilidad las mapee).
+        ("990.31.00.00", "DEMO Costo de ventas", NaturalezaCuenta.Deudora, CuentaControl.Ninguna, ["COSTO_DE_VENTAS"]),
+        ("990.32.00.00", "DEMO Inventario de producto terminado", NaturalezaCuenta.Deudora, CuentaControl.Ninguna, ["INVENTARIO_PT"]),
     ];
 
     /// <summary>Códigos de las cuentas que declara este sembrador; la prueba del seed cuenta contra esta lista.</summary>

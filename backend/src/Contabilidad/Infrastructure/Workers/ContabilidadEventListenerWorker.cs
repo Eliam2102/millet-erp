@@ -254,3 +254,22 @@ public sealed class AlmacenContabilidadListenerWorker(ServiceBusClient? client, 
         NormalizadorEventos.SalidaRequisicionRegistrada, NormalizadorEventos.SalidaInventarioRegistrada, NormalizadorEventos.DevolucionInternaAplicada, NormalizadorEventos.DevolucionProveedorRegistrada,
     ], StringComparer.Ordinal);
 }
+
+/// <summary>
+/// PCV (86e3ke10b) · <c>producto-terminado-events</c>: entrega confirmada de PT (costo de ventas).
+/// PLATFORM-TODO(&lt;TopicProductoTerminado&gt;): solo entrega local (C1.8), igual que los demás consumidores de PT; con Service Bus falta
+/// el topic <c>producto-terminado-events</c> y la suscripción <c>contabilidad-producto-terminado-sub</c> (Bicep). Hasta entonces no se
+/// registra como HostedService en <c>Program.cs</c>.
+/// </summary>
+public sealed class ProductoTerminadoContabilidadListenerWorker(ServiceBusClient? client, IServiceScopeFactory scopeFactory,
+    ILogger<ProductoTerminadoContabilidadListenerWorker> logger) : ContabilidadEventListenerWorker(client, scopeFactory, logger)
+{
+    public const string TopicName = "producto-terminado-events";
+    public const string SubscriptionName = "contabilidad-producto-terminado-sub";
+    public override string Topic => TopicName;
+    public override string Subscription => SubscriptionName;
+    protected override string PrefijoModulo => "producto_terminado.";
+    public override IReadOnlySet<string> TiposContables => Tipos;
+
+    private static readonly FrozenSet<string> Tipos = FrozenSet.ToFrozenSet([NormalizadorEventos.EntregaPtConfirmada], StringComparer.Ordinal);
+}

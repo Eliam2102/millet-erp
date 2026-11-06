@@ -65,6 +65,10 @@ public static class DependencyInjection
         services.AddScoped<Millet.Contabilidad.Application.Motor.IEnriquecedorEventoContable, Millet.Contabilidad.Application.Motor.EnriquecedorAjusteCobro>();
         // F1-ALM-13: después del de pólizas origen (orden de registro = orden de ejecución). IArticuloContabilidadPort lo cablea Program.cs.
         services.AddScoped<Millet.Contabilidad.Application.Motor.IEnriquecedorEventoContable, Millet.Contabilidad.Application.Motor.EnriquecedorGrupoArticulo>();
+        // PCV (86e3ke10b): costo de ventas de la entrega de PT. PLATFORM-TODO(<ValuacionPT>): sin valuación (PT5.12) el puerto responde null
+        // y la entrega espera en la bandeja como dato faltante; PT5.12 registra su adaptador en Program.cs y reemplaza este.
+        services.AddScoped<Millet.Contabilidad.Application.Ports.ICostoProductoTerminadoReadPort, Adapters.CostoProductoTerminadoSinValuacionAdapter>();
+        services.AddScoped<Millet.Contabilidad.Application.Motor.IEnriquecedorEventoContable, Millet.Contabilidad.Application.Motor.EnriquecedorCostoVentasPt>();
 
         // K10.4: pólizas recurrentes con reversa automática; el generador corre también como proceso de fondo.
         services.AddScoped<GeneradorRecurrentes>();
