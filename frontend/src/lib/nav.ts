@@ -1098,6 +1098,14 @@ const moduloContabilidad: NavModulo = {
           icon: ArrowLeftRight,
           permission: PermisosCanonicos.ContabilidadPolizasLeer,
         },
+        {
+          label: 'Liquidación de IVA',
+          description:
+            'IVA trasladado cobrado, IVA acreditable pagado y retenciones del mes, con el cuadre contra las cuentas, el cumplimiento de cada documento y el borrador de la póliza.',
+          to: '/contabilidad/reportes/liquidacion-iva',
+          icon: Receipt,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
+        },
       ],
     },
   ],

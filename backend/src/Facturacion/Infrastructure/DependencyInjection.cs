@@ -149,6 +149,8 @@ public static class DependencyInjection
 
         // --- F11: puerto de lectura de CFDIs que Facturación EXPONE (adapter real) ---
         services.AddScoped<IFacturacionCfdiReadPort, Reportes.FacturacionCfdiReadAdapter>();
+        // K10.7: facturas de venta con REP timbrado (cumplimiento de la liquidación de IVA en Contabilidad).
+        services.AddScoped<IRepEmitidoReadPort, Reportes.RepEmitidoReadAdapter>();
 
         // --- CAJAS-PR2: evaluador de alcance de la Capa A (12-cajas.md §9) ---
         // Scoped: consume FacturacionDbContext + ICurrentUserPermissions (Api).
