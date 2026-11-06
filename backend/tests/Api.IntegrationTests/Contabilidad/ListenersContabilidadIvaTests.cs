@@ -20,7 +20,7 @@ public sealed partial class ListenersContabilidadTests
 {
     private static FacturaProveedorRegistradaIntegrationEvent FacturaProveedor(Escenario e, Guid factura, decimal subtotal, decimal iva,
         decimal retencionIva = 0m) =>
-        new(EmpresaBootstrapId, Ahora, factura, Guid.NewGuid(), subtotal + iva,
+        new(EmpresaBootstrapId, Ahora, factura, Guid.NewGuid(), subtotal + iva - retencionIva,
             [new LineaFacturadaPayload(Guid.NewGuid(), Guid.NewGuid(), 1m, subtotal)], [], ProveedorId: e.Proveedor, Uuid: $"UUID-{factura:N}",
             Subtotal: subtotal, Iva: iva, RetencionesTotal: retencionIva, Moneda: "MXN", SucursalId: e.Sucursal,
             Retenciones: retencionIva > 0m ? [new RetencionDetallePayload("002", 0.04m, retencionIva)] : null);

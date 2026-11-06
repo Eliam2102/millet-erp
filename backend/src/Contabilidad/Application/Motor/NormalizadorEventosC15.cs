@@ -227,7 +227,7 @@ public static partial class NormalizadorEventos
             new Dictionary<string, decimal?>
             {
                 ["Subtotal"] = n.Subtotal, ["Iva"] = n.Iva, ["RetencionesTotal"] = retenciones, ["Total"] = total,
-                ["TotalMenosRetenciones"] = total - retenciones,
+                ["TotalMenosRetenciones"] = total, // el Total del CFDI ya viene neto de retenciones
             },
             [], payload, puente, n.FacturaOrigenId);
     }
@@ -298,7 +298,7 @@ public static partial class NormalizadorEventos
     // ---------------------------------------------------------------- Facturación
 
     /// <summary>
-    /// #7 RF: cargo CLIENTES (total menos retenciones) + retenciones a favor · abono VENTAS por línea (neto de descuento; rol por tipo de
+    /// #7 RF: cargo CLIENTES (el Total del CFDI, ya neto de retenciones) + retenciones a favor · abono VENTAS por línea (neto de descuento; rol por tipo de
     /// producto si existe) + IVA trasladado no cobrado.
     /// </summary>
     private static EventoContable FacturaVenta(Guid eventoId, string payload)
@@ -313,7 +313,7 @@ public static partial class NormalizadorEventos
             new Dictionary<string, decimal?>
             {
                 ["Subtotal"] = f.Subtotal is { } s ? s - (f.Descuento ?? 0m) : null, ["Iva"] = f.Iva, ["RetencionesTotal"] = retenciones,
-                ["Total"] = f.Total, ["TotalMenosRetenciones"] = f.Total - retenciones,
+                ["Total"] = f.Total, ["TotalMenosRetenciones"] = f.Total, // el Total del CFDI ya viene neto de retenciones
             },
             lineas, payload);
     }
