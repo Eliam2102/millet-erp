@@ -245,6 +245,12 @@ function Contenido({
             receptorUsoCfdi: p.clienteFiscal?.usoCfdiDefault,
             metodoPago: p.clienteFiscal?.metodoPagoDefault,
             formaPago: p.clienteFiscal?.formaPagoDefault,
+            // Receptor extranjero (CCE) del catálogo del cliente, también en la salida.
+            cceReceptorNumRegIdTrib: p.clienteFiscal?.numRegIdTrib,
+            cceReceptorPaisResidencia: p.clienteFiscal?.paisResidencia,
+            cceReceptorDomicilioCalle: p.clienteFiscal?.domicilioExtranjeroCalle,
+            cceReceptorDomicilioEstado: p.clienteFiscal?.domicilioExtranjeroEstado,
+            cceReceptorDomicilioCodigoPostal: p.clienteFiscal?.domicilioExtranjeroCodigoPostal,
             datosFiscalesIncompletos:
               p.clienteFiscal == null ||
               p.clienteFiscal.rfc == null ||

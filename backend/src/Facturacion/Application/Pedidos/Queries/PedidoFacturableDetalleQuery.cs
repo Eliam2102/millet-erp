@@ -99,7 +99,13 @@ public sealed record PedidoClienteFiscal(
     string? UsoCfdiDefault,
     string? FormaPagoDefault,
     string? MetodoPagoDefault,
-    bool EsGenerico);
+    bool EsGenerico,
+    // FAC-08 (H2 de QA): receptor extranjero del catálogo para el CCE de la factura del pedido o de su salida.
+    string? NumRegIdTrib = null,
+    string? PaisResidencia = null,
+    string? DomicilioExtranjeroCalle = null,
+    string? DomicilioExtranjeroEstado = null,
+    string? DomicilioExtranjeroCodigoPostal = null);
 
 public sealed record PedidoFacturableLineaDetalle(
     int Posicion,
@@ -168,7 +174,9 @@ public sealed class PedidoFacturableDetalleHandler
             : new PedidoClienteFiscal(
                 clienteMaster.Rfc, clienteMaster.RegimenFiscal, clienteMaster.CodigoPostalFiscal,
                 clienteMaster.UsoCfdiDefault, clienteMaster.FormaPagoDefault,
-                clienteMaster.MetodoPagoDefault, clienteMaster.EsGenerico);
+                clienteMaster.MetodoPagoDefault, clienteMaster.EsGenerico,
+                clienteMaster.NumRegIdTrib, clienteMaster.PaisResidencia, clienteMaster.DomicilioExtranjeroCalle,
+                clienteMaster.DomicilioExtranjeroEstado, clienteMaster.DomicilioExtranjeroCodigoPostal);
 
         // Un lookup por producto distinto; el mismo producto puede repetirse
         // en varias posiciones del pedido.

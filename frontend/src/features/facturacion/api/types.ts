@@ -900,6 +900,12 @@ export interface PedidoClienteFiscal {
   formaPagoDefault: string | null;
   metodoPagoDefault: string | null;
   esGenerico: boolean;
+  /** Receptor extranjero (CCE) del catálogo del cliente. */
+  numRegIdTrib?: string | null;
+  paisResidencia?: string | null;
+  domicilioExtranjeroCalle?: string | null;
+  domicilioExtranjeroEstado?: string | null;
+  domicilioExtranjeroCodigoPostal?: string | null;
 }
 
 /**

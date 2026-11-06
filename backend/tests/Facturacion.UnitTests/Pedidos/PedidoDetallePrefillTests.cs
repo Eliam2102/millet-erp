@@ -171,4 +171,26 @@ public sealed class PedidoDetallePrefillTests
                 CodigoBloqueo: contenedorId is null ? "FAC_PEDIDO_NO_EMBARCADO" : null));
         }
     }
+
+    [Fact]
+    public async Task Detalle_trae_el_receptor_extranjero_del_catalogo_del_cliente()
+    {
+        // FAC-08 (H2 de QA): la factura de exportación del pedido o de su salida toma país, residencia,
+        // NumRegIdTrib y domicilio del cliente, igual que el selector de la factura manual.
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        await SembrarPedidoAsync(db, empresaId, Guid.NewGuid(), productoId: null);
+        var cliente = new ClienteFiscalLectura(Guid.NewGuid(), "XEXX010101000", "Export Inc", "616", "97345",
+            "S01", "03", "PUE", "USD", true, true, "TAX-1", "USA", "Main St 1", "TX", "78701");
+
+        var detalle = await new PedidoFacturableDetalleHandler(
+                db, new FakeClientesReadPort(cliente), new FakeProductosReadPort(), new FakeCanalesVentaReadPort(), new FakeAlcanceCajaEvaluator(), new FakeCurrentUserPermissions())
+            .Handle(new PedidoFacturableDetalleQuery(db.PedidosFacturables.Single().Id), CancellationToken.None);
+
+        detalle.ClienteFiscal.Should().BeEquivalentTo(new
+        {
+            NumRegIdTrib = "TAX-1", PaisResidencia = "USA", DomicilioExtranjeroCalle = "Main St 1",
+            DomicilioExtranjeroEstado = "TX", DomicilioExtranjeroCodigoPostal = "78701",
+        });
+    }
 }
