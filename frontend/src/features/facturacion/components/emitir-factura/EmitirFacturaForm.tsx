@@ -427,6 +427,7 @@ function FormInner({
             tasaIvaTraslado: l.tasaIvaTraslado,
             tasaRetencionIva: l.tasaRetencionIva,
             tasaRetencionIsr: l.tasaRetencionIsr,
+            conceptoRetencion: l.conceptoRetencion ?? null,
             requierePedimento: l.requierePedimento,
           })),
     };

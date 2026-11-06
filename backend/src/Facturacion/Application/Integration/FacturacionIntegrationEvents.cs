@@ -51,7 +51,8 @@ public sealed record FacturaVentaTimbradaIntegrationEvent(
 /// de G1.6): <c>Impuesto</c> = código SAT (001 ISR, 002 IVA); <c>Tasa</c> null
 /// a nivel comprobante.
 /// </summary>
-public sealed record RetencionContablePayload(string Impuesto, decimal? Tasa, decimal Importe);
+/// 86e3zcbjw: <c>Concepto</c> = concepto de la retención del cliente (FLETES, SERVICIOS, DESPERDICIO, IMPORTACION) para su cuenta.
+public sealed record RetencionContablePayload(string Impuesto, decimal? Tasa, decimal Importe, string? Concepto = null);
 
 /// <summary>
 /// Línea de factura para separar ventas por tipo de producto (U1.6).
