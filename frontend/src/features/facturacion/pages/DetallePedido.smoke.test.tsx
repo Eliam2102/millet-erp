@@ -122,6 +122,10 @@ function salidasDe(
     facturaId?: string | null;
     folio?: string | null;
     estadoFactura?: string | null;
+    origen?: number;
+    referencia?: string;
+    descartadaEn?: string | null;
+    motivoDescarte?: string | null;
   }>,
   enSalidas: number,
   facturada: number,
@@ -136,14 +140,16 @@ function salidasDe(
     salidas: salidas.map((s) => ({
       id: s.id,
       numeroParcialidad: s.numeroParcialidad,
-      origen: 3,
-      referencia: `SAL-${s.numeroParcialidad}`,
+      origen: s.origen ?? 3,
+      referencia: s.referencia ?? `SAL-${s.numeroParcialidad}`,
       registradaEn: '2026-11-02T16:00:00Z',
       total: s.importe,
       facturaId: s.facturaId ?? null,
       folio: s.folio ?? null,
       uuid: null,
       estadoFactura: s.estadoFactura ?? null,
+      descartadaEn: s.descartadaEn ?? null,
+      motivoDescarte: s.motivoDescarte ?? null,
       lineas: [{ posicion: 1, cantidad: s.cantidad, importe: s.importe }],
     })),
   };
@@ -735,6 +741,28 @@ describe('<DetallePedido> — proforma (U1.8a)', () => {
       expect(completo).toHaveAttribute('title', expect.stringMatching(/salidas parciales/));
       // Todas las piezas ya salieron: no hay más que registrar.
       expect(screen.getByRole('button', { name: /Registrar salida/ })).toBeDisabled();
+    });
+
+    it('FAC-08 Fase 1: la salida de un contenedor cancelado se ve descartada y no se ofrece facturar', async () => {
+      setPermisos(permisosCompletos);
+      prepararPedido(
+        [
+          { id: 's-1', numeroParcialidad: 1, cantidad: 1, importe: 100, origen: 2, referencia: 'DEMO-CONT-0001' },
+          {
+            id: 's-2', numeroParcialidad: 2, cantidad: 1, importe: 100, origen: 2, referencia: 'DEMO-CONT-0002',
+            descartadaEn: '2026-11-05T18:00:00Z', motivoDescarte: 'Contenedor cancelado en Comercio Exterior',
+          },
+        ],
+        1,
+        0,
+      );
+      render(<DetallePedido />, { wrapper: createQueryWrapper() });
+      const descartada = await screen.findByTestId('salida-2');
+      expect(within(descartada).getByText('Descartada')).toBeInTheDocument();
+      expect(within(descartada).getByText(/Contenedor cancelado en Comercio Exterior/)).toBeInTheDocument();
+      expect(within(descartada).queryByText('Por facturar')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Facturar la parcialidad 2' })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Facturar la parcialidad 1' })).toBeInTheDocument();
     });
 
     it('facturar una parcialidad precarga solo sus cantidades y la liga a la salida', async () => {

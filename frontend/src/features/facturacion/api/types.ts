@@ -1087,6 +1087,9 @@ export interface SalidaFacturableItem {
   uuid: string | null;
   estadoFactura: string | null;
   lineas: SalidaFacturableItemLinea[];
+  /** FAC-08: la salida se descartó porque su origen se canceló (contenedor cancelado en CE); ya no se factura. */
+  descartadaEn?: string | null;
+  motivoDescarte?: string | null;
 }
 
 /** GET /pedidos-facturables/{id}/salidas. */
