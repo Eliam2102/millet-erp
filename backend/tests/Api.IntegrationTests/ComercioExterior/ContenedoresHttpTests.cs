@@ -138,6 +138,70 @@ public sealed class ContenedoresHttpTests
     }
 
     [Fact]
+    public async Task FAC08_embarcar_un_contenedor_publica_el_evento_y_su_salida_se_factura_sin_esperar_el_100()
+    {
+        await using var e = await Escenario(); using var c = await e.ClienteAsync(true, facturacion: true);
+        var respuesta = await Detalle(c); var d = await Body(respuesta);
+        var p1 = d.GetProperty("pedidos").EnumerateArray().Single(p => p.GetProperty("numeroPedido").GetString() == "DEMO-PED-EXP-P1").GetProperty("id").GetGuid();
+        var partida = d.GetProperty("partidas").EnumerateArray().Single(p => p.GetProperty("pedidoFacturableId").GetGuid() == p1).GetProperty("id").GetGuid();
+        var retirar = await Enviar(c, HttpMethod.Delete, $"{Base}/{ExpId}/partidas/{partida}", etag: respuesta.Headers.ETag!.Tag); retirar.EnsureSuccessStatusCode();
+        var alta = await Enviar(c, HttpMethod.Post, $"{Base}/{ExpId}/contenedores", new { numero = "DEMO-FAC08-C1", blGuia = "DEMO-BL-FAC08" }, retirar.Headers.ETag!.Tag); alta.EnsureSuccessStatusCode();
+        var cid = (await Body(alta)).GetProperty("contenedores").EnumerateArray().Single(x => x.GetProperty("numero").GetString() == "DEMO-FAC08-C1").GetProperty("id").GetGuid();
+        var asignar = await Enviar(c, HttpMethod.Post, $"{Base}/{ExpId}/contenedores/{cid}/partidas", new { pedidoFacturableId = p1, posicion = 1, cantidad = 30 }, alta.Headers.ETag!.Tag); asignar.EnsureSuccessStatusCode();
+        var embarcar = await Enviar(c, HttpMethod.Post, $"{Base}/{ExpId}/contenedores/{cid}/embarcar", new { fecha = "2026-10-12" }, asignar.Headers.ETag!.Tag); embarcar.EnsureSuccessStatusCode();
+
+        // Sin salida, el pedido completo sigue bloqueado: solo se embarcó una parte.
+        var completo = await Emitir(e, c, p1);
+        Assert.Equal("FAC_PEDIDO_NO_EMBARCADO", (await Body(completo)).GetProperty("code").GetString());
+
+        string payload;
+        using (var scope = e.Scope())
+        {
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var fila = await scope.ServiceProvider.GetRequiredService<ComercioExteriorDbContext>().OutboxEntries.AsNoTracking()
+                .SingleAsync(x => x.EventType == ContenedorEmbarcadoEvent.Tipo);
+            payload = fila.Payload;
+            var ev = JsonSerializer.Deserialize<JsonElement>(payload);
+            Assert.Equal(cid, ev.GetProperty("ContenedorId").GetGuid());
+            Assert.Equal("DEMO-FAC08-C1", ev.GetProperty("NumeroContenedor").GetString());
+            var pedidoEv = ev.GetProperty("Pedidos").EnumerateArray().Single();
+            Assert.Equal((p1, "DEMO-PED-EXP-P1"), (pedidoEv.GetProperty("PedidoFacturableId").GetGuid(), pedidoEv.GetProperty("NumeroPedido").GetString()));
+            Assert.Equal(30m, pedidoEv.GetProperty("Lineas").EnumerateArray().Single().GetProperty("Cantidad").GetDecimal());
+        }
+
+        // Entrega a Facturación (C1.8) dos veces: una sola salida.
+        using (var scope = e.Scope())
+        {
+            Millet.SharedKernel.Application.Integration.ILocalIntegrationEventConsumer consumidor = new Millet.Facturacion.Infrastructure.Workers.ComercioExteriorEventListenerWorker(
+                null!, scope.ServiceProvider.GetRequiredService<IServiceScopeFactory>(),
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<Millet.Facturacion.Infrastructure.Workers.ComercioExteriorEventListenerWorker>.Instance);
+            await consumidor.ConsumirLocalAsync(ContenedorEmbarcadoEvent.Tipo, Guid.NewGuid(), payload, default);
+            await consumidor.ConsumirLocalAsync(ContenedorEmbarcadoEvent.Tipo, Guid.NewGuid(), payload, default);
+        }
+
+        Millet.Facturacion.Domain.Pedidos.SalidaFacturable salida;
+        using (var scope = e.Scope())
+        {
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            salida = await scope.ServiceProvider.GetRequiredService<FacturacionDbContext>().SalidasFacturables.AsNoTracking().Include(s => s.Lineas)
+                .SingleAsync(s => s.PedidoFacturableId == p1);
+        }
+        Assert.Equal((OrigenSalidaFacturable.ContenedorExportacion, "DEMO-FAC08-C1", (Guid?)cid, 30m),
+            (salida.Origen, salida.Referencia, salida.OrigenId, salida.Lineas.Single().Cantidad));
+
+        // La factura de la salida pasa la compuerta del contenedor embarcado aunque el pedido no esté al 100 %.
+        var comando = await Comando(e, p1);
+        var linea = comando.Lineas.Single() with { Cantidad = 30 };
+        comando = comando with
+        {
+            Lineas = [linea], SalidaFacturableId = salida.Id,
+            Cce = comando.Cce! with { Lineas = [comando.Cce.Lineas.Single() with { CantidadAduana = 30, ValorDolares = salida.Total }] },
+        };
+        var factura = await Enviar(c, HttpMethod.Post, "/api/v1/facturacion/facturas/", comando);
+        Assert.True(factura.IsSuccessStatusCode, await factura.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
     public async Task Aumento_version_bloquea_hasta_confirmar_partidas()
     {
         await using var e = await Escenario(); using var c = await e.ClienteAsync(true, facturacion: true);

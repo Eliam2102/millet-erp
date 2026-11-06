@@ -148,7 +148,12 @@ public sealed partial class Expediente
         if (tieneFactura) throw new ConflictException("CE_CONTENEDOR_CON_FACTURA", "El contenedor tiene partidas con factura vigente; no se puede quitar.");
         Contenedor(id).Cancelar(motivo); VersionarEmbarque(ResponsableUsuarioId); RevisionContenido++;
     }
-    public (string? Codigo, string? Motivo) BloqueoFacturacion(PedidoEmbarcable pedido, IReadOnlyCollection<Guid>? adjuntos = null)
+    /// <summary>
+    /// Compuerta de facturación del pedido. Con <paramref name="contenedorId"/> (FAC-08, factura de la salida de un
+    /// contenedor) basta con que ese contenedor esté embarcado y activo: la salida ya trae lo que lleva el contenedor,
+    /// así no se espera al 100 % del pedido para facturar cada contenedor.
+    /// </summary>
+    public (string? Codigo, string? Motivo) BloqueoFacturacion(PedidoEmbarcable pedido, IReadOnlyCollection<Guid>? adjuntos = null, Guid? contenedorId = null)
     {
         var partidas = _partidas.Where(p => p.PedidoFacturableId == pedido.Id && Activo(p)).ToArray();
         if (partidas.Any(p => p.EstadoActual(pedido.VersionOrigen) == EstadoPartida.RequiereRevision))
@@ -159,6 +164,13 @@ public sealed partial class Expediente
             return ("CE_PEDIMENTO_SIN_ADUANA", "Capture la aduana del pedimento de exportación en Comercio Exterior.");
         if (!pedido.EsExportacion || !_participantes.Any(p => p.ClienteId == pedido.ClienteId) || partidas.Any(p => p.ClienteId != pedido.ClienteId || pedido.Lineas.All(l => l.Posicion != p.Posicion)))
             return ("FAC_PEDIDO_NO_EMBARCADO", "El cliente o las posiciones del pedido ya no corresponden al expediente; revise la asignación.");
+        if (contenedorId is Guid id)
+        {
+            var c = _contenedores.SingleOrDefault(x => x.Id == id);
+            return c is not null && c.Estado == EstadoContenedor.Activo && c.FechaEmbarqueReal is not null && partidas.Any(p => p.ContenedorId == id)
+                ? (null, null)
+                : ("FAC_PEDIDO_NO_EMBARCADO", "El contenedor de la salida no está embarcado, se canceló o ya no lleva partidas de este pedido.");
+        }
         var faltas = pedido.Lineas.Select(l => new { Linea = l, Embarcado = partidas.Where(p => p.Posicion == l.Posicion && p.Unidad == l.Unidad && Contenedor(p.ContenedorId).FechaEmbarqueReal != null).Sum(p => p.Cantidad) })
             .Where(x => x.Embarcado != x.Linea.Cantidad).Select(x => $"posición {x.Linea.Posicion}: embarcado {x.Embarcado} de {x.Linea.Cantidad} {x.Linea.Unidad}").ToArray();
         if (faltas.Length > 0 || pedido.Lineas.Count == 0)
