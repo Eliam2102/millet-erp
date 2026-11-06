@@ -206,6 +206,8 @@ Borrador → Validada → Registrada (firme) → [Conciliada con factura, solo v
 
 ### 5.6 Reglas de validación
 
+- **Destino de consumibles y refacciones sin A+W (acuerdo con Jorge, 28-oct):** se reciben en la ÚNICA (almacén general) sin asignación a rack, sean nuevos o tengan existencia previa. Si se elige un rack, sigue exigiéndose asignación activa. MAT-REV no admite entradas a su ÚNICA. Los servicios no son inventariables y no se asignan a ubicaciones ni se reciben como mercancía. Se retira el bloqueo de artículos nuevos agregado en la parte 2 del PR #440; se conserva la parte 1 (solo inventariables).
+
 - **OC obligatoria.** Toda recepción debe referenciar una OC en estado válido (no draft, no cancelada). Materiales no codificados o llegadas sin OC se rechazan; quedan en bandeja "pendiente OC" sin afectar inventario hasta que Compras genere la OC retroactiva.
 - **Recepción parcial permitida** por línea de OC. La OC se cierra automáticamente cuando todas las líneas alcanzan su cantidad solicitada (sin tolerancia de cantidad — ver §10.7).
 - **Sobrecantidad y faltante:** se permite recibir exacto lo pendiente o menos (recepción parcial); nunca más que lo pendiente de la línea (422 `RECEPCION_EXCEDE_PENDIENTE`). No hay tolerancia de cantidad ni autorización para exceder.
