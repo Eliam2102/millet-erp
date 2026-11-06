@@ -271,6 +271,33 @@ public class AwRetornoPgTests(WebApplicationFactory<Program> factory)
         (await FilasAsync("900101")).Should().HaveCount(5);
     }
 
+    // TR-01 «destino que no existe → pendiente, no enviado»: si A+W no encuentra el pedido, la fila no cuenta como aplicada,
+    // sigue visible, TI la reintenta y la reentrega del evento no la duplica; con 3 intentos queda detenida para una persona.
+    [Fact]
+    public async Task Un_destino_que_no_existe_queda_pendiente_visible_y_sin_duplicar()
+    {
+        var adapter = Adapter();
+        await adapter.AgregarDocumentoAsync(Doc("999999", "UUID-X", version: 1, importe: 580m, folio: "F-X"), default);
+
+        // Recién escrita: pendiente (sin resultado), nunca «aplicada».
+        (await FilasAsync("999999")).Should().Equal("1|3|1|FacturaFinal|F-X|UUID-X|580.00|-|0");
+
+        // TI no encuentra el pedido y rechaza (intento 1): sigue sin estar aplicada; el ERP ni la da por enviada ni la reescribe.
+        await EjecutarAsync("UPDATE dbo.aw_retorno SET resultado = 2, motivo = 'El pedido 999999 no existe en A+W', intentos = 1");
+        (await FilasAsync("999999")).Should().Equal("1|3|1|FacturaFinal|F-X|UUID-X|580.00|2|1");
+        (await adapter.AgregarDocumentoAsync(Doc("999999", "UUID-X", version: 1), default)).Should().BeNull();
+        (await adapter.LeerAcusesPorAtenderAsync(default)).Should().BeEmpty();   // TI aún reintenta
+        (await Servicio().ConciliarAcusesAsync(default)).Should().Be(new AwRetornoConciliacion(0, 0, 0));
+        (await FilasAsync("999999")).Should().HaveCount(1);
+
+        // Tercer rechazo: queda visible como detenida y se reporta; nada se reemplaza ni se marca como enviada.
+        await EjecutarAsync("UPDATE dbo.aw_retorno SET intentos = 3");
+        var acuse = (await adapter.LeerAcusesPorAtenderAsync(default)).Should().ContainSingle().Subject;
+        (acuse.Resultado, acuse.Detenida, acuse.Motivo).Should().Be(((byte?)2, true, "El pedido 999999 no existe en A+W"));
+        (await Servicio().ConciliarAcusesAsync(default)).Detenidas.Should().Be(1);
+        (await FilasAsync("999999")).Should().Equal("1|3|1|FacturaFinal|F-X|UUID-X|580.00|2|3");
+    }
+
     // ===== Criterio 4: escritor viejo apagado =====
     [Fact]
     public async Task El_write_back_por_pedido_del_adapter_viejo_ya_no_escribe_nada()
