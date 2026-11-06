@@ -100,14 +100,19 @@ public sealed class EmitirFacturaVentaHandler
         EmitirFacturaVentaCommand command,
         CancellationToken cancellationToken)
     {
+        // FAC-08 Fase 1: la factura de la salida de un contenedor se compuerta con ese contenedor, no con el 100 % del pedido.
+        var contenedorId = command.SalidaFacturableId is Guid salidaCe && _embarques is not null
+            ? await _db.SalidasFacturables.Where(s => s.Id == salidaCe && s.Origen == OrigenSalidaFacturable.ContenedorExportacion)
+                .Select(s => s.OrigenId).FirstOrDefaultAsync(cancellationToken)
+            : null;
         var embarque = command.PedidoFacturableId is Guid id && _embarques is not null
-            ? await _embarques.ObtenerAsync(id, cancellationToken) : null;
+            ? await _embarques.ObtenerAsync(id, contenedorId, cancellationToken) : null;
         if (embarque?.Ligado == true)
         {
             EmitirFacturaVentaResponse? resultado = null;
             await PedidoEmbarqueLock.ExecuteAsync(_db, [command.PedidoFacturableId!.Value], async ct =>
             {
-                var actual = await _embarques!.ObtenerAsync(command.PedidoFacturableId.Value, ct);
+                var actual = await _embarques!.ObtenerAsync(command.PedidoFacturableId.Value, contenedorId, ct);
                 resultado = await EmitirAsync(command, actual, ct);
             }, cancellationToken);
             return resultado!;
@@ -477,7 +482,7 @@ public sealed class EmitirFacturaVentaHandler
     {
         if (command.SalidaFacturableId is not Guid salidaId)
         {
-            if (pedido is not null && await _db.SalidasFacturables.AnyAsync(s => s.PedidoFacturableId == pedido.Id, cancellationToken))
+            if (pedido is not null && await _db.SalidasFacturables.AnyAsync(s => s.PedidoFacturableId == pedido.Id && s.DescartadaEn == null, cancellationToken))
                 throw new BusinessRuleException("PEDIDO_CON_SALIDAS",
                     "El pedido ya se factura por salidas parciales; factura la salida pendiente.");
             return null;
@@ -488,6 +493,9 @@ public sealed class EmitirFacturaVentaHandler
         var salida = await _db.SalidasFacturables.Include(s => s.Lineas)
             .FirstOrDefaultAsync(s => s.Id == salidaId && s.PedidoFacturableId == pedido.Id, cancellationToken)
             ?? throw new EntityNotFoundException("SALIDA_NO_ENCONTRADA", $"El pedido no tiene la salida {salidaId}.");
+        if (salida.Descartada)
+            throw new BusinessRuleException("SALIDA_DESCARTADA",
+                $"La parcialidad {salida.NumeroParcialidad} se descartó ({salida.MotivoDescarte}); no se factura.");
 
         if (await _db.FacturasVenta.AnyAsync(f => f.SalidaFacturableId == salidaId
                 && f.Estado != EstadoTimbrado.Cancelado && f.Estado != EstadoTimbrado.Descartada, cancellationToken))

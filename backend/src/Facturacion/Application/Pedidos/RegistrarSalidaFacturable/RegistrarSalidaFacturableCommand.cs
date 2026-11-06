@@ -6,14 +6,16 @@ namespace Millet.Facturacion.Application.Pedidos.RegistrarSalidaFacturable;
 /// <summary>
 /// FAC-08: registra una salida parcial de un pedido para facturarla por separado. El pedido
 /// se identifica por id o, si viene de A+W, por su número. Idempotente por origen +
-/// referencia: reenviar la misma salida regresa la ya registrada sin cambiar importes.
+/// referencia: reenviar la misma salida regresa la ya registrada sin cambiar importes. Con
+/// <c>OrigenId</c> (id del contenedor de CE) la idempotencia es por origen + documento + pedido.
 /// </summary>
 public sealed record RegistrarSalidaFacturableCommand(
     Guid? PedidoFacturableId,
     string? NumeroPedidoAw,
     OrigenSalidaFacturable Origen,
     string Referencia,
-    IReadOnlyList<SalidaFacturableLineaDto> Lineas) : IRequest<SalidaFacturableResponse>;
+    IReadOnlyList<SalidaFacturableLineaDto> Lineas,
+    Guid? OrigenId = null) : IRequest<SalidaFacturableResponse>;
 
 public sealed record SalidaFacturableLineaDto(int Posicion, decimal Cantidad);
 

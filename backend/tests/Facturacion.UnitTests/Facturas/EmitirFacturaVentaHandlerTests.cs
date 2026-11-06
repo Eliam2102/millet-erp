@@ -189,7 +189,7 @@ public sealed class EmitirFacturaVentaHandlerTests
 
     private sealed class Embarques(EmbarqueExportacionLectura lectura) : IEmbarqueExportacionReadPort
     {
-        public Task<EmbarqueExportacionLectura> ObtenerAsync(Guid pedidoFacturableId, CancellationToken ct) => Task.FromResult(lectura);
+        public Task<EmbarqueExportacionLectura> ObtenerAsync(Guid pedidoFacturableId, Guid? contenedorId, CancellationToken ct) => Task.FromResult(lectura);
     }
     private static PedidoFacturable CrearPedido(FacturacionDbContext db, Guid empresaId, Guid sucursal, ComportamientoFiscal comportamiento = ComportamientoFiscal.ExportacionConCce)
     {

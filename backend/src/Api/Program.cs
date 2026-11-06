@@ -326,6 +326,10 @@ if (!string.IsNullOrWhiteSpace(outboxConnString))
     // (Bicep en el mismo PR; deploy de infra manual con what-if).
     builder.Services.AddHostedService<Millet.Facturacion.Infrastructure.Workers.TesoreriaEventListenerWorker>();
 
+    // FAC-08 Fase 1: contenedor embarcado/cancelado en Comercio Exterior → salidas facturables por pedido.
+    // Subscription `facturacion-ce-sub` en `comercio-exterior-events` (Bicep en el mismo PR; deploy manual con what-if).
+    builder.Services.AddHostedService<Millet.Facturacion.Infrastructure.Workers.ComercioExteriorEventListenerWorker>();
+
     // TR-01: factura timbrada → fila Documento de aw_retorno. Subscription
     // `integraciones-aw-subscription` en `facturacion-events` (Bicep en el mismo PR).
     builder.Services.AddHostedService<Millet.Integraciones.Aw.Infrastructure.Retorno.FacturacionRetornoListenerWorker>();
