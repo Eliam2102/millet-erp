@@ -12,6 +12,8 @@
     <ProjectReference Include="..\SharedKernel\Millet.SharedKernel.csproj" />
     <ProjectReference Include="..\Compartido\Millet.Compartido.csproj" />
     <ProjectReference Include="..\Identidad\Millet.Identidad.csproj" />
+    <!-- F1-CON-09: hospeda el adaptador del puerto de cartera al corte de la conciliación de auxiliares de Contabilidad. -->
+    <ProjectReference Include="..\Contabilidad\Millet.Contabilidad.csproj" />
   </ItemGroup>
 
   <ItemGroup>

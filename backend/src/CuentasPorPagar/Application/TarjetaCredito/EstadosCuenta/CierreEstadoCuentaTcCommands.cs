@@ -127,12 +127,13 @@ public sealed class CapturarMovimientoDesdeLineaHandler
     private readonly ICurrentEmpresaContext _currentEmpresa;
     private readonly IIntegrationEventPublisher _events;
     private readonly IClock _clock;
+    private readonly IEmpleadoReadPort? _empleados;
 
     public CapturarMovimientoDesdeLineaHandler(
         CuentasPorPagarDbContext db, ICurrentEmpresaContext currentEmpresa,
-        IIntegrationEventPublisher events, IClock clock)
+        IIntegrationEventPublisher events, IClock clock, IEmpleadoReadPort? empleados = null)
     {
-        _db = db; _currentEmpresa = currentEmpresa; _events = events; _clock = clock;
+        _db = db; _currentEmpresa = currentEmpresa; _events = events; _clock = clock; _empleados = empleados;
     }
 
     public async Task<EstadoCuentaTcResponse> Handle(
@@ -197,7 +198,8 @@ public sealed class CapturarMovimientoDesdeLineaHandler
         ec.ActualizarTotalConciliado(totalConciliado);
 
         await _events.PublishAsync(Movimientos.RegistrarMovimientoTcSinCfdiHandler.GastoSinCfdi(
-            mov, _clock.UtcNow, GastoRegistradoIntegrationEvent.OrigenEstadoCuenta), cancellationToken);
+            mov, _clock.UtcNow, GastoRegistradoIntegrationEvent.OrigenEstadoCuenta,
+            await SucursalEmpleado.DeAsync(_empleados, mov.UsuarioQueUsoId, cancellationToken)), cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
         return CrearEstadoCuentaTcHandler.ToResponse(ec);
     }
@@ -437,12 +439,13 @@ public sealed class CerrarEstadoCuentaTcHandler
     private readonly ICurrentUserContext _currentUser;
     private readonly IMediator _mediator;
     private readonly IClock _clock;
+    private readonly IEmpleadoReadPort? _empleados;
 
     public CerrarEstadoCuentaTcHandler(
         CuentasPorPagarDbContext db, ICurrentUserContext currentUser,
-        IMediator mediator, IClock clock)
+        IMediator mediator, IClock clock, IEmpleadoReadPort? empleados = null)
     {
-        _db = db; _currentUser = currentUser; _mediator = mediator; _clock = clock;
+        _db = db; _currentUser = currentUser; _mediator = mediator; _clock = clock; _empleados = empleados;
     }
 
     public async Task<CerrarEstadoCuentaTcResponse> Handle(
@@ -510,7 +513,10 @@ public sealed class CerrarEstadoCuentaTcHandler
             TotalBancoMxn: totalFactura,
             FacturaProveedorId: factura.Id,
             DiferenciaCambiariaMxn: ec.DiferenciaCambiariaMxn,
-            OcurridoEn: ahora), cancellationToken);
+            OcurridoEn: ahora,
+            // C1.5b: banco emisor (auxiliar de proveedores en la póliza) y sucursal del titular de la tarjeta.
+            BancoProveedorId: tarjeta.BancoProveedorId,
+            SucursalId: await SucursalEmpleado.DeAsync(_empleados, tarjeta.TitularId, cancellationToken)), cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
 

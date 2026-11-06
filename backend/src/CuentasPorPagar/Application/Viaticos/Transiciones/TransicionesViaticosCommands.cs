@@ -31,6 +31,7 @@ internal static class PrestamoViaticos
         IIntegrationEventPublisher events,
         SolicitudViaticos s,
         DateTimeOffset ahora,
+        Guid? sucursalId,
         CancellationToken cancellationToken)
         => events.PublishAsync(new PasivoAutorizadoParaPagoIntegrationEvent(
             EmpresaId: s.EmpresaId,
@@ -49,7 +50,8 @@ internal static class PrestamoViaticos
             TipoBeneficiario: PasivoAutorizadoParaPagoIntegrationEvent.BeneficiarioEmpleado,
             BeneficiarioId: s.EmpleadoId,
             OrigenTipo: PasivoAutorizadoParaPagoIntegrationEvent.OrigenPrestamoViaticos,
-            OrigenId: s.Id), cancellationToken);
+            OrigenId: s.Id,
+            SucursalId: sucursalId), cancellationToken);
 }
 
 // ------------------------------------------------------ AutorizarPorJefe
@@ -116,7 +118,8 @@ public sealed class AutorizarPorJefeViaticosHandler
         // lo emite la firma de DF.
         if (s.Estado == EstadoSolicitudViaticos.AutorizadaPorJefe)
         {
-            await PrestamoViaticos.PublicarPasivoAsync(_events, s, ahora, cancellationToken);
+            await PrestamoViaticos.PublicarPasivoAsync(_events, s, ahora,
+            await SucursalEmpleado.DeAsync(_empleados, s.EmpleadoId, cancellationToken), cancellationToken);
         }
 
         await _db.SaveChangesAsync(cancellationToken);
@@ -192,7 +195,8 @@ public sealed class AutorizarPorDfViaticosHandler
 
         // GI-PR1 (doc 12 §D3-ida): autorización completa — pasivo interno
         // del préstamo hacia Tesorería.
-        await PrestamoViaticos.PublicarPasivoAsync(_events, s, ahora, cancellationToken);
+        await PrestamoViaticos.PublicarPasivoAsync(_events, s, ahora,
+            await SucursalEmpleado.DeAsync(_empleados, s.EmpleadoId, cancellationToken), cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
         return new TransicionViaticosResponse(s.Id, s.Estado, s.Version);

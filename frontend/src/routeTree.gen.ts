@@ -130,6 +130,7 @@ import { Route as AppContabilidadPolizasSaldosRouteImport } from './routes/_app/
 import { Route as AppContabilidadReportesAuxiliarRouteImport } from './routes/_app/contabilidad/reportes.auxiliar';
 import { Route as AppContabilidadReportesBalanzaRouteImport } from './routes/_app/contabilidad/reportes.balanza';
 import { Route as AppContabilidadReportesCuentaPuenteRouteImport } from './routes/_app/contabilidad/reportes.cuenta-puente';
+import { Route as AppContabilidadReportesConciliacionAuxiliaresRouteImport } from './routes/_app/contabilidad/reportes.conciliacion-auxiliares';
 import { Route as AppContabilidadReportesDiarioRouteImport } from './routes/_app/contabilidad/reportes.diario';
 import { Route as AppContabilidadReportesMayorRouteImport } from './routes/_app/contabilidad/reportes.mayor';
 import { Route as AppCxcAlertasIndexRouteImport } from './routes/_app/cxc/alertas/index';
@@ -904,6 +905,12 @@ const AppContabilidadReportesCuentaPuenteRoute =
     path: '/contabilidad/reportes/cuenta-puente',
     getParentRoute: () => AppRoute,
   } as any);
+const AppContabilidadReportesConciliacionAuxiliaresRoute =
+  AppContabilidadReportesConciliacionAuxiliaresRouteImport.update({
+    id: '/contabilidad/reportes/conciliacion-auxiliares',
+    path: '/contabilidad/reportes/conciliacion-auxiliares',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppContabilidadReportesDiarioRoute =
   AppContabilidadReportesDiarioRouteImport.update({
     id: '/contabilidad/reportes/diario',
@@ -1655,6 +1662,7 @@ export interface FileRoutesByFullPath {
   '/contabilidad/reportes/auxiliar': typeof AppContabilidadReportesAuxiliarRoute;
   '/contabilidad/reportes/balanza': typeof AppContabilidadReportesBalanzaRoute;
   '/contabilidad/reportes/cuenta-puente': typeof AppContabilidadReportesCuentaPuenteRoute;
+  '/contabilidad/reportes/conciliacion-auxiliares': typeof AppContabilidadReportesConciliacionAuxiliaresRoute;
   '/contabilidad/reportes/diario': typeof AppContabilidadReportesDiarioRoute;
   '/contabilidad/reportes/mayor': typeof AppContabilidadReportesMayorRoute;
   '/cxc/aplicaciones/$id': typeof AppCxcAplicacionesIdRoute;
@@ -1892,6 +1900,7 @@ export interface FileRoutesByTo {
   '/contabilidad/reportes/auxiliar': typeof AppContabilidadReportesAuxiliarRoute;
   '/contabilidad/reportes/balanza': typeof AppContabilidadReportesBalanzaRoute;
   '/contabilidad/reportes/cuenta-puente': typeof AppContabilidadReportesCuentaPuenteRoute;
+  '/contabilidad/reportes/conciliacion-auxiliares': typeof AppContabilidadReportesConciliacionAuxiliaresRoute;
   '/contabilidad/reportes/diario': typeof AppContabilidadReportesDiarioRoute;
   '/contabilidad/reportes/mayor': typeof AppContabilidadReportesMayorRoute;
   '/cxc/aplicaciones/$id': typeof AppCxcAplicacionesIdRoute;
@@ -2131,6 +2140,7 @@ export interface FileRoutesById {
   '/_app/contabilidad/reportes/auxiliar': typeof AppContabilidadReportesAuxiliarRoute;
   '/_app/contabilidad/reportes/balanza': typeof AppContabilidadReportesBalanzaRoute;
   '/_app/contabilidad/reportes/cuenta-puente': typeof AppContabilidadReportesCuentaPuenteRoute;
+  '/_app/contabilidad/reportes/conciliacion-auxiliares': typeof AppContabilidadReportesConciliacionAuxiliaresRoute;
   '/_app/contabilidad/reportes/diario': typeof AppContabilidadReportesDiarioRoute;
   '/_app/contabilidad/reportes/mayor': typeof AppContabilidadReportesMayorRoute;
   '/_app/cxc/aplicaciones/$id': typeof AppCxcAplicacionesIdRoute;
@@ -2370,6 +2380,7 @@ export interface FileRouteTypes {
     | '/contabilidad/reportes/auxiliar'
     | '/contabilidad/reportes/balanza'
     | '/contabilidad/reportes/cuenta-puente'
+    | '/contabilidad/reportes/conciliacion-auxiliares'
     | '/contabilidad/reportes/diario'
     | '/contabilidad/reportes/mayor'
     | '/cxc/aplicaciones/$id'
@@ -2607,6 +2618,7 @@ export interface FileRouteTypes {
     | '/contabilidad/reportes/auxiliar'
     | '/contabilidad/reportes/balanza'
     | '/contabilidad/reportes/cuenta-puente'
+    | '/contabilidad/reportes/conciliacion-auxiliares'
     | '/contabilidad/reportes/diario'
     | '/contabilidad/reportes/mayor'
     | '/cxc/aplicaciones/$id'
@@ -2845,6 +2857,7 @@ export interface FileRouteTypes {
     | '/_app/contabilidad/reportes/auxiliar'
     | '/_app/contabilidad/reportes/balanza'
     | '/_app/contabilidad/reportes/cuenta-puente'
+    | '/_app/contabilidad/reportes/conciliacion-auxiliares'
     | '/_app/contabilidad/reportes/diario'
     | '/_app/contabilidad/reportes/mayor'
     | '/_app/cxc/aplicaciones/$id'
@@ -3841,6 +3854,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppContabilidadReportesCuentaPuenteRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/contabilidad/reportes/conciliacion-auxiliares': {
+      id: '/_app/contabilidad/reportes/conciliacion-auxiliares';
+      path: '/contabilidad/reportes/conciliacion-auxiliares';
+      fullPath: '/contabilidad/reportes/conciliacion-auxiliares';
+      preLoaderRoute: typeof AppContabilidadReportesConciliacionAuxiliaresRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/contabilidad/reportes/diario': {
       id: '/_app/contabilidad/reportes/diario';
       path: '/contabilidad/reportes/diario';
@@ -4761,6 +4781,7 @@ interface AppRouteChildren {
   AppContabilidadReportesAuxiliarRoute: typeof AppContabilidadReportesAuxiliarRoute;
   AppContabilidadReportesBalanzaRoute: typeof AppContabilidadReportesBalanzaRoute;
   AppContabilidadReportesCuentaPuenteRoute: typeof AppContabilidadReportesCuentaPuenteRoute;
+  AppContabilidadReportesConciliacionAuxiliaresRoute: typeof AppContabilidadReportesConciliacionAuxiliaresRoute;
   AppContabilidadReportesDiarioRoute: typeof AppContabilidadReportesDiarioRoute;
   AppContabilidadReportesMayorRoute: typeof AppContabilidadReportesMayorRoute;
   AppCxcAplicacionesIdRoute: typeof AppCxcAplicacionesIdRoute;
@@ -5004,6 +5025,8 @@ const AppRouteChildren: AppRouteChildren = {
     AppContabilidadReportesBalanzaRoute,
   AppContabilidadReportesCuentaPuenteRoute:
     AppContabilidadReportesCuentaPuenteRoute,
+  AppContabilidadReportesConciliacionAuxiliaresRoute:
+    AppContabilidadReportesConciliacionAuxiliaresRoute,
   AppContabilidadReportesDiarioRoute:
     AppContabilidadReportesDiarioRoute,
   AppContabilidadReportesMayorRoute:

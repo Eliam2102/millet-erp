@@ -198,7 +198,8 @@ public sealed class LiberarComprobacionViaticosHandler
                 ClasificacionNoDeducible: l.ClasificacionNoDeducible,
                 Subtotal: l.Subtotal, IvaTrasladado: l.ImpuestosTrasladados,
                 IvaNoAcreditable: GastoRegistradoIntegrationEvent.IvaNoAcred(l.ClasificacionNoDeducible, l.ImpuestosTrasladados),
-                Total: l.Total, Moneda: l.Moneda, ConceptoContable: l.Concepto), cancellationToken);
+                Total: l.Total, Moneda: l.Moneda, ConceptoContable: l.Concepto,
+                SucursalId: sucursalId == Guid.Empty ? null : sucursalId), cancellationToken);
         }
 
         // GI-PR4 (doc 12 §D4/Q3): la diferencia de liquidación cruza a
@@ -227,7 +228,8 @@ public sealed class LiberarComprobacionViaticosHandler
                 TipoBeneficiario: PasivoAutorizadoParaPagoIntegrationEvent.BeneficiarioEmpleado,
                 BeneficiarioId: s.EmpleadoId,
                 OrigenTipo: PasivoAutorizadoParaPagoIntegrationEvent.OrigenLiquidacionViaticos,
-                OrigenId: DerivarIdLiquidacion(s.Id)), cancellationToken);
+                OrigenId: DerivarIdLiquidacion(s.Id),
+                SucursalId: sucursalId == Guid.Empty ? null : sucursalId), cancellationToken);
         }
         else if (diferencia < 0)
         {
