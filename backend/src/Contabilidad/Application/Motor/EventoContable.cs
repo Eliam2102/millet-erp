@@ -54,7 +54,8 @@ public static partial class NormalizadorEventos
                 : tipo == CostoImportacionAplicado ? CostoImportacion(eventoId, payload)
                 : tipo == FacturaProveedorRegistrada ? FacturaProveedor(eventoId, payload)
                 : NormalizarC15(tipo, eventoId, payload) ?? NormalizarC15b(tipo, eventoId, payload)
-                    ?? NormalizarPcv(tipo, eventoId, payload) ?? Generico(tipo, eventoId, payload);
+                    ?? NormalizarPcv(tipo, eventoId, payload) ?? NormalizarTerminal(tipo, eventoId, payload)
+                    ?? Generico(tipo, eventoId, payload);
         }
         catch (JsonException e)
         {
