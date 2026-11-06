@@ -1127,6 +1127,16 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Contabilidad.Application.Ports.ICuentaBancariaContabilidadPort,
     Millet.Tesoreria.Infrastructure.PublicAdapters.CuentaBancariaContabilidadAdapter>();
+// F1-CON-09: conciliación de auxiliares. Cada auxiliar al corte lo lee su dueño (CxP, CxC, Tesorería).
+builder.Services.AddScoped<
+    Millet.Contabilidad.Application.ConciliacionAuxiliares.IAuxiliarProveedoresReadPort,
+    Millet.CuentasPorPagar.Infrastructure.PublicAdapters.AuxiliarProveedoresContabilidadAdapter>();
+builder.Services.AddScoped<
+    Millet.Contabilidad.Application.ConciliacionAuxiliares.ISaldoCarteraAlCorteReadPort,
+    Millet.CuentasPorCobrar.Infrastructure.PublicAdapters.SaldoCarteraContabilidadAdapter>();
+builder.Services.AddScoped<
+    Millet.Contabilidad.Application.ConciliacionAuxiliares.ISaldosBancariosAlCorteReadPort,
+    Millet.Tesoreria.Infrastructure.PublicAdapters.SaldosBancariosContabilidadAdapter>();
 // F1-ALM-13: grupo del artículo para la cuenta de inventario por tipo (rol INVENTARIO_{grupo}).
 builder.Services.AddScoped<
     Millet.Contabilidad.Application.Ports.IArticuloContabilidadPort,
@@ -1721,6 +1731,7 @@ Millet.Api.Endpoints.Contabilidad.ContabilidadRecurrentesEndpoints.MapContabilid
 Millet.Api.Endpoints.Contabilidad.ContabilidadMotorEndpoints.MapContabilidadMotorEndpoints(app, app.Environment);
 // === Contabilidad — conciliación de la cuenta puente recepción–factura por OC (K10.5) ===
 Millet.Api.Endpoints.Contabilidad.ContabilidadCuentaPuenteEndpoints.MapContabilidadCuentaPuenteEndpoints(app);
+Millet.Api.Endpoints.Contabilidad.ContabilidadConciliacionAuxiliaresEndpoints.MapContabilidadConciliacionAuxiliaresEndpoints(app);
 Millet.Api.Endpoints.Contabilidad.ContabilidadReportesEndpoints.MapContabilidadReportesEndpoints(app);
 
 // === Almacén — CRUD asignación artículo→ubicación (OITW, ADR-0047 PR3) ===

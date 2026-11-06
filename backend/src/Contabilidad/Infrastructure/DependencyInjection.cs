@@ -31,6 +31,10 @@ public static class DependencyInjection
         // CXC-06: pólizas de cobro para la conciliación de cartera de CxC.
         services.AddScoped<ICobrosContabilizadosReadPort, CobrosContabilizadosReadAdapter>();
         services.AddScoped<IRolCuentaSaldoReadPort, RolCuentaSaldoReadAdapter>();
+        // F1-CON-09: conciliación de auxiliares contra cuentas de control. Los puertos de auxiliar los hospedan CxP, CxC y Tesorería.
+        services.AddScoped<Millet.Contabilidad.Application.ConciliacionAuxiliares.CalculadoraConciliacionAuxiliares>();
+        services.AddScoped<IConciliacionAuxiliaresResumenReadPort,
+            Millet.Contabilidad.Application.ConciliacionAuxiliares.ConciliacionAuxiliaresResumenAdapter>();
 
         // F1-CON-02: reglas de dimensión. Los puertos ICentroCostoContabilidadPort e ISucursalContabilidadPort los
         // implementan sus dueños (CentrosCosto, Compartido) y se cablean en Program.cs.
