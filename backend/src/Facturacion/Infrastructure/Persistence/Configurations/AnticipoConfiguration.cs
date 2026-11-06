@@ -44,6 +44,13 @@ public sealed class AnticipoConfiguration : IEntityTypeConfiguration<Anticipo>
             .HasForeignKey(v => v.AnticipoId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        // U-4: apartados liberados a mano (constancia inmutable).
+        builder.HasMany(e => e.Liberaciones)
+            .WithOne()
+            .HasForeignKey(l => l.AnticipoId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(e => e.Liberaciones).UsePropertyAccessMode(PropertyAccessMode.Field);
+
         builder.HasIndex(e => e.FacturaAnticipoId)
             .IsUnique()
             .HasDatabaseName("ix_anticipo_factura_anticipo");

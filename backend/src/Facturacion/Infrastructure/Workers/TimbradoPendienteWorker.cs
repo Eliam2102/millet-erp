@@ -100,6 +100,9 @@ public sealed class TimbradoPendienteWorker : BackgroundService
                 "PAC_TIMEOUT",
                 $"Sin confirmación del PAC después de {opts.UmbralMinutos} min. ANTES de re-emitir, " +
                 $"verificar en FiscalAPI si existe un timbre con el folio {comprobante.Folio} (runbook F12).");
+            await Millet.Facturacion.Application.Timbrado.Contingencias.ContingenciasTimbrado.AplicarIntentoAsync(
+                db, comprobante, comprobante.TimbradoErrorCodigo, comprobante.TimbradoErrorMensaje,
+                timbrado: false, clock.UtcNow, cancellationToken);
             if (comprobante is Millet.Facturacion.Domain.Repp.ReciboPago repp)
             {
                 var pendiente = await db.ReppPendientes.SingleOrDefaultAsync(p => p.IntentoReciboPagoId == repp.Id, cancellationToken);
