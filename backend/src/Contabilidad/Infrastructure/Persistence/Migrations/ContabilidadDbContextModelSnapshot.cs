@@ -2139,6 +2139,12 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("poliza_id");
 
+                    b.Property<bool>("RetencionAlPago")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("retencion_al_pago");
+
                     b.Property<Guid?>("SucursalId")
                         .HasColumnType("uuid")
                         .HasColumnName("sucursal_id");
@@ -2683,6 +2689,8 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
 
                             b1.Property<string>("Concepto");
 
+                            b1.Property<string>("Grupo");
+
                             b1.Property<string>("Lado")
                                 .IsRequired();
 
@@ -2808,6 +2816,36 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_reclasificaciones_iva_saldos_iva_documento_saldo_iva_docume");
+
+                    b.OwnsMany("Millet.Contabilidad.Domain.RetencionAplicadaIva", "Retenciones", b1 =>
+                        {
+                            b1.Property<Guid>("ReclasificacionIvaId");
+
+                            b1.Property<int>("__synthesizedOrdinal")
+                                .ValueGeneratedOnAdd();
+
+                            b1.Property<string>("Clasificador")
+                                .IsRequired();
+
+                            b1.Property<decimal>("Importe");
+
+                            b1.Property<decimal>("ImporteMxn");
+
+                            b1.HasKey("ReclasificacionIvaId", "__synthesizedOrdinal")
+                                .HasName("pk_reclasificaciones_iva");
+
+                            b1.ToTable("reclasificaciones_iva", "contabilidad");
+
+                            b1
+                                .ToJson("retenciones")
+                                .HasColumnType("jsonb");
+
+                            b1.WithOwner()
+                                .HasForeignKey("ReclasificacionIvaId")
+                                .HasConstraintName("fk_reclasificaciones_iva_reclasificaciones_iva_reclasificacion");
+                        });
+
+                    b.Navigation("Retenciones");
                 });
 
             modelBuilder.Entity("Millet.Contabilidad.Domain.ReglaDimension", b =>
@@ -2853,6 +2891,39 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_roles_cuenta_cambios_roles_cuenta_rol_cuenta_id");
+                });
+
+            modelBuilder.Entity("Millet.Contabilidad.Domain.SaldoIvaDocumento", b =>
+                {
+                    b.OwnsMany("Millet.Contabilidad.Domain.RetencionSaldoIva", "Retenciones", b1 =>
+                        {
+                            b1.Property<Guid>("SaldoIvaDocumentoId");
+
+                            b1.Property<int>("__synthesizedOrdinal")
+                                .ValueGeneratedOnAdd();
+
+                            b1.Property<decimal>("Aplicado");
+
+                            b1.Property<string>("Clasificador")
+                                .IsRequired();
+
+                            b1.Property<decimal>("Importe");
+
+                            b1.HasKey("SaldoIvaDocumentoId", "__synthesizedOrdinal")
+                                .HasName("pk_saldos_iva_documento");
+
+                            b1.ToTable("saldos_iva_documento", "contabilidad");
+
+                            b1
+                                .ToJson("retenciones")
+                                .HasColumnType("jsonb");
+
+                            b1.WithOwner()
+                                .HasForeignKey("SaldoIvaDocumentoId")
+                                .HasConstraintName("fk_saldos_iva_documento_saldos_iva_documento_saldo_iva_documento");
+                        });
+
+                    b.Navigation("Retenciones");
                 });
 
             modelBuilder.Entity("Millet.Contabilidad.Domain.Poliza", b =>

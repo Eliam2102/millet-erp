@@ -36,9 +36,19 @@ public sealed class RetencionConcepto : BaseEntity, IAuditable
 
 public static class ComparadorRetenciones
 {
-    public static IReadOnlyList<RetencionCfdi> Proponer(decimal baseNeta, IEnumerable<RetencionConcepto> reglas) =>
-        reglas.Where(r => r.Activa).Select(r => new RetencionCfdi(r.Impuesto, r.Tasa,
-            decimal.Round(baseNeta * r.Tasa, 2, MidpointRounding.AwayFromZero))).ToArray();
+    /// <summary>
+    /// Retenciones esperadas del concepto. 86e3zcbjw: la retención es por línea; si el CFDI dice sobre qué base retuvo cada impuesto y
+    /// tasa (<paramref name="detalle"/> con <c>Base</c>), se espera sobre esa base y no sobre toda la factura.
+    /// </summary>
+    public static IReadOnlyList<RetencionCfdi> Proponer(decimal baseNeta, IEnumerable<RetencionConcepto> reglas,
+        IReadOnlyList<RetencionCfdi>? detalle = null) =>
+        reglas.Where(r => r.Activa).Select(r =>
+        {
+            var @base = detalle?.Where(d => d.Base is not null && d.Impuesto == r.Impuesto
+                    && (d.Tasa is null || Math.Abs(d.Tasa.Value - r.Tasa) <= 0.000001m))
+                .Select(d => d.Base).FirstOrDefault() ?? baseNeta;
+            return new RetencionCfdi(r.Impuesto, r.Tasa, decimal.Round(@base * r.Tasa, 2, MidpointRounding.AwayFromZero), @base);
+        }).ToArray();
 
     /// <summary>Concepto para proveedores sin retención (compra de bienes): espera cero retenciones.</summary>
     public const string ConceptoSinRetencion = "SIN_RETENCION";
@@ -54,7 +64,7 @@ public static class ComparadorRetenciones
         if (string.IsNullOrWhiteSpace(concepto) && total <= 0.01m && detalle?.Any(r => r.Importe > 0.01m) != true) return null;
         if (string.IsNullOrWhiteSpace(concepto)) return "Por confirmar: selecciona el concepto fiscal para comparar retenciones. " + RetencionConcepto.AvisoFiscal + ".";
         if (reglas.Count == 0) return "Por confirmar: no hay retenciones activas para este concepto. " + RetencionConcepto.AvisoFiscal + ".";
-        var esperado = Proponer(baseNeta, reglas);
+        var esperado = Proponer(baseNeta, reglas, detalle);
         var distinto = Math.Abs(esperado.Sum(r => r.Importe) - total) > 0.01m;
         if (detalle is not null)
         {

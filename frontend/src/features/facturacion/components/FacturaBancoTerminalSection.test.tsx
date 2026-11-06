@@ -21,6 +21,9 @@ function cuadre(cfdi: string | null) {
   if (cfdi === 'f2')
     return { ...base, cfdiRecibidoId: 'f2', uuidCfdi: 'F2', rfcEmisor: 'BAN010101AAA', subtotalFactura: 6034.48,
       ivaFactura: 965.52, totalFactura: 7000, diferenciaComision: 34.48, diferenciaIva: 5.52, diferenciaTotal: 40, cuadra: false };
+  if (cfdi === 'f3')
+    return { ...base, cfdiRecibidoId: 'f3', uuidCfdi: 'F3', rfcEmisor: 'BAN010101AAA', subtotalFactura: 6000.01,
+      ivaFactura: 960, totalFactura: 6960.01, diferenciaComision: 0.01, diferenciaIva: 0, diferenciaTotal: 0.01, cuadra: true };
   return { ...base, cfdiRecibidoId: null, uuidCfdi: null, rfcEmisor: null, subtotalFactura: null, ivaFactura: null,
     totalFactura: null, diferenciaComision: null, diferenciaIva: null, diferenciaTotal: null, cuadra: false };
 }
@@ -28,7 +31,7 @@ function cuadre(cfdi: string | null) {
 describe('86e3xt2q8 · factura mensual del banco', () => {
   function servir(onLigar?: (body: unknown) => void) {
     mswServer.use(
-      http.get(`${BASE}/candidatos`, () => HttpResponse.json([candidato('f1', 6960), candidato('f2', 7000)])),
+      http.get(`${BASE}/candidatos`, () => HttpResponse.json([candidato('f1', 6960), candidato('f2', 7000), candidato('f3', 6960.01)])),
       http.get(`${BASE}/cuadre`, ({ request }) =>
         HttpResponse.json(cuadre(new URL(request.url).searchParams.get('cfdiRecibidoId')))),
       http.get(BASE, () => HttpResponse.json([])),
@@ -52,6 +55,18 @@ describe('86e3xt2q8 · factura mensual del banco', () => {
     expect(screen.getByText(/Diferencia de \$40\.00: no se liga nada/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Ligar factura/ })).toBeDisabled();
     expect(screen.getByText('La factura no cuadra con los cargos del mes.')).toBeInTheDocument();
+  });
+
+  it('86e3zcbjx · con un centavo de diferencia cuadra y avisa que va a redondeo', async () => {
+    servir();
+    render(<FacturaBancoTerminalSection />, { wrapper: createQueryWrapper() });
+    fireEvent.change(screen.getByLabelText('Mes de los cargos'), { target: { value: '2026-10' } });
+    await screen.findByRole('option', { name: /6,960\.01/ });
+    fireEvent.change(screen.getByLabelText('Factura del banco (CFDI recibido)'), { target: { value: 'f3' } });
+
+    expect(await screen.findByText('Cuadra')).toBeInTheDocument();
+    expect(screen.getByText(/la diferencia de \$0\.01 va a redondeo/)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('button', { name: /Ligar factura/ })).toBeEnabled());
   });
 
   it('con una factura que cuadra la liga con el mes y el CFDI elegidos', async () => {

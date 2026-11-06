@@ -45,7 +45,9 @@ const ETIQUETAS_CONCEPTO: Record<string, string> = {
   ARRENDAMIENTO_PF: 'Arrendamiento (persona física)',
   HONORARIOS_PF: 'Honorarios (persona física)',
   RESICO_PF: 'RESICO (persona física)',
+  RESICO_PF_SERVICIOS: 'RESICO con servicios o arrendamiento (persona física)',
   FLETES: 'Fletes',
+  SERVICIOS: 'Servicios de personal o subcontratación (IVA 6 %)',
 };
 /** Etiqueta en español del concepto para pantallas de datos maestros (el valor enviado no cambia). */
 export function etiquetaConceptoLegible(c: string): string {

@@ -115,6 +115,11 @@ public sealed class LineaPlantillaContable
     /// tipo de producto); si no, el rol base. Contabilidad agrega el rol específico cuando lo necesita, sin cambiar la plantilla.
     /// </summary>
     public bool RolPorClasificador { get; set; }
+    /// <summary>
+    /// 86e3zcbjw: con <see cref="PorLinea"/>, toma solo las líneas del evento de este grupo (null = las líneas del documento, sin grupo).
+    /// <see cref="LineaEventoContable.GrupoRetencion"/> = una línea por concepto de retención, con su rol <c>{Rol}_{concepto}</c>.
+    /// </summary>
+    public string? Grupo { get; set; }
 }
 
 /// <summary>

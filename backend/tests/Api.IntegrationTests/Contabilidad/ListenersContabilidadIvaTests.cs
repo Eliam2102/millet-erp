@@ -19,11 +19,12 @@ namespace Millet.Api.IntegrationTests.Contabilidad;
 public sealed partial class ListenersContabilidadTests
 {
     private static FacturaProveedorRegistradaIntegrationEvent FacturaProveedor(Escenario e, Guid factura, decimal subtotal, decimal iva,
-        decimal retencionIva = 0m) =>
+        decimal retencionIva = 0m, string? conceptoRetencion = null) =>
         new(EmpresaBootstrapId, Ahora, factura, Guid.NewGuid(), subtotal + iva - retencionIva,
             [new LineaFacturadaPayload(Guid.NewGuid(), Guid.NewGuid(), 1m, subtotal)], [], ProveedorId: e.Proveedor, Uuid: $"UUID-{factura:N}",
             Subtotal: subtotal, Iva: iva, RetencionesTotal: retencionIva, Moneda: "MXN", SucursalId: e.Sucursal,
-            Retenciones: retencionIva > 0m ? [new RetencionDetallePayload("002", 0.04m, retencionIva)] : null);
+            Retenciones: retencionIva > 0m ? [new RetencionDetallePayload("002", 0.04m, retencionIva)] : null,
+            ConceptoRetencion: conceptoRetencion);
 
     private static PagoFacturaProveedorAplicadoIntegrationEvent PagoProveedor(Guid factura, Guid pago, decimal monto) =>
         new(EmpresaBootstrapId, Ahora, factura, pago, monto, "MXN", Hoy(), "Transferencia", "REF-FIX");
@@ -128,6 +129,37 @@ public sealed partial class ListenersContabilidadTests
 
             var saldo = await SaldoIvaAsync(factura);
             (saldo.Base, saldo.IvaRetenido, saldo.IvaReclasificado, saldo.IvaRetenidoReclasificado).Should().Be((1_120m, 40m, 80m, 20m));
+        }
+        finally { await LimpiarAsync(e); }
+    }
+
+    [Fact]
+    public async Task Retenciones_la_factura_de_flete_se_registra_por_el_total_y_cada_pago_abona_su_retencion_a_la_cuenta_de_fletes()
+    {
+        Escenario? e = null;
+        try
+        {
+            e = await PrepararAsync();
+            var factura = Guid.NewGuid();
+            var (pago1, pago2) = (Guid.NewGuid(), Guid.NewGuid());
+            // 86e3zcbjw (Contabilidad, 6-nov): flete 1,000 + IVA 160 − retención 4 % = 1,120 del CFDI; el proveedor queda por 1,160.
+            await Cxp(FacturaProveedor(e, factura, 1_000m, 160m, retencionIva: 40m, conceptoRetencion: "FLETES"));
+            var tt = (await PolizasAsync(factura)).Should().ContainSingle().Subject;
+            tt.Partidas.Should().Contain(x => x.CuentaId == e.Cuentas["PROVEEDORES"] && x.Abono == 1_160m);
+            tt.Partidas.Should().NotContain(x => x.CuentaId == e.Cuentas["RETENCIONES_POR_PAGAR"] || x.CuentaId == e.Cuentas["RETENCIONES_POR_PAGAR_FLETES_IVA"]);
+
+            await Tesoreria(PagoProveedor(factura, pago1, 560m));
+            var pp = (await PolizasAsync(pago1)).Should().ContainSingle().Subject;
+            pp.Partidas.Should().Contain(x => x.CuentaId == e.Cuentas["PROVEEDORES"] && x.Cargo == 580m);
+            pp.Partidas.Should().Contain(x => x.CuentaId == e.Cuentas["RETENCIONES_POR_PAGAR_FLETES_IVA"] && x.Abono == 20m);
+            pp.Partidas.Should().Contain(x => x.CuentaId == e.Cuentas["IVA_ACREDITABLE_PAGADO"] && x.Cargo == 80m);
+
+            await Tesoreria(PagoProveedor(factura, pago2, 560m));
+            var partidas = await PartidasSucursalAsync(e.Sucursal);
+            Saldo(partidas, e.Cuentas["PROVEEDORES"]).Should().Be(0m, "factura por 1,160 contra pagos de 1,120 más 40 de retención");
+            Saldo(partidas, e.Cuentas["RETENCIONES_POR_PAGAR_FLETES_IVA"]).Should().Be(-40m, "la retención de fletes por enterar");
+            Saldo(partidas, e.Cuentas["IVA_ACREDITABLE_PENDIENTE"]).Should().Be(0m);
+            partidas.Sum(x => x.Cargo).Should().Be(partidas.Sum(x => x.Abono));
         }
         finally { await LimpiarAsync(e); }
     }

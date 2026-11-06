@@ -13,7 +13,7 @@ public sealed partial class DemoSesionSeedHostedService
 {
     private static readonly (string Codigo, string Nombre, NaturalezaCuenta Naturaleza, CuentaControl Control, string[] Roles)[] CuentasRolesDemo =
     [
-        ("990.01.00.00", "DEMO Banco", NaturalezaCuenta.Deudora, CuentaControl.Ninguna, ["BANCOS", "BANCOS_MN"]),
+        ("990.01.00.00", "DEMO Banco", NaturalezaCuenta.Deudora, CuentaControl.Ninguna, ["BANCOS", "BANCOS_MN", "BANCO_TERMINAL_TARJETA"]),
         ("990.02.00.00", "DEMO Clientes colectiva", NaturalezaCuenta.Deudora, CuentaControl.Clientes, ["CLIENTES"]),
         ("990.03.00.00", "DEMO Gasto afectable", NaturalezaCuenta.Deudora, CuentaControl.Ninguna, ["CONSUMO", "GASTO"]),
         ("990.05.00.00", "DEMO Inventario", NaturalezaCuenta.Deudora, CuentaControl.Ninguna, ["INVENTARIO"]),
@@ -47,6 +47,8 @@ public sealed partial class DemoSesionSeedHostedService
         // PCV: costo de ventas de la entrega de PT (cuentas por operación: 501.01.00.00 y 115.04.00.00 cuando Contabilidad las mapee).
         ("990.31.00.00", "DEMO Costo de ventas", NaturalezaCuenta.Deudora, CuentaControl.Ninguna, ["COSTO_DE_VENTAS"]),
         ("990.32.00.00", "DEMO Inventario de producto terminado", NaturalezaCuenta.Deudora, CuentaControl.Ninguna, ["INVENTARIO_PT"]),
+        // 86e3zcbjx: redondeo de hasta $0.01 de la factura del banco de la terminal (real: 703.21.00.00).
+        ("990.34.00.00", "DEMO Redondeo", NaturalezaCuenta.Deudora, CuentaControl.Ninguna, ["REDONDEO"]),
     ];
 
     /// <summary>Códigos de las cuentas que declara este sembrador; la prueba del seed cuenta contra esta lista.</summary>
