@@ -33,6 +33,9 @@ public sealed class OtrLectorRealSqlTests
             Assert.DoesNotMatch($@"\b{palabra}\b", sql);
     }
     [Fact]
+    public void La_direccion_cae_a_LOCATION_ADDRESS_cuando_el_texto_viene_vacio()
+        => Assert.Contains("COALESCE(NULLIF(A.LOCATION_ADDRESS_TEXT, ''), NULLIF(A.LOCATION_ADDRESS, ''), '')", OtrTablasAdapter.CabeceraReal(new OtrOptions()));
+    [Fact]
     public void Los_estatus_son_opciones_y_la_cancelacion_no_se_inventa()
     {
         var porOmision = OtrTablasAdapter.CabeceraReal(new OtrOptions());

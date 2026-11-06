@@ -59,10 +59,11 @@ public sealed class ActualizarSucursalHandler
 
         if (command.ClaveAw is not null)
         {
-            var claveAwEnUso = await _db.Sucursales.AsNoTracking()
-                .AnyAsync(s => s.Id != command.Id && s.ClaveAw == command.ClaveAw.Trim(),
-                    cancellationToken);
-            if (claveAwEnUso)
+            var nuevas = Sucursal.ClavesAw(command.ClaveAw);
+            var otras = await _db.Sucursales.AsNoTracking()
+                .Where(s => s.Id != command.Id && s.ClaveAw != null)
+                .Select(s => s.ClaveAw!).ToListAsync(cancellationToken);
+            if (otras.Any(o => Sucursal.ClavesAw(o).Intersect(nuevas).Any()))
             {
                 throw new ConflictException(
                     "SUCURSAL_CLAVE_AW_DUPLICADA",

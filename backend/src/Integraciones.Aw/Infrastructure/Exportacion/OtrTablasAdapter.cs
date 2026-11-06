@@ -18,7 +18,7 @@ public sealed class OtrTablasAdapter(Func<DbConnection> fabrica, bool postgres, 
     // Los pedidos se resuelven por DOCUMENT_ID = BW_AUFTR_KOPF.ID; sin pedido (o con estatus >= tope) la posición no cuenta. Sólo SELECT.
     internal static string CabeceraReal(OtrOptions o) =>
         "SELECT CONCAT(CONVERT(varchar(20), g.ROUTE_ID), '-', g.CONTAINER_ID), DATEDIFF_BIG(MILLISECOND, '1970-01-01', V.Ver), CONVERT(nvarchar(50), g.Cli), ISNULL(g.Suc, ''), " +
-        "ISNULL(A.LOCATION_NAME1, CONVERT(nvarchar(50), g.Cli)), ISNULL(ISNULL(A.LOCATION_ADDRESS_TEXT, A.LOCATION_ADDRESS), ''), NULL, g.CONTAINER_ID, R.ROUTE_NAME, " +
+        "ISNULL(A.LOCATION_NAME1, CONVERT(nvarchar(50), g.Cli)), COALESCE(NULLIF(A.LOCATION_ADDRESS_TEXT, ''), NULLIF(A.LOCATION_ADDRESS, ''), ''), NULL, g.CONTAINER_ID, R.ROUTE_NAME, " +
         "CONVERT(int, ROUND(g.Piezas, 0)), g.Peso, R.DELIVERY_DATE, NULL, NULL, " +
         $"CASE WHEN g.NCli > 1 THEN 'CE_OTR_VARIOS_CLIENTES' WHEN g.NSuc > 1 THEN 'CE_OTR_VARIAS_SUCURSALES' WHEN R.ROUTE_STATUS IN ({Lista(o.EstatusRutaCancelada, true)}) THEN 'Cancelacion' ELSE 'Alta' END " +
         "FROM (SELECT P.ROUTE_ID, P.CONTAINER_ID, COUNT(DISTINCT K.AH_IDENT) NCli, COUNT(DISTINCT K.OR_AVBEREICH) NSuc, MIN(K.AH_IDENT) Cli, MIN(K.OR_AVBEREICH) Suc, SUM(P.POS_QTY) Piezas, SUM(P.POS_TOTAL_WEIGHT) Peso, MAX(P.DATETIME_UPDATE) Upd " +
