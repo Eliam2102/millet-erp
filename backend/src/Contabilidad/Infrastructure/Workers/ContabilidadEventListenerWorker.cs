@@ -170,7 +170,10 @@ public abstract class ContabilidadEventListenerWorker : BackgroundService, ILoca
     }
 }
 
-/// <summary>C1.5 · <c>facturacion-events</c>: ventas, anticipos, NC, cancelaciones, cobros de mostrador y sesiones de caja (#7–#11).</summary>
+/// <summary>
+/// C1.5 · <c>facturacion-events</c>: ventas, anticipos, NC, cancelaciones, cobros de mostrador y sesiones de caja (#7–#11).
+/// 86e3zcbjx: factura mensual del banco ligada a los cargos de la terminal (comisión e IVA pagado contra el banco).
+/// </summary>
 public sealed class FacturacionContabilidadListenerWorker(ServiceBusClient? client, IServiceScopeFactory scopeFactory,
     ILogger<FacturacionContabilidadListenerWorker> logger) : ContabilidadEventListenerWorker(client, scopeFactory, logger)
 {
@@ -185,7 +188,7 @@ public sealed class FacturacionContabilidadListenerWorker(ServiceBusClient? clie
     [
         NormalizadorEventos.FacturaVentaTimbrada, NormalizadorEventos.FacturaAnticipoTimbrada, NormalizadorEventos.NotaCreditoTimbrada,
         NormalizadorEventos.ComprobanteCancelado, NormalizadorEventos.CobroMostradorRegistrado, NormalizadorEventos.CobroMostradorCancelado,
-        NormalizadorEventos.CajaSesionCerrada,
+        NormalizadorEventos.CajaSesionCerrada, NormalizadorEventos.FacturaBancoTerminalLigada,
     ], StringComparer.Ordinal);
 }
 
