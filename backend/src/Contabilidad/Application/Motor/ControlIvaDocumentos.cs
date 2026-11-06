@@ -76,7 +76,8 @@ public sealed class ControlIvaDocumentos(ContabilidadDbContext db, IClock clock)
         db.SaldosIvaDocumento.Add(SaldoIvaDocumento.Crear(e.EmpresaId, lado, origen, e.Documento.Id, e.Documento.Folio, e.Documento.Uuid,
             d.MetodoPago, e.SucursalId, lado == LadoIva.Acreditable ? e.ProveedorId : e.ClienteId, e.FechaContable, e.Moneda, e.TipoCambio,
             @base, iva, retenido, poliza.Id));
-        await db.SaveChangesAsync(ct);
+        // El mismo evento en paralelo: si la otra petición ya guardó el saldo, no hay nada más que hacer.
+        await GuardarUnaVezAsync(ct);
     }
 
     /// <summary>Factura de proveedor o comprobante de venta cancelado: su saldo deja de contar como pendiente.</summary>
@@ -126,15 +127,16 @@ public sealed class ControlIvaDocumentos(ContabilidadDbContext db, IClock clock)
     public async Task ConfirmarAsync(EventoContable e, IReadOnlyList<Aplicacion> aplicaciones, PolizaRegistrada poliza, CancellationToken ct)
     {
         foreach (var a in aplicaciones)
-        {
-            var saldo = await SaldoAsync(e.EmpresaId, a, rastreado: true, ct);
-            if (saldo is null || await PreviaAsync(e, a, saldo.Id, ct) is not null) continue;
-            var (iva, retenido) = saldo.Calcular(a.Importe);
-            // Mismo tipo de cambio que aplicó el motor a la póliza (el del pago).
-            var tc = e.Moneda == "MXN" ? 1m : e.TipoCambio ?? 1m;
-            db.ReclasificacionesIva.Add(saldo.Aplicar(PagoDe(e, a), PagoIdDe(e, a), e.FechaContable, a.Importe, iva, retenido, poliza.Id, tc));
-            await db.SaveChangesAsync(ct);
-        }
+            for (var intento = 0; intento < Intentos; intento++)
+            {
+                var saldo = await SaldoAsync(e.EmpresaId, a, rastreado: true, ct);
+                if (saldo is null || await PreviaAsync(e, a, saldo.Id, ct) is not null) break;
+                var (iva, retenido) = saldo.Calcular(a.Importe);
+                // Mismo tipo de cambio que aplicó el motor a la póliza (el del pago).
+                var tc = e.Moneda == "MXN" ? 1m : e.TipoCambio ?? 1m;
+                db.ReclasificacionesIva.Add(saldo.Aplicar(PagoDe(e, a), PagoIdDe(e, a), e.FechaContable, a.Importe, iva, retenido, poliza.Id, tc));
+                if (await GuardarUnaVezAsync(ct)) break;
+            }
     }
 
     /// <summary>IVA ya reclasificado (vigente) de un pago o cobro: la reversa de un cobro en efectivo liquidado lo devuelve en negativo.</summary>
@@ -181,15 +183,44 @@ public sealed class ControlIvaDocumentos(ContabilidadDbContext db, IClock clock)
         }
         if (relacionado is not { } facturaId) return;
         var aplicacion = new Aplicacion(documento, facturaId, 0m);
-        var saldo = await SaldoAsync(e.EmpresaId, aplicacion, rastreado: true, ct);
-        if (saldo is null || await PreviaAsync(e, aplicacion, saldo.Id, ct) is not null) return;
         var retenido = (n.Retenciones ?? []).Where(EsIva).Sum(r => r.Importe);
-        db.ReclasificacionesIva.Add(saldo.Reducir((e.Documento.Modulo, e.Documento.Tipo), e.Documento.Id, e.FechaContable, @base, iva, retenido,
-            poliza.Id));
-        await db.SaveChangesAsync(ct);
+        for (var intento = 0; intento < Intentos; intento++)
+        {
+            var saldo = await SaldoAsync(e.EmpresaId, aplicacion, rastreado: true, ct);
+            if (saldo is null || await PreviaAsync(e, aplicacion, saldo.Id, ct) is not null) return;
+            db.ReclasificacionesIva.Add(saldo.Reducir((e.Documento.Modulo, e.Documento.Tipo), e.Documento.Id, e.FechaContable, @base, iva,
+                retenido, poliza.Id));
+            if (await GuardarUnaVezAsync(ct)) return;
+        }
     }
 
     // ---------------------------------------------------------------- Apoyo
+
+    private const int Intentos = 3;
+
+    /// <summary>
+    /// Guarda el saldo o la reclasificación. Si el mismo evento se procesa en paralelo (o dos pagos tocan el mismo saldo a la vez), el
+    /// índice único o la versión del saldo lo detectan: se descarta lo propio y devuelve false para que el llamador relea y decida (la
+    /// previa ya existe → nada que hacer; si no, reintenta sobre el saldo actualizado).
+    /// </summary>
+    private async Task<bool> GuardarUnaVezAsync(CancellationToken ct)
+    {
+        try
+        {
+            await db.SaveChangesAsync(ct);
+            return true;
+        }
+        catch (DbUpdateException ex) when (ex is DbUpdateConcurrencyException || ex.InnerException is Npgsql.PostgresException
+            {
+                SqlState: Npgsql.PostgresErrorCodes.UniqueViolation,
+                ConstraintName: "ux_saldos_iva_documento_documento" or "ux_reclasificaciones_iva_pago_documento",
+            })
+        {
+            foreach (var entrada in db.ChangeTracker.Entries().Where(x => x.Entity is SaldoIvaDocumento or ReclasificacionIva).ToList())
+                entrada.State = EntityState.Detached;
+            return false;
+        }
+    }
 
     /// <summary>A qué documentos aplica el pago o cobro, según su contrato.</summary>
     public static IReadOnlyList<Aplicacion> Aplicaciones(EventoContable e)
