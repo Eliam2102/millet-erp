@@ -32,6 +32,7 @@ public sealed class EmbarqueExportacionReadAdapter(ComercioExteriorDbContext db,
             bloqueo = ("CE_INCOTERM_REQUERIDO", "Seleccione un Incoterm vigente en el expediente.");
         return new(true, e.Id, e.SucursalId, bloqueo.Codigo is null, bloqueo.Codigo, bloqueo.Motivo, e.Folio,
             e.NumeroPedimentoExportacion, e.ClavePedimento, e.FechaPedimento, incoterm, contenedores, e.AduanaPedimentoExportacion,
-            e.AduanaPedimentoExportacion is { } aduana ? CatalogoAduanas.Aduanas.GetValueOrDefault(aduana) : null, e.VersionEmbarque, e.Partidas.Where(p => p.PedidoFacturableId == pedidoFacturableId && p.Estado != EstadoPartida.Liberada && p.AduanalesRevisadoPorId != null).GroupBy(p => p.Posicion).OrderBy(g => g.Key).Select(g => new PartidaAduanalLectura(g.Key, g.First().FraccionArancelaria!, g.First().UnidadAduana!)).ToArray());
+            e.AduanaPedimentoExportacion is { } aduana ? CatalogoAduanas.Aduanas.GetValueOrDefault(aduana) : null, e.VersionEmbarque,
+            e.DatosAduanalesFactura(pedidoFacturableId, contenedorId).Select(d => new PartidaAduanalLectura(d.Posicion, d.FraccionArancelaria, d.UnidadAduana)).ToArray());
     }
 }

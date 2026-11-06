@@ -114,4 +114,28 @@ public sealed class ContenedorEventosTests
         e.CancelarContenedor(c1, "DEMO cancelación", false);
         Assert.Equal("FAC_PEDIDO_NO_EMBARCADO", e.BloqueoFacturacion(p, null, c1).Codigo); // cancelado ya no se factura
     }
+
+    [Fact]
+    public void Datos_aduanales_de_la_factura_solo_del_contenedor_de_la_salida_y_sin_cancelados()
+    {
+        // H3 de QA: la factura de la salida de un contenedor no toma la fracción de otro contenedor ni la de uno cancelado.
+        var e = Nuevo(); var cliente = Guid.NewGuid();
+        var a = Pedido(e, "DEMO-300", cliente, (1, 60), (2, 10));
+        var c1 = Contenedor(e, "DEMO-C1"); var c2 = Contenedor(e, "DEMO-C2");
+        e.AsignarPartida(c1, a, 1, 30, Actor);
+        e.AsignarPartida(c2, a, 2, 10, Actor);
+        e.AsignarPartida(c2, a, 1, 30, Actor);
+        foreach (var partida in e.Partidas.Where(p => p.ContenedorId == c2).ToArray())
+            e.GuardarDatosAduanales(partida.Id, partida.Posicion == 1 ? "7005299901" : "7007199900", "01", Actor, Ahora, true);
+
+        Assert.Equal([(1, "7005299901", "01")], e.DatosAduanalesFactura(a.Id, c1));
+        Assert.Equal([(1, "7005299901", "01"), (2, "7007199900", "01")], e.DatosAduanalesFactura(a.Id, c2));
+        Assert.Equal([(1, "7005299901", "01"), (2, "7007199900", "01")], e.DatosAduanalesFactura(a.Id));
+
+        e.CancelarContenedor(c2, "DEMO naviera canceló el booking", false);
+
+        Assert.Empty(e.DatosAduanalesFactura(a.Id, c2));
+        Assert.Equal([(1, "7005299901", "01")], e.DatosAduanalesFactura(a.Id));
+        Assert.Equal([(1, "7005299901", "01")], e.DatosAduanalesFactura(a.Id, c1));
+    }
 }

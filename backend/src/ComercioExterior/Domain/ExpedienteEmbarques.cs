@@ -149,6 +149,27 @@ public sealed partial class Expediente
         Contenedor(id).Cancelar(motivo); VersionarEmbarque(ResponsableUsuarioId); RevisionContenido++;
     }
     /// <summary>
+    /// FAC-08: fracción y unidad aduana revisadas por posición del pedido para su factura. Solo cuentan las
+    /// partidas de contenedores activos y, con <paramref name="contenedorId"/> (factura de la salida de un
+    /// contenedor), solo las de ese contenedor. Si una posición va en varios contenedores, manda la última
+    /// revisión: una corrección en CE no se pierde por tomar la primera partida.
+    /// </summary>
+    public IReadOnlyList<(int Posicion, string FraccionArancelaria, string UnidadAduana)> DatosAduanalesFactura(
+        Guid pedidoFacturableId, Guid? contenedorId = null)
+    {
+        var activos = _contenedores.Where(c => c.Estado == EstadoContenedor.Activo && (contenedorId == null || c.Id == contenedorId))
+            .Select(c => c.Id).ToHashSet();
+        return _partidas
+            .Where(p => p.PedidoFacturableId == pedidoFacturableId && p.Estado != EstadoPartida.Liberada
+                && p.AduanalesRevisadoPorId != null && activos.Contains(p.ContenedorId))
+            .GroupBy(p => p.Posicion)
+            .OrderBy(g => g.Key)
+            .Select(g => g.OrderByDescending(p => p.AduanalesRevisadoEn).ThenBy(p => p.ContenedorId).First())
+            .Select(p => (p.Posicion, p.FraccionArancelaria!, p.UnidadAduana!))
+            .ToArray();
+    }
+
+    /// <summary>
     /// Compuerta de facturación del pedido. Con <paramref name="contenedorId"/> (FAC-08, factura de la salida de un
     /// contenedor) basta con que ese contenedor esté embarcado y activo: la salida ya trae lo que lleva el contenedor,
     /// así no se espera al 100 % del pedido para facturar cada contenedor.
