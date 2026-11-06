@@ -99,6 +99,9 @@ public sealed class DescartarComprobanteHandler
 
         var pendiente = await _db.ReppPendientes.SingleOrDefaultAsync(p => p.IntentoReciboPagoId == comprobante.Id, cancellationToken);
         pendiente?.LiberarIntentoDescartado();
+        // F6.8: la contingencia del documento queda descartada (folio quemado).
+        await Contingencias.ContingenciasTimbrado.AplicarDescarteAsync(
+            _db, comprobante, _clock.UtcNow, null, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
         return new DescartarComprobanteResponse(
