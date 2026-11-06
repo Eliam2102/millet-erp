@@ -88,6 +88,48 @@ public sealed class EventosContablesFacturacionTests
     }
 
     [Fact]
+    public void Retenciones_del_cliente_salen_por_concepto_y_cuadran_con_el_total()
+    {
+        // 86e3zcbjw: flete 1,000 (4 %, deducido de la tasa) + desperdicio 500 (16 %, concepto elegido) + vidrio 2,000 sin retención.
+        var fv = FacturaVenta.CrearBorrador(Empresa, "F-DEMO-2", 2, Sucursal, null, null, Receptor(), Emisor(),
+            "PPD", "99", "MXN", null, 2026, 9, 1, ComportamientoFiscal.MostradorInmediato, null, null, null, false);
+        fv.AgregarLinea(null, "78101800", "Flete DEMO", "E48", 1m, 1_000m, 0m, "02", 0.16m, 0.04m, null);
+        fv.AgregarLinea(null, "11191600", "Desperdicio DEMO", "KGM", 1m, 500m, 0m, "02", 0.16m, null, null,
+            conceptoRetencion: ConceptosRetencionCliente.Desperdicio);
+        fv.AgregarLinea(null, "30171500", "Vidrio DEMO", "H87", 1m, 2_000m, 0m, "02", 0.16m, null, null);
+        fv.RecalcularTotales();
+
+        fv.Lineas.Select(l => (l.ConceptoRetencion, l.TasaRetencionIva)).Should().Equal(
+            ("FLETES", 0.04m), ("DESPERDICIO", 0.16m), (null, null));
+        var retenciones = EventosContablesFacturacion.RetencionesDe(fv)!;
+        retenciones.Select(r => (r.Concepto, r.Impuesto, r.Importe)).Should().BeEquivalentTo(new[]
+        {
+            ((string?)"DESPERDICIO", EventosContablesFacturacion.ImpuestoIva, 80m),
+            ("FLETES", EventosContablesFacturacion.ImpuestoIva, 40m),
+        });
+        retenciones.Sum(r => r.Importe).Should().Be(fv.Retenciones);
+    }
+
+    [Theory]
+    [InlineData(null, 0.16, null)]
+    [InlineData(null, 0.06, "SERVICIOS")]
+    [InlineData("importacion", null, "IMPORTACION")]
+    public void El_concepto_de_retencion_del_cliente_fija_la_tasa_o_se_deduce_de_ella(string? concepto, double? tasa, string? esperado)
+    {
+        var (c, t) = ConceptosRetencionCliente.Resolver(concepto, (decimal?)tasa);
+        c.Should().Be(esperado, "16 % puede ser desperdicio o importación: sin concepto no se adivina");
+        if (esperado is not null) t.Should().Be(ConceptosRetencionCliente.Tasas[esperado]);
+    }
+
+    [Fact]
+    public void Concepto_y_tasa_que_no_coinciden_se_rechazan()
+    {
+        var act = () => ConceptosRetencionCliente.Resolver("FLETES", 0.06m);
+        act.Should().Throw<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>()
+            .Where(e => e.Code == "LINEA_CONCEPTO_RETENCION_TASA");
+    }
+
+    [Fact]
     public void Sin_tipos_resueltos_las_lineas_salen_sin_TipoProducto()
     {
         var evt = EventosContablesFacturacion.FacturaVentaTimbrada(Factura(lineas: (Guid.NewGuid(), 100m, null, null)), Timbrado);

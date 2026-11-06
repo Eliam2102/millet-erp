@@ -41,7 +41,9 @@ public sealed record FacturaProveedorRegistradaDomainEvent(
     Guid? SucursalId = null,
     Guid? CentroCostoId = null,
     // 86e3tfedr: recepción elegida; null = sin elección (Almacén conserva el vínculo a todas las variante B pendientes de la OC).
-    Guid? RecepcionId = null) : INotification;
+    Guid? RecepcionId = null,
+    // 86e3zcbjw: concepto fiscal de retención de la factura (perfil del proveedor): Contabilidad lleva cada retención a su cuenta.
+    string? ConceptoRetencion = null) : INotification;
 
 public sealed record LineaFacturada(
     Guid LineaFacturaId,

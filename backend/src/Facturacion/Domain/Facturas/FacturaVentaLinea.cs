@@ -41,6 +41,12 @@ public sealed class FacturaVentaLinea : BaseEntity, IBelongsToAggregate, IAudita
     public decimal? TasaRetencionIsr { get; private set; }
     public decimal RetencionTotalImporte { get; private set; }
 
+    /// <summary>
+    /// 86e3zcbjw: concepto de la retención de IVA que nos hace el cliente (<see cref="ConceptosRetencionCliente"/>); Contabilidad lleva
+    /// la retención a la cuenta del concepto. Sin concepto se deduce de la tasa cuando no hay duda (4 % fletes, 6 % servicios).
+    /// </summary>
+    public string? ConceptoRetencion { get; private set; }
+
     // ---- Datos aduaneros / pedimento (§3.bis.5, F7-PR2) ----
     /// <summary>True si la línea es producto de importación en su primera venta (art. 29-A CFF).</summary>
     public bool RequierePedimento { get; private set; }
@@ -74,8 +80,10 @@ public sealed class FacturaVentaLinea : BaseEntity, IBelongsToAggregate, IAudita
         decimal? tasaIvaTraslado,
         decimal? tasaRetencionIva,
         decimal? tasaRetencionIsr,
-        bool requierePedimento = false, string? referencia = null, decimal? pesoKg = null, decimal? areaPie2 = null) : base(id)
+        bool requierePedimento = false, string? referencia = null, decimal? pesoKg = null, decimal? areaPie2 = null,
+        string? conceptoRetencion = null) : base(id)
     {
+        (conceptoRetencion, tasaRetencionIva) = ConceptosRetencionCliente.Resolver(conceptoRetencion, tasaRetencionIva);
         if (posicion <= 0)
             throw new BusinessRuleException("LINEA_POSICION_INVALIDA", "La posición debe ser >= 1.");
         if (string.IsNullOrWhiteSpace(claveProdServSat))
@@ -112,6 +120,7 @@ public sealed class FacturaVentaLinea : BaseEntity, IBelongsToAggregate, IAudita
         ImpuestoTrasladadoImporte = Math.Round(baseGravable * (tasaIvaTraslado ?? 0m), 2, MidpointRounding.AwayFromZero);
         TasaRetencionIva = tasaRetencionIva;
         TasaRetencionIsr = tasaRetencionIsr;
+        ConceptoRetencion = conceptoRetencion;
         RetencionTotalImporte = Math.Round(baseGravable * ((tasaRetencionIva ?? 0m) + (tasaRetencionIsr ?? 0m)), 2, MidpointRounding.AwayFromZero);
         RequierePedimento = requierePedimento;
         Referencia = DatosImpresion.Texto(referencia, 80, "Referencia de la partida");
@@ -131,5 +140,43 @@ public sealed class FacturaVentaLinea : BaseEntity, IBelongsToAggregate, IAudita
         Pedimento = pedimento;
         FechaDocAduanero = fechaDocAduanero;
         IdentificacionMercancia = identificacionMercancia;
+    }
+}
+
+/// <summary>
+/// 86e3zcbjw · retenciones de IVA que nos hacen los clientes (tabla de Contabilidad del 5-nov). La tasa es sobre la base de la línea.
+/// </summary>
+public static class ConceptosRetencionCliente
+{
+    public const string Fletes = "FLETES";
+    public const string Servicios = "SERVICIOS";
+    public const string Desperdicio = "DESPERDICIO";
+    public const string Importacion = "IMPORTACION";
+
+    public static readonly IReadOnlyDictionary<string, decimal> Tasas = new Dictionary<string, decimal>
+    {
+        [Fletes] = 0.04m, [Servicios] = 0.06m, [Desperdicio] = 0.16m, [Importacion] = 0.16m,
+    };
+
+    /// <summary>
+    /// Concepto y tasa de la línea: con concepto, la tasa es la suya (si se capturó otra, error); sin concepto, se deduce de la tasa
+    /// cuando solo un concepto la usa (4 % y 6 %). El 16 % es de desperdicio o de importación: ahí el concepto lo elige quien factura.
+    /// </summary>
+    public static (string? Concepto, decimal? TasaIva) Resolver(string? concepto, decimal? tasaIva)
+    {
+        if (string.IsNullOrWhiteSpace(concepto))
+        {
+            if (tasaIva is not > 0m) return (null, tasaIva);
+            var unicos = Tasas.Where(t => t.Value == tasaIva.Value).Select(t => t.Key).ToList();
+            return (unicos.Count == 1 ? unicos[0] : null, tasaIva);
+        }
+        var clave = concepto.Trim().ToUpperInvariant();
+        if (!Tasas.TryGetValue(clave, out var tasa))
+            throw new BusinessRuleException("LINEA_CONCEPTO_RETENCION_INVALIDO",
+                $"Concepto de retención desconocido: {concepto}. Usa fletes, servicios, desperdicio o importación.");
+        if (tasaIva is { } capturada && capturada != tasa)
+            throw new BusinessRuleException("LINEA_CONCEPTO_RETENCION_TASA",
+                $"La retención de IVA de {clave} es de {tasa:P0}; la línea trae {capturada:P2}.");
+        return (clave, tasa);
     }
 }

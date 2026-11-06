@@ -76,8 +76,7 @@ En *Contabilidad › Motor › Rechazos*, filtrar por causa «Rol sin cuenta» y
 |---|---|
 | EFECTIVO_CAJA_COBRANZA, CAJA | Contabilidad dice que el corte de caja no genera asiento (renglones 42 y 43). Sigue pendiente decidir si la póliza del efectivo se hace por cobro o por corte. La cuenta 101.01.02.00 está confirmada para el depósito al banco (S12) |
 | DEUDORES_FUNCIONARIOS_EMPLEADOS | Faltante o sobrante del arqueo (S13): Contabilidad no respondió |
-| RETENCIONES_POR_PAGAR | Depende del régimen del proveedor (renglones 9, 11 y 15); la retención al pago sigue pendiente |
-| RETENCIONES_CLIENTES | Depende de lo facturado (renglón 23): fletes → 113.01.02.01; desperdicio → 113.01.02.05 |
+| RETENCIONES_POR_PAGAR, RETENCIONES_CLIENTES | Rol base. Desde 86e3zcbjw cada concepto tiene su rol (§4.1) y su script |
 | BANCOS, BANCOS_MN, GASTO, CONSUMO, INVENTARIO | Dependen de otro catálogo (§4) |
 | COBROS_OTRAS_FORMAS | Las cajas de sucursal no aceptan otra forma de pago (renglones 40 y 41) |
 
@@ -94,13 +93,34 @@ El motor resuelve la cuenta de cada partida así:
 | Consumo de almacén (renglón 46) | Por artículo | ⚠️ Un solo rol `CONSUMO`, con centro de costo | Plantilla #14 con rol por clasificador (`CONSUMO_{grupo}`) y una cuenta de consumo por grupo de artículo |
 | Gasto por servicio (renglón 6) | Grupo 601 según el tipo de gasto o servicio; activo fijo a 201.06 | ⚠️ Un solo rol `GASTO`, con centro de costo | Clasificar la línea de servicio (concepto de gasto o artículo de servicio) y usar `GASTO_{tipo}`. La línea de activo fijo ya va a la cuenta puente de su clase (§5) |
 | Bancos (renglones 19, 21, 36, 44, S10 y S11) | La cuenta del banco desde el que se paga o en el que se deposita | ⚠️ Un solo rol `BANCOS`/`BANCOS_MN`, que solo varía por sucursal o moneda | La cuenta bancaria de Tesorería debe llevar su cuenta contable y el evento mandarla en la línea. Ya existe el mecanismo de cuenta propia de la línea |
-| Retenciones de proveedor (renglones 9, 11 y 15) | Por régimen fiscal del proveedor, desde su perfil | ❌ Un solo rol `RETENCIONES_POR_PAGAR` | Pendiente con Contabilidad (retención al pago). Después: rol por impuesto o régimen (`RETENCIONES_POR_PAGAR_{impuesto}`) |
-| Retenciones de cliente (renglón 23) | Fletes → 113.01.02.01; desperdicio → 113.01.02.05 | ❌ Un solo rol `RETENCIONES_CLIENTES` | Rol por tipo de producto, como ya se hace con `VENTAS_{tipo de producto}` |
+| Retenciones de proveedor (renglones 9, 11 y 15) | Por concepto fiscal del proveedor, desde su perfil | ✅ `RETENCIONES_POR_PAGAR_{concepto}_{impuesto}`; se abona al pagar (§4.1) | Cuentas que faltan en el catálogo (§4.1) |
+| Retenciones de cliente (renglón 23) | Fletes → 113.01.02.01; servicios → 113.01.02.03; desperdicio → 113.01.02.05 | ✅ `RETENCIONES_CLIENTES_{concepto}_IVA`, concepto elegido en la línea de la factura | Cuenta de importación 16 % |
 | Ventas | 401.01.00.00 | ✅ `VENTAS` y `VENTAS_{tipo de producto}` por línea | — |
 | Nacional / extranjero (proveedores, clientes y anticipos) | 201.01 / 201.02, 105.01 / 105.02, 120.01 / 120.02, 206.01 / 206.02 | ⚠️ El rol puede filtrarse por moneda: dar de alta `PROVEEDORES` con moneda USD → 201.02 cubre al proveedor extranjero que factura en dólares | La moneda no es lo mismo que la nacionalidad: un extranjero en MXN caería en la cuenta nacional. Falta un criterio por tipo de tercero (clasificador del proveedor o cliente) |
 | Costo de ventas (S1 y S2) | 501.01.00.00 contra 115.04.00.00 | ❌ No hay plantilla ni rol; el evento aún no existe | Cuando Producto terminado o Facturación publiquen el costo de la entrega facturada |
 | Redondeo de la comisión bancaria (S9) | 703.21.00.00 OTROS GASTOS | ❌ No hay rol | Agregarlo a la plantilla de la comisión cuando se construya la conciliación TPV |
 | Liquidación mensual de IVA (S14) | Manual | — | Póliza manual (dicho por Contabilidad) |
+
+### 4.1 Retenciones por concepto (86e3zcbjw)
+
+Fuente: tabla de retenciones de Contabilidad (5-nov) y su respuesta del 6-nov.
+
+- **Proveedor:** la factura se registra por el total (proveedor = CFDI + retención) y no abona retenciones. Cada pago carga al proveedor el pago más la retención que le toca (proporcional; el pago que salda toma el remanente), abona bancos por el pago y abona la retención a `RETENCIONES_POR_PAGAR_{concepto}_{impuesto}`. En el mismo pago el IVA pasa de pendiente a pagado (C1.6). Las facturas contabilizadas antes conservan su retención en la factura y su pago no la vuelve a abonar.
+- **Por línea:** la retención sale del CFDI, que la trae por concepto. El parser guarda la tasa y la base sobre la que se retuvo; la alerta de retenciones compara contra esa base y no contra toda la factura.
+- **Cliente:** cada línea de la factura de venta lleva su concepto (fletes 4 %, servicios 6 %, desperdicio 16 %, importación 16 %). La póliza carga cada retención a `RETENCIONES_CLIENTES_{concepto}_IVA`, y la liquidación de IVA la abona a esa misma cuenta.
+- **Sin cuenta en el rol del concepto**, el motor usa el rol base.
+- **Script:** `backend/scripts/contabilidad-asignar-cuentas-retenciones.sql`.
+
+| Rol | Cuenta (catálogo 5-nov) |
+|---|---|
+| RETENCIONES_POR_PAGAR_HONORARIOS_PF_ISR | 216.04.00.00 |
+| RETENCIONES_POR_PAGAR_HONORARIOS_PF_IVA | 216.10.01.00 |
+| RETENCIONES_POR_PAGAR_ARRENDAMIENTO_PF_ISR | 216.03.00.00 |
+| RETENCIONES_POR_PAGAR_FLETES_IVA | 216.10.02.00 |
+| RETENCIONES_CLIENTES_FLETES_IVA | 113.01.02.01 |
+| RETENCIONES_CLIENTES_SERVICIOS_IVA | 113.01.02.03 |
+| RETENCIONES_CLIENTES_DESPERDICIO_IVA | 113.01.02.05 |
+| RETENCIONES_POR_PAGAR_ARRENDAMIENTO_PF_IVA, _SERVICIOS_IVA, _RESICO_PF_ISR, _RESICO_PF_SERVICIOS_ISR, _RESICO_PF_SERVICIOS_IVA; RETENCIONES_CLIENTES_IMPORTACION_IVA | Sin cuenta en el catálogo del 5-nov: pendiente con Contabilidad |
 
 ## 5. Activos Fijos por clase
 
@@ -134,6 +154,6 @@ En la configuración del libro de Activos Fijos:
 
 ## 6. Pendientes con Contabilidad (mismo hilo del 5-nov)
 - Póliza del efectivo de caja: por cobro o por corte.
-- Retención de proveedor al pago y cuentas de retención por régimen.
+- Cuentas de retención que faltan en el catálogo (§4.1).
 - Área y equipo por omisión (tarea H1, 86e3z5w25).
 - Faltante o sobrante del arqueo de caja (S13).

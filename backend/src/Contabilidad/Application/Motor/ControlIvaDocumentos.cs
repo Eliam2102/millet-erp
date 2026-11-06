@@ -56,9 +56,30 @@ public sealed class ControlIvaDocumentos(ContabilidadDbContext db, IClock clock)
     /// cero para que el motor no rechace por dato faltante.
     /// </summary>
     public static EventoContable ConCampoIva(EventoContable e) =>
-        (EsPago(e.Tipo) || e.Tipo == NormalizadorEventos.CajaSesionCerrada) && !e.Importes.ContainsKey(CampoIva)
+        ConRetencionAplicada((EsPago(e.Tipo) || e.Tipo == NormalizadorEventos.CajaSesionCerrada) && !e.Importes.ContainsKey(CampoIva)
             ? e with { Importes = new Dictionary<string, decimal?>(e.Importes) { [CampoIva] = 0m } }
-            : e;
+            : e, []);
+
+    /// <summary>
+    /// 86e3zcbjw · pago a proveedor (#5 v3): <see cref="RetencionesContables.CampoAplicada"/> = retención que el pago descuenta de las
+    /// facturas registradas por el total, <see cref="RetencionesContables.CampoTotalMas"/> = pago + esa retención (cargo al proveedor) y
+    /// una línea de grupo <see cref="LineaEventoContable.GrupoRetencion"/> por concepto (abono a su rol de retenciones por pagar).
+    /// </summary>
+    private static EventoContable ConRetencionAplicada(EventoContable e, IReadOnlyList<RetencionAplicadaIva> retenciones)
+    {
+        if (e.Tipo != NormalizadorEventos.PagoProveedorAplicado) return e;
+        var lineas = RetencionesContables.Lineas(retenciones.Select(r => ((string?)r.Clasificador, r.Importe)));
+        var aplicada = lineas.Sum(l => l.Importe);
+        var total = e.Importes.GetValueOrDefault("Total") ?? 0m;
+        return e with
+        {
+            Importes = new Dictionary<string, decimal?>(e.Importes)
+            {
+                [RetencionesContables.CampoAplicada] = aplicada, [RetencionesContables.CampoTotalMas] = total + aplicada,
+            },
+            Lineas = [.. e.Lineas.Where(l => l.Grupo != LineaEventoContable.GrupoRetencion), .. lineas],
+        };
+    }
 
     /// <summary>Con la póliza del documento, guarda su saldo de IVA (una vez por documento).</summary>
     public async Task RegistrarDocumentoAsync(EventoContable e, PolizaRegistrada poliza, CancellationToken ct)
@@ -66,16 +87,20 @@ public sealed class ControlIvaDocumentos(ContabilidadDbContext db, IClock clock)
         var d = NormalizadorEventos.LeerContrato<DocumentoIvaContrato>(e.Payload);
         var iva = e.Importes.GetValueOrDefault("Iva") ?? 0m;
         var retenido = (d.Retenciones ?? []).Where(EsIva).Sum(r => r.Importe);
-        if (iva <= 0m && retenido <= 0m) return;
+        var retenciones = e.Lineas.Where(l => l.Grupo == LineaEventoContable.GrupoRetencion && l.Importe > 0m)
+            .Select(l => (l.Clasificador ?? string.Empty, l.Importe)).ToList();
+        if (iva <= 0m && retenido <= 0m && retenciones.Count == 0) return;
         var origen = (e.Documento.Modulo, e.Documento.Tipo);
         if (await db.SaldosIvaDocumento.IgnoreQueryFilters().AnyAsync(s => s.EmpresaId == e.EmpresaId && s.OrigenModulo == origen.Modulo
                 && s.OrigenTipo == origen.Tipo && s.DocumentoId == e.Documento.Id, ct))
             return;
         var lado = e.Tipo == NormalizadorEventos.FacturaProveedorRegistrada ? LadoIva.Acreditable : LadoIva.Trasladado;
         var @base = e.Importes.GetValueOrDefault("TotalMenosRetenciones") ?? e.Importes.GetValueOrDefault("Total") ?? 0m;
+        // 86e3zcbjw: la retención va al pago solo si la póliza de la factura no la registró (plantilla #2 sin retenciones por pagar).
+        var alPago = lado == LadoIva.Acreditable && retenciones.Count > 0 && !await PlantillaRegistraRetencionAsync(e, ct);
         db.SaldosIvaDocumento.Add(SaldoIvaDocumento.Crear(e.EmpresaId, lado, origen, e.Documento.Id, e.Documento.Folio, e.Documento.Uuid,
             d.MetodoPago, e.SucursalId, lado == LadoIva.Acreditable ? e.ProveedorId : e.ClienteId, e.FechaContable, e.Moneda, e.TipoCambio,
-            @base, iva, retenido, poliza.Id));
+            @base, iva, retenido, poliza.Id, retenciones, alPago));
         // El mismo evento en paralelo: si la otra petición ya guardó el saldo, no hay nada más que hacer.
         await GuardarUnaVezAsync(ct);
     }
@@ -100,6 +125,7 @@ public sealed class ControlIvaDocumentos(ContabilidadDbContext db, IClock clock)
     public async Task<Preparado> PrepararAsync(EventoContable e, IReadOnlyList<Aplicacion> aplicaciones, bool esperar, CancellationToken ct)
     {
         var total = 0m;
+        var alPago = new List<RetencionAplicadaIva>();
         var saldos = new Dictionary<Guid, SaldoIvaDocumento>();
         foreach (var a in aplicaciones)
         {
@@ -113,14 +139,17 @@ public sealed class ControlIvaDocumentos(ContabilidadDbContext db, IClock clock)
             if (await PreviaAsync(e, a, saldo.Id, ct) is { } previa)
             {
                 total += previa.AnuladaEn is null ? previa.Iva : 0m;
+                if (previa.AnuladaEn is null && saldo.RetencionAlPago) alPago.AddRange(previa.Retenciones);
                 continue;
             }
             var (iva, retenido) = saldo.Calcular(a.Importe);
-            saldo.Aplicar(PagoDe(e, a), PagoIdDe(e, a), e.FechaContable, a.Importe, iva, retenido, Guid.Empty);
+            var retenciones = saldo.CalcularRetenciones(a.Importe);
+            saldo.Aplicar(PagoDe(e, a), PagoIdDe(e, a), e.FechaContable, a.Importe, iva, retenido, Guid.Empty, retenciones: retenciones);
             total += iva;
+            if (saldo.RetencionAlPago) alPago.AddRange(retenciones);
         }
         var importes = new Dictionary<string, decimal?>(e.Importes) { [CampoIva] = (e.Importes.GetValueOrDefault(CampoIva) ?? 0m) + total };
-        return new(e with { Importes = importes }, null);
+        return new(ConRetencionAplicada(e with { Importes = importes }, alPago), null);
     }
 
     /// <summary>Con la póliza del pago o cobro, aplica el importe y el IVA a cada documento (una vez por pago y documento).</summary>
@@ -134,7 +163,8 @@ public sealed class ControlIvaDocumentos(ContabilidadDbContext db, IClock clock)
                 var (iva, retenido) = saldo.Calcular(a.Importe);
                 // Mismo tipo de cambio que aplicó el motor a la póliza (el del pago).
                 var tc = e.Moneda == "MXN" ? 1m : e.TipoCambio ?? 1m;
-                db.ReclasificacionesIva.Add(saldo.Aplicar(PagoDe(e, a), PagoIdDe(e, a), e.FechaContable, a.Importe, iva, retenido, poliza.Id, tc));
+                db.ReclasificacionesIva.Add(saldo.Aplicar(PagoDe(e, a), PagoIdDe(e, a), e.FechaContable, a.Importe, iva, retenido, poliza.Id, tc,
+                    saldo.CalcularRetenciones(a.Importe)));
                 if (await GuardarUnaVezAsync(ct)) break;
             }
     }
@@ -184,12 +214,14 @@ public sealed class ControlIvaDocumentos(ContabilidadDbContext db, IClock clock)
         if (relacionado is not { } facturaId) return;
         var aplicacion = new Aplicacion(documento, facturaId, 0m);
         var retenido = (n.Retenciones ?? []).Where(EsIva).Sum(r => r.Importe);
+        var retenciones = (n.Retenciones ?? []).Where(r => r.Importe > 0m && RetencionesContables.Impuesto(r.Impuesto) is not null)
+            .Select(r => (RetencionesContables.Impuesto(r.Impuesto)!, r.Importe)).ToList();
         for (var intento = 0; intento < Intentos; intento++)
         {
             var saldo = await SaldoAsync(e.EmpresaId, aplicacion, rastreado: true, ct);
             if (saldo is null || await PreviaAsync(e, aplicacion, saldo.Id, ct) is not null) return;
             db.ReclasificacionesIva.Add(saldo.Reducir((e.Documento.Modulo, e.Documento.Tipo), e.Documento.Id, e.FechaContable, @base, iva,
-                retenido, poliza.Id));
+                retenido, poliza.Id, retenciones));
             if (await GuardarUnaVezAsync(ct)) return;
         }
     }
@@ -250,6 +282,15 @@ public sealed class ControlIvaDocumentos(ContabilidadDbContext db, IClock clock)
             default:
                 return [];
         }
+    }
+
+    /// <summary>¿La plantilla con la que se contabilizó el documento abona retenciones por pagar? (versiones anteriores a 86e3zcbjw).</summary>
+    private async Task<bool> PlantillaRegistraRetencionAsync(EventoContable e, CancellationToken ct)
+    {
+        var plantilla = await db.PlantillasContables.IgnoreQueryFilters().AsNoTracking()
+            .Where(p => p.EmpresaId == e.EmpresaId && p.TipoEvento == e.Tipo && p.VigenteDesde <= e.FechaContable)
+            .OrderByDescending(p => p.NumeroVersion).FirstOrDefaultAsync(ct);
+        return plantilla?.Lineas.Any(l => l.Rol.StartsWith(RetencionesContables.RolPorPagar, StringComparison.Ordinal)) ?? true;
     }
 
     private Task<SaldoIvaDocumento?> SaldoAsync(Guid empresaId, Aplicacion a, bool rastreado, CancellationToken ct)

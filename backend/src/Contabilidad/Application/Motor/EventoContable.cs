@@ -28,8 +28,13 @@ public sealed record EventoContable(
 /// F1-ALM-13: <see cref="ArticuloId"/> = artículo de la línea de Almacén; <see cref="EnriquecedorGrupoArticulo"/> pone su grupo como
 /// <see cref="Clasificador"/> para el rol <c>INVENTARIO_{grupo}</c>.
 /// </summary>
+/// 86e3zcbjw: <see cref="Grupo"/> separa líneas que no son del documento (p. ej. <see cref="GrupoRetencion"/>: una por concepto de
+/// retención); solo las toma la línea de plantilla del mismo grupo.
 public sealed record LineaEventoContable(Guid? LineaOcId, decimal Importe, Guid? CentroCostoId, bool EsServicio,
-    Guid? ClienteId = null, string? Clasificador = null, Guid? CuentaId = null, Guid? ArticuloId = null);
+    Guid? ClienteId = null, string? Clasificador = null, Guid? CuentaId = null, Guid? ArticuloId = null, string? Grupo = null)
+{
+    public const string GrupoRetencion = "RETENCION";
+}
 
 /// <summary>El payload no se puede leer como el contrato del tipo (no es rechazo de negocio: es un evento corrupto).</summary>
 public sealed class EventoIlegibleException(string mensaje) : Exception(mensaje);
@@ -84,8 +89,11 @@ public static partial class NormalizadorEventos
             ["RetencionesTotal"] = f.RetencionesTotal,
             ["Total"] = f.TotalFactura,
             ["TotalMenosRetenciones"] = f.TotalFactura, // el Total del CFDI ya viene neto de retenciones
+            // 86e3zcbjw: la factura se registra por el total; la retención se descuenta al pagar (#2 v3 y #5 v3).
+            [RetencionesContables.CampoTotalMas] = f.TotalFactura + (f.RetencionesTotal ?? 0m),
         };
         var lineas = (f.Lineas ?? []).Select(l => new LineaEventoContable(l.LineaOcId, l.Importe, l.CentroCostoId, l.EsServicio ?? false)).ToList();
+        lineas.AddRange(RetencionesContables.Lineas(f.Retenciones, f.ConceptoRetencion));
         return new(FacturaProveedorRegistrada, eventoId, f.EmpresaId, FechaContable.HoyLocal(f.OcurridoEn),
             new DocumentoOrigenPoliza("cuentas_por_pagar", "factura_proveedor", f.FacturaProveedorId, null, f.Uuid),
             f.SucursalId, f.ProveedorId, null, f.CentroCostoId, f.OrdenCompraId == Guid.Empty ? null : f.OrdenCompraId,
@@ -100,7 +108,8 @@ public static partial class NormalizadorEventos
     private sealed record FacturaProveedorRegistradaContrato(
         Guid EmpresaId, DateTimeOffset OcurridoEn, Guid FacturaProveedorId, Guid OrdenCompraId, decimal TotalFactura,
         IReadOnlyList<LineaFacturaContrato>? Lineas, Guid? ProveedorId, string? Uuid, decimal? Subtotal, decimal? Iva,
-        decimal? RetencionesTotal, string? Moneda, decimal? TipoCambio, Guid? SucursalId, Guid? CentroCostoId);
+        decimal? RetencionesTotal, string? Moneda, decimal? TipoCambio, Guid? SucursalId, Guid? CentroCostoId,
+        IReadOnlyList<RetencionesContables.RetencionContrato>? Retenciones = null, string? ConceptoRetencion = null);
 
     private sealed record LineaFacturaContrato(Guid? LineaOcId, decimal Importe, Guid? CentroCostoId, bool? EsServicio);
 }
