@@ -17,9 +17,9 @@ namespace Millet.Almacen.Application.Catalogo;
 ///   <item>Pertenece al sub-almacén del movimiento —solo si se pasa uno
 ///   (dev-interna)— (<c>UBICACION_NO_PERTENECE_AL_SUBALMACEN</c>). Recepción no
 ///   lo pasa: deriva el sub del bin y valida el invariante entre líneas.</item>
-///   <item>Si es la ÚNICA/default ("almacén general") solo admite lo que no es
-///   vidrio y solo si el artículo ya tiene existencia ahí (no exige asignación;
-///   un artículo nuevo exige rack, <c>ENTRADA_SIN_UBICACION_REAL</c>); el vidrio exige rack
+///   <item>La ÚNICA/default ("almacén general") recibe consumibles y refacciones
+///   sin A+W, nuevos o con existencia previa, sin asignación (acuerdo 28-oct),
+///   salvo en MAT-REV. Los artículos de A+W siguen exigiendo rack
 ///   (<c>ENTRADA_A_UBICACION_UNICA</c>).</item>
 ///   <item>El artículo está asignado y activo a esa ubicación
 ///   (<c>ENTRADA_SIN_ASIGNACION</c>), molde de
@@ -80,15 +80,7 @@ public static class UbicacionEntradaGuard
                 throw new BusinessRuleException(
                     "ENTRADA_A_UBICACION_UNICA",
                     "El sub-almacén de material en revisión no recibe en su almacén general; elige otro sub-almacén.");
-            // G-9: la ÚNICA ya no es ubicación de respaldo: solo sigue recibiendo artículos que ya
-            // tienen existencia registrada ahí (histórico). Un artículo nuevo exige rack asignado.
-            var conHistorial = await db.SaldosInventario.AsNoTracking()
-                .AnyAsync(s => s.UbicacionId == ubicacionId && s.ArticuloId == articuloId, ct);
-            if (!conHistorial)
-                throw new BusinessRuleException(
-                    "ENTRADA_SIN_UBICACION_REAL",
-                    "El artículo es nuevo en este sub-almacén y no puede recibirse en el almacén general. Asígnalo primero a una ubicación (rack).");
-            return ubicacion.SubAlmacenId; // artículo sin A+W con existencia previa en la ÚNICA: sin asignación
+            return ubicacion.SubAlmacenId; // artículo sin A+W al almacén general: sin asignación
         }
 
         var tieneAsignacion = await db.AsignacionesArticuloUbicacion.AsNoTracking()
