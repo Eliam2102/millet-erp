@@ -64,11 +64,12 @@ public static class PedidosFacturablesEndpoints
         // GET: detalle del pedido con líneas + versión (ETag para If-Match). B1.
         group.MapGet("/{id:guid}", async (
             Guid id,
+            Guid? salidaId,
             IMediator mediator,
             HttpResponse response,
             CancellationToken cancellationToken) =>
         {
-            var detalle = await mediator.Send(new PedidoFacturableDetalleQuery(id), cancellationToken);
+            var detalle = await mediator.Send(new PedidoFacturableDetalleQuery(id, salidaId), cancellationToken);
             response.Headers.ETag = $"\"{detalle.Version.ToString(CultureInfo.InvariantCulture)}\"";
             return Results.Ok(detalle);
         })
@@ -103,7 +104,7 @@ public static class PedidosFacturablesEndpoints
         .WithSummary("Salidas parciales del pedido, su factura vigente y el avance (FAC-08)")
         .Produces<PedidoSalidasResponse>(StatusCodes.Status200OK);
 
-        // FAC-08: registra una salida parcial a mano mientras PT-03 y CE-02 no la publican.
+        // FAC-08: registra una salida parcial a mano (respaldo). Los contenedores de CE llegan solos por evento; PT-03 aún no la publica.
         // Reenviar la misma referencia regresa la salida ya registrada (200) sin cambiar importes.
         group.MapPost("/{id:guid}/salidas", async (
             Guid id,

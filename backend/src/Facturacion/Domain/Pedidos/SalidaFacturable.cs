@@ -37,8 +37,24 @@ public sealed class SalidaFacturable : BaseEntity, IPerteneceAEmpresa, IAuditabl
     /// <summary>Identificador de la salida en su origen (folio de salida PT o contenedor). Clave de idempotencia.</summary>
     public string Referencia { get; private set; } = string.Empty;
 
+    /// <summary>
+    /// Id del documento de origen cuando lo hay (FAC-08 Fase 1: el contenedor de Comercio Exterior). Con él la
+    /// idempotencia es por (origen, documento, pedido): un contenedor con dos pedidos da dos salidas con la misma
+    /// referencia (el número de contenedor).
+    /// </summary>
+    public Guid? OrigenId { get; private set; }
+
     public DateTimeOffset RegistradaEn { get; private set; }
     public decimal Total { get; private set; }
+
+    /// <summary>
+    /// Salida descartada porque su origen se canceló antes de facturarla (contenedor cancelado en CE). Se conserva
+    /// para el histórico, ya no se factura y sus cantidades vuelven a quedar pendientes del pedido.
+    /// </summary>
+    public DateTimeOffset? DescartadaEn { get; private set; }
+    public string? MotivoDescarte { get; private set; }
+    public bool Descartada => DescartadaEn is not null;
+    public const int MotivoDescarteMaxLength = 300;
 
     private readonly List<SalidaFacturableLinea> _lineas = [];
     public IReadOnlyCollection<SalidaFacturableLinea> Lineas => _lineas.AsReadOnly();
@@ -46,8 +62,9 @@ public sealed class SalidaFacturable : BaseEntity, IPerteneceAEmpresa, IAuditabl
     private SalidaFacturable() { }
 
     private SalidaFacturable(Guid id, Guid empresaId, Guid pedidoId, int numero, OrigenSalidaFacturable origen,
-        string referencia, DateTimeOffset registradaEn) : base(id)
+        string referencia, DateTimeOffset registradaEn, Guid? origenId) : base(id)
     {
+        OrigenId = origenId;
         EmpresaId = empresaId;
         PedidoFacturableId = pedidoId;
         NumeroParcialidad = numero;
@@ -67,7 +84,8 @@ public sealed class SalidaFacturable : BaseEntity, IPerteneceAEmpresa, IAuditabl
         OrigenSalidaFacturable origen,
         string referencia,
         IReadOnlyList<(int Posicion, decimal Cantidad)> lineas,
-        DateTimeOffset ahora)
+        DateTimeOffset ahora,
+        Guid? origenId = null)
     {
         if (pedido.Estado != EstadoPedidoFacturable.Importado)
             throw new BusinessRuleException("SALIDA_PEDIDO_NO_FACTURABLE",
@@ -81,9 +99,10 @@ public sealed class SalidaFacturable : BaseEntity, IPerteneceAEmpresa, IAuditabl
             throw new BusinessRuleException("SALIDA_POSICION_REPETIDA", "Cada posición del pedido va una sola vez en la salida.");
 
         var salida = new SalidaFacturable(Guid.CreateVersion7(), pedido.EmpresaId, pedido.Id,
-            previas.Count == 0 ? 1 : previas.Max(s => s.NumeroParcialidad) + 1, origen, referencia.Trim(), ahora);
+            previas.Count == 0 ? 1 : previas.Max(s => s.NumeroParcialidad) + 1, origen, referencia.Trim(), ahora, origenId);
 
-        var previasPorPosicion = previas.SelectMany(s => s.Lineas).GroupBy(l => l.Posicion)
+        // Una salida descartada conserva su número de parcialidad pero ya no cuenta contra lo pedido.
+        var previasPorPosicion = previas.Where(s => !s.Descartada).SelectMany(s => s.Lineas).GroupBy(l => l.Posicion)
             .ToDictionary(g => g.Key, g => (Cantidad: g.Sum(l => l.Cantidad), Importe: g.Sum(l => l.Importe)));
 
         foreach (var (posicion, cantidad) in lineas.OrderBy(l => l.Posicion))
@@ -108,6 +127,18 @@ public sealed class SalidaFacturable : BaseEntity, IPerteneceAEmpresa, IAuditabl
 
         salida.Total = salida._lineas.Sum(l => l.Importe);
         return salida;
+    }
+
+    /// <summary>
+    /// Descarta la salida no facturada porque su origen se canceló (FAC-08: contenedor cancelado después de
+    /// embarcar). Idempotente. Quien llama verifica antes que no tenga factura vigente.
+    /// </summary>
+    public void Descartar(string motivo, DateTimeOffset ahora)
+    {
+        if (Descartada) return;
+        var texto = string.IsNullOrWhiteSpace(motivo) ? "Origen cancelado" : motivo.Trim();
+        MotivoDescarte = texto.Length > MotivoDescarteMaxLength ? texto[..MotivoDescarteMaxLength] : texto;
+        DescartadaEn = ahora;
     }
 
     /// <summary>Misma salida reenviada: mismas posiciones y cantidades.</summary>

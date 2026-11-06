@@ -3514,9 +3514,18 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
 
+                    b.Property<DateTimeOffset?>("DescartadaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("descartada_en");
+
                     b.Property<Guid>("EmpresaId")
                         .HasColumnType("uuid")
                         .HasColumnName("empresa_id");
+
+                    b.Property<string>("MotivoDescarte")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("motivo_descarte");
 
                     b.Property<int>("NumeroParcialidad")
                         .HasColumnType("integer")
@@ -3525,6 +3534,10 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                     b.Property<short>("Origen")
                         .HasColumnType("smallint")
                         .HasColumnName("origen");
+
+                    b.Property<Guid?>("OrigenId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("origen_id");
 
                     b.Property<Guid>("PedidoFacturableId")
                         .HasColumnType("uuid")
@@ -3567,7 +3580,13 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("EmpresaId", "Origen", "Referencia")
                         .IsUnique()
-                        .HasDatabaseName("ux_salida_facturable_referencia");
+                        .HasDatabaseName("ux_salida_facturable_referencia")
+                        .HasFilter("origen_id IS NULL");
+
+                    b.HasIndex("EmpresaId", "Origen", "OrigenId", "PedidoFacturableId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_salida_facturable_origen_pedido")
+                        .HasFilter("origen_id IS NOT NULL");
 
                     b.ToTable("salida_facturable", "facturacion");
                 });

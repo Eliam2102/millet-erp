@@ -44,6 +44,15 @@ export interface EmitirFacturaPrefill {
   receptorUsoCfdi?: string | null;
   metodoPago?: string | null;
   formaPago?: string | null;
+  /**
+   * Receptor extranjero (CCE) del catálogo del cliente, igual que el selector
+   * de la factura manual: NumRegIdTrib, país de residencia y domicilio.
+   */
+  cceReceptorNumRegIdTrib?: string | null;
+  cceReceptorPaisResidencia?: string | null;
+  cceReceptorDomicilioCalle?: string | null;
+  cceReceptorDomicilioEstado?: string | null;
+  cceReceptorDomicilioCodigoPostal?: string | null;
   /** True si el cliente no está en el master o le faltan datos fiscales
    * (banner G12: completarlos en Datos Maestros → Clientes). */
   datosFiscalesIncompletos?: boolean;
