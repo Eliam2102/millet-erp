@@ -254,6 +254,57 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                     b.ToTable("anticipo", "facturacion");
                 });
 
+            modelBuilder.Entity("Millet.Facturacion.Domain.Anticipos.AnticipoLiberacion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AnticipoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("anticipo_id");
+
+                    b.Property<Guid>("FacturaVentaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("factura_venta_id");
+
+                    b.Property<decimal>("Importe")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("importe");
+
+                    b.Property<DateTimeOffset>("LiberadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("liberado_en");
+
+                    b.Property<Guid>("LiberadoPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("liberado_por_id");
+
+                    b.Property<string>("LiberadoPorNombre")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("liberado_por_nombre");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo");
+
+                    b.HasKey("Id")
+                        .HasName("pk_anticipo_liberacion");
+
+                    b.HasIndex("AnticipoId")
+                        .HasDatabaseName("ix_anticipo_liberacion_anticipo");
+
+                    b.ToTable("anticipo_liberacion", "facturacion", t =>
+                        {
+                            t.HasCheckConstraint("ck_anticipo_liberacion_motivo", "char_length(motivo) BETWEEN 5 AND 500");
+                        });
+                });
+
             modelBuilder.Entity("Millet.Facturacion.Domain.Anticipos.AnticipoVinculacion", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4555,6 +4606,16 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                     b.ToTable("recibo_pago", "facturacion");
                 });
 
+            modelBuilder.Entity("Millet.Facturacion.Domain.Anticipos.AnticipoLiberacion", b =>
+                {
+                    b.HasOne("Millet.Facturacion.Domain.Anticipos.Anticipo", null)
+                        .WithMany("Liberaciones")
+                        .HasForeignKey("AnticipoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_anticipo_liberacion_anticipos_anticipo_id");
+                });
+
             modelBuilder.Entity("Millet.Facturacion.Domain.Anticipos.AnticipoVinculacion", b =>
                 {
                     b.HasOne("Millet.Facturacion.Domain.Anticipos.Anticipo", null)
@@ -4853,6 +4914,8 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Millet.Facturacion.Domain.Anticipos.Anticipo", b =>
                 {
+                    b.Navigation("Liberaciones");
+
                     b.Navigation("Vinculaciones");
                 });
 

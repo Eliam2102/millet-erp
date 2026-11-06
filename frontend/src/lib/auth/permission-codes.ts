@@ -127,6 +127,13 @@ export const PermisosCanonicos = {
   CompartidoCatalogosLeer: 'compartido.catalogos.leer',
   CompartidoCatalogosAdministrar: 'compartido.catalogos.administrar',
 
+  // U-4 · Incidencias comunes (compartido.incidencias). El responsable siempre ve y atiende las suyas sin estos permisos.
+  CompartidoIncidenciasVer: 'compartido.incidencias.ver',
+  CompartidoIncidenciasRegistrar: 'compartido.incidencias.registrar',
+  CompartidoIncidenciasGestionar: 'compartido.incidencias.gestionar',
+  CompartidoIncidenciasLeerTodasSucursales: 'compartido.incidencias.leer-todas-sucursales',
+  CompartidoIncidenciasGestionarTodasSucursales: 'compartido.incidencias.gestionar-todas-sucursales',
+
   // Catálogos granulares (F-Admin-PR5.x). Reusan el namespace de
   // Compartido. Convención kebab-case 3-parte para tipos-cambio y
   // unidades-medida (el seed parser de IdentidadDbContext hace

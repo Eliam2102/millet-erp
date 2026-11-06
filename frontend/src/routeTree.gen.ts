@@ -77,6 +77,8 @@ import { Route as AppProductoTerminadoPiezasRouteImport } from './routes/_app/pr
 import { Route as AppProductoTerminadoSalidasRouteImport } from './routes/_app/producto-terminado/salidas';
 import { Route as AppProductoTerminadoTraspasosRouteImport } from './routes/_app/producto-terminado/traspasos';
 import { Route as AppSistemaDisenoIndexRouteImport } from './routes/_app/sistema-diseno/index';
+import { Route as AppIncidenciasIndexRouteImport } from './routes/_app/incidencias/index';
+import { Route as AppIncidenciasIdRouteImport } from './routes/_app/incidencias/$id';
 import { Route as AppTesoreriaIndexRouteImport } from './routes/_app/tesoreria/index';
 import { Route as AppActivosFijosActivosIndexRouteImport } from './routes/_app/activos-fijos/activos/index';
 import { Route as AppActivosFijosActivosIdRouteImport } from './routes/_app/activos-fijos/activos/$id';
@@ -611,6 +613,16 @@ const AppProductoTerminadoTraspasosRoute =
 const AppSistemaDisenoIndexRoute = AppSistemaDisenoIndexRouteImport.update({
   id: '/sistema-diseno/',
   path: '/sistema-diseno/',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppIncidenciasIndexRoute = AppIncidenciasIndexRouteImport.update({
+  id: '/incidencias/',
+  path: '/incidencias/',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppIncidenciasIdRoute = AppIncidenciasIdRouteImport.update({
+  id: '/incidencias/$id',
+  path: '/incidencias/$id',
   getParentRoute: () => AppRoute,
 } as any);
 const AppTesoreriaIndexRoute = AppTesoreriaIndexRouteImport.update({
@@ -1640,6 +1652,8 @@ export interface FileRoutesByFullPath {
   '/cxp/': typeof AppCxpIndexRoute;
   '/facturacion/': typeof AppFacturacionIndexRoute;
   '/sistema-diseno/': typeof AppSistemaDisenoIndexRoute;
+  '/incidencias/': typeof AppIncidenciasIndexRoute;
+  '/incidencias/$id': typeof AppIncidenciasIdRoute;
   '/tesoreria/': typeof AppTesoreriaIndexRoute;
   '/activos-fijos/activos/$id': typeof AppActivosFijosActivosIdRoute;
   '/admin/$modulo/settings': typeof AppAdminModuloSettingsRoute;
@@ -1879,6 +1893,8 @@ export interface FileRoutesByTo {
   '/cxp': typeof AppCxpIndexRoute;
   '/facturacion': typeof AppFacturacionIndexRoute;
   '/sistema-diseno': typeof AppSistemaDisenoIndexRoute;
+  '/incidencias': typeof AppIncidenciasIndexRoute;
+  '/incidencias/$id': typeof AppIncidenciasIdRoute;
   '/tesoreria': typeof AppTesoreriaIndexRoute;
   '/activos-fijos/activos/$id': typeof AppActivosFijosActivosIdRoute;
   '/admin/$modulo/settings': typeof AppAdminModuloSettingsRoute;
@@ -2120,6 +2136,8 @@ export interface FileRoutesById {
   '/_app/cxp/': typeof AppCxpIndexRoute;
   '/_app/facturacion/': typeof AppFacturacionIndexRoute;
   '/_app/sistema-diseno/': typeof AppSistemaDisenoIndexRoute;
+  '/_app/incidencias/': typeof AppIncidenciasIndexRoute;
+  '/_app/incidencias/$id': typeof AppIncidenciasIdRoute;
   '/_app/tesoreria/': typeof AppTesoreriaIndexRoute;
   '/_app/activos-fijos/activos/$id': typeof AppActivosFijosActivosIdRoute;
   '/_app/admin/$modulo/settings': typeof AppAdminModuloSettingsRoute;
@@ -2361,6 +2379,8 @@ export interface FileRouteTypes {
     | '/cxp/'
     | '/facturacion/'
     | '/sistema-diseno/'
+    | '/incidencias/'
+    | '/incidencias/$id'
     | '/tesoreria/'
     | '/activos-fijos/activos/$id'
     | '/admin/$modulo/settings'
@@ -2600,6 +2620,8 @@ export interface FileRouteTypes {
     | '/cxp'
     | '/facturacion'
     | '/sistema-diseno'
+    | '/incidencias'
+    | '/incidencias/$id'
     | '/tesoreria'
     | '/activos-fijos/activos/$id'
     | '/admin/$modulo/settings'
@@ -2840,6 +2862,8 @@ export interface FileRouteTypes {
     | '/_app/cxp/'
     | '/_app/facturacion/'
     | '/_app/sistema-diseno/'
+    | '/_app/incidencias/'
+    | '/_app/incidencias/$id'
     | '/_app/tesoreria/'
     | '/_app/activos-fijos/activos/$id'
     | '/_app/admin/$modulo/settings'
@@ -3494,6 +3518,20 @@ declare module '@tanstack/react-router' {
       path: '/sistema-diseno';
       fullPath: '/sistema-diseno/';
       preLoaderRoute: typeof AppSistemaDisenoIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/incidencias/': {
+      id: '/_app/incidencias/';
+      path: '/incidencias';
+      fullPath: '/incidencias/';
+      preLoaderRoute: typeof AppIncidenciasIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/incidencias/$id': {
+      id: '/_app/incidencias/$id';
+      path: '/incidencias/$id';
+      fullPath: '/incidencias/$id';
+      preLoaderRoute: typeof AppIncidenciasIdRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/tesoreria/': {
@@ -4772,6 +4810,8 @@ interface AppRouteChildren {
   AppCxpIndexRoute: typeof AppCxpIndexRoute;
   AppFacturacionIndexRoute: typeof AppFacturacionIndexRoute;
   AppSistemaDisenoIndexRoute: typeof AppSistemaDisenoIndexRoute;
+  AppIncidenciasIndexRoute: typeof AppIncidenciasIndexRoute;
+  AppIncidenciasIdRoute: typeof AppIncidenciasIdRoute;
   AppTesoreriaIndexRoute: typeof AppTesoreriaIndexRoute;
   AppActivosFijosActivosIdRoute: typeof AppActivosFijosActivosIdRoute;
   AppAdminModuloSettingsRoute: typeof AppAdminModuloSettingsRoute;
@@ -5010,6 +5050,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppCxpIndexRoute: AppCxpIndexRoute,
   AppFacturacionIndexRoute: AppFacturacionIndexRoute,
   AppSistemaDisenoIndexRoute: AppSistemaDisenoIndexRoute,
+  AppIncidenciasIndexRoute: AppIncidenciasIndexRoute,
+  AppIncidenciasIdRoute: AppIncidenciasIdRoute,
   AppTesoreriaIndexRoute: AppTesoreriaIndexRoute,
   AppActivosFijosActivosIdRoute: AppActivosFijosActivosIdRoute,
   AppAdminModuloSettingsRoute: AppAdminModuloSettingsRoute,

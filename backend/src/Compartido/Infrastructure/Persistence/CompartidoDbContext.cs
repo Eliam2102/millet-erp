@@ -125,6 +125,9 @@ public sealed class CompartidoDbContext : BaseDbContext
     public DbSet<AdjuntoTipoDocumento> AdjuntoTiposDocumento => Set<AdjuntoTipoDocumento>();
     public DbSet<AdjuntoExcepcion> AdjuntoExcepciones => Set<AdjuntoExcepcion>();
     public DbSet<IntegrationEventOutboxEntry> IntegrationEventsOutbox => Set<IntegrationEventOutboxEntry>();
+    // U-4 (86e3yzemw): incidencias comunes del ERP (documento, paso, responsable, evidencia y paso para retomar).
+    public DbSet<Millet.SharedKernel.Domain.Incidencias.Incidencia> Incidencias => Set<Millet.SharedKernel.Domain.Incidencias.Incidencia>();
+    public DbSet<Millet.SharedKernel.Domain.Incidencias.IncidenciaMovimiento> IncidenciasHistorial => Set<Millet.SharedKernel.Domain.Incidencias.IncidenciaMovimiento>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -250,6 +253,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         ConfigureAdjuntoTipoDocumento(modelBuilder);
         ComercioExteriorTiposDocumento.Configure(modelBuilder);
         ConfigureAdjunto(modelBuilder);
+        IncidenciasModelo.Configure(modelBuilder);
         ConfigureIntegrationEventOutbox(modelBuilder);
     }
 
