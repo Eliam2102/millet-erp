@@ -1581,6 +1581,17 @@ const rutasFueraDelMenu: readonly Pick<NavCard, 'to' | 'permission' | 'permissio
   { to: '/admin/mi-empresa', permission: PermisosCanonicos.AdminEmpresasLeer },
   { to: '/compras/trazabilidad', permission: PermisosCanonicos.ComprasOrdenesLeer },
   { to: '/compras/articulos', permission: PermisosCanonicos.ComprasOrdenesLeer },
+  // U-4 · «Mis incidencias»: cualquier permiso de incidencias.
+  {
+    to: '/incidencias',
+    permissionsAny: [
+      PermisosCanonicos.CompartidoIncidenciasVer,
+      PermisosCanonicos.CompartidoIncidenciasRegistrar,
+      PermisosCanonicos.CompartidoIncidenciasGestionar,
+      PermisosCanonicos.CompartidoIncidenciasLeerTodasSucursales,
+      PermisosCanonicos.CompartidoIncidenciasGestionarTodasSucursales,
+    ],
+  },
 ];
 
 function contieneRuta(base: string, pathname: string): boolean {
