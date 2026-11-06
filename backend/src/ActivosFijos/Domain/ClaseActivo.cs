@@ -20,11 +20,15 @@ public sealed class ClaseActivo : BaseEntity, IPerteneceAEmpresa, IAuditable
     public string Metodo { get; private set; } = "LineaRecta";
     public bool Activa { get; private set; } = true;
     public List<VersionClaseActivo> Versiones { get; private set; } = [];
+    public bool PropuestaPendiente => Versiones.Any(v => v.Estado == EstadoVersionClase.EnRevision);
+    public DateOnly? ProximaVersionDesde { get; private set; }
     public ClaseActivo EnMes(DateOnly mes)
     {
         var v = Versiones.Where(v => v.Estado == EstadoVersionClase.Vigente && v.Vigencia <= CalculoDepreciacion.Mes(mes))
             .OrderByDescending(v => v.Vigencia).ThenByDescending(v => v.Numero).FirstOrDefault();
         var copia = (ClaseActivo)MemberwiseClone();
+        copia.ProximaVersionDesde = Versiones.Where(v => v.Estado == EstadoVersionClase.EnRevision || v.Estado == EstadoVersionClase.Vigente && v.Vigencia > CalculoDepreciacion.Mes(mes))
+            .OrderBy(v => v.Estado == EstadoVersionClase.EnRevision ? 0 : 1).ThenBy(v => v.Vigencia).Select(v => (DateOnly?)v.Vigencia).FirstOrDefault();
         if (v != null) copia.Editar(Nombre, v.TasaFiscalAnual, v.CuentaActivoId, v.CuentaDepreciacionId, v.CuentaGastoId, v.CuentaPuenteId, Activa, v.Depreciable, v.TasaConfirmada, v.TasaContableAnual);
         return copia;
     }

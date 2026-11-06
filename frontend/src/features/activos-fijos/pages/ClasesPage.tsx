@@ -40,6 +40,22 @@ export function ClasesPage() {
   const [historial, setHistorial] = useState<string | null>(null);
   const guardar = useGuardarActivo();
   const [editar, setEditar] = useState<Partial<Clase> | null>(null);
+  const original = query.data?.find((c) => c.id === editar?.id);
+  const propone =
+    !!original &&
+    !!editar &&
+    (
+      [
+        'tasaFiscalAnual',
+        'tasaContableAnual',
+        'cuentaActivoId',
+        'cuentaDepreciacionId',
+        'cuentaGastoId',
+        'cuentaPuenteId',
+        'depreciable',
+        'tasaConfirmada',
+      ] as const
+    ).some((campo) => editar[campo] !== original[campo]);
   return (
     <main className="space-y-5 text-sm">
       <PageHeader
@@ -112,6 +128,15 @@ export function ClasesPage() {
                     <Badge variant={c.activa ? 'success' : 'neutral'}>
                       {c.activa ? 'Activa' : 'Inactiva'}
                     </Badge>
+                    {c.proximaVersionDesde && (
+                      <Badge variant="warning">
+                        {c.propuestaPendiente ? 'Cambio pendiente desde' : 'Nueva versión desde'}{' '}
+                        {new Date(`${c.proximaVersionDesde}T12:00:00`).toLocaleDateString('es-MX', {
+                          month: 'long',
+                          year: 'numeric',
+                        })}
+                      </Badge>
+                    )}
                     {c.requiereRevision && <Badge variant="warning">Revisar clase anterior</Badge>}
                   </TableCell>
                   <TableCell>
@@ -191,6 +216,7 @@ export function ClasesPage() {
               Mes de vigencia para cambios de tasa, cuentas o depreciable
               <Input
                 type="month"
+                required={propone}
                 value={editar.vigencia?.slice(0, 7) ?? ''}
                 onChange={(e) =>
                   setEditar({
@@ -200,6 +226,18 @@ export function ClasesPage() {
                 }
               />
               <span>El cambio se propone a revisión; debe autorizarlo otra persona.</span>
+            </label>
+          )}
+          {editar.id && (
+            <label className="text-xs">
+              Motivo del cambio{propone || editar.vigencia ? ' *' : ''}
+              <Input
+                required={propone || !!editar.vigencia}
+                minLength={5}
+                maxLength={500}
+                value={editar.motivoCambio ?? ''}
+                onChange={(e) => setEditar({ ...editar, motivoCambio: e.target.value })}
+              />
             </label>
           )}
           <label className="text-xs">

@@ -110,12 +110,18 @@ public sealed partial class LibroHttpTests
         using var captura=await e.ClienteAsync(true,permisosCe:false,permisosAf:true);using var autoriza=await e.ClienteAsync(true,permisosCe:false,permisosAf:true);
         var activo=(await captura.GetFromJsonAsync<ActivoP16>($"{Base}/activos/{activoId}"))!;
         var clase=(await captura.GetFromJsonAsync<List<ClaseP16>>($"{Base}/clases"))!.Single(c => c.Id == activo.ClaseId);
-        async Task<HttpResponseMessage> Proponer(DateOnly vigencia,decimal tasa)
+        async Task<HttpResponseMessage> Proponer(DateOnly vigencia,decimal tasa,string? motivo = "Actualización de política")
         {
-            using var req=new HttpRequestMessage(HttpMethod.Put,$"{Base}/clases/{clase.Id}") {Content=JsonContent.Create(new ClaseActivoDatos(clase.Clave,clase.Nombre,10,clase.CuentaActivoId,clase.CuentaDepreciacionId,clase.CuentaGastoId,clase.CuentaPuenteId,true,true,true,tasa,vigencia))};
+            using var req=new HttpRequestMessage(HttpMethod.Put,$"{Base}/clases/{clase.Id}") {Content=JsonContent.Create(new ClaseActivoDatos(clase.Clave,clase.Nombre,10,clase.CuentaActivoId,clase.CuentaDepreciacionId,clase.CuentaGastoId,clase.CuentaPuenteId,true,true,true,tasa,vigencia,motivo))};
             req.Headers.Add("If-Match",$"\"{clase.Version}\"");req.Headers.Add("Idempotency-Key",Guid.NewGuid().ToString());return await captura.SendAsync(req);
         }
+        using var sinMotivo=await Proponer(new(2027,3,1),25,null);Assert.Equal(HttpStatusCode.UnprocessableEntity,sinMotivo.StatusCode);
         using var propuesta=await Proponer(new(2027,3,1),25);propuesta.EnsureSuccessStatusCode();clase=(await propuesta.Content.ReadFromJsonAsync<ClaseP16>())!;
+        var lecturaClases=(await captura.GetFromJsonAsync<List<JsonElement>>($"{Base}/clases"))!;
+        var lecturaClase=lecturaClases.Single(c => c.GetProperty("id").GetGuid() == clase.Id);
+        Assert.True(lecturaClase.GetProperty("propuestaPendiente").GetBoolean());
+        Assert.Equal("2027-03-01",lecturaClase.GetProperty("proximaVersionDesde").GetString());
+        Assert.Equal(10,lecturaClase.GetProperty("tasaContableAnual").GetDecimal());
         var v=clase.Versiones.Single(v => v.Estado == EstadoVersionClase.EnRevision);
         using var misma=await Post(captura,$"clases/{clase.Id}/versiones/{v.Id}/resolver",new {autorizar=true},v.Version);Assert.Equal(HttpStatusCode.UnprocessableEntity,misma.StatusCode);
         using var otra=await Post(autoriza,$"clases/{clase.Id}/versiones/{v.Id}/resolver",new {autorizar=true},v.Version);otra.EnsureSuccessStatusCode();

@@ -44,6 +44,8 @@ public static class LibroEndpoints
             .WithMetadata(new RequireIdempotencyKeyAttribute()).AddEndpointFilter(ExigirVersion);
         g.MapPost("/operaciones/{id:guid}/rechazar", async (Guid id, MotivoBody datos, HttpRequest req, OperacionesLibroServicio servicio, CancellationToken ct) => Results.Ok(await servicio.RechazarAsync(id, Version(req), datos.Motivo, ct)))
             .WithMetadata(new RequireIdempotencyKeyAttribute()).AddEndpointFilter(ExigirVersion);
+        g.MapPost("/operaciones/{id:guid}/retirar", async (Guid id, MotivoBody datos, HttpRequest req, OperacionesLibroServicio servicio, CancellationToken ct) => Results.Ok(await servicio.RetirarAsync(id, Version(req), datos.Motivo, ct)))
+            .WithMetadata(new RequireIdempotencyKeyAttribute()).AddEndpointFilter(ExigirVersion);
         g.MapGet("/autorizaciones", async (ActivosFijosDbContext db, ActivoServicio acceso, CancellationToken ct) =>
         {
             var ids = await acceso.SucursalesAsync(null, ct);

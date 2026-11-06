@@ -113,3 +113,31 @@ it('renovación exige seleccionar una nueva versión con vigencia posterior', ()
     expect.anything(),
   );
 });
+
+it.each(['Baja', 'Venta'])(
+  'quien registró %s puede retirarla con motivo sin permiso de autorizar',
+  (tipo) => {
+    useAuthStore.setState({ permisos: [P.ActivosFijosBajasRegistrar] });
+    const vista = render(<ResolverOperacion operacion={{ ...op, tipo, registradoPor: 'daf' }} />);
+    expect(screen.queryByRole('button', { name: 'Autorizar' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Retirar' }));
+    expect(screen.getByRole('button', { name: 'Retirar solicitud' })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Motivo *'), { target: { value: 'Error de captura' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Retirar solicitud' }));
+    expect(state.mutate).toHaveBeenCalledWith(
+      { ruta: 'operaciones/op/retirar', version: 4, body: { motivo: 'Error de captura' } },
+      expect.anything(),
+    );
+    vista.rerender(
+      <ResolverOperacion
+        operacion={{ ...op, tipo, anulada: true, motivoRetiro: 'Error de captura' }}
+      />,
+    );
+    expect(screen.getByText('Retirada: Error de captura')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retirar' })).not.toBeInTheDocument();
+  },
+);
+it('otra persona no puede retirar la baja', () => {
+  render(<ResolverOperacion operacion={{ ...op, tipo: 'Baja' }} />);
+  expect(screen.queryByRole('button', { name: 'Retirar' })).not.toBeInTheDocument();
+});
