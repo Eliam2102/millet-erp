@@ -253,12 +253,24 @@ public sealed class Sucursal : BaseEntity, IAuditable, IPerteneceAEmpresa
                 "El tipo de sucursal debe ser Taller (1) o Planta (2).");
     }
 
+    /// <summary>
+    /// <c>ClaveAw</c> admite varias claves de A+W separadas por coma (la primera es
+    /// la principal, el resto alias; p. ej. <c>CONKAL,PERIFERICO,OBRAS</c>). Devuelve
+    /// las claves normalizadas (trim + mayúsculas), sin vacías.
+    /// </summary>
+    public static IReadOnlyList<string> ClavesAw(string? claveAw) =>
+        (claveAw ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(c => c.ToUpperInvariant()).ToList();
+
     private static void ValidarClaveAw(string? claveAw)
     {
-        if (claveAw is not null
-            && (string.IsNullOrWhiteSpace(claveAw) || claveAw.Trim().Length > 40))
+        if (claveAw is null) return;
+        var partes = claveAw.Split(',', StringSplitOptions.TrimEntries);
+        // ponytail: alias en la misma columna (máx. 40 caracteres en total); columna aparte si hacen falta más.
+        if (claveAw.Trim().Length > 40 || partes.Any(string.IsNullOrEmpty)
+            || partes.Select(p => p.ToUpperInvariant()).Distinct().Count() != partes.Length)
             throw new BusinessRuleException("SUCURSAL_CLAVE_AW_INVALIDA",
-                "La clave A+W no puede ser vacía ni exceder 40 caracteres.");
+                "La clave A+W no puede ser vacía ni exceder 40 caracteres; los alias se separan por coma, sin vacíos ni repetidos.");
     }
 
     private static void ValidarZonaHoraria(string zonaHoraria)

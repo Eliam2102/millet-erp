@@ -1008,7 +1008,7 @@ resource contabTesoreriaFilter 'Microsoft.ServiceBus/namespaces/topics/subscript
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'tesoreria.pago-factura-proveedor.aplicado.v1\', \'tesoreria.pago-factura-proveedor.revertido.v1\', \'tesoreria.pago-cliente.confirmado.v1\', \'tesoreria.anticipo-agente.devolucion-confirmada.v1\')'
+      sqlExpression: 'user.EventType IN (\'tesoreria.pago-factura-proveedor.aplicado.v1\', \'tesoreria.pago-factura-proveedor.revertido.v1\', \'tesoreria.pago-cliente.confirmado.v1\', \'tesoreria.anticipo-agente.devolucion-confirmada.v1\', \'tesoreria.deposito-caja.confirmado.v1\', \'tesoreria.diferencia-corte.autorizada.v1\', \'tesoreria.diferencia-corte.devolucion-aplicada.v1\', \'tesoreria.movimiento-bancario.registrado.v1\', \'tesoreria.reembolso-nota-credito.actualizado.v1\')'
       compatibilityLevel: 20
     }
   }

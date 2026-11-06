@@ -11,7 +11,6 @@ public static class DependencyInjection
     {
         services.AddScoped<EscaneoProcesador>();
         services.AddScoped<Application.LiberacionPedido>();
-        services.AddScoped<SaldoPedidoProvisionalAdapter>();
         services.AddScoped<SaldoPedidoDemoAdapter>();
         services.AddScoped<Application.PtAcceso>();
         services.AddScoped<IProductoTerminadoSucursalReadPort, ProductoTerminadoSucursalReadAdapter>();

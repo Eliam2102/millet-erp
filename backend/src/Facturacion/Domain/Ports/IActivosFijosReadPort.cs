@@ -19,4 +19,5 @@ public sealed record ActivoFijoLectura(
     string Descripcion,
     decimal ValorEnLibros,
     decimal DepreciacionAcumulada,
-    bool EsImportacion);
+    bool EsImportacion,
+    bool BajaPendiente = false);

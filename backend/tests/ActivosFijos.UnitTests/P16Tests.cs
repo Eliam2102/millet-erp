@@ -53,6 +53,19 @@ public sealed class P16Tests
         var a=new Activo(Guid.NewGuid(),c.EmpresaId,"P16",Datos(c.Id));a.Capitalizar(Guid.NewGuid());
         Assert.Equal(238.29m,CalculoDepreciacion.Calcular(a,c,new(2026,2,1)).Importe);Assert.Equal(595.72m,CalculoDepreciacion.Calcular(a,c,new(2026,3,1)).Importe);
     }
+    [Fact] public void E4a_E4d_propuesta_muestra_vigencia_y_exige_motivo()
+    {
+        var c = new ClaseActivo(Guid.NewGuid(),Guid.NewGuid(),"153","Maquinaria",10);
+        var v = VersionClaseActivo.Desde(c,2,new(2026,3,1),Guid.NewGuid()); c.Versiones.Add(v);
+        Assert.Throws<BusinessRuleException>(() => v.CapturarMotivo(" "));
+        v.CapturarMotivo("Cambio aprobado en presupuesto");
+        var lectura = c.EnMes(new(2026,2,1));
+        Assert.True(lectura.PropuestaPendiente); Assert.Equal(v.Vigencia,lectura.ProximaVersionDesde);
+        Assert.Equal(10,lectura.TasaContableAnual); Assert.Equal("Cambio aprobado en presupuesto",v.MotivoCambio);
+        Assert.Equal("Marzo 2026 ya está depreciado",Assert.Throws<BusinessRuleException>(() => v.ValidarVigencia(new(2026,3,1))).Message);
+        v.Vigencia = default;
+        Assert.Equal("AF_VIGENCIA_INVALIDA",Assert.Throws<BusinessRuleException>(() => v.ValidarVigencia(new(2026,3,1))).Code);
+    }
     [Fact] public void Version_activa_la_depreciacion_desde_su_mes()
     {
         var c=new ClaseActivo(Guid.NewGuid(),Guid.NewGuid(),"153","Maquinaria",10);

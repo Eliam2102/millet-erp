@@ -469,6 +469,15 @@ public sealed class AltaAsistidaDesdeExtractoHandler(
         DateTimeOffset ahora = clock.UtcNow;
         Guid usuarioId = userContext.UserId ?? Guid.Empty;
 
+        // U-2 (86e3yxngq): la póliza de Contabilidad exige sucursal y el extracto no la trae. Supuesto a validar: la de la cuenta
+        // bancaria, tomada del último movimiento de esa cuenta que sí la tiene (depósitos de caja, cobros). Sin ninguno va null y
+        // Contabilidad deja el evento en su bandeja con «falta SucursalId». Solo viaja en el evento: el movimiento no cambia.
+        Guid? sucursalId = await db.MovimientosBancarios.AsNoTracking()
+            .Where(m => m.CuentaBancariaId == cuenta.Id && m.SucursalId != null)
+            .OrderByDescending(m => m.FechaValor).ThenByDescending(m => m.Id)
+            .Select(m => m.SucursalId)
+            .FirstOrDefaultAsync(cancellationToken);
+
         if (command.IncluyeIva)
         {
             decimal baseMonto = command.MontoBase ?? Math.Round(linea.Monto / (1 + command.TasaIva), 2);
@@ -528,7 +537,8 @@ public sealed class AltaAsistidaDesdeExtractoHandler(
                 movBase.ReferenciaBancaria,
                 concepto.Id,
                 concepto.Nombre,
-                Iva: ivaMonto), cancellationToken);
+                Iva: ivaMonto,
+                SucursalId: sucursalId), cancellationToken);
 
             await publisher.PublishAsync(new MovimientoBancarioRegistradoIntegrationEvent(
                 conciliacion.EmpresaId,
@@ -541,7 +551,9 @@ public sealed class AltaAsistidaDesdeExtractoHandler(
                 linea.Fecha,
                 movIva.ReferenciaBancaria,
                 conceptoIvaId,
-                "Impuestos"), cancellationToken);
+                "Impuestos",
+                SucursalId: sucursalId,
+                MovimientoBaseId: movBase.Id), cancellationToken);
         }
         else
         {
@@ -578,7 +590,8 @@ public sealed class AltaAsistidaDesdeExtractoHandler(
                 linea.Fecha,
                 mov.ReferenciaBancaria,
                 concepto.Id,
-                concepto.Nombre), cancellationToken);
+                concepto.Nombre,
+                SucursalId: sucursalId), cancellationToken);
         }
 
         decimal saldoLibros = await ConciliacionCalculos.CalcularSaldoLibrosAsync(

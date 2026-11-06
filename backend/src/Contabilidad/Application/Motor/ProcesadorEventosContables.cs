@@ -322,6 +322,15 @@ public sealed class EnriquecedorPolizasOrigen(ContabilidadDbContext db) : IEnriq
                     "La salida trae líneas sin centro de costo y la plantilla de consumo lo pide.");
             case NormalizadorEventos.DevolucionInternaAplicada:
                 return await DevolucionInternaAsync(e, ct);
+            case NormalizadorEventos.ReembolsoNotaCreditoActualizado when e.FacturaOrigenId is { } notaCredito:
+            {
+                // U-2: el reembolso de una NC regresa el dinero al cliente de la NC; cliente y sucursal salen de su póliza RC.
+                var rc = await PartidaOrigenAsync(e.EmpresaId, NormalizadorEventos.DocComprobante, notaCredito, conProveedor: false, ct)
+                    ?? throw Espera(notaCredito, "la póliza de la nota de crédito reembolsada");
+                var cliente = e.ClienteId ?? await ClienteDelComprobanteAsync(db, e.EmpresaId, notaCredito, ct)
+                    ?? throw Espera(notaCredito, "la póliza de la nota de crédito reembolsada (con su cliente)");
+                return e with { ClienteId = cliente, SucursalId = e.SucursalId ?? rc.SucursalId, FacturaOrigenId = null };
+            }
             default:
                 return e;
         }
