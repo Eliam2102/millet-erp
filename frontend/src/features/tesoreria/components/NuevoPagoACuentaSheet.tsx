@@ -20,11 +20,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { ProveedorSelector } from '@/components/erp/selectors/ProveedorSelector';
 import { CuentaBancariaSelector } from './CuentaBancariaSelector';
 import { useCuentasBancarias, useRegistrarPagoACuenta } from '@/features/tesoreria/api/useTesoreria';
-import {
-  TipoCambioPagoCampo,
-  errorTipoCambioPago,
-  tipoCambioPagoParaEnviar,
-} from './TipoCambioPagoCampo';
+import { TipoCambioPagoCampo } from './TipoCambioPagoCampo';
+import { errorTipoCambioPago, tipoCambioPagoParaEnviar } from '@/features/tesoreria/lib/tipo-cambio-pago';
 import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
 
 export interface NuevoPagoACuentaSheetProps {

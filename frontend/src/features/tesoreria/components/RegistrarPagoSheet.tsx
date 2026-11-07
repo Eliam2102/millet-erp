@@ -29,11 +29,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CuentaBancariaSelector } from './CuentaBancariaSelector';
-import {
-  TipoCambioPagoCampo,
-  errorTipoCambioPago,
-  tipoCambioPagoParaEnviar,
-} from './TipoCambioPagoCampo';
+import { TipoCambioPagoCampo } from './TipoCambioPagoCampo';
+import { errorTipoCambioPago, tipoCambioPagoParaEnviar } from '@/features/tesoreria/lib/tipo-cambio-pago';
 import { Link } from '@tanstack/react-router';
 import { useCuentasProveedorPago, useRegistrarPago } from '@/features/tesoreria/api/useTesoreria';
 import type { CuentaProveedorPago, PasivoPendienteResponse } from '@/features/tesoreria/api/types';

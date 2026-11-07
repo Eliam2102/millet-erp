@@ -33,11 +33,8 @@ import {
   type DepositoConfirmacionResponse,
 } from '@/features/tesoreria/api/types';
 import { CuentaBancariaSelector } from '@/features/tesoreria/components/CuentaBancariaSelector';
-import {
-  TipoCambioPagoCampo,
-  errorTipoCambioPago,
-  tipoCambioPagoParaEnviar,
-} from '@/features/tesoreria/components/TipoCambioPagoCampo';
+import { TipoCambioPagoCampo } from '@/features/tesoreria/components/TipoCambioPagoCampo';
+import { errorTipoCambioPago, tipoCambioPagoParaEnviar } from '@/features/tesoreria/lib/tipo-cambio-pago';
 import { formatoMonto } from '@/features/tesoreria/lib/formato';
 import { useQueryClient } from '@tanstack/react-query';
 import { esApiError, esConflictoConcurrencia, useBodyScopedIdempotencyKey } from '@/lib/api';

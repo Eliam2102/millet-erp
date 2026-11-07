@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { TipoCambioPagoCampo, errorTipoCambioPago } from './TipoCambioPagoCampo';
+import { errorTipoCambioPago } from '@/features/tesoreria/lib/tipo-cambio-pago';
+import { TipoCambioPagoCampo } from './TipoCambioPagoCampo';
 
 vi.mock('@/features/tesoreria/api/useTesoreria', () => ({
   useTipoCambioPago: (moneda: string | null, fecha: string) => ({
