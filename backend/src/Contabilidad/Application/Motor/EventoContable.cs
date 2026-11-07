@@ -9,13 +9,23 @@ namespace Millet.Contabilidad.Application.Motor;
 /// Evento normalizado que recibe el motor (ficha C1.4 §2): tipo, id, empresa, fecha contable, documento origen e importes con nombre
 /// (E12: <c>Subtotal</c>, <c>Iva</c>, <c>RetencionesTotal</c>, <c>Total</c>, <c>TotalMenosRetenciones</c>). Un importe nulo es un dato
 /// que el evento no trajo: si la plantilla lo usa, el motor rechaza con <see cref="CausaRechazoContable.DatoFaltante"/>.
+/// CON-11: <see cref="TipoCambioPorRol"/> = TC propio de las líneas de esos roles (p. ej. BANCOS al TC del pago); el resto usa
+/// <see cref="TipoCambio"/> (el del documento pagado).
 /// </summary>
 public sealed record EventoContable(
     string Tipo, Guid EventoId, Guid EmpresaId, DateOnly FechaContable, DocumentoOrigenPoliza Documento,
     Guid? SucursalId, Guid? ProveedorId, Guid? ClienteId, Guid? CentroCostoId, Guid? OrdenCompraId,
     string Moneda, decimal? TipoCambio, IReadOnlyDictionary<string, decimal?> Importes, IReadOnlyList<LineaEventoContable> Lineas,
-    string Payload, TipoDocumentoPuente TipoPuente = TipoDocumentoPuente.Factura, Guid? FacturaOrigenId = null, string? LlaveOverride = null)
+    string Payload, TipoDocumentoPuente TipoPuente = TipoDocumentoPuente.Factura, Guid? FacturaOrigenId = null, string? LlaveOverride = null,
+    IReadOnlyDictionary<string, decimal>? TipoCambioPorRol = null)
 {
+    /// <summary>
+    /// CON-11 (86e3kdypd): campo de las líneas de plantilla de diferencia cambiaria realizada. No es un importe del evento: con
+    /// <see cref="TipoCambioPorRol"/>, el motor asienta ahí lo que separa el lado del documento (TC de la factura) del lado del banco
+    /// (TC del pago), en pesos; cargo = pérdida, abono = utilidad.
+    /// </summary>
+    public const string CampoDiferenciaCambiaria = "DiferenciaCambiaria";
+
     /// <summary>C1.5: una reversa derivada (p. ej. cobro en efectivo cancelado ya liquidado) usa su propia llave.</summary>
     public string Llave => LlaveOverride ?? $"{Tipo}:{EventoId}";
 }
