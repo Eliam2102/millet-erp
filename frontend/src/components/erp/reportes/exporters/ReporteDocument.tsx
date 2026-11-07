@@ -24,6 +24,8 @@ export interface ReporteParaExportar<TFila> {
     alineacion?: string | null;
     anchoPx?: number | null;
     decimales?: number | null;
+    /** Ancho relativo de la columna en el PDF (peso flex; 1 por omisión). */
+    anchoPdf?: number | null;
   }[];
   filas: readonly TFila[];
   totales?: Record<string, number> | null;
@@ -110,6 +112,10 @@ export function ReporteDocument<TFila>({
     .map(([k, v]) => `${k}: ${v}`)
     .join(' · ');
 
+  // Ancho de cada columna en el PDF: peso relativo (anchoPdf) o 1. Las columnas de texto largo (folios, nombres) piden más.
+  const flexDe = (c: { anchoPdf?: number | null }) => ({ flex: c.anchoPdf && c.anchoPdf > 0 ? c.anchoPdf : 1 });
+  const flexTotal = reporte.columnas.reduce((s, c) => s + flexDe(c).flex, 0);
+
   return (
     <Document
       title={reporte.titulo}
@@ -134,6 +140,7 @@ export function ReporteDocument<TFila>({
                 key={c.clave}
                 style={[
                   styles.cell,
+                  flexDe(c),
                   styles.cellHeader,
                   esNumerica(c.tipo) ? styles.cellAlignRight : {},
                 ]}
@@ -148,7 +155,7 @@ export function ReporteDocument<TFila>({
               <Text
                 style={[
                   styles.cell,
-                  { flex: reporte.columnas.length, textAlign: 'center' },
+                  { flex: flexTotal, textAlign: 'center' },
                 ]}
               >
                 Sin datos para los filtros aplicados.
@@ -162,6 +169,7 @@ export function ReporteDocument<TFila>({
                     key={c.clave}
                     style={[
                       styles.cell,
+                      flexDe(c),
                       esNumerica(c.tipo) ? styles.cellAlignRight : {},
                     ]}
                   >
@@ -181,6 +189,7 @@ export function ReporteDocument<TFila>({
                     key={c.clave}
                     style={[
                       styles.cell,
+                      flexDe(c),
                       styles.cellTotales,
                       esNumerica(c.tipo) ? styles.cellAlignRight : {},
                     ]}
