@@ -12,8 +12,9 @@ namespace Millet.CuentasPorCobrar.Application.EventListeners;
 
 /// <summary>
 /// Listener de <c>facturacion.factura-venta.timbrada.v1</c> (CXC-PR3).
-/// Alta en la proyección <c>factura_cartera</c>: resuelve el cliente por
-/// RFC vía <see cref="IClienteReadPort"/> y calcula el vencimiento con el
+/// Alta en la proyección <c>factura_cartera</c>: resuelve el cliente con el
+/// <c>ClienteId</c> del evento (o, sin él, por RFC no genérico) vía
+/// <see cref="IClienteReadPort"/> y calcula el vencimiento con el
 /// plazo de la línea de crédito activa del cliente en la moneda de la
 /// factura (sin línea → vence al timbrado, i.e. contado).
 ///
@@ -60,9 +61,7 @@ public sealed class FacturaVentaTimbradaHandler : IRequestHandler<FacturaVentaTi
 
         var p = request.Payload;
 
-        var cliente = string.IsNullOrWhiteSpace(p.ReceptorRfc)
-            ? null
-            : await _clientes.ObtenerPorRfcAsync(p.ReceptorRfc, cancellationToken);
+        var cliente = await ResolverClienteAsync(p, cancellationToken);
 
         var existente = await _db.FacturasCartera
             .FirstOrDefaultAsync(f => f.FacturaVentaId == p.FacturaVentaId, cancellationToken);
@@ -113,5 +112,29 @@ public sealed class FacturaVentaTimbradaHandler : IRequestHandler<FacturaVentaTi
         _logger.LogInformation(
             "[FacturaVentaTimbrada] Factura {Folio} ({Total} {Moneda}) proyectada en cartera. Cliente={Cliente}.",
             p.Folio, p.Total, p.Moneda, cliente?.Id.ToString() ?? "sin-match");
+    }
+
+    /// <summary>RFC genéricos del SAT: los comparten muchos clientes, así que no identifican a uno.</summary>
+    private static readonly HashSet<string> RfcGenericos = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "XAXX010101000", "XEXX010101000",
+    };
+
+    /// <summary>
+    /// V-CXC-11: primero el cliente que trae el evento (el mismo con el que Facturación tomó el
+    /// plazo de la factura); si no viene, por RFC, salvo los genéricos. Con el RFC genérico de
+    /// extranjero ganaría el primer cliente extranjero por clave, que casi nunca es el de la
+    /// factura; mejor queda sin cliente y se vincula desde la cartera.
+    /// </summary>
+    private async Task<ClienteRefDto?> ResolverClienteAsync(FacturaVentaTimbradaPayload p, CancellationToken cancellationToken)
+    {
+        if (p.ClienteId is Guid clienteId)
+        {
+            var porId = await _clientes.ObtenerAsync(clienteId, cancellationToken);
+            if (porId is { EsGenerico: false }) return porId;
+        }
+
+        if (string.IsNullOrWhiteSpace(p.ReceptorRfc) || RfcGenericos.Contains(p.ReceptorRfc.Trim())) return null;
+        return await _clientes.ObtenerPorRfcAsync(p.ReceptorRfc, cancellationToken);
     }
 }
