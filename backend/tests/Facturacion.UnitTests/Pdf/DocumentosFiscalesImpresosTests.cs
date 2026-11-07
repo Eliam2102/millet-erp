@@ -178,12 +178,15 @@ public sealed partial class DocumentosFiscalesImpresosTests
         using var doc = PdfDocument.Open(new QuestPdfFacturaGenerator()
             .Generar(CfdiPdfModelBuilder.DesdeFactura(Factura(lineas), Datos)).Contenido);
 
-        var piezas = new[] { "SelloDigitaldelCFDI", "SelloDigitaldelSAT", "CadenaOriginaldelComplemento", "FechadeTimbrado:" };
+        var piezas = new[] { "SelloDigitaldelCFDI", "SelloDigitaldelSAT", "CadenaOriginaldelComplemento" };
         var paginas = piezas.Select(p => doc.GetPages().Where(pg => SinEspacios(pg.Text).Contains(p, StringComparison.Ordinal))
             .Select(pg => pg.Number).ToList()).ToList();
 
         paginas.Should().AllSatisfy(p => p.Should().ContainSingle());
-        paginas.Select(p => p[0]).Distinct().Should().ContainSingle("sellos, cadena, QR y fecha van juntos");
+        paginas.Select(p => p[0]).Distinct().Should().ContainSingle("sellos y cadena van juntos");
+        // La fecha bajo el QR lleva el mismo rótulo bilingüe que el recuadro CFDI (FMT-7): su última aparición va con el timbre.
+        doc.GetPages().Where(pg => SinEspacios(pg.Text).Contains("FechadeTimbrado/Certificationdate:", StringComparison.Ordinal))
+            .Max(pg => pg.Number).Should().Be(paginas[0][0], "QR y fecha van con los sellos");
     }
 
     private static readonly IReadOnlyDictionary<Guid, string> Folios = new Dictionary<Guid, string>
