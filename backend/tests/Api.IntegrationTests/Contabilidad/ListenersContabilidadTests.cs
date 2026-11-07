@@ -69,6 +69,9 @@ public sealed partial class ListenersContabilidadTests(WebApplicationFactory<Pro
         ("IVA_POR_PAGAR", "2.7", "Acreedora", "Ninguna"),
         ("IVA_A_FAVOR", "1.01", "Deudora", "Ninguna"),
         ("RETENCIONES_CLIENTES", "1.02", "Deudora", "Ninguna"),
+        // H1 paso 2: gasto comprobado de caja chica, viáticos y tarjeta (C1.5b).
+        ("GASTO", "5.9", "Deudora", "Ninguna"),
+        ("CONTRAPARTIDA_GASTO", "1.13", "Deudora", "Ninguna"),
     ];
 
     private sealed record Escenario(string Suf, HttpClient Admin, Guid Sucursal, Guid Proveedor, Guid[] Clientes, Guid CentroCosto,
