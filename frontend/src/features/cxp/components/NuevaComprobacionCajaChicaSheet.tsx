@@ -1,7 +1,7 @@
 import { errorUsuario } from '@/lib/error-usuario';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useEffect, useState } from 'react';
-import { Controller, useFieldArray, useForm } from 'react-hook-form';
+import { Controller, useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
@@ -38,6 +38,13 @@ import type { CfdiListItem } from '@/features/cxp/api/types';
 import { CfdiPorProcesarPicker } from '@/features/cxp/components/CfdiPorProcesarPicker';
 import { CargarCfdiSheet } from '@/features/cxp/components/CargarCfdiSheet';
 import { ClasificacionNoDeducibleCampo } from '@/features/cxp/components/ClasificacionNoDeducibleCampo';
+import { AreaEquipoGasto } from '@/features/cxp/components/AreaEquipoGasto';
+import {
+  useDimensionesGasto,
+  useNivelesCentroGasto,
+  validarCentroCostoGasto,
+  type DimensionesGasto,
+} from '@/features/cxp/api/useDimensionesGasto';
 import { fetchProveedoresPorRfc, useProveedor } from '@/features/catalogos/api';
 import {
   EmpleadoSelector,
@@ -113,6 +120,7 @@ function defaultLinea() {
     fechaVencimiento: hoy,
     concepto: null,
     clasificacionNoDeducible: null,
+    centroCostoId: null,
   };
 }
 
@@ -160,6 +168,11 @@ function Form({
     PermisosCanonicos.CuentasPorPagarCfdisCargarManual,
   );
   const [cargaXmlLinea, setCargaXmlLinea] = useState<number | null>(null);
+
+  // H1: área/equipo por CFDI; la sucursal es la de la comprobación.
+  const sucursalId = useWatch({ control: form.control, name: 'sucursalId' });
+  const dimensiones = useDimensionesGasto({ sucursalId: sucursalId ?? '' }).data;
+  const niveles = useNivelesCentroGasto();
 
   /**
    * Vincula el CFDI recibido a la línea y prellena UUID, serie/folio,
@@ -212,6 +225,15 @@ function Form({
   }
 
   function onSubmit(values: CrearComprobacionCajaChicaValues) {
+    let faltaCentro = false;
+    values.cfdis.forEach((l, i) => {
+      const msg = validarCentroCostoGasto(dimensiones, l.centroCostoId, niveles.nivel(l.centroCostoId));
+      if (msg) {
+        form.setError(`cfdis.${i}.centroCostoId`, { message: msg });
+        faltaCentro = true;
+      }
+    });
+    if (faltaCentro) return;
     crear.mutate(
       {
         command: {
@@ -219,6 +241,7 @@ function Form({
           cfdis: values.cfdis.map((l) => ({
             ...l,
             fechaCfdi: `${l.fechaCfdi}T00:00:00Z`,
+            centroCostoId: l.centroCostoId ?? null,
           })),
         },
         idempotencyKey,
@@ -366,6 +389,8 @@ function Form({
               onCargarXml={() => setCargaXmlLinea(index)}
               puedeLeerCfdis={puedeLeerCfdis}
               puedeCargarCfdi={puedeCargarCfdi}
+              dimensiones={dimensiones}
+              onNivelCentro={niveles.registrar}
             />
           ))}
         </div>
@@ -425,6 +450,8 @@ interface LineaInlineProps {
   onCargarXml: () => void;
   puedeLeerCfdis: boolean;
   puedeCargarCfdi: boolean;
+  dimensiones: DimensionesGasto | undefined;
+  onNivelCentro: (id: string | null, nivel: 2 | 3 | null) => void;
 }
 
 function LineaInline({
@@ -435,6 +462,8 @@ function LineaInline({
   onCargarXml,
   puedeLeerCfdis,
   puedeCargarCfdi,
+  dimensiones,
+  onNivelCentro,
 }: LineaInlineProps) {
   const lineaErrors = form.formState.errors.cfdis?.[index];
   const cfdiRecibidoId = form.watch(`cfdis.${index}.cfdiRecibidoId` as const);
@@ -540,6 +569,25 @@ function LineaInline({
               {...form.register(`cfdis.${index}.concepto` as const)}
             />
           </Field>
+        </div>
+        <div className="col-span-full">
+          <Controller
+            control={form.control}
+            name={`cfdis.${index}.centroCostoId` as const}
+            render={({ field }) => (
+              <AreaEquipoGasto
+                id={`centro-${index}`}
+                dimensiones={dimensiones}
+                sinOrigenMensaje="Elige primero la sucursal de la comprobación."
+                value={field.value}
+                onChange={(id, nivel) => {
+                  onNivelCentro(id, nivel);
+                  field.onChange(id);
+                }}
+                error={lineaErrors?.centroCostoId?.message}
+              />
+            )}
+          />
         </div>
         <div className="col-span-full">
           <Controller

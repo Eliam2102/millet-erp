@@ -272,6 +272,28 @@ public sealed class CfdiPdfFormatoMilletTests
             .Should().ContainSingle("rótulo y valor van en el mismo renglón");
     }
 
+    [Fact]
+    public void Todas_las_etiquetas_de_la_factura_van_en_espanol_e_ingles()
+    {
+        // FMT-7 (Guillermo, 4-nov): sin rótulos técnicos del XML ni etiquetas sólo en español.
+        var pdf = new QuestPdfFacturaGenerator().Generar(CfdiPdfModelBuilder.DesdeFactura(Factura(lineas: 2, timbrar: true), Datos)).Contenido;
+
+        using var doc = UglyToad.PdfPig.PdfDocument.Open(pdf);
+        var texto = Regex.Replace(string.Join("", doc.GetPages().Select(p => p.Text)), @"\s+", "");
+
+        foreach (var esperado in new[]
+                 {
+                     "Domicilio Fiscal/Tax Address:", "Tipo Comprobante/Voucher type:", "Tasa o Cuota/Rate",
+                     "Tipo Factor/Factor type", "CFDI Relacionado (UUID)/Related CFDI (UUID)", "Tipo de Relación/Relation type",
+                     "Total SqFt/Piez2:", "Total M²/SqM:",
+                 })
+            texto.Should().Contain(Regex.Replace(esperado, @"\s+", ""));
+        texto.Should().NotContain("DomicilioFiscalReceptor").And.NotContain("RégimenFiscalReceptor")
+            .And.NotContain("TipoRelacionCFDI").And.NotContain("TasaOCuota");
+        // Bajo el QR la fecha también va bilingüe: dos rótulos, recuadro CFDI y timbre.
+        Regex.Count(texto, "FechadeTimbrado/Certificationdate:").Should().Be(2);
+    }
+
     private static int Paginas(byte[] pdf) =>
         Regex.Count(Encoding.Latin1.GetString(pdf), @"/Type\s*/Page(?!s)");
 

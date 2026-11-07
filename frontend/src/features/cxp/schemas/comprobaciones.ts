@@ -20,6 +20,8 @@ export const CajaChicaLineaSchema = z.object({
   concepto: z.string().trim().max(400).nullable(),
   // null = deducible; '' = marcado sin elegir. Un ticket (sin CFDI ni UUID) la exige.
   clasificacionNoDeducible: z.string().trim().max(40).nullable(),
+  // H1: centro de costo del gasto (equipo Dim3 si se eligió; si no, área Dim2). C-03 se valida en el submit.
+  centroCostoId: z.string().regex(UUID_RE).nullable().optional(),
 }).superRefine((l, ctx) => {
   const esTicket = !l.cfdiRecibidoId && !l.uuidCfdi;
   if (l.clasificacionNoDeducible === '' || (esTicket && !l.clasificacionNoDeducible))

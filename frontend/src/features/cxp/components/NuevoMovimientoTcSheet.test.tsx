@@ -26,6 +26,13 @@ vi.mock('@/components/erp', () => ({
     <button type="button" onClick={() => onChange(UUID)}>elegir usuario</button>
   ),
 }));
+// H1: el área/equipo tiene su propia prueba (AreaEquipoGasto.test); aquí la cuenta no lo exige.
+vi.mock('@/features/cxp/api/useDimensionesGasto', () => ({
+  useDimensionesGasto: () => ({ data: undefined }),
+  useNivelesCentroGasto: () => ({ registrar: () => {}, nivel: () => undefined }),
+  validarCentroCostoGasto: () => null,
+}));
+vi.mock('@/features/cxp/components/AreaEquipoGasto', () => ({ AreaEquipoGasto: () => null }));
 vi.mock('@/features/cxp/components/ClasificacionNoDeducibleSelect', () => ({
   ClasificacionNoDeducibleSelect: ({ onChange }: { onChange: (v: string) => void }) => (
     <button type="button" onClick={() => onChange('COMIDAS')}>elegir clasificación</button>

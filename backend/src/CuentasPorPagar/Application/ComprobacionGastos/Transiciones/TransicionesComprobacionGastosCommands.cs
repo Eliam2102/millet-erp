@@ -264,7 +264,8 @@ public sealed class AprobarPasivoComprobacionHandler
                 ClasificacionNoDeducible: l.ClasificacionNoDeducible,
                 Subtotal: l.Subtotal, IvaTrasladado: l.ImpuestosTrasladados,
                 IvaNoAcreditable: GastoRegistradoIntegrationEvent.IvaNoAcred(l.ClasificacionNoDeducible, l.ImpuestosTrasladados),
-                Total: l.Total, Moneda: l.Moneda, ConceptoContable: l.Concepto, SucursalId: c.SucursalId), cancellationToken);
+                Total: l.Total, Moneda: l.Moneda, ConceptoContable: l.Concepto, SucursalId: c.SucursalId,
+                CentroCostoId: l.CentroCostoId), cancellationToken);
         }
 
         await _db.SaveChangesAsync(cancellationToken);

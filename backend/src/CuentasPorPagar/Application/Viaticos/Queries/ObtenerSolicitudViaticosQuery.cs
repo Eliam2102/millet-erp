@@ -39,7 +39,9 @@ public sealed record LineaViaticosDetalleResponse(
     string Concepto,
     bool EsTicketNoFiscal,
     string? ClasificacionNoDeducible = null,
-    decimal IvaNoAcreditable = 0m);
+    decimal IvaNoAcreditable = 0m,
+    // H1 (86e3z5w25): área o equipo capturado.
+    Guid? CentroCostoId = null);
 
 public sealed record SolicitudViaticosDetalleResponse(
     Guid Id,
@@ -125,7 +127,8 @@ public sealed class ObtenerSolicitudViaticosHandler
                 l.Subtotal, l.ImpuestosTrasladados, l.Retenciones, l.Total,
                 l.Moneda, l.Concepto, l.EsTicketNoFiscal,
                 l.ClasificacionNoDeducible,
-                l.ClasificacionNoDeducible is null ? 0m : l.ImpuestosTrasladados))
+                l.ClasificacionNoDeducible is null ? 0m : l.ImpuestosTrasladados,
+                l.CentroCostoId))
             .ToList();
 
         return new SolicitudViaticosDetalleResponse(
