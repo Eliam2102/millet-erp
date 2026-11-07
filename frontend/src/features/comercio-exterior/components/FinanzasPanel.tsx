@@ -35,11 +35,11 @@ import {
   useDimensionesDistribucion,
   endpointCentrosDistribucion,
 } from '../api/finanzas';
+import { AreaEquipoCaptura } from '@/features/contabilidad/components/dimensiones/AreaEquipoCaptura';
 import {
-  AreaEquipoCaptura,
   areaEquipoIds,
   type AreaEquipoValor,
-} from '@/features/contabilidad/components/dimensiones/AreaEquipoCaptura';
+} from '@/features/contabilidad/components/dimensiones/areaEquipo';
 import type { ExpedienteDetalle } from '../api/types';
 import { ReferenciaSelector } from './ReferenciaSelector';
 const dinero = (n: number) => n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });

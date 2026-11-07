@@ -54,11 +54,11 @@ import { PageHeader } from '@/components/erp/PageHeader';
 import { EmptyState, TableSkeleton } from '@/components/erp';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
+import { AreaEquipoCaptura } from '@/features/contabilidad/components/dimensiones/AreaEquipoCaptura';
 import {
-  AreaEquipoCaptura,
   areaEquipoIds,
   type AreaEquipoValor,
-} from '@/features/contabilidad/components/dimensiones/AreaEquipoCaptura';
+} from '@/features/contabilidad/components/dimensiones/areaEquipo';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import {

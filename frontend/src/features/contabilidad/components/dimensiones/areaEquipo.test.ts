@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CentroOpcion } from '../../api/dimensiones-types';
-import { areaEquipoIds, faltaAreaEquipo } from './AreaEquipoCaptura';
+import { areaEquipoIds, faltaAreaEquipo } from './areaEquipo';
 
 const area: CentroOpcion = {
   id: 'area-1',

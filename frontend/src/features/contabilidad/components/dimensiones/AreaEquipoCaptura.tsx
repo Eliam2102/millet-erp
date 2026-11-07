@@ -1,13 +1,8 @@
 import { AlertTriangle } from 'lucide-react';
 import { Label } from '@/components/ui/label';
-import type { CentroOpcion } from '../../api/dimensiones-types';
 import { ETIQUETA_DIMENSION } from '../../lib/dimensiones';
 import { CentroSelector } from './CentroSelector';
-
-export interface AreaEquipoValor {
-  area: CentroOpcion | null;
-  equipo: CentroOpcion | null;
-}
+import { faltaAreaEquipo, type AreaEquipoValor } from './areaEquipo';
 
 interface Props {
   /** Prefijo de los ids de los controles. */
@@ -22,16 +17,6 @@ interface Props {
   cuentaCodigo?: string | null;
   value: AreaEquipoValor;
   onChange: (v: AreaEquipoValor) => void;
-}
-
-/** Falta un dato que la cuenta exige (la captura procede; la póliza queda en Rechazos). */
-export function faltaAreaEquipo(v: AreaEquipoValor, exigeArea: boolean, exigeEquipo: boolean): boolean {
-  return (exigeArea && !v.area && !v.equipo) || (exigeEquipo && !v.equipo);
-}
-
-/** Id del centro que viaja en el movimiento: el equipo si se eligió; si no, el área. */
-export function areaEquipoIds(v: AreaEquipoValor): { areaId?: string; equipoId?: string } {
-  return { areaId: v.area?.id ?? v.equipo?.dim2Id ?? undefined, equipoId: v.equipo?.id };
 }
 
 /**
