@@ -7,7 +7,7 @@ namespace Millet.Almacen.Application.Integration;
 /// EventType <c>almacen.salida_rotura.registrada.v1</c> (ALM-03). Una rotura autorizada: el movimiento ya bajó el saldo a
 /// costo promedio. Se publica una vez por rotura. Consumidor previsto: <b>Contabilidad</b> (póliza de merma, C1.5), por eso
 /// la rotura NO publica además <c>almacen.salida_inventario.registrada.v1</c>: se contabilizaría doble.
-/// <c>CentroCostoId</c> va null mientras la rotura no capture centro de costo (aditivo: se llenará sin bump de versión).
+/// <c>CentroCostoId</c>: el equipo capturado o, si no, el área (86e3zf04y; aditivo, sin bump de versión); null si no se capturó.
 /// </summary>
 public sealed record SalidaRoturaRegistradaIntegrationEvent(
     Guid EmpresaId,
@@ -33,5 +33,5 @@ public sealed record SalidaRoturaRegistradaIntegrationEvent(
     public static SalidaRoturaRegistradaIntegrationEvent De(SalidaRotura r, Guid? almacenId) => new(
         r.EmpresaId, DateTimeOffset.UtcNow, r.Id, r.MovimientoId!.Value, r.FolioMovimiento!, r.Fecha, almacenId, r.SucursalId,
         r.ArticuloId, r.UnidadMedida, r.Cantidad, r.CostoUnitarioMxn!.Value, r.ValorMxn!.Value, r.MotivoCodigo,
-        SalidaRotura.Motivos[r.MotivoCodigo], null, r.CapturadoPor, r.DecididoPor!.Value);
+        SalidaRotura.Motivos[r.MotivoCodigo], r.CentroCostoId, r.CapturadoPor, r.DecididoPor!.Value);
 }

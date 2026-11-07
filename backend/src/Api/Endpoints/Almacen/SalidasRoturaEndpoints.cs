@@ -7,6 +7,7 @@ using Millet.Almacen.Domain.Roturas;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.Api.Auth;
 using Millet.Api.Web;
+using Millet.Contabilidad.Application.PublicPorts;
 using Millet.Identidad.Domain;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
@@ -25,10 +26,18 @@ public static class SalidasRoturaEndpoints
         string? ArticuloClave, string? ArticuloDescripcion, decimal Cantidad, string UnidadMedida, DateOnly Fecha, string MotivoCodigo,
         string Motivo, string? Comentario, string Estado, string CapturadoPor, DateTimeOffset CapturadoAt, string? DecididoPor,
         DateTimeOffset? DecididoAt, string? MotivoRechazo, Guid? MovimientoId, string? FolioMovimiento, decimal? CostoUnitarioMxn,
-        decimal? ValorMxn);
+        decimal? ValorMxn, string? AreaClave = null, string? EquipoClave = null);
 
     public sealed record MotivoRoturaResponse(string Codigo, string Texto);
-    public sealed record CapturarRoturaRequest(Guid UbicacionId, Guid ArticuloId, decimal Cantidad, DateOnly? Fecha, string MotivoCodigo, string? Comentario);
+    public sealed record CapturarRoturaRequest(Guid UbicacionId, Guid ArticuloId, decimal Cantidad, DateOnly? Fecha, string MotivoCodigo, string? Comentario,
+        string? AreaClave = null, string? EquipoClave = null);
+
+    /// <summary>86e3zf04y: si la cuenta de merma exige área o equipo (regla C-03) para esa ubicación y fecha.</summary>
+    public sealed record DimensionesRoturaResponse(bool ExigeArea, bool ExigeEquipo, string? CuentaCodigo);
+
+    /// <summary>La rotura de la pantalla carga la plantilla de su propio evento (misma póliza que la rotura de la app).</summary>
+    private const string EventoRotura = "almacen.salida_rotura.registrada.v1";
+    private const string CausaRotura = "rotura";
     public sealed record RechazarRoturaRequest(string Motivo);
 
     public static IEndpointRouteBuilder MapSalidasRoturaEndpoints(this IEndpointRouteBuilder app)
@@ -43,6 +52,22 @@ public static class SalidasRoturaEndpoints
             .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenSalidasLeerTodas)
             .WithName("ListarMotivosRotura")
             .Produces<List<MotivoRoturaResponse>>(StatusCodes.Status200OK);
+
+        // 86e3zf04y: la pantalla pide área y equipo solo cuando la cuenta de merma los exige (C-03), igual que H1 en la app.
+        group.MapGet("/dimensiones", async ([FromQuery] Guid ubicacionId, [FromQuery] DateOnly? fecha, AlmacenDbContext db,
+            ICurrentUserPermissions permisos, ICurrentEmpresaContext empresa, IDimensionesSalidaInventarioPort dimensiones, CancellationToken ct) =>
+        {
+            await ExigirOpcionRoturaAsync(permisos, ct);
+            var sucursalId = await SucursalDeUbicacionAsync(db, ubicacionId, ct);
+            var d = await dimensiones.ResolverAsync(new SolicitudDimensionesSalida(
+                empresa.Current ?? throw new BusinessRuleException("ROTURA_SIN_EMPRESA", "El contexto de empresa es requerido."),
+                sucursalId, CausaRotura, fecha ?? DateOnly.FromDateTime(DateTime.Now), null, null, EventoRotura), ct);
+            return Results.Ok(new DimensionesRoturaResponse(d.ExigeArea, d.ExigeEquipo, d.CuentaCodigo));
+        })
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenSalidasLeerTodas)
+            .WithName("DimensionesSalidaRotura")
+            .Produces<DimensionesRoturaResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         group.MapGet("/", async ([FromQuery] string? estado, AlmacenDbContext db, DocumentoSucursalScope scope, ICurrentUserContext user,
             ICurrentUserPermissions permisos, IUsuarioSucursalReadPort sucursales, RoturaLectura lectura, CancellationToken ct) =>
@@ -64,13 +89,22 @@ public static class SalidasRoturaEndpoints
 
         group.MapPost("/", async (CapturarRoturaRequest req, AlmacenDbContext db, IPeriodoContableReadPort periodo,
             IDecimalesUnidadGuard decimales, IArticuloReadPort articulos, DocumentoSucursalScope scope, ICurrentUserContext user,
-            ICurrentEmpresaContext empresa, RoturaLectura lectura, CancellationToken ct) =>
+            ICurrentEmpresaContext empresa, IDimensionesSalidaInventarioPort dimensiones, RoturaLectura lectura, CancellationToken ct) =>
         {
             var r = await SalidaRoturaApp.CapturarAsync(db, periodo, decimales, articulos,
                 empresa.Current ?? throw new BusinessRuleException("ROTURA_SIN_EMPRESA", "El contexto de empresa es requerido."),
                 user.UserId ?? Guid.Empty,
                 new CapturarRoturaApp(req.UbicacionId, req.ArticuloId, req.Cantidad, req.Fecha ?? DateOnly.FromDateTime(DateTime.Now), req.MotivoCodigo, req.Comentario), ct);
             await scope.VerificarSucursalAsync(r.SucursalId, PermisosCanonicos.AlmacenSalidasGestionarTodasSucursales, ct);
+            // 86e3zf04y: área y equipo se resuelven en la sucursal con el puerto de H1. Una clave inválida no se acepta; si la cuenta los
+            // exige y no vienen, la rotura se captura igual y su póliza queda en Rechazos (Contabilidad la completa y reprocesa).
+            if (!string.IsNullOrWhiteSpace(req.AreaClave) || !string.IsNullOrWhiteSpace(req.EquipoClave))
+            {
+                var d = await dimensiones.ResolverAsync(new SolicitudDimensionesSalida(r.EmpresaId, r.SucursalId, CausaRotura, r.Fecha,
+                    req.AreaClave, req.EquipoClave, EventoRotura), ct);
+                if (d.Error is not null) throw new BusinessRuleException("ROTURA_AREA_EQUIPO_INVALIDO", d.Error);
+                r.AsignarAreaEquipo(req.AreaClave, req.EquipoClave, d.CentroCostoId);
+            }
             await db.SaveChangesAsync(ct);
             return Results.Created($"/api/v1/almacen/salidas-rotura/{r.Id}", (await lectura.RespuestasAsync([r], ct))[0]);
         })
@@ -123,6 +157,14 @@ public static class SalidasRoturaEndpoints
                 $"Requiere el permiso '{PermisosCanonicos.AlmacenSalidasRoturaCapturar}' o '{PermisosCanonicos.AlmacenSalidasRoturaAutorizar}'.");
     }
 
+    private static async Task<Guid> SucursalDeUbicacionAsync(AlmacenDbContext db, Guid ubicacionId, CancellationToken ct)
+    {
+        var subAlmacenId = await db.Ubicaciones.AsNoTracking().Where(u => u.Id == ubicacionId).Select(u => (Guid?)u.SubAlmacenId).FirstOrDefaultAsync(ct)
+            ?? throw new BusinessRuleException("ROTURA_UBICACION_INVALIDA", "La ubicación elegida no existe.");
+        var (_, sucursalId) = await Millet.Almacen.Application.Catalogo.AlmacenSucursalResolver.ResolverAsync(db, subAlmacenId, ct);
+        return sucursalId ?? throw new BusinessRuleException("ROTURA_SUCURSAL_REQUERIDA", "Configura la sucursal del almacén antes de registrar la rotura.");
+    }
+
     private static async Task<SalidaRotura> Cargar(AlmacenDbContext db, Guid id, CancellationToken ct) =>
         await db.SalidasRotura.FirstOrDefaultAsync(x => x.Id == id, ct)
             ?? throw new EntityNotFoundException("ROTURA_NO_ENCONTRADA", $"No existe una salida por rotura con id '{id}'.");
@@ -144,7 +186,7 @@ public static class SalidasRoturaEndpoints
                 return new SalidaRoturaResponse(r.Id, r.SucursalId, r.UbicacionId, ubic.GetValueOrDefault(r.UbicacionId), r.ArticuloId,
                     a?.Clave, a?.Descripcion, r.Cantidad, r.UnidadMedida, r.Fecha, r.MotivoCodigo, SalidaRotura.Motivos[r.MotivoCodigo],
                     r.Comentario, r.Estado, Nombre(r.CapturadoPor), r.CreatedAt, r.DecididoPor is { } d ? Nombre(d) : null, r.DecididoAt,
-                    r.MotivoRechazo, r.MovimientoId, r.FolioMovimiento, r.CostoUnitarioMxn, r.ValorMxn);
+                    r.MotivoRechazo, r.MovimientoId, r.FolioMovimiento, r.CostoUnitarioMxn, r.ValorMxn, r.AreaClave, r.EquipoClave);
             }).ToList();
         }
     }
