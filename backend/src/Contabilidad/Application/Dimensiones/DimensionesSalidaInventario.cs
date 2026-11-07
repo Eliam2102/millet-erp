@@ -55,9 +55,10 @@ public sealed class DimensionesSalidaInventario(
         }
         var centro = equipo?.Id ?? area?.Id;
 
-        // 2. Cuenta que cargará la póliza por esta causa.
+        // 2. Cuenta que cargará la póliza por esta causa (86e3zf04y: la rotura de la pantalla tiene plantilla propia).
+        var tipoEvento = s.TipoEvento ?? NormalizadorEventos.SalidaInventarioRegistrada;
         var plantilla = await db.PlantillasContables.IgnoreQueryFilters().AsNoTracking()
-            .Where(p => p.EmpresaId == s.EmpresaId && p.TipoEvento == NormalizadorEventos.SalidaInventarioRegistrada && p.VigenteDesde <= s.Fecha)
+            .Where(p => p.EmpresaId == s.EmpresaId && p.TipoEvento == tipoEvento && p.VigenteDesde <= s.Fecha)
             .OrderByDescending(p => p.NumeroVersion).FirstOrDefaultAsync(ct);
         var campo = NormalizadorEventos.CampoSalidaInventario(s.Causa);
         var linea = plantilla?.Lineas.FirstOrDefault(l => l.Lado == LadoPartida.Cargo && l.Campo == campo)

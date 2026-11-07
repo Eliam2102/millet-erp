@@ -1,4 +1,9 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Millet.Almacen.Application.Incidencias;
+using Millet.Almacen.Application.Vales;
+using Millet.SharedKernel.Application.Incidencias;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -122,9 +127,49 @@ public sealed class RegularizacionValeSlaWorker : BackgroundService
                 diaDelSla: diaDelSla,
                 cancellationToken: cancellationToken);
             notificados++;
+            await AbrirIncidenciaAsync(vale, cancellationToken);
         }
 
         _logger.LogInformation(
             "Sweep RegularizacionValeSla: notificados {N} vales vencidos.", notificados);
+    }
+
+    /// <summary>
+    /// U-4 (ALM-vale-08): el vale vencido sin regularizar queda como incidencia a cargo de quien lo registró
+    /// (idempotente: si ya hay una pendiente, no se duplica). Se resuelve al regularizar el vale con su requisición.
+    /// Cada vale abre en su propio scope con su empresa explícita: el worker no tiene usuario ni empresa.
+    /// </summary>
+    private async Task AbrirIncidenciaAsync(MovimientoInventario vale, CancellationToken cancellationToken)
+    {
+        if (vale.RegistradoPor is not Guid responsable)
+            return;
+        using var scope = _scopeFactory.CreateScope();
+        var sp = scope.ServiceProvider;
+        if (sp.GetService<IIncidenciasPort>() is not { } incidencias)
+            return;
+        var accessor = sp.GetService<IHttpContextAccessor>();
+        var anterior = accessor?.HttpContext;
+        try
+        {
+            if (accessor is not null)
+                accessor.HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(
+                    [new Claim(MilletClaimTypes.CurrentEmpresaId, vale.EmpresaId.ToString())], nameof(RegularizacionValeSlaWorker))) };
+            using var origen = sp.GetRequiredService<IAuditOriginContext>().SetOrigin(nameof(RegularizacionValeSlaWorker));
+            var db = sp.GetRequiredService<AlmacenDbContext>();
+            var sucursal = await ValeSucursal.ResolverAsync(db, vale.Id, cancellationToken);
+            var limite = vale.FechaLimiteRegularizacion!.Value.ToString("dd/MM/yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture);
+            await incidencias.AbrirAsync(IncidenciasAlmacen.ValeSinRegularizar(vale.Id, vale.Folio, sucursal, responsable,
+                $"El vale {vale.Folio ?? "(sin folio)"} venció sin regularizar con su requisición (límite {limite} UTC).", "VALE_SIN_REGULARIZAR",
+                "Vincula la requisición regularizadora autorizada que cubra lo surtido por el vale."), cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "No se pudo abrir la incidencia del vale vencido {Folio}.", vale.Folio);
+        }
+        finally
+        {
+            if (accessor is not null)
+                accessor.HttpContext = anterior;
+        }
     }
 }

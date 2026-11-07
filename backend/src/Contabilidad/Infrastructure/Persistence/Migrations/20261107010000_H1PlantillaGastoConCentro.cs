@@ -10,7 +10,7 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations;
 /// para que «Reprocesar» un rechazo ya use la versión con centro. Solo datos: el modelo no cambia.
 /// </summary>
 [DbContext(typeof(ContabilidadDbContext))]
-[Migration("20261106200000_H1PlantillaGastoConCentro")]
+[Migration("20261107010000_H1PlantillaGastoConCentro")]
 public sealed class H1PlantillaGastoConCentro : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder) => migrationBuilder.Sql("""

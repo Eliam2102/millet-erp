@@ -42,6 +42,9 @@ export interface ProblemDetails {
    */
   errors?: Record<string, string[]>;
   clientesExistentes?: { id: string; clave: string; razonSocial: string }[];
+  /** U-4: el rechazo ya abrió su incidencia (el servidor la nombra para enlazarla en lugar de ofrecer registrarla). */
+  incidenciaId?: string;
+  incidenciaNumero?: number;
 }
 
 /**

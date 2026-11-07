@@ -82,6 +82,39 @@ public class SalidaRoturaTests
         eventos.Publicados.OfType<SalidaInventarioRegistradaIntegrationEvent>().Should().BeEmpty();
     }
 
+    // 86e3zf04y: el área o el equipo capturados viajan a la póliza de merma (evento) y quedan en la línea del movimiento.
+    [Fact]
+    public async Task El_area_o_equipo_capturados_viajan_en_el_evento_y_en_la_linea_del_movimiento()
+    {
+        var db = Db();
+        var r = await Capturar(db, Captura(2m));
+        var equipo = Guid.NewGuid();
+        r.AsignarAreaEquipo(" 500-01 ", "M-07", equipo);
+        await db.SaveChangesAsync();
+        var eventos = new Eventos();
+
+        await SalidaRoturaApp.AutorizarAsync(db, eventos, new PeriodoContableStub(true), r, Jefe, default);
+
+        (r.AreaClave, r.EquipoClave, r.CentroCostoId).Should().Be(("500-01", "M-07", equipo));
+        eventos.Publicados.OfType<SalidaRoturaRegistradaIntegrationEvent>().Single().CentroCostoId.Should().Be(equipo);
+        (await db.Movimientos.Include(m => m.Lineas).SingleAsync()).Lineas.Single().CentroCostoId.Should().Be(equipo);
+        var otraVez = () => r.AsignarAreaEquipo("500-02", null, Guid.NewGuid());
+        otraVez.Should().Throw<BusinessRuleException>().Which.Code.Should().Be("ROTURA_NO_PENDIENTE");
+    }
+
+    [Fact]
+    public async Task Sin_area_ni_equipo_el_evento_va_sin_centro()
+    {
+        var db = Db();
+        var r = await Capturar(db, Captura(1m));
+        await db.SaveChangesAsync();
+        var eventos = new Eventos();
+
+        await SalidaRoturaApp.AutorizarAsync(db, eventos, new PeriodoContableStub(true), r, Jefe, default);
+
+        eventos.Publicados.OfType<SalidaRoturaRegistradaIntegrationEvent>().Single().CentroCostoId.Should().BeNull();
+    }
+
     [Fact]
     public async Task El_mismo_usuario_no_puede_autorizar_su_captura()
     {
