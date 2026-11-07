@@ -13,7 +13,7 @@ namespace Millet.Integraciones.Aw.Infrastructure.Origen;
 /// <summary>Selectores por puerto. Los adaptadores se resuelven perezosamente: Demo jamás abre SQL Server.</summary>
 public sealed class AwOrigenSelectores(IServiceProvider services, AwOrigenSesion sesion) :
     IAwClientesOrigen, IAwClientesPedidosOrigen, IAwProductosOrigen, IAwSolicitudesReader, IAwClientesReader, IAwArticulosReader,
-    IAwWriteBackPort, IMasterProvisioningPort, IAwRetornoPort, IAwNotasCreditoPort
+    IAwWriteBackPort, IMasterProvisioningPort, IAwRetornoPort, IAwNotasCreditoPort, IPlantaPinturaPedidosReader
 {
     private async Task<T> ResolverAsync<T>(CancellationToken ct) where T : class
     {
@@ -59,6 +59,16 @@ public sealed class AwOrigenSelectores(IServiceProvider services, AwOrigenSesion
         sesion.Reiniciar();
         return await (await ResolverAsync<IAwSolicitudesReader>(cancellationToken)).LeerPendientesAsync(max, cancellationToken);
     }
+    // I13.9: Pinturas sigue el mismo origen (Real = MILLET_INTEGRACION, Demo = copia PostgreSQL de tools/aw-origen-demo).
+    async Task<IReadOnlyList<PedidoPlantaPintura>> IPlantaPinturaPedidosReader.LeerPendientesAsync(int max, CancellationToken cancellationToken)
+    {
+        sesion.Reiniciar();
+        return await (await ResolverAsync<IPlantaPinturaPedidosReader>(cancellationToken)).LeerPendientesAsync(max, cancellationToken);
+    }
+    async Task IPlantaPinturaPedidosReader.MarcarResultadoAsync(string numeroPedido, ResultadoAcusePlantaPintura resultado, Guid? pedidoId,
+        string? detalleError, DateTimeOffset fecha, CancellationToken cancellationToken) =>
+        await (await ResolverAsync<IPlantaPinturaPedidosReader>(cancellationToken)).MarcarResultadoAsync(
+            numeroPedido, resultado, pedidoId, detalleError, fecha, cancellationToken);
     public async Task<LecturaPedidoAw> LeerDatosPedidoAsync(string numeroPedido, CancellationToken cancellationToken) =>
         await (await ResolverAsync<IAwSolicitudesReader>(cancellationToken)).LeerDatosPedidoAsync(numeroPedido, cancellationToken);
     public async Task<AwClienteMaster?> LeerClienteAsync(string clienteRef, CancellationToken cancellationToken) =>
