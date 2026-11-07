@@ -1,7 +1,9 @@
 using System.Text.Json;
 using Millet.Almacen.Application.AppAlmacenes;
+using Millet.Almacen.Application.Integration;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Domain.Ports;
+using Millet.Contabilidad.Application.PublicPorts;
 
 namespace Millet.Api.Endpoints.Almacen;
 
@@ -33,10 +35,16 @@ public static class AlmacenesAppSalida
     /// <summary>Salidas ya validadas y resueltas, listas para registrarse con empresa y usuario de servicio explícitos.</summary>
     public sealed record Resuelta(Guid EmpresaId, Guid UsuarioId, IReadOnlyList<SalidaApp> Salidas);
 
-    /// <summary>Valida y resuelve; no escribe. Devuelve la salida resuelta o el texto del ERROR.</summary>
+    /// <summary>
+    /// Valida y resuelve; no escribe. Devuelve la salida resuelta o el texto del ERROR.
+    /// H1 (86e3z5w25): <c>datos.area</c> (clave del CeCo, Dim2) y <c>datos.equipo</c> (clave del equipo, Dim3), opcionales, valen para
+    /// todo el movimiento. Se resuelven en la sucursal con <paramref name="dimensiones"/>; uno inválido es ERROR. Si la cuenta de la
+    /// salida los exige (C-03) y no vienen, es ERROR solo con <paramref name="exigirAreaEquipo"/>; si no, la póliza queda en Rechazos.
+    /// </summary>
     public static async Task<(Resuelta? Salida, string? Error)> ManejarAsync(
         string tipo, JsonElement datos, IAppSalidaResolverPort resolver,
-        IUsuarioServicioReadPort usuarioServicio, CancellationToken ct)
+        IUsuarioServicioReadPort usuarioServicio, CancellationToken ct,
+        IDimensionesSalidaInventarioPort? dimensiones = null, bool exigirAreaEquipo = false)
     {
         if (datos.ValueKind != JsonValueKind.Object) return (null, "datos debe ser un objeto.");
         var sucursal = Texto(datos, "sucursal");
@@ -99,6 +107,19 @@ public static class AlmacenesAppSalida
             items.Select(x => new GrupoSalidaApp(x.Articulo, x.Ancho, x.Alto)).ToList(), ct);
         if (resuelto.Error is not null) return (null, resuelto.Error);
 
+        if (!TryClave(datos, "area", out var area)) return (null, "datos.area debe ser texto o numérico.");
+        if (!TryClave(datos, "equipo", out var equipo)) return (null, "datos.equipo debe ser texto o numérico.");
+        Guid? centro = null;
+        if (dimensiones is not null && (area is not null || equipo is not null || exigirAreaEquipo))
+        {
+            var causa = SalidaInventarioRegistradaIntegrationEvent.CausaPorDefecto(Tipos[tipo]);
+            var d = await dimensiones.ResolverAsync(new SolicitudDimensionesSalida(sp.EmpresaId, resuelto.SucursalId, causa,
+                DateOnly.FromDateTime(DateTime.UtcNow), area, equipo), ct);
+            if (d.Error is not null) return (null, d.Error);
+            if (d.Faltante is not null && exigirAreaEquipo) return (null, d.Faltante);
+            centro = d.CentroCostoId;
+        }
+
         var motivo = $"App Almacenes {tipo} {Texto(datos, "movimiento")}".TrimEnd();
         var detalle = tipo == "AJUSTE_SALIDA"
             ? string.Concat(
@@ -124,7 +145,7 @@ public static class AlmacenesAppSalida
             // El valor que llega se guarda tal cual (a la precisión de la columna, 14,4); no se recalcula contra A+W.
             var costoUnit = x.CostoUnitario is { } cu ? Math.Round(cu, 4) : (decimal?)null;
             salidas.Add(new SalidaApp(Tipos[tipo], resuelto.SucursalId, r.ArticuloId, r.UnidadMedida, r.ProductoAwVarianteId,
-                cantidad, costoUnit, motivo, r.AnchoMm, r.AltoMm, ArticuloAw: x.Articulo.Trim()));
+                cantidad, costoUnit, motivo, r.AnchoMm, r.AltoMm, ArticuloAw: x.Articulo.Trim(), CentroCostoId: centro));
         }
         return (new Resuelta(sp.EmpresaId, sp.Id, salidas), null);
     }
@@ -135,6 +156,17 @@ public static class AlmacenesAppSalida
         if (!datos.TryGetProperty("documentoPrevio", out var d)) return null;
         var t = d.ValueKind switch { JsonValueKind.String => d.GetString(), JsonValueKind.Number => d.GetRawText(), _ => null };
         return t?.Trim() is { Length: > 60 } largo ? largo[..60] : t?.Trim();
+    }
+
+    // Clave de centro: texto o número; ausente, null o vacía → null. Otro tipo → false.
+    private static bool TryClave(JsonElement o, string n, out string? valor)
+    {
+        valor = null;
+        if (!o.TryGetProperty(n, out var v) || v.ValueKind == JsonValueKind.Null) return true;
+        var t = v.ValueKind switch { JsonValueKind.String => v.GetString(), JsonValueKind.Number => v.GetRawText(), _ => null };
+        if (t is null) return false;
+        valor = string.IsNullOrWhiteSpace(t) ? null : t.Trim();
+        return true;
     }
 
     private static string? Texto(JsonElement o, string n) =>

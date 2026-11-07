@@ -386,7 +386,8 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
                 TipoCambio: factura.TipoCambio,
                 SucursalId: factura.SucursalId,
                 CentroCostoId: cecos.Count == 1 ? cecos[0] : null,
-                RecepcionId: factura.RecepcionId), cancellationToken);
+                RecepcionId: factura.RecepcionId,
+                ConceptoRetencion: factura.ConceptoRetencion), cancellationToken);
 
         }
 

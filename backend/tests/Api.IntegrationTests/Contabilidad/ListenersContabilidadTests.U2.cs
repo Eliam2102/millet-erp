@@ -363,4 +363,80 @@ public sealed partial class ListenersContabilidadTests
             await LimpiarAsync(e);
         }
     }
+
+    /// <summary>
+    /// H1 paso 1 (86e3z5w25): salidas de la app de Almacenes. Con la regla C-03 activa en gastos (ubicación y área), el puerto que usa
+    /// el lector de <c>alm_mensaje</c> dice que la merma exige área; resuelve el área o el equipo por clave dentro de la sucursal y
+    /// rechaza una clave que no existe o un equipo de otra área. Con solo el área (Dim2) la póliza nace: la ubicación se deriva.
+    /// </summary>
+    [Fact]
+    public async Task H1_salida_de_la_app_con_area_o_equipo_de_la_sucursal_genera_su_poliza()
+    {
+        Escenario? e = null;
+        Guid? gastos = null;
+        try
+        {
+            e = await PrepararAsync();
+            using (var scope = factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<ContabilidadDbContext>();
+                gastos = await db.Cuentas.IgnoreQueryFilters().Where(c => c.Id == e.Cuentas["MERMA"]).Select(c => c.PadreId).SingleAsync();
+            }
+            foreach (var dim in new[] { "Dim1", "Dim2" })
+                (await e.Admin.PostAsJsonAsync($"{Base}/reglas-dimension", new
+                {
+                    cuentaId = gastos, tipoDocumentoId = (Guid?)null, dimension = dim, requerimiento = "Obligatorio",
+                    vigenteDesde = Hoy(), vigenteHasta = (DateOnly?)null, esPrueba = true, nota = "FIX regla C-03 (H1 salidas)",
+                })).StatusCode.Should().Be(HttpStatusCode.Created);
+
+            Guid area;
+            using (var scope = factory.Services.CreateScope())
+            {
+                var centros = scope.ServiceProvider.GetRequiredService<Millet.Contabilidad.Application.Ports.ICentroCostoContabilidadPort>();
+                var equipo = (await centros.ObtenerAsync([e.CentroCosto], default))[e.CentroCosto];
+                area = equipo.Dim2Id!.Value;
+                var puerto = scope.ServiceProvider.GetRequiredService<Millet.Contabilidad.Application.PublicPorts.IDimensionesSalidaInventarioPort>();
+                Task<Millet.Contabilidad.Application.PublicPorts.DimensionesSalidaResultado> R(string? a, string? q) => puerto.ResolverAsync(
+                    new(EmpresaBootstrapId, e.Sucursal, "rotura", Hoy(), a, q), default);
+
+                var sinNada = await R(null, null);
+                sinNada.Error.Should().BeNull();
+                sinNada.ExigeArea.Should().BeTrue();
+                sinNada.ExigeEquipo.Should().BeFalse();
+                sinNada.Faltante.Should().Contain("el área");
+                sinNada.CentroCostoId.Should().BeNull();
+
+                var conArea = await R(equipo.Dim2Clave, null);
+                conArea.Should().Match<Millet.Contabilidad.Application.PublicPorts.DimensionesSalidaResultado>(x =>
+                    x.Error == null && x.Faltante == null && x.CentroCostoId == area);
+
+                var conEquipo = await R(null, equipo.Clave);
+                conEquipo.Should().Match<Millet.Contabilidad.Application.PublicPorts.DimensionesSalidaResultado>(x =>
+                    x.Error == null && x.Faltante == null && x.CentroCostoId == e.CentroCosto);
+
+                (await R("NO-EXISTE-H1", null)).Error.Should().Contain("NO-EXISTE-H1");
+                (await R(equipo.Dim2Clave, "NO-EXISTE-H1")).Error.Should().Contain("NO-EXISTE-H1");
+            }
+
+            // La salida con solo el área: la póliza nace con la ubicación derivada (Dim1) y el área (Dim2).
+            var movimiento = Guid.NewGuid();
+            var evento = await Almacen(new SalidaInventarioRegistradaIntegrationEvent(EmpresaBootstrapId, Ahora, movimiento, "SAL-FIX-H1C", Hoy(),
+                "rotura", "FIX", Guid.NewGuid(), e.Sucursal, area, 300m,
+                [new LineaSalidaInventarioPayload(Guid.NewGuid(), Guid.NewGuid(), "PZA", 3m, 100m, 300m, area)]));
+            (await RechazoAsync(evento)).Should().BeNull();
+            var sm = (await PolizasAsync(movimiento)).Should().ContainSingle().Subject;
+            sm.Partidas.Should().Contain(x => x.CuentaId == e.Cuentas["MERMA"] && x.Cargo == 300m && x.Dim2Id == area && x.Dim1Id != null);
+        }
+        finally
+        {
+            if (gastos is { } padre)
+            {
+                using var scope = factory.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<ContabilidadDbContext>();
+                await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.reglas_dimension_uso WHERE regla_id IN (SELECT id FROM contabilidad.reglas_dimension WHERE cuenta_id = {0})", padre);
+                await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.reglas_dimension WHERE cuenta_id = {0}", padre);
+            }
+            await LimpiarAsync(e);
+        }
+    }
 }

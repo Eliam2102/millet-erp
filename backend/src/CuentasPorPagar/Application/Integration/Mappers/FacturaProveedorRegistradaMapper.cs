@@ -34,12 +34,13 @@ public sealed class FacturaProveedorRegistradaMapper
             Subtotal: notification.Subtotal,
             Iva: notification.Iva,
             RetencionesTotal: notification.RetencionesTotal,
-            Retenciones: notification.Retenciones?.Select(r => new RetencionDetallePayload(r.Impuesto, r.Tasa, r.Importe)).ToList(),
+            Retenciones: notification.Retenciones?.Select(r => new RetencionDetallePayload(r.Impuesto, r.Tasa, r.Importe, r.Base)).ToList(),
             Moneda: notification.Moneda,
             TipoCambio: notification.TipoCambio,
             SucursalId: notification.SucursalId,
             CentroCostoId: notification.CentroCostoId,
-            RecepcionId: notification.RecepcionId);
+            RecepcionId: notification.RecepcionId,
+            ConceptoRetencion: notification.ConceptoRetencion);
         return _publisher.PublishAsync(integration, cancellationToken);
     }
 }

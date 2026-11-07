@@ -41,6 +41,7 @@ public sealed class FacturaVentaLineaConfiguration : IEntityTypeConfiguration<Fa
         builder.Property(e => e.TasaRetencionIva).HasPrecision(8, 6);
         builder.Property(e => e.TasaRetencionIsr).HasPrecision(8, 6);
         builder.Property(e => e.RetencionTotalImporte).HasPrecision(18, 2).IsRequired();
+        builder.Property(e => e.ConceptoRetencion).HasMaxLength(20);
 
         // Datos aduaneros / pedimento (F7-PR2).
         builder.Property(e => e.RequierePedimento).IsRequired();

@@ -49,7 +49,11 @@ public sealed record DatosCfdiParseados(
 /// 002 IVA, 003 IEPS). <c>Tasa</c> es null a nivel comprobante (el CFDI
 /// solo la trae por concepto).
 /// </summary>
-public sealed record RetencionCfdi(string Impuesto, decimal? Tasa, decimal Importe);
+/// <remarks>
+/// 86e3zcbjw: la retención es por línea (Contabilidad, 6-nov). <c>Tasa</c> y <c>Base</c> salen de los conceptos del CFDI que la llevan
+/// (en el ejemplo de fletes, 4 % solo sobre 2 de 3 líneas); null si el CFDI no la desglosa por concepto.
+/// </remarks>
+public sealed record RetencionCfdi(string Impuesto, decimal? Tasa, decimal Importe, decimal? Base = null);
 
 /// <summary>
 /// Un nodo <c>cfdi:CfdiRelacionados</c>: el tipo de relación SAT

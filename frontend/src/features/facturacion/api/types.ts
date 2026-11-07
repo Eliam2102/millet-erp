@@ -1160,7 +1160,20 @@ export interface EmitirFacturaVentaLinea {
   tasaRetencionIva: number | null;
   tasaRetencionIsr: number | null;
   requierePedimento: boolean;
+  /** Concepto de la retención de IVA del cliente (FLETES, SERVICIOS, DESPERDICIO, IMPORTACION). */
+  conceptoRetencion?: string | null;
 }
+
+/**
+ * Retenciones de IVA que nos hacen los clientes (tabla de Contabilidad del 5-nov): cada concepto
+ * fija la tasa de la línea y la cuenta contable de la retención. Mismo catálogo que el backend.
+ */
+export const CONCEPTOS_RETENCION_CLIENTE: ReadonlyArray<{ value: string; label: string; tasa: number }> = [
+  { value: 'FLETES', label: 'Fletes 4 %', tasa: 0.04 },
+  { value: 'SERVICIOS', label: 'Servicios 6 %', tasa: 0.06 },
+  { value: 'DESPERDICIO', label: 'Desperdicio 16 %', tasa: 0.16 },
+  { value: 'IMPORTACION', label: 'Importación 16 %', tasa: 0.16 },
+];
 
 /** Comando de emisión de factura de venta (subset F1 — sin CCE/anticipos). */
 export interface EmitirFacturaVentaCommand {

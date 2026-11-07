@@ -30,5 +30,19 @@ public sealed class RetencionConceptoConfiguration : IEntityTypeConfiguration<Re
                 Activa = true, MotivoCambio = RetencionConcepto.AvisoFiscal, CreatedAt = fecha, UpdatedAt = fecha,
                 CreatedBy = "seed-P8", UpdatedBy = "seed-P8", Version = 1 });
         }
+        // 86e3zcbjw: conceptos que faltaban de la tabla de retenciones de Contabilidad (5-nov). RESICO con servicios o arrendamiento
+        // retiene ISR 1.25 % y dos terceras partes del IVA; RESICO_PF (venta de bienes) sigue solo con ISR.
+        const string liva = "https://www.diputados.gob.mx/LeyesBiblio/pdf/LIVA.pdf";
+        var fecha2 = new DateTimeOffset(2026, 11, 6, 0, 0, 0, TimeSpan.Zero);
+        var nuevas = new[] {
+            (7, "SERVICIOS", "IVA: servicios de personal o subcontratación recibidos por persona moral (art. 1-A fr. IV LIVA)", "002", 0.06m, liva),
+            (8, "RESICO_PF_SERVICIOS", "Servicios o arrendamiento de persona física RESICO a persona moral", "001", 0.0125m, "https://wwwmat.sat.gob.mx/articulo/59511/articulo-113-j"),
+            (9, "RESICO_PF_SERVICIOS", "IVA: dos terceras partes a tasa general de 16 % (RESICO con servicios o arrendamiento)", "002", 0.10666667m, liva),
+        };
+        foreach (var r in nuevas)
+            builder.HasData(new { Id = Guid.Parse($"00000007-000a-0000-0000-{r.Item1:000000000000}"),
+                Concepto = r.Item2, Descripcion = r.Item3, Impuesto = r.Item4, Tasa = r.Item5, Fuente = r.Item6,
+                Activa = true, MotivoCambio = RetencionConcepto.AvisoFiscal, CreatedAt = fecha2, UpdatedAt = fecha2,
+                CreatedBy = "seed-86e3zcbjw", UpdatedBy = "seed-86e3zcbjw", Version = 1 });
     }
 }
