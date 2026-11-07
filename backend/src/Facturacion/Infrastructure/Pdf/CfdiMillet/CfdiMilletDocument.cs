@@ -150,8 +150,8 @@ public sealed class CfdiMilletDocument(CfdiPdfModel m) : IDocument
                     cliente.Spacing(2);
                     cliente.Item().Text(m.Receptor.Nombre).Bold();
                     cliente.Item().Text($"RFC:{m.Receptor.Rfc}").Bold();
-                    cliente.Item().PaddingTop(4).Text($"DomicilioFiscalReceptor:{m.Receptor.CodigoPostalFiscal}").Bold().FontSize(EstilosCfdiMillet.Detalle);
-                    cliente.Item().Text($"RégimenFiscalReceptor:{m.Receptor.Regimen}").Bold().FontSize(EstilosCfdiMillet.Detalle);
+                    cliente.Item().PaddingTop(4).Text($"Domicilio Fiscal/Tax Address: {m.Receptor.CodigoPostalFiscal}").Bold().FontSize(EstilosCfdiMillet.Detalle);
+                    cliente.Item().Text($"Régimen Fiscal/Fiscal Scheme: {m.Receptor.Regimen}").Bold().FontSize(EstilosCfdiMillet.Detalle);
                     if (m.Receptor.Pais != "MEX")
                         cliente.Item().Text(m.Receptor.Pais).FontSize(EstilosCfdiMillet.Detalle);
                     cliente.Item().PaddingTop(6).Text(t =>
@@ -272,8 +272,8 @@ public sealed class CfdiMilletDocument(CfdiPdfModel m) : IDocument
                     c.RelativeColumn();
                 });
                 tabla.Cell().AlignCenter().Text("Tipo Impuesto/Tax type");
-                tabla.Cell().AlignCenter().Text("TasaOCuota/Rate");
-                tabla.Cell().AlignCenter().Text("TipoFactor/Factor type");
+                tabla.Cell().AlignCenter().Text("Tasa o Cuota/Rate");
+                tabla.Cell().AlignCenter().Text("Tipo Factor/Factor type");
                 tabla.Cell().AlignRight().Text("Importe/Amount");
                 foreach (var i in m.Impuestos)
                 {
@@ -609,8 +609,8 @@ public sealed class CfdiMilletDocument(CfdiPdfModel m) : IDocument
                 c.ConstantColumn(7.6f, Unit.Centimetre);
                 c.RelativeColumn();
             });
-            tabla.Cell().PaddingBottom(4).Text("Cfdi Relacionado UUID/Related CFDI UUID");
-            tabla.Cell().PaddingBottom(4).Text("TipoRelacionCFDI/Relation type");
+            tabla.Cell().PaddingBottom(4).Text("CFDI Relacionado (UUID)/Related CFDI (UUID)");
+            tabla.Cell().PaddingBottom(4).Text("Tipo de Relación/Relation type");
             foreach (var r in m.Relacionados)
             {
                 tabla.Cell().PaddingBottom(2).Text(r.Uuid.ToUpperInvariant());
@@ -634,7 +634,7 @@ public sealed class CfdiMilletDocument(CfdiPdfModel m) : IDocument
                     if (timbre.UrlQr is not null)
                         qr.Item().AlignCenter().Width(EstilosCfdiMillet.QrCm, Unit.Centimetre)
                             .Height(EstilosCfdiMillet.QrCm, Unit.Centimetre).Image(CfdiQr.Png(timbre.UrlQr)).FitArea();
-                    qr.Item().PaddingTop(4).AlignCenter().Text($"Fecha de Timbrado:\n{fecha}").AlignCenter().FontSize(EstilosCfdiMillet.Detalle);
+                    qr.Item().PaddingTop(4).AlignCenter().Text($"Fecha de Timbrado/Certification date:\n{fecha}").AlignCenter().FontSize(EstilosCfdiMillet.Detalle);
                 });
                 fila.RelativeItem().Column(derecha =>
                 {
