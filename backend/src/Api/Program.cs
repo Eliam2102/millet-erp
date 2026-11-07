@@ -1227,6 +1227,14 @@ builder.Services
         Millet.Facturacion.Infrastructure.Workers.TimbradoPendienteOptions.SectionName));
 builder.Services.AddHostedService<Millet.Facturacion.Infrastructure.Workers.TimbradoPendienteWorker>();
 
+// Regla D10 (Manual de Sucursales / Contraste U-1 · 86e3yxn2p): reintento automático de NC ligada a factura
+// cada 15 min hasta 3 intentos antes de requerir reintento manual desde bandeja.
+builder.Services
+    .AddOptions<Millet.Facturacion.Infrastructure.Workers.NotaCreditoPendienteRetryOptions>()
+    .Bind(builder.Configuration.GetSection(
+        Millet.Facturacion.Infrastructure.Workers.NotaCreditoPendienteRetryOptions.SectionName));
+builder.Services.AddHostedService<Millet.Facturacion.Infrastructure.Workers.NotaCreditoPendienteRetryWorker>();
+
 // F6.8: aviso a Fiscal de contingencias de timbrado abiertas al cerrar el mes.
 builder.Services
     .AddOptions<Millet.Facturacion.Infrastructure.Workers.ContingenciasAlertaOptions>()
