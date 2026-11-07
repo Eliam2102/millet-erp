@@ -387,7 +387,8 @@ function FormInner({
                     anticipoId: a.anticipoId,
                     importe: a.importe,
                     comentarioNotaCredito: a.comentarioNotaCredito?.trim() || null,
-                    aplicarDespues: a.aplicarDespues ?? false,
+                    // Solo viaja si se marca; el backend asume aplicación inmediata (payload previo sin cambio).
+                    ...(a.aplicarDespues ? { aplicarDespues: true } : {}),
                   }))
               : null,
           observaciones: values.observaciones ?? '',
