@@ -67,6 +67,7 @@ import { PackingListUpload } from '@/features/almacen/components/PackingListUplo
 import { EvidenciaRecepcionUpload } from '@/features/almacen/components/EvidenciaRecepcionUpload';
 import { UbicacionBinSelector } from '@/components/erp/selectors/UbicacionBinSelector';
 import { AsignarUbicacionEnLinea } from '@/features/almacen/components/AsignarUbicacionEnLinea';
+import { EnlaceIncidenciaRechazo } from '@/features/incidencias/components/RegistrarIncidencia';
 import { UbicacionSelector } from '@/components/erp/selectors/UbicacionSelector';
 import { useUbicacionesAsignadasPorArticulo } from '@/features/almacen/api/useAsignaciones';
 import { useUbicaciones } from '@/features/almacen/api/useUbicaciones';
@@ -231,6 +232,8 @@ function NuevaRecepcionFormBody({
   const [avisoServidor, setAvisoServidor] = useState<{
     titulo: string;
     detalle: string;
+    /** U-4: rechazo original, para enlazar la incidencia que abrió el servidor. */
+    error?: unknown;
   } | null>(null);
   // G-3: el servidor avisó que esa remisión/factura ya se recibió en la OC; solo continúa con motivo.
   const [yaRecibida, setYaRecibida] = useState<string | null>(null);
@@ -484,6 +487,7 @@ function NuevaRecepcionFormBody({
       setAvisoServidor({
         titulo: TITULOS_CALLOUT[error.code ?? ''] ?? 'No se pudo registrar',
         detalle: errorUsuario(error),
+        error,
       });
       return;
     }
@@ -830,7 +834,8 @@ function NuevaRecepcionFormBody({
           </Field>
 
           {avisoServidor && (
-            <AvisoEnLinea tono="error" titulo={avisoServidor.titulo}>
+            <AvisoEnLinea tono="error" titulo={avisoServidor.titulo}
+              accion={<EnlaceIncidenciaRechazo error={avisoServidor.error} />}>
               {avisoServidor.detalle}
               {avisoServidor.titulo === TITULOS_CALLOUT.LISTA_EMPAQUE_VIDRIO ? '' : ' Revisa las cantidades y los racks de las partidas marcadas.'}
             </AvisoEnLinea>

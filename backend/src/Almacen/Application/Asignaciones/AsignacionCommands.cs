@@ -1,3 +1,6 @@
+using Microsoft.Extensions.Logging;
+using Millet.Almacen.Application.Incidencias;
+using Millet.SharedKernel.Application.Incidencias;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -48,11 +51,16 @@ public sealed class AsignarArticuloAUbicacionHandler
 {
     private readonly AlmacenDbContext _db;
     private readonly IArticuloReadPort _articulos;
+    private readonly IIncidenciasPort? _incidencias;
+    private readonly ILogger<AsignarArticuloAUbicacionHandler>? _logger;
 
-    public AsignarArticuloAUbicacionHandler(AlmacenDbContext db, IArticuloReadPort articulos)
+    public AsignarArticuloAUbicacionHandler(AlmacenDbContext db, IArticuloReadPort articulos,
+        IIncidenciasPort? incidencias = null, ILogger<AsignarArticuloAUbicacionHandler>? logger = null)
     {
         _db = db;
         _articulos = articulos;
+        _incidencias = incidencias;
+        _logger = logger;
     }
 
     public async Task<AsignacionResponse> Handle(
@@ -133,6 +141,12 @@ public sealed class AsignarArticuloAUbicacionHandler
             cancellationToken);
 
         await tx.CommitAsync(cancellationToken);
+
+        // U-4 (ALM-ubicaciones-06): con la asignación hecha, la entrada que se rechazó por esto ya se puede retomar.
+        if (_incidencias is not null)
+            await IncidenciasAlmacen.SinRomperAsync(_logger, "resolver la incidencia de artículo-ubicación", () =>
+                _incidencias.ResolverPorDocumentoAsync(PasosIncidencia.AlmUbicacionesAsignacion, request.ArticuloId,
+                    request.UbicacionId.ToString(), $"Se asignó el artículo {articulo.Clave} a la ubicación {ubicacion.Clave}.", cancellationToken));
 
         return ToResponse(asignacion);
     }

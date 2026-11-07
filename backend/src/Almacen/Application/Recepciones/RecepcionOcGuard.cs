@@ -1,6 +1,7 @@
 using System.Globalization;
 using Millet.Almacen.Domain.Ports;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.SharedKernel.Application.Incidencias;
 
 namespace Millet.Almacen.Application.Recepciones;
 
@@ -62,7 +63,12 @@ internal static class RecepcionOcGuard
             var propio = recibidoPropio.GetValueOrDefault(grupo.Key);
             var limite = Limite(origen.CantidadSolicitada, origen.CantidadRecibida, propio);
             if (grupo.Sum(l => l.Cantidad) > limite)
-                throw new BusinessRuleException("RECEPCION_EXCEDE_PENDIENTE", MensajeExcede(origen, limite));
+            {
+                // U-4 (ALM-recepcion-09): la diferencia contra la orden deja su incidencia; se resuelve al recibir la partida.
+                var mensaje = MensajeExcede(origen, limite);
+                throw new IncidenciaRechazoException("RECEPCION_EXCEDE_PENDIENTE", mensaje,
+                    Incidencias.IncidenciasAlmacen.ExcedePendiente(oc.Id, oc.Folio, grupo.Key, oc.SucursalDestinoId, mensaje));
+            }
             recibidos[grupo.Key] = Math.Max(origen.CantidadRecibida, propio);
         }
         return new RecepcionOcValidada(lineas, recibidos);
