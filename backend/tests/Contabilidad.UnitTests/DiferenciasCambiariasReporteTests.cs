@@ -166,7 +166,7 @@ public class DiferenciasCambiariasReporteTests
         string campo, string codigo)
     {
         var error = FluentActions.Invoking(() => FiltrosDiferenciasCambiarias.Leer(desde, hasta, sucursal, origen))
-            .Should().Throw<ValidationException>().Which.Errors.Should().ContainSingle().Subject;
+            .Should().Throw<Millet.SharedKernel.Application.Exceptions.ValidationException>().Which.Errors.Should().ContainSingle().Subject;
         (error.Field, error.Code).Should().Be((campo, codigo));
         error.Message.Should().NotContain("must").And.NotContain("Failed");
     }

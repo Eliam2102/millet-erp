@@ -247,7 +247,7 @@ public static class FiltrosDiferenciasCambiarias
             if (Enum.TryParse<OrigenDiferenciaCambiaria>(origen, ignoreCase: true, out var v) && Enum.IsDefined(v) && !int.TryParse(origen, out _)) o = v;
             else errores.Add(new("origen", "ORIGEN_INVALIDO", $"El origen «{origen}» no es válido; usa Proveedores o Clientes."));
         }
-        if (errores.Count > 0) throw new ValidationException(errores);
+        if (errores.Count > 0) throw new Millet.SharedKernel.Application.Exceptions.ValidationException(errores);
         var hastaFinal = fin ?? FechaContable.HoyLocal(DateTimeOffset.UtcNow);
         return (inicio ?? new DateOnly(hastaFinal.Year, hastaFinal.Month, 1), hastaFinal, sucursal, o);
     }
