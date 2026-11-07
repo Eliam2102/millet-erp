@@ -9,6 +9,14 @@ namespace Millet.CuentasPorPagar.Application.Integration;
 /// </summary>
 internal static class SucursalEmpleado
 {
-    public static async Task<Guid?> DeAsync(IEmpleadoReadPort? empleados, Guid empleadoId, CancellationToken ct) =>
-        empleados is null || empleadoId == Guid.Empty ? null : (await empleados.ObtenerAsync(empleadoId, ct))?.SucursalId;
+    /// <remarks>
+    /// H1 (86e3z5w25): en tarjeta, <c>UsuarioQueUsoId</c> llega del selector de usuarios; si el id no es de un empleado se busca el
+    /// empleado vinculado a ese usuario. Así la sucursal del gasto (y el alcance de su área o equipo) no se pierde.
+    /// </remarks>
+    public static async Task<Guid?> DeAsync(IEmpleadoReadPort? empleados, Guid empleadoId, CancellationToken ct)
+    {
+        if (empleados is null || empleadoId == Guid.Empty) return null;
+        var empleado = await empleados.ObtenerAsync(empleadoId, ct) ?? await empleados.ObtenerPorUsuarioAsync(empleadoId, ct);
+        return empleado?.SucursalId is { } s && s != Guid.Empty ? s : null;
+    }
 }

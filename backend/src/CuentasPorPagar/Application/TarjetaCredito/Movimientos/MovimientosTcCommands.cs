@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.Contabilidad.Application.PublicPorts;
 using Millet.CuentasPorPagar.Application.Catalogos.ClasificacionesNoDeducibles;
 using Millet.CuentasPorPagar.Application.Common;
 using Millet.CuentasPorPagar.Application.Integration;
@@ -36,7 +37,9 @@ public sealed record MovimientoTcResponse(
     string ConceptoContable,
     int Version,
     string? ClasificacionNoDeducible = null,
-    decimal IvaNoAcreditable = 0m);
+    decimal IvaNoAcreditable = 0m,
+    // H1 (86e3z5w25): área o equipo capturado.
+    Guid? CentroCostoId = null);
 
 internal static class MovimientoTcMapper
 {
@@ -46,7 +49,7 @@ internal static class MovimientoTcMapper
             m.Tipo, m.Estado, m.MontoOriginal, m.MonedaOriginal,
             m.TipoCambioCaptura, m.MontoMxn, m.MerchantNormalizado,
             m.FacturaProveedorId, m.ConceptoContable, m.Version,
-            m.ClasificacionNoDeducible, ivaNoAcreditable);
+            m.ClasificacionNoDeducible, ivaNoAcreditable, m.CentroCostoId);
 }
 
 // --------------------------------------------------- Flujo A: con CFDI
@@ -75,7 +78,9 @@ public sealed record RegistrarMovimientoTcConCfdiCommand(
     decimal TotalFactura,
     DateOnly FechaVencimiento,
     // P8.6: si viene, el CFDI es no deducible y su IVA va a «IVA no acreditable».
-    string? ClasificacionNoDeducible = null) : IRequest<MovimientoTcResponse>;
+    string? ClasificacionNoDeducible = null,
+    // H1 (86e3z5w25): área (Dim2) o equipo (Dim3) del gasto, de la sucursal del empleado; se exige por la regla C-03 de la cuenta.
+    Guid? CentroCostoId = null) : IRequest<MovimientoTcResponse>;
 
 public sealed class RegistrarMovimientoTcConCfdiValidator : AbstractValidator<RegistrarMovimientoTcConCfdiCommand>
 {
@@ -118,10 +123,14 @@ public sealed class RegistrarMovimientoTcConCfdiHandler
         ICurrentUserContext currentUser,
         IClock clock,
         IIntegrationEventPublisher events,
-        IEmpleadoReadPort? empleados = null)
+        IEmpleadoReadPort? empleados = null,
+        IDimensionesGastoPort? dimensiones = null)
     {
         _db = db; _currentEmpresa = currentEmpresa; _currentUser = currentUser; _clock = clock; _events = events; _empleados = empleados;
+        _dimensiones = dimensiones;
     }
+
+    private readonly IDimensionesGastoPort? _dimensiones;
 
     public async Task<MovimientoTcResponse> Handle(
         RegistrarMovimientoTcConCfdiCommand command, CancellationToken cancellationToken)
@@ -224,6 +233,10 @@ public sealed class RegistrarMovimientoTcConCfdiHandler
             conceptoContable: command.ConceptoContable,
             clasificacionNoDeducible: clasificacion);
 
+        // H1: el área o equipo se valida contra la sucursal del empleado, la misma con la que se contabiliza.
+        var sucursalEmpleado = await SucursalEmpleado.DeAsync(_empleados, command.UsuarioQueUsoId, cancellationToken);
+        mov.AsignarCentroCosto(await CentroCostoGasto.ValidarAsync(
+            _dimensiones, empresaId, sucursalEmpleado, command.CentroCostoId, cancellationToken));
         _db.MovimientosTarjetaCredito.Add(mov);
 
         // Antes de SaveChanges: el outbox lo persiste en la misma TX.
@@ -236,7 +249,7 @@ public sealed class RegistrarMovimientoTcConCfdiHandler
             IvaNoAcreditable: factura.IvaNoAcreditable, Total: factura.Total,
             Moneda: command.MonedaOriginal, TipoCambio: command.TipoCambioCaptura,
             ConceptoContable: command.ConceptoContable,
-            SucursalId: await SucursalEmpleado.DeAsync(_empleados, command.UsuarioQueUsoId, cancellationToken)), cancellationToken);
+            SucursalId: sucursalEmpleado, CentroCostoId: mov.CentroCostoId), cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
         return MovimientoTcMapper.ToResponse(mov, factura.IvaNoAcreditable);
@@ -257,7 +270,9 @@ public sealed record RegistrarMovimientoTcSinCfdiCommand(
     string ConceptoContable,
     string? TicketBlobRef,
     // P8.6: obligatoria (sin CFDI el cargo es no deducible); se valida en el handler → 422 TC_MOV_CLASIFICACION_INVALIDA.
-    string? ClasificacionNoDeducible = null) : IRequest<MovimientoTcResponse>;
+    string? ClasificacionNoDeducible = null,
+    // H1 (86e3z5w25): área (Dim2) o equipo (Dim3) del gasto, de la sucursal del empleado; se exige por la regla C-03 de la cuenta.
+    Guid? CentroCostoId = null) : IRequest<MovimientoTcResponse>;
 
 public sealed class RegistrarMovimientoTcSinCfdiValidator : AbstractValidator<RegistrarMovimientoTcSinCfdiCommand>
 {
@@ -283,10 +298,12 @@ public sealed class RegistrarMovimientoTcSinCfdiHandler
 
     public RegistrarMovimientoTcSinCfdiHandler(
         CuentasPorPagarDbContext db, ICurrentEmpresaContext currentEmpresa,
-        IIntegrationEventPublisher events, IClock clock, IEmpleadoReadPort? empleados = null)
+        IIntegrationEventPublisher events, IClock clock, IEmpleadoReadPort? empleados = null, IDimensionesGastoPort? dimensiones = null)
     {
-        _db = db; _currentEmpresa = currentEmpresa; _events = events; _clock = clock; _empleados = empleados;
+        _db = db; _currentEmpresa = currentEmpresa; _events = events; _clock = clock; _empleados = empleados; _dimensiones = dimensiones;
     }
+
+    private readonly IDimensionesGastoPort? _dimensiones;
 
     public async Task<MovimientoTcResponse> Handle(
         RegistrarMovimientoTcSinCfdiCommand command, CancellationToken cancellationToken)
@@ -318,9 +335,12 @@ public sealed class RegistrarMovimientoTcSinCfdiHandler
             ticketBlobRef: command.TicketBlobRef,
             clasificacionNoDeducible: clasificacion);
 
+        var sucursalEmpleado = await SucursalEmpleado.DeAsync(_empleados, mov.UsuarioQueUsoId, cancellationToken);
+        mov.AsignarCentroCosto(await CentroCostoGasto.ValidarAsync(
+            _dimensiones, empresaId, sucursalEmpleado, command.CentroCostoId, cancellationToken));
         _db.MovimientosTarjetaCredito.Add(mov);
         await _events.PublishAsync(GastoSinCfdi(mov, _clock.UtcNow, GastoRegistradoIntegrationEvent.OrigenTarjeta,
-            await SucursalEmpleado.DeAsync(_empleados, mov.UsuarioQueUsoId, cancellationToken)), cancellationToken);
+            sucursalEmpleado), cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
         return MovimientoTcMapper.ToResponse(mov);
     }
@@ -333,7 +353,8 @@ public sealed class RegistrarMovimientoTcSinCfdiHandler
             Fecha: mov.FechaMovimiento, ProveedorId: null, ProveedorRfc: null,
             Uuid: null, Deducible: mov.ClasificacionNoDeducible is null, ClasificacionNoDeducible: mov.ClasificacionNoDeducible,
             Subtotal: mov.MontoOriginal, IvaTrasladado: 0m, IvaNoAcreditable: 0m, Total: mov.MontoOriginal,
-            Moneda: mov.MonedaOriginal, TipoCambio: mov.TipoCambioCaptura, ConceptoContable: mov.ConceptoContable, SucursalId: sucursalId);
+            Moneda: mov.MonedaOriginal, TipoCambio: mov.TipoCambioCaptura, ConceptoContable: mov.ConceptoContable, SucursalId: sucursalId,
+            CentroCostoId: mov.CentroCostoId);
 }
 
 // --------------------------------------------------- Listar

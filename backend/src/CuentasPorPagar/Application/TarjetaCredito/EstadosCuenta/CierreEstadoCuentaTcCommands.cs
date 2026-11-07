@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.Contabilidad.Application.PublicPorts;
 using Millet.CuentasPorPagar.Application.Integration;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor;
 using Millet.CuentasPorPagar.Domain.Ports.Administracion;
@@ -107,7 +108,9 @@ public sealed record CapturarMovimientoDesdeLineaCommand(
     Guid UsuarioQueUsoId,
     string ConceptoContable,
     // P8.6: obligatoria (sin CFDI el cargo es no deducible); se valida en el handler → 422 TC_MOV_CLASIFICACION_INVALIDA.
-    string? ClasificacionNoDeducible = null) : IRequest<EstadoCuentaTcResponse>;
+    string? ClasificacionNoDeducible = null,
+    // H1 (86e3z5w25): área (Dim2) o equipo (Dim3) del gasto, de la sucursal del empleado; se exige por la regla C-03 de la cuenta.
+    Guid? CentroCostoId = null) : IRequest<EstadoCuentaTcResponse>;
 
 public sealed class CapturarMovimientoDesdeLineaValidator : AbstractValidator<CapturarMovimientoDesdeLineaCommand>
 {
@@ -131,10 +134,12 @@ public sealed class CapturarMovimientoDesdeLineaHandler
 
     public CapturarMovimientoDesdeLineaHandler(
         CuentasPorPagarDbContext db, ICurrentEmpresaContext currentEmpresa,
-        IIntegrationEventPublisher events, IClock clock, IEmpleadoReadPort? empleados = null)
+        IIntegrationEventPublisher events, IClock clock, IEmpleadoReadPort? empleados = null, IDimensionesGastoPort? dimensiones = null)
     {
-        _db = db; _currentEmpresa = currentEmpresa; _events = events; _clock = clock; _empleados = empleados;
+        _db = db; _currentEmpresa = currentEmpresa; _events = events; _clock = clock; _empleados = empleados; _dimensiones = dimensiones;
     }
+
+    private readonly IDimensionesGastoPort? _dimensiones;
 
     public async Task<EstadoCuentaTcResponse> Handle(
         CapturarMovimientoDesdeLineaCommand command, CancellationToken cancellationToken)
@@ -187,6 +192,9 @@ public sealed class CapturarMovimientoDesdeLineaHandler
             ticketBlobRef: null,
             clasificacionNoDeducible: clasificacion);
         mov.MarcarCapturaRetroactiva();
+        var sucursalEmpleado = await SucursalEmpleado.DeAsync(_empleados, mov.UsuarioQueUsoId, cancellationToken);
+        mov.AsignarCentroCosto(await CentroCostoGasto.ValidarAsync(
+            _dimensiones, empresaId, sucursalEmpleado, command.CentroCostoId, cancellationToken));
         mov.MarcarConciliadoConEstadoCuenta(ec.Id, linea.Id, linea.FechaAplicacion);
         _db.MovimientosTarjetaCredito.Add(mov);
 
@@ -198,8 +206,7 @@ public sealed class CapturarMovimientoDesdeLineaHandler
         ec.ActualizarTotalConciliado(totalConciliado);
 
         await _events.PublishAsync(Movimientos.RegistrarMovimientoTcSinCfdiHandler.GastoSinCfdi(
-            mov, _clock.UtcNow, GastoRegistradoIntegrationEvent.OrigenEstadoCuenta,
-            await SucursalEmpleado.DeAsync(_empleados, mov.UsuarioQueUsoId, cancellationToken)), cancellationToken);
+            mov, _clock.UtcNow, GastoRegistradoIntegrationEvent.OrigenEstadoCuenta, sucursalEmpleado), cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
         return CrearEstadoCuentaTcHandler.ToResponse(ec);
     }

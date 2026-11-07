@@ -1902,6 +1902,7 @@ Millet.Api.Endpoints.CuentasPorPagar.PortalProveedoresEndpoints.MapPortalProveed
 
 // === Cuentas por Pagar — Catálogos read-only (F4-PR1) ===
 Millet.Api.Endpoints.CuentasPorPagar.CatalogosCxpEndpoints.MapCatalogosCxpEndpoints(app);
+Millet.Api.Endpoints.CuentasPorPagar.GastosDimensionesEndpoints.MapGastosDimensionesEndpoints(app);
 
 // === Cuentas por Pagar — Evidencias polimórficas (F4-PR2) ===
 Millet.Api.Endpoints.CuentasPorPagar.EvidenciasEndpoints.MapEvidenciasEndpoints(app);

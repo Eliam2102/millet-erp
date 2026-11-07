@@ -1,7 +1,10 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.Contabilidad.Application.PublicPorts;
 using Millet.CuentasPorPagar.Application.Catalogos.ClasificacionesNoDeducibles;
+using Millet.CuentasPorPagar.Application.Integration;
+using Millet.CuentasPorPagar.Domain.Ports.Administracion;
 using Millet.CuentasPorPagar.Domain.Cfdi;
 using Millet.CuentasPorPagar.Domain.Viaticos;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
@@ -34,7 +37,9 @@ public sealed record CapturarLineaViaticosInput(
     string Concepto,
     bool EsTicketNoFiscal,
     // P8.6: obligatoria en ticket no fiscal; en línea con CFDI marca el gasto como no deducible.
-    string? ClasificacionNoDeducible = null);
+    string? ClasificacionNoDeducible = null,
+    // H1 (86e3z5w25): área (Dim2) o equipo (Dim3) del gasto, de la sucursal del empleado; se exige por la regla C-03 de la cuenta.
+    Guid? CentroCostoId = null);
 
 public sealed record CapturarComprobacionViaticosResponse(
     Guid Id,
@@ -78,10 +83,13 @@ public sealed class CapturarComprobacionViaticosHandler
 {
     private readonly CuentasPorPagarDbContext _db;
     private readonly IClock _clock;
+    private readonly IEmpleadoReadPort? _empleados;
+    private readonly IDimensionesGastoPort? _dimensiones;
 
-    public CapturarComprobacionViaticosHandler(CuentasPorPagarDbContext db, IClock clock)
+    public CapturarComprobacionViaticosHandler(
+        CuentasPorPagarDbContext db, IClock clock, IEmpleadoReadPort? empleados = null, IDimensionesGastoPort? dimensiones = null)
     {
-        _db = db; _clock = clock;
+        _db = db; _clock = clock; _empleados = empleados; _dimensiones = dimensiones;
     }
 
     public async Task<CapturarComprobacionViaticosResponse> Handle(
@@ -178,6 +186,13 @@ public sealed class CapturarComprobacionViaticosHandler
             clasificaciones.Add(await ClasificacionNoDeducibleValidador.ResolverAsync(
                 _db, linea.ClasificacionNoDeducible, linea.EsTicketNoFiscal, "VIA_LINEA_CLASIFICACION_REQUERIDA", cancellationToken));
 
+        // H1: el área o equipo se valida contra la sucursal del empleado, la misma con la que se contabiliza al liberar.
+        var centros = new List<Guid?>(command.Lineas.Count);
+        var sucursalEmpleado = command.Lineas.Any(l => l.CentroCostoId is not null)
+            ? await SucursalEmpleado.DeAsync(_empleados, s.EmpleadoId, cancellationToken) : null;
+        foreach (var linea in command.Lineas)
+            centros.Add(await CentroCostoGasto.ValidarAsync(_dimensiones, s.EmpresaId, sucursalEmpleado, linea.CentroCostoId, cancellationToken));
+
         var dominioLineas = command.Lineas.Select((l, i) => new LineaComprobacionViaticosInput(
             CfdiRecibidoId: l.CfdiRecibidoId,
             UuidCfdi: l.UuidCfdi
@@ -192,7 +207,8 @@ public sealed class CapturarComprobacionViaticosHandler
             Moneda: l.Moneda,
             Concepto: l.Concepto,
             EsTicketNoFiscal: l.EsTicketNoFiscal,
-            ClasificacionNoDeducible: clasificaciones[i])).ToList();
+            ClasificacionNoDeducible: clasificaciones[i],
+            CentroCostoId: centros[i])).ToList();
 
         s.CapturarComprobacion(dominioLineas, _clock.UtcNow);
         await _db.SaveChangesAsync(cancellationToken);

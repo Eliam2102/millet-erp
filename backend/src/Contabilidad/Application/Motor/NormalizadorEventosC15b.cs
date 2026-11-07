@@ -40,7 +40,7 @@ public static partial class NormalizadorEventos
 
     /// <summary>
     /// GC: gasto comprobado de caja chica, viáticos o tarjeta (una línea o un movimiento por evento). Cargo GASTO (todo lo que no es IVA
-    /// acreditable: subtotal, IVA no acreditable de los no deducibles y otros impuestos) e IVA_ACREDITABLE_PAGADO · abono a la
+    /// acreditable: subtotal, IVA no acreditable de los no deducibles y otros impuestos) e IVA_ACREDITABLE_PAGADO (H1: el gasto lleva el área o equipo capturado, si lo hay) · abono a la
     /// contrapartida del origen por el total: fondo de caja chica, deudor del empleado o tarjeta por pagar. La captura retroactiva desde
     /// el estado de cuenta es un movimiento de tarjeta.
     /// </summary>
@@ -50,7 +50,7 @@ public static partial class NormalizadorEventos
         var ivaAcreditable = g.IvaTrasladado - g.IvaNoAcreditable;
         var origen = g.Origen == "estado_cuenta" ? OrigenTarjeta : g.Origen;
         return new(GastoRegistrado, eventoId, g.EmpresaId, FechaContable.HoyLocal(g.OcurridoEn),
-            Doc(DocGasto, g.LineaId ?? g.DocumentoId, null, g.Uuid), g.SucursalId, g.ProveedorId, null, null, null,
+            Doc(DocGasto, g.LineaId ?? g.DocumentoId, null, g.Uuid), g.SucursalId, g.ProveedorId, null, g.CentroCostoId, null,
             MonedaDe(g.Moneda), g.TipoCambio,
             new Dictionary<string, decimal?>
             {
@@ -112,7 +112,7 @@ public static partial class NormalizadorEventos
 
     private sealed record GastoContrato(Guid EmpresaId, DateTimeOffset OcurridoEn, string Origen, Guid DocumentoId, Guid? LineaId,
         Guid? ProveedorId, string? Uuid, decimal IvaTrasladado, decimal IvaNoAcreditable, decimal Total, string? Moneda,
-        decimal? TipoCambio, Guid? SucursalId);
+        decimal? TipoCambio, Guid? SucursalId, Guid? CentroCostoId = null);
 
     private sealed record PasivoInternoContrato(Guid EmpresaId, DateTimeOffset OcurridoEn, decimal MontoTotal, string? Moneda,
         decimal? TipoCambio, string? OrigenTipo, Guid? OrigenId, Guid? SucursalId);

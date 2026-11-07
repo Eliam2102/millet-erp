@@ -35,6 +35,13 @@ import type {
 import { CfdiPorProcesarPicker } from '@/features/cxp/components/CfdiPorProcesarPicker';
 import { CargarCfdiSheet } from '@/features/cxp/components/CargarCfdiSheet';
 import { ClasificacionNoDeducibleCampo } from '@/features/cxp/components/ClasificacionNoDeducibleCampo';
+import { AreaEquipoGasto } from '@/features/cxp/components/AreaEquipoGasto';
+import {
+  useDimensionesGasto,
+  useNivelesCentroGasto,
+  validarCentroCostoGasto,
+  type DimensionesGasto,
+} from '@/features/cxp/api/useDimensionesGasto';
 import { fetchProveedoresPorRfc, useProveedor } from '@/features/catalogos/api';
 import { Field, ProveedorSelector } from '@/components/erp';
 import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
@@ -107,6 +114,7 @@ function defaultLinea(moneda: string) {
     concepto: '',
     esTicketNoFiscal: false,
     clasificacionNoDeducible: null,
+    centroCostoId: null,
   };
 }
 
@@ -145,6 +153,10 @@ function Form({ solicitud, onCancel, onCaptured, onDirtyChange }: FormProps) {
     PermisosCanonicos.CuentasPorPagarCfdisCargarManual,
   );
   const [cargaXmlLinea, setCargaXmlLinea] = useState<number | null>(null);
+
+  // H1: área/equipo por partida; la sucursal es la del empleado de la solicitud.
+  const dimensiones = useDimensionesGasto({ empleadoId: solicitud.empleadoId }).data;
+  const niveles = useNivelesCentroGasto();
 
   /**
    * Vincula el CFDI recibido a la línea de gasto y prellena UUID, folio,
@@ -190,6 +202,15 @@ function Form({ solicitud, onCancel, onCaptured, onDirtyChange }: FormProps) {
   }
 
   function onSubmit(values: CapturarComprobacionViaticosValues) {
+    let faltaCentro = false;
+    values.lineas.forEach((l, i) => {
+      const msg = validarCentroCostoGasto(dimensiones, l.centroCostoId, niveles.nivel(l.centroCostoId));
+      if (msg) {
+        form.setError(`lineas.${i}.centroCostoId`, { message: msg });
+        faltaCentro = true;
+      }
+    });
+    if (faltaCentro) return;
     capturar.mutate(
       {
         id: solicitud.id,
@@ -198,6 +219,7 @@ function Form({ solicitud, onCancel, onCaptured, onDirtyChange }: FormProps) {
           lineas: values.lineas.map((l) => ({
             ...l,
             uuidCfdi: l.uuidCfdi || null,
+            centroCostoId: l.centroCostoId ?? null,
             fechaGasto: `${l.fechaGasto}T00:00:00Z`,
           })),
         },
@@ -258,6 +280,8 @@ function Form({ solicitud, onCancel, onCaptured, onDirtyChange }: FormProps) {
               onCargarXml={() => setCargaXmlLinea(index)}
               puedeLeerCfdis={puedeLeerCfdis}
               puedeCargarCfdi={puedeCargarCfdi}
+              dimensiones={dimensiones}
+              onNivelCentro={niveles.registrar}
             />
           ))}
         </div>
@@ -317,6 +341,8 @@ interface LineaInlineProps {
   onCargarXml: () => void;
   puedeLeerCfdis: boolean;
   puedeCargarCfdi: boolean;
+  dimensiones: DimensionesGasto | undefined;
+  onNivelCentro: (id: string | null, nivel: 2 | 3 | null) => void;
 }
 
 function LineaInline({
@@ -327,6 +353,8 @@ function LineaInline({
   onCargarXml,
   puedeLeerCfdis,
   puedeCargarCfdi,
+  dimensiones,
+  onNivelCentro,
 }: LineaInlineProps) {
   const lineaErrors = form.formState.errors.lineas?.[index];
   const cfdiRecibidoId = form.watch(`lineas.${index}.cfdiRecibidoId` as const);
@@ -460,6 +488,24 @@ function LineaInline({
           <label htmlFor={`ticketNoFiscal-${index}`} className="text-xs">
             Ticket no fiscal (sin CFDI)
           </label>
+        </div>
+        <div className="col-span-full">
+          <Controller
+            control={form.control}
+            name={`lineas.${index}.centroCostoId` as const}
+            render={({ field }) => (
+              <AreaEquipoGasto
+                id={`centro-${index}`}
+                dimensiones={dimensiones}
+                value={field.value}
+                onChange={(id, nivel) => {
+                  onNivelCentro(id, nivel);
+                  field.onChange(id);
+                }}
+                error={lineaErrors?.centroCostoId?.message}
+              />
+            )}
+          />
         </div>
         <div className="col-span-full">
           <Controller
