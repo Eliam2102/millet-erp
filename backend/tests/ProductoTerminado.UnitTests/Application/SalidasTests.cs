@@ -45,6 +45,9 @@ public sealed class SalidasTests
             return Task.CompletedTask;
         }
 
+        public Task<CancelacionSalidaPt> CancelarSalidaAsync(string referencia, string motivo, CancellationToken ct) =>
+            Task.FromResult(new CancelacionSalidaPt(false, false, false));
+
         public Task<CartaPorteSalida> EmitirCartaPorteAsync(SolicitudCartaPorte solicitud, CancellationToken ct)
         {
             CartasPorte.Add(solicitud);
