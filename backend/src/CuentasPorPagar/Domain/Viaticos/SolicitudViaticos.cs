@@ -329,6 +329,7 @@ public sealed class SolicitudViaticos : BaseEntity, IPerteneceAEmpresa, IAuditab
                 concepto: input.Concepto,
                 esTicketNoFiscal: input.EsTicketNoFiscal,
                 clasificacionNoDeducible: input.ClasificacionNoDeducible);
+            linea.AsignarCentroCosto(input.CentroCostoId);
             _lineas.Add(linea);
         }
 
@@ -375,4 +376,6 @@ public sealed record LineaComprobacionViaticosInput(
     string Moneda,
     string Concepto,
     bool EsTicketNoFiscal,
-    string? ClasificacionNoDeducible = null);
+    string? ClasificacionNoDeducible = null,
+    // H1 (86e3z5w25): área o equipo del gasto (ya validado contra la sucursal del empleado).
+    Guid? CentroCostoId = null);

@@ -120,8 +120,7 @@ public sealed class ProformaPedidoHandlerTests
         new(db, new FakeSender(new ReservarFolioResponse("FA-000007", 7, "")), new FakePeriodoContablePort(),
             new FakeCatalogosSatReadPort(), pac, new FakeCfdiRepositorioPort(),
             new FakeEmpresaFiscalReadPort(EmisorMillet with { EmpresaId = empresaId }),
-            new FakeIntegrationEventPublisher(), new FakeContabilidadAsientoPort(),
-            new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora),
+            new FakeIntegrationEventPublisher(), new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora),
             ReceptorFiscalTestFactory.Crear(db));
 
     // ---------- CA-b ----------

@@ -180,7 +180,7 @@ public static class EstadosCuentaTcEndpoints
 
             var response = await mediator.Send(
                 new CapturarMovimientoDesdeLineaCommand(
-                    id, v, lineaId, body.UsuarioQueUsoId, body.ConceptoContable, body.ClasificacionNoDeducible),
+                    id, v, lineaId, body.UsuarioQueUsoId, body.ConceptoContable, body.ClasificacionNoDeducible, body.CentroCostoId),
                 cancellationToken);
             return Results.Ok(response);
         })
@@ -257,5 +257,6 @@ public static class EstadosCuentaTcEndpoints
     }
 
     public sealed record ConfirmarMatchBody(Guid MovimientoTcId, decimal? DiferenciaCambiariaMxn);
-    public sealed record CapturarRetroactivaBody(Guid UsuarioQueUsoId, string ConceptoContable, string? ClasificacionNoDeducible = null);
+    public sealed record CapturarRetroactivaBody(
+        Guid UsuarioQueUsoId, string ConceptoContable, string? ClasificacionNoDeducible = null, Guid? CentroCostoId = null);
 }

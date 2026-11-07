@@ -56,6 +56,8 @@ export const MovimientoTcSinCfdiSchema = z.object({
     .trim()
     .min(1, 'Selecciona la clasificación del gasto no deducible.')
     .max(40),
+  // H1: centro de costo del gasto (equipo Dim3 si se eligió; si no, área Dim2). C-03 se valida en el submit.
+  centroCostoId: z.string().regex(UUID_RE).nullable().optional(),
 });
 
 export type MovimientoTcSinCfdiValues = z.infer<
@@ -91,6 +93,8 @@ export const MovimientoTcConCfdiSchema = z.object({
     .max(40)
     .nullable()
     .refine((v) => v !== '', 'Selecciona la clasificación del gasto no deducible.'),
+  // H1: centro de costo del gasto (equipo Dim3 si se eligió; si no, área Dim2). C-03 se valida en el submit.
+  centroCostoId: z.string().regex(UUID_RE).nullable().optional(),
 });
 
 export type MovimientoTcConCfdiValues = z.infer<

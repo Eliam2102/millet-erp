@@ -88,4 +88,10 @@ public sealed record ClienteFiscalLectura(
     string? FormaPagoDefault,
     string? MetodoPagoDefault,
     string MonedaDefault,
-    bool EsGenerico, bool Activo = true);
+    bool EsGenerico, bool Activo = true,
+    // Receptor extranjero (CCE): mismos datos que el selector de cliente, para prellenar la factura del pedido.
+    string? NumRegIdTrib = null,
+    string? PaisResidencia = null,
+    string? DomicilioExtranjeroCalle = null,
+    string? DomicilioExtranjeroEstado = null,
+    string? DomicilioExtranjeroCodigoPostal = null);

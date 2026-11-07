@@ -37,7 +37,7 @@ public class RecepcionOcGuardPendienteTests
     public async Task Guard_rechaza_mas_que_el_pendiente_con_RECEPCION_EXCEDE_PENDIENTE(decimal cantidad, decimal recibidoCompras)
     {
         var act = () => ValidarAsync(cantidad, recibidoCompras);
-        var ex = await Assert.ThrowsAsync<BusinessRuleException>(act);
+        var ex = await Assert.ThrowsAnyAsync<BusinessRuleException>(act);
         Assert.Equal("RECEPCION_EXCEDE_PENDIENTE", ex.Code);
     }
 

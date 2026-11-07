@@ -35,8 +35,8 @@ export const dimKeys = {
   ubicaciones: ['contabilidad', 'dimensiones', 'ubicaciones'] as const,
   corporativos: (q: string, solo: boolean) => ['contabilidad', 'dimensiones', 'corporativos', q, solo] as const,
   auxiliares: (tipo: TipoAuxiliar, q: string) => ['contabilidad', 'dimensiones', 'auxiliares', tipo, q] as const,
-  centros: (sucursalId: string, nivel: Dimension, dim2Id: string, q: string) =>
-    ['contabilidad', 'dimensiones', 'centros', sucursalId, nivel, dim2Id, q] as const,
+  centros: (sucursalId: string, nivel: Dimension, dim2Id: string, q: string, endpoint = '') =>
+    ['contabilidad', 'dimensiones', 'centros', sucursalId, nivel, dim2Id, q, endpoint] as const,
   movimientos: (offset: number) => ['contabilidad', 'dimensiones', 'movimientos', offset] as const,
 };
 
@@ -234,12 +234,28 @@ export function useAuxiliares(tipo: TipoAuxiliar, q: string, enabled = true) {
 }
 
 /** Centros activos seleccionables en la sucursal (los de otra sucursal no aparecen). Sin sucursal no se consulta. */
-export function useCentrosParaMovimiento(sucursalId: string, nivel: Dimension, dim2Id: string, q: string, enabled = true) {
+/**
+ * Centros activos de la sucursal. `endpoint` (H1 pasos 3 y 4) = el selector de otro módulo con su propio permiso (Tesorería,
+ * Comercio Exterior), mismo contrato; por omisión el de Contabilidad.
+ */
+export function useCentrosParaMovimiento(
+  sucursalId: string,
+  nivel: Dimension,
+  dim2Id: string,
+  q: string,
+  enabled = true,
+  endpoint?: string,
+) {
   return useQuery({
-    queryKey: dimKeys.centros(sucursalId, nivel, dim2Id, q),
+    queryKey: dimKeys.centros(sucursalId, nivel, dim2Id, q, endpoint),
     enabled: enabled && !!sucursalId,
     queryFn: async ({ signal }) =>
-      (await apiRequest<CentroOpcion[]>(`${BASE}/movimientos/centros${qs({ sucursalId, nivel, dim2Id, q })}`, { signal })).data,
+      (
+        await apiRequest<CentroOpcion[]>(
+          `${endpoint ?? `${BASE}/movimientos/centros`}${qs({ sucursalId, nivel, dim2Id, q })}`,
+          { signal },
+        )
+      ).data,
   });
 }
 

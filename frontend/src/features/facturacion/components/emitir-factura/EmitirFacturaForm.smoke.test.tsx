@@ -345,6 +345,78 @@ describe('<EmitirFacturaForm> — smoke (FAC-UX-PR2/PR3)', () => {
     expect(onSuccess).toHaveBeenCalled();
   });
 
+  it('FAC-08 (H2): la factura del pedido o de su salida toma del cliente el receptor extranjero del CCE', async () => {
+    const p = pedido('11111111-1111-4111-8111-111111111111', 'DEMO', 100);
+    p.salidaFacturableId = 's-1';
+    p.comportamientoFiscal = 3;
+    p.receptorRfc = 'XEXX010101000';
+    p.cceReceptorNumRegIdTrib = 'DEMO-TAX-1';
+    p.cceReceptorPaisResidencia = 'USA';
+    p.cceReceptorDomicilioCalle = 'Main St 1';
+    p.cceReceptorDomicilioEstado = 'TX';
+    p.cceReceptorDomicilioCodigoPostal = '78701';
+    p.embarqueCe = {
+      ligado: true,
+      expedienteId: 'ce',
+      sucursalId: EMISOR.sucursalIdDefault,
+      listoParaFacturar: true,
+      codigoBloqueo: null,
+      motivo: null,
+      folioExpediente: 'CE-A1-SALIDA',
+      numeroPedimento: 'DEMO-A1',
+      clavePedimento: 'A1',
+      fechaPedimento: '2026-10-12',
+      incoterm: 'FOB',
+      contenedores: [
+        { id: 'c', numero: 'QA-C1-0001', blGuia: 'QA-BL-1', fechaEmbarqueReal: '2026-11-06' },
+      ],
+    };
+    const enviado = vi.fn();
+    mswServer.use(
+      http.post('*/api/v1/facturacion/facturas/', async ({ request }) => {
+        enviado(await request.json());
+        return HttpResponse.json(
+          { id: 'f-s1', folio: 'FE-1', total: 100, version: 1, estado: 'Timbrado', uuid: 'uuid' },
+          { status: 201 },
+        );
+      }),
+    );
+    const { container } = render(
+      <EmitirFacturaForm prefill={p} onSuccess={vi.fn()} onCancel={() => {}} />,
+      { wrapper: createQueryWrapper() },
+    );
+    await screen.findByText('CE-A1-SALIDA');
+    const valor = (name: string) =>
+      (container.querySelector(`[name="${name}"]`) as HTMLInputElement | null)?.value;
+    expect(valor('cceReceptorNumRegIdTrib')).toBe('DEMO-TAX-1');
+    expect(valor('cceReceptorDomicilioEstado')).toBe('TX');
+    expect(valor('cceReceptorDomicilioCodigoPostal')).toBe('78701');
+    const cambiar = (name: string, value: string) =>
+      fireEvent.change(container.querySelector(`[name="${name}"]`)!, { target: { value } });
+    cambiar('cceTcDof', '18.42');
+    fireEvent.click(screen.getByRole('button', { name: 'Editar', hidden: true }));
+    fireEvent.change(screen.getByLabelText('fraccion-arancelaria'), {
+      target: { value: '70071999' },
+    });
+    fireEvent.change(screen.getByLabelText('unidad-aduana'), { target: { value: '06' } });
+    cambiar('lineas.0.cantidadAduana', '1');
+    cambiar('lineas.0.valorUnitarioAduana', '100');
+    cambiar('lineas.0.valorDolares', '100');
+    fireEvent.click(screen.getByRole('button', { name: 'Emitir y timbrar' }));
+    await waitFor(() =>
+      expect(enviado).toHaveBeenCalledWith(
+        expect.objectContaining({
+          salidaFacturableId: 's-1',
+          receptorPais: 'USA',
+          cce: expect.objectContaining({
+            receptorNumRegIdTrib: 'DEMO-TAX-1',
+            receptorPaisResidencia: 'USA',
+          }),
+        }),
+      ),
+    );
+  });
+
   it.each([
     [
       400,

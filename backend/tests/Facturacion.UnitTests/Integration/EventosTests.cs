@@ -31,12 +31,11 @@ public sealed class EventosTests
         var empresaId = Guid.NewGuid();
         using var db = NewDb(empresaId);
         var eventos = new FakeIntegrationEventPublisher();
-        var contabilidad = new FakeContabilidadAsientoPort();
         var handler = new EmitirFacturaVentaHandler(
             db, new FakeSender(new ReservarFolioResponse("F-1", 1, "")), new FakePeriodoContablePort(),
             new FakeCatalogosSatReadPort(), new FakeFiscalApiClient(), new FakeCfdiRepositorioPort(),
             new FakeEmpresaFiscalReadPort(new EmpresaFiscalLectura(empresaId, "MIL010101AAA", "Millet", "601", 0.16m, "76120")),
-            eventos, contabilidad, new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
+            eventos, new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
 
         await handler.Handle(new EmitirFacturaVentaCommand(
             Guid.NewGuid(), "XAXX010101000", "Público", "616", "76120", "S01", "MEX",
@@ -47,7 +46,6 @@ public sealed class EventosTests
 
         eventos.Publicados.OfType<FacturaVentaTimbradaIntegrationEvent>().Should().ContainSingle()
             .Which.EventType.Should().Be("facturacion.factura-venta.timbrada.v1");
-        contabilidad.Veces.Should().Be(1);
     }
 
     [Fact]

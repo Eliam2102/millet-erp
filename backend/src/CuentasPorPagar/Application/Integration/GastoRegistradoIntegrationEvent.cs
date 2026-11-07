@@ -41,7 +41,9 @@ public sealed record GastoRegistradoIntegrationEvent(
     decimal? TipoCambio = null,
     string? ConceptoContable = null,
     // C1.5b (aditivo): sucursal de la póliza. Caja chica = la de la comprobación; viáticos y tarjeta = la del empleado.
-    Guid? SucursalId = null)
+    Guid? SucursalId = null,
+    // H1 (86e3z5w25, aditivo): área (Dim2) o equipo (Dim3) capturado; la póliza deriva la ubicación. Null = no se capturó.
+    Guid? CentroCostoId = null)
     : IntegrationEvent("cuentas_por_pagar.gasto.registrado.v1", EmpresaId, OcurridoEn)
 {
     public const string OrigenTarjeta = "tarjeta";

@@ -66,7 +66,8 @@ public sealed class ContenedoresServicio(ComercioExteriorDbContext db, Expedient
 }
 
 public sealed class MutarContenedorHandler(ComercioExteriorDbContext db, ExpedienteServicio servicio, ContenedoresServicio contenedores,
-    IPedidosEmbarcablesReadPort pedidos, ICatalogosCeReadPort catalogos, IClock clock, IOcImportacionReadPort compras) : IRequestHandler<MutarContenedorCommand, ContenedoresDetalle>
+    IPedidosEmbarcablesReadPort pedidos, ICatalogosCeReadPort catalogos, IClock clock, IOcImportacionReadPort compras,
+    IIntegrationEventPublisher eventos) : IRequestHandler<MutarContenedorCommand, ContenedoresDetalle>
 {
     public async Task<ContenedoresDetalle> Handle(MutarContenedorCommand request, CancellationToken cancellationToken)
     {
@@ -151,6 +152,10 @@ public sealed class MutarContenedorHandler(ComercioExteriorDbContext db, Expedie
                     break;
                 case "embarcar":
                     e.RegistrarEmbarque(request.ContenedorId ?? Guid.Empty, request.Fecha ?? throw new BusinessRuleException("CE_FECHA_EMBARQUE_INVALIDA", "Capture la fecha real."), clock.HoyLocal(), await catalogos.AdjuntosVigentesAsync(e.Id, token));
+                    // FAC-08: Facturación registra una salida por pedido del contenedor (Outbox, misma transacción).
+                    // Solo exportación: el contenedor de importación no genera salidas de venta.
+                    if (e.Tipo == TipoExpediente.Exportacion)
+                        await eventos.PublishAsync(ContenedorEmbarcadoEvent.Desde(e, request.ContenedorId!.Value, origen, clock.UtcNow), token);
                     break;
                 case "cancelar":
                     if (e.Tipo == TipoExpediente.Importacion && e.OcId is Guid ocCancelada)
@@ -160,7 +165,11 @@ public sealed class MutarContenedorHandler(ComercioExteriorDbContext db, Expedie
                         if (origenOc?.Partidas?.Any(p => lineasContenedor.Contains(p.Id) && (p.CantidadRecibida > 0 || p.CantidadFacturada > 0)) == true)
                             throw new BusinessRuleException("CE_CONTENEDOR_CON_RECEPCION", "El contenedor tiene partidas recibidas o facturadas. Registre una incidencia para corregirlo.");
                     }
+                    var embarcado = e.Contenedores.SingleOrDefault(c => c.Id == request.ContenedorId)?.FechaEmbarqueReal is not null;
                     e.CancelarContenedor(request.ContenedorId ?? Guid.Empty, request.Motivo ?? "", Facturado(request.ContenedorId ?? Guid.Empty));
+                    // FAC-08: solo un contenedor embarcado pudo generar salidas en Facturación.
+                    if (embarcado && e.Tipo == TipoExpediente.Exportacion)
+                        await eventos.PublishAsync(ContenedorCanceladoEvent.Desde(e, request.ContenedorId!.Value, origen, clock.UtcNow), token);
                     break;
                 default: throw new BusinessRuleException("CE_ACCION_INVALIDA", "Acción desconocida.");
             }

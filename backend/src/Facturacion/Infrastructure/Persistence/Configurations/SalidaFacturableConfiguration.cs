@@ -7,7 +7,7 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Configurations;
 /// <summary>
 /// FAC-08: <see cref="SalidaFacturable"/> en <c>facturacion.salida_facturable</c>. Los índices
 /// únicos son la idempotencia: una parcialidad por número dentro del pedido y una salida por
-/// referencia de origen.
+/// referencia de origen (o por documento de origen y pedido cuando hay <c>origen_id</c>).
 /// </summary>
 public sealed class SalidaFacturableConfiguration : IEntityTypeConfiguration<SalidaFacturable>
 {
@@ -24,6 +24,10 @@ public sealed class SalidaFacturableConfiguration : IEntityTypeConfiguration<Sal
         builder.Property(e => e.Referencia).HasMaxLength(SalidaFacturable.ReferenciaMaxLength).IsRequired();
         builder.Property(e => e.RegistradaEn).IsRequired();
         builder.Property(e => e.Total).HasPrecision(18, 2).IsRequired();
+        builder.Property(e => e.OrigenId);
+        builder.Property(e => e.DescartadaEn);
+        builder.Property(e => e.MotivoDescarte).HasMaxLength(SalidaFacturable.MotivoDescarteMaxLength);
+        builder.Ignore(e => e.Descartada);
 
         builder.HasOne<PedidoFacturable>()
             .WithMany()
@@ -39,9 +43,17 @@ public sealed class SalidaFacturableConfiguration : IEntityTypeConfiguration<Sal
             .IsUnique()
             .HasDatabaseName("ux_salida_facturable_parcialidad");
 
+        // Sin documento de origen (manual, PT por folio): una salida por referencia.
         builder.HasIndex(e => new { e.EmpresaId, e.Origen, e.Referencia })
             .IsUnique()
+            .HasFilter("origen_id IS NULL")
             .HasDatabaseName("ux_salida_facturable_referencia");
+
+        // FAC-08 Fase 1: con documento de origen (contenedor), una salida por documento y pedido.
+        builder.HasIndex(e => new { e.EmpresaId, e.Origen, e.OrigenId, e.PedidoFacturableId })
+            .IsUnique()
+            .HasFilter("origen_id IS NOT NULL")
+            .HasDatabaseName("ux_salida_facturable_origen_pedido");
     }
 }
 

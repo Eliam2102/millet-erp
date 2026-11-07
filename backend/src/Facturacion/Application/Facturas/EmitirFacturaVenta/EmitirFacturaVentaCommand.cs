@@ -105,7 +105,9 @@ public sealed record EmitirFacturaVentaLinea(
     decimal? TasaRetencionIsr,
     // §3.bis.5: producto de importación en su primera venta → la factura se retiene
     // en PendientePedimento hasta aplicar el pedimento (F7-PR2).
-    bool RequierePedimento = false, string? Referencia = null, decimal? PesoKg = null, decimal? AreaPie2 = null);
+    bool RequierePedimento = false, string? Referencia = null, decimal? PesoKg = null, decimal? AreaPie2 = null,
+    // 86e3zcbjw: concepto de la retención de IVA del cliente (FLETES, SERVICIOS, DESPERDICIO, IMPORTACION).
+    string? ConceptoRetencion = null);
 
 public sealed record EmitirFacturaVentaResponse(
     Guid Id,

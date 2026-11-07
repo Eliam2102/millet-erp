@@ -184,8 +184,11 @@ public sealed class LiquidacionTerminal : BaseEntity, IPerteneceAEmpresa, IAudit
 /// <summary>
 /// Factura mensual del banco por las comisiones de la terminal (86e3xt2q8, Parte B;
 /// definición del negocio del 26-oct: cada cargo diario queda ligado a la factura mensual). Se
-/// liga solo si la comisión y el IVA del mes cuadran al centavo con el CFDI
-/// recibido (supuesto a validar: sin tolerancia); si no, no se liga nada.
+/// liga solo si la comisión, el IVA y el total del mes cuadran con el CFDI recibido con
+/// una diferencia de hasta $0.01 a favor o en contra (Tesorería, 4-nov; 86e3zcbjx); si no,
+/// no se liga nada. <see cref="ComisionFactura"/> e <see cref="IvaFactura"/> son los del CFDI
+/// (lo que se deduce y se acredita); <see cref="Redondeo"/> es lo que el banco cargó de más
+/// (positivo) o de menos (negativo) contra el CFDI y va a redondeo en la póliza.
 /// </summary>
 public sealed class FacturaBancoTerminal : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
@@ -199,6 +202,12 @@ public sealed class FacturaBancoTerminal : BaseEntity, IPerteneceAEmpresa, IAudi
     public decimal Comision { get; private set; }
     public decimal IvaComision { get; private set; }
     public decimal Total { get; private set; }
+    /// <summary>Subtotal del CFDI del banco (comisión facturada).</summary>
+    public decimal ComisionFactura { get; private set; }
+    /// <summary>IVA trasladado del CFDI del banco (IVA acreditable pagado).</summary>
+    public decimal IvaFactura { get; private set; }
+    /// <summary>Cargos − (comisión + IVA del CFDI); a lo más $0.01 en valor absoluto.</summary>
+    public decimal Redondeo { get; private set; }
     public int Cargos { get; private set; }
     public Guid LigadaPor { get; private set; }
     public DateTimeOffset LigadaEn { get; private set; }
@@ -213,7 +222,8 @@ public sealed class FacturaBancoTerminal : BaseEntity, IPerteneceAEmpresa, IAudi
         if (!cuadre.Cuadra)
             throw new BusinessRuleException("TERMINAL_FACTURA_NO_CUADRA",
                 $"La factura del banco no cuadra con los cargos del mes: diferencia de {cuadre.DiferenciaTotal:N2} " +
-                $"(comisión {cuadre.DiferenciaComision:N2}, IVA {cuadre.DiferenciaIva:N2}). No se ligó nada.");
+                $"(comisión {cuadre.DiferenciaComision:N2}, IVA {cuadre.DiferenciaIva:N2}); se acepta hasta " +
+                $"{CuadreFacturaBanco.Tolerancia:N2}. No se ligó nada.");
         var f = new FacturaBancoTerminal
         {
             Id = Guid.CreateVersion7(),
@@ -226,6 +236,9 @@ public sealed class FacturaBancoTerminal : BaseEntity, IPerteneceAEmpresa, IAudi
             Comision = cuadre.ComisionCargos,
             IvaComision = cuadre.IvaCargos,
             Total = cuadre.TotalCargos,
+            ComisionFactura = cuadre.SubtotalFactura,
+            IvaFactura = cuadre.IvaFactura,
+            Redondeo = cuadre.Redondeo,
             Cargos = cargos.Count,
             LigadaPor = usuarioId,
             LigadaEn = ahora,
@@ -237,18 +250,28 @@ public sealed class FacturaBancoTerminal : BaseEntity, IPerteneceAEmpresa, IAudi
 
 /// <summary>
 /// Comparación de los cargos del mes (comisión + IVA) contra la factura del banco
-/// (subtotal + IVA trasladado). Cuadra solo si las tres diferencias son cero.
-/// Diferencia = factura − cargos.
+/// (subtotal + IVA trasladado). Diferencia = factura − cargos. Cuadra si ninguna de las
+/// tres diferencias pasa de <see cref="Tolerancia"/> en valor absoluto (86e3zcbjx: $0.01 a
+/// favor o en contra; $0.02 ya no cuadra).
 /// </summary>
 public sealed record CuadreFacturaBanco(
     int Anio, int Mes, int Cargos, decimal ComisionCargos, decimal IvaCargos,
     decimal SubtotalFactura, decimal IvaFactura, decimal TotalFactura)
 {
+    /// <summary>Diferencia aceptada por Tesorería (4-nov): un centavo a favor o en contra.</summary>
+    public const decimal Tolerancia = 0.01m;
+
     public decimal TotalCargos => ComisionCargos + IvaCargos;
     public decimal DiferenciaComision => SubtotalFactura - ComisionCargos;
     public decimal DiferenciaIva => IvaFactura - IvaCargos;
     public decimal DiferenciaTotal => TotalFactura - TotalCargos;
-    public bool Cuadra => Cargos > 0 && DiferenciaComision == 0m && DiferenciaIva == 0m && DiferenciaTotal == 0m;
+    /// <summary>
+    /// Lo que el banco cargó de más (positivo) o de menos (negativo) contra la comisión y el IVA del CFDI; va a
+    /// redondeo para que la póliza cuadre contra lo que salió del banco.
+    /// </summary>
+    public decimal Redondeo => TotalCargos - SubtotalFactura - IvaFactura;
+    public bool Cuadra => Cargos > 0 && Math.Abs(DiferenciaComision) <= Tolerancia && Math.Abs(DiferenciaIva) <= Tolerancia
+        && Math.Abs(DiferenciaTotal) <= Tolerancia && Math.Abs(Redondeo) <= Tolerancia;
 
     public static CuadreFacturaBanco Calcular(int anio, int mes, IReadOnlyCollection<LiquidacionTerminal> cargos,
         decimal subtotalFactura, decimal ivaFactura, decimal totalFactura) =>

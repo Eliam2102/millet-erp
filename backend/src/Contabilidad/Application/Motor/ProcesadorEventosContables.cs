@@ -29,7 +29,8 @@ public interface IEnriquecedorEventoContable
 /// </list>
 /// Una póliza que otro evento esperaba (cancelación o pago que llegó antes que su original) dispara el reproceso de ese rechazo.
 /// </summary>
-public sealed class ProcesadorEventosContables(ContabilidadDbContext db, IMediator mediator, IPolizaContablePort puerto, IClock clock)
+public sealed class ProcesadorEventosContables(ContabilidadDbContext db, IMediator mediator, IPolizaContablePort puerto, IClock clock,
+    ControlIvaDocumentos iva)
 {
     /// <summary>Detalle de un rechazo que espera la póliza de otro documento; se reprocesa solo cuando esa póliza nace.</summary>
     public static string Espera(Guid documentoId) => $"Espera:{documentoId}";
@@ -56,11 +57,29 @@ public sealed class ProcesadorEventosContables(ContabilidadDbContext db, IMediat
     }
 
     /// <summary>Motor de C1.4 y, si nace la póliza, reproceso de lo que la esperaba.</summary>
-    private async Task<ResultadoMotor> GenerarAsync(EventoContable evento, string usuario, CancellationToken ct)
+    private async Task<ResultadoMotor> GenerarAsync(EventoContable evento, string usuario, CancellationToken ct,
+        IReadOnlyList<ControlIvaDocumentos.Aplicacion>? aplicacionesIva = null)
     {
+        // C1.6: el pago o cobro lleva el IVA a reclasificar de los documentos que salda. Pagos y cobros no efectivo esperan a que el
+        // documento tenga póliza; la liquidación de efectivo no detiene la sesión (sin saldo, no reclasifica).
+        var aplicaciones = aplicacionesIva ?? (ControlIvaDocumentos.EsPago(evento.Tipo) ? ControlIvaDocumentos.Aplicaciones(evento) : null);
+        if (aplicaciones is { Count: > 0 })
+        {
+            var preparado = await iva.PrepararAsync(evento, aplicaciones, esperar: aplicacionesIva is null, ct);
+            if (preparado.EsperaDocumentoId is { } documento)
+                return await RechazarAsync(evento.EmpresaId, evento.Tipo, evento.EventoId, evento.Payload, CausaRechazoContable.DatoFaltante,
+                    Espera(documento), "Falta la póliza del documento pagado (de ahí sale su IVA); el pago se contabiliza en cuanto se registre.", ct);
+            evento = preparado.Evento;
+        }
+        else
+            evento = ControlIvaDocumentos.ConCampoIva(evento);
         if (NormalizadorEventos.SinMovimiento(evento)) return Nada;
         var resultado = await mediator.Send(new GenerarPolizaDesdeEventoCommand(evento, usuario), ct);
-        if (resultado.Generada) await ReprocesarEsperasAsync(evento.Documento.Id, ct);
+        if (resultado.Poliza is not { } poliza) return resultado;
+        if (aplicaciones is { Count: > 0 }) await iva.ConfirmarAsync(evento, aplicaciones, poliza, ct);
+        else if (ControlIvaDocumentos.EsDocumento(evento.Tipo)) await iva.RegistrarDocumentoAsync(evento, poliza, ct);
+        else if (ControlIvaDocumentos.EsNota(evento.Tipo)) await iva.RegistrarNotaAsync(evento, poliza, ct);
+        await ReprocesarEsperasAsync(evento.Documento.Id, ct);
         return resultado;
     }
 
@@ -81,6 +100,11 @@ public sealed class ProcesadorEventosContables(ContabilidadDbContext db, IMediat
         {
             var anuladas = await puerto.AnularPorDocumentoOrigenAsync(a.Modulo, a.Tipo, a.DocumentoId, a.Motivo, ct);
             var poliza = anuladas.Count > 0 ? anuladas[0] : null;
+            // C1.6: el pago revertido devuelve su IVA a pendiente; el documento cancelado deja de contar en el control de IVA.
+            if (tipo == NormalizadorEventos.PagoProveedorRevertido)
+                await iva.RevertirPagoAsync(empresaId, a.Modulo, a.Tipo, a.DocumentoId, ct);
+            else
+                await iva.CancelarDocumentoAsync(empresaId, a.Modulo, a.Tipo, a.DocumentoId, ct);
             if (poliza is not null) await ResolverRechazoAsync(empresaId, tipo, eventoId, poliza.Id, usuario, ct);
             return new(poliza, null, null, null, null);
         }
@@ -110,7 +134,8 @@ public sealed class ProcesadorEventosContables(ContabilidadDbContext db, IMediat
         var efectivo = (c.FormasPago ?? []).Where(f => f.FormaPago == NormalizadorEventos.FormaEfectivo).Sum(f => f.Importe);
         if (efectivo != 0m && !await db.CobrosEfectivoCaja.IgnoreQueryFilters().AnyAsync(x => x.CobroId == c.CobroMostradorId, ct))
         {
-            var cobro = new CobroEfectivoCaja(c.CobroMostradorId, c.EmpresaId, c.CajaSesionId, c.SucursalId, cliente, efectivo, c.OcurridoEn);
+            var cobro = new CobroEfectivoCaja(c.CobroMostradorId, c.EmpresaId, c.CajaSesionId, c.SucursalId, cliente, efectivo, c.OcurridoEn,
+                c.ComprobanteId);
             db.CobrosEfectivoCaja.Add(cobro);
             await db.SaveChangesAsync(ct);
             // Cobro que llega después de liquidada su sesión: su propia póliza de efectivo (no se reabre la liquidación).
@@ -118,7 +143,7 @@ public sealed class ProcesadorEventosContables(ContabilidadDbContext db, IMediat
             {
                 var tardio = await GenerarAsync(NormalizadorEventos.Liquidacion(eventoId, c.EmpresaId, FechaContable.HoyLocal(c.OcurridoEn),
                     NormalizadorEventos.DocCobro, c.CobroMostradorId, null, c.SucursalId, [(cliente, efectivo)], payload,
-                    $"{NormalizadorEventos.CajaSesionCerrada}:cobro:{c.CobroMostradorId}"), usuario, ct);
+                    $"{NormalizadorEventos.CajaSesionCerrada}:cobro:{c.CobroMostradorId}"), usuario, ct, IvaEfectivo([cobro]));
                 if (tardio.Poliza is { } p) await MarcarLiquidadosAsync([c.CobroMostradorId], p.Id, ct);
             }
         }
@@ -133,7 +158,7 @@ public sealed class ProcesadorEventosContables(ContabilidadDbContext db, IMediat
             .OrderBy(x => x.CobradoEn).ToListAsync(ct);
         var evento = NormalizadorEventos.Liquidacion(eventoId, s.EmpresaId, s.DiaOperacion, NormalizadorEventos.DocCajaSesion, s.CajaSesionId,
             null, s.SucursalId, [.. cobros.Select(x => (x.ClienteId, x.Importe))], payload);
-        var resultado = await GenerarAsync(evento, usuario, ct);
+        var resultado = await GenerarAsync(evento, usuario, ct, IvaEfectivo(cobros));
         if (resultado.Poliza is { } poliza) await MarcarLiquidadosAsync([.. cobros.Select(x => x.CobroId)], poliza.Id, ct);
         return resultado;
     }
@@ -156,6 +181,11 @@ public sealed class ProcesadorEventosContables(ContabilidadDbContext db, IMediat
             var anuladas = await puerto.AnularPorDocumentoOrigenAsync(NormalizadorEventos.DocCobro.Modulo, NormalizadorEventos.DocCobro.Tipo,
                 c.CobroMostradorId, "Cobro de mostrador cancelado", ct);
             if (anuladas.Count > 0) resultado = new(anuladas[0], null, null, null, null);
+            // C1.6-b: el IVA cobrado de ese cobro vuelve a no cobrado (el del efectivo también si su liquidación era la del propio cobro).
+            await iva.RevertirPagoAsync(c.EmpresaId, NormalizadorEventos.DocCobro.Modulo, NormalizadorEventos.DocCobro.Tipo, c.CobroMostradorId, ct);
+            if (efectivo is { Estado: EstadoCobroEfectivo.Liquidado } && await EsPolizaDelCobroAsync(efectivo, ct))
+                await iva.RevertirPagoAsync(c.EmpresaId, ControlIvaDocumentos.DocCobroEfectivo.Modulo, ControlIvaDocumentos.DocCobroEfectivo.Tipo,
+                    c.CobroMostradorId, ct);
         }
         if (efectivo is null) return resultado;
 
@@ -169,9 +199,18 @@ public sealed class ProcesadorEventosContables(ContabilidadDbContext db, IMediat
         if (efectivo.Estado == EstadoCobroEfectivo.Liquidado && !await EsPolizaDelCobroAsync(efectivo, ct))
         {
             // Ya liquidado en la póliza de la sesión: reversa solo de este cobro (cargo CLIENTES, abono EFECTIVO_CAJA_COBRANZA).
-            var reversa = await GenerarAsync(NormalizadorEventos.Liquidacion(eventoId, c.EmpresaId, FechaContable.HoyLocal(c.OcurridoEn),
+            // C1.6-b: también regresa a no cobrado el IVA que su liquidación había pasado a cobrado.
+            var ivaCobrado = await iva.IvaAplicadoAsync(c.EmpresaId, ControlIvaDocumentos.DocCobroEfectivo, c.CobroMostradorId, ct);
+            var liquidacion = NormalizadorEventos.Liquidacion(eventoId, c.EmpresaId, FechaContable.HoyLocal(c.OcurridoEn),
                 NormalizadorEventos.DocCobro, c.CobroMostradorId, null, efectivo.SucursalId, [(efectivo.ClienteId, -efectivo.Importe)],
-                payload, $"{tipo}:{eventoId}"), usuario, ct);
+                payload, $"{tipo}:{eventoId}");
+            var reversa = await GenerarAsync(liquidacion with
+            {
+                Importes = new Dictionary<string, decimal?>(liquidacion.Importes) { [ControlIvaDocumentos.CampoIva] = -ivaCobrado },
+            }, usuario, ct);
+            if (reversa.Generada)
+                await iva.RevertirPagoAsync(c.EmpresaId, ControlIvaDocumentos.DocCobroEfectivo.Modulo, ControlIvaDocumentos.DocCobroEfectivo.Tipo,
+                    c.CobroMostradorId, ct);
             efectivo.Cancelar();
             await db.SaveChangesAsync(ct);
             return reversa;
@@ -180,6 +219,12 @@ public sealed class ProcesadorEventosContables(ContabilidadDbContext db, IMediat
         await db.SaveChangesAsync(ct);
         return resultado;
     }
+
+    /// <summary>C1.6: cada cobro en efectivo aplica su importe al comprobante cobrado, con el id del cobro.</summary>
+    private static IReadOnlyList<ControlIvaDocumentos.Aplicacion> IvaEfectivo(IEnumerable<CobroEfectivoCaja> cobros) =>
+        [.. cobros.Where(x => x.ComprobanteId is not null && x.Importe > 0m)
+            .Select(x => new ControlIvaDocumentos.Aplicacion(NormalizadorEventos.DocComprobante, x.ComprobanteId!.Value, x.Importe,
+                ControlIvaDocumentos.DocCobroEfectivo, x.CobroId))];
 
     private Task<bool> SesionLiquidadaAsync(Guid empresaId, Guid sesionId, CancellationToken ct) =>
         db.Polizas.IgnoreQueryFilters().AsNoTracking().AnyAsync(p => p.EmpresaId == empresaId

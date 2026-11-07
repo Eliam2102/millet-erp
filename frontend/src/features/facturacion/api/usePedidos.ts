@@ -76,6 +76,26 @@ export function usePedido(id: string | null | undefined) {
   });
 }
 
+/**
+ * FAC-08 Fase 1: embarque de CE para facturar una salida. Con la salida de un
+ * contenedor de exportación, la compuerta y los contenedores del CCE son los de
+ * ese contenedor (no el 100 % del pedido), igual que valida el backend al emitir.
+ */
+export function useEmbarqueCeSalida(pedidoId: string, salidaId: string | null) {
+  return useQuery({
+    queryKey: [...facturacionKeys.pedidoById(pedidoId), 'salida', salidaId ?? 'ninguna'] as const,
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<PedidoFacturableDetalleResponse>(
+        `${BASE}/${pedidoId}?salidaId=${encodeURIComponent(salidaId ?? '')}`,
+        { signal },
+      );
+      return data.embarqueCe ?? null;
+    },
+    enabled: salidaId != null,
+    staleTime: 0,
+  });
+}
+
 /** <c>usePedidoComprobantes(id)</c> — historial de comprobantes del pedido (B5). */
 export function usePedidoComprobantes(id: string | null | undefined) {
   return useQuery<PedidoComprobanteItem[]>({

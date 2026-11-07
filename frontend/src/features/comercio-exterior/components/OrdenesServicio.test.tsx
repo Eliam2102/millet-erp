@@ -58,6 +58,9 @@ vi.mock('../api/finanzas', () => ({
     },
   }),
   useMutarFinanzas: () => ({ mutateAsync: guardar }),
+  // H1 paso 4: sin exigencia C-03 en esta prueba (el bloque de área y equipo no aparece).
+  useDimensionesDistribucion: () => ({ data: undefined }),
+  endpointCentrosDistribucion: (id: string) => `/ce/${id}/gastos/distribuir/centros`,
   useOrdenesServicio: () => ({
     data: {
       data: [{ id: 'oc', folio: 'OC-P6', moneda: 'MXN', total: 50000, tieneCotizacion: true }],

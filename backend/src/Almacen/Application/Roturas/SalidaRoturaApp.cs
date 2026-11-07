@@ -65,7 +65,7 @@ public static class SalidaRoturaApp
         var motivo = $"Rotura · {SalidaRotura.Motivos[r.MotivoCodigo]}{(r.Comentario is null ? "" : $": {r.Comentario}")}";
         var mov = await MovimientosRevision.AgregarAsync(db, r.EmpresaId, usuarioId, TipoMovimiento.SalidaPorRotura, r.Fecha,
             motivo.Length > 500 ? motivo[..500] : motivo,
-            [new LineaRevisionMov(r.ArticuloId, r.UnidadMedida, r.Cantidad, saldo.CostoPromedioMxn, r.UbicacionId)], ct);
+            [new LineaRevisionMov(r.ArticuloId, r.UnidadMedida, r.Cantidad, saldo.CostoPromedioMxn, r.UbicacionId, CentroCostoId: r.CentroCostoId)], ct);
         r.Autorizar(usuarioId, mov.Id, mov.Folio, saldo.CostoPromedioMxn);
         var (almacenId, _) = await AlmacenSucursalResolver.ResolverAsync(db, r.SubAlmacenId, ct);
         await events.PublishAsync(SalidaRoturaRegistradaIntegrationEvent.De(r, almacenId), ct);

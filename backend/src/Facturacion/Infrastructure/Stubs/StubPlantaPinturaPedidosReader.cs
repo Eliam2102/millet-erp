@@ -4,9 +4,9 @@ using Millet.Facturacion.Domain.Ports;
 namespace Millet.Facturacion.Infrastructure.Stubs;
 
 /// <summary>
-/// Stub del lector de pedidos de Planta Pintura (F10-PR2). Devuelve vacío hasta
-/// que <c>Integraciones.Origenes</c> exponga las órdenes vía Hybrid Connection.
-/// PLATFORM-TODO(&lt;PlantaPinturaOrigenes&gt;).
+/// Fallback dev del lector de pedidos de Planta Pintura (F10-PR2): devuelve vacío.
+/// Con <c>ConnectionStrings:AwIntegracionDb</c> lo sustituye <c>PinturasPedidosAdapter</c>
+/// (Integraciones.Aw, I13.9) sobre <c>dbo.pinturas_pedido</c>.
 /// </summary>
 public sealed class StubPlantaPinturaPedidosReader : IPlantaPinturaPedidosReader
 {
@@ -16,7 +16,7 @@ public sealed class StubPlantaPinturaPedidosReader : IPlantaPinturaPedidosReader
 
     public Task<IReadOnlyList<PedidoPlantaPintura>> LeerPendientesAsync(int max, CancellationToken cancellationToken)
     {
-        _logger.LogDebug("[StubPlantaPinturaPedidosReader] Sin Integraciones.Origenes en dev — 0 pedidos. PLATFORM-TODO(<PlantaPinturaOrigenes>).");
+        _logger.LogDebug("[StubPlantaPinturaPedidosReader] Sin ConnectionStrings:AwIntegracionDb — 0 pedidos de Planta Pintura.");
         return Task.FromResult<IReadOnlyList<PedidoPlantaPintura>>([]);
     }
 

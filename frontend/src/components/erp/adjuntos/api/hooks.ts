@@ -68,7 +68,7 @@ export function useExpediente(base: string, opciones: { enabled?: boolean } = {}
 
 export function useTiposDocumento(
   entidad: string,
-  opciones: { enabled?: boolean } = {},
+  opciones: { enabled?: boolean; url?: string } = {},
 ) {
   return useQuery({
     queryKey: adjuntosKeys.tipos(entidad),
@@ -77,7 +77,8 @@ export function useTiposDocumento(
     queryFn: async ({ signal }) =>
       (
         await apiRequest<TipoDocumentoAdjunto[]>(
-          `/api/v1/adjuntos/tipos?entidad=${encodeURIComponent(entidad)}`,
+          // Algunas entidades exponen su propio catálogo (p. ej. incidencias) con el mismo formato.
+          opciones.url ?? `/api/v1/adjuntos/tipos?entidad=${encodeURIComponent(entidad)}`,
           { signal },
         )
       ).data,

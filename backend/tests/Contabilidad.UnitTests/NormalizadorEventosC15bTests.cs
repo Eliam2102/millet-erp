@@ -55,6 +55,17 @@ public class NormalizadorEventosC15bTests
     }
 
     [Fact]
+    public void H1_el_area_o_equipo_del_gasto_viaja_como_centro_del_evento()
+    {
+        // H1 paso 2 (86e3z5w25): el centro capturado en CxP llega al evento; sin él (eventos previos) queda null y C-03 decide.
+        var area = Guid.NewGuid();
+        var conArea = Json(Gasto("caja_chica", 100m, 16m, 0m)).Replace("\"SucursalId\"", $"\"CentroCostoId\":\"{area}\",\"SucursalId\"");
+
+        N.Normalizar(N.GastoRegistrado, Guid.NewGuid(), conArea).CentroCostoId.Should().Be(area);
+        Normalizar(N.GastoRegistrado, Gasto("viaticos", 100m, 16m, 0m)).CentroCostoId.Should().BeNull();
+    }
+
+    [Fact]
     public void Gasto_no_deducible_manda_el_IVA_al_gasto()
     {
         // P8.6: con CFDI pero no deducible, el IVA no es acreditable y se queda en el gasto.

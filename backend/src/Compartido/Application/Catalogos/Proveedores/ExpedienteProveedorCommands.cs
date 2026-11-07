@@ -7,6 +7,7 @@ using Millet.Compartido.Infrastructure.Persistence;
 using Millet.DatosMaestros.Domain;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.SharedKernel.Application.Incidencias;
 using Millet.SharedKernel.Domain.Adjuntos;
 
 namespace Millet.Compartido.Application.Catalogos.Proveedores;
@@ -163,7 +164,8 @@ public sealed record RevisarDocumentoProveedorCommand(Guid ProveedorId, Guid Adj
     : IRequest<AdjuntoResponse>;
 
 public sealed class RevisarDocumentoProveedorHandler(
-    CompartidoDbContext db, ICurrentUserContext usuario, ICurrentEmpresaContext empresa, IClock clock, IAuditLogWriter audit)
+    CompartidoDbContext db, ICurrentUserContext usuario, ICurrentEmpresaContext empresa, IClock clock, IAuditLogWriter audit,
+    IIncidenciasPort? incidencias = null)
     : IRequestHandler<RevisarDocumentoProveedorCommand, AdjuntoResponse>
 {
     public async Task<AdjuntoResponse> Handle(RevisarDocumentoProveedorCommand request, CancellationToken cancellationToken)
@@ -185,6 +187,14 @@ public sealed class RevisarDocumentoProveedorHandler(
             usuarioId: usuario.UserId, empresaId: empresa.Current,
             cambios: JsonSerializer.Serialize(new { tipoDocumento = tipo.Codigo, resultado = request.Resultado.ToString(), adjunto.ObservacionRevision }),
             cancellationToken: cancellationToken);
+        // U-4 (86e3yzemw, ADM-proveedor-09): el documento observado abre su incidencia; el aceptado resuelve la de su tipo.
+        if (incidencias is not null)
+        {
+            if (request.Resultado == ResultadoRevisionAdjunto.Rechazado)
+                await IncidenciasProveedor.AbrirDocumentoObservadoAsync(incidencias, proveedor, adjunto, tipo.Nombre, usuario.UserId, cancellationToken);
+            else
+                await IncidenciasProveedor.ResolverDocumentoAsync(incidencias, proveedor.Id, adjunto.TipoDocumentoId, tipo.Nombre, cancellationToken);
+        }
         return AdjuntoResponse.De(adjunto, tipo, AdjuntoSoporte.Hoy(clock));
     }
 }

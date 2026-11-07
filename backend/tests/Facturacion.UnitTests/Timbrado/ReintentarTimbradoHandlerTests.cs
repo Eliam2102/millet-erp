@@ -109,12 +109,11 @@ public sealed class ReintentarTimbradoHandlerTests
         FacturacionDbContext db,
         ICfdiTimbradoPort? fiscal = null,
         FakeIntegrationEventPublisher? eventos = null,
-        FakeContabilidadAsientoPort? contabilidad = null,
         bool periodoAbierto = true) =>
         new(db, new FakeSender(new ReservarFolioResponse("NC-000001", 1, "")),
             new FakePeriodoContablePort(periodoAbierto), fiscal ?? new FakeFiscalApiClient(),
             new FakeCfdiRepositorioPort(), eventos ?? new FakeIntegrationEventPublisher(),
-            contabilidad ?? new FakeContabilidadAsientoPort(), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
+            new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
 
     private sealed class EmisorCorregido : Millet.Facturacion.Domain.Ports.IEmpresaFiscalReadPort
     {
@@ -130,7 +129,7 @@ public sealed class ReintentarTimbradoHandlerTests
         var factura = CrearFacturaFallida(db, empresaId);
         var handler = new ReintentarTimbradoHandler(db, new FakeSender(new ReservarFolioResponse("SIN-NUEVO-FOLIO", 2, "")),
             new FakePeriodoContablePort(true), new FakeFiscalApiClient(), new FakeCfdiRepositorioPort(), new FakeIntegrationEventPublisher(),
-            new FakeContabilidadAsientoPort(), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db), empresaFiscal: new EmisorCorregido());
+            new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db), empresaFiscal: new EmisorCorregido());
         var respuesta = await handler.Handle(new(factura.Id), default);
         respuesta.Folio.Should().Be("COTT-2026-000001");
         factura.NombreEmisor.Should().Be("ESCUELA KEMPER URGATE");
@@ -146,9 +145,7 @@ public sealed class ReintentarTimbradoHandlerTests
         using var db = NewDb(empresaId);
         var fv = CrearFacturaFallida(db, empresaId);
         var eventos = new FakeIntegrationEventPublisher();
-        var contabilidad = new FakeContabilidadAsientoPort();
-
-        var r = await Handler(db, eventos: eventos, contabilidad: contabilidad)
+        var r = await Handler(db, eventos: eventos)
             .Handle(new ReintentarTimbradoCommand(fv.Id), CancellationToken.None);
 
         r.Estado.Should().Be("Timbrado");
@@ -160,7 +157,6 @@ public sealed class ReintentarTimbradoHandlerTests
         fv.Estado.Should().Be(EstadoTimbrado.Timbrado);
         eventos.Publicados.OfType<FacturaVentaTimbradaIntegrationEvent>().Should().ContainSingle()
             .Which.FacturaVentaId.Should().Be(fv.Id);
-        contabilidad.Veces.Should().Be(1);
     }
 
     [Fact]
@@ -378,9 +374,9 @@ public sealed class ReintentarTimbradoHandlerTests
     }
 
     /// <summary>Paso posterior al PAC que revienta (simula caída antes del SaveChanges final).</summary>
-    private sealed class ContabilidadQueFalla : Millet.Facturacion.Domain.Ports.IContabilidadAsientoPort
+    private sealed class EventosQueFallan : Millet.SharedKernel.Application.IIntegrationEventPublisher
     {
-        public Task RegistrarAsientoAsync(Millet.Facturacion.Domain.Ports.AsientoContableSolicitud s, CancellationToken ct) =>
+        public Task PublishAsync(object integrationEvent, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("caída simulada después del PAC");
     }
 
@@ -397,12 +393,12 @@ public sealed class ReintentarTimbradoHandlerTests
 
     private static ReintentarTimbradoHandler HandlerCon(
         FacturacionDbContext db, ICfdiTimbradoPort fiscal,
-        Millet.Facturacion.Domain.Ports.IContabilidadAsientoPort? contabilidad = null,
+        Millet.SharedKernel.Application.IIntegrationEventPublisher? eventos = null,
         Millet.Facturacion.Domain.Ports.IPeriodoContablePort? periodo = null) =>
         new(db, new FakeSender(new ReservarFolioResponse("NC-000001", 1, "")),
             periodo ?? new FakePeriodoContablePort(true), fiscal,
-            new FakeCfdiRepositorioPort(), new FakeIntegrationEventPublisher(),
-            contabilidad ?? new FakeContabilidadAsientoPort(), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
+            new FakeCfdiRepositorioPort(), eventos ?? new FakeIntegrationEventPublisher(),
+            new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
 
     [Fact]
     public async Task Reintento_persiste_TimbradoEnProceso_antes_de_llamar_al_PAC()
@@ -436,7 +432,7 @@ public sealed class ReintentarTimbradoHandlerTests
         {
             var fv = CrearFacturaFallida(db, empresaId, "CFDI40179");
             id = fv.Id;
-            var act = () => HandlerCon(db, new PacEspia(), contabilidad: new ContabilidadQueFalla())
+            var act = () => HandlerCon(db, new PacEspia(), eventos: new EventosQueFallan())
                 .Handle(new ReintentarTimbradoCommand(id), CancellationToken.None);
             await act.Should().ThrowAsync<InvalidOperationException>();
         }

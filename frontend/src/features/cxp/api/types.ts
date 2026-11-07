@@ -914,6 +914,8 @@ export interface LineaComprobacionDetalle {
   concepto: string | null;
   clasificacionNoDeducible?: string | null;
   ivaNoAcreditable?: number;
+  /** H1: centro de costo del gasto (equipo Dim3 si se eligió; si no, área Dim2). */
+  centroCostoId?: string | null;
 }
 
 /**
@@ -968,6 +970,8 @@ export interface CrearComprobacionCajaChicaLinea {
   concepto: string | null;
   /** Obligatoria en ticket (sin CFDI); en línea con CFDI marca el gasto como no deducible. */
   clasificacionNoDeducible?: string | null;
+  /** H1: centro de costo del gasto (equipo Dim3 si se eligió; si no, área Dim2). */
+  centroCostoId?: string | null;
 }
 
 /** GI-PR4 (doc 12 Q1): destino de la reposición de caja chica. */
@@ -1142,6 +1146,8 @@ export interface LineaViaticosDetalle {
   esTicketNoFiscal: boolean;
   clasificacionNoDeducible?: string | null;
   ivaNoAcreditable?: number;
+  /** H1: centro de costo del gasto (equipo Dim3 si se eligió; si no, área Dim2). */
+  centroCostoId?: string | null;
 }
 
 /**
@@ -1226,6 +1232,8 @@ export interface CapturarLineaViaticosInput {
   esTicketNoFiscal: boolean;
   /** Obligatoria en ticket no fiscal; en línea con CFDI marca el gasto como no deducible. */
   clasificacionNoDeducible?: string | null;
+  /** H1: centro de costo del gasto (equipo Dim3 si se eligió; si no, área Dim2). */
+  centroCostoId?: string | null;
 }
 
 export interface CapturarComprobacionViaticosCommand {
@@ -1366,6 +1374,8 @@ export interface MovimientoTc {
   version: number;
   clasificacionNoDeducible: string | null;
   ivaNoAcreditable: number;
+  /** H1: centro de costo del gasto (equipo Dim3 si se eligió; si no, área Dim2). */
+  centroCostoId?: string | null;
 }
 
 /** Fila del catálogo de clasificaciones de gasto no deducible (P8.6). */
@@ -1431,6 +1441,8 @@ export interface RegistrarMovimientoTcConCfdiCommand {
   fechaVencimiento: string;
   /** Opcional: si viene, el CFDI es no deducible y su IVA va a «IVA no acreditable». */
   clasificacionNoDeducible?: string | null;
+  /** H1: centro de costo del gasto (equipo Dim3 si se eligió; si no, área Dim2). */
+  centroCostoId?: string | null;
 }
 
 export interface RegistrarMovimientoTcSinCfdiCommand {
@@ -1445,6 +1457,8 @@ export interface RegistrarMovimientoTcSinCfdiCommand {
   conceptoContable: string;
   ticketBlobRef: string | null;
   clasificacionNoDeducible: string;
+  /** H1: centro de costo del gasto (equipo Dim3 si se eligió; si no, área Dim2). */
+  centroCostoId?: string | null;
 }
 
 // ─── Estados de Cuenta TC + Cierre (FE-F6-PR2) ────────────────────────
@@ -1524,6 +1538,8 @@ export interface CapturarMovimientoDesdeLineaCommand {
   usuarioQueUsoId: string;
   conceptoContable: string;
   clasificacionNoDeducible: string;
+  /** H1: centro de costo del gasto (equipo Dim3 si se eligió; si no, área Dim2). */
+  centroCostoId?: string | null;
 }
 
 // ─── Refunds + Movimientos Especiales + Disputas (FE-F6-PR2) ──────────

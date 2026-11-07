@@ -844,6 +844,54 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 9, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed-P8",
                             Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000007-000a-0000-0000-000000000007"),
+                            Activa = true,
+                            Concepto = "SERVICIOS",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 6, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed-86e3zcbjw",
+                            Descripcion = "IVA: servicios de personal o subcontratación recibidos por persona moral (art. 1-A fr. IV LIVA)",
+                            Fuente = "https://www.diputados.gob.mx/LeyesBiblio/pdf/LIVA.pdf",
+                            Impuesto = "002",
+                            MotivoCambio = "Supuesto SAT, valida Fiscal (D03)",
+                            Tasa = 0.06m,
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 11, 6, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed-86e3zcbjw",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000007-000a-0000-0000-000000000008"),
+                            Activa = true,
+                            Concepto = "RESICO_PF_SERVICIOS",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 6, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed-86e3zcbjw",
+                            Descripcion = "Servicios o arrendamiento de persona física RESICO a persona moral",
+                            Fuente = "https://wwwmat.sat.gob.mx/articulo/59511/articulo-113-j",
+                            Impuesto = "001",
+                            MotivoCambio = "Supuesto SAT, valida Fiscal (D03)",
+                            Tasa = 0.0125m,
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 11, 6, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed-86e3zcbjw",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000007-000a-0000-0000-000000000009"),
+                            Activa = true,
+                            Concepto = "RESICO_PF_SERVICIOS",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 6, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed-86e3zcbjw",
+                            Descripcion = "IVA: dos terceras partes a tasa general de 16 % (RESICO con servicios o arrendamiento)",
+                            Fuente = "https://www.diputados.gob.mx/LeyesBiblio/pdf/LIVA.pdf",
+                            Impuesto = "002",
+                            MotivoCambio = "Supuesto SAT, valida Fiscal (D03)",
+                            Tasa = 0.10666667m,
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 11, 6, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed-86e3zcbjw",
+                            Version = 1
                         });
                 });
 
@@ -1285,6 +1333,10 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid?>("CentroCostoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("centro_costo_id");
 
                     b.Property<Guid?>("CfdiRecibidoId")
                         .HasColumnType("uuid")
@@ -3692,6 +3744,10 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("captura_retroactiva");
 
+                    b.Property<Guid?>("CentroCostoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("centro_costo_id");
+
                     b.Property<Guid?>("CfdiRecibidoId")
                         .HasColumnType("uuid")
                         .HasColumnName("cfdi_recibido_id");
@@ -4154,6 +4210,10 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid?>("CentroCostoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("centro_costo_id");
 
                     b.Property<Guid?>("CfdiRecibidoId")
                         .HasColumnType("uuid")

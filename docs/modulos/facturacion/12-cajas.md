@@ -710,19 +710,36 @@ mensual del banco.
   mes o del siguiente. Una factura ya ligada deja de ofrecerse.
 - **Cuadre:** suma la comisión y el IVA de las liquidaciones del mes (por fecha de
   liquidación) que aún no tienen factura. Los compara contra el subtotal, el IVA y
-  el total del CFDI. **Supuesto a validar:** cuadra solo si las tres diferencias son
-  cero, sin tolerancia.
+  el total del CFDI. Cuadra si ninguna de las tres diferencias pasa de **$0.01** a
+  favor o en contra (Tesorería, 4-nov; 86e3zcbjx). Con $0.02 ya no cuadra.
 - **Si cuadra:** cada liquidación queda con el folio fiscal (`terminal_liquidacion.factura_banco_id`
   y `uuid_factura_banco`). Se registra `terminal_factura_banco`: un CFDI por mes, que no
-  se puede ligar dos veces. Se publica
-  `facturacion.terminal.factura-banco-ligada.v1`: el IVA de las comisiones pasa de
-  pendiente a pagado. La póliza la registra C1.5
-  (`PLATFORM-TODO(<PolizaFacturaBancoTerminal>)`).
-- **Si no cuadra:** muestra la diferencia de comisión, IVA y total, y no liga nada
-  (`TERMINAL_FACTURA_NO_CUADRA`).
+  se puede ligar dos veces. Guarda además la comisión y el IVA del CFDI y el
+  redondeo (cargos − CFDI, a lo más $0.01). Se publica
+  `facturacion.terminal.factura-banco-ligada.v1`.
+- **Póliza (86e3zcbjx):** Contabilidad la registra al recibir el evento (plantilla
+  `AS`, «Comisión de la terminal de tarjetas»). Cuentas por operación del 5-nov:
+
+  | Partida | Rol | Cuenta | Importe |
+  |---|---|---|---|
+  | Cargo | `COMISIONES_BANCARIAS` | 701.10.00.00 Comisiones bancarias | Subtotal del CFDI |
+  | Cargo | `IVA_ACREDITABLE_PAGADO` | 118.01.01.00 IVA 16 % pagado | IVA del CFDI |
+  | Cargo o abono | `REDONDEO` (nuevo) | 703.21.00.00 Otros gastos | Cargos − CFDI: cargo si el banco cargó de más, abono si de menos; sin partida si es cero |
+  | Abono | `BANCO_TERMINAL_TARJETA` (nuevo) | La del banco de la terminal | Lo que el banco cargó en el mes (comisión + IVA de los cargos) |
+
+  - Los dos roles nuevos nacen sin cuenta: Contabilidad los mapea en «Roles de
+    cuenta». Mientras no tengan cuenta, el evento queda en la bandeja de rechazos y se
+    reprocesa desde ahí.
+  - **Supuestos a validar:** la fecha de la póliza es el último día del mes de los
+    cargos; la sucursal es la de las ventas con más comisión del mes (la póliza lleva
+    una sola).
+  - La póliza de la liquidación diaria (`<PolizaLiquidacionTerminal>`, pendiente) ya
+    no debe registrar la comisión ni su IVA, para no duplicarlos.
+- **Si no cuadra:** muestra la diferencia de comisión, IVA y total y la tolerancia, y
+  no liga nada (`TERMINAL_FACTURA_NO_CUADRA`).
 - **Sin cuenta por pagar:** el banco ya cobró la comisión al liquidar. El CFDI no se
-  marca en CxP. **A validar con el negocio:** si se deja de capturar como factura de
-  proveedor y de registrar su «pago».
+  marca en CxP. Tesorería confirmó el 4-nov que, con la liga, la factura del banco ya
+  no se registra aparte; los CFDI bancarios se descargan a mano.
 - **Endpoints:**
   - `GET /api/v1/facturacion/terminal-tarjetas/factura-banco/candidatos`
   - `GET …/factura-banco/cuadre`
@@ -741,6 +758,7 @@ mensual del banco.
 | 0.8 | 2026-10-14 | §14: facturado y notas de crédito del punto de venta y resumen de la entrega (M19: facturado, NC, cobranzas, apartados, TPV), como propuesta a validar; relación con F6.7 |
 | 0.9 | 2026-10-21 | §15 Cierre del día por sucursal (F6.7): monitor de estatus de CFDI con verificación SAT y conciliación facturado contra ingresado por sucursal y cajero |
 | 1.0 | 2026-10-26 | §14 (86e3tfdvt): voucher de tarjeta = número de autorización de 4 a 12 caracteres, también en forma 29; nunca el número de la tarjeta |
+| 1.5 | 2026-11-06 | §18.1 (86e3zcbjx): tolerancia de $0.01 en la liga, redondeo a 703.21.00.00 y póliza de la factura del banco (comisión 701.10.00.00 + IVA pagado 118.01.01.00 contra el banco) con oyente en Contabilidad |
 | 1.4 | 2026-11-03 | §18.1 (86e3xt2q8, Parte B): factura mensual del banco ligada a los cargos de la terminal; cuadre al centavo y evento de IVA pagado |
 | 1.3 | 2026-10-31 | §18 (86e3vr1tf, Parte A): archivo diario de la terminal de tarjetas, emparejamiento con los cobros y liquidación por folio |
 | 1.2 | 2026-10-31 | §17 (F6.6, 86e3jvuvr): folio de confirmación de transferencias de Ingresos; Caja aplica la forma 03 solo con folio vigente, del cliente y por el importe; B4 resuelta |

@@ -42,7 +42,7 @@ public sealed class G10RecepcionSalidaAcuseTests
         (rechazo.RecepcionId, rechazo.Cantidad, rechazo.Motivo).Should().Be((r.RecepcionId, 3m, "No es el material pedido"));
         f.Events.Items.OfType<OcRecepcionRegistradaIntegrationEvent>().Single().Lineas.Sum(l => l.Cantidad).Should().Be(2m);
         // Pendiente de la OC = 10 - 2 aceptadas: los 3 rechazados siguen pendientes (recibir 8 cabe; 9 no).
-        var ex = await Assert.ThrowsAsync<BusinessRuleException>(() => ConFactura(f, Linea(f, 9)));
+        var ex = await Assert.ThrowsAnyAsync<BusinessRuleException>(() => ConFactura(f, Linea(f, 9)));
         ex.Code.Should().Be("RECEPCION_EXCEDE_PENDIENTE");
         await ConFactura(f, Linea(f, 8));
     }

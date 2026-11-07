@@ -117,21 +117,25 @@ public static class EventosContablesFacturacion
     }
 
     /// <summary>
-    /// Desglose por impuesto. El IVA retenido se recalcula por línea y el ISR
-    /// es el resto, para que la suma cuadre exacto con <c>Retenciones</c> del
-    /// comprobante (que redondea por línea el total combinado).
+    /// Desglose por impuesto y concepto (86e3zcbjw). Por línea, el IVA retenido se recalcula y el ISR es el resto de la retención de la
+    /// línea, para que la suma cuadre exacto con <c>Retenciones</c> del comprobante (que redondea por línea el total combinado).
     /// </summary>
-    private static List<RetencionContablePayload>? RetencionesDe(FacturaVenta f)
+    internal static List<RetencionContablePayload>? RetencionesDe(FacturaVenta f)
     {
         if (f.Retenciones <= 0m)
             return null;
-        var iva = f.Lineas.Sum(l => Math.Round(
-            (l.Importe - l.Descuento) * (l.TasaRetencionIva ?? 0m), 2, MidpointRounding.AwayFromZero));
-        iva = Math.Min(iva, f.Retenciones);
-        var isr = f.Retenciones - iva;
+        var porLinea = f.Lineas.Where(l => l.RetencionTotalImporte > 0m).Select(l =>
+        {
+            var iva = Math.Min(l.RetencionTotalImporte, Math.Round(
+                (l.Importe - l.Descuento) * (l.TasaRetencionIva ?? 0m), 2, MidpointRounding.AwayFromZero));
+            return (l.ConceptoRetencion, Iva: iva, Isr: l.RetencionTotalImporte - iva);
+        }).ToList();
         var lista = new List<RetencionContablePayload>();
-        if (iva > 0m) lista.Add(new(ImpuestoIva, null, iva));
-        if (isr > 0m) lista.Add(new(ImpuestoIsr, null, isr));
+        foreach (var g in porLinea.GroupBy(x => x.ConceptoRetencion).OrderBy(g => g.Key))
+        {
+            if (g.Sum(x => x.Iva) is > 0m and var iva) lista.Add(new(ImpuestoIva, null, iva, g.Key));
+            if (g.Sum(x => x.Isr) is > 0m and var isr) lista.Add(new(ImpuestoIsr, null, isr, g.Key));
+        }
         return lista;
     }
 }

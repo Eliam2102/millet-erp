@@ -20,6 +20,7 @@ public static partial class NormalizadorEventos
     public const string AjusteInventarioAplicado = "almacen.ajuste_inventario.aplicado.v1";
     public const string SalidaRequisicionRegistrada = "almacen.salida_requisicion.registrada.v1";
     public const string SalidaInventarioRegistrada = "almacen.salida_inventario.registrada.v1";
+    public const string SalidaRoturaRegistrada = "almacen.salida_rotura.registrada.v1";
     public const string DevolucionInternaAplicada = "almacen.devolucion_interna.aplicada.v1";
     public const string DevolucionProveedorRegistrada = "almacen.oc_devolucion.registrada.v1";
     public const string FacturaProveedorCancelada = "cuentas_por_pagar.factura.cancelada.v1";
@@ -109,6 +110,7 @@ public static partial class NormalizadorEventos
         AjusteInventarioAplicado => Ajuste(eventoId, payload),
         SalidaRequisicionRegistrada => Salida(eventoId, payload),
         SalidaInventarioRegistrada => SalidaInventario(eventoId, payload),
+        SalidaRoturaRegistrada => SalidaRotura(eventoId, payload),
         NotaCreditoProveedorRegistrada => NotaProveedor(tipo, eventoId, payload, DocNotaCreditoProveedor, TipoDocumentoPuente.NotaCredito),
         NotaCargoAutorizada => NotaProveedor(tipo, eventoId, payload, DocNotaCargo, TipoDocumentoPuente.NotaCargo),
         AnticipoProveedorCapturado => AnticipoProveedor(eventoId, payload),
@@ -187,6 +189,17 @@ public static partial class NormalizadorEventos
     }
 
     /// <summary>
+    /// Campo de importe que carga una salida de inventario según su causa (U-2): rotura o daño → Merma; salida manual o no planificada →
+    /// Ajuste; lo demás → Consumo. H1 (86e3z5w25) lo usa también para saber qué cuenta, y qué dimensiones, exige la salida al capturarla.
+    /// </summary>
+    public static string CampoSalidaInventario(string? causa) => (causa ?? string.Empty).Trim().ToLowerInvariant() switch
+    {
+        "rotura" or "daño" or "dano" => "Merma",
+        "salida_manual" or "salida_no_planificada" => "Ajuste",
+        _ => "Consumo",
+    };
+
+    /// <summary>
     /// G-1 (86e3yxpb3): salida de inventario sin requisición (consumo, rotura, salida manual, baja por daño). Misma póliza que #14 (cargo
     /// CONSUMO · abono INVENTARIO por línea). El centro de costo es el de cada línea o, si no, el del evento (equipo que ya capturó el vale); vacío si ninguno lo trae.
     /// </summary>
@@ -197,9 +210,9 @@ public static partial class NormalizadorEventos
         // U-2 (86e3yxngq): la plantilla v2 carga según la causa (consumo → CONSUMO, rotura o daño → MERMA, salida manual o no
         // planificada → AJUSTE_INVENTARIO). La v1 (#445) solo lee Subtotal.
         var total = lineas.Sum(l => l.Importe);
-        var causa = (s.Causa ?? string.Empty).Trim().ToLowerInvariant();
-        var merma = causa is "rotura" or "daño" or "dano";
-        var ajuste = causa is "salida_manual" or "salida_no_planificada";
+        var campo = CampoSalidaInventario(s.Causa);
+        var merma = campo == "Merma";
+        var ajuste = campo == "Ajuste";
         return Mxn(SalidaInventarioRegistrada, eventoId, s.EmpresaId, s.FechaMovimiento, Doc(DocSalidaInventario, s.MovimientoId, s.FolioMovimiento),
             s.SucursalId, importes: new()
             {
@@ -208,6 +221,21 @@ public static partial class NormalizadorEventos
                 ["Merma"] = merma ? total : 0m,
                 ["Ajuste"] = ajuste ? total : 0m,
             }, lineas: lineas, payload: payload, centroCostoId: s.CentroCostoId);
+    }
+
+    /// <summary>
+    /// 86e3zf04y: rotura capturada en la pantalla de Almacén (ALM-03). Misma póliza que la rotura de la app de Almacenes
+    /// (<see cref="SalidaInventario"/> con causa rotura): cargo MERMA con el área o equipo de la rotura · abono INVENTARIO por grupo del
+    /// artículo, mismo documento origen (el movimiento de salida). Plantilla propia, sembrada igual que la v2 de salidas.
+    /// </summary>
+    private static EventoContable SalidaRotura(Guid eventoId, string payload)
+    {
+        var r = Leer<SalidaRoturaContrato>(payload);
+        var valor = r.ValorMxn ?? 0m;
+        return Mxn(SalidaRoturaRegistrada, eventoId, r.EmpresaId, r.FechaMovimiento, Doc(DocSalidaInventario, r.MovimientoId, r.FolioMovimiento),
+            r.SucursalId, importes: new() { ["Subtotal"] = valor, ["Merma"] = valor },
+            lineas: [new LineaEventoContable(null, valor, r.CentroCostoId, false, ArticuloId: r.ArticuloId)], payload: payload,
+            centroCostoId: r.CentroCostoId);
     }
 
     // ---------------------------------------------------------------- CxP
@@ -227,7 +255,8 @@ public static partial class NormalizadorEventos
             new Dictionary<string, decimal?>
             {
                 ["Subtotal"] = n.Subtotal, ["Iva"] = n.Iva, ["RetencionesTotal"] = retenciones, ["Total"] = total,
-                ["TotalMenosRetenciones"] = total - retenciones,
+                ["TotalMenosRetenciones"] = total, // el Total del CFDI ya viene neto de retenciones
+                [RetencionesContables.CampoTotalMas] = total + retenciones, // 86e3zcbjw: #3b/#3c v3 (factura por el total)
             },
             [], payload, puente, n.FacturaOrigenId);
     }
@@ -298,7 +327,7 @@ public static partial class NormalizadorEventos
     // ---------------------------------------------------------------- Facturación
 
     /// <summary>
-    /// #7 RF: cargo CLIENTES (total menos retenciones) + retenciones a favor · abono VENTAS por línea (neto de descuento; rol por tipo de
+    /// #7 RF: cargo CLIENTES (el Total del CFDI, ya neto de retenciones) + retenciones a favor · abono VENTAS por línea (neto de descuento; rol por tipo de
     /// producto si existe) + IVA trasladado no cobrado.
     /// </summary>
     private static EventoContable FacturaVenta(Guid eventoId, string payload)
@@ -307,13 +336,15 @@ public static partial class NormalizadorEventos
         var retenciones = f.RetencionesTotal ?? 0m;
         var lineas = (f.Lineas ?? [])
             .Select(l => new LineaEventoContable(null, l.Importe - l.Descuento, null, false, Clasificador: l.TipoProducto)).ToList();
+        // 86e3zcbjw: una línea por concepto de retención del cliente (fletes, servicios, desperdicio, importación) → su cuenta (#7 v3).
+        lineas.AddRange(RetencionesContables.Lineas(f.Retenciones, null));
         return new(FacturaVentaTimbrada, eventoId, f.EmpresaId, f.FechaContable ?? FechaContable.HoyLocal(f.OcurridoEn),
             Doc(DocComprobante, f.FacturaVentaId, f.Folio, f.Uuid), f.SucursalId, null, f.ClienteId, null, null, MonedaDe(f.Moneda),
             f.TipoCambio,
             new Dictionary<string, decimal?>
             {
                 ["Subtotal"] = f.Subtotal is { } s ? s - (f.Descuento ?? 0m) : null, ["Iva"] = f.Iva, ["RetencionesTotal"] = retenciones,
-                ["Total"] = f.Total, ["TotalMenosRetenciones"] = f.Total - retenciones,
+                ["Total"] = f.Total, ["TotalMenosRetenciones"] = f.Total, // el Total del CFDI ya viene neto de retenciones
             },
             lineas, payload);
     }
@@ -432,6 +463,10 @@ public static partial class NormalizadorEventos
 
     private sealed record LineaSalidaInventarioContrato(Guid ArticuloId, decimal MontoMxn, Guid? CentroCostoId);
 
+    /// <summary>Espejo de <c>almacen.salida_rotura.registrada.v1</c> (ALM-03) con solo lo que usa la póliza de merma (86e3zf04y).</summary>
+    private sealed record SalidaRoturaContrato(Guid EmpresaId, Guid MovimientoId, string? FolioMovimiento, DateOnly FechaMovimiento,
+        Guid? SucursalId, Guid ArticuloId, decimal? ValorMxn, Guid? CentroCostoId);
+
     internal sealed record LineaSalidaContrato(Guid LineaSalidaId, Guid ArticuloId, decimal MontoTotalMxn, Guid? CentroCostoId);
 
     /// <summary>Salida de requisición para registrar el consumo contabilizado por línea (#15a, V64).</summary>
@@ -467,7 +502,8 @@ public static partial class NormalizadorEventos
 
     private sealed record FacturaVentaContrato(Guid EmpresaId, DateTimeOffset OcurridoEn, Guid FacturaVentaId, string? Uuid, decimal Total,
         string? Moneda, string? Folio, decimal? Subtotal, decimal? Descuento, decimal? Iva, decimal? RetencionesTotal, Guid? SucursalId,
-        Guid? ClienteId, decimal? TipoCambio, DateOnly? FechaContable, IReadOnlyList<FacturaLineaContrato>? Lineas);
+        Guid? ClienteId, decimal? TipoCambio, DateOnly? FechaContable, IReadOnlyList<FacturaLineaContrato>? Lineas,
+        IReadOnlyList<RetencionesContables.RetencionContrato>? Retenciones = null);
 
     private sealed record FacturaLineaContrato(string? TipoProducto, decimal Importe, decimal Descuento);
 

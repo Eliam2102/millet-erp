@@ -22,7 +22,7 @@ import {
 import { ArticuloSelector, TextAreaField } from '@/components/erp';
 import { UbicacionBinSelector } from '@/components/erp/selectors/UbicacionBinSelector';
 import { Field } from '@/features/almacen/components/internal/Field';
-import { useCapturarRotura, useMotivosRotura } from '@/features/almacen/api/useSalidasRotura';
+import { useCapturarRotura, useDimensionesRotura, useMotivosRotura } from '@/features/almacen/api/useSalidasRotura';
 import { codigoSoporte, esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { hoyLocalISO } from '@/lib/datetime';
 
@@ -62,6 +62,12 @@ function Formulario({ onListo, onCancel }: { onListo: () => void; onCancel: () =
   const [fecha, setFecha] = useState(hoyLocalISO());
   const [motivoCodigo, setMotivoCodigo] = useState('');
   const [comentario, setComentario] = useState<string | null>(null);
+  const [areaClave, setAreaClave] = useState('');
+  const [equipoClave, setEquipoClave] = useState('');
+  // 86e3zf04y: la cuenta de merma puede exigir área o equipo (regla C-03); sin el dato la póliza queda en Rechazos.
+  const dimensiones = useDimensionesRotura(ubicacionId, fecha);
+  const exigeArea = dimensiones.data?.exigeArea ?? false;
+  const exigeEquipo = dimensiones.data?.exigeEquipo ?? false;
   const [errores, setErrores] = useState<Record<string, string>>({});
 
   function enviar(e: React.FormEvent) {
@@ -73,11 +79,18 @@ function Formulario({ onListo, onCancel }: { onListo: () => void; onCancel: () =
     if (!(n > 0)) faltan.cantidad = 'La cantidad debe ser mayor que cero.';
     if (!motivoCodigo) faltan.motivo = 'Elige el motivo.';
     if (motivoCodigo === 'otro' && !comentario?.trim()) faltan.comentario = 'Con «Otro» describe qué pasó.';
+    if (exigeArea && !areaClave.trim() && !equipoClave.trim())
+      faltan.area = `La cuenta ${dimensiones.data?.cuentaCodigo ?? 'de merma'} pide el área.`;
+    if (exigeEquipo && !equipoClave.trim())
+      faltan.equipo = `La cuenta ${dimensiones.data?.cuentaCodigo ?? 'de merma'} pide el equipo.`;
     setErrores(faltan);
     if (Object.keys(faltan).length > 0) return;
     capturar.mutate(
       {
-        command: { ubicacionId: ubicacionId!, articuloId: articuloId!, cantidad: n, fecha, motivoCodigo, comentario: comentario?.trim() || null },
+        command: { ubicacionId: ubicacionId!, articuloId: articuloId!, cantidad: n, fecha, motivoCodigo, comentario: comentario?.trim() || null,
+          areaClave: areaClave.trim() || null,
+          equipoClave: equipoClave.trim() || null,
+        },
         idempotencyKey,
       },
       {
@@ -124,6 +137,30 @@ function Formulario({ onListo, onCancel }: { onListo: () => void; onCancel: () =
               <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
             </Field>
           </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Área (clave)" required={exigeArea && !equipoClave.trim()} error={errores.area}>
+              <Input
+                aria-label="Área (clave)"
+                value={areaClave}
+                maxLength={40}
+                onChange={(e) => setAreaClave(e.target.value)}
+              />
+            </Field>
+            <Field label="Equipo (clave)" required={exigeEquipo} error={errores.equipo}>
+              <Input
+                aria-label="Equipo (clave)"
+                value={equipoClave}
+                maxLength={40}
+                onChange={(e) => setEquipoClave(e.target.value)}
+              />
+            </Field>
+          </div>
+          {(exigeArea || exigeEquipo) && (
+            <p className="text-xs text-ink-muted">
+              La cuenta {dimensiones.data?.cuentaCodigo} de la póliza de merma pide {exigeEquipo ? 'área y equipo' : 'el área'} (regla
+              C-03). Con el equipo, el área se toma de él.
+            </p>
+          )}
           <Field label="Motivo" required error={errores.motivo}>
             <Select value={motivoCodigo} onValueChange={setMotivoCodigo}>
               <SelectTrigger aria-label="Motivo">
