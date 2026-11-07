@@ -49,7 +49,8 @@ public static class DependencyInjection
         services.AddScoped<DimensionesSalidaInventario>();
         services.AddScoped<IDimensionesSalidaInventarioPort, DimensionesSalidaInventarioAdapter>();
         // H1 pasos 3 y 4: área y equipo capturados en Tesorería (conceptos bancarios) y Comercio Exterior (costo de importación).
-        services.AddScoped<IDimensionesCapturaPort, DimensionesCaptura>();
+        services.AddScoped<DimensionesCaptura>();
+        services.AddScoped<IDimensionesCapturaPort, DimensionesCapturaAdapter>();
         services.AddScoped<AlcanceSucursalContable>();
         services.AddScoped<LecturaMovimientos>();
 

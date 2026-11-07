@@ -5,7 +5,6 @@ using Millet.Contabilidad.Application.Ports;
 using Millet.Contabilidad.Application.PublicPorts;
 using Millet.Contabilidad.Domain;
 using Millet.Contabilidad.Infrastructure.Persistence;
-using Millet.SharedKernel.Application;
 
 namespace Millet.Contabilidad.Application.Dimensiones;
 
@@ -14,26 +13,18 @@ namespace Millet.Contabilidad.Application.Dimensiones;
 /// vigente del evento, línea de cargo del campo y su rol (por clasificador si la línea lo es; sucursal antes que el genérico, MXN,
 /// vigente). Las exigencias salen de <see cref="ValidadorDimensiones"/> con el tipo de operación de la plantilla, y la validación
 /// final (jerarquía, estado, ubicación de la sucursal) es la misma de la póliza. Todo se acota a la empresa de la solicitud.
-/// Sin empresa en contexto (proceso sin usuario) se abre el bypass del filtro global, como el puerto del paso 1 (ADR-0039): si no,
-/// las reglas C-03 y los centros no se verían. Con usuario se respeta el filtro normal.
+/// Se expone con <c>DimensionesCapturaAdapter</c> (Infrastructure/PublicAdapters), que abre el bypass del filtro global sin usuario.
 /// </summary>
 public sealed class DimensionesCaptura(
-    ContabilidadDbContext db, ICentroCostoContabilidadPort centros, ValidadorDimensiones validador, IOptions<DimensionesOpciones> opciones,
-    ICurrentEmpresaContext empresa)
+    ContabilidadDbContext db, ICentroCostoContabilidadPort centros, ValidadorDimensiones validador, IOptions<DimensionesOpciones> opciones)
     : IDimensionesCapturaPort
 {
-    private IDisposable? SinUsuario() => empresa.Current is null ? empresa.Bypass() : null;
-
-    public async Task<ExigenciaDimensiones> ExigenciasAsync(MovimientoCaptura movimiento, CancellationToken ct)
-    {
-        using var _ = SinUsuario();
-        return (await CuentaAsync(movimiento, ct)).Exigencia;
-    }
+    public async Task<ExigenciaDimensiones> ExigenciasAsync(MovimientoCaptura movimiento, CancellationToken ct) =>
+        (await CuentaAsync(movimiento, ct)).Exigencia;
 
     public async Task<IReadOnlyList<CentroOpcionDto>> CentrosAsync(Guid empresaId, Guid sucursalId, bool equipos, Guid? areaId, string? q,
         int limite, CancellationToken ct)
     {
-        using var _ = SinUsuario();
         var alcance = await AlcanceAsync(empresaId, sucursalId, ct);
         if (alcance is { Dim1Ids.Count: 0, Dim2Ids.Count: 0 }) return [];
         var nodos = await centros.BuscarAsync(equipos ? DimensionContable.Dim3 : DimensionContable.Dim2, q, alcance, incluirInactivos: false,
@@ -44,7 +35,6 @@ public sealed class DimensionesCaptura(
 
     public async Task<DimensionesCapturaResultado> ValidarAsync(MovimientoCaptura movimiento, Guid? areaId, Guid? equipoId, CancellationToken ct)
     {
-        using var _ = SinUsuario();
         var m = movimiento;
         var ids = new[] { areaId, equipoId }.OfType<Guid>().ToArray();
         var nodos = ids.Length == 0 ? new Dictionary<Guid, CentroCostoNodo>() : await centros.ObtenerAsync(ids, ct);
