@@ -1,3 +1,6 @@
+using Microsoft.Extensions.Logging;
+using Millet.CuentasPorPagar.Application.Incidencias;
+using Millet.SharedKernel.Application.Incidencias;
 using MediatR;
 using Millet.CuentasPorPagar.Domain.Cfdi;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor;
@@ -36,6 +39,10 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
     private readonly IMediator _mediator;
     private readonly IClock _clock;
     private readonly Revision.DetencionPorDanoService _danos;
+    // U-4 (ALM-costo-06): incidencia de la factura rechazada por tolerancia (opcional en pruebas unitarias).
+    private readonly IIncidenciasPort? _incidencias;
+    private readonly ICurrentUserContext? _currentUser;
+    private readonly ILogger<CapturarFacturaConOcHandler>? _logger;
 
     public CapturarFacturaConOcHandler(
         CuentasPorPagarDbContext db,
@@ -48,8 +55,14 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
         IClock clock,
         Domain.Ports.Administracion.IToleranciaGeneralReadPort toleranciaGeneral,
         Revision.DetencionPorDanoService danos,
-        Domain.Ports.Administracion.ITipoCambioReadPort tiposCambio)
+        Domain.Ports.Administracion.ITipoCambioReadPort tiposCambio,
+        IIncidenciasPort? incidencias = null,
+        ICurrentUserContext? currentUser = null,
+        ILogger<CapturarFacturaConOcHandler>? logger = null)
     {
+        _incidencias = incidencias;
+        _currentUser = currentUser;
+        _logger = logger;
         _db = db;
         _ocPort = ocPort;
         _proveedorPort = proveedorPort;
@@ -67,11 +80,37 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
         CapturarFacturaConOcCommand command,
         CancellationToken cancellationToken)
     {
-        if (!_db.Database.IsRelational()) return await CapturarAsync(command, cancellationToken);
         CapturarFacturaConOcResponse? resultado = null;
-        await PostgresAdvisoryLock.ExecuteAsync(_db, BitConverter.ToInt64(command.OrdenCompraId.ToByteArray()),
-            async ct => resultado = await CapturarAsync(command, ct), cancellationToken);
+        if (!_db.Database.IsRelational())
+            resultado = await CapturarAsync(command, cancellationToken);
+        else
+            await PostgresAdvisoryLock.ExecuteAsync(_db, BitConverter.ToInt64(command.OrdenCompraId.ToByteArray()),
+                async ct => resultado = await CapturarAsync(command, ct), cancellationToken);
+        // U-4: ya confirmada la captura (fuera de la transacción de CxP), abre o resuelve la incidencia de costo.
+        await IncidenciaDeCostoAsync(command, resultado!, cancellationToken);
         return resultado!;
+    }
+
+    private async Task IncidenciaDeCostoAsync(CapturarFacturaConOcCommand command, CapturarFacturaConOcResponse resultado, CancellationToken ct)
+    {
+        if (_incidencias is null)
+            return;
+        if (resultado.MotivoCancelacion != MotivoCancelacion.RechazadaPorTolerancia)
+        {
+            await IncidenciasCxp.SinRomperAsync(_logger, "resolver la incidencia de diferencia de costo", () =>
+                _incidencias.ResolverPorDocumentoAsync(PasosIncidencia.AlmCostoNetoFactura, command.OrdenCompraId, IncidenciasCxp.ClaveTolerancia,
+                    "Se capturó contra la orden una factura que concilia dentro de la tolerancia.", ct));
+            return;
+        }
+        if (_currentUser?.UserId is not Guid responsable)
+            return;
+        await IncidenciasCxp.SinRomperAsync(_logger, "abrir la incidencia de la factura rechazada por tolerancia", async () =>
+        {
+            var oc = await _ocPort.ObtenerAsync(command.OrdenCompraId, ct);
+            await _incidencias.AbrirAsync(IncidenciasCxp.RechazoPorTolerancia(command.OrdenCompraId, oc?.Folio ?? "(sin folio)", resultado.Id,
+                IncidenciasCxp.EtiquetaFactura(command.SerieProveedor, command.FolioProveedor, command.UuidCfdi), command.SucursalId, responsable,
+                resultado.MotivoCancelacionTexto ?? "La factura excede la tolerancia contra la orden de compra."), ct);
+        });
     }
 
     private async Task<CapturarFacturaConOcResponse> CapturarAsync(

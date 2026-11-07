@@ -1,4 +1,5 @@
 import { problemaUsuario } from '@/lib/error-usuario';
+import { IncidenciasDocumento } from '@/features/incidencias/components/IncidenciasDocumento';
 import { errorUsuario } from '@/lib/error-usuario';
 import { IndicadorAlmacenBadge } from '../components/IndicadorAlmacenBadge';
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
@@ -405,6 +406,15 @@ export function RecepcionDetallePage() {
               total={query.data.lineas.reduce((t, l) => t + l.montoTotalMxn, 0)}
             />
           </section>
+          {/* U-4 (ALM-recepcion-09): diferencias de recepción contra la orden (rechazos en el acto, excedentes). */}
+          {query.data.ordenCompraId && (
+            <IncidenciasDocumento
+              modulo="almacen"
+              tipo="orden_compra"
+              id={query.data.ordenCompraId}
+              titulo="Diferencias contra la orden de compra"
+            />
+          )}
           {query.data.ordenCompraId && (
             <ActivosRecibidosOc ordenCompraId={query.data.ordenCompraId} />
           )}

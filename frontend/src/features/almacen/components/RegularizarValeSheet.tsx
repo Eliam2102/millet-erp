@@ -102,9 +102,12 @@ function FormBody({
               return;
             }
             if (error.code === 'VALE_RQ_REGULARIZADORA_INVALIDA') {
+              const numero = error.problem.incidenciaNumero;
               form.setError('rqRegularizadoraId', {
                 type: error.code,
-                message: error.problem.detail ?? 'La RQ no está aprobada o no cubre el vale.',
+                message: `${error.problem.detail ?? 'La RQ no está aprobada o no cubre el vale.'}${
+                  numero ? ` Se abrió la incidencia INC-${numero}; se resuelve al regularizar el vale.` : ''
+                }`,
               });
               return;
             }

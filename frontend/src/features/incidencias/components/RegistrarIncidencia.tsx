@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,7 +23,7 @@ import { hoyLocalISO } from '@/lib/datetime';
 import { useAbrirIncidencia } from '@/features/incidencias/api/useIncidencias';
 import type { AbrirIncidenciaRequest, ContextoIncidencia } from '@/features/incidencias/api/types';
 import { folioIncidencia } from '@/features/incidencias/lib/formato';
-import { MAX_MOTIVO, motivoDesdeError } from '@/features/incidencias/lib/motivo';
+import { MAX_MOTIVO, incidenciaDelRechazo, motivoDesdeError } from '@/features/incidencias/lib/motivo';
 
 const MIN = 5;
 const MAX_DETALLE = 2000;
@@ -169,16 +169,40 @@ function Formulario({ contexto, error, onClose }: { contexto: ContextoIncidencia
  * Botón «Registrar incidencia» para el aviso de error: abre el diálogo prellenado con el código y el
  * motivo del rechazo. Solo aparece con el permiso `compartido.incidencias.registrar`.
  */
-export function RegistrarIncidenciaBoton({ contexto, error }: { contexto: ContextoIncidencia; error?: unknown }) {
+export function RegistrarIncidenciaBoton({
+  contexto,
+  error,
+  etiqueta = 'Registrar incidencia',
+}: {
+  contexto: ContextoIncidencia;
+  error?: unknown;
+  /** Texto del botón (p. ej. «Reportar diferencia»). */
+  etiqueta?: string;
+}) {
   const puede = useHasPermission(PermisosCanonicos.CompartidoIncidenciasRegistrar);
   const [open, setOpen] = useState(false);
+  // U-4: si el servidor ya abrió la incidencia del rechazo, se enlaza a ella (sin pedir permiso de registrar).
+  if (incidenciaDelRechazo(error)) return <EnlaceIncidenciaRechazo error={error} />;
   if (!puede) return null;
   return (
     <>
       <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
-        Registrar incidencia
+        {etiqueta}
       </Button>
       <RegistrarIncidenciaDialog contexto={contexto} error={error} open={open} onOpenChange={setOpen} />
     </>
+  );
+}
+
+/** «Ver incidencia INC-n» para el aviso de un rechazo que ya abrió su incidencia; nada si no la abrió. */
+export function EnlaceIncidenciaRechazo({ error }: { error: unknown }) {
+  const abierta = incidenciaDelRechazo(error);
+  if (!abierta) return null;
+  return (
+    <Button asChild variant="secondary" size="sm">
+      <Link to="/incidencias/$id" params={{ id: abierta.id }}>
+        Ver incidencia {folioIncidencia(abierta.numero)}
+      </Link>
+    </Button>
   );
 }
