@@ -21,6 +21,15 @@ describe('presentación de errores del Sprint 04', () => {
   it('conserva la causa de clasificación fiscal y la acción para corregirla', () => {
     expect(errorUsuario(fallo(422, 'PROVEEDOR_REGIMEN_NO_APLICA'))).toContain('Quita el régimen');
   });
+  it('nombra la incidencia que abrió el rechazo (U-4)', () => {
+    const rechazo = new ApiError({
+      type: 'x', status: 422, title: 'El artículo no está asignado a la ubicación elegida. Asígnalo primero.',
+      detail: 'El artículo no está asignado a la ubicación elegida. Asígnalo primero.', code: 'ENTRADA_SIN_ASIGNACION',
+      incidenciaId: '00000000-0000-0000-0000-000000000001', incidenciaNumero: 12,
+    }, 422);
+    expect(errorUsuario(rechazo)).toMatch(/Se abrió la incidencia INC-12 para darle seguimiento\.$/);
+    expect(errorUsuario(fallo(422))).not.toContain('incidencia');
+  });
   it('no expone excepciones de red', () => {
     expect(errorUsuario(new Error('secret endpoint'))).toContain('Revisa tu conexión');
     expect(errorUsuario(new Error('secret endpoint'))).not.toContain('secret');

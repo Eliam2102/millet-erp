@@ -1,4 +1,5 @@
 import { problemaUsuario } from '@/lib/error-usuario';
+import { IncidenciasDocumento } from '@/features/incidencias/components/IncidenciasDocumento';
 import { errorUsuario } from '@/lib/error-usuario';
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import {
@@ -20,7 +21,7 @@ import { ErrorState, DetalleSkeleton } from '@/components/erp';
 import { useSalida } from '@/features/almacen/api/useSalidas';
 import { useValeBlob } from '@/features/almacen/api/useValeBlob';
 import { descargarComprobanteSalida } from '@/features/almacen/api/descargarComprobanteSalida';
-import { type SalidaDetalle } from '@/features/almacen/api/types';
+import { EstadoMovimiento, type SalidaDetalle } from '@/features/almacen/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { RegularizarValeSheet } from '@/features/almacen/components/RegularizarValeSheet';
@@ -243,6 +244,30 @@ export function SalidaDetallePage() {
               total={query.data.lineas.reduce((total, linea) => total + linea.montoTotalMxn, 0)}
             />
           </section>
+
+          {/* U-4: vale por rectificar (ALM-vale-08) o diferencia de firma, conteo o acuse del surtido (ALM-salida-07). */}
+          {query.data.esPorVale ? (
+            <IncidenciasDocumento
+              modulo="almacen"
+              tipo="vale"
+              id={query.data.id}
+              etiqueta={`Vale ${query.data.folio}`}
+              paso="alm.vale.rectificar"
+              pasoReanudacion="alm.vale.regularizar"
+              responsableUsuarioId={query.data.registradoPor}
+            />
+          ) : null}
+          <IncidenciasDocumento
+            modulo="almacen"
+            tipo="salida"
+            id={query.data.id}
+            titulo="Diferencias de surtido"
+            etiqueta={`Salida ${query.data.folio}`}
+            paso={query.data.estado === EstadoMovimiento.Registrado ? 'alm.salida.acuse' : undefined}
+            pasoReanudacion="alm.salida.devolucion-interna"
+            etiquetaRegistrar="Reportar diferencia"
+            responsableUsuarioId={query.data.registradoPor}
+          />
         </div>
       )}
 
