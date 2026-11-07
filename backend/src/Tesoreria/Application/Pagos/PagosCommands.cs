@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.Tesoreria.Application.Common;
 using Millet.Tesoreria.Application.Corridas;
 using Millet.Tesoreria.Application.Integration;
 using Millet.Tesoreria.Domain.Movimientos;
@@ -50,7 +51,9 @@ public sealed record RegistrarPagoProveedorCommand(
     // 86e3pdmee: cuenta del proveedor elegida (null = la predeterminada activa de la moneda).
     Guid? CuentaProveedorId = null,
     // T9.1-B: corrida de pagos que origina el pago (liga la aplicación con la corrida).
-    Guid? CorridaId = null) : IRequest<PagoProveedorResponse>;
+    Guid? CorridaId = null,
+    // TES-09: TC que aplicó el banco (solo moneda distinta de MXN); null = el del catálogo K10.6 a la fecha valor.
+    decimal? TipoCambioPago = null) : IRequest<PagoProveedorResponse>;
 
 public sealed class RegistrarPagoProveedorValidator : AbstractValidator<RegistrarPagoProveedorCommand>
 {
@@ -71,6 +74,8 @@ public sealed class RegistrarPagoProveedorValidator : AbstractValidator<Registra
         RuleFor(c => c.Aplicaciones)
             .Must(apls => apls is null || apls.Select(a => a.FacturaProveedorId).Distinct().Count() == apls.Count)
             .WithMessage("No se puede aplicar dos veces a la misma factura en el mismo pago.");
+        RuleFor(c => c.TipoCambioPago).Must(TipoCambioDelPago.EsValido)
+            .WithMessage("El TC del pago debe ser mayor a cero y con 6 decimales como máximo.");
     }
 }
 
@@ -86,6 +91,7 @@ public sealed class RegistrarPagoProveedorHandler
     private readonly IIntegrationEventPublisher _publisher;
     private readonly IClock _clock;
     private readonly IPasivoComercioExteriorReadPort? _ce;
+    private readonly ITipoCambioPagoReadPort? _tiposCambio;
 
     public RegistrarPagoProveedorHandler(
         TesoreriaDbContext db,
@@ -95,7 +101,7 @@ public sealed class RegistrarPagoProveedorHandler
         IProveedorBancoReadPort proveedorBancoPort,
         IElegibleFacturaReadPort elegible,
         IIntegrationEventPublisher publisher,
-        IClock clock, IPasivoComercioExteriorReadPort? ce = null)
+        IClock clock, IPasivoComercioExteriorReadPort? ce = null, ITipoCambioPagoReadPort? tiposCambio = null)
     {
         _db = db;
         _currentEmpresa = currentEmpresa;
@@ -104,7 +110,7 @@ public sealed class RegistrarPagoProveedorHandler
         _proveedorBancoPort = proveedorBancoPort;
         _elegible = elegible;
         _publisher = publisher;
-        _clock = clock; _ce = ce;
+        _clock = clock; _ce = ce; _tiposCambio = tiposCambio;
     }
 
     public async Task<PagoProveedorResponse> Handle(
@@ -251,6 +257,7 @@ public sealed class RegistrarPagoProveedorHandler
             creadoPor: usuarioId,
             ahora: ahora,
             destino: destino);
+        var tipoCambioPago = await TipoCambioDelPago.FijarAsync(movimiento, _tiposCambio, command.TipoCambioPago, cancellationToken);
         _db.MovimientosBancarios.Add(movimiento);
 
         var aplicaciones = new List<AplicacionPagoProveedor>(command.Aplicaciones.Count);
@@ -304,7 +311,8 @@ public sealed class RegistrarPagoProveedorHandler
                     ReferenciaBancaria: movimiento.ReferenciaBancaria,
                     CuentaBancariaId: movimiento.CuentaBancariaId,
                     TipoCambio: pasivo.TipoCambio) { EsAnticipoAgente = pasivo.OrigenTipo == "AnticipoAgente",
-                        SucursalId = pasivo.SucursalAnticipoCeId, ProveedorId = pasivo.ProveedorId }, cancellationToken);
+                        SucursalId = pasivo.SucursalAnticipoCeId, ProveedorId = pasivo.ProveedorId,
+                        TipoCambioPago = tipoCambioPago }, cancellationToken);
             }
         }
 

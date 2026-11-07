@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.Tesoreria.Application.Common;
 using Millet.Tesoreria.Application.Integration;
 using Millet.Tesoreria.Application.Corridas;
 using Millet.Tesoreria.Application.Pagos;
@@ -46,7 +47,9 @@ public sealed record RegistrarPagoACuentaCommand(
     string Motivo,
     Guid? ProveedorId = null,
     string? ReferenciaBancaria = null,
-    Guid? ConceptoId = null) : IRequest<PagoACuentaResponse>;
+    Guid? ConceptoId = null,
+    // TES-09: TC que aplicó el banco (solo moneda distinta de MXN); null = el del catálogo K10.6 a la fecha valor.
+    decimal? TipoCambioPago = null) : IRequest<PagoACuentaResponse>;
 
 public sealed class RegistrarPagoACuentaValidator : AbstractValidator<RegistrarPagoACuentaCommand>
 {
@@ -59,6 +62,8 @@ public sealed class RegistrarPagoACuentaValidator : AbstractValidator<RegistrarP
         RuleFor(c => c.Motivo).NotEmpty().MaximumLength(400);
         RuleFor(c => c.ReferenciaBancaria).NotEmpty().WithMessage("Captura la referencia (folio) que dio el banco.")
             .MaximumLength(120);
+        RuleFor(c => c.TipoCambioPago).Must(TipoCambioDelPago.EsValido)
+            .WithMessage("El TC del pago debe ser mayor a cero y con 6 decimales como máximo.");
     }
 }
 
@@ -71,6 +76,7 @@ public sealed class RegistrarPagoACuentaHandler
     private readonly IPeriodoContablePort _periodoContable;
     private readonly IClock _clock;
     private readonly IProveedorBancoReadPort _proveedores;
+    private readonly ITipoCambioPagoReadPort? _tiposCambio;
 
     public RegistrarPagoACuentaHandler(
         TesoreriaDbContext db,
@@ -78,11 +84,12 @@ public sealed class RegistrarPagoACuentaHandler
         ICurrentUserContext currentUser,
         IPeriodoContablePort periodoContable,
         IClock clock,
-        IProveedorBancoReadPort proveedores)
+        IProveedorBancoReadPort proveedores,
+        ITipoCambioPagoReadPort? tiposCambio = null)
     {
         _db = db; _currentEmpresa = currentEmpresa; _currentUser = currentUser;
         _periodoContable = periodoContable; _clock = clock;
-        _proveedores = proveedores;
+        _proveedores = proveedores; _tiposCambio = tiposCambio;
     }
 
     public async Task<PagoACuentaResponse> Handle(
@@ -163,6 +170,8 @@ public sealed class RegistrarPagoACuentaHandler
             motivo: command.Motivo,
             creadoPor: usuarioId,
             ahora: _clock.UtcNow);
+        // TES-09: el TC se fija al pagar; la liga tardía lo manda en el evento sin volver a resolverlo.
+        await TipoCambioDelPago.FijarAsync(movimiento, _tiposCambio, command.TipoCambioPago, cancellationToken);
 
         _db.MovimientosBancarios.Add(movimiento);
         await _db.SaveChangesAsync(cancellationToken);
@@ -293,7 +302,8 @@ public sealed class LigarPagoACuentaHandler
             ReferenciaBancaria: movimiento.ReferenciaBancaria,
             CuentaBancariaId: movimiento.CuentaBancariaId,
             TipoCambio: pasivo.TipoCambio) { EsAnticipoAgente = pasivo.OrigenTipo == "AnticipoAgente",
-                SucursalId = pasivo.SucursalAnticipoCeId, ProveedorId = pasivo.ProveedorId }, cancellationToken);
+                SucursalId = pasivo.SucursalAnticipoCeId, ProveedorId = pasivo.ProveedorId,
+                TipoCambioPago = movimiento.TipoCambio }, cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
 
