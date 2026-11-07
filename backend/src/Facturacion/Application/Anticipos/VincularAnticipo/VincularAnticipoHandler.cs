@@ -37,9 +37,7 @@ public sealed class VincularAnticipoHandler
         // 13-J: no comprometer un anticipo cuyo CFDI no está timbrado — la
         // amortización (M3) exige la relación 07 al UUID del anticipo.
         var cfdiAnticipo = await _db.FacturasAnticipo.AsNoTracking()
-            .Where(f => f.Id == anticipo.FacturaAnticipoId)
-            .Select(f => new { f.Folio, f.Estado, f.Uuid })
-            .FirstOrDefaultAsync(cancellationToken);
+            .FirstOrDefaultAsync(f => f.Id == anticipo.FacturaAnticipoId, cancellationToken);
         if (cfdiAnticipo is null
             || cfdiAnticipo.Estado != EstadoTimbrado.Timbrado
             || string.IsNullOrWhiteSpace(cfdiAnticipo.Uuid))
@@ -48,7 +46,7 @@ public sealed class VincularAnticipoHandler
                 $"El CFDI del anticipo ({cfdiAnticipo?.Folio ?? "?"}) no está timbrado " +
                 $"(estado: {cfdiAnticipo?.Estado.ToString() ?? "inexistente"}); no puede vincularse.");
 
-        var factura = await _db.FacturasVenta
+        var factura = await _db.FacturasVenta.Include(f => f.Relaciones)
             .FirstOrDefaultAsync(f => f.Id == command.FacturaVentaId, cancellationToken)
             ?? throw new EntityNotFoundException("FACTURA_NO_ENCONTRADA", $"No existe la factura {command.FacturaVentaId}.");
 
@@ -57,10 +55,8 @@ public sealed class VincularAnticipoHandler
                 "FACTURA_NO_TIMBRADA",
                 $"Solo se puede vincular un anticipo a una factura timbrada (estado actual: {factura.Estado}).");
 
-        if (!string.Equals(factura.ReceptorRfc, anticipo.ReceptorRfc, StringComparison.OrdinalIgnoreCase))
-            throw new BusinessRuleException(
-                "ANTICIPO_CLIENTE_DISTINTO",
-                "El anticipo y la factura final deben ser del mismo cliente (RFC receptor).");
+        // 86e3zg0vb: mismo cliente, no solo mismo RFC.
+        await AnticiposDelCliente.VerificarAsync(_db, anticipo, cfdiAnticipo, factura, cancellationToken);
 
         // El dominio valida estado Abierto + importe ≤ saldo disponible + no duplicado.
         anticipo.Vincular(command.FacturaVentaId, command.Importe, _clock.UtcNow);

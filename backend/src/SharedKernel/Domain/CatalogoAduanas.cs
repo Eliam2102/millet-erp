@@ -6,5 +6,13 @@ namespace Millet.SharedKernel.Domain;
 public static class CatalogoAduanas
 {
     public static readonly IReadOnlyDictionary<string, string> Aduanas = new Dictionary<string, string>
-    { ["16"] = "Manzanillo", ["43"] = "Veracruz", ["19"] = "Ciudad del Carmen", ["80"] = "Colombia", ["81"] = "Altamira" };
+    {
+        ["16"] = "Manzanillo",
+        ["19"] = "Ciudad del Carmen",
+        ["28"] = "Progreso",
+        ["43"] = "Veracruz",
+        ["80"] = "Colombia",
+        ["81"] = "Altamira",
+        ["282"] = "Aeropuerto Internacional de Mérida"
+    };
 }
