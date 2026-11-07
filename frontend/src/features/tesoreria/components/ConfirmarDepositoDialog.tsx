@@ -137,7 +137,7 @@ export function ConfirmarDepositoDialog({ deposito, onOpenChange }: ConfirmarDep
   // TES-09: el TC del cobro solo aplica a propuestas de CxC en moneda extranjera; la fecha es la del ingreso.
   const monedaCobro = esPropuesta ? (deposito?.moneda ?? null) : null;
   const fechaCobro = altaRapida ? fechaValor : (items.find((m) => m.id === movimientoId)?.fechaValor ?? '').slice(0, 10);
-  const errorTc = errorTipoCambioPago(monedaCobro, tipoCambio);
+  const errorTc = errorTipoCambioPago(monedaCobro, tipoCambio, 'TC del cobro');
 
   function cerrar(next: boolean) {
     if (!next) {
@@ -427,6 +427,7 @@ export function ConfirmarDepositoDialog({ deposito, onOpenChange }: ConfirmarDep
                 <TipoCambioPagoCampo
                   id="dep-tc"
                   etiqueta="TC del cobro"
+                  ayudaSinFecha="Elige el ingreso para ver el TC del catálogo."
                   moneda={monedaCobro}
                   fecha={fechaCobro}
                   value={tipoCambio}
@@ -479,7 +480,8 @@ export function ConfirmarDepositoDialog({ deposito, onOpenChange }: ConfirmarDep
             disabled={pending || !puedeEnviar}
             title={
               !puedeEnviar
-                ? 'Selecciona el ingreso, completa los datos del alta rápida y, desde la 2ª ficha, el documento soporte con su folio.'
+                ? (errorTc ??
+                  'Selecciona el ingreso, completa los datos del alta rápida y, desde la 2ª ficha, el documento soporte con su folio.')
                 : undefined
             }
           >

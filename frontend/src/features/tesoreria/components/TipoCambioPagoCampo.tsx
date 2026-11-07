@@ -11,6 +11,8 @@ export interface TipoCambioPagoCampoProps {
   value: string | null;
   onChange: (valor: string) => void;
   etiqueta?: string;
+  /** Texto mientras no hay fecha (p. ej. en el cobro, antes de elegir el ingreso). */
+  ayudaSinFecha?: string;
 }
 
 /** TES-09: valor a mandar al backend; undefined = MXN, sin cambios o vacío (el backend usa el del catálogo a la fecha valor). */
@@ -19,14 +21,20 @@ export function tipoCambioPagoParaEnviar(moneda: string | null, valor: string | 
   return Number(valor);
 }
 
-/** TES-09: null si es válido o no aplica; si no, el motivo para deshabilitar el envío. */
-export function errorTipoCambioPago(moneda: string | null, valor: string | null): string | null {
+/** TES-09: null si es válido o no aplica; si no, el motivo para deshabilitar el envío (con la etiqueta del campo). */
+export function errorTipoCambioPago(
+  moneda: string | null,
+  valor: string | null,
+  etiqueta = 'TC del pago',
+): string | null {
   if (moneda == null || moneda === 'MXN' || valor == null || valor.trim() === '') return null;
   const n = Number(valor);
-  if (!Number.isFinite(n) || n <= 0) return 'El TC del pago debe ser mayor a cero';
-  if (!/^\d+(\.\d{1,6})?$/.test(valor.trim())) return 'El TC del pago admite hasta 6 decimales';
+  if (!Number.isFinite(n) || n <= 0) return `El ${etiqueta} debe ser mayor a cero`;
+  if (!/^\d+(\.\d{1,6})?$/.test(valor.trim())) return `El ${etiqueta} admite hasta 6 decimales`;
   return null;
 }
+
+const FECHA_ISO = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
  * TES-09 (86e3jvvj4) · «TC del pago»: solo en moneda distinta de MXN. Muestra el TC del catálogo a la fecha valor mientras
@@ -40,6 +48,7 @@ export function TipoCambioPagoCampo({
   value,
   onChange,
   etiqueta = 'TC del pago',
+  ayudaSinFecha = 'Captura la fecha valor para ver el TC del catálogo.',
 }: TipoCambioPagoCampoProps) {
   const aplica = moneda != null && moneda !== 'MXN';
   const catalogo = useTipoCambioPago(aplica ? moneda : null, fecha);
@@ -49,14 +58,16 @@ export function TipoCambioPagoCampo({
 
   const mostrado = value ?? (valorCatalogo == null ? '' : String(valorCatalogo));
 
-  const error = errorTipoCambioPago(moneda, value);
-  const ayuda = catalogo.isFetching
-    ? 'Buscando el TC del catálogo…'
-    : catalogo.isError
-      ? 'No se pudo consultar el catálogo; si lo dejas vacío, se usa el TC del catálogo de esa fecha.'
-      : valorCatalogo == null
-        ? `El catálogo no tiene TC de ${moneda} para esa fecha; captura el que aplicó el banco.`
-        : `Catálogo: ${valorCatalogo} MXN por ${moneda}. Cámbialo si el banco aplicó otro.`;
+  const error = errorTipoCambioPago(moneda, value, etiqueta);
+  const ayuda = !FECHA_ISO.test(fecha)
+    ? ayudaSinFecha
+    : catalogo.isFetching
+      ? 'Buscando el TC del catálogo…'
+      : catalogo.isError
+        ? 'No se pudo consultar el catálogo; si lo dejas vacío, se usa el TC del catálogo de esa fecha.'
+        : valorCatalogo == null
+          ? `El catálogo no tiene TC de ${moneda} para esa fecha; captura el que aplicó el banco.`
+          : `Catálogo: ${valorCatalogo} MXN por ${moneda}. Cámbialo si el banco aplicó otro.`;
 
   return (
     <div className="space-y-1">
