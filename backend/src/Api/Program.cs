@@ -1757,6 +1757,8 @@ Millet.Api.Endpoints.Contabilidad.ContabilidadCuentaPuenteEndpoints.MapContabili
 Millet.Api.Endpoints.Contabilidad.ContabilidadConciliacionAuxiliaresEndpoints.MapContabilidadConciliacionAuxiliaresEndpoints(app);
 Millet.Api.Endpoints.Contabilidad.ContabilidadReportesEndpoints.MapContabilidadReportesEndpoints(app);
 Millet.Api.Endpoints.Contabilidad.ContabilidadIvaEndpoints.MapContabilidadIvaEndpoints(app);
+// CON-11 (86e3kdypd): revaluación de cierre de bancos y clientes con reversa automática del día 1.
+Millet.Api.Endpoints.Contabilidad.ContabilidadRevaluacionEndpoints.MapContabilidadRevaluacionEndpoints(app);
 
 // === Almacén — CRUD asignación artículo→ubicación (OITW, ADR-0047 PR3) ===
 Millet.Api.Endpoints.Almacen.Asignaciones.AlmacenAsignacionesEndpoints.MapAlmacenAsignacionesEndpoints(app);

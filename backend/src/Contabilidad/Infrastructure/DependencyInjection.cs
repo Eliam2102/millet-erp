@@ -66,6 +66,7 @@ public static class DependencyInjection
         services.AddScoped<Millet.Contabilidad.Application.Motor.ControlIvaDocumentos>();
         // CON-11 (86e3kdypd): diferencia cambiaria realizada de pagos y cobros; ITipoCambioContabilidadReadPort lo cablea Program.cs.
         services.AddScoped<Millet.Contabilidad.Application.Motor.DiferenciaCambiariaRealizada>();
+        services.AddScoped<Millet.Contabilidad.Application.Revaluacion.CalculadoraRevaluacionCierre>();
         services.AddScoped<Millet.Contabilidad.Application.Motor.IEnriquecedorEventoContable, Millet.Contabilidad.Application.Motor.EnriquecedorPolizasOrigen>();
         // CXC-06: ajuste autorizado del cobro corto (#12); el puerto lo implementa CxC.
         services.AddScoped<Millet.Contabilidad.Application.Motor.IEnriquecedorEventoContable, Millet.Contabilidad.Application.Motor.EnriquecedorAjusteCobro>();
