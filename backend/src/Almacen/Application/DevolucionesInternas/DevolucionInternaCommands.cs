@@ -1,3 +1,6 @@
+using Microsoft.Extensions.Logging;
+using Millet.Almacen.Application.Incidencias;
+using Millet.SharedKernel.Application.Incidencias;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -90,6 +93,8 @@ public sealed class AplicarDevolucionInternaHandler
     private readonly ICurrentEmpresaContext _currentEmpresa;
     private readonly IPeriodoContableReadPort _periodoContable;
     private readonly IDecimalesUnidadGuard _decimalesGuard;
+    private readonly IIncidenciasPort? _incidencias;
+    private readonly ILogger<AplicarDevolucionInternaHandler>? _logger;
 
     public AplicarDevolucionInternaHandler(
         AlmacenDbContext db,
@@ -97,8 +102,12 @@ public sealed class AplicarDevolucionInternaHandler
         ICurrentUserContext currentUser,
         ICurrentEmpresaContext currentEmpresa,
         IDecimalesUnidadGuard decimalesGuard,
-        IPeriodoContableReadPort periodoContable)
+        IPeriodoContableReadPort periodoContable,
+        IIncidenciasPort? incidencias = null,
+        ILogger<AplicarDevolucionInternaHandler>? logger = null)
     {
+        _incidencias = incidencias;
+        _logger = logger;
         _db = db;
         _events = events;
         _currentUser = currentUser;
@@ -288,6 +297,12 @@ public sealed class AplicarDevolucionInternaHandler
         await _db.SaveChangesAsync(cancellationToken);
 
         if (transaccion is not null) await transaccion.CommitAsync(cancellationToken);
+
+        // U-4 (ALM-salida-07): la diferencia de firma, conteo o acuse reportada sobre la salida se aclara con esta devolución.
+        if (_incidencias is not null)
+            await IncidenciasAlmacen.SinRomperAsync(_logger, "resolver la incidencia del acuse de surtido", () =>
+                _incidencias.ResolverPorDocumentoAsync(PasosIncidencia.AlmSalidaAcuse, request.SalidaOrigenId, null,
+                    $"Se registró la devolución interna {folio.Valor} de la salida.", cancellationToken));
         return new AplicarDevolucionInternaResponse(movimientoId, folio.Valor);
     }
 }

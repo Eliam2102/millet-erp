@@ -1,3 +1,6 @@
+using Microsoft.Extensions.Logging;
+using Millet.Almacen.Application.Incidencias;
+using Millet.SharedKernel.Application.Incidencias;
 using Millet.SharedKernel.Application.Calendario;
 using Millet.Almacen.Infrastructure.PublicAdapters;
 using FluentValidation;
@@ -348,12 +351,17 @@ public sealed class RegularizarSalidaPorValeHandler
 
     private readonly IComprasRequisicionReadPort _rqPort;
     private readonly IIntegrationEventPublisher _events;
+    private readonly IIncidenciasPort? _incidencias;
+    private readonly ILogger<RegularizarSalidaPorValeHandler>? _logger;
 
-    public RegularizarSalidaPorValeHandler(AlmacenDbContext db, IComprasRequisicionReadPort rqPort, IIntegrationEventPublisher events)
+    public RegularizarSalidaPorValeHandler(AlmacenDbContext db, IComprasRequisicionReadPort rqPort, IIntegrationEventPublisher events,
+        IIncidenciasPort? incidencias = null, ILogger<RegularizarSalidaPorValeHandler>? logger = null)
     {
         _db = db;
         _rqPort = rqPort;
         _events = events;
+        _incidencias = incidencias;
+        _logger = logger;
     }
 
     public async Task Handle(
@@ -369,8 +377,13 @@ public sealed class RegularizarSalidaPorValeHandler
         if (rq is null || rq.Estado is not ("Autorizada" or "EnSurtido")
             || mov.Lineas.GroupBy(l => l.ArticuloId).Any(g =>
                 g.Sum(l => l.Cantidad) > rq.Lineas.Where(l => l.ArticuloId == g.Key).Sum(l => l.CantidadDisponibleEntregar)))
-            throw new BusinessRuleException("VALE_RQ_REGULARIZADORA_INVALIDA",
-                "La requisición regularizadora debe existir, estar autorizada o en surtido y cubrir todos los artículos y cantidades del vale.");
+        {
+            // U-4 (ALM-vale-08): el vale queda por rectificar con su requisición; se resuelve al regularizarlo.
+            const string mensaje = "La requisición regularizadora debe existir, estar autorizada o en surtido y cubrir todos los artículos y cantidades del vale.";
+            throw new IncidenciaRechazoException("VALE_RQ_REGULARIZADORA_INVALIDA", mensaje,
+                IncidenciasAlmacen.ValeSinRegularizar(mov.Id, mov.Folio, await ValeSucursal.ResolverAsync(_db, mov.Id, cancellationToken),
+                    Guid.Empty, mensaje, null, "Rectifica la requisición (que esté autorizada y cubra artículos y cantidades del vale) o elige otra, y vuelve a regularizar el vale."));
+        }
 
         // F5 (86e3pc50v): la RQ regularizadora y el almacén del vale deben ser de la misma sucursal.
         // Se valida antes de RegularizarVale/SaveChanges; si el bin no resuelve sub-almacén, no se valida.
@@ -415,5 +428,23 @@ public sealed class RegularizarSalidaPorValeHandler
         await _events.PublishAsync(new ValeRegularizadoIntegrationEvent(
             mov.EmpresaId, DateTimeOffset.UtcNow, mov.Id, mov.Folio ?? string.Empty, rq.Id, EsPorVale: true, lineasEvento), cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
+
+        if (_incidencias is not null)
+            await IncidenciasAlmacen.SinRomperAsync(_logger, "resolver la incidencia del vale", () =>
+                _incidencias.ResolverPorDocumentoAsync(PasosIncidencia.AlmValeRectificar, mov.Id, null,
+                    $"Se regularizó el vale con la requisición {rq.Folio}.", cancellationToken));
+    }
+}
+
+/// <summary>Sucursal del vale, por el almacén de su primera ubicación (null si el bin no resuelve sub-almacén).</summary>
+internal static class ValeSucursal
+{
+    public static async Task<Guid?> ResolverAsync(AlmacenDbContext db, Guid valeId, CancellationToken ct)
+    {
+        var sub = await db.LineasMovimiento.AsNoTracking()
+            .Where(l => l.MovimientoId == valeId && l.UbicacionId != null)
+            .Join(db.Ubicaciones, l => l.UbicacionId, u => u.Id, (l, u) => (Guid?)u.SubAlmacenId)
+            .FirstOrDefaultAsync(ct);
+        return sub is Guid s ? (await Catalogo.AlmacenSucursalResolver.ResolverAsync(db, s, ct)).SucursalId : null;
     }
 }
