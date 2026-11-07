@@ -28,6 +28,7 @@ public static class DependencyInjection
     {
         // CXC-PR3: resolución RFC → cliente para la proyección de cartera.
         services.AddScoped<IClienteReadPort, ClienteReadPortAdapter>();
+        services.AddScoped<Millet.CuentasPorCobrar.Domain.Ports.Catalogos.ITipoCambioCarteraReadPort, TipoCambioCarteraReadAdapter>();
         services.AddScoped<IBeneficiarioCreditoReadPort, BeneficiarioCreditoReadPortAdapter>();
         // CXC-06: ajuste autorizado del cobro corto para la póliza #12 (Contabilidad lo lee por puerto).
         services.AddScoped<Millet.Contabilidad.Application.PublicPorts.IAjusteCobroContablePort, Adapters.AjusteCobroContableAdapter>();
