@@ -296,6 +296,8 @@ export interface AnticipoAAmortizar {
   importe: number;
   /** FMT-6: comentario libre de la NC de aplicación; se imprime en «Comentarios - Comments». */
   comentarioNotaCredito?: string | null;
+  /** 86e3zg0vb: relaciona la factura (07) y aparta el importe; la NC se emite después con «Aplicar anticipo». */
+  aplicarDespues?: boolean;
 }
 
 /**

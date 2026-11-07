@@ -387,6 +387,7 @@ function FormInner({
                     anticipoId: a.anticipoId,
                     importe: a.importe,
                     comentarioNotaCredito: a.comentarioNotaCredito?.trim() || null,
+                    aplicarDespues: a.aplicarDespues ?? false,
                   }))
               : null,
           observaciones: values.observaciones ?? '',
