@@ -56,6 +56,20 @@ public static class ContabilidadReportesEndpoints
         .WithSummary("Libro diario: pólizas del rango con sus partidas, paginado por póliza (limit máximo 1000)")
         .Produces<DiarioResponse>().ProducesValidationProblem();
 
+        // TES-09 (86e3jvvj4): diferencias cambiarias realizadas del periodo (pagos a proveedor y cobros de cliente, CON-11).
+        g.MapGet("/diferencias-cambiarias", async (
+            [FromQuery] DateOnly? desde, [FromQuery] DateOnly? hasta, [FromQuery] Guid? sucursalId, [FromQuery] OrigenDiferenciaCambiaria? origen,
+            IMediator mediator, CancellationToken ct) =>
+        {
+            var fin = hasta ?? Millet.SharedKernel.Application.FechaContable.HoyLocal(DateTimeOffset.UtcNow);
+            var inicio = desde ?? new DateOnly(fin.Year, fin.Month, 1);
+            return Results.Ok(await mediator.Send(new DiferenciasCambiariasQuery(inicio, fin, sucursalId, origen), ct));
+        })
+        .RequireAuthorization(leer).WithName("DiferenciasCambiariasRealizadas")
+        .WithSummary("Diferencias cambiarias realizadas del periodo: una fila por pago o cobro en moneda extranjera con TC de factura, TC de pago y pérdida o utilidad")
+        .WithDescription("hasta por omisión = hoy (zona de operación); desde por omisión = primer día del mes de hasta. origen = Proveedores | Clientes (opcional). Periodo máximo de un año. Avisos lista los roles cambiarios sin cuenta.")
+        .Produces<DiferenciasCambiariasResponse>().ProducesValidationProblem();
+
         return app;
     }
 }
