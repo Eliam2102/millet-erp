@@ -79,6 +79,7 @@ public sealed class IncidenciasServicio(
             s.Detalle, detalleClave, s.ResponsableUsuarioId, responsable, s.FechaCompromiso, s.PasoReanudacion, s.RutaReanudacion),
             actorId, actorNombre, clock.UtcNow);
         db.Incidencias.Add(incidencia);
+        var evidencia = await AgregarEvidenciaAsync(incidencia, s.EvidenciaAdjuntoIds, actorId ?? s.ResponsableUsuarioId, ct);
         try
         {
             await db.SaveChangesAsync(ct);
@@ -89,9 +90,29 @@ public sealed class IncidenciasServicio(
             if (await OtraPendienteAsync(paso, s.DocumentoId, detalleClave, ct) is not { } otra)
                 throw;
             db.Entry(incidencia).State = EntityState.Detached;
+            foreach (var copia in evidencia) db.Entry(copia).State = EntityState.Detached;
             return (otra, true);
         }
         return (incidencia, false);
+    }
+
+    /// <summary>
+    /// Evidencia desde adjuntos ya guardados (86e3yzemw, pasos de proveedor): un adjunto nuevo de la incidencia que apunta al
+    /// mismo archivo (el blob no se borra con la baja lógica), con el tipo «Evidencia de la incidencia». Un id que no existe o
+    /// está dado de baja se ignora: la evidencia no debe impedir que la incidencia nazca.
+    /// </summary>
+    private async Task<List<SharedKernel.Domain.Adjuntos.Adjunto>> AgregarEvidenciaAsync(
+        Incidencia incidencia, IReadOnlyList<Guid>? adjuntoIds, Guid subidoPor, CancellationToken ct)
+    {
+        if (adjuntoIds is not { Count: > 0 })
+            return [];
+        var ids = adjuntoIds.Distinct().ToList();
+        var origen = await db.Adjuntos.AsNoTracking().Where(a => ids.Contains(a.Id) && a.BajaEn == null).ToListAsync(ct);
+        var copias = origen.Select(a => new SharedKernel.Domain.Adjuntos.Adjunto(Guid.CreateVersion7(), IncidenciasModelo.TipoEntidadAdjunto,
+            incidencia.Id, incidencia.EmpresaId, IncidenciasModelo.TipoDocumentoEvidenciaId, a.NombreArchivo, a.ContentType, a.TamanoBytes,
+            a.HashSha256, a.BlobRef, null, subidoPor, clock.UtcNow)).ToList();
+        db.Adjuntos.AddRange(copias);
+        return copias;
     }
 
     private async Task<Incidencia?> OtraPendienteAsync(string paso, Guid documentoId, string detalleClave, CancellationToken ct) =>
