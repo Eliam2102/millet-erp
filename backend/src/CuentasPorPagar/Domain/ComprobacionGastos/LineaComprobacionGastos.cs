@@ -43,6 +43,16 @@ public sealed class LineaComprobacionGastos : BaseEntity, IPerteneceAEmpresa, IA
     /// <summary>Clave de <c>ClasificacionNoDeducible</c> (P8.6). Obligatoria en tickets; null = deducible.</summary>
     public string? ClasificacionNoDeducible { get; private set; }
 
+    /// <summary>
+    /// H1 (86e3z5w25): área (Dim2) o equipo (Dim3) del gasto, capturado cuando la regla de dimensiones C-03 de la cuenta lo exige.
+    /// Viaja en <c>gasto.registrado.v1</c> y la póliza deriva la ubicación. Null = no se capturó (la póliza va a Rechazos si se exigía).
+    /// </summary>
+    public Guid? CentroCostoId { get; private set; }
+
+    /// <summary>H1: asigna (o quita) el área o equipo; la validez contra la sucursal la revisa el comando con Contabilidad.</summary>
+    public void AsignarCentroCosto(Guid? centroCostoId) =>
+        CentroCostoId = centroCostoId is { } id && id != Guid.Empty ? id : null;
+
     private LineaComprobacionGastos() { }
 
     internal LineaComprobacionGastos(
