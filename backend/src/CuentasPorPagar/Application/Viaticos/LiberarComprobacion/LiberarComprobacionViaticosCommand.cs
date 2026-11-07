@@ -199,7 +199,7 @@ public sealed class LiberarComprobacionViaticosHandler
                 Subtotal: l.Subtotal, IvaTrasladado: l.ImpuestosTrasladados,
                 IvaNoAcreditable: GastoRegistradoIntegrationEvent.IvaNoAcred(l.ClasificacionNoDeducible, l.ImpuestosTrasladados),
                 Total: l.Total, Moneda: l.Moneda, ConceptoContable: l.Concepto,
-                SucursalId: sucursalId == Guid.Empty ? null : sucursalId), cancellationToken);
+                SucursalId: sucursalId == Guid.Empty ? null : sucursalId, CentroCostoId: l.CentroCostoId), cancellationToken);
         }
 
         // GI-PR4 (doc 12 §D4/Q3): la diferencia de liquidación cruza a

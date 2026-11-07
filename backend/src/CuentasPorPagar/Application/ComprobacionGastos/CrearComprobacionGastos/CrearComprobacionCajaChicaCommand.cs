@@ -1,7 +1,9 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.Contabilidad.Application.PublicPorts;
 using Millet.CuentasPorPagar.Application.Catalogos.ClasificacionesNoDeducibles;
+using Millet.CuentasPorPagar.Application.Integration;
 using Millet.CuentasPorPagar.Domain.Cfdi;
 using Millet.CuentasPorPagar.Domain.ComprobacionGastos;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor;
@@ -53,7 +55,9 @@ public sealed record CrearComprobacionCajaChicaLinea(
     DateOnly FechaVencimiento,
     string? Concepto,
     // P8.6: obligatoria en ticket (sin UUID ni CFDI); en línea con CFDI marca el gasto como no deducible.
-    string? ClasificacionNoDeducible = null);
+    string? ClasificacionNoDeducible = null,
+    // H1 (86e3z5w25): área (Dim2) o equipo (Dim3) del gasto, de la sucursal de la comprobación; se exige por la regla C-03 de la cuenta.
+    Guid? CentroCostoId = null);
 
 public sealed record CrearComprobacionCajaChicaResponse(
     Guid Id,
@@ -92,13 +96,15 @@ public sealed class CrearComprobacionCajaChicaHandler
     private readonly CuentasPorPagarDbContext _db;
     private readonly ICurrentEmpresaContext _currentEmpresa;
     private readonly IClock _clock;
+    private readonly IDimensionesGastoPort? _dimensiones;
 
     public CrearComprobacionCajaChicaHandler(
         CuentasPorPagarDbContext db,
         ICurrentEmpresaContext currentEmpresa,
-        IClock clock)
+        IClock clock,
+        IDimensionesGastoPort? dimensiones = null)
     {
-        _db = db; _currentEmpresa = currentEmpresa; _clock = clock;
+        _db = db; _currentEmpresa = currentEmpresa; _clock = clock; _dimensiones = dimensiones;
     }
 
     public async Task<CrearComprobacionCajaChicaResponse> Handle(
@@ -267,7 +273,9 @@ public sealed class CrearComprobacionCajaChicaHandler
                 factura.AsignarMetodoPago(cfdiVinculado.MetodoPago);
             }
 
-            comprobacion.AgregarLinea(
+            var centro = await CentroCostoGasto.ValidarAsync(
+                _dimensiones, empresaId, command.SucursalId, linea.CentroCostoId, cancellationToken);
+            var lineaComprobacion = comprobacion.AgregarLinea(
                 facturaProveedorId: factura.Id,
                 cfdiRecibidoId: linea.CfdiRecibidoId,
                 uuidCfdi: uuidNorm,
@@ -281,6 +289,7 @@ public sealed class CrearComprobacionCajaChicaHandler
                 moneda: command.Moneda,
                 concepto: linea.Concepto,
                 clasificacionNoDeducible: clasificaciones[i]);
+            lineaComprobacion.AsignarCentroCosto(centro);
         }
 
         await _db.SaveChangesAsync(cancellationToken);

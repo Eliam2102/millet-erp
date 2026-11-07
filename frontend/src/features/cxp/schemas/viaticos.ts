@@ -58,6 +58,8 @@ export const ComprobacionLineaSchema = z.object({
   esTicketNoFiscal: z.boolean(),
   // null = deducible; '' = marcado sin elegir. Un ticket no fiscal la exige.
   clasificacionNoDeducible: z.string().trim().max(40).nullable(),
+  // H1: centro de costo del gasto (equipo Dim3 si se eligió; si no, área Dim2). C-03 se valida en el submit.
+  centroCostoId: z.string().regex(UUID_RE).nullable().optional(),
 }).superRefine((l, ctx) => {
   if (l.clasificacionNoDeducible === '' || (l.esTicketNoFiscal && !l.clasificacionNoDeducible))
     ctx.addIssue({

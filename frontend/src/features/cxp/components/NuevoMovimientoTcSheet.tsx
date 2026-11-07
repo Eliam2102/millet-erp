@@ -36,6 +36,12 @@ import { ProveedorSelector, UsuarioSelector } from '@/components/erp';
 import { CfdiPorProcesarPicker } from '@/features/cxp/components/CfdiPorProcesarPicker';
 import { TarjetaSelector } from '@/features/cxp/components/TarjetaSelector';
 import { ClasificacionNoDeducibleSelect } from '@/features/cxp/components/ClasificacionNoDeducibleSelect';
+import { AreaEquipoGasto } from '@/features/cxp/components/AreaEquipoGasto';
+import {
+  useDimensionesGasto,
+  useNivelesCentroGasto,
+  validarCentroCostoGasto,
+} from '@/features/cxp/api/useDimensionesGasto';
 import { cn } from '@/lib/utils';
 
 /**
@@ -137,12 +143,26 @@ function FormSinCfdi({ onClose }: { onClose: () => void }) {
       conceptoContable: '',
       ticketBlobRef: null,
       clasificacionNoDeducible: '',
+      centroCostoId: null,
     },
   });
+  // H1: área/equipo del gasto; la sucursal es la del empleado que usó la tarjeta.
+  const usuarioQueUsoId = useWatch({ control: form.control, name: 'usuarioQueUsoId' });
+  const dimensiones = useDimensionesGasto({ empleadoId: usuarioQueUsoId ?? '' }).data;
+  const niveles = useNivelesCentroGasto();
 
   function onSubmit(values: MovimientoTcSinCfdiValues) {
+    const msgCentro = validarCentroCostoGasto(
+      dimensiones,
+      values.centroCostoId,
+      niveles.nivel(values.centroCostoId),
+    );
+    if (msgCentro) {
+      form.setError('centroCostoId', { message: msgCentro });
+      return;
+    }
     registrar.mutate(
-      { command: values, idempotencyKey },
+      { command: { ...values, centroCostoId: values.centroCostoId ?? null }, idempotencyKey },
       {
         onSuccess: () => {
           toast.success('Movimiento sin CFDI registrado');
@@ -250,6 +270,25 @@ function FormSinCfdi({ onClose }: { onClose: () => void }) {
             Sin CFDI el gasto no es deducible: indica su clasificación.
           </p>
         </Campo>
+        <div className="sm:col-span-2">
+          <Controller
+            control={form.control}
+            name="centroCostoId"
+            render={({ field }) => (
+              <AreaEquipoGasto
+                id="tc-sin-cfdi-centro"
+                dimensiones={dimensiones}
+                sinOrigenMensaje="Elige primero el usuario que usó la tarjeta."
+                value={field.value}
+                onChange={(id, nivel) => {
+                  niveles.registrar(id, nivel);
+                  field.onChange(id);
+                }}
+                error={form.formState.errors.centroCostoId?.message}
+              />
+            )}
+          />
+        </div>
       </div>
       <Campo label="Descripción libre">
         <Textarea rows={2} {...form.register('descripcionLibre')} />
@@ -298,15 +337,33 @@ function FormConCfdi({ onClose }: { onClose: () => void }) {
       totalFactura: 0,
       fechaVencimiento: hoy,
       clasificacionNoDeducible: null,
+      centroCostoId: null,
     },
   });
+  // H1: área/equipo del gasto; la sucursal es la del empleado que usó la tarjeta.
+  const usuarioQueUsoId = useWatch({ control: form.control, name: 'usuarioQueUsoId' });
+  const dimensiones = useDimensionesGasto({ empleadoId: usuarioQueUsoId ?? '' }).data;
+  const niveles = useNivelesCentroGasto();
   const noDeducible =
     useWatch({ control: form.control, name: 'clasificacionNoDeducible' }) !== null;
 
   function onSubmit(values: MovimientoTcConCfdiValues) {
+    const msgCentro = validarCentroCostoGasto(
+      dimensiones,
+      values.centroCostoId,
+      niveles.nivel(values.centroCostoId),
+    );
+    if (msgCentro) {
+      form.setError('centroCostoId', { message: msgCentro });
+      return;
+    }
     registrar.mutate(
       {
-        command: { ...values, fechaCfdi: `${values.fechaCfdi}T00:00:00Z` },
+        command: {
+          ...values,
+          fechaCfdi: `${values.fechaCfdi}T00:00:00Z`,
+          centroCostoId: values.centroCostoId ?? null,
+        },
         idempotencyKey,
       },
       {
@@ -397,6 +454,25 @@ function FormConCfdi({ onClose }: { onClose: () => void }) {
           <Campo label="Concepto contable" required>
             <Input {...form.register('conceptoContable')} />
           </Campo>
+          <div className="sm:col-span-2">
+            <Controller
+              control={form.control}
+              name="centroCostoId"
+              render={({ field }) => (
+                <AreaEquipoGasto
+                  id="tc-con-cfdi-centro"
+                  dimensiones={dimensiones}
+                  sinOrigenMensaje="Elige primero el usuario que usó la tarjeta."
+                  value={field.value}
+                  onChange={(id, nivel) => {
+                    niveles.registrar(id, nivel);
+                    field.onChange(id);
+                  }}
+                  error={form.formState.errors.centroCostoId?.message}
+                />
+              )}
+            />
+          </div>
         </div>
       </section>
 

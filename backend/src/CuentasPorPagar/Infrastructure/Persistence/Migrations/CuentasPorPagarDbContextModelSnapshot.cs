@@ -1334,6 +1334,10 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid?>("CentroCostoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("centro_costo_id");
+
                     b.Property<Guid?>("CfdiRecibidoId")
                         .HasColumnType("uuid")
                         .HasColumnName("cfdi_recibido_id");
@@ -3740,6 +3744,10 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("captura_retroactiva");
 
+                    b.Property<Guid?>("CentroCostoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("centro_costo_id");
+
                     b.Property<Guid?>("CfdiRecibidoId")
                         .HasColumnType("uuid")
                         .HasColumnName("cfdi_recibido_id");
@@ -4202,6 +4210,10 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid?>("CentroCostoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("centro_costo_id");
 
                     b.Property<Guid?>("CfdiRecibidoId")
                         .HasColumnType("uuid")
