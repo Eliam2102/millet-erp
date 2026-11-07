@@ -33,6 +33,11 @@ import {
   type DepositoConfirmacionResponse,
 } from '@/features/tesoreria/api/types';
 import { CuentaBancariaSelector } from '@/features/tesoreria/components/CuentaBancariaSelector';
+import {
+  TipoCambioPagoCampo,
+  errorTipoCambioPago,
+  tipoCambioPagoParaEnviar,
+} from '@/features/tesoreria/components/TipoCambioPagoCampo';
 import { formatoMonto } from '@/features/tesoreria/lib/formato';
 import { useQueryClient } from '@tanstack/react-query';
 import { esApiError, esConflictoConcurrencia, useBodyScopedIdempotencyKey } from '@/lib/api';
@@ -99,6 +104,8 @@ export function ConfirmarDepositoDialog({ deposito, onOpenChange }: ConfirmarDep
   const [cuentaId, setCuentaId] = useState<string | null>(null);
   const [fechaValor, setFechaValor] = useState(() => hoyLocalISO());
   const [referencia, setReferencia] = useState('');
+  // TES-09: TC del cobro capturado (null = el del catálogo a la fecha valor del ingreso).
+  const [tipoCambio, setTipoCambio] = useState<string | null>(null);
 
   const esPropuesta = deposito?.propuestaCxcId != null;
   const esCaja = deposito?.cajaSesionId != null;
@@ -127,6 +134,11 @@ export function ConfirmarDepositoDialog({ deposito, onOpenChange }: ConfirmarDep
     return [...filtrados].sort((a, b) => Math.abs(a.monto - objetivo) - Math.abs(b.monto - objetivo));
   }, [candidatos.data, parciales.data, deposito, saldo]);
 
+  // TES-09: el TC del cobro solo aplica a propuestas de CxC en moneda extranjera; la fecha es la del ingreso.
+  const monedaCobro = esPropuesta ? (deposito?.moneda ?? null) : null;
+  const fechaCobro = altaRapida ? fechaValor : (items.find((m) => m.id === movimientoId)?.fechaValor ?? '').slice(0, 10);
+  const errorTc = errorTipoCambioPago(monedaCobro, tipoCambio);
+
   function cerrar(next: boolean) {
     if (!next) {
       setMovimientoId(null);
@@ -135,6 +147,7 @@ export function ConfirmarDepositoDialog({ deposito, onOpenChange }: ConfirmarDep
       setReferencia('');
       setSoporteTipo('');
       setSoporteFolio('');
+      setTipoCambio(null);
     }
     onOpenChange(next);
   }
@@ -159,6 +172,7 @@ export function ConfirmarDepositoDialog({ deposito, onOpenChange }: ConfirmarDep
       versionEsperada: deposito.version,
       soporteTipo: soporteTipo === '' ? undefined : (Number(soporteTipo) as SoporteFicha),
       soporteFolio: soporteFolio.trim() || undefined,
+      tipoCambioPago: tipoCambioPagoParaEnviar(monedaCobro, tipoCambio),
     };
     confirmar.mutate(
       {
@@ -231,8 +245,9 @@ export function ConfirmarDepositoDialog({ deposito, onOpenChange }: ConfirmarDep
     ? cuentaId != null &&
       (esCaja ? Number(montoAlta) > 0 : deposito?.montoEsperado != null) &&
       fechaValor !== '' &&
-      !soporteIncompleto
-    : movimientoId != null && !soporteIncompleto;
+      !soporteIncompleto &&
+      errorTc == null
+    : movimientoId != null && !soporteIncompleto && errorTc == null;
 
   return (
     <Dialog open={deposito != null} onOpenChange={cerrar}>
@@ -406,6 +421,20 @@ export function ConfirmarDepositoDialog({ deposito, onOpenChange }: ConfirmarDep
               </div>
             )}
           </div>
+          {monedaCobro != null && monedaCobro !== 'MXN' && (
+            <FormGrid>
+              <FormCampo span={6}>
+                <TipoCambioPagoCampo
+                  id="dep-tc"
+                  etiqueta="TC del cobro"
+                  moneda={monedaCobro}
+                  fecha={fechaCobro}
+                  value={tipoCambio}
+                  onChange={setTipoCambio}
+                />
+              </FormCampo>
+            </FormGrid>
+          )}
           {necesitaSoporte && (
             <FormGrid>
               <FormCampo span={6}>
