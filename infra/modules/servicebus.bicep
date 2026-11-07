@@ -87,6 +87,9 @@ resource rootAuthRule 'Microsoft.ServiceBus/namespaces/authorizationRules@2024-0
 //     ↳ FacturacionEventListenerWorker (CxC), filter IN (factura-venta +
 //       repp + cobro mostrador ± cancelado + nc + comprobante cancelado +
 //       factura-anticipo).
+//   comercio-exterior-events / facturacion-ce-sub
+//     ↳ ComercioExteriorEventListenerWorker (Facturación), filter IN
+//       (contenedor embarcado + contenedor cancelado), FAC-08.
 //
 // Cuando se adopte un topic adicional, replicar el patrón: topic +
 // subscription(s) con su SQL filter por EventType.
@@ -692,7 +695,8 @@ resource tesoreriaEventsTopic 'Microsoft.ServiceBus/namespaces/topics@2024-01-01
   }
 }
 
-// CE-01a: publicación de apertura y cancelación; sin consumidores de negocio.
+// CE-01a: publicación de apertura y cancelación. Consumidores: Almacén (costo distribuido),
+// CxP (saldo del agente) y Facturación (contenedor embarcado/cancelado, FAC-08).
 resource comercioExteriorEventsTopic 'Microsoft.ServiceBus/namespaces/topics@2024-01-01' = {
   parent: serviceBus
   name: 'comercio-exterior-events'
@@ -937,6 +941,33 @@ resource comercioExteriorCxpFilter 'Microsoft.ServiceBus/namespaces/topics/subsc
   }
 }
 
+// FAC-08 (86e3qdddf) Fase 1: contenedor embarcado → una salida facturable por pedido;
+// contenedor cancelado → descarta la salida sin factura o la manda a revisión.
+// Referencia: backend/src/Facturacion/Infrastructure/Workers/ComercioExteriorEventListenerWorker.cs
+resource comercioExteriorFacturacionSubscription 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
+  parent: comercioExteriorEventsTopic
+  name: 'facturacion-ce-sub'
+  properties: {
+    deadLetteringOnMessageExpiration: true
+    deadLetteringOnFilterEvaluationExceptions: true
+    maxDeliveryCount: 10
+    defaultMessageTimeToLive: 'P14D'
+    lockDuration: 'PT1M'
+    enableBatchedOperations: true
+  }
+}
+resource comercioExteriorFacturacionFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01' = {
+  parent: comercioExteriorFacturacionSubscription
+  name: 'EventTypeFilter'
+  properties: {
+    filterType: 'SqlFilter'
+    sqlFilter: {
+      sqlExpression: 'user.EventType IN (\'comercio_exterior.contenedor.embarcado.v1\', \'comercio_exterior.contenedor.cancelado.v1\')'
+      compatibilityLevel: 20
+    }
+  }
+}
+
 // C1.5: listeners de Contabilidad, uno por topic (backend/src/Contabilidad/Infrastructure/Workers/ContabilidadEventListenerWorker.cs).
 // Cada evento de la tabla del plano C1 §4 genera su póliza automática (o su anulación); el REP no entra (no genera póliza).
 resource contabFacturacion 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
@@ -958,7 +989,7 @@ resource contabFacturacionFilter 'Microsoft.ServiceBus/namespaces/topics/subscri
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'facturacion.factura-venta.timbrada.v1\', \'facturacion.factura-anticipo.timbrada.v1\', \'facturacion.nota-credito.timbrada.v1\', \'facturacion.comprobante.cancelado.v1\', \'facturacion.cobro-mostrador.registrado.v1\', \'facturacion.cobro-mostrador.cancelado.v1\', \'facturacion.caja-sesion.cerrada.v1\')'
+      sqlExpression: 'user.EventType IN (\'facturacion.factura-venta.timbrada.v1\', \'facturacion.factura-anticipo.timbrada.v1\', \'facturacion.nota-credito.timbrada.v1\', \'facturacion.comprobante.cancelado.v1\', \'facturacion.cobro-mostrador.registrado.v1\', \'facturacion.cobro-mostrador.cancelado.v1\', \'facturacion.caja-sesion.cerrada.v1\', \'facturacion.terminal.factura-banco-ligada.v1\')'
       compatibilityLevel: 20
     }
   }
@@ -1033,7 +1064,7 @@ resource contabAlmacenFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptio
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'almacen.oc_recepcion.registrada.v1\', \'almacen.recepcion_oc.cancelada.v1\', \'almacen.ajuste_inventario.aplicado.v1\', \'almacen.salida_requisicion.registrada.v1\', \'almacen.salida_inventario.registrada.v1\', \'almacen.expediente.costo-aplicado.v1\', \'almacen.devolucion_interna.aplicada.v1\', \'almacen.oc_devolucion.registrada.v1\')'
+      sqlExpression: 'user.EventType IN (\'almacen.oc_recepcion.registrada.v1\', \'almacen.recepcion_oc.cancelada.v1\', \'almacen.ajuste_inventario.aplicado.v1\', \'almacen.salida_requisicion.registrada.v1\', \'almacen.salida_inventario.registrada.v1\', \'almacen.salida_rotura.registrada.v1\', \'almacen.expediente.costo-aplicado.v1\', \'almacen.devolucion_interna.aplicada.v1\', \'almacen.oc_devolucion.registrada.v1\')'
       compatibilityLevel: 20
     }
   }

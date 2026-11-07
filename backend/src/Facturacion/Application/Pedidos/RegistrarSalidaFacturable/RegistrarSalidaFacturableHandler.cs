@@ -15,17 +15,29 @@ public sealed class RegistrarSalidaFacturableHandler(FacturacionDbContext db, IC
         var lineas = command.Lineas.Select(l => (l.Posicion, l.Cantidad)).ToList();
         var referencia = command.Referencia.Trim();
 
-        var existente = await db.SalidasFacturables.Include(s => s.Lineas)
-            .FirstOrDefaultAsync(s => s.Origen == command.Origen && s.Referencia == referencia, cancellationToken);
+        SalidaFacturable? existente;
+        PedidoFacturable? pedido = null;
+        if (command.OrigenId is Guid origenId)
+        {
+            // FAC-08 Fase 1: un contenedor con varios pedidos comparte referencia; la llave es (contenedor, pedido).
+            pedido = await CargarPedidoAsync(command, cancellationToken);
+            existente = await db.SalidasFacturables.Include(s => s.Lineas)
+                .FirstOrDefaultAsync(s => s.Origen == command.Origen && s.OrigenId == origenId && s.PedidoFacturableId == pedido.Id, cancellationToken);
+        }
+        else
+        {
+            existente = await db.SalidasFacturables.Include(s => s.Lineas)
+                .FirstOrDefaultAsync(s => s.Origen == command.Origen && s.OrigenId == null && s.Referencia == referencia, cancellationToken);
+        }
         if (existente is not null)
             return Reenvio(existente, command, lineas);
 
-        var pedido = await CargarPedidoAsync(command, cancellationToken);
+        pedido ??= await CargarPedidoAsync(command, cancellationToken);
         var previas = await db.SalidasFacturables.Include(s => s.Lineas)
             .Where(s => s.PedidoFacturableId == pedido.Id)
             .ToListAsync(cancellationToken);
 
-        var salida = SalidaFacturable.Registrar(pedido, previas, command.Origen, referencia, lineas, clock.UtcNow);
+        var salida = SalidaFacturable.Registrar(pedido, previas, command.Origen, referencia, lineas, clock.UtcNow, command.OrigenId);
         db.SalidasFacturables.Add(salida);
         await db.SaveChangesAsync(cancellationToken);
         return SalidaFacturableResponse.De(salida, yaRegistrada: false);

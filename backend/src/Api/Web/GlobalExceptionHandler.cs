@@ -88,6 +88,18 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
         p.Extensions["productos"] = e.Productos; return p;
     }
 
+    // U-4: el rechazo que abrió su incidencia la nombra, para que la pantalla enlace a ella en lugar de ofrecer registrarla.
+    private static ProblemDetails CreateIncidenciaProblem(Millet.SharedKernel.Application.Incidencias.IncidenciaRechazoException e, HttpContext context, string traceId)
+    {
+        var p = CreateProblem(e.Code, e.Message, StatusCodes.Status422UnprocessableEntity, context, traceId);
+        if (e.Incidencia is { } i)
+        {
+            p.Extensions["incidenciaId"] = i.Id;
+            p.Extensions["incidenciaNumero"] = i.Numero;
+        }
+        return p;
+    }
+
     private static ProblemDetails CreateClienteRfcProblem(Millet.DatosMaestros.Application.Clientes.ClienteRfcDuplicadoException e, HttpContext context, string traceId)
     {
         var p = CreateProblem(e.Code, e.Message, StatusCodes.Status422UnprocessableEntity, context, traceId);
@@ -118,6 +130,7 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
             ProductosFiscalesIncompletosException pfi => CreateProductosProblem(pfi, httpContext, traceId),
             ReceptorFiscalInvalidoException rfi => CreateReceptorProblem(rfi, httpContext, traceId),
             Millet.DatosMaestros.Application.Clientes.ClienteRfcDuplicadoException crd => CreateClienteRfcProblem(crd, httpContext, traceId),
+            Millet.SharedKernel.Application.Incidencias.IncidenciaRechazoException ire => CreateIncidenciaProblem(ire, httpContext, traceId),
             BusinessRuleException bre => CreateProblem(bre.Code, bre.Message, StatusCodes.Status422UnprocessableEntity, httpContext, traceId),
             EntityNotFoundException enfe => CreateProblem(enfe.Code, SinIdentificadores(enfe.Message), StatusCodes.Status404NotFound, httpContext, traceId),
             ConcurrencyException ce => CreateProblem(ce.Code, ce.Message, StatusCodes.Status409Conflict, httpContext, traceId),

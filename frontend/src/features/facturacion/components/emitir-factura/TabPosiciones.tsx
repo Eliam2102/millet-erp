@@ -2,7 +2,7 @@ import { ClaveSatSelector } from '@/components/erp/selectors/ClaveSatSelector';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { OBJETOS_IMP } from '@/features/facturacion/api/types';
+import { CONCEPTOS_RETENCION_CLIENTE, OBJETOS_IMP } from '@/features/facturacion/api/types';
 import { ProductoAwSelector } from '@/features/facturacion/components/selectors/ProductoAwSelector';
 import type { EmitirFacturaValues } from '@/features/facturacion/schemas/emitir-factura';
 import { cn } from '@/lib/utils';
@@ -159,6 +159,13 @@ function ConceptoInline({
   // Con producto del catálogo, lo fiscal es de solo lectura (se corrige
   // en el master, no en la factura) — mismo principio que el receptor.
   const fiscalFija = productoId != null;
+  // Retención del cliente: el concepto fija la tasa de Ret. IVA y la cuenta contable. Con producto
+  // del catálogo la tasa es fija y solo se elige entre conceptos de esa tasa (16 %: desperdicio o importación).
+  const tasaRetIva = linea.tasaRetencionIva ?? null;
+  const conceptosRetencion = fiscalFija
+    ? CONCEPTOS_RETENCION_CLIENTE.filter((c) => tasaRetIva != null && c.tasa === tasaRetIva)
+    : CONCEPTOS_RETENCION_CLIENTE;
+  const conceptoRetencionId = `linea-${index}-concepto-retencion`;
 
   // Fase 1c: en CCE, cantidad y valores aduaneros se DERIVAN de la línea y
   // del peso del artículo (heredado en Fase 1b) — cero captura por posición.
@@ -398,6 +405,35 @@ function ConceptoInline({
               />
             </div>
           </>
+        )}
+        {(!fiscalFija || conceptosRetencion.length > 0) && (
+          <div className="sm:col-span-3">
+            <Label htmlFor={conceptoRetencionId} className="text-xs">
+              Concepto de retención
+            </Label>
+            <select
+              id={conceptoRetencionId}
+              className="h-9 w-full rounded-md border border-line-control bg-transparent px-2 text-sm shadow-sm"
+              value={linea.conceptoRetencion ?? ''}
+              onChange={(e) => {
+                const concepto = CONCEPTOS_RETENCION_CLIENTE.find((c) => c.value === e.target.value);
+                form.setValue(`lineas.${index}.conceptoRetencion` as const, concepto?.value ?? null, {
+                  shouldDirty: true,
+                });
+                if (!fiscalFija)
+                  form.setValue(`lineas.${index}.tasaRetencionIva` as const, concepto?.tasa ?? null, {
+                    shouldDirty: true,
+                  });
+              }}
+            >
+              <option value="">{fiscalFija ? 'Por tasa' : 'Sin retención'}</option>
+              {conceptosRetencion.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </div>
         )}
         <div className="flex items-end gap-3 sm:col-span-4">
           <label className="flex items-center gap-1.5 text-xs">

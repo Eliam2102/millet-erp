@@ -326,6 +326,10 @@ if (!string.IsNullOrWhiteSpace(outboxConnString))
     // (Bicep en el mismo PR; deploy de infra manual con what-if).
     builder.Services.AddHostedService<Millet.Facturacion.Infrastructure.Workers.TesoreriaEventListenerWorker>();
 
+    // FAC-08 Fase 1: contenedor embarcado/cancelado en Comercio Exterior → salidas facturables por pedido.
+    // Subscription `facturacion-ce-sub` en `comercio-exterior-events` (Bicep en el mismo PR; deploy manual con what-if).
+    builder.Services.AddHostedService<Millet.Facturacion.Infrastructure.Workers.ComercioExteriorEventListenerWorker>();
+
     // TR-01: factura timbrada → fila Documento de aw_retorno. Subscription
     // `integraciones-aw-subscription` en `facturacion-events` (Bicep en el mismo PR).
     builder.Services.AddHostedService<Millet.Integraciones.Aw.Infrastructure.Retorno.FacturacionRetornoListenerWorker>();
@@ -684,6 +688,11 @@ builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoProp
 builder.Services.AddScoped<
     Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario,
     Millet.Compartido.Application.Adjuntos.ProveedorAdjuntoPropietario>();
+// U-4 (86e3yzemw): incidencias comunes del ERP (servicio, puerto para los módulos, nombres y evidencia).
+builder.Services.AddScoped<Millet.Compartido.Application.Incidencias.IncidenciasServicio>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Incidencias.IIncidenciasPort, Millet.Compartido.Infrastructure.PublicAdapters.IncidenciasAdapter>();
+builder.Services.AddScoped<Millet.Compartido.Application.Incidencias.IIncidenciaUsuariosReadPort, Millet.Api.Infrastructure.Adapters.IncidenciaUsuariosReadAdapter>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Compartido.Application.Incidencias.IncidenciaAdjuntoPropietario>();
 builder.Services
     .AddOptions<Millet.Compartido.Infrastructure.Adjuntos.AdjuntoEnlaceOptions>()
     .Bind(builder.Configuration.GetSection(
@@ -1071,6 +1080,9 @@ builder.Services.AddScoped<Millet.CuentasPorPagar.Application.PublicPorts.IFactu
 // 86e3xt2q8: Caja elige la factura mensual del banco del buzón de CFDI recibidos de CxP (solo lectura).
 builder.Services.AddScoped<Millet.CuentasPorPagar.Application.PublicPorts.ICfdiRecibidoPublicReadPort, Millet.CuentasPorPagar.Infrastructure.PublicAdapters.CfdiRecibidoPublicReadAdapter>();
 builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.ICfdiRecibidoBancoReadPort, Millet.Api.Infrastructure.Adapters.CfdiRecibidoBancoReadAdapter>();
+// K10.7: marca de cumplimiento de la liquidación de IVA (CxP: método de pago y REP recibido; Facturación: REP timbrado).
+builder.Services.AddScoped<Millet.CuentasPorPagar.Application.PublicPorts.IFacturaProveedorFiscalReadPort, Millet.CuentasPorPagar.Infrastructure.PublicAdapters.FacturaProveedorFiscalReadAdapter>();
+builder.Services.AddScoped<Millet.Contabilidad.Application.Ports.ICumplimientoIvaReadPort, Millet.Api.Infrastructure.Adapters.CumplimientoIvaReadAdapter>();
 builder.Services.AddOptions<Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorkerOptions>()
     .Bind(builder.Configuration.GetSection(Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorkerOptions.SectionName))
     .Validate(o => o.Interval > TimeSpan.Zero, "ComercioExterior:AvisosHitos:Interval debe ser mayor que cero.")
@@ -1214,6 +1226,13 @@ builder.Services
     .Bind(builder.Configuration.GetSection(
         Millet.Facturacion.Infrastructure.Workers.TimbradoPendienteOptions.SectionName));
 builder.Services.AddHostedService<Millet.Facturacion.Infrastructure.Workers.TimbradoPendienteWorker>();
+
+// F6.8: aviso a Fiscal de contingencias de timbrado abiertas al cerrar el mes.
+builder.Services
+    .AddOptions<Millet.Facturacion.Infrastructure.Workers.ContingenciasAlertaOptions>()
+    .Bind(builder.Configuration.GetSection(
+        Millet.Facturacion.Infrastructure.Workers.ContingenciasAlertaOptions.SectionName));
+builder.Services.AddHostedService<Millet.Facturacion.Infrastructure.Workers.ContingenciasAlertaWorker>();
 
 // F7-PR2: worker de pedimentos del Sistema de Salidas (empareja Hoja de Salida ↔
 // pedimento vía ISalidasPedimentosReader [stub en dev] y aplica a las facturas
@@ -1639,6 +1658,8 @@ builder.Services.AddHealthChecks()
         timeout: TimeSpan.FromSeconds(1));
 
 builder.Services.AddTransient(typeof(MediatR.IPipelineBehavior<,>), typeof(Millet.Api.Web.SucursalScopeQueryBehavior<,>));
+// U-4 (86e3yzemw): un rechazo con incidencia la abre en Compartido aunque la operación del módulo se revierta.
+builder.Services.AddTransient(typeof(MediatR.IPipelineBehavior<,>), typeof(Millet.Api.Web.IncidenciaRechazoBehavior<,>));
 builder.Services.AddScoped<Millet.SharedKernel.Application.IFacturacionSucursalReadPort, Millet.Facturacion.Infrastructure.FacturacionSucursalReadAdapter>();
 builder.Services.AddScoped<IComprasSucursalReadPort, ComprasSucursalReadAdapter>();
 builder.Services.AddScoped<IAlmacenSucursalReadPort, Millet.Almacen.Infrastructure.PublicAdapters.AlmacenSucursalReadAdapter>();
@@ -1733,6 +1754,7 @@ Millet.Api.Endpoints.Contabilidad.ContabilidadMotorEndpoints.MapContabilidadMoto
 Millet.Api.Endpoints.Contabilidad.ContabilidadCuentaPuenteEndpoints.MapContabilidadCuentaPuenteEndpoints(app);
 Millet.Api.Endpoints.Contabilidad.ContabilidadConciliacionAuxiliaresEndpoints.MapContabilidadConciliacionAuxiliaresEndpoints(app);
 Millet.Api.Endpoints.Contabilidad.ContabilidadReportesEndpoints.MapContabilidadReportesEndpoints(app);
+Millet.Api.Endpoints.Contabilidad.ContabilidadIvaEndpoints.MapContabilidadIvaEndpoints(app);
 
 // === Almacén — CRUD asignación artículo→ubicación (OITW, ADR-0047 PR3) ===
 Millet.Api.Endpoints.Almacen.Asignaciones.AlmacenAsignacionesEndpoints.MapAlmacenAsignacionesEndpoints(app);
@@ -1948,6 +1970,9 @@ Millet.Api.Endpoints.Facturacion.NotasCreditoEndpoints.MapFacturacionNotasCredit
 // === Facturación — Comprobantes: cancelación SAT (F5-PR2) ===
 Millet.Api.Endpoints.Facturacion.ComprobantesEndpoints.MapFacturacionComprobantesEndpoints(app);
 
+// === Facturación — Bitácora de contingencias de timbrado (F6.8) ===
+Millet.Api.Endpoints.Facturacion.ContingenciasEndpoints.MapFacturacionContingenciasEndpoints(app);
+
 // === Facturación — REPP: complemento de pago (F6) ===
 Millet.Api.Endpoints.Facturacion.ReppEndpoints.MapFacturacionReppEndpoints(app);
 
@@ -1997,6 +2022,7 @@ Millet.Api.Endpoints.CuentasPorCobrar.AlertasEndpoints.MapAlertasEndpoints(app);
 
 // === Tesorería — Cuentas con saldo + libro de movimientos (TES-PR2) ===
 Millet.Api.Endpoints.Inicio.ResumenesInicioEndpoints.MapResumenesInicioEndpoints(app);
+Millet.Api.Endpoints.Incidencias.IncidenciasEndpoints.MapIncidenciasEndpoints(app);
 
 Millet.Api.Endpoints.ComercioExterior.ConfiguracionCeEndpoints.MapConfiguracionCe(app);
 Millet.Api.Endpoints.ComercioExterior.ExpedientesEndpoints.MapExpedientesCe(app);

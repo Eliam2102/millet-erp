@@ -30,11 +30,36 @@ Reglas del lector: orden estricto por `secuencia`; el acuse solo se escribe si e
 - **AJUSTE_SALIDA con `documentoPrevio`:** el descuento llega **al validar** el documento previo, no al cortar; entre corte y validación el inventario del ERP aún tiene la hoja disponible (el apartado es de la app y no viaja). Un renglón que se baja a cero no llega nunca (`piezas` ≤ 0 → ERROR). El ERP no reserva; si el contrato trae `documentoPrevio` como texto o número, queda en el motivo del movimiento («documento previo X»). No se interpreta su ventana ni sus renglones: el contrato no fija su forma.
 - **Componentes (argón, interlayer, separadores…):** los descuenta el ERP al terminarse cada pieza (A4.8, `ConsumoComponentes`) y la app **no** los manda en AJUSTE_SALIDA; el ERP no los espera. La norma de consumo, el factor m²→m³ y el consumo de silicón y butilo siguen pendientes de Millet.
 
+## Área y equipo de la salida (H1, 6-nov)
+Contabilidad pidió que quien captura el movimiento elija el **área** y, si la cuenta es de gasto (600), el **equipo**. No hay valores por omisión ni exención. La ubicación no se captura: sale de la sucursal.
+
+- **Campos nuevos en `datos`** de AJUSTE_SALIDA, ROTURA y SALIDA_MANUAL, opcionales y para todo el movimiento:
+  - `area`: clave del CeCo (Dim2);
+  - `equipo`: clave del equipo (Dim3).
+
+  Pueden venir como texto o número.
+- **Cómo se resuelven:** dentro de la sucursal del mensaje, con los centros de sus ubicaciones más los CeCo corporativos (K10.2/V49).
+- **Acuse ERROR** cuando:
+  - la clave no existe, está dada de baja o es de otra sucursal;
+  - el equipo no pertenece al área.
+- **Qué viaja:** el equipo (o, si no viene, el área) va en cada línea del movimiento y en `almacen.salida_inventario.registrada.v1`. La póliza lleva la ubicación, el área y el equipo; la ubicación se deriva del centro.
+- **Cuándo son obligatorios:** solo si la cuenta que cargará la póliza por esa causa los exige por la regla C-03:
+  - costos (500): área;
+  - gastos (600): área y equipo.
+
+  La cuenta es la del rol de la plantilla vigente: CONSUMO, MERMA o AJUSTE_INVENTARIO.
+- **Mientras la app no mande los campos** (`Integraciones:AlmMensaje:ExigirAreaEquipo=false`, por omisión):
+  - la salida se acepta y su póliza queda en Rechazos con «Dato faltante», como hoy;
+  - con `true`, la salida que no trae lo que exige su cuenta se acusa ERROR con el motivo («Falta el área: la cuenta … lo exige»).
+- **Pendiente con TI:**
+  - agregar los dos campos a la captura de salidas de la app;
+  - de dónde toma la app el catálogo de áreas y equipos por sucursal: hoy está en el ERP (`/api/v1/contabilidad/movimientos/centros`).
+
 ## Mapeo de almacén (cambio de TI, sin código nuevo)
 El ERP **no usa** `almacenGeneral` ni su id: ignora el bloque y baja existencia por sucursal + artículo A+W + medida. La sucursal viaja por código (`CONKAL`) y se resuelve por `Clave`/`ClaveAw`. Cuando se arme el mapeo a sub-almacenes será por **sucursal + tipo** (EXPORTACIÓN, OBRAS, GENERAL e IMPORTACIÓN TEMPORAL), tolerando que falte alguno (el máximo es por sucursal y varias tienen menos) y con un nivel nuevo de **línea de producción** en Conkal (HEGLA 1, HEGLA 2, BYSTRONIC) por encima del almacén general. No hay clave A+W por sucursal y almacén general; el id es dato acompañante, el catálogo se rehará.
 
 ## Compatibilidad
-Todo campo nuevo del sobre es opcional. Cambios: `costoM2`/`costoPieza` por grupo reemplazan a `costo` (se quita el total del grupo: aviso de TI en la siguiente versión del contrato); el acuse de salida sin existencia pasa de RECIBIDO a ERROR.
+Todo campo nuevo del sobre es opcional (también `area` y `equipo`, H1). Cambios: `costoM2`/`costoPieza` por grupo reemplazan a `costo` (se quita el total del grupo: aviso de TI en la siguiente versión del contrato); el acuse de salida sin existencia pasa de RECIBIDO a ERROR.
 
 ## Falta contra el sistema real
 - Nombres y tipos de columna, y que `mensaje_id` sea único con `secuencia` como llave de actualización; el usuario del ERP (SELECT + UPDATE de `acuse_*`) y la base (`AlmacenesAppDb`; en el correo del 29-oct era la misma instancia que MILLET_INTEGRACION).

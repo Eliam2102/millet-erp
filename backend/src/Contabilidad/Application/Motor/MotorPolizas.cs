@@ -136,7 +136,7 @@ public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IP
     /// Importes de una línea de plantilla: uno solo (el campo con nombre) o, con <see cref="LineaPlantillaContable.PorLinea"/>, uno por
     /// cada línea del evento (E6: servicios a gasto por centro de costo; el resto al puente con su <see cref="ReferenciaPuente"/>).
     /// </summary>
-    private static IEnumerable<(decimal Importe, Guid? Centro, ReferenciaPuente? Puente, LineaEventoContable? Linea)> Importes(
+    internal static IEnumerable<(decimal Importe, Guid? Centro, ReferenciaPuente? Puente, LineaEventoContable? Linea)> Importes(
         LineaPlantillaContable l, EventoContable e)
     {
         if (!l.PorLinea)
@@ -145,9 +145,11 @@ public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IP
             yield return (valor.Value, e.CentroCostoId, Puente(e, null), null);
             yield break;
         }
-        var lineas = e.Lineas.Where(x => l.SoloServicios is null || x.EsServicio == l.SoloServicios).ToList();
+        // 86e3zcbjw: cada línea de plantilla ve solo las líneas de su grupo (las del documento no tienen grupo).
+        var delGrupo = e.Lineas.Where(x => x.Grupo == l.Grupo).ToList();
+        var lineas = delGrupo.Where(x => l.SoloServicios is null || x.EsServicio == l.SoloServicios).ToList();
         // Evento sin desglose: toda la base va a una sola partida (si la plantilla pide no-servicios, que es el caso por omisión).
-        if (e.Lineas.Count == 0 && l.SoloServicios != true)
+        if (delGrupo.Count == 0 && l.SoloServicios != true)
         {
             if (!e.Importes.TryGetValue(l.Campo, out var valor) || valor is null) throw Falta(l.Campo);
             yield return (valor.Value, e.CentroCostoId, Puente(e, null), null);

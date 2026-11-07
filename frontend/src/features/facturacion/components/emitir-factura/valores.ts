@@ -140,6 +140,12 @@ export function valoresIniciales(
       prefill.subtipoVentaDirecta === 'Activo'
         ? ComportamientoFiscal.VentaActivoFijo
         : (prefill.comportamientoFiscal ?? base.comportamientoFiscal),
+    cceReceptorNumRegIdTrib: prefill.cceReceptorNumRegIdTrib ?? base.cceReceptorNumRegIdTrib,
+    cceReceptorPaisResidencia: prefill.cceReceptorPaisResidencia ?? base.cceReceptorPaisResidencia,
+    cceReceptorDomicilioCalle: prefill.cceReceptorDomicilioCalle ?? base.cceReceptorDomicilioCalle,
+    cceReceptorDomicilioEstado: prefill.cceReceptorDomicilioEstado ?? base.cceReceptorDomicilioEstado,
+    cceReceptorDomicilioCodigoPostal:
+      prefill.cceReceptorDomicilioCodigoPostal ?? base.cceReceptorDomicilioCodigoPostal,
     cceIncoterm: prefill.embarqueCe?.ligado ? prefill.embarqueCe.incoterm : base.cceIncoterm,
     cceClaveDePedimento: prefill.embarqueCe?.ligado
       ? prefill.embarqueCe.clavePedimento

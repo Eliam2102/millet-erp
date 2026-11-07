@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using Millet.SharedKernel.Application.Incidencias;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -138,6 +140,9 @@ public sealed class RegistrarRecepcionConFacturaHandler
     // Opcionales solo para pruebas unitarias sin medidas; la API los inyecta siempre.
     private readonly IArticuloReadPort? _articulos;
     private readonly IVarianteVidrioReadPort? _variantes;
+    // U-4: incidencias de la diferencia contra la OC (opcional en pruebas unitarias).
+    private readonly IIncidenciasPort? _incidencias;
+    private readonly ILogger<RegistrarRecepcionConFacturaHandler>? _logger;
 
     public RegistrarRecepcionConFacturaHandler(
         AlmacenDbContext db,
@@ -148,9 +153,12 @@ public sealed class RegistrarRecepcionConFacturaHandler
         IDecimalesUnidadGuard decimalesGuard,
         IPeriodoContableReadPort periodoContable, IConversionUnidadPort conversion,
         ICxpDocumentosReadPort cxpDocumentos, IProveedorReadPort proveedores,
-        IArticuloReadPort? articulos = null, IVarianteVidrioReadPort? variantes = null)
+        IArticuloReadPort? articulos = null, IVarianteVidrioReadPort? variantes = null,
+        IIncidenciasPort? incidencias = null, ILogger<RegistrarRecepcionConFacturaHandler>? logger = null)
     {
         _articulos = articulos;
+        _incidencias = incidencias;
+        _logger = logger;
         _variantes = variantes;
         _db = db;
         _ocPort = ocPort;
@@ -398,6 +406,8 @@ public sealed class RegistrarRecepcionConFacturaHandler
                 request.Observaciones, payloadLineas, SucursalId: oc!.SucursalDestinoId, RegistradoPorId: _currentUser.UserId ?? Guid.Empty), cancellationToken);
             await _db.SaveChangesAsync(cancellationToken);
             if (transaccion is not null) await transaccion.CommitAsync(cancellationToken);
+            await RecepcionRechazos.IncidenciasAsync(_incidencias, _logger, oc!, movimientoId, folioActivo, oc!.SucursalDestinoId,
+                _currentUser.UserId, request.Lineas, rechazadas, cancellationToken);
             return new RegistrarRecepcionResponse(movimientoId, folioActivo);
         }
 
@@ -471,6 +481,8 @@ public sealed class RegistrarRecepcionConFacturaHandler
         await _db.SaveChangesAsync(cancellationToken);
         if (transaccion is not null) await transaccion.CommitAsync(cancellationToken);
 
+        await RecepcionRechazos.IncidenciasAsync(_incidencias, _logger, oc!, principal.Id, principal.Folio!, sucursalId,
+            _currentUser.UserId, request.Lineas, rechazadas, cancellationToken);
         return new RegistrarRecepcionResponse(principal.Id, principal.Folio!);
     }
 }

@@ -13,7 +13,9 @@ using Millet.SharedKernel.Application.Integration;
 
 namespace Millet.Almacen.Application.EventListeners;
 // Contrato espejo; Almacén no referencia el módulo Comercio Exterior.
-public sealed record CostoExpedientePayload(Guid EmpresaId, Guid ExpedienteId, Guid SucursalId, int NumeroVersion, IReadOnlyList<CostoPartidaPayload> Partidas);
+/// <remarks>H1 paso 4 (86e3z5w25, aditivo): <c>CentroCostoId</c> = área o equipo capturado al distribuir; pasa tal cual a Contabilidad.</remarks>
+public sealed record CostoExpedientePayload(Guid EmpresaId, Guid ExpedienteId, Guid SucursalId, int NumeroVersion, IReadOnlyList<CostoPartidaPayload> Partidas,
+    Guid? CentroCostoId = null);
 public sealed record CostoPartidaPayload(Guid PartidaId, Guid OcId, Guid RecepcionId, Guid ArticuloId, Guid UbicacionId,
     decimal CantidadRecibida, decimal ImporteMxn, decimal DiferenciaMxn);
 public sealed record AplicarCostoExpedienteCommand(CostoExpedientePayload Payload) : IRequest;
@@ -31,6 +33,8 @@ public sealed record ExpedienteCostoAplicadoEvent(Guid Empresa, DateTimeOffset F
     IReadOnlyList<CostoPartidaAplicado> Partidas) : IntegrationEvent("almacen.expediente.costo-aplicado.v1", Empresa, Fecha)
 {
     public Guid? SucursalId { get; init; }
+    /// <summary>H1 paso 4: área o equipo del gasto de importación, capturado en Comercio Exterior al distribuir.</summary>
+    public Guid? CentroCostoId { get; init; }
 }
 public sealed class ExpedienteCostoDistribuidoHandler(AlmacenDbContext db, IIntegrationEventPublisher eventos, IClock clock, ILogger<ExpedienteCostoDistribuidoHandler> logger,
     IOptions<IncrementablesImportacionOptions> incrementables)
@@ -126,7 +130,7 @@ public sealed class ExpedienteCostoDistribuidoHandler(AlmacenDbContext db, IInte
         db.EventosProcesados.Add(new EventoProcesado(p.ExpedienteId, llave));
         if (aplicadas.Count > 0)
         {
-            await eventos.PublishAsync(new ExpedienteCostoAplicadoEvent(p.EmpresaId, clock.UtcNow, p.ExpedienteId, p.NumeroVersion, aplicadas) { SucursalId = p.SucursalId }, cancellationToken);
+            await eventos.PublishAsync(new ExpedienteCostoAplicadoEvent(p.EmpresaId, clock.UtcNow, p.ExpedienteId, p.NumeroVersion, aplicadas) { SucursalId = p.SucursalId, CentroCostoId = p.CentroCostoId }, cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
         }
         await db.SaveChangesAsync(cancellationToken);

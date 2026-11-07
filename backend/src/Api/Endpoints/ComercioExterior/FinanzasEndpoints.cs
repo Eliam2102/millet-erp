@@ -34,8 +34,14 @@ public static class FinanzasEndpoints
             await Mutar(new(id, 0, "partida", Partida: body), request, response, mediator, ct)).RequireAuthorization(gastos).WithMetadata(new RequireIdempotencyKeyAttribute());
         padre.MapGet("/gastos/vista-previa", async (Guid id, HttpRequest request, FinanzasServicio servicio, CancellationToken ct) =>
             Version(request) is int version ? Results.Ok(await servicio.PreviaAsync(id, version, ct)) : FaltaVersion()).RequireAuthorization(distribuir);
-        padre.MapPost("/gastos/distribuir", async (Guid id, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) =>
-            await Mutar(new(id, 0, "distribuir"), request, response, mediator, ct)).RequireAuthorization(distribuir).WithMetadata(new RequireIdempotencyKeyAttribute());
+        padre.MapPost("/gastos/distribuir", async (Guid id, DistribuirDatos? body, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) =>
+            await Mutar(new(id, 0, "distribuir", Distribuir: body), request, response, mediator, ct)).RequireAuthorization(distribuir).WithMetadata(new RequireIdempotencyKeyAttribute());
+        // H1 paso 4: área y equipo del gasto de importación (regla C-03) al distribuir.
+        padre.MapGet("/gastos/distribuir/dimensiones", async (Guid id, DimensionesDistribucionServicio servicio, CancellationToken ct) =>
+            Results.Ok(await servicio.ExigenciasAsync(id, ct))).RequireAuthorization(distribuir);
+        padre.MapGet("/gastos/distribuir/centros", async (Guid id, string? nivel, Guid? dim2Id, string? q, int? limit, DimensionesDistribucionServicio servicio, CancellationToken ct) =>
+            Results.Ok(await servicio.CentrosAsync(id, string.Equals(nivel, "Dim3", StringComparison.OrdinalIgnoreCase), dim2Id, q, Math.Clamp(limit ?? 50, 1, 200), ct)))
+            .RequireAuthorization(distribuir);
         padre.MapPost("/anticipos", async (Guid id, AnticipoDatos body, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) =>
             await Mutar(new(id, 0, "anticipo", Anticipo: body), request, response, mediator, ct)).RequireAuthorization(anticipos).WithMetadata(new RequireIdempotencyKeyAttribute());
         padre.MapPost("/anticipos/{anticipoId:guid}/comprobar", async (Guid id, Guid anticipoId, ComprobacionAnticipoDatos body, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) =>

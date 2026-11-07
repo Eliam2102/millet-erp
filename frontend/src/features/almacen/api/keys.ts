@@ -179,6 +179,8 @@ export const almacenKeys = {
   // Salida por rotura en almacén (ALM-03)
   salidasRotura: (f: { estado?: string }) => [...almacenKeys.all, 'salidas-rotura', f] as const,
   motivosRotura: () => [...almacenKeys.all, 'salidas-rotura', 'motivos'] as const,
+  dimensionesRotura: (ubicacionId: string, fecha: string) =>
+    [...almacenKeys.all, 'salidas-rotura', 'dimensiones', ubicacionId, fecha] as const,
 
   // Conciliación diaria contra A+W (A4.6)
   conciliacion: {

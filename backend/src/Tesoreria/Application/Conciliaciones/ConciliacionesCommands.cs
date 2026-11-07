@@ -1,6 +1,8 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.Contabilidad.Application.Dimensiones;
+using Millet.Contabilidad.Application.PublicPorts;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 using Millet.SharedKernel.Application.Integration;
@@ -422,7 +424,9 @@ public sealed record AltaAsistidaDesdeExtractoCommand(
     decimal TasaIva = 0.16m,
     Guid? ConceptoIvaId = null,
     decimal? MontoBase = null,
-    decimal? MontoIva = null) : IRequest<ExtractoLineaResponse>;
+    decimal? MontoIva = null,
+    Guid? AreaId = null,
+    Guid? EquipoId = null) : IRequest<ExtractoLineaResponse>;
 
 public sealed class AltaAsistidaDesdeExtractoValidator : AbstractValidator<AltaAsistidaDesdeExtractoCommand>
 {
@@ -434,11 +438,18 @@ public sealed class AltaAsistidaDesdeExtractoValidator : AbstractValidator<AltaA
     }
 }
 
+/// <remarks>
+/// H1 paso 3 (86e3z5w25): <c>AreaId</c>/<c>EquipoId</c> = área (Dim2) y equipo (Dim3) que el usuario captura cuando la cuenta del
+/// concepto exige dimensiones (regla C-03, p. ej. comisiones a 601). Contabilidad los valida (activos, de la sucursal, equipo del
+/// área): un dato inválido rechaza la alta; sin el dato la alta procede y la póliza queda en Rechazos. El centro solo viaja en el
+/// evento de la base (el del IVA no genera póliza).
+/// </remarks>
 public sealed class AltaAsistidaDesdeExtractoHandler(
     TesoreriaDbContext db,
     ICurrentUserContext userContext,
     IClock clock,
-    IIntegrationEventPublisher publisher)
+    IIntegrationEventPublisher publisher,
+    IDimensionesCapturaPort? dimensiones = null)
     : IRequestHandler<AltaAsistidaDesdeExtractoCommand, ExtractoLineaResponse>
 {
     public static readonly Guid ConceptoImpuestosId = Guid.Parse("0000000b-1001-0000-0000-000000000005");
@@ -472,11 +483,8 @@ public sealed class AltaAsistidaDesdeExtractoHandler(
         // U-2 (86e3yxngq): la póliza de Contabilidad exige sucursal y el extracto no la trae. Supuesto a validar: la de la cuenta
         // bancaria, tomada del último movimiento de esa cuenta que sí la tiene (depósitos de caja, cobros). Sin ninguno va null y
         // Contabilidad deja el evento en su bandeja con «falta SucursalId». Solo viaja en el evento: el movimiento no cambia.
-        Guid? sucursalId = await db.MovimientosBancarios.AsNoTracking()
-            .Where(m => m.CuentaBancariaId == cuenta.Id && m.SucursalId != null)
-            .OrderByDescending(m => m.FechaValor).ThenByDescending(m => m.Id)
-            .Select(m => m.SucursalId)
-            .FirstOrDefaultAsync(cancellationToken);
+        Guid? sucursalId = await SucursalDeCuentaAsync(db, cuenta.Id, cancellationToken);
+        Guid? centroCostoId = await CentroCostoAsync(command, conciliacion.EmpresaId, sucursalId, concepto.Nombre, linea.Fecha, cancellationToken);
 
         if (command.IncluyeIva)
         {
@@ -538,7 +546,8 @@ public sealed class AltaAsistidaDesdeExtractoHandler(
                 concepto.Id,
                 concepto.Nombre,
                 Iva: ivaMonto,
-                SucursalId: sucursalId), cancellationToken);
+                SucursalId: sucursalId,
+                CentroCostoId: centroCostoId), cancellationToken);
 
             await publisher.PublishAsync(new MovimientoBancarioRegistradoIntegrationEvent(
                 conciliacion.EmpresaId,
@@ -591,7 +600,8 @@ public sealed class AltaAsistidaDesdeExtractoHandler(
                 mov.ReferenciaBancaria,
                 concepto.Id,
                 concepto.Nombre,
-                SucursalId: sucursalId), cancellationToken);
+                SucursalId: sucursalId,
+                CentroCostoId: centroCostoId), cancellationToken);
         }
 
         decimal saldoLibros = await ConciliacionCalculos.CalcularSaldoLibrosAsync(
@@ -600,6 +610,82 @@ public sealed class AltaAsistidaDesdeExtractoHandler(
 
         await db.SaveChangesAsync(cancellationToken);
         return ConciliacionMapper.ToLineaResponse(linea);
+    }
+
+    /// <summary>
+    /// U-2: sucursal de la cuenta bancaria = la del último movimiento de esa cuenta que la tiene (el extracto no la trae).
+    /// H1 paso 3: la misma acota el área y el equipo que se ofrecen y se aceptan.
+    /// </summary>
+    internal static Task<Guid?> SucursalDeCuentaAsync(TesoreriaDbContext db, Guid cuentaBancariaId, CancellationToken ct) =>
+        db.MovimientosBancarios.AsNoTracking()
+            .Where(m => m.CuentaBancariaId == cuentaBancariaId && m.SucursalId != null)
+            .OrderByDescending(m => m.FechaValor).ThenByDescending(m => m.Id)
+            .Select(m => m.SucursalId)
+            .FirstOrDefaultAsync(ct);
+
+    /// <summary>H1 paso 3: centro que viaja en el evento (equipo si se eligió; si no, el área). Un dato inválido rechaza la alta.</summary>
+    private async Task<Guid?> CentroCostoAsync(AltaAsistidaDesdeExtractoCommand command, Guid empresaId, Guid? sucursalId, string concepto,
+        DateOnly fecha, CancellationToken ct)
+    {
+        if (command.AreaId is null && command.EquipoId is null) return null;
+        if (sucursalId is not { } sucursal)
+            throw new BusinessRuleException("TES_DIMENSION_SIN_SUCURSAL",
+                "La cuenta bancaria aún no tiene sucursal (ningún movimiento la trae): no se puede validar el área ni el equipo.");
+        if (dimensiones is null) return command.EquipoId ?? command.AreaId;
+        var r = await dimensiones.ValidarAsync(MovimientoCapturaBancos(empresaId, sucursal, concepto, fecha), command.AreaId, command.EquipoId, ct);
+        if (r.Error is not null) throw new BusinessRuleException("TES_DIMENSION_INVALIDA", r.Error);
+        return r.CentroCostoId;
+    }
+
+    /// <summary>La póliza del alta carga el concepto bancario (rol por concepto) en el campo <c>Base</c> de la plantilla.</summary>
+    internal static MovimientoCaptura MovimientoCapturaBancos(Guid empresaId, Guid sucursalId, string concepto, DateOnly fecha) =>
+        new(empresaId, sucursalId, MovimientoBancarioRegistradoIntegrationEvent.WireEventType, "Base", concepto.Trim(), fecha);
+}
+
+// ============================================================================
+// 6b. Área y equipo para la alta asistida (H1 paso 3)
+// ============================================================================
+
+/// <summary>Qué exige la cuenta del concepto y la sucursal con la que se ofrecen los centros. Sin sucursal no se exige nada.</summary>
+public sealed record DimensionesAltaResponse(Guid? SucursalId, bool ExigeArea, bool ExigeEquipo, string? CuentaCodigo);
+
+public sealed record DimensionesAltaQuery(Guid ConciliacionId, Guid ConceptoId, DateOnly? Fecha) : IRequest<DimensionesAltaResponse>;
+
+public sealed class DimensionesAltaHandler(TesoreriaDbContext db, IDimensionesCapturaPort dimensiones, IClock clock)
+    : IRequestHandler<DimensionesAltaQuery, DimensionesAltaResponse>
+{
+    public async Task<DimensionesAltaResponse> Handle(DimensionesAltaQuery request, CancellationToken cancellationToken)
+    {
+        var (conciliacion, sucursal) = await ConciliacionYSucursalAsync(db, request.ConciliacionId, cancellationToken);
+        var concepto = await db.ConceptosMovimiento.AsNoTracking().FirstOrDefaultAsync(c => c.Id == request.ConceptoId, cancellationToken)
+            ?? throw new EntityNotFoundException("CONCEPTO_NO_ENCONTRADO", "No se encontró el concepto bancario.");
+        if (sucursal is not { } s) return new(null, false, false, null);
+        var fecha = request.Fecha ?? DateOnly.FromDateTime(clock.UtcNow.UtcDateTime);
+        var e = await dimensiones.ExigenciasAsync(
+            AltaAsistidaDesdeExtractoHandler.MovimientoCapturaBancos(conciliacion.EmpresaId, s, concepto.Nombre, fecha), cancellationToken);
+        return new(s, e.ExigeArea, e.ExigeEquipo, e.CuentaCodigo);
+    }
+
+    internal static async Task<(Conciliacion Conciliacion, Guid? Sucursal)> ConciliacionYSucursalAsync(TesoreriaDbContext db, Guid id, CancellationToken ct)
+    {
+        var conciliacion = await db.Conciliaciones.AsNoTracking().FirstOrDefaultAsync(c => c.Id == id, ct)
+            ?? throw new EntityNotFoundException("CONCILIACION_NO_ENCONTRADA", "No se encontró la conciliación.");
+        return (conciliacion, await AltaAsistidaDesdeExtractoHandler.SucursalDeCuentaAsync(db, conciliacion.CuentaBancariaId, ct));
+    }
+}
+
+/// <summary>Áreas (Dim2) o equipos (Dim3) activos de la sucursal de la cuenta bancaria; vacío si la cuenta aún no tiene sucursal.</summary>
+public sealed record CentrosAltaQuery(Guid ConciliacionId, bool Equipos, Guid? AreaId, string? Q, int Limit) : IRequest<IReadOnlyList<CentroOpcionDto>>;
+
+public sealed class CentrosAltaHandler(TesoreriaDbContext db, IDimensionesCapturaPort dimensiones)
+    : IRequestHandler<CentrosAltaQuery, IReadOnlyList<CentroOpcionDto>>
+{
+    public async Task<IReadOnlyList<CentroOpcionDto>> Handle(CentrosAltaQuery request, CancellationToken cancellationToken)
+    {
+        var (conciliacion, sucursal) = await DimensionesAltaHandler.ConciliacionYSucursalAsync(db, request.ConciliacionId, cancellationToken);
+        return sucursal is { } s
+            ? await dimensiones.CentrosAsync(conciliacion.EmpresaId, s, request.Equipos, request.AreaId, request.Q, request.Limit, cancellationToken)
+            : [];
     }
 }
 

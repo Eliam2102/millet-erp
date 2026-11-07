@@ -1,0 +1,272 @@
+using System.Text.Json.Serialization;
+using Millet.SharedKernel.Application.Exceptions;
+using Millet.SharedKernel.Domain;
+
+namespace Millet.Contabilidad.Domain;
+
+/// <summary>Lado fiscal del IVA de un documento. Fijo por ABI: agregar al final.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum LadoIva : short
+{
+    /// <summary>Factura de proveedor: IVA acreditable (pendiente → pagado).</summary>
+    Acreditable = 0,
+    /// <summary>Factura de venta o de anticipo: IVA trasladado (no cobrado → cobrado).</summary>
+    Trasladado = 1,
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum EstadoSaldoIva : short { Vigente = 0, Cancelado = 1 }
+
+/// <summary>Qué movió el saldo: un pago o cobro (reclasifica IVA) o una nota de crédito o de cargo (reduce el documento). Agregar al final.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum TipoMovimientoIva : short { Pago = 0, Nota = 1 }
+
+/// <summary>
+/// C1.6 · saldo del IVA de un documento (factura de proveedor #2, factura de venta #7 o de anticipo #8). Nace con la póliza del documento y
+/// guarda lo que el motor necesita para reclasificar el IVA en proporción a lo pagado o cobrado (flujo de efectivo, LIVA):
+/// <c>IVA reclasificado = IVA × aplicado ÷ base</c>, con base = total menos retenciones (lo que se paga). El pago que salda el documento
+/// toma el remanente, para que no queden centavos en la cuenta de pendiente. Importes en la moneda del documento.
+/// </summary>
+public sealed class SaldoIvaDocumento : IPerteneceAEmpresa
+{
+    /// <summary>Lo aplicado se considera saldado a menos de un centavo de la base.</summary>
+    public const decimal Tolerancia = 0.01m;
+
+    public Guid Id { get; private set; }
+    public Guid EmpresaId { get; set; }
+    public LadoIva Lado { get; private set; }
+    public string OrigenModulo { get; private set; } = string.Empty;
+    public string OrigenTipo { get; private set; } = string.Empty;
+    public Guid DocumentoId { get; private set; }
+    public string? Folio { get; private set; }
+    public string? Uuid { get; private set; }
+    public string? MetodoPago { get; private set; }
+    public Guid? SucursalId { get; private set; }
+    /// <summary>Proveedor (acreditable) o cliente (trasladado).</summary>
+    public Guid? TerceroId { get; private set; }
+    public DateOnly Fecha { get; private set; }
+    public string Moneda { get; private set; } = "MXN";
+    public decimal? TipoCambio { get; private set; }
+    /// <summary>Lo que se paga o cobra: total menos retenciones.</summary>
+    public decimal Base { get; private set; }
+    public decimal Iva { get; private set; }
+    /// <summary>IVA retenido (impuesto 002): a proveedores (por enterar) o por clientes (a favor).</summary>
+    public decimal IvaRetenido { get; private set; }
+    public decimal Aplicado { get; private set; }
+    public decimal IvaReclasificado { get; private set; }
+    public decimal IvaRetenidoReclasificado { get; private set; }
+    /// <summary>
+    /// 86e3zcbjw: retenciones por concepto (clasificador <c>{CONCEPTO}_{IMPUESTO}</c>, ISR e IVA) y cuánto ya movió cada pago o cobro.
+    /// </summary>
+    public List<RetencionSaldoIva> Retenciones { get; private set; } = [];
+    /// <summary>
+    /// 86e3zcbjw (Contabilidad, 6-nov): la factura de proveedor se registró por el total sin la retención; cada pago abona la retención
+    /// que le toca a «retenciones por pagar» y carga al proveedor el pago más esa retención. False en documentos anteriores (su póliza ya
+    /// registró la retención) y en ventas (la retención del cliente va con la factura).
+    /// </summary>
+    public bool RetencionAlPago { get; private set; }
+    public Guid PolizaId { get; private set; }
+    public EstadoSaldoIva Estado { get; private set; }
+    public int Version { get; private set; } = 1;
+
+    private SaldoIvaDocumento() { }
+
+    public static SaldoIvaDocumento Crear(Guid empresaId, LadoIva lado, (string Modulo, string Tipo) origen, Guid documentoId, string? folio,
+        string? uuid, string? metodoPago, Guid? sucursalId, Guid? terceroId, DateOnly fecha, string moneda, decimal? tipoCambio, decimal @base,
+        decimal iva, decimal ivaRetenido, Guid polizaId, IEnumerable<(string Clasificador, decimal Importe)>? retenciones = null,
+        bool retencionAlPago = false) => new()
+    {
+        Retenciones = [.. (retenciones ?? []).Where(r => r.Importe > 0m).GroupBy(r => r.Clasificador)
+            .Select(g => new RetencionSaldoIva { Clasificador = g.Key, Importe = g.Sum(r => r.Importe) })],
+        RetencionAlPago = retencionAlPago,
+        Id = Guid.CreateVersion7(), EmpresaId = empresaId, Lado = lado, OrigenModulo = origen.Modulo, OrigenTipo = origen.Tipo,
+        DocumentoId = documentoId, Folio = folio, Uuid = uuid, MetodoPago = string.IsNullOrWhiteSpace(metodoPago) ? null : metodoPago.Trim(),
+        SucursalId = sucursalId, TerceroId = terceroId, Fecha = fecha, Moneda = moneda, TipoCambio = tipoCambio, Base = @base, Iva = iva,
+        IvaRetenido = ivaRetenido, PolizaId = polizaId, Estado = EstadoSaldoIva.Vigente,
+    };
+
+    public decimal Saldo => Base - Aplicado;
+    public decimal IvaPendiente => Iva - IvaReclasificado;
+    public bool Saldado => Base > 0m && Saldo <= Tolerancia;
+
+    /// <summary>
+    /// Cuánto IVA (y IVA retenido) le toca a un pago o cobro de <paramref name="importe"/>, sin aplicarlo. Proporcional a la base; si el
+    /// pago salda el documento (o lo excede), el remanente. Un documento sin base o cancelado no reclasifica.
+    /// </summary>
+    public (decimal Iva, decimal IvaRetenido) Calcular(decimal importe)
+    {
+        if (Estado != EstadoSaldoIva.Vigente || Base <= 0m || importe <= 0m) return (0m, 0m);
+        if (Aplicado + importe >= Base - Tolerancia) return (IvaPendiente, IvaRetenido - IvaRetenidoReclasificado);
+        var iva = Math.Round(Iva * importe / Base, 2, MidpointRounding.AwayFromZero);
+        var retenido = Math.Round(IvaRetenido * importe / Base, 2, MidpointRounding.AwayFromZero);
+        return (Math.Min(iva, IvaPendiente), Math.Min(retenido, IvaRetenido - IvaRetenidoReclasificado));
+    }
+
+    /// <summary>
+    /// 86e3zcbjw: retención por concepto que le toca a un pago o cobro de <paramref name="importe"/>, con la misma regla que
+    /// <see cref="Calcular"/> (proporcional a la base; el pago que salda toma el remanente).
+    /// </summary>
+    public IReadOnlyList<RetencionAplicadaIva> CalcularRetenciones(decimal importe)
+    {
+        if (Estado != EstadoSaldoIva.Vigente || Base <= 0m || importe <= 0m) return [];
+        var salda = Aplicado + importe >= Base - Tolerancia;
+        return [.. Retenciones.Select(r => new RetencionAplicadaIva
+            {
+                Clasificador = r.Clasificador,
+                Importe = salda ? r.Pendiente : Math.Min(r.Pendiente, Math.Round(r.Importe * importe / Base, 2, MidpointRounding.AwayFromZero)),
+            })
+            .Where(r => r.Importe != 0m)];
+    }
+
+    /// <summary>Registra un pago o cobro con su reclasificación (la que se calculó para su póliza).</summary>
+    public ReclasificacionIva Aplicar((string Modulo, string Tipo) pago, Guid pagoId, DateOnly fecha, decimal importe, decimal iva,
+        decimal ivaRetenido, Guid polizaId, decimal tipoCambio = 1m, IReadOnlyList<RetencionAplicadaIva>? retenciones = null)
+    {
+        if (importe <= 0m)
+            throw new BusinessRuleException("CONTAB_IVA_IMPORTE", "El importe aplicado al documento debe ser mayor a cero.");
+        Aplicado += importe;
+        IvaReclasificado += iva;
+        IvaRetenidoReclasificado += ivaRetenido;
+        var movidas = Mover(retenciones ?? [], 1, tipoCambio);
+        Version++;
+        return new ReclasificacionIva(Guid.CreateVersion7(), EmpresaId, Id, TipoMovimientoIva.Pago, pago, pagoId, fecha, importe, iva,
+            ivaRetenido, polizaId, tipoCambio, movidas);
+    }
+
+    /// <summary>Suma (o resta, con <paramref name="signo"/> −1) lo aplicado por concepto; devuelve lo movido con su importe en MXN.</summary>
+    private List<RetencionAplicadaIva> Mover(IEnumerable<RetencionAplicadaIva> retenciones, int signo, decimal tipoCambio)
+    {
+        var movidas = new List<RetencionAplicadaIva>();
+        foreach (var r in retenciones)
+        {
+            var saldo = Retenciones.FirstOrDefault(x => x.Clasificador == r.Clasificador);
+            if (saldo is null || r.Importe == 0m) continue;
+            saldo.Aplicado += signo * r.Importe;
+            movidas.Add(new RetencionAplicadaIva
+            {
+                Clasificador = r.Clasificador, Importe = r.Importe,
+                ImporteMxn = Math.Round(r.Importe * tipoCambio, 2, MidpointRounding.AwayFromZero),
+            });
+        }
+        // Lista nueva para que EF detecte el cambio de la columna JSON.
+        Retenciones = [.. Retenciones.Select(x => new RetencionSaldoIva { Clasificador = x.Clasificador, Importe = x.Importe, Aplicado = x.Aplicado })];
+        return movidas;
+    }
+
+    /// <summary>C1.6-b: un pago revertido o un cobro cancelado devuelve lo aplicado y el IVA a pendiente.</summary>
+    public void Revertir(ReclasificacionIva r, DateTimeOffset ahora)
+    {
+        if (r.SaldoIvaDocumentoId != Id || r.AnuladaEn is not null || r.Tipo != TipoMovimientoIva.Pago) return;
+        Aplicado -= r.Importe;
+        IvaReclasificado -= r.Iva;
+        IvaRetenidoReclasificado -= r.IvaRetenido;
+        Mover(r.Retenciones, -1, 1m);
+        r.Anular(ahora);
+        Version++;
+    }
+
+    /// <summary>
+    /// Una nota de crédito o de cargo reduce lo que queda por pagar y su IVA: su póliza ya revierte ese IVA pendiente, así que no
+    /// reclasifica. Queda como movimiento <see cref="TipoMovimientoIva.Nota"/> (idempotencia y rastro); K10.7 no lo suma.
+    /// </summary>
+    public ReclasificacionIva Reducir((string Modulo, string Tipo) nota, Guid notaId, DateOnly fecha, decimal @base, decimal iva,
+        decimal ivaRetenido, Guid polizaId, IEnumerable<(string Impuesto, decimal Importe)>? retenciones = null)
+    {
+        var b = Math.Min(Math.Max(0m, @base), Base);
+        var i = Math.Min(Math.Max(0m, iva), Iva - IvaReclasificado);
+        var r = Math.Min(Math.Max(0m, ivaRetenido), IvaRetenido - IvaRetenidoReclasificado);
+        Base -= b; Iva -= i; IvaRetenido -= r;
+        // 86e3zcbjw: la retención de la nota reduce la pendiente del mismo impuesto (concepto por concepto, sin pasar de lo pendiente).
+        var reducidas = new List<RetencionAplicadaIva>();
+        foreach (var (impuesto, importe) in retenciones ?? [])
+        {
+            var resto = importe;
+            foreach (var x in Retenciones.Where(x => RetencionSaldoIva.ImpuestoDe(x.Clasificador) == impuesto && x.Pendiente > 0m))
+            {
+                if (resto <= 0m) break;
+                var parte = Math.Min(resto, x.Pendiente);
+                x.Importe -= parte;
+                resto -= parte;
+                reducidas.Add(new RetencionAplicadaIva { Clasificador = x.Clasificador, Importe = parte, ImporteMxn = parte });
+            }
+        }
+        Retenciones = [.. Retenciones.Select(x => new RetencionSaldoIva { Clasificador = x.Clasificador, Importe = x.Importe, Aplicado = x.Aplicado })];
+        Version++;
+        return new ReclasificacionIva(Guid.CreateVersion7(), EmpresaId, Id, TipoMovimientoIva.Nota, nota, notaId, fecha, b, i, r, polizaId, 1m,
+            reducidas);
+    }
+
+    public void Cancelar()
+    {
+        Estado = EstadoSaldoIva.Cancelado;
+        Version++;
+    }
+}
+
+/// <summary>
+/// C1.6 · un pago o cobro aplicado a un documento con IVA: cuánto se aplicó y cuánto IVA pasó a pagado o cobrado en su póliza. K10.7 suma
+/// estas filas por mes para la liquidación de IVA. Una reversa no se borra: queda con <see cref="AnuladaEn"/>.
+/// </summary>
+public sealed class ReclasificacionIva : IPerteneceAEmpresa
+{
+    public Guid Id { get; private set; }
+    public Guid EmpresaId { get; set; }
+    public Guid SaldoIvaDocumentoId { get; private set; }
+    public TipoMovimientoIva Tipo { get; private set; }
+    public string PagoModulo { get; private set; } = string.Empty;
+    public string PagoTipo { get; private set; } = string.Empty;
+    public Guid PagoId { get; private set; }
+    public DateOnly Fecha { get; private set; }
+    public decimal Importe { get; private set; }
+    public decimal Iva { get; private set; }
+    public decimal IvaRetenido { get; private set; }
+    /// <summary>IVA en MXN como quedó en la póliza (importe × tipo de cambio del pago): K10.7 lo cuadra contra las cuentas.</summary>
+    public decimal IvaMxn { get; private set; }
+    public decimal IvaRetenidoMxn { get; private set; }
+    /// <summary>86e3zcbjw: retención por concepto que movió el pago o cobro (o que redujo la nota).</summary>
+    public List<RetencionAplicadaIva> Retenciones { get; private set; } = [];
+    public Guid PolizaId { get; private set; }
+    public DateTimeOffset? AnuladaEn { get; private set; }
+
+    private ReclasificacionIva() { }
+
+    internal ReclasificacionIva(Guid id, Guid empresaId, Guid saldoId, TipoMovimientoIva tipo, (string Modulo, string Tipo) pago, Guid pagoId,
+        DateOnly fecha, decimal importe, decimal iva, decimal ivaRetenido, Guid polizaId, decimal tipoCambio,
+        List<RetencionAplicadaIva>? retenciones = null)
+    {
+        Retenciones = retenciones ?? [];
+        Id = id; EmpresaId = empresaId; SaldoIvaDocumentoId = saldoId; Tipo = tipo; PagoModulo = pago.Modulo; PagoTipo = pago.Tipo; PagoId = pagoId;
+        Fecha = fecha; Importe = importe; Iva = iva; IvaRetenido = ivaRetenido; PolizaId = polizaId;
+        IvaMxn = Math.Round(iva * tipoCambio, 2, MidpointRounding.AwayFromZero);
+        IvaRetenidoMxn = Math.Round(ivaRetenido * tipoCambio, 2, MidpointRounding.AwayFromZero);
+    }
+
+    internal void Anular(DateTimeOffset ahora) => AnuladaEn = ahora;
+}
+
+/// <summary>86e3zcbjw · retención de un documento por concepto (JSON en el saldo).</summary>
+public sealed class RetencionSaldoIva
+{
+    /// <summary><c>{CONCEPTO}_{IMPUESTO}</c> (p. ej. FLETES_IVA, HONORARIOS_PF_ISR) o solo el impuesto si el documento no trae concepto.</summary>
+    public string Clasificador { get; set; } = string.Empty;
+    public decimal Importe { get; set; }
+    public decimal Aplicado { get; set; }
+
+    [JsonIgnore]
+    public decimal Pendiente => Importe - Aplicado;
+
+    /// <summary>Impuesto del clasificador: el último segmento (ISR, IVA o IEPS).</summary>
+    public static string ImpuestoDe(string clasificador)
+    {
+        var i = clasificador.LastIndexOf('_');
+        return i < 0 ? clasificador : clasificador[(i + 1)..];
+    }
+}
+
+/// <summary>86e3zcbjw · retención que movió un pago, cobro o nota (JSON en la reclasificación).</summary>
+public sealed class RetencionAplicadaIva
+{
+    public string Clasificador { get; set; } = string.Empty;
+    public decimal Importe { get; set; }
+    public decimal ImporteMxn { get; set; }
+}

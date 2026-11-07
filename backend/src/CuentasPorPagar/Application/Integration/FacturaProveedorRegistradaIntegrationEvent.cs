@@ -38,7 +38,9 @@ public sealed record FacturaProveedorRegistradaIntegrationEvent(
     Guid? SucursalId = null,
     Guid? CentroCostoId = null,
     // 86e3tfedr: recepción elegida; null = sin elección (Almacén conserva el vínculo a todas las variante B pendientes de la OC).
-    Guid? RecepcionId = null)
+    Guid? RecepcionId = null,
+    // 86e3zcbjw: concepto fiscal de retención (HONORARIOS_PF, FLETES, SERVICIOS…); Contabilidad lo usa para la cuenta de cada retención.
+    string? ConceptoRetencion = null)
     : IntegrationEvent("cuentas_por_pagar.factura.registrada.v1", EmpresaId, OcurridoEn);
 
 public sealed record LineaFacturadaPayload(
@@ -54,7 +56,8 @@ public sealed record LineaFacturadaPayload(
 /// Retención del CFDI: <c>Impuesto</c> = código SAT (001 ISR, 002 IVA,
 /// 003 IEPS); <c>Tasa</c> null a nivel comprobante.
 /// </summary>
-public sealed record RetencionDetallePayload(string Impuesto, decimal? Tasa, decimal Importe);
+/// 86e3zcbjw: <c>Base</c> = suma de las bases de los conceptos del CFDI que llevan esa retención (la retención es por línea).
+public sealed record RetencionDetallePayload(string Impuesto, decimal? Tasa, decimal Importe, decimal? Base = null);
 
 /// <summary>
 /// Acumulado total facturado para una <c>LineaOcId</c> tras aplicar la

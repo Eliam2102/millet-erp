@@ -3,8 +3,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Millet.Facturacion.Domain.Ports;
 using Microsoft.Extensions.Options;
 using Millet.Integraciones.Aw.Application.Pedidos;
+using Millet.Integraciones.Aw.Application.Pinturas;
 using Millet.Integraciones.Aw.Application.Retorno;
+using Microsoft.Extensions.Logging;
 using Millet.Integraciones.Aw.Infrastructure.NotasCredito;
+using Millet.Integraciones.Aw.Infrastructure.Pinturas;
 using Millet.Integraciones.Aw.Infrastructure.Retorno;
 
 namespace Millet.Integraciones.Aw.Infrastructure.Pedidos;
@@ -53,6 +56,21 @@ public static class PedidosDependencyInjection
         services.AddScoped<IAwArticulosReader, AwArticulosSqlReader>();
         services.AddScoped<IMasterProvisioningPort, AwMasterProvisioningAdapter>();
 
+        // I13.9: pedidos de Planta Pintura en dbo.pinturas_pedido de la misma base (script 16 v2). Pisa
+        // StubPlantaPinturaPedidosReader (cierra <PlantaPinturaOrigenes> en la lectura y el acuse).
+        AddPinturasPedidos(services, configuration);
+        services.AddScoped<IPlantaPinturaPedidosReader>(sp => new PinturasPedidosAdapter(
+            sp.GetRequiredService<IIntegracionSqlConnectionFactory>(), postgres: false,
+            sp.GetRequiredService<IPinturasSucursalResolver>(), sp.GetRequiredService<IOptions<PinturasPedidosOptions>>(),
+            sp.GetRequiredService<ILogger<PinturasPedidosAdapter>>()));
+
         return services;
+    }
+
+    /// <summary>Opciones y resolución de sucursal del lector de Pinturas (las comparten el origen Real y el Demo).</summary>
+    internal static void AddPinturasPedidos(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<PinturasPedidosOptions>().Bind(configuration.GetSection(PinturasPedidosOptions.SectionName));
+        services.AddScoped<IPinturasSucursalResolver, PinturasSucursalResolver>();
     }
 }

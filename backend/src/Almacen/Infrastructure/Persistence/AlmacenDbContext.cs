@@ -361,6 +361,8 @@ public class AlmacenDbContext : BaseDbContext
             b.Property(x => x.FolioMovimiento).HasMaxLength(30);
             b.Property(x => x.CostoUnitarioMxn).HasPrecision(14, 4);
             b.Property(x => x.ValorMxn).HasPrecision(18, 2);
+            b.Property(x => x.AreaClave).HasMaxLength(40);
+            b.Property(x => x.EquipoClave).HasMaxLength(40);
             b.HasIndex(x => new { x.EmpresaId, x.Estado, x.Fecha });
         });
         modelBuilder.Entity<Domain.Conciliacion.ConciliacionDiaria>(b =>

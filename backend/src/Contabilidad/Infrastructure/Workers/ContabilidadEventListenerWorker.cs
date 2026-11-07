@@ -170,7 +170,10 @@ public abstract class ContabilidadEventListenerWorker : BackgroundService, ILoca
     }
 }
 
-/// <summary>C1.5 · <c>facturacion-events</c>: ventas, anticipos, NC, cancelaciones, cobros de mostrador y sesiones de caja (#7–#11).</summary>
+/// <summary>
+/// C1.5 · <c>facturacion-events</c>: ventas, anticipos, NC, cancelaciones, cobros de mostrador y sesiones de caja (#7–#11).
+/// 86e3zcbjx: factura mensual del banco ligada a los cargos de la terminal (comisión e IVA pagado contra el banco).
+/// </summary>
 public sealed class FacturacionContabilidadListenerWorker(ServiceBusClient? client, IServiceScopeFactory scopeFactory,
     ILogger<FacturacionContabilidadListenerWorker> logger) : ContabilidadEventListenerWorker(client, scopeFactory, logger)
 {
@@ -185,7 +188,7 @@ public sealed class FacturacionContabilidadListenerWorker(ServiceBusClient? clie
     [
         NormalizadorEventos.FacturaVentaTimbrada, NormalizadorEventos.FacturaAnticipoTimbrada, NormalizadorEventos.NotaCreditoTimbrada,
         NormalizadorEventos.ComprobanteCancelado, NormalizadorEventos.CobroMostradorRegistrado, NormalizadorEventos.CobroMostradorCancelado,
-        NormalizadorEventos.CajaSesionCerrada,
+        NormalizadorEventos.CajaSesionCerrada, NormalizadorEventos.FacturaBancoTerminalLigada,
     ], StringComparer.Ordinal);
 }
 
@@ -251,6 +254,25 @@ public sealed class AlmacenContabilidadListenerWorker(ServiceBusClient? client, 
     private static readonly FrozenSet<string> Tipos = FrozenSet.ToFrozenSet(
     [
         NormalizadorEventos.CostoImportacionAplicado, NormalizadorEventos.RecepcionOcRegistrada, NormalizadorEventos.RecepcionOcCancelada, NormalizadorEventos.AjusteInventarioAplicado,
-        NormalizadorEventos.SalidaRequisicionRegistrada, NormalizadorEventos.SalidaInventarioRegistrada, NormalizadorEventos.DevolucionInternaAplicada, NormalizadorEventos.DevolucionProveedorRegistrada,
+        NormalizadorEventos.SalidaRequisicionRegistrada, NormalizadorEventos.SalidaInventarioRegistrada, NormalizadorEventos.SalidaRoturaRegistrada, NormalizadorEventos.DevolucionInternaAplicada, NormalizadorEventos.DevolucionProveedorRegistrada,
     ], StringComparer.Ordinal);
+}
+
+/// <summary>
+/// PCV (86e3ke10b) · <c>producto-terminado-events</c>: entrega confirmada de PT (costo de ventas).
+/// PLATFORM-TODO(&lt;TopicProductoTerminado&gt;): solo entrega local (C1.8), igual que los demás consumidores de PT; con Service Bus falta
+/// el topic <c>producto-terminado-events</c> y la suscripción <c>contabilidad-producto-terminado-sub</c> (Bicep). Hasta entonces no se
+/// registra como HostedService en <c>Program.cs</c>.
+/// </summary>
+public sealed class ProductoTerminadoContabilidadListenerWorker(ServiceBusClient? client, IServiceScopeFactory scopeFactory,
+    ILogger<ProductoTerminadoContabilidadListenerWorker> logger) : ContabilidadEventListenerWorker(client, scopeFactory, logger)
+{
+    public const string TopicName = "producto-terminado-events";
+    public const string SubscriptionName = "contabilidad-producto-terminado-sub";
+    public override string Topic => TopicName;
+    public override string Subscription => SubscriptionName;
+    protected override string PrefijoModulo => "producto_terminado.";
+    public override IReadOnlySet<string> TiposContables => Tipos;
+
+    private static readonly FrozenSet<string> Tipos = FrozenSet.ToFrozenSet([NormalizadorEventos.EntregaPtConfirmada], StringComparer.Ordinal);
 }

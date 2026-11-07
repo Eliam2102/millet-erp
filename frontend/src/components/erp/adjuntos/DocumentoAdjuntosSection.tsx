@@ -28,14 +28,23 @@ export function DocumentoAdjuntosSection({
   permiso,
   permisos,
   soloLectura = false,
+  tiposUrl,
+  titulo = 'Adjuntos',
+  subirComoResponsable = false,
 }: {
   base: string;
-  tipo: 'requisicion' | 'factura_proveedor' | 'poliza' | 'linea_revision' | 'oc_respuesta_proveedor' | 'certificado_csd';
+  tipo: 'requisicion' | 'factura_proveedor' | 'poliza' | 'linea_revision' | 'oc_respuesta_proveedor' | 'certificado_csd' | 'incidencia';
   /** Prefijo de la convención `{permiso}.adjuntos-ver|subir|baja`. Se ignora si llegan `permisos`. */
   permiso?: string;
   permisos?: PermisosAdjuntos;
   /** Oculta subir y dar de baja aunque haya permiso (p. ej. póliza ya autorizada). */
   soloLectura?: boolean;
+  /** Catálogo de tipos propio de la entidad (p. ej. `/api/v1/incidencias/tipos-documento`); por omisión, el genérico. */
+  tiposUrl?: string;
+  /** Título de la sección («Evidencia» en incidencias). */
+  titulo?: string;
+  /** Permite subir aunque falte el permiso (p. ej. el responsable de una incidencia). */
+  subirComoResponsable?: boolean;
 }) {
   const codigos: PermisosAdjuntos = permisos ?? {
     ver: `${permiso}.adjuntos-ver`,
@@ -43,12 +52,12 @@ export function DocumentoAdjuntosSection({
     baja: `${permiso}.adjuntos-baja`,
   };
   const canVer = useHasPermission(codigos.ver);
-  const canSubir = useHasPermission(codigos.subir) && !soloLectura;
+  const canSubir = (useHasPermission(codigos.subir) || subirComoResponsable) && !soloLectura;
   const tienePermisoBaja = useHasPermission(codigos.baja ?? '');
   const canBaja = codigos.baja !== undefined && tienePermisoBaja && !soloLectura;
   const [verBajas, setVerBajas] = useState(false);
   const lista = useAdjuntos(base, { enabled: canVer, incluirBajas: tienePermisoBaja && verBajas });
-  const tipos = useTiposDocumento(tipo, { enabled: canVer });
+  const tipos = useTiposDocumento(tipo, { enabled: canVer, url: tiposUrl });
   const subir = useSubirAdjunto(base);
   const baja = useDarDeBajaAdjunto(base);
   const enlace = useEnlaceAdjunto(base);
@@ -69,9 +78,9 @@ export function DocumentoAdjuntosSection({
   return (
     <section
       className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat"
-      aria-label="Adjuntos"
+      aria-label={titulo}
     >
-      <h2 className="text-md font-semibold text-ink">Adjuntos</h2>
+      <h2 className="text-md font-semibold text-ink">{titulo}</h2>
       <AdjuntosManager
         adjuntos={(lista.data ?? []).map((x) => ({
           ...x,
