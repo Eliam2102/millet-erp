@@ -52,6 +52,18 @@ public sealed class NotaCredito : Comprobante
     public string ClaveUnidadSat { get; private set; } = "ACT";
     public string Descripcion { get; private set; } = "Aplicación de anticipo";
 
+    /// <summary>86e3zg0vb: forma de pago SAT de la NC de aplicación de anticipo (c_FormaPago 30, aplicación de anticipos).</summary>
+    public const string FormaPagoAplicacionAnticipo = "30";
+
+    /// <summary>86e3zg0vb: uso CFDI de la NC de aplicación (G02 devoluciones, descuentos o bonificaciones).</summary>
+    public const string UsoCfdiAplicacionAnticipo = "G02";
+
+    /// <summary>
+    /// 86e3zg0vb: tasa de IVA de la NC de aplicación, la del anticipo que aplica (0 = tasa 0 % de exportación, con Tasa 0.000000 en el
+    /// XML). Solo la llena la amortización; null en las demás NC (su tasa se reconstruye de los totales, como antes).
+    /// </summary>
+    public decimal? TasaIvaTraslado { get; private set; }
+
     /// <summary>Momento en que se pidió a Tesorería el reembolso en dinero de esta NC (null = no solicitado).</summary>
     public DateTimeOffset? ReembolsoSolicitadoEn { get; private set; }
 
@@ -274,8 +286,18 @@ public sealed class NotaCredito : Comprobante
             descripcion: "Aplicación de anticipo");
 
         DesglosarTotales(nc, montoTotal, tasaIva);
+        nc.TasaIvaTraslado = tasaIva;
         return nc;
     }
+
+    /// <summary>
+    /// 86e3zg0vb: receptor de la NC de aplicación — el de la factura con uso G02 (Millet, XML reales del 6-nov), salvo que el régimen
+    /// del receptor no admita G02 en el catálogo c_UsoCFDI; entonces conserva el uso de la factura.
+    /// </summary>
+    public static DatosFiscalesReceptor ReceptorAplicacion(DatosFiscalesReceptor receptorFactura) =>
+        CompatibilidadUsoRegimen.EsCompatible(UsoCfdiAplicacionAnticipo, receptorFactura.RegimenFiscal)
+            ? receptorFactura with { UsoCfdi = UsoCfdiAplicacionAnticipo }
+            : receptorFactura;
 
     /// <summary>
     /// Crea la NC por bonificación de una factura de venta en

@@ -2378,6 +2378,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(254)")
                         .HasColumnName("receptor_nombre");
 
+                    b.Property<string>("ReceptorNumRegIdTrib")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("receptor_num_reg_id_trib");
+
                     b.Property<string>("ReceptorPais")
                         .IsRequired()
                         .HasMaxLength(5)
@@ -4315,6 +4320,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("pedido_facturable_id");
 
+                    b.Property<decimal?>("TasaIvaTraslado")
+                        .HasPrecision(7, 6)
+                        .HasColumnType("numeric(7,6)")
+                        .HasColumnName("tasa_iva_traslado");
+
                     b.Property<short>("TipoAnticipo")
                         .HasColumnType("smallint")
                         .HasColumnName("tipo_anticipo");
@@ -4606,6 +4616,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("reembolso_titular");
+
+                    b.Property<decimal?>("TasaIvaTraslado")
+                        .HasPrecision(7, 6)
+                        .HasColumnType("numeric(7,6)")
+                        .HasColumnName("tasa_iva_traslado");
 
                     b.HasIndex("AnticipoOrigenId")
                         .HasDatabaseName("ix_nota_credito_anticipo")
