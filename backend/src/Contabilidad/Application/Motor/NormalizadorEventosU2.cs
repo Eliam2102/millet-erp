@@ -94,7 +94,8 @@ public static partial class NormalizadorEventos
         var signo = string.Equals(m.Sentido, SentidoEgreso, StringComparison.OrdinalIgnoreCase) ? 1m : -1m;
         var iva = m.Iva ?? 0m;
         var concepto = string.IsNullOrWhiteSpace(m.ConceptoNombre) ? null : m.ConceptoNombre.Trim();
-        return new(MovimientoBancarioRegistrado, eventoId, m.EmpresaId, m.FechaValor, doc, m.SucursalId, null, null, null, null,
+        // H1 paso 3 (86e3z5w25): área o equipo capturado en la alta; va en la línea del concepto (plantilla v2, ConCentroCosto).
+        return new(MovimientoBancarioRegistrado, eventoId, m.EmpresaId, m.FechaValor, doc, m.SucursalId, null, null, m.CentroCostoId, null,
             MonedaDe(m.Moneda), null,
             new Dictionary<string, decimal?> { ["Base"] = signo * m.Monto, ["Iva"] = signo * iva, ["Total"] = signo * (m.Monto + iva) },
             [new LineaEventoContable(null, signo * m.Monto, null, false, Clasificador: concepto)], payload);
@@ -124,11 +125,12 @@ public static partial class NormalizadorEventos
     private sealed record DevolucionFaltanteContrato(Guid EmpresaId, DateTimeOffset OcurridoEn, Guid DiferenciaId, Guid SucursalId,
         Guid? CajaMovimientoId, decimal Importe, string? Moneda);
 
-    /// <summary><c>Sentido</c> viaja como número (el outbox no convierte enums): 1 = Ingreso, 2 = Egreso; se acepta también el nombre.</summary>
+    /// <summary><c>Sentido</c> viaja como número (el outbox no convierte enums): 1 = Ingreso, 2 = Egreso; se acepta también el nombre.
+    /// H1 paso 3 (aditivo): <c>CentroCostoId</c> = área o equipo capturado en la alta desde el extracto.</summary>
     private sealed record MovimientoBancarioContrato(Guid EmpresaId, Guid MovimientoBancarioId,
         [property: System.Text.Json.Serialization.JsonConverter(typeof(SentidoJsonConverter))] string? Sentido,
         decimal Monto, string? Moneda, DateOnly FechaValor, string? ReferenciaBancaria, string? ConceptoNombre, decimal? Iva, Guid? SucursalId,
-        Guid? MovimientoBaseId);
+        Guid? MovimientoBaseId, Guid? CentroCostoId = null);
 
     private sealed record ReembolsoContrato(Guid EmpresaId, DateTimeOffset OcurridoEn, Guid DevolucionId, string? DevolucionFolio,
         Guid NotaCreditoId, string? Estado, decimal Importe, string? Moneda, DateOnly? FechaPago);

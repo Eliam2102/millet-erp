@@ -27,6 +27,9 @@ export interface SalidaRotura {
   folioMovimiento: string | null;
   costoUnitarioMxn: number | null;
   valorMxn: number | null;
+  /** 86e3zf04y: área (CeCo) y equipo capturados para la póliza de merma. */
+  areaClave?: string | null;
+  equipoClave?: string | null;
 }
 
 export interface MotivoRotura {
@@ -41,6 +44,27 @@ export interface CapturarRoturaPayload {
   fecha: string;
   motivoCodigo: string;
   comentario: string | null;
+  areaClave?: string | null;
+  equipoClave?: string | null;
+}
+
+/** 86e3zf04y: si la cuenta de merma exige área o equipo (regla C-03) para la ubicación y la fecha. */
+export interface DimensionesRotura {
+  exigeArea: boolean;
+  exigeEquipo: boolean;
+  cuentaCodigo: string | null;
+}
+
+export function useDimensionesRotura(ubicacionId: string | null, fecha: string) {
+  return useQuery({
+    queryKey: almacenKeys.dimensionesRotura(ubicacionId ?? '', fecha),
+    enabled: !!ubicacionId && !!fecha,
+    queryFn: async ({ signal }) => {
+      const qs = new URLSearchParams({ ubicacionId: ubicacionId!, fecha });
+      const { data } = await apiRequest<DimensionesRotura>(`/api/v1/almacen/salidas-rotura/dimensiones?${qs}`, { signal });
+      return data;
+    },
+  });
 }
 
 export function useSalidasRotura() {

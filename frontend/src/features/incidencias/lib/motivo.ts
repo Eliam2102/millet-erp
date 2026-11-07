@@ -12,3 +12,10 @@ export function motivoDesdeError(error: unknown): { codigoMotivo: string | null;
     motivo: (detalle || errorUsuario(error)).slice(0, MAX_MOTIVO),
   };
 }
+
+/** Incidencia que el servidor abrió con el rechazo (Problem Details `incidenciaId`/`incidenciaNumero`), si la hay. */
+export function incidenciaDelRechazo(error: unknown): { id: string; numero: number } | null {
+  if (!esApiError(error)) return null;
+  const { incidenciaId, incidenciaNumero } = error.problem;
+  return incidenciaId && incidenciaNumero ? { id: incidenciaId, numero: incidenciaNumero } : null;
+}

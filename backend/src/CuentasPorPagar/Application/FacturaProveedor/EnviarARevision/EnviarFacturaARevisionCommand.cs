@@ -1,3 +1,6 @@
+using Microsoft.Extensions.Logging;
+using Millet.CuentasPorPagar.Application.Incidencias;
+using Millet.SharedKernel.Application.Incidencias;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -44,13 +47,19 @@ public sealed class EnviarFacturaARevisionHandler : IRequestHandler<EnviarFactur
     private readonly ICurrentUserContext _currentUser;
     private readonly IClock _clock;
 
+    private readonly IIncidenciasPort? _incidencias;
+    private readonly ILogger<EnviarFacturaARevisionHandler>? _logger;
+
     public EnviarFacturaARevisionHandler(
         CuentasPorPagarDbContext db,
         IDependenciaRevisoraReadPort dependenciaPort,
         ICurrentUserContext currentUser,
-        IClock clock)
+        IClock clock,
+        IIncidenciasPort? incidencias = null,
+        ILogger<EnviarFacturaARevisionHandler>? logger = null)
     {
         _db = db; _dependenciaPort = dependenciaPort; _currentUser = currentUser; _clock = clock;
+        _incidencias = incidencias; _logger = logger;
     }
 
     public async Task<EnviarFacturaARevisionResponse> Handle(EnviarFacturaARevisionCommand command, CancellationToken cancellationToken)
@@ -94,6 +103,14 @@ public sealed class EnviarFacturaARevisionHandler : IRequestHandler<EnviarFactur
 
         factura.EnviarARevision(motivo.Id, dependencia.Id, _currentUser.UserId, _clock.UtcNow, command.SolicitanteId);
         await _db.SaveChangesAsync(cancellationToken);
+
+        // U-4 (ALM-costo-06): la revisión por diferencia de dinero contra lo recibido deja su incidencia.
+        if (_incidencias is not null && IncidenciasCxp.MotivosRevisionDeCosto.Contains(motivo.Codigo)
+            && (command.SolicitanteId ?? _currentUser.UserId) is Guid responsable)
+            await IncidenciasCxp.SinRomperAsync(_logger, "abrir la incidencia de la revisión por costo", () =>
+                _incidencias.AbrirAsync(IncidenciasCxp.RevisionPorCosto(factura.Id,
+                    IncidenciasCxp.EtiquetaFactura(factura.SerieProveedor, factura.FolioProveedor, factura.UuidCfdi), factura.SucursalId,
+                    responsable, motivo.Codigo, motivo.Nombre), cancellationToken));
 
         return new EnviarFacturaARevisionResponse(
             Id: factura.Id,

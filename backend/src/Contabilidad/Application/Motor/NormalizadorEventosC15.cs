@@ -20,6 +20,7 @@ public static partial class NormalizadorEventos
     public const string AjusteInventarioAplicado = "almacen.ajuste_inventario.aplicado.v1";
     public const string SalidaRequisicionRegistrada = "almacen.salida_requisicion.registrada.v1";
     public const string SalidaInventarioRegistrada = "almacen.salida_inventario.registrada.v1";
+    public const string SalidaRoturaRegistrada = "almacen.salida_rotura.registrada.v1";
     public const string DevolucionInternaAplicada = "almacen.devolucion_interna.aplicada.v1";
     public const string DevolucionProveedorRegistrada = "almacen.oc_devolucion.registrada.v1";
     public const string FacturaProveedorCancelada = "cuentas_por_pagar.factura.cancelada.v1";
@@ -109,6 +110,7 @@ public static partial class NormalizadorEventos
         AjusteInventarioAplicado => Ajuste(eventoId, payload),
         SalidaRequisicionRegistrada => Salida(eventoId, payload),
         SalidaInventarioRegistrada => SalidaInventario(eventoId, payload),
+        SalidaRoturaRegistrada => SalidaRotura(eventoId, payload),
         NotaCreditoProveedorRegistrada => NotaProveedor(tipo, eventoId, payload, DocNotaCreditoProveedor, TipoDocumentoPuente.NotaCredito),
         NotaCargoAutorizada => NotaProveedor(tipo, eventoId, payload, DocNotaCargo, TipoDocumentoPuente.NotaCargo),
         AnticipoProveedorCapturado => AnticipoProveedor(eventoId, payload),
@@ -219,6 +221,21 @@ public static partial class NormalizadorEventos
                 ["Merma"] = merma ? total : 0m,
                 ["Ajuste"] = ajuste ? total : 0m,
             }, lineas: lineas, payload: payload, centroCostoId: s.CentroCostoId);
+    }
+
+    /// <summary>
+    /// 86e3zf04y: rotura capturada en la pantalla de Almacén (ALM-03). Misma póliza que la rotura de la app de Almacenes
+    /// (<see cref="SalidaInventario"/> con causa rotura): cargo MERMA con el área o equipo de la rotura · abono INVENTARIO por grupo del
+    /// artículo, mismo documento origen (el movimiento de salida). Plantilla propia, sembrada igual que la v2 de salidas.
+    /// </summary>
+    private static EventoContable SalidaRotura(Guid eventoId, string payload)
+    {
+        var r = Leer<SalidaRoturaContrato>(payload);
+        var valor = r.ValorMxn ?? 0m;
+        return Mxn(SalidaRoturaRegistrada, eventoId, r.EmpresaId, r.FechaMovimiento, Doc(DocSalidaInventario, r.MovimientoId, r.FolioMovimiento),
+            r.SucursalId, importes: new() { ["Subtotal"] = valor, ["Merma"] = valor },
+            lineas: [new LineaEventoContable(null, valor, r.CentroCostoId, false, ArticuloId: r.ArticuloId)], payload: payload,
+            centroCostoId: r.CentroCostoId);
     }
 
     // ---------------------------------------------------------------- CxP
@@ -445,6 +462,10 @@ public static partial class NormalizadorEventos
         IReadOnlyList<LineaSalidaInventarioContrato>? Lineas, Guid? SucursalId, Guid? CentroCostoId, string? Causa = null);
 
     private sealed record LineaSalidaInventarioContrato(Guid ArticuloId, decimal MontoMxn, Guid? CentroCostoId);
+
+    /// <summary>Espejo de <c>almacen.salida_rotura.registrada.v1</c> (ALM-03) con solo lo que usa la póliza de merma (86e3zf04y).</summary>
+    private sealed record SalidaRoturaContrato(Guid EmpresaId, Guid MovimientoId, string? FolioMovimiento, DateOnly FechaMovimiento,
+        Guid? SucursalId, Guid ArticuloId, decimal? ValorMxn, Guid? CentroCostoId);
 
     internal sealed record LineaSalidaContrato(Guid LineaSalidaId, Guid ArticuloId, decimal MontoTotalMxn, Guid? CentroCostoId);
 

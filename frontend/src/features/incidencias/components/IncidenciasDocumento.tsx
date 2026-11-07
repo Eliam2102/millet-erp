@@ -23,6 +23,13 @@ export interface IncidenciasDocumentoProps {
   /** Si se pasa, aparece «Registrar incidencia» para este paso del documento. */
   paso?: string;
   pasoReanudacion?: string | null;
+  /** Texto del botón de registro (p. ej. «Reportar diferencia»). */
+  etiquetaRegistrar?: string;
+  /** Responsable sugerido al registrar (p. ej. quien registró el documento). */
+  responsableUsuarioId?: string | null;
+  responsableNombre?: string;
+  /** Título de la sección (por omisión «Incidencias»). */
+  titulo?: string;
 }
 
 /**
@@ -38,6 +45,10 @@ export function IncidenciasDocumento({
   sucursalId,
   paso,
   pasoReanudacion,
+  etiquetaRegistrar = 'Registrar incidencia',
+  responsableUsuarioId,
+  responsableNombre,
+  titulo = 'Incidencias',
 }: IncidenciasDocumentoProps) {
   const puedeVer = useHasPermission(PermisosCanonicos.CompartidoIncidenciasVer);
   const puedeRegistrar = useHasPermission(PermisosCanonicos.CompartidoIncidenciasRegistrar);
@@ -59,16 +70,18 @@ export function IncidenciasDocumento({
         sucursalId: sucursalId ?? null,
         paso,
         pasoReanudacion: pasoReanudacion ?? null,
+        responsableUsuarioId: responsableUsuarioId ?? null,
+        responsableNombre,
       }
     : null;
 
   return (
     <section className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat" aria-label="Incidencias del documento">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-md font-semibold text-ink">Incidencias</h2>
+        <h2 className="text-md font-semibold text-ink">{titulo}</h2>
         {contexto && puedeRegistrar && (
           <Button variant="secondary" size="sm" onClick={() => setRegistrar(true)}>
-            Registrar incidencia
+            {etiquetaRegistrar}
           </Button>
         )}
       </div>

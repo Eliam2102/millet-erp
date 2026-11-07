@@ -75,7 +75,7 @@ public sealed class DocumentosValidosTests
         var vale = await f.MovimientoAsync(Domain.Movimientos.TipoMovimiento.SalidaPorVale, 11);
         var rq = (await f.Rq.ObtenerAsync(f.DocumentoId, default))!;
         var h = new RegularizarSalidaPorValeHandler(f.Db, new P1Fixture.RqPort(estado is null ? null : rq with { Estado = estado }), f.Events);
-        var ex = await Assert.ThrowsAsync<BusinessRuleException>(() => h.Handle(new(vale.Id, f.DocumentoId), default));
+        var ex = await Assert.ThrowsAnyAsync<BusinessRuleException>(() => h.Handle(new(vale.Id, f.DocumentoId), default));
         ex.Code.Should().Be("VALE_RQ_REGULARIZADORA_INVALIDA");
         vale.PendienteRegularizacion.Should().BeTrue();
     }
@@ -109,7 +109,7 @@ public sealed class DocumentosValidosTests
     private static async Task Salir(P1Fixture f, IComprasRequisicionReadPort port, RegistrarSalidaLineaInput[] lineas) => await new RegistrarSalidaConRequisicionHandler(f.Db, port, f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), new P7Support.Conversion(), P7Support.Apartados(f.Db)).Handle(new(f.DocumentoId, P1Fixture.Fecha, Guid.NewGuid(), null, lineas, "Quien recibe"), default);
     private static async Task Rechaza(P1Fixture f, Func<Task> action, string codigo)
     {
-        var ex = await Assert.ThrowsAsync<BusinessRuleException>(action);
+        var ex = await Assert.ThrowsAnyAsync<BusinessRuleException>(action);
         ex.Code.Should().Be(codigo);
         f.Events.Items.Should().BeEmpty();
         (await f.Db.Movimientos.CountAsync()).Should().Be(0);

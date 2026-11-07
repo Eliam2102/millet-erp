@@ -2943,6 +2943,11 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("AreaClave")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("area_clave");
+
                     b.Property<Guid>("ArticuloId")
                         .HasColumnType("uuid")
                         .HasColumnName("articulo_id");
@@ -2955,6 +2960,10 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("CapturadoPor")
                         .HasColumnType("uuid")
                         .HasColumnName("capturado_por");
+
+                    b.Property<Guid?>("CentroCostoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("centro_costo_id");
 
                     b.Property<string>("Comentario")
                         .HasMaxLength(500)
@@ -2989,6 +2998,11 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("EmpresaId")
                         .HasColumnType("uuid")
                         .HasColumnName("empresa_id");
+
+                    b.Property<string>("EquipoClave")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("equipo_clave");
 
                     b.Property<string>("Estado")
                         .IsRequired()

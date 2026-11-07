@@ -50,6 +50,7 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { ProveedorDatosForm } from '@/modules/datos-maestros/components/ProveedorDatosForm';
 import { ProveedorCuentasBancariasSection } from '@/modules/datos-maestros/components/ProveedorCuentasBancariasSection';
 import { ProveedorExpedienteSection } from '@/modules/datos-maestros/components/ProveedorExpedienteSection';
+import { IncidenciasDocumento } from '@/features/incidencias/components/IncidenciasDocumento';
 import { QueFaltaPanel } from '@/modules/datos-maestros/components/QueFaltaPanel';
 import { ProveedorAccesoPortalSection } from '@/modules/datos-maestros/components/ProveedorAccesoPortalSection';
 import { ProveedorBloqueo } from '@/modules/datos-maestros/components/ProveedorBloqueo';
@@ -429,6 +430,13 @@ export function ProveedorDetalle() {
           razonSocial={proveedor.razonSocial}
         />
         <ProveedorExpedienteSection proveedorId={proveedor.id} origen={proveedor.origen ?? null} />
+        {/* U-4: documentos observados y cambios de cuenta rechazados abren su incidencia (86e3yzemw). */}
+        <IncidenciasDocumento
+          modulo="datos_maestros"
+          tipo="proveedor"
+          id={proveedor.id}
+          etiqueta={`${proveedor.clave} · ${proveedor.razonSocial}`}
+        />
         <ProveedorAccesoPortalSection proveedorId={proveedor.id} />
       </div>
 

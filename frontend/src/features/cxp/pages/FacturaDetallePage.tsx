@@ -1,4 +1,5 @@
 import { problemaUsuario } from '@/lib/error-usuario';
+import { IncidenciasDocumento } from '@/features/incidencias/components/IncidenciasDocumento';
 import { errorUsuario } from '@/lib/error-usuario';
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { PageHeader } from '@/components/erp/PageHeader';
@@ -505,6 +506,14 @@ export function FacturaDetallePage() {
             </h2>
             <EvidenciasList facturaId={query.data.id} />
           </section>
+
+          {/* U-4 (ALM-costo-06): diferencia del neto de la factura contra la entrada (revisión por costo o rechazo por tolerancia). */}
+          <IncidenciasDocumento modulo="cuentas_por_pagar" tipo="factura_proveedor" id={query.data.id}
+            titulo="Incidencias de costo de la factura" />
+          {query.data.ordenCompraId && (
+            <IncidenciasDocumento modulo="cuentas_por_pagar" tipo="orden_compra" id={query.data.ordenCompraId}
+              titulo="Facturas de la orden rechazadas por tolerancia" />
+          )}
 
           <ConfirmarAccionDialog
             open={autorizarAbierto}

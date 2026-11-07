@@ -14,8 +14,10 @@ public interface IDimensionesSalidaInventarioPort
 /// <param name="Causa">La causa del evento (consumo, rotura, daño, salida_manual, salida_no_planificada).</param>
 /// <param name="AreaClave">Clave del CeCo (Dim2) capturada; null o vacía = no se capturó.</param>
 /// <param name="EquipoClave">Clave del equipo (Dim3) capturada; null o vacía = no se capturó.</param>
+/// <param name="TipoEvento">Evento cuya plantilla carga la póliza; null = <c>almacen.salida_inventario.registrada.v1</c>. La rotura de
+/// la pantalla de Almacén usa <c>almacen.salida_rotura.registrada.v1</c> (86e3zf04y).</param>
 public sealed record SolicitudDimensionesSalida(
-    Guid EmpresaId, Guid SucursalId, string Causa, DateOnly Fecha, string? AreaClave, string? EquipoClave);
+    Guid EmpresaId, Guid SucursalId, string Causa, DateOnly Fecha, string? AreaClave, string? EquipoClave, string? TipoEvento = null);
 
 /// <summary>
 /// <c>Error</c>: clave inexistente, inactiva, de otra sucursal o equipo de otra área (dato inválido: no se debe aceptar).
