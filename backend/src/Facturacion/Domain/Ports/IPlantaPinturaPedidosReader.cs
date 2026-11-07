@@ -6,9 +6,9 @@ namespace Millet.Facturacion.Domain.Ports;
 /// Puerto de lectura de órdenes facturables de Planta Pintura (§9, §12.1,
 /// F10-PR2). El <c>PlantaPinturaImportWorker</c> las consume y las envía a
 /// <c>ImportarPedidoPlantaPinturaCommand</c>. A diferencia de A+W, Planta Pintura
-/// <b>exige master preexistente</b> (sin auto-provisión). Dueño real:
-/// <c>Integraciones.Origenes</c> (vía Hybrid Connection); en dev es stub vacío
-/// (<c>PLATFORM-TODO(&lt;PlantaPinturaOrigenes&gt;)</c>).
+/// <b>exige master preexistente</b> (sin auto-provisión). Adaptador real:
+/// <c>PinturasPedidosAdapter</c> (Integraciones.Aw, I13.9) sobre <c>dbo.pinturas_pedido</c>
+/// de <c>MILLET_INTEGRACION</c>; sin conexión queda el stub vacío.
 /// </summary>
 public interface IPlantaPinturaPedidosReader
 {

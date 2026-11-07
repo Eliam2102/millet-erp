@@ -884,6 +884,17 @@ export interface AltaAsistidaInput {
   conceptoIvaId?: string;
   montoBase?: number;
   montoIva?: number;
+  /** H1 paso 3: área (Dim2) y equipo (Dim3) cuando la cuenta del concepto los exige (regla C-03). */
+  areaId?: string;
+  equipoId?: string;
+}
+
+/** H1 paso 3: qué exige la cuenta del concepto y la sucursal de la cuenta bancaria (null si aún no se conoce). */
+export interface DimensionesAlta {
+  sucursalId: string | null;
+  exigeArea: boolean;
+  exigeEquipo: boolean;
+  cuentaCodigo: string | null;
 }
 
 export interface MarcarPartidaTransitoInput {

@@ -166,7 +166,9 @@ public static class ConciliacionesEndpoints
                 request.TasaIva ?? 0.16m,
                 request.ConceptoIvaId,
                 request.MontoBase,
-                request.MontoIva);
+                request.MontoIva,
+                request.AreaId,
+                request.EquipoId);
 
             var res = await mediator.Send(command, ct);
             return Results.Ok(res);
@@ -175,6 +177,25 @@ public static class ConciliacionesEndpoints
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaConciliacionOperar)
         .WithName("AltaAsistidaConciliacion")
         .Produces<ExtractoLineaResponse>(StatusCodes.Status200OK);
+
+        // 8b. H1 paso 3: qué exige la cuenta del concepto (regla C-03) y áreas o equipos de la sucursal de la cuenta bancaria
+        conciliaciones.MapGet("/{id:guid}/alta-asistida/dimensiones", async (
+            Guid id, [FromQuery] Guid conceptoId, [FromQuery] DateOnly? fecha, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new DimensionesAltaQuery(id, conceptoId, fecha), ct)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaConciliacionOperar)
+        .WithName("DimensionesAltaAsistida")
+        .WithSummary("Área y equipo que exige la cuenta del concepto bancario (regla C-03)")
+        .Produces<DimensionesAltaResponse>(StatusCodes.Status200OK);
+
+        conciliaciones.MapGet("/{id:guid}/alta-asistida/centros", async (
+            Guid id, [FromQuery] string? nivel, [FromQuery] Guid? dim2Id, [FromQuery] string? q, [FromQuery] int? limit,
+            IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new CentrosAltaQuery(id, string.Equals(nivel, "Dim3", StringComparison.OrdinalIgnoreCase), dim2Id, q,
+                Math.Clamp(limit ?? 50, 1, 200)), ct)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaConciliacionOperar)
+        .WithName("CentrosAltaAsistida")
+        .WithSummary("Áreas (Dim2) o equipos (Dim3) activos de la sucursal de la cuenta bancaria")
+        .Produces<IReadOnlyList<Millet.Contabilidad.Application.Dimensiones.CentroOpcionDto>>(StatusCodes.Status200OK);
 
         // 9. Marcar partida en tránsito (P9.4)
         conciliaciones.MapPost("/{id:guid}/partidas-transito", async (
@@ -272,7 +293,9 @@ public sealed record AltaAsistidaRequest(
     decimal? TasaIva = 0.16m,
     Guid? ConceptoIvaId = null,
     decimal? MontoBase = null,
-    decimal? MontoIva = null);
+    decimal? MontoIva = null,
+    Guid? AreaId = null,
+    Guid? EquipoId = null);
 
 public sealed record MarcarPartidaTransitoRequest(
     Guid ExtractoLineaId,

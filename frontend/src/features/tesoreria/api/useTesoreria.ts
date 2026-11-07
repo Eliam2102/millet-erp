@@ -46,6 +46,7 @@ import type {
   EmparejarManualInput,
   DesemparejarLineaInput,
   AltaAsistidaInput,
+  DimensionesAlta,
   MarcarPartidaTransitoInput,
   CerrarConciliacionInput,
   ReabrirConciliacionInput,
@@ -1288,6 +1289,26 @@ export function useDesemparejarLinea() {
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
     },
   });
+}
+
+/** H1 paso 3: área y equipo que exige la cuenta del concepto (regla C-03) en la alta asistida. */
+export function useDimensionesAlta(conciliacionId: string | undefined, conceptoId: string, fecha: string | undefined) {
+  return useQuery({
+    queryKey: [...tesoreriaKeys.conciliacion(conciliacionId ?? ''), 'dimensiones-alta', conceptoId, fecha ?? ''] as const,
+    enabled: !!conciliacionId && !!conceptoId,
+    queryFn: async ({ signal }) =>
+      (
+        await apiRequest<DimensionesAlta>(
+          `${BASE}/conciliaciones/${conciliacionId}/alta-asistida/dimensiones?conceptoId=${conceptoId}${fecha ? `&fecha=${fecha.slice(0, 10)}` : ''}`,
+          { signal },
+        )
+      ).data,
+  });
+}
+
+/** Selector de áreas y equipos de la sucursal de la cuenta bancaria (mismo contrato que el de Contabilidad). */
+export function endpointCentrosAlta(conciliacionId: string): string {
+  return `${BASE}/conciliaciones/${conciliacionId}/alta-asistida/centros`;
 }
 
 export function useAltaAsistida() {

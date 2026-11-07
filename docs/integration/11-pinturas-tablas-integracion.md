@@ -32,7 +32,10 @@ El índice filtrado de pendientes exige `QUOTED_IDENTIFIER ON`. sqlcmd lo abre e
 ## Código del ERP que depende de esto
 
 - `ImportarPedidoPlantaPinturaHandler`: mensajes de rechazo con campo y valor (los nombres son los de las columnas de `pinturas_pedido`). Pruebas en `PlantaPinturaTests`.
-- Sigue pendiente (sin tarea): lector real de `pinturas_pedido` (hoy `StubPlantaPinturaPedidosReader`, 0 pedidos), publicador de los catálogos, contacto y celular en el cliente del ERP, catálogo de obras. Al construir el lector: `cliente_clave` llega entero y `ObraId` del puerto es `long?` mientras `obra_clave` es texto; hay que alinearlos.
+- Lector real (I13.9): `PinturasPedidosAdapter` (`backend/src/Integraciones.Aw/Infrastructure/Pinturas/`). Lee `erp_resultado IS NULL` por `creado_at, id` con el nombre del servicio y la obra, y escribe el acuse solo si la fila sigue pendiente (`... AND erp_resultado IS NULL`). Usa `ConnectionStrings:AwIntegracionDb` (login `millet_erp_integracion`); sin ella queda `StubPlantaPinturaPedidosReader` (0 pedidos). Con el origen Demo lee la copia PostgreSQL (`tools/aw-origen-demo/pinturas.sql`).
+- Configuración `IntegracionesAw:Pinturas`: `SucursalClave` (la tabla no trae sucursal; vacía = no lee), `ComportamientoFiscal` (por omisión `MostradorInmediato`, a validar) y `SqlQueryTimeoutSeconds`. El worker conserva sus candados (`Facturacion:Workers:PlantaPinturaImport`: `EmpresaId`, `Disabled`).
+- Mapeo: `cliente_clave` (int) se busca como texto en `Cliente.ReferenciaExterna`; `servicio_clave` en la referencia del producto; `iva_porcentaje` 16 → 0.16; versión fija 1 (sin reenvío); `ObraId` solo si la obra viene de A+W (`pinturas_obra.referencia_aw`); la fila completa queda como payload crudo.
+- Sigue pendiente (sin tarea): publicador de los catálogos, contacto y celular en el cliente del ERP, catálogo de obras, y el retorno de estado/UUID a Pinturas (por confirmar con TI; la tabla no tiene columnas para eso).
 
 ## Preguntas abiertas (campos configurables, sin decidir)
 

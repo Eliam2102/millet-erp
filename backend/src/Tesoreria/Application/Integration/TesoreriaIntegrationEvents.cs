@@ -227,6 +227,8 @@ public sealed record PropuestaAplicacionRechazadaIntegrationEvent(
 /// U-2 (86e3yxngq, aditivo): <c>SucursalId</c> = sucursal del movimiento (la póliza la exige); <c>MovimientoBaseId</c> = en el
 /// movimiento de IVA de un alta «comisión + IVA», el id de su base: Contabilidad ya lo contabilizó con la base (campo <c>Iva</c>)
 /// y no genera otra póliza.
+/// H1 paso 3 (86e3z5w25, aditivo): <c>CentroCostoId</c> = área o equipo capturado en la alta (el equipo si se eligió); la póliza lo
+/// lleva en la línea del concepto. Solo en el evento de la base.
 /// </summary>
 public sealed record MovimientoBancarioRegistradoIntegrationEvent(
     Guid EmpresaId,
@@ -242,7 +244,8 @@ public sealed record MovimientoBancarioRegistradoIntegrationEvent(
     string? ConceptoNombre = null,
     decimal? Iva = null,
     Guid? SucursalId = null,
-    Guid? MovimientoBaseId = null)
+    Guid? MovimientoBaseId = null,
+    Guid? CentroCostoId = null)
     : IntegrationEvent(WireEventType, EmpresaId, OcurridoEn)
 {
     public const string WireEventType = "tesoreria.movimiento-bancario.registrado.v1";

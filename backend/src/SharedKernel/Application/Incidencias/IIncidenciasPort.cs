@@ -3,7 +3,8 @@ namespace Millet.SharedKernel.Application.Incidencias;
 /// <summary>
 /// Solicitud para abrir una incidencia desde la rama de falla de un paso (U-4). <paramref name="Paso"/> y
 /// <paramref name="PasoReanudacion"/> son claves de <see cref="PasosIncidencia"/>; <paramref name="DetalleClave"/>
-/// distingue varias del mismo paso y documento (p. ej. la línea).
+/// distingue varias del mismo paso y documento (p. ej. la línea). <paramref name="EvidenciaAdjuntoIds"/>: adjuntos ya
+/// guardados (p. ej. el documento observado) que quedan como evidencia de la incidencia, sin volver a subir el archivo.
 /// </summary>
 public sealed record AbrirIncidenciaSolicitud(
     string Modulo,
@@ -19,7 +20,8 @@ public sealed record AbrirIncidenciaSolicitud(
     string? DetalleClave = null,
     DateOnly? FechaCompromiso = null,
     string? PasoReanudacion = null,
-    string? RutaReanudacion = null);
+    string? RutaReanudacion = null,
+    IReadOnlyList<Guid>? EvidenciaAdjuntoIds = null);
 
 /// <summary>Resultado de abrir: el id y si ya existía una pendiente igual (no se duplica).</summary>
 public sealed record IncidenciaAbierta(Guid Id, long Numero, bool YaExistia);
