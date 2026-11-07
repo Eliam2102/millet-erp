@@ -239,6 +239,7 @@ public static partial class NormalizadorEventos
             {
                 ["Subtotal"] = n.Subtotal, ["Iva"] = n.Iva, ["RetencionesTotal"] = retenciones, ["Total"] = total,
                 ["TotalMenosRetenciones"] = total, // el Total del CFDI ya viene neto de retenciones
+                [RetencionesContables.CampoTotalMas] = total + retenciones, // 86e3zcbjw: #3b/#3c v3 (factura por el total)
             },
             [], payload, puente, n.FacturaOrigenId);
     }
@@ -318,6 +319,8 @@ public static partial class NormalizadorEventos
         var retenciones = f.RetencionesTotal ?? 0m;
         var lineas = (f.Lineas ?? [])
             .Select(l => new LineaEventoContable(null, l.Importe - l.Descuento, null, false, Clasificador: l.TipoProducto)).ToList();
+        // 86e3zcbjw: una línea por concepto de retención del cliente (fletes, servicios, desperdicio, importación) → su cuenta (#7 v3).
+        lineas.AddRange(RetencionesContables.Lineas(f.Retenciones, null));
         return new(FacturaVentaTimbrada, eventoId, f.EmpresaId, f.FechaContable ?? FechaContable.HoyLocal(f.OcurridoEn),
             Doc(DocComprobante, f.FacturaVentaId, f.Folio, f.Uuid), f.SucursalId, null, f.ClienteId, null, null, MonedaDe(f.Moneda),
             f.TipoCambio,
@@ -478,7 +481,8 @@ public static partial class NormalizadorEventos
 
     private sealed record FacturaVentaContrato(Guid EmpresaId, DateTimeOffset OcurridoEn, Guid FacturaVentaId, string? Uuid, decimal Total,
         string? Moneda, string? Folio, decimal? Subtotal, decimal? Descuento, decimal? Iva, decimal? RetencionesTotal, Guid? SucursalId,
-        Guid? ClienteId, decimal? TipoCambio, DateOnly? FechaContable, IReadOnlyList<FacturaLineaContrato>? Lineas);
+        Guid? ClienteId, decimal? TipoCambio, DateOnly? FechaContable, IReadOnlyList<FacturaLineaContrato>? Lineas,
+        IReadOnlyList<RetencionesContables.RetencionContrato>? Retenciones = null);
 
     private sealed record FacturaLineaContrato(string? TipoProducto, decimal Importe, decimal Descuento);
 

@@ -17,7 +17,7 @@ public sealed record CuadreFacturaBancoResponse(
 
 public sealed record FacturaBancoTerminalResponse(
     Guid Id, Guid CfdiRecibidoId, string UuidCfdi, string RfcEmisor, int Anio, int Mes, decimal Comision,
-    decimal IvaComision, decimal Total, int Cargos, DateTimeOffset LigadaEn);
+    decimal IvaComision, decimal Total, int Cargos, DateTimeOffset LigadaEn, decimal Redondeo = 0m);
 
 /// <summary>
 /// Cuadre de los cargos del mes (liquidaciones sin factura) contra un CFDI del banco
@@ -32,8 +32,9 @@ public sealed record CfdisBancoCandidatosQuery(int Anio, int Mes, string? RfcEmi
 public sealed record FacturasBancoTerminalQuery(int Limit = 24) : IRequest<IReadOnlyList<FacturaBancoTerminalResponse>>;
 
 /// <summary>
-/// Liga la factura mensual del banco a los cargos del mes (criterio 4) si cuadra al
-/// centavo; si no, responde la diferencia y no liga nada (criterio 5).
+/// Liga la factura mensual del banco a los cargos del mes (criterio 4) si cuadra con
+/// diferencia de hasta $0.01 (86e3zcbjx; la diferencia va a redondeo en la póliza); si no,
+/// responde la diferencia y no liga nada (criterio 5).
 /// </summary>
 public sealed record LigarFacturaBancoTerminalCommand(int Anio, int Mes, Guid CfdiRecibidoId) : IRequest<FacturaBancoTerminalResponse>;
 
@@ -73,7 +74,7 @@ public sealed class FacturaBancoTerminalHandlers(
             .OrderByDescending(f => f.Anio).ThenByDescending(f => f.Mes).ThenByDescending(f => f.LigadaEn)
             .Take(Math.Clamp(query.Limit, 1, 120))
             .Select(f => new FacturaBancoTerminalResponse(f.Id, f.CfdiRecibidoId, f.UuidCfdi, f.RfcEmisor, f.Anio, f.Mes,
-                f.Comision, f.IvaComision, f.Total, f.Cargos, f.LigadaEn))
+                f.Comision, f.IvaComision, f.Total, f.Cargos, f.LigadaEn, f.Redondeo))
             .ToListAsync(cancellationToken);
 
     public async Task<FacturaBancoTerminalResponse> Handle(LigarFacturaBancoTerminalCommand command, CancellationToken cancellationToken)
@@ -94,14 +95,33 @@ public sealed class FacturaBancoTerminalHandlers(
         var cuadre = CuadreFacturaBanco.Calcular(command.Anio, command.Mes, cargos, cfdi.Subtotal, cfdi.Iva, cfdi.Total);
         var factura = FacturaBancoTerminal.Ligar(empresaId, cuadre, cfdi.Id, cfdi.Uuid, cfdi.RfcEmisor, cargos, usuarioId, clock.UtcNow);
         db.FacturasBancoTerminal.Add(factura);
+        var sucursalId = await SucursalDeLaComisionAsync(cargos, ct);
         await eventos.PublishAsync(new TerminalFacturaBancoLigadaIntegrationEvent(
             empresaId, clock.UtcNow, factura.Id, factura.CfdiRecibidoId, factura.UuidCfdi, factura.RfcEmisor, factura.Anio,
             factura.Mes, factura.Comision, factura.IvaComision, factura.Total,
-            cargos.OrderBy(c => c.Fecha).Select(c => new CargoTerminalFacturado(c.Id, c.Folio, c.Fecha, c.Comision, c.IvaComision)).ToList()),
+            cargos.OrderBy(c => c.Fecha).Select(c => new CargoTerminalFacturado(c.Id, c.Folio, c.Fecha, c.Comision, c.IvaComision)).ToList(),
+            factura.ComisionFactura, factura.IvaFactura, factura.Redondeo, sucursalId),
             ct);
         await db.SaveChangesAsync(ct);
         return new(factura.Id, factura.CfdiRecibidoId, factura.UuidCfdi, factura.RfcEmisor, factura.Anio, factura.Mes,
-            factura.Comision, factura.IvaComision, factura.Total, factura.Cargos, factura.LigadaEn);
+            factura.Comision, factura.IvaComision, factura.Total, factura.Cargos, factura.LigadaEn, factura.Redondeo);
+    }
+
+    /// <summary>
+    /// Sucursal de la póliza de la factura del banco (86e3zcbjx): la de las ventas con más comisión del mes. Supuesto a validar:
+    /// la póliza lleva una sola sucursal y la terminal no trae la suya; con empate gana la de menor id para que sea estable.
+    /// </summary>
+    private async Task<Guid?> SucursalDeLaComisionAsync(IReadOnlyCollection<LiquidacionTerminal> cargos, CancellationToken ct)
+    {
+        var ids = cargos.Select(c => c.Id).ToList();
+        var ventas = await db.TransaccionesTerminal.AsNoTracking()
+            .Where(t => t.LiquidacionId != null && ids.Contains(t.LiquidacionId.Value) && t.SucursalId != null)
+            .Select(t => new { t.SucursalId, t.Comision })
+            .ToListAsync(ct);
+        return ventas.GroupBy(v => v.SucursalId!.Value)
+            .Select(g => (Sucursal: g.Key, Comision: g.Sum(v => v.Comision ?? 0m)))
+            .OrderByDescending(g => g.Comision).ThenBy(g => g.Sucursal)
+            .Select(g => (Guid?)g.Sucursal).FirstOrDefault();
     }
 
     /// <summary>Cargos del mes (por fecha de liquidación, supuesto a validar) que aún no tienen factura del banco.</summary>

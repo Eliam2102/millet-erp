@@ -1310,6 +1310,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("comision");
 
+                    b.Property<decimal>("ComisionFactura")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("comision_factura");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -1331,6 +1336,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("iva_comision");
 
+                    b.Property<decimal>("IvaFactura")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("iva_factura");
+
                     b.Property<DateTimeOffset>("LigadaEn")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("ligada_en");
@@ -1342,6 +1352,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                     b.Property<int>("Mes")
                         .HasColumnType("integer")
                         .HasColumnName("mes");
+
+                    b.Property<decimal>("Redondeo")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("redondeo");
 
                     b.Property<string>("RfcEmisor")
                         .IsRequired()
@@ -2820,6 +2835,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)")
                         .HasColumnName("clave_unidad_sat");
+
+                    b.Property<string>("ConceptoRetencion")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("concepto_retencion");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")

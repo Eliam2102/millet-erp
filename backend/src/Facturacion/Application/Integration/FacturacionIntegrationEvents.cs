@@ -51,7 +51,8 @@ public sealed record FacturaVentaTimbradaIntegrationEvent(
 /// de G1.6): <c>Impuesto</c> = código SAT (001 ISR, 002 IVA); <c>Tasa</c> null
 /// a nivel comprobante.
 /// </summary>
-public sealed record RetencionContablePayload(string Impuesto, decimal? Tasa, decimal Importe);
+/// 86e3zcbjw: <c>Concepto</c> = concepto de la retención del cliente (FLETES, SERVICIOS, DESPERDICIO, IMPORTACION) para su cuenta.
+public sealed record RetencionContablePayload(string Impuesto, decimal? Tasa, decimal Importe, string? Concepto = null);
 
 /// <summary>
 /// Línea de factura para separar ventas por tipo de producto (U1.6).
@@ -271,6 +272,8 @@ public sealed record VentaTerminalLiquidada(Guid CobroMostradorId, Guid Sucursal
 // Una por folio de liquidación del banco. Póliza esperada (C1.5): cargo a bancos
 // por Neto, a comisiones por tarjeta (601.75) por Comision y a IVA pendiente de
 // pago por IvaComision; abono a «COBROS T/C, T/D» por Bruto.
+// Ojo (86e3zcbjx): la comisión y su IVA ya los registra la póliza de la factura del banco
+// (comisión + IVA pagado contra el banco); al conectar esta póliza no deben ir dos veces.
 // PLATFORM-TODO(<PolizaLiquidacionTerminal>): Contabilidad aún no consume este evento.
 public sealed record TerminalLiquidacionRegistradaIntegrationEvent(
     Guid EmpresaId,
@@ -286,11 +289,13 @@ public sealed record TerminalLiquidacionRegistradaIntegrationEvent(
     : IntegrationEvent("facturacion.terminal.liquidacion-registrada.v1", EmpresaId, OcurridoEn);
 
 // ---- Factura mensual del banco ligada a los cargos de la terminal (86e3xt2q8, Parte B) ----
-// Se publica cuando la comisión y el IVA del mes cuadran con el CFDI del banco. Póliza
-// esperada (C1.5): el IVA de las comisiones pasa de pendiente de pago a pagado
-// (acreditable) por IvaComision, con el folio fiscal de la factura. No hay cuenta por pagar:
-// el banco ya cobró la comisión al liquidar (a validar con el negocio).
-// PLATFORM-TODO(<PolizaFacturaBancoTerminal>): Contabilidad aún no consume este evento.
+// Se publica cuando la comisión, el IVA y el total del mes cuadran con el CFDI del banco con
+// diferencia de hasta $0.01 (86e3zcbjx). Comision, IvaComision y Total son los de los cargos (lo
+// que salió del banco); ComisionFactura e IvaFactura, los del CFDI; Redondeo = cargos − CFDI.
+// Póliza (Contabilidad, 86e3zcbjx): cargo a comisiones bancarias por ComisionFactura, a IVA
+// acreditable pagado por IvaFactura y a redondeo por Redondeo (con signo); abono al banco de la
+// terminal por Total. Sin cuenta por pagar: el banco ya cobró la comisión al liquidar.
+// SucursalId = la de la mayor parte de la comisión del mes (supuesto a validar).
 public sealed record TerminalFacturaBancoLigadaIntegrationEvent(
     Guid EmpresaId,
     DateTimeOffset OcurridoEn,
@@ -303,7 +308,11 @@ public sealed record TerminalFacturaBancoLigadaIntegrationEvent(
     decimal Comision,
     decimal IvaComision,
     decimal Total,
-    IReadOnlyList<CargoTerminalFacturado> Cargos)
+    IReadOnlyList<CargoTerminalFacturado> Cargos,
+    decimal ComisionFactura = 0m,
+    decimal IvaFactura = 0m,
+    decimal Redondeo = 0m,
+    Guid? SucursalId = null)
     : IntegrationEvent("facturacion.terminal.factura-banco-ligada.v1", EmpresaId, OcurridoEn);
 
 public sealed record CargoTerminalFacturado(Guid LiquidacionId, string FolioLiquidacion, DateOnly Fecha, decimal Comision, decimal IvaComision);

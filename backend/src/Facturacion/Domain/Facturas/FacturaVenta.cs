@@ -231,7 +231,8 @@ public sealed class FacturaVenta : Comprobante
         decimal? tasaIvaTraslado,
         decimal? tasaRetencionIva,
         decimal? tasaRetencionIsr,
-        bool requierePedimento = false, string? referencia = null, decimal? pesoKg = null, decimal? areaPie2 = null)
+        bool requierePedimento = false, string? referencia = null, decimal? pesoKg = null, decimal? areaPie2 = null,
+        string? conceptoRetencion = null)
     {
         if (Estado != EstadoTimbrado.Borrador)
             throw new BusinessRuleException(
@@ -253,7 +254,8 @@ public sealed class FacturaVenta : Comprobante
             tasaIvaTraslado: tasaIvaTraslado,
             tasaRetencionIva: tasaRetencionIva,
             tasaRetencionIsr: tasaRetencionIsr,
-            requierePedimento: requierePedimento, referencia: referencia, pesoKg: pesoKg, areaPie2: areaPie2);
+            requierePedimento: requierePedimento, referencia: referencia, pesoKg: pesoKg, areaPie2: areaPie2,
+            conceptoRetencion: conceptoRetencion);
 
         _lineas.Add(linea);
         return linea;

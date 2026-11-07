@@ -27,6 +27,9 @@ function mxn(v: number | null | undefined): string {
   return v == null ? '—' : v.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
 }
 
+/** Diferencia aceptada entre la factura del banco y los cargos del mes (Tesorería, 4-nov). */
+const TOLERANCIA = 0.01;
+
 /** Mes anterior en formato `AAAA-MM`: el banco factura el mes vencido. */
 function mesAnterior(hoy = new Date()): string {
   const d = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
@@ -40,8 +43,8 @@ function nombreMes(anio: number, mes: number): string {
 /**
  * 86e3xt2q8 · Parte B: el supervisor elige la factura mensual del banco (CFDI
  * recibido en CxP) y la compara contra la comisión y el IVA de los cargos del mes.
- * Si cuadra al centavo, la liga a cada cargo y el IVA pasa de pendiente a pagado;
- * si no, muestra la diferencia y no liga nada.
+ * Si cuadra (diferencia de hasta $0.01, que va a redondeo), la liga a cada cargo y nace
+ * la póliza de la comisión con su IVA pagado; si no, muestra la diferencia y no liga nada.
  */
 export function FacturaBancoTerminalSection() {
   const [periodo, setPeriodo] = useState(mesAnterior);
@@ -88,8 +91,8 @@ export function FacturaBancoTerminalSection() {
           Factura del banco
         </h3>
         <p className="text-xs text-ink-muted">
-          Elige la factura mensual de comisiones del banco. Se liga a los cargos del mes solo si la comisión y el IVA
-          cuadran al centavo.
+          Elige la factura mensual de comisiones del banco. Se liga a los cargos del mes solo si la comisión, el IVA y
+          el total cuadran con una diferencia de hasta $0.01, que va a redondeo.
         </p>
       </div>
 
@@ -160,7 +163,7 @@ export function FacturaBancoTerminalSection() {
                   <TableCell className="text-right tabular-nums"><MoneyDisplay amount={cargos} currency="MXN" /></TableCell>
                   <TableCell className="text-right tabular-nums"><MoneyDisplay amount={factura} currency="MXN" /></TableCell>
                   <TableCell
-                    className={`text-right tabular-nums ${diferencia != null && diferencia !== 0 ? 'text-danger-fg' : ''}`}
+                    className={`text-right tabular-nums ${diferencia != null && Math.abs(diferencia) > TOLERANCIA ? 'text-danger-fg' : ''}`}
                   >
                     <MoneyDisplay amount={diferencia} currency="MXN" />
                   </TableCell>
@@ -179,7 +182,9 @@ export function FacturaBancoTerminalSection() {
           )}
           <span className="text-ink-secondary">
             {c.cuadra
-              ? 'Al ligarla, cada cargo queda con el folio fiscal y el IVA pasa de pendiente a pagado.'
+              ? c.diferenciaTotal
+                ? `Al ligarla, cada cargo queda con el folio fiscal y nace la póliza de la comisión con su IVA pagado; la diferencia de ${mxn(c.diferenciaTotal)} va a redondeo.`
+                : 'Al ligarla, cada cargo queda con el folio fiscal y nace la póliza de la comisión con su IVA pagado.'
               : `Diferencia de ${mxn(c.diferenciaTotal)}: no se liga nada.`}
           </span>
         </p>

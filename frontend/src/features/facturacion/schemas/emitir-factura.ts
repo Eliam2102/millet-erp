@@ -22,6 +22,7 @@ export const EmitirFacturaLineaSchema = z.object({
   tasaIvaTraslado: z.number().min(0).max(1).nullable(),
   tasaRetencionIva: z.number().min(0).max(1).nullable(),
   tasaRetencionIsr: z.number().min(0).max(1).nullable(),
+  conceptoRetencion: z.string().max(20).nullable().optional(),
   requierePedimento: z.boolean(),
   // Datos de aduana (CCE) — solo se exigen en exportación con CCE; la
   // validación de obligatoriedad la aplica el form según el comportamiento.
