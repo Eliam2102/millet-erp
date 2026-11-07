@@ -12,6 +12,7 @@ using Millet.CuentasPorPagar.Infrastructure.Parsing;
 using Millet.CuentasPorPagar.Infrastructure.Persistence.Configurations;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Incidencias;
+using Millet.CuentasPorPagar.Tests.P3;
 
 namespace Millet.CuentasPorPagar.UnitTests.FacturaProveedor;
 
