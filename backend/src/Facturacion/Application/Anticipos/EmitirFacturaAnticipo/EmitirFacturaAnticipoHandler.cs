@@ -41,6 +41,7 @@ public sealed class EmitirFacturaAnticipoHandler
     private readonly ICurrentEmpresaContext _empresa;
     private readonly ICurrentUserContext _user;
     private readonly IClock _clock;
+    private readonly IClientesReadPort? _clientes;
 
     public EmitirFacturaAnticipoHandler(
         FacturacionDbContext db,
@@ -53,8 +54,9 @@ public sealed class EmitirFacturaAnticipoHandler
         IIntegrationEventPublisher eventos,
         ICurrentEmpresaContext empresa,
         ICurrentUserContext user,
-        IClock clock, ValidadorReceptorFiscal receptorFiscal)
+        IClock clock, ValidadorReceptorFiscal receptorFiscal, IClientesReadPort? clientes = null)
     {
+        _clientes = clientes;
         _receptorFiscal = receptorFiscal;
         _db = db;
         _sender = sender;
@@ -144,6 +146,16 @@ public sealed class EmitirFacturaAnticipoHandler
             tasaIvaTraslado: command.TasaIvaTraslado,
             descripcion: command.Descripcion,
             canalVentaId: command.CanalVentaId);
+
+        // 4.bis 86e3zg0vb: el cliente extranjero (XEXX) lleva su NumRegIdTrib del maestro, como en los XML de Millet; sin él no se timbra.
+        if (string.Equals(receptor.Rfc, DatosFiscalesReceptor.RfcGenericoExtranjero, StringComparison.OrdinalIgnoreCase))
+        {
+            var maestro = _clientes is null ? null : await _clientes.ObtenerAsync(command.ClienteId, cancellationToken);
+            if (string.IsNullOrWhiteSpace(maestro?.NumRegIdTrib))
+                throw new BusinessRuleException("ANTICIPO_EXTRANJERO_SIN_NUMREGIDTRIB",
+                    "El cliente extranjero no tiene identificación fiscal (NumRegIdTrib) en su ficha; captúrala en el cliente y vuelve a emitir.");
+            factura.EstablecerNumRegIdTribReceptor(maestro.NumRegIdTrib);
+        }
 
         // 5. Timbrar contra el PAC. Asíncrono-tolerante; el ejecutor aplica la
         // FSM y persiste el XML en el repo común.

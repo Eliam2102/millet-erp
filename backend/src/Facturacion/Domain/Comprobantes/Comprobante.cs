@@ -66,6 +66,12 @@ public abstract class Comprobante : BaseEntity, IPerteneceAEmpresa, IFiscalmente
     public string ReceptorPais { get; private set; } = "MEX";
     public bool ReceptorEsGenerico { get; private set; }
 
+    /// <summary>
+    /// 86e3zg0vb: identificación fiscal del receptor extranjero (NumRegIdTrib) para comprobantes sin complemento de comercio
+    /// exterior (anticipo y NC de aplicación). La factura de exportación la sigue tomando del CCE. Null para receptor nacional.
+    /// </summary>
+    public string? ReceptorNumRegIdTrib { get; private set; }
+
     // ---- Emisor (snapshot al emitir, F12-PR1) ----
     public string RfcEmisor { get; private set; } = string.Empty;
     public string RegimenFiscalEmisor { get; private set; } = string.Empty;
@@ -415,6 +421,15 @@ public abstract class Comprobante : BaseEntity, IPerteneceAEmpresa, IFiscalmente
     /// (uuid, tipo). Debe llamarse antes de timbrar (la relación va en el XML, que
     /// es inmutable una vez timbrado).
     /// </summary>
+    /// <summary>86e3zg0vb: fija el NumRegIdTrib del receptor extranjero. Solo en borrador y solo si el receptor no es de México.</summary>
+    public void EstablecerNumRegIdTribReceptor(string? numRegIdTrib)
+    {
+        if (Estado != EstadoTimbrado.Borrador)
+            throw new BusinessRuleException("COMPROBANTE_INMUTABLE", $"No se cambia el receptor de un comprobante en estado {Estado}.");
+        var valor = string.IsNullOrWhiteSpace(numRegIdTrib) ? null : numRegIdTrib.Trim();
+        ReceptorNumRegIdTrib = ReceptorPais == "MEX" ? null : valor;
+    }
+
     public void AgregarRelacion(string uuidRelacionado, string tipoRelacion)
     {
         if (string.IsNullOrWhiteSpace(uuidRelacionado))

@@ -25,7 +25,7 @@ public static partial class ValidacionReceptorFiscal
     public static IReadOnlyList<CampoFiscalInvalido> Validar(
         DatosFiscalesReceptor receptor, string lugarExpedicion,
         bool regimenExiste, bool usoExiste, bool esRep = false,
-        bool exportacionConCce = false, string? numRegIdTrib = null, string? paisResidencia = null)
+        bool exportacionConCce = false, string? numRegIdTrib = null, string? paisResidencia = null, bool esEgreso = false)
     {
         var errores = new List<CampoFiscalInvalido>();
         var rfc = receptor.Rfc ?? string.Empty;
@@ -57,7 +57,11 @@ public static partial class ValidacionReceptorFiscal
         if (DatosFiscalesReceptor.EsRfcGenerico(rfc))
         {
             if (regimen != "616") errores.Add(new("regimenFiscal", "El RFC genérico requiere régimen fiscal 616."));
-            if (uso != (esRep ? "CP01" : "S01")) errores.Add(new("usoCfdi", "El RFC genérico requiere uso de CFDI S01 (CP01 para REP)."));
+            // 86e3zg0vb: la NC (egreso) al genérico admite además G02, como la NC de aplicación de anticipo de Millet (6-nov).
+            var usoValido = esRep ? uso == "CP01" : uso == "S01" || (esEgreso && uso == "G02");
+            if (!usoValido) errores.Add(new("usoCfdi", esEgreso
+                ? "El RFC genérico requiere uso de CFDI S01 o G02 en una nota de crédito."
+                : "El RFC genérico requiere uso de CFDI S01 (CP01 para REP)."));
             if (cp != Normalizar(lugarExpedicion)) errores.Add(new("codigoPostalFiscal", "El CP fiscal del receptor genérico debe coincidir con el lugar de expedición."));
         }
         if (rfc == DatosFiscalesReceptor.RfcGenericoExtranjero)

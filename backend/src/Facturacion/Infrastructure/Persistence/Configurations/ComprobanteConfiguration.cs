@@ -46,6 +46,7 @@ public sealed class ComprobanteConfiguration : IEntityTypeConfiguration<Comproba
         builder.Property(e => e.ReceptorCodigoPostal).HasMaxLength(10);
         builder.Property(e => e.ReceptorUsoCfdi).HasMaxLength(5);
         builder.Property(e => e.ReceptorPais).HasMaxLength(5).IsRequired();
+        builder.Property(e => e.ReceptorNumRegIdTrib).HasMaxLength(40); // 86e3zg0vb
         builder.Property(e => e.ReceptorEsGenerico).IsRequired();
 
         // Emisor (snapshot al emitir, F12-PR1). NOT NULL con default '' para

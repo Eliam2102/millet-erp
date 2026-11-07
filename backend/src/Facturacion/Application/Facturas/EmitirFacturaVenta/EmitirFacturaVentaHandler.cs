@@ -4,6 +4,7 @@ using Millet.ComercioExterior.Application.PublicPorts;
 using Microsoft.EntityFrameworkCore;
 using Millet.Administracion.Application.Series;
 using Millet.Administracion.Domain;
+using Millet.Facturacion.Application.Anticipos;
 using Millet.Facturacion.Application.Integration;
 using Millet.Facturacion.Application.NotasCredito;
 using Millet.Facturacion.Application.Sustituciones;
@@ -245,6 +246,9 @@ public sealed class EmitirFacturaVentaHandler
             throw new ReceptorFiscalInvalidoException(
                 [new("clienteId", "El cliente seleccionado no corresponde al cliente del pedido; recarga el pedido.")], pedido.ClienteId);
 
+        // 86e3zg0vb: el anticipo se cruza por cliente, no solo por RFC — con XEXX todos los extranjeros comparten RFC.
+        AnticiposDelCliente.Verificar(anticipos.Select(a => a.Anticipo), command.ClienteId ?? pedido?.ClienteId, receptor.Rfc);
+
         await _receptorFiscal.ValidarAsync(receptor, emisor, command.ClienteId ?? pedido?.ClienteId,
             cancellationToken, exportacionConCce: command.ComportamientoFiscal == ComportamientoFiscal.ExportacionConCce,
             numRegIdTrib: command.Cce?.ReceptorNumRegIdTrib, paisResidencia: command.Cce?.ReceptorPaisResidencia, ventaNueva: true);
@@ -405,9 +409,15 @@ public sealed class EmitirFacturaVentaHandler
         _db.FacturasVenta.Add(factura);
         await _db.SaveChangesAsync(cancellationToken);
 
-        // 10. F4-PR2: una NC por anticipo (relación 07 a la factura final).
-        IReadOnlyList<NotaCreditoAmortizacionEmitida> ncResp = anticipos.Count > 0
-            ? await AmortizarAnticiposAsync(factura, receptor, anticipos, anio, mes, ahora, cancellationToken)
+        // 10. F4-PR2: una NC por anticipo (relación 07 a la factura final). 86e3zg0vb: los que se aplican después solo quedan
+        // apartados para esta factura (ya relacionada 07); su NC la emite «Aplicar anticipo».
+        foreach (var diferido in anticipos.Where(a => a.AplicarDespues))
+            diferido.Anticipo.Vincular(factura.Id, diferido.Importe, ahora);
+        if (anticipos.Any(a => a.AplicarDespues))
+            await _db.SaveChangesAsync(cancellationToken);
+        var inmediatos = anticipos.Where(a => !a.AplicarDespues).ToList();
+        IReadOnlyList<NotaCreditoAmortizacionEmitida> ncResp = inmediatos.Count > 0
+            ? await AmortizarAnticiposAsync(factura, receptor, inmediatos, anio, mes, ahora, cancellationToken)
             : [];
 
         // 11. RANURA-PR2: NC automática por la ranura del pedido A+W
@@ -583,7 +593,7 @@ public sealed class EmitirFacturaVentaHandler
                     $"El CFDI del anticipo ({facturaAnticipo.Folio}) no está timbrado " +
                     $"(estado: {facturaAnticipo.Estado}); resuélvelo (reintentar o descartar) antes de amortizar.");
 
-            resultado.Add(new AnticipoAmortizable(anticipo, facturaAnticipo, sol.Importe, sol.ComentarioNotaCredito));
+            resultado.Add(new AnticipoAmortizable(anticipo, facturaAnticipo, sol.Importe, sol.ComentarioNotaCredito, sol.AplicarDespues));
         }
 
         return resultado;
@@ -603,7 +613,6 @@ public sealed class EmitirFacturaVentaHandler
         int anio, int mes, DateTimeOffset ahora,
         CancellationToken cancellationToken)
     {
-        const decimal tasaIvaEstandar = 0.16m;
         var emitidas = new List<NotaCreditoAmortizacionEmitida>();
 
         foreach (var a in anticipos)
@@ -621,9 +630,10 @@ public sealed class EmitirFacturaVentaHandler
                 sucursalId: factura.SucursalId,
                 cajaId: factura.CajaId,
                 usuarioEmisorId: _user.UserId,
-                receptor: receptor,
+                // 86e3zg0vb: forma 30 (aplicación de anticipos) y uso G02, como las NC de aplicación de Millet.
+                receptor: NotaCredito.ReceptorAplicacion(receptor),
                 emisor: factura.SnapshotEmisor(),
-                formaPago: factura.FormaPago,
+                formaPago: NotaCredito.FormaPagoAplicacionAnticipo,
                 moneda: factura.Moneda,
                 tipoCambio: factura.TipoCambio,
                 periodoAnio: anio,
@@ -634,7 +644,9 @@ public sealed class EmitirFacturaVentaHandler
                 anticipoOrigenId: a.Anticipo.Id,
                 facturaRelacionadaId: factura.Id,
                 montoTotal: a.Importe,
-                tasaIva: tasaIvaEstandar);
+                // 86e3zg0vb: la tasa del anticipo (16 % nacional, 0 % exportación), ya no 16 % fija.
+                tasaIva: a.FacturaAnticipo.TasaIvaParaAplicacion());
+            nc.EstablecerNumRegIdTribReceptor(factura.ComplementoCce?.ReceptorNumRegIdTrib ?? a.FacturaAnticipo.ReceptorNumRegIdTrib);
 
             // Millet (4-nov): la NC de aplicación relaciona solo la factura de venta (el anticipo va en la factura).
             if (!string.IsNullOrWhiteSpace(factura.Uuid))
@@ -680,7 +692,8 @@ public sealed class EmitirFacturaVentaHandler
         Millet.Facturacion.Domain.Anticipos.Anticipo Anticipo,
         Millet.Facturacion.Domain.Anticipos.FacturaAnticipo FacturaAnticipo,
         decimal Importe,
-        string? ComentarioNotaCredito);
+        string? ComentarioNotaCredito,
+        bool AplicarDespues = false);
 
     private async Task ValidarCatalogosSatAsync(
         EmitirFacturaVentaCommand command,

@@ -62,7 +62,9 @@ public sealed record EmitirFacturaVentaCommand(
 
 /// <summary>Anticipo a amortizar contra la factura final, con el importe a aplicar.</summary>
 /// <param name="ComentarioNotaCredito">FMT-6: comentario libre de la NC de aplicación; se imprime en «Comentarios - Comments».</param>
-public sealed record AnticipoAAmortizar(Guid AnticipoId, decimal Importe, string? ComentarioNotaCredito = null);
+/// <param name="AplicarDespues">86e3zg0vb: la factura se relaciona 07 con el anticipo y el importe queda apartado para ella, pero la NC
+/// de aplicación se emite después («Aplicar anticipo»), como en Millet (factura con 07 y NC días después).</param>
+public sealed record AnticipoAAmortizar(Guid AnticipoId, decimal Importe, string? ComentarioNotaCredito = null, bool AplicarDespues = false);
 
 /// <summary>Datos del Complemento de Comercio Exterior para una factura de exportación (F7-PR1).</summary>
 public sealed record EmitirFacturaVentaCce(
