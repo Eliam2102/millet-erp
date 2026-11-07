@@ -52,6 +52,12 @@ public sealed class AlmMensajeOptions
     public int Lote { get; init; } = 100;
     /// <summary>Fallas seguidas del ERP con un mismo renglón antes de acusarlo ERROR (el destino de lo que falla siempre).</summary>
     public int MaxIntentos { get; init; } = 5;
+    /// <summary>
+    /// H1 (86e3z5w25): una salida cuya cuenta exige área o equipo (regla C-03) y no los trae se acusa ERROR en vez de aceptarse.
+    /// Apagado mientras la app de TI no mande <c>area</c>/<c>equipo</c>: sin ellos la salida se acepta y su póliza queda en Rechazos
+    /// con «Dato faltante», como hoy. Un área o equipo inválido siempre es ERROR.
+    /// </summary>
+    public bool ExigirAreaEquipo { get; init; }
 }
 
 public readonly record struct AlmMensajeTick(int Procesados, int Errores, int Frenados, int Fallas);

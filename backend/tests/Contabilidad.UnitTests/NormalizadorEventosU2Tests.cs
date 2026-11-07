@@ -128,4 +128,16 @@ public class NormalizadorEventosU2Tests
             e.Importes[c].Should().Be(c == campo ? 250m : 0m);
         e.Importes["Subtotal"].Should().Be(250m);
     }
+
+    // H1 (86e3z5w25): el mismo mapeo decide qué cuenta (y qué dimensiones) exige la salida al capturarla en la app de Almacenes.
+    [Theory]
+    [InlineData("consumo", "Consumo")]
+    [InlineData("consumo_composicion", "Consumo")]
+    [InlineData(" Rotura ", "Merma")]
+    [InlineData("daño", "Merma")]
+    [InlineData("salida_manual", "Ajuste")]
+    [InlineData("salida_no_planificada", "Ajuste")]
+    [InlineData(null, "Consumo")]
+    public void H1_campo_de_la_salida_segun_su_causa(string? causa, string campo) =>
+        N.CampoSalidaInventario(causa).Should().Be(campo);
 }

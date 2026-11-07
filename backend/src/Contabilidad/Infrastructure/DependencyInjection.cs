@@ -45,6 +45,9 @@ public static class DependencyInjection
         services.AddSingleton<IValidateOptions<DimensionesOpciones>, DimensionesOpcionesValidator>();
         services.AddScoped<ValidadorDimensiones>();
         services.AddScoped<IDimensionContableValidacionPort>(sp => sp.GetRequiredService<ValidadorDimensiones>());
+        // H1 (86e3z5w25): área y equipo de las salidas de inventario capturadas fuera de Contabilidad (app de Almacenes).
+        services.AddScoped<DimensionesSalidaInventario>();
+        services.AddScoped<IDimensionesSalidaInventarioPort, DimensionesSalidaInventarioAdapter>();
         services.AddScoped<AlcanceSucursalContable>();
         services.AddScoped<LecturaMovimientos>();
 

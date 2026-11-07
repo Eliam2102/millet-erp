@@ -9,11 +9,14 @@ using Millet.SharedKernel.Application;
 
 namespace Millet.Almacen.Application.AppAlmacenes;
 
-/// <summary>Salida informada por la app AlmacenRQ_MP, ya resuelta a ids del ERP.</summary>
+/// <summary>
+/// Salida informada por la app AlmacenRQ_MP, ya resuelta a ids del ERP. <c>CentroCostoId</c> (H1, 86e3z5w25): el equipo (Dim3) o, si no
+/// se capturó, el área (Dim2) del movimiento; va en cada línea y en el evento contable, y el motor deriva de él la ubicación.
+/// </summary>
 public sealed record SalidaApp(
     TipoMovimiento Tipo, Guid SucursalId, Guid ArticuloId, string UnidadMedida, Guid? ProductoAwVarianteId,
     decimal Cantidad, decimal? CostoUnitarioMxn, string Motivo, decimal? AnchoMm = null, decimal? AltoMm = null,
-    string? Causa = null, string? ArticuloAw = null);
+    string? Causa = null, string? ArticuloAw = null, Guid? CentroCostoId = null);
 
 /// <summary>
 /// Salidas de la app de Almacenes (F1-MP-07; ACUERDO 28-oct reglas 1–4, correos de Jorge 30-oct y 5-nov):
@@ -97,7 +100,7 @@ public static class SalidaAppAlmacenes
                 var toma = Math.Min(resta, libre);
                 lineas.Add((s.Tipo, s.Motivo, saldo.SubAlmacenId, s.Causa ?? SalidaInventarioRegistradaIntegrationEvent.CausaPorDefecto(s.Tipo), new LineaRevisionMov(s.ArticuloId, s.UnidadMedida, toma,
                     s.CostoUnitarioMxn ?? saldo.CostoPromedioMxn, saldo.UbicacionId,
-                    s.ProductoAwVarianteId, s.AnchoMm, s.AltoMm, saldo.Lote)));
+                    s.ProductoAwVarianteId, s.AnchoMm, s.AltoMm, saldo.Lote, s.CentroCostoId)));
                 lista[i] = (saldo, libre - toma);
                 resta -= toma;
             }
