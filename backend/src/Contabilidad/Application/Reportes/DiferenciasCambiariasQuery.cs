@@ -6,6 +6,7 @@ using Millet.Contabilidad.Application.Ports;
 using Millet.Contabilidad.Domain;
 using Millet.Contabilidad.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Contabilidad.Application.Reportes;
 
@@ -50,13 +51,16 @@ public sealed class DiferenciasCambiariasValidator : AbstractValidator<Diferenci
 {
     public DiferenciasCambiariasValidator()
     {
-        RuleFor(q => q.Desde.Year).InclusiveBetween(EjercicioContable.AnioMinimo, EjercicioContable.AnioMaximo).OverridePropertyName("desde");
+        RuleFor(q => q.Desde.Year).InclusiveBetween(EjercicioContable.AnioMinimo, EjercicioContable.AnioMaximo).OverridePropertyName("desde")
+            .WithMessage($"La fecha inicial debe estar entre {EjercicioContable.AnioMinimo} y {EjercicioContable.AnioMaximo}.");
         RuleFor(q => q.Hasta).GreaterThanOrEqualTo(q => q.Desde).OverridePropertyName("hasta")
             .WithMessage("La fecha final no puede ser anterior a la inicial.");
         RuleFor(q => q.Hasta).Must((q, h) => h.DayNumber - q.Desde.DayNumber <= 366).OverridePropertyName("hasta")
             .WithMessage("El periodo no puede pasar de un año.");
-        RuleFor(q => q.SucursalId).NotEqual(Guid.Empty).When(q => q.SucursalId is not null);
-        RuleFor(q => q.Origen).IsInEnum().When(q => q.Origen is not null);
+        RuleFor(q => q.SucursalId).NotEqual(Guid.Empty).When(q => q.SucursalId is not null).OverridePropertyName("sucursalId")
+            .WithMessage("La sucursal no es válida; elígela de la lista.");
+        RuleFor(q => q.Origen).IsInEnum().When(q => q.Origen is not null).OverridePropertyName("origen")
+            .WithMessage("El origen no es válido; usa Proveedores o Clientes.");
     }
 }
 
@@ -148,13 +152,17 @@ public sealed class DiferenciasCambiariasHandler(
             ["Hasta"] = request.Hasta.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             ["Sucursal"] = request.SucursalId is { } fs
                 ? (await sucursales.ListarAsync(ct)).FirstOrDefault(s => s.Id == fs)?.Nombre ?? fs.ToString() : "Todas",
-            ["Origen"] = request.Origen is { } fo ? Etiqueta(fo) : "Pagos y cobros",
+            ["Origen"] = request.Origen is { } fo ? EtiquetaFiltro(fo) : "Pagos y cobros",
         };
         return new DiferenciasCambiariasResponse("Diferencias cambiarias realizadas", clock.UtcNow, filtros, Columnas, filas, Totales(filas),
             request.Desde, request.Hasta, avisos);
     }
 
     public static string Etiqueta(OrigenDiferenciaCambiaria o) => o == OrigenDiferenciaCambiaria.Proveedores ? "Pago a proveedor" : "Cobro de cliente";
+
+    /// <summary>Etiqueta del filtro, en plural como la opción de la pantalla.</summary>
+    public static string EtiquetaFiltro(OrigenDiferenciaCambiaria o) =>
+        o == OrigenDiferenciaCambiaria.Proveedores ? "Pagos a proveedores" : "Cobros de clientes";
 
     internal sealed record PolizaDiferencia(Guid Id, string? Folio, DateOnly Fecha, string? DocumentoFolio, bool EsAnulacion);
 
@@ -204,5 +212,43 @@ public sealed class DiferenciasCambiariasHandler(
         return new TotalesDiferenciasCambiarias(perdida, utilidad, utilidad - perdida,
             Suma(OrigenDiferenciaCambiaria.Proveedores, f => f.Perdida), Suma(OrigenDiferenciaCambiaria.Proveedores, f => f.Utilidad),
             Suma(OrigenDiferenciaCambiaria.Clientes, f => f.Perdida), Suma(OrigenDiferenciaCambiaria.Clientes, f => f.Utilidad), filas.Count);
+    }
+}
+
+/// <summary>
+/// TES-09: lee los filtros del reporte como texto y responde 400 en español si alguno viene mal formado (el binding de ASP.NET
+/// responde en inglés). Sin fechas: del día 1 del mes de <c>hasta</c> a hoy.
+/// </summary>
+public static class FiltrosDiferenciasCambiarias
+{
+    public static (DateOnly Desde, DateOnly Hasta, Guid? SucursalId, OrigenDiferenciaCambiaria? Origen) Leer(
+        string? desde, string? hasta, string? sucursalId, string? origen)
+    {
+        var errores = new List<ValidationError>();
+        DateOnly? Fecha(string campo, string? valor)
+        {
+            if (string.IsNullOrWhiteSpace(valor)) return null;
+            if (DateOnly.TryParseExact(valor, "yyyy-MM-dd", CultureInfo.InvariantCulture,
+                    DateTimeStyles.None, out var f)) return f;
+            errores.Add(new(campo, "FECHA_INVALIDA", $"La fecha «{valor}» no es válida; usa el formato aaaa-mm-dd."));
+            return null;
+        }
+        var fin = Fecha("hasta", hasta);
+        var inicio = Fecha("desde", desde);
+        Guid? sucursal = null;
+        if (!string.IsNullOrWhiteSpace(sucursalId))
+        {
+            if (Guid.TryParse(sucursalId, out var s) && s != Guid.Empty) sucursal = s;
+            else errores.Add(new("sucursalId", "SUCURSAL_INVALIDA", "La sucursal no es válida; elígela de la lista."));
+        }
+        OrigenDiferenciaCambiaria? o = null;
+        if (!string.IsNullOrWhiteSpace(origen))
+        {
+            if (Enum.TryParse<OrigenDiferenciaCambiaria>(origen, ignoreCase: true, out var v) && Enum.IsDefined(v) && !int.TryParse(origen, out _)) o = v;
+            else errores.Add(new("origen", "ORIGEN_INVALIDO", $"El origen «{origen}» no es válido; usa Proveedores o Clientes."));
+        }
+        if (errores.Count > 0) throw new ValidationException(errores);
+        var hastaFinal = fin ?? FechaContable.HoyLocal(DateTimeOffset.UtcNow);
+        return (inicio ?? new DateOnly(hastaFinal.Year, hastaFinal.Month, 1), hastaFinal, sucursal, o);
     }
 }

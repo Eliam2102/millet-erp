@@ -1,4 +1,5 @@
 using Millet.Contabilidad.Application.Reportes;
+using Millet.SharedKernel.Application.Exceptions;
 using H = Millet.Contabilidad.Application.Reportes.DiferenciasCambiariasHandler;
 
 namespace Millet.Contabilidad.UnitTests;
@@ -143,5 +144,48 @@ public class DiferenciasCambiariasReporteTests
         H.Roles.Keys.Should().BeEquivalentTo(
             "PERDIDA_CAMBIARIA_REALIZADA_PROVEEDORES", "UTILIDAD_CAMBIARIA_REALIZADA_PROVEEDORES",
             "PERDIDA_CAMBIARIA_REALIZADA_CLIENTES", "UTILIDAD_CAMBIARIA_REALIZADA_CLIENTES");
+    }
+
+    [Fact]
+    public void Los_filtros_se_leen_del_texto_del_query()
+    {
+        var (desde, hasta, sucursal, origen) = FiltrosDiferenciasCambiarias.Leer("2026-11-01", "2026-11-07", Sucursal.ToString(), "clientes");
+        (desde, hasta, sucursal, origen).Should().Be((new DateOnly(2026, 11, 1), new DateOnly(2026, 11, 7), (Guid?)Sucursal,
+            (OrigenDiferenciaCambiaria?)OrigenDiferenciaCambiaria.Clientes));
+        FiltrosDiferenciasCambiarias.Leer(null, "2026-11-07", "", null).Desde.Should().Be(new DateOnly(2026, 11, 1), "sin desde: día 1 del mes de hasta");
+    }
+
+    [Theory]
+    [InlineData("2026-13-01", null, null, null, "desde", "FECHA_INVALIDA")]
+    [InlineData(null, "07/11/2026", null, null, "hasta", "FECHA_INVALIDA")]
+    [InlineData(null, null, "00000000-0000-0000-0000-000000000000", null, "sucursalId", "SUCURSAL_INVALIDA")]
+    [InlineData(null, null, "MID", null, "sucursalId", "SUCURSAL_INVALIDA")]
+    [InlineData(null, null, null, "Bancos", "origen", "ORIGEN_INVALIDO")]
+    [InlineData(null, null, null, "7", "origen", "ORIGEN_INVALIDO")]
+    public void Un_filtro_mal_formado_responde_400_en_espanol(string? desde, string? hasta, string? sucursal, string? origen,
+        string campo, string codigo)
+    {
+        var error = FluentActions.Invoking(() => FiltrosDiferenciasCambiarias.Leer(desde, hasta, sucursal, origen))
+            .Should().Throw<ValidationException>().Which.Errors.Should().ContainSingle().Subject;
+        (error.Field, error.Code).Should().Be((campo, codigo));
+        error.Message.Should().NotContain("must").And.NotContain("Failed");
+    }
+
+    [Fact]
+    public void El_filtro_de_origen_se_muestra_en_plural_como_la_opcion()
+    {
+        H.EtiquetaFiltro(OrigenDiferenciaCambiaria.Clientes).Should().Be("Cobros de clientes");
+        H.EtiquetaFiltro(OrigenDiferenciaCambiaria.Proveedores).Should().Be("Pagos a proveedores");
+    }
+
+    [Fact]
+    public void Los_mensajes_del_validador_estan_en_espanol()
+    {
+        var v = new DiferenciasCambiariasValidator();
+        var r = v.Validate(new DiferenciasCambiariasQuery(new DateOnly(1990, 1, 1), new DateOnly(1990, 1, 2), Guid.Empty));
+        r.Errors.Select(e => e.ErrorMessage).Should().OnlyContain(m => !m.Contains("must"))
+            .And.Contain(m => m.Contains("sucursal")).And.Contain(m => m.Contains("fecha inicial"));
+        v.Validate(new DiferenciasCambiariasQuery(new DateOnly(2025, 1, 1), new DateOnly(2026, 11, 7))).Errors
+            .Should().ContainSingle(e => e.ErrorMessage == "El periodo no puede pasar de un año.");
     }
 }
