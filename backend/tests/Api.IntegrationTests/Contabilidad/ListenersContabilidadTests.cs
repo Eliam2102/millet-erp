@@ -70,7 +70,7 @@ public sealed partial class ListenersContabilidadTests(WebApplicationFactory<Pro
         ("IVA_A_FAVOR", "1.01", "Deudora", "Ninguna"),
         ("RETENCIONES_CLIENTES", "1.02", "Deudora", "Ninguna"),
         // H1 paso 2: gasto comprobado de caja chica, viáticos y tarjeta (C1.5b).
-        ("GASTO", "5.9", "Deudora", "Ninguna"),
+        ("GASTO", "5.11", "Deudora", "Ninguna"),
         ("CONTRAPARTIDA_GASTO", "1.13", "Deudora", "Ninguna"),
         // 86e3zcbjw: retención por concepto (la de fletes a proveedores se abona al pagar).
         ("RETENCIONES_POR_PAGAR_FLETES_IVA", "2.8", "Acreedora", "Ninguna"),
