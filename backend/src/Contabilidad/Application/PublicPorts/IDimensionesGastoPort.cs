@@ -11,8 +11,7 @@ public interface IDimensionesGastoPort
 {
     Task<ExigenciaDimensionesGasto> ExigenciasAsync(Guid empresaId, Guid sucursalId, DateOnly fecha, CancellationToken ct);
 
-    /// <param name="nivel">2 = área, 3 = equipo.</param>
-    /// <param name="dim2Id">Con nivel 3, restringe los equipos al área elegida.</param>
+    /// <summary><c>nivel</c>: 2 = área, 3 = equipo. Con nivel 3, <c>dim2Id</c> restringe los equipos al área elegida.</summary>
     Task<IReadOnlyList<CentroGastoOpcion>> CentrosAsync(
         Guid empresaId, Guid sucursalId, int nivel, Guid? dim2Id, string? q, int limite, CancellationToken ct);
 
@@ -20,8 +19,8 @@ public interface IDimensionesGastoPort
     Task<string?> ValidarCentroAsync(Guid empresaId, Guid sucursalId, Guid centroCostoId, CancellationToken ct);
 }
 
-/// <param name="CuentaCodigo">Cuenta que cargará el gasto; null si aún no hay plantilla o rol mapeado (entonces no se exige nada).</param>
+/// <summary><c>CuentaCodigo</c>: cuenta que cargará el gasto; null si aún no hay plantilla o rol mapeado (entonces no se exige nada).</summary>
 public sealed record ExigenciaDimensionesGasto(bool ExigeArea, bool ExigeEquipo, string? CuentaCodigo);
 
-/// <param name="Nivel">2 = área, 3 = equipo.</param>
+/// <summary><c>Nivel</c>: 2 = área, 3 = equipo.</summary>
 public sealed record CentroGastoOpcion(Guid Id, int Nivel, string Clave, string Nombre, Guid? Dim2Id, string? Dim2Clave);

@@ -65,6 +65,6 @@ public static class GastosDimensionesEndpoints
         return empleado?.SucursalId is { } suc && suc != Guid.Empty ? suc : null;
     }
 
-    /// <param name="SucursalId">Null si no se pudo determinar (empleado sin sucursal): no se ofrecen centros ni se exige nada.</param>
+    /// <summary><c>SucursalId</c> null = no se pudo determinar (empleado sin sucursal): no se ofrecen centros ni se exige nada.</summary>
     public sealed record DimensionesGastoResponse(Guid? SucursalId, bool ExigeArea, bool ExigeEquipo, string? CuentaCodigo);
 }
