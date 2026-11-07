@@ -34,7 +34,7 @@ public sealed record RevaluacionPolizaResponse(Guid Id, string? Folio, DateOnly 
 /// <summary>
 /// CON-11 (86e3kdypd) · revaluación de cierre (no realizada) de bancos y clientes en moneda extranjera (Cuestionario 08, C-10; R14):
 /// saldo en su moneda × TC del último día del mes (K10.6) contra el saldo en pesos en libros; la diferencia va a utilidad o pérdida
-/// cambiaria no realizada (los mismos roles que CXP-12) y se revierte sola el día 1 del mes siguiente. Contabilidad la calcula de sus
+/// cambiaria no realizada del control (roles con sufijo _BANCOS / _CLIENTES; el base es el de proveedores, CXP-12) y se revierte sola el día 1 del mes siguiente. Contabilidad la calcula de sus
 /// propias partidas (moneda, TC e importe original); no lee esquemas de Tesorería ni de CxC.
 /// </summary>
 public sealed class CalculadoraRevaluacionCierre(ContabilidadDbContext db, ITipoCambioContabilidadReadPort tiposCambio)
@@ -42,6 +42,14 @@ public sealed class CalculadoraRevaluacionCierre(ContabilidadDbContext db, ITipo
     public const string Modulo = "contabilidad", TipoRevaluacion = "revaluacion_cierre", TipoReversa = "revaluacion_cierre_reversa";
     public const string RolBancos = "BANCOS", RolClientes = "CLIENTES";
     public const string RolPerdida = "PERDIDA_CAMBIARIA_NO_REALIZADA", RolUtilidad = "UTILIDAD_CAMBIARIA_NO_REALIZADA";
+
+    /// <summary>
+    /// Rol de pérdida o utilidad no realizada de cada control: el catálogo de Contabilidad tiene una subcuenta por origen (clientes,
+    /// proveedores, bancos), así que el rol lleva el sufijo del control (<c>PERDIDA_CAMBIARIA_NO_REALIZADA_BANCOS</c>, <c>…_CLIENTES</c>).
+    /// El rol base sin sufijo es el de proveedores (CXP-12).
+    /// </summary>
+    public static string RolResultado(string rolBase, ControlRevaluacion control) =>
+        $"{rolBase}_{(control == ControlRevaluacion.Bancos ? "BANCOS" : "CLIENTES")}";
 
     public static DateOnly Cierre(int anio, int mes) => new(anio, mes, DateTime.DaysInMonth(anio, mes));
 
@@ -110,11 +118,12 @@ public sealed class CalculadoraRevaluacionCierre(ContabilidadDbContext db, ITipo
         decimal Cargo, decimal Abono, decimal? ImporteOriginal);
 
     /// <summary>
-    /// Partidas de la póliza de una sucursal: el ajuste a cada cuenta (con su auxiliar) y el neto a utilidad o pérdida no realizada.
-    /// Activo: diferencia positiva = cargo a la cuenta y abono a utilidad; negativa = abono a la cuenta y cargo a pérdida.
+    /// Partidas de la póliza de una sucursal: el ajuste a cada cuenta (con su auxiliar) y, por control, el neto a utilidad o pérdida no
+    /// realizada en la cuenta de ese control. Activo: diferencia positiva = cargo a la cuenta y abono a utilidad; negativa = abono a la
+    /// cuenta y cargo a pérdida.
     /// </summary>
-    internal static List<PartidaRequest> Partidas(IReadOnlyList<RevaluacionCierreDetalle> detalles, Guid sucursal, Guid cuentaPerdida,
-        Guid cuentaUtilidad)
+    internal static List<PartidaRequest> Partidas(IReadOnlyList<RevaluacionCierreDetalle> detalles, Guid sucursal,
+        IReadOnlyDictionary<ControlRevaluacion, (Guid Perdida, Guid Utilidad)> cuentasResultado)
     {
         var partidas = new List<PartidaRequest>();
         foreach (var d in detalles.Where(d => d.Diferencia != 0m))
@@ -125,12 +134,17 @@ public sealed class CalculadoraRevaluacionCierre(ContabilidadDbContext db, ITipo
                 sucursal, ClienteId: d.ClienteId, CuentaBancariaId: d.CuentaBancariaId, Moneda: Poliza.MonedaNacional, TipoCambio: 1m,
                 Origen: d.ClienteId is null ? OrigenMovimiento.Automatica : OrigenMovimiento.AuxiliarCxC));
         }
-        var utilidad = detalles.Where(d => d.Diferencia > 0).Sum(d => d.Diferencia);
-        var perdida = -detalles.Where(d => d.Diferencia < 0).Sum(d => d.Diferencia);
-        if (perdida > 0) partidas.Add(new PartidaRequest(cuentaPerdida, "Pérdida cambiaria no realizada", perdida, 0m, sucursal,
-            Moneda: Poliza.MonedaNacional, TipoCambio: 1m, Origen: OrigenMovimiento.Automatica));
-        if (utilidad > 0) partidas.Add(new PartidaRequest(cuentaUtilidad, "Utilidad cambiaria no realizada", 0m, utilidad, sucursal,
-            Moneda: Poliza.MonedaNacional, TipoCambio: 1m, Origen: OrigenMovimiento.Automatica));
+        foreach (var porControl in detalles.GroupBy(d => d.Control).OrderBy(g => g.Key))
+        {
+            var (cuentaPerdida, cuentaUtilidad) = cuentasResultado[porControl.Key];
+            var origen = porControl.Key == ControlRevaluacion.Bancos ? "bancos" : "clientes";
+            var utilidad = porControl.Where(d => d.Diferencia > 0).Sum(d => d.Diferencia);
+            var perdida = -porControl.Where(d => d.Diferencia < 0).Sum(d => d.Diferencia);
+            if (perdida > 0) partidas.Add(new PartidaRequest(cuentaPerdida, $"Pérdida cambiaria no realizada {origen}", perdida, 0m, sucursal,
+                Moneda: Poliza.MonedaNacional, TipoCambio: 1m, Origen: OrigenMovimiento.Automatica));
+            if (utilidad > 0) partidas.Add(new PartidaRequest(cuentaUtilidad, $"Utilidad cambiaria no realizada {origen}", 0m, utilidad, sucursal,
+                Moneda: Poliza.MonedaNacional, TipoCambio: 1m, Origen: OrigenMovimiento.Automatica));
+        }
         return partidas;
     }
 
@@ -204,14 +218,18 @@ public sealed class EjecutarRevaluacionCierreContableHandler(ContabilidadDbConte
 
         var detalles = await calculadora.CalcularAsync(c.Anio, c.Mes, ct);
         var roles = await db.RolesCuenta.AsNoTracking()
-            .Where(r => r.Codigo == CalculadoraRevaluacionCierre.RolPerdida || r.Codigo == CalculadoraRevaluacionCierre.RolUtilidad).ToListAsync(ct);
+            .Where(r => r.Codigo.StartsWith(CalculadoraRevaluacionCierre.RolPerdida) || r.Codigo.StartsWith(CalculadoraRevaluacionCierre.RolUtilidad))
+            .ToListAsync(ct);
         var docId = CalculadoraRevaluacionCierre.DocumentoId(empresaId, c.Anio, c.Mes);
         foreach (var porSucursal in detalles.Where(d => d.Diferencia != 0m).GroupBy(d => d.SucursalId).OrderBy(g => g.Key))
         {
             var sucursal = porSucursal.Key;
-            var partidas = CalculadoraRevaluacionCierre.Partidas([.. porSucursal], sucursal,
-                CuentaDelRol(roles, CalculadoraRevaluacionCierre.RolPerdida, sucursal, cierre, porSucursal.Any(d => d.Diferencia < 0)),
-                CuentaDelRol(roles, CalculadoraRevaluacionCierre.RolUtilidad, sucursal, cierre, porSucursal.Any(d => d.Diferencia > 0)));
+            var cuentas = porSucursal.GroupBy(d => d.Control).ToDictionary(g => g.Key, g => (
+                CuentaDelRol(roles, CalculadoraRevaluacionCierre.RolResultado(CalculadoraRevaluacionCierre.RolPerdida, g.Key), sucursal, cierre,
+                    g.Any(d => d.Diferencia < 0)),
+                CuentaDelRol(roles, CalculadoraRevaluacionCierre.RolResultado(CalculadoraRevaluacionCierre.RolUtilidad, g.Key), sucursal, cierre,
+                    g.Any(d => d.Diferencia > 0))));
+            var partidas = CalculadoraRevaluacionCierre.Partidas([.. porSucursal], sucursal, cuentas);
             await puerto.RegistrarAutomaticaAsync(new SolicitudPolizaAutomatica("AS", cierre, $"Revaluación de bancos y clientes en moneda extranjera {c.Mes:00}/{c.Anio}",
                 new DocumentoOrigenPoliza(CalculadoraRevaluacionCierre.Modulo, CalculadoraRevaluacionCierre.TipoRevaluacion, docId, $"REV-{c.Anio}{c.Mes:00}", null),
                 $"{CalculadoraRevaluacionCierre.Modulo}.{CalculadoraRevaluacionCierre.TipoRevaluacion}:{empresaId}:{c.Anio}-{c.Mes:00}:{sucursal}",

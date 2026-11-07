@@ -10,7 +10,15 @@ namespace Millet.Contabilidad.UnitTests;
 public class RevaluacionCierreContableTests
 {
     private static readonly Guid Cuenta = Guid.NewGuid(), Sucursal = Guid.NewGuid(), Cliente = Guid.NewGuid();
-    private static readonly Guid Perdida = Guid.NewGuid(), Utilidad = Guid.NewGuid();
+    private static readonly Guid PerdidaBancos = Guid.NewGuid(), UtilidadBancos = Guid.NewGuid();
+    private static readonly Guid PerdidaClientes = Guid.NewGuid(), UtilidadClientes = Guid.NewGuid();
+
+    /// <summary>Catálogo de Contabilidad: subcuenta de pérdida y utilidad no realizada por origen (bancos .03, clientes .01).</summary>
+    private static readonly Dictionary<ControlRevaluacion, (Guid Perdida, Guid Utilidad)> Cuentas = new()
+    {
+        [ControlRevaluacion.Bancos] = (PerdidaBancos, UtilidadBancos),
+        [ControlRevaluacion.Clientes] = (PerdidaClientes, UtilidadClientes),
+    };
 
     private static M Cargo(decimal mxn, decimal usd) => new(Cuenta, Sucursal, null, null, "USD", mxn, 0m, usd);
     private static M Abono(decimal mxn, decimal usd) => new(Cuenta, Sucursal, null, null, "USD", 0m, mxn, usd);
@@ -43,10 +51,10 @@ public class RevaluacionCierreContableTests
         d.Diferencia.Should().Be(500m);
         d.Resultado.Should().Be("Utilidad");
 
-        var partidas = CalculadoraRevaluacionCierre.Partidas([d], Sucursal, Perdida, Utilidad);
+        var partidas = CalculadoraRevaluacionCierre.Partidas([d], Sucursal, Cuentas);
         partidas.Should().HaveCount(2);
         partidas[0].Should().Match<Millet.Contabilidad.Application.Polizas.PartidaRequest>(p => p.CuentaId == Cuenta && p.Cargo == 500m && p.Abono == 0m);
-        partidas[1].Should().Match<Millet.Contabilidad.Application.Polizas.PartidaRequest>(p => p.CuentaId == Utilidad && p.Abono == 500m);
+        partidas[1].Should().Match<Millet.Contabilidad.Application.Polizas.PartidaRequest>(p => p.CuentaId == UtilidadBancos && p.Abono == 500m);
     }
 
     [Fact]
@@ -55,10 +63,10 @@ public class RevaluacionCierreContableTests
         var d = Detalle(ControlRevaluacion.Clientes, 1_000m, 18_000m, 17.80m, Cliente);
         d.Diferencia.Should().Be(-200m);
 
-        var partidas = CalculadoraRevaluacionCierre.Partidas([d], Sucursal, Perdida, Utilidad);
+        var partidas = CalculadoraRevaluacionCierre.Partidas([d], Sucursal, Cuentas);
         partidas[0].Should().Match<Millet.Contabilidad.Application.Polizas.PartidaRequest>(p =>
             p.CuentaId == Cuenta && p.Abono == 200m && p.ClienteId == Cliente);
-        partidas[1].Should().Match<Millet.Contabilidad.Application.Polizas.PartidaRequest>(p => p.CuentaId == Perdida && p.Cargo == 200m);
+        partidas[1].Should().Match<Millet.Contabilidad.Application.Polizas.PartidaRequest>(p => p.CuentaId == PerdidaClientes && p.Cargo == 200m);
     }
 
     [Fact]
@@ -70,10 +78,34 @@ public class RevaluacionCierreContableTests
             Detalle(ControlRevaluacion.Clientes, 2_000m, 37_000m, 18.50m, Cliente),
             Detalle(ControlRevaluacion.Clientes, 300m, 5_550m, 18.50m, Guid.NewGuid()),
         };
-        var partidas = CalculadoraRevaluacionCierre.Partidas(detalles, Sucursal, Perdida, Utilidad);
+        var partidas = CalculadoraRevaluacionCierre.Partidas(detalles, Sucursal, Cuentas);
         partidas.Sum(p => p.Cargo).Should().Be(partidas.Sum(p => p.Abono));
-        partidas.Single(p => p.CuentaId == Utilidad).Abono.Should().Be(500m);
-        partidas.Should().NotContain(p => p.CuentaId == Perdida, "el saldo que no cambia no genera partida");
+        partidas.Single(p => p.CuentaId == UtilidadBancos).Abono.Should().Be(500m);
+        partidas.Should().NotContain(p => p.CuentaId == PerdidaBancos || p.CuentaId == UtilidadClientes || p.CuentaId == PerdidaClientes,
+            "el saldo que no cambia no genera partida");
+    }
+
+    [Fact]
+    public void Bancos_y_clientes_van_cada_uno_a_su_cuenta_de_resultado_sin_netear_entre_si()
+    {
+        var detalles = new[]
+        {
+            Detalle(ControlRevaluacion.Bancos, 1_000m, 18_000m, 18.50m),               // +500 utilidad bancos
+            Detalle(ControlRevaluacion.Clientes, 1_000m, 19_000m, 18.50m, Cliente),   // −500 pérdida clientes
+        };
+        var partidas = CalculadoraRevaluacionCierre.Partidas(detalles, Sucursal, Cuentas);
+        partidas.Single(p => p.CuentaId == UtilidadBancos).Abono.Should().Be(500m);
+        partidas.Single(p => p.CuentaId == PerdidaClientes).Cargo.Should().Be(500m);
+        partidas.Sum(p => p.Cargo).Should().Be(partidas.Sum(p => p.Abono));
+    }
+
+    [Fact]
+    public void Los_roles_de_resultado_llevan_el_sufijo_del_control()
+    {
+        CalculadoraRevaluacionCierre.RolResultado(CalculadoraRevaluacionCierre.RolPerdida, ControlRevaluacion.Bancos)
+            .Should().Be("PERDIDA_CAMBIARIA_NO_REALIZADA_BANCOS");
+        CalculadoraRevaluacionCierre.RolResultado(CalculadoraRevaluacionCierre.RolUtilidad, ControlRevaluacion.Clientes)
+            .Should().Be("UTILIDAD_CAMBIARIA_NO_REALIZADA_CLIENTES");
     }
 
     [Fact]

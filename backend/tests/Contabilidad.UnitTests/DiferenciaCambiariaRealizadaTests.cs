@@ -36,16 +36,16 @@ public class DiferenciaCambiariaRealizadaTests
     private static readonly LineaPlantillaContable[] Pago5 =
     [
         Linea(1, "PROVEEDORES", LadoPartida.Cargo, "Total"), Linea(2, "BANCOS", LadoPartida.Abono, "Total"),
-        Linea(3, "PERDIDA_CAMBIARIA_REALIZADA", LadoPartida.Cargo, EventoContable.CampoDiferenciaCambiaria),
-        Linea(4, "UTILIDAD_CAMBIARIA_REALIZADA", LadoPartida.Abono, EventoContable.CampoDiferenciaCambiaria),
+        Linea(3, "PERDIDA_CAMBIARIA_REALIZADA_PROVEEDORES", LadoPartida.Cargo, EventoContable.CampoDiferenciaCambiaria),
+        Linea(4, "UTILIDAD_CAMBIARIA_REALIZADA_PROVEEDORES", LadoPartida.Abono, EventoContable.CampoDiferenciaCambiaria),
     ];
 
     /// <summary>Plantilla #12 con las líneas de CON-11.</summary>
     private static readonly LineaPlantillaContable[] Cobro12 =
     [
         Linea(1, "BANCOS", LadoPartida.Cargo, "Total"), Linea(2, "CLIENTES", LadoPartida.Abono, "Aplicado"),
-        Linea(3, "PERDIDA_CAMBIARIA_REALIZADA", LadoPartida.Cargo, EventoContable.CampoDiferenciaCambiaria),
-        Linea(4, "UTILIDAD_CAMBIARIA_REALIZADA", LadoPartida.Abono, EventoContable.CampoDiferenciaCambiaria),
+        Linea(3, "PERDIDA_CAMBIARIA_REALIZADA_CLIENTES", LadoPartida.Cargo, EventoContable.CampoDiferenciaCambiaria),
+        Linea(4, "UTILIDAD_CAMBIARIA_REALIZADA_CLIENTES", LadoPartida.Abono, EventoContable.CampoDiferenciaCambiaria),
     ];
 
     /// <summary>Mismo cálculo que el motor: pesos por línea al TC de su rol y, al final, la diferencia cambiaria.</summary>
