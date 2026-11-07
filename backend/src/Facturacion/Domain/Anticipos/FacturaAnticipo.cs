@@ -35,6 +35,22 @@ public sealed class FacturaAnticipo : Comprobante
     public string ClaveUnidadSat { get; private set; } = "ACT"; // Actividad
     public string Descripcion { get; private set; } = "Anticipo de clientes";
 
+    /// <summary>
+    /// 86e3zg0vb: tasa de IVA trasladado del anticipo. <c>0</c> = tasa 0 % (exportación: el XML lleva Tasa 0.000000, no exento);
+    /// <c>null</c> = exento. La NC de aplicación usa esta misma tasa. Null también en anticipos previos (se reconstruye de los totales).
+    /// </summary>
+    public decimal? TasaIvaTraslado { get; private set; }
+
+    /// <summary>
+    /// 86e3zg0vb: tasa con la que se emite la NC de aplicación de este anticipo. La guardada; en anticipos previos (sin tasa guardada)
+    /// se reconstruye de los totales (IVA / subtotal, a la tasa del catálogo) y, sin IVA, es exento (null), como el propio anticipo.
+    /// </summary>
+    public decimal? TasaIvaParaAplicacion() =>
+        TasaIvaTraslado
+        ?? (ImpuestosTrasladados > 0 && Subtotal > 0
+            ? Math.Round(ImpuestosTrasladados / Subtotal, 2, MidpointRounding.AwayFromZero)
+            : null);
+
     private FacturaAnticipo() { }
 
     private FacturaAnticipo(
@@ -64,10 +80,13 @@ public sealed class FacturaAnticipo : Comprobante
                formaPago, moneda, tipoCambio, periodoAnio, periodoMes)
     {
         EstablecerCanalVenta(canalVentaId);
-        if (receptor.EsGenerico)
+        // 86e3zg0vb: el cliente extranjero (XEXX010101000) sí recibe anticipo — es nominal por su NumRegIdTrib y su cliente. Solo el
+        // público en general (XAXX) queda fuera.
+        if (receptor.EsGenerico
+            && !string.Equals(receptor.Rfc, DatosFiscalesReceptor.RfcGenericoExtranjero, StringComparison.OrdinalIgnoreCase))
             throw new BusinessRuleException(
                 "ANTICIPO_RECEPTOR_GENERICO",
-                "Una factura de anticipo siempre es nominal; no admite RFC genérico (XAXX/XEXX).");
+                "Una factura de anticipo siempre es nominal; no admite el RFC de público en general (XAXX010101000).");
 
         TipoAnticipo = tipoAnticipo;
         PedidoFacturableId = pedidoFacturableId;
@@ -84,7 +103,7 @@ public sealed class FacturaAnticipo : Comprobante
     /// </summary>
     /// <param name="anticipoId">Id pre-generado del agregado <see cref="Anticipo"/> asociado.</param>
     /// <param name="montoBase">Importe del anticipo antes de IVA (subtotal).</param>
-    /// <param name="tasaIvaTraslado">Tasa de IVA trasladado (p.ej. 0.16); null/0 = exento.</param>
+    /// <param name="tasaIvaTraslado">Tasa de IVA trasladado (p.ej. 0.16); 0 = tasa 0 % (exportación); null = exento.</param>
     /// <param name="totalConIva">86e3tfd7j: total capturado con IVA; si viene, se ignora
     /// <paramref name="montoBase"/> y se desglosa con <see cref="DesglosarTotal"/>.</param>
     public static FacturaAnticipo CrearBorrador(
@@ -140,6 +159,7 @@ public sealed class FacturaAnticipo : Comprobante
             claveUnidadSat: "ACT",
             descripcion: string.IsNullOrWhiteSpace(descripcion) ? "Anticipo de clientes" : descripcion!);
 
+        factura.TasaIvaTraslado = tasaIvaTraslado;
         var iva = ivaDesglosado
             ?? (tasaIvaTraslado is > 0 ? Math.Round(montoBase * tasaIvaTraslado.Value, 2) : 0m);
         var total = montoBase + iva;
