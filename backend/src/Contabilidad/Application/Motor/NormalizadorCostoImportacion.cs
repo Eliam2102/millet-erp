@@ -16,6 +16,10 @@ public static partial class NormalizadorEventos
     }
     private sealed record DevolucionAgenteContrato(Guid EmpresaId, Guid DevolucionId, decimal Monto,
         DateOnly FechaValor, string? ReferenciaBancaria, Guid SucursalId, Guid ProveedorId);
+    /// <summary>
+    /// Costo de importación aplicado. H1 paso 4 (86e3z5w25, aditivo): <c>CentroCostoId</c> = área o equipo capturado al distribuir el
+    /// expediente en Comercio Exterior; va en el cargo a gasto de importación (plantilla v2, ConCentroCosto). Las líneas de inventario no lo llevan.
+    /// </summary>
     public const string CostoImportacionAplicado = "almacen.expediente.costo-aplicado.v1";
     private static EventoContable CostoImportacion(Guid eventoId, string payload)
     {
@@ -25,13 +29,13 @@ public static partial class NormalizadorEventos
             throw new EventoIlegibleException("Los importes aplicados del expediente no cuadran.");
         return new(CostoImportacionAplicado, eventoId, p.EmpresaId, FechaContable.HoyLocal(p.OcurridoEn),
             new DocumentoOrigenPoliza("almacen", "costo_importacion", p.ExpedienteId, null, null),
-            p.SucursalId, null, null, null, null, "MXN", 1,
+            p.SucursalId, null, null, p.CentroCostoId, null, "MXN", 1,
             new Dictionary<string, decimal?> { ["Total"] = p.Partidas.Sum(x => x.DiferenciaMxn),
                 ["Inventario"] = p.Partidas.Sum(x => x.InventarioMxn), ["GastoImportacion"] = p.Partidas.Sum(x => x.GastoImportacionMxn) },
             p.Partidas.Select(x => new LineaEventoContable(null, x.InventarioMxn, null, false, ArticuloId: x.ArticuloId)).ToArray(),
             payload, LlaveOverride: $"{CostoImportacionAplicado}:{p.ExpedienteId}:{p.NumeroVersion}");
     }
     private sealed record CostoImportacionContrato(Guid EmpresaId, DateTimeOffset OcurridoEn, Guid ExpedienteId,
-        Guid? SucursalId, int NumeroVersion, IReadOnlyList<CostoImportacionLinea>? Partidas);
+        Guid? SucursalId, int NumeroVersion, IReadOnlyList<CostoImportacionLinea>? Partidas, Guid? CentroCostoId = null);
     private sealed record CostoImportacionLinea(Guid ArticuloId, decimal DiferenciaMxn, decimal InventarioMxn, decimal GastoImportacionMxn);
 }

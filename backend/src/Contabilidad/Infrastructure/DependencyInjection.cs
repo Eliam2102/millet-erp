@@ -48,6 +48,8 @@ public static class DependencyInjection
         // H1 (86e3z5w25): área y equipo de las salidas de inventario capturadas fuera de Contabilidad (app de Almacenes).
         services.AddScoped<DimensionesSalidaInventario>();
         services.AddScoped<IDimensionesSalidaInventarioPort, DimensionesSalidaInventarioAdapter>();
+        // H1 pasos 3 y 4: área y equipo capturados en Tesorería (conceptos bancarios) y Comercio Exterior (costo de importación).
+        services.AddScoped<IDimensionesCapturaPort, DimensionesCaptura>();
         services.AddScoped<AlcanceSucursalContable>();
         services.AddScoped<LecturaMovimientos>();
 
