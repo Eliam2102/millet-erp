@@ -147,8 +147,9 @@ public static class DependencyInjection
         // PLATFORM-TODO(<ActivosFijos>)
         services.AddScoped<IActivosFijosReadPort, NoOpActivosFijosReadPort>();
 
-        // --- F10-PR2: ingesta Planta Pintura — stub hasta Integraciones.Origenes ---
-        // PLATFORM-TODO(<PlantaPinturaOrigenes>)
+        // --- F10-PR2: ingesta Planta Pintura. I13.9: con AwIntegracionDb lo pisa PinturasPedidosAdapter
+        // (Integraciones.Aw, lectura + acuse); este stub queda como fallback dev sin conexión.
+        // PLATFORM-TODO(<PlantaPinturaOrigenes>): falta solo el retorno de estado/UUID a Pinturas (por confirmar con TI).
         services.AddScoped<IPlantaPinturaPedidosReader, StubPlantaPinturaPedidosReader>();
 
         // --- F11: puerto de lectura de CFDIs que Facturación EXPONE (adapter real) ---
