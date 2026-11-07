@@ -150,6 +150,26 @@ export function useFinanzas(id: string) {
     queryFn: ({ signal }) => apiRequest<Finanzas>(`${CE_BASE}/${id}/finanzas`, { signal }),
   });
 }
+/** H1 paso 4: qué exige la cuenta del gasto de importación (regla C-03) en la sucursal del expediente. */
+export interface DimensionesDistribucion {
+  sucursalId: string;
+  exigeArea: boolean;
+  exigeEquipo: boolean;
+  cuentaCodigo: string | null;
+}
+
+export function useDimensionesDistribucion(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: [...key(id), 'dimensiones-distribucion'] as const,
+    enabled,
+    queryFn: async ({ signal }) =>
+      (await apiRequest<DimensionesDistribucion>(`${CE_BASE}/${id}/gastos/distribuir/dimensiones`, { signal })).data,
+  });
+}
+
+/** Selector de áreas y equipos de la sucursal del expediente (mismo contrato que el de Contabilidad). */
+export const endpointCentrosDistribucion = (id: string) => `${CE_BASE}/${id}/gastos/distribuir/centros`;
+
 export function useMutarFinanzas(id: string) {
   const qc = useQueryClient();
   const keyFor = useBodyScopedIdempotencyKey();

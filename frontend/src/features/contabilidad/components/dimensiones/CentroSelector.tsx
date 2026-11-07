@@ -26,6 +26,8 @@ interface Props {
   onChange: (c: CentroOpcion | null) => void;
   invalido?: boolean;
   describedBy?: string;
+  /** Selector de otro módulo (mismo contrato que el de Contabilidad); por omisión el de Contabilidad. */
+  endpoint?: string;
 }
 
 /**
@@ -41,11 +43,12 @@ export function CentroSelector({
   onChange,
   invalido,
   describedBy,
+  endpoint,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [busqueda, setBusqueda] = useState('');
   const q = useDebouncedValue(busqueda.trim(), 200);
-  const centros = useCentrosParaMovimiento(sucursalId, nivel, dim2Id ?? '', q, open);
+  const centros = useCentrosParaMovimiento(sucursalId, nivel, dim2Id ?? '', q, open, endpoint);
   const items = centros.data ?? [];
   const sinSucursal = !sucursalId;
 

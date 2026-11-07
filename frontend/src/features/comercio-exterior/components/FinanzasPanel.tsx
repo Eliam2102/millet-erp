@@ -32,7 +32,14 @@ import {
   type Finanzas,
   type PartidaCosto,
   type Anticipo,
+  useDimensionesDistribucion,
+  endpointCentrosDistribucion,
 } from '../api/finanzas';
+import {
+  AreaEquipoCaptura,
+  areaEquipoIds,
+  type AreaEquipoValor,
+} from '@/features/contabilidad/components/dimensiones/AreaEquipoCaptura';
 import type { ExpedienteDetalle } from '../api/types';
 import { ReferenciaSelector } from './ReferenciaSelector';
 const dinero = (n: number) => n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
@@ -110,6 +117,10 @@ function Gastos({
   const [editar, setEditar] = useState<Gasto | null | undefined>(undefined);
   const [partida, setPartida] = useState<PartidaCosto | null>(null);
   const [previa, setPrevia] = useState<{ resultado: Distribucion; etag?: string } | null>(null);
+  // H1 paso 4: área y equipo del gasto de importación (regla C-03), solo importación.
+  const importacion = data.expediente.tipo === 1;
+  const [dimensiones, setDimensiones] = useState<AreaEquipoValor>({ area: null, equipo: null });
+  const exigencias = useDimensionesDistribucion(id, !!previa && importacion).data;
   const preview = useMutation({
     mutationFn: async () => ({
       resultado: (
@@ -401,6 +412,18 @@ function Gastos({
           <p className="text-xs text-ink-muted">
             El ajuste definitivo se calcula con la existencia disponible cuando Almacén lo aplica.
           </p>
+          {exigencias && (exigencias.exigeArea || exigencias.exigeEquipo) && (
+            <AreaEquipoCaptura
+              id="distribucion-dimensiones"
+              sucursalId={exigencias.sucursalId}
+              endpoint={endpointCentrosDistribucion(id)}
+              exigeArea={exigencias.exigeArea}
+              exigeEquipo={exigencias.exigeEquipo}
+              cuentaCodigo={exigencias.cuentaCodigo}
+              value={dimensiones}
+              onChange={setDimensiones}
+            />
+          )}
           <Button
             disabled={accion.isPending || previa.etag !== etag}
             title={
@@ -412,8 +435,15 @@ function Gastos({
             }
             onClick={() => {
               void accion
-                .mutateAsync({ ruta: 'gastos/distribuir', etag: previa.etag })
-                .then(() => setPrevia(null))
+                .mutateAsync({
+                  ruta: 'gastos/distribuir',
+                  etag: previa.etag,
+                  body: importacion ? areaEquipoIds(dimensiones) : undefined,
+                })
+                .then(() => {
+                  setPrevia(null);
+                  setDimensiones({ area: null, equipo: null });
+                })
                 .catch(() => {});
             }}
           >
