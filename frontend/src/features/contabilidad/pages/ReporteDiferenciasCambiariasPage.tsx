@@ -17,12 +17,24 @@ import {
   type OrigenDiferenciaCambiaria,
   type TotalesDiferenciasCambiarias,
 } from '../api/diferencias-cambiarias';
+import { motivoPeriodoInvalido } from '../lib/diferencias-cambiarias';
 import { monto } from '../lib/polizas';
 
 const TODOS = 'todos';
 
 /** Primer día del mes de una fecha `yyyy-MM-dd`. */
 const inicioDeMes = (iso: string) => `${iso.slice(0, 8)}01`;
+
+/**
+ * Ancho relativo de cada columna en el PDF (peso; 1 por omisión): el documento y el proveedor o cliente llevan textos largos sin
+ * espacios (folios, referencias bancarias) que de otro modo se enciman con la columna siguiente.
+ */
+const ANCHO_PDF: Record<string, number> = {
+  fecha: 0.9,
+  documentoFolio: 2.4,
+  terceroNombre: 1.8,
+  moneda: 0.9,
+};
 
 /**
  * TES-09 · Diferencias cambiarias realizadas del periodo (ADR-0036: el reporte llega como JSON y aquí se muestra, filtra y
@@ -45,6 +57,7 @@ export function ReporteDiferenciasCambiariasPage() {
   const reporteShell = reporte
     ? {
         ...reporte,
+        columnas: reporte.columnas.map((c) => ({ ...c, anchoPdf: ANCHO_PDF[c.clave] ?? null })),
         totales: {
           perdida: reporte.totales.perdida,
           utilidad: reporte.totales.utilidad,
@@ -52,7 +65,7 @@ export function ReporteDiferenciasCambiariasPage() {
         },
       }
     : undefined;
-  const rangoInvalido = !desde || !hasta || hasta < desde;
+  const motivoInvalido = motivoPeriodoInvalido(desde, hasta);
 
   function ejecutar() {
     setAplicados({
@@ -173,15 +186,16 @@ export function ReporteDiferenciasCambiariasPage() {
             <Button
               type="button"
               onClick={ejecutar}
-              disabled={rangoInvalido}
-              title={
-                rangoInvalido
-                  ? 'Captura las dos fechas; la final no puede ser anterior a la inicial.'
-                  : undefined
-              }
+              disabled={motivoInvalido !== null}
+              aria-describedby={motivoInvalido ? 'difcam-periodo-error' : undefined}
             >
               Ejecutar
             </Button>
+            {motivoInvalido && (
+              <p id="difcam-periodo-error" role="alert" className="basis-full text-xs text-danger-fg">
+                {motivoInvalido} La tabla muestra el último periodo ejecutado.
+              </p>
+            )}
           </div>
         }
       />
@@ -213,7 +227,7 @@ function TarjetaResumen({ totales }: { totales: TotalesDiferenciasCambiarias }) 
         <Dato etiqueta="Pérdida total" valor={monto(totales.perdida)} />
         <Dato etiqueta="Utilidad total" valor={monto(totales.utilidad)} />
         <Dato
-          etiqueta={totales.neto < 0 ? 'Neto (pérdida)' : 'Neto (utilidad)'}
+          etiqueta={totales.neto < 0 ? 'Neto (pérdida)' : totales.neto > 0 ? 'Neto (utilidad)' : 'Neto'}
           valor={monto(totales.neto)}
           tono={totales.neto < 0 ? 'danger' : totales.neto > 0 ? 'success' : undefined}
         />
