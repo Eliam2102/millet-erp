@@ -26,10 +26,28 @@ export interface ReporteParaExportar<TFila> {
     decimales?: number | null;
     /** Ancho relativo de la columna en el PDF (peso flex; 1 por omisión). */
     anchoPdf?: number | null;
+    /** 'caracter': en el PDF, un texto largo sin espacios (folio, referencia) puede cortarse entre letras o dígitos. */
+    cortePdf?: 'caracter' | null;
   }[];
   filas: readonly TFila[];
   totales?: Record<string, number> | null;
 }
+
+const SEPARADOR = /[-_/.]/;
+
+/**
+ * Corte por carácter para folios y referencias: permite partir entre letras o dígitos, nunca junto a un separador, porque el
+ * motor del PDF agrega un guion al cortar y junto a un «-» quedaría doble.
+ */
+const cortePorCaracter = (palabra: string): string[] => {
+  const partes: string[] = [];
+  for (const ch of Array.from(palabra)) {
+    const previa = partes[partes.length - 1];
+    if (previa !== undefined && (SEPARADOR.test(previa.slice(-1)) || SEPARADOR.test(ch))) partes[partes.length - 1] = previa + ch;
+    else partes.push(ch);
+  }
+  return partes;
+};
 
 const styles = StyleSheet.create({
   page: {
@@ -172,6 +190,7 @@ export function ReporteDocument<TFila>({
                       flexDe(c),
                       esNumerica(c.tipo) ? styles.cellAlignRight : {},
                     ]}
+                    {...(c.cortePdf === 'caracter' ? { hyphenationCallback: cortePorCaracter } : {})}
                   >
                     {formatearCelda(obtenerCelda(fila, c.clave), c.tipo, c.decimales)}
                   </Text>

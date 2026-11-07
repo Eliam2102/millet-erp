@@ -31,10 +31,18 @@ const inicioDeMes = (iso: string) => `${iso.slice(0, 8)}01`;
  */
 const ANCHO_PDF: Record<string, number> = {
   fecha: 0.9,
-  documentoFolio: 2.4,
-  terceroNombre: 1.8,
+  origenEtiqueta: 1.1,
+  documentoFolio: 3.2,
+  terceroNombre: 1.7,
   moneda: 0.9,
+  tipoCambioDocumento: 1.25,
+  tipoCambioPago: 1.25,
+  perdida: 0.95,
+  utilidad: 0.95,
 };
+
+/** Columnas que en el PDF pueden cortarse por carácter (folios y referencias sin espacios). */
+const CORTE_POR_CARACTER = new Set(['documentoFolio']);
 
 /**
  * TES-09 · Diferencias cambiarias realizadas del periodo (ADR-0036: el reporte llega como JSON y aquí se muestra, filtra y
@@ -57,7 +65,11 @@ export function ReporteDiferenciasCambiariasPage() {
   const reporteShell = reporte
     ? {
         ...reporte,
-        columnas: reporte.columnas.map((c) => ({ ...c, anchoPdf: ANCHO_PDF[c.clave] ?? null })),
+        columnas: reporte.columnas.map((c) => ({
+          ...c,
+          anchoPdf: ANCHO_PDF[c.clave] ?? null,
+          cortePdf: CORTE_POR_CARACTER.has(c.clave) ? ('caracter' as const) : null,
+        })),
         totales: {
           perdida: reporte.totales.perdida,
           utilidad: reporte.totales.utilidad,
