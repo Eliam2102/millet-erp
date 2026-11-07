@@ -29,7 +29,7 @@ import {
  * comprobación o del empleado) y se comparte entre las líneas.</para>
  */
 export interface AreaEquipoGastoProps {
-  /** Prefijo de ids para los controles (único por línea). */
+  /** Identificador de la línea (los ids de los controles los genera `Field`, que liga cada label). */
   id: string;
   /** Respuesta de `useDimensionesGasto`; undefined mientras no hay sucursal/empleado o está cargando. */
   dimensiones: DimensionesGasto | undefined;
@@ -41,7 +41,6 @@ export interface AreaEquipoGastoProps {
 }
 
 export function AreaEquipoGasto({
-  id,
   dimensiones,
   sinOrigenMensaje = 'Elige primero la sucursal o el empleado.',
   value,
@@ -114,7 +113,7 @@ export function AreaEquipoGasto({
         <Field label="Área" required={exigeArea || exigeEquipo} optional={!exigeArea && !exigeEquipo}>
           {(control) => (
             <CentroGastoSelector
-              control={{ ...control, id: `${id}-area` }}
+              control={control}
               nivel={2}
               sucursalId={sucursalId}
               value={area}
@@ -128,7 +127,7 @@ export function AreaEquipoGasto({
         <Field label="Equipo" required={exigeEquipo} optional={!exigeEquipo}>
           {(control) => (
             <CentroGastoSelector
-              control={{ ...control, id: `${id}-equipo` }}
+              control={control}
               nivel={3}
               sucursalId={sucursalId}
               dim2Id={area?.id}
