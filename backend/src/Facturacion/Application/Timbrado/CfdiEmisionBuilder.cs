@@ -102,7 +102,7 @@ public static class CfdiEmisionBuilder
             FormaPago: nc.FormaPago,
             MetodoPago: nc.MetodoPago,
             Exportacion: "01",
-            Conceptos: [ConceptoUnico(nc.ClaveProdServSat, nc.ClaveUnidadSat, nc.Descripcion, nc.Subtotal, nc.ImpuestosTrasladados)],
+            Conceptos: [ConceptoUnico(nc.ClaveProdServSat, nc.ClaveUnidadSat, nc.Descripcion, nc.Subtotal, nc.ImpuestosTrasladados, nc.TasaIvaTraslado)],
             Relaciones: RelacionesDe(nc),
             ReferenciaInterna: nc.Id);
     }
@@ -122,7 +122,7 @@ public static class CfdiEmisionBuilder
             FormaPago: factura.FormaPago,
             MetodoPago: factura.MetodoPago,
             Exportacion: "01",
-            Conceptos: [ConceptoUnico(factura.ClaveProdServSat, factura.ClaveUnidadSat, factura.Descripcion, factura.Subtotal, factura.ImpuestosTrasladados)],
+            Conceptos: [ConceptoUnico(factura.ClaveProdServSat, factura.ClaveUnidadSat, factura.Descripcion, factura.Subtotal, factura.ImpuestosTrasladados, factura.TasaIvaTraslado)],
             Relaciones: RelacionesDe(factura),
             ReferenciaInterna: factura.Id);
     }
@@ -314,7 +314,8 @@ public static class CfdiEmisionBuilder
             UsoCfdi: c.ReceptorUsoCfdi,
             Pais: c.ReceptorPais,
             EsGenerico: c.ReceptorEsGenerico,
-            NumRegIdTrib: numRegIdTrib);
+            // 86e3zg0vb: sin CCE (anticipo, NC de aplicación) el extranjero lleva el NumRegIdTrib guardado en el comprobante.
+            NumRegIdTrib: numRegIdTrib ?? c.ReceptorNumRegIdTrib);
 
     private static List<RelacionCfdiEmision> RelacionesDe(Comprobante c) =>
         c.Relaciones
@@ -384,12 +385,24 @@ public static class CfdiEmisionBuilder
     /// Concepto único de comprobantes sin líneas propias (NC, anticipo, Carta
     /// Porte tipo I). La tasa de IVA se reconstruye desde los totales
     /// (subtotal/impuesto) porque el agregado no la persiste.
+    /// <para>86e3zg0vb: con <paramref name="tasaExplicita"/> = 0 (anticipo de exportación y su NC de aplicación) el traslado va como
+    /// <c>Tasa 0.000000</c> con importe 0, no como Exento. Null conserva el comportamiento anterior.</para>
     /// </summary>
     private static ConceptoCfdi ConceptoUnico(
-        string claveProdServ, string claveUnidad, string descripcion, decimal subtotal, decimal importeIva)
+        string claveProdServ, string claveUnidad, string descripcion, decimal subtotal, decimal importeIva, decimal? tasaExplicita = null)
     {
         var impuestos = new List<ImpuestoConceptoCfdi>();
-        if (importeIva > 0 && subtotal > 0)
+        if (tasaExplicita == 0m && importeIva == 0m)
+        {
+            impuestos.Add(new ImpuestoConceptoCfdi(
+                Base: subtotal,
+                Impuesto: "002",
+                TipoFactor: "Tasa",
+                TasaOCuota: 0m,
+                Importe: 0m,
+                EsRetencion: false));
+        }
+        else if (importeIva > 0 && subtotal > 0)
         {
             impuestos.Add(new ImpuestoConceptoCfdi(
                 Base: subtotal,
