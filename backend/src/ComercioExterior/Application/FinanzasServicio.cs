@@ -38,10 +38,58 @@ public sealed record FinanzasDetalle(int Version, string EstadoFinanciero, IRead
 public sealed record OrdenServicioResumen(Guid Id, string Folio, string Moneda, decimal Total, decimal Asignado, decimal Facturado, decimal Diferencia);
 public sealed record MutarFinanzasCommand(Guid ExpedienteId, int Version, string Accion, Guid? ElementoId = null,
     DatosGasto? Gasto = null, PartidaCostoDatos? Partida = null, AnticipoDatos? Anticipo = null,
-    ComprobacionAnticipoDatos? Comprobacion = null, ResolucionAnticipoDatos? Resolucion = null, ConceptoGastoDatos? Concepto = null) : IRequest<FinanzasDetalle>;
+    ComprobacionAnticipoDatos? Comprobacion = null, ResolucionAnticipoDatos? Resolucion = null, ConceptoGastoDatos? Concepto = null,
+    DistribuirDatos? Distribuir = null) : IRequest<FinanzasDetalle>;
+/// <summary>H1 paso 4 (86e3z5w25): área (Dim2) y equipo (Dim3) que se capturan al distribuir; opcionales.</summary>
+public sealed record DistribuirDatos(Guid? AreaId, Guid? EquipoId);
+/// <remarks>H1 paso 4 (aditivo): <c>CentroCostoId</c> = área o equipo capturado al distribuir; Almacén lo pasa a Contabilidad.</remarks>
 public sealed record ExpedienteCostoDistribuidoEvent(Guid Empresa, DateTimeOffset Fecha, Guid ExpedienteId, Guid SucursalId,
     int NumeroVersion, IReadOnlyList<CostoPartidaDistribuido> Partidas)
-    : IntegrationEvent("comercio_exterior.expediente.costo-distribuido.v1", Empresa, Fecha);
+    : IntegrationEvent("comercio_exterior.expediente.costo-distribuido.v1", Empresa, Fecha)
+{
+    public Guid? CentroCostoId { get; init; }
+}
+
+/// <summary>Qué exige la cuenta del gasto de importación (regla C-03) en la sucursal del expediente.</summary>
+public sealed record DimensionesDistribucion(Guid SucursalId, bool ExigeArea, bool ExigeEquipo, string? CuentaCodigo);
+
+/// <summary>
+/// H1 paso 4 (86e3z5w25): la póliza del costo aplicado (<c>almacen.expediente.costo-aplicado.v1</c>) carga la parte de piezas ya
+/// vendidas a gasto de importación (501, regla C-03). El área y el equipo se capturan al distribuir: Contabilidad dice qué exige la
+/// cuenta, ofrece los centros de la sucursal del expediente y valida lo capturado. Sin el dato la distribución procede y la póliza
+/// queda en Rechazos.
+/// </summary>
+public sealed class DimensionesDistribucionServicio(ExpedienteServicio servicio, IDimensionesCapturaPort dimensiones, IClock clock)
+{
+    public const string TipoEvento = "almacen.expediente.costo-aplicado.v1";
+    public const string Campo = "GastoImportacion";
+
+    public static MovimientoCaptura Movimiento(Expediente e, DateOnly fecha) => new(e.EmpresaId, e.SucursalId, TipoEvento, Campo, null, fecha);
+
+    public async Task<DimensionesDistribucion> ExigenciasAsync(Guid id, CancellationToken ct)
+    {
+        await servicio.PermisoAsync(PermisosCanonicos.ComercioExteriorGastosDistribuir, ct);
+        var e = await servicio.CargarAsync(id, false, ct);
+        var r = await dimensiones.ExigenciasAsync(Movimiento(e, clock.HoyLocal()), ct);
+        return new(e.SucursalId, r.ExigeArea, r.ExigeEquipo, r.CuentaCodigo);
+    }
+
+    public async Task<IReadOnlyList<Millet.Contabilidad.Application.Dimensiones.CentroOpcionDto>> CentrosAsync(Guid id, bool equipos, Guid? areaId,
+        string? q, int limite, CancellationToken ct)
+    {
+        await servicio.PermisoAsync(PermisosCanonicos.ComercioExteriorGastosDistribuir, ct);
+        var e = await servicio.CargarAsync(id, false, ct);
+        return await dimensiones.CentrosAsync(e.EmpresaId, e.SucursalId, equipos, areaId, q, limite, ct);
+    }
+
+    /// <summary>Centro que viaja en el evento (el equipo si se eligió; si no, el área). Un dato inválido rechaza la distribución.</summary>
+    public async Task<Guid?> CentroAsync(Expediente e, DistribuirDatos? datos, CancellationToken ct)
+    {
+        if (datos is null || (datos.AreaId is null && datos.EquipoId is null)) return null;
+        var r = await dimensiones.ValidarAsync(Movimiento(e, clock.HoyLocal()), datos.AreaId, datos.EquipoId, ct);
+        return r.Error is null ? r.CentroCostoId : throw new BusinessRuleException("CE_DIMENSION_INVALIDA", r.Error);
+    }
+}
 
 public sealed record AnticipoAgenteSaldoTransferidoEvent(Guid Empresa, DateTimeOffset OcurridoEn,
     Guid ExpedienteId, string FolioExpediente, Guid AnticipoAgenteId, int ResolucionIndice,
@@ -114,7 +162,8 @@ public sealed class MutarFinanzasValidator : AbstractValidator<MutarFinanzasComm
 }
 public sealed class MutarFinanzasHandler(ComercioExteriorDbContext db, ExpedienteServicio servicio, FinanzasServicio finanzas,
     ICatalogosCeReadPort catalogos, IFacturaGastoReadPort facturas, ITipoCambioGastoReadPort cambio, IClock clock,
-    IIntegrationEventPublisher eventos, OrdenesServicioServicio ordenes, IPeriodoContableConsultaPort periodos, ISender mediator, Millet.Tesoreria.Application.PublicPorts.IAutorizacionPagoCeReadPort pagosCe) : IRequestHandler<MutarFinanzasCommand, FinanzasDetalle>
+    IIntegrationEventPublisher eventos, OrdenesServicioServicio ordenes, IPeriodoContableConsultaPort periodos, ISender mediator, Millet.Tesoreria.Application.PublicPorts.IAutorizacionPagoCeReadPort pagosCe,
+    DimensionesDistribucionServicio dimensiones) : IRequestHandler<MutarFinanzasCommand, FinanzasDetalle>
 {
     public async Task<FinanzasDetalle> Handle(MutarFinanzasCommand request, CancellationToken cancellationToken)
     {
@@ -207,11 +256,13 @@ public sealed class MutarFinanzasHandler(ComercioExteriorDbContext db, Expedient
                 break;
             case "distribuir":
                 await ValidacionesFinancieras.PeriodoAbiertoAsync(periodos, clock.HoyLocal(), cancellationToken);
+                var centro = e.Tipo == TipoExpediente.Importacion ? await dimensiones.CentroAsync(e, request.Distribuir, cancellationToken) : null;
                 var distribucion = e.PrepararDistribucion(await finanzas.ConceptosAsync(e.EmpresaId, cancellationToken), await finanzas.PartidasAsync(e, cancellationToken), servicio.Actor, clock.UtcNow,
                     finanzas.IncrementablesAlInventario);
                 e.ConfirmarDistribucion(distribucion);
                 if (e.Tipo == TipoExpediente.Importacion)
-                    await eventos.PublishAsync(new ExpedienteCostoDistribuidoEvent(e.EmpresaId, clock.UtcNow, e.Id, e.SucursalId, distribucion.NumeroVersion, distribucion.Partidas), cancellationToken);
+                    await eventos.PublishAsync(new ExpedienteCostoDistribuidoEvent(e.EmpresaId, clock.UtcNow, e.Id, e.SucursalId, distribucion.NumeroVersion, distribucion.Partidas)
+                        { CentroCostoId = centro }, cancellationToken);
                 break;
             case "anticipo":
                 var a = request.Anticipo ?? throw new BusinessRuleException("CE_ANTICIPO_INVALIDO", "Capture el anticipo.");
