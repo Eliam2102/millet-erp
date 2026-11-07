@@ -174,6 +174,32 @@ public class SalidaAppAlmacenesTests
     }
 
     [Fact]
+    public async Task H1_el_area_o_equipo_capturado_va_en_cada_linea_y_en_el_evento()
+    {
+        var (db, _, _, _, _) = Db();
+        var eventos = new Eventos();
+        var centro = Guid.NewGuid();
+        await SalidaAppAlmacenes.RegistrarAsync(db, eventos, EmpresaId, Usuario, Salida(3) with { CentroCostoId = centro }, default);
+        await db.SaveChangesAsync();
+
+        (await db.Movimientos.Include(m => m.Lineas).SingleAsync()).Lineas.Should().OnlyContain(l => l.CentroCostoId == centro);
+        var ev = eventos.Publicados.OfType<SalidaInventarioRegistradaIntegrationEvent>().Should().ContainSingle().Subject;
+        ev.CentroCostoId.Should().Be(centro);
+        ev.Lineas.Should().OnlyContain(l => l.CentroCostoId == centro);
+    }
+
+    [Fact]
+    public async Task H1_sin_area_el_evento_sigue_sin_centro()
+    {
+        var (db, _, _, _, _) = Db();
+        var eventos = new Eventos();
+        await SalidaAppAlmacenes.RegistrarAsync(db, eventos, EmpresaId, Usuario, Salida(3), default);
+        await db.SaveChangesAsync();
+
+        eventos.Publicados.OfType<SalidaInventarioRegistradaIntegrationEvent>().Single().CentroCostoId.Should().BeNull();
+    }
+
+    [Fact]
     public async Task Sin_existencia_no_publica_evento_porque_no_hay_movimiento()
     {
         var (db, _, _, _, _) = Db();

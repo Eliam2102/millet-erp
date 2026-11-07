@@ -444,6 +444,31 @@ public class AlmacenesAppSalidasTests
         await AssertErrorSinEfectosAsync(s, datos, "datos.sucursal");
     }
 
+    // H1 (86e3z5w25): el área y el equipo se resuelven por clave en la sucursal; una clave que no existe es ERROR sin mover nada.
+    [Fact]
+    public async Task Area_que_no_existe_en_la_sucursal_da_ERROR_sin_efectos()
+    {
+        var s = await SembrarAsync(10);
+        var datos = new
+        {
+            movimiento = "AJUSTE", sucursal = "MID", piezas = 1, area = "NO-EXISTE-H1",
+            almacenes = new[] { new { almacenGeneral = new { id = 1 }, piezas = 1, grupos = new[] { Grupo(s.ArticuloAw, 1) } } },
+        };
+        await AssertErrorSinEfectosAsync(s, datos, "El área NO-EXISTE-H1");
+    }
+
+    [Fact]
+    public async Task Equipo_con_tipo_invalido_da_ERROR_sin_efectos()
+    {
+        var s = await SembrarAsync(10);
+        var datos = new
+        {
+            movimiento = "AJUSTE", sucursal = "MID", piezas = 1, equipo = new { clave = "X" },
+            almacenes = new[] { new { almacenGeneral = new { id = 1 }, piezas = 1, grupos = new[] { Grupo(s.ArticuloAw, 1) } } },
+        };
+        await AssertErrorSinEfectosAsync(s, datos, "datos.equipo");
+    }
+
     [Fact]
     public async Task Piezas_cero_da_ERROR_sin_efectos()
     {
