@@ -1,8 +1,12 @@
+using System.Globalization;
 using FluentValidation;
+using Microsoft.Extensions.Logging;
+using Millet.Almacen.Application.Incidencias;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Domain.Ports;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.SharedKernel.Application.Incidencias;
 
 namespace Millet.Almacen.Application.Recepciones;
 
@@ -45,4 +49,44 @@ internal static class RecepcionRechazos
                 r.MotivoRechazo ?? "", r.EvidenciaBlobRef ?? ""));
         }
     }
+
+    /// <summary>
+    /// U-4 (ALM-recepcion-09), después de guardar la recepción: primero resuelve las incidencias de las partidas que
+    /// sí se recibieron ahora (el pendiente llegó), y luego abre una por cada partida rechazada en el acto, a cargo de
+    /// quien recibió. La evidencia del rechazo queda en la recepción (ADR-0058: el archivo no viaja en la lectura).
+    /// </summary>
+    public static async Task IncidenciasAsync(IIncidenciasPort? incidencias, ILogger? logger, OcLectura oc,
+        Guid recepcionId, string folio, Guid? sucursalId, Guid? responsable,
+        IReadOnlyList<RegistrarRecepcionLineaInput> aceptadas, IReadOnlyList<RegistrarRecepcionLineaInput> rechazadas,
+        CancellationToken ct)
+    {
+        if (incidencias is null)
+            return;
+        foreach (var linea in aceptadas.Where(l => l.Cantidad > 0 && l.LineaOcId is not null).Select(l => l.LineaOcId!.Value).Distinct())
+        {
+            var resolucion = $"Se recibió la partida en la recepción {folio}.";
+            await IncidenciasAlmacen.SinRomperAsync(logger, "resolver la incidencia de diferencia de recepción", async () =>
+            {
+                await incidencias.ResolverPorDocumentoAsync(PasosIncidencia.AlmRecepcionDiferenciaOc, oc.Id, IncidenciasAlmacen.ClaveRechazo(linea), resolucion, ct);
+                await incidencias.ResolverPorDocumentoAsync(PasosIncidencia.AlmRecepcionDiferenciaOc, oc.Id, IncidenciasAlmacen.ClaveExcede(linea), resolucion, ct);
+            });
+        }
+        if (responsable is not Guid quien || quien == Guid.Empty)
+            return;
+        foreach (var r in rechazadas.Where(r => r.LineaOcId is not null))
+        {
+            var unidad = string.IsNullOrWhiteSpace(r.UnidadCapturada)
+                ? oc.Lineas.FirstOrDefault(l => l.LineaId == r.LineaOcId)?.UnidadMedida ?? string.Empty
+                : r.UnidadCapturada;
+            var cantidad = r.CantidadRechazada.ToString("0.####", CultureInfo.InvariantCulture);
+            var motivo = Recortar($"Se rechazaron {cantidad} {unidad} al recibir: {r.MotivoRechazo}".Trim(), 1000);
+            var detalle = $"La evidencia del rechazo quedó en la recepción {folio}. Lo rechazado no entró al inventario y sigue pendiente en la orden {oc.Folio}: "
+                + "se resuelve al recibir esa partida, o con una nota si Compras ajusta la orden.";
+            await IncidenciasAlmacen.SinRomperAsync(logger, "abrir la incidencia del rechazo en la recepción", () =>
+                incidencias.AbrirAsync(IncidenciasAlmacen.RechazoRecepcion(oc.Id, oc.Folio, recepcionId, folio, r.LineaOcId!.Value,
+                    sucursalId, quien, motivo, detalle), ct));
+        }
+    }
+
+    private static string Recortar(string texto, int max) => texto.Length <= max ? texto : texto[..max];
 }

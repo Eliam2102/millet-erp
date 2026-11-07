@@ -16,6 +16,13 @@ const MOTIVOS: Record<string, string> = {
 
 /** Presentación de errores: nunca publica excepciones ni detalles internos del servidor. */
 export function errorUsuario(error: unknown, contexto = 'No se pudo completar la acción.'): string {
+  const texto = mensajeUsuario(error, contexto);
+  // U-4: si el rechazo dejó su incidencia, se dice cuál para que el usuario la siga en «Mis incidencias».
+  const numero = esApiError(error) ? error.problem.incidenciaNumero : undefined;
+  return numero ? `${texto} Se abrió la incidencia INC-${numero} para darle seguimiento.` : texto;
+}
+
+function mensajeUsuario(error: unknown, contexto: string): string {
   if (esApiError(error)) {
     const motivo = MOTIVOS[error.code ?? ''];
     if (motivo) return motivo;

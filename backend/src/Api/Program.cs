@@ -1662,6 +1662,8 @@ builder.Services.AddHealthChecks()
         timeout: TimeSpan.FromSeconds(1));
 
 builder.Services.AddTransient(typeof(MediatR.IPipelineBehavior<,>), typeof(Millet.Api.Web.SucursalScopeQueryBehavior<,>));
+// U-4 (86e3yzemw): un rechazo con incidencia la abre en Compartido aunque la operación del módulo se revierta.
+builder.Services.AddTransient(typeof(MediatR.IPipelineBehavior<,>), typeof(Millet.Api.Web.IncidenciaRechazoBehavior<,>));
 builder.Services.AddScoped<Millet.SharedKernel.Application.IFacturacionSucursalReadPort, Millet.Facturacion.Infrastructure.FacturacionSucursalReadAdapter>();
 builder.Services.AddScoped<IComprasSucursalReadPort, ComprasSucursalReadAdapter>();
 builder.Services.AddScoped<IAlmacenSucursalReadPort, Millet.Almacen.Infrastructure.PublicAdapters.AlmacenSucursalReadAdapter>();

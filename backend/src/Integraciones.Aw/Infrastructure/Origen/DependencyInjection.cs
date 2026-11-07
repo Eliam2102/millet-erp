@@ -16,6 +16,8 @@ using Millet.Integraciones.Aw.Infrastructure.Retorno;
 using Millet.Integraciones.Aw.Infrastructure.Clientes;
 using Millet.Integraciones.Aw.Infrastructure.OrigenPg;
 using Millet.Integraciones.Aw.Infrastructure.Pedidos;
+using Millet.Integraciones.Aw.Infrastructure.Pinturas;
+using Millet.Integraciones.Aw.Application.Pinturas;
 
 namespace Millet.Integraciones.Aw.Infrastructure.Origen;
 
@@ -51,6 +53,8 @@ public static class OrigenDependencyInjection
         ConservarReal<IAwClientesReader>(services);
         ConservarReal<IAwArticulosReader>(services);
         ConservarReal<IMasterProvisioningPort>(services);
+        // I13.9: con AwIntegracionDb el Real es PinturasPedidosAdapter; sin ella, el stub de Facturación (0 pedidos).
+        ConservarReal<IPlantaPinturaPedidosReader>(services);
 
         services.AddOptions<AwPedidosOptions>().Bind(configuration.GetSection(AwPedidosOptions.SectionName));
         services.AddScoped<ISucursalPorClaveAwResolver, SucursalPorClaveAwResolver>();
@@ -82,6 +86,11 @@ public static class OrigenDependencyInjection
             sp.GetRequiredKeyedService<IIntegracionSqlConnectionFactory>("Demo"), sp.GetRequiredService<IOptions<AwPedidosOptions>>(),
             sp.GetRequiredService<ILogger<AwArticulosPgReader>>()));
         services.AddKeyedScoped<IMasterProvisioningPort>("Demo", (sp, _) => ActivatorUtilities.CreateInstance<AwMasterProvisioningAdapter>(sp));
+        PedidosDependencyInjection.AddPinturasPedidos(services, configuration);
+        services.AddKeyedScoped<IPlantaPinturaPedidosReader>("Demo", (sp, _) => new PinturasPedidosAdapter(
+            sp.GetRequiredKeyedService<IIntegracionSqlConnectionFactory>("Demo"), postgres: true,
+            sp.GetRequiredService<IPinturasSucursalResolver>(), sp.GetRequiredService<IOptions<PinturasPedidosOptions>>(),
+            sp.GetRequiredService<ILogger<PinturasPedidosAdapter>>()));
         return services;
     }
 

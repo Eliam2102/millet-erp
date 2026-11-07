@@ -54,6 +54,11 @@ import { PageHeader } from '@/components/erp/PageHeader';
 import { EmptyState, TableSkeleton } from '@/components/erp';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
+import { AreaEquipoCaptura } from '@/features/contabilidad/components/dimensiones/AreaEquipoCaptura';
+import {
+  areaEquipoIds,
+  type AreaEquipoValor,
+} from '@/features/contabilidad/components/dimensiones/areaEquipo';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import {
@@ -67,6 +72,8 @@ import {
   useEmparejarManual,
   useDesemparejarLinea,
   useAltaAsistida,
+  useDimensionesAlta,
+  endpointCentrosAlta,
   useMarcarPartidaTransito,
   useCerrarConciliacion,
   useReabrirConciliacion,
@@ -184,6 +191,14 @@ export function BandejaConciliaciones() {
   const [altaConceptoIvaId, setAltaConceptoIvaId] = useState<string>('');
   const [altaMontoBase, setAltaMontoBase] = useState<string>('');
   const [altaMontoIva, setAltaMontoIva] = useState<string>('');
+  // H1 paso 3: área y equipo cuando la cuenta del concepto los exige (regla C-03)
+  const [altaDimensiones, setAltaDimensiones] = useState<AreaEquipoValor>({ area: null, equipo: null });
+  const dimensionesAltaQuery = useDimensionesAlta(
+    modalAltaAsistida ? conciliacion?.id : undefined,
+    altaConceptoId,
+    modalAltaAsistida?.fecha,
+  );
+  const dimensionesAlta = dimensionesAltaQuery.data;
 
   // Formulario partida en tránsito
   const [transitoTipo, setTransitoTipo] = useState<PartidaTransitoTipo>(PartidaTransitoTipo.ChequeNoCobrado);
@@ -192,6 +207,7 @@ export function BandejaConciliaciones() {
   // Manejo de apertura de alta asistida
   const abrirAltaAsistida = (linea: ExtractoLineaResponse) => {
     setModalAltaAsistida(linea);
+    setAltaDimensiones({ area: null, equipo: null });
     const montoAbs = Math.abs(linea.monto);
     if (linea.sentido === 2) {
       // Cargo -> sugerir comisión
@@ -230,6 +246,7 @@ export function BandejaConciliaciones() {
         conceptoIvaId: altaIncluyeIva ? altaConceptoIvaId : undefined,
         montoBase: parseFloat(altaMontoBase),
         montoIva: altaIncluyeIva ? parseFloat(altaMontoIva) : undefined,
+        ...areaEquipoIds(altaDimensiones),
       });
       toast.success('Movimiento registrado y emparejado con éxito (póliza emitida)');
       setModalAltaAsistida(null);
@@ -1266,6 +1283,19 @@ export function BandejaConciliaciones() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {dimensionesAlta && (dimensionesAlta.exigeArea || dimensionesAlta.exigeEquipo) && conciliacion && (
+                <AreaEquipoCaptura
+                  id="alta-dimensiones"
+                  sucursalId={dimensionesAlta.sucursalId}
+                  endpoint={endpointCentrosAlta(conciliacion.id)}
+                  exigeArea={dimensionesAlta.exigeArea}
+                  exigeEquipo={dimensionesAlta.exigeEquipo}
+                  cuentaCodigo={dimensionesAlta.cuentaCodigo}
+                  value={altaDimensiones}
+                  onChange={setAltaDimensiones}
+                />
+              )}
 
               {modalAltaAsistida.sentido === 2 && (
                 <div className="flex flex-col gap-3 p-3 bg-surface border border-edge rounded-md">

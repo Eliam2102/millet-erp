@@ -2,7 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Domain.Catalogo;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.Catalogos.Domain;
+using Millet.Almacen.Application.Incidencias;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.SharedKernel.Application.Incidencias;
 
 namespace Millet.Almacen.Application.Catalogo;
 
@@ -52,7 +54,7 @@ public static class UbicacionEntradaGuard
     {
         var ubicacion = await db.Ubicaciones.AsNoTracking()
             .Where(u => u.Id == ubicacionId)
-            .Select(u => new { u.SubAlmacenId, u.EsDefault })
+            .Select(u => new { u.SubAlmacenId, u.EsDefault, u.Clave })
             .FirstOrDefaultAsync(ct);
 
         if (ubicacion is null)
@@ -91,9 +93,13 @@ public static class UbicacionEntradaGuard
                 ct);
 
         if (!tieneAsignacion)
-            throw new BusinessRuleException(
-                "ENTRADA_SIN_ASIGNACION",
-                "El artículo no está asignado a la ubicación elegida. Asígnalo primero.");
+        {
+            // U-4 (ALM-ubicaciones-06): el rechazo deja su incidencia; se resuelve al asignar el artículo a la ubicación.
+            const string mensaje = "El artículo no está asignado a la ubicación elegida. Asígnalo primero.";
+            var (_, sucursalId) = await AlmacenSucursalResolver.ResolverAsync(db, ubicacion.SubAlmacenId, ct);
+            throw new IncidenciaRechazoException("ENTRADA_SIN_ASIGNACION", mensaje,
+                IncidenciasAlmacen.ArticuloSinUbicacion(articuloId, ubicacionId, ubicacion.Clave, sucursalId, mensaje));
+        }
 
         return ubicacion.SubAlmacenId;
     }
