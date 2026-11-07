@@ -140,4 +140,28 @@ public class NormalizadorEventosU2Tests
     [InlineData(null, "Consumo")]
     public void H1_campo_de_la_salida_segun_su_causa(string? causa, string campo) =>
         N.CampoSalidaInventario(causa).Should().Be(campo);
+
+    // 86e3zf04y: la rotura capturada en la pantalla de Almacén se contabiliza como la rotura de la app: merma contra inventario del
+    // artículo, con el centro (área o equipo) de la rotura y el movimiento de salida como documento origen.
+    [Fact]
+    public void La_rotura_de_la_pantalla_carga_merma_con_su_centro_y_el_movimiento_como_documento()
+    {
+        Guid movimiento = Guid.NewGuid(), articulo = Guid.NewGuid(), centro = Guid.NewGuid();
+        var e = Leer(N.SalidaRoturaRegistrada, new
+        {
+            EmpresaId = Empresa, OcurridoEn = Ocurrido, RoturaId = Guid.NewGuid(), MovimientoId = movimiento, FolioMovimiento = "M-ROT2026-000001",
+            FechaMovimiento = new DateOnly(2026, 11, 5), AlmacenId = Guid.NewGuid(), SucursalId = Sucursal, ArticuloId = articulo,
+            UnidadMedida = "PZA", Cantidad = 2m, CostoUnitarioMxn = 900m, ValorMxn = 1800m, MotivoCodigo = "rotura_rack", Motivo = "Rotura en rack",
+            CentroCostoId = centro, CapturadoPor = Guid.NewGuid(), AutorizadoPor = Guid.NewGuid(),
+        });
+
+        e.Tipo.Should().Be("almacen.salida_rotura.registrada.v1");
+        (e.Importes["Merma"], e.Importes["Subtotal"]).Should().Be((1800m, 1800m));
+        e.CentroCostoId.Should().Be(centro);
+        e.SucursalId.Should().Be(Sucursal);
+        e.FechaContable.Should().Be(new DateOnly(2026, 11, 5));
+        e.Lineas.Should().ContainSingle(l => l.Importe == 1800m && l.ArticuloId == articulo && l.CentroCostoId == centro);
+        e.Documento.Should().Match<Millet.Contabilidad.Domain.DocumentoOrigenPoliza>(d =>
+            d.Modulo == "almacen" && d.Tipo == "salida_inventario" && d.Id == movimiento && d.Folio == "M-ROT2026-000001");
+    }
 }

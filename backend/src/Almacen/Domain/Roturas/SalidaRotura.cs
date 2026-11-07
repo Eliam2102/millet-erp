@@ -44,6 +44,13 @@ public sealed class SalidaRotura : BaseEntity, IPerteneceAEmpresa, IAuditable
     public decimal? CostoUnitarioMxn { get; private set; }
     public decimal? ValorMxn { get; private set; }
 
+    /// <summary>86e3zf04y: clave del área (CeCo, Dim2) capturada; null si no se capturó.</summary>
+    public string? AreaClave { get; private set; }
+    /// <summary>86e3zf04y: clave del equipo (Dim3) capturada; null si no se capturó.</summary>
+    public string? EquipoClave { get; private set; }
+    /// <summary>86e3zf04y: centro que viaja a la póliza de merma (el equipo si se capturó; si no, el área).</summary>
+    public Guid? CentroCostoId { get; private set; }
+
     private SalidaRotura() { }
 
     public SalidaRotura(Guid empresaId, Guid sucursalId, Guid subAlmacenId, Guid ubicacionId, Guid articuloId, decimal cantidad,
@@ -64,6 +71,19 @@ public sealed class SalidaRotura : BaseEntity, IPerteneceAEmpresa, IAuditable
         EmpresaId = empresaId; SucursalId = sucursalId; SubAlmacenId = subAlmacenId; UbicacionId = ubicacionId; ArticuloId = articuloId;
         Cantidad = cantidad; UnidadMedida = unidadMedida; Fecha = fecha; MotivoCodigo = motivoCodigo; Comentario = comentario;
         CapturadoPor = capturadoPor; Estado = Pendiente;
+    }
+
+    /// <summary>
+    /// 86e3zf04y: área y equipo de la rotura, ya resueltos en la sucursal por Contabilidad (regla C-03, mismo puerto que H1).
+    /// Solo mientras está pendiente: al autorizar, el centro ya viajó en el evento de la póliza.
+    /// </summary>
+    public void AsignarAreaEquipo(string? areaClave, string? equipoClave, Guid? centroCostoId)
+    {
+        if (Estado != Pendiente)
+            throw new BusinessRuleException("ROTURA_NO_PENDIENTE", $"Solo se cambia el área o el equipo de una rotura pendiente (estado actual: {Estado}).");
+        AreaClave = string.IsNullOrWhiteSpace(areaClave) ? null : areaClave.Trim();
+        EquipoClave = string.IsNullOrWhiteSpace(equipoClave) ? null : equipoClave.Trim();
+        CentroCostoId = centroCostoId;
     }
 
     /// <summary>Separación de funciones: quien capturó no autoriza. Solo se autoriza una rotura pendiente.</summary>
