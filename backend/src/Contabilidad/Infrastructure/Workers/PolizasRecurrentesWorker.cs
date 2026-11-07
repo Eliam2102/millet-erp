@@ -18,7 +18,7 @@ public sealed class RecurrentesOpciones
 /// <summary>
 /// Genera cada <c>IntervaloMinutos</c> lo que toca de las plantillas recurrentes activas (CA10.6) y sus reversas automáticas del día
 /// 1 (K10.4-b), con <see cref="GeneradorRecurrentes"/> (idempotente: repetir la corrida no duplica). Corre sin request: levanta el
-/// filtro de empresa y cada póliza toma la empresa de su plantilla. Lo que no se puede generar queda pendiente para la siguiente corrida.
+/// filtro de empresa y cada póliza toma la empresa de su plantilla. CON-11: también revierte el día 1 la revaluación de cierre. Lo que no se puede generar queda pendiente para la siguiente corrida.
 /// </summary>
 public sealed class PolizasRecurrentesWorker(IServiceScopeFactory scopeFactory, IOptions<RecurrentesOpciones> opciones, ILogger<PolizasRecurrentesWorker> logger)
     : BackgroundService
@@ -46,6 +46,9 @@ public sealed class PolizasRecurrentesWorker(IServiceScopeFactory scopeFactory, 
                 var r = await sp.GetRequiredService<GeneradorRecurrentes>().GenerarAsync(hoy, null, stoppingToken);
                 if (r.Generadas.Count > 0 || r.Pendientes.Count > 0)
                     logger.LogInformation("PolizasRecurrentesWorker: {Generadas} generadas, {Pendientes} pendientes.", r.Generadas.Count, r.Pendientes.Count);
+                // CON-11 (86e3kdypd): reversa automática del día 1 de la revaluación de cierre de bancos y clientes.
+                var reversas = await sp.GetRequiredService<MediatR.ISender>().Send(new Application.Revaluacion.PublicarReversasRevaluacionContableCommand(), stoppingToken);
+                if (reversas > 0) logger.LogInformation("PolizasRecurrentesWorker: {Reversas} revaluaciones de cierre revertidas.", reversas);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { return; }
             catch (Exception ex)

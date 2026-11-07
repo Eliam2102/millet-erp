@@ -191,6 +191,11 @@ GO
    ORDER BY d.numero_pedido, d.secuencia;
 */
 
+/* Semilla de prueba para DEMO:
+   Para poblar pedidos de prueba reales (80273726, 80273725, 80273722) y verificar
+   los 3 escenarios contra el servicio de Windows de TI, ejecutar: 14b_seed_aw_retorno_demo.sql
+*/
+
 /* Rollback (en pruebas):
    -- DROP TABLE dbo.aw_retorno;
 */

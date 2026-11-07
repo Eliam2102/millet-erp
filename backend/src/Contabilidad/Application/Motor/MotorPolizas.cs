@@ -90,6 +90,9 @@ public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IP
         var partidas = new List<PartidaRequest>();
         foreach (var l in plantilla.Lineas.OrderBy(x => x.Orden))
         {
+            // CON-11: las líneas de diferencia cambiaria no leen importe del evento; se asientan al final con lo que falte para cuadrar.
+            if (l.Campo == EventoContable.CampoDiferenciaCambiaria) continue;
+            var tcLinea = TipoCambioDeLinea(e, l.Rol, tc);
             Guid? cuenta = null;
             foreach (var (importe, centro, puente, linea) in Importes(l, e))
             {
@@ -110,20 +113,30 @@ public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IP
                 if (e.Tipo == NormalizadorEventos.CostoImportacionAplicado && l.RolPorClasificador &&
                     (linea?.Clasificador is null || CuentaOpcional(roles, $"{l.Rol}_{Clasificador(linea.Clasificador)}", sucursal, e.Moneda, e.FechaContable) is null))
                     logger?.LogWarning("Prorrateo CE {Expediente}: falta cuenta específica del artículo {Articulo}; se usa el rol configurable {Rol}.", e.Documento.Id, linea?.ArticuloId, l.Rol);
-                var mxn = Math.Round(importe * tc, 2, MidpointRounding.AwayFromZero);
+                var mxn = Math.Round(importe * tcLinea, 2, MidpointRounding.AwayFromZero);
                 var cargo = l.Lado == LadoPartida.Cargo ? mxn : 0m;
                 var abono = l.Lado == LadoPartida.Abono ? mxn : 0m;
                 if (mxn < 0) (cargo, abono) = (-abono, -cargo);
                 var (dim1, dim2, dim3) = l.ConCentroCosto ? Dimensiones(centro, niveles) : (null, null, null);
                 partidas.Add(new PartidaRequest(cuentaPartida, l.Concepto, cargo, abono, sucursal,
                     Dim1Id: dim1, Dim2Id: dim2, Dim3Id: dim3, ClienteId: auxiliar.Cliente, ProveedorId: auxiliar.Proveedor,
-                    Moneda: e.Moneda, TipoCambio: tc, ImporteOriginal: e.Moneda == Poliza.MonedaNacional ? null : importe,
+                    Moneda: e.Moneda, TipoCambio: tcLinea, ImporteOriginal: e.Moneda == Poliza.MonedaNacional ? null : importe,
                     Origen: auxiliar.Origen, Puente: l.Rol == PolizaContableMotor.RolPuente ? puente : null));
             }
         }
 
         var cargos = partidas.Sum(p => p.Cargo);
         var abonos = partidas.Sum(p => p.Abono);
+        // CON-11: con TC distinto por lado (documento vs. banco), lo que no cuadra es la diferencia cambiaria realizada, en pesos.
+        if (e.TipoCambioPorRol is { Count: > 0 } && DiferenciaCambiaria(cargos, abonos) is { } dif
+            && plantilla.Lineas.FirstOrDefault(l => l.Campo == EventoContable.CampoDiferenciaCambiaria && l.Lado == dif.Lado) is { } lineaDif)
+        {
+            partidas.Add(new PartidaRequest(Cuenta(roles, lineaDif.Rol, sucursal, Poliza.MonedaNacional, e.FechaContable), lineaDif.Concepto,
+                dif.Lado == LadoPartida.Cargo ? dif.Importe : 0m, dif.Lado == LadoPartida.Abono ? dif.Importe : 0m, sucursal,
+                Moneda: Poliza.MonedaNacional, TipoCambio: 1m, ImporteOriginal: null, Origen: OrigenMovimiento.Automatica));
+            cargos = partidas.Sum(p => p.Cargo);
+            abonos = partidas.Sum(p => p.Abono);
+        }
         if (partidas.Count < 2 || cargos != abonos)
             throw new RechazoMotorException(CausaRechazoContable.NoCuadra, $"{cargos:N2} vs {abonos:N2}",
                 $"La póliza no cuadra en MXN: cargos {cargos:N2} y abonos {abonos:N2}.");
@@ -131,6 +144,17 @@ public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IP
         return new SolicitudPolizaAutomatica(plantilla.TipoOperacionClave, e.FechaContable, plantilla.Concepto, e.Documento, e.Llave,
             partidas, OrigenMovimiento.Automatica, e.EmpresaId);
     }
+
+    /// <summary>CON-11: TC de la línea; el rol con TC propio (BANCOS al TC del pago) manda sobre el del evento (el del documento).</summary>
+    internal static decimal TipoCambioDeLinea(EventoContable e, string rol, decimal tcEvento) =>
+        e.Moneda != Poliza.MonedaNacional && e.TipoCambioPorRol?.TryGetValue(rol, out var propio) == true && propio > 0 ? propio : tcEvento;
+
+    /// <summary>
+    /// CON-11: partida que cuadra la póliza de un pago o cobro con dos TC. Faltan cargos → pérdida cambiaria (cargo); faltan abonos →
+    /// utilidad cambiaria (abono). Null si ya cuadra.
+    /// </summary>
+    internal static (LadoPartida Lado, decimal Importe)? DiferenciaCambiaria(decimal cargos, decimal abonos) =>
+        cargos == abonos ? null : abonos > cargos ? (LadoPartida.Cargo, abonos - cargos) : (LadoPartida.Abono, cargos - abonos);
 
     /// <summary>
     /// Importes de una línea de plantilla: uno solo (el campo con nombre) o, con <see cref="LineaPlantillaContable.PorLinea"/>, uno por
