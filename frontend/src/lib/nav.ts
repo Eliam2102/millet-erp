@@ -1240,6 +1240,21 @@ const moduloContabilidad: NavModulo = {
           permission: PermisosCanonicos.ContabilidadPolizasLeer,
         },
         {
+          label: 'Integraciones del auditor',
+          description:
+            'Ingresos, costo, gastos, financiamiento y compras del periodo abiertos por cuenta y cliente o proveedor.',
+          to: '/contabilidad/reportes/integracion',
+          icon: ListTree,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
+        },
+        {
+          label: 'Paquete del auditor',
+          description: 'Todos los reportes que pide el auditor al cierre, con el módulo de cada uno y acceso según permisos.',
+          to: '/contabilidad/reportes/auditor',
+          icon: BookOpenCheck,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
+        },
+        {
           label: 'Mayor por cuenta',
           description: 'Saldo inicial, movimientos con saldo corrido y saldo final de una cuenta (incluye a sus hijas).',
           to: '/contabilidad/reportes/mayor',

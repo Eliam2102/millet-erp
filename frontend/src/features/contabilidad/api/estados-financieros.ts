@@ -111,3 +111,69 @@ export function useEstadoFinanciero(estado: EstadoFinanciero, filtros: FiltrosEs
       ).data,
   });
 }
+
+// ─── Integraciones del auditor (R24) ───
+
+export type IntegracionContable = 'Ingresos' | 'Costo' | 'Gastos' | 'Financiamiento' | 'Compras';
+
+export interface FilaIntegracion {
+  cuentaId: string;
+  cuentaCodigo: string;
+  cuentaNombre: string;
+  mayorCodigo: string;
+  terceroTipo: 'Cliente' | 'Proveedor' | null;
+  terceroId: string | null;
+  terceroClave: string | null;
+  terceroNombre: string;
+  cargos: number;
+  abonos: number;
+  importe: number;
+  polizas: number;
+}
+
+export interface TotalesIntegracion {
+  cargos: number;
+  abonos: number;
+  importe: number;
+  sinTercero: number;
+  cuentas: number;
+  terceros: number;
+}
+
+export interface IntegracionReporte {
+  titulo: string;
+  generadoEn: string;
+  filtrosAplicados: Record<string, string | null>;
+  columnas: ColumnaEstadoFinanciero[];
+  filas: FilaIntegracion[];
+  totales: TotalesIntegracion;
+  avisos: string[];
+  tipo: IntegracionContable;
+  anio: number;
+  desde: number;
+  hasta: number;
+  sucursalId: string | null;
+}
+
+export interface FiltrosIntegracion {
+  tipo: IntegracionContable;
+  anio: number;
+  desde: number;
+  hasta: number;
+  sucursalId?: string;
+}
+
+/** Integración por cuenta y cliente o proveedor. Sin filtros aplicados no se consulta. */
+export function useIntegracion(filtros: FiltrosIntegracion | null) {
+  return useQuery({
+    queryKey: ['contabilidad', 'reportes', 'integracion', filtros] as const,
+    enabled: !!filtros,
+    queryFn: async ({ signal }) => {
+      const f = filtros!;
+      const p = new URLSearchParams({ tipo: f.tipo, anio: String(f.anio), desde: String(f.desde), hasta: String(f.hasta) });
+      if (f.sucursalId) p.set('sucursalId', f.sucursalId);
+      return (await apiRequest<IntegracionReporte>(`/api/v1/contabilidad/reportes/integracion?${p.toString()}`, { signal }))
+        .data;
+    },
+  });
+}
