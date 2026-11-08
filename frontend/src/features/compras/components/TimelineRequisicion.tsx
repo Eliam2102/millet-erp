@@ -252,6 +252,11 @@ const TIPO_CONFIG: Partial<Record<HistoricoTipo, TipoConfig>> = {
     bgClass: 'bg-warning-bg',
     textClass: 'text-warning-fg',
   },
+  [HistoricoTipo.Devuelta]: {
+    icon: Undo2,
+    bgClass: 'bg-warning-bg',
+    textClass: 'text-warning-fg',
+  },
 };
 
 const FALLBACK_CONFIG: TipoConfig = {
