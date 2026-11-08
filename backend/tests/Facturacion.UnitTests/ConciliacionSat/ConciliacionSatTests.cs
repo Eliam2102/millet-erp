@@ -5,6 +5,7 @@ using Millet.Facturacion.Application.ConciliacionSat;
 using Millet.Facturacion.Domain.Anticipos;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Domain.ConciliacionSat;
+using Millet.Facturacion.Domain.Ports;
 using Millet.Facturacion.Infrastructure.Persistence;
 using Millet.Facturacion.UnitTests.TestDoubles;
 using Millet.SharedKernel.Application.Exceptions;
@@ -194,6 +195,21 @@ public sealed class ConciliacionSatTests
     }
 
     [Fact]
+    public async Task El_emisor_se_valida_contra_el_rfc_de_la_empresa_aunque_el_erp_no_tenga_timbrados()
+    {
+        using var db = NewDb();
+
+        // Sin timbrados en el ERP la validación ya no se omite; un RFC distinto al de la empresa (p. ej. de sandbox) no pasa.
+        var act = () => Handlers(db).Handle(new ConciliarCfdiSatCommand("otro.txt",
+            Archivo(Renglon(Guid.NewGuid().ToString(), 10m, emisor: "TMP010101AAA")), Lunes, Domingo), default);
+
+        (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Message.Should().Contain(RfcEmpresa);
+        (await Handlers(db).Handle(new ConciliarCfdiSatCommand("emitidos.txt",
+            Archivo(Renglon(Guid.NewGuid().ToString(), 10m, emisor: RfcEmpresa.ToLowerInvariant())), Lunes, Domingo), default))
+            .CfdiSat.Should().Be(1, "el RFC del archivo se compara sin importar mayúsculas");
+    }
+
+    [Fact]
     public async Task La_diferencia_se_marca_revisada_una_sola_vez_y_deja_de_contar_como_pendiente()
     {
         using var db = NewDb();
@@ -205,9 +221,24 @@ public sealed class ConciliacionSatTests
         var otraVez = () => Handlers(db).Handle(new MarcarDiferenciaSatRevisadaCommand(r.Id, d.Id, null), default);
 
         (marcada.Revisada, marcada.RevisadaPor, marcada.Nota).Should().Be((true, Usuario, "CFDI emitido desde SAP"));
+        marcada.RevisadaPorNombre.Should().Be("Usuario Prueba", "la pantalla muestra quién la revisó");
+        d.Moneda.Should().BeNull("un CFDI que solo está en el SAT no trae moneda en los metadatos");
         (await otraVez.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("CONCILIACION_SAT_YA_REVISADA");
         (await Handlers(db).Handle(new ConciliacionSatQuery(r.Id), default)).DiferenciasPendientes.Should().Be(0);
         (await Handlers(db).Handle(new DiferenciasConciliacionSatQuery(r.Id, null, false), default)).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task La_diferencia_de_un_cfdi_del_erp_lleva_su_moneda()
+    {
+        using var db = NewDb();
+        var fa = await TimbradoAsync(db, Lunes.AddDays(1));
+
+        var r = await Handlers(db).Handle(new ConciliarCfdiSatCommand("emitidos.txt",
+            Archivo(Renglon(fa.Uuid!, fa.Total + 1m)), Lunes, Domingo), default);
+
+        var d = (await Handlers(db).Handle(new DiferenciasConciliacionSatQuery(r.Id, TipoDiferenciaSat.TotalDistinto, null), default)).Single();
+        d.Moneda.Should().Be("MXN");
     }
 
     [Fact]
@@ -243,7 +274,8 @@ public sealed class ConciliacionSatTests
     }
 
     private static ConciliacionSatHandlers Handlers(FacturacionDbContext db) =>
-        new(db, new FakeEmpresaContext(Empresa), new FakeUserContext(Usuario), new FakeClock(Ahora));
+        new(db, new FakeEmpresaFiscalReadPort(new EmpresaFiscalLectura(Empresa, RfcEmpresa, "Empresa prueba", "601", 0.16m, "97000")),
+            new FakeUsuariosReadPort(new Dictionary<Guid, string> { [Usuario] = "Usuario Prueba" }), new FakeEmpresaContext(Empresa), new FakeUserContext(Usuario), new FakeClock(Ahora));
 
     private static FacturacionDbContext NewDb() =>
         new(new DbContextOptionsBuilder<FacturacionDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,

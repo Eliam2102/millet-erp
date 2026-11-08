@@ -11,6 +11,7 @@ using Millet.Facturacion.Application.ConciliacionSat;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Domain.ConciliacionSat;
 using Millet.Facturacion.Domain.Facturas;
+using Millet.Facturacion.Domain.Ports;
 using Millet.Facturacion.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 
@@ -27,7 +28,6 @@ public sealed class ConciliacionSatHttpTests(WebApplicationFactory<Program> fact
 {
     private static readonly Guid Empresa = Guid.Parse("00000003-0000-0000-0000-000000000001");
     private const string Base = "/api/v1/facturacion/conciliacion-sat";
-    private const string RfcEmisor = "BBB010101BBB";
 
     [Fact]
     public async Task Concilia_el_archivo_del_sat_guarda_la_corrida_y_marca_una_diferencia_revisada()
@@ -36,9 +36,11 @@ public sealed class ConciliacionSatHttpTests(WebApplicationFactory<Program> fact
         using var scope = factory.Services.CreateScope();
         using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
         var db = scope.ServiceProvider.GetRequiredService<FacturacionDbContext>();
+        // El emisor del archivo se valida contra el RFC configurado de la empresa (O1 de QA).
+        var rfcEmisor = (await scope.ServiceProvider.GetRequiredService<IEmpresaFiscalReadPort>().ObtenerAsync(Empresa, default))!.Rfc.ToUpperInvariant();
 
         var sufijo = Guid.NewGuid().ToString("N")[..10];
-        var factura = Factura(sufijo, new DateTimeOffset(2020, 1, 7, 18, 0, 0, TimeSpan.Zero));
+        var factura = Factura(sufijo, new DateTimeOffset(2020, 1, 7, 18, 0, 0, TimeSpan.Zero), rfcEmisor);
         var ajeno = Guid.NewGuid().ToString().ToUpperInvariant();
         Guid? corridaId = null;
         try
@@ -48,14 +50,27 @@ public sealed class ConciliacionSatHttpTests(WebApplicationFactory<Program> fact
 
             var archivo =
                 "Uuid~RfcEmisor~NombreEmisor~RfcReceptor~NombreReceptor~RfcPac~FechaEmision~FechaCertificacionSat~Monto~EfectoComprobante~Estatus~FechaCancelacion\r\n" +
-                $"{factura.Uuid}~{RfcEmisor}~EMISOR FICTICIO~AAA010101AAA~CLIENTE FICTICIO~SPR190613I52~2020-01-07 12:00:00~2020-01-07 12:00:05~116.00~I~0~2020-01-08 10:00:00\r\n" +
-                $"{ajeno}~{RfcEmisor}~EMISOR FICTICIO~AAA010101AAA~CLIENTE FICTICIO~SPR190613I52~2020-01-09 12:00:00~2020-01-09 12:00:05~500.00~I~1~\r\n";
+                $"{factura.Uuid}~{rfcEmisor}~EMISOR FICTICIO~AAA010101AAA~CLIENTE FICTICIO~SPR190613I52~2020-01-07 12:00:00~2020-01-07 12:00:05~116.00~I~0~2020-01-08 10:00:00\r\n" +
+                $"{ajeno}~{rfcEmisor}~EMISOR FICTICIO~AAA010101AAA~CLIENTE FICTICIO~SPR190613I52~2020-01-09 12:00:00~2020-01-09 12:00:05~500.00~I~1~\r\n";
             using var form = new MultipartFormDataContent();
             var contenido = new ByteArrayContent(Encoding.UTF8.GetBytes(archivo));
             contenido.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
             form.Add(contenido, "archivo", $"emitidos-{sufijo}.txt");
             form.Add(new StringContent("2020-01-06"), "desde");
             form.Add(new StringContent("2020-01-12"), "hasta");
+
+            // Periodo vacío: 422 en español, no el error del binder (O2 de QA).
+            using (var vacio = new MultipartFormDataContent())
+            {
+                var c2 = new ByteArrayContent(Encoding.UTF8.GetBytes(archivo));
+                c2.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
+                vacio.Add(c2, "archivo", $"emitidos-{sufijo}.txt");
+                vacio.Add(new StringContent(""), "desde");
+                vacio.Add(new StringContent(""), "hasta");
+                var sinPeriodo = await client.PostAsync(Base, vacio);
+                Assert.Equal(HttpStatusCode.UnprocessableEntity, sinPeriodo.StatusCode);
+                Assert.Contains("CONCILIACION_SAT_PERIODO_REQUERIDO", await sinPeriodo.Content.ReadAsStringAsync());
+            }
 
             var r = await client.PostAsync(Base, form);
             Assert.True(r.StatusCode == HttpStatusCode.OK, $"{(int)r.StatusCode}: {await r.Content.ReadAsStringAsync()}");
@@ -106,11 +121,11 @@ public sealed class ConciliacionSatHttpTests(WebApplicationFactory<Program> fact
         return client;
     }
 
-    private static FacturaVenta Factura(string sufijo, DateTimeOffset timbrado)
+    private static FacturaVenta Factura(string sufijo, DateTimeOffset timbrado, string rfcEmisor)
     {
         var f = FacturaVenta.CrearBorrador(Empresa, $"CSAT-{sufijo}", 1, TestComprasFixtures.SucursalMid, null, null,
             new DatosFiscalesReceptor("AAA010101AAA", "Cliente ficticio conciliación", "601", "97000", "G03", "MEX", false),
-            new DatosFiscalesEmisor(RfcEmisor, "Emisor ficticio conciliación", "601", "97000"), "PUE", "03", "MXN", null,
+            new DatosFiscalesEmisor(rfcEmisor, "Emisor ficticio conciliación", "601", "97000"), "PUE", "03", "MXN", null,
             2020, 1, 1, ComportamientoFiscal.MostradorInmediato, null, null, null, false);
         f.AgregarLinea(null, "01010101", "Prueba ficticia de la conciliación", "H87", 1, 100, 0, "02", 0.16m, null, null);
         f.RecalcularTotales();

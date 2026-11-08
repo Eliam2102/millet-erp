@@ -1,3 +1,4 @@
+using System.Globalization;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Millet.Api.Auth;
@@ -28,14 +29,18 @@ public static class ConciliacionSatEndpoints
             .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionReportesLeerTodasSucursales);
 
         group.MapPost("/", async (
-            IFormFile? archivo, [FromForm] DateOnly? desde, [FromForm] DateOnly? hasta, IMediator mediator, CancellationToken ct) =>
+            IFormFile? archivo, [FromForm] string? desde, [FromForm] string? hasta, IMediator mediator, CancellationToken ct) =>
         {
             if (archivo is null || archivo.Length == 0)
                 throw new BusinessRuleException("ARCHIVO_REQUERIDO", "Envía el archivo de metadatos del SAT en el campo 'archivo'.");
             if (archivo.Length > TamanoMaximo)
                 throw new BusinessRuleException("CONCILIACION_SAT_ARCHIVO_GRANDE", "El archivo del SAT no debe pasar de 20 MB.");
-            if (desde is not DateOnly d || hasta is not DateOnly h)
+            // Las fechas llegan como texto para que un campo vacío dé el 422 en español y no el error del binder.
+            if (string.IsNullOrWhiteSpace(desde) || string.IsNullOrWhiteSpace(hasta))
                 throw new BusinessRuleException("CONCILIACION_SAT_PERIODO_REQUERIDO", "Indica el periodo (desde y hasta) que cubre el archivo.");
+            if (!DateOnly.TryParseExact(desde.Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)
+                || !DateOnly.TryParseExact(hasta.Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var h))
+                throw new BusinessRuleException("CONCILIACION_SAT_PERIODO_FORMATO", "Las fechas del periodo van en formato AAAA-MM-DD.");
             using var memoria = new MemoryStream();
             await archivo.CopyToAsync(memoria, ct);
             return Results.Ok(await mediator.Send(new ConciliarCfdiSatCommand(archivo.FileName, memoria.ToArray(), d, h), ct));

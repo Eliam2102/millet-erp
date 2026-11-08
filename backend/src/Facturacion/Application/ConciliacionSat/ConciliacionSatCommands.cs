@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Millet.Facturacion.Application.Cajas.Sesiones;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Domain.ConciliacionSat;
+using Millet.Facturacion.Domain.Ports;
 using Millet.Facturacion.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
@@ -40,7 +41,9 @@ public sealed record DiferenciaSatResponse(
     bool Revisada,
     Guid? RevisadaPor,
     DateTimeOffset? RevisadaEn,
-    string? Nota);
+    string? Nota,
+    string? RevisadaPorNombre,
+    string? Moneda);
 
 /// <summary>
 /// Concilia los CFDI emitidos que reporta el SAT (archivo de metadatos) contra
@@ -62,7 +65,7 @@ public sealed record DiferenciasConciliacionSatQuery(Guid ConciliacionId, TipoDi
     : IRequest<IReadOnlyList<DiferenciaSatResponse>>;
 
 public sealed class ConciliacionSatHandlers(
-    FacturacionDbContext db, ICurrentEmpresaContext empresa, ICurrentUserContext user, IClock clock) :
+    FacturacionDbContext db, IEmpresaFiscalReadPort empresasFiscales, IUsuariosReadPort usuarios, ICurrentEmpresaContext empresa, ICurrentUserContext user, IClock clock) :
     IRequestHandler<ConciliarCfdiSatCommand, ConciliacionSatResponse>,
     IRequestHandler<MarcarDiferenciaSatRevisadaCommand, DiferenciaSatResponse>,
     IRequestHandler<ConciliacionesSatQuery, IReadOnlyList<ConciliacionSatResponse>>,
@@ -81,15 +84,16 @@ public sealed class ConciliacionSatHandlers(
             throw new BusinessRuleException("CONCILIACION_SAT_ARCHIVO_VACIO", "El archivo del SAT está vacío.");
         var sat = LectorMetadataSat.Leer(command.Contenido);
 
-        // El archivo debe ser de CFDI emitidos por la empresa (no el de recibidos).
-        var emisoresErp = await db.Comprobantes.AsNoTracking()
-            .Where(c => c.Uuid != null && ConTimbre.Contains(c.Estado))
-            .Select(c => c.RfcEmisor).Distinct().ToListAsync(ct);
-        emisoresErp = emisoresErp.Select(r => r.ToUpperInvariant()).Distinct().ToList();
-        var ajenos = sat.Select(s => s.RfcEmisor).Distinct().Where(r => !emisoresErp.Contains(r)).ToList();
-        if (emisoresErp.Count > 0 && ajenos.Count > 0)
+        // El archivo debe ser de CFDI emitidos por la empresa (no el de recibidos): se compara contra el RFC
+        // configurado de la empresa, no contra los emisores históricos de los timbrados (incluye RFC de sandbox).
+        var rfcEmpresa = (await empresasFiscales.ObtenerAsync(empresaId, ct))?.Rfc?.Trim().ToUpperInvariant();
+        if (string.IsNullOrEmpty(rfcEmpresa))
+            throw new BusinessRuleException("CONCILIACION_SAT_EMPRESA_SIN_RFC",
+                "La empresa no tiene RFC configurado; captúralo en Administración antes de conciliar.");
+        var ajenos = sat.Select(s => s.RfcEmisor).Distinct().Where(r => r != rfcEmpresa).ToList();
+        if (ajenos.Count > 0)
             throw new BusinessRuleException("CONCILIACION_SAT_OTRO_EMISOR",
-                $"El archivo trae CFDI emitidos por {string.Join(", ", ajenos.Take(3))}, que no es el RFC de la empresa. " +
+                $"El archivo trae CFDI emitidos por {string.Join(", ", ajenos.Take(3))}, que no es el RFC de la empresa ({rfcEmpresa}). " +
                 "Usa el archivo de CFDI emitidos, no el de recibidos.");
 
         // Periodo en la hora local por omisión de las sucursales (el CFDI se fecha en el lugar de expedición).
@@ -125,7 +129,7 @@ public sealed class ConciliacionSatHandlers(
             ?? throw new EntityNotFoundException("CONCILIACION_SAT_DIFERENCIA_NO_ENCONTRADA", "No existe esa diferencia en la conciliación.");
         d.MarcarRevisada(usuarioId, clock.UtcNow, command.Nota);
         await db.SaveChangesAsync(ct);
-        return Respuesta(d);
+        return (await RespuestasAsync([d], ct)).Single();
     }
 
     public async Task<IReadOnlyList<ConciliacionSatResponse>> Handle(ConciliacionesSatQuery query, CancellationToken cancellationToken)
@@ -158,7 +162,7 @@ public sealed class ConciliacionSatHandlers(
         if (query.Tipo is { } tipo) q = q.Where(d => d.Tipo == tipo);
         if (query.Revisada is { } revisada) q = q.Where(d => d.Revisada == revisada);
         var lista = await q.OrderBy(d => d.Tipo).ThenBy(d => d.Folio).ThenBy(d => d.Uuid).ToListAsync(ct);
-        return lista.Select(Respuesta).ToList();
+        return await RespuestasAsync(lista, ct);
     }
 
     private static ConciliacionSatResponse Respuesta(Domain.ConciliacionSat.ConciliacionSat c, IReadOnlyCollection<DiferenciaConciliacionSat> diferencias) =>
@@ -167,7 +171,23 @@ public sealed class ConciliacionSatHandlers(
             diferencias.GroupBy(d => d.Tipo).OrderBy(g => g.Key)
                 .Select(g => new ConteoDiferenciaSat(g.Key, g.Count(), g.Count(d => d.Revisada))).ToList());
 
-    private static DiferenciaSatResponse Respuesta(DiferenciaConciliacionSat d) =>
-        new(d.Id, d.Uuid, d.Tipo, d.ComprobanteId, d.Folio, d.RfcReceptor, d.ValorSat, d.ValorErp,
-            d.Revisada, d.RevisadaPor, d.RevisadaEn, d.Nota);
+    /// <summary>
+    /// Completa cada diferencia con el nombre de quien la revisó y la moneda del CFDI del ERP. Los montos del
+    /// renglón van en la moneda del CFDI: se supone que el <c>Monto</c> del archivo del SAT también (a validar con
+    /// un archivo real); un CFDI que solo está en el SAT no trae moneda en los metadatos y queda sin ella.
+    /// </summary>
+    private async Task<IReadOnlyList<DiferenciaSatResponse>> RespuestasAsync(
+        IReadOnlyCollection<DiferenciaConciliacionSat> lista, CancellationToken ct)
+    {
+        var revisores = lista.Where(d => d.RevisadaPor != null).Select(d => d.RevisadaPor!.Value).Distinct().ToList();
+        var nombres = revisores.Count == 0 ? new Dictionary<Guid, string>() : await usuarios.ObtenerNombresAsync(revisores, ct);
+        var comprobantes = lista.Where(d => d.ComprobanteId != null).Select(d => d.ComprobanteId!.Value).Distinct().ToList();
+        var monedas = comprobantes.Count == 0 ? new Dictionary<Guid, string>()
+            : await db.Comprobantes.AsNoTracking().Where(c => comprobantes.Contains(c.Id))
+                .ToDictionaryAsync(c => c.Id, c => c.Moneda, ct);
+        return lista.Select(d => new DiferenciaSatResponse(d.Id, d.Uuid, d.Tipo, d.ComprobanteId, d.Folio, d.RfcReceptor,
+            d.ValorSat, d.ValorErp, d.Revisada, d.RevisadaPor, d.RevisadaEn, d.Nota,
+            d.RevisadaPor is { } u && nombres.TryGetValue(u, out var nombre) ? nombre : null,
+            d.ComprobanteId is { } cid && monedas.TryGetValue(cid, out var moneda) ? moneda : null)).ToList();
+    }
 }
