@@ -76,6 +76,17 @@ public sealed class SalidaPt : BaseEntity, IAuditable, IPerteneceAEmpresa
         if (CartaPorteId is not null) throw new BusinessRuleException("PT_SALIDA_CON_CARTA_PORTE", "La hoja ya tiene Carta Porte timbrada; se cancela primero en Facturación.");
         Estado = EstadoSalida.Cancelada;
     }
+
+    /// <summary>Cancela un albarán emitido o en borrador de la hoja de salida (PT5.8 / §11).</summary>
+    public void CancelarAlbaran(Guid albaranId, string motivo, Guid usuarioId, DateTimeOffset ahora)
+    {
+        var albaran = _albaranes.FirstOrDefault(a => a.Id == albaranId)
+            ?? throw new BusinessRuleException("PT_ALBARAN_NO_PERTENECE_A_SALIDA", "El albarán no pertenece a esta hoja de salida.");
+        if (albaran.Cancelado) throw new BusinessRuleException("PT_ALBARAN_YA_CANCELADO", "El albarán ya está cancelado.");
+        if (Estado == EstadoSalida.Cancelada) throw new BusinessRuleException("PT_SALIDA_CANCELADA", "La hoja de salida está cancelada.");
+        albaran.Cancelar(motivo, usuarioId, ahora);
+        if (_albaranes.Count > 0 && _albaranes.All(a => a.Cancelado)) Estado = EstadoSalida.Cancelada;
+    }
 }
 
 /// <summary>Albarán por pedido: las piezas cargadas de ese pedido en la hoja.</summary>
@@ -90,6 +101,14 @@ public sealed class AlbaranPt : BaseEntity, IAuditable, IPerteneceAEmpresa, IBel
     public int Secuencia { get; private set; }
     public string Folio { get; private set; } = "";
     public DateTimeOffset? EmitidoAt { get; private set; }
+    public DateTimeOffset? CanceladoAt { get; private set; }
+    public string? MotivoCancelacion { get; private set; }
+    public Guid? CanceladoPorId { get; private set; }
+    public bool Cancelado => CanceladoAt is not null;
+    public DateTimeOffset? EntregadoAt { get; private set; }
+    public bool Entregado => EntregadoAt is not null;
+    public DateTimeOffset? LiquidadoAt { get; private set; }
+    public bool Liquidado => LiquidadoAt is not null;
     public IReadOnlyCollection<AlbaranPtPieza> Piezas => _piezas;
 
     private AlbaranPt() { }
@@ -101,6 +120,18 @@ public sealed class AlbaranPt : BaseEntity, IAuditable, IPerteneceAEmpresa, IBel
     }
 
     internal void Emitir(DateTimeOffset ahora) => EmitidoAt = ahora;
+
+    internal void MarcarEntregado(DateTimeOffset ahora) => EntregadoAt = ahora;
+
+    internal void MarcarLiquidado(DateTimeOffset ahora) => LiquidadoAt = ahora;
+
+    internal void Cancelar(string motivo, Guid usuarioId, DateTimeOffset ahora)
+    {
+        if (Cancelado) throw new BusinessRuleException("PT_ALBARAN_YA_CANCELADO", "El albarán ya está cancelado.");
+        if (Entregado) throw new BusinessRuleException("PT_ALBARAN_YA_ENTREGADO", "El albarán ya fue entregado en ruta; no se puede cancelar.");
+        if (Liquidado) throw new BusinessRuleException("PT_ALBARAN_YA_LIQUIDADO", "El albarán ya fue liquidado en caja; no se puede cancelar.");
+        (CanceladoAt, MotivoCancelacion, CanceladoPorId) = (ahora, motivo?.Trim(), usuarioId);
+    }
 }
 
 public sealed class AlbaranPtPieza : BaseEntity, IAuditable, IPerteneceAEmpresa, IBelongsToAggregate
