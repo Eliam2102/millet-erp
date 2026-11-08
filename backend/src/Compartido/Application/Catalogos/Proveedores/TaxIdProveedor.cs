@@ -14,9 +14,9 @@ internal static class TaxIdProveedor
     public static async Task ValidarUnicoAsync(CompartidoDbContext db, string? taxId, Guid? proveedorId, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(taxId)) return;
-        var normalizado = taxId.Trim().ToLower();
+        var normalizado = taxId.Trim().Replace(" ", "").ToLower();
         var duplicado = await db.Proveedores.AsNoTracking()
-            .Where(p => p.TaxId != null && p.TaxId.Trim().ToLower() == normalizado && p.Id != proveedorId)
+            .Where(p => p.TaxId != null && p.TaxId.Replace(" ", "").ToLower() == normalizado && p.Id != proveedorId)
             .Select(p => new { p.Clave, p.RazonSocial })
             .FirstOrDefaultAsync(ct);
         if (duplicado is not null)
