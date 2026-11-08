@@ -39,21 +39,12 @@ import {
   useMarcarPaso,
   useRetirarMarca,
   type CierreRegistrado,
-  type EstadoPasoChecklist,
   type PasoChecklist,
   type TipoMarcaPasoCierre,
 } from '../../api/cierre';
 import type { PeriodoContable } from '../../api/periodos';
+import { ESTADOS_PASO } from '../../lib/checklist-cierre';
 
-type Tono = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
-
-export const ESTADOS_PASO: Record<EstadoPasoChecklist, { tono: Tono; texto: string }> = {
-  Cumple: { tono: 'success', texto: 'Cumple' },
-  Pendiente: { tono: 'warning', texto: 'Pendiente' },
-  NoAplica: { tono: 'neutral', texto: 'No aplica' },
-  Excepcion: { tono: 'info', texto: 'Excepción autorizada' },
-  Confirmado: { tono: 'success', texto: 'Confirmado' },
-};
 
 function mensajeError(e: unknown): string {
   if (!esApiError(e)) return 'No se pudo completar la operación (sin conexión o error inesperado). Reintenta.';
