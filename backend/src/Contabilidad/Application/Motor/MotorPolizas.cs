@@ -86,6 +86,7 @@ public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IP
             .Where(r => codigos.Contains(r.Codigo) || porClasificador.Exists(prefijo => r.Codigo.StartsWith(prefijo, StringComparison.Ordinal)))
             .ToList();
         var niveles = plantilla.Lineas.Any(l => l.ConCentroCosto) ? await NivelesAsync(e, ct) : new Dictionary<Guid, DimensionContable>();
+        var propias = await CuentasPropiasAsync(e, ct);
 
         var partidas = new List<PartidaRequest>();
         foreach (var l in plantilla.Lineas.OrderBy(x => x.Orden))
@@ -109,7 +110,8 @@ public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IP
                 // Sin él, la cuenta fija de la línea (V64: la del consumo en la devolución interna) o el rol base.
                 var cuentaPartida = (l.RolPorClasificador ? CuentaPorClasificador(roles, l.Rol, linea?.Clasificador, sucursal, e.Moneda, e.FechaContable)
                         : linea?.CuentaId)
-                    ?? (cuenta ??= Cuenta(roles, l.Rol, sucursal, e.Moneda, e.FechaContable));
+                    // B8: la cuenta que el evento fija para el rol (bancos = la de la cuenta bancaria) manda sobre la del rol.
+                    ?? (cuenta ??= propias.TryGetValue(l.Rol, out var propia) ? propia : Cuenta(roles, l.Rol, sucursal, e.Moneda, e.FechaContable));
                 if (e.Tipo == NormalizadorEventos.CostoImportacionAplicado && l.RolPorClasificador &&
                     (linea?.Clasificador is null || CuentaOpcional(roles, $"{l.Rol}_{Clasificador(linea.Clasificador)}", sucursal, e.Moneda, e.FechaContable) is null))
                     logger?.LogWarning("Prorrateo CE {Expediente}: falta cuenta específica del artículo {Articulo}; se usa el rol configurable {Rol}.", e.Documento.Id, linea?.ArticuloId, l.Rol);
@@ -182,6 +184,28 @@ public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IP
         foreach (var x in lineas)
             yield return (x.Importe, x.CentroCostoId ?? e.CentroCostoId, Puente(e, x.LineaOcId), x);
     }
+
+    /// <summary>B8: cuentas que el evento fija por rol (por código), leídas del catálogo de la empresa en un solo viaje.</summary>
+    private async Task<IReadOnlyDictionary<string, Guid>> CuentasPropiasAsync(EventoContable e, CancellationToken ct)
+    {
+        if (e.CuentaPorRol is not { Count: > 0 } porRol) return new Dictionary<string, Guid>();
+        var codigos = porRol.Values.Distinct().ToList();
+        var catalogo = await db.Cuentas.IgnoreQueryFilters().AsNoTracking()
+            .Where(c => c.EmpresaId == e.EmpresaId && codigos.Contains(c.Codigo))
+            .Select(c => new { c.Codigo, c.Id }).ToListAsync(ct);
+        return CuentasPropias(porRol, catalogo.ToDictionary(c => c.Codigo, c => c.Id));
+    }
+
+    /// <summary>
+    /// B8: rol → cuenta a partir del código que trae el evento. Un código que no está en el catálogo se rechaza (no se cae al rol: la
+    /// póliza quedaría en otra cuenta sin aviso); que la cuenta reciba movimientos lo valida después el registro de la póliza.
+    /// </summary>
+    internal static IReadOnlyDictionary<string, Guid> CuentasPropias(IReadOnlyDictionary<string, string> porRol,
+        IReadOnlyDictionary<string, Guid> idPorCodigo) =>
+        porRol.ToDictionary(p => p.Key, p => idPorCodigo.TryGetValue(p.Value, out var id) ? id
+            : throw new RechazoMotorException(CausaRechazoContable.CuentaNoValida, p.Value,
+                $"La cuenta contable {p.Value} del rol {p.Key} (la de la cuenta bancaria del movimiento) no existe en el catálogo; " +
+                "corrígela en Tesorería › Cuentas bancarias y reprocesa."));
 
     /// <summary>Nivel de cada centro del evento (cabecera y líneas), leído de CentrosCosto en un solo viaje.</summary>
     private async Task<IReadOnlyDictionary<Guid, DimensionContable>> NivelesAsync(EventoContable e, CancellationToken ct)
