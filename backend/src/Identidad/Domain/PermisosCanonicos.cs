@@ -608,6 +608,12 @@ public static class PermisosCanonicos
     public const string ContabilidadPeriodoAdministrar                  = "contabilidad.periodo.administrar";
     public const string ContabilidadPeriodoCerrar                       = "contabilidad.periodo.cerrar";
     public const string ContabilidadPeriodoReabrir                      = "contabilidad.periodo.reabrir";
+    // CON-12: -0008 checklist de cierre. Leerlo es `periodo.leer` y confirmar un paso manual es `periodo.cerrar`; la excepción
+    // autorizada (CON-12-a) y la configuración son permisos aparte. Literal de la excepción duplicado en
+    // Contabilidad.Application.Cierre.RetirarMarcaPasoCierreHandler (Contabilidad no referencia Identidad).
+    public const string ContabilidadCierreConfigurar                    = "contabilidad.cierre.configurar";
+    public const string ContabilidadCierreAutorizarExcepcion            = "contabilidad.cierre.autorizar-excepcion";
+    public const string ContabilidadCierreAnual                         = "contabilidad.cierre.anual";
     // F1-CON-04: -0005 pólizas (C1.3, K10.3, K10.9). `capturar` (Analista) y `autorizar` (Supervisor) separados: R23, prepara el
     // Analista y aprueba el Supervisor (además nadie autoriza su propia póliza). `anular` va aparte: crea la póliza en negativo.
     // Literales duplicados en Contabilidad.Application.Polizas.PolizaAdjuntoPropietario (Contabilidad no referencia Identidad).
@@ -1048,6 +1054,9 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000d-0007-0000-0000-000000000001"), ContabilidadMotorLeer,                  "Consultar los roles de cuenta, las plantillas contables y la bandeja de rechazos del motor de pólizas"),
         (Guid.Parse("0000000d-0007-0000-0000-000000000002"), ContabilidadRolesCuentaAdministrar,     "Dar de alta roles de cuenta y cambiar la cuenta de un rol (queda en bitácora; solo afecta pólizas nuevas)"),
         (Guid.Parse("0000000d-0007-0000-0000-000000000003"), ContabilidadRechazosGestionar,          "Reprocesar o descartar (con motivo) los eventos rechazados por el motor de pólizas"),
+        (Guid.Parse("0000000d-0008-0000-0000-000000000001"), ContabilidadCierreConfigurar,           "Configurar el checklist de cierre: orden, pasos obligatorios, activos y pasos manuales"),
+        (Guid.Parse("0000000d-0008-0000-0000-000000000002"), ContabilidadCierreAutorizarExcepcion,   "Autorizar (o retirar) una excepción del checklist para cerrar un periodo con un paso pendiente"),
+        (Guid.Parse("0000000d-0008-0000-0000-000000000003"), ContabilidadCierreAnual,                "Generar las pólizas de cierre anual que cancelan las cuentas de resultados contra resultado del ejercicio"),
 
         // CE-01a. Namespace 0000000e, agregado al final para integrar otros PR.
         (Guid.Parse("0000000e-0007-0000-0000-000000000001"), ComercioExteriorEmbarquesAutorizarSalida, "Autorizar o rechazar la salida de un embarque"),

@@ -5045,6 +5045,48 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("0000000d-0008-0000-0000-000000000001"),
+                            Accion = "configurar",
+                            Codigo = "contabilidad.cierre.configurar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Configurar el checklist de cierre: orden, pasos obligatorios, activos y pasos manuales",
+                            Modulo = "contabilidad",
+                            Recurso = "cierre",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000d-0008-0000-0000-000000000002"),
+                            Accion = "autorizar-excepcion",
+                            Codigo = "contabilidad.cierre.autorizar-excepcion",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar (o retirar) una excepción del checklist para cerrar un periodo con un paso pendiente",
+                            Modulo = "contabilidad",
+                            Recurso = "cierre",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000d-0008-0000-0000-000000000003"),
+                            Accion = "anual",
+                            Codigo = "contabilidad.cierre.anual",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Generar las pólizas de cierre anual que cancelan las cuentas de resultados contra resultado del ejercicio",
+                            Modulo = "contabilidad",
+                            Recurso = "cierre",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("0000000e-0007-0000-0000-000000000001"),
                             Accion = "autorizar_salida",
                             Codigo = "comercio_exterior.embarques.autorizar_salida",
