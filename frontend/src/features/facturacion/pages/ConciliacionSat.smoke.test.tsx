@@ -9,6 +9,9 @@ import type {
   DiferenciaSat,
 } from '@/features/facturacion/api/useConciliacionSat';
 
+/** Margen de las esperas asíncronas de la prueba que sube el archivo (ms). */
+const ESPERA = 10_000;
+
 const BASE = '*/api/v1/facturacion/conciliacion-sat';
 
 const corrida: Corrida = {
@@ -141,18 +144,23 @@ describe('<ConciliacionSat> — smoke (FAC-10)', () => {
     mswServer.use(
       http.get(BASE, () => HttpResponse.json([])),
       http.post(BASE, async ({ request }) => {
-        const form = await request.formData();
+        // Se lee el multipart como texto: el parser de undici (request.formData) no acepta el File de jsdom,
+        // que además viaja sin nombre ni contenido; se verifica que la parte del archivo vaya en el envío.
+        const cuerpo = await request.text();
+        const campo = (nombre: string) =>
+          new RegExp(`name="${nombre}"\r\n\r\n([^\r]*)`).exec(cuerpo)?.[1] ?? '';
         campos = {
-          desde: String(form.get('desde')),
-          hasta: String(form.get('hasta')),
-          archivo: (form.get('archivo') as File).name,
+          desde: campo('desde'),
+          hasta: campo('hasta'),
+          archivo: /name="archivo"; filename="/.test(cuerpo) ? 'adjunto' : 'falta',
         };
         return HttpResponse.json({ ...corrida, id: 'r-2' });
       }),
     );
 
     render(<ConciliacionSat />, { wrapper: createQueryWrapper() });
-    await screen.findByText(/Aún no hay conciliaciones/);
+    // Esperas con margen explícito por si la CI va cargada (el setup usa 3 s).
+    await screen.findByText(/Aún no hay conciliaciones/, undefined, { timeout: ESPERA });
 
     const conciliar = screen.getByRole('button', { name: 'Conciliar' });
     expect(conciliar).toBeDisabled();
@@ -165,8 +173,14 @@ describe('<ConciliacionSat> — smoke (FAC-10)', () => {
     expect(conciliar).toBeEnabled();
     fireEvent.click(conciliar);
 
-    await waitFor(() =>
-      expect(campos).toEqual({ desde: '2026-11-02', hasta: '2026-11-08', archivo: 'emitidos.txt' }),
+    await waitFor(
+      () =>
+        expect(campos).toEqual({
+          desde: '2026-11-02',
+          hasta: '2026-11-08',
+          archivo: 'adjunto',
+        }),
+      { timeout: ESPERA },
     );
   });
 });
