@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import type { ReactNode } from 'react';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -108,6 +108,35 @@ describe('<ChecklistCierreSheet>', () => {
     expect(cerrar).toBeEnabled();
     fireEvent.click(cerrar);
     expect(onCerrar).toHaveBeenCalledWith(ENERO);
+  });
+
+  it('O1: al autorizar la excepción el paso cambia al instante, sin esperar a que se vuelva a evaluar el checklist', async () => {
+    let consultas = 0;
+    mswServer.use(
+      http.get(`${API}/periodos/p1/checklist`, async () => {
+        consultas += 1;
+        // La reevaluación del servidor no llega durante la prueba: el cambio sale del caché.
+        if (consultas > 1) await delay('infinite');
+        return HttpResponse.json(checklist([paso('REP_CONCILIADOS', 'REP conciliados', 'Pendiente')]));
+      }),
+      http.post(`${API}/periodos/:id/pasos/:clave/excepcion`, () =>
+        HttpResponse.json({ id: 'm1', tipo: 'Excepcion', motivo: 'El proveedor manda el REP el lunes', usuarioNombre: 'Laura', registradaEn: '2026-02-03T18:00:00Z' }),
+      ),
+    );
+    useAuthStore.setState({ permisos: [PermisosCanonicos.ContabilidadPeriodoCerrar, PermisosCanonicos.ContabilidadCierreAutorizarExcepcion] });
+    render(<ChecklistCierreSheet periodo={ENERO} onClose={() => {}} onCerrarPeriodo={() => {}} />, { wrapper: createQueryWrapper() });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Autorizar excepción' }));
+    const dialogo = await screen.findByRole('dialog', { name: 'Autorizar excepción' });
+    fireEvent.change(within(dialogo).getByLabelText(/Motivo/), { target: { value: 'El proveedor manda el REP el lunes' } });
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Autorizar excepción' }));
+    // El diálogo se cierra con la respuesta del POST, aunque la reevaluación siga en curso.
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Autorizar excepción' })).not.toBeInTheDocument());
+
+    const panel = screen.getByRole('dialog', { name: 'Checklist de cierre' });
+    expect(await within(panel).findByText('Excepción autorizada')).toBeInTheDocument();
+    expect(within(panel).getByText('Listo para cerrar')).toBeInTheDocument();
+    expect(within(panel).getByRole('button', { name: 'Cerrar periodo' })).toBeEnabled();
   });
 
   it('O3: con los resultados del año en cero, «Generar cierre anual» queda deshabilitado y dice por qué', async () => {

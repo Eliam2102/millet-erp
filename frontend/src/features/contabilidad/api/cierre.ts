@@ -81,9 +81,30 @@ export const cierreKeys = {
 
 function useInvalidar() {
   const qc = useQueryClient();
-  return () => {
-    void qc.invalidateQueries({ queryKey: cierreKeys.all });
-    void qc.invalidateQueries({ queryKey: periodoKeys.all });
+  return () =>
+    Promise.all([
+      qc.invalidateQueries({ queryKey: cierreKeys.all }),
+      qc.invalidateQueries({ queryKey: periodoKeys.all }),
+    ]);
+}
+
+/**
+ * Aplica al checklist en caché la marca que acaba de registrar el servidor (QA O1): el paso cambia de estado al
+ * instante, sin esperar a que se vuelva a evaluar todo el checklist. La consulta se refresca después.
+ */
+export function aplicarMarca(checklist: ChecklistCierre, clave: string, marca: MarcaPaso): ChecklistCierre {
+  const pasos = checklist.pasos.map((p) =>
+    p.clave === clave
+      ? { ...p, marca, bloquea: false, estado: (marca.tipo === 'Excepcion' ? 'Excepcion' : 'Confirmado') as EstadoPasoChecklist }
+      : p,
+  );
+  const bloqueantes = pasos.filter((p) => p.bloquea).length;
+  return {
+    ...checklist,
+    pasos,
+    bloqueantes,
+    puedeCerrar: bloqueantes === 0,
+    excepciones: pasos.filter((p) => p.estado === 'Excepcion').length,
   };
 }
 
@@ -108,6 +129,7 @@ export function useCierreRegistrado(cierreId: string | null) {
 
 /** Excepción autorizada (pendiente que no bloquea) o confirmación de un paso manual. */
 export function useMarcarPaso() {
+  const qc = useQueryClient();
   const invalidar = useInvalidar();
   return useMutation({
     mutationFn: async (a: {
@@ -123,7 +145,13 @@ export function useMarcarPaso() {
           { method: 'POST', body: { motivo: a.motivo.trim() }, idempotencyKey: a.idempotencyKey },
         )
       ).data,
-    onSuccess: invalidar,
+    onSuccess: (marca, a) => {
+      qc.setQueryData<ChecklistCierre>(cierreKeys.checklist(a.periodoId), (actual) =>
+        actual ? aplicarMarca(actual, a.clave, marca) : actual,
+      );
+      // Sin esperar el refresco: el diálogo se cierra ya con el paso actualizado.
+      void invalidar();
+    },
   });
 }
 
