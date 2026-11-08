@@ -31,7 +31,8 @@ public sealed class ReppPendienteServicio(FacturacionDbContext db, IClientesRead
         var cliente = await clientes.ObtenerAsync(p.ClienteId, ct)
             ?? throw new BusinessRuleException("REPP_CLIENTE_NO_ENCONTRADO", "El cliente del pago no existe en el catálogo.");
         var ids = relacion.Select(f => f.FacturaVentaId).ToArray();
-        var facturas = await db.FacturasVenta.Where(f => ids.Contains(f.Id)).ToListAsync(ct);
+        // R1: el NumRegIdTrib de una factura de exportación vive en su CCE.
+        var facturas = await db.FacturasVenta.Include(f => f.ComplementoCce).Where(f => ids.Contains(f.Id)).ToListAsync(ct);
         if (facturas.Count != ids.Length)
             throw new BusinessRuleException("REPP_FACTURA_NO_ENCONTRADA", "Alguna factura relacionada no existe en la empresa.");
         var pedidoIds = facturas.Where(f => f.PedidoFacturableId.HasValue).Select(f => f.PedidoFacturableId!.Value).ToArray();
@@ -62,7 +63,7 @@ public sealed class ReppPendienteServicio(FacturacionDbContext db, IClientesRead
     /// <summary>
     /// Factura directa (sin pedido): no guarda el cliente, así que se identifica por su receptor fiscal.
     /// Un cliente con RFC propio coincide por RFC. Un extranjero (<c>XEXX010101000</c>, marcado genérico en el alta)
-    /// coincide por su número de identificación fiscal (NumRegIdTrib), que la CCE exige. El público en general no
+    /// coincide por su número de identificación fiscal (NumRegIdTrib), que la CCE de la factura exige. El público en general no
     /// participa del crédito y nunca coincide.
     /// </summary>
     internal static bool MismoClienteSinPedido(FacturaVenta factura, ClienteFiscalLectura cliente)
@@ -72,9 +73,18 @@ public sealed class ReppPendienteServicio(FacturacionDbContext db, IClientesRead
             return false;
         if (!cliente.EsGenerico && !factura.ReceptorEsGenerico) return true;
         return string.Equals(factura.ReceptorRfc, DatosFiscalesReceptor.RfcGenericoExtranjero, StringComparison.OrdinalIgnoreCase)
-            && IdFiscal(factura.ReceptorNumRegIdTrib) is { Length: > 0 } id
+            && IdFiscal(NumRegIdTribReceptor(factura)) is { Length: > 0 } id
             && id == IdFiscal(cliente.NumRegIdTrib);
     }
+
+    /// <summary>
+    /// Identificación fiscal del receptor extranjero: la factura de exportación la lleva en su CCE (la emisión no llena el campo del
+    /// comprobante); anticipos y notas de crédito, en el comprobante.
+    /// </summary>
+    private static string? NumRegIdTribReceptor(FacturaVenta factura) =>
+        string.IsNullOrWhiteSpace(factura.ComplementoCce?.ReceptorNumRegIdTrib)
+            ? factura.ReceptorNumRegIdTrib
+            : factura.ComplementoCce.ReceptorNumRegIdTrib;
 
     private static string IdFiscal(string? valor) =>
         string.Concat((valor ?? string.Empty).Where(char.IsLetterOrDigit)).ToUpperInvariant();
