@@ -92,7 +92,7 @@ public sealed class ListarUsuariosHandler
             .Skip(offset).Take(limit)
             .Select(u => new UsuarioResponse(
                 u.Id, u.Email, u.EntraOid, u.Nombre,
-                u.DepartamentoId, u.Activo, u.Version, null))
+                u.DepartamentoId, u.Activo, u.Version, null, false, null, u.CorreoParaAvisos))
             .ToListAsync(cancellationToken);
 
         // El vínculo vive en compartido.empleados. Resolver únicamente los

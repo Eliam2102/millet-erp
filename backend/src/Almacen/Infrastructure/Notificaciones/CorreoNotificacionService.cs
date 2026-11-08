@@ -33,7 +33,8 @@ public sealed class AvisosAlmacenOptions
 public sealed class CorreoNotificacionService(
     ICorreoSaliente correo,
     IOptions<AvisosAlmacenOptions> options,
-    ILogger<CorreoNotificacionService> logger) : INotificacionService
+    ILogger<CorreoNotificacionService> logger,
+    IUsuarioCorreoAvisosPort? usuariosAvisos = null) : INotificacionService
 {
     public const string Modulo = "almacen";
     private static readonly CultureInfo Mx = CultureInfo.GetCultureInfo("es-MX");
@@ -64,12 +65,20 @@ public sealed class CorreoNotificacionService(
         int diaDelSla,
         CancellationToken cancellationToken)
     {
-        // PLATFORM-TODO(<NotificacionService>): avisar también a la persona que recibió el vale
-        // (personaDestinatariaId) cuando exista un puerto de lectura de su correo.
-        var para = AvisosAlmacenOptions.Validos(options.Value.JefeAlmacen);
+        // 86e3zexqm: avisar al jefe de almacén y a la persona destinataria del vale resolviendo su correo para avisos.
+        var para = AvisosAlmacenOptions.Validos(options.Value.JefeAlmacen).ToList();
+        if (personaDestinatariaId is { } personaId && usuariosAvisos is not null)
+        {
+            var correoPersona = await usuariosAvisos.ObtenerCorreoAvisosAsync(personaId, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(correoPersona) && !para.Contains(correoPersona, StringComparer.OrdinalIgnoreCase))
+            {
+                para.Add(correoPersona);
+            }
+        }
+
         if (para.Count == 0)
         {
-            logger.LogWarning("[AvisosAlmacen] Sin correos en {Seccion}:JefeAlmacen; el aviso del vale {Folio} no se envió.",
+            logger.LogWarning("[AvisosAlmacen] Sin correos en {Seccion}:JefeAlmacen ni persona destinataria resuelta; el aviso del vale {Folio} no se envió.",
                 AvisosAlmacenOptions.SectionName, folioVale);
             return;
         }

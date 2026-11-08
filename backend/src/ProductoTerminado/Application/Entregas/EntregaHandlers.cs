@@ -64,6 +64,7 @@ public sealed class ConfirmarEntregaHandler(ProductoTerminadoDbContext db, PtAcc
         var ahora = clock.UtcNow;
         var entrega = EntregaPt.Crear(empresaId, hoja.Id, albaran, piezas.Count - rechazadas.Count, rechazadas.Count, c.MotivoRechazo, c.Receptor, firma, foto,
             c.Cobro?.Monto, c.Cobro?.FormaPago, c.Cobro?.Referencia, ahora, acceso.Actor.ToString());
+        albaran.MarcarEntregado(ahora);
 
         foreach (var pz in piezas)
         {
