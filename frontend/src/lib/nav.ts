@@ -1194,6 +1194,14 @@ const moduloContabilidad: NavModulo = {
           permission: PermisosCanonicos.ContabilidadPolizasLeer,
         },
         {
+          label: 'Importar póliza de nómina',
+          description:
+            'La póliza de la nómina externa entra por archivo (.csv o .xlsx): se revisa renglón por renglón y nace en borrador, cuadrada y con el archivo adjunto.',
+          to: '/contabilidad/polizas/importar-nomina',
+          icon: Upload,
+          permission: PermisosCanonicos.ContabilidadPolizasCapturar,
+        },
+        {
           label: 'Pólizas recurrentes',
           description:
             'Plantillas que generan la póliza de cada mes en su día, con reversa automática opcional; las activa otro usuario.',
