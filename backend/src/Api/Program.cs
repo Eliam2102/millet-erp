@@ -1143,8 +1143,17 @@ builder.Services.AddScoped<Millet.SharedKernel.Application.Integration.Tablero.I
     Millet.Facturacion.Infrastructure.PublicAdapters.CorreoCfdiFuenteTablero>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Integration.Tablero.IFuenteTableroIntegracion,
     Millet.Facturacion.Infrastructure.PublicAdapters.AwWriteBackFuenteTablero>();
-// PLATFORM-TODO(<TableroIntegracionesAw>): el retorno a A+W (aw_retorno, U1.5), Planta Pintura y la descarga del SAT
-// (Integraciones.Fiscal) aún no exponen su cola al tablero; se agregan como fuentes cuando tengan conexión real.
+builder.Services.AddScoped<Millet.SharedKernel.Application.Integration.Tablero.IFuenteTableroIntegracion,
+    Millet.Facturacion.Infrastructure.PublicAdapters.TimbradoPacFuenteTablero>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Integration.Tablero.IFuenteTableroIntegracion,
+    Millet.Facturacion.Infrastructure.PublicAdapters.CancelacionSatFuenteTablero>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Integration.Tablero.IFuenteTableroIntegracion,
+    Millet.Integraciones.Fiscal.Infrastructure.Tablero.DescargaSatFuenteTablero>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Integration.Tablero.IFuenteTableroIntegracion,
+    Millet.CuentasPorPagar.Infrastructure.PublicAdapters.BuzonCfdiFuenteTablero>();
+// PLATFORM-TODO(<TableroIntegracionesAw>): el retorno a A+W (aw_retorno, U1.5) y los pedidos de Planta Pintura viven en
+// la base de integración de A+W y sus fallas técnicas solo quedan en el log; se agregan como fuentes con la conexión real.
+// Banxico no guarda sus corridas (solo el tipo de cambio que obtiene); hace falta una bitácora para mostrarlo.
 if (!string.IsNullOrWhiteSpace(outboxConnString))
 {
     builder.Services.AddScoped<Millet.SharedKernel.Application.Integration.Tablero.IFuenteTableroIntegracion>(sp =>
