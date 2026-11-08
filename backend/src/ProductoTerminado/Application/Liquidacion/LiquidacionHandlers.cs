@@ -80,6 +80,8 @@ public sealed class LiquidarRutaPtHandler(ProductoTerminadoDbContext db, PtAcces
         else db.RemoveRange(previa.Imprevistos);
         liq.Registrar(c.Albaranes.Select(a => (albaranes[a.AlbaranId], esperados[a.AlbaranId], a.Firmado, a.Efectivo, a.Voucher, a.VoucherReferencia)),
             c.Imprevistos.Select(i => (i.Descripcion, i.Importe)), clock.UtcNow, acceso.Actor.ToString());
+        if (liq.Estado == EstadoLiquidacion.Cerrada)
+            foreach (var alb in albaranes.Values) alb.MarcarLiquidado(clock.UtcNow);
         await db.SaveChangesAsync(cancellationToken);
         return await LiquidacionMapeo.ADtoAsync(db, pedidosPort, empresaId, s, liq, cancellationToken);
     }

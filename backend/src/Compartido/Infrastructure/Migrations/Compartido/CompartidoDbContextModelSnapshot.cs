@@ -307,6 +307,11 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("character varying(20)")
                         .HasColumnName("codigo_nomina");
 
+                    b.Property<string>("CorreoParaAvisos")
+                        .HasMaxLength(254)
+                        .HasColumnType("character varying(254)")
+                        .HasColumnName("correo_para_avisos");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
