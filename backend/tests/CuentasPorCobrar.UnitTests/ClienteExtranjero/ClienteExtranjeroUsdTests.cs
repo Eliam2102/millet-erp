@@ -112,6 +112,31 @@ public sealed class ClienteExtranjeroUsdTests
     }
 
     [Fact]
+    public async Task QA_el_extranjero_dado_de_alta_como_generico_entra_con_su_cliente_y_su_plazo()
+    {
+        // QA 7-nov (CXC-11): el alta de clientes marca «genérico» a todo RFC genérico, también XEXX. El evento trae su id.
+        using var db = CrearDbContext();
+        AgregarLinea(db, ClienteCanada, "USD", plazoDias: 60);
+        await db.SaveChangesAsync();
+
+        await Timbrar(db, PayloadExtranjero(clienteId: ClienteCanada), new FakeClientes(genericos: true));
+
+        var f = await db.FacturasCartera.SingleAsync();
+        f.ClienteId.Should().Be(ClienteCanada, "antes se descartaba por genérico y la factura vencía al timbrado");
+        f.FechaVencimiento.Should().Be(Ahora.AddDays(60));
+    }
+
+    [Fact]
+    public async Task El_publico_en_general_por_id_sigue_sin_ligarse_a_la_cartera()
+    {
+        using var db = CrearDbContext();
+        await Timbrar(db, PayloadExtranjero(clienteId: Guid.NewGuid()) with { ReceptorRfc = "XAXX010101000" },
+            new FakeClientes(genericos: true, rfcPorId: "XAXX010101000"));
+
+        (await db.FacturasCartera.SingleAsync()).ClienteId.Should().BeNull("el público en general no participa del crédito");
+    }
+
+    [Fact]
     public async Task Sin_cliente_en_el_evento_el_RFC_generico_de_extranjero_no_se_liga_al_primer_extranjero()
     {
         using var db = CrearDbContext();
@@ -210,11 +235,13 @@ public sealed class ClienteExtranjeroUsdTests
         await new ResolverPropuestaTesoreriaHandler(db, new FakeClock()).Handle(
             new(Guid.NewGuid(), EmpresaId, creada.Id, Guid.NewGuid(), Ahora, movimiento, null), default);
         await new ReciboPagoTimbradoHandler(db, new FakeClock(), NullLogger<ReciboPagoTimbradoHandler>.Instance)
-            .Handle(new ReciboPagoTimbradoCommand(Guid.NewGuid(), new(EmpresaId, Ahora, Guid.NewGuid(), "REP-EU", 10_000m, 0,
-                [new(factura.FacturaVentaId, 10_000m, 1, "USD", 0m)], movimiento)), default);
+            .Handle(new ReciboPagoTimbradoCommand(Guid.NewGuid(), new(EmpresaId, Ahora, Guid.NewGuid(), "REP-EU", 9_952m, 0,
+                [new(factura.FacturaVentaId, 9_952m, 1, "USD", 48m)], movimiento)), default);
 
+        // QA 7-nov: el REP relaciona lo cobrado (9,952, insoluto fiscal 48); el ajuste autorizado salda la factura en cartera.
         factura.Estado.Should().Be(EstadoFacturaCartera.Pagada);
         factura.SaldoPendiente.Should().Be(0m);
+        (await db.MovimientosCartera.SingleAsync()).Importe.Should().Be(10_000m, "cuadra con la póliza #12, que abona lo aplicado");
         factura.MontoNc.Should().Be(0m, "la comisión no lleva nota de crédito");
         var propuesta = await db.PropuestasAplicacionPago.SingleAsync(p => p.Id == creada.Id);
         propuesta.TipoAjuste.Should().Be(TipoAjusteCobro.ComisionBancaria);
@@ -234,8 +261,8 @@ public sealed class ClienteExtranjeroUsdTests
         new AntiguedadSaldosHandler(db, new BucketsAntiguedadCxc([15, 30, 60, 90]), new FakeClientes(), new FakeClock(), tiposCambio)
             .Handle(query, CancellationToken.None);
 
-    private static Task Timbrar(CuentasPorCobrarDbContext db, FacturaVentaTimbradaPayload payload) =>
-        new FacturaVentaTimbradaHandler(db, new FakeClientes(), new FakeClock(), NullLogger<FacturaVentaTimbradaHandler>.Instance)
+    private static Task Timbrar(CuentasPorCobrarDbContext db, FacturaVentaTimbradaPayload payload, FakeClientes? clientes = null) =>
+        new FacturaVentaTimbradaHandler(db, clientes ?? new FakeClientes(), new FakeClock(), NullLogger<FacturaVentaTimbradaHandler>.Instance)
             .Handle(new FacturaVentaTimbradaCommand(Guid.NewGuid(), payload), CancellationToken.None);
 
     private static FacturaVentaTimbradaPayload PayloadExtranjero(Guid? clienteId) => new(
@@ -266,13 +293,16 @@ public sealed class ClienteExtranjeroUsdTests
         new(new DbContextOptionsBuilder<CuentasPorCobrarDbContext>()
             .UseInMemoryDatabase($"cxc_v_cxc_11_{Guid.NewGuid()}").Options, new FakeEmpresaContext());
 
-    /// <summary>Como el adapter real: por RFC gana el primer cliente por clave (EU); por id, el exacto.</summary>
-    private sealed class FakeClientes : IClienteReadPort
+    /// <summary>
+    /// Como el adapter real: por RFC gana el primer cliente por clave (EU); por id, el exacto. <paramref name="genericos"/>
+    /// = el cliente está marcado como genérico, como lo deja el alta de clientes con un RFC genérico.
+    /// </summary>
+    private sealed class FakeClientes(bool genericos = false, string rfcPorId = RfcExtranjero) : IClienteReadPort
     {
         public Task<ClienteRefDto?> ObtenerPorRfcAsync(string rfc, CancellationToken ct) =>
             Task.FromResult<ClienteRefDto?>(new ClienteRefDto(ClienteEu, rfc, "Cliente DEMO de EU", false));
         public Task<ClienteRefDto?> ObtenerAsync(Guid clienteId, CancellationToken ct) =>
-            Task.FromResult<ClienteRefDto?>(new ClienteRefDto(clienteId, RfcExtranjero, "Cliente DEMO", false));
+            Task.FromResult<ClienteRefDto?>(new ClienteRefDto(clienteId, rfcPorId, "Cliente DEMO", genericos));
         public Task<IReadOnlyList<ClienteLookupCxcDto>> BuscarAsync(
             string? rfc, string? razonSocial, IReadOnlyCollection<Guid>? ids, int limit, CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<ClienteLookupCxcDto>>([]);
