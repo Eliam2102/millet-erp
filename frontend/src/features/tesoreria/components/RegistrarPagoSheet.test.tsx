@@ -132,3 +132,74 @@ describe('<RegistrarPagoSheet> cuenta del proveedor', () => {
     expect(body).not.toHaveProperty('cuentaProveedorId');
   });
 });
+
+describe('<RegistrarPagoSheet> TC del pago (TES-09)', () => {
+  const pasivoUsd: PasivoPendienteResponse = { ...pasivo, moneda: 'USD', tipoCambio: 18 };
+
+  function abrirUsd() {
+    cuentasMock([cuenta({ id: 'u', moneda: 'USD', predeterminada: true })]);
+    mswServer.use(
+      http.get('*/api/v1/tesoreria/tipo-cambio-pago', ({ request }) => {
+        const url = new URL(request.url);
+        return HttpResponse.json({ moneda: url.searchParams.get('moneda'), fecha: url.searchParams.get('fecha'), valorEnMxn: 18.5 });
+      }),
+    );
+    render(
+      <RegistrarPagoSheet pasivos={[pasivoUsd]} open onOpenChange={vi.fn()} onSuccess={vi.fn()} />,
+      { wrapper: createQueryWrapper() },
+    );
+  }
+
+  function capturarPost() {
+    const capturado: { body: Record<string, unknown> | null } = { body: null };
+    mswServer.use(
+      http.post('*/api/v1/tesoreria/pagos', async ({ request }) => {
+        capturado.body = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({ monto: 100, moneda: 'USD', aplicaciones: [{}] });
+      }),
+    );
+    return capturado;
+  }
+
+  it('en USD muestra el TC del catálogo y, sin cambiarlo, no lo manda (el backend usa ese mismo)', async () => {
+    const post = capturarPost();
+    abrirUsd();
+    const campo = await screen.findByLabelText(/TC del pago/);
+    await waitFor(() => expect(campo).toHaveValue(18.5));
+    fireEvent.click(screen.getByText('elegir egreso'));
+    fireEvent.change(screen.getByLabelText(/Referencia bancaria/), { target: { value: 'spei-usd' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar pago' }));
+    await waitFor(() => expect(post.body).not.toBeNull());
+    expect(post.body).not.toHaveProperty('tipoCambioPago');
+  });
+
+  it('en USD manda el TC que aplicó el banco cuando se cambia', async () => {
+    const post = capturarPost();
+    abrirUsd();
+    const campo = await screen.findByLabelText(/TC del pago/);
+    await waitFor(() => expect(campo).toHaveValue(18.5));
+    fireEvent.change(campo, { target: { value: '18.6123' } });
+    fireEvent.click(screen.getByText('elegir egreso'));
+    fireEvent.change(screen.getByLabelText(/Referencia bancaria/), { target: { value: 'spei-usd' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar pago' }));
+    await waitFor(() => expect(post.body).not.toBeNull());
+    expect(post.body).toMatchObject({ tipoCambioPago: 18.6123 });
+  });
+
+  it('un TC en cero deshabilita el registro', async () => {
+    abrirUsd();
+    const campo = await screen.findByLabelText(/TC del pago/);
+    fireEvent.change(campo, { target: { value: '0' } });
+    fireEvent.click(screen.getByText('elegir egreso'));
+    fireEvent.change(screen.getByLabelText(/Referencia bancaria/), { target: { value: 'spei-usd' } });
+    expect(screen.getByRole('button', { name: 'Registrar pago' })).toBeDisabled();
+    expect(screen.getAllByText('El TC del pago debe ser mayor a cero').length).toBeGreaterThan(0);
+  });
+
+  it('en MXN no muestra el campo', async () => {
+    cuentasMock([cuenta({ id: 'b', predeterminada: true })]);
+    abrir();
+    await screen.findAllByRole('radio');
+    expect(screen.queryByLabelText(/TC del pago/)).not.toBeInTheDocument();
+  });
+});

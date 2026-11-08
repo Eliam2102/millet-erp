@@ -19,7 +19,9 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ProveedorSelector } from '@/components/erp/selectors/ProveedorSelector';
 import { CuentaBancariaSelector } from './CuentaBancariaSelector';
-import { useRegistrarPagoACuenta } from '@/features/tesoreria/api/useTesoreria';
+import { useCuentasBancarias, useRegistrarPagoACuenta } from '@/features/tesoreria/api/useTesoreria';
+import { TipoCambioPagoCampo } from './TipoCambioPagoCampo';
+import { errorTipoCambioPago, tipoCambioPagoParaEnviar } from '@/features/tesoreria/lib/tipo-cambio-pago';
 import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
 
 export interface NuevoPagoACuentaSheetProps {
@@ -44,6 +46,10 @@ export function NuevoPagoACuentaSheet({ open, onOpenChange }: NuevoPagoACuentaSh
   const [fechaValor, setFechaValor] = useState(() => hoyLocalISO());
   const [referencia, setReferencia] = useState('');
   const [motivo, setMotivo] = useState('');
+  // TES-09: TC del pago capturado (null = el del catálogo a la fecha valor); la moneda es la de la cuenta de egreso.
+  const [tipoCambio, setTipoCambio] = useState<string | null>(null);
+  const cuentas = useCuentasBancarias(true, open);
+  const moneda = cuentas.data?.find((c) => c.id === cuentaId)?.moneda ?? null;
 
   const montoNum = Number(monto);
   const valido =
@@ -52,7 +58,8 @@ export function NuevoPagoACuentaSheet({ open, onOpenChange }: NuevoPagoACuentaSh
     Number.isFinite(montoNum) &&
     montoNum > 0 &&
     motivo.trim().length > 0 &&
-    referencia.trim().length > 0;
+    referencia.trim().length > 0 &&
+    errorTipoCambioPago(moneda, tipoCambio) == null;
 
   function limpiar() {
     setProveedorId(null);
@@ -61,6 +68,7 @@ export function NuevoPagoACuentaSheet({ open, onOpenChange }: NuevoPagoACuentaSh
     setMonto('');
     setReferencia('');
     setMotivo('');
+    setTipoCambio(null);
   }
 
   function cambiarAbierto(next: boolean) {
@@ -78,6 +86,7 @@ export function NuevoPagoACuentaSheet({ open, onOpenChange }: NuevoPagoACuentaSh
       motivo: motivo.trim(),
       proveedorId,
       referenciaBancaria: referencia.trim(),
+      tipoCambioPago: tipoCambioPagoParaEnviar(moneda, tipoCambio),
     };
     registrar.mutate(
       {
@@ -184,6 +193,17 @@ export function NuevoPagoACuentaSheet({ open, onOpenChange }: NuevoPagoACuentaSh
                   />
                 </div>
               </FormCampo>
+              {moneda != null && moneda !== 'MXN' && (
+                <FormCampo span={6}>
+                  <TipoCambioPagoCampo
+                    id="pac-tc"
+                    moneda={moneda}
+                    fecha={fechaValor}
+                    value={tipoCambio}
+                    onChange={setTipoCambio}
+                  />
+                </FormCampo>
+              )}
               <FormCampo span={12}>
                 <div className="space-y-1">
                   <label className="text-xs text-ink-muted" htmlFor="pac-motivo">

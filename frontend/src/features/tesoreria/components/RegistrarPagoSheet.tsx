@@ -29,6 +29,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CuentaBancariaSelector } from './CuentaBancariaSelector';
+import { TipoCambioPagoCampo } from './TipoCambioPagoCampo';
+import { errorTipoCambioPago, tipoCambioPagoParaEnviar } from '@/features/tesoreria/lib/tipo-cambio-pago';
 import { Link } from '@tanstack/react-router';
 import { useCuentasProveedorPago, useRegistrarPago } from '@/features/tesoreria/api/useTesoreria';
 import type { CuentaProveedorPago, PasivoPendienteResponse } from '@/features/tesoreria/api/types';
@@ -65,6 +67,8 @@ export function RegistrarPagoSheet({
   const [cuentaId, setCuentaId] = useState<string | null>(null);
   const [fechaValor, setFechaValor] = useState(() => hoyLocalISO());
   const [referencia, setReferencia] = useState('');
+  // TES-09: TC del pago capturado (null = el del catálogo a la fecha valor).
+  const [tipoCambio, setTipoCambio] = useState<string | null>(null);
   const [cuentaProvOverride, setCuentaProvOverride] = useState<string | null>(null);
   // Rechazo 422 de cuenta del proveedor: visible y persistente (no solo toast).
   const [errorCuenta, setErrorCuenta] = useState<string | null>(null);
@@ -128,7 +132,7 @@ export function RegistrarPagoSheet({
                 ? 'Revisa los importes a pagar'
                 : referencia.trim() === ''
                   ? 'Captura la referencia que dio el banco'
-                  : null;
+                  : errorTipoCambioPago(moneda, tipoCambio);
 
   function confirmar() {
     if (
@@ -144,6 +148,7 @@ export function RegistrarPagoSheet({
       conceptoId: conceptoId ?? undefined,
       fechaValor,
       referenciaBancaria: referencia.trim(),
+      tipoCambioPago: tipoCambioPagoParaEnviar(moneda, tipoCambio),
       aplicaciones: pasivos.map((p) => ({
         facturaProveedorId: p.facturaProveedorId,
         importe: Number(importes[p.facturaProveedorId]),
@@ -200,6 +205,7 @@ export function RegistrarPagoSheet({
       setCuentaProvOverride(null);
       setErrorCuenta(null);
       setFechaValor(hoyLocalISO());
+      setTipoCambio(null);
     }
     onOpenChange(next);
   }
@@ -379,6 +385,17 @@ export function RegistrarPagoSheet({
                 placeholder="SPEI-000123"
               />
             </FormCampo>
+            {moneda != null && moneda !== 'MXN' && (
+              <FormCampo span={6}>
+                <TipoCambioPagoCampo
+                  id="tc-pago"
+                  moneda={moneda}
+                  fecha={fechaValor}
+                  value={tipoCambio}
+                  onChange={setTipoCambio}
+                />
+              </FormCampo>
+            )}
           </FormSeccion>
 
           {motivoDeshabilitado && !registrar.isPending && (

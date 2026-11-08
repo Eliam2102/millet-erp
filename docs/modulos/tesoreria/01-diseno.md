@@ -406,6 +406,17 @@ monto), `MovimientosBancariosQuery` + `MovimientoDetalleQuery`,
 | `tesoreria.propuesta-aplicacion.rechazada.v1` | CxC | **Propuesto** [T-G7] |
 | `tesoreria.movimiento-bancario.registrado.v1` | Contabilidad (futura) | PR-11; diseño del payload contable diferido |
 
+**TC del pago (TES-09, 86e3jvvj4, aditivo).** El pago a proveedor, el pago a cuenta y la confirmación de cobro aceptan
+`TipoCambioPago` opcional cuando la moneda no es MXN: el TC que aplicó el banco. Si no se captura, Tesorería toma el del
+catálogo K10.6 (`compartido.tipos_cambio`, puerto `ITipoCambioPagoReadPort`) a la fecha valor; en MXN no lleva TC. Se guarda en
+`tesoreria.movimiento_bancario.tipo_cambio` (migración `TesoreriaTipoCambioPago`) y viaja como propiedad `TipoCambioPago` en
+`pago-factura-proveedor.aplicado.v1` y `pago-cliente.confirmado.v1`, sin subir versión: los consumidores que no la leen la
+ignoran. Contabilidad (CON-11) la prefiere al catálogo para la diferencia cambiaria realizada; si llega null, busca el catálogo.
+La liga tardía de un pago a cuenta manda el TC con que se pagó, no el del día de la liga. El campo `TipoCambio` de `aplicado.v1`
+sigue siendo el del pasivo (G1.6). La corrida de pagos no captura TC: cada pago toma el del catálogo. La UI muestra «TC del
+pago» (o «TC del cobro») solo en moneda extranjera, con el del catálogo prellenado vía
+`GET /api/v1/tesoreria/tipo-cambio-pago?moneda=&fecha=` (permiso `tesoreria.movimientos.ver`); solo se manda si se cambia.
+
 ### 8.2 Suscritos
 
 | EventType | Topic / subscription nueva | Handler |
