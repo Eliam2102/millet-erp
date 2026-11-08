@@ -91,4 +91,27 @@ public sealed class DiotEndpointsTests : IClassFixture<DiotEndpointsTests.Servid
         Assert.Contains((await cliente.GetAsync($"{Ruta}?anio=2026&mes=13")).StatusCode, Rechazo);
         Assert.Contains((await cliente.GetAsync($"{Ruta}/archivo?anio=2026&mes=0")).StatusCode, Rechazo);
     }
+
+    [Theory]
+    [InlineData("?anio=dos&mes=11", "Año inválido.")]
+    [InlineData("?mes=11", "Año inválido.")]
+    [InlineData("/archivo?anio=2026&mes=noviembre", "Mes inválido.")]
+    public async Task Anio_o_mes_no_numerico_se_rechaza_en_espanol(string consulta, string mensaje)
+    {
+        var (cliente, _) = await factory.Ambiente.ClienteConPermisosAsync(PermisosCanonicos.CuentasPorPagarReportesDiot);
+        var respuesta = await cliente.GetAsync(Ruta + consulta);
+        Assert.Contains(respuesta.StatusCode, Rechazo);
+        using var json = JsonDocument.Parse(await respuesta.Content.ReadAsStringAsync());
+        var textos = Textos(json.RootElement).ToList();
+        Assert.Contains(textos, t => t.Contains(mensaje, StringComparison.Ordinal));
+        Assert.DoesNotContain(textos, t => t.Contains("Failed to bind", StringComparison.Ordinal));
+    }
+
+    private static IEnumerable<string> Textos(JsonElement e) => e.ValueKind switch
+    {
+        JsonValueKind.String => [e.GetString()!],
+        JsonValueKind.Object => e.EnumerateObject().SelectMany(p => Textos(p.Value)),
+        JsonValueKind.Array => e.EnumerateArray().SelectMany(Textos),
+        _ => [],
+    };
 }
