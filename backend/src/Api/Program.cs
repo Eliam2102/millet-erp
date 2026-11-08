@@ -1153,6 +1153,20 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Contabilidad.Application.ConciliacionAuxiliares.ISaldosBancariosAlCorteReadPort,
     Millet.Tesoreria.Infrastructure.PublicAdapters.SaldosBancariosContabilidadAdapter>();
+// CON-12 (86e3jvvme): checklist de cierre. Cada módulo dueño dice si su parte del mes está hecha.
+builder.Services.AddScoped<
+    Millet.Contabilidad.Application.Cierre.IConciliacionBancariaCierreReadPort,
+    Millet.Tesoreria.Infrastructure.PublicAdapters.ConciliacionBancariaCierreAdapter>();
+builder.Services.AddScoped<
+    Millet.Contabilidad.Application.Cierre.IInventarioCierreReadPort,
+    Millet.Almacen.Infrastructure.PublicAdapters.InventarioCierreContabilidadAdapter>();
+builder.Services.AddScoped<
+    Millet.Contabilidad.Application.Cierre.IDepreciacionCierreReadPort,
+    Millet.ActivosFijos.Infrastructure.PublicAdapters.DepreciacionCierreContabilidadAdapter>();
+builder.Services.AddScoped<Millet.CuentasPorPagar.Infrastructure.PublicAdapters.AuxiliarProveedoresContabilidadAdapter>();
+builder.Services.AddScoped<
+    Millet.Contabilidad.Application.Cierre.IRevaluacionProveedoresCierreReadPort,
+    Millet.CuentasPorPagar.Infrastructure.PublicAdapters.RevaluacionProveedoresCierreAdapter>();
 // F1-ALM-13: grupo del artículo para la cuenta de inventario por tipo (rol INVENTARIO_{grupo}).
 builder.Services.AddScoped<
     Millet.Contabilidad.Application.Ports.IArticuloContabilidadPort,
@@ -1751,6 +1765,7 @@ Millet.Api.Endpoints.Contabilidad.ContabilidadCatalogoEndpoints.MapContabilidadE
 Millet.Api.Endpoints.Contabilidad.ContabilidadDimensionesEndpoints.MapContabilidadDimensionesEndpoints(app);
 // === Contabilidad — ejercicios y periodos contables: apertura, cierre y reapertura con bitácora (F1-CON-03) ===
 Millet.Api.Endpoints.Contabilidad.ContabilidadPeriodosEndpoints.MapContabilidadPeriodosEndpoints(app);
+Millet.Api.Endpoints.Contabilidad.ContabilidadCierreEndpoints.MapContabilidadCierreEndpoints(app);
 Millet.Api.Endpoints.Contabilidad.ContabilidadPolizasEndpoints.MapContabilidadPolizasEndpoints(app);
 Millet.Api.Endpoints.Contabilidad.ContabilidadRecurrentesEndpoints.MapContabilidadRecurrentesEndpoints(app);
 Millet.Api.Endpoints.Contabilidad.ContabilidadMotorEndpoints.MapContabilidadMotorEndpoints(app, app.Environment);
