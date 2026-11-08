@@ -203,7 +203,8 @@ public sealed class CceTests
 
         await act.Should().ThrowAsync<BusinessRuleException>()
             .Where(e => e.Code == "CCE_DOMICILIO_RECEPTOR_INCOMPLETO");
-        (await db.FacturasVenta.AnyAsync()).Should().BeFalse(); // nada persistido
+        // Ninguna factura vigente: si el folio ya se había reservado, queda Descartada (B2).
+        (await db.FacturasVenta.AnyAsync(f => f.Estado != EstadoTimbrado.Descartada)).Should().BeFalse();
     }
 
     [Fact]

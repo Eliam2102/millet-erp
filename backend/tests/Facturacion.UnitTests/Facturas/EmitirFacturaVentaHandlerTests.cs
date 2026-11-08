@@ -717,4 +717,43 @@ public sealed class EmitirFacturaVentaHandlerTests
         autorizacion.Estado.Should().Be(Millet.Facturacion.Domain.Activos.EstadoAutorizacionActivo.Usada);
         autorizacion.FacturaVentaId.Should().Be(resp.Id);
     }
+
+    /// <summary>B2: el PAC no está configurado; el adaptador lanza antes de llamar al PAC.</summary>
+    private sealed class FakeFiscalSinPac : Millet.Integraciones.Fiscal.Domain.Ports.ICfdiTimbradoPort
+    {
+        public Task<Millet.Integraciones.Fiscal.Domain.Ports.TimbradoResultado> TimbrarAsync(
+            Millet.Integraciones.Fiscal.Domain.Ports.CfdiEmision emision, CancellationToken ct) =>
+            throw new Millet.Integraciones.Fiscal.Domain.Exceptions.ConfiguracionPacNoDisponibleException(emision.EmpresaId);
+        public Task<Millet.Integraciones.Fiscal.Domain.Ports.CancelacionResultado> CancelarAsync(
+            Millet.Integraciones.Fiscal.Domain.Ports.CancelacionSolicitud s, CancellationToken ct) => throw new NotSupportedException();
+        public Task<Millet.Integraciones.Fiscal.Domain.Ports.EstatusCfdiResultado> ConsultarEstatusAsync(
+            Millet.Integraciones.Fiscal.Domain.Ports.EstatusCfdiSolicitud s, CancellationToken ct) => throw new NotSupportedException();
+    }
+
+    [Fact]
+    public async Task B2_sin_PAC_configurado_el_folio_queda_en_una_factura_Descartada_con_su_motivo()
+    {
+        // Reproduce FA-000004 de la prueba S3-4: la emisión aborta después de reservar el folio.
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var command = Command();
+        var pedido = CrearPedido(db, empresa, command.SucursalId, command.ComportamientoFiscal);
+        var sender = new FakeSender(new ReservarFolioResponse("FA-000004", 4, ""));
+
+        var act = () => Handler(db, empresa, fiscal: new FakeFiscalSinPac(), sender: sender)
+            .Handle(command with { PedidoFacturableId = pedido.Id }, CancellationToken.None);
+
+        await act.Should().ThrowAsync<Millet.Integraciones.Fiscal.Domain.Exceptions.ConfiguracionPacNoDisponibleException>();
+        db.ChangeTracker.Clear();
+        var factura = await db.FacturasVenta.SingleAsync();
+        factura.Folio.Should().Be("FA-000004");
+        factura.Estado.Should().Be(EstadoTimbrado.Descartada);
+        factura.TimbradoErrorCodigo.Should().Be("CONFIG_PAC_NO_DISPONIBLE");
+        factura.TimbradoErrorMensaje.Should().Contain("No hay configuración de PAC");
+        var contingencia = await db.ContingenciasTimbrado.SingleAsync();
+        (contingencia.ComprobanteId, contingencia.ComprobanteFolio, contingencia.Estado)
+            .Should().Be((factura.Id, "FA-000004", EstadoContingenciaTimbrado.Descartada));
+        // El pedido no queda tomado: se puede volver a facturar.
+        (await db.PedidosFacturables.SingleAsync()).Estado.Should().Be(EstadoPedidoFacturable.Importado);
+    }
 }
