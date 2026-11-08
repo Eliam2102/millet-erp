@@ -321,6 +321,7 @@ describe('<EmitirFacturaForm> — smoke (FAC-UX-PR2/PR3)', () => {
       fireEvent.change(container.querySelector(`[name="${name}"]`)!, { target: { value } });
     cambiar('cceTcDof', '20');
     cambiar('cceReceptorNumRegIdTrib', 'DEMO-TAX');
+    cambiar('cceReceptorDomicilioCalle', 'Main St 1');
     cambiar('cceReceptorDomicilioEstado', 'Texas');
     cambiar('cceReceptorDomicilioCodigoPostal', '00000');
     fireEvent.change(screen.getByLabelText('pais'), { target: { value: 'USA' } });
