@@ -64,6 +64,10 @@ internal static class TestAssemblyInit
         // corren a mano con «generar».
         Environment.SetEnvironmentVariable("Contabilidad__Recurrentes__Deshabilitado", "true");
 
+        // CON-12: el checklist de cierre lee Tesorería, Almacén, Activos Fijos y CxP de la BD compartida; las pruebas que cierran
+        // periodos para otra cosa no lo exigen. Las del checklist lo encienden en su propio host.
+        Environment.SetEnvironmentVariable("Contabilidad__Cierre__ExigirChecklist", "false");
+
         // Identidad de los tests independiente de la configuración local del
         // desarrollador: quien prueba contra un tenant real guarda Graph y su
         // OID en user-secrets (que el host de tests también carga en
