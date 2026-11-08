@@ -1087,6 +1087,9 @@ builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.ICfdiRecibidoBancoRea
 // K10.7: marca de cumplimiento de la liquidación de IVA (CxP: método de pago y REP recibido; Facturación: REP timbrado).
 builder.Services.AddScoped<Millet.CuentasPorPagar.Application.PublicPorts.IFacturaProveedorFiscalReadPort, Millet.CuentasPorPagar.Infrastructure.PublicAdapters.FacturaProveedorFiscalReadAdapter>();
 builder.Services.AddScoped<Millet.Contabilidad.Application.Ports.ICumplimientoIvaReadPort, Millet.Api.Infrastructure.Adapters.CumplimientoIvaReadAdapter>();
+// K10.8: contabilidad electrónica. RFC de la empresa (Compartido) y CFDI de las pólizas (CxP recibidos + Facturación emitidos).
+builder.Services.AddScoped<Millet.Contabilidad.Application.Ports.IEmpresaContabilidadReadPort, Millet.Compartido.Infrastructure.PublicAdapters.EmpresaContabilidadReadAdapter>();
+builder.Services.AddScoped<Millet.Contabilidad.Application.Ports.IComprobanteFiscalContabilidadReadPort, Millet.Api.Infrastructure.Adapters.ComprobanteFiscalContabilidadReadAdapter>();
 builder.Services.AddOptions<Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorkerOptions>()
     .Bind(builder.Configuration.GetSection(Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorkerOptions.SectionName))
     .Validate(o => o.Interval > TimeSpan.Zero, "ComercioExterior:AvisosHitos:Interval debe ser mayor que cero.")
