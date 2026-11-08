@@ -1094,6 +1094,14 @@ const moduloFacturacion: NavModulo = {
           permission: PermisosCanonicos.FacturacionReportesLeer,
         },
         {
+          label: 'Conciliación contra el SAT',
+          description:
+            'CFDI emitidos que reporta el SAT contra los timbrados en el ERP: faltantes, estatus, total, tipo y receptor.',
+          to: '/facturacion/reportes/conciliacion-sat',
+          icon: FileCheck2,
+          permission: PermisosCanonicos.FacturacionReportesLeerTodasSucursales,
+        },
+        {
           label: 'Estados de facturas de anticipo',
           description:
             'Reporte de anticipos emitidos, facturas vinculadas, NCs de amortización y saldo por cliente.',

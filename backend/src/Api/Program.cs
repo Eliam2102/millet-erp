@@ -2009,6 +2009,7 @@ Millet.Api.Endpoints.Facturacion.CajasEndpoints.MapFacturacionCajasEndpoints(app
 // === Facturación — Cobros de mostrador (CAJAS-PR4, 12-cajas.md §6) ===
 Millet.Api.Endpoints.Facturacion.CobrosEndpoints.MapFacturacionCobrosEndpoints(app);
 Millet.Api.Endpoints.Facturacion.TerminalTarjetaEndpoints.MapFacturacionTerminalTarjetaEndpoints(app);
+Millet.Api.Endpoints.Facturacion.ConciliacionSatEndpoints.MapFacturacionConciliacionSatEndpoints(app);
 
 // === Cuentas por Cobrar — Líneas de crédito (CXC-PR1) ===
 Millet.Api.Endpoints.CuentasPorCobrar.LineasCreditoEndpoints.MapLineasCreditoEndpoints(app);
