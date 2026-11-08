@@ -1606,18 +1606,14 @@ const rutasFueraDelMenu: readonly Pick<NavCard, 'to' | 'permission' | 'permissio
   { to: '/admin/mi-empresa', permission: PermisosCanonicos.AdminEmpresasLeer },
   { to: '/compras/trazabilidad', permission: PermisosCanonicos.ComprasOrdenesLeer },
   { to: '/compras/articulos', permission: PermisosCanonicos.ComprasOrdenesLeer },
-  // U-4 · «Mis incidencias»: cualquier permiso de incidencias.
-  {
-    to: '/incidencias',
-    permissionsAny: [
-      PermisosCanonicos.CompartidoIncidenciasVer,
-      PermisosCanonicos.CompartidoIncidenciasRegistrar,
-      PermisosCanonicos.CompartidoIncidenciasGestionar,
-      PermisosCanonicos.CompartidoIncidenciasLeerTodasSucursales,
-      PermisosCanonicos.CompartidoIncidenciasGestionarTodasSucursales,
-    ],
-  },
 ];
+
+/**
+ * Rutas para cualquier usuario con sesión, sin permiso propio: el servidor filtra por usuario.
+ * U-4 · «Mis incidencias» y su detalle: el responsable de una incidencia la consulta y la atiende aunque no tenga
+ * permisos de incidencias (`/api/v1/incidencias/mias` y `/{id}` solo piden sesión).
+ */
+export const rutasSoloSesion: readonly string[] = ['/incidencias'];
 
 function contieneRuta(base: string, pathname: string): boolean {
   return pathname === base || pathname.startsWith(`${base}/`);
@@ -1670,6 +1666,8 @@ export function rutaPermitida(pathname: string, permisos: readonly string[]): bo
       (section) => section.modulo === settingsModulo && permisos.includes(section.permisoRequerido),
     );
   }
+
+  if (rutasSoloSesion.some((ruta) => contieneRuta(ruta, pathname))) return true;
 
   const candidatas = [
     ...modulos.flatMap((m) => m.secciones.flatMap((s) => s.cards)),
