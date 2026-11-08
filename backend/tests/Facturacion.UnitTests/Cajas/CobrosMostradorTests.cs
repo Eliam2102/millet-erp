@@ -353,6 +353,41 @@ public sealed class CobrosMostradorTests
         (await db.CobrosMostrador.SingleAsync()).Origen.Should().Be(OrigenCobroMostrador.LiquidacionRuta);
     }
 
+    /// <summary>
+    /// B11 (prueba Sprints 3-4): el cobro en caja de un REPP publicaba ClienteId nulo y Moneda XXX, y Contabilidad dejaba el
+    /// evento en «Dato faltante» para siempre (esperaba una póliza del REPP que no existe). Ahora lleva el cliente de la
+    /// factura que paga y la moneda del pago.
+    /// </summary>
+    [Fact]
+    public async Task Registrar_repp_publica_el_cliente_de_la_factura_pagada_y_la_moneda_del_pago()
+    {
+        using var db = NewDb();
+        await SembrarSesionAsync(db);
+        var clienteId = Guid.NewGuid();
+        var pedido = PedidoFacturable.CrearManual(Empresa, "P-1", SucursalId, clienteId, "Cliente", 1,
+            ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, Cajero, Millet.Facturacion.Domain.Pedidos.ClasePedidoManual.VentaDirecta, Millet.Facturacion.Domain.Pedidos.SubtipoVentaDirecta.Servicio, null, null);
+        db.PedidosFacturables.Add(pedido);
+        var factura = FacturaTimbrada(1000m, metodoPago: "PPD", pedidoFacturableId: pedido.Id);
+        db.FacturasVenta.Add(factura);
+        var repp = ReciboPago.CrearBorrador(Empresa, "P-1", 1, SucursalId, null, null, Receptor(), Emisor(),
+            2026, 7, Ahora, "MXN", 1);
+        repp.AgregarFacturaPagada(factura.Id, factura.Uuid ?? Guid.NewGuid().ToString(), 1, "MXN", 750m, 1000m, "01",
+            null, null, null, null, null, "01", 1000m, []);
+        repp.EstablecerImporteTotalPago(750m);
+        repp.MarcarTimbradoEnProceso();
+        repp.MarcarTimbrado(Guid.NewGuid().ToString(), null, null, null, Ahora, null, null);
+        db.RecibosPago.Add(repp);
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+
+        var eventos = new FakeIntegrationEventPublisher();
+        await RegistrarHandler(db, eventos).Handle(new RegistrarCobroMostradorCommand(
+            repp.Id, [new CobroFormaPagoInput("01", 750m)]), CancellationToken.None);
+
+        var evento = eventos.Publicados.OfType<CobroMostradorRegistradoIntegrationEvent>().Single();
+        (evento.ClienteId, evento.Moneda, evento.TipoCambio).Should().Be((clienteId, "MXN", (decimal?)null));
+    }
+
     [Theory]
     [InlineData("04", null)]
     [InlineData("28", "  ")]
