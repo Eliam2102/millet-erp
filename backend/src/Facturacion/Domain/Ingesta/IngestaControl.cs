@@ -129,4 +129,16 @@ public sealed class IngestaControl : BaseEntity, IPerteneceAEmpresa, IAuditable
         WriteBackUltimoError = error.Length > 500 ? error[..500] : error;
         UltimaLecturaAt = ahora;
     }
+
+    /// <summary>
+    /// I13.6: reintento manual desde el tablero de integraciones de un write-back que
+    /// agotó sus intentos (p. ej. la conexión con A+W estuvo caída): vuelve a la cola
+    /// del worker con el contador en cero. <c>false</c> si ya no hay nada pendiente.
+    /// </summary>
+    public bool ReiniciarIntentosWriteBack()
+    {
+        if (!WriteBackPendiente) return false;
+        WriteBackIntentos = 0;
+        return true;
+    }
 }
