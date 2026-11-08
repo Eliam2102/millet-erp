@@ -35,6 +35,7 @@ public sealed class MovimientoBancarioConfiguration : IEntityTypeConfiguration<M
         builder.Property(e => e.Sentido).HasConversion<short>().IsRequired();
         builder.Property(e => e.Monto).HasPrecision(18, 2).IsRequired();
         builder.Property(e => e.Moneda).HasMaxLength(3).IsRequired();
+        builder.Property(e => e.TipoCambio).HasPrecision(12, 6);
         builder.Property(e => e.FechaValor).IsRequired();
         builder.Property(e => e.ReferenciaBancaria).HasMaxLength(120);
         builder.Property(e => e.DestinoBanco).HasMaxLength(120);

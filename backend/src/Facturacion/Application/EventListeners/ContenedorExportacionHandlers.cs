@@ -116,33 +116,48 @@ public sealed class CancelarSalidasContenedorHandler(FacturacionDbContext db, IC
         var salidas = await db.SalidasFacturables
             .Where(s => s.EmpresaId == p.EmpresaId && s.Origen == OrigenSalidaFacturable.ContenedorExportacion && s.OrigenId == p.ContenedorId)
             .ToListAsync(cancellationToken);
+        var referencia = RegistrarSalidasContenedorHandler.Referencia(p.NumeroContenedor);
+        var motivo = $"Contenedor {referencia} cancelado en Comercio Exterior (expediente {p.FolioExpediente}): {p.Motivo}".Trim();
+        var (descartadas, revision) = await CancelacionSalidas.AplicarAsync(db, p.EmpresaId, salidas, motivo, clock.UtcNow, cancellationToken);
+        db.EventosProcesados.Add(new EventoProcesado(p.ContenedorId, ContenedorCanceladoPayload.EventType, clock.UtcNow,
+            $"contenedor {referencia}: {descartadas} salida(s) descartada(s), {revision} a revisión"));
+        await db.SaveChangesAsync(cancellationToken);
+    }
+}
+
+/// <summary>
+/// FAC-08: regla común al cancelarse el origen de salidas facturables (contenedor de CE, albarán de PT). La salida sin factura
+/// vigente se descarta y sus cantidades vuelven a quedar pendientes del pedido; la que ya tiene factura vigente se conserva y
+/// pasa a revisión en la bandeja de excepciones (<see cref="MotivoExcepcion.CancelacionSobreFacturado"/>), igual que una
+/// cancelación de A+W sobre un pedido facturado. Repetirla no cambia nada: lo descartado se queda así y la revisión no se duplica.
+/// No guarda: el que llama hace <c>SaveChangesAsync</c>.
+/// </summary>
+public static class CancelacionSalidas
+{
+    public static async Task<(int Descartadas, int Revision)> AplicarAsync(FacturacionDbContext db, Guid empresaId,
+        IReadOnlyList<SalidaFacturable> salidas, string motivo, DateTimeOffset ahora, CancellationToken ct)
+    {
         var ids = salidas.Select(s => s.Id).ToList();
         var facturas = await db.FacturasVenta
             .Where(f => f.SalidaFacturableId != null && ids.Contains(f.SalidaFacturableId.Value)
                 && f.Estado != EstadoTimbrado.Cancelado && f.Estado != EstadoTimbrado.Descartada)
             .Select(f => new { SalidaId = f.SalidaFacturableId!.Value, f.Folio })
-            .ToListAsync(cancellationToken);
-
-        var referencia = RegistrarSalidasContenedorHandler.Referencia(p.NumeroContenedor);
-        var motivo = $"Contenedor {referencia} cancelado en Comercio Exterior (expediente {p.FolioExpediente}): {p.Motivo}".Trim();
+            .ToListAsync(ct);
         var descartadas = 0; var revision = 0;
         foreach (var s in salidas)
         {
             var factura = facturas.FirstOrDefault(f => f.SalidaId == s.Id);
             if (factura is null)
             {
-                if (!s.Descartada) { s.Descartar(motivo, clock.UtcNow); descartadas++; }
+                if (!s.Descartada) { s.Descartar(motivo, ahora); descartadas++; }
                 continue;
             }
             revision++;
-            await RegistrarSalidasContenedorHandler.AbrirRevisionAsync(db, p.EmpresaId,
+            await RegistrarSalidasContenedorHandler.AbrirRevisionAsync(db, empresaId,
                 new PedidoContenedorPayload(s.PedidoFacturableId, null, []), MotivoExcepcion.CancelacionSobreFacturado,
                 $"{motivo}. La parcialidad {s.NumeroParcialidad} ya está facturada (folio {factura.Folio}); revise cancelar o sustituir el CFDI.",
-                cancellationToken);
+                ct);
         }
-
-        db.EventosProcesados.Add(new EventoProcesado(p.ContenedorId, ContenedorCanceladoPayload.EventType, clock.UtcNow,
-            $"contenedor {referencia}: {descartadas} salida(s) descartada(s), {revision} a revisión"));
-        await db.SaveChangesAsync(cancellationToken);
+        return (descartadas, revision);
     }
 }

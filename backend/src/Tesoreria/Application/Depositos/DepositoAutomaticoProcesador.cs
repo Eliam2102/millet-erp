@@ -31,7 +31,8 @@ public sealed class DepositoAutomaticoProcesador(
     ICurrentUserPermissions permisos,
     IPeriodoContablePort periodos,
     ITesoreriaSucursalReadPort sucursales,
-    IOptions<DepositoAutomaticoOptions> opciones)
+    IOptions<DepositoAutomaticoOptions> opciones,
+    ITipoCambioPagoReadPort? tiposCambio = null)
 {
     /// <summary>Mismo lock que confirmar/devolver depósitos: la carrera depósito↔devolución se serializa.</summary>
     public static async Task<T> EjecutarBajoLockAsync<T>(
@@ -163,7 +164,7 @@ public sealed class DepositoAutomaticoProcesador(
         try
         {
             await ConfirmacionDeposito.ConfirmarContraMovimientoAsync(db, publisher, clock, empresaId, usuarioId, d, mov,
-                movimientoNuevo: movLinea is null, aplicadoPrevio, ct);
+                movimientoNuevo: movLinea is null, aplicadoPrevio, ct, tiposCambio: tiposCambio);
         }
         catch (BusinessRuleException ex)
         {

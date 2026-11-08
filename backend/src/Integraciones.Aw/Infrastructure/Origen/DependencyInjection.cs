@@ -34,18 +34,22 @@ public static class OrigenDependencyInjection
         ConservarReal<IAwProductosOrigen>(services);
         ConservarReal<IAwSolicitudesReader>(services);
         ConservarReal<IAwWriteBackPort>(services);
-        // 86e3jvv6z: con la bandera, las NC se leen directo de A+W (solo SELECT, millet_erp_lector_aw) y no hay acuse hacia A+W. Se registra
-        // después de la tabla puente (si existe) para ser el «Real»; Demo conserva su adaptador.
+        // 86e3jvv6z / 86e3wjt5r: con la bandera, las NC se leen directo de A+W (solo SELECT, millet_erp_lector_aw) y no hay acuse hacia A+W.
+        // Se registra después de la tabla puente (si existe) para ser el «Real»; Demo conserva su adaptador.
+        // Solo con connection string real (una ref KV sin resolver se trata como ausente en arranque dev local).
         var lectura = configuration.GetSection(AwNotasCreditoLecturaOptions.SectionName).Get<AwNotasCreditoLecturaOptions>() ?? new();
         if (lectura.Habilitada)
         {
             const string cadena = AwClientesOptions.ConnectionStringName;
-            if (string.IsNullOrWhiteSpace(configuration.GetConnectionString(cadena)))
-                throw new InvalidOperationException($"{AwNotasCreditoLecturaOptions.SectionName}:Habilitada requiere ConnectionStrings:{cadena}.");
-            services.AddSingleton<AwNotasCreditoVistas>();
-            services.AddScoped<IAwNotasCreditoPort>(sp => new AwNotasCreditoDirectoPort(
-                new AwNotasCreditoLectorAdapter(() => new SqlConnection(AwSqlTls.Validar(configuration.GetConnectionString(cadena)!, cadena)), lectura),
-                lectura, sp.GetRequiredService<AwNotasCreditoVistas>()));
+            var cs = configuration.GetConnectionString(cadena);
+            if (!string.IsNullOrWhiteSpace(cs)
+                && !cs.StartsWith("@Microsoft.KeyVault", StringComparison.OrdinalIgnoreCase))
+            {
+                services.AddSingleton<AwNotasCreditoVistas>();
+                services.AddScoped<IAwNotasCreditoPort>(sp => new AwNotasCreditoDirectoPort(
+                    new AwNotasCreditoLectorAdapter(() => new SqlConnection(AwSqlTls.Validar(cs, cadena)), lectura),
+                    lectura, sp.GetRequiredService<AwNotasCreditoVistas>()));
+            }
         }
         ConservarReal<IAwNotasCreditoPort>(services);
         ConservarReal<IAwRetornoPort>(services);
