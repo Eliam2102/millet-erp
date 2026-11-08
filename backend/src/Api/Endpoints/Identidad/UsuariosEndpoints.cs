@@ -155,7 +155,9 @@ public static class UsuariosEndpoints
                 payload.Email,
                 payload.NombreCompleto,
                 payload.DepartamentoId,
-                payload.LimpiarDepartamento ?? false);
+                payload.LimpiarDepartamento ?? false,
+                payload.CorreoParaAvisos,
+                payload.LimpiarCorreoParaAvisos ?? false);
             var response = await mediator.Send(command, ct);
             return Results.Ok(response);
         })
@@ -351,7 +353,9 @@ public static class UsuariosEndpoints
         string? Email,
         string? NombreCompleto,
         Guid? DepartamentoId,
-        bool? LimpiarDepartamento);
+        bool? LimpiarDepartamento,
+        string? CorreoParaAvisos = null,
+        bool? LimpiarCorreoParaAvisos = null);
 
     /// <summary>Payload del POST /usuarios/{id}/asignaciones.</summary>
     public sealed record AsignarRolPayload(Guid EmpresaId, Guid RolId);
