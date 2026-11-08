@@ -110,6 +110,29 @@ describe('<ChecklistCierreSheet>', () => {
     expect(onCerrar).toHaveBeenCalledWith(ENERO);
   });
 
+  it('O3: con los resultados del año en cero, «Generar cierre anual» queda deshabilitado y dice por qué', async () => {
+    const DIC_AJUSTE: PeriodoContable = { ...ENERO, numero: 13, nombre: 'Ajustes', esAjuste: true };
+    mswServer.use(http.get(`${API}/periodos/p1/checklist`, () => HttpResponse.json(checklist([
+      paso('CIERRE_ANUAL', 'Cierre anual: resultados en cero', 'Cumple', { resumen: 'Resultados de 2026 en cero.' }),
+    ]))));
+    useAuthStore.setState({ permisos: [PermisosCanonicos.ContabilidadPeriodoCerrar, PermisosCanonicos.ContabilidadCierreAnual] });
+    render(<ChecklistCierreSheet periodo={DIC_AJUSTE} onClose={() => {}} onCerrarPeriodo={() => {}} />, { wrapper: createQueryWrapper() });
+
+    expect(await screen.findByRole('button', { name: 'Generar cierre anual' })).toBeDisabled();
+    expect(screen.getByText(/ya están en cero: no hay cierre anual que generar/)).toBeInTheDocument();
+  });
+
+  it('con resultados por cerrar, «Generar cierre anual» está disponible', async () => {
+    const DIC_AJUSTE: PeriodoContable = { ...ENERO, numero: 13, nombre: 'Ajustes', esAjuste: true };
+    mswServer.use(http.get(`${API}/periodos/p1/checklist`, () => HttpResponse.json(checklist([
+      paso('CIERRE_ANUAL', 'Cierre anual: resultados en cero', 'Pendiente'),
+    ]))));
+    useAuthStore.setState({ permisos: [PermisosCanonicos.ContabilidadPeriodoCerrar, PermisosCanonicos.ContabilidadCierreAnual] });
+    render(<ChecklistCierreSheet periodo={DIC_AJUSTE} onClose={() => {}} onCerrarPeriodo={() => {}} />, { wrapper: createQueryWrapper() });
+
+    expect(await screen.findByRole('button', { name: 'Generar cierre anual' })).toBeEnabled();
+  });
+
   it('un paso manual se confirma con nota (no con excepción)', async () => {
     mswServer.use(http.get(`${API}/periodos/p1/checklist`, () => HttpResponse.json(checklist([
       paso('NOMINA_VS_CFDI', 'Nóminas contra CFDI emitidos', 'Pendiente', { tipo: 'Manual', resumen: 'Paso manual: confírmelo con una nota cuando esté hecho.' }),

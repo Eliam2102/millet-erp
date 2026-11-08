@@ -160,7 +160,12 @@ export function ChecklistCierreSheet({
                 </p>
               )}
 
-              {periodo.esAjuste && abierto && puedeAnual && <CierreAnualAccion anio={periodo.anio} />}
+              {periodo.esAjuste && abierto && puedeAnual && (
+                <CierreAnualAccion
+                  anio={periodo.anio}
+                  enCero={datos.pasos.some((p) => p.clave === 'CIERRE_ANUAL' && p.estado === 'Cumple')}
+                />
+              )}
 
               {datos.cierres.length > 0 && (
                 <section aria-labelledby="cierres-registrados" className="space-y-2">
@@ -372,7 +377,7 @@ function MarcaDialog({
   );
 }
 
-function CierreAnualAccion({ anio }: { anio: number }) {
+function CierreAnualAccion({ anio, enCero }: { anio: number; enCero: boolean }) {
   const anual = useCierreAnual();
   const keyFor = useBodyScopedIdempotencyKey();
   const [error, setError] = useState<string | null>(null);
@@ -386,10 +391,13 @@ function CierreAnualAccion({ anio }: { anio: number }) {
         Genera en este periodo las pólizas en borrador que dejan en cero las cuentas de resultados contra resultado del
         ejercicio. Después se autorizan en Pólizas.
       </p>
+      {enCero && !r && (
+        <p className="text-xs text-ink-secondary">Las cuentas de resultados de {anio} ya están en cero: no hay cierre anual que generar.</p>
+      )}
       <Button
         variant="outline"
         size="sm"
-        disabled={anual.isPending}
+        disabled={anual.isPending || enCero}
         onClick={() => {
           setError(null);
           anual.mutate({ anio, idempotencyKey: keyFor({ anio }) }, { onError: (e) => setError(mensajeError(e)) });
