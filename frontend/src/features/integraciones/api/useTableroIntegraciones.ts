@@ -6,7 +6,11 @@ export const EstadoMensajeIntegracion = { Pendiente: 1, Reintentando: 2, Error: 
 export type EstadoMensajeIntegracion =
   (typeof EstadoMensajeIntegracion)[keyof typeof EstadoMensajeIntegracion];
 
-export const TipoAlertaIntegracion = { MensajesEnError: 1, FlujoDetenido: 2 } as const;
+export const TipoAlertaIntegracion = {
+  MensajesEnError: 1,
+  FlujoDetenido: 2,
+  ReintentosAltos: 3,
+} as const;
 export type TipoAlertaIntegracion =
   (typeof TipoAlertaIntegracion)[keyof typeof TipoAlertaIntegracion];
 

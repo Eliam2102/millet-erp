@@ -78,6 +78,34 @@ public sealed class TableroIntegracionesTests
     }
 
     [Fact]
+    public async Task I13_6_a_un_mensaje_que_ya_fallo_5_veces_alerta_aunque_siga_reintentando()
+    {
+        using var db = NewDb();
+        var cuatro = new MensajeIntegracion("m-4", "evento.a", EstadoMensajeIntegracion.Reintentando, 4, "Timeout", Inicio.AddMinutes(-3), null);
+        var cinco = cuatro with { Id = "m-5", Intentos = 5 };
+        var fuente = new FuenteFalsa("outbox.compras", "Eventos de Compras") { Foto = new(0, 1, 0, 10, Inicio, null, [cuatro]) };
+        var correo = new CorreoFalso();
+        var reloj = new Reloj(Inicio);
+        var tablero = Tablero(db, reloj, correo, fuente);
+
+        (await tablero.EvaluarAlertasAsync(default)).Abiertas.Should().Be(0, "4 fallas todavía no llegan al umbral");
+
+        fuente.Foto = new(0, 2, 0, 10, Inicio, null, [cinco, cuatro]);
+        reloj.Ahora = Inicio.AddMinutes(1);
+        (await tablero.EvaluarAlertasAsync(default)).Abiertas.Should().Be(1);
+        var alerta = await db.AlertasIntegracion.SingleAsync();
+        (alerta.Tipo, alerta.Detalle).Should().Be((TipoAlertaIntegracion.ReintentosAltos,
+            "1 mensaje(s) ya fallaron 5 veces o más y siguen reintentando."));
+        correo.Enviados.Single().Asunto.Should().Contain("Reintentos altos");
+
+        // Se publicó: la condición desaparece, la alerta se cierra y se avisa la recuperación.
+        fuente.Foto = new(0, 0, 0, 12, Inicio.AddMinutes(2), null, []);
+        reloj.Ahora = Inicio.AddMinutes(2);
+        (await tablero.EvaluarAlertasAsync(default)).Cerradas.Should().Be(1);
+        correo.Enviados.Should().HaveCount(2);
+    }
+
+    [Fact]
     public async Task Sin_destinatarios_la_alerta_queda_en_el_tablero_y_un_correo_caido_se_reintenta_en_la_siguiente_vuelta()
     {
         using var db = NewDb();

@@ -37,6 +37,7 @@ const ESTADO_MENSAJE: Record<EstadoMensajeIntegracion, { texto: string; tono: To
 const TITULO_ALERTA: Record<TipoAlertaIntegracion, string> = {
   [TipoAlertaIntegracion.MensajesEnError]: 'Mensajes en error',
   [TipoAlertaIntegracion.FlujoDetenido]: 'Flujo detenido',
+  [TipoAlertaIntegracion.ReintentosAltos]: 'Reintentos altos',
 };
 
 /** Estado de una integración completa, del más grave al más tranquilo. */

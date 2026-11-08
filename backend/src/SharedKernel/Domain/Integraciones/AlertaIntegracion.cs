@@ -7,6 +7,8 @@ public enum TipoAlertaIntegracion : short
     MensajesEnError = 1,
     /// <summary>Hay mensajes pendientes o en reintento más viejos que el umbral: el flujo no avanza.</summary>
     FlujoDetenido = 2,
+    /// <summary>Hay mensajes que siguen reintentando pero ya fallaron el número de veces que avisa (I13.6-a).</summary>
+    ReintentosAltos = 3,
 }
 
 /// <summary>

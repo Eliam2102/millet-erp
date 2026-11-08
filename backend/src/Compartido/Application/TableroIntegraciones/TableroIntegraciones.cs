@@ -21,6 +21,11 @@ public sealed class TableroIntegracionesOptions
     public int IntervaloSegundos { get; set; } = 60;
     /// <summary>Un mensaje pendiente o en reintento más viejo que esto marca el flujo como detenido.</summary>
     public int UmbralDetenidoMinutos { get; set; } = 15;
+    /// <summary>
+    /// Un mensaje que sigue reintentando y ya falló estas veces abre la alerta «Reintentos altos»
+    /// (I13.6-a: «un mensaje que falla 5 veces»), aunque todavía no agote su máximo.
+    /// </summary>
+    public int UmbralReintentosAlerta { get; set; } = 5;
     public int MaxMensajes { get; set; } = 50;
     /// <summary>Correos que reciben las alertas y las recuperaciones. Vacío = solo queda en el tablero.</summary>
     public string[] Destinatarios { get; set; } = [];
@@ -121,6 +126,8 @@ public sealed class TableroIntegracionesServicio(
 
         foreach (var f in fotos.Where(f => f.Disponible))
         {
+            var umbralReintentos = Math.Max(1, opciones.CurrentValue.UmbralReintentosAlerta);
+            var conReintentosAltos = f.Mensajes.Count(m => m.Estado == EstadoMensajeIntegracion.Reintentando && m.Intentos >= umbralReintentos);
             var condiciones = new Dictionary<TipoAlertaIntegracion, string?>
             {
                 [TipoAlertaIntegracion.MensajesEnError] = f.EnError > 0
@@ -128,6 +135,8 @@ public sealed class TableroIntegracionesServicio(
                 [TipoAlertaIntegracion.FlujoDetenido] = f.Detenido
                     ? $"Hay {f.Pendientes + f.Reintentando} mensaje(s) sin procesar; el más viejo es de {Hora(f.PendienteMasAntiguo!.Value)} " +
                       $"(más de {opciones.CurrentValue.UmbralDetenidoMinutos} min)." : null,
+                [TipoAlertaIntegracion.ReintentosAltos] = conReintentosAltos > 0
+                    ? $"{conReintentosAltos} mensaje(s) ya fallaron {umbralReintentos} veces o más y siguen reintentando." : null,
             };
             foreach (var (tipo, detalle) in condiciones)
             {
@@ -215,6 +224,7 @@ public sealed class TableroIntegracionesServicio(
     private static string Titulo(TipoAlertaIntegracion tipo) => tipo switch
     {
         TipoAlertaIntegracion.MensajesEnError => "Mensajes en error",
+        TipoAlertaIntegracion.ReintentosAltos => "Reintentos altos",
         _ => "Flujo detenido",
     };
 
