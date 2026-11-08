@@ -176,7 +176,7 @@ function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps)
           estado: values.estado,
           codigoPostal: values.codigoPostal,
           pais: values.pais || (fiscal.origen === OrigenProveedor.Nacional ? 'MEX' : undefined),
-          taxId: extranjero ? values.taxId : undefined,
+          taxId: extranjero ? (values.taxId?.trim().replace(/\s+/g, '') || undefined) : undefined,
 
           rfc: extranjero ? null : values.rfc,
           tipoPersona: values.tipoPersona,

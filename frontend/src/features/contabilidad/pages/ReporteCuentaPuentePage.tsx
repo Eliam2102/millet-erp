@@ -82,7 +82,9 @@ export function ReporteCuentaPuentePage() {
 
   const query = useConciliacionPuente(aplicados);
   const faltaCuentaPuente =
-    esApiError(query.error) && query.error.code === 'PUENTE_CUENTA_NO_CONFIGURADA';
+    esApiError(query.error) &&
+    (query.error.code === 'PUENTE_CUENTA_NO_CONFIGURADA' ||
+      query.error.code === 'PUENTE_CUENTA_NO_ENCONTRADA');
   const reporte = query.data;
   const filas = reporte?.filas ?? [];
   // Pie de la tabla: sumas de las filas mostradas; el saldo es el total del reporte (las OC saldadas suman cero).
@@ -138,8 +140,9 @@ export function ReporteCuentaPuentePage() {
         >
           <TriangleAlert className="size-4 shrink-0" strokeWidth={1.6} aria-hidden="true" />
           <p>
-            Falta asignar la cuenta puente recepción–factura en Motor contable. Cuando se asigne, el
-            reporte aparecerá aquí.{' '}
+            {esApiError(query.error) && query.error.code === 'PUENTE_CUENTA_NO_ENCONTRADA'
+              ? 'La cuenta puente recepción–factura no existe en el catálogo contable. Configúrala en los ajustes para consultar el reporte.'
+              : 'Falta asignar la cuenta puente recepción–factura en Motor contable. Cuando se asigne, el reporte aparecerá aquí.'}{' '}
             <Link to="/contabilidad/motor" className="font-medium underline">
               Ir a Motor contable
             </Link>

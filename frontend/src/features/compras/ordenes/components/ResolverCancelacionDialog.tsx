@@ -30,6 +30,12 @@ export function ResolverCancelacionDialog({
 }) {
   const [motivo, setMotivo] = useState('');
   const [error, setError] = useState<string>();
+  const [prevConfirmar, setPrevConfirmar] = useState(confirmar);
+  if (prevConfirmar !== confirmar) {
+    setPrevConfirmar(confirmar);
+    setMotivo('');
+    setError(undefined);
+  }
   const accion = confirmar ? 'Confirmar cancelación' : 'Rechazar cancelación';
   return (
     <Dialog

@@ -24,7 +24,11 @@ public sealed record FacturaVentaTimbradaPayload(
     string ReceptorNombre,
     string Folio,
     string MetodoPago,
-    DateTimeOffset? FechaTimbrado);
+    DateTimeOffset? FechaTimbrado,
+    // V-CXC-11 (86e3jvv78): el cliente que eligió Facturación (campo aditivo que el evento ya
+    // trae). Con él la cartera usa el mismo cliente y plazo que la factura, también en
+    // extranjeros, que comparten el RFC genérico XEXX010101000. JSON viejo → null.
+    Guid? ClienteId = null);
 
 public sealed record ReppFacturaPagadaPayload(
     Guid FacturaVentaId,

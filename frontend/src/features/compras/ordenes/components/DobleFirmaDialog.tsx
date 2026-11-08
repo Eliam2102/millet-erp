@@ -40,6 +40,15 @@ export function DobleFirmaDialog({
   const [motivoId, setMotivoId] = useState<string | null>(null);
   const [motivo, setMotivo] = useState('');
   const [error, setError] = useState<string>();
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (prevOpen !== open) {
+    setPrevOpen(open);
+    if (open) {
+      setMotivoId(null);
+      setMotivo('');
+      setError(undefined);
+    }
+  }
   return (
     <Dialog
       open={open}

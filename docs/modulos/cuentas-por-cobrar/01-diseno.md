@@ -537,6 +537,17 @@ solo de eventos de Facturación; la conciliación comprueba que cada evento lleg
 - Es un reporte corporativo: pide `cartera.leer` y `cartera.leer-todas-sucursales`.
 - Es distinta de C7.7, que concilia la cartera contra Facturación.
 
+### 11.7 Cliente extranjero en USD (F1-CXC-11 · V-CXC-11)
+
+**Qué ya cumplía (verificado con pruebas).**
+- La línea de crédito es por cliente y moneda. Acepta los plazos 7, 15, 30 (nacional), 45 (EU), 60 (Canadá) y la excepción de 90.
+- El bloqueo automático usa el plazo de la línea en la moneda de la factura más la tolerancia: una factura en USD a 60 días no se bloquea antes del día 76 y no bloquea la línea en MXN del mismo cliente.
+- CA7.10: un cobro 48 USD menor por comisión bancaria salda la factura con el ajuste autorizado (§11.6), sin nota de crédito.
+
+**Qué se corrigió.**
+- **Cliente de la factura en cartera.** Los clientes del exterior comparten el RFC genérico `XEXX010101000`. Al resolver el cliente por RFC, la factura quedaba ligada al primer extranjero por clave, con otro plazo y otra línea. Ahora el listener de `factura-venta.timbrada.v1` usa el `ClienteId` que el evento ya trae (el mismo con el que Facturación imprime el plazo). Sin `ClienteId`, un RFC genérico (`XAXX…`/`XEXX…`) ya no se liga a nadie y la factura se vincula desde la cartera.
+- **Antigüedad con equivalente en MXN.** Cada fila conserva su moneda y agrega `tipo_cambio`, `vencido_mxn` y `total_mxn`, con el TC del catálogo K10.6 a la fecha de corte (puerto `ITipoCambioCarteraReadPort`). Sin TC de esa fecha el equivalente queda vacío y los filtros lo avisan. Con varias monedas en el resultado los totales en moneda original quedan vacíos (antes sumaban dólares con pesos) y solo se suma el equivalente en pesos.
+
 ## 12. Frontend — patrones aplicables
 
 Ver [`05-frontend-diseno.md`](05-frontend-diseno.md). Resumen: rutas `/cxc/*`,
@@ -568,3 +579,4 @@ patrones P1–P4 de `frontend/docs/patrones-compras.md`, reportes con
 | v0.4 | 2026-11-02 | F1-CXC-06 · C7.5: bloqueo automático por plazo + tolerancia, desbloqueo al pagar y manual con motivo, alerta del seguro anticipada (§9, §11.4) |
 | v0.5 | 2026-11-04 | F1-CXC-01 · C7.7: conciliación diaria de cartera contra Facturación (§6.1, §9, §10, §11, §11.5) |
 | v0.6 | 2026-11-04 | F1-CXC-02 · CXC-06: ajuste documentado y autorizado de un cobro corto, póliza #12 con el ajuste y conciliación de cobros contra pólizas (§11.6) |
+| v0.7 | 2026-11-07 | F1-CXC-11 · V-CXC-11: cliente extranjero en USD; cliente de la factura por `ClienteId` del evento y antigüedad con equivalente en MXN (§11.7) |

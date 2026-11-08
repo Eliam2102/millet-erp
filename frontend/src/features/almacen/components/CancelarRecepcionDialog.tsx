@@ -133,7 +133,7 @@ export function CancelarRecepcionDialog({
                 <li>
                   Se desvincula la factura{' '}
                   <span className="font-mono text-xs">
-                    {recepcion.facturaFolio ?? `${recepcion.facturaId.slice(0, 8)}…`}
+                    {recepcion.facturaFolio ? `Folio ${recepcion.facturaFolio}` : `Factura ${recepcion.facturaId}`}
                   </span>
                   .
                 </li>

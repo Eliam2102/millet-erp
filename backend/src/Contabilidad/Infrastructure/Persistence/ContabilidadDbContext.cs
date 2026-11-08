@@ -35,6 +35,10 @@ public sealed class ContabilidadDbContext : BaseDbContext
     // F1-CON-03: periodos contables.
     public DbSet<EjercicioContable> Ejercicios => Set<EjercicioContable>();
     public DbSet<PeriodoContable> Periodos => Set<PeriodoContable>();
+    // CON-12: checklist de cierre (pasos configurables, excepciones y confirmaciones, foto de cada cierre).
+    public DbSet<PasoCierreContable> PasosCierre => Set<PasoCierreContable>();
+    public DbSet<MarcaPasoCierre> MarcasPasoCierre => Set<MarcaPasoCierre>();
+    public DbSet<CierrePeriodoRegistro> CierresPeriodo => Set<CierrePeriodoRegistro>();
 
     // F1-CON-04: pólizas (C1.3), numeración por tipo (K10.9) y anulación (K10.3).
     public DbSet<Poliza> Polizas => Set<Poliza>();
