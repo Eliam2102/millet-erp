@@ -4,11 +4,14 @@ using Millet.Facturacion.Domain.Ports;
 using Microsoft.Extensions.Options;
 using Millet.Integraciones.Aw.Application.Pedidos;
 using Millet.Integraciones.Aw.Application.Pinturas;
+using Millet.Integraciones.Aw.Application.Pinturas.Catalogos;
 using Millet.Integraciones.Aw.Application.Retorno;
+using Millet.Integraciones.Aw.Application.Workers;
 using Microsoft.Extensions.Logging;
 using Millet.Integraciones.Aw.Infrastructure.NotasCredito;
 using Millet.Integraciones.Aw.Infrastructure.Pinturas;
 using Millet.Integraciones.Aw.Infrastructure.Retorno;
+using Millet.SharedKernel.Application;
 
 namespace Millet.Integraciones.Aw.Infrastructure.Pedidos;
 
@@ -64,6 +67,16 @@ public static class PedidosDependencyInjection
             sp.GetRequiredService<IPinturasSucursalResolver>(), sp.GetRequiredService<IOptions<PinturasPedidosOptions>>(),
             sp.GetRequiredService<ILogger<PinturasPedidosAdapter>>()));
 
+        // Publicador de catálogos hacia Planta Pintura (script 16 v2).
+        services.AddScoped<IPinturasCatalogosPublisher>(sp => new PinturasCatalogosAdapter(
+            sp.GetRequiredService<IIntegracionSqlConnectionFactory>(),
+            postgres: false,
+            sp.GetRequiredService<IOptions<PinturasCatalogosOptions>>(),
+            sp.GetRequiredService<IClock>(),
+            sp.GetRequiredService<ILogger<PinturasCatalogosAdapter>>()));
+
+        services.AddHostedService<PinturasCatalogosSyncWorker>();
+
         return services;
     }
 
@@ -72,5 +85,9 @@ public static class PedidosDependencyInjection
     {
         services.AddOptions<PinturasPedidosOptions>().Bind(configuration.GetSection(PinturasPedidosOptions.SectionName));
         services.AddScoped<IPinturasSucursalResolver, PinturasSucursalResolver>();
+
+        services.AddOptions<PinturasCatalogosOptions>().Bind(configuration.GetSection(PinturasCatalogosOptions.SectionName));
+        services.AddScoped<IPinturasObrasSource, NoOpPinturasObrasSource>();
+        services.AddScoped<IPinturasCatalogosExtractor, PinturasCatalogosExtractor>();
     }
 }

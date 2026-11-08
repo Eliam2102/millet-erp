@@ -18,6 +18,8 @@ using Millet.Integraciones.Aw.Infrastructure.OrigenPg;
 using Millet.Integraciones.Aw.Infrastructure.Pedidos;
 using Millet.Integraciones.Aw.Infrastructure.Pinturas;
 using Millet.Integraciones.Aw.Application.Pinturas;
+using Millet.Integraciones.Aw.Application.Pinturas.Catalogos;
+using Millet.SharedKernel.Application;
 
 namespace Millet.Integraciones.Aw.Infrastructure.Origen;
 
@@ -95,6 +97,11 @@ public static class OrigenDependencyInjection
             sp.GetRequiredKeyedService<IIntegracionSqlConnectionFactory>("Demo"), postgres: true,
             sp.GetRequiredService<IPinturasSucursalResolver>(), sp.GetRequiredService<IOptions<PinturasPedidosOptions>>(),
             sp.GetRequiredService<ILogger<PinturasPedidosAdapter>>()));
+        services.AddKeyedScoped<IPinturasCatalogosPublisher>("Demo", (sp, _) => new PinturasCatalogosAdapter(
+            sp.GetRequiredKeyedService<IIntegracionSqlConnectionFactory>("Demo"), postgres: true,
+            sp.GetRequiredService<IOptions<PinturasCatalogosOptions>>(), sp.GetRequiredService<IClock>(),
+            sp.GetRequiredService<ILogger<PinturasCatalogosAdapter>>()));
+        services.AddKeyedScoped<IPinturasCatalogosExtractor>("Demo", (sp, _) => ActivatorUtilities.CreateInstance<PinturasCatalogosExtractor>(sp));
         return services;
     }
 
