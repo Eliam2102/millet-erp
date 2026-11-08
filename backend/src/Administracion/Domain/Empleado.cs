@@ -38,6 +38,23 @@ public sealed class Empleado : BaseEntity, IAuditable
     public string? EmailContacto { get; private set; }
 
     /// <summary>
+    /// Correo alternativo para avisos y notificaciones operativas (86e3zexqm).
+    /// Opcional; para colaboradores sin buzón individual en Entra ID o que requieren
+    /// recibir avisos en buzones compartidos/secundarios.
+    /// </summary>
+    public string? CorreoParaAvisos { get; private set; }
+
+    /// <summary>
+    /// Destinatario resuelto para avisos operativos (86e3zexqm): evalúa prioritariamente
+    /// <see cref="CorreoParaAvisos"/>; si es nulo o vacío, hace fallback al correo corporativo
+    /// (<see cref="Email"/>) o al de contacto (<see cref="EmailContacto"/>).
+    /// </summary>
+    public string? CorreoDestinoAvisos =>
+        !string.IsNullOrWhiteSpace(CorreoParaAvisos) ? CorreoParaAvisos.Trim() :
+        (!string.IsNullOrWhiteSpace(Email) ? Email.Trim() :
+        (!string.IsNullOrWhiteSpace(EmailContacto) ? EmailContacto.Trim() : null));
+
+    /// <summary>
     /// FK a <see cref="Puesto"/>. Nullable en el alta (empleados sin regla
     /// de viáticos), pero requerido por CxP para validar el tope de la
     /// política al solicitar viáticos.
@@ -81,7 +98,8 @@ public sealed class Empleado : BaseEntity, IAuditable
         Guid? usuarioId = null,
         string? codigoNomina = null,
         EstatusCatalogo estatus = EstatusCatalogo.Activo,
-        string? emailContacto = null, string? telefono = null, string? extension = null) : base(id)
+        string? emailContacto = null, string? telefono = null, string? extension = null,
+        string? correoParaAvisos = null) : base(id)
     {
         if (id == Guid.Empty)
             throw new BusinessRuleException("EMPLEADO_ID_INVALIDO", "El id es obligatorio.");
@@ -92,6 +110,7 @@ public sealed class Empleado : BaseEntity, IAuditable
         ValidarNombre(nombre);
         ValidarEmail(email);
         ValidarEmailContacto(emailContacto);
+        ValidarEmail(correoParaAvisos);
         ValidarCodigoNomina(codigoNomina);
         ValidarJefe(id, jefeDirectoId);
 
@@ -100,6 +119,7 @@ public sealed class Empleado : BaseEntity, IAuditable
         Nombre = nombre;
         Email = Normalizar(email);
         EmailContacto = Normalizar(emailContacto);
+        CorreoParaAvisos = Normalizar(correoParaAvisos);
         PuestoId = puestoId;
         JefeDirectoId = jefeDirectoId;
         SucursalId = sucursalId;
@@ -132,7 +152,8 @@ public sealed class Empleado : BaseEntity, IAuditable
         string? codigoNomina = null,
         bool limpiarCodigoNomina = false,
         string? emailContacto = null,
-        bool limpiarEmailContacto = false, string? telefono = null, string? extension = null)
+        bool limpiarEmailContacto = false, string? telefono = null, string? extension = null,
+        string? correoParaAvisos = null, bool limpiarCorreoParaAvisos = false)
     {
         ActualizarContacto(telefono, extension);
         if (nombre is not null)
@@ -146,6 +167,13 @@ public sealed class Empleado : BaseEntity, IAuditable
         {
             ValidarEmail(email);
             Email = Normalizar(email);
+        }
+
+        if (limpiarCorreoParaAvisos) CorreoParaAvisos = null;
+        else if (correoParaAvisos is not null)
+        {
+            ValidarEmail(correoParaAvisos);
+            CorreoParaAvisos = Normalizar(correoParaAvisos);
         }
 
         if (limpiarPuesto) PuestoId = null;
