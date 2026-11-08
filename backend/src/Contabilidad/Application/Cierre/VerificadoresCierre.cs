@@ -183,13 +183,22 @@ public sealed class VerificadorRevaluacionBancosClientes(IMediator mediator) : I
     {
         var r = await mediator.Send(new ConsultarRevaluacionCierreQuery(c.Anio, c.Numero), ct);
         if (r.Ejecutada) return ResultadoVerificacionPaso.Cumple($"Ejecutada: {r.Polizas.Count(p => !p.EsReversa)} póliza(s) al {r.FechaCierre:dd/MM/yyyy}.");
-        if (r.Avisos.Count > 0) return ResultadoVerificacionPaso.Pendiente("No se pudo calcular la revaluación.", r.Avisos);
+        if (r.Avisos.Count > 0) return ResultadoVerificacionPaso.Pendiente(SinCalculo(r.Avisos), r.Avisos);
         var conDiferencia = r.Detalles.Where(d => d.Diferencia != 0m).ToList();
         return conDiferencia.Count == 0
             ? ResultadoVerificacionPaso.NoAplica("Sin saldos en moneda extranjera que revaluar.")
             : ResultadoVerificacionPaso.Pendiente($"Falta correr la revaluación: {conDiferencia.Count} saldo(s) con diferencia.",
                 conDiferencia.Select(d => $"{d.Control} · {d.CuentaCodigo} · {d.Moneda} {PasosCierre.Dinero(d.SaldoMoneda)} · diferencia {PasosCierre.Dinero(d.Diferencia)}"));
     }
+
+    /// <summary>El resumen dice la causa (p. ej. qué tipo de cambio falta), no solo que no se pudo calcular (QA O2).</summary>
+    public static string SinCalculo(IReadOnlyList<string> avisos) =>
+        avisos.Count switch
+        {
+            0 => "No se pudo calcular la revaluación.",
+            1 => $"No se pudo calcular la revaluación: {avisos[0]}",
+            _ => $"No se pudo calcular la revaluación: {avisos[0]} (y {avisos.Count - 1} aviso(s) más).",
+        };
 }
 
 /// <summary>Auxiliares contra cuentas de control al último día del periodo (CON-09).</summary>

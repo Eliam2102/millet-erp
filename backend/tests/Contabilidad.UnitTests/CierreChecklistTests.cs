@@ -181,6 +181,14 @@ public class CierreChecklistTests
     public async Task La_revaluacion_de_proveedores_se_exige_solo_con_facturas_en_moneda_extranjera(bool ejecutada, int facturas, EstadoVerificacionPaso esperado) =>
         (await new VerificadorRevaluacionProveedores(new Cxp(ejecutada, facturas)).VerificarAsync(Enero, default)).Estado.Should().Be(esperado);
 
+    [Fact]
+    public void Si_la_revaluacion_no_se_puede_calcular_el_resumen_dice_la_causa()
+    {
+        const string sinTc = "Falta el tipo de cambio de USD del 30/11/2026 en el catálogo (K10.6). Cárgalo y vuelve a correr la revaluación.";
+        VerificadorRevaluacionBancosClientes.SinCalculo([sinTc]).Should().Be($"No se pudo calcular la revaluación: {sinTc}");
+        VerificadorRevaluacionBancosClientes.SinCalculo([sinTc, "Otro aviso"]).Should().Contain("USD del 30/11/2026").And.EndWith("(y 1 aviso(s) más).");
+    }
+
     private sealed class Auxiliares(bool cuadra) : IConciliacionAuxiliaresResumenReadPort
     {
         public Task<ResumenConciliacionAuxiliares> ObtenerAsync(DateOnly corte, CancellationToken ct) => Task.FromResult(new ResumenConciliacionAuxiliares(corte, cuadra,
