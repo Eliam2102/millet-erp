@@ -1000,6 +1000,11 @@ builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.IDestinatariosAvisoReadPort,
     Millet.Identidad.Infrastructure.PublicAdapters.DestinatariosAvisoReadAdapter>();
 
+// 86e3zexqm: resolución del correo para avisos de usuarios (priorizando correo_para_avisos con fallback a email).
+builder.Services.AddScoped<
+    Millet.SharedKernel.Application.Correo.IUsuarioCorreoAvisosPort,
+    Millet.Identidad.Infrastructure.PublicAdapters.UsuarioCorreoAvisosAdapter>();
+
 // ADR-0047 PR5.C: resuelve el usuario de servicio del reorden (creador/requisitante +
 // empresa de las RQ automáticas). Adapter hospedado en Identidad (dueño del dato).
 builder.Services.AddScoped<
