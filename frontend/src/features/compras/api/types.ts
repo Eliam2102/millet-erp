@@ -637,6 +637,7 @@ export const HistoricoTipo = {
   SaldoNoSurtido: 13,
   Cerrada: 14,
   ApartadoLiberado: 15,
+  Devuelta: 16,
 } as const satisfies Record<string, number>;
 export type HistoricoTipo = (typeof HistoricoTipo)[keyof typeof HistoricoTipo];
 
@@ -662,6 +663,7 @@ export const HISTORICO_TIPO_LABEL: Record<HistoricoTipo, string> = {
   [HistoricoTipo.SaldoNoSurtido]: 'Saldo no surtido',
   [HistoricoTipo.Cerrada]: 'Cerrada',
   [HistoricoTipo.ApartadoLiberado]: 'Apartado liberado',
+  [HistoricoTipo.Devuelta]: 'Devuelta',
 };
 
 /**

@@ -3,7 +3,7 @@ namespace Millet.ProductoTerminado.Domain;
 /// <summary>Cargada (en el camión, PT5.4) y Embarcada (salió con un albarán emitido, PT5.5) son los pasos de la salida; Entregada (PT5.6) la recibió el cliente y EnRevision (PT5.6, de ahí sigue PT5.8) la rechazó en sitio.</summary>
 public enum EstadoPieza { EnPT, EnTransito, Cargada, Embarcada, Entregada, EnRevision }
 
-public enum TipoMovimientoPieza { Alta, Reposicion, TrasladoSalida, TrasladoRecepcion, Carga, CargaRevertida, Salida, RotaEnCarga, Entrega, RechazoEnSitio }
+public enum TipoMovimientoPieza { Alta, Reposicion, TrasladoSalida, TrasladoRecepcion, Carga, CargaRevertida, Salida, RotaEnCarga, Entrega, RechazoEnSitio, SalidaCancelada }
 
 /// <summary>EnTransito (sin recibir) -> ConDiferencia (recepción parcial, faltan piezas) -> Recibido (llegaron todas).</summary>
 public enum EstadoTraspaso { EnTransito, ConDiferencia, Recibido }
