@@ -90,3 +90,5 @@ Se arma un renglón por tercero y tipo de operación, con centavos. El archivo l
 3. **IVA no acreditable:** aparece en la pantalla y el Excel (CXP-10-b). En el archivo, los campos 18 a 47 van vacíos, como en julio. Falta confirmar si Contabilidad lo captura en la plataforma del SAT.
 4. **Notas de crédito:** cuentan en el mes de su CFDI.
 5. **Retención de IVA en facturas sin desglose del CFDI** (captura manual): no se reporta.
+6. **Pagos a extranjeros en «Actos pagados 0 %»:** en la pantalla, el pago a un proveedor extranjero (tipo 05) sin IVA en la factura se suma a «Actos pagados 0 %», por la regla de la tasa (supuesto 2). No entra al archivo de esta entrega. En la entrega 2 (importaciones por pedimento) se revisa con Contabilidad si va ahí, en exentos o solo como importación.
+7. **Fletes como servicio:** las claves de la división 78 (por ejemplo 78101800, transporte de carga) caen en operación 03 (servicios) por la regla de §3. Falta confirmar que Contabilidad los declara así y no como otra operación.
