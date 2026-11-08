@@ -979,6 +979,10 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.ITipoCambioReadPort,
     Millet.Compartido.Infrastructure.PublicAdapters.TipoCambioReadAdapter>();
+// I13.2: Lectura de rango de TC para publicación hacia A+W.
+builder.Services.AddScoped<
+    Millet.Compartido.Domain.Ports.ITipoCambioRangoReadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.TipoCambioReadAdapter>();
 // CON-11 (86e3kdypd): TC del catálogo K10.6 para la diferencia cambiaria realizada de pagos y cobros.
 builder.Services.AddScoped<
     Millet.Contabilidad.Application.Ports.ITipoCambioContabilidadReadPort,
