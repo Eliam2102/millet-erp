@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json.Serialization;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -19,6 +20,8 @@ namespace Millet.Contabilidad.Application.Reportes;
 //    aplicados) se muestran aparte y el neto es el movimiento del periodo.
 
 /// <summary>Integración a generar. Las cuatro primeras siguen las secciones del estado de resultados.</summary>
+/// <remarks>H1 (QA CON-08): viaja como texto en el JSON; como número tronaba la pantalla (<c>tipo.toLowerCase</c>).</remarks>
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum IntegracionContable { Ingresos, Costo, Gastos, Financiamiento, Compras }
 
 /// <summary>

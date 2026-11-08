@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Millet.Contabilidad.Application.Reportes;
 using Millet.Contabilidad.Domain;
 using H = Millet.Contabilidad.Application.Reportes.EstadoFinancieroHandler;
@@ -179,5 +180,73 @@ public sealed class EstadosFinancierosTests
     {
         var r = new EstadoFinancieroValidator().Validate(new EstadoFinancieroQuery(EstadoFinanciero.BalanceGeneral, 1990, 14));
         r.Errors.Select(e => e.ErrorMessage).Should().Contain(m => m.StartsWith("El año")).And.Contain(m => m.StartsWith("El periodo"));
+    }
+    // ---- Correcciones del QA de CON-08 (8-nov) ----
+
+    private static readonly JsonSerializerOptions Web = new(JsonSerializerDefaults.Web);
+
+    [Fact]
+    public void H1_los_enums_de_la_respuesta_viajan_como_texto()
+    {
+        var json = JsonSerializer.Serialize(new { Integracion = IntegracionContable.Gastos, Estado = EstadoFinanciero.EstadoResultados }, Web);
+        json.Should().Be("""{"integracion":"Gastos","estado":"EstadoResultados"}""", "la pantalla hace tipo.toLowerCase()");
+    }
+
+    [Fact]
+    public void O2_un_rubro_con_el_nombre_de_su_seccion_no_repite_el_encabezado()
+    {
+        var saldos = new Dictionary<Guid, decimal> { [Ventas.Id] = -5_000m, [CostoVentas.Id] = 3_000m };
+        var a = H.Armar(EstadoFinanciero.EstadoResultados, Catalogo, new(saldos, new Dictionary<Guid, decimal>()), null);
+
+        a.Filas.Count(f => f.Concepto == "INGRESOS").Should().Be(1, "rubro INGRESOS = sección Ingresos");
+        a.Filas.Should().NotContain(f => f.Tipo == "rubro" && (f.Concepto == "INGRESOS" || f.Concepto == "COSTO"));
+        a.Filas.Should().NotContain(f => f.Concepto == "Total INGRESOS", "con un solo rubro, el total de la sección basta");
+        a.Filas.Single(f => f.Concepto == "VENTAS").Sangria.Should().Be(1);
+        Importe(a, "Total ingresos").Should().Be(5_000m);
+    }
+
+    [Theory]
+    [InlineData(-1_680, "Total sin clasificar (saldo acreedor)")]
+    [InlineData(250, "Total sin clasificar (saldo deudor)")]
+    public void O3_el_total_sin_clasificar_dice_deudor_o_acreedor_segun_su_signo(int saldo, string etiqueta)
+    {
+        var saldos = new Dictionary<Guid, decimal> { [SinRubro.Id] = saldo, [BancoA.Id] = -saldo };
+        var a = H.Armar(EstadoFinanciero.BalanceGeneral, Catalogo, new(saldos, new Dictionary<Guid, decimal>()), null);
+        a.Filas.Single(f => f.Clave == "TS:sin").Should().Match<FilaEstadoFinanciero>(f => f.Concepto == etiqueta && f.Actual == saldo);
+    }
+
+    [Fact]
+    public void O4_en_resultados_solo_sale_sin_clasificar_la_cuenta_de_resultados_y_la_otra_va_en_un_aviso()
+    {
+        var gastoSinRubro = Mayor("650.00.00.00", "GASTO NUEVO", null, null, NaturalezaCuenta.Deudora);
+        var saldos = new Dictionary<Guid, decimal> { [Ventas.Id] = -5_000m, [SinRubro.Id] = -1_680m, [gastoSinRubro.Id] = 300m };
+        var a = H.Armar(EstadoFinanciero.EstadoResultados, [.. Catalogo, gastoSinRubro], new(saldos, new Dictionary<Guid, decimal>()), null);
+
+        a.Filas.Should().Contain(f => f.Cuenta == "650.00.00.00", "por su código (6) es de resultados");
+        a.Filas.Should().NotContain(f => f.Cuenta == "999.00.00.00");
+        a.SinClasificar.Should().ContainSingle().Which.Codigo.Should().Be("650.00.00.00");
+        a.Totales.SinClasificar.Should().Be(300m);
+        a.Avisos.Should().Contain(m => m.Contains("999.00.00.00") && m.Contains("balance general"));
+
+        var balance = H.Armar(EstadoFinanciero.BalanceGeneral, [.. Catalogo, gastoSinRubro], new(saldos, new Dictionary<Guid, decimal>()), null);
+        balance.Filas.Should().Contain(f => f.Cuenta == "999.00.00.00", "en el balance siguen todas las que explican la diferencia");
+    }
+
+    [Fact]
+    public void O6_el_estado_de_resultados_del_ejercicio_al_periodo_12_no_incluye_el_periodo_13()
+    {
+        var movs = new[]
+        {
+            new MovimientoContable { CuentaId = Ventas.Id, PeriodoAnio = 2026, PeriodoNumero = 12, Abono = 5_000m },
+            new MovimientoContable { CuentaId = Ventas.Id, PeriodoAnio = 2026, PeriodoNumero = 13, Cargo = 5_000m }, // p. ej. cierre anual
+            new MovimientoContable { CuentaId = Ventas.Id, PeriodoAnio = 2025, PeriodoNumero = 12, Abono = 9_000m },
+        }.AsQueryable();
+        var alDoce = new EstadoFinancieroQuery(EstadoFinanciero.EstadoResultados, 2026, 12);
+        var alTrece = new EstadoFinancieroQuery(EstadoFinanciero.EstadoResultados, 2026, 13);
+
+        H.MovimientosDeResultados(movs, alDoce, 2026).Select(m => m.PeriodoNumero).Should().Equal(12);
+        H.MovimientosDeResultados(movs, alTrece, 2026).Select(m => m.PeriodoNumero).Should().Equal(12, 13);
+        H.AvisosDelPeriodo(alDoce).Should().BeEmpty();
+        H.AvisosDelPeriodo(alTrece).Should().ContainSingle().Which.Should().Contain("periodo 12");
     }
 }

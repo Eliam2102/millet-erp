@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using System.Text.Json.Serialization;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -18,11 +19,17 @@ namespace Millet.Contabilidad.Application.Reportes;
 //  - El comparativo es el mismo periodo del año anterior.
 //  - El capital incluye el resultado del ejercicio y los resultados de ejercicios anteriores aún en cuentas de resultados, para que
 //    activo = pasivo + capital antes del cierre anual (CON-12). Las cuentas de orden (grupo «Notas») no entran a los estados.
+//  - El estado de resultados del ejercicio es de los periodos 1 a 12; el periodo 13 (ajustes de auditoría) solo entra si se pide el
+//    periodo 13. La póliza de cierre anual de CON-12 (cuando exista) deberá quedar fuera de ese estado, o lo dejaría en cero.
+//  - En el estado de resultados, una cuenta sin rubro solo sale en «Sin clasificar» si su grupo de reporte o su código (4 a 7) la
+//    hace de resultados; las demás van en un aviso y se ven en el balance general.
 
-/// <summary>Estado financiero a generar.</summary>
+/// <summary>Estado financiero a generar. Viaja como texto en el JSON (la pantalla lo compara con su nombre).</summary>
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum EstadoFinanciero { BalanceGeneral, EstadoResultados }
 
 /// <summary>Sección NIF del estado. El orden es el de presentación.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum SeccionEstadoFinanciero { Activo, Pasivo, Capital, Ingresos, Costo, Gastos, Financiamiento, OtrosResultados }
 
 public sealed record ColumnaEstadoFinanciero(string Clave, string Etiqueta, string Tipo, string? Alineacion = null, int? Decimales = null);
@@ -95,6 +102,7 @@ public sealed class EstadoFinancieroHandler(LecturaReportesContables lectura, IC
         var comparativo = request.Comparar ? await SaldosAsync(request, request.Anio - 1, ct) : null;
 
         var armado = Armar(request.Estado, cuentas, actual, comparativo);
+        armado.Avisos.AddRange(AvisosDelPeriodo(request));
         var sucursales = await lectura.SucursalesAsync(ct);
         var filtros = new Dictionary<string, string?>
         {
@@ -122,13 +130,28 @@ public sealed class EstadoFinancieroHandler(LecturaReportesContables lectura, IC
             request.Comparar, request.SucursalId);
     }
 
+    /// <summary>
+    /// O6 (QA CON-08): el estado de resultados de un ejercicio cerrado se pide al periodo 12 y no incluye el 13; si se pide el 13, se
+    /// avisa que incluye los ajustes de auditoría y que la póliza de cierre anual no debe estar ahí.
+    /// </summary>
+    internal static IEnumerable<string> AvisosDelPeriodo(EstadoFinancieroQuery q)
+    {
+        if (q.Estado == EstadoFinanciero.EstadoResultados && q.Periodo == PeriodoContable.NumeroAjuste)
+            yield return "El periodo 13 incluye los ajustes de auditoría del ejercicio. El estado de resultados del ejercicio sin esos " +
+                "ajustes es el del periodo 12 acumulado.";
+    }
+
+    /// <summary>Movimientos que entran al estado de resultados: del ejercicio, entre <c>Desde</c> y el periodo pedido (12 no incluye el 13).</summary>
+    internal static IQueryable<MovimientoContable> MovimientosDeResultados(IQueryable<MovimientoContable> movs, EstadoFinancieroQuery q, int anio) =>
+        LecturaReportesContables.Entre(movs, anio, q.Desde, q.Periodo);
+
     /// <summary>Saldo deudor (cargo − abono) por cuenta: al corte (balance) o del rango (resultados), y antes del ejercicio.</summary>
     private async Task<Saldos> SaldosAsync(EstadoFinancieroQuery q, int anio, CancellationToken ct)
     {
         var movs = lectura.Movimientos(q.SucursalId);
         if (q.Estado == EstadoFinanciero.EstadoResultados)
         {
-            var rango = await LecturaReportesContables.Entre(movs, anio, q.Desde, q.Periodo)
+            var rango = await MovimientosDeResultados(movs, q, anio)
                 .GroupBy(m => m.CuentaId).Select(g => new { g.Key, Saldo = g.Sum(m => m.Cargo - m.Abono) })
                 .ToDictionaryAsync(x => x.Key, x => x.Saldo, ct);
             return new Saldos(rango, new Dictionary<Guid, decimal>());
@@ -290,18 +313,23 @@ public sealed class EstadoFinancieroHandler(LecturaReportesContables lectura, IC
             foreach (var grupo in raicesSeccion.GroupBy(x => x.Rubro.Id).OrderBy(g => g.First().Rubro.Codigo, StringComparer.Ordinal))
             {
                 var rubro = grupo.First().Rubro;
-                filas.Add(Fila($"R:{rubro.Id}", "rubro", rubro.Nombre, null, 1, null, null));
+                // O2 (QA CON-08): si el rubro se llama como la sección (INGRESOS / INGRESOS), no se repite el encabezado; su subtotal
+                // solo sale si la sección tiene otros rubros.
+                var mismoNombre = MismoNombre(rubro.Nombre, NombreSeccion(s));
+                var sangriaCuenta = mismoNombre ? 1 : 2;
+                if (!mismoNombre) filas.Add(Fila($"R:{rubro.Id}", "rubro", rubro.Nombre, null, 1, null, null));
                 decimal rubA = 0m;
                 decimal? rubC = c is null ? null : 0m;
                 foreach (var (raiz, _) in grupo.OrderBy(x => x.Raiz.Codigo, StringComparer.Ordinal))
                 {
                     var va = a.PorRaiz.GetValueOrDefault(raiz.Id);
                     decimal? vc = c?.PorRaiz.GetValueOrDefault(raiz.Id);
-                    filas.Add(Fila($"C:{raiz.Id}", "cuenta", raiz.Nombre, raiz.Codigo, 2, va, vc, raiz.Id));
+                    filas.Add(Fila($"C:{raiz.Id}", "cuenta", raiz.Nombre, raiz.Codigo, sangriaCuenta, va, vc, raiz.Id));
                     rubA += va;
                     rubC += vc;
                 }
-                filas.Add(Fila($"T:{rubro.Id}", "subtotal", $"Total {rubro.Nombre}", null, 1, rubA, rubC));
+                if (!mismoNombre || raicesSeccion.Select(x => x.Rubro.Id).Distinct().Count() > 1)
+                    filas.Add(Fila($"T:{rubro.Id}", "subtotal", $"Total {rubro.Nombre}", null, 1, rubA, rubC));
                 sumA += rubA;
                 sumC += rubC;
             }
@@ -331,8 +359,13 @@ public sealed class EstadoFinancieroHandler(LecturaReportesContables lectura, IC
 
         // K10.10-b: las cuentas sin clasificar no se omiten; salen en su propia sección y en avisos.
         var sinClasificar = new List<CuentaSinClasificar>();
-        var idsSin = a.SinClasificar.Keys.Union(c?.SinClasificar.Keys ?? Enumerable.Empty<Guid>()).Select(id => porId[id])
+        var todasSin = a.SinClasificar.Keys.Union(c?.SinClasificar.Keys ?? Enumerable.Empty<Guid>()).Select(id => porId[id])
             .OrderBy(r => r.Codigo, StringComparer.Ordinal).ToList();
+        // O4 (QA CON-08): en el estado de resultados solo las que son de resultados; las demás, en un aviso aparte.
+        var idsSin = estado == EstadoFinanciero.EstadoResultados
+            ? todasSin.Where(r => EsDeResultadosSinRubro(r, ubicaciones[r.Id])).ToList()
+            : todasSin;
+        var fueraDelEstado = todasSin.Except(idsSin).Where(r => a.SinClasificar.GetValueOrDefault(r.Id) != 0m).ToList();
         if (idsSin.Count > 0)
         {
             filas.Add(Fila("S:sin", "seccion", "SIN CLASIFICAR (revisar rubro en el catálogo)", null, 0, null, null));
@@ -343,12 +376,14 @@ public sealed class EstadoFinancieroHandler(LecturaReportesContables lectura, IC
                 filas.Add(Fila($"C:{r.Id}", "cuenta", r.Nombre, r.Codigo, 2, va, vc, r.Id));
                 if (va != 0m) sinClasificar.Add(new(r.Id, r.Codigo, r.Nombre, va, ubicaciones[r.Id].Motivo ?? "Sin rubro"));
             }
-            filas.Add(Fila("TS:sin", "total", "Total sin clasificar (saldo deudor)", null, 0, a.SinClasificar.Values.Sum(),
-                c?.SinClasificar.Values.Sum()));
+            var totalSin = idsSin.Sum(r => a.SinClasificar.GetValueOrDefault(r.Id));
+            filas.Add(Fila("TS:sin", "total", EtiquetaTotalSinClasificar(totalSin), null, 0, totalSin,
+                c is null ? null : idsSin.Sum(r => c.SinClasificar.GetValueOrDefault(r.Id))));
         }
 
-        var totales = Totales(totalSeccion, s => s.A, a.SinClasificar.Values.Sum());
-        var totalesC = c is null ? null : Totales(totalSeccion, s => s.C ?? 0m, c.SinClasificar.Values.Sum());
+        var sinEnEstado = idsSin.Sum(r => a.SinClasificar.GetValueOrDefault(r.Id));
+        var totales = Totales(totalSeccion, s => s.A, sinEnEstado);
+        var totalesC = c is null ? null : Totales(totalSeccion, s => s.C ?? 0m, idsSin.Sum(r => c.SinClasificar.GetValueOrDefault(r.Id)));
 
         // Porcentaje: sobre el total del activo (balance) o de los ingresos (resultados) del periodo actual.
         var baseP = estado == EstadoFinanciero.BalanceGeneral ? totales.Activo : totales.Ingresos;
@@ -361,6 +396,11 @@ public sealed class EstadoFinancieroHandler(LecturaReportesContables lectura, IC
         foreach (var s in sinClasificar)
             avisos.Add($"La cuenta {s.Codigo} {s.Nombre} tiene saldo y no se puede ubicar en el estado ({s.Motivo.ToLowerInvariant()}): " +
                 "sale en «Sin clasificar». Asígnale un rubro en el catálogo de cuentas.");
+        if (fueraDelEstado.Count > 0)
+            avisos.Add($"{string.Join(", ", fueraDelEstado.Select(r => $"{r.Codigo} {r.Nombre}"))}: " +
+                (fueraDelEstado.Count == 1 ? "cuenta sin rubro con saldo que" : "cuentas sin rubro con saldo que") +
+                " no se puede saber si es de resultados; no se suma aquí y aparece en «Sin clasificar» del balance general. " +
+                "Asígnale un rubro en el catálogo de cuentas.");
         if (estado == EstadoFinanciero.BalanceGeneral && !totales.Cuadra)
             avisos.Add($"El activo no es igual al pasivo más el capital: la diferencia es {totales.Diferencia.ToString("N2", CultureInfo.GetCultureInfo("es-MX"))}." +
                 (sinClasificar.Count > 0 ? " Revisa las cuentas sin clasificar." : ""));
@@ -411,6 +451,21 @@ public sealed class EstadoFinancieroHandler(LecturaReportesContables lectura, IC
         string clave, string tipo, string concepto, string? cuenta, int sangria, decimal? actual, decimal? comparativo, Guid? cuentaId = null) =>
         new(clave, tipo, concepto, cuenta, sangria, actual, comparativo,
             actual is { } x && comparativo is { } y ? x - y : null, null, cuentaId);
+
+    /// <summary>O3 (QA CON-08): el total sin clasificar es saldo deudor si es positivo y acreedor si es negativo.</summary>
+    internal static string EtiquetaTotalSinClasificar(decimal total) =>
+        total < 0m ? "Total sin clasificar (saldo acreedor)" : "Total sin clasificar (saldo deudor)";
+
+    /// <summary>O4: cuenta sin sección que sí es de resultados, por su grupo de reporte o, sin él, por su código (4 a 7).</summary>
+    internal static bool EsDeResultadosSinRubro(CuentaContable raiz, Ubicacion u)
+    {
+        var grupo = Grupo(u.Rubro?.GrupoReporte) ?? Grupo(raiz.GrupoReporte);
+        if (grupo is not null) return grupo == "resultados";
+        return raiz.Codigo.FirstOrDefault(char.IsDigit) is >= '4' and <= '7';
+    }
+
+    private static bool MismoNombre(string a, string b) =>
+        string.Equals(SinAcentos(a).Trim(), SinAcentos(b).Trim(), StringComparison.OrdinalIgnoreCase);
 
     internal static string NombreSeccion(SeccionEstadoFinanciero s) => s switch
     {
