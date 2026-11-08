@@ -8,7 +8,7 @@ using Millet.Identidad.Domain;
 namespace Millet.Api.Endpoints.Contabilidad;
 
 /// <summary>
-/// F1-CON-08 · K10.10: balance general y estado de resultados bajo <c>/api/v1/contabilidad/reportes</c>. Solo lectura con el permiso
+/// F1-CON-08 · K10.10: balance general, estado de resultados e integraciones del auditor bajo <c>/api/v1/contabilidad/reportes</c>. Solo lectura con el permiso
 /// de lectura de pólizas, igual que la balanza (no se crean permisos). La sucursal es un filtro opcional; sin ella, consolidado.
 /// </summary>
 public static class ContabilidadEstadosFinancierosEndpoints
@@ -36,6 +36,15 @@ public static class ContabilidadEstadosFinancierosEndpoints
         .RequireAuthorization(leer).WithName("EstadoResultados")
         .WithSummary("Estado de resultados del periodo o acumulado del ejercicio, por rubros, con comparativo opcional del año anterior")
         .Produces<EstadoFinancieroResponse>().ProducesValidationProblem();
+
+        g.MapGet("/integracion", async (
+            [FromQuery] string? tipo, [FromQuery] string? anio, [FromQuery] string? desde, [FromQuery] string? hasta,
+            [FromQuery] string? sucursalId, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(FiltrosIntegracion.Leer(tipo, anio, desde, hasta, sucursalId), ct)))
+        .RequireAuthorization(leer).WithName("IntegracionCuentasAuditor")
+        .WithSummary("Integración del auditor por cuenta y cliente o proveedor: ingresos, costo, gastos, financiamiento o compras")
+        .WithDescription("tipo = Ingresos | Costo | Gastos | Financiamiento | Compras. Las cuatro primeras siguen los rubros del estado de resultados; compras = movimientos de las cuentas colectivas de proveedores. Una partida sin tercero toma el de su póliza.")
+        .Produces<IntegracionResponse>().ProducesValidationProblem();
 
         return app;
     }
