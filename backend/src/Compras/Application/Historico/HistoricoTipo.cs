@@ -31,4 +31,5 @@ public enum HistoricoTipo
     SaldoNoSurtido = 13,
     Cerrada = 14,
     ApartadoLiberado = 15,
+    Devuelta = 16,
 }

@@ -68,6 +68,14 @@ public sealed class MovimientoPieza : BaseEntity, IAuditable, IPerteneceAEmpresa
     public static MovimientoPieza PasoPieza(PiezaPt pieza, TipoMovimientoPieza tipo, EstadoPieza anterior, Guid albaranId, DateTimeOffset ocurridoAt, string usuario)
         => new(pieza, tipo, anterior, $"{albaranId}/{ocurridoAt.UtcTicks}", ocurridoAt, usuario);
 
+    /// <summary>Reversa de la salida de una pieza por cancelación de albarán (PT5.8 / §11).</summary>
+    public static MovimientoPieza SalidaCancelada(PiezaPt pieza, EstadoPieza anterior, Guid albaranId, string motivo, DateTimeOffset ocurridoAt, string usuario)
+    {
+        var referencia = string.IsNullOrWhiteSpace(motivo) ? albaranId.ToString() : $"{albaranId}:{motivo.Trim()}";
+        if (referencia.Length > 200) referencia = referencia[..200];
+        return new(pieza, TipoMovimientoPieza.SalidaCancelada, anterior, referencia, ocurridoAt, usuario);
+    }
+
     public static MovimientoPieza TrasladoSalida(PiezaPt pieza, Guid destino, Guid traspasoId, DateTimeOffset ocurridoAt, string usuario)
         => new(pieza, TipoMovimientoPieza.TrasladoSalida, EstadoPieza.EnPT, EstadoPieza.EnTransito, pieza.SucursalId, destino, traspasoId, ocurridoAt, usuario);
 

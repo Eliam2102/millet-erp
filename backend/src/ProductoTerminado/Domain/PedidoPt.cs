@@ -59,6 +59,17 @@ public sealed class PedidoPt : BaseEntity, IAuditable, IPerteneceAEmpresa
         return true;
     }
 
+    /// <summary>
+    /// Si el pedido estaba en estatus 71 (en ruta) y tras la anulación ya no tiene otros albaranes vigentes emitidos,
+    /// retorna el estatus del pedido a 70 (Liberado).
+    /// </summary>
+    public bool RegresarALiberado()
+    {
+        if (EnRutaAt is null) return false;
+        EnRutaAt = null;
+        return true;
+    }
+
     public bool MarcarEntregado(DateTimeOffset ahora)
     {
         if (EntregadoAt is not null) return false;

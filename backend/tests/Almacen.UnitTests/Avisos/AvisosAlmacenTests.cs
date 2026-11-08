@@ -51,6 +51,25 @@ public class AvisosAlmacenTests
     }
 
     [Fact]
+    public async Task Vale_vencido_con_persona_destinataria_resuelve_correo_avisos_y_lo_incluye()
+    {
+        await using var f = new P1Fixture();
+        var vale = await f.MovimientoAsync(TipoMovimiento.SalidaPorVale);
+        var correo = new Correo();
+        var destinatarios = new Destinatarios();
+        var receptorId = Guid.NewGuid();
+        var portAvisos = new FakeAvisosPort(new Dictionary<Guid, string> { [receptorId] = "destinatario.vale@millet.com.mx" });
+        var opciones = Options.Create(new AvisosAlmacenOptions { JefeAlmacen = ["jefe@millet.example"] });
+        var correoService = new CorreoNotificacionService(correo, opciones, NullLogger<CorreoNotificacionService>.Instance, portAvisos);
+        var servicio = new AvisosInternosNotificacionService(f.Db, destinatarios, new Nombres(), correoService);
+
+        await servicio.NotificarValeSinRegularizarAsync(vale.Id, vale.Folio!, receptorId, DateTimeOffset.UtcNow, 1, default);
+
+        correo.Enviados.Should().ContainSingle();
+        correo.Enviados[0].Para.Should().BeEquivalentTo(["jefe@millet.example", "destinatario.vale@millet.com.mx"]);
+    }
+
+    [Fact]
     public async Task Ajuste_nivel_3_avisa_a_Finanzas_con_folio_y_monto_una_sola_vez()
     {
         await using var f = new P1Fixture();
@@ -143,5 +162,14 @@ public class AvisosAlmacenTests
     {
         public Task<IReadOnlyDictionary<Guid, string>> ObtenerNombresAsync(IReadOnlyCollection<Guid> usuarioIds, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyDictionary<Guid, string>>(usuarioIds.ToDictionary(i => i, i => i == Aprobador ? "Jefe Mérida" : "Usuario"));
+    }
+
+    private sealed class FakeAvisosPort(Dictionary<Guid, string> mapa) : IUsuarioCorreoAvisosPort
+    {
+        public Task<string?> ObtenerCorreoAvisosAsync(Guid usuarioId, CancellationToken cancellationToken)
+            => Task.FromResult(mapa.TryGetValue(usuarioId, out var c) ? c : null);
+
+        public Task<IReadOnlyDictionary<Guid, string>> ObtenerCorreosAvisosAsync(IReadOnlyCollection<Guid> usuarioIds, CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyDictionary<Guid, string>>(mapa);
     }
 }
