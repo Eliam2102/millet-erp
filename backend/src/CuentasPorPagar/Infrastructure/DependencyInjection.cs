@@ -157,6 +157,7 @@ public static class DependencyInjection
             TarjetaCredito.ConciliacionAutomaticaService>();
 
         services.AddScoped<Application.Reportes.Comun.SaldosHistoricos>();
+        services.AddScoped<Application.Reportes.Diot.LectorDiot>();
         services.AddScoped<Application.FacturaProveedor.Elegibilidad.ElegibilidadFacturaService>();
         services.AddScoped<Application.Integration.Mappers.PasivoAutorizadoParaPagoMapper>();
         services.AddScoped<Application.Integration.Mappers.FacturaPagoAplicadoMapper>();

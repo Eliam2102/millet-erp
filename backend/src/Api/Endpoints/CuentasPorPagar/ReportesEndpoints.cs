@@ -7,6 +7,7 @@ using Millet.CuentasPorPagar.Application.Reportes.AntiguedadAnticipos;
 using Millet.CuentasPorPagar.Application.Reportes.AntiguedadSaldos;
 using Millet.CuentasPorPagar.Application.Reportes.CarteraPorCategoriaRevision;
 using Millet.CuentasPorPagar.Application.Reportes.Comun;
+using Millet.CuentasPorPagar.Application.Reportes.Diot;
 using Millet.CuentasPorPagar.Application.Reportes.EstadosCuentaTcConsolidado;
 using Millet.CuentasPorPagar.Application.Reportes.MovimientosTcPendientes;
 using Millet.CuentasPorPagar.Application.Reportes.PasivosObras;
@@ -81,6 +82,33 @@ public static class ReportesEndpoints
         .WithName("ReporteCartera")
         .WithSummary("Cartera de proveedores — cruz revisión × antigüedad")
         .Produces<ReporteJsonResponse>(StatusCodes.Status200OK);
+
+        // ============ F1-CXP-10 · DIOT ============
+
+        group.MapGet("/diot", async (
+            [FromQuery] int anio,
+            [FromQuery] int mes,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new DiotQuery(anio, mes), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarReportesDiot)
+        .WithName("ReporteDiot")
+        .WithSummary("DIOT del mes por flujo de efectivo: actos pagados por tercero, tipo de operación y tasa")
+        .Produces<ReporteJsonResponse>(StatusCodes.Status200OK);
+
+        group.MapGet("/diot/archivo", async (
+            [FromQuery] int anio,
+            [FromQuery] int mes,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var archivo = await mediator.Send(new DiotArchivoQuery(anio, mes), cancellationToken);
+            return Results.File(archivo.Contenido, "text/plain; charset=utf-8", archivo.NombreArchivo);
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarReportesDiot)
+        .WithName("ReporteDiotArchivo")
+        .WithSummary("Archivo TXT de carga masiva de la DIOT (layout SAT de 54 campos)")
+        .Produces(StatusCodes.Status200OK, contentType: "text/plain");
 
         // ============ F8-PR2 ============
 
