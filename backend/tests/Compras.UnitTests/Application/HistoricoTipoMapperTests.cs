@@ -43,6 +43,19 @@ public class HistoricoTipoMapperTests
     }
 
     [Fact]
+    public void Update_Requisicion_Devolver_A_Borrador_Con_Comentario_EsTipo_Devuelta()
+    {
+        var entry = new AuditLogEntry
+        {
+            Entidad = "Requisicion",
+            Operacion = "actualizar",
+            Cambios = """{ "diff": { "Estado": { "antes": 1, "despues": 0 }, "ComentarioDevolucion": { "antes": null, "despues": "corregir centro de costo" } } }""",
+        };
+
+        Assert.Equal(HistoricoTipo.Devuelta, HistoricoTipoMapper.InferirTipo(entry));
+    }
+
+    [Fact]
     public void Update_Requisicion_Sin_Cambio_De_Estado_Es_Cambio_Generico()
     {
         var entry = new AuditLogEntry
