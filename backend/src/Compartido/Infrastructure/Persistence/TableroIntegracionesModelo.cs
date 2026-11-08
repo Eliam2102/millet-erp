@@ -6,12 +6,19 @@ namespace Millet.Compartido.Infrastructure.Persistence;
 /// <summary>I13.6: alertas del tablero de integraciones.</summary>
 internal static class TableroIntegracionesModelo
 {
+    /// <summary>
+    /// CHECK del tipo armado desde el enum: un tipo nuevo cambia el modelo y obliga a
+    /// crear su migración (QA I13.6 H1: «Reintentos altos» se agregó sin ampliar el CHECK).
+    /// </summary>
+    internal static readonly string CheckTipo =
+        $"tipo IN ({string.Join(", ", Enum.GetValues<TipoAlertaIntegracion>().Select(t => (short)t))})";
+
     public static void Configure(ModelBuilder modelBuilder)
     {
         var a = modelBuilder.Entity<AlertaIntegracion>();
         a.ToTable("alertas_integracion", t =>
         {
-            t.HasCheckConstraint("ck_alertas_integracion_tipo", "tipo IN (1, 2)");
+            t.HasCheckConstraint("ck_alertas_integracion_tipo", CheckTipo);
             t.HasCheckConstraint("ck_alertas_integracion_cierre", "cerrada_en IS NULL OR cerrada_en >= abierta_en");
         });
         a.HasKey(x => x.Id);

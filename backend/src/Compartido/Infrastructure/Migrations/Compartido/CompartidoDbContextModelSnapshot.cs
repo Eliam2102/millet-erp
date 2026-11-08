@@ -7788,7 +7788,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             t.HasCheckConstraint("ck_alertas_integracion_cierre", "cerrada_en IS NULL OR cerrada_en >= abierta_en");
 
-                            t.HasCheckConstraint("ck_alertas_integracion_tipo", "tipo IN (1, 2)");
+                            t.HasCheckConstraint("ck_alertas_integracion_tipo", "tipo IN (1, 2, 3)");
                         });
                 });
 

@@ -114,7 +114,8 @@ public sealed class TableroIntegracionesServicio(
     /// Abre una alerta por fuente y tipo cuando aparece la condición (mensajes en
     /// error, flujo detenido) y la cierra cuando desaparece. Avisa por correo al
     /// abrir y al recuperarse; si el correo falla, lo reintenta en la siguiente
-    /// evaluación. Una fuente que no se pudo leer no abre ni cierra nada.
+    /// evaluación. La alerta se guarda antes de avisar: si no se puede guardar, no
+    /// se manda correo. Una fuente que no se pudo leer no abre ni cierra nada.
     /// </summary>
     public async Task<EvaluacionAlertas> EvaluarAlertasAsync(CancellationToken cancellationToken)
     {
@@ -160,6 +161,10 @@ public sealed class TableroIntegracionesServicio(
             }
         }
 
+        // Primero se guardan las aperturas y cierres: si el guardado falla no sale ningún correo
+        // (de lo contrario el aviso se repetiría en cada vuelta sin que la alerta exista).
+        await db.SaveChangesAsync(ct);
+
         // Las cerradas que todavía no avisaron su recuperación (de esta corrida o de una con el correo caído).
         var porAvisarRecuperacion = await db.AlertasIntegracion
             .Where(a => a.CerradaEn != null && a.NotificadaEn != null && a.RecuperacionNotificadaEn == null).ToListAsync(ct);
@@ -187,6 +192,10 @@ public sealed class TableroIntegracionesServicio(
                 lista.Add(new(f.Clave, f.Nombre, f.Grupo, f.PermiteReintento, true, null, r.Pendientes, r.Reintentando,
                     r.EnError, r.OkUltimas24h, r.UltimoExito, r.PendienteMasAntiguo,
                     r.PendienteMasAntiguo is { } p && p < umbral, r.Mensajes));
+            }
+            catch (FuenteTableroSinConexionException ex)
+            {
+                lista.Add(new(f.Clave, f.Nombre, f.Grupo, false, false, ex.Message, 0, 0, 0, 0, null, null, false, []));
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

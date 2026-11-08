@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Millet.Compartido.Application.TableroIntegraciones;
@@ -103,6 +104,59 @@ public sealed class TableroIntegracionesTests
         reloj.Ahora = Inicio.AddMinutes(2);
         (await tablero.EvaluarAlertasAsync(default)).Cerradas.Should().Be(1);
         correo.Enviados.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public void QA_H1_el_check_de_la_tabla_admite_todos_los_tipos_de_alerta()
+    {
+        foreach (var tipo in Enum.GetValues<TipoAlertaIntegracion>())
+            TableroIntegracionesModelo.CheckTipo.Should().Contain(((short)tipo).ToString(), $"el tipo {tipo} debe poder guardarse");
+    }
+
+    [Fact]
+    public async Task QA_H1_si_la_alerta_no_se_puede_guardar_no_sale_el_correo()
+    {
+        using var db = new CompartidoDbContext(new DbContextOptionsBuilder<CompartidoDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).AddInterceptors(new GuardadoFallido()).Options, new Empresa());
+        var mensaje = new MensajeIntegracion("m-1", "evento.a", EstadoMensajeIntegracion.Error, 11, "Timeout", Inicio, null);
+        var fuente = new FuenteFalsa("outbox.compras", "Eventos de Compras") { Foto = new(0, 0, 1, 0, null, null, [mensaje]) };
+        var correo = new CorreoFalso();
+        var tablero = Tablero(db, new Reloj(Inicio), correo, fuente);
+
+        var act = () => tablero.EvaluarAlertasAsync(default);
+
+        await act.Should().ThrowAsync<DbUpdateException>();
+        correo.Enviados.Should().BeEmpty("sin alerta guardada no se avisa: si no, el correo se repetiría en cada vuelta");
+    }
+
+    [Fact]
+    public async Task QA_O2_una_fuente_sin_conexion_se_ve_sin_lectura_con_su_motivo()
+    {
+        using var db = NewDb();
+        var tablero = Tablero(db, new Reloj(Inicio), new CorreoFalso(), new FuenteSinConexion());
+
+        var foto = (await tablero.LeerAsync(default)).Fuentes.Single();
+
+        (foto.Disponible, foto.ErrorLectura).Should().Be((false, "Sin conexión en este ambiente."));
+        (await tablero.EvaluarAlertasAsync(default)).Abiertas.Should().Be(0);
+    }
+
+    private sealed class GuardadoFallido : SaveChangesInterceptor
+    {
+        public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
+            DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default) =>
+            throw new DbUpdateException("violates check constraint \"ck_alertas_integracion_tipo\"");
+    }
+
+    private sealed class FuenteSinConexion : IFuenteTableroIntegracion
+    {
+        public string Clave => "service-bus.dead-letter";
+        public string Nombre => "Cola de errores de Service Bus (dead-letter)";
+        public string Grupo => "Service Bus";
+        public bool PermiteReintento => false;
+        public Task<ResumenFuenteIntegracion> LeerAsync(DateTimeOffset ahora, int maxMensajes, CancellationToken cancellationToken) =>
+            throw new FuenteTableroSinConexionException("Sin conexión en este ambiente.");
+        public Task<bool> ReintentarAsync(string mensajeId, CancellationToken cancellationToken) => Task.FromResult(false);
     }
 
     [Fact]
