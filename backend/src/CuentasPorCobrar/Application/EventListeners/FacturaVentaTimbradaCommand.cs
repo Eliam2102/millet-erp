@@ -120,18 +120,26 @@ public sealed class FacturaVentaTimbradaHandler : IRequestHandler<FacturaVentaTi
         "XAXX010101000", "XEXX010101000",
     };
 
+    /// <summary>Público en general: genérico de mostrador, no participa del crédito.</summary>
+    private const string RfcPublicoGeneral = "XAXX010101000";
+
     /// <summary>
     /// V-CXC-11: primero el cliente que trae el evento (el mismo con el que Facturación tomó el
     /// plazo de la factura); si no viene, por RFC, salvo los genéricos. Con el RFC genérico de
     /// extranjero ganaría el primer cliente extranjero por clave, que casi nunca es el de la
     /// factura; mejor queda sin cliente y se vincula desde la cartera.
+    /// <para>El alta de clientes marca como «genérico» a todo cliente con RFC genérico, también
+    /// a los extranjeros (XEXX). Por id solo se descarta el público en general; un extranjero
+    /// marcado como genérico es un cliente real con su línea de crédito.</para>
     /// </summary>
     private async Task<ClienteRefDto?> ResolverClienteAsync(FacturaVentaTimbradaPayload p, CancellationToken cancellationToken)
     {
         if (p.ClienteId is Guid clienteId)
         {
             var porId = await _clientes.ObtenerAsync(clienteId, cancellationToken);
-            if (porId is { EsGenerico: false }) return porId;
+            if (porId is not null && !(porId.EsGenerico
+                    && string.Equals(porId.Rfc?.Trim(), RfcPublicoGeneral, StringComparison.OrdinalIgnoreCase)))
+                return porId;
         }
 
         if (string.IsNullOrWhiteSpace(p.ReceptorRfc) || RfcGenericos.Contains(p.ReceptorRfc.Trim())) return null;
