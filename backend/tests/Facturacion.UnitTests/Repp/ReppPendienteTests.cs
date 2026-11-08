@@ -140,6 +140,36 @@ public sealed class ReppPendienteTests
         await accion.Should().ThrowAsync<BusinessRuleException>();
     }
 
+    [Theory]
+    [InlineData("XEXX010101000", "USA", "123-456-789", "123456789", null)]
+    [InlineData("XEXX010101000", "USA", "123456789", "987654321", "REPP_FACTURA_OTRO_CLIENTE")]
+    [InlineData("XEXX010101000", "USA", null, "123456789", "REPP_FACTURA_OTRO_CLIENTE")]
+    [InlineData("XAXX010101000", "MEX", null, null, "REPP_FACTURA_OTRO_CLIENTE")]
+    public async Task Factura_directa_a_extranjero_se_identifica_por_su_id_fiscal_y_el_publico_en_general_no(
+        string rfc, string pais, string? idFactura, string? idCliente, string? error)
+    {
+        // R1 (CXC-11): la factura directa no guarda el cliente; el extranjero se marca genérico en el alta.
+        using var db = Db();
+        var f = FacturaVenta.CrearBorrador(Empresa, "PRUEBA-X", 1, Guid.NewGuid(), null, null,
+            new DatosFiscalesReceptor(rfc, "Cliente extranjero ficticio", "616", "97000", "S01", pais, true),
+            new DatosFiscalesEmisor("BBB010101BBB", "Emisor ficticio", "601", "97000"), "PPD", "03", "USD",
+            20m, 2026, 10, 7, ComportamientoFiscal.MostradorInmediato, null, null, null, false);
+        f.EstablecerNumRegIdTribReceptor(idFactura);
+        f.AgregarLinea(null, "01010101", "Servicio ficticio", "E48", 1, 100, 0, "01", null, null, null);
+        f.RecalcularTotales();
+        f.MarcarTimbradoEnProceso();
+        f.MarcarTimbrado(Guid.NewGuid().ToString(), null, null, null, Ahora, null, null);
+        db.FacturasVenta.Add(f); await db.SaveChangesAsync();
+        var servicio = new ReppPendienteServicio(db, new FakeClientesReadPort(new(Cliente, rfc, "Cliente extranjero ficticio",
+            "616", "97000", "S01", "03", "PPD", "USD", true, NumRegIdTrib: idCliente)), new FakeCatalogosSatReadPort(), new Banco(20m));
+        var p = new ReppPendiente(Empresa, Cliente, Guid.NewGuid(), Guid.NewGuid(), null, f.Total, "USD", new(2026, 10, 28), null, []);
+
+        var accion = () => servicio.ValidarAsync(p, "03", [new(f.Id, f.Total)], default);
+
+        if (error is null) await accion.Should().NotThrowAsync();
+        else (await accion.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be(error);
+    }
+
     [Fact]
     public async Task TC_historico_es_obligatorio_solo_para_moneda_extranjera()
     {
