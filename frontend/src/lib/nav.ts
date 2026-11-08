@@ -27,6 +27,7 @@ import {
   HandCoins,
   Home,
   Inbox,
+  Landmark,
   Layers,
   LineChart,
   ListChecks,
@@ -48,6 +49,7 @@ import {
   ShieldAlert,
   ShoppingCart,
   Sliders,
+  TrendingUp,
   Truck,
   Undo2,
   Unlock,
@@ -1219,6 +1221,22 @@ const moduloContabilidad: NavModulo = {
             'Saldo inicial, cargos, abonos y saldo final por cuenta del periodo o acumulada, por nivel y sucursal, con su cuadre.',
           to: '/contabilidad/reportes/balanza',
           icon: Scale,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
+        },
+        {
+          label: 'Balance general',
+          description:
+            'Activo, pasivo y capital al cierre del periodo por rubros del catálogo, con comparativo del año anterior y su cuadre.',
+          to: '/contabilidad/reportes/balance-general',
+          icon: Landmark,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
+        },
+        {
+          label: 'Estado de resultados',
+          description:
+            'Ingresos, costo, gastos y utilidad del periodo o acumulada del ejercicio por rubros, con comparativo del año anterior.',
+          to: '/contabilidad/reportes/estado-resultados',
+          icon: TrendingUp,
           permission: PermisosCanonicos.ContabilidadPolizasLeer,
         },
         {
