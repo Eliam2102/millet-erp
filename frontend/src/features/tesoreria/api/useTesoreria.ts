@@ -514,6 +514,7 @@ export function useRegistrarMovimientoIngreso() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.movimientos() });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.pagosCuenta() });
     },
   });
 }
@@ -1278,6 +1279,7 @@ export function useEmparejarAutomatico() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.pagosCuenta() });
     },
   });
 }
@@ -1296,6 +1298,7 @@ export function useEmparejarManual() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.pagosCuenta() });
     },
   });
 }
@@ -1314,6 +1317,7 @@ export function useDesemparejarLinea() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.pagosCuenta() });
     },
   });
 }
@@ -1353,6 +1357,7 @@ export function useAltaAsistida() {
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.movimientos() });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.pagosCuenta() });
     },
   });
 }
@@ -1386,7 +1391,12 @@ export function useCerrarConciliacion() {
       });
       if (!resp.ok) {
         const errorData = await resp.json().catch(() => ({}));
-        throw new Error(errorData.detail || errorData.title || 'Error al cerrar conciliación');
+        const mensaje = errorData.detail || errorData.title || errorData.message || 'Error al cerrar conciliación';
+        const err = new Error(mensaje);
+        (err as any).status = resp.status;
+        (err as any).detail = mensaje;
+        (err as any).problem = errorData;
+        throw err;
       }
       return await resp.blob();
     },

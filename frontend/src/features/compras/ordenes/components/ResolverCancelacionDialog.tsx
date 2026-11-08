@@ -1,6 +1,6 @@
 import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
 import { DialogBody } from '@/components/ui/dialog';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -30,6 +30,11 @@ export function ResolverCancelacionDialog({
 }) {
   const [motivo, setMotivo] = useState('');
   const [error, setError] = useState<string>();
+
+  useEffect(() => {
+    setMotivo('');
+    setError(undefined);
+  }, [confirmar]);
   const accion = confirmar ? 'Confirmar cancelación' : 'Rechazar cancelación';
   return (
     <Dialog

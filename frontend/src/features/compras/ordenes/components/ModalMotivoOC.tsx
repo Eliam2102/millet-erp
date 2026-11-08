@@ -1,6 +1,6 @@
 import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
 import { DialogBody } from '@/components/ui/dialog';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -79,6 +79,16 @@ export function ModalMotivoOC({
       motivoTexto: null,
     },
   });
+
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        motivoId: '',
+        motivoTexto: null,
+      });
+      setMotivoSeleccionado(null);
+    }
+  }, [open, form]);
 
   const permiteTextoLibre = motivoSeleccionado?.permiteTextoLibre ?? false;
 

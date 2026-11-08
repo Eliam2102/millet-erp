@@ -12,6 +12,7 @@ import {
   Lock,
   Unlock,
   Clock,
+  AlertCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Select,
   SelectContent,
@@ -155,6 +157,7 @@ export function BandejaConciliaciones() {
   const [modalPartidaTransito, setModalPartidaTransito] = useState<ExtractoLineaResponse | null>(null);
   const [modalCerrar, setModalCerrar] = useState(false);
   const [modalReabrir, setModalReabrir] = useState(false);
+  const [errorCierre, setErrorCierre] = useState<string | null>(null);
 
   // Selección manual para matching
   const [lineaExtractoSeleccionadaId, setLineaExtractoSeleccionadaId] = useState<string | null>(null);
@@ -360,6 +363,7 @@ export function BandejaConciliaciones() {
       return;
     }
     try {
+      setErrorCierre(null);
       await cerrarMutation.mutateAsync({
         id: conciliacion.id,
         firmanteNombre: firmanteNombre.trim(),
@@ -368,7 +372,13 @@ export function BandejaConciliaciones() {
       toast.success('Conciliación cerrada con éxito. Descargando acta oficial en PDF...');
       setModalCerrar(false);
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? errorUsuario(err) : 'Error al cerrar conciliación');
+      const msg =
+        (err as any)?.detail ||
+        (err as any)?.problem?.detail ||
+        (err as any)?.message ||
+        (err instanceof Error ? errorUsuario(err) : 'Error al cerrar conciliación');
+      setErrorCierre(msg);
+      toast.error(msg);
     }
   };
 
@@ -522,8 +532,8 @@ export function BandejaConciliaciones() {
             <KpiCard
               etiqueta="Diferencia"
               valor={<MoneyDisplay amount={conciliacion.diferencia} currency={conciliacion.moneda} />}
-              tono={conciliacion.diferencia === 0 ? 'success' : 'danger'}
-              subdato={conciliacion.diferencia === 0 ? 'Conciliación cuadrada ($0.00)' : 'Descuadre pendiente'}
+              tono={detalleQuery.isFetching ? 'neutral' : (conciliacion.diferencia === 0 ? 'success' : 'danger')}
+              subdato={detalleQuery.isFetching ? 'Actualizando saldos...' : (conciliacion.diferencia === 0 ? 'Conciliación cuadrada ($0.00)' : 'Descuadre pendiente')}
             />
 
             {/* Estado y Acciones Rápidas */}
@@ -572,8 +582,11 @@ export function BandejaConciliaciones() {
                     <Button
                       size="sm"
                       className="w-full"
-                      disabled={conciliacion.diferencia !== 0}
-                      onClick={() => setModalCerrar(true)}
+                      disabled={detalleQuery.isFetching || conciliacion.diferencia !== 0}
+                      onClick={() => {
+                        setErrorCierre(null);
+                        setModalCerrar(true);
+                      }}
                     >
                       <Lock className="mr-1.5 h-3.5 w-3.5" />
                       Cerrar con acta
@@ -1474,7 +1487,13 @@ export function BandejaConciliaciones() {
       </Dialog>
 
       {/* MODAL: CERRAR CONCILIACIÓN */}
-      <Dialog open={modalCerrar} onOpenChange={setModalCerrar}>
+      <Dialog
+        open={modalCerrar}
+        onOpenChange={(open) => {
+          setModalCerrar(open);
+          if (!open) setErrorCierre(null);
+        }}
+      >
         <DialogContent className="sm:max-w-[450px]">
           <DialogHeader>
             <DialogTitle>Cierre cuadrado de conciliación</DialogTitle>
@@ -1483,26 +1502,47 @@ export function BandejaConciliaciones() {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-3">
+            {errorCierre && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>No se pudo cerrar la conciliación</AlertTitle>
+                <AlertDescription>{errorCierre}</AlertDescription>
+              </Alert>
+            )}
             <div>
-              <Label className="text-xs">Nombre del firmante *</Label>
+              <Label htmlFor="firmante-nombre" className="text-xs">Nombre del firmante *</Label>
               <Input
+                id="firmante-nombre"
                 className="mt-1 text-xs"
                 value={firmanteNombre}
-                onChange={(e) => setFirmanteNombre(e.target.value)}
+                onChange={(e) => {
+                  setFirmanteNombre(e.target.value);
+                  if (errorCierre) setErrorCierre(null);
+                }}
               />
             </div>
             <div>
-              <Label className="text-xs">Puesto del firmante *</Label>
+              <Label htmlFor="firmante-puesto" className="text-xs">Puesto del firmante *</Label>
               <Input
+                id="firmante-puesto"
                 className="mt-1 text-xs"
                 maxLength={100}
                 value={firmantePuesto}
-                onChange={(e) => setFirmantePuesto(e.target.value)}
+                onChange={(e) => {
+                  setFirmantePuesto(e.target.value);
+                  if (errorCierre) setErrorCierre(null);
+                }}
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setModalCerrar(false)}>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setModalCerrar(false);
+                setErrorCierre(null);
+              }}
+            >
               Cancelar
             </Button>
             <Button
