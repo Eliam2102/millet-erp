@@ -1929,6 +1929,8 @@ public sealed class CompartidoDbContext : BaseDbContext
         empleado.Property(x => x.Nombre).HasMaxLength(254).IsRequired();
         empleado.Property(x => x.Email).HasMaxLength(254);
         empleado.Property(x => x.EmailContacto).HasMaxLength(254);
+        // 86e3zexqm: correo alternativo para avisos (opcional).
+        empleado.Property(x => x.CorreoParaAvisos).HasMaxLength(254);
         empleado.Property(x => x.CodigoNomina).HasMaxLength(20);
         empleado.Property(x => x.Estatus).HasConversion<short>().IsRequired();
 

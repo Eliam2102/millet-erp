@@ -23,7 +23,9 @@ public sealed record ActualizarUsuarioCommand(
     string? Email,
     string? NombreCompleto,
     Guid? DepartamentoId,
-    bool LimpiarDepartamento) : IRequest<UsuarioResponse>;
+    bool LimpiarDepartamento,
+    string? CorreoParaAvisos = null,
+    bool LimpiarCorreoParaAvisos = false) : IRequest<UsuarioResponse>;
 
 public sealed class ActualizarUsuarioValidator : AbstractValidator<ActualizarUsuarioCommand>
 {
@@ -44,6 +46,11 @@ public sealed class ActualizarUsuarioValidator : AbstractValidator<ActualizarUsu
             .NotEmpty()
             .MaximumLength(254)
             .When(c => c.NombreCompleto is not null);
+        RuleFor(c => c.CorreoParaAvisos!)
+            .MaximumLength(254)
+            .Must(BeValidEmail)
+            .WithMessage("CorreoParaAvisos debe tener formato válido 'local@dominio.tld'.")
+            .When(c => !string.IsNullOrWhiteSpace(c.CorreoParaAvisos));
     }
 
     private static bool BeValidEmail(string email)
@@ -85,7 +92,9 @@ public sealed class ActualizarUsuarioHandler
             command.Email,
             command.NombreCompleto,
             command.DepartamentoId,
-            command.LimpiarDepartamento);
+            command.LimpiarDepartamento,
+            command.CorreoParaAvisos,
+            command.LimpiarCorreoParaAvisos);
 
         await _db.SaveChangesAsync(cancellationToken);
 
@@ -96,6 +105,7 @@ public sealed class ActualizarUsuarioHandler
             usuario.Nombre,
             usuario.DepartamentoId,
             usuario.Activo,
-            usuario.Version);
+            usuario.Version,
+            CorreoParaAvisos: usuario.CorreoParaAvisos);
     }
 }

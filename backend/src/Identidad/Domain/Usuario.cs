@@ -23,6 +23,21 @@ public sealed class Usuario : BaseEntity, IAuditable
     public bool Activo { get; private set; } = true;
 
     /// <summary>
+    /// Correo alternativo para avisos y notificaciones operativas (86e3zexqm).
+    /// Opcional; puede repetirse entre usuarios (cuentas departamentales o compartidas
+    /// sin buzón individual en Entra ID). Si no está definido, hace fallback a <see cref="Email"/>.
+    /// </summary>
+    public string? CorreoParaAvisos { get; private set; }
+
+    /// <summary>
+    /// Destinatario resuelto para avisos y alertas operativas (86e3zexqm):
+    /// evalúa prioritariamente <see cref="CorreoParaAvisos"/> si está definido;
+    /// si es nulo o vacío, hace fallback al correo institucional de Entra ID (<see cref="Email"/>).
+    /// </summary>
+    public string CorreoDestinoAvisos =>
+        !string.IsNullOrWhiteSpace(CorreoParaAvisos) ? CorreoParaAvisos.Trim() : Email;
+
+    /// <summary>
     /// Departamento "primario" del usuario (B.1). Nullable en MVP — los
     /// usuarios auto-provisionados via Entra ID nacen sin departamento;
     /// el seed test data y el script SQL de cutover (B.6) lo populan.
@@ -82,7 +97,8 @@ public sealed class Usuario : BaseEntity, IAuditable
         string email,
         string nombre,
         EstadoAcceso estadoAcceso = EstadoAcceso.Activo,
-        bool esCuentaTecnica = false) : base(id)
+        bool esCuentaTecnica = false,
+        string? correoParaAvisos = null) : base(id)
     {
         if (string.IsNullOrWhiteSpace(entraOid))
             throw new ArgumentException("EntraOid es requerido.", nameof(entraOid));
@@ -102,6 +118,7 @@ public sealed class Usuario : BaseEntity, IAuditable
         Nombre = nombre;
         EstadoAcceso = estadoAcceso;
         EsCuentaTecnica = esCuentaTecnica;
+        CorreoParaAvisos = string.IsNullOrWhiteSpace(correoParaAvisos) ? null : correoParaAvisos.Trim();
     }
 
     /// <summary>True si el OID aún no es el definitivo de Entra ID.</summary>
@@ -228,14 +245,22 @@ public sealed class Usuario : BaseEntity, IAuditable
 
     public void DesmarcarCuentaTecnica() => EsCuentaTecnica = false;
 
+    /// <summary>Actualiza o limpia el correo alternativo para avisos (86e3zexqm).</summary>
+    public void ActualizarCorreoParaAvisos(string? correoParaAvisos)
+    {
+        CorreoParaAvisos = string.IsNullOrWhiteSpace(correoParaAvisos) ? null : correoParaAvisos.Trim();
+    }
+
     /// <summary>
     /// PATCH parcial sobre los campos editables del perfil
-    /// (F-Admin-PR4.1). Convención del repo:
+    /// (F-Admin-PR4.1, 86e3zexqm). Convención del repo:
     /// <list type="bullet">
     ///   <item>Parámetros <c>null</c> ⇒ no tocar.</item>
     ///   <item>Para limpiar <see cref="DepartamentoId"/> a <c>null</c> el
     ///         caller pasa <paramref name="limpiarDepartamento"/> = true
     ///         (mismo patrón que <c>ActualizarRolCommand</c>).</item>
+    ///   <item>Para limpiar <see cref="CorreoParaAvisos"/> a <c>null</c> el
+    ///         caller pasa <paramref name="limpiarCorreoParaAvisos"/> = true.</item>
     /// </list>
     /// La cross-entity validation de unicidad de email vive en el handler.
     /// </summary>
@@ -243,7 +268,9 @@ public sealed class Usuario : BaseEntity, IAuditable
         string? email,
         string? nombre,
         Guid? departamentoId,
-        bool limpiarDepartamento)
+        bool limpiarDepartamento,
+        string? correoParaAvisos = null,
+        bool limpiarCorreoParaAvisos = false)
     {
         if (email is not null)
         {
@@ -266,6 +293,15 @@ public sealed class Usuario : BaseEntity, IAuditable
         else if (departamentoId is Guid d)
         {
             DepartamentoId = d;
+        }
+
+        if (limpiarCorreoParaAvisos)
+        {
+            CorreoParaAvisos = null;
+        }
+        else if (correoParaAvisos is not null)
+        {
+            CorreoParaAvisos = string.IsNullOrWhiteSpace(correoParaAvisos) ? null : correoParaAvisos.Trim();
         }
     }
 

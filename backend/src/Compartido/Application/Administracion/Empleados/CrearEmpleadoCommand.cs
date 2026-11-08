@@ -123,5 +123,5 @@ public sealed class CrearEmpleadoHandler
     internal static EmpleadoResponse Mapear(Empleado e) => new(
         e.Id, e.EmpresaId, e.Clave, e.Nombre, e.Email,
         e.PuestoId, e.JefeDirectoId, e.SucursalId, e.DepartamentoId,
-        e.UsuarioId, e.CodigoNomina, e.Estatus, e.Version, e.Telefono, e.Extension);
+        e.UsuarioId, e.CodigoNomina, e.Estatus, e.Version, e.Telefono, e.Extension, e.CorreoParaAvisos);
 }
