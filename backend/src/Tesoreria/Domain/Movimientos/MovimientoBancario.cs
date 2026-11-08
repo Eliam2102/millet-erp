@@ -77,8 +77,23 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
     public string? CuentaOrdenante { get; private set; }
     /// <summary>Quien registró confirmó haber verificado fondos en la banca (no hay integración bancaria).</summary>
     public bool FondosVerificados { get; private set; }
+    /// <summary>
+    /// TES-09 (86e3jvvj4): pesos por una unidad de <see cref="Moneda"/> con que se hizo el pago o el cobro (el que aplicó el banco
+    /// o, si no se capturó, el del catálogo K10.6 a la fecha valor). Null en MXN y en movimientos sin pago a proveedor ni cobro.
+    /// Contabilidad lo usa para la diferencia cambiaria realizada.
+    /// </summary>
+    public decimal? TipoCambio { get; private set; }
 
     private MovimientoBancario() { }
+
+    /// <summary>TES-09: fija el TC del pago o del cobro. En MXN no aplica y queda null.</summary>
+    public void FijarTipoCambio(decimal? tipoCambio)
+    {
+        if (string.Equals(Moneda, "MXN", StringComparison.OrdinalIgnoreCase)) { TipoCambio = null; return; }
+        if (tipoCambio is <= 0)
+            throw new BusinessRuleException("MOV_TIPO_CAMBIO_INVALIDO", "El tipo de cambio del pago debe ser mayor a cero.");
+        TipoCambio = tipoCambio;
+    }
 
     /// <summary>
     /// Alta manual de un movimiento de ingreso (§3.3 paso 2 / endpoint

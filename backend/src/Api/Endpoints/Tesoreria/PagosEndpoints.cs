@@ -5,6 +5,7 @@ using Millet.Api.Auth;
 using Millet.Api.Web;
 using Millet.Identidad.Domain;
 using Millet.Tesoreria.Application.Pagos;
+using Millet.Tesoreria.Domain.Ports;
 using Millet.Tesoreria.Domain.Ports.DatosMaestros;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Domain.Bancos;
@@ -66,6 +67,25 @@ public static class PagosEndpoints
         .Produces<IReadOnlyList<CuentaProveedorDto>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound);
 
+        // TES-09 (86e3jvvj4): TC del catálogo K10.6 para prellenar «TC del pago» en pagos y cobros en moneda extranjera.
+        app.MapGet("/api/v1/tesoreria/tipo-cambio-pago", async (
+            [FromQuery] string moneda,
+            [FromQuery] DateOnly fecha,
+            ITipoCambioPagoReadPort tiposCambio,
+            CancellationToken cancellationToken) =>
+        {
+            var codigo = (moneda ?? "").Trim().ToUpperInvariant();
+            if (codigo.Length != 3)
+                return Results.Problem(title: "Moneda inválida", statusCode: StatusCodes.Status400BadRequest);
+            var valor = codigo == "MXN" ? null : await tiposCambio.ValorEnMxnAsync(codigo, fecha, cancellationToken);
+            return Results.Ok(new TipoCambioPagoResponse(codigo, fecha, valor));
+        })
+        .WithTags("Tesoreria")
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaMovimientosVer)
+        .WithName("ObtenerTipoCambioPagoTesoreria")
+        .Produces<TipoCambioPagoResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest);
+
         pagos.MapPost("/{pagoId:guid}/revertir", async (
             Guid pagoId,
             [FromBody] RevertirPagoBody body,
@@ -88,4 +108,7 @@ public static class PagosEndpoints
     }
 
     public sealed record RevertirPagoBody(string Motivo);
+
+    /// <summary>TES-09: TC del catálogo para la fecha del pago; <c>ValorEnMxn</c> null si el catálogo no lo tiene o la moneda es MXN.</summary>
+    public sealed record TipoCambioPagoResponse(string Moneda, DateOnly Fecha, decimal? ValorEnMxn);
 }

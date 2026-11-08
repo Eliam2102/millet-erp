@@ -307,6 +307,8 @@ export function useRegistrarPagoACuenta() {
         proveedorId?: string;
         referenciaBancaria?: string;
         conceptoId?: string;
+        /** TES-09: TC que aplicó el banco (solo moneda distinta de MXN). */
+        tipoCambioPago?: number;
       };
       idempotencyKey: string;
     }) => {
@@ -433,6 +435,8 @@ export function useConfirmarDeposito() {
       /** Corte de caja: obligatorio desde la 2ª ficha. */
       soporteTipo?: SoporteFicha;
       soporteFolio?: string;
+      /** TES-09: TC del cobro (solo moneda distinta de MXN). */
+      tipoCambioPago?: number;
       versionEsperada: number;
       idempotencyKey: string;
     }) => {
@@ -440,7 +444,7 @@ export function useConfirmarDeposito() {
         `${BASE}/depositos/${args.depositoId}/confirmar`,
         {
           method: 'POST',
-          body: { movimientoBancarioId: args.movimientoBancarioId ?? "00000000-0000-0000-0000-000000000000", ingreso: args.ingreso, soporteTipo: args.soporteTipo, soporteFolio: args.soporteFolio },
+          body: { movimientoBancarioId: args.movimientoBancarioId ?? "00000000-0000-0000-0000-000000000000", ingreso: args.ingreso, soporteTipo: args.soporteTipo, soporteFolio: args.soporteFolio, tipoCambioPago: args.tipoCambioPago },
           idempotencyKey: args.idempotencyKey,
           headers: { 'X-Expected-Version': String(args.versionEsperada) },
         },
@@ -650,6 +654,27 @@ export function useCuentasProveedorPago(proveedorId: string | null) {
   });
 }
 
+/** TES-09: TC del catálogo K10.6 a la fecha del pago (null si no hay o la moneda es MXN). */
+export interface TipoCambioPagoResponse {
+  moneda: string;
+  fecha: string;
+  valorEnMxn: number | null;
+}
+
+/** <c>useTipoCambioPago()</c> — GET /tipo-cambio-pago para prellenar el TC de pagos y cobros en moneda extranjera. */
+export function useTipoCambioPago(moneda: string | null, fecha: string) {
+  const aplica = moneda != null && moneda !== 'MXN' && /^\d{4}-\d{2}-\d{2}$/.test(fecha);
+  return useQuery<TipoCambioPagoResponse>({
+    queryKey: tesoreriaKeys.tipoCambioPago(moneda ?? '', fecha),
+    enabled: aplica,
+    queryFn: async ({ signal }) => {
+      const qs = new URLSearchParams({ moneda: moneda ?? '', fecha });
+      const { data } = await apiRequest<TipoCambioPagoResponse>(`${BASE}/tipo-cambio-pago?${qs}`, { signal });
+      return data;
+    },
+  });
+}
+
 /** <c>useRegistrarPago()</c> — POST /pagos multi-pasivo (RN-4: aplicado.v1 por factura). */
 export function useRegistrarPago() {
   const queryClient = useQueryClient();
@@ -662,6 +687,8 @@ export function useRegistrarPago() {
         referenciaBancaria?: string;
         conceptoId?: string;
         cuentaProveedorId?: string;
+        /** TES-09: TC que aplicó el banco (solo moneda distinta de MXN). */
+        tipoCambioPago?: number;
       };
       idempotencyKey: string;
     }) => {

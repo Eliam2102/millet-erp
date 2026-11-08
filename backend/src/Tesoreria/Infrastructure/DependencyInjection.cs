@@ -27,6 +27,9 @@ public static class DependencyInjection
         // C1.2: falla cerrada mediante el puerto público de Contabilidad.
         services.AddScoped<IPeriodoContablePort, Adapters.PeriodoContableAdapter>();
 
+        // TES-09 (86e3jvvj4): TC del catálogo K10.6 para el pago o el cobro cuando no se captura.
+        services.AddScoped<ITipoCambioPagoReadPort, Adapters.TipoCambioPagoReadAdapter>();
+
         // TES-PR3 [T-G1]: datos bancarios del proveedor desde DatosMaestros
         // (resuelve PLATFORM-TODO(PayloadEnriquecido) de CxP).
         services.AddScoped<Domain.Ports.DatosMaestros.IProveedorBancoReadPort,

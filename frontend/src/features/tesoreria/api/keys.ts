@@ -78,6 +78,10 @@ export const tesoreriaKeys = {
   cuentasProveedor: (proveedorId: string) =>
     [...tesoreriaKeys.all, 'proveedor-cuentas', proveedorId] as const,
 
+  // TES-09: TC del catálogo para prellenar «TC del pago»
+  tipoCambioPago: (moneda: string, fecha: string) =>
+    [...tesoreriaKeys.all, 'tipo-cambio-pago', moneda, fecha] as const,
+
   // Pagos a cuenta abiertos (TES-FE-PR4)
   pagosCuenta: () => [...tesoreriaKeys.all, 'pagos-cuenta'] as const,
   pagosCuentaList: (filtros: Record<string, unknown>) =>

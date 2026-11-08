@@ -4,6 +4,7 @@ import {
   ArrowRightLeft,
   Ban,
   CloudOff,
+  Coins,
   Banknote,
   BarChart3,
   Bell,
@@ -1256,6 +1257,14 @@ const moduloContabilidad: NavModulo = {
             'Saldo de la cuenta puente por orden de compra al corte: facturado sin recibir, recibido sin facturar, antigüedad y cuadre contra la balanza.',
           to: '/contabilidad/reportes/cuenta-puente',
           icon: ArrowLeftRight,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
+        },
+        {
+          label: 'Diferencias cambiarias realizadas',
+          description:
+            'Pagos a proveedores y cobros de clientes en moneda extranjera del periodo, con el tipo de cambio de la factura, el del pago y la pérdida o utilidad cambiaria.',
+          to: '/contabilidad/reportes/diferencias-cambiarias',
+          icon: Coins,
           permission: PermisosCanonicos.ContabilidadPolizasLeer,
         },
         {
