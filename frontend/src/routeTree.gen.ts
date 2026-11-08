@@ -27,6 +27,7 @@ import { Route as AppActivosFijosPorCapitalizarRouteImport } from './routes/_app
 import { Route as AppActivosFijosPorVencerRouteImport } from './routes/_app/activos-fijos/por-vencer';
 import { Route as AppAdminIndexRouteImport } from './routes/_app/admin/index';
 import { Route as AppAdminMiEmpresaRouteImport } from './routes/_app/admin/mi-empresa';
+import { Route as AppAdminIntegracionesTableroRouteImport } from './routes/_app/admin/integraciones/tablero';
 import { Route as AppAlmacenIndexRouteImport } from './routes/_app/almacen/index';
 import { Route as AppAlmacenAlmacenesRouteImport } from './routes/_app/almacen/almacenes';
 import { Route as AppAlmacenAsignacionesRouteImport } from './routes/_app/almacen/asignaciones';
@@ -346,6 +347,11 @@ const AppAdminIndexRoute = AppAdminIndexRouteImport.update({
 const AppAdminMiEmpresaRoute = AppAdminMiEmpresaRouteImport.update({
   id: '/admin/mi-empresa',
   path: '/admin/mi-empresa',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppAdminIntegracionesTableroRoute = AppAdminIntegracionesTableroRouteImport.update({
+  id: '/admin/integraciones/tablero',
+  path: '/admin/integraciones/tablero',
   getParentRoute: () => AppRoute,
 } as any);
 const AppAlmacenIndexRoute = AppAlmacenIndexRouteImport.update({
@@ -1615,6 +1621,7 @@ export interface FileRoutesByFullPath {
   '/activos-fijos/por-capitalizar': typeof AppActivosFijosPorCapitalizarRoute;
   '/activos-fijos/por-vencer': typeof AppActivosFijosPorVencerRoute;
   '/admin/mi-empresa': typeof AppAdminMiEmpresaRoute;
+  '/admin/integraciones/tablero': typeof AppAdminIntegracionesTableroRoute;
   '/almacen/almacenes': typeof AppAlmacenAlmacenesRoute;
   '/almacen/asignaciones': typeof AppAlmacenAsignacionesRoute;
   '/almacen/cierre-mes': typeof AppAlmacenCierreMesRoute;
@@ -1858,6 +1865,7 @@ export interface FileRoutesByTo {
   '/activos-fijos/por-capitalizar': typeof AppActivosFijosPorCapitalizarRoute;
   '/activos-fijos/por-vencer': typeof AppActivosFijosPorVencerRoute;
   '/admin/mi-empresa': typeof AppAdminMiEmpresaRoute;
+  '/admin/integraciones/tablero': typeof AppAdminIntegracionesTableroRoute;
   '/almacen/almacenes': typeof AppAlmacenAlmacenesRoute;
   '/almacen/asignaciones': typeof AppAlmacenAsignacionesRoute;
   '/almacen/cierre-mes': typeof AppAlmacenCierreMesRoute;
@@ -2103,6 +2111,7 @@ export interface FileRoutesById {
   '/_app/activos-fijos/por-capitalizar': typeof AppActivosFijosPorCapitalizarRoute;
   '/_app/activos-fijos/por-vencer': typeof AppActivosFijosPorVencerRoute;
   '/_app/admin/mi-empresa': typeof AppAdminMiEmpresaRoute;
+  '/_app/admin/integraciones/tablero': typeof AppAdminIntegracionesTableroRoute;
   '/_app/almacen/almacenes': typeof AppAlmacenAlmacenesRoute;
   '/_app/almacen/asignaciones': typeof AppAlmacenAsignacionesRoute;
   '/_app/almacen/cierre-mes': typeof AppAlmacenCierreMesRoute;
@@ -2348,6 +2357,7 @@ export interface FileRouteTypes {
     | '/activos-fijos/por-capitalizar'
     | '/activos-fijos/por-vencer'
     | '/admin/mi-empresa'
+    | '/admin/integraciones/tablero'
     | '/almacen/almacenes'
     | '/almacen/asignaciones'
     | '/almacen/cierre-mes'
@@ -2591,6 +2601,7 @@ export interface FileRouteTypes {
     | '/activos-fijos/por-capitalizar'
     | '/activos-fijos/por-vencer'
     | '/admin/mi-empresa'
+    | '/admin/integraciones/tablero'
     | '/almacen/almacenes'
     | '/almacen/asignaciones'
     | '/almacen/cierre-mes'
@@ -2835,6 +2846,7 @@ export interface FileRouteTypes {
     | '/_app/activos-fijos/por-capitalizar'
     | '/_app/activos-fijos/por-vencer'
     | '/_app/admin/mi-empresa'
+    | '/_app/admin/integraciones/tablero'
     | '/_app/almacen/almacenes'
     | '/_app/almacen/asignaciones'
     | '/_app/almacen/cierre-mes'
@@ -3194,6 +3206,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/mi-empresa';
       fullPath: '/admin/mi-empresa';
       preLoaderRoute: typeof AppAdminMiEmpresaRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/admin/integraciones/tablero': {
+      id: '/_app/admin/integraciones/tablero';
+      path: '/admin/integraciones/tablero';
+      fullPath: '/admin/integraciones/tablero';
+      preLoaderRoute: typeof AppAdminIntegracionesTableroRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/almacen/': {
@@ -4799,6 +4818,7 @@ interface AppRouteChildren {
   AppActivosFijosPorCapitalizarRoute: typeof AppActivosFijosPorCapitalizarRoute;
   AppActivosFijosPorVencerRoute: typeof AppActivosFijosPorVencerRoute;
   AppAdminMiEmpresaRoute: typeof AppAdminMiEmpresaRoute;
+  AppAdminIntegracionesTableroRoute: typeof AppAdminIntegracionesTableroRoute;
   AppAlmacenAlmacenesRoute: typeof AppAlmacenAlmacenesRoute;
   AppAlmacenAsignacionesRoute: typeof AppAlmacenAsignacionesRoute;
   AppAlmacenCierreMesRoute: typeof AppAlmacenCierreMesRoute;
@@ -5041,6 +5061,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppActivosFijosPorCapitalizarRoute: AppActivosFijosPorCapitalizarRoute,
   AppActivosFijosPorVencerRoute: AppActivosFijosPorVencerRoute,
   AppAdminMiEmpresaRoute: AppAdminMiEmpresaRoute,
+  AppAdminIntegracionesTableroRoute: AppAdminIntegracionesTableroRoute,
   AppAlmacenAlmacenesRoute: AppAlmacenAlmacenesRoute,
   AppAlmacenAsignacionesRoute: AppAlmacenAsignacionesRoute,
   AppAlmacenCierreMesRoute: AppAlmacenCierreMesRoute,
