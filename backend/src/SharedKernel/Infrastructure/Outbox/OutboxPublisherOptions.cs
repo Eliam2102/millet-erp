@@ -37,6 +37,20 @@ public sealed class OutboxPublisherOptions
     public int MaxAttempts { get; set; } = 10;
 
     /// <summary>
+    /// I13.6 · espera tras la primera falla de un evento; se duplica en cada falla
+    /// hasta <see cref="BackoffMaxSeconds"/>. Con 0 no hay espera (reintento en cada poll).
+    /// Default 5 s.
+    /// </summary>
+    public int BackoffBaseSeconds { get; set; } = 5;
+
+    /// <summary>
+    /// I13.6 · espera máxima entre dos intentos del mismo evento. Default 1800 s (30 min):
+    /// con <see cref="MaxAttempts"/> = 10, un evento se sigue intentando poco más de una
+    /// hora antes de quedar en error (aguanta una caída de Service Bus de una hora).
+    /// </summary>
+    public int BackoffMaxSeconds { get; set; } = 1800;
+
+    /// <summary>
     /// Si <c>true</c>, el <c>BackgroundService</c> del worker NO entra
     /// al loop de polling (regresa inmediatamente de <c>ExecuteAsync</c>).
     /// Default <c>false</c>. Pensado para test runs: suites integration
