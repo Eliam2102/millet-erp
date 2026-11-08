@@ -123,7 +123,7 @@ export function ReporteIntegracionPage({ tipoInicial }: { tipoInicial?: Integrac
         nivelTitulo="h2"
         nombreArchivo={
           reporte
-            ? `integracion-${reporte.tipo.toLowerCase()}-${reporte.anio}-${String(reporte.desde).padStart(2, '0')}-${String(reporte.hasta).padStart(2, '0')}`
+            ? `integracion-${String(reporte.tipo).toLowerCase()}-${reporte.anio}-${String(reporte.desde).padStart(2, '0')}-${String(reporte.hasta).padStart(2, '0')}`
             : 'integracion'
         }
         obtenerCelda={(f, clave) => {

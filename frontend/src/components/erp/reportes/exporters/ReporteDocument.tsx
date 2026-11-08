@@ -35,6 +35,18 @@ export interface ReporteParaExportar<TFila> {
 
 const SEPARADOR = /[-_/.]/;
 
+/** Puntos de sangría por cada espacio inicial del texto de una celda. */
+const PUNTOS_POR_ESPACIO = 2.5;
+
+/**
+ * El motor del PDF descarta los espacios al inicio del texto (también los duros), así que la sangría de una celda de texto
+ * (p. ej. rubros y cuentas de los estados financieros) se pasa a margen izquierdo. Devuelve el texto sin esos espacios y los puntos.
+ */
+export function separarSangria(texto: string): { texto: string; sangria: number } {
+  const inicio = /^[\s\u00a0]+/.exec(texto)?.[0].length ?? 0;
+  return { texto: texto.slice(inicio), sangria: inicio * PUNTOS_POR_ESPACIO };
+}
+
 /**
  * Corte por carácter para folios y referencias: permite partir entre letras o dígitos, nunca junto a un separador, porque el
  * motor del PDF agrega un guion al cortar y junto a un «-» quedaría doble.
@@ -182,19 +194,24 @@ export function ReporteDocument<TFila>({
           ) : (
             reporte.filas.map((fila, i) => (
               <View key={i} style={styles.row} wrap={false}>
-                {reporte.columnas.map((c) => (
-                  <Text
-                    key={c.clave}
-                    style={[
-                      styles.cell,
-                      flexDe(c),
-                      esNumerica(c.tipo) ? styles.cellAlignRight : {},
-                    ]}
-                    {...(c.cortePdf === 'caracter' ? { hyphenationCallback: cortePorCaracter } : {})}
-                  >
-                    {formatearCelda(obtenerCelda(fila, c.clave), c.tipo, c.decimales)}
-                  </Text>
-                ))}
+                {reporte.columnas.map((c) => {
+                  const celda = formatearCelda(obtenerCelda(fila, c.clave), c.tipo, c.decimales);
+                  const { texto, sangria } = esNumerica(c.tipo) ? { texto: celda, sangria: 0 } : separarSangria(celda);
+                  return (
+                    <Text
+                      key={c.clave}
+                      style={[
+                        styles.cell,
+                        flexDe(c),
+                        esNumerica(c.tipo) ? styles.cellAlignRight : {},
+                        sangria > 0 ? { paddingLeft: sangria } : {},
+                      ]}
+                      {...(c.cortePdf === 'caracter' ? { hyphenationCallback: cortePorCaracter } : {})}
+                    >
+                      {texto}
+                    </Text>
+                  );
+                })}
               </View>
             ))
           )}

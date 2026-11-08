@@ -19,8 +19,11 @@ import { usePeriodosContables, type PeriodoElegido } from '../lib/periodos-repor
 import { SELECT_CLASS } from '../lib/estilos';
 import { monto } from '../lib/polizas';
 
-/** Sangría del concepto con espacios duros: se conserva en pantalla, PDF y Excel. */
+/** Sangría del concepto con espacios duros: se conserva en pantalla y Excel; el PDF la pasa a margen (ReporteDocument). */
 const sangria = (n: number) => ' '.repeat(n * 4);
+
+/** O1 (QA CON-08): en el PDF el concepto lleva el triple de ancho para que los nombres de rubro no se partan con guion. */
+const ANCHO_PDF: Record<string, number> = { concepto: 3, cuenta: 1.2 };
 
 const TEXTOS: Record<EstadoFinanciero, { titulo: string; descripcion: string; archivo: string; id: string }> = {
   BalanceGeneral: {
@@ -60,7 +63,13 @@ export function ReporteEstadoFinancieroPage({ estado }: { estado: EstadoFinancie
     aplicados ?? (porDefecto ? { anio: porDefecto.anio, periodo: porDefecto.numero, acumulado: true } : null),
   );
   const reporte = query.data;
-  const reporteShell = reporte ? { ...reporte, totales: null } : undefined;
+  const reporteShell = reporte
+    ? {
+        ...reporte,
+        columnas: reporte.columnas.map((c) => ({ ...c, anchoPdf: ANCHO_PDF[c.clave] ?? null })),
+        totales: null,
+      }
+    : undefined;
 
   function ejecutar() {
     if (!periodo) return;
