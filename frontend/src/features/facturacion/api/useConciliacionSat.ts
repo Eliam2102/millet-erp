@@ -57,6 +57,10 @@ export interface DiferenciaSat {
   revisadaPor: string | null;
   revisadaEn: string | null;
   nota: string | null;
+  /** Nombre de quien la marcó revisada (null si no se resolvió). */
+  revisadaPorNombre: string | null;
+  /** Moneda del CFDI del ERP; null si el CFDI solo está en el SAT (los metadatos no la traen). */
+  moneda: string | null;
 }
 
 const BASE = '/api/v1/facturacion/conciliacion-sat';

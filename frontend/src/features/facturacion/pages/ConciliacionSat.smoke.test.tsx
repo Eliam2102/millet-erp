@@ -44,6 +44,8 @@ const cancelada: DiferenciaSat = {
   revisadaPor: null,
   revisadaEn: null,
   nota: null,
+  revisadaPorNombre: null,
+  moneda: 'MXN',
 };
 
 describe('<ConciliacionSat> — smoke (FAC-10)', () => {
@@ -62,6 +64,19 @@ describe('<ConciliacionSat> — smoke (FAC-10)', () => {
             folio: null,
             valorSat: 'Vigente · 5,000.00 · I',
             valorErp: null,
+            moneda: null,
+          },
+          {
+            ...cancelada,
+            id: 'd-3',
+            tipo: 4,
+            valorSat: '10,500.00',
+            valorErp: '10,000.00',
+            moneda: 'USD',
+            revisada: true,
+            revisadaPorNombre: 'Ana Pruebas',
+            revisadaEn: '2026-11-09T15:00:00Z',
+            nota: 'Tipo de cambio',
           },
         ]),
       ),
@@ -80,6 +95,12 @@ describe('<ConciliacionSat> — smoke (FAC-10)', () => {
       within(screen.getByTestId('diferencia-d-2')).getByText('Sin folio en el ERP'),
     ).toBeInTheDocument();
     expect(screen.getByText('Con diferencias por revisar')).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId('diferencia-d-2')).getByText('Moneda no informada por el SAT'),
+    ).toBeInTheDocument();
+    const usd = screen.getByTestId('diferencia-d-3');
+    expect(within(usd).getByText('USD (moneda del CFDI)')).toBeInTheDocument();
+    expect(within(usd).getByText(/Ana Pruebas/)).toBeInTheDocument();
 
     fireEvent.click(within(fila).getByRole('button', { name: 'Marcar revisada' }));
     fireEvent.change(within(fila).getByLabelText('Nota de la revisión'), {

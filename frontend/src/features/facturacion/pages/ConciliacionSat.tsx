@@ -32,7 +32,12 @@ import {
   type DiferenciaSat,
 } from '@/features/facturacion/api/useConciliacionSat';
 import { mostrarError } from '@/features/facturacion/lib/mostrar-error-cancelacion';
-import { formatDate, formatDateTime, parseDateOnlyLocal } from '@/lib/datetime';
+import {
+  formatDate,
+  formatDateTime,
+  formatDateTimeWithSeconds,
+  parseDateOnlyLocal,
+} from '@/lib/datetime';
 import { Upload } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -81,7 +86,7 @@ export function ConciliacionSat() {
   const corrida = lista.find((c) => c.id === seleccion) ?? lista[0];
 
   return (
-    <main className="flex h-full min-h-0 flex-col gap-5 text-sm text-ink">
+    <div className="flex h-full min-h-0 flex-col gap-5 text-sm text-ink">
       <PageHeader
         titulo={<>Conciliación de CFDI contra el SAT</>}
         descripcion={
@@ -111,7 +116,7 @@ export function ConciliacionSat() {
       ) : (
         <DetalleCorrida corrida={corrida} corridas={lista} onSeleccionar={setSeleccion} />
       )}
-    </main>
+    </div>
   );
 }
 
@@ -250,13 +255,13 @@ function DetalleCorrida({
             Conciliación
           </Label>
           <Select value={corrida.id} onValueChange={onSeleccionar}>
-            <SelectTrigger id="conciliacion-corrida" className="w-96">
+            <SelectTrigger id="conciliacion-corrida" className="w-[32rem] max-w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {corridas.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
-                  {periodo(c)} · {formatDateTime(c.ejecutadaEn)}
+                  {periodo(c)} · {formatDateTimeWithSeconds(c.ejecutadaEn)} · {c.nombreArchivo}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -377,6 +382,15 @@ function DetalleCorrida({
   );
 }
 
+/** Diferencias cuyos valores traen un importe (total o faltante de un lado). */
+function conImporte(d: DiferenciaSat): boolean {
+  return (
+    d.tipo === TipoDiferenciaSat.TotalDistinto ||
+    d.tipo === TipoDiferenciaSat.FaltanteEnErp ||
+    d.tipo === TipoDiferenciaSat.FaltanteEnSat
+  );
+}
+
 function FilaDiferencia({ d, conciliacionId }: { d: DiferenciaSat; conciliacionId: string }) {
   const marcar = useMarcarDiferenciaSatRevisada();
   const [abierto, setAbierto] = useState(false);
@@ -427,9 +441,17 @@ function FilaDiferencia({ d, conciliacionId }: { d: DiferenciaSat; conciliacionI
       </TableCell>
       <TableCell className="tabular-nums">
         {d.valorSat ?? <span className="text-ink-muted">—</span>}
+        {d.valorSat && conImporte(d) && (
+          <p className="text-2xs text-ink-muted">
+            {d.moneda ? `${d.moneda} (moneda del CFDI)` : 'Moneda no informada por el SAT'}
+          </p>
+        )}
       </TableCell>
       <TableCell className="tabular-nums">
         {d.valorErp ?? <span className="text-ink-muted">—</span>}
+        {d.valorErp && conImporte(d) && d.moneda && (
+          <p className="text-2xs text-ink-muted">{d.moneda}</p>
+        )}
       </TableCell>
       <TableCell>
         {d.revisada ? (
@@ -437,6 +459,7 @@ function FilaDiferencia({ d, conciliacionId }: { d: DiferenciaSat; conciliacionI
             <Badge variant="success">Revisada</Badge>
             {d.nota && <p className="mt-1">{d.nota}</p>}
             <p className="text-xs text-ink-muted">
+              {d.revisadaPorNombre ?? 'Usuario sin nombre'} ·{' '}
               {d.revisadaEn ? formatDateTime(d.revisadaEn) : '—'}
             </p>
           </div>
