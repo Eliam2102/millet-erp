@@ -57,6 +57,14 @@ dueño en su `Infrastructure/PublicAdapters` y cablea `Program.cs`. Contabilidad
    - La póliza va en el periodo 13 como manual en borrador, y la autoriza el Contador General.
    - Si después hay ajustes en el 13, se genera otra póliza por la diferencia.
 
+### Notas de lectura
+
+- **Foto del cierre:** se toma justo antes de cerrar. Por eso `GET /cierre/registros/{id}` muestra `estadoPeriodo: "Abierto"`:
+  es el estado con el que se evaluó el checklist, no el actual del periodo. Quién cerró y cuándo vienen en el propio registro.
+- **Cierre anual y estado de resultados:** la póliza de cierre anual va en el periodo 13 y deja en cero las cuentas de
+  resultados. El estado de resultados del ejercicio (CON-08) debe excluirla; si no, mostraría resultado cero. CON-08 ya lo
+  tiene como supuesto.
+
 ## 4. Configuración
 
 `Contabilidad:Cierre:ExigirChecklist` (por omisión `true`). Las pruebas de integración lo apagan en el host compartido (otras
