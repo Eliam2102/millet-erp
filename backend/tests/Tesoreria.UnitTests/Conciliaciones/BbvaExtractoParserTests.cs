@@ -77,4 +77,54 @@ public class BbvaExtractoParserTests
         res.TotalLineas.Should().Be(1);
         res.Lineas[0].Abono.Should().Be(1500.00m);
     }
+
+    [Fact]
+    public void Parse_formato_posicional_10_columnas_sin_encabezados_bbva_procesa_correctamente()
+    {
+        // Layout BBVA Net Cash 10 columnas sin encabezados:
+        // [0: Fecha Oper, 1: Fecha Liq, 2: Codigo, 3: Concepto, 4: Referencia, 5: Cargo, 6: Abono, 7: Saldo, 8: Sucursal, 9: Moneda]
+        // Importes con ceros a la izquierda
+        string csv =
+            "01/10/2026,01/10/2026,Y16,DEPOSITO CLIENTE MATRIZ SINTETICO,REF9876543,0000000000.00,0000031093.60,0000035919.57,2773,MXP\n" +
+            "02/10/2026,02/10/2026,W02,PAGO PROVEEDOR CRISTALES SUR,FAC-11002,0000015000.00,0000000000.00,0000020919.57,2773,MXP\n";
+
+        var res = _parser.Parse(csv);
+
+        res.TotalLineas.Should().Be(2);
+        res.SaldoInicial.Should().Be(35919.57m);
+        res.SaldoFinal.Should().Be(20919.57m);
+
+        var linea1 = res.Lineas[0];
+        linea1.NumeroLinea.Should().Be(1);
+        linea1.Fecha.Should().Be(new DateOnly(2026, 10, 1));
+        linea1.Descripcion.Should().Be("DEPOSITO CLIENTE MATRIZ SINTETICO");
+        linea1.Referencia.Should().Be("REF9876543");
+        linea1.Cargo.Should().BeNull();
+        linea1.Abono.Should().Be(31093.60m);
+        linea1.Saldo.Should().Be(35919.57m);
+        linea1.LineaHash.Should().NotBeNullOrWhiteSpace();
+
+        var linea2 = res.Lineas[1];
+        linea2.NumeroLinea.Should().Be(2);
+        linea2.Fecha.Should().Be(new DateOnly(2026, 10, 2));
+        linea2.Descripcion.Should().Be("PAGO PROVEEDOR CRISTALES SUR");
+        linea2.Referencia.Should().Be("FAC-11002");
+        linea2.Cargo.Should().Be(15000.00m);
+        linea2.Abono.Should().BeNull();
+        linea2.Saldo.Should().Be(20919.57m);
+    }
+
+    [Fact]
+    public void Parse_importes_con_ceros_a_la_izquierda_limpia_y_parsea_decimal()
+    {
+        string csv =
+            "05/10/2026,05/10/2026,T20,TRANSFERENCIA RECIBIDA,0154566684,000000000000,000000004825.97,000000050000.00,2773,MXP\n";
+
+        var res = _parser.Parse(csv);
+
+        res.TotalLineas.Should().Be(1);
+        res.Lineas[0].Abono.Should().Be(4825.97m);
+        res.Lineas[0].Cargo.Should().BeNull();
+        res.Lineas[0].Saldo.Should().Be(50000.00m);
+    }
 }
