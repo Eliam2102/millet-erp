@@ -6,6 +6,7 @@ namespace Millet.Integraciones.Aw.Application.TipoCambio;
 public sealed class AwTipoCambioOptions
 {
     public const string Seccion = "IntegracionesAw:TipoCambio";
+    public const string SectionName = Seccion;
 
     /// <summary>
     /// Habilita o deshabilita la publicación periódica y supervisión hacia A+W.
