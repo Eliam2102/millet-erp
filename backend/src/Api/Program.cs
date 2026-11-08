@@ -1125,6 +1125,37 @@ builder.Services.AddOptions<OutboxPublisherOptions>(nameof(Millet.ProductoTermin
     .Bind(builder.Configuration.GetSection("ProductoTerminado:Outbox"));
 builder.Services.AddHostedService<OutboxPublisherWorker<Millet.ProductoTerminado.Infrastructure.Persistence.ProductoTerminadoDbContext>>();
 
+// === I13.6 · Tablero de integraciones: cada módulo aporta sus fuentes; Compartido las junta y alerta ===
+// El outbox de Integraciones.Fiscal no tiene publisher registrado: no se muestra hasta que lo tenga.
+builder.Services.AddFuenteTableroOutbox<ComprasDbContext>("Compras");
+builder.Services.AddFuenteTableroOutbox<CompartidoDbContext>("Datos maestros");
+builder.Services.AddFuenteTableroOutbox<Millet.Integraciones.Aw.Infrastructure.Persistence.IntegracionesAwDbContext>("Integración A+W");
+builder.Services.AddFuenteTableroOutbox<AlmacenDbContext>("Almacén");
+builder.Services.AddFuenteTableroOutbox<CuentasPorPagarDbContext>("Cuentas por pagar");
+builder.Services.AddFuenteTableroOutbox<FacturacionDbContext>("Facturación");
+builder.Services.AddFuenteTableroOutbox<CuentasPorCobrarDbContext>("Cuentas por cobrar");
+builder.Services.AddFuenteTableroOutbox<TesoreriaDbContext>("Tesorería");
+builder.Services.AddFuenteTableroOutbox<ComercioExteriorDbContext>("Comercio exterior");
+builder.Services.AddFuenteTableroOutbox<Millet.ProductoTerminado.Infrastructure.Persistence.ProductoTerminadoDbContext>("Producto terminado");
+builder.Services.AddScoped<Millet.SharedKernel.Application.Integration.Tablero.IFuenteTableroIntegracion,
+    Millet.Compras.Infrastructure.PublicAdapters.AlmCompraFuenteTablero>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Integration.Tablero.IFuenteTableroIntegracion,
+    Millet.Facturacion.Infrastructure.PublicAdapters.CorreoCfdiFuenteTablero>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Integration.Tablero.IFuenteTableroIntegracion,
+    Millet.Facturacion.Infrastructure.PublicAdapters.AwWriteBackFuenteTablero>();
+// PLATFORM-TODO(<TableroIntegracionesAw>): el retorno a A+W (aw_retorno, U1.5), Planta Pintura y la descarga del SAT
+// (Integraciones.Fiscal) aún no exponen su cola al tablero; se agregan como fuentes cuando tengan conexión real.
+if (!string.IsNullOrWhiteSpace(outboxConnString))
+{
+    builder.Services.AddScoped<Millet.SharedKernel.Application.Integration.Tablero.IFuenteTableroIntegracion>(sp =>
+        new ServiceBusDeadLetterFuenteTablero(sp.GetRequiredService<Azure.Messaging.ServiceBus.ServiceBusClient>(),
+            SuscripcionServiceBus.DelErp, sp.GetRequiredService<ILogger<ServiceBusDeadLetterFuenteTablero>>()));
+}
+builder.Services.AddOptions<Millet.Compartido.Application.TableroIntegraciones.TableroIntegracionesOptions>()
+    .Bind(builder.Configuration.GetSection(Millet.Compartido.Application.TableroIntegraciones.TableroIntegracionesOptions.SectionName));
+builder.Services.AddScoped<Millet.Compartido.Application.TableroIntegraciones.TableroIntegracionesServicio>();
+builder.Services.AddHostedService<Millet.Compartido.Infrastructure.Workers.AlertasIntegracionWorker>();
+
 // === Módulo Contabilidad (F1-CON-01): catálogo contable ===
 // Esquema `contabilidad`, ContabilidadDbContext abajo. Config de formato en Contabilidad:Catalogo (ValidateOnStart).
 builder.Services.AddContabilidadModule(builder.Configuration);
@@ -2004,6 +2035,7 @@ Millet.Api.Endpoints.Facturacion.CajasEndpoints.MapFacturacionCajasEndpoints(app
 // === Facturación — Cobros de mostrador (CAJAS-PR4, 12-cajas.md §6) ===
 Millet.Api.Endpoints.Facturacion.CobrosEndpoints.MapFacturacionCobrosEndpoints(app);
 Millet.Api.Endpoints.Facturacion.TerminalTarjetaEndpoints.MapFacturacionTerminalTarjetaEndpoints(app);
+Millet.Api.Endpoints.Integraciones.TableroIntegracionesEndpoints.MapTableroIntegracionesEndpoints(app);
 
 // === Cuentas por Cobrar — Líneas de crédito (CXC-PR1) ===
 Millet.Api.Endpoints.CuentasPorCobrar.LineasCreditoEndpoints.MapLineasCreditoEndpoints(app);

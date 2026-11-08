@@ -7704,6 +7704,94 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                     b.ToTable("incidencia_historial", "compartido");
                 });
 
+            modelBuilder.Entity("Millet.SharedKernel.Domain.Integraciones.AlertaIntegracion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("AbiertaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("abierta_en");
+
+                    b.Property<DateTimeOffset?>("CerradaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cerrada_en");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Detalle")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("detalle");
+
+                    b.Property<string>("FuenteClave")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("fuente_clave");
+
+                    b.Property<string>("FuenteNombre")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("fuente_nombre");
+
+                    b.Property<DateTimeOffset?>("NotificadaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("notificada_en");
+
+                    b.Property<DateTimeOffset?>("RecuperacionNotificadaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recuperacion_notificada_en");
+
+                    b.Property<short>("Tipo")
+                        .HasColumnType("smallint")
+                        .HasColumnName("tipo");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_alertas_integracion");
+
+                    b.HasIndex("AbiertaEn")
+                        .HasDatabaseName("ix_alertas_integracion_abierta_en");
+
+                    b.HasIndex("FuenteClave", "Tipo")
+                        .IsUnique()
+                        .HasDatabaseName("ux_alertas_integracion_abierta")
+                        .HasFilter("cerrada_en IS NULL");
+
+                    b.ToTable("alertas_integracion", "compartido", t =>
+                        {
+                            t.HasCheckConstraint("ck_alertas_integracion_cierre", "cerrada_en IS NULL OR cerrada_en >= abierta_en");
+
+                            t.HasCheckConstraint("ck_alertas_integracion_tipo", "tipo IN (1, 2)");
+                        });
+                });
+
             modelBuilder.Entity("Millet.SharedKernel.Infrastructure.Outbox.IntegrationEventOutboxEntry", b =>
                 {
                     b.Property<Guid>("Id")
