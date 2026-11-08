@@ -65,3 +65,9 @@ public interface IFuenteTableroIntegracion
     /// <summary>Vuelve a poner el mensaje en la cola de su worker. <c>false</c> si no existe o ya no se puede reintentar.</summary>
     Task<bool> ReintentarAsync(string mensajeId, CancellationToken cancellationToken);
 }
+
+/// <summary>
+/// La fuente no tiene conexión configurada en este ambiente (p. ej. Service Bus sin cadena de
+/// conexión en local). El tablero la muestra «Sin lectura» con este mensaje, sin abrir alertas.
+/// </summary>
+public sealed class FuenteTableroSinConexionException(string mensaje) : Exception(mensaje);

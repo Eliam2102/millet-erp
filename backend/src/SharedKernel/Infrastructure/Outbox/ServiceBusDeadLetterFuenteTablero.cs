@@ -16,8 +16,12 @@ namespace Millet.SharedKernel.Infrastructure.Outbox;
 /// El peek solo requiere el permiso Listen de la cadena de conexión (no Manage),
 /// así que funciona con la misma conexión del outbox y con el emulador local.
 /// </remarks>
+/// <remarks>
+/// Sin cadena de conexión (local sin Azure ni emulador) la fuente se registra igual con
+/// <c>client</c> nulo y el tablero la muestra «Sin lectura», para que no se pierda de vista.
+/// </remarks>
 public sealed class ServiceBusDeadLetterFuenteTablero(
-    ServiceBusClient client, IReadOnlyList<SuscripcionServiceBus> suscripciones, ILogger<ServiceBusDeadLetterFuenteTablero> logger)
+    ServiceBusClient? client, IReadOnlyList<SuscripcionServiceBus> suscripciones, ILogger<ServiceBusDeadLetterFuenteTablero> logger)
     : IFuenteTableroIntegracion
 {
     /// <summary>Máximo de mensajes que se miran por suscripción en cada lectura.</summary>
@@ -30,6 +34,9 @@ public sealed class ServiceBusDeadLetterFuenteTablero(
 
     public async Task<ResumenFuenteIntegracion> LeerAsync(DateTimeOffset ahora, int maxMensajes, CancellationToken cancellationToken)
     {
+        if (client is null)
+            throw new FuenteTableroSinConexionException(
+                "Sin conexión a Service Bus en este ambiente: no se puede leer la cola de errores.");
         var todos = new List<MensajeIntegracion>();
         var total = 0;
         foreach (var s in suscripciones)
