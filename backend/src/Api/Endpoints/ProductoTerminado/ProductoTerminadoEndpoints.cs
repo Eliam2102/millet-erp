@@ -131,6 +131,10 @@ public static class ProductoTerminadoEndpoints
         hojas.MapGet("/{id:guid}/albaranes/{albaranId:guid}/entrega/evidencia", async (Guid id, Guid albaranId, IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(new ObtenerEvidenciaEntregaQuery(id, albaranId), ct)))
             .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoPiezasVer);
+        hojas.MapPost("/{id:guid}/albaranes/{albaranId:guid}/cancelar", async (Guid id, Guid albaranId, CancelarAlbaranBody body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new CancelarAlbaranSalidaCommand(id, albaranId, body.Motivo), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar)
+            .WithMetadata(new RequireIdempotencyKeyAttribute());
 
         // Solo Demo (PT5.2): el saldo de prueba simula el cobro de caja. Nunca se mapea en Production; además exige el origen Demo de A+W.
         // El canal Real usa el saldo de Facturación (U-3); este endpoint queda solo para Demo.
@@ -158,6 +162,8 @@ public static class ProductoTerminadoEndpoints
     public sealed record RecibirBody(IReadOnlyList<Guid>? PiezaIds);
 
     public sealed record LiquidarBody(IReadOnlyList<LiquidacionAlbaranInput> Albaranes, IReadOnlyList<ImprevistoInput>? Imprevistos);
+
+    public sealed record CancelarAlbaranBody(string Motivo);
 
     public sealed record SaldoDemoBody(decimal Saldo);
 }
