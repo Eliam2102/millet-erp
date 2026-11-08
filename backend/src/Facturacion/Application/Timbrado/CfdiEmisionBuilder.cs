@@ -453,6 +453,30 @@ public static class CfdiEmisionBuilder
         $"{l.ClaveProdServSat}-{l.Posicion}";
 
     /// <summary>
+    /// Datos que el SAT exige en el CCE 2.0 y que el PAC rechaza si faltan: domicilio del receptor
+    /// extranjero (calle, estado y código postal) y clave de pedimento (B5). La emisión lo llama
+    /// antes de reservar folio y el armado del CFDI antes de timbrar.
+    /// </summary>
+    public static void ValidarDatosSatCce(string? claveDePedimento, string? calle, string? estado, string? codigoPostal)
+    {
+        if (string.IsNullOrWhiteSpace(calle) || string.IsNullOrWhiteSpace(estado) || string.IsNullOrWhiteSpace(codigoPostal))
+        {
+            throw new BusinessRuleException(
+                "CCE_DOMICILIO_RECEPTOR_INCOMPLETO",
+                "El Complemento de Comercio Exterior 2.0 exige el domicilio del receptor extranjero " +
+                "(calle, estado y código postal). Captura los datos faltantes y vuelve a emitir.");
+        }
+
+        if (string.IsNullOrWhiteSpace(claveDePedimento))
+        {
+            throw new BusinessRuleException(
+                "CCE_CLAVE_PEDIMENTO_REQUERIDA",
+                "El Complemento de Comercio Exterior 2.0 exige la clave de pedimento (por ejemplo, A1). " +
+                "Captúrala y vuelve a emitir.");
+        }
+    }
+
+    /// <summary>
     /// Construye el complemento CCE si la factura lo adjuntó (F7-PR1). Valida
     /// pre-vuelo el domicilio del receptor extranjero (Estado + CP, exigidos
     /// por el CCE 2.0) — falla ANTES de quemar el timbre (F12-PR3).
@@ -466,14 +490,8 @@ public static class CfdiEmisionBuilder
         if (factura.ComplementoCce is not { } cce)
             return null;
 
-        if (string.IsNullOrWhiteSpace(cce.ReceptorDomicilioEstado)
-            || string.IsNullOrWhiteSpace(cce.ReceptorDomicilioCodigoPostal))
-        {
-            throw new BusinessRuleException(
-                "CCE_DOMICILIO_RECEPTOR_INCOMPLETO",
-                "El Complemento de Comercio Exterior 2.0 exige el domicilio del receptor extranjero " +
-                "(estado y código postal). Captura los datos faltantes y vuelve a emitir.");
-        }
+        ValidarDatosSatCce(cce.ClaveDePedimento, cce.ReceptorDomicilioCalle,
+            cce.ReceptorDomicilioEstado, cce.ReceptorDomicilioCodigoPostal);
 
         return new ComplementoCceCfdi(
             TipoOperacion: cce.TipoOperacion,

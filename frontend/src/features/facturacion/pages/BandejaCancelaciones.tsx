@@ -31,11 +31,16 @@ import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
+// B3: todos los estados de la solicitud, en el orden del flujo; «Todos» los junta.
 const ESTADOS: ReadonlyArray<EstadoSolicitudCancelacion> = [
   'PendienteAutorizacion',
   'RechazadaPorAutorizador',
+  'Retirada',
+  'Solicitada',
   'EnProceso',
   'Aceptada',
+  'Rechazada',
+  'Vencida',
 ];
 
 /**
@@ -45,7 +50,9 @@ const ESTADOS: ReadonlyArray<EstadoSolicitudCancelacion> = [
  * solicitó no puede decidir la suya (lo valida el servidor).
  */
 export function BandejaCancelaciones() {
-  const [estado, setEstado] = useState<EstadoSolicitudCancelacion>('PendienteAutorizacion');
+  const [estado, setEstado] = useState<EstadoSolicitudCancelacion | undefined>(
+    'PendienteAutorizacion',
+  );
   const query = useBandejaCancelaciones(estado);
   const puedeAutorizar = useHasPermission(PermisosCanonicos.FacturacionCancelacionesAutorizar);
   const pendientes = estado === 'PendienteAutorizacion';
@@ -70,9 +77,9 @@ export function BandejaCancelaciones() {
               valor: i + 1,
               label: ESTADO_SOLICITUD_CANCELACION_LABEL[e],
             }))}
-            valor={ESTADOS.indexOf(estado) + 1}
+            valor={estado ? ESTADOS.indexOf(estado) + 1 : undefined}
             conteos={undefined}
-            onChange={(v) => setEstado(ESTADOS[(v ?? 1) - 1] ?? 'PendienteAutorizacion')}
+            onChange={(v) => setEstado(v === undefined ? undefined : ESTADOS[v - 1])}
           />
         }
       >
@@ -99,7 +106,9 @@ export function BandejaCancelaciones() {
                   <TableHead className="text-right tabular-nums">Total</TableHead>
                   <TableHead>Motivo SAT</TableHead>
                   <TableHead>Solicitó</TableHead>
-                  <TableHead>{pendientes ? 'Acción' : 'Decisión'}</TableHead>
+                  <TableHead>
+                    {pendientes ? 'Acción' : estado ? 'Decisión' : 'Estado y decisión'}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -109,6 +118,7 @@ export function BandejaCancelaciones() {
                     c={c}
                     puedeDecidir={pendientes && puedeAutorizar}
                     propia={pendientes && c.solicitadaPorId != null && c.solicitadaPorId === usuarioId}
+                    mostrarEstado={!estado}
                   />
                 ))}
               </TableBody>
@@ -124,11 +134,14 @@ function FilaCancelacion({
   c,
   puedeDecidir,
   propia,
+  mostrarEstado = false,
 }: {
   c: CancelacionBandejaItem;
   puedeDecidir: boolean;
   /** La solicitó quien ve la bandeja: la decide otra persona (O2). */
   propia: boolean;
+  /** Pestaña «Todos» (B3): cada fila dice en qué estado va su solicitud. */
+  mostrarEstado?: boolean;
 }) {
   const decidir = useDecidirCancelacion();
   const [rechazando, setRechazando] = useState(false);
@@ -235,6 +248,11 @@ function FilaCancelacion({
           )
         ) : (
           <>
+            {mostrarEstado && (
+              <p className="font-medium">
+                {ESTADO_SOLICITUD_CANCELACION_LABEL[c.estadoSolicitud] ?? c.estadoSolicitud}
+              </p>
+            )}
             <p>{c.decididaPor ?? '—'}</p>
             {c.decididaEn && (
               <p className="text-xs text-ink-muted">{formatDateTime(c.decididaEn)}</p>

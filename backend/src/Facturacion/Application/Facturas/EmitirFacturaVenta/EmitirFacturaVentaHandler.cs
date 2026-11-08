@@ -174,6 +174,11 @@ public sealed class EmitirFacturaVentaHandler
             l.ClaveProdServSat,l.ClaveUnidadSat,l.ObjetoImp,l.TasaIvaTraslado)),_productos,cancellationToken);
         // 2. Validación local previa de catálogos SAT.
         await ValidarCatalogosSatAsync(command, cancellationToken);
+        // B5: domicilio del receptor y clave de pedimento del CCE, antes de reservar folio.
+        if (command.Cce is { } cceSat)
+            Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.ValidarDatosSatCce(
+                cceSat.ClaveDePedimento, cceSat.ReceptorDomicilioCalle,
+                cceSat.ReceptorDomicilioEstado, cceSat.ReceptorDomicilioCodigoPostal);
         await TipoCambioFactura.ValidarAsync(
             _catalogos, command.Moneda, command.TipoCambio, ahora, cancellationToken);
 
@@ -364,10 +369,11 @@ public sealed class EmitirFacturaVentaHandler
 
         // 8. F4-PR2: las NC de amortización solo se emiten sobre una factura
         // timbrada; si el timbre de la factura falló, se aborta sin guardar nada.
+        // B5: el motivo del PAC viaja en el mensaje; sin él, el usuario no sabe qué corregir.
         if (anticipos.Count > 0 && factura.Estado != EstadoTimbrado.Timbrado)
             throw new BusinessRuleException(
                 "FACTURA_NO_TIMBRADA_PARA_AMORTIZAR",
-                "No se pueden amortizar anticipos: la factura no quedó timbrada.");
+                MensajeNoTimbradaParaAmortizar(factura.TimbradoErrorCodigo, factura.TimbradoErrorMensaje));
 
         // 9. F10-PR1: evento de integración (al Outbox en la misma TX vía el
         // interceptor); Contabilidad arma la póliza desde el evento (C1.5). Solo si quedó Timbrada.
@@ -441,6 +447,20 @@ public sealed class EmitirFacturaVentaHandler
             NotaCreditoRanura: ncRanura,
             TimbradoErrorCodigo: factura.TimbradoErrorCodigo,
             TimbradoErrorMensaje: factura.TimbradoErrorMensaje);
+    }
+
+    /// <summary>
+    /// B5: mensaje del rechazo de una factura con anticipos que no quedó timbrada. Lleva el
+    /// código y el motivo del PAC para que se corrija el dato antes de volver a emitir.
+    /// </summary>
+    internal static string MensajeNoTimbradaParaAmortizar(string? codigo, string? motivo)
+    {
+        const string Base = "No se pueden amortizar anticipos: la factura no quedó timbrada.";
+        if (string.IsNullOrWhiteSpace(motivo))
+            return string.IsNullOrWhiteSpace(codigo) ? Base : $"{Base} Código del PAC: {codigo}.";
+        return string.IsNullOrWhiteSpace(codigo) || motivo.Contains(codigo, StringComparison.OrdinalIgnoreCase)
+            ? $"{Base} Motivo del PAC: {motivo}"
+            : $"{Base} Motivo del PAC ({codigo}): {motivo}";
     }
 
     /// <summary>
