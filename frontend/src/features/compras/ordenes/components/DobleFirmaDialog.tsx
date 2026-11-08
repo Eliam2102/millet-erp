@@ -1,6 +1,6 @@
 import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
 import { DialogBody } from '@/components/ui/dialog';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -40,14 +40,15 @@ export function DobleFirmaDialog({
   const [motivoId, setMotivoId] = useState<string | null>(null);
   const [motivo, setMotivo] = useState('');
   const [error, setError] = useState<string>();
-
-  useEffect(() => {
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (prevOpen !== open) {
+    setPrevOpen(open);
     if (open) {
       setMotivoId(null);
       setMotivo('');
       setError(undefined);
     }
-  }, [open]);
+  }
   return (
     <Dialog
       open={open}

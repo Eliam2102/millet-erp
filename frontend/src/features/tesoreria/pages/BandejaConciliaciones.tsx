@@ -1,5 +1,6 @@
 import { KpiCard } from '@/components/erp/display/KpiCard';
 import { errorUsuario } from '@/lib/error-usuario';
+import { esApiError } from '@/lib/api';
 import { useState, useMemo, useRef } from 'react';
 import {
   Scale,
@@ -372,11 +373,9 @@ export function BandejaConciliaciones() {
       toast.success('Conciliación cerrada con éxito. Descargando acta oficial en PDF...');
       setModalCerrar(false);
     } catch (err: unknown) {
-      const msg =
-        (err as any)?.detail ||
-        (err as any)?.problem?.detail ||
-        (err as any)?.message ||
-        (err instanceof Error ? errorUsuario(err) : 'Error al cerrar conciliación');
+      const msg = esApiError(err)
+        ? (err.problem.detail || err.problem.title || err.message)
+        : (err instanceof Error ? errorUsuario(err) : 'Error al cerrar conciliación');
       setErrorCierre(msg);
       toast.error(msg);
     }

@@ -71,6 +71,13 @@ export function ModalMotivoOC({
   isPending,
 }: ModalMotivoOCProps) {
   const [motivoSeleccionado, setMotivoSeleccionado] = useState<MotivoRechazoResponse | null>(null);
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (prevOpen !== open) {
+    setPrevOpen(open);
+    if (open) {
+      setMotivoSeleccionado(null);
+    }
+  }
 
   const form = useForm<ModalMotivoValues>({
     resolver: zodResolver(ModalMotivoSchema),
@@ -86,7 +93,6 @@ export function ModalMotivoOC({
         motivoId: '',
         motivoTexto: null,
       });
-      setMotivoSeleccionado(null);
     }
   }, [open, form]);
 

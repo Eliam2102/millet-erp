@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/api';
+import { apiRequest, ApiError, type ProblemDetails } from '@/lib/api';
 import { apiFetch } from '@/lib/auth/api-client';
 import type { DepositoPorIdentificarItem } from '@/features/cxc/api/types';
 import {
@@ -1390,13 +1390,8 @@ export function useCerrarConciliacion() {
         body: JSON.stringify({ firmanteNombre, firmantePuesto }),
       });
       if (!resp.ok) {
-        const errorData = await resp.json().catch(() => ({}));
-        const mensaje = errorData.detail || errorData.title || errorData.message || 'Error al cerrar conciliación';
-        const err = new Error(mensaje);
-        (err as any).status = resp.status;
-        (err as any).detail = mensaje;
-        (err as any).problem = errorData;
-        throw err;
+        const errorData = (await resp.json().catch(() => ({}))) as ProblemDetails;
+        throw new ApiError(errorData, resp.status);
       }
       return await resp.blob();
     },
