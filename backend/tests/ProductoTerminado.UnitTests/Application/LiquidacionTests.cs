@@ -34,6 +34,9 @@ public sealed class LiquidacionTests
     private sealed class FacturacionFalsa : IFacturacionSalidaPort
     {
         public Task RegistrarSalidaAsync(Guid pedidoFacturableId, string referencia, IReadOnlyList<(int Posicion, decimal Cantidad)> lineas, CancellationToken ct) => Task.CompletedTask;
+        public Task<CancelacionSalidaPt> CancelarSalidaAsync(string referencia, string motivo, CancellationToken ct) =>
+            Task.FromResult(new CancelacionSalidaPt(false, false, false));
+
         public Task<CartaPorteSalida> EmitirCartaPorteAsync(SolicitudCartaPorte solicitud, CancellationToken ct) => Task.FromResult(new CartaPorteSalida(Guid.NewGuid(), "CP-1"));
     }
 

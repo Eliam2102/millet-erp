@@ -93,7 +93,8 @@ public static class DepositosEndpoints
                 return Results.Problem(title: "X-Expected-Version requerido", statusCode: StatusCodes.Status428PreconditionRequired);
 
             var response = await mediator.Send(
-                new ConfirmarDepositoCommand(id, body.MovimientoBancarioId, v, ingreso, body.SoporteTipo, body.SoporteFolio), cancellationToken);
+                new ConfirmarDepositoCommand(id, body.MovimientoBancarioId, v, ingreso, body.SoporteTipo, body.SoporteFolio,
+                    body.TipoCambioPago), cancellationToken);
             return Results.Ok(response);
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
@@ -130,6 +131,6 @@ public static class DepositosEndpoints
     }
 
     public sealed record ConfirmarBody(Guid MovimientoBancarioId, RegistrarMovimientoIngresoCommand? Ingreso = null,
-        SoporteFicha? SoporteTipo = null, string? SoporteFolio = null);
+        SoporteFicha? SoporteTipo = null, string? SoporteFolio = null, decimal? TipoCambioPago = null);
     public sealed record RechazarBody(string Motivo);
 }

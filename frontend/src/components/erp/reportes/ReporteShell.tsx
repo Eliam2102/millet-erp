@@ -40,6 +40,10 @@ export interface ReporteShellProps<TFila> {
           anchoPx?: number | null;
           /** Decimales fijos para columnas numéricas (p. ej. importes). */
           decimales?: number | null;
+          /** Ancho relativo de la columna en el PDF (peso flex; 1 por omisión). */
+          anchoPdf?: number | null;
+          /** 'caracter': en el PDF, un texto largo sin espacios puede cortarse entre letras o dígitos. */
+          cortePdf?: 'caracter' | null;
         }[];
         filas: readonly TFila[];
         totales?: Record<string, number> | null;

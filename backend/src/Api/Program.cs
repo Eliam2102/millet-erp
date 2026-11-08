@@ -1245,6 +1245,14 @@ builder.Services
         Millet.Facturacion.Infrastructure.Workers.TimbradoPendienteOptions.SectionName));
 builder.Services.AddHostedService<Millet.Facturacion.Infrastructure.Workers.TimbradoPendienteWorker>();
 
+// Regla D10 (Manual de Sucursales / Contraste U-1 · 86e3yxn2p): reintento automático de NC ligada a factura
+// cada 15 min hasta 3 intentos antes de requerir reintento manual desde bandeja.
+builder.Services
+    .AddOptions<Millet.Facturacion.Infrastructure.Workers.NotaCreditoPendienteRetryOptions>()
+    .Bind(builder.Configuration.GetSection(
+        Millet.Facturacion.Infrastructure.Workers.NotaCreditoPendienteRetryOptions.SectionName));
+builder.Services.AddHostedService<Millet.Facturacion.Infrastructure.Workers.NotaCreditoPendienteRetryWorker>();
+
 // F6.8: aviso a Fiscal de contingencias de timbrado abiertas al cerrar el mes.
 builder.Services
     .AddOptions<Millet.Facturacion.Infrastructure.Workers.ContingenciasAlertaOptions>()
@@ -1260,12 +1268,7 @@ builder.Services
     .Bind(builder.Configuration.GetSection(
         Millet.Facturacion.Infrastructure.Workers.PedimentoSalidasOptions.SectionName));
 builder.Services.AddHostedService<Millet.Facturacion.Infrastructure.Workers.PedimentoSalidasWorker>();
-// FAC-08: salidas parciales de PT/CE → salidas facturables (stub vacío en dev, PLATFORM-TODO(<SalidasPt>)).
-builder.Services
-    .AddOptions<Millet.Facturacion.Infrastructure.Workers.SalidasParcialesOptions>()
-    .Bind(builder.Configuration.GetSection(
-        Millet.Facturacion.Infrastructure.Workers.SalidasParcialesOptions.SectionName));
-builder.Services.AddHostedService<Millet.Facturacion.Infrastructure.Workers.SalidasParcialesWorker>();
+// FAC-08: las salidas parciales llegan sin worker: PT por IFacturacionSalidaPort (PT5.5) y CE por evento (contenedor embarcado).
 
 // F10-PR2: worker de ingesta de Planta Pintura (pull de órdenes vía
 // IPlantaPinturaPedidosReader [stub en dev]; exige master preexistente).
