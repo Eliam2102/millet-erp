@@ -1223,6 +1223,9 @@ builder.Services.AddHostedService<Millet.Facturacion.Infrastructure.Workers.Writ
 // TR-01: lee el acuse de aw_retorno (desfasadas → fila nueva; 3 rechazos → aviso). Sin canal configurado no hace nada.
 builder.Services.AddHostedService<Millet.Integraciones.Aw.Infrastructure.Retorno.AwRetornoAcuseWorker>();
 
+// I13.2 / CA13.9: worker periódico para publicación y supervisión de tipo de cambio hacia A+W (dbo.erp_tipo_cambio).
+builder.Services.AddHostedService<Millet.Integraciones.Aw.Infrastructure.TipoCambio.Workers.AwTipoCambioWorker>();
+
 // F5-PR2: poller de cancelaciones SAT (resuelve las SolicitudCancelacion
 // EnProceso consultando el estatus del CFDI; stub reporta vigente en dev).
 builder.Services
