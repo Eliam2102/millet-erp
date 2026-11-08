@@ -345,6 +345,28 @@ public abstract class Comprobante : BaseEntity, IPerteneceAEmpresa, IFiscalmente
         Estado = EstadoTimbrado.Descartada;
     }
 
+    /// <summary>
+    /// B2: la emisión abortó después de reservar el folio (sin PAC configurado, anticipo que no
+    /// timbró o cualquier excepción antes de guardar). El documento se guarda <c>Descartada</c>
+    /// con el motivo para que el folio quede a la vista y no como un hueco sin rastro. Nunca hubo
+    /// CFDI ante el SAT: no aplica a un comprobante timbrado, cancelado ni ya descartado.
+    /// </summary>
+    public void DescartarPorEmisionAbortada(string? errorCodigo, string errorMensaje)
+    {
+        if (Estado is EstadoTimbrado.Timbrado or EstadoTimbrado.CancelacionPendiente
+            or EstadoTimbrado.Cancelado or EstadoTimbrado.Descartada)
+            throw new BusinessRuleException(
+                "COMPROBANTE_NO_DESCARTABLE",
+                $"Un comprobante en {Estado} no se descarta por emisión abortada.");
+
+        Estado = EstadoTimbrado.Descartada;
+        TimbradoErrorCodigo = Recortar(errorCodigo, 50);
+        TimbradoErrorMensaje = Recortar(errorMensaje, 500);
+    }
+
+    private static string? Recortar(string? texto, int maximo) =>
+        texto is null || texto.Length <= maximo ? texto : texto[..maximo];
+
     /// <summary>Marca el CFDI como enviado por correo al cliente. Idempotente.</summary>
     public void MarcarEnviadoCorreo() => EnviadoCorreo = true;
 
