@@ -32,3 +32,13 @@ public sealed class ListarHojasSalidaValidator : AbstractValidator<ListarHojasSa
         RuleFor(x => x.Estado).Must(e => e is null || Enum.TryParse<EstadoSalida>(e, out _)).WithMessage("Estado inválido.");
     }
 }
+
+public sealed class CancelarAlbaranSalidaValidator : AbstractValidator<CancelarAlbaranSalidaCommand>
+{
+    public CancelarAlbaranSalidaValidator()
+    {
+        RuleFor(x => x.HojaId).NotEmpty();
+        RuleFor(x => x.AlbaranId).NotEmpty();
+        RuleFor(x => x.Motivo).NotEmpty().MaximumLength(300);
+    }
+}

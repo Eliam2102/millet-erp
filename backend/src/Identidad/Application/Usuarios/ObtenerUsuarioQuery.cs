@@ -84,7 +84,8 @@ public sealed class ObtenerUsuarioHandler
             usuario.Version,
             empleadoId,
             usuario.EsCuentaTecnica,
-            usuario.PrimerAccesoEn);
+            usuario.PrimerAccesoEn,
+            usuario.CorreoParaAvisos);
 
         return new UsuarioDetalleResponse(dto, asignaciones);
     }

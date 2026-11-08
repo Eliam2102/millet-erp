@@ -29,7 +29,8 @@ public sealed record ActualizarEmpleadoCommand(
     string? CodigoNomina = null,
     bool LimpiarCodigoNomina = false,
     string? EmailContacto = null,
-    bool LimpiarEmailContacto = false, string? Telefono = null, string? Extension = null) : IRequest<EmpleadoResponse>;
+    bool LimpiarEmailContacto = false, string? Telefono = null, string? Extension = null,
+    string? CorreoParaAvisos = null, bool LimpiarCorreoParaAvisos = false) : IRequest<EmpleadoResponse>;
 
 public sealed class ActualizarEmpleadoValidator : AbstractValidator<ActualizarEmpleadoCommand>
 {
@@ -46,6 +47,11 @@ public sealed class ActualizarEmpleadoValidator : AbstractValidator<ActualizarEm
             .When(c => c.CodigoNomina is not null);
         RuleFor(c => c.EmailContacto!).NotEmpty().EmailAddress().MaximumLength(254)
             .When(c => c.EmailContacto is not null);
+        RuleFor(c => c.CorreoParaAvisos!).NotEmpty().EmailAddress().MaximumLength(254)
+            .When(c => c.CorreoParaAvisos is not null);
+        RuleFor(c => c.CorreoParaAvisos).Null()
+            .When(c => c.LimpiarCorreoParaAvisos)
+            .WithMessage("No se puede enviar CorreoParaAvisos y LimpiarCorreoParaAvisos a la vez.");
         RuleFor(c => c.EmailContacto).Null()
             .When(c => c.LimpiarEmailContacto)
             .WithMessage("No se puede enviar EmailContacto y LimpiarEmailContacto a la vez.");
@@ -127,7 +133,8 @@ public sealed class ActualizarEmpleadoHandler
             codigoNomina: command.CodigoNomina,
             limpiarCodigoNomina: command.LimpiarCodigoNomina,
             emailContacto: command.EmailContacto,
-            limpiarEmailContacto: command.LimpiarEmailContacto, telefono: command.Telefono, extension: command.Extension);
+            limpiarEmailContacto: command.LimpiarEmailContacto, telefono: command.Telefono, extension: command.Extension,
+            correoParaAvisos: command.CorreoParaAvisos, limpiarCorreoParaAvisos: command.LimpiarCorreoParaAvisos);
         await _db.SaveChangesAsync(cancellationToken);
 
         return CrearEmpleadoHandler.Mapear(empleado);

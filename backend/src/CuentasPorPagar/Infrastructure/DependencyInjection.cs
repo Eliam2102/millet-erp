@@ -98,9 +98,11 @@ public static class DependencyInjection
 
         services.AddHostedService<CfdiMailboxIngestionWorker>();
 
-        // F4-PR2: evidencias polimórficas + worker SLA + INotificacionService stub.
+        // F4-PR2: evidencias polimórficas + worker SLA + INotificacionService.
         services.AddSingleton<IEvidenciaBlobStorage, LocalFilesystemEvidenciaBlobStorage>();
-        services.AddSingleton<INotificacionService, NoOpNotificacionService>();
+        // 86e3txv0n: TryAddSingleton evita sobreescribir GraphAvisoRevisionCxp si ya fue registrado
+        // por AddGraphAvisosRevisionCxp o configurado con transporte Microsoft Graph.
+        services.TryAddSingleton<INotificacionService, NoOpNotificacionService>();
         // P8.3: portal de proveedores. El Graph real (Api) reemplaza este NoOp si está configurado.
         services.TryAddScoped<Domain.Ports.Portal.IPortalCorreoPort, Portal.NoOpPortalCorreo>();
         services.AddScoped<Domain.Ports.Portal.IPortalProveedorAutenticacion, Adapters.PortalProveedorAutenticacion>();

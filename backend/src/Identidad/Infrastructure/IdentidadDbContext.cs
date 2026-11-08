@@ -124,6 +124,8 @@ public sealed class IdentidadDbContext : BaseDbContext
         usuario.Property(x => x.EntraOid).HasMaxLength(100).IsRequired();
         usuario.Property(x => x.Email).HasMaxLength(254).IsRequired();
         usuario.Property(x => x.Nombre).HasMaxLength(254).IsRequired();
+        // 86e3zexqm: correo alternativo para avisos (opcional, no único para soportar buzones compartidos).
+        usuario.Property(x => x.CorreoParaAvisos).HasMaxLength(254);
         // B.1: DepartamentoId nullable. FK lógica a compartido.departamentos
         // (cross-schema → sin FK física por convención §10.2.3 del diseño).
         usuario.Property(x => x.DepartamentoId);

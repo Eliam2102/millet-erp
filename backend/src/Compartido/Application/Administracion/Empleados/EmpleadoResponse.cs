@@ -16,4 +16,4 @@ public sealed record EmpleadoResponse(
     Guid? UsuarioId,
     string? CodigoNomina,
     EstatusCatalogo Estatus,
-    int Version, string? Telefono = null, string? Extension = null);
+    int Version, string? Telefono = null, string? Extension = null, string? CorreoParaAvisos = null);
