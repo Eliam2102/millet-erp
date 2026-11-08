@@ -140,6 +140,50 @@ public sealed class ReppPendienteTests
         await accion.Should().ThrowAsync<BusinessRuleException>();
     }
 
+    [Theory]
+    [InlineData("XEXX010101000", "USA", "123-456-781", "123456781", null)]
+    [InlineData("XEXX010101000", "USA", "123456781", "987654321", "REPP_FACTURA_OTRO_CLIENTE")]
+    [InlineData("XEXX010101000", "USA", null, "123456781", "REPP_FACTURA_OTRO_CLIENTE")]
+    [InlineData("XAXX010101000", "MEX", null, null, "REPP_FACTURA_OTRO_CLIENTE")]
+    public async Task Factura_directa_a_extranjero_se_identifica_por_el_id_fiscal_de_su_CCE_y_el_publico_en_general_no(
+        string rfc, string pais, string? idCce, string? idCliente, string? error)
+    {
+        // R1 (CXC-11): como en QA, una factura directa (sin pedido) de exportación a XEXX, emitida con su CCE. La emisión no llena el
+        // NumRegIdTrib del comprobante: vive en el CCE. El extranjero se marca genérico en el alta y la factura no guarda el cliente.
+        var nombre = Guid.NewGuid().ToString();
+        FacturacionDbContext Contexto() => new(new DbContextOptionsBuilder<FacturacionDbContext>().UseInMemoryDatabase(nombre).Options,
+            new FakeEmpresaContext(Empresa));
+        Guid facturaId;
+        decimal total;
+        using (var alta = Contexto())
+        {
+            var f = FacturaVenta.CrearBorrador(Empresa, "PRUEBA-X", 1, Guid.NewGuid(), null, null,
+                new DatosFiscalesReceptor(rfc, "Cliente extranjero ficticio", "616", "97000", "S01", pais, true),
+                new DatosFiscalesEmisor("BBB010101BBB", "Emisor ficticio", "601", "97000"), "PPD", "03", "USD", 20m, 2026, 10, 7,
+                idCce is null ? ComportamientoFiscal.MostradorInmediato : ComportamientoFiscal.ExportacionConCce, null, null, null, false);
+            if (idCce is not null) f.AdjuntarCce(Millet.Facturacion.Domain.Cce.ComplementoCce.Crear(f.Id, "2", "FOB", 20m, idCce, pais));
+            f.AgregarLinea(null, "01010101", "Servicio ficticio", "E48", 1, 100, 0, "01", null, null, null);
+            f.RecalcularTotales();
+            f.MarcarTimbradoEnProceso();
+            f.MarcarTimbrado(Guid.NewGuid().ToString(), null, null, null, Ahora, null, null);
+            alta.FacturasVenta.Add(f);
+            await alta.SaveChangesAsync();
+            f.ReceptorNumRegIdTrib.Should().BeNull("la emisión de la factura de venta no llena ese campo");
+            (facturaId, total) = (f.Id, f.Total);
+        }
+
+        // Otro contexto, como al emitir el REP: el CCE solo llega si la consulta lo carga.
+        using var db = Contexto();
+        var servicio = new ReppPendienteServicio(db, new FakeClientesReadPort(new(Cliente, rfc, "Cliente extranjero ficticio",
+            "616", "97000", "S01", "03", "PPD", "USD", true, NumRegIdTrib: idCliente)), new FakeCatalogosSatReadPort(), new Banco(20m));
+        var p = new ReppPendiente(Empresa, Cliente, Guid.NewGuid(), Guid.NewGuid(), null, total, "USD", new(2026, 10, 28), null, []);
+
+        var accion = () => servicio.ValidarAsync(p, "03", [new(facturaId, total)], default);
+
+        if (error is null) await accion.Should().NotThrowAsync();
+        else (await accion.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be(error);
+    }
+
     [Fact]
     public async Task TC_historico_es_obligatorio_solo_para_moneda_extranjera()
     {

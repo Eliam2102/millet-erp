@@ -8,9 +8,10 @@ namespace Millet.Facturacion.Application.Cancelaciones.Queries;
 /// <summary>
 /// Bandeja del Contador General (F6.5): solicitudes de cancelación con su comprobante,
 /// por estado (por omisión, las pendientes de autorización), de la más antigua a la
-/// más reciente.
+/// más reciente. Con <paramref name="Todos"/> trae todas, sin importar el estado, de la
+/// más reciente a la más antigua (B3: la pestaña «Todos» de la bandeja).
 /// </summary>
-public sealed record BandejaCancelacionesQuery(EstadoSolicitudCancelacion? Estado) : IRequest<IReadOnlyList<CancelacionBandejaItem>>;
+public sealed record BandejaCancelacionesQuery(EstadoSolicitudCancelacion? Estado, bool Todos = false) : IRequest<IReadOnlyList<CancelacionBandejaItem>>;
 
 public sealed record CancelacionBandejaItem(
     Guid SolicitudId,
@@ -41,12 +42,17 @@ public sealed class BandejaCancelacionesHandler(FacturacionDbContext db)
     public async Task<IReadOnlyList<CancelacionBandejaItem>> Handle(BandejaCancelacionesQuery query, CancellationToken cancellationToken)
     {
         var estado = query.Estado ?? EstadoSolicitudCancelacion.PendienteAutorizacion;
-        var filas = await (
-            from s in db.SolicitudesCancelacion.AsNoTracking()
+        var solicitudes = db.SolicitudesCancelacion.AsNoTracking();
+        if (!query.Todos)
+            solicitudes = solicitudes.Where(s => s.Estado == estado);
+        var unidas =
+            from s in solicitudes
             join c in db.Comprobantes.AsNoTracking() on s.ComprobanteId equals c.Id
-            where s.Estado == estado
-            orderby s.SolicitadaEn
-            select new { s, c })
+            select new { s, c };
+        // «Todos» muestra primero lo más reciente: con el límite, las nuevas no se quedan fuera.
+        var filas = await (query.Todos
+                ? unidas.OrderByDescending(x => x.s.SolicitadaEn)
+                : unidas.OrderBy(x => x.s.SolicitadaEn))
             .Take(Limite)
             .ToListAsync(cancellationToken);
 

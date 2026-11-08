@@ -898,4 +898,55 @@ public sealed class FiscalApiTimbradoAdapterTests
         req.InvoiceTotal.Should().Be(232m);
         req.Last8DigitsIssuerSignature.Should().Be("ABCD1234");
     }
+
+    // ───────────────────────── B6: InformacionGlobal ─────────────────────────
+
+    private static CfdiEmision EmisionPublicoEnGeneral() => EmisionIngreso() with
+    {
+        Receptor = new ReceptorCfdi("XAXX010101000", "PUBLICO EN GENERAL", "616", "76120", "S01", "MEX", true),
+        Relaciones = [],
+    };
+
+    [Fact]
+    public void MapInvoice_publico_en_general_lleva_informacion_global_diaria_del_mes_de_emision()
+    {
+        var invoice = FiscalApiTimbradoAdapter.MapInvoice(EmisionPublicoEnGeneral());
+
+        invoice.GlobalInformation.Should().NotBeNull("CFDI40130: XAXX010101000 «PUBLICO EN GENERAL» es factura global");
+        invoice.GlobalInformation!.PeriodicityCode.Should().Be("01");
+        invoice.GlobalInformation.MonthCode.Should().Be("07");
+        invoice.GlobalInformation.Year.Should().Be(2026);
+    }
+
+    [Fact]
+    public void MapInvoice_egreso_a_publico_en_general_tambien_lleva_informacion_global()
+    {
+        var invoice = FiscalApiTimbradoAdapter.MapInvoice(EmisionPublicoEnGeneral() with { Tipo = TipoCfdi.Egreso });
+
+        invoice.GlobalInformation.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void MapInvoice_receptor_nominal_o_rfc_generico_con_otro_nombre_no_lleva_informacion_global()
+    {
+        FiscalApiTimbradoAdapter.MapInvoice(EmisionIngreso()).GlobalInformation.Should().BeNull();
+        FiscalApiTimbradoAdapter.MapInvoice(EmisionPublicoEnGeneral() with
+        {
+            Receptor = new ReceptorCfdi("XAXX010101000", "JUAN PEREZ", "616", "76120", "S01", "MEX", true),
+        }).GlobalInformation.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Timbrar_publico_en_general_envia_informacion_global_al_pac()
+    {
+        var invoices = new FakeInvoiceService
+        {
+            OnCreate = _ => new ApiResponse<SdkModels.Invoice> { Succeeded = false, HttpStatusCode = 400, Message = "rechazo de prueba" },
+        };
+
+        await Adapter(invoices, ConfigSandbox()).TimbrarAsync(EmisionPublicoEnGeneral(), CancellationToken.None);
+
+        invoices.UltimoCreado!.GlobalInformation.Should().NotBeNull();
+        invoices.UltimoCreado.GlobalInformation!.PeriodicityCode.Should().Be("01");
+    }
 }

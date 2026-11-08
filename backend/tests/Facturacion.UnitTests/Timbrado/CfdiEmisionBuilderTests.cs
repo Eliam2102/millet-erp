@@ -169,7 +169,7 @@ public sealed class CfdiEmisionBuilderTests
         f.MarcarPendientePedimento();
         f.AplicarPedimento("26  47  3807  6000123", new DateOnly(2026, 10, 15), null);
         var cce = ComplementoCce.Crear(f.Id, "2", "DDP", 18.35m, "123456789", "USA",
-            claveDePedimento: "A1", receptorDomicilioEstado: "TX", receptorDomicilioCodigoPostal: "75001");
+            claveDePedimento: "A1", receptorDomicilioCalle: "123 Main St", receptorDomicilioEstado: "TX", receptorDomicilioCodigoPostal: "75001");
         cce.AgregarLinea("7005299901", "01", 1m, 1000m, 1000m, aplicaIva0: true);
         f.AdjuntarCce(cce);
 

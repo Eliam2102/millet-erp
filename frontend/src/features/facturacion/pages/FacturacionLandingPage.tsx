@@ -14,6 +14,7 @@ import {
   Building2,
   ClipboardCheck,
   ClipboardList,
+  FileCheck2,
   FileText,
   HandCoins,
   ReceiptText,
@@ -275,6 +276,14 @@ const moduloFacturacionLanding: NavModulo = {
           to: '/facturacion/reportes/cierre-dia',
           icon: ClipboardCheck,
           permission: PermisosCanonicos.FacturacionReportesLeer,
+        },
+        {
+          label: 'Conciliación contra el SAT',
+          description:
+            'CFDI emitidos que reporta el SAT contra los timbrados en el ERP: faltantes, estatus, total, tipo y receptor.',
+          to: '/facturacion/reportes/conciliacion-sat',
+          icon: FileCheck2,
+          permission: PermisosCanonicos.FacturacionReportesLeerTodasSucursales,
         },
         {
           label: 'Estados de facturas de anticipo',

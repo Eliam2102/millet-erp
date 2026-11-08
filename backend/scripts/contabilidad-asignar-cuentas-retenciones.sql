@@ -30,17 +30,17 @@ INSERT INTO cuentas_retencion (rol, cuenta, sap, retencion) VALUES
     ('RETENCIONES_POR_PAGAR_HONORARIOS_PF_ISR',          '216.04.00.00', '211601040000-00-0', 'ISR servicios profesionales 10 %'),
     ('RETENCIONES_POR_PAGAR_HONORARIOS_PF_IVA',          '216.10.01.00', '211602020001-00-0', 'IVA honorarios 10.6667 %'),
     ('RETENCIONES_POR_PAGAR_ARRENDAMIENTO_PF_ISR',       '216.03.00.00', '211601030000-00-0', 'ISR arrendamiento 10 %'),
-    ('RETENCIONES_POR_PAGAR_ARRENDAMIENTO_PF_IVA',       NULL,           '211602030001-00-0', 'IVA arrendamientos 10.6667 %'),
+    ('RETENCIONES_POR_PAGAR_ARRENDAMIENTO_PF_IVA',       '216.02.03.00', '211602030001-00-0', 'IVA arrendamientos 10.6667 %'),
     ('RETENCIONES_POR_PAGAR_FLETES_IVA',                 '216.10.02.00', '211602010001-00-0', 'IVA fletes pagado 4 %'),
-    ('RETENCIONES_POR_PAGAR_SERVICIOS_IVA',              NULL,           '211602040001-00-0', 'IVA servicios pagado 6 %'),
-    ('RETENCIONES_POR_PAGAR_RESICO_PF_ISR',              NULL,           '211601050000-00-0', 'ISR RESICO 1.25 %'),
-    ('RETENCIONES_POR_PAGAR_RESICO_PF_SERVICIOS_ISR',    NULL,           '211601050000-00-0', 'ISR RESICO 1.25 %'),
-    ('RETENCIONES_POR_PAGAR_RESICO_PF_SERVICIOS_IVA',    NULL,           '211602020002-00-0', 'IVA RESICO 10.6667 %'),
+    ('RETENCIONES_POR_PAGAR_SERVICIOS_IVA',              '216.02.04.00', '211602040001-00-0', 'IVA servicios pagado 6 %'),
+    ('RETENCIONES_POR_PAGAR_RESICO_PF_ISR',              '216.01.05.00', '211601050000-00-0', 'ISR RESICO 1.25 %'),
+    ('RETENCIONES_POR_PAGAR_RESICO_PF_SERVICIOS_ISR',    '216.01.05.00', '211601050000-00-0', 'ISR RESICO 1.25 %'),
+    ('RETENCIONES_POR_PAGAR_RESICO_PF_SERVICIOS_IVA',    '216.02.02.02', '211602020002-00-0', 'IVA RESICO 10.6667 %'),
     -- Retenciones que nos hacen los clientes (se registran con la factura de venta)
     ('RETENCIONES_CLIENTES_FLETES_IVA',                  '113.01.02.01', '111308000001-00-0', 'IVA fletes cobrado 4 %'),
     ('RETENCIONES_CLIENTES_SERVICIOS_IVA',               '113.01.02.03', '111308000005-00-0', 'IVA servicios cobrado 6 %'),
     ('RETENCIONES_CLIENTES_DESPERDICIO_IVA',             '113.01.02.05', '111308000008-00-0', 'IVA desperdicio cobrado 16 %'),
-    ('RETENCIONES_CLIENTES_IMPORTACION_IVA',             NULL,           '111308000011-00-0', 'IVA importación 16 %');
+    ('RETENCIONES_CLIENTES_IMPORTACION_IVA',             '113.01.02.07', '111308000011-00-0', 'IVA importación 16 %');
 
 CREATE TEMP TABLE por_asignar ON COMMIT DROP AS
 SELECT r.id, r.empresa_id, r.codigo AS rol, r.cuenta_id AS anterior, c.id AS cuenta_nueva, cr.cuenta, cr.sap, cr.retencion

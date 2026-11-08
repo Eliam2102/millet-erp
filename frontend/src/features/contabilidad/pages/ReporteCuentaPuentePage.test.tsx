@@ -189,6 +189,34 @@ it('explica la cuenta faltante sin clave técnica ni reintento y enlaza Motor co
   expect(screen.queryByRole('button', { name: /Reintentar/ })).not.toBeInTheDocument();
 });
 
+it('explica la cuenta no encontrada sin clave técnica ni reintento y enlaza Motor contable', async () => {
+  servidor();
+  mswServer.use(
+    http.get(API, () =>
+      HttpResponse.json(
+        {
+          title: 'Error',
+          status: 422,
+          code: 'PUENTE_CUENTA_NO_ENCONTRADA',
+          detail: 'La cuenta asignada no existe en el catálogo contable.',
+        },
+        { status: 422 },
+      ),
+    ),
+  );
+  render(<ReporteCuentaPuentePage />, { wrapper: createQueryWrapper() });
+  const aviso = await screen.findByRole('note');
+  expect(aviso).toHaveClass('bg-warning-note-bg');
+  expect(aviso).toHaveTextContent(
+    'La cuenta puente recepción–factura no existe en el catálogo contable. Configúrala en los ajustes para consultar el reporte.',
+  );
+  expect(screen.getByRole('link', { name: 'Ir a Motor contable' })).toHaveAttribute(
+    'href',
+    '/contabilidad/motor',
+  );
+  expect(screen.queryByRole('button', { name: /Reintentar/ })).not.toBeInTheDocument();
+});
+
 it('conserva el reintento para otros errores', async () => {
   servidor();
   mswServer.use(

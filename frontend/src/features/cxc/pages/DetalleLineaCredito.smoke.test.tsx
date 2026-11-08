@@ -121,6 +121,17 @@ describe('<DetalleLineaCredito> — smoke', () => {
     expect(screen.queryByRole('button', { name: /Desbloquear/i })).not.toBeInTheDocument();
   });
 
+  it('B1: la línea desbloqueada a mano muestra la fecha y el motivo del desbloqueo', async () => {
+    mockHandlers(EstadoLineaCredito.Activa, null, {
+      desbloqueoManualEn: '2026-11-07T18:30:00Z',
+      motivoDesbloqueo: 'Pago comprometido por el director',
+    });
+    render(<DetalleLineaCredito />, { wrapper: createQueryWrapper() });
+
+    expect(await screen.findByText(/Desbloqueada manualmente el 07\/11\/2026/)).toBeInTheDocument();
+    expect(screen.getByText('Pago comprometido por el director')).toBeInTheDocument();
+  });
+
   it('línea Bloqueada: banner con motivo + botón Desbloquear', async () => {
     mockHandlers(EstadoLineaCredito.Bloqueada, 'Cartera vencida +90 días');
     render(<DetalleLineaCredito />, { wrapper: createQueryWrapper() });

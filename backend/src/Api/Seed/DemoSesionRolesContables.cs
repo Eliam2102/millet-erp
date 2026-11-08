@@ -62,12 +62,9 @@ public sealed partial class DemoSesionSeedHostedService
         if (titulo is null) return; // sin catálogo DEMO no hay dónde colgar las cuentas
 
         var roles = await db.RolesCuenta.Where(r => r.EmpresaId == EmpresaId && r.CuentaId == null && r.DeletedAt == null).ToListAsync(ct);
-        if (roles.Count == 0) return;
 
         foreach (var (codigo, nombre, naturaleza, control, codigosRol) in CuentasRolesDemo)
         {
-            var pendientes = roles.Where(r => codigosRol.Contains(r.Codigo)).ToList();
-            if (pendientes.Count == 0) continue;
             var cuentaId = await db.Cuentas.AsNoTracking().Where(c => c.EmpresaId == EmpresaId && c.Codigo == codigo)
                 .Select(c => (Guid?)c.Id).FirstOrDefaultAsync(ct);
             if (cuentaId is null)
@@ -79,6 +76,9 @@ public sealed partial class DemoSesionSeedHostedService
                 await db.SaveChangesAsync(ct);
                 cuentaId = cuenta.Id;
             }
+
+            var pendientes = roles.Where(r => codigosRol.Contains(r.Codigo)).ToList();
+            if (pendientes.Count == 0) continue;
             foreach (var rol in pendientes)
                 db.RolesCuentaCambios.Add(rol.CambiarCuenta(cuentaId.Value, "DEMO sembrador", Fecha, "C1.5: cuenta DEMO mientras Contabilidad mapea V12"));
         }
