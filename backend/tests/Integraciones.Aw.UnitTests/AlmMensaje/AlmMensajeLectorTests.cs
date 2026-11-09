@@ -109,6 +109,24 @@ public sealed class AlmMensajeLectorTests
     }
 
     [Fact]
+    public async Task Reenvio_es_renglon_nuevo_con_intento_mas_uno_y_conserva_su_lugar_en_la_referencia()
+    {
+        var b = Crear();
+        b.Proc.Rechazar.Add("M1");
+        Poner(b, "M1", "RQ-1"); Poner(b, "M2", "RQ-1");
+        await b.Lector.ProcesarAsync(default); // M1 ERROR (intento 1), M2 espera
+
+        b.Proc.Rechazar.Clear(); b.Proc.Hechos.Remove("M1");
+        b.Origen.Reprocesar("M1");
+        var pendientes = await b.Origen.LeerPendientesAsync(10, default);
+
+        // El renglón viejo en ERROR ya no frena; el reenvío (intento 2) va antes que M2 aunque su id sea mayor.
+        pendientes.Select(p => (p.MensajeId, p.Intento)).Should().Equal(("M1", 2), ("M2", 1));
+        await b.Lector.ProcesarAsync(default);
+        b.Proc.Aplicados.Should().Equal("M1", "M1", "M2"); // intento 1 (ERROR), intento 2 y recién después M2
+    }
+
+    [Fact]
     public async Task Falla_del_ERP_no_acusa_reintenta_y_tras_MaxIntentos_acusa_ERROR_sin_filtrar_el_detalle()
     {
         var b = Crear(maxIntentos: 3);

@@ -142,7 +142,7 @@ public partial class OrdenesCompraEndpointsTests
     }
 
     [Fact]
-    public async Task AlmCompra_al_autorizar_la_OC_de_la_app_sale_COMPRA_RECIBIDA_con_el_contrato_v6_y_el_simulado_la_procesa_una_vez()
+    public async Task AlmCompra_al_autorizar_la_OC_de_la_app_sale_COMPRA_RECIBIDA_con_el_contrato_v8_y_el_simulado_la_procesa_una_vez()
     {
         var client = await CreateSuperAdminClientAsync();
         var oc = await SembrarOcAppAutorizadaAsync(client);
@@ -153,7 +153,7 @@ public partial class OrdenesCompraEndpointsTests
         {
             var datos = doc.RootElement.GetProperty("datos");
             Assert.Equal(oc.FolioOc, datos.GetProperty("folio").GetString());
-            Assert.Equal("MXN", datos.GetProperty("moneda").GetString());
+            Assert.Equal("PESOSMX", datos.GetProperty("moneda").GetString()); // v8: código de moneda de A+W (pesos = PESOSMX)
             Assert.False(datos.TryGetProperty("tipoCambio", out _));
             var l = Assert.Single(datos.GetProperty("lineas").EnumerateArray());
             Assert.Equal((oc.FolioRq, 1, 3302, 6100, 13), (l.GetProperty("requisicion").GetString(), l.GetProperty("posicion").GetInt32(),
