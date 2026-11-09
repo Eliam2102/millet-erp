@@ -285,9 +285,9 @@ public sealed class EmitirFacturaVentaHandler
         // directa / emergencia (pedido manual clasificado) usa la serie
         // VentaDirecta de la sucursal (sin caer a la global); el resto, Cfdi.
         // Las reservas de NC (amortización, ranura) no cambian.
-        var tipoSerie = pedido?.EsVentaDirectaManual == true
-            ? TipoDocumentoSerie.VentaDirecta
-            : TipoDocumentoSerie.Cfdi;
+        // Prueba S3-4: la exportación con CCE usa la serie de exportación (FEXP)
+        // aunque la sucursal tenga su serie CFDI; sin ella, la reserva cae a Cfdi.
+        var tipoSerie = TipoSerieFactura(pedido?.EsVentaDirectaManual == true, command.ComportamientoFiscal);
         var reserva = await _sender.Send(
             new ReservarFolioCommand(
                 empresaId,
@@ -543,6 +543,12 @@ public sealed class EmitirFacturaVentaHandler
     /// B5: mensaje del rechazo de una factura con anticipos que no quedó timbrada. Lleva el
     /// código y el motivo del PAC para que se corrija el dato antes de volver a emitir.
     /// </summary>
+    /// <summary>Serie con la que se folia la factura de venta (F6.1 y prueba S3-4).</summary>
+    internal static TipoDocumentoSerie TipoSerieFactura(bool esVentaDirectaManual, ComportamientoFiscal comportamiento) =>
+        esVentaDirectaManual ? TipoDocumentoSerie.VentaDirecta
+        : comportamiento == ComportamientoFiscal.ExportacionConCce ? TipoDocumentoSerie.Exportacion
+        : TipoDocumentoSerie.Cfdi;
+
     internal static string MensajeNoTimbradaParaAmortizar(string? codigo, string? motivo)
     {
         const string Base = "No se pueden amortizar anticipos: la factura no quedó timbrada.";

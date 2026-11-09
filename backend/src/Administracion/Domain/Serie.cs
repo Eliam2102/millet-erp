@@ -43,7 +43,7 @@ public sealed class Serie : BaseEntity, IAuditable, IPerteneceAEmpresa
     public ReinicioPeriodo ReinicioPeriodo { get; private set; }
     public long FolioInicial { get; private set; } = 1;
     public static bool EsFiscal(TipoDocumentoSerie tipo) => tipo is TipoDocumentoSerie.Cfdi or TipoDocumentoSerie.NotaCredito
-        or TipoDocumentoSerie.FacturaAnticipo or TipoDocumentoSerie.VentaDirecta;
+        or TipoDocumentoSerie.FacturaAnticipo or TipoDocumentoSerie.VentaDirecta or TipoDocumentoSerie.Exportacion;
 
     /// <summary>
     /// Tipos que sólo existen por sucursal: la reserva de folio no cae a una

@@ -43,6 +43,7 @@ public class SerieTests
     [InlineData(TipoDocumentoSerie.Cfdi)]
     [InlineData(TipoDocumentoSerie.NotaCredito)]
     [InlineData(TipoDocumentoSerie.FacturaAnticipo)]
+    [InlineData(TipoDocumentoSerie.Exportacion)]
     public void Should_Reject_Period_Reset_On_Fiscal_Series(TipoDocumentoSerie tipo)
     {
         var act = () => Crear(tipo, ReinicioPeriodo.Anual);
