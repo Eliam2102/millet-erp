@@ -66,14 +66,15 @@ public class PtAvisosEntregaLocalTests(WebApplicationFactory<Program> factory)
         }
         Assert.Equal(EstadoLiberacion.Liberado, await LiberacionAsync(app, numero));
         Assert.Equal(1, await DecisionesAsync(app, numero));
-        Assert.Equal(1, await FilasAsync<ProductoTerminadoDbContext>(app, numero, EstadoCambiado, "Liberado"));
+        Assert.Equal(1, await FilasAsync<ProductoTerminadoDbContext>(app, numero, EstadoCambiado, "\"Liberado\""));
 
+        // (El payload trae la propiedad LiberadoPor: se busca el valor entre comillas.)
         // Misma fila entregada otra vez (Retenido a CxC y decisión a PT): sin decisión ni liberación nuevas.
         await ReentregarAsync<ProductoTerminadoDbContext>(app, sender, numero, "Retenido");
         await ReentregarAsync<CuentasPorCobrarDbContext>(app, sender, numero, "Liberado");
         Assert.Equal(1, await DecisionesAsync(app, numero));
         Assert.Equal(1, await FilasAsync<CuentasPorCobrarDbContext>(app, numero, DecisionEmitida, numero));
-        Assert.Equal(1, await FilasAsync<ProductoTerminadoDbContext>(app, numero, EstadoCambiado, "Liberado"));
+        Assert.Equal(1, await FilasAsync<ProductoTerminadoDbContext>(app, numero, EstadoCambiado, "\"Liberado\""));
     }
 
     private WebApplicationFactory<Program> HostConEntregaLocal() =>
