@@ -43,8 +43,13 @@ public sealed record FacturaVentaTimbradaIntegrationEvent(
     // TR-01: pedido A+W de la factura y su versión en el ERP al emitirla (null si el pedido
     // no viene de A+W). Con esto Integraciones.Aw deja la fila Documento en aw_retorno.
     string? NumeroPedidoAw = null,
-    long? VersionPedidoAw = null, Guid? ExpedienteCeId = null, int? VersionEmbarqueCe = null, string? UuidOriginal = null)
+    long? VersionPedidoAw = null, Guid? ExpedienteCeId = null, int? VersionEmbarqueCe = null, string? UuidOriginal = null,
+    // M-209 (aditivo): base e IVA trasladado por tratamiento (TASA16, TASA8, TASA0, EXENTO, NOOBJETO) de las líneas de la factura.
+    IReadOnlyList<ImpuestoTrasladoContablePayload>? Impuestos = null)
     : IntegrationEvent("facturacion.factura-venta.timbrada.v1", EmpresaId, OcurridoEn);
+
+/// <summary>M-209: base e IVA trasladado de un tratamiento de la factura de venta.</summary>
+public sealed record ImpuestoTrasladoContablePayload(string Tratamiento, decimal Base, decimal Iva);
 
 /// <summary>
 /// Retención del CFDI (U1.6, misma forma que <c>RetencionDetallePayload</c>
