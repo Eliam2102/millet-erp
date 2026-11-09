@@ -15,6 +15,7 @@ import {
 import { useAntiguedadSaldos } from '@/features/cxc/api/useCartera';
 import { ClienteSelectorCxc } from '@/features/cxc/components/ClienteSelectorCxc';
 import { adaptarReporteCxc } from '@/features/cxc/lib/reporte-cxc-adapter';
+import { conFormatoPdfAntiguedad } from '@/features/cxc/lib/antiguedad-pdf';
 import { MONEDAS_LINEA_CREDITO } from '@/features/cxc/api/types';
 import type { CarteraSearch } from '@/features/cxc/lib/cartera-search-schema';
 import { esApiError } from '@/lib/api';
@@ -25,8 +26,8 @@ const SENTINEL_ALL = '__all__';
 /**
  * <c>Antigüedad de saldos</c> (CXC-FE-PR5, ADR-0036). Reemplaza el
  * corte semanal de 45-90 min en Excel: cartera viva agrupada por
- * cliente + moneda (nunca convierte) con columna por_vencer + buckets
- * de días vencidos CONFIGURABLES — las columnas llegan dinámicas del
+ * cliente + moneda con columna por_vencer + buckets de días vencidos
+ * CONFIGURABLES, y el equivalente en MXN con el TC al corte (CXC-11) — las columnas llegan dinámicas del
  * backend vía <c>adaptarReporteCxc</c>, el FE no las hardcodea.
  */
 export function CarteraPage() {
@@ -101,7 +102,7 @@ export function CarteraPage() {
       </header>
 
       <ReporteCxc
-        reporte={adaptarReporteCxc(query.data)}
+        reporte={conFormatoPdfAntiguedad(adaptarReporteCxc(query.data))}
         isLoading={query.isLoading}
         error={esApiError(query.error) ? query.error : undefined}
         onRetry={() => query.refetch()}

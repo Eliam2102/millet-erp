@@ -61,6 +61,7 @@ import {
   type PeriodoContable,
 } from '../api/periodos';
 import { fechaCorta } from '../lib/dimensiones';
+import { ChecklistCierreSheet } from '../components/cierre/ChecklistCierreSheet';
 import { SELECT_CLASS } from '../lib/estilos';
 
 const ETIQUETA_ACCION: Record<AccionPeriodo, string> = {
@@ -115,6 +116,8 @@ export function PeriodosPage() {
     accion: 'cerrar' | 'reabrir';
   } | null>(null);
   const [bitacoraDe, setBitacoraDe] = useState<string | null>(null);
+  // CON-12: «Cerrar» abre primero el checklist; desde ahí se pasa al diálogo de motivo.
+  const [checklistDe, setChecklistDe] = useState<string | null>(null);
   const botonBitacora = useRef<HTMLButtonElement | null>(null);
 
   const lista = ejercicios.data ?? [];
@@ -125,6 +128,7 @@ export function PeriodosPage() {
   const pagina = usePaginacionLocal(filtrados, String(ejercicio?.anio) + estadoVista);
   const periodo12 = periodos.find((p) => p.numero === 12);
   const conBitacora = periodos.find((p) => p.id === bitacoraDe) ?? null;
+  const conChecklist = periodos.find((p) => p.id === checklistDe) ?? null;
   const hayAcciones = puedeAdministrar || puedeCerrar || puedeReabrir;
 
   function elegirAnio(anio: number) {
@@ -346,9 +350,20 @@ export function PeriodosPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => setTransicion({ periodo: p, accion: 'cerrar' })}
+                                onClick={() => setChecklistDe(p.id)}
                               >
                                 Cerrar
+                              </Button>
+                            )}
+                            {(!puedeCerrar || p.estado === 'Cerrado') && p.estado !== 'NoAbierto' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                aria-haspopup="dialog"
+                                aria-label={`Checklist de cierre de ${etiquetaPeriodo(p)}`}
+                                onClick={() => setChecklistDe(p.id)}
+                              >
+                                Checklist
                               </Button>
                             )}
                             {puedeReabrir && p.estado === 'Cerrado' && (
@@ -389,6 +404,16 @@ export function PeriodosPage() {
             )}
           </ListadoModulo>
 
+          {conChecklist && (
+            <ChecklistCierreSheet
+              periodo={conChecklist}
+              onClose={() => setChecklistDe(null)}
+              onCerrarPeriodo={(p) => {
+                setChecklistDe(null);
+                setTransicion({ periodo: p, accion: 'cerrar' });
+              }}
+            />
+          )}
           {conBitacora && (
             <BitacoraPanel
               periodo={conBitacora}

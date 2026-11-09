@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/api';
+import { apiRequest, ApiError, type ProblemDetails } from '@/lib/api';
 import { apiFetch } from '@/lib/auth/api-client';
 import type { DepositoPorIdentificarItem } from '@/features/cxc/api/types';
 import {
@@ -26,6 +26,7 @@ import type {
   DepositoConfirmacionResponse,
   DevolucionClienteResponse,
   MovimientoBancarioResponse,
+  TraspasoResponse,
   MovimientoDetalleResponse,
   PagedResponse,
   PagoACuentaAbiertoResponse,
@@ -514,7 +515,49 @@ export function useRegistrarMovimientoIngreso() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.movimientos() });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.pagosCuenta() });
     },
+  });
+}
+
+/** M-203: `POST /movimientos/traspasos` — par ligado entre dos cuentas propias. */
+export function useRegistrarTraspaso() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      command: {
+        cuentaOrigenId: string;
+        cuentaDestinoId: string;
+        monto: number;
+        fechaValor: string;
+        referencia: string;
+        motivo?: string;
+        sucursalId?: string;
+      };
+      idempotencyKey: string;
+    }) => {
+      const { data } = await apiRequest<TraspasoResponse>(`${BASE}/movimientos/traspasos`, {
+        method: 'POST',
+        body: args.command,
+        idempotencyKey: args.idempotencyKey,
+      });
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: tesoreriaKeys.all }),
+  });
+}
+
+/** M-203: revierte el traspaso completo desde cualquiera de sus dos movimientos. */
+export function useRevertirTraspaso() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { movimientoId: string; motivo: string; idempotencyKey: string }) => {
+      await apiRequest<MovimientoBancarioResponse[]>(
+        `${BASE}/movimientos/${args.movimientoId}/revertir-traspaso`,
+        { method: 'POST', body: { motivo: args.motivo }, idempotencyKey: args.idempotencyKey },
+      );
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: tesoreriaKeys.all }),
   });
 }
 
@@ -782,6 +825,18 @@ export function useReclasificarMovimiento() {
         method: 'POST', body: { conceptoId: args.conceptoId, motivo: args.motivo },
         headers: { 'X-Expected-Version': String(args.version) }, idempotencyKey: args.idempotencyKey,
       });
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: tesoreriaKeys.all }),
+  });
+}
+export function useResolverReclasificacion() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { movimientoId: string; rechazo?: { motivo: string }; idempotencyKey: string }) => {
+      await apiRequest<void>(
+        `${BASE}/movimientos/${args.movimientoId}/reclasificacion/${args.rechazo ? 'rechazar' : 'autorizar'}`,
+        { method: 'POST', body: args.rechazo, idempotencyKey: args.idempotencyKey },
+      );
     },
     onSuccess: () => client.invalidateQueries({ queryKey: tesoreriaKeys.all }),
   });
@@ -1278,6 +1333,7 @@ export function useEmparejarAutomatico() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.pagosCuenta() });
     },
   });
 }
@@ -1296,6 +1352,7 @@ export function useEmparejarManual() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.pagosCuenta() });
     },
   });
 }
@@ -1314,6 +1371,7 @@ export function useDesemparejarLinea() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.pagosCuenta() });
     },
   });
 }
@@ -1353,6 +1411,7 @@ export function useAltaAsistida() {
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.movimientos() });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.pagosCuenta() });
     },
   });
 }
@@ -1385,8 +1444,8 @@ export function useCerrarConciliacion() {
         body: JSON.stringify({ firmanteNombre, firmantePuesto }),
       });
       if (!resp.ok) {
-        const errorData = await resp.json().catch(() => ({}));
-        throw new Error(errorData.detail || errorData.title || 'Error al cerrar conciliación');
+        const errorData = (await resp.json().catch(() => ({}))) as ProblemDetails;
+        throw new ApiError(errorData, resp.status);
       }
       return await resp.blob();
     },

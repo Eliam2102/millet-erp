@@ -31,6 +31,8 @@ export interface ReporteParaExportar<TFila> {
   }[];
   filas: readonly TFila[];
   totales?: Record<string, number> | null;
+  /** Tamaño de letra de la tabla en el PDF (9 pt por omisión), para reportes con muchas columnas. */
+  letraPdf?: number | null;
 }
 
 const SEPARADOR = /[-_/.]/;
@@ -163,7 +165,7 @@ export function ReporteDocument<TFila>({
           )}
         </View>
 
-        <View style={styles.table}>
+        <View style={[styles.table, reporte.letraPdf ? { fontSize: reporte.letraPdf } : {}]}>
           <View style={styles.rowHeader}>
             {reporte.columnas.map((c) => (
               <Text

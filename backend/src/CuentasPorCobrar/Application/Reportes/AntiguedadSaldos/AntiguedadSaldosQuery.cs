@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Millet.CuentasPorCobrar.Application.Reportes.Comun;
 using Millet.CuentasPorCobrar.Domain.Cartera;
 using Millet.CuentasPorCobrar.Domain.LineaCredito;
+using Millet.CuentasPorCobrar.Domain.Ports.Catalogos;
 using Millet.CuentasPorCobrar.Domain.Ports.DatosMaestros;
 using Millet.CuentasPorCobrar.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
@@ -17,6 +18,12 @@ namespace Millet.CuentasPorCobrar.Application.Reportes.AntiguedadSaldos;
 /// default 15/30/60/90). "Saldo vencido = suma de los buckets" (§2.2).
 /// La clasificación A/B/C/E sale de la línea de crédito activa del
 /// (cliente, moneda) — atributo, no fórmula manual.
+///
+/// <para>V-CXC-11 (86e3jvv78): cada fila conserva su moneda y agrega su equivalente en
+/// pesos (<c>tipo_cambio</c>, <c>vencido_mxn</c>, <c>total_mxn</c>) con el TC del catálogo
+/// K10.6 a la fecha de corte. Sin TC de esa fecha el equivalente queda vacío (no se
+/// inventa). Con varias monedas en el resultado solo se suman los equivalentes en pesos:
+/// los totales por moneda quedan vacíos para no sumar dólares con pesos.</para>
 ///
 /// <para>Reemplaza el corte semanal de 45-90 min en Excel (BUSCARV +
 /// formato a mano) del AS-IS.</para>
@@ -40,14 +47,16 @@ public sealed class AntiguedadSaldosHandler : IRequestHandler<AntiguedadSaldosQu
     private readonly BucketsAntiguedadCxc _buckets;
     private readonly IClienteReadPort _clientes;
     private readonly IClock _clock;
+    private readonly ITipoCambioCarteraReadPort? _tiposCambio;
 
     public AntiguedadSaldosHandler(
         CuentasPorCobrarDbContext db,
         BucketsAntiguedadCxc buckets,
         IClienteReadPort clientes,
-        IClock clock)
+        IClock clock,
+        ITipoCambioCarteraReadPort? tiposCambio = null)
     {
-        _db = db; _buckets = buckets; _clientes = clientes; _clock = clock;
+        _db = db; _buckets = buckets; _clientes = clientes; _clock = clock; _tiposCambio = tiposCambio;
     }
 
     public async Task<ReporteJsonResponse> Handle(
@@ -115,6 +124,16 @@ public sealed class AntiguedadSaldosHandler : IRequestHandler<AntiguedadSaldosQu
             .OrderByDescending(x => x.Vencido)
             .ToList();
 
+        // V-CXC-11-b: TC del catálogo a la fecha de corte, una consulta por moneda.
+        var tcPorMoneda = new Dictionary<string, decimal?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var moneda in agrupado.Select(x => x.Moneda).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            tcPorMoneda[moneda] = string.Equals(moneda, "MXN", StringComparison.OrdinalIgnoreCase)
+                ? 1m
+                : _tiposCambio is null ? null : await _tiposCambio.ValorEnMxnAsync(moneda, fechaCorte, cancellationToken);
+        }
+        static decimal? EnMxn(decimal importe, decimal? tc) => tc is decimal t ? Math.Round(importe * t, 2) : null;
+
         var filas = agrupado
             .Select(g =>
             {
@@ -129,18 +148,28 @@ public sealed class AntiguedadSaldosHandler : IRequestHandler<AntiguedadSaldosQu
                 foreach (var k in keys) fila[k] = g.PorBucket[k];
                 fila["vencido"] = g.Vencido;
                 fila["total"] = g.PorVencer + g.Vencido;
+                var tc = tcPorMoneda[g.Moneda];
+                fila["tipo_cambio"] = tc;
+                fila["vencido_mxn"] = EnMxn(g.Vencido, tc);
+                fila["total_mxn"] = EnMxn(g.PorVencer + g.Vencido, tc);
                 fila["numero_facturas"] = g.NumeroFacturas;
                 return (IReadOnlyDictionary<string, object?>)fila;
             })
             .ToList();
 
+        // Los importes en moneda original solo se suman si el resultado es de una sola moneda.
+        var unaMoneda = tcPorMoneda.Count <= 1;
         var totales = new Dictionary<string, object?>
         {
-            [BucketsAntiguedadCxc.PorVencer] = agrupado.Sum(x => x.PorVencer),
+            [BucketsAntiguedadCxc.PorVencer] = unaMoneda ? agrupado.Sum(x => x.PorVencer) : null,
         };
-        foreach (var k in keys) totales[k] = agrupado.Sum(x => x.PorBucket[k]);
-        totales["vencido"] = agrupado.Sum(x => x.Vencido);
-        totales["total"] = agrupado.Sum(x => x.PorVencer + x.Vencido);
+        foreach (var k in keys) totales[k] = unaMoneda ? agrupado.Sum(x => x.PorBucket[k]) : null;
+        totales["vencido"] = unaMoneda ? agrupado.Sum(x => x.Vencido) : null;
+        totales["total"] = unaMoneda ? agrupado.Sum(x => x.PorVencer + x.Vencido) : null;
+        // El equivalente en pesos solo se suma si todas las monedas tienen TC (una suma parcial engaña).
+        var todasConTc = tcPorMoneda.Values.All(v => v is not null);
+        totales["vencido_mxn"] = todasConTc ? agrupado.Sum(x => EnMxn(x.Vencido, tcPorMoneda[x.Moneda])!.Value) : null;
+        totales["total_mxn"] = todasConTc ? agrupado.Sum(x => EnMxn(x.PorVencer + x.Vencido, tcPorMoneda[x.Moneda])!.Value) : null;
         totales["numero_facturas"] = agrupado.Sum(x => x.NumeroFacturas);
 
         var columnas = new List<ColumnaReporte>
@@ -155,6 +184,9 @@ public sealed class AntiguedadSaldosHandler : IRequestHandler<AntiguedadSaldosQu
             .Select(p => new ColumnaReporte(p.First, p.Second, TipoColumnaReporte.Moneda, AlineacionColumna.Derecha)));
         columnas.Add(new("vencido", "Vencido", TipoColumnaReporte.Moneda, AlineacionColumna.Derecha));
         columnas.Add(new("total", "Total", TipoColumnaReporte.Moneda, AlineacionColumna.Derecha));
+        columnas.Add(new("tipo_cambio", "TC al corte", TipoColumnaReporte.Numerico, AlineacionColumna.Derecha));
+        columnas.Add(new("vencido_mxn", "Vencido en MXN", TipoColumnaReporte.Moneda, AlineacionColumna.Derecha));
+        columnas.Add(new("total_mxn", "Total en MXN", TipoColumnaReporte.Moneda, AlineacionColumna.Derecha));
         columnas.Add(new("numero_facturas", "# Facturas", TipoColumnaReporte.Entero, AlineacionColumna.Derecha));
 
         var filtros = new List<FiltroAplicado> { new("Fecha de corte", fechaCorte.ToString("yyyy-MM-dd")) };
@@ -165,6 +197,12 @@ public sealed class AntiguedadSaldosHandler : IRequestHandler<AntiguedadSaldosQu
             filtros.Add(new("Cliente", cliente?.RazonSocial ?? cf.ToString()));
         }
         if (!string.IsNullOrWhiteSpace(query.Moneda)) filtros.Add(new("Moneda", query.Moneda));
+        foreach (var (moneda, tc) in tcPorMoneda.Where(p => !string.Equals(p.Key, "MXN", StringComparison.OrdinalIgnoreCase)))
+        {
+            filtros.Add(new($"TC {moneda} al corte", tc is decimal v
+                ? $"{v} MXN (catálogo)"
+                : "sin TC en el catálogo para esa fecha; el equivalente en MXN queda vacío"));
+        }
 
         return new ReporteJsonResponse(
             Titulo: "Antigüedad de saldos de cartera",

@@ -403,4 +403,24 @@ public sealed class CancelacionDosPasosTests
 
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "ANTICIPO_DEVUELTO_NCS_VIGENTES");
     }
+
+    [Fact]
+    public async Task Bandeja_todos_trae_las_solicitudes_en_cualquier_estado_B3()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var (pendiente, _) = await SembrarFacturaConPedidoAsync(db, empresaId);
+        await SolicitarAsync(db, empresaId, pendiente.Id);
+        var (decidida, _) = await SembrarFacturaConPedidoAsync(db, empresaId);
+        await SolicitarAsync(db, empresaId, decidida.Id);
+        await Autorizador(db).Handle(new AutorizarCancelacionCommand(decidida.Id), CancellationToken.None);
+
+        var handler = new BandejaCancelacionesHandler(db);
+        var soloPendientes = await handler.Handle(new BandejaCancelacionesQuery(null), CancellationToken.None);
+        var todas = await handler.Handle(new BandejaCancelacionesQuery(null, Todos: true), CancellationToken.None);
+
+        soloPendientes.Select(f => f.ComprobanteId).Should().Equal(pendiente.Id);
+        todas.Select(f => f.ComprobanteId).Should().BeEquivalentTo([pendiente.Id, decidida.Id]);
+        todas.Single(f => f.ComprobanteId == decidida.Id).EstadoSolicitud.Should().NotBe("PendienteAutorizacion");
+    }
 }

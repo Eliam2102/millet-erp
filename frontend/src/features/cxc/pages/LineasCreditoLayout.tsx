@@ -28,6 +28,7 @@ export function LineasCreditoLayout({ idActivo, detalle }: LineasCreditoLayoutPr
     estado: search.estado,
     moneda: search.moneda,
     clienteId: search.clienteId,
+    q: search.q,
     limit: search.limit ?? 200,
   });
 
@@ -42,12 +43,8 @@ export function LineasCreditoLayout({ idActivo, detalle }: LineasCreditoLayoutPr
     return m;
   }, [lookup.data]);
 
-  const items = useMemo(() => {
-    const todos = query.data?.items ?? [];
-    const q = (search.q ?? '').trim().toLowerCase();
-    if (!q) return todos;
-    return todos.filter((l) => (nombres.get(l.clienteId) ?? l.clienteId).toLowerCase().includes(q));
-  }, [query.data, search.q, nombres]);
+  // M1: el texto (razón social, RFC o clave) ya lo filtra el servidor.
+  const items = query.data?.items ?? [];
 
   return (
     <div className="flex flex-col gap-5 min-h-0 md:flex-row">

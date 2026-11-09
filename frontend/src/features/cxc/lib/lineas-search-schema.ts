@@ -4,8 +4,7 @@ import { EstadoLineaCredito, MONEDAS_LINEA_CREDITO } from '@/features/cxc/api/ty
 /**
  * Search params de la bandeja de líneas de crédito
  * (<c>/cxc/lineas-credito</c>). Filtros server-side: estado, moneda,
- * clienteId; <c>q</c> se aplica client-side (razón social / RFC / clave
- * del lookup). La ruta aplica
+ * clienteId y <c>q</c> (razón social / RFC / clave del cliente, M1). La ruta aplica
  * <c>validateSearch: LineasSearchSchema.parse</c>.
  */
 export const LineasSearchSchema = z.object({

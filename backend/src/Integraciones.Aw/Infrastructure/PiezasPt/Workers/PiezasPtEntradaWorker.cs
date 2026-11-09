@@ -71,7 +71,9 @@ public sealed class PiezasPtEntradaWorker(IServiceScopeFactory scopes, IOptions<
         var mediator = sp.GetRequiredService<IMediator>();
         await mediator.Send(new ReintentarPospuestosCommand(empresa, o.PospuestoHoras, o.MaxIntentos, o.BatchSize), ct);
         var marca = await mediator.Send(new ObtenerMarcaAguaEscaneosQuery(empresa, origen), ct);
-        var desde = (marca ?? new DateTime(2000, 1, 1)).AddMinutes(-o.TraslapeMinutos);
+        var baseInicio = o.Desde ?? new DateTime(2000, 1, 1);
+        var inicio = (marca.HasValue && marca.Value > baseInicio) ? marca.Value : baseInicio;
+        var desde = inicio.AddMinutes(-o.TraslapeMinutos);
 
         var enviados = 0; (DateTime Tiempo, string Etiqueta)? cursor = null;
         var fabrica = sp.GetRequiredService<IServiceScopeFactory>();

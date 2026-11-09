@@ -286,6 +286,26 @@ public class DimensionesTests
             .Should().ContainSingle(e => e.Campo == "dim3Id" && e.Mensaje.Contains("Equipo"));
     }
 
+    [Fact]
+    public void Documentos_automaticos_a_cuentas_600_se_exentan_de_dim3_cuando_no_hay_equipo_fisico()
+    {
+        // 86e3z5w25: exención de Dim3 en cuentas 600 para pólizas automáticas sin máquina física
+        var rubroGastos = Guid.NewGuid();
+        var cadena = Cadena.Append((rubroGastos, "600.00.00.00")).ToArray();
+        var reglas = new[]
+        {
+            R(rubroGastos, DimensionContable.Dim1, RequerimientoDimension.Obligatorio),
+            R(rubroGastos, DimensionContable.Dim2, RequerimientoDimension.Obligatorio),
+            R(rubroGastos, DimensionContable.Dim3, RequerimientoDimension.Obligatorio),
+        };
+        var d1 = Guid.NewGuid(); var d2 = Guid.NewGuid();
+        var automaticaConArea = Mov(d2: d2) with { Origen = OrigenMovimiento.Automatica };
+
+        var rs = ValidadorDimensiones.Resolver(cadena, reglas, TipoFactura, Dia, Opc());
+        ValidadorDimensiones.EvaluarRequerimientos(rs, automaticaConArea, new(d1, d2, null), "la cuenta 601.75 en «Factura»")
+            .Should().BeEmpty("en pólizas automáticas a cuentas 600 la Dim3 está exenta si no hay máquina física");
+    }
+
     // ── Opciones ─────────────────────────────────────────────────────────────
 
     [Fact]

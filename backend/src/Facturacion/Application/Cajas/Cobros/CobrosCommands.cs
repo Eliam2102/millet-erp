@@ -229,6 +229,10 @@ internal static class CobroMostradorRegistrador
         // reducen lo que se cobra, nunca se reembolsan); para el REPP (tipo P,
         // Total = 0) el importe vive en la cabecera del complemento.
         decimal totalEsperado;
+        // B11: el evento contable lleva la moneda de lo cobrado. En el REPP es la del
+        // pago (MXN en caja), no la XXX del CFDI tipo P, que Contabilidad no puede convertir.
+        var monedaCobro = comprobante.Moneda;
+        var tipoCambioCobro = comprobante.TipoCambio;
         if (comprobante.Tipo == TipoComprobante.Pago)
         {
             var pago = await db.RecibosPago.AsNoTracking()
@@ -242,6 +246,8 @@ internal static class CobroMostradorRegistrador
                     "COBRO_MONEDA_INVALIDA",
                     $"La caja solo cobra MXN: el complemento '{comprobante.Folio}' es un pago en {pago.MonedaPago} y entra por la ruta bancaria.");
             totalEsperado = pago.ImporteTotalPago;
+            monedaCobro = pago.MonedaPago.ToUpperInvariant();
+            tipoCambioCobro = null;
         }
         else
         {
@@ -292,8 +298,8 @@ internal static class CobroMostradorRegistrador
             cobro.FormasPago.Select(f => new CobroFormaPagoAplicada(f.FormaPago, f.Importe, f.FolioTransferencia)).ToList(),
             SucursalId: comprobante.SucursalId,
             ClienteId: clienteId,
-            Moneda: comprobante.Moneda,
-            TipoCambio: comprobante.TipoCambio,
+            Moneda: monedaCobro,
+            TipoCambio: tipoCambioCobro,
             IvaCobrado: EventosContablesFacturacion.IvaCobrado(comprobante, cobro.Total)),
             cancellationToken);
 

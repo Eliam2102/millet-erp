@@ -3,6 +3,7 @@ using Millet.Facturacion.Domain.Anticipos;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Domain.Facturas;
 using Millet.Facturacion.Domain.NotasCredito;
+using Millet.Facturacion.Domain.Repp;
 using Millet.Facturacion.Infrastructure.Persistence;
 
 namespace Millet.Facturacion.Application.Integration;
@@ -33,6 +34,20 @@ internal static class ClienteContableFacturacion
             return await (from f in db.FacturasVenta.AsNoTracking()
                           join p in db.PedidosFacturables.AsNoTracking() on f.PedidoFacturableId equals (Guid?)p.Id
                           where f.Id == nc.FacturaRelacionadaId
+                          select (Guid?)p.ClienteId).FirstOrDefaultAsync(ct);
+        }
+
+        // B11: el REPP no tiene pedido propio; su cliente es el de las facturas que paga (todas del mismo
+        // receptor). Sin él, Contabilidad esperaba una póliza del REPP que nunca nace.
+        if (comprobante is ReciboPago repp)
+        {
+            var facturas = repp.FacturasPagadas.Count > 0
+                ? repp.FacturasPagadas.Select(f => f.FacturaVentaId).ToList()
+                : await db.RecibosPago.AsNoTracking().Where(r => r.Id == repp.Id)
+                    .SelectMany(r => r.FacturasPagadas.Select(f => f.FacturaVentaId)).ToListAsync(ct);
+            return await (from f in db.FacturasVenta.AsNoTracking()
+                          join p in db.PedidosFacturables.AsNoTracking() on f.PedidoFacturableId equals (Guid?)p.Id
+                          where facturas.Contains(f.Id)
                           select (Guid?)p.ClienteId).FirstOrDefaultAsync(ct);
         }
 

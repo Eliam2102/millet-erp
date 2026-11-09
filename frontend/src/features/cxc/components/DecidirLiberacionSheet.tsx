@@ -336,7 +336,7 @@ function FormDecidir({ onClose }: { onClose: () => void }) {
         {clienteId && montoPedido > 0 && ofreceOverride && (
           <section className="space-y-1">
             <Label htmlFor="overrideId" className="text-xs">
-              Excepción autorizada vigente
+              Usar una excepción autorizada (opcional)
             </Label>
             {serieExigeAutorizacion && (
               <p className="text-xs text-ink-muted">

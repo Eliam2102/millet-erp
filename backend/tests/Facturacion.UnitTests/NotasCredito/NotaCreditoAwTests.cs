@@ -290,15 +290,27 @@ public sealed class NotaCreditoAwTests
     // ---- Criterio 4: autorizada → se timbra; evento con folio y pedido para la fila de retorno ----
 
     private static async Task<(AutorizarNotaCreditoHandler H, FacturacionDbContext Db, FakeIntegrationEventPublisher Eventos, Guid NcId)> NotaPorAutorizarAsync(
-        decimal? saldo = null, bool periodoAbierto = true)
+        decimal? saldo = null, bool periodoAbierto = true, DateTimeOffset? ahora = null)
     {
         var (h, db, _, empresa, _) = await EscenarioAsync();
         var r = await h.Handle(new ProcesarNotaCreditoAwCommand(empresa, Sol()), CancellationToken.None);
         var eventos = new FakeIntegrationEventPublisher();
         var autorizar = new AutorizarNotaCreditoHandler(db, new FakePeriodoContablePort(periodoAbierto), new FakeSaldo(saldo),
-            new FakeFiscalApiClient(), new FakeCfdiRepositorioPort(), eventos, new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora),
+            new FakeFiscalApiClient(), new FakeCfdiRepositorioPort(), eventos, new FakeUserContext(Guid.NewGuid()), new FakeClock(ahora ?? Ahora),
             new FakeCurrentUserPermissions());
         return (autorizar, db, eventos, r.NotaCreditoId!.Value);
+    }
+
+    [Fact]
+    public async Task M11_autorizada_la_noche_del_ultimo_dia_queda_en_el_periodo_de_Mexico_no_en_el_de_UTC()
+    {
+        // 30-nov 23:30 en México = 1-dic 05:30 UTC.
+        var (autorizar, db, _, ncId) = await NotaPorAutorizarAsync(ahora: new DateTimeOffset(2026, 12, 1, 5, 30, 0, TimeSpan.Zero));
+
+        await autorizar.Handle(new AutorizarNotaCreditoCommand(ncId), CancellationToken.None);
+
+        var nc = await db.NotasCredito.SingleAsync();
+        (nc.PeriodoAnio, nc.PeriodoMes).Should().Be((2026, 11));
     }
 
     [Fact]

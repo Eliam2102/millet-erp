@@ -18,6 +18,9 @@ public sealed record EmitirHojaSalidaCommand(Guid Id) : IRequest<HojaSalidaDto>;
 /// <summary>Solo desde Borrador: las piezas vuelven a EnPT.</summary>
 public sealed record CancelarHojaSalidaCommand(Guid Id) : IRequest<HojaSalidaDto>;
 
+/// <summary>Cancela un albarán emitido o en borrador de la hoja de salida, reversa sus piezas a EnPT y ajusta el estatus del pedido si no tiene otros albaranes vigentes.</summary>
+public sealed record CancelarAlbaranSalidaCommand(Guid HojaId, Guid AlbaranId, string Motivo) : IRequest<HojaSalidaDto>;
+
 public sealed record ListarHojasSalidaQuery(string? Estado, Guid? SucursalId, int Page, int PageSize) : IRequest<HojasSalidaPagina>;
 
 public sealed record ObtenerHojaSalidaQuery(Guid Id) : IRequest<HojaSalidaDto>;
@@ -27,7 +30,8 @@ public sealed record AlbaranLineaDto(int Posicion, string? Descripcion, int Piez
 /// <summary>PT5.4: <c>Esperadas</c> son las piezas del pedido; <c>Disponibles</c> (solo en carga) las que se pueden cargar; <c>Rotas</c> las pendientes de reposición.</summary>
 public sealed record AlbaranDto(Guid Id, string Folio, int Secuencia, string NumeroPedido, string Cliente, string? Destino, DateTimeOffset? EmitidoAt, int Total, IReadOnlyList<AlbaranLineaDto> Lineas, IReadOnlyList<string> Etiquetas,
     int Esperadas = 0, IReadOnlyList<string>? Disponibles = null, IReadOnlyList<string>? Rotas = null,
-    Entregas.EntregaDto? Entrega = null, string? EstadoPedido = null);
+    Entregas.EntregaDto? Entrega = null, string? EstadoPedido = null,
+    bool Cancelado = false, DateTimeOffset? CanceladoAt = null, string? MotivoCancelacion = null);
 
 /// <summary><c>Albaranes</c> solo viene en el detalle. <c>YaEmitida</c>: la emisión se pidió de nuevo y no cambió nada. <c>EntregasPendientes</c> (PT5.6): albaranes con piezas sin confirmar.</summary>
 public sealed record HojaSalidaDto(

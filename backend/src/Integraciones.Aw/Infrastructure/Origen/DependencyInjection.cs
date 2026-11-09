@@ -18,6 +18,10 @@ using Millet.Integraciones.Aw.Infrastructure.OrigenPg;
 using Millet.Integraciones.Aw.Infrastructure.Pedidos;
 using Millet.Integraciones.Aw.Infrastructure.Pinturas;
 using Millet.Integraciones.Aw.Application.Pinturas;
+using Millet.Integraciones.Aw.Application.Pinturas.Catalogos;
+using Millet.Integraciones.Aw.Application.TipoCambio;
+using Millet.Integraciones.Aw.Infrastructure.TipoCambio;
+using Millet.SharedKernel.Application;
 
 namespace Millet.Integraciones.Aw.Infrastructure.Origen;
 
@@ -53,6 +57,7 @@ public static class OrigenDependencyInjection
         }
         ConservarReal<IAwNotasCreditoPort>(services);
         ConservarReal<IAwRetornoPort>(services);
+        ConservarReal<IAwTipoCambioPort>(services);
         services.AddScoped<AwRetornoDocumentoService>();
         ConservarReal<IAwClientesReader>(services);
         ConservarReal<IAwArticulosReader>(services);
@@ -83,6 +88,9 @@ public static class OrigenDependencyInjection
         services.AddKeyedScoped<IAwRetornoPort>("Demo",(sp, _) => new AwRetornoAdapter(
             sp.GetRequiredKeyedService<IIntegracionSqlConnectionFactory>("Demo"), sp.GetRequiredService<IOptions<AwPedidosOptions>>(),
             AwRetornoAdapter.CandadoPostgres));
+        services.AddKeyedScoped<IAwTipoCambioPort>("Demo", (sp, _) => new AwTipoCambioAdapter(
+            sp.GetRequiredKeyedService<IIntegracionSqlConnectionFactory>("Demo"), sp.GetRequiredService<IOptions<AwPedidosOptions>>(),
+            AwTipoCambioAdapter.CandadoPostgres));
         services.AddKeyedScoped<IAwClientesReader>("Demo", (sp, _) => new AwClientesPgReader(
             sp.GetRequiredKeyedService<IIntegracionSqlConnectionFactory>("Demo"), sp.GetRequiredService<IOptions<AwPedidosOptions>>(),
             sp.GetRequiredService<ILogger<AwClientesPgReader>>()));
@@ -95,6 +103,11 @@ public static class OrigenDependencyInjection
             sp.GetRequiredKeyedService<IIntegracionSqlConnectionFactory>("Demo"), postgres: true,
             sp.GetRequiredService<IPinturasSucursalResolver>(), sp.GetRequiredService<IOptions<PinturasPedidosOptions>>(),
             sp.GetRequiredService<ILogger<PinturasPedidosAdapter>>()));
+        services.AddKeyedScoped<IPinturasCatalogosPublisher>("Demo", (sp, _) => new PinturasCatalogosAdapter(
+            sp.GetRequiredKeyedService<IIntegracionSqlConnectionFactory>("Demo"), postgres: true,
+            sp.GetRequiredService<IOptions<PinturasCatalogosOptions>>(), sp.GetRequiredService<IClock>(),
+            sp.GetRequiredService<ILogger<PinturasCatalogosAdapter>>()));
+        services.AddKeyedScoped<IPinturasCatalogosExtractor>("Demo", (sp, _) => ActivatorUtilities.CreateInstance<PinturasCatalogosExtractor>(sp));
         return services;
     }
 

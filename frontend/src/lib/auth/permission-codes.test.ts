@@ -273,6 +273,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'tesoreria.movimientos.ver',
   'tesoreria.movimientos.registrar',
   'tesoreria.movimientos.ver-cuenta-completa',
+  'tesoreria.movimientos.autorizar-reclasificacion',
   'tesoreria.pagos.aplicar',
   'tesoreria.pagos.revertir',
   'tesoreria.pagos-cuenta.registrar',
@@ -352,6 +353,10 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'contabilidad.periodo.administrar',
   'contabilidad.periodo.cerrar',
   'contabilidad.periodo.reabrir',
+  // CON-12 · checklist de cierre y cierre anual
+  'contabilidad.cierre.configurar',
+  'contabilidad.cierre.autorizar-excepcion',
+  'contabilidad.cierre.anual',
   // Pólizas (F1-CON-04)
   'contabilidad.polizas.leer',
   'contabilidad.polizas.capturar',

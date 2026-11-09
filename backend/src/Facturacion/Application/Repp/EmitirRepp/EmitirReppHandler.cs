@@ -123,7 +123,7 @@ public sealed class EmitirReppHandler : IRequestHandler<EmitirReppCommand, Emiti
         await _receptorFiscal.ValidarComprobanteAsync(receptorFactura, cancellationToken, esRep: true);
 
         var reserva = await _sender.Send(
-            new ReservarFolioCommand(empresaId, command.SucursalId, TipoDocumentoSerie.Cfdi, DateOnly.FromDateTime(ahora.UtcDateTime)),
+            new ReservarFolioCommand(empresaId, command.SucursalId, TipoDocumentoSerie.Cfdi, Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.DiaFiscal(ahora)),
             cancellationToken);
 
         // CAJAS-PR4 (§6): CajaId ya no viene del comando — lo asigna

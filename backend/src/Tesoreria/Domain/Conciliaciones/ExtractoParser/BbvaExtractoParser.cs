@@ -63,16 +63,50 @@ public sealed class BbvaExtractoParser : IExtractoParser
             }
         }
 
-        // Si no se encontró fila de encabezado explícita, usar mapeo por defecto estándar BBVA
-        // [0: Fecha, 1: Descripcion, 2: Referencia, 3: Cargo, 4: Abono, 5: Saldo]
+        // Si no se encontró fila de encabezado explícita, detectar estructura posicional
+        // Si tiene 10 columnas posicionales estándar BBVA Net Cash México:
+        // [0: Fecha Oper, 1: Fecha Liq, 2: Codigo, 3: Concepto, 4: Referencia, 5: Cargo, 6: Abono, 7: Saldo, 8: Sucursal, 9: Moneda]
+        // Si no, usar esquema genérico de 6 columnas [0: Fecha, 1: Descripcion, 2: Referencia, 3: Cargo, 4: Abono, 5: Saldo]
         if (indiceEncabezado == -1)
         {
-            colFecha = 0;
-            colDesc = 1;
-            colRef = 2;
-            colCargo = 3;
-            colAbono = 4;
-            colSaldo = 5;
+            bool es10Columnas = false;
+            for (int i = 0; i < Math.Min(5, lineasRaw.Count); i++)
+            {
+                var partes = SplitCsv(lineasRaw[i], delimitador);
+                if (partes.Length >= 10 && TryParseDate(partes[0], out _))
+                {
+                    if (TryParseDate(partes[1], out _))
+                    {
+                        colFecha = 0;
+                        colDesc = 3;
+                        colRef = 4;
+                        colCargo = 5;
+                        colAbono = 6;
+                        colSaldo = 7;
+                    }
+                    else
+                    {
+                        colFecha = 0;
+                        colDesc = 1;
+                        colRef = 2;
+                        colCargo = 3;
+                        colAbono = 4;
+                        colSaldo = 5;
+                    }
+                    es10Columnas = true;
+                    break;
+                }
+            }
+
+            if (!es10Columnas)
+            {
+                colFecha = 0;
+                colDesc = 1;
+                colRef = 2;
+                colCargo = 3;
+                colAbono = 4;
+                colSaldo = 5;
+            }
             indiceEncabezado = -1;
         }
 
@@ -196,6 +230,24 @@ public sealed class BbvaExtractoParser : IExtractoParser
         if (limpio.StartsWith('(') && limpio.EndsWith(')'))
         {
             limpio = string.Concat("-", limpio.AsSpan(1, limpio.Length - 2));
+        }
+
+        bool negativo = limpio.StartsWith('-');
+        if (negativo || limpio.StartsWith('+'))
+        {
+            limpio = limpio[1..].Trim();
+        }
+
+        // Limpiar ceros a la izquierda en la parte entera (ej. 0000031093.60 -> 31093.60, 0000000000 -> 0)
+        limpio = limpio.TrimStart('0');
+        if (string.IsNullOrEmpty(limpio) || limpio.StartsWith('.'))
+        {
+            limpio = "0" + limpio;
+        }
+
+        if (negativo)
+        {
+            limpio = "-" + limpio;
         }
 
         if (decimal.TryParse(limpio, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal val))

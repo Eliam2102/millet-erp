@@ -144,8 +144,8 @@ public sealed class CceTests
 
     // ---- Handler ----
 
-    private static EmitirFacturaVentaHandler Handler(FacturacionDbContext db, Guid empresaId) =>
-        new(db, new FakeSender(new ReservarFolioResponse("EXP-000001", 1, "")),
+    private static EmitirFacturaVentaHandler Handler(FacturacionDbContext db, Guid empresaId, MediatR.ISender? sender = null) =>
+        new(db, sender ?? new FakeSender(new ReservarFolioResponse("EXP-000001", 1, "")),
             new FakePeriodoContablePort(), new FakeCatalogosSatReadPort(), new FakeFiscalApiClient(),
             new FakeCfdiRepositorioPort(),
             new FakeEmpresaFiscalReadPort(new EmpresaFiscalLectura(empresaId, "MIL010101AAA", "Millet", "601", 0.16m, "76120")),
@@ -203,7 +203,8 @@ public sealed class CceTests
 
         await act.Should().ThrowAsync<BusinessRuleException>()
             .Where(e => e.Code == "CCE_DOMICILIO_RECEPTOR_INCOMPLETO");
-        (await db.FacturasVenta.AnyAsync()).Should().BeFalse(); // nada persistido
+        // Ninguna factura vigente: si el folio ya se había reservado, queda Descartada (B2).
+        (await db.FacturasVenta.AnyAsync(f => f.Estado != EstadoTimbrado.Descartada)).Should().BeFalse();
     }
 
     [Fact]
@@ -216,5 +217,56 @@ public sealed class CceTests
         var error = await act.Should().ThrowAsync<Millet.Facturacion.Application.Timbrado.ReceptorFiscalInvalidoException>();
         error.Which.Campos.Select(c => c.Campo).Should().Contain(["numRegIdTrib", "paisResidencia"]);
         (await db.FacturasVenta.AnyAsync()).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Emitir_exportacion_sin_calle_del_receptor_se_rechaza_antes_de_reservar_folio_B5()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var sender = new FakeSenderCuentaFolios();
+        var cce = new EmitirFacturaVentaCce("2", "FOB", 20.5m, "TAX-USA-1", "USA",
+            [new EmitirFacturaVentaCceLinea("84713001", "01", 1500m, 2.5m, 3750m, true)],
+            ClaveDePedimento: "A1", ReceptorDomicilioEstado: "TX", ReceptorDomicilioCodigoPostal: "75001");
+
+        var act = () => Handler(db, empresaId, sender).Handle(CommandExportacion(cce), CancellationToken.None);
+
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "CCE_DOMICILIO_RECEPTOR_INCOMPLETO");
+        sender.FoliosReservados.Should().Be(0, "un dato corregible no debe consumir folio");
+        (await db.FacturasVenta.AnyAsync()).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Emitir_exportacion_sin_clave_de_pedimento_se_rechaza_antes_de_reservar_folio_B5()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var sender = new FakeSenderCuentaFolios();
+        var cce = new EmitirFacturaVentaCce("2", "FOB", 20.5m, "TAX-USA-1", "USA",
+            [new EmitirFacturaVentaCceLinea("84713001", "01", 1500m, 2.5m, 3750m, true)],
+            ReceptorDomicilioCalle: "123 Main St", ReceptorDomicilioEstado: "TX", ReceptorDomicilioCodigoPostal: "75001");
+
+        var act = () => Handler(db, empresaId, sender).Handle(CommandExportacion(cce), CancellationToken.None);
+
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "CCE_CLAVE_PEDIMENTO_REQUERIDA");
+        sender.FoliosReservados.Should().Be(0);
+    }
+
+    private sealed class FakeSenderCuentaFolios : MediatR.ISender
+    {
+        public int FoliosReservados { get; private set; }
+        public Task<TResponse> Send<TResponse>(MediatR.IRequest<TResponse> request, CancellationToken ct = default)
+        {
+            if (request is ReservarFolioCommand)
+            {
+                FoliosReservados++;
+                return Task.FromResult((TResponse)(object)new ReservarFolioResponse("EXP-000001", 1, ""));
+            }
+            throw new NotImplementedException();
+        }
+        public Task Send<TRequest>(TRequest request, CancellationToken ct = default) where TRequest : MediatR.IRequest => throw new NotImplementedException();
+        public Task<object?> Send(object request, CancellationToken ct = default) => throw new NotImplementedException();
+        public IAsyncEnumerable<TResponse> CreateStream<TResponse>(MediatR.IStreamRequest<TResponse> request, CancellationToken ct = default) => throw new NotImplementedException();
+        public IAsyncEnumerable<object?> CreateStream(object request, CancellationToken ct = default) => throw new NotImplementedException();
     }
 }

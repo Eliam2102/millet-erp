@@ -94,19 +94,21 @@ public sealed class AplicarAnticipoAFacturaHandler(
                 $"El importe ({command.Importe:N2}) excede el saldo pendiente de la factura ({saldoFactura:N2}).");
 
         var ahora = clock.UtcNow;
-        if (!await periodo.EstaAbiertoAsync(ahora.Year, ahora.Month, cancellationToken))
+        // M11: período en la fecha fiscal de México, no en UTC.
+        var fechaFiscal = Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.FechaFiscal(ahora);
+        if (!await periodo.EstaAbiertoAsync(fechaFiscal.Year, fechaFiscal.Month, cancellationToken))
             throw new BusinessRuleException("PERIODO_CERRADO",
-                $"El período contable {ahora.Year}-{ahora.Month:D2} está cerrado; no se puede emitir.");
+                $"El período contable {fechaFiscal.Year}-{fechaFiscal.Month:D2} está cerrado; no se puede emitir.");
 
         var reserva = await sender.Send(new ReservarFolioCommand(factura.EmpresaId, factura.SucursalId,
-            TipoDocumentoSerie.NotaCredito, DateOnly.FromDateTime(ahora.UtcDateTime)), cancellationToken);
+            TipoDocumentoSerie.NotaCredito, Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.DiaFiscal(ahora)), cancellationToken);
         // 86e3zg0vb: como las NC de aplicación de Millet — uso G02, forma 30, la tasa del anticipo y el TC del día de la NC.
         var receptor = NotaCredito.ReceptorAplicacion(new DatosFiscalesReceptor(factura.ReceptorRfc, factura.ReceptorNombre,
             factura.ReceptorRegimenFiscal, factura.ReceptorCodigoPostal, factura.ReceptorUsoCfdi, factura.ReceptorPais, factura.ReceptorEsGenerico));
         var tipoCambio = await TipoCambioFactura.DelDiaAsync(catalogos, factura.Moneda, ahora, cancellationToken);
         var nc = NotaCredito.CrearAmortizacion(factura.EmpresaId, reserva.Folio, reserva.Numero, factura.SucursalId,
             factura.CajaId, user.UserId, receptor, factura.SnapshotEmisor(), NotaCredito.FormaPagoAplicacionAnticipo, factura.Moneda,
-            tipoCambio, ahora.Year, ahora.Month, factura.CanalVentaId, anticipo.Id, factura.Id,
+            tipoCambio, fechaFiscal.Year, fechaFiscal.Month, factura.CanalVentaId, anticipo.Id, factura.Id,
             command.Importe, facturaAnticipo.TasaIvaParaAplicacion());
         if (factura.ComplementoCce is null && factura.ComportamientoFiscal == ComportamientoFiscal.ExportacionConCce)
             await db.Entry(factura).Reference(f => f.ComplementoCce).LoadAsync(cancellationToken);
