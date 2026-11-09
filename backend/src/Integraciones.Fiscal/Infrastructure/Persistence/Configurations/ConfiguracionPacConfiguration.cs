@@ -47,8 +47,6 @@ public sealed class ConfiguracionPacConfiguration : IEntityTypeConfiguration<Con
         builder.Property(c => c.UltimaRotacionAt);
         builder.Property(c => c.UltimaTestConexionAt);
         builder.Property(c => c.UltimaTestConexionExitosa);
-        builder.Property(c => c.UltimaTestConexionMensaje)
-            .HasMaxLength(ConfiguracionPac.UltimaTestConexionMensajeMaxLength);
 
         // CSD del emisor cifrado (ADR-0037, mismo esquema que ApiKey). Las
         // tres piezas + hash son NULL hasta que el admin las capture; la

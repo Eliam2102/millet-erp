@@ -20,7 +20,6 @@ public sealed record ConfiguracionPacResponse(
     DateTimeOffset? UltimaRotacionAt,
     DateTimeOffset? UltimaTestConexionAt,
     bool? UltimaTestConexionExitosa,
-    string? UltimaTestConexionMensaje,
     IdentidadSandboxDto? EmisorSandbox,
     IdentidadSandboxDto? ReceptorSandbox,
     bool CsdConfigurado,

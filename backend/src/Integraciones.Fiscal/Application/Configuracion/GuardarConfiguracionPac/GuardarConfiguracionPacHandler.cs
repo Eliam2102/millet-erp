@@ -197,8 +197,10 @@ public sealed class GuardarConfiguracionPacHandler
                 throw new BusinessRuleException("CONFIG_PAC_CONEXION_RECHAZADA",
                     $"Pruebe la conexión antes de activar: {mensaje}");
             }
-            // M-232: la prueba usada para activar queda registrada (fecha, resultado y mensaje).
-            config.RegistrarTestConexion(true, prueba.ConsultadoEn == default ? ahora : prueba.ConsultadoEn, mensaje);
+            // M-232: la prueba usada para activar queda registrada (fecha, resultado y mensaje), aparte de la configuración.
+            _db.PruebasConexionPac.Add(new PruebaConexionPac(config.EmpresaId, config.Proveedor, config.Id,
+                OrigenPruebaConexionPac.Guardado, true, prueba.StatusCode, mensaje,
+                prueba.ConsultadoEn == default ? ahora : prueba.ConsultadoEn, _user?.UserName));
             probada = true;
         }
 
@@ -249,7 +251,6 @@ public sealed class GuardarConfiguracionPacHandler
             UltimaRotacionAt: c.UltimaRotacionAt,
             UltimaTestConexionAt: c.UltimaTestConexionAt,
             UltimaTestConexionExitosa: c.UltimaTestConexionExitosa,
-            UltimaTestConexionMensaje: c.UltimaTestConexionMensaje,
             EmisorSandbox: MapIdentidadDto(c.EmisorSandbox),
             ReceptorSandbox: MapIdentidadDto(c.ReceptorSandbox),
             CsdConfigurado: c.CsdConfigurado,

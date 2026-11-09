@@ -24,6 +24,7 @@ import {
 import {
   useGuardarConfiguracionPac,
   useTestConexionPac,
+  useUltimaPruebaConexionPac,
 } from '@/features/integraciones-fiscal/api/useIntegracionesFiscal';
 import {
   GuardarConfiguracionPacSchema,
@@ -80,6 +81,8 @@ export function ConfiguracionPacForm({ empresaId, existing }: ConfiguracionPacFo
   const canAdministrar = useHasPermission(PermisosCanonicos.IntegracionesFiscalAdministrar);
   const guardar = useGuardarConfiguracionPac();
   const test = useTestConexionPac();
+  // M-232: la última prueba se consulta aparte (probar no cambia la configuración).
+  const ultimaPrueba = useUltimaPruebaConexionPac(empresaId, ProveedorPac.FiscalApi, existing != null);
   const keyFor = useBodyScopedIdempotencyKey();
 
   const defaultValues: GuardarConfiguracionPacValues = existing
@@ -362,13 +365,18 @@ export function ConfiguracionPacForm({ empresaId, existing }: ConfiguracionPacFo
                 {test.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
                 Probar conexión
               </Button>
-              {existing?.ultimaTestConexionAt && (
+              {ultimaPrueba.data ? (
+                <span className="text-xs text-muted-foreground">
+                  Última prueba: {new Date(ultimaPrueba.data.realizadaEn).toLocaleString()}{' '}
+                  ({ultimaPrueba.data.exitosa ? 'OK' : 'falló'})
+                  {ultimaPrueba.data.mensaje ? ` · ${ultimaPrueba.data.mensaje}` : ''}
+                </span>
+              ) : existing?.ultimaTestConexionAt ? (
                 <span className="text-xs text-muted-foreground">
                   Última prueba: {new Date(existing.ultimaTestConexionAt).toLocaleString()}{' '}
                   ({existing.ultimaTestConexionExitosa ? 'OK' : 'falló'})
-                  {existing.ultimaTestConexionMensaje ? ` · ${existing.ultimaTestConexionMensaje}` : ''}
                 </span>
-              )}
+              ) : null}
             </div>
             <p className="text-xs text-muted-foreground">
               {faltanCredenciales

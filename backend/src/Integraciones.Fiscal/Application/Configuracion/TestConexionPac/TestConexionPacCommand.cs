@@ -7,11 +7,12 @@ namespace Millet.Integraciones.Fiscal.Application.Configuracion.TestConexionPac;
 /// <summary>
 /// Test de conexión al PAC. Usa el SDK NuGet oficial vía
 /// <see cref="IFiscalApiSdkClient.PingAsync"/> que pega un GET barato
-/// autenticado a <c>/api/v4/download-catalogs</c>. No cambia credenciales,
-/// URL ni estado activo. M-232: cuando lo probado ES la configuración
-/// persistida (sin candidato, o candidato con la misma URL y ApiKey) guarda
-/// fecha, resultado y mensaje de la prueba y, si el timbrador la rechaza,
-/// abre una incidencia común (se cierra con la siguiente prueba exitosa).
+/// autenticado a <c>/api/v4/download-catalogs</c>. Nunca cambia la
+/// configuración persistida. M-232: cuando lo probado ES la configuración
+/// guardada (sin candidato, o candidato con la misma URL y ApiKey) registra la
+/// prueba en <see cref="PruebaConexionPac"/> (aparte de la configuración) y, si
+/// el timbrador la rechaza, abre una incidencia común (se cierra con la
+/// siguiente prueba exitosa).
 ///
 /// <para>Con BaseUrl o ApiKey prueba el candidato en memoria. Los valores
 /// vacíos conservan los secretos vigentes. Sin candidato prueba lo persistido.
@@ -80,8 +81,11 @@ public sealed class TestConexionPacHandler
         var mensaje = MensajePara(result);
         if (esLaPersistida && actual is not null)
         {
-            // M-232: un candidato distinto no es la configuración; solo se guarda la prueba de lo persistido.
-            actual.RegistrarTestConexion(result.Exitosa, result.ConsultadoEn, mensaje);
+            // M-232: un candidato distinto no es la configuración; solo se registra la prueba de lo persistido,
+            // en su propia tabla: la configuración (y su versión) no cambia.
+            _db.PruebasConexionPac.Add(new PruebaConexionPac(actual.EmpresaId, actual.Proveedor, actual.Id,
+                OrigenPruebaConexionPac.Prueba, result.Exitosa, result.StatusCode, mensaje,
+                result.ConsultadoEn == default ? DateTimeOffset.UtcNow : result.ConsultadoEn, _user?.UserName));
             await _db.SaveChangesAsync(cancellationToken);
             if (result.Exitosa)
                 await IncidenciasConexionPac.ResolverAsync(_incidencias, _logger, actual.Id, cancellationToken);

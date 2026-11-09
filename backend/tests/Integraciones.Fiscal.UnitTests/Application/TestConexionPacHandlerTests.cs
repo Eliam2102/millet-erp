@@ -81,7 +81,7 @@ public sealed class TestConexionPacHandlerTests
     }
 
     [Fact]
-    public async Task M232_ping_de_la_config_persistida_guarda_fecha_resultado_y_mensaje()
+    public async Task M232_ping_de_la_config_persistida_no_la_muta_y_registra_la_prueba_aparte()
     {
         var db = InMemoryFiscalDb.Create();
         var cipher = InMemoryFiscalDb.Cipher();
@@ -105,17 +105,19 @@ public sealed class TestConexionPacHandlerTests
                 BaseUrl: null, ApiKey: null, TimeoutSegundos: null),
             CancellationToken.None);
 
+        // La configuración no cambia (ni su versión ni sus datos de la última prueba).
         var refreshed = db.ConfiguracionesPac.Single();
-        refreshed.UltimaTestConexionAt.Should().Be(Ahora);
-        refreshed.UltimaTestConexionExitosa.Should().BeTrue();
-        refreshed.UltimaTestConexionMensaje.Should().Be("Conexión exitosa con FiscalAPI.");
-        // Credenciales, URL y estado activo no cambian.
-        (refreshed.BaseUrl, refreshed.Activo).Should().Be(("https://live.fiscalapi.com", true));
-        refreshed.Version.Should().BeGreaterThanOrEqualTo(version);
+        (refreshed.BaseUrl, refreshed.Activo, refreshed.Version).Should().Be(("https://live.fiscalapi.com", true, version));
+        refreshed.UltimaTestConexionAt.Should().BeNull();
+        // La prueba queda en su propia tabla.
+        var prueba = db.PruebasConexionPac.Single();
+        (prueba.ConfiguracionPacId, prueba.Exitosa, prueba.RealizadaEn, prueba.Origen)
+            .Should().Be((config.Id, true, Ahora, OrigenPruebaConexionPac.Prueba));
+        prueba.Mensaje.Should().Be("Conexión exitosa con FiscalAPI.");
     }
 
     [Fact]
-    public async Task M232_ping_fallido_de_la_config_persistida_queda_registrado_como_falla()
+    public async Task M232_ping_fallido_de_la_config_persistida_queda_registrado_aparte_como_falla()
     {
         var db = InMemoryFiscalDb.Create();
         var cipher = InMemoryFiscalDb.Cipher();
@@ -140,9 +142,9 @@ public sealed class TestConexionPacHandlerTests
         response.StatusCode.Should().Be(401);
         response.Mensaje.Should().Be("FiscalAPI rechazó la conexión (HTTP 401). Revisa la configuración.");
         var guardada = db.ConfiguracionesPac.Single();
-        guardada.UltimaTestConexionExitosa.Should().BeFalse();
-        guardada.UltimaTestConexionMensaje.Should().Be(response.Mensaje);
-        guardada.Activo.Should().BeTrue();
+        (guardada.Activo, guardada.UltimaTestConexionExitosa).Should().Be((true, (bool?)null));
+        var prueba = db.PruebasConexionPac.Single();
+        (prueba.Exitosa, prueba.StatusCode, prueba.Mensaje).Should().Be((false, 401, response.Mensaje));
     }
 
     [Theory]

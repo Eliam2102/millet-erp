@@ -44,8 +44,6 @@ export interface ConfiguracionPacResponse {
   ultimaRotacionAt: string | null;
   ultimaTestConexionAt: string | null;
   ultimaTestConexionExitosa: boolean | null;
-  /** M-232: mensaje de la última prueba de la configuración guardada. */
-  ultimaTestConexionMensaje?: string | null;
   emisorSandbox: IdentidadSandbox | null;
   receptorSandbox: IdentidadSandbox | null;
   /** Las tres piezas del CSD (cer + key + password) están capturadas. */
@@ -166,4 +164,15 @@ export interface CertificadoCsdItem {
   motivoRevocacion: string | null;
   /** Umbrales (30, 15, 5, 0 días) cuyo aviso ya salió. */
   alertasEnviadas: number[];
+}
+
+/** M-232: última prueba de conexión con el timbrador (GET …/pruebas/ultima; 204 si no hay). */
+export interface UltimaPruebaConexionPac {
+  realizadaEn: string;
+  exitosa: boolean;
+  statusCode: number;
+  mensaje: string;
+  /** «Prueba» (botón Probar conexión) o «Guardado» (la prueba obligatoria al guardar activa). */
+  origen: string;
+  realizadaPor: string | null;
 }

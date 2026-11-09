@@ -132,6 +132,25 @@ public static class IntegracionesFiscalEndpoints
 
         // === F6.9: certificados CSD (historial, revocación, estado y evidencia) ===
 
+        // M-232: última prueba de conexión registrada (va aparte de la configuración; 204 si no hay).
+        config.MapGet("/{empresaId:guid}/{proveedor:int}/pruebas/ultima", async (
+            Guid empresaId,
+            int proveedor,
+            ICurrentEmpresaContext currentEmpresa,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            EnsureCurrentEmpresa(currentEmpresa, empresaId);
+            var r = await mediator.Send(new Millet.Integraciones.Fiscal.Application.Configuracion.UltimaPruebaConexion.UltimaPruebaConexionPacQuery(
+                empresaId, (ProveedorPac)proveedor), ct);
+            return r is null ? Results.NoContent() : Results.Ok(r);
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.IntegracionesFiscalLeer)
+        .WithName("UltimaPruebaConexionPac")
+        .WithSummary("Última prueba de conexión con el timbrador (fecha, resultado y mensaje)")
+        .Produces<Millet.Integraciones.Fiscal.Application.Configuracion.UltimaPruebaConexion.UltimaPruebaConexionPacResponse>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status204NoContent);
+
         config.MapGet("/{empresaId:guid}/{proveedor:int}/certificados", async (
             Guid empresaId,
             int proveedor,

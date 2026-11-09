@@ -284,14 +284,20 @@ describe('<ConfiguracionPacForm> — identidades de prueba', () => {
 });
 
 describe('<ConfiguracionPacForm> — M-232 activar solo con prueba exitosa', () => {
-  const inactiva = { ...existing, activo: false, ultimaTestConexionAt: '2026-11-09T15:00:00Z', ultimaTestConexionExitosa: false, ultimaTestConexionMensaje: 'FiscalAPI rechazó la conexión (HTTP 401). Revisa la configuración.' };
+  const inactiva = { ...existing, activo: false };
 
-  it('sin prueba no deja activar y muestra la última prueba con su mensaje', () => {
+  it('sin prueba no deja activar y muestra la última prueba registrada con su mensaje', async () => {
+    mswServer.use(
+      http.get('*/api/v1/integraciones/fiscal/configuracion/:empresaId/:proveedor/pruebas/ultima', () =>
+        HttpResponse.json({ realizadaEn: '2026-11-09T15:00:00Z', exitosa: false, statusCode: 401, origen: 'Prueba', realizadaPor: 'Admin',
+          mensaje: 'FiscalAPI rechazó la conexión (HTTP 401). Revisa la configuración.' }),
+      ),
+    );
     render(<ConfiguracionPacForm empresaId="e-1" existing={inactiva} />, { wrapper: createQueryWrapper() });
 
     expect(screen.getByRole('checkbox', { name: /configuración activa/i })).toBeDisabled();
     expect(screen.getByText('Pruebe la conexión antes de activar.')).toBeInTheDocument();
-    expect(screen.getByText(/rechazó la conexión \(HTTP 401\)/)).toBeInTheDocument();
+    expect(await screen.findByText(/rechazó la conexión \(HTTP 401\)/)).toBeInTheDocument();
   });
 
   it('con una prueba exitosa de lo capturado se puede activar; cambiar la URL lo vuelve a bloquear', async () => {

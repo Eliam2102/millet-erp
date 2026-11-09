@@ -15,6 +15,9 @@ export const integracionesFiscalKeys = {
   csdEstado: () => [...integracionesFiscalKeys.all, 'csd-estado'] as const,
   certificados: (empresaId: string, proveedor: ProveedorPac) =>
     [...integracionesFiscalKeys.configuracionByEmpresa(empresaId, proveedor), 'certificados'] as const,
+  /** M-232: última prueba de conexión (va aparte de la configuración). */
+  ultimaPrueba: (empresaId: string, proveedor: ProveedorPac) =>
+    ['integraciones-fiscal', 'ultima-prueba', empresaId, proveedor] as const,
 
   rfcsReceptores: () => [...integracionesFiscalKeys.all, 'rfcs-receptores'] as const,
   rfcsReceptoresByEmpresa: (empresaId: string) =>

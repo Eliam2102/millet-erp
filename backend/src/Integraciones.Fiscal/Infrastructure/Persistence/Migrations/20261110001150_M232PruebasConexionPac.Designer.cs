@@ -13,8 +13,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Millet.Integraciones.Fiscal.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(IntegracionesFiscalDbContext))]
-    [Migration("20261109182736_M232UltimaPruebaConexionMensaje")]
-    partial class M232UltimaPruebaConexionMensaje
+    [Migration("20261110001150_M232PruebasConexionPac")]
+    partial class M232PruebasConexionPac
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -367,11 +367,6 @@ namespace Millet.Integraciones.Fiscal.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("ultima_test_conexion_exitosa");
 
-                    b.Property<string>("UltimaTestConexionMensaje")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("ultima_test_conexion_mensaje");
-
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -475,6 +470,85 @@ namespace Millet.Integraciones.Fiscal.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("uq_download_rules_combo");
 
                     b.ToTable("download_rules_externas", "integraciones_fiscal");
+                });
+
+            modelBuilder.Entity("Millet.Integraciones.Fiscal.Domain.PruebaConexionPac", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ConfiguracionPacId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("configuracion_pac_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<bool>("Exitosa")
+                        .HasColumnType("boolean")
+                        .HasColumnName("exitosa");
+
+                    b.Property<string>("Mensaje")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("mensaje");
+
+                    b.Property<short>("Origen")
+                        .HasColumnType("smallint")
+                        .HasColumnName("origen");
+
+                    b.Property<short>("Proveedor")
+                        .HasColumnType("smallint")
+                        .HasColumnName("proveedor");
+
+                    b.Property<DateTimeOffset>("RealizadaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("realizada_en");
+
+                    b.Property<string>("RealizadaPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("realizada_por");
+
+                    b.Property<int>("StatusCode")
+                        .HasColumnType("integer")
+                        .HasColumnName("status_code");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_pruebas_conexion_pac");
+
+                    b.HasIndex("EmpresaId", "Proveedor", "RealizadaEn")
+                        .HasDatabaseName("ix_pruebas_conexion_pac_empresa_proveedor_fecha");
+
+                    b.ToTable("pruebas_conexion_pac", "integraciones_fiscal");
                 });
 
             modelBuilder.Entity("Millet.Integraciones.Fiscal.Domain.RfcReceptor", b =>

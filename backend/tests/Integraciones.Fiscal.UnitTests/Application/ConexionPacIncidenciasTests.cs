@@ -89,9 +89,9 @@ public sealed class ConexionPacIncidenciasTests
         var r = await guardar.Handle(Activar(), default);
 
         r.Activo.Should().BeTrue();
-        r.UltimaTestConexionAt.Should().Be(probe.Resultado.ConsultadoEn);
-        r.UltimaTestConexionExitosa.Should().BeTrue();
-        r.UltimaTestConexionMensaje.Should().Be("Conexión exitosa con FiscalAPI.");
+        var prueba = db.PruebasConexionPac.Single();
+        (prueba.RealizadaEn, prueba.Exitosa, prueba.Origen).Should().Be((probe.Resultado.ConsultadoEn, true, OrigenPruebaConexionPac.Guardado));
+        prueba.Mensaje.Should().Be("Conexión exitosa con FiscalAPI.");
         incidencias.Resueltas.Should().ContainSingle().Which.Should().Be((PasosIncidencia.FisPacConexionRechazada, db.ConfiguracionesPac.Single().Id));
     }
 
@@ -132,7 +132,8 @@ public sealed class ConexionPacIncidenciasTests
         r.Exitosa.Should().BeFalse();
         r.Mensaje.Should().NotContain("Invalid API key"); // el texto crudo solo va a la incidencia
         var config = db.ConfiguracionesPac.Single();
-        (config.Activo, config.UltimaTestConexionExitosa).Should().Be((true, false));
+        config.Activo.Should().BeTrue();
+        db.PruebasConexionPac.Where(p => p.Origen == OrigenPruebaConexionPac.Prueba).Should().ContainSingle().Which.Exitosa.Should().BeFalse();
         incidencias.Abiertas.Should().ContainSingle().Which.Detalle.Should().Contain("Invalid API key");
     }
 
@@ -141,14 +142,14 @@ public sealed class ConexionPacIncidenciasTests
     {
         var (guardar, db, cipher, probe, _) = Build();
         await guardar.Handle(Activar(), default);
-        var antes = db.ConfiguracionesPac.Single().UltimaTestConexionAt;
+        var antes = db.PruebasConexionPac.Count();
         var incidencias = new Incidencias();
         probe.Resultado = new(false, 401, "Invalid API key", 5, Ahora.AddMinutes(1));
         var test = new TestConexionPacHandler(new SdkPing(probe.Resultado), db, cipher, probe, incidencias, new Usuario());
 
         await test.Handle(new TestConexionPacCommand(EmpresaId, ProveedorPac.FiscalApi, "https://test.fiscalapi.com", "sk_test_otra", 5), default);
 
-        db.ConfiguracionesPac.Single().UltimaTestConexionAt.Should().Be(antes);
+        db.PruebasConexionPac.Count().Should().Be(antes);
         incidencias.Abiertas.Should().BeEmpty();
     }
 

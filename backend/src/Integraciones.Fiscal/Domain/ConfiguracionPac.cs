@@ -49,11 +49,6 @@ public sealed class ConfiguracionPac : BaseEntity, IPerteneceAEmpresa, IAuditabl
     public DateTimeOffset? UltimaTestConexionAt { get; private set; }
     public bool? UltimaTestConexionExitosa { get; private set; }
 
-    /// <summary>M-232: mensaje (normalizado) de la última prueba de conexión.</summary>
-    public string? UltimaTestConexionMensaje { get; private set; }
-
-    public const int UltimaTestConexionMensajeMaxLength = 500;
-
     /// <summary>
     /// Identidad de pruebas que sustituye al EMISOR real en el payload hacia
     /// el PAC. Invariante: solo puede existir cuando <see cref="EsSandbox"/>
@@ -262,18 +257,10 @@ public sealed class ConfiguracionPac : BaseEntity, IPerteneceAEmpresa, IAuditabl
     /// <summary>Desactiva sin borrar — los workers la omiten en próximos ticks.</summary>
     public void Desactivar() => Activo = false;
 
-    /// <summary>
-    /// M-232: guarda fecha, resultado y mensaje de la última prueba de conexión de ESTA configuración
-    /// (la persistida o la que se guarda). Solo informativo: activar sigue exigiendo la prueba del
-    /// candidato exacto al guardar (P01).
-    /// </summary>
-    public void RegistrarTestConexion(bool exitosa, DateTimeOffset ahora, string? mensaje = null)
+    public void RegistrarTestConexion(bool exitosa, DateTimeOffset ahora)
     {
         UltimaTestConexionAt = ahora;
         UltimaTestConexionExitosa = exitosa;
-        var texto = string.IsNullOrWhiteSpace(mensaje) ? null : mensaje.Trim();
-        UltimaTestConexionMensaje = texto is { Length: > UltimaTestConexionMensajeMaxLength }
-            ? texto[..UltimaTestConexionMensajeMaxLength] : texto;
     }
 
     public static void ValidarBaseUrl(string baseUrl)
