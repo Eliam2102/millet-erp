@@ -138,12 +138,15 @@ export function SalidasPedido({
 
 function Totales({ datos, moneda }: { datos: PedidoSalidasResponse; moneda: string }) {
   return (
+    // Prueba manual S3-4 (M6): estos importes van sin IVA (suma de partidas); la cabecera
+    // del pedido muestra el total con IVA, así que se rotulan para no confundirlos.
     <ResumenImportes
       moneda={moneda}
       total={datos.totalPedido}
+      etiquetaTotal="Subtotal del pedido (sin IVA)"
       estadoPago={[
-        { etiqueta: 'Facturado en parcialidades', monto: datos.totalFacturado },
-        { etiqueta: 'Por facturar', monto: Math.max(0, datos.totalPedido - datos.totalFacturado), destacado: true },
+        { etiqueta: 'Facturado en parcialidades (sin IVA)', monto: datos.totalFacturado },
+        { etiqueta: 'Por facturar (sin IVA)', monto: Math.max(0, datos.totalPedido - datos.totalFacturado), destacado: true },
       ]}
     />
   );
@@ -210,7 +213,7 @@ function TablaSalidas({
             <TableHead className="px-3 py-2 text-left">Salida</TableHead>
             <TableHead className="px-3 py-2 text-left">Origen</TableHead>
             <TableHead className="px-3 py-2 text-left">Registrada</TableHead>
-            <TableHead className="px-3 py-2 text-right">Importe</TableHead>
+            <TableHead className="px-3 py-2 text-right">Importe sin IVA</TableHead>
             <TableHead className="px-3 py-2 text-left">Factura</TableHead>
             <TableHead className="px-3 py-2 text-left">Estado</TableHead>
             <TableHead className="px-3 py-2 text-right">
