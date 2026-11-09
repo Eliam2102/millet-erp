@@ -84,7 +84,7 @@ public class AperturaSaldosInicialesIntegrationTests(WebApplicationFactory<Progr
             ];
             var ok = await Enviar(enEmpresa, new ValidarBalanzaAperturaQuery(corte, buena, sucursal, tipo));
             Assert.True(ok.PuedeAplicar, string.Join("; ", ok.Errores.Select(e => $"{e.Fila} {e.Codigo} {e.Mensaje}")));
-            Assert.Equal((2, 3), (ok.Cuentas, ok.Auxiliares));
+            Assert.Equal((3, 3), (ok.Cuentas, ok.Auxiliares)); // bancos, clientes y capital; tres clientes
 
             var lote = Guid.NewGuid();
             var huella = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Guid.NewGuid().ToByteArray()));
