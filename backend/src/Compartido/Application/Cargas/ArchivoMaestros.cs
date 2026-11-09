@@ -19,6 +19,30 @@ public static class ArchivoMaestros
     public static string Normalizar(string texto) => string.Concat(texto.Normalize(NormalizationForm.FormD)
         .Where(c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark && char.IsLetterOrDigit(c))).ToLowerInvariant();
     public static TablaMaestros Leer(byte[] contenido, string nombre, IReadOnlyList<ColumnaCarga> columnas)
+        => Leer(contenido, nombre, columnas, null);
+
+    /// <summary>
+    /// M-167: encabezados del archivo, para que la pantalla los mapee a las columnas del tipo de carga.
+    /// </summary>
+    public static IReadOnlyList<string> Encabezados(byte[] contenido, string nombre)
+    {
+        var filas = LeerCrudo(contenido, nombre);
+        return [.. filas[0].Valores.Select(v => v.Trim())];
+    }
+
+    /// <summary>
+    /// Lee el archivo y arma las filas por columna. Con <paramref name="mapeo"/> (encabezado del archivo → columna
+    /// del tipo, M-167) se usan los encabezados que eligió el usuario; los no mapeados se ignoran. Sin mapeo, las
+    /// columnas se reconocen por nombre o alias, como en la carga de maestros.
+    /// </summary>
+    public static TablaMaestros Leer(byte[] contenido, string nombre, IReadOnlyList<ColumnaCarga> columnas,
+        IReadOnlyDictionary<string, string>? mapeo)
+    {
+        var filas = LeerCrudo(contenido, nombre);
+        return Armar(filas, columnas, mapeo);
+    }
+
+    private static List<(int Numero, string[] Valores)> LeerCrudo(byte[] contenido, string nombre)
     {
         if (contenido.Length == 0 || contenido.Length > LimiteBytes) throw Invalido("El archivo debe contener datos y pesar hasta 10 MB.");
         var filas = new List<(int Numero, string[] Valores)>();
@@ -82,14 +106,35 @@ public static class ArchivoMaestros
         }
         else throw Invalido("Seleccione un archivo .xlsx o .csv.");
         if (filas.Count < 2) throw Invalido("Agregue encabezados y al menos un renglón de datos.");
+        return filas;
+    }
+
+    private static TablaMaestros Armar(List<(int Numero, string[] Valores)> filas, IReadOnlyList<ColumnaCarga> columnas,
+        IReadOnlyDictionary<string, string>? mapeo)
+    {
         var errores = new List<ErrorMaestros>();
+        var porEncabezado = mapeo?
+            .Where(m => !string.IsNullOrWhiteSpace(m.Value))
+            .ToDictionary(m => Normalizar(m.Key), m => m.Value);
         var mapa = new Dictionary<int, string>();
         var vistas = new HashSet<string>();
         for (var i = 0; i < filas[0].Valores.Length; i++)
         {
             var texto = filas[0].Valores[i];
             if (Normalizar(texto) is "error" or "renglonoriginal") continue;
-            var columna = columnas.SingleOrDefault(c => c.Alias.Append(c.Nombre).Any(a => Normalizar(a) == Normalizar(texto)));
+            ColumnaCarga? columna;
+            if (porEncabezado is not null)
+            {
+                // Con mapeo: un encabezado sin columna elegida se ignora; uno mapeado a una columna inexistente es error.
+                if (!porEncabezado.TryGetValue(Normalizar(texto), out var destino)) continue;
+                columna = columnas.SingleOrDefault(c => c.Nombre == destino);
+                if (columna is null)
+                {
+                    errores.Add(new(filas[0].Numero, texto, "COLUMNA_DESCONOCIDA", $"La columna «{destino}» no existe en este tipo de carga."));
+                    continue;
+                }
+            }
+            else columna = columnas.SingleOrDefault(c => c.Alias.Append(c.Nombre).Any(a => Normalizar(a) == Normalizar(texto)));
             if (columna is null) errores.Add(new(filas[0].Numero, texto, "COLUMNA_DESCONOCIDA", $"La columna «{texto}» no pertenece a esta plantilla. Descargue la plantilla del catálogo."));
             else if (!vistas.Add(columna.Nombre)) errores.Add(new(filas[0].Numero, texto, "COLUMNA_DUPLICADA", $"La columna «{columna.Nombre}» está repetida."));
             else mapa[i] = columna.Nombre;
