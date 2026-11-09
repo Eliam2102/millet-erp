@@ -108,7 +108,8 @@ describe('<DetalleLineaCredito> — smoke', () => {
     mockHandlers(EstadoLineaCredito.Activa);
     render(<DetalleLineaCredito />, { wrapper: createQueryWrapper() });
 
-    await waitFor(() => expect(screen.getByText('ACME SA · MXN')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'ACME SA' })).toBeInTheDocument());
+    expect(screen.getByText('Línea de crédito · MXN')).toBeInTheDocument();
     // C7.1: desglose límite − facturado − liberado sin facturar = disponible, sin marca de dato incompleto.
     expect(await screen.findByText('Liberado sin facturar')).toBeInTheDocument();
     expect(screen.getByText(/(^|[^0-9])20,000\.00 MXN/)).toBeInTheDocument();
@@ -177,7 +178,8 @@ describe('<DetalleLineaCredito> — smoke', () => {
     mockHandlers(EstadoLineaCredito.Activa);
     render(<DetalleLineaCredito />, { wrapper: createQueryWrapper() });
 
-    await waitFor(() => expect(screen.getByText('ACME SA · MXN')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'ACME SA' })).toBeInTheDocument());
+    expect(screen.getByText('Línea de crédito · MXN')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Bloquear/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Editar/i })).not.toBeInTheDocument();
   });
