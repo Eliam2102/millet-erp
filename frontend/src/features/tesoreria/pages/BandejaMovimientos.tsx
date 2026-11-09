@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/table';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { RegistrarIngresoSheet } from '../components/RegistrarIngresoSheet';
+import { NuevoTraspasoSheet } from '../components/NuevoTraspasoSheet';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useMemo, useState } from 'react';
@@ -47,6 +48,7 @@ const SENTINEL_ALL = '__all__';
  */
 export function BandejaMovimientos() {
   const [registrar, setRegistrar] = useState(false);
+  const [traspaso, setTraspaso] = useState(false);
   const puedeRegistrar = useHasPermission(PermisosCanonicos.TesoreriaMovimientosRegistrar);
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
@@ -80,6 +82,7 @@ export function BandejaMovimientos() {
   return (
     <div className="flex h-full min-h-0 flex-col gap-5 text-sm text-ink">
       <RegistrarIngresoSheet open={registrar} onOpenChange={setRegistrar} />
+      <NuevoTraspasoSheet open={traspaso} onOpenChange={setTraspaso} />
       <PageHeader
         titulo={<>Movimientos bancarios</>}
         descripcion={
@@ -91,7 +94,12 @@ export function BandejaMovimientos() {
         acciones={
           <>
             {puedeRegistrar && (
-              <Button onClick={() => setRegistrar(true)}>Registrar ingreso</Button>
+              <>
+                <Button variant="outline" onClick={() => setTraspaso(true)}>
+                  Nuevo traspaso
+                </Button>
+                <Button onClick={() => setRegistrar(true)}>Registrar ingreso</Button>
+              </>
             )}
           </>
         }

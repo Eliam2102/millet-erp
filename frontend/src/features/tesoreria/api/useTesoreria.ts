@@ -26,6 +26,7 @@ import type {
   DepositoConfirmacionResponse,
   DevolucionClienteResponse,
   MovimientoBancarioResponse,
+  TraspasoResponse,
   MovimientoDetalleResponse,
   PagedResponse,
   PagoACuentaAbiertoResponse,
@@ -516,6 +517,47 @@ export function useRegistrarMovimientoIngreso() {
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.movimientos() });
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.pagosCuenta() });
     },
+  });
+}
+
+/** M-203: `POST /movimientos/traspasos` — par ligado entre dos cuentas propias. */
+export function useRegistrarTraspaso() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      command: {
+        cuentaOrigenId: string;
+        cuentaDestinoId: string;
+        monto: number;
+        fechaValor: string;
+        referencia: string;
+        motivo?: string;
+        sucursalId?: string;
+      };
+      idempotencyKey: string;
+    }) => {
+      const { data } = await apiRequest<TraspasoResponse>(`${BASE}/movimientos/traspasos`, {
+        method: 'POST',
+        body: args.command,
+        idempotencyKey: args.idempotencyKey,
+      });
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: tesoreriaKeys.all }),
+  });
+}
+
+/** M-203: revierte el traspaso completo desde cualquiera de sus dos movimientos. */
+export function useRevertirTraspaso() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { movimientoId: string; motivo: string; idempotencyKey: string }) => {
+      await apiRequest<MovimientoBancarioResponse[]>(
+        `${BASE}/movimientos/${args.movimientoId}/revertir-traspaso`,
+        { method: 'POST', body: { motivo: args.motivo }, idempotencyKey: args.idempotencyKey },
+      );
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: tesoreriaKeys.all }),
   });
 }
 
