@@ -38,7 +38,7 @@ public sealed record ValidacionBalanzaApertura(
 
 /// <summary>Vista previa contable del lote: no guarda nada.</summary>
 /// <param name="SucursalPorOmision">Clave de la sucursal para los renglones que no traen sucursal (la balanza del sistema anterior no siempre la lleva).</param>
-/// <param name="TipoOperacionId">Tipo de póliza de la apertura; sin él, el tipo <c>APE</c>.</param>
+/// <param name="TipoOperacionId">Tipo de póliza de la apertura; sin él, el tipo <c>SI</c>.</param>
 public sealed record ValidarBalanzaAperturaQuery(
     DateOnly FechaCorte, IReadOnlyList<FilaBalanzaApertura> Filas, string? SucursalPorOmision = null, Guid? TipoOperacionId = null)
     : IRequest<ValidacionBalanzaApertura>;
@@ -47,7 +47,7 @@ public sealed record ValidarBalanzaAperturaQuery(
 /// Aplica un lote ya autorizado. Con la misma huella y fecha de corte ya aplicadas regresa la póliza existente
 /// (<see cref="AperturaAplicadaResponse.YaAplicada"/>); con otro archivo, si la empresa ya tiene apertura, 409.
 /// </summary>
-/// <param name="TipoOperacionId">Tipo de póliza (Diario); sin él se usa el tipo <c>APE</c>.</param>
+/// <param name="TipoOperacionId">Tipo de póliza (Diario); sin él se usa el tipo <c>SI</c>.</param>
 public sealed record AplicarSaldosInicialesCommand(
     Guid LoteId, string Huella, DateOnly FechaCorte, Guid SubidoPorId, string SubidoPor, Guid AutorizadoPorId, string AutorizadoPor,
     IReadOnlyList<FilaBalanzaApertura> Filas, string? SucursalPorOmision = null, Guid? TipoOperacionId = null, string? Concepto = null)
@@ -98,7 +98,7 @@ public static class ReglasBalanzaApertura
     public const int FilasMaximo = 20_000;
     public const string OrigenModulo = "contabilidad";
     public const string OrigenTipo = "apertura";
-    public const string TipoPolizaPorOmision = "APE";
+    public const string TipoPolizaPorOmision = "SI";
 
     public sealed record Resultado(
         IReadOnlyList<ErrorBalanzaApertura> Errores, IReadOnlyList<PartidaApertura> Partidas, decimal TotalCargos, decimal TotalAbonos,
@@ -385,7 +385,7 @@ internal static class AperturaTipos
     public static readonly ErrorBalanzaApertura ErrorSinTipo = new(null, "tipoOperacionId", "AP_TIPO_POLIZA",
         $"Dé de alta el tipo de póliza {ReglasBalanzaApertura.TipoPolizaPorOmision} (Diario) o indique el tipo de la apertura.");
 
-    /// <summary>El tipo indicado o, sin él, el tipo <c>APE</c> activo; null si no existe.</summary>
+    /// <summary>El tipo indicado o, sin él, el tipo <c>SI</c> activo; null si no existe.</summary>
     public static async Task<TipoDocumentoContable?> PorOmisionAsync(ContabilidadDbContext db, Guid? tipoOperacionId, CancellationToken ct) =>
         tipoOperacionId is { } id
             ? await db.TiposDocumento.AsNoTracking().FirstOrDefaultAsync(t => t.Id == id, ct)
