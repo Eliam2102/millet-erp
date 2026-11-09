@@ -153,10 +153,15 @@ public sealed class PedidoFacturaLigaTests
         var empresaId = Guid.NewGuid();
         using var db = NewDb(empresaId);
         var pedido = await SembrarPedidoAsync(db, empresaId);
-        var salida = SalidaFacturable.Registrar(pedido, [], OrigenSalidaFacturable.ProductoTerminado, "SAL-1", [(1, 2m)], Ahora);
+        // Parcialidad (1 de 2 piezas): no completa el pedido, así que no queda ligado a un comprobante vigente (M8).
+        var salida = SalidaFacturable.Registrar(pedido, [], OrigenSalidaFacturable.ProductoTerminado, "SAL-1", [(1, 1m)], Ahora);
         db.SalidasFacturables.Add(salida);
         await db.SaveChangesAsync();
-        var emit = await EmitirHandler(db, empresaId).Handle(Command(pedido.Id) with { SalidaFacturableId = salida.Id }, CancellationToken.None);
+        var emit = await EmitirHandler(db, empresaId).Handle(Command(pedido.Id) with
+        {
+            SalidaFacturableId = salida.Id,
+            Lineas = [new EmitirFacturaVentaLinea(null, "01010101", "P", "H87", 1m, 100m, 0m, "02", 0.16m, null, null)],
+        }, CancellationToken.None);
 
         var items = await new PedidoComprobantesHandler(db)
             .Handle(new PedidoComprobantesQuery(pedido.Id), CancellationToken.None);
