@@ -18,6 +18,8 @@ using Millet.Integraciones.Aw.Infrastructure.OrigenPg;
 using Millet.Integraciones.Aw.Infrastructure.Pedidos;
 using Millet.Integraciones.Aw.Infrastructure.Pinturas;
 using Millet.Integraciones.Aw.Application.Pinturas;
+using Millet.Integraciones.Aw.Application.TipoCambio;
+using Millet.Integraciones.Aw.Infrastructure.TipoCambio;
 
 namespace Millet.Integraciones.Aw.Infrastructure.Origen;
 
@@ -53,6 +55,7 @@ public static class OrigenDependencyInjection
         }
         ConservarReal<IAwNotasCreditoPort>(services);
         ConservarReal<IAwRetornoPort>(services);
+        ConservarReal<IAwTipoCambioPort>(services);
         services.AddScoped<AwRetornoDocumentoService>();
         ConservarReal<IAwClientesReader>(services);
         ConservarReal<IAwArticulosReader>(services);
@@ -83,6 +86,9 @@ public static class OrigenDependencyInjection
         services.AddKeyedScoped<IAwRetornoPort>("Demo",(sp, _) => new AwRetornoAdapter(
             sp.GetRequiredKeyedService<IIntegracionSqlConnectionFactory>("Demo"), sp.GetRequiredService<IOptions<AwPedidosOptions>>(),
             AwRetornoAdapter.CandadoPostgres));
+        services.AddKeyedScoped<IAwTipoCambioPort>("Demo", (sp, _) => new AwTipoCambioAdapter(
+            sp.GetRequiredKeyedService<IIntegracionSqlConnectionFactory>("Demo"), sp.GetRequiredService<IOptions<AwPedidosOptions>>(),
+            AwTipoCambioAdapter.CandadoPostgres));
         services.AddKeyedScoped<IAwClientesReader>("Demo", (sp, _) => new AwClientesPgReader(
             sp.GetRequiredKeyedService<IIntegracionSqlConnectionFactory>("Demo"), sp.GetRequiredService<IOptions<AwPedidosOptions>>(),
             sp.GetRequiredService<ILogger<AwClientesPgReader>>()));

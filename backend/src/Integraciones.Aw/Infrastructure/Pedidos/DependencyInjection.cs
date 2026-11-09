@@ -6,9 +6,11 @@ using Millet.Integraciones.Aw.Application.Pedidos;
 using Millet.Integraciones.Aw.Application.Pinturas;
 using Millet.Integraciones.Aw.Application.Retorno;
 using Microsoft.Extensions.Logging;
+using Millet.Integraciones.Aw.Application.TipoCambio;
 using Millet.Integraciones.Aw.Infrastructure.NotasCredito;
 using Millet.Integraciones.Aw.Infrastructure.Pinturas;
 using Millet.Integraciones.Aw.Infrastructure.Retorno;
+using Millet.Integraciones.Aw.Infrastructure.TipoCambio;
 
 namespace Millet.Integraciones.Aw.Infrastructure.Pedidos;
 
@@ -48,6 +50,10 @@ public static class PedidosDependencyInjection
         services.AddScoped<IAwRetornoPort>(sp => new AwRetornoAdapter(
             sp.GetRequiredService<IIntegracionSqlConnectionFactory>(), sp.GetRequiredService<IOptions<AwPedidosOptions>>(),
             AwRetornoAdapter.CandadoSqlServer));
+        // I13.2: publicación de tipo de cambio en dbo.erp_tipo_cambio.
+        services.AddScoped<IAwTipoCambioPort>(sp => new AwTipoCambioAdapter(
+            sp.GetRequiredService<IIntegracionSqlConnectionFactory>(), sp.GetRequiredService<IOptions<AwPedidosOptions>>(),
+            AwTipoCambioAdapter.CandadoSqlServer));
 
         // PR4 — auto-provisión de masters (cierra <MasterProvisioningAw>):
         // readers de vw_erp_cliente/vw_erp_articulo + bridge que delega el

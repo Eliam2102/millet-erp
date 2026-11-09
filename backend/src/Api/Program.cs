@@ -979,6 +979,10 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.ITipoCambioReadPort,
     Millet.Compartido.Infrastructure.PublicAdapters.TipoCambioReadAdapter>();
+// I13.2: Lectura de rango de TC para publicación hacia A+W.
+builder.Services.AddScoped<
+    Millet.Compartido.Domain.Ports.ITipoCambioRangoReadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.TipoCambioReadAdapter>();
 // CON-11 (86e3kdypd): TC del catálogo K10.6 para la diferencia cambiaria realizada de pagos y cobros.
 builder.Services.AddScoped<
     Millet.Contabilidad.Application.Ports.ITipoCambioContabilidadReadPort,
@@ -1232,6 +1236,9 @@ builder.Services.AddHostedService<Millet.Facturacion.Infrastructure.Workers.Writ
 
 // TR-01: lee el acuse de aw_retorno (desfasadas → fila nueva; 3 rechazos → aviso). Sin canal configurado no hace nada.
 builder.Services.AddHostedService<Millet.Integraciones.Aw.Infrastructure.Retorno.AwRetornoAcuseWorker>();
+
+// I13.2 / CA13.9: worker periódico para publicación y supervisión de tipo de cambio hacia A+W (dbo.erp_tipo_cambio).
+builder.Services.AddHostedService<Millet.Integraciones.Aw.Infrastructure.TipoCambio.Workers.AwTipoCambioWorker>();
 
 // F5-PR2: poller de cancelaciones SAT (resuelve las SolicitudCancelacion
 // EnProceso consultando el estatus del CFDI; stub reporta vigente en dev).
