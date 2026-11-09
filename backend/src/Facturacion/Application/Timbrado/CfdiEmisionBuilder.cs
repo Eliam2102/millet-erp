@@ -286,6 +286,12 @@ public static class CfdiEmisionBuilder
         TimeZoneInfo.ConvertTime(ahoraUtc, ZonaFiscal);
 
     /// <summary>
+    /// M11: día fiscal (hora de México) para la fecha de referencia del folio; en UTC,
+    /// después de las 18:00 del último día del mes ya sería el mes siguiente.
+    /// </summary>
+    public static DateOnly DiaFiscal(DateTimeOffset ahoraUtc) => DateOnly.FromDateTime(FechaFiscal(ahoraUtc).DateTime);
+
+    /// <summary>
     /// Serie del CFDI = folio interno formateado sin el consecutivo final
     /// (formato Compartido.Series: <c>{prefijo}[{sufijo}|-{periodo}]-{D6}</c>).
     /// </summary>

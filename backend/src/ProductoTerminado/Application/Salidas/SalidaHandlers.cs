@@ -98,7 +98,9 @@ public sealed class CrearHojaSalidaHandler(ProductoTerminadoDbContext db, PtAcce
         if (yaEnHoja) throw new BusinessRuleException("PT_SALIDA_PIEZA_YA_EN_HOJA", "Alguna pieza ya está en otra hoja de salida.");
 
         var ahora = clock.UtcNow;
-        var salida = SalidaPt.Crear(empresaId, c.SucursalId, c.Destino, c.Foranea, c.VehiculoId, c.OperadorId, c.DistanciaKm, c.PesoKg, c.OrigenCodigoPostal, c.OrigenEstado, c.DestinoCodigoPostal, c.DestinoEstado, ahora);
+        var salida = SalidaPt.Crear(empresaId, c.SucursalId, c.Destino, c.Foranea, c.VehiculoId, c.OperadorId, c.DistanciaKm, c.PesoKg, c.OrigenCodigoPostal, c.OrigenEstado, c.DestinoCodigoPostal, c.DestinoEstado, ahora,
+            // M11: el folio lleva el día local (a las 23:34 del 8-nov no puede decir 20261109).
+            HoraAw.FechaLocal(ahora));
         foreach (var p in c.Pedidos)
         {
             var pedido = pedidos[p.NumeroPedido.Trim()];

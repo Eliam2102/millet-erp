@@ -293,7 +293,7 @@ public sealed class EmitirFacturaVentaHandler
                 empresaId,
                 command.SucursalId,
                 tipoSerie,
-                DateOnly.FromDateTime(ahora.UtcDateTime)),
+                Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.DiaFiscal(ahora)),
             cancellationToken);
         // B2: desde aquí el folio ya está consumido; si la emisión aborta, queda Descartada.
         _folioReservado = reserva;
@@ -736,7 +736,7 @@ public sealed class EmitirFacturaVentaHandler
             var reservaNc = await _sender.Send(
                 new ReservarFolioCommand(
                     factura.EmpresaId, factura.SucursalId,
-                    TipoDocumentoSerie.NotaCredito, DateOnly.FromDateTime(ahora.UtcDateTime)),
+                    TipoDocumentoSerie.NotaCredito, Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.DiaFiscal(ahora)),
                 cancellationToken);
 
             var nc = NotaCredito.CrearAmortizacion(
