@@ -63,8 +63,11 @@ describe('<LoteCargaPage> — smoke (M-047 + M-167)', () => {
     expect(validar).toBeEnabled();
     fireEvent.click(validar);
 
-    expect(await screen.findByText('Cuenta no existe en el catálogo')).toBeInTheDocument();
-    expect(screen.getByText('No cuadra por 300.00')).toBeInTheDocument();
+    // La vista previa se vuelve a pintar al refrescar el lote: se espera el estado final.
+    await waitFor(() => {
+      expect(screen.getByText('Cuenta no existe en el catálogo')).toBeInTheDocument();
+      expect(screen.getByText('No cuadra por 300.00')).toBeInTheDocument();
+    });
     expect(JSON.parse(mapeoEnviado)).toEqual({ 'No. cuenta': 'cuenta', Debe: 'cargo', Haber: 'abono' });
     expect(screen.queryByRole('button', { name: 'Autorizar y aplicar' })).toBeNull();
   });

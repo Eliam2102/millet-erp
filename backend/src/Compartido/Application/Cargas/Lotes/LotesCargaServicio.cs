@@ -125,6 +125,8 @@ public sealed class LotesCargaServicio(
         var lote = await Cargar(id, ct);
         var p = Procesador(lote.Tipo);
         await ExigirAsync(p.PermisoAutorizar, ct);
+        if (lote.Estado != EstadoLoteCarga.Subido)
+            throw new ConflictException("LOTE_CARGA_ESTADO", $"El lote está {lote.Estado}; esta acción ya no aplica.");
         var (actorId, actorNombre) = Actor();
         if (actorId == lote.SubidoPorId)
             throw new BusinessRuleException("LOTE_CARGA_MISMA_PERSONA", "Debe autorizar otra persona: quien subió el lote no puede autorizarlo.");
