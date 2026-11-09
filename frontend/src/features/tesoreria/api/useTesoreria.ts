@@ -829,6 +829,18 @@ export function useReclasificarMovimiento() {
     onSuccess: () => client.invalidateQueries({ queryKey: tesoreriaKeys.all }),
   });
 }
+export function useResolverReclasificacion() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { movimientoId: string; rechazo?: { motivo: string }; idempotencyKey: string }) => {
+      await apiRequest<void>(
+        `${BASE}/movimientos/${args.movimientoId}/reclasificacion/${args.rechazo ? 'rechazar' : 'autorizar'}`,
+        { method: 'POST', body: args.rechazo, idempotencyKey: args.idempotencyKey },
+      );
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: tesoreriaKeys.all }),
+  });
+}
 export function useDesligarPagoACuenta() {
   const client = useQueryClient();
   return useMutation({

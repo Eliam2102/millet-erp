@@ -15,6 +15,7 @@ import { TrazabilidadComprasDialog } from '@/components/erp/trazabilidad/Trazabi
 import { TipoDocumentoTrazabilidad } from '@/components/erp/trazabilidad/types';
 import { ReclasificarMovimiento } from '../components/ReclasificarMovimiento';
 import { TraspasoLigado } from '../components/TraspasoLigado';
+import { ReclasificacionPendiente } from '../components/ReclasificacionPendiente';
 import { useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { ArrowRightLeft, ReceiptText, RotateCcw, Undo2, X } from 'lucide-react';
@@ -294,6 +295,8 @@ export function DetalleMovimiento({ id }: { id: string }) {
         puedeReclasificar && (
           <TraspasoLigado movimiento={m} revertido={contramovimientos.length > 0} />
         )
+      ) : m.reclasificacionPendiente ? (
+        <ReclasificacionPendiente movimientoId={m.id} pendiente={m.reclasificacionPendiente} />
       ) : (
         puedeReclasificar && <ReclasificarMovimiento key={m.id} movimiento={m} />
       )}

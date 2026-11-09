@@ -42,7 +42,13 @@ public sealed record MovimientoBancarioResponse(
     // 86e3tfdve: cuenta ordenante del cliente; completa solo con `tesoreria.movimientos.ver-cuenta-completa`.
     string? CuentaOrdenante = null,
     // M-203: id común del par de un traspaso entre cuentas propias y su motivo.
-    Guid? TraspasoId = null, string? TraspasoMotivo = null);
+    Guid? TraspasoId = null, string? TraspasoMotivo = null,
+    // M-204: solicitud de reclasificación abierta, a la espera de la segunda firma.
+    ReclasificacionPendienteDto? ReclasificacionPendiente = null);
+
+public sealed record ReclasificacionPendienteDto(
+    Guid Id, Guid? ConceptoAnteriorId, Guid ConceptoNuevoId, string? ConceptoNuevoNombre, string Motivo,
+    Guid SolicitadoPor, DateTimeOffset SolicitadoEn);
 
 internal static class MovimientoBancarioMapper
 {
@@ -60,6 +66,20 @@ internal static class MovimientoBancarioMapper
         if (idsProveedor.Count > 0)
             foreach (var (id, p) in await proveedores.ObtenerVariosAsync(idsProveedor, ct)) resultado[id] = (p.RazonSocial, p.Clave);
         return resultado;
+    }
+
+    /// <summary>Solicitudes abiertas de un conjunto de movimientos, con el nombre del concepto propuesto (una consulta, sin N+1).</summary>
+    public static async Task<IReadOnlyDictionary<Guid, ReclasificacionPendienteDto>> PendientesAsync(
+        TesoreriaDbContext db, IReadOnlyCollection<Guid> movimientoIds, CancellationToken ct)
+    {
+        var filas = await (from r in db.MovimientoReclasificaciones.AsNoTracking()
+                           where movimientoIds.Contains(r.MovimientoId) && r.Estado == EstadoReclasificacion.Pendiente
+                           join c in db.ConceptosMovimiento.AsNoTracking() on r.ConceptoNuevoId equals c.Id into cs
+                           from c in cs.DefaultIfEmpty()
+                           select new { r.MovimientoId, Dto = new ReclasificacionPendienteDto(
+                               r.Id, r.ConceptoAnteriorId, r.ConceptoNuevoId, c.Nombre, r.Motivo, r.SolicitadoPor, r.SolicitadoEn) })
+            .ToListAsync(ct);
+        return filas.ToDictionary(f => f.MovimientoId, f => f.Dto);
     }
 
     public static MovimientoBancarioResponse ToResponse(
@@ -146,9 +166,11 @@ public sealed class MovimientosBancariosHandler
 
         var verCuentaCompleta = await _permisos.TieneAsync("tesoreria.movimientos.ver-cuenta-completa", cancellationToken);
         var beneficiarios = await MovimientoBancarioMapper.ResolverBeneficiariosAsync(items, _clientes, _proveedores, cancellationToken);
+        var pendientes = await MovimientoBancarioMapper.PendientesAsync(_db, items.Select(m => m.Id).ToList(), cancellationToken);
         var responses = items
             .Select(m => MovimientoBancarioMapper.ToResponse(
-                m, beneficiarios, m.ConceptoId is Guid cid && conceptos.TryGetValue(cid, out var n) ? n : null, verCuentaCompleta))
+                m, beneficiarios, m.ConceptoId is Guid cid && conceptos.TryGetValue(cid, out var n) ? n : null, verCuentaCompleta)
+                with { ReclasificacionPendiente = pendientes.GetValueOrDefault(m.Id) })
             .ToList();
 
         return new PagedResponse<MovimientoBancarioResponse>(responses, offset, limit, total);
@@ -222,8 +244,10 @@ public sealed class MovimientoDetalleHandler : IRequestHandler<MovimientoDetalle
 
         var verCuentaCompleta = await _permisos.TieneAsync("tesoreria.movimientos.ver-cuenta-completa", cancellationToken);
         var beneficiarios = await MovimientoBancarioMapper.ResolverBeneficiariosAsync([m, .. contramovimientos], _clientes, _proveedores, cancellationToken);
+        var pendientes = await MovimientoBancarioMapper.PendientesAsync(_db, [m.Id], cancellationToken);
         return new MovimientoDetalleResponse(
-            MovimientoBancarioMapper.ToResponse(m, beneficiarios, conceptoNombre, verCuentaCompleta),
+            MovimientoBancarioMapper.ToResponse(m, beneficiarios, conceptoNombre, verCuentaCompleta)
+                with { ReclasificacionPendiente = pendientes.GetValueOrDefault(m.Id) },
             aplicaciones,
             contramovimientos.Select(c => MovimientoBancarioMapper.ToResponse(c, beneficiarios, verCuentaCompleta: verCuentaCompleta)).ToList());
     }

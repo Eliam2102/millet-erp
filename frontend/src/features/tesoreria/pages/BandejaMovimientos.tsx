@@ -235,6 +235,7 @@ export function BandejaMovimientos() {
                   <TableHead className="px-3 py-2 font-medium">Referencia</TableHead>
                   <TableHead className="px-3 py-2 font-medium">Aplicación</TableHead>
                   <TableHead className="px-3 py-2 font-medium">Conciliación</TableHead>
+                  <TableHead className="px-3 py-2 font-medium">Reclasificación pendiente</TableHead>
                   <TableHead className="px-3 py-2" />
                 </TableRow>
               </TableHeader>
@@ -265,6 +266,11 @@ export function BandejaMovimientos() {
                     </TableCell>
                     <TableCell className="px-3 py-2">
                       <EstadoConciliacionBadge estado={m.estadoConciliacion} />
+                    </TableCell>
+                    <TableCell className="max-w-48 truncate px-3 py-2 text-xs">
+                      {m.reclasificacionPendiente
+                        ? `→ ${m.reclasificacionPendiente.conceptoNuevoNombre ?? 'Otro concepto'}`
+                        : '—'}
                     </TableCell>
                     <TableCell className="px-3 py-2 text-right">
                       <Button variant="outline" size="sm" asChild>
