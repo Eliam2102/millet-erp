@@ -41,6 +41,8 @@ public sealed record MovimientoBancarioResponse(
     string? BeneficiarioNombre = null, string? BeneficiarioClave = null,
     // 86e3tfdve: cuenta ordenante del cliente; completa solo con `tesoreria.movimientos.ver-cuenta-completa`.
     string? CuentaOrdenante = null,
+    // M-203: id común del par de un traspaso entre cuentas propias y su motivo.
+    Guid? TraspasoId = null, string? TraspasoMotivo = null,
     // M-204: solicitud de reclasificación abierta, a la espera de la segunda firma.
     ReclasificacionPendienteDto? ReclasificacionPendiente = null);
 
@@ -97,7 +99,8 @@ internal static class MovimientoBancarioMapper
             m.EstadoConciliacion, m.BeneficiarioTipo, m.BeneficiarioRef,
             m.ContramovimientoDe, m.MotivoNoAplicado, m.CreadoPor, m.CreadoEn, m.Version, m.MotivoReversa, m.MotivoReclasificacion,
             m.DestinoBanco, m.DestinoNumeroCuenta is null ? null : verCuentaCompleta ? m.DestinoNumeroCuenta : Clabe.Enmascarar(m.DestinoNumeroCuenta), m.DestinoTitular, m.FondosVerificados,
-            CuentaOrdenante: m.CuentaOrdenante is null ? null : verCuentaCompleta ? m.CuentaOrdenante : CuentaPagoSat.Enmascarar(m.CuentaOrdenante));
+            CuentaOrdenante: m.CuentaOrdenante is null ? null : verCuentaCompleta ? m.CuentaOrdenante : CuentaPagoSat.Enmascarar(m.CuentaOrdenante),
+            TraspasoId: m.TraspasoId, TraspasoMotivo: m.TraspasoMotivo);
 }
 
 // --------------------------------------------------- Libro (bandeja paginada)
