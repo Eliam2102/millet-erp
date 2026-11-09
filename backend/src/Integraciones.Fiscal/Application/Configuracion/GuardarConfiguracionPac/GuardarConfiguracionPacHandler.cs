@@ -36,6 +36,8 @@ public sealed class GuardarConfiguracionPacHandler
     private readonly IClock _clock;
     private readonly IPacCandidatoProbe _probe;
     private readonly ICurrentUserContext? _user;
+    private readonly Millet.SharedKernel.Application.Incidencias.IIncidenciasPort? _incidencias;
+    private readonly Microsoft.Extensions.Logging.ILogger<GuardarConfiguracionPacHandler>? _logger;
 
     public GuardarConfiguracionPacHandler(
         IntegracionesFiscalDbContext db,
@@ -45,9 +47,13 @@ public sealed class GuardarConfiguracionPacHandler
         ICurrentEmpresaContext currentEmpresa,
         IClock clock,
         IPacCandidatoProbe probe,
-        ICurrentUserContext? user = null)
+        ICurrentUserContext? user = null,
+        Millet.SharedKernel.Application.Incidencias.IIncidenciasPort? incidencias = null,
+        Microsoft.Extensions.Logging.ILogger<GuardarConfiguracionPacHandler>? logger = null)
     {
         _user = user;
+        _incidencias = incidencias;
+        _logger = logger;
         _db = db;
         _cipher = cipher;
         _publisher = publisher;
@@ -177,12 +183,23 @@ public sealed class GuardarConfiguracionPacHandler
         // No se acepta un booleano ni una prueba anterior del navegador.
         // Una configuración inactiva no timbra: desactivarla (PAC caído o
         // llave comprometida) no puede depender de que el PAC responda.
+        var probada = false;
         if (config.Activo)
         {
             var prueba = await _probe.ProbarAsync(config.BaseUrl, _cipher.Decrypt(config.ApiKeyCifrado), ct);
+            var mensaje = TestConexionPac.TestConexionPacHandler.MensajePara(prueba);
             if (!prueba.Exitosa)
+            {
+                // M-232: nada se guarda (la configuración anterior queda igual); la incidencia va aparte
+                // porque el rechazo revierte la operación. Documento = la configuración (o la empresa si es alta).
+                await IncidenciasConexionPac.AbrirAsync(_incidencias, _logger, existente?.Id ?? config.EmpresaId,
+                    _user?.UserId, config.BaseUrl, prueba, mensaje, ct);
                 throw new BusinessRuleException("CONFIG_PAC_CONEXION_RECHAZADA",
-                    TestConexionPac.TestConexionPacHandler.MensajePara(prueba));
+                    $"Pruebe la conexión antes de activar: {mensaje}");
+            }
+            // M-232: la prueba usada para activar queda registrada (fecha, resultado y mensaje).
+            config.RegistrarTestConexion(true, prueba.ConsultadoEn == default ? ahora : prueba.ConsultadoEn, mensaje);
+            probada = true;
         }
 
         if (csdNuevo is not null && !string.IsNullOrEmpty(csdNuevo.NumeroSerie))
@@ -196,6 +213,9 @@ public sealed class GuardarConfiguracionPacHandler
         }
         await _db.SaveChangesAsync(ct);
         if (existente is not null) config = existente;
+
+        if (probada)
+            await IncidenciasConexionPac.ResolverAsync(_incidencias, _logger, config.Id, ct);
 
         // Invalidar cache del resolver: el próximo ping/descarga ve los
         // datos frescos sin esperar al TTL de 60s.
@@ -229,6 +249,7 @@ public sealed class GuardarConfiguracionPacHandler
             UltimaRotacionAt: c.UltimaRotacionAt,
             UltimaTestConexionAt: c.UltimaTestConexionAt,
             UltimaTestConexionExitosa: c.UltimaTestConexionExitosa,
+            UltimaTestConexionMensaje: c.UltimaTestConexionMensaje,
             EmisorSandbox: MapIdentidadDto(c.EmisorSandbox),
             ReceptorSandbox: MapIdentidadDto(c.ReceptorSandbox),
             CsdConfigurado: c.CsdConfigurado,

@@ -134,6 +134,7 @@ export function useRevocarCsd() {
 }
 
 export function useTestConexionPac() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (args: {
       empresaId: string;
@@ -148,6 +149,13 @@ export function useTestConexionPac() {
         },
       );
       return data;
+    },
+    // M-232: probar la configuración guardada registra el resultado (y sube su versión):
+    // se recarga para mostrar la última prueba y no guardar con una versión vieja.
+    onSettled: (_data, _error, vars) => {
+      queryClient.invalidateQueries({
+        queryKey: integracionesFiscalKeys.configuracionByEmpresa(vars.empresaId, vars.proveedor),
+      });
     },
   });
 }

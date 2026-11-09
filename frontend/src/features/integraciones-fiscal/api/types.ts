@@ -44,6 +44,8 @@ export interface ConfiguracionPacResponse {
   ultimaRotacionAt: string | null;
   ultimaTestConexionAt: string | null;
   ultimaTestConexionExitosa: boolean | null;
+  /** M-232: mensaje de la última prueba de la configuración guardada. */
+  ultimaTestConexionMensaje?: string | null;
   emisorSandbox: IdentidadSandbox | null;
   receptorSandbox: IdentidadSandbox | null;
   /** Las tres piezas del CSD (cer + key + password) están capturadas. */

@@ -282,3 +282,41 @@ describe('<ConfiguracionPacForm> — identidades de prueba', () => {
     ).not.toBeChecked();
   });
 });
+
+describe('<ConfiguracionPacForm> — M-232 activar solo con prueba exitosa', () => {
+  const inactiva = { ...existing, activo: false, ultimaTestConexionAt: '2026-11-09T15:00:00Z', ultimaTestConexionExitosa: false, ultimaTestConexionMensaje: 'FiscalAPI rechazó la conexión (HTTP 401). Revisa la configuración.' };
+
+  it('sin prueba no deja activar y muestra la última prueba con su mensaje', () => {
+    render(<ConfiguracionPacForm empresaId="e-1" existing={inactiva} />, { wrapper: createQueryWrapper() });
+
+    expect(screen.getByRole('checkbox', { name: /configuración activa/i })).toBeDisabled();
+    expect(screen.getByText('Pruebe la conexión antes de activar.')).toBeInTheDocument();
+    expect(screen.getByText(/rechazó la conexión \(HTTP 401\)/)).toBeInTheDocument();
+  });
+
+  it('con una prueba exitosa de lo capturado se puede activar; cambiar la URL lo vuelve a bloquear', async () => {
+    mswServer.use(
+      http.post('*/api/v1/integraciones/fiscal/configuracion/:empresaId/:proveedor/test', () =>
+        HttpResponse.json({ exitosa: true, statusCode: 200, mensaje: 'Conexión exitosa con FiscalAPI.', tiempoMs: 12, consultadoEn: '2026-11-09T15:05:00Z' }),
+      ),
+    );
+    render(<ConfiguracionPacForm empresaId="e-1" existing={inactiva} />, { wrapper: createQueryWrapper() });
+
+    fireEvent.click(screen.getByRole('button', { name: /probar conexión/i }));
+    const activo = screen.getByRole('checkbox', { name: /configuración activa/i });
+    await waitFor(() => expect(activo).toBeEnabled());
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /modo sandbox/i }));
+    expect(activo).toBeDisabled();
+  });
+
+  it('una configuración activa sin cambios se puede desactivar sin probar', () => {
+    render(<ConfiguracionPacForm empresaId="e-1" existing={existing} />, { wrapper: createQueryWrapper() });
+
+    const activo = screen.getByRole('checkbox', { name: /configuración activa/i });
+    expect(activo).toBeEnabled();
+    fireEvent.click(activo);
+    expect(activo).not.toBeChecked();
+  });
+});
+

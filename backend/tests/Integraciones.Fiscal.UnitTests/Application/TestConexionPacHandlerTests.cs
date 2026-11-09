@@ -81,7 +81,7 @@ public sealed class TestConexionPacHandlerTests
     }
 
     [Fact]
-    public async Task Ping_con_config_persistida_no_la_muta()
+    public async Task M232_ping_de_la_config_persistida_guarda_fecha_resultado_y_mensaje()
     {
         var db = InMemoryFiscalDb.Create();
         var cipher = InMemoryFiscalDb.Cipher();
@@ -97,7 +97,8 @@ public sealed class TestConexionPacHandlerTests
         await db.SaveChangesAsync();
 
         var sdk = new StubSdk { Resultado = new(true, 200, "OK", 50, Ahora) };
-        var handler = new TestConexionPacHandler(sdk, InMemoryFiscalDb.Create(), InMemoryFiscalDb.Cipher(), sdk);
+        var handler = new TestConexionPacHandler(sdk, db, cipher, sdk);
+        var version = config.Version;
 
         await handler.Handle(
             new TestConexionPacCommand(EmpresaId, ProveedorPac.FiscalApi,
@@ -105,12 +106,16 @@ public sealed class TestConexionPacHandlerTests
             CancellationToken.None);
 
         var refreshed = db.ConfiguracionesPac.Single();
-        refreshed.UltimaTestConexionAt.Should().BeNull();
-        refreshed.UltimaTestConexionExitosa.Should().BeNull();
+        refreshed.UltimaTestConexionAt.Should().Be(Ahora);
+        refreshed.UltimaTestConexionExitosa.Should().BeTrue();
+        refreshed.UltimaTestConexionMensaje.Should().Be("Conexión exitosa con FiscalAPI.");
+        // Credenciales, URL y estado activo no cambian.
+        (refreshed.BaseUrl, refreshed.Activo).Should().Be(("https://live.fiscalapi.com", true));
+        refreshed.Version.Should().BeGreaterThanOrEqualTo(version);
     }
 
     [Fact]
-    public async Task Ping_fallido_no_deja_estado_ambiguo_persistido()
+    public async Task M232_ping_fallido_de_la_config_persistida_queda_registrado_como_falla()
     {
         var db = InMemoryFiscalDb.Create();
         var cipher = InMemoryFiscalDb.Cipher();
@@ -125,7 +130,7 @@ public sealed class TestConexionPacHandlerTests
         await db.SaveChangesAsync();
 
         var sdk = new StubSdk { Resultado = new(false, 401, "Unauthorized", 30, Ahora) };
-        var handler = new TestConexionPacHandler(sdk, InMemoryFiscalDb.Create(), InMemoryFiscalDb.Cipher(), sdk);
+        var handler = new TestConexionPacHandler(sdk, db, cipher, sdk);
 
         var response = await handler.Handle(
             new TestConexionPacCommand(EmpresaId, ProveedorPac.FiscalApi, null, null, null),
@@ -134,7 +139,10 @@ public sealed class TestConexionPacHandlerTests
         response.Exitosa.Should().BeFalse();
         response.StatusCode.Should().Be(401);
         response.Mensaje.Should().Be("FiscalAPI rechazó la conexión (HTTP 401). Revisa la configuración.");
-        db.ConfiguracionesPac.Single().UltimaTestConexionExitosa.Should().BeNull();
+        var guardada = db.ConfiguracionesPac.Single();
+        guardada.UltimaTestConexionExitosa.Should().BeFalse();
+        guardada.UltimaTestConexionMensaje.Should().Be(response.Mensaje);
+        guardada.Activo.Should().BeTrue();
     }
 
     [Theory]
