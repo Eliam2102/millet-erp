@@ -23,8 +23,6 @@ public sealed class AlmacenesAppProcesador(
     MermaProcesoAppGuardado mermasGuardado, IDimensionesSalidaInventarioPort dimensiones,
     IOptions<AlmMensajeOptions> opciones) : IProcesadorMensajeApp
 {
-    private static readonly string[] TiposSalida = [.. AlmacenesAppSalida.Tipos.Keys, .. AlmacenesAppMerma.Tipos];
-
     /// <summary>Forma del sobre (tipo, version, datos, mensajeId ≤ 64); null = válido.</summary>
     public static string? ErrorDeSobre(JsonElement root)
     {
@@ -52,8 +50,9 @@ public sealed class AlmacenesAppProcesador(
         var previo = await db.MensajesApp.AsNoTracking().FirstOrDefaultAsync(m => m.MensajeId == mensajeId, ct);
         // A4.3-a: una salida rechazada (ERROR) o sin existencia (EN_REVISION, también acusada ERROR) quedó en la bandeja sin
         // mover saldo; cuando la app reprocesa el mismo mensajeId (ya corregido el dato o llegada la existencia) se evalúa
-        // otra vez y sale de la bandeja.
-        if (previo is { Estado: "ERROR" or SalidaAppAlmacenes.EnRevision } && TiposSalida.Contains(previo.Tipo))
+        // otra vez y sale de la bandeja. Contrato v8: el reenvío es un renglón nuevo (mismo mensajeId, intento+1); un mensaje que
+        // quedó en ERROR nunca se acusa DUPLICADO (eso ocultaría el error), solo lo ya aplicado.
+        if (previo is { Estado: "ERROR" or SalidaAppAlmacenes.EnRevision })
         {
             await db.MensajesApp.Where(m => m.MensajeId == mensajeId && (m.Estado == "ERROR" || m.Estado == SalidaAppAlmacenes.EnRevision))
                 .ExecuteDeleteAsync(ct);
