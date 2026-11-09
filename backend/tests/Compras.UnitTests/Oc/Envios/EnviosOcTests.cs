@@ -1,10 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 using MediatR;
 using Millet.Compras.Application.Oc.RegistrarImpresion;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Millet.Compras.Application.Oc.Envios;
 using Millet.Compras.Domain;
 using Millet.Compras.Domain.Oc;
+using Millet.Compras.Domain.Oc.Events;
 using Millet.Compras.Application.Oc.Pdf;
 using Millet.Compras.Domain.Ports.Pdf;
 using Millet.Compras.Domain.Ports.DatosMaestros;
@@ -246,6 +248,67 @@ public sealed class EnviosOcTests
             .Handle(new ObtenerEnviosOcQuery(f.Oc.Id), default));
     }
 
+    [Theory]
+    [InlineData("correo", true, "simulado")]
+    [InlineData("correo", false, "aceptado")]
+    [InlineData("manual", false, "registrado")]
+    public async Task EnvioExitoso_EnAmbienteNoProductivo_PublicaNotificacionParaGenerarCfdi(string modo, bool simulado, string resultadoEsperado)
+    {
+        using var f = new Fixture();
+        f.Correo.EsSimulado = simulado;
+
+        var envio = await f.Enviar(modo: modo);
+
+        Assert.Equal(resultadoEsperado, envio.Resultado);
+        var notif = Assert.Single(f.Publisher.Notifications.OfType<OrdenCompraEnviadaAlProveedorNotification>());
+        Assert.Equal(f.Oc.Id, notif.OrdenCompraId);
+        Assert.Equal(f.Oc.EmpresaId, notif.EmpresaId);
+        Assert.Equal(f.Oc.Folio.Valor, notif.Folio);
+    }
+
+    [Theory]
+    [InlineData("correo")]
+    [InlineData("manual")]
+    public async Task EnvioExitoso_EnAmbienteProductivo_NoPublicaNotificacion(string modo)
+    {
+        using var f = new Fixture();
+        f.Ambiente.EnvironmentName = "Production";
+
+        var envio = await f.Enviar(modo: modo);
+
+        Assert.True(envio.Resultado is "simulado" or "registrado");
+        Assert.Empty(f.Publisher.Notifications);
+    }
+
+    [Fact]
+    public async Task EnvioFallido_NoPublicaNotificacion()
+    {
+        using var f = new Fixture();
+        f.Correo.Falla = true;
+
+        var envio = await f.Enviar();
+
+        Assert.Equal("fallido", envio.Resultado);
+        Assert.Empty(f.Publisher.Notifications);
+    }
+
+    [Fact]
+    public async Task FalloNotificacion_ConservaEnvioGuardado_YRegistraAdvertencia()
+    {
+        using var f = new Fixture();
+        f.Publisher.Falla = true;
+
+        var envio = await f.Enviar();
+
+        Assert.Equal("simulado", envio.Resultado);
+        f.Db.ChangeTracker.Clear();
+        Assert.Equal("simulado", (await f.Db.EnviosOc.SingleAsync()).Resultado);
+        var advertencia = Assert.Single(f.Logger.Entradas, e => e.Nivel == LogLevel.Warning && e.Mensaje.Contains("falló la notificación de envío"));
+        Assert.IsType<InvalidOperationException>(advertencia.Error);
+        Assert.Contains(envio.Id.ToString(), advertencia.Mensaje);
+        Assert.Contains(f.Oc.Id.ToString(), advertencia.Mensaje);
+    }
+
     private sealed class Fixture : IDisposable
     {
         public ComprasDbContext Db { get; }
@@ -258,6 +321,8 @@ public sealed class EnviosOcTests
         public Impresion Impresion { get; } = new();
         public LoggerCaptura Logger { get; } = new();
         public Sender Sender { get; } = new();
+        public PublisherCaptura Publisher { get; } = new();
+        public TestAmbiente Ambiente { get; } = new();
         public Fixture(int firmas = 2, bool requiereNivel2 = true)
         {
             var empresa = new Empresa();
@@ -280,7 +345,7 @@ public sealed class EnviosOcTests
             Db.SaveChanges();
         }
         public Task<EnvioOc> Enviar(string? email = null, string modo = "correo") =>
-            new RegistrarEnvioOcHandler(Db, Usuario, Reloj, Proveedores, Impresion, Correo, Sender, Logger)
+            new RegistrarEnvioOcHandler(Db, Usuario, Reloj, Proveedores, Impresion, Correo, Sender, Logger, Publisher, Ambiente)
                 .Handle(new RegistrarEnvioOcCommand(Oc.Id, email, modo), default);
         public void Dispose() => Db.Dispose();
     }
@@ -350,5 +415,29 @@ public sealed class EnviosOcTests
             MarcaUsada = marca;
             return Task.FromResult(new PdfOrdenCompraGenerado([37, 80, 68, 70], "application/pdf", "OC-MID2026-000001.pdf"));
         }
+    }
+    private sealed class PublisherCaptura : IPublisher
+    {
+        public List<INotification> Notifications { get; } = [];
+        public bool Falla { get; set; }
+        public Task Publish(object notification, CancellationToken cancellationToken = default)
+        {
+            if (notification is INotification n) Notifications.Add(n);
+            if (Falla) throw new InvalidOperationException("Fallo al publicar notificación DEMO");
+            return Task.CompletedTask;
+        }
+        public Task Publish<TNotification>(TNotification notification, CancellationToken cancellationToken = default) where TNotification : INotification
+        {
+            Notifications.Add(notification);
+            if (Falla) throw new InvalidOperationException("Fallo al publicar notificación DEMO");
+            return Task.CompletedTask;
+        }
+    }
+    private sealed class TestAmbiente(string environmentName = "Development") : IHostEnvironment
+    {
+        public string EnvironmentName { get; set; } = environmentName;
+        public string ApplicationName { get; set; } = "Millet.Tests";
+        public string ContentRootPath { get; set; } = "/tmp";
+        public Microsoft.Extensions.FileProviders.IFileProvider ContentRootFileProvider { get; set; } = null!;
     }
 }

@@ -2,8 +2,10 @@ using FluentValidation;
 using Millet.Compras.Application.Oc.RegistrarImpresion;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Millet.Compras.Domain.Oc;
+using Millet.Compras.Domain.Oc.Events;
 using Millet.Compras.Application.Oc.Pdf;
 using Millet.Compras.Domain.Ports.DatosMaestros;
 using Millet.Compras.Infrastructure;
@@ -27,7 +29,7 @@ public sealed class RegistrarEnvioOcValidator : AbstractValidator<RegistrarEnvio
 
 public sealed class RegistrarEnvioOcHandler(ComprasDbContext db, ICurrentUserContext usuario, IClock clock,
     IProveedorReadPort proveedores, ImpresionOrdenCompraService impresion, ICorreoDocumentoService correo, ISender sender,
-    ILogger<RegistrarEnvioOcHandler> logger)
+    ILogger<RegistrarEnvioOcHandler> logger, IPublisher publisher, IHostEnvironment env)
     : IRequestHandler<RegistrarEnvioOcCommand, EnvioOc>
 {
     public async Task<EnvioOc> Handle(RegistrarEnvioOcCommand command, CancellationToken cancellationToken)
@@ -82,6 +84,17 @@ public sealed class RegistrarEnvioOcHandler(ComprasDbContext db, ICurrentUserCon
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "El envío {EnvioId} de la OC {OrdenCompraId} se guardó, pero no se pudo registrar la impresión.", envio.Id, oc.Id);
+            }
+        }
+        if (envio.Resultado is "aceptado" or "simulado" or "registrado" && !env.IsProduction())
+        {
+            try
+            {
+                await publisher.Publish(new OrdenCompraEnviadaAlProveedorNotification(oc.Id, oc.EmpresaId, oc.Folio.Valor), cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "El envío {EnvioId} de la OC {OrdenCompraId} se completó, pero falló la notificación de envío.", envio.Id, oc.Id);
             }
         }
         return envio;
