@@ -1117,6 +1117,12 @@ export interface SolicitudViaticosListItem {
   estado: EstadoSolicitudViaticos;
   montoComprobado: number | null;
   diferenciaLiquidacion: number | null;
+  /** M-449: lo comprobado por encima del límite de la política y su autorización (Dirección de Finanzas). */
+  excesoComprobacion?: number;
+  comprobacionFueraDePolitica?: boolean;
+  excesoAutorizadoPor?: string | null;
+  excesoAutorizadoEn?: string | null;
+  limiteComprobacion?: number;
   fechaSolicitud: string;
   version: number;
   /** Resueltos server-side; null si no resuelven. */
