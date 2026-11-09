@@ -86,9 +86,9 @@ public sealed class EmitirCartaPorteHandler : IRequestHandler<EmitirCartaPorteCo
 
         await TimbradoEjecutor.TimbrarYAplicarAsync(_db, 
             cp, CfdiEmisionBuilder.DesdeCartaPorte(cp, vehiculo, operador, ahora),
-            _fiscal, _cfdiRepo, ahora, cancellationToken);
+            _fiscal, _cfdiRepo, ahora, cancellationToken,
+            TimbradoDurable.AntesDelPac(_db, cp)); // M-173: guardada en proceso antes del PAC
 
-        _db.CartasPorte.Add(cp);
         await _db.SaveChangesAsync(cancellationToken);
 
         return new EmitirCartaPorteResponse(cp.Id, cp.Tipo.ToString(), cp.Estado.ToString(), cp.Uuid, cp.Folio, cp.Total, cp.CartaPortePreviaId);

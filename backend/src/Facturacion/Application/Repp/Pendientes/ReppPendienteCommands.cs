@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Millet.Facturacion.Application.Timbrado;
 using Millet.Facturacion.Application.Repp.EmitirRepp;
 using Millet.Facturacion.Domain.Ports;
 using Millet.Facturacion.Domain.Repp;
@@ -143,25 +144,28 @@ public sealed class EmitirReppPendienteHandler(FacturacionDbContext db, ReppPend
                 p.RegistrarError(ex.Code, ex.Message);
                 await db.SaveChangesAsync(cancellationToken);
             }
-            if (tx is not null) await tx.CommitAsync(cancellationToken);
+            if (TimbradoDurable.TransaccionAbierta(db, tx)) await tx!.CommitAsync(cancellationToken);
             return new(p.Id, false, p.IntentoReciboPagoId, ex.Code, ex.Message);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger?.LogError(ex, "Error de emisión del pendiente REP {PendienteId}", p.Id);
+            if (TimbradoDurable.TransaccionAbierta(db, tx))
+                await tx!.RollbackAsync(cancellationToken);
             if (tx is not null)
-            {
-                await tx.RollbackAsync(cancellationToken);
                 await tx.DisposeAsync();
-            }
             db.ChangeTracker.Clear();
             var fallido = await servicio.ObtenerAsync(c.Id, false, cancellationToken);
-            fallido.RegistrarError("REPP_RESULTADO_INCIERTO",
-                "No se pudo confirmar el resultado. Verifica el intento con el PAC antes de volver a emitir.");
+            // M-173: un rechazo del adaptador previo al envío no es incierto: el REP quedó fallido con su motivo.
+            if (TimbradoEjecutor.NoSeEnvio(ex) && ex is Millet.SharedKernel.Domain.Exceptions.DomainException rechazo)
+                fallido.RegistrarError(rechazo.Code, rechazo.Message);
+            else
+                fallido.RegistrarError("REPP_RESULTADO_INCIERTO",
+                    "No se pudo confirmar el resultado. Verifica el intento con el PAC antes de volver a emitir.");
             await db.SaveChangesAsync(cancellationToken);
             return new(fallido.Id, false, fallido.IntentoReciboPagoId, fallido.UltimoErrorCodigo, fallido.UltimoErrorMensaje);
         }
-        if (tx is not null) await tx.CommitAsync(cancellationToken);
+        if (TimbradoDurable.TransaccionAbierta(db, tx)) await tx!.CommitAsync(cancellationToken);
         return new(p.Id, p.Estado == EstadoReppPendiente.Emitido,
             p.ReciboPagoId ?? p.IntentoReciboPagoId, p.UltimoErrorCodigo, p.UltimoErrorMensaje, aviso);
     }
