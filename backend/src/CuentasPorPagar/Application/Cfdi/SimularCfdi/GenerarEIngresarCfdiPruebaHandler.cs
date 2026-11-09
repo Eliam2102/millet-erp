@@ -73,6 +73,13 @@ public sealed class GenerarEIngresarCfdiPruebaHandler : IRequestHandler<GenerarE
                 .Include(o => o.Lineas)
                 .FirstOrDefaultAsync(o => o.Id == request.OrdenCompraId, cancellationToken);
         }
+        else if (oc.Lineas.Count == 0 && _comprasDb.Database.ProviderName != "Microsoft.EntityFrameworkCore.InMemory")
+        {
+            if (!_comprasDb.Entry(oc).Collection(o => o.Lineas).IsLoaded)
+            {
+                await _comprasDb.Entry(oc).Collection(o => o.Lineas).LoadAsync(cancellationToken);
+            }
+        }
 
         if (oc is null)
         {
