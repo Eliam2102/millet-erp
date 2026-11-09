@@ -163,7 +163,7 @@ public sealed class LotesCargaServicioTests
         var r = await e.Servicio.RechazarAsync(d.Lote.Id, "La balanza es de septiembre", default);
         r.Lote.Estado.Should().Be("Rechazado");
         r.MotivoRechazo.Should().Be("La balanza es de septiembre");
-        r.Historial.Last().Detalle.Should().Be("La balanza es de septiembre");
+        r.Historial[^1].Detalle.Should().Be("La balanza es de septiembre");
     }
 
     [Fact]

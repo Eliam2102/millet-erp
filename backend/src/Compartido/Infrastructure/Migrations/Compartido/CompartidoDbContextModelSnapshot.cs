@@ -7436,6 +7436,169 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         });
                 });
 
+            modelBuilder.Entity("Millet.SharedKernel.Domain.Cargas.LoteCarga", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("AplicadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("aplicado_en");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DecididoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("decidido_en");
+
+                    b.Property<Guid?>("DecididoPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("decidido_por_id");
+
+                    b.Property<string>("DecididoPorNombre")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("decidido_por_nombre");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<short>("Estado")
+                        .HasColumnType("smallint")
+                        .HasColumnName("estado");
+
+                    b.Property<DateOnly?>("FechaCorte")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_corte");
+
+                    b.Property<string>("FilasJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("filas_json");
+
+                    b.Property<string>("FolioResultado")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("folio_resultado");
+
+                    b.Property<string>("HistorialJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("historial_json");
+
+                    b.Property<string>("Huella")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("huella");
+
+                    b.Property<string>("MapeoJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("mapeo_json");
+
+                    b.Property<string>("MotivoRechazo")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("motivo_rechazo");
+
+                    b.Property<string>("NombreArchivo")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("character varying(260)")
+                        .HasColumnName("nombre_archivo");
+
+                    b.Property<bool>("PuedeAplicar")
+                        .HasColumnType("boolean")
+                        .HasColumnName("puede_aplicar");
+
+                    b.Property<string>("Referencia")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("referencia");
+
+                    b.Property<DateTimeOffset>("SubidoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("subido_en");
+
+                    b.Property<Guid>("SubidoPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("subido_por_id");
+
+                    b.Property<string>("SubidoPorNombre")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("subido_por_nombre");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("tipo");
+
+                    b.Property<int>("TotalErrores")
+                        .HasColumnType("integer")
+                        .HasColumnName("total_errores");
+
+                    b.Property<int>("TotalFilas")
+                        .HasColumnType("integer")
+                        .HasColumnName("total_filas");
+
+                    b.Property<string>("UltimoError")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("ultimo_error");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<string>("ValidacionJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("validacion_json");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_lotes_carga");
+
+                    b.HasIndex("EmpresaId", "Tipo", "Huella")
+                        .HasDatabaseName("ix_lotes_carga_empresa_tipo_huella");
+
+                    b.HasIndex("EmpresaId", "Tipo", "SubidoEn")
+                        .HasDatabaseName("ix_lotes_carga_empresa_tipo_subido");
+
+                    b.ToTable("lotes_carga", "compartido", t =>
+                        {
+                            t.HasCheckConstraint("ck_lotes_carga_estado", "estado BETWEEN 1 AND 4");
+
+                            t.HasCheckConstraint("ck_lotes_carga_otra_persona", "estado NOT IN (2, 4) OR decidido_por_id <> subido_por_id");
+
+                            t.HasCheckConstraint("ck_lotes_carga_rechazo_con_motivo", "estado <> 3 OR (motivo_rechazo IS NOT NULL AND char_length(motivo_rechazo) >= 5)");
+                        });
+                });
+
             modelBuilder.Entity("Millet.SharedKernel.Domain.Incidencias.Incidencia", b =>
                 {
                     b.Property<Guid>("Id")

@@ -186,8 +186,8 @@ public sealed class LotesCargaServicio(
         await db.SaveChangesAsync(ct);
     }
 
-    private async Task ValidarAsync(LoteCarga lote, IProcesadorCarga p, IReadOnlyList<FilaCarga> filas,
-        IReadOnlyList<ErrorCarga> erroresLectura, CancellationToken ct)
+    private static async Task ValidarAsync(LoteCarga lote, IProcesadorCarga p, IReadOnlyList<FilaCarga> filas,
+        List<ErrorCarga> erroresLectura, CancellationToken ct)
     {
         var v = erroresLectura.Count > 0
             ? new ValidacionCarga(false, erroresLectura, new Dictionary<string, string>())
