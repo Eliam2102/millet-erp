@@ -161,7 +161,8 @@ public sealed class PedidoFacturaLigaTests
         var items = await new PedidoComprobantesHandler(db)
             .Handle(new PedidoComprobantesQuery(pedido.Id), CancellationToken.None);
 
-        (await db.PedidosFacturables.SingleAsync()).ComprobanteVigenteId.Should().BeNull();
+        // M8: esta salida cubre el 100 % del pedido, así que su factura lo marca Facturado y queda como vigente.
+        (await db.PedidosFacturables.SingleAsync()).ComprobanteVigenteId.Should().Be(emit.Id);
         items.Should().ContainSingle();
         items[0].Id.Should().Be(emit.Id);
         items[0].Estado.Should().Be("Timbrado");
