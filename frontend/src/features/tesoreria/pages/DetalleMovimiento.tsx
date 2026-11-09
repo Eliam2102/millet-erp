@@ -14,6 +14,7 @@ import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { TrazabilidadComprasDialog } from '@/components/erp/trazabilidad/TrazabilidadComprasDialog';
 import { TipoDocumentoTrazabilidad } from '@/components/erp/trazabilidad/types';
 import { ReclasificarMovimiento } from '../components/ReclasificarMovimiento';
+import { TraspasoLigado } from '../components/TraspasoLigado';
 import { useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { ArrowRightLeft, ReceiptText, RotateCcw, Undo2, X } from 'lucide-react';
@@ -289,7 +290,13 @@ export function DetalleMovimiento({ id }: { id: string }) {
           Última reclasificación: {m.motivoReclasificacion}
         </p>
       )}
-      {puedeReclasificar && <ReclasificarMovimiento key={m.id} movimiento={m} />}
+      {m.traspasoId ? (
+        puedeReclasificar && (
+          <TraspasoLigado movimiento={m} revertido={contramovimientos.length > 0} />
+        )
+      ) : (
+        puedeReclasificar && <ReclasificarMovimiento key={m.id} movimiento={m} />
+      )}
       <section className="space-y-2">
         <h2 className="text-sm font-semibold">Aplicaciones a pasivos</h2>
         {aplicaciones.length === 0 ? (

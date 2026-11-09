@@ -26,6 +26,8 @@ public sealed class ReclasificarMovimientoHandler(TesoreriaDbContext db) : IRequ
             throw new ConcurrencyException(nameof(movimiento), movimiento.Id);
         if (!await db.ConceptosMovimiento.AnyAsync(c => c.Id == command.ConceptoId && c.Activo, cancellationToken))
             throw new BusinessRuleException("MOV_CONCEPTO_INVALIDO", "Selecciona un concepto activo.");
+        if (movimiento.TraspasoId is not null || command.ConceptoId == Domain.Cuentas.ConceptoMovimiento.TraspasoId)
+            throw new BusinessRuleException("MOV_RECLASIFICAR_TRASPASO", "Un traspaso entre cuentas propias no se reclasifica; usa Nuevo traspaso o revierte el traspaso.");
         movimiento.Reclasificar(command.ConceptoId, command.Motivo);
         await db.SaveChangesAsync(cancellationToken);
     }

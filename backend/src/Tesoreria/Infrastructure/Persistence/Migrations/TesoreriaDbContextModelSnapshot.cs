@@ -1273,7 +1273,7 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
 
                     b.ToTable("concepto_movimiento", "tesoreria", t =>
                         {
-                            t.HasCheckConstraint("ck_concepto_movimiento_clasificacion", "clasificacion_flujo IN (1, 2, 3)");
+                            t.HasCheckConstraint("ck_concepto_movimiento_clasificacion", "clasificacion_flujo IN (1, 2, 3, 4)");
                         });
 
                     b.HasData(
@@ -1359,7 +1359,7 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         {
                             Id = new Guid("0000000b-1001-0000-0000-000000000007"),
                             Activo = true,
-                            ClasificacionFlujo = (short)1,
+                            ClasificacionFlujo = (short)4,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             EsEjemplo = true,
@@ -2595,6 +2595,15 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasColumnType("numeric(12,6)")
                         .HasColumnName("tipo_cambio");
 
+                    b.Property<Guid?>("TraspasoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("traspaso_id");
+
+                    b.Property<string>("TraspasoMotivo")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("traspaso_motivo");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -2616,6 +2625,10 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ContramovimientoDe")
                         .HasDatabaseName("ix_movimiento_bancario_contramovimiento_de");
+
+                    b.HasIndex("TraspasoId")
+                        .HasDatabaseName("ix_movimiento_bancario_traspaso")
+                        .HasFilter("traspaso_id IS NOT NULL");
 
                     b.HasIndex("CuentaBancariaId", "FechaValor")
                         .HasDatabaseName("ix_movimiento_bancario_cuenta_fecha");
