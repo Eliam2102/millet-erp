@@ -147,21 +147,19 @@ public sealed class PedidoFacturaLigaTests
         items[0].Vigente.Should().BeTrue();
     }
     // M10 (prueba S3-4): las facturas por salida no toman el pedido, pero son vigentes mientras no se cancelen.
+    // La salida es parcial (1 de 2): con el 100 % el pedido pasa a Facturado y toma el comprobante (M8).
     [Fact]
     public async Task Comprobantes_del_pedido_marca_vigentes_las_facturas_por_salida()
     {
         var empresaId = Guid.NewGuid();
         using var db = NewDb(empresaId);
         var pedido = await SembrarPedidoAsync(db, empresaId);
-        // Parcialidad (1 de 2 piezas): no completa el pedido, así que no queda ligado a un comprobante vigente (M8).
         var salida = SalidaFacturable.Registrar(pedido, [], OrigenSalidaFacturable.ProductoTerminado, "SAL-1", [(1, 1m)], Ahora);
         db.SalidasFacturables.Add(salida);
         await db.SaveChangesAsync();
-        var emit = await EmitirHandler(db, empresaId).Handle(Command(pedido.Id) with
-        {
-            SalidaFacturableId = salida.Id,
-            Lineas = [new EmitirFacturaVentaLinea(null, "01010101", "P", "H87", 1m, 100m, 0m, "02", 0.16m, null, null)],
-        }, CancellationToken.None);
+        var lineaParcial = new EmitirFacturaVentaLinea(null, "01010101", "P", "H87", 1m, 100m, 0m, "02", 0.16m, null, null);
+        var emit = await EmitirHandler(db, empresaId).Handle(
+            Command(pedido.Id) with { SalidaFacturableId = salida.Id, Lineas = [lineaParcial] }, CancellationToken.None);
 
         var items = await new PedidoComprobantesHandler(db)
             .Handle(new PedidoComprobantesQuery(pedido.Id), CancellationToken.None);
