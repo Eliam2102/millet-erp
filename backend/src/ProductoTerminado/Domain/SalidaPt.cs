@@ -37,14 +37,15 @@ public sealed class SalidaPt : BaseEntity, IAuditable, IPerteneceAEmpresa
     private SalidaPt(Guid id) : base(id) { }
 
     public static SalidaPt Crear(Guid empresa, Guid sucursalId, string destino, bool foranea, Guid? vehiculoId, Guid? operadorId, decimal? distanciaKm, decimal? pesoKg,
-        string? origenCp, string? origenEstado, string? destinoCp, string? destinoEstado, DateTimeOffset ahora)
+        string? origenCp, string? origenEstado, string? destinoCp, string? destinoEstado, DateTimeOffset ahora,
+        DateOnly? diaLocal = null)
     {
         if (foranea && (vehiculoId is null || operadorId is null || distanciaKm is not > 0 || pesoKg is not > 0 || string.IsNullOrWhiteSpace(origenCp) || string.IsNullOrWhiteSpace(origenEstado) || string.IsNullOrWhiteSpace(destinoCp) || string.IsNullOrWhiteSpace(destinoEstado)))
             throw new BusinessRuleException("PT_SALIDA_CARTA_PORTE_INCOMPLETA", "La salida foránea necesita vehículo, operador, distancia, peso, y código postal y estado de origen y destino para la Carta Porte.");
         var id = Guid.CreateVersion7();
         return new SalidaPt(id)
         {
-            EmpresaId = empresa, Folio = $"HS-{ahora:yyyyMMdd}-{id.ToString("N")[^5..].ToUpperInvariant()}", SucursalId = sucursalId, Destino = destino.Trim(), Foranea = foranea,
+            EmpresaId = empresa, Folio = $"HS-{diaLocal ?? DateOnly.FromDateTime(ahora.UtcDateTime):yyyyMMdd}-{id.ToString("N")[^5..].ToUpperInvariant()}", SucursalId = sucursalId, Destino = destino.Trim(), Foranea = foranea,
             VehiculoId = vehiculoId, OperadorId = operadorId, DistanciaKm = distanciaKm, PesoKg = pesoKg, OrigenCodigoPostal = origenCp?.Trim(), OrigenEstado = origenEstado?.Trim().ToUpperInvariant(), DestinoCodigoPostal = destinoCp?.Trim(), DestinoEstado = destinoEstado?.Trim().ToUpperInvariant(),
             Estado = EstadoSalida.Borrador, CreadaAt = ahora,
         };

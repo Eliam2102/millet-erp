@@ -132,7 +132,7 @@ public static class CfdiPdfModelBuilder
         var facturas = r.FacturasPagadas.OrderBy(f => f.NumParcialidad).ThenBy(f => f.FacturaUuid).ToList();
         var primera = facturas.FirstOrDefault();
         var pago = new ComplementoPagoPdf(
-            r.FechaPago,
+            CfdiEmisionBuilder.FechaFiscal(r.FechaPago),
             primera is null ? "" : ConDescripcion(primera.FormaPagoReal, datos.FormasPago),
             r.MonedaPago,
             facturas.Select(f => f.TcPago).FirstOrDefault(tc => tc is not null),
@@ -177,14 +177,18 @@ public static class CfdiPdfModelBuilder
         var (serie, folio) = SepararFolio(c.Folio);
         return new CfdiPdfModel(
             tipo, tituloEs, tituloEn, serie, folio,
-            c.FechaTimbrado ?? c.CreatedAt,
+            // M11: el PDF muestra las fechas en la hora fiscal de México (la del atributo
+            // Fecha del CFDI y la del timbre), no en UTC: una factura de las 23:00 no
+            // puede imprimirse con fecha del día siguiente.
+            CfdiEmisionBuilder.FechaFiscal(c.FechaTimbrado ?? c.CreatedAt),
             c.Tipo switch { TipoComprobante.Egreso => "Egreso", TipoComprobante.Traslado => "Traslado", _ => "Ingreso" },
             new EmisorPdf(c.NombreEmisor, datos.NombreComercial, c.RfcEmisor,
                 ConDescripcion(c.RegimenFiscalEmisor, datos.Regimenes), datos.DomicilioLineas, datos.Logo),
             new ReceptorPdf(c.ReceptorNombre, c.ReceptorRfc, c.ReceptorCodigoPostal,
                 ConDescripcion(c.ReceptorRegimenFiscal, datos.Regimenes), c.ReceptorPais, condiciones),
             new CfdiCabeceraPdf(c.LugarExpedicion, c.Moneda, c.TipoCambio, ordenCompra, referencia,
-                c.NoCertificadoEmisor, c.NoCertificadoSat, c.FechaTimbrado, c.Uuid),
+                c.NoCertificadoEmisor, c.NoCertificadoSat,
+                c.FechaTimbrado is { } timbrado ? CfdiEmisionBuilder.FechaFiscal(timbrado) : null, c.Uuid),
             conceptos, impuestos, fisicos, comentarios,
             new TotalesPdf(c.Moneda, c.Subtotal, c.Descuento, c.ImpuestosTrasladados, c.Retenciones, c.Total),
             MontoEnLetra(c.Total, c.Moneda),
@@ -252,7 +256,7 @@ public static class CfdiPdfModelBuilder
             return null;
         var cadena = c.CadenaOriginalTimbre;
         if (string.IsNullOrWhiteSpace(cadena) && c.FechaTimbrado is { } fecha && !string.IsNullOrWhiteSpace(c.RfcProveedorCertificacion))
-            cadena = $"||1.1|{c.Uuid}|{fecha:yyyy-MM-ddTHH:mm:ss}|{c.RfcProveedorCertificacion}|{c.SelloCfdi}|{c.NoCertificadoSat}||";
+            cadena = $"||1.1|{c.Uuid}|{CfdiEmisionBuilder.FechaFiscal(fecha):yyyy-MM-ddTHH:mm:ss}|{c.RfcProveedorCertificacion}|{c.SelloCfdi}|{c.NoCertificadoSat}||";
         // El QR usa los últimos 8 caracteres del sello; un sello más corto (stub) imprime los sellos sin QR.
         var urlQr = c.SelloCfdi.Length >= 8 && c.Total >= 0
             ? CfdiQr.Url(c.Uuid, c.RfcEmisor, c.ReceptorRfc, c.Total, c.SelloCfdi)

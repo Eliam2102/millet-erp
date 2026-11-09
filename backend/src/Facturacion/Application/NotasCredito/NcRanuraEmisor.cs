@@ -80,7 +80,7 @@ public static class NcRanuraEmisor
         var reserva = await sender.Send(
             new ReservarFolioCommand(
                 factura.EmpresaId, factura.SucursalId,
-                TipoDocumentoSerie.NotaCredito, DateOnly.FromDateTime(ahora.UtcDateTime)),
+                TipoDocumentoSerie.NotaCredito, Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.DiaFiscal(ahora)),
             cancellationToken);
 
         // Receptor snapshot heredado de la factura (ya validado al emitirla).

@@ -236,8 +236,10 @@ public abstract class Comprobante : BaseEntity, IPerteneceAEmpresa, IFiscalmente
                 "COMPROBANTE_NO_POR_AUTORIZAR",
                 $"Solo un comprobante Por autorizar puede autorizarse (actual: {Estado}).");
 
-        PeriodoAnio = ahora.Year;
-        PeriodoMes = ahora.Month;
+        // M11: el período es el de la fecha local de Millet, no el de UTC.
+        var local = ZonaMillet.ALocal(ahora);
+        PeriodoAnio = local.Year;
+        PeriodoMes = local.Month;
         Estado = EstadoTimbrado.Borrador;
     }
 

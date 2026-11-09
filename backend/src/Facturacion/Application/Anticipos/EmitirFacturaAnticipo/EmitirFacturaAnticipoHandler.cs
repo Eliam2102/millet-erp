@@ -117,7 +117,7 @@ public sealed class EmitirFacturaAnticipoHandler
                 empresaId,
                 command.SucursalId,
                 TipoDocumentoSerie.FacturaAnticipo,
-                DateOnly.FromDateTime(ahora.UtcDateTime)),
+                Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.DiaFiscal(ahora)),
             cancellationToken);
 
         // 4. Construir el CFDI de anticipo (la factory rechaza receptor genérico).
