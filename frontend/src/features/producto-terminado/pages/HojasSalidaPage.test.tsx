@@ -92,7 +92,8 @@ describe('HojasSalidaPage', () => {
     state.lista.mockReturnValue({ data: { items: [hoja('Emitida')], total: 1 }, isLoading: false, isError: false, refetch: vi.fn() });
     state.detalle.mockReturnValue({ data: { ...detalle, albaranes: [{ ...detalle.albaranes[0], destino: null }] } });
     render(<HojasSalidaPage />);
-    fireEvent.click(screen.getByRole('button', { name: 'Ver albaranes' }));
+    // La hoja emitida ofrece «Ver o reimprimir albaranes» (7121b7e9d).
+    fireEvent.click(screen.getByRole('button', { name: 'Ver o reimprimir albaranes' }));
     const nota = screen.getByText('Destino de la hoja: el pedido no trae obra');
     expect(nota.closest('td')).toHaveTextContent('Obra Mérida norte');
     expect(screen.queryByText('Sin obra')).toBeNull();
