@@ -11,7 +11,7 @@
    Reglas del flujo:
    - Monedas: USD, Euro y CAN: son los valores propios de A+W (SYSADM.KA_WAEHRUNGEN.WAEHRUNG),
      no códigos ISO (respuesta de TI, 5-nov). El ERP traduce con IntegracionesAw:MapeoMonedaAw
-     (USD->USD, EUR->Euro, CAD->CAN). FREMD_KEY no es la moneda y no se usa para cruzar.
+     (USD->USD, EUR->Euro, CAD->CAN). El cruce con A+W es por WAEHRUNG (FREMD_KEY trae el ISO, pero no es la llave).
    - Inmutabilidad: las filas NO se modifican ni se borran por el ERP. Un cambio en el
      valor (corrección DOF/Banxico o captura manual) genera una fila con version + 1.
    - Quien escribe qué:
