@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Extensions.Logging;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -39,7 +40,8 @@ public sealed class RechazoMotorException(CausaRechazoContable causa, string? de
 }
 
 public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IPolizaContablePort puerto, IClock clock,
-    ICentroCostoContabilidadPort centros, IEnumerable<IEnriquecedorEventoContable> enriquecedores, ILogger<GenerarPolizaDesdeEventoHandler>? logger = null)
+    ICentroCostoContabilidadPort centros, IEnumerable<IEnriquecedorEventoContable> enriquecedores, ILogger<GenerarPolizaDesdeEventoHandler>? logger = null,
+    ITipoCambioContabilidadReadPort? catalogoTc = null, IToleranciaTipoCambioReadPort? toleranciaTc = null)
     : IRequestHandler<GenerarPolizaDesdeEventoCommand, ResultadoMotor>
 {
     public async Task<ResultadoMotor> Handle(GenerarPolizaDesdeEventoCommand request, CancellationToken cancellationToken)
@@ -73,9 +75,7 @@ public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IP
 
         if (e.SucursalId is not { } sucursal)
             throw Falta("SucursalId");
-        if (e.Moneda != Poliza.MonedaNacional && e.TipoCambio is not > 0)
-            throw Falta("TipoCambio");
-        var tc = e.Moneda == Poliza.MonedaNacional ? 1m : e.TipoCambio!.Value;
+        var tc = await TipoCambioDelEventoAsync(e, ct);
 
         var codigos = plantilla.Lineas.Select(l => l.Rol).Distinct().ToList();
         var porClasificador = plantilla.Lineas.Where(l => l.RolPorClasificador).Select(l => l.Rol + "_").Distinct().ToList();
@@ -166,6 +166,87 @@ public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IP
         return new SolicitudPolizaAutomatica(plantilla.TipoOperacionClave, e.FechaContable, plantilla.Concepto, e.Documento, e.Llave,
             partidas, OrigenMovimiento.Automatica, e.EmpresaId);
     }
+
+    /// <summary>
+    /// M-207 (86e3zr7nf): eventos de un CFDI (facturas, notas y anticipos de CxP y Facturación) cuyo TC se compara contra el
+    /// catálogo común. Pagos, cobros, revaluación y demás usan su propio TC (el del banco o el del cierre) y no se comparan.
+    /// </summary>
+    internal static readonly IReadOnlySet<string> EventosConTcDeCfdi = new HashSet<string>(StringComparer.Ordinal)
+    {
+        NormalizadorEventos.FacturaProveedorRegistrada,
+        NormalizadorEventos.NotaCreditoProveedorRegistrada,
+        NormalizadorEventos.AnticipoProveedorCapturado,
+        NormalizadorEventos.FacturaVentaTimbrada,
+        NormalizadorEventos.FacturaAnticipoTimbrada,
+        NormalizadorEventos.NotaCreditoTimbrada,
+    };
+
+    /// <summary>Días hacia atrás que se busca el TC del catálogo cuando la fecha no tiene registro (fin de semana o festivo).</summary>
+    internal const int DiasAtrasCatalogoTc = 5;
+
+    /// <summary>
+    /// M-207: TC con el que se contabiliza el evento.
+    /// <list type="bullet">
+    /// <item>MXN = 1. Eventos que no son de un CFDI: el del evento, como antes (sin él, <see cref="CausaRechazoContable.DatoFaltante"/>).</item>
+    /// <item>Con un TC sustituto autorizado en su rechazo pendiente: ese (o el del documento, si se autorizó aceptarlo), sin comparar.</item>
+    /// <item>CFDI con TC y catálogo con valor: fuera de la tolerancia → <see cref="CausaRechazoContable.TipoCambioFueraDeTolerancia"/>.</item>
+    /// <item>CFDI sin TC: el del catálogo; si tampoco hay → <see cref="CausaRechazoContable.TipoCambioFaltante"/>.</item>
+    /// <item>CFDI con TC y catálogo sin valor: el del documento (no se bloquea).</item>
+    /// </list>
+    /// </summary>
+    private async Task<decimal> TipoCambioDelEventoAsync(EventoContable e, CancellationToken ct)
+    {
+        if (e.Moneda == Poliza.MonedaNacional || !EventosConTcDeCfdi.Contains(e.Tipo) || catalogoTc is null)
+            return ResolverTipoCambio(e, esCfdi: false, null, null, null, 0m);
+
+        var autorizado = await db.RechazosContables.IgnoreQueryFilters().AsNoTracking()
+            .Where(r => r.EmpresaId == e.EmpresaId && r.TipoEvento == e.Tipo && r.EventoId == e.EventoId
+                && r.Estado == EstadoRechazoContable.Pendiente && r.TcAutorizadoEn != null)
+            .Select(r => new { r.TcAccion, r.TcValor }).FirstOrDefaultAsync(ct);
+        var catalogo = autorizado is null ? await TipoCambioCatalogoAsync(e.Moneda, e.FechaContable, ct) : null;
+        var tolerancia = autorizado is null && toleranciaTc is not null ? await toleranciaTc.ToleranciaPctAsync(ct) : 0m;
+        return ResolverTipoCambio(e, esCfdi: true, autorizado?.TcAccion, autorizado?.TcValor, catalogo, tolerancia);
+    }
+
+    /// <summary>M-207: decisión pura del TC (ver <see cref="TipoCambioDelEventoAsync"/>). Lanza <see cref="RechazoMotorException"/>.</summary>
+    internal static decimal ResolverTipoCambio(EventoContable e, bool esCfdi, AccionTipoCambioRechazo? autorizado, decimal? valorAutorizado,
+        decimal? catalogo, decimal toleranciaPct)
+    {
+        if (e.Moneda == Poliza.MonedaNacional) return 1m;
+        if (!esCfdi)
+            return e.TipoCambio is > 0 ? e.TipoCambio.Value : throw Falta("TipoCambio");
+        if (autorizado == AccionTipoCambioRechazo.Sustituto && valorAutorizado is > 0)
+            return valorAutorizado.Value;
+        if (autorizado == AccionTipoCambioRechazo.AceptarDocumento && e.TipoCambio is > 0)
+            return e.TipoCambio.Value;
+
+        if (e.TipoCambio is > 0 && e.TipoCambio.Value is var documento)
+        {
+            if (catalogo is > 0 && toleranciaPct > 0 && DiferenciaPct(documento, catalogo.Value) is var pct && pct > toleranciaPct)
+                throw new RechazoMotorException(CausaRechazoContable.TipoCambioFueraDeTolerancia,
+                    string.Create(CultureInfo.InvariantCulture, $"{documento:0.0000}|{catalogo.Value:0.0000}"),
+                    string.Create(CultureInfo.InvariantCulture,
+                        $"TC del documento {documento:0.0000}, catálogo {catalogo.Value:0.0000} ({pct:0.00} %): fuera de la tolerancia de {toleranciaPct:0.##} %."));
+            return documento;
+        }
+        return catalogo is > 0
+            ? catalogo.Value
+            : throw new RechazoMotorException(CausaRechazoContable.TipoCambioFaltante, e.Moneda,
+                $"El documento en {e.Moneda} no trae tipo de cambio y el catálogo no tiene el del {e.FechaContable:dd/MM/yyyy}.");
+    }
+
+    /// <summary>TC del catálogo a la fecha; si no hay registro (fin de semana o festivo), el último anterior hasta <see cref="DiasAtrasCatalogoTc"/> días.</summary>
+    private async Task<decimal?> TipoCambioCatalogoAsync(string moneda, DateOnly fecha, CancellationToken ct)
+    {
+        for (var i = 0; i <= DiasAtrasCatalogoTc; i++)
+            if (await catalogoTc!.ValorEnMxnAsync(moneda, fecha.AddDays(-i), ct) is > 0 and var valor)
+                return valor;
+        return null;
+    }
+
+    /// <summary>Diferencia del TC del documento contra el del catálogo, en porcentaje del catálogo, a 2 decimales.</summary>
+    internal static decimal DiferenciaPct(decimal documento, decimal catalogo) =>
+        Math.Round(Math.Abs(documento - catalogo) / catalogo * 100m, 2, MidpointRounding.AwayFromZero);
 
     /// <summary>CON-11: TC de la línea; el rol con TC propio (BANCOS al TC del pago) manda sobre el del evento (el del documento).</summary>
     internal static decimal TipoCambioDeLinea(EventoContable e, string rol, decimal tcEvento) =>

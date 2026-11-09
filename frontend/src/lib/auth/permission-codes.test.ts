@@ -368,6 +368,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'contabilidad.motor.leer',
   'contabilidad.roles-cuenta.administrar',
   'contabilidad.rechazos.gestionar',
+  'contabilidad.tipo-cambio.autorizar-sustituto',
   // Administración — Puestos/Empleados. El #629 (ADM-FE-PR1) los agregó a
   // PermisosCanonicos pero olvidó este set → el test quedó rojo en main
   // (CI no corre vitest de FE, así que nadie lo vio). Verificados contra

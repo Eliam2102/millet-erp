@@ -529,6 +529,8 @@ export const PermisosCanonicos = {
   ContabilidadMotorLeer: 'contabilidad.motor.leer',
   ContabilidadRolesCuentaAdministrar: 'contabilidad.roles-cuenta.administrar',
   ContabilidadRechazosGestionar: 'contabilidad.rechazos.gestionar',
+  // M-207: autorizar el TC sustituto de un rechazo del motor (otra persona que quien lo capturó).
+  ContabilidadTipoCambioAutorizarSustituto: 'contabilidad.tipo-cambio.autorizar-sustituto',
   ComercioExteriorEmbarquesAutorizarSalida: 'comercio_exterior.embarques.autorizar_salida',
   ComercioExteriorExpedientesAprobarCierre: 'comercio_exterior.expedientes.aprobar_cierre',
   ComercioExteriorGastosRegistrar: 'comercio_exterior.gastos.registrar',
