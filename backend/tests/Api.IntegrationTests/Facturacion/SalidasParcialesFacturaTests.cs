@@ -68,7 +68,8 @@ public sealed class SalidasParcialesFacturaTests : IClassFixture<SalidasParciale
         Assert.True(f2.StatusCode == HttpStatusCode.Created, await f2.Content.ReadAsStringAsync());
 
         var folio1 = (await f1.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("folio").GetString();
-        var folio2 = (await f2.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("folio").GetString();
+        var cuerpo2 = await f2.Content.ReadFromJsonAsync<JsonElement>();
+        var folio2 = cuerpo2.GetProperty("folio").GetString();
         Assert.NotEqual(folio1, folio2);
 
         using (var scope = _factory.Services.CreateScope())
@@ -78,7 +79,7 @@ public sealed class SalidasParcialesFacturaTests : IClassFixture<SalidasParciale
             var pedido = await db.PedidosFacturables.AsNoTracking().Include(p => p.Lineas).SingleAsync(p => p.Id == pedidoId);
             // M8: la parcialidad que completa el 100 % lo marca Facturado; el pedido no cambia (100 piezas, 1,000).
             Assert.Equal(EstadoPedidoFacturable.Facturado, pedido.Estado);
-            Assert.Equal((await f2.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid(), pedido.ComprobanteVigenteId);
+            Assert.Equal(cuerpo2.GetProperty("id").GetGuid(), pedido.ComprobanteVigenteId);
             Assert.Equal(100m, pedido.Lineas.Single().Cantidad);
             Assert.Equal(1000m, pedido.Total);
             var facturas = await db.FacturasVenta.AsNoTracking().Where(f => f.PedidoFacturableId == pedidoId)
