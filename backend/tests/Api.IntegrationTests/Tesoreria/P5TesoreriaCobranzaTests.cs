@@ -198,16 +198,17 @@ public sealed class P5TesoreriaCobranzaTests(WebApplicationFactory<Program> fact
         (await Post(client, $"{Tes}/movimientos/{id}/reclasificar", new { conceptoId = concepto, motivo = "Corrección ficticia P5" }, mov.GetProperty("version").GetInt32())).StatusCode.Should().Be(HttpStatusCode.NoContent);
         using var scope = factory.Services.CreateScope(); using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
         var db = scope.ServiceProvider.GetRequiredService<TesoreriaDbContext>();
-        (await db.MovimientosBancarios.SingleAsync(m => m.Id == id)).ConceptoId.Should().Be(concepto);
+        // M-204: la reclasificación queda como solicitud pendiente hasta la segunda firma; el concepto no cambia aún.
+        (await db.MovimientosBancarios.SingleAsync(m => m.Id == id)).ConceptoId.Should().NotBe(concepto);
+        (await db.MovimientoReclasificaciones.SingleAsync(r => r.MovimientoId == id)).Motivo.Should().Be("Corrección ficticia P5");
         var logs = await db.Set<Millet.SharedKernel.Domain.Audit.AuditLogEntry>().Where(a => a.EntidadId == id || a.EntidadId == cuenta.Id).ToListAsync();
-        logs.Should().Contain(a => a.Cambios.Contains("Corrección ficticia P5"));
         logs.Should().Contain(a => a.Cambios.Contains("Carga ficticia P5"));
         var reporte = await client.GetAsync($"{Tes}/reportes/flujo-efectivo?desde={Fecha:yyyy-MM-dd}&hasta={Fecha:yyyy-MM-dd}&cuentaBancariaId={cuenta.Id}");
         reporte.EnsureSuccessStatusCode();
         var filas = (await reporte.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("filas").EnumerateArray().ToList();
         filas.Single(f => f.GetProperty("tipo").GetString() == "saldoInicial").GetProperty("neto").GetDecimal().Should().Be(1000);
         filas.Single(f => f.GetProperty("tipo").GetString() == "saldoFinal").GetProperty("neto").GetDecimal().Should().Be(1100);
-        filas.Single(f => f.GetProperty("tipo").GetString() == "movimiento").GetProperty("clasificacion").GetString().Should().Be("Inversión");
+        filas.Single(f => f.GetProperty("tipo").GetString() == "movimiento").GetProperty("clasificacion").GetString().Should().NotBe("Inversión");
     }
 
     // F-FIN-03: ligar a la factura de un proveedor sin 32-D responde 422 y no deja la factura pagada.
