@@ -31,6 +31,8 @@ import {
   type LineaCreditoResponse,
 } from '@/features/cxc/api/types';
 import { ETIQUETA_ORIGEN_LINEA, formatoMonto } from '@/features/cxc/lib/glosario';
+import { desbloqueoManual } from '@/features/cxc/lib/desbloqueo-linea';
+import { formatDateTime } from '@/lib/datetime';
 import {
   EditarLineaCreditoSchema,
   SIN_CLASIFICACION,
@@ -80,6 +82,8 @@ function Contenido({ linea }: { linea: LineaCreditoResponse }) {
   const lookup = useClientesLookupCxc({ ids: [linea.clienteId] });
   const cliente = lookup.data?.[0] ?? null;
   const etiquetaLinea = `${cliente?.razonSocial ?? 'Cliente'} · ${linea.moneda}`;
+  // B1: el último desbloqueo manual (C7.5, con autorización y motivo) queda a la vista en el detalle.
+  const ultimoDesbloqueo = desbloqueoManual(linea);
 
   const [editando, setEditando] = useState(false);
   const [dialogBloquear, setDialogBloquear] = useState(false);
@@ -112,10 +116,9 @@ function Contenido({ linea }: { linea: LineaCreditoResponse }) {
       {/* ── Sub-topbar §6.5 (sticky, no se imprime) ─────────────── */}
       <div data-print="hidden">
         <PageHeader
-          mono
-          titulo={linea.id}
+          titulo={cliente?.razonSocial ?? 'Línea de crédito'}
           estado={<ChipEstadoLinea estado={linea.estado} />}
-          descripcion={etiquetaLinea}
+          descripcion={`Línea de crédito · ${linea.moneda}`}
           acciones={
             <div className="flex items-center gap-1.5">
               {puedeGestionar && linea.estado !== EstadoLineaCredito.Suspendida && (
@@ -176,6 +179,16 @@ function Contenido({ linea }: { linea: LineaCreditoResponse }) {
                 Se desbloquea sola cuando el cliente paga lo vencido fuera de plazo y tolerancia.
               </p>
             )}
+          </div>
+        </div>
+      )}
+
+      {ultimoDesbloqueo && (
+        <div className="flex items-start gap-2 rounded-md border border-line bg-info-bg px-4 py-3 text-sm text-info-fg">
+          <Unlock className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <div>
+            <p className="font-medium">Desbloqueada manualmente el {formatDateTime(ultimoDesbloqueo.en)}</p>
+            <p>{ultimoDesbloqueo.motivo ?? 'Sin motivo registrado.'}</p>
           </div>
         </div>
       )}

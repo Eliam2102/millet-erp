@@ -285,6 +285,10 @@ internal static class ConfirmacionDeposito
                 ? fijado
                 : await TipoCambioDelPago.FijarAsync(movimiento, tiposCambio, tipoCambioCapturado, cancellationToken);
             var facturas = DepositoMapper.ParseFacturas(deposito.FacturasJson);
+            // B8: la póliza del cobro va a la cuenta contable de esta cuenta bancaria, no a la única del rol BANCOS.
+            var cuentaContable = await db.CuentasBancarias.AsNoTracking()
+                .Where(c => c.Id == movimiento.CuentaBancariaId)
+                .Select(c => c.CuentaContableRef).FirstOrDefaultAsync(cancellationToken);
             await publisher.PublishAsync(new PagoClienteConfirmadoIntegrationEvent(
                 EmpresaId: empresaId,
                 OcurridoEn: clock.UtcNow,
@@ -302,7 +306,7 @@ internal static class ConfirmacionDeposito
                 SaldoAFavorPorIdentificar: deposito.SaldoAFavorPorIdentificar,
                 Facturas: facturas
                     .Select(f => new PagoClienteFacturaAplicada(f.FacturaVentaId, f.ImporteAplicado))
-                    .ToList()) { TipoCambioPago = tipoCambioPago }, cancellationToken);
+                    .ToList()) { TipoCambioPago = tipoCambioPago, CuentaContableRef = cuentaContable }, cancellationToken);
         }
 
         if (deposito.DevolucionCeId is Guid devolucion)

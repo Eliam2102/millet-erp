@@ -117,6 +117,17 @@ public sealed class ValidadorDimensiones(
             var directo = Capturada(r.Dimension, m);
             var efectivo = directo || Derivada(r.Dimension, efectivos);
             var origen = r.Heredada ? $" (regla definida en la cuenta {r.CuentaOrigenCodigo})" : string.Empty;
+
+            // 86e3z5w25: Si la cuenta 600 no involucra una máquina física (comisiones bancarias, viáticos, etc.),
+            // la validación de Dim3 debe exentarse para documentos automáticos (m.Origen != Manual) sin arrojar excepción Dato faltante.
+            if (r.Dimension == DimensionContable.Dim3 && m.Origen != OrigenMovimiento.Manual
+                && (r.CuentaOrigenCodigo?.StartsWith("600", StringComparison.Ordinal) == true
+                    || donde.Contains("600", StringComparison.Ordinal)
+                    || donde.Contains("gasto", StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
             if (r.Requerimiento == RequerimientoDimension.Obligatorio && !efectivo)
                 yield return new("CONTAB_DIM_OBLIGATORIA_FALTANTE",
                     $"Falta {r.NombreDimension}: es obligatoria para {donde}{origen}.", Campo(r.Dimension), r.Dimension);
@@ -211,8 +222,17 @@ public sealed class ValidadorDimensiones(
                     : $"El centro {n.Clave} — {n.Nombre} está dado de baja y no se puede usar en movimientos nuevos.",
                 Campo(n.Nivel), n.Nivel));
 
+        var dim1Derivada = d1?.Id ?? inferior?.Dim1Id;
+        if (dim1Derivada is null && sucursal is not null)
+        {
+            dim1Derivada = await db.UbicacionesSucursal.AsNoTracking()
+                .Where(x => x.SucursalId == sucursal.Id)
+                .Select(x => (Guid?)x.Dim1Id)
+                .FirstOrDefaultAsync(ct);
+        }
+
         var efectivos = new CentrosEfectivos(
-            d1?.Id ?? inferior?.Dim1Id,
+            dim1Derivada,
             d2?.Id ?? d3?.Dim2Id,
             d3?.Id);
 

@@ -70,4 +70,6 @@ public sealed record ProductoFiscalLectura(
     string Origen,
     // U1.6: tipo A+W del producto (ADM-07) para separar ventas en el evento contable.
     string? Tipo = null, string? EstadoFiscal = null, decimal? PesoUnitarioKg = null,
-    bool EsServicioRecubrimiento = false, bool Activo = true);
+    bool EsServicioRecubrimiento = false, bool Activo = true,
+    // B12: datos de aduana del artículo (CCE) para precargar la factura de exportación.
+    string? FraccionArancelaria = null, string? UnidadAduana = null);

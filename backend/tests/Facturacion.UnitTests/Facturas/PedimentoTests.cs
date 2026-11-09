@@ -142,7 +142,7 @@ public sealed class PedimentoTests
 
         var cce = new EmitirFacturaVentaCce("2", "DDP", 17.5m, "123456789", "USA",
             [new EmitirFacturaVentaCceLinea("7005299901", "06", 1m, 100m, 100m, AplicaIva0: true)],
-            ClaveDePedimento: "A1", ReceptorDomicilioEstado: "TX", ReceptorDomicilioCodigoPostal: "75001");
+            ClaveDePedimento: "A1", ReceptorDomicilioCalle: "123 Main St", ReceptorDomicilioEstado: "TX", ReceptorDomicilioCodigoPostal: "75001");
         using (var emisionDb = Db())
         {
             await EmitirHandler(emisionDb, empresaId).Handle(

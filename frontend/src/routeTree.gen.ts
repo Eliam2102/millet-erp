@@ -192,6 +192,7 @@ import { Route as AppFacturacionPedidosIndexRouteImport } from './routes/_app/fa
 import { Route as AppFacturacionPedidosIdRouteImport } from './routes/_app/facturacion/pedidos/$id';
 import { Route as AppFacturacionPedidosExcepcionesRouteImport } from './routes/_app/facturacion/pedidos/excepciones';
 import { Route as AppFacturacionReportesCierreDiaRouteImport } from './routes/_app/facturacion/reportes/cierre-dia';
+import { Route as AppFacturacionReportesConciliacionSatRouteImport } from './routes/_app/facturacion/reportes/conciliacion-sat';
 import { Route as AppFacturacionReportesComparativaAnticiposRouteImport } from './routes/_app/facturacion/reportes/comparativa-anticipos';
 import { Route as AppFacturacionReportesEstadosAnticiposRouteImport } from './routes/_app/facturacion/reportes/estados-anticipos';
 import { Route as AppFacturacionReportesLiquidacionCajaRouteImport } from './routes/_app/facturacion/reportes/liquidacion-caja';
@@ -1249,6 +1250,12 @@ const AppFacturacionReportesCierreDiaRoute =
     path: '/facturacion/reportes/cierre-dia',
     getParentRoute: () => AppRoute,
   } as any);
+const AppFacturacionReportesConciliacionSatRoute =
+  AppFacturacionReportesConciliacionSatRouteImport.update({
+    id: '/facturacion/reportes/conciliacion-sat',
+    path: '/facturacion/reportes/conciliacion-sat',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppFacturacionReportesComparativaAnticiposRoute =
   AppFacturacionReportesComparativaAnticiposRouteImport.update({
     id: '/facturacion/reportes/comparativa-anticipos',
@@ -1740,6 +1747,7 @@ export interface FileRoutesByFullPath {
   '/facturacion/pedidos/$id': typeof AppFacturacionPedidosIdRoute;
   '/facturacion/pedidos/excepciones': typeof AppFacturacionPedidosExcepcionesRoute;
   '/facturacion/reportes/cierre-dia': typeof AppFacturacionReportesCierreDiaRoute;
+  '/facturacion/reportes/conciliacion-sat': typeof AppFacturacionReportesConciliacionSatRoute;
   '/facturacion/reportes/comparativa-anticipos': typeof AppFacturacionReportesComparativaAnticiposRoute;
   '/facturacion/reportes/estados-anticipos': typeof AppFacturacionReportesEstadosAnticiposRoute;
   '/facturacion/reportes/liquidacion-caja': typeof AppFacturacionReportesLiquidacionCajaRoute;
@@ -1984,6 +1992,7 @@ export interface FileRoutesByTo {
   '/facturacion/pedidos/$id': typeof AppFacturacionPedidosIdRoute;
   '/facturacion/pedidos/excepciones': typeof AppFacturacionPedidosExcepcionesRoute;
   '/facturacion/reportes/cierre-dia': typeof AppFacturacionReportesCierreDiaRoute;
+  '/facturacion/reportes/conciliacion-sat': typeof AppFacturacionReportesConciliacionSatRoute;
   '/facturacion/reportes/comparativa-anticipos': typeof AppFacturacionReportesComparativaAnticiposRoute;
   '/facturacion/reportes/estados-anticipos': typeof AppFacturacionReportesEstadosAnticiposRoute;
   '/facturacion/reportes/liquidacion-caja': typeof AppFacturacionReportesLiquidacionCajaRoute;
@@ -2230,6 +2239,7 @@ export interface FileRoutesById {
   '/_app/facturacion/pedidos/$id': typeof AppFacturacionPedidosIdRoute;
   '/_app/facturacion/pedidos/excepciones': typeof AppFacturacionPedidosExcepcionesRoute;
   '/_app/facturacion/reportes/cierre-dia': typeof AppFacturacionReportesCierreDiaRoute;
+  '/_app/facturacion/reportes/conciliacion-sat': typeof AppFacturacionReportesConciliacionSatRoute;
   '/_app/facturacion/reportes/comparativa-anticipos': typeof AppFacturacionReportesComparativaAnticiposRoute;
   '/_app/facturacion/reportes/estados-anticipos': typeof AppFacturacionReportesEstadosAnticiposRoute;
   '/_app/facturacion/reportes/liquidacion-caja': typeof AppFacturacionReportesLiquidacionCajaRoute;
@@ -2476,6 +2486,7 @@ export interface FileRouteTypes {
     | '/facturacion/pedidos/$id'
     | '/facturacion/pedidos/excepciones'
     | '/facturacion/reportes/cierre-dia'
+    | '/facturacion/reportes/conciliacion-sat'
     | '/facturacion/reportes/comparativa-anticipos'
     | '/facturacion/reportes/estados-anticipos'
     | '/facturacion/reportes/liquidacion-caja'
@@ -2720,6 +2731,7 @@ export interface FileRouteTypes {
     | '/facturacion/pedidos/$id'
     | '/facturacion/pedidos/excepciones'
     | '/facturacion/reportes/cierre-dia'
+    | '/facturacion/reportes/conciliacion-sat'
     | '/facturacion/reportes/comparativa-anticipos'
     | '/facturacion/reportes/estados-anticipos'
     | '/facturacion/reportes/liquidacion-caja'
@@ -2965,6 +2977,7 @@ export interface FileRouteTypes {
     | '/_app/facturacion/pedidos/$id'
     | '/_app/facturacion/pedidos/excepciones'
     | '/_app/facturacion/reportes/cierre-dia'
+    | '/_app/facturacion/reportes/conciliacion-sat'
     | '/_app/facturacion/reportes/comparativa-anticipos'
     | '/_app/facturacion/reportes/estados-anticipos'
     | '/_app/facturacion/reportes/liquidacion-caja'
@@ -4364,6 +4377,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFacturacionReportesCierreDiaRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/facturacion/reportes/conciliacion-sat': {
+      id: '/_app/facturacion/reportes/conciliacion-sat';
+      path: '/facturacion/reportes/conciliacion-sat';
+      fullPath: '/facturacion/reportes/conciliacion-sat';
+      preLoaderRoute: typeof AppFacturacionReportesConciliacionSatRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/facturacion/reportes/comparativa-anticipos': {
       id: '/_app/facturacion/reportes/comparativa-anticipos';
       path: '/facturacion/reportes/comparativa-anticipos';
@@ -4937,6 +4957,7 @@ interface AppRouteChildren {
   AppFacturacionPedidosIdRoute: typeof AppFacturacionPedidosIdRoute;
   AppFacturacionPedidosExcepcionesRoute: typeof AppFacturacionPedidosExcepcionesRoute;
   AppFacturacionReportesCierreDiaRoute: typeof AppFacturacionReportesCierreDiaRoute;
+  AppFacturacionReportesConciliacionSatRoute: typeof AppFacturacionReportesConciliacionSatRoute;
   AppFacturacionReportesComparativaAnticiposRoute: typeof AppFacturacionReportesComparativaAnticiposRoute;
   AppFacturacionReportesEstadosAnticiposRoute: typeof AppFacturacionReportesEstadosAnticiposRoute;
   AppFacturacionReportesLiquidacionCajaRoute: typeof AppFacturacionReportesLiquidacionCajaRoute;
@@ -5194,6 +5215,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppFacturacionPedidosIdRoute: AppFacturacionPedidosIdRoute,
   AppFacturacionPedidosExcepcionesRoute: AppFacturacionPedidosExcepcionesRoute,
   AppFacturacionReportesCierreDiaRoute: AppFacturacionReportesCierreDiaRoute,
+  AppFacturacionReportesConciliacionSatRoute: AppFacturacionReportesConciliacionSatRoute,
   AppFacturacionReportesComparativaAnticiposRoute:
     AppFacturacionReportesComparativaAnticiposRoute,
   AppFacturacionReportesEstadosAnticiposRoute:

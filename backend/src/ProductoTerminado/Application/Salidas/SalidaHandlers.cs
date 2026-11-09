@@ -17,7 +17,7 @@ internal static class SalidaMapeo
     {
         var total = s.Albaranes.Sum(a => a.Piezas.Count);
         var entregas = s.Estado == EstadoSalida.Emitida ? await db.Entregas.AsNoTracking().Where(e => e.SalidaPtId == s.Id).ToListAsync(ct) : [];
-        var pendientes = s.Estado == EstadoSalida.Emitida ? s.Albaranes.Count(a => a.Piezas.Count > 0) - entregas.Count : 0;
+        var pendientes = s.Estado == EstadoSalida.Emitida ? s.Albaranes.Count(a => a.Piezas.Count > 0 && !a.Cancelado) - entregas.Count : 0;
         var cabecera = new HojaSalidaDto(s.Id, s.Folio, s.SucursalId, s.Destino, s.Foranea, s.VehiculoId, s.OperadorId, s.Estado.ToString(), s.CreadaAt, s.EmitidaAt, s.CartaPorteFolio, s.Albaranes.Count, total, [], yaEmitida, pendientes);
         if (!detalle) return cabecera;
 
@@ -47,7 +47,8 @@ internal static class SalidaMapeo
                         mias.Where(p => p.Estado == EstadoPieza.EnRevision).Select(p => p.Etiqueta).ToList(),
                         en.CobroMonto is { } monto ? new CobroEntregaDto(monto, en.CobroForma ?? "", en.CobroReferencia, en.CobroConciliadoAt) : null)
                     : null,
-                pedido.Estado115At is not null ? "115" : pedido.EntregadoAt is not null ? "Entregado" : pedido.EnRutaAt is not null ? "71" : null);
+                pedido.Estado115At is not null ? "115" : pedido.EntregadoAt is not null ? "Entregado" : pedido.EnRutaAt is not null ? "71" : null,
+                a.Cancelado, a.CanceladoAt, a.MotivoCancelacion);
         }).ToList();
         return cabecera with { Albaranes = albaranes };
     }
@@ -93,11 +94,13 @@ public sealed class CrearHojaSalidaHandler(ProductoTerminadoDbContext db, PtAcce
             throw new BusinessRuleException("PT_SALIDA_PIEZA_OTRA_SUCURSAL", "Todas las piezas deben estar en la sucursal de la salida.");
         var ids = piezas.Values.Select(p => p.Id).ToList();
         var yaEnHoja = await (from ap in db.AlbaranPiezas join a in db.Albaranes on ap.AlbaranPtId equals a.Id join s in db.Salidas on a.SalidaPtId equals s.Id
-                              where ids.Contains(ap.PiezaId) && s.Estado != EstadoSalida.Cancelada select ap.PiezaId).AnyAsync(cancellationToken);
+                              where ids.Contains(ap.PiezaId) && s.Estado != EstadoSalida.Cancelada && a.CanceladoAt == null select ap.PiezaId).AnyAsync(cancellationToken);
         if (yaEnHoja) throw new BusinessRuleException("PT_SALIDA_PIEZA_YA_EN_HOJA", "Alguna pieza ya está en otra hoja de salida.");
 
         var ahora = clock.UtcNow;
-        var salida = SalidaPt.Crear(empresaId, c.SucursalId, c.Destino, c.Foranea, c.VehiculoId, c.OperadorId, c.DistanciaKm, c.PesoKg, c.OrigenCodigoPostal, c.OrigenEstado, c.DestinoCodigoPostal, c.DestinoEstado, ahora);
+        var salida = SalidaPt.Crear(empresaId, c.SucursalId, c.Destino, c.Foranea, c.VehiculoId, c.OperadorId, c.DistanciaKm, c.PesoKg, c.OrigenCodigoPostal, c.OrigenEstado, c.DestinoCodigoPostal, c.DestinoEstado, ahora,
+            // M11: el folio lleva el día local (a las 23:34 del 8-nov no puede decir 20261109).
+            HoraAw.FechaLocal(ahora));
         foreach (var p in c.Pedidos)
         {
             var pedido = pedidos[p.NumeroPedido.Trim()];
@@ -201,6 +204,78 @@ public sealed class CancelarHojaSalidaHandler(ProductoTerminadoDbContext db, PtA
                 pz.RevertirCarga();
                 db.Movimientos.Add(MovimientoPieza.Paso(pz, TipoMovimientoPieza.CargaRevertida, EstadoPieza.Cargada, a.Id, ahora, acceso.Actor.ToString()));
             }
+        await db.SaveChangesAsync(cancellationToken);
+        return await SalidaMapeo.ADtoAsync(db, pedidosPort, empresa.Current ?? throw new UnauthorizedAccessException(), s, true, false, cancellationToken);
+    }
+}
+
+public sealed class CancelarAlbaranSalidaHandler(ProductoTerminadoDbContext db, PtAcceso acceso, IPedidosPtReadPort pedidosPort, IFacturacionSalidaPort facturacion,
+    ICurrentEmpresaContext empresa, IClock clock) : IRequestHandler<CancelarAlbaranSalidaCommand, HojaSalidaDto>
+{
+    public async Task<HojaSalidaDto> Handle(CancelarAlbaranSalidaCommand c, CancellationToken cancellationToken)
+    {
+        await acceso.ExigirPermisoAsync(PermisosCanonicos.ProductoTerminadoExcepcionesGestionar, cancellationToken);
+        var s = await SalidaMapeo.Completa(db).FirstOrDefaultAsync(x => x.Id == c.HojaId, cancellationToken)
+            ?? throw new EntityNotFoundException("PT_SALIDA_NO_ENCONTRADA", "No existe la hoja de salida.");
+        await acceso.VerificarSucursalAsync(s.SucursalId, PermisosCanonicos.ProductoTerminadoExcepcionesGestionarTodasSucursales, cancellationToken);
+        var albaran = s.Albaranes.FirstOrDefault(a => a.Id == c.AlbaranId)
+            ?? throw new BusinessRuleException("PT_ALBARAN_NO_PERTENECE_A_SALIDA", "El albarán no pertenece a esta hoja de salida.");
+
+        if (albaran.Cancelado)
+            throw new BusinessRuleException("PT_ALBARAN_YA_CANCELADO", "El albarán ya está cancelado.");
+
+        if (s.Estado == EstadoSalida.Cancelada)
+            throw new BusinessRuleException("PT_SALIDA_CANCELADA", "La hoja de salida está cancelada.");
+
+        if (albaran.Entregado || await db.Entregas.AnyAsync(e => e.AlbaranPtId == albaran.Id, cancellationToken))
+            throw new BusinessRuleException("PT_ALBARAN_YA_ENTREGADO", "El albarán ya fue entregado en ruta; no se puede cancelar.");
+
+        if (albaran.Liquidado || await db.Liquidaciones.AnyAsync(l => l.SalidaPtId == s.Id && l.Estado == EstadoLiquidacion.Cerrada && l.Albaranes.Any(a => a.AlbaranPtId == albaran.Id), cancellationToken))
+            throw new BusinessRuleException("PT_ALBARAN_YA_LIQUIDADO", "El albarán ya fue liquidado en caja; no se puede cancelar.");
+
+        // Candado con Facturación: si la salida ya fue emitida, consultar a Facturación si cuenta con factura timbrada ante el SAT
+        if (s.Estado == EstadoSalida.Emitida)
+        {
+            var rFacturacion = await facturacion.CancelarSalidaAsync(albaran.Folio, c.Motivo, cancellationToken);
+            if (rFacturacion.EnRevision)
+                throw new BusinessRuleException("PT_ALBARAN_YA_FACTURADO", "El albarán ya cuenta con factura timbrada ante el SAT; debe cancelarse primero el CFDI.");
+        }
+
+        var ahora = clock.UtcNow;
+        var usuarioId = acceso.Actor;
+        s.CancelarAlbaran(albaran.Id, c.Motivo, usuarioId, ahora);
+
+        // Reversa de cada pieza amparada en el albarán
+        var ids = albaran.Piezas.Select(p => p.PiezaId).ToList();
+        var piezas = await db.Piezas.Where(p => ids.Contains(p.Id)).ToListAsync(cancellationToken);
+        foreach (var pz in piezas)
+        {
+            var anterior = pz.Estado;
+            pz.RevertirSalida();
+            db.Movimientos.Add(MovimientoPieza.SalidaCancelada(pz, anterior, albaran.Id, c.Motivo, ahora, acceso.Actor.ToString()));
+        }
+
+        // Ajuste de estatus del pedido: si estaba en 71 y ya no tiene otros albaranes vigentes emitidos, regresa a 70
+        var pedido = await db.PedidosPt.FirstOrDefaultAsync(p => p.Id == albaran.PedidoPtId, cancellationToken);
+        if (pedido is not null && pedido.EnRutaAt is not null)
+        {
+            var otrosAlbaranesVigentes = await (
+                from a in db.Albaranes
+                join sh in db.Salidas on a.SalidaPtId equals sh.Id
+                where a.PedidoPtId == pedido.Id
+                   && a.Id != albaran.Id
+                   && a.CanceladoAt == null
+                   && a.EmitidoAt != null
+                   && sh.Estado != EstadoSalida.Cancelada
+                select a.Id
+            ).AnyAsync(cancellationToken);
+
+            if (!otrosAlbaranesVigentes)
+            {
+                pedido.RegresarALiberado();
+            }
+        }
+
         await db.SaveChangesAsync(cancellationToken);
         return await SalidaMapeo.ADtoAsync(db, pedidosPort, empresa.Current ?? throw new UnauthorizedAccessException(), s, true, false, cancellationToken);
     }

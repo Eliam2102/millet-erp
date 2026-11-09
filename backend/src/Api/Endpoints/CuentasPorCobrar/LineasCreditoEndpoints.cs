@@ -31,11 +31,12 @@ public static class LineasCreditoEndpoints
             [FromQuery] string? moneda,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
+            [FromQuery] string? q,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
             var response = await mediator.Send(
-                new ListarLineasCreditoQuery(clienteId, estado, moneda, offset ?? 0, limit ?? 50),
+                new ListarLineasCreditoQuery(clienteId, estado, moneda, offset ?? 0, limit ?? 50, q),
                 cancellationToken);
             return Results.Ok(response);
         })

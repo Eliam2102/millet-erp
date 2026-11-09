@@ -34,6 +34,7 @@ const styles = StyleSheet.create({
 const SERIE_PREVISTA: Record<string, string> = {
   Cfdi: 'serie de facturas',
   VentaDirecta: 'serie de venta directa',
+  Exportacion: 'serie de exportación',
 };
 
 function fecha(iso: string): string {

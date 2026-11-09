@@ -8,9 +8,10 @@ public sealed class PedidosSinFacturarFalso : IFacturacionPedidosSinFacturarRead
     private readonly List<(Guid ClienteId, PedidoSinFacturarDto Pedido)> _pedidos = [];
 
     public PedidosSinFacturarFalso Agregar(
-        Guid clienteId, string numeroPedido, decimal total, decimal anticipoLigado = 0m, string moneda = "MXN")
+        Guid clienteId, string numeroPedido, decimal total, decimal anticipoLigado = 0m, string moneda = "MXN",
+        bool comprometeCredito = true)
     {
-        _pedidos.Add((clienteId, new PedidoSinFacturarDto(Guid.NewGuid(), numeroPedido, moneda, total, anticipoLigado)));
+        _pedidos.Add((clienteId, new PedidoSinFacturarDto(Guid.NewGuid(), numeroPedido, moneda, total, anticipoLigado, comprometeCredito)));
         return this;
     }
 

@@ -17,6 +17,7 @@ export const TIPO_DOCUMENTO_LABEL: Record<TipoDocumentoSerie, string> = {
   [TipoDocumentoSerie.Poliza]: 'Póliza',
   [TipoDocumentoSerie.FacturaAnticipo]: 'Factura de anticipo',
   [TipoDocumentoSerie.VentaDirecta]: 'Venta directa',
+  [TipoDocumentoSerie.Exportacion]: 'Factura de exportación',
 };
 
 /** Orden de los tipos de documento en selects y filtros. */
@@ -27,19 +28,21 @@ export const TIPOS_DOCUMENTO_SERIE: readonly TipoDocumentoSerie[] = [
   TipoDocumentoSerie.Poliza,
   TipoDocumentoSerie.FacturaAnticipo,
   TipoDocumentoSerie.VentaDirecta,
+  TipoDocumentoSerie.Exportacion,
 ];
 
 /**
  * Series fiscales: mantienen continuidad sin reinicio de periodo. Mirror de
  * <c>Serie.EsFiscal</c> backend (Cfdi, NotaCredito, FacturaAnticipo y,
- * desde F6.1, VentaDirecta).
+ * desde F6.1, VentaDirecta; Exportacion para la factura con CCE).
  */
 export function esTipoSerieFiscal(tipo: TipoDocumentoSerie): boolean {
   return (
     tipo === TipoDocumentoSerie.Cfdi ||
     tipo === TipoDocumentoSerie.NotaCredito ||
     tipo === TipoDocumentoSerie.FacturaAnticipo ||
-    tipo === TipoDocumentoSerie.VentaDirecta
+    tipo === TipoDocumentoSerie.VentaDirecta ||
+    tipo === TipoDocumentoSerie.Exportacion
   );
 }
 

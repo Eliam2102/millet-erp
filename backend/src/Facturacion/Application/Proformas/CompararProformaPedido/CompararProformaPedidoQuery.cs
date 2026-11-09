@@ -91,7 +91,7 @@ public sealed class CompararProformaPedidoHandler
             emision, empresaId, ProformaEmisionDesdePedido.FolioArmado, 0, null,
             FacturaVentaArmado.ReceptorDe(emision), emisor, ahora.Year, ahora.Month);
         var timbrado = ProformaCfdiMapper.Desde(factura, ahora,
-            ProformaEmisionDesdePedido.SeriePrevista(pedido.EsVentaDirectaManual));
+            ProformaEmisionDesdePedido.SeriePrevista(pedido.EsVentaDirectaManual, pedido.ComportamientoFiscal));
 
         var anterior = ProformaJson.LeerContenido(ultima.ContenidoJson);
         return new ComparacionProformaResponse(

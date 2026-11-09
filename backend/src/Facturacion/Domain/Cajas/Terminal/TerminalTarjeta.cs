@@ -179,6 +179,35 @@ public sealed class LiquidacionTerminal : BaseEntity, IPerteneceAEmpresa, IAudit
         foreach (var t in transacciones) t.LigarLiquidacion(l.Id);
         return l;
     }
+
+    /// <summary>
+    /// Suma a esta liquidación las ventas del mismo folio emparejadas después de crearla (B13: una venta que se
+    /// empareja con «Reintentar» cuando el folio ya se había liquidado). Idempotente: las ventas ya ligadas a esta
+    /// liquidación no se vuelven a sumar. Devuelve las que sí se agregaron. No se toca un cargo ya ligado a la
+    /// factura mensual del banco, porque esa factura se cuadró con el importe anterior.
+    /// </summary>
+    public IReadOnlyList<TransaccionTerminal> Agregar(IReadOnlyCollection<TransaccionTerminal> transacciones)
+    {
+        var nuevas = transacciones.Where(t => t.LiquidacionId != Id).ToList();
+        if (nuevas.Count == 0) return nuevas;
+        if (FacturaBancoId is not null)
+            throw new BusinessRuleException("TERMINAL_CARGO_YA_FACTURADO",
+                $"El cargo de la liquidación {Folio} ya está ligado a una factura del banco.");
+        if (nuevas.Any(t => t.Estado != EstadoTransaccionTerminal.Emparejada || !t.TraeLiquidacion
+                || t.LiquidacionId is not null || !string.Equals(t.FolioLiquidacion, Folio, StringComparison.Ordinal)))
+            throw new BusinessRuleException("TERMINAL_LIQUIDACION_INCOMPLETA",
+                "Solo se agregan ventas emparejadas del mismo folio que traen comisión, IVA y neto y no tienen otra liquidación.");
+        Bruto += nuevas.Sum(t => t.Importe);
+        Comision += nuevas.Sum(t => t.Comision!.Value);
+        IvaComision += nuevas.Sum(t => t.IvaComision!.Value);
+        Neto += nuevas.Sum(t => t.Neto!.Value);
+        Transacciones += nuevas.Count;
+        // Fecha del cargo = día en que el banco liquidó el folio; una venta sin DAT_SETTLED no la mueve.
+        var fecha = nuevas.Where(t => t.FechaLiquidacion is not null).Select(t => t.FechaLiquidacion!.Value).DefaultIfEmpty(Fecha).Max();
+        if (fecha > Fecha) Fecha = fecha;
+        foreach (var t in nuevas) t.LigarLiquidacion(Id);
+        return nuevas;
+    }
 }
 
 /// <summary>

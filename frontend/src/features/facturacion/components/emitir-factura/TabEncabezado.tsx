@@ -205,6 +205,11 @@ export function TabEncabezado({
               onChange: (e: React.ChangeEvent<HTMLSelectElement>) => {
                 const metodo = e.target.value;
                 const forma = form.getValues('formaPago');
+                // M12: «CONTADO» (p. ej. del pedido de A+W) contradice PPD; vacío, el
+                // servidor pone el plazo de la línea de crédito del cliente.
+                if (metodo === 'PPD' && (form.getValues('condicionesPago') ?? '').trim().toUpperCase() === 'CONTADO') {
+                  form.setValue('condicionesPago', null, { shouldDirty: true });
+                }
                 if (metodo === 'PPD' && forma !== '99') {
                   form.setValue('formaPago', '99', { shouldValidate: true });
                 } else if (metodo === 'PUE' && forma === '99') {
@@ -376,7 +381,8 @@ export function TabEncabezado({
           </Campo>
           <Campo
             label="Clave de pedimento"
-
+            required
+            error={form.formState.errors.cceClaveDePedimento?.message}
           >
             {embarqueCe?.ligado ? (
               <p className="h-ctl-xl py-2 text-sm">{embarqueCe.clavePedimento}</p>
@@ -406,15 +412,15 @@ export function TabEncabezado({
               Certificado de origen
             </label>
           </div>
-          {/* Domicilio del receptor extranjero (CCE 2.0, F12-PR3): estado y
-              CP los exige el SAT para timbrar. */}
+          {/* Domicilio del receptor extranjero (CCE 2.0, F12-PR3): calle, estado
+              y CP los exige el SAT para timbrar (B5). */}
           <p className="text-xs font-medium text-ink-muted sm:col-span-2">
             Domicilio del receptor extranjero
           </p>
           <Campo
             label="Calle"
+            required
             error={form.formState.errors.cceReceptorDomicilioCalle?.message}
-            hint="Opcional."
           >
             <Input maxLength={200} {...form.register('cceReceptorDomicilioCalle')} />
           </Campo>

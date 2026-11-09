@@ -22,9 +22,19 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Adapters;
 /// varios clientes comparten RFC (sucursales del mismo contribuyente),
 /// gana el primero por clave — la vinculación fina se corrige después
 /// desde la cartera.</para>
+///
+/// <para>Las búsquedas (<c>BuscarAsync</c>, <c>BuscarPorPalabrasAsync</c>)
+/// solo excluyen al público en general: el extranjero genérico sí se busca
+/// para darle línea o vincularlo (CXC-11).</para>
 /// </summary>
 public sealed class ClienteReadPortAdapter : IClienteReadPort
 {
+    /// <summary>
+    /// La búsqueda solo excluye al público en general. El extranjero (<c>XEXX010101000</c>) también se marca
+    /// genérico en el alta, pero sí lleva línea de crédito y cartera (CXC-11), así que debe poder buscarse.
+    /// </summary>
+    private const string RfcPublicoGeneral = "XAXX010101000";
+
     private readonly CompartidoDbContext _db;
     private readonly ICurrentEmpresaContext _empresaContext;
 
@@ -72,7 +82,7 @@ public sealed class ClienteReadPortAdapter : IClienteReadPort
     {
         using var bypass = _empresaContext.Bypass();
         IQueryable<Cliente> q = _db.Clientes.AsNoTracking()
-            .Where(c => !c.EsGenerico);
+            .Where(c => !c.EsGenerico || c.Rfc != RfcPublicoGeneral);
 
         if (ids is { Count: > 0 })
         {
@@ -113,7 +123,7 @@ public sealed class ClienteReadPortAdapter : IClienteReadPort
         using var bypass = _empresaContext.Bypass();
         var palabras = BusquedaPorPalabras.Normalizar(texto);
         IQueryable<Cliente> q = _db.Clientes.AsNoTracking()
-            .Where(c => !c.EsGenerico && c.Estatus == EstatusCatalogo.Activo);
+            .Where(c => (!c.EsGenerico || c.Rfc != RfcPublicoGeneral) && c.Estatus == EstatusCatalogo.Activo);
 
 #pragma warning disable CA1304, CA1311, CA1862
         foreach (var palabra in palabras)

@@ -116,13 +116,15 @@ public static class ComprobantesEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
-        // F6.5: bandeja del Contador General (por omisión, pendientes de autorización).
+        // F6.5: bandeja del Contador General (por omisión, pendientes de autorización;
+        // B3: todos=true trae todas las solicitudes, en cualquier estado).
         group.MapGet("/cancelaciones", async (
             EstadoSolicitudCancelacion? estado,
+            bool? todos,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
-            var response = await mediator.Send(new BandejaCancelacionesQuery(estado), cancellationToken);
+            var response = await mediator.Send(new BandejaCancelacionesQuery(estado, todos == true), cancellationToken);
             return Results.Ok(response);
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionCancelacionesConsultar)

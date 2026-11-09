@@ -191,6 +191,15 @@ describe('EmitirFacturaSchema — CCE (exportación)', () => {
     expect(EmitirFacturaSchema.safeParse(facturaValida).success).toBe(true);
   });
 
+  it('B5: exige calle del receptor y clave de pedimento en ExportacionConCce (el PAC los rechaza vacíos)', () => {
+    const sinCalle = EmitirFacturaSchema.safeParse({ ...facturaCce, cceReceptorDomicilioCalle: ' ' });
+    expect(sinCalle.success).toBe(false);
+    expect(sinCalle.error?.issues.map((i) => i.path.join('.'))).toContain('cceReceptorDomicilioCalle');
+    const sinClave = EmitirFacturaSchema.safeParse({ ...facturaCce, cceClaveDePedimento: null });
+    expect(sinClave.success).toBe(false);
+    expect(sinClave.error?.issues.map((i) => i.path.join('.'))).toContain('cceClaveDePedimento');
+  });
+
   // Datos de aduana por mercancía (#8) — espejo de ComplementoCce.AgregarLinea.
   const conLinea = (linea: Record<string, unknown>) => ({
     ...facturaCce,

@@ -19,6 +19,13 @@ namespace Millet.Api.Endpoints.CuentasPorCobrar;
 /// </summary>
 public static class PropuestasAplicacionEndpoints
 {
+    /// <summary>
+    /// Ver la bandeja y el detalle: quien propone (CxC) y quien autoriza el ajuste o confirma (Ingresos,
+    /// <c>aplicacion-pago.confirmar</c>). Sin leer la propuesta, Ingresos no puede autorizar su ajuste (403 en la bandeja).
+    /// </summary>
+    public const string LeerPropuestas = PermissionPolicyProvider.Prefix
+        + PermisosCanonicos.CuentasPorCobrarAplicacionPagoProponer + "|" + PermisosCanonicos.CuentasPorCobrarAplicacionPagoConfirmar;
+
     public static IEndpointRouteBuilder MapPropuestasAplicacionEndpoints(this IEndpointRouteBuilder app)
     {
         var propuestas = app
@@ -50,7 +57,7 @@ public static class PropuestasAplicacionEndpoints
                 cancellationToken);
             return Results.Ok(response);
         })
-        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarAplicacionPagoProponer)
+        .RequireAuthorization(LeerPropuestas)
         .WithName("ListarPropuestasAplicacion")
         .Produces<PagedResponse<PropuestaAplicacionResponse>>(StatusCodes.Status200OK);
 
@@ -73,7 +80,7 @@ public static class PropuestasAplicacionEndpoints
             var response = await mediator.Send(new ObtenerPropuestaAplicacionQuery(id), cancellationToken);
             return Results.Ok(response);
         })
-        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarAplicacionPagoProponer)
+        .RequireAuthorization(LeerPropuestas)
         .WithName("ObtenerPropuestaAplicacion")
         .Produces<PropuestaAplicacionResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound);

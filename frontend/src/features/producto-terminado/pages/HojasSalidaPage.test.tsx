@@ -62,13 +62,17 @@ describe('HojasSalidaPage', () => {
     expect(state.accion).toHaveBeenCalledWith({ id: 'h1', accion: 'cancelar', estado: 'Borrador' });
   });
 
-  it('avisa cuando la hoja ya estaba emitida y no se repite nada', async () => {
-    state.accion.mockResolvedValue({ yaEmitida: true });
+  // M15: una hoja emitida no se vuelve a emitir (no tendría efecto); se ven y reimprimen sus albaranes.
+  it('una hoja emitida ofrece ver o reimprimir los albaranes, no emitir de nuevo', () => {
     state.lista.mockReturnValue({ data: { items: [hoja('Emitida')], total: 1 }, isLoading: false, isError: false, refetch: vi.fn() });
+    state.detalle.mockReturnValue({ data: detalle });
     render(<HojasSalidaPage />);
     expect(screen.queryByRole('button', { name: 'Cancelar' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Emitir de nuevo' }));
-    expect(await screen.findByText(/ya estaba emitida/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Emitir de nuevo' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Emitir' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Ver o reimprimir albaranes' }));
+    expect(screen.getByRole('button', { name: 'Ocultar' })).toBeInTheDocument();
+    expect(state.accion).not.toHaveBeenCalled();
   });
 
   it('el detalle muestra la hoja con pedidos, clientes y secuencia, e imprime', () => {
@@ -76,12 +80,22 @@ describe('HojasSalidaPage', () => {
     state.detalle.mockReturnValue({ data: detalle });
     const imprimir = vi.spyOn(window, 'print').mockImplementation(() => undefined);
     render(<HojasSalidaPage />);
-    fireEvent.click(screen.getByRole('button', { name: 'Ver albaranes' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Ver o reimprimir albaranes' }));
     expect(screen.getByText('Constructora Peninsular')).toBeInTheDocument();
     expect(screen.getByText('260001')).toBeInTheDocument();
     expect(screen.getByText(/20 pzas · partida 1 · Templado 6 mm/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Imprimir hoja de salida/ }));
     expect(imprimir).toHaveBeenCalled();
+  });
+
+  it('sin obra en el pedido, el albarán muestra el destino de la hoja (M14)', () => {
+    state.lista.mockReturnValue({ data: { items: [hoja('Emitida')], total: 1 }, isLoading: false, isError: false, refetch: vi.fn() });
+    state.detalle.mockReturnValue({ data: { ...detalle, albaranes: [{ ...detalle.albaranes[0], destino: null }] } });
+    render(<HojasSalidaPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Ver albaranes' }));
+    const nota = screen.getByText('Destino de la hoja: el pedido no trae obra');
+    expect(nota.closest('td')).toHaveTextContent('Obra Mérida norte');
+    expect(screen.queryByText('Sin obra')).toBeNull();
   });
 
   it('arma la hoja con las etiquetas cargadas por pedido; la foránea pide los datos de la Carta Porte', async () => {

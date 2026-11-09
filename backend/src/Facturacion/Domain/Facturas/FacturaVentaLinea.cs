@@ -141,6 +141,19 @@ public sealed class FacturaVentaLinea : BaseEntity, IBelongsToAggregate, IAudita
         FechaDocAduanero = fechaDocAduanero;
         IdentificacionMercancia = identificacionMercancia;
     }
+
+    /// <summary>
+    /// FAC-08 (M7): fija el IVA trasladado redondeado sobre el acumulado de las parcialidades. Debe quedar a
+    /// menos de un centavo de base × tasa (piso o techo), dentro del rango que valida el SAT.
+    /// </summary>
+    internal void AjustarImpuestoTrasladado(decimal importe)
+    {
+        var exacto = (Importe - Descuento) * (TasaIvaTraslado ?? 0m);
+        if (decimal.Round(importe, 2) != importe || Math.Abs(importe - exacto) >= 0.01m)
+            throw new BusinessRuleException("LINEA_IVA_AJUSTE_INVALIDO",
+                $"El IVA {importe:0.00} de la partida {Posicion} no corresponde a su base ({exacto:0.000000}).");
+        ImpuestoTrasladadoImporte = importe;
+    }
 }
 
 /// <summary>
