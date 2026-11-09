@@ -66,6 +66,22 @@ public sealed class ContabilidadElectronicaTests
     }
 
     [Fact]
+    public void O2_la_revision_y_el_bloqueo_cuentan_igual_aunque_una_cuenta_tenga_dos_pendientes()
+    {
+        var sinCodigoNiNaturaleza = new CuentaContable(Guid.NewGuid(), "102-06", "Banco sin datos", Bancos.Id, 3, null, TipoCuenta.Afectable,
+            CuentaControl.Ninguna, null, null);
+        var sinCodigo = Cuenta("102-07", Bancos, 3, null);
+
+        var problemas = GeneradorContabilidadElectronica.Revisar([.. Catalogo, sinCodigoNiNaturaleza, sinCodigo]);
+
+        Assert.Equal(3, problemas.Count);
+        Assert.Equal(2, GeneradorContabilidadElectronica.CuentasConProblemas(problemas));
+        Assert.Equal("2 cuenta(s) con 3 pendiente(s)", GeneradorContabilidadElectronica.ResumenProblemas(problemas));
+        Assert.Equal("1 cuenta(s)", GeneradorContabilidadElectronica.ResumenProblemas(
+            GeneradorContabilidadElectronica.Revisar([.. Catalogo, sinCodigo])));
+    }
+
+    [Fact]
     public void CA10_14_la_balanza_acumula_las_subcuentas_en_su_mayor_y_da_los_saldos_segun_la_naturaleza()
     {
         // Saldo inicial: banco 1,000 contra proveedor. Mes: proveedor se paga 400 (cargo) contra banco; ingreso de 250 al banco.
@@ -195,6 +211,17 @@ public sealed class ContabilidadElectronicaTests
 
         Assert.False(resultado.IsValid);
         Assert.Contains(resultado.Errors, e => e.PropertyName.Equals(campo, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void O1_las_polizas_sin_solicitud_responden_en_espanol()
+    {
+        var query = ParametrosContabilidadElectronica.Leer("polizas", 2027, 1, null, null, null, null, "AB123456789012", null);
+
+        var errores = new GenerarContabilidadElectronicaValidator().Validate(query).Errors
+            .Where(e => e.PropertyName.Equals("solicitud", StringComparison.OrdinalIgnoreCase)).ToList();
+
+        Assert.Equal(["Indica el tipo de solicitud de las pólizas (AF, FC, DE o CO)."], errores.Select(e => e.ErrorMessage));
     }
 
     [Fact]

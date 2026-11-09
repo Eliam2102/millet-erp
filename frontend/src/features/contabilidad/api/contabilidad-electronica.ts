@@ -27,6 +27,8 @@ export interface RevisionContabilidadElectronica {
   polizas: number;
   polizasConCfdi: number;
   avisos: string[];
+  /** Cuentas distintas con pendientes: una cuenta puede tener dos (sin código agrupador y sin naturaleza). */
+  cuentasConProblemas: number;
 }
 
 export type ArchivoCe = 'catalogo' | 'balanza' | 'polizas';

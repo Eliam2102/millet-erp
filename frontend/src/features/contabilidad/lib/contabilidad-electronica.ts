@@ -26,3 +26,14 @@ export function motivoArchivoCe(
   }
   return undefined;
 }
+
+/**
+ * K10.8 · O2: el mismo conteo que el bloqueo del servidor. «237 cuentas con 239 pendientes» cuando alguna cuenta tiene dos
+ * pendientes; «237 cuentas» cuando cada una tiene uno.
+ */
+export function resumenProblemasCe(r: Pick<RevisionContabilidadElectronica, 'problemas' | 'cuentasConProblemas'>): string {
+  const cuentas = r.cuentasConProblemas || new Set(r.problemas.map((p) => p.cuentaId)).size;
+  const textoCuentas = `${cuentas} ${cuentas === 1 ? 'cuenta' : 'cuentas'}`;
+  const pendientes = r.problemas.length;
+  return cuentas === pendientes ? textoCuentas : `${textoCuentas} con ${pendientes} pendientes`;
+}

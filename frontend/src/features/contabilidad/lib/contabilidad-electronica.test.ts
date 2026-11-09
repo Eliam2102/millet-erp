@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { nombreDeDisposicion, rutaArchivoCe, type RevisionContabilidadElectronica } from '../api/contabilidad-electronica';
-import { motivoArchivoCe } from './contabilidad-electronica';
+import { motivoArchivoCe, resumenProblemasCe } from './contabilidad-electronica';
 
 const revision: RevisionContabilidadElectronica = {
   anio: 2027,
@@ -14,11 +14,20 @@ const revision: RevisionContabilidadElectronica = {
   polizas: 3,
   polizasConCfdi: 1,
   avisos: [],
+  cuentasConProblemas: 0,
 };
 
 const base = { anio: 2027, mes: 1, formato: 'zip' as const };
 
 describe('contabilidad electrónica (K10.8)', () => {
+  it('O2: cuenta cuentas distintas, como el bloqueo del servidor, y aclara cuando una cuenta tiene dos pendientes', () => {
+    const p = (cuentaId: string, problema: string) => ({ cuentaId, codigo: cuentaId, nombre: cuentaId, codigoAgrupador: null, problema });
+    const dos = [p('a', 'Sin código agrupador'), p('a', 'Sin naturaleza'), p('b', 'Sin código agrupador')];
+    expect(resumenProblemasCe({ problemas: dos, cuentasConProblemas: 2 })).toBe('2 cuentas con 3 pendientes');
+    expect(resumenProblemasCe({ problemas: [p('b', 'Sin naturaleza')], cuentasConProblemas: 1 })).toBe('1 cuenta');
+    expect(resumenProblemasCe({ problemas: dos, cuentasConProblemas: 0 })).toBe('2 cuentas con 3 pendientes');
+  });
+
   it('K10.8-a: con cuentas pendientes el catálogo no se descarga, la balanza sí', () => {
     const r = { ...revision, puedeGenerarCatalogo: false };
     expect(motivoArchivoCe('catalogo', r, { ...base, tipo: 'catalogo' })).toMatch(/sin código agrupador/);

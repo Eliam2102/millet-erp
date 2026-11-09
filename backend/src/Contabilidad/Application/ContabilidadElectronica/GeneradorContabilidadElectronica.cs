@@ -71,6 +71,19 @@ public static partial class GeneradorContabilidadElectronica
         return problemas;
     }
 
+    /// <summary>Cuentas distintas con algún pendiente: una cuenta puede tener dos (sin código agrupador y sin naturaleza).</summary>
+    public static int CuentasConProblemas(IEnumerable<ProblemaCuentaCe> problemas) => problemas.Select(p => p.CuentaId).Distinct().Count();
+
+    /// <summary>
+    /// O2 (QA 8-nov): el mismo conteo en la revisión y en el bloqueo. «237 cuenta(s) con 239 pendiente(s)» cuando alguna cuenta tiene
+    /// dos; «237 cuenta(s)» cuando cada cuenta tiene uno.
+    /// </summary>
+    public static string ResumenProblemas(IReadOnlyCollection<ProblemaCuentaCe> problemas)
+    {
+        var cuentas = CuentasConProblemas(problemas);
+        return cuentas == problemas.Count ? $"{cuentas} cuenta(s)" : $"{cuentas} cuenta(s) con {problemas.Count} pendiente(s)";
+    }
+
     public static XDocument Catalogo(string rfc, int anio, int mes, IEnumerable<CuentaContable> cuentas)
     {
         var todas = cuentas.ToList();

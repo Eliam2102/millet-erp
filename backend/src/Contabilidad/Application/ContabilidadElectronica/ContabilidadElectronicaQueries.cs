@@ -19,7 +19,7 @@ namespace Millet.Contabilidad.Application.ContabilidadElectronica;
 
 public sealed record RevisionContabilidadElectronicaResponse(
     int Anio, int Mes, string? Rfc, bool RfcValido, string EstadoPeriodo, int CuentasCatalogo, IReadOnlyList<ProblemaCuentaCe> Problemas,
-    bool PuedeGenerarCatalogo, int Polizas, int PolizasConCfdi, IReadOnlyList<string> Avisos);
+    bool PuedeGenerarCatalogo, int Polizas, int PolizasConCfdi, IReadOnlyList<string> Avisos, int CuentasConProblemas = 0);
 
 /// <summary>Revisión antes de generar (K10.8-a): RFC, estado del periodo, cuentas sin código agrupador y CFDI de las pólizas.</summary>
 public sealed record RevisionContabilidadElectronicaQuery(int Anio, int Mes) : IRequest<RevisionContabilidadElectronicaResponse>;
@@ -60,8 +60,10 @@ public sealed class GenerarContabilidadElectronicaValidator : AbstractValidator<
             .WithMessage("La balanza complementaria lleva la fecha de la última modificación.");
         RuleFor(q => q.FechaModificacion).GreaterThanOrEqualTo(new DateOnly(2015, 1, 1)).When(q => q.FechaModificacion is not null)
             .WithMessage("La fecha de modificación no puede ser anterior a 2015.");
-        RuleFor(q => q.Solicitud).NotNull().IsInEnum().When(q => q.Tipo == TipoArchivoContabilidadElectronica.Polizas)
-            .WithMessage("Indica el tipo de solicitud de las pólizas (AF, FC, DE o CO).");
+        // O1 (QA 8-nov): WithMessage solo aplica a la regla anterior; sin el de NotNull salía el texto en inglés de FluentValidation.
+        const string solicitud = "Indica el tipo de solicitud de las pólizas (AF, FC, DE o CO).";
+        RuleFor(q => q.Solicitud).Cascade(CascadeMode.Stop).NotNull().WithMessage(solicitud).IsInEnum().WithMessage(solicitud)
+            .When(q => q.Tipo == TipoArchivoContabilidadElectronica.Polizas);
         RuleFor(q => q.NumOrden).NotEmpty().Matches("^[A-Z]{3}[0-9]{7}/[0-9]{2}$")
             .When(q => q.Tipo == TipoArchivoContabilidadElectronica.Polizas && q.Solicitud is TipoSolicitudPolizas.AF or TipoSolicitudPolizas.FC)
             .WithMessage("El número de orden tiene la forma ABC1234567/12.");
@@ -176,7 +178,8 @@ public sealed class RevisionContabilidadElectronicaHandler(LecturaContabilidadEl
             avisos.Add("El periodo 13 solo genera la balanza de cierre; el catálogo y las pólizas se piden por mes de 1 a 12.");
 
         return new RevisionContabilidadElectronicaResponse(request.Anio, request.Mes, rfc, rfcValido, estado,
-            GeneradorContabilidadElectronica.CuentasCatalogo(cuentas).Count, problemas, rfcValido && problemas.Count == 0, polizas, conCfdi, avisos);
+            GeneradorContabilidadElectronica.CuentasCatalogo(cuentas).Count, problemas, rfcValido && problemas.Count == 0, polizas, conCfdi, avisos,
+            GeneradorContabilidadElectronica.CuentasConProblemas(problemas));
     }
 }
 
@@ -200,7 +203,7 @@ public sealed class GenerarContabilidadElectronicaHandler(LecturaContabilidadEle
                 var problemas = GeneradorContabilidadElectronica.Revisar(cuentas);
                 if (problemas.Count > 0)
                     throw new BusinessRuleException("CONTAB_CE_CATALOGO_INCOMPLETO",
-                        $"Hay {problemas.Select(p => p.CuentaId).Distinct().Count()} cuenta(s) sin código agrupador SAT válido o sin naturaleza. " +
+                        $"Hay {GeneradorContabilidadElectronica.ResumenProblemas(problemas)} sin código agrupador SAT válido o sin naturaleza. " +
                         "Revísalas en la lista antes de generar el catálogo.");
                 xml = GeneradorContabilidadElectronica.Catalogo(rfc!, request.Anio, request.Mes, cuentas);
                 sufijo = "CT";

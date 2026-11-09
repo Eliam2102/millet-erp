@@ -22,7 +22,7 @@ import {
   type TipoEnvioBalanza,
   type TipoSolicitudPolizas,
 } from '../api/contabilidad-electronica';
-import { motivoArchivoCe } from '../lib/contabilidad-electronica';
+import { motivoArchivoCe, resumenProblemasCe } from '../lib/contabilidad-electronica';
 
 const SOLICITUDES: { valor: TipoSolicitudPolizas; etiqueta: string }[] = [
   { valor: 'AF', etiqueta: 'AF · Acto de fiscalización' },
@@ -152,8 +152,8 @@ function TarjetaRevision({ revision: r }: { revision: RevisionContabilidadElectr
       {r.problemas.length > 0 ? (
         <>
           <p className="text-sm text-ink">
-            Estas cuentas necesitan código agrupador del SAT o naturaleza antes de generar el catálogo. Corrígelas en el
-            catálogo de cuentas y vuelve a revisar.
+            {resumenProblemasCe(r)} sin código agrupador del SAT o sin naturaleza. Corrígelas en el catálogo de cuentas y
+            vuelve a revisar antes de generar el catálogo.
           </p>
           <Table aria-label="Cuentas pendientes para el catálogo del SAT">
             <TableHeader>
