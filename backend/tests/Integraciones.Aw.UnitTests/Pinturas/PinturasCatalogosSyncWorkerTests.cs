@@ -215,13 +215,20 @@ public class PinturasCatalogosSyncWorkerTests
 
         using var cts = new CancellationTokenSource();
 
-        var startTask = worker.StartAsync(cts.Token);
-        await Task.Delay(100);
+        var extraccionIniciada = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _extractor.EnExtraer = () => extraccionIniciada.SetResult();
 
-        await worker.StopAsync(CancellationToken.None);
-        await startTask;
+        await worker.StartAsync(cts.Token);
+        try
+        {
+            await extraccionIniciada.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        }
+        finally
+        {
+            await worker.StopAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10));
+        }
 
-        _extractor.FueLlamado.Should().BeTrue();
+        worker.ExecuteTask!.IsCompletedSuccessfully.Should().BeTrue();
     }
 
     [Fact]

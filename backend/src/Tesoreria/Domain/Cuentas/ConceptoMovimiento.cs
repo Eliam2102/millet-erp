@@ -18,6 +18,9 @@ public sealed class ConceptoMovimiento : BaseEntity, IAuditable
     /// <summary>Concepto sembrado "Pago a proveedor": default de todo egreso a proveedor sin concepto elegido.</summary>
     public static readonly Guid PagoProveedorId = Guid.Parse("0000000b-1001-0000-0000-000000000001");
 
+    /// <summary>M-203 (86e3zr7k1): concepto de sistema de todo traspaso entre cuentas propias; clasificación <see cref="ClasificacionFlujo.TraspasoInterno"/>.</summary>
+    public static readonly Guid TraspasoId = Guid.Parse("0000000b-1001-0000-0000-000000000007");
+
     public string Nombre { get; private set; } = default!;
     public ClasificacionFlujo ClasificacionFlujo { get; private set; }
     public bool EsEjemplo { get; private set; }
@@ -32,7 +35,7 @@ public sealed class ConceptoMovimiento : BaseEntity, IAuditable
             throw new BusinessRuleException("CONCEPTO_NOMBRE_VACIO", "El nombre del concepto es obligatorio.");
 
         if (!Enum.IsDefined(clasificacionFlujo))
-            throw new BusinessRuleException("CONCEPTO_CLASIFICACION_INVALIDA", "Selecciona operación, inversión o financiamiento.");
+            throw new BusinessRuleException("CONCEPTO_CLASIFICACION_INVALIDA", "Selecciona operación, inversión, financiamiento o traspaso interno.");
         Nombre = nombre.Trim();
         ClasificacionFlujo = clasificacionFlujo;
         Activo = true;
@@ -45,10 +48,11 @@ public sealed class ConceptoMovimiento : BaseEntity, IAuditable
     }
 }
 
-/// <summary>Clasificación de flujo de efectivo del concepto (§5 DDL: 1=Operación 2=Inversión 3=Financiamiento).</summary>
+/// <summary>Clasificación de flujo de efectivo del concepto (§5 DDL: 1=Operación 2=Inversión 3=Financiamiento 4=Traspaso interno: no es ingreso ni egreso del flujo).</summary>
 public enum ClasificacionFlujo : short
 {
     Operacion = 1,
     Inversion = 2,
     Financiamiento = 3,
+    TraspasoInterno = 4,
 }
