@@ -104,14 +104,46 @@ public sealed record DecidirLiberacionCommand(
     decimal MontoPedido,
     Guid? OverrideId) : IRequest<DecisionLiberacionResponse>;
 
+/// <summary>
+/// M9 (prueba S3-4): la decisión manual se captura a mano; si el pedido es un pedido a crédito del cliente que
+/// Facturación tiene sin facturar, la moneda y el monto deben ser los del pedido (total con IVA, tolerancia de un
+/// centavo) para que la cobertura no se calcule sobre un monto inventado. Un folio que Facturación no conoce para
+/// ese cliente sigue aceptándose (pedido aún no importado). Solo aplica al endpoint: la decisión automática de
+/// PT5.2 construye el handler directo y no pasa por este validador.
+/// </summary>
 public sealed class DecidirLiberacionValidator : AbstractValidator<DecidirLiberacionCommand>
 {
-    public DecidirLiberacionValidator()
+    public const string CodigoMontoDistinto = "CXC_MONTO_DISTINTO_PEDIDO";
+    public const string CodigoMonedaDistinta = "CXC_MONEDA_DISTINTA_PEDIDO";
+    private const decimal Tolerancia = 0.01m;
+
+    public DecidirLiberacionValidator(IFacturacionPedidosSinFacturarReadPort pedidos, ICurrentEmpresaContext empresa)
     {
         RuleFor(c => c.PedidoRef).NotEmpty().MaximumLength(40);
         RuleFor(c => c.ClienteId).NotEmpty();
         RuleFor(c => c.Moneda).NotEmpty().Length(3);
         RuleFor(c => c.MontoPedido).GreaterThan(0);
+
+        RuleFor(c => c).CustomAsync(async (c, ctx, ct) =>
+        {
+            if (empresa.Current is not Guid empresaId || c.ClienteId == Guid.Empty
+                || string.IsNullOrWhiteSpace(c.PedidoRef) || c.MontoPedido <= 0) return;
+            var folio = c.PedidoRef.Trim();
+            var pedido = (await pedidos.ListarPorClienteAsync(empresaId, c.ClienteId, ct))
+                .FirstOrDefault(p => p.NumeroPedido is not null && p.NumeroPedido.Trim() == folio);
+            if (pedido is null) return;
+
+            if (!string.Equals(pedido.Moneda, c.Moneda, StringComparison.OrdinalIgnoreCase))
+            {
+                ctx.AddFailure(new FluentValidation.Results.ValidationFailure(nameof(c.Moneda),
+                    $"El pedido {folio} está en {pedido.Moneda}.") { ErrorCode = CodigoMonedaDistinta });
+                return;
+            }
+            if (Math.Abs(pedido.Total - c.MontoPedido) > Tolerancia)
+                ctx.AddFailure(new FluentValidation.Results.ValidationFailure(nameof(c.MontoPedido),
+                    $"El pedido {folio} vale {pedido.Total.ToString("N2", System.Globalization.CultureInfo.InvariantCulture)} {pedido.Moneda} con IVA; captura ese monto.")
+                    { ErrorCode = CodigoMontoDistinto });
+        });
     }
 }
 
