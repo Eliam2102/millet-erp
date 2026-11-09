@@ -343,6 +343,6 @@ CREATE TABLE IF NOT EXISTS sysadm.ka_waehrungen (
     waehrung    varchar(8)     PRIMARY KEY,
     fremd_key   varchar(3),
     bez         varchar(40),
-    valutakurs  numeric(18, 6) NOT NULL DEFAULT 1.0,
+    valutakurs  numeric(18, 8) NOT NULL DEFAULT 1.0,  -- inverso: unidades extranjeras por 1 MXN (USD 0.05343393)
     valutadatum timestamp
 );

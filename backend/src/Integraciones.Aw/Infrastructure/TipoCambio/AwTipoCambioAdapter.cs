@@ -71,6 +71,13 @@ public sealed class AwTipoCambioAdapter(
         return par.Key is null ? v.ToUpperInvariant() : par.Key.ToUpperInvariant();
     }
 
+    /// <summary>
+    /// Valor ERP (MXN por unidad extranjera) → VALUTAKURS de A+W (unidades extranjeras por 1 MXN), 8 decimales half-up.
+    /// A+W guarda el inverso: EUR 0.04804228 ⇒ 20.81 MXN por EUR.
+    /// </summary>
+    public static decimal ValutakursDe(decimal valorMxnPorUnidad) =>
+        Math.Round(1m / valorMxnPorUnidad, 8, MidpointRounding.AwayFromZero);
+
     public static string RecursoCandado(string moneda) =>
         $"erp_tipo_cambio:{moneda?.Trim().ToUpperInvariant()}";
 

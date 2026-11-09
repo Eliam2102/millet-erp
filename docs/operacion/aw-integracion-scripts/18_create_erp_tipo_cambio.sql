@@ -94,7 +94,9 @@ GO
 
 /* Consulta sugerida para la tarea de TI:
    Cruce con A+W: la fila de KA_WAEHRUNGEN es la que cumple WAEHRUNG = t.moneda (un solo valor
-   vigente por moneda: VALUTAKURS + VALUTADATUM). No cruzar por FREMD_KEY.
+   vigente por moneda: VALUTAKURS + VALUTADATUM). Llave = WAEHRUNG (colación CS_AS: 'Euro', 'CAN' exactos).
+   OJO: valor del ERP = MXN por unidad extranjera; A+W guarda el INVERSO:
+   VALUTAKURS = ROUND(1.0 / t.valor, 8) (decimal >= 8, half-up). EUR 0.04804228 = 20.81 MXN/EUR.
    Obtener el registro vigente a aplicar para la fecha actual (hora México):
    SELECT t.*
    FROM dbo.erp_tipo_cambio t

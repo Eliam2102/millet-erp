@@ -169,11 +169,11 @@ public class AwTipoCambioPgTests(WebApplicationFactory<Program> factory)
         // 3. Insertar paridad vigente en catálogo A+W (sysadm.ka_waehrungen)
         await EjecutarAsync(
             "INSERT INTO sysadm.ka_waehrungen (waehrung, fremd_key, bez, valutakurs, valutadatum) " +
-            "VALUES ('USD', 'USD', 'Dólares Americanos', 19.8500, CURRENT_TIMESTAMP)");
+            "VALUES ('USD', 'USD', 'Dólares Americanos', 0.05343393, CURRENT_TIMESTAMP)");
 
         // 4. Verificar consulta de paridad y acuses
         var tcAw = await adapter.ObtenerTipoCambioVigenteAwAsync("USD");
-        tcAw.Should().Be(19.8500m);
+        tcAw.Should().Be(0.05343393m);
 
         var acuses = await adapter.ObtenerUltimosAcusesAsync(["USD", "EUR", "CAD"], inicio);
         var acuseUsd = acuses.First(a => a.Moneda == "USD" && a.FechaAplicacion == inicio);
