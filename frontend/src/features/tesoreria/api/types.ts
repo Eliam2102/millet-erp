@@ -252,6 +252,8 @@ export const ClasificacionFlujo = {
   Operacion: 1,
   Inversion: 2,
   Financiamiento: 3,
+  /** M-203: traspaso entre cuentas propias; no es ingreso ni egreso del flujo. */
+  TraspasoInterno: 4,
 } as const;
 export type ClasificacionFlujo =
   (typeof ClasificacionFlujo)[keyof typeof ClasificacionFlujo];
@@ -263,6 +265,7 @@ export const CLASIFICACION_FLUJO_LABELS: Record<ClasificacionFlujo, string> = {
   [ClasificacionFlujo.Operacion]: 'Operación',
   [ClasificacionFlujo.Inversion]: 'Inversión',
   [ClasificacionFlujo.Financiamiento]: 'Financiamiento',
+  [ClasificacionFlujo.TraspasoInterno]: 'Traspaso interno',
 };
 
 // ---------------------------------------------------------------- DTOs (TES-FE-PR2)
@@ -295,6 +298,17 @@ export interface CuentaSaldoResponse {
   version: number;
 }
 
+/** M-204 · solicitud de reclasificación abierta, a la espera de la segunda firma. */
+export interface ReclasificacionPendienteDto {
+  id: string;
+  conceptoAnteriorId: string | null;
+  conceptoNuevoId: string;
+  conceptoNuevoNombre: string | null;
+  motivo: string;
+  solicitadoPor: string;
+  solicitadoEn: string;
+}
+
 /** Mirror de `MovimientoBancarioResponse`. */
 export interface MovimientoBancarioResponse {
   id: string;
@@ -324,9 +338,20 @@ export interface MovimientoBancarioResponse {
   fondosVerificados?: boolean | null;
   /** 86e3tfdve: cuenta ordenante del cliente (enmascarada salvo permiso PII). */
   cuentaOrdenante?: string | null;
+  /** M-203: id común del par de un traspaso entre cuentas propias. */
+  traspasoId?: string | null;
+  traspasoMotivo?: string | null;
+  reclasificacionPendiente?: ReclasificacionPendienteDto | null;
   creadoPor: string;
   creadoEn: string;
   version: number;
+}
+
+/** M-203: respuesta de `POST /movimientos/traspasos` (el par ligado). */
+export interface TraspasoResponse {
+  traspasoId: string;
+  egreso: MovimientoBancarioResponse;
+  ingreso: MovimientoBancarioResponse;
 }
 
 /** Mirror de `AplicacionMovimientoDto` — `pagoId` correlaciona con CxP y alimenta la reversa. */

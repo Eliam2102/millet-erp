@@ -11,7 +11,7 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Workers;
 
 /// <summary>
 /// PT5.2: al recibir <c>producto_terminado.pedido.estado-cambiado.v1</c> con <c>Retenido</c> pide la decisión de liberación. PT5.7: con <c>producto_terminado.contra-entrega.no-liquidada.v1</c> levanta la alerta de cartera.
-/// PLATFORM-TODO(&lt;TopicProductoTerminado&gt;): solo entrega local (C1.8); con Service Bus falta el topic <c>producto-terminado-events</c> y su suscripción (§9 del diseño).
+/// Con Service Bus lo consume <c>cuentas-por-cobrar-pt-sub</c> (M-046).
 /// </summary>
 public sealed class ProductoTerminadoLocalConsumer(IServiceScopeFactory scopes, ILogger<ProductoTerminadoLocalConsumer> logger) : ILocalIntegrationEventConsumer
 {

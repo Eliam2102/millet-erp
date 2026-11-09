@@ -1,5 +1,5 @@
-using System.Text.RegularExpressions;
 using FluentValidation;
+using Millet.Compras.Domain;
 
 namespace Millet.Compras.Application.Oc.CrearOrdenCompraVacia;
 
@@ -14,13 +14,8 @@ namespace Millet.Compras.Application.Oc.CrearOrdenCompraVacia;
 /// es opcional; el validator solo verifica que si viene, no sea
 /// <c>Guid.Empty</c>.
 /// </summary>
-public sealed partial class CrearOrdenCompraVaciaValidator : AbstractValidator<CrearOrdenCompraVaciaCommand>
+public sealed class CrearOrdenCompraVaciaValidator : AbstractValidator<CrearOrdenCompraVaciaCommand>
 {
-    private const string SucursalCodigoPattern = @"^[A-Z]{2,4}$";
-
-    [GeneratedRegex(SucursalCodigoPattern, RegexOptions.CultureInvariant)]
-    private static partial Regex SucursalCodigoRegex();
-
     public CrearOrdenCompraVaciaValidator()
     {
         RuleFor(c => c.UsoCfdiClave).Length(3, 4)
@@ -43,9 +38,9 @@ public sealed partial class CrearOrdenCompraVaciaValidator : AbstractValidator<C
 
         RuleFor(c => c.SucursalCodigo)
             .NotEmpty().WithErrorCode("SUCURSAL_CODIGO_REQUERIDO")
-            .Must(c => SucursalCodigoRegex().IsMatch(c))
+            .Must(PrefijoSucursalCompras.EsValido)
             .WithErrorCode("SUCURSAL_CODIGO_FORMATO_INVALIDO")
-            .WithMessage("El código de sucursal debe ser 2-4 letras mayúsculas (ej. MID, MX, CAN).");
+            .WithMessage("El código de sucursal debe ser una clave del 101 al 105 o de 2 a 4 letras mayúsculas.");
 
         RuleFor(c => c.FolioAnio)
             .InclusiveBetween((short)2000, (short)2100)
