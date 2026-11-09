@@ -361,6 +361,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'contabilidad.polizas.capturar',
   'contabilidad.polizas.autorizar',
   'contabilidad.polizas.anular',
+  'contabilidad.polizas.anular-aprobar',
   // Pólizas recurrentes (K10.4)
   'contabilidad.recurrentes.leer',
   'contabilidad.recurrentes.administrar',

@@ -57,7 +57,7 @@ describe('<PolizaDetallePage>', () => {
     expect(screen.getByText('Motivo: FIX Captura duplicada del traspaso')).toBeInTheDocument();
     expect(screen.getAllByText('Anulación').length).toBeGreaterThan(0);
     // Una anulación no se vuelve a anular.
-    expect(screen.queryByRole('button', { name: 'Anular' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Solicitar anulación' })).not.toBeInTheDocument();
   });
 
   it('la original anulada enlaza a su anulación', async () => {
@@ -66,25 +66,24 @@ describe('<PolizaDetallePage>', () => {
     render(<PolizaDetallePage id="p1" search={{}} onNavegar={vi.fn()} />, { wrapper: createQueryWrapper() });
     expect(await screen.findByRole('link', { name: 'TT-000124' })).toHaveAttribute('href', '/contabilidad/polizas/p2');
     expect(screen.getByText(/Anulada por/)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Anular' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Solicitar anulación' })).not.toBeInTheDocument();
   });
 
-  it('anular exige motivo de 10 caracteres y pide periodo destino cuando el original ya no admite pólizas', async () => {
+  it('solicitar la anulación exige motivo de 10 caracteres y pide periodo destino cuando el original ya no admite pólizas', async () => {
     servidor(poliza());
     const cuerpos: unknown[] = [];
-    const onNavegar = vi.fn();
-    mswServer.use(http.post(`${API}/polizas/p1/anular`, async ({ request }) => {
+    mswServer.use(http.post(`${API}/polizas/p1/solicitar-anulacion`, async ({ request }) => {
       const body = (await request.json()) as { periodoAnio: number | null };
       cuerpos.push({ body, ifMatch: request.headers.get('If-Match'), idem: !!request.headers.get('Idempotency-Key') });
       if (body.periodoAnio == null) return problem(422, { code: 'CONTAB_POLIZA_ANULACION_REQUIERE_PERIODO', detail: 'El periodo de la póliza ya está cerrado.' });
-      return HttpResponse.json(poliza({ id: 'p2', folio: 'TT-000124', polizaAnuladaId: 'p1' }), { status: 201 });
+      return HttpResponse.json({ id: 's1', polizaId: 'p1', estado: 'Pendiente' }, { status: 201 });
     }));
     permisos(PermisosCanonicos.ContabilidadPolizasAnular);
-    render(<PolizaDetallePage id="p1" search={{}} onNavegar={onNavegar} />, { wrapper: createQueryWrapper() });
+    render(<PolizaDetallePage id="p1" search={{}} onNavegar={vi.fn()} />, { wrapper: createQueryWrapper() });
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Anular' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Solicitar anulación' }));
     const dialogo = await screen.findByRole('dialog');
-    const confirmar = within(dialogo).getByRole('button', { name: 'Anular póliza' });
+    const confirmar = within(dialogo).getByRole('button', { name: 'Solicitar anulación' });
     fireEvent.change(within(dialogo).getByLabelText(/^Motivo(?:\s*\*)?$/), { target: { value: 'corto' } });
     expect(confirmar).toBeDisabled();
     expect(confirmar).toHaveAttribute('title', 'El motivo lleva al menos 10 caracteres');
@@ -99,8 +98,21 @@ describe('<PolizaDetallePage>', () => {
     fireEvent.change(periodo, { target: { value: '2026-11' } });
     fireEvent.click(confirmar);
 
-    await waitFor(() => expect(onNavegar).toHaveBeenCalledWith('p2'));
+    expect(await screen.findByText(/Anulación solicitada: queda pendiente/)).toBeInTheDocument();
     expect(cuerpos[1]).toEqual({ body: { motivo: 'FIX Captura duplicada', periodoAnio: 2026, periodoNumero: 11 }, ifMatch: '"4"', idem: true });
+  });
+
+  it('M-212: con una anulación pendiente muestra el distintivo y no deja pedir otra', async () => {
+    servidor(poliza({
+      anulacionPendiente: { solicitudId: 's1', motivo: 'FIX Captura duplicada', solicitadaPorId: 'u1', solicitadaPor: 'FIX Analista', solicitadaEn: '2026-11-09T15:00:00Z' },
+    }));
+    permisos(PermisosCanonicos.ContabilidadPolizasAnular);
+    render(<PolizaDetallePage id="p1" search={{}} onNavegar={vi.fn()} />, { wrapper: createQueryWrapper() });
+
+    const boton = await screen.findByRole('button', { name: 'Solicitar anulación' });
+    expect(boton).toBeDisabled();
+    expect(screen.getAllByText('Anulación pendiente de aprobación').length).toBeGreaterThan(0);
+    expect(screen.getByRole('region', { name: 'Anulación pendiente' })).toHaveTextContent('FIX Captura duplicada');
   });
 
   it('quien capturó el borrador no puede autorizarlo; el botón explica por qué', async () => {
