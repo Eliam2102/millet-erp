@@ -2048,7 +2048,7 @@ export interface ProformaCfdi {
   moneda: string;
   tipoCambio: number | null;
   exportacion: string;
-  /** Tipo de serie que se usará al timbrar ("Cfdi" | "VentaDirecta"), sin número. */
+  /** Tipo de serie que se usará al timbrar ("Cfdi" | "VentaDirecta" | "Exportacion"), sin número. */
   serieFiscalPrevista: string;
   conceptos: ProformaConcepto[];
   totales: ProformaTotales;

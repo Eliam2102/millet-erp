@@ -655,6 +655,38 @@ public sealed class EmitirFacturaVentaHandlerTests
     }
 
     [Fact]
+    public async Task Exportacion_con_CCE_reserva_la_serie_de_exportacion_y_no_la_de_la_sucursal()
+    {
+        // Prueba S3-4: la factura de exportación de una sucursal con serie CFDI propia
+        // salía con esa serie (FCNK) y no con la de exportación (FEXP).
+        var empresa = Guid.NewGuid(); using var db = NewDb(empresa); var command = Command(); var p = CrearPedido(db, empresa, command.SucursalId);
+        var lectura = new EmbarqueExportacionLectura(true, Guid.NewGuid(), command.SucursalId, true, FolioExpediente: "CE-EXP-DEMO",
+            NumeroPedimento: "DEMO-A1", ClavePedimento: "A1", FechaPedimento: new(2026, 5, 29), Incoterm: "DDP", Contenedores: [new(Guid.NewGuid(), "DEMO-C", "DEMO-BL", new(2026, 5, 30))], Aduana: "16", AduanaNombre: "Manzanillo", VersionEmbarque: 1, DatosAduanales: [new(1, "70071999", "06")]);
+        var cce = new EmitirFacturaVentaCce("2", "FOB", 20, "DEMO-TAX", "USA", [new("70071999", "06", 2, 100, 200, true)], "RT", ReceptorDomicilioCalle: "DEMO 1", ReceptorDomicilioEstado: "DEMO", ReceptorDomicilioCodigoPostal: "00000");
+        var sender = new FakeSender(new ReservarFolioResponse("FEXP-000001", 1, ""));
+
+        var resp = await Handler(db, empresa, embarques: new Embarques(lectura), receptorRfc: "XEXX010101000", sender: sender).Handle(command with {
+            PedidoFacturableId = p.Id, Cce = cce, ReceptorRfc = "XEXX010101000", ReceptorPais = "USA",
+            ComportamientoFiscal = ComportamientoFiscal.ExportacionConCce }, CancellationToken.None);
+
+        sender.TiposReservados.Should().Equal(Millet.Administracion.Domain.TipoDocumentoSerie.Exportacion);
+        resp.Folio.Should().Be("FEXP-000001");
+    }
+
+    [Theory]
+    [InlineData(false, ComportamientoFiscal.ExportacionConCce, Millet.Administracion.Domain.TipoDocumentoSerie.Exportacion)]
+    [InlineData(false, ComportamientoFiscal.MostradorInmediato, Millet.Administracion.Domain.TipoDocumentoSerie.Cfdi)]
+    [InlineData(true, ComportamientoFiscal.MostradorInmediato, Millet.Administracion.Domain.TipoDocumentoSerie.VentaDirecta)]
+    [InlineData(true, ComportamientoFiscal.ExportacionConCce, Millet.Administracion.Domain.TipoDocumentoSerie.VentaDirecta)]
+    public void Tipo_de_serie_de_la_factura_y_de_la_proforma(bool ventaDirecta, ComportamientoFiscal comportamiento,
+        Millet.Administracion.Domain.TipoDocumentoSerie esperado)
+    {
+        EmitirFacturaVentaHandler.TipoSerieFactura(ventaDirecta, comportamiento).Should().Be(esperado);
+        Millet.Facturacion.Application.Proformas.ProformaEmisionDesdePedido.SeriePrevista(ventaDirecta, comportamiento)
+            .Should().Be(esperado.ToString());
+    }
+
+    [Fact]
     public async Task Pedido_manual_legacy_sin_clase_se_rechaza_sin_quemar_folio()
     {
         var empresa = Guid.NewGuid(); using var db = NewDb(empresa);

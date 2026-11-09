@@ -125,9 +125,12 @@ public static class ProformaEmisionDesdePedido
         return new ProformaEmisionArmada(comando, avisos);
     }
 
-    /// <summary>Tipo de serie con la que se timbrará el pedido (F6.1: manual clasificado → VentaDirecta).</summary>
-    public static string SeriePrevista(bool esVentaDirectaManual) =>
-        esVentaDirectaManual ? "VentaDirecta" : "Cfdi";
+    /// <summary>
+    /// Tipo de serie con la que se timbrará el pedido (F6.1: manual clasificado → VentaDirecta;
+    /// prueba S3-4: exportación con CCE → Exportacion). Misma regla que la emisión.
+    /// </summary>
+    public static string SeriePrevista(bool esVentaDirectaManual, ComportamientoFiscal comportamiento) =>
+        EmitirFacturaVentaHandler.TipoSerieFactura(esVentaDirectaManual, comportamiento).ToString();
 
     private static string Requerido(string? valor, string aviso, List<string> avisos)
     {
