@@ -21,12 +21,27 @@ public sealed class ContenedoresTests
     private static void Pedimento(Expediente e, string clave = "A1") => e.RegistrarPedimentoExportacion("DEMO-PEDIMENTO", clave, Hoy, Hoy, "16");
     private static void PrepararSalida(Expediente e)
     {
-        foreach (var partida in e.Partidas.ToArray()) e.GuardarDatosAduanales(partida.Id, "70071999", "06", Actor, new(2026, 10, 16, 18, 0, 0, TimeSpan.Zero), true);
+        foreach (var partida in e.Partidas.ToArray()) e.GuardarDatosAduanales(partida.Id, "7007199900", "06", Actor, new(2026, 10, 16, 18, 0, 0, TimeSpan.Zero), true);
         e.AutorizarSalida(Guid.NewGuid(), new(2026, 10, 16, 18, 0, 0, TimeSpan.Zero), null, true);
     }
     private static void Embarcar(Expediente e, Guid c, DateOnly fecha, DateOnly hoy)
     { PrepararSalida(e); e.RegistrarEmbarque(c, fecha, hoy); }
     private static void Codigo(string code, Action action) => Assert.Equal(code, Assert.Throws<BusinessRuleException>(action).Code);
+
+    [Fact]
+    public void M158_al_revisar_la_fraccion_de_exportacion_exige_10_digitos()
+    {
+        var e = Nuevo(); var c = Contenedor(e); Pedimento(e); var p = Pedido(e); e.AsignarPartida(c, p, 1, 100, Actor);
+        var partida = e.Partidas.Single();
+        var ahora = new DateTimeOffset(2026, 10, 16, 18, 0, 0, TimeSpan.Zero);
+        var ex = Assert.Throws<BusinessRuleException>(() => e.GuardarDatosAduanales(partida.Id, "70071999", "06", Actor, ahora, true));
+        Assert.Equal("CCE_FRACCION_INVALIDA", ex.Code);
+        Assert.Contains("10 dígitos", ex.Message);
+        // El borrador sin revisar sí se guarda; con 10 dígitos la revisión pasa.
+        e.GuardarDatosAduanales(partida.Id, "70071999", "06", Actor, ahora, false);
+        e.GuardarDatosAduanales(partida.Id, "7007199900", "06", Actor, ahora, true);
+        Assert.Equal("7007199900", e.Partidas.Single().FraccionArancelaria);
+    }
 
     [Theory]
     [InlineData(null)][InlineData("")][InlineData("99")]

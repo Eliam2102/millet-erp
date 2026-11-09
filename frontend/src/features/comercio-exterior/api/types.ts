@@ -286,6 +286,8 @@ export interface EmbarqueCe {
   fechaPedimento: string | null;
   incoterm: string | null;
   contenedores: { id: string; numero: string; blGuia: string; fechaEmbarqueReal: string }[] | null;
+  /** M-158: fracción y unidad aduana revisadas en Comercio Exterior, por posición; mandan en la factura. */
+  datosAduanales?: { posicion: number; fraccionArancelaria: string; unidadAduana: string }[] | null;
 }
 export interface DatosEmbarqueCe {
   aduana?: string | null;

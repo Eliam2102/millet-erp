@@ -361,7 +361,7 @@ public sealed class ContenedoresHttpTests
         var etag = actual.Headers.ETag!.Tag;
         foreach (var p in (await Body(actual)).GetProperty("partidas").EnumerateArray().Where(p => p.GetProperty("estado").GetInt32() != 3))
         {
-            using var revisada = await Enviar(documental, HttpMethod.Put, $"{Base}/{ExpId}/partidas/{p.GetProperty("id").GetGuid()}/aduanales", new { fraccionArancelaria = "70071999", unidadAduana = "06", revisar = true }, etag);
+            using var revisada = await Enviar(documental, HttpMethod.Put, $"{Base}/{ExpId}/partidas/{p.GetProperty("id").GetGuid()}/aduanales", new { fraccionArancelaria = "7007199900", unidadAduana = "06", revisar = true }, etag);
             revisada.EnsureSuccessStatusCode(); etag = revisada.Headers.ETag!.Tag;
         }
         using var autorizada = await Enviar(autorizador, HttpMethod.Post, $"{Base}/{ExpId}/autorizar-salida", etag: etag);
@@ -376,7 +376,7 @@ public sealed class ContenedoresHttpTests
         return new(p.SucursalId, "XEXX010101000", p.ClienteNombre, "616", "42501", "S01", "USA", "MIL010101AAA", "601", "PPD", "99", "USD", 20, 1,
             Millet.Facturacion.Domain.Facturas.ComportamientoFiscal.ExportacionConCce, null, null, false,
             p.Lineas.Select(l => new EmitirFacturaVentaLinea(null, l.ClaveProdServSat!, l.ProductoDescripcion, l.ClaveUnidadSat!, l.Cantidad, l.Precio, 0, "02", 0, null, null)).ToArray(),
-            Cce: new("2", "FOB", 20, "DEMO-TAX", "USA", [new("70071999", "06", p.Lineas.Sum(l => l.Cantidad), 100, p.Total, true)], "RT", ReceptorDomicilioCalle: "DEMO 1", ReceptorDomicilioEstado: "DEMO", ReceptorDomicilioCodigoPostal: "00000"), PedidoFacturableId: p.Id, ClienteId: p.ClienteId);
+            Cce: new("2", "FOB", 20, "DEMO-TAX", "USA", [new("7007199900", "06", p.Lineas.Sum(l => l.Cantidad), 100, p.Total, true)], "RT", ReceptorDomicilioCalle: "DEMO 1", ReceptorDomicilioEstado: "DEMO", ReceptorDomicilioCodigoPostal: "00000"), PedidoFacturableId: p.Id, ClienteId: p.ClienteId);
     }
     private static async Task<JsonElement> Body(HttpResponseMessage r) { using var d = JsonDocument.Parse(await r.Content.ReadAsStringAsync()); return d.RootElement.Clone(); }
     private static Task<HttpResponseMessage> Enviar(HttpClient c, HttpMethod method, string url, object? body = null, string? etag = null, string? key = null)
