@@ -35,6 +35,7 @@ import {
   useBeneficiariosCredito,
   useCancelarAutorizacionCredito,
   useDecisionesLiberacion,
+  useReglasLiberacionSerie,
 } from '@/features/cxc/api/useLiberaciones';
 import {
   ChipEstadoAutorizacion,
@@ -44,14 +45,16 @@ import { DecidirLiberacionSheet } from '@/features/cxc/components/DecidirLiberac
 import { NuevaAutorizacionDialog } from '@/features/cxc/components/NuevaAutorizacionDialog';
 import { AutorizarPendienteDialog } from '@/features/cxc/components/AutorizarPendienteDialog';
 import { RechazarPendienteDialog } from '@/features/cxc/components/RechazarPendienteDialog';
-import { puedeAutorizarPendiente } from '@/features/cxc/lib/autorizar-pendiente';
+import {
+  etiquetaReglaLiberacion,
+  puedeAutorizarPendiente,
+} from '@/features/cxc/lib/autorizar-pendiente';
 import {
   EstadoAutorizacionCredito,
   ResultadoLiberacion,
   type DecisionLiberacionResponse,
 } from '@/features/cxc/api/types';
 import {
-  ETIQUETA_REGLA_LIBERACION,
   ETIQUETA_RESULTADO_LIBERACION,
   formatoCobertura,
   formatoMonto,
@@ -162,6 +165,7 @@ function TabDecisiones({
     clienteId: search.clienteId,
     limit: search.limit ?? 200,
   });
+  const reglasSerie = useReglasLiberacionSerie();
 
   const clienteIds = useMemo(
     () => Array.from(new Set((query.data?.items ?? []).map((d) => d.clienteId))).sort(),
@@ -296,7 +300,7 @@ function TabDecisiones({
                         )}
                     </TableCell>
                     <TableCell className="px-3 py-2 text-xs">
-                      {ETIQUETA_REGLA_LIBERACION[d.reglaAplicada]}
+                      {etiquetaReglaLiberacion(d.reglaAplicada, d.pedidoRef, reglasSerie.data ?? [])}
                       {d.motivo && (
                         <p className="mt-0.5 max-w-48 truncate text-ink-muted" title={d.motivo}>
                           {d.motivo}
