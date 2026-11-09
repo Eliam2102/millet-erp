@@ -34,7 +34,8 @@ public sealed record PolizaResponse(
     DateTimeOffset? AutorizadaEn, decimal TotalCargos, decimal TotalAbonos, decimal Diferencia, bool Cuadra,
     IReadOnlyList<PartidaResponse> Partidas, int Version,
     Guid? PolizaRelacionadaId = null, string? PolizaRelacionadaFolio = null, RelacionPoliza? Relacion = null,
-    Guid? PlantillaRecurrenteId = null, string? PlantillaRecurrenteNombre = null, IReadOnlyList<PolizaLigadaResponse>? Ligadas = null);
+    Guid? PlantillaRecurrenteId = null, string? PlantillaRecurrenteNombre = null, IReadOnlyList<PolizaLigadaResponse>? Ligadas = null,
+    AnulacionPendienteResponse? AnulacionPendiente = null);
 
 public sealed record PolizaResumenResponse(
     Guid Id, string? Folio, Guid TipoOperacionId, string TipoClave, int? Numero, DateOnly Fecha, int PeriodoAnio, int PeriodoNumero,
@@ -79,6 +80,11 @@ public sealed class LecturaPolizas(
         CentroRefDto? Ref(Guid? cid) => cid is { } x && nodos.TryGetValue(x, out var n) ? new(n.Id, n.Clave, n.Nombre, n.ActivoEnCadena) : null;
         static AuxiliarContable? Aux(IReadOnlyDictionary<Guid, AuxiliarContable> d, Guid? aid) => aid is { } x ? d.GetValueOrDefault(x) : null;
         string? Folio(Guid? pid) => pid is { } x ? folios.GetValueOrDefault(x) : null;
+        // M-212: la anulación pedida que espera la segunda firma.
+        var pendiente = await db.SolicitudesAnulacionPoliza.AsNoTracking()
+            .Where(x => x.PolizaId == p.Id && x.Estado == EstadoSolicitudAnulacion.Pendiente)
+            .Select(x => new AnulacionPendienteResponse(x.Id, x.Motivo, x.SolicitadaPorId, x.SolicitadaPor, x.SolicitadaEn))
+            .FirstOrDefaultAsync(ct);
 
         return new PolizaResponse(p.Id, p.Folio, p.TipoOperacionId, p.TipoClave, tipoNombre, p.TipoSat, p.Numero, p.Fecha, p.PeriodoAnio,
             p.PeriodoNumero, p.Concepto, p.Origen, p.Estado,
@@ -92,7 +98,8 @@ public sealed class LecturaPolizas(
                 Aux(cuentasBanco, x.CuentaBancariaId)))],
             p.Version, p.PolizaRelacionadaId, Folio(p.PolizaRelacionadaId), p.Relacion, p.PlantillaRecurrenteId, plantillaNombre,
             [.. derivadas.Select(x => new PolizaLigadaResponse(x.Id, x.Numero is { } n ? Poliza.FormatearFolio(x.TipoClave, n) : null,
-                x.Relacion!.Value, x.Estado, x.Fecha, x.Concepto))]);
+                x.Relacion!.Value, x.Estado, x.Fecha, x.Concepto))],
+            pendiente);
     }
 }
 
