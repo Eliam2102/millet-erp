@@ -203,6 +203,50 @@ public sealed class AutorizarPorDfViaticosHandler
     }
 }
 
+// ---------------------------------------------------- M-449: AutorizarExcesoComprobacion
+
+/// <summary>
+/// M-449: Dirección de Finanzas autoriza el exceso de una comprobación fuera de política (mismo permiso que la firma DF de la
+/// solicitud). Quien autoriza no puede ser el empleado que comprueba.
+/// </summary>
+public sealed record AutorizarExcesoComprobacionViaticosCommand(Guid Id, int VersionEsperada)
+    : IRequest<TransicionViaticosResponse>;
+
+public sealed class AutorizarExcesoComprobacionViaticosValidator : AbstractValidator<AutorizarExcesoComprobacionViaticosCommand>
+{
+    public AutorizarExcesoComprobacionViaticosValidator()
+    {
+        RuleFor(c => c.Id).NotEmpty();
+        RuleFor(c => c.VersionEsperada).GreaterThanOrEqualTo(0);
+    }
+}
+
+public sealed class AutorizarExcesoComprobacionViaticosHandler(
+    CuentasPorPagarDbContext db, ICurrentUserContext currentUser, IEmpleadoReadPort empleados, IClock clock)
+    : IRequestHandler<AutorizarExcesoComprobacionViaticosCommand, TransicionViaticosResponse>
+{
+    public async Task<TransicionViaticosResponse> Handle(
+        AutorizarExcesoComprobacionViaticosCommand command, CancellationToken cancellationToken)
+    {
+        var s = await db.SolicitudesViaticos
+            .FirstOrDefaultAsync(x => x.Id == command.Id, cancellationToken)
+            ?? throw new EntityNotFoundException("VIA_NO_ENCONTRADA",
+                $"No se encontró la solicitud '{command.Id}'.");
+        if (s.Version != command.VersionEsperada)
+            throw new ConcurrencyException(nameof(SolicitudViaticos), s.Id);
+
+        var usuarioId = currentUser.UserId
+            ?? throw new ForbiddenException("USUARIO_NO_AUTENTICADO",
+                "Se requiere usuario autenticado para autorizar el exceso.");
+        // Igual que la firma DF: si el usuario es un empleado, se registra su empleado (así se compara contra quien comprueba).
+        var empleado = await empleados.ObtenerPorUsuarioAsync(usuarioId, cancellationToken);
+        s.AutorizarExcesoComprobacion(empleado?.Id ?? usuarioId, clock.UtcNow);
+
+        await db.SaveChangesAsync(cancellationToken);
+        return new TransicionViaticosResponse(s.Id, s.Estado, s.Version);
+    }
+}
+
 // ---------------------------------------------------- MarcarAnticipoPagado
 
 public sealed record MarcarAnticipoPagadoViaticosCommand(Guid Id, int VersionEsperada)
