@@ -87,13 +87,16 @@ public sealed class PedidosSinFacturarReadAdapterTests
         PedidosSinFacturarReadAdapter.ComprometeCredito(estatus).Should().Be(compromete);
 
     [Fact]
-    public async Task V22_pedido_en_estatus_previo_a_15_y_40_no_se_lista()
+    public async Task V22_pedido_en_estatus_previo_a_15_y_40_se_lista_sin_comprometer_credito()
     {
+        // M2: CxC lo cuenta solo si lo liberó; los cancelados en origen (900/999) no se listan.
         await using var db = NewDb();
         Pedido(db, "10500011", 20_000m, estatus: "20");
         Pedido(db, "10500012", 20_000m, estatus: "15");
+        Pedido(db, "10500013", 20_000m, estatus: "900");
 
-        (await Listar(db)).Select(p => p.NumeroPedido).Should().Equal("10500012");
+        (await Listar(db)).OrderBy(p => p.NumeroPedido).Select(p => (p.NumeroPedido, p.ComprometeCredito))
+            .Should().Equal(("10500011", false), ("10500012", true));
     }
 
     [Fact]
