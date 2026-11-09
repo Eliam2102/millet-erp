@@ -1,11 +1,13 @@
 import {
   ComportamientoSerie,
   EstadoAutorizacionCredito,
+  ReglaAplicadaLiberacion,
   ResultadoLiberacion,
   type AutorizacionCreditoResponse,
   type DecisionLiberacionResponse,
   type ReglaLiberacionSerieResponse,
 } from '@/features/cxc/api/types';
+import { ETIQUETA_REGLA_LIBERACION } from '@/features/cxc/lib/glosario';
 import { esApiError } from '@/lib/api';
 
 /** C7.3 supuesto (a): 50 % exacto ya es pendiente. */
@@ -50,13 +52,38 @@ export function comportamientoSeriePedido(
   pedidoRef: string,
   reglas: readonly ReglaLiberacionSerieResponse[],
 ): ComportamientoSerie {
+  return reglaSeriePedido(pedidoRef, reglas)?.comportamiento ?? ComportamientoSerie.EvaluaCredito;
+}
+
+/** Regla activa de la serie del pedido: el prefijo más largo, igual que el backend. */
+export function reglaSeriePedido(
+  pedidoRef: string,
+  reglas: readonly ReglaLiberacionSerieResponse[],
+): ReglaLiberacionSerieResponse | null {
   const folio = pedidoRef.trim();
   let mejor: ReglaLiberacionSerieResponse | null = null;
   for (const r of reglas) {
     if (folio.startsWith(r.prefijo) && (mejor == null || r.prefijo.length > mejor.prefijo.length))
       mejor = r;
   }
-  return mejor?.comportamiento ?? ComportamientoSerie.EvaluaCredito;
+  return mejor;
+}
+
+/**
+ * Prueba manual S3-4 (M4): la columna Regla dice qué serie liberó el pedido
+ * («Serie 5500») en vez de «Regla por serie». La decisión no guarda el prefijo;
+ * se toma de las reglas activas y, si ya no hay una que aplique, queda el texto genérico.
+ */
+export function etiquetaReglaLiberacion(
+  reglaAplicada: ReglaAplicadaLiberacion,
+  pedidoRef: string,
+  reglas: readonly ReglaLiberacionSerieResponse[],
+): string {
+  if (reglaAplicada === ReglaAplicadaLiberacion.Serie) {
+    const regla = reglaSeriePedido(pedidoRef, reglas);
+    if (regla) return `Serie ${regla.prefijo}`;
+  }
+  return ETIQUETA_REGLA_LIBERACION[reglaAplicada];
 }
 
 /**

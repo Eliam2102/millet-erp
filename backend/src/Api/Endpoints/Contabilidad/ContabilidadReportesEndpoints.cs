@@ -56,6 +56,22 @@ public static class ContabilidadReportesEndpoints
         .WithSummary("Libro diario: pólizas del rango con sus partidas, paginado por póliza (limit máximo 1000)")
         .Produces<DiarioResponse>().ProducesValidationProblem();
 
+        // TES-09 (86e3jvvj4): diferencias cambiarias realizadas del periodo (pagos a proveedor y cobros de cliente, CON-11).
+        // Los parámetros llegan como texto y se validan aquí para que un valor mal formado responda 400 con mensaje en español
+        // (el binding de ASP.NET responde en inglés).
+        g.MapGet("/diferencias-cambiarias", async (
+            [FromQuery] string? desde, [FromQuery] string? hasta, [FromQuery] string? sucursalId, [FromQuery] string? origen,
+            IMediator mediator, CancellationToken ct) =>
+        {
+            var (inicio, fin, sucursal, origenFiltro) = FiltrosDiferenciasCambiarias.Leer(desde, hasta, sucursalId, origen);
+            return Results.Ok(await mediator.Send(new DiferenciasCambiariasQuery(inicio, fin, sucursal, origenFiltro), ct));
+        })
+        .RequireAuthorization(leer).WithName("DiferenciasCambiariasRealizadas")
+        .WithSummary("Diferencias cambiarias realizadas del periodo: una fila por pago o cobro en moneda extranjera con TC de factura, TC de pago y pérdida o utilidad")
+        .WithDescription("hasta por omisión = hoy (zona de operación); desde por omisión = primer día del mes de hasta. origen = Proveedores | Clientes (opcional). Periodo máximo de un año. Avisos lista los roles cambiarios sin cuenta.")
+        .Produces<DiferenciasCambiariasResponse>().ProducesValidationProblem();
+
         return app;
     }
 }
+

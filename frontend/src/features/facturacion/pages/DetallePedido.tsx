@@ -279,6 +279,9 @@ function Contenido({
               tasaIvaTraslado: l.tasaIvaTraslado,
               tasaRetencionIva: l.tasaRetencionIva,
               tasaRetencionIsr: l.tasaRetencionIsr,
+              fraccionArancelaria: l.fraccionArancelaria,
+              unidadAduana: l.unidadAduana,
+              pesoUnitarioKg: l.pesoUnitarioKg,
             })),
           }}
           onCancel={cerrarEmision}

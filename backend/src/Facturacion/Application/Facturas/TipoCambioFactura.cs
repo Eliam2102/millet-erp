@@ -26,4 +26,19 @@ internal static class TipoCambioFactura
             throw new BusinessRuleException("TIPO_CAMBIO_NO_CORRESPONDE_FECHA",
                 $"El tipo de cambio de {moneda} debe coincidir con el registrado para {fecha:yyyy-MM-dd}.");
     }
+
+    /// <summary>
+    /// 86e3zg0vb: TC del día de emisión para un comprobante que no lo captura (la NC de aplicación posterior de un anticipo en USD).
+    /// MXN → null. Sin TC registrado ese día no se emite (mismo criterio que la factura).
+    /// </summary>
+    public static async Task<decimal?> DelDiaAsync(ICatalogosSatReadPort catalogos, string moneda, DateTimeOffset fechaEmision, CancellationToken ct)
+    {
+        if (string.Equals(moneda, "MXN", StringComparison.OrdinalIgnoreCase)) return null;
+        var fecha = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(fechaEmision, ZonaFactura).DateTime);
+        var diario = await catalogos.TipoCambioAsync(moneda, fecha, ct);
+        if (diario is null or <= 0m)
+            throw new BusinessRuleException("TIPO_CAMBIO_NO_REGISTRADO",
+                $"Registra en Catálogos el tipo de cambio de {moneda} para {fecha:yyyy-MM-dd} antes de emitir.");
+        return diario;
+    }
 }

@@ -225,7 +225,13 @@ public sealed class ReintentarTimbradoHandler
             // primer intento, así que aquí normalmente ya está Facturado
             // apuntando a ESTA factura. El branch Importado cubre fallidas
             // previas a G5 (el pedido quedaba libre al fallar el timbre).
-            if (pedido is { Estado: EstadoPedidoFacturable.Importado })
+            // FAC-08: la factura de una salida no toma el pedido; M8: solo la que completa el 100 %.
+            if (factura.SalidaFacturableId is not null)
+            {
+                if (pedido is not null)
+                    await Pedidos.PedidoPorParcialidades.TomarPedidoSiCompletoAsync(_db, factura, pedido, ct);
+            }
+            else if (pedido is { Estado: EstadoPedidoFacturable.Importado })
                 pedido.MarcarFacturado(factura.Id);
 
             if (pedido?.ComprobanteVigenteId == factura.Id

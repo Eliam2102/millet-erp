@@ -21,6 +21,8 @@ export interface AnticipoAmortizar {
   folio?: string;
   /** FMT-6: comentario libre de la NC de aplicación; se imprime en «Comentarios - Comments». */
   comentarioNotaCredito?: string;
+  /** 86e3zg0vb: la factura se relaciona 07 con el anticipo y la NC de aplicación se emite después. */
+  aplicarDespues?: boolean;
 }
 
 export const OBSERVACIONES_MAX = 1000;
@@ -141,6 +143,23 @@ export function TabTotales({
                     <Trash2 className="mr-1 h-3 w-3" />
                     Quitar
                   </Button>
+                </div>
+                <div className="flex items-start gap-2 sm:col-span-12">
+                  <input
+                    id={`anticipo-${index}-aplicar-despues`}
+                    type="checkbox"
+                    className="mt-0.5 size-4 rounded border-line-control"
+                    checked={a.aplicarDespues ?? false}
+                    onChange={(e) =>
+                      onAnticiposChange(
+                        anticipos.map((x, i) => (i === index ? { ...x, aplicarDespues: e.target.checked } : x)),
+                      )
+                    }
+                  />
+                  <Label className="text-xs font-normal" htmlFor={`anticipo-${index}-aplicar-despues`}>
+                    Emitir la nota de crédito después: la factura queda relacionada con el anticipo y el importe apartado; la nota
+                    se emite desde «Aplicar anticipo».
+                  </Label>
                 </div>
                 <div className="sm:col-span-12">
                   <Label className="text-xs" htmlFor={`anticipo-${index}-comentario-nc`}>

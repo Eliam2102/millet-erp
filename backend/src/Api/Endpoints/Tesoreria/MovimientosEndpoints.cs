@@ -20,6 +20,8 @@ namespace Millet.Api.Endpoints.Tesoreria;
 public static class MovimientosEndpoints
 {
     public sealed record ReclasificarBody(Guid ConceptoId, string Motivo);
+    public sealed record RevertirTraspasoBody(string Motivo);
+    public sealed record RechazarReclasificacionBody(string Motivo);
     public sealed record SolicitarDevolucionBody(Guid ClienteId, decimal Importe, string Motivo, string Banco, string Clabe, string Titular);
     public static IEndpointRouteBuilder MapTesoreriaMovimientosEndpoints(this IEndpointRouteBuilder app)
     {
@@ -85,6 +87,33 @@ public static class MovimientosEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        // M-203: traspaso entre cuentas propias (par ligado) y su reversa.
+        movimientos.MapPost("/traspasos", async (
+            [FromBody] RegistrarTraspasoCommand command,
+            IMediator mediator,
+            DocumentoSucursalScope scope,
+            CancellationToken cancellationToken) =>
+        {
+            await scope.VerificarSucursalAsync(command.SucursalId, PermisosCanonicos.TesoreriaDocumentosGestionarTodasSucursales, cancellationToken);
+            var response = await mediator.Send(command, cancellationToken);
+            return Results.Created($"/api/v1/tesoreria/movimientos/{response.Egreso.Id}", response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaMovimientosRegistrar)
+        .WithName("RegistrarTraspaso")
+        .Produces<TraspasoResponse>(StatusCodes.Status201Created)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        movimientos.MapPost("/{id:guid}/revertir-traspaso", async (Guid id,
+            [FromBody] RevertirTraspasoBody body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new RevertirTraspasoCommand(id, body.Motivo), ct)))
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaMovimientosRegistrar)
+        .WithName("RevertirTraspaso")
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         movimientos.MapPost("/{id:guid}/reclasificar", async (Guid id,
             [FromBody] ReclasificarBody body, [FromHeader(Name = "X-Expected-Version")] int? version,
             IMediator mediator, CancellationToken ct) =>
@@ -94,6 +123,22 @@ public static class MovimientosEndpoints
             return Results.NoContent();
         }).WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaMovimientosRegistrar);
+
+        // M-204: segunda firma. La facultad la exige el endpoint; que firme otra persona, el dominio.
+        movimientos.MapPost("/{id:guid}/reclasificacion/autorizar", async (Guid id, IMediator mediator, CancellationToken ct) =>
+        {
+            await mediator.Send(new AutorizarReclasificacionCommand(id), ct);
+            return Results.NoContent();
+        }).WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaMovimientosAutorizarReclasificacion);
+
+        movimientos.MapPost("/{id:guid}/reclasificacion/rechazar", async (Guid id,
+            [FromBody] RechazarReclasificacionBody body, IMediator mediator, CancellationToken ct) =>
+        {
+            await mediator.Send(new RechazarReclasificacionCommand(id, body.Motivo), ct);
+            return Results.NoContent();
+        }).WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaMovimientosAutorizarReclasificacion);
 
         // T9.6: devolución de un depósito erróneo. El grupo ya verifica la sucursal del movimiento {id}.
         movimientos.MapPost("/{id:guid}/solicitar-devolucion", async (Guid id,

@@ -2378,6 +2378,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(254)")
                         .HasColumnName("receptor_nombre");
 
+                    b.Property<string>("ReceptorNumRegIdTrib")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("receptor_num_reg_id_trib");
+
                     b.Property<string>("ReceptorPais")
                         .IsRequired()
                         .HasMaxLength(5)
@@ -2672,6 +2677,208 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_relacion_cfdi_comprobante");
 
                     b.ToTable("relacion_cfdi", "facturacion");
+                });
+
+            modelBuilder.Entity("Millet.Facturacion.Domain.ConciliacionSat.ConciliacionSat", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("CfdiErp")
+                        .HasColumnType("integer")
+                        .HasColumnName("cfdi_erp");
+
+                    b.Property<int>("CfdiSat")
+                        .HasColumnType("integer")
+                        .HasColumnName("cfdi_sat");
+
+                    b.Property<int>("Coincidentes")
+                        .HasColumnType("integer")
+                        .HasColumnName("coincidentes");
+
+                    b.Property<int>("ConDiferencias")
+                        .HasColumnType("integer")
+                        .HasColumnName("con_diferencias");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<DateOnly>("Desde")
+                        .HasColumnType("date")
+                        .HasColumnName("desde");
+
+                    b.Property<DateTimeOffset>("EjecutadaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ejecutada_en");
+
+                    b.Property<Guid?>("EjecutadaPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ejecutada_por");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<short>("Fuente")
+                        .HasColumnType("smallint")
+                        .HasColumnName("fuente");
+
+                    b.Property<DateOnly>("Hasta")
+                        .HasColumnType("date")
+                        .HasColumnName("hasta");
+
+                    b.Property<string>("Huella")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("huella");
+
+                    b.Property<string>("NombreArchivo")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("character varying(260)")
+                        .HasColumnName("nombre_archivo");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_conciliacion_sat");
+
+                    b.HasIndex("EmpresaId", "EjecutadaEn")
+                        .HasDatabaseName("ix_conciliacion_sat_empresa_fecha");
+
+                    b.ToTable("conciliacion_sat", "facturacion", t =>
+                        {
+                            t.HasCheckConstraint("ck_conciliacion_sat_fuente", "fuente IN (1, 2)");
+
+                            t.HasCheckConstraint("ck_conciliacion_sat_periodo", "hasta >= desde");
+                        });
+                });
+
+            modelBuilder.Entity("Millet.Facturacion.Domain.ConciliacionSat.DiferenciaConciliacionSat", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("ComprobanteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("comprobante_id");
+
+                    b.Property<Guid>("ConciliacionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("conciliacion_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<string>("Folio")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("folio");
+
+                    b.Property<string>("Nota")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("nota");
+
+                    b.Property<bool>("Revisada")
+                        .HasColumnType("boolean")
+                        .HasColumnName("revisada");
+
+                    b.Property<DateTimeOffset?>("RevisadaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revisada_en");
+
+                    b.Property<Guid?>("RevisadaPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("revisada_por");
+
+                    b.Property<string>("RfcReceptor")
+                        .HasMaxLength(13)
+                        .HasColumnType("character varying(13)")
+                        .HasColumnName("rfc_receptor");
+
+                    b.Property<short>("Tipo")
+                        .HasColumnType("smallint")
+                        .HasColumnName("tipo");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<string>("Uuid")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)")
+                        .HasColumnName("uuid");
+
+                    b.Property<string>("ValorErp")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("valor_erp");
+
+                    b.Property<string>("ValorSat")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("valor_sat");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_conciliacion_sat_diferencia");
+
+                    b.HasIndex("ConciliacionId", "Tipo")
+                        .HasDatabaseName("ix_conciliacion_sat_diferencia_corrida_tipo");
+
+                    b.HasIndex("EmpresaId", "Uuid")
+                        .HasDatabaseName("ix_conciliacion_sat_diferencia_empresa_uuid");
+
+                    b.ToTable("conciliacion_sat_diferencia", "facturacion", t =>
+                        {
+                            t.HasCheckConstraint("ck_conciliacion_sat_diferencia_tipo", "tipo BETWEEN 1 AND 6");
+                        });
                 });
 
             modelBuilder.Entity("Millet.Facturacion.Domain.Envios.BitacoraEnvioCorreo", b =>
@@ -4315,6 +4522,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("pedido_facturable_id");
 
+                    b.Property<decimal?>("TasaIvaTraslado")
+                        .HasPrecision(7, 6)
+                        .HasColumnType("numeric(7,6)")
+                        .HasColumnName("tasa_iva_traslado");
+
                     b.Property<short>("TipoAnticipo")
                         .HasColumnType("smallint")
                         .HasColumnName("tipo_anticipo");
@@ -4607,6 +4819,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("reembolso_titular");
 
+                    b.Property<decimal?>("TasaIvaTraslado")
+                        .HasPrecision(7, 6)
+                        .HasColumnType("numeric(7,6)")
+                        .HasColumnName("tasa_iva_traslado");
+
                     b.HasIndex("AnticipoOrigenId")
                         .HasDatabaseName("ix_nota_credito_anticipo")
                         .HasFilter("anticipo_origen_id IS NOT NULL");
@@ -4831,6 +5048,16 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_relacion_cfdi_comprobantes_comprobante_id");
                 });
 
+            modelBuilder.Entity("Millet.Facturacion.Domain.ConciliacionSat.DiferenciaConciliacionSat", b =>
+                {
+                    b.HasOne("Millet.Facturacion.Domain.ConciliacionSat.ConciliacionSat", null)
+                        .WithMany("Diferencias")
+                        .HasForeignKey("ConciliacionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_conciliacion_sat_diferencia_conciliacion_sat_conciliacion_id");
+                });
+
             modelBuilder.Entity("Millet.Facturacion.Domain.Facturas.FacturaVentaLinea", b =>
                 {
                     b.HasOne("Millet.Facturacion.Domain.Facturas.FacturaVenta", null)
@@ -4985,6 +5212,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Millet.Facturacion.Domain.Comprobantes.Comprobante", b =>
                 {
                     b.Navigation("Relaciones");
+                });
+
+            modelBuilder.Entity("Millet.Facturacion.Domain.ConciliacionSat.ConciliacionSat", b =>
+                {
+                    b.Navigation("Diferencias");
                 });
 
             modelBuilder.Entity("Millet.Facturacion.Domain.Pedidos.PedidoFacturable", b =>

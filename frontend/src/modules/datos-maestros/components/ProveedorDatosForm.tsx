@@ -78,7 +78,7 @@ export function ProveedorDatosForm({ proveedor }: ProveedorDatosFormProps) {
           estado: values.estado,
           codigoPostal: values.codigoPostal,
           pais: values.pais,
-          taxId: extranjero ? values.taxId : undefined,
+          taxId: extranjero ? (values.taxId?.trim().replace(/\s+/g, '') || undefined) : undefined,
 
           rfc: values.rfc,
           tipoPersona: values.tipoPersona,

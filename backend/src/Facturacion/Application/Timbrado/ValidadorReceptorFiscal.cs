@@ -14,7 +14,8 @@ public sealed class ValidadorReceptorFiscal(
 {
     public async Task ValidarAsync(DatosFiscalesReceptor receptor, DatosFiscalesEmisor emisor,
         Guid? clienteId, CancellationToken ct, bool esRep = false,
-        bool exportacionConCce = false, string? numRegIdTrib = null, string? paisResidencia = null, bool ventaNueva = false)
+        bool exportacionConCce = false, string? numRegIdTrib = null, string? paisResidencia = null, bool ventaNueva = false,
+        bool esEgreso = false)
     {
         var errores = new List<CampoFiscalInvalido>();
         if (clienteId is { } id)
@@ -35,7 +36,7 @@ public sealed class ValidadorReceptorFiscal(
         var regimenExiste = await catalogos.ExisteRegimenFiscalAsync(ValidacionReceptorFiscal.Normalizar(receptor.RegimenFiscal), ct);
         var usoExiste = await catalogos.ExisteUsoCfdiAsync(uso, ct);
         errores.AddRange(ValidacionReceptorFiscal.Validar(receptor, emisor.LugarExpedicion,
-            regimenExiste, usoExiste, esRep, exportacionConCce, numRegIdTrib, paisResidencia));
+            regimenExiste, usoExiste, esRep, exportacionConCce, numRegIdTrib, paisResidencia, esEgreso));
         if (errores.Count > 0) throw new ReceptorFiscalInvalidoException(errores.Distinct().ToArray(), clienteId);
 
         void Comparar(string campo, string nombre, string? valorMaestro, string valor)
@@ -64,7 +65,8 @@ public sealed class ValidadorReceptorFiscal(
         await ValidarAsync(Snapshot(comprobante), comprobante.SnapshotEmisor(), clienteId, ct,
             esRep || comprobante is ReciboPago,
             factura?.ComportamientoFiscal == ComportamientoFiscal.ExportacionConCce,
-            factura?.ComplementoCce?.ReceptorNumRegIdTrib, factura?.ComplementoCce?.ReceptorPaisResidencia);
+            factura?.ComplementoCce?.ReceptorNumRegIdTrib, factura?.ComplementoCce?.ReceptorPaisResidencia,
+            esEgreso: comprobante is NotaCredito);
     }
 
     private async Task<Guid?> ResolverClienteAsync(Comprobante comprobante, CancellationToken ct)

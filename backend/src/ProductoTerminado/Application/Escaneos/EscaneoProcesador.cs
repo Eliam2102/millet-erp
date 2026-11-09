@@ -15,13 +15,39 @@ public sealed class EscaneoProcesador(ProductoTerminadoDbContext db, IPedidosPtR
 {
     public async Task ProcesarAsync(EscaneoPt e, int maxIntentos, CancellationToken ct)
     {
-        // (1) identidad
-        if (!int.TryParse(e.NumeroPiezaTexto, out var numeroPieza) || numeroPieza <= 0 || e.Posicion is null || string.IsNullOrWhiteSpace(e.Etiqueta))
+        // (1) identidad: el renglón debe traer pedido, posición y etiqueta
+        if (e.Posicion is null || string.IsNullOrWhiteSpace(e.Etiqueta) || string.IsNullOrWhiteSpace(e.NumeroPedido))
         {
             e.MarcarExcepcion(MotivosPt.IdentidadIncompleta);
             return;
         }
         var posicion = e.Posicion.Value;
+
+        int? numeroPiezaExplicito = null;
+        if (e.NumeroPiezaTexto is not null)
+        {
+            if (string.IsNullOrWhiteSpace(e.NumeroPiezaTexto))
+            {
+                e.MarcarExcepcion(MotivosPt.IdentidadIncompleta);
+                return;
+            }
+            if (int.TryParse(e.NumeroPiezaTexto, out var n))
+            {
+                if (n > 0) numeroPiezaExplicito = n;
+                else if (n < 0)
+                {
+                    e.MarcarExcepcion(MotivosPt.IdentidadIncompleta);
+                    return;
+                }
+                // n == 0 es el caso normal de A+W Production (teile_nr = 0 en estaciones de PT).
+                // Se asigna la siguiente ranura libre correlativa (1..PiezasEsperadas).
+            }
+            else
+            {
+                e.MarcarExcepcion(MotivosPt.IdentidadIncompleta);
+                return;
+            }
+        }
 
         // (2) sucursal por clave A+W, si el escaneo la trae (Demo)
         var conClave = !string.IsNullOrWhiteSpace(e.ClaveSucursalAw);
@@ -84,12 +110,6 @@ public sealed class EscaneoProcesador(ProductoTerminadoDbContext db, IPedidosPtR
             return;
         }
 
-        // (6) exceso
-        if (numeroPieza > pos.PiezasEsperadas)
-        {
-            e.MarcarExcepcion(MotivosPt.PiezaExcedePosicion);
-            return;
-        }
         // (6b) reposición: la etiqueta ya está en PT; deja movimiento en la pieza, sin pieza nueva ni evento (el avance nunca supera lo esperado).
         // ponytail: PT-01 no tiene baja por rotura (P3, Jorge); cuando exista, aquí la pieza vuelve a EnPT y el avance sube.
         var etiqueta = e.Etiqueta.Trim();
@@ -100,11 +120,40 @@ public sealed class EscaneoProcesador(ProductoTerminadoDbContext db, IPedidosPtR
             e.MarcarReposicion();
             return;
         }
-        // (6c) otra etiqueta ya ocupa la misma ranura (pedido, posición, número de pieza)
-        if (await db.Piezas.AnyAsync(x => x.EmpresaId == e.EmpresaId && x.PedidoPtId == pedido.Id && x.Posicion == posicion && x.NumeroPieza == numeroPieza, ct))
+
+        // Determinar número de pieza (ranura)
+        int numeroPieza;
+        var piezasPosicion = await db.Piezas
+            .Where(x => x.EmpresaId == e.EmpresaId && x.PedidoPtId == pedido.Id && x.Posicion == posicion)
+            .Select(x => x.NumeroPieza)
+            .ToListAsync(ct);
+
+        if (numeroPiezaExplicito is not null)
         {
-            e.MarcarExcepcion(MotivosPt.PiezaDuplicada);
-            return;
+            numeroPieza = numeroPiezaExplicito.Value;
+            // (6) exceso
+            if (numeroPieza > pos.PiezasEsperadas)
+            {
+                e.MarcarExcepcion(MotivosPt.PiezaExcedePosicion);
+                return;
+            }
+            // (6c) otra etiqueta ya ocupa la misma ranura (pedido, posición, número de pieza)
+            if (piezasPosicion.Contains(numeroPieza))
+            {
+                e.MarcarExcepcion(MotivosPt.PiezaDuplicada);
+                return;
+            }
+        }
+        else
+        {
+            // Asignación de ranura correlativa (1..PiezasEsperadas) para escaneos de A+W donde teile_nr = 0
+            var siguienteSlot = Enumerable.Range(1, pos.PiezasEsperadas).FirstOrDefault(s => !piezasPosicion.Contains(s));
+            if (siguienteSlot == 0)
+            {
+                e.MarcarExcepcion(MotivosPt.PiezaExcedePosicion);
+                return;
+            }
+            numeroPieza = siguienteSlot;
         }
 
         // (7) alta

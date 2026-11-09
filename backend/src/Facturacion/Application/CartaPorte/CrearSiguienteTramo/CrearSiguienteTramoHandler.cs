@@ -75,7 +75,7 @@ public sealed class CrearSiguienteTramoHandler : IRequestHandler<CrearSiguienteT
             previa.ReceptorCodigoPostal, previa.ReceptorUsoCfdi, previa.ReceptorPais, previa.ReceptorEsGenerico);
 
         var reserva = await _sender.Send(
-            new ReservarFolioCommand(empresaId, command.SucursalId, TipoDocumentoSerie.Cfdi, DateOnly.FromDateTime(ahora.UtcDateTime)),
+            new ReservarFolioCommand(empresaId, command.SucursalId, TipoDocumentoSerie.Cfdi, Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.DiaFiscal(ahora)),
             cancellationToken);
 
         var cp = Dominio.CartaPorte.CrearBorrador(

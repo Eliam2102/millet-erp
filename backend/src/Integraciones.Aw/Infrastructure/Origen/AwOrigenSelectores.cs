@@ -6,6 +6,7 @@ using Millet.Integraciones.Aw.Application.Clientes;
 using Millet.Integraciones.Aw.Application.Pedidos;
 using Millet.Integraciones.Aw.Application.Productos;
 using Millet.Integraciones.Aw.Application.Retorno;
+using Millet.Integraciones.Aw.Application.TipoCambio;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Integraciones.Aw.Infrastructure.Origen;
@@ -13,7 +14,7 @@ namespace Millet.Integraciones.Aw.Infrastructure.Origen;
 /// <summary>Selectores por puerto. Los adaptadores se resuelven perezosamente: Demo jamás abre SQL Server.</summary>
 public sealed class AwOrigenSelectores(IServiceProvider services, AwOrigenSesion sesion) :
     IAwClientesOrigen, IAwClientesPedidosOrigen, IAwProductosOrigen, IAwSolicitudesReader, IAwClientesReader, IAwArticulosReader,
-    IAwWriteBackPort, IMasterProvisioningPort, IAwRetornoPort, IAwNotasCreditoPort, IPlantaPinturaPedidosReader
+    IAwWriteBackPort, IMasterProvisioningPort, IAwRetornoPort, IAwNotasCreditoPort, IPlantaPinturaPedidosReader, IAwTipoCambioPort
 {
     private async Task<T> ResolverAsync<T>(CancellationToken ct) where T : class
     {
@@ -96,4 +97,10 @@ public sealed class AwOrigenSelectores(IServiceProvider services, AwOrigenSesion
         await (await ResolverAsync<IMasterProvisioningPort>(cancellationToken)).EnsureClienteDesdeAwAsync(clienteRef, cancellationToken);
     public async Task<ProductoFiscalLectura?> EnsureArticuloDesdeAwAsync(string articuloRef, CancellationToken cancellationToken) =>
         await (await ResolverAsync<IMasterProvisioningPort>(cancellationToken)).EnsureArticuloDesdeAwAsync(articuloRef, cancellationToken);
+    public async Task<int?> PublicarFilaAsync(AwTipoCambioFila fila, CancellationToken ct = default) =>
+        await (await ResolverAsync<IAwTipoCambioPort>(ct)).PublicarFilaAsync(fila, ct);
+    public async Task<IReadOnlyList<AwTipoCambioAcuse>> ObtenerUltimosAcusesAsync(IReadOnlyList<string> monedas, DateOnly desde, CancellationToken ct = default) =>
+        await (await ResolverAsync<IAwTipoCambioPort>(ct)).ObtenerUltimosAcusesAsync(monedas, desde, ct);
+    public async Task<decimal?> ObtenerTipoCambioVigenteAwAsync(string moneda, CancellationToken ct = default) =>
+        await (await ResolverAsync<IAwTipoCambioPort>(ct)).ObtenerTipoCambioVigenteAwAsync(moneda, ct);
 }

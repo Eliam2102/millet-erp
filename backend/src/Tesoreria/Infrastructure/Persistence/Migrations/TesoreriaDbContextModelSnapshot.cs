@@ -1273,7 +1273,7 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
 
                     b.ToTable("concepto_movimiento", "tesoreria", t =>
                         {
-                            t.HasCheckConstraint("ck_concepto_movimiento_clasificacion", "clasificacion_flujo IN (1, 2, 3)");
+                            t.HasCheckConstraint("ck_concepto_movimiento_clasificacion", "clasificacion_flujo IN (1, 2, 3, 4)");
                         });
 
                     b.HasData(
@@ -1359,7 +1359,7 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         {
                             Id = new Guid("0000000b-1001-0000-0000-000000000007"),
                             Activo = true,
-                            ClasificacionFlujo = (short)1,
+                            ClasificacionFlujo = (short)4,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             EsEjemplo = true,
@@ -2590,6 +2590,20 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("sucursal_id");
 
+                    b.Property<decimal?>("TipoCambio")
+                        .HasPrecision(12, 6)
+                        .HasColumnType("numeric(12,6)")
+                        .HasColumnName("tipo_cambio");
+
+                    b.Property<Guid?>("TraspasoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("traspaso_id");
+
+                    b.Property<string>("TraspasoMotivo")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("traspaso_motivo");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -2612,6 +2626,10 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                     b.HasIndex("ContramovimientoDe")
                         .HasDatabaseName("ix_movimiento_bancario_contramovimiento_de");
 
+                    b.HasIndex("TraspasoId")
+                        .HasDatabaseName("ix_movimiento_bancario_traspaso")
+                        .HasFilter("traspaso_id IS NOT NULL");
+
                     b.HasIndex("CuentaBancariaId", "FechaValor")
                         .HasDatabaseName("ix_movimiento_bancario_cuenta_fecha");
 
@@ -2631,6 +2649,94 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                             t.HasCheckConstraint("ck_movimiento_bancario_monto_positivo", "monto > 0");
 
                             t.HasCheckConstraint("ck_movimiento_bancario_sentido", "sentido IN (1, 2)");
+                        });
+                });
+
+            modelBuilder.Entity("Millet.Tesoreria.Domain.Movimientos.MovimientoReclasificacion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("ConceptoAnteriorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("concepto_anterior_id");
+
+                    b.Property<Guid>("ConceptoNuevoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("concepto_nuevo_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<short>("Estado")
+                        .HasColumnType("smallint")
+                        .HasColumnName("estado");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("motivo");
+
+                    b.Property<string>("MotivoResolucion")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("motivo_resolucion");
+
+                    b.Property<Guid>("MovimientoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("movimiento_id");
+
+                    b.Property<DateTimeOffset?>("ResueltoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resuelto_en");
+
+                    b.Property<Guid?>("ResueltoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("resuelto_por");
+
+                    b.Property<DateTimeOffset>("SolicitadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("solicitado_en");
+
+                    b.Property<Guid>("SolicitadoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("solicitado_por");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_movimiento_reclasificaciones");
+
+                    b.HasIndex("MovimientoId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_movimiento_reclasificaciones_pendiente")
+                        .HasFilter("estado = 1");
+
+                    b.ToTable("movimiento_reclasificaciones", "tesoreria", t =>
+                        {
+                            t.HasCheckConstraint("ck_movimiento_reclasificaciones_estado", "estado IN (1, 2, 3)");
                         });
                 });
 

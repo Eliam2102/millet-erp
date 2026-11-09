@@ -30,7 +30,7 @@ public interface IEnriquecedorEventoContable
 /// Una póliza que otro evento esperaba (cancelación o pago que llegó antes que su original) dispara el reproceso de ese rechazo.
 /// </summary>
 public sealed class ProcesadorEventosContables(ContabilidadDbContext db, IMediator mediator, IPolizaContablePort puerto, IClock clock,
-    ControlIvaDocumentos iva)
+    ControlIvaDocumentos iva, DiferenciaCambiariaRealizada cambiaria)
 {
     /// <summary>Detalle de un rechazo que espera la póliza de otro documento; se reprocesa solo cuando esa póliza nace.</summary>
     public static string Espera(Guid documentoId) => $"Espera:{documentoId}";
@@ -63,6 +63,16 @@ public sealed class ProcesadorEventosContables(ContabilidadDbContext db, IMediat
         // C1.6: el pago o cobro lleva el IVA a reclasificar de los documentos que salda. Pagos y cobros no efectivo esperan a que el
         // documento tenga póliza; la liquidación de efectivo no detiene la sesión (sin saldo, no reclasifica).
         var aplicaciones = aplicacionesIva ?? (ControlIvaDocumentos.EsPago(evento.Tipo) ? ControlIvaDocumentos.Aplicaciones(evento) : null);
+        // CON-11: pago o cobro en moneda extranjera → TC de la factura en el lado del documento y del pago en el del banco. Antes del IVA,
+        // para que su reclasificación quede al TC de la factura (el mismo con que nació el IVA pendiente).
+        if (DiferenciaCambiariaRealizada.Aplica(evento))
+        {
+            try { evento = await cambiaria.AplicarAsync(evento, aplicaciones ?? [], ct); }
+            catch (RechazoMotorException r)
+            {
+                return await RechazarAsync(evento.EmpresaId, evento.Tipo, evento.EventoId, evento.Payload, r.Causa, r.Detalle, r.Message, ct);
+            }
+        }
         if (aplicaciones is { Count: > 0 })
         {
             var preparado = await iva.PrepararAsync(evento, aplicaciones, esperar: aplicacionesIva is null, ct);

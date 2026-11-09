@@ -17,6 +17,7 @@ public sealed class NotaCreditoConfiguration : IEntityTypeConfiguration<NotaCred
 
         builder.Property(e => e.Motivo).HasConversion<short>().IsRequired();
         builder.Property(e => e.AnticipoOrigenId);
+        builder.Property(e => e.TasaIvaTraslado).HasPrecision(7, 6); // 86e3zg0vb
         builder.Property(e => e.FacturaRelacionadaId);
         builder.Property(e => e.ImporteAfectaInventario).HasPrecision(18, 2).IsRequired();
 

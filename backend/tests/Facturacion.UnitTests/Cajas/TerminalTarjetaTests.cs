@@ -119,6 +119,64 @@ public sealed class TerminalTarjetaTests
         eventos.Publicados.OfType<TerminalLiquidacionRegistradaIntegrationEvent>().Should().BeEmpty();
     }
 
+    /// <summary>
+    /// B13 (prueba S3-4): dos ventas del mismo folio; una no tiene cobro al cargar el archivo y se empareja
+    /// después con «Reintentar». Debe sumarse a la liquidación que ya existía (46.40 + 11.60 = 58.00 de comisión),
+    /// y reintentar otra vez no vuelve a sumar.
+    /// </summary>
+    [Fact]
+    public async Task B13_venta_emparejada_al_reintentar_se_suma_a_la_liquidacion_existente_del_folio()
+    {
+        using var db = NewDb();
+        await CobrarTarjetaAsync(db, 2_320m, "123456");
+        var eventos = new FakeIntegrationEventPublisher();
+        await Cargar(db, eventos, Html(true,
+            Renglon("900000000011", "$ 2,320.00", "123456", comision: "$ 46.40", iva: "$ 7.42", neto: "$ 2,266.18", folio: "LIQ-B13"),
+            Renglon("900000000012", "$ 580.00", "654321", comision: "$ 11.60", iva: "$ 1.86", neto: "$ 566.54", folio: "LIQ-B13")));
+        (await db.LiquidacionesTerminal.SingleAsync()).Comision.Should().Be(46.40m);
+
+        await CobrarTarjetaAsync(db, 580m, "654321", sembrarSesion: false);
+        var reintento = new FakeIntegrationEventPublisher();
+        var r = await Handlers(db, reintento).Handle(new ReemparejarTerminalCommand(), default);
+
+        r.Emparejados.Should().Be(1);
+        var l = await db.LiquidacionesTerminal.SingleAsync();
+        (l.Bruto, l.Comision, l.IvaComision, l.Neto, l.Transacciones).Should().Be((2_900m, 58.00m, 9.28m, 2_832.72m, 2));
+        (await db.TransaccionesTerminal.Where(t => t.LiquidacionId == l.Id).CountAsync()).Should().Be(2);
+        var e = reintento.Publicados.OfType<TerminalLiquidacionRegistradaIntegrationEvent>().Single();
+        e.LiquidacionId.Should().Be(l.Id);
+        (e.Bruto, e.Comision, e.IvaComision, e.Neto).Should().Be((580m, 11.60m, 1.86m, 566.54m));   // solo el incremento
+        e.Ventas.Should().ContainSingle();
+
+        var otraVez = new FakeIntegrationEventPublisher();
+        await Handlers(db, otraVez).Handle(new ReemparejarTerminalCommand(), default);
+        otraVez.Publicados.Should().BeEmpty();
+        (await db.LiquidacionesTerminal.SingleAsync()).Comision.Should().Be(58.00m);
+    }
+
+    [Fact]
+    public async Task B13_folio_ya_ligado_a_la_factura_del_banco_no_cambia_y_la_venta_queda_pendiente_de_liquidar()
+    {
+        using var db = NewDb();
+        await CobrarTarjetaAsync(db, 2_320m, "123456");
+        await Cargar(db, new FakeIntegrationEventPublisher(), Html(true,
+            Renglon("900000000021", "$ 2,320.00", "123456", comision: "$ 46.40", iva: "$ 7.42", neto: "$ 2,266.18", folio: "LIQ-B13F"),
+            Renglon("900000000022", "$ 580.00", "654321", comision: "$ 11.60", iva: "$ 1.86", neto: "$ 566.54", folio: "LIQ-B13F")));
+        var facturada = await db.LiquidacionesTerminal.SingleAsync();
+        facturada.LigarFacturaBanco(Guid.NewGuid(), Guid.NewGuid().ToString());
+        await db.SaveChangesAsync();
+
+        await CobrarTarjetaAsync(db, 580m, "654321", sembrarSesion: false);
+        var eventos = new FakeIntegrationEventPublisher();
+        await Handlers(db, eventos).Handle(new ReemparejarTerminalCommand(), default);
+
+        (await db.LiquidacionesTerminal.SingleAsync()).Comision.Should().Be(46.40m);
+        var venta = await db.TransaccionesTerminal.SingleAsync(t => t.NoOperacion == "900000000022");
+        venta.Estado.Should().Be(EstadoTransaccionTerminal.Emparejada);
+        venta.LiquidacionId.Should().BeNull();
+        eventos.Publicados.OfType<TerminalLiquidacionRegistradaIntegrationEvent>().Should().BeEmpty();
+    }
+
     [Fact]
     public async Task Venta_rechazada_por_el_banco_queda_aparte()
     {

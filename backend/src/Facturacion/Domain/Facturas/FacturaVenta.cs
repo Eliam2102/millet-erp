@@ -261,6 +261,23 @@ public sealed class FacturaVenta : Comprobante
         return linea;
     }
 
+    /// <summary>
+    /// FAC-08 (M7): ajusta el IVA trasladado de la partida <paramref name="posicion"/> de la factura de una
+    /// parcialidad para que el IVA acumulado de las parcialidades sea el del pedido, y recalcula totales.
+    /// Solo en Borrador; el ajuste no puede alejarse un centavo o más de base × tasa.
+    /// </summary>
+    public void AjustarIvaParcialidad(int posicion, decimal importeIva)
+    {
+        if (Estado != EstadoTimbrado.Borrador)
+            throw new BusinessRuleException(
+                "FACTURA_INMUTABLE",
+                $"No se puede ajustar el IVA de una factura en estado {Estado}.");
+        var linea = _lineas.FirstOrDefault(l => l.Posicion == posicion)
+            ?? throw new BusinessRuleException("LINEA_INEXISTENTE", $"La factura no tiene la partida {posicion}.");
+        linea.AjustarImpuestoTrasladado(importeIva);
+        RecalcularTotales();
+    }
+
     /// <summary>True si alguna línea requiere pedimento — la compuerta es por factura (§3.bis.5).</summary>
     public bool RequierePedimento => _lineas.Any(l => l.RequierePedimento);
 

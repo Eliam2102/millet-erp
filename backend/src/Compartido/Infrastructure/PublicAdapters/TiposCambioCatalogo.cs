@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Millet.Compartido.Domain.Ports;
 using Millet.Compartido.Infrastructure.Persistence;
 
 namespace Millet.Compartido.Infrastructure.PublicAdapters;
@@ -22,5 +23,43 @@ public static class TiposCambioCatalogo
                       join m in db.Monedas.AsNoTracking() on tc.MonedaId equals m.Id
                       where m.Codigo == codigo && m.Activa && tc.Fecha == fecha
                       select (decimal?)tc.ValorEnMxn).SingleOrDefaultAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Consulta el rango de tipos de cambio para las <paramref name="monedas"/> solicitadas entre
+    /// <paramref name="desde"/> y <paramref name="hasta"/> (ambas inclusive), únicamente de monedas activas (I13.2).
+    /// </summary>
+    public static async Task<IReadOnlyList<TipoCambioRangoItem>> RangoEnMxnAsync(
+        CompartidoDbContext db,
+        IReadOnlyList<string> monedas,
+        DateOnly desde,
+        DateOnly hasta,
+        CancellationToken cancellationToken)
+    {
+        if (monedas is null || monedas.Count == 0)
+            return [];
+
+        var codigos = monedas
+            .Where(m => !string.IsNullOrWhiteSpace(m))
+            .Select(m => m.Trim().ToUpperInvariant())
+            .Distinct()
+            .ToList();
+
+        if (codigos.Count == 0)
+            return [];
+
+        var items = await (from tc in db.TiposCambio.AsNoTracking()
+                           join m in db.Monedas.AsNoTracking() on tc.MonedaId equals m.Id
+                           where codigos.Contains(m.Codigo)
+                              && m.Activa
+                              && tc.Fecha >= desde
+                              && tc.Fecha <= hasta
+                           orderby tc.Fecha, m.Codigo
+                           select new { m.Codigo, tc.Fecha, tc.ValorEnMxn, tc.Origen })
+                          .ToListAsync(cancellationToken);
+
+        return items
+            .Select(x => new TipoCambioRangoItem(x.Codigo, x.Fecha, x.ValorEnMxn, x.Origen.ToString()))
+            .ToList();
     }
 }

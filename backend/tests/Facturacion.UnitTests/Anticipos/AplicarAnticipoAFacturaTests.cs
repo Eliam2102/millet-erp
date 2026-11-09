@@ -62,7 +62,91 @@ public sealed class AplicarAnticipoAFacturaTests
     private AplicarAnticipoAFacturaHandler Handler(FacturacionDbContext db, decimal? saldoCxc = null) =>
         new(db, new FakeSender(new ReservarFolioResponse("NC-000020", 20, "")), new FakePeriodoContablePort(),
             new FakeSaldoFacturaReadPort(saldoCxc), new FakeFiscalApiClient(), new FakeCfdiRepositorioPort(), _eventos,
-            new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora));
+            new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora), new FakeCatalogosSatReadPort(tipoCambio: 18.7592m));
+
+    // ---- 86e3zg0vb: anticipo de exportación (XEXX, USD, IVA 0 %) aplicado días después de la factura final ----
+
+    private const string Xexx = "XEXX010101000";
+
+    private async Task<Anticipo> AnticipoExtranjeroAsync(FacturacionDbContext db)
+    {
+        var maestro = new ClienteFiscalLectura(_cliente, Xexx, "Cliente del exterior", "616", "97000", "S01", "03", "PUE", "USD", true,
+            NumRegIdTrib: "130044147", PaisResidencia: "DOM");
+        var validador = new Millet.Facturacion.Application.Timbrado.ValidadorReceptorFiscal(
+            new FakeClientesReadPort(maestro), new FakeCatalogosSatReadPort(), db);
+        await new EmitirFacturaAnticipoHandler(db, new FakeSender(new ReservarFolioResponse("FANT-000002", 2, "")),
+            new FakePeriodoContablePort(), new FakeCatalogosSatReadPort(tipoCambio: 18m), new FakeFiscalApiClient(), new FakeCfdiRepositorioPort(),
+            new FakeEmpresaFiscalReadPort(new EmpresaFiscalLectura(_empresa, "MIL010101AAA", "Millet", "601", 0.16m, "97000")),
+            new FakeIntegrationEventPublisher(), new FakeEmpresaContext(_empresa), new FakeUserContext(Guid.NewGuid()),
+            new FakeClock(Ahora), validador, new FakeClientesReadPort(maestro))
+            .Handle(new EmitirFacturaAnticipoCommand(Guid.NewGuid(), _cliente, Xexx, "Cliente del exterior", "616", "97000", "S01",
+                "DOM", "MIL010101AAA", "601", "PUE", "03", "USD", 18m, TipoAnticipo.ClientesUsd, 1000m, 0m, null, null, null, null, null),
+                default);
+        return await db.Anticipos.Include(a => a.Vinculaciones).SingleAsync();
+    }
+
+    private async Task<FacturaVenta> FacturaExportacionAsync(FacturacionDbContext db, string? uuidAnticipo)
+    {
+        var fv = FacturaVenta.CrearBorrador(_empresa, "FEXP-000011", 11, Guid.NewGuid(), null, null,
+            new DatosFiscalesReceptor(Xexx, "Cliente del exterior", "616", "97000", "S01", "DOM", true),
+            new DatosFiscalesEmisor("MIL010101AAA", "Millet", "601", "97000"), "PPD", "99", "USD", 18m,
+            2026, 10, 1, ComportamientoFiscal.MostradorInmediato, null, null, null, false);
+        fv.AgregarLinea(null, "30171600", "Ventana", "H87", 1m, 2000m, 0m, "02", 0m, null, null);
+        fv.RecalcularTotales();
+        if (uuidAnticipo is not null) fv.AgregarRelacion(uuidAnticipo, "07");
+        fv.MarcarTimbradoEnProceso();
+        fv.MarcarTimbrado("88888888-8888-8888-8888-888888888888", null, null, null, Ahora, null, null);
+        db.FacturasVenta.Add(fv);
+        await db.SaveChangesAsync();
+        return fv;
+    }
+
+    [Fact]
+    public async Task Exportacion_aplicada_despues_sale_con_iva_tasa_cero_forma_30_uso_g02_y_tc_del_dia()
+    {
+        using var db = Db();
+        var anticipo = await AnticipoExtranjeroAsync(db);
+        var cfdiAnticipo = await db.FacturasAnticipo.SingleAsync();
+        cfdiAnticipo.ReceptorNumRegIdTrib.Should().Be("130044147");
+        cfdiAnticipo.TasaIvaTraslado.Should().Be(0m);
+        var factura = await FacturaExportacionAsync(db, cfdiAnticipo.Uuid);
+
+        await Handler(db).Handle(new AplicarAnticipoAFacturaCommand(anticipo.Id, factura.Id, 194.39m), default);
+
+        var nc = await db.NotasCredito.Include(n => n.Relaciones).SingleAsync();
+        (nc.FormaPago, nc.MetodoPago, nc.ReceptorUsoCfdi, nc.TipoCambio).Should().Be(("30", "PUE", "G02", 18.7592m));
+        (nc.Subtotal, nc.ImpuestosTrasladados, nc.Total).Should().Be((194.39m, 0m, 194.39m));
+        nc.ReceptorNumRegIdTrib.Should().Be("130044147");
+        nc.Relaciones.Should().ContainSingle(r => r.TipoRelacion == "07" && r.UuidRelacionado == factura.Uuid);
+        var concepto = Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.DesdeNotaCredito(nc, Ahora).Conceptos.Single();
+        concepto.Impuestos.Single().Should().Match<Millet.Integraciones.Fiscal.Domain.Ports.ImpuestoConceptoCfdi>(i =>
+            i.TipoFactor == "Tasa" && i.TasaOCuota == 0m && i.Importe == 0m);
+    }
+
+    [Fact]
+    public async Task Con_rfc_generico_sin_pedido_ni_relacion_07_no_se_aplica()
+    {
+        using var db = Db();
+        var anticipo = await AnticipoExtranjeroAsync(db);
+        var factura = await FacturaExportacionAsync(db, uuidAnticipo: null);
+
+        var act = () => Handler(db).Handle(new AplicarAnticipoAFacturaCommand(anticipo.Id, factura.Id, 100m), default);
+
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "ANTICIPO_CLIENTE_NO_VERIFICABLE");
+    }
+
+    [Fact]
+    public async Task La_nc_nacional_aplicada_despues_sigue_con_iva_16_y_sin_tipo_de_cambio()
+    {
+        using var db = Db();
+        var anticipo = await AnticipoAsync(db);
+        var factura = await FacturaAsync(db);
+
+        await Handler(db).Handle(new AplicarAnticipoAFacturaCommand(anticipo.Id, factura.Id, 580m), default);
+
+        var nc = await db.NotasCredito.SingleAsync();
+        (nc.Subtotal, nc.ImpuestosTrasladados, nc.TipoCambio, nc.FormaPago).Should().Be((500m, 80m, (decimal?)null, "30"));
+    }
 
     [Fact]
     public async Task Aplica_el_anticipo_a_una_factura_timbrada_con_nc_07_y_baja_el_saldo_del_anticipo()

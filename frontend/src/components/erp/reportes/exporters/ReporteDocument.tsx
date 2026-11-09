@@ -24,10 +24,32 @@ export interface ReporteParaExportar<TFila> {
     alineacion?: string | null;
     anchoPx?: number | null;
     decimales?: number | null;
+    /** Ancho relativo de la columna en el PDF (peso flex; 1 por omisión). */
+    anchoPdf?: number | null;
+    /** 'caracter': en el PDF, un texto largo sin espacios (folio, referencia) puede cortarse entre letras o dígitos. */
+    cortePdf?: 'caracter' | null;
   }[];
   filas: readonly TFila[];
   totales?: Record<string, number> | null;
+  /** Tamaño de letra de la tabla en el PDF (9 pt por omisión), para reportes con muchas columnas. */
+  letraPdf?: number | null;
 }
+
+const SEPARADOR = /[-_/.]/;
+
+/**
+ * Corte por carácter para folios y referencias: permite partir entre letras o dígitos, nunca junto a un separador, porque el
+ * motor del PDF agrega un guion al cortar y junto a un «-» quedaría doble.
+ */
+const cortePorCaracter = (palabra: string): string[] => {
+  const partes: string[] = [];
+  for (const ch of Array.from(palabra)) {
+    const previa = partes[partes.length - 1];
+    if (previa !== undefined && (SEPARADOR.test(previa.slice(-1)) || SEPARADOR.test(ch))) partes[partes.length - 1] = previa + ch;
+    else partes.push(ch);
+  }
+  return partes;
+};
 
 const styles = StyleSheet.create({
   page: {
@@ -110,6 +132,10 @@ export function ReporteDocument<TFila>({
     .map(([k, v]) => `${k}: ${v}`)
     .join(' · ');
 
+  // Ancho de cada columna en el PDF: peso relativo (anchoPdf) o 1. Las columnas de texto largo (folios, nombres) piden más.
+  const flexDe = (c: { anchoPdf?: number | null }) => ({ flex: c.anchoPdf && c.anchoPdf > 0 ? c.anchoPdf : 1 });
+  const flexTotal = reporte.columnas.reduce((s, c) => s + flexDe(c).flex, 0);
+
   return (
     <Document
       title={reporte.titulo}
@@ -127,13 +153,14 @@ export function ReporteDocument<TFila>({
           )}
         </View>
 
-        <View style={styles.table}>
+        <View style={[styles.table, reporte.letraPdf ? { fontSize: reporte.letraPdf } : {}]}>
           <View style={styles.rowHeader}>
             {reporte.columnas.map((c) => (
               <Text
                 key={c.clave}
                 style={[
                   styles.cell,
+                  flexDe(c),
                   styles.cellHeader,
                   esNumerica(c.tipo) ? styles.cellAlignRight : {},
                 ]}
@@ -148,7 +175,7 @@ export function ReporteDocument<TFila>({
               <Text
                 style={[
                   styles.cell,
-                  { flex: reporte.columnas.length, textAlign: 'center' },
+                  { flex: flexTotal, textAlign: 'center' },
                 ]}
               >
                 Sin datos para los filtros aplicados.
@@ -162,8 +189,10 @@ export function ReporteDocument<TFila>({
                     key={c.clave}
                     style={[
                       styles.cell,
+                      flexDe(c),
                       esNumerica(c.tipo) ? styles.cellAlignRight : {},
                     ]}
+                    {...(c.cortePdf === 'caracter' ? { hyphenationCallback: cortePorCaracter } : {})}
                   >
                     {formatearCelda(obtenerCelda(fila, c.clave), c.tipo, c.decimales)}
                   </Text>
@@ -181,6 +210,7 @@ export function ReporteDocument<TFila>({
                     key={c.clave}
                     style={[
                       styles.cell,
+                      flexDe(c),
                       styles.cellTotales,
                       esNumerica(c.tipo) ? styles.cellAlignRight : {},
                     ]}

@@ -1,5 +1,6 @@
 using MediatR;
 using Millet.Facturacion.Application.CartaPorte.EmitirCartaPorte;
+using Millet.Facturacion.Application.Pedidos.CancelarSalidaFacturable;
 using Millet.Facturacion.Application.Pedidos.RegistrarSalidaFacturable;
 using Millet.Facturacion.Application.Timbrado;
 using Millet.Facturacion.Domain.Ports;
@@ -22,6 +23,12 @@ public sealed class FacturacionSalidaAdapter(ISender sender, IEmpresaFiscalReadP
     public async Task RegistrarSalidaAsync(Guid pedidoFacturableId, string referencia, IReadOnlyList<(int Posicion, decimal Cantidad)> lineas, CancellationToken ct) =>
         await sender.Send(new RegistrarSalidaFacturableCommand(pedidoFacturableId, null, OrigenSalidaFacturable.ProductoTerminado, referencia,
             lineas.Select(l => new SalidaFacturableLineaDto(l.Posicion, l.Cantidad)).ToList()), ct);
+
+    public async Task<CancelacionSalidaPt> CancelarSalidaAsync(string referencia, string motivo, CancellationToken ct)
+    {
+        var r = await sender.Send(new CancelarSalidaProductoTerminadoCommand(referencia, motivo), ct);
+        return new CancelacionSalidaPt(r.Registrada, r.Descartada, r.EnRevision);
+    }
 
     public async Task<CartaPorteSalida> EmitirCartaPorteAsync(SolicitudCartaPorte solicitud, CancellationToken ct)
     {

@@ -61,6 +61,31 @@ public static class DependencyInjection
         services.AddScoped<IPeriodoContableConsultaPort, PeriodoContableConsultaAdapter>();
         services.AddScoped<VerificadorPeriodoContable>();
 
+        // CON-12 (86e3jvvme): checklist de cierre. Cada paso automático es un verificador; los que leen otros módulos usan puertos de
+        // consumidor que cablea Program.cs (Tesorería, Almacén, Activos Fijos, CxP).
+        services.AddOptions<Millet.Contabilidad.Application.Cierre.CierreContableOpciones>()
+            .Bind(configuration.GetSection(Millet.Contabilidad.Application.Cierre.CierreContableOpciones.Seccion));
+        services.AddScoped<Millet.Contabilidad.Application.Cierre.EvaluadorChecklistCierre>();
+        services.AddScoped<Millet.Contabilidad.Application.Cierre.CalculadoraCierreAnual>();
+        foreach (var verificador in new[]
+        {
+            typeof(Millet.Contabilidad.Application.Cierre.VerificadorConciliacionBancaria),
+            typeof(Millet.Contabilidad.Application.Cierre.VerificadorRepConciliados),
+            typeof(Millet.Contabilidad.Application.Cierre.VerificadorIngresosVsCfdi),
+            typeof(Millet.Contabilidad.Application.Cierre.VerificadorPasivosVsCfdi),
+            typeof(Millet.Contabilidad.Application.Cierre.VerificadorPolizasAutomaticas),
+            typeof(Millet.Contabilidad.Application.Cierre.VerificadorInventarioCerrado),
+            typeof(Millet.Contabilidad.Application.Cierre.VerificadorDepreciacion),
+            typeof(Millet.Contabilidad.Application.Cierre.VerificadorRevaluacionBancosClientes),
+            typeof(Millet.Contabilidad.Application.Cierre.VerificadorRevaluacionProveedores),
+            typeof(Millet.Contabilidad.Application.Cierre.VerificadorIvaLiquidado),
+            typeof(Millet.Contabilidad.Application.Cierre.VerificadorAuxiliares),
+            typeof(Millet.Contabilidad.Application.Cierre.VerificadorPolizasBorrador),
+            typeof(Millet.Contabilidad.Application.Cierre.VerificadorBalanzaCuadrada),
+            typeof(Millet.Contabilidad.Application.Cierre.VerificadorCierreAnual),
+        })
+            services.AddScoped(typeof(Millet.Contabilidad.Application.Cierre.IVerificadorPasoCierre), verificador);
+
         // F1-CON-04: pólizas (C1.3), numeración (K10.9), anulación (K10.3) y el puerto del motor contable.
         services.AddScoped<RegistroPolizas>();
         services.AddScoped<LecturaPolizas>();
@@ -70,6 +95,9 @@ public static class DependencyInjection
         // C1.5: entrada única de los listeners (anulaciones, caja, consumo) y datos que el motor completa desde pólizas previas.
         services.AddScoped<Millet.Contabilidad.Application.Motor.ProcesadorEventosContables>();
         services.AddScoped<Millet.Contabilidad.Application.Motor.ControlIvaDocumentos>();
+        // CON-11 (86e3kdypd): diferencia cambiaria realizada de pagos y cobros; ITipoCambioContabilidadReadPort lo cablea Program.cs.
+        services.AddScoped<Millet.Contabilidad.Application.Motor.DiferenciaCambiariaRealizada>();
+        services.AddScoped<Millet.Contabilidad.Application.Revaluacion.CalculadoraRevaluacionCierre>();
         services.AddScoped<Millet.Contabilidad.Application.Motor.IEnriquecedorEventoContable, Millet.Contabilidad.Application.Motor.EnriquecedorPolizasOrigen>();
         // CXC-06: ajuste autorizado del cobro corto (#12); el puerto lo implementa CxC.
         services.AddScoped<Millet.Contabilidad.Application.Motor.IEnriquecedorEventoContable, Millet.Contabilidad.Application.Motor.EnriquecedorAjusteCobro>();

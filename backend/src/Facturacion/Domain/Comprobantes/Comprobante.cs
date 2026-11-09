@@ -66,6 +66,12 @@ public abstract class Comprobante : BaseEntity, IPerteneceAEmpresa, IFiscalmente
     public string ReceptorPais { get; private set; } = "MEX";
     public bool ReceptorEsGenerico { get; private set; }
 
+    /// <summary>
+    /// 86e3zg0vb: identificación fiscal del receptor extranjero (NumRegIdTrib) para comprobantes sin complemento de comercio
+    /// exterior (anticipo y NC de aplicación). La factura de exportación la sigue tomando del CCE. Null para receptor nacional.
+    /// </summary>
+    public string? ReceptorNumRegIdTrib { get; private set; }
+
     // ---- Emisor (snapshot al emitir, F12-PR1) ----
     public string RfcEmisor { get; private set; } = string.Empty;
     public string RegimenFiscalEmisor { get; private set; } = string.Empty;
@@ -230,8 +236,10 @@ public abstract class Comprobante : BaseEntity, IPerteneceAEmpresa, IFiscalmente
                 "COMPROBANTE_NO_POR_AUTORIZAR",
                 $"Solo un comprobante Por autorizar puede autorizarse (actual: {Estado}).");
 
-        PeriodoAnio = ahora.Year;
-        PeriodoMes = ahora.Month;
+        // M11: el período es el de la fecha local de Millet, no el de UTC.
+        var local = ZonaMillet.ALocal(ahora);
+        PeriodoAnio = local.Year;
+        PeriodoMes = local.Month;
         Estado = EstadoTimbrado.Borrador;
     }
 
@@ -339,6 +347,28 @@ public abstract class Comprobante : BaseEntity, IPerteneceAEmpresa, IFiscalmente
         Estado = EstadoTimbrado.Descartada;
     }
 
+    /// <summary>
+    /// B2: la emisión abortó después de reservar el folio (sin PAC configurado, anticipo que no
+    /// timbró o cualquier excepción antes de guardar). El documento se guarda <c>Descartada</c>
+    /// con el motivo para que el folio quede a la vista y no como un hueco sin rastro. Nunca hubo
+    /// CFDI ante el SAT: no aplica a un comprobante timbrado, cancelado ni ya descartado.
+    /// </summary>
+    public void DescartarPorEmisionAbortada(string? errorCodigo, string errorMensaje)
+    {
+        if (Estado is EstadoTimbrado.Timbrado or EstadoTimbrado.CancelacionPendiente
+            or EstadoTimbrado.Cancelado or EstadoTimbrado.Descartada)
+            throw new BusinessRuleException(
+                "COMPROBANTE_NO_DESCARTABLE",
+                $"Un comprobante en {Estado} no se descarta por emisión abortada.");
+
+        Estado = EstadoTimbrado.Descartada;
+        TimbradoErrorCodigo = Recortar(errorCodigo, 50);
+        TimbradoErrorMensaje = Recortar(errorMensaje, 500);
+    }
+
+    private static string? Recortar(string? texto, int maximo) =>
+        texto is null || texto.Length <= maximo ? texto : texto[..maximo];
+
     /// <summary>Marca el CFDI como enviado por correo al cliente. Idempotente.</summary>
     public void MarcarEnviadoCorreo() => EnviadoCorreo = true;
 
@@ -415,6 +445,15 @@ public abstract class Comprobante : BaseEntity, IPerteneceAEmpresa, IFiscalmente
     /// (uuid, tipo). Debe llamarse antes de timbrar (la relación va en el XML, que
     /// es inmutable una vez timbrado).
     /// </summary>
+    /// <summary>86e3zg0vb: fija el NumRegIdTrib del receptor extranjero. Solo en borrador y solo si el receptor no es de México.</summary>
+    public void EstablecerNumRegIdTribReceptor(string? numRegIdTrib)
+    {
+        if (Estado != EstadoTimbrado.Borrador)
+            throw new BusinessRuleException("COMPROBANTE_INMUTABLE", $"No se cambia el receptor de un comprobante en estado {Estado}.");
+        var valor = string.IsNullOrWhiteSpace(numRegIdTrib) ? null : numRegIdTrib.Trim();
+        ReceptorNumRegIdTrib = ReceptorPais == "MEX" ? null : valor;
+    }
+
     public void AgregarRelacion(string uuidRelacionado, string tipoRelacion)
     {
         if (string.IsNullOrWhiteSpace(uuidRelacionado))

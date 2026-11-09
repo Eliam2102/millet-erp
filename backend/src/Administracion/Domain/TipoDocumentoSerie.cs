@@ -21,6 +21,12 @@ namespace Millet.Administracion.Domain;
 ///   F6.1 / P6.1). Siempre <b>por sucursal</b> (sin serie global de respaldo);
 ///   mismo precedente que <see cref="FacturaAnticipo"/>: un prefijo propio para
 ///   no consumir el folio de las facturas de pedidos A+W.</item>
+///   <item><see cref="Exportacion"/>: Facturación — serie CFDI de la factura de
+///   exportación con complemento de comercio exterior (FEXP en el layout de Millet).
+///   Global o por sucursal; tiene prioridad sobre la serie CFDI de la sucursal
+///   emisora. Si no hay serie de exportación activa, la reserva usa la serie
+///   <see cref="Cfdi"/> (supuesto a validar con Fiscal: precedencia exportación
+///   sobre sede).</item>
 /// </list>
 ///
 /// El valor numérico (<c>short</c>) está fijo por ABI — agregar nuevos
@@ -34,4 +40,5 @@ public enum TipoDocumentoSerie : short
     Poliza = 4,
     FacturaAnticipo = 5,
     VentaDirecta = 6,
+    Exportacion = 7,
 }

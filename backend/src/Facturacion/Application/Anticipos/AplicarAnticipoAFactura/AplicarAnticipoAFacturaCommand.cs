@@ -8,6 +8,7 @@ using Millet.Facturacion.Application.Integration;
 using Millet.Facturacion.Application.Timbrado;
 using Millet.Facturacion.Domain.Anticipos;
 using Millet.Facturacion.Domain.Comprobantes;
+using Millet.Facturacion.Domain.Facturas;
 using Millet.Facturacion.Domain.NotasCredito;
 using Millet.Facturacion.Domain.Ports;
 using Millet.Facturacion.Infrastructure.Persistence;
@@ -50,17 +51,17 @@ public sealed class AplicarAnticipoAFacturaHandler(
     ICfdiRepositorioPort cfdiRepo,
     IIntegrationEventPublisher eventos,
     ICurrentUserContext user,
-    IClock clock)
+    IClock clock,
+    ICatalogosSatReadPort catalogos)
     : IRequestHandler<AplicarAnticipoAFacturaCommand, AplicarAnticipoAFacturaResponse>
 {
-    private const decimal TasaIvaEstandar = 0.16m;
 
     public async Task<AplicarAnticipoAFacturaResponse> Handle(AplicarAnticipoAFacturaCommand command, CancellationToken cancellationToken)
     {
         var anticipo = await db.Anticipos.Include(a => a.Vinculaciones)
             .FirstOrDefaultAsync(a => a.Id == command.AnticipoId, cancellationToken)
             ?? throw new EntityNotFoundException("ANTICIPO_NO_ENCONTRADO", $"No existe el anticipo {command.AnticipoId}.");
-        var factura = await db.FacturasVenta.FirstOrDefaultAsync(f => f.Id == command.FacturaVentaId, cancellationToken)
+        var factura = await db.FacturasVenta.Include(f => f.Relaciones).FirstOrDefaultAsync(f => f.Id == command.FacturaVentaId, cancellationToken)
             ?? throw new EntityNotFoundException("FACTURA_NO_ENCONTRADA", $"No existe la factura {command.FacturaVentaId}.");
         var facturaAnticipo = await db.FacturasAnticipo.FirstOrDefaultAsync(f => f.Id == anticipo.FacturaAnticipoId, cancellationToken)
             ?? throw new EntityNotFoundException("FACTURA_ANTICIPO_NO_ENCONTRADA", $"No existe el CFDI del anticipo {anticipo.Id}.");
@@ -71,9 +72,8 @@ public sealed class AplicarAnticipoAFacturaHandler(
         if (facturaAnticipo.Estado != EstadoTimbrado.Timbrado || string.IsNullOrWhiteSpace(facturaAnticipo.Uuid))
             throw new BusinessRuleException("ANTICIPO_CFDI_NO_TIMBRADO",
                 $"El CFDI del anticipo ({facturaAnticipo.Folio}) no está timbrado vigente (estado: {facturaAnticipo.Estado}).");
-        if (!string.Equals(anticipo.ReceptorRfc, factura.ReceptorRfc, StringComparison.OrdinalIgnoreCase))
-            throw new BusinessRuleException("ANTICIPO_CLIENTE_DISTINTO",
-                "El anticipo y la factura deben ser del mismo cliente (RFC receptor).");
+        // 86e3zg0vb: mismo cliente, no solo mismo RFC (XEXX es compartido por todos los clientes del extranjero).
+        await AnticiposDelCliente.VerificarAsync(db, anticipo, facturaAnticipo, factura, cancellationToken);
         if (!string.Equals(anticipo.Moneda, factura.Moneda, StringComparison.OrdinalIgnoreCase))
             throw new BusinessRuleException("ANTICIPO_MONEDA_DISTINTA",
                 $"El anticipo está en {anticipo.Moneda} y la factura en {factura.Moneda}.");
@@ -94,18 +94,25 @@ public sealed class AplicarAnticipoAFacturaHandler(
                 $"El importe ({command.Importe:N2}) excede el saldo pendiente de la factura ({saldoFactura:N2}).");
 
         var ahora = clock.UtcNow;
-        if (!await periodo.EstaAbiertoAsync(ahora.Year, ahora.Month, cancellationToken))
+        // M11: período en la fecha fiscal de México, no en UTC.
+        var fechaFiscal = Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.FechaFiscal(ahora);
+        if (!await periodo.EstaAbiertoAsync(fechaFiscal.Year, fechaFiscal.Month, cancellationToken))
             throw new BusinessRuleException("PERIODO_CERRADO",
-                $"El período contable {ahora.Year}-{ahora.Month:D2} está cerrado; no se puede emitir.");
+                $"El período contable {fechaFiscal.Year}-{fechaFiscal.Month:D2} está cerrado; no se puede emitir.");
 
         var reserva = await sender.Send(new ReservarFolioCommand(factura.EmpresaId, factura.SucursalId,
-            TipoDocumentoSerie.NotaCredito, DateOnly.FromDateTime(ahora.UtcDateTime)), cancellationToken);
-        var receptor = new DatosFiscalesReceptor(factura.ReceptorRfc, factura.ReceptorNombre, factura.ReceptorRegimenFiscal,
-            factura.ReceptorCodigoPostal, factura.ReceptorUsoCfdi, factura.ReceptorPais, factura.ReceptorEsGenerico);
+            TipoDocumentoSerie.NotaCredito, Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.DiaFiscal(ahora)), cancellationToken);
+        // 86e3zg0vb: como las NC de aplicación de Millet — uso G02, forma 30, la tasa del anticipo y el TC del día de la NC.
+        var receptor = NotaCredito.ReceptorAplicacion(new DatosFiscalesReceptor(factura.ReceptorRfc, factura.ReceptorNombre,
+            factura.ReceptorRegimenFiscal, factura.ReceptorCodigoPostal, factura.ReceptorUsoCfdi, factura.ReceptorPais, factura.ReceptorEsGenerico));
+        var tipoCambio = await TipoCambioFactura.DelDiaAsync(catalogos, factura.Moneda, ahora, cancellationToken);
         var nc = NotaCredito.CrearAmortizacion(factura.EmpresaId, reserva.Folio, reserva.Numero, factura.SucursalId,
-            factura.CajaId, user.UserId, receptor, factura.SnapshotEmisor(), factura.FormaPago, factura.Moneda,
-            factura.TipoCambio, ahora.Year, ahora.Month, factura.CanalVentaId, anticipo.Id, factura.Id,
-            command.Importe, TasaIvaEstandar);
+            factura.CajaId, user.UserId, receptor, factura.SnapshotEmisor(), NotaCredito.FormaPagoAplicacionAnticipo, factura.Moneda,
+            tipoCambio, fechaFiscal.Year, fechaFiscal.Month, factura.CanalVentaId, anticipo.Id, factura.Id,
+            command.Importe, facturaAnticipo.TasaIvaParaAplicacion());
+        if (factura.ComplementoCce is null && factura.ComportamientoFiscal == ComportamientoFiscal.ExportacionConCce)
+            await db.Entry(factura).Reference(f => f.ComplementoCce).LoadAsync(cancellationToken);
+        nc.EstablecerNumRegIdTribReceptor(factura.ComplementoCce?.ReceptorNumRegIdTrib ?? facturaAnticipo.ReceptorNumRegIdTrib);
         nc.FijarComentarios(command.Comentarios);
         // Millet (4-nov): la NC de aplicación relaciona solo la factura de venta; el UUID del anticipo va en la factura.
         nc.AgregarRelacion(factura.Uuid!, MotivoNotaCredito.Amortizacion.ClaveTipoRelacion());

@@ -239,10 +239,33 @@ public sealed partial class DocumentosFiscalesImpresosTests
         return f;
     }
 
-    private static void Timbrar(Comprobante c, string uuid)
+    private static void Timbrar(Comprobante c, string uuid, DateTimeOffset? fecha = null)
     {
         c.MarcarTimbradoEnProceso();
-        c.MarcarTimbrado(uuid, Sello, Sello, "30001000000500003456", Fecha, "SPR190613I52", null);
+        c.MarcarTimbrado(uuid, Sello, Sello, "30001000000500003456", fecha ?? Fecha, "SPR190613I52", null);
+    }
+
+    // ---- M11: fechas del PDF en hora de México, no en UTC ----
+
+    [Fact]
+    public void M11_factura_timbrada_a_las_23_horas_de_Mexico_imprime_la_fecha_de_Mexico_y_no_la_de_UTC()
+    {
+        // 8-nov 23:12:33 en México = 9-nov 05:12:33 UTC (así se guarda fecha_timbrado).
+        var f = FacturaVenta.CrearBorrador(Empresa, "DEMOF-000104", 104, Sucursal, null, null, Receptor, Emisor,
+            "PPD", "99", "MXN", null, 2026, 11, 1, ComportamientoFiscal.MostradorInmediato, null, null, null, false);
+        f.AgregarLinea(null, "30171700", "VIDRIO TEMPLADO DEMO", "H87", 1, 1000, 0, "02", 0.16m, null, null, referencia: "R001");
+        f.RecalcularTotales();
+        Timbrar(f, "00000000-0000-4000-8000-000000000104", new DateTimeOffset(2026, 11, 9, 5, 12, 33, TimeSpan.Zero));
+
+        var m = CfdiPdfModelBuilder.DesdeFactura(f, Datos);
+
+        m.FechaEmision.DateTime.Should().Be(new DateTime(2026, 11, 8, 23, 12, 33));
+        m.Cabecera.FechaTimbrado!.Value.DateTime.Should().Be(new DateTime(2026, 11, 8, 23, 12, 33));
+        m.Timbre!.CadenaOriginal.Should().Contain("|2026-11-08T23:12:33|");
+
+        using var doc = PdfDocument.Open(new QuestPdfFacturaGenerator().Generar(m).Contenido);
+        var texto = SinEspacios(string.Concat(doc.GetPages().Select(p => p.Text)));
+        texto.Should().Contain("08/11/2026").And.Contain("2026-11-08T23:12:33").And.NotContain("09/11/2026");
     }
 
     private static string SinEspacios(string texto) => Espacios().Replace(texto, "");

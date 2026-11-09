@@ -75,9 +75,11 @@ public sealed class EmitirNotaCreditoDevolucionAnticipoHandler(
                 $"El CFDI del anticipo ({factura.Folio}) no está timbrado vigente (estado: {factura.Estado}); no puede devolverse.");
 
         var ahora = clock.UtcNow;
-        if (!await periodo.EstaAbiertoAsync(ahora.Year, ahora.Month, cancellationToken))
+        // M11: período en la fecha fiscal de México, no en UTC.
+        var fechaFiscal = Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.FechaFiscal(ahora);
+        if (!await periodo.EstaAbiertoAsync(fechaFiscal.Year, fechaFiscal.Month, cancellationToken))
             throw new BusinessRuleException("PERIODO_CERRADO",
-                $"El período contable {ahora.Year}-{ahora.Month:D2} está cerrado; no se puede emitir.");
+                $"El período contable {fechaFiscal.Year}-{fechaFiscal.Month:D2} está cerrado; no se puede emitir.");
 
         // Antes de reservar folio: la CLABE y el saldo se validan aquí para no gastar un folio en una NC que no procede.
         _ = Clabe.Crear(command.Reembolso.Clabe);
@@ -86,12 +88,12 @@ public sealed class EmitirNotaCreditoDevolucionAnticipoHandler(
                 $"El importe a devolver ({command.MontoTotal:N2}) excede el saldo disponible del anticipo ({anticipo.SaldoDisponible:N2}).");
 
         var reserva = await sender.Send(new ReservarFolioCommand(empresaId, factura.SucursalId, TipoDocumentoSerie.NotaCredito,
-            DateOnly.FromDateTime(ahora.UtcDateTime)), cancellationToken);
+            Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.DiaFiscal(ahora)), cancellationToken);
 
         var receptor = new DatosFiscalesReceptor(factura.ReceptorRfc, factura.ReceptorNombre, factura.ReceptorRegimenFiscal,
             factura.ReceptorCodigoPostal, factura.ReceptorUsoCfdi, factura.ReceptorPais, factura.ReceptorEsGenerico);
         var nc = NotaCredito.CrearDevolucionAnticipo(empresaId, reserva.Folio, reserva.Numero, factura.SucursalId, user.UserId,
-            receptor, factura.SnapshotEmisor(), factura.FormaPago, factura.Moneda, factura.TipoCambio, ahora.Year, ahora.Month,
+            receptor, factura.SnapshotEmisor(), factura.FormaPago, factura.Moneda, factura.TipoCambio, fechaFiscal.Year, fechaFiscal.Month,
             factura.CanalVentaId, anticipo.Id, command.MontoTotal, command.TasaIva,
             command.Reembolso.Banco, command.Reembolso.Clabe, command.Reembolso.Titular);
         nc.FijarComentarios(command.Comentarios);

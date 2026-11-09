@@ -77,8 +77,27 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
     public string? CuentaOrdenante { get; private set; }
     /// <summary>Quien registró confirmó haber verificado fondos en la banca (no hay integración bancaria).</summary>
     public bool FondosVerificados { get; private set; }
+    /// <summary>
+    /// TES-09 (86e3jvvj4): pesos por una unidad de <see cref="Moneda"/> con que se hizo el pago o el cobro (el que aplicó el banco
+    /// o, si no se capturó, el del catálogo K10.6 a la fecha valor). Null en MXN y en movimientos sin pago a proveedor ni cobro.
+    /// Contabilidad lo usa para la diferencia cambiaria realizada.
+    /// </summary>
+    public decimal? TipoCambio { get; private set; }
+
+    /// <summary>M-203: id común de los dos movimientos (egreso en origen, ingreso en destino) de un traspaso entre cuentas propias. Null en el resto.</summary>
+    public Guid? TraspasoId { get; private set; }
+    public string? TraspasoMotivo { get; private set; }
 
     private MovimientoBancario() { }
+
+    /// <summary>TES-09: fija el TC del pago o del cobro. En MXN no aplica y queda null.</summary>
+    public void FijarTipoCambio(decimal? tipoCambio)
+    {
+        if (string.Equals(Moneda, "MXN", StringComparison.OrdinalIgnoreCase)) { TipoCambio = null; return; }
+        if (tipoCambio is <= 0)
+            throw new BusinessRuleException("MOV_TIPO_CAMBIO_INVALIDO", "El tipo de cambio del pago debe ser mayor a cero.");
+        TipoCambio = tipoCambio;
+    }
 
     /// <summary>
     /// Alta manual de un movimiento de ingreso (§3.3 paso 2 / endpoint
@@ -140,6 +159,62 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
             CreadoPor = creadoPor,
             CreadoEn = ahora,
         };
+    }
+
+    /// <summary>
+    /// M-203: traspaso entre dos cuentas propias. Crea el par ligado por <see cref="TraspasoId"/> (egreso en origen, ingreso en
+    /// destino), mismo monto y referencia, concepto de sistema que el flujo de efectivo excluye. Nacen aplicados: no son
+    /// depósitos por identificar. Cada lado se concilia por separado contra el extracto de su banco.
+    /// </summary>
+    public static (MovimientoBancario Egreso, MovimientoBancario Ingreso) RegistrarTraspaso(
+        CuentaBancaria origen, CuentaBancaria destino, decimal monto, DateOnly fechaValor,
+        string? referenciaBancaria, string? motivo, Guid creadoPor, DateTimeOffset ahora, Guid? sucursalId = null)
+    {
+        if (origen.Id == destino.Id)
+            throw new BusinessRuleException("TRASPASO_MISMA_CUENTA", "La cuenta origen y la destino deben ser distintas.");
+        if (origen.EmpresaId != destino.EmpresaId)
+            throw new BusinessRuleException("TRASPASO_OTRA_EMPRESA", "Las dos cuentas deben ser de la misma empresa.");
+        if (!string.Equals(origen.Moneda, destino.Moneda, StringComparison.OrdinalIgnoreCase))
+            throw new BusinessRuleException("TRASPASO_MONEDA_DISTINTA",
+                $"Las cuentas están en monedas distintas ({origen.Moneda} y {destino.Moneda}); el traspaso solo se permite en la misma moneda.");
+        if (monto <= 0)
+            throw new BusinessRuleException("MOV_MONTO_INVALIDO", "El monto debe ser mayor a cero.");
+        var referencia = NormalizarReferencia(referenciaBancaria)
+            ?? throw new BusinessRuleException("TRASPASO_REFERENCIA_VACIA", "La referencia del traspaso es obligatoria.");
+        if (creadoPor == Guid.Empty)
+            throw new BusinessRuleException("MOV_USUARIO_VACIO", "El usuario que registra es obligatorio.");
+        var motivoLimpio = string.IsNullOrWhiteSpace(motivo) ? null : motivo.Trim();
+        if (motivoLimpio?.Length > 400)
+            throw new BusinessRuleException("TRASPASO_MOTIVO_LARGO", "El motivo no puede pasar de 400 caracteres.");
+        foreach (var c in new[] { origen, destino })
+        {
+            c.ValidarFechaMovimiento(fechaValor);
+            if (!c.Activa)
+                throw new BusinessRuleException("MOV_CUENTA_INACTIVA",
+                    $"La cuenta bancaria '{c.Banco} {Millet.SharedKernel.Domain.Bancos.NumeroCuenta.Crear(c.NumeroCuenta).Enmascarado}' está inactiva.");
+        }
+
+        var traspasoId = Guid.CreateVersion7();
+        MovimientoBancario Lado(CuentaBancaria cuenta, SentidoMovimiento sentido) => new()
+        {
+            Id = Guid.CreateVersion7(),
+            EmpresaId = cuenta.EmpresaId,
+            SucursalId = sucursalId,
+            CuentaBancariaId = cuenta.Id,
+            Sentido = sentido,
+            Monto = monto,
+            Moneda = cuenta.Moneda,
+            FechaValor = fechaValor,
+            ReferenciaBancaria = referencia,
+            ConceptoId = Cuentas.ConceptoMovimiento.TraspasoId,
+            EstadoAplicacion = EstadoAplicacionMovimiento.Aplicado,
+            EstadoConciliacion = EstadoConciliacionMovimiento.NoConciliado,
+            TraspasoId = traspasoId,
+            TraspasoMotivo = motivoLimpio,
+            CreadoPor = creadoPor,
+            CreadoEn = ahora,
+        };
+        return (Lado(origen, SentidoMovimiento.Egreso), Lado(destino, SentidoMovimiento.Ingreso));
     }
 
     /// <summary>

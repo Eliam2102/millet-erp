@@ -263,4 +263,34 @@ describe('<SheetNuevoProveedor>', () => {
     expect(await screen.findByText('El RFC debe tener 12 o 13 caracteres')).toBeInTheDocument();
     expect(posts).toBe(0);
   });
+
+  it('extranjero: normaliza el Tax ID quitando espacios internos antes de enviar', async () => {
+    let body: Record<string, unknown> | null = null;
+    mswServer.use(
+      http.post('*/api/v1/catalogos/proveedores', async ({ request }) => {
+        body = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(
+          { id: 'prov-ext-2', clave: 'EXT-02', estatus: 1, posibleDuplicadoDeId: null },
+          { status: 201 },
+        );
+      }),
+    );
+    render(
+      <NuevoProveedorProvider>
+        <AbrirAlMontar />
+      </NuevoProveedorProvider>,
+      { wrapper: createQueryWrapper() },
+    );
+    await screen.findByPlaceholderText('P-001');
+    fireEvent.change(screen.getByPlaceholderText('P-001'), { target: { value: 'EXT-02' } });
+    fireEvent.change(screen.getByPlaceholderText('Razón social del proveedor'), { target: { value: 'Foreign Corp LLC' } });
+    fireEvent.change(screen.getByLabelText('Origen'), { target: { value: '1' } });
+    await waitFor(() => expect(screen.getByLabelText(/Tax ID/i)).toBeInTheDocument());
+    fireEvent.change(screen.getByLabelText(/Tax ID/i), { target: { value: ' 12 34 56 78 ' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /crear proveedor/i }));
+
+    await waitFor(() => expect(body).not.toBeNull());
+    expect(body?.taxId).toBe('12345678');
+  });
 });

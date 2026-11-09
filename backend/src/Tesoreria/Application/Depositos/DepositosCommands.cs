@@ -4,6 +4,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.Tesoreria.Application.Common;
 using Millet.Tesoreria.Application.EventListeners;
 using Millet.Tesoreria.Application.Integration;
 using Millet.Tesoreria.Domain.Depositos;
@@ -113,7 +114,9 @@ public sealed record ConfirmarDepositoCommand(
     int VersionEsperada,
     RegistrarMovimientoIngresoCommand? Ingreso = null,
     SoporteFicha? SoporteTipo = null,
-    string? SoporteFolio = null) : IRequest<DepositoConfirmacionResponse>;
+    string? SoporteFolio = null,
+    // TES-09: TC del cobro que aplicó el banco (solo moneda distinta de MXN); null = el del catálogo K10.6 a la fecha valor.
+    decimal? TipoCambioPago = null) : IRequest<DepositoConfirmacionResponse>;
 
 public sealed class ConfirmarDepositoValidator : AbstractValidator<ConfirmarDepositoCommand>
 {
@@ -125,6 +128,8 @@ public sealed class ConfirmarDepositoValidator : AbstractValidator<ConfirmarDepo
         RuleFor(c => c.Ingreso!).SetValidator(new RegistrarMovimientoIngresoValidator()).When(c => c.Ingreso is not null);
         RuleFor(c => c.SoporteTipo!.Value).IsInEnum().When(c => c.SoporteTipo is not null);
         RuleFor(c => c.SoporteFolio).MaximumLength(40);
+        RuleFor(c => c.TipoCambioPago).Must(TipoCambioDelPago.EsValido)
+            .WithMessage("El TC del cobro debe ser mayor a cero y con 6 decimales como máximo.");
     }
 }
 
@@ -138,16 +143,18 @@ public sealed class ConfirmarDepositoHandler
     private readonly IClock _clock;
     private readonly IPeriodoContablePort? _periodos;
     private readonly ICurrentUserPermissions? _permisos;
+    private readonly ITipoCambioPagoReadPort? _tiposCambio;
 
     public ConfirmarDepositoHandler(
         TesoreriaDbContext db,
         ICurrentEmpresaContext currentEmpresa,
         ICurrentUserContext currentUser,
         IIntegrationEventPublisher publisher,
-        IClock clock, IPeriodoContablePort? periodos = null, ICurrentUserPermissions? permisos = null)
+        IClock clock, IPeriodoContablePort? periodos = null, ICurrentUserPermissions? permisos = null,
+        ITipoCambioPagoReadPort? tiposCambio = null)
     {
         _db = db; _currentEmpresa = currentEmpresa; _currentUser = currentUser;
-        _publisher = publisher; _clock = clock; _periodos = periodos; _permisos = permisos;
+        _publisher = publisher; _clock = clock; _periodos = periodos; _permisos = permisos; _tiposCambio = tiposCambio;
     }
 
     public async Task<DepositoConfirmacionResponse> Handle(
@@ -235,7 +242,8 @@ public sealed class ConfirmarDepositoHandler
         }
 
         return await ConfirmacionDeposito.ConfirmarContraMovimientoAsync(_db, _publisher, _clock, empresaId,
-            usuarioId, deposito, movimiento, movimientoNuevo: command.Ingreso is not null, aplicadoPrevio, cancellationToken);
+            usuarioId, deposito, movimiento, movimientoNuevo: command.Ingreso is not null, aplicadoPrevio, cancellationToken,
+            command.TipoCambioPago, _tiposCambio);
     }
 }
 
@@ -249,7 +257,8 @@ internal static class ConfirmacionDeposito
     public static async Task<DepositoConfirmacionResponse> ConfirmarContraMovimientoAsync(
         TesoreriaDbContext db, IIntegrationEventPublisher publisher, IClock clock, Guid empresaId, Guid usuarioId,
         DepositoConfirmacion deposito, Domain.Movimientos.MovimientoBancario movimiento, bool movimientoNuevo,
-        decimal aplicadoPrevio, CancellationToken cancellationToken)
+        decimal aplicadoPrevio, CancellationToken cancellationToken,
+        decimal? tipoCambioCapturado = null, ITipoCambioPagoReadPort? tiposCambio = null)
     {
         // RN-6 + cotejo monto/moneda contra lo disponible, validados en el dominio.
         if (deposito.DevolucionCeId is not null)
@@ -270,7 +279,16 @@ internal static class ConfirmacionDeposito
         // cortes de caja se cubren con fichas — el mostrador timbró lo suyo.
         if (deposito.PropuestaCxcId is Guid propuestaId && deposito.ClienteId is Guid clienteId)
         {
+            // TES-09: el TC del cobro se guarda en el movimiento. Uno ya fijado (otra confirmación sobre el mismo ingreso) se
+            // conserva salvo que se capture otro.
+            var tipoCambioPago = tipoCambioCapturado is null && movimiento.TipoCambio is decimal fijado
+                ? fijado
+                : await TipoCambioDelPago.FijarAsync(movimiento, tiposCambio, tipoCambioCapturado, cancellationToken);
             var facturas = DepositoMapper.ParseFacturas(deposito.FacturasJson);
+            // B8: la póliza del cobro va a la cuenta contable de esta cuenta bancaria, no a la única del rol BANCOS.
+            var cuentaContable = await db.CuentasBancarias.AsNoTracking()
+                .Where(c => c.Id == movimiento.CuentaBancariaId)
+                .Select(c => c.CuentaContableRef).FirstOrDefaultAsync(cancellationToken);
             await publisher.PublishAsync(new PagoClienteConfirmadoIntegrationEvent(
                 EmpresaId: empresaId,
                 OcurridoEn: clock.UtcNow,
@@ -288,7 +306,7 @@ internal static class ConfirmacionDeposito
                 SaldoAFavorPorIdentificar: deposito.SaldoAFavorPorIdentificar,
                 Facturas: facturas
                     .Select(f => new PagoClienteFacturaAplicada(f.FacturaVentaId, f.ImporteAplicado))
-                    .ToList()), cancellationToken);
+                    .ToList()) { TipoCambioPago = tipoCambioPago, CuentaContableRef = cuentaContable }, cancellationToken);
         }
 
         if (deposito.DevolucionCeId is Guid devolucion)

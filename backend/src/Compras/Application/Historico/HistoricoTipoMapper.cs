@@ -46,6 +46,10 @@ public static class HistoricoTipoMapper
         // El diff serializado por AuditSaveChangesInterceptor tiene shape
         // { "diff": { "Estado": { "antes": 0, "despues": 1 }, ... } }.
         var nuevoEstado = ExtraerEstadoDespues(cambiosJson);
+        var campos = ExtraerCamposModificados(cambiosJson);
+        if (nuevoEstado == (short)EstadoRequisicion.Borrador && (campos.Contains("ComentarioDevolucion") || campos.Contains("DevueltaPorId")))
+            return HistoricoTipo.Devuelta;
+
         return nuevoEstado switch
         {
             (short)EstadoRequisicion.EnAutorizacion => HistoricoTipo.Transmitida,

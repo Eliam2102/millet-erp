@@ -193,4 +193,27 @@ public sealed class PedidoDetallePrefillTests
             DomicilioExtranjeroEstado = "TX", DomicilioExtranjeroCodigoPostal = "78701",
         });
     }
+
+    [Fact]
+    public async Task B12_detalle_trae_fraccion_unidad_aduana_y_peso_del_articulo()
+    {
+        // La factura de exportación que nace del pedido debe precargar los datos de aduana del artículo.
+        var empresaId = Guid.NewGuid();
+        var productoId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        await SembrarPedidoAsync(db, empresaId, Guid.NewGuid(), productoId);
+
+        var master = new ProductoFiscalLectura(
+            productoId, "Puerta de aluminio y vidrio", "30171505", "H87", "02", 0m, null, null, "Aw",
+            PesoUnitarioKg: 42.5m, FraccionArancelaria: "7610100100", UnidadAduana: "06");
+        var cliente = new ClienteFiscalLectura(
+            Guid.NewGuid(), "XEXX010101000", "Cliente extranjero", "616", "97000", "S01", "03", "PUE", "USD", false);
+
+        var detalle = await new PedidoFacturableDetalleHandler(
+                db, new FakeClientesReadPort(cliente), new FakeProductosReadPort(master), new FakeCanalesVentaReadPort(), new FakeAlcanceCajaEvaluator(), new FakeCurrentUserPermissions())
+            .Handle(new PedidoFacturableDetalleQuery(db.PedidosFacturables.Single().Id), CancellationToken.None);
+
+        var linea = detalle.Lineas.Single();
+        (linea.FraccionArancelaria, linea.UnidadAduana, linea.PesoUnitarioKg).Should().Be(("7610100100", "06", 42.5m));
+    }
 }

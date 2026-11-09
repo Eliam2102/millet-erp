@@ -69,6 +69,13 @@ public sealed class PiezaPt : BaseEntity, IAuditable, IPerteneceAEmpresa, IBelon
         Estado = EstadoPieza.Embarcada;
     }
 
+    /// <summary>Cancela la salida o albarán: regresa la pieza embarcada o cargada a EnPT.</summary>
+    public void RevertirSalida()
+    {
+        if (Estado is not (EstadoPieza.Embarcada or EstadoPieza.Cargada)) throw new BusinessRuleException("PT_PIEZA_NO_SALIDA", $"La pieza {Etiqueta} no está embarcada ni cargada.");
+        Estado = EstadoPieza.EnPT;
+    }
+
     /// <summary>El cliente la recibió.</summary>
     public void Entregar()
     {

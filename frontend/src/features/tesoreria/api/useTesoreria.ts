@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/api';
+import { apiRequest, ApiError, type ProblemDetails } from '@/lib/api';
 import { apiFetch } from '@/lib/auth/api-client';
 import type { DepositoPorIdentificarItem } from '@/features/cxc/api/types';
 import {
@@ -26,6 +26,7 @@ import type {
   DepositoConfirmacionResponse,
   DevolucionClienteResponse,
   MovimientoBancarioResponse,
+  TraspasoResponse,
   MovimientoDetalleResponse,
   PagedResponse,
   PagoACuentaAbiertoResponse,
@@ -307,6 +308,8 @@ export function useRegistrarPagoACuenta() {
         proveedorId?: string;
         referenciaBancaria?: string;
         conceptoId?: string;
+        /** TES-09: TC que aplicó el banco (solo moneda distinta de MXN). */
+        tipoCambioPago?: number;
       };
       idempotencyKey: string;
     }) => {
@@ -433,6 +436,8 @@ export function useConfirmarDeposito() {
       /** Corte de caja: obligatorio desde la 2ª ficha. */
       soporteTipo?: SoporteFicha;
       soporteFolio?: string;
+      /** TES-09: TC del cobro (solo moneda distinta de MXN). */
+      tipoCambioPago?: number;
       versionEsperada: number;
       idempotencyKey: string;
     }) => {
@@ -440,7 +445,7 @@ export function useConfirmarDeposito() {
         `${BASE}/depositos/${args.depositoId}/confirmar`,
         {
           method: 'POST',
-          body: { movimientoBancarioId: args.movimientoBancarioId ?? "00000000-0000-0000-0000-000000000000", ingreso: args.ingreso, soporteTipo: args.soporteTipo, soporteFolio: args.soporteFolio },
+          body: { movimientoBancarioId: args.movimientoBancarioId ?? "00000000-0000-0000-0000-000000000000", ingreso: args.ingreso, soporteTipo: args.soporteTipo, soporteFolio: args.soporteFolio, tipoCambioPago: args.tipoCambioPago },
           idempotencyKey: args.idempotencyKey,
           headers: { 'X-Expected-Version': String(args.versionEsperada) },
         },
@@ -510,7 +515,49 @@ export function useRegistrarMovimientoIngreso() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.movimientos() });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.pagosCuenta() });
     },
+  });
+}
+
+/** M-203: `POST /movimientos/traspasos` — par ligado entre dos cuentas propias. */
+export function useRegistrarTraspaso() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      command: {
+        cuentaOrigenId: string;
+        cuentaDestinoId: string;
+        monto: number;
+        fechaValor: string;
+        referencia: string;
+        motivo?: string;
+        sucursalId?: string;
+      };
+      idempotencyKey: string;
+    }) => {
+      const { data } = await apiRequest<TraspasoResponse>(`${BASE}/movimientos/traspasos`, {
+        method: 'POST',
+        body: args.command,
+        idempotencyKey: args.idempotencyKey,
+      });
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: tesoreriaKeys.all }),
+  });
+}
+
+/** M-203: revierte el traspaso completo desde cualquiera de sus dos movimientos. */
+export function useRevertirTraspaso() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { movimientoId: string; motivo: string; idempotencyKey: string }) => {
+      await apiRequest<MovimientoBancarioResponse[]>(
+        `${BASE}/movimientos/${args.movimientoId}/revertir-traspaso`,
+        { method: 'POST', body: { motivo: args.motivo }, idempotencyKey: args.idempotencyKey },
+      );
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: tesoreriaKeys.all }),
   });
 }
 
@@ -650,6 +697,27 @@ export function useCuentasProveedorPago(proveedorId: string | null) {
   });
 }
 
+/** TES-09: TC del catálogo K10.6 a la fecha del pago (null si no hay o la moneda es MXN). */
+export interface TipoCambioPagoResponse {
+  moneda: string;
+  fecha: string;
+  valorEnMxn: number | null;
+}
+
+/** <c>useTipoCambioPago()</c> — GET /tipo-cambio-pago para prellenar el TC de pagos y cobros en moneda extranjera. */
+export function useTipoCambioPago(moneda: string | null, fecha: string) {
+  const aplica = moneda != null && moneda !== 'MXN' && /^\d{4}-\d{2}-\d{2}$/.test(fecha);
+  return useQuery<TipoCambioPagoResponse>({
+    queryKey: tesoreriaKeys.tipoCambioPago(moneda ?? '', fecha),
+    enabled: aplica,
+    queryFn: async ({ signal }) => {
+      const qs = new URLSearchParams({ moneda: moneda ?? '', fecha });
+      const { data } = await apiRequest<TipoCambioPagoResponse>(`${BASE}/tipo-cambio-pago?${qs}`, { signal });
+      return data;
+    },
+  });
+}
+
 /** <c>useRegistrarPago()</c> — POST /pagos multi-pasivo (RN-4: aplicado.v1 por factura). */
 export function useRegistrarPago() {
   const queryClient = useQueryClient();
@@ -662,6 +730,8 @@ export function useRegistrarPago() {
         referenciaBancaria?: string;
         conceptoId?: string;
         cuentaProveedorId?: string;
+        /** TES-09: TC que aplicó el banco (solo moneda distinta de MXN). */
+        tipoCambioPago?: number;
       };
       idempotencyKey: string;
     }) => {
@@ -755,6 +825,18 @@ export function useReclasificarMovimiento() {
         method: 'POST', body: { conceptoId: args.conceptoId, motivo: args.motivo },
         headers: { 'X-Expected-Version': String(args.version) }, idempotencyKey: args.idempotencyKey,
       });
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: tesoreriaKeys.all }),
+  });
+}
+export function useResolverReclasificacion() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { movimientoId: string; rechazo?: { motivo: string }; idempotencyKey: string }) => {
+      await apiRequest<void>(
+        `${BASE}/movimientos/${args.movimientoId}/reclasificacion/${args.rechazo ? 'rechazar' : 'autorizar'}`,
+        { method: 'POST', body: args.rechazo, idempotencyKey: args.idempotencyKey },
+      );
     },
     onSuccess: () => client.invalidateQueries({ queryKey: tesoreriaKeys.all }),
   });
@@ -1251,6 +1333,7 @@ export function useEmparejarAutomatico() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.pagosCuenta() });
     },
   });
 }
@@ -1269,6 +1352,7 @@ export function useEmparejarManual() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.pagosCuenta() });
     },
   });
 }
@@ -1287,6 +1371,7 @@ export function useDesemparejarLinea() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.pagosCuenta() });
     },
   });
 }
@@ -1326,6 +1411,7 @@ export function useAltaAsistida() {
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.movimientos() });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.pagosCuenta() });
     },
   });
 }
@@ -1358,8 +1444,8 @@ export function useCerrarConciliacion() {
         body: JSON.stringify({ firmanteNombre, firmantePuesto }),
       });
       if (!resp.ok) {
-        const errorData = await resp.json().catch(() => ({}));
-        throw new Error(errorData.detail || errorData.title || 'Error al cerrar conciliación');
+        const errorData = (await resp.json().catch(() => ({}))) as ProblemDetails;
+        throw new ApiError(errorData, resp.status);
       }
       return await resp.blob();
     },

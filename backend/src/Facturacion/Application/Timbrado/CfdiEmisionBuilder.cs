@@ -102,7 +102,7 @@ public static class CfdiEmisionBuilder
             FormaPago: nc.FormaPago,
             MetodoPago: nc.MetodoPago,
             Exportacion: "01",
-            Conceptos: [ConceptoUnico(nc.ClaveProdServSat, nc.ClaveUnidadSat, nc.Descripcion, nc.Subtotal, nc.ImpuestosTrasladados)],
+            Conceptos: [ConceptoUnico(nc.ClaveProdServSat, nc.ClaveUnidadSat, nc.Descripcion, nc.Subtotal, nc.ImpuestosTrasladados, nc.TasaIvaTraslado)],
             Relaciones: RelacionesDe(nc),
             ReferenciaInterna: nc.Id);
     }
@@ -122,7 +122,7 @@ public static class CfdiEmisionBuilder
             FormaPago: factura.FormaPago,
             MetodoPago: factura.MetodoPago,
             Exportacion: "01",
-            Conceptos: [ConceptoUnico(factura.ClaveProdServSat, factura.ClaveUnidadSat, factura.Descripcion, factura.Subtotal, factura.ImpuestosTrasladados)],
+            Conceptos: [ConceptoUnico(factura.ClaveProdServSat, factura.ClaveUnidadSat, factura.Descripcion, factura.Subtotal, factura.ImpuestosTrasladados, factura.TasaIvaTraslado)],
             Relaciones: RelacionesDe(factura),
             ReferenciaInterna: factura.Id);
     }
@@ -286,6 +286,12 @@ public static class CfdiEmisionBuilder
         TimeZoneInfo.ConvertTime(ahoraUtc, ZonaFiscal);
 
     /// <summary>
+    /// M11: día fiscal (hora de México) para la fecha de referencia del folio; en UTC,
+    /// después de las 18:00 del último día del mes ya sería el mes siguiente.
+    /// </summary>
+    public static DateOnly DiaFiscal(DateTimeOffset ahoraUtc) => DateOnly.FromDateTime(FechaFiscal(ahoraUtc).DateTime);
+
+    /// <summary>
     /// Serie del CFDI = folio interno formateado sin el consecutivo final
     /// (formato Compartido.Series: <c>{prefijo}[{sufijo}|-{periodo}]-{D6}</c>).
     /// </summary>
@@ -314,7 +320,8 @@ public static class CfdiEmisionBuilder
             UsoCfdi: c.ReceptorUsoCfdi,
             Pais: c.ReceptorPais,
             EsGenerico: c.ReceptorEsGenerico,
-            NumRegIdTrib: numRegIdTrib);
+            // 86e3zg0vb: sin CCE (anticipo, NC de aplicación) el extranjero lleva el NumRegIdTrib guardado en el comprobante.
+            NumRegIdTrib: numRegIdTrib ?? c.ReceptorNumRegIdTrib);
 
     private static List<RelacionCfdiEmision> RelacionesDe(Comprobante c) =>
         c.Relaciones
@@ -384,12 +391,24 @@ public static class CfdiEmisionBuilder
     /// Concepto único de comprobantes sin líneas propias (NC, anticipo, Carta
     /// Porte tipo I). La tasa de IVA se reconstruye desde los totales
     /// (subtotal/impuesto) porque el agregado no la persiste.
+    /// <para>86e3zg0vb: con <paramref name="tasaExplicita"/> = 0 (anticipo de exportación y su NC de aplicación) el traslado va como
+    /// <c>Tasa 0.000000</c> con importe 0, no como Exento. Null conserva el comportamiento anterior.</para>
     /// </summary>
     private static ConceptoCfdi ConceptoUnico(
-        string claveProdServ, string claveUnidad, string descripcion, decimal subtotal, decimal importeIva)
+        string claveProdServ, string claveUnidad, string descripcion, decimal subtotal, decimal importeIva, decimal? tasaExplicita = null)
     {
         var impuestos = new List<ImpuestoConceptoCfdi>();
-        if (importeIva > 0 && subtotal > 0)
+        if (tasaExplicita == 0m && importeIva == 0m)
+        {
+            impuestos.Add(new ImpuestoConceptoCfdi(
+                Base: subtotal,
+                Impuesto: "002",
+                TipoFactor: "Tasa",
+                TasaOCuota: 0m,
+                Importe: 0m,
+                EsRetencion: false));
+        }
+        else if (importeIva > 0 && subtotal > 0)
         {
             impuestos.Add(new ImpuestoConceptoCfdi(
                 Base: subtotal,
@@ -440,6 +459,30 @@ public static class CfdiEmisionBuilder
         $"{l.ClaveProdServSat}-{l.Posicion}";
 
     /// <summary>
+    /// Datos que el SAT exige en el CCE 2.0 y que el PAC rechaza si faltan: domicilio del receptor
+    /// extranjero (calle, estado y código postal) y clave de pedimento (B5). La emisión lo llama
+    /// antes de reservar folio y el armado del CFDI antes de timbrar.
+    /// </summary>
+    public static void ValidarDatosSatCce(string? claveDePedimento, string? calle, string? estado, string? codigoPostal)
+    {
+        if (string.IsNullOrWhiteSpace(calle) || string.IsNullOrWhiteSpace(estado) || string.IsNullOrWhiteSpace(codigoPostal))
+        {
+            throw new BusinessRuleException(
+                "CCE_DOMICILIO_RECEPTOR_INCOMPLETO",
+                "El Complemento de Comercio Exterior 2.0 exige el domicilio del receptor extranjero " +
+                "(calle, estado y código postal). Captura los datos faltantes y vuelve a emitir.");
+        }
+
+        if (string.IsNullOrWhiteSpace(claveDePedimento))
+        {
+            throw new BusinessRuleException(
+                "CCE_CLAVE_PEDIMENTO_REQUERIDA",
+                "El Complemento de Comercio Exterior 2.0 exige la clave de pedimento (por ejemplo, A1). " +
+                "Captúrala y vuelve a emitir.");
+        }
+    }
+
+    /// <summary>
     /// Construye el complemento CCE si la factura lo adjuntó (F7-PR1). Valida
     /// pre-vuelo el domicilio del receptor extranjero (Estado + CP, exigidos
     /// por el CCE 2.0) — falla ANTES de quemar el timbre (F12-PR3).
@@ -453,14 +496,8 @@ public static class CfdiEmisionBuilder
         if (factura.ComplementoCce is not { } cce)
             return null;
 
-        if (string.IsNullOrWhiteSpace(cce.ReceptorDomicilioEstado)
-            || string.IsNullOrWhiteSpace(cce.ReceptorDomicilioCodigoPostal))
-        {
-            throw new BusinessRuleException(
-                "CCE_DOMICILIO_RECEPTOR_INCOMPLETO",
-                "El Complemento de Comercio Exterior 2.0 exige el domicilio del receptor extranjero " +
-                "(estado y código postal). Captura los datos faltantes y vuelve a emitir.");
-        }
+        ValidarDatosSatCce(cce.ClaveDePedimento, cce.ReceptorDomicilioCalle,
+            cce.ReceptorDomicilioEstado, cce.ReceptorDomicilioCodigoPostal);
 
         return new ComplementoCceCfdi(
             TipoOperacion: cce.TipoOperacion,
