@@ -364,6 +364,11 @@ namespace Millet.Integraciones.Fiscal.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("ultima_test_conexion_exitosa");
 
+                    b.Property<string>("UltimaTestConexionMensaje")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("ultima_test_conexion_mensaje");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
