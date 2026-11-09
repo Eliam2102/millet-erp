@@ -96,15 +96,14 @@ public static class SalidasRoturaEndpoints
                 user.UserId ?? Guid.Empty,
                 new CapturarRoturaApp(req.UbicacionId, req.ArticuloId, req.Cantidad, req.Fecha ?? DateOnly.FromDateTime(DateTime.Now), req.MotivoCodigo, req.Comentario), ct);
             await scope.VerificarSucursalAsync(r.SucursalId, PermisosCanonicos.AlmacenSalidasGestionarTodasSucursales, ct);
-            // 86e3zf04y: área y equipo se resuelven en la sucursal con el puerto de H1. Una clave inválida no se acepta; si la cuenta los
-            // exige y no vienen, la rotura se captura igual y su póliza queda en Rechazos (Contabilidad la completa y reprocesa).
+            // 86e3zf04y: área y equipo se resuelven en la sucursal con el puerto de H1. Una clave inválida no se acepta.
+            // M-450 (86e3zr7ft): si la cuenta de merma los exige (regla C-03) y no vienen, la rotura tampoco se captura.
+            var d = await dimensiones.ResolverAsync(new SolicitudDimensionesSalida(r.EmpresaId, r.SucursalId, CausaRotura, r.Fecha,
+                req.AreaClave, req.EquipoClave, EventoRotura), ct);
+            if (d.Error is not null) throw new BusinessRuleException("ROTURA_AREA_EQUIPO_INVALIDO", d.Error);
+            if (d.Faltante is not null) throw new BusinessRuleException("ROTURA_AREA_EQUIPO_FALTANTE", d.Faltante);
             if (!string.IsNullOrWhiteSpace(req.AreaClave) || !string.IsNullOrWhiteSpace(req.EquipoClave))
-            {
-                var d = await dimensiones.ResolverAsync(new SolicitudDimensionesSalida(r.EmpresaId, r.SucursalId, CausaRotura, r.Fecha,
-                    req.AreaClave, req.EquipoClave, EventoRotura), ct);
-                if (d.Error is not null) throw new BusinessRuleException("ROTURA_AREA_EQUIPO_INVALIDO", d.Error);
                 r.AsignarAreaEquipo(req.AreaClave, req.EquipoClave, d.CentroCostoId);
-            }
             await db.SaveChangesAsync(ct);
             return Results.Created($"/api/v1/almacen/salidas-rotura/{r.Id}", (await lectura.RespuestasAsync([r], ct))[0]);
         })

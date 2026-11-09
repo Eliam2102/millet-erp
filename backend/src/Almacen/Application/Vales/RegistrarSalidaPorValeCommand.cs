@@ -87,6 +87,8 @@ public sealed class RegistrarSalidaPorValeHandler
     private readonly ApartadosRequisicionService _apartados;
     private readonly ICalendarioHabil _calendario;
     private readonly ICentroCostoElegibilidadPort _centros;
+    // M-450: si la cuenta de consumo exige área o equipo, la línea del vale sin centro no sale. Opcional solo para pruebas.
+    private readonly Millet.Contabilidad.Application.PublicPorts.IDimensionesSalidaInventarioPort? _dimensiones;
     // Opcionales solo para pruebas unitarias sin medidas; la API los inyecta siempre.
     private readonly IArticuloReadPort? _articulos;
     private readonly IVarianteVidrioReadPort? _variantes;
@@ -100,10 +102,12 @@ public sealed class RegistrarSalidaPorValeHandler
         IPeriodoContableReadPort periodoContable,
         ICalendarioHabil calendario,
         ICentroCostoElegibilidadPort centros, IConversionUnidadPort conversion, ApartadosRequisicionService apartados,
-        IArticuloReadPort? articulos = null, IVarianteVidrioReadPort? variantes = null)
+        IArticuloReadPort? articulos = null, IVarianteVidrioReadPort? variantes = null,
+        Millet.Contabilidad.Application.PublicPorts.IDimensionesSalidaInventarioPort? dimensiones = null)
     {
         _articulos = articulos;
         _variantes = variantes;
+        _dimensiones = dimensiones;
         _db = db;
         _events = events;
         _currentUser = currentUser;
@@ -195,6 +199,8 @@ public sealed class RegistrarSalidaPorValeHandler
         if (string.IsNullOrWhiteSpace(request.MotivoUrgencia))
             throw new BusinessRuleException("VALE_SIN_MOTIVO", "Indica el motivo de la urgencia para confirmar el vale.");
         SalidaAcuse.Exigir(request.PersonaDestinatariaId, request.AcuseRecibeNombre);
+        await Salidas.ExigenciaCentroSalida.VerificarAsync(_dimensiones, empresaId, sucursalId, request.FechaMovimiento,
+            [.. request.Lineas.Select(l => l.CentroCostoId)], "del vale no trae centro de costo: captura el equipo o el área", cancellationToken);
 
         var movimientoId = Guid.CreateVersion7();
         var movimiento = new MovimientoInventario(

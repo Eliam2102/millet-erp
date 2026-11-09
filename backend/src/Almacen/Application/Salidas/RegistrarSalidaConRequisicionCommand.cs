@@ -118,6 +118,9 @@ public sealed class RegistrarSalidaConRequisicionHandler
     private readonly IArticuloReadPort? _articulos;
     private readonly IVarianteVidrioReadPort? _variantes;
 
+    // M-450: si la cuenta de consumo exige área o equipo, la línea sin centro (de la RQ) no sale. Opcional solo para pruebas.
+    private readonly Millet.Contabilidad.Application.PublicPorts.IDimensionesSalidaInventarioPort? _dimensiones;
+
     public RegistrarSalidaConRequisicionHandler(
         AlmacenDbContext db,
         IComprasRequisicionReadPort rqPort,
@@ -126,10 +129,12 @@ public sealed class RegistrarSalidaConRequisicionHandler
         ICurrentEmpresaContext currentEmpresa,
         IDecimalesUnidadGuard decimalesGuard,
         IPeriodoContableReadPort periodoContable, IConversionUnidadPort conversion, ApartadosRequisicionService apartados,
-        IArticuloReadPort? articulos = null, IVarianteVidrioReadPort? variantes = null)
+        IArticuloReadPort? articulos = null, IVarianteVidrioReadPort? variantes = null,
+        Millet.Contabilidad.Application.PublicPorts.IDimensionesSalidaInventarioPort? dimensiones = null)
     {
         _articulos = articulos;
         _variantes = variantes;
+        _dimensiones = dimensiones;
         _db = db;
         _rqPort = rqPort;
         _events = events;
@@ -258,6 +263,9 @@ public sealed class RegistrarSalidaConRequisicionHandler
             request.Lineas.Select((l, i) => new CantidadAValidar(l.ArticuloId, conversiones[i].CantidadBase, Derivada: variantes[i] is not null)),
             cancellationToken);
         SalidaAcuse.Exigir(request.PersonaDestinatariaId, request.AcuseRecibeNombre);
+        await ExigenciaCentroSalida.VerificarAsync(_dimensiones, empresaId, sucursalId, request.FechaMovimiento,
+            [.. request.Lineas.Select(l => ResolverCentroCostoHeredado(rq, l.LineaRqId, l.ArticuloId))],
+            "de la requisición no trae centro de costo: corrígela en la requisición", cancellationToken);
 
         var movimiento = new MovimientoInventario(
             id: movimientoId,
