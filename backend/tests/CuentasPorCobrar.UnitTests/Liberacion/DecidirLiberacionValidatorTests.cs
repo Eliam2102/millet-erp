@@ -42,6 +42,17 @@ public sealed class DecidirLiberacionValidatorTests
     }
 
     [Fact]
+    public async Task Valida_tambien_un_pedido_que_A_W_aun_no_pasa_a_40()
+    {
+        // Caso de la prueba: 55000101 en estatus A+W 10 (el puerto lo lista sin comprometer crédito, M2).
+        var pedidos = new PedidosSinFacturarFalso().Agregar(ClienteId, "55000101", 5_800m, comprometeCredito: false);
+
+        var r = await Validador(pedidos).ValidateAsync(Comando(monto: 10_000m));
+
+        r.Errors.Should().ContainSingle(e => e.ErrorCode == DecidirLiberacionValidator.CodigoMontoDistinto);
+    }
+
+    [Fact]
     public async Task Rechaza_una_moneda_distinta_a_la_del_pedido()
     {
         var pedidos = new PedidosSinFacturarFalso().Agregar(ClienteId, "55000101", 5_800m, moneda: "USD");
