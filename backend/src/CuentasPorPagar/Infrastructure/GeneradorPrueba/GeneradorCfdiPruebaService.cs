@@ -155,7 +155,7 @@ public sealed class GeneradorCfdiPruebaService : IGeneradorCfdiPruebaService
 
         comprobante.Add(
             new XAttribute("Moneda", moneda),
-            tipoCambio.HasValue ? new XAttribute("TipoCambio", tipoCambio.Value.ToString("0.####", CultureInfo.InvariantCulture)) : null,
+            tipoCambio.HasValue ? new XAttribute("TipoCambio", tipoCambio.Value.ToString("0.######", CultureInfo.InvariantCulture)) : null,
             new XAttribute("Total", total.ToString("F2", CultureInfo.InvariantCulture)),
             new XAttribute("TipoDeComprobante", tipoDeComprobante),
             new XAttribute("Exportacion", exportacion),

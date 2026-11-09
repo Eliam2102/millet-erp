@@ -163,6 +163,10 @@ public static class DependencyInjection
         services.AddScoped<Application.Integration.Mappers.PasivoAutorizadoParaPagoMapper>();
         services.AddScoped<Application.Integration.Mappers.FacturaPagoAplicadoMapper>();
         services.AddScoped<Application.NotaCargo.FormalizacionNotaCargoService>();
+
+        // Generador de CFDI sintético de prueba para entornos no productivos
+        services.AddScoped<GeneradorPrueba.IGeneradorCfdiPruebaService, GeneradorPrueba.GeneradorCfdiPruebaService>();
+
         return services;
     }
 }
