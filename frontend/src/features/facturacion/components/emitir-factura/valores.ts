@@ -114,13 +114,15 @@ export function valoresIniciales(
           tasaRetencionIva: l.tasaRetencionIva ?? null,
           tasaRetencionIsr: l.tasaRetencionIsr ?? null,
           requierePedimento: l.requierePedimento,
-          fraccionArancelaria: null,
-          unidadAduana: null,
+          // B12: la línea del pedido hereda la fracción y la unidad aduana del artículo
+          // (como al elegirlo a mano en Partidas); siguen editables.
+          fraccionArancelaria: l.fraccionArancelaria ?? null,
+          unidadAduana: l.unidadAduana ?? null,
           cantidadAduana: null,
           valorUnitarioAduana: null,
           valorDolares: null,
           aplicaIva0: false,
-          pesoUnitarioKg: null,
+          pesoUnitarioKg: l.pesoUnitarioKg ?? null,
         }))
       : base.lineas;
   return {

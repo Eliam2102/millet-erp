@@ -886,6 +886,10 @@ export interface PedidoFacturableLineaDetalle {
   tasaIvaTraslado: number | null;
   tasaRetencionIva: number | null;
   tasaRetencionIsr: number | null;
+  /** B12: datos de aduana y peso del artículo (master) para la factura de exportación. */
+  fraccionArancelaria?: string | null;
+  unidadAduana?: string | null;
+  pesoUnitarioKg?: number | null;
 }
 
 /**
