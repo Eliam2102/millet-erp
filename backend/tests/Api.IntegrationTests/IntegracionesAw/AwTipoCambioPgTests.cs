@@ -46,7 +46,11 @@ public class AwTipoCambioPgTests(WebApplicationFactory<Program> factory)
 
     private AwTipoCambioAdapter Adapter() => new(
         new AwOrigenPg.Fabrica(_cs),
-        Options.Create(new AwPedidosOptions { SqlConnectTimeoutSeconds = 5, SqlQueryTimeoutSeconds = 15 }),
+        Options.Create(new AwPedidosOptions
+        {
+            SqlConnectTimeoutSeconds = 5, SqlQueryTimeoutSeconds = 15,
+            MapeoMonedaAw = new(StringComparer.OrdinalIgnoreCase) { ["MXN"] = "PESOSMX", ["USD"] = "USD", ["EUR"] = "Euro", ["CAD"] = "CAN" },
+        }),
         AwTipoCambioAdapter.CandadoPostgres);
 
     private async Task EjecutarAsync(string sql, params (string, object?)[] ps)
