@@ -295,6 +295,17 @@ export interface CuentaSaldoResponse {
   version: number;
 }
 
+/** M-204 · solicitud de reclasificación abierta, a la espera de la segunda firma. */
+export interface ReclasificacionPendienteDto {
+  id: string;
+  conceptoAnteriorId: string | null;
+  conceptoNuevoId: string;
+  conceptoNuevoNombre: string | null;
+  motivo: string;
+  solicitadoPor: string;
+  solicitadoEn: string;
+}
+
 /** Mirror de `MovimientoBancarioResponse`. */
 export interface MovimientoBancarioResponse {
   id: string;
@@ -324,6 +335,7 @@ export interface MovimientoBancarioResponse {
   fondosVerificados?: boolean | null;
   /** 86e3tfdve: cuenta ordenante del cliente (enmascarada salvo permiso PII). */
   cuentaOrdenante?: string | null;
+  reclasificacionPendiente?: ReclasificacionPendienteDto | null;
   creadoPor: string;
   creadoEn: string;
   version: number;
