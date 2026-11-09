@@ -65,6 +65,8 @@ public sealed class FlujoEfectivoReporteHandler(TesoreriaDbContext db, IClock cl
             foreach (var grupo in periodo.GroupBy(a => a.ConceptoId).OrderBy(g => g.Key))
             {
                 var concepto = grupo.Key is Guid id ? conceptos.GetValueOrDefault(id) : null;
+                // M-203: el traspaso entre cuentas propias no es ingreso ni egreso; solo mueve el saldo de cada cuenta (abajo, en `neto`).
+                if (concepto?.ClasificacionFlujo == ClasificacionFlujo.TraspasoInterno) continue;
                 var clasificacion = concepto?.ClasificacionFlujo switch
                 {
                     ClasificacionFlujo.Operacion => "Operación", ClasificacionFlujo.Inversion => "Inversión",

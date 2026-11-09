@@ -33,6 +33,8 @@ public sealed class ReclasificarMovimientoHandler(TesoreriaDbContext db, ICurren
             throw new ConcurrencyException(nameof(movimiento), movimiento.Id);
         if (!await db.ConceptosMovimiento.AnyAsync(c => c.Id == command.ConceptoId && c.Activo, cancellationToken))
             throw new BusinessRuleException("MOV_CONCEPTO_INVALIDO", "Selecciona un concepto activo.");
+        if (movimiento.TraspasoId is not null || command.ConceptoId == Domain.Cuentas.ConceptoMovimiento.TraspasoId)
+            throw new BusinessRuleException("MOV_RECLASIFICAR_TRASPASO", "Un traspaso entre cuentas propias no se reclasifica; usa Nuevo traspaso o revierte el traspaso.");
         if (await db.MovimientoReclasificaciones.AnyAsync(
                 r => r.MovimientoId == movimiento.Id && r.Estado == EstadoReclasificacion.Pendiente, cancellationToken))
             throw new BusinessRuleException("MOV_RECLASIFICACION_PENDIENTE", "El movimiento ya tiene una reclasificación pendiente de autorizar.");

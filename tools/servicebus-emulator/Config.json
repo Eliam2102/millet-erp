@@ -469,6 +469,29 @@
                   "RequiresSession": false
                 },
                 "Rules": []
+              },
+              {
+                "Name": "producto-terminado-facturacion-sub",
+                "Properties": {
+                  "DeadLetteringOnMessageExpiration": false,
+                  "DefaultMessageTimeToLive": "PT1H",
+                  "LockDuration": "PT1M",
+                  "MaxDeliveryCount": 10,
+                  "ForwardDeadLetteredMessagesTo": "",
+                  "ForwardTo": "",
+                  "RequiresSession": false
+                },
+                "Rules": [
+                  {
+                    "Name": "EventTypeFilter",
+                    "Properties": {
+                      "FilterType": "Sql",
+                      "SqlFilter": {
+                        "SqlExpression": "user.EventType IN ('facturacion.factura-venta.timbrada.v1', 'facturacion.cobro-mostrador.registrado.v1')"
+                      }
+                    }
+                  }
+                ]
               }
             ]
           },
@@ -498,6 +521,29 @@
                       "FilterType": "Sql",
                       "SqlFilter": {
                         "SqlExpression": "user.EventType IN ('cuentas_por_cobrar.propuesta-aplicacion.creada.v1')"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "Name": "producto-terminado-cxc-sub",
+                "Properties": {
+                  "DeadLetteringOnMessageExpiration": false,
+                  "DefaultMessageTimeToLive": "PT1H",
+                  "LockDuration": "PT1M",
+                  "MaxDeliveryCount": 10,
+                  "ForwardDeadLetteredMessagesTo": "",
+                  "ForwardTo": "",
+                  "RequiresSession": false
+                },
+                "Rules": [
+                  {
+                    "Name": "EventTypeFilter",
+                    "Properties": {
+                      "FilterType": "Sql",
+                      "SqlFilter": {
+                        "SqlExpression": "user.EventType IN ('cuentas_por_cobrar.decision-liberacion.emitida.v1')"
                       }
                     }
                   }
@@ -692,6 +738,85 @@
                       "FilterType": "Sql",
                       "SqlFilter": {
                         "SqlExpression": "user.EventType IN ('comercio_exterior.anticipo-agente.saldo-transferido.v1', 'comercio_exterior.anticipo-agente.solicitado.v1', 'comercio_exterior.anticipo-agente.gastos-aplicados.v1')"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Name": "producto-terminado-events",
+            "Properties": {
+              "DefaultMessageTimeToLive": "PT1H",
+              "DuplicateDetectionHistoryTimeWindow": "PT20S",
+              "RequiresDuplicateDetection": false
+            },
+            "Subscriptions": [
+              {
+                "Name": "cuentas-por-cobrar-pt-sub",
+                "Properties": {
+                  "DeadLetteringOnMessageExpiration": false,
+                  "DefaultMessageTimeToLive": "PT1H",
+                  "LockDuration": "PT1M",
+                  "MaxDeliveryCount": 10,
+                  "ForwardDeadLetteredMessagesTo": "",
+                  "ForwardTo": "",
+                  "RequiresSession": false
+                },
+                "Rules": [
+                  {
+                    "Name": "EventTypeFilter",
+                    "Properties": {
+                      "FilterType": "Sql",
+                      "SqlFilter": {
+                        "SqlExpression": "user.EventType IN ('producto_terminado.pedido.estado-cambiado.v1', 'producto_terminado.contra-entrega.no-liquidada.v1')"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "Name": "integraciones-aw-pt-sub",
+                "Properties": {
+                  "DeadLetteringOnMessageExpiration": false,
+                  "DefaultMessageTimeToLive": "PT1H",
+                  "LockDuration": "PT1M",
+                  "MaxDeliveryCount": 10,
+                  "ForwardDeadLetteredMessagesTo": "",
+                  "ForwardTo": "",
+                  "RequiresSession": false
+                },
+                "Rules": [
+                  {
+                    "Name": "EventTypeFilter",
+                    "Properties": {
+                      "FilterType": "Sql",
+                      "SqlFilter": {
+                        "SqlExpression": "user.EventType IN ('producto_terminado.pedido.estado-cambiado.v1', 'producto_terminado.pedido.facturado-entregado.v1')"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "Name": "contabilidad-producto-terminado-sub",
+                "Properties": {
+                  "DeadLetteringOnMessageExpiration": false,
+                  "DefaultMessageTimeToLive": "PT1H",
+                  "LockDuration": "PT1M",
+                  "MaxDeliveryCount": 10,
+                  "ForwardDeadLetteredMessagesTo": "",
+                  "ForwardTo": "",
+                  "RequiresSession": false
+                },
+                "Rules": [
+                  {
+                    "Name": "EventTypeFilter",
+                    "Properties": {
+                      "FilterType": "Sql",
+                      "SqlFilter": {
+                        "SqlExpression": "user.EventType IN ('producto_terminado.entrega.confirmada.v1')"
                       }
                     }
                   }

@@ -28,10 +28,10 @@ La tabla reside en `MILLET_INTEGRACION` (producción) y `MILLET_INTEGRACION_DEV`
 
 | Columna | Tipo SQL Server | Tipo PostgreSQL Demo | Nulo | Propietario | Descripción |
 |---|---|---|---|---|---|
-| `moneda` | `nchar(3)` | `varchar(3)` | NO | ERP | Código ISO 4217: `USD`, `EUR` o `CAD`. |
+| `moneda` | `nvarchar(8)` | `varchar(8)` | NO | ERP | Valor propio de A+W (`KA_WAEHRUNGEN.WAEHRUNG`): `USD`, `Euro` o `CAN`. No es ISO ni `FREMD_KEY`. El ERP traduce desde ISO con `IntegracionesAw:MapeoMonedaAw` (`USD`→`USD`, `EUR`→`Euro`, `CAD`→`CAN`), el mismo mapa de `aw_retorno`. |
 | `fecha_aplicacion` | `date` | `date` | NO | ERP | Día en que rige el tipo de cambio según la escalera K10.6 (incluye inhábiles). |
 | `version` | `int` | `integer` | NO | ERP | Versión de la paridad para esa moneda y fecha (comienza en 1; se incrementa si hay corrección). |
-| `valor` | `decimal(18, 6)` | `numeric(18, 6)` | NO | ERP | Pesos mexicanos (MXN) por unidad de moneda extranjera (4 decimales efectivos, `valor > 0`). |
+| `valor` | `decimal(18, 6)` | `numeric(18, 6)` | NO | ERP | Pesos mexicanos (MXN) por unidad de moneda extranjera (4 decimales efectivos, `valor > 0`). **No es lo que guarda A+W:** `VALUTAKURS` es el inverso (ver §4.2). |
 | `fecha_fix` | `date` | `date` | SÍ | ERP | Fecha del tipo de cambio FIX de Banxico que originó la paridad (NULL si fue captura manual). |
 | `origen` | `nvarchar(10)` | `varchar(10)` | NO | ERP | Origen del valor: `'Banxico'` o `'Manual'`. |
 | `creada_at` | `datetimeoffset(3)` | `timestamptz` | NO | ERP | Timestamp UTC de inserción en la tabla puente (`DEFAULT SYSDATETIMEOFFSET()` / `now()`). |
@@ -44,7 +44,7 @@ La tabla reside en `MILLET_INTEGRACION` (producción) y `MILLET_INTEGRACION_DEV`
 
 - **Llave Primaria:** `PRIMARY KEY (moneda, fecha_aplicacion, version)`.
 - **Restricciones de Integridad:**
-  - `moneda IN ('USD', 'EUR', 'CAD')`
+  - `moneda IN ('USD', 'Euro', 'CAN')`
   - `version > 0`
   - `valor > 0`
   - `origen IN ('Banxico', 'Manual')`
@@ -74,7 +74,7 @@ La tabla reside en `MILLET_INTEGRACION` (producción) y `MILLET_INTEGRACION_DEV`
 El servicio publicador del ERP (`AwTipoCambioWorker`) opera en ciclos periódicos (cada 60 minutos):
 
 - Consulta en `compartido.tipos_cambio` el rango desde `hoy - 7 días` hasta la última fecha conocida con paridad.
-- Para cada moneda (`USD`, `EUR`, `CAD`) y fecha:
+- Para cada moneda (`USD`, `EUR`, `CAD` en el ERP; se guardan como `USD`, `Euro`, `CAN`) y fecha:
   - Consulta la fila existente en `dbo.erp_tipo_cambio` con mayor `version`.
   - **Si no existe registro:** Inserta una nueva fila con `version = 1`.
   - **Si existe registro con el mismo `valor`:** No realiza acción alguna (no-op idempotente).
@@ -91,7 +91,7 @@ Se sugiere programar la tarea de TI para correr a las **00:05 hrs** de cada día
 
 ### 4.2 Algoritmo de Aplicación
 
-Para cada una de las monedas (`USD`, `EUR`, `CAD`):
+Para cada una de las monedas (`USD`, `Euro`, `CAN`):
 
 1. **Seleccionar fila a aplicar:**  
    Obtener de `dbo.erp_tipo_cambio` la fila cuya `fecha_aplicacion` sea igual a la fecha del día en curso (hora centro de México) con la versión máxima (`MAX(version)`) donde:
@@ -99,10 +99,10 @@ Para cada una de las monedas (`USD`, `EUR`, `CAD`):
 2. **Si no existe fila para hoy:**  
    **No realizar modificaciones en A+W.** A+W conservará el factor de tipo de cambio vigente del día anterior.
 3. **Mapeo de moneda a A+W:**  
-   Localizar la moneda en `SYSADM.KA_WAEHRUNGEN` utilizando el código ISO (`FREMD_KEY = @moneda`) o su clave directa (`WAEHRUNG`).
+   Localizar la moneda en `SYSADM.KA_WAEHRUNGEN` con `WAEHRUNG = @moneda`, donde `@moneda` es el valor de la columna `moneda` tal cual (`USD`, `Euro`, `CAN`). `FREMD_KEY` trae el ISO (CAD/EUR/MXN/USD) pero la llave es `WAEHRUNG` (colación `Latin1_General_CS_AS`: `Euro` y `CAN` deben coincidir exactamente). Hay un solo valor vigente por moneda: `VALUTAKURS` y `VALUTADATUM`.
 4. **Actualización en A+W:**  
    Actualizar el factor de cambio y la fecha:
-   - `SYSADM.KA_WAEHRUNGEN.VALUTAKURS = @valor`
+   - `SYSADM.KA_WAEHRUNGEN.VALUTAKURS = 1.0 / valor`. A+W guarda unidades de moneda extranjera por 1 MXN (medido 2026-11-09: EUR 0.04804228 ⇒ 20.81 MXN/EUR; USD 0.05343393 ⇒ 18.71 MXN/USD; MXN = 1). Calcular con `decimal` de precisión >= 8 y redondear half-up a 8 decimales (el ERP compara con ese mismo redondeo, `AwTipoCambioAdapter.ValutakursDe`).
    - `SYSADM.KA_WAEHRUNGEN.VALUTADATUM = @fecha_aplicacion`
 5. **Escribir Acuse:**
    - **Éxito:**  
@@ -123,7 +123,7 @@ El ERP cuenta con tres mecanismos de alerta integrados en `AwTipoCambioWorker`:
 2. **Alerta 2 · A+W no aplicó el TC de hoy (I13.2-e):**  
    Si a las 09:00 hrs la fila correspondiente a la fecha de hoy continúa con `resultado IS NULL` o acumula `intentos >= 3` con `resultado = 2`, se notifica al equipo de soporte de TI.
 3. **Alerta 3 · Desfase ERP vs A+W (Control de CA13.9):**  
-   El ERP lee periódicamente el valor vigente en `SYSADM.KA_WAEHRUNGEN` (permiso de `SELECT` ya otorgado al login `millet_erp_integracion`). Si el factor vigente en A+W no coincide con el valor publicado para hoy después de la hora límite, se emite una alerta de discrepancia cambiaria.
+   El ERP lee periódicamente el valor vigente en `SYSADM.KA_WAEHRUNGEN` (cruce por `WAEHRUNG`) (permiso de `SELECT` ya otorgado al login `millet_erp_integracion`). Si el factor vigente en A+W no coincide con el valor publicado para hoy (invertido y redondeado a 8 decimales, §4.2) después de la hora límite, se emite una alerta de discrepancia cambiaria.
 
 > **Control de Frecuencia:** Cada alerta cuenta con un control de supresión para emitirse como máximo una sola vez por día calendario.
 

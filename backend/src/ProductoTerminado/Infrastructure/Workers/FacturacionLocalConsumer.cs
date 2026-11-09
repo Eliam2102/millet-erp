@@ -10,7 +10,7 @@ namespace Millet.ProductoTerminado.Infrastructure.Workers;
 
 /// <summary>
 /// PT5.6. Escucha <c>facturacion.factura-venta.timbrada.v1</c> (si el pedido ya está entregado pasa a 115) y <c>facturacion.cobro-mostrador.registrado.v1</c> (concilia el voucher que el chofer cobró en la entrega).
-/// PLATFORM-TODO(&lt;TopicProductoTerminado&gt;): solo entrega local (C1.8); con Service Bus falta la suscripción de PT a <c>facturacion-events</c>, igual que la de CxC (§9 del diseño).
+/// Con Service Bus lo consume <c>producto-terminado-facturacion-sub</c> en <c>facturacion-events</c> (M-046).
 /// </summary>
 public sealed class FacturacionLocalConsumer(IServiceScopeFactory scopes, ILogger<FacturacionLocalConsumer> logger) : ILocalIntegrationEventConsumer
 {
