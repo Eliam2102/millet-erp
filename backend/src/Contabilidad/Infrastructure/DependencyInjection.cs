@@ -26,6 +26,8 @@ public static class DependencyInjection
         services.AddSingleton<IValidateOptions<CatalogoOpciones>, CatalogoOpcionesValidator>();
         services.AddSingleton(sp => new FormatoCatalogo(sp.GetRequiredService<IOptions<CatalogoOpciones>>().Value));
         services.AddScoped<Millet.Contabilidad.Application.Catalogo.SolicitudesCatalogo>();
+        // M-166: validación contable de la balanza de apertura (la usan la vista previa del lote y su aplicación).
+        services.AddScoped<Millet.Contabilidad.Application.SaldosIniciales.ValidadorBalanzaApertura>();
         services.AddScoped<ICuentaContableReadPort, CuentaContableReadAdapter>();
         services.AddScoped<ISaldosContablesReadPort, SaldosContablesReadAdapter>();
         // CXC-06: pólizas de cobro para la conciliación de cartera de CxC.
