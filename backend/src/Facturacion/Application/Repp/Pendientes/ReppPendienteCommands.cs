@@ -99,7 +99,45 @@ public sealed class EmitirReppPendienteHandler(FacturacionDbContext db, ReppPend
 {
     private readonly ICuentaBancariaMilletReadPort _cuentasMillet = cuentasMillet;
 
+    /// <summary>
+    /// M-173: el REP confirma su transacción antes de llamar al PAC (durable ante una caída), lo que
+    /// libera el bloqueo de la fila del pendiente. Para que dos emisiones del mismo pendiente sigan
+    /// esperándose de punta a punta (la segunda ve el resultado de la primera), se toma un candado
+    /// consultivo de sesión por pendiente que no se suelta al confirmar.
+    /// </summary>
     public async Task<EmitirReppPendienteResultado> Handle(EmitirReppPendienteCommand c, CancellationToken cancellationToken)
+    {
+        if (!db.Database.IsRelational())
+            return await EmitirAsync(c, cancellationToken);
+        var llave = c.Id.ToString();
+        await db.Database.OpenConnectionAsync(cancellationToken);
+        try
+        {
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_lock(hashtextextended({llave}, 0))", cancellationToken);
+            try
+            {
+                return await EmitirAsync(c, cancellationToken);
+            }
+            finally
+            {
+                try
+                {
+                    await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_unlock(hashtextextended({llave}, 0))", CancellationToken.None);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // Al devolverse la conexión al pool, Npgsql reinicia la sesión y libera el candado.
+                    logger?.LogWarning(ex, "No se pudo liberar el candado del pendiente REP {PendienteId}.", c.Id);
+                }
+            }
+        }
+        finally
+        {
+            await db.Database.CloseConnectionAsync();
+        }
+    }
+
+    private async Task<EmitirReppPendienteResultado> EmitirAsync(EmitirReppPendienteCommand c, CancellationToken cancellationToken)
     {
         await using var tx = db.Database.IsRelational() ? await db.Database.BeginTransactionAsync(cancellationToken) : null;
         var p = await servicio.ObtenerAsync(c.Id, true, cancellationToken);
