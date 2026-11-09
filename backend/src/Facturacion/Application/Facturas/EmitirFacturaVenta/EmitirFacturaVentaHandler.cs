@@ -7,6 +7,7 @@ using Millet.Administracion.Domain;
 using Millet.Facturacion.Application.Anticipos;
 using Millet.Facturacion.Application.Integration;
 using Millet.Facturacion.Application.NotasCredito;
+using Millet.Facturacion.Application.Pedidos;
 using Millet.Facturacion.Application.Sustituciones;
 using Millet.Facturacion.Application.Timbrado;
 using Millet.Facturacion.Domain.Activos;
@@ -423,6 +424,9 @@ public sealed class EmitirFacturaVentaHandler
         // descartar), nunca emitiendo una segunda factura del mismo pedido.
         // FAC-08: una factura de salida no toma el pedido: queda Importado para las demás
         // salidas y la salida queda tomada por esta factura (ligada en SalidaFacturableId).
+        // M8: la que completa el 100 % (todas las salidas con factura timbrada) sí lo marca Facturado.
+        if (pedido is not null && salida is not null)
+            await PedidoPorParcialidades.TomarPedidoSiCompletoAsync(_db, factura, pedido, cancellationToken);
         if (pedido is not null && salida is null)
         {
             pedido.MarcarFacturado(factura.Id);

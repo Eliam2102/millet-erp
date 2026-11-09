@@ -94,6 +94,9 @@ public sealed class AplicarPedimentoHandler : IRequestHandler<AplicarPedimentoCo
                     : null),
                 cancellationToken);
 
+        // M8: la factura de la parcialidad que completa el 100 % marca el pedido Facturado.
+        await Pedidos.PedidoPorParcialidades.TomarPedidoSiCompletoAsync(_db, factura, pedido: null, cancellationToken);
+
         // RANURA-PR2: la factura retenida por pedimento no alcanzó a emitir
         // la NC de la ranura en la emisión — se emite aquí al quedar Timbrada.
         await NcRanuraEmisor.EmitirSiAplicaAsync(
