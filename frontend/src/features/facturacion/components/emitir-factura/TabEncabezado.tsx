@@ -205,6 +205,11 @@ export function TabEncabezado({
               onChange: (e: React.ChangeEvent<HTMLSelectElement>) => {
                 const metodo = e.target.value;
                 const forma = form.getValues('formaPago');
+                // M12: «CONTADO» (p. ej. del pedido de A+W) contradice PPD; vacío, el
+                // servidor pone el plazo de la línea de crédito del cliente.
+                if (metodo === 'PPD' && (form.getValues('condicionesPago') ?? '').trim().toUpperCase() === 'CONTADO') {
+                  form.setValue('condicionesPago', null, { shouldDirty: true });
+                }
                 if (metodo === 'PPD' && forma !== '99') {
                   form.setValue('formaPago', '99', { shouldValidate: true });
                 } else if (metodo === 'PUE' && forma === '99') {

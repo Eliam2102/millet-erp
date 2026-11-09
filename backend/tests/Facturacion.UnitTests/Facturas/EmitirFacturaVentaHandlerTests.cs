@@ -137,6 +137,38 @@ public sealed class EmitirFacturaVentaHandlerTests
         Assert.Equal(0, credito.Consultas);
     }
 
+    [Theory]
+    [InlineData(null, "CONTADO")]      // FA-000004: el pedido de A+W dice CONTADO y la factura es PPD
+    [InlineData(" contado ", null)]    // capturado a mano en el formulario
+    public async Task M12_PPD_con_CONTADO_toma_el_plazo_de_la_linea_de_credito(string? capturadas, string? delPedido)
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var command = Command();
+        var pedido = PedidoFacturable.ImportarDesdeAw(empresa, "DEMO-M12", command.SucursalId,
+            Guid.NewGuid(), "Cliente ficticio DEMO", 1, command.ComportamientoFiscal, "MXN", null, null,
+            null, 1, "15", condicionPagoOrigen: delPedido);
+        db.PedidosFacturables.Add(pedido);
+        await db.SaveChangesAsync();
+        var credito = new PlazosCredito((pedido.ClienteId, "MXN", 15));
+        await Handler(db, empresa, plazoCredito: credito).Handle(command with {
+            PedidoFacturableId = pedido.Id, MetodoPago = "PPD", FormaPago = "99", CondicionesPago = capturadas
+        }, CancellationToken.None);
+        Assert.Equal("15 DIAS", (await db.FacturasVenta.SingleAsync()).CondicionesPago);
+        Assert.Equal(1, credito.Consultas);
+    }
+
+    [Fact]
+    public async Task M12_PPD_con_CONTADO_y_sin_linea_de_credito_queda_sin_condiciones()
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        await Handler(db, empresa, plazoCredito: new PlazosCredito()).Handle(Command() with {
+            ClienteId = Guid.NewGuid(), MetodoPago = "PPD", FormaPago = "99", CondicionesPago = "CONTADO"
+        }, CancellationToken.None);
+        Assert.Null((await db.FacturasVenta.SingleAsync()).CondicionesPago);
+    }
+
     [Fact]
     public async Task Condiciones_usan_la_linea_de_la_moneda_de_la_factura()
     {
