@@ -256,7 +256,15 @@ export function HojasSalidaPage() {
                   <TableCell className="font-mono text-xs">{a.folio}</TableCell>
                   <TableCell>{a.numeroPedido}</TableCell>
                   <TableCell>{a.cliente}</TableCell>
-                  <TableCell>{a.destino ?? 'Sin obra'}</TableCell>
+                  <TableCell>
+                    {/* Prueba manual S3-4 (M14): sin obra en el pedido (dato de A+W), el albarán muestra el destino de la ruta. */}
+                    {a.destino ?? (
+                      <>
+                        {detalle.data.destino}
+                        <p className="text-xs text-ink-muted">Destino de la hoja: el pedido no trae obra</p>
+                      </>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <ul>
                       {a.lineas.map((l) => (

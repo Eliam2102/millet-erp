@@ -84,6 +84,16 @@ describe('HojasSalidaPage', () => {
     expect(imprimir).toHaveBeenCalled();
   });
 
+  it('sin obra en el pedido, el albarán muestra el destino de la hoja (M14)', () => {
+    state.lista.mockReturnValue({ data: { items: [hoja('Emitida')], total: 1 }, isLoading: false, isError: false, refetch: vi.fn() });
+    state.detalle.mockReturnValue({ data: { ...detalle, albaranes: [{ ...detalle.albaranes[0], destino: null }] } });
+    render(<HojasSalidaPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Ver albaranes' }));
+    const nota = screen.getByText('Destino de la hoja: el pedido no trae obra');
+    expect(nota.closest('td')).toHaveTextContent('Obra Mérida norte');
+    expect(screen.queryByText('Sin obra')).toBeNull();
+  });
+
   it('arma la hoja con las etiquetas cargadas por pedido; la foránea pide los datos de la Carta Porte', async () => {
     state.lista.mockReturnValue({ data: { items: [], total: 0 }, isLoading: false, isError: false, refetch: vi.fn() });
     render(<HojasSalidaPage />);
