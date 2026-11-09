@@ -56,8 +56,8 @@ const OPCIONES_ESTADO = [
 
 /**
  * <c>Bandeja de líneas de crédito</c> (CXC-FE-PR2, P1 §6.6). Tabla con
- * filtros server-side (estado / moneda) + búsqueda client-side por
- * razón social / RFC / clave del cliente (lookup CxC por ids). "Ver"
+ * filtros server-side (estado / moneda / texto del cliente: razón social,
+ * RFC o clave); el lookup CxC por ids solo resuelve nombres de la página. "Ver"
  * navega al master-detail; "Nueva línea" abre el Sheet (P4).
  */
 export function BandejaLineasCredito() {
@@ -70,6 +70,7 @@ export function BandejaLineasCredito() {
     estado: search.estado,
     moneda: search.moneda,
     clienteId: search.clienteId,
+    q: search.q,
     limit: search.limit ?? 10,
     offset: search.offset ?? 0,
   });
@@ -92,16 +93,9 @@ export function BandejaLineasCredito() {
     navigate({ to: '/cxc/lineas-credito', search: { ...search, offset: 0, ...parcial } });
   }
 
-  const q = (search.q ?? '').trim().toLowerCase();
-  const items = (query.data?.items ?? []).filter((l) => {
-    if (q.length === 0) return true;
-    const cliente = nombres.get(l.clienteId);
-    return (
-      (cliente?.razonSocial ?? '').toLowerCase().includes(q) ||
-      (cliente?.rfc ?? '').toLowerCase().includes(q) ||
-      l.clienteId.toLowerCase().includes(q)
-    );
-  });
+  // M1: el texto se filtra en el servidor (total y paginación incluidos).
+  const q = (search.q ?? '').trim();
+  const items = query.data?.items ?? [];
 
   return (
     <div className="flex min-h-0 flex-col gap-5">
@@ -135,8 +129,8 @@ export function BandejaLineasCredito() {
           <BarraFiltros
             busqueda={
               <Input
-                aria-label="Buscar en los registros recibidos"
-                placeholder="Buscar en los registros recibidos"
+                aria-label="Buscar cliente por razón social, RFC o clave"
+                placeholder="Buscar cliente por razón social, RFC o clave"
                 value={search.q ?? ''}
                 onChange={(e) => actualizarSearch({ q: e.target.value || undefined })}
               />

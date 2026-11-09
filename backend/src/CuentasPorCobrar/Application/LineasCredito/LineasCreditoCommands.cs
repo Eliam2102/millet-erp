@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.CuentasPorCobrar.Application.Common;
 using Millet.CuentasPorCobrar.Domain.LineaCredito;
+using Millet.CuentasPorCobrar.Domain.Ports.DatosMaestros;
 using Millet.CuentasPorCobrar.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
@@ -233,12 +234,25 @@ public sealed record ListarLineasCreditoQuery(
     EstadoLineaCredito? Estado = null,
     string? Moneda = null,
     int Offset = 0,
-    int Limit = 50) : IRequest<PagedResponse<LineaCreditoResponse>>;
+    int Limit = 50,
+    // M1: búsqueda de texto del cliente (razón social, RFC o clave, por
+    // palabras y sin acentos) en el servidor, para que el total y la
+    // paginación reflejen lo filtrado.
+    string? Q = null) : IRequest<PagedResponse<LineaCreditoResponse>>;
 
 public sealed class ListarLineasCreditoHandler : IRequestHandler<ListarLineasCreditoQuery, PagedResponse<LineaCreditoResponse>>
 {
+    // Tope de clientes candidatos para el texto; holgado frente al catálogo.
+    internal const int MaxClientesBusqueda = 5000;
+
     private readonly CuentasPorCobrarDbContext _db;
-    public ListarLineasCreditoHandler(CuentasPorCobrarDbContext db) { _db = db; }
+    private readonly IClienteReadPort _clientes;
+
+    public ListarLineasCreditoHandler(CuentasPorCobrarDbContext db, IClienteReadPort clientes)
+    {
+        _db = db;
+        _clientes = clientes;
+    }
 
     public async Task<PagedResponse<LineaCreditoResponse>> Handle(
         ListarLineasCreditoQuery query, CancellationToken cancellationToken)
@@ -250,6 +264,15 @@ public sealed class ListarLineasCreditoHandler : IRequestHandler<ListarLineasCre
         if (query.ClienteId is Guid cliente) q = q.Where(l => l.ClienteId == cliente);
         if (query.Estado is EstadoLineaCredito e) q = q.Where(l => l.Estado == e);
         if (!string.IsNullOrWhiteSpace(query.Moneda)) q = q.Where(l => l.Moneda == query.Moneda);
+
+        if (!string.IsNullOrWhiteSpace(query.Q))
+        {
+            var texto = query.Q.Trim();
+            var candidatos = await _clientes.BuscarPorPalabrasAsync(texto, MaxClientesBusqueda, cancellationToken);
+            var ids = candidatos.Select(c => c.Id).ToHashSet();
+            if (Guid.TryParse(texto, out var idExacto)) ids.Add(idExacto);
+            q = q.Where(l => ids.Contains(l.ClienteId));
+        }
 
         var total = await q.CountAsync(cancellationToken);
         var items = await q
