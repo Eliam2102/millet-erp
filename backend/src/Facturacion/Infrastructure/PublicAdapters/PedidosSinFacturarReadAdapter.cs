@@ -43,7 +43,8 @@ public sealed class PedidosSinFacturarReadAdapter(FacturacionDbContext db, ICurr
                 Lineas = p.Lineas.Select(l => new { l.Importe, l.TasaIva }).ToList(),
             })
             .ToListAsync(cancellationToken);
-        pedidos = pedidos.Where(p => ComprometeCredito(p.EstadoOrigen)).ToList();
+        // M2: se listan también los que aún no comprometen por estatus (CxC cuenta los que liberó); los cancelados en origen no.
+        pedidos = pedidos.Where(p => !CanceladoEnOrigen(p.EstadoOrigen)).ToList();
         if (pedidos.Count == 0) return [];
 
         var anticipos = await db.Anticipos.AsNoTracking()
@@ -70,7 +71,7 @@ public sealed class PedidosSinFacturarReadAdapter(FacturacionDbContext db, ICurr
             var total = p.Lineas.Any(l => l.TasaIva is null)
                 ? p.Total
                 : p.Total + p.Lineas.Sum(l => Math.Round(l.Importe * l.TasaIva!.Value, 2, MidpointRounding.AwayFromZero));
-            return new PedidoSinFacturarDto(p.Id, p.NumeroPedido, p.Moneda, total, ligado);
+            return new PedidoSinFacturarDto(p.Id, p.NumeroPedido, p.Moneda, total, ligado, ComprometeCredito(p.EstadoOrigen));
         }).ToList();
     }
 
@@ -82,6 +83,11 @@ public sealed class PedidosSinFacturarReadAdapter(FacturacionDbContext db, ICurr
     /// cancelación. Un estatus no numérico o vacío (orígenes sin catálogo
     /// A+W) compromete mientras siga sin factura.
     /// </summary>
+    internal static bool CanceladoEnOrigen(string? estadoOrigen) =>
+        int.TryParse(estadoOrigen?.Trim(), System.Globalization.NumberStyles.None,
+            System.Globalization.CultureInfo.InvariantCulture, out var estatus)
+        && estatus >= 900;
+
     internal static bool ComprometeCredito(string? estadoOrigen) =>
         !int.TryParse(estadoOrigen?.Trim(), System.Globalization.NumberStyles.None,
             System.Globalization.CultureInfo.InvariantCulture, out var estatus)
