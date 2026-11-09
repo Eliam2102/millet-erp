@@ -78,8 +78,9 @@ public static class DependencyInjection
 
         services.AddScoped<Application.Depositos.DepositoAutomaticoProcesador>();
 
-        // T9.2: Parsers de extracto bancario con perfil por banco (BBVA primero)
+        // T9.2: Parsers de extracto bancario con perfil por banco (BBVA y Santander)
         services.AddSingleton<Domain.Conciliaciones.ExtractoParser.IExtractoParser, Domain.Conciliaciones.ExtractoParser.BbvaExtractoParser>();
+        services.AddSingleton<Domain.Conciliaciones.ExtractoParser.IExtractoParser, Domain.Conciliaciones.ExtractoParser.SantanderExtractoParser>();
         services.AddSingleton<Domain.Conciliaciones.ExtractoParser.ExtractoParserFactory>();
 
         return services;

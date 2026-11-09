@@ -174,6 +174,13 @@ public sealed record PagoClienteConfirmadoIntegrationEvent(
     : IntegrationEvent(WireEventType, EmpresaId, OcurridoEn)
 {
     public decimal? TipoCambioPago { get; init; }
+
+    /// <summary>
+    /// B8 (aditivo): código de la cuenta contable de la cuenta bancaria del depósito (<c>CuentaContableRef</c>). Contabilidad
+    /// carga ahí el cobro en lugar de la cuenta única del rol BANCOS; null si la cuenta bancaria no la tiene capturada.
+    /// </summary>
+    public string? CuentaContableRef { get; init; }
+
     public const string WireEventType = "tesoreria.pago-cliente.confirmado.v1";
 }
 

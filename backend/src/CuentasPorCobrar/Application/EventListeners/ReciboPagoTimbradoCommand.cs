@@ -60,6 +60,7 @@ public sealed class ReciboPagoTimbradoHandler : IRequestHandler<ReciboPagoTimbra
         }
 
         var p = request.Payload;
+        Domain.AplicacionPagos.PropuestaAplicacionPago? propuestaConfirmada = null;
         if (p.MovimientoBancarioId is Guid movimientoId)
         {
             // C7.4: con depósitos identificados por CxC varias propuestas pueden llevar el
@@ -68,6 +69,7 @@ public sealed class ReciboPagoTimbradoHandler : IRequestHandler<ReciboPagoTimbra
             // Con PropuestaId (C7.4) se correlaciona exacto: el mismo movimiento puede
             // tener varios REP, uno por propuesta.
             var propuesta = await _db.PropuestasAplicacionPago
+                .Include(x => x.Facturas)
                 .Where(x => x.EmpresaId == p.EmpresaId && x.MovimientoBancarioId == movimientoId
                     && (p.PropuestaId == null || x.Id == p.PropuestaId)
                     && x.Estado == Domain.AplicacionPagos.EstadoPropuestaAplicacion.Confirmada)
@@ -75,8 +77,18 @@ public sealed class ReciboPagoTimbradoHandler : IRequestHandler<ReciboPagoTimbra
                 .FirstOrDefaultAsync(cancellationToken)
                 ?? throw new EntityNotFoundException("PAP_CONFIRMACION_PENDIENTE", "La confirmación de Tesorería todavía no se ha recibido; se reintentará el REP.");
             propuesta.MarcarReppTimbrado(p.ReciboPagoId);
+            propuestaConfirmada = propuesta;
         }
         var desglose = p.FacturasPagadas ?? [];
+        // CA7.10 (CXC-06): el REP relaciona lo cobrado (el depósito); el ajuste no fiscal autorizado
+        // (comisión bancaria) no lleva CFDI y se aplica aquí, en el mismo movimiento de pago, hasta
+        // lo que la propuesta aplicó a cada factura. Así la factura queda saldada y el movimiento
+        // cuadra con la póliza #12, que abona a clientes lo aplicado.
+        var ajustePorAplicar = propuestaConfirmada is { AjusteNoFiscal: < 0m, AjusteAutorizadoEn: not null }
+            ? -propuestaConfirmada.AjusteNoFiscal : 0m;
+        var aplicadoPropuesto = ajustePorAplicar > 0m
+            ? propuestaConfirmada!.Facturas.GroupBy(f => f.FacturaCarteraId).ToDictionary(g => g.Key, g => g.Sum(f => f.ImporteAplicado))
+            : new Dictionary<Guid, decimal>();
         var aplicadas = 0;
         var clientesPagados = new HashSet<(Guid?, string)>();
 
@@ -97,14 +109,25 @@ public sealed class ReciboPagoTimbradoHandler : IRequestHandler<ReciboPagoTimbra
                 continue;
             }
 
-            factura.AplicarPago(fp.ImportePagado);
+            var importe = fp.ImportePagado;
+            if (ajustePorAplicar > 0m && aplicadoPropuesto.TryGetValue(factura.Id, out var propuesto) && propuesto > importe)
+            {
+                var ajuste = Math.Min(Math.Min(propuesto - importe, ajustePorAplicar), factura.SaldoPendiente - importe);
+                if (ajuste > 0m)
+                {
+                    importe += ajuste;
+                    ajustePorAplicar -= ajuste;
+                }
+            }
+
+            factura.AplicarPago(importe);
             clientesPagados.Add((factura.ClienteId, factura.Moneda));
             _db.MovimientosCartera.Add(new MovimientoCartera(
                 empresaId: p.EmpresaId,
                 facturaCarteraId: factura.Id,
                 tipo: TipoMovimientoCartera.Pago,
                 origenComprobanteId: p.ReciboPagoId,
-                importe: fp.ImportePagado,
+                importe: importe,
                 fechaMovimiento: p.OcurridoEn));
             aplicadas++;
         }

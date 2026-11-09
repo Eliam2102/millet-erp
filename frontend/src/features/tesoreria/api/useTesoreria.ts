@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/api';
+import { apiRequest, ApiError, type ProblemDetails } from '@/lib/api';
 import { apiFetch } from '@/lib/auth/api-client';
 import type { DepositoPorIdentificarItem } from '@/features/cxc/api/types';
 import {
@@ -514,6 +514,7 @@ export function useRegistrarMovimientoIngreso() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.movimientos() });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.pagosCuenta() });
     },
   });
 }
@@ -1278,6 +1279,7 @@ export function useEmparejarAutomatico() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.pagosCuenta() });
     },
   });
 }
@@ -1296,6 +1298,7 @@ export function useEmparejarManual() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.pagosCuenta() });
     },
   });
 }
@@ -1314,6 +1317,7 @@ export function useDesemparejarLinea() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.pagosCuenta() });
     },
   });
 }
@@ -1353,6 +1357,7 @@ export function useAltaAsistida() {
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.movimientos() });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.pagosCuenta() });
     },
   });
 }
@@ -1385,8 +1390,8 @@ export function useCerrarConciliacion() {
         body: JSON.stringify({ firmanteNombre, firmantePuesto }),
       });
       if (!resp.ok) {
-        const errorData = await resp.json().catch(() => ({}));
-        throw new Error(errorData.detail || errorData.title || 'Error al cerrar conciliación');
+        const errorData = (await resp.json().catch(() => ({}))) as ProblemDetails;
+        throw new ApiError(errorData, resp.status);
       }
       return await resp.blob();
     },

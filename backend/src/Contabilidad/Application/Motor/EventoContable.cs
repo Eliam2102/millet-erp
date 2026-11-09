@@ -11,13 +11,15 @@ namespace Millet.Contabilidad.Application.Motor;
 /// que el evento no trajo: si la plantilla lo usa, el motor rechaza con <see cref="CausaRechazoContable.DatoFaltante"/>.
 /// CON-11: <see cref="TipoCambioPorRol"/> = TC propio de las líneas de esos roles (p. ej. BANCOS al TC del pago); el resto usa
 /// <see cref="TipoCambio"/> (el del documento pagado).
+/// B8: <see cref="CuentaPorRol"/> = código de la cuenta contable que el emisor ya conoce para un rol (p. ej. BANCOS = la cuenta
+/// contable de la cuenta bancaria del movimiento). Manda sobre la cuenta del rol; sin dato, se usa el rol.
 /// </summary>
 public sealed record EventoContable(
     string Tipo, Guid EventoId, Guid EmpresaId, DateOnly FechaContable, DocumentoOrigenPoliza Documento,
     Guid? SucursalId, Guid? ProveedorId, Guid? ClienteId, Guid? CentroCostoId, Guid? OrdenCompraId,
     string Moneda, decimal? TipoCambio, IReadOnlyDictionary<string, decimal?> Importes, IReadOnlyList<LineaEventoContable> Lineas,
     string Payload, TipoDocumentoPuente TipoPuente = TipoDocumentoPuente.Factura, Guid? FacturaOrigenId = null, string? LlaveOverride = null,
-    IReadOnlyDictionary<string, decimal>? TipoCambioPorRol = null)
+    IReadOnlyDictionary<string, decimal>? TipoCambioPorRol = null, IReadOnlyDictionary<string, string>? CuentaPorRol = null)
 {
     /// <summary>
     /// CON-11 (86e3kdypd): campo de las líneas de plantilla de diferencia cambiaria realizada. No es un importe del evento: con

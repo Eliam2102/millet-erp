@@ -94,7 +94,30 @@ public sealed class EmitirFacturaVentaHandler
         _logger = logger;
     }
 
+    // B2: estado de la emisión en curso para dejar rastro del folio si aborta después de reservarlo.
+    // El handler es transitorio (uno por solicitud).
+    private ReservarFolioResponse? _folioReservado;
+    private Func<FacturaVenta>? _armarFactura;
+    private FacturaVenta? _facturaEnCurso;
+    private bool _facturaPersistida;
+    private bool _pacRespondio;
+
     public async Task<EmitirFacturaVentaResponse> Handle(
+        EmitirFacturaVentaCommand command,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await HandleAsync(command, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException && DebeDejarFolioDescartado())
+        {
+            await GuardarFolioDescartadoAsync(ex);
+            throw;
+        }
+    }
+
+    private async Task<EmitirFacturaVentaResponse> HandleAsync(
         EmitirFacturaVentaCommand command,
         CancellationToken cancellationToken)
     {
@@ -174,6 +197,11 @@ public sealed class EmitirFacturaVentaHandler
             l.ClaveProdServSat,l.ClaveUnidadSat,l.ObjetoImp,l.TasaIvaTraslado)),_productos,cancellationToken);
         // 2. Validación local previa de catálogos SAT.
         await ValidarCatalogosSatAsync(command, cancellationToken);
+        // B5: domicilio del receptor y clave de pedimento del CCE, antes de reservar folio.
+        if (command.Cce is { } cceSat)
+            Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.ValidarDatosSatCce(
+                cceSat.ClaveDePedimento, cceSat.ReceptorDomicilioCalle,
+                cceSat.ReceptorDomicilioEstado, cceSat.ReceptorDomicilioCodigoPostal);
         await TipoCambioFactura.ValidarAsync(
             _catalogos, command.Moneda, command.TipoCambio, ahora, cancellationToken);
 
@@ -267,6 +295,12 @@ public sealed class EmitirFacturaVentaHandler
                 tipoSerie,
                 DateOnly.FromDateTime(ahora.UtcDateTime)),
             cancellationToken);
+        // B2: desde aquí el folio ya está consumido; si la emisión aborta, queda Descartada.
+        _folioReservado = reserva;
+        var commandReservado = command;
+        _armarFactura = () => FacturaVentaArmado.Construir(
+            commandReservado, empresaId, reserva.Folio, reserva.Numero, _user.UserId,
+            receptor, emisor, anio, mes);
 
         var partidasPedido = partidasOrigen;
         var lineasImpresion = new List<EmitirFacturaVentaLinea>();
@@ -293,6 +327,7 @@ public sealed class EmitirFacturaVentaHandler
         var factura = FacturaVentaArmado.Construir(
             command, empresaId, reserva.Folio, reserva.Numero, _user.UserId,
             receptor, emisor, anio, mes);
+        _facturaEnCurso = factura;
 
         // 86e3tfdw2: observaciones del cajero (solo PDF, nunca XML). Antes de
         // cualquier cambio de estado (retención por pedimento / timbrado).
@@ -337,6 +372,7 @@ public sealed class EmitirFacturaVentaHandler
             if (salida is null) pedido?.MarcarFacturado(factura.Id);
             _db.FacturasVenta.Add(factura);
             await _db.SaveChangesAsync(cancellationToken);
+            _facturaPersistida = true;
             return new EmitirFacturaVentaResponse(
                 Id: factura.Id, Estado: factura.Estado.ToString(), Uuid: null,
                 Folio: factura.Folio, Total: factura.Total, Version: factura.Version,
@@ -356,6 +392,7 @@ public sealed class EmitirFacturaVentaHandler
             factura,
             CfdiEmisionBuilder.DesdeFacturaVenta(factura, ahora),
             _fiscal, _cfdiRepo, ahora, cancellationToken);
+        _pacRespondio = true;
 
         // 7.bis FAC-08b: timbrada la sustituta, se solicita la cancelación de la original
         // (motivo 01, sustituto = UUID nuevo). Queda pendiente de autorización (F6.5).
@@ -364,10 +401,11 @@ public sealed class EmitirFacturaVentaHandler
 
         // 8. F4-PR2: las NC de amortización solo se emiten sobre una factura
         // timbrada; si el timbre de la factura falló, se aborta sin guardar nada.
+        // B5: el motivo del PAC viaja en el mensaje; sin él, el usuario no sabe qué corregir.
         if (anticipos.Count > 0 && factura.Estado != EstadoTimbrado.Timbrado)
             throw new BusinessRuleException(
                 "FACTURA_NO_TIMBRADA_PARA_AMORTIZAR",
-                "No se pueden amortizar anticipos: la factura no quedó timbrada.");
+                MensajeNoTimbradaParaAmortizar(factura.TimbradoErrorCodigo, factura.TimbradoErrorMensaje));
 
         // 9. F10-PR1: evento de integración (al Outbox en la misma TX vía el
         // interceptor); Contabilidad arma la póliza desde el evento (C1.5). Solo si quedó Timbrada.
@@ -408,6 +446,7 @@ public sealed class EmitirFacturaVentaHandler
         // ligada a la factura, con el motivo, para reintentarla desde la bandeja.
         _db.FacturasVenta.Add(factura);
         await _db.SaveChangesAsync(cancellationToken);
+        _facturaPersistida = true;
 
         // 10. F4-PR2: una NC por anticipo (relación 07 a la factura final). 86e3zg0vb: los que se aplican después solo quedan
         // apartados para esta factura (ya relacionada 07); su NC la emite «Aplicar anticipo».
@@ -441,6 +480,70 @@ public sealed class EmitirFacturaVentaHandler
             NotaCreditoRanura: ncRanura,
             TimbradoErrorCodigo: factura.TimbradoErrorCodigo,
             TimbradoErrorMensaje: factura.TimbradoErrorMensaje);
+    }
+
+    /// <summary>
+    /// B2: hay que dejar rastro si el folio se reservó y la factura no llegó a guardarse. Si el PAC
+    /// ya respondió timbrado o en proceso, NO se descarta: pudo existir el CFDI ante el SAT.
+    /// </summary>
+    private bool DebeDejarFolioDescartado() =>
+        _folioReservado is not null && !_facturaPersistida
+        && !(_pacRespondio && _facturaEnCurso?.Estado is EstadoTimbrado.Timbrado or EstadoTimbrado.TimbradoEnProceso);
+
+    /// <summary>
+    /// B2: guarda la factura de la emisión abortada en <c>Descartada</c> con su folio y el motivo
+    /// (texto del PAC o de la excepción) y la registra descartada en la bitácora de contingencias.
+    /// Se descarta todo lo demás que la emisión había preparado (pedido, salida, anticipos,
+    /// autorización): no se afectan saldos ni pedidos. Si esto también falla, se registra en el log
+    /// y se propaga la excepción original.
+    /// </summary>
+    private async Task GuardarFolioDescartadoAsync(Exception ex)
+    {
+        try
+        {
+            _db.ChangeTracker.Clear();
+            var factura = _facturaEnCurso ?? _armarFactura!();
+            var codigo = factura.TimbradoErrorCodigo
+                ?? (ex is Millet.SharedKernel.Domain.Exceptions.DomainException d ? d.Code : "EMISION_ABORTADA");
+            var motivo = string.IsNullOrWhiteSpace(factura.TimbradoErrorMensaje)
+                ? $"Emisión abortada: {ex.Message}"
+                : $"Emisión abortada: {ex.Message} Motivo del PAC: {factura.TimbradoErrorMensaje}";
+            factura.DescartarPorEmisionAbortada(codigo, motivo);
+            _db.FacturasVenta.Add(factura);
+
+            var ahora = _clock.UtcNow;
+            var contingencia = ContingenciaTimbrado.Registrar(
+                factura.EmpresaId, factura.SucursalId,
+                Millet.Facturacion.Application.Timbrado.Contingencias.ContingenciasTimbrado.Clasificar(codigo)
+                    ?? TipoContingenciaTimbrado.Otra,
+                OrigenContingenciaTimbrado.Automatica, motivo, factura.TimbradoErrorCodigo, ahora,
+                factura.Id, factura.Folio, registradaPorId: null, registradaPorNombre: null);
+            contingencia.MarcarDescartada(ahora, null);
+            _db.ContingenciasTimbrado.Add(contingencia);
+
+            await _db.SaveChangesAsync(CancellationToken.None);
+            _logger?.LogWarning(ex, "Emisión abortada después de reservar el folio {Folio}: la factura queda Descartada.", factura.Folio);
+        }
+        catch (Exception guardado)
+        {
+            _logger?.LogError(guardado,
+                "No se pudo guardar como Descartada la factura del folio {Folio} tras la emisión abortada.",
+                _folioReservado?.Folio);
+        }
+    }
+
+    /// <summary>
+    /// B5: mensaje del rechazo de una factura con anticipos que no quedó timbrada. Lleva el
+    /// código y el motivo del PAC para que se corrija el dato antes de volver a emitir.
+    /// </summary>
+    internal static string MensajeNoTimbradaParaAmortizar(string? codigo, string? motivo)
+    {
+        const string Base = "No se pueden amortizar anticipos: la factura no quedó timbrada.";
+        if (string.IsNullOrWhiteSpace(motivo))
+            return string.IsNullOrWhiteSpace(codigo) ? Base : $"{Base} Código del PAC: {codigo}.";
+        return string.IsNullOrWhiteSpace(codigo) || motivo.Contains(codigo, StringComparison.OrdinalIgnoreCase)
+            ? $"{Base} Motivo del PAC: {motivo}"
+            : $"{Base} Motivo del PAC ({codigo}): {motivo}";
     }
 
     /// <summary>

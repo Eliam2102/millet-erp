@@ -423,7 +423,7 @@ public sealed class EmitirFacturaVentaHandlerTests
         var empresa = Guid.NewGuid(); using var db = NewDb(empresa); var command = Command(); var p = CrearPedido(db, empresa, command.SucursalId);
         var lectura = new EmbarqueExportacionLectura(true, Guid.NewGuid(), command.SucursalId, true, FolioExpediente: "CE-EXP-DEMO",
             NumeroPedimento: "DEMO-A1", ClavePedimento: "A1", FechaPedimento: new(2026, 5, 29), Incoterm: "DDP", Contenedores: [new(Guid.NewGuid(), "DEMO-C", "DEMO-BL", new(2026, 5, 30))], Aduana: "16", AduanaNombre: "Manzanillo", VersionEmbarque: 1, DatosAduanales: [new(1, "70071999", "06")]);
-        var cce = new EmitirFacturaVentaCce("2", "FOB", 20, "DEMO-TAX", "USA", [new("70071999", "06", 2, 100, 200, true)], "RT", ReceptorDomicilioEstado: "DEMO", ReceptorDomicilioCodigoPostal: "00000");
+        var cce = new EmitirFacturaVentaCce("2", "FOB", 20, "DEMO-TAX", "USA", [new("70071999", "06", 2, 100, 200, true)], "RT", ReceptorDomicilioCalle: "DEMO 1", ReceptorDomicilioEstado: "DEMO", ReceptorDomicilioCodigoPostal: "00000");
         await Handler(db, empresa, embarques: new Embarques(lectura), receptorRfc: "XEXX010101000").Handle(command with {
             PedidoFacturableId = p.Id, Cce = cce, ReceptorRfc = "XEXX010101000", ReceptorPais = "USA" }, CancellationToken.None);
         var f = await db.FacturasVenta.Include(f => f.ComplementoCce).SingleAsync();
@@ -716,5 +716,44 @@ public sealed class EmitirFacturaVentaHandlerTests
         sender.TiposReservados.Should().Equal(Millet.Administracion.Domain.TipoDocumentoSerie.VentaDirecta);
         autorizacion.Estado.Should().Be(Millet.Facturacion.Domain.Activos.EstadoAutorizacionActivo.Usada);
         autorizacion.FacturaVentaId.Should().Be(resp.Id);
+    }
+
+    /// <summary>B2: el PAC no está configurado; el adaptador lanza antes de llamar al PAC.</summary>
+    private sealed class FakeFiscalSinPac : Millet.Integraciones.Fiscal.Domain.Ports.ICfdiTimbradoPort
+    {
+        public Task<Millet.Integraciones.Fiscal.Domain.Ports.TimbradoResultado> TimbrarAsync(
+            Millet.Integraciones.Fiscal.Domain.Ports.CfdiEmision emision, CancellationToken ct) =>
+            throw new Millet.Integraciones.Fiscal.Domain.Exceptions.ConfiguracionPacNoDisponibleException(emision.EmpresaId);
+        public Task<Millet.Integraciones.Fiscal.Domain.Ports.CancelacionResultado> CancelarAsync(
+            Millet.Integraciones.Fiscal.Domain.Ports.CancelacionSolicitud s, CancellationToken ct) => throw new NotSupportedException();
+        public Task<Millet.Integraciones.Fiscal.Domain.Ports.EstatusCfdiResultado> ConsultarEstatusAsync(
+            Millet.Integraciones.Fiscal.Domain.Ports.EstatusCfdiSolicitud s, CancellationToken ct) => throw new NotSupportedException();
+    }
+
+    [Fact]
+    public async Task B2_sin_PAC_configurado_el_folio_queda_en_una_factura_Descartada_con_su_motivo()
+    {
+        // Reproduce FA-000004 de la prueba S3-4: la emisión aborta después de reservar el folio.
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var command = Command();
+        var pedido = CrearPedido(db, empresa, command.SucursalId, command.ComportamientoFiscal);
+        var sender = new FakeSender(new ReservarFolioResponse("FA-000004", 4, ""));
+
+        var act = () => Handler(db, empresa, fiscal: new FakeFiscalSinPac(), sender: sender)
+            .Handle(command with { PedidoFacturableId = pedido.Id }, CancellationToken.None);
+
+        await act.Should().ThrowAsync<Millet.Integraciones.Fiscal.Domain.Exceptions.ConfiguracionPacNoDisponibleException>();
+        db.ChangeTracker.Clear();
+        var factura = await db.FacturasVenta.SingleAsync();
+        factura.Folio.Should().Be("FA-000004");
+        factura.Estado.Should().Be(EstadoTimbrado.Descartada);
+        factura.TimbradoErrorCodigo.Should().Be("CONFIG_PAC_NO_DISPONIBLE");
+        factura.TimbradoErrorMensaje.Should().Contain("No hay configuración de PAC");
+        var contingencia = await db.ContingenciasTimbrado.SingleAsync();
+        (contingencia.ComprobanteId, contingencia.ComprobanteFolio, contingencia.Estado)
+            .Should().Be((factura.Id, "FA-000004", EstadoContingenciaTimbrado.Descartada));
+        // El pedido no queda tomado: se puede volver a facturar.
+        (await db.PedidosFacturables.SingleAsync()).Estado.Should().Be(EstadoPedidoFacturable.Importado);
     }
 }

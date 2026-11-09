@@ -247,13 +247,16 @@ export function useSolicitarCancelacion() {
   });
 }
 
-/** <c>useBandejaCancelaciones(estado)</c> — bandeja del Contador General (F6.5). */
-export function useBandejaCancelaciones(estado: EstadoSolicitudCancelacion) {
+/**
+ * <c>useBandejaCancelaciones(estado)</c> — bandeja del Contador General (F6.5).
+ * Sin estado (pestaña «Todos», B3) trae todas las solicitudes.
+ */
+export function useBandejaCancelaciones(estado: EstadoSolicitudCancelacion | undefined) {
   return useQuery<CancelacionBandejaItem[]>({
-    queryKey: facturacionKeys.cancelacionesBandeja(estado),
+    queryKey: facturacionKeys.cancelacionesBandeja(estado ?? 'todos'),
     queryFn: async ({ signal }) => {
       const { data } = await apiRequest<CancelacionBandejaItem[]>(
-        `/api/v1/facturacion/comprobantes/cancelaciones?estado=${estado}`,
+        `/api/v1/facturacion/comprobantes/cancelaciones?${estado ? `estado=${estado}` : 'todos=true'}`,
         { signal },
       );
       return data;

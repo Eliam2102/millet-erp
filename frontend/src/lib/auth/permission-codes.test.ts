@@ -352,6 +352,10 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'contabilidad.periodo.administrar',
   'contabilidad.periodo.cerrar',
   'contabilidad.periodo.reabrir',
+  // CON-12 · checklist de cierre y cierre anual
+  'contabilidad.cierre.configurar',
+  'contabilidad.cierre.autorizar-excepcion',
+  'contabilidad.cierre.anual',
   // Pólizas (F1-CON-04)
   'contabilidad.polizas.leer',
   'contabilidad.polizas.capturar',

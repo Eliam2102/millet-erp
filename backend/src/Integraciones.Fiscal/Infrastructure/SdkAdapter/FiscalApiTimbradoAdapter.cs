@@ -297,6 +297,10 @@ public sealed partial class FiscalApiTimbradoAdapter : ICfdiTimbradoPort
                 TaxRegimeCode = e.Emisor.RegimenFiscal,
             },
             Recipient = MapRecipient(e.Receptor),
+            // B6 (CFDI40130): un ingreso o egreso a XAXX010101000 «PUBLICO EN GENERAL» es, para el
+            // SAT, una factura global y exige el nodo InformacionGlobal. La venta de mostrador se
+            // emite una por una, así que va con periodicidad diaria y el mes y año de la fecha.
+            GlobalInformation = esConImporte ? InformacionGlobal(e) : null,
             // Tipo P (Pago 2.0): sin conceptos. El complemento de pago viaja en
             // Complement.Payment (ver MapComplement) y FiscalAPI genera el
             // concepto fijo del pago (84111506/ACT) internamente; mandar Items
@@ -697,6 +701,30 @@ public sealed partial class FiscalApiTimbradoAdapter : ICfdiTimbradoPort
                 RfcDestinatario = e.Receptor.Rfc,
                 NombreDestinatario = e.Receptor.Nombre,
             },
+        };
+    }
+
+    /// <summary>Nombre del receptor que el SAT reserva para el público en general (con el RFC genérico nacional).</summary>
+    internal const string NombrePublicoEnGeneral = "PUBLICO EN GENERAL";
+
+    /// <summary>Periodicidad de la información global: 01 = diario (c_Periodicidad).</summary>
+    internal const string PeriodicidadDiaria = "01";
+
+    /// <summary>
+    /// Nodo InformacionGlobal (B6, CFDI40130) cuando el receptor es el público en general:
+    /// RFC XAXX010101000 y nombre «PUBLICO EN GENERAL». Para cualquier otro receptor, nulo.
+    /// </summary>
+    internal static SdkModels.GlobalInformation? InformacionGlobal(CfdiEmision e)
+    {
+        if (!string.Equals(e.Receptor.Rfc?.Trim(), "XAXX010101000", StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(e.Receptor.Nombre?.Trim(), NombrePublicoEnGeneral, StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        return new SdkModels.GlobalInformation
+        {
+            PeriodicityCode = PeriodicidadDiaria,
+            MonthCode = e.FechaLocal.Month.ToString("00", CultureInfo.InvariantCulture),
+            Year = e.FechaLocal.Year,
         };
     }
 

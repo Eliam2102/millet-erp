@@ -18,9 +18,15 @@ export interface ReporteShellData {
     tipo: 'texto' | 'numero' | 'moneda' | 'fecha';
     alineacion?: string | null;
     anchoPx?: number | null;
+    /** Peso de la columna en el PDF (1 por omisión). */
+    anchoPdf?: number | null;
+    /** 'caracter': en el PDF un texto largo sin espacios se corta entre letras. */
+    cortePdf?: 'caracter' | null;
   }>;
   filas: Array<Record<string, unknown>>;
   totales?: Record<string, number> | null;
+  /** Letra de la tabla en el PDF (9 pt por omisión). */
+  letraPdf?: number | null;
 }
 
 const TIPO_MAP: Record<TipoColumnaReporteCxc, ReporteShellData['columnas'][number]['tipo']> = {
