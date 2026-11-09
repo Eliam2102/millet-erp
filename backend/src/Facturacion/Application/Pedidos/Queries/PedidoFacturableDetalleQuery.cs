@@ -120,7 +120,9 @@ public sealed record PedidoFacturableLineaDetalle(
     string? ObjetoImp,
     decimal? TasaIvaTraslado,
     decimal? TasaRetencionIva,
-    decimal? TasaRetencionIsr, string? Referencia = null, decimal? PesoKg = null, decimal? AreaPie2 = null);
+    decimal? TasaRetencionIsr, string? Referencia = null, decimal? PesoKg = null, decimal? AreaPie2 = null,
+    // B12: datos de aduana y peso del artículo (master) para precargar la línea de la factura de exportación.
+    string? FraccionArancelaria = null, string? UnidadAduana = null, decimal? PesoUnitarioKg = null);
 
 public sealed class PedidoFacturableDetalleHandler
     : IRequestHandler<PedidoFacturableDetalleQuery, PedidoFacturableDetalleResponse>
@@ -210,7 +212,8 @@ public sealed class PedidoFacturableDetalleHandler
                     // FAC-DET-PR2: la tasa persistida en la línea (documento
                     // A+W o resuelta al capturar) manda sobre la del master.
                     l.TasaIva ?? master?.TasaIvaTraslado,
-                    master?.TasaRetencionIva, master?.TasaRetencionIsr, l.Referencia, l.PesoKg, l.AreaPie2);
+                    master?.TasaRetencionIva, master?.TasaRetencionIsr, l.Referencia, l.PesoKg, l.AreaPie2,
+                    master?.FraccionArancelaria, master?.UnidadAduana, master?.PesoUnitarioKg);
             })
             .ToList();
 
