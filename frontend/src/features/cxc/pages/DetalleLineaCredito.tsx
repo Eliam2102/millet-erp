@@ -116,10 +116,9 @@ function Contenido({ linea }: { linea: LineaCreditoResponse }) {
       {/* ── Sub-topbar §6.5 (sticky, no se imprime) ─────────────── */}
       <div data-print="hidden">
         <PageHeader
-          mono
-          titulo={linea.id}
+          titulo={cliente?.razonSocial ?? 'Línea de crédito'}
           estado={<ChipEstadoLinea estado={linea.estado} />}
-          descripcion={etiquetaLinea}
+          descripcion={`Línea de crédito · ${linea.moneda}`}
           acciones={
             <div className="flex items-center gap-1.5">
               {puedeGestionar && linea.estado !== EstadoLineaCredito.Suspendida && (
