@@ -26,9 +26,10 @@ public sealed class EventoContableProcesado : INotAudited
 public enum EstadoCobroEfectivo : short { Pendiente = 0, Liquidado = 1, Cancelado = 2 }
 
 /// <summary>
-/// C1.5 · #11b: cobro en efectivo de una sesión de caja, guardado hasta que la sesión se cierra (reglas de cobro del 23-oct: una
-/// póliza por liquidación del cajero, día y sucursal). Al cerrar la sesión, los cobros pendientes forman la póliza y quedan
-/// <see cref="EstadoCobroEfectivo.Liquidado"/> con su póliza.
+/// C1.5 · #11b: cobro en efectivo de una sesión de caja. M-174 (Contabilidad, 6-nov): cada cobro genera su póliza al registrarse y
+/// queda <see cref="EstadoCobroEfectivo.Liquidado"/> con ella; sigue <see cref="EstadoCobroEfectivo.Pendiente"/> solo si esa póliza
+/// falló o es anterior al cambio, y entonces se contabiliza (uno por uno) al reprocesar o al cerrar la sesión. Las sesiones cerradas
+/// antes del cambio conservan su póliza de liquidación por sesión.
 /// </summary>
 public sealed class CobroEfectivoCaja : IPerteneceAEmpresa, INotAudited
 {
