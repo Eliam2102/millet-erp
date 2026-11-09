@@ -1754,7 +1754,7 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("ck_polizas_numero", "(estado = 0 AND numero IS NULL) OR (estado <> 0 AND numero BETWEEN 1 AND 999999)");
 
-                            t.HasCheckConstraint("ck_polizas_origen", "origen BETWEEN 0 AND 1");
+                            t.HasCheckConstraint("ck_polizas_origen", "origen BETWEEN 0 AND 2");
 
                             t.HasCheckConstraint("ck_polizas_periodo", "periodo_numero BETWEEN 1 AND 13");
 

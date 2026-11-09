@@ -11,6 +11,10 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            // M-166: OrigenPoliza.Apertura = 2.
+            migrationBuilder.DropCheckConstraint(name: "ck_polizas_origen", schema: "contabilidad", table: "polizas");
+            migrationBuilder.AddCheckConstraint(name: "ck_polizas_origen", schema: "contabilidad", table: "polizas", sql: "origen BETWEEN 0 AND 2");
+
             migrationBuilder.CreateTable(
                 name: "aperturas",
                 schema: "contabilidad",
@@ -56,6 +60,9 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropCheckConstraint(name: "ck_polizas_origen", schema: "contabilidad", table: "polizas");
+            migrationBuilder.AddCheckConstraint(name: "ck_polizas_origen", schema: "contabilidad", table: "polizas", sql: "origen BETWEEN 0 AND 1");
+
             migrationBuilder.DropTable(
                 name: "aperturas",
                 schema: "contabilidad");
