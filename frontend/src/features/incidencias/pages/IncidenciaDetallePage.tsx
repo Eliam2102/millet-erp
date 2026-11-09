@@ -18,6 +18,8 @@ import { estadosDeVista, type IncidenciasSearch } from '@/features/incidencias/l
 import { nombreModulo } from '@/features/incidencias/lib/modulos';
 import { AccionesIncidencia } from '@/features/incidencias/components/AccionesIncidencia';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
+import { puedeRetomar } from '@/features/incidencias/lib/retomar';
 
 const ACCION_HISTORIAL: Record<string, string> = {
   Abierta: 'Abrió la incidencia',
@@ -46,6 +48,9 @@ function Detalle({ incidencia: i }: { incidencia: IncidenciaDetalle }) {
   const ruta = rutaInterna(i.rutaReanudacion);
   const pendiente = i.estado === 'Abierta' || i.estado === 'EnAtencion';
   const esResponsable = useAuthStore((s) => s.user?.id) === i.responsableUsuarioId;
+  const permisos = useAuthStore((s) => s.permisos);
+  // B10b: sin permiso de la pantalla del paso, el botón llevaría a una guarda que regresa a Inicio.
+  const retomable = ruta !== null && puedeRetomar(ruta, permisos);
   return (
     <div className="flex flex-col gap-5 pt-6">
       <PageHeader
@@ -55,7 +60,7 @@ function Detalle({ incidencia: i }: { incidencia: IncidenciaDetalle }) {
         descripcion={`${i.pasoNombre} · ${i.documentoEtiqueta}`}
         acciones={
           <>
-            {ruta && pendiente && (
+            {ruta && retomable && pendiente && (
               <Button asChild>
                 <Link to={ruta as never}>
                   Retomar en el paso
@@ -67,6 +72,13 @@ function Detalle({ incidencia: i }: { incidencia: IncidenciaDetalle }) {
           </>
         }
       />
+
+      {ruta && !retomable && pendiente && (
+        <AvisoEnLinea tono="advertencia" titulo="No tienes acceso a la pantalla del paso">
+          Esta incidencia se retoma en «{i.pasoReanudacionNombre ?? i.pasoNombre}», que tu usuario no puede abrir. Pide a
+          quien tenga ese permiso que lo corrija{i.puedeReasignar ? ' o reasígnale la incidencia' : ''}.
+        </AvisoEnLinea>
+      )}
 
       <dl className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat @3xl:grid-cols-4">
         <Dato label="Responsable" valor={i.responsableNombre || 'Sin responsable'} />

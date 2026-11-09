@@ -61,12 +61,15 @@ public sealed class SalidasParcialesFacturaTests : IClassFixture<SalidasParciale
         var s1 = await RegistrarSalidaAsync(client, pedidoId, "SAL-60", 60m, HttpStatusCode.Created);
         var f1 = await client.PostAsJsonAsync(Facturas, EmitirBody(sucursal, pedidoId, s1, 60m));
         Assert.True(f1.StatusCode == HttpStatusCode.Created, await f1.Content.ReadAsStringAsync());
+        // FAC-08: la factura de una parcialidad intermedia no toma el pedido.
+        Assert.Equal(EstadoPedidoFacturable.Importado, await EstadoPedidoAsync(pedidoId));
         var s2 = await RegistrarSalidaAsync(client, pedidoId, "SAL-40", 40m, HttpStatusCode.Created);
         var f2 = await client.PostAsJsonAsync(Facturas, EmitirBody(sucursal, pedidoId, s2, 40m));
         Assert.True(f2.StatusCode == HttpStatusCode.Created, await f2.Content.ReadAsStringAsync());
 
         var folio1 = (await f1.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("folio").GetString();
-        var folio2 = (await f2.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("folio").GetString();
+        var cuerpo2 = await f2.Content.ReadFromJsonAsync<JsonElement>();
+        var folio2 = cuerpo2.GetProperty("folio").GetString();
         Assert.NotEqual(folio1, folio2);
 
         using (var scope = _factory.Services.CreateScope())
@@ -74,7 +77,9 @@ public sealed class SalidasParcialesFacturaTests : IClassFixture<SalidasParciale
             using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
             var db = scope.ServiceProvider.GetRequiredService<FacturacionDbContext>();
             var pedido = await db.PedidosFacturables.AsNoTracking().Include(p => p.Lineas).SingleAsync(p => p.Id == pedidoId);
-            Assert.Equal(EstadoPedidoFacturable.Importado, pedido.Estado);
+            // M8: la parcialidad que completa el 100 % lo marca Facturado; el pedido no cambia (100 piezas, 1,000).
+            Assert.Equal(EstadoPedidoFacturable.Facturado, pedido.Estado);
+            Assert.Equal(cuerpo2.GetProperty("id").GetGuid(), pedido.ComprobanteVigenteId);
             Assert.Equal(100m, pedido.Lineas.Single().Cantidad);
             Assert.Equal(1000m, pedido.Total);
             var facturas = await db.FacturasVenta.AsNoTracking().Where(f => f.PedidoFacturableId == pedidoId)
@@ -88,6 +93,14 @@ public sealed class SalidasParcialesFacturaTests : IClassFixture<SalidasParciale
         Assert.Equal(100m, posicion.GetProperty("pedida").GetDecimal());
         Assert.Equal(100m, posicion.GetProperty("facturada").GetDecimal());
         Assert.Equal(1000m, avance.GetProperty("totalFacturado").GetDecimal());
+    }
+
+    private async Task<EstadoPedidoFacturable> EstadoPedidoAsync(Guid pedidoId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var db = scope.ServiceProvider.GetRequiredService<FacturacionDbContext>();
+        return await db.PedidosFacturables.AsNoTracking().Where(p => p.Id == pedidoId).Select(p => p.Estado).SingleAsync();
     }
 
     [Fact]

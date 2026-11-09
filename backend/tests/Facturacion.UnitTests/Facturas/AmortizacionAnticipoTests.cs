@@ -86,6 +86,27 @@ public sealed class AmortizacionAnticipoTests
             Task.FromResult(new EstatusCfdiResultado(true, "Vigente", true, null));
     }
 
+    /// <summary>B2/B5: timbra el anticipo (1ª llamada) y el PAC rechaza la factura final con su motivo.</summary>
+    private sealed class FakeFiscalRechazaLaFactura : ICfdiTimbradoPort
+    {
+        private int _llamadas;
+        public Task<TimbradoResultado> TimbrarAsync(CfdiEmision emision, CancellationToken ct)
+        {
+            _llamadas++;
+            if (_llamadas == 1)
+                return Task.FromResult(new TimbradoResultado(
+                    TimbradoEstado.Timbrado, "33333333-3333-3333-3333-333333333333", "S", "S", "0",
+                    Ahora, "SAT970701NN3", $"<cfdi serie=\"{emision.Serie}\" folio=\"{emision.Folio}\" fake=\"true\" />", null, null));
+            return Task.FromResult(new TimbradoResultado(
+                TimbradoEstado.Fallido, null, null, null, null, null, null, null, "400",
+                "Complement.ComercioExterior.Receptor.Domicilio.Calle: 'calle' no debe estar vacío."));
+        }
+        public Task<CancelacionResultado> CancelarAsync(CancelacionSolicitud s, CancellationToken ct) =>
+            Task.FromResult(new CancelacionResultado(CancelacionEstado.Aceptada, "ok", null));
+        public Task<EstatusCfdiResultado> ConsultarEstatusAsync(EstatusCfdiSolicitud s, CancellationToken ct) =>
+            Task.FromResult(new EstatusCfdiResultado(true, "Vigente", true, null));
+    }
+
     private static FakeEmpresaFiscalReadPort EmpresasFiscal(Guid empresaId) =>
         new(new EmpresaFiscalLectura(empresaId, "MIL010101AAA", "Millet", "601", 0.16m, "76120"));
 
@@ -288,5 +309,37 @@ public sealed class AmortizacionAnticipoTests
 
         resp.NotasCreditoAmortizacion.Should().BeNull();
         (await db.NotasCredito.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task B2_B5_factura_con_anticipo_rechazada_por_el_PAC_queda_Descartada_con_el_motivo_sin_tocar_el_anticipo()
+    {
+        // Reproduce FCNK-000001 de la prueba S3-4: el PAC rechaza la factura que amortiza el anticipo.
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var sender = new FakeSenderFoliosUnicos();
+        var fiscal = new FakeFiscalRechazaLaFactura();
+        var anticipo = await EmitirAnticipoHandler(db, empresaId, sender, fiscal).Handle(AnticipoCommand(), CancellationToken.None);
+        var saldoAntes = (await db.Anticipos.SingleAsync()).Saldo;
+
+        var act = () => FacturaHandler(db, empresaId, sender, fiscal)
+            .Handle(FacturaCommand([new AnticipoAAmortizar(anticipo.AnticipoId, 500m)]), CancellationToken.None);
+
+        var error = (await act.Should().ThrowAsync<BusinessRuleException>()
+            .Where(e => e.Code == "FACTURA_NO_TIMBRADA_PARA_AMORTIZAR")).Which;
+        error.Message.Should().Contain("No se pueden amortizar anticipos")
+            .And.Contain("Motivo del PAC (400)")
+            .And.Contain("'calle' no debe estar vacío");
+        db.ChangeTracker.Clear();
+        var factura = await db.FacturasVenta.SingleAsync();
+        factura.Estado.Should().Be(EstadoTimbrado.Descartada);
+        factura.Folio.Should().Be("DOC-000002");
+        factura.TimbradoErrorCodigo.Should().Be("400");
+        factura.TimbradoErrorMensaje.Should().Contain("'calle' no debe estar vacío");
+        (await db.ContingenciasTimbrado.SingleAsync()).ComprobanteFolio.Should().Be("DOC-000002");
+        var anticipoDespues = await db.Anticipos.Include(a => a.Vinculaciones).SingleAsync();
+        anticipoDespues.Saldo.Should().Be(saldoAntes);
+        anticipoDespues.Vinculaciones.Should().BeEmpty();
+        (await db.NotasCredito.AnyAsync()).Should().BeFalse();
     }
 }

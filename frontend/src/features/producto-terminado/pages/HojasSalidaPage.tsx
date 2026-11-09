@@ -205,7 +205,13 @@ export function HojasSalidaPage() {
                   <TableCell>{h.cartaPorteFolio ?? (h.foranea ? 'Al emitir' : 'No aplica')}</TableCell>
                   <TableCell className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={() => setAbierto(abierto === h.id ? null : h.id)}>
-                      {abierto === h.id ? 'Ocultar' : h.estado === 'Borrador' && operar ? 'Cargar' : 'Ver albaranes'}
+                      {abierto === h.id
+                        ? 'Ocultar'
+                        : h.estado === 'Borrador' && operar
+                          ? 'Cargar'
+                          : h.estado === 'Emitida'
+                            ? 'Ver o reimprimir albaranes'
+                            : 'Ver albaranes'}
                     </Button>
                     {operar && h.estado === 'Borrador' && (
                       <>
@@ -213,9 +219,7 @@ export function HojasSalidaPage() {
                         <Button variant="outline" size="sm" disabled={accion.isPending} onClick={() => ejecutar(h.id, 'cancelar', h.estado)}>Cancelar</Button>
                       </>
                     )}
-                    {operar && h.estado === 'Emitida' && (
-                      <Button variant="outline" size="sm" disabled={accion.isPending} onClick={() => ejecutar(h.id, 'emitir', h.estado)}>Emitir de nuevo</Button>
-                    )}
+                    {/* M15: emitir una hoja ya emitida no hace nada (EmitirHojaSalidaHandler es idempotente); se ve y reimprime arriba. */}
                   </TableCell>
                 </TableRow>
               ))}
@@ -256,7 +260,15 @@ export function HojasSalidaPage() {
                   <TableCell className="font-mono text-xs">{a.folio}</TableCell>
                   <TableCell>{a.numeroPedido}</TableCell>
                   <TableCell>{a.cliente}</TableCell>
-                  <TableCell>{a.destino ?? 'Sin obra'}</TableCell>
+                  <TableCell>
+                    {/* Prueba manual S3-4 (M14): sin obra en el pedido (dato de A+W), el albarán muestra el destino de la ruta. */}
+                    {a.destino ?? (
+                      <>
+                        {detalle.data.destino}
+                        <p className="text-xs text-ink-muted">Destino de la hoja: el pedido no trae obra</p>
+                      </>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <ul>
                       {a.lineas.map((l) => (

@@ -108,7 +108,8 @@ describe('<DetalleLineaCredito> — smoke', () => {
     mockHandlers(EstadoLineaCredito.Activa);
     render(<DetalleLineaCredito />, { wrapper: createQueryWrapper() });
 
-    await waitFor(() => expect(screen.getByText('ACME SA · MXN')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'ACME SA' })).toBeInTheDocument());
+    expect(screen.getByText('Línea de crédito · MXN')).toBeInTheDocument();
     // C7.1: desglose límite − facturado − liberado sin facturar = disponible, sin marca de dato incompleto.
     expect(await screen.findByText('Liberado sin facturar')).toBeInTheDocument();
     expect(screen.getByText(/(^|[^0-9])20,000\.00 MXN/)).toBeInTheDocument();
@@ -119,6 +120,17 @@ describe('<DetalleLineaCredito> — smoke', () => {
     expect(screen.getByRole('button', { name: /Bloquear/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Editar/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Desbloquear/i })).not.toBeInTheDocument();
+  });
+
+  it('B1: la línea desbloqueada a mano muestra la fecha y el motivo del desbloqueo', async () => {
+    mockHandlers(EstadoLineaCredito.Activa, null, {
+      desbloqueoManualEn: '2026-11-07T18:30:00Z',
+      motivoDesbloqueo: 'Pago comprometido por el director',
+    });
+    render(<DetalleLineaCredito />, { wrapper: createQueryWrapper() });
+
+    expect(await screen.findByText(/Desbloqueada manualmente el 07\/11\/2026/)).toBeInTheDocument();
+    expect(screen.getByText('Pago comprometido por el director')).toBeInTheDocument();
   });
 
   it('línea Bloqueada: banner con motivo + botón Desbloquear', async () => {
@@ -166,7 +178,8 @@ describe('<DetalleLineaCredito> — smoke', () => {
     mockHandlers(EstadoLineaCredito.Activa);
     render(<DetalleLineaCredito />, { wrapper: createQueryWrapper() });
 
-    await waitFor(() => expect(screen.getByText('ACME SA · MXN')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'ACME SA' })).toBeInTheDocument());
+    expect(screen.getByText('Línea de crédito · MXN')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Bloquear/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Editar/i })).not.toBeInTheDocument();
   });

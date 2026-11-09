@@ -112,7 +112,7 @@ public sealed class EmitirNotaCreditoBonificacionHandler
         var reserva = await _sender.Send(
             new ReservarFolioCommand(
                 empresaId, factura.SucursalId, TipoDocumentoSerie.NotaCredito,
-                DateOnly.FromDateTime(ahora.UtcDateTime)),
+                Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.DiaFiscal(ahora)),
             cancellationToken);
 
         // Receptor snapshot heredado de la factura origen.

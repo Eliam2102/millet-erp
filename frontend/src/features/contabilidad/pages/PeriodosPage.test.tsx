@@ -31,6 +31,7 @@ function servidor(peticiones: unknown[] = []) {
   mswServer.use(
     http.get(`${API}/ejercicios`, () => HttpResponse.json([EJERCICIO])),
     http.get(`${API}/:id/bitacora`, () => HttpResponse.json([])),
+    http.get('*/api/v1/contabilidad/cierre/periodos/:id/checklist', ({ params }) => HttpResponse.json(checklistListo(String(params.id)))),
     http.post(`${API}/:id/:accion`, async ({ request, params }) => {
       peticiones.push({ id: params.id, accion: params.accion, body: await request.json(), ifMatch: request.headers.get('If-Match'), idem: !!request.headers.get('Idempotency-Key') });
       return HttpResponse.json(periodo(2, 'Cerrado'));
@@ -40,6 +41,27 @@ function servidor(peticiones: unknown[] = []) {
 
 function conPermisos(...permisos: string[]) {
   useAuthStore.setState({ permisos: [PermisosCanonicos.ContabilidadPeriodoLeer, ...permisos] });
+}
+
+/** CON-12: checklist sin pendientes (el de pendientes se prueba en ChecklistCierreSheet.test.tsx). */
+function checklistListo(periodoId: string) {
+  return {
+    periodoId, periodo: '2026-02', nombre: 'Febrero', estadoPeriodo: 'Abierto', exigeChecklist: true, puedeCerrar: true, bloqueantes: 0,
+    excepciones: 0, evaluadoEn: '2026-03-02T15:00:00Z', cierres: [],
+    pasos: [{ pasoId: 'x1', clave: 'BALANZA_CUADRADA', nombre: 'Balanza cuadrada', descripcion: '', tipo: 'Automatico', orden: 140,
+      obligatorio: true, estado: 'Cumple', resumen: '12 pólizas; cargos y abonos por 1,000.00.', detalle: [], ruta: null, bloquea: false, marca: null }],
+  };
+}
+
+/** «Cerrar» abre el checklist; su «Cerrar periodo» abre el diálogo de motivo. */
+async function abrirCierre(nombre: string) {
+  fireEvent.click((await fila(nombre)).getByRole('button', { name: 'Cerrar' }));
+  const panel = await screen.findByRole('dialog', { name: 'Checklist de cierre' });
+  const continuar = within(panel).getByRole('button', { name: 'Cerrar periodo' });
+  await waitFor(() => expect(continuar).toBeEnabled());
+  fireEvent.click(continuar);
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Checklist de cierre' })).not.toBeInTheDocument());
+  return screen.findByRole('dialog');
 }
 
 async function fila(nombre: string) {
@@ -161,8 +183,7 @@ describe('<PeriodosPage>', () => {
     servidor(peticiones);
     conPermisos(PermisosCanonicos.ContabilidadPeriodoCerrar);
     render(<PeriodosPage />, { wrapper: createQueryWrapper() });
-    fireEvent.click((await fila('2 · Febrero')).getByRole('button', { name: 'Cerrar' }));
-    const dialogo = await screen.findByRole('dialog');
+    const dialogo = await abrirCierre('2 · Febrero');
     const confirmar = within(dialogo).getByRole('button', { name: 'Cerrar periodo' });
     expect(confirmar).toBeDisabled();
     fireEvent.change(within(dialogo).getByLabelText(/^Motivo(?:\s*\*)?$/), { target: { value: 'corto' } });
@@ -197,9 +218,11 @@ describe('<PeriodosPage>', () => {
     conPermisos(PermisosCanonicos.ContabilidadPeriodoAdministrar, PermisosCanonicos.ContabilidadPeriodoCerrar);
     render(<PeriodosPage />, { wrapper: createQueryWrapper() });
     await screen.findByText('2 · Febrero');
+    let dialogo: HTMLElement;
     if (accion === 'crear') fireEvent.click(screen.getByRole('button', { name: /Nuevo ejercicio/ }));
-    else fireEvent.click((await fila(accion === 'abrir' ? '3 · Marzo' : '2 · Febrero')).getByRole('button', { name: accion === 'abrir' ? 'Abrir' : 'Cerrar' }));
-    const dialogo = await screen.findByRole('dialog');
+    else if (accion === 'abrir') fireEvent.click((await fila('3 · Marzo')).getByRole('button', { name: 'Abrir' }));
+    if (accion === 'cerrar') dialogo = await abrirCierre('2 · Febrero');
+    else dialogo = await screen.findByRole('dialog');
     const campo = within(dialogo).getByLabelText(accion === 'crear' ? 'Año' : /Motivo/);
     if (accion !== 'crear') fireEvent.change(campo, { target: { value: 'Operación contable de prueba' } });
     const confirmar = within(dialogo).getByRole('button', { name: accion === 'crear' ? 'Crear ejercicio' : accion === 'abrir' ? 'Abrir periodo' : 'Cerrar periodo' });
@@ -241,8 +264,7 @@ describe('<PeriodosPage>', () => {
     )));
     conPermisos(PermisosCanonicos.ContabilidadPeriodoCerrar);
     render(<PeriodosPage />, { wrapper: createQueryWrapper() });
-    fireEvent.click((await fila('2 · Febrero')).getByRole('button', { name: 'Cerrar' }));
-    let dialogo = await screen.findByRole('dialog');
+    let dialogo = await abrirCierre('2 · Febrero');
     fireEvent.change(within(dialogo).getByLabelText(/^Motivo(?:\s*\*)?$/), { target: { value: 'Cierre mensual de febrero' } });
     fireEvent.click(within(dialogo).getByRole('button', { name: 'Cerrar periodo' }));
     expect(await within(dialogo).findByRole('alert')).toHaveTextContent('Otro usuario modificó este periodo; recargue');

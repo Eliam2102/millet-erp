@@ -58,11 +58,61 @@ public sealed class RegistrarEscaneoPiezaTests
     }
 
     [Fact]
-    public async Task Numero_de_pieza_vacio_es_identidad_incompleta()
+    public async Task Pieza_cero_de_aw_asigna_ranura_correlativa_en_posicion()
+    {
+        using var t = new EntornoPt();
+        t.AgregarPedido("P1", 1, 2);
+        var a = await t.Escanear("E1", pieza: "0");
+        var b = await t.Escanear("E2", pieza: "0");
+        a.Resultado.Should().Be("Alta");
+        b.Resultado.Should().Be("Alta");
+        var piezas = await t.Db.Piezas.OrderBy(x => x.NumeroPieza).ToListAsync();
+        piezas.Should().HaveCount(2);
+        piezas[0].NumeroPieza.Should().Be(1);
+        piezas[0].Etiqueta.Should().Be("E1");
+        piezas[1].NumeroPieza.Should().Be(2);
+        piezas[1].Etiqueta.Should().Be("E2");
+    }
+
+    [Fact]
+    public async Task Pieza_cero_de_aw_excediendo_piezas_esperadas_marca_excepcion()
+    {
+        using var t = new EntornoPt();
+        t.AgregarPedido("P1", 1, 1);
+        var a = await t.Escanear("E1", pieza: "0");
+        var b = await t.Escanear("E2", pieza: "0");
+        a.Resultado.Should().Be("Alta");
+        b.Resultado.Should().Be("Excepcion");
+        b.Motivo.Should().Be(MotivosPt.PiezaExcedePosicion);
+        (await t.Db.Piezas.CountAsync()).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Reescaneo_de_etiqueta_con_pieza_cero_marca_reposicion_sin_consumir_ranuras()
+    {
+        using var t = new EntornoPt();
+        t.AgregarPedido("P1", 1, 2);
+        var a1 = await t.Escanear("E1", pieza: "0");
+        var a2 = await t.Escanear("E1", pieza: "0", at: new DateTime(2026, 10, 28, 9, 0, 0, DateTimeKind.Unspecified));
+        var b1 = await t.Escanear("E2", pieza: "0");
+        a1.Resultado.Should().Be("Alta");
+        a2.Resultado.Should().Be("Reposicion");
+        b1.Resultado.Should().Be("Alta");
+        var piezas = await t.Db.Piezas.OrderBy(x => x.NumeroPieza).ToListAsync();
+        piezas.Should().HaveCount(2);
+        piezas[0].NumeroPieza.Should().Be(1);
+        piezas[1].NumeroPieza.Should().Be(2);
+    }
+
+    [Theory]
+    [InlineData(" ")]
+    [InlineData("-1")]
+    [InlineData("abc")]
+    public async Task Numero_de_pieza_invalido_es_identidad_incompleta(string piezaInvalida)
     {
         using var t = new EntornoPt();
         t.AgregarPedido("P1", 1, 4);
-        var r = await t.Escanear("E1", pieza: " ");
+        var r = await t.Escanear("E1", pieza: piezaInvalida);
         r.Resultado.Should().Be("Excepcion");
         r.Motivo.Should().Be(MotivosPt.IdentidadIncompleta);
     }

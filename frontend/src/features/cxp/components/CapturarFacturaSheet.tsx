@@ -362,8 +362,7 @@ export function CapturarFacturaSheet({
         <SheetHeader>
           <SheetTitle>Capturar factura desde OC</SheetTitle>
           <SheetDescription>
-            Concilia un CFDI recibido con una OC autorizada. Si el CFDI excede la tolerancia del
-            proveedor, la factura se rechaza.
+            Concilia un CFDI recibido con una OC autorizada. Captura la factura para su revisión y programación de pago.
           </SheetDescription>
         </SheetHeader>
 

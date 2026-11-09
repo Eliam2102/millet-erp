@@ -120,7 +120,7 @@ public sealed class CargarExtractoHandler(
         var cuenta = await db.CuentasBancarias.FirstOrDefaultAsync(c => c.Id == conciliacion.CuentaBancariaId, cancellationToken)
             ?? throw new EntityNotFoundException("CUENTA_NO_ENCONTRADA", "No se encontró la cuenta bancaria.");
 
-        var parser = parserFactory.ObtenerParser(command.Formato);
+        var parser = parserFactory.ObtenerParser(command.Formato, command.ContenidoArchivo);
         var parseResult = parser.Parse(command.ContenidoArchivo);
 
         int numLineaActual = conciliacion.Lineas.Count > 0 ? conciliacion.Lineas.Max(l => l.NumeroLinea) + 1 : 1;

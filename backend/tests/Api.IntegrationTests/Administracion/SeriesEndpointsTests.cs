@@ -768,6 +768,36 @@ public class SeriesEndpointsTests
     }
 
     [Fact]
+    public async Task Exportacion_usa_su_serie_antes_que_la_Cfdi_de_la_sucursal_y_sin_ella_cae_a_Cfdi()
+    {
+        // Prueba S3-4: la factura con CCE de una sucursal con serie CFDI propia debe foliarse con la de exportación.
+        var client = await CreateSuperAdminClientAsync();
+        var sucursal = Guid.NewGuid();
+        async Task<Guid> Crear(int tipo)
+        {
+            var r = await client.PostAsJsonAsync(EndpointBase, new
+            {
+                EmpresaId = EmpresaBootstrapId, SucursalId = sucursal, TipoDocumento = tipo,
+                Prefijo = RandomPrefijo(), ReinicioPeriodo = 0,
+            });
+            r.EnsureSuccessStatusCode();
+            return (await ReadJsonAsync(r)).GetProperty("id").GetGuid();
+        }
+        async Task<Guid> Reservar()
+        {
+            var r = await client.PostAsJsonAsync($"{EndpointBase}/reservar", new
+            { EmpresaId = EmpresaBootstrapId, SucursalId = sucursal, TipoDocumento = 7, FechaReferencia = "2026-11-08" });
+            r.EnsureSuccessStatusCode();
+            return (await ReadJsonAsync(r)).GetProperty("serieId").GetGuid();
+        }
+
+        var cfdi = await Crear(2);
+        Assert.Equal(cfdi, await Reservar());
+        var exportacion = await Crear(7);
+        Assert.Equal(exportacion, await Reservar());
+    }
+
+    [Fact]
     public async Task Altas_fiscales_concurrentes_solo_crean_una_serie_activa()
     {
         var client = await CreateSuperAdminClientAsync();

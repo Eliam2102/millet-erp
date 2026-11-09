@@ -7,12 +7,15 @@ import { BandejaLineasCredito } from '@/features/cxc/pages/BandejaLineasCredito'
 import { EstadoLineaCredito, OrigenLineaCredito } from '@/features/cxc/api/types';
 import { useAuthStore } from '@/lib/auth/auth-store';
 
+// Search params de la ruta; cada prueba puede fijar los suyos.
+let searchActual: Record<string, unknown> = {};
+
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
     <a href={to}>{children}</a>
   ),
   useNavigate: () => () => {},
-  useSearch: () => ({}),
+  useSearch: () => searchActual,
 }));
 
 // El botón "Nueva línea" consume el provider shell-level; en el test lo
@@ -30,6 +33,7 @@ const LINEAS = '*/api/v1/cuentas-por-cobrar/lineas-credito';
 const LOOKUP = '*/api/v1/cuentas-por-cobrar/clientes-lookup';
 
 beforeEach(() => {
+  searchActual = {};
   abrirSpy.mockClear();
   useAuthStore.setState({
     status: 'authenticated',
@@ -134,5 +138,44 @@ describe('<BandejaLineasCredito> — smoke', () => {
     render(<BandejaLineasCredito />, { wrapper: createQueryWrapper() });
     await waitFor(() => expect(screen.getByText(/Sin líneas de crédito/i)).toBeInTheDocument());
     expect(screen.queryByRole('button', { name: /Nueva línea/i })).not.toBeInTheDocument();
+  });
+
+  it('M1: el texto de búsqueda se manda al servidor y la tabla muestra lo que devuelve', async () => {
+    searchActual = { q: ' FAHE ' };
+    const urls: string[] = [];
+    mswServer.use(
+      http.get(LINEAS, ({ request }) => {
+        urls.push(request.url);
+        return HttpResponse.json({
+          items: [
+            {
+              id: 'lc-51',
+              clienteId: 'cli-51',
+              moneda: 'MXN',
+              limite: 100000,
+              origen: OrigenLineaCredito.Solunion,
+              plazoDias: 30,
+              clasificacion: 'A',
+              estado: EstadoLineaCredito.Activa,
+              motivoBloqueo: null,
+              version: 1,
+            },
+          ],
+          offset: 0,
+          limit: 10,
+          total: 1,
+        });
+      }),
+      http.get(LOOKUP, () =>
+        HttpResponse.json([
+          { id: 'cli-51', clave: 'C051', rfc: 'FAH010101AAA', razonSocial: 'FAHE Grupo Comercial' },
+        ]),
+      ),
+    );
+    render(<BandejaLineasCredito />, { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(screen.getByText('FAHE Grupo Comercial')).toBeInTheDocument());
+    const url = new URL(urls[0]!);
+    expect(url.searchParams.get('q')).toBe('FAHE');
+    expect(url.searchParams.get('offset')).toBe('0');
   });
 });

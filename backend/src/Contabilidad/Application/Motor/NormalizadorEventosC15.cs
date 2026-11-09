@@ -318,8 +318,18 @@ public static partial class NormalizadorEventos
                 ["AjusteComision"] = 0m, ["AjusteDiferencia"] = 0m,
             },
             [], payload,
-            FacturaOrigenId: p.Facturas is { Count: > 0 } facturas ? facturas[0].FacturaVentaId : null);
+            FacturaOrigenId: p.Facturas is { Count: > 0 } facturas ? facturas[0].FacturaVentaId : null,
+            CuentaPorRol: CuentaBanco(p.CuentaContableRef));
     }
+
+    /// <summary>
+    /// B8: el cargo a bancos va a la cuenta contable de la cuenta bancaria del depósito (Tesorería la manda en el evento), no a la
+    /// única del rol BANCOS. Sin dato (cuenta bancaria sin cuenta contable o evento anterior), se usa el rol.
+    /// </summary>
+    internal static IReadOnlyDictionary<string, string>? CuentaBanco(string? cuentaContableRef) =>
+        FormatoCatalogo.Codigo(cuentaContableRef) is { } codigo ? new Dictionary<string, string> { [RolBancos] = codigo } : null;
+
+    public const string RolBancos = "BANCOS";
 
     /// <summary>CXC-06: propuesta de CxC del pago de cliente (para leer su ajuste autorizado).</summary>
     internal static Guid? PropuestaDelPagoCliente(string payload) => Leer<PagoClienteContrato>(payload).PropuestaId;
@@ -496,7 +506,7 @@ public static partial class NormalizadorEventos
 
     private sealed record PagoClienteContrato(Guid EmpresaId, Guid ClienteId, Guid MovimientoBancarioId, decimal Monto, string? Moneda,
         DateOnly FechaValor, string? Referencia, IReadOnlyList<PagoClienteFacturaContrato>? Facturas, Guid? PropuestaId = null,
-        decimal SaldoAFavorPorIdentificar = 0m);
+        decimal SaldoAFavorPorIdentificar = 0m, string? CuentaContableRef = null);
 
     private sealed record PagoClienteFacturaContrato(Guid FacturaVentaId, decimal ImporteAplicado);
 

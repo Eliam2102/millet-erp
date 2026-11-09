@@ -82,46 +82,12 @@ public sealed class ReservarFolioHandler
         // SucursalId del request; si no hay, caer al match cross-sucursal
         // (SucursalId IS NULL). Permite que una empresa tenga una serie
         // específica por sucursal y un fallback general.
-        Guid? serieId = null;
-        if (command.SucursalId is Guid sucId)
-        {
-            const string sqlSucursal = """
-                SELECT id AS "Value"
-                FROM compartido.series
-                WHERE empresa_id = {0}
-                  AND sucursal_id = {1}
-                  AND tipo_documento = {2}
-                  AND activa
-                ORDER BY id
-                LIMIT 2
-                FOR UPDATE
-                """;
-            var candidatas = await _db.Database.SqlQueryRaw<Guid>(
-                sqlSucursal, command.EmpresaId, sucId, (short)command.TipoDocumento).ToListAsync(cancellationToken);
-            if (candidatas.Count > 1) throw new BusinessRuleException("SERIE_AMBIGUA", "Hay varias series activas. Corrige el catálogo antes de reservar.");
-            serieId = candidatas.Count == 1 ? candidatas[0] : null;
-        }
-        // F6.1: los tipos por sucursal (VentaDirecta) no caen a la serie global.
-        if ((serieId is null || serieId == Guid.Empty) && !Serie.RequiereSucursal(command.TipoDocumento))
-        {
-            const string sqlGlobal = """
-                SELECT id AS "Value"
-                FROM compartido.series
-                WHERE empresa_id = {0}
-                  AND sucursal_id IS NULL
-                  AND tipo_documento = {1}
-                  AND activa
-                ORDER BY id
-                LIMIT 2
-                FOR UPDATE
-                """;
-            var candidatas = await _db.Database.SqlQueryRaw<Guid>(
-                sqlGlobal, command.EmpresaId, (short)command.TipoDocumento).ToListAsync(cancellationToken);
-            if (candidatas.Count > 1) throw new BusinessRuleException("SERIE_AMBIGUA", "Hay varias series globales activas. Corrige el catálogo antes de reservar.");
-            serieId = candidatas.Count == 1 ? candidatas[0] : null;
-        }
+        var serieId = await ResolverSerieAsync(command.EmpresaId, command.SucursalId, command.TipoDocumento, cancellationToken);
+        // Prueba S3-4: sin serie de exportación activa, la factura con CCE se folia con la serie Cfdi.
+        if (serieId is null && command.TipoDocumento == TipoDocumentoSerie.Exportacion)
+            serieId = await ResolverSerieAsync(command.EmpresaId, command.SucursalId, TipoDocumentoSerie.Cfdi, cancellationToken);
 
-        var serie = serieId is Guid id && id != Guid.Empty
+        var serie = serieId is Guid id
             ? await _db.Series.AsNoTracking().SingleAsync(s => s.Id == id, cancellationToken)
             : null;
 
@@ -182,6 +148,50 @@ public sealed class ReservarFolioHandler
         var folio = FormatearFolio(serie, periodoClave, numero);
         await transaction.CommitAsync(cancellationToken);
         return new ReservarFolioResponse(folio, numero, periodoClave, serie.Id);
+    }
+
+    private async Task<Guid?> ResolverSerieAsync(
+        Guid empresaId, Guid? sucursalId, TipoDocumentoSerie tipo, CancellationToken cancellationToken)
+    {
+        Guid? serieId = null;
+        if (sucursalId is Guid sucId)
+        {
+            const string sqlSucursal = """
+                SELECT id AS "Value"
+                FROM compartido.series
+                WHERE empresa_id = {0}
+                  AND sucursal_id = {1}
+                  AND tipo_documento = {2}
+                  AND activa
+                ORDER BY id
+                LIMIT 2
+                FOR UPDATE
+                """;
+            var candidatas = await _db.Database.SqlQueryRaw<Guid>(
+                sqlSucursal, empresaId, sucId, (short)tipo).ToListAsync(cancellationToken);
+            if (candidatas.Count > 1) throw new BusinessRuleException("SERIE_AMBIGUA", "Hay varias series activas. Corrige el catálogo antes de reservar.");
+            serieId = candidatas.Count == 1 ? candidatas[0] : null;
+        }
+        // F6.1: los tipos por sucursal (VentaDirecta) no caen a la serie global.
+        if ((serieId is null || serieId == Guid.Empty) && !Serie.RequiereSucursal(tipo))
+        {
+            const string sqlGlobal = """
+                SELECT id AS "Value"
+                FROM compartido.series
+                WHERE empresa_id = {0}
+                  AND sucursal_id IS NULL
+                  AND tipo_documento = {1}
+                  AND activa
+                ORDER BY id
+                LIMIT 2
+                FOR UPDATE
+                """;
+            var candidatas = await _db.Database.SqlQueryRaw<Guid>(
+                sqlGlobal, empresaId, (short)tipo).ToListAsync(cancellationToken);
+            if (candidatas.Count > 1) throw new BusinessRuleException("SERIE_AMBIGUA", "Hay varias series globales activas. Corrige el catálogo antes de reservar.");
+            serieId = candidatas.Count == 1 ? candidatas[0] : null;
+        }
+        return serieId is Guid id && id != Guid.Empty ? id : null;
     }
 
     internal static string FormatearFolio(Serie serie, string periodoClave, long numero)

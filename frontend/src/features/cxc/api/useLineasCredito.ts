@@ -17,9 +17,9 @@ const BASE = '/api/v1/cuentas-por-cobrar/lineas-credito';
 
 /**
  * <c>useLineasCredito(filtros)</c> — bandeja paginada server-side de
- * líneas de crédito (CXC-PR1). El filtro <c>q</c> del topbar se aplica
- * client-side en la página (el backend filtra por clienteId / estado /
- * moneda).
+ * líneas de crédito (CXC-PR1). El backend filtra por clienteId / estado /
+ * moneda y por <c>q</c> (razón social, RFC o clave del cliente, por
+ * palabras); el total ya refleja lo filtrado (M1).
  */
 export function useLineasCredito(filtros: ListarLineasCreditoFiltros = {}) {
   return useQuery<PagedResponse<LineaCreditoResponse>>({
@@ -29,6 +29,8 @@ export function useLineasCredito(filtros: ListarLineasCreditoFiltros = {}) {
       if (filtros.clienteId) params.set('clienteId', filtros.clienteId);
       if (filtros.estado != null) params.set('estado', String(filtros.estado));
       if (filtros.moneda) params.set('moneda', filtros.moneda);
+      const q = filtros.q?.trim();
+      if (q) params.set('q', q);
       if (filtros.offset != null) params.set('offset', String(filtros.offset));
       if (filtros.limit != null) params.set('limit', String(filtros.limit));
       const qs = params.toString();

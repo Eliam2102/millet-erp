@@ -16,6 +16,8 @@ export interface ResumenImportesProps {
   isrRetenido?: number;
   otrasRetenciones?: Importe[];
   total: number;
+  /** Texto del renglón del total (por omisión «Total»); p. ej. «Subtotal (sin IVA)». */
+  etiquetaTotal?: string;
   estadoPago?: (Importe & { destacado?: boolean })[];
   acciones?: ReactNode;
   className?: string;
@@ -32,6 +34,7 @@ export function ResumenImportes({
   isrRetenido,
   otrasRetenciones,
   total,
+  etiquetaTotal = 'Total',
   estadoPago,
   acciones,
   className,
@@ -64,7 +67,7 @@ export function ResumenImportes({
             ),
         )}
         <div className="flex items-baseline justify-between gap-4 border-t border-line pt-3 text-base font-semibold">
-          <dt>Total</dt>
+          <dt>{etiquetaTotal}</dt>
           <dd className="text-right tabular-nums">
             {formatMoney({ amount: total, currency: moneda })}
           </dd>

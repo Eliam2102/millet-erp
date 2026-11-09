@@ -726,6 +726,11 @@ describe('<DetallePedido> — proforma (U1.8a)', () => {
       );
       render(<DetallePedido />, { wrapper: createQueryWrapper() });
       expect(await screen.findByText(/Salidas parciales \(2\)/)).toBeInTheDocument();
+      // M6 (prueba manual S3-4): los importes de las salidas van sin IVA y así se rotulan.
+      const seccion = screen.getByTestId('salidas-pedido');
+      expect(within(seccion).getByText('Subtotal del pedido (sin IVA)')).toBeInTheDocument();
+      expect(within(seccion).getByText('Por facturar (sin IVA)')).toBeInTheDocument();
+      expect(within(seccion).getByRole('columnheader', { name: 'Importe sin IVA' })).toBeInTheDocument();
       const parcialidad1 = screen.getByTestId('salida-1');
       expect(within(parcialidad1).getByText('FV 10')).toBeInTheDocument();
       expect(within(parcialidad1).getByText('Timbrada')).toBeInTheDocument();
