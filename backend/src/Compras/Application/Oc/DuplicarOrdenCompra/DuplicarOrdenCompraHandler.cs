@@ -1,3 +1,4 @@
+using PrefijoSucursalCompras = Millet.Compras.Domain.PrefijoSucursalCompras;
 using Millet.CentrosCosto.Application.PublicPorts;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -115,7 +116,7 @@ public sealed class DuplicarOrdenCompraHandler
 
         var siguiente = await GetNextFolioSequenceAsync(
             empresaId, origen.SucursalDestinoId, command.FolioAnio, cancellationToken);
-        var folioStr = $"OC-{command.SucursalCodigo}{command.FolioAnio}-{siguiente:D6}";
+        var folioStr = $"OC-{PrefijoSucursalCompras.Resolver(command.SucursalCodigo)}{command.FolioAnio}-{siguiente:D6}";
         var folio = Folio.Parse(folioStr);
 
         // Conserva los vínculos a RQ para consumir el saldo del faltante.

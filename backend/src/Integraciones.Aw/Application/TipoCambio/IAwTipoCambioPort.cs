@@ -18,6 +18,7 @@ public interface IAwTipoCambioPort
 
     /// <summary>
     /// Consulta el tipo de cambio vigente registrado directamente en A+W (SYSADM.KA_WAEHRUNGEN) para supervisión de desfase.
+    /// Devuelve VALUTAKURS tal cual: unidades de moneda extranjera por 1 MXN (inverso del valor del ERP).
     /// </summary>
     Task<decimal?> ObtenerTipoCambioVigenteAwAsync(string moneda, CancellationToken ct = default);
 }

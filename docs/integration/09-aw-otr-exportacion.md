@@ -76,10 +76,20 @@ que se *borra* en OTR no cambia ningún `DATETIME_UPDATE` y no se detecta; (2) s
 versión aunque su contenido sea el mismo; (3) 45 pirámides mezclan clientes y 523 mezclan sucursales: se rechazan con
 `CE_OTR_VARIOS_CLIENTES` / `CE_OTR_VARIAS_SUCURSALES` (no se escoge una al azar); decisión pendiente con Comercio Exterior.
 
-**Estatus y cancelación: configurables, sin inventar.** TI explicó sólo 50 = edición, 150 = organizado y 200 = liberado. **Sin explicar:**
-100, 900, 950 y 1000, y cómo se marca una ruta cancelada (TI lo pasó a Comercio Exterior). Por eso `EstatusRutaExcluidos` (por omisión `50`)
-y `EstatusRutaCancelada` (por omisión vacío: nada se cancela) son opciones. Una ruta que sale del conjunto leído (por ejemplo, vuelve a 50) no
-se interpreta como cancelación.
+**Estatus de ruta (`ROUTE_STATUS`) y cancelación.** Lista de TI (Jorge, 5-nov) y regla de Comercio Exterior (Guadalupe Polanco, 6-nov):
+
+| Estatus | Significado | Tratamiento en el ERP |
+|---|---|---|
+| 1 | Creada | Se lee (no se excluye en silencio). Pregunta abierta a Comercio Exterior: ¿una ruta recién creada ya debe entrar al ERP o sólo desde 50/150? |
+| 50 | Edición | Excluida (`EstatusRutaExcluidos`) |
+| 100, 150, 200, 250, 350, 500, 800 | Etapas del flujo (150 = organizado, 200 = liberado) | Se leen |
+| 850/851, 860-880 | Etapas posteriores | Se leen |
+| 890 | **Cancelado** | Genera `Cancelacion` (`EstatusRutaCancelada`, por omisión `890`) |
+| 900, 950, 1000 | Etapas finales | Se leen |
+
+Regla del 890 (Guadalupe Polanco, 6-nov): en OTR no se modifica un envío cancelado, se cancela y se crea uno nuevo; el ERP trata la cancelación y el alta nueva como envíos distintos. No existe diccionario de OTR; booking y BL viven sólo en el ERP (Janette Niquete). `EstatusRutaExcluidos` (por omisión `50`) y `EstatusRutaCancelada` (por omisión `890`) siguen siendo opciones. Una ruta que sale del conjunto leído (por ejemplo, vuelve a 50) no se interpreta como cancelación.
+
+**Supuestos por validar en UAT con Comercio Exterior:** `bultos` = `SUM(POS_QTY)` y unidad de línea `H87` no están confirmados por Millet.
 
 ## Contrato de entrada (origen Demo)
 
@@ -181,9 +191,9 @@ La bandeja del lanzador contiene sólo los envíos por vincular.
 | `MaxIntentos` | 5 | > 0, errores técnicos de entrada |
 | `ContratoI134Firmado` | false | Candado real adicional; activar sólo con evidencia de I13.4 firmado |
 | `EstatusRutaExcluidos` | `50` | Real: estatus de ruta que no se leen (coma). 50 = edición (TI) |
-| `EstatusRutaCancelada` | vacío | Real: estatus que cancelan el envío. Vacío hasta que Comercio Exterior defina la regla |
+| `EstatusRutaCancelada` | `890` | Real: estatus que cancelan el envío. 890 = Cancelado (TI 5-nov, Comercio Exterior 6-nov) |
 | `EstatusPedidoMenorA` | 900 | Real: sólo posiciones cuyo pedido A+W tenga `STATUS` menor |
-| `UnidadLinea` | `H87` | Real: unidad de las líneas; debe coincidir con la del pedido en el ERP |
+| `UnidadLinea` | `H87` | Real (supuesto por validar en UAT): unidad de las líneas; debe coincidir con la del pedido en el ERP |
 | `EntregaDesde` | vacío | Real: sólo rutas con `DELIVERY_DATE` igual o posterior (`yyyy-MM-dd`) |
 
 Real se registra únicamente con contrato firmado, conexión `AwClientesDb` y

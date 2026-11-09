@@ -159,14 +159,16 @@ public sealed class AwTipoCambioWorker : BackgroundService
                     var awValor = await port.ObtenerTipoCambioVigenteAwAsync(moneda, ct);
                     var erpValor = acuseHoy.Valor;
 
-                    if (awValor != erpValor)
+                    // VALUTAKURS es el inverso del valor ERP (MXN por unidad): se compara en el dominio de A+W.
+                    if (awValor != AwTipoCambioAdapter.ValutakursDe(erpValor))
                     {
                         if (_alertasEmitidas.Add(("ALERTA_3", hoy, moneda)))
                         {
                             _logger.LogWarning(
-                                "ALERTA_TC_DESFASE_ERP_AW: Discrepancia en tipo de cambio para {Moneda}: ERP={ErpValor}, A+W={AwValor}.",
+                                "ALERTA_TC_DESFASE_ERP_AW: Discrepancia en tipo de cambio para {Moneda}: ERP={ErpValor} (A+W esperado={AwEsperado}), A+W={AwValor}.",
                                 moneda,
                                 erpValor,
+                                AwTipoCambioAdapter.ValutakursDe(erpValor),
                                 awValor);
                         }
                     }
