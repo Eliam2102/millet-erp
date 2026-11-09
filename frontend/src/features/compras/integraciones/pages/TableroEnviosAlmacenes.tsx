@@ -25,6 +25,12 @@ const ETIQUETA_TIPO: Record<AlmCompraEnvio['tipo'], string> = {
   COMPRA_CANCELADA: 'Cancelación',
 };
 
+/** v8 §3: un mensaje que lleva 5 minutos sin acuse se da por atorado (Almacenes levanta su alarma; aquí se ve igual). */
+export const MINUTOS_ATORADO = 5;
+export function estaAtorado(e: Pick<AlmCompraEnvio, 'estado' | 'enviadoEn' | 'acuseEn'>, ahora = Date.now()): boolean {
+  return e.estado === 'ENVIADO' && !e.acuseEn && !!e.enviadoEn && ahora - new Date(e.enviadoEn).getTime() >= MINUTOS_ATORADO * 60_000;
+}
+
 /** Qué recibe Almacenes de este mensaje: la compra (hojas, lote del proveedor, pedimento). La recepción y el rack no viajan (TI, 5-nov). */
 function Detalle({ e }: { e: AlmCompraEnvio }) {
   const d = e.datos;
@@ -103,6 +109,9 @@ export function TableroEnviosAlmacenes() {
                   <TableCell>{ETIQUETA_TIPO[e.tipo]}</TableCell>
                   <TableCell>
                     <Badge variant={VARIANTE[e.estado]}>{e.estado}</Badge>
+                    {estaAtorado(e) && (
+                      <Badge variant="danger" className="ml-1" title={`Sin acuse de Almacenes después de ${MINUTOS_ATORADO} minutos`}>Atorado</Badge>
+                    )}
                     {e.ultimoError && <p className="mt-1 max-w-xs text-xs text-danger-fg">{e.ultimoError}</p>}
                   </TableCell>
                   <TableCell className="tabular-nums">{e.intentos}</TableCell>

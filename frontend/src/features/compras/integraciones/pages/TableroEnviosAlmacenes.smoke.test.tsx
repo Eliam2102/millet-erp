@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
-import { TableroEnviosAlmacenes } from '@/features/compras/integraciones/pages/TableroEnviosAlmacenes';
+import { TableroEnviosAlmacenes, estaAtorado } from '@/features/compras/integraciones/pages/TableroEnviosAlmacenes';
 import { useAuthStore } from '@/lib/auth/auth-store';
 
 vi.mock('@tanstack/react-router', () => ({
@@ -55,5 +55,23 @@ describe('<TableroEnviosAlmacenes>', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
     await waitFor(() => expect(reintentos).toEqual(['e-2:idem']));
+  });
+
+  it('marca atorado el mensaje enviado que lleva 5 minutos sin acuse y solo ese', () => {
+    const ahora = Date.parse('2026-11-09T12:00:00Z');
+    const hace = (min: number) => new Date(ahora - min * 60_000).toISOString();
+    expect(estaAtorado({ estado: 'ENVIADO', enviadoEn: hace(4), acuseEn: null }, ahora)).toBe(false);
+    expect(estaAtorado({ estado: 'ENVIADO', enviadoEn: hace(5), acuseEn: null }, ahora)).toBe(true);
+    expect(estaAtorado({ estado: 'ENVIADO', enviadoEn: hace(30), acuseEn: hace(1) }, ahora)).toBe(false);
+    expect(estaAtorado({ estado: 'PROCESADO', enviadoEn: hace(30), acuseEn: null }, ahora)).toBe(false);
+    expect(estaAtorado({ estado: 'PENDIENTE', enviadoEn: null, acuseEn: null }, ahora)).toBe(false);
+  });
+
+  it('muestra la insignia Atorado en la fila sin acuse tras 5 minutos', async () => {
+    const viejo = { ...modificada, id: 'e-3', mensajeId: 'ERP-X-R1', estado: 'ENVIADO', ultimoError: null, enviadoEn: new Date(Date.now() - 6 * 60_000).toISOString() };
+    mswServer.use(http.get('*/api/v1/compras/integraciones/alm-compra/envios', () => HttpResponse.json([viejo, recibida])));
+    render(<TableroEnviosAlmacenes />, { wrapper: createQueryWrapper() });
+    await screen.findByText('ERP-X-R1');
+    expect(screen.getAllByText('Atorado')).toHaveLength(1);
   });
 });
