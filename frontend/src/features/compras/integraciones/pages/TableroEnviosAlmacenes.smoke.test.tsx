@@ -3,7 +3,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
-import { TableroEnviosAlmacenes, estaAtorado } from '@/features/compras/integraciones/pages/TableroEnviosAlmacenes';
+import { TableroEnviosAlmacenes } from '@/features/compras/integraciones/pages/TableroEnviosAlmacenes';
+import { estaAtorado } from '@/features/compras/integraciones/api/atorado';
 import { useAuthStore } from '@/lib/auth/auth-store';
 
 vi.mock('@tanstack/react-router', () => ({

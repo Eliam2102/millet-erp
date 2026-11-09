@@ -14,6 +14,7 @@ import {
   useReintentarAlmCompraEnvio,
   type AlmCompraEnvio,
 } from '@/features/compras/integraciones/api/useAlmCompraEnvios';
+import { estaAtorado, MINUTOS_ATORADO } from '@/features/compras/integraciones/api/atorado';
 
 const ESTADOS = ['PENDIENTE', 'ENVIADO', 'PROCESADO', 'DUPLICADO', 'ERROR', 'RECHAZADO'] as const;
 const VARIANTE: Record<AlmCompraEnvio['estado'], 'success' | 'warning' | 'danger' | 'info'> = {
@@ -24,12 +25,6 @@ const ETIQUETA_TIPO: Record<AlmCompraEnvio['tipo'], string> = {
   COMPRA_MODIFICADA: 'Compra modificada',
   COMPRA_CANCELADA: 'Cancelación',
 };
-
-/** v8 §3: un mensaje que lleva 5 minutos sin acuse se da por atorado (Almacenes levanta su alarma; aquí se ve igual). */
-export const MINUTOS_ATORADO = 5;
-export function estaAtorado(e: Pick<AlmCompraEnvio, 'estado' | 'enviadoEn' | 'acuseEn'>, ahora = Date.now()): boolean {
-  return e.estado === 'ENVIADO' && !e.acuseEn && !!e.enviadoEn && ahora - new Date(e.enviadoEn).getTime() >= MINUTOS_ATORADO * 60_000;
-}
 
 /** Qué recibe Almacenes de este mensaje: la compra (hojas, lote del proveedor, pedimento). La recepción y el rack no viajan (TI, 5-nov). */
 function Detalle({ e }: { e: AlmCompraEnvio }) {
