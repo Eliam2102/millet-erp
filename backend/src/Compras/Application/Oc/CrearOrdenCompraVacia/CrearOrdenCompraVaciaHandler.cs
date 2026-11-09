@@ -1,3 +1,4 @@
+using PrefijoSucursalCompras = Millet.Compras.Domain.PrefijoSucursalCompras;
 using MediatR;
 using Millet.Compras.Domain.Ports.Catalogos;
 using Millet.Compras.Application.Proveedores;
@@ -211,7 +212,7 @@ public sealed class CrearOrdenCompraVaciaHandler
 
             // Formato canónico §4.3: OC-{prefijoSucursal}{año}-{secuencial:6}
             // ej. OC-MID2026-000001.
-            return $"OC-{command.SucursalCodigo}{command.FolioAnio}-{siguiente:D6}";
+            return $"OC-{PrefijoSucursalCompras.Resolver(command.SucursalCodigo)}{command.FolioAnio}-{siguiente:D6}";
         }
     }
 

@@ -20,6 +20,7 @@ namespace Millet.Api.Endpoints.Tesoreria;
 public static class MovimientosEndpoints
 {
     public sealed record ReclasificarBody(Guid ConceptoId, string Motivo);
+    public sealed record RechazarReclasificacionBody(string Motivo);
     public sealed record SolicitarDevolucionBody(Guid ClienteId, decimal Importe, string Motivo, string Banco, string Clabe, string Titular);
     public static IEndpointRouteBuilder MapTesoreriaMovimientosEndpoints(this IEndpointRouteBuilder app)
     {
@@ -94,6 +95,22 @@ public static class MovimientosEndpoints
             return Results.NoContent();
         }).WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaMovimientosRegistrar);
+
+        // M-204: segunda firma. La facultad la exige el endpoint; que firme otra persona, el dominio.
+        movimientos.MapPost("/{id:guid}/reclasificacion/autorizar", async (Guid id, IMediator mediator, CancellationToken ct) =>
+        {
+            await mediator.Send(new AutorizarReclasificacionCommand(id), ct);
+            return Results.NoContent();
+        }).WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaMovimientosAutorizarReclasificacion);
+
+        movimientos.MapPost("/{id:guid}/reclasificacion/rechazar", async (Guid id,
+            [FromBody] RechazarReclasificacionBody body, IMediator mediator, CancellationToken ct) =>
+        {
+            await mediator.Send(new RechazarReclasificacionCommand(id, body.Motivo), ct);
+            return Results.NoContent();
+        }).WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaMovimientosAutorizarReclasificacion);
 
         // T9.6: devolución de un depósito erróneo. El grupo ya verifica la sucursal del movimiento {id}.
         movimientos.MapPost("/{id:guid}/solicitar-devolucion", async (Guid id,

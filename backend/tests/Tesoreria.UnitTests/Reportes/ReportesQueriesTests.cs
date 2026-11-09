@@ -32,7 +32,7 @@ public sealed class ReportesQueriesTests
 
         reporte.Titulo.Should().Be("Flujo de efectivo");
         reporte.GeneradoEn.Should().Be(Ahora);
-        reporte.Columnas.Should().HaveCount(7);
+        reporte.Columnas.Should().HaveCount(8);
         reporte.Filas.Should().HaveCount(4); // inicial, detalle, final y total MXN
         reporte.Filas[1]["ingresos"].Should().Be(15_000m);
         reporte.Totales.Should().BeNull();

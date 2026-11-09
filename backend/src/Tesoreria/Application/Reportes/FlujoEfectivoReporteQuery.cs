@@ -26,7 +26,7 @@ public sealed class FlujoEfectivoReporteValidator : AbstractValidator<FlujoEfect
     }
 }
 
-public sealed class FlujoEfectivoReporteHandler(TesoreriaDbContext db, IClock clock)
+public sealed class FlujoEfectivoReporteHandler(TesoreriaDbContext db, IClock clock, Millet.Tesoreria.Domain.Ports.ICorteNombresReadPort? nombres = null)
     : IRequestHandler<FlujoEfectivoReporteQuery, ReporteJsonResponse>
 {
     public async Task<ReporteJsonResponse> Handle(FlujoEfectivoReporteQuery query, CancellationToken cancellationToken)
@@ -91,6 +91,7 @@ public sealed class FlujoEfectivoReporteHandler(TesoreriaDbContext db, IClock cl
                 ["saldoInicial"] = Sumar("saldoInicial", "neto"), ["saldoFinal"] = Sumar("saldoFinal", "neto"),
             });
         }
+        await AgregarReclasificacionesAsync(filas, cuentas, ids, query, conceptos, cancellationToken);
         return new ReporteJsonResponse("Flujo de efectivo", clock.UtcNow,
             [new("Del", query.Desde.ToString("yyyy-MM-dd")), new("Al", query.Hasta.ToString("yyyy-MM-dd"))],
             [new("cuenta", "Cuenta", TipoColumnaReporte.Texto, AlineacionColumna.Izquierda),
@@ -99,6 +100,42 @@ public sealed class FlujoEfectivoReporteHandler(TesoreriaDbContext db, IClock cl
              new("moneda", "Moneda", TipoColumnaReporte.Texto, AlineacionColumna.Centro),
              new("ingresos", "Ingresos", TipoColumnaReporte.Moneda, AlineacionColumna.Derecha),
              new("egresos", "Egresos", TipoColumnaReporte.Moneda, AlineacionColumna.Derecha),
-             new("neto", "Saldo / neto", TipoColumnaReporte.Moneda, AlineacionColumna.Derecha)], filas, null);
+             new("neto", "Saldo / neto", TipoColumnaReporte.Moneda, AlineacionColumna.Derecha),
+             new("rastro", "Rastro de reclasificación", TipoColumnaReporte.Texto, AlineacionColumna.Izquierda)], filas, null);
+    }
+
+    static string Clasificacion(ConceptoMovimiento? c) => c?.ClasificacionFlujo switch
+    {
+        ClasificacionFlujo.Operacion => "Operación", ClasificacionFlujo.Inversion => "Inversión",
+        ClasificacionFlujo.Financiamiento => "Financiamiento", _ => "Sin clasificar",
+    };
+
+    /// <summary>M-204: «Reclasificaciones del periodo»: las aprobadas de movimientos del periodo, con su rastro. No suman a los totales (el flujo ya usa el concepto vigente).</summary>
+    private async Task AgregarReclasificacionesAsync(List<IReadOnlyDictionary<string, object?>> filas, IReadOnlyList<CuentaBancaria> cuentas,
+        List<Guid> cuentaIds, FlujoEfectivoReporteQuery query, Dictionary<Guid, ConceptoMovimiento> conceptos, CancellationToken ct)
+    {
+        var aprobadas = await (from r in db.MovimientoReclasificaciones.AsNoTracking()
+                               join m in FlujoLectura.Movimientos(db, cuentaIds) on r.MovimientoId equals m.Id
+                               where r.Estado == EstadoReclasificacion.Aprobada && m.FechaValor >= query.Desde && m.FechaValor <= query.Hasta
+                               orderby r.ResueltoEn
+                               select new { r, m.CuentaBancariaId, m.Monto, m.Sentido, m.Moneda }).ToListAsync(ct);
+        if (aprobadas.Count == 0) return;
+        var usuarios = aprobadas.SelectMany(a => new[] { a.r.SolicitadoPor, a.r.ResueltoPor }).OfType<Guid>().Distinct().ToList();
+        var nombresPorId = nombres is null ? new Dictionary<Guid, string>() : await nombres.NombresCajerosAsync(usuarios, ct);
+        string Nombre(Guid? id) => id is Guid g && nombresPorId.TryGetValue(g, out var n) ? n : "(usuario)";
+        string Etiqueta(Guid? id) => id is Guid g && conceptos.TryGetValue(g, out var c) ? $"{Clasificacion(c)} · {c.Nombre}" : "Sin clasificar";
+        foreach (var a in aprobadas)
+        {
+            var cuenta = cuentas.First(c => c.Id == a.CuentaBancariaId);
+            var ingreso = a.Sentido == SentidoMovimiento.Ingreso;
+            filas.Add(new Dictionary<string, object?>
+            {
+                ["tipo"] = "reclasificacion", ["cuentaId"] = cuenta.Id, ["cuenta"] = $"{cuenta.Banco} {Clabe.Enmascarar(cuenta.NumeroCuenta)}",
+                ["moneda"] = a.Moneda, ["clasificacion"] = "Reclasificaciones del periodo",
+                ["concepto"] = $"{Etiqueta(a.r.ConceptoAnteriorId)} → {Etiqueta(a.r.ConceptoNuevoId)}",
+                ["ingresos"] = ingreso ? a.Monto : null, ["egresos"] = ingreso ? null : a.Monto, ["neto"] = ingreso ? a.Monto : -a.Monto,
+                ["rastro"] = $"Pidió {Nombre(a.r.SolicitadoPor)} · autorizó {Nombre(a.r.ResueltoPor)} el {a.r.ResueltoEn:dd/MM/yyyy} · {a.r.Motivo}",
+            });
+        }
     }
 }
