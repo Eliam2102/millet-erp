@@ -22,3 +22,9 @@ it('muestra el estado recibido con su texto de usuario al reintentar', () => {
     'Estado del comprobante: Timbrado en proceso. Consulta el comprobante antes de reintentar.',
   );
 });
+
+it('M19: sin saldo del proveedor de timbrado no pide revisar los datos fiscales', () => {
+  render(<TimbradoFallidoBanner comprobanteId="prueba" estado="TimbradoFallido" errorCodigo="PAC_SIN_SALDO" errorMensaje={null} />);
+  expect(screen.getByText(/El proveedor de timbrado no tiene saldo para timbrar/)).toBeInTheDocument();
+  expect(screen.queryByText(/Revisa sus datos fiscales/)).not.toBeInTheDocument();
+});

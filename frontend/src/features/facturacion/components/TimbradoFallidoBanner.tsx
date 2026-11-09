@@ -17,6 +17,7 @@ import {
   useReintentarTimbrado,
 } from '@/features/facturacion/api/useFacturas';
 import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
+import { esPacSinSaldo, TEXTO_PAC_SIN_SALDO } from '@/features/facturacion/lib/pac-sin-saldo';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { Loader2, RotateCcw, Trash2 } from 'lucide-react';
@@ -68,6 +69,7 @@ export function TimbradoFallidoBanner({
   if (estado !== 'TimbradoFallido') return null;
 
   const esAmbiguo = errorCodigo != null && CODIGOS_AMBIGUOS.includes(errorCodigo.toUpperCase());
+  const sinSaldo = esPacSinSaldo(errorCodigo);
 
   function handleReintentar() {
     // Key FRESCA por clic: reintentar timbrado debe volver a pegarle al PAC.
@@ -89,7 +91,9 @@ export function TimbradoFallidoBanner({
             toast.success(`Timbrado exitoso — UUID ${r.uuid}.`);
           } else if (r.estado === 'TimbradoFallido') {
             toast.error(
-              'No se pudo timbrar el comprobante. Revisa sus datos fiscales con Facturación antes de reintentar.',
+              esPacSinSaldo(r.timbradoErrorCodigo)
+                ? TEXTO_PAC_SIN_SALDO
+                : 'No se pudo timbrar el comprobante. Revisa sus datos fiscales con Facturación antes de reintentar.',
             );
           } else {
             toast.info(`Estado del comprobante: ${estadoUi('factura', r.estado).texto}. Consulta el comprobante antes de reintentar.`);
@@ -133,7 +137,9 @@ export function TimbradoFallidoBanner({
         <span className="font-medium text-danger-fg">Timbrado fallido</span>
         {' — '}{esAmbiguo
           ? 'El servicio no confirmó el timbrado. Verifica el comprobante en FiscalAPI antes de reintentar.'
-          : 'No se pudo timbrar el comprobante. Revisa sus datos fiscales con Facturación antes de reintentar.'}
+          : sinSaldo
+            ? TEXTO_PAC_SIN_SALDO
+            : 'No se pudo timbrar el comprobante. Revisa sus datos fiscales con Facturación antes de reintentar.'}
       </p>
 
       <ErrorTimbradoAviso error={reintentar.error} />
