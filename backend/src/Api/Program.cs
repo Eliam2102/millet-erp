@@ -1196,6 +1196,12 @@ if (!string.IsNullOrWhiteSpace(awIntegracionDb)
     Millet.Integraciones.Aw.Infrastructure.Adapters.AwSqlTls.Validar(awIntegracionDb, "AwIntegracionDb");
     builder.Services.AddIntegracionesAwPedidosAdapters(builder.Configuration);
 }
+else
+{
+    // Sin ConnectionStrings:AwIntegracionDb el publicador de catálogos queda inerte (no-op).
+    builder.Services.AddScoped<Millet.Integraciones.Aw.Application.Pinturas.Catalogos.IPinturasCatalogosPublisher,
+        Millet.Integraciones.Aw.Application.Pinturas.Catalogos.NoOpPinturasCatalogosPublisher>();
+}
 
 // ADM-06: lector de clientes A+W. Independiente de pedidos; por defecto solo la fuente
 // simulada vacía (sin adaptador SQL, sin lecturas). Ver doc integration/05 §10.
