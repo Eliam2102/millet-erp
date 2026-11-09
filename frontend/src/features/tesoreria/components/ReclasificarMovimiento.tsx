@@ -17,7 +17,7 @@ export function ReclasificarMovimiento({ movimiento }: { movimiento: MovimientoB
   const keyFor = useBodyScopedIdempotencyKey();
   return (
     <section className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat">
-      <h2 className="text-md font-semibold">Reclasificar movimiento</h2>
+      <h2 className="text-md font-semibold">Solicitar reclasificación</h2>
       <FormSeccion numero={1} titulo="Reclasificación">
         <FormCampo span={12}>
           <ConceptoSelector value={conceptoId} onChange={setConceptoId} />
@@ -48,7 +48,7 @@ export function ReclasificarMovimiento({ movimiento }: { movimiento: MovimientoB
             { ...command, idempotencyKey: keyFor(command) },
             {
               onSuccess: () => {
-                toast.success('Movimiento reclasificado');
+                toast.success('Solicitud enviada: falta la autorización de otra persona');
                 setMotivo('');
               },
               onError: (e) =>

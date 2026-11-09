@@ -9,6 +9,15 @@ interface SucursalSesion {
   nombre: string;
 }
 
+// Etiquetas visibles de Millet. El valor del selector sigue siendo el ID de la sucursal.
+const prefijosMillet: Readonly<Partial<Record<string, string>>> = {
+  '101': 'CON',
+  '102': 'CHI',
+  '103': 'CIR',
+  '104': 'CAN',
+  '105': 'PIN',
+};
+
 /** Contexto operativo de la UI; el backend sigue validando cada recurso. */
 export function SucursalSelector() {
   const empresaId = useAuthStore((s) => s.currentEmpresaId);
@@ -46,7 +55,7 @@ export function SucursalSelector() {
         className="max-w-28 rounded-md sm:max-w-44 border border-input bg-background px-2 py-1"
       >
         <option value="">{alcance?.esCorporativo ? 'Todas las sucursales' : 'Todas las permitidas'}</option>
-        {sucursales.map((s) => <option key={s.id} value={s.id}>{s.clave} · {s.nombre}</option>)}
+        {sucursales.map((s) => <option key={s.id} value={s.id}>{prefijosMillet[s.clave] ?? s.clave} · {s.nombre}</option>)}
       </select>
     </label>
   );

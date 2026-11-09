@@ -340,6 +340,14 @@ if (!string.IsNullOrWhiteSpace(outboxConnString))
     builder.Services.AddHostedService<Millet.Contabilidad.Infrastructure.Workers.CuentasPorPagarContabilidadListenerWorker>();
     builder.Services.AddHostedService<Millet.Contabilidad.Infrastructure.Workers.TesoreriaContabilidadListenerWorker>();
     builder.Services.AddHostedService<Millet.Contabilidad.Infrastructure.Workers.AlmacenContabilidadListenerWorker>();
+
+    // M-046: avisos de Producto terminado por Service Bus (topic `producto-terminado-events`, Bicep y emulador en el mismo PR).
+    // Misma lógica que la entrega local (C1.8) detrás de un ServiceBusConsumerWorker por suscripción.
+    builder.Services.AddConsumidorServiceBus<Millet.CuentasPorCobrar.Infrastructure.Workers.ProductoTerminadoLocalConsumer>("cuentas-por-cobrar-pt-sub");
+    builder.Services.AddConsumidorServiceBus<Millet.ProductoTerminado.Infrastructure.Workers.CxcDecisionLocalConsumer>("producto-terminado-cxc-sub");
+    builder.Services.AddConsumidorServiceBus<Millet.ProductoTerminado.Infrastructure.Workers.FacturacionLocalConsumer>("producto-terminado-facturacion-sub");
+    builder.Services.AddConsumidorServiceBus<Millet.Integraciones.Aw.Infrastructure.Retorno.ProductoTerminadoRetornoLocalConsumer>("integraciones-aw-pt-sub");
+    builder.Services.AddHostedService<Millet.Contabilidad.Infrastructure.Workers.ProductoTerminadoContabilidadListenerWorker>();
 }
 // C1.8: sin conexión, `ServiceBus:EntregaLocal:Habilitada=true` (solo Development)
 // entrega los eventos del outbox en el mismo proceso a los listeners de arriba;

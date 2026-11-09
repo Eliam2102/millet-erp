@@ -17,7 +17,7 @@ public sealed class ConceptoMovimientoConfiguration : IEntityTypeConfiguration<C
     {
         builder.ToTable("concepto_movimiento", t =>
         {
-            t.HasCheckConstraint("ck_concepto_movimiento_clasificacion", "clasificacion_flujo IN (1, 2, 3)");
+            t.HasCheckConstraint("ck_concepto_movimiento_clasificacion", "clasificacion_flujo IN (1, 2, 3, 4)");
         });
 
         builder.HasKey(e => e.Id);
@@ -62,7 +62,7 @@ public sealed class ConceptoMovimientoConfiguration : IEntityTypeConfiguration<C
         (Guid.Parse("0000000b-1001-0000-0000-000000000004"), "Comisión bancaria",             ClasificacionFlujo.Operacion),
         (Guid.Parse("0000000b-1001-0000-0000-000000000005"), "Impuestos",                     ClasificacionFlujo.Operacion),
         (Guid.Parse("0000000b-1001-0000-0000-000000000006"), "Nómina",                        ClasificacionFlujo.Operacion),
-        (Guid.Parse("0000000b-1001-0000-0000-000000000007"), "Traspaso entre cuentas propias", ClasificacionFlujo.Operacion),
+        (ConceptoMovimiento.TraspasoId, "Traspaso entre cuentas propias", ClasificacionFlujo.TraspasoInterno),
         (Guid.Parse("0000000b-1001-0000-0000-000000000008"), "Compra de activo fijo",         ClasificacionFlujo.Inversion),
         (Guid.Parse("0000000b-1001-0000-0000-000000000009"), "Venta de activo fijo",          ClasificacionFlujo.Inversion),
         (Guid.Parse("0000000b-1001-0000-0000-00000000000a"), "Intereses ganados",             ClasificacionFlujo.Financiamiento),
