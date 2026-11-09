@@ -4317,6 +4317,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("0000000b-0002-0000-0000-000000000004"),
+                            Accion = "autorizar-reclasificacion",
+                            Codigo = "tesoreria.movimientos.autorizar-reclasificacion",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar o rechazar la reclasificación de un movimiento bancario; no puede firmarla quien la solicitó",
+                            Modulo = "tesoreria",
+                            Recurso = "movimientos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("0000000b-0003-0000-0000-000000000001"),
                             Accion = "aplicar",
                             Codigo = "tesoreria.pagos.aplicar",

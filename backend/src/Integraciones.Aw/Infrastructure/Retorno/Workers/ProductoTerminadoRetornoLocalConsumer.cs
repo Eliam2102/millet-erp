@@ -13,8 +13,7 @@ namespace Millet.Integraciones.Aw.Infrastructure.Retorno;
 /// (<c>pedido.facturado-entregado.v1</c>) sigue yendo; del 70 (<c>pedido.estado-cambiado.v1</c> con <c>Liberado</c>) solo viaja la
 /// liberación MANUAL de Crédito y Cobranza (motivo DecisionCxc, decidida por una persona): el 70 por saldo, pago o reparto lo
 /// decide el servicio de A+W. Cada aviso va con el saldo vigente como cifra de control (tipo 2), nunca como fuente.
-/// PLATFORM-TODO(&lt;TopicProductoTerminado&gt;): solo entrega local (C1.8), igual que los demás consumidores de PT; con Service Bus falta
-/// el topic <c>producto-terminado-events</c>.
+/// Con Service Bus lo consume <c>integraciones-aw-pt-sub</c> (M-046).
 /// </summary>
 public sealed class ProductoTerminadoRetornoLocalConsumer(IServiceScopeFactory scopes, ILogger<ProductoTerminadoRetornoLocalConsumer> logger)
     : ILocalIntegrationEventConsumer

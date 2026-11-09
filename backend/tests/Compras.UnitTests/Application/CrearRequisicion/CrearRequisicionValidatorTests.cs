@@ -26,10 +26,16 @@ public class CrearRequisicionValidatorTests
             Descripcion: descripcion,
             RequisitanteId: requisitanteId);
 
-    [Fact]
-    public void Should_PassValidation_When_CommandIsValid()
+    [Theory]
+    [InlineData("MID")]
+    [InlineData("101")]
+    [InlineData("102")]
+    [InlineData("103")]
+    [InlineData("104")]
+    [InlineData("105")]
+    public void Should_PassValidation_When_CommandIsValid(string sucursalCodigo)
     {
-        var result = _validator.Validate(Valid());
+        var result = _validator.Validate(Valid(sucursalCodigo));
 
         Assert.True(result.IsValid);
     }

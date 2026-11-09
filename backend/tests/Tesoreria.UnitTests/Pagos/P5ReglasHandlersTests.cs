@@ -307,7 +307,10 @@ public sealed class P5ReglasHandlersTests
         var handler = new FlujoEfectivoReporteHandler(db, new Clock());
         var antes = await handler.Handle(new(Fecha, Fecha), default);
         antes.Filas.Should().Contain(f => (string?)f["tipo"] == "movimiento" && (string?)f["clasificacion"] == "Sin clasificar");
-        await new ReclasificarMovimientoHandler(db).Handle(new(ingreso.Id, concepto.Id, "Corrección de concepto", ingreso.Version), default);
+        await new ReclasificarMovimientoHandler(db, new User(), new Clock()).Handle(new(ingreso.Id, concepto.Id, "Corrección de concepto", ingreso.Version), default);
+        // M-204: pendiente hasta la segunda firma; el flujo sigue con el concepto vigente.
+        (await handler.Handle(new(Fecha, Fecha), default)).Filas.Should().NotContain(f => (string?)f["clasificacion"] == "Inversión");
+        await new AutorizarReclasificacionHandler(db, new OtroUser(), new Clock()).Handle(new(ingreso.Id), default);
         var reporte = await handler.Handle(new(Fecha, Fecha), default);
         reporte.Filas.Single(f => (string?)f["tipo"] == "saldoFinal" && (string?)f["moneda"] == "MXN")["neto"].Should().Be(1200m);
         reporte.Filas.Single(f => (string?)f["tipo"] == "saldoFinal" && (string?)f["moneda"] == "USD")["neto"].Should().Be(60m);
@@ -327,6 +330,7 @@ public sealed class P5ReglasHandlersTests
     private sealed class EmpresaContext : ICurrentEmpresaContext
     { public Guid? Current => Empresa; public bool IsBypassed => false; public IDisposable Bypass() => new Noop(); private sealed class Noop : IDisposable { public void Dispose() { } } }
     private sealed class User : ICurrentUserContext { public Guid? UserId => Usuario; public string? UserName => "Prueba P5"; }
+    private sealed class OtroUser : ICurrentUserContext { public Guid? UserId => Guid.Parse("00000000-0000-0000-0000-0000000000b2"); public string? UserName => "Otra persona P5"; }
     private sealed class Clock : IClock { public DateTimeOffset UtcNow => Ahora; }
     // P3: Tesorería no paga más que el elegible; estas pruebas no lo limitan.
     private sealed class ElegibleSinLimite : Millet.Tesoreria.Domain.Ports.IElegibleFacturaReadPort

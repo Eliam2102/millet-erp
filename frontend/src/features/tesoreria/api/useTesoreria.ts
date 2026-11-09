@@ -26,6 +26,7 @@ import type {
   DepositoConfirmacionResponse,
   DevolucionClienteResponse,
   MovimientoBancarioResponse,
+  TraspasoResponse,
   MovimientoDetalleResponse,
   PagedResponse,
   PagoACuentaAbiertoResponse,
@@ -519,6 +520,47 @@ export function useRegistrarMovimientoIngreso() {
   });
 }
 
+/** M-203: `POST /movimientos/traspasos` — par ligado entre dos cuentas propias. */
+export function useRegistrarTraspaso() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      command: {
+        cuentaOrigenId: string;
+        cuentaDestinoId: string;
+        monto: number;
+        fechaValor: string;
+        referencia: string;
+        motivo?: string;
+        sucursalId?: string;
+      };
+      idempotencyKey: string;
+    }) => {
+      const { data } = await apiRequest<TraspasoResponse>(`${BASE}/movimientos/traspasos`, {
+        method: 'POST',
+        body: args.command,
+        idempotencyKey: args.idempotencyKey,
+      });
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: tesoreriaKeys.all }),
+  });
+}
+
+/** M-203: revierte el traspaso completo desde cualquiera de sus dos movimientos. */
+export function useRevertirTraspaso() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { movimientoId: string; motivo: string; idempotencyKey: string }) => {
+      await apiRequest<MovimientoBancarioResponse[]>(
+        `${BASE}/movimientos/${args.movimientoId}/revertir-traspaso`,
+        { method: 'POST', body: { motivo: args.motivo }, idempotencyKey: args.idempotencyKey },
+      );
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: tesoreriaKeys.all }),
+  });
+}
+
 // ─── REPP recibido de proveedor (TES-FE-PR6b, §3.6.b / TES-4) ───────
 
 /** <c>useReppPendientes(filtros)</c> — pagos PPD (o sin dato) sin complemento, con SLA 5 días. */
@@ -783,6 +825,18 @@ export function useReclasificarMovimiento() {
         method: 'POST', body: { conceptoId: args.conceptoId, motivo: args.motivo },
         headers: { 'X-Expected-Version': String(args.version) }, idempotencyKey: args.idempotencyKey,
       });
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: tesoreriaKeys.all }),
+  });
+}
+export function useResolverReclasificacion() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { movimientoId: string; rechazo?: { motivo: string }; idempotencyKey: string }) => {
+      await apiRequest<void>(
+        `${BASE}/movimientos/${args.movimientoId}/reclasificacion/${args.rechazo ? 'rechazar' : 'autorizar'}`,
+        { method: 'POST', body: args.rechazo, idempotencyKey: args.idempotencyKey },
+      );
     },
     onSuccess: () => client.invalidateQueries({ queryKey: tesoreriaKeys.all }),
   });
