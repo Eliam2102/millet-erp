@@ -90,7 +90,7 @@ public sealed class AperturaSaldosInicialesTests
     public void CA3_el_detalle_de_clientes_que_no_iguala_el_renglon_da_la_diferencia()
     {
         var filas = Cuadrada();
-        filas[5] = filas[5] with { Cargo = 49_000m }; // 500,000 + 300,000 + 49,000 = 849,000 contra 850,000
+        filas[4] = filas[4] with { Cargo = 49_000m }; // fila 6: 500,000 + 300,000 + 49,000 = 849,000 contra 850,000
 
         var r = Revisar(filas);
 
@@ -173,7 +173,7 @@ public sealed class AperturaSaldosInicialesTests
     [Fact]
     public void CA4_la_poliza_de_apertura_nace_autorizada_con_origen_apertura_y_quien_subio_y_autorizo()
     {
-        var tipo = new TipoDocumentoContable(Guid.NewGuid(), "APE", "Apertura", false, TipoPolizaSat.Diario);
+        var tipo = new TipoDocumentoContable(Guid.NewGuid(), "SI", "Apertura", false, TipoPolizaSat.Diario);
         var sucursal = Guid.NewGuid();
         DatosPartida P(Guid cuenta, decimal cargo, decimal abono, Guid? cliente = null) =>
             new(cuenta, "X", "Saldo inicial", cargo, abono, "MXN", 1m, null, sucursal, null, null, null, null, cliente, null, null);
@@ -187,7 +187,7 @@ public sealed class AperturaSaldosInicialesTests
 
         p.Origen.Should().Be(OrigenPoliza.Apertura);
         p.Estado.Should().Be(EstadoPoliza.Autorizada);
-        p.Folio.Should().Be("APE-000001");
+        p.Folio.Should().Be("SI-000001");
         (p.CapturadaPorId, p.AutorizadaPorId, p.AutorizadaPor, p.AutorizadaEn).Should().Be((subio, autorizo, "Contadora", ahora));
         (p.PeriodoAnio, p.PeriodoNumero).Should().Be((2026, 12));
     }
@@ -195,7 +195,7 @@ public sealed class AperturaSaldosInicialesTests
     [Fact]
     public void La_poliza_de_apertura_que_no_cuadra_no_se_crea()
     {
-        var tipo = new TipoDocumentoContable(Guid.NewGuid(), "APE", "Apertura", false, TipoPolizaSat.Diario);
+        var tipo = new TipoDocumentoContable(Guid.NewGuid(), "SI", "Apertura", false, TipoPolizaSat.Diario);
         var d = new DatosPartida(Bancos.Id, "X", null, 100m, 0m, "MXN", 1m, null, Guid.NewGuid(), null, null, null, null, null, null, null);
 
         var crear = () => Poliza.CrearApertura(Guid.NewGuid(), tipo, new DateOnly(2026, 12, 31), 2026, 12, "Apertura",
@@ -210,7 +210,7 @@ public sealed class AperturaSaldosInicialesTests
     {
         var huella = new string('a', 64);
         var marca = new AperturaContable(Guid.NewGuid(), Guid.NewGuid(), huella.ToUpperInvariant(), new DateOnly(2026, 12, 31), Guid.NewGuid(),
-            "APE-000001", Guid.NewGuid(), Guid.NewGuid(), "Contadora", DateTimeOffset.UtcNow);
+            "SI-000001", Guid.NewGuid(), Guid.NewGuid(), "Contadora", DateTimeOffset.UtcNow);
 
         marca.Huella.Should().Be(huella);
         marca.EsElMismoArchivo(huella, new DateOnly(2026, 12, 31)).Should().BeTrue();

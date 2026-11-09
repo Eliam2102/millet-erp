@@ -65,7 +65,7 @@ Contabilidad no lee tablas del lote: todo viaja en la consulta y en el comando (
 Además, cada partida pasa por las mismas reglas que cualquier póliza (dimensiones obligatorias K10.2), y el error queda en su fila.
 
 ## 4. La póliza de apertura
-- **Tipo:** el que indica el lote o, sin él, el tipo `APE`, que debe ser de Diario. **Origen:** `Apertura`, nuevo en `OrigenPoliza`.
+- **Tipo:** el que indica el lote o, sin él, el tipo `SI`, que debe ser de Diario. **Origen:** `Apertura`, nuevo en `OrigenPoliza`.
 - **Fecha:** la fecha de corte, es decir, el último día del periodo anterior al arranque. Así el mes del arranque la muestra como **saldo inicial** en la balanza y en los auxiliares, que suman los periodos anteriores.
 - **Partidas:**
   - un movimiento por cuenta;
@@ -82,7 +82,7 @@ Además, cada partida pasa por las mismas reglas que cualquier póliza (dimensio
 
 ## 6. Supuestos a validar con Contabilidad
 1. **Fecha:** la póliza va fechada al último día del periodo anterior al arranque (31-dic-2026 en producción; 31-oct-2026 en el ensayo).
-2. **Tipo de póliza:** se sugiere dar de alta `APE` (Diario).
+2. **Tipo de póliza:** se sugiere dar de alta `SI` «Saldos iniciales» (Diario); las claves de tipo son de dos letras, como en SAP.
 3. **Sucursal:** la balanza del sistema anterior puede no traerla. El lote fija una sucursal por omisión (propuesta: la matriz).
 4. **Detalle:** se exige en clientes y proveedores. En deudores y acreedores es opcional.
 
