@@ -332,6 +332,9 @@ public sealed class EmitirFacturaVentaHandler
         // 86e3tfdw2: observaciones del cajero (solo PDF, nunca XML). Antes de
         // cualquier cambio de estado (retención por pedimento / timbrado).
         var condicionesPago = command.CondicionesPago ?? pedido?.CondicionPagoOrigen;
+        // M12: una PPD es pago diferido; «CONTADO» (p. ej. heredado del pedido de A+W)
+        // la contradice, así que se descarta y manda el plazo de la línea de crédito.
+        if (command.MetodoPago == "PPD" && EsContado(condicionesPago)) condicionesPago = null;
         if (condicionesPago is null && command.MetodoPago == "PPD"
             && (command.ClienteId ?? pedido?.ClienteId) is Guid clienteCreditoId && _plazoCredito is not null)
         {
@@ -481,6 +484,10 @@ public sealed class EmitirFacturaVentaHandler
             TimbradoErrorCodigo: factura.TimbradoErrorCodigo,
             TimbradoErrorMensaje: factura.TimbradoErrorMensaje);
     }
+
+    /// <summary>M12: «CONTADO» contradice una PPD (pago diferido).</summary>
+    private static bool EsContado(string? condiciones) =>
+        string.Equals(condiciones?.Trim(), "CONTADO", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// B2: hay que dejar rastro si el folio se reservó y la factura no llegó a guardarse. Si el PAC

@@ -1327,6 +1327,14 @@ describe('<EmitirFacturaForm> — observaciones con anticipos aplicados (86e3tfd
     expect(emitidas[0]).toEqual(expect.objectContaining({ observaciones: '', referenciaCliente: '' }));
   });
 
+  it('M12: al cambiar a PPD se borra «CONTADO» heredado del pedido', async () => {
+    renderForm({ ...prefill, condicionesPago: 'CONTADO' });
+    await screen.findByRole('button', { name: /Emitir y timbrar/i });
+    expect(screen.getByLabelText('Condiciones de pago')).toHaveValue('CONTADO');
+    fireEvent.change(screen.getByDisplayValue(/^PUE/), { target: { value: 'PPD' } });
+    await waitFor(() => expect(screen.getByLabelText('Condiciones de pago')).toHaveValue(''));
+  });
+
   it('CONTADO es un ejemplo y mantiene vacío el valor de condiciones', async () => {
     renderForm();
     await screen.findByRole('button', { name: /Emitir y timbrar/i });
