@@ -222,3 +222,10 @@ Fuentes: `ACUERDO-almacenes-28oct` (reglas 2, 4 y 7), contrato de mensajes v6 de
    - Solo consulta. Índice GIN únicamente cuando alguien pida una consulta «por lote».
    - Por qué columna y no la tabla/columna `lote` existente: `lote` guarda un solo valor y alimenta la llave del saldo (migración `20261026233414_AlmacenVarianteMedida`); los grupos son varios por línea. Mismo patrón que `PedidoFacturableLineaConfiguration.cs:40`.
 4. **Lote de apertura.** La existencia heredada sin lote se guarda con lote NULL y se muestra «Lote de apertura». La frontera de C3.2 normaliza a NULL un lote vacío o «APERTURA» (en cualquier combinación de mayúsculas, sin espacios sobrantes), para que no existan dos formas del mismo lote. Etiquetas en develop sin alinear (código de #236, no se tocan aquí): «Sin lote (apertura)» en `LoteSalidaSelect.tsx:49`, «—» en `SaldosPage.tsx:362`.
+
+## Costo medio que viaja en la compra (M-149, 86e3zr6m5)
+
+- Fórmula: `nuevo = (existencia × promedio + entran × costoCompraMxn) / (existencia + entran)`, por m² en vidrio y por cantidad en lo demás, en MXN al tipo de cambio de la compra. Función pura `CostoMedio` (Almacén/Domain/Saldos); lectura vía `ICostoMedioReader`.
+- La compra entra a su valor real; las entradas manuales toman el promedio del ERP sin moverlo. Con existencia cero se conserva el último promedio (VILO lo comunicó a Fernando Alejos el 9-nov).
+- Llave: artículo + variante + almacén (sucursal + tipo + línea). `AgrupacionCostoMedio` es parámetro: `PorAlmacen` (omisión, como A+W por ubicación) o `PorSucursal`. Pregunta abierta a Fernando: ¿por línea (HEGLA 1, HEGLA 2, BYSTRONIC) o por sucursal?
+- Límite: COMPRA_RECIBIDA se emite al autorizar la OC, antes de la recepción, así que `costoMedioM2` es una ESTIMACIÓN con la existencia de ese momento.
