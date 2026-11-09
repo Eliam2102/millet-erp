@@ -7,6 +7,7 @@ using Millet.Administracion.Domain;
 using Millet.Facturacion.Application.Anticipos;
 using Millet.Facturacion.Application.Integration;
 using Millet.Facturacion.Application.NotasCredito;
+using Millet.Facturacion.Application.Pedidos;
 using Millet.Facturacion.Application.Sustituciones;
 using Millet.Facturacion.Application.Timbrado;
 using Millet.Facturacion.Domain.Activos;
@@ -328,6 +329,10 @@ public sealed class EmitirFacturaVentaHandler
             command, empresaId, reserva.Folio, reserva.Numero, _user.UserId,
             receptor, emisor, anio, mes);
         _facturaEnCurso = factura;
+        // M7: el IVA de la parcialidad se redondea sobre el acumulado de la posición, para que la suma
+        // de las facturas de las salidas sea el total del pedido (sin centavo de más).
+        if (salida is not null)
+            await IvaParcialidades.AjustarIvaAsync(_db, factura, salida, cancellationToken);
 
         // 86e3tfdw2: observaciones del cajero (solo PDF, nunca XML). Antes de
         // cualquier cambio de estado (retención por pedimento / timbrado).
