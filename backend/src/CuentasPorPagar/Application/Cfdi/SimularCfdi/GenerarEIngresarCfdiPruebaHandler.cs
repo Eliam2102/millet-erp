@@ -121,7 +121,11 @@ public sealed class GenerarEIngresarCfdiPruebaHandler : IRequestHandler<GenerarE
         foreach (var l in oc.Lineas.OrderBy(x => x.Posicion))
         {
             decimal cantidad;
-            if (request.CantidadesPorPosicion is not null && request.CantidadesPorPosicion.TryGetValue(l.Posicion, out var cantEspecifica))
+            if (request.CantidadesPorLineaId is not null && request.CantidadesPorLineaId.TryGetValue(l.Id, out var cantLinea))
+            {
+                cantidad = cantLinea;
+            }
+            else if (request.CantidadesPorPosicion is not null && request.CantidadesPorPosicion.TryGetValue(l.Posicion, out var cantEspecifica))
             {
                 cantidad = cantEspecifica;
             }

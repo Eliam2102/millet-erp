@@ -7,9 +7,29 @@ namespace Millet.CuentasPorPagar.Application.Cfdi.SimularCfdi;
 /// e ingresarlo al ERP en estado <c>PorProcesar</c> vía <c>IngresarCfdiCommand</c> (canal Mailbox).
 /// Solo disponible en entornos fuera de producción (!IsProduction()).
 /// </summary>
-public sealed record GenerarEIngresarCfdiPruebaCommand(
-    Guid OrdenCompraId,
-    IReadOnlyDictionary<int, decimal>? CantidadesPorPosicion = null) : IRequest<GenerarEIngresarCfdiPruebaResponse>;
+public sealed record GenerarEIngresarCfdiPruebaCommand : IRequest<GenerarEIngresarCfdiPruebaResponse>
+{
+    public Guid OrdenCompraId { get; init; }
+    public IReadOnlyDictionary<int, decimal>? CantidadesPorPosicion { get; init; }
+    public IReadOnlyDictionary<Guid, decimal>? CantidadesPorLineaId { get; init; }
+
+    public GenerarEIngresarCfdiPruebaCommand(
+        Guid ordenCompraId,
+        IReadOnlyDictionary<int, decimal>? cantidadesPorPosicion = null,
+        IReadOnlyDictionary<Guid, decimal>? cantidadesPorLineaId = null)
+    {
+        OrdenCompraId = ordenCompraId;
+        CantidadesPorPosicion = cantidadesPorPosicion;
+        CantidadesPorLineaId = cantidadesPorLineaId;
+    }
+
+    public GenerarEIngresarCfdiPruebaCommand(
+        Guid ordenCompraId,
+        IReadOnlyDictionary<Guid, decimal>? cantidadesPorLineaId)
+        : this(ordenCompraId, null, cantidadesPorLineaId)
+    {
+    }
+}
 
 /// <summary>
 /// Respuesta con el resultado del CFDI de prueba generado o recuperado por idempotencia.
@@ -18,4 +38,8 @@ public sealed record GenerarEIngresarCfdiPruebaResponse(
     Guid CfdiRecibidoId,
     string UuidCfdi,
     string Folio,
-    decimal Total);
+    decimal Total)
+{
+    public Guid Id => CfdiRecibidoId;
+    public string Uuid => UuidCfdi;
+}

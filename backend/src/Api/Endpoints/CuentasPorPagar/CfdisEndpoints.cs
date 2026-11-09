@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Hosting;
 using Millet.Api.Auth;
 using Millet.Api.Web;
 using Millet.CuentasPorPagar.Application.Cfdi.Buzon;
@@ -11,6 +12,7 @@ using Millet.CuentasPorPagar.Application.Cfdi.DescargarCfdiBlob;
 using Millet.CuentasPorPagar.Application.Cfdi.MarcarCfdiDuplicado;
 using Millet.CuentasPorPagar.Application.Cfdi.ObtenerCfdiParseado;
 using Millet.CuentasPorPagar.Application.Cfdi.ObtenerCfdiPorId;
+using Millet.CuentasPorPagar.Application.Cfdi.SimularCfdi;
 using Millet.CuentasPorPagar.Application.Cfdi.SolicitudesCancelacion;
 using Millet.CuentasPorPagar.Application.Common;
 using Millet.CuentasPorPagar.Domain.Cfdi;
@@ -342,9 +344,35 @@ public static class CfdisEndpoints
         .WithSummary("Últimas corridas del worker del buzón de CFDIs")
         .Produces<IReadOnlyList<BuzonEjecucionResponse>>(StatusCodes.Status200OK);
 
+        group.MapPost("/simular-desde-oc/{ordenCompraId:guid}", async (
+            Guid ordenCompraId,
+            [FromBody] SimularCfdiRequest? body,
+            ISender sender,
+            IHostEnvironment env,
+            CancellationToken cancellationToken) =>
+        {
+            if (env.IsProduction())
+            {
+                return Results.NotFound();
+            }
+
+            var response = await sender.Send(
+                new GenerarEIngresarCfdiPruebaCommand(ordenCompraId, body?.Cantidades),
+                cancellationToken);
+
+            return Results.Created($"/api/v1/cuentas-por-pagar/cfdis/{response.CfdiRecibidoId}", response);
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarCfdisLeer)
+        .WithName("SimularCfdiDesdeOc")
+        .WithSummary("Simula e ingresa un CFDI 4.0 de prueba para una Orden de Compra (solo ambientes no productivos)")
+        .Produces<GenerarEIngresarCfdiPruebaResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         return app;
     }
 
+    public sealed record SimularCfdiRequest(Dictionary<Guid, decimal>? Cantidades = null);
     public sealed record DescartarCfdiRequest(string Motivo);
     public sealed record MarcarDuplicadoRequest(Guid CfdiOriginalId);
     public sealed record RegistrarSolicitudCancelacionRequest(AreaSolicitudCancelacion Area, DateTimeOffset? FechaRecepcion, string? Notas);
