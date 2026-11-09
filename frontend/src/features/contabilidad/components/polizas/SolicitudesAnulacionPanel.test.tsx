@@ -12,7 +12,8 @@ vi.mock('@tanstack/react-router', () => ({
   ),
 }));
 
-import { MENSAJE_MISMA_PERSONA, SolicitudesAnulacionPanel, esPropia } from './SolicitudesAnulacionPanel';
+import { SolicitudesAnulacionPanel } from './SolicitudesAnulacionPanel';
+import { MENSAJE_MISMA_PERSONA, esPropia } from '../../lib/anulacion';
 
 const API = '*/api/v1/contabilidad/polizas';
 

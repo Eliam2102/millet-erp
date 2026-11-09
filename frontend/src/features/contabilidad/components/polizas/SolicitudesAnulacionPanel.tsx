@@ -19,15 +19,9 @@ import { useAuthStore } from '@/lib/auth/auth-store';
 import { formatDateTime } from '@/lib/datetime';
 import { useAprobarAnulacion, useRechazarAnulacion, useSolicitudesAnulacion } from '../../api/polizas';
 import type { SolicitudAnulacion } from '../../api/polizas-types';
+import { MENSAJE_MISMA_PERSONA, esPropia } from '../../lib/anulacion';
 import { fechaCorta } from '../../lib/dimensiones';
 import { MOTIVO_ANULACION_MAXIMO, MOTIVO_ANULACION_MINIMO, mensajePoliza, monto } from '../../lib/polizas';
-
-export const MENSAJE_MISMA_PERSONA = 'Otra persona con facultad debe aprobar la anulación.';
-
-/** M-212: quien pidió la anulación no la decide (el servidor también lo impide). */
-export function esPropia(s: Pick<SolicitudAnulacion, 'solicitadaPorId'>, usuarioId: string | null): boolean {
-  return !!usuarioId && s.solicitadaPorId === usuarioId;
-}
 
 /**
  * M-212 (86e3zr7pq): solicitudes de anulación pendientes de la segunda firma. Quien tiene el permiso de aprobar anulaciones las
