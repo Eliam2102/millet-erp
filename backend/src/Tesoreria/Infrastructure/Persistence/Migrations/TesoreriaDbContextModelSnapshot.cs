@@ -2639,6 +2639,94 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Millet.Tesoreria.Domain.Movimientos.MovimientoReclasificacion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("ConceptoAnteriorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("concepto_anterior_id");
+
+                    b.Property<Guid>("ConceptoNuevoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("concepto_nuevo_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<short>("Estado")
+                        .HasColumnType("smallint")
+                        .HasColumnName("estado");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("motivo");
+
+                    b.Property<string>("MotivoResolucion")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("motivo_resolucion");
+
+                    b.Property<Guid>("MovimientoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("movimiento_id");
+
+                    b.Property<DateTimeOffset?>("ResueltoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resuelto_en");
+
+                    b.Property<Guid?>("ResueltoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("resuelto_por");
+
+                    b.Property<DateTimeOffset>("SolicitadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("solicitado_en");
+
+                    b.Property<Guid>("SolicitadoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("solicitado_por");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_movimiento_reclasificaciones");
+
+                    b.HasIndex("MovimientoId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_movimiento_reclasificaciones_pendiente")
+                        .HasFilter("estado = 1");
+
+                    b.ToTable("movimiento_reclasificaciones", "tesoreria", t =>
+                        {
+                            t.HasCheckConstraint("ck_movimiento_reclasificaciones_estado", "estado IN (1, 2, 3)");
+                        });
+                });
+
             modelBuilder.Entity("Millet.Tesoreria.Domain.Pasivos.AutorizacionPagoComercioExterior", b =>
                 {
                     b.Property<Guid>("Id")
