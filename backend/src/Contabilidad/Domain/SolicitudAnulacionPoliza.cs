@@ -1,8 +1,10 @@
+using System.Text.Json.Serialization;
 using Millet.SharedKernel.Application.Exceptions;
 using Millet.SharedKernel.Domain;
 
 namespace Millet.Contabilidad.Domain;
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum EstadoSolicitudAnulacion : short { Pendiente = 0, Aprobada = 1, Rechazada = 2 }
 
 /// <summary>

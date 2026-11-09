@@ -424,7 +424,7 @@ public class PolizasHttpTests(WebApplicationFactory<Program> factory)
             var propia = await AprobarAnulacionAsync(ambos, solicitud);
             Assert.Equal(HttpStatusCode.UnprocessableEntity, propia.StatusCode);
             Assert.Equal("CONTAB_ANULACION_MISMA_PERSONA", await Code(propia));
-            Assert.Contains("Otra persona con facultad debe aprobar la anulación", (await Json(propia)).GetRawText());
+            Assert.Contains("Otra persona con facultad debe aprobar la anulación", (await Json(propia)).GetProperty("detail").GetString());
             Assert.Equal("Autorizada", (await ObtenerAsync(e.Supervisor, Id(original))).GetProperty("estado").GetString());
 
             // CA4: otra persona la rechaza con motivo; la póliza no cambia y se puede pedir otra.
