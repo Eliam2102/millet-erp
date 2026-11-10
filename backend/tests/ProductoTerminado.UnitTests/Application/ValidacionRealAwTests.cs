@@ -66,6 +66,11 @@ public sealed class ValidacionRealAwTests
             Task.FromResult(new CancelacionSalidaPt(false, false, false));
         public Task<CartaPorteSalida> EmitirCartaPorteAsync(SolicitudCartaPorte solicitud, CancellationToken ct) =>
             Task.FromResult(new CartaPorteSalida(Guid.NewGuid(), "CP-LOCAL-001"));
+
+        public Task<IReadOnlyDictionary<string, FacturaAlbaranRuta>> FacturasDeAlbaranesAsync(IReadOnlyList<string> albaranFolios, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyDictionary<string, FacturaAlbaranRuta>>(new Dictionary<string, FacturaAlbaranRuta>());
+        public Task<IReadOnlyList<CobroRutaRegistrado>> RegistrarCobrosRutaAsync(Guid sucursalId, IReadOnlyList<CobroRutaAlbaran> cobros, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<CobroRutaRegistrado>>([]);
     }
 
     private sealed record AwScanRow(string Auftnr, short Pos, int TeileNr, int Esnr, string Etikett, DateTime Zeit);
