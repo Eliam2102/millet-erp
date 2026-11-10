@@ -962,7 +962,7 @@ resource comercioExteriorFacturacionFilter 'Microsoft.ServiceBus/namespaces/topi
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'comercio_exterior.contenedor.embarcado.v1\', \'comercio_exterior.contenedor.cancelado.v1\')'
+      sqlExpression: 'user.EventType IN (\'comercio_exterior.contenedor.embarcado.v1\', \'comercio_exterior.contenedor.preparado.v1\', \'comercio_exterior.contenedor.cancelado.v1\')'
       compatibilityLevel: 20
     }
   }

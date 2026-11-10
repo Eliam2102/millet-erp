@@ -30,7 +30,11 @@ public sealed partial class Expediente
         ExigirAbierto();
         var actual = _contenedores.SingleOrDefault(x => x.Id == id);
         if (actual is null) _contenedores.Add(new(id, EmpresaId, Id, datos));
-        else actual.Editar(datos);
+        else
+        {
+            if (actual.PreparadoParaFacturarEn is not null) actual.ExigirSinPreparacion();
+            actual.Editar(datos);
+        }
         VersionarEmbarque(actor ?? ResponsableUsuarioId); RevisionContenido++;
     }
     public void RevisarPartidasOtr(IEnumerable<Guid> ids)
@@ -96,7 +100,9 @@ public sealed partial class Expediente
     public void AsignarPartida(Guid contenedor, PedidoEmbarcable pedido, int posicion, decimal cantidad, Guid actor, bool propuesta = false)
     {
         ExigirPedidoAsignable(pedido);
-        Contenedor(contenedor).ExigirActivo();
+        var destino = Contenedor(contenedor);
+        destino.ExigirActivo();
+        if (destino.PreparadoParaFacturarEn is not null) destino.ExigirSinPreparacion();
         var linea = pedido.Lineas.SingleOrDefault(l => l.Posicion == posicion)
             ?? throw new BusinessRuleException("CE_PEDIDO_NO_ASIGNABLE", "La posición ya no existe en el pedido; recargue las líneas de A+W.");
         ExigirCantidad(pedido.Id, linea, cantidad);
@@ -118,7 +124,9 @@ public sealed partial class Expediente
         ExigirPedidoAsignable(pedido);
         var p = _partidas.SingleOrDefault(x => x.Id == partidaId && x.PedidoFacturableId == pedido.Id)
             ?? throw new EntityNotFoundException("CE_PARTIDA_NO_ENCONTRADA", "No existe la partida.");
-        Contenedor(p.ContenedorId).ExigirActivo();
+        var contenedor = Contenedor(p.ContenedorId);
+        contenedor.ExigirActivo();
+        if (contenedor.PreparadoParaFacturarEn is not null) contenedor.ExigirSinPreparacion();
         var linea = pedido.Lineas.SingleOrDefault(l => l.Posicion == p.Posicion)
             ?? throw new BusinessRuleException("CE_PEDIDO_NO_ASIGNABLE", "La posición fue eliminada en A+W; retire la partida y asigne de nuevo.");
         ExigirCantidad(pedido.Id, linea);
@@ -136,6 +144,8 @@ public sealed partial class Expediente
     {
         ExigirExportacion();
         var p = _partidas.SingleOrDefault(x => x.Id == id) ?? throw new EntityNotFoundException("CE_PARTIDA_NO_ENCONTRADA", "No existe la partida.");
+        var contenedor = Contenedor(p.ContenedorId);
+        if (contenedor.PreparadoParaFacturarEn is not null) contenedor.ExigirSinPreparacion();
         if (tieneFactura) throw new ConflictException("CE_CONTENEDOR_CON_FACTURA", "Las partidas de un pedido facturado se conservan.");
         _partidas.Remove(p); VersionarEmbarque(ResponsableUsuarioId);
         if (!_partidas.Any(x => x.PedidoFacturableId == p.PedidoFacturableId && x.Estado != EstadoPartida.Liberada))
@@ -188,8 +198,8 @@ public sealed partial class Expediente
         if (contenedorId is Guid id)
         {
             var c = _contenedores.SingleOrDefault(x => x.Id == id);
-            if (c is null || c.Estado != EstadoContenedor.Activo || c.FechaEmbarqueReal is null || !partidas.Any(p => p.ContenedorId == id))
-                return ("FAC_PEDIDO_NO_EMBARCADO", "El contenedor de la salida no está embarcado, se canceló o ya no lleva partidas de este pedido.");
+            if (c is null || c.Estado != EstadoContenedor.Activo || (c.FechaEmbarqueReal is null && c.PreparadoParaFacturarEn is null) || !partidas.Any(p => p.ContenedorId == id))
+                return ("FAC_PEDIDO_NO_EMBARCADO", "El contenedor aún no se prepara para facturar, se canceló o ya no lleva partidas de este pedido.");
             return BloqueoPreparacionFacturable(partidas.Where(p => p.ContenedorId == id));
         }
         var faltas = pedido.Lineas.Select(l => new { Linea = l, Embarcado = partidas.Where(p => p.Posicion == l.Posicion && p.Unidad == l.Unidad && Contenedor(p.ContenedorId).FechaEmbarqueReal != null).Sum(p => p.Cantidad) })
