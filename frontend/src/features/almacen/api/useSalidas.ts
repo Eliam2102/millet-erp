@@ -89,6 +89,7 @@ export function useRegistrarSalidaConRq() {
     },
     onSuccess: (_data, args) => {
       queryClient.invalidateQueries({ queryKey: almacenKeys.salidas() });
+      queryClient.invalidateQueries({ queryKey: almacenKeys.tamboresLinea() });
       // Invalida el detalle de la RQ para que al reabrir el sheet sobre
       // la misma RQ se vea el `cantSurtidoDeAlmacen` y
       // `cantPendienteSurtir` actualizados (mismo patrón que PR #301
@@ -119,6 +120,7 @@ export function useRegistrarSalidaPorVale() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: almacenKeys.salidas() });
+      queryClient.invalidateQueries({ queryKey: almacenKeys.tamboresLinea() });
     },
   });
 }
