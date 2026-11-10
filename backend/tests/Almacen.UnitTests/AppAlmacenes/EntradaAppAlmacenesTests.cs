@@ -393,6 +393,24 @@ public class EntradaAppAlmacenesTests
         CostoOrigenApp.Costo(lineas, Articulo, null, "L-1").Should().BeNull();
     }
 
+    // ── motivoClave (M-283, v9): dato del movimiento, sin catálogo ─────────────────────────────
+
+    [Fact]
+    public async Task La_entrada_y_la_salida_manual_guardan_su_motivoClave_en_el_movimiento()
+    {
+        var (db, unica, sub) = Db();
+        var (_, folioEntrada, _) = await EntradaAppAlmacenes.RegistrarAsync(db, Puertos(), EmpresaId, Usuario, Sucursal, "m", null, "msg-k",
+            [Hojas(1) with { CostoRespaldoMxn = 130m }], default, TipoMovimiento.AjustePositivo, motivoClave: " ZZ_ARNES_DOC_SOBRANTE ");
+        db.SaldosInventario.Add(new SaldoInventario(unica, sub, Articulo, 100m, 100m, Variante, "L-1"));
+        await db.SaveChangesAsync();
+        var (_, folioSalida, _) = await SalidaAppAlmacenes.RegistrarAsync(db, new Captura(), EmpresaId, Usuario,
+            [Prestamo(1m, null) with { MotivoClave = "PRESTAMO" }], default);
+        await db.SaveChangesAsync();
+
+        (await db.Movimientos.SingleAsync(m => m.Folio == folioEntrada)).MotivoClave.Should().Be("ZZ_ARNES_DOC_SOBRANTE");
+        (await db.Movimientos.SingleAsync(m => m.Folio == folioSalida)).MotivoClave.Should().Be("PRESTAMO");
+    }
+
     private static EntradaAppPuertos Puertos(OcLectura? oc = null, Captura? eventos = null, bool periodoAbierto = true) =>
         new(new FakeOcs(oc), new FactorUno(), new FakePeriodo(periodoAbierto), eventos ?? new Captura());
 

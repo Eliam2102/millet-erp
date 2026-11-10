@@ -278,6 +278,7 @@ public sealed class AlmacenesAppEnsayoM446Tests
             new Resolver(), new UsuarioServicio(), default);
         Assert.Equal(2, a!.Salidas.Count);
         Assert.EndsWith("[ZZ_ARNES_DOC_SOBRANTE]", a.Salidas[0].Motivo);
+        Assert.All(a.Salidas, s => Assert.Equal("ZZ_ARNES_DOC_SOBRANTE", s.MotivoClave)); // dato estructurado del movimiento
     }
 
     [Fact]

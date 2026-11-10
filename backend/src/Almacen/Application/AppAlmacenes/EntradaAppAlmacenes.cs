@@ -56,7 +56,7 @@ public static class EntradaAppAlmacenes
     public static async Task<(string Estado, string? Folio, string? Error)> RegistrarAsync(
         AlmacenDbContext db, EntradaAppPuertos puertos, Guid empresaId, Guid usuarioId, Guid sucursalId, string motivo,
         string? compra, string entrada, IReadOnlyList<EntradaApp> entradas, CancellationToken ct,
-        TipoMovimiento tipo = TipoMovimiento.EntradaCompra, OrigenApp? origen = null)
+        TipoMovimiento tipo = TipoMovimiento.EntradaCompra, OrigenApp? origen = null, string? motivoClave = null)
     {
         // M-446: con la lista de almacenes de la sucursal, cada grupo entra a la ubicación de su llave (tipo + línea). Sin llaves
         // (sucursal aún no habilitada o mensaje sin tipo), al almacén general de la sucursal (primero de materiales directos).
@@ -68,7 +68,7 @@ public static class EntradaAppAlmacenes
             if (subs.Count > 1)
                 return ("ERROR", null, "Los almacenes de la entrada están en sub-almacenes distintos del ERP; un movimiento es de un solo sub-almacén.");
             return await RegistrarEnAsync(db, puertos, empresaId, usuarioId, sucursalId, motivo, compra, entrada, entradas,
-                e => llaves[e.Almacen!].UbicacionId, subs[0].SubAlmacenId, subs[0].AlmacenId, tipo, origen, ct);
+                e => llaves[e.Almacen!].UbicacionId, subs[0].SubAlmacenId, subs[0].AlmacenId, tipo, origen, motivoClave, ct);
         }
 
         var general = await (from u in db.Ubicaciones
@@ -82,13 +82,13 @@ public static class EntradaAppAlmacenes
         if (general is null)
             return ("ERROR", null, "La sucursal no tiene un almacén general activo donde registrar la entrada.");
         return await RegistrarEnAsync(db, puertos, empresaId, usuarioId, sucursalId, motivo, compra, entrada, entradas,
-            _ => general.Id, general.SubAlmacenId, general.AlmacenId, tipo, origen, ct);
+            _ => general.Id, general.SubAlmacenId, general.AlmacenId, tipo, origen, motivoClave, ct);
     }
 
     private static async Task<(string Estado, string? Folio, string? Error)> RegistrarEnAsync(
         AlmacenDbContext db, EntradaAppPuertos puertos, Guid empresaId, Guid usuarioId, Guid sucursalId, string motivo,
         string? compra, string entrada, IReadOnlyList<EntradaApp> entradas, Func<EntradaApp, Guid> ubicacion,
-        Guid subAlmacenId, Guid almacenId, TipoMovimiento tipo, OrigenApp? origen, CancellationToken ct)
+        Guid subAlmacenId, Guid almacenId, TipoMovimiento tipo, OrigenApp? origen, string? motivoClave, CancellationToken ct)
     {
         var fecha = DateOnly.FromDateTime(DateTime.UtcNow);
         try
@@ -125,7 +125,7 @@ public static class EntradaAppAlmacenes
                 lineas.Add(new LineaRevisionMov(e.ArticuloId, e.UnidadMedida, e.Cantidad, costo.Value, ubicacionId,
                     e.ProductoAwVarianteId, e.AnchoMm, e.AltoMm, e.Lote));
             }
-            var mov = await MovimientosRevision.AgregarAsync(db, empresaId, usuarioId, tipo, fecha, motivo, lineas, ct);
+            var mov = await MovimientosRevision.AgregarAsync(db, empresaId, usuarioId, tipo, fecha, motivo, lineas, ct, motivoClave);
             return (SalidaAppAlmacenes.Recibido, mov.Folio, null);
         }
         catch (BusinessRuleException ex)

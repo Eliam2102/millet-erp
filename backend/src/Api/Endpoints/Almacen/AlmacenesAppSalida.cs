@@ -16,7 +16,7 @@ namespace Millet.Api.Endpoints.Almacen;
 /// salida es todo o nada. Costo (contrato v9, 10-nov; Fernando, 9-nov): toda salida, incluida SALIDA_MANUAL, sale al
 /// costo promedio del ERP del saldo que toca. El <c>costoM2</c> (vidrio) o <c>costoPieza</c> (por cantidad) que trae
 /// SALIDA_MANUAL es el promedio de A+W y para el ERP es informativo: se valida su forma pero no se usa. <c>moneda</c>, si
-/// viene, debe ser PESOSMX (o MXN). <c>motivoClave</c> (v9) se guarda en el motivo del movimiento. Con medida (vidrio) <c>piezas</c> son hojas enteras y el saldo vive en m²: se baja
+/// viene, debe ser PESOSMX (o MXN). <c>motivoClave</c> (v9) se guarda en el movimiento (<c>MotivoClave</c>) y en su motivo. Con medida (vidrio) <c>piezas</c> son hojas enteras y el saldo vive en m²: se baja
 /// piezas × m² de la hoja (el <c>m2</c> del grupo, si viene, debe coincidir). Sin medida, <c>piezas</c> es el conteo
 /// de unidades. Artículo, medida o sucursal inexistente → ERROR sin mover nada. Sin existencia → ERROR con folio de
 /// revisión y el mensaje queda marcado (el llamador lo acusa).
@@ -192,7 +192,9 @@ public static class AlmacenesAppSalida
                 cantidad, respaldo, motivo, r.AnchoMm, r.AltoMm, ArticuloAw: x.Articulo.Trim(), CentroCostoId: centro,
                 Almacen: x.Almacen, Lote: x.Lote,
                 // La reclamación carga a Ajuste (no a Consumo) mientras CxP no la cobre al proveedor (flujo 8.B).
-                Causa: tipo == Reclamacion ? "salida_manual" : null));
+                Causa: tipo == Reclamacion ? "salida_manual" : null,
+                // v9: clave fija del motivo, como dato del movimiento (sin catálogo: una clave nueva se guarda tal cual).
+                MotivoClave: Texto(datos, "motivoClave")));
         }
         return (new Resuelta(sp.EmpresaId, sp.Id, salidas, origen), null);
     }

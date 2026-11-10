@@ -16,7 +16,8 @@ namespace Millet.Almacen.Application.AppAlmacenes;
 public sealed record SalidaApp(
     TipoMovimiento Tipo, Guid SucursalId, Guid ArticuloId, string UnidadMedida, Guid? ProductoAwVarianteId,
     decimal Cantidad, decimal? CostoUnitarioMxn, string Motivo, decimal? AnchoMm = null, decimal? AltoMm = null,
-    string? Causa = null, string? ArticuloAw = null, Guid? CentroCostoId = null, LlaveAlmacenApp? Almacen = null, string? Lote = null);
+    string? Causa = null, string? ArticuloAw = null, Guid? CentroCostoId = null, LlaveAlmacenApp? Almacen = null, string? Lote = null,
+    string? MotivoClave = null);
 
 /// <summary>Una partida de salida ya repartida contra un saldo concreto (ubicación, lote y costo de ese saldo).</summary>
 internal sealed record PartidaSalidaApp(SalidaApp Salida, Guid SubAlmacenId, LineaRevisionMov Linea);
@@ -65,9 +66,9 @@ public static class SalidaAppAlmacenes
         var fecha = DateOnly.FromDateTime(DateTime.UtcNow);
         foreach (var grupo in partidas.GroupBy(l => (l.Salida.Tipo, l.Salida.Motivo, l.SubAlmacenId)))
         {
-            var mov = await MovimientosRevision.AgregarAsync(db, empresaId, usuarioId, grupo.Key.Tipo, fecha, grupo.Key.Motivo,
-                grupo.Select(l => l.Linea).ToList(), ct);
             var s = grupo.First().Salida;
+            var mov = await MovimientosRevision.AgregarAsync(db, empresaId, usuarioId, grupo.Key.Tipo, fecha, grupo.Key.Motivo,
+                grupo.Select(l => l.Linea).ToList(), ct, s.MotivoClave);
             await SalidaInventarioRegistradaIntegrationEvent.PublicarAsync(
                 events, db, empresaId, mov.Id, grupo.Key.SubAlmacenId, s.Causa ?? SalidaInventarioRegistradaIntegrationEvent.CausaPorDefecto(s.Tipo), ct);
             folios.Add(mov.Folio);

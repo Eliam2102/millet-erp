@@ -108,7 +108,7 @@ public sealed class AlmacenesAppProcesador(
                     s.AnchoMm, s.AltoMm, s.Lote, s.Almacen, s.CostoUnitarioMxn)).ToList();
                 var g = await salidasGuardado.GuardarEntradaAsync(mensajeId, tipo, referencia, root.GetRawText(),
                     resuelta.EmpresaId, resuelta.UsuarioId, primera.SucursalId, primera.Motivo, null, null, entradas, ct,
-                    Millet.Almacen.Domain.Movimientos.TipoMovimiento.AjustePositivo, resuelta.Origen);
+                    Millet.Almacen.Domain.Movimientos.TipoMovimiento.AjustePositivo, resuelta.Origen, primera.MotivoClave);
                 if (!g.Duplicado) return new AcuseApp(mensajeId, g.Estado, g.Folio, g.Error);
                 previo = await db.MensajesApp.AsNoTracking().FirstAsync(m => m.MensajeId == mensajeId, ct);
             }

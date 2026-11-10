@@ -49,10 +49,10 @@ public sealed class SalidaAppAlmacenesGuardado
     public Task<(string Estado, string? Folio, string? Error, bool Duplicado)> GuardarEntradaAsync(
         string mensajeId, string tipo, string? referencia, string payload, Guid empresaId, Guid usuarioId, Guid sucursalId,
         string motivo, string? compra, string? entrada, IReadOnlyList<EntradaApp> entradas, CancellationToken ct,
-        TipoMovimiento tipoMovimiento = TipoMovimiento.EntradaCompra, OrigenApp? origen = null) =>
+        TipoMovimiento tipoMovimiento = TipoMovimiento.EntradaCompra, OrigenApp? origen = null, string? motivoClave = null) =>
         GuardarAsync(mensajeId, tipo, referencia, payload,
             () => EntradaAppAlmacenes.RegistrarAsync(_db, _entrada, empresaId, usuarioId, sucursalId, motivo,
-                compra, entrada ?? mensajeId, entradas, ct, tipoMovimiento, origen), ct);
+                compra, entrada ?? mensajeId, entradas, ct, tipoMovimiento, origen, motivoClave), ct);
 
     /// <summary>CAMBIO_ALMACEN (M-446): el par salida/entrada del traslado y el mensaje en una transacción; sin evento contable.</summary>
     public Task<(string Estado, string? Folio, string? Error, bool Duplicado)> GuardarTrasladoAsync(
