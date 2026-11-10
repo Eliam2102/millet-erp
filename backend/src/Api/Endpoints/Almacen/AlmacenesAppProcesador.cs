@@ -27,7 +27,8 @@ public sealed class AlmacenesAppProcesador(
     /// Tipos que, rechazados (ERROR/EN_REVISION), se reevalúan al llegar el reenvío del mismo mensajeId. La bandeja de
     /// «Mensajes de la app» lista sus ERROR con esta misma lista: un ERROR que frena la referencia siempre se ve.
     /// </summary>
-    public static readonly string[] TiposReevaluables = [.. AlmacenesAppSalida.Tipos.Keys, .. AlmacenesAppMerma.Tipos, AlmacenesAppEntrada.Tipo, AlmacenesAppCambio.Tipo];
+    public static readonly string[] TiposReevaluables = [.. AlmacenesAppSalida.Tipos.Keys, .. AlmacenesAppMerma.Tipos, AlmacenesAppEntrada.Tipo,
+        AlmacenesAppSalida.EntradaManual, AlmacenesAppCambio.Tipo];
 
     /// <summary>Forma del sobre (tipo, version, datos, mensajeId ≤ 64); null = válido.</summary>
     public static string? ErrorDeSobre(JsonElement root)
@@ -94,6 +95,20 @@ public sealed class AlmacenesAppProcesador(
                 var g = await salidasGuardado.GuardarEntradaAsync(mensajeId, tipo, referencia, root.GetRawText(),
                     resuelta.EmpresaId, resuelta.UsuarioId, resuelta.SucursalId, resuelta.Motivo, resuelta.Compra, resuelta.Entrada,
                     resuelta.Entradas, ct);
+                if (!g.Duplicado) return new AcuseApp(mensajeId, g.Estado, g.Folio, g.Error);
+                previo = await db.MensajesApp.AsNoTracking().FirstAsync(m => m.MensajeId == mensajeId, ct);
+            }
+            else if (tipo == AlmacenesAppSalida.EntradaManual)
+            {
+                // v9: material sin compra (sobrante, regreso de préstamo, devolución de venta) como ajuste positivo al promedio del ERP.
+                var (resuelta, errorEntrada) = await AlmacenesAppSalida.ManejarAsync(tipo, datos, salidaResolver, usuarioServicio, ct);
+                if (resuelta is null) return await ErrorMarcadoAsync(mensajeId, tipo, referencia, root, errorEntrada, ct);
+                var primera = resuelta.Salidas[0];
+                var entradas = resuelta.Salidas.Select(s => new EntradaApp(s.ArticuloId, s.UnidadMedida, s.ProductoAwVarianteId, s.Cantidad,
+                    s.AnchoMm, s.AltoMm, s.Lote, s.Almacen, s.CostoUnitarioMxn)).ToList();
+                var g = await salidasGuardado.GuardarEntradaAsync(mensajeId, tipo, referencia, root.GetRawText(),
+                    resuelta.EmpresaId, resuelta.UsuarioId, primera.SucursalId, primera.Motivo, null, null, entradas, ct,
+                    Millet.Almacen.Domain.Movimientos.TipoMovimiento.AjustePositivo);
                 if (!g.Duplicado) return new AcuseApp(mensajeId, g.Estado, g.Folio, g.Error);
                 previo = await db.MensajesApp.AsNoTracking().FirstAsync(m => m.MensajeId == mensajeId, ct);
             }

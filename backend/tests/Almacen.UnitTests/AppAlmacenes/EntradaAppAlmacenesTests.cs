@@ -262,6 +262,52 @@ public class EntradaAppAlmacenesTests
         db.ChangeTracker.Entries<MovimientoInventario>().Should().BeEmpty();
     }
 
+    // ── ENTRADA_MANUAL (M-283, contrato v9): ajuste positivo al promedio del ERP ─────────────────────
+
+    [Fact]
+    public async Task Entrada_manual_entra_al_promedio_del_ERP_como_AJP_aunque_traiga_costo_de_AW_y_compra()
+    {
+        var (db, unica, sub) = Db();
+        db.SaldosInventario.Add(new SaldoInventario(unica, sub, Articulo, 20.1422m, 210.5m, Variante));
+        await db.SaveChangesAsync();
+        var eventos = new Captura();
+
+        var (estado, folio, error) = await EntradaAppAlmacenes.RegistrarAsync(db, Puertos(Oc(), eventos), EmpresaId, Usuario, Sucursal,
+            "App Almacenes ENTRADA_MANUAL MV-1", FolioOc, "msg-1", [Hojas(2) with { CostoRespaldoMxn = 130m }], default,
+            TipoMovimiento.AjustePositivo);
+        await db.SaveChangesAsync();
+
+        (estado, error).Should().Be((SalidaAppAlmacenes.Recibido, (string?)null));
+        folio.Should().StartWith("M-AJP");
+        var mov = await db.Movimientos.Include(m => m.Lineas).SingleAsync();
+        (mov.Tipo, mov.OcId).Should().Be((TipoMovimiento.AjustePositivo, (Guid?)null)); // nunca es recepción de OC
+        mov.Lineas.Single().CostoUnitarioMxn.Should().Be(210.5m);
+        eventos.Publicados.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Entrada_manual_sin_promedio_del_ERP_entra_al_costo_de_AW_del_mensaje()
+    {
+        var (db, _, _) = Db();
+        await EntradaAppAlmacenes.RegistrarAsync(db, Puertos(), EmpresaId, Usuario, Sucursal, "m", null, "msg-2",
+            [Hojas(1) with { CostoRespaldoMxn = 130m }], default, TipoMovimiento.AjustePositivo);
+        await db.SaveChangesAsync();
+
+        (await db.LineasMovimiento.SingleAsync()).CostoUnitarioMxn.Should().Be(130m);
+    }
+
+    [Fact]
+    public async Task Entrada_manual_sin_promedio_ni_costo_da_ERROR_sin_movimiento()
+    {
+        var (db, _, _) = Db();
+        var (estado, _, error) = await EntradaAppAlmacenes.RegistrarAsync(db, Puertos(), EmpresaId, Usuario, Sucursal, "m", null, "msg-3",
+            [Hojas(1)], default, TipoMovimiento.AjustePositivo);
+
+        estado.Should().Be("ERROR");
+        error.Should().StartWith("Entrada manual").And.Contain("costo cero");
+        db.ChangeTracker.Entries<MovimientoInventario>().Should().BeEmpty();
+    }
+
     private static EntradaAppPuertos Puertos(OcLectura? oc = null, Captura? eventos = null, bool periodoAbierto = true) =>
         new(new FakeOcs(oc), new FactorUno(), new FakePeriodo(periodoAbierto), eventos ?? new Captura());
 

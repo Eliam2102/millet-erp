@@ -18,10 +18,12 @@ namespace Millet.Almacen.Application.AppAlmacenes;
 /// <summary>
 /// Partida de ENTRADA_ALMACEN ya resuelta a ids del ERP (cantidad en la unidad del saldo: m² en vidrio). Una por grupo de la
 /// app: <c>Lote</c> es el <c>grupos[].lote</c>, parte de la llave del saldo (dos lotes en una línea = dos filas de saldo).
+/// <c>CostoRespaldoMxn</c> (ENTRADA_MANUAL, v9): el promedio de A+W del mensaje en la unidad del saldo; solo se usa si el ERP no tiene
+/// promedio de esa medida en ese almacén.
 /// </summary>
 public sealed record EntradaApp(
     Guid ArticuloId, string UnidadMedida, Guid? ProductoAwVarianteId, decimal Cantidad, decimal? AnchoMm = null, decimal? AltoMm = null,
-    string? Lote = null, LlaveAlmacenApp? Almacen = null);
+    string? Lote = null, LlaveAlmacenApp? Almacen = null, decimal? CostoRespaldoMxn = null);
 
 /// <summary>Puertos que usa la entrada de la app (lectura de la OC, conversión de unidades, periodo contable y outbox).</summary>
 public sealed record EntradaAppPuertos(
@@ -38,7 +40,11 @@ public sealed record EntradaAppPuertos(
 /// el pendiente exacto (<c>RECEPCION_EXCEDE_PENDIENTE</c>) y publica <c>almacen.oc_recepcion.registrada.v1</c> con factura
 /// pendiente, igual que la recepción con lista de empaque, para el sub-estado Recepción de Compras y la conciliación de CxP.
 /// Una entrada de la app = una recepción (se marca con <see cref="ReferenciaEntrada"/>). Si no es una OC del ERP, entra al
-/// promedio vigente de la medida en el almacén general; sin promedio no entra (nunca a costo cero).
+/// promedio vigente de la medida en el almacén general (así no lo mueve); sin promedio no entra (nunca a costo cero).
+/// </para>
+/// <para>
+/// ENTRADA_MANUAL (v9) usa el mismo camino sin compra, como <see cref="TipoMovimiento.AjustePositivo"/>: promedio del ERP y, si el ERP
+/// aún no lo tiene, el costo de A+W que trae el mensaje (<see cref="EntradaApp.CostoRespaldoMxn"/>).
 /// </para>
 /// Periodo cerrado o no abierto en Contabilidad, OC no recibible o cualquier regla rota → ERROR con el motivo, sin mover saldo.
 /// </summary>
@@ -49,7 +55,8 @@ public static class EntradaAppAlmacenes
 
     public static async Task<(string Estado, string? Folio, string? Error)> RegistrarAsync(
         AlmacenDbContext db, EntradaAppPuertos puertos, Guid empresaId, Guid usuarioId, Guid sucursalId, string motivo,
-        string? compra, string entrada, IReadOnlyList<EntradaApp> entradas, CancellationToken ct)
+        string? compra, string entrada, IReadOnlyList<EntradaApp> entradas, CancellationToken ct,
+        TipoMovimiento tipo = TipoMovimiento.EntradaCompra)
     {
         // M-446: con la lista de almacenes de la sucursal, cada grupo entra a la ubicación de su llave (tipo + línea). Sin llaves
         // (sucursal aún no habilitada o mensaje sin tipo), al almacén general de la sucursal (primero de materiales directos).
@@ -61,7 +68,7 @@ public static class EntradaAppAlmacenes
             if (subs.Count > 1)
                 return ("ERROR", null, "Los almacenes de la entrada están en sub-almacenes distintos del ERP; un movimiento es de un solo sub-almacén.");
             return await RegistrarEnAsync(db, puertos, empresaId, usuarioId, sucursalId, motivo, compra, entrada, entradas,
-                e => llaves[e.Almacen!].UbicacionId, subs[0].SubAlmacenId, subs[0].AlmacenId, ct);
+                e => llaves[e.Almacen!].UbicacionId, subs[0].SubAlmacenId, subs[0].AlmacenId, tipo, ct);
         }
 
         var general = await (from u in db.Ubicaciones
@@ -75,13 +82,13 @@ public static class EntradaAppAlmacenes
         if (general is null)
             return ("ERROR", null, "La sucursal no tiene un almacén general activo donde registrar la entrada.");
         return await RegistrarEnAsync(db, puertos, empresaId, usuarioId, sucursalId, motivo, compra, entrada, entradas,
-            _ => general.Id, general.SubAlmacenId, general.AlmacenId, ct);
+            _ => general.Id, general.SubAlmacenId, general.AlmacenId, tipo, ct);
     }
 
     private static async Task<(string Estado, string? Folio, string? Error)> RegistrarEnAsync(
         AlmacenDbContext db, EntradaAppPuertos puertos, Guid empresaId, Guid usuarioId, Guid sucursalId, string motivo,
         string? compra, string entrada, IReadOnlyList<EntradaApp> entradas, Func<EntradaApp, Guid> ubicacion,
-        Guid subAlmacenId, Guid almacenId, CancellationToken ct)
+        Guid subAlmacenId, Guid almacenId, TipoMovimiento tipo, CancellationToken ct)
     {
         var fecha = DateOnly.FromDateTime(DateTime.UtcNow);
         try
@@ -95,7 +102,7 @@ public static class EntradaAppAlmacenes
             // Mismo candado que la recepción de la pantalla (PERIODO_CERRADO / PERIODO_CONTABLE_NO_ADMITE).
             await PeriodoCerradoValidator.LanzarSiCerradoAsync(db, empresaId, fecha, puertos.Periodo, ct);
 
-            var ocId = string.IsNullOrWhiteSpace(compra) ? null : await puertos.Ocs.ObtenerIdPorFolioAsync(compra.Trim(), ct);
+            var ocId = string.IsNullOrWhiteSpace(compra) || tipo != TipoMovimiento.EntradaCompra ? null : await puertos.Ocs.ObtenerIdPorFolioAsync(compra.Trim(), ct);
             if (ocId is Guid id)
                 return await RecibirContraOcAsync(db, puertos, empresaId, usuarioId, sucursalId, ubicacion, subAlmacenId,
                     almacenId, id, fecha, motivo, entrada, entradas, ct);
@@ -107,14 +114,16 @@ public static class EntradaAppAlmacenes
                 var costo = await db.SaldosInventario.AsNoTracking()
                     .Where(s => s.UbicacionId == ubicacionId && s.ArticuloId == e.ArticuloId && s.ProductoAwVarianteId == e.ProductoAwVarianteId)
                     .Select(s => (decimal?)s.CostoPromedioMxn).FirstOrDefaultAsync(ct);
+                if (costo is not > 0m) costo = e.CostoRespaldoMxn;
                 if (costo is not > 0m)
-                    return ("ERROR", null,
-                        $"La compra {compra} no es una orden de compra del ERP y {Medida(e)} no tiene costo promedio en ese almacén; "
-                        + "no se registra a costo cero. Da la entrada contra la orden de compra del ERP.");
+                    return ("ERROR", null, tipo == TipoMovimiento.EntradaCompra
+                        ? $"La compra {compra} no es una orden de compra del ERP y {Medida(e)} no tiene costo promedio en ese almacén; "
+                          + "no se registra a costo cero. Da la entrada contra la orden de compra del ERP."
+                        : $"Entrada manual: {Medida(e)} no tiene costo promedio en ese almacén ni costo en el mensaje; no se registra a costo cero.");
                 lineas.Add(new LineaRevisionMov(e.ArticuloId, e.UnidadMedida, e.Cantidad, costo.Value, ubicacionId,
                     e.ProductoAwVarianteId, e.AnchoMm, e.AltoMm, e.Lote));
             }
-            var mov = await MovimientosRevision.AgregarAsync(db, empresaId, usuarioId, TipoMovimiento.EntradaCompra, fecha, motivo, lineas, ct);
+            var mov = await MovimientosRevision.AgregarAsync(db, empresaId, usuarioId, tipo, fecha, motivo, lineas, ct);
             return (SalidaAppAlmacenes.Recibido, mov.Folio, null);
         }
         catch (BusinessRuleException ex)

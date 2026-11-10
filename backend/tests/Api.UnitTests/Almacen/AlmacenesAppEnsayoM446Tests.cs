@@ -205,6 +205,78 @@ public sealed class AlmacenesAppEnsayoM446Tests
         Assert.Contains(AlmacenesAppCambio.Tipo, AlmacenesAppProcesador.TiposReevaluables);
     }
 
+    // ── M-283 (contrato v9): ENTRADA_MANUAL y RECLAMACION_PROVEEDOR ──────────────────────────────
+
+    [Fact]
+    public async Task ENTRADA_MANUAL_reales_se_parsean_como_ajuste_positivo_con_el_costo_de_AW_de_respaldo()
+    {
+        var entradas = DeTipo(AlmacenesAppSalida.EntradaManual).ToList();
+        Assert.Equal(5, entradas.Count);
+        foreach (var m in entradas)
+        {
+            var (r, error) = await AlmacenesAppSalida.ManejarAsync(AlmacenesAppSalida.EntradaManual, m.GetProperty("datos"),
+                new Resolver(), new UsuarioServicio(), default);
+            Assert.Null(error);
+            Assert.All(r!.Salidas, s =>
+            {
+                Assert.Equal(TipoMovimiento.AjustePositivo, s.Tipo);
+                Assert.Equal(new LlaveAlmacenApp("EXPORTACION", "BYSTRONIC"), s.Almacen);
+                Assert.Equal(130m, s.CostoUnitarioMxn); // costoM2 de A+W: respaldo si el ERP no tiene promedio
+                Assert.False(string.IsNullOrEmpty(s.Lote));
+            });
+        }
+        // MV-0014379: clave de arnés fuera del catálogo; se guarda tal cual, sin rechazarla.
+        var arnes = entradas.Single(m => m.GetProperty("referencia").GetString() == "MV-0014379");
+        var (a, _) = await AlmacenesAppSalida.ManejarAsync(AlmacenesAppSalida.EntradaManual, arnes.GetProperty("datos"),
+            new Resolver(), new UsuarioServicio(), default);
+        Assert.Equal(2, a!.Salidas.Count);
+        Assert.EndsWith("[ZZ_ARNES_DOC_SOBRANTE]", a.Salidas[0].Motivo);
+    }
+
+    [Fact]
+    public async Task ENTRADA_MANUAL_de_hoja_costeada_por_pieza_pasa_el_costo_a_m2()
+    {
+        var datos = JsonDocument.Parse("""
+            {"sucursal":"CONKAL","movimiento":"MV-9","motivo":"Sobrante","motivoClave":"SOBRANTE","moneda":"PESOSMX",
+             "almacenes":[{"almacenGeneral":{"tipo":"EXPORTACION","linea":"HEGLA 1"},
+               "grupos":[{"articuloAw":100006,"ancho":2600,"alto":3210,"lote":"L-1","piezas":1,"m2":8.346,"costoPieza":834.6}]},
+              {"almacenGeneral":{"tipo":"EXPORTACION","linea":null},
+               "grupos":[{"articuloAw":300120,"ancho":null,"alto":null,"piezas":20,"m2":null,"costoPieza":18.5}]}]}
+            """).RootElement;
+        var (r, error) = await AlmacenesAppSalida.ManejarAsync(AlmacenesAppSalida.EntradaManual, datos, new Resolver(), new UsuarioServicio(), default);
+        Assert.Null(error);
+        Assert.Equal(834.6m / AreaHoja.M2(2600m, 3210m), r!.Salidas[0].CostoUnitarioMxn);
+        Assert.Equal(18.5m, r.Salidas[1].CostoUnitarioMxn);
+    }
+
+    [Fact]
+    public async Task RECLAMACION_PROVEEDOR_real_sale_por_devolucion_al_proveedor_con_lote_y_sin_costo_del_mensaje()
+    {
+        var m = DeTipo(AlmacenesAppSalida.Reclamacion).Single();
+        var (r, error) = await AlmacenesAppSalida.ManejarAsync(AlmacenesAppSalida.Reclamacion, m.GetProperty("datos"),
+            new Resolver(), new UsuarioServicio(), default);
+
+        Assert.Null(error);
+        Assert.Equal(2, r!.Salidas.Count); // «Rota» 2 hojas y «No llegó» 1 hoja de 5182 × 3302
+        Assert.Equal([2 * AreaHoja.M2(5182m, 3302m), AreaHoja.M2(5182m, 3302m)], r.Salidas.Select(s => s.Cantidad));
+        Assert.All(r.Salidas, s =>
+        {
+            Assert.Equal(TipoMovimiento.SalidaPorDevolucionAProveedor, s.Tipo);
+            Assert.Null(s.CostoUnitarioMxn); // el de la compra va en su moneda: el ERP no lo usa
+            Assert.Null(s.Almacen);          // sin almacén: se reparte en la sucursal, primero el lote
+            Assert.Equal("zz_arnes", s.Lote);
+            Assert.Equal("salida_manual", s.Causa);
+            Assert.Equal("App Almacenes RECLAMACION_PROVEEDOR MV-0014351 RP-00000105 entrada EN-002036 compra zz_arnes_RP1: Rota, No llegó", s.Motivo);
+        });
+    }
+
+    [Fact]
+    public void ENTRADA_MANUAL_y_RECLAMACION_en_ERROR_se_reevaluan_al_reenviarse()
+    {
+        Assert.Contains(AlmacenesAppSalida.EntradaManual, AlmacenesAppProcesador.TiposReevaluables);
+        Assert.Contains(AlmacenesAppSalida.Reclamacion, AlmacenesAppProcesador.TiposReevaluables);
+    }
+
     private sealed class Rq(string? error = null) : IComprasCrearRqAppPort
     {
         public string? Cancelada, Reducida, Motivo;
