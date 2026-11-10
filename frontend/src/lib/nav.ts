@@ -29,6 +29,7 @@ import {
   HandCoins,
   Home,
   Inbox,
+  Landmark,
   Layers,
   LineChart,
   ListChecks,
@@ -50,6 +51,7 @@ import {
   ShieldAlert,
   ShoppingCart,
   Sliders,
+  TrendingUp,
   Truck,
   Undo2,
   Unlock,
@@ -274,7 +276,7 @@ const moduloAlmacen: NavModulo = {
         {
           label: 'Mensajes de la app',
           description:
-            'Salidas de la app de Almacenes que el ERP marcó (sin existencia o con un dato por corregir) y a las que contestó ERROR con folio; los siguientes de su referencia esperan.',
+            'Entradas y salidas de la app de Almacenes que el ERP marcó (sin existencia o con un dato por corregir) y a las que contestó ERROR con folio; los siguientes de su referencia esperan.',
           to: '/almacen/mensajes-app',
           icon: ShieldAlert,
           permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
@@ -553,6 +555,13 @@ const moduloCuentasPorPagar: NavModulo = {
           to: '/cxp/reportes/cartera',
           icon: Wallet,
           permission: PermisosCanonicos.CuentasPorPagarReportesCartera,
+        },
+        {
+          label: 'DIOT',
+          description: 'Operaciones con terceros del mes por pagos, con el archivo de carga del SAT.',
+          to: '/cxp/reportes/diot',
+          icon: FileText,
+          permission: PermisosCanonicos.CuentasPorPagarReportesDiot,
         },
         {
           label: 'Estados de cuenta TC',
@@ -1211,6 +1220,14 @@ const moduloContabilidad: NavModulo = {
           permission: PermisosCanonicos.ContabilidadPolizasLeer,
         },
         {
+          label: 'Importar póliza de nómina',
+          description:
+            'La póliza de la nómina externa entra por archivo (.csv o .xlsx): se revisa renglón por renglón y nace en borrador, cuadrada y con el archivo adjunto.',
+          to: '/contabilidad/polizas/importar-nomina',
+          icon: Upload,
+          permission: PermisosCanonicos.ContabilidadPolizasCapturar,
+        },
+        {
           label: 'Pólizas recurrentes',
           description:
             'Plantillas que generan la póliza de cada mes en su día, con reversa automática opcional; las activa otro usuario.',
@@ -1237,6 +1254,37 @@ const moduloContabilidad: NavModulo = {
             'Saldo inicial, cargos, abonos y saldo final por cuenta del periodo o acumulada, por nivel y sucursal, con su cuadre.',
           to: '/contabilidad/reportes/balanza',
           icon: Scale,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
+        },
+        {
+          label: 'Balance general',
+          description:
+            'Activo, pasivo y capital al cierre del periodo por rubros del catálogo, con comparativo del año anterior y su cuadre.',
+          to: '/contabilidad/reportes/balance-general',
+          icon: Landmark,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
+        },
+        {
+          label: 'Estado de resultados',
+          description:
+            'Ingresos, costo, gastos y utilidad del periodo o acumulada del ejercicio por rubros, con comparativo del año anterior.',
+          to: '/contabilidad/reportes/estado-resultados',
+          icon: TrendingUp,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
+        },
+        {
+          label: 'Integraciones del auditor',
+          description:
+            'Ingresos, costo, gastos, financiamiento y compras del periodo abiertos por cuenta y cliente o proveedor.',
+          to: '/contabilidad/reportes/integracion',
+          icon: ListTree,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
+        },
+        {
+          label: 'Paquete del auditor',
+          description: 'Todos los reportes que pide el auditor al cierre, con el módulo de cada uno y acceso según permisos.',
+          to: '/contabilidad/reportes/auditor',
+          icon: BookOpenCheck,
           permission: PermisosCanonicos.ContabilidadPolizasLeer,
         },
         {

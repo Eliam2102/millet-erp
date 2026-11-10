@@ -125,9 +125,8 @@ public static class NcRanuraEmisor
 
         var timbre = await TimbradoEjecutor.TimbrarYAplicarAsync(db,
             nc, CfdiEmisionBuilder.DesdeNotaCredito(nc, ahora),
-            fiscal, cfdiRepo, ahora, cancellationToken);
-
-        db.NotasCredito.Add(nc);
+            fiscal, cfdiRepo, ahora, cancellationToken,
+            TimbradoDurable.AntesDelPac(db, nc)); // M-173: guardada en proceso antes del PAC
 
         // U-1 (86e3yxn2p): si la NC no timbra, la factura timbrada NO se pierde:
         // la NC queda pendiente de timbrar (TimbradoFallido o en proceso) ligada a

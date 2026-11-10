@@ -56,12 +56,23 @@ public enum TipoMovimiento : short
 
     /// <summary>Rotura de material en el almacén, autorizada por un Jefe o Gerente distinto de quien la capturó; sale a costo promedio (ALM-03). Folio ROT.</summary>
     SalidaPorRotura = 13,
+
+    /// <summary>
+    /// Traslado interno (M-446, CAMBIO_ALMACEN de la app): salida del almacén de origen a su costo promedio; su par es una
+    /// <see cref="EntradaTrasladoInterno"/> al almacén destino (enlazada por <c>SalidaOrigenId</c>). Sin póliza: no publica
+    /// evento contable. Folio TRA.
+    /// </summary>
+    TrasladoInterno = 14,
+
+    /// <summary>Entrada del traslado interno al almacén destino, con el costo, la medida y el lote de la salida. Folio TRE.</summary>
+    EntradaTrasladoInterno = 15,
 }
 
 internal static class TipoMovimientoExtensions
 {
     // Los futuros traslados entre ubicaciones o almacenes deben marcar su salida aquí.
-    public static bool EsTraslado(this TipoMovimiento tipo) => tipo == TipoMovimiento.SalidaPorLiberacionRevision;
+    public static bool EsTraslado(this TipoMovimiento tipo) =>
+        tipo is TipoMovimiento.SalidaPorLiberacionRevision or TipoMovimiento.TrasladoInterno;
 
     /// <summary>
     /// Prefijo de 3 letras del folio para cada tipo. Usado por
@@ -83,6 +94,8 @@ internal static class TipoMovimientoExtensions
         TipoMovimiento.CancelacionEntradaCompra => "CEN",
         TipoMovimiento.SalidaNoPlanificada => "SNP",
         TipoMovimiento.SalidaPorRotura => "ROT",
+        TipoMovimiento.TrasladoInterno => "TRA",
+        TipoMovimiento.EntradaTrasladoInterno => "TRE",
         _ => "MOV",
     };
 
@@ -97,6 +110,7 @@ internal static class TipoMovimientoExtensions
         TipoMovimiento.DevolucionSalida => true,
         TipoMovimiento.AjustePositivo => true,
         TipoMovimiento.ReincorporacionTrasRevision => true,
+        TipoMovimiento.EntradaTrasladoInterno => true,
         _ => false,
     };
 }

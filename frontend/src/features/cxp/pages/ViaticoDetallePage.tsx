@@ -68,6 +68,14 @@ export function ViaticoDetallePage() {
                     Excede política
                   </Badge>
                 )}
+                {query.data.comprobacionFueraDePolitica && (
+                  <Badge variant={query.data.excesoAutorizadoPor ? 'neutral' : 'warning'}>
+                    <AlertTriangle className="mr-1 size-3.5" />
+                    Comprobación fuera de política por{' '}
+                    <MoneyDisplay amount={query.data.excesoComprobacion ?? 0} currency={query.data.moneda} />
+                    {query.data.excesoAutorizadoPor ? ' · exceso autorizado' : ''}
+                  </Badge>
+                )}
               </>
             }
             descripcion={

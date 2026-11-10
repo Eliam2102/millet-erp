@@ -11,7 +11,25 @@ namespace Millet.Almacen.Domain.Ports;
 public interface IComprasCrearRqAppPort
 {
     Task<CrearRqAppResultado> CrearAsync(CrearRqAppSolicitud s, CancellationToken ct);
+
+    /// <summary>
+    /// REQUISICION_CANCELADA (M-446): cancela la RQ de la app por su folio externo con el motivo de la app; no mueve existencia
+    /// (lo recibido baja con la SALIDA_MANUAL que la app manda enseguida). RQ inexistente (nunca llegó o el ERP la rechazó) o ya
+    /// terminada → sin cambios y sin error.
+    /// </summary>
+    Task<AvisoRqAppResultado> CancelarAsync(string folioExterno, string? motivo, CancellationToken ct);
+
+    /// <summary>
+    /// REQUISICION_REDUCIDA (M-446): quita de lo que falta comprar las piezas de cada posición (cancelación de una entrada o cierre
+    /// con faltante); Compras ya no compra eso. Misma regla de RQ inexistente o terminada que <see cref="CancelarAsync"/>.
+    /// </summary>
+    Task<AvisoRqAppResultado> ReducirAsync(string folioExterno, IReadOnlyList<LineaQuitadaRqApp> lineas, string? motivo, CancellationToken ct);
 }
+
+public sealed record LineaQuitadaRqApp(int Posicion, int Piezas);
+
+/// <summary><c>Folio</c> = folio del ERP de la RQ (null si no existe en el ERP); <c>Error</c> no nulo = no se aplicó.</summary>
+public sealed record AvisoRqAppResultado(string? Folio, string? Error);
 
 public sealed record CrearRqAppSolicitud(
     string FolioExterno, string SucursalCodigo, int ProveedorClaveAw,

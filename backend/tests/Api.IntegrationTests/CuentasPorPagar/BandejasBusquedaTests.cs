@@ -50,7 +50,7 @@ public sealed class BandejasBusquedaTests(WebApplicationFactory<Program> factory
                 var f = F($"FIXQ-{token}_1");
                 var nc = Nc.Capturar(EmpresaBootstrapId, null, Guid.NewGuid().ToString(), proveedorId, $"NCQ-{token}", null, fecha, "MXN", null, 100, 0, 0, 100,
                     TipoNotaCredito.Descuento, TipoRelacionCfdi.NotaCredito, Guid.NewGuid().ToString(), f.Id, null, fecha);
-                var cargo = Cargo.Crear(EmpresaBootstrapId, FolioInternoNotaCargo.FromAnioSecuencial(2026, Random.Shared.Next(800000, 999999)), proveedorId, sucursalId,
+                var cargo = Cargo.Crear(EmpresaBootstrapId, FolioInternoNotaCargo.FromAnioSecuencial(2026, Millet.Api.IntegrationTests.Fixtures.FoliosPrueba.Siguiente()), proveedorId, sucursalId,
                     $"CARGOQ {token}", null, 100, "MXN", null, f.Id, null, null, fecha);
                 db.AddRange(f, F($"FIXQ-{token}X1"), nc, cargo);
                 await db.SaveChangesAsync();

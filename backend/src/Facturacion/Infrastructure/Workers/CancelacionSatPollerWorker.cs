@@ -140,20 +140,10 @@ public sealed class CancelacionSatPollerWorker : BackgroundService
 
         switch (comprobante)
         {
-            case FacturaVenta { PedidoFacturableId: { } pedidoId }:
-                var pedido = await db.PedidosFacturables.FirstOrDefaultAsync(p => p.Id == pedidoId, cancellationToken);
-                pedido?.RevertirAFacturable();
-
-                // ADR-0048 D3 (PR5): espejo del hook de AutorizarCancelacionHandler.
-                if (pedido?.Origen == Domain.Pedidos.OrigenPedido.Aw)
-                {
-                    var control = await db.IngestaControles
-                        .FirstOrDefaultAsync(c => c.PedidoFacturableId == pedido.Id, cancellationToken);
-                    if (control is not null)
-                    {
-                        control.CambiarEstado(Domain.Ingesta.EstadoIngesta.Importado);
-                    }
-                }
+            case FacturaVenta factura:
+                // M-188: misma regla que AutorizarCancelacionHandler (pieza común).
+                await Millet.Facturacion.Application.Cancelaciones.EfectosCancelacionPedido.AplicarAsync(
+                    db, factura, ahora, cancellationToken);
                 break;
 
             case FacturaAnticipo:

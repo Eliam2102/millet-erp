@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Millet.CuentasPorCobrar.Application.Common;
 using Millet.CuentasPorCobrar.Application.Integration;
 using Millet.CuentasPorCobrar.Domain.Liberacion;
+using Millet.CuentasPorCobrar.Domain.LineaCredito;
 using Millet.CuentasPorCobrar.Domain.Ports.Facturacion;
 using Millet.CuentasPorCobrar.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
@@ -193,8 +194,22 @@ public sealed class DecidirLiberacionHandler : IRequestHandler<DecidirLiberacion
         ReglaAplicadaLiberacion regla;
         decimal? porcentaje = null;
         var aplicaTopeExceso = false;
+        string? motivo = null;
 
-        if (comportamiento == ComportamientoSerie.SiempreLibera)
+        // R2 (Crédito y Cobranza, 9-nov): la serie que siempre libera NO libera a un cliente bloqueado por vencimiento (C7.5):
+        // se retiene y solo Crédito y Cobranza la libera, con una excepción autorizada para ese pedido (override).
+        var bloqueadoPorVencimiento = comportamiento == ComportamientoSerie.SiempreLibera
+            && await _db.LineasCredito.AsNoTracking().AnyAsync(l => l.ClienteId == command.ClienteId && l.Moneda == command.Moneda
+                && l.Estado == EstadoLineaCredito.Bloqueada && l.BloqueoAutomatico, cancellationToken);
+
+        if (bloqueadoPorVencimiento)
+        {
+            (resultado, regla) = command.OverrideId is not null
+                ? (ResultadoLiberacion.LiberadoConOverride, ReglaAplicadaLiberacion.Override)
+                : (ResultadoLiberacion.Retenido, ReglaAplicadaLiberacion.Credito);
+            motivo = command.OverrideId is null ? MotivoBloqueoVencimiento : null;
+        }
+        else if (comportamiento == ComportamientoSerie.SiempreLibera)
         {
             resultado = ResultadoLiberacion.Liberado;
             regla = ReglaAplicadaLiberacion.Serie;
@@ -270,7 +285,8 @@ public sealed class DecidirLiberacionHandler : IRequestHandler<DecidirLiberacion
             overrideId: resultado == ResultadoLiberacion.LiberadoConOverride ? command.OverrideId : null,
             decididoPor: usuarioId,
             decididoEn: ahora,
-            porcentajeCobertura: porcentaje);
+            porcentajeCobertura: porcentaje,
+            motivo: motivo);
 
         if (resultado == ResultadoLiberacion.LiberadoConOverride)
         {
@@ -292,6 +308,10 @@ public sealed class DecidirLiberacionHandler : IRequestHandler<DecidirLiberacion
         await _db.SaveChangesAsync(cancellationToken);
         return DecisionLiberacionMapper.ToResponse(decision);
     }
+
+    /// <summary>R2: motivo de la retención de una serie que siempre libera cuando el cliente está bloqueado por vencimiento.</summary>
+    public const string MotivoBloqueoVencimiento =
+        "Cliente bloqueado por vencimiento: la serie no se libera sola; solo Crédito y Cobranza puede liberarla con una excepción autorizada.";
 
     private async Task<ComportamientoSerie> ResolverComportamientoSerieAsync(
         string pedidoRef, CancellationToken cancellationToken)

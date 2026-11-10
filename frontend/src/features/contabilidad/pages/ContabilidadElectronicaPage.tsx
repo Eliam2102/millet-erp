@@ -219,6 +219,7 @@ function TarjetaArchivos({ revision: r }: { revision: RevisionContabilidadElectr
     numOrden: conOrden ? numero.trim().toUpperCase() : undefined,
     numTramite: conOrden ? undefined : numero.trim().toUpperCase(),
     formato: soloXml ? 'xml' : 'zip',
+    rfc: r.rfc,
   });
 
   async function descargar(tipo: ArchivoCe) {

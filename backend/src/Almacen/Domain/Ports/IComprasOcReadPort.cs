@@ -18,6 +18,10 @@ public interface IComprasOcReadPort
         Guid proveedorId,
         CancellationToken cancellationToken)
         => Task.FromResult<IReadOnlyCollection<Guid>>(Array.Empty<Guid>());
+
+    /// <summary>M-159: id de la OC con ese folio (cualquier estado); null si el texto no es un folio de OC del ERP.</summary>
+    Task<Guid?> ObtenerIdPorFolioAsync(string folio, CancellationToken cancellationToken)
+        => Task.FromResult<Guid?>(null);
 }
 
 /// <summary>

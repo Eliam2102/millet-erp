@@ -769,8 +769,8 @@ public sealed class CoberturaLiberacionHandlerTests
             .Handle(new ListarReglasLiberacionSerieQuery(), CancellationToken.None);
 
         Assert.DoesNotContain(reglas, r => r.Prefijo == "9100");
-        Assert.Contains(reglas, r => r.Prefijo == "7800" && r.Comportamiento == ComportamientoSerie.NuncaLibera);
-        Assert.Contains(reglas, r => r.Prefijo == "5000" && r.Comportamiento == ComportamientoSerie.SiempreLibera);
+        Assert.Contains(reglas, r => r.Prefijo == "78" && r.Comportamiento == ComportamientoSerie.NuncaLibera);
+        Assert.Contains(reglas, r => r.Prefijo == "50" && r.Comportamiento == ComportamientoSerie.SiempreLibera);
     }
 
     private static CuentasPorCobrarDbContext CrearDbContext()

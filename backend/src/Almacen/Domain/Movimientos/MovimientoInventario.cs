@@ -83,7 +83,7 @@ public sealed class MovimientoInventario : BaseEntity, IPerteneceAEmpresa, IAudi
 
     public void VincularSalidaLiberacion(Guid salidaId)
     {
-        if (Tipo != TipoMovimiento.ReincorporacionTrasRevision || salidaId == Guid.Empty)
+        if (Tipo is not (TipoMovimiento.ReincorporacionTrasRevision or TipoMovimiento.EntradaTrasladoInterno) || salidaId == Guid.Empty)
             throw new BusinessRuleException("LIBERACION_PAR_INVALIDO", "La reincorporación requiere una salida válida.");
         SalidaOrigenId = salidaId;
     }

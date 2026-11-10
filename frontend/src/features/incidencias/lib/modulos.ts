@@ -11,6 +11,7 @@ const NOMBRES: Record<string, string> = {
   comercio_exterior: 'Comercio exterior',
   activos_fijos: 'Activos fijos',
   producto_terminado: 'Producto terminado',
+  integraciones_fiscal: 'Integración fiscal',
 };
 
 export function nombreModulo(clave: string): string {

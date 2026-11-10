@@ -42,7 +42,9 @@ public sealed class AdjuntosPoliticaOptions
         ".xls",
         ".docx",
         ".doc",
-        ".txt"
+        ".txt",
+        // K10.11 (QA H1): la póliza de nómina externa adjunta su archivo origen, que suele ser CSV.
+        ".csv"
     ];
 
     /// <summary>
@@ -59,7 +61,9 @@ public sealed class AdjuntosPoliticaOptions
         "application/vnd.ms-excel",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "application/msword",
-        "text/plain"
+        "text/plain",
+        "text/csv",
+        "application/csv"
     ];
 
     /// <summary>
@@ -102,26 +106,31 @@ public sealed class AdjuntosPoliticaOptions
             contenido.Position = 0;
             var bytes = new byte[checked((int)contenido.Length)];
             await contenido.ReadExactlyAsync(bytes, ct);
-            var fin = bytes.Length;
-            while (fin > 0 && bytes[fin - 1] is (byte)' ' or (byte)'\r' or (byte)'\n' or (byte)'\t' or (byte)'\f')
-                fin--;
-            if (!bytes.AsSpan(0, fin).EndsWith("%%EOF"u8))
+            if (!EsPdfValido(bytes))
                 throw PdfInvalido();
-
-            try
-            {
-                using var pdf = PdfDocument.Open(bytes, new ParsingOptions { UseLenientParsing = false });
-                if (pdf.IsEncrypted || pdf.NumberOfPages < 1)
-                    throw PdfInvalido();
-            }
-            catch (Exception ex) when (ex is not (BusinessRuleException or OperationCanceledException or OutOfMemoryException))
-            {
-                throw PdfInvalido();
-            }
         }
         finally
         {
             contenido.Position = 0;
+        }
+    }
+
+    public static bool EsPdfValido(byte[] bytes)
+    {
+        var fin = bytes.Length;
+        while (fin > 0 && bytes[fin - 1] is (byte)' ' or (byte)'\r' or (byte)'\n' or (byte)'\t' or (byte)'\f')
+            fin--;
+        if (!bytes.AsSpan().StartsWith("%PDF-"u8) || !bytes.AsSpan(0, fin).EndsWith("%%EOF"u8))
+            return false;
+
+        try
+        {
+            using var pdf = PdfDocument.Open(bytes, new ParsingOptions { UseLenientParsing = false });
+            return !pdf.IsEncrypted && pdf.NumberOfPages > 0;
+        }
+        catch (Exception ex) when (ex is not (OperationCanceledException or OutOfMemoryException))
+        {
+            return false;
         }
     }
 
