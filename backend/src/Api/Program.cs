@@ -1352,9 +1352,8 @@ builder.Services
         Millet.Facturacion.Infrastructure.Workers.ContingenciasAlertaOptions.SectionName));
 builder.Services.AddHostedService<Millet.Facturacion.Infrastructure.Workers.ContingenciasAlertaWorker>();
 
-// F7-PR2: worker de pedimentos del Sistema de Salidas (empareja Hoja de Salida ↔
-// pedimento vía ISalidasPedimentosReader [stub en dev] y aplica a las facturas
-// retenidas en PendientePedimento).
+// F7-PR2 / M-216: worker de pedimentos. Toma el pedimento del expediente de Comercio
+// exterior ligado a cada factura retenida en PendientePedimento y la libera.
 builder.Services
     .AddOptions<Millet.Facturacion.Infrastructure.Workers.PedimentoSalidasOptions>()
     .Bind(builder.Configuration.GetSection(

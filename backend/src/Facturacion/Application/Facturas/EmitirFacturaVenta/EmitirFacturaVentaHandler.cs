@@ -359,6 +359,9 @@ public sealed class EmitirFacturaVentaHandler
 
         if (copiaCe is not null) factura.TomarEmbarqueCe(copiaCe);
         else if (sustituida?.DatosEmbarqueCe is { } copiaOriginal) factura.TomarEmbarqueCe(copiaOriginal with { PedidoFacturableId = sustituida.PedidoFacturableId });
+        // M-216: la factura ligada al expediente toma su pedimento; no se retiene en PendientePedimento.
+        if (factura.DatosEmbarqueCe is { } ce && PedimentoExpediente.Aplicable(ce.NumeroPedimento))
+            factura.CompletarPedimentoDesdeExpediente(ce.NumeroPedimento.Trim(), ce.FechaPedimento);
 
         // 5.quater F9: vincula + consume la autorización de venta de activo fijo.
         if (autorizacion is not null)

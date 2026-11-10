@@ -1384,6 +1384,8 @@ export interface ComprobanteDetalleResponse {
   notasCreditoAplicadas: NotaCreditoAplicadaDetalle[] | null;
   /** U-1: NC ligadas a la factura que no quedaron timbradas (no acreditan). */
   notasCreditoPendientes?: NotaCreditoPendienteDetalle[] | null;
+  /** M-216: por qué sigue retenida en PendientePedimento (falta expediente o pedimento). */
+  motivoPedimento?: string | null;
   /** FAC-08b: en la original, la factura que la sustituye (relación 04). */
   sustituidaPor?: SustitucionReferencia | null;
   /** FAC-08b: en la sustituta, la factura original. */

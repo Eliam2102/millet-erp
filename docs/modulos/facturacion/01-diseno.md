@@ -392,6 +392,22 @@ Una factura "requiere pedimento" si **alguna** de sus líneas lo marca.
   `PedimentoSalidasWorker` empareja la Hoja de Salida ↔ pedimento y dispara
   el timbre. Esta retención afecta **solo** a esa factura, no al resto.
 
+> **M-216 (10-nov-2026) · fuente del pedimento = expediente de Comercio exterior.**
+> El Sistema de Salidas se absorbe en el ERP (D03), así que ya no hay vista de
+> Hojas de Salida que leer. El pedimento se captura en el expediente de Comercio
+> exterior y Facturación lo lee con `IEmbarqueExportacionReadPort`:
+> - al emitir, si la factura está ligada a un expediente con pedimento, las líneas
+>   que lo requieren lo toman y la factura **no se retiene**;
+> - `ExpedientePedimentosReader` (lector del `PedimentoSalidasWorker`) libera las
+>   retenidas cuyo expediente ya tiene pedimento; la bitácora registra el origen
+>   `PedimentoExpedienteCe`;
+> - sin expediente o sin pedimento la factura sigue retenida y su detalle dice cuál
+>   falta (`MotivoPedimento`). La venta nacional de primera mano de producto
+>   importado no tiene vínculo automático línea → lote → pedimento de importación
+>   (D22 pendiente): se captura a mano en el detalle de la factura.
+> - Con CCE el SAT prohíbe `InformacionAduanera` en el concepto (CFDI40195): el
+>   pedimento se conserva en la línea, pero no viaja en el XML.
+
 > **Por qué no es post-timbrado en sentido estricto:** el pedimento va en el
 > **XML normal** (no en CCE) y un CFDI timbrado es **inmutable**. Si se
 > timbrara sin pedimento, incorporarlo después exigiría **cancelar +
@@ -737,7 +753,7 @@ deploy falla con `/health/ready` 503.
 | `IActivosFijosReadPort` | Activos Fijos (o catálogo mínimo) | Valor en libros, depreciación, validación de alta |
 | `IAwSolicitudesReader` | Integraciones.Aw | Lee la cola `aw_solicitud_pedido` (operaciones pendientes) y los datos del pedido (cabecera/líneas) que cada solicitud referencia |
 | `IPlantaPinturaPedidosReader` | Integraciones.Origenes | **Órdenes de servicio de Planta Pintura** listas para facturar (vista SQL). Único reader de pedidos del módulo Origenes |
-| `ISalidasPedimentosReader` | Integraciones.Origenes | Hoja de Salida con Contenedor ↔ pedimento + packing list. **No** provee pedidos; alimenta la asociación de pedimento (§3.bis.5) |
+| `ISalidasPedimentosReader` | Facturación (`ExpedientePedimentosReader`, M-216) | Pedimento del expediente de Comercio exterior ligado a cada factura retenida. **No** provee pedidos; alimenta la asociación de pedimento (§3.bis.5) |
 | `IPeriodoContablePort` | Contabilidad | ¿Período cerrado? (candado) |
 | `IFiscalApiClient` | Integraciones.Fiscal | Timbrar / cancelar / consultar estatus |
 | `ICsdProvider` | Integraciones.Fiscal | CSD del emisor por empresa (sello) |
@@ -907,7 +923,7 @@ cada una con su patrón. La tabla vive en un único lugar del backend,
 | `TimbradoPendienteWorker` | Resuelve `TimbradoEnProceso` consultando el PAC (FSM asíncrona, Decisión 01-C). Con [01-G G5] el pedido queda ligado a su factura, así que vencer a `PAC_TIMEOUT` ya no deja pedidos inconsistentes; el reintento/descarte ocurre sobre la factura | cada N seg/min |
 | `CancelacionSatPollerWorker` | Poll de estatus de cancelaciones `EnProceso` (respuesta del receptor 3 días) | intra-día |
 | `EnvioCfdiCorreoWorker` | Reintentos de envío de CFDI al cliente con backoff | continuo |
-| `PedimentoSalidasWorker` | Empareja Hojas de Salida ↔ facturas de exportación y aplica pedimento | cada N min |
+| `PedimentoSalidasWorker` | Aplica a las facturas retenidas el pedimento de su expediente de Comercio exterior (M-216) | cada N min |
 | `OutboxPublisherWorker<FacturacionDbContext>` | Publica eventos del Outbox a Service Bus | continuo |
 
 Catálogos SAT: la sincronización del espejo (nocturna) vive en
