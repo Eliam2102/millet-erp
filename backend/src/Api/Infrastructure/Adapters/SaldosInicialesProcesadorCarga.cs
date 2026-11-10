@@ -52,16 +52,36 @@ public sealed class SaldosInicialesProcesadorCarga(IMediator mediator, Identidad
             return new ValidacionCarga(false, errores, new Dictionary<string, string>());
 
         var v = await mediator.Send(new ValidarBalanzaAperturaQuery(lote.FechaCorte.Value, balanza), cancellationToken);
+        return Resultado(v, lote.Huella, lote.FechaCorte.Value);
+    }
+
+    /// <summary>
+    /// Validación de Contabilidad → validación del lote. Con apertura ya aplicada: el mismo archivo (huella y corte) se puede
+    /// aplicar (regresa la póliza existente); otro archivo lleva el error visible <c>AP_YA_HAY_APERTURA</c> con su motivo.
+    /// </summary>
+    public static ValidacionCarga Resultado(ValidacionBalanzaApertura v, string huella, DateOnly corte)
+    {
+        var errores = v.Errores.Select(e => new ErrorCarga(e.Fila, e.Campo, e.Codigo, e.Mensaje)).ToList();
+        var puedeAplicar = v.PuedeAplicar;
         var resumen = new Dictionary<string, string>
         {
-            ["totalCargos"] = Texto(v.TotalCargos),
-            ["totalAbonos"] = Texto(v.TotalAbonos),
-            ["diferencia"] = Texto(v.Diferencia),
-            ["cuentas"] = v.Cuentas.ToString(CultureInfo.InvariantCulture),
-            ["auxiliares"] = v.Auxiliares.ToString(CultureInfo.InvariantCulture),
+            ["Total de cargos"] = Texto(v.TotalCargos),
+            ["Total de abonos"] = Texto(v.TotalAbonos),
+            ["Diferencia"] = Texto(v.Diferencia),
+            ["Cuentas"] = v.Cuentas.ToString(CultureInfo.InvariantCulture),
+            ["Movimientos por auxiliar"] = v.Auxiliares.ToString(CultureInfo.InvariantCulture),
         };
-        if (v.AperturaExistente is { } ap) resumen["aperturaExistente"] = ap.Folio;
-        return new ValidacionCarga(v.PuedeAplicar, [.. v.Errores.Select(e => new ErrorCarga(e.Fila, e.Campo, e.Codigo, e.Mensaje))], resumen);
+        if (v.AperturaExistente is { } ap)
+        {
+            resumen["Apertura existente"] = ap.Folio;
+            var mismoArchivo = string.Equals(ap.Huella, huella.Trim(), StringComparison.OrdinalIgnoreCase) && ap.FechaCorte == corte;
+            if (mismoArchivo)
+                puedeAplicar = errores.Count == 0;
+            else
+                errores.Add(new ErrorCarga(null, "archivo", "AP_YA_HAY_APERTURA",
+                    $"Ya hay apertura (póliza {ap.Folio}, corte {ap.FechaCorte:yyyy-MM-dd}); use el ajuste único."));
+        }
+        return new ValidacionCarga(puedeAplicar && errores.Count == 0, errores, resumen);
     }
 
     public async Task<AplicacionCarga> AplicarAsync(LoteCargaContexto lote, IReadOnlyList<FilaCarga> filas, CancellationToken cancellationToken)
