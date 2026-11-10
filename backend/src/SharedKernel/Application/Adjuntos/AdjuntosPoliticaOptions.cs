@@ -42,7 +42,9 @@ public sealed class AdjuntosPoliticaOptions
         ".xls",
         ".docx",
         ".doc",
-        ".txt"
+        ".txt",
+        // K10.11 (QA H1): la póliza de nómina externa adjunta su archivo origen, que suele ser CSV.
+        ".csv"
     ];
 
     /// <summary>
@@ -59,7 +61,9 @@ public sealed class AdjuntosPoliticaOptions
         "application/vnd.ms-excel",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "application/msword",
-        "text/plain"
+        "text/plain",
+        "text/csv",
+        "application/csv"
     ];
 
     /// <summary>
