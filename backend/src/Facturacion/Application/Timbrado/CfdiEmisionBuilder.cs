@@ -463,14 +463,22 @@ public static class CfdiEmisionBuilder
     /// extranjero (calle, estado y código postal) y clave de pedimento (B5). La emisión lo llama
     /// antes de reservar folio y el armado del CFDI antes de timbrar.
     /// </summary>
-    public static void ValidarDatosSatCce(string? claveDePedimento, string? calle, string? estado, string? codigoPostal)
+    public static void ValidarDatosSatCce(string? claveDePedimento, string? calle, string? estado, string? codigoPostal,
+        string? pais = null)
     {
-        if (string.IsNullOrWhiteSpace(calle) || string.IsNullOrWhiteSpace(estado) || string.IsNullOrWhiteSpace(codigoPostal))
+        // M-158: el mensaje dice qué campo falta (calle, estado, código postal o país).
+        var faltan = new List<string>();
+        if (string.IsNullOrWhiteSpace(calle)) faltan.Add("la calle");
+        if (string.IsNullOrWhiteSpace(estado)) faltan.Add("el estado");
+        if (string.IsNullOrWhiteSpace(codigoPostal)) faltan.Add("el código postal");
+        if (pais is not null && (string.IsNullOrWhiteSpace(pais) || pais.Trim().Equals("MEX", StringComparison.OrdinalIgnoreCase)))
+            faltan.Add("el país (distinto de México)");
+        if (faltan.Count > 0)
         {
             throw new BusinessRuleException(
                 "CCE_DOMICILIO_RECEPTOR_INCOMPLETO",
-                "El Complemento de Comercio Exterior 2.0 exige el domicilio del receptor extranjero " +
-                "(calle, estado y código postal). Captura los datos faltantes y vuelve a emitir.");
+                $"Falta {string.Join(", ", faltan)} del domicilio del receptor extranjero. " +
+                "El Complemento de Comercio Exterior 2.0 lo exige; captúralo y vuelve a emitir.");
         }
 
         if (string.IsNullOrWhiteSpace(claveDePedimento))
@@ -497,7 +505,7 @@ public static class CfdiEmisionBuilder
             return null;
 
         ValidarDatosSatCce(cce.ClaveDePedimento, cce.ReceptorDomicilioCalle,
-            cce.ReceptorDomicilioEstado, cce.ReceptorDomicilioCodigoPostal);
+            cce.ReceptorDomicilioEstado, cce.ReceptorDomicilioCodigoPostal, cce.ReceptorPaisResidencia);
 
         return new ComplementoCceCfdi(
             TipoOperacion: cce.TipoOperacion,

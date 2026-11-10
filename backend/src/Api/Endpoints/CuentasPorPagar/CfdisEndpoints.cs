@@ -1,3 +1,4 @@
+using Millet.SharedKernel.Application.Adjuntos;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -163,27 +164,22 @@ public static class CfdisEndpoints
             }
 
             await using var xmlStream = xml.OpenReadStream();
-            Stream? pdfStream = null;
-            if (pdf is { Length: > 0 })
+            await using var pdfStream = pdf is { Length: > 0 } ? pdf.OpenReadStream() : null;
+            if (pdfStream is not null)
             {
-                pdfStream = pdf.OpenReadStream();
+                if (!Path.GetExtension(pdf!.FileName).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
+                    throw new BusinessRuleException("ADJUNTO_FORMATO_NO_PERMITIDO", "El archivo adjunto debe tener extensión .pdf.");
+                await AdjuntosPoliticaOptions.ValidarSiEsPdfAsync(pdf.FileName, pdf.ContentType, pdfStream, cancellationToken);
             }
 
-            try
-            {
-                var response = await mediator.Send(
-                    new IngresarCfdiCommand(
-                        Xml: xmlStream,
-                        Pdf: pdfStream,
-                        Canal: CanalOrigenCfdi.CargaManual),
-                    cancellationToken);
+            var response = await mediator.Send(
+                new IngresarCfdiCommand(
+                    Xml: xmlStream,
+                    Pdf: pdfStream,
+                    Canal: CanalOrigenCfdi.CargaManual),
+                cancellationToken);
 
-                return Results.Created($"/api/v1/cuentas-por-pagar/cfdis/{response.Id}", response);
-            }
-            finally
-            {
-                if (pdfStream is not null) await pdfStream.DisposeAsync();
-            }
+            return Results.Created($"/api/v1/cuentas-por-pagar/cfdis/{response.Id}", response);
         })
         .DisableAntiforgery()
         .WithMetadata(new RequireIdempotencyKeyAttribute())

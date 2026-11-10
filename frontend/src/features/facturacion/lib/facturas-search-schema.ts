@@ -18,8 +18,11 @@ export const FacturasSearchSchema = z.object({
       z.literal(EstadoTimbrado.CancelacionPendiente),
       z.literal(EstadoTimbrado.Cancelado),
       z.literal(EstadoTimbrado.Descartada),
+      z.literal(EstadoTimbrado.PorAutorizar),
     ])
-    .optional(),
+    .optional()
+    // Prueba manual S3-4 (M17): un estado desconocido en la URL cae a «Todos» en vez de romper la página.
+    .catch(undefined),
   q: z.string().optional(),
   // Bucket "Sin asignar" de la Capa A (solo caja.leer-todas, CAJAS-PR6).
   alcance: z.literal('sin-asignar').optional(),

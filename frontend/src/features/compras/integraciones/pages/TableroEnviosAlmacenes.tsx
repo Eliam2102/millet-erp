@@ -14,6 +14,7 @@ import {
   useReintentarAlmCompraEnvio,
   type AlmCompraEnvio,
 } from '@/features/compras/integraciones/api/useAlmCompraEnvios';
+import { estaAtorado, MINUTOS_ATORADO } from '@/features/compras/integraciones/api/atorado';
 
 const ESTADOS = ['PENDIENTE', 'ENVIADO', 'PROCESADO', 'DUPLICADO', 'ERROR', 'RECHAZADO'] as const;
 const VARIANTE: Record<AlmCompraEnvio['estado'], 'success' | 'warning' | 'danger' | 'info'> = {
@@ -103,6 +104,9 @@ export function TableroEnviosAlmacenes() {
                   <TableCell>{ETIQUETA_TIPO[e.tipo]}</TableCell>
                   <TableCell>
                     <Badge variant={VARIANTE[e.estado]}>{e.estado}</Badge>
+                    {estaAtorado(e) && (
+                      <Badge variant="danger" className="ml-1" title={`Sin acuse de Almacenes después de ${MINUTOS_ATORADO} minutos`}>Atorado</Badge>
+                    )}
                     {e.ultimoError && <p className="mt-1 max-w-xs text-xs text-danger-fg">{e.ultimoError}</p>}
                   </TableCell>
                   <TableCell className="tabular-nums">{e.intentos}</TableCell>

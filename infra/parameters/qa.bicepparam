@@ -81,3 +81,8 @@ param awLateReconciliationHabilitado = false
 // Requiere el secreto `fiscalapi-tenant-key` (tenant sandbox) en el KV qa y la
 // ApiKey sk_test capturada en Integraciones Fiscal (BaseUrl https://test.fiscalapi.com).
 param integracionesFiscalSdkDisabled = false
+
+// M-185: el monitor del cierre del día consulta el estatus SAT real vía
+// FiscalAPI (sandbox en este ambiente). Requiere la consulta habilitada en la
+// cuenta de FiscalAPI; un error se cuenta «con error» y no cambia el estatus.
+param consultaEstatusSatProveedor = 'FiscalApi'

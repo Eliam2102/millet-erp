@@ -451,6 +451,39 @@ public sealed class FiscalApiTimbradoAdapterTests
     }
 
     [Fact]
+    public async Task M19_saldo_insuficiente_del_pac_es_PAC_SIN_SALDO_con_mensaje_en_espanol()
+    {
+        // Respuesta real del sandbox de FiscalAPI en la prueba manual.
+        var invoices = new FakeInvoiceService
+        {
+            OnCreate = _ => new ApiResponse<SdkModels.Invoice>
+            {
+                Succeeded = false,
+                HttpStatusCode = 403,
+                Message = "Sorry, it's not me, it's you.",
+                Details = "Saldo insuficiente. Disponible: 0, Requerido: 1",
+            },
+        };
+
+        var r = await Adapter(invoices, ConfigSandbox()).TimbrarAsync(EmisionIngreso(), CancellationToken.None);
+
+        r.Estado.Should().Be(TimbradoEstado.Fallido);
+        r.ErrorCodigo.Should().Be(FiscalApiTimbradoAdapter.CodigoSinSaldo);
+        r.ErrorMensaje.Should().StartWith("El proveedor de timbrado no tiene saldo para timbrar (disponible: 0, requerido: 1).")
+            .And.Contain("avisa a Sistemas").And.NotContain("Sorry");
+    }
+
+    [Theory]
+    [InlineData("Insufficient balance to stamp", true)]
+    [InlineData("Forbidden — sin saldo en la cuenta", true)]
+    [InlineData("CFDI40139 - El nombre del emisor no coincide.", false)]
+    [InlineData(null, false)]
+    public void M19_solo_el_rechazo_por_saldo_se_traduce(string? mensaje, bool sinSaldo)
+    {
+        (FiscalApiTimbradoAdapter.MensajeSinSaldo(mensaje) is not null).Should().Be(sinSaldo);
+    }
+
+    [Fact]
     public async Task Timbrar_excepcion_de_red_es_enproceso_ambiguo()
     {
         var invoices = new FakeInvoiceService { OnCreate = _ => null! };

@@ -327,7 +327,7 @@ describe('<EmitirFacturaForm> — smoke (FAC-UX-PR2/PR3)', () => {
     fireEvent.change(screen.getByLabelText('pais'), { target: { value: 'USA' } });
     fireEvent.click(screen.getByRole('button', { name: 'Editar', hidden: true }));
     fireEvent.change(screen.getByLabelText('fraccion-arancelaria'), {
-      target: { value: '70071999' },
+      target: { value: '7007199900' },
     });
     fireEvent.change(screen.getByLabelText('unidad-aduana'), { target: { value: '06' } });
     cambiar('lineas.0.cantidadAduana', '1');
@@ -397,7 +397,7 @@ describe('<EmitirFacturaForm> — smoke (FAC-UX-PR2/PR3)', () => {
     cambiar('cceTcDof', '18.42');
     fireEvent.click(screen.getByRole('button', { name: 'Editar', hidden: true }));
     fireEvent.change(screen.getByLabelText('fraccion-arancelaria'), {
-      target: { value: '70071999' },
+      target: { value: '7007199900' },
     });
     fireEvent.change(screen.getByLabelText('unidad-aduana'), { target: { value: '06' } });
     cambiar('lineas.0.cantidadAduana', '1');

@@ -277,12 +277,14 @@ public sealed class RegistrarRecepcionConFacturaHandler
                     EsActivoFijo: true, ClaseActivoId: afOrigen.ClaseActivoId, CentroCostoId: afOrigen.CentroCostoId));
                 continue;
             }
-            // Ubicación obligatoria: sin A+W admite almacén general; un rack exige asignación.
+            // Ubicación obligatoria: almacén general (con o sin A+W) o rack con asignación.
             // Sin sub de cabecera: el guard deriva el sub de la ubicación y lo retorna.
             if (input.UbicacionId is null || input.UbicacionId == Guid.Empty)
                 throw new BusinessRuleException("RECEPCION_UBICACION_REQUERIDA", "La línea de inventario requiere ubicación (rack o almacén general).");
             var subLinea = await UbicacionEntradaGuard.ValidarEntradaYDerivarSubAsync(
-                _db, input.UbicacionId!.Value, input.ArticuloId, cancellationToken, ligadoAw: variantes[idx] is not null);
+                _db, input.UbicacionId!.Value, input.ArticuloId, cancellationToken, ligadoAw: variantes[idx] is not null,
+                // M-159: la medida de A+W también entra al almacén general de la sucursal, sin rack.
+                awAlGeneral: true);
             subsDerivados.Add(subLinea);
 
             var origen = lineasOc[input.LineaOcId!.Value];

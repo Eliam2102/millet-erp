@@ -14,10 +14,11 @@ namespace Millet.Facturacion.Application.EventListeners;
 
 // Contratos espejo de Comercio Exterior (comercio_exterior.contenedor.*.v1). Facturación solo lee lo que usa.
 public sealed record ContenedorEmbarcadoPayload(Guid EmpresaId, Guid ExpedienteId, string? FolioExpediente,
-    Guid ContenedorId, string NumeroContenedor, string? BlGuia, DateOnly FechaEmbarqueReal,
+    Guid ContenedorId, string NumeroContenedor, string? BlGuia, DateOnly? FechaEmbarqueReal,
     IReadOnlyList<PedidoContenedorPayload> Pedidos)
 {
     public const string EventType = "comercio_exterior.contenedor.embarcado.v1";
+    public const string PreparadoEventType = "comercio_exterior.contenedor.preparado.v1";
 }
 
 public sealed record ContenedorCanceladoPayload(Guid EmpresaId, Guid ExpedienteId, string? FolioExpediente,

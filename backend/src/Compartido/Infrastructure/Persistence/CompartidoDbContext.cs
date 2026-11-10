@@ -486,6 +486,10 @@ public sealed class CompartidoDbContext : BaseDbContext
             SeedParametro("00000006-0001-0000-0000-00000000000b", ToleranciaTarjetasParametro.Clave,
                 "1.00", TipoParametro.Numero,
                 "Tolerancia de conciliación de tarjetas corporativas (MXN). Diferencia máxima aceptada entre el estado de cuenta y lo capturado.", seedTime, "cxp"),
+            SeedParametro("00000006-0001-0000-0000-00000000000d", ToleranciaTipoCambioCfdiParametro.Clave,
+                "1.00", TipoParametro.Numero,
+                "Diferencia máxima (%) entre el tipo de cambio de un CFDI en moneda extranjera y el del catálogo para su fecha. Fuera de ella, la póliza va a Rechazos para autorizar un valor. 0 apaga la comparación.",
+                new DateTimeOffset(2026, 11, 9, 0, 0, 0, TimeSpan.Zero), "contabilidad"),
             SeedParametro("00000006-0001-0000-0000-00000000000a",
                 Millet.SharedKernel.Application.Calendario.CalendarioHabil.ClaveFestivos,
                 Millet.SharedKernel.Application.Calendario.CalendarioHabil.FestivosIniciales, TipoParametro.Json,
@@ -1344,6 +1348,8 @@ public sealed class CompartidoDbContext : BaseDbContext
         articulo.Property(x => x.PrecioReferenciaMonto).HasPrecision(15, 4);
         articulo.Property(x => x.PrecioReferenciaMoneda).HasMaxLength(3);
         articulo.Property(x => x.Estatus).HasConversion<short>().IsRequired();
+        // M-172: consumo por tambor a línea (silicón, Ködispace) y kilos por presentación.
+        articulo.Property(x => x.KgPorPresentacion).HasPrecision(10, 3);
 
         articulo.HasIndex(x => x.Clave).IsUnique();
         articulo.HasIndex(x => x.Naturaleza);

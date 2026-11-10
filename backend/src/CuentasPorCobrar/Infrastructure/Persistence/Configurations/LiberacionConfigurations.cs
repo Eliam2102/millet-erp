@@ -96,20 +96,22 @@ public sealed class ReglaLiberacionSerieConfiguration : IEntityTypeConfiguration
     /// <summary>
     /// Series de Millet (Cuestionario 04, R2 del plano Módulo 07). Las carga
     /// la migración C7.2 con GUIDs deterministas; se exponen para las pruebas.
+    /// R1 (Crédito y Cobranza, 9-nov): la serie y subserie son los 2 primeros dígitos del pedido (90047568 → «90»), no 4;
+    /// la migración SeriesLiberacionDosDigitos pasa las reglas sembradas a 2 dígitos.
     /// </summary>
     public static readonly IReadOnlyList<(Guid Id, string Prefijo, ComportamientoSerie Comportamiento)> SeriesMillet =
     [
-        (Guid.Parse("0000000a-1001-0000-0000-000000000001"), "5000", ComportamientoSerie.SiempreLibera),
-        (Guid.Parse("0000000a-1001-0000-0000-000000000006"), "5500", ComportamientoSerie.SiempreLibera),
-        (Guid.Parse("0000000a-1001-0000-0000-000000000007"), "5600", ComportamientoSerie.SiempreLibera),
-        (Guid.Parse("0000000a-1001-0000-0000-000000000002"), "7000", ComportamientoSerie.SiempreLibera),
-        (Guid.Parse("0000000a-1001-0000-0000-000000000008"), "7200", ComportamientoSerie.SiempreLibera),
-        (Guid.Parse("0000000a-1001-0000-0000-000000000009"), "7500", ComportamientoSerie.SiempreLibera),
-        (Guid.Parse("0000000a-1001-0000-0000-00000000000a"), "5800", ComportamientoSerie.NuncaLibera),
-        (Guid.Parse("0000000a-1001-0000-0000-00000000000b"), "5900", ComportamientoSerie.NuncaLibera),
-        (Guid.Parse("0000000a-1001-0000-0000-00000000000c"), "7800", ComportamientoSerie.NuncaLibera),
-        (Guid.Parse("0000000a-1001-0000-0000-00000000000d"), "7900", ComportamientoSerie.NuncaLibera),
-        (Guid.Parse("0000000a-1001-0000-0000-00000000000e"), "9000", ComportamientoSerie.NuncaLibera),
+        (Guid.Parse("0000000a-1001-0000-0000-000000000001"), "50", ComportamientoSerie.SiempreLibera),
+        (Guid.Parse("0000000a-1001-0000-0000-000000000006"), "55", ComportamientoSerie.SiempreLibera),
+        (Guid.Parse("0000000a-1001-0000-0000-000000000007"), "56", ComportamientoSerie.SiempreLibera),
+        (Guid.Parse("0000000a-1001-0000-0000-000000000002"), "70", ComportamientoSerie.SiempreLibera),
+        (Guid.Parse("0000000a-1001-0000-0000-000000000008"), "72", ComportamientoSerie.SiempreLibera),
+        (Guid.Parse("0000000a-1001-0000-0000-000000000009"), "75", ComportamientoSerie.SiempreLibera),
+        (Guid.Parse("0000000a-1001-0000-0000-00000000000a"), "58", ComportamientoSerie.NuncaLibera),
+        (Guid.Parse("0000000a-1001-0000-0000-00000000000b"), "59", ComportamientoSerie.NuncaLibera),
+        (Guid.Parse("0000000a-1001-0000-0000-00000000000c"), "78", ComportamientoSerie.NuncaLibera),
+        (Guid.Parse("0000000a-1001-0000-0000-00000000000d"), "79", ComportamientoSerie.NuncaLibera),
+        (Guid.Parse("0000000a-1001-0000-0000-00000000000e"), "90", ComportamientoSerie.NuncaLibera),
     ];
 }
 
@@ -140,6 +142,8 @@ public sealed class AutorizacionCreditoConfiguration : IEntityTypeConfiguration<
         builder.Property(e => e.VigenteHasta).IsRequired();
         builder.Property(e => e.Estado).HasConversion<short>().IsRequired();
         builder.Property(e => e.DecisionLiberacionId);
+        // M-085: autorización otorgada por Dirección (exceso arriba del tope de Crédito y Cobranza).
+        builder.Property(e => e.AutorizadaPorDireccion).HasDefaultValue(false);
 
         // Bandeja de vigentes por beneficiario.
         builder.HasIndex(e => new { e.BeneficiarioUsuarioId, e.Estado })

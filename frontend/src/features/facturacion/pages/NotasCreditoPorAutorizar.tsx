@@ -24,7 +24,11 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { useState } from 'react';
 import type { NotaCreditoPorAutorizar } from '../api/useNotasCreditoAw';
-import { useAutorizarNotaCredito, useNotasCreditoPorAutorizar } from '../api/useNotasCreditoAw';
+import {
+  useAutorizarNotaCredito,
+  useFirmarCreditoNotaCredito,
+  useNotasCreditoPorAutorizar,
+} from '../api/useNotasCreditoAw';
 import { formatoImporte } from '../lib/repp-pendiente';
 
 /** Relación CFDI: bonificación = 01, devolución = 03 (card F6.4). */
@@ -35,22 +39,39 @@ const claveMotivo = (motivo: string) =>
 export function NotasCreditoPorAutorizar() {
   const query = useNotasCreditoPorAutorizar();
   const autorizar = useAutorizarNotaCredito();
+  const firmarCredito = useFirmarCreditoNotaCredito();
   const puedeAutorizar = useHasPermission(PermisosCanonicos.FacturacionNotasCreditoAutorizar);
+  // M-087: arriba del umbral firma también Crédito y Cobranza.
+  const puedeFirmarCredito = useHasPermission(PermisosCanonicos.FacturacionNotasCreditoAutorizarCredito);
   const [confirmando, setConfirmando] = useState<NotaCreditoPorAutorizar | null>(null);
+  const [comoCredito, setComoCredito] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState('');
   const [resultado, setResultado] = useState<{ ok: boolean; texto: string } | null>(null);
 
-  function pedirConfirmacion(nc: NotaCreditoPorAutorizar) {
+  function pedirConfirmacion(nc: NotaCreditoPorAutorizar, credito = false) {
     setIdempotencyKey(crypto.randomUUID());
+    setComoCredito(credito);
     setConfirmando(nc);
   }
+  // Con esta firma, ¿se timbra? Solo si no requiere dos firmas o la otra ya está.
+  const timbraAlFirmar = (nc: NotaCreditoPorAutorizar, credito: boolean) =>
+    !nc.requiereFirmaCredito || (credito ? !!nc.firmadaGerente : !!nc.firmadaCredito);
   async function confirmar() {
     if (!confirmando) return;
     const nc = confirmando;
     try {
-      const r = await autorizar.mutateAsync({ id: nc.id, idempotencyKey });
+      const r = comoCredito
+        ? await firmarCredito.mutateAsync({ id: nc.id, idempotencyKey })
+        : await autorizar.mutateAsync({ id: nc.id, idempotencyKey });
       setResultado(
-        r.uuid
+        r.pendiente
+          ? {
+              ok: true,
+              texto: `Firma registrada en la nota ${nc.folioAw ?? r.folio}. Falta la firma de ${
+                r.pendiente === 'Gerente' ? 'el gerente' : 'Crédito y Cobranza'
+              } para timbrarla.`,
+            }
+          : r.uuid
           ? {
               ok: true,
               texto: `Nota ${r.folio} timbrada. UUID ${r.uuid}. El saldo de la factura bajó ${formatoImporte(r.total)}.`,
@@ -110,7 +131,8 @@ export function NotasCreditoPorAutorizar() {
                 <TableHead>Motivo</TableHead>
                 <TableHead className="text-right tabular-nums">Importe</TableHead>
                 <TableHead>Fecha</TableHead>
-                {puedeAutorizar && <TableHead>Acción</TableHead>}
+                <TableHead>Firmas</TableHead>
+                {(puedeAutorizar || puedeFirmarCredito) && <TableHead>Acción</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -130,15 +152,37 @@ export function NotasCreditoPorAutorizar() {
                     {formatoImporte(nc.total)} {nc.moneda}
                   </TableCell>
                   <TableCell>{nc.fechaRecibida?.slice(0, 10) ?? '—'}</TableCell>
-                  {puedeAutorizar && (
-                    <TableCell>
-                      <Button
-                        size="sm"
-                        disabled={autorizar.isPending}
-                        onClick={() => pedirConfirmacion(nc)}
-                      >
-                        Autorizar
-                      </Button>
+                  <TableCell className="text-xs">
+                    {nc.requiereFirmaCredito ? (
+                      <>
+                        <p>Gerente: {nc.firmadaGerente ? 'firmó' : 'pendiente'}</p>
+                        <p>Crédito y Cobranza: {nc.firmadaCredito ? 'firmó' : 'pendiente'}</p>
+                      </>
+                    ) : (
+                      'Gerente'
+                    )}
+                  </TableCell>
+                  {(puedeAutorizar || puedeFirmarCredito) && (
+                    <TableCell className="space-x-2 whitespace-nowrap">
+                      {puedeAutorizar && !nc.firmadaGerente && (
+                        <Button
+                          size="sm"
+                          disabled={autorizar.isPending || firmarCredito.isPending}
+                          onClick={() => pedirConfirmacion(nc)}
+                        >
+                          Autorizar
+                        </Button>
+                      )}
+                      {puedeFirmarCredito && nc.requiereFirmaCredito && !nc.firmadaCredito && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={autorizar.isPending || firmarCredito.isPending}
+                          onClick={() => pedirConfirmacion(nc, true)}
+                        >
+                          Firmar por Crédito y Cobranza
+                        </Button>
+                      )}
                     </TableCell>
                   )}
                 </TableRow>
@@ -153,16 +197,24 @@ export function NotasCreditoPorAutorizar() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Autorizar y timbrar la nota de crédito?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {confirmando && !timbraAlFirmar(confirmando, comoCredito)
+                ? '¿Firmar la nota de crédito?'
+                : '¿Autorizar y timbrar la nota de crédito?'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
               {confirmando &&
-                `${confirmando.folioAw ?? confirmando.folio} · ${confirmando.receptorNombre} · ${formatoImporte(confirmando.total)} sobre la factura ${confirmando.facturaFolio ?? 'sin folio'}. Se timbrará ante el SAT y no se puede deshacer.`}
+                `${confirmando.folioAw ?? confirmando.folio} · ${confirmando.receptorNombre} · ${formatoImporte(confirmando.total)} sobre la factura ${confirmando.facturaFolio ?? 'sin folio'}. ${
+                  timbraAlFirmar(confirmando, comoCredito)
+                    ? 'Se timbrará ante el SAT y no se puede deshacer.'
+                    : `Por su importe requiere también la firma de ${comoCredito ? 'el gerente' : 'Crédito y Cobranza'}; se timbrará cuando estén las dos.`
+                }`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={() => void confirmar()}>
-              Autorizar y timbrar
+              {confirmando && !timbraAlFirmar(confirmando, comoCredito) ? 'Firmar' : 'Autorizar y timbrar'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

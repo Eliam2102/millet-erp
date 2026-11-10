@@ -91,6 +91,22 @@ describe('<DetalleFactura> — smoke', () => {
     expect(screen.getByText('Total de pies²').nextElementSibling).toHaveTextContent(datos.area);
   });
 
+  // M20 (prueba S3-4): el XML existe desde el timbre; se descarga también con la cancelación en proceso y ya cancelada.
+  it.each([
+    { estado: 'Timbrado', habilitado: true },
+    { estado: 'CancelacionPendiente', habilitado: true },
+    { estado: 'Cancelado', habilitado: true },
+    { estado: 'Borrador', habilitado: false },
+    { estado: 'TimbradoFallido', habilitado: false },
+  ])('botón XML con estado $estado: habilitado = $habilitado', async ({ estado, habilitado }) => {
+    mswServer.use(http.get('*/api/v1/facturacion/facturas/f-1', () => HttpResponse.json({ ...detalle, estado })));
+    render(<DetalleFactura />, { wrapper: createQueryWrapper() });
+    await screen.findByText('A-1');
+    const xml = screen.getByRole('button', { name: /^XML$/i });
+    if (habilitado) expect(xml).toBeEnabled();
+    else expect(xml).toBeDisabled();
+  });
+
   it('renderiza folio, conceptos, cadena de relaciones y bitácora de envío', async () => {
     mswServer.use(
       http.get('*/api/v1/facturacion/facturas/f-1', () => HttpResponse.json(detalle)),

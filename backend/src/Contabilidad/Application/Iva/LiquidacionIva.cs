@@ -28,8 +28,11 @@ public sealed record DocumentoLiquidacionIva(Guid SaldoId, LadoIva Lado, string 
     string? MetodoPago, DateOnly Fecha, string Moneda, decimal Base, decimal Iva, decimal AplicadoMes, decimal IvaMes, decimal IvaRetenidoMes,
     decimal IvaPendiente, decimal Saldo, bool Completo, IReadOnlyList<string> Motivos);
 
+/// <summary>M-209 (CON-07-01): base e IVA pagados o cobrados en el mes por lado y tratamiento (TASA16, TASA8, EXENTO…), en MXN.</summary>
+public sealed record BaseTratamientoIva(LadoIva Lado, string Tratamiento, decimal Base, decimal Iva);
+
 public sealed record LiquidacionIvaResponse(int Anio, int Mes, ResumenLiquidacionIva Resumen, IReadOnlyList<CuadreRolIva> Cuadre, bool Cuadra,
-    IReadOnlyList<DocumentoLiquidacionIva> Documentos, int Pendientes);
+    IReadOnlyList<DocumentoLiquidacionIva> Documentos, int Pendientes, IReadOnlyList<BaseTratamientoIva>? Tratamientos = null);
 
 public sealed record LiquidacionIvaQuery(int Anio, int Mes) : IRequest<LiquidacionIvaResponse>;
 
@@ -87,7 +90,8 @@ public sealed class LiquidacionIvaHandlers(ContabilidadDbContext db, ICumplimien
         };
 
         var documentos = await DocumentosAsync(movimientos, saldos, ct);
-        return new(q.Anio, q.Mes, resumen, cuadre, cuadre.All(c => c.Cuadra), documentos, documentos.Count(d => !d.Completo));
+        return new(q.Anio, q.Mes, resumen, cuadre, cuadre.All(c => c.Cuadra), documentos, documentos.Count(d => !d.Completo),
+            PorTratamiento(movimientos, saldos));
     }
 
     public async Task<PolizaResponse> Handle(GenerarPolizaLiquidacionIvaCommand c, CancellationToken cancellationToken)
@@ -139,6 +143,15 @@ public sealed class LiquidacionIvaHandlers(ContabilidadDbContext db, ICumplimien
         return await mediator.Send(new CrearPolizaCommand(new PolizaManualRequest(tipo, fecha, $"Liquidación de IVA {c.Mes:D2}/{c.Anio}",
             partidas, DocumentoOrigen: new DocumentoOrigenRequest(DocLiquidacion.Modulo, DocLiquidacion.Tipo, Guid.CreateVersion7(), folio, null))), ct);
     }
+
+    /// <summary>M-209: bases e IVA del mes por lado y tratamiento, sumados de lo que movió cada pago o cobro (en MXN).</summary>
+    public static IReadOnlyList<BaseTratamientoIva> PorTratamiento(IEnumerable<ReclasificacionIva> movimientos,
+        IReadOnlyDictionary<Guid, SaldoIvaDocumento> saldos) =>
+        [.. movimientos.Where(r => saldos.ContainsKey(r.SaldoIvaDocumentoId))
+            .SelectMany(r => r.Tratamientos.Select(t => (saldos[r.SaldoIvaDocumentoId].Lado, t)))
+            .GroupBy(x => (x.Lado, x.t.Tratamiento))
+            .Select(g => new BaseTratamientoIva(g.Key.Lado, g.Key.Tratamiento, g.Sum(x => x.t.BaseMxn), g.Sum(x => x.t.IvaMxn)))
+            .OrderBy(x => x.Lado).ThenBy(x => x.Tratamiento, StringComparer.Ordinal)];
 
     /// <summary>86e3zcbjw: IVA retenido por clientes en los cobros del mes, por concepto (en MXN, como quedó en cada cobro).</summary>
     private async Task<List<(string Clasificador, decimal Importe)>> RetencionesClientesPorConceptoAsync(int anio, int mes, CancellationToken ct)

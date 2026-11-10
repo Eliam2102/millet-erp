@@ -63,14 +63,17 @@ public sealed class CrearAutorizacionCreditoHandler
     private readonly ICurrentUserContext _currentUser;
     private readonly IClock _clock;
     private readonly IBeneficiarioCreditoReadPort _beneficiarios;
+    private readonly ICurrentUserPermissions? _permisos;
 
     public CrearAutorizacionCreditoHandler(
         CuentasPorCobrarDbContext db,
         ICurrentEmpresaContext currentEmpresa,
         ICurrentUserContext currentUser,
-        IClock clock, IBeneficiarioCreditoReadPort beneficiarios)
+        IClock clock, IBeneficiarioCreditoReadPort beneficiarios,
+        ICurrentUserPermissions? permisos = null)
     {
         _db = db; _currentEmpresa = currentEmpresa; _currentUser = currentUser; _clock = clock; _beneficiarios = beneficiarios;
+        _permisos = permisos;
     }
 
     public async Task<AutorizacionCreditoResponse> Handle(
@@ -93,7 +96,10 @@ public sealed class CrearAutorizacionCreditoHandler
             motivo: command.Motivo,
             clienteOPedidoRef: command.ClienteOPedidoRef,
             ahora: _clock.UtcNow,
-            vigencia: TimeSpan.FromHours(command.VigenciaHoras));
+            vigencia: TimeSpan.FromHours(command.VigenciaHoras),
+            // M-085: si la otorga Dirección, cubre excesos arriba del tope de Crédito y Cobranza.
+            autorizadaPorDireccion: _permisos is not null
+                && await _permisos.TieneAsync(Millet.Identidad.Domain.PermisosCanonicos.CuentasPorCobrarLiberacionOverrideDireccion, cancellationToken));
 
         _db.AutorizacionesCredito.Add(autorizacion);
         await _db.SaveChangesAsync(cancellationToken);

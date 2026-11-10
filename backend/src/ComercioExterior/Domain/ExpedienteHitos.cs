@@ -40,8 +40,10 @@ public sealed partial class Expediente
         if (clave is "documentacion-completa" or "entregado" or "cerrado") ExigirSinIncidencias();
         if (clave == "cerrado" && MotivosFinancieros().Count > 0)
             throw new BusinessRuleException("CE_CIERRE_FINANCIERO_PENDIENTE", string.Join("; ", MotivosFinancieros()));
-        if (clave == "embarcado" && Tipo == TipoExpediente.Exportacion && !SalidaAutorizada)
-            throw new BusinessRuleException("CE_SALIDA_SIN_AUTORIZAR", "Autorice la salida de la versión actual del embarque antes de completar el hito.");
+        if (clave == "embarcado" && Tipo == TipoExpediente.Exportacion &&
+            (!_contenedores.Any(c => c.Estado == EstadoContenedor.Activo) ||
+                _contenedores.Any(c => c.Estado == EstadoContenedor.Activo && c.FechaEmbarqueReal is null)))
+            throw new BusinessRuleException("CE_EMBARQUE_PENDIENTE", "Registre el despacho físico de los contenedores antes de completar el hito.");
         if (clave == "embarcado" && Tipo == TipoExpediente.Importacion)
         {
             var activos = _contenedores.Where(c => c.Estado == EstadoContenedor.Activo).ToArray();

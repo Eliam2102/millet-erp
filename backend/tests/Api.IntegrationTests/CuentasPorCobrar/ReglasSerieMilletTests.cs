@@ -30,13 +30,13 @@ public sealed class ReglasSerieMilletTests
             r => r.GetProperty("prefijo").GetString()!,
             r => (Comportamiento: r.GetProperty("comportamiento").GetInt32(), Activo: r.GetProperty("activo").GetBoolean()));
 
-        foreach (var serie in new[] { "5000", "5500", "5600", "7000", "7200", "7500" })
+        foreach (var serie in new[] { "50", "55", "56", "70", "72", "75" })
             Assert.Equal((1, true), porSerie[serie]);
-        foreach (var serie in new[] { "5800", "5900", "7800", "7900", "9000" })
+        foreach (var serie in new[] { "58", "59", "78", "79", "90" })
             Assert.Equal((2, true), porSerie[serie]);
-        // Las series de ejemplo de la semilla anterior ya no están: solo quedan las de Millet
-        // (más las que otra prueba de la colección haya dado de alta, que nunca son de 4 dígitos).
-        Assert.Equal(11, porSerie.Keys.Count(k => k.Length == 4));
+        // R1: las series sembradas pasaron a 2 dígitos; ninguna queda con su prefijo de 4.
+        foreach (var anterior in new[] { "5000", "5500", "5600", "7000", "7200", "7500", "5800", "5900", "7800", "7900", "9000" })
+            Assert.False(porSerie.ContainsKey(anterior), $"La serie {anterior} debió pasar a 2 dígitos.");
     }
 
     [Fact]
@@ -45,13 +45,13 @@ public sealed class ReglasSerieMilletTests
         using var client = await Login();
         var clienteSinCredito = Guid.NewGuid();
 
-        var serie5500 = await Decidir(client, $"5500{Sufijo()}", clienteSinCredito);
+        var serie5500 = await Decidir(client, $"55{Sufijo()}", clienteSinCredito);
         Assert.Equal(HttpStatusCode.Created, serie5500.StatusCode);
         var liberado = await serie5500.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(1, liberado.GetProperty("resultado").GetInt32());      // Liberado
         Assert.Equal(1, liberado.GetProperty("reglaAplicada").GetInt32());  // Serie
 
-        var serie7800 = await Decidir(client, $"7800{Sufijo()}", clienteSinCredito);
+        var serie7800 = await Decidir(client, $"78{Sufijo()}", clienteSinCredito);
         Assert.Equal(HttpStatusCode.Created, serie7800.StatusCode);
         var retenido = await serie7800.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(2, retenido.GetProperty("resultado").GetInt32());      // Retenido
@@ -62,7 +62,7 @@ public sealed class ReglasSerieMilletTests
     public async Task C7_2_a_cambio_de_regla_queda_auditado_y_aplica_a_la_siguiente_evaluacion()
     {
         using var client = await Login();
-        var regla = await Regla(client, "7500");
+        var regla = await Regla(client, "75");
         var id = regla.GetProperty("id").GetGuid();
 
         var cambio = await CambiarComportamiento(client, id, regla.GetProperty("version").GetInt32(), comportamiento: 3);
@@ -73,14 +73,14 @@ public sealed class ReglasSerieMilletTests
             Assert.Equal(3, cambiada.GetProperty("comportamiento").GetInt32());
 
             // Siguiente evaluación: sin línea de crédito, ya no libera por serie.
-            var decision = await Decidir(client, $"7500{Sufijo()}", Guid.NewGuid());
+            var decision = await Decidir(client, $"75{Sufijo()}", Guid.NewGuid());
             var cuerpo = await decision.Content.ReadFromJsonAsync<JsonElement>();
             Assert.Equal(2, cuerpo.GetProperty("resultado").GetInt32());      // Retenido
             Assert.Equal(2, cuerpo.GetProperty("reglaAplicada").GetInt32());  // Crédito
 
             var historial = await client.GetFromJsonAsync<JsonElement>($"{Admin}/historial?reglaId={id}");
             var ultimo = historial.EnumerateArray().First();
-            Assert.Equal("7500", ultimo.GetProperty("prefijo").GetString());
+            Assert.Equal("75", ultimo.GetProperty("prefijo").GetString());
             Assert.Equal("actualizar", ultimo.GetProperty("operacion").GetString());
             Assert.Equal(1, ultimo.GetProperty("comportamientoAntes").GetInt32());
             Assert.Equal(3, ultimo.GetProperty("comportamientoDespues").GetInt32());
@@ -89,7 +89,7 @@ public sealed class ReglasSerieMilletTests
         finally
         {
             // El catálogo es compartido por la colección: se deja como lo cargó la migración.
-            var actual = await Regla(client, "7500");
+            var actual = await Regla(client, "75");
             if (actual.GetProperty("comportamiento").GetInt32() != 1)
                 (await CambiarComportamiento(client, id, actual.GetProperty("version").GetInt32(), comportamiento: 1))
                     .EnsureSuccessStatusCode();
@@ -101,11 +101,11 @@ public sealed class ReglasSerieMilletTests
     {
         using var client = await Login();
 
-        var duplicada = await Enviar(client, HttpMethod.Post, Admin, new { prefijo = "9000", comportamiento = 1 });
+        var duplicada = await Enviar(client, HttpMethod.Post, Admin, new { prefijo = "90", comportamiento = 1 });
         Assert.Equal(HttpStatusCode.Conflict, duplicada.StatusCode);
         Assert.Contains("RLS_PREFIJO_DUPLICADO", await duplicada.Content.ReadAsStringAsync());
 
-        var regla = await Regla(client, "9000");
+        var regla = await Regla(client, "90");
         var vieja = await CambiarComportamiento(client, regla.GetProperty("id").GetGuid(),
             regla.GetProperty("version").GetInt32() - 1, comportamiento: 3);
         Assert.Equal(HttpStatusCode.Conflict, vieja.StatusCode);

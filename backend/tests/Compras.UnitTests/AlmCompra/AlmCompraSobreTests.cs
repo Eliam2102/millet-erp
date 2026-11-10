@@ -7,7 +7,7 @@ namespace Millet.Compras.UnitTests.AlmCompra;
 /// <summary>86e3jvu83: sobre v1 de COMPRA_RECIBIDA y reglas de cantidad y costo (contrato v6).</summary>
 public sealed class AlmCompraSobreTests
 {
-    private static AlmCompraDatos Datos(string moneda = "MXN", decimal? tc = null) => new("OC-5521", 164, "3M MEXICO", moneda, tc,
+    private static AlmCompraDatos Datos(string moneda = "PESOSMX", decimal? tc = null) => new("OC-5521", 164, "3M MEXICO", moneda, tc,
         new DateOnly(2026, 10, 1),
         [new AlmCompraLinea("1", "RQ-00000003", 1, 100006, 501, 3300, 6100, 10, "L-7781", "26 47 3456 6001234", null, 210.5m, 4237.8m)]);
 
@@ -36,7 +36,7 @@ public sealed class AlmCompraSobreTests
     }
 
     [Fact]
-    public void Sobre_v1_omite_costoMedioM2_etiqueta_y_tipoCambio_en_MXN()
+    public void Sobre_v1_omite_costoMedioM2_etiqueta_y_tipoCambio_sin_valor()
     {
         var sobre = AlmCompraSobre.Armar("ERP-OC-5521-R1", "COMPRA_RECIBIDA", DateTimeOffset.Parse("2026-10-07T09:30:00-06:00"), "OC-5521", AlmCompraSobre.DatosCompra(Datos()));
         using var doc = JsonDocument.Parse(sobre);
@@ -48,6 +48,23 @@ public sealed class AlmCompraSobreTests
         l.TryGetProperty("costoMedioM2", out _).Should().BeFalse();
         l.TryGetProperty("etiqueta", out _).Should().BeFalse();
         (l.GetProperty("costoM2").GetDecimal(), l.GetProperty("posicion").GetInt32(), l.GetProperty("requisicion").GetString()).Should().Be((210.5m, 1, "RQ-00000003"));
+    }
+
+    [Fact]
+    public void Moneda_va_con_el_codigo_de_AplusW_y_el_tipoCambio_solo_si_es_mayor_que_cero()
+    {
+        AlmCompraSobre.MonedaAw("MXN", null).Should().Be("PESOSMX");
+        AlmCompraSobre.MonedaAw("MXN", "PESOSMX").Should().Be("PESOSMX");
+        AlmCompraSobre.MonedaAw("EUR", "Euro").Should().Be("Euro");
+        AlmCompraSobre.MonedaAw("USD", null).Should().Be("USD");
+        string Datos_(decimal? tc) => AlmCompraSobre.Armar("m", "COMPRA_RECIBIDA", DateTimeOffset.UnixEpoch, "OC-5521", AlmCompraSobre.DatosCompra(Datos("PESOSMX", tc)));
+        JsonDocument.Parse(Datos_(1m)).RootElement.GetProperty("datos").GetProperty("tipoCambio").GetDecimal().Should().Be(1m);
+        Datos_(0m).Should().NotContain("tipoCambio");
+        Datos_(null).Should().Contain("\"moneda\":\"PESOSMX\"");
+        // Sin valor (como lo arma el encolador) articuloAlmacenAw y costoMedioM2 no viajan.
+        var sinOpcionales = Datos() with { Lineas = [Datos().Lineas[0] with { ArticuloAlmacenAw = null }] };
+        AlmCompraSobre.Armar("m", "COMPRA_RECIBIDA", DateTimeOffset.UnixEpoch, "OC-5521", AlmCompraSobre.DatosCompra(sinOpcionales))
+            .Should().NotContain("articuloAlmacenAw").And.NotContain("costoMedioM2");
     }
 
     [Fact]
@@ -91,10 +108,16 @@ public sealed class AlmCompraSobreTests
     }
 
     [Fact]
-    public void COMPRA_CANCELADA_exige_motivo_y_no_manda_fechaCancelacion()
+    public void COMPRA_CANCELADA_exige_motivo_y_la_fechaCancelacion_es_opcional()
     {
-        var json = JsonSerializer.Serialize(AlmCompraSobre.DatosCancelada("OC-5521", "  Cambio de proveedor "));
-        json.Should().Contain("\"motivo\":\"Cambio de proveedor\"").And.NotContain("fechaCancelacion");
+        var sin = AlmCompraSobre.Armar("m", "COMPRA_CANCELADA", DateTimeOffset.UnixEpoch, "OC-5521", AlmCompraSobre.DatosCancelada("OC-5521", "  Cambio de proveedor "));
+        sin.Should().Contain("\"motivo\":\"Cambio de proveedor\"").And.NotContain("fechaCancelacion");
+        var con = AlmCompraSobre.Armar("m", "COMPRA_CANCELADA", DateTimeOffset.UnixEpoch, "OC-5521",
+            AlmCompraSobre.DatosCancelada("OC-5521", new string('x', 950), DateTimeOffset.Parse("2026-11-06T09:55:00-06:00")));
+        using var doc = JsonDocument.Parse(con);
+        var d = doc.RootElement.GetProperty("datos");
+        d.GetProperty("motivo").GetString()!.Length.Should().Be(900);
+        d.GetProperty("fechaCancelacion").GetString().Should().StartWith("2026-11-06T09:55:00");
         foreach (var vacio in new string?[] { null, "", "   " })
             FluentActions.Invoking(() => AlmCompraSobre.DatosCancelada("OC-5521", vacio))
                 .Should().Throw<BusinessRuleException>().Which.Code.Should().Be("ALM_COMPRA_CANCELACION_SIN_MOTIVO");

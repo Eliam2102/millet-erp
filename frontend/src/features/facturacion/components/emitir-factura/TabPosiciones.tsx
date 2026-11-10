@@ -43,11 +43,14 @@ export interface TabPosicionesProps {
   desdePedido: boolean;
   /** Permiso editar-articulo: muestra el CTA al catálogo de productos. */
   puedeCorregirArticulo: boolean;
+  /** M-158: la fracción y la unidad aduana vienen de Comercio Exterior (solo lectura). */
+  aduanalesDeCe?: boolean;
 }
 
 export function TabPosiciones({
   form,
   esCce,
+  aduanalesDeCe = false,
   tasaIvaDefault,
   desdePedido,
   puedeCorregirArticulo,
@@ -104,6 +107,7 @@ export function TabPosiciones({
             onRemove={() => remove(index)}
             puedeQuitar={fields.length > 1}
             esCce={esCce}
+            aduanalesDeCe={aduanalesDeCe}
             tasaIvaDefault={tasaIvaDefault}
             desdePedido={desdePedido}
             puedeCorregirArticulo={puedeCorregirArticulo}
@@ -126,6 +130,7 @@ interface ConceptoInlineProps {
   onRemove: () => void;
   puedeQuitar: boolean;
   esCce: boolean;
+  aduanalesDeCe: boolean;
   tasaIvaDefault?: number | null;
   desdePedido: boolean;
   puedeCorregirArticulo: boolean;
@@ -144,6 +149,7 @@ function ConceptoInline({
   onRemove,
   puedeQuitar,
   esCce,
+  aduanalesDeCe,
   tasaIvaDefault,
   desdePedido,
   puedeCorregirArticulo,
@@ -257,7 +263,7 @@ function ConceptoInline({
                 // la unidad aduanera del artículo. Siguen editables (fallback al
                 // picker de #689 si el artículo no las tiene). Cantidad/valores
                 // aduaneros se derivan aparte (Fase 1c).
-                if (esCce) {
+                if (esCce && !aduanalesDeCe) {
                   const aduanaOpts = { shouldDirty: true, shouldValidate: true } as const;
                   form.setValue(
                     `lineas.${index}.fraccionArancelaria` as const,
@@ -468,40 +474,51 @@ function ConceptoInline({
         <div className="grid grid-cols-1 gap-2 border-t border-brand/20 pt-2 sm:grid-cols-12">
           <div className="sm:col-span-12 text-[11px] font-medium text-ink-muted">
             Datos de aduana (CCE)
+            {aduanalesDeCe && <span className="ml-1 font-normal">· Viene de Comercio Exterior</span>}
           </div>
           <div className="sm:col-span-3">
             <Label className="text-xs">Fracción arancelaria</Label>
-            <ClaveSatSelector
-              catalogo="fraccion-arancelaria"
-              value={linea.fraccionArancelaria}
-              initialLabel={linea.fraccionArancelaria}
-              placeholder="Buscar fracción…"
-              onChange={(item) =>
-                form.setValue(
-                  `lineas.${index}.fraccionArancelaria` as const,
-                  item?.codigo ?? null,
-                  { shouldDirty: true, shouldValidate: true },
-                )
-              }
-            />
+            {aduanalesDeCe ? (
+              <p className="h-ctl-xl py-2 font-mono text-sm" data-testid={`fraccion-ce-${index}`}>
+                {linea.fraccionArancelaria ?? '—'}
+              </p>
+            ) : (
+              <ClaveSatSelector
+                catalogo="fraccion-arancelaria"
+                value={linea.fraccionArancelaria}
+                initialLabel={linea.fraccionArancelaria}
+                placeholder="Buscar fracción…"
+                onChange={(item) =>
+                  form.setValue(
+                    `lineas.${index}.fraccionArancelaria` as const,
+                    item?.codigo ?? null,
+                    { shouldDirty: true, shouldValidate: true },
+                  )
+                }
+              />
+            )}
             {errs?.fraccionArancelaria && (
               <p className="text-xs text-danger-fg">{errs.fraccionArancelaria.message}</p>
             )}
           </div>
           <div className="sm:col-span-2">
             <Label className="text-xs">Unidad aduana</Label>
-            <ClaveSatSelector
-              catalogo="unidad-aduana"
-              value={linea.unidadAduana}
-              initialLabel={linea.unidadAduana}
-              placeholder="Buscar unidad…"
-              onChange={(item) =>
-                form.setValue(`lineas.${index}.unidadAduana` as const, item?.codigo ?? null, {
-                  shouldDirty: true,
-                  shouldValidate: true,
-                })
-              }
-            />
+            {aduanalesDeCe ? (
+              <p className="h-ctl-xl py-2 font-mono text-sm">{linea.unidadAduana ?? '—'}</p>
+            ) : (
+              <ClaveSatSelector
+                catalogo="unidad-aduana"
+                value={linea.unidadAduana}
+                initialLabel={linea.unidadAduana}
+                placeholder="Buscar unidad…"
+                onChange={(item) =>
+                  form.setValue(`lineas.${index}.unidadAduana` as const, item?.codigo ?? null, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  })
+                }
+              />
+            )}
             {errs?.unidadAduana && (
               <p className="text-xs text-danger-fg">{errs.unidadAduana.message}</p>
             )}

@@ -163,6 +163,8 @@ public sealed class KardexHandler(AlmacenDbContext db, IArticuloReadPort articul
         TipoMovimiento.SalidaPorLiberacionRevision => "Salida por liberación de revisión",
         TipoMovimiento.CancelacionEntradaCompra => "Cancelación de entrada",
         TipoMovimiento.SalidaNoPlanificada => "Salida no planificada",
+        TipoMovimiento.TrasladoInterno => "Traslado interno (salida)",
+        TipoMovimiento.EntradaTrasladoInterno => "Traslado interno (entrada)",
         _ => tipo.ToString(),
     };
 

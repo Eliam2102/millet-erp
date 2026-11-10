@@ -275,7 +275,8 @@ public static class CatalogosEndpoints
                 a.Id, a.Clave, a.ClaveLegacy, a.Nombre, a.DescripcionLarga,
                 a.UnidadMedidaDefault, a.UnidadMedidaId, a.Naturaleza, a.Categoria,
                 a.CategoriaId,
-                a.PrecioReferenciaMonto, a.PrecioReferenciaMoneda, a.Estatus, a.ProductoAwId));
+                a.PrecioReferenciaMonto, a.PrecioReferenciaMoneda, a.Estatus, a.ProductoAwId,
+                a.ConsumoPorTamborALinea, a.KgPorPresentacion));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CompartidoCatalogosLeer)
         .WithName("ObtenerArticuloPorId")
@@ -502,7 +503,9 @@ public static class CatalogosEndpoints
                     CategoriaId: request.CategoriaId,
                     PrecioReferenciaMonto: request.PrecioReferenciaMonto,
                     PrecioReferenciaMoneda: request.PrecioReferenciaMoneda,
-                    ProductoAwId: request.ProductoAwId),
+                    ProductoAwId: request.ProductoAwId,
+                    ConsumoPorTamborALinea: request.ConsumoPorTamborALinea ?? false,
+                    KgPorPresentacion: request.KgPorPresentacion),
                 cancellationToken);
             return Results.Created($"/api/v1/catalogos/articulos/{response.Id}", response);
         })
@@ -543,7 +546,10 @@ public static class CatalogosEndpoints
                     LimpiarCategoria: body.LimpiarCategoria ?? false,
                     LimpiarPrecioReferencia: body.LimpiarPrecioReferencia ?? false,
                     ProductoAwId: body.ProductoAwId,
-                    LimpiarProductoAw: body.LimpiarProductoAw ?? false),
+                    LimpiarProductoAw: body.LimpiarProductoAw ?? false,
+                    ConsumoPorTamborALinea: body.ConsumoPorTamborALinea,
+                    KgPorPresentacion: body.KgPorPresentacion,
+                    LimpiarKgPorPresentacion: body.LimpiarKgPorPresentacion ?? false),
                 cancellationToken);
             return Results.NoContent();
         })
@@ -682,7 +688,9 @@ public static class CatalogosEndpoints
         Guid? CategoriaId,
         decimal? PrecioReferenciaMonto,
         string? PrecioReferenciaMoneda,
-        Guid? ProductoAwId = null);
+        Guid? ProductoAwId = null,
+        bool? ConsumoPorTamborALinea = null,
+        decimal? KgPorPresentacion = null);
 
     /// <summary>Body del PATCH /articulos/{id} (B.5). Todos opcionales.</summary>
     public sealed record ActualizarArticuloRequest(
@@ -697,7 +705,10 @@ public static class CatalogosEndpoints
         bool? LimpiarCategoria,
         bool? LimpiarPrecioReferencia,
         Guid? ProductoAwId = null,
-        bool? LimpiarProductoAw = null);
+        bool? LimpiarProductoAw = null,
+        bool? ConsumoPorTamborALinea = null,
+        decimal? KgPorPresentacion = null,
+        bool? LimpiarKgPorPresentacion = null);
 }
 
 /// <summary>Wrapper de paginación offset-based para listados de catálogos.</summary>

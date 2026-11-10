@@ -13,6 +13,23 @@ public class AdjuntosPoliticaOptionsTests
     private static readonly byte[] CabeceraJpgValida = [0xFF, 0xD8, 0xFF, 0xE0];
     private static readonly byte[] CabeceraExeMz = [0x4D, 0x5A, 0x90, 0x00]; // MZ header
 
+    [Theory]
+    [InlineData("vale.pdf", "application/pdf", "ADJUNTO_PDF_INVALIDO")]
+    [InlineData("vale.txt", "application/pdf", "ADJUNTO_FORMATO_NO_PERMITIDO")]
+    [InlineData("vale.eml", "message/rfc822", null)]
+    public async Task Carga_con_politica_propia_valida_pdf_sin_cambiar_otros_formatos(
+        string nombre, string mime, string? codigo)
+    {
+        using var stream = new MemoryStream(CabeceraPdfValida);
+        var intento = () => AdjuntosPoliticaOptions.ValidarSiEsPdfAsync(nombre, mime, stream, default);
+
+        if (codigo is null)
+            await intento.Should().NotThrowAsync();
+        else
+            (await intento.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be(codigo);
+        stream.Position.Should().Be(0);
+    }
+
     [Fact]
     public void ArchivoPermitido_PdfConFirmaValida_NoLanza()
     {
@@ -213,6 +230,29 @@ public class AdjuntosPoliticaOptionsTests
             longitud: 5000,
             cabecera: [0x50, 0x4B, 0x03, 0x04]); // PK zip header
         actXlsx.Should().NotThrow();
+    }
+
+    [Theory]
+    [InlineData("text/csv")]
+    [InlineData("application/csv")]
+    [InlineData("application/vnd.ms-excel")] // así lo manda el navegador en Windows con Excel instalado
+    public void Csv_SePermite_SinFirmaExigida(string contentType)
+    {
+        // K10.11 (QA H1): el CSV de la nómina externa se adjunta a la póliza.
+        var act = () => new AdjuntosPoliticaOptions().ValidarInstancia(
+            nombreArchivo: "nomina-octubre.csv",
+            contentType: contentType,
+            longitud: 2048,
+            cabecera: "cuenta;cargo;abono"u8);
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void Csv_NoSePermite_EnLaPoliticaDeProveedor()
+    {
+        var act = () => PoliticaProveedor().ValidarInstancia("lista.csv", "text/csv", 100, "a,b"u8);
+        act.Should().Throw<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>()
+            .Where(e => e.Code == "ADJUNTO_FORMATO_NO_PERMITIDO");
     }
 
     private static AdjuntosPoliticaOptions PoliticaProveedor() => new AdjuntosPoliticaOptions

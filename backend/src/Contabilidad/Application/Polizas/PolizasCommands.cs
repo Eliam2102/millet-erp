@@ -173,46 +173,7 @@ public sealed class AutorizarPolizaHandler(
     }
 }
 
-/// <summary>
-/// Anula una póliza autorizada (K10.3): nace otra del mismo tipo con las mismas partidas en negativo, concepto «Anulación de
-/// TT-000123», ligada a la original, que queda anulada. Motivo obligatorio. Si el periodo de la original ya no admite pólizas, la
-/// anulación va al periodo abierto indicado (<c>PeriodoAnio</c>/<c>PeriodoNumero</c>). Devuelve la póliza de anulación.
-/// </summary>
-public sealed record AnularPolizaCommand(Guid Id, int VersionEsperada, string Motivo, int? PeriodoAnio = null, int? PeriodoNumero = null)
-    : IRequest<PolizaResponse>;
-
-public sealed class AnularPolizaValidator : AbstractValidator<AnularPolizaCommand>
-{
-    public AnularPolizaValidator()
-    {
-        RuleFor(c => c.Motivo).Must(m => m is not null && m.Trim().Length is >= Poliza.MotivoMinimo and <= Poliza.MotivoMaximo)
-            .WithMessage($"Indique el motivo (entre {Poliza.MotivoMinimo} y {Poliza.MotivoMaximo} caracteres).");
-        RuleFor(c => c).Must(c => (c.PeriodoAnio is null) == (c.PeriodoNumero is null)).WithName("periodoNumero")
-            .WithMessage("Indique el año y el número del periodo destino, o ninguno.");
-        RuleFor(c => c.PeriodoNumero).InclusiveBetween(1, PeriodoContable.NumeroAjuste).When(c => c.PeriodoNumero is not null);
-    }
-}
-
-public sealed class AnularPolizaHandler(
-    ContabilidadDbContext db, RegistroPolizas registro, AlcanceSucursalContable alcance, ICurrentUserContext usuario, IClock clock,
-    LecturaPolizas lectura)
-    : IRequestHandler<AnularPolizaCommand, PolizaResponse>
-{
-    public async Task<PolizaResponse> Handle(AnularPolizaCommand request, CancellationToken cancellationToken)
-    {
-        Poliza? anulacion = null;
-        await registro.EnTransaccionAsync(async ct =>
-        {
-            var original = await PoliticaPolizas.CargarAsync(db, request.Id, request.VersionEsperada, ct);
-            foreach (var s in original.Partidas.Select(p => p.SucursalId).Distinct()) await alcance.VerificarAsync(s, ct);
-            var destino = request.PeriodoAnio is { } a && request.PeriodoNumero is { } n ? (a, n) : ((int, int)?)null;
-            anulacion = await registro.AnularAsync(original, request.Motivo, destino, FechaContable.HoyLocal(clock.UtcNow),
-                usuario.UserId, PoliticaPolizas.Usuario(usuario), clock.UtcNow, ct);
-            await PoliticaPolizas.GuardarAnulacionAsync(db, ct);
-        }, cancellationToken);
-        return await lectura.ObtenerAsync(anulacion!.Id, cancellationToken);
-    }
-}
+// K10.3 · M-212 (86e3zr7pq): la anulación ya no es directa; se solicita y la aprueba otra persona (AnulacionSolicitudesCommands).
 
 internal static class PoliticaPolizas
 {

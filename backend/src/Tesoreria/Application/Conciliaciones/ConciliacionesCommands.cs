@@ -85,7 +85,7 @@ public sealed class CrearConciliacionHandler(
 public sealed record CargarExtractoCommand(
     Guid ConciliacionId,
     string ContenidoArchivo,
-    string Formato = "BBVA",
+    string? Formato = null,
     decimal? SaldoExtracto = null,
     bool AutoEmparejar = true) : IRequest<ConciliacionResumenResponse>;
 
@@ -120,7 +120,8 @@ public sealed class CargarExtractoHandler(
         var cuenta = await db.CuentasBancarias.FirstOrDefaultAsync(c => c.Id == conciliacion.CuentaBancariaId, cancellationToken)
             ?? throw new EntityNotFoundException("CUENTA_NO_ENCONTRADA", "No se encontró la cuenta bancaria.");
 
-        var parser = parserFactory.ObtenerParser(command.Formato, command.ContenidoArchivo);
+        // Sin formato explícito manda el perfil de extracto de la cuenta (BBVA, SANTANDER, MIFEL).
+        var parser = parserFactory.ObtenerParser(command.Formato ?? cuenta.PerfilExtracto ?? "BBVA", command.ContenidoArchivo);
         var parseResult = parser.Parse(command.ContenidoArchivo);
 
         int numLineaActual = conciliacion.Lineas.Count > 0 ? conciliacion.Lineas.Max(l => l.NumeroLinea) + 1 : 1;
@@ -623,17 +624,25 @@ public sealed class AltaAsistidaDesdeExtractoHandler(
             .Select(m => m.SucursalId)
             .FirstOrDefaultAsync(ct);
 
-    /// <summary>H1 paso 3: centro que viaja en el evento (equipo si se eligió; si no, el área). Un dato inválido rechaza la alta.</summary>
+    /// <summary>
+    /// H1 paso 3: centro que viaja en el evento (equipo si se eligió; si no, el área). Un dato inválido rechaza la alta.
+    /// M-450 (86e3zr7ft): si la cuenta del concepto exige área o equipo (regla C-03) y no se capturaron, la alta tampoco procede: el
+    /// usuario los captura (sin sucursal conocida no hay exigencia que revisar y la póliza resuelve en Rechazos).
+    /// </summary>
     private async Task<Guid?> CentroCostoAsync(AltaAsistidaDesdeExtractoCommand command, Guid empresaId, Guid? sucursalId, string concepto,
         DateOnly fecha, CancellationToken ct)
     {
-        if (command.AreaId is null && command.EquipoId is null) return null;
+        var capturado = command.AreaId is not null || command.EquipoId is not null;
         if (sucursalId is not { } sucursal)
+        {
+            if (!capturado) return null;
             throw new BusinessRuleException("TES_DIMENSION_SIN_SUCURSAL",
                 "La cuenta bancaria aún no tiene sucursal (ningún movimiento la trae): no se puede validar el área ni el equipo.");
+        }
         if (dimensiones is null) return command.EquipoId ?? command.AreaId;
         var r = await dimensiones.ValidarAsync(MovimientoCapturaBancos(empresaId, sucursal, concepto, fecha), command.AreaId, command.EquipoId, ct);
         if (r.Error is not null) throw new BusinessRuleException("TES_DIMENSION_INVALIDA", r.Error);
+        if (r.Faltante is not null) throw new BusinessRuleException("TES_DIMENSION_FALTANTE", r.Faltante);
         return r.CentroCostoId;
     }
 

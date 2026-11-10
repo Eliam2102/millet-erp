@@ -173,6 +173,8 @@ export const almacenKeys = {
 
   // Normas de consumo de componentes y su bandeja de revisión (A4.8)
   normasConsumo: () => [...almacenKeys.all, 'normas-consumo'] as const,
+  // Tambores por línea de producción (M-172)
+  tamboresLinea: () => [...almacenKeys.all, 'tambores-linea'] as const,
   consumosRevision: () => [...almacenKeys.all, 'consumos-revision'] as const,
   mensajesAppMarcados: () => [...almacenKeys.all, 'mensajes-app-marcados'] as const,
 
@@ -181,6 +183,8 @@ export const almacenKeys = {
   motivosRotura: () => [...almacenKeys.all, 'salidas-rotura', 'motivos'] as const,
   dimensionesRotura: (ubicacionId: string, fecha: string) =>
     [...almacenKeys.all, 'salidas-rotura', 'dimensiones', ubicacionId, fecha] as const,
+  // M-450: si la cuenta del ajuste por conteo exige área o equipo (regla C-03).
+  dimensionesConteo: (conteoId: string) => [...almacenKeys.all, 'conteos', conteoId, 'dimensiones'] as const,
 
   // Conciliación diaria contra A+W (A4.6)
   conciliacion: {

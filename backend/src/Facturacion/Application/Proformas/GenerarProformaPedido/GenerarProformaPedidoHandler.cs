@@ -30,6 +30,7 @@ public sealed class GenerarProformaPedidoHandler
     private readonly ICurrentEmpresaContext _empresa;
     private readonly ICurrentUserContext _user;
     private readonly IClock _clock;
+    private readonly ProformaOpciones _opciones;
 
     public GenerarProformaPedidoHandler(
         FacturacionDbContext db,
@@ -37,8 +38,10 @@ public sealed class GenerarProformaPedidoHandler
         IEmpresaFiscalReadPort empresasFiscal,
         ICurrentEmpresaContext empresa,
         ICurrentUserContext user,
-        IClock clock)
+        IClock clock,
+        Microsoft.Extensions.Options.IOptions<ProformaOpciones>? opciones = null)
     {
+        _opciones = opciones?.Value ?? new ProformaOpciones();
         _db = db;
         _sender = sender;
         _empresasFiscal = empresasFiscal;
@@ -83,13 +86,15 @@ public sealed class GenerarProformaPedidoHandler
         var proforma = ProformaPedido.Generar(
             empresaId, pedido.SucursalId, pedido.Id, ultimaVersion + 1, pedido.NumeroPedido,
             ProformaJson.Escribir(contenido), ProformaJson.Escribir(armada.Avisos),
-            contenido.Totales.Total, contenido.Moneda, _user.UserId, _user.UserName, ahora);
+            contenido.Totales.Total, contenido.Moneda, _user.UserId, _user.UserName, ahora,
+            _opciones.VigenteHasta(ahora));
 
         _db.ProformasPedido.Add(proforma);
         await _db.SaveChangesAsync(cancellationToken);
 
         return new ProformaPedidoResponse(
             proforma.Id, proforma.PedidoFacturableId, proforma.Folio, proforma.NumeroVersion, proforma.GeneradaEn,
-            proforma.GeneradaPorNombre, proforma.NumeroPedido, contenido, armada.Avisos);
+            proforma.GeneradaPorNombre, proforma.NumeroPedido, contenido, armada.Avisos,
+            proforma.VigenteHasta, Vencida: false);
     }
 }

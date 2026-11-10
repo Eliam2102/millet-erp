@@ -89,7 +89,12 @@ public sealed class ControlIvaDocumentos(ContabilidadDbContext db, IClock clock)
         var retenido = (d.Retenciones ?? []).Where(EsIva).Sum(r => r.Importe);
         var retenciones = e.Lineas.Where(l => l.Grupo == LineaEventoContable.GrupoRetencion && l.Importe > 0m)
             .Select(l => (l.Clasificador ?? string.Empty, l.Importe)).ToList();
-        if (iva <= 0m && retenido <= 0m && retenciones.Count == 0) return;
+        // M-209: base e IVA por tratamiento. Con detalle, también un documento solo exento, al 0 % o no objeto crea su saldo (la DIOT
+        // necesita esas bases); sin detalle, como hoy (todo al 16 %, y sin IVA no hay saldo).
+        var detalle = ImpuestosTrasladados.Agrupar(d.Impuestos);
+        var tratamientos = ImpuestosTrasladados.ParaSaldo(detalle, e.Importes.GetValueOrDefault("Subtotal"), iva);
+        var soloBases = detalle.Count > 0 && detalle.Any(t => t.Base > 0m);
+        if (iva <= 0m && retenido <= 0m && retenciones.Count == 0 && !soloBases) return;
         var origen = (e.Documento.Modulo, e.Documento.Tipo);
         if (await db.SaldosIvaDocumento.IgnoreQueryFilters().AnyAsync(s => s.EmpresaId == e.EmpresaId && s.OrigenModulo == origen.Modulo
                 && s.OrigenTipo == origen.Tipo && s.DocumentoId == e.Documento.Id, ct))
@@ -100,7 +105,7 @@ public sealed class ControlIvaDocumentos(ContabilidadDbContext db, IClock clock)
         var alPago = lado == LadoIva.Acreditable && retenciones.Count > 0 && !await PlantillaRegistraRetencionAsync(e, ct);
         db.SaldosIvaDocumento.Add(SaldoIvaDocumento.Crear(e.EmpresaId, lado, origen, e.Documento.Id, e.Documento.Folio, e.Documento.Uuid,
             d.MetodoPago, e.SucursalId, lado == LadoIva.Acreditable ? e.ProveedorId : e.ClienteId, e.FechaContable, e.Moneda, e.TipoCambio,
-            @base, iva, retenido, poliza.Id, retenciones, alPago));
+            @base, iva, retenido, poliza.Id, retenciones, alPago, tratamientos));
         // El mismo evento en paralelo: si la otra petición ya guardó el saldo, no hay nada más que hacer.
         await GuardarUnaVezAsync(ct);
     }
@@ -126,6 +131,7 @@ public sealed class ControlIvaDocumentos(ContabilidadDbContext db, IClock clock)
     {
         var total = 0m;
         var alPago = new List<RetencionAplicadaIva>();
+        var porTratamiento = new List<(string Tratamiento, decimal Iva)>();
         var saldos = new Dictionary<Guid, SaldoIvaDocumento>();
         foreach (var a in aplicaciones)
         {
@@ -140,16 +146,37 @@ public sealed class ControlIvaDocumentos(ContabilidadDbContext db, IClock clock)
             {
                 total += previa.AnuladaEn is null ? previa.Iva : 0m;
                 if (previa.AnuladaEn is null && saldo.RetencionAlPago) alPago.AddRange(previa.Retenciones);
+                if (previa.AnuladaEn is null) porTratamiento.AddRange(PorTratamiento(previa.Tratamientos, previa.Iva));
                 continue;
             }
             var (iva, retenido) = saldo.Calcular(a.Importe);
             var retenciones = saldo.CalcularRetenciones(a.Importe);
-            saldo.Aplicar(PagoDe(e, a), PagoIdDe(e, a), e.FechaContable, a.Importe, iva, retenido, Guid.Empty, retenciones: retenciones);
+            var tratamientos = saldo.CalcularTratamientos(a.Importe, iva);
+            saldo.Aplicar(PagoDe(e, a), PagoIdDe(e, a), e.FechaContable, a.Importe, iva, retenido, Guid.Empty, retenciones: retenciones,
+                tratamientos: tratamientos);
+            porTratamiento.AddRange(PorTratamiento(tratamientos, iva));
             total += iva;
             if (saldo.RetencionAlPago) alPago.AddRange(retenciones);
         }
         var importes = new Dictionary<string, decimal?>(e.Importes) { [CampoIva] = (e.Importes.GetValueOrDefault(CampoIva) ?? 0m) + total };
-        return new(ConRetencionAplicada(e with { Importes = importes }, alPago), null);
+        // M-209: el IVA que pasa a pagado o cobrado sale del pendiente de cada tratamiento (líneas del grupo IVA, rol por clasificador);
+        // suman exacto lo de CampoIva. Sin IVA que reclasificar (o un pago sin documentos), sin líneas: la plantilla usa CampoIva.
+        var lineasIva = e.Importes.ContainsKey(CampoIva) && (e.Importes[CampoIva] ?? 0m) != 0m
+            ? new List<LineaEventoContable>() : ImpuestosTrasladados.Lineas(porTratamiento);
+        var conIva = e with { Importes = importes, Lineas = [.. e.Lineas.Where(l => l.Grupo != LineaEventoContable.GrupoIva), .. lineasIva] };
+        return new(ConRetencionAplicada(conIva, alPago), null);
+    }
+
+    /// <summary>
+    /// M-209: IVA de una aplicación por tratamiento. Si el detalle no suma el IVA reclasificado (saldo anterior sin tratamientos), la
+    /// diferencia va como TASA16, para que las líneas sumen exacto lo de la póliza.
+    /// </summary>
+    internal static IEnumerable<(string Tratamiento, decimal Iva)> PorTratamiento(IEnumerable<TratamientoAplicadoIva> tratamientos, decimal iva)
+    {
+        var lista = tratamientos.Where(t => t.Iva != 0m).Select(t => (t.Tratamiento, t.Iva)).ToList();
+        var diferencia = iva - lista.Sum(t => t.Iva);
+        if (diferencia != 0m) lista.Add((ImpuestosTrasladados.Tasa16, diferencia));
+        return lista;
     }
 
     /// <summary>Con la póliza del pago o cobro, aplica el importe y el IVA a cada documento (una vez por pago y documento).</summary>
@@ -320,7 +347,8 @@ public sealed class ControlIvaDocumentos(ContabilidadDbContext db, IClock clock)
 
     // ---- Espejos de contrato (solo lo que usa el control de IVA) ----
 
-    private sealed record DocumentoIvaContrato(string? MetodoPago, IReadOnlyList<RetencionIvaContrato>? Retenciones);
+    private sealed record DocumentoIvaContrato(string? MetodoPago, IReadOnlyList<RetencionIvaContrato>? Retenciones,
+        IReadOnlyList<ImpuestosTrasladados.ImpuestoTrasladoContrato>? Impuestos = null);
 
     private sealed record RetencionIvaContrato(string? Impuesto, decimal Importe);
 

@@ -287,9 +287,9 @@ public class DimensionesTests
     }
 
     [Fact]
-    public void Documentos_automaticos_a_cuentas_600_se_exentan_de_dim3_cuando_no_hay_equipo_fisico()
+    public void M453_documentos_automaticos_a_cuentas_600_sin_equipo_dan_dato_faltante()
     {
-        // 86e3z5w25: exención de Dim3 en cuentas 600 para pólizas automáticas sin máquina física
+        // M-453: sin exención de equipo; la póliza automática a 600 sin equipo va a Rechazos como cualquier otra.
         var rubroGastos = Guid.NewGuid();
         var cadena = Cadena.Append((rubroGastos, "600.00.00.00")).ToArray();
         var reglas = new[]
@@ -303,7 +303,25 @@ public class DimensionesTests
 
         var rs = ValidadorDimensiones.Resolver(cadena, reglas, TipoFactura, Dia, Opc());
         ValidadorDimensiones.EvaluarRequerimientos(rs, automaticaConArea, new(d1, d2, null), "la cuenta 601.75 en «Factura»")
-            .Should().BeEmpty("en pólizas automáticas a cuentas 600 la Dim3 está exenta si no hay máquina física");
+            .Should().ContainSingle(e => e.Codigo == "CONTAB_DIM_OBLIGATORIA_FALTANTE" && e.Campo == "dim3Id" && e.Mensaje.Contains("Equipo"));
+    }
+
+    [Fact]
+    public void M453_cuenta_500_en_un_documento_de_gasto_sin_area_da_dato_faltante()
+    {
+        // M-453: la exención del #507 también se activaba con el texto «gasto»; una cuenta 500 sin área ya no se salta.
+        var rubroCostos = Guid.NewGuid();
+        var cadena = Cadena.Append((rubroCostos, "500.00.00.00")).ToArray();
+        var reglas = new[]
+        {
+            R(rubroCostos, DimensionContable.Dim2, RequerimientoDimension.Obligatorio),
+            R(rubroCostos, DimensionContable.Dim3, RequerimientoDimension.Obligatorio),
+        };
+        var automatica = Mov() with { Origen = OrigenMovimiento.Automatica };
+
+        var rs = ValidadorDimensiones.Resolver(cadena, reglas, TipoFactura, Dia, Opc());
+        ValidadorDimensiones.EvaluarRequerimientos(rs, automatica, new(null, null, null), "la cuenta 501.01 en «Gasto comprobado»")
+            .Select(e => e.Campo).Should().BeEquivalentTo("dim2Id", "dim3Id");
     }
 
     // ── Opciones ─────────────────────────────────────────────────────────────

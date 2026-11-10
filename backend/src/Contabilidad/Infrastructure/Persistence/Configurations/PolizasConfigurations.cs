@@ -154,3 +154,29 @@ public sealed class AperturaContableConfiguration : IEntityTypeConfiguration<Ape
         builder.HasIndex(x => x.LoteId);
     }
 }
+
+/// <summary>
+/// <c>contabilidad.solicitudes_anulacion_poliza</c> (M-212): solicitud de anulación con segunda firma. Una sola pendiente por póliza
+/// (índice único parcial), también ante dos solicitudes simultáneas.
+/// </summary>
+public sealed class SolicitudAnulacionPolizaConfiguration : IEntityTypeConfiguration<SolicitudAnulacionPoliza>
+{
+    public void Configure(EntityTypeBuilder<SolicitudAnulacionPoliza> builder)
+    {
+        builder.ToTable("solicitudes_anulacion_poliza", t => t.HasCheckConstraint("ck_solicitudes_anulacion_poliza_estado", "estado BETWEEN 0 AND 2"));
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Id).ValueGeneratedNever();
+        builder.Property(x => x.Motivo).HasMaxLength(Poliza.MotivoMaximo).IsRequired();
+        builder.Property(x => x.MotivoRechazo).HasMaxLength(Poliza.MotivoMaximo);
+        builder.Property(x => x.Estado).HasConversion<short>();
+        builder.Property(x => x.SolicitadaPor).HasMaxLength(256).IsRequired();
+        builder.Property(x => x.DecididaPor).HasMaxLength(256);
+        builder.Ignore(x => x.Pendiente);
+        builder.HasIndex(x => new { x.EmpresaId, x.PolizaId }).IsUnique()
+            .HasFilter("estado = 0").HasDatabaseName(UxPendiente);
+        builder.HasIndex(x => new { x.EmpresaId, x.Estado, x.SolicitadaEn });
+        builder.HasOne<Poliza>().WithMany().HasForeignKey(x => x.PolizaId).OnDelete(DeleteBehavior.Restrict);
+    }
+
+    public const string UxPendiente = "ux_solicitudes_anulacion_poliza_pendiente";
+}

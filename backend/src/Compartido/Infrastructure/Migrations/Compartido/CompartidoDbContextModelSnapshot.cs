@@ -819,6 +819,20 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         },
                         new
                         {
+                            Id = new Guid("00000006-0001-0000-0000-00000000000d"),
+                            Clave = "contabilidad.tipo-cambio.tolerancia-pct",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 9, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Diferencia máxima (%) entre el tipo de cambio de un CFDI en moneda extranjera y el del catálogo para su fecha. Fuera de ella, la póliza va a Rechazos para autorizar un valor. 0 apaga la comparación.",
+                            Modulo = "contabilidad",
+                            Tipo = (short)1,
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 11, 9, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Valor = "1.00",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000006-0001-0000-0000-00000000000a"),
                             Clave = "system.dias-festivos",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
@@ -4018,6 +4032,10 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("character varying(20)")
                         .HasColumnName("clave_legacy");
 
+                    b.Property<bool>("ConsumoPorTamborALinea")
+                        .HasColumnType("boolean")
+                        .HasColumnName("consumo_por_tambor_a_linea");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -4037,6 +4055,11 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                     b.Property<short>("Estatus")
                         .HasColumnType("smallint")
                         .HasColumnName("estatus");
+
+                    b.Property<decimal?>("KgPorPresentacion")
+                        .HasPrecision(10, 3)
+                        .HasColumnType("numeric(10,3)")
+                        .HasColumnName("kg_por_presentacion");
 
                     b.Property<short>("Naturaleza")
                         .HasColumnType("smallint")

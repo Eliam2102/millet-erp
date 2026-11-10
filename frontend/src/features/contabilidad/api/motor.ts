@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
 import { polizaKeys } from './polizas';
 import type {
+  AccionTipoCambio,
   CambiarCuentaRolRequest,
   CambioCuentaRol,
   CrearRolRequest,
@@ -91,6 +92,30 @@ export function useReprocesarRechazo() {
       void qc.invalidateQueries({ queryKey: motorKeys.rechazosTodos });
       void qc.invalidateQueries({ queryKey: polizaKeys.all });
     },
+  });
+}
+
+/** M-207: captura el TC sustituto (o aceptar el del documento); queda «Por autorizar». */
+export function useCapturarTipoCambioRechazo() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (a: { id: string; accion: AccionTipoCambio; valor: number | null; motivo: string; idempotencyKey: string }) =>
+      (await apiRequest<RechazoContable>(`${BASE}/rechazos/${a.id}/tipo-cambio`, {
+        method: 'POST', body: { accion: a.accion, valor: a.valor, motivo: a.motivo }, idempotencyKey: a.idempotencyKey,
+      })).data,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: motorKeys.rechazosTodos }),
+  });
+}
+
+/** M-207: otra persona autoriza el TC capturado y el evento se reprocesa con él. */
+export function useAutorizarTipoCambioRechazo() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (a: { id: string; idempotencyKey: string }) =>
+      (await apiRequest<ResultadoReproceso>(`${BASE}/rechazos/${a.id}/tipo-cambio/autorizar`, {
+        method: 'POST', idempotencyKey: a.idempotencyKey,
+      })).data,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: motorKeys.rechazosTodos }),
   });
 }
 
