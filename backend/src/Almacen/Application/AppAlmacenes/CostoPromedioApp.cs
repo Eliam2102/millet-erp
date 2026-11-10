@@ -10,9 +10,13 @@ public sealed record SaldoCostoApp(
     Guid SucursalId, string? TipoAlmacen, string? Linea, Guid ArticuloId, Guid? VarianteId,
     decimal Cantidad, decimal CostoMxn, DateTimeOffset Fecha);
 
-/// <summary>Costo promedio vigente del ERP en una llave de la app: m² con medida, por cantidad sin medida; MXN.</summary>
+/// <summary>
+/// Costo promedio vigente del ERP en una llave de la app: m² con medida, por cantidad sin medida; MXN. <see cref="Existencia"/>
+/// sirve para ponderar si el publicador junta varias llaves (p. ej. dos variantes del ERP con la misma medida A+W).
+/// </summary>
 public sealed record CostoPromedioApp(
-    Guid SucursalId, string TipoAlmacen, string Linea, Guid ArticuloId, Guid? VarianteId, decimal CostoMxn, DateTimeOffset Fecha);
+    Guid SucursalId, string TipoAlmacen, string Linea, Guid ArticuloId, Guid? VarianteId, decimal CostoMxn, DateTimeOffset Fecha,
+    decimal Existencia = 0m);
 
 /// <summary>
 /// Costo promedio del ERP por llave de la app de Almacenes (contrato v9, M-447): sucursal + tipo + línea (M-446) + artículo + medida.
@@ -44,9 +48,9 @@ public static class CostoPromedioAppLector
             .GroupBy(s => (s.SucursalId, Tipo: s.TipoAlmacen ?? "", Linea: s.Linea ?? "", s.ArticuloId, s.VarianteId))
             .Select(g =>
             {
-                var (_, promedio) = CostoMedio.Vigente(g.Select(s => (s.Cantidad, s.CostoMxn, s.Fecha)).ToList());
+                var (existencia, promedio) = CostoMedio.Vigente(g.Select(s => (s.Cantidad, s.CostoMxn, s.Fecha)).ToList());
                 return new CostoPromedioApp(g.Key.SucursalId, g.Key.Tipo, g.Key.Linea, g.Key.ArticuloId, g.Key.VarianteId,
-                    promedio!.Value, g.Max(s => s.Fecha));
+                    promedio!.Value, g.Max(s => s.Fecha), existencia);
             })
             .ToList();
 }

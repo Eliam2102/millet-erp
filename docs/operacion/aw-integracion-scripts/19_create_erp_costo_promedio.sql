@@ -3,6 +3,8 @@
    (contrato v9, M-447 / 86e3zr7au).
    Ejecutar en: AlmacenRQ_MP_ENSAYO primero (pruebas); AlmacenRQ_MP al arranque.
    Idempotente: se puede correr dos veces. PROPUESTA: no se ejecuta sin visto bueno de TI.
+   Vista vía stub (CREATE mínimo si no existe) + ALTER, como el script 03: NO usar CREATE OR ALTER,
+   el servidor es SQL Server 2016 RTM sin SP1 (13.0.1601.5) y CREATE OR ALTER requiere SP1.
 
    Propósito:
    La app de Almacenes valúa ENTRADA_MANUAL y SALIDA_MANUAL con el costo promedio del ERP.
@@ -17,6 +19,8 @@
      * linea vacía ('') en herraje.
      * almacen_tipo y linea vacíos en sucursales sin lista de almacenes: costo de la sucursal.
      * ancho_mm y alto_mm NULL en material sin medida.
+     * Medida sin orientación: ancho_mm es el lado menor y alto_mm el mayor (2600×1800 y
+       1800×2600 son la misma llave: ancho_mm = 1800, alto_mm = 2600).
    - Inmutable: el ERP solo inserta. Un cambio de promedio es una fila nueva con version + 1.
    - Con existencia en cero el ERP no publica nada: la última fila sigue vigente.
    - Sin fila: el ERP nunca tuvo ese artículo en ese almacén.
@@ -79,7 +83,11 @@ END
 GO
 
 /* Vista que lee la app: la última versión de cada llave. */
-CREATE OR ALTER VIEW dbo.vw_erp_costo_promedio_vigente
+IF OBJECT_ID('dbo.vw_erp_costo_promedio_vigente', 'V') IS NULL
+    EXEC (N'CREATE VIEW dbo.vw_erp_costo_promedio_vigente AS SELECT 1 AS stub');
+GO
+
+ALTER VIEW dbo.vw_erp_costo_promedio_vigente
 AS
 SELECT articulo_aw, sucursal, almacen_tipo, linea, ancho_mm, alto_mm,
        costo_m2, costo_pieza, moneda, vigente_desde, [version]
@@ -113,8 +121,9 @@ GO
      FROM dbo.vw_erp_costo_promedio_vigente
     WHERE articulo_aw = @articuloAw AND sucursal = @sucursal
       AND almacen_tipo = @tipo AND linea = @linea          -- '' en herraje
-      AND ((ancho_mm = @ancho AND alto_mm = @alto) OR (ancho_mm = @alto AND alto_mm = @ancho)
-           OR (ancho_mm IS NULL AND @ancho IS NULL));
+      AND ((ancho_mm IS NULL AND @ancho IS NULL)                     -- sin medida
+           OR (ancho_mm = CASE WHEN @ancho <= @alto THEN @ancho ELSE @alto END   -- lado menor
+               AND alto_mm = CASE WHEN @ancho <= @alto THEN @alto ELSE @ancho END)); -- lado mayor
    Sin fila: el ERP no tiene costo para esa llave.
 */
 

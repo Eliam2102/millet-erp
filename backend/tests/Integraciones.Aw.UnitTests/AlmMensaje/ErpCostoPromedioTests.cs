@@ -74,12 +74,36 @@ public sealed class ErpCostoPromedioTests
     }
 
     [Fact]
+    public async Task Dos_variantes_del_ERP_con_la_misma_llave_publican_un_solo_costo_ponderado_y_no_versionan_cada_ciclo()
+    {
+        // Dos variantes del ERP (mismo artículo A+W y medida, distinto costo) caen en la misma llave del contrato.
+        (ErpCostoPromedioFila, decimal)[] ciclo = [(F(100m), 10m), (F(200m), 30m)];
+        var d = new SimuladoErpCostoPromedioDestino();
+
+        for (var i = 0; i < 3; i++)
+            await d.InsertarAsync(ErpCostoPromedioPublicador.Pendientes(
+                ErpCostoPromedioPublicador.Consolidar(ciclo), await d.LeerVigentesAsync(default)), default);
+
+        var f = Assert.Single(d.Filas);
+        Assert.Equal((1L, 175m), (f.Version, f.CostoM2!.Value));
+    }
+
+    [Fact]
+    public void Consolidar_junta_la_medida_en_cualquier_orientacion_y_con_existencia_cero_toma_el_ultimo()
+    {
+        var r = ErpCostoPromedioPublicador.Consolidar(
+            [(F(100m) with { AnchoMm = 1800, AltoMm = 2600, VigenteDesde = T0.AddMinutes(5) }, 0m), (F(250m), 0m)]);
+
+        var f = Assert.Single(r);
+        Assert.Equal((1800, 2600, 100m, T0.AddMinutes(5)), (f.AnchoMm!.Value, f.AltoMm!.Value, f.CostoM2!.Value, f.VigenteDesde));
+    }
+
+    [Fact]
     public async Task Simulado_no_duplica_llave_y_version_y_lee_la_ultima()
     {
         var d = new SimuladoErpCostoPromedioDestino();
-        await d.InsertarAsync(F(100m, 1), default);
-        await d.InsertarAsync(F(100m, 1), default);
-        await d.InsertarAsync(F(120m, 2), default);
+        await d.InsertarAsync([F(100m, 1)], default);
+        await d.InsertarAsync([F(100m, 1), F(120m, 2)], default);
 
         Assert.Equal(2, d.Filas.Count);
         Assert.Equal(120m, Assert.Single(await d.LeerVigentesAsync(default)).Costo);

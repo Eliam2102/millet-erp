@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Millet.Almacen.Application.AppAlmacenes;
+using Millet.Almacen.Domain.Saldos;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.Compartido.Infrastructure.Persistence;
 
@@ -22,7 +23,7 @@ public sealed class ErpCostoPromedioOptions
 
 /// <summary>
 /// Renglón de <c>dbo.erp_costo_promedio</c>. Llave: artículo A+W + sucursal (clave A+W) + tipo + línea (vacías si la sucursal no
-/// tiene lista de almacenes; línea vacía en herraje) + medida (nula sin medida). Con medida va <see cref="CostoM2"/>; sin medida
+/// tiene lista de almacenes; línea vacía en herraje) + medida (nula sin medida; lado menor en ancho, mayor en alto). Con medida va <see cref="CostoM2"/>; sin medida
 /// <see cref="CostoPieza"/>. Siempre PESOSMX. <see cref="Version"/> sube de 1 en 1 por llave.
 /// </summary>
 public sealed record ErpCostoPromedioFila(
@@ -40,8 +41,8 @@ public interface IErpCostoPromedioDestino
 {
     Task<IReadOnlyList<ErpCostoPromedioFila>> LeerVigentesAsync(CancellationToken ct);
 
-    /// <summary>Inserta si la llave + versión no existe (reintento o dos instancias no duplican).</summary>
-    Task InsertarAsync(ErpCostoPromedioFila fila, CancellationToken ct);
+    /// <summary>Inserta las filas del ciclo; cada una solo si su llave + versión no existe (reintento o dos instancias no duplican).</summary>
+    Task InsertarAsync(IReadOnlyList<ErpCostoPromedioFila> filas, CancellationToken ct);
 }
 
 /// <summary>
@@ -74,7 +75,7 @@ public sealed class ErpCostoPromedioPublicador(
         var sucursales = await maestros.Sucursales.AsNoTracking().Where(s => sucursalIds.Contains(s.Id))
             .ToDictionaryAsync(s => s.Id, s => s.ClaveAw ?? s.Clave, ct);
 
-        var actuales = new List<ErpCostoPromedioFila>();
+        var porLlave = new List<(ErpCostoPromedioFila Fila, decimal Existencia)>();
         foreach (var c in costos)
         {
             if (!articulos.TryGetValue(c.ArticuloId, out var articuloAw) || !sucursales.TryGetValue(c.SucursalId, out var sucursal)) continue;
@@ -84,16 +85,41 @@ public sealed class ErpCostoPromedioPublicador(
                 if (!variantes.TryGetValue(v, out var m) || m.AnchoMm is null || m.AltoMm is null) continue;
                 (ancho, alto) = ((int)m.AnchoMm.Value, (int)m.AltoMm.Value);
             }
-            var costo = decimal.Round(c.CostoMxn, Decimales, MidpointRounding.AwayFromZero);
-            actuales.Add(new ErpCostoPromedioFila(articuloAw, sucursal.Trim().ToUpperInvariant(), c.TipoAlmacen, c.Linea, ancho, alto,
-                ancho is null ? null : costo, ancho is null ? costo : null, c.Fecha, 0));
+            porLlave.Add((new ErpCostoPromedioFila(articuloAw, sucursal.Trim().ToUpperInvariant(), c.TipoAlmacen, c.Linea, ancho, alto,
+                ancho is null ? null : c.CostoMxn, ancho is null ? c.CostoMxn : null, c.Fecha, 0), c.Existencia));
         }
 
-        var nuevas = Pendientes(actuales, await destino.LeerVigentesAsync(ct));
-        foreach (var f in nuevas) await destino.InsertarAsync(f, ct);
-        if (nuevas.Count > 0) logger.LogInformation("[ErpCostoPromedio] {Filas} costos publicados.", nuevas.Count);
+        var nuevas = Pendientes(Consolidar(porLlave), await destino.LeerVigentesAsync(ct));
+        if (nuevas.Count == 0) return 0;
+        await destino.InsertarAsync(nuevas, ct);
+        logger.LogInformation("[ErpCostoPromedio] {Filas} costos publicados.", nuevas.Count);
         return nuevas.Count;
     }
+
+    /// <summary>
+    /// Una fila por llave del contrato. La medida va sin orientación (lado menor en ancho, mayor en alto: 2600×1800 = 1800×2600) y
+    /// varias variantes del ERP del mismo artículo A+W y medida se juntan en un solo promedio ponderado por existencia (con
+    /// existencia en cero, el último). Sin esto cada variante pisaría a la otra y saldría una versión nueva en cada ciclo.
+    /// </summary>
+    public static IReadOnlyList<ErpCostoPromedioFila> Consolidar(IEnumerable<(ErpCostoPromedioFila Fila, decimal Existencia)> filas) =>
+        filas
+            .Select(x => x.Fila.AnchoMm is int a && x.Fila.AltoMm is int b && a > b
+                ? (Fila: x.Fila with { AnchoMm = b, AltoMm = a }, x.Existencia)
+                : x)
+            .GroupBy(x => x.Fila.Llave)
+            .Select(g =>
+            {
+                var (_, promedio) = CostoMedio.Vigente(g.Select(x => (x.Existencia, x.Fila.Costo, x.Fila.VigenteDesde)).ToList());
+                var costo = decimal.Round(promedio!.Value, Decimales, MidpointRounding.AwayFromZero);
+                var f = g.First().Fila;
+                return f with
+                {
+                    CostoM2 = f.AnchoMm is null ? null : costo,
+                    CostoPieza = f.AnchoMm is null ? costo : null,
+                    VigenteDesde = g.Max(x => x.Fila.VigenteDesde),
+                };
+            })
+            .ToList();
 
     /// <summary>Filas a insertar: llaves nuevas (versión 1) y llaves cuyo costo cambió (última versión + 1).</summary>
     public static IReadOnlyList<ErpCostoPromedioFila> Pendientes(

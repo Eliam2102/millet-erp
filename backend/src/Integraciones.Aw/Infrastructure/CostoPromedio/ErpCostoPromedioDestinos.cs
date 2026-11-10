@@ -10,6 +10,8 @@ using Millet.Integraciones.Aw.Infrastructure.AlmCompra;
 namespace Millet.Integraciones.Aw.Infrastructure.CostoPromedio;
 
 /// <summary>Destino en memoria (por omisión): solo desarrollo, demo y pruebas.</summary>
+// PLATFORM-TODO(<CostoPromedioAlmacenes>): destino simulado mientras TI no corre el script 19 en AlmacenRQ_MP_ENSAYO/AlmacenRQ_MP
+// ni da INSERT + SELECT a millet_erp_integracion; se wirea con Integraciones:CostoPromedio:Destino=Sql y Habilitado=true.
 public sealed class SimuladoErpCostoPromedioDestino : IErpCostoPromedioDestino
 {
     private readonly object _candado = new();
@@ -24,10 +26,11 @@ public sealed class SimuladoErpCostoPromedioDestino : IErpCostoPromedioDestino
                 _filas.GroupBy(f => f.Llave).Select(g => g.MaxBy(f => f.Version)!).ToList());
     }
 
-    public Task InsertarAsync(ErpCostoPromedioFila fila, CancellationToken ct)
+    public Task InsertarAsync(IReadOnlyList<ErpCostoPromedioFila> filas, CancellationToken ct)
     {
         lock (_candado)
-            if (!_filas.Any(f => f.Llave == fila.Llave && f.Version == fila.Version)) _filas.Add(fila);
+            foreach (var fila in filas)
+                if (!_filas.Any(f => f.Llave == fila.Llave && f.Version == fila.Version)) _filas.Add(fila);
         return Task.CompletedTask;
     }
 }
@@ -72,24 +75,26 @@ public sealed class SqlErpCostoPromedioDestino(IConfiguration configuration) : I
         return filas;
     }
 
-    public async Task InsertarAsync(ErpCostoPromedioFila fila, CancellationToken ct)
+    public async Task InsertarAsync(IReadOnlyList<ErpCostoPromedioFila> filas, CancellationToken ct)
     {
-        var f = fila;
-        await using var cn = await AbrirAsync(ct);
-        await using var cmd = cn.CreateCommand();
-        cmd.CommandText = SqlInsertar;
-        P(cmd, "@articulo", DbType.Int32, f.ArticuloAw);
-        P(cmd, "@sucursal", DbType.String, f.Sucursal);
-        P(cmd, "@tipo", DbType.String, f.AlmacenTipo);
-        P(cmd, "@linea", DbType.String, f.Linea);
-        P(cmd, "@ancho", DbType.Int32, f.AnchoMm);
-        P(cmd, "@alto", DbType.Int32, f.AltoMm);
-        P(cmd, "@costoM2", DbType.Decimal, f.CostoM2);
-        P(cmd, "@costoPieza", DbType.Decimal, f.CostoPieza);
-        P(cmd, "@vigente", DbType.DateTime2, f.VigenteDesde.UtcDateTime); // datetime2: sin zona, en UTC
-        P(cmd, "@version", DbType.Int64, f.Version);
-        try { await cmd.ExecuteNonQueryAsync(ct); }
-        catch (SqlException ex) when (ex.Number is 2601 or 2627) { } // otra instancia ya la insertó
+        await using var cn = await AbrirAsync(ct); // una conexión por ciclo
+        foreach (var f in filas)
+        {
+            await using var cmd = cn.CreateCommand();
+            cmd.CommandText = SqlInsertar;
+            P(cmd, "@articulo", DbType.Int32, f.ArticuloAw);
+            P(cmd, "@sucursal", DbType.String, f.Sucursal);
+            P(cmd, "@tipo", DbType.String, f.AlmacenTipo);
+            P(cmd, "@linea", DbType.String, f.Linea);
+            P(cmd, "@ancho", DbType.Int32, f.AnchoMm);
+            P(cmd, "@alto", DbType.Int32, f.AltoMm);
+            P(cmd, "@costoM2", DbType.Decimal, f.CostoM2);
+            P(cmd, "@costoPieza", DbType.Decimal, f.CostoPieza);
+            P(cmd, "@vigente", DbType.DateTime2, f.VigenteDesde.UtcDateTime); // datetime2: sin zona, en UTC
+            P(cmd, "@version", DbType.Int64, f.Version);
+            try { await cmd.ExecuteNonQueryAsync(ct); }
+            catch (SqlException ex) when (ex.Number is 2601 or 2627) { } // otra instancia ya la insertó
+        }
     }
 
     private async Task<DbConnection> AbrirAsync(CancellationToken ct)
