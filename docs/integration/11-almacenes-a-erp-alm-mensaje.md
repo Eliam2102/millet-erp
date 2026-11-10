@@ -37,9 +37,10 @@ Reglas del lector: orden estricto por `secuencia`; el acuse solo se escribe si e
 ## Vista de costo promedio para Almacenes (v9, PROPUESTA a TI; M-447)
 Desde v9 la app valúa entrada y salida manual con el costo promedio del ERP (opción a). Mientras no exista, sigue con el de A+W. Propuesta para el visto bueno de TI (antes del 13-nov):
 - **Dónde:** tabla `dbo.erp_costo_promedio` en `AlmacenRQ_MP` (pruebas: `AlmacenRQ_MP_ENSAYO`), que la app ya lee con su propio acceso. El ERP solo inserta (mismo patrón que `erp_tipo_cambio`); no necesita usuario nuevo de su lado.
-- **Columnas:** `articulo_aw` (clave de A+W, la misma de los mensajes), `sucursal` (clave A+W, p. ej. CONKAL), `almacen_tipo` y `linea` (la llave del almacén, M-446; `linea` vacía en herraje), `ancho_mm` y `alto_mm` (vidrio por medida; nulos en material por cantidad), `costo_m2` (vidrio) o `costo_pieza` (por cantidad), `moneda` = `PESOSMX`, `vigente_desde` (datetime2), `version` (bigint, sube con cada cambio).
+- **Columnas:** `articulo_aw` (clave de A+W, la misma de los mensajes), `sucursal` (clave A+W, p. ej. CONKAL), `almacen_tipo` y `linea` (la llave del almacén, M-446; `linea` vacía en herraje; las dos vacías en sucursales sin lista de almacenes, con el costo de la sucursal), `ancho_mm` y `alto_mm` (vidrio por medida; nulos en material por cantidad), `costo_m2` (vidrio) o `costo_pieza` (por cantidad), `moneda` = `PESOSMX`, `vigente_desde` (datetime2), `version` (bigint, sube con cada cambio).
 - **Lectura:** vista `dbo.vw_erp_costo_promedio_vigente` con la última versión por llave (artículo, sucursal, tipo, línea, medida).
-- **Cuándo se publica:** cada vez que cambia el promedio en el ERP (compra recibida, entrada con costo); con existencia en cero se conserva la última fila.
+- **Cuándo se publica:** cada vez que cambia el promedio en el ERP (compra recibida, CAMBIO_ALMACEN o entrada con costo); con existencia en cero se conserva la última fila. El costo sale del saldo del ERP por ubicación y medida y es el mismo para todos los lotes (E07 S7).
+- **Sin fila:** el ERP nunca tuvo ese artículo en ese almacén; se pregunta a TI si la entrada manual sigue con el costo de A+W.
 - **Pendiente de TI:** visto bueno de nombre y columnas, y crear la tabla con el script que les mandamos.
 
 ## Área y equipo de la salida (H1, 6-nov)
