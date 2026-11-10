@@ -271,11 +271,25 @@ public sealed class AwTipoCambioWorker : BackgroundService
 
             var resultado = await correo.EnviarAsync(new MensajeCorreo(null, "integraciones.aw", "aviso-tipo-cambio-aw", null, para,
                 $"ERP Millet: tipo de cambio {hoy:yyyy-MM-dd} sin aplicar en A+W, corran la tarea a mano hoy", html), ct);
+            if (resultado.Estado == EstadoCorreoSaliente.Simulado)
+            {
+                // Proveedor NoOp: no salió ningún correo; no se da por avisado.
+                _logger.LogWarning("AwTipoCambioWorker: el correo está simulado (NoOp); el aviso del tipo de cambio no salió y se reintenta en el siguiente ciclo.");
+                return;
+            }
+
             if (resultado.Estado == EstadoCorreoSaliente.Error)
             {
-                _logger.LogWarning("AwTipoCambioWorker: el aviso por correo no salió ({Codigo}: {Motivo}); se reintenta en el siguiente ciclo.",
-                    resultado.Codigo, resultado.Motivo);
-                return;
+                if (!EsErrorPermanente(resultado.Codigo))
+                {
+                    _logger.LogWarning("AwTipoCambioWorker: el aviso por correo no salió ({Codigo}: {Motivo}); se reintenta en el siguiente ciclo.",
+                        resultado.Codigo, resultado.Motivo);
+                    return;
+                }
+
+                // Reintentar no lo arregla (permisos, destinatarios): se registra una vez y el aviso de hoy se da por atendido.
+                _logger.LogError("AwTipoCambioWorker: el aviso por correo no salió y no se reintenta ({Codigo}: {Motivo}); revisar la configuración del correo o el parámetro {Clave}.",
+                    resultado.Codigo, resultado.Motivo, AvisoTipoCambioAwParametro.Clave);
             }
 
             _avisosEnviados.UnionWith(pendientes.Select(a => a.Clave));
@@ -285,4 +299,8 @@ public sealed class AwTipoCambioWorker : BackgroundService
             _logger.LogError(ex, "AwTipoCambioWorker: no se pudo enviar el aviso por correo; se reintenta en el siguiente ciclo.");
         }
     }
+
+    /// <summary>Errores que no se arreglan reintentando; los límites del proveedor y las fallas de envío sí se reintentan.</summary>
+    private static bool EsErrorPermanente(string? codigo) => codigo is CodigosCorreoSaliente.PermisosInsuficientes
+        or CodigosCorreoSaliente.ExcedeDestinatarios or CodigosCorreoSaliente.SinDestinatarios or CodigosCorreoSaliente.AdjuntosExceden3Mb;
 }

@@ -24,6 +24,7 @@ public sealed class AwTipoCambioAvisoCorreoTests
     private readonly Puerto _port = new();
     private readonly Correo _correo = new();
     private readonly string _db = Guid.NewGuid().ToString();
+    private readonly Bitacora _log = new();
 
     private AwTipoCambioWorker CrearWorker(string? correos = AvisoTipoCambioAwParametro.ValorInicial)
     {
@@ -52,7 +53,7 @@ public sealed class AwTipoCambioAvisoCorreoTests
         }
 
         return new AwTipoCambioWorker(sp.GetRequiredService<IServiceScopeFactory>(), opts,
-            NullLogger<AwTipoCambioWorker>.Instance);
+            _log);
     }
 
     [Fact]
@@ -156,6 +157,50 @@ public sealed class AwTipoCambioAvisoCorreoTests
     }
 
     [Fact]
+    public async Task Correo_simulado_no_cuenta_como_enviado_avisa_en_el_log_y_se_reintenta()
+    {
+        var worker = CrearWorker();
+        _correo.Resultados.Enqueue(ResultadoCorreoSaliente.Simulado);
+
+        await worker.EjecutarCicloAsync(A(8));
+        await worker.EjecutarCicloAsync(A(9));
+        await worker.EjecutarCicloAsync(A(10));
+
+        _correo.Enviados.Should().HaveCount(2); // el simulado no se da por avisado; el aceptado sí
+        _log.Entradas.Should().ContainSingle(e => e.Nivel == LogLevel.Warning && e.Texto.Contains("simulado"));
+    }
+
+    [Theory]
+    [InlineData(CodigosCorreoSaliente.PermisosInsuficientes)]
+    [InlineData(CodigosCorreoSaliente.ExcedeDestinatarios)]
+    [InlineData(CodigosCorreoSaliente.SinDestinatarios)]
+    public async Task Error_no_reintentable_se_registra_una_vez_y_no_se_reintenta(string codigo)
+    {
+        var worker = CrearWorker();
+        _correo.Resultados.Enqueue(ResultadoCorreoSaliente.Error(codigo, "rechazado"));
+
+        await worker.EjecutarCicloAsync(A(8));
+        await worker.EjecutarCicloAsync(A(9));
+        await worker.EjecutarCicloAsync(A(10));
+
+        _correo.Enviados.Should().ContainSingle();
+        _log.Entradas.Should().ContainSingle(e => e.Nivel == LogLevel.Error && e.Texto.Contains(codigo));
+    }
+
+    [Fact]
+    public async Task Falla_de_envio_generica_se_reintenta()
+    {
+        var worker = CrearWorker();
+        _correo.Resultados.Enqueue(ResultadoCorreoSaliente.Error(CodigosCorreoSaliente.ErrorEnvio, "timeout"));
+
+        await worker.EjecutarCicloAsync(A(8));
+        await worker.EjecutarCicloAsync(A(9));
+
+        _correo.Enviados.Should().HaveCount(2);
+        _log.Entradas.Should().NotContain(e => e.Nivel == LogLevel.Error);
+    }
+
+    [Fact]
     public void El_parametro_rechaza_correos_invalidos()
     {
         AvisoTipoCambioAwParametro.LeerCorreos(AvisoTipoCambioAwParametro.ValorInicial).Should().HaveCount(3);
@@ -165,6 +210,16 @@ public sealed class AwTipoCambioAvisoCorreoTests
         var act = () => p.ActualizarValor("soportemillet@millet.com.mx, mmillet");
 
         act.Should().Throw<BusinessRuleException>().Which.Code.Should().Be("AW_TC_AVISO_CORREO_INVALIDO");
+    }
+
+    private sealed class Bitacora : ILogger<AwTipoCambioWorker>
+    {
+        public List<(LogLevel Nivel, string Texto)> Entradas { get; } = [];
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter) => Entradas.Add((logLevel, formatter(state, exception)));
     }
 
     private sealed class Empresa : ICurrentEmpresaContext
