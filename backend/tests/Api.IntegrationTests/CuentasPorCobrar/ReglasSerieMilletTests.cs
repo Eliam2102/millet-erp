@@ -34,9 +34,9 @@ public sealed class ReglasSerieMilletTests
             Assert.Equal((1, true), porSerie[serie]);
         foreach (var serie in new[] { "58", "59", "78", "79", "90" })
             Assert.Equal((2, true), porSerie[serie]);
-        // Las series de ejemplo de la semilla anterior ya no están: solo quedan las de Millet
-        // (más las que otra prueba de la colección haya dado de alta, que nunca son de 4 dígitos).
-        Assert.Equal(11, porSerie.Keys.Count(k => k.Length == 4));
+        // R1: las series sembradas pasaron a 2 dígitos; ninguna queda con su prefijo de 4.
+        foreach (var anterior in new[] { "5000", "5500", "5600", "7000", "7200", "7500", "5800", "5900", "7800", "7900", "9000" })
+            Assert.False(porSerie.ContainsKey(anterior), $"La serie {anterior} debió pasar a 2 dígitos.");
     }
 
     [Fact]
