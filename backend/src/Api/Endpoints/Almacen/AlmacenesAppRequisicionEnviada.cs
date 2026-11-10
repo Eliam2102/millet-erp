@@ -24,7 +24,55 @@ public static class AlmacenesAppRequisicionEnviada
         return (r.Duplicada ? "DUPLICADO" : "RECIBIDO", r.Folio, null);
     }
 
-    internal static (CrearRqAppSolicitud?, string?) Parsear(JsonElement d)
+    public const string Cancelada = "REQUISICION_CANCELADA";
+    public const string Reducida = "REQUISICION_REDUCIDA";
+
+    /// <summary>
+    /// REQUISICION_CANCELADA / REQUISICION_REDUCIDA (M-446, contrato v8): cancelan o reducen la RQ por su folio de la app (<c>folio</c>)
+    /// en Compras, sin mover existencia. Al cancelar una entrada llegan junto con una SALIDA_MANUAL (enlazada por
+    /// <c>entradaCancelada</c> / <c>origen.entrada</c> y la compra), que es la que baja lo recibido. La cancelada sin compra (el ERP la
+    /// rechazó o no la va a comprar) no trae <c>entradaCancelada</c>; la reducida con <c>cierreConFaltante</c> trae en <c>lineas[]</c>
+    /// lo que ya no se espera. Acuse RECIBIDO con el folio del ERP de la RQ (vacío si nunca llegó al ERP).
+    /// </summary>
+    public static async Task<(string Estado, string? Folio, string? Error)> ManejarAvisoAsync(
+        string tipo, JsonElement d, IComprasCrearRqAppPort rqApp, CancellationToken ct)
+    {
+        var folio = Texto(d, "folio")?.Trim();
+        if (string.IsNullOrWhiteSpace(folio) || folio.Length > 64)
+            return ("ERROR", null, "datos.folio es requerido (hasta 64 caracteres).");
+        var entrada = Texto(d, "entradaCancelada")?.Trim();
+        var motivo = string.Join(" · ", new[]
+        {
+            Texto(d, "motivo")?.Trim(),
+            string.IsNullOrEmpty(entrada) ? null : $"entrada {entrada} cancelada",
+            Texto(d, "compra")?.Trim() is { Length: > 0 } compra ? $"compra {compra}" : null,
+            d.TryGetProperty("cierreConFaltante", out var c) && c.ValueKind == JsonValueKind.True ? "cierre con faltante" : null,
+        }.Where(x => !string.IsNullOrEmpty(x)));
+
+        AvisoRqAppResultado r;
+        if (tipo == Cancelada)
+            r = await rqApp.CancelarAsync(folio, motivo, ct);
+        else
+        {
+            if (!d.TryGetProperty("lineas", out var ls) || ls.ValueKind != JsonValueKind.Array || ls.GetArrayLength() == 0
+                || ls.GetArrayLength() > MaxLineas)
+                return ("ERROR", null, $"datos.lineas debe traer de 1 a {MaxLineas} líneas.");
+            var lineas = new List<LineaQuitadaRqApp>();
+            var n = 0;
+            foreach (var l in ls.EnumerateArray())
+            {
+                n++;
+                if (l.ValueKind != JsonValueKind.Object || !Entero(l, "posicion", out var pos) || pos is null or <= 0
+                    || !Entero(l, "piezasQuitadas", out var piezas) || piezas is null or <= 0)
+                    return ("ERROR", null, $"Línea {n}: posicion y piezasQuitadas deben ser enteros mayores que cero.");
+                lineas.Add(new LineaQuitadaRqApp(pos.Value, piezas.Value));
+            }
+            r = await rqApp.ReducirAsync(folio, lineas, motivo, ct);
+        }
+        return r.Error is null ? ("RECIBIDO", r.Folio, null) : ("ERROR", r.Folio, r.Error);
+    }
+
+    public static (CrearRqAppSolicitud?, string?) Parsear(JsonElement d)
     {
         var folio = Texto(d, "folio");
         if (string.IsNullOrWhiteSpace(folio) || folio.Length > 64)
@@ -77,8 +125,10 @@ public static class AlmacenesAppRequisicionEnviada
     {
         valor = null;
         if (!o.TryGetProperty(n, out var v) || v.ValueKind == JsonValueKind.Null) return true;
-        if (v.ValueKind != JsonValueKind.Number || !v.TryGetInt32(out var i)) return false;
-        valor = i;
+        // La app manda las medidas como 3302.0 (contrato v8, mensajes reales de ENSAYO): vale si no tiene fracción.
+        if (v.ValueKind != JsonValueKind.Number || !v.TryGetDecimal(out var d) || d != decimal.Truncate(d) || d is < int.MinValue or > int.MaxValue)
+            return false;
+        valor = (int)d;
         return true;
     }
 }

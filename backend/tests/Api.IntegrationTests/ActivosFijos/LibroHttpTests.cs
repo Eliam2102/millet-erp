@@ -105,7 +105,7 @@ public sealed partial class LibroHttpTests
         Assert.Equal(HttpStatusCode.UnprocessableEntity,sinEvidencia.StatusCode);
         using var revaluar=await Post(captura,$"activos/{id}/operaciones",new {tipo="Revalorizacion",fecha="2027-02-01",importe=100,motivo="FIX ajuste",evidencia=(string?)null},version);
         Assert.Equal(HttpStatusCode.UnprocessableEntity,revaluar.StatusCode);
-        using var registro=await Post(captura,$"activos/{id}/operaciones",new {tipo="Baja",solicitadoPor="Área DEMO",fecha="2027-02-01",importe=0,motivo="Siniestro",evidencia="data:application/pdf;base64,JVBERi0xLjc="},version);
+        using var registro=await Post(captura,$"activos/{id}/operaciones",new {tipo="Baja",solicitadoPor="Área DEMO",fecha="2027-02-01",importe=0,motivo="Siniestro",evidencia="data:application/pdf;base64," + Convert.ToBase64String(Millet.Api.Seed.DemoSesionSeedHostedService.CrearPdf("Evidencia QA sintética"))},version);
         registro.EnsureSuccessStatusCode();var op=await registro.Content.ReadFromJsonAsync<JsonElement>();var ruta=$"operaciones/{op.GetProperty("id").GetGuid()}/autorizar";var v=op.GetProperty("version").GetInt32();
         using var misma=await Post(captura,ruta,new{},v);Assert.Equal(HttpStatusCode.UnprocessableEntity,misma.StatusCode);
         using var otra=await Post(autorizador,ruta,new{},v);otra.EnsureSuccessStatusCode();

@@ -6,7 +6,7 @@ export interface AreaEquipoValor {
   equipo: CentroOpcion | null;
 }
 
-/** Falta un dato que la cuenta exige (la captura procede; la póliza queda en Rechazos). */
+/** Falta un dato que la cuenta exige; M-450: el movimiento no se guarda hasta capturarlo. */
 export function faltaAreaEquipo(v: AreaEquipoValor, exigeArea: boolean, exigeEquipo: boolean): boolean {
   return (exigeArea && !v.area && !v.equipo) || (exigeEquipo && !v.equipo);
 }

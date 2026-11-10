@@ -95,6 +95,17 @@ public sealed record SolicitudNotaCreditoAw(
     string? Vendedor = null,
     bool EsRanura = false);
 
+/// <summary>
+/// Tolerancia de redondeo entre la nota de ranura de A+W y la ranura del pedido (o la NC de ranura que emite el ERP).
+/// A+W calcula la ranura con IVA y su redondeo difiere hasta por centavos o algunos decimales: en 60 días de MILMAIN
+/// (10-nov-2026) 1,017 notas cuadran a 0.02 y otras 10 a 0.03–0.86. Hasta $1.00 se da por la misma ranura; arriba se
+/// trata como bonificación aparte (por autorizar).
+/// </summary>
+public static class RanuraAw
+{
+    public const decimal Tolerancia = 1.00m;
+}
+
 public sealed record AcuseNotaCreditoAw(
     Guid SolicitudId,
     Guid? ErpNotaCreditoId,

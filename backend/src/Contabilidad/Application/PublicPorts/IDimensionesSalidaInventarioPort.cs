@@ -16,8 +16,11 @@ public interface IDimensionesSalidaInventarioPort
 /// <param name="EquipoClave">Clave del equipo (Dim3) capturada; null o vacía = no se capturó.</param>
 /// <param name="TipoEvento">Evento cuya plantilla carga la póliza; null = <c>almacen.salida_inventario.registrada.v1</c>. La rotura de
 /// la pantalla de Almacén usa <c>almacen.salida_rotura.registrada.v1</c> (86e3zf04y).</param>
+/// <param name="Campo">Campo de importe de la línea de cargo que lleva el centro; null = el de la causa. M-450 (86e3zr7ft): el ajuste por
+/// conteo físico (<c>almacen.ajuste_inventario.aplicado.v1</c>) usa <c>Faltante</c> (mismo rol que el sobrante).</param>
 public sealed record SolicitudDimensionesSalida(
-    Guid EmpresaId, Guid SucursalId, string Causa, DateOnly Fecha, string? AreaClave, string? EquipoClave, string? TipoEvento = null);
+    Guid EmpresaId, Guid SucursalId, string Causa, DateOnly Fecha, string? AreaClave, string? EquipoClave, string? TipoEvento = null,
+    string? Campo = null);
 
 /// <summary>
 /// <c>Error</c>: clave inexistente, inactiva, de otra sucursal o equipo de otra área (dato inválido: no se debe aceptar).

@@ -11,10 +11,18 @@ public sealed class PagoProveedorLocal : BaseEntity, IPerteneceAEmpresa, IAudita
     public decimal Importe { get; private set; }
     public decimal CubiertoRepp { get; private set; }
     public bool Revertido { get; private set; }
+    /// <summary>F1-CXP-10: moneda y tipo de cambio del pago (Tesorería) para valuar la DIOT en pesos; null en pagos anteriores.</summary>
+    public string? Moneda { get; private set; }
+    public decimal? TipoCambio { get; private set; }
     private PagoProveedorLocal() { }
     public PagoProveedorLocal(Guid empresaId, Guid facturaId, Guid pagoId, decimal importe, DateOnly fecha) : base(Guid.CreateVersion7())
     { EmpresaId = empresaId; FacturaProveedorId = facturaId; PagoId = pagoId; Importe = importe; FechaPago = fecha; }
     public void Confirmar(decimal importe, DateOnly fecha) { Importe = importe; FechaPago = fecha; }
+    public void AsignarMoneda(string? moneda, decimal? tipoCambio)
+    {
+        if (!string.IsNullOrWhiteSpace(moneda)) Moneda = moneda.Trim().ToUpperInvariant();
+        if (tipoCambio is > 0) TipoCambio = tipoCambio;
+    }
     public void Cubrir(decimal importe)
     {
         if (importe <= 0 || (Importe > 0 && importe + CubiertoRepp > Importe))

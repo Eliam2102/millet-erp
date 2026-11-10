@@ -1,3 +1,4 @@
+using Millet.SharedKernel.Application.Adjuntos;
 using Microsoft.AspNetCore.Http;
 using Millet.Almacen.Domain.Ports.Blob;
 using Millet.Api.Auth;
@@ -75,6 +76,7 @@ public static class EvidenciaBlobEndpoints
             string blobRef;
             await using (var stream = archivo.OpenReadStream())
             {
+                await AdjuntosPoliticaOptions.ValidarSiEsPdfAsync(archivo.FileName, contentType, stream, cancellationToken);
                 blobRef = await blob.SubirAsync(
                     blobId,
                     stream,

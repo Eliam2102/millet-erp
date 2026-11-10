@@ -8,6 +8,7 @@ using Millet.Facturacion.Application.Cancelaciones.RetirarCancelacion;
 using Millet.Facturacion.Application.Cancelaciones.SolicitarCancelacion;
 using Millet.Facturacion.Application.Timbrado.DescartarComprobante;
 using Millet.Facturacion.Application.Timbrado.Queries;
+using Millet.Facturacion.Application.Timbrado.Adopcion;
 using Millet.Facturacion.Application.Timbrado.ReintentarTimbrado;
 using Millet.Facturacion.Application.Trazabilidad;
 using Millet.Facturacion.Domain.Cancelaciones;
@@ -153,6 +154,28 @@ public static class ComprobantesEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        // POST (M-284): adopta el CFDI que el PAC sí timbró (XML del portal) en un comprobante en
+        // proceso o fallido sin respuesta. soloRevisar=true devuelve el cotejo ERP contra XML sin cambios.
+        group.MapPost("/{id:guid}/adoptar-cfdi", async (
+            Guid id,
+            AdoptarCfdiRequest body,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var response = await mediator.Send(
+                new AdoptarCfdiTimbradoCommand(id, body.Xml, body.SoloRevisar), cancellationToken);
+            return Results.Ok(response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionComprobantesAdoptarCfdi)
+        .WithName("AdoptarCfdiTimbrado")
+        .WithSummary("Adopta el CFDI que el PAC sí timbró en un comprobante sin respuesta")
+        .Produces<AdoptarCfdiTimbradoResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         // POST: descarta un comprobante en TimbradoFallido que no se
         // reintentará ([Decisión 01-G] G3) — terminal; libera el pedido.
         group.MapPost("/{id:guid}/descartar", async (
@@ -223,4 +246,7 @@ public static class ComprobantesEndpoints
     /// primero en el dashboard de FiscalAPI que no exista timbre.
     /// </summary>
     public sealed record ReintentarTimbradoRequest(bool ConfirmarNoDuplicado = false);
+
+    /// <summary>M-284: XML del CFDI timbrado (texto) y si solo se coteja.</summary>
+    public sealed record AdoptarCfdiRequest(string Xml, bool SoloRevisar = false);
 }

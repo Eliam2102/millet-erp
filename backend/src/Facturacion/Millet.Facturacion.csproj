@@ -54,6 +54,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!--
+      M-284 (QA O1): XSLT oficiales del SAT para la cadena original del CFDI 4.0 y sus complementos
+      (www.sat.gob.mx/sitio_internet/cfd/...), embebidos para no depender de internet al verificar el sello.
+    -->
+    <EmbeddedResource Include="Application/Timbrado/Adopcion/Sat/**/*.xslt" LogicalName="SatXslt/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
       <PrivateAssets>all</PrivateAssets>

@@ -191,6 +191,7 @@ export const PermisosCanonicos = {
   DatosMaestrosClientesGestionar: 'datos_maestros.clientes.gestionar',
   // Sincronización de clientes desde A+W (F1-ADM-06).
   DatosMaestrosClientesSincronizar: 'datos_maestros.clientes.sincronizar',
+  IntegracionesAwAdministracionConfiguracion: 'integraciones.aw.administracion.configuracion',
   DatosMaestrosClientesOrigenVer: 'datos_maestros.clientes.origen-ver',
   DatosMaestrosClientesFiscalEditar: 'datos_maestros.clientes.fiscal-editar',
   DatosMaestrosClientesUnificar: 'datos_maestros.clientes.unificar',
@@ -489,6 +490,8 @@ export const PermisosCanonicos = {
   FacturacionComprobantesReintentarTimbrado:
     'facturacion.comprobantes.reintentar-timbrado',
   FacturacionComprobantesDescartar: 'facturacion.comprobantes.descartar',
+  // M-284: adoptar el CFDI que el PAC sí timbró (XML del portal).
+  FacturacionComprobantesAdoptarCfdi: 'facturacion.comprobantes.adoptar-cfdi',
 
   // Centros de Costo (backend CECO-PR1, renombre dim3.leer-todos en
   // CECO-PR4; FE desde CECO-FE-PR1). OJO: namespace snake
@@ -531,6 +534,11 @@ export const PermisosCanonicos = {
   ContabilidadMotorLeer: 'contabilidad.motor.leer',
   ContabilidadRolesCuentaAdministrar: 'contabilidad.roles-cuenta.administrar',
   ContabilidadRechazosGestionar: 'contabilidad.rechazos.gestionar',
+  ComercioExteriorEmbarquesCredito: 'comercio_exterior.embarques.aprobar-credito',
+  ComercioExteriorEmbarquesVentas: 'comercio_exterior.embarques.aprobar-ventas',
+  ComercioExteriorEmbarquesAdministracion: 'comercio_exterior.embarques.aprobar-administracion',
+  ComercioExteriorEmbarquesPlaneacion: 'comercio_exterior.embarques.aprobar-planeacion',
+  ComercioExteriorEmbarquesContraloria: 'comercio_exterior.embarques.aprobar-contraloria',
   ComercioExteriorEmbarquesAutorizarSalida: 'comercio_exterior.embarques.autorizar_salida',
   ComercioExteriorExpedientesAprobarCierre: 'comercio_exterior.expedientes.aprobar_cierre',
   ComercioExteriorGastosRegistrar: 'comercio_exterior.gastos.registrar',

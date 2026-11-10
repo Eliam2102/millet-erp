@@ -1,3 +1,4 @@
+using Millet.SharedKernel.Application.Adjuntos;
 using MediatR;
 using Millet.CuentasPorPagar.Application.Cfdi.IngresarCfdi;
 using Millet.CuentasPorPagar.Domain.Cfdi;
@@ -32,8 +33,8 @@ public sealed class SubirCfdiPortalHandler(IXmlCfdiParser parser, IProveedorRead
             throw new BusinessRuleException("PORTAL_XML_MUY_GRANDE", "El XML excede el tamaño máximo permitido (2 MB).");
         if (request.Pdf is { Length: > MaxPdfBytes })
             throw new BusinessRuleException("PORTAL_PDF_MUY_GRANDE", "El PDF excede el tamaño máximo permitido (10 MB).");
-        if (request.Pdf is { Length: > 0 } pdf && !EsPdf(pdf))
-            throw new BusinessRuleException("PORTAL_PDF_INVALIDO", "El archivo adjunto no es un PDF.");
+        if (request.Pdf is { Length: > 0 } pdf && !AdjuntosPoliticaOptions.EsPdfValido(pdf))
+            throw new BusinessRuleException("PORTAL_PDF_INVALIDO", "Adjunta un PDF completo, sin contraseña y con al menos una página.");
 
         var proveedor = await proveedores.ObtenerAsync(request.ProveedorId, cancellationToken)
             ?? throw new EntityNotFoundException("PORTAL_PROVEEDOR_NO_ENCONTRADO", "No encontramos el proveedor.");
@@ -79,5 +80,4 @@ public sealed class SubirCfdiPortalHandler(IXmlCfdiParser parser, IProveedorRead
         return $"{recibido} {r.Mensaje}";
     }
 
-    private static bool EsPdf(byte[] b) => b.Length >= 5 && b[0] == '%' && b[1] == 'P' && b[2] == 'D' && b[3] == 'F' && b[4] == '-';
 }

@@ -60,6 +60,11 @@ public sealed class CancelarAlbaranSalidaTests
             CartasPorte.Add(solicitud);
             return Task.FromResult(new CartaPorteSalida(Guid.NewGuid(), "CP-1"));
         }
+
+        public Task<IReadOnlyDictionary<string, FacturaAlbaranRuta>> FacturasDeAlbaranesAsync(IReadOnlyList<string> albaranFolios, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyDictionary<string, FacturaAlbaranRuta>>(new Dictionary<string, FacturaAlbaranRuta>());
+        public Task<IReadOnlyList<CobroRutaRegistrado>> RegistrarCobrosRutaAsync(Guid sucursalId, IReadOnlyList<CobroRutaAlbaran> cobros, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<CobroRutaRegistrado>>([]);
     }
 
     private static readonly DateTimeOffset Ahora = new(2026, 11, 8, 10, 0, 0, TimeSpan.Zero);
@@ -77,7 +82,7 @@ public sealed class CancelarAlbaranSalidaTests
         public EmitirHojaSalidaHandler Emitir() => new(T.Db, Acceso, T.Pedidos, Facturacion, T.Eventos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
         public CancelarAlbaranSalidaHandler CancelarAlbaran() => new(T.Db, Acceso, T.Pedidos, Facturacion, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
         public ConfirmarEntregaHandler Entrega() => new(T.Db, Acceso, T.Pedidos, T.Eventos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
-        public LiquidarRutaPtHandler Liquidar() => new(T.Db, Acceso, T.Pedidos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
+        public LiquidarRutaPtHandler Liquidar() => new(T.Db, Acceso, T.Pedidos, Facturacion, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
 
         public void Dispose() => T.Dispose();
     }

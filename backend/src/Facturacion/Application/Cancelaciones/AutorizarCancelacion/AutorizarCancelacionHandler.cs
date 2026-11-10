@@ -5,7 +5,6 @@ using Millet.Facturacion.Application.Integration;
 using Millet.Facturacion.Domain.Anticipos;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Domain.Facturas;
-using Millet.Facturacion.Domain.Ingesta;
 using Millet.Facturacion.Domain.Pedidos;
 using Millet.Facturacion.Domain.Ports;
 using Millet.Facturacion.Infrastructure.Persistence;
@@ -93,20 +92,9 @@ public sealed class AutorizarCancelacionHandler(
 
         switch (comprobante)
         {
-            case FacturaVenta { PedidoFacturableId: { } pedidoId }:
-                var pedido = await db.PedidosFacturables.FirstOrDefaultAsync(p => p.Id == pedidoId, cancellationToken);
-                pedido?.RevertirAFacturable();
-
-                // TR-01: sin write-back por pedido; la cancelación hacia A+W es otro tipo de fila (fuera de TR-01).
-                if (pedido?.Origen == OrigenPedido.Aw)
-                {
-                    var control = await db.IngestaControles
-                        .FirstOrDefaultAsync(c => c.PedidoFacturableId == pedido.Id, cancellationToken);
-                    if (control is not null)
-                    {
-                        control.CambiarEstado(EstadoIngesta.Importado);
-                    }
-                }
+            case FacturaVenta factura:
+                // M-188: pedido vigente → re-facturable; cancelado en origen → la salida se descarta (sin PEDIDO_CANCELADO).
+                await EfectosCancelacionPedido.AplicarAsync(db, factura, clock.UtcNow, cancellationToken);
                 break;
 
             case FacturaAnticipo:

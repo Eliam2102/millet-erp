@@ -87,6 +87,18 @@ public sealed class AplicarAnticipoAFacturaHandler(
             throw new BusinessRuleException("ANTICIPO_SALDO_INSUFICIENTE",
                 $"El importe ({command.Importe:N2}) excede el saldo disponible del anticipo ({anticipo.SaldoDisponible:N2}).");
 
+        // M-173: una NC de aplicación de este anticipo a esta factura que quedó pendiente de timbrar se
+        // resuelve en la bandeja (reintentar o descartar); otra NC duplicaría el CFDI.
+        var pendiente = await db.NotasCredito.AsNoTracking()
+            .Where(n => n.Motivo == MotivoNotaCredito.Amortizacion && n.AnticipoOrigenId == anticipo.Id
+                && n.FacturaRelacionadaId == factura.Id
+                && (n.Estado == EstadoTimbrado.TimbradoEnProceso || n.Estado == EstadoTimbrado.TimbradoFallido))
+            .Select(n => n.Folio)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (pendiente is not null)
+            throw new BusinessRuleException("ANTICIPO_NC_PENDIENTE",
+                $"La NC de aplicación {pendiente} de este anticipo está pendiente de timbrar; reinténtala o descártala en la bandeja.");
+
         // Sin saldos negativos: no se aplica más de lo que la factura tiene pendiente.
         var saldoFactura = await SaldoPendienteFactura.CalcularAsync(db, saldos, factura.Id, factura.Total, cancellationToken);
         if (command.Importe > saldoFactura)
@@ -117,15 +129,23 @@ public sealed class AplicarAnticipoAFacturaHandler(
         // Millet (4-nov): la NC de aplicación relaciona solo la factura de venta; el UUID del anticipo va en la factura.
         nc.AgregarRelacion(factura.Uuid!, MotivoNotaCredito.Amortizacion.ClaveTipoRelacion());
 
+        // M-173: el importe queda apartado para la factura y la NC se guarda en proceso antes del PAC.
+        // Si no timbra, la NC queda pendiente en la bandeja con el importe apartado (sin reducir el
+        // saldo): su reintento lo amortiza y descartarla lo libera.
+        if (apartado is null)
+            anticipo.Vincular(factura.Id, command.Importe, ahora);
         await TimbradoEjecutor.TimbrarYAplicarAsync(db, nc, CfdiEmisionBuilder.DesdeNotaCredito(nc, ahora),
-            fiscal, cfdiRepo, ahora, cancellationToken);
-        // Sin timbre no hay aplicación: no se toca el saldo del anticipo ni se publica nada (rollback).
+            fiscal, cfdiRepo, ahora, cancellationToken,
+            TimbradoDurable.AntesDelPac(db, nc));
         if (nc.Estado != EstadoTimbrado.Timbrado)
+        {
+            await db.SaveChangesAsync(cancellationToken);
             throw new BusinessRuleException("NC_AMORTIZACION_NO_TIMBRADA",
-                $"La NC de aplicación del anticipo no se timbró ({nc.Estado}); no se aplicó el anticipo. Intenta de nuevo.");
+                $"La NC de aplicación del anticipo ({nc.Folio}) no se timbró ({nc.Estado}); queda pendiente de timbrar en la " +
+                "bandeja con el importe apartado. Reinténtala o descártala desde ahí; no apliques el anticipo otra vez.");
+        }
 
         anticipo.RegistrarAmortizacion(factura.Id, nc.Id, command.Importe, ahora);
-        db.NotasCredito.Add(nc);
         await eventos.PublishAsync(EventosContablesFacturacion.NotaCreditoTimbrada(
             nc, ahora, factura.Id, anticipo.Id, anticipo.ClienteId), cancellationToken);
 

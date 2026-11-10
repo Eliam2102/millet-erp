@@ -2,8 +2,6 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Domain.Facturas;
-using Millet.Facturacion.Domain.Ingesta;
-using Millet.Facturacion.Domain.Pedidos;
 using Millet.Facturacion.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
@@ -54,28 +52,11 @@ public sealed class DescartarComprobanteHandler
         Guid? pedidoLiberadoId = null;
         switch (comprobante)
         {
-            case FacturaVenta { PedidoFacturableId: { } pedidoId } factura:
-                var pedido = await _db.PedidosFacturables
-                    .FirstOrDefaultAsync(p => p.Id == pedidoId, cancellationToken);
-
-                // Solo se libera si ESTA factura lo tenía tomado (G5). Un
-                // pedido cancelado en origen o re-facturado por otra vía
-                // tiene ComprobanteVigenteId distinto (o null) y no se toca.
-                if (pedido?.ComprobanteVigenteId == factura.Id)
-                {
-                    pedido.RevertirAFacturable();
-                    pedidoLiberadoId = pedido.Id;
-
-                    if (pedido.Origen == OrigenPedido.Aw)
-                    {
-                        var control = await _db.IngestaControles
-                            .FirstOrDefaultAsync(c => c.PedidoFacturableId == pedido.Id, cancellationToken);
-                        if (control is not null)
-                        {
-                            control.CambiarEstado(EstadoIngesta.Importado);
-                        }
-                    }
-                }
+            case FacturaVenta factura:
+                // Solo se libera si ESTA factura lo tenía tomado (G5); un pedido re-facturado por otra vía
+                // no se toca. M-188: con el pedido cancelado en origen, la salida de la factura se descarta.
+                pedidoLiberadoId = (await Millet.Facturacion.Application.Cancelaciones.EfectosCancelacionPedido.AplicarAsync(
+                    _db, factura, _clock.UtcNow, cancellationToken, soloSiEsLaVigente: true))?.Id;
                 break;
 
             case Millet.Facturacion.Domain.Anticipos.FacturaAnticipo:

@@ -78,7 +78,13 @@ public sealed record SolicitudViaticosDetalleResponse(
     string? JefeDirectoNombre = null,
     string? PuestoNombre = null,
     string? ComentarioDevolucion = null,
-    DateTimeOffset? FechaDevolucion = null);
+    DateTimeOffset? FechaDevolucion = null,
+    // M-449: comprobación fuera de política.
+    decimal ExcesoComprobacion = 0m,
+    bool ComprobacionFueraDePolitica = false,
+    Guid? ExcesoAutorizadoPor = null,
+    DateTimeOffset? ExcesoAutorizadoEn = null,
+    decimal LimiteComprobacion = 0m);
 
 public sealed class ObtenerSolicitudViaticosHandler
     : IRequestHandler<ObtenerSolicitudViaticosQuery, SolicitudViaticosDetalleResponse>
@@ -146,6 +152,11 @@ public sealed class ObtenerSolicitudViaticosHandler
             JefeDirectoNombre: jefe?.Nombre,
             PuestoNombre: puesto?.Nombre,
             ComentarioDevolucion: s.ComentarioDevolucion,
-            FechaDevolucion: s.FechaDevolucion);
+            FechaDevolucion: s.FechaDevolucion,
+            ExcesoComprobacion: s.ExcesoComprobacion,
+            ComprobacionFueraDePolitica: s.ComprobacionFueraDePolitica,
+            ExcesoAutorizadoPor: s.ExcesoAutorizadoPor,
+            ExcesoAutorizadoEn: s.ExcesoAutorizadoEn,
+            LimiteComprobacion: s.LimiteComprobacion);
     }
 }

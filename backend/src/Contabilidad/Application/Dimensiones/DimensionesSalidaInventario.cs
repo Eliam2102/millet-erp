@@ -60,7 +60,7 @@ public sealed class DimensionesSalidaInventario(
         var plantilla = await db.PlantillasContables.IgnoreQueryFilters().AsNoTracking()
             .Where(p => p.EmpresaId == s.EmpresaId && p.TipoEvento == tipoEvento && p.VigenteDesde <= s.Fecha)
             .OrderByDescending(p => p.NumeroVersion).FirstOrDefaultAsync(ct);
-        var campo = NormalizadorEventos.CampoSalidaInventario(s.Causa);
+        var campo = s.Campo ?? NormalizadorEventos.CampoSalidaInventario(s.Causa);
         var linea = plantilla?.Lineas.FirstOrDefault(l => l.Lado == LadoPartida.Cargo && l.Campo == campo)
             ?? plantilla?.Lineas.FirstOrDefault(l => l.Lado == LadoPartida.Cargo && l.Campo == "Subtotal"); // plantilla v1 (#445)
         if (plantilla is null || linea is null) return new(null, null, centro, false, false, null);

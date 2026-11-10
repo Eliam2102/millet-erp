@@ -360,4 +360,50 @@ public sealed class CierreDiaTests
         r.EstatusSat.Should().Be(EstatusSat.Vigente);
         adapter.Fuente.Should().Contain("SAT");
     }
+
+    // ---- M-185: estatus SAT real por configuración ----
+
+    [Theory]
+    [InlineData("FiscalApi", true)]
+    [InlineData("fiscalapi", true)]
+    [InlineData("Simulado", false)]
+    [InlineData(null, false)]
+    public void M185_el_proveedor_de_la_configuracion_elige_el_adaptador_real_o_el_simulado(string? proveedor, bool real)
+    {
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { [$"{ConsultaEstatusSatConfig.Seccion}:Proveedor"] = proveedor })
+            .Build();
+
+        ConsultaEstatusSatConfig.UsarFiscalApi(config).Should().Be(real);
+    }
+
+    [Fact]
+    public async Task M185_si_FiscalAPI_falla_se_cuenta_el_error_y_no_cambia_el_estatus_guardado()
+    {
+        using var db = NewDb();
+        var factura = Factura(100m, "FV-185");
+        factura.RegistrarEstatusSat(EstatusSat.Vigente, "Cancelable con aceptación", Ahora.AddDays(-1));
+        db.FacturasVenta.Add(factura);
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+
+        var r = await new VerificarEstatusSatHandler(db, Sucursales(), new SatCaido(), new FakeClock(Ahora),
+                NullLogger<VerificarEstatusSatHandler>.Instance)
+            .Handle(new VerificarEstatusSatCommand(Cancun, Dia), default);
+
+        r.Errores.Should().Be(1);
+        (r.Vigentes, r.Cancelados).Should().Be((0, 0));
+        r.Fuente.Should().Contain("SAT");
+        db.ChangeTracker.Clear();
+        var guardada = await db.FacturasVenta.SingleAsync(f => f.Id == factura.Id);
+        guardada.EstatusSat.Should().Be(EstatusSat.Vigente);
+        guardada.EstatusSatConsultadoEn.Should().Be(Ahora.AddDays(-1));
+    }
+
+    private sealed class SatCaido : IConsultaEstatusCfdiPort
+    {
+        public string Fuente => "SAT (FiscalAPI)";
+        public Task<EstatusCfdiSat> ConsultarAsync(ConsultaEstatusCfdi consulta, CancellationToken cancellationToken) =>
+            throw new HttpRequestException("FiscalAPI no respondió (prueba).");
+    }
 }

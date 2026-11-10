@@ -190,7 +190,7 @@ public sealed class CfdiEmisionBuilderTests
             claveDePedimento: "A1", certificadoOrigen: true,
             receptorDomicilioCalle: "123 Main St", receptorDomicilioEstado: "TX",
             receptorDomicilioCodigoPostal: "75001");
-        cce.AgregarLinea("70109999", "06", 1m, 55m, 55m, aplicaIva0: true);
+        cce.AgregarLinea("7010999900", "06", 1m, 55m, 55m, aplicaIva0: true);
         f.AdjuntarCce(cce);
 
         var e = CfdiEmisionBuilder.DesdeFacturaVenta(f, AhoraUtc);
@@ -204,7 +204,7 @@ public sealed class CfdiEmisionBuilderTests
         e.ComplementoCce.CertificadoOrigen.Should().BeTrue();
         e.ComplementoCce.Domicilio.Should().Be(new DomicilioCceCfdi("123 Main St", "TX", "USA", "75001"));
         var mercancia = e.ComplementoCce.Mercancias.Single();
-        mercancia.FraccionArancelaria.Should().Be("70109999");
+        mercancia.FraccionArancelaria.Should().Be("7010999900");
         // P10-H2: la mercancía CCE se liga a su concepto por NoIdentificacion ==
         // ItemSku (contrato FiscalAPI). El SKU es único por línea (clave + posición),
         // no el valor trivial "1" que colisionaba en el sandbox.
@@ -221,7 +221,7 @@ public sealed class CfdiEmisionBuilderTests
         f.RecalcularTotales();
         var cce = ComplementoCce.Crear(f.Id, "2", "FOB", 18.5m, "US123456789", "USA",
             receptorDomicilioCodigoPostal: "75001"); // sin estado
-        cce.AgregarLinea("70109999", "06", 1m, 55m, 55m, aplicaIva0: true);
+        cce.AgregarLinea("7010999900", "06", 1m, 55m, 55m, aplicaIva0: true);
         f.AdjuntarCce(cce);
 
         var act = () => CfdiEmisionBuilder.DesdeFacturaVenta(f, AhoraUtc);

@@ -9,7 +9,9 @@
    en A+W (SYSADM.KA_WAEHRUNGEN) al apagarse SAP.
 
    Reglas del flujo:
-   - Monedas: USD, EUR y CAD (ISO 4217).
+   - Monedas: USD, Euro y CAN: son los valores propios de A+W (SYSADM.KA_WAEHRUNGEN.WAEHRUNG),
+     no códigos ISO (respuesta de TI, 5-nov). El ERP traduce con IntegracionesAw:MapeoMonedaAw
+     (USD->USD, EUR->Euro, CAD->CAN). El cruce con A+W es por WAEHRUNG (FREMD_KEY trae el ISO, pero no es la llave).
    - Inmutabilidad: las filas NO se modifican ni se borran por el ERP. Un cambio en el
      valor (corrección DOF/Banxico o captura manual) genera una fila con version + 1.
    - Quien escribe qué:
@@ -31,7 +33,7 @@ IF OBJECT_ID('dbo.erp_tipo_cambio', 'U') IS NULL
 BEGIN
     CREATE TABLE dbo.erp_tipo_cambio
     (
-        moneda            nchar(3)          NOT NULL,  -- ISO 4217: USD | EUR | CAD
+        moneda            nvarchar(8)       NOT NULL,  -- WAEHRUNG de A+W: USD | Euro | CAN
         fecha_aplicacion  date              NOT NULL,  -- día en que rige el TC (escalera K10.6, incluye inhábiles)
         [version]         int               NOT NULL,  -- 1; +1 si el ERP corrige el valor de esa fecha
         valor             decimal(18, 6)    NOT NULL,  -- pesos MXN por unidad de moneda extranjera
@@ -48,7 +50,7 @@ BEGIN
             CONSTRAINT DF_etc_intentos DEFAULT 0,
 
         CONSTRAINT PK_erp_tipo_cambio PRIMARY KEY CLUSTERED (moneda, fecha_aplicacion, [version]),
-        CONSTRAINT CK_etc_moneda      CHECK (moneda IN (N'USD', N'EUR', N'CAD')),
+        CONSTRAINT CK_etc_moneda      CHECK (moneda IN (N'USD', N'Euro', N'CAN')),
         CONSTRAINT CK_etc_version     CHECK ([version] > 0),
         CONSTRAINT CK_etc_valor       CHECK (valor > 0),
         CONSTRAINT CK_etc_origen      CHECK (origen IN (N'Banxico', N'Manual')),
@@ -91,6 +93,10 @@ GO
 */
 
 /* Consulta sugerida para la tarea de TI:
+   Cruce con A+W: la fila de KA_WAEHRUNGEN es la que cumple WAEHRUNG = t.moneda (un solo valor
+   vigente por moneda: VALUTAKURS + VALUTADATUM). Llave = WAEHRUNG (colación CS_AS: 'Euro', 'CAN' exactos).
+   OJO: valor del ERP = MXN por unidad extranjera; A+W guarda el INVERSO:
+   VALUTAKURS = ROUND(1.0 / t.valor, 8) (decimal >= 8, half-up). EUR 0.04804228 = 20.81 MXN/EUR.
    Obtener el registro vigente a aplicar para la fecha actual (hora México):
    SELECT t.*
    FROM dbo.erp_tipo_cambio t

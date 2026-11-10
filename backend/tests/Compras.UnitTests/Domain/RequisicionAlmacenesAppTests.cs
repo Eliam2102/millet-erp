@@ -57,4 +57,47 @@ public class RequisicionAlmacenesAppTests
         Assert.Throws<BusinessRuleException>(() => RqApp(" "));
         Assert.Throws<BusinessRuleException>(() => RqApp(new string('x', 65)));
     }
+
+    // ── M-446: REQUISICION_REDUCIDA / REQUISICION_CANCELADA ───────────────────────────────────
+
+    private static Requisicion RqAppEnSurtido()
+    {
+        var rq = RqApp();
+        rq.RegistrarCubrimiento(rq.Lineas.Select(l => new CubrimientoLinea(l.Id, 0, l.Cantidad)).ToList(), DateTimeOffset.UtcNow);
+        return rq;
+    }
+
+    [Fact]
+    public void QuitarDeCompraApp_BajaLoPorComprarYLoVigente()
+    {
+        var rq = RqAppEnSurtido();
+        rq.QuitarDeCompraApp([(1, 4m)], "App Almacenes: cierre con faltante");
+
+        var l = Assert.Single(rq.Lineas);
+        Assert.Equal((6m, 4m, 6m), (l.CantidadDeCompra, l.CantidadSinCompra, l.CantidadVigente));
+        Assert.Equal("App Almacenes: cierre con faltante", l.MotivoUltimaLiberacion);
+    }
+
+    [Fact]
+    public void QuitarDeCompraApp_NoBajaDeLoYaRecibido()
+    {
+        var rq = RqAppEnSurtido();
+        rq.RegistrarRecepcion(rq.Lineas.Single().Id, 8m, DateTimeOffset.UtcNow);
+        rq.QuitarDeCompraApp([(1, 5m)], "m");
+
+        var l = rq.Lineas.Single();
+        Assert.Equal((8m, 2m), (l.CantidadDeCompra, l.CantidadSinCompra));
+    }
+
+    [Fact]
+    public void QuitarDeCompraApp_PosicionInexistenteOTerminada_Lanza()
+    {
+        var rq = RqAppEnSurtido();
+        Assert.Equal("RQ_APP_POSICION_INEXISTENTE", Assert.Throws<BusinessRuleException>(() => rq.QuitarDeCompraApp([(2, 1m)], "m")).Code);
+        Assert.Equal(10m, rq.Lineas.Single().CantidadDeCompra);
+
+        rq.Cancelar(Guid.CreateVersion7(), Guid.CreateVersion7(), DateTimeOffset.UtcNow, "App Almacenes");
+        Assert.Equal(EstadoRequisicion.Cancelada, rq.Estado);
+        Assert.Equal("RQ_APP_REDUCIR_ESTADO", Assert.Throws<BusinessRuleException>(() => rq.QuitarDeCompraApp([(1, 1m)], "m")).Code);
+    }
 }

@@ -242,11 +242,15 @@ export function AduanalesPartida({
   const permiso = useHasPermission(P.ComercioExteriorExpedientesDocumentosRevisar) && abierto;
   const [fraccion, setFraccion] = useState(p.fraccionArancelaria ?? '');
   const [unidad, setUnidad] = useState(p.unidadAduana ?? '');
+  // M-158: la fracción de exportación lleva 10 dígitos (fracción + NICO); mismo criterio que el servidor.
+  const fraccionInvalida =
+    unidad.trim() !== '99' && fraccion.trim() !== '' && !/^\d{10}$/.test(fraccion.trim());
   return (
     <form
       className="space-y-2"
       onSubmit={(e) => {
         e.preventDefault();
+        if (fraccionInvalida) return;
         void mutar
           .mutateAsync({
             ruta: `partidas/${p.id}/aduanales`,
@@ -265,11 +269,19 @@ export function AduanalesPartida({
       <Input
         id={`fraccion-${p.id}`}
         required
-        maxLength={20}
+        inputMode="numeric"
+        maxLength={10}
         disabled={!permiso}
         value={fraccion}
+        aria-invalid={fraccionInvalida || undefined}
+        aria-describedby={fraccionInvalida ? `fraccion-error-${p.id}` : undefined}
         onChange={(e) => setFraccion(e.target.value)}
       />
+      {fraccionInvalida && (
+        <p id={`fraccion-error-${p.id}`} className="text-xs text-danger-fg">
+          La fracción debe tener 10 dígitos (fracción arancelaria + NICO).
+        </p>
+      )}
       <Label htmlFor={`unidad-aduana-${p.id}`}>Unidad aduana *</Label>
       <Input
         id={`unidad-aduana-${p.id}`}

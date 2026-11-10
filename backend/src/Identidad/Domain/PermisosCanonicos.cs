@@ -503,6 +503,8 @@ public static class PermisosCanonicos
     public const string FacturacionReportesLeerTodasSucursales = "facturacion.reportes.leer-todas-sucursales";
     public const string FacturacionComprobantesReintentarTimbrado = "facturacion.comprobantes.reintentar-timbrado";
     public const string FacturacionComprobantesDescartar        = "facturacion.comprobantes.descartar";
+    /// <summary>M-284: adoptar el CFDI que el PAC sí timbró (XML del portal) en un comprobante sin respuesta.</summary>
+    public const string FacturacionComprobantesAdoptarCfdi      = "facturacion.comprobantes.adoptar-cfdi";
 
     // ----- Cuentas por Cobrar (CXC-PR1) -----
     // Namespace GUID 0000000a-* reservado para el módulo Cuentas por Cobrar.
@@ -656,6 +658,11 @@ public static class PermisosCanonicos
     public const string ActivosFijosGestionarTodasSucursales = "activos_fijos.activos.gestionar-todas-sucursales";
 
     // Comercio Exterior (CE-01a), namespace 0000000e.
+    public const string ComercioExteriorEmbarquesCredito = "comercio_exterior.embarques.aprobar-credito";
+    public const string ComercioExteriorEmbarquesVentas = "comercio_exterior.embarques.aprobar-ventas";
+    public const string ComercioExteriorEmbarquesAdministracion = "comercio_exterior.embarques.aprobar-administracion";
+    public const string ComercioExteriorEmbarquesPlaneacion = "comercio_exterior.embarques.aprobar-planeacion";
+    public const string ComercioExteriorEmbarquesContraloria = "comercio_exterior.embarques.aprobar-contraloria";
     public const string ComercioExteriorEmbarquesAutorizarSalida = "comercio_exterior.embarques.autorizar_salida";
     public const string ComercioExteriorExpedientesAprobarCierre = "comercio_exterior.expedientes.aprobar_cierre";
     public const string ComercioExteriorGastosRegistrar = "comercio_exterior.gastos.registrar";
@@ -980,6 +987,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000009-000a-0000-0000-000000000002"), FacturacionReportesLeerTodasSucursales, "Consultar el cierre del día (monitor de CFDI y facturado contra ingresado) de todas las sucursales, sin estar asociado a ellas"),
         (Guid.Parse("00000009-000b-0000-0000-000000000001"), FacturacionComprobantesReintentarTimbrado, "Reintentar el timbrado de un comprobante en TimbradoFallido (cualquier tipo)"),
         (Guid.Parse("00000009-000b-0000-0000-000000000002"), FacturacionComprobantesDescartar,        "Descartar un comprobante fallido que no se reintentará (quema el folio y libera el pedido)"),
+        (Guid.Parse("00000009-000b-0000-0000-000000000003"), FacturacionComprobantesAdoptarCfdi,      "Adoptar el CFDI que el PAC sí timbró (XML del portal) en un comprobante cuyo timbrado no se confirmó"),
 
         // Cuentas por Cobrar (CXC-PR1). Namespace 0000000a-*.
         (Guid.Parse("0000000a-0001-0000-0000-000000000001"), CuentasPorCobrarLineasCreditoLeer,       "Consultar líneas de crédito de clientes"),
@@ -1061,6 +1069,11 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000d-0008-0000-0000-000000000003"), ContabilidadCierreAnual,                "Generar las pólizas de cierre anual que cancelan las cuentas de resultados contra resultado del ejercicio"),
 
         // CE-01a. Namespace 0000000e, agregado al final para integrar otros PR.
+        (Guid.Parse("0000000e-0007-0000-0000-000000000010"), ComercioExteriorEmbarquesCredito, "Autorizar parcialidad por Crédito y Cobranza"),
+        (Guid.Parse("0000000e-0007-0000-0000-000000000011"), ComercioExteriorEmbarquesVentas, "Autorizar parcialidad por suplencia de Ventas"),
+        (Guid.Parse("0000000e-0007-0000-0000-000000000012"), ComercioExteriorEmbarquesAdministracion, "Autorizar despacho sin factura por Administración"),
+        (Guid.Parse("0000000e-0007-0000-0000-000000000013"), ComercioExteriorEmbarquesPlaneacion, "Autorizar despacho sin factura por Planeación"),
+        (Guid.Parse("0000000e-0007-0000-0000-000000000014"), ComercioExteriorEmbarquesContraloria, "Autorizar despacho sin factura por Contraloría"),
         (Guid.Parse("0000000e-0007-0000-0000-000000000001"), ComercioExteriorEmbarquesAutorizarSalida, "Autorizar o rechazar la salida de un embarque"),
         (Guid.Parse("0000000e-0007-0000-0000-000000000002"), ComercioExteriorExpedientesAprobarCierre, "Aprobar el cierre del expediente (Gerencia)"),
         (Guid.Parse("0000000e-0006-0000-0000-000000000001"), ComercioExteriorGastosRegistrar, "Registrar gastos"),

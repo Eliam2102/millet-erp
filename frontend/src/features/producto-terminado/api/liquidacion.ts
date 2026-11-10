@@ -33,7 +33,15 @@ export interface LiquidacionLineaDto {
   diferencia: number;
   conciliado: boolean;
   avisado: boolean;
+  /** M-177: «Credito» o «Debito»; con los últimos 4 dígitos, la caja registra el voucher. */
+  tipoTarjeta?: TipoTarjeta | null;
+  tarjetaUltimos4?: string | null;
+  /** M-177: factura del albarán sobre la que cobra la caja, y si el cobro ya entró a caja. */
+  facturaFolio?: string | null;
+  cobradoEnCaja?: boolean;
 }
+
+export type TipoTarjeta = 'Credito' | 'Debito';
 
 export interface ImprevistoDto {
   descripcion: string;
@@ -54,7 +62,15 @@ export interface LiquidacionDto {
 }
 
 export interface LiquidarBody {
-  albaranes: { albaranId: string; firmado: boolean; efectivo: number; voucher: number; voucherReferencia: string | null }[];
+  albaranes: {
+    albaranId: string;
+    firmado: boolean;
+    efectivo: number;
+    voucher: number;
+    voucherReferencia: string | null;
+    tipoTarjeta: TipoTarjeta | null;
+    tarjetaUltimos4: string | null;
+  }[];
   imprevistos: ImprevistoDto[];
 }
 

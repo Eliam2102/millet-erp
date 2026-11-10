@@ -28,7 +28,7 @@ public class CambiosDeRolEfectoInmediatoTests
     private static readonly Guid UsuariosLeer = Guid.Parse("00000002-0002-0000-0000-000000000001");
     private static readonly Guid RolesLeer = Guid.Parse("00000002-0002-0000-0000-000000000004");
 
-    private static readonly byte[] ContenidoPdf = "%PDF-1.4 Millet ERP Test Adjunto"u8.ToArray();
+    private static readonly byte[] ContenidoPdf = Millet.Api.Seed.DemoSesionSeedHostedService.CrearPdf("Documento sintético de prueba");
 
     private readonly WebApplicationFactory<Program> _factory;
 

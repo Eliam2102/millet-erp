@@ -14,6 +14,8 @@ public sealed class ConsumoComponenteAw : IPerteneceAEmpresa
     public const string Recibido = "RECIBIDO";
     public const string EnRevision = "EN_REVISION";
     public const string Excepcion = "EXCEPCION";
+    /// <summary>M-172: el artículo se consume por tambor a línea (se descontó al surtirlo); no se descuenta por pieza.</summary>
+    public const string PorTambor = "POR_TAMBOR";
     public const string Tipo = "CONSUMO_COMPONENTE";
 
     public Guid Id { get; private set; }

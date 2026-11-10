@@ -38,6 +38,10 @@ public sealed class PartidaEmbarcada : BaseEntity, IAuditable, IPerteneceAEmpres
     {
         if (string.IsNullOrWhiteSpace(fraccion) || fraccion.Length > 20 || string.IsNullOrWhiteSpace(unidad) || unidad.Length > 20 || actor == Guid.Empty)
             throw new BusinessRuleException("CE_DATOS_ADUANALES_INVALIDOS", "Capture fracción arancelaria y unidad aduana (máximo 20 caracteres) e identifique a quien los revisa.");
+        // M-158: al revisarla, la fracción queda lista para el CCE 2.0 (10 dígitos); el borrador puede guardarse incompleto.
+        if (revisar && unidad.Trim() != "99" && !Millet.SharedKernel.Domain.FraccionArancelariaExportacion.EsValida(fraccion))
+            throw new BusinessRuleException(Millet.SharedKernel.Domain.FraccionArancelariaExportacion.Codigo,
+                $"Partida {Posicion}: {Millet.SharedKernel.Domain.FraccionArancelariaExportacion.Mensaje}");
         FraccionArancelaria = fraccion.Trim(); UnidadAduana = unidad.Trim();
         AduanalesRevisadoPorId = revisar ? actor : null; AduanalesRevisadoEn = revisar ? fecha : null;
     }
