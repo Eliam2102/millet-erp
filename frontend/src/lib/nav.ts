@@ -4,6 +4,7 @@ import {
   ArrowRightLeft,
   Ban,
   CloudOff,
+  Coins,
   Banknote,
   BarChart3,
   Bell,
@@ -20,6 +21,7 @@ import {
   CreditCard,
   FileBadge,
   FileCheck2,
+  FileCode2,
   FileSpreadsheet,
   FileText,
   FlaskConical,
@@ -1100,6 +1102,14 @@ const moduloFacturacion: NavModulo = {
           permission: PermisosCanonicos.FacturacionReportesLeer,
         },
         {
+          label: 'Conciliación contra el SAT',
+          description:
+            'CFDI emitidos que reporta el SAT contra los timbrados en el ERP: faltantes, estatus, total, tipo y receptor.',
+          to: '/facturacion/reportes/conciliacion-sat',
+          icon: FileCheck2,
+          permission: PermisosCanonicos.FacturacionReportesLeerTodasSucursales,
+        },
+        {
           label: 'Estados de facturas de anticipo',
           description:
             'Reporte de anticipos emitidos, facturas vinculadas, NCs de amortización y saldo por cliente.',
@@ -1258,6 +1268,14 @@ const moduloContabilidad: NavModulo = {
           permission: PermisosCanonicos.ContabilidadPolizasLeer,
         },
         {
+          label: 'Diferencias cambiarias realizadas',
+          description:
+            'Pagos a proveedores y cobros de clientes en moneda extranjera del periodo, con el tipo de cambio de la factura, el del pago y la pérdida o utilidad cambiaria.',
+          to: '/contabilidad/reportes/diferencias-cambiarias',
+          icon: Coins,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
+        },
+        {
           label: 'Conciliación de auxiliares',
           description:
             'Cuentas de control contra su módulo al corte: clientes, proveedores y bancos; diferencias por documento y su causa.',
@@ -1271,6 +1289,14 @@ const moduloContabilidad: NavModulo = {
             'IVA trasladado cobrado, IVA acreditable pagado y retenciones del mes, con el cuadre contra las cuentas, el cumplimiento de cada documento y el borrador de la póliza.',
           to: '/contabilidad/reportes/liquidacion-iva',
           icon: Receipt,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
+        },
+        {
+          label: 'Contabilidad electrónica',
+          description:
+            'Catálogo con código agrupador, balanza del mes y pólizas en XML del SAT, validados contra el esquema oficial; lista antes las cuentas sin código agrupador.',
+          to: '/contabilidad/reportes/contabilidad-electronica',
+          icon: FileCode2,
           permission: PermisosCanonicos.ContabilidadPolizasLeer,
         },
       ],
@@ -1596,18 +1622,14 @@ const rutasFueraDelMenu: readonly Pick<NavCard, 'to' | 'permission' | 'permissio
   { to: '/admin/mi-empresa', permission: PermisosCanonicos.AdminEmpresasLeer },
   { to: '/compras/trazabilidad', permission: PermisosCanonicos.ComprasOrdenesLeer },
   { to: '/compras/articulos', permission: PermisosCanonicos.ComprasOrdenesLeer },
-  // U-4 · «Mis incidencias»: cualquier permiso de incidencias.
-  {
-    to: '/incidencias',
-    permissionsAny: [
-      PermisosCanonicos.CompartidoIncidenciasVer,
-      PermisosCanonicos.CompartidoIncidenciasRegistrar,
-      PermisosCanonicos.CompartidoIncidenciasGestionar,
-      PermisosCanonicos.CompartidoIncidenciasLeerTodasSucursales,
-      PermisosCanonicos.CompartidoIncidenciasGestionarTodasSucursales,
-    ],
-  },
 ];
+
+/**
+ * Rutas para cualquier usuario con sesión, sin permiso propio: el servidor filtra por usuario.
+ * U-4 · «Mis incidencias» y su detalle: el responsable de una incidencia la consulta y la atiende aunque no tenga
+ * permisos de incidencias (`/api/v1/incidencias/mias` y `/{id}` solo piden sesión).
+ */
+export const rutasSoloSesion: readonly string[] = ['/incidencias'];
 
 function contieneRuta(base: string, pathname: string): boolean {
   return pathname === base || pathname.startsWith(`${base}/`);
@@ -1660,6 +1682,8 @@ export function rutaPermitida(pathname: string, permisos: readonly string[]): bo
       (section) => section.modulo === settingsModulo && permisos.includes(section.permisoRequerido),
     );
   }
+
+  if (rutasSoloSesion.some((ruta) => contieneRuta(ruta, pathname))) return true;
 
   const candidatas = [
     ...modulos.flatMap((m) => m.secciones.flatMap((s) => s.cards)),

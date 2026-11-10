@@ -237,7 +237,7 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
         // Folio atómico.
         var siguiente = await GetNextFolioSequenceAsync(
             empresaId, rq.SucursalId, command.FolioAnio, cancellationToken);
-        var folioStr = $"OC-{command.SucursalCodigo}{command.FolioAnio}-{siguiente:D6}";
+        var folioStr = $"OC-{PrefijoSucursalCompras.Resolver(command.SucursalCodigo)}{command.FolioAnio}-{siguiente:D6}";
         var folio = Millet.Compras.Domain.Oc.Folio.Parse(folioStr);
 
         // Crear OC con sucursal heredada de la RQ.

@@ -282,6 +282,8 @@ export const TipoDocumentoSerie = {
   FacturaAnticipo: 5,
   /** F6.1: CFDI de venta directa del ERP; siempre por sucursal, fiscal (sin reinicio). */
   VentaDirecta: 6,
+  /** Factura de exportación con CCE (FEXP); prioridad sobre la serie CFDI de la sucursal. */
+  Exportacion: 7,
 } as const;
 export type TipoDocumentoSerie =
   (typeof TipoDocumentoSerie)[keyof typeof TipoDocumentoSerie];

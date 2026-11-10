@@ -133,6 +133,8 @@ import { Route as AppContabilidadPolizasSaldosRouteImport } from './routes/_app/
 import { Route as AppContabilidadReportesAuxiliarRouteImport } from './routes/_app/contabilidad/reportes.auxiliar';
 import { Route as AppContabilidadReportesBalanzaRouteImport } from './routes/_app/contabilidad/reportes.balanza';
 import { Route as AppContabilidadReportesCuentaPuenteRouteImport } from './routes/_app/contabilidad/reportes.cuenta-puente';
+import { Route as AppContabilidadReportesContabilidadElectronicaRouteImport } from './routes/_app/contabilidad/reportes.contabilidad-electronica';
+import { Route as AppContabilidadReportesDiferenciasCambiariasRouteImport } from './routes/_app/contabilidad/reportes.diferencias-cambiarias';
 import { Route as AppContabilidadReportesConciliacionAuxiliaresRouteImport } from './routes/_app/contabilidad/reportes.conciliacion-auxiliares';
 import { Route as AppContabilidadReportesLiquidacionIvaRouteImport } from './routes/_app/contabilidad/reportes.liquidacion-iva';
 import { Route as AppContabilidadReportesDiarioRouteImport } from './routes/_app/contabilidad/reportes.diario';
@@ -191,6 +193,7 @@ import { Route as AppFacturacionPedidosIndexRouteImport } from './routes/_app/fa
 import { Route as AppFacturacionPedidosIdRouteImport } from './routes/_app/facturacion/pedidos/$id';
 import { Route as AppFacturacionPedidosExcepcionesRouteImport } from './routes/_app/facturacion/pedidos/excepciones';
 import { Route as AppFacturacionReportesCierreDiaRouteImport } from './routes/_app/facturacion/reportes/cierre-dia';
+import { Route as AppFacturacionReportesConciliacionSatRouteImport } from './routes/_app/facturacion/reportes/conciliacion-sat';
 import { Route as AppFacturacionReportesComparativaAnticiposRouteImport } from './routes/_app/facturacion/reportes/comparativa-anticipos';
 import { Route as AppFacturacionReportesEstadosAnticiposRouteImport } from './routes/_app/facturacion/reportes/estados-anticipos';
 import { Route as AppFacturacionReportesLiquidacionCajaRouteImport } from './routes/_app/facturacion/reportes/liquidacion-caja';
@@ -926,6 +929,18 @@ const AppContabilidadReportesCuentaPuenteRoute =
     path: '/contabilidad/reportes/cuenta-puente',
     getParentRoute: () => AppRoute,
   } as any);
+const AppContabilidadReportesContabilidadElectronicaRoute =
+  AppContabilidadReportesContabilidadElectronicaRouteImport.update({
+    id: '/contabilidad/reportes/contabilidad-electronica',
+    path: '/contabilidad/reportes/contabilidad-electronica',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppContabilidadReportesDiferenciasCambiariasRoute =
+  AppContabilidadReportesDiferenciasCambiariasRouteImport.update({
+    id: '/contabilidad/reportes/diferencias-cambiarias',
+    path: '/contabilidad/reportes/diferencias-cambiarias',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppContabilidadReportesConciliacionAuxiliaresRoute =
   AppContabilidadReportesConciliacionAuxiliaresRouteImport.update({
     id: '/contabilidad/reportes/conciliacion-auxiliares',
@@ -1239,6 +1254,12 @@ const AppFacturacionReportesCierreDiaRoute =
   AppFacturacionReportesCierreDiaRouteImport.update({
     id: '/facturacion/reportes/cierre-dia',
     path: '/facturacion/reportes/cierre-dia',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppFacturacionReportesConciliacionSatRoute =
+  AppFacturacionReportesConciliacionSatRouteImport.update({
+    id: '/facturacion/reportes/conciliacion-sat',
+    path: '/facturacion/reportes/conciliacion-sat',
     getParentRoute: () => AppRoute,
   } as any);
 const AppFacturacionReportesComparativaAnticiposRoute =
@@ -1697,6 +1718,8 @@ export interface FileRoutesByFullPath {
   '/contabilidad/reportes/auxiliar': typeof AppContabilidadReportesAuxiliarRoute;
   '/contabilidad/reportes/balanza': typeof AppContabilidadReportesBalanzaRoute;
   '/contabilidad/reportes/cuenta-puente': typeof AppContabilidadReportesCuentaPuenteRoute;
+  '/contabilidad/reportes/contabilidad-electronica': typeof AppContabilidadReportesContabilidadElectronicaRoute;
+  '/contabilidad/reportes/diferencias-cambiarias': typeof AppContabilidadReportesDiferenciasCambiariasRoute;
   '/contabilidad/reportes/conciliacion-auxiliares': typeof AppContabilidadReportesConciliacionAuxiliaresRoute;
   '/contabilidad/reportes/liquidacion-iva': typeof AppContabilidadReportesLiquidacionIvaRoute;
   '/contabilidad/reportes/diario': typeof AppContabilidadReportesDiarioRoute;
@@ -1731,6 +1754,7 @@ export interface FileRoutesByFullPath {
   '/facturacion/pedidos/$id': typeof AppFacturacionPedidosIdRoute;
   '/facturacion/pedidos/excepciones': typeof AppFacturacionPedidosExcepcionesRoute;
   '/facturacion/reportes/cierre-dia': typeof AppFacturacionReportesCierreDiaRoute;
+  '/facturacion/reportes/conciliacion-sat': typeof AppFacturacionReportesConciliacionSatRoute;
   '/facturacion/reportes/comparativa-anticipos': typeof AppFacturacionReportesComparativaAnticiposRoute;
   '/facturacion/reportes/estados-anticipos': typeof AppFacturacionReportesEstadosAnticiposRoute;
   '/facturacion/reportes/liquidacion-caja': typeof AppFacturacionReportesLiquidacionCajaRoute;
@@ -1940,6 +1964,8 @@ export interface FileRoutesByTo {
   '/contabilidad/reportes/auxiliar': typeof AppContabilidadReportesAuxiliarRoute;
   '/contabilidad/reportes/balanza': typeof AppContabilidadReportesBalanzaRoute;
   '/contabilidad/reportes/cuenta-puente': typeof AppContabilidadReportesCuentaPuenteRoute;
+  '/contabilidad/reportes/contabilidad-electronica': typeof AppContabilidadReportesContabilidadElectronicaRoute;
+  '/contabilidad/reportes/diferencias-cambiarias': typeof AppContabilidadReportesDiferenciasCambiariasRoute;
   '/contabilidad/reportes/conciliacion-auxiliares': typeof AppContabilidadReportesConciliacionAuxiliaresRoute;
   '/contabilidad/reportes/liquidacion-iva': typeof AppContabilidadReportesLiquidacionIvaRoute;
   '/contabilidad/reportes/diario': typeof AppContabilidadReportesDiarioRoute;
@@ -1974,6 +2000,7 @@ export interface FileRoutesByTo {
   '/facturacion/pedidos/$id': typeof AppFacturacionPedidosIdRoute;
   '/facturacion/pedidos/excepciones': typeof AppFacturacionPedidosExcepcionesRoute;
   '/facturacion/reportes/cierre-dia': typeof AppFacturacionReportesCierreDiaRoute;
+  '/facturacion/reportes/conciliacion-sat': typeof AppFacturacionReportesConciliacionSatRoute;
   '/facturacion/reportes/comparativa-anticipos': typeof AppFacturacionReportesComparativaAnticiposRoute;
   '/facturacion/reportes/estados-anticipos': typeof AppFacturacionReportesEstadosAnticiposRoute;
   '/facturacion/reportes/liquidacion-caja': typeof AppFacturacionReportesLiquidacionCajaRoute;
@@ -2185,6 +2212,8 @@ export interface FileRoutesById {
   '/_app/contabilidad/reportes/auxiliar': typeof AppContabilidadReportesAuxiliarRoute;
   '/_app/contabilidad/reportes/balanza': typeof AppContabilidadReportesBalanzaRoute;
   '/_app/contabilidad/reportes/cuenta-puente': typeof AppContabilidadReportesCuentaPuenteRoute;
+  '/_app/contabilidad/reportes/contabilidad-electronica': typeof AppContabilidadReportesContabilidadElectronicaRoute;
+  '/_app/contabilidad/reportes/diferencias-cambiarias': typeof AppContabilidadReportesDiferenciasCambiariasRoute;
   '/_app/contabilidad/reportes/conciliacion-auxiliares': typeof AppContabilidadReportesConciliacionAuxiliaresRoute;
   '/_app/contabilidad/reportes/liquidacion-iva': typeof AppContabilidadReportesLiquidacionIvaRoute;
   '/_app/contabilidad/reportes/diario': typeof AppContabilidadReportesDiarioRoute;
@@ -2219,6 +2248,7 @@ export interface FileRoutesById {
   '/_app/facturacion/pedidos/$id': typeof AppFacturacionPedidosIdRoute;
   '/_app/facturacion/pedidos/excepciones': typeof AppFacturacionPedidosExcepcionesRoute;
   '/_app/facturacion/reportes/cierre-dia': typeof AppFacturacionReportesCierreDiaRoute;
+  '/_app/facturacion/reportes/conciliacion-sat': typeof AppFacturacionReportesConciliacionSatRoute;
   '/_app/facturacion/reportes/comparativa-anticipos': typeof AppFacturacionReportesComparativaAnticiposRoute;
   '/_app/facturacion/reportes/estados-anticipos': typeof AppFacturacionReportesEstadosAnticiposRoute;
   '/_app/facturacion/reportes/liquidacion-caja': typeof AppFacturacionReportesLiquidacionCajaRoute;
@@ -2430,6 +2460,8 @@ export interface FileRouteTypes {
     | '/contabilidad/reportes/auxiliar'
     | '/contabilidad/reportes/balanza'
     | '/contabilidad/reportes/cuenta-puente'
+    | '/contabilidad/reportes/contabilidad-electronica'
+    | '/contabilidad/reportes/diferencias-cambiarias'
     | '/contabilidad/reportes/conciliacion-auxiliares'
     | '/contabilidad/reportes/liquidacion-iva'
     | '/contabilidad/reportes/diario'
@@ -2464,6 +2496,7 @@ export interface FileRouteTypes {
     | '/facturacion/pedidos/$id'
     | '/facturacion/pedidos/excepciones'
     | '/facturacion/reportes/cierre-dia'
+    | '/facturacion/reportes/conciliacion-sat'
     | '/facturacion/reportes/comparativa-anticipos'
     | '/facturacion/reportes/estados-anticipos'
     | '/facturacion/reportes/liquidacion-caja'
@@ -2673,6 +2706,8 @@ export interface FileRouteTypes {
     | '/contabilidad/reportes/auxiliar'
     | '/contabilidad/reportes/balanza'
     | '/contabilidad/reportes/cuenta-puente'
+    | '/contabilidad/reportes/contabilidad-electronica'
+    | '/contabilidad/reportes/diferencias-cambiarias'
     | '/contabilidad/reportes/conciliacion-auxiliares'
     | '/contabilidad/reportes/liquidacion-iva'
     | '/contabilidad/reportes/diario'
@@ -2707,6 +2742,7 @@ export interface FileRouteTypes {
     | '/facturacion/pedidos/$id'
     | '/facturacion/pedidos/excepciones'
     | '/facturacion/reportes/cierre-dia'
+    | '/facturacion/reportes/conciliacion-sat'
     | '/facturacion/reportes/comparativa-anticipos'
     | '/facturacion/reportes/estados-anticipos'
     | '/facturacion/reportes/liquidacion-caja'
@@ -2917,6 +2953,8 @@ export interface FileRouteTypes {
     | '/_app/contabilidad/reportes/auxiliar'
     | '/_app/contabilidad/reportes/balanza'
     | '/_app/contabilidad/reportes/cuenta-puente'
+    | '/_app/contabilidad/reportes/contabilidad-electronica'
+    | '/_app/contabilidad/reportes/diferencias-cambiarias'
     | '/_app/contabilidad/reportes/conciliacion-auxiliares'
     | '/_app/contabilidad/reportes/liquidacion-iva'
     | '/_app/contabilidad/reportes/diario'
@@ -2951,6 +2989,7 @@ export interface FileRouteTypes {
     | '/_app/facturacion/pedidos/$id'
     | '/_app/facturacion/pedidos/excepciones'
     | '/_app/facturacion/reportes/cierre-dia'
+    | '/_app/facturacion/reportes/conciliacion-sat'
     | '/_app/facturacion/reportes/comparativa-anticipos'
     | '/_app/facturacion/reportes/estados-anticipos'
     | '/_app/facturacion/reportes/liquidacion-caja'
@@ -3937,6 +3976,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppContabilidadReportesCuentaPuenteRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/contabilidad/reportes/contabilidad-electronica': {
+      id: '/_app/contabilidad/reportes/contabilidad-electronica';
+      path: '/contabilidad/reportes/contabilidad-electronica';
+      fullPath: '/contabilidad/reportes/contabilidad-electronica';
+      preLoaderRoute: typeof AppContabilidadReportesContabilidadElectronicaRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/contabilidad/reportes/diferencias-cambiarias': {
+      id: '/_app/contabilidad/reportes/diferencias-cambiarias';
+      path: '/contabilidad/reportes/diferencias-cambiarias';
+      fullPath: '/contabilidad/reportes/diferencias-cambiarias';
+      preLoaderRoute: typeof AppContabilidadReportesDiferenciasCambiariasRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/contabilidad/reportes/conciliacion-auxiliares': {
       id: '/_app/contabilidad/reportes/conciliacion-auxiliares';
       path: '/contabilidad/reportes/conciliacion-auxiliares';
@@ -4341,6 +4394,13 @@ declare module '@tanstack/react-router' {
       path: '/facturacion/reportes/cierre-dia';
       fullPath: '/facturacion/reportes/cierre-dia';
       preLoaderRoute: typeof AppFacturacionReportesCierreDiaRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/facturacion/reportes/conciliacion-sat': {
+      id: '/_app/facturacion/reportes/conciliacion-sat';
+      path: '/facturacion/reportes/conciliacion-sat';
+      fullPath: '/facturacion/reportes/conciliacion-sat';
+      preLoaderRoute: typeof AppFacturacionReportesConciliacionSatRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/facturacion/reportes/comparativa-anticipos': {
@@ -4881,6 +4941,8 @@ interface AppRouteChildren {
   AppContabilidadReportesAuxiliarRoute: typeof AppContabilidadReportesAuxiliarRoute;
   AppContabilidadReportesBalanzaRoute: typeof AppContabilidadReportesBalanzaRoute;
   AppContabilidadReportesCuentaPuenteRoute: typeof AppContabilidadReportesCuentaPuenteRoute;
+  AppContabilidadReportesContabilidadElectronicaRoute: typeof AppContabilidadReportesContabilidadElectronicaRoute;
+  AppContabilidadReportesDiferenciasCambiariasRoute: typeof AppContabilidadReportesDiferenciasCambiariasRoute;
   AppContabilidadReportesConciliacionAuxiliaresRoute: typeof AppContabilidadReportesConciliacionAuxiliaresRoute;
   AppContabilidadReportesLiquidacionIvaRoute: typeof AppContabilidadReportesLiquidacionIvaRoute;
   AppContabilidadReportesDiarioRoute: typeof AppContabilidadReportesDiarioRoute;
@@ -4915,6 +4977,7 @@ interface AppRouteChildren {
   AppFacturacionPedidosIdRoute: typeof AppFacturacionPedidosIdRoute;
   AppFacturacionPedidosExcepcionesRoute: typeof AppFacturacionPedidosExcepcionesRoute;
   AppFacturacionReportesCierreDiaRoute: typeof AppFacturacionReportesCierreDiaRoute;
+  AppFacturacionReportesConciliacionSatRoute: typeof AppFacturacionReportesConciliacionSatRoute;
   AppFacturacionReportesComparativaAnticiposRoute: typeof AppFacturacionReportesComparativaAnticiposRoute;
   AppFacturacionReportesEstadosAnticiposRoute: typeof AppFacturacionReportesEstadosAnticiposRoute;
   AppFacturacionReportesLiquidacionCajaRoute: typeof AppFacturacionReportesLiquidacionCajaRoute;
@@ -5130,6 +5193,10 @@ const AppRouteChildren: AppRouteChildren = {
     AppContabilidadReportesBalanzaRoute,
   AppContabilidadReportesCuentaPuenteRoute:
     AppContabilidadReportesCuentaPuenteRoute,
+  AppContabilidadReportesContabilidadElectronicaRoute:
+    AppContabilidadReportesContabilidadElectronicaRoute,
+  AppContabilidadReportesDiferenciasCambiariasRoute:
+    AppContabilidadReportesDiferenciasCambiariasRoute,
   AppContabilidadReportesConciliacionAuxiliaresRoute:
     AppContabilidadReportesConciliacionAuxiliaresRoute,
   AppContabilidadReportesLiquidacionIvaRoute:
@@ -5169,6 +5236,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppFacturacionPedidosIdRoute: AppFacturacionPedidosIdRoute,
   AppFacturacionPedidosExcepcionesRoute: AppFacturacionPedidosExcepcionesRoute,
   AppFacturacionReportesCierreDiaRoute: AppFacturacionReportesCierreDiaRoute,
+  AppFacturacionReportesConciliacionSatRoute: AppFacturacionReportesConciliacionSatRoute,
   AppFacturacionReportesComparativaAnticiposRoute:
     AppFacturacionReportesComparativaAnticiposRoute,
   AppFacturacionReportesEstadosAnticiposRoute:

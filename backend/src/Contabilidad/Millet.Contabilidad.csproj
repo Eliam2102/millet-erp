@@ -33,6 +33,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- K10.8: esquemas oficiales del SAT de contabilidad electrónica 1.3 (anexo 24) para validar sin red. -->
+    <EmbeddedResource Include="Application\ContabilidadElectronica\Esquemas\*.xsd" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="Millet.Contabilidad.UnitTests" />
     <InternalsVisibleTo Include="Millet.Contabilidad.IntegrationTests" />
     <InternalsVisibleTo Include="Millet.Api.IntegrationTests" />

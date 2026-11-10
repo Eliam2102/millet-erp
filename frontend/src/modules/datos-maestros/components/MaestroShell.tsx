@@ -35,7 +35,7 @@ export function MaestroShell({
     <div className="flex flex-col gap-4 md:h-[calc(100vh-3.5rem-3rem)] md:flex-row">
       <aside
         className={cn(
-          'flex flex-col gap-3 md:w-[22rem] md:shrink-0 md:overflow-hidden lg:w-[26rem] 2xl:w-[30rem]',
+          'relative z-10 flex flex-col gap-3 md:w-[22rem] md:shrink-0 md:overflow-hidden lg:w-[26rem] 2xl:w-[30rem]',
           idActivo != null ? 'hidden md:flex' : 'flex',
         )}
         aria-label={etiquetaLista}
@@ -49,7 +49,7 @@ export function MaestroShell({
       </aside>
       <section
         className={cn(
-          'min-w-0 flex-1 md:overflow-y-auto',
+          'relative z-0 min-w-0 flex-1 md:overflow-y-auto',
           idActivo == null && !mostrarSinSeleccionEnMovil ? 'hidden md:block' : 'block',
         )}
         aria-label={etiquetaDetalle}

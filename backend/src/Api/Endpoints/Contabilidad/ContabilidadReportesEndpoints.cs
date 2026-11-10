@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Millet.Api.Auth;
+using Millet.Contabilidad.Application.ContabilidadElectronica;
 using Millet.Contabilidad.Application.Ports;
 using Millet.Contabilidad.Application.Reportes;
 using Millet.Contabilidad.Domain;
@@ -55,6 +56,46 @@ public static class ContabilidadReportesEndpoints
         .RequireAuthorization(leer).WithName("LibroDiarioContable")
         .WithSummary("Libro diario: pólizas del rango con sus partidas, paginado por póliza (limit máximo 1000)")
         .Produces<DiarioResponse>().ProducesValidationProblem();
+
+        // TES-09 (86e3jvvj4): diferencias cambiarias realizadas del periodo (pagos a proveedor y cobros de cliente, CON-11).
+        // Los parámetros llegan como texto y se validan aquí para que un valor mal formado responda 400 con mensaje en español
+        // (el binding de ASP.NET responde en inglés).
+        g.MapGet("/diferencias-cambiarias", async (
+            [FromQuery] string? desde, [FromQuery] string? hasta, [FromQuery] string? sucursalId, [FromQuery] string? origen,
+            IMediator mediator, CancellationToken ct) =>
+        {
+            var (inicio, fin, sucursal, origenFiltro) = FiltrosDiferenciasCambiarias.Leer(desde, hasta, sucursalId, origen);
+            return Results.Ok(await mediator.Send(new DiferenciasCambiariasQuery(inicio, fin, sucursal, origenFiltro), ct));
+        })
+        .RequireAuthorization(leer).WithName("DiferenciasCambiariasRealizadas")
+        .WithSummary("Diferencias cambiarias realizadas del periodo: una fila por pago o cobro en moneda extranjera con TC de factura, TC de pago y pérdida o utilidad")
+        .WithDescription("hasta por omisión = hoy (zona de operación); desde por omisión = primer día del mes de hasta. origen = Proveedores | Clientes (opcional). Periodo máximo de un año. Avisos lista los roles cambiarios sin cuenta.")
+        .Produces<DiferenciasCambiariasResponse>().ProducesValidationProblem();
+
+        // K10.8 (F1-CON-13): contabilidad electrónica del SAT (anexo 24, versión 1.3). La revisión lista lo que impide generar
+        // (K10.8-a: cuentas sin código agrupador) y los avisos; la generación devuelve el .zip con el XML validado contra el esquema.
+        var ce = app.MapGroup("/api/v1/contabilidad/contabilidad-electronica").WithTags("Contabilidad · Contabilidad electrónica")
+            .RequireAuthorization(leer);
+
+        ce.MapGet("/revision", async ([FromQuery] int anio, [FromQuery] int mes, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new RevisionContabilidadElectronicaQuery(anio, mes), ct)))
+        .WithName("RevisionContabilidadElectronica")
+        .WithSummary("Revisión antes de generar: RFC, estado del periodo, cuentas sin código agrupador SAT y CFDI de las pólizas")
+        .Produces<RevisionContabilidadElectronicaResponse>().ProducesValidationProblem();
+
+        ce.MapGet("/{tipo}", async (string tipo, [FromQuery] int anio, [FromQuery] int mes, [FromQuery] string? tipoEnvio,
+            [FromQuery] string? fechaModificacion, [FromQuery] string? solicitud, [FromQuery] string? numOrden, [FromQuery] string? numTramite,
+            [FromQuery] string? formato, IMediator mediator, CancellationToken ct) =>
+        {
+            var query = ParametrosContabilidadElectronica.Leer(tipo, anio, mes, tipoEnvio, fechaModificacion, solicitud, numOrden, numTramite, formato);
+            var archivo = await mediator.Send(query, ct);
+            return Results.File(archivo.Contenido, archivo.ContentType, archivo.NombreArchivo);
+        })
+        .WithName("GenerarContabilidadElectronica")
+        .WithSummary("XML del catálogo (catalogo), la balanza (balanza) o las pólizas (polizas) del mes, validado contra el esquema del SAT")
+        .WithDescription("Nombre del SAT: RFC + año + mes + CT/BN/BC/PL. formato=zip (por omisión, el que se sube al buzón tributario) o xml. Balanza: mes 13 = cierre; tipoEnvio=C exige fechaModificacion. Pólizas: solicitud AF/FC con numOrden o DE/CO con numTramite.")
+        .Produces<byte[]>(StatusCodes.Status200OK, "application/zip", "application/xml").ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         return app;
     }

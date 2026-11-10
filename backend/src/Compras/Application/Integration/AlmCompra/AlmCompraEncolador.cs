@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Compras.Domain;
 using Millet.Compras.Domain.AlmCompra;
@@ -22,7 +23,7 @@ namespace Millet.Compras.Application.Integration.AlmCompra;
 /// de cancelar deja la OC en espera y encola COMPRA_CANCELADA; el resultado lo aplica el procesador al llegar el acuse.
 /// </para>
 /// </summary>
-public sealed class AlmCompraEncolador(ComprasDbContext db, CompartidoDbContext maestros, IClock clock)
+public sealed class AlmCompraEncolador(ComprasDbContext db, CompartidoDbContext maestros, IClock clock, IConfiguration configuration)
 {
     /// <summary>OC autorizada: COMPRA_RECIBIDA; si ya se mandó una (reautorización tras reabrir), COMPRA_MODIFICADA si cambió algo.</summary>
     public async Task OcAutorizadaAsync(Guid ocId, CancellationToken ct)
@@ -58,7 +59,7 @@ public sealed class AlmCompraEncolador(ComprasDbContext db, CompartidoDbContext 
         if (oc is null) return;
         var (ordinal, mensajeId) = Siguiente(oc, previos, AlmCompraEnvio.TipoCancelada);
         db.AlmCompraEnvios.Add(Nuevo(oc, AlmCompraEnvio.TipoCancelada, ordinal, mensajeId,
-            AlmCompraSobre.DatosCancelada(oc.Folio.Valor, motivo)));
+            AlmCompraSobre.DatosCancelada(oc.Folio.Valor, motivo, clock.UtcNow)));
     }
 
     /// <summary>Rearma el sobre de una fila que falló al armarse (para «reintentar»). Devuelve <c>null</c> si la OC ya no genera compra.</summary>
@@ -68,7 +69,7 @@ public sealed class AlmCompraEncolador(ComprasDbContext db, CompartidoDbContext 
             ?? throw new EntityNotFoundException("ORDEN_COMPRA_NO_ENCONTRADA", "La OC del mensaje ya no existe.");
         if (e.Tipo == AlmCompraEnvio.TipoCancelada)
             return AlmCompraSobre.Armar(e.MensajeId, e.Tipo, clock.UtcNow, e.Referencia, AlmCompraSobre.DatosCancelada(oc.Folio.Valor,
-                oc.SolicitudesCancelacion.OrderBy(x => x.FechaSolicitud).LastOrDefault()?.MotivoSolicitud ?? oc.MotivoCancelacion));
+                oc.SolicitudesCancelacion.OrderBy(x => x.FechaSolicitud).LastOrDefault()?.MotivoSolicitud ?? oc.MotivoCancelacion, clock.UtcNow));
         var datos = await ConstruirDatosAsync(oc, ct);
         if (datos is not null && e.Tipo == AlmCompraEnvio.TipoModificada)
         {
@@ -184,7 +185,9 @@ public sealed class AlmCompraEncolador(ComprasDbContext db, CompartidoDbContext 
                 medida ? (int)ancho! : null, medida ? (int)alto! : null, piezas,
                 l.LoteProveedor, AlmCompraSobre.FormatoPedimento(oc.InfoImportNumeroPedimento), null, costoM2, costoPieza));
         }
-        return new AlmCompraDatos(oc.Folio.Valor, claveAw, proveedor.RazonSocial, oc.Moneda, oc.TipoCambio,
+        return new AlmCompraDatos(oc.Folio.Valor, claveAw, proveedor.RazonSocial,
+            // Mismo mapeo ISO → A+W que usa el retorno de pagos (IntegracionesAw:Pedidos:MapeoMonedaAw).
+            AlmCompraSobre.MonedaAw(oc.Moneda, configuration[$"IntegracionesAw:Pedidos:MapeoMonedaAw:{oc.Moneda}"]), oc.TipoCambio,
             oc.FechaDocumento, AlmCompraSobre.AgruparMedidaGirada(lineas));
     }
 }

@@ -149,7 +149,10 @@ public sealed class TerminalTarjetaHandlers :
     /// <summary>
     /// Agrupa por folio de liquidación las ventas emparejadas que traen comisión,
     /// IVA y neto y aún no tienen liquidación; publica el evento una vez por folio.
-    /// Si el folio ya existe (otra carga), no se vuelve a publicar.
+    /// Si el folio ya existe (otra carga, o una venta emparejada después con «Reintentar»),
+    /// las ventas se suman a esa liquidación y el evento se publica solo por el incremento
+    /// (B13). Un folio ya ligado a la factura mensual del banco no se toca: sus ventas
+    /// nuevas quedan pendientes de liquidar.
     /// </summary>
     private async Task<int> LiquidarAsync(Guid empresaId, Guid cargaId, CancellationToken ct)
     {
@@ -164,13 +167,26 @@ public sealed class TerminalTarjetaHandlers :
         if (todas.Count == 0) return 0;
 
         var folios = todas.Select(t => t.FolioLiquidacion!).Distinct().ToList();
-        var yaLiquidados = (await _db.LiquidacionesTerminal.AsNoTracking()
-            .Where(l => folios.Contains(l.Folio)).Select(l => l.Folio).ToListAsync(ct)).ToHashSet();
+        var existentes = (await _db.LiquidacionesTerminal
+            .Where(l => folios.Contains(l.Folio)).ToListAsync(ct)).ToDictionary(l => l.Folio, StringComparer.Ordinal);
 
         var creadas = 0;
-        foreach (var grupo in todas.GroupBy(t => t.FolioLiquidacion!).Where(g => !yaLiquidados.Contains(g.Key)))
+        foreach (var grupo in todas.GroupBy(t => t.FolioLiquidacion!))
         {
             var ventas = grupo.ToList();
+            if (existentes.TryGetValue(grupo.Key, out var existente))
+            {
+                // B13: la venta emparejada después se suma a la liquidación del folio, no se queda fuera.
+                if (existente.FacturaBancoId is not null) continue;
+                var agregadas = existente.Agregar(ventas);
+                if (agregadas.Count == 0) continue;
+                await _eventos.PublishAsync(new TerminalLiquidacionRegistradaIntegrationEvent(
+                    empresaId, _clock.UtcNow, existente.Id, existente.Folio, existente.Fecha, agregadas.Sum(v => v.Importe),
+                    agregadas.Sum(v => v.Comision!.Value), agregadas.Sum(v => v.IvaComision!.Value), agregadas.Sum(v => v.Neto!.Value),
+                    agregadas.Select(v => new VentaTerminalLiquidada(v.CobroMostradorId!.Value, v.SucursalId!.Value, v.Importe, v.Autorizacion)).ToList()),
+                    ct);
+                continue;
+            }
             // Fecha del cargo = día en que el banco liquidó (DAT_SETTLED del GMR); sin ella, el de la última venta.
             var liquidacion = LiquidacionTerminal.Crear(empresaId, cargaId, grupo.Key,
                 ventas.Max(v => v.FechaLiquidacion ?? HoraTerminal.DiaLocal(v.FechaHora, Zona)), ventas);

@@ -1,3 +1,4 @@
+using PrefijoSucursalCompras = Millet.Compras.Domain.PrefijoSucursalCompras;
 using Microsoft.EntityFrameworkCore;
 using Millet.Compras.Application.Folios;
 
@@ -34,6 +35,6 @@ public sealed class FolioSecuenciaService : IFolioSecuenciaService
             .ToListAsync(cancellationToken);
 
         var siguiente = result.Single();
-        return $"{sucursalCodigo}{folioAnio}-{siguiente:D6}";
+        return $"{PrefijoSucursalCompras.Resolver(sucursalCodigo)}{folioAnio}-{siguiente:D6}";
     }
 }

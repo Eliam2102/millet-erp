@@ -81,5 +81,9 @@ export interface EmitirFacturaPrefill {
     tasaIvaTraslado?: number | null;
     tasaRetencionIva?: number | null;
     tasaRetencionIsr?: number | null;
+    // B12: datos de aduana y peso del artículo para la línea de exportación (CCE).
+    fraccionArancelaria?: string | null;
+    unidadAduana?: string | null;
+    pesoUnitarioKg?: number | null;
   }>;
 }

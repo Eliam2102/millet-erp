@@ -316,3 +316,33 @@ CREATE TABLE IF NOT EXISTS dbo.pool_teile (
     hoehe numeric(18,0) NOT NULL DEFAULT 0,
     PRIMARY KEY (auftnr, pos, u_pos, teile_nr)
 );
+
+-- Flujo 14 (I13.2) · Tipo de cambio diario ERP -> A+W.
+-- Misma estructura que docs/operacion/aw-integracion-scripts/18_create_erp_tipo_cambio.sql.
+-- El ERP solo hace INSERT y SELECT; la tarea de TI escribe aplicada_at, resultado, motivo e intentos.
+CREATE TABLE IF NOT EXISTS dbo.erp_tipo_cambio (
+    moneda            varchar(8)     NOT NULL CHECK (moneda IN ('USD', 'Euro', 'CAN')),  -- KA_WAEHRUNGEN.WAEHRUNG de A+W
+    fecha_aplicacion  date           NOT NULL,
+    version           integer        NOT NULL CHECK (version > 0),
+    valor             numeric(18, 6) NOT NULL CHECK (valor > 0),
+    fecha_fix         date,
+    origen            varchar(10)    NOT NULL CHECK (origen IN ('Banxico', 'Manual')),
+    creada_at         timestamptz    NOT NULL DEFAULT now(),
+    aplicada_at       timestamptz,
+    resultado         smallint CHECK (resultado IS NULL OR resultado IN (1, 2, 3)),
+    motivo            varchar(500),
+    intentos          integer        NOT NULL DEFAULT 0 CHECK (intentos >= 0),
+    PRIMARY KEY (moneda, fecha_aplicacion, version)
+);
+CREATE INDEX IF NOT EXISTS ix_etc_barrido ON dbo.erp_tipo_cambio (fecha_aplicacion, moneda, version DESC);
+
+-- Catálogo de monedas de A+W (SYSADM.KA_WAEHRUNGEN).
+-- En A+W guarda el factor de conversión vigente (VALUTAKURS) y fecha (VALUTADATUM).
+CREATE SCHEMA IF NOT EXISTS sysadm;
+CREATE TABLE IF NOT EXISTS sysadm.ka_waehrungen (
+    waehrung    varchar(8)     PRIMARY KEY,
+    fremd_key   varchar(3),
+    bez         varchar(40),
+    valutakurs  numeric(18, 8) NOT NULL DEFAULT 1.0,  -- inverso: unidades extranjeras por 1 MXN (USD 0.05343393)
+    valutadatum timestamp
+);

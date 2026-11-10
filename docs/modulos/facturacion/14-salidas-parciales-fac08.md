@@ -1,8 +1,8 @@
 # Salidas parciales facturables (FAC-08) — Adenda al módulo Facturación
 
 > **Proyecto:** ERP Millet — Módulo 3 del back-office (Facturación CFDI 4.0).
-> **Tarea:** FAC-08 (`86e3qdddf`) · **Versión:** 1.0 · **Fecha:** 2026-11-04
-> **Estado:** Fase 1 (fuente Comercio Exterior) implementada; Fase 2 (fuente Producto terminado) pendiente.
+> **Tarea:** FAC-08 (`86e3qdddf`, Fase 2 `86e3yt7r7`) · **Versión:** 1.1 · **Fecha:** 2026-11-07
+> **Estado:** Fase 1 (fuente Comercio Exterior) y Fase 2 (fuente Producto terminado) implementadas.
 >
 > **Documentos relacionados:** [`01-diseno.md`](01-diseno.md) (§8 sin estado parcial, D19/D20),
 > [`docs/modulos/producto-terminado/01-diseno.md`](../producto-terminado/01-diseno.md) (PT5.5, Fase 2).
@@ -28,7 +28,7 @@ Un pedido de 100 piezas repartido en dos contenedores (60 y 40) da **dos salidas
 | Fuente | Cómo llega | Estado |
 |---|---|---|
 | Contenedor embarcado (Comercio Exterior) | Evento `comercio_exterior.contenedor.embarcado.v1` → `ComercioExteriorEventListenerWorker` de Facturación | **Fase 1, conectada** |
-| Salida con albarán (Producto terminado, PT5.5) | `ISalidasParcialesReader` + `SalidasParcialesWorker` | Stub vacío, `PLATFORM-TODO(<SalidasPt>)` (Fase 2) |
+| Salida con albarán (Producto terminado, PT5.5) | Puerto `IFacturacionSalidaPort` al emitir la hoja de salida (§6.1) | **Fase 2, conectada** |
 | Manual | API / pantalla «Salidas parciales» | Respaldo |
 
 ## 3. Contrato `comercio_exterior.contenedor.embarcado.v1`
@@ -89,15 +89,38 @@ suscripción `facturacion-ce-sub` (filtro `EventType IN (embarcado, cancelado)`,
 - Salida con factura vigente → se queda como está y se abre una excepción `CancelacionSobreFacturado`
   con contenedor, parcialidad y folio, para decidir cancelación o sustitución del CFDI (la factura manda, D20).
 
-## 6. Compuerta de facturación por contenedor
+## 6. Fase 2 · Salida con albarán de Producto terminado
+
+### 6.1 Contrato: puerto, no evento
+
+El plan proponía un evento `producto_terminado.salida.registrada.v1`. **No se crea:** desde PT5.5 (#433) Producto
+terminado ya entrega la salida a Facturación por el puerto `IFacturacionSalidaPort`
+(`backend/src/ProductoTerminado/Application/Ports/`), que Facturación implementa en
+`FacturacionSalidaAdapter` (`Infrastructure/PublicAdapters`). Un evento duplicaría ese camino.
+
+| Operación | Cuándo la llama PT | Qué hace Facturación |
+|---|---|---|
+| `RegistrarSalidaAsync(pedidoFacturableId, folioAlbarán, líneas {posición, cantidad})` | Al emitir la hoja de salida (`EmitirHojaSalidaHandler`), una vez por albarán con piezas; un albarán es de un solo pedido | `RegistrarSalidaFacturableCommand` con `Origen = ProductoTerminado`, `Referencia = folio del albarán`, sin `OrigenId`. Idempotente por `(empresa, origen, referencia)` (`ux_salida_facturable_referencia`): reenviar el mismo albarán regresa la salida ya registrada; con otras cantidades, `SALIDA_REFERENCIA_DISTINTA`. Rebasar lo pedido falla y la emisión no se completa |
+| `CancelarSalidaAsync(folioAlbarán, motivo)` | **Aún no:** PT solo cancela hojas en `Borrador` (PT S23). Queda listo para cuando PT cancele una hoja emitida (PT5.8) | `CancelarSalidaProductoTerminadoCommand`: misma regla que el contenedor cancelado (§5, `CancelacionSalidas`). Sin factura vigente, la salida se descarta y lo embarcado vuelve a quedar pendiente. Con factura vigente, se conserva y se abre `CancelacionSobreFacturado` con el folio del albarán y el de la factura. Repetirla no cambia nada. Sin salida con ese folio, no hace nada |
+
+Ejemplo: un pedido de 100 piezas que sale en dos rutas (60 y 40) da dos albaranes, dos salidas y dos facturas.
+
+### 6.2 Retiro del stub
+
+Se retiran `ISalidasParcialesReader`, `StubSalidasParcialesReader` y `SalidasParcialesWorker`
+(`PLATFORM-TODO(<SalidasPt>)`) y la configuración `Facturacion:Workers:SalidasParciales`: ningún origen
+los usa (PT entra por el puerto y CE por evento). El registro manual sigue como respaldo.
+
+## 7. Compuerta de facturación por contenedor
 
 La factura de un pedido ligado a un expediente exige el 100 % del pedido embarcado. Para una salida con
 `Origen = ContenedorExportacion`, Facturación pide la compuerta de **ese contenedor**
 (`IEmbarqueExportacionReadPort.ObtenerAsync(pedido, contenedorId)`): basta con que esté activo, embarcado y
 con partidas del pedido. El CCE y el PDF llevan solo ese contenedor. Sin salida, la regla del 100 % no cambia.
 
-## 7. Supuestos a validar
+## 8. Supuestos a validar
 
 - Con el dueño de Comercio Exterior: el evento nuevo, la compuerta por contenedor y que la cancelación de un
   contenedor embarcado con salida facturada se permita en CE y se revise en Facturación.
 - Con Millet: numeración real de parcialidades en A+W (sigue como supuesto de FAC-08).
+- Con el dueño de Producto terminado: que la cancelación de una hoja emitida (PT5.8) llame `CancelarSalidaAsync` por albarán.

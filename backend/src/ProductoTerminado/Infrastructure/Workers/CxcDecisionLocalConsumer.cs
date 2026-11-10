@@ -10,8 +10,7 @@ namespace Millet.ProductoTerminado.Infrastructure.Workers;
 
 /// <summary>
 /// Escucha <c>cuentas_por_cobrar.decision-liberacion.emitida.v1</c> y libera el pedido retenido (motivo DecisionCxc).
-/// PLATFORM-TODO(&lt;TopicProductoTerminado&gt;): solo entrega local (C1.8); con Service Bus falta el topic <c>producto-terminado-events</c> y
-/// la suscripción de CxC (§9 del diseño); la de PT a <c>cuentas-por-cobrar-events</c> se agrega con ese topic.
+/// Con Service Bus lo consume <c>producto-terminado-cxc-sub</c> en <c>cuentas-por-cobrar-events</c> (M-046).
 /// </summary>
 public sealed class CxcDecisionLocalConsumer(IServiceScopeFactory scopes, ILogger<CxcDecisionLocalConsumer> logger) : ILocalIntegrationEventConsumer
 {

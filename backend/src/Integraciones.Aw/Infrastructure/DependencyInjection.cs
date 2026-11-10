@@ -4,6 +4,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Millet.Integraciones.Aw.Application;
 using Millet.Integraciones.Aw.Application.Ports;
+using Millet.Integraciones.Aw.Application.TipoCambio;
 using Millet.Integraciones.Aw.Application.Workers;
 using Millet.Integraciones.Aw.Infrastructure.Adapters;
 using Millet.Integraciones.Aw.Infrastructure.AlmCompra;
@@ -51,6 +52,11 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(SoketiOptions.SectionName));
 
         services.AddScoped<IEntidadExternaRepository, EntidadExternaRepository>();
+
+        // I13.2: opciones y publicador de tipo de cambio hacia dbo.erp_tipo_cambio.
+        services.AddOptions<AwTipoCambioOptions>()
+            .Bind(configuration.GetSection(AwTipoCambioOptions.SectionName));
+        services.AddScoped<AwTipoCambioPublicador>();
 
         // 86e3jvu83 (C3.2): transporte ERP → Almacenes (alm_compra): Simulado por omisión, Sql apagado hasta que exista la tabla.
         services.AddAlmCompraTransporte(configuration);

@@ -27,6 +27,8 @@ namespace Millet.Tesoreria.Application.Integration;
 /// G1.6: <c>CuentaBancariaId</c> y <c>TipoCambio</c> (del pasivo; null si el
 /// pasivo no lo trae) se agregaron al final de forma compatible, sin subir
 /// versión, para la contabilización.
+/// TES-09 (86e3jvvj4, aditivo): <c>TipoCambioPago</c> = TC con que se pagó (capturado o del catálogo K10.6 a la fecha del
+/// pago); null en MXN. Contabilidad lo prefiere al del catálogo para la diferencia cambiaria realizada.
 /// </summary>
 public sealed record PagoFacturaProveedorAplicadoIntegrationEvent(
     Guid EmpresaId,
@@ -45,6 +47,7 @@ public sealed record PagoFacturaProveedorAplicadoIntegrationEvent(
     public bool EsAnticipoAgente { get; init; }
     public Guid? SucursalId { get; init; }
     public Guid? ProveedorId { get; init; }
+    public decimal? TipoCambioPago { get; init; }
     public const string WireEventType = "tesoreria.pago-factura-proveedor.aplicado.v1";
 }
 
@@ -153,6 +156,8 @@ public sealed record PagoClienteFacturaAplicada(
 /// Sin datos bancarios del CLIENTE a propósito (cuidados-infra §4):
 /// <c>Referencia</c> es la referencia del movimiento en el banco de
 /// Millet, no una cuenta de terceros.
+/// TES-09 (86e3jvvj4, aditivo): <c>TipoCambioPago</c> = TC del cobro (capturado al confirmar o del catálogo K10.6 a la
+/// fecha valor); null en MXN. Contabilidad lo usa para la diferencia cambiaria del cobro.
 /// </summary>
 public sealed record PagoClienteConfirmadoIntegrationEvent(
     Guid EmpresaId,
@@ -168,6 +173,14 @@ public sealed record PagoClienteConfirmadoIntegrationEvent(
     IReadOnlyList<PagoClienteFacturaAplicada> Facturas, Guid? ConfirmadaPor = null, decimal SaldoAFavorPorIdentificar = 0)
     : IntegrationEvent(WireEventType, EmpresaId, OcurridoEn)
 {
+    public decimal? TipoCambioPago { get; init; }
+
+    /// <summary>
+    /// B8 (aditivo): código de la cuenta contable de la cuenta bancaria del depósito (<c>CuentaContableRef</c>). Contabilidad
+    /// carga ahí el cobro en lugar de la cuenta única del rol BANCOS; null si la cuenta bancaria no la tiene capturada.
+    /// </summary>
+    public string? CuentaContableRef { get; init; }
+
     public const string WireEventType = "tesoreria.pago-cliente.confirmado.v1";
 }
 

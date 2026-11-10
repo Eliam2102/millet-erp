@@ -135,4 +135,70 @@ public sealed class ProveedorCompletoTests
         doc = Assert.Single((await ExpedienteAdjuntos.CalcularAsync(db, "proveedor", proveedor.Id, true, hoy, default)).Documentos);
         Assert.Equal((EstadoExpedienteDocumento.Faltante, EstadoExcepcionAdjunto.Negada, "Ana CxP"), (doc.Estado, doc.Excepcion!.Estado, doc.Excepcion.ResueltaPorNombre));
     }
+
+    [Fact]
+    public async Task Alta_proveedor_extranjero_hegla_con_tax_id_aleman_normalizado_y_excepcion_otorgada_sin_exigir_rfc_mexicano()
+    {
+        var (db, _, _) = Contextos();
+        await using var _db = db;
+        var crear = new CrearProveedorHandler(db);
+
+        // Hegla GmbH & Co. KG con Tax ID alemán y espacios para normalizar
+        var heglaCmd = new CrearProveedorCommand(
+            Clave: "PRV-HEGLA",
+            RazonSocial: "Hegla GmbH & Co. KG",
+            Rfc: null, // Sin RFC mexicano obligatorio
+            TipoPersona: TipoPersonaProveedor.Moral,
+            NombreComercial: "Hegla",
+            CondicionesPagoDias: 30,
+            MonedaPreferidaId: null,
+            Email: "contact@hegla.de",
+            Telefono: "+49 5273 905-0",
+            Origen: OrigenProveedor.Extranjero,
+            Pais: "DEU",
+            TaxId: "  DE811124639  ");
+
+        var alta = await crear.Handle(heglaCmd, default);
+        var guardado = await db.Proveedores.SingleAsync(p => p.Id == alta.Id);
+
+        Assert.Equal("DE811124639", guardado.TaxId);
+        Assert.Equal(Proveedor.RfcGenericoExtranjero, guardado.Rfc);
+        Assert.Equal(OrigenProveedor.Extranjero, guardado.Origen);
+
+        // Intento de duplicado de Tax ID con distintas mayúsculas/minúsculas y espacios se rechaza
+        var dupCmd = new CrearProveedorCommand(
+            Clave: "PRV-HEGLA-2",
+            RazonSocial: "Hegla Machinery Ltd",
+            Rfc: null,
+            TipoPersona: TipoPersonaProveedor.Moral,
+            NombreComercial: null,
+            CondicionesPagoDias: null,
+            MonedaPreferidaId: null,
+            Email: null,
+            Telefono: null,
+            Origen: OrigenProveedor.Extranjero,
+            Pais: "DEU",
+            TaxId: " de811124639 ");
+
+        var err = await Assert.ThrowsAsync<ConflictException>(() => crear.Handle(dupCmd, default));
+        Assert.Equal("PROVEEDOR_TAXID_DUPLICADO", err.Code);
+
+        // Flujo de excepción documental otorgada para extranjero sin RFC mexicano
+        var tipo = new AdjuntoTipoDocumento(Guid.NewGuid(), "proveedor", "opinion_sat", "Opinión SAT", 1, false, null, false);
+        tipo.Configurar("Opinión SAT", true, true, null, false, AdjuntoAplicaOrigen.SoloExtranjero, true);
+        db.AdjuntoTiposDocumento.Add(tipo);
+
+        var excepcion = new AdjuntoExcepcion("proveedor", guardado.Id, tipo.Id,
+            "Proveedor extranjero Hegla sin RFC mexicano (opera con Tax ID DE811124639)",
+            Guid.NewGuid(), "Guillermo Pantoja", Ahora);
+        excepcion.Otorgar(Guid.NewGuid(), "Laura Cerón", Ahora.AddHours(1));
+        db.AdjuntoExcepciones.Add(excepcion);
+        await db.SaveChangesAsync();
+
+        var hoy = DateOnly.FromDateTime(Ahora.UtcDateTime);
+        var expediente = await ExpedienteAdjuntos.CalcularAsync(db, "proveedor", guardado.Id, true, hoy, default);
+        Assert.True(expediente.Completo);
+        var doc = Assert.Single(expediente.Documentos);
+        Assert.Equal(EstadoExpedienteDocumento.Exceptuado, doc.Estado);
+    }
 }
